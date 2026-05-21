@@ -1,0 +1,59 @@
+server:
+  port: 8030
+
+spring:
+  application:
+    name: sso-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/kyra_guardrail
+    username: kyra
+    password: ${DB_PASSWORD:kyra_dev}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+  # Disable Spring LDAP auto-configuration (we manage connections manually)
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration
+
+services:
+  auth:
+    url: http://localhost:8081
+
+sso:
+  saml:
+    sp-entity-id: kyra-guardrail
+    acs-url: http://localhost:8030/v1/sso/saml/{tenantId}/callback
+  oidc:
+    redirect-uri-template: http://localhost:8030/v1/sso/oidc/{tenantId}/callback
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.kyra.sso: DEBUG
+    org.springframework.security: INFO

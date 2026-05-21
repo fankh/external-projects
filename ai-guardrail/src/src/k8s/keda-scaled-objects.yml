@@ -1,0 +1,39 @@
+# KEDA ScaledObjects — custom metric-based autoscaling
+# Requires KEDA operator installed
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: rag-service-scaler
+spec:
+  scaleTargetRef:
+    name: rag-service
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        metricName: kyra_rag_requests_rate
+        query: sum(rate(http_server_requests_seconds_count{service="rag-service"}[2m]))
+        threshold: "10"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: ml-service-scaler
+spec:
+  scaleTargetRef:
+    name: ml-service
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 1
+  maxReplicaCount: 3
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        metricName: kyra_llm_queue_depth
+        query: sum(rate(kyra_llm_calls_total[2m]))
+        threshold: "5"

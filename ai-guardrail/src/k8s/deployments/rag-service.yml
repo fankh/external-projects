@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-service
+  namespace: kyra-production
+  labels:
+    app: rag-service
+    app.kubernetes.io/part-of: kyra-ai-guardrail
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rag-service
+  template:
+    metadata:
+      labels:
+        app: rag-service
+    spec:
+      containers:
+        - name: rag-service
+          image: kyra/rag-service:latest
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - configMapRef:
+                name: kyra-config
+            - secretRef:
+                name: kyra-secrets
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://$(DB_USERNAME):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            - name: MILVUS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: kyra-config
+                  key: MILVUS_HOST
+            - name: MILVUS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: kyra-config
+                  key: MILVUS_PORT
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-service
+  namespace: kyra-production
+  labels:
+    app: rag-service
+spec:
+  selector:
+    app: rag-service
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001
+  type: ClusterIP

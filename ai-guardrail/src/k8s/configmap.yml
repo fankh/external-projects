@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kyra-config
+  namespace: kyra-production
+  labels:
+    app.kubernetes.io/part-of: kyra-ai-guardrail
+data:
+  # Database
+  DB_HOST: "postgres-service.kyra-production.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "kyra"
+
+  # Redis
+  REDIS_HOST: "redis-service.kyra-production.svc.cluster.local"
+  REDIS_PORT: "6379"
+
+  # Milvus
+  MILVUS_HOST: "milvus-service.kyra-production.svc.cluster.local"
+  MILVUS_PORT: "19530"
+
+  # OpenSearch
+  OPENSEARCH_HOST: "opensearch-service.kyra-production.svc.cluster.local"
+  OPENSEARCH_PORT: "9200"
+
+  # Service URLs
+  AUTH_SERVICE_URL: "http://auth-service.kyra-production.svc.cluster.local:8081"
+  CHAT_SERVICE_URL: "http://chat-service.kyra-production.svc.cluster.local:8082"
+  SECURITY_SERVICE_URL: "http://security-service.kyra-production.svc.cluster.local:8083"
+  ANALYTICS_SERVICE_URL: "http://analytics-service.kyra-production.svc.cluster.local:8084"
+  NOTIFICATION_SERVICE_URL: "http://notification-service.kyra-production.svc.cluster.local:8085"
+  INTEGRATION_SERVICE_URL: "http://integration-service.kyra-production.svc.cluster.local:8031"
+  RAG_SERVICE_URL: "http://rag-service.kyra-production.svc.cluster.local:8001"
+  ML_SERVICE_URL: "http://ml-service.kyra-production.svc.cluster.local:8002"
+  BOOKMARK_SERVICE_URL: "http://bookmark-service.kyra-production.svc.cluster.local:8014"
+  FEEDBACK_SERVICE_URL: "http://feedback-service.kyra-production.svc.cluster.local:8015"
+  BRANCHING_SERVICE_URL: "http://branching-service.kyra-production.svc.cluster.local:8017"
+  SHARING_SERVICE_URL: "http://sharing-service.kyra-production.svc.cluster.local:8018"
+  INSIGHTS_SERVICE_URL: "http://insights-service.kyra-production.svc.cluster.local:8019"
+
+  # Spring profiles
+  SPRING_PROFILES_ACTIVE: "docker"
+
+  # JVM settings
+  JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC"

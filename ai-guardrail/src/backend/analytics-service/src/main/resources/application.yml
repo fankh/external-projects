@@ -1,0 +1,61 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: analytics-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/kyra_security
+    username: kyra
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 5000
+
+kyra:
+  quota:
+    daily-query-limit: 500
+    hourly-query-limit: 100
+    daily-token-limit: 500000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.kyra.analytics: DEBUG
+    org.springframework: INFO
+
+# CQRS: read-replica datasource for analytics queries
+# When a read replica is available, set SPRING_DATASOURCE_READ_URL
+# to point to the replica. Otherwise falls back to primary.
+spring:
+  datasource:
+    read:
+      url: ${SPRING_DATASOURCE_READ_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/kyra}}
+      username: ${SPRING_DATASOURCE_READ_USERNAME:${SPRING_DATASOURCE_USERNAME:kyra}}
+      password: ${SPRING_DATASOURCE_READ_PASSWORD:${SPRING_DATASOURCE_PASSWORD:kyra_secret}}
+      hikari:
+        read-only: true
+        maximum-pool-size: 5
+        connection-timeout: 10000

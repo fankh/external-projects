@@ -1,0 +1,11 @@
+variable "aws_region" { default = "ap-northeast-2" }
+variable "environment" { default = "dev" }
+variable "vpc_cidr" { default = "10.0.0.0/16" }
+variable "cluster_name" { default = "kyra-guardrail" }
+variable "db_instance_class" { default = "db.r6g.large" }
+variable "db_name" { default = "kyra" }
+variable "db_username" { default = "kyra" }
+variable "node_instance_type" { default = "m6i.xlarge" }
+variable "node_min" { default = 2 }
+variable "node_max" { default = 10 }
+variable "node_desired" { default = 3 }

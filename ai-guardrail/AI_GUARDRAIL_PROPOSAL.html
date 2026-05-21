@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KYRA AI Guardrail 제안서 — 엔터프라이즈 AI 보안 및 거버넌스 플랫폼</title>
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #1a1a40;
+    --primary-light: #2d2d5e;
+    --primary-lighter: #ecedf5;
+    --accent: #2e8b57;
+    --accent-light: #3ca06a;
+    --text: #1e1e2f;
+    --text-light: #5c5c78;
+    --border: #a0a0b8;
+    --bg: #ffffff;
+    --bg-alt: #f4f5f9;
+    --success: #2e8b57;
+    --warning: #d4950a;
+    --danger: #b33a3a;
+    --gold: #d4a843;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 20mm 18mm 22mm 18mm;
+  }
+  @page :first {
+    margin: 0;
+  }
+
+  body {
+    font-family: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 9.5pt;
+    line-height: 1.65;
+    color: var(--text);
+    background: #ffffff;
+    max-width: 174mm;
+    margin: 0 auto;
+    padding: 18mm 0;
+  }
+
+  /* ===== PAGE BREAKS ===== */
+  .page-break { page-break-before: always; break-before: page; }
+  .no-break { page-break-inside: avoid; break-inside: avoid; }
+  h2, h3 { page-break-after: avoid; break-after: avoid; }
+  table { page-break-inside: auto; }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; break-inside: avoid; }
+
+  /* ===== COVER PAGE ===== */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 297mm;
+    width: 210mm;
+    text-align: center;
+    background: linear-gradient(160deg, #0f0f2d 0%, var(--primary) 35%, var(--primary-light) 70%, #2e8b57 100%);
+    color: white;
+    padding: 0 40px 60px 40px;
+    page-break-after: always;
+    break-after: page;
+    margin-left: 50%;
+    transform: translateX(-50%);
+    position: relative;
+  }
+  .cover-spacer {
+    flex: 0 0 auto;
+    height: 100mm;
+  }
+  .cover-logo {
+    width: 120px;
+    height: 60px;
+    border: 3px solid rgba(255,255,255,0.4);
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22pt;
+    font-weight: 800;
+    letter-spacing: 4px;
+    margin-bottom: 30px;
+    background: rgba(255,255,255,0.1);
+  }
+  .cover h1 {
+    font-size: 28pt;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .cover .subtitle {
+    font-size: 13pt;
+    font-weight: 300;
+    opacity: 0.9;
+    margin-bottom: 40px;
+    max-width: 500px;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 30px;
+    font-size: 9pt;
+    opacity: 0.75;
+    margin-top: 50px;
+  }
+  .cover-meta div { text-align: center; }
+  .cover-meta .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 2px; }
+  .cover-divider {
+    width: 80px;
+    height: 3px;
+    background: rgba(255,255,255,0.5);
+    margin: 20px auto;
+  }
+  .cover .badge-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  .cover .badge {
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 0;
+    padding: 5px 16px;
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .cover-footer {
+    margin-top: auto;
+    font-size: 8pt;
+    opacity: 0.5;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .confidential {
+    position: absolute;
+    top: 20px;
+    right: 25px;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.35);
+    border-radius: 0;
+    padding: 4px 12px;
+    font-size: 7pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.8);
+  }
+
+  /* ===== TOC ===== */
+  .toc {
+    page-break-after: always;
+    padding: 0;
+  }
+  .toc h2 {
+    font-size: 16pt;
+    color: var(--primary);
+    border-bottom: 3px solid var(--primary);
+    padding-bottom: 10px;
+    margin-bottom: 25px;
+  }
+  .toc-section {
+    margin-bottom: 20px;
+  }
+  .toc-section-title {
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 6px;
+    padding-left: 8px;
+    border-left: 4px solid var(--primary);
+  }
+  .toc ol {
+    list-style: none;
+    counter-reset: toc-counter;
+    padding-left: 15px;
+  }
+  .toc ol li {
+    counter-increment: toc-counter;
+    padding: 4px 0;
+    font-size: 9.5pt;
+    color: var(--text-light);
+    border-bottom: 1px solid var(--border);
+  }
+  .toc ol li::before {
+    content: counter(toc-counter) ". ";
+    color: var(--primary);
+    font-weight: 700;
+    margin-right: 5px;
+  }
+
+  /* ===== HEADINGS ===== */
+  .section-header {
+    background: var(--primary);
+    color: white;
+    padding: 14px 22px;
+    border-radius: 0;
+    margin: 30px 0 18px 0;
+    font-size: 15pt;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    border-left: 6px solid var(--accent);
+  }
+  .section-header .section-num {
+    opacity: 0.5;
+    font-weight: 400;
+    margin-right: 8px;
+  }
+
+  h2 {
+    font-size: 14pt;
+    color: var(--primary);
+    border-bottom: 3px solid var(--primary);
+    padding-bottom: 6px;
+    margin: 28px 0 14px 0;
+  }
+  h3 {
+    font-size: 11pt;
+    color: var(--primary);
+    margin: 18px 0 10px 0;
+    padding-left: 10px;
+    border-left: 4px solid var(--primary);
+    font-weight: 700;
+  }
+  h4 {
+    font-size: 10pt;
+    color: var(--text);
+    margin: 14px 0 8px 0;
+    font-weight: 700;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 4px;
+  }
+
+  /* ===== TABLES ===== */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 18px 0;
+    font-size: 8.5pt;
+    table-layout: fixed;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    border: 2px solid var(--primary);
+  }
+  thead th {
+    background: var(--primary);
+    color: white;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 8pt;
+    letter-spacing: 0.3px;
+    border-right: 1px solid rgba(255,255,255,0.2);
+  }
+  thead th:last-child { border-right: none; }
+  tbody td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid #e0e0e0;
+    vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  tbody td:last-child { border-right: none; }
+  tbody tr:nth-child(even) { background: var(--bg-alt); }
+
+  /* compact table variant */
+  table.compact { font-size: 7.5pt; table-layout: auto; }
+  table.compact td, table.compact th { padding: 4px 6px; }
+
+  /* center-aligned cells */
+  .tc { text-align: center; }
+
+  /* ===== CALLOUT BOXES ===== */
+  .callout {
+    background: var(--primary-lighter);
+    border-left: 5px solid var(--primary);
+    padding: 12px 16px;
+    margin: 12px 0;
+    border-radius: 0;
+    font-size: 9pt;
+  }
+  .callout.warn {
+    background: #fef9e7;
+    border-left-color: var(--warning);
+  }
+  .callout strong { color: var(--primary); }
+
+  /* ===== DIAGRAM BOXES ===== */
+  .diagram-box {
+    border: 2px solid var(--border);
+    border-radius: 0;
+    padding: 14px;
+    margin: 14px 0;
+    background: var(--bg-alt);
+    text-align: center;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    overflow: hidden;
+  }
+  .diagram-box svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  .diagram-caption {
+    font-size: 8pt;
+    color: var(--text-light);
+    text-align: center;
+    margin-top: 8px;
+    font-weight: 600;
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+  }
+
+  /* ===== CSS ARCHITECTURE DIAGRAMS ===== */
+  .arch-flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .arch-layer {
+    width: 100%;
+    border-radius: 0;
+    padding: 10px 14px;
+    text-align: center;
+  }
+  .arch-layer-title {
+    font-weight: 700;
+    font-size: 9pt;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .arch-layer-items {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .arch-layer-items span {
+    background: rgba(255,255,255,0.8);
+    border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 0;
+    padding: 3px 10px;
+    font-size: 8pt;
+    white-space: nowrap;
+  }
+  .arch-arrow {
+    font-size: 14pt;
+    color: var(--primary);
+    line-height: 1;
+    padding: 2px 0;
+    font-weight: 700;
+  }
+
+  /* Tier grid for competition diagram */
+  .tier-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .tier-box {
+    border-radius: 0;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .tier-label {
+    font-weight: 700;
+    font-size: 8.5pt;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .tier-items {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .tier-items span {
+    background: rgba(255,255,255,0.8);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 0;
+    padding: 2px 8px;
+    font-size: 8pt;
+  }
+
+  /* ===== CODE BLOCKS ===== */
+  pre {
+    background: #1e2a3a;
+    color: #e0e6ed;
+    padding: 12px 14px;
+    border-radius: 0;
+    border-left: 4px solid var(--accent);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 7pt;
+    line-height: 1.45;
+    overflow-x: hidden;
+    margin: 10px 0 16px 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-width: 100%;
+    page-break-inside: avoid;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    background: var(--primary-lighter);
+    padding: 1px 5px;
+    border-radius: 0;
+    border: 1px solid var(--border);
+    font-size: 8.5pt;
+    color: var(--primary);
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; border: none; }
+
+  /* ===== LISTS ===== */
+  ul, ol { padding-left: 20px; margin: 6px 0 12px 0; }
+  li { margin-bottom: 3px; }
+
+  /* ===== KPI CARDS ===== */
+  .kpi-row {
+    display: flex;
+    gap: 10px;
+    margin: 14px 0;
+    flex-wrap: wrap;
+  }
+  .kpi-card {
+    flex: 1;
+    min-width: 110px;
+    background: var(--bg-alt);
+    border: 2px solid var(--border);
+    border-top: 4px solid var(--primary);
+    border-radius: 0;
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .kpi-card .kpi-value {
+    font-size: 18pt;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1.1;
+  }
+  .kpi-card .kpi-label {
+    font-size: 7.5pt;
+    color: var(--text-light);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  /* ===== FLOW BOXES ===== */
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 14px 0;
+    flex-wrap: wrap;
+  }
+  .flow-box {
+    flex: 1;
+    min-width: 100px;
+    background: var(--bg-alt);
+    border: 2px solid var(--border);
+    border-radius: 0;
+    padding: 10px 12px;
+    text-align: center;
+    font-size: 8pt;
+  }
+  .flow-box .flow-title {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 8.5pt;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+  }
+  .flow-arrow {
+    font-size: 14pt;
+    color: var(--primary);
+    padding: 0 4px;
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+  .flow-box.highlight { background: var(--primary); color: white; border-color: var(--primary); }
+  .flow-box.highlight .flow-title { color: white; }
+
+  /* ===== TWO-COLUMN ===== */
+  .two-col {
+    display: flex;
+    gap: 14px;
+    margin: 10px 0;
+  }
+  .two-col > div { flex: 1; min-width: 0; }
+
+  /* ===== FOOTER ===== */
+  .page-footer {
+    text-align: center;
+    font-size: 7pt;
+    color: var(--text-light);
+    border-top: 2px solid var(--primary);
+    padding-top: 8px;
+    margin-top: 30px;
+  }
+
+  /* ===== PRINT STYLES ===== */
+  @media print {
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+    }
+    .cover {
+      min-height: 100vh;
+      width: 100vw;
+      margin-left: 0;
+      transform: none;
+      padding: 0 30px 40px 30px;
+    }
+    .no-print { display: none !important; }
+    .diagram-box { break-inside: avoid; page-break-inside: avoid; }
+    pre { break-inside: avoid; page-break-inside: avoid; max-width: 100%; }
+    .kpi-row { break-inside: avoid; page-break-inside: avoid; }
+    .ref-card { break-inside: avoid; page-break-inside: avoid; }
+    .flow-row { break-inside: avoid; page-break-inside: avoid; }
+    .callout { break-inside: avoid; page-break-inside: avoid; }
+    img, svg { max-width: 100% !important; height: auto !important; }
+  }
+
+  /* ===== REFERENCE SECTION ===== */
+  .ref-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .ref-card {
+    border: 2px solid var(--border);
+    border-radius: 0;
+    padding: 14px 16px;
+    background: var(--bg-alt);
+    page-break-inside: avoid;
+    border-top: 4px solid var(--primary);
+  }
+  .ref-card h4 {
+    color: var(--primary);
+    margin: 0 0 6px 0;
+    font-size: 9.5pt;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 5px;
+  }
+  .ref-card ul { margin: 6px 0 0 0; font-size: 8.5pt; }
+
+  /* ===== COMPARISON HIGHLIGHT ===== */
+  .vs-header {
+    display: flex;
+    gap: 12px;
+    margin: 10px 0;
+  }
+  .vs-box {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 0;
+    text-align: center;
+  }
+  .vs-box.legacy { background: #ecedf5; border: 2px solid #1a1a40; }
+  .vs-box.ai { background: #e6f2ec; border: 2px solid #2e8b57; }
+  .vs-box .vs-title { font-weight: 700; font-size: 10pt; }
+  .vs-box.legacy .vs-title { color: #1a1a40; }
+  .vs-box.ai .vs-title { color: #2e8b57; }
+
+  /* status indicators */
+  .status-yes { color: var(--success); font-weight: 700; }
+  .status-partial { color: var(--warning); font-weight: 700; }
+  .status-no { color: var(--danger); font-weight: 700; }
+
+  p { margin: 6px 0; }
+
+  .small { font-size: 8pt; color: var(--text-light); }
+
+  /* ===== SEEKERSLAB LOGO ===== */
+  .seekerslab-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    text-decoration: none;
+    color: inherit;
+  }
+  .seekerslab-logo .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18pt;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #2e8b57;
+  }
+  .seekerslab-logo .logo-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.1;
+  }
+  .seekerslab-logo .logo-name {
+    font-size: 14pt;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .seekerslab-logo .logo-domain {
+    font-size: 7pt;
+    opacity: 0.6;
+    letter-spacing: 1.5px;
+    font-weight: 400;
+  }
+  .cover-company {
+    position: absolute;
+    top: 20px;
+    left: 25px;
+  }
+  .cover-company .seekerslab-logo .logo-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 15pt;
+    background: rgba(46,139,87,0.2);
+    border-color: rgba(46,139,87,0.5);
+  }
+  .cover-company .seekerslab-logo .logo-name {
+    font-size: 11pt;
+    color: rgba(255,255,255,0.85);
+  }
+  .cover-company .seekerslab-logo .logo-domain {
+    font-size: 6.5pt;
+    color: rgba(255,255,255,0.5);
+  }
+</style>
+</head>
+<body>
+
+<!-- ================================================ -->
+<!-- COVER PAGE                                       -->
+<!-- ================================================ -->
+<div class="cover">
+  <div class="cover-company">
+    <div class="seekerslab-logo">
+      <div class="logo-icon">S</div>
+      <div class="logo-text">
+        <span class="logo-name">SeekersLab</span>
+        <span class="logo-domain">seekerslab.com</span>
+      </div>
+    </div>
+  </div>
+  <div class="confidential">Confidential</div>
+  <div class="cover-spacer"></div>
+  <div class="cover-logo">KYRA</div>
+  <h1>KYRA AI Guardrail</h1>
+  <p class="subtitle">엔터프라이즈 AI 보안 및 거버넌스 플랫폼</p>
+  <div class="cover-divider"></div>
+  <div class="badge-row">
+    <span class="badge">SOC 2 Type II</span>
+    <span class="badge">GDPR</span>
+    <span class="badge">HIPAA</span>
+    <span class="badge">Zero Trust</span>
+  </div>
+  <div class="cover-meta">
+    <div><div class="label">Version</div>1.0</div>
+    <div><div class="label">Status</div>Proposal</div>
+    <div><div class="label">Date</div>2026-05</div>
+    <div><div class="label">Classification</div>Confidential</div>
+  </div>
+  <div class="cover-footer">
+    <span>Enterprise AI Security &amp; Governance Platform</span>
+    <span style="opacity:0.4;">|</span>
+    <span>seekerslab.com</span>
+  </div>
+</div>
+
+<!-- ================================================ -->
+<!-- TABLE OF CONTENTS                                -->
+<!-- ================================================ -->
+<div class="toc">
+  <h2>목차 (Table of Contents)</h2>
+
+  <div class="toc-section">
+    <div class="toc-section-title">I. Executive Summary</div>
+    <ol>
+      <li>비전 및 핵심 가치 제안</li>
+      <li>핵심 성과 지표 (KPI)</li>
+      <li>대상 고객</li>
+      <li>시스템 아키텍처</li>
+      <li>핵심 모듈</li>
+    </ol>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title">II. 기능 명세 (Feature Specifications)</div>
+    <ol>
+      <li>Secure Chat (SC)</li>
+      <li>Security &amp; Defense (SD)</li>
+      <li>Compliance (CP)</li>
+      <li>RAG System (RG)</li>
+      <li>AI Quality (QA)</li>
+      <li>Multi-Tenancy (MT)</li>
+    </ol>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title">III. 기술 아키텍처 (Technical Architecture)</div>
+    <ol>
+      <li>33 Docker Containers 구성</li>
+      <li>Backend 마이크로서비스</li>
+      <li>ML 서비스</li>
+      <li>인프라스트럭처</li>
+      <li>Observability 스택</li>
+    </ol>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title">IV. 경쟁 분석 (Competitive Analysis)</div>
+    <ol>
+      <li>경쟁 구도</li>
+      <li>기술 비교 매트릭스</li>
+    </ol>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title">V. 가격 정책 (Pricing)</div>
+    <ol>
+      <li>어플라이언스 라인업 (Standard / Advanced / Enterprise)</li>
+      <li>배포 옵션 (물리 / 가상 / 컨테이너)</li>
+      <li>기능별 비교</li>
+    </ol>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title">VI. 기대 효과 (Expected Benefits)</div>
+    <ol>
+      <li>ROI 분석</li>
+    </ol>
+  </div>
+</div>
+
+
+<!-- ================================================ -->
+<!-- SECTION I: EXECUTIVE SUMMARY                     -->
+<!-- ================================================ -->
+<div class="section-header"><span class="section-num">I.</span> Executive Summary</div>
+
+<h3>비전</h3>
+<p>생성형 AI의 안전한 기업 도입을 위한 <strong>보안 · 거버넌스 · 컴플라이언스 통합 플랫폼</strong>을 제공한다. KYRA AI Guardrail은 프롬프트 인젝션 방어, 데이터 유출 방지(DLP), 컴플라이언스 자동화, 고급 RAG를 하나의 플랫폼에서 통합 관리하여, 기업이 LLM을 안전하고 규제에 부합하게 배포할 수 있도록 지원한다.</p>
+
+<h3>핵심 가치 제안</h3>
+<table>
+  <thead><tr><th>가치</th><th>설명</th></tr></thead>
+  <tbody>
+    <tr><td><strong>3-Level Prompt Injection Defense</strong></td><td>Pattern Matching + ML Classification + Behavioral Analysis 3단계 방어로 프롬프트 인젝션 공격을 실시간 탐지 및 차단</td></tr>
+    <tr><td><strong>Enterprise DLP</strong></td><td>PII, 금융정보, 의료정보(PHI), 자격증명(Credentials)을 실시간 탐지·차단하여 민감 데이터 유출 방지</td></tr>
+    <tr><td><strong>Compliance Automation</strong></td><td>SOC 2 Type II / GDPR Art.15~34 / HIPAA 규정 준수를 자동화하여 감사 비용 절감 및 규제 대응 가속화</td></tr>
+    <tr><td><strong>Advanced RAG</strong></td><td>11종 Document Connector + Hybrid Search + Cohere Reranking + Citation Verification으로 고품질 AI 응답 생성</td></tr>
+  </tbody>
+</table>
+
+<h3>핵심 성과 지표 (KPI)</h3>
+<div class="kpi-row">
+  <div class="kpi-card"><div class="kpi-value">&gt; 99.5%</div><div class="kpi-label">Injection Block Rate</div></div>
+  <div class="kpi-card"><div class="kpi-value">&lt; 0.1%</div><div class="kpi-label">False Positive Rate</div></div>
+  <div class="kpi-card"><div class="kpi-value">&lt; 200ms</div><div class="kpi-label">Processing Latency</div></div>
+  <div class="kpi-card"><div class="kpi-value">100%</div><div class="kpi-label">Audit Coverage</div></div>
+</div>
+
+<h3>대상 고객</h3>
+<ul>
+  <li><strong>금융 기업</strong> — LLM 기반 고객 상담, 문서 분석 시 민감 금융정보 보호 및 규제 준수</li>
+  <li><strong>의료 기관</strong> — AI 진단 보조, 의료 기록 분석 시 PHI 보호 및 HIPAA 컴플라이언스</li>
+  <li><strong>법률 사무소</strong> — 법률 문서 RAG 검색, 의뢰인 비밀 유지 의무 준수</li>
+  <li><strong>공공 기관</strong> — 행정 AI 도입 시 개인정보보호법 준수 및 감사 추적</li>
+  <li><strong>기술 기업</strong> — 내부 AI 도구의 소스코드·API 키 유출 방지 및 프롬프트 보안</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- 시스템 아키텍처 -->
+<h2>시스템 아키텍처</h2>
+
+<div class="diagram-box">
+  <div class="arch-flow">
+    <div class="arch-layer" style="background:#ecedf5;border:2px solid #1a1a40;">
+      <div class="arch-layer-title" style="color:#1a1a40;">API Gateway Layer</div>
+      <div class="arch-layer-items"><span>REST API</span><span>WebSocket</span><span>SSE Streaming</span><span>Rate Limiting</span></div>
+    </div>
+    <div class="arch-arrow">&#x25BC;</div>
+    <div class="arch-layer" style="background:#e6f2ec;border:2px solid #2e8b57;">
+      <div class="arch-layer-title" style="color:#2e8b57;">Auth &amp; Security Layer</div>
+      <div class="arch-layer-items"><span>JWT/OAuth 2.0</span><span>RBAC+ABAC</span><span>SSO (SAML/OIDC)</span><span>MFA</span></div>
+    </div>
+    <div class="arch-arrow">&#x25BC;</div>
+    <div class="arch-layer" style="background:#e8e8f0;border:2px solid #2d2d5e;">
+      <div class="arch-layer-title" style="color:#2d2d5e;">AI Security Engine</div>
+      <div class="arch-layer-items"><span>Prompt Injection Defense</span><span>DLP Scanner</span><span>UBA Engine</span><span>Risk Scoring</span></div>
+    </div>
+    <div class="arch-arrow">&#x25BC;</div>
+    <div class="arch-layer" style="background:#e0f0e8;border:2px solid #1f6b42;">
+      <div class="arch-layer-title" style="color:#1f6b42;">Chat &amp; RAG Layer</div>
+      <div class="arch-layer-items"><span>Multi-Persona Chat</span><span>RAG Pipeline</span><span>Hybrid Search</span><span>Reranking</span></div>
+    </div>
+    <div class="arch-arrow">&#x25BC;</div>
+    <div class="arch-layer" style="background:#ecedf5;border:2px solid #3a3a6e;">
+      <div class="arch-layer-title" style="color:#3a3a6e;">Compliance &amp; Observability</div>
+      <div class="arch-layer-items"><span>Audit Trail</span><span>SOC 2 Checks</span><span>GDPR DSR</span><span>Prometheus/Grafana</span></div>
+    </div>
+  </div>
+  <div class="diagram-caption">그림 1. KYRA AI Guardrail 5-Layer System Architecture</div>
+</div>
+
+<h2>핵심 모듈</h2>
+<table>
+  <thead><tr><th>#</th><th>카테고리</th><th>ID 접두사</th><th>기능 수</th><th>우선순위</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><strong>Secure Chat</strong></td><td>SC</td><td>4</td><td>P0</td></tr>
+    <tr><td>2</td><td><strong>Security &amp; Defense</strong></td><td>SD</td><td>6</td><td>P0</td></tr>
+    <tr><td>3</td><td><strong>Compliance</strong></td><td>CP</td><td>6</td><td>P0</td></tr>
+    <tr><td>4</td><td><strong>RAG System</strong></td><td>RG</td><td>5</td><td>P1</td></tr>
+    <tr><td>5</td><td><strong>AI Quality</strong></td><td>QA</td><td>4</td><td>P1</td></tr>
+    <tr><td>6</td><td><strong>Multi-Tenancy</strong></td><td>MT</td><td>4</td><td>P0</td></tr>
+    <tr style="font-weight:700;background:var(--primary-lighter)"><td></td><td>합계</td><td></td><td>29</td><td></td></tr>
+  </tbody>
+</table>
+
+
+<!-- ================================================ -->
+<!-- SECTION II: FEATURES                             -->
+<!-- ================================================ -->
+<div class="page-break"></div>
+<div class="section-header"><span class="section-num">II.</span> 기능 명세 (Feature Specifications)</div>
+
+<p>KYRA AI Guardrail 플랫폼은 6개 카테고리, <strong>29개 기능</strong>으로 구성된다. 아래에 각 카테고리별 기능 상세를 정리한다.</p>
+
+<!-- SC -->
+<h3>1. Secure Chat (SC)</h3>
+<table class="compact">
+  <thead><tr><th style="width:8%">ID</th><th style="width:16%">기능명</th><th style="width:36%">설명</th><th style="width:20%">Input / Output</th><th style="width:10%">SLA</th></tr></thead>
+  <tbody>
+    <tr><td>SC-01</td><td>Multi-Persona AI Chat</td><td>12+ AI 페르소나(보안 분석가, 법률 어시스턴트, 코드 리뷰어 등) 선택 기반 컨텍스트 특화 대화</td><td>사용자 메시지 / 페르소나별 응답</td><td>&lt; 500ms TTFT</td></tr>
+    <tr><td>SC-02</td><td>Conversation Branching &amp; Version Control</td><td>대화 트리의 특정 지점에서 분기(Branch) 생성, 버전 비교 및 이전 상태 복원</td><td>분기 지점 선택 / 트리 구조 대화</td><td>&lt; 100ms</td></tr>
+    <tr><td>SC-03</td><td>SSE Real-time Streaming</td><td>Server-Sent Events 기반 실시간 토큰 스트리밍, 중단/재개 지원</td><td>프롬프트 / 스트림 토큰</td><td>&lt; 100ms TTFT</td></tr>
+    <tr><td>SC-04</td><td>Message Bookmark &amp; Citation</td><td>중요 메시지 북마크, AI 응답의 출처(Citation) 추적 및 검증</td><td>메시지 ID / 출처 메타데이터</td><td>&lt; 50ms</td></tr>
+  </tbody>
+</table>
+
+<!-- SD -->
+<h3>2. Security &amp; Defense (SD)</h3>
+<table class="compact">
+  <thead><tr><th style="width:8%">ID</th><th style="width:16%">기능명</th><th style="width:36%">설명</th><th style="width:20%">Input / Output</th><th style="width:10%">SLA</th></tr></thead>
+  <tbody>
+    <tr><td>SD-01</td><td>3-Level Prompt Injection Defense</td><td>Level 1: Regex/Pattern Matching (SQL Injection, Jailbreak 패턴)<br>Level 2: ML Classifier (Fine-tuned BERT, 99.5% 정확도)<br>Level 3: Behavioral Analysis (세션별 이상 패턴 분석)</td><td>사용자 프롬프트 / 차단 여부 + 위험 스코어</td><td>&lt; 50ms</td></tr>
+    <tr><td>SD-02</td><td>DLP Pattern Scanning</td><td>PII (주민등록번호, 전화번호, 이메일), 금융정보 (카드번호, 계좌번호), 자격증명 (API Key, Password) 실시간 탐지 및 마스킹/차단</td><td>텍스트 입력 / 탐지 결과 + 마스킹된 텍스트</td><td>&lt; 30ms</td></tr>
+    <tr><td>SD-03</td><td>DLP Contextual Whitelisting</td><td>비즈니스 컨텍스트에 따른 동적 허용 목록 관리 (예: 재무팀의 금융정보 접근 허용)</td><td>컨텍스트 규칙 / 허용/차단 판정</td><td>&lt; 10ms</td></tr>
+    <tr><td>SD-04</td><td>User Behavior Analytics (UBA)</td><td>사용자별 쿼리 패턴, 접속 시간, 데이터 접근 빈도 분석을 통한 내부 위협 탐지</td><td>사용자 활동 로그 / 이상 행위 알림</td><td>실시간</td></tr>
+    <tr><td>SD-05</td><td>Risk Scoring &amp; Auto-MFA</td><td>다차원 리스크 점수 산출 (IP, 디바이스, 행동 패턴) 및 고위험 시 자동 MFA 트리거</td><td>세션 컨텍스트 / 리스크 점수 + MFA 요구</td><td>&lt; 100ms</td></tr>
+    <tr><td>SD-06</td><td>PHI Detection (9 Safe Harbor)</td><td>HIPAA Safe Harbor 기준 9가지 PHI 패턴 (이름, 생년월일, 의료기록번호, SSN 등) 자동 탐지 및 비식별화</td><td>텍스트 / PHI 탐지 결과 + 비식별화 텍스트</td><td>&lt; 30ms</td></tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- CP -->
+<h3>3. Compliance (CP)</h3>
+<table class="compact">
+  <thead><tr><th style="width:8%">ID</th><th style="width:16%">기능명</th><th style="width:36%">설명</th><th style="width:20%">Input / Output</th><th style="width:10%">SLA</th></tr></thead>
+  <tbody>
+    <tr><td>CP-01</td><td>SOC 2 Type II Control Checks</td><td>보안(Security), 가용성(Availability), 처리 무결성(Processing Integrity), 기밀성(Confidentiality), 프라이버시(Privacy), 변경관리(Change Mgmt) 6개 영역 자동 통제 점검</td><td>시스템 상태 / 6/6 통제 점검 결과</td><td>매일 자동</td></tr>
+    <tr><td>CP-02</td><td>GDPR DSR Automation</td><td>Art.15 접근권, Art.17 삭제권, Art.18 처리제한권, Art.20 이동권에 대한 데이터 주체 요청(DSR) 자동 처리</td><td>DSR 요청 / 처리 완료 보고서</td><td>&lt; 72h (Art.12)</td></tr>
+    <tr><td>CP-03</td><td>GDPR Breach Notification (72h Tracker)</td><td>개인정보 침해 발생 시 72시간 내 감독기관 통보 워크플로우 자동화 (Art.33)</td><td>침해 이벤트 / 통보 타임라인 + 보고서</td><td>72h 내 완료</td></tr>
+    <tr><td>CP-04</td><td>HIPAA PHI Protection</td><td>PHI 데이터의 암호화(AES-256), 접근 통제, 감사 로그 자동 관리</td><td>PHI 데이터 / 보호 상태 대시보드</td><td>실시간</td></tr>
+    <tr><td>CP-05</td><td>Immutable Audit Trail (SHA-256)</td><td>모든 사용자 활동, AI 응답, 관리 작업에 대한 SHA-256 해시 체인 기반 변경 불가 감사 로그</td><td>시스템 이벤트 / 해시 체인 감사 로그</td><td>실시간</td></tr>
+    <tr><td>CP-06</td><td>Processing Register (Art.30)</td><td>GDPR Art.30 요구사항에 따른 처리 활동 기록부 자동 생성 및 관리</td><td>데이터 처리 활동 / Art.30 레지스터</td><td>실시간 갱신</td></tr>
+  </tbody>
+</table>
+
+<!-- RG -->
+<h3>4. RAG System (RG)</h3>
+<table class="compact">
+  <thead><tr><th style="width:8%">ID</th><th style="width:16%">기능명</th><th style="width:36%">설명</th><th style="width:20%">Input / Output</th><th style="width:10%">SLA</th></tr></thead>
+  <tbody>
+    <tr><td>RG-01</td><td>11 Document Connectors</td><td>PDF, DOCX, PPTX, XLSX, CSV, TXT, Markdown, HTML, Confluence, SharePoint, Google Drive 등 11종 문서 소스 연동</td><td>문서 파일/URL / 벡터 임베딩 + 메타데이터</td><td>&lt; 5min/100 pages</td></tr>
+    <tr><td>RG-02</td><td>Hybrid Vector + Full-Text Search</td><td>Milvus 벡터 검색 + OpenSearch 전문 검색을 결합한 하이브리드 검색으로 높은 재현율과 정밀도 달성</td><td>검색 쿼리 / Top-K 결과 (Vector + BM25 융합)</td><td>&lt; 200ms</td></tr>
+    <tr><td>RG-03</td><td>Cohere Reranking</td><td>1차 검색 결과를 Cohere Reranker 모델로 재순위화하여 관련도 상위 문서를 정밀 선별</td><td>Top-K 검색 결과 / 재순위화된 결과</td><td>&lt; 300ms</td></tr>
+    <tr><td>RG-04</td><td>Self-Query RAG</td><td>사용자 질문에서 메타데이터 필터를 자동 추출하여 구조화된 검색 조건 생성 (날짜, 부서, 문서 유형 등)</td><td>자연어 질문 / 구조화 쿼리 + 검색 결과</td><td>&lt; 500ms</td></tr>
+    <tr><td>RG-05</td><td>Citation Verification</td><td>AI 응답에 포함된 인용의 정확성을 원문과 대조 검증하여 환각(Hallucination) 방지</td><td>AI 응답 + 출처 / 검증 결과 + 신뢰도 점수</td><td>&lt; 1s</td></tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- QA -->
+<h3>5. AI Quality (QA)</h3>
+<table class="compact">
+  <thead><tr><th style="width:8%">ID</th><th style="width:16%">기능명</th><th style="width:36%">설명</th><th style="width:20%">Input / Output</th><th style="width:10%">SLA</th></tr></thead>
+  <tbody>
+    <tr><td>QA-01</td><td>6-Dimension Quality Scoring</td><td>AI 응답의 정확성(Accuracy), 관련성(Relevance), 완전성(Completeness), 일관성(Consistency), 유용성(Helpfulness), 안전성(Safety) 6차원 품질 점수 산출</td><td>AI 응답 / 6차원 점수 (0~1.0)</td><td>&lt; 500ms</td></tr>
+    <tr><td>QA-02</td><td>Semantic Cache</td><td>의미적으로 유사한 질문에 대해 캐싱된 응답 반환으로 비용 절감 및 응답 속도 향상 (Cosine Similarity &gt; 0.95)</td><td>사용자 질문 / 캐시 히트 응답 또는 새 생성</td><td>&lt; 50ms (hit)</td></tr>
+    <tr><td>QA-03</td><td>Hallucination Detection</td><td>AI 응답과 원문(Ground Truth) 간 의미적 정합성을 NLI 모델로 검증하여 환각 탐지</td><td>AI 응답 + 원문 / 환각 여부 + 근거</td><td>&lt; 300ms</td></tr>
+    <tr><td>QA-04</td><td>Sentiment Analysis</td><td>사용자 입력과 AI 응답의 감성 분석으로 부적절한 톤/감정 탐지 및 에스컬레이션</td><td>텍스트 / 감성 레이블 + 신뢰도</td><td>&lt; 100ms</td></tr>
+  </tbody>
+</table>
+
+<!-- MT -->
+<h3>6. Multi-Tenancy (MT)</h3>
+<table class="compact">
+  <thead><tr><th style="width:8%">ID</th><th style="width:16%">기능명</th><th style="width:36%">설명</th><th style="width:20%">Input / Output</th><th style="width:10%">SLA</th></tr></thead>
+  <tbody>
+    <tr><td>MT-01</td><td>Row-Level Security (RLS)</td><td>PostgreSQL RLS 정책을 활용한 테넌트 간 완전한 데이터 격리, 쿼리 레벨에서 자동 필터링</td><td>테넌트 ID / 격리된 데이터 접근</td><td>&lt; 1ms overhead</td></tr>
+    <tr><td>MT-02</td><td>RBAC + ABAC</td><td>역할 기반(RBAC) + 속성 기반(ABAC) 하이브리드 접근 제어, 세분화된 권한 관리</td><td>사용자 역할/속성 / 접근 허용/거부</td><td>&lt; 5ms</td></tr>
+    <tr><td>MT-03</td><td>SSO (SAML 2.0 / OIDC / LDAP)</td><td>SAML 2.0, OpenID Connect, LDAP/Active Directory 기반 기업 싱글 사인온 통합</td><td>SSO 인증 요청 / JWT 토큰</td><td>&lt; 500ms</td></tr>
+    <tr><td>MT-04</td><td>SCIM Provisioning</td><td>SCIM 2.0 프로토콜 기반 사용자/그룹 자동 프로비저닝 및 디프로비저닝</td><td>SCIM 이벤트 / 사용자 생성/수정/삭제</td><td>&lt; 3s</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ================================================ -->
+<!-- SECTION III: TECHNICAL ARCHITECTURE              -->
+<!-- ================================================ -->
+<div class="page-break"></div>
+<div class="section-header"><span class="section-num">III.</span> 기술 아키텍처 (Technical Architecture)</div>
+
+<p>KYRA AI Guardrail은 <strong>33개 Docker 컨테이너</strong>로 구성된 마이크로서비스 아키텍처로, 개별 서비스의 독립적 확장과 장애 격리를 보장한다.</p>
+
+<h3>컨테이너 구성 개요</h3>
+<table>
+  <thead><tr><th>구분</th><th>구성</th><th>컨테이너 수</th><th>기술 스택</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Backend Services</strong></td><td>Java Spring Boot 마이크로서비스</td><td>18</td><td>Java 21, Spring Boot 3.x, WebFlux</td></tr>
+    <tr><td><strong>ML Services</strong></td><td>Python FastAPI ML 서비스</td><td>2</td><td>Python 3.11, FastAPI, PyTorch, Transformers</td></tr>
+    <tr><td><strong>Databases</strong></td><td>데이터 저장소</td><td>5</td><td>PostgreSQL 16, Redis 7, Milvus 2.3, OpenSearch 2.11, MinIO</td></tr>
+    <tr><td><strong>Infrastructure</strong></td><td>인프라 서비스</td><td>4</td><td>Nginx, Kafka, Zookeeper, Schema Registry</td></tr>
+    <tr><td><strong>Observability</strong></td><td>모니터링 스택</td><td>4</td><td>Prometheus, Grafana, Loki, OpenTelemetry Collector</td></tr>
+    <tr style="font-weight:700;background:var(--primary-lighter)"><td></td><td><strong>합계</strong></td><td><strong>33</strong></td><td></td></tr>
+  </tbody>
+</table>
+
+<h3>Backend 마이크로서비스 (18 Services)</h3>
+<table class="compact">
+  <thead><tr><th>#</th><th>서비스명</th><th>역할</th><th>주요 기술</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>api-gateway</td><td>API 라우팅, Rate Limiting, 요청 인증</td><td>Spring Cloud Gateway</td></tr>
+    <tr><td>2</td><td>auth-service</td><td>인증/인가, JWT 발급, SSO 연동</td><td>Spring Security, OAuth 2.0</td></tr>
+    <tr><td>3</td><td>chat-service</td><td>대화 관리, 메시지 저장, 분기/버전 관리</td><td>WebFlux, R2DBC</td></tr>
+    <tr><td>4</td><td>persona-service</td><td>AI 페르소나 관리 및 프롬프트 템플릿</td><td>Spring Boot</td></tr>
+    <tr><td>5</td><td>llm-router</td><td>LLM 라우팅, 로드 밸런싱, 폴백</td><td>Spring WebFlux</td></tr>
+    <tr><td>6</td><td>security-scanner</td><td>프롬프트 인젝션 탐지 (Level 1: Pattern)</td><td>Regex Engine</td></tr>
+    <tr><td>7</td><td>dlp-service</td><td>DLP 패턴 스캐닝, 마스킹</td><td>Spring Boot, Regex + ML</td></tr>
+    <tr><td>8</td><td>compliance-service</td><td>SOC 2 / GDPR / HIPAA 통제 점검</td><td>Spring Boot, Scheduler</td></tr>
+    <tr><td>9</td><td>audit-service</td><td>감사 로그 기록, SHA-256 해시 체인</td><td>Spring Boot, Kafka</td></tr>
+    <tr><td>10</td><td>rag-service</td><td>문서 수집, 청킹, 임베딩, 검색</td><td>Spring Boot, Milvus SDK</td></tr>
+    <tr><td>11</td><td>connector-service</td><td>11종 문서 커넥터 관리</td><td>Spring Integration</td></tr>
+    <tr><td>12</td><td>quality-service</td><td>AI 응답 품질 평가, 환각 탐지</td><td>Spring Boot</td></tr>
+    <tr><td>13</td><td>tenant-service</td><td>멀티 테넌트 관리, RLS 설정</td><td>Spring Boot</td></tr>
+    <tr><td>14</td><td>user-service</td><td>사용자/그룹 관리, SCIM 프로비저닝</td><td>Spring Boot</td></tr>
+    <tr><td>15</td><td>notification-service</td><td>알림 발송 (이메일, Slack, Webhook)</td><td>Spring Boot, Kafka</td></tr>
+    <tr><td>16</td><td>analytics-service</td><td>사용 통계, UBA 데이터 집계</td><td>Spring Boot, ClickHouse</td></tr>
+    <tr><td>17</td><td>cache-service</td><td>Semantic Cache, 세션 캐시 관리</td><td>Spring Boot, Redis</td></tr>
+    <tr><td>18</td><td>scheduler-service</td><td>정기 작업 스케줄링 (컴플라이언스 점검 등)</td><td>Spring Batch</td></tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<h3>ML Services (2 Services)</h3>
+<table class="compact">
+  <thead><tr><th>#</th><th>서비스명</th><th>역할</th><th>모델</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>ml-security</td><td>Prompt Injection ML Classifier (Level 2), DLP ML 탐지, PHI 비식별화</td><td>Fine-tuned BERT, NER Model</td></tr>
+    <tr><td>2</td><td>ml-quality</td><td>Hallucination Detection (NLI), Sentiment Analysis, Quality Scoring</td><td>DeBERTa-v3, DistilBERT</td></tr>
+  </tbody>
+</table>
+
+<h3>인프라스트럭처</h3>
+<table>
+  <thead><tr><th>구성 요소</th><th>버전</th><th>역할</th><th>구성</th></tr></thead>
+  <tbody>
+    <tr><td><strong>PostgreSQL</strong></td><td>16</td><td>주 데이터 저장소, RLS 기반 멀티 테넌시</td><td>Primary + Replica, RLS Policies</td></tr>
+    <tr><td><strong>Redis</strong></td><td>7</td><td>세션 캐시, Semantic Cache, Rate Limiting</td><td>Sentinel HA, 16GB RAM</td></tr>
+    <tr><td><strong>Milvus</strong></td><td>2.3</td><td>벡터 데이터베이스, RAG 임베딩 저장/검색</td><td>Standalone, HNSW Index</td></tr>
+    <tr><td><strong>OpenSearch</strong></td><td>2.11</td><td>전문 검색, 로그 저장, BM25 검색</td><td>3-node Cluster</td></tr>
+    <tr><td><strong>MinIO</strong></td><td>Latest</td><td>오브젝트 스토리지, 문서 원본 저장</td><td>Erasure Coding, 500GB</td></tr>
+  </tbody>
+</table>
+
+<h3>Observability 스택</h3>
+<table class="compact">
+  <thead><tr><th>구성 요소</th><th>역할</th><th>수집 대상</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Prometheus</strong></td><td>메트릭 수집 및 알림</td><td>서비스 응답시간, 에러율, 리소스 사용량</td></tr>
+    <tr><td><strong>Grafana</strong></td><td>대시보드 시각화</td><td>보안 이벤트, 컴플라이언스 상태, RAG 성능</td></tr>
+    <tr><td><strong>Loki</strong></td><td>로그 집계 및 검색</td><td>전체 마이크로서비스 로그</td></tr>
+    <tr><td><strong>OpenTelemetry</strong></td><td>분산 트레이싱</td><td>요청별 E2E 트레이스, 서비스 간 의존성</td></tr>
+  </tbody>
+</table>
+
+<div class="diagram-box">
+  <div class="arch-flow">
+    <div class="arch-layer" style="background:#ecedf5;border:2px solid #1a1a40;">
+      <div class="arch-layer-title" style="color:#1a1a40;">Client Layer</div>
+      <div class="arch-layer-items"><span>Web App (React)</span><span>Mobile SDK</span><span>REST API Client</span></div>
+    </div>
+    <div class="arch-arrow">&#x25BC;</div>
+    <div class="arch-layer" style="background:#e6f2ec;border:2px solid #2e8b57;">
+      <div class="arch-layer-title" style="color:#2e8b57;">Backend Services (18 Spring Boot)</div>
+      <div class="arch-layer-items"><span>API Gateway</span><span>Auth</span><span>Chat</span><span>Security</span><span>DLP</span><span>Compliance</span><span>RAG</span><span>Quality</span><span>Tenant</span></div>
+    </div>
+    <div class="arch-arrow">&#x25BC;</div>
+    <div class="arch-layer" style="background:#e8e8f0;border:2px solid #2d2d5e;">
+      <div class="arch-layer-title" style="color:#2d2d5e;">ML Services (2 FastAPI)</div>
+      <div class="arch-layer-items"><span>ml-security (BERT, NER)</span><span>ml-quality (DeBERTa, NLI)</span></div>
+    </div>
+    <div class="arch-arrow">&#x25BC;</div>
+    <div class="arch-layer" style="background:#e0f0e8;border:2px solid #1f6b42;">
+      <div class="arch-layer-title" style="color:#1f6b42;">Data Layer</div>
+      <div class="arch-layer-items"><span>PostgreSQL 16</span><span>Redis 7</span><span>Milvus 2.3</span><span>OpenSearch 2.11</span><span>MinIO</span></div>
+    </div>
+    <div class="arch-arrow">&#x25BC;</div>
+    <div class="arch-layer" style="background:#ecedf5;border:2px solid #3a3a6e;">
+      <div class="arch-layer-title" style="color:#3a3a6e;">Observability</div>
+      <div class="arch-layer-items"><span>Prometheus</span><span>Grafana</span><span>Loki</span><span>OpenTelemetry</span></div>
+    </div>
+  </div>
+  <div class="diagram-caption">그림 2. KYRA AI Guardrail Full Stack Architecture (33 Containers)</div>
+</div>
+
+
+<!-- ================================================ -->
+<!-- SECTION IV: COMPETITIVE ANALYSIS                 -->
+<!-- ================================================ -->
+<div class="page-break"></div>
+<div class="section-header"><span class="section-num">IV.</span> 경쟁 분석 (Competitive Analysis)</div>
+
+<h3>경쟁 구도</h3>
+<p>AI 보안 및 거버넌스 시장은 급성장 중이며, 각 경쟁사는 특정 영역에 특화되어 있다. KYRA AI Guardrail은 보안·거버넌스·RAG를 <strong>하나의 통합 플랫폼</strong>에서 제공하는 유일한 솔루션이다.</p>
+
+<div class="diagram-box">
+  <div class="tier-grid">
+    <div class="tier-box" style="background:#ecedf5;border:2px solid #1a1a40;">
+      <div class="tier-label" style="color:#1a1a40;">Prompt Injection Focused</div>
+      <div class="tier-items"><span>Lakera Guard</span><span>Rebuff</span></div>
+    </div>
+    <div class="tier-box" style="background:#e6f2ec;border:2px solid #2e8b57;">
+      <div class="tier-label" style="color:#2e8b57;">ML Security Platform</div>
+      <div class="tier-items"><span>Protect AI</span><span>HiddenLayer</span></div>
+    </div>
+    <div class="tier-box" style="background:#e8e8f0;border:2px solid #2d2d5e;">
+      <div class="tier-label" style="color:#2d2d5e;">Model Monitoring</div>
+      <div class="tier-items"><span>Arthur AI</span><span>Arize AI</span></div>
+    </div>
+    <div class="tier-box" style="background:#e0f0e8;border:2px solid #1f6b42;">
+      <div class="tier-label" style="color:#1f6b42;">Integrated AI Security + Governance</div>
+      <div class="tier-items"><span>CalypsoAI</span><span style="font-weight:700;color:#2e8b57;">KYRA AI Guardrail</span></div>
+    </div>
+  </div>
+  <div class="diagram-caption">그림 3. AI Security Market Competitive Landscape (4 Tier)</div>
+</div>
+
+<h4>기술 비교 매트릭스</h4>
+<table class="compact">
+  <thead><tr><th>기능</th><th>Lakera Guard</th><th>Protect AI</th><th>Arthur AI</th><th>CalypsoAI</th><th style="background:var(--accent)">KYRA AI Guardrail</th></tr></thead>
+  <tbody>
+    <tr><td>Prompt Injection Defense</td><td class="status-yes">Core (1-Level)</td><td class="status-partial">Basic</td><td class="status-no">No</td><td class="status-yes">ML-based</td><td class="status-yes">3-Level (Pattern+ML+Behavioral)</td></tr>
+    <tr><td>DLP / Data Protection</td><td class="status-partial">Basic PII</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-partial">Limited</td><td class="status-yes">PII+Financial+PHI+Credentials</td></tr>
+    <tr><td>SOC 2 Compliance</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-partial">Partial</td><td class="status-partial">Partial</td><td class="status-yes">6/6 Control Checks</td></tr>
+    <tr><td>GDPR Automation</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-partial">Basic</td><td class="status-yes">DSR + Breach + Art.30</td></tr>
+    <tr><td>HIPAA PHI Protection</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-yes">9 Safe Harbor Patterns</td></tr>
+    <tr><td>RAG System</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-partial">Basic</td><td class="status-yes">11 Connectors + Hybrid + Rerank</td></tr>
+    <tr><td>Hallucination Detection</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-yes">Core</td><td class="status-partial">Basic</td><td class="status-yes">NLI + Citation Verify</td></tr>
+    <tr><td>Multi-Tenancy (RLS)</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-partial">Basic</td><td class="status-partial">Basic</td><td class="status-yes">PostgreSQL RLS + RBAC/ABAC</td></tr>
+    <tr><td>SSO Enterprise</td><td class="status-partial">OIDC only</td><td class="status-no">No</td><td class="status-yes">Yes</td><td class="status-yes">Yes</td><td class="status-yes">SAML 2.0 + OIDC + LDAP</td></tr>
+    <tr><td>Immutable Audit Trail</td><td class="status-no">No</td><td class="status-no">No</td><td class="status-partial">Basic logging</td><td class="status-partial">Basic logging</td><td class="status-yes">SHA-256 Hash Chain</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>핵심 차별화:</strong> KYRA AI Guardrail은 경쟁사 대비 <strong>(1) 3-Level Prompt Injection Defense</strong>, <strong>(2) 포괄적 DLP (PII+Financial+PHI+Credentials)</strong>, <strong>(3) SOC 2/GDPR/HIPAA 통합 컴플라이언스</strong>, <strong>(4) 고급 RAG + 환각 탐지</strong>를 단일 플랫폼에서 제공하는 유일한 솔루션입니다.
+</div>
+
+
+<!-- ================================================ -->
+<!-- SECTION V: PRICING                               -->
+<!-- ================================================ -->
+<div class="page-break"></div>
+<div class="section-header"><span class="section-num">V.</span> 가격 정책 (Pricing)</div>
+
+<h3>어플라이언스 모델 — On-Premise 전용</h3>
+<p>KYRA AI Guardrail은 고객 데이터센터 또는 프라이빗 클라우드에 직접 설치하는 <strong>어플라이언스(Appliance) 모델</strong>로 제공됩니다. 모든 데이터가 고객 환경 내에서 처리되어 데이터 주권과 규제 요건을 완벽히 충족합니다.</p>
+
+<h3>어플라이언스 라인업</h3>
+<table>
+  <thead><tr><th>항목</th><th>Standard</th><th>Advanced</th><th>Enterprise</th></tr></thead>
+  <tbody>
+    <tr><td><strong>형태</strong></td><td>1U 랙마운트</td><td>2U 랙마운트</td><td>2U 랙마운트 (HA)</td></tr>
+    <tr><td><strong>도입 가격</strong></td><td>₩50,000,000~</td><td>₩120,000,000~</td><td>별도 견적</td></tr>
+    <tr><td><strong>연간 유지보수</strong></td><td>도입가의 15%</td><td>도입가의 15%</td><td>도입가의 12%</td></tr>
+    <tr><td><strong>사용자 수</strong></td><td>100명</td><td>500명</td><td>Unlimited</td></tr>
+    <tr><td><strong>일일 쿼리</strong></td><td>5,000</td><td>50,000</td><td>Unlimited</td></tr>
+    <tr><td><strong>스토리지</strong></td><td>1TB SSD</td><td>4TB NVMe</td><td>16TB+ NVMe (RAID)</td></tr>
+    <tr><td><strong>GPU</strong></td><td>-</td><td>NVIDIA A30 × 1</td><td>NVIDIA A100/H100 × 2+</td></tr>
+    <tr><td><strong>Prompt Injection Defense</strong></td><td class="status-yes">Level 1+2 (Pattern+ML)</td><td class="status-yes">Level 1+2+3 (Full)</td><td class="status-yes">Level 1+2+3 + Custom Rules</td></tr>
+    <tr><td><strong>DLP</strong></td><td class="status-yes">PII + Financial</td><td class="status-yes">Full (PII+Financial+PHI+Credentials)</td><td class="status-yes">Full + Custom Patterns</td></tr>
+    <tr><td><strong>RAG System</strong></td><td class="status-yes">5 Connectors</td><td class="status-yes">11 Connectors</td><td class="status-yes">11 Connectors + Self-Query + Custom</td></tr>
+    <tr><td><strong>SSO</strong></td><td class="status-yes">SAML 2.0 / OIDC</td><td class="status-yes">SAML 2.0 / OIDC / LDAP</td><td class="status-yes">Full + SCIM Provisioning</td></tr>
+    <tr><td><strong>Compliance</strong></td><td>SOC 2 + GDPR</td><td>SOC 2 + GDPR + HIPAA</td><td>Full + Custom Policies + 감사 대응</td></tr>
+    <tr><td><strong>고가용성 (HA)</strong></td><td class="status-no">단일 노드</td><td class="status-partial">Active-Standby</td><td class="status-yes">Active-Active 클러스터</td></tr>
+    <tr><td><strong>지원</strong></td><td>Business Hours (9×5)</td><td>Priority (24×5)</td><td>Dedicated Engineer (24×7)</td></tr>
+    <tr><td><strong>SLA</strong></td><td>99.5%</td><td>99.9%</td><td>99.99%</td></tr>
+  </tbody>
+</table>
+
+<h3>배포 옵션</h3>
+<table>
+  <thead><tr><th>배포 방식</th><th>설명</th><th>대상 고객</th></tr></thead>
+  <tbody>
+    <tr><td><strong>물리 어플라이언스</strong></td><td>사전 구성된 하드웨어 + 소프트웨어 일체형 납품</td><td>금융, 공공, 국방 — 폐쇄망 환경</td></tr>
+    <tr><td><strong>가상 어플라이언스 (VA)</strong></td><td>OVA/QCOW2 이미지로 고객 가상화 환경에 배포</td><td>기업 프라이빗 클라우드 (VMware, KVM, Hyper-V)</td></tr>
+    <tr><td><strong>컨테이너 배포</strong></td><td>Helm Chart + Docker 이미지로 고객 Kubernetes에 배포</td><td>클라우드 네이티브 환경 (EKS, AKS, GKE, On-Prem K8s)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>데이터 주권 보장:</strong> 모든 데이터(프롬프트, 응답, 문서, 로그)는 고객 환경 내에서만 처리·저장됩니다. 외부 클라우드로의 데이터 전송이 없으며, LLM API 호출도 고객 네트워크에서 직접 수행됩니다. 폐쇄망(Air-Gap) 환경에서는 로컬 LLM(Ollama, vLLM) 연동을 지원합니다.
+</div>
+
+
+<!-- ================================================ -->
+<!-- SECTION VI: EXPECTED BENEFITS                    -->
+<!-- ================================================ -->
+<div class="page-break"></div>
+<div class="section-header"><span class="section-num">VI.</span> 기대 효과 (Expected Benefits)</div>
+
+<h3>ROI 분석</h3>
+<table>
+  <thead><tr><th>항목</th><th>현재 (수동 관리)</th><th>KYRA AI Guardrail 도입 후</th><th>개선 효과</th></tr></thead>
+  <tbody>
+    <tr><td><strong>보안 사고 대응 시간</strong></td><td>평균 4~8시간</td><td>&lt; 30분 (자동 탐지·차단)</td><td class="status-yes">&gt; 90% 단축</td></tr>
+    <tr><td><strong>컴플라이언스 감사 비용</strong></td><td>연 $50,000~$150,000</td><td>연 $10,000~$30,000</td><td class="status-yes">70~80% 절감</td></tr>
+    <tr><td><strong>데이터 유출 사고</strong></td><td>연 2~5건 (평균 피해 $200K)</td><td>연 0~1건</td><td class="status-yes">&gt; 80% 감소</td></tr>
+    <tr><td><strong>AI 응답 품질 관리</strong></td><td>수동 샘플링 (5% 커버리지)</td><td>자동 전수 검사 (100% 커버리지)</td><td class="status-yes">20x 커버리지 향상</td></tr>
+    <tr><td><strong>보안팀 운영 효율</strong></td><td>FTE 3~5명 전담</td><td>FTE 1명 + 자동화</td><td class="status-yes">60~80% 인력 절감</td></tr>
+    <tr><td><strong>규제 위반 과태료 리스크</strong></td><td>GDPR 최대 20M EUR, HIPAA 최대 $1.5M</td><td>사전 예방으로 리스크 최소화</td><td class="status-yes">&gt; 95% 리스크 감소</td></tr>
+  </tbody>
+</table>
+
+<div class="kpi-row">
+  <div class="kpi-card"><div class="kpi-value">3~6개월</div><div class="kpi-label">투자 회수 기간 (Payback)</div></div>
+  <div class="kpi-card"><div class="kpi-value">300%+</div><div class="kpi-label">3년 ROI</div></div>
+  <div class="kpi-card"><div class="kpi-value">&gt; 80%</div><div class="kpi-label">운영 비용 절감</div></div>
+  <div class="kpi-card"><div class="kpi-value">100%</div><div class="kpi-label">규제 준수율</div></div>
+</div>
+
+
+
+<!-- ================================================ -->
+<!-- BACK COVER                                       -->
+<!-- ================================================ -->
+<div class="page-break"></div>
+<div style="display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:80vh;text-align:center;">
+  <div style="font-size:10pt;color:var(--text-light);text-transform:uppercase;letter-spacing:3px;margin-bottom:20px;">Thank You</div>
+  <div style="font-size:22pt;font-weight:800;color:var(--primary);margin-bottom:8px;">KYRA AI Guardrail</div>
+  <div style="font-size:11pt;color:var(--text-light);margin-bottom:40px;">엔터프라이즈 AI 보안 및 거버넌스 플랫폼</div>
+  <div style="width:80px;height:3px;background:var(--primary);margin:20px auto;"></div>
+  <div style="font-size:9pt;color:var(--text-light);line-height:2;">
+    Version 1.0 &mdash; May 2026<br>
+    Confidential &mdash; For Authorized Recipients Only
+  </div>
+  <div style="margin-top:40px;">
+    <div class="seekerslab-logo" style="justify-content:center;">
+      <div class="logo-icon" style="background:var(--primary-lighter);border-color:var(--border);color:var(--primary);">S</div>
+      <div class="logo-text">
+        <span class="logo-name" style="color:var(--primary);">SeekersLab</span>
+        <span class="logo-domain" style="color:var(--text-light);">seekerslab.com</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- No external JS — all diagrams rendered as pure CSS for instant loading -->
+
+</body>
+</html>

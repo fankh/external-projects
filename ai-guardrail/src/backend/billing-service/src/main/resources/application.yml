@@ -1,0 +1,45 @@
+server:
+  port: 8027
+
+spring:
+  application:
+    name: billing-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/kyra_billing
+    username: kyra
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 5000
+
+stripe:
+  api-key: ${STRIPE_API_KEY:sk_test_placeholder}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_placeholder}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.kyra.billing: DEBUG
+    org.springframework: INFO

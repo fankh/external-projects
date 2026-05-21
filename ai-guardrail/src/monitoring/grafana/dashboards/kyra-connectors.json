@@ -1,0 +1,54 @@
+{
+  "uid": "kyra-connectors",
+  "title": "KYRA Connector Activity",
+  "tags": [
+    "kyra",
+    "connectors"
+  ],
+  "schemaVersion": 38,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Recent Sync Runs",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 2,
+      "title": "Documents Indexed (gauge from DB)",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(kyra_phi_scans_total)",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "id": null
+}

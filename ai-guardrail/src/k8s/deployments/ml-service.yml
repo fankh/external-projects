@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-service
+  namespace: kyra-production
+  labels:
+    app: ml-service
+    app.kubernetes.io/part-of: kyra-ai-guardrail
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ml-service
+  template:
+    metadata:
+      labels:
+        app: ml-service
+    spec:
+      containers:
+        - name: ml-service
+          image: kyra/ml-service:latest
+          ports:
+            - containerPort: 8002
+          envFrom:
+            - configMapRef:
+                name: kyra-config
+            - secretRef:
+                name: kyra-secrets
+          env:
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/1"
+            - name: DEFAULT_MODEL
+              value: "gpt-4o"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-service
+  namespace: kyra-production
+  labels:
+    app: ml-service
+spec:
+  selector:
+    app: ml-service
+  ports:
+    - protocol: TCP
+      port: 8002
+      targetPort: 8002
+  type: ClusterIP

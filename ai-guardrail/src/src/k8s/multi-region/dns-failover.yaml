@@ -1,0 +1,14 @@
+# Route53 latency-based routing with health check
+# Apply via AWS CLI or Terraform (see infra/terraform)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dns-failover-config
+data:
+  primary_region: ap-northeast-2
+  secondary_region: us-west-2
+  health_check_path: /actuator/health
+  health_check_interval: 30
+  failover_threshold: 3
+  ttl: "60"
+  routing_policy: latency  # latency | failover | weighted

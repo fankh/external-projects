@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/kyra_guardrail
+    username: ${DB_USERNAME:kyra}
+    password: ${DB_PASSWORD}
+
+services:
+  auth:
+    url: http://auth-service:8081
+
+sso:
+  saml:
+    sp-entity-id: ${SSO_SAML_ENTITY_ID:kyra-guardrail}
+    acs-url: ${SSO_SAML_ACS_URL:https://sso.kyra.ai/v1/sso/saml/{tenantId}/callback}
+  oidc:
+    redirect-uri-template: ${SSO_OIDC_REDIRECT_URI:https://sso.kyra.ai/v1/sso/oidc/{tenantId}/callback}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.kyra.sso: INFO
+    org.springframework.security: WARN

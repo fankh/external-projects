@@ -1,0 +1,104 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:3000"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+
+# Service URLs (overridable via environment variables)
+services:
+  auth-service:
+    url: ${AUTH_SERVICE_URL:lb://auth-service}
+  chat-service:
+    url: ${CHAT_SERVICE_URL:lb://chat-service}
+  rag-service:
+    url: ${RAG_SERVICE_URL:lb://rag-service}
+  security-service:
+    url: ${SECURITY_SERVICE_URL:lb://security-service}
+  tenant-service:
+    url: ${TENANT_SERVICE_URL:http://localhost:8026}
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:default-secret-key-change-in-production-must-be-at-least-256-bits-long}
+
+# CORS Configuration
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
+  allowed-headers: "*"
+  exposed-headers: X-Request-Id
+  allow-credentials: true
+  max-age: 3600
+
+# Rate Limiting
+rate-limit:
+  default-limit: 100
+  window-seconds: 60
+  role-limits:
+    ADMIN: 500
+    USER: 100
+    VIEWER: 50
+
+# Circuit Breaker
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 5
+        slidingWindowType: COUNT_BASED
+    instances:
+      authServiceCB:
+        baseConfig: default
+      chatServiceCB:
+        baseConfig: default
+      ragServiceCB:
+        baseConfig: default
+      securityServiceCB:
+        baseConfig: default
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 30s
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.kyra.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+    io.github.resilience4j: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

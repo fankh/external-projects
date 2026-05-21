@@ -1,0 +1,89 @@
+groups:
+  - name: kyra-compliance
+    interval: 30s
+    rules:
+      # --- Auth / Access ---
+      - alert: HighFailedLoginRate
+        expr: rate(kyra_uba_observations_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          category: auth
+        annotations:
+          summary: 'Login observation rate abnormally high (>5/s for 2m)'
+          description: 'Indicates possible brute-force or burst login activity. Investigate UBA anomalies.'
+
+      - alert: PermissionDenyBurst
+        expr: increase(kyra_permission_decisions_total{decision="deny"}[5m]) > 20
+        for: 1m
+        labels:
+          severity: warning
+          category: auth
+        annotations:
+          summary: 'More than 20 permission denials in 5 minutes'
+          description: 'Possible credential abuse or misconfigured caller. Check audit log.'
+
+      # --- PHI / DLP ---
+      - alert: PhiCriticalSpike
+        expr: increase(kyra_phi_hits_total{severity="CRITICAL"}[10m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          category: phi
+        annotations:
+          summary: 'CRITICAL PHI (SSN) detections spiking'
+          description: 'More than 10 CRITICAL PHI hits in 10 minutes. Possible PII/PHI leak or misrouted content.'
+
+      # --- UBA anomalies ---
+      - alert: AnomalySurge
+        expr: increase(kyra_uba_anomalies_total[15m]) > 15
+        for: 5m
+        labels:
+          severity: warning
+          category: uba
+        annotations:
+          summary: 'UBA anomalies surging ({{ $value }} in 15m)'
+          description: 'Elevated anomalous-behavior detection rate; review /admin/compliance UBA tab.'
+
+      - alert: HighSeverityAnomalyAny
+        expr: increase(kyra_uba_anomalies_total{severity=~"HIGH|CRITICAL"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          category: uba
+        annotations:
+          summary: 'HIGH/CRITICAL anomaly detected'
+          description: 'At least one HIGH or CRITICAL-severity anomaly in the last 5 minutes. Ack it.'
+
+      # --- Breach SLA ---
+      - alert: BreachAuthorityDeadlineLate
+        expr: increase(kyra_breach_notifications_total{kind="authority", on_time="false"}[1h]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          category: breach
+        annotations:
+          summary: 'Breach notified AFTER the 72-hour authority deadline'
+          description: 'GDPR Art.33 compliance violation. Review breach register.'
+
+      # --- Audit integrity ---
+      - alert: AuditLegalHoldActivity
+        expr: increase(kyra_audit_legal_hold_total{op="activate"}[1h]) > 0
+        for: 0m
+        labels:
+          severity: info
+          category: audit
+        annotations:
+          summary: 'Legal hold placed on audit entry'
+          description: 'Track for investigation traceability.'
+
+      # --- Service liveness (default) ---
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: infra
+        annotations:
+          summary: 'Service {{ $labels.service }} down for >2m'
+          description: 'No successful Prometheus scrape from {{ $labels.service }} in 2 minutes.'

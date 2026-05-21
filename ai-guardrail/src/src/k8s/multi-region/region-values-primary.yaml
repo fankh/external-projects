@@ -1,0 +1,22 @@
+# Helm values — Primary region (ap-northeast-2)
+global:
+  region: ap-northeast-2
+  isPrimary: true
+  databaseUrl: "jdbc:postgresql://kyra-primary.xxxxx.ap-northeast-2.rds.amazonaws.com:5432/kyra"
+  redisUrl: "redis://kyra-redis-primary.xxxxx.apne2.cache.amazonaws.com:6379"
+
+replicaCount:
+  apiGateway: 3
+  authService: 2
+  chatService: 3
+  securityService: 2
+  ragService: 2
+  mlService: 2
+
+ingress:
+  host: kyra-guardrail.seekerslab.com
+  tls: true
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-2:xxx:certificate/xxx
