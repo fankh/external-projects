@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>사업 제안서 (Proposal)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&Pretendard:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1a1a40;
+      --accent: #2e8b57;
+      --light-bg: #f5f5f5;
+      --border: #e0e0e0;
+      --text: #333;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    @page {
+      size: A4;
+      margin: 20mm 20mm 20mm 20mm;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+      .page-break {
+        page-break-after: always;
+      }
+    }
+
+    .container {
+      max-width: 210mm;
+      margin: 0 auto;
+      background: white;
+    }
+
+    /* Cover Page */
+    .cover {
+      background: linear-gradient(135deg, var(--primary) 0%, #2e5266 50%, var(--accent) 100%);
+      color: white;
+      padding: 40mm 30mm;
+      text-align: center;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .cover::before {
+      content: 'Confidential';
+      position: absolute;
+      top: 20mm;
+      right: 20mm;
+      font-size: 12px;
+      opacity: 0.8;
+      transform: rotate(0deg);
+      letter-spacing: 2px;
+    }
+
+    .cover-logo-area {
+      width: 60mm;
+      height: 20mm;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 30mm;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .cover h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 10mm;
+      letter-spacing: -1px;
+    }
+
+    .cover .subtitle {
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 30mm;
+      font-weight: 300;
+    }
+
+    .cover-meta {
+      background: rgba(255, 255, 255, 0.15);
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 10mm 20mm;
+      margin: 20mm 0;
+      font-size: 13px;
+    }
+
+    .cover-meta-row {
+      display: flex;
+      justify-content: space-around;
+      margin: 5mm 0;
+    }
+
+    .cover-meta-item {
+      flex: 1;
+      text-align: center;
+    }
+
+    .cover-meta-label {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    .cover-meta-value {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    /* Section Headers */
+    .section-header {
+      background: var(--primary);
+      color: white;
+      padding: 8mm 10mm;
+      margin-top: 15mm;
+      margin-bottom: 8mm;
+      border-left: 6px solid var(--accent);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .section-header-en {
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.9;
+      margin-top: 2mm;
+    }
+
+    /* Content */
+    .content {
+      padding: 20mm;
+    }
+
+    .subsection {
+      margin-bottom: 10mm;
+    }
+
+    .subsection-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 8mm;
+      margin-bottom: 5mm;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 3mm;
+    }
+
+    p {
+      margin-bottom: 5mm;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10mm;
+      font-size: 12px;
+    }
+
+    thead {
+      background: var(--primary);
+      color: white;
+    }
+
+    th {
+      padding: 6mm 5mm;
+      text-align: left;
+      font-weight: 700;
+      border: 1px solid var(--primary);
+    }
+
+    td {
+      padding: 6mm 5mm;
+      border: 1px solid var(--border);
+    }
+
+    tbody tr:nth-child(even) {
+      background: var(--light-bg);
+    }
+
+    tbody tr:hover {
+      background: #efefef;
+    }
+
+    /* Cards */
+    .card-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10mm;
+      margin-bottom: 10mm;
+    }
+
+    .card {
+      background: var(--light-bg);
+      border-top: 4px solid var(--accent);
+      padding: 8mm;
+      text-align: center;
+    }
+
+    .card-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 5mm 0;
+    }
+
+    .card-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #666;
+    }
+
+    /* List */
+    ul {
+      margin-left: 20px;
+      margin-bottom: 8mm;
+    }
+
+    li {
+      margin-bottom: 4mm;
+      font-size: 13px;
+    }
+
+    /* Footer */
+    .footer {
+      border-top: 2px solid var(--primary);
+      padding-top: 10mm;
+      margin-top: 15mm;
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+    }
+
+    .page-break {
+      page-break-after: always;
+      padding-top: 20mm;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover">
+  <div class="cover-logo-area">LOGO</div>
+  <h1>[프로젝트명]</h1>
+  <div class="subtitle">Project Proposal</div>
+  <div class="cover-meta">
+    <div class="cover-meta-row">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">고객사 (Client)</div>
+        <div class="cover-meta-value">[고객사명]</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">제안사 (Proposer)</div>
+        <div class="cover-meta-value">[회사명]</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">버전 (Version)</div>
+        <div class="cover-meta-value">v1.0</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">제안일자 (Date)</div>
+        <div class="cover-meta-value">[YYYY.MM.DD]</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- 제안 개요 -->
+  <div class="section-header">
+    제안 개요
+    <div class="section-header-en">(Executive Summary)</div>
+  </div>
+
+  <div class="subsection">
+    <p>
+      본 제안서는 [고객사명]의 [사업명]을 위한 솔루션 제안입니다.
+      [회사명]은 [주요 솔루션/서비스]를 통해 고객의 [주요 비즈니스 목표]를 달성하도록 지원합니다.
+    </p>
+  </div>
+
+  <!-- 사업 범위 -->
+  <div class="section-header">
+    사업 범위
+    <div class="section-header-en">(Scope of Work)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>구분 (Item)</th>
+        <th>범위 (Scope)</th>
+        <th>비고 (Remarks)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>분석 (Analysis)</td>
+        <td>[분석 범위 설명]</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>설계 (Design)</td>
+        <td>[설계 범위 설명]</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>개발 (Development)</td>
+        <td>[개발 범위 설명]</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>테스트 (Testing)</td>
+        <td>[테스트 범위 설명]</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 솔루션 구성 -->
+  <div class="section-header">
+    솔루션 구성
+    <div class="section-header-en">(Solution Architecture)</div>
+  </div>
+
+  <div class="subsection">
+    <p style="text-align: center; color: #999; padding: 20mm;">
+      [시스템 아키텍처 다이어그램 영역]<br>
+      Architecture diagram to be inserted here
+    </p>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- 기능 명세 -->
+  <div class="section-header">
+    기능 명세
+    <div class="section-header-en">(Feature Specifications)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 10%;">ID</th>
+        <th style="width: 20%;">기능명<br>(Feature)</th>
+        <th style="width: 40%;">설명<br>(Description)</th>
+        <th style="width: 20%;">산출물<br>(Deliverable)</th>
+        <th style="width: 10%;">비고<br>(Remarks)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>F-001</td>
+        <td>[기능명]</td>
+        <td>[기능 설명]</td>
+        <td>[산출물]</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>F-002</td>
+        <td>[기능명]</td>
+        <td>[기능 설명]</td>
+        <td>[산출물]</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>F-003</td>
+        <td>[기능명]</td>
+        <td>[기능 설명]</td>
+        <td>[산출물]</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 수행 일정 -->
+  <div class="section-header">
+    수행 일정
+    <div class="section-header-en">(Project Schedule)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>단계 (Phase)</th>
+        <th>시작일 (Start)</th>
+        <th>완료일 (End)</th>
+        <th>기간 (Duration)</th>
+        <th>비고 (Remarks)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>착수 (Kickoff)</strong></td>
+        <td>[YYYY.MM.DD]</td>
+        <td>[YYYY.MM.DD]</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>분석 (Analysis)</strong></td>
+        <td>[YYYY.MM.DD]</td>
+        <td>[YYYY.MM.DD]</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>설계 (Design)</strong></td>
+        <td>[YYYY.MM.DD]</td>
+        <td>[YYYY.MM.DD]</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>개발 (Development)</strong></td>
+        <td>[YYYY.MM.DD]</td>
+        <td>[YYYY.MM.DD]</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>테스트 (Testing)</strong></td>
+        <td>[YYYY.MM.DD]</td>
+        <td>[YYYY.MM.DD]</td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- 투입 인력 -->
+  <div class="section-header">
+    투입 인력
+    <div class="section-header-en">(Team & Roles)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>역할 (Role)</th>
+        <th>인원 (Count)</th>
+        <th>주요 책임 (Responsibility)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>프로젝트 관리자 (PM)</td>
+        <td>1명</td>
+        <td>전체 프로젝트 관리 및 조정</td>
+      </tr>
+      <tr>
+        <td>시스템 설계자 (Architect)</td>
+        <td>1명</td>
+        <td>시스템 설계 및 기술 검토</td>
+      </tr>
+      <tr>
+        <td>개발자 (Developer)</td>
+        <td>2명</td>
+        <td>시스템 개발 및 구현</td>
+      </tr>
+      <tr>
+        <td>QA 엔지니어 (QA)</td>
+        <td>1명</td>
+        <td>테스트 및 품질 관리</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 사업 금액 -->
+  <div class="section-header">
+    사업 금액
+    <div class="section-header-en">(Pricing)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>항목 (Item)</th>
+        <th style="text-align: right;">금액 (Amount)</th>
+        <th>비고 (Remarks)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>개발 비용 (Development)</td>
+        <td style="text-align: right;">₩[금액]</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>테스트 및 QA (Testing & QA)</td>
+        <td style="text-align: right;">₩[금액]</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>구축 및 운영지원 (Deployment & Support)</td>
+        <td style="text-align: right;">₩[금액]</td>
+        <td></td>
+      </tr>
+      <tr style="background: #ddd;">
+        <td><strong>총합 (Total)</strong></td>
+        <td style="text-align: right;"><strong>₩[금액]</strong></td>
+        <td>부가세 제외</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- 기대 효과 -->
+  <div class="section-header">
+    기대 효과
+    <div class="section-header-en">(Expected Benefits)</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">정량적 효과 (Quantitative Benefits)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>항목 (Item)</th>
+          <th style="text-align: center;">개선율 (Improvement)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>처리 시간 (Processing Time)</td>
+          <td style="text-align: center;">[ ]% 개선</td>
+        </tr>
+        <tr>
+          <td>운영 비용 (Operational Cost)</td>
+          <td style="text-align: center;">[ ]% 절감</td>
+        </tr>
+        <tr>
+          <td>생산성 (Productivity)</td>
+          <td style="text-align: center;">[ ]% 향상</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">정성적 효과 (Qualitative Benefits)</div>
+    <ul>
+      <li>[정성적 효과 1]</li>
+      <li>[정성적 효과 2]</li>
+      <li>[정성적 효과 3]</li>
+    </ul>
+  </div>
+
+  <!-- 회사 소개 -->
+  <div class="section-header">
+    회사 소개
+    <div class="section-header-en">(Company Profile)</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">회사 개요</div>
+    <p>
+      [회사 설립 연도], [주요 사업 분야], [주요 고객사/실적] 등의 회사 정보를 기재합니다.
+    </p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">주요 경력</div>
+    <table>
+      <thead>
+        <tr>
+          <th>연도 (Year)</th>
+          <th>프로젝트명 (Project)</th>
+          <th>고객사 (Client)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>[년도]</td>
+          <td>[프로젝트명]</td>
+          <td>[고객사명]</td>
+        </tr>
+        <tr>
+          <td>[년도]</td>
+          <td>[프로젝트명]</td>
+          <td>[고객사명]</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <p>본 제안서는 기밀 정보이며, 승인된 담당자 외에는 배포될 수 없습니다.<br>
+    This proposal contains confidential information and cannot be distributed without approval.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

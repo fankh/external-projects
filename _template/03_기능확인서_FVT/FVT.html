@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기능확인서 (Feature Verification Test)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&Pretendard:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1a1a40;
+      --accent: #2e8b57;
+      --light-bg: #f5f5f5;
+      --border: #e0e0e0;
+      --text: #333;
+      --pass: #28a745;
+      --fail: #dc3545;
+      --pending: #ffc107;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    @page {
+      size: A4;
+      margin: 20mm 20mm 20mm 20mm;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+      .page-break {
+        page-break-after: always;
+      }
+    }
+
+    /* Cover Page */
+    .cover {
+      background: linear-gradient(135deg, var(--primary) 0%, #2e5266 50%, var(--accent) 100%);
+      color: white;
+      padding: 40mm 30mm;
+      text-align: center;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      margin-bottom: 20mm;
+    }
+
+    .cover::before {
+      content: 'Confidential';
+      position: absolute;
+      top: 20mm;
+      right: 20mm;
+      font-size: 12px;
+      opacity: 0.8;
+      letter-spacing: 2px;
+    }
+
+    .cover h1 {
+      font-size: 44px;
+      font-weight: 700;
+      margin-bottom: 10mm;
+    }
+
+    .cover .subtitle {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 30mm;
+    }
+
+    .cover-meta {
+      background: rgba(255, 255, 255, 0.15);
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 8mm 20mm;
+      margin: 20mm 0;
+      font-size: 12px;
+      width: 100%;
+    }
+
+    .cover-meta-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10mm;
+      margin: 5mm 0;
+    }
+
+    .cover-meta-item {
+      text-align: left;
+    }
+
+    .cover-meta-label {
+      font-size: 10px;
+      opacity: 0.8;
+    }
+
+    .cover-meta-value {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .approval-section {
+      margin-top: 30mm;
+      text-align: center;
+      width: 100%;
+    }
+
+    .approval-title {
+      font-size: 13px;
+      margin-bottom: 15mm;
+      font-weight: 600;
+    }
+
+    .approval-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20mm;
+      margin-top: 10mm;
+    }
+
+    .approval-box {
+      border-top: 2px solid white;
+      padding-top: 15mm;
+    }
+
+    .approval-label {
+      font-size: 12px;
+      margin-top: 8mm;
+    }
+
+    /* Content */
+    .content {
+      padding: 20mm;
+    }
+
+    .section-header {
+      background: var(--primary);
+      color: white;
+      padding: 8mm 10mm;
+      margin-top: 12mm;
+      margin-bottom: 8mm;
+      border-left: 6px solid var(--accent);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .section-header-en {
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.9;
+      margin-top: 2mm;
+    }
+
+    .subsection {
+      margin-bottom: 8mm;
+    }
+
+    .subsection-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 8mm;
+      margin-bottom: 5mm;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 3mm;
+    }
+
+    p {
+      margin-bottom: 5mm;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10mm;
+      font-size: 11px;
+    }
+
+    thead {
+      background: var(--primary);
+      color: white;
+    }
+
+    th {
+      padding: 5mm 4mm;
+      text-align: left;
+      font-weight: 700;
+      border: 1px solid var(--primary);
+    }
+
+    td {
+      padding: 5mm 4mm;
+      border: 1px solid var(--border);
+    }
+
+    tbody tr:nth-child(even) {
+      background: var(--light-bg);
+    }
+
+    /* Status badges */
+    .status-pass {
+      background: #d4edda;
+      color: var(--pass);
+      padding: 3mm 6mm;
+      border-radius: 3px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .status-fail {
+      background: #f8d7da;
+      color: var(--fail);
+      padding: 3mm 6mm;
+      border-radius: 3px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+      padding: 3mm 6mm;
+      border-radius: 3px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    /* Severity badges */
+    .severity-high {
+      background: #ffcccc;
+      color: #cc0000;
+      padding: 2mm 4mm;
+      border-radius: 2px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .severity-medium {
+      background: #ffffcc;
+      color: #cc8800;
+      padding: 2mm 4mm;
+      border-radius: 2px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .severity-low {
+      background: #ccffcc;
+      color: #008800;
+      padding: 2mm 4mm;
+      border-radius: 2px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .footer {
+      border-top: 2px solid var(--primary);
+      padding-top: 10mm;
+      margin-top: 15mm;
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+    }
+
+    .page-break {
+      page-break-after: always;
+      padding-top: 20mm;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover">
+  <h1>기능확인서</h1>
+  <div class="subtitle">Feature Verification Test (FVT)</div>
+  <div class="cover-meta">
+    <div class="cover-meta-row">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">프로젝트명 (Project)</div>
+        <div class="cover-meta-value">[프로젝트명]</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">버전 (Version)</div>
+        <div class="cover-meta-value">v1.0</div>
+      </div>
+    </div>
+    <div class="cover-meta-row">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">수행일 (Test Date)</div>
+        <div class="cover-meta-value">[YYYY.MM.DD]</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">담당자 (PM)</div>
+        <div class="cover-meta-value">[이름]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="approval-section">
+    <div class="approval-title">확인 및 승인 (Sign-off)</div>
+    <div class="approval-grid">
+      <div>
+        <div class="approval-box" style="height: 25mm;"></div>
+        <div class="approval-label">고객사 담당자<br>(Client Representative)<br>[부서/직급]<br>[이름]</div>
+      </div>
+      <div>
+        <div class="approval-box" style="height: 25mm;"></div>
+        <div class="approval-label">수행사 PM<br>(Project Manager)<br>[부서/직급]<br>[이름]</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- 문서 목적 및 범위 -->
+  <div class="section-header">
+    문서 목적 및 범위
+    <div class="section-header-en">(Purpose & Scope)</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">목적 (Purpose)</div>
+    <p>
+      본 기능확인서는 [프로젝트명]의 구축된 시스템이 요구사항에 맞게 구현되었는지를 확인하기 위한 문서입니다.
+      고객사와 수행사가 함께 진행하는 기능 확인 프로세스의 결과를 기록합니다.
+    </p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">범위 (Scope)</div>
+    <p>[기능확인 범위 설명]</p>
+  </div>
+
+  <!-- 시스템 환경 -->
+  <div class="section-header">
+    시스템 환경
+    <div class="section-header-en">(Test Environment)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 30%;">항목 (Item)</th>
+        <th style="width: 70%;">정보 (Information)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>테스트 환경 (Environment)</td>
+        <td>[DEV/STG/PROD]</td>
+      </tr>
+      <tr>
+        <td>서버 (Server)</td>
+        <td>[OS/서버명]</td>
+      </tr>
+      <tr>
+        <td>소프트웨어 버전 (SW Version)</td>
+        <td>[버전 정보]</td>
+      </tr>
+      <tr>
+        <td>데이터베이스 (Database)</td>
+        <td>[DB 종류/버전]</td>
+      </tr>
+      <tr>
+        <td>브라우저 (Browser)</td>
+        <td>[브라우저/버전]</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- 기능 확인 항목 -->
+  <div class="section-header">
+    기능 확인 항목
+    <div class="section-header-en">(Test Cases)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 8%;">TC-ID</th>
+        <th style="width: 15%;">기능명<br>(Feature)</th>
+        <th style="width: 22%;">테스트 내용<br>(Test Content)</th>
+        <th style="width: 18%;">기대 결과<br>(Expected)</th>
+        <th style="width: 18%;">실제 결과<br>(Actual)</th>
+        <th style="width: 10%;">판정<br>(Result)</th>
+        <th style="width: 9%;">비고<br>(Remarks)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>TC-001</td>
+        <td>[기능명]</td>
+        <td>[테스트 내용]</td>
+        <td>[기대 결과]</td>
+        <td>[실제 결과]</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>TC-002</td>
+        <td>[기능명]</td>
+        <td>[테스트 내용]</td>
+        <td>[기대 결과]</td>
+        <td>[실제 결과]</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>TC-003</td>
+        <td>[기능명]</td>
+        <td>[테스트 내용]</td>
+        <td>[기대 결과]</td>
+        <td>[실제 결과]</td>
+        <td><span class="status-fail">Fail</span></td>
+        <td>미해결</td>
+      </tr>
+      <tr>
+        <td>TC-004</td>
+        <td>[기능명]</td>
+        <td>[테스트 내용]</td>
+        <td>[기대 결과]</td>
+        <td>[실제 결과]</td>
+        <td><span class="status-pending">Pending</span></td>
+        <td>진행중</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- 비기능 확인 항목 -->
+  <div class="section-header">
+    비기능 확인 항목
+    <div class="section-header-en">(Non-Functional Checks)</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">성능 (Performance)</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 35%;">항목 (Item)</th>
+          <th style="width: 25%;">요구사항 (Requirement)</th>
+          <th style="width: 25%;">측정값 (Measured)</th>
+          <th style="width: 15%;">결과 (Result)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>응답 시간 (Response Time)</td>
+          <td>[요구값]</td>
+          <td>[측정값]</td>
+          <td><span class="status-pass">Pass</span></td>
+        </tr>
+        <tr>
+          <td>처리량 (Throughput)</td>
+          <td>[요구값]</td>
+          <td>[측정값]</td>
+          <td><span class="status-pass">Pass</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">보안 (Security)</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 35%;">항목 (Item)</th>
+          <th style="width: 25%;">요구사항 (Requirement)</th>
+          <th style="width: 25%;">확인 결과 (Verified)</th>
+          <th style="width: 15%;">결과 (Result)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>인증 (Authentication)</td>
+          <td>[요구사항]</td>
+          <td>[확인 결과]</td>
+          <td><span class="status-pass">Pass</span></td>
+        </tr>
+        <tr>
+          <td>암호화 (Encryption)</td>
+          <td>[요구사항]</td>
+          <td>[확인 결과]</td>
+          <td><span class="status-pass">Pass</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- 결함 목록 -->
+  <div class="section-header">
+    결함 목록
+    <div class="section-header-en">(Defect List)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 8%;">ID</th>
+        <th style="width: 12%;">발생일<br>(Date)</th>
+        <th style="width: 28%;">결함 내용<br>(Description)</th>
+        <th style="width: 12%;">심각도<br>(Severity)</th>
+        <th style="width: 15%;">상태<br>(Status)</th>
+        <th style="width: 12%;">처리일<br>(Resolved)</th>
+        <th style="width: 13%;">비고<br>(Remarks)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>DEF-001</td>
+        <td>[YYYY.MM.DD]</td>
+        <td>[결함 설명]</td>
+        <td><span class="severity-high">High</span></td>
+        <td>해결</td>
+        <td>[YYYY.MM.DD]</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>DEF-002</td>
+        <td>[YYYY.MM.DD]</td>
+        <td>[결함 설명]</td>
+        <td><span class="severity-medium">Medium</span></td>
+        <td>해결</td>
+        <td>[YYYY.MM.DD]</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>DEF-003</td>
+        <td>[YYYY.MM.DD]</td>
+        <td>[결함 설명]</td>
+        <td><span class="severity-low">Low</span></td>
+        <td>미해결</td>
+        <td>-</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- 최종 확인 및 서명 -->
+  <div class="section-header">
+    최종 확인 및 승인
+    <div class="section-header-en">(Final Approval)</div>
+  </div>
+
+  <div style="margin-top: 20mm;">
+    <p style="font-weight: 600; margin-bottom: 15mm;">기능확인 결과</p>
+    <table style="margin-bottom: 20mm;">
+      <thead>
+        <tr>
+          <th>구분 (Category)</th>
+          <th>통과 (Pass)</th>
+          <th>미통과 (Fail)</th>
+          <th>보류 (Pending)</th>
+          <th>합계 (Total)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>기능 테스트 (Functional Tests)</td>
+          <td style="text-align: center;">[ ]</td>
+          <td style="text-align: center;">[ ]</td>
+          <td style="text-align: center;">[ ]</td>
+          <td style="text-align: center;">[ ]</td>
+        </tr>
+        <tr>
+          <td>비기능 테스트 (Non-Functional Tests)</td>
+          <td style="text-align: center;">[ ]</td>
+          <td style="text-align: center;">[ ]</td>
+          <td style="text-align: center;">[ ]</td>
+          <td style="text-align: center;">[ ]</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="border: 2px solid var(--primary); padding: 15mm; margin: 20mm 0; text-align: center;">
+      <p style="font-weight: 600; font-size: 14px; margin-bottom: 3mm;">
+        기능확인 결론 (Conclusion)
+      </p>
+      <p style="font-size: 13px;">
+        ☐ 승인 (Approved) / ☐ 조건부 승인 (Conditional Approval) / ☐ 부승인 (Not Approved)
+      </p>
+    </div>
+
+    <p style="margin: 15mm 0; text-align: center; font-size: 12px; color: #666;">
+      [ 계약자 / 서비스 제공자 / 검토자 서명 및 날인 ]
+    </p>
+  </div>
+
+  <div class="footer">
+    <p>본 기능확인서는 기밀 정보이며, 승인된 담당자 외에는 배포될 수 없습니다.<br>
+    This FVT report contains confidential information and cannot be distributed without approval.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>요구사항 정의서 (Requirements Definition)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&Pretendard:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1a1a40;
+      --accent: #2e8b57;
+      --light-bg: #f5f5f5;
+      --border: #e0e0e0;
+      --text: #333;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    @page {
+      size: A4;
+      margin: 20mm 20mm 20mm 20mm;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+      .page-break {
+        page-break-after: always;
+      }
+    }
+
+    .container {
+      max-width: 210mm;
+      margin: 0 auto;
+      background: white;
+    }
+
+    /* Cover Page */
+    .cover {
+      background: linear-gradient(135deg, var(--primary) 0%, #2e5266 50%, var(--accent) 100%);
+      color: white;
+      padding: 40mm 30mm;
+      text-align: center;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .cover::before {
+      content: 'Confidential';
+      position: absolute;
+      top: 20mm;
+      right: 20mm;
+      font-size: 12px;
+      opacity: 0.8;
+      letter-spacing: 2px;
+    }
+
+    .cover h1 {
+      font-size: 44px;
+      font-weight: 700;
+      margin-bottom: 10mm;
+    }
+
+    .cover .subtitle {
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 30mm;
+    }
+
+    .cover-meta {
+      background: rgba(255, 255, 255, 0.15);
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 8mm 20mm;
+      margin: 20mm 0;
+      font-size: 13px;
+      width: 100%;
+    }
+
+    .cover-meta-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15mm;
+      margin: 5mm 0;
+    }
+
+    .cover-meta-item {
+      text-align: left;
+    }
+
+    .cover-meta-label {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    .cover-meta-value {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    /* Section Headers */
+    .section-header {
+      background: var(--primary);
+      color: white;
+      padding: 8mm 10mm;
+      margin-top: 12mm;
+      margin-bottom: 8mm;
+      border-left: 6px solid var(--accent);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .section-header-en {
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.9;
+      margin-top: 2mm;
+    }
+
+    /* Content */
+    .content {
+      padding: 20mm;
+    }
+
+    .subsection {
+      margin-bottom: 8mm;
+    }
+
+    .subsection-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 8mm;
+      margin-bottom: 5mm;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 3mm;
+    }
+
+    p {
+      margin-bottom: 5mm;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10mm;
+      font-size: 12px;
+    }
+
+    thead {
+      background: var(--primary);
+      color: white;
+    }
+
+    th {
+      padding: 6mm 5mm;
+      text-align: left;
+      font-weight: 700;
+      border: 1px solid var(--primary);
+    }
+
+    td {
+      padding: 6mm 5mm;
+      border: 1px solid var(--border);
+    }
+
+    tbody tr:nth-child(even) {
+      background: var(--light-bg);
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: 2mm 4mm;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-high {
+      background: #ffcccc;
+      color: #cc0000;
+    }
+
+    .badge-medium {
+      background: #ffffcc;
+      color: #cc8800;
+    }
+
+    .badge-low {
+      background: #ccffcc;
+      color: #008800;
+    }
+
+    /* Footer */
+    .footer {
+      border-top: 2px solid var(--primary);
+      padding-top: 10mm;
+      margin-top: 15mm;
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+    }
+
+    .page-break {
+      page-break-after: always;
+      padding-top: 20mm;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover">
+  <h1>[프로젝트명]</h1>
+  <div class="subtitle">요구사항 정의서 (Requirements Definition Document)</div>
+  <div class="cover-meta">
+    <div class="cover-meta-row">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">버전 (Version)</div>
+        <div class="cover-meta-value">v1.0</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">작성일 (Created)</div>
+        <div class="cover-meta-value">[YYYY.MM.DD]</div>
+      </div>
+    </div>
+    <div class="cover-meta-row">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">작성자 (Author)</div>
+        <div class="cover-meta-value">[이름]</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">검토자 (Reviewer)</div>
+        <div class="cover-meta-value">[이름]</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- 문서 이력 -->
+  <div class="section-header">
+    문서 이력
+    <div class="section-header-en">(Document History)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>버전 (Version)</th>
+        <th>작성일 (Date)</th>
+        <th>작성자 (Author)</th>
+        <th>변경 사항 (Changes)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>v1.0</td>
+        <td>[YYYY.MM.DD]</td>
+        <td>[이름]</td>
+        <td>최초 작성</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 프로젝트 개요 -->
+  <div class="section-header">
+    프로젝트 개요
+    <div class="section-header-en">(Project Overview)</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">목적 (Objective)</div>
+    <p>본 요구사항 정의서는 [프로젝트명] 사업의 기능 요구사항과 비기능 요구사항을 정의합니다.</p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">범위 (Scope)</div>
+    <p>[프로젝트 범위 설명]</p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">주요 목표 (Key Goals)</div>
+    <ul style="margin-left: 20px;">
+      <li>[목표 1]</li>
+      <li>[목표 2]</li>
+      <li>[목표 3]</li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- 기능 요구사항 -->
+  <div class="section-header">
+    기능 요구사항
+    <div class="section-header-en">(Functional Requirements)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 10%;">REQ-ID</th>
+        <th style="width: 25%;">요구사항명<br>(Requirement)</th>
+        <th style="width: 35%;">설명<br>(Description)</th>
+        <th style="width: 12%;">우선순위<br>(Priority)</th>
+        <th style="width: 18%;">검증방법<br>(Verification)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>FR-001</td>
+        <td>[요구사항명]</td>
+        <td>[상세 설명]</td>
+        <td><span class="badge badge-high">High</span></td>
+        <td>테스트</td>
+      </tr>
+      <tr>
+        <td>FR-002</td>
+        <td>[요구사항명]</td>
+        <td>[상세 설명]</td>
+        <td><span class="badge badge-medium">Medium</span></td>
+        <td>테스트</td>
+      </tr>
+      <tr>
+        <td>FR-003</td>
+        <td>[요구사항명]</td>
+        <td>[상세 설명]</td>
+        <td><span class="badge badge-high">High</span></td>
+        <td>테스트</td>
+      </tr>
+      <tr>
+        <td>FR-004</td>
+        <td>[요구사항명]</td>
+        <td>[상세 설명]</td>
+        <td><span class="badge badge-low">Low</span></td>
+        <td>테스트</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- 비기능 요구사항 -->
+  <div class="section-header">
+    비기능 요구사항
+    <div class="section-header-en">(Non-Functional Requirements)</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">성능 (Performance)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>항목 (Item)</th>
+          <th>요구사항 (Requirement)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>응답 시간 (Response Time)</td>
+          <td>[n초 이내]</td>
+        </tr>
+        <tr>
+          <td>처리량 (Throughput)</td>
+          <td>[n TPS 이상]</td>
+        </tr>
+        <tr>
+          <td>동시 사용자 (Concurrent Users)</td>
+          <td>[n명 이상]</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">보안 (Security)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>항목 (Item)</th>
+          <th>요구사항 (Requirement)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>인증 (Authentication)</td>
+          <td>[인증 방식]</td>
+        </tr>
+        <tr>
+          <td>암호화 (Encryption)</td>
+          <td>[암호화 표준]</td>
+        </tr>
+        <tr>
+          <td>접근 제어 (Access Control)</td>
+          <td>[역할 기반 접근 제어]</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">가용성 (Availability)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>항목 (Item)</th>
+          <th>요구사항 (Requirement)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>서비스 가용성 (Service Availability)</td>
+          <td>[99.X%]</td>
+        </tr>
+        <tr>
+          <td>재해 복구 (Disaster Recovery)</td>
+          <td>[RTO/RPO]</td>
+        </tr>
+        <tr>
+          <td>백업 (Backup)</td>
+          <td>[주기]</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- 인터페이스 요구사항 -->
+  <div class="section-header">
+    인터페이스 요구사항
+    <div class="section-header-en">(Interface Requirements)</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">사용자 인터페이스 (User Interface)</div>
+    <ul style="margin-left: 20px;">
+      <li>[UI 요구사항 1]</li>
+      <li>[UI 요구사항 2]</li>
+      <li>[UI 요구사항 3]</li>
+    </ul>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">외부 시스템 인터페이스 (External System Interface)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>시스템 (System)</th>
+          <th>인터페이스 방식 (Method)</th>
+          <th>주기 (Frequency)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>[외부시스템명]</td>
+          <td>[REST/SOAP/File/DB]</td>
+          <td>[동기/비동기]</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 제약 사항 -->
+  <div class="section-header">
+    제약 사항
+    <div class="section-header-en">(Constraints)</div>
+  </div>
+
+  <div class="subsection">
+    <ul style="margin-left: 20px;">
+      <li><strong>기술 제약:</strong> [기술적 제약 사항]</li>
+      <li><strong>규정 제약:</strong> [법적/규제 제약 사항]</li>
+      <li><strong>일정 제약:</strong> [프로젝트 일정 제약]</li>
+      <li><strong>비용 제약:</strong> [예산 제약]</li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- 용어 정의 -->
+  <div class="section-header">
+    용어 정의
+    <div class="section-header-en">(Glossary)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">용어 (Term)</th>
+        <th style="width: 75%;">정의 (Definition)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>[용어1]</td>
+        <td>[정의]</td>
+      </tr>
+      <tr>
+        <td>[용어2]</td>
+        <td>[정의]</td>
+      </tr>
+      <tr>
+        <td>[용어3]</td>
+        <td>[정의]</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <p>본 문서는 기밀 정보이며, 승인된 담당자 외에는 배포될 수 없습니다.<br>
+    This document contains confidential information and cannot be distributed without approval.</p>
+  </div>
+
+</div>
+
+</body>
+</html>
