@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Policies — KYRA Admin Console</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            background: #f5f7fa;
+            padding: 0;
+        }
+        .container {
+            max-width: 100%;
+            background: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: linear-gradient(90deg, #1a1a40 0%, #2e8b57 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        .header-subtitle {
+            font-size: 12px;
+            opacity: 0.85;
+            margin-top: 2px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f9fafb;
+            padding: 0 30px;
+        }
+        .tab {
+            padding: 14px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab:hover {
+            color: #333;
+        }
+        .tab.active {
+            color: #1a1a40;
+            border-bottom-color: #2e8b57;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+            flex: 1;
+        }
+        .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1a1a40;
+            margin-bottom: 8px;
+        }
+        .section-description {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .policy-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .policy-table thead {
+            background: #1a1a40;
+            color: white;
+        }
+        .policy-table th {
+            padding: 14px 12px;
+            text-align: center;
+            font-weight: 600;
+            border-right: 1px solid #2a2a50;
+        }
+        .policy-table th:last-child {
+            border-right: none;
+        }
+        .policy-table th.classification-header {
+            text-align: center;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .policy-table .subheader {
+            background: #2a2a50;
+            color: #aaa;
+            font-size: 10px;
+            font-weight: 400;
+            padding: 8px 12px;
+            text-align: center;
+            border-right: 1px solid #3a3a60;
+        }
+        .policy-table .subheader:last-child {
+            border-right: none;
+        }
+        .policy-table td {
+            padding: 14px 12px;
+            text-align: center;
+            border-right: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+        }
+        .policy-table td:last-child {
+            border-right: none;
+        }
+        .policy-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .policy-table tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+        .policy-table tbody tr:hover {
+            background: #f0f2f5;
+            transition: background 0.15s;
+        }
+        .role-name {
+            text-align: left;
+            font-weight: 600;
+            color: #2e8b57;
+            padding-left: 16px;
+            text-align: left;
+        }
+        .checkbox-cell {
+            font-size: 18px;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s;
+        }
+        .checkbox-cell:hover {
+            transform: scale(1.1);
+        }
+        .checkbox-checked {
+            color: #2e8b57;
+            font-weight: bold;
+        }
+        .checkbox-unchecked {
+            color: #ccc;
+        }
+        .info-box {
+            margin-top: 24px;
+            padding: 16px;
+            background: #f0f9ff;
+            border-left: 4px solid #2e8b57;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .info-box .title {
+            font-weight: 600;
+            color: #1a1a40;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .info-box ul {
+            margin-left: 20px;
+            color: #333;
+            line-height: 1.6;
+        }
+        .info-box li {
+            margin-bottom: 4px;
+        }
+        .info-box strong {
+            color: #1a1a40;
+        }
+        .footer {
+            background: #f9fafb;
+            padding: 16px 30px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 11px;
+            color: #999;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .footer-left {
+            display: flex;
+            gap: 20px;
+        }
+        .footer-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>🔐 Access Policies — Role × Classification Matrix</h1>
+                <div class="header-subtitle">Role-based and Attribute-based Access Control Configuration</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab">Document Library</button>
+            <button class="tab active">Access Policies</button>
+            <button class="tab">Collections</button>
+            <button class="tab">Audit Logs</button>
+        </div>
+
+        <div class="content">
+            <div class="section-title">역할 × 문서 분류등급 권한 매트릭스</div>
+            <div class="section-description">
+                각 역할이 각 분류등급 문서에 접근할 수 있는지 여부를 설정합니다. 체크박스를 클릭하여 권한을 변경할 수 있으며, 변경사항은 자동으로 저장됩니다.
+            </div>
+
+            <table class="policy-table">
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">역할 / 분류등급</th>
+                        <th class="classification-header">Public<br><span style="font-size: 10px; font-weight: 400;">공개</span></th>
+                        <th class="classification-header">Internal<br><span style="font-size: 10px; font-weight: 400;">내부</span></th>
+                        <th class="classification-header">Confidential<br><span style="font-size: 10px; font-weight: 400;">기밀</span></th>
+                        <th class="classification-header">Restricted<br><span style="font-size: 10px; font-weight: 400;">제한</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="role-name">👨‍💼 Admin</td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                    </tr>
+                    <tr>
+                        <td class="role-name">👔 Manager</td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-unchecked">☐</span></td>
+                    </tr>
+                    <tr>
+                        <td class="role-name">⚡ Power User</td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-unchecked">☐</span></td>
+                        <td><span class="checkbox-cell checkbox-unchecked">☐</span></td>
+                    </tr>
+                    <tr>
+                        <td class="role-name">👤 User</td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-unchecked">☐</span></td>
+                        <td><span class="checkbox-cell checkbox-unchecked">☐</span></td>
+                    </tr>
+                    <tr>
+                        <td class="role-name">👁️ Viewer</td>
+                        <td><span class="checkbox-cell checkbox-checked">☑</span></td>
+                        <td><span class="checkbox-cell checkbox-unchecked">☐</span></td>
+                        <td><span class="checkbox-cell checkbox-unchecked">☐</span></td>
+                        <td><span class="checkbox-cell checkbox-unchecked">☐</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="info-box">
+                <div class="title">💡 Access Control Guidelines</div>
+                <ul>
+                    <li><strong>Admin</strong>: Full access to all documents and permission management. Can modify policies and audit logs.</li>
+                    <li><strong>Manager</strong>: Access to Public, Internal, Confidential (no Restricted). Can approve document classifications.</li>
+                    <li><strong>Power User</strong>: Access to Public and Internal documents. Restricted to assigned tools and workflows.</li>
+                    <li><strong>User</strong>: Access to Public and Internal documents. Read-only mode by default.</li>
+                    <li><strong>Viewer</strong>: Access to Public documents only. No tool invocation or export capabilities.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-left">
+                <div class="footer-item">💾 Auto-saved</div>
+                <div class="footer-item">⏰ Changes take effect in <5ms</div>
+                <div class="footer-item">📊 All access is audited and logged</div>
+            </div>
+            <div class="footer-item">KYRA AI Guardrail System</div>
+        </div>
+    </div>
+</body>
+</html>
