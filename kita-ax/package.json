@@ -1,0 +1,13 @@
+{
+  "name": "kita-ax-screenshot-capture",
+  "version": "1.0.0",
+  "description": "Playwright script to capture Access Policies screenshot from KYRA admin console",
+  "main": "capture_screenshot.js",
+  "scripts": {
+    "capture": "node capture_screenshot.js",
+    "playwright:install": "playwright install"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}
