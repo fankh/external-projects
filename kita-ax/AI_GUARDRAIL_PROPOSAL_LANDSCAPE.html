@@ -359,6 +359,21 @@
             <li>고객 사례</li>
           </ol>
         </div>
+        <div class="toc-section">
+          <div class="toc-section-title">VII. Agentic AI 보안 (Agentic AI Security)</div>
+          <ol>
+            <li>RBAC 기반 에이전트 보호 아키텍처</li>
+            <li>ABAC 기반 속성 제어 및 동적 정책</li>
+          </ol>
+        </div>
+        <div class="toc-section">
+          <div class="toc-section-title">VIII. 구축 방법론 (Implementation Methodology)</div>
+          <ol>
+            <li>Phase 1: 솔루션 기본 도입</li>
+            <li>Phase 2: KITA 맞춤 커스터마이징</li>
+            <li>Phase 3: 운영 안정화 및 이관</li>
+          </ol>
+        </div>
       </div>
     </div>
   </div>
@@ -366,7 +381,7 @@
     <div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div>
     <div>SeekersLab</div>
     <div>Confidential</div>
-    <div>1 / 17</div>
+    <div>1 / 20</div>
   </div>
 </div>
 
@@ -905,11 +920,162 @@
       <div class="callout"><strong>핵심 성과:</strong> 대만 지진 발생 시 4시간 내 영향 분석 + 대체 공급처 3곳 경영진 보고. 기존 72시간 대비 대응 속도 18배 향상.</div>
     </div>
   </div>
-  <div class="slide-footer"><div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div><div>SeekersLab</div><div>Confidential</div><div>16 / 17</div></div>
+  <div class="slide-footer"><div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div><div>SeekersLab</div><div>Confidential</div><div>16 / 20</div></div>
 </div>
 
-<!-- ====== SLIDE 22: AI AGENT USE CASE 3 — IT AIOps ====== -->
-<!-- ====== BACK COVER ====== -->
+<!-- ====== SLIDE 18: AGENTIC AI RBAC PROTECTION ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">VII.</span> Agentic AI 보호: RBAC 기반 역할 제어</div>
+  <div class="two-col">
+    <div>
+      <div style="margin-bottom:20px;padding:12px;background:#f5f7fa;border-left:4px solid var(--accent);border-radius:4px;">
+        <div style="font-size:10pt;font-weight:600;color:var(--primary);margin-bottom:8px;">에이전트 요청 처리 흐름</div>
+        <div style="font-size:9pt;line-height:1.6;color:#333;">
+          1️⃣ <strong>요청 수신</strong> — Agent가 문서 읽기, 도구 호출<br>
+          2️⃣ <strong>역할 추출</strong> — Gateway에서 JWT 토큰으로 역할 확인<br>
+          3️⃣ <strong>정책 평가</strong> — OPA에서 role:resource 권한 검사<br>
+          4️⃣ <strong>의사결정</strong> — 허용(✓) / 거부(✗) + 감사로그
+        </div>
+      </div>
+      <div style="padding:8px 0;"><strong style="color:var(--primary);font-size:11pt;">정책 평가 예시:</strong></div>
+      <div style="font-size:9pt;font-family:monospace;background:#2d2d2d;color:#d4af37;padding:10px;border-radius:4px;line-height:1.5;">
+role: power_user<br>
+resource: document:confidential<br>
+action: read<br>
+→ <strong style="color:#ff6b6b;">DENY</strong> (로그 기록)
+      </div>
+    </div>
+    <div>
+      <table style="font-size:9.5pt;width:100%;">
+        <thead><tr style="background:var(--primary);color:white;"><th>역할</th><th>공개</th><th>내부</th><th>기밀</th><th>Tool호출</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600;color:var(--accent);">Admin</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td>전체</td></tr>
+          <tr style="background:#f5f7fa;"><td style="font-weight:600;color:var(--accent);">Manager</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td>제한</td></tr>
+          <tr><td style="font-weight:600;color:var(--accent);">Power User</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✗</td><td>지정</td></tr>
+          <tr style="background:#f5f7fa;"><td style="font-weight:600;color:var(--accent);">User</td><td style="text-align:center;">✓</td><td style="text-align:center;">✓</td><td style="text-align:center;">✗</td><td>읽기</td></tr>
+          <tr><td style="font-weight:600;color:var(--accent);">Viewer</td><td style="text-align:center;">✓</td><td style="text-align:center;">✗</td><td style="text-align:center;">✗</td><td>없음</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:12px;">
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="kpi-value">&lt;5ms</div><div class="kpi-label">정책 적용 지연</div></div>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="kpi-value">100%</div><div class="kpi-label">실시간 역할 반영</div></div>
+          <div class="kpi-card"><div class="kpi-value">0</div><div class="kpi-label">권한 위반 (감시)</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer"><div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div><div>SeekersLab</div><div>Confidential</div><div>17 / 20</div></div>
+</div>
+
+<!-- ====== SLIDE 19: AGENTIC AI ABAC PROTECTION ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">VII.</span> Agentic AI 보호: ABAC 기반 속성 제어</div>
+  <div style="margin-bottom:16px;padding:12px;background:#f5f7fa;border-left:4px solid var(--accent);border-radius:4px;font-size:9.5pt;">
+    <strong style="color:var(--primary);">속성 기반 접근 제어 흐름:</strong><br>
+    [Agent 요청] → [속성 추출: doc.classification, user.role, user.tenant_id, action] → [OPA ABAC 정책] → [ALLOW: 비식별화 + 응답] / [DENY: 차단 + 감사로그]
+  </div>
+  <div class="two-col">
+    <div>
+      <div style="font-size:9.5pt;font-weight:600;color:var(--primary);margin-bottom:8px;">ABAC 정책 속성 (Attributes)</div>
+      <table style="font-size:9pt;width:100%;margin-bottom:12px;">
+        <tbody>
+          <tr style="background:#f5f7fa;"><td style="padding:6px;font-weight:600;">doc.classification</td><td style="padding:6px;">public | internal | confidential | restricted</td></tr>
+          <tr><td style="padding:6px;font-weight:600;">user.role</td><td style="padding:6px;">admin | manager | user | viewer</td></tr>
+          <tr style="background:#f5f7fa;"><td style="padding:6px;font-weight:600;">user.tenant_id</td><td style="padding:6px;">기업별 데이터 격리</td></tr>
+          <tr><td style="padding:6px;font-weight:600;">agent.action</td><td style="padding:6px;">read | write | tool_call | export</td></tr>
+          <tr style="background:#f5f7fa;"><td style="padding:6px;font-weight:600;">context.time</td><td style="padding:6px;">시간대별 접근 제한 (옵션)</td></tr>
+        </tbody>
+      </table>
+      <div style="padding:8px;background:#fff8e1;border-radius:4px;border-left:3px solid #ff9800;">
+        <div style="font-size:8.5pt;font-weight:600;color:#e67e22;margin-bottom:4px;">🔒 동적 정책 예</div>
+        <div style="font-size:8.5pt;line-height:1.5;color:#333;">restricted 문서는 admin만 읽기 가능.<br>읽기 시 PII 자동 마스킹 처리.</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:9.5pt;font-weight:600;color:var(--primary);margin-bottom:8px;">📊 관리 콘솔 — Access Policies</div>
+      <div style="background:#f5f7fa;border:1px solid #ddd;border-radius:4px;padding:12px;text-align:center;">
+        <div style="font-size:9pt;color:#666;margin-bottom:10px;line-height:1.6;">
+          <strong>역할 × 문서 분류등급 권한 매트릭스</strong><br>
+          (✓/✗ 체크박스로 실시간 정책 설정)<br><br>
+          <img src="./screenshots/access_policies.png" alt="ABAC 관리 화면" style="max-width:100%;height:auto;border-radius:3px;border:1px solid #ccc;">
+        </div>
+      </div>
+      <div style="margin-top:8px;">
+        <div class="kpi-row">
+          <div class="kpi-card"><div class="kpi-value">정책</div><div class="kpi-label">세분화된 제어</div></div>
+          <div class="kpi-card"><div class="kpi-value">100%</div><div class="kpi-label">감사 로깅</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer"><div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div><div>SeekersLab</div><div>Confidential</div><div>18 / 20</div></div>
+</div>
+
+<!-- ====== SLIDE 20: IMPLEMENTATION METHODOLOGY ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">VIII.</span> 구축 방법론: 솔루션 + 커스터마이징 병행</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+    <!-- Phase 1 -->
+    <div style="background:linear-gradient(135deg, #e8f4f8 0%, #f0f9ff 100%);border:1px solid #b3e5fc;border-radius:6px;padding:12px;">
+      <div style="font-weight:700;color:var(--primary);font-size:11pt;margin-bottom:8px;text-align:center;">⚡ Phase 1</div>
+      <div style="font-size:9.5pt;font-weight:600;color:var(--accent);margin-bottom:6px;">솔루션 기본 도입</div>
+      <div style="font-size:8.5pt;line-height:1.6;color:#333;">
+        <strong>기간:</strong> 1~2개월<br><br>
+        • Docker Compose 배포<br>
+        &nbsp;&nbsp;(33개 컨테이너)<br>
+        • RBAC/ABAC 정책 활성화<br>
+        • RAG 시스템 연동<br>
+        &nbsp;&nbsp;(Milvus + MinIO)<br>
+        • JWT 인증 + Multi-Tenancy
+      </div>
+    </div>
+    <!-- Phase 2 -->
+    <div style="background:linear-gradient(135deg, #fff3e0 0%, #fffbe6 100%);border:1px solid #ffe0b2;border-radius:6px;padding:12px;">
+      <div style="font-weight:700;color:#e67e22;font-size:11pt;margin-bottom:8px;text-align:center;">🔧 Phase 2</div>
+      <div style="font-size:9.5pt;font-weight:600;color:#e67e22;margin-bottom:6px;">KITA 맞춤 커스터마이징</div>
+      <div style="font-size:8.5pt;line-height:1.6;color:#333;">
+        <strong>기간:</strong> 3~5개월<br><br>
+        • 무역 도메인 RAG 학습<br>
+        • PII 탐지 규칙 확대<br>
+        &nbsp;&nbsp;(통관번호, 사업자번호, 계좌)<br>
+        • Agent Tool 권한 정책 설계<br>
+        • 대시보드 커스터마이징
+      </div>
+    </div>
+    <!-- Phase 3 -->
+    <div style="background:linear-gradient(135deg, #f3e5f5 0%, #fce4ec 100%);border:1px solid #e1bee7;border-radius:6px;padding:12px;">
+      <div style="font-weight:700;color:#8e24aa;font-size:11pt;margin-bottom:8px;text-align:center;">✅ Phase 3</div>
+      <div style="font-size:9.5pt;font-weight:600;color:#8e24aa;margin-bottom:6px;">운영 안정화 + 이관</div>
+      <div style="font-size:8.5pt;line-height:1.6;color:#333;">
+        <strong>기간:</strong> 6개월~<br><br>
+        • 성능 튜닝<br>
+        &nbsp;&nbsp;(Latency &lt;200ms, Block Rate &gt;99.5%)<br>
+        • 운영 매뉴얼 작성<br>
+        • 보안 정책서 작성<br>
+        • KT DS 운영팀 기술 이전
+      </div>
+    </div>
+  </div>
+  <div style="background:#f5f7fa;border-left:4px solid var(--accent);padding:12px;border-radius:4px;margin-bottom:8px;">
+    <div style="font-weight:600;color:var(--primary);font-size:10pt;margin-bottom:6px;">🎯 상주 지원 모델</div>
+    <div style="font-size:9pt;color:#333;line-height:1.5;">
+      Phase 2 커스터마이징 기간 중 개발자 상주 지원 가능 (요청 시 협의)<br>
+      → 빠른 요구사항 반영, 실시간 기술 지원, 지식 이전 가속화
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;margin-top:8px;">
+    <div class="kpi-card"><div class="kpi-value">6개월</div><div class="kpi-label">구축 기간</div></div>
+    <div class="kpi-card"><div class="kpi-value">100%</div><div class="kpi-label">맞춤화</div></div>
+    <div class="kpi-card"><div class="kpi-value">∞</div><div class="kpi-label">지원 준비</div></div>
+    <div class="kpi-card"><div class="kpi-value">✓</div><div class="kpi-label">이관 완료</div></div>
+  </div>
+  <div class="slide-footer"><div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div><div>SeekersLab</div><div>Confidential</div><div>19 / 20</div></div>
+</div>
+
+<!-- ====== BACK COVER (Page 20) ====== -->
 <div class="slide" style="padding:0;">
   <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:210mm;width:297mm;text-align:center;background:linear-gradient(160deg, #0f0f2d 0%, var(--primary) 35%, var(--primary-light) 70%, #2e8b57 100%);color:white;position:relative;">
     <div style="position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--primary) 0%,var(--accent) 100%);"></div>
@@ -918,6 +1084,7 @@
     <div style="font-size:13pt;font-weight:300;opacity:0.9;margin-bottom:20px;">Secure AI. Empower Enterprise.</div>
     <div style="width:80px;height:3px;background:rgba(255,255,255,0.5);margin:20px auto;"></div>
     <div style="font-size:10pt;letter-spacing:8px;opacity:0.6;margin-top:30px;">s e e k e r s l a b . c o m</div>
+    <div style="position:absolute;bottom:20px;right:30px;font-size:9pt;opacity:0.5;">20 / 20</div>
   </div>
 </div>
 
