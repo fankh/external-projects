@@ -29,9 +29,11 @@ async function captureAllSlides() {
     console.log('⏳ Waiting for page to fully render...');
     await page.waitForTimeout(2000);
 
-    // Get all slides
-    const slideCount = await page.locator('.slide').count();
-    console.log(`📊 Found ${slideCount} slides\n`);
+    // Get cover page + all content slides
+    const coverExists = await page.locator('.cover').count() > 0;
+    const contentSlides = await page.locator('.slide').count();
+    const slideCount = (coverExists ? 1 : 0) + contentSlides;
+    console.log(`📊 Found ${slideCount} slides (cover: ${coverExists ? 'yes' : 'no'}, content: ${contentSlides})\n`);
 
     // Create screenshots directory
     const screenshotsDir = path.join(__dirname, 'screenshots');
@@ -39,11 +41,17 @@ async function captureAllSlides() {
       fs.mkdirSync(screenshotsDir, { recursive: true });
     }
 
-    // Capture each slide
-    const slides = await page.locator('.slide').all();
+    // Capture cover page first (if it exists)
+    const allSlides = [];
+    if (coverExists) {
+      allSlides.push(await page.locator('.cover').first());
+    }
+    // Then capture all content slides
+    const contentSlideElements = await page.locator('.slide').all();
+    allSlides.push(...contentSlideElements);
 
-    for (let i = 0; i < slides.length; i++) {
-      const slide = slides[i];
+    for (let i = 0; i < allSlides.length; i++) {
+      const slide = allSlides[i];
       const slideNum = i + 1;
 
       console.log(`📸 Capturing slide ${slideNum}/${slideCount}...`);
