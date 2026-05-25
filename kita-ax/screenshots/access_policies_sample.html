@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Policies — KYRA Admin Console (Sample)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(90deg, #1a1a40 0%, #2e8b57 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f9fafb;
+        }
+        .tab {
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            color: #1a1a40;
+            border-bottom-color: #2e8b57;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a40;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        thead {
+            background: #1a1a40;
+            color: white;
+        }
+        th {
+            padding: 12px;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid #ddd;
+        }
+        td {
+            padding: 14px 12px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        tbody tr:nth-child(even) {
+            background: #f5f7fa;
+        }
+        tbody tr:hover {
+            background: #f0f2f5;
+        }
+        .role-name {
+            text-align: left;
+            font-weight: 500;
+            color: #2e8b57;
+        }
+        .checkbox {
+            font-size: 16px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .checkbox.checked {
+            color: #2e8b57;
+            font-weight: bold;
+        }
+        .checkbox.unchecked {
+            color: #ccc;
+        }
+        .footer {
+            background: #f9fafb;
+            padding: 15px 30px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Access Policies — Role × Classification Matrix</h1>
+            <div style="font-size: 12px; opacity: 0.8;">KYRA Admin Console</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab">Document Library</button>
+            <button class="tab active">Access Policies</button>
+            <button class="tab">Collections</button>
+        </div>
+
+        <div class="content">
+            <div class="section-title">역할 × 문서 분류등급 권한 매트릭스</div>
+            <p style="font-size: 12px; color: #666; margin-bottom: 20px;">
+                각 역할이 각 분류등급 문서에 접근할 수 있는지 여부를 설정합니다. 체크박스를 클릭하여 권한을 수정할 수 있습니다.
+            </p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">역할 / 분류등급</th>
+                        <th>Public<br><span style="font-size: 11px; font-weight: 400;">공개</span></th>
+                        <th>Internal<br><span style="font-size: 11px; font-weight: 400;">내부</span></th>
+                        <th>Confidential<br><span style="font-size: 11px; font-weight: 400;">기밀</span></th>
+                        <th>Restricted<br><span style="font-size: 11px; font-weight: 400;">제한</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="role-name">👨‍💼 Admin</td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox checked">☑</span></td>
+                    </tr>
+                    <tr>
+                        <td class="role-name">👔 Manager</td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox unchecked">☐</span></td>
+                    </tr>
+                    <tr>
+                        <td class="role-name">⚡ Power User</td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox unchecked">☐</span></td>
+                        <td><span class="checkbox unchecked">☐</span></td>
+                    </tr>
+                    <tr>
+                        <td class="role-name">👤 User</td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox unchecked">☐</span></td>
+                        <td><span class="checkbox unchecked">☐</span></td>
+                    </tr>
+                    <tr>
+                        <td class="role-name">👁️ Viewer</td>
+                        <td><span class="checkbox checked">☑</span></td>
+                        <td><span class="checkbox unchecked">☐</span></td>
+                        <td><span class="checkbox unchecked">☐</span></td>
+                        <td><span class="checkbox unchecked">☐</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-left: 4px solid #2e8b57; border-radius: 4px;">
+                <div style="font-weight: 600; color: #1a1a40; margin-bottom: 8px;">💡 권한 제어 설명</div>
+                <ul style="margin-left: 20px; color: #333; font-size: 12px; line-height: 1.6;">
+                    <li><strong>Admin</strong>: 모든 문서 및 권한 관리 가능</li>
+                    <li><strong>Manager</strong>: Restricted 제외 모든 문서 접근 (제한 Tool만 호출)</li>
+                    <li><strong>Power User</strong>: Public & Internal 문서만 접근 (지정된 Tool만 호출)</li>
+                    <li><strong>User</strong>: Public & Internal 문서만 접근 (읽기 전용)</li>
+                    <li><strong>Viewer</strong>: Public 문서만 접근 (도구 호출 불가)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            💾 변경사항은 자동 저장됩니다 | ⏰ 정책 변경은 5ms 이내에 반영됩니다 | 📊 모든 접근은 감시로깅됩니다
+        </div>
+    </div>
+</body>
+</html>
