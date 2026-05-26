@@ -374,6 +374,22 @@
             <li>Phase 3: 운영 안정화 및 이관</li>
           </ol>
         </div>
+        <div class="toc-section">
+          <div class="toc-section-title">IX. 시스템 아키텍처 (System Architecture)</div>
+          <ol>
+            <li>4+1 계층 구조</li>
+            <li>33개 컴포넌트 배포</li>
+            <li>Docker Compose 배포</li>
+          </ol>
+        </div>
+        <div class="toc-section">
+          <div class="toc-section-title">X. 관리 콘솔 (Admin Console)</div>
+          <ol>
+            <li>실시간 정책 제어</li>
+            <li>대시보드 및 모니터링</li>
+            <li>감시로그 및 감사</li>
+          </ol>
+        </div>
       </div>
     </div>
   </div>
@@ -1072,10 +1088,133 @@ action: read<br>
     <div class="kpi-card"><div class="kpi-value">∞</div><div class="kpi-label">지원 준비</div></div>
     <div class="kpi-card"><div class="kpi-value">✓</div><div class="kpi-label">이관 완료</div></div>
   </div>
-  <div class="slide-footer"><div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div><div>SeekersLab</div><div>Confidential</div><div>19 / 20</div></div>
+  <div class="slide-footer"><div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div><div>SeekersLab</div><div>Confidential</div><div>19 / 22</div></div>
 </div>
 
-<!-- ====== BACK COVER (Page 20) ====== -->
+<!-- ====== SLIDE 20: SYSTEM ARCHITECTURE ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">X.</span> 시스템 아키텍처</div>
+  <div style="margin-top:20px;">
+    <div style="font-size:10pt;font-weight:600;color:var(--primary);margin-bottom:12px;">KYRA AI Guardrail 4+1 Layer 아키텍처</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+      <!-- Left: Architecture Layers -->
+      <div style="border:2px solid var(--accent);border-radius:4px;padding:12px;background:#f9fafb;">
+        <div style="font-size:9pt;font-weight:700;color:var(--primary);margin-bottom:10px;">4+1 계층 구조</div>
+        <div style="font-size:8.5pt;line-height:1.8;color:#333;">
+          <div style="padding:6px;background:#e8f5e9;margin-bottom:4px;border-radius:3px;"><strong>Layer 1: Policy Engine</strong><br>RBAC/ABAC 정책 평가</div>
+          <div style="padding:6px;background:#f3e5f5;margin-bottom:4px;border-radius:3px;"><strong>Layer 2: Prompt Guard</strong><br>프롬프트 인젝션 방어</div>
+          <div style="padding:6px;background:#e3f2fd;margin-bottom:4px;border-radius:3px;"><strong>Layer 3: Data Guard</strong><br>DLP, PII 탐지</div>
+          <div style="padding:6px;background:#fff3e0;margin-bottom:4px;border-radius:3px;"><strong>Layer 4: Audit & Log</strong><br>완전 감시로그</div>
+          <div style="padding:6px;background:#fce4ec;border-radius:3px;"><strong>+1 Layer: RAG</strong><br>고급 검색 시스템</div>
+        </div>
+      </div>
+
+      <!-- Right: Component Stack -->
+      <div style="border:2px solid #2e8b57;border-radius:4px;padding:12px;background:#f0f7f4;">
+        <div style="font-size:9pt;font-weight:700;color:var(--accent);margin-bottom:10px;">배포 컴포넌트 (33개)</div>
+        <div style="font-size:8pt;line-height:1.7;color:#333;">
+          <table style="width:100%;font-size:8pt;border-collapse:collapse;">
+            <tr style="border-bottom:1px solid #ddd;">
+              <td style="padding:4px;font-weight:600;">API Gateway</td>
+              <td style="text-align:right;padding:4px;">1</td>
+            </tr>
+            <tr style="border-bottom:1px solid #ddd;">
+              <td style="padding:4px;font-weight:600;">OPA Policy Engine</td>
+              <td style="text-align:right;padding:4px;">2</td>
+            </tr>
+            <tr style="border-bottom:1px solid #ddd;">
+              <td style="padding:4px;font-weight:600;">Prompt Guard Service</td>
+              <td style="text-align:right;padding:4px;">2</td>
+            </tr>
+            <tr style="border-bottom:1px solid #ddd;">
+              <td style="padding:4px;font-weight:600;">DLP / PII Service</td>
+              <td style="text-align:right;padding:4px;">2</td>
+            </tr>
+            <tr style="border-bottom:1px solid #ddd;">
+              <td style="padding:4px;font-weight:600;">Milvus (Vector DB)</td>
+              <td style="text-align:right;padding:4px;">3</td>
+            </tr>
+            <tr style="border-bottom:1px solid #ddd;">
+              <td style="padding:4px;font-weight:600;">MinIO (Storage)</td>
+              <td style="text-align:right;padding:4px;">3</td>
+            </tr>
+            <tr>
+              <td style="padding:4px;font-weight:600;">PostgreSQL, Redis, etc.</td>
+              <td style="text-align:right;padding:4px;">20</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deployment Info -->
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-top:12px;">
+      <div style="background:linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);border:1px solid #ccc;border-radius:4px;padding:10px;text-align:center;">
+        <div style="font-size:8pt;color:#666;margin-bottom:4px;">배포 방식</div>
+        <div style="font-size:10pt;font-weight:700;color:var(--primary);">Docker Compose</div>
+      </div>
+      <div style="background:linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);border:1px solid #ccc;border-radius:4px;padding:10px;text-align:center;">
+        <div style="font-size:8pt;color:#666;margin-bottom:4px;">환경</div>
+        <div style="font-size:10pt;font-weight:700;color:var(--primary);">AWS/On-Prem</div>
+      </div>
+      <div style="background:linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);border:1px solid #ccc;border-radius:4px;padding:10px;text-align:center;">
+        <div style="font-size:8pt;color:#666;margin-bottom:4px;">가용성</div>
+        <div style="font-size:10pt;font-weight:700;color:var(--primary);">99.9% SLA</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer"><div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div><div>SeekersLab</div><div>Confidential</div><div>20 / 22</div></div>
+</div>
+
+<!-- ====== SLIDE 21: UI SCREENSHOTS & CONSOLE ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">XI.</span> 관리 콘솔 UI — 실시간 정책 제어</div>
+  <div style="margin-top:15px;display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+    <!-- Left: Screenshot -->
+    <div style="border:2px solid #ddd;border-radius:4px;overflow:hidden;background:#f9fafb;">
+      <img src="./screenshots/access_policies.png" alt="KYRA Admin Console" style="max-width:100%;height:auto;display:block;">
+      <div style="padding:8px;background:#fff;font-size:8pt;color:#666;border-top:1px solid #eee;">
+        <strong>Access Policies</strong> — 역할 × 분류등급 매트릭스
+      </div>
+    </div>
+
+    <!-- Right: Features -->
+    <div style="padding:0;">
+      <div style="background:#f0f7f4;border-left:4px solid var(--accent);padding:10px;margin-bottom:10px;border-radius:3px;">
+        <div style="font-size:9pt;font-weight:700;color:var(--accent);margin-bottom:6px;">🔐 실시간 정책 관리</div>
+        <div style="font-size:8.5pt;line-height:1.6;color:#333;">
+          ✓ 역할 × 분류등급 체크박스<br>
+          ✓ 5ms 이하 정책 반영<br>
+          ✓ Non-technical Ops 팀 운영 가능<br>
+          ✓ 변경 이력 자동 감시로그
+        </div>
+      </div>
+
+      <div style="background:#e3f2fd;border-left:4px solid #2196f3;padding:10px;margin-bottom:10px;border-radius:3px;">
+        <div style="font-size:9pt;font-weight:700;color:#1565c0;margin-bottom:6px;">📊 대시보드</div>
+        <div style="font-size:8.5pt;line-height:1.6;color:#333;">
+          ✓ Agent 활동 실시간 모니터링<br>
+          ✓ 정책 위반 사건 탐지<br>
+          ✓ 무역 거래 프로세스 추적<br>
+          ✓ 컴플라이언스 보고서 자동 생성
+        </div>
+      </div>
+
+      <div style="background:#fce4ec;border-left:4px solid #e91e63;padding:10px;border-radius:3px;">
+        <div style="font-size:9pt;font-weight:700;color:#c2185b;margin-bottom:6px;">🔍 감시로그 (Audit)</div>
+        <div style="font-size:8.5pt;line-height:1.6;color:#333;">
+          ✓ 전체 Agent 활동 기록<br>
+          ✓ 정책 평가 트레이스<br>
+          ✓ 데이터 접근 이력<br>
+          ✓ 규제 준수 근거 확보
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer"><div class="slide-company"><img src="logo_colored.png" alt="SeekersLab" style="height:16px;width:auto;vertical-align:middle;"> KYRA AI Guardrail</div><div>SeekersLab</div><div>Confidential</div><div>21 / 22</div></div>
+</div>
+
+<!-- ====== BACK COVER (Page 22) ====== -->
 <div class="slide" style="padding:0;">
   <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:210mm;width:297mm;text-align:center;background:linear-gradient(160deg, #0f0f2d 0%, var(--primary) 35%, var(--primary-light) 70%, #2e8b57 100%);color:white;position:relative;">
     <div style="position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--primary) 0%,var(--accent) 100%);"></div>
@@ -1084,7 +1223,7 @@ action: read<br>
     <div style="font-size:13pt;font-weight:300;opacity:0.9;margin-bottom:20px;">Secure AI. Empower Enterprise.</div>
     <div style="width:80px;height:3px;background:rgba(255,255,255,0.5);margin:20px auto;"></div>
     <div style="font-size:10pt;letter-spacing:8px;opacity:0.6;margin-top:30px;">s e e k e r s l a b . c o m</div>
-    <div style="position:absolute;bottom:20px;right:30px;font-size:9pt;opacity:0.5;">20 / 20</div>
+    <div style="position:absolute;bottom:20px;right:30px;font-size:9pt;opacity:0.5;">22 / 22</div>
   </div>
 </div>
 
