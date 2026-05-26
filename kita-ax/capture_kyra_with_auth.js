@@ -9,7 +9,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
-const BASE_URL = 'https://kyra-guardrails-dev.seekerslab.com';
+const BASE_URL = 'https://kyra-guardrail-dev.seekerslab.com';
 const SCREENSHOTS_DIR = path.join(__dirname, 'screenshots', 'kyra-real');
 
 // Credentials
