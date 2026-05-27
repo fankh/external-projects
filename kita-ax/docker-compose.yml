@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: kyra-postgres
+    environment:
+      POSTGRES_USER: kyra
+      POSTGRES_PASSWORD: kyra_dev_password
+      POSTGRES_DB: kyra_admin
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyra"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kyra-network
+
+  # Node.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kyra-admin-phase6
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: staging
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: kyra_admin
+      DB_USER: kyra
+      DB_PASSWORD: kyra_dev_password
+      SESSION_SECRET: ${SESSION_SECRET:-kyra_dev_secret_staging}
+      CSRF_SECRET: ${CSRF_SECRET:-kyra_csrf_secret_staging}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - /app/node_modules
+    networks:
+      - kyra-network
+    healthcheck:
+      test: ["CMD", "wget", "-O-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Nginx Reverse Proxy
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: kyra-nginx
+    ports:
+      - "8080:80"
+      - "8443:443"
+    depends_on:
+      - app
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./public:/var/www/public:ro
+    networks:
+      - kyra-network
+    healthcheck:
+      test: ["CMD", "wget", "-O-", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  postgres_data:
+
+networks:
+  kyra-network:
+    driver: bridge

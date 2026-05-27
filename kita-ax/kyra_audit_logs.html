@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Logs — KYRA Admin Console</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            background: #f5f7fa;
+            padding: 0;
+        }
+        .container {
+            max-width: 100%;
+            background: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: linear-gradient(90deg, #1a1a40 0%, #2e8b57 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        .header-subtitle {
+            font-size: 12px;
+            opacity: 0.85;
+            margin-top: 2px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f9fafb;
+            padding: 0 30px;
+        }
+        .tab {
+            padding: 14px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            color: #1a1a40;
+            border-bottom-color: #2e8b57;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+            flex: 1;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .search-box {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            background: #f0f2f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .log-table thead {
+            background: #1a1a40;
+            color: white;
+        }
+        .log-table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-right: 1px solid #2a2a50;
+        }
+        .log-table th:last-child {
+            border-right: none;
+        }
+        .log-table td {
+            padding: 12px;
+            border-right: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+        }
+        .log-table td:last-child {
+            border-right: none;
+        }
+        .log-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .log-table tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+        .log-table tbody tr:hover {
+            background: #f0f2f5;
+        }
+        .timestamp {
+            color: #999;
+            font-weight: 500;
+        }
+        .user-name {
+            color: #2e8b57;
+            font-weight: 600;
+        }
+        .action {
+            font-weight: 600;
+            color: #333;
+        }
+        .action.delete {
+            color: #d32f2f;
+        }
+        .action.modify {
+            color: #f57c00;
+        }
+        .action.read {
+            color: #2e8b57;
+        }
+        .resource {
+            color: #1976d2;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .status {
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status.failure {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .footer {
+            background: #f9fafb;
+            padding: 16px 30px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 11px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📋 Audit Logs — Access & Change History</h1>
+                <div class="header-subtitle">Complete audit trail of all system activities</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab">Dashboard</button>
+            <button class="tab">Documents</button>
+            <button class="tab active">Audit Logs</button>
+            <button class="tab">Settings</button>
+        </div>
+
+        <div class="content">
+            <div class="controls">
+                <input type="text" class="search-box" placeholder="Search logs...">
+                <button class="filter-btn">🔽 User</button>
+                <button class="filter-btn">🔽 Action</button>
+                <button class="filter-btn">📅 Date Range</button>
+            </div>
+
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th style="width: 140px;">Timestamp</th>
+                        <th style="width: 100px;">User</th>
+                        <th style="width: 100px;">Action</th>
+                        <th style="width: 200px;">Resource</th>
+                        <th style="width: 150px;">Details</th>
+                        <th style="width: 80px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="timestamp">2026-05-26 14:45:32</td>
+                        <td class="user-name">admin@company.com</td>
+                        <td class="action modify">MODIFY</td>
+                        <td class="resource">/docs/policy-001</td>
+                        <td>Classification changed: Confidential → Restricted</td>
+                        <td><span class="status success">SUCCESS</span></td>
+                    </tr>
+                    <tr>
+                        <td class="timestamp">2026-05-26 14:32:15</td>
+                        <td class="user-name">manager@company.com</td>
+                        <td class="action read">READ</td>
+                        <td class="resource">/docs/quarterly-report</td>
+                        <td>Document accessed</td>
+                        <td><span class="status success">SUCCESS</span></td>
+                    </tr>
+                    <tr>
+                        <td class="timestamp">2026-05-26 14:20:48</td>
+                        <td class="user-name">user@company.com</td>
+                        <td class="action read">READ</td>
+                        <td class="resource">/docs/internal-memo</td>
+                        <td>Document accessed</td>
+                        <td><span class="status success">SUCCESS</span></td>
+                    </tr>
+                    <tr>
+                        <td class="timestamp">2026-05-26 13:58:22</td>
+                        <td class="user-name">admin@company.com</td>
+                        <td class="action delete">DELETE</td>
+                        <td class="resource">/docs/expired-draft</td>
+                        <td>Document permanently deleted</td>
+                        <td><span class="status success">SUCCESS</span></td>
+                    </tr>
+                    <tr>
+                        <td class="timestamp">2026-05-26 13:45:01</td>
+                        <td class="user-name">power-user@company.com</td>
+                        <td class="action read">READ</td>
+                        <td class="resource">/docs/restricted-project</td>
+                        <td>Access denied: insufficient permissions</td>
+                        <td><span class="status failure">DENIED</span></td>
+                    </tr>
+                    <tr>
+                        <td class="timestamp">2026-05-26 13:30:15</td>
+                        <td class="user-name">manager@company.com</td>
+                        <td class="action modify">MODIFY</td>
+                        <td class="resource">/access/role-policy</td>
+                        <td>Role permissions updated</td>
+                        <td><span class="status success">SUCCESS</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            Showing 6 of 1,247 audit logs | All actions are cryptographically signed and immutable
+        </div>
+    </div>
+</body>
+</html>

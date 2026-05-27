@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users — KYRA Admin Console</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            background: #f5f7fa;
+            padding: 0;
+        }
+        .container {
+            max-width: 100%;
+            background: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: linear-gradient(90deg, #1a1a40 0%, #2e8b57 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        .header-subtitle {
+            font-size: 12px;
+            opacity: 0.85;
+            margin-top: 2px;
+        }
+        .header-right {
+            display: flex;
+            gap: 12px;
+        }
+        .btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .btn.primary {
+            background: #2e8b57;
+            border-color: #2e8b57;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f9fafb;
+            padding: 0 30px;
+        }
+        .tab {
+            padding: 14px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            color: #1a1a40;
+            border-bottom-color: #2e8b57;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+            flex: 1;
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .search-box {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            background: #f0f2f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .users-table thead {
+            background: #1a1a40;
+            color: white;
+        }
+        .users-table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-right: 1px solid #2a2a50;
+        }
+        .users-table th:last-child {
+            border-right: none;
+        }
+        .users-table td {
+            padding: 12px;
+            border-right: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+        }
+        .users-table td:last-child {
+            border-right: none;
+        }
+        .users-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .users-table tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+        .users-table tbody tr:hover {
+            background: #f0f2f5;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #2e8b57;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .user-details div:first-child {
+            font-weight: 600;
+            color: #1a1a40;
+        }
+        .user-details div:last-child {
+            color: #999;
+            font-size: 11px;
+        }
+        .role-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .role-admin {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .role-manager {
+            background: #f3e5f5;
+            color: #6a1b9a;
+        }
+        .role-user {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #2e7d32;
+            margin-right: 4px;
+        }
+        .status.inactive {
+            background: #ccc;
+        }
+        .action-menu {
+            cursor: pointer;
+            color: #999;
+            font-size: 16px;
+        }
+        .footer {
+            background: #f9fafb;
+            padding: 16px 30px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 11px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>👥 Users — Access Control Management</h1>
+                <div class="header-subtitle">Manage user roles and permissions</div>
+            </div>
+            <div class="header-right">
+                <button class="btn primary">+ Add User</button>
+                <button class="btn">⚙️ Settings</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab">Dashboard</button>
+            <button class="tab">Documents</button>
+            <button class="tab">Audit Logs</button>
+            <button class="tab active">Users</button>
+        </div>
+
+        <div class="content">
+            <div class="controls">
+                <input type="text" class="search-box" placeholder="Search users by name or email...">
+                <button class="filter-btn">🔽 Role</button>
+                <button class="filter-btn">🔽 Status</button>
+            </div>
+
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th style="width: 240px;">User</th>
+                        <th style="width: 120px;">Role</th>
+                        <th style="width: 120px;">Status</th>
+                        <th style="width: 120px;">Last Access</th>
+                        <th style="width: 120px;">MFA</th>
+                        <th style="width: 80px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <div class="avatar">A</div>
+                                <div class="user-details">
+                                    <div>admin@company.com</div>
+                                    <div>System Administrator</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-admin">Admin</span></td>
+                        <td><span class="status"></span>Active</td>
+                        <td>2 min ago</td>
+                        <td>✅ Enabled</td>
+                        <td class="action-menu">⋮</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <div class="avatar" style="background: #1976d2;">M</div>
+                                <div class="user-details">
+                                    <div>manager@company.com</div>
+                                    <div>Policy Manager</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-manager">Manager</span></td>
+                        <td><span class="status"></span>Active</td>
+                        <td>45 min ago</td>
+                        <td>✅ Enabled</td>
+                        <td class="action-menu">⋮</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <div class="avatar" style="background: #d32f2f;">P</div>
+                                <div class="user-details">
+                                    <div>power-user@company.com</div>
+                                    <div>Senior Analyst</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-user">Power User</span></td>
+                        <td><span class="status"></span>Active</td>
+                        <td>2 hours ago</td>
+                        <td>✅ Enabled</td>
+                        <td class="action-menu">⋮</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <div class="avatar" style="background: #f57c00;">U</div>
+                                <div class="user-details">
+                                    <div>user@company.com</div>
+                                    <div>Document Reviewer</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge role-user">User</span></td>
+                        <td><span class="status"></span>Active</td>
+                        <td>1 day ago</td>
+                        <td>❌ Disabled</td>
+                        <td class="action-menu">⋮</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="user-info">
+                                <div class="avatar" style="background: #757575;">V</div>
+                                <div class="user-details">
+                                    <div>viewer@company.com</div>
+                                    <div>External Auditor</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="role-badge" style="background: #e0e0e0; color: #666;">Viewer</span></td>
+                        <td><span class="status inactive"></span>Inactive</td>
+                        <td>7 days ago</td>
+                        <td>❌ Disabled</td>
+                        <td class="action-menu">⋮</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            Total users: 5 | Active: 4 | Inactive: 1
+        </div>
+    </div>
+</body>
+</html>
