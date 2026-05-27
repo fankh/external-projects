@@ -1,6 +1,6 @@
 /**
  * KYRA Admin Console - Main Express Application
- * Phase 1: Foundation Implementation
+ * Phase 1-5: Foundation + Database Integration
  */
 
 require('dotenv').config();
@@ -9,6 +9,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const swaggerUi = require('swagger-ui-express');
 const fs = require('fs');
+const database = require('./config/database');
 
 // Middleware
 const sessionMiddleware = require('./config/session');
@@ -136,14 +137,36 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ===== DATABASE INITIALIZATION =====
+
+async function initializeDatabase() {
+  try {
+    await database.testConnection();
+    console.log('✓ Database connection successful');
+
+    if (process.env.NODE_ENV !== 'test') {
+      await database.syncDatabase();
+      console.log('✓ Database models synchronized');
+    }
+  } catch (error) {
+    console.error('✗ Database initialization failed:', error.message);
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
+  }
+}
+
 // ===== SERVER STARTUP =====
 
 const PORT = process.env.PORT || 3000;
 const PROTOCOL = process.env.PROTOCOL || 'http';
 const HOSTNAME = process.env.HOSTNAME || 'localhost';
 
-const server = app.listen(PORT, () => {
-  console.log(`
+(async () => {
+  await initializeDatabase();
+
+  const server = app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════════════════════════════════════╗
 ║  KYRA Admin Console - Server Started                          ║
 ╠════════════════════════════════════════════════════════════════╣
@@ -156,24 +179,25 @@ const server = app.listen(PORT, () => {
 🔐 Login: ${PROTOCOL}://${HOSTNAME}:${PORT}/login
 📊 Dashboard: ${PROTOCOL}://${HOSTNAME}:${PORT}/admin/dashboard
 ❤️  Health: ${PROTOCOL}://${HOSTNAME}:${PORT}/health
-  `);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
+    `);
   });
-});
 
-process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    server.close(() => {
+      console.log('HTTP server closed');
+      process.exit(0);
+    });
   });
-});
+
+  process.on('SIGINT', () => {
+    console.log('SIGINT signal received: closing HTTP server');
+    server.close(() => {
+      console.log('HTTP server closed');
+      process.exit(0);
+    });
+  });
+})();
 
 module.exports = app;

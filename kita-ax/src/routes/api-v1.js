@@ -2,383 +2,662 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { validateRequest, validatePagination } = require('../middleware/validation');
-const mockData = require('../models/mockData');
-const { applyFilters } = require('../utils/pagination');
 const serializers = require('../schemas/serializers');
+
+// Service imports
+const UserService = require('../services/userService');
+const DocumentService = require('../services/documentService');
+const RoleService = require('../services/roleService');
+const AuditLogService = require('../services/auditLogService');
+const PolicyService = require('../services/policyService');
+const AgentService = require('../services/agentService');
 
 // Apply auth middleware to all API routes
 router.use(requireAuth);
 router.use(requireAdmin);
 
+// Error handler wrapper for async routes
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 // ===== USERS API =====
 
-router.get('/users', validatePagination, (req, res) => {
-  const { page, pageSize, search, status, role, sortBy, sortOrder } = req.query;
+router.get('/users', validatePagination, asyncHandler(async (req, res) => {
+  try {
+    const { page, pageSize, search, status, role, sortBy, sortOrder } = req.query;
 
-  const result = applyFilters(mockData.mockUsers, {
-    filters: { status, role },
-    query: search,
-    searchFields: ['email', 'role'],
-    sortBy: sortBy || 'email',
-    sortOrder: sortOrder || 'asc',
-    page: page || 1,
-    pageSize: pageSize || 10
-  });
+    const result = await UserService.getAllUsers({
+      page: parseInt(page) || 1,
+      pageSize: parseInt(pageSize) || 10,
+      search,
+      status,
+      role,
+      sortBy: sortBy || 'email',
+      sortOrder: sortOrder || 'asc',
+      tenantId: req.user.tenantId
+    });
 
-  res.json({
-    success: true,
-    data: result.data.map(serializers.user),
-    pagination: result.pagination,
-    timestamp: new Date().toISOString()
-  });
-});
-
-router.get('/users/:id', (req, res) => {
-  const user = mockData.mockUsers.find(u => u.id === req.params.id);
-  if (!user) {
-    return res.status(404).json(serializers.errorResponse('User not found', 'USER_NOT_FOUND'));
+    res.json({
+      success: true,
+      data: result.data.map(u => ({
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        status: u.status,
+        lastLogin: u.lastLogin,
+        createdAt: u.createdAt
+      })),
+      pagination: result.pagination,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
   }
-  res.json(serializers.successResponse(user, serializers.user));
-});
+}));
 
-router.post('/users', validateRequest('user.create'), (req, res) => {
-  const { email, role } = req.body;
-
-  const newUser = {
-    id: `user-${Date.now()}`,
-    email,
-    role,
-    tenantId: 'tenant-001',
-    lastLogin: null,
-    status: 'active',
-    createdAt: new Date()
-  };
-
-  mockData.mockUsers.push(newUser);
-  res.status(201).json(serializers.successResponse(newUser, serializers.user));
-});
-
-router.put('/users/:id', validateRequest('user.update'), (req, res) => {
-  const user = mockData.mockUsers.find(u => u.id === req.params.id);
-  if (!user) {
-    return res.status(404).json(serializers.errorResponse('User not found', 'USER_NOT_FOUND'));
+router.get('/users/:id', asyncHandler(async (req, res) => {
+  try {
+    const user = await UserService.getUserById(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt
+    }));
+  } catch (error) {
+    res.status(404).json(serializers.errorResponse(error.message, 'USER_NOT_FOUND'));
   }
+}));
 
-  const { email, role, status } = req.body;
-  if (email) user.email = email;
-  if (role) user.role = role;
-  if (status) user.status = status;
+router.post('/users', validateRequest('user.create'), asyncHandler(async (req, res) => {
+  try {
+    const { email, password, role } = req.body;
 
-  res.json(serializers.successResponse(user, serializers.user));
-});
+    const user = await UserService.createUser({
+      email,
+      password,
+      role,
+      tenantId: req.user.tenantId,
+      status: 'active'
+    });
 
-router.delete('/users/:id', (req, res) => {
-  const index = mockData.mockUsers.findIndex(u => u.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json(serializers.errorResponse('User not found', 'USER_NOT_FOUND'));
+    res.status(201).json(serializers.successResponse({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      createdAt: user.createdAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'USER_CREATION_FAILED'));
   }
+}));
 
-  const deleted = mockData.mockUsers.splice(index, 1);
-  res.json(serializers.successResponse(deleted[0], serializers.user));
-});
+router.put('/users/:id', validateRequest('user.update'), asyncHandler(async (req, res) => {
+  try {
+    const { email, role, status } = req.body;
+
+    const user = await UserService.updateUser(
+      req.params.id,
+      { email, role, status },
+      req.user.tenantId
+    );
+
+    res.json(serializers.successResponse({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      updatedAt: user.updatedAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'USER_UPDATE_FAILED'));
+  }
+}));
+
+router.delete('/users/:id', asyncHandler(async (req, res) => {
+  try {
+    await UserService.deleteUser(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({ success: true }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'USER_DELETE_FAILED'));
+  }
+}));
 
 // ===== DOCUMENTS API =====
 
-router.get('/documents', validatePagination, (req, res) => {
-  const { page, pageSize, search, classification, sortBy, sortOrder } = req.query;
+router.get('/documents', validatePagination, asyncHandler(async (req, res) => {
+  try {
+    const { page, pageSize, search, classification, sortBy, sortOrder } = req.query;
 
-  const result = applyFilters(mockData.mockDocuments, {
-    filters: { classification },
-    query: search,
-    searchFields: ['title', 'owner'],
-    sortBy: sortBy || 'uploadedAt',
-    sortOrder: sortOrder || 'desc',
-    page: page || 1,
-    pageSize: pageSize || 10
-  });
+    const result = await DocumentService.getAllDocuments({
+      page: parseInt(page) || 1,
+      pageSize: parseInt(pageSize) || 10,
+      search,
+      classification,
+      sortBy: sortBy || 'createdAt',
+      sortOrder: sortOrder || 'desc',
+      tenantId: req.user.tenantId
+    });
 
-  res.json({
-    success: true,
-    data: result.data.map(serializers.document),
-    pagination: result.pagination,
-    timestamp: new Date().toISOString()
-  });
-});
-
-router.get('/documents/:id', (req, res) => {
-  const doc = mockData.mockDocuments.find(d => d.id === req.params.id);
-  if (!doc) {
-    return res.status(404).json(serializers.errorResponse('Document not found', 'DOCUMENT_NOT_FOUND'));
+    res.json({
+      success: true,
+      data: result.data.map(d => ({
+        id: d.id,
+        title: d.title,
+        classification: d.classification,
+        owner: d.owner,
+        accessCount: d.accessCount,
+        size: d.size,
+        createdAt: d.createdAt
+      })),
+      pagination: result.pagination,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
   }
-  res.json(serializers.successResponse(doc, serializers.document));
-});
+}));
 
-router.post('/documents', validateRequest('document.create'), (req, res) => {
-  const { title, classification, owner } = req.body;
-
-  const newDoc = {
-    id: `doc-${Date.now()}`,
-    title,
-    classification,
-    owner,
-    uploadedAt: new Date(),
-    accessCount: 0,
-    size: Math.floor(Math.random() * 10000000)
-  };
-
-  mockData.mockDocuments.push(newDoc);
-  res.status(201).json(serializers.successResponse(newDoc, serializers.document));
-});
-
-router.put('/documents/:id', validateRequest('document.update'), (req, res) => {
-  const doc = mockData.mockDocuments.find(d => d.id === req.params.id);
-  if (!doc) {
-    return res.status(404).json(serializers.errorResponse('Document not found', 'DOCUMENT_NOT_FOUND'));
+router.get('/documents/:id', asyncHandler(async (req, res) => {
+  try {
+    const doc = await DocumentService.getDocumentById(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({
+      id: doc.id,
+      title: doc.title,
+      classification: doc.classification,
+      owner: doc.owner,
+      accessCount: doc.accessCount,
+      size: doc.size,
+      description: doc.description,
+      createdAt: doc.createdAt
+    }));
+  } catch (error) {
+    res.status(404).json(serializers.errorResponse(error.message, 'DOCUMENT_NOT_FOUND'));
   }
+}));
 
-  const { title, classification, owner } = req.body;
-  if (title) doc.title = title;
-  if (classification) doc.classification = classification;
-  if (owner) doc.owner = owner;
+router.post('/documents', validateRequest('document.create'), asyncHandler(async (req, res) => {
+  try {
+    const { title, classification, owner, description } = req.body;
 
-  res.json(serializers.successResponse(doc, serializers.document));
-});
+    const doc = await DocumentService.createDocument({
+      title,
+      classification,
+      owner,
+      description,
+      tenantId: req.user.tenantId
+    });
 
-router.delete('/documents/:id', (req, res) => {
-  const index = mockData.mockDocuments.findIndex(d => d.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json(serializers.errorResponse('Document not found', 'DOCUMENT_NOT_FOUND'));
+    res.status(201).json(serializers.successResponse({
+      id: doc.id,
+      title: doc.title,
+      classification: doc.classification,
+      owner: doc.owner,
+      createdAt: doc.createdAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'DOCUMENT_CREATION_FAILED'));
   }
+}));
 
-  const deleted = mockData.mockDocuments.splice(index, 1);
-  res.json(serializers.successResponse(deleted[0], serializers.document));
-});
+router.put('/documents/:id', validateRequest('document.update'), asyncHandler(async (req, res) => {
+  try {
+    const { title, classification, owner, description } = req.body;
+
+    const doc = await DocumentService.updateDocument(
+      req.params.id,
+      { title, classification, owner, description },
+      req.user.tenantId
+    );
+
+    res.json(serializers.successResponse({
+      id: doc.id,
+      title: doc.title,
+      classification: doc.classification,
+      updatedAt: doc.updatedAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'DOCUMENT_UPDATE_FAILED'));
+  }
+}));
+
+router.delete('/documents/:id', asyncHandler(async (req, res) => {
+  try {
+    await DocumentService.deleteDocument(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({ success: true }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'DOCUMENT_DELETE_FAILED'));
+  }
+}));
 
 // ===== ROLES API =====
 
-router.get('/roles', (req, res) => {
-  const { sortBy, sortOrder } = req.query;
+router.get('/roles', asyncHandler(async (req, res) => {
+  try {
+    const { sortBy, sortOrder } = req.query;
 
-  const result = applyFilters(mockData.mockRoles, {
-    sortBy: sortBy || 'name',
-    sortOrder: sortOrder || 'asc',
-    page: 1,
-    pageSize: 100
-  });
+    const roles = await RoleService.getAllRoles(req.user.tenantId);
 
-  res.json(serializers.successResponse(result.data.map(serializers.role)));
-});
-
-router.get('/roles/:name', (req, res) => {
-  const role = mockData.mockRoles.find(r => r.name === req.params.name);
-  if (!role) {
-    return res.status(404).json(serializers.errorResponse('Role not found', 'ROLE_NOT_FOUND'));
+    res.json(serializers.successResponse(roles.map(r => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      permissions: r.permissions,
+      createdAt: r.createdAt
+    }))));
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
   }
-  res.json(serializers.successResponse(role, serializers.role));
-});
+}));
 
-router.post('/roles', validateRequest('role.create'), (req, res) => {
-  const { name, description, permissions } = req.body;
-
-  const newRole = {
-    name,
-    description,
-    permissions,
-    userCount: 0
-  };
-
-  mockData.mockRoles.push(newRole);
-  res.status(201).json(serializers.successResponse(newRole, serializers.role));
-});
-
-// ===== ABAC RULES API =====
-
-router.get('/abac-rules', (req, res) => {
-  const { status, sortBy, sortOrder } = req.query;
-
-  const result = applyFilters(mockData.mockABACRules, {
-    filters: { status },
-    sortBy: sortBy || 'name',
-    sortOrder: sortOrder || 'asc',
-    page: 1,
-    pageSize: 100
-  });
-
-  res.json(serializers.successResponse(result.data.map(serializers.abacRule)));
-});
-
-router.get('/abac-rules/:name', (req, res) => {
-  const rule = mockData.mockABACRules.find(r => r.name === req.params.name);
-  if (!rule) {
-    return res.status(404).json(serializers.errorResponse('ABAC rule not found', 'RULE_NOT_FOUND'));
+router.get('/roles/:name', asyncHandler(async (req, res) => {
+  try {
+    const role = await RoleService.getRoleByName(req.params.name, req.user.tenantId);
+    res.json(serializers.successResponse({
+      id: role.id,
+      name: role.name,
+      description: role.description,
+      permissions: role.permissions,
+      createdAt: role.createdAt
+    }));
+  } catch (error) {
+    res.status(404).json(serializers.errorResponse(error.message, 'ROLE_NOT_FOUND'));
   }
-  res.json(serializers.successResponse(rule, serializers.abacRule));
-});
+}));
 
-router.post('/abac-rules', validateRequest('abacRule.create'), (req, res) => {
-  const { name, condition, effect, resources } = req.body;
+router.post('/roles', validateRequest('role.create'), asyncHandler(async (req, res) => {
+  try {
+    const { name, description, permissions } = req.body;
 
-  const newRule = {
-    name,
-    condition,
-    effect,
-    resources,
-    status: 'active'
-  };
+    const role = await RoleService.createRole({
+      name,
+      description,
+      permissions: permissions || [],
+      tenantId: req.user.tenantId
+    });
 
-  mockData.mockABACRules.push(newRule);
-  res.status(201).json(serializers.successResponse(newRule, serializers.abacRule));
-});
+    res.status(201).json(serializers.successResponse({
+      id: role.id,
+      name: role.name,
+      description: role.description,
+      permissions: role.permissions,
+      createdAt: role.createdAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'ROLE_CREATION_FAILED'));
+  }
+}));
+
+router.put('/roles/:id', validateRequest('role.update'), asyncHandler(async (req, res) => {
+  try {
+    const { description, permissions } = req.body;
+
+    const role = await RoleService.updateRole(
+      req.params.id,
+      { description, permissions },
+      req.user.tenantId
+    );
+
+    res.json(serializers.successResponse({
+      id: role.id,
+      name: role.name,
+      description: role.description,
+      permissions: role.permissions,
+      updatedAt: role.updatedAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'ROLE_UPDATE_FAILED'));
+  }
+}));
+
+router.delete('/roles/:id', asyncHandler(async (req, res) => {
+  try {
+    await RoleService.deleteRole(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({ success: true }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'ROLE_DELETE_FAILED'));
+  }
+}));
 
 // ===== POLICIES API =====
 
-router.get('/policies', (req, res) => {
-  const { status, type, sortBy, sortOrder } = req.query;
+router.get('/policies', asyncHandler(async (req, res) => {
+  try {
+    const { type, status } = req.query;
 
-  const result = applyFilters(mockData.mockPolicies, {
-    filters: { status, type },
-    sortBy: sortBy || 'createdAt',
-    sortOrder: sortOrder || 'desc',
-    page: 1,
-    pageSize: 100
-  });
+    const policies = await PolicyService.getAllPolicies({
+      type,
+      status,
+      tenantId: req.user.tenantId
+    });
 
-  res.json(serializers.successResponse(result.data.map(serializers.policy)));
-});
-
-router.get('/policies/:name', (req, res) => {
-  const policy = mockData.mockPolicies.find(p => p.name === req.params.name);
-  if (!policy) {
-    return res.status(404).json(serializers.errorResponse('Policy not found', 'POLICY_NOT_FOUND'));
+    res.json(serializers.successResponse(policies.map(p => ({
+      id: p.id,
+      name: p.name,
+      type: p.type,
+      target: p.target,
+      status: p.status,
+      createdAt: p.createdAt
+    }))));
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
   }
-  res.json(serializers.successResponse(policy, serializers.policy));
-});
+}));
 
-router.post('/policies', validateRequest('policy.create'), (req, res) => {
-  const { name, type, target } = req.body;
+router.get('/policies/:name', asyncHandler(async (req, res) => {
+  try {
+    const policy = await PolicyService.getPolicyByName(req.params.name, req.user.tenantId);
+    res.json(serializers.successResponse({
+      id: policy.id,
+      name: policy.name,
+      type: policy.type,
+      target: policy.target,
+      status: policy.status,
+      createdAt: policy.createdAt
+    }));
+  } catch (error) {
+    res.status(404).json(serializers.errorResponse(error.message, 'POLICY_NOT_FOUND'));
+  }
+}));
 
-  const newPolicy = {
-    name,
-    type,
-    target,
-    status: 'active',
-    createdAt: new Date()
-  };
+router.post('/policies', validateRequest('policy.create'), asyncHandler(async (req, res) => {
+  try {
+    const { name, type, target } = req.body;
 
-  mockData.mockPolicies.push(newPolicy);
-  res.status(201).json(serializers.successResponse(newPolicy, serializers.policy));
-});
+    const policy = await PolicyService.createPolicy({
+      name,
+      type,
+      target,
+      tenantId: req.user.tenantId,
+      status: 'active'
+    });
+
+    res.status(201).json(serializers.successResponse({
+      id: policy.id,
+      name: policy.name,
+      type: policy.type,
+      target: policy.target,
+      status: policy.status,
+      createdAt: policy.createdAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'POLICY_CREATION_FAILED'));
+  }
+}));
+
+router.put('/policies/:id', validateRequest('policy.update'), asyncHandler(async (req, res) => {
+  try {
+    const { name, type, target, status } = req.body;
+
+    const policy = await PolicyService.updatePolicy(
+      req.params.id,
+      { name, type, target, status },
+      req.user.tenantId
+    );
+
+    res.json(serializers.successResponse({
+      id: policy.id,
+      name: policy.name,
+      type: policy.type,
+      target: policy.target,
+      status: policy.status,
+      updatedAt: policy.updatedAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'POLICY_UPDATE_FAILED'));
+  }
+}));
+
+router.delete('/policies/:id', asyncHandler(async (req, res) => {
+  try {
+    await PolicyService.deletePolicy(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({ success: true }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'POLICY_DELETE_FAILED'));
+  }
+}));
+
+router.post('/policies/:id/activate', asyncHandler(async (req, res) => {
+  try {
+    const policy = await PolicyService.activatePolicy(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({ status: policy.status }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'POLICY_ACTIVATION_FAILED'));
+  }
+}));
+
+router.post('/policies/:id/deactivate', asyncHandler(async (req, res) => {
+  try {
+    const policy = await PolicyService.deactivatePolicy(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({ status: policy.status }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'POLICY_DEACTIVATION_FAILED'));
+  }
+}));
 
 // ===== AUDIT LOGS API =====
 
-router.get('/audit-logs', validatePagination, (req, res) => {
-  const { page, pageSize, eventType, status, search, sortBy, sortOrder } = req.query;
+router.get('/audit-logs', validatePagination, asyncHandler(async (req, res) => {
+  try {
+    const { page, pageSize, eventType, status, search, sortBy, sortOrder } = req.query;
 
-  const result = applyFilters(mockData.mockAuditLogs, {
-    filters: { eventType, status },
-    query: search,
-    searchFields: ['user', 'action', 'resource'],
-    sortBy: sortBy || 'timestamp',
-    sortOrder: sortOrder || 'desc',
-    page: page || 1,
-    pageSize: pageSize || 10
-  });
+    const result = await AuditLogService.getAllLogs({
+      page: parseInt(page) || 1,
+      pageSize: parseInt(pageSize) || 10,
+      eventType,
+      status,
+      search,
+      sortBy: sortBy || 'createdAt',
+      sortOrder: sortOrder || 'desc',
+      tenantId: req.user.tenantId
+    });
 
-  res.json({
-    success: true,
-    data: result.data.map(serializers.auditLog),
-    pagination: result.pagination,
-    timestamp: new Date().toISOString()
-  });
-});
+    res.json({
+      success: true,
+      data: result.data.map(log => ({
+        id: log.id,
+        eventType: log.eventType,
+        user: log.user,
+        resource: log.resource,
+        action: log.action,
+        status: log.status,
+        ipAddress: log.ipAddress,
+        details: log.details,
+        createdAt: log.createdAt
+      })),
+      pagination: result.pagination,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
+  }
+}));
 
 // ===== AGENTS API =====
 
-router.get('/agents', (req, res) => {
-  const { status, sortBy, sortOrder } = req.query;
+router.get('/agents', asyncHandler(async (req, res) => {
+  try {
+    const { status } = req.query;
 
-  const result = applyFilters(mockData.mockAgents, {
-    filters: { status },
-    sortBy: sortBy || 'name',
-    sortOrder: sortOrder || 'asc',
-    page: 1,
-    pageSize: 100
-  });
+    const agents = await AgentService.getAllAgents({
+      status,
+      tenantId: req.user.tenantId
+    });
 
-  res.json(serializers.successResponse(result.data.map(serializers.agent)));
-});
-
-router.get('/agents/:id', (req, res) => {
-  const agent = mockData.mockAgents.find(a => a.name === req.params.id);
-  if (!agent) {
-    return res.status(404).json(serializers.errorResponse('Agent not found', 'AGENT_NOT_FOUND'));
+    res.json(serializers.successResponse(agents.map(a => ({
+      id: a.id,
+      name: a.name,
+      type: a.type,
+      status: a.status,
+      lastSeen: a.lastSeen,
+      createdAt: a.createdAt
+    }))));
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
   }
-  res.json(serializers.successResponse(agent, serializers.agent));
-});
+}));
 
-router.post('/agents', validateRequest('agent.create'), (req, res) => {
-  const { name, type } = req.body;
+router.get('/agents/:id', asyncHandler(async (req, res) => {
+  try {
+    const agent = await AgentService.getAgentById(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({
+      id: agent.id,
+      name: agent.name,
+      type: agent.type,
+      status: agent.status,
+      lastSeen: agent.lastSeen,
+      createdAt: agent.createdAt
+    }));
+  } catch (error) {
+    res.status(404).json(serializers.errorResponse(error.message, 'AGENT_NOT_FOUND'));
+  }
+}));
 
-  const newAgent = {
-    name,
-    type,
-    status: 'active',
-    apiKey: `sk-agent-${Date.now()}`,
-    lastSeen: new Date(),
-    requests24h: 0
-  };
+router.post('/agents', validateRequest('agent.create'), asyncHandler(async (req, res) => {
+  try {
+    const { name, type } = req.body;
 
-  mockData.mockAgents.push(newAgent);
-  res.status(201).json(serializers.successResponse(newAgent, serializers.agent));
-});
+    const agent = await AgentService.createAgent({
+      name,
+      type,
+      tenantId: req.user.tenantId,
+      status: 'active'
+    });
 
-// ===== AGENT GROUPS API =====
+    res.status(201).json(serializers.successResponse({
+      id: agent.id,
+      name: agent.name,
+      type: agent.type,
+      apiKey: agent.apiKey,
+      status: agent.status,
+      createdAt: agent.createdAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'AGENT_CREATION_FAILED'));
+  }
+}));
 
-router.get('/agent-groups', (req, res) => {
-  res.json(serializers.successResponse(mockData.mockAgentGroups.map(serializers.agentGroup)));
-});
+router.put('/agents/:id', validateRequest('agent.update'), asyncHandler(async (req, res) => {
+  try {
+    const { name, type, status } = req.body;
 
-// ===== MODELS API =====
+    const agent = await AgentService.updateAgent(
+      req.params.id,
+      { name, type, status },
+      req.user.tenantId
+    );
 
-router.get('/models', (req, res) => {
-  const { status, sortBy, sortOrder } = req.query;
+    res.json(serializers.successResponse({
+      id: agent.id,
+      name: agent.name,
+      type: agent.type,
+      status: agent.status,
+      updatedAt: agent.updatedAt
+    }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'AGENT_UPDATE_FAILED'));
+  }
+}));
 
-  const result = applyFilters(mockData.mockModels, {
-    filters: { status },
-    sortBy: sortBy || 'name',
-    sortOrder: sortOrder || 'asc',
-    page: 1,
-    pageSize: 100
-  });
+router.delete('/agents/:id', asyncHandler(async (req, res) => {
+  try {
+    await AgentService.deleteAgent(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({ success: true }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'AGENT_DELETE_FAILED'));
+  }
+}));
 
-  res.json(serializers.successResponse(result.data.map(serializers.model)));
-});
+router.post('/agents/:id/regenerate-key', asyncHandler(async (req, res) => {
+  try {
+    const result = await AgentService.regenerateApiKey(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse(result));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'KEY_REGENERATION_FAILED'));
+  }
+}));
+
+router.post('/agents/:id/activate', asyncHandler(async (req, res) => {
+  try {
+    const agent = await AgentService.activateAgent(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({ status: agent.status }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'AGENT_ACTIVATION_FAILED'));
+  }
+}));
+
+router.post('/agents/:id/deactivate', asyncHandler(async (req, res) => {
+  try {
+    const agent = await AgentService.deactivateAgent(req.params.id, req.user.tenantId);
+    res.json(serializers.successResponse({ status: agent.status }));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'AGENT_DEACTIVATION_FAILED'));
+  }
+}));
 
 // ===== DASHBOARD API =====
 
-router.get('/dashboard/metrics', (req, res) => {
-  res.json(serializers.successResponse({
-    totalDocuments: mockData.mockDocuments.length,
-    activeUsers: mockData.mockUsers.filter(u => u.status === 'active').length,
-    totalPolicies: mockData.mockPolicies.length,
-    auditEvents: mockData.mockAuditLogs.length
-  }));
-});
+router.get('/dashboard/metrics', asyncHandler(async (req, res) => {
+  try {
+    const docsResult = await DocumentService.getAllDocuments({
+      page: 1,
+      pageSize: 1,
+      tenantId: req.user.tenantId
+    });
+    const policiesResult = await PolicyService.getAllPolicies({
+      tenantId: req.user.tenantId
+    });
+    const activeUsersCount = await UserService.countByRole('admin', req.user.tenantId) +
+                            await UserService.countByRole('editor', req.user.tenantId) +
+                            await UserService.countByRole('viewer', req.user.tenantId);
+    const logsResult = await AuditLogService.getAllLogs({
+      page: 1,
+      pageSize: 1,
+      tenantId: req.user.tenantId
+    });
 
-router.get('/dashboard/recent-events', (req, res) => {
-  const recentEvents = mockData.mockAuditLogs.slice(0, 5).map(log => ({
-    timestamp: log.timestamp,
-    action: log.action,
-    status: log.status
-  }));
+    res.json(serializers.successResponse({
+      totalDocuments: docsResult.pagination.total,
+      activeUsers: activeUsersCount,
+      totalPolicies: policiesResult.length,
+      auditEvents: logsResult.pagination.total
+    }));
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
+  }
+}));
 
-  res.json(serializers.successResponse(recentEvents));
-});
+router.get('/dashboard/recent-events', asyncHandler(async (req, res) => {
+  try {
+    const recentLogs = await AuditLogService.getRecentLogs(req.user.tenantId, 1, 5);
+
+    res.json(serializers.successResponse(recentLogs.map(log => ({
+      timestamp: log.createdAt,
+      action: log.action,
+      status: log.status,
+      user: log.user
+    }))));
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
+  }
+}));
 
 // ===== ERROR HANDLING =====
 
 router.use((req, res) => {
   res.status(404).json(serializers.errorResponse('API endpoint not found', 'NOT_FOUND'));
+});
+
+// Global error handler for async errors
+router.use((err, req, res, next) => {
+  console.error('API Error:', err);
+  res.status(err.status || 500).json(
+    serializers.errorResponse(err.message || 'Internal Server Error', 'SERVER_ERROR')
+  );
 });
 
 module.exports = router;

@@ -10,7 +10,10 @@
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
     "lint": "eslint src/",
-    "playwright:install": "playwright install"
+    "playwright:install": "playwright install",
+    "db:sync": "node -e \"require('dotenv').config(); const db = require('./src/config/database'); db.syncDatabase().then(() => { console.log('✓ Database synchronized'); process.exit(0); }).catch(e => { console.error('✗ Sync failed:', e.message); process.exit(1); })\"",
+    "db:seed": "node src/scripts/seed-database.js",
+    "db:setup": "npm run db:sync && npm run db:seed"
   },
   "keywords": [
     "kyra",

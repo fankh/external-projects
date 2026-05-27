@@ -38,6 +38,10 @@ const schemas = {
       name: { type: 'string', required: true, minLength: 1, maxLength: 50 },
       description: { type: 'string', required: true, minLength: 1, maxLength: 500 },
       permissions: { type: 'array', required: true, minItems: 1 }
+    },
+    update: {
+      description: { type: 'string', minLength: 1, maxLength: 500 },
+      permissions: { type: 'array', minItems: 1 }
     }
   },
 
@@ -55,6 +59,12 @@ const schemas = {
       name: { type: 'string', required: true, minLength: 1, maxLength: 100 },
       type: { type: 'string', required: true, enum: ['rbac', 'abac'] },
       target: { type: 'string', required: true, minLength: 1, maxLength: 100 }
+    },
+    update: {
+      name: { type: 'string', minLength: 1, maxLength: 100 },
+      type: { type: 'string', enum: ['rbac', 'abac'] },
+      target: { type: 'string', minLength: 1, maxLength: 100 },
+      status: { type: 'string', enum: ['active', 'inactive'] }
     }
   },
 
@@ -62,6 +72,11 @@ const schemas = {
     create: {
       name: { type: 'string', required: true, minLength: 1, maxLength: 100 },
       type: { type: 'string', required: true, enum: ['analysis', 'automation'] }
+    },
+    update: {
+      name: { type: 'string', minLength: 1, maxLength: 100 },
+      type: { type: 'string', enum: ['analysis', 'automation'] },
+      status: { type: 'string', enum: ['active', 'inactive'] }
     }
   },
 
