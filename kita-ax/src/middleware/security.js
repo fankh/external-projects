@@ -62,8 +62,14 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true
 });
 
-// CSRF Protection
-const csrfProtection = csrf({ cookie: false });
+// CSRF Protection (cookie-based with secret from environment)
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
+});
 
 module.exports = {
   cors: cors(corsOptions),

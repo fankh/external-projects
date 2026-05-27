@@ -6,6 +6,7 @@
  */
 
 require('dotenv').config();
+const { v4: uuidv4 } = require('uuid');
 const database = require('../config/database');
 const UserService = require('../services/userService');
 const DocumentService = require('../services/documentService');
@@ -14,7 +15,8 @@ const PolicyService = require('../services/policyService');
 const AuditLogService = require('../services/auditLogService');
 const AgentService = require('../services/agentService');
 
-const TENANT_ID = 'tenant-1';
+// Use a fixed UUID for consistent seeding
+const TENANT_ID = '550e8400-e29b-41d4-a716-446655440000';
 
 async function seedDatabase() {
   try {
