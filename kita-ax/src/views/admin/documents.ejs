@@ -5,20 +5,31 @@
   <p>Manage documents and content access</p>
 </div>
 
+<% if (flashSuccess) { %>
+<div class="flash flash-success" style="margin-bottom:20px;padding:12px 16px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:4px;color:#2e7d32">
+  <%= flashSuccess %>
+</div>
+<% } %>
+
+<% if (flashError) { %>
+<div class="flash flash-error" style="margin-bottom:20px;padding:12px 16px;background:#fee;border:1px solid #fcc;border-radius:4px;color:#c33">
+  <%= flashError %>
+</div>
+<% } %>
+
 <div class="admin-panel">
   <div class="panel-header">
-    <h3>Document Registry</h3>
-    <button class="btn btn-primary" onclick="alert('Upload document feature coming soon')">+ Upload Document</button>
+    <h3>Document Registry (<%= pagination ? pagination.total : 0 %> total)</h3>
+    <a href="/admin/documents/new" class="btn btn-primary">+ Add Document</a>
   </div>
 
   <table class="admin-table">
     <thead>
       <tr>
-        <th>Document ID</th>
         <th>Title</th>
         <th>Classification</th>
         <th>Owner</th>
-        <th>Uploaded</th>
+        <th>Created</th>
         <th>Access Count</th>
         <th>Actions</th>
       </tr>
@@ -26,49 +37,44 @@
     <tbody>
       <% (documents || []).forEach(doc => { %>
       <tr>
-        <td><code><%= doc.id %></code></td>
         <td><%= doc.title %></td>
         <td><span class="badge badge-<%= doc.classification %>"><%= doc.classification %></span></td>
         <td><%= doc.owner %></td>
-        <td><%= new Date(doc.uploadedAt).toLocaleDateString() %></td>
+        <td><%= new Date(doc.createdAt).toLocaleDateString() %></td>
         <td><%= doc.accessCount %></td>
         <td>
-          <button class="btn-link" onclick="alert('View details')">Details</button> |
-          <button class="btn-link" onclick="alert('Edit permissions')">Permissions</button>
+          <a href="/admin/documents/<%= doc.id %>/edit" class="btn-link">Edit</a> |
+          <form id="del-<%= doc.id %>" method="POST" action="/admin/documents/<%= doc.id %>/delete" style="display:none">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          </form>
+          <button type="button" class="btn-link btn-danger" onclick="confirmDelete('del-<%= doc.id %>')">Delete</button>
         </td>
       </tr>
       <% }); %>
     </tbody>
   </table>
+
+  <% if (pagination && pagination.totalPages > 1) { %>
+  <div class="pagination" style="display:flex;justify-content:center;gap:12px;padding:20px;border-top:1px solid #ddd">
+    <% if (pagination.hasPrev) { %>
+      <a href="/admin/documents?page=<%= pagination.page - 1 %><% if (searchParams) { %>&<%= searchParams %><% } %>" class="pagination-link">← Previous</a>
+    <% } %>
+    <span style="padding:8px 16px;color:#666">Page <%= pagination.page %> of <%= pagination.totalPages %></span>
+    <% if (pagination.hasNext) { %>
+      <a href="/admin/documents?page=<%= pagination.page + 1 %><% if (searchParams) { %>&<%= searchParams %><% } %>" class="pagination-link">Next →</a>
+    <% } %>
+  </div>
+  <% } %>
 </div>
 
-<div class="section-spacer"></div>
-
-<div class="admin-panel">
-  <div class="panel-header">
-    <h3>Classification Levels</h3>
-  </div>
-
-  <div class="classification-grid">
-    <div class="classification-card">
-      <div class="badge badge-public"></div>
-      <h4>Public</h4>
-      <p>Accessible to all authenticated users</p>
-    </div>
-    <div class="classification-card">
-      <div class="badge badge-internal"></div>
-      <h4>Internal</h4>
-      <p>Restricted to employees</p>
-    </div>
-    <div class="classification-card">
-      <div class="badge badge-confidential"></div>
-      <h4>Confidential</h4>
-      <p>Restricted to management</p>
-    </div>
-    <div class="classification-card">
-      <div class="badge badge-secret"></div>
-      <h4>Secret</h4>
-      <p>Highly restricted access</p>
+<!-- Delete Modal -->
+<div id="delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:white;padding:32px;border-radius:8px;max-width:400px;width:90%">
+    <h3>Confirm Delete</h3>
+    <p style="margin:16px 0;color:#666">This action cannot be undone. The document will be permanently deleted.</p>
+    <div style="display:flex;gap:12px;justify-content:flex-end">
+      <button id="modal-cancel" class="btn" style="padding:8px 16px;background:#f0f2f5;color:#1a1a40;border:1px solid #ddd;border-radius:4px;cursor:pointer">Cancel</button>
+      <button id="modal-confirm" class="btn" style="padding:8px 16px;background:#d32f2f;color:white;border:none;border-radius:4px;cursor:pointer">Delete</button>
     </div>
   </div>
 </div>
@@ -79,6 +85,7 @@
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     overflow: hidden;
+    margin-bottom: 30px;
   }
 
   .panel-header {
@@ -113,14 +120,6 @@
     padding: 12px 16px;
     border-bottom: 1px solid #eee;
     font-size: 14px;
-  }
-
-  .admin-table code {
-    background: #f5f7fa;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
   }
 
   .admin-table tbody tr:hover {
@@ -160,41 +159,8 @@
     color: var(--primary-dark);
   }
 
-  .section-spacer {
-    height: 30px;
-  }
-
-  .classification-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    padding: 20px;
-  }
-
-  .classification-card {
-    padding: 16px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    text-align: center;
-  }
-
-  .classification-card .badge {
-    width: 40px;
-    height: 40px;
-    display: inline-block;
-    margin-bottom: 12px;
-    border-radius: 6px;
-  }
-
-  .classification-card h4 {
-    margin: 12px 0 8px;
-    color: var(--text-primary);
-  }
-
-  .classification-card p {
-    margin: 0;
-    font-size: 12px;
-    color: var(--text-secondary);
+  .btn-danger {
+    color: #d32f2f;
   }
 
   .badge {
@@ -206,13 +172,13 @@
   }
 
   .badge-public {
-    background: #e8f5e9;
-    color: #2e7d32;
+    background: #e1f5fe;
+    color: #0277bd;
   }
 
   .badge-internal {
-    background: #e3f2fd;
-    color: #1565c0;
+    background: #f3e5f5;
+    color: #7b1fa2;
   }
 
   .badge-confidential {
@@ -221,9 +187,51 @@
   }
 
   .badge-secret {
-    background: #fce4ec;
-    color: #c2185b;
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  .pagination-link {
+    padding: 8px 16px;
+    background: #f0f2f5;
+    color: var(--primary-color);
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .pagination-link:hover {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 12px;
   }
 </style>
+
+<script>
+let deleteTarget = null;
+
+function confirmDelete(formId) {
+  deleteTarget = document.getElementById(formId);
+  document.getElementById('delete-modal').style.display = 'flex';
+}
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('delete-modal').style.display = 'none';
+  deleteTarget = null;
+});
+
+document.getElementById('modal-confirm').addEventListener('click', () => {
+  if (deleteTarget) deleteTarget.submit();
+});
+</script>
 
 <%- include('../layouts/admin-footer') %>

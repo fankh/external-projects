@@ -1,0 +1,54 @@
+<%- include('../layouts/admin-header') %>
+
+<div class="page-title">
+  <h1>Create New User</h1>
+  <p>Add a new user account to the system</p>
+</div>
+
+<% if (flashError) { %>
+<div class="flash flash-error" style="margin-bottom:20px;padding:12px 16px;background:#fee;border:1px solid #fcc;border-radius:4px;color:#c33">
+  <%= flashError %>
+</div>
+<% } %>
+
+<div class="admin-panel" style="max-width:500px">
+  <form method="POST" action="/admin/users">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="email" style="display:block;margin-bottom:8px;font-weight:600">Email Address</label>
+      <input type="email" id="email" name="email" required style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="password" style="display:block;margin-bottom:8px;font-weight:600">Password</label>
+      <input type="password" id="password" name="password" required minlength="8" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+      <small style="color:#666">Minimum 8 characters</small>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="role" style="display:block;margin-bottom:8px;font-weight:600">Role</label>
+      <select id="role" name="role" required style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+        <option value="">-- Select Role --</option>
+        <option value="viewer">Viewer</option>
+        <option value="editor">Editor</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="status" style="display:block;margin-bottom:8px;font-weight:600">Status</label>
+      <select id="status" name="status" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:24px">
+      <button type="submit" class="btn" style="flex:1;padding:10px 16px;background:#2e8b57;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:600">Create User</button>
+      <a href="/admin/users" class="btn" style="flex:1;padding:10px 16px;background:#f0f2f5;color:#1a1a40;border:1px solid #ddd;border-radius:4px;text-decoration:none;text-align:center;font-size:14px">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<%- include('../layouts/admin-footer') %>

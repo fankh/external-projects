@@ -1,0 +1,51 @@
+<%- include('../layouts/admin-header') %>
+
+<div class="page-title">
+  <h1>Edit Agent</h1>
+  <p>Update agent configuration</p>
+</div>
+
+<% if (flashError) { %>
+<div class="flash flash-error" style="margin-bottom:20px;padding:12px 16px;background:#fee;border:1px solid #fcc;border-radius:4px;color:#c33">
+  <%= flashError %>
+</div>
+<% } %>
+
+<div class="admin-panel" style="max-width:500px">
+  <form method="POST" action="/admin/agents/<%= editAgent.id %>">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div class="form-group" style="margin-bottom:16px;padding:12px;background:#f5f7fa;border-radius:4px">
+      <label style="display:block;margin-bottom:4px;font-weight:600;font-size:12px;color:#666">Agent ID</label>
+      <code style="font-size:12px"><%= editAgent.id %></code>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="name" style="display:block;margin-bottom:8px;font-weight:600">Agent Name</label>
+      <input type="text" id="name" name="name" value="<%= editAgent.name %>" required maxlength="100" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="type" style="display:block;margin-bottom:8px;font-weight:600">Agent Type</label>
+      <select id="type" name="type" required style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+        <option value="analysis" <%= editAgent.type === 'analysis' ? 'selected' : '' %>>Analysis</option>
+        <option value="automation" <%= editAgent.type === 'automation' ? 'selected' : '' %>>Automation</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="status" style="display:block;margin-bottom:8px;font-weight:600">Status</label>
+      <select id="status" name="status" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+        <option value="active" <%= editAgent.status === 'active' ? 'selected' : '' %>>Active</option>
+        <option value="inactive" <%= editAgent.status === 'inactive' ? 'selected' : '' %>>Inactive</option>
+      </select>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:24px">
+      <button type="submit" class="btn" style="flex:1;padding:10px 16px;background:#2e8b57;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:600">Update Agent</button>
+      <a href="/admin/agents" class="btn" style="flex:1;padding:10px 16px;background:#f0f2f5;color:#1a1a40;border:1px solid #ddd;border-radius:4px;text-decoration:none;text-align:center;font-size:14px">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<%- include('../layouts/admin-footer') %>

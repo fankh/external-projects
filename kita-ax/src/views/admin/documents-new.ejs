@@ -1,0 +1,51 @@
+<%- include('../layouts/admin-header') %>
+
+<div class="page-title">
+  <h1>Create New Document</h1>
+  <p>Add a new document to the system</p>
+</div>
+
+<% if (flashError) { %>
+<div class="flash flash-error" style="margin-bottom:20px;padding:12px 16px;background:#fee;border:1px solid #fcc;border-radius:4px;color:#c33">
+  <%= flashError %>
+</div>
+<% } %>
+
+<div class="admin-panel" style="max-width:500px">
+  <form method="POST" action="/admin/documents">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="title" style="display:block;margin-bottom:8px;font-weight:600">Document Title</label>
+      <input type="text" id="title" name="title" required maxlength="255" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="classification" style="display:block;margin-bottom:8px;font-weight:600">Classification</label>
+      <select id="classification" name="classification" required style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+        <option value="">-- Select Classification --</option>
+        <option value="public">Public</option>
+        <option value="internal">Internal</option>
+        <option value="confidential">Confidential</option>
+        <option value="secret">Secret</option>
+      </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="owner" style="display:block;margin-bottom:8px;font-weight:600">Owner Email</label>
+      <input type="email" id="owner" name="owner" value="<%= user.email %>" required style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+    </div>
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="description" style="display:block;margin-bottom:8px;font-weight:600">Description</label>
+      <textarea id="description" name="description" rows="4" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;font-family:inherit"></textarea>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:24px">
+      <button type="submit" class="btn" style="flex:1;padding:10px 16px;background:#2e8b57;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:600">Create Document</button>
+      <a href="/admin/documents" class="btn" style="flex:1;padding:10px 16px;background:#f0f2f5;color:#1a1a40;border:1px solid #ddd;border-radius:4px;text-decoration:none;text-align:center;font-size:14px">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<%- include('../layouts/admin-footer') %>
