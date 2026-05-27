@@ -1,0 +1,341 @@
+<%- include('../layouts/admin-header') %>
+
+<div class="page-title">
+  <h1>🔐 Access Policies</h1>
+  <p>Configure role-based and attribute-based access control</p>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab(event, 'rbac')">RBAC</button>
+  <button class="tab-btn" onclick="switchTab(event, 'abac')">ABAC</button>
+  <button class="tab-btn" onclick="switchTab(event, 'policies')">Policies</button>
+</div>
+
+<div id="rbac" class="tab-content active">
+  <div class="admin-panel">
+    <div class="panel-header">
+      <h3>Role-Based Access Control (RBAC)</h3>
+      <button class="btn btn-primary" onclick="alert('Create role feature coming soon')">+ Create Role</button>
+    </div>
+
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Role</th>
+          <th>Description</th>
+          <th>Permissions</th>
+          <th>Users</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% (rbacRoles || []).forEach(role => { %>
+        <tr>
+          <td><strong><%= role.name %></strong></td>
+          <td><%= role.description %></td>
+          <td><code><%= role.permissions.join(', ') %></code></td>
+          <td><%= role.userCount %></td>
+          <td>
+            <button class="btn-link" onclick="alert('Edit role')">Edit</button> |
+            <button class="btn-link btn-danger" onclick="alert('Delete role')">Delete</button>
+          </td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="abac" class="tab-content">
+  <div class="admin-panel">
+    <div class="panel-header">
+      <h3>Attribute-Based Access Control (ABAC)</h3>
+      <button class="btn btn-primary" onclick="alert('Create attribute rule')">+ New Rule</button>
+    </div>
+
+    <div class="attribute-rules">
+      <% (abacRules || []).forEach(rule => { %>
+      <div class="rule-card">
+        <div class="rule-header">
+          <h4><%= rule.name %></h4>
+          <span class="badge badge-<%= rule.status %>"><%= rule.status %></span>
+        </div>
+        <div class="rule-body">
+          <p><strong>Condition:</strong> <code><%= rule.condition %></code></p>
+          <p><strong>Effect:</strong> <code><%= rule.effect %></code></p>
+          <p><strong>Resources:</strong> <code><%= rule.resources.join(', ') %></code></p>
+        </div>
+        <div class="rule-footer">
+          <button class="btn-link" onclick="alert('Edit rule')">Edit</button> |
+          <button class="btn-link btn-danger" onclick="alert('Delete rule')">Delete</button>
+        </div>
+      </div>
+      <% }); %>
+    </div>
+  </div>
+</div>
+
+<div id="policies" class="tab-content">
+  <div class="admin-panel">
+    <div class="panel-header">
+      <h3>Policy Management</h3>
+      <button class="btn btn-primary" onclick="alert('Create policy')">+ New Policy</button>
+    </div>
+
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Policy Name</th>
+          <th>Type</th>
+          <th>Target</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% (policies || []).forEach(policy => { %>
+        <tr>
+          <td><strong><%= policy.name %></strong></td>
+          <td><span class="badge badge-<%= policy.type %>"><%= policy.type %></span></td>
+          <td><code><%= policy.target %></code></td>
+          <td><span class="badge badge-<%= policy.status %>"><%= policy.status %></span></td>
+          <td><%= new Date(policy.createdAt).toLocaleDateString() %></td>
+          <td>
+            <button class="btn-link" onclick="alert('Edit policy')">Edit</button> |
+            <button class="btn-link btn-danger" onclick="alert('Delete policy')">Delete</button>
+          </td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+    margin-bottom: -2px;
+  }
+
+  .tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+  }
+
+  .tab-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .tab-content {
+    display: none;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  .admin-panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .panel-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .admin-table th {
+    background: #f5f7fa;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+  }
+
+  .admin-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+  }
+
+  .admin-table code {
+    background: #f5f7fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+  }
+
+  .admin-table tbody tr:hover {
+    background: #f9f9f9;
+  }
+
+  .attribute-rules {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .rule-card {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 16px;
+  }
+
+  .rule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 12px;
+  }
+
+  .rule-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .rule-body {
+    margin-bottom: 12px;
+  }
+
+  .rule-body p {
+    margin: 8px 0;
+    font-size: 13px;
+  }
+
+  .rule-body code {
+    background: #f5f7fa;
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-size: 11px;
+  }
+
+  .rule-footer {
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .btn-primary {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    font-size: 13px;
+  }
+
+  .btn-link:hover {
+    color: var(--primary-dark);
+  }
+
+  .btn-danger {
+    color: #d32f2f;
+  }
+
+  .badge {
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+  }
+
+  .badge-allow {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .badge-deny {
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  .badge-active {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .badge-inactive {
+    background: #f5f5f5;
+    color: #666;
+  }
+
+  .badge-rbac {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+
+  .badge-abac {
+    background: #f3e5f5;
+    color: #7b1fa2;
+  }
+</style>
+
+<script>
+  function switchTab(event, tabName) {
+    const contents = document.querySelectorAll('.tab-content');
+    contents.forEach(content => content.classList.remove('active'));
+
+    const buttons = document.querySelectorAll('.tab-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+
+    document.getElementById(tabName).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+
+<%- include('../layouts/admin-footer') %>

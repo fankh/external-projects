@@ -1,0 +1,203 @@
+<%- include('../layouts/admin-header') %>
+
+<div class="page-title">
+  <h1>📋 Audit Logs</h1>
+  <p>Review all system actions and access events</p>
+</div>
+
+<div class="admin-panel">
+  <div class="panel-header">
+    <h3>Audit Event Log</h3>
+    <div class="filter-controls">
+      <input type="text" placeholder="Search events..." class="search-input">
+      <select class="filter-select">
+        <option>All Events</option>
+        <option>Authentication</option>
+        <option>Document Access</option>
+        <option>Policy Change</option>
+        <option>User Management</option>
+      </select>
+    </div>
+  </div>
+
+  <table class="audit-table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Event Type</th>
+        <th>User</th>
+        <th>Resource</th>
+        <th>Action</th>
+        <th>Status</th>
+        <th>IP Address</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (auditLogs || []).forEach(log => { %>
+      <tr class="<%= log.status === 'failure' ? 'row-error' : '' %>">
+        <td>
+          <div class="timestamp-cell">
+            <div class="timestamp"><%= new Date(log.timestamp).toLocaleString() %></div>
+            <div class="timestamp-iso"><%= log.timestamp %></div>
+          </div>
+        </td>
+        <td><span class="badge badge-<%= log.eventType %>"><%= log.eventType %></span></td>
+        <td><%= log.user %></td>
+        <td><code><%= log.resource %></code></td>
+        <td><%= log.action %></td>
+        <td><span class="badge badge-<%= log.status %>"><%= log.status %></span></td>
+        <td><code><%= log.ipAddress %></code></td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .admin-panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .panel-header h3 {
+    margin: 0 0 16px 0;
+    color: var(--text-primary);
+  }
+
+  .filter-controls {
+    display: flex;
+    gap: 12px;
+  }
+
+  .search-input,
+  .filter-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+
+  .search-input {
+    flex: 1;
+  }
+
+  .search-input:focus,
+  .filter-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(46, 139, 87, 0.1);
+  }
+
+  .audit-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .audit-table th {
+    background: #f5f7fa;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .audit-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+  }
+
+  .audit-table code {
+    background: #f5f7fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+  }
+
+  .audit-table tbody tr:hover {
+    background: #f9f9f9;
+  }
+
+  .audit-table tbody tr.row-error {
+    background: #ffebee;
+  }
+
+  .timestamp-cell {
+    font-size: 12px;
+  }
+
+  .timestamp {
+    color: var(--text-primary);
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  .timestamp-iso {
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+  }
+
+  .badge {
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+  }
+
+  .badge-authentication {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+
+  .badge-document-access {
+    background: #f3e5f5;
+    color: #7b1fa2;
+  }
+
+  .badge-policy-change {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  .badge-user-management {
+    background: #e0f2f1;
+    color: #00695c;
+  }
+
+  .badge-success {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .badge-failure {
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  @media (max-width: 1024px) {
+    .audit-table {
+      font-size: 12px;
+    }
+
+    .audit-table th,
+    .audit-table td {
+      padding: 10px 12px;
+    }
+  }
+</style>
+
+<%- include('../layouts/admin-footer') %>

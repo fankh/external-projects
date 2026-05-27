@@ -1,0 +1,229 @@
+<%- include('../layouts/admin-header') %>
+
+<div class="page-title">
+  <h1>📄 Documents</h1>
+  <p>Manage documents and content access</p>
+</div>
+
+<div class="admin-panel">
+  <div class="panel-header">
+    <h3>Document Registry</h3>
+    <button class="btn btn-primary" onclick="alert('Upload document feature coming soon')">+ Upload Document</button>
+  </div>
+
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Document ID</th>
+        <th>Title</th>
+        <th>Classification</th>
+        <th>Owner</th>
+        <th>Uploaded</th>
+        <th>Access Count</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (documents || []).forEach(doc => { %>
+      <tr>
+        <td><code><%= doc.id %></code></td>
+        <td><%= doc.title %></td>
+        <td><span class="badge badge-<%= doc.classification %>"><%= doc.classification %></span></td>
+        <td><%= doc.owner %></td>
+        <td><%= new Date(doc.uploadedAt).toLocaleDateString() %></td>
+        <td><%= doc.accessCount %></td>
+        <td>
+          <button class="btn-link" onclick="alert('View details')">Details</button> |
+          <button class="btn-link" onclick="alert('Edit permissions')">Permissions</button>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>
+
+<div class="section-spacer"></div>
+
+<div class="admin-panel">
+  <div class="panel-header">
+    <h3>Classification Levels</h3>
+  </div>
+
+  <div class="classification-grid">
+    <div class="classification-card">
+      <div class="badge badge-public"></div>
+      <h4>Public</h4>
+      <p>Accessible to all authenticated users</p>
+    </div>
+    <div class="classification-card">
+      <div class="badge badge-internal"></div>
+      <h4>Internal</h4>
+      <p>Restricted to employees</p>
+    </div>
+    <div class="classification-card">
+      <div class="badge badge-confidential"></div>
+      <h4>Confidential</h4>
+      <p>Restricted to management</p>
+    </div>
+    <div class="classification-card">
+      <div class="badge badge-secret"></div>
+      <h4>Secret</h4>
+      <p>Highly restricted access</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .admin-panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .panel-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .admin-table th {
+    background: #f5f7fa;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+  }
+
+  .admin-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+  }
+
+  .admin-table code {
+    background: #f5f7fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+  }
+
+  .admin-table tbody tr:hover {
+    background: #f9f9f9;
+  }
+
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .btn-primary {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    font-size: 14px;
+  }
+
+  .btn-link:hover {
+    color: var(--primary-dark);
+  }
+
+  .section-spacer {
+    height: 30px;
+  }
+
+  .classification-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .classification-card {
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    text-align: center;
+  }
+
+  .classification-card .badge {
+    width: 40px;
+    height: 40px;
+    display: inline-block;
+    margin-bottom: 12px;
+    border-radius: 6px;
+  }
+
+  .classification-card h4 {
+    margin: 12px 0 8px;
+    color: var(--text-primary);
+  }
+
+  .classification-card p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .badge {
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+  }
+
+  .badge-public {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .badge-internal {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+
+  .badge-confidential {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  .badge-secret {
+    background: #fce4ec;
+    color: #c2185b;
+  }
+</style>
+
+<%- include('../layouts/admin-footer') %>

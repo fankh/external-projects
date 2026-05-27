@@ -1,0 +1,411 @@
+<%- include('../layouts/admin-header') %>
+
+<div class="page-title">
+  <h1>⚙️ Settings</h1>
+  <p>Configure system-wide settings and preferences</p>
+</div>
+
+<div class="settings-container">
+  <div class="settings-nav">
+    <button class="settings-btn active" onclick="switchSettings(event, 'general')">General</button>
+    <button class="settings-btn" onclick="switchSettings(event, 'security')">Security</button>
+    <button class="settings-btn" onclick="switchSettings(event, 'notifications')">Notifications</button>
+    <button class="settings-btn" onclick="switchSettings(event, 'integrations')">Integrations</button>
+  </div>
+
+  <div class="settings-panel">
+    <div id="general" class="settings-content active">
+      <h3>General Settings</h3>
+      <form class="settings-form">
+        <div class="form-group">
+          <label>Organization Name</label>
+          <input type="text" placeholder="SeekersLab Inc." value="SeekersLab Inc.">
+        </div>
+
+        <div class="form-group">
+          <label>System Timezone</label>
+          <select>
+            <option>UTC</option>
+            <option>EST</option>
+            <option>PST</option>
+            <option>CST</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Session Timeout (minutes)</label>
+          <input type="number" value="60" min="5" max="480">
+        </div>
+
+        <div class="form-group">
+          <label>
+            <input type="checkbox" checked> Enable system notifications
+          </label>
+        </div>
+
+        <button type="button" class="btn btn-primary" onclick="alert('Settings saved')">Save Changes</button>
+      </form>
+    </div>
+
+    <div id="security" class="settings-content">
+      <h3>Security Settings</h3>
+      <form class="settings-form">
+        <div class="settings-section">
+          <h4>Authentication</h4>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" checked> Enable two-factor authentication
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" checked> Require strong passwords
+            </label>
+            <small>At least 12 characters, uppercase, numbers, and symbols</small>
+          </div>
+
+          <div class="form-group">
+            <label>Password Expiry (days)</label>
+            <input type="number" value="90" min="0" max="365">
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Access Control</h4>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" checked> Enforce RBAC
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" checked> Enable ABAC rules
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label>Failed Login Attempts Before Lockout</label>
+            <input type="number" value="5" min="3" max="10">
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" onclick="alert('Settings saved')">Save Changes</button>
+      </form>
+    </div>
+
+    <div id="notifications" class="settings-content">
+      <h3>Notification Settings</h3>
+      <form class="settings-form">
+        <div class="notification-option">
+          <input type="checkbox" id="notify-login" checked>
+          <label for="notify-login">
+            <strong>New login alerts</strong>
+            <span>Notify admins of unusual login patterns</span>
+          </label>
+        </div>
+
+        <div class="notification-option">
+          <input type="checkbox" id="notify-policy" checked>
+          <label for="notify-policy">
+            <strong>Policy changes</strong>
+            <span>Notify admins when access policies are modified</span>
+          </label>
+        </div>
+
+        <div class="notification-option">
+          <input type="checkbox" id="notify-security" checked>
+          <label for="notify-security">
+            <strong>Security events</strong>
+            <span>Notify admins of security-related events</span>
+          </label>
+        </div>
+
+        <div class="notification-option">
+          <input type="checkbox" id="notify-daily">
+          <label for="notify-daily">
+            <strong>Daily summary</strong>
+            <span>Send daily digest of system activities</span>
+          </label>
+        </div>
+
+        <button type="button" class="btn btn-primary" onclick="alert('Settings saved')">Save Changes</button>
+      </form>
+    </div>
+
+    <div id="integrations" class="settings-content">
+      <h3>Integrations</h3>
+
+      <div class="integration-card">
+        <div class="integration-header">
+          <h4>Slack Integration</h4>
+          <span class="badge badge-inactive">Not Connected</span>
+        </div>
+        <p>Send audit logs and alerts to your Slack workspace</p>
+        <button class="btn btn-secondary" onclick="alert('Slack integration setup')">Configure</button>
+      </div>
+
+      <div class="integration-card">
+        <div class="integration-header">
+          <h4>Email Service</h4>
+          <span class="badge badge-active">Connected</span>
+        </div>
+        <p>Send notifications and reports via email</p>
+        <button class="btn btn-secondary" onclick="alert('Email configuration')">Configure</button>
+      </div>
+
+      <div class="integration-card">
+        <div class="integration-header">
+          <h4>SIEM Integration</h4>
+          <span class="badge badge-inactive">Not Connected</span>
+        </div>
+        <p>Stream audit logs to your SIEM platform</p>
+        <button class="btn btn-secondary" onclick="alert('SIEM setup')">Configure</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .settings-container {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 20px;
+  }
+
+  .settings-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .settings-btn {
+    background: white;
+    border: 1px solid var(--border-color);
+    padding: 12px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 14px;
+    transition: all 0.3s;
+    color: var(--text-primary);
+  }
+
+  .settings-btn:hover,
+  .settings-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+  }
+
+  .settings-panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    padding: 30px;
+  }
+
+  .settings-content {
+    display: none;
+  }
+
+  .settings-content.active {
+    display: block;
+  }
+
+  .settings-content h3 {
+    margin-top: 0;
+    margin-bottom: 24px;
+    color: var(--text-primary);
+  }
+
+  .settings-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .settings-section h4 {
+    margin: 0 0 16px 0;
+    color: var(--text-primary);
+    font-size: 14px;
+  }
+
+  .settings-form {
+    max-width: 500px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+
+  .form-group input[type="text"],
+  .form-group input[type="number"],
+  .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+
+  .form-group input[type="text"]:focus,
+  .form-group input[type="number"]:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(46, 139, 87, 0.1);
+  }
+
+  .form-group small {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+
+  .form-group input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .notification-option {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f9f9f9;
+    border-radius: 4px;
+    border-left: 3px solid var(--primary-color);
+  }
+
+  .notification-option input[type="checkbox"] {
+    margin-right: 12px;
+    vertical-align: top;
+  }
+
+  .notification-option label {
+    margin: 0;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .notification-option label span {
+    display: block;
+    margin-top: 4px;
+    font-weight: 400;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .integration-card {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+  }
+
+  .integration-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .integration-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .integration-card p {
+    margin: 0 0 12px 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .btn-primary {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  .btn-secondary {
+    background: white;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+  }
+
+  .btn-secondary:hover {
+    background: #f5f5f5;
+  }
+
+  .badge {
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .badge-active {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .badge-inactive {
+    background: #f5f5f5;
+    color: #666;
+  }
+
+  @media (max-width: 768px) {
+    .settings-container {
+      grid-template-columns: 1fr;
+    }
+
+    .settings-nav {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+
+    .settings-btn {
+      flex: 1;
+    }
+  }
+</style>
+
+<script>
+  function switchSettings(event, sectionName) {
+    const contents = document.querySelectorAll('.settings-content');
+    contents.forEach(content => content.classList.remove('active'));
+
+    const buttons = document.querySelectorAll('.settings-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+
+    document.getElementById(sectionName).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+
+<%- include('../layouts/admin-footer') %>

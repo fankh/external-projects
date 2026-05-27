@@ -1,0 +1,354 @@
+<%- include('../layouts/admin-header') %>
+
+<div class="page-title">
+  <h1>🤖 Agents</h1>
+  <p>Manage AI agents and their access permissions</p>
+</div>
+
+<div class="admin-panel">
+  <div class="panel-header">
+    <h3>Registered Agents</h3>
+    <button class="btn btn-primary" onclick="alert('Register new agent')">+ Register Agent</button>
+  </div>
+
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Agent Name</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>API Key</th>
+        <th>Last Seen</th>
+        <th>Requests (24h)</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% (agents || []).forEach(agent => { %>
+      <tr>
+        <td><strong><%= agent.name %></strong></td>
+        <td><span class="badge badge-<%= agent.type %>"><%= agent.type %></span></td>
+        <td><span class="badge badge-<%= agent.status %>"><%= agent.status %></span></td>
+        <td><code><%= agent.apiKey.substring(0, 12) %>...</code></td>
+        <td><%= new Date(agent.lastSeen).toLocaleString() %></td>
+        <td><strong><%= agent.requests24h %></strong></td>
+        <td>
+          <button class="btn-link" onclick="alert('View details')">Details</button> |
+          <button class="btn-link" onclick="alert('Manage permissions')">Permissions</button> |
+          <button class="btn-link btn-danger" onclick="alert('Revoke access')">Revoke</button>
+        </td>
+      </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>
+
+<div class="section-spacer"></div>
+
+<div class="admin-panel">
+  <div class="panel-header">
+    <h3>Agent Groups</h3>
+    <button class="btn btn-primary" onclick="alert('Create group')">+ Create Group</button>
+  </div>
+
+  <div class="group-grid">
+    <% (agentGroups || []).forEach(group => { %>
+    <div class="group-card">
+      <div class="group-header">
+        <h4><%= group.name %></h4>
+        <span class="badge badge-<%= group.type %>"><%= group.type %></span>
+      </div>
+      <p class="group-description"><%= group.description %></p>
+      <div class="group-stats">
+        <div class="stat">
+          <span class="stat-value"><%= group.agentCount %></span>
+          <span class="stat-label">Agents</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value"><%= group.permissions.length %></span>
+          <span class="stat-label">Permissions</span>
+        </div>
+      </div>
+      <div class="group-footer">
+        <button class="btn-link" onclick="alert('Edit group')">Edit</button> |
+        <button class="btn-link btn-danger" onclick="alert('Delete group')">Delete</button>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+</div>
+
+<div class="section-spacer"></div>
+
+<div class="admin-panel">
+  <div class="panel-header">
+    <h3>Model Configuration</h3>
+  </div>
+
+  <div class="models-section">
+    <% (models || []).forEach(model => { %>
+    <div class="model-card">
+      <div class="model-header">
+        <h4><%= model.name %></h4>
+        <span class="model-version">v<%= model.version %></span>
+      </div>
+
+      <div class="model-details">
+        <p><strong>Provider:</strong> <code><%= model.provider %></code></p>
+        <p><strong>Max Tokens:</strong> <code><%= model.maxTokens %></code></p>
+        <p><strong>Cost/1K tokens:</strong> <code>$<%= model.costPer1k %></code></p>
+        <p><strong>Status:</strong> <span class="badge badge-<%= model.status %>"><%= model.status %></span></p>
+      </div>
+
+      <div class="model-footer">
+        <button class="btn-link" onclick="alert('Configure')">Configure</button> |
+        <button class="btn-link btn-danger" onclick="alert('Disable')">Disable</button>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+</div>
+
+<style>
+  .admin-panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .panel-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .admin-table th {
+    background: #f5f7fa;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+  }
+
+  .admin-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+  }
+
+  .admin-table code {
+    background: #f5f7fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+  }
+
+  .admin-table tbody tr:hover {
+    background: #f9f9f9;
+  }
+
+  .section-spacer {
+    height: 30px;
+  }
+
+  .group-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .group-card {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 16px;
+  }
+
+  .group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 12px;
+  }
+
+  .group-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .group-description {
+    margin: 8px 0 16px 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .group-stats {
+    display: flex;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 12px;
+  }
+
+  .stat {
+    flex: 1;
+    text-align: center;
+  }
+
+  .stat-value {
+    display: block;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary-color);
+  }
+
+  .stat-label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  .group-footer {
+    font-size: 13px;
+  }
+
+  .models-section {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  .model-card {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 16px;
+    background: #f9f9f9;
+  }
+
+  .model-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .model-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .model-version {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  .model-details {
+    margin-bottom: 12px;
+  }
+
+  .model-details p {
+    margin: 8px 0;
+    font-size: 13px;
+  }
+
+  .model-details code {
+    background: white;
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+  }
+
+  .model-footer {
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+    font-size: 13px;
+  }
+
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .btn-primary {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    font-size: 13px;
+  }
+
+  .btn-link:hover {
+    color: var(--primary-dark);
+  }
+
+  .btn-danger {
+    color: #d32f2f;
+  }
+
+  .badge {
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-block;
+  }
+
+  .badge-analysis {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+
+  .badge-automation {
+    background: #f3e5f5;
+    color: #7b1fa2;
+  }
+
+  .badge-active {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .badge-inactive {
+    background: #f5f5f5;
+    color: #666;
+  }
+</style>
+
+<%- include('../layouts/admin-footer') %>

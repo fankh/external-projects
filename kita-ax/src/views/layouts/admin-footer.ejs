@@ -1,0 +1,57 @@
+    </main>
+
+    <footer class="admin-footer">
+      <div class="footer-content">
+        <p>&copy; 2026 SeekersLab. All rights reserved.</p>
+        <div class="footer-links">
+          <a href="/admin/dashboard">Dashboard</a>
+          <a href="/admin/audit-logs">Audit Logs</a>
+          <a href="#support">Support</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <style>
+    .admin-footer {
+      background: #f5f7fa;
+      border-top: 1px solid var(--border-color);
+      padding: 20px 30px;
+      margin-top: 40px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .footer-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+
+    .footer-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary-color);
+    }
+
+    @media (max-width: 768px) {
+      .footer-content {
+        flex-direction: column;
+        gap: 16px;
+      }
+    }
+  </style>
+</body>
+</html>
