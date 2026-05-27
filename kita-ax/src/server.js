@@ -21,6 +21,7 @@ const {
 // Routes
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const apiRoutes = require('./routes/api');
 
 // Create Express app
 const app = express();
@@ -67,10 +68,13 @@ app.get('/health', (req, res) => {
 // 2. Authentication routes (login, logout)
 app.use('/', authRoutes);
 
-// 3. Admin routes (ALL require authentication)
+// 3. API routes (ALL require authentication)
+app.use('/api', apiRoutes);
+
+// 4. Admin routes (ALL require authentication)
 app.use('/admin', adminRoutes);
 
-// 4. Catch-all for static pages (marketing, etc.)
+// 5. Catch-all for static pages (marketing, etc.)
 app.get('/', (req, res) => {
   res.render('index', {
     title: 'KYRA AI Guardrail',
