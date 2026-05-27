@@ -5,6 +5,18 @@
   <p>Configure role-based and attribute-based access control</p>
 </div>
 
+<% if (flashSuccess) { %>
+<div class="flash flash-success" style="margin-bottom:20px;padding:12px 16px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:4px;color:#2e7d32">
+  <%= flashSuccess %>
+</div>
+<% } %>
+
+<% if (flashError) { %>
+<div class="flash flash-error" style="margin-bottom:20px;padding:12px 16px;background:#fee;border:1px solid #fcc;border-radius:4px;color:#c33">
+  <%= flashError %>
+</div>
+<% } %>
+
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab(event, 'rbac')">RBAC</button>
   <button class="tab-btn" onclick="switchTab(event, 'abac')">ABAC</button>
@@ -15,7 +27,7 @@
   <div class="admin-panel">
     <div class="panel-header">
       <h3>Role-Based Access Control (RBAC)</h3>
-      <button class="btn btn-primary" onclick="alert('Create role feature coming soon')">+ Create Role</button>
+      <a href="/admin/access-policies/roles/new" class="btn btn-primary">+ Create Role</a>
     </div>
 
     <table class="admin-table">
@@ -24,20 +36,21 @@
           <th>Role</th>
           <th>Description</th>
           <th>Permissions</th>
-          <th>Users</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <% (rbacRoles || []).forEach(role => { %>
+        <% (roles || []).forEach(role => { %>
         <tr>
           <td><strong><%= role.name %></strong></td>
           <td><%= role.description %></td>
           <td><code><%= role.permissions.join(', ') %></code></td>
-          <td><%= role.userCount %></td>
           <td>
-            <button class="btn-link" onclick="alert('Edit role')">Edit</button> |
-            <button class="btn-link btn-danger" onclick="alert('Delete role')">Delete</button>
+            <a href="/admin/access-policies/roles/<%= role.id %>/edit" class="btn-link">Edit</a> |
+            <form id="del-role-<%= role.id %>" method="POST" action="/admin/access-policies/roles/<%= role.id %>/delete" style="display:none">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            </form>
+            <button type="button" class="btn-link btn-danger" onclick="confirmDelete('del-role-<%= role.id %>')">Delete</button>
           </td>
         </tr>
         <% }); %>
@@ -50,27 +63,10 @@
   <div class="admin-panel">
     <div class="panel-header">
       <h3>Attribute-Based Access Control (ABAC)</h3>
-      <button class="btn btn-primary" onclick="alert('Create attribute rule')">+ New Rule</button>
     </div>
-
-    <div class="attribute-rules">
-      <% (abacRules || []).forEach(rule => { %>
-      <div class="rule-card">
-        <div class="rule-header">
-          <h4><%= rule.name %></h4>
-          <span class="badge badge-<%= rule.status %>"><%= rule.status %></span>
-        </div>
-        <div class="rule-body">
-          <p><strong>Condition:</strong> <code><%= rule.condition %></code></p>
-          <p><strong>Effect:</strong> <code><%= rule.effect %></code></p>
-          <p><strong>Resources:</strong> <code><%= rule.resources.join(', ') %></code></p>
-        </div>
-        <div class="rule-footer">
-          <button class="btn-link" onclick="alert('Edit rule')">Edit</button> |
-          <button class="btn-link btn-danger" onclick="alert('Delete rule')">Delete</button>
-        </div>
-      </div>
-      <% }); %>
+    <div style="padding:40px;text-align:center;color:#666">
+      <p style="font-size:16px;margin:0 0 8px 0"><strong>ABAC Rule Editor</strong></p>
+      <p style="margin:0">Coming in Phase 7 — attribute-based rule configuration and management.</p>
     </div>
   </div>
 </div>
@@ -79,7 +75,7 @@
   <div class="admin-panel">
     <div class="panel-header">
       <h3>Policy Management</h3>
-      <button class="btn btn-primary" onclick="alert('Create policy')">+ New Policy</button>
+      <a href="/admin/access-policies/policies/new" class="btn btn-primary">+ New Policy</a>
     </div>
 
     <table class="admin-table">
@@ -102,13 +98,39 @@
           <td><span class="badge badge-<%= policy.status %>"><%= policy.status %></span></td>
           <td><%= new Date(policy.createdAt).toLocaleDateString() %></td>
           <td>
-            <button class="btn-link" onclick="alert('Edit policy')">Edit</button> |
-            <button class="btn-link btn-danger" onclick="alert('Delete policy')">Delete</button>
+            <a href="/admin/access-policies/policies/<%= policy.id %>/edit" class="btn-link">Edit</a> |
+            <% if (policy.status === 'active') { %>
+              <form method="POST" action="/admin/access-policies/policies/<%= policy.id %>/deactivate" style="display:inline">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn-link">Deactivate</button>
+              </form> |
+            <% } else { %>
+              <form method="POST" action="/admin/access-policies/policies/<%= policy.id %>/activate" style="display:inline">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn-link">Activate</button>
+              </form> |
+            <% } %>
+            <form id="del-policy-<%= policy.id %>" method="POST" action="/admin/access-policies/policies/<%= policy.id %>/delete" style="display:none">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            </form>
+            <button type="button" class="btn-link btn-danger" onclick="confirmDelete('del-policy-<%= policy.id %>')">Delete</button>
           </td>
         </tr>
         <% }); %>
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div id="delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:white;padding:32px;border-radius:8px;max-width:400px;width:90%">
+    <h3>Confirm Delete</h3>
+    <p style="margin:16px 0;color:#666">This action cannot be undone. The item will be permanently deleted.</p>
+    <div style="display:flex;gap:12px;justify-content:flex-end">
+      <button id="modal-cancel" class="btn" style="padding:8px 16px;background:#f0f2f5;color:#1a1a40;border:1px solid #ddd;border-radius:4px;cursor:pointer">Cancel</button>
+      <button id="modal-confirm" class="btn" style="padding:8px 16px;background:#d32f2f;color:white;border:none;border-radius:4px;cursor:pointer">Delete</button>
+    </div>
   </div>
 </div>
 
@@ -336,6 +358,21 @@
     document.getElementById(tabName).classList.add('active');
     event.target.classList.add('active');
   }
+
+  let deleteTarget = null;
+  function confirmDelete(formId) {
+    deleteTarget = document.getElementById(formId);
+    document.getElementById('delete-modal').style.display = 'flex';
+  }
+
+  document.getElementById('modal-cancel').addEventListener('click', () => {
+    document.getElementById('delete-modal').style.display = 'none';
+    deleteTarget = null;
+  });
+
+  document.getElementById('modal-confirm').addEventListener('click', () => {
+    if (deleteTarget) deleteTarget.submit();
+  });
 </script>
 
 <%- include('../layouts/admin-footer') %>

@@ -5,6 +5,18 @@
   <p>Welcome back, <%= user.email %></p>
 </div>
 
+<% if (flashSuccess) { %>
+<div class="flash flash-success" style="margin-bottom:20px;padding:12px 16px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:4px;color:#2e7d32">
+  <%= flashSuccess %>
+</div>
+<% } %>
+
+<% if (flashError) { %>
+<div class="flash flash-error" style="margin-bottom:20px;padding:12px 16px;background:#fee;border:1px solid #fcc;border-radius:4px;color:#c33">
+  <%= flashError %>
+</div>
+<% } %>
+
 <!-- KPI Cards -->
 <div class="kpi-grid">
   <div class="kpi-card">

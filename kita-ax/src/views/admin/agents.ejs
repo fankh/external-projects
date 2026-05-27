@@ -5,10 +5,30 @@
   <p>Manage AI agents and their access permissions</p>
 </div>
 
+<% if (flashSuccess) { %>
+<div class="flash flash-success" style="margin-bottom:20px;padding:12px 16px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:4px;color:#2e7d32">
+  <%= flashSuccess %>
+</div>
+<% } %>
+
+<% if (flashError) { %>
+<div class="flash flash-error" style="margin-bottom:20px;padding:12px 16px;background:#fee;border:1px solid #fcc;border-radius:4px;color:#c33">
+  <%= flashError %>
+</div>
+<% } %>
+
+<% if (newKey) { %>
+<div style="margin-bottom:20px;padding:16px;background:#f0f8ff;border:1px solid #cce5ff;border-radius:4px;color:#1a3a5c">
+  <strong>✓ Agent Created Successfully</strong>
+  <p style="margin:8px 0 0 0;font-size:13px">Save this API key — it will not be shown again:</p>
+  <code style="display:block;margin-top:8px;padding:8px 12px;background:white;border:1px solid #cce5ff;border-radius:3px;font-family:monospace;font-size:12px;word-break:break-all"><%= newKey %></code>
+</div>
+<% } %>
+
 <div class="admin-panel">
   <div class="panel-header">
     <h3>Registered Agents</h3>
-    <button class="btn btn-primary" onclick="alert('Register new agent')">+ Register Agent</button>
+    <a href="/admin/agents/new" class="btn btn-primary">+ Register Agent</a>
   </div>
 
   <table class="admin-table">
@@ -19,7 +39,6 @@
         <th>Status</th>
         <th>API Key</th>
         <th>Last Seen</th>
-        <th>Requests (24h)</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -29,13 +48,29 @@
         <td><strong><%= agent.name %></strong></td>
         <td><span class="badge badge-<%= agent.type %>"><%= agent.type %></span></td>
         <td><span class="badge badge-<%= agent.status %>"><%= agent.status %></span></td>
-        <td><code><%= agent.apiKey.substring(0, 12) %>...</code></td>
-        <td><%= new Date(agent.lastSeen).toLocaleString() %></td>
-        <td><strong><%= agent.requests24h %></strong></td>
+        <td><code>••••••••</code></td>
+        <td><%= agent.lastSeen ? new Date(agent.lastSeen).toLocaleString() : 'Never' %></td>
         <td>
-          <button class="btn-link" onclick="alert('View details')">Details</button> |
-          <button class="btn-link" onclick="alert('Manage permissions')">Permissions</button> |
-          <button class="btn-link btn-danger" onclick="alert('Revoke access')">Revoke</button>
+          <a href="/admin/agents/<%= agent.id %>/edit" class="btn-link">Edit</a> |
+          <% if (agent.status === 'active') { %>
+            <form method="POST" action="/admin/agents/<%= agent.id %>/deactivate" style="display:inline">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn-link">Deactivate</button>
+            </form> |
+            <form method="POST" action="/admin/agents/<%= agent.id %>/regenerate-key" style="display:inline">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn-link">Regenerate Key</button>
+            </form> |
+          <% } else { %>
+            <form method="POST" action="/admin/agents/<%= agent.id %>/activate" style="display:inline">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn-link">Activate</button>
+            </form> |
+          <% } %>
+          <form id="del-<%= agent.id %>" method="POST" action="/admin/agents/<%= agent.id %>/delete" style="display:none">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          </form>
+          <button type="button" class="btn-link btn-danger" onclick="confirmDelete('del-<%= agent.id %>')">Delete</button>
         </td>
       </tr>
       <% }); %>
@@ -43,69 +78,15 @@
   </table>
 </div>
 
-<div class="section-spacer"></div>
-
-<div class="admin-panel">
-  <div class="panel-header">
-    <h3>Agent Groups</h3>
-    <button class="btn btn-primary" onclick="alert('Create group')">+ Create Group</button>
-  </div>
-
-  <div class="group-grid">
-    <% (agentGroups || []).forEach(group => { %>
-    <div class="group-card">
-      <div class="group-header">
-        <h4><%= group.name %></h4>
-        <span class="badge badge-<%= group.type %>"><%= group.type %></span>
-      </div>
-      <p class="group-description"><%= group.description %></p>
-      <div class="group-stats">
-        <div class="stat">
-          <span class="stat-value"><%= group.agentCount %></span>
-          <span class="stat-label">Agents</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value"><%= group.permissions.length %></span>
-          <span class="stat-label">Permissions</span>
-        </div>
-      </div>
-      <div class="group-footer">
-        <button class="btn-link" onclick="alert('Edit group')">Edit</button> |
-        <button class="btn-link btn-danger" onclick="alert('Delete group')">Delete</button>
-      </div>
+<!-- Delete Modal -->
+<div id="delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:white;padding:32px;border-radius:8px;max-width:400px;width:90%">
+    <h3>Confirm Delete</h3>
+    <p style="margin:16px 0;color:#666">This action cannot be undone. The agent will be permanently deleted.</p>
+    <div style="display:flex;gap:12px;justify-content:flex-end">
+      <button id="modal-cancel" class="btn" style="padding:8px 16px;background:#f0f2f5;color:#1a1a40;border:1px solid #ddd;border-radius:4px;cursor:pointer">Cancel</button>
+      <button id="modal-confirm" class="btn" style="padding:8px 16px;background:#d32f2f;color:white;border:none;border-radius:4px;cursor:pointer">Delete</button>
     </div>
-    <% }); %>
-  </div>
-</div>
-
-<div class="section-spacer"></div>
-
-<div class="admin-panel">
-  <div class="panel-header">
-    <h3>Model Configuration</h3>
-  </div>
-
-  <div class="models-section">
-    <% (models || []).forEach(model => { %>
-    <div class="model-card">
-      <div class="model-header">
-        <h4><%= model.name %></h4>
-        <span class="model-version">v<%= model.version %></span>
-      </div>
-
-      <div class="model-details">
-        <p><strong>Provider:</strong> <code><%= model.provider %></code></p>
-        <p><strong>Max Tokens:</strong> <code><%= model.maxTokens %></code></p>
-        <p><strong>Cost/1K tokens:</strong> <code>$<%= model.costPer1k %></code></p>
-        <p><strong>Status:</strong> <span class="badge badge-<%= model.status %>"><%= model.status %></span></p>
-      </div>
-
-      <div class="model-footer">
-        <button class="btn-link" onclick="alert('Configure')">Configure</button> |
-        <button class="btn-link btn-danger" onclick="alert('Disable')">Disable</button>
-      </div>
-    </div>
-    <% }); %>
   </div>
 </div>
 
@@ -161,128 +142,6 @@
 
   .admin-table tbody tr:hover {
     background: #f9f9f9;
-  }
-
-  .section-spacer {
-    height: 30px;
-  }
-
-  .group-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
-    padding: 20px;
-  }
-
-  .group-card {
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 16px;
-  }
-
-  .group-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: start;
-    margin-bottom: 12px;
-  }
-
-  .group-header h4 {
-    margin: 0;
-    color: var(--text-primary);
-  }
-
-  .group-description {
-    margin: 8px 0 16px 0;
-    font-size: 13px;
-    color: var(--text-secondary);
-  }
-
-  .group-stats {
-    display: flex;
-    gap: 16px;
-    padding: 12px 0;
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 12px;
-  }
-
-  .stat {
-    flex: 1;
-    text-align: center;
-  }
-
-  .stat-value {
-    display: block;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--primary-color);
-  }
-
-  .stat-label {
-    display: block;
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin-top: 4px;
-  }
-
-  .group-footer {
-    font-size: 13px;
-  }
-
-  .models-section {
-    padding: 20px;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 16px;
-  }
-
-  .model-card {
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 16px;
-    background: #f9f9f9;
-  }
-
-  .model-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-  }
-
-  .model-header h4 {
-    margin: 0;
-    color: var(--text-primary);
-  }
-
-  .model-version {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-weight: 600;
-  }
-
-  .model-details {
-    margin-bottom: 12px;
-  }
-
-  .model-details p {
-    margin: 8px 0;
-    font-size: 13px;
-  }
-
-  .model-details code {
-    background: white;
-    padding: 2px 4px;
-    border-radius: 2px;
-    font-size: 12px;
-    font-family: 'Courier New', monospace;
-  }
-
-  .model-footer {
-    padding-top: 12px;
-    border-top: 1px solid var(--border-color);
-    font-size: 13px;
   }
 
   .btn {
@@ -350,5 +209,23 @@
     color: #666;
   }
 </style>
+
+<script>
+let deleteTarget = null;
+
+function confirmDelete(formId) {
+  deleteTarget = document.getElementById(formId);
+  document.getElementById('delete-modal').style.display = 'flex';
+}
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('delete-modal').style.display = 'none';
+  deleteTarget = null;
+});
+
+document.getElementById('modal-confirm').addEventListener('click', () => {
+  if (deleteTarget) deleteTarget.submit();
+});
+</script>
 
 <%- include('../layouts/admin-footer') %>
