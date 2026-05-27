@@ -7,6 +7,8 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
+const swaggerUi = require('swagger-ui-express');
+const fs = require('fs');
 
 // Middleware
 const sessionMiddleware = require('./config/session');
@@ -21,7 +23,10 @@ const {
 // Routes
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
-const apiRoutes = require('./routes/api');
+const apiRoutesV1 = require('./routes/api-v1');
+
+// Load OpenAPI spec
+const openApiSpec = JSON.parse(fs.readFileSync(path.join(__dirname, 'docs/openapi.json'), 'utf8'));
 
 // Create Express app
 const app = express();
@@ -65,13 +70,30 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 2. Authentication routes (login, logout)
+// 2. Swagger UI documentation (no auth required)
+app.use('/api/docs', swaggerUi.serve);
+app.get('/api/docs', swaggerUi.setup(openApiSpec, {
+  swaggerOptions: {
+    url: '/api/openapi.json',
+    deepLinking: true
+  }
+}));
+
+// 2.5. OpenAPI spec endpoint
+app.get('/api/openapi.json', (req, res) => {
+  res.json(openApiSpec);
+});
+
+// 3. Authentication routes (login, logout)
 app.use('/', authRoutes);
 
-// 3. API routes (ALL require authentication)
-app.use('/api', apiRoutes);
+// 4. API v1 routes (ALL require authentication)
+app.use('/api/v1', apiRoutesV1);
 
-// 4. Admin routes (ALL require authentication)
+// Backward compatibility: /api points to /api/v1
+app.use('/api', apiRoutesV1);
+
+// 5. Admin routes (ALL require authentication)
 app.use('/admin', adminRoutes);
 
 // 5. Catch-all for static pages (marketing, etc.)
