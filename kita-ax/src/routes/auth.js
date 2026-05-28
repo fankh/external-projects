@@ -6,15 +6,16 @@ const express = require('express');
 const router = express.Router();
 const { loginLimiter } = require('../middleware/security');
 
-// Mock user database (replace with real database)
+// Mock user database (replace with real database in Phase 6.1)
+const TENANT_ID = '550e8400-e29b-41d4-a716-446655440000'; // Matches database seeding
 const mockUsers = {
   'admin@seekerslab.com': {
     id: '1',
     email: 'admin@seekerslab.com',
-    password: 'xmUoX0OA5XvSH4csBJbw', // In production, use bcrypt
+    password: 'xmUoX0OA5XvSH4csBJbw',
     name: 'Admin User',
     role: 'admin',
-    tenantId: 'tenant-1',
+    tenantId: TENANT_ID,
     status: 'active'
   }
 };
