@@ -646,6 +646,54 @@ router.get('/dashboard/recent-events', asyncHandler(async (req, res) => {
   }
 }));
 
+// ===== PREFERENCES API =====
+
+router.get('/preferences', asyncHandler(async (req, res) => {
+  try {
+    const PreferencesService = require('../services/preferencesService');
+    const preferences = await PreferencesService.getPreferences(req.user.email, req.user.tenantId);
+
+    res.json(serializers.successResponse(preferences, 'User preferences retrieved successfully'));
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
+  }
+}));
+
+router.post('/preferences', asyncHandler(async (req, res) => {
+  try {
+    const PreferencesService = require('../services/preferencesService');
+    const { theme, language, timezone, pageSize, enableNotifications, notifyOnPolicyChange, notifyOnDocumentAccess, notifyOnFailedLogin, notifyDigestFrequency } = req.body;
+
+    const updates = {};
+    if (theme) updates.theme = theme;
+    if (language) updates.language = language;
+    if (timezone) updates.timezone = timezone;
+    if (pageSize) updates.pageSize = parseInt(pageSize);
+    if (enableNotifications !== undefined) updates.enableNotifications = enableNotifications;
+    if (notifyOnPolicyChange !== undefined) updates.notifyOnPolicyChange = notifyOnPolicyChange;
+    if (notifyOnDocumentAccess !== undefined) updates.notifyOnDocumentAccess = notifyOnDocumentAccess;
+    if (notifyOnFailedLogin !== undefined) updates.notifyOnFailedLogin = notifyOnFailedLogin;
+    if (notifyDigestFrequency) updates.notifyDigestFrequency = notifyDigestFrequency;
+
+    const preferences = await PreferencesService.updatePreferences(req.user.email, req.user.tenantId, updates);
+
+    res.json(serializers.successResponse(preferences, 'User preferences updated successfully'));
+  } catch (error) {
+    res.status(400).json(serializers.errorResponse(error.message, 'VALIDATION_ERROR'));
+  }
+}));
+
+router.post('/preferences/reset', asyncHandler(async (req, res) => {
+  try {
+    const PreferencesService = require('../services/preferencesService');
+    const preferences = await PreferencesService.resetToDefaults(req.user.email, req.user.tenantId);
+
+    res.json(serializers.successResponse(preferences, 'User preferences reset to defaults'));
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
+  }
+}));
+
 // ===== ERROR HANDLING =====
 
 router.use((req, res) => {

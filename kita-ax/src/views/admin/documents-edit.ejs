@@ -52,4 +52,35 @@
   </form>
 </div>
 
+<div class="admin-panel" style="max-width:500px;margin-top:24px">
+  <h2 style="margin-bottom:16px;font-size:16px;font-weight:600">File Management</h2>
+
+  <% if (editDoc.filePath && editDoc.fileName) { %>
+  <div class="file-info" style="padding:12px 16px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:4px;margin-bottom:16px">
+    <h3 style="margin:0 0 8px 0;font-size:13px;font-weight:600;color:#2e7d32">Current File</h3>
+    <p style="margin:4px 0;font-size:13px;color:#1b5e20"><strong>Name:</strong> <%= editDoc.fileName %></p>
+    <p style="margin:4px 0;font-size:13px;color:#1b5e20"><strong>Size:</strong> <%= (editDoc.fileSize / 1024 / 1024).toFixed(2) %> MB</p>
+    <p style="margin:4px 0;font-size:13px;color:#1b5e20"><strong>Type:</strong> <%= editDoc.fileMimeType %></p>
+    <p style="margin:8px 0 0 0;font-size:13px;color:#1b5e20"><strong>Uploaded:</strong> <%= new Date(editDoc.uploadedAt).toLocaleString() %></p>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <a href="/admin/documents/<%= editDoc.id %>/download" class="btn" style="padding:8px 12px;background:#1976d2;color:white;border:none;border-radius:4px;text-decoration:none;font-size:13px;cursor:pointer">Download File</a>
+    </div>
+  </div>
+  <% } else { %>
+  <p style="color:#666;font-size:13px;margin-bottom:16px">No file uploaded yet. Upload a document file below.</p>
+  <% } %>
+
+  <form method="POST" action="/admin/documents/<%= editDoc.id %>/upload" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div class="form-group" style="margin-bottom:16px">
+      <label for="file" style="display:block;margin-bottom:8px;font-weight:600">Select File</label>
+      <input type="file" id="file" name="file" required accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.json" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+      <p style="margin:8px 0 0 0;font-size:12px;color:#666">Allowed types: PDF, Word (DOC/DOCX), Excel (XLS/XLSX), Text, CSV, JSON. Max size: 10 MB</p>
+    </div>
+
+    <button type="submit" class="btn" style="width:100%;padding:10px 16px;background:#1976d2;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:600">Upload File</button>
+  </form>
+</div>
+
 <%- include('../layouts/admin-footer') %>

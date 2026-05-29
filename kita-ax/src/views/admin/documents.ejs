@@ -30,6 +30,7 @@
         <th>Classification</th>
         <th>Owner</th>
         <th>Created</th>
+        <th>File</th>
         <th>Access Count</th>
         <th>Actions</th>
       </tr>
@@ -41,6 +42,13 @@
         <td><span class="badge badge-<%= doc.classification %>"><%= doc.classification %></span></td>
         <td><%= doc.owner %></td>
         <td><%= new Date(doc.createdAt).toLocaleDateString() %></td>
+        <td>
+          <% if (doc.filePath && doc.fileName) { %>
+          <a href="/admin/documents/<%= doc.id %>/download" class="btn-link" title="<%= doc.fileName %>"><%= doc.fileName.substring(0, 20) %><%= doc.fileName.length > 20 ? '...' : '' %></a>
+          <% } else { %>
+          <span style="color:#999;font-size:12px">—</span>
+          <% } %>
+        </td>
         <td><%= doc.accessCount %></td>
         <td>
           <a href="/admin/documents/<%= doc.id %>/edit" class="btn-link">Edit</a> |

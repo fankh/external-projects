@@ -4,17 +4,24 @@
 
 const express = require('express');
 const router = express.Router();
+const passport = require('passport');
 const { loginLimiter } = require('../middleware/security');
+const { googleAuth, githubAuth, googleCallback, githubCallback, oauthCallback } = require('../middleware/oauth');
 const UserService = require('../services/userService');
+const AuditLogService = require('../services/auditLogService');
 
 // Default tenant ID for single-tenant deployments
 const TENANT_ID = process.env.DEFAULT_TENANT_ID || '550e8400-e29b-41d4-a716-446655440000';
 
 // GET /login - Show login page
 router.get('/login', (req, res) => {
+  const error = req.query.error;
   res.render('login', {
     title: 'Login - KYRA Admin Console',
-    csrfToken: req.csrfToken?.() || ''
+    csrfToken: req.csrfToken?.() || '',
+    error: error ? decodeURIComponent(error) : null,
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID
   });
 });
 
@@ -138,6 +145,68 @@ router.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     authenticated: !!req.session?.userId
   });
+});
+
+// ===== OAUTH ROUTES =====
+
+// Google OAuth
+router.get('/google', googleAuth);
+
+router.get('/google/callback', googleCallback, oauthCallback);
+
+// GitHub OAuth
+router.get('/github', githubAuth);
+
+router.get('/github/callback', githubCallback, oauthCallback);
+
+// Connect/link OAuth provider to existing account
+router.post('/link/:provider', async (req, res) => {
+  if (!req.user) {
+    return res.redirect('/login');
+  }
+
+  try {
+    // Redirect to OAuth provider
+    if (req.params.provider === 'google') {
+      return res.redirect(`/auth/google?state=/admin/settings`);
+    } else if (req.params.provider === 'github') {
+      return res.redirect(`/auth/github?state=/admin/settings`);
+    }
+
+    res.status(400).json({ error: 'Unknown provider' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Disconnect OAuth provider
+router.post('/unlink/:provider', async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const OAuthService = require('../services/oauthService');
+    const success = await OAuthService.unlinkOAuthAccount(req.user.email, req.params.provider, TENANT_ID);
+
+    if (success) {
+      await AuditLogService.createLog({
+        eventType: 'authentication',
+        user: req.user.email,
+        resource: req.params.provider,
+        action: 'Unlink OAuth provider',
+        status: 'success',
+        ipAddress: req.ip,
+        tenantId: TENANT_ID
+      });
+
+      return res.json({ success: true, message: `${req.params.provider} account disconnected` });
+    }
+
+    res.status(404).json({ error: 'Provider not linked' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

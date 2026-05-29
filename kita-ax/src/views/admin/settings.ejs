@@ -1,336 +1,199 @@
 <%- include('../layouts/admin-header') %>
 
 <div class="page-title">
-  <h1>⚙️ Settings</h1>
-  <p>Configure system-wide settings and preferences</p>
+  <h1>Settings</h1>
+  <p>Manage your account, preferences, and notifications</p>
 </div>
 
-<div class="settings-container">
-  <div class="settings-nav">
-    <button class="settings-btn active" onclick="switchSettings(event, 'general')">General</button>
-    <button class="settings-btn" onclick="switchSettings(event, 'security')">Security</button>
-    <button class="settings-btn" onclick="switchSettings(event, 'notifications')">Notifications</button>
-    <button class="settings-btn" onclick="switchSettings(event, 'integrations')">Integrations</button>
-  </div>
+<% if (flashSuccess) { %>
+<div class="flash flash-success" style="margin-bottom:20px;padding:12px 16px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:4px;color:#2e7d32">
+  <%= flashSuccess %>
+</div>
+<% } %>
 
-  <div class="settings-panel">
-    <div id="general" class="settings-content active">
-      <h3>General Settings</h3>
-      <form class="settings-form">
-        <div class="form-group">
-          <label>Organization Name</label>
-          <input type="text" placeholder="SeekersLab Inc." value="SeekersLab Inc.">
-        </div>
+<% if (flashError) { %>
+<div class="flash flash-error" style="margin-bottom:20px;padding:12px 16px;background:#fee;border:1px solid #fcc;border-radius:4px;color:#c33">
+  <%= flashError %>
+</div>
+<% } %>
 
-        <div class="form-group">
-          <label>System Timezone</label>
-          <select>
-            <option>UTC</option>
-            <option>EST</option>
-            <option>PST</option>
-            <option>CST</option>
-          </select>
-        </div>
+<!-- Account Information -->
+<div class="admin-panel" style="max-width:600px">
+  <h2 style="margin-bottom:20px;font-size:18px;font-weight:600">Account Information</h2>
 
-        <div class="form-group">
-          <label>Session Timeout (minutes)</label>
-          <input type="number" value="60" min="5" max="480">
-        </div>
+  <div style="padding:16px;background:#f5f7fa;border-radius:4px;margin-bottom:24px">
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:16px">
+      <span style="font-weight:600;color:#666">Email:</span>
+      <span><%= user.email %></span>
 
-        <div class="form-group">
-          <label>
-            <input type="checkbox" checked> Enable system notifications
-          </label>
-        </div>
+      <span style="font-weight:600;color:#666">Role:</span>
+      <span><strong><%= user.role %></strong></span>
 
-        <button type="button" class="btn btn-primary" onclick="alert('Settings saved')">Save Changes</button>
-      </form>
-    </div>
+      <span style="font-weight:600;color:#666">Status:</span>
+      <span>
+        <span class="badge badge-<%= user.status %>"><%= user.status %></span>
+      </span>
 
-    <div id="security" class="settings-content">
-      <h3>Security Settings</h3>
-      <form class="settings-form">
-        <div class="settings-section">
-          <h4>Authentication</h4>
-
-          <div class="form-group">
-            <label>
-              <input type="checkbox" checked> Enable two-factor authentication
-            </label>
-          </div>
-
-          <div class="form-group">
-            <label>
-              <input type="checkbox" checked> Require strong passwords
-            </label>
-            <small>At least 12 characters, uppercase, numbers, and symbols</small>
-          </div>
-
-          <div class="form-group">
-            <label>Password Expiry (days)</label>
-            <input type="number" value="90" min="0" max="365">
-          </div>
-        </div>
-
-        <div class="settings-section">
-          <h4>Access Control</h4>
-
-          <div class="form-group">
-            <label>
-              <input type="checkbox" checked> Enforce RBAC
-            </label>
-          </div>
-
-          <div class="form-group">
-            <label>
-              <input type="checkbox" checked> Enable ABAC rules
-            </label>
-          </div>
-
-          <div class="form-group">
-            <label>Failed Login Attempts Before Lockout</label>
-            <input type="number" value="5" min="3" max="10">
-          </div>
-        </div>
-
-        <button type="button" class="btn btn-primary" onclick="alert('Settings saved')">Save Changes</button>
-      </form>
-    </div>
-
-    <div id="notifications" class="settings-content">
-      <h3>Notification Settings</h3>
-      <form class="settings-form">
-        <div class="notification-option">
-          <input type="checkbox" id="notify-login" checked>
-          <label for="notify-login">
-            <strong>New login alerts</strong>
-            <span>Notify admins of unusual login patterns</span>
-          </label>
-        </div>
-
-        <div class="notification-option">
-          <input type="checkbox" id="notify-policy" checked>
-          <label for="notify-policy">
-            <strong>Policy changes</strong>
-            <span>Notify admins when access policies are modified</span>
-          </label>
-        </div>
-
-        <div class="notification-option">
-          <input type="checkbox" id="notify-security" checked>
-          <label for="notify-security">
-            <strong>Security events</strong>
-            <span>Notify admins of security-related events</span>
-          </label>
-        </div>
-
-        <div class="notification-option">
-          <input type="checkbox" id="notify-daily">
-          <label for="notify-daily">
-            <strong>Daily summary</strong>
-            <span>Send daily digest of system activities</span>
-          </label>
-        </div>
-
-        <button type="button" class="btn btn-primary" onclick="alert('Settings saved')">Save Changes</button>
-      </form>
-    </div>
-
-    <div id="integrations" class="settings-content">
-      <h3>Integrations</h3>
-
-      <div class="integration-card">
-        <div class="integration-header">
-          <h4>Slack Integration</h4>
-          <span class="badge badge-inactive">Not Connected</span>
-        </div>
-        <p>Send audit logs and alerts to your Slack workspace</p>
-        <button class="btn btn-secondary" onclick="alert('Slack integration setup')">Configure</button>
-      </div>
-
-      <div class="integration-card">
-        <div class="integration-header">
-          <h4>Email Service</h4>
-          <span class="badge badge-active">Connected</span>
-        </div>
-        <p>Send notifications and reports via email</p>
-        <button class="btn btn-secondary" onclick="alert('Email configuration')">Configure</button>
-      </div>
-
-      <div class="integration-card">
-        <div class="integration-header">
-          <h4>SIEM Integration</h4>
-          <span class="badge badge-inactive">Not Connected</span>
-        </div>
-        <p>Stream audit logs to your SIEM platform</p>
-        <button class="btn btn-secondary" onclick="alert('SIEM setup')">Configure</button>
-      </div>
+      <span style="font-weight:600;color:#666">Last Login:</span>
+      <span><%= user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never' %></span>
     </div>
   </div>
+</div>
+
+<!-- Display Preferences -->
+<div class="admin-panel" style="max-width:600px;margin-top:24px">
+  <h2 style="margin-bottom:20px;font-size:18px;font-weight:600">Display Preferences</h2>
+
+  <form id="preferencesForm" style="display:flex;flex-direction:column;gap:16px">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div>
+      <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px">Theme</label>
+      <select name="theme" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+        <option value="light" <%= preferences.theme === 'light' ? 'selected' : '' %>>Light</option>
+        <option value="dark" <%= preferences.theme === 'dark' ? 'selected' : '' %>>Dark</option>
+        <option value="auto" <%= preferences.theme === 'auto' ? 'selected' : '' %>>Auto (System)</option>
+      </select>
+    </div>
+
+    <div>
+      <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px">Language</label>
+      <select name="language" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+        <option value="en" <%= preferences.language === 'en' ? 'selected' : '' %>>English</option>
+        <option value="ko" <%= preferences.language === 'ko' ? 'selected' : '' %>>한국어</option>
+        <option value="es" <%= preferences.language === 'es' ? 'selected' : '' %>>Español</option>
+        <option value="fr" <%= preferences.language === 'fr' ? 'selected' : '' %>>Français</option>
+        <option value="de" <%= preferences.language === 'de' ? 'selected' : '' %>>Deutsch</option>
+        <option value="zh" <%= preferences.language === 'zh' ? 'selected' : '' %>>中文</option>
+      </select>
+    </div>
+
+    <div>
+      <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px">Timezone</label>
+      <input type="text" name="timezone" value="<%= preferences.timezone %>" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px" placeholder="UTC">
+    </div>
+
+    <div>
+      <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px">Items Per Page</label>
+      <input type="number" name="pageSize" value="<%= preferences.pageSize %>" min="5" max="100" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+      <p style="font-size:12px;color:#666;margin:4px 0 0 0">Default: 10 items per page (5-100)</p>
+    </div>
+
+    <button type="submit" class="btn" style="padding:10px 16px;background:#2e8b57;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:600;align-self:flex-start">Save Preferences</button>
+  </form>
+</div>
+
+<!-- Notification Settings -->
+<div class="admin-panel" style="max-width:600px;margin-top:24px">
+  <h2 style="margin-bottom:20px;font-size:18px;font-weight:600">Notification Preferences</h2>
+
+  <form id="notificationsForm" style="display:flex;flex-direction:column;gap:16px">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div style="padding:12px;background:#f5f7fa;border-radius:4px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;font-weight:600;font-size:14px">
+        <input type="checkbox" name="enableNotifications" value="true" <%= preferences.enableNotifications ? 'checked' : '' %> style="width:16px;height:16px;cursor:pointer">
+        <span>Enable Notifications</span>
+      </label>
+      <p style="font-size:12px;color:#666;margin:4px 0 0 0">Master switch for all notifications</p>
+    </div>
+
+    <div style="border:1px solid #ddd;border-radius:4px;padding:12px;background:white">
+      <p style="font-weight:600;font-size:14px;margin:0 0 12px 0">Notification Types:</p>
+      
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <input type="checkbox" id="notify_policy" name="notifyOnPolicyChange" value="true" <%= preferences.notifyOnPolicyChange ? 'checked' : '' %> style="width:16px;height:16px;cursor:pointer">
+        <label for="notify_policy" style="cursor:pointer;margin:0;font-size:14px">Notify on Policy Changes</label>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <input type="checkbox" id="notify_access" name="notifyOnDocumentAccess" value="true" <%= preferences.notifyOnDocumentAccess ? 'checked' : '' %> style="width:16px;height:16px;cursor:pointer">
+        <label for="notify_access" style="cursor:pointer;margin:0;font-size:14px">Notify on Document Access</label>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="notify_login" name="notifyOnFailedLogin" value="true" <%= preferences.notifyOnFailedLogin ? 'checked' : '' %> style="width:16px;height:16px;cursor:pointer">
+        <label for="notify_login" style="cursor:pointer;margin:0;font-size:14px">Notify on Failed Login Attempts</label>
+      </div>
+    </div>
+
+    <div>
+      <label style="display:block;margin-bottom:8px;font-weight:600;font-size:14px">Digest Frequency</label>
+      <select name="notifyDigestFrequency" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px">
+        <option value="immediate" <%= preferences.notifyDigestFrequency === 'immediate' ? 'selected' : '' %>>Immediate</option>
+        <option value="daily" <%= preferences.notifyDigestFrequency === 'daily' ? 'selected' : '' %>>Daily Digest</option>
+        <option value="weekly" <%= preferences.notifyDigestFrequency === 'weekly' ? 'selected' : '' %>>Weekly Digest</option>
+        <option value="never" <%= preferences.notifyDigestFrequency === 'never' ? 'selected' : '' %>>Never</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn" style="padding:10px 16px;background:#1976d2;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:600;align-self:flex-start">Save Notifications</button>
+  </form>
+</div>
+
+<!-- Connected Accounts -->
+<div class="admin-panel" style="max-width:600px;margin-top:24px">
+  <h2 style="margin-bottom:20px;font-size:18px;font-weight:600">Connected Accounts</h2>
+
+  <p style="color:#666;font-size:14px;margin-bottom:16px">Link or unlink OAuth providers to your account for easier login.</p>
+
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <% if (oauthAccounts && oauthAccounts.length > 0) { %>
+      <% oauthAccounts.forEach(account => { %>
+      <div style="padding:12px;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <span style="font-weight:600;text-transform:capitalize"><%= account.provider %></span>
+          <p style="font-size:12px;color:#666;margin:4px 0 0 0"><%= account.email %> <% if (account.createdAt) { %>• Connected <%= new Date(account.createdAt).toLocaleDateString() %><% } %></p>
+        </div>
+        <form method="POST" action="/auth/unlink/<%= account.provider %>" style="display:inline">
+          <button type="submit" class="btn btn-secondary" style="padding:6px 12px;background:#f0f2f5;color:#1a1a40;border:1px solid #ddd;border-radius:4px;cursor:pointer;font-size:12px">Disconnect</button>
+        </form>
+      </div>
+      <% }); %>
+    <% } else { %>
+    <p style="color:#999;font-size:13px">No OAuth providers connected yet.</p>
+    <% } %>
+
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #ddd">
+      <p style="font-size:13px;color:#666;margin-bottom:12px">Add more login options:</p>
+      <div style="display:flex;gap:8px">
+        <% if (!oauthAccounts || !oauthAccounts.find(a => a.provider === 'google')) { %>
+        <a href="/auth/link/google" class="btn" style="padding:8px 12px;background:#fff;color:#1a1a40;border:1px solid #ddd;border-radius:4px;text-decoration:none;font-size:12px;cursor:pointer;transition:all 0.3s">🔵 Connect Google</a>
+        <% } %>
+
+        <% if (!oauthAccounts || !oauthAccounts.find(a => a.provider === 'github')) { %>
+        <a href="/auth/link/github" class="btn" style="padding:8px 12px;background:#fff;color:#1a1a40;border:1px solid #ddd;border-radius:4px;text-decoration:none;font-size:12px;cursor:pointer;transition:all 0.3s">⬛ Connect GitHub</a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Danger Zone -->
+<div class="admin-panel" style="max-width:600px;margin-top:24px;border:1px solid #ffcccc;background:#fff5f5">
+  <h2 style="margin-bottom:20px;font-size:18px;font-weight:600;color:#d32f2f">Danger Zone</h2>
+
+  <button id="resetBtn" class="btn" style="padding:10px 16px;background:#d32f2f;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:600">Reset All Settings to Defaults</button>
+  <p style="font-size:12px;color:#666;margin:8px 0 0 0">This will reset all your preferences and notification settings to their default values.</p>
 </div>
 
 <style>
-  .settings-container {
-    display: grid;
-    grid-template-columns: 200px 1fr;
-    gap: 20px;
-  }
-
-  .settings-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .settings-btn {
-    background: white;
-    border: 1px solid var(--border-color);
-    padding: 12px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    text-align: left;
-    font-size: 14px;
-    transition: all 0.3s;
-    color: var(--text-primary);
-  }
-
-  .settings-btn:hover,
-  .settings-btn.active {
-    background: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
-  }
-
-  .settings-panel {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    padding: 30px;
-  }
-
-  .settings-content {
-    display: none;
-  }
-
-  .settings-content.active {
-    display: block;
-  }
-
-  .settings-content h3 {
-    margin-top: 0;
-    margin-bottom: 24px;
-    color: var(--text-primary);
-  }
-
-  .settings-section {
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .settings-section h4 {
-    margin: 0 0 16px 0;
-    color: var(--text-primary);
-    font-size: 14px;
-  }
-
-  .settings-form {
-    max-width: 500px;
-  }
-
-  .form-group {
-    margin-bottom: 20px;
-  }
-
-  .form-group label {
-    display: block;
+  .badge {
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 11px;
     font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 8px;
-    font-size: 14px;
+    display: inline-block;
   }
 
-  .form-group input[type="text"],
-  .form-group input[type="number"],
-  .form-group select {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-size: 14px;
-    font-family: inherit;
+  .badge-active {
+    background: #e1f5e0;
+    color: #2e7d32;
   }
 
-  .form-group input[type="text"]:focus,
-  .form-group input[type="number"]:focus,
-  .form-group select:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(46, 139, 87, 0.1);
-  }
-
-  .form-group small {
-    display: block;
-    margin-top: 4px;
-    color: var(--text-secondary);
-    font-size: 12px;
-  }
-
-  .form-group input[type="checkbox"] {
-    margin-right: 8px;
-  }
-
-  .notification-option {
-    margin-bottom: 20px;
-    padding: 16px;
-    background: #f9f9f9;
-    border-radius: 4px;
-    border-left: 3px solid var(--primary-color);
-  }
-
-  .notification-option input[type="checkbox"] {
-    margin-right: 12px;
-    vertical-align: top;
-  }
-
-  .notification-option label {
-    margin: 0;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .notification-option label span {
-    display: block;
-    margin-top: 4px;
-    font-weight: 400;
-    font-size: 13px;
-    color: var(--text-secondary);
-  }
-
-  .integration-card {
-    background: #f9f9f9;
-    padding: 20px;
-    border-radius: 6px;
-    margin-bottom: 16px;
-    border: 1px solid var(--border-color);
-  }
-
-  .integration-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-  }
-
-  .integration-header h4 {
-    margin: 0;
-    color: var(--text-primary);
-  }
-
-  .integration-card p {
-    margin: 0 0 12px 0;
-    color: var(--text-secondary);
-    font-size: 13px;
+  .badge-inactive {
+    background: #f5f5f5;
+    color: #666;
   }
 
   .btn {
@@ -343,69 +206,114 @@
     transition: all 0.3s;
   }
 
-  .btn-primary {
-    background: var(--primary-color);
-    color: white;
-  }
-
-  .btn-primary:hover {
-    opacity: 0.9;
-  }
-
   .btn-secondary {
-    background: white;
-    color: var(--primary-color);
-    border: 1px solid var(--primary-color);
+    background: #f0f2f5;
+    color: #1a1a40;
+    border: 1px solid #ddd;
   }
 
   .btn-secondary:hover {
-    background: #f5f5f5;
+    background: #e0e2e5;
   }
 
-  .badge {
-    padding: 4px 8px;
-    border-radius: 3px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .badge-active {
-    background: #e8f5e9;
-    color: #2e7d32;
-  }
-
-  .badge-inactive {
-    background: #f5f5f5;
-    color: #666;
-  }
-
-  @media (max-width: 768px) {
-    .settings-container {
-      grid-template-columns: 1fr;
-    }
-
-    .settings-nav {
-      flex-direction: row;
-      flex-wrap: wrap;
-    }
-
-    .settings-btn {
-      flex: 1;
-    }
+  .admin-panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    padding: 24px;
+    margin-bottom: 30px;
   }
 </style>
 
 <script>
-  function switchSettings(event, sectionName) {
-    const contents = document.querySelectorAll('.settings-content');
-    contents.forEach(content => content.classList.remove('active'));
-
-    const buttons = document.querySelectorAll('.settings-btn');
-    buttons.forEach(btn => btn.classList.remove('active'));
-
-    document.getElementById(sectionName).classList.add('active');
-    event.target.classList.add('active');
+// Handle preferences form submission
+document.getElementById('preferencesForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  
+  try {
+    const response = await fetch('/admin/settings/preferences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        theme: formData.get('theme'),
+        language: formData.get('language'),
+        timezone: formData.get('timezone'),
+        pageSize: formData.get('pageSize'),
+        _csrf: formData.get('_csrf')
+      })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      alert('Preferences saved successfully!');
+      // Apply theme change if it changed
+      const theme = formData.get('theme');
+      document.documentElement.setAttribute('data-theme', theme);
+    } else {
+      alert('Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
   }
+});
+
+// Handle notifications form submission
+document.getElementById('notificationsForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  
+  try {
+    const response = await fetch('/admin/settings/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        enableNotifications: formData.get('enableNotifications') === 'true',
+        notifyOnPolicyChange: formData.get('notifyOnPolicyChange') === 'true',
+        notifyOnDocumentAccess: formData.get('notifyOnDocumentAccess') === 'true',
+        notifyOnFailedLogin: formData.get('notifyOnFailedLogin') === 'true',
+        notifyDigestFrequency: formData.get('notifyDigestFrequency'),
+        _csrf: formData.get('_csrf')
+      })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      alert('Notification preferences saved successfully!');
+    } else {
+      alert('Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+});
+
+// Handle reset button
+document.getElementById('resetBtn').addEventListener('click', async () => {
+  if (!confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch('/admin/settings/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        _csrf: document.querySelector('input[name="_csrf"]').value
+      })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      alert('Settings reset to defaults. Page will reload.');
+      location.reload();
+    } else {
+      alert('Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+});
 </script>
 
 <%- include('../layouts/admin-footer') %>

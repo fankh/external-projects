@@ -158,6 +158,60 @@ class DocumentService {
 
     return counts;
   }
+
+  /**
+   * Update document with file metadata
+   */
+  static async updateFileMetadata(id, { filePath, fileName, fileMimeType, fileSize }, tenantId) {
+    const document = await Document.findOne({ where: { id, tenantId } });
+    if (!document) {
+      throw new Error('Document not found');
+    }
+
+    document.filePath = filePath;
+    document.fileName = fileName;
+    document.fileMimeType = fileMimeType;
+    document.fileSize = fileSize;
+    document.uploadedAt = new Date();
+
+    await document.save();
+    return document;
+  }
+
+  /**
+   * Get file metadata for a document
+   */
+  static async getFileMetadata(id, tenantId) {
+    const document = await Document.findOne({
+      where: { id, tenantId },
+      attributes: ['id', 'filePath', 'fileName', 'fileMimeType', 'fileSize', 'uploadedAt']
+    });
+
+    if (!document) {
+      throw new Error('Document not found');
+    }
+
+    return document;
+  }
+
+  /**
+   * Clear file metadata (when file is deleted)
+   */
+  static async clearFileMetadata(id, tenantId) {
+    const document = await Document.findOne({ where: { id, tenantId } });
+    if (!document) {
+      throw new Error('Document not found');
+    }
+
+    document.filePath = null;
+    document.fileName = null;
+    document.fileMimeType = null;
+    document.fileSize = null;
+    document.uploadedAt = null;
+
+    await document.save();
+    return document;
+  }
 }
 
 module.exports = DocumentService;

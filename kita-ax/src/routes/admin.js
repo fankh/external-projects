@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { upload } = require('../middleware/upload');
 
 // Database Services
 const UserService = require('../services/userService');
@@ -350,6 +353,13 @@ router.post('/documents/:id', asyncHandler(async (req, res) => {
 
 router.post('/documents/:id/delete', asyncHandler(async (req, res) => {
   try {
+    const doc = await DocumentService.getDocumentById(req.params.id, req.user.tenantId);
+
+    // Delete file if it exists
+    if (doc.filePath && fs.existsSync(doc.filePath)) {
+      fs.unlinkSync(doc.filePath);
+    }
+
     await DocumentService.deleteDocument(req.params.id, req.user.tenantId);
 
     await AuditLogService.createLog({
@@ -365,6 +375,85 @@ router.post('/documents/:id/delete', asyncHandler(async (req, res) => {
     flash(res, '/admin/documents', 'success', 'Document deleted successfully');
   } catch (err) {
     flash(res, '/admin/documents', 'error', err.message);
+  }
+}));
+
+router.post('/documents/:id/upload', upload.single('file'), asyncHandler(async (req, res) => {
+  try {
+    if (!req.file) {
+      return flash(res, `/admin/documents/${req.params.id}/edit`, 'error', 'No file selected');
+    }
+
+    const doc = await DocumentService.getDocumentById(req.params.id, req.user.tenantId);
+
+    // Delete old file if it exists
+    if (doc.filePath && fs.existsSync(doc.filePath)) {
+      fs.unlinkSync(doc.filePath);
+    }
+
+    // Update document with file metadata
+    await DocumentService.updateFileMetadata(
+      req.params.id,
+      {
+        filePath: req.file.path,
+        fileName: req.file.originalname,
+        fileMimeType: req.file.mimetype,
+        fileSize: req.file.size
+      },
+      req.user.tenantId
+    );
+
+    await AuditLogService.createLog({
+      eventType: 'document-access',
+      user: req.user.email,
+      resource: req.params.id,
+      action: 'Upload file',
+      status: 'success',
+      ipAddress: req.ip,
+      details: { fileName: req.file.originalname, fileSize: req.file.size },
+      tenantId: req.user.tenantId
+    });
+
+    flash(res, `/admin/documents/${req.params.id}/edit`, 'success', 'File uploaded successfully');
+  } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    flash(res, `/admin/documents/${req.params.id}/edit`, 'error', err.message);
+  }
+}));
+
+router.get('/documents/:id/download', asyncHandler(async (req, res) => {
+  try {
+    const doc = await DocumentService.getFileMetadata(req.params.id, req.user.tenantId);
+
+    if (!doc.filePath || !fs.existsSync(doc.filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Increment access count
+    await DocumentService.incrementAccessCount(req.params.id, req.user.tenantId);
+
+    await AuditLogService.createLog({
+      eventType: 'document-access',
+      user: req.user.email,
+      resource: req.params.id,
+      action: 'Download file',
+      status: 'success',
+      ipAddress: req.ip,
+      tenantId: req.user.tenantId
+    });
+
+    // Set proper headers for download
+    res.setHeader('Content-Disposition', `attachment; filename="${doc.fileName}"`);
+    res.setHeader('Content-Type', doc.fileMimeType || 'application/octet-stream');
+    res.setHeader('Content-Length', doc.fileSize);
+
+    // Send file
+    const fileStream = fs.createReadStream(doc.filePath);
+    fileStream.pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 }));
 
@@ -824,13 +913,113 @@ router.post('/agents/:id/regenerate-key', asyncHandler(async (req, res) => {
 
 // ===== SETTINGS =====
 
-router.get('/settings', (req, res) => {
+router.get('/settings', asyncHandler(async (req, res) => {
+  const OAuthService = require('../services/oauthService');
+  const PreferencesService = require('../services/preferencesService');
+  const flashSuccess = req.query.success || null;
+  const flashError = req.query.error || null;
+
+  const oauthAccounts = await OAuthService.getUserOAuthAccounts(req.user.email, req.user.tenantId);
+  const preferences = await PreferencesService.getPreferences(req.user.email, req.user.tenantId);
+
   res.render('admin/settings', {
     title: 'Settings - KYRA Admin Console',
     current_page: 'settings',
     user: req.user,
+    oauthAccounts,
+    preferences: preferences.dataValues || preferences,
+    flashSuccess,
+    flashError,
     csrfToken: req.csrfToken?.() || ''
   });
-});
+}));
+
+router.post('/settings/preferences', asyncHandler(async (req, res) => {
+  try {
+    const PreferencesService = require('../services/preferencesService');
+    const { theme, language, timezone, pageSize, notifyDigestFrequency } = req.body;
+
+    const updates = {};
+    if (theme) updates.theme = theme;
+    if (language) updates.language = language;
+    if (timezone) updates.timezone = timezone;
+    if (pageSize) updates.pageSize = parseInt(pageSize);
+    if (notifyDigestFrequency) updates.notifyDigestFrequency = notifyDigestFrequency;
+
+    await PreferencesService.updatePreferences(req.user.email, req.user.tenantId, updates);
+
+    await AuditLogService.createLog({
+      eventType: 'user-management',
+      user: req.user.email,
+      resource: 'preferences',
+      action: 'Update preferences',
+      status: 'success',
+      ipAddress: req.ip,
+      details: updates,
+      tenantId: req.user.tenantId
+    });
+
+    res.json({ success: true, message: 'Preferences updated successfully' });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+}));
+
+router.post('/settings/notifications', asyncHandler(async (req, res) => {
+  try {
+    const PreferencesService = require('../services/preferencesService');
+    const {
+      enableNotifications,
+      notifyOnPolicyChange,
+      notifyOnDocumentAccess,
+      notifyOnFailedLogin,
+      notifyDigestFrequency
+    } = req.body;
+
+    const notifyPrefs = {};
+    if (enableNotifications !== undefined) notifyPrefs.enabled = enableNotifications === 'true' || enableNotifications === true;
+    if (notifyOnPolicyChange !== undefined) notifyPrefs.policyChanges = notifyOnPolicyChange === 'true' || notifyOnPolicyChange === true;
+    if (notifyOnDocumentAccess !== undefined) notifyPrefs.documentAccess = notifyOnDocumentAccess === 'true' || notifyOnDocumentAccess === true;
+    if (notifyOnFailedLogin !== undefined) notifyPrefs.failedLogins = notifyOnFailedLogin === 'true' || notifyOnFailedLogin === true;
+    if (notifyDigestFrequency) notifyPrefs.digestFrequency = notifyDigestFrequency;
+
+    await PreferencesService.updateNotificationPreferences(req.user.email, req.user.tenantId, notifyPrefs);
+
+    await AuditLogService.createLog({
+      eventType: 'user-management',
+      user: req.user.email,
+      resource: 'notifications',
+      action: 'Update notification preferences',
+      status: 'success',
+      ipAddress: req.ip,
+      tenantId: req.user.tenantId
+    });
+
+    res.json({ success: true, message: 'Notification preferences updated successfully' });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+}));
+
+router.post('/settings/reset', asyncHandler(async (req, res) => {
+  try {
+    const PreferencesService = require('../services/preferencesService');
+    await PreferencesService.resetToDefaults(req.user.email, req.user.tenantId);
+
+    await AuditLogService.createLog({
+      eventType: 'user-management',
+      user: req.user.email,
+      resource: 'preferences',
+      action: 'Reset preferences to defaults',
+      status: 'success',
+      ipAddress: req.ip,
+      tenantId: req.user.tenantId
+    });
+
+    res.json({ success: true, message: 'Preferences reset to defaults' });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+}));
 
 module.exports = router;

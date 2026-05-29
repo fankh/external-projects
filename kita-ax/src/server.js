@@ -57,6 +57,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 // 6. Session middleware (MUST be before routes)
 app.use(sessionMiddleware);
 
+// 6.5. Passport middleware (MUST be after session)
+const passport = require('passport');
+require('./config/passport');
+app.use(passport.initialize());
+app.use(passport.session());
+
+// 6.7. User preferences middleware (MUST be after authentication)
+const preferencesMiddleware = require('./middleware/preferences');
+app.use(preferencesMiddleware);
+
 // 7. CSRF protection (MUST be after session)
 app.use(csrfProtection);
 
