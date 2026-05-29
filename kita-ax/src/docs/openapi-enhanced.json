@@ -1,0 +1,611 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "KYRA Admin Console API",
+    "description": "Comprehensive REST API for KYRA AI Guardrail Admin Console with user management, document handling, policy management, and audit logging. Built with Express.js, secured with JWT and session-based authentication, featuring 2FA support and ABAC authorization.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "SeekersLab Support",
+      "url": "https://seekerslab.com",
+      "email": "support@seekerslab.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "x-logo": {
+      "url": "https://seekerslab.com/logo.png",
+      "altText": "KYRA Logo"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://127.0.0.1:3005/api/v1",
+      "description": "Development server",
+      "variables": {
+        "env": {
+          "default": "dev",
+          "enum": ["dev", "staging", "prod"]
+        }
+      }
+    },
+    {
+      "url": "https://api.kyra.seekerslab.com/api/v1",
+      "description": "Production server"
+    }
+  ],
+  "externalDocs": {
+    "description": "KYRA Admin Console Documentation",
+    "url": "https://docs.kyra.seekerslab.com"
+  },
+  "security": [
+    {
+      "SessionAuth": []
+    },
+    {
+      "BearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "SessionAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sessionId",
+        "description": "Session-based authentication using HTTP-only cookie"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT bearer token for API authentication"
+      },
+      "CSRFToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "description": "CSRF protection token"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error": { "type": "string", "example": "Invalid credentials" },
+          "details": { "type": "object" }
+        },
+        "required": ["success", "error"]
+      },
+      "ValidationError": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Error" },
+          {
+            "type": "object",
+            "properties": {
+              "details": {
+                "type": "object",
+                "example": {
+                  "email": "email must be a valid email address",
+                  "password": "password must be at least 8 characters long"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "status": { "type": "string", "example": "healthy" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        },
+        "required": ["success", "status", "timestamp"]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "admin@seekerslab.com" },
+          "password": { "type": "string", "format": "password", "minLength": 6, "example": "SecurePassword123" }
+        },
+        "required": ["email", "password"]
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string", "example": "Login successful" },
+          "redirect": { "type": "string", "example": "/admin/dashboard" }
+        },
+        "required": ["success", "message"]
+      },
+      "TwoFactorVerifyRequest": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string", "pattern": "^\\d{6}$", "example": "123456" }
+        },
+        "required": ["token"]
+      },
+      "TwoFactorSetupResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "qrCodeUrl": { "type": "string", "description": "Data URL for QR code image" },
+          "secret": { "type": "string", "example": "JFDE4TLQLUXEYURQGNTGK4D5ERACKUSREM2UOQTBKRGTS3Z7LZIA" },
+          "backupCodes": { 
+            "type": "array",
+            "items": { "type": "string" },
+            "example": ["a3f9c812", "b4g8d923", "c5h7e034"]
+          }
+        },
+        "required": ["success", "qrCodeUrl", "secret", "backupCodes"]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "example": "550e8400-e29b-41d4-a716-446655440000" },
+          "email": { "type": "string", "format": "email", "example": "admin@seekerslab.com" },
+          "name": { "type": "string", "example": "John Admin" },
+          "role": { "type": "string", "enum": ["admin", "editor", "viewer"], "example": "admin" },
+          "status": { "type": "string", "enum": ["active", "inactive", "suspended"], "example": "active" },
+          "tenantId": { "type": "string", "format": "uuid" },
+          "totpEnabled": { "type": "boolean", "example": true },
+          "lastLogin": { "type": "string", "format": "date-time" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "email", "role", "status", "createdAt"]
+      },
+      "UserCreate": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "newuser@seekerslab.com" },
+          "name": { "type": "string", "example": "Jane Editor", "maxLength": 100 },
+          "password": { "type": "string", "format": "password", "minLength": 8, "example": "SecurePass123" },
+          "role": { "type": "string", "enum": ["admin", "editor", "viewer"], "example": "editor" }
+        },
+        "required": ["email", "password", "role"]
+      },
+      "UserUpdate": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string", "maxLength": 100 },
+          "role": { "type": "string", "enum": ["admin", "editor", "viewer"] },
+          "status": { "type": "string", "enum": ["active", "inactive", "suspended"] }
+        }
+      },
+      "PaginationParams": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer", "minimum": 1, "example": 1 },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100, "example": 10 },
+          "sort": { "type": "string", "example": "createdAt" },
+          "order": { "type": "string", "enum": ["asc", "desc"], "example": "desc" }
+        }
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "data": { "type": "array", "items": {} },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" },
+              "pages": { "type": "integer" }
+            }
+          }
+        },
+        "required": ["success", "data", "pagination"]
+      },
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "action": { "type": "string", "example": "user_created" },
+          "resource": { "type": "string", "example": "user" },
+          "details": { "type": "object" },
+          "ip": { "type": "string", "format": "ipv4", "example": "192.168.1.100" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "action", "resource", "timestamp"]
+      }
+    },
+    "responses": {
+      "SuccessResponse": {
+        "description": "Successful operation",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": true }
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Invalid request parameters",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ValidationError" },
+            "example": {
+              "success": false,
+              "error": "Validation failed",
+              "details": {
+                "email": "email must be a valid email address"
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Authentication required",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": {
+              "success": false,
+              "error": "Unauthorized - Please login"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Insufficient permissions",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": {
+              "success": false,
+              "error": "Forbidden - Admin access required"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": {
+              "success": false,
+              "error": "Not Found",
+              "path": "/api/v1/users/invalid-id",
+              "method": "GET"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Rate limit exceeded",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": {
+              "success": false,
+              "error": "Too many requests. Please try again later."
+            }
+          }
+        },
+        "headers": {
+          "X-RateLimit-Limit": {
+            "schema": { "type": "integer" },
+            "description": "Request limit per window"
+          },
+          "X-RateLimit-Remaining": {
+            "schema": { "type": "integer" },
+            "description": "Remaining requests"
+          },
+          "X-RateLimit-Reset": {
+            "schema": { "type": "integer" },
+            "description": "Reset time in seconds"
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": {
+              "success": false,
+              "error": "Internal Server Error"
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "PageParam": {
+        "name": "page",
+        "in": "query",
+        "description": "Page number (starts at 1)",
+        "schema": { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "LimitParam": {
+        "name": "limit",
+        "in": "query",
+        "description": "Items per page (max 100)",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 }
+      },
+      "SortParam": {
+        "name": "sort",
+        "in": "query",
+        "description": "Field to sort by",
+        "schema": { "type": "string" }
+      },
+      "OrderParam": {
+        "name": "order",
+        "in": "query",
+        "description": "Sort order",
+        "schema": { "type": "string", "enum": ["asc", "desc"], "default": "desc" }
+      },
+      "CorrelationId": {
+        "name": "X-Correlation-ID",
+        "in": "header",
+        "description": "Request correlation ID for tracking",
+        "schema": { "type": "string", "format": "uuid" }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check endpoint",
+        "description": "Check if the API is running and healthy",
+        "operationId": "getHealth",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List all users",
+        "description": "Get paginated list of all users. Requires authentication.",
+        "operationId": "getUsers",
+        "parameters": [
+          { "$ref": "#/components/parameters/PageParam" },
+          { "$ref": "#/components/parameters/LimitParam" },
+          { "$ref": "#/components/parameters/SortParam" },
+          { "$ref": "#/components/parameters/OrderParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginatedResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/User" }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" }
+        }
+      },
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create new user",
+        "description": "Create a new user account. Requires admin role.",
+        "operationId": "createUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserCreate" },
+              "example": {
+                "email": "newuser@seekerslab.com",
+                "name": "Jane Doe",
+                "password": "SecurePass123",
+                "role": "editor"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/users/{userId}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user details",
+        "description": "Get detailed information about a specific user",
+        "operationId": "getUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update user",
+        "description": "Update user information. Admin can update any user, users can update themselves.",
+        "operationId": "updateUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/audit-logs": {
+      "get": {
+        "tags": ["Audit"],
+        "summary": "Get audit logs",
+        "description": "Retrieve audit logs for tracking user actions and system events",
+        "operationId": "getAuditLogs",
+        "parameters": [
+          { "$ref": "#/components/parameters/PageParam" },
+          { "$ref": "#/components/parameters/LimitParam" },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Filter by action type",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "description": "Filter by user ID",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit logs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginatedResponse" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/AuditLog" }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "API health and status endpoints"
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints"
+    },
+    {
+      "name": "Audit",
+      "description": "Audit logging endpoints"
+    },
+    {
+      "name": "Authentication",
+      "description": "Login, logout, and 2FA endpoints"
+    }
+  ],
+  "x-code-samples": [
+    {
+      "lang": "curl",
+      "source": "curl -X GET 'https://127.0.0.1:3005/api/v1/users' -H 'Cookie: sessionId=YOUR_SESSION_ID'"
+    },
+    {
+      "lang": "javascript",
+      "source": "const response = await fetch('https://127.0.0.1:3005/api/v1/users', {\n  method: 'GET',\n  credentials: 'include'\n});"
+    }
+  ]
+}
