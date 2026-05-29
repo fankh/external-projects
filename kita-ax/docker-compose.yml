@@ -21,6 +21,20 @@ services:
     networks:
       - kyra-network
 
+  # Redis Cache & Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: kyra-redis
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kyra-network
+
   # Node.js Application
   app:
     build:
@@ -36,10 +50,14 @@ services:
       DB_NAME: kyra_admin
       DB_USER: kyra
       DB_PASSWORD: kyra_dev_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       SESSION_SECRET: ${SESSION_SECRET:-kyra_dev_secret_staging}
       CSRF_SECRET: ${CSRF_SECRET:-kyra_csrf_secret_staging}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./src:/app/src
