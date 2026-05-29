@@ -1,62 +1,134 @@
-const { validate, schemas } = require('../schemas/validation');
-const serializers = require('../schemas/serializers');
+const Joi = require('joi');
+const LoggingService = require('../services/loggingService');
+const ErrorTrackingService = require('../services/errorTrackingService');
 
-function validateRequest(schemaKey) {
+// Format validation errors for response
+function formatValidationErrors(details) {
+  const errors = {};
+  const messages = [];
+
+  details.forEach((detail) => {
+    const field = detail.path.join('.');
+    const message = detail.message;
+
+    errors[field] = message;
+    messages.push(`${field}: ${message}`);
+  });
+
+  return { errors, messages };
+}
+
+// Validation middleware factory
+function validateRequest(schema, options = {}) {
   return (req, res, next) => {
-    if (!schemas[schemaKey]) {
-      return res.status(500).json(serializers.errorResponse('Validation schema not found', 'SCHEMA_NOT_FOUND'));
+    const { abortEarly = false, stripUnknown = true } = options;
+
+    // Determine what to validate
+    let dataToValidate = {};
+    if (options.body !== false) {
+      dataToValidate = { ...dataToValidate, ...req.body };
+    }
+    if (options.query !== false) {
+      dataToValidate = { ...dataToValidate, ...req.query };
+    }
+    if (options.params !== false) {
+      dataToValidate = { ...dataToValidate, ...req.params };
     }
 
-    const schema = schemas[schemaKey];
-    const validation = validate(req.body, schema);
+    // Validate data against schema
+    const { error, value } = schema.validate(dataToValidate, {
+      abortEarly,
+      stripUnknown,
+    });
 
-    if (!validation.valid) {
-      return res.status(400).json(serializers.validationErrorResponse(validation.errors));
+    if (error) {
+      const { errors, messages } = formatValidationErrors(error.details);
+
+      LoggingService.warn('Validation error', {
+        correlationId: req.correlationId,
+        path: req.path,
+        method: req.method,
+        errors,
+      });
+
+      ErrorTrackingService.captureValidationError(
+        Object.keys(errors)[0],
+        messages[0],
+        { correlationId: req.correlationId, errors }
+      );
+
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors,
+      });
     }
 
+    // Attach validated data to request
+    req.validatedData = value;
     next();
   };
 }
 
-function validateQuery(querySchema) {
-  return (req, res, next) => {
-    const validation = validate(req.query, querySchema);
-
-    if (!validation.valid) {
-      return res.status(400).json(serializers.validationErrorResponse(validation.errors));
-    }
-
-    next();
-  };
+// Validate request body only
+function validateBody(schema) {
+  return validateRequest(schema, { body: true, query: false, params: false });
 }
 
-function validatePagination(req, res, next) {
-  const { page, pageSize } = req.query;
-  const errors = [];
-
-  if (page !== undefined) {
-    const pageNum = parseInt(page);
-    if (isNaN(pageNum) || pageNum < 1) {
-      errors.push({ field: 'page', message: 'page must be a positive number' });
-    }
-  }
-
-  if (pageSize !== undefined) {
-    const size = parseInt(pageSize);
-    if (isNaN(size) || size < 1 || size > 100) {
-      errors.push({ field: 'pageSize', message: 'pageSize must be between 1 and 100' });
-    }
-  }
-
-  if (errors.length > 0) {
-    return res.status(400).json(serializers.validationErrorResponse(errors));
-  }
-
-  next();
+// Validate query parameters only
+function validateQuery(schema) {
+  return validateRequest(schema, { body: false, query: true, params: false });
 }
+
+// Validate path parameters only
+function validateParams(schema) {
+  return validateRequest(schema, { body: false, query: false, params: true });
+}
+
+// Validate all (body, query, params)
+function validateAll(schema) {
+  return validateRequest(schema, { body: true, query: true, params: true });
+}
+
+// Custom validators
+const validators = {
+  email: (value) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(value);
+  },
+
+  url: (value) => {
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  uuid: (value) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(value);
+  },
+
+  phone: (value) => {
+    const phoneRegex = /^\+?[\d\s\-()]{7,}$/;
+    return phoneRegex.test(value);
+  },
+
+  postalCode: (value) => {
+    const usZipRegex = /^\d{5}(-\d{4})?$/;
+    const caPostalRegex = /^[A-Z]\d[A-Z]\s?\d[A-Z]\d$/i;
+    return usZipRegex.test(value) || caPostalRegex.test(value);
+  },
+};
 
 module.exports = {
   validateRequest,
+  validateBody,
   validateQuery,
-  validatePagination
+  validateParams,
+  validateAll,
+  validators,
+  formatValidationErrors,
 };
