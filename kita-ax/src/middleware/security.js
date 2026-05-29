@@ -45,22 +45,28 @@ const helmetConfig = {
   noSniff: true
 };
 
-// Rate Limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-  message: 'Too many requests, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false
-});
+// Rate Limiting (disabled in test mode)
+const isTestMode = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'testing';
 
-// Stricter rate limit for login
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts
-  message: 'Too many login attempts, please try again later',
-  skipSuccessfulRequests: true
-});
+const limiter = isTestMode
+  ? (req, res, next) => next() // No-op in test mode
+  : rateLimit({
+      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+      max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+      message: 'Too many requests, please try again later',
+      standardHeaders: true,
+      legacyHeaders: false
+    });
+
+// Stricter rate limit for login (also disabled in test mode)
+const loginLimiter = isTestMode
+  ? (req, res, next) => next() // No-op in test mode
+  : rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 5, // 5 attempts
+      message: 'Too many login attempts, please try again later',
+      skipSuccessfulRequests: true
+    });
 
 // CSRF Protection (cookie-based with secret from environment)
 const csrfProtection = csrf({
