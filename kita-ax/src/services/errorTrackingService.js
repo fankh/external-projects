@@ -22,7 +22,7 @@ class ErrorTrackingService {
 
   static captureMessage(message, level = 'info', context = {}) {
     if (!sentry) {
-      LoggingService.log(level, message, context);
+      LoggingService[level](message, context);
       return null;
     }
 

@@ -13,5 +13,8 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/src/tests/setup.js'],
   verbose: true,
   testTimeout: 10000,
-  modulePathIgnorePatterns: ['node_modules']
+  modulePathIgnorePatterns: ['node_modules'],
+  moduleNameMapper: {
+    '^uuid$': '<rootDir>/tests/__mocks__/uuid.js'
+  }
 };
