@@ -1,0 +1,4 @@
+{"level":"info","message":"✓ Database connection successful","timestamp":"2026-05-29 15:40:18:4018"}
+{"level":"info","message":"✓ Database models synchronized","timestamp":"2026-05-29 15:40:19:4019"}
+{"environment":"development","level":"info","message":"KYRA Admin Console - Server Started on https://127.0.0.1:3005","nodeVersion":"v22.22.0","timestamp":"2026-05-29 15:40:19:4019","url":"https://127.0.0.1:3005"}
+{"level":"info","message":"SIGTERM signal received: closing HTTP server","timestamp":"2026-05-29 15:40:20:4020"}

@@ -11,6 +11,7 @@ const { requireAuth } = require('../middleware/auth');
 const UserService = require('../services/userService');
 const TwoFactorService = require('../services/twoFactorService');
 const AuditLogService = require('../services/auditLogService');
+const LoggingService = require('../services/loggingService');
 
 // Default tenant ID for single-tenant deployments
 const TENANT_ID = process.env.DEFAULT_TENANT_ID || '550e8400-e29b-41d4-a716-446655440000';
@@ -44,6 +45,12 @@ router.post('/login', loginLimiter, async (req, res) => {
     const isValidPassword = await UserService.verifyPassword(email, password, TENANT_ID);
 
     if (!isValidPassword) {
+      LoggingService.logSecurityEvent('login_failed', {
+        correlationId: req.correlationId,
+        email,
+        ip: req.ip,
+        reason: 'invalid_password',
+      });
       return res.status(401).json({
         success: false,
         error: 'Invalid email or password'
@@ -63,6 +70,13 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     // Check if user is active
     if (user.status !== 'active') {
+      LoggingService.logSecurityEvent('login_failed', {
+        correlationId: req.correlationId,
+        email,
+        ip: req.ip,
+        reason: 'account_inactive',
+        status: user.status,
+      });
       return res.status(403).json({
         success: false,
         error: 'User account is inactive'
@@ -116,12 +130,22 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     req.session.save((err) => {
       if (err) {
-        console.error('Session save error:', err);
+        LoggingService.error('Session save error', err, {
+          correlationId: req.correlationId,
+          userId: user.id,
+          email,
+        });
         return res.status(500).json({
           success: false,
           error: 'Session creation failed'
         });
       }
+
+      LoggingService.logAuthEvent('login_successful', user.id, {
+        correlationId: req.correlationId,
+        email,
+        ip: req.ip,
+      });
 
       // Check if JSON response expected
       if (req.headers['content-type']?.includes('application/json')) {
@@ -137,7 +161,10 @@ router.post('/login', loginLimiter, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    LoggingService.error('Login error', error, {
+      correlationId: req.correlationId,
+      email: req.body.email,
+    });
     res.status(500).json({
       success: false,
       error: 'Login failed - please try again'
@@ -147,14 +174,22 @@ router.post('/login', loginLimiter, async (req, res) => {
 
 // POST /logout - Process logout
 router.post('/logout', (req, res) => {
+  const userId = req.user?.id;
   req.session.destroy((err) => {
     if (err) {
-      console.error('Logout error:', err);
+      LoggingService.error('Logout error', err, {
+        correlationId: req.correlationId,
+        userId,
+      });
       return res.status(500).json({
         success: false,
         error: 'Logout failed'
       });
     }
+
+    LoggingService.logAuthEvent('logout_successful', userId, {
+      correlationId: req.correlationId,
+    });
 
     res.clearCookie('sessionId');
 

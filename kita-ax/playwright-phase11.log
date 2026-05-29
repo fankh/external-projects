@@ -1,0 +1,310 @@
+
+Running 15 tests using 2 workers
+
+  ✘   1 [chromium] › tests/e2e/phase11-2fa.spec.js:31:3 › Phase 11: Two-Factor Authentication (TOTP) › 01 - Settings page shows 2FA section disabled initially (1.0m)
+  ✘   2 [chromium] › tests/e2e/phase11-2fa.spec.js:49:3 › Phase 11: Two-Factor Authentication (TOTP) › 02 - Enable 2FA: Setup page displays QR code and secret (1.0m)
+  ✘   4 [chromium] › tests/e2e/phase11-2fa.spec.js:112:3 › Phase 11: Two-Factor Authentication (TOTP) › 04 - 2FA verify: Page accessible after login with enabled 2FA (4.1s)
+  ✘   3 [chromium] › tests/e2e/phase11-2fa.spec.js:81:3 › Phase 11: Two-Factor Authentication (TOTP) › 03 - 2FA setup: Invalid verification code shows error (1.0m)
+  ✘   5 [chromium] › tests/e2e/phase11-2fa.spec.js:128:3 › Phase 11: Two-Factor Authentication (TOTP) › 05 - 2FA verify page has correct form elements (1.0m)
+  ✘   7 [chromium] › tests/e2e/phase11-2fa.spec.js:180:3 › Phase 11: Two-Factor Authentication (TOTP) › 07 - Backup code toggle visible on 2FA verify page (2.8s)
+  ✘   8 [chromium] › tests/e2e/phase11-2fa.spec.js:192:3 › Phase 11: Two-Factor Authentication (TOTP) › 08 - Admin routes require authentication (2.3s)
+  ✘   9 [chromium] › tests/e2e/phase11-2fa.spec.js:202:3 › Phase 11: Two-Factor Authentication (TOTP) › 09 - API routes blocked without authentication (248ms)
+  ✓  10 [chromium] › tests/e2e/phase11-2fa.spec.js:210:3 › Phase 11: Two-Factor Authentication (TOTP) › 10 - Health check accessible without auth (1.5s)
+  ✘  11 [chromium] › tests/e2e/phase11-2fa.spec.js:215:3 › Phase 11: Two-Factor Authentication (TOTP) › 11 - Login page shows demo credentials (2.7s)
+  ✘   6 [chromium] › tests/e2e/phase11-2fa.spec.js:163:3 › Phase 11: Two-Factor Authentication (TOTP) › 06 - 2FA disable button visible when enabled (1.0m)
+  ✘  12 [chromium] › tests/e2e/phase11-2fa.spec.js:226:3 › Phase 11: Two-Factor Authentication (TOTP) › 12 - Settings preferences form elements exist (1.0m)
+  ✘  13 [chromium] › tests/e2e/phase11-2fa.spec.js:246:3 › Phase 11: Two-Factor Authentication (TOTP) › 13 - Logout clears session (1.0m)
+  ✘  14 [chromium] › tests/e2e/phase11-2fa.spec.js:270:3 › Phase 11: Two-Factor Authentication (TOTP) › 14 - Connected accounts section visible in settings (1.0m)
+  ✘  15 [chromium] › tests/e2e/phase11-2fa.spec.js:280:3 › Phase 11: Two-Factor Authentication (TOTP) › 15 - Notification preferences accessible (1.0m)
+
+
+  1) [chromium] › tests/e2e/phase11-2fa.spec.js:31:3 › Phase 11: Two-Factor Authentication (TOTP) › 01 - Settings page shows 2FA section disabled initially 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="email"], input[name="email"]').first()[22m
+
+
+      20 |     const submitButton = page.locator('button[type="submit"]').first();
+      21 |
+    > 22 |     await emailInput.fill(ADMIN_EMAIL);
+         |                      ^
+      23 |     await passwordInput.fill(ADMIN_PASSWORD);
+      24 |     await submitButton.click();
+      25 |
+        at loginToDashboard (/home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:22:22)
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:32:5
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-0d597--section-disabled-initially-chromium/error-context.md
+
+  2) [chromium] › tests/e2e/phase11-2fa.spec.js:49:3 › Phase 11: Two-Factor Authentication (TOTP) › 02 - Enable 2FA: Setup page displays QR code and secret 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="email"], input[name="email"]').first()[22m
+
+
+      20 |     const submitButton = page.locator('button[type="submit"]').first();
+      21 |
+    > 22 |     await emailInput.fill(ADMIN_EMAIL);
+         |                      ^
+      23 |     await passwordInput.fill(ADMIN_PASSWORD);
+      24 |     await submitButton.click();
+      25 |
+        at loginToDashboard (/home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:22:22)
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:50:5
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-19cb7-displays-QR-code-and-secret-chromium/error-context.md
+
+  3) [chromium] › tests/e2e/phase11-2fa.spec.js:81:3 › Phase 11: Two-Factor Authentication (TOTP) › 03 - 2FA setup: Invalid verification code shows error 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="email"], input[name="email"]').first()[22m
+
+
+      20 |     const submitButton = page.locator('button[type="submit"]').first();
+      21 |
+    > 22 |     await emailInput.fill(ADMIN_EMAIL);
+         |                      ^
+      23 |     await passwordInput.fill(ADMIN_PASSWORD);
+      24 |     await submitButton.click();
+      25 |
+        at loginToDashboard (/home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:22:22)
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:82:5
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-11fd2-rification-code-shows-error-chromium/error-context.md
+
+  4) [chromium] › tests/e2e/phase11-2fa.spec.js:112:3 › Phase 11: Two-Factor Authentication (TOTP) › 04 - 2FA verify: Page accessible after login with enabled 2FA 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mfalse[39m
+
+      123 |     // Should be redirected to login if not in pending state
+      124 |     const onLoginOrVerify = page.url().includes('/login') || page.url().includes('/auth/2fa/verify');
+    > 125 |     expect(onLoginOrVerify).toBeTruthy();
+          |                             ^
+      126 |   });
+      127 |
+      128 |   test('05 - 2FA verify page has correct form elements', async ({ page }) => {
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:125:29
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-ab8ef-fter-login-with-enabled-2FA-chromium/error-context.md
+
+  5) [chromium] › tests/e2e/phase11-2fa.spec.js:128:3 › Phase 11: Two-Factor Authentication (TOTP) › 05 - 2FA verify page has correct form elements 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="email"], input[name="email"]').first()[22m
+
+
+      133 |     // Test form elements that should exist
+      134 |     const emailInput = page.locator('input[type="email"], input[name="email"]').first();
+    > 135 |     await emailInput.fill(ADMIN_EMAIL);
+          |                      ^
+      136 |     const passwordInput = page.locator('input[type="password"], input[name="password"]').first();
+      137 |     await passwordInput.fill(ADMIN_PASSWORD);
+      138 |     const submitButton = page.locator('button[type="submit"]').first();
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:135:22
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-f3e2e-e-has-correct-form-elements-chromium/error-context.md
+
+  6) [chromium] › tests/e2e/phase11-2fa.spec.js:163:3 › Phase 11: Two-Factor Authentication (TOTP) › 06 - 2FA disable button visible when enabled 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="email"], input[name="email"]').first()[22m
+
+
+      20 |     const submitButton = page.locator('button[type="submit"]').first();
+      21 |
+    > 22 |     await emailInput.fill(ADMIN_EMAIL);
+         |                      ^
+      23 |     await passwordInput.fill(ADMIN_PASSWORD);
+      24 |     await submitButton.click();
+      25 |
+        at loginToDashboard (/home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:22:22)
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:167:5
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-1bf34-button-visible-when-enabled-chromium/error-context.md
+
+  7) [chromium] › tests/e2e/phase11-2fa.spec.js:180:3 › Phase 11: Two-Factor Authentication (TOTP) › 07 - Backup code toggle visible on 2FA verify page 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mfalse[39m
+
+      187 |     // Check login form
+      188 |     const emailInput = page.locator('input[type="email"], input[name="email"]').first();
+    > 189 |     expect(await emailInput.isVisible()).toBeTruthy();
+          |                                          ^
+      190 |   });
+      191 |
+      192 |   test('08 - Admin routes require authentication', async ({ page }) => {
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:189:42
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-53027--visible-on-2FA-verify-page-chromium/error-context.md
+
+  8) [chromium] › tests/e2e/phase11-2fa.spec.js:192:3 › Phase 11: Two-Factor Authentication (TOTP) › 08 - Admin routes require authentication 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mfalse[39m
+
+      197 |     // Should redirect to login
+      198 |     const isOnLogin = page.url().includes('/login');
+    > 199 |     expect(isOnLogin).toBeTruthy();
+          |                       ^
+      200 |   });
+      201 |
+      202 |   test('09 - API routes blocked without authentication', async ({ page }) => {
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:199:23
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-172c9-utes-require-authentication-chromium/error-context.md
+
+  9) [chromium] › tests/e2e/phase11-2fa.spec.js:202:3 › Phase 11: Two-Factor Authentication (TOTP) › 09 - API routes blocked without authentication 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: >= [32m400[39m
+    Received:    [31m200[39m
+
+      205 |
+      206 |     // Should be 401 or redirect
+    > 207 |     expect(response.status()).toBeGreaterThanOrEqual(400);
+          |                               ^
+      208 |   });
+      209 |
+      210 |   test('10 - Health check accessible without auth', async ({ page }) => {
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:207:31
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-91f55-cked-without-authentication-chromium/error-context.md
+
+  10) [chromium] › tests/e2e/phase11-2fa.spec.js:215:3 › Phase 11: Two-Factor Authentication (TOTP) › 11 - Login page shows demo credentials 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeTruthy[2m()[22m
+
+    Received: [31mfalse[39m
+
+      221 |     const foundCreds = await credentialsSection.count() > 0 ||
+      222 |                        (await page.textContent('body')).includes('admin@seekerslab.com');
+    > 223 |     expect(foundCreds).toBeTruthy();
+          |                        ^
+      224 |   });
+      225 |
+      226 |   test('12 - Settings preferences form elements exist', async ({ page }) => {
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:223:24
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-78256-page-shows-demo-credentials-chromium/error-context.md
+
+  11) [chromium] › tests/e2e/phase11-2fa.spec.js:226:3 › Phase 11: Two-Factor Authentication (TOTP) › 12 - Settings preferences form elements exist 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="email"], input[name="email"]').first()[22m
+
+
+      20 |     const submitButton = page.locator('button[type="submit"]').first();
+      21 |
+    > 22 |     await emailInput.fill(ADMIN_EMAIL);
+         |                      ^
+      23 |     await passwordInput.fill(ADMIN_PASSWORD);
+      24 |     await submitButton.click();
+      25 |
+        at loginToDashboard (/home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:22:22)
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:227:5
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-9d5a0-erences-form-elements-exist-chromium/error-context.md
+
+  12) [chromium] › tests/e2e/phase11-2fa.spec.js:246:3 › Phase 11: Two-Factor Authentication (TOTP) › 13 - Logout clears session 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="email"], input[name="email"]').first()[22m
+
+
+      20 |     const submitButton = page.locator('button[type="submit"]').first();
+      21 |
+    > 22 |     await emailInput.fill(ADMIN_EMAIL);
+         |                      ^
+      23 |     await passwordInput.fill(ADMIN_PASSWORD);
+      24 |     await submitButton.click();
+      25 |
+        at loginToDashboard (/home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:22:22)
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:247:5
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-c9ece--13---Logout-clears-session-chromium/error-context.md
+
+  13) [chromium] › tests/e2e/phase11-2fa.spec.js:270:3 › Phase 11: Two-Factor Authentication (TOTP) › 14 - Connected accounts section visible in settings 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="email"], input[name="email"]').first()[22m
+
+
+      20 |     const submitButton = page.locator('button[type="submit"]').first();
+      21 |
+    > 22 |     await emailInput.fill(ADMIN_EMAIL);
+         |                      ^
+      23 |     await passwordInput.fill(ADMIN_PASSWORD);
+      24 |     await submitButton.click();
+      25 |
+        at loginToDashboard (/home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:22:22)
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:271:5
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-bb93a-section-visible-in-settings-chromium/error-context.md
+
+  14) [chromium] › tests/e2e/phase11-2fa.spec.js:280:3 › Phase 11: Two-Factor Authentication (TOTP) › 15 - Notification preferences accessible 
+
+    [31mTest timeout of 60000ms exceeded.[39m
+
+    Error: locator.fill: Test timeout of 60000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('input[type="email"], input[name="email"]').first()[22m
+
+
+      20 |     const submitButton = page.locator('button[type="submit"]').first();
+      21 |
+    > 22 |     await emailInput.fill(ADMIN_EMAIL);
+         |                      ^
+      23 |     await passwordInput.fill(ADMIN_PASSWORD);
+      24 |     await submitButton.click();
+      25 |
+        at loginToDashboard (/home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:22:22)
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-2fa.spec.js:281:5
+
+    Error Context: test-results/e2e-phase11-2fa-Phase-11-T-47de4-tion-preferences-accessible-chromium/error-context.md
+
+  14 failed
+    [chromium] › tests/e2e/phase11-2fa.spec.js:31:3 › Phase 11: Two-Factor Authentication (TOTP) › 01 - Settings page shows 2FA section disabled initially 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:49:3 › Phase 11: Two-Factor Authentication (TOTP) › 02 - Enable 2FA: Setup page displays QR code and secret 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:81:3 › Phase 11: Two-Factor Authentication (TOTP) › 03 - 2FA setup: Invalid verification code shows error 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:112:3 › Phase 11: Two-Factor Authentication (TOTP) › 04 - 2FA verify: Page accessible after login with enabled 2FA 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:128:3 › Phase 11: Two-Factor Authentication (TOTP) › 05 - 2FA verify page has correct form elements 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:163:3 › Phase 11: Two-Factor Authentication (TOTP) › 06 - 2FA disable button visible when enabled 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:180:3 › Phase 11: Two-Factor Authentication (TOTP) › 07 - Backup code toggle visible on 2FA verify page 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:192:3 › Phase 11: Two-Factor Authentication (TOTP) › 08 - Admin routes require authentication 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:202:3 › Phase 11: Two-Factor Authentication (TOTP) › 09 - API routes blocked without authentication 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:215:3 › Phase 11: Two-Factor Authentication (TOTP) › 11 - Login page shows demo credentials 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:226:3 › Phase 11: Two-Factor Authentication (TOTP) › 12 - Settings preferences form elements exist 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:246:3 › Phase 11: Two-Factor Authentication (TOTP) › 13 - Logout clears session 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:270:3 › Phase 11: Two-Factor Authentication (TOTP) › 14 - Connected accounts section visible in settings 
+    [chromium] › tests/e2e/phase11-2fa.spec.js:280:3 › Phase 11: Two-Factor Authentication (TOTP) › 15 - Notification preferences accessible 
+  1 passed (5.1m)

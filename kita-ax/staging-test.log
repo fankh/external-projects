@@ -1,0 +1,156 @@
+
+Running 10 tests using 2 workers
+
+  ✘   1 [chromium] › tests/e2e/phase11-staging.spec.js:34:3 › Phase 11: 2FA Testing - Staging Environment › 02 - Check login form elements (4.3s)
+  ✘   2 [chromium] › tests/e2e/phase11-staging.spec.js:14:3 › Phase 11: 2FA Testing - Staging Environment › 01 - Access login page (4.3s)
+  ✘   3 [chromium] › tests/e2e/phase11-staging.spec.js:62:3 › Phase 11: 2FA Testing - Staging Environment › 03 - Login with valid credentials (1.9s)
+Current URL: chrome-error://chromewebdata/
+  ✓   4 [chromium] › tests/e2e/phase11-staging.spec.js:103:3 › Phase 11: 2FA Testing - Staging Environment › 04 - Check 2FA verify page elements (2.9s)
+  ✘   6 [chromium] › tests/e2e/phase11-staging.spec.js:163:3 › Phase 11: 2FA Testing - Staging Environment › 06 - Check settings page 2FA section (2.3s)
+Current URL: chrome-error://chromewebdata/
+  ✓   5 [chromium] › tests/e2e/phase11-staging.spec.js:134:3 › Phase 11: 2FA Testing - Staging Environment › 05 - Check 2FA setup page elements (3.2s)
+  ✘   8 [chromium] › tests/e2e/phase11-staging.spec.js:255:3 › Phase 11: 2FA Testing - Staging Environment › 08 - Test all interactive elements on login page (2.2s)
+  ✘   7 [chromium] › tests/e2e/phase11-staging.spec.js:215:3 › Phase 11: 2FA Testing - Staging Environment › 07 - Check all navigation links and buttons on dashboard (2.1s)
+
+=== Testing page: login ===
+Buttons found on login: 0
+
+=== Testing page: dashboard ===
+Chat page URL: chrome-error://chromewebdata/
+Chat message inputs found: 0
+Send buttons found: 0
+Message elements found: 0
+Total buttons on chat page: 0
+  ✓  10 [chromium] › tests/e2e/phase11-staging.spec.js:300:3 › Phase 11: 2FA Testing - Staging Environment › 09 - Test chat functionality if available (3.0s)
+Buttons found on dashboard: 0
+
+=== Testing page: settings ===
+Buttons found on settings: 0
+
+=== Testing page: users ===
+Buttons found on users: 0
+
+=== Testing page: documents ===
+Buttons found on documents: 0
+
+=== Testing page: policies ===
+Buttons found on policies: 0
+  ✓   9 [chromium] › tests/e2e/phase11-staging.spec.js:327:3 › Phase 11: 2FA Testing - Staging Environment › 10 - Comprehensive button testing on all major pages (24.0s)
+
+
+  1) [chromium] › tests/e2e/phase11-staging.spec.js:14:3 › Phase 11: 2FA Testing - Staging Environment › 01 - Access login page 
+
+    Error: page.goto: net::ERR_ADDRESS_UNREACHABLE at https://kyra-guardrail-dev.seekerslab.com/login
+    Call log:
+    [2m  - navigating to "https://kyra-guardrail-dev.seekerslab.com/login", waiting until "networkidle"[22m
+
+
+      13 |
+      14 |   test('01 - Access login page', async ({ page }) => {
+    > 15 |     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
+         |                ^
+      16 |     await page.waitForTimeout(2000);
+      17 |
+      18 |     // Verify page loads
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-staging.spec.js:15:16
+
+    Error Context: test-results/e2e-phase11-staging-Phase--87369-ment-01---Access-login-page-chromium/error-context.md
+
+  2) [chromium] › tests/e2e/phase11-staging.spec.js:34:3 › Phase 11: 2FA Testing - Staging Environment › 02 - Check login form elements 
+
+    Error: page.goto: net::ERR_ADDRESS_UNREACHABLE at https://kyra-guardrail-dev.seekerslab.com/login
+    Call log:
+    [2m  - navigating to "https://kyra-guardrail-dev.seekerslab.com/login", waiting until "networkidle"[22m
+
+
+      33 |
+      34 |   test('02 - Check login form elements', async ({ page }) => {
+    > 35 |     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
+         |                ^
+      36 |     await page.waitForTimeout(2000);
+      37 |
+      38 |     // Get all input elements
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-staging.spec.js:35:16
+
+    Error Context: test-results/e2e-phase11-staging-Phase--258b8---Check-login-form-elements-chromium/error-context.md
+
+  3) [chromium] › tests/e2e/phase11-staging.spec.js:62:3 › Phase 11: 2FA Testing - Staging Environment › 03 - Login with valid credentials 
+
+    Error: page.goto: net::ERR_ADDRESS_UNREACHABLE at https://kyra-guardrail-dev.seekerslab.com/login
+    Call log:
+    [2m  - navigating to "https://kyra-guardrail-dev.seekerslab.com/login", waiting until "networkidle"[22m
+
+
+      61 |
+      62 |   test('03 - Login with valid credentials', async ({ page }) => {
+    > 63 |     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
+         |                ^
+      64 |     await page.waitForTimeout(2000);
+      65 |
+      66 |     // Find email input - try multiple selectors
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-staging.spec.js:63:16
+
+    Error Context: test-results/e2e-phase11-staging-Phase--1a3b8-ogin-with-valid-credentials-chromium/error-context.md
+
+  4) [chromium] › tests/e2e/phase11-staging.spec.js:163:3 › Phase 11: 2FA Testing - Staging Environment › 06 - Check settings page 2FA section 
+
+    Error: page.goto: net::ERR_ADDRESS_UNREACHABLE at https://kyra-guardrail-dev.seekerslab.com/login
+    Call log:
+    [2m  - navigating to "https://kyra-guardrail-dev.seekerslab.com/login", waiting until "networkidle"[22m
+
+
+      163 |   test('06 - Check settings page 2FA section', async ({ page }) => {
+      164 |     // First login
+    > 165 |     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
+          |                ^
+      166 |     await page.waitForTimeout(1000);
+      167 |
+      168 |     const emailInputs = page.locator('input[type="email"], input[name="email"]');
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-staging.spec.js:165:16
+
+    Error Context: test-results/e2e-phase11-staging-Phase--84e0b-k-settings-page-2FA-section-chromium/error-context.md
+
+  5) [chromium] › tests/e2e/phase11-staging.spec.js:215:3 › Phase 11: 2FA Testing - Staging Environment › 07 - Check all navigation links and buttons on dashboard 
+
+    Error: page.goto: net::ERR_ADDRESS_UNREACHABLE at https://kyra-guardrail-dev.seekerslab.com/login
+    Call log:
+    [2m  - navigating to "https://kyra-guardrail-dev.seekerslab.com/login", waiting until "networkidle"[22m
+
+
+      215 |   test('07 - Check all navigation links and buttons on dashboard', async ({ page }) => {
+      216 |     // Login
+    > 217 |     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
+          |                ^
+      218 |     await page.waitForTimeout(1000);
+      219 |
+      220 |     const emailInputs = page.locator('input[type="email"], input[name="email"]');
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-staging.spec.js:217:16
+
+    Error Context: test-results/e2e-phase11-staging-Phase--f1729-ks-and-buttons-on-dashboard-chromium/error-context.md
+
+  6) [chromium] › tests/e2e/phase11-staging.spec.js:255:3 › Phase 11: 2FA Testing - Staging Environment › 08 - Test all interactive elements on login page 
+
+    Error: page.goto: net::ERR_ADDRESS_UNREACHABLE at https://kyra-guardrail-dev.seekerslab.com/login
+    Call log:
+    [2m  - navigating to "https://kyra-guardrail-dev.seekerslab.com/login", waiting until "networkidle"[22m
+
+
+      254 |
+      255 |   test('08 - Test all interactive elements on login page', async ({ page }) => {
+    > 256 |     await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
+          |                ^
+      257 |     await page.waitForTimeout(2000);
+      258 |
+      259 |     // Get all interactive elements
+        at /home/khchoi/external-projects/kita-ax/tests/e2e/phase11-staging.spec.js:256:16
+
+    Error Context: test-results/e2e-phase11-staging-Phase--78cdf-tive-elements-on-login-page-chromium/error-context.md
+
+  6 failed
+    [chromium] › tests/e2e/phase11-staging.spec.js:14:3 › Phase 11: 2FA Testing - Staging Environment › 01 - Access login page 
+    [chromium] › tests/e2e/phase11-staging.spec.js:34:3 › Phase 11: 2FA Testing - Staging Environment › 02 - Check login form elements 
+    [chromium] › tests/e2e/phase11-staging.spec.js:62:3 › Phase 11: 2FA Testing - Staging Environment › 03 - Login with valid credentials 
+    [chromium] › tests/e2e/phase11-staging.spec.js:163:3 › Phase 11: 2FA Testing - Staging Environment › 06 - Check settings page 2FA section 
+    [chromium] › tests/e2e/phase11-staging.spec.js:215:3 › Phase 11: 2FA Testing - Staging Environment › 07 - Check all navigation links and buttons on dashboard 
+    [chromium] › tests/e2e/phase11-staging.spec.js:255:3 › Phase 11: 2FA Testing - Staging Environment › 08 - Test all interactive elements on login page 
+  4 passed (40.0s)

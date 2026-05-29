@@ -40,7 +40,7 @@ describe('TwoFactorService', () => {
       const email = 'test@example.com';
       const result = await TwoFactorService.generateSecret(email);
 
-      expect(result.otpauthUrl).toContain(email);
+      expect(result.otpauthUrl).toContain(encodeURIComponent(email));
       expect(result.otpauthUrl).toContain('KYRA');
     });
   });

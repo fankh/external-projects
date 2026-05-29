@@ -21,6 +21,10 @@ const {
   csrfProtection
 } = require('./middleware/security');
 const { requireTwoFactor } = require('./middleware/auth');
+const correlationIdMiddleware = require('./middleware/correlationId');
+const requestLoggerMiddleware = require('./middleware/requestLogger');
+const performanceLoggerMiddleware = require('./middleware/performanceLogger');
+const logger = require('./config/logger');
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -43,6 +47,11 @@ app.use(helmet);
 app.use(cors);
 app.use(limiter);
 app.use(cookieParser);
+
+// 2.5. Logging middleware (early in chain for correlation ID propagation)
+app.use(correlationIdMiddleware);
+app.use(performanceLoggerMiddleware);
+app.use(requestLoggerMiddleware);
 
 // 3. Body parsing
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -133,7 +142,12 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  logger.error('Request error', err, {
+    correlationId: req.correlationId,
+    method: req.method,
+    path: req.path,
+    statusCode: err.status || 500,
+  });
 
   // CSRF token error
   if (err.code === 'EBADCSRFTOKEN') {
@@ -156,14 +170,14 @@ app.use((err, req, res, next) => {
 async function initializeDatabase() {
   try {
     await database.testConnection();
-    console.log('✓ Database connection successful');
+    logger.info('✓ Database connection successful');
 
     if (process.env.NODE_ENV !== 'test') {
       await database.syncDatabase();
-      console.log('✓ Database models synchronized');
+      logger.info('✓ Database models synchronized');
     }
   } catch (error) {
-    console.error('✗ Database initialization failed:', error.message);
+    logger.error('✗ Database initialization failed', error);
     if (process.env.NODE_ENV === 'production') {
       process.exit(1);
     }
@@ -180,6 +194,13 @@ const HOSTNAME = process.env.HOSTNAME || 'localhost';
   await initializeDatabase();
 
   const server = app.listen(PORT, () => {
+    const startupMessage = `KYRA Admin Console - Server Started on ${PROTOCOL}://${HOSTNAME}:${PORT}`;
+    logger.info(startupMessage, {
+      url: `${PROTOCOL}://${HOSTNAME}:${PORT}`,
+      environment: process.env.NODE_ENV || 'development',
+      nodeVersion: process.version,
+    });
+
     console.log(`
 ╔════════════════════════════════════════════════════════════════╗
 ║  KYRA Admin Console - Server Started                          ║
@@ -198,17 +219,17 @@ const HOSTNAME = process.env.HOSTNAME || 'localhost';
 
   // Graceful shutdown
   process.on('SIGTERM', () => {
-    console.log('SIGTERM signal received: closing HTTP server');
+    logger.info('SIGTERM signal received: closing HTTP server');
     server.close(() => {
-      console.log('HTTP server closed');
+      logger.info('HTTP server closed');
       process.exit(0);
     });
   });
 
   process.on('SIGINT', () => {
-    console.log('SIGINT signal received: closing HTTP server');
+    logger.info('SIGINT signal received: closing HTTP server');
     server.close(() => {
-      console.log('HTTP server closed');
+      logger.info('HTTP server closed');
       process.exit(0);
     });
   });

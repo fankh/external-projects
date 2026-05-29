@@ -1,0 +1,36 @@
+
+> kyra-admin-console@1.0.0 dev
+> nodemon src/server.js
+
+[33m[nodemon] 3.1.14[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node src/server.js`[39m
+❌ Unable to connect to the database: connect ECONNREFUSED 127.0.0.1:5432
+✓ Database connection successful
+❌ Database synchronization failed: connect ECONNREFUSED 127.0.0.1:5432
+✓ Database models synchronized
+node:events:497
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3005
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at Server.listen (node:net:2102:7)
+    at Function.listen (/home/khchoi/external-projects/kita-ax/node_modules/express/lib/application.js:635:24)
+    at /home/khchoi/external-projects/kita-ax/src/server.js:182:22
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '::',
+  port: 3005
+}
+
+Node.js v22.22.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
