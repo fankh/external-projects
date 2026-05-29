@@ -928,6 +928,7 @@ router.get('/settings', asyncHandler(async (req, res) => {
     user: req.user,
     oauthAccounts,
     preferences: preferences.dataValues || preferences,
+    twoFactorEnabled: req.user.totpEnabled || false,
     flashSuccess,
     flashError,
     csrfToken: req.csrfToken?.() || ''

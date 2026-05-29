@@ -43,6 +43,19 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true
   },
+  totpSecret: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  totpEnabled: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false
+  },
+  totpBackupCodes: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

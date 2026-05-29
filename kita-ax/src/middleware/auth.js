@@ -57,8 +57,24 @@ function optionalAuth(req, res, next) {
   next();
 }
 
+function requireTwoFactor(req, res, next) {
+  // Block access if password passed but 2FA not yet verified
+  if (req.session?.pendingTwoFactor) {
+    if (req.path.startsWith('/api/') || req.headers['content-type']?.includes('application/json')) {
+      return res.status(401).json({
+        success: false,
+        error: '2FA verification required'
+      });
+    }
+    return res.redirect('/auth/2fa/verify');
+  }
+
+  next();
+}
+
 module.exports = {
   requireAuth,
   requireAdmin,
-  optionalAuth
+  optionalAuth,
+  requireTwoFactor
 };

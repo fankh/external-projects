@@ -7,7 +7,9 @@ const router = express.Router();
 const passport = require('passport');
 const { loginLimiter } = require('../middleware/security');
 const { googleAuth, githubAuth, googleCallback, githubCallback, oauthCallback } = require('../middleware/oauth');
+const { requireAuth } = require('../middleware/auth');
 const UserService = require('../services/userService');
+const TwoFactorService = require('../services/twoFactorService');
 const AuditLogService = require('../services/auditLogService');
 
 // Default tenant ID for single-tenant deployments
@@ -72,10 +74,40 @@ router.post('/login', loginLimiter, async (req, res) => {
       await UserService.updateLastLogin(email, TENANT_ID);
     } catch (err) {
       console.warn('Failed to update last login:', err.message);
-      // Don't fail login if this fails
     }
 
-    // Set session
+    // Check if 2FA is enabled
+    if (user.totpEnabled) {
+      // Set partial session (pending 2FA verification)
+      req.session.pendingTwoFactor = true;
+      req.session.pendingUserId = user.id;
+      req.session.pendingEmail = user.email;
+      req.session.pendingRole = user.role;
+      req.session.pendingTenantId = user.tenantId;
+      req.session.pendingName = user.name || email;
+
+      return req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          return res.status(500).json({
+            success: false,
+            error: 'Session creation failed'
+          });
+        }
+
+        if (req.headers['content-type']?.includes('application/json')) {
+          res.json({
+            success: true,
+            message: '2FA verification required',
+            redirect: '/auth/2fa/verify'
+          });
+        } else {
+          res.redirect('/auth/2fa/verify');
+        }
+      });
+    }
+
+    // 2FA not enabled - set full session
     req.session.userId = user.id;
     req.session.email = user.email;
     req.session.role = user.role;
@@ -206,6 +238,208 @@ router.post('/unlink/:provider', async (req, res) => {
     res.status(404).json({ error: 'Provider not linked' });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== 2FA ROUTES =====
+
+// GET /2fa/verify - Show 2FA verification page
+router.get('/2fa/verify', (req, res) => {
+  if (!req.session?.pendingTwoFactor) {
+    return res.redirect('/login');
+  }
+
+  res.render('2fa-verify', {
+    title: '2FA Verification - KYRA',
+    csrfToken: req.csrfToken?.() || '',
+    error: req.query.error ? decodeURIComponent(req.query.error) : null
+  });
+});
+
+// POST /2fa/verify - Verify TOTP or backup code
+router.post('/2fa/verify', async (req, res) => {
+  try {
+    if (!req.session?.pendingTwoFactor) {
+      return res.status(400).json({ success: false, error: 'Not in 2FA pending state' });
+    }
+
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Code is required' });
+    }
+
+    // Get pending user
+    const user = await UserService.getUserById(req.session.pendingUserId, TENANT_ID);
+
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'User not found' });
+    }
+
+    let isValid = false;
+    let isBackupCode = false;
+
+    // Try TOTP verification first
+    if (TwoFactorService.verifyToken(user.totpSecret, token)) {
+      isValid = true;
+    } else if (await TwoFactorService.verifyBackupCode(user, token)) {
+      isValid = true;
+      isBackupCode = true;
+    }
+
+    if (!isValid) {
+      await AuditLogService.createLog({
+        userId: user.id,
+        action: '2FA_FAILED',
+        resourceType: 'Authentication',
+        status: 'failure',
+        details: { ip: req.ip },
+        tenantId: TENANT_ID
+      });
+
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid verification code'
+      });
+    }
+
+    // Clear pending state and set full session
+    req.session.pendingTwoFactor = false;
+    req.session.userId = req.session.pendingUserId;
+    req.session.email = req.session.pendingEmail;
+    req.session.role = req.session.pendingRole;
+    req.session.tenantId = req.session.pendingTenantId;
+    req.session.name = req.session.pendingName;
+
+    // Audit log
+    await AuditLogService.createLog({
+      userId: user.id,
+      action: isBackupCode ? '2FA_BACKUP_USED' : '2FA_VERIFIED',
+      resourceType: 'Authentication',
+      status: 'success',
+      details: { ip: req.ip },
+      tenantId: TENANT_ID
+    });
+
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json({ success: false, error: 'Session error' });
+      }
+
+      if (req.headers['content-type']?.includes('application/json')) {
+        res.json({
+          success: true,
+          message: '2FA verified successfully',
+          redirect: '/admin/dashboard'
+        });
+      } else {
+        res.redirect('/admin/dashboard');
+      }
+    });
+  } catch (error) {
+    console.error('2FA verify error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /2fa/setup - Show 2FA setup page
+router.get('/2fa/setup', requireAuth, async (req, res) => {
+  try {
+    const { secret, qrCodeUrl, backupCodes } = await TwoFactorService.generateSecret(req.user.email);
+
+    res.render('2fa-setup', {
+      title: '2FA Setup - KYRA',
+      csrfToken: req.csrfToken?.() || '',
+      secret,
+      qrCodeUrl,
+      backupCodes
+    });
+  } catch (error) {
+    console.error('2FA setup error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /2fa/setup - Verify confirmation code and enable 2FA
+router.post('/2fa/setup', requireAuth, async (req, res) => {
+  try {
+    const { token, secret, backupCodes } = req.body;
+
+    if (!token || !secret || !backupCodes) {
+      return res.status(400).json({
+        success: false,
+        error: 'Token, secret, and backup codes are required'
+      });
+    }
+
+    // Verify the token against the secret
+    if (!TwoFactorService.verifyToken(secret, token)) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid verification code'
+      });
+    }
+
+    // Parse and hash backup codes
+    const backupCodesArray = JSON.parse(backupCodes);
+    const hashedCodes = await TwoFactorService.hashBackupCodes(backupCodesArray);
+
+    // Enable 2FA
+    const user = await UserService.getUserById(req.user.id, req.user.tenantId);
+    await TwoFactorService.enableTotp(req.user.id, secret, hashedCodes);
+
+    // Audit log
+    await AuditLogService.createLog({
+      userId: req.user.id,
+      action: '2FA_ENABLED',
+      resourceType: 'Authentication',
+      status: 'success',
+      tenantId: req.user.tenantId
+    });
+
+    if (req.headers['content-type']?.includes('application/json')) {
+      res.json({
+        success: true,
+        message: '2FA enabled successfully',
+        redirect: '/admin/settings'
+      });
+    } else {
+      res.redirect(`/admin/settings?success=2FA enabled successfully`);
+    }
+  } catch (error) {
+    console.error('2FA setup error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /2fa/disable - Disable 2FA
+router.post('/2fa/disable', requireAuth, async (req, res) => {
+  try {
+    // Disable 2FA
+    await TwoFactorService.disableTotp(req.user.id);
+
+    // Audit log
+    await AuditLogService.createLog({
+      userId: req.user.id,
+      action: '2FA_DISABLED',
+      resourceType: 'Authentication',
+      status: 'success',
+      tenantId: req.user.tenantId
+    });
+
+    if (req.headers['content-type']?.includes('application/json')) {
+      res.json({
+        success: true,
+        message: '2FA disabled',
+        redirect: '/admin/settings'
+      });
+    } else {
+      res.redirect('/admin/settings?success=2FA disabled');
+    }
+  } catch (error) {
+    console.error('2FA disable error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

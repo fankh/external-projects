@@ -20,6 +20,7 @@ const {
   cookieParser,
   csrfProtection
 } = require('./middleware/security');
+const { requireTwoFactor } = require('./middleware/auth');
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -97,6 +98,9 @@ app.get('/api/openapi.json', (req, res) => {
 
 // 3. Authentication routes (login, logout)
 app.use('/', authRoutes);
+
+// 3.5. 2FA enforcement (MUST be after auth routes, before protected routes)
+app.use(requireTwoFactor);
 
 // 4. API v1 routes (ALL require authentication)
 app.use('/api/v1', apiRoutesV1);
