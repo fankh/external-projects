@@ -5,20 +5,10 @@
 const express = require('express');
 const router = express.Router();
 const { loginLimiter } = require('../middleware/security');
+const UserService = require('../services/userService');
 
-// Mock user database (replace with real database in Phase 6.1)
-const TENANT_ID = '550e8400-e29b-41d4-a716-446655440000'; // Matches database seeding
-const mockUsers = {
-  'admin@seekerslab.com': {
-    id: '1',
-    email: 'admin@seekerslab.com',
-    password: 'xmUoX0OA5XvSH4csBJbw',
-    name: 'Admin User',
-    role: 'admin',
-    tenantId: TENANT_ID,
-    status: 'active'
-  }
-};
+// Default tenant ID for single-tenant deployments
+const TENANT_ID = process.env.DEFAULT_TENANT_ID || '550e8400-e29b-41d4-a716-446655440000';
 
 // GET /login - Show login page
 router.get('/login', (req, res) => {
@@ -29,7 +19,7 @@ router.get('/login', (req, res) => {
 });
 
 // POST /login - Process login
-router.post('/login', loginLimiter, (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -41,13 +31,24 @@ router.post('/login', loginLimiter, (req, res) => {
       });
     }
 
-    // Find user (in production, query database)
-    const user = mockUsers[email];
+    // Verify password against database
+    const isValidPassword = await UserService.verifyPassword(email, password, TENANT_ID);
 
-    if (!user || user.password !== password) {
+    if (!isValidPassword) {
       return res.status(401).json({
         success: false,
         error: 'Invalid email or password'
+      });
+    }
+
+    // Get user details
+    let user;
+    try {
+      user = await UserService.getUserByEmail(email, TENANT_ID);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not found'
       });
     }
 
@@ -59,12 +60,20 @@ router.post('/login', loginLimiter, (req, res) => {
       });
     }
 
+    // Update last login timestamp
+    try {
+      await UserService.updateLastLogin(email, TENANT_ID);
+    } catch (err) {
+      console.warn('Failed to update last login:', err.message);
+      // Don't fail login if this fails
+    }
+
     // Set session
     req.session.userId = user.id;
     req.session.email = user.email;
     req.session.role = user.role;
     req.session.tenantId = user.tenantId;
-    req.session.name = user.name;
+    req.session.name = user.name || email;
 
     req.session.save((err) => {
       if (err) {
