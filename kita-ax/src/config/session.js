@@ -2,11 +2,10 @@ const session = require('express-session');
 const RedisStore = require('connect-redis').default;
 const { createClient } = require('redis');
 
-// Session configuration base
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'kyra_dev_secret_staging_key_change_in_production',
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false,
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -17,7 +16,7 @@ const sessionConfig = {
   name: 'sessionId'
 };
 
-// Setup Redis if available (non-blocking initialization)
+// Setup Redis if configured (non-blocking)
 if (process.env.NODE_ENV === 'production' || (process.env.REDIS_HOST && process.env.REDIS_HOST !== 'localhost')) {
   (async () => {
     try {
@@ -33,17 +32,16 @@ if (process.env.NODE_ENV === 'production' || (process.env.REDIS_HOST && process.
       });
 
       redisClient.on('error', (err) => {
-        console.warn('⚠️ Redis runtime error:', err.message);
+        console.warn('⚠️  Redis error:', err.message);
       });
 
       await redisClient.connect();
       console.log('✅ Redis connected for session store');
       sessionConfig.store = new RedisStore({ client: redisClient });
     } catch (err) {
-      console.warn('⚠️ Redis store initialization failed, using memory store:', err.message);
+      console.warn('⚠️  Redis initialization failed, using memory store:', err.message);
     }
   })();
 }
 
-// Create and export the session middleware with configured store
 module.exports = session(sessionConfig);
