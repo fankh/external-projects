@@ -24,6 +24,9 @@
   "author": "SeekersLab",
   "license": "MIT",
   "dependencies": {
+    "@sentry/node": "^10.55.0",
+    "@sentry/profiling-node": "^10.55.0",
+    "@sentry/tracing": "^7.120.4",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.2",
     "connect-redis": "^7.1.0",

@@ -12,6 +12,7 @@ const UserService = require('../services/userService');
 const TwoFactorService = require('../services/twoFactorService');
 const AuditLogService = require('../services/auditLogService');
 const LoggingService = require('../services/loggingService');
+const ErrorTrackingService = require('../services/errorTrackingService');
 
 // Default tenant ID for single-tenant deployments
 const TENANT_ID = process.env.DEFAULT_TENANT_ID || '550e8400-e29b-41d4-a716-446655440000';
@@ -51,6 +52,12 @@ router.post('/login', loginLimiter, async (req, res) => {
         ip: req.ip,
         reason: 'invalid_password',
       });
+      ErrorTrackingService.captureSecurityEvent('failed_login_attempt', {
+        correlationId: req.correlationId,
+        email,
+        ip: req.ip,
+        reason: 'invalid_password',
+      });
       return res.status(401).json({
         success: false,
         error: 'Invalid email or password'
@@ -76,6 +83,13 @@ router.post('/login', loginLimiter, async (req, res) => {
         ip: req.ip,
         reason: 'account_inactive',
         status: user.status,
+      });
+      ErrorTrackingService.captureSecurityEvent('login_inactive_account', {
+        correlationId: req.correlationId,
+        userId: user.id,
+        email,
+        ip: req.ip,
+        accountStatus: user.status,
       });
       return res.status(403).json({
         success: false,
@@ -146,6 +160,16 @@ router.post('/login', loginLimiter, async (req, res) => {
         email,
         ip: req.ip,
       });
+      ErrorTrackingService.captureAuthEvent('login_successful', user.id, {
+        correlationId: req.correlationId,
+        email,
+        ip: req.ip,
+      });
+      ErrorTrackingService.setUser(user.id, {
+        email,
+        role: user.role,
+        tenantId: user.tenantId,
+      });
 
       // Check if JSON response expected
       if (req.headers['content-type']?.includes('application/json')) {
@@ -190,6 +214,10 @@ router.post('/logout', (req, res) => {
     LoggingService.logAuthEvent('logout_successful', userId, {
       correlationId: req.correlationId,
     });
+    ErrorTrackingService.captureAuthEvent('logout_successful', userId, {
+      correlationId: req.correlationId,
+    });
+    ErrorTrackingService.clearUser();
 
     res.clearCookie('sessionId');
 

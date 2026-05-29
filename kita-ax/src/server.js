@@ -11,6 +11,10 @@ const swaggerUi = require('swagger-ui-express');
 const fs = require('fs');
 const database = require('./config/database');
 
+// Sentry error tracking (MUST be early)
+const { getSentryMiddleware, getSentryErrorHandler } = require('./config/sentry');
+const ErrorTrackingService = require('./services/errorTrackingService');
+
 // Middleware
 const sessionMiddleware = require('./config/session');
 const {
@@ -38,6 +42,10 @@ const openApiSpec = JSON.parse(fs.readFileSync(path.join(__dirname, 'docs/openap
 const app = express();
 
 // ===== MIDDLEWARE SETUP (Order matters!) =====
+
+// 0. Sentry error tracking (MUST be first)
+const sentryMiddleware = getSentryMiddleware();
+sentryMiddleware.forEach(middleware => app.use(middleware));
 
 // 1. Trust proxy (for production)
 app.set('trust proxy', 1);
@@ -140,6 +148,9 @@ app.use((req, res) => {
   });
 });
 
+// Sentry error handler (MUST be before custom error handler)
+app.use(getSentryErrorHandler());
+
 // Error handler
 app.use((err, req, res, next) => {
   logger.error('Request error', err, {
@@ -149,8 +160,20 @@ app.use((err, req, res, next) => {
     statusCode: err.status || 500,
   });
 
+  // Capture error in error tracking service
+  ErrorTrackingService.captureException(err, {
+    correlationId: req.correlationId,
+    method: req.method,
+    path: req.path,
+    url: req.originalUrl,
+    userId: req.user?.id,
+  });
+
   // CSRF token error
   if (err.code === 'EBADCSRFTOKEN') {
+    ErrorTrackingService.captureSecurityEvent('csrf_validation_failed', {
+      correlationId: req.correlationId,
+    });
     return res.status(403).json({
       success: false,
       error: 'CSRF token validation failed'
@@ -218,18 +241,20 @@ const HOSTNAME = process.env.HOSTNAME || 'localhost';
   });
 
   // Graceful shutdown
-  process.on('SIGTERM', () => {
+  process.on('SIGTERM', async () => {
     logger.info('SIGTERM signal received: closing HTTP server');
-    server.close(() => {
+    server.close(async () => {
       logger.info('HTTP server closed');
+      await ErrorTrackingService.flush(5000);
       process.exit(0);
     });
   });
 
-  process.on('SIGINT', () => {
+  process.on('SIGINT', async () => {
     logger.info('SIGINT signal received: closing HTTP server');
-    server.close(() => {
+    server.close(async () => {
       logger.info('HTTP server closed');
+      await ErrorTrackingService.flush(5000);
       process.exit(0);
     });
   });
