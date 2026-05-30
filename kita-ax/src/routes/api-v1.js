@@ -11,6 +11,7 @@ const RoleService = require('../services/roleService');
 const AuditLogService = require('../services/auditLogService');
 const PolicyService = require('../services/policyService');
 const AgentService = require('../services/agentService');
+const ChatService = require('../services/chatService');
 
 // Apply auth middleware to all API routes
 router.use(requireAuth);
@@ -689,6 +690,54 @@ router.post('/preferences/reset', asyncHandler(async (req, res) => {
     const preferences = await PreferencesService.resetToDefaults(req.user.email, req.user.tenantId);
 
     res.json(serializers.successResponse(preferences, 'User preferences reset to defaults'));
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
+  }
+}));
+
+// ===== CHAT API =====
+
+router.get('/chat/messages', validatePagination, asyncHandler(async (req, res) => {
+  try {
+    const { page = 0, size = 50 } = req.query;
+
+    const result = await ChatService.getHistory({
+      userId: req.user.id,
+      tenantId: req.user.tenantId,
+      page: parseInt(page),
+      size: parseInt(size)
+    });
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
+  }
+}));
+
+router.post('/chat/messages', asyncHandler(async (req, res) => {
+  try {
+    const { content } = req.body;
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json(
+        serializers.errorResponse('Message content is required', 'VALIDATION_ERROR')
+      );
+    }
+
+    const result = await ChatService.sendMessage({
+      content: content.trim(),
+      userId: req.user.id,
+      tenantId: req.user.tenantId
+    });
+
+    res.json({
+      success: true,
+      userMessage: result.userMessage,
+      assistantMessage: result.assistantMessage
+    });
   } catch (error) {
     res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
   }

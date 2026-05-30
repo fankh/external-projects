@@ -520,6 +520,43 @@ const UserPreferences = sequelize.define('UserPreferences', {
   ]
 });
 
+// ===== CHAT MESSAGE MODEL =====
+const ChatMessage = sequelize.define('ChatMessage', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  role: {
+    type: DataTypes.ENUM('user', 'assistant'),
+    allowNull: false
+  },
+  content: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  tenantId: {
+    type: DataTypes.UUID,
+    allowNull: false
+  },
+  createdAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
+  }
+}, {
+  indexes: [
+    { fields: ['tenantId'] },
+    { fields: ['userId'] },
+    { fields: ['role'] },
+    { fields: ['createdAt'] },
+    { fields: ['tenantId', 'createdAt'] }
+  ]
+});
+
 // ===== MODEL ASSOCIATIONS =====
 // Users and Documents
 User.hasMany(Document, { foreignKey: 'owner', sourceKey: 'email' });
@@ -537,6 +574,10 @@ OAuthAccount.belongsTo(User, { foreignKey: 'email', targetKey: 'email' });
 User.hasOne(UserPreferences, { foreignKey: 'email', sourceKey: 'email' });
 UserPreferences.belongsTo(User, { foreignKey: 'email', targetKey: 'email' });
 
+// Chat messages to users
+User.hasMany(ChatMessage, { foreignKey: 'userId' });
+ChatMessage.belongsTo(User, { foreignKey: 'userId' });
+
 module.exports = {
   User,
   Document,
@@ -546,5 +587,6 @@ module.exports = {
   AuditLog,
   Agent,
   OAuthAccount,
-  UserPreferences
+  UserPreferences,
+  ChatMessage
 };
