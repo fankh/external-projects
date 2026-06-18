@@ -6,7 +6,7 @@ Pipeline that turns the Seoul construction-review **deliberation result reports*
 Source archive: `3. 2024년 심의 조치결과.zip` (despite the name it holds 3 years).
 **728 PDFs** total — 2022: 258, 2023: 288, 2024: 182.
 
-Project folder in the `external-projects` repo (`external-projects/simui-2022-2024/`).
+Project folder in the `external-projects` repo (`external-projects/si-data-extraction/`).
 
 **Tracked in git:** the scripts, `requirements.txt`, this README, the output
 `simui_2022-2024.xlsx`, and `text_overflow/`. **Not tracked** (see `.gitignore`):
@@ -17,7 +17,7 @@ into `tessdata/` alongside `eng`/`osd` for OCR.
 
 ## Folder layout
 ```
-simui-2022-2024/
+si-data-extraction/
   source/            3. 2024년 심의 조치결과.zip   (original archive)
   pdfs/<year>/       728 extracted PDFs (correct Korean names)
   tessdata/          eng + kor (tessdata_best) + osd traineddata for OCR
