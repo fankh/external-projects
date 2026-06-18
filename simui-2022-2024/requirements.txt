@@ -1,0 +1,10 @@
+# Python packages used by simui_extract.py
+PyMuPDF==1.27.2.3
+pytesseract==0.3.13
+openpyxl==3.1.5
+
+# System dependency (NOT pip-installable):
+#   Tesseract OCR 5.x  ->  C:\Program Files\Tesseract-OCR\tesseract.exe
+#   Korean language data: kor.traineddata (tessdata_best) lives in ./tessdata
+#   alongside eng.traineddata + osd.traineddata. The script points
+#   TESSDATA_PREFIX at ./tessdata, so no admin / PATH changes are needed.

@@ -1,0 +1,7 @@
+# Large source / intermediate data — NOT committed.
+# (GitHub blocks files >100MB: the source zip is ~745MB; pdfs/ ~958MB.)
+# Regenerate via the pipeline in README; download tessdata kor.traineddata as noted.
+pdfs/
+source/
+tessdata/
+*.log

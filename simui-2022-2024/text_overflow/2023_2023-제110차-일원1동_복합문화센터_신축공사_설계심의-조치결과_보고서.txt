@@ -1,0 +1,1567 @@
+oF
+
+이
+
+<i
+
+le] 신축공사 설계심의
+
+|
+
+k
+
+1동 복합문화
+
+oa
+ou
+
+Fe
+nee
+
+N
+
+OA
+
+19%
+
+720238 Fe
+
+심의일시
+
+(주민자치과)
+
+
+. 김정근 _위원
+. 박성진 _위원
+. 이서종 위원
+. 최석규 위원
+. 이종민 위원
+. 김종우 Aa
+
+. 정호은 AA
+
+SCOCHOSCOSOHO HHH SEHOOO OOOOH HS EH HO HOHHHHESOH OHHH OOOH OTOH OH OOOO EOE
+
+SPOOHHOHEHOHHHHOHHO OHHH H OHHH HOHH HO HOH HOH OHOOOHOH OOOH OOOOH OOOH OOD
+
+SHOHHHHSSHHSHHOHHHOHHSOHHOHHSHHHOHH HOSS SHOHHOHOSHOHHS OH OOOO SEH OSOOOOS
+
+2…0008000000008060000000000000000000000000006060000000060000000
+
+2ㄴ 00606060606686060060606006006006006000606000000600600600600600606060606006006060600000
+
+[터 신축공사 설계심의-
+
+Zs
+
+복합문화
+
+ia
+
+yr
+80 1  |  1  I  |  ㅣ  I  |  1
+주]
+oO
+iat
+뜨 | ㅠ | 잉 | > |으| 인) nin} e
+Bo = —    = _   AI _
+a
+100
+—              00
+휴|ㄷ|은|] |은|언| | |[콘
+K
+G0
+ow} ri) mt} Ho} rE] BG | 아 | 이 | 퀘
+oF | KO | X0 | & | Xf Ko | Ko | 40} | 0
+Oo} | 6 | a | ㅇ | H | ㅇ | NI | RO} 0
+Xo
+더 | 눔
+au | BE} KH | 8 [호 | So] | RO]
+ae} [fr |< | |) 팬|[조   =
+년 | 11 |] 떠 | 떠 nl
+
+
+발주기관(부서) 검토의견서
+
+ 위원명 : 김정근 (건축계획)
+ks               °                                               반영여부
+i oO   =. >”
+전기실 간의 계단 단차이
+1                                          표기함 [도면 &32-001
+명확하게 표기(350차이)               er         O
+지상1층 경사로 진입부에
+전기실과 발전기실 레벨이 주차장    기 차수설비 설치함
+2     바닥레벨보다 낮게 구성되어      [도면 432-003]           O
+차수설비 추가 설치 검토          기전실 진입부에 트랜치
+설치 [도면 &32-001]
+지하1증 XISV4S 기둥과
+3       재활용보관 사이 일반주차면을        변경함 [도면 431-002]           0
+경차주차면으로 변경 검토
+전기차 주차면 위치 지하1증으로
+도하         ”
+4        이동 권장                       이동함 [도면 A32-002]         O
+지상4층 남자 탈의실 출입문 위치 | 만 SAM SSS 고려
+5                               자동문 설치함
+변경 (복도측으로 이동 WA                                      O
+출입문을 자동문으로
+"      탈의실과 탈화공간 사이 미닫이문 ㅣ 계획함으로써 통로와
+등 프라이버시 보호 추가 검토       탈의공간의 프라이버시          O
+확보함 [도면 A31-006]
+     SSAC! ELEVS/S5) 최하층 ㅣ \과정에서 삭제함
+침투성방수 삭제                     (도면번호 /15-001)              O
+6       지붕 우수 슬로프 방향 체크 구배 ㅣ 우수 슬로프 방향 제시함
+작업시 시공성 및 유지관리성 고려 ㅣ [도면번호 432-007]            O
+도면작성자, 검토자 등 내용         기입함
+2 | 기입하기                                                 ㅇ
+10      Kops 평면도 중복 삽입           오류사항 정정함               0
+지상4증 상세평면도 탈의실과       표기함 [도면번호 431-007]
+11      샤워실 탈화공간 등 단차이 표기                                O
+
+
+발주기관
+
+(부서) 검토의견서
+
+ 위원명 : 박성진 (건축구조)
+반영여부
+분 야| 위원검토의견     발주기관(부서) 의견 Ly Se
+느  <     난. ©
+.              .        적용기준의 해당 ALS 추가
+적용한 각종 구조기준의 해당 연도  하겠습니다
+를 추가하여 주시기 바랍니다                   O
+aos               VEO] 조치의견으로 파일지
+동일한 파일직경에서 각각의 위치별 | ye 구분하여 표기하였으
+동 바럼지지먹을 2가지로 구분하여 | 나 시공성을 생각하여 파일지
+Jee 경우 시옹오류가 See 학 | nae 큰 값으로 통일하겠습
+률이 높을 것으로 판단되는데 파일 | ; 나           O
+지지력이 큰 값으로 통일하는 것이     ‘
+어떨지에 대해 의견 바랍니다.
+[기조구소평면도 $21-001]
+_              램프 슬래브 "8351"의 설계근
+3. 경사램프 솔래브 "51"의 설계 | 기를 구조계산서에 주가하겠
+근거자료를 첨부 바랍니다       습니까. 」 | ㅇ
+[지하1층 구조평면도, 521-003]       기
+아느    글 | 크빌시진하중을 고려하여 설
+a 해당 ㆍ nF 전이보가 보의 설계근거를 구조계산서
+있다면 그 위치와 설계근거 자료를 |, sy         O
+에 주기하겠습니다
+첨부 바랍니다
+[시상1증 구소평면도 521-004]
+.    =               해당 건물의 캔틸레버 보으
+1) 해당 건물은 여러 부분에 켄틸레 |") 해다 CET 캔틸레버 보이
+버구조가 존재하며 특히 "%4열~7 | ©      alee
+열\3열" 하부는 내밀길이가 길어보 | D-L=4.96mm(1/594),
+이는데 이 부분에 대한 ere} LL=1.61mm(1/1835= ACH
+허용처짐(/480)을 、 민족하는
+필요할 것으로 판단되며 건축계획  =      en
+것으로 HES    조적 안전
+과 ABER] 않는 범우 31 WOM 기둥 24스로 짐보하이 주       O
+부분 보 춤을 좀 더 키워서 헌치보 | 으로 SECIS
+형태를 고려해 보는 것은 어떤지 검
+토 바랍니다
+
+[지상2층 구조평면도 521-005]
+
+
+AL
+
+OF
+
+위원검토의견
+
+발주기관(부서) 의견
+
+Le
+
+2) 계단 “ss4"2] 지지점 관련 왼
+쪽 '×2열" 방향에는 계단참과 경
+사계단을 지지할 벽체 혹은 줌이
+매우 큰 보가 있어야 할 것으로
+판단되는데 해당부분 부재표시가
+되어 있지 않으니 검토 바랍니다
+[지상2층 구조평면도 521-005]
+
+2) "SSA" 계단의 경우 '>2열'쪽
+계단참 하부의 "RaWW2" 벽체를
+지지점으로 사용하였습니다 해
+당 부분 구조체 표기를 조정하여
+명확한 구분이 되도록 정리하겠
+습니다
+
+ "2G16A"2| 설계근거자료를 첨
+부 바랍니다
+[보일람표 11, 542-011]
+
+특별지진하중을 고려하여 설계한
+전이보 "2G16A"2| 설계근거를
+구소계산서에 주가하겠습니다
+
+해당 설계하중 산정시 최종 실내
+외마감표 SS 고려하여 산정된
+것인지 검토바랍니다
+
+[구소계산서 P8~10]
+
+>
+최종
+
+실내외마감표를 확인하여
+설계하중표를 수정하겠습니다
+
+횡력저항시스템을_ 건물골조시스
+템중에서 "2-0 철근콘크리트 보
+통전단벽"을 적용하였는데 건물
+골조시스템은 지진하중을 전단벽
+이 저항하는 시스템인 것으로 알
+고 있습니다 그런데 087을 보며
+고유치해석 2차모드는 비틀림 거
+동이 지배하고 전단벽이 평면상
+편심위치에 존재하여 지진력저항
+에 효과적이지 않을 것으로 판단
+되는데 이에 대해 구조안정성 St
+보를 위한 방안이 있다면 설명바
+랍니다
+
+[구소계산서 P12]
+
+5승을 제외하고는 전단벽이 지진
+FIO) 85~96% (평균 90%)를 A
+항하기에 "2-0 철근콘크리트 보
+통전단벽“을 적용하였으며 기타
+보 및 기둥에 중간모멘트골조상
+세(연성상세)를 적용함으로써 편
+심 발생에 따른 일부 지진력에
+골조 프레임이 저항하도록 설계
+하였습니다
+
+반영여부
+반 영 |미반영
+O
+o
+O
+O
+
+
+분 야ㅣ 위원검토의견 | 발주기관(부서 의견 | Sor
+[me  oO     Le oS
+구소계산서에 주요 보부재에 CH |힘이 집중되는 전이보에 대해 S
+한 설계근거자료 첨부 바랍니다. ㅣ 별지진하중을 고려하여. 설계한
+9                           SAREE 구조계산서에 추가하|
+겠습니다
+"단면상세-태양광 패드"에서 태양 | 태양광 기둥 베이스플레이트의
+광 주각부를 지지하는 앵커볼트 | 앵커볼트 정착을 위해 ss 슬
+가 무근콘크리트에 지지되는 A) ee 두께를 200으로 조정하고
+10     이 구조적으로 타당한지 검토 바 ㅣ 태양광 프레임 기둥 자리에 페데    O
+랍니다
+
+[장비패드 상세도-2]
+
+스탈을 설치하겠습니다
+
+
+|공)
+
+축ㅅ
+
+발주기관(부서) 검토의견서
+
+: JIS (건
+
+O 위원명
+
+80
+고
+ey
+80
+내     O       O      O          O         O      O         O         O
+a
+nd
+ol    =                                         , & Ol
+ea     =                세                   a            KO xP ujo 99
+i     +             ola 읽       100          or            =   홈 도
+는      |             으 떠       mJ          =     =      mJ #1 All
+그    5.           내 LH               100    이        이 TH    ola
+ry     LH       ola     규          내           alo     글     100 GO wy 내      RS
+n.      —_       RS     oy 8        100 ==        7       _     도 은 ee:      고
+67     ral       os     lt 응       =        RI     Pal     < jo ~_ 30      jo
+K|     80     oF    a Hi      ny ol      i    jo    Sue Mee     *
+=     =)      =z     어 Ww       yt SF              zr     HR Ox     고!
+yw ^":  힌 과  x =   =  7  a   im +  m Of &0 rH  RL, OF
+a  =  > =   =  <  호   KO Kt KO <F Bl iy  쁜 고
+다 592 ikK  SK |충 7 11  ce  KH a | 28 KO xm N  Rr 기
+Pal    oF!              nr ra   jo        a     더!            1 Ho   _    KT
+이   후] &   =    OY K   =   40    .      K     x,  고 .. 64 =I    ae 5a
+= =    Hr X             KY 80 ㄷ    끄 yy | =) DH      개   그 80         논
+WH    s+    =        -금』， [도운      or     od      mm <x    이    때 스     N 160
+KO .. | >=     a 9   md x or   는 xa  ol TF   _ Tu   jl a! 이 Ee    04 =
+20    개   베 에 KIO     xl A   roel TH HH      는  2S   OF Ww   a~ = 69 (oe     7
+N    고 KH 과 | 팡    00 =      ea | SY 끄  4H    pO S FN    — J
+OF!  rm . lor       . =   ROK UO 여 alo lo    rH   Ize   다 GO 100 ~    고 ㅠㅠ
+— 11. Xo S Sl 5   노스 Jai fey | £# oF 00 여 = 홈  KT 가
+oF 1099 nH OS S oy] 모테 | wa a R] 2B Ol   KH | . © TF KIO gi
+We  Fla__'| WY 16 k  maxmn| as | we,  1  = 고  = io
+ue S| RZ) nH lmaoo) Pe | 조고 | aoe Sb
+sx Si ma} to | 내팬리주피|히먼 | or | ten CR |W ke
+1      x0      a <0     ㅠㅠ <0     ㅠㅠ <0    x0    x <0      x0
+0 군        00          fu      m0 구       nt)          Tu
+°         RO        au ©        gu &       gu KO |g RO      zn %°       zn 0
+기      그 2 0     = Rl 9     — er Sti ee wh    = 교。 <     느끼
+TH                  기          A         mi HO Jay 90      Fu 90       fu 90
+Rr           Rr        oR       og | oer      A 호       A? oer
+
+
+80
+DH a
+fon =)
+oe            m4
+al} ㅇㅇ        RI <4        O                      m4
+a            이 ¥F                  O          히 XE         O        O
+ar              =                =           oO      —
+Nd             109         oo     wu      기4   응      도      는 jou   _
+Ol              iS)     KO   도 꾸 ==    떠 ba       20 Gio   <i       =
+0         줍        K     3    년 ol 은 있    w i         —   OF      점
+=| #         i         KI     ol) HO KL BS      어리      mi      =<       우
++    고         ror         Ss     개 OL yy GT    jo! 010       (에 6       5
+과  ㅠㅠ ou        논  Pal  oto] oo 번  K x   la  no   8
+=| 또우       Ww       eH | ue ool OF       of ie Ol a       a
+yf} aw £   x 8   ns 때. 041 Ro Mr  ol 22    0 oo S| <x
+~| 준오   ws    S jamal a ya) os   ufo we S| wl
+Kk | oo   Ku   Ri & | xO Bi dw 2) 51 1  =u 99  헤 | BE 60 는  내
+m | uot       ~ a       or     Zl 때 zu Ao WO =    Sl oy 제    i =< 6 <    5
+rE xh   nN     A 개 때 것  ㅡ 호  관 이 .  x su. 오  100
+< kd   uo   u 나 [80 KO OF S Go} <0 ml | KO KO 0 40 나  80
+co    22 ch | lo xO Wo ㅜ XK X  7! 80 OF  we! jr MO NO LH  고]
+과 -     ㅡ그
+fue Oa    KK                —          ng      +4
+ny =     =                       ll          K      mv      노노        Hu
+My 메    고 OF   더    xX ul     = Ao          메는 족      고 =   80 | 내 밴
+- | 파 jm yo | oN     아과 || wo     is ™     a |9즈
+푼                                    pre                        는
+이 ae    RA xi   K    oh &     때 내   KO     0 NJ   AIP     < 짜   내    “주
+내 |머꼼 |매규 wo slaee| 에페 *   9 꼬0| Bowe = | Px
+숫      _       ~             .     —_  —   =          호. -,      =
+_, | Su =,    oa jor   fs) Ki  XK {Ir 506   Ki soln   <1 go | K A    a RI   로 에 mz x0   Qo 6 wo
+쁘 | = 유       ey | BO) Wt OR |겠 Ho ul -군마로 |S a.
+ar   > 16    더 ay   인 내|고 1 pil   KO        =   qa 7    nt 03   oO .   ud   K! x1 80
+on | & He    KO iy Sp | 10 반 고   내0 00   me joa | oP a   H al ak |   30 는 Sy
+~    ~               =       nN         . K        0          > 689 = EEE        ~
+와 | on OR eo) Co  wo Ny] Seow |S
+He one eee | SPREE | PReee| geese aes
+K Ki | K KL ud Wo xO JK NOI =< KH} NK B00 N | KO] xO
+<7   =
+=                 10          a             i
+ns        s      고      a, 가        페 0?       께 0      ar oN
+z         z          ne            x           x         =x
+
+
+80
+Hz                                    O
+6 |o                  O         0
+5° lg    O       O                  =     X0
+|                  —     Tr wl er   Ub    N
+a         a eS 00      5 5     uo xo    =
+fo)       i    ri
+에 & 가 Bi   니은 우금      기       OY   a of    띠
+Ru  a   gr KT Su =      <b ㄴ      wl 4 뜨 xu      가
+N  Hr o> 99    두] HE ™ xD     OR     UN Sax    0
+oT} gm wD am  oS ae   OF Al     ee UB EO   a> MD
+=  Ga  of See  S         MJ +. oK  는 59 00 드   0 aio
+a>  K  Lu    aes     Sse      mm    는 RO   Do 여
+x | 2 0% ®    Rae 2   때 는     toe See | Sy
+hl) Sgqtee yok’ 8   a2     rye By FS   Zz
+wa  어 a =< = 3  Pag Uk & OF 109 S    23 iK     0  <x  2 0 did <   ay a
+=        궁 끈0 호 ㄴㄴ   xD        =    nm! K
+ri  본 HO gy HF  _, wm RB   ae     oe ao ws te   ul
+— 고 SS .븐   +), =>                 =
+a  hh ~ yr 8 OF pw   때     KK 44 00 번은 a
+한 | St a uu WH  reo RW   Ui 01 000       Ex 가스 | 1
+패 | wares BK        니이 m ol RU   Shee me oo   tS ㅠ
+고      < kl >     n HAO R     Gor ae ~. Be    ㅣ 4
+OF $8 00  i _  =| dF al    만 x i; 복스   0 마 음 xi 0  i   = +o 10
+~ 1 Of   총  후즈 기   fio Sw gw  <0 00  삐 100  xu x  wl Sy <s
+= et  a aM  im el,    WO =  102 [~   mz OM Ol) . Ril   내0    Oo" m0
+=   ~ x0  2h   RO Kr =     er oy 민 KL   K  TH iol 0  m7    비1  od
+|      <0 in    =    a= a tl      |      uw    BT
+| uo 00 만  ia. 어  aug    몰 띠구마 ,   uf 꺼 과 1 습  고 고   어레 기
+이 a= ㅠ  부어  KI nd     ge 00 2   mye wl eo .. . 머  ulo au Fy
+i  ob  Tu  Tr HO 눈   ae Ke ty al  ml A ol my < 10 KO Ml  N ㅡ Wl do
+FO wy OF  BJ OF   on 도     Ol fp 50 K   KV Ze ry  ae 바  OR  Rr
+버 |마났음 8   <2 6    KO op 40 x0 총   |  혀    KF    4 굽  ~
+<u 1 래  비비     Fy al    ug 깜] 이 버  맞   병마 라파
+me     I       i      … 1    +  낮
+ia mo < OF  a | to A=   ny © 2m  Fg MH op eB & y a0 S
+—T RO +a — __   Sis 수   ol =p 1 nN 그   > aq RI NO GO 1 & oy 5
+_ | % 어 RU fq KO Br  K pr 19     시 조르 HW  jo ul 띠 메 KO ^  기 | =e xO
+아 |? = Se RK  Nx x Jp  Gf amo rom a |S Smo Sa
+NK  50 a+ K  Bl X0 K   에 ㅠㅠ who Fo ny >
+Seis | Sm we                   30
+미 < + 디         .       20      Fo wn
+ZO     “0       HO st     -ㅜ<
+o  a0     10 4    90 09      주
+FO -    oe     6
+TH   도
+
+
+80
+Hz
+Slo
+Bg
+DI   O         O           O        O      O
+고.
+[년             —,
+a | 8        iS                             B
+N
+~    우        #0                             °
+a    =                                      —
+il &        #90                     _      8
+과    =        <x                     fea)      은
+A              jo 5S          <        는
+그    Bu       ae 은         il       Bg      Bd
+Ket 브       이임         그       Rd      번
++     100          2          100       100      100
+ail   ao       닉 띠         80       ao      ato
+ka     HW x ol     ol Kt        Kd     i) Hb
+바      K o@ &      고 1    oo | ao FO | RW
+~    오 으   K    kK. Fo   ———   ol mJ
+ar | 2      of AW ff        183 +   ㅠㅠ   aM | 수 좁
+fe}           i   수  -느        <    mu   qi  —   K    LH
+=   Fo of   Fo <    또   AS | ~ ap OF
+바0      a Th tl 수국   KO zy    OH   =r wld   IN    nas
+-   a     @ _    RJ <   KY RW       NT     Klar 피
+| 5      0 TT Eg    ON et | 군페눈
+— | 0      sr 때 qu 40 Su | 이      고 | gm go | Ww 헤
+OF | oe    하이 0 08 >   ro SO | | OO
+—             IN gt RO      K  Fo 384      해   0   aid
+OF          10 =      bil   Be      '   Tt or     E age
+hI oH   =     AoW 고   a ㅁ   인   a
+99 jo OR | Sh KO) 러 . | oo
+Rr  K HON ㅎ 3  gu < HF Fo  =e | Ki 규
+oh.
+fo)   x0         x0           x0       x0      x0 =
+00 ©      om        09 | fom | 은
+IH | ~         <            <        <       <x
+
+- 10 -
+
+80
+Tha
+oa
+6이80
+ra                              a
+aN      O        O       ㅇ      띠기        ㅇ        O       O           O
+주]                         이 Xr
+_              _            .                        '
+™      a    또         1304        이 ~       a.
+180 는
+zw             ii       그      =         두 90          호 8 oe      본
+이            는       oO     =         > 끄          Ss.       70
+ud       <      =          =<             9 380       FY)
+=      =               ‘      490          So)             ol   nil       퓨]
+=       =       인         =       =<         < tr      는     =o
+가     운     는    =     Ry @      8 ol    8S | SWa      af
+바,     56      =z 응     y      Kl iN       우호    는    56 &      x
+7     <     ae             TH         비     o    { wo &      oie
+ae      Fa      = 5     A      klO 이]          가          ml 5         =
+x     i     wf    시     63 이    ~. 으으    a     HK     =
+KF   =   <0 om  =   Rr 0  “es  WH  tr ae   ss
+도      glo 만:     여      KH er     Bo Le    본    te ,         을
+고      300      Rr LH     300      년래     a) oz =)     300    코 KO       KE
+0       a    69     기 1     8! 떠    aio    다   가
+고      nN io     a      dir K     ~: 번 ot    Rr    80 Mm <      om x
+A) 0       )     mS go | w oW     mf to 7”     Ss    ot KI 좁     xl oD oH Hl
+Ho x    a  고 Hl ay | A oa  wo Gr 2 Bo | 23  Tyo  QE x ol 누
+RJ | 』 KF      ㅠ     K 기 0.    nm    RW —, TH qu | &4    가 2 &    x   깨 으
+oH      =| =        x om | Ol =       | 0 om           ml 2          OF    번
+이          고          크 KE 떠   XO 」 여     AC   oO |; ue         이     그 we
+스 RO | ot)     on _. | & gg al   Io yo |    <¢ 5° 0     il   of H
+ot 고 |  KJ gk WO | oo | 어순 Ul |  Sr we 수  = or
+버 a      Ao         il a & | Sr | 00 Bo |S oo | = a 09     ok BO Xn SS
+_ =I       zu          = | x a o | 40 30 -     KJ Glo | a <b              0
+그    Wn ~        eo     =, 60 TU | AL       a <9 qo =        7 oe       K4
+T)Pb gle | Page aw/ Rew 2 a" (Sey js lz a
+vy 2 Rr     Help! &     고 ml | gi a | 40 O TH Go     oF xl oF —
+— |x My | | ao ER] MOL | oH xo wu | Sul) Sy Fe} 조우 죽
+OF | N _. 0 80 <U i xs a 20 Ki 꺼 더 원 도 호 int  ow ss oN OF yf - 크
+=   Re | 2 K vO | S 20 100 | <0 DO | N 가 | K MO KO HO | 0 OT XO
+고 | +   i ae   K 고 A | 개 .. od  K 어 고   ,」축   , 습 a | ke mw tT So
+oO    ny       띠      nu       nu                mu                  nu
+Al    Aw   AL <    Als            A in              Ho
+TH     K        K      K       K                 K                   K
+OF       OF      OF       OF                OF                  OF
+
+
+과-|24
+
+—_
+
+Ble
+
+H
+닌
+
+O
+
+발주기관(부서) 의견
+
+고 머
+
+50mm Slab Down = 기
+
+[도면 521-006]
+[도면 A31-001~002,
+A35-001~005, A81-00.1-005]
+용함 [도면 A21-001]
+
+적요하
+akon —|
+
++
+
+스
+
+수
+
+[=A A91-014]
+
+|
+
+ㅁㅁ
+
+pe
+oO
+
+[도면 A35-001~005
+
+[도면 A35-001~005,
+A82-001~002]
+
+A81-001~005]
+면 추가
+
+[도면 A82-001~002]
+
+Ｌ
+
+par
+으
+ㅁㅁ
+
+기 적용
+
+검 토의견
+
+원
+
+으
+>
+
+기 =
+
+|
+
+k
+lS, 면처리+도장은 센서
+
+PVC 벽체 배수판(난연) 또는 마그네
+
+시하층(주차장, 기계전기,
+
+H
+
+ATE
+
+42
+
+THX
+
+천장
+
++|
+
+벼
+TW
+
+H
+
+가 그대로 노
+
+띠
+
+olfu
+RS
+
+ulo
+
+저
+aa
+
+E
+
+출됨
+기,
+울+그라스 크로스
+
+A
+
+: 그라
+
+바닥에서 50 ~ 100mm 이격(방
+
+(외장 Al
+
+10]
+K
+
+At
+
+LHnl
+a
+KO
+
+1
+
+구소체+외
+
+|
+
+lel re)
+=e!
+
+내0
+
+야
+
+IH
+
+8
+
+: 527}
+ㆍ 527}
+: 297}
+
+IS Sat
+
+-에어컨 기기
+-점검구 개수
+
+x
+I
+- 12 -
+
+ot
+fe)
+
+가능
+
+
+브         이 의 거    이거      박즈기과/브서) 이겨    반영여부
+=      Lo.
+수요기관이 여러 곳일 경우
+유지관리 | 각 층별 시건 계획이 다를 수 있으
+유지관리 | 각 충별 시건 계획이 디클 수 있으 | 00000] O
+15    므로 마스터키(그랜드 마스터키 포
+함) 계획 검토, 반영 요함
+"공공건설공사 공사기간 산정기준"
+에 따라 설계자는 공인기관에 의한 | 착공예정일(23년 6윌)이 지연
+예정 공정계획을 제출(공기적정성 | 되고 있으므로 '외장 치장벽돌
+유지관리  심의시 제출 자료)하고, 공정계획의 | 을 동절기 또는 우기철에 시공
+16    외장 치장벽돌 시공시점이 동절기 | Al 내 보양기준에 따라 AAS | O
+
+또는 우기철 시공이 이루어지는지
+
+확인하여 해당시. 보양비용(동절기
+보양비 : LH 보양기준 준용)을 내역
+에 반영 요함
+
+- 13 -
+
+
+바여여부
+분 야」 위 원검토의견 _ |발주기관(부서) 의견 LEST
+뻐   L_ oO
+전기차 주차구획 : SUS
+OFM A   화재박새시 화재 화사 OF   ol AS
+1      활동 시간 SHS 위해 칸막이벽(건식
+또느 습식) 저요
+그 — ee | i Ko)
+지상 ~ 지하2증 주차 램프 좌우측
+경사도 조정 : 하행 차량이 우측으로
+안전성 ㅣ회전하므로 ASO] 우측보다 =
+으   회전하므로   A  | 우즉보 } 높게     적용하겠음                O
+2      경사도 유지(운전자 시야에서 동일
+레벨이라도 회전 램프는 먼쪽이
+낮아보임)
+AbZX Ako     고        7
+3      주락방지를 고려한 난간 높이1.500 _ |반영함                      O
+이상) 반영
+NBS SUSY, 동대본부 벽체 규격 | 동대본부 유리벽체
+안전성 | HA: 유리벽체 - 비투시벽체        비투시벽체로 변경           O
+4      (동대본부는 보안시설이므로 보안성     동대장실과 동대본부
+화보)                                 유리벽체는 요구사항임
+태양광 기둥 베이스플레
+옥탑 Pv 태양광 기초철근은 96에   이트의 앵커볼트 BAS
+안전성 | DY, 설계풍속(2807/560에 대응     위해 해당층 슬래브 두께  0
+5    가능한 PAGS 확보(단열취약부 보강 |S 2002 조정하고 태
+필요)                  양광 프레임 기둥 자리에
+페데스탈을 설치하겠음
+외장 치장벽돌 : 내진구조 반영(고정,
+연결철물 구조계산자료 제시),         외장 치장벽돌 고정 및
+-느
+안전성 ㅣ※ 구조 중요도 계수 1.((특등급으로 ㅣ." 2 See       5
+Cee Tete
+6      "건축비구조요소 내진설계"반영        시니
+oT
+
+(구소확인서에 해당 SS 명시,
+공사비는 85항목으로 내역 반영)
+
+- 14 -
+
+
+80
+Tha
+Sa
+Blo
+DI    O
+iy           O     O
+O         O
+[0           이
+1          _   _    AW 매 io
+기      _ jugs] 3       Fe
+수      3    꺼 5     우      a ae
+과     :   더 일   02    42 at       3
+Se      =)    zy <    <        a i"         i
+ie      8S |ma| 진      Git          :
+N     ~   ou 내    LH     글 시 이        :
+Kk | 00 -    2 60    on        a        :
+| Ge | Sh | bo      인 인 6         <
+eu | 주조 | 코     go x 일 =    a
+al    - RP    고      은 하동군       i
+=      oO 이   O-    =
+       1                  oS 04    +
+S       Gi             =o         =
+<  0
+| a 4    ~     50    = m0 MH     Ril
+mE:     2!      =      i= 퍼      r
+자 할린 |       에      re ob 0       ok
+: 주    피 >   x     ol Ge i      50
+wi | to 컴     +e | 표      ar      3
+KO 더       ol    0        어 70      2
+u   0 A    너 i    x0     ie 101 100      =
+xo | kh       개      =      는 69 이       a
+—, | = qo Go | a |    wd      at al      5
+om | da er | 구피    all        \       i
+Y|see/ 2B] 비   Sn ow 8  =e
+x lot Gm) Sul a       faud |?
+rm | 글 이    i      = KO Rill 버    는 390
+나  EL) 동      B822 [미혼
+302200주+     ol <
+~   :     ㅣ         K il    깨 니
+aun |golm        1
+고            어?셀
+TH   od     od    me 어      aS     기
+od       a     >
+od      한
+4
+
+- 15 -
+
+브
+분 야    위원검토의견     발주기관(부서) 의견 poor apres
+THA, Ot 시공방벽 B | ose (도법 as 001-005
+비노출 지정방수+25 방수층      ~           ㅇ
+경제성 ㅣ보호재+마보드+필름+ㅠ170 섬유  세 . eres     하안전영
+1 _ | 보강 콘크리트+기계미장        —— Sa
+(시공성 향상 공정단축으로 공사비 | 오드) MIS 7ler0Mel %
+이                         촉되어 제외함)
+절감)
+경제성 | BES 보호 규격 변경 : 방수층 보호 | 반영함 [도면 A35-001~005,
+2 | AHCTHK15) 적용                   A81-001~005)
+경제성 | HE 라운드 구간 거푸집 규격 변경 :
+3      합판 거푸집 > 유로폼(세그먼트로 _ ㅣ 최종 내역서에 반영하겠음
+라운드 형성 가능)
+분 야| 위원검토의견     발주기관(부서) 의견     SOT
+
+rit
+on
+0x
+
+—
+
+보행자에게  눈부심 발생 여부 확
+인(일조 시뮬레이션으로 확인 요
+
+관심의 시 가로변에서의 시선
+반사를 고려 난간을 이용하여
+
+폐함
+
+ao
+
+그 yO on
+ㅣ
+
+im
+
+측의 경우
+
+전면에서 11.64/
+Set-Back6}O] 설치되어 가로변에
+nm 영향이 미미함
+
+신재생에너지 적용 재검토 : 태양
+
+환경성                       지열의 경우 에너지자립율에서
+=                  ~          르-   oT
+
+> |B 엔료전지 - 밀펴형 지열 0/| os mca) eae
+
+래       바닥 마감재(포쉐린 타일) 친환경
+
+함경성 | BIN 마2재(포쉐린 FPS) 진환경 | 농아인 loo sai 이오 오이
+
+Ww
+
+7   oO
+증 여부 확인(녹색인증자재 적
+반영 요
+
+되
+므
+
+- 16 -
+
+09
+
+뚜
+"
+
+02
+
+02
+
+
+바여어부
+분 야     위 원 검 토 의 견_ |발주기관(부서) ALE SOT
+12s | =]   LS 를 =]
+기타 1       안내도 및 상세도 누락             반영함 [도면 AQ1-010]       O
+기타 | BA 커튼박스 블라인드 안내도, 상세   —
+층별 커튼박스, 블라인드 Ot  상세도
+，                     a  는    도 설치임
+실시설계\『 반영사항 재검토 요함
+- 기계,전기,발전기실 오픈 트렌치 삭제 :
+기나 | 디디 배수판은 936~무근콘크리트 중간
+3   결로수 배출 용도이며 기계,전기발전기 | 반영함 [도면 &31~001]   O
+실내 오픈 트렌치는 실내 배관파손 외
+부 우수 유입 등에 대응하기 위한 배수
+설비로 유지
+특정 지정제품 SH 기술은 설계서에
+기타 ㅣ 정확히 명시 요함 : "설계자가         특정 지정제품, 공법, 기술
+4    설계서 작성시 건축자재 품명표기에 대 | 사용 시 반영하겠음
+한 법적근거" 참조
+기타  감리(중간, 완료) i "관계전문기술자
+도     확인 날인" 설계자 업                협의 반영하겠음          O
+수행여부(발주청 협의/반명 확정 요함
+ZF 종 이증함목은 본인증시 자재수급
+현장여건에 의해 변동사항이 많으므로 하겠음           O
+fe)  — ㅇ
+© | 어유점수 확보 대안 제시 요함           =
+
+- 17 -
+
+
+Faqs
+분 야     위원검토의견     발주기관(부서) 의견 ES Orr
+jac  (|     a oS
+기타          각 공종간 공사 구분도(공사한 |첨부 자료 참조하여 도서에
+_ ㅣ계 반영 : 각 공종간 업무         .반영함 [도면 401-003~00
+한계, 주체 등 명시(첨부 참조)        이
+
+제시함 [건축법 시행령 Alls
+
+기타 8 | HAS 미반영 사유 제시 요함          4]
+
+서울시, 지자체 설계변
+SHE "착공후 사토장 변
+사토 운반거리 증가" 빈번하게 발생되므
+로 ADA 사토장 선정ㅅ
+반드시 사토 예정지 BE 확인(필요시
+동의서 받을 것하여 사토장을
+
+선정하여 설계변경 예방 요함
+
+기타
+
+반
+OF
+a
+미0
+
+기타
+10                                v
+
+기 반영함
+' ㅣ[도면 31-003, 005]
+
+- 18 -
+
+
+50
+
+a
+
+=
+느
+
+AQ
+
+}설비에
+
+104
+쉬
+IF
+1H
+
+Ol] 개
+
+OF
+
+oll
+
+=I
+
+0
+
+}보
+
+(일제개
+
+발주기관(부서) 검토의견서
+
+: 최석규 (기계설비)
+원
+
+으
+구
+
+견
+
+4 토의
+
+검토시 헤
+o=
+T=
+
+J
+|
+
+펀
+
+으
+1ㅅ
+
+스
+al
+oh
+[이
+nu
+
+요
+
+10개를 적
+검토바랍니다
+
+O 위원명
+
+야
+
+브
+wl
+
+1
+
+fH) P-3.
+
+le
+므
+
+르
+*기존 400[미4->500[미/으로
+
+배수펌프(기계실) 펌프유
+
+가스계 자동소화설비
+(장비
+
+- 19 -
+
+로
+
+i
+
+1자제어
+
+500LPM2 =
+
+ys
+
+링클러헤드 설비
+드
+
+=
+
+[
+
+프
+
+스프
+
+tH P-03
+
+에
+가스계 소화설비로 검토바랍니다
+
+이르
+
+2
+—
+
+HA
+
+K
+기계누수등에 유용하게 하도록
+
+(자동제어 CCMS
+선정하여저수조 청소시
+검토바랍니다
+
+설치됨)
+기계실배수펌
+
+바
+ㅇ
+상비
+
+
+브
+프
+
+80
+Tha
+fon
+O° lg0
+Dd}
+O
+=     O
+nd            __
+내            oS     =
+이         Bo   TH    ola 10
+i   A     그  ak Of Ul   ne Me      3)
+7     "          다    ol — Mu      Ser |e) &   80
+J   jo) 100    어|  101      녀  ] OC = ls
+더            1      4 = +<
+=   10 0    HH  © 10F 이 00 my Ro GI =K RS
+5   S x       = 중아 el| © alm Sit ee
+KE                여0    어 -   긍| 인기 ens   ar 동 '   가
+Fall   wn 00    K   DN 90 중 엔고 해간  S <b 가 KO iol
+고         I<  비슈누 은 ar FO =p pO |S 5  1
+ir x    nH  ar fy zo 2 Al a Zz ㅡ  FZ
+of  ~ Bil nm o/ ml = ol se ecenie
+iva 곱   5  Ho < Rl ZW nar <t @ pr |비가 < io K{ io
+— DK  to  어| &! ree  도  수 Hoo 2A 비가교배후지
+x) | mmo ke  sy a, OU  ol i) 6  le m=  9006
+~ yu eo  yn 22) 퍼  Hy ee  ap ee
+or | mu ar <I    omg x  a 4 i 80
+a - LH  N =}  RU O   gu _ gl _      ali
+UH    Et   J    이 의 2      ulo 0    of 109 on 오,            a
+<i = oF 0   “i = OF   14 Ba   _ af  is    HI      그
+_|nonre ea 5  HO ae 1 gS  A my oS
+olRemay [eee  비불온 [elie >  “sol ds
+| WES a  Sms lo ta al & oF   afqauws
+보이기 Me [전회 os 로 은 곰 | 매도응  Te 솜 고 에
+=  수 에 WH Bn Go So oo F644 \|zemeo  Gyo = 버
+oF  = RO on RP fe of Ol 7 도 기 은 20 Ko 2 oe  Fa ng
+azo ur 고 00 는 S 80 mo 해 Su ty oO > tt Ho  핀
+플옹내눈 Sra  zm uly © Cs he   o Wr a
+o- |/Sipala vo} mir | 2   Bo) 2 oe
+KO my | KI 40.  r | <b Ko ol ro a =< HOS mw ~
+au           KI 304 LH  Kio 에 기 04 SS > 너
+O               ON won a ie ee a 많고
+    Xe)
+[~
+02
+
+= 20 =
+
+받주기
+
+관(부서) 검토의견서
+
+ 위원명 : 이종민 (전기설비)
+——      르기 시므아시) 비스 [한 영[미반영
+
+화장실 내에서의 비상사태에
+
+=      2          현재 2개소 설치되어있음 |
+드                      Atk  처브하게으:
+x 세부기준 : 장애인등편의법 시행규 | OM Sorte
+A [별표1]
+이중천장내 합성수지관공사 제한사항
+(시설 불가)을 전등설비 평면도에 주 | 문구 추가 하겠음         O
+기 주가 바람.
+전기자동차 화재발생시 신속한 대응이 전기차 중전소는 지하1층으
+7st  방차 진입시간 단축 등) = 와 cae aera
+저요즈    Ol 추저시석 외치를 다    으르
+초 SNR XISHS@ONE :| =, aa 5 5) 소방차 높이
+×6-×7/1-\3)으로 변경 바람 <THE Se
+지인  보가하
+z six,                   335M 으로 진입이 불가함
+콘크리트 ae 배관의 경우 콤바
+이 더 트관(      다
+※ sis ia 평면도상 네 전
+선관 계획 됨.
+전기자동차 _ 전용주차구역 BANS
+CCTV 카메라를 =e   aa 영상 등
+을 인식하여 경보를 발할 수 있는 기 | cc 추가 설치 하겠음      O
+능 사용 권장)하여 상시 2  감시시스템을
+
+구축 바람.
+
+- 2]
+
+
+=        이 의 A    이| 7      바즈  고|/쁘    이겨     반영여부
+옥외형 인버터 방
+6     수등급은 10%4 이상이 되도록 할 | 인버터 1655 적용되어있음          O
+것
+7   방송 공동수신설비 보호용 피뢰 |기존 태양광 보호용 피뢰침 QI  0
+침 추가 바람                 추가 설치하겠음
+케이블트레이의 SOHS SA 높이 100mm > 70070) 조정하겠
+포노                     소송 A
+8     10000에서 70mm 하향 조정 바 | SC                       O
+람                   도
+건물일체형 태양광(810\/) 모듈(실
+9    리콘계)의 정격효율은 13%이상이 | 현재 17.8% 적용되어있음       O
+되도록 할 것.
+방송통신설비의 기술기준에 관한
+규정」(제20조 제2항관련 별표4          래
+SA    ee    a4) | 2623.06.07.이전에 건축허가
+10    ae 따라 2023. 6. 7. 이후 건                       O
+
+|
+죽허가 신청시 구내통신 회선 수
+
+는 개정된 기준 적용 바람.
+
+신청 예정
+
+- 22 -
+
+
+( 위원명
+
+발주기관
+
+: 김좋우 (토질기초)
+
+(부서) 검토의견서
+
+HHA] 검_ 토함이 타당함
+
+반영여부
+부
+분 야    위원검토의견     발주기관(부서) 의견 La eearara
+드레랄 -]   i) <<
+건설 기술심의 후 굴토심의
+굴착 관련 심의 수행 결과 확인 요망 | ., 예정                   O
+HT  fo)
+CIPS SA 대비 품질이 균일하
+.         고 타설 및 양생 시간이 필
+흠막이 See 선정한 ORB 제시| 없음. 계절의 age 받지| (>
+스  ㄷ  a
+BO! Fist           않으며, 공기가 빠르고 공사
+비가 저렴함.
+흙막이 계측 중 우체국 인접 부지에      "
+no                            치차[피으 츠       하겠음
+meine 설치 ae 타당함      리하핀을 주가 계획하졌음     O
+시방서 656 공법의 주입효과를 확인| 투입계수 관련자료 첨부하겠   O
+항목중 투입계수의 적정값을 제시 ㅣ음
+흙막이 TAWS! 시방서 내용 기재 빛| pay 첨부하겠음         O
+관리기준등 제시 LS
+우수계획은 기존 하수관로 접합하는
+것으로 계획됨.                        수
+산   AHS Al.
+수 수 가능여부 확( 확인0 이 1  oath
+흙막이 벽체 ASA] 정확한 위치에
+천공이 시행되도록 가이드 HS 2열| 2열 배치 하겠음.           O
+
+- 23 -
+
+
+브  0      으  위 거    (3)  겨      박조7 과 =e  fe) 74    반영여부
+Ls  oO     Ls <@
+
+흙막이 구소계산서의 사보강 스트러
+
+g | Go} 입력 각도가 41도로 도면과 일| 확인 하였음              O
+치여부 _ 확인 필요함
+
+9 | PHC Pile2| 모멘트 발생량이 허용량| 지보재 위치를 조정하여 모
+에 근접하고 있음                멘트 발생량을 저감시킴       이
+
+1o ㅣ홈막이 배변 차수그라우팅을 타 공법| 동등 이상 성능 일 경우 개
+으로 변경 가능 여부 확인 mest ㅣ 능
+인근 건물등에 대한 소음, 비산먼지등
+
+11. ㅣ을 최소화 하기 위한 SIA 및 세륜|배치도 첨부 하였음        O
+시설등의 적용 여부를 확인 바람
+
+12 |TAW 계산서 제출 필요함      계산서 첨부 하겠음       O
+
+- 24 -
+
+
+발주기관(부서) 검토의견서
+
+(조경)
+
+으
+
+|:
+
+() 위원명 : 정 호
+
+80
+과||24
+fon |ㅁ
+6이80
+|      O         O       O        O       O       O
+al
+Ko Ser rook *K    oS    jo OH} . 0    Or kr Ir   OF   RO   Wo ~. 0
+| 히을리놀해 Mo | ser | we 번의 my x |r | Si
+RI) a tN    io 패    Ag x0    ‘lee =   wm = 20   ar 0
+<  —           ㄴㄴ               oe  fabs            cae
+S| arkkz Sit Boy | ~ x0    rH gs xl0    Bio |<   eH xo   aul axe 0
+그 | age oe | AK    ole Y likin K |ee ! | Few
+DE | ike wr OT OF | 패할    K a = Mtr     20 Kr   ax i   = = ir
+a | m= 에에% RS   0 은    ol) RU zr 은    HT (Ola   더중 은   ea =
+쁘 ee | 옵으   seat. | On mas   대   | geo  !
+N  KL Zl xy & G0   re a    gre 2  3K OF jo 64 00 | Ol & ola B 760   % 5 jo
+KF | SS G0 mW    Woe | Tan    on Hy | Mog SH | oho
+all iy KE TOP OF NS  oi  AL my i  2 ae  ar Sy Ny
+aes ee epic, Se A   그        an Sl a=  <  a Klo= | RK  iN  ==  joj   =
+SNS UN ,   기 , 4   yoWw  S | FINNS  wFH, ©  =o S
+OF jor          nl 6      jo Rl of        jo!         io 2        과 09 70
+    nd      Fo LH   Kile    24 더    ee
+5]       nO          44      oJ 메 가         ial         oF 님       마 의 >
+“=       or i         눈 =      11 에          .       a 미       고 퍼
+KO            y       xo           du SIP       oe       2 kW
+버    노츠     마 가   <r 94     | 과    oar    TH 홈
+_    alo «K     그 혹   SB ㅠ XX     Bik   a re   다 ol 여
+au       ar 가          <I gr      과 떠 4!         호 i       i =       zo gr 딜
+ol      의      air TF    임 미홀      Bl    N=     Ki ar 페
+OF         K         I        Kt ol &       KF        KI         30 구품
+배    ip 여     개   <0 7 갓     고   oS   Or ou &
+OF           al        Ko      에             WO       에 ※! ㅠㅠ       oll =
+a        2 oo | yy X ow        00 메       yo 없으     xo 말소
+_ 3064   홈 호퍼  Y Fl 빼 0   os 1   ta RO AT  in oO
+oO
+=         N       ~        wv        We)       wo
+TH
+
+- 25 -
+
+80
+과-|24
+fon|=)
+6이80
+nel ae       O
+a!
+세 mn   KA
+ㅠ   140     OF
+도 미오 =z
+이 | 곳    내 ee
+> | ol    iol =
+ |       & or
+3 | 2a    빨
+더   K 흐   는 수
+N   ea 9 on oH
+KF       RSH 0
+4 |과흐 wo Ny.
+oll | > at XO KT Ha
+ㄴㄴ 해법 , KR
+AL ulo
+Fo
+ral     닌 비|
+| RR
+의      or S x0
+<    re
+WH      ir a
+ㅜ      +, 그 x0
+Ad    ze Kl
+on     ty
+OF      는    4
+=        빠 Fl
+OF        K  제
+이| 그
+oO
+~m
+TH
+
+- 26 -
+
+발주기관(부서)
+
+ 위원명 : 김 창 환 (기술심의담당관)
+
+검토의견서
+
+반영여부
+=            이 2   |                HRATJI]Dhyw            oT
+또는 신기술, 특허공법을 적용
+하고자 하는 경우에는 그 효과 시공성,
+경제성, 적용사례, 유지관리 상 문제점
+1     Se 종합적으로 검토한 후 관련규정*
+as    에 따라 선정하여 설계에 반영할 것     건죽분야 외벽의 특정제품   O
+ft                                      _     a
+ae, |* 특정제품 - 서울특별시 특정제품 선정 | 등 전체 표기 삭제함
+ㅎㅎ) | 심사위원회 구성 및 운영에 관한 조례
+* 신기술 특허공법 - 지방자치단체 입
+찰 및 계약집행기준
+(신기술, 특허공법 선정기준)
+로이유리는 에너지절약을
+건축물 외장재료의 미관과 디자인, 내구 | 위한 중족조건이며, SSA
+2     성에 대한 특성과 선정과정 (예: 큐블럭 | 품 표기는 삭제함
+(건축 | 87) 알루미늄 SH, 로이유리 등)을 작 | 시멘트블록과 알루미늄 +) O
+공통) | 성하고 품질에 관한 USS 공사시방서 | 버는 건축디자인 컨셉으로
+에 보완할 것                      건축형태의 SASS 부여
+하기 위해 WSS
+3     AHS 승강기홀은 장애인을 고려하여 | as
+으
+건축    닫이문을 지양하고 ㅅ           =e
+(건축 | Meow 지얀하프자등        [도면 A31-001~002]      나
+고토     무을 설치할 것                          느
+공동)   Te 르시르 고
+다목적강당의 운영계획을
+4, ㅣ다목적강당은 사용 용도와 빈도를 검토  soci ween oso
+A                            = lO      오르 [TLE
+ | 하여 무대막, 영상 공연 장비 시설 및 ce wo 7
+(Ca   HEM 음향과 방음을 고려한 내부 마 | COR Te         O
+공통)   더  그 Be ; a  -  a) =    장비는 pT 프로젝터 및 AV
+os   그   EIA A  2   학 7.      =  그
+aN 등 시설 상세도를 보완할것 LS anise
+—oO 2"%la
+천정형 태양광패널의 SS
+윤지관리 및 안전에 대비
+5 _ | 태양광패널은 향후 누수, 청소 등에 대  이이 는 ey oe os
+                  3       시형 난간을
+(건축 ㅣ비하여 효율적인 유지관리           a ree ||
+공통) ㅣ방안을 검토할 것                          ca a
+ee                           AM 사용장비에 맞는 건
+축환경을 조성하겠음
+
+- 27 -
+
+
+위원검토의견    발수기
+
+별리
+
+!(부서) 의견
+
+33, 4증, 5증 조경부분의 난간 | 기 확보함
+높이는 조경플랜트로부터 1.2m0| | [도면 A35-001~005,
+상 확보되도록 할 것              A81-001~005]
+
+Alt
+
+>
+
+Ol
+ol
+
+oe
+
+죽물에 사용하는 자재는 '녹색제
+품 을 우속시 관한 법률' 및
+'녹색제품 구매지침'( 환경부) 에 의하
+Of 친환경 」인증자재를 사용하고
+
+=
+0요
+0안
+
+Alt
+
+—
+
+OH
+ol
+
+~
+
+16
+SAH 50어원 이상 건설공사
+
+총공            노르
+Ate! 과리ㅎ  인으
+의 경우 유해위험요인의 감소방 _ | TS (아그 as
+안을 포함한 설계안전보건대장 작
+Ad
+Oo
+
+- 28 -
+
+—
+
+oa
+
+o2
+
+띄ㅋ
+02
+
+
+브         이 의 거    O| 7       바즈  고Ｌ/브    이|그     반영여부
+ym  (=)     Ls: ©
+9      설비 동파 방지 대책을 검토
+> = — 1195    MF-101~1034 반영        ㅇ
+(기계) | Sk 설계 반영할 것.
+기계설비계산서 1-1-5 저수조 선 | , .    -
+10 | CPSP Ts 저수지 은 | 소화계산서 04페이지 참조
+"       정) 소화용수 : 18,6002/dayOl 대한  21,200 Ydayz 반영됨          O
+(기계) | 산출근거 자료를 제시할 것        pee eae 마스트
+11    승강기 도어는   | 도어로 검토 | 방화도어 설치함             O
+(기계) | 것                          [도면 A94-005~005]
+기계설비시방서 수정하여
+(기계설비 시방서 6절 가스배관공 ㅣ해당내용 반영하였음.
+사)에서 다음 사항을 주가할 것    1) P. 103 나) 용접접합에서 "(3)
+- "th 시공 나) SSMS OA] (3     밀폐된 SZtoA, 용접으로
+밀폐된 공간에서 용접으로 인하여   인하여폭발 및 화재 우려가
+12     폭발 및 화재 우려가 있는 때에는      있는 때에는 용접 FAs of
+용접 작업을 하기 전에 통풍 및   기 전에 통풍 및         O
+(기계) | sire 실시한다                환기작업을 실시한다“
+- (4) 화재 및 폭발의 원인이 될   "(4) 화재 및 폭발의 원인이
+우려가 있는 물질을 취급하는 장    될 우려가 있는 물질을 취급
+소에는 반드시 적절한 장소에 소    하는 장소에는 반드시 적절
+화설비를 설치한다.               장소에 소화설비를 설치
+
+rok rot
+a)
+
+- 29 -
+
+
+바여 여 =
+분 야ㅣ AAASWA | 발주기관(부서) 의견 LAS ars
+선기설비 계산서를 제술할 것 | 드다용량계산서 제졸하겠음
+13                       퇴터해     간선전압강하계산은 AS
+- 단락용량 계산서, 간선 전압강하 계       met               O
+(전기) | ang                         드린 부하계산서상에
+=                               CB.CBL 시트에 있음
+정저시 무정저 비사저워 공금대채 z
+xX                                   -     7
+(전기) ㅣ. Ups 추가 및 용량계산서 제출       16004 Sees)
+Ro 외하 7.
+도면에 아래 LBS 보윈할 것.        헌등앵먼또 주기서빵:토련
+- (전기) 전등 평면도 주기사항 BA, Hoes       이
+에리부애쁜에어     2   ee 표기되어있음
+”    비상등 구출 오  등기초  이블트레이 ， Coors te
+으                       누락돈  Atk 세도 첨    부하겠음
+- (통신) 방송설비 상세도              ial         we
+전기관급공사시방서상
+26                         자동제어 항목에 원격검침    O
+(전기) | 2 ‘                        설비 내용 첨부되어있음
+설비 내용 첨부되어있음
+설계 보고서에 아래 검토서를 제출할
+것
+_ 벼안기 혁시 GI 격서바시 비교 건
+(전기) | EA
+by wa
+
+- 80 -
+
+
+브        의 위 거    이거      박조기과(부    이거     반영여부
+분 야    위원검토의견     발주기관(부서) 의견   바 Ot [미바열
+ms  =|     Ls ©
+계획도면을 제시할 것 __ | 반영함                         ㅇ
+(토목)
+우오수관 계획 시 기존맨홀 및
+고   dS}   해 유지관리부
+19 관기 펌힙에 대해 유지관리부서 | SHE 점부히겠음          ㅇ
+(토목) | 협의한 뒤 접합 상세도를 제
+시할 것
+경계석 기초 콘크리트 포장 단면
+검토할 것
++ 보차도경계석은 「도로연석(보
+KLE PAA) ZEAISEAF 바아
+20 | ee) Bate SECe (RASA Ale 변경 하겠
+a, | 환경개선과-4928, 184.1112 적 | 6                 O
+(=) | g 검토하여 침하 및 이탈 방지 | >
+할 것
+(경계석 기초 콘크리트 포장 단면
+변경 : Scm > 10cm)
+가시설 구간 우수 및 공사중 유
+입수에 대한 유도배수로 등 배수
+21 | Erol 대한 유도배수로 등 배수 | >내수로계획도면 첨부 하겠음 | (>
+(토목) {AI
+리계획을 제시할 것
+설계과정의 \『결과 자문의견, 관
+>> ㅣ련부서(지하매설물 유지관리부서
+등) 협의내용 등을 보고서에 수록 | 자료 첨부하겠음                  ㅇ
+(토목)
+
+하고 반영여부 및 내용을 명확히
+
+제시할 것
+
+- 31 -
+
+
+브
+a
+
+80
+과-|24
+6 [므
+2080
+Dy          O                 O                O               O            O
+a
+a oO    79     OM      하 가     i 대
+no KI          30    _          :         0       .     :
+Mj y | mw | WoW | wl 앨
+o |< “% |e ®         또중 jade n| 중
+_좁 W     는 abe     Ho 30 나     ae: 유
+수 | =    ar    ~   고    = jot 과    Or 69  —_| =
+K    ul    Kb          6 눈순       =       KT
+~< | 0    : 눈         =       Ree |_o ©&
+과 | = 5 ol       _    ey     Hw mS _    A] yn
+— | x0 개 RS Kir     ‘oll   Ir     ZO 5    nh | gl 24   ©   LH
+N | ak oO 대기 =   ls    Bd      il 해 띠어  So Om | Om
+KF  oot    버   90 pip LH  어 버| xt
+그 [xo 어김) | xo RO. | 00 0S |e .ongo| =z
+zo ARM KY S| <0 . Ki oo | ENA ODA RE KL] 하는
+or J] 다, A | 에이, N | RO , 00 | ok NI fo .   rH
+zk , 뻐         S            oF           =      J
+뉴    도 가 XO       ol Jor       이0 uo __.    wlo 280     To
+Ne    고 RM olnl        a        ulo    ™     or 00      ae ol
+— | Ho J| of     cae       mE    = =    1 롭
+배             a x        Ho or iol     RK x
+이     시    내                      90    10          0      a
+so 에             꼬.        = 기] 펜     메 no      jo S
+KO =           ulo OF             x        o       F 10
+UH    “— AO 0                        ~~ &     =         OF filo ※
+0 0             노노 all      꿔          So _           nN
+xy  5) & we    go ol   0 Gr Ol   Bl ol   uid Dl su
+wm | ee og    =o Siw   <a 년, 100   We   mu ail Xo
+op | oF K         에 S x0      or gu RO | Al      rl oS er
+ok NY TT    x= A! EF   a; H A   <0 0   -빼
+시   or *    101 Ho    2° or _.   어   Fe Xi 때
+OF      ot. we     Ar   olNu     100 rif 760     Woy |x
+a tu 7   <0 Jit 81   포 a B  do aT | RO <b &
+KE o& jolll     어 of LH      KO jo Au     of AJ 100   K1 TJ x0
+roe          -
+mM 609      st 609     in RO     w RO    m 60
+
+- 32 -
