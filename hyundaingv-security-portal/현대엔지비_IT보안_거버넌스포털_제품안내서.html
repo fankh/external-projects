@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>현대엔지비 IT·보안 거버넌스 포털 — 기술 제품 안내서</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1a1a40;
+    --primary-light: #2d2d5e;
+    --primary-lighter: #ecedf5;
+    --accent: #2e8b57;
+    --accent-light: #3ca06a;
+    --text: #1e1e2f;
+    --text-light: #5c5c78;
+    --border: #a0a0b8;
+    --bg: #ffffff;
+    --bg-alt: #f4f5f9;
+    --success: #2e8b57;
+    --warning: #d4950a;
+    --danger: #b33a3a;
+  }
+  @page { size: A4 landscape; margin: 0; }
+  body {
+    font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 10pt; line-height: 1.45; color: var(--text);
+    background: #e8e8e8; margin: 0; padding: 0;
+  }
+  .slide {
+    width: 297mm; height: 210mm; overflow: hidden;
+    background: #fff; margin: 10px auto; padding: 13mm 18mm 16mm 18mm;
+    position: relative; box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    page-break-after: always; break-after: page;
+  }
+  .slide::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+  }
+  .slide-footer {
+    position: absolute; bottom: 7mm; left: 18mm; right: 18mm;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 7pt; color: var(--text-light);
+    border-top: 1px solid var(--border); padding-top: 4px;
+  }
+  .slide-footer .slide-company { font-weight: 600; letter-spacing: 0.3px; }
+  .cover {
+    display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
+    height: 210mm; width: 297mm; text-align: center;
+    background: linear-gradient(160deg, #0f0f2d 0%, var(--primary) 35%, var(--primary-light) 70%, #2e8b57 100%);
+    color: white; padding: 0 60px 40px 60px;
+    page-break-after: always; break-after: page;
+    margin-left: 50%; transform: translateX(-50%); position: relative;
+  }
+  .cover-spacer { flex: 0 0 auto; height: 50mm; }
+  .cover-company { position: absolute; top: 22px; left: 28px; font-size: 11pt; font-weight: 800; letter-spacing: 2px; color: rgba(255,255,255,0.85); }
+  .cover-company .dom { display: block; font-size: 6.5pt; font-weight: 400; letter-spacing: 1.5px; opacity: 0.6; margin-top: 2px; }
+  .cover-logo {
+    width: 150px; height: 62px; border: 3px solid rgba(255,255,255,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16pt; font-weight: 800; letter-spacing: 3px;
+    margin-bottom: 28px; background: rgba(255,255,255,0.1);
+  }
+  .cover h1 { font-size: 26pt; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; line-height: 1.25; }
+  .cover .subtitle { font-size: 13pt; font-weight: 300; opacity: 0.9; margin-bottom: 24px; max-width: 620px; line-height: 1.5; }
+  .cover-divider { width: 80px; height: 3px; background: rgba(255,255,255,0.5); margin: 4px auto 20px auto; }
+  .cover .badge-row { display: flex; gap: 9px; margin-top: 4px; flex-wrap: wrap; justify-content: center; max-width: 640px; }
+  .cover .badge { background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); padding: 5px 14px; font-size: 8pt; font-weight: 600; letter-spacing: 0.3px; }
+  .cover-meta { display: flex; gap: 30px; font-size: 9pt; opacity: 0.75; margin-top: 40px; }
+  .cover-meta div { text-align: center; }
+  .cover-meta .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 2px; }
+  .cover-footer { margin-top: auto; font-size: 8pt; opacity: 0.5; }
+  .confidential {
+    position: absolute; top: 22px; right: 28px;
+    background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.35);
+    padding: 4px 12px; font-size: 7pt; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.8);
+  }
+  .toc h2 { font-size: 15pt; color: var(--primary); border-bottom: 3px solid var(--primary); padding-bottom: 9px; margin-bottom: 16px; }
+  .toc-section { margin-bottom: 11px; }
+  .toc-section-title { font-size: 9.5pt; font-weight: 700; color: var(--primary); margin-bottom: 4px; padding-left: 8px; border-left: 4px solid var(--accent); }
+  .toc ol { list-style: none; counter-reset: toc-counter; padding-left: 15px; }
+  .toc ol li { counter-increment: toc-counter; padding: 2px 0; font-size: 8.5pt; color: var(--text-light); border-bottom: 1px solid var(--border); }
+  .toc ol li::before { content: counter(toc-counter) ". "; color: var(--accent); font-weight: 700; margin-right: 5px; }
+  .section-header {
+    background: var(--primary); color: white; padding: 7px 15px; margin: 0 0 12px 0;
+    font-size: 15pt; font-weight: 700; letter-spacing: -0.3px; border-left: 6px solid var(--accent);
+  }
+  .section-header .section-num { opacity: 0.5; font-weight: 400; margin-right: 8px; }
+  h2 { font-size: 13pt; color: var(--primary); border-bottom: 3px solid var(--primary); padding-bottom: 5px; margin: 0 0 9px 0; }
+  h3 { font-size: 11.5pt; color: var(--primary); margin: 12px 0 7px 0; padding-left: 10px; border-left: 4px solid var(--accent); font-weight: 700; }
+  h4 { font-size: 9.5pt; color: var(--text); margin: 7px 0 5px 0; font-weight: 700; border-bottom: 2px solid var(--border); padding-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 5px 0 9px 0; font-size: 8.5pt; table-layout: fixed; word-wrap: break-word; overflow-wrap: break-word; border: 2px solid var(--primary); }
+  thead th { background: var(--primary); color: white; padding: 5px 7px; text-align: left; font-weight: 700; font-size: 8pt; letter-spacing: 0.2px; border-right: 1px solid rgba(255,255,255,0.2); }
+  thead th:last-child { border-right: none; }
+  tbody td { padding: 4px 7px; border-bottom: 1px solid var(--border); border-right: 1px solid #e0e0e0; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
+  tbody td:last-child { border-right: none; }
+  tbody tr:nth-child(even) { background: var(--bg-alt); }
+  .tc { text-align: center; }
+  .yes { color: var(--success); font-weight: 700; }
+  .no { color: var(--danger); font-weight: 700; }
+  .callout { background: var(--primary-lighter); border-left: 5px solid var(--accent); padding: 8px 12px; margin: 9px 0; font-size: 8.5pt; }
+  .callout strong { color: var(--primary); }
+  .diagram-box { border: 2px solid var(--border); padding: 10px; margin: 6px 0; background: var(--bg-alt); text-align: center; overflow: hidden; }
+  .diagram-caption { font-size: 7.5pt; color: var(--text-light); text-align: center; margin-top: 7px; font-weight: 600; border-top: 1px solid var(--border); padding-top: 5px; }
+  .arch-flow { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .arch-layer { width: 100%; padding: 7px 12px; text-align: center; }
+  .arch-layer-title { font-weight: 700; font-size: 8pt; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .arch-layer-items { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+  .arch-layer-items span { background: rgba(255,255,255,0.85); border: 1px solid rgba(0,0,0,0.15); padding: 2px 8px; font-size: 7.5pt; white-space: nowrap; }
+  .arch-arrow { font-size: 11pt; color: var(--primary); line-height: 1; padding: 1px 0; font-weight: 700; }
+  .flow-row { display: flex; align-items: center; gap: 0; margin: 8px 0; flex-wrap: wrap; }
+  .flow-box { flex: 1; min-width: 70px; background: var(--bg-alt); border: 2px solid var(--border); padding: 7px 8px; text-align: center; font-size: 7.5pt; }
+  .flow-box .flow-title { font-weight: 700; color: var(--primary); font-size: 8pt; margin-bottom: 2px; }
+  .flow-arrow { font-size: 12pt; color: var(--accent); padding: 0 3px; flex-shrink: 0; font-weight: 700; }
+  .flow-box.highlight { background: var(--accent); color: white; border-color: var(--accent); }
+  .flow-box.highlight .flow-title { color: white; }
+  .two-col { display: flex; gap: 16px; margin: 6px 0; }
+  .two-col > div { flex: 1; min-width: 0; }
+  .three-col { display: flex; gap: 12px; margin: 6px 0; }
+  .three-col > div { flex: 1; min-width: 0; }
+  .card { border: 2px solid var(--border); border-top: 4px solid var(--primary); padding: 9px 12px; background: var(--bg-alt); }
+  .card h4 { color: var(--primary); border-bottom: 2px solid var(--border); margin-top: 0; }
+  .kpi-row { display: flex; gap: 9px; margin: 9px 0; flex-wrap: wrap; }
+  .kpi-card { flex: 1; min-width: 80px; background: var(--bg-alt); border: 2px solid var(--border); border-top: 4px solid var(--accent); padding: 10px 6px; text-align: center; }
+  .kpi-card .kpi-value { font-size: 19pt; font-weight: 800; color: var(--primary); line-height: 1.1; }
+  .kpi-card .kpi-label { font-size: 7.5pt; color: var(--text-light); margin-top: 5px; letter-spacing: 0.3px; font-weight: 600; }
+  p { margin: 4px 0; font-size: 9pt; }
+  ul, ol { padding-left: 18px; margin: 4px 0 7px 0; font-size: 8.8pt; }
+  li { margin-bottom: 2px; }
+  .num-list { list-style: none; counter-reset: n; padding-left: 0; }
+  .num-list li { counter-increment: n; position: relative; padding-left: 27px; margin-bottom: 5px; }
+  .num-list li::before { content: counter(n); position: absolute; left: 0; top: 0; width: 19px; height: 19px; background: var(--accent); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 7.5pt; font-weight: 700; }
+  .tag { display: inline-block; background: var(--primary); color: #fff; padding: 1px 7px; font-size: 7.5pt; font-weight: 700; border-radius: 3px; margin: 1px 2px 1px 0; }
+  .tag.g { background: var(--accent); }
+  code { font-family: 'Consolas', 'Monaco', monospace; background: #eef; padding: 1px 5px; border-radius: 3px; font-size: 8pt; color: var(--primary); }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; background: #fff; }
+    .slide { box-shadow: none; margin: 0; }
+    .cover { margin-left: 0; transform: none; }
+    .diagram-box, .kpi-row, .flow-row, .callout, table { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== SLIDE 1: COVER ====== -->
+<div class="cover">
+  <div class="cover-company">SEEKERSLAB<span class="dom">seekerslab.com</span></div>
+  <div class="confidential">Confidential</div>
+  <div class="cover-spacer"></div>
+  <div class="cover-logo">IT PORTAL</div>
+  <h1>현대엔지비 IT·보안 거버넌스 포털</h1>
+  <p class="subtitle">IT 투자/비용 · 인프라 운영 · 프로젝트 · 보안 컴플라이언스를<br>단일 포털로 통합하는 전사 IT 관리 시스템 기술 제품 안내서</p>
+  <div class="cover-divider"></div>
+  <div class="badge-row">
+    <span class="badge">전자결재 워크플로우</span>
+    <span class="badge">메뉴·기능 권한관리</span>
+    <span class="badge">Knox · HR-HUB 연동</span>
+    <span class="badge">SAML SSO</span>
+    <span class="badge">보안 컴플라이언스</span>
+  </div>
+  <div class="cover-meta">
+    <div><div class="label">Version</div>1.0</div>
+    <div><div class="label">Type</div>Product Guide</div>
+    <div><div class="label">Platform</div>Windows · MS-SQL</div>
+    <div><div class="label">Classification</div>Confidential</div>
+  </div>
+  <div class="cover-footer">Integrated IT & Security Governance for the Enterprise</div>
+</div>
+
+<!-- ====== SLIDE 2: TOC ====== -->
+<div class="slide toc">
+  <h2>목차 (Table of Contents)</h2>
+  <div class="two-col">
+    <div>
+      <div class="toc-section">
+        <div class="toc-section-title">I. 시스템 개요</div>
+        <ol><li>전사 IT·보안 통합 포털</li><li>메뉴 체계 — 10대 업무 도메인</li></ol>
+      </div>
+      <div class="toc-section">
+        <div class="toc-section-title">II. 플랫폼 아키텍처</div>
+        <ol><li>3-Tier 시스템 아키텍처</li><li>권한·접근통제 모델</li><li>전자결재 워크플로우 엔진</li></ol>
+      </div>
+      <div class="toc-section">
+        <div class="toc-section-title">III. IT 운영 관리 모듈</div>
+        <ol><li>IT 투자/비용 관리</li><li>IT Request (SR) 관리</li><li>인프라 운영 관리</li><li>프로젝트 관리</li></ol>
+      </div>
+    </div>
+    <div>
+      <div class="toc-section">
+        <div class="toc-section-title">IV. 보안 거버넌스 모듈</div>
+        <ol><li>임직원 보안의식 제고</li><li>보안 컴플라이언스 (교육·점검)</li></ol>
+      </div>
+      <div class="toc-section">
+        <div class="toc-section-title">V. 연동 &amp; 공통 기반</div>
+        <ol><li>시스템 연동 아키텍처</li><li>공통 기능 &amp; 환경설정</li></ol>
+      </div>
+      <div class="toc-section">
+        <div class="toc-section-title">VI. 기술 스택 &amp; 보안</div>
+        <ol><li>기술 스택 · 보안성 · 사양 요약</li></ol>
+      </div>
+    </div>
+  </div>
+  <div class="callout">본 안내서는 검증된 전사 구축 사례를 기반으로 현대엔지비 환경에 맞춘 <strong>기술 구성</strong>을 기술한다. 시장 규모·도입 단계·인용은 포함하지 않는다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 3: I. 시스템 개요 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">I.</span> 시스템 개요 — 전사 IT·보안 통합 포털</div>
+  <p>IT 부서의 투자·비용, 인프라 운영, 개발 요청(SR), 프로젝트, 그리고 전사 보안 컴플라이언스 업무를 <strong>단일 포털</strong>에서 처리하는 통합 관리 시스템이다. 모든 업무는 공통 <strong>전자결재</strong>와 <strong>메뉴·기능 권한관리</strong> 체계 위에서 운영된다.</p>
+  <div class="three-col">
+    <div class="card"><h4>IT 운영 거버넌스</h4><ul><li>IT 투자/비용 계획·집행</li><li>SR(개발/데이터/권한) 관리</li><li>인프라·자산·장애 관리</li><li>프로젝트 진행 관리</li></ul></div>
+    <div class="card"><h4>보안 거버넌스</h4><ul><li>보안서약서 전사 징구</li><li>재택근무·출력물 관리</li><li>보안위반 관리</li><li>보안교육·점검(ISMS)</li></ul></div>
+    <div class="card"><h4>공통 기반</h4><ul><li>전자결재 워크플로우</li><li>메뉴·기능 권한관리</li><li>공통코드·엑셀양식</li><li>사내 시스템 연동</li></ul></div>
+  </div>
+  <div class="callout"><strong>설계 원칙 — 단일 통제 평면:</strong> 개별 시스템에 흩어진 IT·보안 업무를 하나의 포털로 통합하여, 전 업무에 동일한 결재·권한·감사 기준을 일관되게 적용한다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 4: I. 메뉴 체계 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">I.</span> 시스템 개요 — 메뉴 체계 (10대 업무 도메인)</div>
+  <table>
+    <thead><tr><th style="width:20%">대분류 (LV1)</th><th>주요 중분류 (LV2 / LV3)</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Main (Home)</strong></td><td>개인별 현황(관리대상 현황), 게시판(공지사항·QnA)</td></tr>
+      <tr><td><strong>IT 투자/비용</strong></td><td>투자(경영계획·시행·계약내역·정산품의·계획대비실적), 비용(경영계획·시행·계약내역·속보·정산품의), 자산관리</td></tr>
+      <tr><td><strong>IT Request</strong></td><td>SR신청(시스템개발·데이터·계정/권한), Request 관리(신청내역·CI SR·SR·지연내역)</td></tr>
+      <tr><td><strong>인프라 운영</strong></td><td>인프라관리(랙·H/W·서버·시스템·배치·인터페이스), 장애관리, 인프라변경관리, 시스템개발변경관리</td></tr>
+      <tr><td><strong>프로젝트</strong></td><td>프로젝트 진행현황(일정·인력·이슈·산출물·주간보고)</td></tr>
+      <tr><td><strong>임직원의식제고</strong></td><td>보안서약서, 재택근무 체크리스트, 출력물 개인정보관리, 보안위반</td></tr>
+      <tr><td><strong>보안컴플라이언스</strong></td><td>보안교육(연간계획·결과·이수현황), 보안점검(기준·계획·진행내역)</td></tr>
+      <tr><td><strong>My Work</strong></td><td>나의 할일, 결재 상신함</td></tr>
+      <tr><td><strong>환경설정</strong></td><td>권한관리(사용자·그룹·결재선·메뉴·기능), 코드관리(공통코드·객체·엑셀양식)</td></tr>
+      <tr><td><strong>기타(기반)</strong></td><td>이메일·문자 연동, 인사정보 연동, SSO, 서버세팅, 보안성 검토</td></tr>
+    </tbody>
+  </table>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 5: II. 아키텍처 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">II.</span> 플랫폼 아키텍처 — 3-Tier 시스템 구성</div>
+  <div class="diagram-box">
+    <div class="arch-flow">
+      <div class="arch-layer" style="background:#ecedf5;border:2px solid #1a1a40;">
+        <div class="arch-layer-title" style="color:#1a1a40;">사용자 계층 (Client)</div>
+        <div class="arch-layer-items"><span>웹 브라우저</span><span>SAML SSO (Knox)</span><span>메뉴·기능 권한 렌더링</span></div>
+      </div>
+      <div class="arch-arrow">&#x25BC;</div>
+      <div class="arch-layer" style="background:#e6f2ec;border:2px solid #2e8b57;">
+        <div class="arch-layer-title" style="color:#2e8b57;">애플리케이션 계층 (WAS)</div>
+        <div class="arch-layer-items"><span>업무 모듈</span><span>전자결재 엔진</span><span>권한·결재선 관리</span><span>배치 스케줄러</span></div>
+      </div>
+      <div class="arch-arrow">&#x25BC;</div>
+      <div class="arch-layer" style="background:#e8e8f0;border:2px solid #2d2d5e;">
+        <div class="arch-layer-title" style="color:#2d2d5e;">연동 계층 (Integration)</div>
+        <div class="arch-layer-items"><span>Knox (메일·결재)</span><span>HR-HUB · PTMS</span><span>자산관리·ESCORT</span><span>REST API</span></div>
+      </div>
+      <div class="arch-arrow">&#x25BC;</div>
+      <div class="arch-layer" style="background:#e0f0e8;border:2px solid #1f6b42;">
+        <div class="arch-layer-title" style="color:#1f6b42;">데이터 계층 (MS-SQL)</div>
+        <div class="arch-layer-items"><span>업무 데이터</span><span>첨부파일 스토리지</span><span>DB 암호화 (개인정보)</span></div>
+      </div>
+    </div>
+    <div class="diagram-caption">그림 1. IT·보안 거버넌스 포털 3-Tier 아키텍처 (Windows · WAS · MS-SQL)</div>
+  </div>
+  <div class="callout"><strong>플랫폼:</strong> Windows Server · WAS · MS-SQL 기반의 사내 온프레미스 구축. 개인정보 컬럼은 DB 암호화, 개발 전 과정에 시큐어코딩·보안성 검토를 적용한다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 6: II. 권한 모델 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">II.</span> 플랫폼 아키텍처 — 권한 · 접근통제 모델</div>
+  <div class="two-col">
+    <div>
+      <h3>권한그룹 × 기능(Action)</h3>
+      <table>
+        <thead><tr><th style="width:30%">권한그룹</th><th>기본 접근 범위</th></tr></thead>
+        <tbody>
+          <tr><td><strong>사용자</strong></td><td>본인 업무 신청·조회</td></tr>
+          <tr><td><strong>부서담당</strong></td><td>부서 단위 취합·결재상신</td></tr>
+          <tr><td><strong>업무담당</strong></td><td>전사 업무 처리·관리</td></tr>
+          <tr><td><strong>Admin</strong></td><td>시스템·권한·코드 관리</td></tr>
+        </tbody>
+      </table>
+      <p class="tc"><span class="tag g">조회</span><span class="tag g">저장</span><span class="tag g">삭제</span><span class="tag g">엑셀</span><span class="tag g">확정</span><span class="tag g">업로드</span><span class="tag g">결재</span></p>
+    </div>
+    <div>
+      <h3>메뉴 권한관리 체계</h3>
+      <ul>
+        <li><strong>메뉴기능관리</strong> — 화면 기능 정의(조회/저장/삭제/엑셀 등)</li>
+        <li><strong>메뉴관리</strong> — 카테고리·화면번호·기능 부여</li>
+        <li><strong>메뉴권한관리</strong> — 메뉴권한별 사용 메뉴·기능 및 사용자 매핑</li>
+        <li><strong>사용자그룹관리</strong> — 보안담당·IT지원·BA 등 그룹 정의</li>
+        <li><strong>결재선관리</strong> — 화면별 기본 결재선 관리</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><strong>화면·기능 단위 통제:</strong> 권한은 메뉴(화면)와 기능(버튼) 단위로 사용자·그룹에 매핑되어, 동일 화면에서도 역할에 따라 노출 기능이 달라진다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 7: II. 전자결재 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">II.</span> 플랫폼 아키텍처 — 전자결재 워크플로우 엔진</div>
+  <h3>공통 상신 → 결재 → 결과 흐름</h3>
+  <div class="flow-row">
+    <div class="flow-box"><div class="flow-title">임시저장</div>작성 중</div>
+    <div class="flow-arrow">&#x25B6;</div>
+    <div class="flow-box"><div class="flow-title">결재상신</div>결재선 지정</div>
+    <div class="flow-arrow">&#x25B6;</div>
+    <div class="flow-box highlight"><div class="flow-title">결재 진행</div>Knox 연동</div>
+    <div class="flow-arrow">&#x25B6;</div>
+    <div class="flow-box"><div class="flow-title">승인 / 반려</div>상태 갱신</div>
+    <div class="flow-arrow">&#x25B6;</div>
+    <div class="flow-box"><div class="flow-title">결과등록</div>이력 관리</div>
+  </div>
+  <h3>진행상태(Status Code) 기반 관리</h3>
+  <table>
+    <thead><tr><th style="width:26%">대상 업무</th><th style="width:26%">테이블</th><th>진행상태 관리</th></tr></thead>
+    <tbody>
+      <tr><td>시스템개발/데이터/계정·권한 SR</td><td><code>service_requests</code></td><td>상신·반려·승인·적용요청 단계별 <code>sr_status_code</code></td></tr>
+      <tr><td>인프라·시스템개발 변경관리</td><td><code>modifications</code></td><td>작업등록 상신·완료 상신 2단계(계획/결과) 분리</td></tr>
+      <tr><td>장애 통계현황 보고</td><td><code>failures</code></td><td>상신일자·결재상태, 엑셀양식 자동첨부</td></tr>
+      <tr><td>보안위반 사실확인서</td><td><code>violations</code></td><td>징구·결재중·결과미등록 <code>status_code</code></td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><strong>양식 자동첨부:</strong> 결재 상신 시 본문 작성 첨부 또는 메뉴관리에 등록된 <strong>엑셀양식</strong>이 결재 문서에 자동 첨부되며, 상신·반려·완료에 따라 진행상태가 자동 반영된다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 8: III. IT 투자/비용 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">III.</span> IT 운영 관리 — IT 투자/비용 관리</div>
+  <div class="two-col">
+    <div>
+      <h3>투자/비용 집행 라이프사이클</h3>
+      <div class="flow-row" style="flex-wrap:wrap;">
+        <div class="flow-box"><div class="flow-title">경영계획</div>과제 수립</div>
+        <div class="flow-arrow">&#x25B6;</div>
+        <div class="flow-box"><div class="flow-title">시행</div>계약 품의</div>
+        <div class="flow-arrow">&#x25B6;</div>
+        <div class="flow-box"><div class="flow-title">계약내역</div>부속서류</div>
+        <div class="flow-arrow">&#x25B6;</div>
+        <div class="flow-box highlight"><div class="flow-title">정산품의</div>지급·결재</div>
+      </div>
+      <ul>
+        <li>개인별 과제 작성 → 취합 → 효율화 → 최종 계획 확정</li>
+        <li>계약별 부속서류(계약서·보안관리약정서) 관리</li>
+        <li>착수금·중도금·잔금 등 항목별 정산품의 상신</li>
+        <li>계획대비실적 · 계획외 건 추가 처리</li>
+      </ul>
+    </div>
+    <div>
+      <h3>비용 속보 &amp; 자산관리</h3>
+      <ul>
+        <li><strong>속보</strong> — 월별·거래처별 지불 예상액 등록·이력관리</li>
+        <li>정산 &gt; 계약 &gt; 계획 우선순위로 금액 표시</li>
+        <li><strong>자산등록</strong> — 자산관리시스템 API 연계로 자산등록번호 취득</li>
+      </ul>
+      <div class="callout" style="margin-top:8px;">투자·비용 전 과정이 결재와 연동되며, 정산품의는 시행 시 등록된 계약을 불러와 상신한다.</div>
+    </div>
+  </div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 9: III. IT Request (SR) ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">III.</span> IT 운영 관리 — IT Request (SR) 관리</div>
+  <div class="two-col">
+    <div>
+      <h3>3종 SR 신청</h3>
+      <table>
+        <thead><tr><th style="width:42%">SR 유형</th><th>처리 흐름</th></tr></thead>
+        <tbody>
+          <tr><td><strong>시스템개발 SR</strong></td><td>등록 → 심의·결재 → CI 배정 → 개발 → 테스트 → 적용요청 → 반영 → 완료</td></tr>
+          <tr><td><strong>데이터 SR</strong></td><td>등록 → 결재 → CI 배정 → 처리 → 완료</td></tr>
+          <tr><td><strong>계정/권한 SR</strong></td><td>권한 부여·삭제, 계정 초기화·잠금해제 신청</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">한 SR(PK)에 최대 3종 업로드 파일 관리. 신청 상신과 <strong>적용요청서</strong> 상신은 별도 진행상태로 관리된다.</div>
+    </div>
+    <div>
+      <h3>Request 관리 (BA · CI)</h3>
+      <ul>
+        <li><strong>신청내역</strong> — BA 승인/반려, CI 배정·착수</li>
+        <li><strong>CI SR 관리</strong> — 결재 없는 SR 접수·처리 이력</li>
+        <li><strong>SR 관리</strong> — 진행사항·예상/실제 완료일·공수·담당자</li>
+        <li><strong>지연내역</strong> — 결재완료 SR 중 지연 건 관리</li>
+      </ul>
+    </div>
+  </div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 10: III. 인프라 운영 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">III.</span> IT 운영 관리 — 인프라 운영 관리</div>
+  <div class="two-col">
+    <div>
+      <h3>인프라 · 자산 관리</h3>
+      <ul>
+        <li><strong>랙관리 / 랙구성도</strong> — 위치·사이즈·자산번호, 랙→H/W→서버→시스템→배치→인터페이스 도식화</li>
+        <li><strong>H/W 관리</strong> — 물리서버·네트워크·스토리지</li>
+        <li><strong>서버관리</strong> — IP·Hostname·OS·CPU·메모리·용도</li>
+        <li><strong>시스템관리</strong> — 시스템별 URL·개발/운영계 현황</li>
+        <li>배치·인터페이스·디스크 사용현황 관리</li>
+      </ul>
+    </div>
+    <div>
+      <h3>장애 &amp; 변경 관리</h3>
+      <ul>
+        <li><strong>장애관리</strong> — 장애 등록·조치내역, 항목·등급 공통코드화</li>
+        <li><strong>장애통계·향후대책</strong> — 주기별 취합·결재상신</li>
+        <li><strong>인프라변경관리</strong> — 작업계획·원복계획, 계획/결과 2단계 상신</li>
+        <li><strong>시스템개발변경관리</strong> — SR 적용요청 결재완료 건 연계</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><strong>변경관리 2단계 결재:</strong> 인프라·시스템개발 변경은 <strong>작업등록 상신</strong>과 <strong>작업완료 상신</strong>을 분리 관리하며(<code>modifications</code>), 결과 등록으로 이력이 마감된다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 11: III. 프로젝트 관리 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">III.</span> IT 운영 관리 — 프로젝트 관리</div>
+  <h3>프로젝트 진행 관리</h3>
+  <p>계약정보와 연동하여 프로젝트를 등록하고, 담당자·일정·업체·투입인력·산출물을 통합 관리한다.</p>
+  <div class="three-col">
+    <div class="card"><h4>계획 · 등록</h4><ul><li>계약정보 연동 등록</li><li>담당자·업체·계획일정</li><li>인력 투입계획(첨부)</li></ul></div>
+    <div class="card"><h4>진행 · 관리</h4><ul><li>프로젝트 진행현황</li><li>이슈 &amp; 리스크 관리</li><li>회의록 관리</li></ul></div>
+    <div class="card"><h4>산출 · 보고</h4><ul><li>일정/산출물 관리</li><li>필요 산출물 체크</li><li>주간보고</li></ul></div>
+  </div>
+  <div class="callout"><strong>계약 연동:</strong> IT 투자/비용의 계약정보와 연동되어, 계약–프로젝트–산출물이 하나의 흐름으로 추적된다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 12: IV. 임직원 보안의식 제고 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">IV.</span> 보안 거버넌스 — 임직원 보안의식 제고</div>
+  <div class="two-col">
+    <div>
+      <h3>보안서약서 (전사 징구)</h3>
+      <ul>
+        <li>일반·관리책임자·재택근무·특별(보안담당자) 서약서</li>
+        <li>연도별 양식(개정일자) 관리, 동의 진행·이력</li>
+        <li><strong>협력업체 서약서</strong> — 징구·첨부·결재(<code>company_pledges</code>)</li>
+        <li><strong>부서서약현황</strong> — 부서·전사 진행현황, 미서약 안내메일(입사·복직·개정 기준)</li>
+        <li>Knox 계정 미보유자 스캔본 업로드</li>
+      </ul>
+    </div>
+    <div>
+      <h3>재택 · 출력물 · 보안위반</h3>
+      <ul>
+        <li><strong>재택근무 체크리스트</strong> — 대상자 관리, 주기별 동의·조회</li>
+        <li><strong>출력물 개인정보관리</strong> — 폐기현황 일배치 이관, 본인·부서 결재상신(<code>printout_discards</code>)</li>
+        <li><strong>보안위반관리</strong> — 위반내역 등록, 확인서 요청(메일)</li>
+        <li><strong>사실확인서</strong> — 위반자 본인 작성·결재(<code>violations</code>)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><strong>근태·인사 연동:</strong> 서약 대상·미서약자 판별은 HR-HUB/PTMS의 인사·근태 정보와 연동되며, 안내메일이 자동 발송된다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 13: IV. 보안 컴플라이언스 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">IV.</span> 보안 거버넌스 — 보안 컴플라이언스 (교육·점검)</div>
+  <div class="two-col">
+    <div>
+      <h3>보안교육</h3>
+      <ul>
+        <li><strong>연간계획</strong> — 결재완료 계획 업로드·조회(연도별)</li>
+        <li><strong>결과관리</strong> — 과정별 교육결과·명단 등록</li>
+        <li><strong>이수현황</strong> — 결과 기반 이수현황 조회</li>
+        <li><strong>게시/공지 이력</strong> — 완료 내역 업로드·조회</li>
+      </ul>
+    </div>
+    <div>
+      <h3>보안점검 (ISMS)</h3>
+      <ul>
+        <li><strong>기준관리</strong> — 점검 항목 템플릿, ISMS·외부기관 항목 코드 관리(대·중분류)</li>
+        <li><strong>점검계획</strong> — 템플릿 기반 연간 계획, 대상·주기·점검자, 경과 알림메일</li>
+        <li><strong>진행내역</strong> — 항목별 결과·증적 등록, 현황판(계획/미등록/완료), 부서장·담당부서장 결재</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><strong>점검 추적성:</strong> 계획–결과–증적이 항목 단위로 연결되고 결재로 마감되어, ISMS 등 외부 감사 대응 근거를 확보한다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 14: V. 연동 아키텍처 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">V.</span> 연동 &amp; 공통 기반 — 시스템 연동 아키텍처</div>
+  <div class="diagram-box">
+    <div class="flow-row" style="flex-wrap:wrap;justify-content:center;">
+      <div class="flow-box"><div class="flow-title">Knox Portal</div>메일 발송 · 전자결재 · SAML SSO</div>
+      <div class="flow-box"><div class="flow-title">HR-HUB · PTMS</div>사용자 기본정보 · 근태</div>
+      <div class="flow-box"><div class="flow-title">자산관리시스템</div>API 자산 조회·등록</div>
+      <div class="flow-box"><div class="flow-title">ESCORT · PRINTERCHASER</div>보안·출력물 자료 조회</div>
+      <div class="flow-box"><div class="flow-title">홈페이지 서버</div>문자(SMS) 발송</div>
+    </div>
+    <div class="diagram-caption">그림 2. 사내 시스템 연동 구성 (REST API · DB 연계 · SAML)</div>
+  </div>
+  <table>
+    <thead><tr><th style="width:22%">연동 대상</th><th style="width:20%">방식</th><th>용도</th></tr></thead>
+    <tbody>
+      <tr><td>Knox Portal</td><td>SAML / REST API</td><td>SSO 인증, 이메일 발송, 전자결재 연동</td></tr>
+      <tr><td>HR-HUB · PTMS</td><td>인터페이스 연동</td><td>사용자정보·근태 연동(서약·권한 기준)</td></tr>
+      <tr><td>자산관리시스템</td><td>REST API</td><td>자산정보 조회·신규 자산등록번호 취득</td></tr>
+      <tr><td>ESCORT · PRINTERCHASER 등</td><td>DB 연결</td><td>보안·출력물 자료 조회</td></tr>
+    </tbody>
+  </table>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 15: V. 공통 기능 & 환경설정 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">V.</span> 연동 &amp; 공통 기반 — 공통 기능 &amp; 환경설정</div>
+  <div class="two-col">
+    <div>
+      <h3>공통 기능</h3>
+      <ul>
+        <li><strong>첨부파일</strong> — 결재·게시·SR·계약·장애·서약 등 전 모듈 공통</li>
+        <li><strong>엑셀 업/다운로드</strong> — 양식관리 기반 출력·업로드</li>
+        <li><strong>안내메일 발송</strong> — 미서약·경과·장애 등 자동 알림</li>
+        <li><strong>My Work</strong> — 나의 할일, 결재 상신함(상태·상세 조회)</li>
+      </ul>
+    </div>
+    <div>
+      <h3>환경설정 (Admin)</h3>
+      <ul>
+        <li><strong>권한관리</strong> — 사용자·그룹·결재선·메뉴·기능·메뉴권한</li>
+        <li><strong>공통코드</strong> — 사용여부·기간, 분류기준(日·週·月·分期·半期·年)</li>
+        <li><strong>객체관리</strong> — 시스템·보안준수 객체 관리</li>
+        <li><strong>엑셀양식관리</strong> — 비용계획·인프라 보안성검토 등 양식 업로드</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><strong>코드·양식 중심 운영:</strong> 장애 등급·점검 주기·결재 상태 등은 공통코드로, 결재·출력 양식은 엑셀양식관리로 통제되어 현업이 직접 유지보수한다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+<!-- ====== SLIDE 16: VI. 기술 스택 & 보안 ====== -->
+<div class="slide">
+  <div class="section-header"><span class="section-num">VI.</span> 기술 스택 &amp; 보안 — 사양 요약</div>
+  <div class="two-col">
+    <div class="card">
+      <h4>플랫폼 · 인프라</h4>
+      <ul>
+        <li><strong>OS</strong> — Windows Server</li>
+        <li><strong>WAS</strong> — 웹 애플리케이션 서버</li>
+        <li><strong>DB</strong> — MS-SQL (개발계/운영계 분리)</li>
+        <li><strong>배포</strong> — 사내 온프레미스</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>보안 · 컴플라이언스</h4>
+      <ul>
+        <li><strong>인증</strong> — SAML 기반 SSO (Knox)</li>
+        <li><strong>접근통제</strong> — 메뉴·기능 권한관리</li>
+        <li><strong>DB 암호화</strong> — 개인정보 컬럼 암호화</li>
+        <li><strong>보안성 검토</strong> — 시큐어코딩·취약점 점검·자료 제출</li>
+      </ul>
+    </div>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-value">10</div><div class="kpi-label">업무 도메인(LV1)</div></div>
+    <div class="kpi-card"><div class="kpi-value">70+</div><div class="kpi-label">업무 화면(메뉴)</div></div>
+    <div class="kpi-card"><div class="kpi-value">4</div><div class="kpi-label">권한그룹</div></div>
+    <div class="kpi-card"><div class="kpi-value">14</div><div class="kpi-label">전자결재 유형</div></div>
+    <div class="kpi-card"><div class="kpi-value">SAML</div><div class="kpi-label">SSO 인증</div></div>
+  </div>
+  <div class="callout"><strong>단일 포털 · 단일 거버넌스:</strong> IT 운영과 보안 컴플라이언스를 하나의 권한·결재·감사 체계로 통합하여, 전사 IT·보안 업무의 표준화와 추적성을 확보한다.</div>
+  <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+</div>
+
+</body>
+</html>
