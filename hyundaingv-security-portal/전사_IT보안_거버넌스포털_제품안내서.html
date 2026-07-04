@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>현대엔지비 IT·보안 거버넌스 포털 — 기술 제품 안내서</title>
+<title>전사 IT·보안 거버넌스 포털 — 기술 제품 안내서</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -146,13 +146,13 @@
   <div class="confidential">Confidential</div>
   <div class="cover-spacer"></div>
   <div class="cover-logo">IT PORTAL</div>
-  <h1>현대엔지비 IT·보안 거버넌스 포털</h1>
+  <h1>전사 IT·보안 거버넌스 포털</h1>
   <p class="subtitle">IT 투자/비용 · 인프라 운영 · 프로젝트 · 보안 컴플라이언스를<br>단일 포털로 통합하는 전사 IT 관리 시스템 기술 제품 안내서</p>
   <div class="cover-divider"></div>
   <div class="badge-row">
     <span class="badge">전자결재 워크플로우</span>
     <span class="badge">메뉴·기능 권한관리</span>
-    <span class="badge">Knox · HR-HUB 연동</span>
+    <span class="badge">그룹웨어 · 인사 연동</span>
     <span class="badge">SAML SSO</span>
     <span class="badge">보안 컴플라이언스</span>
   </div>
@@ -199,9 +199,9 @@
       </div>
     </div>
   </div>
-  <div class="callout">본 안내서는 검증된 전사 구축 사례(IT포털시스템 개발 요구사항)를 기반으로 현대엔지비 환경에 맞춘 <strong>기술 구성</strong>을 기술한다. 시장 규모·도입 단계·인용은 포함하지 않으며, 전 모듈은 공통 <strong>전자결재</strong>·<strong>메뉴/기능 권한관리</strong>·<strong>첨부·엑셀양식</strong> 기반 위에서 동작한다.</div>
+  <div class="callout">본 안내서는 검증된 전사 구축 사례(IT포털시스템 개발 요구사항)를 기반으로 고객사 환경에 맞춘 <strong>기술 구성</strong>을 기술한다. 시장 규모·도입 단계·인용은 포함하지 않으며, 전 모듈은 공통 <strong>전자결재</strong>·<strong>메뉴/기능 권한관리</strong>·<strong>첨부·엑셀양식</strong> 기반 위에서 동작한다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 3: I. 시스템 개요 ====== -->
@@ -212,7 +212,7 @@
   <div class="three-col">
     <div class="card"><h4>IT 운영 거버넌스</h4><ul><li>IT 투자/비용 계획·집행·정산</li><li>SR(개발/데이터/권한) 접수·처리</li><li>인프라·자산·장애·변경 관리</li><li>프로젝트 진행·산출물 관리</li></ul></div>
     <div class="card"><h4>보안 거버넌스</h4><ul><li>보안서약서 전사 징구·현황</li><li>재택근무·출력물 개인정보</li><li>보안위반 관리·사실확인서</li><li>보안교육·보안점검(ISMS)</li></ul></div>
-    <div class="card"><h4>공통 기반</h4><ul><li>전자결재 워크플로우 엔진</li><li>메뉴·기능 권한관리</li><li>공통코드·엑셀양식·첨부</li><li>Knox·HR-HUB 등 사내 연동</li></ul></div>
+    <div class="card"><h4>공통 기반</h4><ul><li>전자결재 워크플로우 엔진</li><li>메뉴·기능 권한관리</li><li>공통코드·엑셀양식·첨부</li><li>그룹웨어·인사 등 사내 연동</li></ul></div>
   </div>
   <h3>운영 주체 (권한그룹)</h3>
   <table>
@@ -226,7 +226,7 @@
   </table>
   <div class="callout"><strong>설계 원칙 — 단일 통제 평면:</strong> 개별 시스템에 흩어진 IT·보안 업무를 하나의 포털로 통합하여, 전 업무에 동일한 결재·권한·감사 기준을 일관되게 적용한다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 4: I. 메뉴 체계 ====== -->
@@ -253,7 +253,7 @@
     </tbody>
   </table>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 5: II. 아키텍처 ====== -->
@@ -264,7 +264,7 @@
     <div class="arch-flow">
       <div class="arch-layer" style="background:#ecedf5;border:2px solid #1a1a40;">
         <div class="arch-layer-title" style="color:#1a1a40;">사용자 계층 (Client)</div>
-        <div class="arch-layer-items"><span>웹 브라우저</span><span>SAML SSO (Knox)</span><span>메뉴·기능 권한 렌더링</span><span>My Work</span></div>
+        <div class="arch-layer-items"><span>웹 브라우저</span><span>SAML SSO</span><span>메뉴·기능 권한 렌더링</span><span>My Work</span></div>
       </div>
       <div class="arch-arrow">&#x25BC;</div>
       <div class="arch-layer" style="background:#e6f2ec;border:2px solid #2e8b57;">
@@ -274,7 +274,7 @@
       <div class="arch-arrow">&#x25BC;</div>
       <div class="arch-layer" style="background:#e8e8f0;border:2px solid #2d2d5e;">
         <div class="arch-layer-title" style="color:#2d2d5e;">연동 계층 (Integration)</div>
-        <div class="arch-layer-items"><span>Knox (메일·결재·SSO)</span><span>HR-HUB · PTMS</span><span>자산관리 · ESCORT</span><span>REST API · DB 연계</span></div>
+        <div class="arch-layer-items"><span>그룹웨어 (메일·결재·SSO)</span><span>인사·근태 시스템</span><span>자산관리 · 보안관제</span><span>REST API · DB 연계</span></div>
       </div>
       <div class="arch-arrow">&#x25BC;</div>
       <div class="arch-layer" style="background:#e0f0e8;border:2px solid #1f6b42;">
@@ -289,12 +289,12 @@
     <tbody>
       <tr><td><strong>사용자 계층</strong></td><td>SAML SSO 인증 후 사용자에게 부여된 메뉴·기능만 렌더링, 개인화된 나의 할일·결재함 제공</td></tr>
       <tr><td><strong>애플리케이션 계층</strong></td><td>10대 업무 모듈, 공통 전자결재·결재선 엔진, 배치(폐기 이관·안내메일), 메일/문자 발송</td></tr>
-      <tr><td><strong>연동 계층</strong></td><td>Knox·HR-HUB·PTMS·자산관리·ESCORT 등 사내 시스템과 REST API / DB로 연계</td></tr>
+      <tr><td><strong>연동 계층</strong></td><td>그룹웨어·인사·근태·자산관리·보안관제 등 사내 시스템과 REST API / DB로 연계</td></tr>
       <tr><td><strong>데이터 계층</strong></td><td>MS-SQL 업무 데이터 및 첨부 저장, 개인정보 컬럼 DB 암호화</td></tr>
     </tbody>
   </table>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 6: II. 권한 모델 ====== -->
@@ -337,7 +337,7 @@
   </div>
   <div class="callout"><strong>화면·기능 단위 최소권한:</strong> 사용자에게는 매핑된 메뉴·기능만 노출되어, 조회는 가능하되 저장·삭제·결재는 권한이 있는 역할에만 허용된다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 7: II. 전자결재 ====== -->
@@ -350,7 +350,7 @@
     <div class="flow-arrow">&#x25B6;</div>
     <div class="flow-box"><div class="flow-title">결재상신</div>결재선 지정</div>
     <div class="flow-arrow">&#x25B6;</div>
-    <div class="flow-box highlight"><div class="flow-title">결재 진행</div>Knox 연동</div>
+    <div class="flow-box highlight"><div class="flow-title">결재 진행</div>그룹웨어 연동</div>
     <div class="flow-arrow">&#x25B6;</div>
     <div class="flow-box"><div class="flow-title">승인 / 반려</div>상태 갱신</div>
     <div class="flow-arrow">&#x25B6;</div>
@@ -372,7 +372,7 @@
     <div class="callout" style="margin:6px 0;"><strong>상태 자동 반영:</strong> 상신·취소·반려·완료 각 단계마다 업무 테이블의 진행상태 코드가 자동 갱신된다.</div>
   </div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 8: III. IT 투자/비용 ====== -->
@@ -404,7 +404,7 @@
   </table>
   <div class="callout"><strong>계약–정산 연동:</strong> 정산품의는 시행 단계에서 등록된 계약을 기준으로 상신되며, 지급 항목별로 결재·일정이 추적된다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 9: III. IT Request (SR) ====== -->
@@ -450,7 +450,7 @@
   </div>
   <div class="callout"><strong>첨부·상신 분리:</strong> 하나의 SR(PK)에 최대 3종 업로드 파일을 관리하며, 신청 상신과 <strong>적용요청서</strong> 상신은 별도 진행상태(<code>sr_status_code</code>)로 관리된다. (매주 수·목 반영 주기)</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 10: III. 인프라 운영 ====== -->
@@ -472,7 +472,7 @@
   </table>
   <div class="callout"><strong>변경관리 2단계 결재:</strong> 인프라·시스템개발 변경은 <strong>작업등록 상신(계획)</strong>과 <strong>작업완료 상신(결과)</strong>을 분리 관리하며(<code>modifications</code>), 한 건이 2회 상신되므로 진행상태로 계획/결과를 구분한다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 11: III. 프로젝트 관리 ====== -->
@@ -502,7 +502,7 @@
   </table>
   <div class="callout"><strong>계약–프로젝트–산출물 추적:</strong> 계약정보와 연동되어 투자/비용 집행과 프로젝트 산출물이 단절 없이 연결·추적된다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 12: IV. 임직원 보안의식 제고 ====== -->
@@ -547,9 +547,9 @@
     <div class="flow-arrow">&#x25B6;</div>
     <div class="flow-box highlight"><div class="flow-title">결재 마감</div>증적 보존</div>
   </div>
-  <div class="callout"><strong>근태·인사 연동:</strong> 서약 대상·미서약자 판별은 HR-HUB/PTMS의 인사·근태 정보와 연동되며, 대상자에게 안내메일이 자동 발송된다. 서약·확인서·폐기 전 과정이 결재로 마감되어 증적이 남는다.</div>
+  <div class="callout"><strong>근태·인사 연동:</strong> 서약 대상·미서약자 판별은 인사·근태 시스템의 정보와 연동되며, 대상자에게 안내메일이 자동 발송된다. 서약·확인서·폐기 전 과정이 결재로 마감되어 증적이 남는다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 13: IV. 보안 컴플라이언스 ====== -->
@@ -593,7 +593,7 @@
   </div>
   <div class="callout"><strong>점검 추적성:</strong> 계획–결과–증적이 항목 단위로 연결되고 결재로 마감되어, ISMS 등 외부 감사 대응 근거를 확보한다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 14: V. 연동 아키텍처 ====== -->
@@ -602,10 +602,10 @@
   <div class="section-header"><span class="section-num">V.</span> 연동 &amp; 공통 기반 — 시스템 연동 아키텍처</div>
   <div class="diagram-box">
     <div class="flow-row" style="flex-wrap:wrap;justify-content:center;">
-      <div class="flow-box"><div class="flow-title">Knox Portal</div>메일 · 전자결재 · SAML SSO</div>
-      <div class="flow-box"><div class="flow-title">HR-HUB · PTMS</div>사용자 기본정보 · 근태</div>
+      <div class="flow-box"><div class="flow-title">그룹웨어 포털</div>메일 · 전자결재 · SAML SSO</div>
+      <div class="flow-box"><div class="flow-title">인사·근태 시스템</div>사용자 기본정보 · 근태</div>
       <div class="flow-box"><div class="flow-title">자산관리시스템</div>API 자산 조회·등록</div>
-      <div class="flow-box"><div class="flow-title">ESCORT · PRINTERCHASER</div>보안·출력물 자료 조회</div>
+      <div class="flow-box"><div class="flow-title">보안·출력물 시스템</div>보안·출력물 자료 조회</div>
       <div class="flow-box"><div class="flow-title">홈페이지 서버</div>문자(SMS) 발송</div>
     </div>
     <div class="diagram-caption">그림 2. 사내 시스템 연동 구성 (SAML · REST API · DB 연계)</div>
@@ -613,16 +613,16 @@
   <table>
     <thead><tr><th style="width:22%">연동 대상</th><th style="width:20%">방식</th><th>용도</th></tr></thead>
     <tbody>
-      <tr><td><strong>Knox Portal</strong></td><td>SAML / REST API</td><td>SSO 인증, 이메일 발송, 전자결재 연동 (결재는 Knox에서 확인)</td></tr>
-      <tr><td><strong>HR-HUB · PTMS</strong></td><td>인터페이스 연동</td><td>사용자정보·근태 연동 (서약 대상·권한·미서약 판별 기준)</td></tr>
-      <tr><td><strong>자산관리시스템</strong></td><td>REST API</td><td>자산정보 조회 및 신규 자산등록번호 취득(더존 자산 등록 연계)</td></tr>
-      <tr><td><strong>ESCORT · PRINTERCHASER 등</strong></td><td>DB 연결</td><td>보안·출력물 등 외부 시스템 자료 조회</td></tr>
+      <tr><td><strong>그룹웨어 포털</strong></td><td>SAML / REST API</td><td>SSO 인증, 이메일 발송, 전자결재 연동 (결재는 그룹웨어에서 확인)</td></tr>
+      <tr><td><strong>인사·근태 시스템</strong></td><td>인터페이스 연동</td><td>사용자정보·근태 연동 (서약 대상·권한·미서약 판별 기준)</td></tr>
+      <tr><td><strong>자산관리시스템</strong></td><td>REST API</td><td>자산정보 조회 및 신규 자산등록번호 취득(자산 등록 연계)</td></tr>
+      <tr><td><strong>보안·출력물 시스템 등</strong></td><td>DB 연결</td><td>보안·출력물 등 외부 시스템 자료 조회</td></tr>
       <tr><td><strong>홈페이지 서버</strong></td><td>REST API</td><td>문자(SMS) 발송, 외부 메일 발송 검토</td></tr>
     </tbody>
   </table>
   <div class="callout"><strong>표준 인터페이스:</strong> SAML SSO와 REST API·DB 연계를 통해 사내 인증·인사·자산·보안 시스템과 단절 없이 통합되며, 인증·발송·자료 조회가 포털 내에서 일원화된다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 15: V. 공통 기능 & 환경설정 ====== -->
@@ -657,7 +657,7 @@
   </div>
   <div class="callout"><strong>코드·양식 중심 운영:</strong> 장애 등급·점검 주기·결재 상태 등은 공통코드로, 결재·출력 양식은 엑셀양식관리로 통제되어 현업이 개발 없이 직접 유지보수할 수 있다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 <!-- ====== SLIDE 16: VI. 기술 스택 & 보안 ====== -->
@@ -678,7 +678,7 @@
     <div class="card">
       <h4>보안 · 컴플라이언스</h4>
       <ul>
-        <li><strong>인증</strong> — SAML 기반 SSO (Knox)</li>
+        <li><strong>인증</strong> — SAML 기반 SSO</li>
         <li><strong>접근통제</strong> — 메뉴·기능 권한관리</li>
         <li><strong>DB 암호화</strong> — 개인정보 컬럼 암호화</li>
         <li><strong>감사</strong> — 전자결재·이력 추적성</li>
@@ -695,7 +695,7 @@
   </div>
   <div class="callout"><strong>단일 포털 · 단일 거버넌스:</strong> IT 운영과 보안 컴플라이언스를 하나의 권한·결재·감사 체계로 통합하여, 전사 IT·보안 업무의 표준화와 추적성을 확보한다. 개인정보·증적은 DB 암호화와 결재 이력으로 보호된다.</div>
  </div>
- <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>현대엔지비 · Confidential</span></div>
+ <div class="slide-footer"><span class="slide-company">SeekersLab · IT·Security Governance Portal</span><span>Confidential</span></div>
 </div>
 
 </body>
