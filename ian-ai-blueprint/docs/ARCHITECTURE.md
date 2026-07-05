@@ -123,7 +123,7 @@ flowchart LR
 
   dxf --> doc
   dwg -->|"ODA to DXF"| doc
-  ifc -->|"footprint 투영"| doc
+  ifc -->|"2D 투영"| doc
   prompt -->|"Claude · 키 없으면 stub"| doc
   doc --> svg
   doc --> exp
@@ -191,7 +191,7 @@ sequenceDiagram
       AI->>CL: messages.create · model, prompt, schema
       CL-->>AI: JSON drawing
     else API 키 없음
-      AI->>AI: 내장 stub floor plan
+      AI->>AI: 내장 샘플 제품 도면
     end
     AI-->>G: DrawingDocument
     G-->>U: 200 DrawingDocument
@@ -296,7 +296,7 @@ classDiagram
 | Router | `export` | DrawingDocument → DXF 스트리밍 응답 |
 | Service | `dxf_importer` | ezdxf로 DXF → DrawingDocument |
 | Service | `dwg_converter` | ODA CLI로 DWG → DXF (플러그블 `Protocol`) |
-| Service | `ifc_importer` | ifcopenshell로 IFC 층 footprint → DrawingDocument |
+| Service | `ifc_importer` | ifcopenshell로 IFC 2D 투영 → DrawingDocument |
 | Service | `ai_generator` | Claude로 프롬프트 → DrawingDocument (키 없으면 stub) |
 | Service | `dxf_exporter` | DrawingDocument → DXF(R2010) bytes |
 | Support | `model_catalog` | 선택 가능 모델 정의 + allow-list 검증 |

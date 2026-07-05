@@ -1,7 +1,8 @@
 """AI prompt -> DrawingDocument generation via the Anthropic API.
 
-Without an API key the module returns a canned stub floor plan so the
-end-to-end flow works keyless.
+Without an API key the module returns a canned product-outline sample so the
+end-to-end flow works keyless (the sample ignores the prompt text and is
+clearly labelled 샘플).
 """
 
 import json
@@ -12,67 +13,105 @@ from app.config import settings
 from app.schemas.drawing import DrawingDocument, compute_bounds_from_entities
 
 GENERATION_SYSTEM_PROMPT = """\
-You are a CAD drafting assistant. Given a description of a drawing, produce a
-2D blueprint as JSON matching the provided schema exactly.
+You are a product/industrial design drafting assistant. Given a description of a
+product (e.g. a phone, button, gadget, enclosure, connector), produce a 2D
+outline drawing as JSON matching the provided schema exactly.
 
 Rules:
-- Units are millimeters. Keep all geometry within a sensible bounds box
-  (e.g. a small house plan fits in roughly 15000 x 12000 mm).
-- Use meaningful layer names such as WALLS, DOORS, WINDOWS, FIXTURES,
-  ANNOTATIONS, and give each entity a unique entityId (e1, e2, ...).
-- Walls are polylines or lines, door swings are arcs, room labels are text
-  entities with textHeight around 250.
+- Units are millimeters. Keep geometry to real product scale and within a
+  sensible bounds box (e.g. a smartphone fits roughly 75 x 150 mm; a button a
+  few mm across).
+- Use meaningful layer names such as OUTLINE, CUTOUT, COMPONENT, SILKSCREEN,
+  DIMENSION, ANNOTATION. Give each entity a unique entityId (e1, e2, ...).
+- Body / enclosure outlines are polylines or lines; rounded corners and fillets
+  are arcs; holes, buttons and camera lenses are circles; ports and slots are
+  small rectangles (closed polylines); labels are text entities with a small
+  textHeight (about 3-6).
 - sourceFormat must be "ai-generated".
 Respond with ONLY the JSON object, no explanations or code fences.
 """
 
 
-def _build_stub_floor_plan(prompt_text: str) -> DrawingDocument:
-    """Small canned house plan used when no API key is configured."""
-    stub_drawing = DrawingDocument.model_validate({
-        "drawingName": "ai-stub-floorplan",
+def _build_stub_product_drawing(prompt_text: str) -> DrawingDocument:
+    """Canned smartphone front-outline sample used when no API key is set.
+
+    The geometry is fixed (it does not reflect the prompt); the prompt is only
+    echoed into a 샘플 label so the output is clearly a placeholder.
+    """
+    entities = [
+        # ---- Body outline: rounded rectangle (72 x 148 mm, corner r=10) ----
+        {"entityId": "e1", "entityType": "line", "layerName": "OUTLINE",
+         "startPoint": {"x": 10, "y": 0}, "endPoint": {"x": 62, "y": 0}},
+        {"entityId": "e2", "entityType": "line", "layerName": "OUTLINE",
+         "startPoint": {"x": 72, "y": 10}, "endPoint": {"x": 72, "y": 138}},
+        {"entityId": "e3", "entityType": "line", "layerName": "OUTLINE",
+         "startPoint": {"x": 62, "y": 148}, "endPoint": {"x": 10, "y": 148}},
+        {"entityId": "e4", "entityType": "line", "layerName": "OUTLINE",
+         "startPoint": {"x": 0, "y": 138}, "endPoint": {"x": 0, "y": 10}},
+        {"entityId": "e5", "entityType": "arc", "layerName": "OUTLINE",
+         "centerPoint": {"x": 10, "y": 10}, "radius": 10,
+         "startAngleDegrees": 180, "endAngleDegrees": 270},
+        {"entityId": "e6", "entityType": "arc", "layerName": "OUTLINE",
+         "centerPoint": {"x": 62, "y": 10}, "radius": 10,
+         "startAngleDegrees": 270, "endAngleDegrees": 360},
+        {"entityId": "e7", "entityType": "arc", "layerName": "OUTLINE",
+         "centerPoint": {"x": 62, "y": 138}, "radius": 10,
+         "startAngleDegrees": 0, "endAngleDegrees": 90},
+        {"entityId": "e8", "entityType": "arc", "layerName": "OUTLINE",
+         "centerPoint": {"x": 10, "y": 138}, "radius": 10,
+         "startAngleDegrees": 90, "endAngleDegrees": 180},
+        # ---- Screen (inner rectangle) ----
+        {"entityId": "e9", "entityType": "polyline", "layerName": "OUTLINE",
+         "vertexPoints": [{"x": 5, "y": 14}, {"x": 67, "y": 14},
+                          {"x": 67, "y": 134}, {"x": 5, "y": 134}],
+         "isClosed": True},
+        # ---- Earpiece slot + front camera ----
+        {"entityId": "e10", "entityType": "line", "layerName": "CUTOUT",
+         "startPoint": {"x": 31, "y": 141}, "endPoint": {"x": 41, "y": 141}},
+        {"entityId": "e11", "entityType": "circle", "layerName": "COMPONENT",
+         "centerPoint": {"x": 50, "y": 141}, "radius": 1.6},
+        # ---- Side buttons (power + volume) ----
+        {"entityId": "e12", "entityType": "polyline", "layerName": "CUTOUT",
+         "vertexPoints": [{"x": 72, "y": 100}, {"x": 74, "y": 100},
+                          {"x": 74, "y": 122}, {"x": 72, "y": 122}],
+         "isClosed": True},
+        {"entityId": "e13", "entityType": "polyline", "layerName": "CUTOUT",
+         "vertexPoints": [{"x": -2, "y": 106}, {"x": 0, "y": 106},
+                          {"x": 0, "y": 140}, {"x": -2, "y": 140}],
+         "isClosed": True},
+        # ---- USB-C port (bottom slot) ----
+        {"entityId": "e14", "entityType": "polyline", "layerName": "CUTOUT",
+         "vertexPoints": [{"x": 30, "y": -2}, {"x": 42, "y": -2},
+                          {"x": 42, "y": 0}, {"x": 30, "y": 0}],
+         "isClosed": True},
+        # ---- Labels ----
+        {"entityId": "e15", "entityType": "text", "layerName": "ANNOTATION",
+         "insertionPoint": {"x": 20, "y": 74}, "textContent": "SCREEN",
+         "textHeight": 5},
+        {"entityId": "e16", "entityType": "text", "layerName": "ANNOTATION",
+         "insertionPoint": {"x": -2, "y": 154},
+         "textContent": f"샘플 · 요청: {prompt_text[:40]}", "textHeight": 4},
+    ]
+    return DrawingDocument.model_validate({
+        "drawingName": "ai-sample-phone",
         "sourceFormat": "ai-generated",
         "units": "millimeters",
-        "bounds": {"minX": 0, "minY": 0, "maxX": 12000, "maxY": 9000},
+        "bounds": {"minX": -2, "minY": -2, "maxX": 74, "maxY": 160},
         "layers": [
-            {"layerName": "WALLS", "colorHex": "#e8e8e8", "isVisible": True},
-            {"layerName": "DOORS", "colorHex": "#4a90d9", "isVisible": True},
-            {"layerName": "FIXTURES", "colorHex": "#f5a623", "isVisible": True},
-            {"layerName": "ANNOTATIONS", "colorHex": "#7ed6c4", "isVisible": True},
+            {"layerName": "OUTLINE", "colorHex": "#e6edf3", "isVisible": True},
+            {"layerName": "CUTOUT", "colorHex": "#f59e0b", "isVisible": True},
+            {"layerName": "COMPONENT", "colorHex": "#38bdf8", "isVisible": True},
+            {"layerName": "ANNOTATION", "colorHex": "#7ed6c4", "isVisible": True},
         ],
-        "entities": [
-            {"entityId": "e1", "entityType": "polyline", "layerName": "WALLS",
-             "vertexPoints": [{"x": 0, "y": 0}, {"x": 12000, "y": 0},
-                              {"x": 12000, "y": 9000}, {"x": 0, "y": 9000}],
-             "isClosed": True},
-            {"entityId": "e2", "entityType": "line", "layerName": "WALLS",
-             "startPoint": {"x": 7000, "y": 0}, "endPoint": {"x": 7000, "y": 5500}},
-            {"entityId": "e3", "entityType": "line", "layerName": "WALLS",
-             "startPoint": {"x": 7000, "y": 7000}, "endPoint": {"x": 7000, "y": 9000}},
-            {"entityId": "e4", "entityType": "arc", "layerName": "DOORS",
-             "centerPoint": {"x": 7000, "y": 7000}, "radius": 1500,
-             "startAngleDegrees": 180, "endAngleDegrees": 270},
-            {"entityId": "e5", "entityType": "circle", "layerName": "FIXTURES",
-             "centerPoint": {"x": 10500, "y": 7500}, "radius": 600},
-            {"entityId": "e6", "entityType": "text", "layerName": "ANNOTATIONS",
-             "insertionPoint": {"x": 3000, "y": 4500}, "textContent": "거실",
-             "textHeight": 300},
-            {"entityId": "e7", "entityType": "text", "layerName": "ANNOTATIONS",
-             "insertionPoint": {"x": 9000, "y": 3000}, "textContent": "침실",
-             "textHeight": 300},
-            {"entityId": "e8", "entityType": "text", "layerName": "ANNOTATIONS",
-             "insertionPoint": {"x": 1000, "y": 8400},
-             "textContent": f"요청: {prompt_text[:40]}", "textHeight": 250},
-        ],
+        "entities": entities,
     })
-    return stub_drawing
 
 
 def generate_drawing_from_prompt(
     prompt_text: str, model_id: str | None = None
 ) -> DrawingDocument:
     if not settings.anthropic_api_key:
-        return _build_stub_floor_plan(prompt_text)
+        return _build_stub_product_drawing(prompt_text)
 
     import anthropic
 

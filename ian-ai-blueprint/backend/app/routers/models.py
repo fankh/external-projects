@@ -18,4 +18,5 @@ def list_models() -> dict:
     return {
         "models": model_catalog.AVAILABLE_MODELS,
         "defaultModelId": default_model_id,
+        "aiEnabled": bool(settings.anthropic_api_key),
     }

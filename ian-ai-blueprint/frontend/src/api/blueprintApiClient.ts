@@ -33,6 +33,7 @@ export interface ModelOption {
 export interface ModelCatalog {
   models: ModelOption[]
   defaultModelId: string
+  aiEnabled: boolean
 }
 
 export async function fetchModelCatalog(): Promise<ModelCatalog> {

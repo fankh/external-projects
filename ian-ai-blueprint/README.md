@@ -1,6 +1,8 @@
 # ian-ai-blueprint
 
-AI 기반 2D 도면(블루프린트) 생성 시스템 — 웹에서 기존 CAD 파일(DXF · DWG · IFC)을 업로드해 2D로 렌더링하고, AI 프롬프트로 도면을 생성하며, 결과를 DXF로 내보내는 경량 웹 CAD 스캐폴드입니다.
+AI 기반 2D 제품 도면 생성 시스템 — 제품·산업 디자인(스마트폰·버튼·가젯·인클로저·포트 등)의 2D 외형도를 대상으로, 웹에서 기존 CAD 파일(DXF · DWG · IFC)을 업로드해 2D로 렌더링하고, AI 프롬프트로 도면을 생성하며, 결과를 DXF로 내보내는 경량 웹 CAD 스캐폴드입니다.
+
+> AI 생성은 서버에 `ANTHROPIC_API_KEY`가 설정된 경우에만 프롬프트 기반으로 동작합니다. 키가 없으면 프롬프트와 무관한 **샘플 제품 도면(스마트폰 외형)**을 반환합니다(UI에 "샘플 모드" 표시).
 
 ## 아키텍처
 
@@ -45,7 +47,7 @@ npm run dev        # http://localhost:5173
 
 | 변수 | 설명 |
 |---|---|
-| `ANTHROPIC_API_KEY` | AI 도면 생성용. 비어 있으면 내장 스텁 평면도 반환 |
+| `ANTHROPIC_API_KEY` | AI 도면 생성용. 비어 있으면 프롬프트와 무관한 내장 샘플 제품 도면 반환 |
 | `ANTHROPIC_MODEL_ID` | 기본 모델 ID (기본값 `claude-opus-4-8`). UI 모델 선택 시 요청별로 덮어씀. 허용: `claude-opus-4-8` · `claude-opus-4-7` · `claude-sonnet-4-6` · `claude-haiku-4-5` |
 | `ODA_FILE_CONVERTER_PATH` | DWG→DXF 변환용 ODA File Converter 실행 파일 경로. 미설정 시 DWG 업로드는 501 반환 (DXF/IFC는 무관) |
 
@@ -62,7 +64,7 @@ npm run dev        # http://localhost:5173
 ## 설계 노트
 
 - **SVG 렌더링**: 스캐폴드 규모(수백~수천 엔티티)에서는 SVG가 충분하며, 엔티티가 DOM 요소와 1:1 대응되어 향후 선택/편집 기능 구현이 쉽습니다. 약 1만 엔티티 이상이면 Canvas/WebGL 마이그레이션을 권장합니다.
-- **IFC 임포트**: 스캐폴드 수준의 단순 footprint 투영(진짜 단면 절단 아님)으로 층별 벽/문/창 외곽선을 추출합니다.
+- **IFC 임포트**: 스캐폴드 수준의 단순 2D 투영(진짜 단면 절단 아님)으로 대상 객체의 외곽선을 폴리라인으로 추출합니다. (IFC는 건축 BIM 포맷으로, 제품 도면 작업에는 주로 DXF·DWG를 사용합니다.)
 - **DWG**: 사유 포맷이므로 `DwgToDxfConverter` 프로토콜 뒤에 ODA File Converter 구현을 두었고, LibreDWG 등 다른 변환기를 추가할 수 있습니다.
 
 ## v1 범위 제외

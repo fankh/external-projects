@@ -1,9 +1,12 @@
-"""Import an IFC model as a 2D floor plan DrawingDocument.
+"""Import an IFC model as a 2D DrawingDocument.
 
-Scaffold-level extraction: for the requested IfcBuildingStorey, each
+Scaffold-level extraction: for the requested storey/container, each
 contained product's mesh is projected onto the XY plane and its 2D
-boundary edges are emitted as polylines (footprint projection, NOT a
-true horizontal section cut). Layer name = IFC class (IfcWall, ...).
+boundary edges are emitted as polylines (planar projection, NOT a true
+horizontal section cut). Layer name = IFC class (IfcWall, ...).
+
+Note: IFC is an architectural BIM format; for product/industrial drawings
+DXF and DWG are the primary inputs. IFC support is kept for completeness.
 """
 
 from collections import Counter

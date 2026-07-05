@@ -45,9 +45,9 @@ export function BlueprintCanvas({ drawingDocument, hiddenLayerNames }: Blueprint
         <span className="canvas-empty-icon">
           <BlueprintIcon size={28} />
         </span>
-        <div className="canvas-empty-title">도면을 시작하세요</div>
+        <div className="canvas-empty-title">제품 도면을 시작하세요</div>
         <div className="canvas-empty-hint">
-          CAD 파일(DXF · DWG · IFC)을 업로드하거나 AI 프롬프트로 새 도면을 생성하세요.
+          제품·부품 도면(DXF · DWG · IFC)을 업로드하거나 AI 프롬프트로 새 도면을 생성하세요.
         </div>
       </div>
     )

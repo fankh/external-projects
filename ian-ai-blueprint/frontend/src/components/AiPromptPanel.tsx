@@ -17,12 +17,14 @@ export function AiPromptPanel({ onDrawingGenerated }: AiPromptPanelProps) {
   const [generationErrorMessage, setGenerationErrorMessage] = useState<string | null>(null)
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([])
   const [selectedModelId, setSelectedModelId] = useState('')
+  const [isAiEnabled, setIsAiEnabled] = useState(true)
 
   useEffect(() => {
     fetchModelCatalog()
       .then((catalog) => {
         setModelOptions(catalog.models)
         setSelectedModelId(catalog.defaultModelId)
+        setIsAiEnabled(catalog.aiEnabled)
       })
       .catch(() => {
         /* model picker stays empty; backend default is used */
@@ -52,8 +54,12 @@ export function AiPromptPanel({ onDrawingGenerated }: AiPromptPanelProps) {
           <SparklesIcon />
         </span>
         <span className="card-title">AI 도면 생성</span>
+        {!isAiEnabled && <span className="card-sub">샘플 모드</span>}
       </div>
       <div className="card-body">
+        {!isAiEnabled && (
+          <p className="field-hint">API 키 미설정 · 프롬프트와 무관한 샘플 도면을 반환합니다</p>
+        )}
         {modelOptions.length > 0 && (
           <div>
             <label className="field-label" htmlFor="model-select">모델</label>
@@ -77,7 +83,7 @@ export function AiPromptPanel({ onDrawingGenerated }: AiPromptPanelProps) {
           className="textarea"
           value={promptText}
           onChange={(changeEvent) => setPromptText(changeEvent.target.value)}
-          placeholder="예: 방 2개와 욕실이 있는 작은 주택 평면도"
+          placeholder="예: 스마트폰 전면 외형도 — 화면, 후면 카메라, 측면 버튼"
           rows={3}
         />
         <button

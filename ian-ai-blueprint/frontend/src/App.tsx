@@ -43,7 +43,7 @@ function App() {
           </span>
           <span className="brand-text">
             <span className="brand-name">ian-ai-blueprint</span>
-            <span className="brand-tag">AI 2D 블루프린트 스튜디오</span>
+            <span className="brand-tag">AI 2D 제품 도면 스튜디오</span>
           </span>
         </div>
 
