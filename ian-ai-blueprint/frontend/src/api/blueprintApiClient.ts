@@ -24,11 +24,30 @@ export async function uploadDrawingFile(selectedFile: File): Promise<DrawingDocu
   return parseJsonOrThrow(response)
 }
 
-export async function generateDrawingFromPrompt(promptText: string): Promise<DrawingDocument> {
+export interface ModelOption {
+  id: string
+  label: string
+  description: string
+}
+
+export interface ModelCatalog {
+  models: ModelOption[]
+  defaultModelId: string
+}
+
+export async function fetchModelCatalog(): Promise<ModelCatalog> {
+  const response = await fetch('/api/models')
+  return parseJsonOrThrow(response)
+}
+
+export async function generateDrawingFromPrompt(
+  promptText: string,
+  modelId?: string,
+): Promise<DrawingDocument> {
   const response = await fetch('/api/drawings/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ promptText }),
+    body: JSON.stringify({ promptText, modelId }),
   })
   return parseJsonOrThrow(response)
 }

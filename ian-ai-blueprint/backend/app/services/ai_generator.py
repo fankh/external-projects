@@ -68,17 +68,20 @@ def _build_stub_floor_plan(prompt_text: str) -> DrawingDocument:
     return stub_drawing
 
 
-def generate_drawing_from_prompt(prompt_text: str) -> DrawingDocument:
+def generate_drawing_from_prompt(
+    prompt_text: str, model_id: str | None = None
+) -> DrawingDocument:
     if not settings.anthropic_api_key:
         return _build_stub_floor_plan(prompt_text)
 
     import anthropic
 
+    resolved_model_id = model_id or settings.anthropic_model_id
     anthropic_client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     schema_json = json.dumps(DrawingDocument.model_json_schema(), ensure_ascii=False)
 
     api_response = anthropic_client.messages.create(
-        model=settings.anthropic_model_id,
+        model=resolved_model_id,
         max_tokens=8192,
         system=GENERATION_SYSTEM_PROMPT + "\n\nJSON schema:\n" + schema_json,
         messages=[{"role": "user", "content": prompt_text}],

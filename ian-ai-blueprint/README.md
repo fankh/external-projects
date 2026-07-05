@@ -46,7 +46,7 @@ npm run dev        # http://localhost:5173
 | 변수 | 설명 |
 |---|---|
 | `ANTHROPIC_API_KEY` | AI 도면 생성용. 비어 있으면 내장 스텁 평면도 반환 |
-| `ANTHROPIC_MODEL_ID` | 기본 `claude-sonnet-5` |
+| `ANTHROPIC_MODEL_ID` | 기본 모델 ID (기본값 `claude-opus-4-8`). UI 모델 선택 시 요청별로 덮어씀. 허용: `claude-opus-4-8` · `claude-opus-4-7` · `claude-sonnet-4-6` · `claude-haiku-4-5` |
 | `ODA_FILE_CONVERTER_PATH` | DWG→DXF 변환용 ODA File Converter 실행 파일 경로. 미설정 시 DWG 업로드는 501 반환 (DXF/IFC는 무관) |
 
 ## API
@@ -54,8 +54,9 @@ npm run dev        # http://localhost:5173
 | 엔드포인트 | 설명 |
 |---|---|
 | `GET /api/health` | 상태 확인 |
+| `GET /api/models` | 선택 가능한 모델 목록 + 기본 모델 ID |
 | `POST /api/drawings/upload` | multipart 업로드 (`uploadedFile`), `?storeyIndex=` IFC 층 선택 |
-| `POST /api/drawings/generate` | `{"promptText": "..."}` → AI 생성 도면 |
+| `POST /api/drawings/generate` | `{"promptText": "...", "modelId": "claude-opus-4-8"}` → AI 생성 도면 (`modelId` 생략 시 기본 모델) |
 | `POST /api/drawings/export/dxf` | DrawingDocument JSON → DXF 다운로드 |
 
 ## 설계 노트

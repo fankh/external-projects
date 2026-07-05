@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import export, generate, health, upload
+from app.routers import export, generate, health, models, upload
 
 app = FastAPI(title="ian-ai-blueprint", version="0.1.0")
 
@@ -14,6 +14,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/api")
+app.include_router(models.router, prefix="/api")
 app.include_router(upload.router, prefix="/api")
 app.include_router(generate.router, prefix="/api")
 app.include_router(export.router, prefix="/api")

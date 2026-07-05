@@ -43,6 +43,40 @@
   font-family: inherit;
 }
 
+.model-picker {
+  margin-bottom: 8px;
+}
+
+.model-picker label {
+  display: block;
+  font-size: 12px;
+  color: #8b93a1;
+  margin-bottom: 4px;
+}
+
+.model-picker select {
+  width: 100%;
+  box-sizing: border-box;
+  background: #16181d;
+  color: #d7dae0;
+  border: 1px solid #2c313a;
+  border-radius: 6px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.model-picker select:disabled {
+  color: #6b7280;
+  cursor: default;
+}
+
+.model-hint {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 4px 0 0;
+}
+
 .sidebar-section button {
   margin-top: 8px;
   width: 100%;
