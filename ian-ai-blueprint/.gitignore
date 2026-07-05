@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Node
+node_modules/
+dist/
+
+# Generated samples & uploads
+backend/sample_data/*.dxf
+backend/uploads/
+
+# Editor
+.vscode/
+.idea/

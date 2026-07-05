@@ -1,0 +1,145 @@
+.app-layout {
+  display: flex;
+  height: 100vh;
+  background: #16181d;
+  color: #d7dae0;
+}
+
+.sidebar {
+  width: 300px;
+  flex-shrink: 0;
+  padding: 16px;
+  overflow-y: auto;
+  background: #1e2127;
+  border-right: 1px solid #2c313a;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidebar h1 {
+  font-size: 18px;
+  margin: 0;
+  color: #7ed6c4;
+}
+
+.sidebar-section h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b93a1;
+  margin: 0 0 8px;
+}
+
+.sidebar-section textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #16181d;
+  color: #d7dae0;
+  border: 1px solid #2c313a;
+  border-radius: 6px;
+  padding: 8px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.sidebar-section button {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: #3a7bd5;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.sidebar-section button:disabled {
+  background: #2c313a;
+  color: #6b7280;
+  cursor: default;
+}
+
+.upload-dropzone {
+  border: 1px dashed #4a5261;
+  border-radius: 8px;
+  padding: 20px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #8b93a1;
+  cursor: pointer;
+}
+
+.upload-dropzone.drag-active {
+  border-color: #7ed6c4;
+  color: #7ed6c4;
+}
+
+.layer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.layer-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.layer-color-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+  border: 1px solid #2c313a;
+}
+
+.error-message {
+  color: #e06c75;
+  font-size: 12px;
+  margin: 8px 0 0;
+  word-break: break-word;
+}
+
+.drawing-info {
+  margin-top: auto;
+  font-size: 12px;
+  color: #8b93a1;
+  border-top: 1px solid #2c313a;
+  padding-top: 12px;
+}
+
+.canvas-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.blueprint-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #0f1115;
+  cursor: grab;
+  touch-action: none;
+}
+
+.blueprint-canvas:active {
+  cursor: grabbing;
+}
+
+.canvas-empty-state {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4a5261;
+  font-size: 15px;
+  background: #0f1115;
+}
