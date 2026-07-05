@@ -4,6 +4,7 @@ import {
   generateDrawingFromPrompt,
   type ModelOption,
 } from '../api/blueprintApiClient'
+import { SparklesIcon } from './Icons'
 import type { DrawingDocument } from '../types/drawing'
 
 interface AiPromptPanelProps {
@@ -45,36 +46,50 @@ export function AiPromptPanel({ onDrawingGenerated }: AiPromptPanelProps) {
   const selectedModel = modelOptions.find((option) => option.id === selectedModelId)
 
   return (
-    <section className="sidebar-section">
-      <h2>AI 도면 생성</h2>
-      {modelOptions.length > 0 && (
-        <div className="model-picker">
-          <label htmlFor="model-select">모델</label>
-          <select
-            id="model-select"
-            value={selectedModelId}
-            onChange={(changeEvent) => setSelectedModelId(changeEvent.target.value)}
-            disabled={isGenerating}
-          >
-            {modelOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {selectedModel && <p className="model-hint">{selectedModel.description}</p>}
-        </div>
-      )}
-      <textarea
-        value={promptText}
-        onChange={(changeEvent) => setPromptText(changeEvent.target.value)}
-        placeholder="예: 방 2개와 욕실이 있는 작은 주택 평면도"
-        rows={3}
-      />
-      <button onClick={() => void requestGeneration()} disabled={isGenerating || !promptText.trim()}>
-        {isGenerating ? '생성 중…' : '생성'}
-      </button>
-      {generationErrorMessage && <p className="error-message">{generationErrorMessage}</p>}
+    <section className="card">
+      <div className="card-head">
+        <span className="card-icon">
+          <SparklesIcon />
+        </span>
+        <span className="card-title">AI 도면 생성</span>
+      </div>
+      <div className="card-body">
+        {modelOptions.length > 0 && (
+          <div>
+            <label className="field-label" htmlFor="model-select">모델</label>
+            <select
+              className="select"
+              id="model-select"
+              value={selectedModelId}
+              onChange={(changeEvent) => setSelectedModelId(changeEvent.target.value)}
+              disabled={isGenerating}
+            >
+              {modelOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {selectedModel && <p className="field-hint">{selectedModel.description}</p>}
+          </div>
+        )}
+        <textarea
+          className="textarea"
+          value={promptText}
+          onChange={(changeEvent) => setPromptText(changeEvent.target.value)}
+          placeholder="예: 방 2개와 욕실이 있는 작은 주택 평면도"
+          rows={3}
+        />
+        <button
+          className="btn btn-primary btn-block"
+          onClick={() => void requestGeneration()}
+          disabled={isGenerating || !promptText.trim()}
+        >
+          <SparklesIcon size={16} />
+          {isGenerating ? '생성 중…' : '도면 생성'}
+        </button>
+        {generationErrorMessage && <p className="error-message">{generationErrorMessage}</p>}
+      </div>
     </section>
   )
 }

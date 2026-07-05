@@ -1,5 +1,6 @@
 import { useRef, useState, type DragEvent } from 'react'
 import { uploadDrawingFile } from '../api/blueprintApiClient'
+import { UploadIcon } from './Icons'
 import type { DrawingDocument } from '../types/drawing'
 
 interface FileUploadPanelProps {
@@ -32,16 +33,27 @@ export function FileUploadPanel({ onDrawingLoaded }: FileUploadPanelProps) {
   }
 
   return (
-    <section className="sidebar-section">
-      <h2>CAD 파일 업로드</h2>
+    <section className="card">
+      <div className="card-head">
+        <span className="card-icon">
+          <UploadIcon />
+        </span>
+        <span className="card-title">CAD 파일 업로드</span>
+      </div>
       <div
-        className={`upload-dropzone${isDragActive ? ' drag-active' : ''}`}
+        className={`dropzone${isDragActive ? ' drag-active' : ''}`}
         onClick={() => fileInputRef.current?.click()}
         onDragOver={(dragEvent) => { dragEvent.preventDefault(); setIsDragActive(true) }}
         onDragLeave={() => setIsDragActive(false)}
         onDrop={handleDrop}
       >
-        {isUploading ? '업로드 중…' : 'DXF · DWG · IFC 파일을 끌어다 놓거나 클릭'}
+        <span className="dropzone-icon">
+          <UploadIcon size={22} />
+        </span>
+        <span className="dropzone-title">
+          {isUploading ? '업로드 중…' : '파일을 끌어다 놓기'}
+        </span>
+        <span className="dropzone-hint">또는 클릭하여 선택 · DXF · DWG · IFC</span>
       </div>
       <input
         ref={fileInputRef}

@@ -1,3 +1,4 @@
+import { LayersIcon } from './Icons'
 import type { LayerInfo } from '../types/drawing'
 
 interface LayerListPanelProps {
@@ -10,22 +11,31 @@ export function LayerListPanel({ layers, hiddenLayerNames, onToggleLayerVisibili
   if (layers.length === 0) return null
 
   return (
-    <section className="sidebar-section">
-      <h2>레이어</h2>
+    <section className="card">
+      <div className="card-head">
+        <span className="card-icon">
+          <LayersIcon />
+        </span>
+        <span className="card-title">레이어</span>
+        <span className="card-sub">{layers.length}</span>
+      </div>
       <ul className="layer-list">
-        {layers.map((layer) => (
-          <li key={layer.layerName}>
-            <label>
-              <input
-                type="checkbox"
-                checked={!hiddenLayerNames.has(layer.layerName)}
-                onChange={() => onToggleLayerVisibility(layer.layerName)}
-              />
-              <span className="layer-color-swatch" style={{ backgroundColor: layer.colorHex }} />
-              {layer.layerName}
-            </label>
-          </li>
-        ))}
+        {layers.map((layer) => {
+          const isHidden = hiddenLayerNames.has(layer.layerName)
+          return (
+            <li key={layer.layerName}>
+              <label className={`layer-row${isHidden ? ' layer-hidden' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={!isHidden}
+                  onChange={() => onToggleLayerVisibility(layer.layerName)}
+                />
+                <span className="layer-swatch" style={{ backgroundColor: layer.colorHex }} />
+                <span className="layer-name">{layer.layerName}</span>
+              </label>
+            </li>
+          )
+        })}
       </ul>
     </section>
   )

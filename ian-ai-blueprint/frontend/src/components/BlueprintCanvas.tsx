@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { ArcEntity, DrawingDocument, DrawingEntity } from '../types/drawing'
 import { usePanZoom } from '../hooks/usePanZoom'
+import { BlueprintIcon } from './Icons'
 
 const DEGREES_TO_RADIANS = Math.PI / 180
 
@@ -40,8 +41,14 @@ export function BlueprintCanvas({ drawingDocument, hiddenLayerNames }: Blueprint
 
   if (!drawingDocument) {
     return (
-      <div className="canvas-empty-state">
-        CAD 파일(DXF · DWG · IFC)을 업로드하거나 AI 프롬프트로 도면을 생성하세요
+      <div className="canvas-empty">
+        <span className="canvas-empty-icon">
+          <BlueprintIcon size={28} />
+        </span>
+        <div className="canvas-empty-title">도면을 시작하세요</div>
+        <div className="canvas-empty-hint">
+          CAD 파일(DXF · DWG · IFC)을 업로드하거나 AI 프롬프트로 새 도면을 생성하세요.
+        </div>
       </div>
     )
   }
