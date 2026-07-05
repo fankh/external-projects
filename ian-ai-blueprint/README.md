@@ -72,4 +72,5 @@ DB, 인증, 도면 영속화, IFC 단면 절단, 엔티티 편집 도구, 자동
 ## 문서
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 시스템 아키텍처 (Mermaid 다이어그램: 구성도 · 모듈 구조 · 데이터 흐름 · 시퀀스 · 데이터 모델)
+- [`docs/ARCHITECTURE.pdf`](docs/ARCHITECTURE.pdf) — 위 문서를 다이어그램까지 렌더링한 인쇄용 PDF (A4)
 - `docs/` 폴더에 제안서 · 요구사항 정의서 · 기능확인서(FVT) · WBS(HTML)가 있습니다.
