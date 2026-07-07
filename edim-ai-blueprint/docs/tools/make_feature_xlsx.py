@@ -67,7 +67,7 @@ MODULES.append(("CODE", "RCCS 코드 관리", [
  ("CODE-005", "S-1-2", "자재·일반구매품 코드 등록", "Raw Material/GPI 그룹의 Sub Code 등록 (Motor 등)", "가격(G:Price) Slot은 단가 Table 연계", "SETUP", "SVC-03", "code_group, code_item_value", "P1", ""),
  ("CODE-006", "S-1-3", "Product Code 등록", "Main Code(KDCR 3-13) 생성, 설명·Hierarchy 지정", "Main Code 중복성 검토 필수", "SETUP", "SVC-03", "product_code", "P1", ""),
  ("CODE-007", "S-1-3", "Product Code 자릿수 구성", "제품 코드가 사용할 Slot과 값 출처(Sub Code) 연결", "Code Hierarchy에서 Item List 탐색·설정 반복", "SETUP", "SVC-03", "product_code_item", "P1", ""),
- ("CODE-008", "S-1-4", "Code Relationship 설정", "Mother-Child 관계 + 수량 + Slot 매핑 조건 등록", "match_condition으로 Mother/Child 자릿수 연동", "SETUP", "SVC-03", "code_relationship", "P1", "관계형 BOM 핵심"),
+ ("CODE-008", "S-1-4", "Code Relationship 설정", "Mother-Child 관계 + 수량 + Slot 매핑 조건 등록", "Slot 매핑 테이블(slot_map)로 Mother/Child 자릿수 연동", "SETUP", "SVC-03", "code_relationship, code_relationship_slot_map", "P1", "관계형 BOM 핵심"),
  ("CODE-009", "S-1-4", "Part List Running Test", "Mother 조합 선택 → 조건 일치 Child 전개 검증", "검증 통과 후 승인 요청 가능", "SETUP", "SVC-03", "code_relationship", "P1", ""),
  ("CODE-010", "D-2", "BOM 전개", "완성품 Code → Code Relationship 재귀 전개 → 전체 Part List", "재귀 CTE, 깊이 제한, 순환 차단", "GENERAL↑", "SVC-03, ENG-02", "code_relationship, cpq_selection_item", "P1", ""),
  ("CODE-011", "S-1-5", "Arrangement Code 등록", "표준 구성 조합(Double Deck 2 등) 등록", "Fan Direction(L0~R270)·설치방식 옵션", "SETUP", "SVC-03", "arrangement_code", "P2", ""),
@@ -242,7 +242,7 @@ MODULES.append(("APP", "모바일 App", [
 ]))
 
 MODULES.append(("ADM", "관리 콘솔", [
- ("ADM-001", "-", "테넌트 관리", "테넌트 생성·설정·상태, 요금제(SaaS)", "", "PLATFORM", "FE-04", "-", "P3", ""),
+ ("ADM-001", "-", "테넌트 관리", "테넌트 생성·설정·상태, 요금제(SaaS)", "", "PLATFORM", "FE-04", "sys_tenant", "P3", ""),
  ("ADM-002", "-", "사용자·권한 관리 UI", "SYS-003~005의 관리 화면", "", "ADMIN", "FE-04, SVC-01", "sys_*", "P1", ""),
  ("ADM-003", "-", "승인 관리", "승인 요청 일괄 처리·위임·규칙", "", "ADMIN", "FE-04, SVC-10", "sys_approval_request", "P2", ""),
  ("ADM-004", "-", "AI 학습 관리", "학습 데이터 등록, 파이프라인 실행·품질 확인", "Platform 전용", "PLATFORM", "FE-04, AI-02", "-", "P5", ""),

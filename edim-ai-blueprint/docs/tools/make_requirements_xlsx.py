@@ -37,7 +37,7 @@ FUNC = [
  ("RCCS 코드", [
   ("REQ-F-007", "Sub Code 등록", "코드 그룹·자릿수(Slot)·값 등록, 중복검토, Table 참조 값, Excel Import/Export, 코드별 DWG/자료 연결", "필수", "P1", "CODE-001~005/013~016", ""),
   ("REQ-F-008", "Product Code 관리", "Main Code 등록(중복검토)·자릿수 구성(Sub Code 연결)", "필수", "P1", "CODE-006/007", ""),
-  ("REQ-F-009", "Code Relationship", "Mother-Child 관계 + 수량 + Slot 매핑(match_condition), Part List Running Test 검증", "필수", "P1", "CODE-008/009", "관계형 BOM 핵심"),
+  ("REQ-F-009", "Code Relationship", "Mother-Child 관계 + 수량 + Slot 매핑 테이블, Part List Running Test 검증", "필수", "P1", "CODE-008/009", "관계형 BOM 핵심"),
   ("REQ-F-010", "BOM 자동 전개", "완성품 Code → 재귀 전개 → 전체 Part List (깊이 제한·순환 차단)", "필수", "P1", "CODE-010", ""),
   ("REQ-F-011", "Arrangement", "표준 구성 코드 등록, 구성품·결합조건(Macro)·Fan Direction 설정", "필수", "P2", "CODE-011/012", ""),
  ]),
