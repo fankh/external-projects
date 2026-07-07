@@ -82,12 +82,15 @@ flowchart TB
 | 개발 표준 정의서 | [`EDIM_개발표준정의서.md`](EDIM_개발표준정의서.md) | v0.1 | MD | 공통 원칙·명명·API 규약·FE/BE·Git/리뷰·테스트·보안·CI — 개정 트리거 연동 |
 | DB DDL·검증 | [`ddl/edim_schema.sql`](ddl/edim_schema.sql) / [`ddl/verify_runtime.sql`](ddl/verify_runtime.sql) | v0.4.1 | SQL | 실 PG16 검증 통과 — BOM 재귀·제약 6종·Project Folder 실행 확인 |
 | WBS·일정표 | [`04_WBS/EDIM_WBS.xlsx`](04_WBS/EDIM_WBS.xlsx) | v0.1 | Excel 3시트 | 38 Task·44주 간트·마일스톤 4 — 시작일 가정 |
+| 기능확인서 (FVT) | [`03_기능확인서_FVT/EDIM_기능확인서.xlsx`](03_기능확인서_FVT/EDIM_기능확인서.xlsx) | v0.1 | Excel 6시트 (자동) | 기능 178·비기능 22 확인 항목·결함목록·승인란 — 판정 기입 후 버전 고정 |
+| 데이터 이행 계획서 | [`EDIM_데이터이행계획서.md`](EDIM_데이터이행계획서.md) | v0.1 | MD | 이행 대상 9·원칙 5·절차 5단계·검증 6기준·AI 학습 연계 |
 | 요구사항 보완노트 | [`EDIM_요구사항_보완노트.md`](EDIM_요구사항_보완노트.md) | - | MD | PPT 재검토 발견 사항·고객 협의 필요 4건 |
 | 아키텍처(프로토타입) | [`ARCHITECTURE.md`](ARCHITECTURE.md) / [`pdf`](ARCHITECTURE.pdf) | v1 | MD + PDF | 프로토타입 앱(현 배포본) 구조 |
 
-### 템플릿 상태 (내용화 예정)
+### 미작성 문서
 
-`01_제안서/PROPOSAL.html` · `03_기능확인서_FVT/FVT.html` — 계획은 [산출물목록](EDIM_산출물목록.xlsx) 참조 (미작성 20종 포함).
+전체 계획은 [산출물목록](EDIM_산출물목록.xlsx) 참조. 제안서는 사업 조건 확정 후 `_template/01_제안서`에서 복사해 작성
+(빈 템플릿 사본은 정리함 — 2026-07-07).
 
 ### 근거 자료 (`reference/`)
 
@@ -136,6 +139,7 @@ py docs/tools/make_component_xlsx.py      # 컴포넌트정의서
 py docs/tools/make_doclist_xlsx.py        # 산출물목록
 py docs/tools/make_authz_xlsx.py          # 권한승인정의서 (메뉴 수정 후 재실행)
 py docs/tools/make_wbs_xlsx.py            # WBS (START 상수 = 시작일 가정)
+py docs/tools/make_fvt_xlsx.py            # 기능확인서 (기능정의서 기반 — 판정 기입 전까지만)
 ```
 
 ### 표기·품질 규칙
