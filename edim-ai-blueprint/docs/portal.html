@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDIM 산출물 다운로드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+:root{--chrome:#E9EBEE;--line-strong:#9AA2AF;--line:#C2C8D2;--line-soft:#E1E5EB;--grid-head:#DCE3EE;
+--grid-head-txt:#2B3A55;--title-navy:#1F4E8C;--sel:#FFF3C2;--txt:#1E222A;--dim:#5A6270;--mute:#8B93A1;
+--warn:#B45309;--warn-bg:#FCF3DF;--btn-face:linear-gradient(180deg,#FDFDFE,#EDF0F4);--btn-border:#A9B0BC}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Pretendard,'Malgun Gothic',sans-serif;background:#F2F3F6;color:var(--txt);font-size:11.5px}
+.app{max-width:1180px;margin:26px auto 60px;border:1px solid var(--line-strong);background:var(--chrome);box-shadow:0 3px 14px rgba(20,26,40,.18)}
+.titlebar{display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,#26406E,#17376B);color:#fff;padding:7px 12px;font-size:12px}
+.titlebar .lg{width:18px;height:18px;background:#2F9463;border-radius:2px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px}
+.titlebar .sp{flex:1}
+.titlebar a{color:#B9C7E2;text-decoration:none;font-size:11px;margin-left:12px}
+.titlebar a:hover{color:#fff}
+.body2{background:#fff;padding:12px;display:flex;flex-direction:column;gap:10px}
+.gb{border:1px solid var(--line);background:#fff}
+.gt{background:linear-gradient(180deg,#F2F5FA,#E5EAF2);border-bottom:1px solid var(--line);padding:4px 9px;font-size:11.5px;font-weight:700;color:var(--grid-head-txt);display:flex;align-items:center}
+.gt .sp{flex:1} .gt .cnt{font-weight:500;color:var(--mute);font-size:10.5px}
+.g{width:100%;border-collapse:collapse;font-size:11.5px}
+.g th{background:var(--grid-head);color:var(--grid-head-txt);font-weight:700;font-size:11px;padding:0 7px;height:24px;border:1px solid var(--line);text-align:center}
+.g td{padding:2px 7px;height:26px;border:1px solid var(--line-soft)}
+.g tr:nth-child(even) td{background:#F7F9FC}
+.g tr:hover td{background:#FDF6DE}
+.g td.c{text-align:center} .g td.num{text-align:right;font-variant-numeric:tabular-nums}
+.g td.dim2{color:var(--dim)}
+.tb2{display:inline-block;color:#fff;font-size:9.5px;font-weight:800;padding:1px 7px;border-radius:2px;letter-spacing:.03em}
+.b{display:inline-flex;align-items:center;gap:4px;height:21px;padding:0 9px;font-size:11px;font-weight:600;color:#333A46;background:var(--btn-face);border:1px solid var(--btn-border);border-radius:2px;text-decoration:none;white-space:nowrap}
+.b:hover{border-color:#7d8592;background:#fff}
+.st{font-size:10px;font-weight:700;padding:0 5px;border:1px solid #EBD3A8;border-radius:2px}
+.st.warn{color:var(--warn);background:var(--warn-bg)}
+.statusbar{display:flex;align-items:center;background:#EDF0F4;border-top:1px solid var(--line-strong);padding:3px 8px;font-size:10.5px;color:var(--dim)}
+.statusbar .cell{padding:1px 10px;border-right:1px solid var(--line)}
+.statusbar .grow{flex:1}
+.note{font-size:10.5px;color:var(--mute);padding:2px 4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar"><span class="lg">E</span><b>EDIM</b><span style="color:#8FA5CC">산출물 다운로드 — NOVA Solution</span>
+    <span class="sp"></span>
+    <a href="/design/">화면설계서</a><a href="/design/hifi/">디자인 A</a><a href="/design/dense/">디자인 B ★</a><a href="/">프로토타입 앱</a></div>
+  <div class="body2">
+    <div class="note">완료 산출물 29종 — 문서 체계·재생성 규칙은 「문서 관리 요약(README)」 참조. Excel/OpenAPI는 생성 스크립트가 원본이므로 직접 수정 금지.</div>
+
+    <div class="gb"><div class="gt">기준·관리<span class="sp"></span><span class="cnt">4건</span></div>
+    <table class="g">
+      <tr><th style="width:56px">유형</th><th style="width:230px">산출물</th><th>설명</th><th style="width:72px">크기</th><th style="width:86px">수정일</th><th style="width:88px"></th></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1F4E8C">MD</span></td>
+      <td><b>시스템 개요서</b></td>
+      <td class="dim2">발표자료 78슬라이드 분석 — 전 문서의 기준 (Mermaid 8)</td>
+      <td class="num">28 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_개요.md" download="EDIM_개요.md">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1F4E8C">MD</span></td>
+      <td><b>문서 관리 요약</b></td>
+      <td class="dim2">문서 지도·추적 체계·관리 규칙 — 단일 진입점</td>
+      <td class="num">11 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/README.md" download="README.md">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>산출물목록</b></td>
+      <td class="dim2">37종 레지스터 — 상태·작업자·우선 권고</td>
+      <td class="num">11 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_산출물목록.xlsx" download="EDIM_산출물목록.xlsx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1F4E8C">MD</span></td>
+      <td><b>요구사항 보완노트</b></td>
+      <td class="dim2">PPT 재검토 발견·고객 협의 필요 항목</td>
+      <td class="num">8 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_요구사항_보완노트.md" download="EDIM_요구사항_보완노트.md">⬇ 다운로드</a></td></tr>
+    </table></div>
+
+    <div class="gb"><div class="gt">요구·기능<span class="sp"></span><span class="cnt">5건</span></div>
+    <table class="g">
+      <tr><th style="width:56px">유형</th><th style="width:230px">산출물</th><th>설명</th><th style="width:72px">크기</th><th style="width:86px">수정일</th><th style="width:88px"></th></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>요구사항정의서</b></td>
+      <td class="dim2">기능 50 · 비기능 22(i18n 확정) · 인터페이스 8 · 용어 16</td>
+      <td class="num">22 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/02_요구사항/EDIM_요구사항정의서.xlsx" download="EDIM_요구사항정의서.xlsx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>기능정의서</b></td>
+      <td class="dim2">14모듈 179기능 — 컴포넌트·DB·Phase·작업자 추적</td>
+      <td class="num">33 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_기능정의서.xlsx" download="EDIM_기능정의서.xlsx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>메뉴정의서</b></td>
+      <td class="dim2">98메뉴 — 화면·기능·권한 매핑 (PPT 3차 전수 대조)</td>
+      <td class="num">15 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_메뉴정의서.xlsx" download="EDIM_메뉴정의서.xlsx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>요구사항추적표 (RTM)</b></td>
+      <td class="dim2">REQ→기능→메뉴→화면→컴포넌트→DB 180행 · 커버리지 179/179</td>
+      <td class="num">21 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_요구사항추적표.xlsx" download="EDIM_요구사항추적표.xlsx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>기능확인서 (FVT)</b></td>
+      <td class="dim2">검수용 — 기능 179·비기능 22 확인 항목·승인란</td>
+      <td class="num">30 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/03_기능확인서_FVT/EDIM_기능확인서.xlsx" download="EDIM_기능확인서.xlsx">⬇ 다운로드</a></td></tr>
+    </table></div>
+
+    <div class="gb"><div class="gt">DB·스키마<span class="sp"></span><span class="cnt">4건</span></div>
+    <table class="g">
+      <tr><th style="width:56px">유형</th><th style="width:230px">산출물</th><th>설명</th><th style="width:72px">크기</th><th style="width:86px">수정일</th><th style="width:88px"></th></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1F4E8C">MD</span></td>
+      <td><b>DB 정의서 (MD)</b></td>
+      <td class="dim2">54테이블 462컬럼 — 설계 원칙·제약·리뷰 이력 v0.5</td>
+      <td class="num">54 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_DB_정의서.md" download="EDIM_DB_정의서.md">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>DB 정의서 (Excel)</b></td>
+      <td class="dim2">테이블목록·컬럼정의·공통코드 시트</td>
+      <td class="num">39 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_DB정의서.xlsx" download="EDIM_DB정의서.xlsx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#6B4FA1">SQL</span></td>
+      <td><b>DB Schema DDL</b></td>
+      <td class="dim2">PostgreSQL 16 — 실 DB 적용 검증 완료 (54테이블·제약·인덱스)</td>
+      <td class="num">34 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/ddl/edim_schema.sql" download="edim_schema.sql">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#6B4FA1">SQL</span></td>
+      <td><b>런타임 검증 SQL</b></td>
+      <td class="dim2">BOM 재귀 전개·제약 6종 위반 테스트 스위트</td>
+      <td class="num">7 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/ddl/verify_runtime.sql" download="verify_runtime.sql">⬇ 다운로드</a></td></tr>
+    </table></div>
+
+    <div class="gb"><div class="gt">설계<span class="sp"></span><span class="cnt">7건</span></div>
+    <table class="g">
+      <tr><th style="width:56px">유형</th><th style="width:230px">산출물</th><th>설명</th><th style="width:72px">크기</th><th style="width:86px">수정일</th><th style="width:88px"></th></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1F4E8C">MD</span></td>
+      <td><b>컴포넌트 정의서 (MD)</b></td>
+      <td class="dim2">39컴포넌트 — 아키텍처 결정·구축 현황</td>
+      <td class="num">25 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_컴포넌트_정의서.md" download="EDIM_컴포넌트_정의서.md">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>컴포넌트 정의서 (Excel)</b></td>
+      <td class="dim2">컴포넌트 목록 + API 108</td>
+      <td class="num">19 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_컴포넌트정의서.xlsx" download="EDIM_컴포넌트정의서.xlsx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#B3372F">YAML</span></td>
+      <td><b>OpenAPI 3.1 스펙</b></td>
+      <td class="dim2">107 오퍼레이션 · 52 스키마 — 검증 통과 (자동 생성)</td>
+      <td class="num">96 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/api/edim-openapi.yaml" download="edim-openapi.yaml">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1F4E8C">MD</span></td>
+      <td><b>인터페이스 정의서</b></td>
+      <td class="dim2">공통 규약·오류 카탈로그·외부 연계 8종</td>
+      <td class="num">8 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_인터페이스정의서.md" download="EDIM_인터페이스정의서.md">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1F4E8C">MD</span></td>
+      <td><b>클래스 정의서</b></td>
+      <td class="dim2">언어 중립 도메인 모델 — 11도메인·인바리언트 대응표</td>
+      <td class="num">11 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_클래스정의서.md" download="EDIM_클래스정의서.md">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>권한·승인 정의서</b></td>
+      <td class="dim2">권한 매트릭스(98메뉴)·승인 상태기계 13·Grade</td>
+      <td class="num">20 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_권한승인정의서.xlsx" download="EDIM_권한승인정의서.xlsx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1F4E8C">MD</span></td>
+      <td><b>개발 표준 정의서</b></td>
+      <td class="dim2">명명·API 규약·FE/BE·Git·테스트·보안·i18n</td>
+      <td class="num">12 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_개발표준정의서.md" download="EDIM_개발표준정의서.md">⬇ 다운로드</a></td></tr>
+    </table></div>
+
+    <div class="gb"><div class="gt">화면·디자인<span class="sp"></span><span class="cnt">3건</span></div>
+    <table class="g">
+      <tr><th style="width:56px">유형</th><th style="width:230px">산출물</th><th>설명</th><th style="width:72px">크기</th><th style="width:86px">수정일</th><th style="width:88px"></th></tr>
+      <tr><td class="c"><span class="tb2" style="background:#B45309">HTML</span></td>
+      <td><b>화면설계서 (와이어프레임)</b></td>
+      <td class="dim2">24화면 W-01~W-24 + 설계 노트 — /design/ 에서 열람 가능</td>
+      <td class="num">125 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_화면설계서.html" download="EDIM_화면설계서.html">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#B45309">HTML</span></td>
+      <td><b>디자인 시안 A (Modern)</b></td>
+      <td class="dim2">브랜드 접점용 — /design/hifi/</td>
+      <td class="num">50 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_디자인시안.html" download="EDIM_디자인시안.html">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#B45309">HTML</span></td>
+      <td><b>디자인 시안 B (Dense) ★</b></td>
+      <td class="dim2">레거시 문법 — 업무 화면 권고안 · /design/dense/</td>
+      <td class="num">42 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_디자인시안_B_dense.html" download="EDIM_디자인시안_B_dense.html">⬇ 다운로드</a></td></tr>
+    </table></div>
+
+    <div class="gb"><div class="gt">계획·이행<span class="sp"></span><span class="cnt">2건</span></div>
+    <table class="g">
+      <tr><th style="width:56px">유형</th><th style="width:230px">산출물</th><th>설명</th><th style="width:72px">크기</th><th style="width:86px">수정일</th><th style="width:88px"></th></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1E7A4E">XLSX</span></td>
+      <td><b>WBS·일정표</b></td>
+      <td class="dim2">38 Task · 44주 간트 · 마일스톤 4 (시작일 가정)</td>
+      <td class="num">17 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/04_WBS/EDIM_WBS.xlsx" download="EDIM_WBS.xlsx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#1F4E8C">MD</span></td>
+      <td><b>데이터 이행 계획서</b></td>
+      <td class="dim2">이행 대상 9종·5단계·검증 6기준·AI 학습 연계</td>
+      <td class="num">6 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/EDIM_데이터이행계획서.md" download="EDIM_데이터이행계획서.md">⬇ 다운로드</a></td></tr>
+    </table></div>
+
+    <div class="gb"><div class="gt">근거 자료<span class="sp"></span><span class="cnt">4건</span></div>
+    <table class="g">
+      <tr><th style="width:56px">유형</th><th style="width:230px">산출물</th><th>설명</th><th style="width:72px">크기</th><th style="width:86px">수정일</th><th style="width:88px"></th></tr>
+      <tr><td class="c"><span class="tb2" style="background:#C2410C">PPTX</span></td>
+      <td><b>원본 발표자료 (PPTX)</b></td>
+      <td class="dim2">NOVA Solution · 78슬라이드 — 대용량 <span class="st warn">대용량</span></td>
+      <td class="num">33.5 MB</td><td class="c">2026-07-06</td>
+      <td class="c"><a class="b" href="files/reference/EDIM%20Tool%20System%20EP2.pptx" download="EDIM Tool System EP2.pptx">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#B3372F">PDF</span></td>
+      <td><b>발표자료 렌더링 (PDF)</b></td>
+      <td class="dim2">슬라이드 시각 확인용 — 대용량 <span class="st warn">대용량</span></td>
+      <td class="num">10.0 MB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/reference/EDIM%20Tool%20System%20EP2.pdf" download="EDIM Tool System EP2.pdf">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#5A6270">TXT</span></td>
+      <td><b>슬라이드 텍스트 추출</b></td>
+      <td class="dim2">전 슬라이드 텍스트</td>
+      <td class="num">82 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/reference/EDIM_EP2_slide_text.txt" download="EDIM_EP2_slide_text.txt">⬇ 다운로드</a></td></tr>
+      <tr><td class="c"><span class="tb2" style="background:#5A6270">TXT</span></td>
+      <td><b>발표자 노트 추출</b></td>
+      <td class="dim2">표준 워크플로우 원문 51장</td>
+      <td class="num">42 KB</td><td class="c">2026-07-07</td>
+      <td class="c"><a class="b" href="files/reference/EDIM_EP2_speaker_notes.txt" download="EDIM_EP2_speaker_notes.txt">⬇ 다운로드</a></td></tr>
+    </table></div>
+
+  </div>
+  <div class="statusbar"><span class="cell">생성 2026-07-07 14:30</span><span class="cell">저장소 fankh/external-projects · edim-ai-blueprint/docs</span><span class="grow"></span><span class="cell">EDIM 문서 포털 v0.1</span></div>
+</div>
+</body>
+</html>
