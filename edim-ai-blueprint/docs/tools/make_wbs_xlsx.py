@@ -6,6 +6,11 @@
 """
 import os
 from datetime import date, timedelta
+
+# 작업자 배정: WBS 번호 → 실명 (계약 후 채움; 미기재 = 미정)
+ASSIGNEES = {
+    # 예: "1.1": "홍길동",
+}
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -114,7 +119,7 @@ def main():
 
     # ---- WBS + 간트 ----
     ws = wb.create_sheet("WBS")
-    fixed = ["WBS", "단계", "Task", "시작", "종료", "주", "담당", "산출물", "비고"]
+    fixed = ["WBS", "단계", "Task", "시작", "종료", "주", "담당(역할)", "작업자", "산출물", "비고"]
     headers = fixed + [f"W{w}" for w in range(1, TOTAL_WEEKS + 1)]
     ws.append(headers)
     for c in range(1, len(headers) + 1):
@@ -127,13 +132,14 @@ def main():
         wbs, phase, name, sw, dur, owner, deliv, note = t
         is_group = "." not in wbs
         s, e = week_date(sw), week_date(sw + dur - 1) + timedelta(days=4)
-        ws.append([wbs, phase, name, s.strftime("%m-%d"), e.strftime("%m-%d"), dur, owner, deliv, note] + [""] * TOTAL_WEEKS)
+        assignee = ASSIGNEES.get(wbs, "" if is_group else "미정")
+        ws.append([wbs, phase, name, s.strftime("%m-%d"), e.strftime("%m-%d"), dur, owner, assignee, deliv, note] + [""] * TOTAL_WEEKS)
         row = ws.max_row
         for c in range(1, len(fixed) + 1):
             cell = ws.cell(row=row, column=c)
             cell.font = BOLD_FONT if is_group else BODY_FONT
             cell.border = BORDER
-            cell.alignment = CENTER if c in (1, 4, 5, 6) else WRAP
+            cell.alignment = CENTER if c in (1, 4, 5, 6, 8) else WRAP
             if is_group:
                 cell.fill = PatternFill("solid", fgColor=PHASE_BG[phase])
         bar = PatternFill("solid", fgColor=PHASE_COLOR[phase])
@@ -143,10 +149,10 @@ def main():
             cell.border = BORDER
         for w in range(1, TOTAL_WEEKS + 1):
             ws.cell(row=row, column=len(fixed) + w).border = BORDER
-    widths = [6, 7, 42, 7, 7, 4, 15, 22, 26] + [2.4] * TOTAL_WEEKS
+    widths = [6, 7, 42, 7, 7, 4, 15, 10, 22, 26] + [2.4] * TOTAL_WEEKS
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-    ws.freeze_panes = "J2"
+    ws.freeze_panes = "K2"
 
     # ---- 마일스톤 ----
     ws = wb.create_sheet("마일스톤")

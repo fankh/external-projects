@@ -249,9 +249,13 @@ MODULES.append(("ADM", "관리 콘솔", [
  ("ADM-005", "-", "감사·사용량", "감사 로그, API 사용량, AI 토큰 비용 조회", "", "PLATFORM/ADMIN", "FE-04, INF-07", "sys_history", "P3", ""),
 ]))
 
+# 작업자 배정: 기능 ID → 실명 (착수 후 채움; 미기재 = 미정)
+ASSIGNEES = {
+    # 예: "CODE-008": "홍길동",
+}
 HEADERS = ["No", "기능 ID", "모듈", "기능코드", "기능명", "기능 설명", "주요 처리 규칙",
-           "사용자 권한", "관련 컴포넌트", "관련 DB", "Phase", "비고"]
-WIDTHS = [5, 10, 13, 9, 22, 46, 40, 12, 16, 24, 7, 16]
+           "사용자 권한", "관련 컴포넌트", "관련 DB", "Phase", "작업자", "비고"]
+WIDTHS = [5, 10, 13, 9, 22, 46, 40, 12, 16, 24, 7, 9, 16]
 
 
 def style_header(ws, row, cols):
@@ -302,12 +306,12 @@ def main():
         for row in rows:
             no += 1
             fid, code, name, desc, rule, user, comp, db, phase, note = row
-            ws.append([no, fid, f"{mkey} {mname}", code, name, desc, rule, user, comp, db, phase, note])
+            ws.append([no, fid, f"{mkey} {mname}", code, name, desc, rule, user, comp, db, phase, ASSIGNEES.get(fid, "미정"), note])
             for c in range(1, len(HEADERS) + 1):
                 cell = ws.cell(row=ws.max_row, column=c)
                 cell.font = BODY_FONT
                 cell.border = BORDER
-                cell.alignment = CENTER if c in (1, 2, 4, 8, 11) else WRAP
+                cell.alignment = CENTER if c in (1, 2, 4, 8, 11, 12) else WRAP
             ws.cell(row=ws.max_row, column=3).fill = fill
     for i, w in enumerate(WIDTHS, 1):
         ws.column_dimensions[get_column_letter(i)].width = w

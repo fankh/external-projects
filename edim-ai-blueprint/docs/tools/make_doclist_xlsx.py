@@ -25,6 +25,10 @@ STATUS_FILL = {
 PHASE_FILL = {"착수": "FFF8E7", "분석": "E8F4FD", "설계": "F0FFF0", "구현·시험": "FFF0F5",
               "이행·운영": "F5F0FF", "영업·계약": "FFEFC2"}
 
+# 작업자 배정: 산출물명 → 실명 (미기재 = 미정)
+ASSIGNEES = {
+    # 예: "요구사항정의서": "홍길동",
+}
 # (단계, 산출물, 형식, 상태, 버전, 파일/위치, 비고·선행조건)
 DOCS = [
  # ---- 영업·계약 ----
@@ -103,21 +107,21 @@ def main():
     ws.column_dimensions["C"].width = 100
 
     ws = wb.create_sheet("산출물목록")
-    headers = ["No", "단계", "산출물", "형식", "상태", "버전", "파일/위치", "비고·선행조건"]
+    headers = ["No", "단계", "산출물", "형식", "상태", "버전", "작업자", "파일/위치", "비고·선행조건"]
     ws.append(headers)
     for c in range(1, len(headers) + 1):
         cell = ws.cell(row=1, column=c)
         cell.fill = HDR_FILL; cell.font = HDR_FONT; cell.alignment = CENTER; cell.border = BORDER
     for n, row in enumerate(DOCS, 1):
         phase, name, fmt, status, ver, loc, note = row
-        ws.append([n, phase, name, fmt, status, ver, loc, note])
+        ws.append([n, phase, name, fmt, status, ver, ASSIGNEES.get(name, "미정"), loc, note])
         for c in range(1, len(headers) + 1):
             cell = ws.cell(row=ws.max_row, column=c)
             cell.font = BODY_FONT; cell.border = BORDER
-            cell.alignment = CENTER if c in (1, 2, 4, 5, 6) else WRAP
+            cell.alignment = CENTER if c in (1, 2, 4, 5, 6, 7) else WRAP
         ws.cell(row=ws.max_row, column=2).fill = PatternFill("solid", fgColor=PHASE_FILL.get(phase, "FFFFFF"))
         ws.cell(row=ws.max_row, column=5).fill = PatternFill("solid", fgColor=STATUS_FILL.get(status, "FFFFFF"))
-    for i, w in enumerate([5, 11, 26, 11, 8, 7, 52, 48], 1):
+    for i, w in enumerate([5, 11, 26, 11, 8, 7, 9, 50, 46], 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = f"A1:H{ws.max_row}"

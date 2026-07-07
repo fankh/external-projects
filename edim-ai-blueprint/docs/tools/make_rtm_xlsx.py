@@ -74,7 +74,7 @@ def main():
     for row in wb["기능목록"].iter_rows(min_row=2, values_only=True):
         if row[1]:
             feat[row[1]] = {"module": row[2], "name": row[4], "comp": row[8],
-                            "db": row[9], "phase": row[10]}
+                            "db": row[9], "phase": row[10], "assignee": row[11] if len(row) > 11 else "미정"}
     wb.close()
 
     # ---- 메뉴정의서 로드: 기능ID -> [(메뉴ID, 화면ID)] ----
@@ -114,7 +114,7 @@ def main():
             menu_ids = " · ".join(sorted({m for m, _ in menus})) or "-"
             screens = " · ".join(sorted({s for _, s in menus if s})) or "-"
             rtm_rows.append([r["id"], r["name"], fid, f["name"], f["module"],
-                             menu_ids, screens, f["comp"], f["db"], f["phase"]])
+                             menu_ids, screens, f["comp"], f["db"], f["phase"], f["assignee"]])
     orphan_feats = sorted(set(feat) - covered)
 
     # ---- 출력 ----
@@ -142,7 +142,7 @@ def main():
 
     ws = out.create_sheet("추적표")
     headers = ["No", "요구사항 ID", "요구사항명", "기능 ID", "기능명", "모듈",
-               "메뉴 ID", "화면 ID", "컴포넌트", "주 DB", "Phase"]
+               "메뉴 ID", "화면 ID", "컴포넌트", "주 DB", "Phase", "작업자"]
     ws.append(headers)
     style_header(ws, len(headers))
     prev_req = None
@@ -152,11 +152,11 @@ def main():
             cell = ws.cell(row=ws.max_row, column=c)
             cell.font = BODY_FONT
             cell.border = BORDER
-            cell.alignment = CENTER if c in (1, 2, 4, 8, 11) else WRAP
+            cell.alignment = CENTER if c in (1, 2, 4, 8, 11, 12) else WRAP
         if row[0] != prev_req:
             ws.cell(row=ws.max_row, column=2).font = BOLD_FONT
             prev_req = row[0]
-    for i, w in enumerate([5, 12, 22, 10, 24, 12, 20, 12, 20, 24, 7], 1):
+    for i, w in enumerate([5, 12, 22, 10, 24, 12, 20, 12, 20, 24, 7, 9], 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
