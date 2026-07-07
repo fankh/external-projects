@@ -85,6 +85,7 @@ flowchart TB
 | 기능확인서 (FVT) | [`03_기능확인서_FVT/EDIM_기능확인서.xlsx`](03_기능확인서_FVT/EDIM_기능확인서.xlsx) | v0.1 | Excel 6시트 (자동) | 기능 178·비기능 22 확인 항목·결함목록·승인란 — 판정 기입 후 버전 고정 |
 | 데이터 이행 계획서 | [`EDIM_데이터이행계획서.md`](EDIM_데이터이행계획서.md) | v0.1 | MD | 이행 대상 9·원칙 5·절차 5단계·검증 6기준·AI 학습 연계 |
 | 인터페이스 정의서 | [`EDIM_인터페이스정의서.md`](EDIM_인터페이스정의서.md) · [`api/edim-openapi.yaml`](api/edim-openapi.yaml) | v0.1 | MD + OpenAPI 3.1 | 공통 규약·시나리오·WS·외부 연계 8종 — **스펙은 APIS 목록에서 자동 생성** |
+| 클래스 정의서 | [`EDIM_클래스정의서.md`](EDIM_클래스정의서.md) | v0.1 | MD (classDiagram 2) | 언어 중립 도메인 모델 — 11도메인, 인바리언트↔DB 제약 이중 방어 대응표 |
 | 요구사항 보완노트 | [`EDIM_요구사항_보완노트.md`](EDIM_요구사항_보완노트.md) | - | MD | PPT 재검토 발견 사항·고객 협의 필요 4건 |
 | 아키텍처(프로토타입) | [`ARCHITECTURE.md`](ARCHITECTURE.md) / [`pdf`](ARCHITECTURE.pdf) | v1 | MD + PDF | 프로토타입 앱(현 배포본) 구조 |
 
