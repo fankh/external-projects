@@ -1,0 +1,3554 @@
+openapi: 3.1.0
+info:
+  title: EDIM API
+  version: 0.1.0
+  description: 'EDIM (Enterprise Digital Integration Management) REST API.
+
+
+    - 원천: 컴포넌트정의서 APIS 목록 (make_openapi.py 자동 생성)
+
+    - 규약: 개발표준 §3 — RFC 9457 오류, 커서 페이지네이션(?cursor=&limit=), 비동기 잡 202+runId, Idempotency-Key 지원
+
+    - 인증: Bearer JWT (테넌트 claim 포함) · 권한: 권한승인정의서 매트릭스
+
+    - 스키마는 핵심 필드 요약 — 전체 컬럼은 DB정의서 v0.4 참조'
+servers:
+- url: https://edim.seekerslab.com
+  description: 개발
+- url: https://{tenant-host}
+  description: 운영 (테넌트별)
+  variables:
+    tenant-host:
+      default: edim.example.com
+security:
+- bearerAuth: []
+tags:
+- name: AI
+- name: ENG-01 Macro
+- name: INT-05 QR
+- name: SVC-01 Auth
+- name: SVC-02 Hierarchy
+- name: SVC-03 Code
+- name: SVC-04 Drawing
+- name: SVC-05 Table
+- name: SVC-06 Toolbox
+- name: SVC-07 CPQ
+- name: SVC-08 Cost
+- name: SVC-09 ERP
+- name: SVC-10 Approval
+- name: SVC-11 Print
+- name: SVC-12 File
+- name: SVC-13 Notify
+paths:
+  /api/v1/auth/login:
+    post:
+      tags:
+      - SVC-01 Auth
+      summary: 로그인 — 토큰 발급
+      operationId: post_auth_login
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+  /api/v1/auth/refresh:
+    post:
+      tags:
+      - SVC-01 Auth
+      summary: 토큰 갱신
+      operationId: post_auth_refresh
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/me:
+    get:
+      tags:
+      - SVC-01 Auth
+      summary: 내 정보·권한 요약
+      operationId: get_auth_me
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /api/v1/auth/password:
+    patch:
+      tags:
+      - SVC-01 Auth
+      summary: 비밀번호 변경 (정책 검증)
+      operationId: patch_auth_password
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/auth/permissions:
+    get:
+      tags:
+      - SVC-01 Auth
+      summary: 리소스별 권한 조회
+      operationId: get_auth_permissions
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/users:
+    get:
+      tags:
+      - SVC-01 Auth
+      summary: 사용자 목록 (부서·상태 필터, ADMIN)
+      operationId: get_users
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    post:
+      tags:
+      - SVC-01 Auth
+      summary: 사용자 등록 (SYS-003)
+      operationId: post_users
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+  /api/v1/users/{id}:
+    patch:
+      tags:
+      - SVC-01 Auth
+      summary: 사용자 수정·상태 변경 (ACTIVE/LOCKED/RETIRED)
+      operationId: patch_users_id
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+  /api/v1/roles:
+    post:
+      tags:
+      - SVC-01 Auth
+      summary: 역할 생성·권한 부여 (SYS-004/005)
+      operationId: post_roles
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+  /api/v1/tenants:
+    get:
+      tags:
+      - SVC-01 Auth
+      summary: 테넌트 목록·상태 (Platform 전용)
+      operationId: get_tenants
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+    post:
+      tags:
+      - SVC-01 Auth
+      summary: 테넌트 생성 — sys_tenant (ADM-001, Platform 전용)
+      operationId: post_tenants
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tenant'
+  /api/v1/hierarchy/trees:
+    get:
+      tags:
+      - SVC-02 Hierarchy
+      summary: Tree 목록 (type 필터)
+      operationId: get_hierarchy_trees
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HierarchyNode'
+  /api/v1/hierarchy/nodes/{id}/children:
+    get:
+      tags:
+      - SVC-02 Hierarchy
+      summary: 하위 노드 조회
+      operationId: get_hierarchy_nodes_id_children
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HierarchyNode'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/hierarchy/nodes:
+    post:
+      tags:
+      - SVC-02 Hierarchy
+      summary: 노드 생성 (승인 대상)
+      operationId: post_hierarchy_nodes
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HierarchyNode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HierarchyNode'
+  /api/v1/hierarchy/nodes/{id}/move:
+    patch:
+      tags:
+      - SVC-02 Hierarchy
+      summary: 노드 이동 — Address 추적
+      operationId: patch_hierarchy_nodes_id_move
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HierarchyNode'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HierarchyNode'
+  /api/v1/hierarchy/resolve:
+    get:
+      tags:
+      - SVC-02 Hierarchy
+      summary: address→노드 해석
+      operationId: get_hierarchy_resolve
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HierarchyNode'
+  /api/v1/hierarchy/search:
+    get:
+      tags:
+      - SVC-02 Hierarchy
+      summary: 이름·비고·심볼 통합 검색 (M-15-6)
+      operationId: get_hierarchy_search
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+  /api/v1/hierarchy/nodes/{id}:
+    patch:
+      tags:
+      - SVC-02 Hierarchy
+      summary: 노드 개명·속성 수정 (승인 대상)
+      operationId: patch_hierarchy_nodes_id
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HierarchyNode'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HierarchyNode'
+    delete:
+      tags:
+      - SVC-02 Hierarchy
+      summary: 노드 삭제 — DB 상호관계 점검 후
+      operationId: delete_hierarchy_nodes_id
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '204':
+          description: 삭제됨 (DRAFT 자산만)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/codes/groups:
+    post:
+      tags:
+      - SVC-03 Code
+      summary: 코드 그룹 등록
+      operationId: post_codes_groups
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeGroup'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeGroup'
+  /api/v1/codes/products:
+    post:
+      tags:
+      - SVC-03 Code
+      summary: Product Code 등록
+      operationId: post_codes_products
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCode'
+  /api/v1/codes/products/{id}/check-duplicate:
+    get:
+      tags:
+      - SVC-03 Code
+      summary: Main Code 중복검토
+      operationId: get_codes_products_id_check_duplicate
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: object
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/codes/relationships:
+    post:
+      tags:
+      - SVC-03 Code
+      summary: Mother-Child 관계 등록
+      operationId: post_codes_relationships
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeRelationship'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeRelationship'
+  /api/v1/codes/products/{id}/expand:
+    post:
+      tags:
+      - SVC-03 Code
+      summary: BOM 전개
+      operationId: post_codes_products_id_expand
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BomExpansion'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCode'
+  /api/v1/codes/relationships/running-test:
+    post:
+      tags:
+      - SVC-03 Code
+      summary: Part List Running Test
+      operationId: post_codes_relationships_running_test
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunningTestResult'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeRelationship'
+  /api/v1/codes/arrangements:
+    post:
+      tags:
+      - SVC-03 Code
+      summary: Arrangement 등록
+      operationId: post_codes_arrangements
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArrangementCode'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArrangementCode'
+  /api/v1/codes/values/import-excel:
+    post:
+      tags:
+      - SVC-03 Code
+      summary: 코드 값 Excel Import (CODE-016)
+      operationId: post_codes_values_import_excel
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/codes/groups/{id}/export-excel:
+    get:
+      tags:
+      - SVC-03 Code
+      summary: Registered Code Table Export (CODE-016)
+      operationId: get_codes_groups_id_export_excel
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeGroup'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/drawings:
+    post:
+      tags:
+      - SVC-04 Drawing
+      summary: 도면 등록
+      operationId: post_drawings
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Drawing'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Drawing'
+  /api/v1/drawings/{id}/document:
+    get:
+      tags:
+      - SVC-04 Drawing
+      summary: DrawingDocument 조회 (block 파라미터)
+      operationId: get_drawings_id_document
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DrawingDocument'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags:
+      - SVC-04 Drawing
+      summary: DrawingDocument 저장
+      operationId: put_drawings_id_document
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DrawingDocument'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DrawingDocument'
+  /api/v1/drawings/{id}/revisions:
+    post:
+      tags:
+      - SVC-04 Drawing
+      summary: 개정 생성
+      operationId: post_drawings_id_revisions
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Drawing'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/drawings/{id}/dimensions:
+    post:
+      tags:
+      - SVC-04 Drawing
+      summary: 치수 등록 (Macro 바인딩)
+      operationId: post_drawings_id_dimensions
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dimension'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Dimension'
+  /api/v1/drawings/{id}/relations:
+    post:
+      tags:
+      - SVC-04 Drawing
+      summary: 부품 관계 등록
+      operationId: post_drawings_id_relations
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Drawing'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Drawing'
+  /api/v1/drawings/import:
+    post:
+      tags:
+      - SVC-04 Drawing
+      summary: DXF/DWG/PDF/STEP Import
+      operationId: post_drawings_import
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Drawing'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/drawings/{id}/export:
+    post:
+      tags:
+      - SVC-04 Drawing
+      summary: DXF/PDF Export
+      operationId: post_drawings_id_export
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileRef'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Drawing'
+  /api/v1/drawings/{id}/referencers:
+    get:
+      tags:
+      - SVC-04 Drawing
+      summary: Where-used 역참조 조회 (DWG-026)
+      operationId: get_drawings_id_referencers
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/drawings/{id}/variants:
+    get:
+      tags:
+      - SVC-04 Drawing
+      summary: Variants 목록 (DWG-027)
+      operationId: get_drawings_id_variants
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/drawings/{id}/supersede:
+    post:
+      tags:
+      - SVC-04 Drawing
+      summary: 대체 관계 등록 — old→new (DWG-027)
+      operationId: post_drawings_id_supersede
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supersedure'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Supersedure'
+  /api/v1/drawings/{id}/dimensions/{dimId}:
+    patch:
+      tags:
+      - SVC-04 Drawing
+      summary: 치수 Macro/Variant 바인딩 수정 (XOR 검증)
+      operationId: patch_drawings_id_dimensions_dimId
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dimension'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: dimId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Dimension'
+  /api/v1/parts:
+    get:
+      tags:
+      - SVC-04 Drawing
+      summary: 부품 마스터 목록·검색 (DWG-017)
+      operationId: get_parts
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Part'
+    post:
+      tags:
+      - SVC-04 Drawing
+      summary: 부품 등록
+      operationId: post_parts
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Part'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Part'
+  /api/v1/materials:
+    post:
+      tags:
+      - SVC-04 Drawing
+      summary: 재질 등록 — hazard_class 포함 (DWG-018)
+      operationId: post_materials
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Material'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Material'
+  /api/v1/tables:
+    post:
+      tags:
+      - SVC-05 Table
+      summary: Table 정의 생성
+      operationId: post_tables
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataTable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataTable'
+  /api/v1/tables/{id}/rows:bulk:
+    post:
+      tags:
+      - SVC-05 Table
+      summary: 행 일괄 입력
+      operationId: post_tables_id_rows_bulk
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TableRowsBulk'
+  /api/v1/tables/{id}/query:
+    get:
+      tags:
+      - SVC-05 Table
+      summary: 범위 조회 (Macro 참조용)
+      operationId: get_tables_id_query
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TableQueryResult'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/tables/import-excel:
+    post:
+      tags:
+      - SVC-05 Table
+      summary: Excel Import
+      operationId: post_tables_import_excel
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/toolbox/forms:
+    post:
+      tags:
+      - SVC-06 Toolbox
+      summary: UI Form 저장
+      operationId: post_toolbox_forms
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiForm'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UiForm'
+  /api/v1/toolbox/forms/{id}:
+    get:
+      tags:
+      - SVC-06 Toolbox
+      summary: Form 렌더 정의 조회
+      operationId: get_toolbox_forms_id
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiForm'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+      - SVC-06 Toolbox
+      summary: DRAFT Form 삭제 (게시본 불가)
+      operationId: delete_toolbox_forms_id
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '204':
+          description: 삭제됨 (DRAFT 자산만)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/toolbox/forms/{id}/publish:
+    post:
+      tags:
+      - SVC-06 Toolbox
+      summary: Form 게시 (승인 후)
+      operationId: post_toolbox_forms_id_publish
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiForm'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UiForm'
+  /api/v1/toolbox/templets:
+    get:
+      tags:
+      - SVC-06 Toolbox
+      summary: Templet 목록
+      operationId: get_toolbox_templets
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+  /api/v1/cpq/selections:
+    get:
+      tags:
+      - SVC-07 CPQ
+      summary: 선정 세션 목록 (project·상태 필터)
+      operationId: get_cpq_selections
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Selection'
+    post:
+      tags:
+      - SVC-07 CPQ
+      summary: 선정 세션 생성
+      operationId: post_cpq_selections
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Selection'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Selection'
+  /api/v1/cpq/selections/{id}/slots:
+    patch:
+      tags:
+      - SVC-07 CPQ
+      summary: Slot 값 선택
+      operationId: patch_cpq_selections_id_slots
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Selection'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Selection'
+  /api/v1/cpq/selections/{id}/finalize:
+    post:
+      tags:
+      - SVC-07 CPQ
+      summary: 완성품 Code 확정
+      operationId: post_cpq_selections_id_finalize
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Selection'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/cpq/selections/{id}/x-code-review:
+    post:
+      tags:
+      - SVC-07 CPQ
+      summary: 비규격 검토 요청
+      operationId: post_cpq_selections_id_x_code_review
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Selection'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/cpq/selections/{id}/runs:
+    post:
+      tags:
+      - SVC-07 CPQ
+      summary: EDIM Run 실행 요청
+      operationId: post_cpq_selections_id_runs
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '202':
+          description: 비동기 잡 수락 (개발표준 §3)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunAccepted'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunRequest'
+  /api/v1/cpq/runs/{runId}:
+    get:
+      tags:
+      - SVC-07 CPQ
+      summary: Run 상태 조회
+      operationId: get_cpq_runs_runId
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Run'
+      parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/cpq/runs/{runId}/outputs:
+    get:
+      tags:
+      - SVC-07 CPQ
+      summary: 산출물 목록
+      operationId: get_cpq_runs_runId_outputs
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutputList'
+      parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/cpq/runs/{runId}/bom/export:
+    get:
+      tags:
+      - SVC-07 CPQ
+      summary: BOM Excel Export (RUN-010)
+      operationId: get_cpq_runs_runId_bom_export
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileRef'
+      parameters:
+      - name: runId
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/cost/prices:
+    post:
+      tags:
+      - SVC-08 Cost
+      summary: 단가 등록
+      operationId: post_cost_prices
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Price'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Price'
+  /api/v1/cost/prices/resolve:
+    get:
+      tags:
+      - SVC-08 Cost
+      summary: 적용 단가 해석 (source 우선순위)
+      operationId: get_cost_prices_resolve
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceResolve'
+  /api/v1/cost/pcr:
+    post:
+      tags:
+      - SVC-08 Cost
+      summary: PCR 생성
+      operationId: post_cost_pcr
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pcr'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pcr'
+  /api/v1/cost/quotations:
+    post:
+      tags:
+      - SVC-08 Cost
+      summary: 견적서 생성
+      operationId: post_cost_quotations
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quotation'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Quotation'
+  /api/v1/cost/quotations/{id}/render:
+    post:
+      tags:
+      - SVC-08 Cost
+      summary: 견적서 PDF 출력
+      operationId: post_cost_quotations_id_render
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileRef'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Quotation'
+  /api/v1/projects:
+    post:
+      tags:
+      - SVC-09 ERP
+      summary: Project 등록 PS — 채번 (ERP-001)
+      operationId: post_projects
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Project'
+    get:
+      tags:
+      - SVC-09 ERP
+      summary: Project 목록 — 영업단계 필터
+      operationId: get_projects
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+  /api/v1/erp/processes:
+    get:
+      tags:
+      - SVC-09 ERP
+      summary: 프로세스 정의 목록
+      operationId: get_erp_processes
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessDef'
+  /api/v1/erp/process-defs:
+    post:
+      tags:
+      - SVC-09 ERP
+      summary: 프로세스 정의 생성 (W-14, ADMIN — 코드 신설은 Platform)
+      operationId: post_erp_process_defs
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessDef'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessDef'
+  /api/v1/erp/process-defs/{id}:
+    patch:
+      tags:
+      - SVC-09 ERP
+      summary: 정의 수정 — 선행/후행(edge)·기한·Form
+      operationId: patch_erp_process_defs_id
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessDef'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessDef'
+  /api/v1/erp/events:
+    post:
+      tags:
+      - SVC-09 ERP
+      summary: 프로세스 이벤트 생성
+      operationId: post_erp_events
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessEvent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessEvent'
+    get:
+      tags:
+      - SVC-09 ERP
+      summary: 업무함 (assignee/status 필터)
+      operationId: get_erp_events
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessEvent'
+  /api/v1/erp/events/{id}/status:
+    patch:
+      tags:
+      - SVC-09 ERP
+      summary: 이벤트 상태 전이
+      operationId: patch_erp_events_id_status
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessEvent'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessEvent'
+  /api/v1/erp/dashboard:
+    get:
+      tags:
+      - SVC-09 ERP
+      summary: 전사 Dashboard — 부서별 Event·이상 경고 (W-10)
+      operationId: get_erp_dashboard
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+  /api/v1/erp/dashboard/project/{projectId}:
+    get:
+      tags:
+      - SVC-09 ERP
+      summary: 프로젝트 Dashboard 집계
+      operationId: get_erp_dashboard_project_projectId
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/erp/work-processes:
+    post:
+      tags:
+      - SVC-09 ERP
+      summary: Work Process 공정 데이터 등록
+      operationId: post_erp_work_processes
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkProcess'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkProcess'
+  /api/v1/erp/supplier-code-maps:
+    post:
+      tags:
+      - SVC-09 ERP
+      summary: 사용자↔공급자 코드 매핑 (ERP-018)
+      operationId: post_erp_supplier_code_maps
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierCodeMap'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierCodeMap'
+  /api/v1/approvals:
+    post:
+      tags:
+      - SVC-10 Approval
+      summary: 승인 요청 생성
+      operationId: post_approvals
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalRequest'
+  /api/v1/approvals/inbox:
+    get:
+      tags:
+      - SVC-10 Approval
+      summary: 승인함
+      operationId: get_approvals_inbox
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+  /api/v1/approvals/{id}/decide:
+    post:
+      tags:
+      - SVC-10 Approval
+      summary: 승인/반려 결정
+      operationId: post_approvals_id_decide
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApprovalDecision'
+  /api/v1/approvals/history:
+    get:
+      tags:
+      - SVC-10 Approval
+      summary: 승인 이력
+      operationId: get_approvals_history
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRequest'
+  /api/v1/documents/render:
+    post:
+      tags:
+      - SVC-11 Print
+      summary: Print Form + 데이터 → PDF
+      operationId: post_documents_render
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileRef'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/documents/export-office:
+    post:
+      tags:
+      - SVC-11 Print
+      summary: xlsx/docx 내보내기
+      operationId: post_documents_export_office
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileRef'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/doc-controls:
+    get:
+      tags:
+      - SVC-11 Print
+      summary: 문서함 목록 — Released Status·Grade 필터 (DOC-001)
+      operationId: get_doc_controls
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocControl'
+  /api/v1/doc-controls/{id}/status:
+    patch:
+      tags:
+      - SVC-11 Print
+      summary: Released Status 전이 — Set-up→Check→Approve→Accepted
+      operationId: patch_doc_controls_id_status
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocControl'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocControl'
+  /api/v1/doc-controls/allocate-code:
+    post:
+      tags:
+      - SVC-11 Print
+      summary: Document Code 채번 (DOC-003)
+      operationId: post_doc_controls_allocate_code
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocControl'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocControl'
+  /api/v1/files/upload-url:
+    post:
+      tags:
+      - SVC-12 File
+      summary: 업로드 서명 URL
+      operationId: post_files_upload_url
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedUrl'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/files/{id}/download-url:
+    get:
+      tags:
+      - SVC-12 File
+      summary: 다운로드 서명 URL
+      operationId: get_files_id_download_url
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedUrl'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/files:
+    get:
+      tags:
+      - SVC-12 File
+      summary: Project Folder 파일 목록
+      operationId: get_files
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+  /api/v1/notifications:
+    get:
+      tags:
+      - SVC-13 Notify
+      summary: 알림 목록
+      operationId: get_notifications
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationList'
+  /api/v1/notifications/read:
+    post:
+      tags:
+      - SVC-13 Notify
+      summary: 읽음 처리
+      operationId: post_notifications_read
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationList'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/macros:
+    get:
+      tags:
+      - ENG-01 Macro
+      summary: Macro 목록·검색 (v0.4 — CRUD 부재 결함 수정)
+      operationId: get_macros
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Macro'
+    post:
+      tags:
+      - ENG-01 Macro
+      summary: Macro 생성 — 4표현 저장, 참조 추출·DAG 검증
+      operationId: post_macros
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Macro'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Macro'
+  /api/v1/macros/{id}:
+    get:
+      tags:
+      - ENG-01 Macro
+      summary: Macro 상세 (버전 포함)
+      operationId: get_macros_id
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Macro'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags:
+      - ENG-01 Macro
+      summary: Macro 수정 — 새 버전 생성
+      operationId: patch_macros_id
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Macro'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Macro'
+    delete:
+      tags:
+      - ENG-01 Macro
+      summary: DRAFT Macro 삭제 (승인본 삭제 불가)
+      operationId: delete_macros_id
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '204':
+          description: 삭제됨 (DRAFT 자산만)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+  /api/v1/macros/{id}/test-run:
+    post:
+      tags:
+      - ENG-01 Macro
+      summary: Macro Test Run (조건값→결과)
+      operationId: post_macros_id_test_run
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MacroTestRun'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MacroTestRun'
+  /api/v1/ai/macro/generate:
+    post:
+      tags:
+      - AI
+      summary: Prompt→Macro 생성
+      operationId: post_ai_macro_generate
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiGeneration'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiGeneration'
+  /api/v1/ai/macro/convert:
+    post:
+      tags:
+      - AI
+      summary: 표현 간 변환 (from/to)
+      operationId: post_ai_macro_convert
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiGeneration'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiGeneration'
+  /api/v1/ai/ui/suggest:
+    post:
+      tags:
+      - AI
+      summary: UI Form 초안 제안
+      operationId: post_ai_ui_suggest
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiGeneration'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiGeneration'
+  /api/v1/ai/chat:
+    post:
+      tags:
+      - AI
+      summary: 사내 자료 챗봇
+      operationId: post_ai_chat
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiGeneration'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiGeneration'
+  /api/v1/ai/learning/jobs:
+    post:
+      tags:
+      - AI
+      summary: 학습 잡 실행 (Platform 전용)
+      operationId: post_ai_learning_jobs
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiGeneration'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiGeneration'
+  /api/v1/qr/issue:
+    post:
+      tags:
+      - INT-05 QR
+      summary: 도면·서류·Project·자산 QR 발급 (APP-001)
+      operationId: post_qr_issue
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '201':
+          description: 생성됨 (승인 대상 자산은 DRAFT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrResult'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /api/v1/qr/resolve:
+    get:
+      tags:
+      - INT-05 QR
+      summary: QR 해석 → 대상 링크·권한 검사
+      operationId: get_qr_resolve
+      responses:
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrResult'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: 요청 오류
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: 인증 실패
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: 권한 없음 — 권한승인정의서 매트릭스
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+    Page:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {}
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    IdRef:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+    ApprovalStatus:
+      type: string
+      enum:
+      - DRAFT
+      - PENDING
+      - APPROVED
+      - REJECTED
+    LoginRequest:
+      type: object
+      required:
+      - loginId
+      - password
+      properties:
+        loginId:
+          type: string
+        password:
+          type: string
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+        userLevel:
+          type: string
+          enum:
+          - PLATFORM
+          - ADMIN
+          - SETUP
+          - GENERAL
+    User:
+      type: object
+      properties:
+        userId:
+          type: integer
+        loginId:
+          type: string
+        userName:
+          type: string
+        email:
+          type: string
+        department:
+          type: string
+        userLevel:
+          type: string
+        status:
+          type: string
+    Role:
+      type: object
+      properties:
+        roleId:
+          type: integer
+        roleName:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceType:
+                type: string
+              resourceKey:
+                type: string
+              action:
+                type: string
+    Tenant:
+      type: object
+      properties:
+        tenantId:
+          type: integer
+        tenantCode:
+          type: string
+        tenantName:
+          type: string
+        plan:
+          type: string
+          enum:
+          - SAAS
+          - SELF_MANAGED
+        status:
+          type: string
+    HierarchyNode:
+      type: object
+      properties:
+        hierarchyId:
+          type: integer
+        parentId:
+          type:
+          - integer
+          - 'null'
+        treeType:
+          type: string
+          enum:
+          - PRODUCT
+          - GENERAL_DB
+          - CONFIG
+        nodeName:
+          type: string
+        symbol:
+          type: string
+        address:
+          type: string
+        isSystem:
+          type: boolean
+        approvalStatus:
+          $ref: '#/components/schemas/ApprovalStatus'
+    CodeGroup:
+      type: object
+      properties:
+        groupId:
+          type: integer
+        groupCode:
+          type: string
+        groupName:
+          type: string
+        groupType:
+          type: string
+          enum:
+          - SPECIFICATION
+          - RAW_MATERIAL
+          - GPI
+          - PRODUCT
+        hierarchyAddress:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              itemSlot:
+                type: string
+              itemName:
+                type: string
+              values:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    valueCode:
+                      type: string
+                    valueName:
+                      type: string
+    ProductCode:
+      type: object
+      properties:
+        productCodeId:
+          type: integer
+        mainCode:
+          type: string
+        codeName:
+          type: string
+        groupId:
+          type: integer
+        hierarchyAddress:
+          type: string
+        approvalStatus:
+          $ref: '#/components/schemas/ApprovalStatus'
+    CodeRelationship:
+      type: object
+      properties:
+        relId:
+          type: integer
+        motherCodeId:
+          type: integer
+        childCodeId:
+          type: integer
+        quantity:
+          type: number
+        remarks:
+          type: string
+        slotMaps:
+          type: array
+          items:
+            type: object
+            properties:
+              childSlot:
+                type: string
+              motherSlot:
+                type:
+                - string
+                - 'null'
+              fixedValue:
+                type:
+                - string
+                - 'null'
+            description: motherSlot XOR fixedValue
+    BomExpansion:
+      type: object
+      description: 재귀 전개 결과 (verify_runtime.sql T1 형식)
+      properties:
+        finishedGoodsCode:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              level:
+                type: integer
+              mainCode:
+                type: string
+              resolvedCode:
+                type: string
+              resolvedSlots:
+                type: object
+              quantity:
+                type: number
+              path:
+                type: string
+    RunningTestResult:
+      type: object
+      properties:
+        passed:
+          type: boolean
+        partList:
+          type: array
+          items:
+            type: object
+        errors:
+          type: array
+          items:
+            type: string
+    ArrangementCode:
+      type: object
+      properties:
+        arrangementId:
+          type: integer
+        arrangementCode:
+          type: string
+        productFamily:
+          type: string
+        directionOption:
+          type: string
+        components:
+          type: array
+          items:
+            type: object
+    Drawing:
+      type: object
+      properties:
+        drawingId:
+          type: integer
+        drawingNo:
+          type: string
+        drawingName:
+          type: string
+        drawingType:
+          type: string
+          enum:
+          - ASSEMBLY
+          - PART
+          - LAYOUT
+        dwgKind:
+          type: string
+          enum:
+          - APPROVAL
+          - MANUFACTURING
+          - STANDARD
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - REVIEW
+          - APPROVED
+          - RELEASED
+        currentRev:
+          type: string
+    DrawingDocument:
+      type: object
+      description: 도면 기하 표준 JSON — 프로토타입 스키마 승계
+      properties:
+        layers:
+          type: array
+          items:
+            type: object
+        entities:
+          type: array
+          items:
+            type: object
+            properties:
+              entityType:
+                type: string
+                enum:
+                - line
+                - polyline
+                - circle
+                - arc
+                - text
+        blockName:
+          type:
+          - string
+          - 'null'
+    Dimension:
+      type: object
+      properties:
+        dimensionId:
+          type: integer
+        dimLabel:
+          type: string
+        dimType:
+          type: string
+          enum:
+          - KEY
+          - DETAIL
+        macroId:
+          type:
+          - integer
+          - 'null'
+        variantValue:
+          type:
+          - number
+          - 'null'
+          description: macroId XOR variantValue
+        designPriority:
+          type: integer
+        dataPriority:
+          type: integer
+    Supersedure:
+      type: object
+      properties:
+        oldDrawingId:
+          type: integer
+        newDrawingId:
+          type: integer
+        reason:
+          type: string
+        supersededDate:
+          type: string
+          format: date
+    Part:
+      type: object
+      properties:
+        partId:
+          type: integer
+        partNo:
+          type: string
+        partName:
+          type: string
+        materialId:
+          type: integer
+        unit:
+          type: string
+        weight:
+          type: number
+    Material:
+      type: object
+      properties:
+        materialId:
+          type: integer
+        materialCode:
+          type: string
+        materialName:
+          type: string
+        density:
+          type: number
+        hazardClass:
+          type:
+          - string
+          - 'null'
+    DataTable:
+      type: object
+      properties:
+        tableId:
+          type: integer
+        tableName:
+          type: string
+        tableType:
+          type: string
+          enum:
+          - VARIANT
+          - TECH
+          - MATERIAL
+          - STD
+          - GENERATED
+        columnDef:
+          type: object
+    TableRowsBulk:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              rowKey:
+                type: string
+              rowValues:
+                type: object
+            description: rowKey 숫자면 rowKeyNum 자동 파싱
+    TableQueryResult:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+        keyRange:
+          type: string
+          description: '예: 10:25 — rowKeyNum 기준'
+    Macro:
+      type: object
+      properties:
+        macroId:
+          type: integer
+        macroName:
+          type: string
+        version:
+          type: integer
+        promptText:
+          type: string
+        macroExpr:
+          type: string
+        flowchartDef:
+          type: object
+        codeText:
+          type: string
+        applyType:
+          type: string
+          enum:
+          - MACRO
+          - CODING
+        status:
+          type: string
+          enum:
+          - DRAFT
+          - TESTED
+          - PENDING
+          - APPROVED
+    MacroTestRun:
+      type: object
+      properties:
+        input:
+          type: object
+        result: {}
+        durationMs:
+          type: integer
+        refs:
+          type: array
+          items:
+            type: object
+    UiForm:
+      type: object
+      properties:
+        formId:
+          type: integer
+        formName:
+          type: string
+        formType:
+          type: string
+        version:
+          type: integer
+        layoutDef:
+          type: object
+          description: 선언적 바인딩만 — 스크립트 실행 금지 (개발표준 §4)
+    Selection:
+      type: object
+      properties:
+        selectionId:
+          type: integer
+        projectId:
+          type: integer
+        finishedGoodsCode:
+          type: string
+        slotValues:
+          type: object
+        isStandard:
+          type: boolean
+        xCodeStatus:
+          type:
+          - string
+          - 'null'
+        status:
+          type: string
+    RunRequest:
+      type: object
+      required:
+      - runType
+      properties:
+        runType:
+          type: string
+          enum:
+          - BOM
+          - DWG
+          - PRICING
+          - TECH
+          - ALL
+    RunAccepted:
+      type: object
+      properties:
+        runId:
+          type: integer
+        status:
+          type: string
+          enum:
+          - RUNNING
+        statusUrl:
+          type: string
+    Run:
+      type: object
+      properties:
+        runId:
+          type: integer
+        runType:
+          type: string
+        status:
+          type: string
+        progress:
+          type: number
+        dimensionValues:
+          type: object
+        errorDetail:
+          type:
+          - object
+          - 'null'
+    OutputList:
+      type: object
+      properties:
+        outputs:
+          type: array
+          items:
+            type: object
+            properties:
+              outputType:
+                type: string
+              fileId:
+                type: integer
+              data:
+                type: object
+    Price:
+      type: object
+      properties:
+        priceId:
+          type: integer
+        productCodeId:
+          type:
+          - integer
+          - 'null'
+        partId:
+          type:
+          - integer
+          - 'null'
+          description: productCodeId XOR partId
+        priceSource:
+          type: string
+          enum:
+          - QUOTE
+          - PURCHASE
+          - STOCK
+          - APPLIED
+        price:
+          type: number
+        currency:
+          type: string
+        validFrom:
+          type: string
+          format: date
+        validTo:
+          type:
+          - string
+          - 'null'
+          format: date
+    PriceResolve:
+      type: object
+      properties:
+        resolvedPrice:
+          type: number
+        source:
+          type: string
+        appliedRow:
+          $ref: '#/components/schemas/Price'
+    Pcr:
+      type: object
+      properties:
+        pcrId:
+          type: integer
+        businessType:
+          type: string
+        directCostTotal:
+          type: number
+        ebit:
+          type: number
+        sections:
+          type: object
+    Quotation:
+      type: object
+      properties:
+        quotationId:
+          type: integer
+        quotationNo:
+          type: string
+        totalAmount:
+          type: number
+        currency:
+          type: string
+        lineItems:
+          type: array
+          items:
+            type: object
+        status:
+          type: string
+    Project:
+      type: object
+      properties:
+        projectId:
+          type: integer
+        projectNo:
+          type: string
+        projectName:
+          type: string
+        salesStage:
+          type: string
+          enum:
+          - TECH_PROPOSAL
+          - QUOTE
+          - NEGOTIATION
+          - CONTRACT
+          - CONTRACT_CHANGE
+          - CLOSED
+        customerId:
+          type: integer
+        status:
+          type: string
+    ProcessDef:
+      type: object
+      properties:
+        procDefId:
+          type: integer
+        procCode:
+          type: string
+        procName:
+          type: string
+        department:
+          type: string
+        isAuto:
+          type: boolean
+        edges:
+          type: array
+          items:
+            type: object
+            properties:
+              toDefId:
+                type: integer
+              transitionCondition:
+                type: string
+    ProcessEvent:
+      type: object
+      properties:
+        eventId:
+          type: integer
+        procDefId:
+          type: integer
+        projectId:
+          type: integer
+        status:
+          type: string
+          enum:
+          - TODO
+          - IN_PROGRESS
+          - DONE
+          - ALERT
+        assigneeId:
+          type: integer
+        dueDate:
+          type: string
+          format: date
+    Dashboard:
+      type: object
+      properties:
+        kpis:
+          type: object
+        processFlow:
+          type: array
+          items:
+            type: object
+        alerts:
+          type: array
+          items:
+            type: object
+    WorkProcess:
+      type: object
+      properties:
+        wpId:
+          type: integer
+        productCodeId:
+          type: integer
+        processType:
+          type: string
+        workTime:
+          type: number
+        makeOrBuy:
+          type: string
+          enum:
+          - MAKE
+          - BUY
+    SupplierCodeMap:
+      type: object
+      properties:
+        partId:
+          type:
+          - integer
+          - 'null'
+        productCodeId:
+          type:
+          - integer
+          - 'null'
+        supplierId:
+          type: integer
+        supplierCode:
+          type: string
+    ApprovalRequest:
+      type: object
+      properties:
+        approvalId:
+          type: integer
+        targetTable:
+          type: string
+        targetId:
+          type: integer
+        requestType:
+          type: string
+        step:
+          type: string
+          enum:
+          - WRITE
+          - REVIEW
+          - APPROVE
+        result:
+          type:
+          - string
+          - 'null'
+          enum:
+          - APPROVED
+          - REJECTED
+          - null
+    ApprovalDecision:
+      type: object
+      required:
+      - result
+      properties:
+        result:
+          type: string
+          enum:
+          - APPROVED
+          - REJECTED
+        comment:
+          type: string
+    DocControl:
+      type: object
+      properties:
+        docNo:
+          type: string
+        title:
+          type: string
+        version:
+          type: string
+        releasedStatus:
+          type: string
+          enum:
+          - SET_UP
+          - CHECK
+          - APPROVE
+          - ACCEPTED
+        managementGrade:
+          type: string
+    SignedUrl:
+      type: object
+      properties:
+        url:
+          type: string
+        expiresIn:
+          type: integer
+        fileId:
+          type: integer
+    FileRef:
+      type: object
+      properties:
+        fileId:
+          type: integer
+        fileName:
+          type: string
+        fileType:
+          type: string
+        downloadUrl:
+          type: string
+    NotificationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              notifyType:
+                type: string
+              title:
+                type: string
+              isRead:
+                type: boolean
+    AiGeneration:
+      type: object
+      properties:
+        generated:
+          type: object
+        model:
+          type: string
+        tokenUsage:
+          type: object
+        requiresApproval:
+          type: boolean
+          description: AI 생성물은 승인 게이트 필수 (AI-008)
+    QrResult:
+      type: object
+      properties:
+        qrToken:
+          type: string
+        targetType:
+          type: string
+        targetUrl:
+          type: string
+    ImportResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        succeeded:
+          type: integer
+        failed:
+          type: array
+          items:
+            type: object

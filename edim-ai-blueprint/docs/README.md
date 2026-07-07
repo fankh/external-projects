@@ -84,6 +84,7 @@ flowchart TB
 | WBS·일정표 | [`04_WBS/EDIM_WBS.xlsx`](04_WBS/EDIM_WBS.xlsx) | v0.1 | Excel 3시트 | 38 Task·44주 간트·마일스톤 4 — 시작일 가정 |
 | 기능확인서 (FVT) | [`03_기능확인서_FVT/EDIM_기능확인서.xlsx`](03_기능확인서_FVT/EDIM_기능확인서.xlsx) | v0.1 | Excel 6시트 (자동) | 기능 178·비기능 22 확인 항목·결함목록·승인란 — 판정 기입 후 버전 고정 |
 | 데이터 이행 계획서 | [`EDIM_데이터이행계획서.md`](EDIM_데이터이행계획서.md) | v0.1 | MD | 이행 대상 9·원칙 5·절차 5단계·검증 6기준·AI 학습 연계 |
+| 인터페이스 정의서 | [`EDIM_인터페이스정의서.md`](EDIM_인터페이스정의서.md) · [`api/edim-openapi.yaml`](api/edim-openapi.yaml) | v0.1 | MD + OpenAPI 3.1 | 공통 규약·시나리오·WS·외부 연계 8종 — **스펙은 APIS 목록에서 자동 생성** |
 | 요구사항 보완노트 | [`EDIM_요구사항_보완노트.md`](EDIM_요구사항_보완노트.md) | - | MD | PPT 재검토 발견 사항·고객 협의 필요 4건 |
 | 아키텍처(프로토타입) | [`ARCHITECTURE.md`](ARCHITECTURE.md) / [`pdf`](ARCHITECTURE.pdf) | v1 | MD + PDF | 프로토타입 앱(현 배포본) 구조 |
 
@@ -122,7 +123,7 @@ flowchart TB
 ### 수정 절차 (순서 중요)
 
 1. **MD가 원본인 문서** (DB 정의서): MD 수정 → `make_db_xlsx.py` 재생성
-2. **스크립트가 원본인 문서** (기능·메뉴·요구사항·컴포넌트·산출물): `docs/tools/make_*.py`의 데이터 수정 → 재생성. **xlsx 직접 편집 금지** (재생성 시 소실)
+2. **스크립트가 원본인 문서** (기능·메뉴·요구사항·컴포넌트·산출물·FVT·OpenAPI): `docs/tools/make_*.py`의 데이터 수정 → 재생성. **xlsx/yaml 직접 편집 금지** (재생성 시 소실)
 3. **RTM**: 요구사항·기능·메뉴 중 하나라도 바뀌면 `make_rtm_xlsx.py` 재실행 → 커버리지 시트 확인 (미연결/해석불가 0이어야 함)
 4. 신규 문서 작성 시: 산출물목록에 등록 → 개요 §14 갱신
 
@@ -140,6 +141,7 @@ py docs/tools/make_doclist_xlsx.py        # 산출물목록
 py docs/tools/make_authz_xlsx.py          # 권한승인정의서 (메뉴 수정 후 재실행)
 py docs/tools/make_wbs_xlsx.py            # WBS (START 상수 = 시작일 가정)
 py docs/tools/make_fvt_xlsx.py            # 기능확인서 (기능정의서 기반 — 판정 기입 전까지만)
+py docs/tools/make_openapi.py             # OpenAPI 스펙 (APIS 수정 후 필수 — 자동 검증)
 ```
 
 ### 표기·품질 규칙
