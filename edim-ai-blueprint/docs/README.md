@@ -81,12 +81,13 @@ flowchart TB
 | 권한·승인 정의서 | [`EDIM_권한승인정의서.xlsx`](EDIM_권한승인정의서.xlsx) | v0.1 | Excel 6시트 | 역할 4종·매트릭스(97메뉴 자동)·승인 상태기계 13·Platform 범위·Grade |
 | 개발 표준 정의서 | [`EDIM_개발표준정의서.md`](EDIM_개발표준정의서.md) | v0.1 | MD | 공통 원칙·명명·API 규약·FE/BE·Git/리뷰·테스트·보안·CI — 개정 트리거 연동 |
 | DB DDL·검증 | [`ddl/edim_schema.sql`](ddl/edim_schema.sql) / [`ddl/verify_runtime.sql`](ddl/verify_runtime.sql) | v0.4.1 | SQL | 실 PG16 검증 통과 — BOM 재귀·제약 6종·Project Folder 실행 확인 |
+| WBS·일정표 | [`04_WBS/EDIM_WBS.xlsx`](04_WBS/EDIM_WBS.xlsx) | v0.1 | Excel 3시트 | 38 Task·44주 간트·마일스톤 4 — 시작일 가정 |
 | 요구사항 보완노트 | [`EDIM_요구사항_보완노트.md`](EDIM_요구사항_보완노트.md) | - | MD | PPT 재검토 발견 사항·고객 협의 필요 4건 |
 | 아키텍처(프로토타입) | [`ARCHITECTURE.md`](ARCHITECTURE.md) / [`pdf`](ARCHITECTURE.pdf) | v1 | MD + PDF | 프로토타입 앱(현 배포본) 구조 |
 
 ### 템플릿 상태 (내용화 예정)
 
-`01_제안서/PROPOSAL.html` · `03_기능확인서_FVT/FVT.html` · `04_WBS/WBS.html` — 계획은 [산출물목록](EDIM_산출물목록.xlsx) 참조 (미작성 20종 포함).
+`01_제안서/PROPOSAL.html` · `03_기능확인서_FVT/FVT.html` — 계획은 [산출물목록](EDIM_산출물목록.xlsx) 참조 (미작성 20종 포함).
 
 ### 근거 자료 (`reference/`)
 
@@ -134,6 +135,7 @@ py docs/tools/make_db_xlsx.py             # DB정의서 (MD 파싱)
 py docs/tools/make_component_xlsx.py      # 컴포넌트정의서
 py docs/tools/make_doclist_xlsx.py        # 산출물목록
 py docs/tools/make_authz_xlsx.py          # 권한승인정의서 (메뉴 수정 후 재실행)
+py docs/tools/make_wbs_xlsx.py            # WBS (START 상수 = 시작일 가정)
 ```
 
 ### 표기·품질 규칙
