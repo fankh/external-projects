@@ -78,6 +78,7 @@ flowchart TB
 | DB 정의서 | [`EDIM_DB_정의서.md`](EDIM_DB_정의서.md) / [`xlsx`](EDIM_DB정의서.xlsx) | v0.1 | MD + Excel | 46테이블 398컬럼 — 설계 원칙·공통코드·미결정 8건 |
 | 요구사항추적표 (RTM) | [`EDIM_요구사항추적표.xlsx`](EDIM_요구사항추적표.xlsx) | 자동 | Excel 3시트 | REQ→기능→메뉴→화면→컴포넌트→DB 179행, **커버리지 178/178** |
 | 산출물목록 | [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx) | v0.1 | Excel 2시트 | 34종 레지스터 — 상태·우선 권고. **신규 문서는 여기에 먼저 등록** |
+| 권한·승인 정의서 | [`EDIM_권한승인정의서.xlsx`](EDIM_권한승인정의서.xlsx) | v0.1 | Excel 6시트 | 역할 4종·매트릭스(97메뉴 자동)·승인 상태기계 13·Platform 범위·Grade |
 | 요구사항 보완노트 | [`EDIM_요구사항_보완노트.md`](EDIM_요구사항_보완노트.md) | - | MD | PPT 재검토 발견 사항·고객 협의 필요 4건 |
 | 아키텍처(프로토타입) | [`ARCHITECTURE.md`](ARCHITECTURE.md) / [`pdf`](ARCHITECTURE.pdf) | v1 | MD + PDF | 프로토타입 앱(현 배포본) 구조 |
 
@@ -130,6 +131,7 @@ py docs/tools/make_rtm_xlsx.py            # RTM (위 3종 수정 후 필수)
 py docs/tools/make_db_xlsx.py             # DB정의서 (MD 파싱)
 py docs/tools/make_component_xlsx.py      # 컴포넌트정의서
 py docs/tools/make_doclist_xlsx.py        # 산출물목록
+py docs/tools/make_authz_xlsx.py          # 권한승인정의서 (메뉴 수정 후 재실행)
 ```
 
 ### 표기·품질 규칙
@@ -155,7 +157,7 @@ py docs/tools/make_doclist_xlsx.py        # 산출물목록
 
 산출물목록 v0.1 기준 (상세는 [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx)):
 
-1. **권한·승인 정의서** — 역할 × 97메뉴 매트릭스 (기존 데이터에서 도출 가능)
+1. ~~권한·승인 정의서~~ — ✅ 완료 (v0.1)
 2. **개발 표준 정의서** — P1 착수 전 필수
 3. **데이터 이행 계획서** — 고객 기존 자료 이관 + AI 학습 연계 (조기 협의)
 4. WBS 내용화 (P1~P5) · FVT 내용화 (기능 178건 → 확인 항목)
