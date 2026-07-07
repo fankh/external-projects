@@ -53,9 +53,9 @@ MODULES.append(("SYS", "시스템 공통", [
 ]))
 
 MODULES.append(("DOC", "문서 관리", [
- ("DOC-001", "-", "문서 이력·Released Status", "문서별 Progress(Person/date/Released Status/Approver/App.Date/Version/DOC No.) 관리", "개정 Version(KD-0.2 등) 자동 증가", "전체", "SVC-11, SVC-10", "dwg_file, sys_approval_request", "P3", "슬라이드 58"),
- ("DOC-002", "-", "관리 등급(보안 등급)", "문서 Management Grade(S-2 등) 설정 — 등급별 열람/출력 통제", "권한 없는 등급 문서 접근 차단", "ADMIN", "SVC-01, SVC-11", "sys_role_permission", "P3", "슬라이드 58"),
- ("DOC-003", "-", "Document Code 채번", "문서 코드 자동 생성 (예: EU-3-2020-450-6-21-4-SR-7)", "Product Code 기반 규칙 채번", "시스템", "SVC-11", "-", "P3", "슬라이드 4/8"),
+ ("DOC-001", "-", "문서 이력·Released Status", "문서별 Progress(Person/date/Released Status/Approver/App.Date/Version/DOC No.) 관리", "개정 Version(KD-0.2 등) 자동 증가", "전체", "SVC-11, SVC-10", "doc_control", "P3", "슬라이드 58"),
+ ("DOC-002", "-", "관리 등급(보안 등급)", "문서 Management Grade(S-2 등) 설정 — 등급별 열람/출력 통제", "권한 없는 등급 문서 접근 차단", "ADMIN", "SVC-01, SVC-11", "doc_control, sys_role_permission", "P3", "슬라이드 58"),
+ ("DOC-003", "-", "Document Code 채번", "문서 코드 자동 생성 (예: EU-3-2020-450-6-21-4-SR-7)", "Product Code 기반 규칙 채번", "시스템", "SVC-11", "doc_control", "P3", "슬라이드 4/8"),
  ("DOC-004", "-", "문서 보안 솔루션", "Authorization Settings·Security Solution 연계(워터마크·DRM·출력 통제)", "상세 요건 미정 — 고객 협의", "ADMIN", "SVC-11", "-", "P5", "슬라이드 58 placeholder"),
 ]))
 
@@ -105,7 +105,7 @@ MODULES.append(("DWG", "도면·PLM", [
  ("DWG-024", "E-4", "설계 Simulation", "설정된 관계·검증 규칙 기반 도면 동작 시뮬레이션(우측 판넬)", "검증 경고 시각화", "SETUP", "FE-02, ENG-01", "-", "P4", "슬라이드 63"),
  ("DWG-025", "E-2", "측정·특성 도구", "치수 측정(수평/수직/정렬/각도/호길이/면적/무게), 특성 변경(색상/투명도/선굵기/레이어), 자르기(Trim), 그룹화/해제, 등각·단면 View", "CAD와 동일 형식 명령·단축키(DI/CH/CO/RO/E/TR/REG)", "SETUP", "FE-02", "-", "P2", "슬라이드 61"),
  ("DWG-026", "E-2", "Referencers 역참조 조회", "도면/부품의 Where-used — 어느 상위 도면·Arrangement에서 참조되는지 조회", "Viewer 탭: Variants/Viewer/Referencers/Supersedure/Attachment", "전체", "SVC-04", "dwg_bom, code_relationship", "P3", "슬라이드 5/60 Viewer 탭"),
- ("DWG-027", "E-2", "Variants·Supersedure 관리", "도면 변형(Variants) 목록과 대체 관계(Supersedure — 신규정이 구버전 대체) 관리", "대체된 도면 사용 시 경고", "SETUP", "SVC-04", "dwg_revision", "P3", "슬라이드 5/60 Viewer 탭"),
+ ("DWG-027", "E-2", "Variants·Supersedure 관리", "도면 변형(Variants) 목록과 대체 관계(Supersedure — 신규정이 구버전 대체) 관리", "대체된 도면 사용 시 경고", "SETUP", "SVC-04", "dwg_supersedure, dwg_revision", "P3", "슬라이드 5/60 Viewer 탭"),
 ]))
 
 MODULES.append(("TBL", "데이터 Table", [
@@ -194,9 +194,9 @@ MODULES.append(("ERP", "ERP 업무", [
  ("ERP-015", "-", "회사 마스터", "고객/공급/파트너/은행 등록, 담당자, 평가등급, 지불조건", "", "SETUP", "SVC-09", "com_company", "P2", ""),
  ("ERP-016", "S-3-5", "사용자 정의 ERP Toolbar", "ERP Toolbar 항목 사용자 편집, 권한별 표시", "User Customizing ERP", "SETUP", "SVC-06, FE-01", "tbx_ui_form", "P5", ""),
  ("ERP-017", "§11", "구매 조건 관리", "공급처(국가/본사)·납기·납품조건(EXW/FOB/CIP, 설치/상차/하차)·운송(트럭/배/항공)·지불조건·화폐·물품형식(물건/서비스/인력/협력사)·최소구매수량·인증서·단위(부피/체적/면적/수량)", "Right quality/quantity/time/price/source 원칙", "자재", "SVC-09", "com_company, erp_process_event", "P5", "슬라이드 46"),
- ("ERP-018", "§11", "제품코드 매핑", "사용자용 코드 ↔ 공급자용 코드 매핑 관리", "발주서에 공급자 코드 표기", "자재", "SVC-09, SVC-03", "prt_part, com_company", "P5", "슬라이드 46"),
+ ("ERP-018", "§11", "제품코드 매핑", "사용자용 코드 ↔ 공급자용 코드 매핑 관리", "발주서에 공급자 코드 표기", "자재", "SVC-09, SVC-03", "prt_supplier_code_map", "P5", "슬라이드 46"),
  ("ERP-019", "§11", "재고 관리", "적정 재고량, 유통기한 관리", "최소 재고(min_stock) 경고", "자재", "SVC-09", "erp_work_process", "P5", "슬라이드 46"),
- ("ERP-020", "§11", "창고 관리", "자재 분류(원자재/가공/구매), 물성 위험등급(액체-독극물/가스-폭발성/고체-판·파이프·개), 저장위치 계층(지역/공장/창고/Storage/Sector), 보관품질(정기점검·유통기한), 입출고 통제·기록", "위험물 보관 규정 준수", "자재", "SVC-09", "-", "P5", "슬라이드 46 — 상세 테이블 v0.2"),
+ ("ERP-020", "§11", "창고 관리", "자재 분류(원자재/가공/구매), 물성 위험등급(액체-독극물/가스-폭발성/고체-판·파이프·개), 저장위치 계층(지역/공장/창고/Storage/Sector), 보관품질(정기점검·유통기한), 입출고 통제·기록", "위험물 보관 규정 준수", "자재", "SVC-09", "erp_warehouse, mat_material", "P5", "슬라이드 46"),
  ("ERP-021", "§11", "재고 단가 관리", "재고 단가 4종 산출 — 최고/최저/평균/최근", "cst_price(STOCK) 원천", "자재", "SVC-08", "cst_price", "P5", "슬라이드 46"),
  ("ERP-022", "§11", "MRP 자재 소요 계획", "제품 단위당 BOM 기반 자재 소요량·소요 시기 산출", "생산계획 연동", "자재/생산", "SVC-09", "erp_process_event", "P5", "슬라이드 46"),
  ("ERP-023", "§11", "생산 Scheduling·Capacity", "주문량·가용 자원 기반 생산 일정, 생산능력(Capacity Planning) 분석", "", "생산", "SVC-09", "erp_process_event", "P5", "슬라이드 46"),

@@ -40,7 +40,7 @@ flowchart TB
         subgraph DEF3["기술"]
             direction TB
             COMP["컴포넌트 39"]
-            DB["DB 46테이블"]
+            DB["DB 50테이블"]
         end
     end
 
@@ -74,8 +74,8 @@ flowchart TB
 | 기능정의서 | [`EDIM_기능정의서.xlsx`](EDIM_기능정의서.xlsx) | v0.2 | Excel 3시트 | 14모듈 178기능 — 기능코드·컴포넌트·DB·Phase 추적 |
 | 메뉴정의서 | [`EDIM_메뉴정의서.xlsx`](EDIM_메뉴정의서.xlsx) | v0.3 | Excel 2시트 | 97메뉴 (PPT 3차 전수 대조) — 화면·기능·권한 매핑 |
 | 화면설계서 | [`EDIM_화면설계서.html`](EDIM_화면설계서.html) | v0.2 | HTML (단일 파일) | 와이어프레임 16화면 (W-01~W-16) + 설계 노트 |
-| 컴포넌트 정의서 | [`EDIM_컴포넌트_정의서.md`](EDIM_컴포넌트_정의서.md) / [`xlsx`](EDIM_컴포넌트정의서.xlsx) | v0.2 | MD + Excel | 39컴포넌트·API 68 — **구축 상태 열 포함** (개발 서버 현황) |
-| DB 정의서 | [`EDIM_DB_정의서.md`](EDIM_DB_정의서.md) / [`xlsx`](EDIM_DB정의서.xlsx) | v0.1 | MD + Excel | 46테이블 398컬럼 — 설계 원칙·공통코드·미결정 8건 |
+| 컴포넌트 정의서 | [`EDIM_컴포넌트_정의서.md`](EDIM_컴포넌트_정의서.md) / [`xlsx`](EDIM_컴포넌트정의서.xlsx) | v0.2 | MD + Excel | 39컴포넌트·API 80 — **구축 상태 열 포함** (개발 서버 현황) |
+| DB 정의서 | [`EDIM_DB_정의서.md`](EDIM_DB_정의서.md) / [`xlsx`](EDIM_DB정의서.xlsx) | v0.2 | MD + Excel | 50테이블 435컬럼 — 설계 원칙·공통코드·미결정 8건 |
 | 요구사항추적표 (RTM) | [`EDIM_요구사항추적표.xlsx`](EDIM_요구사항추적표.xlsx) | 자동 | Excel 3시트 | REQ→기능→메뉴→화면→컴포넌트→DB 179행, **커버리지 178/178** |
 | 산출물목록 | [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx) | v0.1 | Excel 2시트 | 34종 레지스터 — 상태·우선 권고. **신규 문서는 여기에 먼저 등록** |
 | 권한·승인 정의서 | [`EDIM_권한승인정의서.xlsx`](EDIM_권한승인정의서.xlsx) | v0.1 | Excel 6시트 | 역할 4종·매트릭스(97메뉴 자동)·승인 상태기계 13·Platform 범위·Grade |
