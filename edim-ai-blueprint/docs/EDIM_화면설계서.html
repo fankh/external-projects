@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDIM 화면설계서 — Wireframe v0.1</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+:root{
+  --navy:#1a1a40; --green:#2e8b57; --line:#c9ced6; --line2:#e3e6eb;
+  --bg:#f5f6f8; --box:#eef0f3; --txt:#2a2d34; --dim:#8a8f99; --red:#c0392b; --blue:#2166ac;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Pretendard,'Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);font-size:12px}
+
+/* ===== viewer chrome ===== */
+.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+.rail{background:var(--navy);color:#fff;padding:18px 0;position:sticky;top:0;height:100vh;overflow:auto}
+.rail h1{font-size:15px;padding:0 16px 4px}
+.rail .sub{font-size:10px;color:#9aa2c9;padding:0 16px 14px;border-bottom:1px solid #33365c;line-height:1.5}
+.rail a{display:block;color:#c9cee8;text-decoration:none;padding:8px 16px;font-size:12px;border-left:3px solid transparent}
+.rail a:hover{background:#26295010;background:#262950;color:#fff}
+.rail a.on{background:#2e3161;color:#fff;border-left-color:#7ee2a8}
+.rail .grp{font-size:10px;color:#8388b8;padding:14px 16px 4px;text-transform:uppercase;letter-spacing:.06em}
+.stage{padding:22px 26px 60px;overflow:auto}
+.screen{display:none;max-width:1420px}
+.screen.on{display:block}
+.sc-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+.sc-head h2{font-size:18px;color:var(--navy)}
+.sc-head .sid{background:var(--navy);color:#fff;font-size:11px;padding:2px 8px;border-radius:3px}
+.sc-head .path{color:var(--dim);font-size:11px}
+.sc-meta{font-size:11px;color:var(--dim);margin-bottom:12px}
+.sc-meta b{color:var(--green)}
+.note{background:#fffbe8;border:1px solid #e8ddae;border-radius:4px;padding:10px 14px;margin-top:12px;font-size:11px;line-height:1.7}
+.note b{color:var(--navy)}
+.note .fid{color:var(--green);font-weight:600}
+
+/* ===== EDIM shell (Main Work Frame, H-1/E-1~E-4) ===== */
+.frame{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.head1{display:flex;align-items:center;gap:14px;background:#fff;border-bottom:1px solid var(--line2);padding:7px 12px}
+.logo{font-weight:800;color:var(--red);font-size:13px;line-height:1}
+.logo small{display:block;font-size:8px;color:var(--red)}
+.htabs{display:flex;gap:2px;font-size:11.5px}
+.htabs span{padding:4px 10px;border-radius:3px;color:#555}
+.htabs .grp1{background:#eef7f1}
+.htabs .sel{background:var(--navy);color:#fff;font-weight:600}
+.htabs .dept{background:#fdf1e3}
+.crumb{background:#f2f4f7;border-bottom:1px solid var(--line2);padding:5px 12px;font-size:11px;color:var(--blue)}
+.crumb b{color:var(--navy)}
+.body3{display:grid;grid-template-columns:215px 1fr 280px;min-height:560px}
+.body2{display:grid;grid-template-columns:215px 1fr;min-height:560px}
+.lpan{border-right:1px solid var(--line2);background:#fafbfc;display:flex;flex-direction:column}
+.cpan{padding:10px;overflow:hidden}
+.rpan{border-left:1px solid var(--line2);background:#fafbfc;padding:10px;display:flex;flex-direction:column;gap:10px;overflow:auto}
+
+/* left: hierarchy + widgets */
+.pane{padding:10px 12px;border-bottom:1px solid var(--line2)}
+.pane h4{font-size:11px;color:var(--navy);margin-bottom:6px}
+.tree{font-size:11px;line-height:1.85;color:#444}
+.tree .n1{font-weight:600}
+.tree .n2{padding-left:14px}
+.tree .n3{padding-left:28px}
+.tree .n4{padding-left:42px}
+.tree .sel{background:#e4ecf7;border-radius:2px;padding:0 4px;color:var(--navy);font-weight:600}
+.tree i{font-style:normal;color:var(--dim);margin-right:4px}
+.widget{font-size:10.5px}
+.widget h5{font-size:10.5px;color:#3b5f8f;margin:8px 0 3px}
+.mini{width:100%;border-collapse:collapse;font-size:9.5px}
+.mini th{background:#dde3ec;padding:2px 3px;border:1px solid var(--line2);font-weight:600}
+.mini td{padding:2px 3px;border:1px solid var(--line2);background:#fff}
+
+/* common blocks */
+.tb{display:flex;align-items:center;gap:6px;background:#f2f4f7;border:1px solid var(--line2);border-radius:4px;padding:5px 8px;margin-bottom:8px;flex-wrap:wrap}
+.tb .sp{flex:1}
+.btn{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:3px;padding:3px 9px;font-size:10.5px;color:#333}
+.btn.pri{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn.grn{background:var(--green);color:#fff;border-color:var(--green)}
+.btn.icon{padding:3px 6px;color:var(--dim)}
+.combo{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:3px;padding:3px 20px 3px 8px;font-size:10.5px;position:relative}
+.combo:after{content:"▾";position:absolute;right:6px;color:var(--dim)}
+.fld{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11px}
+.fld label{width:96px;color:#555;flex:none}
+.fld .in{flex:1;background:#fff;border:1px solid var(--line);border-radius:3px;padding:4px 8px;min-height:24px;color:#333}
+.fld .in.ro{background:#f4f5f7;color:var(--blue);font-weight:600}
+.tbl{width:100%;border-collapse:collapse;font-size:10.5px;margin:4px 0}
+.tbl th{background:var(--navy);color:#fff;padding:4px 6px;border:1px solid #3a3d63;font-weight:600;text-align:left}
+.tbl td{padding:4px 6px;border:1px solid var(--line2);background:#fff}
+.tbl tr:nth-child(even) td{background:#f7f8fa}
+.tbl .num{text-align:right}
+.badge{display:inline-block;font-size:9px;padding:1px 7px;border-radius:8px;font-weight:700}
+.badge.ok{background:#e2f3e9;color:var(--green)}
+.badge.pend{background:#fdeaea;color:var(--red)}
+.badge.chk{background:#e8f0fb;color:var(--blue)}
+.ph{border:1.5px dashed #b6bcc8;border-radius:4px;background:repeating-linear-gradient(45deg,#fbfcfd,#fbfcfd 12px,#f3f5f8 12px,#f3f5f8 24px);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px;text-align:center;line-height:1.6}
+.card{background:#fff;border:1px solid var(--line2);border-radius:4px;padding:8px 10px}
+.card h4{font-size:11px;color:var(--navy);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.card h4 .sp{flex:1}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:9.5px;color:#555;margin-top:6px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px;vertical-align:-1px}
+.callout{position:absolute;background:var(--red);color:#fff;width:16px;height:16px;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+/* canvas / drawing */
+.canvas{position:relative;border:1px solid var(--line2);background:#fdfdfe;border-radius:4px}
+.blk{position:absolute;border:1.6px solid #52627a;background:#f2f5f9;border-radius:2px}
+.blk.hl{border-color:var(--green);background:#eaf6ef}
+.dim-h{position:absolute;border-top:1px solid var(--blue);font-size:9px;color:var(--blue);text-align:center}
+.dim-h:before,.dim-h:after{content:"";position:absolute;top:-4px;height:8px;border-left:1px solid var(--blue)}
+.dim-h:before{left:0}.dim-h:after{right:0}
+.dim-v{position:absolute;border-left:1px solid var(--blue);font-size:9px;color:var(--blue);writing-mode:vertical-rl}
+.dlabel{position:absolute;font-size:9px;font-weight:700;color:var(--red)}
+.thumbs{display:flex;gap:6px;margin-top:6px}
+.thumbs .t{flex:1;height:52px;border:1px solid var(--line2);border-radius:3px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--dim);font-size:9px}
+.thumbs .t .ph2{width:60%;height:22px;border:1px dashed #b6bcc8;border-radius:2px;margin-bottom:3px}
+
+/* login */
+.login-wrap{display:flex;gap:30px;justify-content:center;padding:60px 20px;background:#fff;border:1px solid var(--line);border-radius:6px}
+.login-card{width:400px;background:#dcecfb;border:1px solid #b8d4ed;border-radius:6px;padding:36px;display:flex;gap:22px;align-items:center}
+.login-card .mark{width:110px;height:110px;border:1.5px dashed #7a90ad;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#5a708d;font-size:10px;text-align:center}
+
+/* dashboard */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}
+.kpi{background:#fff;border:1px solid var(--line2);border-radius:4px;padding:10px}
+.kpi .v{font-size:20px;font-weight:800;color:var(--navy)}
+.kpi .l{font-size:10px;color:var(--dim)}
+.flowrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:9.5px;margin:4px 0}
+.flowrow .st{background:#eef2f8;border:1px solid var(--line2);border-radius:3px;padding:3px 8px}
+.flowrow .st.done{background:#e2f3e9;border-color:#bcd9c8}
+.flowrow .st.now{background:var(--navy);color:#fff}
+.flowrow .ar{color:var(--dim)}
+
+/* macro studio */
+.mgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.formula{background:#0f1226;color:#8be3ad;font-family:Consolas,monospace;font-size:10.5px;padding:8px 10px;border-radius:4px;overflow:auto;white-space:nowrap}
+.radio{display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:11px}
+.radio i{width:11px;height:11px;border:1.5px solid var(--navy);border-radius:50%;display:inline-block;font-style:normal}
+.radio.on i{background:var(--navy);box-shadow:inset 0 0 0 2px #fff}
+
+@media print{.rail{display:none}.app{grid-template-columns:1fr}.screen{display:block!important;page-break-after:always}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ================= viewer nav ================= -->
+<nav class="rail">
+  <h1>EDIM 화면설계서</h1>
+  <div class="sub">Wireframe v0.1 · 2026-07-07<br>근거: EDIM Tool System EP2 (78p)<br>연계: 메뉴정의서 · 기능정의서 v0.2</div>
+  <div class="grp">공통</div>
+  <a href="#" class="on" data-s="w01">W-01 로그인</a>
+  <div class="grp">CPQ — Enterprise User</div>
+  <a href="#" data-s="w02">W-02 제품 선정 (C-1)</a>
+  <a href="#" data-s="w03">W-03 기술 데이터 (C-2)</a>
+  <div class="grp">Code Set-up — RCCS</div>
+  <a href="#" data-s="w04">W-04 Sub Code 등록 (S-1-1)</a>
+  <a href="#" data-s="w05">W-05 Code Relationship (S-1-4)</a>
+  <div class="grp">PLM Set-up</div>
+  <a href="#" data-s="w06">W-06 Design Editor (S-4-1-1)</a>
+  <div class="grp">EDIM Toolbox</div>
+  <a href="#" data-s="w07">W-07 Macro Studio (S-2-2)</a>
+  <a href="#" data-s="w08">W-08 UI Designer (S-2-1)</a>
+  <div class="grp">ERP</div>
+  <a href="#" data-s="w09">W-09 Project 등록 (S-3-5)</a>
+  <a href="#" data-s="w10">W-10 Dashboard</a>
+</nav>
+
+<main class="stage">
+
+<!-- ================================================= W-01 로그인 -->
+<section class="screen on" id="w01">
+  <div class="sc-head"><span class="sid">W-01</span><h2>로그인</h2><span class="path">공통 &gt; 로그인</span></div>
+  <div class="sc-meta">기능: <b>SYS-001 · SYS-002</b> · 근거: 슬라이드 3</div>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="mark">EDIM<br>로고<br>(flowchart 심볼)</div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:#555;margin-bottom:3px">ID</div>
+        <div class="fld"><div class="in" style="background:#fff"></div></div>
+        <div style="font-size:11px;color:#555;margin:8px 0 3px">Password</div>
+        <div class="fld"><div class="in" style="background:#fff"></div></div>
+        <div style="margin-top:14px;text-align:right"><span class="btn pri">Log in</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 로그인 성공 시 테넌트·권한(user_level) 로드 → 권한 있는 Head Tab만 구성 (<span class="fid">SYS-005/015</span>)<br>
+  ② 실패 횟수 제한·잠금(LOCKED), 토큰 갱신은 무감 처리 (<span class="fid">SYS-002</span>)<br>
+  ③ 우측 모듈 아이콘(CPQ/PLM/ERP)은 라이선스된 모듈 표시 — 슬라이드 3 우측안 채택</div>
+</section>
+
+<!-- ================================================= W-02 CPQ Selection -->
+<section class="screen" id="w02">
+  <div class="sc-head"><span class="sid">W-02</span><h2>CPQ 제품 선정</h2><span class="path">CPQ &gt; Selection &gt; Product (C-1)</span></div>
+  <div class="sc-meta">기능: <b>CPQ-001~004 · 007~010 · RUN-001</b> · 근거: 슬라이드 5, 60</div>
+  <div class="frame">
+    <div class="head1">
+      <div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="sel">CPQ</span><span class="dept">Sales</span><span class="dept">Tech.</span><span class="dept">Purchasing</span><span class="dept">Material</span><span class="dept">Product</span><span class="dept">QC</span><span class="dept">A/S</span><span class="dept">Finance</span><span class="dept">HR</span><span class="dept">Company Info.</span></div>
+    </div>
+    <div class="crumb"><b>CPQ</b> &gt; Selection &gt; Product</div>
+    <div class="body3">
+      <!-- left -->
+      <div class="lpan">
+        <div class="pane">
+          <div class="fld"><label style="width:52px">Project</label><span class="combo">Micron #7</span><span class="badge chk">Pre-Sales</span></div>
+        </div>
+        <div class="pane">
+          <h4>Selection</h4>
+          <div class="tree">
+            <div class="n1"><i>▾</i>Product</div>
+            <div class="n2"><i>▾</i>AHU</div>
+            <div class="n3"><i>▾</i>Arrangement</div>
+            <div class="n4"><span class="sel">Double Deck 2</span></div>
+            <div class="n2"><i>▾</i>Fan</div>
+            <div class="n3"><i>＋</i>Centrifugal</div>
+            <div class="n3"><i>＋</i>Axial</div>
+            <div class="n1" style="margin-top:6px"><i>▾</i>Document</div>
+            <div class="n2"><i>＋</i>Product · Item</div>
+          </div>
+        </div>
+        <div class="pane widget">
+          <h4>Schedule management</h4>
+          <h5>To-do list</h5>
+          <table class="mini"><tr><th>Item</th><th>Doc.No</th><th>Task</th><th>Status</th></tr><tr><td>Sale</td><td>PS-612-2</td><td>Approval</td><td>Check</td></tr></table>
+          <h5>Done items</h5>
+          <table class="mini"><tr><td>Sale</td><td>PS-612-3</td><td>Approval</td><td>Complete</td></tr></table>
+          <h5>Schedule · Approval Request List</h5>
+        </div>
+      </div>
+      <!-- center -->
+      <div class="cpan">
+        <div class="tb"><span class="btn">Variants</span><span class="btn pri">Viewer</span><span class="btn">Referencers</span><span class="btn">Supersedure</span><span class="btn">Attachment</span><span class="sp"></span><span class="btn icon">✍</span><span class="btn icon">✔</span><span class="btn icon">💾</span><span class="btn icon">✎</span><span class="btn icon">🗑</span></div>
+        <div class="tb"><span class="combo">Arrangement</span><span class="btn">Move</span><span class="btn">Delete</span><span class="btn">Add Item</span><span class="btn">Copy</span><span class="sp"></span><span class="ph" style="width:170px;height:24px;border-width:1px">모듈 팔레트 (Drag 소스)</span><span class="combo">DWG View</span></div>
+        <div class="canvas" style="height:400px">
+          <div class="dim-h" style="left:60px;top:26px;width:520px">4504</div>
+          <div class="dim-h" style="left:60px;top:44px;width:290px">2504</div>
+          <div class="dim-h" style="left:352px;top:44px;width:228px">2000</div>
+          <div class="dim-v" style="left:36px;top:70px;height:220px">3254</div>
+          <div class="blk" style="left:60px;top:70px;width:180px;height:150px"></div>
+          <div class="blk" style="left:240px;top:70px;width:110px;height:150px;background:#fff">
+            <div class="ph" style="height:100%;border:none">Filter</div>
+          </div>
+          <div class="blk hl" style="left:350px;top:70px;width:230px;height:96px"></div>
+          <div class="blk" style="left:60px;top:220px;width:290px;height:110px"></div>
+          <div class="blk" style="left:350px;top:166px;width:230px;height:164px"><div class="ph" style="height:100%;border:none">Fan Module<br>(더블클릭 → 속성 편집)</div></div>
+          <div class="dim-v" style="left:596px;top:166px;height:164px">1752</div>
+          <div class="dim-h" style="left:60px;top:346px;width:130px">125</div>
+          <div class="dim-h" style="left:350px;top:346px;width:230px">1504</div>
+          <div style="position:absolute;right:10px;bottom:8px;color:var(--dim);font-size:9.5px">3각법 6면 View 전환 · 비율 자동 조절 · Drag 재배치/분할/통합</div>
+        </div>
+      </div>
+      <!-- right -->
+      <div class="rpan">
+        <div class="card"><h4>Specification <span class="sp"></span><span class="btn icon">⬇ Excel Import</span></h4>
+          <table class="tbl"><tr><th>Item</th><th>Q(CMM)</th><th>Ps</th><th>H/C</th><th>Filter</th><th>Arrange</th></tr>
+          <tr><td>AHI-1</td><td class="num">11</td><td class="num">111</td><td class="num">1000</td><td class="num">55</td><td class="num">57</td></tr>
+          <tr><td>AHI-2</td><td class="num">9</td><td class="num">109</td><td class="num">980</td><td class="num">55</td><td class="num">58</td></tr></table>
+        </div>
+        <div class="card"><h4>Product Code</h4><div class="fld"><div class="in ro">EU - 3 – 2020 – 450 – 6 - 21 - 4 – SR - 7</div></div></div>
+        <div class="card"><h4>BOM <span class="sp"></span><span class="btn grn">EDIM Run</span></h4>
+          <div class="tree" style="font-size:10px">
+            <div class="n1">Main : EU-55-2123-…-7653 <span style="float:right">23,000K</span></div>
+            <div class="n2">1.1 SF Fan : KAD 900 FW 12 …</div>
+            <div class="n3">1.1.1 Motor : H 22 380 3 4 56 <span style="float:right">2,400K</span></div>
+            <div class="n2">1.2 RF Fan : KAD 900 F …</div>
+            <div class="n2">1.3 Cooling Coil : ECC 55 …</div>
+          </div>
+        </div>
+        <div class="card"><h4>Document</h4>
+          <div class="fld"><label>Quotation</label><span class="btn">PCR Form</span></div>
+          <div class="fld"><label>Drawing</label><span class="combo">Drawing List</span></div>
+          <div class="fld"><label>Document</label><span class="combo">Document List</span></div>
+        </div>
+        <div class="card"><h4>Sub Item list</h4>
+          <table class="tbl"><tr><th>#</th><th>Item</th><th>Desc.</th><th>Q'ty</th></tr>
+          <tr><td>1</td><td>JD2345</td><td>Bearing</td><td class="num">2</td></tr>
+          <tr><td>2</td><td>DF12</td><td>Shaft</td><td class="num">1</td></tr>
+          <tr><td>3</td><td>KIC</td><td>Inlet-Cone</td><td class="num">1</td></tr></table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 모듈 팔레트에서 Canvas로 Drag → 구성 조합, 더블클릭 → 모듈 속성(기술·물성·치수) 편집 창 (<span class="fid">CPQ-002</span>)<br>
+  ② 기준 치수 입력 시 하부 자료 자동 반영, 화면·도면 비율 자동 조절 (발표자 노트 워크플로우 2)<br>
+  ③ Specification Excel Import → Selection 입력 항 자동 적용 (<span class="fid">CPQ-004</span>) · 완성품 Code 확정 (<span class="fid">CPQ-007</span>)<br>
+  ④ [EDIM Run] → BOM 전개·도면·견적 일괄 생성, 진행률 표시 (<span class="fid">RUN-001~009</span>) · 비규격 선택 시 X-Code 경고 (<span class="fid">CPQ-009</span>)<br>
+  ⑤ Viewer 탭: Variants / Referencers(역참조) / Supersedure(대체) / Attachment (<span class="fid">DWG-026/027</span>)</div>
+</section>
+
+<!-- ================================================= W-03 CPQ Technical -->
+<section class="screen" id="w03">
+  <div class="sc-head"><span class="sid">W-03</span><h2>CPQ 기술 데이터</h2><span class="path">CPQ &gt; Technical &gt; Product·Item (C-2)</span></div>
+  <div class="sc-meta">기능: <b>CPQ-005 · TBL-004</b> · 근거: 슬라이드 7</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="sel">CPQ</span><span class="dept">Sales</span><span class="dept">Tech.</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>CPQ</b> &gt; Technical &gt; Fan</div>
+    <div class="body3">
+      <div class="lpan">
+        <div class="pane"><div class="fld"><label style="width:52px">Project</label><span class="combo">Micron #7</span></div></div>
+        <div class="pane"><h4>Selection</h4>
+          <div class="tree"><div class="n1"><i>▾</i>Product</div><div class="n2"><i>▾</i>Fan</div><div class="n3"><i>▾</i>Arrangement</div><div class="n4"><span class="sel">Double Suction</span></div></div>
+        </div>
+        <div class="pane widget"><h4>Schedule management</h4><h5>To-do · Done · Approval</h5></div>
+      </div>
+      <div class="cpan">
+        <div class="tb"><span class="combo">Arrangement</span><span class="btn">L0</span><span class="btn">L90</span><span class="btn">L180</span><span class="btn">L270</span><span class="btn">R0</span><span class="btn">R90</span><span class="btn">R180</span><span class="btn">R270</span><span class="sp"></span><span class="btn">Add Item</span><span class="combo">DWG View</span></div>
+        <div style="display:grid;grid-template-columns:200px 1fr;gap:8px">
+          <div class="ph" style="height:180px">선정 Fan 도면<br>(Block 호출)</div>
+          <div class="card"><h4>설계 옵션</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
+              <div class="fld"><label>Model</label><span class="combo">KAD 1120 4KA-9</span></div>
+              <div class="fld"><label>Impeller</label><span class="combo">Carbon Steel · CL2</span></div>
+              <div class="fld"><label>Air Volume</label><div class="in">2000 ㎥/min</div></div>
+              <div class="fld"><label>Motor</label><span class="combo">TEFC · Hyosung · 4P</span></div>
+              <div class="fld"><label>Static Pressure</label><div class="in">200 mmAq</div></div>
+              <div class="fld"><label>Inlet cone</label><span class="combo">Airflow · IGV none</span></div>
+              <div class="fld"><label>Temp / Humid</label><div class="in">20 ℃ / 80 %</div></div>
+              <div class="fld"><label>Casing</label><span class="combo">Steel S · Φ3 · 380V</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <div class="card"><h4>[Technical Data]</h4>
+            <table class="tbl"><tr><th>Model</th><th>Pd</th><th>Pt</th><th>RPM</th><th>효율</th><th>Power</th><th>Sound</th></tr>
+            <tr><td>710</td><td class="num">11</td><td class="num">111</td><td class="num">1000</td><td class="num">82</td><td class="num">40</td><td class="num">57</td></tr>
+            <tr><td>800</td><td class="num">9</td><td class="num">109</td><td class="num">980</td><td class="num">84</td><td class="num">43</td><td class="num">58</td></tr>
+            <tr><td>900</td><td class="num">7</td><td class="num">107</td><td class="num">910</td><td class="num">72</td><td class="num">44</td><td class="num">59</td></tr></table>
+          </div>
+          <div class="ph" style="min-height:150px">성능 곡선 차트<br>(선정점 하이라이트 · 그래프 마법사 Templet)</div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>Product Code</h4><div class="fld"><div class="in ro">KAD – 450 – 6 - 21 - 4 – SR - 7</div></div></div>
+        <div class="card"><h4>BOM <span class="sp"></span><span class="btn grn">EDIM Run</span></h4><div class="ph" style="height:90px">BOM 트리</div></div>
+        <div class="card"><h4>Sub Item Technical data</h4><div class="ph" style="height:60px">기술자료 List</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 옵션 콤보는 승인된 Sub Code 값 목록에서 로드 (<span class="fid">CODE-003</span>) — 미승인 값 미표시<br>
+  ② Technical Data는 Table 범위 조회 + Macro 계산 결과 (<span class="fid">TBL-004, TBX-011</span>)<br>
+  ③ Fan Direction(L0~R270)은 Arrangement Code의 direction_option (<span class="fid">CODE-011</span>)</div>
+</section>
+
+<!-- ================================================= W-04 Sub Code -->
+<section class="screen" id="w04">
+  <div class="sc-head"><span class="sid">W-04</span><h2>Sub Code 등록</h2><span class="path">Code(TLM) Set-up &gt; Code &gt; Sub Code Spec. (S-1-1)</span></div>
+  <div class="sc-meta">기능: <b>CODE-001~004 · 013~016 · SYS-009/010</b> · 근거: 슬라이드 33</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="sel">PLM</span><span class="grp1">CPQ</span><span class="dept">Sales</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>Code</b> &gt; Code Management &gt; Sub Code &gt; Specification</div>
+    <div class="body3">
+      <div class="lpan">
+        <div class="pane"><h4>Code management — Specification</h4>
+          <div class="tree">
+            <div class="n1"><i>▾</i>Product</div>
+            <div class="n2"><i>▾</i>Sub Code</div>
+            <div class="n3"><i>▾</i>Specification</div>
+            <div class="n4"><i>▾</i>Fan → Centrifugal → Casing → <span class="sel">Double</span></div>
+            <div class="n3"><i>＋</i>Material</div>
+            <div class="n3"><i>＋</i>Supplied Product</div>
+          </div>
+        </div>
+        <div class="pane"><h4>Remarks</h4><div class="fld"><div class="in" style="min-height:40px;color:var(--dim)">Description</div></div>
+          <div style="margin-top:4px"><span class="btn icon">✍</span><span class="btn icon">✔</span><span class="btn icon">💾</span><span class="btn icon">✎</span><span class="btn icon">🗑</span> <span class="badge chk">Approval</span></div></div>
+        <div class="pane widget"><h4>Schedule management</h4><h5>To-do · Done · Approval Request</h5></div>
+      </div>
+      <div class="cpan">
+        <div class="card" style="margin-bottom:8px"><h4>Sub Code Registration — Group : <span style="color:var(--red)">KOF</span> <span style="color:var(--dim);font-weight:400">Specification - Fan</span><span class="sp"></span><span class="btn">＋ Add</span><span class="badge ok">Approved</span></h4>
+          <table class="tbl">
+            <tr><th>A : Fan Model</th><th style="background:var(--red)">B : Fan Size</th><th>C : Material</th><th>D : Bearing</th><th>E : FF</th><th>F : Sensor</th></tr>
+            <tr><td>KAD · KFD · KAP<br>KFS · ECE · ECB</td><td>350 400 450 500<br>560 630 710 800</td><td>1.EU 2.AR<br>3.TC 4.2DC</td><td>1.0505 2.1005<br>3.1010 4.1510</td><td>1.None<br>2.FF</td><td>1.Air Vol.</td></tr>
+          </table>
+          <div class="legend"><span><span class="btn icon">⬇⬆ Excel Import/Export</span></span><span class="badge ok">Registered Code Table — Approved</span></div>
+        </div>
+        <div class="card" style="background:#e9f2fc"><h4>New <span class="sp"></span><span class="btn icon">✕</span></h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+            <div class="fld"><label>Code Group</label><div class="in ro">KOF</div><span class="btn">중복검토</span></div>
+            <div class="fld"><label>Description</label><div class="in">Fan Centrifugal</div></div>
+            <div class="fld"><label>Item list No</label><div class="in ro">G</div><span class="btn">＋ Add</span></div>
+            <div class="fld"><label>Description</label><div class="in">Impeller Type</div></div>
+            <div class="fld"><label>Sub Item</label><div class="in">900 · 1000 · 1120</div><span class="btn">＋ Add</span></div>
+            <div class="fld"><label>Description</label><div class="in">EU Standard</div></div>
+          </div>
+          <table class="tbl"><tr><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th style="background:var(--red)">G : Impeller Type</th></tr>
+          <tr><td>YKK</td><td>900 1000 1120</td><td>OR</td><td>2020</td><td></td><td></td><td>Airfoil · Forward</td></tr></table>
+          <div style="text-align:right"><span class="badge pend">Pending approval</span> <span class="btn pri">승인 요청</span></div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>DWG</h4>
+          <div class="fld"><label>DWG No.</label><div class="in ro">KDCR 3-13</div></div>
+          <div class="fld"><label>File Type</label><span class="combo">PDF, CAD</span> <span class="badge chk">3D ☑ 2D ☐</span></div>
+          <div class="ph" style="height:90px">코드 대표 도면<br>미리보기</div>
+        </div>
+        <div class="card"><h4>Data Up-Load</h4>
+          <div class="fld"><label>Department</label><span class="combo">Engineering</span></div>
+          <div class="fld"><label>Type</label><span class="combo">Table, Data, File, Image</span></div>
+          <div class="fld"><label>Name</label><div class="in">KDCR 3-13</div></div>
+        </div>
+        <div class="card"><h4>Table <span class="sp"></span><span class="btn icon">＋Add ✎Edit ⬇Import</span></h4>
+          <table class="tbl"><tr><th>Item</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>
+          <tr><td>560</td><td></td><td></td><td>45</td><td></td><td>656</td></tr>
+          <tr><td>630</td><td></td><td></td><td>45</td><td></td><td>656</td></tr></table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① Group·Item·값 각각 [중복검토] 후 [승인 요청] — 승인 전 <span class="badge pend">Pending</span>, CPQ에서 사용 불가 (<span class="fid">CODE-013</span>)<br>
+  ② 우측 판넬(DWG·Data Up-Load·Table)은 모든 Code 화면 공통 패턴 (<span class="fid">CODE-015</span>)<br>
+  ③ 값이 "Table 참조"인 경우 Table 연결 콤보 표시 (<span class="fid">CODE-004</span>) · Excel Import/Export (<span class="fid">CODE-016</span>)</div>
+</section>
+
+<!-- ================================================= W-05 Code Relationship -->
+<section class="screen" id="w05">
+  <div class="sc-head"><span class="sid">W-05</span><h2>Code Relationship — 관계형 BOM</h2><span class="path">Code(TLM) Set-up &gt; Code &gt; Code Relationship (S-1-4)</span></div>
+  <div class="sc-meta">기능: <b>CODE-008~010</b> · 근거: 슬라이드 36</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="sel">PLM</span><span class="grp1">CPQ</span><span class="dept">Sales</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>Code</b> &gt; Product &gt; Item &gt; Hierarchy &gt; <b>Relationship</b></div>
+    <div class="body3" style="grid-template-columns:215px 1fr 340px">
+      <div class="lpan">
+        <div class="pane"><h4>Code Relationship</h4>
+          <div class="tree"><div class="n1"><i>▾</i>Product Code</div><div class="n2"><i>▾</i>Specification</div><div class="n3"><i>▾</i>Fan → Centrifugal → Casing</div><div class="n4"><span class="sel">Double</span></div></div>
+        </div>
+        <div class="pane widget"><h4>Schedule management</h4><h5>To-do · Done · Approval</h5></div>
+      </div>
+      <div class="cpan">
+        <div class="card" style="margin-bottom:8px"><h4>Mother : <b style="color:var(--red)">KDCR 3-13</b> <span style="color:var(--dim);font-weight:400">Double Suction casing with reinforced frame</span></h4>
+          <table class="tbl"><tr><th>A : Fan Model</th><th>B : Fan Size</th><th>C : Material</th><th>D : Bearing</th><th>E</th><th>F : FF</th></tr>
+          <tr><td>KAD · KFD</td><td>350~800</td><td>Gal. CU AL 316 FRP</td><td>Ball · Roller</td><td>Air Vol.</td><td>None · FF</td></tr></table>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:4px"><div class="ph" style="width:140px;height:70px">Mother 도면<br>3D ☑ 2D ☐</div><div style="flex:1;font-size:10px;color:var(--dim)">Code Source : 각 Slot의 항목 정의 표시</div></div>
+        </div>
+        <div class="card" style="background:#e9f2fc"><h4>Add Child <span class="sp"></span><span class="combo">Product / Sub Code</span><span class="btn">＋ Add</span><span class="badge ok">Approved</span></h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+            <div class="fld"><label>Child Code</label><div class="in ro">KDI 21</div></div>
+            <div class="fld"><label>Description</label><div class="in">Inlet Cone W/O FF</div></div>
+            <div class="fld"><label>Q'ty</label><div class="in" style="max-width:70px">2</div></div>
+            <div class="fld"><label>Slot 매핑</label><div class="in">A↔A · B↔B · C↔C (match_condition)</div></div>
+          </div>
+          <div style="display:flex;gap:8px"><div class="ph" style="width:140px;height:60px">Child 도면</div>
+          <table class="tbl" style="flex:1"><tr><th>A</th><th>B</th><th>C</th><th>D : ATEX</th><th>E : FF</th></tr>
+          <tr><td>KAD KAS KAP</td><td>450~1000</td><td>Gal. CU AL 316 FRP</td><td>1.Air Vol.</td><td>None · FF</td></tr></table></div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>[ Child Group ] <span class="sp"></span><span class="badge ok">Approved</span></h4>
+          <table class="tbl"><tr><th>☑</th><th>Child</th><th>Desc.</th><th>Q'ty</th><th>Remarks</th><th>Data</th></tr>
+          <tr><td>☑</td><td>KDP 1-21</td><td>Fan bearing Frame</td><td class="num">1</td><td>Reverse Bending R</td><td>📄</td></tr>
+          <tr><td>☑</td><td>KDP 1-22</td><td>Fan bearing Frame</td><td class="num">1</td><td>Reverse Bending L</td><td>📄</td></tr>
+          <tr><td>☑</td><td>KDC 1</td><td>Casing</td><td class="num">1</td><td>Pittsburgh seaming</td><td>📄</td></tr>
+          <tr><td>☑</td><td>KDC 20</td><td>Inlet-Cone</td><td class="num">2</td><td>With FF</td><td>📄</td></tr>
+          <tr><td>☑</td><td>KDC 21</td><td>Inlet-Cone</td><td class="num">2</td><td>W/O FF</td><td>📄</td></tr></table>
+        </div>
+        <div class="card" style="background:#fff8ec"><h4>[ Part List Running Test ] <span class="sp"></span><span class="btn grn">Run ▶</span></h4>
+          <div class="fld"><label>Item</label><div class="in ro">KDCR 3-13</div><span class="combo">A</span><span class="combo">B</span><span class="combo">C</span><span class="combo">D</span><span class="combo">E</span><span class="combo">F</span></div>
+          <table class="tbl"><tr><th>No.</th><th>Name</th><th>Desc.</th><th>Q'ty</th><th>Remarks</th></tr>
+          <tr><td>Main</td><td>KDC 3-13-32-22-15-1</td><td>Double Suction casing…</td><td class="num">1</td><td></td></tr>
+          <tr><td>1</td><td>KDP 1-21-13-15</td><td>Fan bearing Frame</td><td class="num">1</td><td>Reverse Bending R</td></tr>
+          <tr><td>2</td><td>KDP 1-22-13-1</td><td>Fan bearing Frame</td><td class="num">1</td><td>Reverse Bending L</td></tr>
+          <tr><td>3</td><td>KDC 1-32-1-15</td><td>Casing</td><td class="num">1</td><td>Pittsburgh seaming</td></tr>
+          <tr><td>4</td><td>KDC 20-13-15</td><td>Inlet-Cone</td><td class="num">2</td><td>With FF</td></tr></table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① Mother Slot 조합 선택 → 조건 일치 Child 전량 전개 검증 [Running Test] — 통과해야 승인 요청 가능 (<span class="fid">CODE-009</span>)<br>
+  ② Slot 매핑(match_condition)으로 Mother 값이 Child 코드 자릿수에 전파 (<span class="fid">CODE-008</span>)<br>
+  ③ 순환 참조(DAG) 저장 시 자동 검증 · Child별 Data 링크(Tech Variant/DWG) 열람</div>
+</section>
+
+<!-- ================================================= W-06 PLM Design Editor -->
+<section class="screen" id="w06">
+  <div class="sc-head"><span class="sid">W-06</span><h2>PLM Design Editor</h2><span class="path">PLM Set-up &gt; Design (DWG) (S-4-1-1)</span></div>
+  <div class="sc-meta">기능: <b>DWG-002~012 · 022~025 · TBX-011</b> · 근거: 슬라이드 30, 40~42, 61, 63, 67</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="sel">PLM</span><span class="grp1">CPQ</span><span class="dept">Sales</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>Drawing Info.</b> &gt; Production Design Management &gt; <b>Design</b> &gt; Check &gt; Approve &gt; Accepted</div>
+    <div class="body3" style="grid-template-columns:200px 1fr 300px">
+      <div class="lpan">
+        <div class="pane"><h4>Product Management</h4>
+          <div class="tree"><div class="n1"><i>▾</i>Work Process</div><div class="n2"><i>▾</i>Design management</div><div class="n3"><i>▾</i>Product</div><div class="n4"><span class="sel">Fan</span></div><div class="n2"><i>＋</i>Manufacturing</div><div class="n2"><i>＋</i>Material</div><div class="n2"><i>＋</i>Quality</div><div class="n1" style="margin-top:4px"><i>＋</i>Arrangement Set-Up</div><div class="n1"><i>＋</i>Work Process</div></div>
+        </div>
+        <div class="pane"><h4>Drawing Registration</h4><div class="fld"><span class="btn">찾기</span><span class="btn">＋ 등록</span></div>
+          <h4 style="margin-top:8px">AI Study</h4><div class="fld"><span class="btn">AI 학습 요청</span></div></div>
+        <div class="pane widget"><h4>Schedule management</h4><h5>To-do · Done · Approval</h5></div>
+      </div>
+      <div class="cpan">
+        <div class="tb"><span class="btn icon">↶</span><span class="btn icon">↷</span><span class="btn">복사 CO</span><span class="btn">이동</span><span class="btn">반전</span><span class="btn">연장</span><span class="btn">삭제 E</span><span class="btn">회전 RO</span><span class="btn">자르기 TR</span><span class="btn">Block REG</span><span class="btn">치수 DI</span><span class="btn">특성 CH</span><span class="sp"></span><span class="combo">Snap: 끝점·중앙·중심</span><span class="btn">Simulation</span></div>
+        <div class="canvas" style="height:380px">
+          <div class="dim-h" style="left:150px;top:20px;width:330px">B</div>
+          <div class="dim-h" style="left:200px;top:38px;width:180px">A</div>
+          <!-- casing -->
+          <div class="blk" style="left:190px;top:60px;width:220px;height:180px"></div>
+          <div class="blk hl" style="left:230px;top:80px;width:140px;height:100px"><div class="ph" style="height:100%;border:none">Impeller</div></div>
+          <!-- shaft -->
+          <div class="blk" style="left:80px;top:150px;width:440px;height:10px;background:#e5eaf1"></div>
+          <div class="blk" style="left:96px;top:138px;width:26px;height:34px"></div>
+          <div class="blk" style="left:478px;top:138px;width:26px;height:34px"></div>
+          <!-- inlet cones -->
+          <div class="blk" style="left:150px;top:96px;width:40px;height:110px;border-style:dashed"></div>
+          <div class="blk" style="left:410px;top:96px;width:40px;height:110px;border-style:dashed"></div>
+          <div class="dlabel" style="left:130px;top:64px">C</div><div class="dlabel" style="left:460px;top:64px">C</div>
+          <div class="dlabel" style="left:70px;top:120px">G</div><div class="dlabel" style="left:512px;top:120px">G</div>
+          <div class="dlabel" style="left:220px;top:250px">D</div><div class="dlabel" style="left:390px;top:250px">D</div>
+          <div class="dlabel" style="left:300px;top:268px">E</div>
+          <div class="dim-h" style="left:80px;top:300px;width:440px">K</div>
+          <div class="dlabel" style="left:530px;top:180px">F</div>
+          <div style="position:absolute;left:236px;top:110px;font-size:9px;color:var(--dim)">Bearing housing ← Double Click (부품 정보 관리)</div>
+        </div>
+        <div class="thumbs">
+          <div class="t"><div class="ph2"></div>① Bearing</div><div class="t"><div class="ph2"></div>② Shaft</div><div class="t"><div class="ph2"></div>③ Inlet-Cone R</div><div class="t"><div class="ph2"></div>④ Inlet-Cone L</div><div class="t"><div class="ph2"></div>⑤ Impeller</div>
+        </div>
+        <div class="legend">
+          <span><span class="dot" style="background:#2166ac"></span>Key Dimension</span>
+          <span><span class="dot" style="background:#74a9d8"></span>Detail Dimension</span>
+          <span><span class="dot" style="background:#2e8b57"></span>Arrangement (Component)</span>
+          <span><span class="dot" style="background:#e0a400"></span>Design Verification (Macro)</span>
+          <span><span class="dot" style="background:#8e44ad"></span>Design/Data Priorities</span>
+          <span><span class="dot" style="background:#444"></span>◆ Assembling Seq · QC/Material/Mfg</span>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>Code</h4>
+          <div class="fld"><div class="in ro">KDCR 3-13</div></div>
+          <div style="display:flex;gap:4px"><span class="btn">A</span><span class="btn" style="border-color:var(--red);color:var(--red)">B</span><span class="btn">C</span><span class="btn">D</span><span class="btn">E</span><span class="btn">F</span></div>
+        </div>
+        <div class="card"><h4>Design Rule — 치수 Set-up</h4>
+          <table class="tbl"><tr><th>No.</th><th>Dim.</th><th>Set-up</th></tr>
+          <tr><td>A</td><td class="num">670</td><td><span class="badge chk">Macro</span></td></tr>
+          <tr><td>B</td><td>=A+56</td><td><span class="badge chk">Macro</span></td></tr>
+          <tr><td>C</td><td class="num">45</td><td><span class="badge ok">Variant</span></td></tr></table>
+        </div>
+        <div class="card"><h4>Coding <span class="sp"></span><span class="btn grn">Run</span></h4>
+          <div class="formula">=IF(MC,CC&gt;500, Table12(E,10:25,Cos2)+Var(FES,15,F3), …)</div>
+          <div style="font-size:9.5px;color:var(--dim);margin-top:3px">EDIM Macro 호출 → 계산식 표시·직접 입력 가능</div>
+        </div>
+        <div class="card"><h4>Part relationship set-up</h4>
+          <div class="fld"><label style="width:20px">A</label><span class="combo">Block 선택</span><label style="width:20px">B</label><span class="combo">Block 선택</span></div>
+          <div style="font-size:10px;color:#555;line-height:1.7">조건1: 수직·수평·중심·중앙<br>조건2: 접촉(면·선·점·꼭지점)·좌표·각도<br>관계값: <span class="formula" style="display:inline;padding:1px 6px">=A2.Table23_3*Var32_2</span><br>우선순위: A/B ① → B/C ② (순환 자동 점검)</div>
+        </div>
+        <div class="card"><h4>Sub Item DWG · 조립순서</h4><div class="ph" style="height:50px">하위 도면 List + ◆ 조립 순서·주의사항</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 상단 명령은 CAD 동일 형식·단축키 (슬라이드 61 명령표 = 수용 기준, <span class="fid">DWG-003/025</span>)<br>
+  ② 치수 지시선 자동 번호 A~N(중복검사) · KEY/DETAIL 구분 · Macro 또는 Variant 바인딩 (<span class="fid">DWG-005/006</span>)<br>
+  ③ 치수↔부품 동기화 Parametric — 값 입력 시 도면 즉시 반영 (<span class="fid">DWG-007</span>) · 검증 Macro 불일치 시 경고 (<span class="fid">DWG-010</span>)<br>
+  ④ Block 단위 저장: 임시저장 → 승인 → 사용, 상위 호출 시 Block 상태 (<span class="fid">DWG-012</span>)<br>
+  ⑤ 상태 Flow: Design &gt; Check &gt; Approve &gt; Accepted (Breadcrumb에 표시)</div>
+</section>
+
+<!-- ================================================= W-07 Macro Studio -->
+<section class="screen" id="w07">
+  <div class="sc-head"><span class="sid">W-07</span><h2>Toolbox Macro Studio — 4-Way Sync</h2><span class="path">EDIM Toolbox &gt; Program Macro (S-2-2)</span></div>
+  <div class="sc-meta">기능: <b>TBX-005~012 · AI-004/005</b> · 근거: 슬라이드 29, 59</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="sel">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="grp1">CPQ</span><span class="dept">Sales</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>EDIM Toolbox</b> &gt; Program Macro &gt; [EDIM Toolbar Programing]</div>
+    <div class="body2">
+      <div class="lpan">
+        <div class="pane"><h4>[Data Information Call]</h4>
+          <div class="fld"><label style="width:70px">Type of source</label><span class="combo">Table</span></div>
+          <div class="fld"><label style="width:70px">Address</label><span class="combo">Directory (Hierarchy)</span></div>
+          <table class="mini"><tr><th>Item</th><th>A</th><th>B</th><th>C</th><th>I</th></tr><tr><td>560</td><td></td><td></td><td>45</td><td></td></tr><tr><td>630</td><td></td><td></td><td>45</td><td></td></tr></table>
+        </div>
+        <div class="pane"><h4>[함수 마법사]</h4><div class="ph" style="height:70px">함수 검색·설명·삽입<br>(AND / IF / IFERROR …)</div></div>
+        <div class="pane"><h4>[그래프 마법사]</h4><div class="ph" style="height:50px">차트 유형 선택</div></div>
+        <div class="pane"><h4>[기능 찾기]</h4><div class="fld"><div class="in" style="color:var(--dim)">자연어로 기능 검색…</div></div></div>
+      </div>
+      <div class="cpan">
+        <div class="tb">
+          <span class="radio on"><i></i>Prompt</span><span class="radio"><i></i>Macro</span><span class="radio"><i></i>Flowchart</span>
+          <span class="sp"></span>
+          <span style="font-size:10px;color:var(--dim)">Person: Kim · Ver: KD-0.2 · DOC No: DF 342-234 E · Grade <span class="combo" style="padding-right:16px">S-2</span></span>
+          <span class="btn icon">? User Help</span>
+        </div>
+        <div class="card" style="margin-bottom:8px"><h4>Prompt</h4>
+          <div class="fld"><div class="in" style="min-height:30px">SS Fan 샤프트의 길이 계산 — Table1의 선정된 Impeller를 참조하여 Table2의 casing 폭, Table3의 Bearing 폭을 찾아 각각의 길이를 더하여 Shaft 길이를 계산한다.</div><span class="btn pri">▶ 생성</span></div>
+        </div>
+        <div class="card" style="margin-bottom:8px"><h4>Macro <span class="sp"></span><span style="font-size:9px;color:var(--dim)">함수·Table·Var 삽입 툴바</span> <span class="btn grn">Run ☑</span> <b style="color:var(--green)">786</b></h4>
+          <div class="formula">IF(MC,CC&gt;500, Table12(E,10:25,Cos2)+Var(FES,15,F3), Table12(E,10:25,Cos2)+Var(FES,15,F3))*PreC(1)</div>
+        </div>
+        <div class="mgrid">
+          <div class="card"><h4>Flowchart</h4><div class="ph" style="height:150px">흐름도 편집기<br>(도형 팔레트 · and 분기 · Fan Dia. 노드)</div></div>
+          <div class="card"><h4>Description</h4><div style="font-size:10.5px;line-height:1.8;color:#444">[SS Fan 샤프트의 길이 계산]<br>Table1의 선정된 Impeller를 참조하여 Table2의 선정된 casing의 폭을, Table3의 선정된 Bearing 폭을 찾아 각각의 길이를 더하여 Shaft의 길이를 계산한다.</div></div>
+          <div class="card"><h4>Coding (AI)</h4><div class="formula" style="height:150px;white-space:pre-wrap;color:#9fc3ff">def shaft_length(sel):
+  imp = table1.lookup(sel.impeller)
+  cw  = table2.width(sel.casing)
+  bw  = table3.width(sel.bearing)
+  return imp + cw + bw</div></div>
+        </div>
+        <div style="margin-top:8px;text-align:right"><span class="badge chk">TESTED</span> <span class="btn">저장 (v0.3)</span> <span class="btn pri">검증·승인 요청</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① Prompt·Macro·Flowchart·Description·Coding **실시간 상호 변환** — 한쪽 수정 시 나머지 동기화 제안 (<span class="fid">TBX-008, AI-005</span>)<br>
+  ② Run(Test) 결과·입력 저장 → TESTED 상태여야 승인 요청 가능 (<span class="fid">TBX-011/012</span>)<br>
+  ③ 간단 계산식 = Macro / 복잡 = Coding(AI) 적용 기준 · Data Information Call은 Hierarchy Address 기반 (<span class="fid">TBX-010</span>)<br>
+  ④ 문서 통제 메타(Person/Ver/DOC No/Grade)는 DOC 모듈 공통 헤더 (<span class="fid">DOC-001/002</span>)</div>
+</section>
+
+<!-- ================================================= W-08 UI Designer -->
+<section class="screen" id="w08">
+  <div class="sc-head"><span class="sid">W-08</span><h2>Toolbox UI Designer</h2><span class="path">EDIM Toolbox &gt; UI Design (S-2-1)</span></div>
+  <div class="sc-meta">기능: <b>TBX-001~004 · 013</b> · 근거: 슬라이드 27, 28</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="sel">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="grp1">CPQ</span><span class="dept">Sales</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>EDIM Toolbox</b> &gt; UI Design &gt; CPQ &gt; Selection</div>
+    <div class="body3" style="grid-template-columns:190px 1fr 250px">
+      <div class="lpan">
+        <div class="pane"><h4>Work Hierarchy</h4>
+          <div class="tree"><div class="n1"><i>▾</i>CPQ</div><div class="n2"><span class="sel">Selection</span></div><div class="n2">Technical · Document</div><div class="n1"><i>▾</i>TLM</div><div class="n2">Design Mgmt · Work Process</div><div class="n1"><i>▾</i>Print Form</div><div class="n2">Technical · Document</div></div>
+        </div>
+        <div class="pane"><h4>Widget Box</h4>
+          <div class="tree" style="font-size:10.5px"><div class="n1">Layouts</div><div class="n2">Vertical · Horizontal · Grid · Form</div><div class="n1">Buttons</div><div class="n2">Push · Radio · Check</div><div class="n1">Input</div><div class="n2">Combo · Line Edit · Text · Date</div><div class="n1">Views</div><div class="n2">Table · Tree · List</div><div class="n1">Containers</div><div class="n2">Frame · Canvas · Group Box</div></div>
+        </div>
+      </div>
+      <div class="cpan">
+        <div class="tb"><span style="font-size:10px;color:var(--dim)">Form - untitled*</span><span class="sp"></span><span class="btn">미리보기</span><span class="btn">버전</span><span class="btn pri">게시 (승인 후)</span></div>
+        <div class="canvas" style="height:360px;background:radial-gradient(#d9dde4 1px,transparent 1px);background-size:14px 14px">
+          <div class="blk" style="left:30px;top:26px;width:90px;height:26px;background:#fff"><div class="ph" style="height:100%;border:none;font-size:10px">Button</div></div>
+          <div style="position:absolute;left:130px;top:30px;font-size:9px;color:var(--red)">→ Set-up: Command button Templet (동작: 복사·대상·Data)</div>
+          <div class="blk" style="left:30px;top:80px;width:110px;height:24px;background:#fff"><div class="ph" style="height:100%;border:none;font-size:10px">Combo (S-2)</div></div>
+          <div style="position:absolute;left:150px;top:84px;font-size:9px;color:var(--red)">→ Data Set-up: Table 바인딩 · Active Set-up</div>
+          <div class="blk" style="left:30px;top:130px;width:280px;height:110px;background:#fff">
+            <table class="tbl" style="margin:6px"><tr><th>Item</th><th>A</th><th>B</th><th>C</th><th>I</th></tr><tr><td>560</td><td>23</td><td>21</td><td>45</td><td>Tx</td></tr><tr><td>630</td><td>56</td><td>33</td><td>45</td><td>Ox</td></tr></table>
+          </div>
+          <div class="blk" style="left:340px;top:130px;width:220px;height:170px;background:#fff"><div class="ph" style="height:100%;border:none">Canvas<br>(그래프·도면 영역)</div></div>
+          <div style="position:absolute;left:30px;bottom:10px;font-size:9.5px;color:var(--dim)">Drag&amp;Drop 배치 → 속성 편집 → 동작 Templet 바인딩 → 저장·버전 → 승인·게시</div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>Object Inspector</h4>
+          <table class="tbl"><tr><th>Object</th><th>Class</th></tr><tr><td>MyDialog</td><td>Dialog</td></tr><tr><td>btnSave</td><td>PushButton</td></tr><tr><td>editName</td><td>LineEdit</td></tr></table></div>
+        <div class="card"><h4>Property Editor</h4>
+          <table class="tbl"><tr><th>Property</th><th>Value</th></tr><tr><td>windowTitle</td><td>입력 폼</td></tr><tr><td>font</td><td>Pretendard 10</td></tr><tr><td>acceptDrops</td><td>false</td></tr></table></div>
+        <div class="card" style="background:#eef7f1"><h4>[ UI 개발 AI ]</h4>
+          <div class="fld"><div class="in" style="min-height:40px;color:var(--dim)">개발할 Application 설명 입력…</div></div>
+          <div style="text-align:right"><span class="btn grn">UI 초안 제안</span></div>
+          <div style="font-size:9.5px;color:var(--dim);margin-top:4px">→ 용도 / 항목 / 필요 DB Table 정리 후 Templet 제안 · 호출하여 Customizing</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① Widget 팔레트 → Canvas Drag 배치, 동작(저장/삭제/복사/등록/찾기)은 Set-up 전용 Templet 창에서 연결 (<span class="fid">TBX-001/002</span>)<br>
+  ② layout_def(JSONB) 저장·버전 → 승인 후 게시 → FE 동적 렌더러가 실행 (<span class="fid">TBX-003</span>)<br>
+  ③ AI UI 제안: 설명 → 용도/항목/필요 Table 정리된 초안 (<span class="fid">TBX-004, AI-006</span>)</div>
+</section>
+
+<!-- ================================================= W-09 ERP Project -->
+<section class="screen" id="w09">
+  <div class="sc-head"><span class="sid">W-09</span><h2>ERP Project 등록·관리</h2><span class="path">ERP &gt; Sales &gt; Project 등록 (S-3-5)</span></div>
+  <div class="sc-meta">기능: <b>ERP-001 · SYS-017 · DOC-003</b> · 근거: 슬라이드 4, 52</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="grp1">CPQ</span><span class="sel">Sales</span><span class="dept">Tech.</span><span class="dept">Purchasing</span><span class="dept">Material</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>Sales</b> &gt; Project Management &gt; Registration</div>
+    <div class="body3">
+      <div class="lpan">
+        <div class="pane"><h4>Project Management</h4>
+          <div class="tree"><div class="n1"><i>▾</i>Registration Process</div><div class="n2"><i>▾</i>Design management</div><div class="n3"><span class="sel">Product › Fan</span></div><div class="n2"><i>＋</i>Manufacturing · Material · Quality</div></div>
+        </div>
+        <div class="pane widget"><h4>Schedule management</h4>
+          <h5>To-do list</h5>
+          <table class="mini"><tr><th>Item</th><th>Doc.No</th><th>Task</th><th>Person</th><th>Status</th></tr><tr><td>Sale</td><td>PS-612-2</td><td>Approval</td><td>YS.Gang</td><td>Check</td></tr></table>
+          <h5>Done items · Schedule · Approval Request List</h5>
+        </div>
+      </div>
+      <div class="cpan">
+        <div class="card">
+          <h4>Project No. : <b style="color:var(--red)">PS-61313-5</b><span class="sp"></span><span class="badge chk">Approval ☑</span><span class="btn icon">✍ ✔ 💾 ✎ 🗑</span></h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 16px">
+            <div class="fld"><label>Project Type</label><span class="combo">Client</span></div>
+            <div class="fld"><label>영업 단계</label><span class="combo" style="border-color:var(--red);color:var(--red)">기술 제안</span></div>
+            <div class="fld"><label>Item</label><span class="combo">AHU</span></div>
+            <div class="fld"><label>Client</label><div class="in">Micron</div></div>
+            <div class="fld"><label>등록일</label><div class="in">2026-07-07</div></div>
+            <div class="fld"><label>Remarks</label><div class="in"></div></div>
+            <div class="fld"><label>Client 담당자</label><div class="in">KSY</div></div>
+            <div class="fld"><label>담당자</label><span class="combo">YKK</span></div>
+            <div class="fld"><label>Document Code</label><div class="in ro">EU-3–2020–450–6-21-4–SR-7</div></div>
+          </div>
+          <div style="font-size:10px;color:var(--dim);margin:4px 0">영업 단계: 기술 제안 → 견적 → 협의 → 계약 → 계약 변경 → 종료</div>
+          <div class="fld"><label>주요 요구사항 및 Pain Point</label><div class="in" style="min-height:34px"></div></div>
+        </div>
+        <div class="card" style="margin-top:8px"><h4>접수 자료 등록 (File) <span class="sp"></span><span class="btn">＋ 업로드</span></h4>
+          <div class="ph" style="height:130px">접수 자료 목록 Grid<br>(파일명 · 유형 · 등록자 · 일자)</div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>Data Up-Load</h4>
+          <div class="fld"><label>Department</label><span class="combo">Engineering</span></div>
+          <div class="fld"><label>Type</label><span class="combo">Data, File, Image</span></div>
+          <div class="fld"><label>Name</label><div class="in">KDCR 3-13</div><span class="btn">중복검토</span></div>
+        </div>
+        <div class="card"><h4>Table <span class="sp"></span><span class="btn icon">＋ ✎ ⬇</span></h4>
+          <table class="tbl"><tr><th>Item</th><th>A</th><th>C</th><th>E</th></tr><tr><td>560</td><td></td><td>45</td><td>656</td></tr></table>
+        </div>
+        <div class="card"><h4>Print 설정</h4><div class="fld"><span class="btn">🖨 Print Set-up 호출</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① Project No.(PS-) 자동 채번 — PS 프로세스 시작, 이후 PCR→QCR→OR 상태기계 연결 (<span class="fid">ERP-001/002</span>)<br>
+  ② 영업 단계 변경 이력 기록 · 좌측 To-do는 본인 담당 프로세스 이벤트 (<span class="fid">SYS-017</span>)<br>
+  ③ ERP Toolbar 메뉴 구성은 사용자 편집 가능, 권한 항목만 표시 (<span class="fid">ERP-016, SYS-005</span>)</div>
+</section>
+
+<!-- ================================================= W-10 Dashboard -->
+<section class="screen" id="w10">
+  <div class="sc-head"><span class="sid">W-10</span><h2>ERP Dashboard</h2><span class="path">ERP &gt; Company Info. &gt; Dashboard</span></div>
+  <div class="sc-meta">기능: <b>ERP-014 · SYS-013</b> · 근거: 슬라이드 10</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="grp1">CPQ</span><span class="dept">Sales</span><span class="dept">…</span><span class="sel">Company Info.</span></div></div>
+    <div class="crumb"><b>Company Info.</b> &gt; Dashboard</div>
+    <div class="body2" style="grid-template-columns:215px 1fr">
+      <div class="lpan">
+        <div class="pane"><div class="fld"><label style="width:52px">Project</label><span class="combo">전체 / Micron #7</span></div></div>
+        <div class="pane widget"><h4>이상 경고</h4>
+          <table class="mini"><tr><th>구분</th><th>Project</th><th>내용</th></tr>
+          <tr><td style="color:var(--red)">시간</td><td>PS-612</td><td>MR 기한 초과 2일</td></tr>
+          <tr><td style="color:var(--red)">자금</td><td>PS-598</td><td>기성청구 지연</td></tr></table></div>
+      </div>
+      <div class="cpan">
+        <div class="kpis">
+          <div class="kpi"><div class="v">12</div><div class="l">진행 Project</div></div>
+          <div class="kpi"><div class="v">4</div><div class="l">승인 대기</div></div>
+          <div class="kpi"><div class="v">₩ 8.4억</div><div class="l">이번 달 수주</div></div>
+          <div class="kpi"><div class="v" style="color:var(--red)">2</div><div class="l">이상 경고 (시간·자금)</div></div>
+        </div>
+        <div class="card" style="margin-bottom:8px"><h4>Project 전후 공정 현황 — Micron #7</h4>
+          <div class="flowrow"><span class="st done">PS 등록</span><span class="ar">→</span><span class="st done">PCR 견적검토</span><span class="ar">→</span><span class="st done">QCR 견적</span><span class="ar">→</span><span class="st now">OR 수주</span><span class="ar">→</span><span class="st">AP 승인도서</span><span class="ar">→</span><span class="st">APP 고객승인</span><span class="ar">→</span><span class="st">MR 제작의뢰</span></div>
+          <div class="flowrow"><span class="st">BOM</span><span class="ar">→</span><span class="st">PR 발주요청</span><span class="ar">→</span><span class="st">PO 발주</span><span class="ar">→</span><span class="st">MI 입고</span><span class="ar">→</span><span class="st">MP 생산계획</span><span class="ar">→</span><span class="st">WR 작업지시</span><span class="ar">→</span><span class="st">FF 완성</span><span class="ar">→</span><span class="st">DF 납품</span><span class="ar">→</span><span class="st">IR 기성청구</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="ph" style="height:150px">프로젝트별 손익 차트<br>(수주액 · 원가 · 마진)</div>
+          <div class="ph" style="height:150px">자금 흐름 추적<br>(매입 출금 · 매출 입금 타임라인)</div>
+        </div>
+        <div class="card" style="margin-top:8px"><h4>부서별 Event 상황</h4>
+          <table class="tbl"><tr><th>부서</th><th>대기</th><th>진행</th><th>완료(주)</th><th>지연</th></tr>
+          <tr><td>영업</td><td class="num">3</td><td class="num">5</td><td class="num">12</td><td class="num" style="color:var(--red)">1</td></tr>
+          <tr><td>기술</td><td class="num">2</td><td class="num">7</td><td class="num">18</td><td class="num">0</td></tr>
+          <tr><td>자재</td><td class="num">6</td><td class="num">4</td><td class="num">9</td><td class="num" style="color:var(--red)">1</td></tr>
+          <tr><td>생산</td><td class="num">1</td><td class="num">8</td><td class="num">15</td><td class="num">0</td></tr></table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 프로세스 코드 상태기계(erp_process_event) 집계 — 전후 공정·일정·이상 경고(시간/자금) (<span class="fid">ERP-014</span>)<br>
+  ② 손익·자금 흐름은 cst_pcr / 재무 프로세스 데이터 연계 · 권한: ADMIN·경영</div>
+</section>
+
+</main>
+</div>
+<script>
+function showScreen(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  document.querySelectorAll('.rail a').forEach(x => x.classList.toggle('on', x.dataset.s === id));
+  document.querySelectorAll('.screen').forEach(x => x.classList.toggle('on', x.id === id));
+  document.querySelector('.stage').scrollTop = 0;
+}
+document.querySelectorAll('.rail a').forEach(a => {
+  a.addEventListener('click', e => { e.preventDefault(); history.replaceState(null,'','#'+a.dataset.s); showScreen(a.dataset.s); });
+});
+if (location.hash) showScreen(location.hash.slice(1));
+</script>
+</body>
+</html>
