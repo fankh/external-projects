@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기능확인서 (Feature Verification Test)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&Pretendard:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1a1a40;
+      --accent: #2e8b57;
+      --light-bg: #f5f5f5;
+      --border: #e0e0e0;
+      --text: #333;
+      --pass: #28a745;
+      --fail: #dc3545;
+      --pending: #ffc107;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    @page {
+      size: A4;
+      margin: 20mm 20mm 20mm 20mm;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+      .page-break {
+        page-break-after: always;
+      }
+    }
+
+    /* Cover Page */
+    .cover {
+      background: linear-gradient(135deg, var(--primary) 0%, #2e5266 50%, var(--accent) 100%);
+      color: white;
+      padding: 40mm 30mm;
+      text-align: center;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      margin-bottom: 20mm;
+    }
+
+    .cover::before {
+      content: 'Confidential';
+      position: absolute;
+      top: 20mm;
+      right: 20mm;
+      font-size: 12px;
+      opacity: 0.8;
+      letter-spacing: 2px;
+    }
+
+    .cover h1 {
+      font-size: 44px;
+      font-weight: 700;
+      margin-bottom: 10mm;
+    }
+
+    .cover .subtitle {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.9);
+      margin-bottom: 30mm;
+    }
+
+    .cover-meta {
+      background: rgba(255, 255, 255, 0.15);
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 8mm 20mm;
+      margin: 20mm 0;
+      font-size: 12px;
+      width: 100%;
+    }
+
+    .cover-meta-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10mm;
+      margin: 5mm 0;
+    }
+
+    .cover-meta-item {
+      text-align: left;
+    }
+
+    .cover-meta-label {
+      font-size: 10px;
+      opacity: 0.8;
+    }
+
+    .cover-meta-value {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .approval-section {
+      margin-top: 30mm;
+      text-align: center;
+      width: 100%;
+    }
+
+    .approval-title {
+      font-size: 13px;
+      margin-bottom: 15mm;
+      font-weight: 600;
+    }
+
+    .approval-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20mm;
+      margin-top: 10mm;
+    }
+
+    .approval-box {
+      border-top: 2px solid white;
+      padding-top: 15mm;
+    }
+
+    .approval-label {
+      font-size: 12px;
+      margin-top: 8mm;
+    }
+
+    /* Content */
+    .content {
+      padding: 20mm;
+    }
+
+    .section-header {
+      background: var(--primary);
+      color: white;
+      padding: 8mm 10mm;
+      margin-top: 12mm;
+      margin-bottom: 8mm;
+      border-left: 6px solid var(--accent);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .section-header-en {
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.9;
+      margin-top: 2mm;
+    }
+
+    .subsection {
+      margin-bottom: 8mm;
+    }
+
+    .subsection-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 8mm;
+      margin-bottom: 5mm;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 3mm;
+    }
+
+    p {
+      margin-bottom: 5mm;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10mm;
+      font-size: 11px;
+    }
+
+    thead {
+      background: var(--primary);
+      color: white;
+    }
+
+    th {
+      padding: 5mm 4mm;
+      text-align: left;
+      font-weight: 700;
+      border: 1px solid var(--primary);
+    }
+
+    td {
+      padding: 5mm 4mm;
+      border: 1px solid var(--border);
+    }
+
+    tbody tr:nth-child(even) {
+      background: var(--light-bg);
+    }
+
+    /* Status badges */
+    .status-pass {
+      background: #d4edda;
+      color: var(--pass);
+      padding: 3mm 6mm;
+      border-radius: 3px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .status-fail {
+      background: #f8d7da;
+      color: var(--fail);
+      padding: 3mm 6mm;
+      border-radius: 3px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+      padding: 3mm 6mm;
+      border-radius: 3px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    /* Severity badges */
+    .severity-high {
+      background: #ffcccc;
+      color: #cc0000;
+      padding: 2mm 4mm;
+      border-radius: 2px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .severity-medium {
+      background: #ffffcc;
+      color: #cc8800;
+      padding: 2mm 4mm;
+      border-radius: 2px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .severity-low {
+      background: #ccffcc;
+      color: #008800;
+      padding: 2mm 4mm;
+      border-radius: 2px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .footer {
+      border-top: 2px solid var(--primary);
+      padding-top: 10mm;
+      margin-top: 15mm;
+      font-size: 11px;
+      color: #666;
+      text-align: center;
+    }
+
+    .page-break {
+      page-break-after: always;
+      padding-top: 20mm;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover">
+  <h1>기능확인서</h1>
+  <div class="subtitle">Feature Verification Test (FVT)</div>
+  <div class="cover-meta">
+    <div class="cover-meta-row">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">프로젝트명 (Project)</div>
+        <div class="cover-meta-value">AI 기반 2D 도면 생성 시스템</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">버전 (Version)</div>
+        <div class="cover-meta-value">v1.0</div>
+      </div>
+    </div>
+    <div class="cover-meta-row">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">수행일 (Test Date)</div>
+        <div class="cover-meta-value">2026.10.12 ~ 2026.10.16</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">담당자 (PM)</div>
+        <div class="cover-meta-value">[이름]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="approval-section">
+    <div class="approval-title">확인 및 승인 (Sign-off)</div>
+    <div class="approval-grid">
+      <div>
+        <div class="approval-box" style="height: 25mm;"></div>
+        <div class="approval-label">고객사 담당자<br>(Client Representative)<br>[부서/직급]<br>[이름]</div>
+      </div>
+      <div>
+        <div class="approval-box" style="height: 25mm;"></div>
+        <div class="approval-label">수행사 PM<br>(Project Manager)<br>[부서/직급]<br>[이름]</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- 문서 목적 및 범위 -->
+  <div class="section-header">
+    문서 목적 및 범위
+    <div class="section-header-en">(Purpose & Scope)</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">목적 (Purpose)</div>
+    <p>
+      본 기능확인서는 AI 기반 2D 도면 생성 시스템(edim-ai-blueprint)의 구축된 시스템이 요구사항에 맞게 구현되었는지를 확인하기 위한 문서입니다.
+      고객사와 수행사가 함께 진행하는 기능 확인 프로세스의 결과를 기록합니다.
+    </p>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">범위 (Scope)</div>
+    <p>요구사항 정의서의 기능 요구사항 FR-001~FR-006(CAD 파일 업로드, 2D 도면 렌더링, AI 도면 생성, DXF 내보내기, 레이어 관리, IFC 층 선택)과 비기능 요구사항(50MB 업로드 제한, DWG 변환기 미설정 시 501 안내 등)에 대한 기능 확인을 범위로 합니다.</p>
+  </div>
+
+  <!-- 시스템 환경 -->
+  <div class="section-header">
+    시스템 환경
+    <div class="section-header-en">(Test Environment)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 30%;">항목 (Item)</th>
+        <th style="width: 70%;">정보 (Information)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>테스트 환경 (Environment)</td>
+        <td>DEV (로컬 개발 환경)</td>
+      </tr>
+      <tr>
+        <td>서버 (Server)</td>
+        <td>Python FastAPI 백엔드 (Uvicorn, 포트 8000) / Vite 개발 서버 (포트 5173)</td>
+      </tr>
+      <tr>
+        <td>소프트웨어 버전 (SW Version)</td>
+        <td>Python 3.x + FastAPI, ezdxf, ifcopenshell / React (Vite + TypeScript) / ODA File Converter (플러그블)</td>
+      </tr>
+      <tr>
+        <td>데이터베이스 (Database)</td>
+        <td>해당 없음 (파일 기반 무상태 처리)</td>
+      </tr>
+      <tr>
+        <td>브라우저 (Browser)</td>
+        <td>Chrome 최신 버전</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- 기능 확인 항목 -->
+  <div class="section-header">
+    기능 확인 항목
+    <div class="section-header-en">(Test Cases)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 8%;">TC-ID</th>
+        <th style="width: 15%;">기능명<br>(Feature)</th>
+        <th style="width: 22%;">테스트 내용<br>(Test Content)</th>
+        <th style="width: 18%;">기대 결과<br>(Expected)</th>
+        <th style="width: 18%;">실제 결과<br>(Actual)</th>
+        <th style="width: 10%;">판정<br>(Result)</th>
+        <th style="width: 9%;">비고<br>(Remarks)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>TC-001</td>
+        <td>서버 상태 확인</td>
+        <td>백엔드 health 엔드포인트 호출</td>
+        <td>정상 상태(ok) 응답 반환</td>
+        <td>정상 상태 응답 확인</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>TC-002</td>
+        <td>DXF 업로드/렌더링 (F-001/F-002)</td>
+        <td>line/polyline/circle/arc/text를 포함한 샘플 DXF 업로드</td>
+        <td>5개 엔티티 타입이 모두 SVG로 렌더링됨</td>
+        <td>5개 엔티티 타입 렌더링 확인</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>TC-003</td>
+        <td>팬/줌 (F-002)</td>
+        <td>도면 위에서 마우스 드래그 및 휠 조작</td>
+        <td>도면이 부드럽게 이동/확대·축소됨</td>
+        <td>팬/줌 정상 동작 확인</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>TC-004</td>
+        <td>레이어 토글 (F-005)</td>
+        <td>레이어 패널에서 특정 레이어 숨김/표시 전환</td>
+        <td>해당 레이어의 엔티티만 숨김/표시됨</td>
+        <td>레이어별 토글 정상 동작 확인</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>TC-005</td>
+        <td>AI 도면 생성 (F-003)</td>
+        <td>API 키 미설정 상태에서 자연어 프롬프트 입력</td>
+        <td>스텁 생성기가 평면도 DrawingDocument를 반환하고 렌더링됨</td>
+        <td>스텁 평면도 생성 및 렌더링 확인</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td>스텁 모드</td>
+      </tr>
+      <tr>
+        <td>TC-006</td>
+        <td>DXF 내보내기 라운드트립 (F-004)</td>
+        <td>도면을 R2010 DXF로 내보낸 뒤 해당 파일을 재업로드</td>
+        <td>내보낸 DXF가 오류 없이 재업로드되고 동일 엔티티가 렌더링됨</td>
+        <td>라운드트립 정상 렌더링 확인</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>TC-007</td>
+        <td>DWG 미설정 안내</td>
+        <td>ODA File Converter 미설정 상태에서 DWG 파일 업로드</td>
+        <td>HTTP 501과 함께 변환기 설치 안내 메시지 반환</td>
+        <td>501 및 안내 메시지 확인</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>TC-008</td>
+        <td>IFC 층 선택 오류 처리 (F-006)</td>
+        <td>범위를 벗어난 storeyIndex로 IFC 평면 추출 요청</td>
+        <td>명확한 범위 오류 응답 반환 (서버 오류 미발생)</td>
+        <td>범위 오류 응답 확인</td>
+        <td><span class="status-pass">Pass</span></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- 비기능 확인 항목 -->
+  <div class="section-header">
+    비기능 확인 항목
+    <div class="section-header-en">(Non-Functional Checks)</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">성능 (Performance)</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 35%;">항목 (Item)</th>
+          <th style="width: 25%;">요구사항 (Requirement)</th>
+          <th style="width: 25%;">측정값 (Measured)</th>
+          <th style="width: 15%;">결과 (Result)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>업로드 크기 제한 (Upload Size Limit)</td>
+          <td>50MB 초과 시 업로드 거부</td>
+          <td>50MB 초과 파일 거부 및 오류 안내 확인</td>
+          <td><span class="status-pass">Pass</span></td>
+        </tr>
+        <tr>
+          <td>미지원 엔티티 보고 (Skipped Entities)</td>
+          <td>미지원 DXF 엔티티 생략 후 개수 보고</td>
+          <td>생략 엔티티 개수가 응답에 포함됨 확인</td>
+          <td><span class="status-pass">Pass</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">보안 (Security)</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 35%;">항목 (Item)</th>
+          <th style="width: 25%;">요구사항 (Requirement)</th>
+          <th style="width: 25%;">확인 결과 (Verified)</th>
+          <th style="width: 15%;">결과 (Result)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>파일 확장자 검증 (File Validation)</td>
+          <td>dxf·dwg·ifc 외 확장자 거부</td>
+          <td>허용 외 확장자 업로드 거부 확인</td>
+          <td><span class="status-pass">Pass</span></td>
+        </tr>
+        <tr>
+          <td>API 키 관리 (API Key Management)</td>
+          <td>Claude API 키 환경변수 관리, 클라이언트 미노출</td>
+          <td>클라이언트 응답/번들에 키 미포함 확인</td>
+          <td><span class="status-pass">Pass</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- 결함 목록 -->
+  <div class="section-header">
+    결함 목록
+    <div class="section-header-en">(Defect List)</div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 8%;">ID</th>
+        <th style="width: 12%;">발생일<br>(Date)</th>
+        <th style="width: 28%;">결함 내용<br>(Description)</th>
+        <th style="width: 12%;">심각도<br>(Severity)</th>
+        <th style="width: 15%;">상태<br>(Status)</th>
+        <th style="width: 12%;">처리일<br>(Resolved)</th>
+        <th style="width: 13%;">비고<br>(Remarks)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>DEF-001</td>
+        <td>2026.10.12</td>
+        <td>arc 엔티티의 시작/끝 각도가 Y-up 좌표 변환 시 반전되어 렌더링되는 오류</td>
+        <td><span class="severity-high">High</span></td>
+        <td>해결</td>
+        <td>2026.10.14</td>
+        <td>TC-002 관련</td>
+      </tr>
+      <tr>
+        <td>DEF-002</td>
+        <td>2026.10.13</td>
+        <td>엔티티 수가 많은 DXF에서 줌 조작 시 일시적 프레임 저하</td>
+        <td><span class="severity-medium">Medium</span></td>
+        <td>해결</td>
+        <td>2026.10.15</td>
+        <td>렌더링 최적화</td>
+      </tr>
+      <tr>
+        <td>DEF-003</td>
+        <td>2026.10.14</td>
+        <td>text 엔티티의 회전각이 SVG 렌더링에 반영되지 않음</td>
+        <td><span class="severity-low">Low</span></td>
+        <td>미해결</td>
+        <td>-</td>
+        <td>차기 보완</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <!-- 최종 확인 및 서명 -->
+  <div class="section-header">
+    최종 확인 및 승인
+    <div class="section-header-en">(Final Approval)</div>
+  </div>
+
+  <div style="margin-top: 20mm;">
+    <p style="font-weight: 600; margin-bottom: 15mm;">기능확인 결과</p>
+    <table style="margin-bottom: 20mm;">
+      <thead>
+        <tr>
+          <th>구분 (Category)</th>
+          <th>통과 (Pass)</th>
+          <th>미통과 (Fail)</th>
+          <th>보류 (Pending)</th>
+          <th>합계 (Total)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>기능 테스트 (Functional Tests)</td>
+          <td style="text-align: center;">8</td>
+          <td style="text-align: center;">0</td>
+          <td style="text-align: center;">0</td>
+          <td style="text-align: center;">8</td>
+        </tr>
+        <tr>
+          <td>비기능 테스트 (Non-Functional Tests)</td>
+          <td style="text-align: center;">4</td>
+          <td style="text-align: center;">0</td>
+          <td style="text-align: center;">0</td>
+          <td style="text-align: center;">4</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="border: 2px solid var(--primary); padding: 15mm; margin: 20mm 0; text-align: center;">
+      <p style="font-weight: 600; font-size: 14px; margin-bottom: 3mm;">
+        기능확인 결론 (Conclusion)
+      </p>
+      <p style="font-size: 13px;">
+        ☐ 승인 (Approved) / ☐ 조건부 승인 (Conditional Approval) / ☐ 부승인 (Not Approved)
+      </p>
+    </div>
+
+    <p style="margin: 15mm 0; text-align: center; font-size: 12px; color: #666;">
+      [ 계약자 / 서비스 제공자 / 검토자 서명 및 날인 ]
+    </p>
+  </div>
+
+  <div class="footer">
+    <p>본 기능확인서는 기밀 정보이며, 승인된 담당자 외에는 배포될 수 없습니다.<br>
+    This FVT report contains confidential information and cannot be distributed without approval.</p>
+  </div>
+
+</div>
+
+</body>
+</html>
