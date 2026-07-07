@@ -75,11 +75,12 @@ flowchart TB
 | 메뉴정의서 | [`EDIM_메뉴정의서.xlsx`](EDIM_메뉴정의서.xlsx) | v0.3 | Excel 2시트 | 97메뉴 (PPT 3차 전수 대조) — 화면·기능·권한 매핑 |
 | 화면설계서 | [`EDIM_화면설계서.html`](EDIM_화면설계서.html) | v0.2 | HTML (단일 파일) | 와이어프레임 16화면 (W-01~W-16) + 설계 노트 |
 | 컴포넌트 정의서 | [`EDIM_컴포넌트_정의서.md`](EDIM_컴포넌트_정의서.md) / [`xlsx`](EDIM_컴포넌트정의서.xlsx) | v0.2 | MD + Excel | 39컴포넌트·API 106 — **구축 상태 열 포함** (개발 서버 현황) |
-| DB 정의서 | [`EDIM_DB_정의서.md`](EDIM_DB_정의서.md) / [`xlsx`](EDIM_DB정의서.xlsx) | v0.4 | MD + Excel | 53테이블 455컬럼 — 설계 원칙·공통코드·미결정 8건 |
+| DB 정의서 | [`EDIM_DB_정의서.md`](EDIM_DB_정의서.md) / [`xlsx`](EDIM_DB정의서.xlsx) | v0.4.1 | MD + Excel | 53테이블 455컬럼 — 설계 원칙·공통코드·미결정 8건 |
 | 요구사항추적표 (RTM) | [`EDIM_요구사항추적표.xlsx`](EDIM_요구사항추적표.xlsx) | 자동 | Excel 3시트 | REQ→기능→메뉴→화면→컴포넌트→DB 179행, **커버리지 178/178** |
 | 산출물목록 | [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx) | v0.1 | Excel 2시트 | 34종 레지스터 — 상태·우선 권고. **신규 문서는 여기에 먼저 등록** |
 | 권한·승인 정의서 | [`EDIM_권한승인정의서.xlsx`](EDIM_권한승인정의서.xlsx) | v0.1 | Excel 6시트 | 역할 4종·매트릭스(97메뉴 자동)·승인 상태기계 13·Platform 범위·Grade |
 | 개발 표준 정의서 | [`EDIM_개발표준정의서.md`](EDIM_개발표준정의서.md) | v0.1 | MD | 공통 원칙·명명·API 규약·FE/BE·Git/리뷰·테스트·보안·CI — 개정 트리거 연동 |
+| DB DDL·검증 | [`ddl/edim_schema.sql`](ddl/edim_schema.sql) / [`ddl/verify_runtime.sql`](ddl/verify_runtime.sql) | v0.4.1 | SQL | 실 PG16 검증 통과 — BOM 재귀·제약 6종·Project Folder 실행 확인 |
 | 요구사항 보완노트 | [`EDIM_요구사항_보완노트.md`](EDIM_요구사항_보완노트.md) | - | MD | PPT 재검토 발견 사항·고객 협의 필요 4건 |
 | 아키텍처(프로토타입) | [`ARCHITECTURE.md`](ARCHITECTURE.md) / [`pdf`](ARCHITECTURE.pdf) | v1 | MD + PDF | 프로토타입 앱(현 배포본) 구조 |
 

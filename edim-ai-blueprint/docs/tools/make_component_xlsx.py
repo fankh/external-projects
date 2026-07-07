@@ -73,6 +73,7 @@ STATUS = {
  "ENG-03": ("프로토타입 일부", "ezdxf 기반 DXF(R2010) Export 경로 검증됨"),
  "AI-01":  ("프로토타입 일부", "Claude API 연동(ai_generator) — ANTHROPIC_API_KEY 미설정 시 샘플 모드"),
  "INT-04": ("프로토타입", "DwgToDxfConverter 플러그블 인터페이스 — ODA 바이너리 미설치(501)"),
+ "INF-01": ("구축완료", "PostgreSQL 16 컨테이너(edim-postgres, 127.0.0.1:5432) — EDIM 스키마 53테이블 적용·검증됨"),
  "INF-02": ("구축완료", "MinIO — S3 API 127.0.0.1:9000(내부), 콘솔 /minio/ui, 버킷 edim, 볼륨 minio_data"),
  "INF-06": ("부분 구축", "Docker 29.6.1 + Compose v5.3, Jenkins LTS(/jenkins) — k8s는 운영 전환 시 도입"),
 }
