@@ -10,7 +10,7 @@
 | 최종 갱신 | 2026-07-07 |
 | 원천 자료 | `reference/EDIM Tool System EP2.pptx` (NOVA Solution, 78슬라이드) |
 | 저장소 | https://github.com/fankh/external-projects (`edim-ai-blueprint/docs/`) |
-| 온라인 열람 | 화면설계서: https://edim.seekerslab.com/design/ · 디자인 시안: https://edim.seekerslab.com/design/hifi/ |
+| 온라인 열람 | 화면설계서: https://edim.seekerslab.com/design/ · 디자인 A: /design/hifi/ · **디자인 B(권고): /design/dense/** |
 
 ---
 
@@ -86,7 +86,8 @@ flowchart TB
 | 데이터 이행 계획서 | [`EDIM_데이터이행계획서.md`](EDIM_데이터이행계획서.md) | v0.1 | MD | 이행 대상 9·원칙 5·절차 5단계·검증 6기준·AI 학습 연계 |
 | 인터페이스 정의서 | [`EDIM_인터페이스정의서.md`](EDIM_인터페이스정의서.md) · [`api/edim-openapi.yaml`](api/edim-openapi.yaml) | v0.1 | MD + OpenAPI 3.1 | 공통 규약·시나리오·WS·외부 연계 8종 — **스펙은 APIS 목록에서 자동 생성** |
 | 클래스 정의서 | [`EDIM_클래스정의서.md`](EDIM_클래스정의서.md) | v0.1 | MD (classDiagram 2) | 언어 중립 도메인 모델 — 11도메인, 인바리언트↔DB 제약 이중 방어 대응표 |
-| 디자인 시안 (Hi-Fi) | [`EDIM_디자인시안.html`](EDIM_디자인시안.html) | v0.1 | HTML | 디자인 시스템 토큰 + 핵심 6페이지 (D-01~D-06) · 열람: https://edim.seekerslab.com/design/hifi/ |
+| 디자인 시안 A (Modern) | [`EDIM_디자인시안.html`](EDIM_디자인시안.html) | v0.1 | HTML | 브랜드 접점용 (로그인·Dashboard·모바일) · /design/hifi/ |
+| 디자인 시안 B (Dense) ★ | [`EDIM_디자인시안_B_dense.html`](EDIM_디자인시안_B_dense.html) | v0.1 | HTML | **레거시 문법 조사+적용** — 22px 컨트롤·MDI·F-key·조회밴드, 업무 화면 권고안 · /design/dense/ |
 | 요구사항 보완노트 | [`EDIM_요구사항_보완노트.md`](EDIM_요구사항_보완노트.md) | - | MD | PPT 재검토 발견 사항·고객 협의 필요 4건 |
 | 아키텍처(프로토타입) | [`ARCHITECTURE.md`](ARCHITECTURE.md) / [`pdf`](ARCHITECTURE.pdf) | v1 | MD + PDF | 프로토타입 앱(현 배포본) 구조 |
 

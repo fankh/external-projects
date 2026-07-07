@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDIM 디자인 시안 B — Dense Enterprise v0.1</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+/* ═══════════ EDIM Dense Enterprise Tokens (B안) ═══════════
+   레거시 문법: 더존 iCUBE·SAP GUI·영림원·AutoCAD·Excel 계승
+   밀도: 본문 11.5px · 그리드 행 24px · 컨트롤 높이 22px · radius 0~2px */
+:root{
+  --chrome:#E9EBEE;          /* 윈도우 크롬 */
+  --panel:#FFFFFF;
+  --line-strong:#9AA2AF;     /* 패널 외곽 — 레거시는 선이 진하다 */
+  --line:#C2C8D2;
+  --line-soft:#E1E5EB;
+  --grid-head:#DCE3EE;       /* 그리드 헤더 (국산 ERP 블루그레이) */
+  --grid-head-txt:#2B3A55;
+  --title-navy:#1F4E8C;      /* 화면 타이틀·링크 (더존 블루) */
+  --navy-deep:#17376B;
+  --sel-yellow:#FFF3C2;      /* 선택 행 (레거시 옐로) */
+  --req-yellow:#FFFDE0;      /* 필수 입력 셀 */
+  --edit-cell:#EFF6FF;       /* 편집 중 셀 */
+  --txt:#1E222A; --txt-dim:#5A6270; --txt-mute:#8B93A1;
+  --ok:#1E7A4E; --ok-bg:#E3F2E9;
+  --warn:#B45309; --warn-bg:#FCF3DF;
+  --err:#B3372F; --err-bg:#FAE6E4;
+  --run:#1E7A4E;
+  --btn-face:linear-gradient(180deg,#FDFDFE,#EDF0F4);
+  --btn-border:#A9B0BC;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Pretendard,'Malgun Gothic',sans-serif;background:#F2F3F6;color:var(--txt);font-size:11.5px;-webkit-font-smoothing:antialiased}
+
+/* ═══ viewer chrome ═══ */
+.viewer{display:grid;grid-template-columns:212px 1fr;min-height:100vh}
+.vrail{background:#14172B;color:#fff;padding:18px 0;position:sticky;top:0;height:100vh;overflow:auto}
+.vrail h1{font-size:13.5px;padding:0 16px 2px}
+.vrail .sub{font-size:10px;color:#8b91bd;padding:0 16px 14px;border-bottom:1px solid #262b4d;line-height:1.6}
+.vrail a{display:block;color:#b9bfe3;text-decoration:none;padding:8px 16px;font-size:12px;border-left:3px solid transparent}
+.vrail a:hover{background:#1c2140;color:#fff}
+.vrail a.on{background:#232952;color:#fff;border-left-color:#E8A33D}
+.vrail .grp{font-size:9.5px;color:#6f75a5;padding:14px 16px 4px;text-transform:uppercase;letter-spacing:.08em}
+.stage{padding:24px 28px 70px;overflow:auto}
+.page{display:none;max-width:1480px;margin:0 auto}
+.page.on{display:block}
+.p-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.p-head h2{font-size:20px;letter-spacing:-.01em}
+.p-head .pid{background:#17376B;color:#fff;font-size:10.5px;padding:3px 10px;border-radius:2px;font-weight:700}
+.p-head .why{color:var(--txt-mute);font-size:12px}
+.dnote{background:#fff;border:1px solid var(--line);border-left:3px solid var(--title-navy);padding:11px 14px;margin-top:12px;font-size:11.5px;line-height:1.8;color:var(--txt-dim)}
+.dnote b{color:var(--title-navy)}
+
+/* ═══ 소형 컨트롤 (핵심 — 22px 체계) ═══ */
+.b{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 9px;font-size:11px;font-weight:600;color:#333A46;background:var(--btn-face);border:1px solid var(--btn-border);border-radius:2px;cursor:pointer;white-space:nowrap}
+.b:hover{border-color:#7d8592}
+.b.pri{background:linear-gradient(180deg,#3D6BB0,#2B5290);border-color:#20406F;color:#fff}
+.b.run{background:linear-gradient(180deg,#2F9463,#1E7A4E);border-color:#175E3C;color:#fff}
+.b.ic{width:22px;padding:0;justify-content:center;font-size:12px}
+.b.fkey{background:#F4F5F8;font-weight:500;color:var(--txt-dim)}
+.b.fkey b{color:#333A46;font-weight:700;margin-right:1px}
+.in{height:22px;border:1px solid var(--btn-border);border-radius:2px;padding:0 6px;font-size:11.5px;background:#fff;color:var(--txt)}
+.in:focus{outline:1px solid var(--title-navy);background:var(--edit-cell)}
+.in.req{background:var(--req-yellow)}
+.in.ro{background:#F1F2F5;color:var(--txt-dim)}
+.cb2{position:relative;height:22px;border:1px solid var(--btn-border);border-radius:2px;padding:0 20px 0 6px;font-size:11.5px;background:#fff;display:inline-flex;align-items:center}
+.cb2:after{content:"▾";position:absolute;right:4px;font-size:9px;color:var(--txt-dim)}
+.st{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:1px 6px;border:1px solid;border-radius:2px}
+.st.ok{color:var(--ok);background:var(--ok-bg);border-color:#BDE0CC}
+.st.warn{color:var(--warn);background:var(--warn-bg);border-color:#EBD3A8}
+.st.err{color:var(--err);background:var(--err-bg);border-color:#EFC5C1}
+.st.info{color:var(--title-navy);background:#E7EFFA;border-color:#BDD2ED}
+.sep{width:1px;height:16px;background:var(--line);margin:0 3px}
+
+/* ═══ 그리드 (레거시 핵심) — 양방향 실선·24px행·줄무늬 ═══ */
+.g{width:100%;border-collapse:collapse;font-size:11.5px;background:#fff}
+.g th{background:var(--grid-head);color:var(--grid-head-txt);font-weight:700;font-size:11px;padding:0 6px;height:24px;border:1px solid var(--line);text-align:center;position:relative}
+.g th .flt{position:absolute;right:3px;color:#7A87A0;font-size:9px}
+.g td{padding:0 6px;height:24px;border:1px solid var(--line-soft);border-bottom-color:var(--line-soft)}
+.g tr:nth-child(even) td{background:#F7F9FC}
+.g tr.sel td{background:var(--sel-yellow)}
+.g tr:hover td{background:#FDF6DE}
+.g td.num{text-align:right;font-variant-numeric:tabular-nums}
+.g td.c{text-align:center}
+.g td.code{font-family:Consolas,monospace;font-size:11px;color:var(--title-navy)}
+.g td.edit{background:var(--edit-cell);outline:1px solid var(--title-navy)}
+.g td.req{background:var(--req-yellow)}
+.g tfoot td{background:#EDF1F7;font-weight:700;border-top:1.5px solid var(--line-strong)}
+
+/* ═══ 앱 크롬 (메뉴바·툴바·MDI·상태바) ═══ */
+.app{border:1px solid var(--line-strong);background:var(--chrome);box-shadow:0 3px 14px rgba(20,26,40,.18);min-height:660px;display:flex;flex-direction:column}
+.titlebar{display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,#26406E,#17376B);color:#fff;padding:5px 10px;font-size:11.5px}
+.titlebar .lg{width:18px;height:18px;background:#2F9463;border-radius:2px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px}
+.titlebar .sp{flex:1}
+.titlebar .u{font-size:10.5px;color:#B9C7E2}
+.menubar{display:flex;gap:2px;background:#F4F5F8;border-bottom:1px solid var(--line);padding:2px 6px;font-size:11.5px}
+.menubar span{padding:3px 9px;border-radius:2px;color:#333A46}
+.menubar span:hover{background:#E1E6EE}
+.toolbar{display:flex;align-items:center;gap:3px;background:var(--chrome);border-bottom:1px solid var(--line);padding:3px 6px;flex-wrap:wrap}
+.mdi{display:flex;align-items:flex-end;gap:1px;background:#D9DDE4;padding:4px 6px 0;border-bottom:1px solid var(--line-strong)}
+.mdi .t{display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 10px;background:#E7EAEF;border:1px solid var(--line);border-bottom:none;color:var(--txt-dim);border-radius:3px 3px 0 0}
+.mdi .t.on{background:#fff;color:var(--title-navy);font-weight:700;position:relative;top:1px}
+.mdi .t .x{color:var(--txt-mute);font-size:10px}
+.workarea{flex:1;background:#fff;display:flex;min-height:0}
+.statusbar{display:flex;align-items:center;gap:0;background:#EDF0F4;border-top:1px solid var(--line-strong);padding:2px 8px;font-size:10.5px;color:var(--txt-dim)}
+.statusbar .cell{padding:2px 10px;border-right:1px solid var(--line)}
+.statusbar .grow{flex:1}
+
+/* 조회조건 밴드 (SAP/더존 문법) */
+.qband{display:flex;align-items:center;gap:6px;background:#F2F5FA;border:1px solid var(--line);padding:5px 8px;flex-wrap:wrap}
+.qband label{font-size:11px;color:var(--txt-dim);font-weight:600;margin-left:6px}
+.qband label:first-child{margin-left:0}
+.qband label i{color:var(--err);font-style:normal}
+
+/* 좌측 메뉴/트리 */
+.lnav{width:196px;border-right:1px solid var(--line);background:#FAFBFC;display:flex;flex-direction:column;min-height:0}
+.lnav .hd{background:#EDF1F7;border-bottom:1px solid var(--line);padding:4px 8px;font-size:11px;font-weight:700;color:var(--grid-head-txt);display:flex;align-items:center}
+.tree2{padding:4px 2px;font-size:11.5px;overflow:auto}
+.tn{display:flex;align-items:center;gap:4px;padding:2.5px 6px;color:#333A46;cursor:pointer;white-space:nowrap}
+.tn:hover{background:#EEF2F8}
+.tn.sel{background:var(--sel-yellow);font-weight:700}
+.tn .pm{width:11px;height:11px;border:1px solid var(--line-strong);background:#fff;font-size:9px;line-height:9px;text-align:center;color:var(--txt-dim);flex:none}
+.tn .ico{font-size:10px;color:#7A87A0}
+.tn.l2{padding-left:22px}.tn.l3{padding-left:38px}.tn.l4{padding-left:54px}
+
+/* 패널 타이틀 (그룹박스) */
+.gb{border:1px solid var(--line);background:#fff;display:flex;flex-direction:column;min-height:0}
+.gb .gt{background:linear-gradient(180deg,#F2F5FA,#E5EAF2);border-bottom:1px solid var(--line);padding:3px 8px;font-size:11px;font-weight:700;color:var(--grid-head-txt);display:flex;align-items:center;gap:6px}
+.gb .gt .sp{flex:1}
+.gb .gc{padding:6px;overflow:auto}
+.split-h{width:5px;background:var(--chrome);border-left:1px solid var(--line);border-right:1px solid var(--line);cursor:col-resize;flex:none}
+.split-v{height:5px;background:var(--chrome);border-top:1px solid var(--line);border-bottom:1px solid var(--line);cursor:row-resize;flex:none}
+
+/* 폼 (라벨 우측정렬 2열 — 레거시 문법) */
+.frm{display:grid;grid-template-columns:88px 1fr 88px 1fr;gap:4px 6px;align-items:center}
+.frm label{text-align:right;font-size:11px;color:var(--txt-dim);padding-right:2px}
+.frm label i{color:var(--err);font-style:normal}
+
+/* 캔버스(축소) */
+.cvs{position:relative;background:#fff;border:1px solid var(--line);background-image:linear-gradient(var(--line-soft) 1px,transparent 1px),linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);background-size:14px 14px}
+.m2{position:absolute;border:1px solid #4A6FA5;background:#F3F7FC;font-size:10px;color:#2B4A78;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700}
+.m2 small{font-weight:400;color:var(--txt-mute);font-size:9px}
+.m2.sel{border:1.5px solid var(--run);background:#EDF7F1;color:var(--run)}
+.d2{position:absolute;color:#3B6BB4;font-size:9px;font-variant-numeric:tabular-nums}
+.d2:before{content:"";position:absolute;left:0;right:0;top:6px;border-top:1px solid #3B6BB4;opacity:.5}
+.d2 span{position:relative;background:#fff;padding:0 4px;left:50%;transform:translateX(-50%);display:inline-block}
+
+/* legacy 조사표 */
+.inv{width:100%;border-collapse:collapse;font-size:11.5px;background:#fff}
+.inv th{background:var(--grid-head);border:1px solid var(--line);padding:6px 9px;font-size:11px;color:var(--grid-head-txt);text-align:left}
+.inv td{border:1px solid var(--line-soft);padding:7px 9px;vertical-align:top;line-height:1.7}
+.inv td b{color:var(--title-navy)}
+
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cmp .col{border:1px solid var(--line);background:#fff;padding:12px 14px;font-size:11.5px;line-height:1.9}
+.cmp h4{font-size:12.5px;margin-bottom:6px}
+@media print{.vrail{display:none}.viewer{grid-template-columns:1fr}.page{display:block!important;page-break-after:always}}
+</style>
+</head>
+<body>
+<div class="viewer">
+<nav class="vrail">
+  <h1>EDIM 디자인 시안 B</h1>
+  <div class="sub">Dense Enterprise v0.1<br>레거시 문법 조사 → 적용<br>본문 11.5px · 컨트롤 22px · 그리드 24px</div>
+  <div class="grp">Investigation</div>
+  <a href="#" class="on" data-p="b01">B-01 레거시 패턴 조사</a>
+  <a href="#" data-p="b02">B-02 토큰·소형 컨트롤</a>
+  <div class="grp">Screens</div>
+  <a href="#" data-p="b03">B-03 CPQ 제품 선정</a>
+  <a href="#" data-p="b04">B-04 코드 등록 (S-1-1)</a>
+  <a href="#" data-p="b05">B-05 EDIM Run</a>
+  <div class="grp">Decision</div>
+  <a href="#" data-p="b06">B-06 A안 vs B안 권고</a>
+  <div class="grp">·</div>
+  <a href="../hifi/" style="color:#7ee2a8">← A안 (Modern) 보기</a>
+</nav>
+<main class="stage">
+
+<!-- ═══════════════ B-01 레거시 패턴 조사 ═══════════════ -->
+<section class="page on" id="b01">
+  <div class="p-head"><span class="pid">B-01</span><h2>레거시 엔터프라이즈 UI 패턴 조사</h2><span class="why">EDIM 사용자가 이미 몸에 익힌 문법의 목록화</span></div>
+  <table class="inv">
+    <tr><th style="width:15%">계보</th><th style="width:33%">핵심 패턴</th><th style="width:26%">사용자가 기대하는 이유</th><th>EDIM 채택</th></tr>
+    <tr><td><b>SAP GUI</b><br>(R/3~ECC)</td>
+      <td>① 화면 상단 <b>조회조건 밴드</b> + 조회/초기화 버튼 ② 결과는 전면 그리드 ③ 트랜잭션 코드로 화면 직행 ④ 더블클릭=상세 드릴다운</td>
+      <td>구매·재무 실무자의 근육 기억 — "조건 넣고 F8" 리듬</td>
+      <td>✅ 조회조건 밴드 표준화 · 더블클릭 상세 · ⌘K를 T-code처럼 (화면코드 M-x-x 직행)</td></tr>
+    <tr><td><b>국산 ERP</b><br>더존 iCUBE·영림원</td>
+      <td>① 메뉴바+<b>MDI 문서 탭</b>(여러 화면 동시 오픈) ② <b>F-key 표준</b>: F2신규 F3삭제 F8조회 F12저장 ③ 필수 입력 = <b>노란 셀</b> ④ 좌측 메뉴트리+즐겨찾기 ⑤ 그리드 파란 헤더·줄무늬·합계 푸터</td>
+      <td>국내 제조 중소·중견 실무자의 사실상 표준 — 교육 없이 조작 가능</td>
+      <td>✅ 전부 채택 — MDI 탭·F-key 상태바·노란 필수셀·그리드 문법이 B안의 뼈대</td></tr>
+    <tr><td><b>CAD</b><br>AutoCAD·SolidWorks</td>
+      <td>① 소형 아이콘 밀집 툴바+구분선 ② <b>커맨드 라인</b>(하단 입력) ③ 상태바에 좌표·스냅 토글 ④ 우클릭 컨텍스트가 1차 UI</td>
+      <td>설계자는 마우스 이동 최소화·명령 축약을 신뢰</td>
+      <td>✅ Design Editor·캔버스 화면에 커맨드 라인 + 좌표 상태바 · 아이콘 툴바 22px</td></tr>
+    <tr><td><b>Excel</b></td>
+      <td>① 셀 단위 인라인 편집(파란 테두리 활성 셀) ② 시트 탭 ③ 행/열 헤더 ④ 우측 정렬 숫자·회계 서식</td>
+      <td>Table·Variant 데이터의 원래 서식 — "엑셀에서 되던 것"이 기대 수준</td>
+      <td>✅ 데이터 그리드 인라인 편집 · 활성 셀 하이라이트 · Table 관리 화면은 시트 탭</td></tr>
+    <tr><td><b>MES/공정 모니터</b></td>
+      <td>상태를 큰 색 블록으로, 지연=적색 점멸 관행</td>
+      <td>현장 가독 (원거리·저해상도 모니터)</td>
+      <td>△ Dashboard 경고에만 — 사무 화면은 과한 채도 배제</td></tr>
+  </table>
+  <div class="dnote"><b>조사 결론</b> — 레거시의 본질은 "옛날 그림"이 아니라 <b>① 밀도(한 화면에 다 보인다) ② 예측 가능성(모든 화면이 같은 문법) ③ 키보드 완결성(F-key로 하루 업무가 끝난다)</b>이다. v0.1(A안)은 ①②③ 모두 소비자 웹 문법이었음. B안은 위 표의 채택 항목을 토큰과 4개 화면으로 구현 — 단, 레거시의 단점(계층 없는 회색 덩어리·아이콘만 있는 버튼·접근성 부재)은 계승하지 않는다: 위계는 유지하되 곡률·여백·그림자만 줄인다.</div>
+</section>
+
+<!-- ═══════════════ B-02 토큰·소형 컨트롤 ═══════════════ -->
+<section class="page" id="b02">
+  <div class="p-head"><span class="pid">B-02</span><h2>토큰 · 소형 컨트롤</h2><span class="why">22px 컨트롤 체계 — 복잡한 화면을 담는 그릇</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="gb"><div class="gt">밀도 스케일 (A안 대비)</div><div class="gc">
+      <table class="inv">
+        <tr><th></th><th>A안 (Modern)</th><th><b>B안 (Dense)</b></th></tr>
+        <tr><td>본문</td><td>13px</td><td><b>11.5px</b></td></tr>
+        <tr><td>버튼·입력 높이</td><td>32~36px</td><td><b>22px</b></td></tr>
+        <tr><td>그리드 행</td><td>~38px</td><td><b>24px</b> (양방향 실선)</td></tr>
+        <tr><td>radius</td><td>6~14px</td><td><b>0~2px</b></td></tr>
+        <tr><td>그림자</td><td>3단계</td><td><b>거의 없음</b> (선으로 구분)</td></tr>
+        <tr><td>같은 높이에 보이는 행</td><td>~14행</td><td><b>~24행</b></td></tr>
+      </table>
+    </div></div>
+    <div class="gb"><div class="gt">컨트롤 쇼케이스</div><div class="gc" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+        <span class="b pri">저장 F12</span><span class="b run">▶ EDIM Run</span><span class="b">조회 F8</span><span class="b">신규 F2</span><span class="b">삭제 F3</span><span class="sep"></span>
+        <span class="b ic">✎</span><span class="b ic">⎘</span><span class="b ic">🗑</span><span class="b ic">⬇</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input class="in req" style="width:120px" value="KDCR 3-13"><span style="font-size:10px;color:var(--txt-mute)">← 필수(노란 셀)</span>
+        <input class="in ro" style="width:120px" value="자동 채번"><span class="cb2" style="width:110px">Variant</span>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <span class="st ok">■ 승인</span><span class="st warn">■ 대기</span><span class="st err">■ 반려</span><span class="st info">■ TESTED</span>
+      </div>
+      <table class="g">
+        <tr><th style="width:26px">No</th><th>Code<span class="flt">▼</span></th><th>품명</th><th style="width:70px">단가</th><th style="width:52px">상태</th></tr>
+        <tr><td class="c">1</td><td class="code">FDV-480</td><td>Motor H22 380V</td><td class="num">450,000</td><td class="c"><span class="st ok">승인</span></td></tr>
+        <tr class="sel"><td class="c">2</td><td class="code">KDC-1</td><td class="edit">Casing 강판 편집중…</td><td class="num">128,000</td><td class="c"><span class="st warn">대기</span></td></tr>
+        <tr><td class="c">3</td><td class="code">EWT-3</td><td>Water Trap</td><td class="num">36,000</td><td class="c"><span class="st ok">승인</span></td></tr>
+        <tfoot><tr><td colspan="3">합계 3건</td><td class="num">614,000</td><td></td></tr></tfoot>
+      </table>
+      <div style="font-size:10px;color:var(--txt-mute)">선택 행 = 옐로 · 활성 셀 = 블루 아웃라인 · 합계 푸터 — 국산 ERP 그리드 문법</div>
+    </div></div>
+  </div>
+  <div class="dnote"><b>토큰 원칙</b> — ① <b>선이 그림자를 대체</b>: 패널 구분은 1px 실선(#C2C8D2)+그룹박스 타이틀, 그림자는 모달에만 ② 색은 4역할만: 타이틀 네이비 / 필수·선택 옐로 / 상태 3색 / Run 그린(예약 유지) ③ 모든 편집 화면 버튼 순서 고정: <span class="kbd" style="font-size:10px">신규 F2 · 삭제 F3 · 조회 F8 · 저장 F12</span> — 화면마다 같은 자리 ④ A안의 접근성 자산(포커스 링·색+형태 이중 부호화)은 크기만 줄여 유지.</div>
+</section>
+
+<!-- ═══════════════ B-03 CPQ ═══════════════ -->
+<section class="page" id="b03">
+  <div class="p-head"><span class="pid">B-03</span><h2>CPQ 제품 선정 — Dense</h2><span class="why">MDI·조회밴드·그리드 스택 — 한 화면 완결</span></div>
+  <div class="app">
+    <div class="titlebar"><span class="lg">E</span><b>EDIM</b><span style="color:#8FA5CC">— NOVA Solution</span><span class="sp"></span><span class="u">Micron #7 (Pre-Sales) · 기술연구소 · YS.Gang [SETUP]</span></div>
+    <div class="menubar"><span>파일</span><span>편집</span><span>조회</span><span>Set-up</span><span>CPQ</span><span>PLM</span><span>ERP</span><span>도구</span><span>창</span><span>도움말</span></div>
+    <div class="toolbar">
+      <span class="b ic" title="신규">▤</span><span class="b ic" title="저장">💾</span><span class="b ic" title="인쇄">🖨</span><span class="sep"></span>
+      <span class="b ic">↶</span><span class="b ic">↷</span><span class="sep"></span>
+      <span class="b">Move</span><span class="b">Copy</span><span class="b">＋ Add Item</span><span class="sep"></span>
+      <span class="cb2">Arrangement · Double Deck 2</span><span class="cb2">3각법 · 정면</span><span class="sep"></span>
+      <span class="b">Variants</span><span class="b">Referencers</span><span class="b">Supersedure</span>
+      <span style="flex:1"></span><input class="in" style="width:200px" placeholder="화면코드·코드·도면 검색 (⌘K)">
+    </div>
+    <div class="mdi">
+      <span class="t">M-6-3 Project 관리 <span class="x">×</span></span>
+      <span class="t on">C-1 제품 선정 — AHU 5 <span class="x">×</span></span>
+      <span class="t">S-1-4 Code Relationship <span class="x">×</span></span>
+      <span class="t">＋</span>
+    </div>
+    <div class="workarea">
+      <div class="lnav">
+        <div class="hd">Selection <span style="flex:1"></span><span class="b ic" style="height:16px;width:16px;font-size:9px">↻</span></div>
+        <div class="tree2">
+          <div class="tn"><span class="pm">−</span><span class="ico">📁</span>Product</div>
+          <div class="tn l2"><span class="pm">−</span><span class="ico">📁</span>AHU</div>
+          <div class="tn l3 sel"><span class="pm">·</span><span class="ico">▣</span>Double Deck 2</div>
+          <div class="tn l2"><span class="pm">+</span><span class="ico">📁</span>Fan</div>
+          <div class="tn"><span class="pm">+</span><span class="ico">📁</span>Document</div>
+        </div>
+        <div style="margin-top:auto;border-top:1px solid var(--line)">
+          <div class="hd">To-Do</div>
+          <div style="padding:6px 8px;font-size:11px;line-height:1.9">승인 확인 <span class="st warn" style="float:right">1</span><br>PL 지연 <span class="st err" style="float:right">1</span></div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+        <div class="qband">
+          <label>Project<i>*</i></label><span class="cb2" style="width:130px">Micron #7</span>
+          <label>Arrangement</label><span class="cb2" style="width:140px">Double Deck 2</span>
+          <label>풍량</label><input class="in req" style="width:64px" value="11"><span style="font-size:10px;color:var(--txt-mute)">CMM</span>
+          <label>정압</label><input class="in req" style="width:64px" value="111"><span style="font-size:10px;color:var(--txt-mute)">mmAq</span>
+          <span style="flex:1"></span>
+          <span class="b">사양 Excel ⬆</span><span class="b pri">적용 F8</span>
+        </div>
+        <div style="flex:1;display:flex;min-height:0">
+          <div style="flex:1.2;display:flex;flex-direction:column;padding:6px;gap:0;min-width:0">
+            <div class="cvs" style="flex:1;min-height:250px">
+              <div class="d2" style="left:36px;top:10px;width:430px"><span>4,504</span></div>
+              <div class="m2" style="left:36px;top:34px;width:110px;height:100px">Filter<small>EFP 55·3EA</small></div>
+              <div class="m2" style="left:146px;top:34px;width:110px;height:100px">Cooling Coil<small>ECC 55·6R</small></div>
+              <div class="m2 sel" style="left:256px;top:34px;width:210px;height:74px">SF Fan ▸ 속성<small>KAD 900 FW</small></div>
+              <div class="m2" style="left:256px;top:108px;width:210px;height:80px">Mixing Box<small>EMX 55</small></div>
+              <div class="m2" style="left:36px;top:134px;width:220px;height:54px">Heating Coil<small>EHC 55·2R</small></div>
+              <div style="position:absolute;left:472px;top:34px;color:#3B6BB4;font-size:9px">3,254</div>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center;background:#F4F5F8;border:1px solid var(--line);border-top:none;padding:3px 6px;font-family:Consolas,monospace;font-size:11px">
+              <span style="color:var(--txt-mute)">명령:</span><span style="color:var(--title-navy)">MOVE 선택=SF Fan  기준점 지정 &gt;</span><span style="flex:1"></span><span style="color:var(--txt-mute)">X 2,140.5  Y 386.0 | 스냅 ON</span>
+            </div>
+          </div>
+          <div class="split-h"></div>
+          <div style="width:378px;display:flex;flex-direction:column;padding:6px;gap:6px;overflow:auto">
+            <div class="gb"><div class="gt">완성품 Code<span class="sp"></span><span class="st ok">유효</span></div>
+              <div class="gc" style="font-family:Consolas,monospace;font-size:11px;color:var(--title-navy);background:var(--req-yellow)">EU-3–2020–450–6-21-4–SR-7</div></div>
+            <div class="gb" style="flex:1"><div class="gt">BOM · 실시간 가격<span class="sp"></span><span class="b" style="height:18px;font-size:10px">전체 47</span></div>
+              <div class="gc" style="padding:0">
+              <table class="g">
+                <tr><th style="width:20px">Lv</th><th>Code</th><th>품명</th><th style="width:26px">수량</th><th style="width:62px">금액(K)</th></tr>
+                <tr><td class="c">1</td><td class="code">KAD 900 FW…</td><td>SF Fan</td><td class="num">1</td><td class="num">—</td></tr>
+                <tr><td class="c">2</td><td class="code">H 22 380…</td><td>Motor</td><td class="num">1</td><td class="num">2,400</td></tr>
+                <tr class="sel"><td class="c">1</td><td class="code">ECC 55…</td><td>Cooling Coil</td><td class="num">1</td><td class="num">1,180</td></tr>
+                <tr><td class="c">1</td><td class="code">EFP 55…</td><td>Filter</td><td class="num">3</td><td class="num">420</td></tr>
+                <tr><td class="c">1</td><td class="code">EHC 55…</td><td>Heating Coil</td><td class="num">1</td><td class="num">960</td></tr>
+                <tr><td class="c">1</td><td class="code">EMX 55…</td><td>Mixing Box</td><td class="num">1</td><td class="num">310</td></tr>
+                <tfoot><tr><td colspan="4">합계 (47항목)</td><td class="num">23,000</td></tr></tfoot>
+              </table></div></div>
+            <div style="display:flex;gap:4px">
+              <span class="b" style="flex:1;justify-content:center">견적 미리보기</span>
+              <span class="b run" style="flex:1.4;justify-content:center">▶ EDIM Run F9</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="statusbar">
+      <span class="cell"><b>F2</b> 신규</span><span class="cell"><b>F3</b> 삭제</span><span class="cell"><b>F8</b> 조회/적용</span><span class="cell"><b>F9</b> Run</span><span class="cell"><b>F12</b> 저장</span>
+      <span class="grow"></span>
+      <span class="cell">승인 대기 4</span><span class="cell">DB: EDIM-PRD</span><span class="cell">10:31:42</span>
+    </div>
+  </div>
+  <div class="dnote"><b>디자인 노트</b> — ① <b>MDI 탭</b>: 견적 검토 중 코드 화면을 열어두는 실제 업무 패턴 수용 (A안의 단일 화면 SPA 전제 폐기) ② <b>조회조건 밴드 + 적용 F8</b>: 사양 입력을 SAP 리듬으로 ③ 캔버스 하단 <b>커맨드 라인+좌표</b> = CAD 사용자의 신뢰 장치 ④ 우측은 그룹박스+그리드 스택 — 카드·그림자 없이 선으로만 구분 ⑤ Run은 F9 단축키를 부여받은 유일한 도메인 액션 · 상태바가 F-key 사전을 상시 노출.</div>
+</section>
+
+<!-- ═══════════════ B-04 코드 등록 ═══════════════ -->
+<section class="page" id="b04">
+  <div class="p-head"><span class="pid">B-04</span><h2>Sub Code 등록 — Dense</h2><span class="why">그리드 중심 Set-up 화면의 표준형</span></div>
+  <div class="app" style="min-height:620px">
+    <div class="titlebar"><span class="lg">E</span><b>EDIM</b><span class="sp"></span><span class="u">YS.Gang [SETUP]</span></div>
+    <div class="menubar"><span>파일</span><span>편집</span><span>조회</span><span>Set-up</span><span>도구</span><span>도움말</span></div>
+    <div class="mdi"><span class="t">C-1 제품 선정 <span class="x">×</span></span><span class="t on">S-1-1 Sub Code 등록 <span class="x">×</span></span><span class="t">＋</span></div>
+    <div class="workarea">
+      <div class="lnav">
+        <div class="hd">Code Management</div>
+        <div class="tree2">
+          <div class="tn"><span class="pm">−</span><span class="ico">📁</span>Sub Code</div>
+          <div class="tn l2"><span class="pm">−</span><span class="ico">📁</span>Specification</div>
+          <div class="tn l3"><span class="pm">−</span><span class="ico">📁</span>Fan · Centrifugal</div>
+          <div class="tn l4 sel"><span class="pm">·</span><span class="ico">▣</span>Casing · Double</div>
+          <div class="tn l2"><span class="pm">+</span><span class="ico">📁</span>Raw Material·GPI</div>
+          <div class="tn"><span class="pm">+</span><span class="ico">📁</span>Product Code</div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:6px;gap:6px">
+        <div class="qband">
+          <label>Group<i>*</i></label><input class="in req" style="width:70px" value="KOF">
+          <label>설명</label><input class="in" style="width:180px" value="Specification - Fan">
+          <label>승인상태</label><span class="cb2" style="width:90px">전체</span>
+          <span style="flex:1"></span>
+          <span class="b">조회 F8</span><span class="b">신규 F2</span><span class="b">중복검토</span><span class="b pri">저장 F12</span>
+        </div>
+        <div style="display:flex;gap:6px;flex:1;min-height:0">
+          <div class="gb" style="flex:1.3"><div class="gt">Registered Code Table — KOF<span class="sp"></span><span class="st ok">Approved</span><span class="b" style="height:18px;font-size:10px">Excel ⬆⬇</span></div>
+            <div class="gc" style="padding:0">
+            <table class="g">
+              <tr><th style="width:24px">Slot</th><th>항목</th><th>값 목록</th><th style="width:44px">건수</th><th style="width:50px">상태</th></tr>
+              <tr><td class="c"><b>A</b></td><td>Fan Model</td><td class="code">KAD · KFD · KAP · KFS · ECE · ECB</td><td class="num">6</td><td class="c"><span class="st ok">승인</span></td></tr>
+              <tr><td class="c"><b>B</b></td><td>Fan Size</td><td class="code">350 400 450 500 560 630 710 800</td><td class="num">8</td><td class="c"><span class="st ok">승인</span></td></tr>
+              <tr><td class="c"><b>C</b></td><td>Material</td><td class="code">1.EU 2.AR 3.TC 4.2DC</td><td class="num">4</td><td class="c"><span class="st ok">승인</span></td></tr>
+              <tr><td class="c"><b>D</b></td><td>Bearing Type</td><td class="code">1.0505 2.1005 3.1010 4.1510</td><td class="num">4</td><td class="c"><span class="st ok">승인</span></td></tr>
+              <tr><td class="c"><b>E</b></td><td>FF</td><td class="code">1.None 2.FF</td><td class="num">2</td><td class="c"><span class="st ok">승인</span></td></tr>
+              <tr class="sel"><td class="c"><b>G</b></td><td class="edit">Impeller Type</td><td class="code">Airfoil · Forward · 900 1000 1120</td><td class="num">5</td><td class="c"><span class="st warn">대기</span></td></tr>
+            </table></div></div>
+          <div style="width:330px;display:flex;flex-direction:column;gap:6px">
+            <div class="gb"><div class="gt">신규 항목 (G) — 필수는 노란 셀</div><div class="gc">
+              <div class="frm">
+                <label>Item No<i>*</i></label><input class="in req" value="G">
+                <label>설명<i>*</i></label><input class="in req" value="Impeller Type">
+                <label>Sub Item</label><input class="in" value="900">
+                <label>참조 Table</label><span class="cb2">— 없음</span>
+              </div>
+              <div style="margin-top:6px;text-align:right"><span class="b">＋ 값 추가</span><span class="b pri">승인 요청</span></div>
+            </div></div>
+            <div class="gb" style="flex:1"><div class="gt">코드 자산 — KDCR 3-13</div><div class="gc" style="font-size:11px;line-height:1.9">
+              <b style="color:var(--title-navy)">DWG</b> PDF·CAD <span class="st info" style="float:right">3D ☑ 2D ☐</span><br>
+              <div class="cvs" style="height:78px;margin:4px 0"></div>
+              <b style="color:var(--title-navy)">Table</b> KDCR 3-13 (Variant) <span class="b" style="float:right;height:18px;font-size:10px">열기</span>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="statusbar"><span class="cell"><b>F2</b> 신규</span><span class="cell"><b>F3</b> 삭제</span><span class="cell"><b>F8</b> 조회</span><span class="cell"><b>F12</b> 저장</span><span class="grow"></span><span class="cell">변경 1건 미저장</span><span class="cell">S-1-1</span></div>
+  </div>
+  <div class="dnote"><b>디자인 노트</b> — ① 좌 그리드=현황, 우 폼=입력의 <b>마스터-디테일 고정 배치</b> (레거시 Set-up 화면의 보편 문법) ② 필수 입력 노란 셀 — 더존 사용자는 설명 없이 인지 ③ 편집 중인 셀은 블루 아웃라인(Excel 문법), 미저장 변경은 상태바에 카운트 ④ 승인 대기 행은 옐로 배경으로 그리드 안에서 직접 식별 — 별도 뱃지 화면 불필요.</div>
+</section>
+
+<!-- ═══════════════ B-05 EDIM Run ═══════════════ -->
+<section class="page" id="b05">
+  <div class="p-head"><span class="pid">B-05</span><h2>EDIM Run — Dense</h2><span class="why">같은 매직 모먼트, 실무자 밀도로</span></div>
+  <div class="app" style="min-height:560px">
+    <div class="titlebar"><span class="lg">E</span><b>EDIM</b><span class="sp"></span><span class="u">Run #7 — AHU 5 (ALL) · <b style="color:#8FE0B4">SUCCESS 8m 32s</b> · 목표 1h 대비 -86%</span></div>
+    <div class="mdi"><span class="t">C-1 제품 선정 <span class="x">×</span></span><span class="t on">Run #7 결과 <span class="x">×</span></span><span class="t">＋</span></div>
+    <div class="workarea">
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0;padding:6px;gap:6px">
+        <table class="g">
+          <tr><th style="width:30px">단계</th><th>작업</th><th style="width:110px">실측</th><th style="width:64px">소요</th><th style="width:56px">상태</th></tr>
+          <tr><td class="c">1</td><td>BOM 전개 (Code Relationship 재귀)</td><td>47 파트 · 깊이 3</td><td class="num">0.8s</td><td class="c"><span class="st ok">완료</span></td></tr>
+          <tr><td class="c">2</td><td>치수 Macro 평가 (우선순위 위상정렬)</td><td>214 식</td><td class="num">12.0s</td><td class="c"><span class="st ok">완료</span></td></tr>
+          <tr><td class="c">3</td><td>도면 생성 (승인 1 · 제작 12)</td><td>13 파일</td><td class="num">2m 25s</td><td class="c"><span class="st ok">완료</span></td></tr>
+          <tr><td class="c">4</td><td>원가·PCR (OWN/BIZ1/BIZ2)</td><td>단가 resolve 47</td><td class="num">1m 40s</td><td class="c"><span class="st warn">warn 1</span></td></tr>
+          <tr><td class="c">5</td><td>기술자료 생성</td><td>5건</td><td class="num">55s</td><td class="c"><span class="st ok">완료</span></td></tr>
+          <tr><td class="c">6</td><td>서류·Project Folder 저장</td><td>산출물 21</td><td class="num">38s</td><td class="c"><span class="st ok">완료</span></td></tr>
+        </table>
+        <div style="display:flex;gap:6px;flex:1;min-height:0">
+          <div class="gb" style="flex:1.35"><div class="gt">산출물 — PS-61313-5<span class="sp"></span><span class="b" style="height:18px;font-size:10px">ZIP ⬇</span><span class="b" style="height:18px;font-size:10px">폴더 열기</span></div>
+            <div class="gc" style="padding:0">
+            <table class="g">
+              <tr><th style="width:34px">폴더</th><th>파일</th><th style="width:40px">유형</th><th style="width:88px">상태</th><th style="width:78px">다음 행동</th></tr>
+              <tr><td class="c">DWG</td><td>AHU5 승인도면 Rev.B</td><td class="c">PDF</td><td class="c"><span class="st warn">고객승인 대기</span></td><td class="c"><span class="b" style="height:18px;font-size:10px">AP 요청</span></td></tr>
+              <tr><td class="c">DWG</td><td>제작도면 12매 (KDCR 3-13 외)</td><td class="c">DXF</td><td class="c"><span class="st ok">생성</span></td><td class="c"><span class="b" style="height:18px;font-size:10px">미리보기</span></td></tr>
+              <tr class="sel"><td class="c">PRICE</td><td>견적서 QR-61216-01 · ₩23,000K</td><td class="c">PDF</td><td class="c"><span class="st info">DRAFT</span></td><td class="c"><span class="b" style="height:18px;font-size:10px">QCR 발행</span></td></tr>
+              <tr><td class="c">PRICE</td><td>PCR (EBIT 18.2%)</td><td class="c">XLSX</td><td class="c"><span class="st ok">생성</span></td><td class="c"><span class="b" style="height:18px;font-size:10px">열기</span></td></tr>
+              <tr><td class="c">DATA</td><td>기술자료 5건 — Fan 성능·밀도 외</td><td class="c">PDF</td><td class="c"><span class="st ok">생성</span></td><td class="c"></td></tr>
+              <tr><td class="c">BOM</td><td>BOM·Part List</td><td class="c">XLSX</td><td class="c"><span class="st ok">생성</span></td><td class="c"><span class="b" style="height:18px;font-size:10px">ERP 전송</span></td></tr>
+            </table></div></div>
+          <div class="gb" style="flex:1"><div class="gt">실행 로그<span class="sp"></span><span class="cb2" style="height:18px;font-size:10px">전체</span></div>
+            <div class="gc" style="padding:0">
+            <table class="g" style="font-family:Consolas,monospace;font-size:10.5px">
+              <tr><th style="width:56px">시각</th><th>메시지</th></tr>
+              <tr><td class="c">10:31:02</td><td>BOM expand root=KDCR 3-13 … 47 items</td></tr>
+              <tr><td class="c">10:31:15</td><td>macro eval 214/214 ✓ avg 41ms</td></tr>
+              <tr><td class="c">10:33:40</td><td>drawing compose 13 files → DWG/</td></tr>
+              <tr class="sel"><td class="c">10:35:12</td><td style="color:var(--warn)">warn KDC 21: 재고단가 없음 → 견적단가 대체 (③→④)</td></tr>
+              <tr><td class="c">10:38:56</td><td>PCR OWN/BIZ1/BIZ2 · quotation draft</td></tr>
+              <tr><td class="c">10:39:34</td><td>outputs 21 → Project Folder SUCCESS</td></tr>
+            </table></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="statusbar"><span class="cell"><b>F5</b> 재실행</span><span class="cell"><b>F8</b> 새로고침</span><span class="grow"></span><span class="cell" style="color:var(--warn)">warn 1 — 단가 소스 확인 (W-13)</span><span class="cell">Run #7</span></div>
+  </div>
+  <div class="dnote"><b>디자인 노트</b> — A안의 스텝퍼·카드 서사를 <b>두 개의 그리드</b>로 환원: 실무자는 단계도 산출물도 표로 스캔한다. ① 단계 그리드에 실측·소요·상태 — 같은 정보, 1/3 높이 ② 산출물 그리드에 <b>"다음 행동" 열</b>(AP 요청·QCR 발행·ERP 전송)로 A안의 행동 카드 개념은 유지 ③ warn은 로그 행 옐로 + 상태바 상주 — 배지 팝업보다 레거시적 신뢰 ④ 타이틀바에 성과 지표(-86%) 유지: 경영 데모 포인트는 밀도 안에서도 살림.</div>
+</section>
+
+<!-- ═══════════════ B-06 비교·권고 ═══════════════ -->
+<section class="page" id="b06">
+  <div class="p-head"><span class="pid">B-06</span><h2>A안 vs B안 — 권고</h2><span class="why">디자인 결정을 위한 비교</span></div>
+  <div class="cmp">
+    <div class="col"><h4>A안 — Modern SaaS (v0.1)</h4>
+      적합: <b>경영 Dashboard · 로그인 · 모바일 · 영업 데모</b><br>
+      강점: 첫인상·브랜드 전달·신규 세대 사용자<br>
+      약점: 밀도 부족(같은 높이에 ~14행) · MDI 부재 · 레거시 사용자의 학습 비용 — <b>Set-up·ERP 실무 화면에는 부적합</b></div>
+    <div class="col" style="border-color:var(--title-navy);border-width:1.5px"><h4 style="color:var(--title-navy)">B안 — Dense Enterprise ★ 권고</h4>
+      적합: <b>CPQ·코드 Set-up·발주·업무함·Run 등 일 8시간 화면 전부</b><br>
+      강점: 밀도(~24행) · F-key 완결 · MDI 멀티태스킹 · 더존/SAP 근육 기억 호환 → <b>교육 비용 최소화 = SI 검수 리스크 감소</b><br>
+      약점: 첫인상이 보수적 — 데모용 화면은 A안 요소 차용으로 보완</div>
+  </div>
+  <div class="dnote"><b>최종 권고 — 하이브리드, B 우세 배분</b><br>
+  ① <b>업무 화면(운영 8h)</b> = B안: 22px 컨트롤·그리드 문법·MDI·F-key·조회밴드 — 97메뉴 중 약 85개<br>
+  ② <b>브랜드 접점</b> = A안 유지: 로그인 · Dashboard(경영 열람) · 모바일 App · Run 완료 요약(데모의 하이라이트만 카드형)<br>
+  ③ 공통 불변: Run 그린 예약색 · 상태 칩(색+형태) · tabular-nums · 포커스 링 — 두 안이 같은 토큰 뿌리를 공유하므로 혼용 비용 낮음<br>
+  ④ 다음 단계: B안 문법으로 W-04~W-24 잔여 화면 순차 전환 + 사용자 인터뷰(더존/SAP 경력자 3인)로 F-key 배열 검증</div>
+</section>
+
+</main>
+</div>
+<script>
+function showPage(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  document.querySelectorAll('.vrail a[data-p]').forEach(x => x.classList.toggle('on', x.dataset.p === id));
+  document.querySelectorAll('.page').forEach(x => x.classList.toggle('on', x.id === id));
+  document.querySelector('.stage').scrollTop = 0;
+}
+document.querySelectorAll('.vrail a[data-p]').forEach(a => {
+  a.addEventListener('click', e => { e.preventDefault(); history.replaceState(null,'','#'+a.dataset.p); showPage(a.dataset.p); });
+});
+if (location.hash) showPage(location.hash.slice(1));
+</script>
+</body>
+</html>
