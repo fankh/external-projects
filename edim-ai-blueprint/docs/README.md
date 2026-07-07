@@ -145,7 +145,11 @@ py docs/tools/make_authz_xlsx.py          # 권한승인정의서 (메뉴 수정
 py docs/tools/make_wbs_xlsx.py            # WBS (START 상수 = 시작일 가정)
 py docs/tools/make_fvt_xlsx.py            # 기능확인서 (기능정의서 기반 — 판정 기입 전까지만)
 py docs/tools/make_openapi.py             # OpenAPI 스펙 (APIS 수정 후 필수 — 자동 검증)
+py docs/tools/md2pdf.py                   # MD 9종 → docs/pdf/ PDF (Mermaid 렌더 포함, MD 수정 후 필수)
+py docs/tools/make_docs_portal.py         # 다운로드 포털 (파일 추가·변경 후)
 ```
+
+> **배포 형식**: MD는 저장소 원본(리뷰·diff용), 외부 배포는 `docs/pdf/`의 PDF (Mermaid 렌더 포함) — 포털은 PDF만 노출.
 
 ### 표기·품질 규칙
 

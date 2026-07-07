@@ -12,6 +12,9 @@ dist/
 backend/sample_data/*.dxf
 backend/uploads/
 
+# Doc build temp (md2pdf)
+docs/tools/_tmp_html/
+
 # Editor
 .vscode/
 .idea/
