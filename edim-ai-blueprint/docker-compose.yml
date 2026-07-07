@@ -1,0 +1,19 @@
+# edim-ai-blueprint 배포 구성 (edim.seekerslab.com)
+#
+#   docker compose up -d --build          # backend 기동 (127.0.0.1:8000)
+#
+# 프론트엔드는 정적 빌드 후 호스트 nginx가 서빙:
+#   docker run --rm -v ./frontend:/app -w /app node:20-alpine sh -c "npm ci && npm run build"
+#   sudo rsync -a --delete frontend/dist/ /var/www/edim/
+#
+# 호스트 nginx가 TLS 종단 + / → /var/www/edim + /api → 127.0.0.1:8000 프록시.
+services:
+  backend:
+    build: ./backend
+    container_name: edim-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - path: ./backend/.env
+        required: false
