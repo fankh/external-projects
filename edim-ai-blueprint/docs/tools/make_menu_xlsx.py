@@ -62,8 +62,8 @@ MENUS = [
  ("M-3-7", "Code(TLM) Set-up", "Data", "Table·Variant·Constant·단위계(Metric)", "-", "E-4", "TBL-001~006", "SETUP", "P1", "슬라이드 46 — Constant List·Metric System은 기능정의서 v0.3 보강 필요"),
 
  # ---- PLM Set-up — S-4-x ----
- ("M-4-1", "PLM Set-up", "Design (DWG)", "Design", "W-06", "S-4-1-1", "DWG-001~016/022~027", "SETUP", "P2", "Drawing Editor"),
- ("M-4-2", "PLM Set-up", "Work Process", "All Department", "-", "S-4-1-2", "DWG-021, ERP-025", "SETUP", "P3", ""),
+ ("M-4-1", "PLM Set-up", "Design (DWG)", "Design", "W-06", "S-4-1-1", "DWG-001~016/022~027", "SETUP", "P2", "Drawing Editor — 표시 경로: Drawing Info. > Production Design Management > Design > Check > Approve > Accepted"),
+ ("M-4-2", "PLM Set-up", "Work Process", "All Department", "-", "S-4-1-2", "DWG-021, ERP-025", "SETUP", "P3", "하위 실체: Design·Manufacturing·Material·Quality (제품별 Work Process Tree)"),
  ("M-4-3", "PLM Set-up", "Design (DWG)", "건축 설비 Design", "-", "E-4-2", "DUCT-001~007", "SETUP·GENERAL", "P5", "슬라이드 68 — 사업 범위 확정 대상"),
 
  # ---- CPQ 사용 — C-x (Enterprise User) ----
@@ -86,12 +86,12 @@ MENUS = [
  ("M-7-1", "ERP", "Tech.", "제작 의뢰 (MR)·제작 점검 (MRR)", "-", "§11", "ERP-006", "기술", "P5", ""),
  ("M-7-2", "ERP", "Tech.", "Part List (PL)·BOM 조회", "-", "§11", "RUN-002/010", "기술", "P2", ""),
  ("M-7-3", "ERP", "Tech.", "제품 Set-up (PSU)·자동 제작 설계 (PLM)", "-", "§11", "RUN-003~005", "기술", "P2", ""),
- ("M-8-1", "ERP", "Purchasing·Material", "구매 관리", "-", "§11", "ERP-017/018", "자재", "P5", ""),
- ("M-8-2", "ERP", "Purchasing·Material", "자재발주요청 (PR)·발주 (PO)", "-", "§11", "ERP-007", "자재", "P5", ""),
- ("M-8-3", "ERP", "Purchasing·Material", "자재 입고 (MI)·출고 (MO)·수령 (RM)", "-", "§11", "ERP-007", "자재", "P5", ""),
- ("M-8-4", "ERP", "Purchasing·Material", "재고·창고 관리", "-", "§11", "ERP-019~021", "자재", "P5", ""),
- ("M-8-5", "ERP", "Purchasing·Material", "MRP 자재 소요 계획", "-", "§11", "ERP-022", "자재", "P5", ""),
- ("M-8-6", "ERP", "Purchasing·Material", "일반 발주 (PR)·구매 승인 (RA)", "-", "§11", "ERP-017", "자재", "P5", "슬라이드 10 — 비프로젝트(재작업·공구 등) 구매"),
+ ("M-8-1", "ERP", "Purchasing", "구매 관리", "-", "§11", "ERP-017/018", "자재", "P5", ""),
+ ("M-8-2", "ERP", "Purchasing", "자재발주요청 (PR)·발주 (PO)", "-", "§11", "ERP-007", "자재", "P5", ""),
+ ("M-8-3", "ERP", "Material", "자재 입고 (MI)·출고 (MO)·수령 (RM)", "-", "§11", "ERP-007", "자재", "P5", ""),
+ ("M-8-4", "ERP", "Material", "재고·창고 관리", "-", "§11", "ERP-019~021", "자재", "P5", ""),
+ ("M-8-5", "ERP", "Material", "MRP 자재 소요 계획", "-", "§11", "ERP-022", "자재", "P5", ""),
+ ("M-8-6", "ERP", "Purchasing", "일반 발주 (PR)·구매 승인 (RA)", "-", "§11", "ERP-017", "자재", "P5", "슬라이드 10 — 비프로젝트(재작업·공구 등) 구매"),
  ("M-9-1", "ERP", "Product(생산)", "생산계획 (MP)·Scheduling", "-", "§11", "ERP-023", "생산", "P5", ""),
  ("M-9-2", "ERP", "Product(생산)", "작업 지시 (WR)", "-", "§11", "ERP-024", "생산", "P5", ""),
  ("M-9-3", "ERP", "Product(생산)", "공정 관리", "-", "§11", "ERP-025", "생산", "P5", ""),
