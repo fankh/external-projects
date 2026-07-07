@@ -154,17 +154,21 @@ body{font-family:Pretendard,'Noto Sans KR',sans-serif;background:var(--bg);color
 <!-- ================= viewer nav ================= -->
 <nav class="rail">
   <h1>EDIM 화면설계서</h1>
-  <div class="sub">Wireframe v0.2 · 2026-07-07 · 16화면<br>근거: EDIM Tool System EP2 (78p)<br>연계: 메뉴정의서 · 기능정의서 v0.2</div>
+  <div class="sub">Wireframe v0.3 · 2026-07-07 · 24화면<br>근거: EDIM Tool System EP2 (78p)<br>연계: 메뉴정의서 · 기능정의서 v0.2</div>
   <div class="grp">공통</div>
   <a href="#" class="on" data-s="w01">W-01 로그인</a>
   <div class="grp">CPQ — Enterprise User</div>
   <a href="#" data-s="w02">W-02 제품 선정 (C-1)</a>
   <a href="#" data-s="w03">W-03 기술 데이터 (C-2)</a>
-  <div class="grp">Code Set-up — RCCS</div>
+  <a href="#" data-s="w17">W-17 Document (C-3)</a>
+  <div class="grp">Code·Data Set-up</div>
   <a href="#" data-s="w04">W-04 Sub Code 등록 (S-1-1)</a>
   <a href="#" data-s="w05">W-05 Code Relationship (S-1-4)</a>
-  <div class="grp">PLM Set-up</div>
+  <a href="#" data-s="w20">W-20 데이터 Table 관리</a>
+  <div class="grp">PLM·CPQ Set-up</div>
   <a href="#" data-s="w06">W-06 Design Editor (S-4-1-1)</a>
+  <a href="#" data-s="w19">W-19 Work Process (S-4-1-2)</a>
+  <a href="#" data-s="w18">W-18 Print Set-up (S-3-4)</a>
   <div class="grp">EDIM Toolbox</div>
   <a href="#" data-s="w07">W-07 Macro Studio (S-2-2)</a>
   <a href="#" data-s="w08">W-08 UI Designer (S-2-1)</a>
@@ -173,9 +177,13 @@ body{font-family:Pretendard,'Noto Sans KR',sans-serif;background:var(--bg);color
   <a href="#" data-s="w10">W-10 Dashboard</a>
   <a href="#" data-s="w13">W-13 단가 관리 (D-3/D-4)</a>
   <a href="#" data-s="w14">W-14 ERP Process Set-up</a>
-  <div class="grp">문서·공통</div>
+  <a href="#" data-s="w21">W-21 구매·발주 (PR/PO)</a>
+  <a href="#" data-s="w22">W-22 부서 업무함</a>
+  <div class="grp">문서·공통·관리</div>
   <a href="#" data-s="w11">W-11 Document Mgmt</a>
   <a href="#" data-s="w12">W-12 승인함</a>
+  <a href="#" data-s="w24">W-24 Project Folder·이력</a>
+  <a href="#" data-s="w23">W-23 사용자·권한 관리</a>
   <div class="grp">확장</div>
   <a href="#" data-s="w15">W-15 건축 설비 (E-4-2)</a>
   <a href="#" data-s="w16">W-16 Mobile App</a>
@@ -1082,6 +1090,353 @@ body{font-family:Pretendard,'Noto Sans KR',sans-serif;background:var(--bg);color
   ① QR이 모든 진입점 — 도면/서류/Project History/처리할 업무로 직행 (<span class="fid">APP-001</span>, 컴퓨터 접근 불가 지역 대응)<br>
   ② 승인은 웹 승인함(W-12)과 동일 데이터·규칙 (<span class="fid">APP-002</span>) · Project 중심 대화 History 관리 (<span class="fid">APP-003</span>)<br>
   ③ 자재 입출고·검수는 사진 첨부 + 오프라인 캐시(현장 네트워크 불안정) (<span class="fid">APP-004/005</span>) · AR은 Digital Twin 연계 후순위 (<span class="fid">APP-008</span>)</div>
+</section>
+
+<!-- ================================================= W-17 CPQ Document (C-3) -->
+<section class="screen" id="w17">
+  <div class="sc-head"><span class="sid">W-17</span><h2>CPQ Document Template</h2><span class="path">CPQ &gt; Document &gt; Product·Item (C-3, M-5-3)</span></div>
+  <div class="sc-meta">기능: <b>CPQ-006 · TBX-011</b> · 근거: 슬라이드 8</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="sel">CPQ</span><span class="dept">Sales</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>CPQ</b> &gt; Document &gt; Item</div>
+    <div class="body3">
+      <div class="lpan">
+        <div class="pane"><div class="fld"><label style="width:52px">Project</label><span class="combo">Micron #7</span></div></div>
+        <div class="pane"><h4>Document</h4>
+          <div class="tree"><div class="n1"><i>▾</i>Document</div><div class="n2"><i>▾</i>Product</div><div class="n3"><span class="sel">밀도 계산서</span></div><div class="n3">Fan 성능 Report</div></div></div>
+        <div class="pane widget"><h4>Schedule management</h4><h5>To-do · Approval</h5></div>
+      </div>
+      <div class="cpan">
+        <div class="card" style="margin-bottom:8px"><h4>Input Data → Output Data</h4>
+          <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+            <div class="fld" style="margin:0"><label style="width:80px">Temperature</label><div class="in" style="width:70px">20</div><span class="combo">℃</span></div>
+            <div class="fld" style="margin:0"><label style="width:60px">Humidity</label><div class="in" style="width:70px">50</div><span class="combo">%</span></div>
+            <span style="color:var(--dim)">→ Macro 계산 →</span>
+            <div class="fld" style="margin:0"><label style="width:50px">Density</label><div class="in ro" style="width:80px;border:1.5px solid var(--red)">1.2</div><span class="combo">Kg/m³</span></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="ph" style="min-height:220px">습공기 선도 차트<br>(계산점 표시 — 그래프 Templet)</div>
+          <div class="ph" style="min-height:220px">스프레드시트 영역<br>(A~L 열 — 중간 계산 표)</div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>Document Code</h4><div class="fld"><div class="in ro">EU-3–2020–450–6-21-4–SR-7</div></div></div>
+        <div class="card"><h4>Print 미리보기 <span class="sp"></span><span class="btn">🖨</span></h4>
+          <div class="ph" style="height:170px">Technical Report<br>Customer·Date·담당<br>Input/Result·차트<br>(Print Form 적용본)</div></div>
+        <div class="card"><h4>Data Up-Load · Table</h4><div class="ph" style="height:60px">계산 참조 Table 연결</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 입력 항목·계산식·출력 위치는 Document Set-up(S-3-3)에서 정의된 Form을 로드 (<span class="fid">CPQ-012</span>)<br>
+  ② 계산은 승인된 Macro 실행 (<span class="fid">TBX-011</span>) — 결과는 Print Form(W-18) 규칙으로 출력<br>
+  ③ 발표자 노트 워크플로우 3(서류 등록·계산) 사용 단계에 해당</div>
+</section>
+
+<!-- ================================================= W-18 Print Set-up -->
+<section class="screen" id="w18">
+  <div class="sc-head"><span class="sid">W-18</span><h2>Print Set-up</h2><span class="path">CPQ Set-up &gt; Print Set-up (S-3-4, M-2-4)</span></div>
+  <div class="sc-meta">기능: <b>CPQ-013 · SVC-11</b> · 근거: 슬라이드 50</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="sel">CPQ</span><span class="grp1">PLM</span><span class="grp1">CPQ</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>CPQ</b> &gt; Set-Up &gt; Document &gt; <b>Print Form</b></div>
+    <div class="body3" style="grid-template-columns:200px 1fr 280px">
+      <div class="lpan">
+        <div class="pane"><h4>Print Form</h4>
+          <div class="tree"><div class="n1"><i>▾</i>Document</div><div class="n2"><span class="sel">Technical Report</span></div><div class="n2">견적서 (CLT)</div><div class="n2">작업지시서</div><div class="n2">검사성적서</div></div></div>
+        <div class="pane"><h4>Call Form</h4><div class="fld"><span class="btn">기본 양식 배치</span></div><div class="fld"><span class="btn">Data 호출</span></div><div class="fld"><span class="btn">그래프 불러오기</span></div></div>
+      </div>
+      <div class="cpan">
+        <div class="tb"><span class="btn">Data 위치 지정</span><span class="btn">워터마크</span><span class="sp"></span><span class="btn grn">Print Test</span></div>
+        <div class="canvas" style="height:380px;background:#fff">
+          <div class="blk" style="left:40px;top:20px;width:520px;height:40px;border-style:dashed"><div class="ph" style="height:100%;border:none">머리글 — 로고 · Title · DOC No.</div></div>
+          <div class="blk hl" style="left:40px;top:80px;width:240px;height:60px"><div class="ph" style="height:100%;border:none">[Data] Customer·Date·담당</div></div>
+          <div class="blk hl" style="left:300px;top:80px;width:260px;height:60px"><div class="ph" style="height:100%;border:none">[Data] Input Value·Result</div></div>
+          <div class="blk" style="left:40px;top:160px;width:300px;height:150px"><div class="ph" style="height:100%;border:none">[그래프] 성능 곡선</div></div>
+          <div class="blk" style="left:360px;top:160px;width:200px;height:150px"><div class="ph" style="height:100%;border:none">[Table] 기술 Data</div></div>
+          <div style="position:absolute;left:200px;top:180px;font-size:26px;color:#d9dde4;transform:rotate(-20deg);font-weight:800">CONFIDENTIAL</div>
+          <div class="blk" style="left:40px;top:330px;width:520px;height:26px;border-style:dashed"><div class="ph" style="height:100%;border:none;font-size:9px">바닥글 — 페이지 · 회사 정보</div></div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>출력 설정</h4>
+          <div class="fld"><label>Type of File</label><span class="combo">PDF</span></div>
+          <div class="fld"><label>용지</label><span class="combo">A4 세로</span></div>
+          <div class="fld"><label>색상</label><span class="combo">칼라</span></div>
+          <div class="fld"><label>Font / 크기</label><span class="combo">Pretendard 10</span></div>
+          <div class="fld"><label>여백</label><div class="in">15/15/20/20 mm</div></div>
+          <div class="fld"><label>머리글·바닥글</label><span class="combo">표준 Templet</span></div>
+          <div class="fld"><label>워터마크</label><span class="combo">CONFIDENTIAL</span></div></div>
+        <div class="card"><h4>내보내기</h4><div style="display:flex;gap:6px"><span class="btn">Printer</span><span class="btn">PDF</span><span class="btn">Office (xlsx/docx)</span></div></div>
+        <div class="card"><h4>저장 <span class="sp"></span><span class="badge pend">DRAFT</span></h4><div style="text-align:right"><span class="btn pri">승인 요청 → 게시</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 양식 캔버스에 [Data]·[그래프]·[Table] 자리표시자를 배치하고 데이터 경로를 바인딩 (<span class="fid">CPQ-013</span>)<br>
+  ② 게시된 Print Form은 SVC-11이 렌더 — 견적서·PCR·작업지시서·검사성적서 공통 체계 (보고서·양식 정의서 후속)<br>
+  ③ Grade 통제 문서는 워터마크·출력 제한이 강제됨 (<span class="fid">DOC-002</span>)</div>
+</section>
+
+<!-- ================================================= W-19 Work Process -->
+<section class="screen" id="w19">
+  <div class="sc-head"><span class="sid">W-19</span><h2>Work Process 공정 데이터</h2><span class="path">PLM Set-up &gt; Work Process &gt; All Department (S-4-1-2, M-4-2)</span></div>
+  <div class="sc-meta">기능: <b>DWG-021 · ERP-025 · CST-003 입력</b> · 근거: 슬라이드 44, 45</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="sel">PLM</span><span class="grp1">CPQ</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>PLM</b> &gt; Work Process Management &gt; All Department</div>
+    <div class="body3" style="grid-template-columns:200px 1fr 290px">
+      <div class="lpan">
+        <div class="pane"><h4>Product Management</h4>
+          <div class="tree"><div class="n1"><i>▾</i>Work Process</div><div class="n2"><i>▾</i>Material</div><div class="n3"><span class="sel">Product › Fan</span></div><div class="n2"><i>＋</i>Manufacturing · Quality</div><div class="n2"><i>＋</i>Design management</div></div></div>
+        <div class="pane widget"><h4>Schedule management</h4><h5>To-do · Approval</h5></div>
+      </div>
+      <div class="cpan">
+        <div class="card" style="margin-bottom:8px"><h4>공정 정의 — KDCR 3-13</h4>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="fld" style="margin:0"><label style="width:52px">Process</label><span class="combo">Assembling</span></div>
+            <div class="fld" style="margin:0"><label style="width:70px">Work place</label><span class="combo">Work shop 3</span></div>
+            <div class="fld" style="margin:0"><label style="width:44px">Person</label><div class="in" style="width:44px">2</div></div>
+            <div class="fld" style="margin:0"><label style="width:32px">Skill</label><span class="combo">H2</span></div>
+            <div class="fld" style="margin:0"><label style="width:50px">W. Time</label><div class="in" style="width:50px">0.3</div></div>
+          </div>
+        </div>
+        <div class="card"><h4>Material Data</h4>
+          <table class="tbl"><tr><th>Item</th><th>warehouse</th><th>Min Stock</th><th>공급자</th><th>제조/구매</th><th>Time</th><th>Remarks</th></tr>
+          <tr><td>560</td><td>WS 1</td><td class="num">1</td><td>E2</td><td><span class="badge chk">MAKE</span></td><td class="num">45</td><td></td></tr>
+          <tr><td>630</td><td>WS 1</td><td class="num">1</td><td>중원</td><td><span class="badge ok">BUY</span></td><td class="num">-</td><td>외주</td></tr></table>
+        </div>
+        <div class="card" style="margin-top:8px"><h4>CAD Mapping ☑ <span class="sp"></span><span style="font-size:9.5px;color:var(--dim)">3D ☑ 2D ☐</span></h4>
+          <div class="ph" style="height:110px">연결 도면 미리보기 (Block)</div></div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>Coding <span class="sp"></span><span class="btn grn">Run</span></h4>
+          <div class="formula">=IF(MC,CC&gt;500, Table12(E,10:25,Cos2)+Var(FES,15,F3), …)</div></div>
+        <div class="card"><h4>Code</h4><div class="fld"><div class="in ro">KDCR 3-13</div></div></div>
+        <div class="card"><h4>Table <span class="sp"></span><span class="btn icon">＋ ✎ ⬇</span></h4>
+          <table class="tbl"><tr><th>Item</th><th>A</th><th>C</th><th>E</th></tr><tr><td>560</td><td></td><td>45</td><td>656</td></tr></table></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① Product Code별 자재/공정/조립 정보 — **제조비 계산(CST-003)의 입력** (시간×임율×장비, <span class="fid">DWG-021</span>)<br>
+  ② 부서(Material/Manufacturing/Quality) Tree로 전 부서 Work Process 관리 (슬라이드 44 하위 실체)<br>
+  ③ MAKE/BUY 구분이 Pricing Run의 원가 경로를 결정</div>
+</section>
+
+<!-- ================================================= W-20 데이터 Table 관리 -->
+<section class="screen" id="w20">
+  <div class="sc-head"><span class="sid">W-20</span><h2>데이터 Table 관리</h2><span class="path">Code(TLM) Set-up &gt; Data (M-3-7, E-4)</span></div>
+  <div class="sc-meta">기능: <b>TBL-001~006</b> · 근거: 슬라이드 66, 46</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="sel">PLM</span><span class="grp1">CPQ</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>Data</b> &gt; Table 관리</div>
+    <div class="body3" style="grid-template-columns:200px 1fr 280px">
+      <div class="lpan">
+        <div class="pane"><h4>Data</h4>
+          <div class="tree"><div class="n1"><i>▾</i>Table List</div><div class="n2"><span class="sel">Table12 (Variant)</span></div><div class="n2">FanCurve (Tech)</div><div class="n1"><i>▾</i>Variant · Constant List</div><div class="n1"><i>＋</i>Metric &amp; Metric System</div></div></div>
+        <div class="pane"><h4>Table Address</h4><div style="font-size:10px;color:var(--blue)">/T/ENG/VARIANT/Table12<br><span style="color:var(--dim)">(Hierarchy address — Macro 참조 경로)</span></div></div>
+      </div>
+      <div class="cpan">
+        <div class="card" style="margin-bottom:8px"><h4>Table 정의</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+            <div class="fld"><label>Name</label><div class="in ro">Table12</div><span class="btn">중복검토</span></div>
+            <div class="fld"><label>Table Type</label><span class="combo">Variant</span></div>
+            <div class="fld"><label>Department</label><span class="combo">Engineering</span></div>
+            <div class="fld"><label>Row / Column</label><div class="in">Key: Size · 열: A~E</div></div>
+          </div>
+        </div>
+        <div class="tb"><span class="btn">＋ 행 추가</span><span class="btn">✎ 편집</span><span class="btn">⬇ Excel Import</span><span class="sp"></span><span style="font-size:9.5px;color:var(--dim)">Key 숫자면 row_key_num 자동 파싱 — 범위 조회(10:25) 정렬 보장</span></div>
+        <table class="tbl"><tr><th>Key No</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>Remarks</th></tr>
+        <tr><td>560</td><td class="num">55</td><td class="num">45</td><td class="num">9</td><td></td><td class="num">656</td><td></td></tr>
+        <tr><td>630</td><td class="num">32</td><td class="num">45</td><td class="num">11</td><td></td><td class="num">656</td><td></td></tr>
+        <tr><td>710</td><td class="num">679</td><td class="num">760</td><td class="num">45</td><td class="num">700</td><td class="num">656</td><td></td></tr></table>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>Up-Load 자료 형식 정리</h4><div style="font-size:10px;color:#555;line-height:1.7">Import 시 열 매핑·형식 검증 → 실패 행 격리 목록 (<span class="fid">TBL-003</span>)</div></div>
+        <div class="card"><h4>참조 현황</h4><div style="font-size:10px;color:#555;line-height:1.7">이 Table을 참조하는 Macro 4건<br>→ 변경 시 영향도 확인 (tbx_macro_ref)</div></div>
+        <div class="card"><h4>승인 <span class="sp"></span><span class="badge ok">APPROVED</span></h4><div style="font-size:10px;color:var(--dim)">승인본만 Macro 평가에 사용</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① Macro의 `Table12(E,10:25)` 참조 실체 — Address는 Hierarchy 기반 (<span class="fid">TBL-004</span>)<br>
+  ② Key 숫자 파싱(row_key_num)은 DB v0.3 결함 수정과 연동 — 화면에 규칙 노출<br>
+  ③ Constant List·Metric(단위계)는 기능정의서 v0.3 보강 대상 (슬라이드 46)</div>
+</section>
+
+<!-- ================================================= W-21 구매·발주 -->
+<section class="screen" id="w21">
+  <div class="sc-head"><span class="sid">W-21</span><h2>구매·발주</h2><span class="path">ERP &gt; Purchasing &gt; 자재발주요청(PR)·발주(PO) (M-8-2)</span></div>
+  <div class="sc-meta">기능: <b>ERP-007 · ERP-017/018 · CST-001</b> · 근거: 슬라이드 53</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="grp1">CPQ</span><span class="dept">Sales</span><span class="sel">Purchasing</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>Purchasing</b> &gt; 발주</div>
+    <div class="body3" style="grid-template-columns:200px 1fr 290px">
+      <div class="lpan">
+        <div class="pane"><div class="fld"><label style="width:52px">Project</label><span class="combo">Micron #7</span></div></div>
+        <div class="pane"><h4>Purchasing</h4>
+          <div class="tree"><div class="n2"><span class="sel">발주 대기 (PR 3)</span></div><div class="n2">발주 완료 (PO 12)</div><div class="n2">입고 예정 (5)</div><div class="n2">일반 발주</div></div></div>
+        <div class="pane widget"><h4>Schedule management</h4><h5>To-do · Approval</h5></div>
+      </div>
+      <div class="cpan">
+        <div class="card" style="margin-bottom:8px"><h4>발주 요청 — <b style="color:var(--red)">PR-61313-2</b> <span style="color:var(--dim);font-weight:400">(Project OR-61313-5 · BOM BM 21456)</span></h4>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div class="fld" style="margin:0"><label style="width:58px">BOM List</label><span class="combo">BM 21456</span></div>
+            <div class="fld" style="margin:0"><label style="width:52px">Process</label><span class="combo" style="border-color:var(--red);color:var(--red)">견적 요청 → 발주</span></div>
+            <div class="fld" style="margin:0"><span class="btn">Stock list Check</span></div>
+          </div>
+        </div>
+        <table class="tbl"><tr><th>☑</th><th>Code</th><th>품명</th><th>공급자 코드</th><th>Supplier</th><th>수량</th><th>Price</th><th>Required date</th><th>Delivery</th></tr>
+        <tr><td>☑</td><td>FDV-480</td><td>Motor H22 380V</td><td>HS-M480</td><td>효성</td><td class="num">2</td><td class="num">450,000</td><td>08-20</td><td>EXW</td></tr>
+        <tr><td>☑</td><td>KDC-1</td><td>Casing 강판</td><td>JW-C001</td><td>중원</td><td class="num">4</td><td class="num">128,000</td><td>08-15</td><td>지정장소</td></tr>
+        <tr><td>☐</td><td>EWT-3</td><td>Water Trap</td><td>-</td><td><span class="badge pend">재고 충족</span></td><td class="num">1</td><td>-</td><td>-</td><td>-</td></tr></table>
+        <div style="text-align:right;margin-top:6px"><span class="btn">견적 요청 (QCR)</span> <span class="btn pri">발주 생성 → PO-61313-2</span></div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>단가 Resolve</h4><div style="font-size:10px;line-height:1.7">FDV-480 → <b>450,000</b> (견적·효성)<br>우선순위: 견적적용→구매→재고→견적 (<span class="fid">CST-001</span>, W-13)</div></div>
+        <div class="card"><h4>공급자 코드 매핑</h4><div style="font-size:10px;color:#555">발주서에 공급자측 코드(HS-M480) 표기 (<span class="fid">ERP-018</span>)</div></div>
+        <div class="card"><h4>구매 조건</h4><div style="font-size:10px;color:#555;line-height:1.7">납품: EXW/FOB/CIP·지정장소<br>지불·화폐·최소수량·인증서 (<span class="fid">ERP-017</span>)</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① BOM(EDIM Run 산출)에서 발주 대상 선별 — 재고 충족분은 Stock Check로 제외 (<span class="fid">ERP-007</span>)<br>
+  ② PR→PO 전이는 프로세스 상태기계(W-14 정의) 준수 · 발주는 구매 승인(RA) 대상<br>
+  ③ 발주 시 구매 이력 단가가 cst_price(PURCHASE)로 적재 — 단가 관리와 순환</div>
+</section>
+
+<!-- ================================================= W-22 부서 업무함 -->
+<section class="screen" id="w22">
+  <div class="sc-head"><span class="sid">W-22</span><h2>부서 업무함</h2><span class="path">공통 &gt; 일정·To-do (M-15-3) · ERP 부서 공통</span></div>
+  <div class="sc-meta">기능: <b>ERP-002/003 · SYS-017</b> · 근거: 슬라이드 4 Schedule management 확장</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="grp1">CPQ</span><span class="sel">Tech.</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>Tech.</b> &gt; 업무함</div>
+    <div class="body3" style="grid-template-columns:190px 1fr 300px">
+      <div class="lpan">
+        <div class="pane"><h4>필터</h4>
+          <div class="tree"><div class="n2"><span class="sel">내 업무 (7)</span></div><div class="n2">부서 전체 (23)</div><div class="n2">지연 <span class="badge pend">2</span></div><div class="n2">완료 (이번 주 18)</div></div></div>
+        <div class="pane"><h4>프로세스</h4>
+          <div class="tree"><div class="n2">☑ MR 제작의뢰</div><div class="n2">☑ PL·BOM</div><div class="n2">☐ PSU·PLM</div></div></div>
+      </div>
+      <div class="cpan">
+        <table class="tbl"><tr><th>코드</th><th>Project</th><th>건명</th><th>담당</th><th>기한</th><th>상태</th></tr>
+        <tr><td>MR</td><td>PS-61313-5</td><td>Micron #7 제작의뢰 검토</td><td>YS.Gang</td><td>07-09</td><td><span class="badge chk">진행</span></td></tr>
+        <tr><td>PL</td><td>PS-61313-5</td><td>Part List 확정</td><td>Kim</td><td style="color:var(--red)">07-05</td><td><span class="badge pend">지연</span></td></tr>
+        <tr><td>BOM</td><td>PS-598</td><td>BOM 재실행 (사양 변경)</td><td>Kim</td><td>07-11</td><td><span class="badge chk">TODO</span></td></tr></table>
+        <div class="card" style="margin-top:8px"><h4>상세 — PL Part List 확정</h4>
+          <div style="font-size:10.5px;line-height:1.8;color:#444">선행: OR 수주 <span class="badge ok">DONE</span> → 현재: PL → 후행: BOM<br>기한 규칙: OR+7일 (W-14 정의) — <b style="color:var(--red)">2일 초과, Dashboard 이상 경고 발생</b></div>
+          <div style="margin-top:8px;text-align:right"><span class="btn">처리 Form 열기 (Toolbox)</span> <span class="btn grn">완료 처리 (DONE)</span></div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>이상 경고</h4>
+          <table class="tbl"><tr><th>구분</th><th>내용</th></tr><tr><td style="color:var(--red)">시간</td><td>PL 기한 초과 2일</td></tr></table></div>
+        <div class="card"><h4>내 일정</h4><div class="ph" style="height:70px">주간 일정 미니 캘린더</div></div>
+        <div class="card"><h4>승인 요청함 <span class="sp"></span><span class="badge pend">4</span></h4><div style="font-size:10px;color:var(--dim)">→ W-12 승인함으로 이동</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 좌측 하단 Schedule 위젯(전 화면 공통)의 전체 화면 버전 — 부서·프로세스·상태 필터 (<span class="fid">ERP-003</span>)<br>
+  ② 상태 전이는 선행 DONE 검사 + 기한 규칙 — W-14 프로세스 정의를 따름 (<span class="fid">ERP-002</span>)<br>
+  ③ 처리 Form은 프로세스 정의에 연결된 Toolbox Form 호출 (erp_process_def.form_id)</div>
+</section>
+
+<!-- ================================================= W-23 사용자·권한 관리 -->
+<section class="screen" id="w23">
+  <div class="sc-head"><span class="sid">W-23</span><h2>사용자·권한 관리</h2><span class="path">Company Info. &gt; Access Control (M-14-6) · Admin Console (ADM-002)</span></div>
+  <div class="sc-meta">기능: <b>SYS-003~005 · SYS-012</b> · 근거: 슬라이드 57/72, 권한승인정의서</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="grp1">CPQ</span><span class="dept">…</span><span class="sel">Company Info.</span></div></div>
+    <div class="crumb"><b>Company Info.</b> &gt; Access Control</div>
+    <div class="body3" style="grid-template-columns:190px 1fr 300px">
+      <div class="lpan">
+        <div class="pane"><h4>관리</h4>
+          <div class="tree"><div class="n2"><span class="sel">사용자 (24)</span></div><div class="n2">역할 (6)</div><div class="n2">권한 매트릭스</div><div class="n2">Version Management</div></div></div>
+      </div>
+      <div class="cpan">
+        <div class="tb"><div class="in" style="width:160px;border:1px solid var(--line);border-radius:3px;padding:3px 8px;color:var(--dim);font-size:10.5px">검색…</div><span class="combo">부서: 전체</span><span class="combo">레벨: 전체</span><span class="sp"></span><span class="btn pri">＋ 사용자 등록</span></div>
+        <table class="tbl"><tr><th>login</th><th>이름</th><th>부서</th><th>레벨</th><th>역할</th><th>상태</th></tr>
+        <tr><td>ysgang</td><td>YS.Gang</td><td>기술</td><td><span class="badge chk">SETUP</span></td><td>설계 Set-up</td><td><span class="badge ok">ACTIVE</span></td></tr>
+        <tr><td>kim01</td><td>Kim</td><td>기술</td><td><span class="badge chk">GENERAL</span></td><td>기술 일반</td><td><span class="badge ok">ACTIVE</span></td></tr>
+        <tr><td>park.f</td><td>Park</td><td>재무</td><td><span class="badge chk">ADMIN</span></td><td>관리자</td><td><span class="badge pend">LOCKED</span></td></tr></table>
+        <div class="card" style="margin-top:8px"><h4>역할 편집 — 설계 Set-up</h4>
+          <table class="tbl"><tr><th>리소스</th><th>VIEW</th><th>EDIT</th><th>APPROVE</th><th>SETUP</th></tr>
+          <tr><td>HEAD_TAB: PLM</td><td>☑</td><td>☑</td><td>☐</td><td>☐</td></tr>
+          <tr><td>FEATURE: S-1-* (Code)</td><td>☑</td><td>☑</td><td>☐</td><td>☐</td></tr>
+          <tr><td>HIERARCHY: /CODE/**</td><td>☑</td><td>☑</td><td>☐</td><td>☐</td></tr>
+          <tr><td>TABLE: Engineering</td><td>☑</td><td>☑</td><td>☐</td><td>☐</td></tr></table>
+          <div style="font-size:9.5px;color:var(--dim)">기본값은 권한승인정의서 매트릭스(97메뉴 도출) — 역할별 세부 조정</div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>계정 작업</h4><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="btn">초대 메일</span><span class="btn">잠금 해제</span><span class="btn" style="border-color:var(--red);color:var(--red)">비활성화</span></div></div>
+        <div class="card"><h4>최근 감사 로그</h4>
+          <table class="tbl"><tr><th>일시</th><th>작업</th></tr><tr><td>07-07 11:02</td><td>role 변경: kim01</td></tr><tr><td>07-07 09:41</td><td>LOCKED: park.f (5회 실패)</td></tr></table>
+          <div style="font-size:9.5px;color:var(--dim)">전체 이력 → W-24 (<span class="fid">SYS-012</span>)</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 레벨 4단계(PLATFORM/ADMIN/SETUP/GENERAL) × 리소스 4유형 × 액션 4종 — 권한승인정의서 모델 그대로 (<span class="fid">SYS-005</span>)<br>
+  ② 테넌트 관리(ADM-001)는 Platform 전용 콘솔 — 본 화면은 기업 ADMIN 범위<br>
+  ③ 권한 변경은 즉시 반영 + 감사 기록, 권한 없는 메뉴는 미표시 원칙 유지</div>
+</section>
+
+<!-- ================================================= W-24 Project Folder·이력 -->
+<section class="screen" id="w24">
+  <div class="sc-head"><span class="sid">W-24</span><h2>Project Folder·이력 조회</h2><span class="path">공통 &gt; Project Folder (M-15-8) · 이력 조회 (M-15-9)</span></div>
+  <div class="sc-meta">기능: <b>RUN-009 · SYS-012</b> · 근거: 슬라이드 64 (Hierarchy List 4. Project), DB v0.4 (dwg_file.project_id/folder)</div>
+  <div class="frame">
+    <div class="head1"><div class="logo">NOVA<small>Solution</small></div>
+      <div class="htabs"><span class="grp1">EDIM Toolbox</span><span class="grp1">CPQ</span><span class="grp1">PLM</span><span class="grp1">CPQ</span><span class="dept">Sales</span><span class="dept">…</span></div></div>
+    <div class="crumb"><b>공통</b> &gt; Project Folder — PS-61313-5</div>
+    <div class="body3" style="grid-template-columns:210px 1fr 300px">
+      <div class="lpan">
+        <div class="pane"><div class="fld"><label style="width:52px">Project</label><span class="combo">Micron #7</span></div></div>
+        <div class="pane"><h4>Folder</h4>
+          <div class="tree"><div class="n1"><i>▾</i>PS-61313-5</div>
+            <div class="n2"><span class="sel">📁 DWG (8)</span></div>
+            <div class="n2">📁 PRICE (3)</div>
+            <div class="n2">📁 DATA (5)</div>
+            <div class="n2">📁 BOM (2)</div>
+            <div class="n2">📁 RECEIVED (4)</div></div>
+          <div style="font-size:9.5px;color:var(--dim);margin-top:6px">EDIM Run 산출물 자동 저장 규약 (개요 §6)</div></div>
+      </div>
+      <div class="cpan">
+        <table class="tbl"><tr><th>파일명</th><th>유형</th><th>구분</th><th>Run</th><th>일자</th><th></th></tr>
+        <tr><td>AHU5_approval_RevB.pdf</td><td>PDF</td><td><span class="badge ok">승인도</span></td><td>#7</td><td>07-07</td><td><span class="btn icon">⬇</span></td></tr>
+        <tr><td>KDCR3-13_mfg.dxf</td><td>DXF</td><td><span class="badge chk">제작도</span></td><td>#7</td><td>07-07</td><td><span class="btn icon">⬇</span></td></tr>
+        <tr><td>AHU5_concept.dxf</td><td>DXF</td><td>Concept</td><td>#6</td><td>07-05</td><td><span class="btn icon">⬇</span></td></tr></table>
+        <div class="card" style="margin-top:8px"><h4>이력 조회 (History) <span class="sp"></span><span class="combo">대상: 전체</span></h4>
+          <table class="tbl"><tr><th>일시</th><th>대상</th><th>작업</th><th>작업자</th><th></th></tr>
+          <tr><td>07-07 10:31</td><td>Run #7</td><td>SUCCESS (산출물 6)</td><td>system</td><td><span class="btn icon">diff</span></td></tr>
+          <tr><td>07-07 09:12</td><td>KDCR 3-13 관계</td><td>UPDATE → 승인</td><td>YS.Gang</td><td><span class="btn icon">diff</span></td></tr>
+          <tr><td>07-06 17:44</td><td>Hierarchy /CODE/FAN</td><td>MOVE (address 갱신)</td><td>admin</td><td><span class="btn icon">diff</span></td></tr></table>
+          <div style="font-size:9.5px;color:var(--dim)">diff = before/after JSON 비교 (sys_history)</div>
+        </div>
+      </div>
+      <div class="rpan">
+        <div class="card"><h4>선택 파일</h4><div class="ph" style="height:120px">미리보기<br>(PDF/도면 썸네일)</div>
+          <div style="font-size:10px;color:#555;margin-top:4px">유형·크기·업로더·연결 도면(Rev)</div></div>
+        <div class="card"><h4>일괄 작업</h4><div style="display:flex;gap:6px"><span class="btn">ZIP 다운로드</span><span class="btn">고객 전달용 내보내기</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>설계 노트</b><br>
+  ① 폴더 5종(DWG/PRICE/DATA/BOM/RECEIVED)은 DB v0.4 `dwg_file.folder` CHECK와 일치 — Run 산출물 자동 분류 (<span class="fid">RUN-009</span>)<br>
+  ② 이력은 sys_history 기반 — Hierarchy 이동의 address 추적 포함 (<span class="fid">SYS-012</span>)<br>
+  ③ RECEIVED는 접수 자료(W-09) + 데이터 이행 원본 보존 폴더 (이행계획서 §2-4)</div>
 </section>
 
 </main>

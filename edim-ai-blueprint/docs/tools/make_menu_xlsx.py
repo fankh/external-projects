@@ -50,7 +50,7 @@ MENUS = [
  ("M-2-1", "CPQ Set-up", "CPQ", "Selection", "-", "S-3-1", "CPQ-011", "SETUP", "P3", ""),
  ("M-2-2", "CPQ Set-up", "CPQ", "Technical", "-", "S-3-2", "CPQ-012", "SETUP", "P3", ""),
  ("M-2-3", "CPQ Set-up", "CPQ", "Document", "-", "S-3-3", "CPQ-012", "SETUP", "P3", ""),
- ("M-2-4", "CPQ Set-up", "CPQ", "Print Set-up", "-", "S-3-4", "CPQ-013", "SETUP", "P3", ""),
+ ("M-2-4", "CPQ Set-up", "CPQ", "Print Set-up", "W-18", "S-3-4", "CPQ-013", "SETUP", "P3", ""),
  ("M-2-5", "CPQ Set-up", "User Management", "User Customizing ERP", "-", "S-3-5", "ERP-001/016", "SETUP", "P5", ""),
 
  # ---- Code(TLM) Set-up — S-1-x ----
@@ -60,17 +60,17 @@ MENUS = [
  ("M-3-4", "Code(TLM) Set-up", "Code", "Code Relationship", "W-05", "S-1-4", "CODE-008~010", "SETUP", "P1", "관계형 BOM"),
  ("M-3-5", "Code(TLM) Set-up", "Code", "Arrangement Code", "W-04", "S-1-5", "CODE-011", "SETUP", "P2", ""),
  ("M-3-6", "Code(TLM) Set-up", "Code", "Arrangement Set-up", "W-06", "S-1-6", "CODE-012", "SETUP", "P2", ""),
- ("M-3-7", "Code(TLM) Set-up", "Data", "Table·Variant·Constant·단위계(Metric)", "-", "E-4", "TBL-001~006", "SETUP", "P1", "슬라이드 46 — Constant List·Metric System은 기능정의서 v0.3 보강 필요"),
+ ("M-3-7", "Code(TLM) Set-up", "Data", "Table·Variant·Constant·단위계(Metric)", "W-20", "E-4", "TBL-001~006", "SETUP", "P1", "슬라이드 46 — Constant List·Metric System은 기능정의서 v0.3 보강 필요"),
 
  # ---- PLM Set-up — S-4-x ----
  ("M-4-1", "PLM Set-up", "Design (DWG)", "Design", "W-06", "S-4-1-1", "DWG-001~016/022~027", "SETUP", "P2", "Drawing Editor — 표시 경로: Drawing Info. > Production Design Management > Design > Check > Approve > Accepted"),
- ("M-4-2", "PLM Set-up", "Work Process", "All Department", "-", "S-4-1-2", "DWG-021, ERP-025", "SETUP", "P3", "하위 실체: Design·Manufacturing·Material·Quality (제품별 Work Process Tree)"),
+ ("M-4-2", "PLM Set-up", "Work Process", "All Department", "W-19", "S-4-1-2", "DWG-021, ERP-025", "SETUP", "P3", "하위 실체: Design·Manufacturing·Material·Quality (제품별 Work Process Tree)"),
  ("M-4-3", "PLM Set-up", "Design (DWG)", "건축 설비 Design", "W-15", "E-4-2", "DUCT-001~007", "SETUP·GENERAL", "P5", "슬라이드 68 — 사업 범위 확정 대상"),
 
  # ---- CPQ 사용 — C-x (Enterprise User) ----
  ("M-5-1", "CPQ", "Selection", "Product", "W-02", "C-1", "CPQ-001~004/007~010", "GENERAL", "P2", "제품 선정"),
  ("M-5-2", "CPQ", "Technical", "Product·Item", "W-03", "C-2", "CPQ-005", "GENERAL", "P3", ""),
- ("M-5-3", "CPQ", "Document", "Product·Item", "-", "C-3", "CPQ-006", "GENERAL", "P3", ""),
+ ("M-5-3", "CPQ", "Document", "Product·Item", "W-17", "C-3", "CPQ-006", "GENERAL", "P3", ""),
  ("M-5-4", "CPQ", "Document Management", "문서함 (Set-up→Check→Approve→Accepted)", "W-11", "-", "DOC-001~004", "GENERAL", "P3", "슬라이드 20/58 breadcrumb — Released Status·Grade 관리"),
 
  # ---- ERP — 부서 Tab (§11 프로세스 코드), Toolbar 사용자 편집 가능 ----
@@ -88,7 +88,7 @@ MENUS = [
  ("M-7-2", "ERP", "Tech.", "Part List (PL)·BOM 조회", "-", "§11", "RUN-002/010", "기술", "P2", ""),
  ("M-7-3", "ERP", "Tech.", "제품 Set-up (PSU)·자동 제작 설계 (PLM)", "-", "§11", "RUN-003~005", "기술", "P2", ""),
  ("M-8-1", "ERP", "Purchasing", "구매 관리", "-", "§11", "ERP-017/018", "자재", "P5", ""),
- ("M-8-2", "ERP", "Purchasing", "자재발주요청 (PR)·발주 (PO)", "-", "§11", "ERP-007", "자재", "P5", ""),
+ ("M-8-2", "ERP", "Purchasing", "자재발주요청 (PR)·발주 (PO)", "W-21", "§11", "ERP-007", "자재", "P5", ""),
  ("M-8-3", "ERP", "Material", "자재 입고 (MI)·출고 (MO)·수령 (RM)", "-", "§11", "ERP-007", "자재", "P5", ""),
  ("M-8-4", "ERP", "Material", "재고·창고 관리", "-", "§11", "ERP-019~021", "자재", "P5", ""),
  ("M-8-5", "ERP", "Material", "MRP 자재 소요 계획", "-", "§11", "ERP-022", "자재", "P5", ""),
@@ -116,7 +116,7 @@ MENUS = [
  ("M-14-3", "ERP", "Company Info.", "업체 평가 (CE)·Project 평가 (PE)", "-", "§11", "ERP-013", "ADMIN", "P5", ""),
  ("M-14-4", "ERP", "Company Info.", "Dashboard", "W-10", "§11", "ERP-014", "ADMIN·경영", "P5", ""),
  ("M-14-5", "ERP", "Company Info.", "PCR 기준 관리", "-", "§11", "CST-005", "ADMIN·재무", "P3", "슬라이드 18 — Company info. 하위 3. PCR"),
- ("M-14-6", "ERP", "Company Info.", "Access Control·Version Management", "-", "D-1", "SYS-003~005/012", "ADMIN", "P1", "슬라이드 72 — 권한 설정·버전 관리"),
+ ("M-14-6", "ERP", "Company Info.", "Access Control·Version Management", "W-23", "D-1", "SYS-003~005/012", "ADMIN", "P1", "슬라이드 72 — 권한 설정·버전 관리"),
 
  # ---- 공통 (모든 Head에서 접근) ----
  ("M-14-7", "ERP", "Company Info.", "ERP Process Set-up", "W-14", "슬라이드17 5-1", "ERP-002, SVC-09", "ADMIN", "P5", "프로세스 정의(선행·후행·자동) 관리"),
@@ -125,13 +125,13 @@ MENUS = [
  ("M-14-10", "ERP", "Company Info.", "보안 설정 (Security Solution)", "-", "-", "DOC-004", "ADMIN", "P5", "슬라이드 58 placeholder — 요건 고객 협의"),
  ("M-15-1", "공통", "로그인", "-", "W-01", "-", "SYS-001/002", "전체", "P1", "슬라이드 3"),
  ("M-15-2", "공통", "승인함", "승인 요청·처리·이력", "W-12", "-", "SYS-009~011", "전체", "P1", "좌측 하단 위젯 + 전용 화면"),
- ("M-15-3", "공통", "일정·To-do", "Schedule·To-do·Done", "-", "E-3", "SYS-017", "전체", "P2", ""),
+ ("M-15-3", "공통", "일정·To-do", "Schedule·To-do·Done", "W-22", "E-3", "SYS-017", "전체", "P2", ""),
  ("M-15-4", "공통", "알림", "알림 목록·공지", "-", "-", "SYS-013/014", "전체", "P2", ""),
  ("M-15-5", "공통", "업무 소통", "Project 중심 대화 (SNS)", "-", "-", "SYS-018", "전체", "P5", "슬라이드 57"),
  ("M-15-6", "공통", "검색", "Hierarchy·자료 통합 검색", "-", "E-3", "SYS-006", "전체", "P2", ""),
  ("M-15-7", "공통", "개인 설정", "색상·언어·판넬 화면 조정", "-", "E-1", "SYS-016", "전체", "P4", "슬라이드 57 — Frame/Canvas 색상, 아코디언·펼침"),
- ("M-15-8", "공통", "Project Folder", "산출물 탐색 (DWG·Price·Data·BOM)", "-", "E-3", "RUN-009", "전체", "P2", "슬라이드 64 Hierarchy List 4. Project"),
- ("M-15-9", "공통", "이력 조회", "생성·편집·삭제·승인 History", "-", "D-1", "SYS-012", "ADMIN", "P2", "슬라이드 57 History 관리·슬라이드 72 Version management"),
+ ("M-15-8", "공통", "Project Folder", "산출물 탐색 (DWG·Price·Data·BOM)", "W-24", "E-3", "RUN-009", "전체", "P2", "슬라이드 64 Hierarchy List 4. Project"),
+ ("M-15-9", "공통", "이력 조회", "생성·편집·삭제·승인 History", "W-24", "D-1", "SYS-012", "ADMIN", "P2", "슬라이드 57 History 관리·슬라이드 72 Version management"),
 
  # ---- Mobile App — 슬라이드 77 ----
  ("M-16-1", "Mobile App", "QR", "QR 정보 열람 (도면·서류·Project·업무)", "W-16", "§12", "APP-001", "전체", "P5", ""),

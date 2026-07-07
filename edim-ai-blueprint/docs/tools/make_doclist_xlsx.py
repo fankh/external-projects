@@ -53,7 +53,7 @@ DOCS = [
  # ---- 설계 ----
  ("설계", "컴포넌트(아키텍처) 정의서", "MD+Excel", "완료", "v0.2", "docs/EDIM_컴포넌트_정의서.md / EDIM_컴포넌트정의서.xlsx", "39컴포넌트·API 106·구축 상태 반영"),
  ("설계", "DB 정의서", "MD+Excel", "완료", "v0.2", "docs/EDIM_DB_정의서.md / EDIM_DB정의서.xlsx", "53테이블 455컬럼 — v0.4 런타임 경로 리뷰까지 반영"),
- ("설계", "화면설계서 (와이어프레임)", "HTML", "완료", "v0.2", "docs/EDIM_화면설계서.html · https://edim.seekerslab.com/design/", "16화면 — 상세 설계 시 전 화면 확장"),
+ ("설계", "화면설계서 (와이어프레임)", "HTML", "완료", "v0.3", "docs/EDIM_화면설계서.html · https://edim.seekerslab.com/design/", "24화면 — 메뉴 미배정 주요 화면 보완(v0.3)"),
  ("설계", "DB DDL·검증 스크립트", "SQL", "완료", "v0.4.1", "docs/ddl/edim_schema.sql · verify_runtime.sql", "실 PG16 적용·BOM 재귀/제약 검증 통과 — 마이그레이션 도구 도입 시 초기본"),
  ("설계", "클래스 정의서", "MD", "완료", "v0.1", "docs/EDIM_클래스정의서.md", "언어 중립 — 11도메인·Aggregate 22·인바리언트↔DB제약 대응표"),
  ("설계", "인터페이스 정의서", "MD+YAML", "완료", "v0.1", "docs/EDIM_인터페이스정의서.md · docs/api/edim-openapi.yaml", "OpenAPI 3.1 자동 생성(105 op·52 스키마)+외부 연계 8종"),
