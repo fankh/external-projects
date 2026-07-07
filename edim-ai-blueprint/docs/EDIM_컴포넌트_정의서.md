@@ -410,6 +410,24 @@ flowchart TB
     style STORE fill:#F0FFF0,stroke:#D0E8D0,stroke-width:1px
 ```
 
+### 개발 서버 구축 현황 (2026-07-07 기준)
+
+개발 서버: **edim.seekerslab.com** (115.90.24.205, Ubuntu 24.04 · 16C/31GB/193GB · Docker · ufw 5022/80/443 · HTTPS Let's Encrypt)
+
+| 컴포넌트 | 상태 | 구축 내역 |
+|---|---|---|
+| **INF-02 Object Storage** | ✅ **구축완료** | MinIO 컨테이너 — S3 API `127.0.0.1:9000`(내부 전용), 콘솔 `/minio/ui`, 초기 버킷 `edim`, 볼륨 `minio_data`. 외부 presigned URL 필요 시 서브도메인/포트 개방 검토 |
+| **INF-06 CI/CD** | 🟡 부분 구축 | Docker 29.6.1 + Compose v5.3, **Jenkins LTS** `/jenkins` (파이프라인 미구성) — k8s는 운영 전환 시 도입 |
+| **GW-01 Gateway** | 🟡 개발 대체 | nginx 1.24가 TLS 종단·라우팅(`/api`·`/jenkins`·`/minio/ui`)·SPA 서빙 수행 — 본 개발 시 게이트웨이 제품으로 교체 |
+| **FE-01 Console** | 🔵 프로토타입 배포 | https://edim.seekerslab.com — Drawing Viewer(SVG)·DXF/IFC 업로드·AI 생성(샘플 모드) |
+| **SVC-04 / ENG-03** | 🔵 프로토타입 일부 | FastAPI backend 컨테이너(`edim-backend`) — DXF/IFC Import·ezdxf DXF(R2010) Export·DrawingDocument JSON |
+| **AI-01 / INT-04** | 🔵 프로토타입 일부 | Claude API 연동 스텁(키 미설정 시 샘플 모드) / ODA 플러그블 인터페이스(바이너리 미설치) |
+| INF-01 PostgreSQL · INF-03 Queue · INF-04 Redis · INF-05 Vector | ⚪ 미구축 | P1 착수 시 docker compose(`~/apps/infra`)에 추가 |
+| 나머지 SVC/ENG/AI/INT | ⚪ 미착수 | Phase 계획(§10) 따름 |
+
+> 배포 구성: `~/apps/external-projects/edim-ai-blueprint`(앱, docker-compose) + `~/apps/infra`(Jenkins·MinIO) + 호스트 nginx.
+> 상세 컴포넌트별 상태는 [`EDIM_컴포넌트정의서.xlsx`](EDIM_컴포넌트정의서.xlsx) "구축 상태" 열 참조.
+
 ---
 
 ## 9. 컴포넌트 ↔ 기능 코드 ↔ DB 추적표

@@ -65,6 +65,18 @@ COMPONENTS = [
  ("INF-06", "인프라", "Kubernetes + CI/CD", "SaaS 멀티테넌트 / Self-managed 패키지 겸용 배포", "-", "-", "-", "-", "P1"),
  ("INF-07", "인프라", "모니터링", "Prometheus·Grafana·Loki — 메트릭·로그·알림", "-", "-", "-", "-", "P1"),
 ]
+# 구축 상태 (2026-07-07, 개발 서버 edim.seekerslab.com 기준)
+STATUS = {
+ "FE-01":  ("프로토타입 배포", "https://edim.seekerslab.com — Drawing Viewer·DXF/IFC 업로드·AI 생성(샘플 모드)"),
+ "GW-01":  ("개발 대체 구축", "nginx 1.24 — TLS(Let's Encrypt)·라우팅(/api·/jenkins·/minio/ui)·SPA 서빙"),
+ "SVC-04": ("프로토타입 일부", "FastAPI backend — DXF/IFC Import·DXF Export·DrawingDocument JSON"),
+ "ENG-03": ("프로토타입 일부", "ezdxf 기반 DXF(R2010) Export 경로 검증됨"),
+ "AI-01":  ("프로토타입 일부", "Claude API 연동(ai_generator) — ANTHROPIC_API_KEY 미설정 시 샘플 모드"),
+ "INT-04": ("프로토타입", "DwgToDxfConverter 플러그블 인터페이스 — ODA 바이너리 미설치(501)"),
+ "INF-02": ("구축완료", "MinIO — S3 API 127.0.0.1:9000(내부), 콘솔 /minio/ui, 버킷 edim, 볼륨 minio_data"),
+ "INF-06": ("부분 구축", "Docker 29.6.1 + Compose v5.3, Jenkins LTS(/jenkins) — k8s는 운영 전환 시 도입"),
+}
+DEFAULT_STATUS = ("미착수", "")
 
 # (서비스, Method, Path, 설명)
 APIS = [
@@ -164,6 +176,7 @@ def main():
         ("API 수", f"{len(APIS)}개 (대표 엔드포인트)"),
         ("API 규약", "REST /api/v1, 커서 페이지네이션, RFC 9457 오류, tenant 필수"),
         ("Phase 정의", "P1 RCCS코어 / P2 설계·Run / P3 원가·문서 / P4 Toolbox·AI / P5 ERP·모바일"),
+        ("구축 현황 기준", "2026-07-07 — 개발 서버 edim.seekerslab.com (Ubuntu 24.04, Docker·nginx·HTTPS·ufw, MinIO·Jenkins 가동)"),
     ]
     r = 4
     for k, v in info:
@@ -174,19 +187,26 @@ def main():
     ws.column_dimensions["C"].width = 80
 
     ws = wb.create_sheet("컴포넌트목록")
-    headers = ["No", "ID", "계층", "이름", "책임", "기능코드", "주 DB", "의존", "기술 후보", "Phase"]
+    headers = ["No", "ID", "계층", "이름", "책임", "기능코드", "주 DB", "의존", "기술 후보", "Phase", "구축 상태", "구축 내역 (2026-07-07)"]
     ws.append(headers)
     style_header(ws, 1, len(headers))
     for n, row in enumerate(COMPONENTS, 1):
         cid, layer, name, resp, code, db, dep, tech, phase = row
-        ws.append([n, cid, layer, name, resp, code, db, dep, tech, phase])
+        st, detail = STATUS.get(cid, DEFAULT_STATUS)
+        ws.append([n, cid, layer, name, resp, code, db, dep, tech, phase, st, detail])
         for c in range(1, len(headers) + 1):
             cell = ws.cell(row=ws.max_row, column=c)
             cell.font = BODY_FONT
             cell.border = BORDER
-            cell.alignment = CENTER if c in (1, 2, 10) else WRAP
+            cell.alignment = CENTER if c in (1, 2, 10, 11) else WRAP
         ws.cell(row=ws.max_row, column=3).fill = PatternFill("solid", fgColor=PALETTE.get(layer, "FFFFFF"))
-    for i, w in enumerate([5, 9, 13, 24, 60, 16, 22, 26, 24, 7], 1):
+        if st == "구축완료":
+            ws.cell(row=ws.max_row, column=11).fill = PatternFill("solid", fgColor="C8E6C9")
+        elif st in ("부분 구축", "프로토타입 배포", "개발 대체 구축"):
+            ws.cell(row=ws.max_row, column=11).fill = PatternFill("solid", fgColor="FFF3C4")
+        elif st.startswith("프로토타입"):
+            ws.cell(row=ws.max_row, column=11).fill = PatternFill("solid", fgColor="E3ECF7")
+    for i, w in enumerate([5, 9, 13, 24, 60, 16, 22, 26, 24, 7, 12, 52], 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
