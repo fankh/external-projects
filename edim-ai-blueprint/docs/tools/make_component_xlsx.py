@@ -85,6 +85,8 @@ APIS = [
  ("SVC-01 Auth", "POST", "/api/v1/auth/refresh", "토큰 갱신"),
  ("SVC-01 Auth", "GET", "/api/v1/auth/me", "내 정보·권한 요약"),
  ("SVC-01 Auth", "PATCH", "/api/v1/auth/password", "비밀번호 변경 (정책 검증)"),
+ ("SVC-01 Auth", "GET", "/api/v1/i18n/{locale}", "데이터 라벨 번역 번들 (ko/en/ja/zh, KO 폴백) — SYS-021"),
+ ("SVC-01 Auth", "PUT", "/api/v1/i18n/translations", "번역 등록·수정 (ADMIN, 일괄 Import 지원)"),
  ("SVC-01 Auth", "GET", "/api/v1/auth/permissions", "리소스별 권한 조회"),
  ("SVC-01 Auth", "GET", "/api/v1/users", "사용자 목록 (부서·상태 필터, ADMIN)"),
  ("SVC-01 Auth", "POST", "/api/v1/users", "사용자 등록 (SYS-003)"),

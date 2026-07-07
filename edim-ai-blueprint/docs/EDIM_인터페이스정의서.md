@@ -9,7 +9,7 @@
 |---|---|
 | 문서 버전 | v0.1 |
 | 작성일 | 2026-07-07 |
-| 내부 API | 106 엔드포인트 (REST 105 + WS 1) — OpenAPI 3.1, 스키마 52종 |
+| 내부 API | 108 엔드포인트 (REST 107 + WS 1) — OpenAPI 3.1, 스키마 52종 |
 | 관련 | 개발표준 §3(규약) · 권한승인정의서(인가) · DB정의서 v0.4(전체 필드) |
 
 ---
@@ -23,6 +23,7 @@
 | `Authorization: Bearer <JWT>` | 요청 | 필수. JWT claim: `sub`(user), `tenantId`, `userLevel`, `department` |
 | `Idempotency-Key: <uuid>` | 요청 | 생성 계열 POST 재시도 안전 (개발표준 §3) |
 | `X-Trace-Id` | 응답 | 요청 추적 ID — 로그·Run 상관관계 (개발표준 §9) |
+| `Accept-Language` | 요청 | 선택 (`ko`/`en`/`ja`/`zh`) — locale 우선순위: 사용자 설정 > 테넌트 기본 > 본 헤더 |
 | `Content-Type` | 양방향 | `application/json` (오류는 `application/problem+json`) |
 
 - 테넌트는 **JWT claim으로만 결정** — 헤더/파라미터로 테넌트 지정 불가 (격리 원칙)
@@ -95,7 +96,7 @@ POST /api/v1/codes/products/1/expand
 
 | 서비스 | 수 | 대표 |
 |---|---|---|
-| SVC-01 Auth | 12 | login·refresh·me·password·users·roles·tenants |
+| SVC-01 Auth | 14 | login·refresh·me·password·users·roles·tenants·**i18n 번들** |
 | SVC-02 Hierarchy | 9 | trees·children·move·resolve·search |
 | SVC-03 Code | 10 | groups·products·check-duplicate·relationships·**expand**·running-test·excel |
 | SVC-04 Drawing | 15 | document(Block)·dimensions·relations·referencers·variants·supersede·import/export·parts·materials |

@@ -50,6 +50,7 @@ MODULES.append(("SYS", "시스템 공통", [
  ("SYS-018", "E-3", "업무 소통 SNS", "좌측 하단 판넬 — 사용자 일반 업무·일정·업무용 SNS(Project 중심 대화)", "모바일 APP-003과 동일 채널", "전체", "FE-01, SVC-13", "-", "P5", "슬라이드 57"),
  ("SYS-019", "H-1", "Head 메뉴 편집", "Head Item 추가/편집/삭제", "기업 사용자는 ERP 하부 Item만 편집 가능, 나머지는 Platform", "ADMIN", "FE-04, SVC-02", "sys_hierarchy", "P2", "슬라이드 57"),
  ("SYS-020", "H-1", "Head-Templet 연결", "각 Head Item과 Hierarchy·(좌/우/중앙) Templet 연결 설정", "화면 구성이 Head 선택에 따라 전환", "SETUP↑", "SVC-02, SVC-06", "tbx_templet", "P2", "슬라이드 57"),
+ ("SYS-021", "E-1", "다국어 지원 (i18n)", "UI 리소스 4로케일(KO/EN/JA/ZH) 번들, 데이터 라벨 번역(sys_translation), 로케일별 날짜·숫자·통화 포맷, 사용자·테넌트 기본 locale", "코드 값은 영문 고정(DB v0.3) — 라벨만 번역, 누락 시 KO 폴백, CJK 폰트 스택", "전체", "FE-01, SVC-01", "sys_translation, sys_user", "P2", "REQ-N-015 확정"),
 ]))
 
 MODULES.append(("DOC", "문서 관리", [

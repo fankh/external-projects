@@ -75,7 +75,13 @@ src/
 - API 호출은 `api/` 클라이언트 경유만 — 컴포넌트에서 `fetch` 직접 호출 금지
 - 스타일: 디자인 토큰(색·간격) 변수화. EDIM 팔레트: primary `#1a1a40`, accent `#2e8b57`
 - **동적 Form 렌더러** 주의: `tbx_ui_form.layout_def` 해석 시 스크립트 실행 금지 (선언적 바인딩만) — 보안 결정 (컴포넌트정의서 §11-3)
-- i18n: 표시 문자열은 리소스 키 사용 (REQ-N-015), 하드코딩 한글 금지 (프로토타입 예외)
+- **i18n (KO+EN/JA/ZH — REQ-N-015 확정)**:
+  - 표시 문자열은 리소스 키(`domain.screen.key`)만 — 하드코딩 금지 (프로토타입 예외)
+  - locale 결정: 사용자 설정 > 테넌트 기본 > `Accept-Language`, 번역 누락은 **KO 폴백** (빈 화면 금지)
+  - 데이터 라벨은 `GET /i18n/{locale}` 번들 (sys_translation) — 코드 값은 영문 고정, 라벨만 번역
+  - 날짜·숫자·통화는 `Intl` 로케일 포맷 (JA 통화 ¥, ZH 千단위 등) — 수기 포맷 금지
+  - CJK 폰트 스택: `Pretendard JP/Variable → Noto Sans JP → Noto Sans SC → sans-serif` (로케일별 서브셋 로드)
+  - 레이아웃은 EN 기준 +30% 텍스트 확장 허용 (버튼·그리드 헤더 말줄임 규칙)
 - 린트: **oxlint** (`react/rules-of-hooks: error` 유지) + prettier. CI에서 강제
 
 ### 도면 캔버스 성능

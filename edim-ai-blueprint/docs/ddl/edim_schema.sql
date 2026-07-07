@@ -1,6 +1,6 @@
 -- ============================================================
 -- EDIM Schema DDL — PostgreSQL 16
--- 원천: EDIM_DB_정의서.md v0.4 (53 테이블)
+-- 원천: EDIM_DB_정의서.md v0.5 (54 테이블 — i18n 포함)
 -- 검증: docs/ddl/verify_runtime.sql
 -- ============================================================
 CREATE EXTENSION IF NOT EXISTS btree_gist;
@@ -787,4 +787,18 @@ CREATE TABLE erp_warehouse (                                       -- v0.2
   created_by VARCHAR(50) NOT NULL DEFAULT 'system', created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_by VARCHAR(50), updated_at TIMESTAMPTZ,
   UNIQUE (tenant_id, location_code)
+);
+
+-- v0.5: i18n — 데이터 라벨 번역 (KO 원문 + en/ja/zh)
+CREATE TABLE sys_translation (
+  translation_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  tenant_id   BIGINT NOT NULL,
+  locale      VARCHAR(5)  NOT NULL CHECK (locale IN ('en','ja','zh')),
+  entity_type VARCHAR(40) NOT NULL,
+  entity_id   BIGINT      NOT NULL,
+  field       VARCHAR(40) NOT NULL,
+  text        VARCHAR(1000) NOT NULL,
+  created_by VARCHAR(50) NOT NULL DEFAULT 'system', created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_by VARCHAR(50), updated_at TIMESTAMPTZ,
+  UNIQUE (tenant_id, locale, entity_type, entity_id, field)
 );

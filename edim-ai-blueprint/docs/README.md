@@ -40,7 +40,7 @@ flowchart TB
         subgraph DEF3["기술"]
             direction TB
             COMP["컴포넌트 39"]
-            DB["DB 53테이블"]
+            DB["DB 54테이블"]
         end
     end
 
@@ -71,20 +71,20 @@ flowchart TB
 |---|---|---|---|---|
 | 시스템 개요서 | [`EDIM_개요.md`](EDIM_개요.md) | v0.1 | MD (다이어그램 8) | 발표자료 분석 — 모든 문서의 기준. §13 기능 코드 맵, §14 로드맵 |
 | 요구사항정의서 | [`02_요구사항/EDIM_요구사항정의서.xlsx`](02_요구사항/EDIM_요구사항정의서.xlsx) | v0.2 | Excel 6시트 | 기능 50 · 비기능 22 · 인터페이스 8 · 용어 16 |
-| 기능정의서 | [`EDIM_기능정의서.xlsx`](EDIM_기능정의서.xlsx) | v0.2 | Excel 3시트 | 14모듈 178기능 — 기능코드·컴포넌트·DB·Phase 추적 |
-| 메뉴정의서 | [`EDIM_메뉴정의서.xlsx`](EDIM_메뉴정의서.xlsx) | v0.3 | Excel 2시트 | 97메뉴 (PPT 3차 전수 대조) — 화면·기능·권한 매핑 |
+| 기능정의서 | [`EDIM_기능정의서.xlsx`](EDIM_기능정의서.xlsx) | v0.2 | Excel 3시트 | 14모듈 179기능(i18n 포함) — 기능코드·컴포넌트·DB·Phase 추적 |
+| 메뉴정의서 | [`EDIM_메뉴정의서.xlsx`](EDIM_메뉴정의서.xlsx) | v0.3 | Excel 2시트 | 98메뉴 (PPT 3차 전수 대조+i18n) — 화면·기능·권한 매핑 |
 | 화면설계서 | [`EDIM_화면설계서.html`](EDIM_화면설계서.html) | v0.3 | HTML (단일 파일) | 와이어프레임 24화면 (W-01~W-24) + 설계 노트 |
-| 컴포넌트 정의서 | [`EDIM_컴포넌트_정의서.md`](EDIM_컴포넌트_정의서.md) / [`xlsx`](EDIM_컴포넌트정의서.xlsx) | v0.2 | MD + Excel | 39컴포넌트·API 106 — **구축 상태 열 포함** (개발 서버 현황) |
-| DB 정의서 | [`EDIM_DB_정의서.md`](EDIM_DB_정의서.md) / [`xlsx`](EDIM_DB정의서.xlsx) | v0.4.1 | MD + Excel | 53테이블 455컬럼 — 설계 원칙·공통코드·미결정 8건 |
-| 요구사항추적표 (RTM) | [`EDIM_요구사항추적표.xlsx`](EDIM_요구사항추적표.xlsx) | 자동 | Excel 3시트 | REQ→기능→메뉴→화면→컴포넌트→DB 179행, **커버리지 178/178** |
+| 컴포넌트 정의서 | [`EDIM_컴포넌트_정의서.md`](EDIM_컴포넌트_정의서.md) / [`xlsx`](EDIM_컴포넌트정의서.xlsx) | v0.2 | MD + Excel | 39컴포넌트·API 108 — **구축 상태 열 포함** (개발 서버 현황) |
+| DB 정의서 | [`EDIM_DB_정의서.md`](EDIM_DB_정의서.md) / [`xlsx`](EDIM_DB정의서.xlsx) | v0.5 | MD + Excel | 54테이블 462컬럼 (i18n) — 설계 원칙·공통코드·미결정 8건 |
+| 요구사항추적표 (RTM) | [`EDIM_요구사항추적표.xlsx`](EDIM_요구사항추적표.xlsx) | 자동 | Excel 3시트 | REQ→기능→메뉴→화면→컴포넌트→DB 180행, **커버리지 179/179** |
 | 산출물목록 | [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx) | v0.1 | Excel 2시트 | 34종 레지스터 — 상태·우선 권고. **신규 문서는 여기에 먼저 등록** |
 | 권한·승인 정의서 | [`EDIM_권한승인정의서.xlsx`](EDIM_권한승인정의서.xlsx) | v0.1 | Excel 6시트 | 역할 4종·매트릭스(97메뉴 자동)·승인 상태기계 13·Platform 범위·Grade |
 | 개발 표준 정의서 | [`EDIM_개발표준정의서.md`](EDIM_개발표준정의서.md) | v0.1 | MD | 공통 원칙·명명·API 규약·FE/BE·Git/리뷰·테스트·보안·CI — 개정 트리거 연동 |
 | DB DDL·검증 | [`ddl/edim_schema.sql`](ddl/edim_schema.sql) / [`ddl/verify_runtime.sql`](ddl/verify_runtime.sql) | v0.4.1 | SQL | 실 PG16 검증 통과 — BOM 재귀·제약 6종·Project Folder 실행 확인 |
 | WBS·일정표 | [`04_WBS/EDIM_WBS.xlsx`](04_WBS/EDIM_WBS.xlsx) | v0.1 | Excel 3시트 | 38 Task·44주 간트·마일스톤 4 — 시작일 가정 |
-| 기능확인서 (FVT) | [`03_기능확인서_FVT/EDIM_기능확인서.xlsx`](03_기능확인서_FVT/EDIM_기능확인서.xlsx) | v0.1 | Excel 6시트 (자동) | 기능 178·비기능 22 확인 항목·결함목록·승인란 — 판정 기입 후 버전 고정 |
+| 기능확인서 (FVT) | [`03_기능확인서_FVT/EDIM_기능확인서.xlsx`](03_기능확인서_FVT/EDIM_기능확인서.xlsx) | v0.1 | Excel 6시트 (자동) | 기능 179·비기능 22 확인 항목·결함목록·승인란 — 판정 기입 후 버전 고정 |
 | 데이터 이행 계획서 | [`EDIM_데이터이행계획서.md`](EDIM_데이터이행계획서.md) | v0.1 | MD | 이행 대상 9·원칙 5·절차 5단계·검증 6기준·AI 학습 연계 |
-| 인터페이스 정의서 | [`EDIM_인터페이스정의서.md`](EDIM_인터페이스정의서.md) · [`api/edim-openapi.yaml`](api/edim-openapi.yaml) | v0.1 | MD + OpenAPI 3.1 | 공통 규약·시나리오·WS·외부 연계 8종 — **스펙은 APIS 목록에서 자동 생성** |
+| 인터페이스 정의서 | [`EDIM_인터페이스정의서.md`](EDIM_인터페이스정의서.md) · [`api/edim-openapi.yaml`](api/edim-openapi.yaml) | v0.1 | MD + OpenAPI 3.1 | 공통 규약(4로케일)·시나리오·WS·외부 연계 8종 — **스펙은 APIS 목록에서 자동 생성** |
 | 클래스 정의서 | [`EDIM_클래스정의서.md`](EDIM_클래스정의서.md) | v0.1 | MD (classDiagram 2) | 언어 중립 도메인 모델 — 11도메인, 인바리언트↔DB 제약 이중 방어 대응표 |
 | 디자인 시안 A (Modern) | [`EDIM_디자인시안.html`](EDIM_디자인시안.html) | v0.1 | HTML | 브랜드 접점용 (로그인·Dashboard·모바일) · /design/hifi/ |
 | 디자인 시안 B (Dense) ★ | [`EDIM_디자인시안_B_dense.html`](EDIM_디자인시안_B_dense.html) | v0.1 | HTML | **레거시 문법 조사+적용** — 22px 컨트롤·MDI·F-key·조회밴드, 업무 화면 권고안 · /design/dense/ |
@@ -117,7 +117,7 @@ flowchart TB
 ```
 
 - **ID 체계**: REQ-F/N/I(요구) · 14모듈 접두어(기능) · M-x-x(메뉴) · W-xx(화면) · FE/GW/SVC/ENG/AI/INT/INF(컴포넌트) · 도메인 접두어 snake_case(DB) · S/C/E/D/H(발표자료 기능코드)
-- **검증 실적**: 메뉴 — PPT 3차 전수 대조(브레드크럼·Head Tab·프로세스 코드 41종 closure) / RTM — 기능 커버리지 178/178
+- **검증 실적**: 메뉴 — PPT 3차 전수 대조(브레드크럼·Head Tab·프로세스 코드 41종 closure) / RTM — 기능 커버리지 179/179
 
 ---
 
