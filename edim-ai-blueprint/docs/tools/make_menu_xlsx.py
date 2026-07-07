@@ -44,6 +44,7 @@ MENUS = [
  ("M-1-5", "EDIM Toolbox", "UI Design", "Tool Bar", "W-08", "S-2-1", "CPQ-014", "SETUP", "P3", ""),
  ("M-1-6", "EDIM Toolbox", "Program Macro", "Templet", "W-07", "S-2-2", "TBX-013", "SETUP", "P4", ""),
  ("M-1-7", "EDIM Toolbox", "Program Macro", "AI (Macro·Flowchart·Coding)", "W-07", "S-2-2", "TBX-005~012", "SETUP", "P2~P4", "4-Way Sync"),
+ ("M-1-8", "EDIM Toolbox", "지원 도구", "인터넷 검색·AI 질의응답", "-", "S-2-2", "TBX-015, AI-007", "전체", "P5", "슬라이드 27 발표자 노트 — 내부 자료 검색·응답용"),
 
  # ---- CPQ Set-up — S-3-x ----
  ("M-2-1", "CPQ Set-up", "CPQ", "Selection", "-", "S-3-1", "CPQ-011", "SETUP", "P3", ""),
@@ -64,13 +65,13 @@ MENUS = [
  # ---- PLM Set-up — S-4-x ----
  ("M-4-1", "PLM Set-up", "Design (DWG)", "Design", "W-06", "S-4-1-1", "DWG-001~016/022~027", "SETUP", "P2", "Drawing Editor — 표시 경로: Drawing Info. > Production Design Management > Design > Check > Approve > Accepted"),
  ("M-4-2", "PLM Set-up", "Work Process", "All Department", "-", "S-4-1-2", "DWG-021, ERP-025", "SETUP", "P3", "하위 실체: Design·Manufacturing·Material·Quality (제품별 Work Process Tree)"),
- ("M-4-3", "PLM Set-up", "Design (DWG)", "건축 설비 Design", "-", "E-4-2", "DUCT-001~007", "SETUP·GENERAL", "P5", "슬라이드 68 — 사업 범위 확정 대상"),
+ ("M-4-3", "PLM Set-up", "Design (DWG)", "건축 설비 Design", "W-15", "E-4-2", "DUCT-001~007", "SETUP·GENERAL", "P5", "슬라이드 68 — 사업 범위 확정 대상"),
 
  # ---- CPQ 사용 — C-x (Enterprise User) ----
  ("M-5-1", "CPQ", "Selection", "Product", "W-02", "C-1", "CPQ-001~004/007~010", "GENERAL", "P2", "제품 선정"),
  ("M-5-2", "CPQ", "Technical", "Product·Item", "W-03", "C-2", "CPQ-005", "GENERAL", "P3", ""),
  ("M-5-3", "CPQ", "Document", "Product·Item", "-", "C-3", "CPQ-006", "GENERAL", "P3", ""),
- ("M-5-4", "CPQ", "Document Management", "문서함 (Set-up→Check→Approve→Accepted)", "-", "-", "DOC-001~004", "GENERAL", "P3", "슬라이드 20/58 breadcrumb — Released Status·Grade 관리"),
+ ("M-5-4", "CPQ", "Document Management", "문서함 (Set-up→Check→Approve→Accepted)", "W-11", "-", "DOC-001~004", "GENERAL", "P3", "슬라이드 20/58 breadcrumb — Released Status·Grade 관리"),
 
  # ---- ERP — 부서 Tab (§11 프로세스 코드), Toolbar 사용자 편집 가능 ----
  ("M-6-1", "ERP", "Sales", "고객 관리", "-", "§11", "ERP-015", "영업", "P5", "ERP Toolbar 사용자 편집 가능 (슬라이드 59)"),
@@ -108,6 +109,7 @@ MENUS = [
  ("M-12-2", "ERP", "Finance", "매입 출금 (PA)·매출 입금 (PI)", "-", "§11", "ERP-011", "재무", "P5", ""),
  ("M-12-3", "ERP", "Finance", "정산 (RR)·정산승인 (RA)·재무관리 (FM)", "-", "§11", "ERP-011", "재무", "P5", ""),
  ("M-12-4", "ERP", "Finance", "Advance 선지급 (AR)", "-", "§11", "ERP-011", "재무", "P5", "슬라이드 10 — 기능정의서 v0.3 보강 필요"),
+ ("M-12-5", "ERP", "Finance", "단가 관리 (견적·구매이력·재고단가·견적적용)", "W-13", "D-3/D-4", "CST-001, ERP-021", "재무·자재", "P3", "슬라이드 74/75 단가 관리 Table"),
  ("M-13-1", "ERP", "HR", "임직원 관리·임직원 출금 (CO)", "-", "§11", "-", "HR", "P5", "상세 v0.3"),
  ("M-14-1", "ERP", "Company Info.", "ERP System·Department", "-", "§11", "SYS-019/020", "ADMIN", "P5", ""),
  ("M-14-2", "ERP", "Company Info.", "Company DB (고객·공급·파트너·은행)", "-", "§11", "ERP-015", "ADMIN", "P2", ""),
@@ -117,18 +119,23 @@ MENUS = [
  ("M-14-6", "ERP", "Company Info.", "Access Control·Version Management", "-", "D-1", "SYS-003~005/012", "ADMIN", "P1", "슬라이드 72 — 권한 설정·버전 관리"),
 
  # ---- 공통 (모든 Head에서 접근) ----
+ ("M-14-7", "ERP", "Company Info.", "ERP Process Set-up", "W-14", "슬라이드17 5-1", "ERP-002, SVC-09", "ADMIN", "P5", "프로세스 정의(선행·후행·자동) 관리"),
+ ("M-14-8", "ERP", "Company Info.", "ERP DB Set-up", "-", "슬라이드17 5-2", "SYS-019/020", "ADMIN", "P5", "기능정의서 v0.3 보강 필요"),
+ ("M-14-9", "ERP", "Company Info.", "ERP Form Set-up (EDIM Toolbox)", "-", "슬라이드17 5-3", "ERP-016, TBX-003", "ADMIN·SETUP", "P5", ""),
+ ("M-14-10", "ERP", "Company Info.", "보안 설정 (Security Solution)", "-", "-", "DOC-004", "ADMIN", "P5", "슬라이드 58 placeholder — 요건 고객 협의"),
  ("M-15-1", "공통", "로그인", "-", "W-01", "-", "SYS-001/002", "전체", "P1", "슬라이드 3"),
- ("M-15-2", "공통", "승인함", "승인 요청·처리·이력", "-", "-", "SYS-009~011", "전체", "P1", "좌측 하단 위젯 + 전용 화면"),
+ ("M-15-2", "공통", "승인함", "승인 요청·처리·이력", "W-12", "-", "SYS-009~011", "전체", "P1", "좌측 하단 위젯 + 전용 화면"),
  ("M-15-3", "공통", "일정·To-do", "Schedule·To-do·Done", "-", "E-3", "SYS-017", "전체", "P2", ""),
  ("M-15-4", "공통", "알림", "알림 목록·공지", "-", "-", "SYS-013/014", "전체", "P2", ""),
  ("M-15-5", "공통", "업무 소통", "Project 중심 대화 (SNS)", "-", "-", "SYS-018", "전체", "P5", "슬라이드 57"),
  ("M-15-6", "공통", "검색", "Hierarchy·자료 통합 검색", "-", "E-3", "SYS-006", "전체", "P2", ""),
  ("M-15-7", "공통", "개인 설정", "색상·언어·판넬 화면 조정", "-", "E-1", "SYS-016", "전체", "P4", "슬라이드 57 — Frame/Canvas 색상, 아코디언·펼침"),
  ("M-15-8", "공통", "Project Folder", "산출물 탐색 (DWG·Price·Data·BOM)", "-", "E-3", "RUN-009", "전체", "P2", "슬라이드 64 Hierarchy List 4. Project"),
+ ("M-15-9", "공통", "이력 조회", "생성·편집·삭제·승인 History", "-", "D-1", "SYS-012", "ADMIN", "P2", "슬라이드 57 History 관리·슬라이드 72 Version management"),
 
  # ---- Mobile App — 슬라이드 77 ----
- ("M-16-1", "Mobile App", "QR", "QR 정보 열람 (도면·서류·Project·업무)", "-", "§12", "APP-001", "전체", "P5", ""),
- ("M-16-2", "Mobile App", "승인", "업무 승인", "-", "§12", "APP-002", "ADMIN↑", "P5", ""),
+ ("M-16-1", "Mobile App", "QR", "QR 정보 열람 (도면·서류·Project·업무)", "W-16", "§12", "APP-001", "전체", "P5", ""),
+ ("M-16-2", "Mobile App", "승인", "업무 승인", "W-16", "§12", "APP-002", "ADMIN↑", "P5", ""),
  ("M-16-3", "Mobile App", "소통", "Project 중심 대화·History", "-", "§12", "APP-003", "전체", "P5", ""),
  ("M-16-4", "Mobile App", "자재", "자재 입출고", "-", "§12", "APP-004", "자재", "P5", ""),
  ("M-16-5", "Mobile App", "검수", "자재·완성품·설치완료 검수", "-", "§12", "APP-005", "QC", "P5", ""),
