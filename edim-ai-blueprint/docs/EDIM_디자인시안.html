@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDIM 디자인 시안 — Hi-Fi v0.1</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+/* ═══════════════ EDIM Design Tokens v0.1 ═══════════════ */
+:root{
+  /* brand */
+  --brand-900:#0F1222; --brand-800:#171B33; --brand-700:#22284A; --brand-600:#2E3560;
+  --brand-500:#4653A2; --brand-400:#6B77C9; --brand-100:#E8EBFA; --brand-50:#F4F5FC;
+  /* accent — Run/성공 계열 (EDIM green 계승) */
+  --run-600:#1E7A4E; --run-500:#2E9E68; --run-100:#DDF3E7;
+  /* semantic */
+  --warn-600:#B45309; --warn-100:#FDF0DC; --danger-600:#B3372F; --danger-100:#FBE4E2;
+  --info-600:#1D6FB8; --info-100:#E1EFFB;
+  /* neutral */
+  --n-900:#191B22; --n-700:#3F434E; --n-500:#6E7480; --n-400:#9AA0AB; --n-300:#C9CDD5;
+  --n-200:#E4E6EB; --n-100:#F1F2F5; --n-50:#F8F9FB; --white:#FFF;
+  /* type */
+  --fs-11:11px; --fs-12:12px; --fs-13:13px; --fs-15:15px; --fs-18:18px; --fs-22:22px; --fs-28:28px;
+  /* shape */
+  --r-sm:6px; --r-md:10px; --r-lg:14px;
+  --sh-1:0 1px 2px rgba(15,18,34,.06); --sh-2:0 2px 8px rgba(15,18,34,.08); --sh-3:0 8px 28px rgba(15,18,34,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Pretendard,'Noto Sans KR',sans-serif;background:var(--n-100);color:var(--n-900);font-size:var(--fs-13);-webkit-font-smoothing:antialiased}
+
+/* ═══ viewer chrome ═══ */
+.viewer{display:grid;grid-template-columns:216px 1fr;min-height:100vh}
+.vrail{background:var(--brand-900);color:#fff;padding:20px 0;position:sticky;top:0;height:100vh;overflow:auto}
+.vrail h1{font-size:14px;padding:0 18px 2px;letter-spacing:-.01em}
+.vrail .sub{font-size:10px;color:#8b91bd;padding:0 18px 16px;border-bottom:1px solid #262b4d;line-height:1.6}
+.vrail a{display:block;color:#b9bfe3;text-decoration:none;padding:9px 18px;font-size:12.5px;border-left:3px solid transparent}
+.vrail a:hover{background:#1c2140;color:#fff}
+.vrail a.on{background:#232952;color:#fff;border-left-color:var(--run-500)}
+.vrail .grp{font-size:10px;color:#6f75a5;padding:16px 18px 5px;text-transform:uppercase;letter-spacing:.08em}
+.stage{padding:26px 30px 70px;overflow:auto}
+.page{display:none;max-width:1440px;margin:0 auto}
+.page.on{display:block}
+.p-head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.p-head h2{font-size:var(--fs-22);letter-spacing:-.02em}
+.p-head .pid{background:var(--brand-700);color:#fff;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600}
+.p-head .why{color:var(--n-500);font-size:12px}
+.dnote{background:var(--white);border:1px solid var(--n-200);border-left:3px solid var(--brand-500);border-radius:var(--r-sm);padding:12px 16px;margin-top:14px;font-size:12px;line-height:1.8;color:var(--n-700)}
+.dnote b{color:var(--brand-600)}
+
+/* ═══ 공용 컴포넌트 ═══ */
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--n-300);background:var(--white);color:var(--n-700);border-radius:var(--r-sm);padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:var(--sh-1)}
+.btn.pri{background:var(--brand-600);border-color:var(--brand-600);color:#fff}
+.btn.run{background:var(--run-600);border-color:var(--run-600);color:#fff}
+.btn.ghost{border-color:transparent;box-shadow:none;background:transparent}
+.btn.lg{padding:11px 22px;font-size:14px;border-radius:var(--r-md)}
+.btn.sm{padding:4px 10px;font-size:11.5px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2.5px 9px;border-radius:20px}
+.chip i{width:6px;height:6px;border-radius:50%;font-style:normal}
+.chip.ok{background:var(--run-100);color:var(--run-600)}.chip.ok i{background:var(--run-600)}
+.chip.pend{background:var(--warn-100);color:var(--warn-600)}.chip.pend i{background:var(--warn-600)}
+.chip.err{background:var(--danger-100);color:var(--danger-600)}.chip.err i{background:var(--danger-600)}
+.chip.info{background:var(--info-100);color:var(--info-600)}.chip.info i{background:var(--info-600)}
+.chip.brand{background:var(--brand-100);color:var(--brand-600)}.chip.brand i{background:var(--brand-500)}
+.card{background:var(--white);border:1px solid var(--n-200);border-radius:var(--r-md);box-shadow:var(--sh-1)}
+.card .ch{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--n-100);font-weight:700;font-size:13px}
+.card .ch .sp{flex:1}
+.card .cb{padding:14px 16px}
+.input{background:var(--white);border:1px solid var(--n-300);border-radius:var(--r-sm);padding:8px 12px;font-size:12.5px;color:var(--n-900);width:100%}
+.input:focus{outline:2px solid var(--brand-100);border-color:var(--brand-500)}
+.sel{position:relative;display:inline-block;border:1px solid var(--n-300);border-radius:var(--r-sm);padding:7px 28px 7px 12px;font-size:12.5px;background:var(--white)}
+.sel:after{content:"⌄";position:absolute;right:10px;top:6px;color:var(--n-400)}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;font-size:11px;color:var(--n-500);font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:8px 12px;border-bottom:1px solid var(--n-200);background:var(--n-50)}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--n-100);color:var(--n-700)}
+.tbl tr:hover td{background:var(--brand-50)}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.kbd{font-family:Consolas,monospace;font-size:11px;background:var(--n-100);border:1px solid var(--n-200);border-radius:4px;padding:1px 6px;color:var(--n-700)}
+
+/* ═══ 앱 셸 (제품 화면 공통) ═══ */
+.shell{display:grid;grid-template-columns:56px 1fr;border:1px solid var(--n-200);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-3);background:var(--n-50);min-height:640px}
+.snav{background:linear-gradient(180deg,var(--brand-900),var(--brand-800));display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+.snav .logo{width:32px;height:32px;border-radius:8px;background:var(--run-500);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;margin-bottom:12px}
+.snav .ni{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#7d84b6;font-size:16px;cursor:pointer}
+.snav .ni:hover{background:#232952;color:#fff}
+.snav .ni.on{background:var(--brand-600);color:#fff}
+.snav .grow{flex:1}
+.snav .avatar{width:30px;height:30px;border-radius:50%;background:var(--brand-400);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.smain{display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:center;gap:14px;background:var(--white);border-bottom:1px solid var(--n-200);padding:10px 18px}
+.topbar .crumb{font-size:12.5px;color:var(--n-500)}
+.topbar .crumb b{color:var(--n-900)}
+.topbar .search{flex:1;max-width:340px;position:relative}
+.topbar .search .input{padding-left:30px;background:var(--n-50)}
+.topbar .search:before{content:"⌕";position:absolute;left:10px;top:6px;color:var(--n-400);font-size:15px}
+.topbar .sp{flex:1}
+.pctx{display:inline-flex;align-items:center;gap:8px;background:var(--brand-50);border:1px solid var(--brand-100);border-radius:var(--r-sm);padding:5px 12px;font-size:12px;font-weight:600;color:var(--brand-600)}
+.content{flex:1;padding:16px 18px;overflow:auto}
+
+/* mini svg charts */
+.spark{vertical-align:middle}
+
+/* ═══ D-01 디자인 시스템 ═══ */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.sw{border-radius:var(--r-sm);border:1px solid var(--n-200);overflow:hidden;background:#fff}
+.sw .c{height:52px}
+.sw .l{padding:7px 9px;font-size:10.5px;color:var(--n-500);line-height:1.5}
+.sw .l b{display:block;color:var(--n-900);font-size:11.5px}
+.type-row{display:flex;align-items:baseline;gap:18px;padding:9px 0;border-bottom:1px dashed var(--n-200)}
+.type-row .tag{width:170px;font-size:11px;color:var(--n-500)}
+
+/* ═══ D-02 로그인 ═══ */
+.login{display:grid;grid-template-columns:1.1fr 1fr;min-height:600px;border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-3)}
+.login .brand{background:linear-gradient(150deg,var(--brand-900) 0%,var(--brand-700) 70%,var(--brand-600) 100%);color:#fff;padding:56px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.login .brand .flow{position:absolute;right:-60px;bottom:-40px;opacity:.14}
+.login .brand h2{font-size:var(--fs-28);line-height:1.35;letter-spacing:-.02em;margin:18px 0 14px}
+.login .brand p{color:#aeb4dc;font-size:14px;line-height:1.8;max-width:400px}
+.login .brand .stats{display:flex;gap:28px;margin-top:auto}
+.login .brand .stat b{display:block;font-size:24px;color:var(--run-500)}
+.login .brand .stat span{font-size:11.5px;color:#8b91bd}
+.login .form{background:var(--white);padding:56px;display:flex;flex-direction:column;justify-content:center}
+.login .form h3{font-size:var(--fs-18);margin-bottom:4px}
+.login .form .sub2{color:var(--n-500);font-size:12.5px;margin-bottom:26px}
+.fgroup{margin-bottom:16px}
+.fgroup label{display:block;font-size:12px;font-weight:600;color:var(--n-700);margin-bottom:6px}
+
+/* ═══ D-03 CPQ ═══ */
+.cpq{display:grid;grid-template-columns:230px 1fr 320px;gap:0;min-height:560px}
+.ptree{background:var(--white);border-right:1px solid var(--n-200);padding:14px}
+.ptree h5{font-size:11px;color:var(--n-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.tnode{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:var(--r-sm);font-size:12.5px;color:var(--n-700);cursor:pointer}
+.tnode:hover{background:var(--n-50)}
+.tnode.sel{background:var(--brand-100);color:var(--brand-600);font-weight:700}
+.tnode .tw{color:var(--n-400);font-size:10px;width:10px}
+.tnode.lv2{padding-left:24px}.tnode.lv3{padding-left:40px}
+.canvas-wrap{padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.cv-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cv{position:relative;background:var(--white);border:1px solid var(--n-200);border-radius:var(--r-md);flex:1;min-height:400px;background-image:radial-gradient(var(--n-200) 1px,transparent 1px);background-size:18px 18px}
+.mod{position:absolute;border:1.5px solid var(--brand-500);background:linear-gradient(180deg,#fff, var(--brand-50));border-radius:8px;box-shadow:var(--sh-2);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:var(--brand-600);font-weight:700;gap:4px}
+.mod small{font-weight:500;color:var(--n-500);font-size:10px}
+.mod.sel{border-color:var(--run-600);background:linear-gradient(180deg,#fff,var(--run-100));color:var(--run-600);box-shadow:0 0 0 3px var(--run-100),var(--sh-2)}
+.dim{position:absolute;color:var(--info-600);font-size:10px;font-variant-numeric:tabular-nums}
+.dim:before{content:"";position:absolute;left:0;right:0;top:7px;border-top:1px solid var(--info-600);opacity:.55}
+.dim span{position:relative;background:var(--white);padding:0 6px;left:50%;transform:translateX(-50%);display:inline-block}
+.rpanel{background:var(--white);border-left:1px solid var(--n-200);padding:14px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.bomrow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--n-100);font-size:12px}
+.bomrow .lv{color:var(--n-300)}
+.bomrow .code{font-family:Consolas,monospace;font-size:11px;color:var(--brand-600)}
+.bomrow .sp{flex:1}
+.bomrow .price{font-variant-numeric:tabular-nums;color:var(--n-700);font-weight:600}
+
+/* ═══ D-04 Run ═══ */
+.stepper{display:flex;gap:0;background:var(--white);border:1px solid var(--n-200);border-radius:var(--r-md);padding:18px 22px;box-shadow:var(--sh-1)}
+.step{flex:1;position:relative;text-align:center}
+.step:not(:last-child):after{content:"";position:absolute;top:15px;left:calc(50% + 22px);right:calc(-50% + 22px);border-top:2px solid var(--n-200)}
+.step.done:not(:last-child):after{border-color:var(--run-500)}
+.step .dot{width:32px;height:32px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;background:var(--n-100);color:var(--n-400);border:2px solid var(--n-200)}
+.step.done .dot{background:var(--run-500);border-color:var(--run-500);color:#fff}
+.step.now .dot{background:var(--white);border-color:var(--run-500);color:var(--run-600);box-shadow:0 0 0 4px var(--run-100)}
+.step .sl{font-size:11.5px;font-weight:700;color:var(--n-500)}
+.step.done .sl,.step.now .sl{color:var(--n-900)}
+.step .st{font-size:10px;color:var(--n-400)}
+.outcard{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--n-200);border-radius:var(--r-md);background:var(--white)}
+.outcard .thumb{width:52px;height:64px;border-radius:6px;background:var(--n-100);border:1px solid var(--n-200);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--n-500)}
+.outcard .meta{flex:1;min-width:0}
+.outcard .meta b{display:block;font-size:12.5px}
+.outcard .meta span{font-size:11px;color:var(--n-500)}
+.logbox{background:var(--brand-900);border-radius:var(--r-md);color:#9fe8bd;font-family:Consolas,monospace;font-size:11px;line-height:1.9;padding:14px 16px;max-height:210px;overflow:auto}
+.logbox .t{color:#6f75a5}
+.logbox .w{color:#f0c674}
+
+/* ═══ D-05 Dashboard ═══ */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:var(--white);border:1px solid var(--n-200);border-radius:var(--r-md);padding:15px 16px;box-shadow:var(--sh-1)}
+.kpi .kl{font-size:11.5px;color:var(--n-500);font-weight:600}
+.kpi .kv{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.kpi .kd{font-size:11px;font-weight:700}
+.kpi .up{color:var(--run-600)}.kpi .dn{color:var(--danger-600)}
+.flow2{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fnode{padding:6px 12px;border-radius:20px;font-size:11.5px;font-weight:700;background:var(--n-100);color:var(--n-500);border:1px solid var(--n-200)}
+.fnode.done{background:var(--run-100);color:var(--run-600);border-color:transparent}
+.fnode.now{background:var(--brand-600);color:#fff;border-color:transparent;box-shadow:0 0 0 3px var(--brand-100)}
+.farrow{color:var(--n-300);font-size:11px}
+
+/* ═══ D-06 Macro Studio ═══ */
+.mtabs{display:flex;gap:2px;background:var(--n-100);border-radius:var(--r-sm);padding:3px;width:fit-content}
+.mtab{padding:6px 16px;border-radius:5px;font-size:12px;font-weight:700;color:var(--n-500);cursor:pointer}
+.mtab.on{background:var(--white);color:var(--brand-600);box-shadow:var(--sh-1)}
+.codebox{background:var(--brand-900);border-radius:var(--r-md);padding:16px;font-family:Consolas,monospace;font-size:12.5px;line-height:1.9;color:#dde3ff;overflow:auto}
+.codebox .fn{color:#7ee2a8}.codebox .tb{color:#7cc7ff}.codebox .num2{color:#f0c674}.codebox .cm{color:#6f75a5}
+.fcnode{border:1.5px solid var(--brand-400);background:var(--brand-50);border-radius:8px;padding:8px 14px;font-size:11.5px;font-weight:700;color:var(--brand-600);display:inline-block}
+.fcnode.dec{border-radius:4px;transform:none;background:var(--warn-100);border-color:var(--warn-600);color:var(--warn-600)}
+
+@media print{.vrail{display:none}.viewer{grid-template-columns:1fr}.page{display:block!important;page-break-after:always}}
+</style>
+</head>
+<body>
+<div class="viewer">
+<nav class="vrail">
+  <h1>EDIM 디자인 시안</h1>
+  <div class="sub">Hi-Fi v0.1 · 2026-07-07<br>와이어프레임 24화면 중 핵심 6<br>토큰 기반 — 개발 시 CSS 변수 이식</div>
+  <div class="grp">Foundation</div>
+  <a href="#" class="on" data-p="d01">D-01 디자인 시스템</a>
+  <a href="#" data-p="d02">D-02 로그인</a>
+  <div class="grp">Core Product</div>
+  <a href="#" data-p="d03">D-03 CPQ 제품 선정</a>
+  <a href="#" data-p="d04">D-04 EDIM Run</a>
+  <div class="grp">Insight · Tool</div>
+  <a href="#" data-p="d05">D-05 Dashboard</a>
+  <a href="#" data-p="d06">D-06 Macro Studio</a>
+</nav>
+<main class="stage">
+
+<!-- ═══════════════════ D-01 디자인 시스템 ═══════════════════ -->
+<section class="page on" id="d01">
+  <div class="p-head"><span class="pid">D-01</span><h2>디자인 시스템</h2><span class="why">토큰 · 타이포 · 컴포넌트 — 전 화면의 단일 어휘</span></div>
+
+  <div class="card" style="margin-bottom:14px"><div class="ch">컬러 토큰</div><div class="cb">
+    <div class="swatches">
+      <div class="sw"><div class="c" style="background:var(--brand-900)"></div><div class="l"><b>brand-900</b>사이드바·코드 배경</div></div>
+      <div class="sw"><div class="c" style="background:var(--brand-600)"></div><div class="l"><b>brand-600</b>Primary 액션·선택</div></div>
+      <div class="sw"><div class="c" style="background:var(--brand-100)"></div><div class="l"><b>brand-100</b>선택 배경·포커스 링</div></div>
+      <div class="sw"><div class="c" style="background:var(--run-600)"></div><div class="l"><b>run-600</b>EDIM Run·성공 (브랜드 그린 계승)</div></div>
+      <div class="sw"><div class="c" style="background:var(--warn-600)"></div><div class="l"><b>warn-600</b>승인 대기·지연 경고</div></div>
+      <div class="sw"><div class="c" style="background:var(--danger-600)"></div><div class="l"><b>danger-600</b>실패·반려·차단</div></div>
+      <div class="sw"><div class="c" style="background:var(--info-600)"></div><div class="l"><b>info-600</b>치수선·링크</div></div>
+      <div class="sw"><div class="c" style="background:var(--n-500)"></div><div class="l"><b>neutral 50~900</b>9단계 그레이</div></div>
+    </div>
+  </div></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="card"><div class="ch">타이포그래피 — Pretendard</div><div class="cb">
+      <div class="type-row"><span class="tag">Display · 28/800</span><span style="font-size:28px;font-weight:800;letter-spacing:-.02em">도면이 데이터가 되는 순간</span></div>
+      <div class="type-row"><span class="tag">H2 · 22/700</span><span style="font-size:22px;font-weight:700">CPQ 제품 선정</span></div>
+      <div class="type-row"><span class="tag">H3 · 15/700</span><span style="font-size:15px;font-weight:700">BOM · 견적</span></div>
+      <div class="type-row"><span class="tag">Body · 13/400</span><span>완성품 Code 하나로 전체 자료가 생성됩니다.</span></div>
+      <div class="type-row"><span class="tag">Caption · 11/500</span><span style="font-size:11px;color:var(--n-500)">치수·금액은 tabular-nums 고정폭</span></div>
+      <div class="type-row"><span class="tag">Code · Consolas 12</span><span class="kbd">Table12(E,10:25)</span></div>
+    </div></div>
+    <div class="card"><div class="ch">컴포넌트</div><div class="cb" style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="btn pri">저장</span><span class="btn run">▶ EDIM Run</span><span class="btn">중복검토</span><span class="btn ghost">취소</span><span class="btn sm">＋ 행 추가</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="chip ok"><i></i>APPROVED</span><span class="chip pend"><i></i>PENDING</span><span class="chip err"><i></i>REJECTED</span><span class="chip info"><i></i>TESTED</span><span class="chip brand"><i></i>DRAFT</span>
+      </div>
+      <div style="display:flex;gap:10px"><input class="input" style="max-width:200px" placeholder="Main Code 입력"><span class="sel">Variant</span></div>
+      <table class="tbl"><tr><th>Code</th><th>품명</th><th class="num">단가</th><th>상태</th></tr>
+      <tr><td class="kbd">FDV-480</td><td>Motor H22 380V</td><td class="num">450,000</td><td><span class="chip ok"><i></i>적용중</span></td></tr>
+      <tr><td class="kbd">KDC-1</td><td>Casing 강판</td><td class="num">128,000</td><td><span class="chip pend"><i></i>만료 예정</span></td></tr></table>
+    </div></div>
+  </div>
+
+  <div class="dnote"><b>디자인 원칙 (B2B 엔지니어링 SaaS)</b><br>
+  ① <b>밀도 우선</b> — 13px 본문·타이트한 행높이. 설계·구매 사용자는 한 화면에 많은 데이터를 원함 (소비자 앱식 여백 지양)<br>
+  ② <b>상태가 주인공</b> — 모든 자산에 승인 칩(dot+라벨)이 따라다님. 색+형태 이중 부호화(색약 대응)<br>
+  ③ <b>숫자는 고정폭</b> — 치수·금액·수량 tabular-nums, 우측 정렬<br>
+  ④ <b>Run 그린은 예약색</b> — EDIM Run·성공에만 사용해 "실행"의 의미를 독점시킴 · Primary 인디고와 역할 분리<br>
+  ⑤ 포커스 링·호버 명시 (키보드 퍼스트), 다크는 코드·콘솔 영역에만</div>
+</section>
+
+<!-- ═══════════════════ D-02 로그인 ═══════════════════ -->
+<section class="page" id="d02">
+  <div class="p-head"><span class="pid">D-02</span><h2>로그인</h2><span class="why">브랜드 진입점 — 제품 가치 제안 + 신뢰</span></div>
+  <div class="login">
+    <div class="brand">
+      <svg class="flow" width="360" height="300" viewBox="0 0 360 300" fill="none" stroke="#fff" stroke-width="6">
+        <rect x="140" y="10" width="90" height="46" rx="10"/><path d="M185 56v40"/>
+        <path d="M185 96l-60 52 60 52 60-52z"/><path d="M125 148h-70M245 148h70"/>
+        <circle cx="40" cy="148" r="24"/><circle cx="330" cy="148" r="24"/><path d="M185 200v46"/><circle cx="185" cy="272" r="24"/>
+      </svg>
+      <div style="display:flex;align-items:center;gap:10px"><div class="snav" style="background:none;padding:0"><div class="logo" style="margin:0">E</div></div><b style="font-size:15px">EDIM</b><span class="chip brand" style="background:#232952;color:#8b91bd"><i style="background:#8b91bd"></i>CTO · ETO Platform</span></div>
+      <h2>제품 구성을 선택하면,<br>생산의 모든 자료가<br>1시간 안에 준비됩니다.</h2>
+      <p>관계형 코드(RCCS™) 하나로 BOM · 승인/제작 도면 · 기술자료 · 견적서가 자동 생성되는 통합 플랫폼. CPQ + PLM + ERP + Digital Twin.</p>
+      <div class="stats">
+        <div class="stat"><b>&lt; 1h</b><span>Document 준비 시간</span></div>
+        <div class="stat"><b>178</b><span>표준 기능</span></div>
+        <div class="stat"><b>4-Way</b><span>Prompt↔Macro↔Flow↔Code</span></div>
+      </div>
+    </div>
+    <div class="form">
+      <h3>로그인</h3>
+      <div class="sub2">NOVA Solution 계정으로 계속하세요</div>
+      <div class="fgroup"><label>아이디</label><input class="input" placeholder="login id"></div>
+      <div class="fgroup"><label>비밀번호</label><input class="input" type="password" placeholder="••••••••"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 20px;font-size:12px;color:var(--n-500)">
+        <span>☑ 로그인 유지</span><a style="color:var(--brand-500);font-weight:600">비밀번호 재설정</a></div>
+      <span class="btn pri lg" style="justify-content:center">로그인</span>
+      <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--n-100);font-size:11.5px;color:var(--n-400);line-height:1.7">
+        5회 실패 시 계정이 잠깁니다 · 접속 기록은 감사 로그에 보관됩니다<br>테넌트: <b style="color:var(--n-500)">기업 도메인으로 자동 식별</b></div>
+    </div>
+  </div>
+  <div class="dnote"><b>디자인 노트</b> — 좌측 브랜드 패널은 영업 데모의 첫 장면을 겸함: 핵심 지표 3개(1시간·178기능·4-Way)가 곧 제품 피치. 배경의 플로차트 모티프는 EDIM 로고(순서도) 계승. 우측은 밀도 낮게 — 로그인만은 소비자급 단순함. 보안 문구(잠금·감사)로 B2B 신뢰 신호.</div>
+</section>
+
+<!-- ═══════════════════ D-03 CPQ ═══════════════════ -->
+<section class="page" id="d03">
+  <div class="p-head"><span class="pid">D-03</span><h2>CPQ 제품 선정</h2><span class="why">히어로 화면 — 모듈 조합 → 실시간 BOM·가격 → Run</span></div>
+  <div class="shell">
+    <div class="snav">
+      <div class="logo">E</div>
+      <div class="ni on" title="CPQ">⊞</div><div class="ni" title="PLM">✎</div><div class="ni" title="Code">⌗</div>
+      <div class="ni" title="Toolbox">⚒</div><div class="ni" title="ERP">▦</div><div class="ni" title="문서">▤</div>
+      <div class="grow"></div><div class="ni" title="알림">🔔</div><div class="avatar">YG</div>
+    </div>
+    <div class="smain">
+      <div class="topbar">
+        <span class="crumb">CPQ / Selection / <b>AHU — Double Deck 2</b></span>
+        <div class="search"><input class="input" placeholder="코드·도면·메뉴 검색  ⌘K"></div>
+        <span class="sp"></span>
+        <span class="pctx">📁 Micron #7 <span style="color:var(--n-400)">·</span> Pre-Sales</span>
+        <span class="chip pend"><i></i>승인요청 4</span>
+      </div>
+      <div class="cpq">
+        <div class="ptree">
+          <h5>Selection</h5>
+          <div class="tnode"><span class="tw">▾</span>Product</div>
+          <div class="tnode lv2"><span class="tw">▾</span>AHU</div>
+          <div class="tnode lv3 sel"><span class="tw">●</span>Double Deck 2</div>
+          <div class="tnode lv2"><span class="tw">▸</span>Fan</div>
+          <h5 style="margin-top:16px">Document</h5>
+          <div class="tnode"><span class="tw">▸</span>Product · Item</div>
+          <div style="margin-top:auto;padding-top:16px">
+            <div class="card" style="box-shadow:none"><div class="cb" style="padding:10px 12px">
+              <div style="font-size:11px;color:var(--n-500);font-weight:700;margin-bottom:6px">TO-DO</div>
+              <div style="font-size:12px;line-height:1.8">승인 확인 <span class="chip pend" style="float:right"><i></i>1</span><br>PL 지연 <span class="chip err" style="float:right"><i></i>1</span></div>
+            </div></div>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <div class="cv-toolbar">
+            <span class="sel">Arrangement · Double Deck 2</span>
+            <span class="btn sm">Move</span><span class="btn sm">Copy</span><span class="btn sm">＋ Add Item</span>
+            <span style="flex:1"></span>
+            <span class="mtabs"><span class="mtab on">Viewer</span><span class="mtab">Variants</span><span class="mtab">Referencers</span><span class="mtab">Supersedure</span></span>
+            <span class="sel">3각법 · 정면</span>
+          </div>
+          <div class="cv">
+            <div class="dim" style="left:60px;top:22px;width:560px"><span>4,504</span></div>
+            <div class="dim" style="left:60px;top:46px;width:300px"><span>2,504</span></div>
+            <div class="mod" style="left:60px;top:80px;width:150px;height:150px">Filter<small>EFP 55 · 3EA</small></div>
+            <div class="mod" style="left:210px;top:80px;width:150px;height:150px">Cooling Coil<small>ECC 55 · 6R</small></div>
+            <div class="mod sel" style="left:360px;top:80px;width:260px;height:110px">SF Fan ✓<small>KAD 900 FW · 더블클릭: 속성</small></div>
+            <div class="mod" style="left:360px;top:190px;width:260px;height:120px">Mixing Box<small>EMX 55</small></div>
+            <div class="mod" style="left:60px;top:230px;width:300px;height:100px">Heating Coil<small>EHC 55 · 2R</small></div>
+            <div class="dim" style="left:640px;top:80px;width:0;height:230px;border-left:1px solid var(--info-600);opacity:.6"></div>
+            <div style="position:absolute;left:648px;top:180px;color:var(--info-600);font-size:10px">3,254</div>
+            <div style="position:absolute;right:14px;bottom:12px;display:flex;gap:6px">
+              <span class="chip info"><i></i>치수 DB 자동</span><span class="chip brand"><i></i>비율 자동 조절</span>
+            </div>
+          </div>
+        </div>
+        <div class="rpanel">
+          <div>
+            <div style="font-size:11px;color:var(--n-500);font-weight:700;margin-bottom:4px">FINISHED GOODS CODE</div>
+            <div class="kbd" style="font-size:12px;display:block;padding:8px 10px;background:var(--brand-50);border-color:var(--brand-100);color:var(--brand-600)">EU-3–2020–450–6-21-4–SR-7</div>
+          </div>
+          <div class="card" style="box-shadow:none"><div class="ch" style="padding:10px 12px">BOM · 실시간 가격<span class="sp"></span><span style="font-size:11px;color:var(--n-500)">₩ 23,000 K</span></div>
+            <div class="cb" style="padding:8px 12px">
+              <div class="bomrow"><span class="lv">└</span><span class="code">KAD 900 FW…</span> SF Fan<span class="sp"></span><span class="price">—</span></div>
+              <div class="bomrow" style="padding-left:14px"><span class="lv">└</span><span class="code">H 22 380…</span> Motor<span class="sp"></span><span class="price">2,400 K</span></div>
+              <div class="bomrow"><span class="lv">└</span><span class="code">ECC 55…</span> Cooling Coil<span class="sp"></span><span class="price">1,180 K</span></div>
+              <div class="bomrow"><span class="lv">└</span><span class="code">EFP 55…</span> Filter ×3<span class="sp"></span><span class="price">420 K</span></div>
+              <div style="text-align:right;padding-top:8px"><a style="font-size:11.5px;color:var(--brand-500);font-weight:700">전체 47개 항목 ▾</a></div>
+            </div>
+          </div>
+          <div class="card" style="box-shadow:none"><div class="cb" style="padding:10px 12px;font-size:12px;line-height:1.9">
+            <b style="font-size:11px;color:var(--n-500)">SPEC</b><br>풍량 11 CMM · 정압 111 mmAq<br>온도 20℃ · 습도 50%<span style="float:right"><a style="color:var(--brand-500);font-weight:700;font-size:11.5px">Excel ⬆</a></span></div></div>
+          <span class="btn run lg" style="justify-content:center">▶ EDIM Run — 도면·견적 생성</span>
+          <div style="font-size:10.5px;color:var(--n-400);text-align:center">승인된 코드만 사용 · 비규격 선택 시 X-Code 분기</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="dnote"><b>디자인 노트</b> — ① 우측 하단 <b>Run 버튼이 화면의 단일 종착점</b>: 그린 예약색+대형, 나머지 액션은 중립톤으로 위계 강제 ② BOM 가격이 모듈 조합에 실시간 반응 — "구성=비용"의 즉각 피드백이 CPQ의 설득 장치 ③ 캔버스는 도트 그리드+치수선(info 블루)로 CAD 감각, 선택 모듈은 그린 글로우 ④ PLM 탭(Variants·Referencers·Supersedure)을 세그먼트 컨트롤로 상시 노출 ⑤ 프로젝트 컨텍스트 칩은 탑바 고정(잘못된 프로젝트에 작업하는 사고 방지).</div>
+</section>
+
+<!-- ═══════════════════ D-04 EDIM Run ═══════════════════ -->
+<section class="page" id="d04">
+  <div class="p-head"><span class="pid">D-04</span><h2>EDIM Run — 실행·산출물</h2><span class="why">제품의 매직 모먼트 — 자동 생성의 신뢰 체험</span></div>
+  <div class="shell" style="min-height:auto">
+    <div class="snav"><div class="logo">E</div><div class="ni on">⊞</div><div class="ni">✎</div><div class="ni">⌗</div><div class="ni">⚒</div><div class="ni">▦</div><div class="grow"></div><div class="avatar">YG</div></div>
+    <div class="smain">
+      <div class="topbar"><span class="crumb">CPQ / Run / <b>#7 — AHU 5 (ALL)</b></span><span class="sp"></span>
+        <span class="chip ok"><i></i>SUCCESS</span>
+        <span style="font-size:12px;color:var(--n-500)">총 <b style="color:var(--run-600)">8m 32s</b> · 목표 1h 대비 <b style="color:var(--run-600)">-86%</b></span></div>
+      <div class="content" style="display:flex;flex-direction:column;gap:14px">
+        <div class="stepper">
+          <div class="step done"><div class="dot">✓</div><div class="sl">BOM 전개</div><div class="st">47 파트 · 0.8s</div></div>
+          <div class="step done"><div class="dot">✓</div><div class="sl">치수 Macro</div><div class="st">214 식 · 12s</div></div>
+          <div class="step done"><div class="dot">✓</div><div class="sl">도면 생성</div><div class="st">승인 1 · 제작 12</div></div>
+          <div class="step done"><div class="dot">✓</div><div class="sl">원가·PCR</div><div class="st">3개 Type</div></div>
+          <div class="step done"><div class="dot">✓</div><div class="sl">기술자료</div><div class="st">5건</div></div>
+          <div class="step now"><div class="dot">6</div><div class="sl">서류·저장</div><div class="st">Project Folder</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:12px;font-weight:800;color:var(--n-500)">산출물 — PS-61313-5</div>
+            <div class="outcard"><div class="thumb" style="background:var(--danger-100);color:var(--danger-600)">PDF</div>
+              <div class="meta"><b>AHU5 승인도면 Rev.B</b><span>DWG 폴더 · 2.1 MB · KEY 치수 14</span></div>
+              <span class="chip pend"><i></i>고객 승인 대기</span><span class="btn sm">미리보기</span></div>
+            <div class="outcard"><div class="thumb" style="background:var(--info-100);color:var(--info-600)">DXF</div>
+              <div class="meta"><b>제작도면 12매 (KDCR 3-13 외)</b><span>DWG 폴더 · Macro 치수 반영 · R2010</span></div>
+              <span class="chip ok"><i></i>생성됨</span><span class="btn sm">ZIP ⬇</span></div>
+            <div class="outcard"><div class="thumb" style="background:var(--run-100);color:var(--run-600)">₩</div>
+              <div class="meta"><b>견적서 QR-61216-01 · ₩ 23,000 K</b><span>PRICE 폴더 · PCR(EBIT 18.2%) 근거 연결</span></div>
+              <span class="chip brand"><i></i>DRAFT</span><span class="btn sm">PCR 보기</span></div>
+            <div class="outcard"><div class="thumb">DOC</div>
+              <div class="meta"><b>기술자료 5건 — Fan 성능·밀도 계산서 외</b><span>DATA 폴더 · Grade S-3</span></div>
+              <span class="chip ok"><i></i>생성됨</span><span class="btn sm">폴더 열기</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:12px;font-weight:800;color:var(--n-500)">실행 로그</div>
+            <div class="logbox">
+<span class="t">10:31:02</span> BOM expand root=KDCR 3-13 depth≤10 … 47 items<br>
+<span class="t">10:31:03</span> topo-sort dimensions (design priority) … ok<br>
+<span class="t">10:31:15</span> macro eval 214/214 <span class="fn">✓</span> avg 41ms<br>
+<span class="t">10:33:40</span> drawing compose 13 files → DWG/<br>
+<span class="t">10:35:12</span> <span class="w">warn</span> KDC 21: 재고단가 없음 → 견적단가 대체 (resolve ③→④)<br>
+<span class="t">10:38:56</span> PCR OWN/BIZ1/BIZ2 · quotation draft<br>
+<span class="t">10:39:34</span> outputs 21 → Project Folder <span class="fn">SUCCESS</span></div>
+            <div class="card" style="box-shadow:none"><div class="cb" style="font-size:12px;line-height:1.9">
+              <b>다음 행동</b><br>① 승인도면 → 고객 승인 요청 (AP)<br>② 견적서 검토 → 발행 (QCR)<br><span style="color:var(--n-400);font-size:11px">warn 1건: 단가 소스 확인 권장 (W-13)</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="dnote"><b>디자인 노트</b> — ① 스텝퍼가 "무엇이 자동으로 되었나"를 서사로 보여줌: 단계별 실측치(47파트·214식·8m32s)가 신뢰의 근거 ② <b>목표 대비 배지(-86%)</b>는 발표자료의 1시간 약속을 매 실행마다 증명하는 장치 ③ 산출물은 파일 나열이 아닌 <b>다음 행동이 붙은 카드</b>(승인 요청·발행) — Run이 곧 업무의 시작점 ④ 로그는 다크 콘솔로 분리: 엔지니어 신뢰 + 일반 사용자는 접어둠 ⑤ warn은 삼키지 않고 다음 행동에 연결(단가 확인 → W-13).</div>
+</section>
+
+<!-- ═══════════════════ D-05 Dashboard ═══════════════════ -->
+<section class="page" id="d05">
+  <div class="p-head"><span class="pid">D-05</span><h2>Dashboard</h2><span class="why">경영·PM 시각 — 이상 경고가 먼저 보이는 구조</span></div>
+  <div class="shell" style="min-height:auto">
+    <div class="snav"><div class="logo">E</div><div class="ni">⊞</div><div class="ni">✎</div><div class="ni">⌗</div><div class="ni">⚒</div><div class="ni on">▦</div><div class="grow"></div><div class="avatar">YG</div></div>
+    <div class="smain">
+      <div class="topbar"><span class="crumb">ERP / <b>Dashboard</b></span><span class="sp"></span><span class="sel">전체 Project</span><span class="sel">2026 Q3</span></div>
+      <div class="content" style="display:flex;flex-direction:column;gap:14px">
+        <div class="kpis">
+          <div class="kpi"><div class="kl">진행 Project</div><div class="kv">12</div><div class="kd up">▲ 2 이번 달</div>
+            <svg class="spark" width="100%" height="26" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline points="0,20 20,17 40,18 60,12 80,13 100,7 120,5" fill="none" stroke="var(--brand-500)" stroke-width="2"/></svg></div>
+          <div class="kpi"><div class="kl">이번 달 수주</div><div class="kv">₩ 8.4억</div><div class="kd up">▲ 12% MoM</div>
+            <svg class="spark" width="100%" height="26" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline points="0,22 20,18 40,20 60,14 80,15 100,9 120,6" fill="none" stroke="var(--run-500)" stroke-width="2"/></svg></div>
+          <div class="kpi"><div class="kl">Run 평균 소요</div><div class="kv">9m 41s</div><div class="kd up">목표 1h 대비 -84%</div>
+            <svg class="spark" width="100%" height="26" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline points="0,6 20,9 40,8 60,13 80,12 100,16 120,18" fill="none" stroke="var(--run-500)" stroke-width="2"/></svg></div>
+          <div class="kpi" style="border-color:var(--danger-100);background:linear-gradient(180deg,#fff,var(--danger-100))"><div class="kl">이상 경고</div><div class="kv" style="color:var(--danger-600)">3</div><div class="kd dn">시간 2 · 자금 1</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px">
+          <div class="card"><div class="ch">Project 공정 현황 — Micron #7<span class="sp"></span><span class="chip info"><i></i>OR 수주 단계</span></div>
+            <div class="cb">
+              <div class="flow2"><span class="fnode done">PS</span><span class="farrow">›</span><span class="fnode done">PCR</span><span class="farrow">›</span><span class="fnode done">QCR</span><span class="farrow">›</span><span class="fnode now">OR</span><span class="farrow">›</span><span class="fnode">AP</span><span class="farrow">›</span><span class="fnode">APP</span><span class="farrow">›</span><span class="fnode">MR</span><span class="farrow">›</span><span class="fnode">…</span><span class="farrow">›</span><span class="fnode">DF</span><span class="farrow">›</span><span class="fnode">IR</span></div>
+              <table class="tbl" style="margin-top:12px"><tr><th>부서</th><th class="num">대기</th><th class="num">진행</th><th class="num">완료(주)</th><th class="num">지연</th><th style="width:34%">부하</th></tr>
+              <tr><td>영업</td><td class="num">3</td><td class="num">5</td><td class="num">12</td><td class="num" style="color:var(--danger-600);font-weight:700">1</td><td><svg width="100%" height="8"><rect width="70%" height="8" rx="4" fill="var(--brand-400)"/></svg></td></tr>
+              <tr><td>기술</td><td class="num">2</td><td class="num">7</td><td class="num">18</td><td class="num">0</td><td><svg width="100%" height="8"><rect width="88%" height="8" rx="4" fill="var(--warn-600)"/></svg></td></tr>
+              <tr><td>자재</td><td class="num">6</td><td class="num">4</td><td class="num">9</td><td class="num" style="color:var(--danger-600);font-weight:700">1</td><td><svg width="100%" height="8"><rect width="54%" height="8" rx="4" fill="var(--brand-400)"/></svg></td></tr>
+              <tr><td>생산</td><td class="num">1</td><td class="num">8</td><td class="num">15</td><td class="num">0</td><td><svg width="100%" height="8"><rect width="62%" height="8" rx="4" fill="var(--brand-400)"/></svg></td></tr></table>
+            </div></div>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div class="card"><div class="ch" style="color:var(--danger-600)">⚠ 이상 경고<span class="sp"></span><span class="btn sm">규칙 설정</span></div>
+              <div class="cb" style="display:flex;flex-direction:column;gap:10px;font-size:12px">
+                <div style="display:flex;gap:8px"><span class="chip err"><i></i>시간</span><div><b>PS-61313 · PL 기한 +2일</b><div style="color:var(--n-500);font-size:11px">담당 Kim · OR+7일 규칙 → <a style="color:var(--brand-500);font-weight:700">업무함</a></div></div></div>
+                <div style="display:flex;gap:8px"><span class="chip err"><i></i>시간</span><div><b>PS-598 · APP 응답 없음 5일</b><div style="color:var(--n-500);font-size:11px">고객 승인 리마인드 발송 가능</div></div></div>
+                <div style="display:flex;gap:8px"><span class="chip pend"><i></i>자금</span><div><b>PS-598 · 기성청구(IR) 지연</b><div style="color:var(--n-500);font-size:11px">납품 완료 +14일 · ₩ 1.2억</div></div></div>
+              </div></div>
+            <div class="card"><div class="ch">프로젝트 손익</div><div class="cb">
+              <svg width="100%" height="110" viewBox="0 0 300 110">
+                <g font-size="9" fill="var(--n-400)"><text x="4" y="104">Micron#7</text><text x="80" y="104">SK-A2</text><text x="150" y="104">KITA-X</text><text x="222" y="104">HD-05</text></g>
+                <rect x="8" y="30" width="24" height="62" rx="3" fill="var(--brand-400)"/><rect x="36" y="52" width="24" height="40" rx="3" fill="var(--run-500)"/>
+                <rect x="82" y="42" width="24" height="50" rx="3" fill="var(--brand-400)"/><rect x="110" y="60" width="24" height="32" rx="3" fill="var(--run-500)"/>
+                <rect x="152" y="22" width="24" height="70" rx="3" fill="var(--brand-400)"/><rect x="180" y="47" width="24" height="45" rx="3" fill="var(--run-500)"/>
+                <rect x="224" y="56" width="24" height="36" rx="3" fill="var(--brand-400)"/><rect x="252" y="78" width="24" height="14" rx="3" fill="var(--danger-600)"/>
+              </svg>
+              <div style="font-size:10.5px;color:var(--n-500)"><span style="color:var(--brand-500)">■</span> 수주액 <span style="color:var(--run-600)">■</span> 마진 <span style="color:var(--danger-600)">■</span> 적자 — HD-05 원가 재검토 필요</div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="dnote"><b>디자인 노트</b> — ① 우상단 KPI 하나만 위험색 그라디언트: <b>경고는 개수보다 위치로 각인</b> ② 경고 카드는 항목마다 원인 규칙(OR+7일)과 <b>해결 진입점 링크</b>(업무함·리마인드)를 동반 — 대시보드는 보고가 아니라 행동 분배 장치 ③ "Run 평균 소요" KPI로 제품 핵심 약속을 경영 지표화 ④ 부하 바·손익 차트는 인라인 SVG(라이브러리 前 단계) — 실 구현 시 동일 비주얼로 ECharts 매핑.</div>
+</section>
+
+<!-- ═══════════════════ D-06 Macro Studio ═══════════════════ -->
+<section class="page" id="d06">
+  <div class="p-head"><span class="pid">D-06</span><h2>Macro Studio — 4-Way Sync</h2><span class="why">차별화 기능 — 자연어↔수식↔순서도↔코드</span></div>
+  <div class="shell" style="min-height:auto">
+    <div class="snav"><div class="logo">E</div><div class="ni">⊞</div><div class="ni">✎</div><div class="ni">⌗</div><div class="ni on">⚒</div><div class="ni">▦</div><div class="grow"></div><div class="avatar">YG</div></div>
+    <div class="smain">
+      <div class="topbar"><span class="crumb">Toolbox / Macro / <b>SS Fan 샤프트 길이 계산</b></span><span class="sp"></span>
+        <span class="chip info"><i></i>TESTED</span><span style="font-size:11.5px;color:var(--n-500)">v0.3 · DOC DF 342-234 E · Grade S-2</span>
+        <span class="btn pri sm">승인 요청</span></div>
+      <div class="content" style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="mtabs"><span class="mtab">Prompt</span><span class="mtab on">Macro</span><span class="mtab">Flowchart</span><span class="mtab">Coding</span></div>
+          <span class="chip ok"><i></i>4-Way 동기화됨</span>
+          <span style="flex:1"></span>
+          <span class="btn sm">함수 마법사 ƒ</span><span class="btn sm">Table 탐색</span><span class="btn run sm">▶ Test Run</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="codebox">
+<span class="cm">// Prompt: Table1의 Impeller → Table2 casing 폭 + Table3 Bearing 폭 합산</span><br>
+<span class="fn">IF</span>(MC, CC &gt; <span class="num2">500</span>,<br>
+&nbsp;&nbsp;<span class="tb">Table12</span>(E, <span class="num2">10:25</span>, Cos2) + <span class="fn">Var</span>(FES, <span class="num2">15</span>, F3),<br>
+&nbsp;&nbsp;<span class="tb">Table12</span>(E, <span class="num2">10:25</span>, Cos2) + <span class="fn">Var</span>(FES, <span class="num2">15</span>, F3)<br>
+) * <span class="fn">PreC</span>(<span class="num2">1</span>)</div>
+            <div class="card" style="box-shadow:none"><div class="ch" style="padding:10px 14px">Flowchart 미리보기<span class="sp"></span><span style="font-size:11px;color:var(--n-500)">편집은 탭 전환</span></div>
+              <div class="cb" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span class="fcnode">Impeller 선택<br><small style="font-weight:500">Table1</small></span><span class="farrow">→</span>
+                <span class="fcnode dec">CC &gt; 500 ?</span><span class="farrow">→</span>
+                <span class="fcnode">Casing 폭<br><small style="font-weight:500">Table12 10:25</small></span><span class="farrow">→</span>
+                <span class="fcnode">＋ Bearing 폭</span><span class="farrow">→</span>
+                <span class="fcnode" style="border-color:var(--run-500);background:var(--run-100);color:var(--run-600)">Shaft 길이</span>
+              </div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="card" style="box-shadow:none"><div class="ch" style="padding:10px 14px">Test Run<span class="sp"></span><span class="chip ok"><i></i>통과</span></div>
+              <div class="cb" style="font-size:12px">
+                <table class="tbl"><tr><th>입력</th><th class="num">값</th></tr>
+                <tr><td class="kbd">MC / CC</td><td class="num">520</td></tr>
+                <tr><td class="kbd">FES</td><td class="num">15</td></tr></table>
+                <div style="margin-top:10px;padding:12px;border-radius:8px;background:var(--run-100);display:flex;align-items:baseline;gap:10px">
+                  <span style="font-size:11px;font-weight:700;color:var(--run-600)">결과</span>
+                  <b style="font-size:24px;color:var(--run-600);font-variant-numeric:tabular-nums">786</b>
+                  <span style="font-size:11px;color:var(--n-500)">mm · 38ms</span></div>
+              </div></div>
+            <div class="card" style="box-shadow:none"><div class="ch" style="padding:10px 14px">참조 무결성</div>
+              <div class="cb" style="font-size:12px;line-height:2">
+                <span class="chip ok"><i></i>Table12</span> Variant · 승인본 v2<br>
+                <span class="chip ok"><i></i>Var FES</span> 상수 목록<br>
+                <span class="chip ok"><i></i>순환 참조 없음</span> DAG 검증<br>
+                <span style="font-size:11px;color:var(--n-500)">이 Macro를 참조: 치수 3 · 검증식 1</span></div></div>
+            <div style="font-size:11px;color:var(--n-400);line-height:1.7">승인 경로: TESTED → 검토 → APPROVED (미승인 Macro는 Run에서 사용 불가) · AI 제안분은 항상 사람 검토를 거침</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="dnote"><b>디자인 노트</b> — ① 4표현을 탭 + <b>"동기화됨" 상태 칩</b>으로: 편집 중 다른 표현이 낡으면 칩이 warn으로 바뀌어 재동기 유도 ② 수식은 다크 에디터 + 시맨틱 하이라이트(Table=블루·함수=그린·숫자=앰버) — 참조 가독성이 이 화면의 본질 ③ Test 결과는 큰 숫자 하나(786)로: 엔지니어가 검산할 대상을 명확히 ④ 참조 무결성 패널이 승인 가능 여부를 사전 설명(TESTED 게이트) ⑤ 헤더에 문서 통제 메타(DOC No·Grade) 상시 노출 — Macro도 통제 문서임을 시각화.</div>
+</section>
+
+</main>
+</div>
+<script>
+function showPage(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  document.querySelectorAll('.vrail a').forEach(x => x.classList.toggle('on', x.dataset.p === id));
+  document.querySelectorAll('.page').forEach(x => x.classList.toggle('on', x.id === id));
+  document.querySelector('.stage').scrollTop = 0;
+}
+document.querySelectorAll('.vrail a').forEach(a => {
+  a.addEventListener('click', e => { e.preventDefault(); history.replaceState(null,'','#'+a.dataset.p); showPage(a.dataset.p); });
+});
+if (location.hash) showPage(location.hash.slice(1));
+</script>
+</body>
+</html>
