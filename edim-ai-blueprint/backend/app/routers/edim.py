@@ -1077,8 +1077,7 @@ async def import_prices_excel(uploadedFile: UploadFile = File(...)) -> dict[str,
                             """INSERT INTO com_company (tenant_id, company_name, company_type)
                                VALUES (%s,%s,'SUPPLIER') RETURNING company_id""", (tid, name))
                         supplier_id = cur.fetchone()[0]
-                # 행 단위 SAVEPOINT — EXCLUDE 위반 행만 거부하고 계속
-                cur.execute("SAVEPOINT price_row")
+                # autocommit — 실패 행만 개별 거부하고 계속 (EXCLUDE 등)
                 try:
                     cur.execute(
                         """INSERT INTO cst_price (tenant_id, product_code_id, supplier_id,
@@ -1088,7 +1087,6 @@ async def import_prices_excel(uploadedFile: UploadFile = File(...)) -> dict[str,
                          cell("적용시작"), cell("적용종료") or None))
                     inserted += 1
                 except Exception as e:  # noqa: BLE001
-                    cur.execute("ROLLBACK TO SAVEPOINT price_row")
                     if "exclusion" in str(e).lower() or "overlap" in str(e).lower():
                         raise ValueError("기간 중복 (EXCLUDE)") from e
                     raise ValueError(str(e)[:80]) from e
