@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
 import { pingBackend, subscribeDataSource, type DataSource } from '../api/services'
-import { MdiTabs, MenuBar, StatusBar, TitleBar } from '../components/chrome'
+import { MdiTabs, MenuBar, StatusBar, TitleBar, type MenuItem } from '../components/chrome'
 import { LnavTree } from '../components/LnavTree'
 import { LocaleSwitcher, useI18n } from '../i18n/I18nContext'
 import { NotificationBell } from './NotificationBell'
@@ -130,6 +130,81 @@ export function Shell(props: { user: User }) {
   // 툴바 아이콘 → 활성 화면의 F-key 디스패치 (useFKeys 가 window keydown 수신)
   const fkey = (key: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key }))
 
+  // ── 메뉴바 드롭다운 ──
+  const [showHelp, setShowHelp] = useState(false)
+  const stepTab = (dir: 1 | -1) => {
+    if (tabs.length === 0) return
+    const idx = Math.max(0, tabs.findIndex((t2) => t2.id === activeTabId))
+    activateTab(tabs[(idx + dir + tabs.length) % tabs.length].id)
+  }
+  const menus: Record<string, MenuItem[]> = {
+    '파일': [
+      { label: t('common.new', '신규'), hint: 'F2', onClick: () => fkey('F2') },
+      { label: t('common.save', '저장'), hint: 'F12', onClick: () => fkey('F12') },
+      { label: t('common.print', '인쇄'), onClick: () => window.print() },
+      { sep: true, label: '' },
+      { label: '로그아웃', onClick: () => {
+        sessionStorage.removeItem('edim-session')
+        sessionStorage.removeItem('edim-token')
+        window.location.reload()
+      } },
+    ],
+    '편집': [
+      { label: '실행 취소', onClick: () => shell.setStatusMsg('실행 취소 — 활성 화면 편집 이력 기준') },
+      { label: '다시 실행', onClick: () => shell.setStatusMsg('다시 실행 — 활성 화면 편집 이력 기준') },
+      { sep: true, label: '' },
+      { label: t('common.delete', '삭제'), hint: 'F3', onClick: () => fkey('F3') },
+    ],
+    '조회': [
+      { label: t('common.query', '조회'), hint: 'F8', onClick: () => fkey('F8') },
+      { label: 'Run', hint: 'F9', onClick: () => fkey('F9') },
+      { sep: true, label: '' },
+      { label: '데이터 소스 재확인', onClick: () => {
+        void pingBackend()
+        shell.setStatusMsg('데이터 소스 재확인 — 상태바 DB 표시 참조')
+      } },
+    ],
+    '도구': [
+      { label: 'Macro Studio (S-2-2)', onClick: () => shell.openTab(SCREEN_BY_NODE['tbx-macro']) },
+      { label: 'UI Designer (S-2-1)', onClick: () => shell.openTab(SCREEN_BY_NODE['tbx-ui']) },
+      { label: '데이터 Table (M-3-7)', onClick: () => shell.openTab(SCREEN_BY_NODE['code-datatable']) },
+      { sep: true, label: '' },
+      { label: '문서 포털 (docs)', onClick: () => window.open('/docs/', '_blank') },
+    ],
+    '창': [
+      { label: '다음 탭', hint: 'Alt+→', onClick: () => stepTab(1), disabled: tabs.length === 0 },
+      { label: '이전 탭', hint: 'Alt+←', onClick: () => stepTab(-1), disabled: tabs.length === 0 },
+      { label: '탭 닫기', hint: 'Alt+W', disabled: !activeTabId,
+        onClick: () => { if (activeTabId) closeTab(activeTabId) } },
+      { label: '모든 탭 닫기', disabled: tabs.length === 0,
+        onClick: () => [...tabs].forEach((t2) => closeTab(t2.id)) },
+      { sep: true, label: '' },
+      ...tabs.slice(0, 12).map((t2) => ({
+        label: `${t2.id === activeTabId ? '● ' : ''}${t2.code} ${t(`screen.${t2.screenId}`, t2.title)}`,
+        onClick: () => activateTab(t2.id),
+      })),
+    ],
+    '도움말': [
+      { label: '단축키 안내', onClick: () => setShowHelp(true) },
+      { label: '시연 시나리오 (PDF)', onClick: () => window.open('/docs/files/pdf/EDIM_시연시나리오.pdf', '_blank') },
+      { sep: true, label: '' },
+      { label: 'EDIM Tool System — NOVA Solution', disabled: true },
+    ],
+  }
+
+  const SHORTCUTS: [string, string][] = [
+    ['F2 / F3 / F8 / F9 / F12', '신규 · 삭제 · 조회 · Run · 저장 (활성 화면)'],
+    ['Ctrl(⌘)+K', '검색창 포커스'],
+    ['Alt+W', '활성 탭 닫기'],
+    ['Alt+← / Alt+→', '이전 / 다음 탭'],
+    ['Alt+1 ~ 9', 'n번째 탭 활성화'],
+    ['브라우저 뒤로/앞으로', '탭·모듈 이동 이력 따라가기 (URL 동기)'],
+    ['CAD: 휠 / 드래그', '커서 기준 줌 / 팬'],
+    ['CAD: ＋ − 0', '줌 인 · 줌 아웃 · 맞춤 (더블클릭 동일)'],
+    ['CAD: M / Esc', '측정 토글 / 측정·선택 해제'],
+    ['그리드 더블클릭', '상세 탭 (코드·문서·부품·이벤트)'],
+  ]
+
   const userLabel = useMemo(
     () => `Micron #7 (Pre-Sales) · ${props.user.department} · ${props.user.name} [${props.user.userLevel}]`,
     [props.user],
@@ -153,7 +228,7 @@ export function Shell(props: { user: User }) {
   return (
     <div className="app">
       <TitleBar user={userLabel} bell={<><LocaleSwitcher /><NotificationBell /></>} />
-      <MenuBar activeModule={shell.module} onModule={shell.setModule} />
+      <MenuBar activeModule={shell.module} onModule={shell.setModule} menus={menus} />
       <div className="toolbar">
         <span className="b ic" title="신규 (F2)" onClick={() => fkey('F2')}>▤</span>
         <span className="b ic" title="저장 (F12)" onClick={() => fkey('F12')}>💾</span>
@@ -247,6 +322,35 @@ export function Shell(props: { user: User }) {
           : source === 'mock'
             ? <span>DB: <b style={{ color: 'var(--warn)' }}>MOCK</b></span>
             : 'DB: …'} />
+      {showHelp ? (
+        <div data-help-dialog style={{
+          position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowHelp(false)}>
+          <div style={{
+            background: '#fff', border: '1px solid var(--line-strong)', width: 480,
+            boxShadow: '0 8px 30px rgba(20,26,40,.35)',
+          }} onClick={(e) => e.stopPropagation()}>
+            <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+              <b>단축키 안내</b><span className="sp" />
+              <span style={{ cursor: 'pointer' }} onClick={() => setShowHelp(false)}>✕</span>
+            </div>
+            <table className="g" style={{ width: '100%' }}>
+              <tbody>
+                {SHORTCUTS.map(([k, v]) => (
+                  <tr key={k}>
+                    <td style={{ width: 180, fontFamily: 'Consolas, monospace', fontSize: 10.5, padding: '4px 10px', borderBottom: '1px solid var(--line-soft)' }}>{k}</td>
+                    <td style={{ fontSize: 11, padding: '4px 10px', borderBottom: '1px solid var(--line-soft)' }}>{v}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ padding: '6px 10px', fontSize: 10, color: 'var(--txt-mute)' }}>
+              Ctrl+W·Ctrl+Tab 은 브라우저 예약키라 Alt 조합을 사용합니다. Esc 또는 바깥 클릭으로 닫기.
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
