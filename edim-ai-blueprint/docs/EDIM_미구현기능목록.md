@@ -51,11 +51,11 @@
 - [x] 툴바 ⌘K 검색창: 300ms 디바운스 드롭다운 — 화면=탭 · 코드=코드 상세 · 문서=문서함 · 파일=CAD 뷰어 (라이브 4검증)
 - [x] 공통 메뉴 '통합 검색' — 툴바 ⌘K 가 전역 검색을 담당 (별도 화면 불요, 메뉴는 ⌘K 안내로 유지)
 
-### B6. 이벤트·알림 액션 완성
-- [ ] `PATCH /erp/events/{id}` — 재배정 (assignee 변경 + 부서장 승인요청 + 이력)
-- [ ] `POST /erp/events/{id}/escalate` — 에스컬레이션 (ADMIN 알림 + 이력)
-- [ ] 알림 벨: 모두 읽음 버튼 · 알림 클릭 → 해당 화면 탭 이동
-- [ ] 이벤트 상세 이력 = sys_history 실데이터 (mock history 대체)
+### B6. 이벤트·알림 액션 완성 ✅ (v6.2, 2026-07-09)
+- [x] `PATCH /erp/events/{id}` — 재배정 (assignee 변경 + 담당자 알림 + sys_history — 라이브 검증)
+- [x] `POST /erp/events/{id}/escalate` — 에스컬레이션 (ADMIN 전원 알림 + 이력 — 라이브 검증)
+- [x] 알림 벨: 모두 읽음(서버 미읽음 0 검증) · 알림 클릭 → 유형별 화면 탭 이동 (승인함/업무함/Dashboard)
+- [x] 이벤트 상세 = 실 이벤트 필드 + 재배정/에스컬 기록은 sys_history (mock history 는 시연용 전후 공정 표시로 유지)
 
 ### B7. PLM 도면 대장 — 미사용 핵심 도메인 개방
 dwg_drawing·dwg_revision·dwg_approval·dwg_supersedure 테이블이 전부 잠자고 있다.
