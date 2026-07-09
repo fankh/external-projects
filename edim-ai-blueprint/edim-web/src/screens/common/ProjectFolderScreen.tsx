@@ -1,7 +1,8 @@
 /** M-15-8/9 Project Folder·이력 조회 (W-24, 슬라이드 64) — 폴더 5종 자동 분류
  *  (dwg_file.folder CHECK) · sys_history diff. */
-import { useState } from 'react'
-import { FOLDERS, FOLDER_FILES, SYS_HISTORY, type FolderFile } from '../../api/mock/dataMore'
+import { useEffect, useState } from 'react'
+import { FOLDERS, FOLDER_FILES, type FolderFile } from '../../api/mock/dataMore'
+import { historyService, type HistoryRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -11,6 +12,11 @@ export function ProjectFolderScreen(_props: ScreenProps) {
   const shell = useShell()
   const [folder, setFolder] = useState<string>('DWG')
   const [selFile, setSelFile] = useState<string | null>(null)
+  const [hist, setHist] = useState<HistoryRow[]>([])
+
+  useEffect(() => {
+    void historyService.recent().then(setHist)
+  }, [])
 
   const rows = FOLDER_FILES.filter((f) => f.folder === folder)
   const sel = FOLDER_FILES.find((f) => f.name === selFile) ?? null
@@ -67,7 +73,7 @@ export function ProjectFolderScreen(_props: ScreenProps) {
             <table className="g">
               <thead><tr><th>일시</th><th>대상</th><th>작업</th><th>작업자</th><th></th></tr></thead>
               <tbody>
-                {SYS_HISTORY.map((h, i) => (
+                {hist.map((h, i) => (
                   <tr key={i}>
                     <td className="c">{h.at}</td>
                     <td className="code">{h.target}</td>

@@ -1,9 +1,10 @@
 /** S-3-5 ERP Project 등록·관리 (W-09, 슬라이드 4·52) — PS 자동 채번 ·
  *  영업 단계 상태기계 · 접수 자료 등록. */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   PROJECT, RECEIVED_FILES, SALES_STAGES, type ReceivedFile,
 } from '../../api/mock/dataErp'
+import { projectService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -19,9 +20,17 @@ export function ProjectScreen({ active }: ScreenProps) {
   const [files, setFiles] = useState<ReceivedFile[]>(RECEIVED_FILES)
   const [dirty, setDirty] = useState(false)
 
+  useEffect(() => {
+    // prj_project 실 조회 — 저장된 영업 단계 복원
+    void projectService.get(PROJECT.projectNo).then((p) => setStage(p.stage))
+  }, [])
+
   const save = () => {
-    setDirty(false)
-    shell.setStatusMsg(`저장 — ${PROJECT.projectNo} · 영업단계 [${stage}] 이력 기록 (SYS-017)`)
+    void (async () => {
+      await projectService.setStage(PROJECT.projectNo, stage)
+      setDirty(false)
+      shell.setStatusMsg(`저장 — ${PROJECT.projectNo} · sales_stage=[${stage}] 전이 + 이력 (SYS-017)`)
+    })()
   }
 
   useFKeys(active, useMemo(() => ({ F12: save }), [stage])) // eslint-disable-line react-hooks/exhaustive-deps

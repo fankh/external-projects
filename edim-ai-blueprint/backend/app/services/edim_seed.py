@@ -86,7 +86,8 @@ def run_seed() -> None:
         cur.execute("SELECT tenant_id FROM sys_tenant WHERE tenant_code=%s", (TENANT,))
         row = cur.fetchone()
         if row:
-            logger.info("seed skipped — tenant '%s' exists (tenant_id=%s)", TENANT, row[0])
+            logger.info("base seed exists (tenant_id=%s)", row[0])
+            _seed_v2(cur, row[0])
             return
 
         cur.execute(
@@ -183,3 +184,126 @@ def run_seed() -> None:
              json.dumps({"B": "13", "C": "32", "E": "15"})))
 
         logger.info("seed complete — tenant_id=%s, %d codes", tid, len(codes))
+        _seed_v2(cur, tid)
+
+
+# ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
+
+USERS_V2 = [
+    ("kim01", "Kim", "기술", "GENERAL", "ACTIVE"),
+    ("park.f", "Park", "재무", "ADMIN", "LOCKED"),
+    ("lee.t", "Lee", "기술", "GENERAL", "ACTIVE"),
+    ("jang.s", "Jang", "영업", "GENERAL", "ACTIVE"),
+]
+
+DOCS_V2 = [
+    ("DF 342-234 E", "Density 계산서", "TECH_DOC", "CHECK", "KD-0.2", "Kim", None, "S-2"),
+    ("DF 342-235 A", "Fan 성능 Report", "TECH_DOC", "APPROVE", "KD-1.0", "Lee", None, "S-3"),
+    ("QR-61216-01", "CLT 견적서", "QUOTATION", "ACCEPTED", "1.1", "Jang", "2026-06-30", "S-3"),
+    ("I011902", "승인도면 (AHU 5)", "DRAWING", "ACCEPTED", "B", "Kim", "2026-06-27", "S-1"),
+    ("DF 342-236", "소음 예측 계산서", "TECH_DOC", "SET_UP", "KD-0.1", "Kim", None, "S-2"),
+]
+
+PROC_DEFS_V2 = [
+    ("OR", "수주", "영업", False), ("AP", "승인 도서", "영업", True),
+    ("PL", "Part List", "기술", True), ("BOM", "BOM", "기술", True),
+    ("MR", "제작의뢰", "기술", False), ("PR", "발주 요청", "자재", False),
+    ("IR", "기성청구", "재무", False),
+]
+PROC_EDGES_V2 = [("OR", "AP"), ("OR", "PL"), ("PL", "BOM"), ("BOM", "PR"), ("AP", "MR")]
+
+# (proc, project_no, assignee, due, status)
+EVENTS_V2 = [
+    ("MR", "PS-61313-5", "edim", "2026-07-09", "IN_PROGRESS"),
+    ("PL", "PS-61313-5", "kim01", "2026-07-05", "TODO"),
+    ("BOM", "PS-598", "kim01", "2026-07-11", "TODO"),
+    ("MR", "PS-612", "edim", "2026-07-07", "TODO"),
+    ("IR", "PS-598", "park.f", "2026-07-04", "TODO"),
+]
+
+
+def _seed_v2(cur, tid: int) -> None:
+    cur.execute("SELECT 1 FROM doc_control WHERE tenant_id=%s LIMIT 1", (tid,))
+    if cur.fetchone():
+        logger.info("seed v2 exists — skip")
+        return
+
+    for login, name, dept, level, status in USERS_V2:
+        cur.execute(
+            """INSERT INTO sys_user (tenant_id, login_id, user_name, password_hash,
+               department, user_level, status)
+               VALUES (%s,%s,%s,%s,%s,%s,%s)
+               ON CONFLICT (tenant_id, login_id) DO NOTHING""",
+            (tid, login, name, hashlib.sha256(b"edim").hexdigest(), dept, level, status))
+
+    for no, name in [("PS-612", "반도체 배기 개선"), ("PS-598", "물류센터 공조")]:
+        cur.execute(
+            """INSERT INTO prj_project (tenant_id, project_no, project_name)
+               VALUES (%s,%s,%s) ON CONFLICT (tenant_id, project_no) DO NOTHING""",
+            (tid, no, name))
+
+    for doc_no, title, dtype, status, ver, person, appdate, grade in DOCS_V2:
+        cur.execute(
+            """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type,
+               released_status, version, person, approval_date, management_grade)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (tid, doc_no, title, dtype, status, ver, person, appdate, grade))
+
+    defs: dict[str, int] = {}
+    for code, name, dept, auto in PROC_DEFS_V2:
+        cur.execute(
+            """INSERT INTO erp_process_def (tenant_id, proc_code, proc_name, department, is_auto)
+               VALUES (%s,%s,%s,%s,%s) RETURNING proc_def_id""",
+            (tid, code, name, dept, auto))
+        defs[code] = cur.fetchone()[0]
+    for f, t in PROC_EDGES_V2:
+        cur.execute(
+            """INSERT INTO erp_process_edge (tenant_id, from_def_id, to_def_id)
+               VALUES (%s,%s,%s)""", (tid, defs[f], defs[t]))
+
+    cur.execute("SELECT login_id, user_id FROM sys_user WHERE tenant_id=%s", (tid,))
+    uids = dict(cur.fetchall())
+    cur.execute("SELECT project_no, project_id FROM prj_project WHERE tenant_id=%s", (tid,))
+    pids = dict(cur.fetchall())
+
+    for proc, pno, login, due, status in EVENTS_V2:
+        cur.execute(
+            """INSERT INTO erp_process_event (tenant_id, proc_def_id, project_id,
+               status, assignee_id, due_date)
+               VALUES (%s,%s,%s,%s,%s,%s)""",
+            (tid, defs[proc], pids[pno], status, uids.get(login), due))
+
+    # 승인 요청 (PENDING) — product_code / doc_control 대상
+    cur.execute(
+        "SELECT main_code, product_code_id FROM product_code WHERE tenant_id=%s", (tid,))
+    cids = dict(cur.fetchall())
+    cur.execute(
+        "SELECT doc_no, doc_control_id FROM doc_control WHERE tenant_id=%s", (tid,))
+    dids = dict(cur.fetchall())
+    reqs = [
+        ("product_code", cids["KDCR 3-13"], "UPDATE", "검토", "ysgang", "KDCR 3-13 ↔ KDI 21 관계"),
+        ("product_code", cids["FDV-480"], "CREATE", "승인", "ysgang", "FDV-480 신규 등록"),
+        ("doc_control", dids["DF 342-235 A"], "UPDATE", "승인", "kim01", "Fan 성능 Report v1.0"),
+        ("doc_control", dids["DF 342-234 E"], "CREATE", "검토", "lee.t", "Density 계산서 v0.2"),
+    ]
+    requester_fallback = uids.get("edim") or next(iter(uids.values()))
+    for table, target, rtype, step, login, label in reqs:
+        cur.execute(
+            """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
+               request_type, step, requester_id, comment)
+               VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+            (tid, table, target, rtype, step,
+             uids.get(login, requester_fallback), label))
+
+    actor = requester_fallback
+    for table, target, action in [
+        ("cpq_run", 1, "RUN_SUCCESS"), ("code_relationship", 1, "UPDATE"),
+        ("sys_hierarchy", 1, "MOVE"),
+    ]:
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action,
+               actor_id, after_data)
+               VALUES (%s,%s,%s,%s,%s,%s)""",
+            (tid, table, target, action, actor, json.dumps({"seed": True})))
+
+    logger.info("seed v2 complete — docs/users/events/approvals")

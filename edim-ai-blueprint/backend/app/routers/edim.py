@@ -86,7 +86,10 @@ def group_slots(group: str) -> list[dict[str, Any]]:
         cur.execute(
             """SELECT ci.item_slot, ci.item_name,
                       COALESCE(array_agg(civ.value_code ORDER BY civ.sort_order)
-                               FILTER (WHERE civ.approval_status='APPROVED'), '{}')
+                               FILTER (WHERE civ.approval_status='APPROVED'), '{}'),
+                      COALESCE(array_agg(civ.value_code ORDER BY civ.sort_order)
+                               FILTER (WHERE civ.value_code IS NOT NULL), '{}'),
+                      COALESCE(bool_or(civ.approval_status <> 'APPROVED'), false)
                FROM code_group cg
                JOIN code_item ci ON ci.group_id=cg.group_id
                LEFT JOIN code_item_value civ ON civ.item_id=ci.item_id
@@ -94,7 +97,9 @@ def group_slots(group: str) -> list[dict[str, Any]]:
                GROUP BY ci.item_slot, ci.item_name, ci.sort_order
                ORDER BY ci.item_slot""", (tid, group))
         return [
-            {"slot": r[0], "label": r[1], "values": list(r[2]), "approved": True}
+            {"slot": r[0], "label": r[1], "values": list(r[2]),
+             "allValues": list(r[3]), "count": len(r[3]),
+             "status": "PENDING" if r[4] else "APPROVED", "approved": not r[4]}
             for r in cur.fetchall()
         ]
 
@@ -210,6 +215,293 @@ def resolve_price(code: str, at: str | None = None) -> dict[str, Any]:
         "to": row[5].isoformat() if row[5] else None,
         "supplier": row[6] or "-", "active": True,
     }
+
+
+# ── SVC-10 Approval (승인함 M-15-2) ──
+@router.get("/approvals/inbox")
+def approvals_inbox() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT a.approval_id, a.target_table, a.request_type, a.step,
+                      u.user_name, to_char(a.requested_at,'MM-DD'), a.comment,
+                      COALESCE(pc.main_code, dc.doc_no, a.target_table||'#'||a.target_id)
+               FROM sys_approval_request a
+               JOIN sys_user u ON u.user_id=a.requester_id
+               LEFT JOIN product_code pc
+                 ON a.target_table='product_code' AND pc.product_code_id=a.target_id
+               LEFT JOIN doc_control dc
+                 ON a.target_table='doc_control' AND dc.doc_control_id=a.target_id
+               WHERE a.tenant_id=%s AND a.result IS NULL
+               ORDER BY a.approval_id""", (tid,))
+        type_label = {"product_code": "Code", "doc_control": "문서",
+                      "code_item": "Code", "tbx_macro": "Macro"}
+        return [
+            {"id": r[0], "assetType": type_label.get(r[1], r[1]),
+             "target": r[6] or r[7], "reqKind": r[2], "requester": r[4],
+             "reqDate": r[5], "stage": r[3], "tested": r[1] == "tbx_macro"}
+            for r in cur.fetchall()
+        ]
+
+
+class DecideRequest(BaseModel):
+    approve: bool
+    comment: str = ""
+
+
+@router.post("/approvals/{approval_id}/decide")
+def decide(approval_id: int, body: DecideRequest) -> dict[str, Any]:
+    if not body.approve and not body.comment.strip():
+        raise HTTPException(422, detail="반려는 코멘트 필수")
+    result = "APPROVED" if body.approve else "REJECTED"
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_approval_request
+               SET result=%s, comment=NULLIF(%s,'') , decided_at=now()
+               WHERE tenant_id=%s AND approval_id=%s AND result IS NULL
+               RETURNING target_table, target_id""",
+            (result, body.comment.strip(), tid, approval_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"처리 가능한 요청 없음: {approval_id}")
+        # 대상 자산 상태 전이 + 이력
+        if row[0] == "product_code":
+            cur.execute(
+                "UPDATE product_code SET approval_status=%s WHERE product_code_id=%s",
+                ("APPROVED" if body.approve else "REJECTED", row[1]))
+        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id='edim'", (tid,))
+        actor = cur.fetchone()
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,%s,%s,%s,%s,%s)""",
+            (tid, row[0], row[1], result, actor[0] if actor else 1,
+             json.dumps({"comment": body.comment})))
+    return {"approvalId": approval_id, "result": result}
+
+
+# ── SVC-11 Documents (문서함 M-5-4) ──
+STATUS_LABEL = {"SET_UP": "Set-up", "CHECK": "Check", "APPROVE": "Approve 대기", "ACCEPTED": "Accepted"}
+
+
+@router.get("/documents")
+def documents() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT d.doc_no, d.title, d.person, to_char(d.created_at,'MM-DD'),
+                      d.released_status, u.user_name,
+                      to_char(d.approval_date,'MM-DD'), d.version, d.management_grade
+               FROM doc_control d LEFT JOIN sys_user u ON u.user_id=d.approver_id
+               WHERE d.tenant_id=%s ORDER BY d.doc_control_id""", (tid,))
+        return [
+            {"docNo": r[0], "title": r[1], "person": r[2], "date": r[3],
+             "status": STATUS_LABEL[r[4]], "approver": r[5] or "-",
+             "appDate": r[6] or "-", "version": r[7], "grade": r[8]}
+            for r in cur.fetchall()
+        ]
+
+
+# ── SVC-01 Users (M-14-6) ──
+ROLE_LABEL = {"PLATFORM": "Platform", "ADMIN": "관리자", "SETUP": "설계 Set-up", "GENERAL": "일반"}
+
+
+@router.get("/users")
+def users() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT login_id, user_name, department, user_level, status
+               FROM sys_user WHERE tenant_id=%s ORDER BY user_id""", (tid,))
+        return [
+            {"login": r[0], "name": r[1], "dept": r[2] or "-", "level": r[3],
+             "role": (r[2] or "") + " " + ROLE_LABEL.get(r[3], r[3]), "status": r[4]}
+            for r in cur.fetchall()
+        ]
+
+
+@router.post("/users/{login}/unlock")
+def unlock_user(login: str) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_user SET status='ACTIVE'
+               WHERE tenant_id=%s AND login_id=%s AND status='LOCKED'
+               RETURNING user_id""", (tid, login))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"LOCKED 계정 아님: {login}")
+    return {"login": login, "status": "ACTIVE"}
+
+
+# ── SVC-09 ERP 이벤트 (업무함 M-15-3 · Dashboard 경고) ──
+@router.get("/erp/events")
+def erp_events() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT e.event_id, d.proc_code, d.proc_name, p.project_no,
+                      COALESCE(u.user_name,'-'), to_char(e.due_date,'MM-DD'),
+                      e.status, (e.due_date < CURRENT_DATE AND e.status <> 'DONE')
+               FROM erp_process_event e
+               JOIN erp_process_def d ON d.proc_def_id=e.proc_def_id
+               JOIN prj_project p ON p.project_id=e.project_id
+               LEFT JOIN sys_user u ON u.user_id=e.assignee_id
+               WHERE e.tenant_id=%s ORDER BY e.event_id""", (tid,))
+        return [
+            {"eventId": r[0], "code": r[1], "procName": r[2], "project": r[3],
+             "owner": r[4], "deadline": r[5] or "-",
+             "delayed": bool(r[7]),
+             "status": "DONE" if r[6] == "DONE" else ("지연" if r[7] else
+                       ("진행" if r[6] == "IN_PROGRESS" else "TODO"))}
+            for r in cur.fetchall()
+        ]
+
+
+class CompleteRequest(BaseModel):
+    comment: str = ""
+
+
+@router.post("/erp/events/{event_id}/complete")
+def complete_event(event_id: int, body: CompleteRequest) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE erp_process_event SET status='DONE', done_at=now(),
+               data=COALESCE(data,'{}'::jsonb) || %s::jsonb
+               WHERE tenant_id=%s AND event_id=%s AND status<>'DONE'
+               RETURNING event_id""",
+            (json.dumps({"comment": body.comment}), tid, event_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"완료 처리 대상 아님: {event_id}")
+    return {"eventId": event_id, "status": "DONE"}
+
+
+# ── SVC-09 Project (S-3-5) ──
+STAGE_MAP = {"기술 제안": "TECH_PROPOSAL", "견적": "QUOTE", "협의": "NEGOTIATION",
+             "계약": "CONTRACT", "계약 변경": "CONTRACT_CHANGE", "종료": "CLOSED"}
+STAGE_LABEL = {v: k for k, v in STAGE_MAP.items()}
+
+
+@router.get("/projects/{project_no}")
+def get_project(project_no: str) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT project_no, project_name, project_type, sales_stage, client_contact
+               FROM prj_project WHERE tenant_id=%s AND project_no=%s""", (tid, project_no))
+        r = cur.fetchone()
+    if not r:
+        raise HTTPException(404, detail=f"project not found: {project_no}")
+    return {"projectNo": r[0], "projectName": r[1], "projectType": r[2] or "Client",
+            "stage": STAGE_LABEL.get(r[3], r[3]), "clientContact": r[4] or ""}
+
+
+class StagePatch(BaseModel):
+    stage: str
+
+
+@router.patch("/projects/{project_no}")
+def patch_project(project_no: str, body: StagePatch) -> dict[str, Any]:
+    code = STAGE_MAP.get(body.stage)
+    if not code:
+        raise HTTPException(422, detail=f"알 수 없는 영업 단계: {body.stage}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE prj_project SET sales_stage=%s, updated_at=now()
+               WHERE tenant_id=%s AND project_no=%s RETURNING project_id""",
+            (code, tid, project_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"project not found: {project_no}")
+        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s LIMIT 1", (tid,))
+        actor = cur.fetchone()
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'prj_project',%s,'STAGE',%s,%s)""",
+            (tid, row[0], actor[0], json.dumps({"stage": code})))
+    return {"projectNo": project_no, "stage": body.stage}
+
+
+# ── SVC-08 단가 대장 ──
+@router.get("/prices")
+def prices() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT pc.main_code, pc.code_name, COALESCE(cc.company_name,'-'),
+                      p.price, p.price_source, p.valid_from, p.valid_to,
+                      (p.valid_from <= CURRENT_DATE AND
+                       (p.valid_to IS NULL OR p.valid_to >= CURRENT_DATE))
+               FROM cst_price p
+               JOIN product_code pc ON pc.product_code_id=p.product_code_id
+               LEFT JOIN com_company cc ON cc.company_id=p.supplier_id
+               WHERE p.tenant_id=%s AND pc.main_code IN ('FDV-480','KDC-1','EWT-3')
+               ORDER BY pc.main_code, p.valid_from DESC""", (tid,))
+        return [
+            {"code": r[0], "name": r[1], "supplier": r[2], "price": float(r[3]),
+             "source": SOURCE_LABEL[r[4]], "from": r[5].isoformat(),
+             "to": r[6].isoformat() if r[6] else None, "active": bool(r[7])}
+            for r in cur.fetchall()
+        ]
+
+
+# ── SYS-012 이력 (M-15-9) ──
+@router.get("/history")
+def history(limit: int = 20) -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT to_char(h.acted_at,'MM-DD HH24:MI'), h.target_table||' #'||h.target_id,
+                      h.action, u.user_name
+               FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
+               WHERE h.tenant_id=%s ORDER BY h.history_id DESC LIMIT %s""", (tid, limit))
+        return [
+            {"at": r[0], "target": r[1], "action": r[2], "by": r[3]}
+            for r in cur.fetchall()
+        ]
+
+
+# ── SVC-03 Sub Code 항목 등록 (S-1-1 write) ──
+class NewItemRequest(BaseModel):
+    slot: str
+    name: str
+    values: list[str] = []
+
+
+@router.post("/codes/groups/{group}/items", status_code=201)
+def add_item(group: str, body: NewItemRequest) -> dict[str, Any]:
+    slot = body.slot.strip().upper()
+    if not slot or not body.name.strip():
+        raise HTTPException(422, detail="필수(노란 셀) 미입력")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT group_id FROM code_group WHERE tenant_id=%s AND group_code=%s", (tid, group))
+        g = cur.fetchone()
+        if not g:
+            raise HTTPException(404, detail=f"group not found: {group}")
+        cur.execute(
+            "SELECT 1 FROM code_item WHERE group_id=%s AND item_slot=%s", (g[0], slot))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — Item {slot} 이미 등록됨 (CODE-006)")
+        cur.execute(
+            """INSERT INTO code_item (tenant_id, group_id, item_slot, item_name)
+               VALUES (%s,%s,%s,%s) RETURNING item_id""", (tid, g[0], slot, body.name.strip()))
+        item_id = cur.fetchone()[0]
+        for i, v in enumerate([x for x in body.values if x.strip()]):
+            cur.execute(
+                """INSERT INTO code_item_value (tenant_id, item_id, value_code, sort_order,
+                   approval_status) VALUES (%s,%s,%s,%s,'PENDING')""",
+                (tid, item_id, v.strip()[:30], i))
+        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s LIMIT 1", (tid,))
+        actor = cur.fetchone()
+        cur.execute(
+            """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
+               request_type, step, requester_id, comment)
+               VALUES (%s,'code_item',%s,'CREATE','승인',%s,%s)""",
+            (tid, item_id, actor[0], f"{group} / {slot}: {body.name.strip()}"))
+    return {"slot": slot, "status": "PENDING"}
 
 
 # ── SVC-07 CPQ / ENG-02 Run ──

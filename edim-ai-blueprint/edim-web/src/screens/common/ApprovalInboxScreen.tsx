@@ -1,10 +1,11 @@
 /** M-15-2 승인함 (W-12) — 전 자산 공통 승인 게이트 (DRAFT→PENDING→APPROVED/REJECTED).
  *  Macro 는 변경 전후 수식 비교 + Test 결과 · 승인/반려 실동작. */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  APPROVAL_HIST, APPROVAL_REQS, MACRO_BEFORE, type ApprovalReq,
+  APPROVAL_HIST, MACRO_BEFORE, type ApprovalReq,
 } from '../../api/mock/dataMore'
 import { MACRO_FORMULA } from '../../api/mock/dataMore'
+import { approvalService } from '../../api/services'
 import { Btn, Chip, Fx, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -12,10 +13,17 @@ import type { ScreenProps } from '../../shell/Shell'
 
 export function ApprovalInboxScreen(_props: ScreenProps) {
   const shell = useShell()
-  const [reqs, setReqs] = useState<ApprovalReq[]>(APPROVAL_REQS)
-  const [selId, setSelId] = useState<number | null>(4)
+  const [reqs, setReqs] = useState<ApprovalReq[]>([])
+  const [selId, setSelId] = useState<number | null>(null)
   const [comment, setComment] = useState('')
   const [decided, setDecided] = useState<{ target: string; result: string; date: string }[]>([])
+
+  useEffect(() => {
+    void approvalService.inbox().then((rows) => {
+      setReqs(rows)
+      setSelId(rows[rows.length - 1]?.id ?? null)
+    })
+  }, [])
 
   const sel = reqs.find((r) => r.id === selId) ?? null
 
@@ -29,13 +37,16 @@ export function ApprovalInboxScreen(_props: ScreenProps) {
       shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>AI 생성물은 Test 통과 후에만 승인 가능</span>)
       return
     }
-    setDecided((prev) => [{ target: sel.target, result: approve ? '승인' : '반려', date: '07-09' }, ...prev])
-    setReqs((prev) => prev.filter((r) => r.id !== sel.id))
-    setSelId(null)
-    setComment('')
-    shell.setStatusMsg(approve
-      ? `승인 — ${sel.target} → APPROVED 전이`
-      : `반려 — ${sel.target} → REJECTED (요청자 알림)`)
+    void (async () => {
+      await approvalService.decide(sel.id, approve, comment)
+      setDecided((prev) => [{ target: sel.target, result: approve ? '승인' : '반려', date: '07-09' }, ...prev])
+      setReqs((prev) => prev.filter((r) => r.id !== sel.id))
+      setSelId(null)
+      setComment('')
+      shell.setStatusMsg(approve
+        ? `승인 — ${sel.target} → APPROVED 전이 (sys_history 기록)`
+        : `반려 — ${sel.target} → REJECTED (요청자 알림)`)
+    })()
   }
 
   const cols: GridColumn<ApprovalReq>[] = [

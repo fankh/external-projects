@@ -1,7 +1,8 @@
 /** M-5-4 Document Management 문서함 (W-11, 슬라이드 20·58) — 문서 통제 대장 ·
  *  상태 필터 · Grade 통제(S-1~S-n) · 더블클릭=문서 상세. */
-import { useMemo, useState } from 'react'
-import { DOCS, type DocRow } from '../../api/mock/dataMore'
+import { useEffect, useMemo, useState } from 'react'
+import type { DocRow } from '../../api/mock/dataMore'
+import { docService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -15,23 +16,31 @@ const STATUS_TONE: Record<DocRow['status'], 'ok' | 'warn' | 'info'> = {
 
 export function DocumentMgmtScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const [docs, setDocs] = useState<DocRow[]>([])
   const [statusFilter, setStatusFilter] = useState<string>('전체')
   const [search, setSearch] = useState('')
-  const [selDoc, setSelDoc] = useState<string | null>(DOCS[0].docNo)
+  const [selDoc, setSelDoc] = useState<string | null>(null)
 
-  const rows = useMemo(() => DOCS.filter((d) =>
+  useEffect(() => {
+    void docService.list().then((rows) => {
+      setDocs(rows)
+      setSelDoc(rows[0]?.docNo ?? null)
+    })
+  }, [])
+
+  const rows = useMemo(() => docs.filter((d) =>
     (statusFilter === '전체' || d.status.startsWith(statusFilter))
     && (search.trim() === '' || (d.title + d.docNo).toLowerCase().includes(search.toLowerCase()))),
-    [statusFilter, search])
+    [docs, statusFilter, search])
 
   useFKeys(active, useMemo(() => ({
     F8: () => shell.setStatusMsg(`조회 — ${rows.length}건 (Grade 미달 문서는 마스킹, DOC-002)`),
   }), [rows.length])) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sel = DOCS.find((d) => d.docNo === selDoc) ?? null
+  const sel = docs.find((d) => d.docNo === selDoc) ?? null
   const stageIdx = sel ? STAGES.findIndex((s) => sel.status.startsWith(s)) : -1
 
-  const counts = STAGES.map((s) => DOCS.filter((d) => d.status.startsWith(s)).length)
+  const counts = STAGES.map((s) => docs.filter((d) => d.status.startsWith(s)).length)
 
   const cols: GridColumn<DocRow>[] = [
     { key: 'no', header: 'DOC No.', width: 92, code: true, render: (r) => r.docNo },
@@ -67,7 +76,7 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
             <div className="tree2">
               <div className={`tn ${statusFilter === '전체' ? 'sel' : ''}`}
                 onClick={() => setStatusFilter('전체')}>
-                <span className="pm">·</span>전체 ({DOCS.length})
+                <span className="pm">·</span>전체 ({docs.length})
               </div>
               {STAGES.map((s, i) => (
                 <div key={s} className={`tn l2 ${statusFilter === s ? 'sel' : ''}`}

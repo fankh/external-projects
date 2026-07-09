@@ -1,7 +1,7 @@
 /** M-15-3 부서 업무함 (W-22) — Schedule 위젯의 전체 화면 버전.
  *  선행 DONE 검사 + 기한 규칙 (W-14 정의) · 완료 처리 실동작. */
-import { useState } from 'react'
-import { DEPT_TASKS, type TaskRow } from '../../api/mock/dataMore'
+import { useEffect, useState } from 'react'
+import { eventService, type ErpEvent } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -11,23 +11,35 @@ const FILTERS = ['내 업무', '부서 전체', '지연', '완료']
 
 export function TaskBoxScreen(_props: ScreenProps) {
   const shell = useShell()
-  const [tasks, setTasks] = useState<TaskRow[]>(DEPT_TASKS)
+  const [tasks, setTasks] = useState<ErpEvent[]>([])
   const [filter, setFilter] = useState('내 업무')
-  const [selCode, setSelCode] = useState<string | null>('PL')
+  const [selKey, setSelKey] = useState<string | null>(null)
 
+  useEffect(() => {
+    void eventService.list().then((rows) => {
+      setTasks(rows)
+      setSelKey(rows.find((r) => r.delayed)
+        ? `${rows.find((r) => r.delayed)!.code}:${rows.find((r) => r.delayed)!.project}` : null)
+    })
+  }, [])
+
+  const key = (t: ErpEvent) => `${t.code}:${t.project}`
   const rows = tasks.filter((t) => filter === '지연' ? t.delayed
     : filter === '완료' ? t.status === 'DONE'
       : filter === '내 업무' ? t.status !== 'DONE' : true)
-  const sel = tasks.find((t) => t.code === selCode) ?? null
+  const sel = tasks.find((t) => key(t) === selKey) ?? null
 
   const complete = () => {
     if (!sel) return
-    setTasks((prev) => prev.map((t) => (t.code === sel.code
-      ? { ...t, status: 'DONE', delayed: false } : t)))
-    shell.setStatusMsg(`${sel.code} 완료 처리 (DONE) — 후행 이벤트 생성·이상 경고 해제`)
+    void (async () => {
+      await eventService.complete(sel.eventId, '업무함 완료 처리')
+      setTasks((prev) => prev.map((t) => (key(t) === key(sel)
+        ? { ...t, status: 'DONE', delayed: false } : t)))
+      shell.setStatusMsg(`${sel.code} 완료 처리 (erp_process_event DONE) — 후행 이벤트·경고 해제`)
+    })()
   }
 
-  const cols: GridColumn<TaskRow>[] = [
+  const cols: GridColumn<ErpEvent>[] = [
     { key: 'code', header: '코드', width: 40, align: 'center', code: true, render: (r) => r.code },
     { key: 'p', header: 'Project', width: 84, code: true, render: (r) => r.project },
     { key: 't', header: '건명', render: (r) => r.title },
@@ -71,8 +83,8 @@ export function TaskBoxScreen(_props: ScreenProps) {
         </div>
         <div className="fill-col" style={{ gap: 6, overflow: 'auto' }}>
           <GroupBox title={`업무 — ${rows.length}건`} noPad>
-            <DenseGrid columns={cols} rows={rows} rowKey={(r) => r.code}
-              selectedKey={selCode} onRowClick={(r) => setSelCode(r.code)} />
+            <DenseGrid columns={cols} rows={rows} rowKey={(r) => key(r)}
+              selectedKey={selKey} onRowClick={(r) => setSelKey(key(r))} />
           </GroupBox>
           {sel ? (
             <GroupBox title={`상세 — ${sel.code} ${sel.title}`}>

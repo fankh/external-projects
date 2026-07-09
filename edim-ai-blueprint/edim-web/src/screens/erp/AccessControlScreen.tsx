@@ -1,7 +1,8 @@
 /** M-14-6 사용자·권한 관리 (W-23, 슬라이드 57·72) — 레벨 4단계 × 리소스 4유형 ×
  *  액션 4종 (권한승인정의서 모델) · 감사 기록. */
-import { useMemo, useState } from 'react'
-import { AUDIT_LOG, ROLE_MATRIX, USERS, type UserRow } from '../../api/mock/dataMore'
+import { useEffect, useMemo, useState } from 'react'
+import { AUDIT_LOG, ROLE_MATRIX, type UserRow } from '../../api/mock/dataMore'
+import { userService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -10,9 +11,16 @@ import type { ScreenProps } from '../../shell/Shell'
 
 export function AccessControlScreen({ active }: ScreenProps) {
   const shell = useShell()
-  const [users, setUsers] = useState<UserRow[]>(USERS)
+  const [users, setUsers] = useState<UserRow[]>([])
   const [dept, setDept] = useState('전체')
-  const [selLogin, setSelLogin] = useState<string | null>('ysgang')
+  const [selLogin, setSelLogin] = useState<string | null>(null)
+
+  useEffect(() => {
+    void userService.list().then((rows) => {
+      setUsers(rows)
+      setSelLogin(rows[0]?.login ?? null)
+    })
+  }, [])
 
   const rows = useMemo(
     () => users.filter((u) => dept === '전체' || u.dept === dept),
@@ -22,8 +30,11 @@ export function AccessControlScreen({ active }: ScreenProps) {
 
   const unlock = () => {
     if (!sel || sel.status !== 'LOCKED') return
-    setUsers((prev) => prev.map((u) => (u.login === sel.login ? { ...u, status: 'ACTIVE' } : u)))
-    shell.setStatusMsg(`잠금 해제 — ${sel.login} (감사 기록, SYS-012)`)
+    void (async () => {
+      await userService.unlock(sel.login)
+      setUsers((prev) => prev.map((u) => (u.login === sel.login ? { ...u, status: 'ACTIVE' } : u)))
+      shell.setStatusMsg(`잠금 해제 — ${sel.login} (sys_user.status=ACTIVE, 감사 기록)`)
+    })()
   }
 
   useFKeys(active, useMemo(() => ({

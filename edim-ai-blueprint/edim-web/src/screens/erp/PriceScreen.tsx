@@ -1,8 +1,8 @@
 /** M-12-5 단가 관리 (W-13, 슬라이드 74·75) — 4종 단가 Table 단일 관리(CST-001) ·
  *  재고단가 4값(ERP-021) · Resolve 시뮬레이션 = Pricing Run 규칙. */
-import { useMemo, useState } from 'react'
-import { PRICES, STOCK_PRICE, type PriceRow } from '../../api/mock/dataErp'
-import { erpService } from '../../api/services'
+import { useEffect, useMemo, useState } from 'react'
+import { STOCK_PRICE, type PriceRow } from '../../api/mock/dataErp'
+import { erpService, priceService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -21,9 +21,15 @@ export function PriceScreen({ active }: ScreenProps) {
   const [simDate, setSimDate] = useState('2026-07-09')
   const [simResult, setSimResult] = useState<PriceRow | null | undefined>(undefined)
 
+  const [prices, setPrices] = useState<PriceRow[]>([])
+
+  useEffect(() => {
+    void priceService.list().then(setPrices)
+  }, [])
+
   const rows = useMemo(
-    () => PRICES.filter((p) => supplier === '전체' || p.supplier === supplier),
-    [supplier],
+    () => prices.filter((p) => supplier === '전체' || p.supplier === supplier),
+    [prices, supplier],
   )
 
   const simulate = () => {

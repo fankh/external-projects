@@ -4,7 +4,15 @@ import type { ExpandResult, RunResult, RunStep, SlotDef, TechDataRow, User } fro
 import {
   expandBom, finishedGoods, KOF_SLOTS, RUN_LOGS, RUN_OUTPUTS, RUN_STEPS, TECH_DATA,
 } from './mock/data'
-import { resolvePrice as mockResolvePrice, type PriceRow } from './mock/dataErp'
+import {
+  PRICES as MOCK_PRICES, PROJECT as MOCK_PROJECT,
+  resolvePrice as mockResolvePrice, type PriceRow,
+} from './mock/dataErp'
+import {
+  APPROVAL_REQS, DEPT_TASKS, DOCS, SYS_HISTORY, USERS,
+  type ApprovalReq, type DocRow, type TaskRow, type UserRow,
+} from './mock/dataMore'
+import { KOF_TABLE, type SubCodeSlot } from './mock/dataCode'
 
 const API = '/api/v1'
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -159,6 +167,173 @@ export const erpService = {
       if (e instanceof ApiUnavailable) return mockResolvePrice(code, at)
       if (e instanceof Error && e.message.startsWith('단가 없음')) return null
       throw e
+    }
+  },
+}
+
+// ── SVC-10 Approval (승인함) ──
+export const approvalService = {
+  /** GET /api/v1/approvals/inbox */
+  async inbox(): Promise<ApprovalReq[]> {
+    try {
+      return await api<ApprovalReq[]>('/approvals/inbox')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return APPROVAL_REQS
+    }
+  },
+  /** POST /api/v1/approvals/{id}/decide — 승인 시 대상 approval_status 전이 + 이력 */
+  async decide(id: number, approve: boolean, comment: string): Promise<void> {
+    try {
+      await api(`/approvals/${id}/decide`, {
+        method: 'POST', body: JSON.stringify({ approve, comment }),
+      })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
+}
+
+// ── SVC-11 Documents (문서함) ──
+export const docService = {
+  /** GET /api/v1/documents — doc_control */
+  async list(): Promise<DocRow[]> {
+    try {
+      return await api<DocRow[]>('/documents')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return DOCS
+    }
+  },
+}
+
+// ── SVC-01 Users ──
+export const userService = {
+  /** GET /api/v1/users — sys_user */
+  async list(): Promise<UserRow[]> {
+    try {
+      return await api<UserRow[]>('/users')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return USERS
+    }
+  },
+  /** POST /api/v1/users/{login}/unlock */
+  async unlock(login: string): Promise<void> {
+    try {
+      await api(`/users/${encodeURIComponent(login)}/unlock`, { method: 'POST' })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
+}
+
+// ── SVC-09 ERP 이벤트 (업무함·Dashboard 경고) ──
+export interface ErpEvent extends TaskRow { eventId?: number; procName?: string }
+
+export const eventService = {
+  /** GET /api/v1/erp/events — erp_process_event */
+  async list(): Promise<ErpEvent[]> {
+    try {
+      const rows = await api<(TaskRow & { eventId: number; procName: string })[]>('/erp/events')
+      return rows.map((r) => ({ ...r, title: `${r.project} ${r.procName}` }))
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return DEPT_TASKS
+    }
+  },
+  /** POST /api/v1/erp/events/{id}/complete */
+  async complete(eventId: number | undefined, comment: string): Promise<void> {
+    if (eventId == null) return
+    try {
+      await api(`/erp/events/${eventId}/complete`, {
+        method: 'POST', body: JSON.stringify({ comment }),
+      })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
+}
+
+// ── SVC-09 Project ──
+export const projectService = {
+  /** GET /api/v1/projects/{no} */
+  async get(no: string): Promise<{ stage: string; clientContact: string }> {
+    try {
+      return await api(`/projects/${encodeURIComponent(no)}`)
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return { stage: MOCK_PROJECT.stage, clientContact: MOCK_PROJECT.clientContact }
+    }
+  },
+  /** PATCH /api/v1/projects/{no} — sales_stage 전이 + 이력 */
+  async setStage(no: string, stage: string): Promise<void> {
+    try {
+      await api(`/projects/${encodeURIComponent(no)}`, {
+        method: 'PATCH', body: JSON.stringify({ stage }),
+      })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
+}
+
+// ── SVC-08 단가 대장 ──
+export const priceService = {
+  /** GET /api/v1/prices — cst_price */
+  async list(): Promise<PriceRow[]> {
+    try {
+      return await api<PriceRow[]>('/prices')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return MOCK_PRICES
+    }
+  },
+}
+
+// ── SYS-012 이력 ──
+export interface HistoryRow { at: string; target: string; action: string; by: string }
+
+export const historyService = {
+  /** GET /api/v1/history — sys_history */
+  async recent(): Promise<HistoryRow[]> {
+    try {
+      return await api<HistoryRow[]>('/history')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return SYS_HISTORY
+    }
+  },
+}
+
+// ── SVC-03 Sub Code 등록 ──
+export const codeSetupService = {
+  /** GET /api/v1/codes/groups/{g}/slots — 등록 그리드용 (allValues·status 포함) */
+  async groupTable(group: string): Promise<SubCodeSlot[]> {
+    try {
+      const rows = await api<{
+        slot: string; label: string; allValues: string[]; count: number
+        status: 'APPROVED' | 'PENDING'
+      }[]>(`/codes/groups/${encodeURIComponent(group)}/slots`)
+      return rows.map((r) => ({
+        slot: r.slot, label: r.label, values: r.allValues.join(' · '),
+        count: r.count, status: r.status,
+      }))
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return KOF_TABLE
+    }
+  },
+  /** POST /api/v1/codes/groups/{g}/items — code_item 등록 + 승인 요청 (PENDING) */
+  async addItem(group: string, slot: string, name: string, values: string[]): Promise<'live' | 'mock'> {
+    try {
+      await api(`/codes/groups/${encodeURIComponent(group)}/items`, {
+        method: 'POST', body: JSON.stringify({ slot, name, values }),
+      })
+      return 'live'
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return 'mock'
     }
   },
 }

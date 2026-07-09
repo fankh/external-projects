@@ -1,9 +1,10 @@
 /** M-14-4 ERP Dashboard (W-10, 슬라이드 10) — 프로세스 상태기계 집계 ·
  *  dense 문법: 표·숫자 중심, MES 채도 배제 (b01 조사 결론). */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ALERTS, DEPT_EVENTS, KPIS, PROCESS_FLOW_1, PROCESS_FLOW_2,
 } from '../../api/mock/dataErp'
+import { eventService } from '../../api/services'
 import { Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
@@ -25,6 +26,21 @@ function FlowRow(props: { items: readonly { code: string; st: string }[] }) {
 export function DashboardScreen(_props: ScreenProps) {
   const shell = useShell()
   const [project, setProject] = useState('Micron #7')
+  const [alerts, setAlerts] = useState(ALERTS)
+
+  useEffect(() => {
+    // 이상 경고 = erp_process_event 지연 집계 (ERP-014)
+    void eventService.list().then((rows) => {
+      const delayed = rows.filter((r) => r.delayed)
+      if (delayed.length) {
+        setAlerts(delayed.map((r) => ({
+          kind: r.code === 'IR' ? '자금' : '시간',
+          project: r.project,
+          message: `${r.code} ${r.title.replace(`${r.project} `, '')} 기한 초과 (${r.deadline})`,
+        })))
+      }
+    })
+  }, [])
 
   const openEvent = (proj: string) => shell.openTab({
     id: `event-detail:${proj}`, screenId: 'event-detail',
@@ -103,8 +119,8 @@ export function DashboardScreen(_props: ScreenProps) {
             <table className="g">
               <thead><tr><th>구분</th><th>Project</th><th>내용</th></tr></thead>
               <tbody>
-                {ALERTS.map((a) => (
-                  <tr key={a.project} onDoubleClick={() => openEvent(a.project)}
+                {alerts.map((a) => (
+                  <tr key={a.project + a.message} onDoubleClick={() => openEvent(a.project)}
                     style={{ cursor: 'pointer' }}>
                     <td style={{ color: 'var(--err)', fontWeight: 700 }}>{a.kind}</td>
                     <td className="code">{a.project}</td>

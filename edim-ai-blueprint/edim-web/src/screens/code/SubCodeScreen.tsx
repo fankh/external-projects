@@ -1,8 +1,8 @@
 /** S-1-1 Sub Code 등록 (W-04 / 디자인시안 b04) — 마스터(그리드)-디테일(폼) 표준형.
  *  중복검토(CODE-006) · 승인 요청 → PENDING 행 추가. */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { SubCodeSlot } from '../../api/mock/dataCode'
-import { KOF_TABLE } from '../../api/mock/dataCode'
+import { codeSetupService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -12,8 +12,12 @@ import type { ScreenProps } from '../../shell/Shell'
 
 export function SubCodeScreen({ active }: ScreenProps) {
   const shell = useShell()
-  const [rows, setRows] = useState<SubCodeSlot[]>(KOF_TABLE)
+  const [rows, setRows] = useState<SubCodeSlot[]>([])
   const [selSlot, setSelSlot] = useState<string | null>(null)
+
+  useEffect(() => {
+    void codeSetupService.groupTable('KOF').then(setRows)
+  }, [])
   const [newItemNo, setNewItemNo] = useState('G')
   const [newDesc, setNewDesc] = useState('Impeller Type')
   const [newValues, setNewValues] = useState('Airfoil · Forward · 900 1000 1120')
@@ -43,15 +47,25 @@ export function SubCodeScreen({ active }: ScreenProps) {
       return
     }
     const slot = newItemNo.trim().toUpperCase()
-    setRows((prev) => [
-      ...prev.filter((r) => r.slot !== slot),
-      {
-        slot, label: newDesc, values: newValues,
-        count: newValues.split(/[·,\s]+/).filter(Boolean).length, status: 'PENDING',
-      },
-    ])
-    setSelSlot(slot)
-    shell.setStatusMsg(`승인 요청 — ${slot} · ${newDesc} (PENDING, 중복 PENDING 차단)`)
+    const values = newValues.split(/[·,]+|\s{2,}/).map((v) => v.trim()).filter(Boolean)
+    void (async () => {
+      try {
+        const mode = await codeSetupService.addItem('KOF', slot, newDesc, values)
+        if (mode === 'live') {
+          setRows(await codeSetupService.groupTable('KOF'))
+        } else {
+          setRows((prev) => [
+            ...prev.filter((r) => r.slot !== slot),
+            { slot, label: newDesc, values: newValues, count: values.length, status: 'PENDING' },
+          ])
+        }
+        setSelSlot(slot)
+        shell.setStatusMsg(`승인 요청 — ${slot} · ${newDesc} (code_item PENDING → 승인함 등록)`)
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : '등록 실패'}</span>)
+      }
+    })()
   }
 
   useFKeys(active, useMemo(() => ({
