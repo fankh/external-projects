@@ -560,6 +560,47 @@ export const notificationService = {
   },
 }
 
+// ── AI-04/06 — Prompt→Macro · UI 초안 ──
+export interface AiMacroResult {
+  mode: 'live' | 'sample' | 'error'
+  formula: string
+  description: string
+  coding: string
+  error?: string
+}
+
+export interface AiUiResult {
+  mode: 'live' | 'sample' | 'error'
+  widgets: { kind: string; label: string; x: number; y: number; w: number; h: number }[]
+  notes: string
+  error?: string
+}
+
+export const aiService = {
+  /** POST /api/v1/ai/macro-generate — Claude (키 없으면 sample) */
+  async macroGenerate(prompt: string): Promise<AiMacroResult | null> {
+    try {
+      return await api<AiMacroResult>('/ai/macro-generate', {
+        method: 'POST', body: JSON.stringify({ prompt }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/ai/ui-suggest */
+  async uiSuggest(description: string): Promise<AiUiResult | null> {
+    try {
+      return await api<AiUiResult>('/ai/ui-suggest', {
+        method: 'POST', body: JSON.stringify({ description }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
 // ── ENG-01 Macro 실행 엔진 ──
 export interface MacroResult { ok: boolean; value?: number; error?: string; trace?: string[] }
 

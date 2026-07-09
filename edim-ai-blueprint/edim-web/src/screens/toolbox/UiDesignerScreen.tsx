@@ -2,6 +2,7 @@
  *  Object Inspector · layout_def 저장→승인→게시 (TBX-001~004). */
 import { useState } from 'react'
 import { INITIAL_WIDGETS, WIDGET_PALETTE, type Widget } from '../../api/mock/dataMore'
+import { aiService } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
@@ -119,8 +120,22 @@ export function UiDesignerScreen(_props: ScreenProps) {
             <div style={{ textAlign: 'right', marginTop: 4 }}>
               <Btn variant="run" onClick={() => {
                 if (!aiText.trim()) return
-                addWidget('Form')
-                shell.setStatusMsg('AI 초안 — 용도/항목/필요 Table 정리 후 Templet 제안 (TBX-004)')
+                void (async () => {
+                  const r = await aiService.uiSuggest(aiText)
+                  if (r === null) {
+                    addWidget('Form')
+                    shell.setStatusMsg('AI 초안 (mock) — 백엔드 불가')
+                    return
+                  }
+                  setWidgets((prev) => [...prev, ...r.widgets.map((w, i) => ({
+                    id: `ai${Date.now()}${i}`, kind: w.kind, label: w.label,
+                    x: w.x, y: w.y, w: w.w, h: w.h,
+                  }))])
+                  setDirty(true)
+                  shell.setStatusMsg(r.mode === 'live'
+                    ? `AI 초안 ✓ (Claude) — 위젯 ${r.widgets.length}개: ${r.notes.slice(0, 60)}`
+                    : `AI 초안 (${r.mode === 'sample' ? '샘플 모드 — API 키 미설정' : `오류: ${r.error}`}) — 위젯 ${r.widgets.length}개`)
+                })()
               }}>UI 초안 제안</Btn>
             </div>
             <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 4 }}>

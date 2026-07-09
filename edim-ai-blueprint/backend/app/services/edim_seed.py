@@ -90,6 +90,7 @@ def run_seed() -> None:
             _seed_v2(cur, row[0])
             seed_v3(cur, row[0])
             seed_v4(cur, row[0])
+            seed_v5(cur, row[0])
             return
 
         cur.execute(
@@ -189,6 +190,7 @@ def run_seed() -> None:
         _seed_v2(cur, tid)
         seed_v3(cur, tid)
         seed_v4(cur, tid)
+        seed_v5(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -361,3 +363,59 @@ def seed_v4(cur, tid: int) -> None:
             """INSERT INTO sys_notification (tenant_id, user_id, notify_type, title, link_url)
                VALUES (%s,%s,%s,%s,'/common')""", (tid, uid, ntype, title))
     logger.info("seed v4 complete — edim=ADMIN, 알림 2건")
+
+
+# ── seed v5 — 치수 정의 이행 (dwg_drawing + tbx_macro + dwg_dimension) ──
+
+DIMS_V5 = [
+    # (label, type, variant, macro_expr)
+    ("A", "KEY", 670, None),
+    ("B", "KEY", None, "=A+56"),
+    ("C", "DETAIL", 45, None),
+    ("D", "DETAIL", None, "=Table12(B,710)"),
+    ("E", "DETAIL", 320, None),
+    ("K", "KEY", None, "=A*1.62"),
+]
+
+
+def seed_v5(cur, tid: int) -> None:
+    cur.execute(
+        "SELECT 1 FROM dwg_drawing WHERE tenant_id=%s AND drawing_no='KDCR 3-13'", (tid,))
+    if cur.fetchone():
+        return
+    cur.execute(
+        """INSERT INTO dwg_drawing (tenant_id, drawing_no, drawing_name, drawing_type,
+           dwg_kind, current_rev, status)
+           VALUES (%s,'KDCR 3-13','Fan 원심 Casing 제작도','PART','MANUFACTURING','B','APPROVED')
+           RETURNING drawing_id""", (tid,))
+    drawing_id = cur.fetchone()[0]
+    cur.execute(
+        "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code='KDCR 3-13'",
+        (tid,))
+    pc = cur.fetchone()
+    # Studio 데모 Macro (APPROVED — 실행 이력 포함)
+    cur.execute(
+        """INSERT INTO tbx_macro (tenant_id, macro_name, prompt_text, macro_expr,
+           description_text, status, hierarchy_address, test_input, test_result)
+           VALUES (%s,'Shaft 길이 계산',
+                   'SS Fan 샤프트의 길이 계산 — Table 참조 합산',
+                   'IF(MC>500, Table12(E,560:800,Cos2)+Var(FES,15), Table12(E,560:800,Cos1)+Var(FES,15))*PreC(1)',
+                   'Impeller/Casing/Bearing 폭을 더해 Shaft 길이를 계산',
+                   'APPROVED','/M/ENG/FAN/SHAFT',
+                   %s, %s)""",
+        (tid, json.dumps({"MC": 520, "FES": 15}), json.dumps({"value": 2685})))
+    for label, dtype, variant, expr in DIMS_V5:
+        macro_id = None
+        if expr:
+            cur.execute(
+                """INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr, status,
+                   hierarchy_address)
+                   VALUES (%s,%s,%s,'APPROVED',%s) RETURNING macro_id""",
+                (tid, f"DIM {label} (KDCR 3-13)", expr, f"/M/ENG/FAN/DIM_{label}"))
+            macro_id = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO dwg_dimension (tenant_id, drawing_id, product_code_id,
+               dim_label, dim_type, macro_id, variant_value)
+               VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+            (tid, drawing_id, pc[0] if pc else None, label, dtype, macro_id, variant))
+    logger.info("seed v5 complete — dwg_dimension %d건 (Macro 바인딩)", len(DIMS_V5))

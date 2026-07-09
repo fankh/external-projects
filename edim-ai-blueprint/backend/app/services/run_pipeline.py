@@ -63,20 +63,48 @@ def step_bom(cur, tid: int, expand_rows, root: str, slot_values: dict[str, str],
     return f"{len(r.items)} 파트 · 깊이 {r.depth}"
 
 
+def _load_dims(cur, tid: int) -> list[tuple[str, str]]:
+    """dwg_dimension + tbx_macro (seed v5) — 없으면 상수 폴백."""
+    cur.execute(
+        """SELECT d.dim_label,
+                  COALESCE(m.macro_expr, d.variant_value::text)
+           FROM dwg_dimension d
+           JOIN dwg_drawing g ON g.drawing_id=d.drawing_id
+           LEFT JOIN tbx_macro m ON m.macro_id=d.macro_id
+           WHERE d.tenant_id=%s AND g.drawing_no='KDCR 3-13'
+           ORDER BY d.dim_label""", (tid,))
+    rows = [(r[0], r[1]) for r in cur.fetchall() if r[1]]
+    return rows or list(RUN_DIMS)
+
+
 def step_dims(cur, tid: int, table_resolver, r: PipelineResult) -> str:
+    dims = _load_dims(cur, tid)
     ev = Evaluator({}, table_resolver)
     n = 0
-    for no, expr in RUN_DIMS:
-        try:
-            if expr.startswith("="):
-                ev.vars.update({k.upper(): v for k, v in r.dims.items()})
+    # 1차: Variant(숫자) → 2차 반복: Macro(=식) 의존 해소까지
+    pending = []
+    for no, expr in dims:
+        if expr.startswith("="):
+            pending.append((no, expr))
+        else:
+            r.dims[no] = float(expr)
+    for _ in range(len(pending) + 1):
+        remain = []
+        for no, expr in pending:
+            try:
+                ev.vars = {k.upper(): v for k, v in r.dims.items()}
                 r.dims[no] = ev.run(expr)
                 n += 1
-            else:
-                r.dims[no] = float(expr)
-        except MacroError as e:
-            r.warn.append(f"치수 {no}: {e}")
-    return f"{n} 식 평가 (엔진 v1)"
+            except MacroError:
+                remain.append((no, expr))
+        if not remain:
+            break
+        if len(remain) == len(pending):
+            for no, expr in remain:
+                r.warn.append(f"치수 {no}: 평가 불가 ({expr})")
+            break
+        pending = remain
+    return f"{n} 식 평가 (엔진 v1 · dwg_dimension)"
 
 
 def step_drawing(r: PipelineResult) -> str:
@@ -112,13 +140,23 @@ def step_pricing(r: PipelineResult) -> str:
 
 def step_quotation(r: PipelineResult, project_no: str) -> str:
     """견적서 PDF (P2-4) — reportlab, CJK CID 폰트 + CONFIDENTIAL 워터마크."""
+    import os
+
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfgen import canvas
 
-    pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
+    # TTF 임베드 우선 (뷰어 무관 한글 렌더) — 없으면 CID 폴백
+    font_name = "HYSMyeongJo-Medium"
+    ttf = "/app/fonts/NanumGothic.ttf"
+    if os.path.exists(ttf):
+        pdfmetrics.registerFont(TTFont("NanumGothic", ttf))
+        font_name = "NanumGothic"
+    else:
+        pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
@@ -131,14 +169,14 @@ def step_quotation(r: PipelineResult, project_no: str) -> str:
     c.drawCentredString(0, 0, "CONFIDENTIAL - NOVA")
     c.restoreState()
     # 머리글
-    c.setFont("HYSMyeongJo-Medium", 16)
+    c.setFont(font_name, 16)
     c.drawString(50, h - 60, "견적서 (Quotation)")
-    c.setFont("HYSMyeongJo-Medium", 9)
+    c.setFont(font_name, 9)
     c.drawString(50, h - 80, f"Project: {project_no} · Micron #7 · {date.today().isoformat()}")
     c.drawString(50, h - 93, "Doc No: QR-61216-01 · EDIM Run 자동 생성")
     # BOM 표
     y = h - 125
-    c.setFont("HYSMyeongJo-Medium", 8.5)
+    c.setFont(font_name, 8.5)
     c.drawString(50, y, "Code")
     c.drawString(210, y, "품명")
     c.drawRightString(420, y, "수량")
@@ -153,9 +191,9 @@ def step_quotation(r: PipelineResult, project_no: str) -> str:
         c.drawRightString(520, y, amt)
         y -= 14
     c.line(50, y - 1, 545, y - 1)
-    c.setFont("HYSMyeongJo-Medium", 10)
+    c.setFont(font_name, 10)
     c.drawRightString(520, y - 16, f"합계  {r.total_k:,.0f} 천원")
-    c.setFont("HYSMyeongJo-Medium", 7.5)
+    c.setFont(font_name, 7.5)
     c.drawString(50, 40, "EDIM Tool System — 승인 전 배포 금지 (Management Grade)")
     c.showPage()
     c.save()

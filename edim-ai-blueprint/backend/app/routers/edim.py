@@ -379,6 +379,31 @@ async def import_excel(name: str, uploadedFile: UploadFile = File(...)) -> dict[
     return {"inserted": inserted, "updated": updated, "rejected": rejected}
 
 
+# ── AI-04/06 — Prompt→Macro · UI 초안 (ANTHROPIC_API_KEY 없으면 sample 모드) ──
+class AiMacroRequest(BaseModel):
+    prompt: str
+
+
+@router.post("/ai/macro-generate", dependencies=[SETUP])
+def ai_macro_generate(body: AiMacroRequest) -> dict[str, Any]:
+    from app.services.ai_assist import generate_macro
+    if not body.prompt.strip():
+        raise HTTPException(422, detail="Prompt 를 입력하십시오")
+    return generate_macro(body.prompt.strip())
+
+
+class AiUiRequest(BaseModel):
+    description: str
+
+
+@router.post("/ai/ui-suggest", dependencies=[SETUP])
+def ai_ui_suggest(body: AiUiRequest) -> dict[str, Any]:
+    from app.services.ai_assist import suggest_ui
+    if not body.description.strip():
+        raise HTTPException(422, detail="설명을 입력하십시오")
+    return suggest_ui(body.description.strip())
+
+
 # ── ENG-01 Macro 실행 엔진 v1 ──
 def _make_table_resolver(cur, tid: int):
     cache: dict[str, list[tuple[float | None, str, dict]]] = {}

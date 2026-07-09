@@ -5,7 +5,7 @@ import {
   FUNCTIONS, MACRO_CODING_PY, MACRO_DESC, MACRO_FORMULA, MACRO_META, MACRO_PROMPT,
 } from '../../api/mock/dataMore'
 import { TABLE12_ROWS } from '../../api/mock/dataCode'
-import { macroService } from '../../api/services'
+import { aiService, macroService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
@@ -23,11 +23,32 @@ export function MacroStudioScreen({ active }: ScreenProps) {
   const [result, setResult] = useState<number | null>(null)
   const [generated, setGenerated] = useState(false)
 
+  const [aiDesc, setAiDesc] = useState<string | null>(null)
+  const [aiCoding, setAiCoding] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
   const generate = () => {
-    setFormula(MACRO_FORMULA)
-    setGenerated(true)
-    setTested(false)
-    shell.setStatusMsg('AI 생성 — Prompt → Macro·Flowchart·Coding 동기화 (TBX-008, AI-005)')
+    setBusy(true)
+    void (async () => {
+      try {
+        const r = await aiService.macroGenerate(prompt)
+        if (r === null) {
+          setFormula(MACRO_FORMULA)
+          shell.setStatusMsg('AI 생성 (mock) — 백엔드 불가')
+        } else {
+          setFormula(r.formula)
+          setAiDesc(r.description)
+          setAiCoding(r.coding)
+          shell.setStatusMsg(r.mode === 'live'
+            ? 'AI 생성 ✓ (Claude) — Macro·Description·Coding 동기화, Run 으로 검증하십시오 (AI-005)'
+            : `AI 생성 (${r.mode === 'sample' ? '샘플 모드 — API 키 미설정' : `오류: ${r.error}`})`)
+        }
+        setGenerated(true)
+        setTested(false)
+      } finally {
+        setBusy(false)
+      }
+    })()
   }
 
   const testRun = () => {
@@ -116,7 +137,9 @@ export function MacroStudioScreen({ active }: ScreenProps) {
             <div style={{ display: 'flex', gap: 4 }}>
               <input className="in" style={{ flex: 1 }} value={prompt} aria-label="Prompt"
                 onChange={(e) => { setPrompt(e.target.value); setGenerated(false) }} />
-              <Btn variant="pri" onClick={generate}>▶ 생성</Btn>
+              <Btn variant="pri" disabled={busy} onClick={generate}>
+                {busy ? '생성 중…' : '▶ 생성 (AI)'}
+              </Btn>
             </div>
           </GroupBox>
           <GroupBox title="Macro — Excel 호환 문법 (편집 가능)" right={<>
@@ -139,10 +162,12 @@ export function MacroStudioScreen({ active }: ScreenProps) {
               ]} style={{ height: 160 }} />
             </GroupBox>
             <GroupBox title="Description">
-              <div style={{ fontSize: 10.5, lineHeight: 1.8, color: 'var(--txt-dim)' }}>{MACRO_DESC}</div>
+              <div style={{ fontSize: 10.5, lineHeight: 1.8, color: 'var(--txt-dim)' }}>
+                {aiDesc ?? MACRO_DESC}
+              </div>
             </GroupBox>
             <GroupBox title="Coding (AI)">
-              <Fx dark style={{ height: '100%', minHeight: 140 }}>{MACRO_CODING_PY}</Fx>
+              <Fx dark style={{ height: '100%', minHeight: 140 }}>{aiCoding ?? MACRO_CODING_PY}</Fx>
             </GroupBox>
           </div>
           <div style={{ fontSize: 10, color: 'var(--txt-mute)' }}>
