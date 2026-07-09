@@ -10,7 +10,7 @@ import type { ScreenProps } from '../../shell/Shell'
 
 let widgetSeq = 5
 
-const FORM_NAME = 'CPQ/Selection'
+const FORM_NAME = 'CPQ-Selection'   // 경로 세그먼트 — '/' 는 라우팅 충돌 (%2F 디코딩)
 
 export function UiDesignerScreen({ active }: ScreenProps) {
   const shell = useShell()
