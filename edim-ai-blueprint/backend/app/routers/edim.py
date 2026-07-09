@@ -885,8 +885,28 @@ def render_document(doc_no: str) -> Any:
     })
 
 
+class RenderRequest(BaseModel):
+    title: str
+    subtitle: str = ""
+    lines: list[str] = []
+    confidential: bool = False
+
+
+@router.post("/render/pdf", dependencies=[SETUP])
+def render_generic_pdf(body: RenderRequest) -> Any:
+    """범용 PDF 렌더 (SVC-11) — Print Set-up Test 출력·Doc Templet Print."""
+    from fastapi.responses import Response
+
+    from ..services import run_pipeline as rp
+    pdf = rp.build_lines_pdf(
+        title=body.title.strip() or "EDIM 출력", subtitle=body.subtitle.strip(),
+        lines=body.lines, confidential=body.confidential)
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": "inline; filename=\"edim-print.pdf\""})
+
+
 # ── SVC-01 Users (M-14-6) ──
-ROLE_LABEL = {"PLATFORM": "Platform", "ADMIN": "관리자", "SETUP": "설계 Set-up", "GENERAL": "일반"}
+ROLE_LABEL ={"PLATFORM": "Platform", "ADMIN": "관리자", "SETUP": "설계 Set-up", "GENERAL": "일반"}
 
 
 @router.get("/users", dependencies=[SETUP])

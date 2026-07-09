@@ -1,7 +1,7 @@
 /** S-3-4 Print Set-up (W-18, 슬라이드 50) — 양식 캔버스에 [Data]/[그래프]/[Table]
  *  자리표시자 배치 · 워터마크 · 출력 설정 · DRAFT→승인→게시 (CPQ-013, SVC-11). */
 import { useState } from 'react'
-import { approvalService } from '../../api/services'
+import { approvalService, renderService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
@@ -25,7 +25,26 @@ export function PrintSetupScreen(_props: ScreenProps) {
           워터마크 {watermark ? 'ON' : 'OFF'}
         </Btn>
         <span style={{ flex: 1 }} />
-        <Btn variant="run" onClick={() => shell.setStatusMsg(`Print Test — ${form} 렌더 (SVC-11)`)}>
+        <Btn variant="run" onClick={() => {
+          // 자리표시자 치환 실렌더 — 게시 전 검수용 (SVC-11)
+          void renderService.pdf(`${form} — Print Test`, [
+            '[Data:project.no] → PS-61313-5',
+            '[Data:customer] → Micron #7 (Pre-Sales)',
+            '[Table:bom] → BOM 8행 (KDP 1-21-13-15)',
+            '[그래프:performance] → Fan 성능 곡선',
+            '',
+            `머리글·바닥글: 표준 Templet · 워터마크: ${watermark ? 'CONFIDENTIAL' : '없음'}`,
+            '게시 후 SVC-11 이 실데이터로 치환 렌더한다 (CPQ-013).',
+          ], { subtitle: 'Print Set-up 자리표시자 치환 테스트 (S-3-4)', confidential: watermark })
+            .then((url) => {
+              if (url) {
+                window.open(url, '_blank')
+                shell.setStatusMsg(`Print Test ✓ — ${form} 실렌더 (워터마크 ${watermark ? 'ON' : 'OFF'})`)
+              } else {
+                shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>렌더 불가 — 백엔드 연결 필요</span>)
+              }
+            })
+        }}>
           Print Test
         </Btn>
       </div>

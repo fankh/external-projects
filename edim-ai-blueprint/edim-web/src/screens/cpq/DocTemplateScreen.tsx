@@ -1,6 +1,7 @@
 /** C-3 CPQ Document Template (W-17, 슬라이드 8) — Input→Macro 계산→Output ·
  *  습공기 선도 · Print Form 출력. Density mock 계산 실동작. */
 import { useMemo, useState } from 'react'
+import { renderService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
@@ -91,7 +92,24 @@ export function DocTemplateScreen({ active }: ScreenProps) {
               value="EU-3-2020-450-6-21-4-SR-7" readOnly aria-label="Document Code" />
           </GroupBox>
           <GroupBox title="Print 미리보기" right={<Btn style={{ height: 18, fontSize: 10 }}
-            onClick={() => shell.setStatusMsg('Print — Print Form(S-3-4) 규칙 적용 렌더')}>🖨</Btn>}>
+            onClick={() => {
+              // 계산값 포함 실렌더 (SVC-11 — Print Form 규칙)
+              void renderService.pdf('Technical Data Sheet — 습공기 밀도', [
+                `Temperature: ${temp} ℃`,
+                `Humidity: ${humid} %RH`,
+                `Density ρ = ${rho ?? '—'} kg/m³ (승인 Macro TBX-011 계산값)`,
+                '',
+                'Print Form(S-3-4) 표준 Templet · 머리글/바닥글 적용',
+              ], { subtitle: 'C-3 Document Templet — Input→Macro→Output 실렌더' })
+                .then((url) => {
+                  if (url) {
+                    window.open(url, '_blank')
+                    shell.setStatusMsg(`Print ✓ — Density ${rho} 포함 실렌더 (SVC-11)`)
+                  } else {
+                    shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>렌더 불가 — 백엔드 연결 필요</span>)
+                  }
+                })
+            }}>🖨</Btn>}>
             <div className="cvs" style={{ height: 150 }}>
               <div style={{ position: 'absolute', inset: 8, border: '1px dashed var(--line)', fontSize: 9.5, color: 'var(--txt-mute)', padding: 6, lineHeight: 1.8 }}>
                 Technical Report<br />

@@ -728,6 +728,35 @@ export const priceWriteService = {
   },
 }
 
+export const renderService = {
+  /** POST /api/v1/render/pdf — 범용 PDF 렌더 (blob URL, null=백엔드 불가) */
+  async pdf(title: string, lines: string[], opts?: { subtitle?: string; confidential?: boolean }):
+    Promise<string | null> {
+    try {
+      const res = await fetch(`${API}/render/pdf`, {
+        method: 'POST', signal: AbortSignal.timeout(15_000),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          title, lines, subtitle: opts?.subtitle ?? '', confidential: opts?.confidential ?? false,
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string } | null
+        throw new Error(body?.detail ?? `HTTP ${res.status}`)
+      }
+      setSource('live')
+      return URL.createObjectURL(await res.blob())
+    } catch (e) {
+      if (e instanceof Error && !(e instanceof TypeError) && e.name !== 'TimeoutError') throw e
+      setSource('mock')
+      return null
+    }
+  },
+}
+
 export const workProcessService = {
   /** GET /api/v1/erp/work-process — 저장된 MAKE/BUY */
   async get(code = 'KDCR 3-13'): Promise<{ item: string; makeOrBuy: 'MAKE' | 'BUY' }[] | null> {
