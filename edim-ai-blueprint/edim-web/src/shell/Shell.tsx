@@ -261,7 +261,8 @@ export function Shell(props: { user: User }) {
 
   return (
     <div className="app">
-      <TitleBar user={userLabel} bell={<><LocaleSwitcher /><NotificationBell /></>} />
+      <TitleBar user={userLabel} bell={<><LocaleSwitcher /><NotificationBell /></>}
+        activeModule={shell.module} onModule={shell.setModule} />
       <MenuBar activeModule={shell.module} onModule={shell.setModule} menus={menus} />
       <div className="toolbar">
         <span className="b ic" title="신규 (F2)" onClick={() => fkey('F2')}>▤</span>

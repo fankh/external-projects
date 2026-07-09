@@ -2,12 +2,40 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useI18n } from '../i18n/I18nContext'
 
-export function TitleBar(props: { context?: ReactNode; user: string; bell?: ReactNode }) {
+export function TitleBar(props: {
+  context?: ReactNode
+  user: string
+  bell?: ReactNode
+  /** 모듈 링크 — 헤더에 배치 (메뉴라인은 드롭다운 전용) */
+  activeModule?: ModuleKey
+  onModule?: (m: ModuleKey) => void
+}) {
+  const { t } = useI18n()
   return (
     <div className="titlebar">
       <span className="lg">E</span>
       <b>EDIM</b>
       <span style={{ color: '#8FA5CC' }}>— NOVA Solution</span>
+      {props.onModule ? (
+        <span style={{ display: 'inline-flex', gap: 2, marginLeft: 14 }}>
+          {MODULES.map((m) => {
+            const on = props.activeModule === m.id
+            return (
+              <span key={m.id} className={`mod ${on ? 'on' : ''}`}
+                onClick={() => props.onModule?.(m.id)}
+                style={{
+                  cursor: 'pointer', padding: '2px 9px', borderRadius: 2, fontSize: 11.5,
+                  fontWeight: on ? 700 : 500,
+                  color: on ? '#fff' : '#B9C7E2',
+                  background: on ? '#3A5488' : 'transparent',
+                  borderBottom: on ? '2px solid #7FB2E8' : '2px solid transparent',
+                }}>
+                {m.id === 'common' ? t('shell.common', '공통') : m.label}
+              </span>
+            )
+          })}
+        </span>
+      ) : null}
       {props.context ? <span style={{ color: '#B9C7E2' }}>{props.context}</span> : null}
       <span className="sp" />
       {props.bell}
@@ -125,12 +153,6 @@ export function MenuBar(props: {
       {drop(staticL[0], '파일')}
       {drop(staticL[1], '편집')}
       {drop(staticL[2], '조회')}
-      {MODULES.map((m) => (
-        <span key={m.id} className={`mod ${props.activeModule === m.id ? 'on' : ''}`}
-          onClick={() => { setOpen(null); props.onModule(m.id) }}>
-          {m.id === 'common' ? t('shell.common', '공통') : m.label}
-        </span>
-      ))}
       {drop(staticR[0], '도구')}
       {drop(staticR[1], '창')}
       {drop(staticR[2], '도움말')}

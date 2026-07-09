@@ -47,7 +47,7 @@ with sync_playwright() as pw:
     ok("Run SUCCESS", True)
 
     # 3. Code Set-up 모듈
-    page.locator(".menubar span.mod", has_text="Code Set-up").click()
+    page.locator(".titlebar span.mod", has_text="Code Set-up").click()
     ok("URL /code", "/code" in page.url)
     page.locator(".tn", has_text="Sub Code 등록 (S-1-1)").click()
     page.wait_for_selector("text=Registered Code Table", timeout=3000)
@@ -83,7 +83,7 @@ with sync_playwright() as pw:
     page.screenshot(path=f"{SHOT}/12-datatable.png")
 
     # 4. ERP 모듈
-    page.locator(".menubar span.mod", has_text="ERP").click()
+    page.locator(".titlebar span.mod", has_text="ERP").click()
     ok("URL /erp", "/erp" in page.url)
     page.locator(".tn", has_text="Dashboard (M-14-4)").click()
     page.wait_for_selector("text=진행 Project", timeout=3000)
@@ -126,7 +126,7 @@ with sync_playwright() as pw:
 
     # 5. 드릴다운 상세 (더블클릭)
     # 5a. 코드 상세 — CPQ BOM 행 더블클릭
-    page.locator(".menubar span.mod", has_text="CPQ").click()
+    page.locator(".titlebar span.mod", has_text="CPQ").click()
     page.locator(".mdi .t", has_text="C-1").click()
     page.locator("td.code", has_text="KDP 1-21").first.dblclick()
     page.locator(".mdi .t.on", has_text="상세").wait_for(timeout=3000)
@@ -147,7 +147,7 @@ with sync_playwright() as pw:
     page.screenshot(path=f"{SHOT}/21-doc-detail.png")
 
     # 5c. 부품 상세 — Design Editor Block 더블클릭
-    page.locator(".menubar span.mod", has_text="PLM").click()
+    page.locator(".titlebar span.mod", has_text="PLM").click()
     page.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
     page.locator(".m2:visible", has_text="Impeller").first.dblclick()
     page.locator(".mdi .t.on", has_text="부품").wait_for(timeout=3000)
@@ -156,7 +156,7 @@ with sync_playwright() as pw:
     page.screenshot(path=f"{SHOT}/22-part-detail.png")
 
     # 5d. 이벤트 상세 — Dashboard 이상 경고 더블클릭 → 완료 처리
-    page.locator(".menubar span.mod", has_text="ERP").click()
+    page.locator(".titlebar span.mod", has_text="ERP").click()
     page.locator(".tn", has_text="Dashboard (M-14-4)").click()
     page.locator(".gb:visible", has_text="이상 경고").locator("tbody tr").first.dblclick()
     page.locator(".mdi .t.on", has_text="이벤트").wait_for(timeout=3000)
@@ -170,7 +170,7 @@ with sync_playwright() as pw:
     page.screenshot(path=f"{SHOT}/23-event-detail.png")
 
     # 6. Toolbox 모듈
-    page.locator(".menubar span.mod", has_text="Toolbox").click()
+    page.locator(".titlebar span.mod", has_text="Toolbox").click()
     ok("URL /toolbox", "/toolbox" in page.url)
     page.locator(".tn", has_text="Macro Studio (S-2-2)").click()
     approve_btn = page.get_by_role("button", name="검증·승인 요청")
@@ -188,7 +188,7 @@ with sync_playwright() as pw:
     page.screenshot(path=f"{SHOT}/31-ui-designer.png")
 
     # 7. CPQ 추가 화면
-    page.locator(".menubar span.mod", has_text="CPQ").click()
+    page.locator(".titlebar span.mod", has_text="CPQ").click()
     page.locator(".tn", has_text="문서함 (M-5-4)").click()
     page.locator("text=문서 대장").wait_for(timeout=3000)
     all_docs = page.locator("table.g:visible tbody tr").count()
@@ -211,7 +211,7 @@ with sync_playwright() as pw:
        "백엔드 연결 필요" in page.locator(".statusbar").inner_text())
 
     # 8. PLM Duct
-    page.locator(".menubar span.mod", has_text="PLM").click()
+    page.locator(".titlebar span.mod", has_text="PLM").click()
     page.locator(".tn", has_text="건축설비 Duct (M-4-3)").click()
     page.get_by_role("button", name="▶ 자동 배치 (최단 경로·유체 흐름)").click()
     page.locator("text=Diffuser 3개 자동 배치").wait_for(timeout=3000)
@@ -219,7 +219,7 @@ with sync_playwright() as pw:
     page.screenshot(path=f"{SHOT}/34-duct.png")
 
     # 9. ERP 권한
-    page.locator(".menubar span.mod", has_text="ERP").click()
+    page.locator(".titlebar span.mod", has_text="ERP").click()
     page.locator(".tn", has_text="사용자·권한 (M-14-6)").click()
     row = page.locator("tr:visible", has_text="park.f").filter(has_text="ADMIN").first
     row.wait_for(timeout=5000)
@@ -230,7 +230,7 @@ with sync_playwright() as pw:
     page.screenshot(path=f"{SHOT}/35-access.png")
 
     # 10. 공통 모듈
-    page.locator(".menubar span.mod", has_text="공통").click()
+    page.locator(".titlebar span.mod", has_text="공통").click()
     ok("URL /common", "/common" in page.url)
     page.locator(".tn", has_text="승인함 (M-15-2)").click()
     page.locator("table.g:visible tbody tr", has_text="Shaft 길이 계산").click()
