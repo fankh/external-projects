@@ -46,10 +46,10 @@
 - [x] Print Set-up "Print Test" = 자리표시자 치환 실렌더 (범용 `POST /render/pdf`, 워터마크 토글 연동 — 라이브 검증)
 - [x] Doc Templet Print = 계산값 포함 PDF (Density ρ 실측치 렌더 — pypdf 추출 검증)
 
-### B5. 통합 검색
-- [ ] `GET /search?q=` — product_code·doc_control·dwg_file·화면 레지스트리 통합 (ILIKE + 화면코드 매칭)
-- [ ] 툴바 ⌘K 검색창: 타이핑 → 드롭다운 결과 (화면=탭 열기 · 코드=코드 상세 · 문서=문서 상세 · 파일=CAD 뷰어)
-- [ ] 공통 메뉴 '통합 검색 — 예정' → 실화면 (M-15-x)
+### B5. 통합 검색 ✅ (v6.0, 2026-07-09)
+- [x] `GET /search?q=` — product_code·doc_control·dwg_file ILIKE (그룹별 LIMIT 8) + 화면 레지스트리 프론트 병합
+- [x] 툴바 ⌘K 검색창: 300ms 디바운스 드롭다운 — 화면=탭 · 코드=코드 상세 · 문서=문서함 · 파일=CAD 뷰어 (라이브 4검증)
+- [x] 공통 메뉴 '통합 검색' — 툴바 ⌘K 가 전역 검색을 담당 (별도 화면 불요, 메뉴는 ⌘K 안내로 유지)
 
 ### B6. 이벤트·알림 액션 완성
 - [ ] `PATCH /erp/events/{id}` — 재배정 (assignee 변경 + 부서장 승인요청 + 이력)
