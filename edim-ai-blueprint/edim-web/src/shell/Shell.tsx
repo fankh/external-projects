@@ -132,6 +132,12 @@ export function Shell(props: { user: User }) {
 
   // ── 메뉴바 드롭다운 ──
   const [showHelp, setShowHelp] = useState(false)
+  useEffect(() => {
+    if (!showHelp) return
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowHelp(false) }
+    window.addEventListener('keydown', onEsc)
+    return () => window.removeEventListener('keydown', onEsc)
+  }, [showHelp])
   const stepTab = (dir: 1 | -1) => {
     if (tabs.length === 0) return
     const idx = Math.max(0, tabs.findIndex((t2) => t2.id === activeTabId))
