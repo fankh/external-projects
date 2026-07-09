@@ -26,9 +26,9 @@
 | **P2-4** | 인쇄 렌더 (SVC-11, Print Form → PDF) | 견적서·승인도서 출력 — 워터마크·Grade 통제 실체화. Playwright PDF 재사용 가능 | CPQ-013 · DOC-002 | M |
 | **P3-1** | EDIM Run 실 파이프라인화 | BOM 단계는 이미 실 SQL — 치수(=P1-4 엔진)·원가(resolve 확장)·산출물 저장(=P1-3)을 단계별로 실체화. **P1 완료 후 자연 조립** | RUN-001~009 | **L** |
 | **P3-2** | Jenkins CI/CD 파이프라인 | 수동 배포(빌드→커밋→pull→rsync)를 자동화 — Jenkins 대기 중, 배포 절차는 README에 문서화 완료 | INF-05 | S |
-| **P3-3** | 백업·모니터링 (INF-07) | pg_dump 일배치 + 헬스 알림 — 운영 전환 전 필수 | REQ-N-008 | S |
+| **P3-3** ✅ | 백업·모니터링 (INF-07) — `edim-backup.timer` 매일 03:20 (pg_dump+MinIO, 보존 7일, 헬스 확인) | REQ-N-008 | 완료 |
 | **P4-1** | Excel Import/Export 전면 (INT-03) | 사양 Import·BOM/견적 Export — 양식 확정(고객 협의) 대기 | INT-03 · CPQ-003 | M |
-| **P4-2** | AI 연동 (AI-01/04) — Macro 생성·UI 제안 | `ANTHROPIC_API_KEY` 설정만으로 경로 존재 — 데모 임팩트 크지만 핵심 계약 아님 | AI-004~006 | M |
+| **P4-2** 🔶 코드 완료 | AI 연동 (AI-04/06) — `/ai/macro-generate`·`/ai/ui-suggest` 구현·배포 (Claude, 문법 제약 프롬프트·JSON 파싱·**샘플 모드 폴백**). 생성 수식→엔진 평가 체인 검증 완료. **활성화는 서버 `backend/.env` 에 `ANTHROPIC_API_KEY` 설정만 남음** | AI-004~006 | 키 대기 |
 | **P4-3** | CAD 변환 (INT-04, ODA) | ODA 라이선스 확인 대기 (고객 협의 항목) | DWG-022~025 | L |
 | **P4-4** | Mobile 실앱 · Digital Twin 연계 | P5 계획 항목 — 스펙 협의(슬라이드 77) 선행 | APP-* · I-002 | L |
 
