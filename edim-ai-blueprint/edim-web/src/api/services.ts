@@ -396,6 +396,30 @@ export const eventService = {
       if (!(e instanceof ApiUnavailable)) throw e
     }
   },
+  /** PATCH /api/v1/erp/events/{id} — 재배정 (true=실행, false=백엔드 불가) */
+  async reassign(eventId: number, assignee: string, comment = ''): Promise<boolean> {
+    try {
+      await api(`/erp/events/${eventId}`, {
+        method: 'PATCH', body: JSON.stringify({ assignee, comment }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** POST /api/v1/erp/events/{id}/escalate — ADMIN 알림 (true=실행) */
+  async escalate(eventId: number, reason = ''): Promise<boolean> {
+    try {
+      await api(`/erp/events/${eventId}/escalate`, {
+        method: 'POST', body: JSON.stringify({ reason }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
 }
 
 // ── SVC-09 Project ──
@@ -622,6 +646,14 @@ export const notificationService = {
   async markRead(id: number): Promise<void> {
     try {
       await api(`/notifications/${id}/read`, { method: 'POST' })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
+  /** POST /api/v1/notifications/read-all — 모두 읽음 (B6) */
+  async readAll(): Promise<void> {
+    try {
+      await api('/notifications/read-all', { method: 'POST' })
     } catch (e) {
       if (!(e instanceof ApiUnavailable)) throw e
     }

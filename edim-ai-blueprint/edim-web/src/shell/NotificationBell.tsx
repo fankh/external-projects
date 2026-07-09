@@ -1,9 +1,13 @@
-/** 타이틀바 알림 벨 (SVC-13) — 60초 폴링, 클릭 시 dense 드롭다운 (읽음 처리). */
+/** 타이틀바 알림 벨 (SVC-13) — 60초 폴링, 클릭 = 읽음 + 해당 화면 이동, 모두 읽음 (B6). */
 import { useEffect, useRef, useState } from 'react'
 import { notificationService, type Notification } from '../api/services'
 import { Chip } from '../components/controls'
+import { useShell, type ModuleId } from './ShellContext'
+
+const MODULE_IDS = ['cpq', 'plm', 'code', 'erp', 'toolbox', 'common']
 
 export function NotificationBell() {
+  const shell = useShell()
   const [items, setItems] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -30,6 +34,23 @@ export function NotificationBell() {
     if (!n.read) {
       void notificationService.markRead(n.id).then(load)
     }
+    // 클릭 = 해당 화면 이동 (link '/common' 등 → 모듈 전환 + 관련 탭)
+    const m = (n.link ?? '').replace(/^\//, '')
+    if (MODULE_IDS.includes(m)) {
+      shell.setModule(m as ModuleId)
+      if (n.type === 'APPROVAL_REQUEST' || n.type === 'APPROVAL_RESULT') {
+        shell.openTab({ id: 'com-approval', screenId: 'com-approval', code: 'M-15-2', title: '승인함' })
+      } else if (n.type === 'TASK_ASSIGNED') {
+        shell.openTab({ id: 'com-tasks', screenId: 'com-tasks', code: 'M-15-3', title: '부서 업무함' })
+      } else if (n.type === 'ESCALATION') {
+        shell.openTab({ id: 'erp-dashboard', screenId: 'erp-dashboard', code: 'M-14-4', title: 'Dashboard' })
+      }
+      setOpen(false)
+    }
+  }
+
+  const readAll = () => {
+    void notificationService.readAll().then(load)
   }
 
   return (
@@ -53,6 +74,12 @@ export function NotificationBell() {
             <span style={{ fontWeight: 500, color: 'var(--txt-mute)', fontSize: 10 }}>
               미읽음 {unread} · 60s 폴링
             </span>
+            {unread > 0 ? (
+              <span data-read-all role="button" style={{
+                marginLeft: 8, cursor: 'pointer', fontSize: 10, color: 'var(--title-navy)',
+                fontWeight: 700, textDecoration: 'underline',
+              }} onClick={(e) => { e.stopPropagation(); readAll() }}>모두 읽음</span>
+            ) : null}
           </div>
           <div className="gc p0" style={{ maxHeight: 280, overflow: 'auto' }}>
             {items.length === 0 ? (

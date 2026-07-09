@@ -11,6 +11,7 @@ export function EventDetailScreen({ tab }: ScreenProps) {
   const shell = useShell()
   const project = String(tab.params?.project ?? 'PS-612')
   const [ev, setEv] = useState(EVENT_DETAILS[project] ?? EVENT_DETAILS['PS-612'])
+  const [eventId, setEventId] = useState<number | null>(null)
   const [comment, setComment] = useState('')
   const [done, setDone] = useState(false)
 
@@ -20,6 +21,7 @@ export function EventDetailScreen({ tab }: ScreenProps) {
       const live = rows.find((r) => r.project === project && r.status !== 'DONE')
         ?? rows.find((r) => r.project === project)
       if (live) {
+        setEventId(live.eventId ?? null)
         setEv((prev) => ({
           ...prev,
           project: live.project, processCode: live.code,
@@ -50,8 +52,28 @@ export function EventDetailScreen({ tab }: ScreenProps) {
         <span style={{ fontWeight: 700 }}>{ev.processCode} {ev.processName}</span>
         {done ? <Chip tone="ok">완료</Chip> : <Chip tone="err">지연</Chip>}
         <span style={{ flex: 1 }} />
-        <Btn onClick={() => shell.setStatusMsg(`재배정 — 부서장 승인 필요`)}>재배정</Btn>
-        <Btn onClick={() => shell.setStatusMsg('에스컬레이션 — 이상 경고 유지·상위 보고')}>에스컬레이션</Btn>
+        <Btn onClick={() => {
+          if (eventId == null) {
+            shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>재배정 불가 — 실 이벤트 아님 (백엔드 필요)</span>)
+            return
+          }
+          // 담당 순환 재배정 데모: kim01 ↔ lee.t (실무는 사용자 선택 UI)
+          const next = ev.owner === 'Kim' ? 'lee.t' : 'kim01'
+          void eventService.reassign(eventId, next, comment || '재배정')
+            .then((ok) => shell.setStatusMsg(ok
+              ? `재배정 ✓ — ${next} (알림 발송·sys_history 기록, ERP-031)`
+              : <span style={{ color: 'var(--err)' }}>재배정 불가 — 백엔드 연결 필요</span>))
+        }}>재배정</Btn>
+        <Btn onClick={() => {
+          if (eventId == null) {
+            shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>에스컬레이션 불가 — 실 이벤트 아님</span>)
+            return
+          }
+          void eventService.escalate(eventId, comment || `${ev.processCode} 지연 상위 보고`)
+            .then((ok) => shell.setStatusMsg(ok
+              ? '에스컬레이션 ✓ — ADMIN 전원 알림·이력 기록'
+              : <span style={{ color: 'var(--err)' }}>에스컬레이션 불가 — 백엔드 연결 필요</span>))
+        }}>에스컬레이션</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>

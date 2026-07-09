@@ -801,6 +801,19 @@ def read_notification(notification_id: int, request: Request) -> dict[str, Any]:
     return {"id": notification_id, "read": True}
 
 
+@router.post("/notifications/read-all")
+def read_all_notifications(request: Request) -> dict[str, Any]:
+    """모두 읽음 (B6)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_notification SET is_read=true
+               WHERE tenant_id=%s AND user_id=%s AND is_read=false""",
+            (tid, request.state.user_id))
+        n = cur.rowcount
+    return {"read": n}
+
+
 # ── SVC-11 Documents (문서함 M-5-4) ──
 STATUS_LABEL = {"SET_UP": "Set-up", "CHECK": "Check", "APPROVE": "Approve 대기", "ACCEPTED": "Accepted"}
 
@@ -977,6 +990,68 @@ def complete_event(event_id: int, body: CompleteRequest) -> dict[str, Any]:
         if not cur.fetchone():
             raise HTTPException(404, detail=f"완료 처리 대상 아님: {event_id}")
     return {"eventId": event_id, "status": "DONE"}
+
+
+# ── B6 — 이벤트 재배정·에스컬레이션 ──
+
+class ReassignRequest(BaseModel):
+    assignee: str      # login_id
+    comment: str = ""
+
+
+@router.patch("/erp/events/{event_id}", dependencies=[SETUP])
+def reassign_event(event_id: int, request: Request, body: ReassignRequest) -> dict[str, Any]:
+    """재배정 — 담당자 변경 + 새 담당자 알림 + 이력 (ERP-031)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT user_id, user_name FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+            (tid, body.assignee.strip()))
+        u = cur.fetchone()
+        if not u:
+            raise HTTPException(404, detail=f"사용자 없음: {body.assignee}")
+        cur.execute(
+            """UPDATE erp_process_event SET assignee_id=%s,
+               data=COALESCE(data,'{}'::jsonb) || %s::jsonb
+               WHERE tenant_id=%s AND event_id=%s RETURNING event_id""",
+            (u[0], json.dumps({"reassign": body.comment or body.assignee}), tid, event_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"이벤트 없음: {event_id}")
+        _notify(cur, tid, u[0], "TASK_ASSIGNED", f"업무 재배정 — 이벤트 #{event_id}", "/common")
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'erp_process_event',%s,'REASSIGN',%s,%s)""",
+            (tid, event_id, request.state.user_id,
+             json.dumps({"assignee": body.assignee, "comment": body.comment})))
+    return {"eventId": event_id, "assignee": u[1]}
+
+
+class EscalateRequest(BaseModel):
+    reason: str = ""
+
+
+@router.post("/erp/events/{event_id}/escalate", dependencies=[SETUP])
+def escalate_event(event_id: int, request: Request, body: EscalateRequest) -> dict[str, Any]:
+    """에스컬레이션 — ADMIN 전원 알림 + 이력 (이상 경고 상위 보고)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT 1 FROM erp_process_event WHERE tenant_id=%s AND event_id=%s", (tid, event_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"이벤트 없음: {event_id}")
+        cur.execute(
+            """SELECT user_id FROM sys_user
+               WHERE tenant_id=%s AND user_level IN ('ADMIN','PLATFORM')""", (tid,))
+        n = 0
+        for (uid,) in cur.fetchall():
+            _notify(cur, tid, uid, "ESCALATION",
+                    f"에스컬레이션 — 이벤트 #{event_id}: {body.reason[:60] or '지연 상위 보고'}", "/erp")
+            n += 1
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'erp_process_event',%s,'ESCALATE',%s,%s)""",
+            (tid, event_id, request.state.user_id, json.dumps({"reason": body.reason})))
+    return {"eventId": event_id, "notified": n}
 
 
 # ── SVC-09 Project (S-3-5) ──
