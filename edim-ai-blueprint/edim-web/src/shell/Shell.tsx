@@ -1,7 +1,7 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
-import { pingBackend, subscribeDataSource, type DataSource } from '../api/services'
+import { pingBackend, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar, type MenuItem } from '../components/chrome'
 import { LnavTree } from '../components/LnavTree'
 import { LocaleSwitcher, useI18n } from '../i18n/I18nContext'
@@ -129,6 +129,26 @@ export function Shell(props: { user: User }) {
 
   // 툴바 아이콘 → 활성 화면의 F-key 디스패치 (useFKeys 가 window keydown 수신)
   const fkey = (key: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key, cancelable: true }))
+
+  // ── 통합 검색 (⌘K · B5) — 화면 레지스트리 + 백엔드 코드·문서·파일 ──
+  const [searchQ, setSearchQ] = useState('')
+  const [searchRes, setSearchRes] = useState<SearchResults | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  useEffect(() => {
+    const q = searchQ.trim()
+    if (q.length < 2) { setSearchRes(null); return }
+    const t2 = setTimeout(() => {
+      void searchService.query(q).then((r) => { setSearchRes(r); setSearchOpen(true) })
+    }, 300)
+    return () => clearTimeout(t2)
+  }, [searchQ])
+  const screenHits = useMemo(() => {
+    const q = searchQ.trim().toLowerCase()
+    if (q.length < 2) return []
+    return Object.values(SCREEN_BY_NODE)
+      .filter((s) => (s.title + ' ' + s.code).toLowerCase().includes(q)).slice(0, 6)
+  }, [searchQ])
+  const closeSearch = () => { setSearchOpen(false); setSearchQ('') }
 
   // ── F-key 표준 폴백 — 브라우저 기본동작(F3 찾기 등) 차단 + 미구현 화면 안내 ──
   // Shell 리스너가 먼저 등록되므로 화면 핸들러의 preventDefault 여부는 디스패치 완료 후 확인
@@ -291,8 +311,57 @@ export function Shell(props: { user: User }) {
             shell.setStatusMsg('Supersedure — Rev 대체 이력은 이력(M-15-9) 그리드에서 diff 확인')
           }}>Supersedure</span>
         <span style={{ flex: 1 }} />
-        <input ref={searchRef} className="in" style={{ width: 200 }}
-          placeholder={t('shell.searchPh', '화면코드·코드·도면 검색 (⌘K)')} />
+        <span style={{ position: 'relative' }}>
+          <input ref={searchRef} className="in" style={{ width: 200 }}
+            value={searchQ}
+            placeholder={t('shell.searchPh', '화면코드·코드·도면 검색 (⌘K)')}
+            onChange={(e) => setSearchQ(e.target.value)}
+            onFocus={() => { if (searchQ.trim().length >= 2) setSearchOpen(true) }}
+            onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }} />
+          {searchOpen && (screenHits.length || searchRes) ? (
+            <div data-search-results style={{
+              position: 'absolute', top: '100%', right: 0, zIndex: 70, width: 300,
+              maxHeight: 340, overflow: 'auto', background: '#fff',
+              border: '1px solid var(--line-strong)', boxShadow: '0 4px 12px rgba(20,26,40,.22)',
+              fontSize: 11, color: 'var(--txt)',
+            }}>
+              {[
+                { label: '화면', items: screenHits.map((s) => ({
+                  key: `s:${s.screenId}`, text: `${s.code} ${s.title}`,
+                  open: () => shell.openTab(s) })) },
+                { label: '코드', items: (searchRes?.codes ?? []).map((c) => ({
+                  key: `c:${c.code}`, text: `${c.code} — ${c.name}`,
+                  open: () => shell.openTab({
+                    id: `code-detail:${c.code}`, screenId: 'code-detail',
+                    code: '상세', title: c.code, params: { code: c.code, name: c.name } }) })) },
+                { label: '문서', items: (searchRes?.docs ?? []).map((d) => ({
+                  key: `d:${d.docNo}`, text: `${d.docNo} — ${d.title} (${d.grade})`,
+                  open: () => shell.openTab(SCREEN_BY_NODE['cpq-docmgmt']) })) },
+                { label: '도면·파일', items: (searchRes?.files ?? []).map((f) => ({
+                  key: `f:${f.fileId}`, text: `${f.name} (${f.type})`,
+                  open: () => shell.openTab({
+                    id: `cad-viewer:${f.fileId}`, screenId: 'cad-viewer',
+                    code: 'CAD', title: f.name.slice(0, 16),
+                    params: { fileId: f.fileId, name: f.name } }) })) },
+              ].filter((g) => g.items.length > 0).map((g) => (
+                <div key={g.label}>
+                  <div style={{ background: 'var(--grid-head, #DCE3EE)', padding: '2px 8px', fontWeight: 700, fontSize: 10 }}>{g.label}</div>
+                  {g.items.map((it) => (
+                    <div key={it.key} style={{ padding: '3px 10px', cursor: 'pointer' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#EDF2FA' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
+                      onClick={() => { it.open(); closeSearch() }}>
+                      {it.text}
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {searchRes === null && screenHits.length === 0 ? (
+                <div style={{ padding: 8, color: 'var(--txt-mute)' }}>백엔드 불가 — 화면 검색만 가능</div>
+              ) : null}
+            </div>
+          ) : null}
+        </span>
       </div>
       <MdiTabs tabs={trTabs} activeId={shell.activeTabId}
         onActivate={shell.activateTab} onClose={shell.closeTab} />

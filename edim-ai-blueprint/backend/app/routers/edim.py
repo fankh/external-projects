@@ -1177,6 +1177,35 @@ async def import_prices_excel(uploadedFile: UploadFile = File(...)) -> dict[str,
     return {"inserted": inserted, "rejected": rejected}
 
 
+# ── B5 — 통합 검색 (⌘K · M-15-x) ──
+
+@router.get("/search")
+def global_search(q: str) -> dict[str, list[dict[str, Any]]]:
+    """코드·문서·파일 통합 검색 — 화면 검색은 프론트 레지스트리에서 병합."""
+    term = q.strip()
+    if len(term) < 2:
+        return {"codes": [], "docs": [], "files": []}
+    like = f"%{term}%"
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT main_code, code_name FROM product_code
+               WHERE tenant_id=%s AND (main_code ILIKE %s OR code_name ILIKE %s)
+               ORDER BY main_code LIMIT 8""", (tid, like, like))
+        codes = [{"code": r[0], "name": r[1]} for r in cur.fetchall()]
+        cur.execute(
+            """SELECT DISTINCT doc_no, title, management_grade FROM doc_control
+               WHERE tenant_id=%s AND (doc_no ILIKE %s OR title ILIKE %s)
+               ORDER BY doc_no LIMIT 8""", (tid, like, like))
+        docs = [{"docNo": r[0], "title": r[1], "grade": r[2]} for r in cur.fetchall()]
+        cur.execute(
+            """SELECT file_id, file_name, file_type FROM dwg_file
+               WHERE tenant_id=%s AND file_name ILIKE %s
+               ORDER BY file_id DESC LIMIT 8""", (tid, like))
+        files = [{"fileId": r[0], "name": r[1], "type": r[2]} for r in cur.fetchall()]
+    return {"codes": codes, "docs": docs, "files": files}
+
+
 # ── SYS-012 이력 (M-15-9) ──
 @router.get("/history")
 def history(limit: int = 20) -> list[dict[str, Any]]:

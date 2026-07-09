@@ -728,6 +728,24 @@ export const priceWriteService = {
   },
 }
 
+export interface SearchResults {
+  codes: { code: string; name: string }[]
+  docs: { docNo: string; title: string; grade: string }[]
+  files: { fileId: number; name: string; type: string }[]
+}
+
+export const searchService = {
+  /** GET /api/v1/search?q= — 코드·문서·파일 통합 검색 (null=백엔드 불가) */
+  async query(q: string): Promise<SearchResults | null> {
+    try {
+      return await api<SearchResults>(`/search?q=${encodeURIComponent(q)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
 export const renderService = {
   /** POST /api/v1/render/pdf — 범용 PDF 렌더 (blob URL, null=백엔드 불가) */
   async pdf(title: string, lines: string[], opts?: { subtitle?: string; confidential?: boolean }):
