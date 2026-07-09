@@ -95,9 +95,18 @@ export function ProjectFolderScreen(_props: ScreenProps) {
           </GroupBox>
         </div>
         <div className="fill-col" style={{ gap: 6, overflow: 'auto' }}>
-          <GroupBox title={`${folder} — ${rows.length}건`} noPad>
+          <GroupBox title={`${folder} — ${rows.length}건 (DXF 더블클릭=CAD 뷰어)`} noPad>
             <DenseGrid columns={cols} rows={rows} rowKey={(r) => r.name}
-              selectedKey={selFile} onRowClick={(r) => setSelFile(r.name)} />
+              selectedKey={selFile} onRowClick={(r) => setSelFile(r.name)}
+              onRowDoubleClick={(r) => {
+                if (r.fileId != null && (r.fileType === 'DXF' || r.fileType === 'DWG')) {
+                  shell.openTab({
+                    id: `cad-viewer:${r.fileId}`, screenId: 'cad-viewer',
+                    code: 'CAD', title: r.name.slice(0, 16),
+                    params: { fileId: r.fileId, name: r.name },
+                  })
+                }
+              }} />
           </GroupBox>
           <GroupBox title="이력 조회 (sys_history) — diff = before/after JSON 비교" noPad
             right={<Combo width={84} value="대상: 전체" options={['대상: 전체', 'Run', 'Code']} />}>

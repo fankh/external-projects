@@ -27,6 +27,7 @@ import { ApprovalInboxScreen } from '../screens/common/ApprovalInboxScreen'
 import { TaskBoxScreen } from '../screens/common/TaskBoxScreen'
 import { ProjectFolderScreen } from '../screens/common/ProjectFolderScreen'
 import { MobilePreviewScreen } from '../screens/common/MobilePreviewScreen'
+import { CadViewerScreen } from '../screens/detail/CadViewerScreen'
 import { CodeDetailScreen } from '../screens/detail/CodeDetailScreen'
 import { OutputDocScreen } from '../screens/detail/OutputDocScreen'
 import { PartDetailScreen } from '../screens/detail/PartDetailScreen'
@@ -69,6 +70,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'com-mobile': MobilePreviewScreen,
   // 상세 (드릴다운 — 더블클릭으로 진입, params 필수)
   'code-detail': CodeDetailScreen,
+  'cad-viewer': CadViewerScreen,
   'doc-detail': OutputDocScreen,
   'part-detail': PartDetailScreen,
   'event-detail': EventDetailScreen,

@@ -540,6 +540,103 @@ def download_file(file_id: int) -> StreamingResponse:
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(row[1])}"})
 
 
+# ── INT-04 CAD 호환 — DXF 뷰/Import/Export (DWG 는 ODA 플러그블) ──
+def _parse_cad_bytes(data: bytes, file_name: str) -> dict[str, Any]:
+    """DXF(직접)/DWG(ODA 변환 후) → 정규화 DrawingDocument(JSON)."""
+    import tempfile
+    from pathlib import Path
+
+    from app.services.dwg_converter import get_configured_dwg_converter
+    from app.services.dxf_importer import convert_dxf_to_drawing_document
+
+    ext = Path(file_name).suffix.lower()
+    if ext not in (".dxf", ".dwg"):
+        raise HTTPException(422, detail=f"지원하지 않는 CAD 형식: {ext} (.dxf/.dwg)")
+    with tempfile.TemporaryDirectory(prefix="edim_cad_") as tmp:
+        src = Path(tmp) / Path(file_name).name
+        src.write_bytes(data)
+        dxf_path = str(src)
+        source_format = "dxf"
+        if ext == ".dwg":
+            dxf_path = get_configured_dwg_converter().convert(str(src))  # 미설정 → 501
+            source_format = "dwg"
+        doc = convert_dxf_to_drawing_document(dxf_path, Path(file_name).stem, source_format)
+    return doc.model_dump()
+
+
+@router.get("/cad/view/{file_id}")
+def cad_view(file_id: int) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT file_path, file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
+            (tid, file_id))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"file not found: {file_id}")
+    try:
+        obj = storage.get_object(row[0])
+        data = obj.read()
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    return {"fileId": file_id, "document": _parse_cad_bytes(data, row[1])}
+
+
+@router.post("/cad/import", status_code=201, dependencies=[SETUP])
+async def cad_import(
+    uploadedFile: UploadFile = File(...),
+    project: str = Form("PS-61313-5"),
+) -> dict[str, Any]:
+    data = await uploadedFile.read()
+    if len(data) > 100 * 1024 * 1024:
+        raise HTTPException(413, detail="100MB 초과")
+    fname = (uploadedFile.filename or "drawing.dxf").replace("/", "_")
+    document = _parse_cad_bytes(data, fname)   # 파싱 실패 시 저장하지 않음
+    key = f"{project}/DWG/{fname}"
+    try:
+        storage.put_object(key, data, uploadedFile.content_type or "application/dxf")
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
+                    (tid, project))
+        prj = cur.fetchone()
+        cur.execute(
+            """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
+               file_path, file_size)
+               VALUES (%s,%s,'DWG',%s,%s,%s,%s) RETURNING file_id""",
+            (tid, prj[0] if prj else None, fname,
+             fname.rsplit(".", 1)[-1].upper()[:10], key, len(data)))
+        file_id = cur.fetchone()[0]
+    return {"fileId": file_id, "document": document}
+
+
+class CadExportRequest(BaseModel):
+    dims: dict[str, float] = {}
+
+
+@router.post("/cad/export-dxf", dependencies=[SETUP])
+def cad_export(body: CadExportRequest) -> StreamingResponse:
+    """현재 치수(미지정 시 dwg_dimension 평가값)로 제작 DXF 생성 — 순수 다운로드."""
+    import io as _io
+
+    from app.services import run_pipeline as rp
+
+    r = rp.PipelineResult()
+    if body.dims:
+        r.dims = {k: float(v) for k, v in body.dims.items()}
+    else:
+        with _conn() as conn, conn.cursor() as cur:
+            tid = _tenant_id(cur)
+            rp.step_dims(cur, tid, _make_table_resolver(cur, tid), r)
+    rp.step_drawing(r)
+    _, fname, _, data = r.files[0]
+    return StreamingResponse(
+        _io.BytesIO(data), media_type="application/dxf",
+        headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
 # ── SVC-08 Cost ──
 @router.get("/prices/resolve")
 def resolve_price(code: str, at: str | None = None) -> dict[str, Any]:

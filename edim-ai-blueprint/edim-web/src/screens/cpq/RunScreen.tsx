@@ -74,7 +74,17 @@ export function RunScreen({ active }: ScreenProps) {
       render: (r) => (
         <span style={{ display: 'inline-flex', gap: 3 }}>
           {r.nextAction
-            ? <span className="b" style={{ height: 18, fontSize: 10 }}>{r.nextAction}</span>
+            ? <span className="b" style={{ height: 18, fontSize: 10 }}
+                onClick={(e) => {
+                  if (r.nextAction === '미리보기' && r.fileId != null) {
+                    e.stopPropagation()
+                    shell.openTab({
+                      id: `cad-viewer:${r.fileId}`, screenId: 'cad-viewer',
+                      code: 'CAD', title: r.file.slice(0, 16),
+                      params: { fileId: r.fileId, name: r.file },
+                    })
+                  }
+                }}>{r.nextAction}</span>
             : null}
           {r.fileId != null ? (
             <span className="b" style={{ height: 18, fontSize: 10 }}

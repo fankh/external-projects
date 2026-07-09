@@ -1,9 +1,9 @@
 /** S-4-1-1 PLM Design Editor (W-06) — CAD 툴바 · Block 캔버스 · 치수 Macro/Variant ·
  *  Coding Run(파라메트릭 재계산 mock) · 커맨드 라인. */
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { CanvasBlock, DimensionDef } from '../../api/types'
 import { DWG_BLOCKS, DWG_DIMS, MACRO_CODING } from '../../api/mock/data'
-import { macroService } from '../../api/services'
+import { cadService, macroService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -31,6 +31,41 @@ export function DesignEditorScreen({ active }: ScreenProps) {
   const [editingNo, setEditingNo] = useState<string | null>(null)
   const [coord, setCoord] = useState('X 0.0  Y 0.0')
   const [evaluated, setEvaluated] = useState(false)
+  const cadInput = useRef<HTMLInputElement>(null)
+
+  const importCad = (f: globalThis.File) => {
+    void (async () => {
+      try {
+        const r = await cadService.importFile(f, 'PS-61313-5')
+        if (r === null) {
+          shell.setStatusMsg('CAD Import — 백엔드 불가 (mock 모드)')
+          return
+        }
+        shell.openTab({
+          id: `cad-viewer:${r.fileId}`, screenId: 'cad-viewer',
+          code: 'CAD', title: f.name.slice(0, 16),
+          params: { fileId: r.fileId, name: f.name },
+        })
+        shell.setStatusMsg(
+          `CAD Import ✓ — ${f.name} (엔티티 ${r.document.entities.length}, Folder/DWG 등록)`)
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : 'Import 실패'}</span>)
+      }
+    })()
+  }
+
+  const exportCad = () => {
+    const vars: Record<string, number> = {}
+    for (const d of dims) {
+      const n = Number(d.value)
+      if (!Number.isNaN(n)) vars[d.no] = n
+    }
+    void cadService.exportDxf(vars)
+      .then(() => shell.setStatusMsg('DXF 내보내기 — 현재 치수 반영 (ezdxf R2010)'))
+      .catch((e: Error) => shell.setStatusMsg(
+        <span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
 
   const runMacro = () => {
     void (async () => {
@@ -109,6 +144,16 @@ export function DesignEditorScreen({ active }: ScreenProps) {
         <Sep />
         <Combo width={150} value="Snap: 끝점·중앙·중심" options={['Snap: 끝점·중앙·중심', 'Snap: OFF']} />
         <Btn>Simulation</Btn>
+        <Sep />
+        <input ref={cadInput} type="file" accept=".dxf,.dwg" style={{ display: 'none' }}
+          aria-label="CAD 파일"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) importCad(f)
+            e.target.value = ''
+          }} />
+        <Btn onClick={() => cadInput.current?.click()}>DXF 열기</Btn>
+        <Btn onClick={exportCad}>DXF 내보내기</Btn>
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <div className="fill-col" style={{ flex: 1, padding: 6 }}

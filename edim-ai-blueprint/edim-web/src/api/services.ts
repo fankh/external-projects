@@ -563,6 +563,90 @@ export const notificationService = {
   },
 }
 
+// ── INT-04 CAD (DXF 뷰/Import/Export · DWG 는 ODA 플러그블) ──
+export interface CadPoint { x: number; y: number }
+export interface CadLayer { layerName: string; colorHex: string; isVisible: boolean }
+export interface CadEntity {
+  entityId: string
+  entityType: 'line' | 'polyline' | 'circle' | 'arc' | 'text'
+  layerName: string
+  startPoint?: CadPoint
+  endPoint?: CadPoint
+  vertexPoints?: CadPoint[]
+  isClosed?: boolean
+  centerPoint?: CadPoint
+  radius?: number
+  startAngleDegrees?: number
+  endAngleDegrees?: number
+  insertionPoint?: CadPoint
+  textContent?: string
+  textHeight?: number
+  rotationDegrees?: number
+}
+export interface CadDocument {
+  drawingName: string
+  sourceFormat: string
+  units: string
+  bounds: { minX: number; minY: number; maxX: number; maxY: number }
+  layers: CadLayer[]
+  entities: CadEntity[]
+  skippedEntityCounts: Record<string, number>
+}
+
+export const cadService = {
+  /** GET /api/v1/cad/view/{fileId} — MinIO DXF → DrawingDocument */
+  async view(fileId: number): Promise<CadDocument | null> {
+    try {
+      const r = await api<{ document: CadDocument }>(`/cad/view/${fileId}`)
+      return r.document
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/cad/import — DXF/DWG 업로드 + 파싱 + Folder 등록 */
+  async importFile(file: globalThis.File, project: string):
+  Promise<{ fileId: number; document: CadDocument } | null> {
+    const form = new FormData()
+    form.append('uploadedFile', file)
+    form.append('project', project)
+    try {
+      const res = await fetch(`${API}/cad/import`, {
+        method: 'POST', body: form, signal: AbortSignal.timeout(60_000),
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string } | null
+        throw new Error(body?.detail ?? `HTTP ${res.status}`)
+      }
+      setSource('live')
+      return await res.json() as { fileId: number; document: CadDocument }
+    } catch (e) {
+      if (e instanceof TypeError || e instanceof DOMException) { setSource('mock'); return null }
+      throw e
+    }
+  },
+  /** POST /api/v1/cad/export-dxf — 현재 치수로 제작 DXF 다운로드 */
+  async exportDxf(dims: Record<string, number>): Promise<void> {
+    const res = await fetch(`${API}/cad/export-dxf`, {
+      method: 'POST', body: JSON.stringify({ dims }),
+      signal: AbortSignal.timeout(30_000),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+    if (!res.ok) throw new Error(`DXF 내보내기 실패 (HTTP ${res.status})`)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'KDCR3-13_mfg.dxf'
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+}
+
 // ── AI-04/06 — Prompt→Macro · UI 초안 ──
 export interface AiMacroResult {
   mode: 'live' | 'sample' | 'error'
