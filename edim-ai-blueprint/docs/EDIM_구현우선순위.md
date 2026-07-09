@@ -29,7 +29,7 @@
 | **P3-3** ✅ | 백업·모니터링 (INF-07) — `edim-backup.timer` 매일 03:20 (pg_dump+MinIO, 보존 7일, 헬스 확인) | REQ-N-008 | 완료 |
 | **P4-1** | Excel Import/Export 전면 (INT-03) | 사양 Import·BOM/견적 Export — 양식 확정(고객 협의) 대기 | INT-03 · CPQ-003 | M |
 | **P4-2** 🔶 코드 완료 | AI 연동 (AI-04/06) — `/ai/macro-generate`·`/ai/ui-suggest` 구현·배포 (Claude, 문법 제약 프롬프트·JSON 파싱·**샘플 모드 폴백**). 생성 수식→엔진 평가 체인 검증 완료. **활성화는 서버 `backend/.env` 에 `ANTHROPIC_API_KEY` 설정만 남음** | AI-004~006 | 키 대기 |
-| **P4-3** | CAD 변환 (INT-04, ODA) | ODA 라이선스 확인 대기 (고객 협의 항목) | DWG-022~025 | L |
+| **P4-3** 🔶 DXF 완료 | CAD 호환 — **DXF 뷰어**(`/cad/view` ezdxf→정규화 문서→SVG, 레이어 토글·줌)·**Import**(`/cad/import` 업로드+파싱+Folder 등록)·**Export**(`/cad/export-dxf` 엔진 치수 반영). 진입점: Run 산출물 미리보기·Folder 더블클릭·Design Editor 열기/내보내기. **DWG 는 ODA 플러그블 준비 완료(501 안내)** — 라이선스 확정 시 env 설정만 | DWG-022~025 | ODA 대기 |
 | **P4-4** | Mobile 실앱 · Digital Twin 연계 | P5 계획 항목 — 스펙 협의(슬라이드 77) 선행 | APP-* · I-002 | L |
 
 규모: S = 1~2일 · M = 3~5일 · L = 1~2주 (1인 기준, mock 폴백 체계 유지 가정)
