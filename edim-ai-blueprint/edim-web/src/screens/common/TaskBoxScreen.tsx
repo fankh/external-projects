@@ -55,6 +55,7 @@ export function TaskBoxScreen(_props: ScreenProps) {
               {FILTERS.map((f) => (
                 <div key={f} className={`tn ${filter === f ? 'sel' : ''}`} onClick={() => setFilter(f)}>
                   <span className="pm">·</span>{f}
+                  <span style={{ flex: 1 }} />
                   {f === '지연' ? <Chip tone="err">{tasks.filter((t) => t.delayed).length}</Chip> : null}
                 </div>
               ))}

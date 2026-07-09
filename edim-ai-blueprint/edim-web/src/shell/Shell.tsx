@@ -115,9 +115,13 @@ export function Shell(props: { user: User }) {
           footer={
             <div style={{ borderTop: '1px solid var(--line)' }}>
               <div className="hd">To-Do</div>
-              <div style={{ padding: '6px 8px', fontSize: 11, lineHeight: 1.9 }}>
-                승인 확인 <span className="st warn" style={{ float: 'right' }}>1</span><br />
-                PL 지연 <span className="st err" style={{ float: 'right' }}>1</span>
+              <div style={{ padding: '6px 8px', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  승인 확인<span style={{ flex: 1 }} /><span className="st warn">1</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  PL 지연<span style={{ flex: 1 }} /><span className="st err">1</span>
+                </div>
               </div>
             </div>
           } />
