@@ -252,6 +252,13 @@ export function Shell(props: { user: User }) {
     () => shell.tabs.map((tab) => ({ ...tab, title: t(`screen.${tab.screenId}`, tab.title) })),
     [shell.tabs, t])
 
+  // 페이지 이동 시 좌측 트리 마킹 — 인스턴스 탭(run:1 등)도 screenId 로 메뉴 노드 매칭
+  const treeSelId = useMemo(() => {
+    const activeTab = shell.tabs.find((t2) => t2.id === shell.activeTabId)
+    if (!activeTab) return shell.activeTabId
+    return SCREEN_BY_NODE[activeTab.screenId] ? activeTab.screenId : activeTab.id
+  }, [shell.tabs, shell.activeTabId])
+
   return (
     <div className="app">
       <TitleBar user={userLabel} bell={<><LocaleSwitcher /><NotificationBell /></>} />
@@ -291,7 +298,7 @@ export function Shell(props: { user: User }) {
       <div className="workarea">
         <LnavTree title={shell.module === 'common' ? t('menu.moduleCommon', menu.title) : menu.title}
           nodes={trNodes}
-          selectedId={shell.activeTabId}
+          selectedId={treeSelId}
           onOpen={(n) => {
             const s = SCREEN_BY_NODE[n.id]
             if (s) shell.openTab(s)
