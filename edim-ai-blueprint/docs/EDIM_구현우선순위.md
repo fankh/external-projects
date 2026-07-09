@@ -22,7 +22,7 @@
 | **P1-4** | Macro 실행 엔진 v1 (ENG-01) | EDIM 차별점의 심장 — `Table12(E,10:25,Cos2)+Var(...)` 파서·평가기. P1-1(Table) 선행 필수 | TBX-005~012 | **L** |
 | **P2-1** | 알림 (sys_notification + WebSocket, SVC-13) | 승인·기한초과 흐름이 이미 실동작 — 통지가 붙어야 프로세스가 닫힘 | SYS-011 · ERP-003 | M |
 | **P2-2** | RBAC 서비스 재검사 | 권한승인정의서 매트릭스(98메뉴)를 API 레벨에 적용 — P0-1(인증) 선행 | SYS-003~005 | M |
-| **P2-3** | i18n 번들 API + 프론트 로더 | sys_translation 테이블·API 스펙 확정 상태 — en/ja/zh 런타임 전환 | REQ-N-015 · SYS-021 | M |
+| **P2-3** ✅ | i18n 런타임 — `GET /i18n/{locale}`(sys_translation, 공개)·타이틀바/로그인 스위처·KO 폴백·오프라인 번들. 셸/로그인/C-1 적용(40키×3언어) — 잔여 화면 키 확장은 번역 콘텐츠 제작과 병행 | REQ-N-015 · SYS-021 | 완료 |
 | **P2-4** | 인쇄 렌더 (SVC-11, Print Form → PDF) | 견적서·승인도서 출력 — 워터마크·Grade 통제 실체화. Playwright PDF 재사용 가능 | CPQ-013 · DOC-002 | M |
 | **P3-1** | EDIM Run 실 파이프라인화 | BOM 단계는 이미 실 SQL — 치수(=P1-4 엔진)·원가(resolve 확장)·산출물 저장(=P1-3)을 단계별로 실체화. **P1 완료 후 자연 조립** | RUN-001~009 | **L** |
 | **P3-2** | Jenkins CI/CD 파이프라인 | 수동 배포(빌드→커밋→pull→rsync)를 자동화 — Jenkins 대기 중, 배포 절차는 README에 문서화 완료 | INF-05 | S |
