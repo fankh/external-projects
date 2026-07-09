@@ -170,7 +170,8 @@ py docs/tools/make_docs_portal.py         # 다운로드 포털 (파일 추가·
 | **https://edim.seekerslab.com/cpq · /plm · /code · /erp** | **EDIM 업무 앱 (edim-web — dense B안 실구현, mock API, 13화면)** | `edim-web/` 수정 → `npm run build`(dist 커밋) → 서버 `git pull` 후 `sudo rsync -a --delete edim-ai-blueprint/edim-web/dist/ /var/www/edim/edim-static/` |
 | **https://edim.seekerslab.com/docs/** | **산출물 다운로드 포털** (29종) | `py docs/tools/make_docs_portal.py` → 커밋·푸시 → 서버 `git pull` 후 `sudo rsync -a --delete docs/ /var/www/edim/docs/files/ && sudo cp docs/portal.html /var/www/edim/docs/index.html` |
 
-> **접근 제어**: edim.seekerslab.com 전체(앱·design·docs·api)는 Basic Auth `edim`/`edim` (`/etc/nginx/.edim_htpasswd`) — 게이트웨이 인증이 곧 로그인 (앱 자체 로그인 화면 없음).
+> **접근 제어**: `/design/`·`/docs/`·`/api/`·루트(/)는 Basic Auth `edim`/`edim` (`/etc/nginx/.edim_htpasswd`).
+> **앱 경로(/cpq·/plm·/code·/erp·/edim-static/)는 basic auth 해제** — 앱 자체 dense 로그인 화면 사용 (계정 `edim`/`edim`, sessionStorage 세션).
 > 예외: `/jenkins/`·`/minio/ui/` — 자체 로그인 사용 (`auth_basic off`).
 
 ---

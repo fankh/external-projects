@@ -35,7 +35,7 @@ REQ(80) → 기능(179) → 메뉴(98) → 화면(W-01~24) → 컴포넌트(39) 
 
 ## 1.5 프론트엔드 구현 (edim-web) — 2026-07-09 착수
 
-- **결정**: 전 화면 **Dense(B안)** 디자인으로 실코드 구현 (정적 시안 대신 실제 앱). 로그인은 게이트웨이 Basic Auth 로 일원화 — 앱 자체 로그인 화면 없음
+- **결정**: 전 화면 **Dense(B안)** 디자인으로 실코드 구현 (정적 시안 대신 실제 앱). 앱 경로는 nginx basic auth 해제 — **앱 dense 로그인 화면(edim/edim)** 사용 (sessionStorage 세션, 실 API 전환 시 JWT)
 - **스택**: `edim-web/` React 19 + Vite + TS (base `/edim-static/`) — dense.css 토큰·클래스는 디자인시안 b02 그대로 이식
 - **구성**: 디자인시스템 컴포넌트(chrome·DenseGrid·LnavTree·Cvs·CommandLine) + 셸(4모듈 CPQ/PLM/Code/ERP · MDI 탭 · F2/F3/F8/F9/F12 디스패처) + **mock API 계층**(`src/api/` — OpenAPI 경로·스키마 1:1 타입, 슬라이드36 KDCR 3-13 데이터; 실 API 전환 시 서비스 구현체만 교체)
 - **화면 13종**:
@@ -50,7 +50,7 @@ REQ(80) → 기능(179) → 메뉴(98) → 화면(W-01~24) → 컴포넌트(39) 
 
 Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** · ufw 5022/80/443
 
-### 공개 URL — 전체 Basic Auth `edim`/`edim` (`/etc/nginx/.edim_htpasswd`) = 로그인
+### 공개 URL — 문서·프로토타입은 Basic Auth `edim`/`edim` · 앱 경로(/cpq 등)는 앱 로그인 `edim`/`edim`
 
 | URL | 용도 |
 |---|---|
