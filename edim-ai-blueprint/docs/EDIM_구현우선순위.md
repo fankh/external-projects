@@ -59,7 +59,7 @@ P2-1 알림 ←─ 승인·이벤트 쓰기 (완료됨)
 |---|---|---|
 | **S1** ✅ 완료 (2026-07-09) | P0-1 + P0-2 + P1-2 | 무토큰 쓰기 API 401 ✓ · Dashboard 집계/Child Group/PR 품목/Folder(cpq_output) live ✓ · Running Test 실전개(KDP 1-21-13-15) ✓ |
 | **S2** ✅ 완료 (2026-07-09) | P1-1 + P1-3 | Table12 CRUD·Excel Import(upsert·거부 리포트) 실저장 ✓ · 파일 업/다운로드(MinIO 프록시, dwg_file) 바이트 일치 ✓ |
-| **S3** | P1-4 (엔진 v1: 사칙·IF·Table()·Var() 범위) | Design Editor 치수 평가가 엔진 결과로 동작 (B=A+56 실계산) |
+| **S3** ✅ 완료 (2026-07-09) | P1-4 (엔진 v1: 사칙·비교·IF/IFERROR/AND/OR·SUM계열·Var(기본값)·Table 단일/범위집계·PreC) | Design Editor 치수 실계산(B=756·D=Table12(B,710)=760·K=1134) ✓ · Studio Run 실평가 2685·수식 편집·오류 시 승인 차단 ✓ |
 | **S4** | P2-1 + P2-2 + P3-2 | 승인→알림 수신 · GENERAL 계정 권한 차단 · push 시 자동 배포 |
 | **S5** | P3-1 + P2-4 | Run 이 실 산출물(PDF 견적서) 을 Folder 에 저장 |
 | 이후 | P2-3 · P3-3 · P4-* | 번역 콘텐츠·운영 준비·협의 항목 확정 후 |
