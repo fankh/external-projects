@@ -4,6 +4,7 @@ import type { User } from '../api/types'
 import { pingBackend, subscribeDataSource, type DataSource } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar } from '../components/chrome'
 import { LnavTree } from '../components/LnavTree'
+import { NotificationBell } from './NotificationBell'
 import { useShell, type OpenTab } from './ShellContext'
 import { MENU_TREE, SCREEN_BY_NODE } from './menus'
 import { SelectionScreen } from '../screens/cpq/SelectionScreen'
@@ -90,7 +91,7 @@ export function Shell(props: { user: User }) {
 
   return (
     <div className="app">
-      <TitleBar user={userLabel} />
+      <TitleBar user={userLabel} bell={<NotificationBell />} />
       <MenuBar activeModule={shell.module} onModule={shell.setModule} />
       <div className="toolbar">
         <span className="b ic" title="신규">▤</span>

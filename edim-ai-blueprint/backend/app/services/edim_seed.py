@@ -89,6 +89,7 @@ def run_seed() -> None:
             logger.info("base seed exists (tenant_id=%s)", row[0])
             _seed_v2(cur, row[0])
             seed_v3(cur, row[0])
+            seed_v4(cur, row[0])
             return
 
         cur.execute(
@@ -187,6 +188,7 @@ def run_seed() -> None:
         logger.info("seed complete — tenant_id=%s, %d codes", tid, len(codes))
         _seed_v2(cur, tid)
         seed_v3(cur, tid)
+        seed_v4(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -338,3 +340,24 @@ def seed_v3(cur, tid: int) -> None:
             """INSERT INTO tbl_data_row (table_id, row_key, row_key_num, row_values, sort_order)
                VALUES (%s,%s,%s,%s,%s)""", (table_id, key, key, json.dumps(vals), i))
     logger.info("seed v3 complete — Table12 %d rows", len(TABLE12_ROWS))
+
+
+# ── seed v4 — RBAC 데모(edim→ADMIN) + 알림 샘플 ──
+
+def seed_v4(cur, tid: int) -> None:
+    cur.execute("SELECT 1 FROM sys_notification WHERE tenant_id=%s LIMIT 1", (tid,))
+    if cur.fetchone():
+        return
+    cur.execute(
+        "UPDATE sys_user SET user_level='ADMIN' WHERE tenant_id=%s AND login_id='edim'", (tid,))
+    cur.execute(
+        "SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id='edim'", (tid,))
+    uid = cur.fetchone()[0]
+    for ntype, title in [
+        ("APPROVAL_REQUEST", "승인 요청 — 도면 KDCR 3-13 Rev.B (Kim)"),
+        ("DEADLINE_WARN", "기한 경고 — PS-612 MR 제작의뢰 초과 2일"),
+    ]:
+        cur.execute(
+            """INSERT INTO sys_notification (tenant_id, user_id, notify_type, title, link_url)
+               VALUES (%s,%s,%s,%s,'/common')""", (tid, uid, ntype, title))
+    logger.info("seed v4 complete — edim=ADMIN, 알림 2건")

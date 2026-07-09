@@ -530,6 +530,36 @@ export const fileService = {
   },
 }
 
+// ── SVC-13 알림 ──
+export interface Notification {
+  id: number
+  type: string
+  title: string
+  link: string | null
+  read: boolean
+  at: string
+}
+
+export const notificationService = {
+  /** GET /api/v1/notifications — 폴링 (WS 는 후속, 인터페이스정의서 §3 폴백) */
+  async list(): Promise<Notification[]> {
+    try {
+      return await api<Notification[]>('/notifications')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return []
+      throw e
+    }
+  },
+  /** POST /api/v1/notifications/{id}/read */
+  async markRead(id: number): Promise<void> {
+    try {
+      await api(`/notifications/${id}/read`, { method: 'POST' })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
+}
+
 // ── ENG-01 Macro 실행 엔진 ──
 export interface MacroResult { ok: boolean; value?: number; error?: string; trace?: string[] }
 

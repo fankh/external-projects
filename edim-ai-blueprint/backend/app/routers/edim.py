@@ -31,6 +31,9 @@ SECRET = os.getenv("EDIM_SECRET", "edim-dev-secret").encode()
 PUBLIC_SUFFIXES = ("/health", "/auth/login")
 
 
+LEVEL_RANK = {"GENERAL": 0, "SETUP": 1, "ADMIN": 2, "PLATFORM": 3}
+
+
 def require_auth(request: Request) -> None:
     if request.url.path.endswith(PUBLIC_SUFFIXES):
         return
@@ -46,6 +49,41 @@ def require_auth(request: Request) -> None:
         raise HTTPException(401, detail="토큰 서명 불일치")
     if not exp.isdigit() or int(exp) < time.time():
         raise HTTPException(401, detail="토큰 만료 — 다시 로그인하십시오")
+    # 사용자 컨텍스트 (RBAC·알림 대상) — SYS-005
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT user_id, user_level FROM sys_user
+               WHERE tenant_id=%s AND login_id=%s AND status='ACTIVE'""", (tid, login))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(401, detail="비활성/미존재 사용자")
+    request.state.login = login
+    request.state.user_id = row[0]
+    request.state.level = row[1]
+
+
+def min_level(name: str):
+    """엔드포인트 최소 권한 — 권한승인정의서 매트릭스 축약 (쓰기=SETUP+, 관리자 작업=ADMIN)."""
+    def dep(request: Request) -> None:
+        lvl = getattr(request.state, "level", None)
+        if lvl is None:
+            raise HTTPException(401, detail="인증 필요")
+        if LEVEL_RANK[lvl] < LEVEL_RANK[name]:
+            raise HTTPException(
+                403, detail=f"권한 부족 — {name} 이상 필요 (현재 {lvl}, SYS-005)")
+    return dep
+
+
+SETUP = Depends(min_level("SETUP"))
+ADMIN = Depends(min_level("ADMIN"))
+
+
+def _notify(cur, tid: int, user_id: int, notify_type: str, title: str,
+            link: str | None = None) -> None:
+    cur.execute(
+        """INSERT INTO sys_notification (tenant_id, user_id, notify_type, title, link_url)
+           VALUES (%s,%s,%s,%s,%s)""", (tid, user_id, notify_type, title[:200], link))
 
 
 router = APIRouter(prefix="/api/v1", tags=["edim"], dependencies=[Depends(require_auth)])
@@ -249,7 +287,7 @@ class TableRowRequest(BaseModel):
     values: dict[str, float | int | None] = {}
 
 
-@router.post("/tables/{name}/rows", status_code=201)
+@router.post("/tables/{name}/rows", status_code=201, dependencies=[SETUP])
 def add_table_row(name: str, body: TableRowRequest) -> dict[str, Any]:
     key = body.key.strip()
     if not key:
@@ -269,7 +307,7 @@ def add_table_row(name: str, body: TableRowRequest) -> dict[str, Any]:
     return {"key": key}
 
 
-@router.put("/tables/{name}/rows/{key}")
+@router.put("/tables/{name}/rows/{key}", dependencies=[SETUP])
 def update_table_row(name: str, key: str, body: TableRowRequest) -> dict[str, Any]:
     values = {k: v for k, v in body.values.items() if v is not None}
     with _conn() as conn, conn.cursor() as cur:
@@ -284,7 +322,7 @@ def update_table_row(name: str, key: str, body: TableRowRequest) -> dict[str, An
     return {"key": key, "values": values}
 
 
-@router.delete("/tables/{name}/rows/{key}")
+@router.delete("/tables/{name}/rows/{key}", dependencies=[SETUP])
 def delete_table_row(name: str, key: str) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -296,7 +334,7 @@ def delete_table_row(name: str, key: str) -> dict[str, Any]:
     return {"deleted": key}
 
 
-@router.post("/tables/{name}/import-excel")
+@router.post("/tables/{name}/import-excel", dependencies=[SETUP])
 async def import_excel(name: str, uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     """정형 양식(1행 헤더 = Key + 열 이름) — Key 중복은 갱신, 수치 아닌 셀은 무시."""
     import openpyxl
@@ -407,7 +445,7 @@ def evaluate_macro(body: EvaluateRequest) -> dict[str, Any]:
 
 
 # ── SVC-12 파일 업/다운로드 (MinIO 프록시) ──
-@router.post("/files/upload", status_code=201)
+@router.post("/files/upload", status_code=201, dependencies=[SETUP])
 async def upload_file(
     uploadedFile: UploadFile = File(...),
     folder: str = Form("RECEIVED"),
@@ -520,8 +558,8 @@ class DecideRequest(BaseModel):
     comment: str = ""
 
 
-@router.post("/approvals/{approval_id}/decide")
-def decide(approval_id: int, body: DecideRequest) -> dict[str, Any]:
+@router.post("/approvals/{approval_id}/decide", dependencies=[SETUP])
+def decide(approval_id: int, request: Request, body: DecideRequest) -> dict[str, Any]:
     if not body.approve and not body.comment.strip():
         raise HTTPException(422, detail="반려는 코멘트 필수")
     result = "APPROVED" if body.approve else "REJECTED"
@@ -531,11 +569,16 @@ def decide(approval_id: int, body: DecideRequest) -> dict[str, Any]:
             """UPDATE sys_approval_request
                SET result=%s, comment=NULLIF(%s,'') , decided_at=now()
                WHERE tenant_id=%s AND approval_id=%s AND result IS NULL
-               RETURNING target_table, target_id""",
+               RETURNING target_table, target_id, requester_id, comment""",
             (result, body.comment.strip(), tid, approval_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"처리 가능한 요청 없음: {approval_id}")
+        # 요청자 알림 (SVC-13)
+        _notify(cur, tid, row[2], "APPROVAL_RESULT",
+                f"{'승인' if body.approve else '반려'} — {row[0]} #{row[1]}"
+                + (f" ({body.comment.strip()})" if body.comment.strip() else ""),
+                "/common")
         # 대상 자산 상태 전이 + 이력
         if row[0] == "product_code":
             cur.execute(
@@ -549,6 +592,36 @@ def decide(approval_id: int, body: DecideRequest) -> dict[str, Any]:
             (tid, row[0], row[1], result, actor[0] if actor else 1,
              json.dumps({"comment": body.comment})))
     return {"approvalId": approval_id, "result": result}
+
+
+# ── SVC-13 알림 ──
+@router.get("/notifications")
+def notifications(request: Request, limit: int = 20) -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT notification_id, notify_type, title, link_url, is_read,
+                      to_char(created_at,'MM-DD HH24:MI')
+               FROM sys_notification
+               WHERE tenant_id=%s AND user_id=%s
+               ORDER BY is_read, notification_id DESC LIMIT %s""",
+            (tid, request.state.user_id, limit))
+        return [
+            {"id": r[0], "type": r[1], "title": r[2], "link": r[3],
+             "read": r[4], "at": r[5]}
+            for r in cur.fetchall()
+        ]
+
+
+@router.post("/notifications/{notification_id}/read")
+def read_notification(notification_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_notification SET is_read=true
+               WHERE tenant_id=%s AND user_id=%s AND notification_id=%s""",
+            (tid, request.state.user_id, notification_id))
+    return {"id": notification_id, "read": True}
 
 
 # ── SVC-11 Documents (문서함 M-5-4) ──
@@ -577,7 +650,7 @@ def documents() -> list[dict[str, Any]]:
 ROLE_LABEL = {"PLATFORM": "Platform", "ADMIN": "관리자", "SETUP": "설계 Set-up", "GENERAL": "일반"}
 
 
-@router.get("/users")
+@router.get("/users", dependencies=[SETUP])
 def users() -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -591,7 +664,7 @@ def users() -> list[dict[str, Any]]:
         ]
 
 
-@router.post("/users/{login}/unlock")
+@router.post("/users/{login}/unlock", dependencies=[ADMIN])
 def unlock_user(login: str) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -671,7 +744,7 @@ class StagePatch(BaseModel):
     stage: str
 
 
-@router.patch("/projects/{project_no}")
+@router.patch("/projects/{project_no}", dependencies=[SETUP])
 def patch_project(project_no: str, body: StagePatch) -> dict[str, Any]:
     code = STAGE_MAP.get(body.stage)
     if not code:
@@ -740,8 +813,8 @@ class NewItemRequest(BaseModel):
     values: list[str] = []
 
 
-@router.post("/codes/groups/{group}/items", status_code=201)
-def add_item(group: str, body: NewItemRequest) -> dict[str, Any]:
+@router.post("/codes/groups/{group}/items", status_code=201, dependencies=[SETUP])
+def add_item(group: str, request: Request, body: NewItemRequest) -> dict[str, Any]:
     slot = body.slot.strip().upper()
     if not slot or not body.name.strip():
         raise HTTPException(422, detail="필수(노란 셀) 미입력")
@@ -765,13 +838,20 @@ def add_item(group: str, body: NewItemRequest) -> dict[str, Any]:
                 """INSERT INTO code_item_value (tenant_id, item_id, value_code, sort_order,
                    approval_status) VALUES (%s,%s,%s,%s,'PENDING')""",
                 (tid, item_id, v.strip()[:30], i))
-        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s LIMIT 1", (tid,))
-        actor = cur.fetchone()
+        actor_id = request.state.user_id
         cur.execute(
             """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
                request_type, step, requester_id, comment)
                VALUES (%s,'code_item',%s,'CREATE','승인',%s,%s)""",
-            (tid, item_id, actor[0], f"{group} / {slot}: {body.name.strip()}"))
+            (tid, item_id, actor_id, f"{group} / {slot}: {body.name.strip()}"))
+        # 승인권자(SETUP+) 알림 — 요청자 제외 (SVC-13)
+        cur.execute(
+            """SELECT user_id FROM sys_user
+               WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN') AND user_id<>%s""",
+            (tid, actor_id))
+        for (uid,) in cur.fetchall():
+            _notify(cur, tid, uid, "APPROVAL_REQUEST",
+                    f"승인 요청 — {group}/{slot} {body.name.strip()}", "/common")
     return {"slot": slot, "status": "PENDING"}
 
 

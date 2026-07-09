@@ -1,7 +1,7 @@
 /** 앱 크롬 — 타이틀바 · 메뉴바 · MDI 탭 · 상태바 (디자인시안 b03 문법). */
 import type { ReactNode } from 'react'
 
-export function TitleBar(props: { context?: ReactNode; user: string }) {
+export function TitleBar(props: { context?: ReactNode; user: string; bell?: ReactNode }) {
   return (
     <div className="titlebar">
       <span className="lg">E</span>
@@ -9,6 +9,7 @@ export function TitleBar(props: { context?: ReactNode; user: string }) {
       <span style={{ color: '#8FA5CC' }}>— NOVA Solution</span>
       {props.context ? <span style={{ color: '#B9C7E2' }}>{props.context}</span> : null}
       <span className="sp" />
+      {props.bell}
       <span className="u">{props.user}</span>
     </div>
   )
