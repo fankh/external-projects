@@ -18,18 +18,18 @@ export function DataTableScreen({ active }: ScreenProps) {
   const fileInput = useRef<HTMLInputElement>(null)
   const dirty = dirtyKeys.size
 
-  const load = async () => {
+  const load = async (): Promise<TableRow[]> => {
     const data = await tableCrudService.get(TABLE12.name)
-    if (data) {
-      setRows(data.rows.map((r) => ({
+    const next = data
+      ? data.rows.map((r) => ({
         key: r.key,
         cols: TABLE12.columns.map((c) => r.values[c] ?? null),
         remarks: '',
-      })))
-    } else {
-      setRows(TABLE12_ROWS)   // mock 폴백
-    }
+      }))
+      : TABLE12_ROWS   // mock 폴백
+    setRows(next)
     setDirtyKeys(new Set())
+    return next
   }
 
   useEffect(() => { void load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -39,22 +39,75 @@ export function DataTableScreen({ active }: ScreenProps) {
 
   const save = () => {
     void (async () => {
-      for (const key of dirtyKeys) {
-        const r = rows.find((x) => x.key === key)
-        if (r) await tableCrudService.updateRow(TABLE12.name, key, rowValues(r))
+      try {
+        for (const key of dirtyKeys) {
+          const r = rows.find((x) => x.key === key)
+          if (r && !await tableCrudService.updateRow(TABLE12.name, key, rowValues(r))) {
+            shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{BACKEND_REQUIRED}</span>)
+            return   // dirty 유지 — 백엔드 복구 후 F12 재시도
+          }
+        }
+        setDirtyKeys(new Set())
+        shell.setStatusMsg(`Table12 저장 ${dirtyKeys.size}행 (tbl_data_row) — 참조 Macro 4건 영향 검토 대상`)
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          저장 실패 — {e instanceof Error ? e.message : String(e)}</span>)
       }
-      setDirtyKeys(new Set())
-      shell.setStatusMsg(`Table12 저장 ${dirtyKeys.size}행 (tbl_data_row) — 참조 Macro 4건 영향 검토 대상`)
     })()
   }
 
+  const addBusy = useRef(false)   // 키 반복(F2 연타/홀드) 동시 실행 가드
+
+  const maxKey = (rs: TableRow[]) => Math.max(0, ...rs.map((r) => Number(r.key) || 0))
+  const BACKEND_REQUIRED = '백엔드 연결 필요 — Table 편집은 실DB 에만 기록됩니다 (MOCK 모드 편집 불가)'
+
   const addRow = () => {
-    const nextKey = String(Math.max(0, ...rows.map((r) => Number(r.key) || 0)) + 90)
+    if (addBusy.current) return
+    addBusy.current = true
     void (async () => {
-      await tableCrudService.addRow(TABLE12.name, nextKey, {})
-      setRows((prev) => [...prev, { key: nextKey, cols: TABLE12.columns.map(() => null), remarks: '' }])
-      setSelKey(nextKey)
-      shell.setStatusMsg(`행 추가 — Key ${nextKey} (row_key_num 자동 파싱)`)
+      try {
+        let nextKey = String(maxKey(rows) + 90)
+        try {
+          if (!await tableCrudService.addRow(TABLE12.name, nextKey, {})) {
+            shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{BACKEND_REQUIRED}</span>)
+            return
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message.includes('중복')) {
+            // 다른 세션이 추가한 행으로 로컬이 뒤처짐 — 서버 실데이터로 재동기 후 1회 재시도
+            const fresh = await tableCrudService.get(TABLE12.name)
+            if (!fresh) {
+              shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{BACKEND_REQUIRED}</span>)
+              return
+            }
+            const freshRows: TableRow[] = fresh.rows.map((r) => ({
+              key: r.key,
+              cols: TABLE12.columns.map((c) => r.values[c] ?? null),
+              remarks: '',
+            }))
+            setRows(freshRows)
+            setDirtyKeys(new Set())
+            nextKey = String(maxKey(freshRows) + 90)
+            if (!await tableCrudService.addRow(TABLE12.name, nextKey, {})) {
+              shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{BACKEND_REQUIRED}</span>)
+              return
+            }
+            setRows((prev) => [...prev, { key: nextKey, cols: TABLE12.columns.map(() => null), remarks: '' }])
+            setSelKey(nextKey)
+            shell.setStatusMsg(`행 추가 — Key ${nextKey} (서버 재동기 후 발번)`)
+            return
+          }
+          throw e
+        }
+        setRows((prev) => [...prev, { key: nextKey, cols: TABLE12.columns.map(() => null), remarks: '' }])
+        setSelKey(nextKey)
+        shell.setStatusMsg(`행 추가 — Key ${nextKey} (row_key_num 자동 파싱)`)
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          행 추가 실패 — {e instanceof Error ? e.message : String(e)}</span>)
+      } finally {
+        addBusy.current = false
+      }
     })()
   }
 
@@ -83,16 +136,24 @@ export function DataTableScreen({ active }: ScreenProps) {
     }
     const key = selKey
     void (async () => {
-      await tableCrudService.deleteRow(TABLE12.name, key)
-      // 삭제 후 이웃 행으로 포커스 이동 — 마지막 행이면 바로 위 행 (연속 F3 편집 흐름)
-      const idx = rows.findIndex((r) => r.key === key)
-      const remaining = rows.filter((r) => r.key !== key)
-      const neighbor = remaining[Math.min(idx, remaining.length - 1)] ?? null
-      setRows(remaining)
-      setDirtyKeys((prev) => { const n = new Set(prev); n.delete(key); return n })
-      setSelKey(neighbor?.key ?? null)
-      shell.setStatusMsg(`행 삭제 — Key ${key}`
-        + (neighbor ? ` · 선택 → ${neighbor.key}` : '') + ' (참조 Macro 영향 검토 대상)')
+      try {
+        if (!await tableCrudService.deleteRow(TABLE12.name, key)) {
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{BACKEND_REQUIRED}</span>)
+          return
+        }
+        // 삭제 후 이웃 행으로 포커스 이동 — 마지막 행이면 바로 위 행 (연속 F3 편집 흐름)
+        const idx = rows.findIndex((r) => r.key === key)
+        const remaining = rows.filter((r) => r.key !== key)
+        const neighbor = remaining[Math.min(idx, remaining.length - 1)] ?? null
+        setRows(remaining)
+        setDirtyKeys((prev) => { const n = new Set(prev); n.delete(key); return n })
+        setSelKey(neighbor?.key ?? null)
+        shell.setStatusMsg(`행 삭제 — Key ${key}`
+          + (neighbor ? ` · 선택 → ${neighbor.key}` : '') + ' (참조 Macro 영향 검토 대상)')
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          행 삭제 실패 — {e instanceof Error ? e.message : String(e)}</span>)
+      }
     })()
   }
 

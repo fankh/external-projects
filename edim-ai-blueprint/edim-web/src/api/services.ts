@@ -178,34 +178,40 @@ export const tableCrudService = {
       throw e
     }
   },
-  /** POST /api/v1/tables/{name}/rows */
-  async addRow(name: string, key: string, values: Record<string, number | null>): Promise<void> {
+  /** POST /api/v1/tables/{name}/rows — true=실DB 영속, false=백엔드 불가 (mock 성공 없음) */
+  async addRow(name: string, key: string, values: Record<string, number | null>): Promise<boolean> {
     try {
       await api(`/tables/${encodeURIComponent(name)}/rows`, {
         method: 'POST', body: JSON.stringify({ key, values }),
       })
+      return true
     } catch (e) {
-      if (!(e instanceof ApiUnavailable)) throw e
+      if (e instanceof ApiUnavailable) return false
+      throw e
     }
   },
-  /** PUT /api/v1/tables/{name}/rows/{key} */
-  async updateRow(name: string, key: string, values: Record<string, number | null>): Promise<void> {
+  /** PUT /api/v1/tables/{name}/rows/{key} — true=실DB 영속, false=백엔드 불가 */
+  async updateRow(name: string, key: string, values: Record<string, number | null>): Promise<boolean> {
     try {
       await api(`/tables/${encodeURIComponent(name)}/rows/${encodeURIComponent(key)}`, {
         method: 'PUT', body: JSON.stringify({ key, values }),
       })
+      return true
     } catch (e) {
-      if (!(e instanceof ApiUnavailable)) throw e
+      if (e instanceof ApiUnavailable) return false
+      throw e
     }
   },
-  /** DELETE /api/v1/tables/{name}/rows/{key} */
-  async deleteRow(name: string, key: string): Promise<void> {
+  /** DELETE /api/v1/tables/{name}/rows/{key} — true=실DB 영속, false=백엔드 불가 */
+  async deleteRow(name: string, key: string): Promise<boolean> {
     try {
       await api(`/tables/${encodeURIComponent(name)}/rows/${encodeURIComponent(key)}`, {
         method: 'DELETE',
       })
+      return true
     } catch (e) {
-      if (!(e instanceof ApiUnavailable)) throw e
+      if (e instanceof ApiUnavailable) return false
+      throw e
     }
   },
   /** POST /api/v1/tables/{name}/import-excel — 정형 양식, Key 중복은 갱신 */
