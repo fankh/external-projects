@@ -1,0 +1,52 @@
+name: EDIM CI
+
+# edim-ai-blueprint 회귀 게이트 — 빌드 + 52체크 폴백 E2E (Playwright, mock 모드).
+# 서버 auto-deploy(2분 폴링)와 병행: 실패 시 커밋 상태 ✗ 로 즉시 알림.
+on:
+  push:
+    branches: [master]
+    paths: ['edim-ai-blueprint/**']
+  pull_request:
+    paths: ['edim-ai-blueprint/**']
+
+concurrency:
+  group: edim-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: edim-ai-blueprint/edim-web/package-lock.json
+
+      - name: Build edim-web
+        working-directory: edim-ai-blueprint/edim-web
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Run fallback regression suite
+        working-directory: edim-ai-blueprint
+        run: |
+          (cd edim-web && npm run preview >/tmp/preview.log 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:4173/edim-static/ >/dev/null && break
+            sleep 1
+          done
+          python tests/e2e_fallback.py

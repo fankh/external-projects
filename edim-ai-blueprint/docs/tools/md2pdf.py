@@ -27,6 +27,7 @@ DOCS = [
     ("EDIM_클래스정의서.md", "EDIM_클래스정의서.pdf", "EDIM 클래스 정의서"),
     ("EDIM_개발표준정의서.md", "EDIM_개발표준정의서.pdf", "EDIM 개발 표준 정의서"),
     ("EDIM_데이터이행계획서.md", "EDIM_데이터이행계획서.pdf", "EDIM 데이터 이행 계획서"),
+    ("EDIM_시연시나리오.md", "EDIM_시연시나리오.pdf", "EDIM 시연 시나리오"),
 ]
 
 CSS = """
