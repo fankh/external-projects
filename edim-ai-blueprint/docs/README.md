@@ -170,7 +170,7 @@ py docs/tools/make_docs_portal.py         # 다운로드 포털 (파일 추가·
 | **https://edim.seekerslab.com/cpq · /plm** | **EDIM 업무 앱 (edim-web — dense B안 실구현, mock API)** | `edim-web/` 수정 → `npm run build`(dist 커밋) → 서버 `git pull` 후 `sudo rsync -a --delete edim-ai-blueprint/edim-web/dist/ /var/www/edim/edim-static/` |
 | **https://edim.seekerslab.com/docs/** | **산출물 다운로드 포털** (29종) | `py docs/tools/make_docs_portal.py` → 커밋·푸시 → 서버 `git pull` 후 `sudo rsync -a --delete docs/ /var/www/edim/docs/files/ && sudo cp docs/portal.html /var/www/edim/docs/index.html` |
 
-> **접근 제어**: edim.seekerslab.com 전체(앱·design·docs·api)는 Basic Auth `edim`/`edim` (`/etc/nginx/.edim_htpasswd`).
+> **접근 제어**: edim.seekerslab.com 전체(앱·design·docs·api)는 Basic Auth `deim`/`deim` (`/etc/nginx/.edim_htpasswd`).
 > 예외: `/jenkins/`·`/minio/ui/` — 자체 로그인 사용 (`auth_basic off`).
 
 ---

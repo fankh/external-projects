@@ -46,7 +46,7 @@ REQ(80) → 기능(179) → 메뉴(98) → 화면(W-01~24) → 컴포넌트(39) 
 
 Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** · ufw 5022/80/443
 
-### 공개 URL — 전체 Basic Auth `edim`/`edim` (`/etc/nginx/.edim_htpasswd`)
+### 공개 URL — 전체 Basic Auth `deim`/`deim` (`/etc/nginx/.edim_htpasswd`, 2026-07-09 변경)
 
 | URL | 용도 |
 |---|---|
