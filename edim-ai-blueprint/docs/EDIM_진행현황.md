@@ -48,8 +48,10 @@ REQ(80) → 기능(179) → 메뉴(98) → 화면(W-01~24) → 컴포넌트(39) 
   - Toolbox(/toolbox): Macro Studio(S-2-2: 4-Way Sync·Test Run 786→TESTED 게이트) · UI Designer(S-2-1: 팔레트 배치·Object Inspector·AI 초안)
   - 공통(/common): 승인함(M-15-2: 수식 전후 비교·승인/반려 실동작) · 부서 업무함(M-15-3: 완료 처리→경고 해제) · Project Folder·이력(M-15-8/9: 폴더 5종·sys_history diff) · Mobile 미리보기(M-16: .phone 3대)
 - **상세(드릴다운) 4종** — 레거시 문법 "더블클릭=상세" 구현 (b01 채택 항목): **코드 상세**(BOM·Child·단가·발주 그리드에서 진입 — 도면·단가 이력·Referencers·승인 이력) · **문서 상세**(Run 산출물 — doc_control 상태 Set-up→Accepted·Grade M 워터마크) · **부품 상세**(Design Editor Block — 치수 바인딩·Work Process·조립순서 ◆) · **이벤트 상세**(Dashboard 이상경고 — 전후 공정·완료 처리→후행 생성)
-- **검증**: tsc 무오류 · Playwright 스모크 48/48 · 콘솔 에러 0
-- **배포**: dist 커밋 → 서버 rsync `/var/www/edim/edim-static/` + nginx `/cpq` `/plm` `/code` `/erp` `/toolbox` `/common` SPA fallback
+- **실 백엔드 연동 (2026-07-09)**: FastAPI `/api/v1` — **서버 PostgreSQL 16 (54테이블 스키마)** 직결. 엔드포인트: auth/login(sys_user 검증·HMAC 토큰) · codes/groups/{g}/slots · **codes/products/expand(재귀 CTE+slot_map — verify_runtime T1 동일 로직)** · tables/tech-data · prices/resolve(APPLIED→PURCHASE→STOCK→QUOTE) · cpq/runs(202+폴링, cpq_run/cpq_output 영속). 멱등 시드(tenant nova·KOF·KDCR 3-13 관계·단가·TechData). 컨테이너는 `infra_default` 네트워크로 edim-postgres 접속(DATABASE_URL 은 서버 backend/.env — 커밋 금지)
+- **프론트 서비스 계층**: fetch 우선 + **mock 폴백**(네트워크/503/라우트 부재 시) — 상태바에 `DB: EDIM-PRD (PG16)` / `DB: MOCK` 표시. 정적 화면 데이터셋(문서함·승인함 목록 등)은 아직 mock — 후속 이행
+- **검증**: tsc 무오류 · Playwright 스모크 49/49(mock 폴백) · **라이브 E2E 5/5 (실 DB: 로그인 검증·BOM 재전개·Run 영속)** · 콘솔 에러 0
+- **배포**: dist 커밋 → 서버 rsync `/var/www/edim/edim-static/` + nginx `/cpq` `/plm` `/code` `/erp` `/toolbox` `/common` SPA fallback + `/api/v1/`(auth off) 프록시
 
 ## 2. 인프라 현황 (edim.seekerslab.com)
 
@@ -71,7 +73,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 
 | 위치 | 구성 |
 |---|---|
-| `~/apps/external-projects/edim-ai-blueprint` | 앱 compose — edim-backend 127.0.0.1:8000 |
+| `~/apps/external-projects/edim-ai-blueprint` | 앱 compose — edim-backend 127.0.0.1:8000 (+`infra_default` 네트워크로 edim-postgres 접속, `backend/.env` 에 DATABASE_URL) |
 | `~/apps/infra` | jenkins(:8080/:50000) · minio(:9000/:9001) · postgres:16 `edim-postgres`(:5432, db=edim) — 전부 127.0.0.1 바인딩 |
 | `/var/www/edim` | nginx 정적 루트 — 앱 SPA + design/ + docs/(포털) |
 | TLS | Let's Encrypt (certbot 자동 갱신, basic auth와 무충돌) |
