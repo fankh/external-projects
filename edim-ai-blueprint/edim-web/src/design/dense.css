@@ -85,7 +85,8 @@ body {
 .menubar span.mod { font-weight: 700; }
 .menubar span.mod.on { background: #E1E6EE; color: var(--title-navy); }
 .toolbar { display: flex; align-items: center; gap: 3px; background: var(--chrome); border-bottom: 1px solid var(--line); padding: 3px 6px; flex-wrap: wrap; flex: none; }
-.mdi { display: flex; align-items: flex-end; gap: 1px; background: #D9DDE4; padding: 4px 6px 0; border-bottom: 1px solid var(--line-strong); flex: none; overflow-x: auto; }
+.mdi { display: flex; align-items: flex-end; gap: 1px; background: #D9DDE4; padding: 4px 6px 0; border-bottom: 1px solid var(--line-strong); flex: none; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.mdi::-webkit-scrollbar { display: none; }
 .mdi .t { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; background: #E7EAEF; border: 1px solid var(--line); border-bottom: none; color: var(--txt-dim); border-radius: 3px 3px 0 0; cursor: pointer; white-space: nowrap; }
 .mdi .t.on { background: #fff; color: var(--title-navy); font-weight: 700; position: relative; top: 1px; }
 .mdi .t .x { color: var(--txt-mute); font-size: 10px; padding: 0 1px; }
@@ -163,6 +164,16 @@ body {
 .pgbar { height: 14px; border: 1px solid var(--line-strong); background: #fff; position: relative; }
 .pgbar .fill { position: absolute; inset: 1px auto 1px 1px; background: linear-gradient(180deg, #2F9463, #1E7A4E); transition: width .3s; }
 .pgbar .pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 9.5px; font-weight: 700; color: var(--grid-head-txt); }
+
+/* 모바일 프레임 (W-16) — 내부는 dense 토큰, 터치 타깃만 32px 예외 */
+.phone { width: 216px; border: 2px solid #3a4152; border-radius: 14px; background: #fff; padding: 8px 7px; flex: none; }
+.phone .pt { height: 10px; display: flex; justify-content: center; }
+.phone .pt i { width: 52px; height: 5px; background: #3a4152; border-radius: 3px; }
+.phone .pscr { border: 1px solid var(--line); min-height: 320px; padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+.phone .pbar { display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--grid-head-txt); background: var(--grid-head); padding: 3px 6px; }
+.phone .pgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.phone .pi { border: 1px solid var(--line); padding: 6px 4px; font-size: 10px; text-align: center; min-height: 32px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.phone .pi .ic { font-size: 13px; }
 
 /* 스크롤 영역 유틸 */
 .fill-col { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }

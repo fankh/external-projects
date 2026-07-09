@@ -14,13 +14,15 @@ export function TitleBar(props: { context?: ReactNode; user: string }) {
   )
 }
 
-export type ModuleKey = 'cpq' | 'plm' | 'code' | 'erp'
+export type ModuleKey = 'cpq' | 'plm' | 'code' | 'erp' | 'toolbox' | 'common'
 
 const MODULES: { id: ModuleKey; label: string }[] = [
+  { id: 'toolbox', label: 'Toolbox' },
   { id: 'cpq', label: 'CPQ' },
   { id: 'plm', label: 'PLM' },
   { id: 'code', label: 'Code Set-up' },
   { id: 'erp', label: 'ERP' },
+  { id: 'common', label: '공통' },
 ]
 
 export function MenuBar(props: {

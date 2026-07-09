@@ -3,7 +3,7 @@ import {
   createContext, useCallback, useContext, useMemo, useState, type ReactNode,
 } from 'react'
 
-export type ModuleId = 'cpq' | 'plm' | 'code' | 'erp'
+export type ModuleId = 'cpq' | 'plm' | 'code' | 'erp' | 'toolbox' | 'common'
 
 export interface OpenTab {
   id: string          // 화면 인스턴스 id (screenId 또는 screenId:seq)

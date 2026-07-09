@@ -13,6 +13,17 @@ import { WorkProcessScreen } from '../screens/plm/WorkProcessScreen'
 import { SubCodeScreen } from '../screens/code/SubCodeScreen'
 import { CodeRelationshipScreen } from '../screens/code/CodeRelationshipScreen'
 import { DataTableScreen } from '../screens/code/DataTableScreen'
+import { DocumentMgmtScreen } from '../screens/cpq/DocumentMgmtScreen'
+import { DocTemplateScreen } from '../screens/cpq/DocTemplateScreen'
+import { PrintSetupScreen } from '../screens/cpq/PrintSetupScreen'
+import { DuctDesignScreen } from '../screens/plm/DuctDesignScreen'
+import { AccessControlScreen } from '../screens/erp/AccessControlScreen'
+import { MacroStudioScreen } from '../screens/toolbox/MacroStudioScreen'
+import { UiDesignerScreen } from '../screens/toolbox/UiDesignerScreen'
+import { ApprovalInboxScreen } from '../screens/common/ApprovalInboxScreen'
+import { TaskBoxScreen } from '../screens/common/TaskBoxScreen'
+import { ProjectFolderScreen } from '../screens/common/ProjectFolderScreen'
+import { MobilePreviewScreen } from '../screens/common/MobilePreviewScreen'
 import { CodeDetailScreen } from '../screens/detail/CodeDetailScreen'
 import { OutputDocScreen } from '../screens/detail/OutputDocScreen'
 import { PartDetailScreen } from '../screens/detail/PartDetailScreen'
@@ -42,6 +53,17 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'erp-price': PriceScreen,
   'erp-process': ProcessSetupScreen,
   'erp-purchase': PurchaseScreen,
+  'cpq-docmgmt': DocumentMgmtScreen,
+  'cpq-doctpl': DocTemplateScreen,
+  'cpq-print': PrintSetupScreen,
+  'plm-duct': DuctDesignScreen,
+  'erp-access': AccessControlScreen,
+  'tbx-macro': MacroStudioScreen,
+  'tbx-ui': UiDesignerScreen,
+  'com-approval': ApprovalInboxScreen,
+  'com-tasks': TaskBoxScreen,
+  'com-folder': ProjectFolderScreen,
+  'com-mobile': MobilePreviewScreen,
   // 상세 (드릴다운 — 더블클릭으로 진입, params 필수)
   'code-detail': CodeDetailScreen,
   'doc-detail': OutputDocScreen,

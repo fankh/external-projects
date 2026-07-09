@@ -17,6 +17,17 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'code-subcode': { screenId: 'code-subcode', code: 'S-1-1', title: 'Sub Code 등록' },
   'code-relationship': { screenId: 'code-relationship', code: 'S-1-4', title: 'Code Relationship' },
   'code-datatable': { screenId: 'code-datatable', code: 'M-3-7', title: '데이터 Table' },
+  'cpq-docmgmt': { screenId: 'cpq-docmgmt', code: 'M-5-4', title: '문서함' },
+  'cpq-doctpl': { screenId: 'cpq-doctpl', code: 'C-3', title: 'Document Templet' },
+  'cpq-print': { screenId: 'cpq-print', code: 'S-3-4', title: 'Print Set-up' },
+  'plm-duct': { screenId: 'plm-duct', code: 'M-4-3', title: '건축설비 Duct' },
+  'erp-access': { screenId: 'erp-access', code: 'M-14-6', title: '사용자·권한' },
+  'tbx-macro': { screenId: 'tbx-macro', code: 'S-2-2', title: 'Macro Studio' },
+  'tbx-ui': { screenId: 'tbx-ui', code: 'S-2-1', title: 'UI Designer' },
+  'com-approval': { screenId: 'com-approval', code: 'M-15-2', title: '승인함' },
+  'com-tasks': { screenId: 'com-tasks', code: 'M-15-3', title: '부서 업무함' },
+  'com-folder': { screenId: 'com-folder', code: 'M-15-8', title: 'Project Folder' },
+  'com-mobile': { screenId: 'com-mobile', code: 'M-16', title: 'Mobile 미리보기' },
   'erp-project': { screenId: 'erp-project', code: 'S-3-5', title: 'Project 등록' },
   'erp-dashboard': { screenId: 'erp-dashboard', code: 'M-14-4', title: 'Dashboard' },
   'erp-price': { screenId: 'erp-price', code: 'M-12-5', title: '단가 관리' },
@@ -41,8 +52,9 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       },
       {
         id: 'cpq-doc', label: 'Document', children: [
-          { id: 'cpq-doc-tpl', label: 'Templet (C-3) — 예정' },
-          { id: 'cpq-doc-mgmt', label: '문서함 (M-5-4) — 예정' },
+          { id: 'cpq-doctpl', label: 'Document Templet (C-3)' },
+          { id: 'cpq-docmgmt', label: '문서함 (M-5-4)' },
+          { id: 'cpq-print', label: 'Print Set-up (S-3-4)' },
         ],
       },
     ],
@@ -60,6 +72,11 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
           { id: 'plm-workprocess', label: 'Work Process (S-4-1-2)' },
           { id: 'plm-material', label: 'Material — 예정' },
           { id: 'plm-quality', label: 'Quality — 예정' },
+        ],
+      },
+      {
+        id: 'plm-design2', label: 'Design', children: [
+          { id: 'plm-duct', label: '건축설비 Duct (M-4-3)' },
         ],
       },
       { id: 'plm-arr', label: 'Arrangement Set-Up — 예정' },
@@ -113,8 +130,35 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
         id: 'erp-company', label: 'Company Info.', children: [
           { id: 'erp-dashboard', label: 'Dashboard (M-14-4)' },
           { id: 'erp-process', label: 'Process Set-up (M-14-7)' },
+          { id: 'erp-access', label: '사용자·권한 (M-14-6)' },
         ],
       },
+    ],
+  },
+  toolbox: {
+    title: 'EDIM Toolbox',
+    nodes: [
+      {
+        id: 'tbx-uidesign', label: 'UI Design', children: [
+          { id: 'tbx-ui', label: 'UI Designer (S-2-1)' },
+        ],
+      },
+      {
+        id: 'tbx-program', label: 'Program Macro', children: [
+          { id: 'tbx-macro', label: 'Macro Studio (S-2-2)' },
+        ],
+      },
+      { id: 'tbx-templet', label: 'Templet 관리 — 예정' },
+    ],
+  },
+  common: {
+    title: '공통',
+    nodes: [
+      { id: 'com-approval', label: '승인함 (M-15-2)' },
+      { id: 'com-tasks', label: '부서 업무함 (M-15-3)' },
+      { id: 'com-folder', label: 'Project Folder·이력 (M-15-8/9)' },
+      { id: 'com-mobile', label: 'Mobile App 미리보기 (M-16)' },
+      { id: 'com-search', label: '통합 검색 — 예정' },
     ],
   },
 }

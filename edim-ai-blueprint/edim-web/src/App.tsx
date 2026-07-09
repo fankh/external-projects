@@ -9,6 +9,8 @@ function initialModule(): ModuleId {
   if (p.startsWith('/plm')) return 'plm'
   if (p.startsWith('/code')) return 'code'
   if (p.startsWith('/erp')) return 'erp'
+  if (p.startsWith('/toolbox')) return 'toolbox'
+  if (p.startsWith('/common')) return 'common'
   return 'cpq'
 }
 

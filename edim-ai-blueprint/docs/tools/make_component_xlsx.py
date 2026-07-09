@@ -67,8 +67,9 @@ COMPONENTS = [
 ]
 # 구축 상태 (2026-07-09, 개발 서버 edim.seekerslab.com 기준)
 STATUS = {
- "FE-01":  ("구축중", "edim-web(React19+Vite+TS, dense B안) — 셸(4모듈·MDI·F-key)·CPQ 3화면·ERP 5화면(Project·Dashboard·단가·Process·구매발주), mock API(OpenAPI 대응). 루트(/)는 Drawing Viewer 프로토타입 유지"),
- "FE-02":  ("구축중", "edim-web — Design Editor·Work Process(/plm) + Code Set-up 3화면(/code: Sub Code·Relationship Running Test·데이터 Table) — mock API"),
+ "FE-01":  ("구축중", "edim-web(React19+Vite+TS, dense B안) — 6모듈 셸(MDI·F-key), 와이어프레임 24화면 전량 + 상세 드릴다운 4종, mock API(OpenAPI 대응). 루트(/)는 Drawing Viewer 프로토타입 유지"),
+ "FE-02":  ("구축중", "edim-web /code·/plm — Sub Code·Relationship(Running Test)·데이터 Table·Design Editor·Work Process·Duct — mock API"),
+ "FE-03":  ("구축중", "edim-web /toolbox — Macro Studio(4-Way Sync·TESTED 게이트)·UI Designer(팔레트·Inspector·AI 초안) — mock"),
  "GW-01":  ("개발 대체 구축", "nginx 1.24 — TLS(Let's Encrypt)·라우팅(/api·/jenkins·/minio/ui)·SPA 서빙"),
  "SVC-04": ("프로토타입 일부", "FastAPI backend — DXF/IFC Import·DXF Export·DrawingDocument JSON"),
  "ENG-03": ("프로토타입 일부", "ezdxf 기반 DXF(R2010) Export 경로 검증됨"),

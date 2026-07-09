@@ -38,14 +38,18 @@ REQ(80) → 기능(179) → 메뉴(98) → 화면(W-01~24) → 컴포넌트(39) 
 - **결정**: 전 화면 **Dense(B안)** 디자인으로 실코드 구현 (정적 시안 대신 실제 앱). 앱 경로는 nginx basic auth 해제 — **앱 dense 로그인 화면(edim/edim)** 사용 (sessionStorage 세션, 실 API 전환 시 JWT)
 - **스택**: `edim-web/` React 19 + Vite + TS (base `/edim-static/`) — dense.css 토큰·클래스는 디자인시안 b02 그대로 이식
 - **구성**: 디자인시스템 컴포넌트(chrome·DenseGrid·LnavTree·Cvs·CommandLine) + 셸(4모듈 CPQ/PLM/Code/ERP · MDI 탭 · F2/F3/F8/F9/F12 디스패처) + **mock API 계층**(`src/api/` — OpenAPI 경로·스키마 1:1 타입, 슬라이드36 KDCR 3-13 데이터; 실 API 전환 시 서비스 구현체만 교체)
-- **화면 13종**:
+- **화면 24종 (와이어프레임 W-01~W-24 전량 구현 완료)**:
   - CPQ: 제품선정(C-1: 슬롯→BOM 재전개 `KDP 1-21-13-15`·커맨드라인) · 기술데이터(C-2) · EDIM Run(단계→산출물·로그)
   - PLM: Design Editor(S-4-1-1: 파라메트릭 A=700→B=756) · Work Process(S-4-1-2: MAKE/BUY)
   - Code Set-up: Sub Code 등록(S-1-1: 중복검토→승인요청 PENDING) · Code Relationship(S-1-4: Running Test 통과해야 승인 — CODE-009) · 데이터 Table(M-3-7: Excel식 셀 편집)
-  - ERP: Project 등록(S-3-5: 영업단계 상태기계) · Dashboard(M-14-4: KPI·공정 흐름) · 단가 관리(M-12-5: resolve 시뮬레이션 ①→④) · Process Set-up(M-14-7: 정의 편집→Platform 승인) · 구매·발주(M-8-2: Stock Check→PO 생성)
+  - ERP: Project 등록(S-3-5: 영업단계 상태기계) · Dashboard(M-14-4: KPI·공정 흐름) · 단가 관리(M-12-5: resolve 시뮬레이션 ①→④) · Process Set-up(M-14-7: 정의 편집→Platform 승인) · 구매·발주(M-8-2: Stock Check→PO 생성) · 사용자·권한(M-14-6: 매트릭스·잠금해제·감사)
+  - CPQ 추가: 문서함(M-5-4: 상태 필터·Grade 통제) · Document Templet(C-3: Input→Macro 밀도 계산 실동작) · Print Set-up(S-3-4: 자리표시자·워터마크·DRAFT→게시)
+  - PLM 추가: 건축설비 Duct(M-4-3: 자동 배치·설치불가 AI 판독 — 사업범위 미확정 표기)
+  - Toolbox(/toolbox): Macro Studio(S-2-2: 4-Way Sync·Test Run 786→TESTED 게이트) · UI Designer(S-2-1: 팔레트 배치·Object Inspector·AI 초안)
+  - 공통(/common): 승인함(M-15-2: 수식 전후 비교·승인/반려 실동작) · 부서 업무함(M-15-3: 완료 처리→경고 해제) · Project Folder·이력(M-15-8/9: 폴더 5종·sys_history diff) · Mobile 미리보기(M-16: .phone 3대)
 - **상세(드릴다운) 4종** — 레거시 문법 "더블클릭=상세" 구현 (b01 채택 항목): **코드 상세**(BOM·Child·단가·발주 그리드에서 진입 — 도면·단가 이력·Referencers·승인 이력) · **문서 상세**(Run 산출물 — doc_control 상태 Set-up→Accepted·Grade M 워터마크) · **부품 상세**(Design Editor Block — 치수 바인딩·Work Process·조립순서 ◆) · **이벤트 상세**(Dashboard 이상경고 — 전후 공정·완료 처리→후행 생성)
-- **검증**: tsc 무오류 · Playwright 스모크 33/33 · 콘솔 에러 0
-- **배포**: dist 커밋 → 서버 rsync `/var/www/edim/edim-static/` + nginx `/cpq` `/plm` `/code` `/erp` SPA fallback
+- **검증**: tsc 무오류 · Playwright 스모크 48/48 · 콘솔 에러 0
+- **배포**: dist 커밋 → 서버 rsync `/var/www/edim/edim-static/` + nginx `/cpq` `/plm` `/code` `/erp` `/toolbox` `/common` SPA fallback
 
 ## 2. 인프라 현황 (edim.seekerslab.com)
 
@@ -57,7 +61,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 |---|---|
 | / | 프로토타입 앱 (AI 샘플 모드 — `ANTHROPIC_API_KEY` 미설정) |
 | /docs/ | **산출물 다운로드 포털** (29종: PDF 9·XLSX 9·SQL 2·YAML 1·HTML 3·근거 4·기타) |
-| **/cpq · /plm · /code · /erp** | **EDIM 업무 앱 (edim-web, dense B안 — 13화면 + 상세 4종, mock API)** |
+| **/cpq · /plm · /code · /erp · /toolbox · /common** | **EDIM 업무 앱 (edim-web, dense B안 — 24화면 + 상세 4종, mock API)** |
 | /design/ · /design/hifi/ · /design/dense/ | 화면설계서(24) · 디자인 A · 디자인 B(★채택 — 전 화면 dense 확정) |
 | /api/* | 백엔드 REST (health·models·drawings) |
 | /jenkins/ | Jenkins LTS — **자체 로그인** (`auth_basic off`) |
