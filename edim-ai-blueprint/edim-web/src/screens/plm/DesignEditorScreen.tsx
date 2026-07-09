@@ -102,7 +102,7 @@ export function DesignEditorScreen({ active }: ScreenProps) {
     })()
   }
 
-  useFKeys(active, useMemo(() => ({ F9: runMacro, F12: () => shell.setStatusMsg('Block 임시저장 — 승인 후 사용 가능 (DWG-012)') }), [shell])) // eslint-disable-line react-hooks/exhaustive-deps
+  useFKeys(active, useMemo(() => ({ F9: runMacro, F12: () => shell.setStatusMsg('Block 임시저장 — 승인 후 사용 가능 (DWG-012)') }), [shell.setStatusMsg])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dimA = dims.find((d) => d.no === 'A')?.value ?? '670'
   const dimB = dims.find((d) => d.no === 'B')?.value ?? '=A+56'

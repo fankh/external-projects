@@ -85,8 +85,15 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     setSource('live')
     throw new Error(body.detail)
   }
-  setSource('live')
-  return res.json() as Promise<T>
+  try {
+    const out = await res.json() as T
+    setSource('live')
+    return out
+  } catch {
+    // 본문 읽기 중 타임아웃/절단 — 폴백 (Uncaught AbortError 방지)
+    setSource('mock')
+    throw new ApiUnavailable()
+  }
 }
 
 /** GET /api/v1/health — 기동 시 데이터 소스 판별 */
@@ -625,6 +632,31 @@ export const cadService = {
       if (e instanceof TypeError || e instanceof DOMException) { setSource('mock'); return null }
       throw e
     }
+  },
+  /** GET /api/v1/cad/arrangement — C-1 구성도의 CAD 정본 (실 DXF 작도→파싱) */
+  async arrangement(): Promise<CadDocument | null> {
+    try {
+      const r = await api<{ document: CadDocument }>('/cad/arrangement')
+      return r.document
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/cad/arrangement.dxf — 구성도 DXF 다운로드 */
+  async arrangementDxf(): Promise<void> {
+    const res = await fetch(`${API}/cad/arrangement.dxf`, {
+      signal: AbortSignal.timeout(15_000),
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) throw new Error(`DXF 다운로드 실패 (HTTP ${res.status})`)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'AHU5_arrangement.dxf'
+    a.click()
+    URL.revokeObjectURL(url)
   },
   /** POST /api/v1/cad/export-dxf — 현재 치수로 제작 DXF 다운로드 */
   async exportDxf(dims: Record<string, number>): Promise<void> {

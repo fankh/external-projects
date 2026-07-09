@@ -17,6 +17,7 @@ const STEP_CHIP: Record<RunStep['status'], { tone: 'ok' | 'warn' | 'info'; label
 
 export function RunScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { setStatusMsg } = shell   // 안정 참조 — statusMsg(JSX) 루프 방지
   const [result, setResult] = useState<RunResult | null>(null)
   const cancelRef = useRef<(() => void) | null>(null)
 
@@ -33,11 +34,11 @@ export function RunScreen({ active }: ScreenProps) {
 
   useEffect(() => {
     if (active && result?.status === 'SUCCESS') {
-      shell.setStatusMsg(
+      setStatusMsg(
         <span style={{ color: 'var(--warn)' }}>warn 1 — 단가 소스 확인 (W-13)</span>,
       )
     }
-  }, [active, result?.status, shell])
+  }, [active, result?.status, setStatusMsg])
 
   useFKeys(active, useMemo(() => ({ F5: start }), [start]))
 

@@ -129,6 +129,47 @@ def step_drawing(r: PipelineResult) -> str:
     return "1 파일 (DXF R2010 · 치수 반영)"
 
 
+# AHU 구성(Arrangement) 실도면 — C-1 캔버스의 CAD 정본 (mm, y-up)
+ARRANGEMENT_BLOCKS = [
+    # (name, sub, x, y, w, h)
+    ("Filter", "EFP 55·3EA", 360, 860, 1100, 1000),
+    ("Cooling Coil", "ECC 55·6R", 1460, 860, 1100, 1000),
+    ("SF Fan", "KAD 900 FW", 2560, 1120, 2100, 740),
+    ("Mixing Box", "EMX 55", 2560, 320, 2100, 800),
+    ("Heating Coil", "EHC 55·2R", 360, 320, 2200, 540),
+]
+
+
+def build_arrangement_dxf(title: str = "AHU 5 — Double Deck 2") -> bytes:
+    """구성 배치를 실 DXF 로 작도 — C-1 CAD 모드·DXF Export 공용 (INT-04)."""
+    import ezdxf
+    doc = ezdxf.new("R2010")
+    doc.layers.add("ARRANGEMENT", color=5)   # blue
+    doc.layers.add("LABEL", color=250)
+    doc.layers.add("DIM", color=3)           # green
+    msp = doc.modelspace()
+    for name, sub, x, y, w, h in ARRANGEMENT_BLOCKS:
+        msp.add_lwpolyline(
+            [(x, y), (x + w, y), (x + w, y + h), (x, y + h), (x, y)],
+            dxfattribs={"layer": "ARRANGEMENT"})
+        msp.add_text(name, height=90, dxfattribs={"layer": "LABEL"}) \
+            .set_placement((x + w / 2, y + h / 2 + 30), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+        msp.add_text(sub, height=60, dxfattribs={"layer": "LABEL"}) \
+            .set_placement((x + w / 2, y + h / 2 - 90), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+    # 전체 치수 (4504 × 3254 — 슬라이드 표기)
+    msp.add_line((360, 2050), (4660, 2050), dxfattribs={"layer": "DIM"})
+    msp.add_text("4504", height=100, dxfattribs={"layer": "DIM"}) \
+        .set_placement((2510, 2110), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+    msp.add_line((4800, 320), (4800, 1860), dxfattribs={"layer": "DIM"})
+    msp.add_text("3254", height=100, dxfattribs={"layer": "DIM"}) \
+        .set_placement((4900, 1090), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+    msp.add_text(title, height=120, dxfattribs={"layer": "LABEL"}) \
+        .set_placement((360, 60))
+    buf = io.StringIO()
+    doc.write(buf)
+    return buf.getvalue().encode()
+
+
 def step_pricing(r: PipelineResult) -> str:
     r.total_k = sum((i["priceK"] or 0) * i["quantity"] for i in r.items)
     r.resolved = sum(1 for i in r.items if i["priceK"] is not None)

@@ -612,6 +612,24 @@ async def cad_import(
     return {"fileId": file_id, "document": document}
 
 
+@router.get("/cad/arrangement")
+def cad_arrangement() -> dict[str, Any]:
+    """C-1 구성 캔버스의 CAD 정본 — 실 DXF 작도 후 정규화 문서로 반환."""
+    from app.services.run_pipeline import build_arrangement_dxf
+    data = build_arrangement_dxf()
+    return {"document": _parse_cad_bytes(data, "AHU5_arrangement.dxf")}
+
+
+@router.get("/cad/arrangement.dxf")
+def cad_arrangement_dxf() -> StreamingResponse:
+    import io as _io
+
+    from app.services.run_pipeline import build_arrangement_dxf
+    return StreamingResponse(
+        _io.BytesIO(build_arrangement_dxf()), media_type="application/dxf",
+        headers={"Content-Disposition": "attachment; filename=AHU5_arrangement.dxf"})
+
+
 class CadExportRequest(BaseModel):
     dims: dict[str, float] = {}
 

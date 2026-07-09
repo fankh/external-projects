@@ -12,6 +12,7 @@ const DIRECTIONS = ['L0', 'L90', 'L180', 'L270', 'R0', 'R90', 'R180', 'R270']
 
 export function TechDataScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { setStatusMsg } = shell   // 안정 참조 — 재조회 루프 방지
   const [direction, setDirection] = useState('R0')
   const [airflow, setAirflow] = useState('2000')
   const [pressure, setPressure] = useState('200')
@@ -25,8 +26,8 @@ export function TechDataScreen({ active }: ScreenProps) {
     const r = await tableService.queryTechData(Number(airflow) || 0, Number(pressure) || 0)
     setRows(r)
     setSelModel(r[0]?.model ?? null)
-    shell.setStatusMsg(`Technical Data ${r.length}행 — 선정점 ${r[0]?.model ?? '—'}`)
-  }, [airflow, pressure, shell])
+    setStatusMsg(`Technical Data ${r.length}행 — 선정점 ${r[0]?.model ?? '—'}`)
+  }, [airflow, pressure, setStatusMsg])
 
   useEffect(() => { void query() }, [query])
 
