@@ -92,6 +92,7 @@ def run_seed() -> None:
             seed_v4(cur, row[0])
             seed_v5(cur, row[0])
             seed_v6(cur, row[0])
+            seed_v7(cur, row[0])
             return
 
         cur.execute(
@@ -193,6 +194,7 @@ def run_seed() -> None:
         seed_v4(cur, tid)
         seed_v5(cur, tid)
         seed_v6(cur, tid)
+        seed_v7(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -483,3 +485,83 @@ def seed_v6(cur, tid: int) -> None:
                    VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
             n += 1
     logger.info("seed v6 complete — UI 번역 %d행 (en/ja/zh)", n)
+
+
+# ── seed v7 — UI 번역 확장: 화면 제목·메뉴 트리·공통 버튼·CAD (REQ-N-015) ──
+# key 체계: screen.<screenId> = MDI 탭 제목 / menu.<nodeId> = 좌측 트리 라벨 / common·shell·cad
+
+UI_TRANSLATIONS_V7: dict[str, tuple[str, str, str]] = {
+    # 화면 제목 (한글 포함 화면만 — 영문 제목은 폴백 사용)
+    "screen.cpq-selection": ("Product Selection — AHU 5", "製品選定 — AHU 5", "产品选定 — AHU 5"),
+    "screen.cpq-techdata": ("Technical Data", "技術データ", "技术数据"),
+    "screen.code-subcode": ("Sub Code Registration", "Sub Code 登録", "Sub Code 注册"),
+    "screen.code-datatable": ("Data Table", "データ Table", "数据 Table"),
+    "screen.cpq-docmgmt": ("Document Box", "文書ボックス", "文档箱"),
+    "screen.plm-duct": ("Building Duct", "建築設備 Duct", "建筑设备 Duct"),
+    "screen.erp-access": ("Users & Permissions", "ユーザー・権限", "用户·权限"),
+    "screen.com-approval": ("Approval Inbox", "承認箱", "审批箱"),
+    "screen.com-tasks": ("Dept. Task Box", "部署業務箱", "部门任务箱"),
+    "screen.com-mobile": ("Mobile Preview", "Mobile プレビュー", "Mobile 预览"),
+    "screen.erp-project": ("Project Registration", "Project 登録", "Project 注册"),
+    "screen.erp-price": ("Price Management", "単価管理", "单价管理"),
+    "screen.erp-purchase": ("Purchase & PO", "購買・発注", "采购·下单"),
+    # 좌측 메뉴 트리 (리프 = 화면코드 유지)
+    "menu.cpq-selection": ("Product Selection (C-1)", "製品選定 (C-1)", "产品选定 (C-1)"),
+    "menu.cpq-techdata": ("Technical Data (C-2)", "技術データ (C-2)", "技术数据 (C-2)"),
+    "menu.cpq-docmgmt": ("Document Box (M-5-4)", "文書ボックス (M-5-4)", "文档箱 (M-5-4)"),
+    "menu.plm-material": ("Material — planned", "Material — 予定", "Material — 待定"),
+    "menu.plm-quality": ("Quality — planned", "Quality — 予定", "Quality — 待定"),
+    "menu.plm-arr": ("Arrangement Set-Up — planned", "Arrangement Set-Up — 予定", "Arrangement Set-Up — 待定"),
+    "menu.plm-duct": ("Building Duct (M-4-3)", "建築設備 Duct (M-4-3)", "建筑设备 Duct (M-4-3)"),
+    "menu.code-subcode": ("Sub Code Registration (S-1-1)", "Sub Code 登録 (S-1-1)", "Sub Code 注册 (S-1-1)"),
+    "menu.code-raw": ("Raw Material·GPI — planned", "Raw Material·GPI — 予定", "Raw Material·GPI — 待定"),
+    "menu.code-datatable": ("Data Table Mgmt (M-3-7)", "データ Table 管理 (M-3-7)", "数据 Table 管理 (M-3-7)"),
+    "menu.code-variant": ("Variant·Constant — planned", "Variant·Constant — 予定", "Variant·Constant — 待定"),
+    "menu.erp-purchase": ("PR·PO (M-8-2)", "発注 PR·PO (M-8-2)", "采购 PR·PO (M-8-2)"),
+    "menu.erp-price": ("Price Management (M-12-5)", "単価管理 (M-12-5)", "单价管理 (M-12-5)"),
+    "menu.erp-access": ("Users & Permissions (M-14-6)", "ユーザー・権限 (M-14-6)", "用户·权限 (M-14-6)"),
+    "menu.tbx-templet": ("Templet Mgmt — planned", "Templet 管理 — 予定", "Templet 管理 — 待定"),
+    "menu.com-approval": ("Approval Inbox (M-15-2)", "承認箱 (M-15-2)", "审批箱 (M-15-2)"),
+    "menu.com-tasks": ("Dept. Task Box (M-15-3)", "部署業務箱 (M-15-3)", "部门任务箱 (M-15-3)"),
+    "menu.com-folder": ("Project Folder·History (M-15-8/9)", "Project Folder·履歴 (M-15-8/9)", "Project Folder·历史 (M-15-8/9)"),
+    "menu.com-mobile": ("Mobile App Preview (M-16)", "Mobile App プレビュー (M-16)", "Mobile App 预览 (M-16)"),
+    "menu.com-search": ("Global Search — planned", "統合検索 — 予定", "全局搜索 — 待定"),
+    "menu.moduleCommon": ("Common", "共通", "公共"),
+    # 공통 버튼 확장
+    "common.preview": ("Preview", "プレビュー", "预览"),
+    "common.close": ("Close", "閉じる", "关闭"),
+    "common.edit": ("Edit", "編集", "编辑"),
+    "common.print": ("Print", "印刷", "打印"),
+    "common.tempSave": ("Temp Save F12", "一時保存 F12", "暂存 F12"),
+    "common.requestApproval": ("Request Approval", "承認依頼", "请求审批"),
+    "common.runningTest": ("Running Test", "Running Test", "Running Test"),
+    "shell.todoApproval": ("Approvals", "承認確認", "审批确认"),
+    "shell.todoPl": ("PL delayed", "PL 遅延", "PL 延迟"),
+    # CAD
+    "cad.hint": ("Wheel zoom · drag pan · dblclick fit · click = props",
+                 "ホイール拡大・ドラッグ移動・Wクリック合わせ・クリック＝属性",
+                 "滚轮缩放·拖动平移·双击适配·单击=属性"),
+    "cad.measureHint": ("Click two points = distance · endpoint/center snap",
+                        "2点クリック＝距離計測・端点/中心スナップ",
+                        "点击两点=测距·端点/中心捕捉"),
+    "cad.measure": ("Measure", "計測", "测量"),
+    "cad.layer": ("Layer", "レイヤー", "图层"),
+    "cad.fitTitle": ("Fit (double-click)", "フィット (Wクリック)", "适配 (双击)"),
+}
+
+
+def seed_v7(cur, tid: int) -> None:
+    cur.execute(
+        """SELECT 1 FROM sys_translation
+           WHERE tenant_id=%s AND entity_type='UI' AND field='screen.cpq-selection' LIMIT 1""",
+        (tid,))
+    if cur.fetchone():
+        return
+    n = 0
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V7.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                   VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+            n += 1
+    logger.info("seed v7 complete — UI 번역 확장 %d행 (화면·메뉴·CAD)", n)

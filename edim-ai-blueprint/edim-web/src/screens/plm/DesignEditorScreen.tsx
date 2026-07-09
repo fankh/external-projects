@@ -8,6 +8,7 @@ import { CadSvg } from '../../components/CadSvg'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -26,6 +27,7 @@ function evalDims(dims: DimensionDef[]): DimensionDef[] {
 
 export function DesignEditorScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [tool, setTool] = useState('이동')
   const [selBlock, setSelBlock] = useState<CanvasBlock | null>(DWG_BLOCKS[1])
   const [dims, setDims] = useState<DimensionDef[]>(DWG_DIMS)
@@ -193,7 +195,7 @@ export function DesignEditorScreen({ active }: ScreenProps) {
         <Btn onClick={() => cadInput.current?.click()}>DXF 열기</Btn>
         <Btn onClick={exportCad}>DXF 내보내기</Btn>
         <Sep />
-        <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()}>편집</Btn>
+        <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()}>{t('common.edit', '편집')}</Btn>
         <Btn variant={cadMode ? 'pri' : 'default'} onClick={() => !cadMode && toggleCad()}>CAD</Btn>
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -292,9 +294,9 @@ export function DesignEditorScreen({ active }: ScreenProps) {
           </GroupBox>
           <div style={{ display: 'flex', gap: 4 }}>
             <Btn style={{ flex: 1, justifyContent: 'center' }}
-              onClick={() => shell.setStatusMsg('Block 임시저장 (DRAFT)')}>임시저장 F12</Btn>
+              onClick={() => shell.setStatusMsg('Block 임시저장 (DRAFT)')}>{t('common.tempSave', '임시저장 F12')}</Btn>
             <Btn variant="pri" style={{ flex: 1, justifyContent: 'center' }}
-              onClick={() => shell.setStatusMsg('승인 요청 — Design > Check 단계로 이동')}>승인 요청</Btn>
+              onClick={() => shell.setStatusMsg('승인 요청 — Design > Check 단계로 이동')}>{t('common.requestApproval', '승인 요청')}</Btn>
           </div>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { LocaleSwitcher, useI18n } from '../i18n/I18nContext'
 import { NotificationBell } from './NotificationBell'
 import { useShell, type OpenTab } from './ShellContext'
 import { MENU_TREE, SCREEN_BY_NODE } from './menus'
+import type { TreeNode } from '../components/LnavTree'
 import { SelectionScreen } from '../screens/cpq/SelectionScreen'
 import { TechDataScreen } from '../screens/cpq/TechDataScreen'
 import { RunScreen } from '../screens/cpq/RunScreen'
@@ -93,6 +94,21 @@ export function Shell(props: { user: User }) {
     [props.user],
   )
 
+  // 좌측 트리 라벨 번역 — menu.<nodeId> 키, 미존재 시 KO 라벨 폴백
+  const trNodes = useMemo(() => {
+    const walk = (ns: TreeNode[]): TreeNode[] => ns.map((n) => ({
+      ...n,
+      label: t(`menu.${n.id}`, n.label),
+      children: n.children ? walk(n.children) : n.children,
+    }))
+    return walk(menu.nodes)
+  }, [menu, t])
+
+  // MDI 탭 제목 번역 — screen.<screenId> 키 (상세 탭 등 동적 제목은 키 미정의 → 원제 유지)
+  const trTabs = useMemo(
+    () => shell.tabs.map((tab) => ({ ...tab, title: t(`screen.${tab.screenId}`, tab.title) })),
+    [shell.tabs, t])
+
   return (
     <div className="app">
       <TitleBar user={userLabel} bell={<><LocaleSwitcher /><NotificationBell /></>} />
@@ -111,10 +127,11 @@ export function Shell(props: { user: User }) {
         <span style={{ flex: 1 }} />
         <input className="in" style={{ width: 200 }} placeholder={t('shell.searchPh', '화면코드·코드·도면 검색 (⌘K)')} />
       </div>
-      <MdiTabs tabs={shell.tabs} activeId={shell.activeTabId}
+      <MdiTabs tabs={trTabs} activeId={shell.activeTabId}
         onActivate={shell.activateTab} onClose={shell.closeTab} />
       <div className="workarea">
-        <LnavTree title={menu.title} nodes={menu.nodes}
+        <LnavTree title={shell.module === 'common' ? t('menu.moduleCommon', menu.title) : menu.title}
+          nodes={trNodes}
           selectedId={shell.activeTabId}
           onOpen={(n) => {
             const s = SCREEN_BY_NODE[n.id]
@@ -130,10 +147,10 @@ export function Shell(props: { user: User }) {
               <div className="hd">{t('shell.todo', 'To-Do')}</div>
               <div style={{ padding: '6px 8px', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  승인 확인<span style={{ flex: 1 }} /><span className="st warn">1</span>
+                  {t('shell.todoApproval', '승인 확인')}<span style={{ flex: 1 }} /><span className="st warn">1</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  PL 지연<span style={{ flex: 1 }} /><span className="st err">1</span>
+                  {t('shell.todoPl', 'PL 지연')}<span style={{ flex: 1 }} /><span className="st err">1</span>
                 </div>
               </div>
             </div>

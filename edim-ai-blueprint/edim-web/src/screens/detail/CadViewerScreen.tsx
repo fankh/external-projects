@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { cadService, fileService, type CadDocument } from '../../api/services'
 import { Btn, Chip } from '../../components/controls'
 import { CadSvg } from '../../components/CadSvg'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
 export function CadViewerScreen({ tab }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const { setStatusMsg } = shell
   const fileId = Number(tab.params?.fileId ?? 0)
   const name = String(tab.params?.name ?? 'drawing.dxf')
@@ -57,7 +59,7 @@ export function CadViewerScreen({ tab }: ScreenProps) {
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <div style={{ width: 200, borderRight: '1px solid var(--line)', background: '#FAFBFC', overflow: 'auto', flex: 'none' }}>
           <div className="lnav" style={{ width: '100%', border: 'none' }}>
-            <div className="hd">레이어 {doc ? `(${doc.layers.length})` : ''}</div>
+            <div className="hd">{t('cad.layer', '레이어')} {doc ? `(${doc.layers.length})` : ''}</div>
             <div className="tree2">
               {doc?.layers.map((l) => (
                 <div key={l.layerName} className="tn" style={{ gap: 6 }}

@@ -3,6 +3,7 @@
  *  📏 측정(두 점 클릭 → 거리·Δ, 끝점/중심 스냅) · 엔티티 클릭 = 속성 조회(하이라이트+정보 패널). */
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { CadDocument, CadEntity } from '../api/services'
+import { useI18n } from '../i18n/I18nContext'
 
 type VB = { x: number; y: number; w: number; h: number }
 type Pt = { x: number; y: number }
@@ -151,6 +152,7 @@ export function CadSvg(props: {
   hiddenLayers?: Set<string>
 }) {
   const { doc } = props
+  const { t } = useI18n()
   const hidden = props.hiddenLayers ?? new Set<string>()
 
   // 맞춤(fit) 뷰박스 — SVG 는 y-반전 그룹으로 그리므로 y 는 [-maxY, -minY]
@@ -409,7 +411,7 @@ export function CadSvg(props: {
           onClick={() => zoomCenter(1 / 1.4)}>＋</button>
         <button type="button" style={btn} title="축소" data-cad-zoom-out
           onClick={() => zoomCenter(1.4)}>－</button>
-        <button type="button" style={btn} title="맞춤 (더블클릭)" data-cad-fit
+        <button type="button" style={btn} title={t('cad.fitTitle', '맞춤 (더블클릭)')} data-cad-fit
           onClick={() => setVb(null)}>⌂</button>
         <button type="button" data-cad-measure-toggle
           style={{
@@ -421,7 +423,7 @@ export function CadSvg(props: {
             const next = !measureOn
             setMeasureOn(next)
             if (!next) { setM1(null); setM2(null); setMHover(null) }
-          }}>📏 측정</button>
+          }}>📏 {t('cad.measure', '측정')}</button>
       </div>
       {/* 좌하단 — 측정 결과 / 엔티티 속성 */}
       {measureLabel ? (
@@ -457,7 +459,9 @@ export function CadSvg(props: {
         color: 'var(--txt-mute)', background: '#ffffffcc', padding: '2px 6px',
         borderRadius: 2, pointerEvents: 'none', userSelect: 'none',
       }}>
-        {measureOn ? '두 점 클릭 = 거리 측정 · 끝점/중심 자동 스냅' : '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성'}
+        {measureOn
+          ? t('cad.measureHint', '두 점 클릭 = 거리 측정 · 끝점/중심 자동 스냅')
+          : t('cad.hint', '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성')}
       </div>
     </div>
   )
