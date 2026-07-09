@@ -166,11 +166,17 @@ export function StatusBar(props: {
   fkeys: FKeyDef[]
   cells?: ReactNode[]
   dbLabel?: ReactNode
+  onFKey?: (key: string) => void   // 클릭 = 해당 F-key 실행
 }) {
   return (
     <div className="statusbar">
       {props.fkeys.map((f) => (
-        <span key={f.key} className="cell"><b>{f.key}</b> {f.label}</span>
+        <span key={f.key} className="cell" data-fkey={f.key}
+          style={props.onFKey ? { cursor: 'pointer' } : undefined}
+          title={props.onFKey ? `클릭 = ${f.key}` : undefined}
+          onClick={() => props.onFKey?.(f.key)}>
+          <b>{f.key}</b> {f.label}
+        </span>
       ))}
       <span className="grow" />
       {(props.cells ?? []).map((c, i) => <span key={i} className="cell">{c}</span>)}

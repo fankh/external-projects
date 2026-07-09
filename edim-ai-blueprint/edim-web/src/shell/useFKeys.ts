@@ -11,6 +11,8 @@ export function useFKeys(active: boolean, handlers: FKeyHandlers) {
       const h = handlers[e.key as keyof FKeyHandlers]
       if (h) {
         e.preventDefault()
+        // Shell 의 F-key 폴백에 "화면이 처리했음"을 알림 (미구현 안내 억제)
+        ;(e as KeyboardEvent & { __handled?: boolean }).__handled = true
         h()
       }
     }

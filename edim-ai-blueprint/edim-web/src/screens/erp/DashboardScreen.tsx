@@ -1,6 +1,6 @@
 /** M-14-4 ERP Dashboard (W-10, 슬라이드 10) — 프로세스 상태기계 집계 ·
  *  dense 문법: 표·숫자 중심, MES 채도 배제 (b01 조사 결론). */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ALERTS, DEPT_EVENTS, KPIS, PROCESS_FLOW_1, PROCESS_FLOW_2,
 } from '../../api/mock/dataErp'
@@ -8,6 +8,7 @@ import { dashboardService, eventService, type DashboardData } from '../../api/se
 import { Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
+import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
 function FlowRow(props: { items: readonly { code: string; st: string }[] }) {
@@ -23,17 +24,15 @@ function FlowRow(props: { items: readonly { code: string; st: string }[] }) {
   )
 }
 
-export function DashboardScreen(_props: ScreenProps) {
+export function DashboardScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { setStatusMsg } = shell
   const [project, setProject] = useState('Micron #7')
   const [alerts, setAlerts] = useState(ALERTS)
   const [data, setData] = useState<DashboardData>({ kpis: KPIS, deptEvents: DEPT_EVENTS })
 
-  useEffect(() => {
+  const load = useCallback(() => {
     void dashboardService.get().then(setData)
-  }, [])
-
-  useEffect(() => {
     // 이상 경고 = erp_process_event 지연 집계 (ERP-014)
     void eventService.list().then((rows) => {
       const delayed = rows.filter((r) => r.delayed)
@@ -46,6 +45,12 @@ export function DashboardScreen(_props: ScreenProps) {
       }
     })
   }, [])
+
+  useEffect(() => { load() }, [load])
+
+  useFKeys(active, useMemo(() => ({
+    F8: () => { load(); setStatusMsg('Dashboard 재집계 (erp_process_event)') },
+  }), [load, setStatusMsg]))
 
   const openEvent = (proj: string) => shell.openTab({
     id: `event-detail:${proj}`, screenId: 'event-detail',

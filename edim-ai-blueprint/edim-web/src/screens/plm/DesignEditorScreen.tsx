@@ -142,7 +142,15 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
     })()
   }
 
-  useFKeys(active, useMemo(() => ({ F9: runMacro, F12: () => shell.setStatusMsg('Block 임시저장 — 승인 후 사용 가능 (DWG-012)') }), [shell.setStatusMsg])) // eslint-disable-line react-hooks/exhaustive-deps
+  useFKeys(active, useMemo(() => ({
+    F8: () => {
+      // 조회 = 현재 치수로 CAD 재작도 (서버 도면 갱신)
+      if (!cadMode) setCadMode(true)
+      loadCad(dims)
+    },
+    F9: runMacro,
+    F12: () => shell.setStatusMsg('Block 임시저장 — 승인 후 사용 가능 (DWG-012)'),
+  }), [dims, cadMode, shell.setStatusMsg])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dimA = dims.find((d) => d.no === 'A')?.value ?? '670'
   const dimB = dims.find((d) => d.no === 'B')?.value ?? '=A+56'

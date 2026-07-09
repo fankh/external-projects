@@ -1,6 +1,6 @@
 /** M-15-2 승인함 (W-12) — 전 자산 공통 승인 게이트 (DRAFT→PENDING→APPROVED/REJECTED).
  *  Macro 는 변경 전후 수식 비교 + Test 결과 · 승인/반려 실동작. */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   APPROVAL_HIST, MACRO_BEFORE, type ApprovalReq,
 } from '../../api/mock/dataMore'
@@ -9,21 +9,29 @@ import { approvalService } from '../../api/services'
 import { Btn, Chip, Fx, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
+import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
-export function ApprovalInboxScreen(_props: ScreenProps) {
+export function ApprovalInboxScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { setStatusMsg } = shell
   const [reqs, setReqs] = useState<ApprovalReq[]>([])
   const [selId, setSelId] = useState<number | null>(null)
   const [comment, setComment] = useState('')
   const [decided, setDecided] = useState<{ target: string; result: string; date: string }[]>([])
 
-  useEffect(() => {
+  const load = useCallback(() => {
     void approvalService.inbox().then((rows) => {
       setReqs(rows)
       setSelId(rows[rows.length - 1]?.id ?? null)
     })
   }, [])
+
+  useEffect(() => { load() }, [load])
+
+  useFKeys(active, useMemo(() => ({
+    F8: () => { load(); setStatusMsg('승인함 재조회 (sys_approval_request)') },
+  }), [load, setStatusMsg]))
 
   const sel = reqs.find((r) => r.id === selId) ?? null
 

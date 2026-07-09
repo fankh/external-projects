@@ -76,7 +76,22 @@ export function DataTableScreen({ active }: ScreenProps) {
     })()
   }
 
-  useFKeys(active, useMemo(() => ({ F2: addRow, F12: save }), [rows])) // eslint-disable-line react-hooks/exhaustive-deps
+  const deleteRow = () => {
+    if (!selKey) {
+      shell.setStatusMsg('F3 삭제 — 삭제할 행을 먼저 선택하십시오')
+      return
+    }
+    const key = selKey
+    void (async () => {
+      await tableCrudService.deleteRow(TABLE12.name, key)
+      setRows((prev) => prev.filter((r) => r.key !== key))
+      setDirtyKeys((prev) => { const n = new Set(prev); n.delete(key); return n })
+      setSelKey(null)
+      shell.setStatusMsg(`행 삭제 — Key ${key} (참조 Macro 영향 검토 대상)`)
+    })()
+  }
+
+  useFKeys(active, useMemo(() => ({ F2: addRow, F3: deleteRow, F12: save }), [rows, selKey])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const setCell = (key: string, col: number, v: string) => {
     setRows((prev) => prev.map((r) => (r.key === key

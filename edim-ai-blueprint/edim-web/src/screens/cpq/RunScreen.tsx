@@ -40,7 +40,7 @@ export function RunScreen({ active, tab }: ScreenProps) {
     }
   }, [active, result?.status, setStatusMsg])
 
-  useFKeys(active, useMemo(() => ({ F5: start }), [start]))
+  useFKeys(active, useMemo(() => ({ F5: start, F9: start }), [start]))
 
   const stepCols: GridColumn<RunStep>[] = [
     { key: 'no', header: '단계', width: 30, align: 'center', render: (r) => r.no },

@@ -128,7 +128,28 @@ export function Shell(props: { user: User }) {
   }, [tabs, activeTabId, closeTab, activateTab])
 
   // 툴바 아이콘 → 활성 화면의 F-key 디스패치 (useFKeys 가 window keydown 수신)
-  const fkey = (key: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key }))
+  const fkey = (key: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key, cancelable: true }))
+
+  // ── F-key 표준 폴백 — 브라우저 기본동작(F3 찾기 등) 차단 + 미구현 화면 안내 ──
+  // Shell 리스너가 먼저 등록되므로 화면 핸들러의 preventDefault 여부는 디스패치 완료 후 확인
+  const { setStatusMsg } = shell
+  useEffect(() => {
+    const LABELS: Record<string, string> = {
+      F2: '신규', F3: '삭제', F8: '조회', F9: 'Run', F12: '저장',
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.key in LABELS)) return
+      e.preventDefault()   // F3 브라우저 찾기 등 차단 — 화면 핸들러는 계속 실행됨
+      setTimeout(() => {
+        // 화면 useFKeys 핸들러가 처리했다면 자체 상태 메시지를 이미 출력함 — 미처리 시 안내
+        if (!(e as KeyboardEvent & { __handled?: boolean }).__handled) {
+          setStatusMsg(`${e.key} ${LABELS[e.key]} — 이 화면에는 해당 동작이 없습니다`)
+        }
+      }, 0)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [setStatusMsg])
 
   // ── 메뉴바 드롭다운 ──
   const [showHelp, setShowHelp] = useState(false)
@@ -314,6 +335,7 @@ export function Shell(props: { user: User }) {
         </div>
       </div>
       <StatusBar
+        onFKey={fkey}
         fkeys={[
           { key: 'F2', label: t('common.new', '신규') }, { key: 'F3', label: t('common.delete', '삭제') },
           { key: 'F8', label: t('common.query', '조회') }, { key: 'F9', label: 'Run' },

@@ -74,7 +74,10 @@ export function MacroStudioScreen({ active }: ScreenProps) {
     })()
   }
 
-  useFKeys(active, useMemo(() => ({ F9: testRun }), [])) // eslint-disable-line react-hooks/exhaustive-deps
+  useFKeys(active, useMemo(() => ({
+    F9: testRun,
+    F12: () => shell.setStatusMsg('저장 — v0.3 (DRAFT)'),
+  }), [])) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="fill-col">

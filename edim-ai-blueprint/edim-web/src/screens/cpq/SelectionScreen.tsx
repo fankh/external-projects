@@ -73,9 +73,16 @@ export function SelectionScreen({ active }: ScreenProps) {
   }, [openTab])
 
   useFKeys(active, useMemo(() => ({
+    F2: () => {
+      // 신규 견적 — 슬롯 선택 초기화 후 재전개
+      setSlotValues(DEFAULT_SLOT_VALUES)
+      void apply(DEFAULT_SLOT_VALUES)
+      setStatusMsg('신규 견적 — 슬롯 선택 초기화 (기본 KOF)')
+    },
     F8: () => { void apply(slotValues) },
     F9: startRun,
-  }), [apply, slotValues, startRun]))
+    F12: () => setStatusMsg(`견적 저장 — ${finished || 'KDP 1-21-13-15'} · BOM ${bom.length}항목 (cpq_selection_item 은 Run 시 영속)`),
+  }), [apply, slotValues, startRun, finished, bom.length, setStatusMsg]))
 
   const setSlot = (slot: string, v: string) => {
     const next = { ...slotValues, [slot]: v }

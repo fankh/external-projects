@@ -198,6 +198,16 @@ export const tableCrudService = {
       if (!(e instanceof ApiUnavailable)) throw e
     }
   },
+  /** DELETE /api/v1/tables/{name}/rows/{key} */
+  async deleteRow(name: string, key: string): Promise<void> {
+    try {
+      await api(`/tables/${encodeURIComponent(name)}/rows/${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+      })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
   /** POST /api/v1/tables/{name}/import-excel — 정형 양식, Key 중복은 갱신 */
   async importExcel(name: string, file: globalThis.File): Promise<ImportReport | null> {
     const form = new FormData()
