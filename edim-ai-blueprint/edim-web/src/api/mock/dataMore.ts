@@ -3,7 +3,7 @@
 // ── W-07 Macro Studio (4-Way Sync) ──
 export const MACRO_META = { person: 'Kim', ver: 'KD-0.2', docNo: 'DF 342-234 E', grade: 'S-2' }
 export const MACRO_PROMPT = 'SS Fan 샤프트의 길이 계산 — Table1의 선정된 Impeller를 참조하여 Table2의 casing 폭, Table3의 Bearing 폭을 찾아 각각의 길이를 더하여 Shaft 길이를 계산한다.'
-export const MACRO_FORMULA = 'IF(MC,CC>500, Table12(E,10:25,Cos2)+Var(FES,15,F3), Table12(E,10:25,Cos2)+Var(FES,15,F3))*PreC(1)'
+export const MACRO_FORMULA = 'IF(MC>500, Table12(E,560:800,Cos2)+Var(FES,15), Table12(E,560:800,Cos1)+Var(FES,15))*PreC(1)'
 export const MACRO_CODING_PY = `def shaft_length(sel):
   imp = table1.lookup(sel.impeller)
   cw  = table2.width(sel.casing)

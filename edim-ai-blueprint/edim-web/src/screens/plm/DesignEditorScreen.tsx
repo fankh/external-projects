@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { CanvasBlock, DimensionDef } from '../../api/types'
 import { DWG_BLOCKS, DWG_DIMS, MACRO_CODING } from '../../api/mock/data'
+import { macroService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -32,9 +33,38 @@ export function DesignEditorScreen({ active }: ScreenProps) {
   const [evaluated, setEvaluated] = useState(false)
 
   const runMacro = () => {
-    setDims(evalDims)
-    setEvaluated(true)
-    shell.setStatusMsg('Macro 평가 6식 ✓ — 파라메트릭 반영 (DWG-007)')
+    void (async () => {
+      // 수치 치수를 변수로 — Macro 바인딩(=식)을 엔진으로 평가 (ENG-01)
+      const vars: Record<string, number> = {}
+      for (const d of dims) {
+        const n = Number(d.value)
+        if (!Number.isNaN(n)) vars[d.no] = n
+      }
+      const macroDims = dims.filter((d) => d.value.trim().startsWith('='))
+      const next = [...dims]
+      let live = true
+      for (const d of macroDims) {
+        const r = await macroService.evaluate(d.value, vars)
+        if (r === null) { live = false; break }
+        if (r.ok && r.value != null) {
+          vars[d.no] = r.value
+          const idx = next.findIndex((x) => x.no === d.no)
+          next[idx] = { ...next[idx], value: String(r.value) }
+        } else {
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>치수 {d.no} — {r.error}</span>)
+          return
+        }
+      }
+      if (live) {
+        setDims(next)
+        setEvaluated(true)
+        shell.setStatusMsg(`Macro 평가 ${macroDims.length}식 ✓ (ENG-01 실평가) — 파라메트릭 반영 (DWG-007)`)
+      } else {
+        setDims(evalDims)   // mock 폴백
+        setEvaluated(true)
+        shell.setStatusMsg('Macro 평가 (mock) — 파라메트릭 반영')
+      }
+    })()
   }
 
   useFKeys(active, useMemo(() => ({ F9: runMacro, F12: () => shell.setStatusMsg('Block 임시저장 — 승인 후 사용 가능 (DWG-012)') }), [shell])) // eslint-disable-line react-hooks/exhaustive-deps

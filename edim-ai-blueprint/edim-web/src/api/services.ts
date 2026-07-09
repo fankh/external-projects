@@ -530,6 +530,24 @@ export const fileService = {
   },
 }
 
+// ── ENG-01 Macro 실행 엔진 ──
+export interface MacroResult { ok: boolean; value?: number; error?: string; trace?: string[] }
+
+export const macroService = {
+  /** POST /api/v1/macros/evaluate — Excel 호환 문법, Table 참조는 실 tbl_data_row.
+   *  반환 null = 백엔드 불가 (mock 폴백). */
+  async evaluate(formula: string, variables: Record<string, number>): Promise<MacroResult | null> {
+    try {
+      return await api<MacroResult>('/macros/evaluate', {
+        method: 'POST', body: JSON.stringify({ formula, variables }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
 // ── SVC-07 CPQ / ENG-02 Run ──
 let mockRunSeq = 7
 

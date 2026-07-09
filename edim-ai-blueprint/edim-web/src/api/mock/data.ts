@@ -102,7 +102,7 @@ export const DWG_DIMS: DimensionDef[] = [
   { no: 'A', value: '670', binding: 'MACRO', kind: 'KEY' },
   { no: 'B', value: '=A+56', binding: 'MACRO', kind: 'KEY' },
   { no: 'C', value: '45', binding: 'VARIANT', kind: 'DETAIL' },
-  { no: 'D', value: '=Table12(B,C)', binding: 'MACRO', kind: 'DETAIL' },
+  { no: 'D', value: '=Table12(B,710)', binding: 'MACRO', kind: 'DETAIL' },
   { no: 'E', value: '320', binding: 'VARIANT', kind: 'DETAIL' },
   { no: 'K', value: '=A*1.62', binding: 'MACRO', kind: 'KEY' },
 ]

@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from app.db import db_ok, get_pool
 from app.services import storage
 from app.services.edim_seed import TENANT
+from app.services.macro_engine import Evaluator, MacroError
 
 SECRET = os.getenv("EDIM_SECRET", "edim-dev-secret").encode()
 
@@ -338,6 +339,71 @@ async def import_excel(name: str, uploadedFile: UploadFile = File(...)) -> dict[
             else:
                 updated += 1
     return {"inserted": inserted, "updated": updated, "rejected": rejected}
+
+
+# ── ENG-01 Macro 실행 엔진 v1 ──
+def _make_table_resolver(cur, tid: int):
+    cache: dict[str, list[tuple[float | None, str, dict]]] = {}
+
+    def load(table: str):
+        if table in cache:
+            return cache[table]
+        cur.execute(
+            """SELECT r.row_key_num, r.row_key, r.row_values
+               FROM tbl_data_table t JOIN tbl_data_row r ON r.table_id=t.table_id
+               WHERE t.tenant_id=%s AND t.table_name=%s
+               ORDER BY r.row_key_num NULLS LAST""", (tid, table))
+        rows = [(float(r[0]) if r[0] is not None else None, r[1], r[2]) for r in cur.fetchall()]
+        if not rows:
+            raise MacroError(f"Table 없음 또는 빈 Table: {table}")
+        cache[table] = rows
+        return rows
+
+    def resolve(table: str, col: str, key, agg: str) -> float:
+        rows = load(table)
+        if agg == "GET":
+            for num, rkey, values in rows:
+                if (isinstance(key, float) and num is not None and abs(num - key) < 1e-9) \
+                        or rkey == str(key) or (isinstance(key, float) and rkey == f"{key:g}"):
+                    if col not in values:
+                        raise MacroError(f"{table}[{rkey}] 에 열 {col} 없음")
+                    return float(values[col])
+            key_disp = f"{key:g}" if isinstance(key, float) else str(key)
+            raise MacroError(f"{table}: key {key_disp} 없음")
+        lo, hi = key
+        vals = [float(v[col]) for num, _, v in rows
+                if num is not None and lo <= num <= hi and col in v]
+        if not vals:
+            raise MacroError(f"{table}({col},{lo:g}:{hi:g}) 범위에 값 없음")
+        if agg == "SUM":
+            return sum(vals)
+        if agg == "AVG":
+            return sum(vals) / len(vals)
+        if agg == "MIN":
+            return min(vals)
+        if agg == "MAX":
+            return max(vals)
+        return float(len(vals))
+
+    return resolve
+
+
+class EvaluateRequest(BaseModel):
+    formula: str
+    variables: dict[str, float] = {}
+
+
+@router.post("/macros/evaluate")
+def evaluate_macro(body: EvaluateRequest) -> dict[str, Any]:
+    """Excel 호환 Macro 평가 — Table 참조는 실 tbl_data_row (TBX-011)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        ev = Evaluator(body.variables, _make_table_resolver(cur, tid))
+        try:
+            value = ev.run(body.formula)
+        except MacroError as e:
+            return {"ok": False, "error": str(e), "trace": ev.trace}
+    return {"ok": True, "value": value, "trace": ev.trace}
 
 
 # ── SVC-12 파일 업/다운로드 (MinIO 프록시) ──

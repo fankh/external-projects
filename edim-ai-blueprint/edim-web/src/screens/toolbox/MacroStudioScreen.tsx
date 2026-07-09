@@ -5,6 +5,7 @@ import {
   FUNCTIONS, MACRO_CODING_PY, MACRO_DESC, MACRO_FORMULA, MACRO_META, MACRO_PROMPT,
 } from '../../api/mock/dataMore'
 import { TABLE12_ROWS } from '../../api/mock/dataCode'
+import { macroService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
@@ -30,9 +31,26 @@ export function MacroStudioScreen({ active }: ScreenProps) {
   }
 
   const testRun = () => {
-    setResult(786)
-    setTested(true)
-    shell.setStatusMsg('Test Run ✓ — 입력 {MC:520, FES:15} → 786 · 참조 무결성 ✓ · 순환 없음 ✓ (TBX-011)')
+    void (async () => {
+      const r = await macroService.evaluate(formula, { MC: 520, FES: 15 })
+      if (r === null) {
+        // mock 폴백 — 엔진 없음
+        setResult(786)
+        setTested(true)
+        shell.setStatusMsg('Test Run (mock) — 입력 {MC:520, FES:15} → 786')
+        return
+      }
+      if (!r.ok) {
+        setTested(false)
+        setResult(null)
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>Macro 오류 — {r.error}</span>)
+        return
+      }
+      setResult(r.value ?? null)
+      setTested(true)
+      shell.setStatusMsg(
+        `Test Run ✓ (ENG-01 실평가) — {MC:520, FES:15} → ${r.value} · ${(r.trace ?? []).join(' · ')} · 순환 없음 ✓`)
+    })()
   }
 
   useFKeys(active, useMemo(() => ({ F9: testRun }), [])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -101,11 +119,13 @@ export function MacroStudioScreen({ active }: ScreenProps) {
               <Btn variant="pri" onClick={generate}>▶ 생성</Btn>
             </div>
           </GroupBox>
-          <GroupBox title="Macro — Excel 호환 문법" right={<>
+          <GroupBox title="Macro — Excel 호환 문법 (편집 가능)" right={<>
             {result != null ? <b style={{ color: 'var(--ok)' }}>{result}</b> : null}
             <Btn variant="run" style={{ height: 18, fontSize: 10 }} onClick={testRun}>Run F9</Btn>
           </>}>
-            <Fx>{formula}</Fx>
+            <input className="in" style={{ width: '100%', fontFamily: 'Consolas, monospace', color: 'var(--title-navy)' }}
+              value={formula} aria-label="Macro 수식"
+              onChange={(e) => { setFormula(e.target.value); setTested(false); setResult(null) }} />
             {!generated && formula !== MACRO_FORMULA
               ? <Chip tone="warn">Prompt 와 불일치 — 동기화 제안</Chip> : null}
           </GroupBox>
