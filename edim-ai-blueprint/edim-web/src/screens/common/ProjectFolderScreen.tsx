@@ -1,8 +1,8 @@
 /** M-15-8/9 Project Folder·이력 조회 (W-24, 슬라이드 64) — 폴더 5종 자동 분류
  *  (dwg_file.folder CHECK) · sys_history diff. */
 import { useEffect, useState } from 'react'
-import { FOLDERS, FOLDER_FILES, type FolderFile } from '../../api/mock/dataMore'
-import { historyService, type HistoryRow } from '../../api/services'
+import { FOLDERS, type FolderFile } from '../../api/mock/dataMore'
+import { fileService, historyService, type HistoryRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -13,13 +13,15 @@ export function ProjectFolderScreen(_props: ScreenProps) {
   const [folder, setFolder] = useState<string>('DWG')
   const [selFile, setSelFile] = useState<string | null>(null)
   const [hist, setHist] = useState<HistoryRow[]>([])
+  const [files, setFiles] = useState<FolderFile[]>([])
 
   useEffect(() => {
     void historyService.recent().then(setHist)
+    void fileService.list('PS-61313-5').then(setFiles)
   }, [])
 
-  const rows = FOLDER_FILES.filter((f) => f.folder === folder)
-  const sel = FOLDER_FILES.find((f) => f.name === selFile) ?? null
+  const rows = files.filter((f) => f.folder === folder)
+  const sel = files.find((f) => f.name === selFile) ?? null
 
   const cols: GridColumn<FolderFile>[] = [
     { key: 'name', header: '파일명', code: true, render: (r) => r.name },
@@ -57,7 +59,7 @@ export function ProjectFolderScreen(_props: ScreenProps) {
               {FOLDERS.map((f) => (
                 <div key={f.name} className={`tn l2 ${folder === f.name ? 'sel' : ''}`}
                   onClick={() => { setFolder(f.name); setSelFile(null) }}>
-                  <span className="ico">📁</span>{f.name} ({f.count})
+                  <span className="ico">📁</span>{f.name} ({files.filter((x) => x.folder === f.name).length})
                 </div>
               ))}
             </div>

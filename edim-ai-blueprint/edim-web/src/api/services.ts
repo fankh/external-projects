@@ -5,9 +5,15 @@ import {
   expandBom, finishedGoods, KOF_SLOTS, RUN_LOGS, RUN_OUTPUTS, RUN_STEPS, TECH_DATA,
 } from './mock/data'
 import {
+  DEPT_EVENTS, KPIS, PR_ITEMS,
   PRICES as MOCK_PRICES, PROJECT as MOCK_PROJECT,
-  resolvePrice as mockResolvePrice, type PriceRow,
+  resolvePrice as mockResolvePrice, type PriceRow, type PrItem,
 } from './mock/dataErp'
+import {
+  CHILD_GROUP, runningTest as mockRunningTest,
+  type ChildDef, type RunningTestRow,
+} from './mock/dataCode'
+import { FOLDER_FILES, type FolderFile } from './mock/dataMore'
 import {
   APPROVAL_REQS, DEPT_TASKS, DOCS, SYS_HISTORY, USERS,
   type ApprovalReq, type DocRow, type TaskRow, type UserRow,
@@ -57,6 +63,13 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (res.status === 503) {
     setSource('mock')
+    throw new ApiUnavailable()
+  }
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    // 토큰 없음/만료 — 세션 정리 후 재로그인 (P0-1)
+    sessionStorage.removeItem('edim-session')
+    sessionStorage.removeItem('edim-token')
+    window.location.reload()
     throw new ApiUnavailable()
   }
   if (!res.ok) {
@@ -334,6 +347,79 @@ export const codeSetupService = {
     } catch (e) {
       if (!(e instanceof ApiUnavailable)) throw e
       return 'mock'
+    }
+  },
+}
+
+// ── SVC-03 Code Relationship (S-1-4) ──
+export interface ChildRow extends Omit<ChildDef, 'template'> { slotMap?: string }
+
+export const relationshipService = {
+  /** GET /api/v1/codes/relationships/{mother}/children */
+  async children(mother: string): Promise<ChildRow[]> {
+    try {
+      return await api<ChildRow[]>(`/codes/relationships/${encodeURIComponent(mother)}/children`)
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return CHILD_GROUP
+    }
+  },
+  /** POST /api/v1/codes/relationships/running-test — CODE-009 (expand 재사용) */
+  async runningTest(
+    mother: string, slotValues: Record<string, string>, checked: Set<string>,
+  ): Promise<RunningTestRow[]> {
+    try {
+      const r = await api<{ rows: (RunningTestRow & { mainCode: string })[] }>(
+        '/codes/relationships/running-test',
+        { method: 'POST', body: JSON.stringify({ motherCode: mother, slotValues }) })
+      return r.rows.filter((row) => row.no === 'Main' || checked.has(row.mainCode))
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return mockRunningTest(slotValues, checked)
+    }
+  },
+}
+
+// ── SVC-09 Dashboard 집계 ──
+export interface DashboardData {
+  kpis: { label: string; value: string; err?: boolean }[]
+  deptEvents: { dept: string; waiting: number; running: number; doneWeek: number; delayed: number }[]
+}
+
+export const dashboardService = {
+  /** GET /api/v1/erp/dashboard — erp_process_event·approval·project 집계 */
+  async get(): Promise<DashboardData> {
+    try {
+      return await api<DashboardData>('/erp/dashboard')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return { kpis: KPIS, deptEvents: DEPT_EVENTS }
+    }
+  },
+}
+
+// ── SVC-09 발주 품목 ──
+export const purchaseService = {
+  /** GET /api/v1/erp/pr-items — 단가 resolve 실연동 */
+  async items(): Promise<PrItem[]> {
+    try {
+      return await api<PrItem[]>('/erp/pr-items')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return PR_ITEMS
+    }
+  },
+}
+
+// ── SVC-12 Project Folder 파일 ──
+export const fileService = {
+  /** GET /api/v1/files — cpq_output 실산출물 + RECEIVED */
+  async list(project: string): Promise<FolderFile[]> {
+    try {
+      return await api<FolderFile[]>(`/files?project=${encodeURIComponent(project)}`)
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return FOLDER_FILES
     }
   },
 }

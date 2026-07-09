@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   ALERTS, DEPT_EVENTS, KPIS, PROCESS_FLOW_1, PROCESS_FLOW_2,
 } from '../../api/mock/dataErp'
-import { eventService } from '../../api/services'
+import { dashboardService, eventService, type DashboardData } from '../../api/services'
 import { Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
@@ -27,6 +27,11 @@ export function DashboardScreen(_props: ScreenProps) {
   const shell = useShell()
   const [project, setProject] = useState('Micron #7')
   const [alerts, setAlerts] = useState(ALERTS)
+  const [data, setData] = useState<DashboardData>({ kpis: KPIS, deptEvents: DEPT_EVENTS })
+
+  useEffect(() => {
+    void dashboardService.get().then(setData)
+  }, [])
 
   useEffect(() => {
     // 이상 경고 = erp_process_event 지연 집계 (ERP-014)
@@ -60,7 +65,7 @@ export function DashboardScreen(_props: ScreenProps) {
       </div>
       <div className="fill-col" style={{ padding: 6, gap: 6, overflow: 'auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-          {KPIS.map((k) => (
+          {data.kpis.map((k) => (
             <div key={k.label} className="gb">
               <div className="gc" style={{ textAlign: 'center', padding: '8px 6px' }}>
                 <div style={{
@@ -101,7 +106,7 @@ export function DashboardScreen(_props: ScreenProps) {
                 <tr><th>부서</th><th>대기</th><th>진행</th><th>완료(주)</th><th>지연</th></tr>
               </thead>
               <tbody>
-                {DEPT_EVENTS.map((d) => (
+                {data.deptEvents.map((d) => (
                   <tr key={d.dept}>
                     <td>{d.dept}</td>
                     <td className="num">{d.waiting}</td>

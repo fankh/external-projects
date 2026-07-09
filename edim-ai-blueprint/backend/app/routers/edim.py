@@ -14,15 +14,37 @@ import time
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from fastapi import Depends
 from pydantic import BaseModel
 
 from app.db import db_ok, get_pool
 from app.services.edim_seed import TENANT
 
-router = APIRouter(prefix="/api/v1", tags=["edim"])
-
 SECRET = os.getenv("EDIM_SECRET", "edim-dev-secret").encode()
+
+# 공개 경로 — 그 외 전부 Bearer 토큰 필수 (P0-1)
+PUBLIC_SUFFIXES = ("/health", "/auth/login")
+
+
+def require_auth(request: Request) -> None:
+    if request.url.path.endswith(PUBLIC_SUFFIXES):
+        return
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, detail="인증 필요 — 로그인 토큰이 없습니다")
+    parts = auth[7:].rsplit(".", 2)   # login 에 '.' 포함 가능 (park.f)
+    if len(parts) != 3:
+        raise HTTPException(401, detail="토큰 형식 오류")
+    login, exp, sig = parts
+    expected = hmac.new(SECRET, f"{login}.{exp}".encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, sig):
+        raise HTTPException(401, detail="토큰 서명 불일치")
+    if not exp.isdigit() or int(exp) < time.time():
+        raise HTTPException(401, detail="토큰 만료 — 다시 로그인하십시오")
+
+
+router = APIRouter(prefix="/api/v1", tags=["edim"], dependencies=[Depends(require_auth)])
 
 SOURCE_LABEL = {"APPLIED": "견적적용", "PURCHASE": "구매", "STOCK": "재고", "QUOTE": "견적"}
 SOURCE_PRIORITY = ["APPLIED", "PURCHASE", "STOCK", "QUOTE"]
@@ -109,12 +131,8 @@ class ExpandRequest(BaseModel):
     slotValues: dict[str, str]
 
 
-@router.post("/codes/products/expand")
-def expand(body: ExpandRequest) -> dict[str, Any]:
-    """BOM 재귀 전개 — code_relationship + slot_map (verify_runtime.sql T1 과 동일 로직)."""
-    with _conn() as conn, conn.cursor() as cur:
-        tid = _tenant_id(cur)
-        cur.execute(
+def _expand_rows(cur, tid: int, root_code: str, slot_values: dict[str, str]) -> list[tuple]:
+    cur.execute(
             """
             WITH RECURSIVE bom AS (
               SELECT pc.product_code_id, pc.main_code, pc.code_name,
@@ -148,15 +166,25 @@ def expand(body: ExpandRequest) -> dict[str, Any]:
                     LIMIT 1) AS price
             FROM bom b WHERE b.lvl > 0 ORDER BY b.ord
             """,
-            (json.dumps(body.slotValues), tid, body.rootCode, SOURCE_PRIORITY))
-        rows = cur.fetchall()
+            (json.dumps(slot_values), tid, root_code, SOURCE_PRIORITY))
+    return cur.fetchall()
+
+
+def _resolved(main: str, slots: dict[str, str]) -> str:
+    parts = [v for _, v in sorted(slots.items()) if v]
+    return f"{main}-{'-'.join(parts)}" if parts else main
+
+
+@router.post("/codes/products/expand")
+def expand(body: ExpandRequest) -> dict[str, Any]:
+    """BOM 재귀 전개 — code_relationship + slot_map (verify_runtime.sql T1 과 동일 로직)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        rows = _expand_rows(cur, tid, body.rootCode, body.slotValues)
     if not rows:
         raise HTTPException(404, detail=f"root code not found: {body.rootCode}")
 
-    def resolved(main: str, slots: dict[str, str]) -> str:
-        parts = [v for _, v in sorted(slots.items()) if v]
-        return f"{main}-{'-'.join(parts)}" if parts else main
-
+    resolved = _resolved
     sv = body.slotValues
     finished = f"{body.rootCode}-{sv.get('B', '?')}-{sv.get('E', '?')}"
     return {
@@ -502,6 +530,180 @@ def add_item(group: str, body: NewItemRequest) -> dict[str, Any]:
                VALUES (%s,'code_item',%s,'CREATE','승인',%s,%s)""",
             (tid, item_id, actor[0], f"{group} / {slot}: {body.name.strip()}"))
     return {"slot": slot, "status": "PENDING"}
+
+
+# ── SVC-03 Code Relationship (S-1-4) ──
+@router.get("/codes/relationships/{mother}/children")
+def relationship_children(mother: str) -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT c.main_code, c.code_name, r.quantity, COALESCE(r.remarks,''),
+                      COALESCE(string_agg(sm.child_slot || '←' ||
+                        COALESCE(sm.mother_slot, '"'||sm.fixed_value||'"'), ' · '
+                        ORDER BY sm.child_slot), '-')
+               FROM code_relationship r
+               JOIN product_code m ON m.product_code_id=r.mother_code_id
+               JOIN product_code c ON c.product_code_id=r.child_code_id
+               LEFT JOIN code_relationship_slot_map sm ON sm.rel_id=r.rel_id
+               WHERE r.tenant_id=%s AND m.main_code=%s AND r.approval_status='APPROVED'
+               GROUP BY c.main_code, c.code_name, r.quantity, r.remarks, r.sort_order
+               ORDER BY r.sort_order""", (tid, mother))
+        return [
+            {"code": r[0], "desc": r[1], "qty": float(r[2]), "remarks": r[3], "slotMap": r[4]}
+            for r in cur.fetchall()
+        ]
+
+
+class RunningTestRequest(BaseModel):
+    motherCode: str = "KDCR 3-13"
+    slotValues: dict[str, str]
+
+
+@router.post("/codes/relationships/running-test")
+def running_test(body: RunningTestRequest) -> dict[str, Any]:
+    """CODE-009 — Mother slot 조합으로 전량 전개 검증 (expand 재사용)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        rows = _expand_rows(cur, tid, body.motherCode, body.slotValues)
+        cur.execute(
+            "SELECT code_name FROM product_code WHERE tenant_id=%s AND main_code=%s",
+            (tid, body.motherCode))
+        mother = cur.fetchone()
+    if not rows:
+        raise HTTPException(404, detail=f"mother not found: {body.motherCode}")
+    sv = body.slotValues
+    out = [{
+        "no": "Main",
+        "name": f"{body.motherCode}-{sv.get('B', '?')}-{sv.get('C', '?')}-{sv.get('E', '?')}",
+        "desc": mother[0] if mother else body.motherCode, "qty": 1, "remarks": "",
+        "mainCode": body.motherCode,
+    }]
+    for i, r in enumerate(rows):
+        out.append({
+            "no": str(i + 1), "name": _resolved(r[0], r[4] or {}),
+            "desc": r[1], "qty": float(r[2]), "remarks": "", "mainCode": r[0],
+        })
+    return {"passed": True, "cycleCheck": "OK", "rows": out}
+
+
+# ── SVC-09 Dashboard 집계 (ERP-014) ──
+@router.get("/erp/dashboard")
+def dashboard() -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT count(*) FROM prj_project WHERE tenant_id=%s AND status='IN_PROGRESS'", (tid,))
+        projects = cur.fetchone()[0]
+        cur.execute(
+            "SELECT count(*) FROM sys_approval_request WHERE tenant_id=%s AND result IS NULL", (tid,))
+        pending = cur.fetchone()[0]
+        cur.execute(
+            """SELECT count(*) FROM erp_process_event
+               WHERE tenant_id=%s AND status<>'DONE' AND due_date < CURRENT_DATE""", (tid,))
+        alerts = cur.fetchone()[0]
+        cur.execute(
+            """SELECT d.department,
+                      count(*) FILTER (WHERE e.status='TODO' AND NOT
+                        (e.due_date < CURRENT_DATE)),
+                      count(*) FILTER (WHERE e.status='IN_PROGRESS'),
+                      count(*) FILTER (WHERE e.status='DONE'
+                        AND e.done_at > now() - interval '7 days'),
+                      count(*) FILTER (WHERE e.status<>'DONE' AND e.due_date < CURRENT_DATE)
+               FROM erp_process_event e
+               JOIN erp_process_def d ON d.proc_def_id=e.proc_def_id
+               WHERE e.tenant_id=%s GROUP BY d.department ORDER BY d.department""", (tid,))
+        depts = [
+            {"dept": r[0], "waiting": r[1], "running": r[2], "doneWeek": r[3], "delayed": r[4]}
+            for r in cur.fetchall()
+        ]
+    return {
+        "kpis": [
+            {"label": "진행 Project", "value": str(projects)},
+            {"label": "승인 대기", "value": str(pending)},
+            {"label": "이번 달 수주", "value": "₩ 8.4억"},   # 견적/수주 모듈 구축 전 고정값
+            {"label": "이상 경고 (시간·자금)", "value": str(alerts), "err": alerts > 0},
+        ],
+        "deptEvents": depts,
+    }
+
+
+# ── SVC-09 발주 품목 (M-8-2) — 단가 resolve 실연동 ──
+PR_META = {
+    "FDV-480": {"supplierCode": "HS-M480", "qty": 2, "requiredDate": "08-20", "delivery": "EXW"},
+    "KDC-1": {"supplierCode": "JW-C001", "qty": 4, "requiredDate": "08-15", "delivery": "지정장소"},
+    "EWT-3": {"supplierCode": "-", "qty": 1, "requiredDate": "-", "delivery": "-", "stockOk": True},
+}
+
+
+@router.get("/erp/pr-items")
+def pr_items() -> list[dict[str, Any]]:
+    ref = date.today().isoformat()
+    out: list[dict[str, Any]] = []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        for code, meta in PR_META.items():
+            cur.execute(
+                """SELECT pc.code_name, p.price, cc.company_name
+                   FROM product_code pc
+                   LEFT JOIN cst_price p ON p.product_code_id=pc.product_code_id
+                     AND p.valid_from <= %s::date
+                     AND (p.valid_to IS NULL OR p.valid_to >= %s::date)
+                   LEFT JOIN com_company cc ON cc.company_id=p.supplier_id
+                   WHERE pc.tenant_id=%s AND pc.main_code=%s
+                   ORDER BY array_position(%s::text[], p.price_source), p.valid_from DESC
+                   LIMIT 1""", (ref, ref, tid, code, SOURCE_PRIORITY))
+            r = cur.fetchone()
+            if not r:
+                continue
+            stock_ok = bool(meta.get("stockOk"))
+            out.append({
+                "code": code, "name": r[0],
+                "supplierCode": meta["supplierCode"],
+                "supplier": "-" if stock_ok else (r[2] or "-"),
+                "qty": meta["qty"],
+                "price": None if stock_ok else (float(r[1]) if r[1] is not None else None),
+                "requiredDate": meta["requiredDate"], "delivery": meta["delivery"],
+                "stockOk": stock_ok, "checked": not stock_ok,
+            })
+    return out
+
+
+# ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──
+OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
+               "DATA": ("기술자료", "ok"), "BOM": ("BOM", "ok")}
+RECEIVED_FILES = [
+    {"name": "Micron7_사양서_v2.xlsx", "fileType": "XLSX", "kind": "접수자료",
+     "kindTone": "info", "run": "-", "date": "07-07", "folder": "RECEIVED"},
+    {"name": "현장 배치도.pdf", "fileType": "PDF", "kind": "접수자료",
+     "kindTone": "info", "run": "-", "date": "07-07", "folder": "RECEIVED"},
+]
+
+
+@router.get("/files")
+def project_files(project: str = "PS-61313-5") -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT o.output_type, o.data->>'file', o.data->>'fileType',
+                      o.run_id, to_char(o.created_at,'MM-DD')
+               FROM cpq_output o
+               JOIN cpq_run r ON r.run_id=o.run_id AND r.tenant_id=%s
+               WHERE r.run_id = (SELECT max(run_id) FROM cpq_run
+                                 WHERE tenant_id=%s AND status='SUCCESS')
+               ORDER BY o.output_id""", (tid, tid))
+        rows = cur.fetchall()
+    files = [
+        {
+            "name": (r[1] or "output").replace(" ", "_")[:60],
+            "fileType": r[2] or "PDF",
+            "kind": OUTPUT_KIND.get(r[0], (r[0], "info"))[0],
+            "kindTone": OUTPUT_KIND.get(r[0], (r[0], "info"))[1],
+            "run": f"#{r[3]}", "date": r[4], "folder": r[0],
+        }
+        for r in rows
+    ]
+    return files + RECEIVED_FILES
 
 
 # ── SVC-07 CPQ / ENG-02 Run ──

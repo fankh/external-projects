@@ -1,8 +1,8 @@
 /** M-8-2 구매·발주 PR→PO (W-21, 슬라이드 53) — BOM 발주 대상 선별 ·
  *  Stock Check 재고 충족 제외 · 단가 resolve · 공급자 코드 매핑. */
 import { useEffect, useMemo, useState } from 'react'
-import { PR_ITEMS, type PriceRow, type PrItem } from '../../api/mock/dataErp'
-import { erpService } from '../../api/services'
+import type { PriceRow, PrItem } from '../../api/mock/dataErp'
+import { erpService, purchaseService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -11,9 +11,13 @@ import type { ScreenProps } from '../../shell/Shell'
 
 export function PurchaseScreen({ active }: ScreenProps) {
   const shell = useShell()
-  const [items, setItems] = useState<PrItem[]>(PR_ITEMS)
+  const [items, setItems] = useState<PrItem[]>([])
   const [filter, setFilter] = useState('발주 대기 (PR 3)')
   const [poCreated, setPoCreated] = useState(false)
+
+  useEffect(() => {
+    void purchaseService.items().then(setItems)
+  }, [])
 
   const stockCheck = () => {
     setItems((prev) => prev.map((r) => (r.stockOk ? { ...r, checked: false } : r)))

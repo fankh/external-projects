@@ -1,9 +1,8 @@
 /** S-1-4 Code Relationship (W-05, 슬라이드 36) — Mother-Child slot_map ·
  *  Running Test 통과(CODE-009)해야 승인 요청 가능. */
-import { useMemo, useState } from 'react'
-import {
-  CHILD_GROUP, MOTHER, runningTest, type RunningTestRow,
-} from '../../api/mock/dataCode'
+import { useEffect, useMemo, useState } from 'react'
+import { MOTHER, type RunningTestRow } from '../../api/mock/dataCode'
+import { relationshipService, type ChildRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -15,16 +14,26 @@ const SLOT_OPTS: Record<string, string[]> = { B: ['13', '21', '32'], C: ['32', '
 
 export function CodeRelationshipScreen({ active }: ScreenProps) {
   const shell = useShell()
-  const [checked, setChecked] = useState<Set<string>>(new Set(CHILD_GROUP.map((c) => c.code)))
+  const [children, setChildren] = useState<ChildRow[]>([])
+  const [checked, setChecked] = useState<Set<string>>(new Set())
   const [slots, setSlots] = useState<Record<string, string>>({ B: '13', C: '32', E: '15' })
   const [testRows, setTestRows] = useState<RunningTestRow[] | null>(null)
   const [tested, setTested] = useState(false)
 
+  useEffect(() => {
+    void relationshipService.children(MOTHER.code).then((rows) => {
+      setChildren(rows)
+      setChecked(new Set(rows.map((c) => c.code)))
+    })
+  }, [])
+
   const runTest = () => {
-    const rows = runningTest(slots, checked)
-    setTestRows(rows)
-    setTested(true)
-    shell.setStatusMsg(`Running Test ✓ — ${rows.length - 1} Child 전개 (순환 참조 없음, CODE-009)`)
+    void (async () => {
+      const rows = await relationshipService.runningTest(MOTHER.code, slots, checked)
+      setTestRows(rows)
+      setTested(true)
+      shell.setStatusMsg(`Running Test ✓ — ${rows.length - 1} Child 전개 (순환 참조 없음, CODE-009)`)
+    })()
   }
 
   useFKeys(active, useMemo(() => ({ F9: runTest }), [slots, checked])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -39,7 +48,7 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
     setTested(false)
   }
 
-  const childCols: GridColumn<typeof CHILD_GROUP[number]>[] = [
+  const childCols: GridColumn<ChildRow>[] = [
     {
       key: 'chk', header: '☑', width: 26, align: 'center',
       render: (r) => (
@@ -105,7 +114,7 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
         <div className="split-h" />
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
           <GroupBox title="[ Child Group ] — 더블클릭=코드 상세" right={<Chip tone="ok">Approved</Chip>} noPad>
-            <DenseGrid columns={childCols} rows={CHILD_GROUP} rowKey={(r) => r.code}
+            <DenseGrid columns={childCols} rows={children} rowKey={(r) => r.code}
               onRowDoubleClick={(r) => shell.openTab({
                 id: `code-detail:${r.code}`, screenId: 'code-detail',
                 code: '상세', title: r.code, params: { code: r.code, name: r.desc },
