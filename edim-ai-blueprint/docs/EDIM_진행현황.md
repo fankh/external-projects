@@ -62,7 +62,7 @@ REQ(80) → 기능(179) → 메뉴(98) → 화면(W-01~24) → 컴포넌트(39) 
 - **스프린트 S1 완료 (2026-07-09)**: **API 인증 강제**(HMAC Bearer — 무토큰 401·만료 시 재로그인, health/login 만 공개) · Dashboard KPI/부서 Event **실집계**(erp_process_event) · Child Group(code_relationship) · PR 품목(단가 resolve 연동) · **Folder 파일 = cpq_output 실산출물** · **Running Test API**(CODE-009, expand 재사용·미체크 서브트리 제외) · MDI 탭 라인 상시 유지
 - **배치 A (2026-07-09)**: 승인함(sys_approval_request inbox+**decide 쓰기** — 승인 시 대상 approval_status 전이+이력) · 문서함(doc_control) · 사용자(sys_user+**unlock 쓰기**) · 업무함/Dashboard 경고(erp_process_def/edge/event+**complete 쓰기**) · Project 영업단계(**PATCH** — enum 매핑, 새로고침 유지 검증) · 단가 대장(cst_price) · 이력(sys_history) · **Sub Code 항목 등록 쓰기**(code_item PENDING+승인요청 자동 생성, 중복 409). 시드 v2(멱등). 잔여 mock: Dashboard KPI/부서Event·Relationship Child Group·Table12 행·발주 품목·Folder 파일목록·Toolbox
 - **검증**: tsc 무오류 · Playwright 스모크 49/49(mock 폴백) · **라이브 E2E 5/5 (실 DB: 로그인 검증·BOM 재전개·Run 영속)** · 콘솔 에러 0
-- **배포**: dist 커밋 → 서버 rsync `/var/www/edim/edim-static/` + nginx `/cpq` `/plm` `/code` `/erp` `/toolbox` `/common` SPA fallback + `/api/v1/`(auth off) 프록시
+- **배포**: dist 커밋 → 서버 rsync `/var/www/edim/edim-static/` + nginx `/cpq` `/plm` `/code` `/erp` `/toolbox` `/common` SPA fallback + `/api/v1/`(auth off) 프록시. **캐시 정책(2026-07-09)**: `index.html`(+SPA 라우트)=`no-cache`(배포 즉시 반영), 해시 자산 `assets/*`=`immutable` 1년 — 배포 후 구버전 번들 잔존 문제 해소
 
 ## 2. 인프라 현황 (edim.seekerslab.com)
 
