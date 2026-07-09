@@ -1,0 +1,171 @@
+/** S-4-1-1 PLM Design Editor (W-06) — CAD 툴바 · Block 캔버스 · 치수 Macro/Variant ·
+ *  Coding Run(파라메트릭 재계산 mock) · 커맨드 라인. */
+import { useMemo, useState } from 'react'
+import type { CanvasBlock, DimensionDef } from '../../api/types'
+import { DWG_BLOCKS, DWG_DIMS, MACRO_CODING } from '../../api/mock/data'
+import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
+import { CommandLine, Cvs } from '../../components/Cvs'
+import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useShell } from '../../shell/ShellContext'
+import { useFKeys } from '../../shell/useFKeys'
+import type { ScreenProps } from '../../shell/Shell'
+
+const CAD_TOOLS = ['복사 CO', '이동', '반전', '연장', '삭제 E', '회전 RO', '자르기 TR', 'Block REG', '치수 DI', '특성 CH']
+
+/** =A+56, =A*1.62 형태의 Macro 를 A 값 기준으로 평가 (mock — ENG-01) */
+function evalDims(dims: DimensionDef[]): DimensionDef[] {
+  const a = Number(dims.find((d) => d.no === 'A')?.value) || 0
+  return dims.map((d) => {
+    if (d.no === 'B') return { ...d, value: String(a + 56) }
+    if (d.no === 'K') return { ...d, value: String(Math.round(a * 1.62)) }
+    return d
+  })
+}
+
+export function DesignEditorScreen({ active }: ScreenProps) {
+  const shell = useShell()
+  const [tool, setTool] = useState('이동')
+  const [selBlock, setSelBlock] = useState<CanvasBlock | null>(DWG_BLOCKS[1])
+  const [dims, setDims] = useState<DimensionDef[]>(DWG_DIMS)
+  const [editingNo, setEditingNo] = useState<string | null>(null)
+  const [coord, setCoord] = useState('X 0.0  Y 0.0')
+  const [evaluated, setEvaluated] = useState(false)
+
+  const runMacro = () => {
+    setDims(evalDims)
+    setEvaluated(true)
+    shell.setStatusMsg('Macro 평가 6식 ✓ — 파라메트릭 반영 (DWG-007)')
+  }
+
+  useFKeys(active, useMemo(() => ({ F9: runMacro, F12: () => shell.setStatusMsg('Block 임시저장 — 승인 후 사용 가능 (DWG-012)') }), [shell])) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dimA = dims.find((d) => d.no === 'A')?.value ?? '670'
+  const dimB = dims.find((d) => d.no === 'B')?.value ?? '=A+56'
+  const dimK = dims.find((d) => d.no === 'K')?.value ?? '—'
+
+  const ruleCols: GridColumn<DimensionDef>[] = [
+    { key: 'no', header: 'No.', width: 28, align: 'center', render: (r) => <b>{r.no}</b> },
+    {
+      key: 'val', header: 'Dim.', width: 76, align: 'right',
+      render: (r) => (editingNo === r.no
+        ? (
+          <input autoFocus className="in" style={{ width: '100%', height: 20 }} defaultValue={r.value}
+            aria-label={`치수 ${r.no}`}
+            onBlur={(e) => {
+              const v = e.target.value.trim()
+              setDims((prev) => prev.map((d) => (d.no === r.no ? { ...d, value: v } : d)))
+              setEditingNo(null)
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+        )
+        : <span onDoubleClick={() => setEditingNo(r.no)}>{r.value}</span>),
+    },
+    {
+      key: 'bind', header: 'Set-up', width: 64, align: 'center',
+      render: (r) => <Chip tone={r.binding === 'MACRO' ? 'info' : 'ok'}>{r.binding}</Chip>,
+    },
+    { key: 'kind', header: '구분', width: 50, align: 'center', render: (r) => r.kind },
+  ]
+
+  return (
+    <div className="fill-col">
+      <div className="toolbar">
+        <span className="b ic" title="실행 취소">↶</span>
+        <span className="b ic" title="다시 실행">↷</span>
+        <Sep />
+        {CAD_TOOLS.map((t) => (
+          <Btn key={t} variant={tool === t ? 'pri' : 'default'} onClick={() => setTool(t)}>{t}</Btn>
+        ))}
+        <Sep />
+        <Combo width={150} value="Snap: 끝점·중앙·중심" options={['Snap: 끝점·중앙·중심', 'Snap: OFF']} />
+        <Btn>Simulation</Btn>
+      </div>
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        <div className="fill-col" style={{ flex: 1, padding: 6 }}
+          onMouseMove={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            setCoord(`X ${(e.clientX - r.left).toFixed(1)}  Y ${(e.clientY - r.top).toFixed(1)}`)
+          }}>
+          <Cvs blocks={DWG_BLOCKS} selectedId={selBlock?.id ?? null} onSelect={setSelBlock}
+            dims={[
+              { x: 150, y: 16, w: 330, label: `B = ${dimB}` },
+              { x: 200, y: 34, w: 180, label: `A = ${dimA}` },
+              { x: 80, y: 292, w: 440, label: `K = ${dimK}` },
+            ]}
+            labels={[
+              { x: 130, y: 64, text: 'C' }, { x: 460, y: 64, text: 'C' },
+              { x: 70, y: 120, text: 'G' }, { x: 512, y: 120, text: 'G' },
+              { x: 220, y: 250, text: 'D' }, { x: 390, y: 250, text: 'D' },
+              { x: 300, y: 264, text: 'E' }, { x: 530, y: 180, text: 'F' },
+            ]}
+            style={{ flex: 1, minHeight: 320 }}>
+            <div style={{ position: 'absolute', left: 236, top: 116, fontSize: 9, color: 'var(--txt-dim)' }}>
+              Bearing housing ← 더블클릭 (부품 정보)
+            </div>
+          </Cvs>
+          <CommandLine
+            prompt={selBlock ? `${tool.split(' ')[0].toUpperCase()} 선택=${selBlock.name}  기준점 지정 >` : '명령 대기 >'}
+            coord={`${coord} | 스냅 ON`}
+            onCommand={(cmd) => shell.setStatusMsg(`명령 실행: ${cmd}`)} />
+          <div style={{ display: 'flex', gap: 8, padding: '4px 2px', fontSize: 10, color: 'var(--txt-dim)', flexWrap: 'wrap' }}>
+            <span>● Key Dimension</span><span style={{ color: '#74a9d8' }}>● Detail Dimension</span>
+            <span style={{ color: '#2e8b57' }}>● Arrangement</span>
+            <span style={{ color: '#e0a400' }}>● 검증 Macro</span>
+            <span>◆ Assembling Seq · QC/Material/Mfg</span>
+          </div>
+        </div>
+        <div className="split-h" />
+        <div style={{ width: 312, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
+          <GroupBox title="Code">
+            <input className="in ro" style={{ width: '100%', fontFamily: 'Consolas, monospace' }}
+              value="KDCR 3-13" readOnly aria-label="Code" />
+            <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+              {['A', 'B', 'C', 'D', 'E', 'F'].map((s) => (
+                <span key={s} className="b ic"
+                  style={s === 'B' ? { borderColor: 'var(--err)', color: 'var(--err)' } : undefined}>
+                  {s}
+                </span>
+              ))}
+            </div>
+          </GroupBox>
+          <GroupBox title="Design Rule — 치수 Set-up" noPad
+            right={<span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>더블클릭 = 편집</span>}>
+            <DenseGrid columns={ruleCols} rows={dims} rowKey={(r) => r.no} />
+          </GroupBox>
+          <GroupBox title="Coding" right={
+            <Btn variant="run" style={{ height: 18, fontSize: 10 }} onClick={runMacro}>Run F9</Btn>
+          }>
+            <Fx>{MACRO_CODING}</Fx>
+            <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginTop: 3 }}>
+              EDIM Macro 호출 → 계산식 표시·직접 입력 가능
+              {evaluated ? <Chip tone="ok">평가 ✓</Chip> : null}
+            </div>
+          </GroupBox>
+          <GroupBox title="Part relationship set-up">
+            <div className="frm c2">
+              <label>A</label><Combo value="Casing" options={['Casing', 'Impeller', 'Shaft']} />
+              <label>B</label><Combo value="Impeller" options={['Casing', 'Impeller', 'Shaft']} />
+            </div>
+            <div style={{ fontSize: 10, lineHeight: 1.7, marginTop: 4, color: 'var(--txt-dim)' }}>
+              조건1: 수직·수평·중심·중앙 / 조건2: 접촉(면·선·점)·좌표·각도<br />
+              관계값: <span className="fx" style={{ display: 'inline', padding: '1px 6px' }}>=A2.Table23_3*Var32_2</span><br />
+              우선순위: A/B ① → B/C ② (순환 자동 점검)
+            </div>
+          </GroupBox>
+          <GroupBox title="Sub Item DWG · 조립순서">
+            <div style={{ fontSize: 11, lineHeight: 1.9 }}>
+              ① Bearing · ② Shaft · ③ Inlet-Cone R<br />
+              ④ Inlet-Cone L · ⑤ Impeller <Chip tone="info">◆ 조립순서</Chip>
+            </div>
+          </GroupBox>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <Btn style={{ flex: 1, justifyContent: 'center' }}
+              onClick={() => shell.setStatusMsg('Block 임시저장 (DRAFT)')}>임시저장 F12</Btn>
+            <Btn variant="pri" style={{ flex: 1, justifyContent: 'center' }}
+              onClick={() => shell.setStatusMsg('승인 요청 — Design > Check 단계로 이동')}>승인 요청</Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

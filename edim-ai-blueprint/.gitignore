@@ -6,7 +6,8 @@ __pycache__/
 
 # Node
 node_modules/
-dist/
+frontend/dist/
+# edim-web/dist 는 배포 산출물로 커밋한다 (서버 node 불필요)
 
 # Generated samples & uploads
 backend/sample_data/*.dxf

@@ -65,9 +65,10 @@ COMPONENTS = [
  ("INF-06", "인프라", "Kubernetes + CI/CD", "SaaS 멀티테넌트 / Self-managed 패키지 겸용 배포", "-", "-", "-", "-", "P1"),
  ("INF-07", "인프라", "모니터링", "Prometheus·Grafana·Loki — 메트릭·로그·알림", "-", "-", "-", "-", "P1"),
 ]
-# 구축 상태 (2026-07-07, 개발 서버 edim.seekerslab.com 기준)
+# 구축 상태 (2026-07-09, 개발 서버 edim.seekerslab.com 기준)
 STATUS = {
- "FE-01":  ("프로토타입 배포", "https://edim.seekerslab.com — Drawing Viewer·DXF/IFC 업로드·AI 생성(샘플 모드)"),
+ "FE-01":  ("구축중", "edim-web(React19+Vite+TS, dense B안) — /cpq 셸(MDI·F-key·메뉴트리)·제품선정·기술데이터·Run, mock API(OpenAPI 대응). 루트(/)는 Drawing Viewer 프로토타입 유지"),
+ "FE-02":  ("구축중", "edim-web /plm — Design Editor(CAD 툴바·파라메트릭 치수·커맨드라인)·Work Process(MAKE/BUY) — mock API"),
  "GW-01":  ("개발 대체 구축", "nginx 1.24 — TLS(Let's Encrypt)·라우팅(/api·/jenkins·/minio/ui)·SPA 서빙"),
  "SVC-04": ("프로토타입 일부", "FastAPI backend — DXF/IFC Import·DXF Export·DrawingDocument JSON"),
  "ENG-03": ("프로토타입 일부", "ezdxf 기반 DXF(R2010) Export 경로 검증됨"),

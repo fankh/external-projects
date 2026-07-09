@@ -1,0 +1,157 @@
+/** C-2 CPQ 기술 데이터 (W-03) — 설계옵션 → Technical Data 범위조회(F8) → 선정. */
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { tableService } from '../../api/services'
+import type { TechDataRow } from '../../api/types'
+import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
+import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useShell } from '../../shell/ShellContext'
+import { useFKeys } from '../../shell/useFKeys'
+import type { ScreenProps } from '../../shell/Shell'
+
+const DIRECTIONS = ['L0', 'L90', 'L180', 'L270', 'R0', 'R90', 'R180', 'R270']
+
+export function TechDataScreen({ active }: ScreenProps) {
+  const shell = useShell()
+  const [direction, setDirection] = useState('R0')
+  const [airflow, setAirflow] = useState('2000')
+  const [pressure, setPressure] = useState('200')
+  const [model, setModel] = useState('KAD 1120 4KA-9')
+  const [impeller, setImpeller] = useState('Carbon Steel · CL2')
+  const [motor, setMotor] = useState('TEFC · Hyosung · 4P')
+  const [rows, setRows] = useState<TechDataRow[]>([])
+  const [selModel, setSelModel] = useState<string | null>(null)
+
+  const query = useCallback(async () => {
+    const r = await tableService.queryTechData(Number(airflow) || 0, Number(pressure) || 0)
+    setRows(r)
+    setSelModel(r[0]?.model ?? null)
+    shell.setStatusMsg(`Technical Data ${r.length}행 — 선정점 ${r[0]?.model ?? '—'}`)
+  }, [airflow, pressure, shell])
+
+  useEffect(() => { void query() }, [query])
+
+  useFKeys(active, useMemo(() => ({ F8: () => { void query() } }), [query]))
+
+  const productCode = selModel ? `KAD-${selModel}-6-21-4-SR-7` : '—'
+  const sel = rows.find((r) => r.model === selModel) ?? null
+
+  const cols: GridColumn<TechDataRow>[] = [
+    { key: 'model', header: 'Model', width: 54, code: true, render: (r) => r.model },
+    { key: 'pd', header: 'Pd', width: 44, align: 'right', render: (r) => r.pd },
+    { key: 'pt', header: 'Pt', width: 44, align: 'right', render: (r) => r.pt },
+    { key: 'rpm', header: 'RPM', width: 50, align: 'right', render: (r) => r.rpm },
+    { key: 'eff', header: '효율', width: 44, align: 'right', render: (r) => r.eff },
+    { key: 'power', header: 'Power', width: 50, align: 'right', render: (r) => r.power },
+    { key: 'sound', header: 'Sound', width: 50, align: 'right', render: (r) => r.sound },
+  ]
+
+  return (
+    <div className="fill-col">
+      <div className="qband">
+        <label>Fan Direction</label>
+        {DIRECTIONS.map((d) => (
+          <Btn key={d} variant={direction === d ? 'pri' : 'default'}
+            onClick={() => setDirection(d)}>{d}</Btn>
+        ))}
+        <span className="sep" />
+        <Combo width={110} value="DWG View" options={['DWG View', '3D View', 'Section']} />
+        <span style={{ flex: 1 }} />
+        <Btn>＋ Add Item</Btn>
+        <Btn variant="pri" onClick={() => void query()}>조회 F8</Btn>
+      </div>
+      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        <div className="fill-col" style={{ flex: 1, padding: 6, gap: 6, overflow: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 6 }}>
+            <GroupBox title={`선정 Fan 도면 — ${direction}`}>
+              <div className="cvs" style={{ height: 148 }}>
+                <div className="m2 sel" style={{ left: 40, top: 24, width: 110, height: 90 }}>
+                  Fan<small>{selModel ? `KAD ${selModel}` : '—'}</small>
+                </div>
+              </div>
+            </GroupBox>
+            <GroupBox title="설계 옵션 — 승인된 Sub Code 값만 (CODE-003)">
+              <div className="frm">
+                <label>Model</label>
+                <Combo value={model} options={['KAD 1120 4KA-9', 'KAD 1000 4KA-7', 'KFD 900 2K']} onChange={setModel} />
+                <label>Impeller</label>
+                <Combo value={impeller} options={['Carbon Steel · CL2', 'Airfoil · SUS304']} onChange={setImpeller} />
+                <label>Air Volume<i>*</i></label>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <input className="in req" style={{ width: 80 }} value={airflow} aria-label="Air Volume"
+                    onChange={(e) => setAirflow(e.target.value)} />
+                  <span className="unit">㎥/min</span>
+                </div>
+                <label>Motor</label>
+                <Combo value={motor} options={['TEFC · Hyosung · 4P', 'TEAO · Hyundai · 2P']} onChange={setMotor} />
+                <label>Static Pressure<i>*</i></label>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <input className="in req" style={{ width: 80 }} value={pressure} aria-label="Static Pressure"
+                    onChange={(e) => setPressure(e.target.value)} />
+                  <span className="unit">mmAq</span>
+                </div>
+                <label>Inlet cone</label>
+                <Combo value="Airflow · IGV none" options={['Airflow · IGV none', 'IGV']} />
+                <label>Temp / Humid</label>
+                <input className="in" defaultValue="20 ℃ / 80 %" aria-label="Temp Humid" />
+                <label>Casing</label>
+                <Combo value="Steel S · Φ3 · 380V" options={['Steel S · Φ3 · 380V', 'SUS · Φ3 · 440V']} />
+              </div>
+            </GroupBox>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, flex: 1, minHeight: 0 }}>
+            <GroupBox title="Technical Data — Table 범위 조회 + Macro (TBL-004)" noPad>
+              <DenseGrid columns={cols} rows={rows}
+                rowKey={(r) => r.model} selectedKey={selModel}
+                onRowClick={(r) => setSelModel(r.model)} />
+            </GroupBox>
+            <GroupBox title="성능 곡선 — 선정점 하이라이트">
+              <div className="cvs" style={{ height: '100%', minHeight: 140 }}>
+                {sel ? (
+                  <>
+                    <div className="d2" style={{ left: 20, top: 18, width: 200 }}>
+                      <span>선정점 {sel.model} · {sel.rpm} RPM</span>
+                    </div>
+                    <div className="m2 sel" style={{
+                      left: 60 + rows.indexOf(sel) * 36, top: 90 - sel.eff / 2, width: 12, height: 12,
+                    }} />
+                  </>
+                ) : null}
+                <div style={{ position: 'absolute', right: 8, bottom: 6, fontSize: 9.5, color: 'var(--txt-mute)' }}>
+                  그래프 마법사 Templet (TBX-011)
+                </div>
+              </div>
+            </GroupBox>
+          </div>
+        </div>
+        <div className="split-h" />
+        <div style={{ width: 300, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
+          <GroupBox title="Product Code" right={sel ? <Chip tone="ok">유효</Chip> : <Chip tone="warn">미선정</Chip>}>
+            <input className="in ro" style={{ width: '100%', fontFamily: 'Consolas, monospace' }}
+              value={productCode} readOnly aria-label="Product Code" />
+          </GroupBox>
+          <GroupBox title="BOM" noPad right={
+            <Btn variant="run" style={{ height: 18, fontSize: 10 }}
+              onClick={() => shell.openTab({ id: 'cpq-run:tech', screenId: 'cpq-run', code: 'Run', title: '실행 (기술)' })}>
+              ▶ EDIM Run
+            </Btn>
+          }>
+            <table className="g">
+              <tbody>
+                <tr><td className="code">KDP 1-21-13-15</td><td>Casing</td><td className="num">1</td></tr>
+                <tr><td className="code">H 22-380V</td><td>Motor</td><td className="num">1</td></tr>
+                <tr><td className="code">KDP 9-32</td><td>Bearing</td><td className="num">4</td></tr>
+              </tbody>
+            </table>
+          </GroupBox>
+          <GroupBox title="Sub Item Technical data">
+            <div style={{ fontSize: 11, lineHeight: 1.9 }}>
+              Fan 성능표 (PDF) <Chip tone="ok">생성</Chip><br />
+              밀도 보정 계산서 <Chip tone="ok">생성</Chip><br />
+              소음 예측 (Sound {sel?.sound ?? '—'} dB) <Chip tone="info">DRAFT</Chip>
+            </div>
+          </GroupBox>
+        </div>
+      </div>
+    </div>
+  )
+}
