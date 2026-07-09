@@ -319,6 +319,35 @@ export const docService = {
       return DOCS
     }
   },
+  /** POST /api/v1/documents — 문서 등록 (doc_control + 승인 요청; 409=중복) */
+  async create(doc: { docNo: string; title: string; docType: string; grade: string }): Promise<boolean> {
+    try {
+      await api('/documents', { method: 'POST', body: JSON.stringify(doc) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** GET /api/v1/documents/{no}/render.pdf — Grade 워터마크 실렌더 (blob URL, null=백엔드 불가) */
+  async renderPdf(docNo: string): Promise<string | null> {
+    try {
+      const res = await fetch(`${API}/documents/${encodeURIComponent(docNo)}/render.pdf`, {
+        signal: AbortSignal.timeout(15_000),
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string } | null
+        throw new Error(body?.detail ?? `HTTP ${res.status}`)
+      }
+      setSource('live')
+      return URL.createObjectURL(await res.blob())
+    } catch (e) {
+      if (e instanceof Error && !(e instanceof TypeError) && e.name !== 'TimeoutError') throw e
+      setSource('mock')
+      return null
+    }
+  },
 }
 
 // ── SVC-01 Users ──

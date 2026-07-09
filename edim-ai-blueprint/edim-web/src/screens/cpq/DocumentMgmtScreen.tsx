@@ -40,6 +40,39 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
   const sel = docs.find((d) => d.docNo === selDoc) ?? null
   const stageIdx = sel ? STAGES.findIndex((s) => sel.status.startsWith(s)) : -1
 
+  // 미리보기 = 실 PDF 렌더 (Grade 워터마크) — 선택 변경 시 갱신
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  useEffect(() => {
+    setPdfUrl(null)
+    if (!selDoc) return
+    let revoked: string | null = null
+    void docService.renderPdf(selDoc).then((u) => { revoked = u; setPdfUrl(u) })
+      .catch(() => setPdfUrl(null))
+    return () => { if (revoked) URL.revokeObjectURL(revoked) }
+  }, [selDoc])
+
+  // ＋ 문서 등록
+  const [showReg, setShowReg] = useState(false)
+  const [reg, setReg] = useState({ docNo: '', title: '', docType: 'TECH_DOC', grade: 'S-3' })
+  const register = () => {
+    void (async () => {
+      try {
+        const ok = await docService.create(reg)
+        if (!ok) {
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>등록 불가 — 백엔드 연결 필요</span>)
+          return
+        }
+        setShowReg(false)
+        setReg({ docNo: '', title: '', docType: 'TECH_DOC', grade: 'S-3' })
+        await docService.list().then(setDocs)
+        shell.setStatusMsg(`문서 등록 ✓ — ${reg.docNo} (Set-up · 승인 요청 자동 등록)`)
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : '등록 실패'}</span>)
+      }
+    })()
+  }
+
   const counts = STAGES.map((s) => docs.filter((d) => d.status.startsWith(s)).length)
 
   const cols: GridColumn<DocRow>[] = [
@@ -68,8 +101,40 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
         <input className="in" style={{ width: 160 }} value={search} aria-label="검색"
           onChange={(e) => setSearch(e.target.value)} />
         <span style={{ flex: 1 }} />
-        <Btn variant="pri">＋ 문서 등록</Btn>
+        <Btn variant="pri" onClick={() => setShowReg(true)}>＋ 문서 등록</Btn>
       </div>
+      {showReg ? (
+        <div data-doc-reg style={{
+          position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowReg(false)}>
+          <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 330, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+              <b>문서 등록 — doc_control</b><span className="sp" />
+              <span style={{ cursor: 'pointer' }} onClick={() => setShowReg(false)}>✕</span>
+            </div>
+            <div className="frm c2" style={{ padding: 10 }}>
+              <label>DOC No *</label>
+              <input className="in req" value={reg.docNo} aria-label="문서 번호" placeholder="DF 342-236 A"
+                onChange={(e) => setReg({ ...reg, docNo: e.target.value })} />
+              <label>제목 *</label>
+              <input className="in req" value={reg.title} aria-label="문서 제목"
+                onChange={(e) => setReg({ ...reg, title: e.target.value })} />
+              <label>유형</label>
+              <Combo width={130} value={reg.docType} options={['TECH_DOC', 'QUOTE', 'REPORT', 'FORM']}
+                onChange={(v) => setReg({ ...reg, docType: v })} />
+              <label>Grade</label>
+              <Combo width={130} value={reg.grade} options={['S-1', 'S-2', 'S-3', 'S-4']}
+                onChange={(v) => setReg({ ...reg, grade: v })} />
+            </div>
+            <div style={{ display: 'flex', gap: 4, padding: '0 10px 10px', justifyContent: 'flex-end' }}>
+              <Btn onClick={() => setShowReg(false)}>취소</Btn>
+              <Btn variant="pri" onClick={register}>등록 F12</Btn>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div style={{ width: 158, display: 'flex', flexDirection: 'column', gap: 6, flex: 'none' }}>
           <GroupBox title="상태 필터" noPad>
@@ -126,18 +191,30 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
         <div className="split-h" />
         <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
           <GroupBox title="미리보기 — Grade 통제">
-            <div className="cvs" style={{ height: 150 }}>
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, color: 'var(--txt-mute)', textAlign: 'center' }}>
-                {sel ? `${sel.title} 미리보기` : '문서 선택'}<br />
+            {pdfUrl ? (
+              <iframe title="문서 미리보기" src={pdfUrl} data-doc-preview
+                style={{ width: '100%', height: 240, border: '1px solid var(--line)' }} />
+            ) : (
+              <div className="cvs" style={{ height: 150 }}>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, color: 'var(--txt-mute)', textAlign: 'center' }}>
+                  {sel ? '렌더 중… (백엔드 필요)' : '문서 선택'}<br />
+                </div>
               </div>
-            </div>
+            )}
             <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 3 }}>
-              권한 미달 시 차단·목록 마스킹 (DOC-002)
+              S-1/S-2 는 CONFIDENTIAL 워터마크 강제 · 권한 미달 시 마스킹 (DOC-002)
             </div>
           </GroupBox>
           <GroupBox title="Print" right={<Btn style={{ height: 18, fontSize: 10 }}
-            onClick={() => shell.setStatusMsg('Print — 워터마크·출력 통제 적용 (Security Solution 협의)')}>🖨</Btn>}>
-            <div style={{ fontSize: 10, color: 'var(--txt-dim)' }}>워터마크·출력 통제 적용</div>
+            onClick={() => {
+              if (pdfUrl) {
+                window.open(pdfUrl, '_blank')
+                shell.setStatusMsg(`Print — ${sel?.docNo ?? ''} 실렌더 PDF (Grade 워터마크 적용)`)
+              } else {
+                shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>Print 불가 — 백엔드 연결 필요</span>)
+              }
+            }}>🖨</Btn>}>
+            <div style={{ fontSize: 10, color: 'var(--txt-dim)' }}>워터마크·출력 통제 적용 (실렌더)</div>
           </GroupBox>
         </div>
       </div>

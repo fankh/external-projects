@@ -216,6 +216,60 @@ def step_pricing(r: PipelineResult) -> str:
     return f"단가 resolve {r.resolved}/{len(r.items)}"
 
 
+def build_doc_pdf(*, doc_no: str, title: str, doc_type: str, status: str, version: str,
+                  person: str, grade: str, created: str, confidential: bool) -> bytes:
+    """문서 관리 PDF 실렌더 (B4 · SVC-11) — Grade S-1/S-2 는 CONFIDENTIAL 워터마크 강제."""
+    import os
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+
+    font_name = "HYSMyeongJo-Medium"
+    ttf = "/app/fonts/NanumGothic.ttf"
+    if os.path.exists(ttf):
+        if "NanumGothic" not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont("NanumGothic", ttf))
+        font_name = "NanumGothic"
+    else:
+        pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+    if confidential:
+        c.saveState()
+        c.setFont("Helvetica-Bold", 44)
+        c.setFillColor(colors.Color(0.8, 0.3, 0.3, alpha=0.12))
+        c.translate(w / 2, h / 2)
+        c.rotate(30)
+        c.drawCentredString(0, 0, f"CONFIDENTIAL - {grade}")
+        c.restoreState()
+    c.setFont(font_name, 16)
+    c.drawString(50, h - 60, title)
+    c.setFont(font_name, 9)
+    c.drawString(50, h - 80, f"DOC No: {doc_no} · {doc_type} · Ver {version}")
+    c.drawString(50, h - 93, f"작성 {person} · {created} · 상태 {status} · Grade {grade}")
+    c.setStrokeColor(colors.HexColor("#1F4E8C"))
+    c.line(50, h - 102, w - 50, h - 102)
+    y = h - 130
+    c.setFont(font_name, 9.5)
+    for line in [
+        "본 문서는 EDIM 문서 관리(doc_control)에서 자동 렌더된 게시본이다.",
+        f"Management Grade {grade} — 열람·출력 통제 대상" + (" (워터마크 강제)" if confidential else ""),
+        "승인 완료(Accepted) 전 판은 DRAFT 로 간주한다 (DOC-002).",
+    ]:
+        c.drawString(50, y, line)
+        y -= 16
+    c.setFont(font_name, 7.5)
+    c.drawString(50, 40, f"EDIM Tool System · NOVA Solution · {date.today().isoformat()} 자동 생성")
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 def step_quotation(r: PipelineResult, project_no: str) -> str:
     """견적서 PDF (P2-4) — reportlab, CJK CID 폰트 + CONFIDENTIAL 워터마크."""
     import os

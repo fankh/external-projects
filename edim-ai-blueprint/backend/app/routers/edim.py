@@ -823,6 +823,67 @@ def documents() -> list[dict[str, Any]]:
         ]
 
 
+# ── B4 — 문서 등록 + Grade 워터마크 PDF 렌더 (SVC-11 · DOC-002) ──
+
+class DocCreate(BaseModel):
+    docNo: str
+    title: str
+    docType: str = "TECH_DOC"
+    grade: str = "S-3"
+
+
+@router.post("/documents", status_code=201, dependencies=[SETUP])
+def create_document(request: Request, body: DocCreate) -> dict[str, Any]:
+    if not body.docNo.strip() or not body.title.strip():
+        raise HTTPException(422, detail="필수(노란 셀) — DOC No·제목")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT 1 FROM doc_control WHERE tenant_id=%s AND doc_no=%s", (tid, body.docNo.strip()))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — DOC No {body.docNo} 이미 등록됨")
+        cur.execute("SELECT user_name FROM sys_user WHERE user_id=%s", (request.state.user_id,))
+        person = (cur.fetchone() or ["-"])[0]
+        cur.execute(
+            """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, released_status,
+               version, person, management_grade)
+               VALUES (%s,%s,%s,%s,'SET_UP','KD-0.1',%s,%s) RETURNING doc_control_id""",
+            (tid, body.docNo.strip(), body.title.strip(), body.docType.strip()[:20],
+             person, body.grade.strip()[:10]))
+        doc_id = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
+               request_type, step, requester_id, comment)
+               VALUES (%s,'doc_control',%s,'CREATE','승인',%s,%s)""",
+            (tid, doc_id, request.state.user_id, f"문서 등록 — {body.docNo} {body.title}"[:200]))
+    return {"docId": doc_id, "status": "Set-up"}
+
+
+@router.get("/documents/{doc_no}/render.pdf")
+def render_document(doc_no: str) -> Any:
+    """문서 PDF 실렌더 — Grade S-1/S-2 는 CONFIDENTIAL 워터마크 강제 (DOC-002)."""
+    from ..services import run_pipeline as rp
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT title, doc_type, released_status, version, person, management_grade,
+                      to_char(created_at,'YYYY-MM-DD')
+               FROM doc_control WHERE tenant_id=%s AND doc_no=%s""", (tid, doc_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"문서 없음: {doc_no}")
+    title, dtype, status, ver, person, grade, cdate = row
+    watermark = grade in ("S-1", "S-2")
+    pdf = rp.build_doc_pdf(
+        doc_no=doc_no, title=title, doc_type=dtype, status=STATUS_LABEL.get(status, status),
+        version=ver, person=person or "-", grade=grade or "-", created=cdate,
+        confidential=watermark)
+    from fastapi.responses import Response
+    return Response(content=pdf, media_type="application/pdf", headers={
+        "Content-Disposition": f"inline; filename=\"{doc_no}.pdf\"",
+    })
+
+
 # ── SVC-01 Users (M-14-6) ──
 ROLE_LABEL = {"PLATFORM": "Platform", "ADMIN": "관리자", "SETUP": "설계 Set-up", "GENERAL": "일반"}
 
