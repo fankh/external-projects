@@ -868,7 +868,8 @@ def render_document(doc_no: str) -> Any:
         cur.execute(
             """SELECT title, doc_type, released_status, version, person, management_grade,
                       to_char(created_at,'YYYY-MM-DD')
-               FROM doc_control WHERE tenant_id=%s AND doc_no=%s""", (tid, doc_no))
+               FROM doc_control WHERE tenant_id=%s AND doc_no=%s
+               ORDER BY doc_control_id DESC LIMIT 1""", (tid, doc_no))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"문서 없음: {doc_no}")
