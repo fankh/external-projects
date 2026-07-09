@@ -2,7 +2,7 @@
  *  재고단가 4값(ERP-021) · Resolve 시뮬레이션 = Pricing Run 규칙. */
 import { useEffect, useMemo, useState } from 'react'
 import { STOCK_PRICE, type PriceRow } from '../../api/mock/dataErp'
-import { erpService, priceService } from '../../api/services'
+import { erpService, priceService, priceWriteService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -16,6 +16,11 @@ const SOURCE_TONE: Record<PriceRow['source'], 'ok' | 'warn' | 'info'> = {
 export function PriceScreen({ active }: ScreenProps) {
   const shell = useShell()
   const [supplier, setSupplier] = useState('전체')
+  const [table, setTable] = useState('전체 (4종)')
+  const [showReg, setShowReg] = useState(false)
+  const [reg, setReg] = useState({
+    code: 'FDV-480', supplier: '효성', price: '', source: '견적', validFrom: '2026-07-09', validTo: '',
+  })
   const [selIdx, setSelIdx] = useState<number | null>(null)
   const [simCode, setSimCode] = useState('FDV-480')
   const [simDate, setSimDate] = useState('2026-07-09')
@@ -27,10 +32,42 @@ export function PriceScreen({ active }: ScreenProps) {
     void priceService.list().then(setPrices)
   }, [])
 
+  // 단가 Table 콤보 실필터 (B3)
+  const TABLE_SOURCE: Record<string, string | null> = {
+    '전체 (4종)': null, '1. 견적': '견적', '2. 구매 이력': '구매',
+    '3. 재고 단가': '재고', '4. 견적 적용': '견적적용',
+  }
   const rows = useMemo(
-    () => prices.filter((p) => supplier === '전체' || p.supplier === supplier),
-    [prices, supplier],
+    () => prices.filter((p) => (supplier === '전체' || p.supplier === supplier)
+      && (TABLE_SOURCE[table] == null || p.source === TABLE_SOURCE[table])),
+    [prices, supplier, table], // eslint-disable-line react-hooks/exhaustive-deps
   )
+
+  const register = () => {
+    const priceNum = Number(reg.price)
+    if (!reg.code.trim() || !priceNum || priceNum <= 0) {
+      shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>필수(노란 셀) — Code·단가 입력</span>)
+      return
+    }
+    void (async () => {
+      try {
+        const ok = await priceWriteService.create({
+          code: reg.code.trim(), supplier: reg.supplier.trim(), price: priceNum,
+          source: reg.source, validFrom: reg.validFrom.trim(), validTo: reg.validTo.trim() || null,
+        })
+        if (!ok) {
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>등록 불가 — 백엔드 연결 필요</span>)
+          return
+        }
+        setShowReg(false)
+        await priceService.list().then(setPrices)
+        shell.setStatusMsg(`단가 등록 ✓ — ${reg.code} ${priceNum.toLocaleString()} KRW (${reg.source}·cst_price)`)
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : '등록 실패'}</span>)
+      }
+    })()
+  }
 
   // 재고 단가 4값 — cst_price 재고 이력에서 실산출 (백엔드 불가 시 mock)
   const stock = useMemo(() => {
@@ -79,7 +116,8 @@ export function PriceScreen({ active }: ScreenProps) {
     <div className="fill-col">
       <div className="qband">
         <label>단가 Table</label>
-        <Combo width={120} value="전체 (4종)" options={['전체 (4종)', '1. 견적', '2. 구매 이력', '3. 재고 단가', '4. 견적 적용']} />
+        <Combo width={120} value={table} onChange={setTable}
+          options={['전체 (4종)', '1. 견적', '2. 구매 이력', '3. 재고 단가', '4. 견적 적용']} />
         <label>공급처</label>
         <Combo width={80} value={supplier} options={['전체', '효성', 'LG', '중원', '대신금속']}
           onChange={setSupplier} />
@@ -89,8 +127,46 @@ export function PriceScreen({ active }: ScreenProps) {
         <Combo width={84} value="2026-07" options={['2026-07', '2026-06', '2026-05']} />
         <span style={{ flex: 1 }} />
         <Btn>⬇ Excel Import</Btn>
-        <Btn variant="pri">＋ 단가 등록</Btn>
+        <Btn variant="pri" onClick={() => setShowReg(true)}>＋ 단가 등록</Btn>
       </div>
+      {showReg ? (
+        <div data-price-reg style={{
+          position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowReg(false)}>
+          <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 340, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+              <b>단가 등록 — cst_price</b><span className="sp" />
+              <span style={{ cursor: 'pointer' }} onClick={() => setShowReg(false)}>✕</span>
+            </div>
+            <div className="frm c2" style={{ padding: 10 }}>
+              <label>Code *</label>
+              <input className="in req" value={reg.code} aria-label="등록 Code"
+                onChange={(e) => setReg({ ...reg, code: e.target.value })} />
+              <label>공급처</label>
+              <input className="in" value={reg.supplier} aria-label="등록 공급처"
+                onChange={(e) => setReg({ ...reg, supplier: e.target.value })} />
+              <label>단가 *</label>
+              <input className="in req" value={reg.price} aria-label="등록 단가" placeholder="KRW"
+                onChange={(e) => setReg({ ...reg, price: e.target.value })} />
+              <label>Table</label>
+              <Combo width={120} value={reg.source} options={['견적', '구매', '재고', '견적적용']}
+                onChange={(v) => setReg({ ...reg, source: v })} />
+              <label>적용 시작 *</label>
+              <input className="in req" value={reg.validFrom} aria-label="적용 시작"
+                onChange={(e) => setReg({ ...reg, validFrom: e.target.value })} />
+              <label>적용 종료</label>
+              <input className="in" value={reg.validTo} aria-label="적용 종료" placeholder="(무기한)"
+                onChange={(e) => setReg({ ...reg, validTo: e.target.value })} />
+            </div>
+            <div style={{ display: 'flex', gap: 4, padding: '0 10px 10px', justifyContent: 'flex-end' }}>
+              <Btn onClick={() => setShowReg(false)}>취소</Btn>
+              <Btn variant="pri" onClick={register}>등록 F12</Btn>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
           <GroupBox title={`단가 대장 — ${rows.length}건 (더블클릭=코드 상세)`} noPad style={{ flex: 1 }}>

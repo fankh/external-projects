@@ -967,6 +967,64 @@ def prices() -> list[dict[str, Any]]:
         ]
 
 
+# ── B3 — 단가 등록 (M-12-5 ＋ 단가 등록) ──
+
+SOURCE_CODE = {"견적적용": "APPLIED", "구매": "PURCHASE", "재고": "STOCK", "견적": "QUOTE"}
+
+
+class PriceCreate(BaseModel):
+    code: str
+    supplier: str = "-"
+    price: float
+    source: str = "QUOTE"        # enum 또는 한글 라벨
+    validFrom: str               # YYYY-MM-DD
+    validTo: str | None = None
+
+
+@router.post("/prices", status_code=201, dependencies=[SETUP])
+def create_price(body: PriceCreate) -> dict[str, Any]:
+    src = SOURCE_CODE.get(body.source.strip(), body.source.strip().upper())
+    if src not in ("APPLIED", "PURCHASE", "STOCK", "QUOTE"):
+        raise HTTPException(422, detail=f"단가 Table 구분 오류: {body.source}")
+    if body.price <= 0:
+        raise HTTPException(422, detail="단가는 0 보다 커야 합니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+            (tid, body.code.strip()))
+        pc = cur.fetchone()
+        if not pc:
+            raise HTTPException(404, detail=f"코드 없음: {body.code}")
+        supplier_id = None
+        name = body.supplier.strip()
+        if name and name != "-":
+            cur.execute(
+                "SELECT company_id FROM com_company WHERE tenant_id=%s AND company_name=%s",
+                (tid, name))
+            row = cur.fetchone()
+            if row:
+                supplier_id = row[0]
+            else:
+                cur.execute(
+                    """INSERT INTO com_company (tenant_id, company_name, company_type)
+                       VALUES (%s,%s,'SUPPLIER') RETURNING company_id""", (tid, name))
+                supplier_id = cur.fetchone()[0]
+        try:
+            cur.execute(
+                """INSERT INTO cst_price (tenant_id, product_code_id, supplier_id,
+                   price, price_source, valid_from, valid_to)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING price_id""",
+                (tid, pc[0], supplier_id, body.price, src,
+                 body.validFrom, body.validTo))
+        except Exception as e:  # EXCLUDE 기간 중복 (DB v0.5)
+            if "exclusion" in str(e).lower() or "overlap" in str(e).lower():
+                raise HTTPException(409, detail="기간 중복 — 동일 Table·Code 의 유효기간이 겹칩니다 (EXCLUDE)") from e
+            raise
+        price_id = cur.fetchone()[0]
+    return {"priceId": price_id, "source": src}
+
+
 # ── SYS-012 이력 (M-15-9) ──
 @router.get("/history")
 def history(limit: int = 20) -> list[dict[str, Any]]:

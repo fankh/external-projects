@@ -662,6 +662,22 @@ export const drawingService = {
   },
 }
 
+export const priceWriteService = {
+  /** POST /api/v1/prices — 단가 등록 (true=등록, false=백엔드 불가; 422/409 는 throw) */
+  async create(row: {
+    code: string; supplier: string; price: number
+    source: string; validFrom: string; validTo?: string | null
+  }): Promise<boolean> {
+    try {
+      await api('/prices', { method: 'POST', body: JSON.stringify(row) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const workProcessService = {
   /** GET /api/v1/erp/work-process — 저장된 MAKE/BUY */
   async get(code = 'KDCR 3-13'): Promise<{ item: string; makeOrBuy: 'MAKE' | 'BUY' }[] | null> {
