@@ -9,11 +9,14 @@ const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 // ── SVC-01 Auth ──
 export const authService = {
-  /** POST /api/v1/auth/login */
+  /** POST /api/v1/auth/login — mock 고정 계정 edim/edim */
   async login(userId: string, password: string): Promise<User> {
     await delay(350)
     if (!userId.trim() || !password.trim()) {
       throw new Error('사번과 비밀번호를 입력하십시오')
+    }
+    if (userId.trim() !== 'edim' || password !== 'edim') {
+      throw new Error('사번 또는 비밀번호가 올바르지 않습니다')
     }
     return {
       userId, name: 'YS.Gang', department: '기술연구소',

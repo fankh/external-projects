@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { User } from './api/types'
+import { LoginScreen } from './screens/common/LoginScreen'
 import { Shell } from './shell/Shell'
 import { ShellProvider, type ModuleId } from './shell/ShellContext'
 
@@ -10,17 +12,34 @@ function initialModule(): ModuleId {
   return 'cpq'
 }
 
-// 인증은 게이트웨이(Basic Auth)가 담당 — 앱 자체 로그인 화면 없음.
-// 실 API 전환 시 게이트웨이 JWT 의 사용자 정보로 대체한다.
-const GATEWAY_USER: User = {
-  userId: 'edim', name: 'YS.Gang', department: '기술연구소',
-  userLevel: 'SETUP', tenantId: 'nova',
+const SESSION_KEY = 'edim-session'
+
+// 앱 로그인(edim/edim) — nginx basic auth 는 앱 경로에서 해제 (auth_basic off).
+// 새로고침에도 세션 유지되도록 sessionStorage 사용, 실 API 전환 시 JWT 로 교체.
+function loadSession(): User | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    return raw ? JSON.parse(raw) as User : null
+  } catch {
+    return null
+  }
 }
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(loadSession)
+
+  if (!user) {
+    return (
+      <LoginScreen onLogin={(u) => {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(u))
+        setUser(u)
+      }} />
+    )
+  }
+
   return (
     <ShellProvider initialModule={initialModule()}>
-      <Shell user={GATEWAY_USER} />
+      <Shell user={user} />
     </ShellProvider>
   )
 }
