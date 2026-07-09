@@ -7,6 +7,7 @@ import { AHU_BLOCKS, DEFAULT_SLOT_VALUES, PRODUCT_SLOTS } from '../../api/mock/d
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -15,6 +16,7 @@ let runTabSeq = 1
 
 export function SelectionScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [arrangement, setArrangement] = useState('Double Deck 2')
   const [airflow, setAirflow] = useState('11')
   const [pressure, setPressure] = useState('111')
@@ -64,10 +66,10 @@ export function SelectionScreen({ active }: ScreenProps) {
   const cols: GridColumn<BomItem>[] = [
     { key: 'lv', header: 'Lv', width: 24, align: 'center', render: (r) => r.level },
     { key: 'code', header: 'Code', code: true, render: (r) => r.resolvedCode },
-    { key: 'name', header: '품명', render: (r) => r.name },
-    { key: 'qty', header: '수량', width: 30, align: 'right', render: (r) => r.quantity },
+    { key: 'name', header: t('cpq.name', '품명'), render: (r) => r.name },
+    { key: 'qty', header: t('cpq.qty', '수량'), width: 30, align: 'right', render: (r) => r.quantity },
     {
-      key: 'amt', header: '금액(K)', width: 62, align: 'right',
+      key: 'amt', header: t('cpq.amount', '금액(K)'), width: 62, align: 'right',
       render: (r) => (r.priceK == null ? '—' : (r.priceK * r.quantity).toLocaleString()),
     },
   ]
@@ -80,18 +82,18 @@ export function SelectionScreen({ active }: ScreenProps) {
         <label>Arrangement</label>
         <Combo width={140} value={arrangement} options={['Double Deck 2', 'Single Deck', 'Return Top']}
           onChange={setArrangement} />
-        <label>풍량<i>*</i></label>
+        <label>{t('cpq.airflow', '풍량')}<i>*</i></label>
         <input className="in req" style={{ width: 56 }} value={airflow} aria-label="풍량"
           onChange={(e) => setAirflow(e.target.value)} />
         <span className="unit">CMM</span>
-        <label>정압<i>*</i></label>
+        <label>{t('cpq.pressure', '정압')}<i>*</i></label>
         <input className="in req" style={{ width: 56 }} value={pressure} aria-label="정압"
           onChange={(e) => setPressure(e.target.value)} />
         <span className="unit">mmAq</span>
         <span style={{ flex: 1 }} />
-        <Btn>사양 Excel ⬆</Btn>
+        <Btn>{t('cpq.specExcel', '사양 Excel ⬆')}</Btn>
         <Btn variant="pri" disabled={busy} onClick={() => void apply(slotValues)}>
-          {busy ? '적용 중…' : '적용 F8'}
+          {busy ? '…' : t('cpq.applyF8', '적용 F8')}
         </Btn>
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -108,7 +110,7 @@ export function SelectionScreen({ active }: ScreenProps) {
         </div>
         <div className="split-h" />
         <div style={{ width: 378, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
-          <GroupBox title="완성품 Code" right={<Chip tone="ok">유효</Chip>}>
+          <GroupBox title={t('cpq.finishedCode', '완성품 Code')} right={<Chip tone="ok">유효</Chip>}>
             <div style={{
               fontFamily: 'Consolas, monospace', fontSize: 11,
               color: 'var(--title-navy)', background: 'var(--req-yellow)', padding: '3px 6px',
@@ -116,7 +118,7 @@ export function SelectionScreen({ active }: ScreenProps) {
               {finished || '—'}
             </div>
           </GroupBox>
-          <GroupBox title="선택 사양 (Slot)">
+          <GroupBox title={t('cpq.slotSpec', '선택 사양 (Slot)')}>
             <div className="frm c2">
               {PRODUCT_SLOTS.map((s) => (
                 <SlotRow key={s.slot} slot={s.slot} label={s.label}
@@ -124,7 +126,7 @@ export function SelectionScreen({ active }: ScreenProps) {
               ))}
             </div>
           </GroupBox>
-          <GroupBox title="BOM · 실시간 가격 — 더블클릭=코드 상세" style={{ flex: 1 }} noPad
+          <GroupBox title={t('cpq.bomTitle', 'BOM · 실시간 가격')} style={{ flex: 1 }} noPad
             right={<span className="b" style={{ height: 18, fontSize: 10 }}>전체 47</span>}>
             <DenseGrid columns={cols} rows={bom}
               rowKey={(r) => r.resolvedCode}
@@ -136,12 +138,12 @@ export function SelectionScreen({ active }: ScreenProps) {
                 params: { code: r.resolvedCode, name: r.name },
               })}
               footer={<>
-                <td colSpan={4}>합계 (47항목)</td>
+                <td colSpan={4}>{t('common.total', '합계')} (47)</td>
                 <td className="num">{totalK.toLocaleString()}</td>
               </>} />
           </GroupBox>
           <div style={{ display: 'flex', gap: 4 }}>
-            <Btn style={{ flex: 1, justifyContent: 'center' }}>견적 미리보기</Btn>
+            <Btn style={{ flex: 1, justifyContent: 'center' }}>{t('cpq.quotePreview', '견적 미리보기')}</Btn>
             <Btn variant="run" style={{ flex: 1.4, justifyContent: 'center' }} onClick={startRun}>
               ▶ EDIM Run F9
             </Btn>

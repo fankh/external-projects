@@ -1,5 +1,6 @@
 /** 앱 크롬 — 타이틀바 · 메뉴바 · MDI 탭 · 상태바 (디자인시안 b03 문법). */
 import type { ReactNode } from 'react'
+import { useI18n } from '../i18n/I18nContext'
 
 export function TitleBar(props: { context?: ReactNode; user: string; bell?: ReactNode }) {
   return (
@@ -30,14 +31,17 @@ export function MenuBar(props: {
   activeModule: ModuleKey
   onModule: (m: ModuleKey) => void
 }) {
-  const staticL = ['파일', '편집', '조회']
-  const staticR = ['도구', '창', '도움말']
+  const { t } = useI18n()
+  const staticL = [t('shell.file', '파일'), t('shell.edit', '편집'), t('shell.view', '조회')]
+  const staticR = [t('shell.tools', '도구'), t('shell.window', '창'), t('shell.help', '도움말')]
   return (
     <div className="menubar">
       {staticL.map((m) => <span key={m}>{m}</span>)}
       {MODULES.map((m) => (
         <span key={m.id} className={`mod ${props.activeModule === m.id ? 'on' : ''}`}
-          onClick={() => props.onModule(m.id)}>{m.label}</span>
+          onClick={() => props.onModule(m.id)}>
+          {m.id === 'common' ? t('shell.common', '공통') : m.label}
+        </span>
       ))}
       {staticR.map((m) => <span key={m}>{m}</span>)}
     </div>

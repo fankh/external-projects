@@ -35,7 +35,8 @@ LEVEL_RANK = {"GENERAL": 0, "SETUP": 1, "ADMIN": 2, "PLATFORM": 3}
 
 
 def require_auth(request: Request) -> None:
-    if request.url.path.endswith(PUBLIC_SUFFIXES):
+    # /i18n/{locale} 는 로그인 화면에서도 필요 — 공개
+    if request.url.path.endswith(PUBLIC_SUFFIXES) or "/i18n/" in request.url.path:
         return
     auth = request.headers.get("authorization", "")
     if not auth.startswith("Bearer "):
@@ -111,6 +112,22 @@ def _tenant_id(cur) -> int:
 @router.get("/health")
 def health() -> dict[str, Any]:
     return {"status": "ok", "db": db_ok()}
+
+
+# ── SVC-01 i18n 번들 (REQ-N-015 · SYS-021) ──
+@router.get("/i18n/{locale}")
+def i18n_bundle(locale: str) -> dict[str, str]:
+    """UI 리소스 번들 — KO 는 프론트 기본 문자열(폴백)이므로 빈 사전."""
+    if locale == "ko":
+        return {}
+    if locale not in ("en", "ja", "zh"):
+        raise HTTPException(404, detail=f"unsupported locale: {locale}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT field, text FROM sys_translation
+               WHERE tenant_id=%s AND locale=%s AND entity_type='UI'""", (tid, locale))
+        return dict(cur.fetchall())
 
 
 # ── SVC-01 Auth ──

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { User } from './api/types'
+import { I18nProvider } from './i18n/I18nContext'
 import { LoginScreen } from './screens/common/LoginScreen'
 import { Shell } from './shell/Shell'
 import { ShellProvider, type ModuleId } from './shell/ShellContext'
@@ -30,18 +31,18 @@ function loadSession(): User | null {
 export default function App() {
   const [user, setUser] = useState<User | null>(loadSession)
 
-  if (!user) {
-    return (
-      <LoginScreen onLogin={(u) => {
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(u))
-        setUser(u)
-      }} />
-    )
-  }
-
   return (
-    <ShellProvider initialModule={initialModule()}>
-      <Shell user={user} />
-    </ShellProvider>
+    <I18nProvider>
+      {!user ? (
+        <LoginScreen onLogin={(u) => {
+          sessionStorage.setItem(SESSION_KEY, JSON.stringify(u))
+          setUser(u)
+        }} />
+      ) : (
+        <ShellProvider initialModule={initialModule()}>
+          <Shell user={user} />
+        </ShellProvider>
+      )}
+    </I18nProvider>
   )
 }

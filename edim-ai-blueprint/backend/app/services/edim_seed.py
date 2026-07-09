@@ -91,6 +91,7 @@ def run_seed() -> None:
             seed_v3(cur, row[0])
             seed_v4(cur, row[0])
             seed_v5(cur, row[0])
+            seed_v6(cur, row[0])
             return
 
         cur.execute(
@@ -191,6 +192,7 @@ def run_seed() -> None:
         seed_v3(cur, tid)
         seed_v4(cur, tid)
         seed_v5(cur, tid)
+        seed_v6(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -419,3 +421,65 @@ def seed_v5(cur, tid: int) -> None:
                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
             (tid, drawing_id, pc[0] if pc else None, label, dtype, macro_id, variant))
     logger.info("seed v5 complete — dwg_dimension %d건 (Macro 바인딩)", len(DIMS_V5))
+
+
+# ── seed v6 — UI 번역 (sys_translation, REQ-N-015/SYS-021) ──
+# key(≤40자) → (en, ja, zh) — KO 는 프론트 기본 문자열 (폴백)
+
+UI_TRANSLATIONS: dict[str, tuple[str, str, str]] = {
+    "common.query": ("Query", "照会", "查询"),
+    "common.new": ("New", "新規", "新建"),
+    "common.delete": ("Delete", "削除", "删除"),
+    "common.save": ("Save", "保存", "保存"),
+    "common.apply": ("Apply", "適用", "应用"),
+    "common.approve": ("Approve", "承認", "批准"),
+    "common.reject": ("Reject", "差戻", "驳回"),
+    "common.upload": ("Upload", "アップロード", "上传"),
+    "common.download": ("Download", "ダウンロード", "下载"),
+    "common.total": ("Total", "合計", "合计"),
+    "shell.file": ("File", "ファイル", "文件"),
+    "shell.edit": ("Edit", "編集", "编辑"),
+    "shell.view": ("View", "照会", "查看"),
+    "shell.tools": ("Tools", "ツール", "工具"),
+    "shell.window": ("Window", "ウィンドウ", "窗口"),
+    "shell.help": ("Help", "ヘルプ", "帮助"),
+    "shell.common": ("Common", "共通", "公共"),
+    "shell.todo": ("To-Do", "To-Do", "待办"),
+    "shell.alerts": ("Notifications", "通知", "通知"),
+    "shell.searchPh": ("Search screen·code·drawing (⌘K)", "画面・コード・図面検索 (⌘K)", "搜索画面·代码·图纸 (⌘K)"),
+    "shell.openHint": ("Open a screen from the left menu", "左メニューから画面を開いてください", "请从左侧菜单打开画面"),
+    "shell.openHint2": ("Double-click = new tab (MDI)", "ダブルクリック＝新タブ (MDI)", "双击＝新标签页 (MDI)"),
+    "shell.pending": ("Pending approvals", "承認待ち", "待审批"),
+    "login.title": ("Sign in", "ログイン", "登录"),
+    "login.userId": ("User ID", "社員番号", "工号"),
+    "login.password": ("Password", "パスワード", "密码"),
+    "login.tenant": ("Tenant", "テナント", "租户"),
+    "login.submit": ("Sign in (Enter)", "ログイン (Enter)", "登录 (Enter)"),
+    "login.checking": ("Checking…", "確認中…", "验证中…"),
+    "cpq.airflow": ("Airflow", "風量", "风量"),
+    "cpq.pressure": ("Static P.", "静圧", "静压"),
+    "cpq.applyF8": ("Apply F8", "適用 F8", "应用 F8"),
+    "cpq.finishedCode": ("Finished Goods Code", "完成品コード", "成品代码"),
+    "cpq.slotSpec": ("Selected Spec (Slot)", "選択仕様 (Slot)", "选择规格 (Slot)"),
+    "cpq.bomTitle": ("BOM · Live Pricing", "BOM・リアルタイム価格", "BOM·实时价格"),
+    "cpq.quotePreview": ("Quote Preview", "見積プレビュー", "报价预览"),
+    "cpq.specExcel": ("Spec Excel ⬆", "仕様 Excel ⬆", "规格 Excel ⬆"),
+    "cpq.qty": ("Qty", "数量", "数量"),
+    "cpq.name": ("Name", "品名", "品名"),
+    "cpq.amount": ("Amount(K)", "金額(千)", "金额(千)"),
+}
+
+
+def seed_v6(cur, tid: int) -> None:
+    cur.execute(
+        "SELECT 1 FROM sys_translation WHERE tenant_id=%s AND entity_type='UI' LIMIT 1", (tid,))
+    if cur.fetchone():
+        return
+    n = 0
+    for key, (en, ja, zh) in UI_TRANSLATIONS.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                   VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+            n += 1
+    logger.info("seed v6 complete — UI 번역 %d행 (en/ja/zh)", n)

@@ -4,6 +4,7 @@ import type { User } from '../api/types'
 import { pingBackend, subscribeDataSource, type DataSource } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar } from '../components/chrome'
 import { LnavTree } from '../components/LnavTree'
+import { LocaleSwitcher, useI18n } from '../i18n/I18nContext'
 import { NotificationBell } from './NotificationBell'
 import { useShell, type OpenTab } from './ShellContext'
 import { MENU_TREE, SCREEN_BY_NODE } from './menus'
@@ -75,6 +76,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
 
 export function Shell(props: { user: User }) {
   const shell = useShell()
+  const { t } = useI18n()
   const menu = MENU_TREE[shell.module]
   const [source, setSource] = useState<DataSource>('unknown')
 
@@ -91,7 +93,7 @@ export function Shell(props: { user: User }) {
 
   return (
     <div className="app">
-      <TitleBar user={userLabel} bell={<NotificationBell />} />
+      <TitleBar user={userLabel} bell={<><LocaleSwitcher /><NotificationBell /></>} />
       <MenuBar activeModule={shell.module} onModule={shell.setModule} />
       <div className="toolbar">
         <span className="b ic" title="신규">▤</span>
@@ -105,7 +107,7 @@ export function Shell(props: { user: User }) {
         <span className="b">Referencers</span>
         <span className="b">Supersedure</span>
         <span style={{ flex: 1 }} />
-        <input className="in" style={{ width: 200 }} placeholder="화면코드·코드·도면 검색 (⌘K)" />
+        <input className="in" style={{ width: 200 }} placeholder={t('shell.searchPh', '화면코드·코드·도면 검색 (⌘K)')} />
       </div>
       <MdiTabs tabs={shell.tabs} activeId={shell.activeTabId}
         onActivate={shell.activateTab} onClose={shell.closeTab} />
@@ -123,7 +125,7 @@ export function Shell(props: { user: User }) {
           }}
           footer={
             <div style={{ borderTop: '1px solid var(--line)' }}>
-              <div className="hd">To-Do</div>
+              <div className="hd">{t('shell.todo', 'To-Do')}</div>
               <div style={{ padding: '6px 8px', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                   승인 확인<span style={{ flex: 1 }} /><span className="st warn">1</span>
@@ -137,8 +139,8 @@ export function Shell(props: { user: User }) {
         <div className="fill-col">
           {shell.tabs.length === 0 ? (
             <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--txt-mute)', lineHeight: 2 }}>
-              좌측 메뉴에서 화면을 여십시오<br />
-              <span style={{ fontSize: 10.5 }}>더블클릭 = 새 탭 (MDI) · F-key 는 하단 상태바 참조</span>
+              {t('shell.openHint', '좌측 메뉴에서 화면을 여십시오')}<br />
+              <span style={{ fontSize: 10.5 }}>{t('shell.openHint2', '더블클릭 = 새 탭 (MDI)')}</span>
             </div>
           ) : (
             shell.tabs.map((tab) => {
@@ -156,13 +158,13 @@ export function Shell(props: { user: User }) {
       </div>
       <StatusBar
         fkeys={[
-          { key: 'F2', label: '신규' }, { key: 'F3', label: '삭제' },
-          { key: 'F8', label: '조회/적용' }, { key: 'F9', label: 'Run' },
-          { key: 'F12', label: '저장' },
+          { key: 'F2', label: t('common.new', '신규') }, { key: 'F3', label: t('common.delete', '삭제') },
+          { key: 'F8', label: t('common.query', '조회') }, { key: 'F9', label: 'Run' },
+          { key: 'F12', label: t('common.save', '저장') },
         ]}
         cells={[
           ...(shell.statusMsg ? [shell.statusMsg] : []),
-          '승인 대기 4',
+          `${t('shell.pending', '승인 대기')} 4`,
         ]}
         dbLabel={source === 'live'
           ? <span>DB: <b style={{ color: 'var(--ok)' }}>EDIM-PRD (PG16)</b></span>
