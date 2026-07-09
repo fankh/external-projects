@@ -84,10 +84,15 @@ export function DataTableScreen({ active }: ScreenProps) {
     const key = selKey
     void (async () => {
       await tableCrudService.deleteRow(TABLE12.name, key)
-      setRows((prev) => prev.filter((r) => r.key !== key))
+      // 삭제 후 이웃 행으로 포커스 이동 — 마지막 행이면 바로 위 행 (연속 F3 편집 흐름)
+      const idx = rows.findIndex((r) => r.key === key)
+      const remaining = rows.filter((r) => r.key !== key)
+      const neighbor = remaining[Math.min(idx, remaining.length - 1)] ?? null
+      setRows(remaining)
       setDirtyKeys((prev) => { const n = new Set(prev); n.delete(key); return n })
-      setSelKey(null)
-      shell.setStatusMsg(`행 삭제 — Key ${key} (참조 Macro 영향 검토 대상)`)
+      setSelKey(neighbor?.key ?? null)
+      shell.setStatusMsg(`행 삭제 — Key ${key}`
+        + (neighbor ? ` · 선택 → ${neighbor.key}` : '') + ' (참조 Macro 영향 검토 대상)')
     })()
   }
 
