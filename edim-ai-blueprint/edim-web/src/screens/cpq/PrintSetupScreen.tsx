@@ -1,6 +1,7 @@
 /** S-3-4 Print Set-up (W-18, 슬라이드 50) — 양식 캔버스에 [Data]/[그래프]/[Table]
  *  자리표시자 배치 · 워터마크 · 출력 설정 · DRAFT→승인→게시 (CPQ-013, SVC-11). */
 import { useState } from 'react'
+import { approvalService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
@@ -97,8 +98,15 @@ export function PrintSetupScreen(_props: ScreenProps) {
             ? <Chip tone="info">DRAFT</Chip> : <Chip tone="warn">승인 대기</Chip>}>
             <div style={{ textAlign: 'right' }}>
               <Btn variant="pri" disabled={status === 'PENDING'} onClick={() => {
-                setStatus('PENDING')
-                shell.setStatusMsg(`승인 요청 — ${form} (승인 후 게시)`)
+                void approvalService.request('doc_control', `Print Form 게시 — ${form}`)
+                  .then((ok) => {
+                    if (ok) {
+                      setStatus('PENDING')
+                      shell.setStatusMsg(`승인 요청 ✓ — ${form} (승인함 등록, 승인 후 게시)`)
+                    } else {
+                      shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요</span>)
+                    }
+                  })
               }}>승인 요청 → 게시</Btn>
             </div>
             <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 4 }}>

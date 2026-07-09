@@ -5,7 +5,7 @@ import {
   FUNCTIONS, MACRO_CODING_PY, MACRO_DESC, MACRO_FORMULA, MACRO_META, MACRO_PROMPT,
 } from '../../api/mock/dataMore'
 import { TABLE12_ROWS } from '../../api/mock/dataCode'
-import { aiService, macroLibService, macroService } from '../../api/services'
+import { aiService, approvalService, macroLibService, macroService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
@@ -88,8 +88,13 @@ export function MacroStudioScreen({ active }: ScreenProps) {
 
   useFKeys(active, useMemo(() => ({
     F9: testRun,
-    F12: () => shell.setStatusMsg('저장 — v0.3 (DRAFT)'),
-  }), [])) // eslint-disable-line react-hooks/exhaustive-deps
+    F12: () => {
+      void macroLibService.save('Shaft 길이 계산', formula, prompt)
+        .then((ok) => shell.setStatusMsg(ok
+          ? '저장 ✓ — tbx_macro DRAFT (v0.3)'
+          : <span style={{ color: 'var(--err)' }}>저장 불가 — 백엔드 연결 필요</span>))
+    },
+  }), [formula, prompt])) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="fill-col">
@@ -105,9 +110,23 @@ export function MacroStudioScreen({ active }: ScreenProps) {
         <Combo width={62} value={MACRO_META.grade} options={['S-1', 'S-2', 'S-3']} />
         <span style={{ flex: 1 }} />
         {tested ? <Chip tone="info">TESTED</Chip> : <Chip tone="warn">미검증</Chip>}
-        <Btn onClick={() => shell.setStatusMsg('저장 — v0.3 (DRAFT)')}>저장 (v0.3)</Btn>
+        <Btn onClick={() => {
+          void macroLibService.save('Shaft 길이 계산', formula, prompt)
+            .then((ok) => shell.setStatusMsg(ok
+              ? '저장 ✓ — tbx_macro DRAFT (v0.3)'
+              : <span style={{ color: 'var(--err)' }}>저장 불가 — 백엔드 연결 필요</span>))
+        }}>저장 (v0.3)</Btn>
         <Btn variant="pri" disabled={!tested}
-          onClick={() => shell.setStatusMsg('검증·승인 요청 — 승인함(M-15-2) 등록')}>
+          onClick={() => {
+            void (async () => {
+              const saved = await macroLibService.save('Shaft 길이 계산', formula, prompt)
+              const ok = saved && await approvalService.request(
+                'tbx_macro', `Macro 검증·승인 — Shaft 길이 계산 (Test ${result ?? '-'})`)
+              shell.setStatusMsg(ok
+                ? '검증·승인 요청 ✓ — 승인함(M-15-2) 등록 · 승인권자 알림 발송'
+                : <span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요</span>)
+            })()
+          }}>
           검증·승인 요청
         </Btn>
       </div>

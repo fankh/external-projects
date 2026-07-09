@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasBlock, DimensionDef } from '../../api/types'
 import { DWG_BLOCKS, DWG_DIMS, MACRO_CODING } from '../../api/mock/data'
-import { cadService, drawingService, macroService, type CadDocument } from '../../api/services'
+import { approvalService, cadService, drawingService, macroService, type CadDocument } from '../../api/services'
 import { CadSvg } from '../../components/CadSvg'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
@@ -311,7 +311,13 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
             <Btn style={{ flex: 1, justifyContent: 'center' }}
               onClick={() => shell.setStatusMsg('Block 임시저장 (DRAFT)')}>{t('common.tempSave', '임시저장 F12')}</Btn>
             <Btn variant="pri" style={{ flex: 1, justifyContent: 'center' }}
-              onClick={() => shell.setStatusMsg('승인 요청 — Design > Check 단계로 이동')}>{t('common.requestApproval', '승인 요청')}</Btn>
+              onClick={() => {
+                void approvalService.request('dwg_drawing',
+                  `KDCR 3-13 Rev.B 설계 변경 — A=${dims.find((d) => d.no === 'A')?.value ?? '?'}`)
+                  .then((ok) => shell.setStatusMsg(ok
+                    ? '승인 요청 등록 ✓ — 승인함(M-15-2) · 승인권자 알림 발송 (Design > Check)'
+                    : <span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요</span>))
+              }}>{t('common.requestApproval', '승인 요청')}</Btn>
           </div>
         </div>
       </div>

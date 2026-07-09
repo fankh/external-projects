@@ -1056,6 +1056,68 @@ def code_referencers(code: str) -> list[dict[str, Any]]:
         ]
 
 
+# ── B1 — 범용 승인 요청 (모든 화면의 승인 요청 버튼 실배선) + Macro 저장 ──
+
+class ApprovalCreate(BaseModel):
+    targetTable: str
+    targetId: int = 0
+    requestType: str = "UPDATE"
+    label: str = ""
+
+
+@router.post("/approvals", status_code=201, dependencies=[SETUP])
+def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
+    """범용 승인 요청 — Design Editor·Macro Studio·Print Set-up·UI Designer 등."""
+    tt = body.targetTable.strip()[:50] or "asset"
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        actor_id = request.state.user_id
+        cur.execute(
+            """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
+               request_type, step, requester_id, comment)
+               VALUES (%s,%s,%s,%s,'승인',%s,%s) RETURNING approval_id""",
+            (tid, tt, body.targetId, body.requestType.strip()[:20] or "UPDATE",
+             actor_id, body.label.strip()[:200]))
+        approval_id = cur.fetchone()[0]
+        # 승인권자(SETUP+) 알림 — 요청자 제외 (SVC-13)
+        cur.execute(
+            """SELECT user_id FROM sys_user
+               WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN') AND user_id<>%s""",
+            (tid, actor_id))
+        for (uid,) in cur.fetchall():
+            _notify(cur, tid, uid, "APPROVAL_REQUEST",
+                    f"승인 요청 — {body.label.strip()[:80] or tt}", "/common")
+    return {"approvalId": approval_id, "status": "PENDING"}
+
+
+class MacroSave(BaseModel):
+    prompt: str = ""
+    expr: str
+
+
+@router.put("/macros/{name}", dependencies=[SETUP])
+def save_macro(name: str, body: MacroSave) -> dict[str, Any]:
+    """Macro Studio 저장 — tbx_macro upsert (DRAFT 버전)."""
+    if not body.expr.strip():
+        raise HTTPException(422, detail="수식이 비어 있습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE tbx_macro SET macro_expr=%s,
+               prompt_text=CASE WHEN %s<>'' THEN %s ELSE prompt_text END,
+               status='DRAFT'
+               WHERE tenant_id=%s AND macro_name=%s RETURNING macro_id""",
+            (body.expr.strip(), body.prompt.strip(), body.prompt.strip(), tid, name))
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                """INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr, prompt_text, status)
+                   VALUES (%s,%s,%s,NULLIF(%s,''),'DRAFT') RETURNING macro_id""",
+                (tid, name, body.expr.strip(), body.prompt.strip()))
+            row = cur.fetchone()
+    return {"macroId": row[0], "status": "DRAFT"}
+
+
 # ── SVC-03 Sub Code 항목 등록 (S-1-1 write) ──
 class NewItemRequest(BaseModel):
     slot: str

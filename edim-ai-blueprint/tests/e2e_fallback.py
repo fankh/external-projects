@@ -205,7 +205,10 @@ with sync_playwright() as pw:
     page.locator(".tn", has_text="Print Set-up (S-3-4)").click()
     page.locator("div:visible", has_text="바닥글").last.wait_for(timeout=3000)
     page.get_by_role("button", name="승인 요청 → 게시").click()
-    ok("print form DRAFT→PENDING", page.locator(".st:visible", has_text="승인 대기").count() >= 1)
+    page.wait_for_timeout(400)
+    # 승인 요청은 실DB 쓰기 — mock 모드에서는 정직하게 거부 (B1 honest-write)
+    ok("print form 승인요청 = 백엔드 필요 안내 (mock)",
+       "백엔드 연결 필요" in page.locator(".statusbar").inner_text())
 
     # 8. PLM Duct
     page.locator(".menubar span.mod", has_text="PLM").click()

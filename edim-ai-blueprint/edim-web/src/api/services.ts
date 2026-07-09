@@ -274,6 +274,19 @@ export const erpService = {
 
 // ── SVC-10 Approval (승인함) ──
 export const approvalService = {
+  /** POST /api/v1/approvals — 범용 승인 요청 (true=등록, false=백엔드 불가) */
+  async request(targetTable: string, label: string, targetId = 0, requestType = 'UPDATE'): Promise<boolean> {
+    try {
+      await api('/approvals', {
+        method: 'POST',
+        body: JSON.stringify({ targetTable, targetId, requestType, label }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
   /** GET /api/v1/approvals/inbox */
   async inbox(): Promise<ApprovalReq[]> {
     try {
@@ -644,6 +657,18 @@ export const macroLibService = {
       return await api<MacroLibRow[]>('/macros')
     } catch (e) {
       if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** PUT /api/v1/macros/{name} — tbx_macro upsert DRAFT (true=영속, false=백엔드 불가) */
+  async save(name: string, expr: string, prompt = ''): Promise<boolean> {
+    try {
+      await api(`/macros/${encodeURIComponent(name)}`, {
+        method: 'PUT', body: JSON.stringify({ prompt, expr }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
       throw e
     }
   },

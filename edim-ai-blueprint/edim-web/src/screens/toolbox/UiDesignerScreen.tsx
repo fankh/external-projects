@@ -2,7 +2,7 @@
  *  Object Inspector · layout_def 저장→승인→게시 (TBX-001~004). */
 import { useState } from 'react'
 import { INITIAL_WIDGETS, WIDGET_PALETTE, type Widget } from '../../api/mock/dataMore'
-import { aiService } from '../../api/services'
+import { aiService, approvalService } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
@@ -38,7 +38,12 @@ export function UiDesignerScreen(_props: ScreenProps) {
         <span style={{ flex: 1 }} />
         <Btn onClick={() => shell.setStatusMsg('미리보기 — 동적 렌더러 실행 (TBX-003)')}>미리보기</Btn>
         <Btn>버전</Btn>
-        <Btn variant="pri" onClick={() => shell.setStatusMsg('layout_def(JSONB) 저장 → 승인 후 게시')}>
+        <Btn variant="pri" onClick={() => {
+          void approvalService.request('tbx_ui_form', 'UI Form 게시 — S-2-1 초안 layout_def')
+            .then((ok) => shell.setStatusMsg(ok
+              ? '게시 승인 요청 ✓ — 승인함(M-15-2) 등록 · 승인 후 게시 (TBX-004)'
+              : <span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요</span>))
+        }}>
           게시 (승인 후)
         </Btn>
       </div>
