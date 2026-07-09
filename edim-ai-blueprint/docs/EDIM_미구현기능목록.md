@@ -39,12 +39,12 @@
 - [x] "단가 Table 전체(4종)" 콤보 실필터 (5→1 재고 필터 라이브 검증)
 - [x] 등록 행이 대장에 즉시 반영 (5→6 라이브 검증, 테스트 행 정리 완료)
 
-### B4. 문서 도메인 완성 + 인쇄 렌더 (P2-4) 🔶 (v5.5~5.6 — Print Test·Templet 잔여)
+### B4. 문서 도메인 완성 + 인쇄 렌더 (P2-4) ✅ (v5.5~5.8, 2026-07-09)
 - [x] `POST /documents` — ＋ 문서 등록 다이얼로그 (doc_control insert + 승인 요청 자동, 중복 409 — 라이브 검증)
 - [x] `GET /documents/{no}/render.pdf` — build_doc_pdf, **S-1/S-2 CONFIDENTIAL 워터마크 강제** (pypdf 텍스트 추출로 게이트 검증; doc_no 중복 시 최신 행 렌더 버그 수정)
 - [x] 문서함 미리보기 = 실 PDF iframe(blob) · Print = 실렌더 새 창
-- [ ] Print Set-up "Print Test" = 자리표시자 치환 실렌더
-- [ ] Doc Templet Print = 계산값 포함 PDF
+- [x] Print Set-up "Print Test" = 자리표시자 치환 실렌더 (범용 `POST /render/pdf`, 워터마크 토글 연동 — 라이브 검증)
+- [x] Doc Templet Print = 계산값 포함 PDF (Density ρ 실측치 렌더 — pypdf 추출 검증)
 
 ### B5. 통합 검색
 - [ ] `GET /search?q=` — product_code·doc_control·dwg_file·화면 레지스트리 통합 (ILIKE + 화면코드 매칭)
