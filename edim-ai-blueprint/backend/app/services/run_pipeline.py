@@ -107,25 +107,62 @@ def step_dims(cur, tid: int, table_resolver, r: PipelineResult) -> str:
     return f"{n} 식 평가 (엔진 v1 · dwg_dimension)"
 
 
-def step_drawing(r: PipelineResult) -> str:
-    """제작도면 DXF — 계산 치수로 Casing 외형 작도 (ezdxf, ENG-03 경로 재사용)."""
+def build_part_dxf(dims: dict[str, float]) -> bytes:
+    """Fan 원심 Casing 부품도 — Design Editor CAD 모드·Run 제작도면 공용 정본 (W-06 배치)."""
     import ezdxf
+    from ezdxf.enums import TextEntityAlignment as TA
+    a = float(dims.get("A", 670))
+    b = float(dims.get("B", 726))
+    k = float(dims.get("K", 1085))
+    c = float(dims.get("C", 45))
+    e = float(dims.get("E", 320))
+
     doc = ezdxf.new("R2010")
+    doc.layers.add("CASING", color=5)     # blue
+    doc.layers.add("PART", color=3)       # green
+    doc.layers.add("CONE", color=8)       # gray (설치 참조)
+    doc.layers.add("DIM", color=1)        # red
     msp = doc.modelspace()
-    a = r.dims.get("A", 670)
-    b = r.dims.get("B", 726)
-    k = r.dims.get("K", 1085)
-    # casing 외형 + 치수 텍스트
-    msp.add_lwpolyline([(0, 0), (k, 0), (k, b), (0, b), (0, 0)])
-    msp.add_lwpolyline([(k * 0.25, b * 0.2), (k * 0.75, b * 0.2),
-                        (k * 0.75, b * 0.8), (k * 0.25, b * 0.8), (k * 0.25, b * 0.2)])
-    msp.add_circle((k / 2, b / 2), a / 4)
-    for label, x, y in [(f"A={a:g}", k / 2, b / 2), (f"B={b:g}", 10, b + 20),
-                        (f"K={k:g}", k / 2, -30)]:
-        msp.add_text(label, height=18).set_placement((x, y))
+
+    def rect(x, y, w, h, layer):
+        msp.add_lwpolyline([(x, y), (x + w, y), (x + w, y + h), (x, y + h)],
+                           close=True, dxfattribs={"layer": layer})
+
+    # Casing 외형 (K × B) + Impeller (A 폭) + Shaft/Bearing/Inlet Cone — W-06 배치
+    rect(0, 0, k, b, "CASING")
+    rect((k - a * 0.7) / 2, b * 0.25, a * 0.7, b * 0.5, "PART")           # impeller box
+    msp.add_circle((k / 2, b / 2), a / 4, dxfattribs={"layer": "PART"})
+    msp.add_line((-e * 0.5, b / 2), (k + e * 0.5, b / 2),
+                 dxfattribs={"layer": "PART"})                            # shaft
+    rect(-e * 0.5 - c, b / 2 - c, c, c * 2, "PART")                       # bearing L
+    rect(k + e * 0.5, b / 2 - c, c, c * 2, "PART")                        # bearing R
+    rect(-e * 0.35, b * 0.2, e * 0.35, b * 0.6, "CONE")                   # inlet cone L
+    rect(k, b * 0.2, e * 0.35, b * 0.6, "CONE")                           # inlet cone R
+
+    # 치수선 + 라벨 (KEY: A/B/K · DETAIL: C/E)
+    def dim_h(x0, x1, y, label):
+        msp.add_line((x0, y), (x1, y), dxfattribs={"layer": "DIM"})
+        msp.add_text(label, height=b * 0.045, dxfattribs={"layer": "DIM"}) \
+            .set_placement(((x0 + x1) / 2, y + b * 0.02), align=TA.MIDDLE_CENTER)
+
+    dim_h((k - a * 0.7) / 2, (k + a * 0.7) / 2, b + b * 0.08, f"A = {a:g}")
+    dim_h(0, k, b + b * 0.16, f"B(H) = {b:g}")
+    dim_h(-e * 0.5 - c, k + e * 0.5 + c, -b * 0.1, f"K = {k:g}")
+    msp.add_text(f"C = {c:g}", height=b * 0.04, dxfattribs={"layer": "DIM"}) \
+        .set_placement((-e * 0.5 - c, b / 2 + c * 2.4))
+    msp.add_text(f"E = {e:g}", height=b * 0.04, dxfattribs={"layer": "DIM"}) \
+        .set_placement((k + e * 0.1, b * 0.12))
+    msp.add_text("KDCR 3-13 · Fan 원심 Casing (Rev.B)", height=b * 0.05,
+                 dxfattribs={"layer": "DIM"}).set_placement((0, -b * 0.2))
+
     buf = io.StringIO()
     doc.write(buf)
-    r.files.append(("DWG", "KDCR3-13_mfg_RevB.dxf", "DXF", buf.getvalue().encode()))
+    return buf.getvalue().encode()
+
+
+def step_drawing(r: PipelineResult) -> str:
+    """제작도면 DXF — Design Editor 와 동일한 정본 작도 재사용 (ENG-03)."""
+    r.files.append(("DWG", "KDCR3-13_mfg_RevB.dxf", "DXF", build_part_dxf(r.dims)))
     return "1 파일 (DXF R2010 · 치수 반영)"
 
 

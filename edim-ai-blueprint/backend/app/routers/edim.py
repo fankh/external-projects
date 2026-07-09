@@ -630,6 +630,26 @@ def cad_arrangement_dxf() -> StreamingResponse:
         headers={"Content-Disposition": "attachment; filename=AHU5_arrangement.dxf"})
 
 
+class PartDrawingRequest(BaseModel):
+    dims: dict[str, float] = {}
+
+
+@router.post("/cad/part-drawing")
+def cad_part_drawing(body: PartDrawingRequest) -> dict[str, Any]:
+    """Design Editor CAD 모드 — 현재 치수로 부품도 작도 후 정규화 문서 반환.
+    dims 미지정 시 dwg_dimension 엔진 평가값 사용."""
+    from app.services import run_pipeline as rp
+    dims = {k: float(v) for k, v in body.dims.items()}
+    if not dims:
+        r = rp.PipelineResult()
+        with _conn() as conn, conn.cursor() as cur:
+            tid = _tenant_id(cur)
+            rp.step_dims(cur, tid, _make_table_resolver(cur, tid), r)
+        dims = r.dims
+    data = rp.build_part_dxf(dims)
+    return {"dims": dims, "document": _parse_cad_bytes(data, "KDCR3-13_part.dxf")}
+
+
 class CadExportRequest(BaseModel):
     dims: dict[str, float] = {}
 

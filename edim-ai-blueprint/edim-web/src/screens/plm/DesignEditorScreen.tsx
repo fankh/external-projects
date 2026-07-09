@@ -3,7 +3,8 @@
 import { useMemo, useRef, useState } from 'react'
 import type { CanvasBlock, DimensionDef } from '../../api/types'
 import { DWG_BLOCKS, DWG_DIMS, MACRO_CODING } from '../../api/mock/data'
-import { cadService, macroService } from '../../api/services'
+import { cadService, macroService, type CadDocument } from '../../api/services'
+import { CadSvg } from '../../components/CadSvg'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -32,6 +33,35 @@ export function DesignEditorScreen({ active }: ScreenProps) {
   const [coord, setCoord] = useState('X 0.0  Y 0.0')
   const [evaluated, setEvaluated] = useState(false)
   const cadInput = useRef<HTMLInputElement>(null)
+  // CAD 모드 — 부품도의 정본은 서버 작도 DXF (Run 제작도면과 동일 geometry)
+  const [cadMode, setCadMode] = useState(false)
+  const [cadDoc, setCadDoc] = useState<CadDocument | null>(null)
+  const [cadOffline, setCadOffline] = useState(false)
+
+  const numericDims = (src: DimensionDef[]): Record<string, number> => {
+    const vars: Record<string, number> = {}
+    for (const d of src) {
+      const n = Number(d.value)
+      if (!Number.isNaN(n)) vars[d.no] = n
+    }
+    return vars
+  }
+
+  const loadCad = (src: DimensionDef[]) => {
+    void cadService.partDrawing(numericDims(src)).then((d) => {
+      if (d === null) setCadOffline(true)
+      else {
+        setCadDoc(d)
+        shell.setStatusMsg(`부품도 CAD — 엔티티 ${d.entities.length} (Run 제작도면과 동일 정본)`)
+      }
+    })
+  }
+
+  const toggleCad = () => {
+    const next = !cadMode
+    setCadMode(next)
+    if (next && cadDoc === null && !cadOffline) loadCad(dims)
+  }
 
   const importCad = (f: globalThis.File) => {
     void (async () => {
@@ -93,6 +123,7 @@ export function DesignEditorScreen({ active }: ScreenProps) {
       if (live) {
         setDims(next)
         setEvaluated(true)
+        if (cadMode) loadCad(next)   // CAD 모드 — 평가 치수로 도면 재작도
         shell.setStatusMsg(`Macro 평가 ${macroDims.length}식 ✓ (ENG-01 실평가) — 파라메트릭 반영 (DWG-007)`)
       } else {
         setDims(evalDims)   // mock 폴백
@@ -154,6 +185,9 @@ export function DesignEditorScreen({ active }: ScreenProps) {
           }} />
         <Btn onClick={() => cadInput.current?.click()}>DXF 열기</Btn>
         <Btn onClick={exportCad}>DXF 내보내기</Btn>
+        <Sep />
+        <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()}>편집</Btn>
+        <Btn variant={cadMode ? 'pri' : 'default'} onClick={() => !cadMode && toggleCad()}>CAD</Btn>
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <div className="fill-col" style={{ flex: 1, padding: 6 }}
@@ -161,27 +195,39 @@ export function DesignEditorScreen({ active }: ScreenProps) {
             const r = e.currentTarget.getBoundingClientRect()
             setCoord(`X ${(e.clientX - r.left).toFixed(1)}  Y ${(e.clientY - r.top).toFixed(1)}`)
           }}>
-          <Cvs blocks={DWG_BLOCKS} selectedId={selBlock?.id ?? null} onSelect={setSelBlock}
-            onOpen={(b) => shell.openTab({
-              id: `part-detail:${b.id}`, screenId: 'part-detail',
-              code: '부품', title: b.name, params: { partId: b.id },
-            })}
-            dims={[
-              { x: 150, y: 16, w: 330, label: `B = ${dimB}` },
-              { x: 200, y: 34, w: 180, label: `A = ${dimA}` },
-              { x: 80, y: 292, w: 440, label: `K = ${dimK}` },
-            ]}
-            labels={[
-              { x: 130, y: 64, text: 'C' }, { x: 460, y: 64, text: 'C' },
-              { x: 70, y: 120, text: 'G' }, { x: 512, y: 120, text: 'G' },
-              { x: 220, y: 250, text: 'D' }, { x: 390, y: 250, text: 'D' },
-              { x: 300, y: 264, text: 'E' }, { x: 530, y: 180, text: 'F' },
-            ]}
-            style={{ flex: 1, minHeight: 320 }}>
-            <div style={{ position: 'absolute', left: 236, top: 116, fontSize: 9, color: 'var(--txt-dim)' }}>
-              Block 더블클릭 = 부품 정보 상세
+          {cadMode ? (
+            <div style={{ flex: 1, minHeight: 320, border: '1px solid var(--line)', background: '#fff' }}>
+              {cadDoc ? (
+                <CadSvg doc={cadDoc} />
+              ) : (
+                <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>
+                  {cadOffline ? 'CAD 작도는 백엔드가 필요합니다 (MOCK 모드)' : '작도 중…'}
+                </div>
+              )}
             </div>
-          </Cvs>
+          ) : (
+            <Cvs blocks={DWG_BLOCKS} selectedId={selBlock?.id ?? null} onSelect={setSelBlock}
+              onOpen={(b) => shell.openTab({
+                id: `part-detail:${b.id}`, screenId: 'part-detail',
+                code: '부품', title: b.name, params: { partId: b.id },
+              })}
+              dims={[
+                { x: 150, y: 16, w: 330, label: `B = ${dimB}` },
+                { x: 200, y: 34, w: 180, label: `A = ${dimA}` },
+                { x: 80, y: 292, w: 440, label: `K = ${dimK}` },
+              ]}
+              labels={[
+                { x: 130, y: 64, text: 'C' }, { x: 460, y: 64, text: 'C' },
+                { x: 70, y: 120, text: 'G' }, { x: 512, y: 120, text: 'G' },
+                { x: 220, y: 250, text: 'D' }, { x: 390, y: 250, text: 'D' },
+                { x: 300, y: 264, text: 'E' }, { x: 530, y: 180, text: 'F' },
+              ]}
+              style={{ flex: 1, minHeight: 320 }}>
+              <div style={{ position: 'absolute', left: 236, top: 116, fontSize: 9, color: 'var(--txt-dim)' }}>
+                Block 더블클릭 = 부품 정보 상세
+              </div>
+            </Cvs>
+          )}
           <CommandLine
             prompt={selBlock ? `${tool.split(' ')[0].toUpperCase()} 선택=${selBlock.name}  기준점 지정 >` : '명령 대기 >'}
             coord={`${coord} | 스냅 ON`}

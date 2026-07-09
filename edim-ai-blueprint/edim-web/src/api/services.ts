@@ -658,6 +658,18 @@ export const cadService = {
     a.click()
     URL.revokeObjectURL(url)
   },
+  /** POST /api/v1/cad/part-drawing — 현재 치수로 부품도 작도 (Design Editor CAD 모드) */
+  async partDrawing(dims: Record<string, number>): Promise<CadDocument | null> {
+    try {
+      const r = await api<{ document: CadDocument }>('/cad/part-drawing', {
+        method: 'POST', body: JSON.stringify({ dims }),
+      })
+      return r.document
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
   /** POST /api/v1/cad/export-dxf — 현재 치수로 제작 DXF 다운로드 */
   async exportDxf(dims: Record<string, number>): Promise<void> {
     const res = await fetch(`${API}/cad/export-dxf`, {
