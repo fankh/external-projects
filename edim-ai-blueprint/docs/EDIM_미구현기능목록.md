@@ -27,11 +27,11 @@
 - [x] 승인함에서 위 요청들이 실제로 보이고 승인/반려 → 요청자 알림까지 왕복 검증 (라이브 7체크)
 - [x] 테스트: tests/live_b1_approval_flow.py (요청→수신→결정→이력→알림→Macro 영속)
 
-### B2. 편집 영속화 — "저장이 진짜 저장"
-- [ ] `PUT /drawings/dimensions` — Design Editor 임시저장 F12 (dwg_dimension/variant_value 갱신)
-- [ ] `PUT /erp/work-process` — Work Process MAKE/BUY 토글 F12 저장 (erp_work_process)
-- [ ] `PUT /toolbox/forms/{name}` — UI Designer 위젯 레이아웃 저장 (tbx_ui_form JSONB)
-- [ ] 새로고침 후 저장값 유지 라이브 검증
+### B2. 편집 영속화 — "저장이 진짜 저장" ✅ (v4.5~4.6, 2026-07-09)
+- [x] `PUT /drawings/dimensions` — Design Editor 임시저장 F12 (VARIANT=variant_value · =식=tbx_macro 갱신)
+- [x] `GET/PUT /erp/work-process` — Work Process MAKE/BUY 토글 F12 저장 + 진입 시 복원 (erp_work_process upsert)
+- [x] `GET/PUT /toolbox/forms/{name}` — UI Designer 레이아웃 저장(버전+1)·복원 (tbx_ui_form JSONB, 게시=저장 후 승인 요청)
+- [x] 새로고침 후 저장값 유지 라이브 검증 — tests/live_b2_persistence.py 6/6 (경로 세그먼트 '/' 라우팅 버그 수정 포함)
 
 ### B3. 단가 관리 쓰기 완성
 - [ ] `POST /prices` — ＋ 단가 등록 (폼 다이얼로그 + cst_price insert, EXCLUDE 제약 위반 안내)

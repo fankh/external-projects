@@ -85,9 +85,10 @@ with sync_playwright() as pw:
     p.wait_for_timeout(400)
     p.locator(".tn", has_text="UI Designer (S-2-1)").click()
     p.wait_for_timeout(1000)
-    n_before = p.locator(".cvs .m2").count()
-    p.locator(".gb", has_text="Widget").locator("div", has_text="Button").last.click()
+    n_before = p.locator(".m2:visible").count()
+    p.locator(".tn.l2:visible", has_text="Combo").first.click()
     p.wait_for_timeout(300)
+    assert p.locator(".m2:visible").count() == n_before + 1, "widget not added"
     p.get_by_role("button", name="저장 F12").click()
     p.wait_for_timeout(1000)
     ok("레이아웃 저장 (tbx_ui_form)", "레이아웃 저장 ✓" in sb())
@@ -95,7 +96,7 @@ with sync_playwright() as pw:
     p.wait_for_timeout(1200)
     p.locator(".tn", has_text="UI Designer (S-2-1)").click()
     p.wait_for_timeout(1000)
-    n_after = p.locator(".cvs .m2").count()
+    n_after = p.locator(".m2:visible").count()
     ok(f"새로고침 후 위젯 유지 ({n_before}→{n_after})", n_after == n_before + 1)
 
     b.close()
