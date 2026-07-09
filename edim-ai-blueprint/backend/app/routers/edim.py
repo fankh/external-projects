@@ -1045,61 +1045,128 @@ def project_files(project: str = "PS-61313-5") -> list[dict[str, Any]]:
     return files + uploads + RECEIVED_FILES
 
 
-# ── SVC-07 CPQ / ENG-02 Run ──
-RUN_STEPS = [
-    ("BOM 전개 (Code Relationship 재귀)", "47 파트 · 깊이 3", "0.8s"),
-    ("치수 Macro 평가 (우선순위 위상정렬)", "214 식", "12.0s"),
-    ("도면 생성 (승인 1 · 제작 12)", "13 파일", "2m 25s"),
-    ("원가·PCR (OWN/BIZ1/BIZ2)", "단가 resolve 47", "1m 40s"),
-    ("기술자료 생성", "5건", "55s"),
-    ("서류·Project Folder 저장", "산출물 21", "38s"),
-]
-RUN_OUTPUTS = [
-    ("DWG", "AHU5 승인도면 Rev.B", "PDF", "고객승인 대기", "warn", "AP 요청"),
-    ("DWG", "제작도면 12매 (KDCR 3-13 외)", "DXF", "생성", "ok", "미리보기"),
-    ("PRICE", "견적서 QR-61216-01 · ₩23,000K", "PDF", "DRAFT", "info", "QCR 발행"),
-    ("PRICE", "PCR (EBIT 18.2%)", "XLSX", "생성", "ok", "열기"),
-    ("DATA", "기술자료 5건 — Fan 성능·밀도 외", "PDF", "생성", "ok", None),
-    ("BOM", "BOM·Part List", "XLSX", "생성", "ok", "ERP 전송"),
-]
-RUN_LOGS = [
-    "BOM expand root=KDCR 3-13 … 47 items",
-    "macro eval 214/214 ✓ avg 41ms",
-    "drawing compose 13 files → DWG/",
-    "warn KDC 21: 재고단가 없음 → 견적단가 대체 (③→④)",
-    "PCR OWN/BIZ1/BIZ2 · quotation draft",
-    "outputs 21 → Project Folder SUCCESS",
+# ── SVC-07 CPQ / ENG-02 Run — 실 파이프라인 (P3-1 · P2-4) ──
+from app.services import run_pipeline as rp   # noqa: E402
+
+RUN_TASKS = [
+    "BOM 전개 (Code Relationship 재귀)",
+    "치수 Macro 평가 (엔진 v1)",
+    "도면 생성 (제작 DXF)",
+    "원가·견적 (단가 resolve)",
+    "견적서 PDF·BOM XLSX 생성",
+    "서류·Project Folder 저장 (MinIO)",
 ]
 
-_runs: dict[int, dict[str, Any]] = {}  # 진행 상태 (완료분은 cpq_run 에 영속)
+_runs: dict[int, dict[str, Any]] = {}  # 진행 상태 (산출물·완료는 DB 영속)
 
 
 class RunRequest(BaseModel):
     runType: str = "ALL"
 
 
-async def _advance(run_id: int) -> None:
+def _out_row(folder: str, fname: str, ftype: str, file_id: int | None) -> dict[str, Any]:
+    meta = {
+        "DWG": ("생성", "ok", "미리보기"),
+        "PRICE": ("DRAFT", "info", "QCR 발행"),
+        "BOM": ("생성", "ok", "ERP 전송"),
+        "DATA": ("생성", "ok", None),
+    }.get(folder, ("생성", "ok", None))
+    return {"folder": folder, "file": fname, "fileType": ftype,
+            "status": meta[0], "statusTone": meta[1], "nextAction": meta[2],
+            "fileId": file_id}
+
+
+async def _advance(run_id: int, tid: int, selection_id: int,
+                   slot_values: dict[str, str], project_no: str) -> None:
     state = _runs[run_id]
-    for i in range(len(RUN_STEPS)):
+    r = rp.PipelineResult()
+
+    def begin(i: int) -> float:
         state["current"] = i
-        await asyncio.sleep(0.75)
-    state["current"] = len(RUN_STEPS)
-    state["status"] = "SUCCESS"
+        state["steps"][i]["status"] = "RUNNING"
+        return time.perf_counter()
+
+    def finish(i: int, t0: float, measured: str, warn: bool = False) -> None:
+        state["steps"][i]["measured"] = measured
+        state["steps"][i]["elapsed"] = f"{time.perf_counter() - t0:.2f}s"
+        state["steps"][i]["status"] = "WARN" if warn else "DONE"
+
+    def log(msg: str, level: str = "info") -> None:
+        state["logs"].append({
+            "time": time.strftime("%H:%M:%S"), "message": msg, "level": level})
+
     try:
         pool = get_pool()
-        if pool:
+        with pool.connection() as conn, conn.cursor() as cur:
+            # 1. BOM
+            t0 = begin(0)
+            await asyncio.sleep(0.4)
+            m = rp.step_bom(cur, tid, _expand_rows, "KDCR 3-13", slot_values, selection_id, r)
+            finish(0, t0, m)
+            log(f"BOM expand root=KDCR 3-13 … {len(r.items)} items → cpq_selection_item")
+
+            # 2. 치수 Macro (엔진)
+            t0 = begin(1)
+            await asyncio.sleep(0.4)
+            m = rp.step_dims(cur, tid, _make_table_resolver(cur, tid), r)
+            finish(1, t0, m)
+            log("dims " + " · ".join(f"{k}={v:g}" for k, v in r.dims.items()))
+
+            # 3. 도면 (DXF)
+            t0 = begin(2)
+            await asyncio.sleep(0.4)
+            m = rp.step_drawing(r)
+            finish(2, t0, m)
+            log("drawing compose → DWG/ (ezdxf R2010)")
+
+            # 4. 원가
+            t0 = begin(3)
+            await asyncio.sleep(0.4)
+            m = rp.step_pricing(r)
+            has_warn = bool(r.warn)
+            finish(3, t0, m, warn=has_warn)
+            for w in r.warn:
+                log(f"warn {w}", "warn")
+            log(f"pricing total {r.total_k:,.0f}K · resolve {r.resolved}/{len(r.items)}")
+
+            # 5. 견적서 PDF + BOM XLSX
+            t0 = begin(4)
+            await asyncio.sleep(0.4)
+            m1 = rp.step_quotation(r, project_no)
+            m2 = rp.step_bom_xlsx(r)
+            finish(4, t0, f"{m1} · {m2}")
+            log("quotation PDF (워터마크) + BOM XLSX 생성")
+
+            # 6. 저장 (MinIO + dwg_file + cpq_output)
+            t0 = begin(5)
+            await asyncio.sleep(0.4)
+            file_ids = rp.persist_outputs(cur, tid, run_id, project_no, r)
+            finish(5, t0, f"산출물 {len(file_ids)} → MinIO/{project_no}")
+            log(f"outputs {len(file_ids)} → Project Folder SUCCESS")
+
+            state["outputs"] = [
+                _out_row(folder, fname, ftype, fid)
+                for (folder, fname, ftype, _), fid in zip(r.files, file_ids)
+            ]
+            state["totalK"] = r.total_k
+            cur.execute(
+                """UPDATE cpq_run SET status='SUCCESS', finished_at=now(),
+                   dimension_values=%s WHERE run_id=%s""",
+                (json.dumps({"KDCR 3-13": r.dims}), run_id))
+        state["status"] = "SUCCESS"
+        state["current"] = len(RUN_TASKS)
+    except Exception as e:  # noqa: BLE001
+        state["status"] = "FAILED"
+        log(f"실패: {e}", "warn")
+        try:
+            pool = get_pool()
             with pool.connection() as conn, conn.cursor() as cur:
                 cur.execute(
-                    """UPDATE cpq_run SET status='SUCCESS', finished_at=now(),
-                       dimension_values=%s WHERE run_id=%s""",
-                    (json.dumps({"KDCR 3-13": {"A": 670, "B": 726}}), run_id))
-                for otype, name, ftype, *_ in RUN_OUTPUTS:
-                    cur.execute(
-                        """INSERT INTO cpq_output (run_id, output_type, data)
-                           VALUES (%s,%s,%s)""",
-                        (run_id, otype, json.dumps({"file": name, "fileType": ftype})))
-    except Exception:  # noqa: BLE001 — 진행 상태는 메모리로 유지
-        pass
+                    """UPDATE cpq_run SET status='FAILED', finished_at=now(),
+                       error_detail=%s WHERE run_id=%s""",
+                    (json.dumps({"error": str(e)}), run_id))
+        except Exception:  # noqa: BLE001
+            pass
 
 
 @router.post("/cpq/runs", status_code=202)
@@ -1107,8 +1174,9 @@ async def start_run(body: RunRequest) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            "SELECT selection_id FROM cpq_selection WHERE tenant_id=%s ORDER BY selection_id LIMIT 1",
-            (tid,))
+            """SELECT s.selection_id, s.slot_values, p.project_no
+               FROM cpq_selection s JOIN prj_project p ON p.project_id=s.project_id
+               WHERE s.tenant_id=%s ORDER BY s.selection_id LIMIT 1""", (tid,))
         sel = cur.fetchone()
         if not sel:
             raise HTTPException(503, detail="seed selection missing")
@@ -1117,8 +1185,15 @@ async def start_run(body: RunRequest) -> dict[str, Any]:
                VALUES (%s,%s,%s,'RUNNING') RETURNING run_id""",
             (tid, sel[0], body.runType))
         run_id = cur.fetchone()[0]
-    _runs[run_id] = {"status": "RUNNING", "current": -1}
-    asyncio.get_running_loop().create_task(_advance(run_id))
+    _runs[run_id] = {
+        "status": "RUNNING", "current": -1, "outputs": [], "logs": [],
+        "steps": [
+            {"no": i + 1, "task": t, "measured": "—", "elapsed": "", "status": "PENDING"}
+            for i, t in enumerate(RUN_TASKS)
+        ],
+    }
+    asyncio.get_running_loop().create_task(
+        _advance(run_id, tid, sel[0], sel[1] or {}, sel[2]))
     return {"runId": run_id, "status": "RUNNING", "statusUrl": f"/api/v1/cpq/runs/{run_id}"}
 
 
@@ -1126,39 +1201,30 @@ async def start_run(body: RunRequest) -> dict[str, Any]:
 def run_status(run_id: int) -> dict[str, Any]:
     state = _runs.get(run_id)
     if state is None:
-        # 백엔드 재기동 후 완료 run — DB 에서 상태 복원
+        # 백엔드 재기동 후 — DB 에서 산출물 복원
         with _conn() as conn, conn.cursor() as cur:
             cur.execute("SELECT status FROM cpq_run WHERE run_id=%s", (run_id,))
             row = cur.fetchone()
-        if not row:
-            raise HTTPException(404, detail=f"run not found: {run_id}")
-        state = {"status": row[0], "current": len(RUN_STEPS)}
+            if not row:
+                raise HTTPException(404, detail=f"run not found: {run_id}")
+            cur.execute(
+                """SELECT o.output_type, o.data->>'file', o.data->>'fileType', o.file_id
+                   FROM cpq_output o WHERE o.run_id=%s ORDER BY o.output_id""", (run_id,))
+            outputs = [_out_row(r[0], r[1] or "output", r[2] or "PDF", r[3])
+                       for r in cur.fetchall()]
+        return {
+            "runId": run_id, "status": row[0], "progress": 1.0,
+            "steps": [
+                {"no": i + 1, "task": t, "measured": "(재기동 — 이력)",
+                 "elapsed": "", "status": "DONE"}
+                for i, t in enumerate(RUN_TASKS)
+            ],
+            "outputs": outputs, "logs": [],
+        }
+    done = state["status"] != "RUNNING"
     cur_i = state["current"]
-    done = state["status"] == "SUCCESS"
-    steps = []
-    for i, (task, measured, elapsed) in enumerate(RUN_STEPS):
-        st = ("WARN" if i == 3 else "DONE") if (done or i < cur_i) \
-            else ("RUNNING" if i == cur_i else "PENDING")
-        steps.append({
-            "no": i + 1, "task": task,
-            "measured": measured if st != "PENDING" else "—",
-            "elapsed": elapsed if st in ("DONE", "WARN") else "",
-            "status": st,
-        })
-    progress = 1.0 if done else max(0.0, (cur_i + 0.5) / len(RUN_STEPS))
-    n_logs = len(RUN_LOGS) if done else max(0, round(len(RUN_LOGS) * progress))
-    base = ["10:31:02", "10:31:15", "10:33:40", "10:35:12", "10:38:56", "10:39:34"]
+    progress = 1.0 if done else max(0.0, (cur_i + 0.5) / len(RUN_TASKS))
     return {
         "runId": run_id, "status": state["status"], "progress": progress,
-        "steps": steps,
-        "outputs": [
-            {"folder": o[0], "file": o[1], "fileType": o[2], "status": o[3],
-             "statusTone": o[4], "nextAction": o[5]}
-            for o in RUN_OUTPUTS
-        ] if done else [],
-        "logs": [
-            {"time": base[i], "message": RUN_LOGS[i],
-             "level": "warn" if "warn" in RUN_LOGS[i] else "info"}
-            for i in range(n_logs)
-        ],
+        "steps": state["steps"], "outputs": state["outputs"], "logs": state["logs"],
     }

@@ -47,6 +47,7 @@ export function NotificationBell() {
         <div className="gb" style={{
           position: 'absolute', right: 0, top: 24, width: 330, zIndex: 100,
           boxShadow: '0 6px 20px rgba(20,26,40,.28)',
+          color: 'var(--txt)', fontSize: 11.5, fontWeight: 400, textAlign: 'left',
         }}>
           <div className="gt">알림<span className="sp" />
             <span style={{ fontWeight: 500, color: 'var(--txt-mute)', fontSize: 10 }}>

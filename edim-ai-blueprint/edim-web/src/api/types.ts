@@ -69,6 +69,7 @@ export interface RunOutput {
   status: string
   statusTone: 'ok' | 'warn' | 'info'
   nextAction?: string
+  fileId?: number | null   // 실산출물 (MinIO) — 다운로드 가능
 }
 
 export interface RunLogEntry {

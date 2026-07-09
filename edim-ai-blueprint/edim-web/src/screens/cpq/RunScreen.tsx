@@ -1,6 +1,6 @@
 /** EDIM Run (디자인시안 b05) — 단계 그리드 + 진행률 → 산출물·로그 2그리드. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { cpqService } from '../../api/services'
+import { cpqService, fileService } from '../../api/services'
 import type { RunLogEntry, RunOutput, RunResult, RunStep } from '../../api/types'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -70,10 +70,24 @@ export function RunScreen({ active }: ScreenProps) {
       render: (r) => <Chip tone={r.statusTone}>{r.status}</Chip>,
     },
     {
-      key: 'action', header: '다음 행동', width: 80, align: 'center',
-      render: (r) => (r.nextAction
-        ? <span className="b" style={{ height: 18, fontSize: 10 }}>{r.nextAction}</span>
-        : null),
+      key: 'action', header: '다음 행동', width: 116, align: 'center',
+      render: (r) => (
+        <span style={{ display: 'inline-flex', gap: 3 }}>
+          {r.nextAction
+            ? <span className="b" style={{ height: 18, fontSize: 10 }}>{r.nextAction}</span>
+            : null}
+          {r.fileId != null ? (
+            <span className="b" style={{ height: 18, fontSize: 10 }}
+              onClick={(e) => {
+                e.stopPropagation()
+                void fileService.download(r.fileId!, r.file)
+                  .then(() => shell.setStatusMsg(`다운로드 — ${r.file} (MinIO)`))
+                  .catch((err: Error) => shell.setStatusMsg(
+                    <span style={{ color: 'var(--err)' }}>{err.message}</span>))
+              }}>⬇</span>
+          ) : null}
+        </span>
+      ),
     },
   ]
 
