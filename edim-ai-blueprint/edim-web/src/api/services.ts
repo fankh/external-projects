@@ -369,10 +369,16 @@ export const relationshipService = {
     mother: string, slotValues: Record<string, string>, checked: Set<string>,
   ): Promise<RunningTestRow[]> {
     try {
-      const r = await api<{ rows: (RunningTestRow & { mainCode: string })[] }>(
-        '/codes/relationships/running-test',
+      const r = await api<{
+        rows: (RunningTestRow & { mainCode: string; level?: number; path?: string })[]
+      }>('/codes/relationships/running-test',
         { method: 'POST', body: JSON.stringify({ motherCode: mother, slotValues }) })
-      return r.rows.filter((row) => row.no === 'Main' || checked.has(row.mainCode))
+      // 체크 해제된 직계(level 1) Child 는 서브트리 전체 제외 (path 기준)
+      const unchecked = r.rows
+        .filter((row) => row.level === 1 && !checked.has(row.mainCode))
+        .map((row) => row.mainCode)
+      return r.rows.filter((row) => row.no === 'Main'
+        || !unchecked.some((c) => (row.path ?? '').includes(`> ${c}`)))
     } catch (e) {
       if (!(e instanceof ApiUnavailable)) throw e
       return mockRunningTest(slotValues, checked)

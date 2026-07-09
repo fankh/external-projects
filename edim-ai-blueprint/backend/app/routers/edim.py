@@ -583,6 +583,7 @@ def running_test(body: RunningTestRequest) -> dict[str, Any]:
         out.append({
             "no": str(i + 1), "name": _resolved(r[0], r[4] or {}),
             "desc": r[1], "qty": float(r[2]), "remarks": "", "mainCode": r[0],
+            "level": r[3], "path": r[5],
         })
     return {"passed": True, "cycleCheck": "OK", "rows": out}
 
