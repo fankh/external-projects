@@ -17,3 +17,11 @@ services:
     env_file:
       - path: ./backend/.env
         required: false
+    networks:
+      - default
+      - infra   # edim-postgres (~/apps/infra) 접근 — DATABASE_URL 은 backend/.env
+
+networks:
+  infra:
+    external: true
+    name: infra_default

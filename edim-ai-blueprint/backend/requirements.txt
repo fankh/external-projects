@@ -5,3 +5,5 @@ pydantic-settings
 ezdxf
 ifcopenshell
 anthropic
+psycopg[binary]
+psycopg_pool

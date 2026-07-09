@@ -1,6 +1,7 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
-import { useMemo, type ComponentType } from 'react'
+import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
+import { pingBackend, subscribeDataSource, type DataSource } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar } from '../components/chrome'
 import { LnavTree } from '../components/LnavTree'
 import { useShell, type OpenTab } from './ShellContext'
@@ -74,6 +75,13 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
 export function Shell(props: { user: User }) {
   const shell = useShell()
   const menu = MENU_TREE[shell.module]
+  const [source, setSource] = useState<DataSource>('unknown')
+
+  useEffect(() => {
+    const unsub = subscribeDataSource(setSource)
+    void pingBackend()
+    return unsub
+  }, [])
 
   const userLabel = useMemo(
     () => `Micron #7 (Pre-Sales) · ${props.user.department} · ${props.user.name} [${props.user.userLevel}]`,
@@ -154,7 +162,12 @@ export function Shell(props: { user: User }) {
         cells={[
           ...(shell.statusMsg ? [shell.statusMsg] : []),
           '승인 대기 4',
-        ]} />
+        ]}
+        dbLabel={source === 'live'
+          ? <span>DB: <b style={{ color: 'var(--ok)' }}>EDIM-PRD (PG16)</b></span>
+          : source === 'mock'
+            ? <span>DB: <b style={{ color: 'var(--warn)' }}>MOCK</b></span>
+            : 'DB: …'} />
     </div>
   )
 }

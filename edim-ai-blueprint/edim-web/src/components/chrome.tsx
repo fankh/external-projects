@@ -73,7 +73,7 @@ export interface FKeyDef { key: string; label: string }
 export function StatusBar(props: {
   fkeys: FKeyDef[]
   cells?: ReactNode[]
-  clock?: boolean
+  dbLabel?: ReactNode
 }) {
   return (
     <div className="statusbar">
@@ -82,7 +82,7 @@ export function StatusBar(props: {
       ))}
       <span className="grow" />
       {(props.cells ?? []).map((c, i) => <span key={i} className="cell">{c}</span>)}
-      <span className="cell">DB: EDIM-PRD</span>
+      <span className="cell">{props.dbLabel ?? 'DB: EDIM-PRD'}</span>
     </div>
   )
 }

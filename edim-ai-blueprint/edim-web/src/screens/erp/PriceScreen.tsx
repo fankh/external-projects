@@ -1,9 +1,8 @@
 /** M-12-5 단가 관리 (W-13, 슬라이드 74·75) — 4종 단가 Table 단일 관리(CST-001) ·
  *  재고단가 4값(ERP-021) · Resolve 시뮬레이션 = Pricing Run 규칙. */
 import { useMemo, useState } from 'react'
-import {
-  PRICES, resolvePrice, STOCK_PRICE, type PriceRow,
-} from '../../api/mock/dataErp'
+import { PRICES, STOCK_PRICE, type PriceRow } from '../../api/mock/dataErp'
+import { erpService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -28,11 +27,13 @@ export function PriceScreen({ active }: ScreenProps) {
   )
 
   const simulate = () => {
-    const r = resolvePrice(simCode.trim(), simDate.trim())
-    setSimResult(r)
-    shell.setStatusMsg(r
-      ? `Resolve — ${simCode} → ${r.price.toLocaleString()} KRW (${r.source}·${r.supplier})`
-      : <span style={{ color: 'var(--warn)' }}>단가 없음 — Pricing Run 시 warn (③→④ 대체 불가)</span>)
+    void (async () => {
+      const r = await erpService.resolvePrice(simCode.trim(), simDate.trim())
+      setSimResult(r)
+      shell.setStatusMsg(r
+        ? `Resolve — ${simCode} → ${r.price.toLocaleString()} KRW (${r.source}·${r.supplier})`
+        : <span style={{ color: 'var(--warn)' }}>단가 없음 — Pricing Run 시 warn (③→④ 대체 불가)</span>)
+    })()
   }
 
   useFKeys(active, useMemo(() => ({ F8: simulate }), [simCode, simDate])) // eslint-disable-line react-hooks/exhaustive-deps

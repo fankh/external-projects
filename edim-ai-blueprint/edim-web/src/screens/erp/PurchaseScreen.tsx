@@ -1,7 +1,8 @@
 /** M-8-2 구매·발주 PR→PO (W-21, 슬라이드 53) — BOM 발주 대상 선별 ·
  *  Stock Check 재고 충족 제외 · 단가 resolve · 공급자 코드 매핑. */
-import { useMemo, useState } from 'react'
-import { PR_ITEMS, resolvePrice, type PrItem } from '../../api/mock/dataErp'
+import { useEffect, useMemo, useState } from 'react'
+import { PR_ITEMS, type PriceRow, type PrItem } from '../../api/mock/dataErp'
+import { erpService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -63,7 +64,10 @@ export function PurchaseScreen({ active }: ScreenProps) {
     { key: 'del', header: 'Delivery', width: 66, align: 'center', render: (r) => r.delivery },
   ]
 
-  const resolved = resolvePrice('FDV-480', '2026-07-09')
+  const [resolved, setResolved] = useState<PriceRow | null>(null)
+  useEffect(() => {
+    void erpService.resolvePrice('FDV-480', '2026-07-09').then(setResolved)
+  }, [])
 
   return (
     <div className="fill-col">
