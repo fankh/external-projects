@@ -15,7 +15,7 @@ const STEP_CHIP: Record<RunStep['status'], { tone: 'ok' | 'warn' | 'info'; label
   WARN: { tone: 'warn', label: 'warn 1' },
 }
 
-export function RunScreen({ active }: ScreenProps) {
+export function RunScreen({ active, tab }: ScreenProps) {
   const shell = useShell()
   const { setStatusMsg } = shell   // 안정 참조 — statusMsg(JSX) 루프 방지
   const [result, setResult] = useState<RunResult | null>(null)
@@ -82,7 +82,7 @@ export function RunScreen({ active }: ScreenProps) {
                     shell.openTab({
                       id: `cad-viewer:${r.fileId}`, screenId: 'cad-viewer',
                       code: 'CAD', title: r.file.slice(0, 16),
-                      params: { fileId: r.fileId, name: r.file },
+                      params: { fileId: r.fileId, name: r.file, from: tab.id },
                     })
                   }
                 }}>{r.nextAction}</span>

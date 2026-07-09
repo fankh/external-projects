@@ -25,7 +25,7 @@ function evalDims(dims: DimensionDef[]): DimensionDef[] {
   })
 }
 
-export function DesignEditorScreen({ active }: ScreenProps) {
+export function DesignEditorScreen({ active, tab }: ScreenProps) {
   const shell = useShell()
   const { t } = useI18n()
   const [tool, setTool] = useState('이동')
@@ -83,7 +83,7 @@ export function DesignEditorScreen({ active }: ScreenProps) {
         shell.openTab({
           id: `cad-viewer:${r.fileId}`, screenId: 'cad-viewer',
           code: 'CAD', title: f.name.slice(0, 16),
-          params: { fileId: r.fileId, name: f.name },
+          params: { fileId: r.fileId, name: f.name, from: tab.id },
         })
         shell.setStatusMsg(
           `CAD Import ✓ — ${f.name} (엔티티 ${r.document.entities.length}, Folder/DWG 등록)`)

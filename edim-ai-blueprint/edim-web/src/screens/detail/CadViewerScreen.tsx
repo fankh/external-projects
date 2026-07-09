@@ -45,6 +45,12 @@ export function CadViewerScreen({ tab }: ScreenProps) {
   return (
     <div className="fill-col">
       <div className="toolbar">
+        <Btn data-cad-back onClick={() => {
+          const from = typeof tab.params?.from === 'string' ? tab.params.from : null
+          if (from) shell.activateTab(from)
+          shell.closeTab(tab.id)
+        }}>← {t('common.backToList', '목록으로')}</Btn>
+        <span className="sep" />
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--title-navy)' }}>{name}</span>
         {doc ? <Chip tone="info">{doc.sourceFormat.toUpperCase()} · {doc.units}</Chip> : null}
         <span className="sep" />

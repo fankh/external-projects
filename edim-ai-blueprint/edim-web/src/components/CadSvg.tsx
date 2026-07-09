@@ -345,7 +345,24 @@ export function CadSvg(props: {
     : null
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div tabIndex={-1} data-cad-wrap
+      style={{ position: 'relative', width: '100%', height: '100%', outline: 'none' }}
+      onMouseEnter={(e) => e.currentTarget.focus()}
+      onKeyDown={(e) => {
+        // 캔버스 단축키 — 포커스(마우스 진입) 시에만: +/− 줌 · 0 맞춤 · M 측정 · Esc 해제
+        if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomCenter(1 / 1.4) }
+        else if (e.key === '-') { e.preventDefault(); zoomCenter(1.4) }
+        else if (e.key === '0') { e.preventDefault(); setVb(null) }
+        else if (e.key.toLowerCase() === 'm') {
+          e.preventDefault()
+          const next = !measureOn
+          setMeasureOn(next)
+          if (!next) { setM1(null); setM2(null); setMHover(null) }
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          setM1(null); setM2(null); setMHover(null); setSelId(null)
+        }
+      }}>
       <svg ref={svgRef} width="100%" height="100%" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
         data-cad-svg
         style={{
@@ -462,6 +479,7 @@ export function CadSvg(props: {
         {measureOn
           ? t('cad.measureHint', '두 점 클릭 = 거리 측정 · 끝점/중심 자동 스냅')
           : t('cad.hint', '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성')}
+        {' · +/−/0/M/Esc'}
       </div>
     </div>
   )

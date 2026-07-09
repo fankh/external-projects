@@ -535,6 +535,7 @@ UI_TRANSLATIONS_V7: dict[str, tuple[str, str, str]] = {
     "common.tempSave": ("Temp Save F12", "一時保存 F12", "暂存 F12"),
     "common.requestApproval": ("Request Approval", "承認依頼", "请求审批"),
     "common.runningTest": ("Running Test", "Running Test", "Running Test"),
+    "common.backToList": ("Back to List", "一覧へ戻る", "返回列表"),
     "shell.todoApproval": ("Approvals", "承認確認", "审批确认"),
     "shell.todoPl": ("PL delayed", "PL 遅延", "PL 延迟"),
     # CAD
@@ -551,17 +552,19 @@ UI_TRANSLATIONS_V7: dict[str, tuple[str, str, str]] = {
 
 
 def seed_v7(cur, tid: int) -> None:
+    # 키 단위 멱등 — v7 사전에 키가 추가되면 누락분만 삽입
     cur.execute(
-        """SELECT 1 FROM sys_translation
-           WHERE tenant_id=%s AND entity_type='UI' AND field='screen.cpq-selection' LIMIT 1""",
-        (tid,))
-    if cur.fetchone():
-        return
+        """SELECT DISTINCT field FROM sys_translation
+           WHERE tenant_id=%s AND entity_type='UI' AND locale='en'""", (tid,))
+    have = {r[0] for r in cur.fetchall()}
     n = 0
     for key, (en, ja, zh) in UI_TRANSLATIONS_V7.items():
+        if key in have:
+            continue
         for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
             cur.execute(
                 """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
                    VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
             n += 1
-    logger.info("seed v7 complete — UI 번역 확장 %d행 (화면·메뉴·CAD)", n)
+    if n:
+        logger.info("seed v7 — UI 번역 확장 %d행 삽입 (화면·메뉴·CAD)", n)

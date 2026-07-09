@@ -1,5 +1,5 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
-import { useEffect, useMemo, useState, type ComponentType } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
 import { pingBackend, subscribeDataSource, type DataSource } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar } from '../components/chrome'
@@ -82,12 +82,53 @@ export function Shell(props: { user: User }) {
   const { t } = useI18n()
   const menu = MENU_TREE[shell.module]
   const [source, setSource] = useState<DataSource>('unknown')
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const unsub = subscribeDataSource(setSource)
     void pingBackend()
     return unsub
   }, [])
+
+  // ── 전역 단축키 ──
+  //  Ctrl/⌘+K = 검색 · Alt+W = 탭 닫기 · Alt+←/→ = 탭 이동 · Alt+1~9 = n번째 탭
+  //  (Ctrl+W·Ctrl+Tab 은 브라우저 예약이라 Alt 조합 사용)
+  const { tabs, activeTabId, closeTab, activateTab } = shell
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+        return
+      }
+      if (!e.altKey || e.ctrlKey || e.metaKey) return
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.key.toLowerCase() === 'w') {
+        e.preventDefault()
+        if (activeTabId) closeTab(activeTabId)
+        return
+      }
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && tabs.length > 0) {
+        e.preventDefault()
+        const idx = Math.max(0, tabs.findIndex((t2) => t2.id === activeTabId))
+        const n = tabs.length
+        const next = e.key === 'ArrowRight' ? (idx + 1) % n : (idx - 1 + n) % n
+        activateTab(tabs[next].id)
+        return
+      }
+      const num = Number(e.key)
+      if (num >= 1 && num <= 9 && tabs[num - 1]) {
+        e.preventDefault()
+        activateTab(tabs[num - 1].id)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [tabs, activeTabId, closeTab, activateTab])
+
+  // 툴바 아이콘 → 활성 화면의 F-key 디스패치 (useFKeys 가 window keydown 수신)
+  const fkey = (key: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key }))
 
   const userLabel = useMemo(
     () => `Micron #7 (Pre-Sales) · ${props.user.department} · ${props.user.name} [${props.user.userLevel}]`,
@@ -114,18 +155,34 @@ export function Shell(props: { user: User }) {
       <TitleBar user={userLabel} bell={<><LocaleSwitcher /><NotificationBell /></>} />
       <MenuBar activeModule={shell.module} onModule={shell.setModule} />
       <div className="toolbar">
-        <span className="b ic" title="신규">▤</span>
-        <span className="b ic" title="저장">💾</span>
-        <span className="b ic" title="인쇄">🖨</span>
+        <span className="b ic" title="신규 (F2)" onClick={() => fkey('F2')}>▤</span>
+        <span className="b ic" title="저장 (F12)" onClick={() => fkey('F12')}>💾</span>
+        <span className="b ic" title="인쇄" onClick={() => window.print()}>🖨</span>
         <span className="sep" />
-        <span className="b ic" title="실행 취소">↶</span>
-        <span className="b ic" title="다시 실행">↷</span>
+        <span className="b ic" title="실행 취소"
+          onClick={() => shell.setStatusMsg('실행 취소 — 활성 화면 편집 이력 기준 (전역 이력은 sys_history 참조)')}>↶</span>
+        <span className="b ic" title="다시 실행"
+          onClick={() => shell.setStatusMsg('다시 실행 — 활성 화면 편집 이력 기준')}>↷</span>
         <span className="sep" />
-        <span className="b">Variants</span>
-        <span className="b">Referencers</span>
-        <span className="b">Supersedure</span>
+        <span className="b" title="VARIANT 바인딩 치수 — Design Editor"
+          onClick={() => {
+            shell.openTab(SCREEN_BY_NODE['plm-design'])
+            shell.setStatusMsg('Variants — VARIANT 바인딩 치수: C=45 · E=320 (Design Rule 그리드)')
+          }}>Variants</span>
+        <span className="b" title="현재 코드를 참조하는 상위 — 코드 상세"
+          onClick={() => shell.openTab({
+            id: 'code-detail:KDCR 3-13', screenId: 'code-detail',
+            code: '상세', title: 'KDCR 3-13',
+            params: { code: 'KDCR 3-13', name: 'Fan 원심 Casing' },
+          })}>Referencers</span>
+        <span className="b" title="개정 대체 이력 — Project Folder·이력"
+          onClick={() => {
+            shell.openTab(SCREEN_BY_NODE['com-folder'])
+            shell.setStatusMsg('Supersedure — Rev 대체 이력은 이력(M-15-9) 그리드에서 diff 확인')
+          }}>Supersedure</span>
         <span style={{ flex: 1 }} />
-        <input className="in" style={{ width: 200 }} placeholder={t('shell.searchPh', '화면코드·코드·도면 검색 (⌘K)')} />
+        <input ref={searchRef} className="in" style={{ width: 200 }}
+          placeholder={t('shell.searchPh', '화면코드·코드·도면 검색 (⌘K)')} />
       </div>
       <MdiTabs tabs={trTabs} activeId={shell.activeTabId}
         onActivate={shell.activateTab} onClose={shell.closeTab} />

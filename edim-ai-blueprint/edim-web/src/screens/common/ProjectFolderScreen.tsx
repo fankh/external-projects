@@ -8,7 +8,7 @@ import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
-export function ProjectFolderScreen(_props: ScreenProps) {
+export function ProjectFolderScreen({ tab }: ScreenProps) {
   const shell = useShell()
   const [folder, setFolder] = useState<string>('DWG')
   const [selFile, setSelFile] = useState<string | null>(null)
@@ -103,7 +103,7 @@ export function ProjectFolderScreen(_props: ScreenProps) {
                   shell.openTab({
                     id: `cad-viewer:${r.fileId}`, screenId: 'cad-viewer',
                     code: 'CAD', title: r.name.slice(0, 16),
-                    params: { fileId: r.fileId, name: r.name },
+                    params: { fileId: r.fileId, name: r.name, from: tab.id },
                   })
                 }
               }} />
