@@ -58,7 +58,7 @@ P2-1 알림 ←─ 승인·이벤트 쓰기 (완료됨)
 | 스프린트 | 범위 | 완료 판정 (FVT 연계) |
 |---|---|---|
 | **S1** ✅ 완료 (2026-07-09) | P0-1 + P0-2 + P1-2 | 무토큰 쓰기 API 401 ✓ · Dashboard 집계/Child Group/PR 품목/Folder(cpq_output) live ✓ · Running Test 실전개(KDP 1-21-13-15) ✓ |
-| **S2** | P1-1 + P1-3 | Table12 편집·Excel Import 실저장 · 파일 업/다운로드 presigned 동작 |
+| **S2** ✅ 완료 (2026-07-09) | P1-1 + P1-3 | Table12 CRUD·Excel Import(upsert·거부 리포트) 실저장 ✓ · 파일 업/다운로드(MinIO 프록시, dwg_file) 바이트 일치 ✓ |
 | **S3** | P1-4 (엔진 v1: 사칙·IF·Table()·Var() 범위) | Design Editor 치수 평가가 엔진 결과로 동작 (B=A+56 실계산) |
 | **S4** | P2-1 + P2-2 + P3-2 | 승인→알림 수신 · GENERAL 계정 권한 차단 · push 시 자동 배포 |
 | **S5** | P3-1 + P2-4 | Run 이 실 산출물(PDF 견적서) 을 Folder 에 저장 |
