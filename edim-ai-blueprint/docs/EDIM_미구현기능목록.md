@@ -39,10 +39,10 @@
 - [x] "단가 Table 전체(4종)" 콤보 실필터 (5→1 재고 필터 라이브 검증)
 - [x] 등록 행이 대장에 즉시 반영 (5→6 라이브 검증, 테스트 행 정리 완료)
 
-### B4. 문서 도메인 완성 + 인쇄 렌더 (P2-4)
-- [ ] `POST /documents` — ＋ 문서 등록 (doc_control insert + 승인 요청)
-- [ ] `GET /documents/{no}/render.pdf` — reportlab 재사용, **Grade 워터마크**(S등급 CONFIDENTIAL) 실렌더
-- [ ] 문서함 미리보기 = 실 PDF (iframe/blob) · Print = 실 다운로드
+### B4. 문서 도메인 완성 + 인쇄 렌더 (P2-4) 🔶 (v5.5~5.6 — Print Test·Templet 잔여)
+- [x] `POST /documents` — ＋ 문서 등록 다이얼로그 (doc_control insert + 승인 요청 자동, 중복 409 — 라이브 검증)
+- [x] `GET /documents/{no}/render.pdf` — build_doc_pdf, **S-1/S-2 CONFIDENTIAL 워터마크 강제** (pypdf 텍스트 추출로 게이트 검증; doc_no 중복 시 최신 행 렌더 버그 수정)
+- [x] 문서함 미리보기 = 실 PDF iframe(blob) · Print = 실렌더 새 창
 - [ ] Print Set-up "Print Test" = 자리표시자 치환 실렌더
 - [ ] Doc Templet Print = 계산값 포함 PDF
 
