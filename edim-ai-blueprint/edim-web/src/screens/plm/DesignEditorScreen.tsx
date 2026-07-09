@@ -1,6 +1,6 @@
 /** S-4-1-1 PLM Design Editor (W-06) — CAD 툴바 · Block 캔버스 · 치수 Macro/Variant ·
  *  Coding Run(파라메트릭 재계산 mock) · 커맨드 라인. */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasBlock, DimensionDef } from '../../api/types'
 import { DWG_BLOCKS, DWG_DIMS, MACRO_CODING } from '../../api/mock/data'
 import { cadService, macroService, type CadDocument } from '../../api/services'
@@ -33,8 +33,8 @@ export function DesignEditorScreen({ active }: ScreenProps) {
   const [coord, setCoord] = useState('X 0.0  Y 0.0')
   const [evaluated, setEvaluated] = useState(false)
   const cadInput = useRef<HTMLInputElement>(null)
-  // CAD 모드 — 부품도의 정본은 서버 작도 DXF (Run 제작도면과 동일 geometry)
-  const [cadMode, setCadMode] = useState(false)
+  // CAD 모드 (기본) — 부품도의 정본은 서버 작도 DXF (Run 제작도면과 동일 geometry)
+  const [cadMode, setCadMode] = useState(true)
   const [cadDoc, setCadDoc] = useState<CadDocument | null>(null)
   const [cadOffline, setCadOffline] = useState(false)
 
@@ -49,13 +49,20 @@ export function DesignEditorScreen({ active }: ScreenProps) {
 
   const loadCad = (src: DimensionDef[]) => {
     void cadService.partDrawing(numericDims(src)).then((d) => {
-      if (d === null) setCadOffline(true)
-      else {
+      if (d === null) {
+        // 백엔드 불가 → 편집(모의) 캔버스로 폴백
+        setCadOffline(true)
+        setCadMode(false)
+        shell.setStatusMsg('CAD 작도는 백엔드가 필요합니다 — 편집(모의) 캔버스 표시 (MOCK 모드)')
+      } else {
         setCadDoc(d)
         shell.setStatusMsg(`부품도 CAD — 엔티티 ${d.entities.length} (Run 제작도면과 동일 정본)`)
       }
     })
   }
+
+  // 최초 진입 시 CAD 작도 로드 (기본 모드 = CAD)
+  useEffect(() => { loadCad(dims) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleCad = () => {
     const next = !cadMode

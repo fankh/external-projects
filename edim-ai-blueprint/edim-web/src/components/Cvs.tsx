@@ -1,5 +1,6 @@
-/** 도면 캔버스 (.cvs) — Block(.m2)·치수(.d2)·커맨드 라인 (CAD 문법). */
-import { useState, type CSSProperties, type ReactNode } from 'react'
+/** 도면 캔버스 (.cvs) — Block(.m2)·치수(.d2)·커맨드 라인 (CAD 문법).
+ *  줌/팬 내장: 휠 = 커서 기준 줌 · 배경 드래그 = 이동 · 배경 더블클릭/⌂ = 원위치. */
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { CanvasBlock } from '../api/types'
 
 export function Cvs(props: {
@@ -12,32 +13,124 @@ export function Cvs(props: {
   style?: CSSProperties
   children?: ReactNode
 }) {
+  const [t, setT] = useState({ x: 0, y: 0, s: 1 })
+  const tRef = useRef(t)
+  tRef.current = t
+  const ref = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+
+  // React 합성 onWheel 은 passive → 네이티브 리스너로 preventDefault
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const onWheel = (ev: WheelEvent) => {
+      ev.preventDefault()
+      const r = el.getBoundingClientRect()
+      const cx = ev.clientX - r.left
+      const cy = ev.clientY - r.top
+      const cur = tRef.current
+      const ns = Math.min(8, Math.max(0.25, cur.s * Math.exp(-ev.deltaY * 0.0015)))
+      const k = ns / cur.s
+      setT({ s: ns, x: cx - (cx - cur.x) * k, y: cy - (cy - cur.y) * k })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  const isBg = (e: { target: EventTarget }) =>
+    !(e.target as HTMLElement).closest('.m2, button, input, select, textarea, a')
+
+  const zoomBtn: CSSProperties = {
+    width: 20, height: 20, padding: 0, border: '1px solid var(--line)',
+    background: '#fff', color: 'var(--txt)', fontSize: 11, lineHeight: '18px',
+    cursor: 'pointer', borderRadius: 2,
+  }
+
   return (
-    <div className="cvs" style={props.style}>
-      {props.dims?.map((d, i) => (
-        <div key={i} className="d2" style={{ left: d.x, top: d.y, width: d.w }}>
-          <span>{d.label}</span>
-        </div>
-      ))}
-      {props.blocks.map((b) => (
-        <div key={b.id}
-          className={`m2 ${props.selectedId === b.id ? 'sel' : ''}`}
-          style={{
-            left: b.x, top: b.y, width: b.w, height: b.h,
-            borderStyle: b.dashed ? 'dashed' : undefined,
-          }}
-          onClick={() => props.onSelect?.(b)}
-          onDoubleClick={() => props.onOpen?.(b)}>
-          {b.name}
-          {b.sub ? <small>{b.sub}</small> : null}
-        </div>
-      ))}
-      {props.labels?.map((l, i) => (
-        <div key={i} style={{ position: 'absolute', left: l.x, top: l.y, color: '#3B6BB4', fontSize: 9 }}>
-          {l.text}
-        </div>
-      ))}
-      {props.children}
+    <div ref={ref} className="cvs" style={{
+      ...props.style,
+      cursor: dragging ? 'grabbing' : undefined,
+      touchAction: 'none',
+    }}
+      onPointerDown={(e) => {
+        if (e.button !== 0 || !isBg(e)) return
+        e.currentTarget.setPointerCapture(e.pointerId)
+        drag.current = { px: e.clientX, py: e.clientY, x: tRef.current.x, y: tRef.current.y }
+        setDragging(true)
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current
+        if (!d) return
+        setT((cur) => ({ ...cur, x: d.x + e.clientX - d.px, y: d.y + e.clientY - d.py }))
+      }}
+      onPointerUp={() => { drag.current = null; setDragging(false) }}
+      onPointerCancel={() => { drag.current = null; setDragging(false) }}
+      onDoubleClick={(e) => { if (isBg(e)) setT({ x: 0, y: 0, s: 1 }) }}>
+      <div style={{
+        position: 'absolute', inset: 0,
+        transform: `translate(${t.x}px, ${t.y}px) scale(${t.s})`,
+        transformOrigin: '0 0',
+      }}>
+        {props.dims?.map((d, i) => (
+          <div key={i} className="d2" style={{ left: d.x, top: d.y, width: d.w }}>
+            <span>{d.label}</span>
+          </div>
+        ))}
+        {props.blocks.map((b) => (
+          <div key={b.id}
+            className={`m2 ${props.selectedId === b.id ? 'sel' : ''}`}
+            style={{
+              left: b.x, top: b.y, width: b.w, height: b.h,
+              borderStyle: b.dashed ? 'dashed' : undefined,
+            }}
+            onClick={() => props.onSelect?.(b)}
+            onDoubleClick={() => props.onOpen?.(b)}>
+            {b.name}
+            {b.sub ? <small>{b.sub}</small> : null}
+          </div>
+        ))}
+        {props.labels?.map((l, i) => (
+          <div key={i} style={{ position: 'absolute', left: l.x, top: l.y, color: '#3B6BB4', fontSize: 9 }}>
+            {l.text}
+          </div>
+        ))}
+        {props.children}
+      </div>
+      <div style={{
+        position: 'absolute', top: 4, right: 4, display: 'flex', gap: 3,
+        alignItems: 'center', userSelect: 'none', zIndex: 2,
+      }}>
+        <span style={{ fontSize: 9.5, color: 'var(--txt-mute)', background: '#ffffffcc', padding: '1px 4px', borderRadius: 2 }}>
+          {Math.round(t.s * 100)}%
+        </span>
+        <button type="button" style={zoomBtn} title="확대" data-cvs-zoom-in
+          onClick={(e) => {
+            e.stopPropagation()
+            const el = ref.current!
+            const r = el.getBoundingClientRect()
+            const cx = r.width / 2, cy = r.height / 2
+            setT((cur) => {
+              const ns = Math.min(8, cur.s * 1.4)
+              const k = ns / cur.s
+              return { s: ns, x: cx - (cx - cur.x) * k, y: cy - (cy - cur.y) * k }
+            })
+          }}>＋</button>
+        <button type="button" style={zoomBtn} title="축소" data-cvs-zoom-out
+          onClick={(e) => {
+            e.stopPropagation()
+            const el = ref.current!
+            const r = el.getBoundingClientRect()
+            const cx = r.width / 2, cy = r.height / 2
+            setT((cur) => {
+              const ns = Math.max(0.25, cur.s / 1.4)
+              const k = ns / cur.s
+              return { s: ns, x: cx - (cx - cur.x) * k, y: cy - (cy - cur.y) * k }
+            })
+          }}>－</button>
+        <button type="button" style={zoomBtn} title="원위치 (배경 더블클릭)" data-cvs-fit
+          onClick={(e) => { e.stopPropagation(); setT({ x: 0, y: 0, s: 1 }) }}>⌂</button>
+      </div>
     </div>
   )
 }
