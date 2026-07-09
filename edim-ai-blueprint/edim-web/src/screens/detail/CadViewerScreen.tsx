@@ -16,7 +16,6 @@ export function CadViewerScreen({ tab }: ScreenProps) {
   const [offline, setOffline] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hidden, setHidden] = useState<Set<string>>(new Set())
-  const [zoom, setZoom] = useState(1)
 
   useEffect(() => {
     void cadService.view(fileId)
@@ -47,10 +46,7 @@ export function CadViewerScreen({ tab }: ScreenProps) {
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--title-navy)' }}>{name}</span>
         {doc ? <Chip tone="info">{doc.sourceFormat.toUpperCase()} · {doc.units}</Chip> : null}
         <span className="sep" />
-        <Btn onClick={() => setZoom(1)}>맞춤</Btn>
-        <Btn variant="ic" onClick={() => setZoom((z) => Math.min(z * 1.4, 40))}>＋</Btn>
-        <Btn variant="ic" onClick={() => setZoom((z) => Math.max(z / 1.4, 0.2))}>－</Btn>
-        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{Math.round(zoom * 100)}% (휠 줌)</span>
+        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>휠 줌 · 드래그 이동 · 더블클릭 맞춤</span>
         <span style={{ flex: 1 }} />
         <Btn onClick={() => {
           void fileService.download(fileId, name)
@@ -92,10 +88,9 @@ export function CadViewerScreen({ tab }: ScreenProps) {
             ) : null}
           </div>
         </div>
-        <div style={{ flex: 1, background: '#fff', minWidth: 0 }}
-          onWheel={(e) => setZoom((z) => Math.min(40, Math.max(0.2, z * (e.deltaY < 0 ? 1.15 : 0.87))))}>
+        <div style={{ flex: 1, background: '#fff', minWidth: 0 }}>
           {doc ? (
-            <CadSvg doc={doc} hiddenLayers={hidden} zoom={zoom} />
+            <CadSvg doc={doc} hiddenLayers={hidden} />
           ) : (
             <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11.5, textAlign: 'center', lineHeight: 2 }}>
               {error
