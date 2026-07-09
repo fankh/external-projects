@@ -1,21 +1,26 @@
-import { useState } from 'react'
 import type { User } from './api/types'
-import { LoginScreen } from './screens/common/LoginScreen'
 import { Shell } from './shell/Shell'
 import { ShellProvider, type ModuleId } from './shell/ShellContext'
 
 function initialModule(): ModuleId {
-  return window.location.pathname.startsWith('/plm') ? 'plm' : 'cpq'
+  const p = window.location.pathname
+  if (p.startsWith('/plm')) return 'plm'
+  if (p.startsWith('/code')) return 'code'
+  if (p.startsWith('/erp')) return 'erp'
+  return 'cpq'
+}
+
+// 인증은 게이트웨이(Basic Auth)가 담당 — 앱 자체 로그인 화면 없음.
+// 실 API 전환 시 게이트웨이 JWT 의 사용자 정보로 대체한다.
+const GATEWAY_USER: User = {
+  userId: 'edim', name: 'YS.Gang', department: '기술연구소',
+  userLevel: 'SETUP', tenantId: 'nova',
 }
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null)
-
-  if (!user) return <LoginScreen onLogin={setUser} />
-
   return (
     <ShellProvider initialModule={initialModule()}>
-      <Shell user={user} />
+      <Shell user={GATEWAY_USER} />
     </ShellProvider>
   )
 }

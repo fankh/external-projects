@@ -10,6 +10,14 @@ import { TechDataScreen } from '../screens/cpq/TechDataScreen'
 import { RunScreen } from '../screens/cpq/RunScreen'
 import { DesignEditorScreen } from '../screens/plm/DesignEditorScreen'
 import { WorkProcessScreen } from '../screens/plm/WorkProcessScreen'
+import { SubCodeScreen } from '../screens/code/SubCodeScreen'
+import { CodeRelationshipScreen } from '../screens/code/CodeRelationshipScreen'
+import { DataTableScreen } from '../screens/code/DataTableScreen'
+import { ProjectScreen } from '../screens/erp/ProjectScreen'
+import { DashboardScreen } from '../screens/erp/DashboardScreen'
+import { PriceScreen } from '../screens/erp/PriceScreen'
+import { ProcessSetupScreen } from '../screens/erp/ProcessSetupScreen'
+import { PurchaseScreen } from '../screens/erp/PurchaseScreen'
 
 export interface ScreenProps {
   active: boolean
@@ -22,6 +30,14 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'cpq-run': RunScreen,
   'plm-design': DesignEditorScreen,
   'plm-workprocess': WorkProcessScreen,
+  'code-subcode': SubCodeScreen,
+  'code-relationship': CodeRelationshipScreen,
+  'code-datatable': DataTableScreen,
+  'erp-project': ProjectScreen,
+  'erp-dashboard': DashboardScreen,
+  'erp-price': PriceScreen,
+  'erp-process': ProcessSetupScreen,
+  'erp-purchase': PurchaseScreen,
 }
 
 export function Shell(props: { user: User }) {

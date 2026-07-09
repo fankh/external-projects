@@ -14,19 +14,28 @@ export function TitleBar(props: { context?: ReactNode; user: string }) {
   )
 }
 
+export type ModuleKey = 'cpq' | 'plm' | 'code' | 'erp'
+
+const MODULES: { id: ModuleKey; label: string }[] = [
+  { id: 'cpq', label: 'CPQ' },
+  { id: 'plm', label: 'PLM' },
+  { id: 'code', label: 'Code Set-up' },
+  { id: 'erp', label: 'ERP' },
+]
+
 export function MenuBar(props: {
-  activeModule: 'cpq' | 'plm'
-  onModule: (m: 'cpq' | 'plm') => void
+  activeModule: ModuleKey
+  onModule: (m: ModuleKey) => void
 }) {
-  const staticL = ['파일', '편집', '조회', 'Set-up']
-  const staticR = ['ERP', '도구', '창', '도움말']
+  const staticL = ['파일', '편집', '조회']
+  const staticR = ['도구', '창', '도움말']
   return (
     <div className="menubar">
       {staticL.map((m) => <span key={m}>{m}</span>)}
-      <span className={`mod ${props.activeModule === 'cpq' ? 'on' : ''}`}
-        onClick={() => props.onModule('cpq')}>CPQ</span>
-      <span className={`mod ${props.activeModule === 'plm' ? 'on' : ''}`}
-        onClick={() => props.onModule('plm')}>PLM</span>
+      {MODULES.map((m) => (
+        <span key={m.id} className={`mod ${props.activeModule === m.id ? 'on' : ''}`}
+          onClick={() => props.onModule(m.id)}>{m.label}</span>
+      ))}
       {staticR.map((m) => <span key={m}>{m}</span>)}
     </div>
   )
