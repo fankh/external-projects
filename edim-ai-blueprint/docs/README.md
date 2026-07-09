@@ -165,7 +165,7 @@ py docs/tools/make_docs_portal.py         # 다운로드 포털 (파일 추가·
 |---|---|---|
 | `C:\repos\new-research\external-projects` | 주 작업 클론 | 커밋·푸시 원점 |
 | `C:\repos\external-projects` | 보조 클론 | `git pull` |
-| 서버 `~/apps/external-projects` | 배포 소스 | `git pull` |
+| 서버 `~/apps/external-projects` | 배포 소스 | **자동** — `edim-autodeploy.timer`(2분)가 push 감지 → pull·docker build·rsync (로그: `journalctl -u edim-autodeploy`) |
 | https://edim.seekerslab.com/design/ | 화면설계서 열람 | 화면설계서 변경 시 `sudo cp docs/EDIM_화면설계서.html /var/www/edim/design/index.html` |
 | **https://edim.seekerslab.com/cpq · /plm · /code · /erp · /toolbox · /common** | **EDIM 업무 앱 (edim-web — dense B안 실구현, mock API, 24화면 전량+상세 4종 드릴다운)** | `edim-web/` 수정 → `npm run build`(dist 커밋) → 서버 `git pull` 후 `sudo rsync -a --delete edim-ai-blueprint/edim-web/dist/ /var/www/edim/edim-static/` |
 | **https://edim.seekerslab.com/docs/** | **산출물 다운로드 포털** (29종) | `py docs/tools/make_docs_portal.py` → 커밋·푸시 → 서버 `git pull` 후 `sudo rsync -a --delete docs/ /var/www/edim/docs/files/ && sudo cp docs/portal.html /var/www/edim/docs/index.html` |
