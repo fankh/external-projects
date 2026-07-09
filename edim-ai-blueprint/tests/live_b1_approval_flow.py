@@ -43,12 +43,14 @@ with sync_playwright() as pw:
     row = p.locator("td:visible", has_text="KDCR 3-13 Rev.B")
     ok("승인함 수신 (sys_approval_request)", row.count() >= 1)
 
-    # 3. 승인 결정 → 목록 제거
+    # 3. 승인 결정 → 처리할 요청 목록에서 제거 (처리 이력으로 이동)
+    inbox = p.locator(".gb", has_text="처리할 요청")
     row.first.click()
     p.wait_for_timeout(300)
     p.get_by_role("button", name="승인", exact=True).first.click()
-    p.wait_for_timeout(1000)
-    ok("승인 결정 → 목록 제거", p.locator("td:visible", has_text="KDCR 3-13 Rev.B").count() == 0)
+    p.wait_for_timeout(1500)
+    ok("승인 결정 → 인박스 제거", inbox.locator("tr", has_text="KDCR 3-13 Rev.B").count() == 0)
+    ok("처리 이력 기록", "승인" in p.locator(".statusbar").inner_text())
 
     # 4. 요청자 알림 (decide → APPROVAL_RESULT)
     notif = p.evaluate("""async () => {
@@ -57,7 +59,8 @@ with sync_playwright() as pw:
       return await r.json()
     }""")
     ok("결정 알림 생성 (APPROVAL_RESULT)",
-       any("승인" in (n.get("message") or "") for n in notif))
+       any(n.get("type") == "APPROVAL_RESULT" and "승인" in (n.get("title") or "")
+           for n in notif))
 
     # 5. Macro Studio 저장 → tbx_macro DRAFT 영속
     p.goto(f"{BASE}/toolbox", wait_until="networkidle")

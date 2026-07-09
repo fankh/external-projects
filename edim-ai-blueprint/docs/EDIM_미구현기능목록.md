@@ -19,13 +19,13 @@
 
 ## A. 즉시 구현 가능 배치 (외부 의존 없음 — 순서대로)
 
-### B1. 승인 워크플로 전면 실배선
+### B1. 승인 워크플로 전면 실배선 ✅ (v4.3, 2026-07-09)
 지금 모든 "승인 요청" 버튼이 메시지만 출력한다. 공통 승인 API 로 전부 실동작화.
-- [ ] `POST /approvals` 범용 승인 요청 (target_table/target_id/type/comment → sys_approval_request + 알림)
-- [ ] `PUT /macros/{name}` — Macro Studio 저장 (tbx_macro DRAFT 버전 영속)
-- [ ] 배선: Design Editor 승인 요청 · Macro Studio 저장+검증·승인 요청 · Print Set-up 승인 요청→게시 · UI Designer 게시 · Duct 승인
-- [ ] 승인함에서 위 요청들이 실제로 보이고 승인/반려 → 요청자 알림까지 왕복 검증
-- [ ] 테스트: live_approval_flow.py (요청→수신→결정→알림 4단계)
+- [x] `POST /approvals` 범용 승인 요청 (target_table/target_id/type/comment → sys_approval_request + 알림)
+- [x] `PUT /macros/{name}` — Macro Studio 저장 (tbx_macro DRAFT 버전 영속)
+- [x] 배선: Design Editor 승인 요청 · Macro Studio 저장(F12 포함)+검증·승인 요청 · Print Set-up 승인 요청→게시 · UI Designer 게시 (mock 모드에서는 정직 거부)
+- [x] 승인함에서 위 요청들이 실제로 보이고 승인/반려 → 요청자 알림까지 왕복 검증 (라이브 7체크)
+- [x] 테스트: tests/live_b1_approval_flow.py (요청→수신→결정→이력→알림→Macro 영속)
 
 ### B2. 편집 영속화 — "저장이 진짜 저장"
 - [ ] `PUT /drawings/dimensions` — Design Editor 임시저장 F12 (dwg_dimension/variant_value 갱신)
