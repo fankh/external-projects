@@ -33,9 +33,9 @@
 - [x] `GET/PUT /toolbox/forms/{name}` — UI Designer 레이아웃 저장(버전+1)·복원 (tbx_ui_form JSONB, 게시=저장 후 승인 요청)
 - [x] 새로고침 후 저장값 유지 라이브 검증 — tests/live_b2_persistence.py 6/6 (경로 세그먼트 '/' 라우팅 버그 수정 포함)
 
-### B3. 단가 관리 쓰기 완성 🔶 (v4.8 — Excel Import 잔여)
+### B3. 단가 관리 쓰기 완성 ✅ (v4.8~5.3, 2026-07-09)
 - [x] `POST /prices` — ＋ 단가 등록 (다이얼로그 + cst_price insert, 공급처 com_company 자동 생성, EXCLUDE 409 안내 — 라이브 검증)
-- [ ] 단가 Excel Import (기존 import-excel 패턴 재사용)
+- [x] 단가 Excel Import — `POST /prices/import-excel` (헤더 Code·공급처·단가·Table·적용시작·종료, 행 단위 거부 리포트 — 등록2·거부1 라이브 검증, autocommit 환경 SAVEPOINT 버그 수정)
 - [x] "단가 Table 전체(4종)" 콤보 실필터 (5→1 재고 필터 라이브 검증)
 - [x] 등록 행이 대장에 즉시 반영 (5→6 라이브 검증, 테스트 행 정리 완료)
 
