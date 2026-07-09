@@ -676,6 +676,27 @@ export const priceWriteService = {
       throw e
     }
   },
+  /** POST /api/v1/prices/import-excel — 헤더: Code·공급처·단가·Table·적용시작·적용종료 */
+  async importExcel(file: globalThis.File): Promise<{ inserted: number; rejected: string[] } | null> {
+    const form = new FormData()
+    form.append('uploadedFile', file)
+    try {
+      const res = await fetch(`${API}/prices/import-excel`, {
+        method: 'POST', body: form, signal: AbortSignal.timeout(30_000),
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string } | null
+        throw new Error(body?.detail ?? `HTTP ${res.status}`)
+      }
+      setSource('live')
+      return await res.json() as { inserted: number; rejected: string[] }
+    } catch (e) {
+      if (e instanceof Error && !(e instanceof TypeError) && e.name !== 'TimeoutError') throw e
+      setSource('mock')
+      return null
+    }
+  },
 }
 
 export const workProcessService = {

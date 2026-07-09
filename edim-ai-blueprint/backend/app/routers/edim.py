@@ -1025,6 +1025,78 @@ def create_price(body: PriceCreate) -> dict[str, Any]:
     return {"priceId": price_id, "source": src}
 
 
+@router.post("/prices/import-excel", dependencies=[SETUP])
+async def import_prices_excel(uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+    """단가 Excel Import — 헤더: Code·공급처·단가·Table·적용시작·적용종료 (행 단위 등록)."""
+    import openpyxl
+    data = await uploadedFile.read()
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, detail="Excel 파일이 아닙니다 (.xlsx)")
+    ws = wb.active
+    header = [str(c.value).strip() if c.value is not None else "" for c in ws[1]]
+    required = ["Code", "단가", "Table", "적용시작"]
+    if any(h not in header for h in required):
+        raise HTTPException(422, detail=f"헤더 불일치 — 필요 열: {required} (+공급처·적용종료 선택)")
+    idx = {h: header.index(h) for h in header if h}
+    inserted = 0
+    rejected: list[str] = []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        for r_i, row in enumerate(ws.iter_rows(min_row=2), start=2):
+            def cell(col: str) -> str:
+                i = idx.get(col)
+                v = row[i].value if i is not None else None
+                return str(v).strip() if v is not None else ""
+            code = cell("Code")
+            if not code:
+                continue
+            try:
+                price = float(cell("단가"))
+                src = SOURCE_CODE.get(cell("Table"), cell("Table").upper())
+                if src not in ("APPLIED", "PURCHASE", "STOCK", "QUOTE"):
+                    raise ValueError(f"Table 구분 오류: {cell('Table')}")
+                cur.execute(
+                    "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+                    (tid, code))
+                pc = cur.fetchone()
+                if not pc:
+                    raise ValueError(f"코드 없음: {code}")
+                supplier_id = None
+                name = cell("공급처")
+                if name and name != "-":
+                    cur.execute(
+                        "SELECT company_id FROM com_company WHERE tenant_id=%s AND company_name=%s",
+                        (tid, name))
+                    found = cur.fetchone()
+                    if found:
+                        supplier_id = found[0]
+                    else:
+                        cur.execute(
+                            """INSERT INTO com_company (tenant_id, company_name, company_type)
+                               VALUES (%s,%s,'SUPPLIER') RETURNING company_id""", (tid, name))
+                        supplier_id = cur.fetchone()[0]
+                # 행 단위 SAVEPOINT — EXCLUDE 위반 행만 거부하고 계속
+                cur.execute("SAVEPOINT price_row")
+                try:
+                    cur.execute(
+                        """INSERT INTO cst_price (tenant_id, product_code_id, supplier_id,
+                           price, price_source, valid_from, valid_to)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                        (tid, pc[0], supplier_id, price, src,
+                         cell("적용시작"), cell("적용종료") or None))
+                    inserted += 1
+                except Exception as e:  # noqa: BLE001
+                    cur.execute("ROLLBACK TO SAVEPOINT price_row")
+                    if "exclusion" in str(e).lower() or "overlap" in str(e).lower():
+                        raise ValueError("기간 중복 (EXCLUDE)") from e
+                    raise ValueError(str(e)[:80]) from e
+            except ValueError as e:
+                rejected.append(f"{r_i}행 {code}: {e}")
+    return {"inserted": inserted, "rejected": rejected}
+
+
 # ── SYS-012 이력 (M-15-9) ──
 @router.get("/history")
 def history(limit: int = 20) -> list[dict[str, Any]]:

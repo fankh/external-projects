@@ -1,6 +1,6 @@
 /** M-12-5 단가 관리 (W-13, 슬라이드 74·75) — 4종 단가 Table 단일 관리(CST-001) ·
  *  재고단가 4값(ERP-021) · Resolve 시뮬레이션 = Pricing Run 규칙. */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { STOCK_PRICE, type PriceRow } from '../../api/mock/dataErp'
 import { erpService, priceService, priceWriteService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
@@ -42,6 +42,26 @@ export function PriceScreen({ active }: ScreenProps) {
       && (TABLE_SOURCE[table] == null || p.source === TABLE_SOURCE[table])),
     [prices, supplier, table], // eslint-disable-line react-hooks/exhaustive-deps
   )
+
+  const xlsInput = useRef<HTMLInputElement>(null)
+
+  const importXls = (f: globalThis.File) => {
+    void (async () => {
+      try {
+        const report = await priceWriteService.importExcel(f)
+        if (!report) {
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>Import 불가 — 백엔드 연결 필요</span>)
+          return
+        }
+        await priceService.list().then(setPrices)
+        shell.setStatusMsg(`단가 Excel Import — 등록 ${report.inserted}건`
+          + (report.rejected.length ? ` · 거부 ${report.rejected.length} (${report.rejected[0]} …)` : ''))
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : 'Import 실패'}</span>)
+      }
+    })()
+  }
 
   const register = () => {
     const priceNum = Number(reg.price)
@@ -126,7 +146,14 @@ export function PriceScreen({ active }: ScreenProps) {
         <label>적용일</label>
         <Combo width={84} value="2026-07" options={['2026-07', '2026-06', '2026-05']} />
         <span style={{ flex: 1 }} />
-        <Btn>⬇ Excel Import</Btn>
+        <input ref={xlsInput} type="file" accept=".xlsx" style={{ display: 'none' }}
+          aria-label="단가 Excel"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) importXls(f)
+            e.target.value = ''
+          }} />
+        <Btn onClick={() => xlsInput.current?.click()}>⬇ Excel Import</Btn>
         <Btn variant="pri" onClick={() => setShowReg(true)}>＋ 단가 등록</Btn>
       </div>
       {showReg ? (
