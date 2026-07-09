@@ -88,6 +88,7 @@ def run_seed() -> None:
         if row:
             logger.info("base seed exists (tenant_id=%s)", row[0])
             _seed_v2(cur, row[0])
+            seed_v3(cur, row[0])
             return
 
         cur.execute(
@@ -185,6 +186,7 @@ def run_seed() -> None:
 
         logger.info("seed complete — tenant_id=%s, %d codes", tid, len(codes))
         _seed_v2(cur, tid)
+        seed_v3(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -307,3 +309,32 @@ def _seed_v2(cur, tid: int) -> None:
             (tid, table, target, action, actor, json.dumps({"seed": True})))
 
     logger.info("seed v2 complete — docs/users/events/approvals")
+
+
+# ── seed v3 — Table12 (Variant, W-20) ──
+
+TABLE12_ROWS = [
+    ("560", {"A": 55, "B": 45, "C": 9, "E": 656}),
+    ("630", {"A": 32, "B": 45, "C": 11, "E": 656}),
+    ("710", {"A": 679, "B": 760, "C": 45, "D": 700, "E": 656}),
+    ("800", {"A": 721, "B": 806, "C": 45, "D": 760, "E": 702}),
+]
+
+
+def seed_v3(cur, tid: int) -> None:
+    cur.execute(
+        "SELECT 1 FROM tbl_data_table WHERE tenant_id=%s AND table_name='Table12'", (tid,))
+    if cur.fetchone():
+        return
+    cur.execute(
+        """INSERT INTO tbl_data_table (tenant_id, table_name, table_type, department,
+           hierarchy_address, column_def, approval_status)
+           VALUES (%s,'Table12','VARIANT','Engineering','/T/ENG/VARIANT/Table12',
+                   %s,'APPROVED') RETURNING table_id""",
+        (tid, json.dumps({"columns": ["A", "B", "C", "D", "E"], "keyLabel": "Size"})))
+    table_id = cur.fetchone()[0]
+    for i, (key, vals) in enumerate(TABLE12_ROWS):
+        cur.execute(
+            """INSERT INTO tbl_data_row (table_id, row_key, row_key_num, row_values, sort_order)
+               VALUES (%s,%s,%s,%s,%s)""", (table_id, key, key, json.dumps(vals), i))
+    logger.info("seed v3 complete — Table12 %d rows", len(TABLE12_ROWS))

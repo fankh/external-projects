@@ -149,6 +149,68 @@ export const codeService = {
   },
 }
 
+// ── SVC-05 Table CRUD (TBL-001~006) ──
+export interface TableData {
+  name: string
+  columns: string[]
+  rows: { key: string; values: Record<string, number> }[]
+}
+
+export interface ImportReport { inserted: number; updated: number; rejected: string[] }
+
+export const tableCrudService = {
+  /** GET /api/v1/tables/{name} — tbl_data_row (row_key_num 정렬) */
+  async get(name: string): Promise<TableData | null> {
+    try {
+      return await api<TableData>(`/tables/${encodeURIComponent(name)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/tables/{name}/rows */
+  async addRow(name: string, key: string, values: Record<string, number | null>): Promise<void> {
+    try {
+      await api(`/tables/${encodeURIComponent(name)}/rows`, {
+        method: 'POST', body: JSON.stringify({ key, values }),
+      })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
+  /** PUT /api/v1/tables/{name}/rows/{key} */
+  async updateRow(name: string, key: string, values: Record<string, number | null>): Promise<void> {
+    try {
+      await api(`/tables/${encodeURIComponent(name)}/rows/${encodeURIComponent(key)}`, {
+        method: 'PUT', body: JSON.stringify({ key, values }),
+      })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
+  /** POST /api/v1/tables/{name}/import-excel — 정형 양식, Key 중복은 갱신 */
+  async importExcel(name: string, file: globalThis.File): Promise<ImportReport | null> {
+    const form = new FormData()
+    form.append('uploadedFile', file)
+    try {
+      const res = await fetch(`${API}/tables/${encodeURIComponent(name)}/import-excel`, {
+        method: 'POST', body: form,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string } | null
+        throw new Error(body?.detail ?? `HTTP ${res.status}`)
+      }
+      setSource('live')
+      return await res.json() as ImportReport
+    } catch (e) {
+      if (e instanceof Error && !(e instanceof TypeError)) throw e
+      setSource('mock')
+      return null
+    }
+  },
+}
+
 // ── SVC-05 Table ──
 export const tableService = {
   /** GET /api/v1/tables/tech-data — row_key_num 범위 조회 */
@@ -417,16 +479,54 @@ export const purchaseService = {
   },
 }
 
-// ── SVC-12 Project Folder 파일 ──
+// ── SVC-12 Project Folder 파일 (MinIO 프록시) ──
+export interface FolderFileEx extends FolderFile { fileId?: number }
+
 export const fileService = {
-  /** GET /api/v1/files — cpq_output 실산출물 + RECEIVED */
-  async list(project: string): Promise<FolderFile[]> {
+  /** GET /api/v1/files — cpq_output 실산출물 + dwg_file 업로드 + RECEIVED */
+  async list(project: string): Promise<FolderFileEx[]> {
     try {
-      return await api<FolderFile[]>(`/files?project=${encodeURIComponent(project)}`)
+      return await api<FolderFileEx[]>(`/files?project=${encodeURIComponent(project)}`)
     } catch (e) {
       if (!(e instanceof ApiUnavailable)) throw e
       return FOLDER_FILES
     }
+  },
+  /** POST /api/v1/files/upload — MinIO 저장 + dwg_file 등록 */
+  async upload(file: globalThis.File, folder: string, project: string): Promise<boolean> {
+    const form = new FormData()
+    form.append('uploadedFile', file)
+    form.append('folder', folder)
+    form.append('project', project)
+    try {
+      const res = await fetch(`${API}/files/upload`, {
+        method: 'POST', body: form,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string } | null
+        throw new Error(body?.detail ?? `HTTP ${res.status}`)
+      }
+      setSource('live')
+      return true
+    } catch (e) {
+      if (e instanceof TypeError) { setSource('mock'); return false }
+      throw e
+    }
+  },
+  /** GET /api/v1/files/download/{id} — 스트리밍 (fetch blob → 저장) */
+  async download(fileId: number, fileName: string): Promise<void> {
+    const res = await fetch(`${API}/files/download/${fileId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) throw new Error(`다운로드 실패 (HTTP ${res.status})`)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    a.click()
+    URL.revokeObjectURL(url)
   },
 }
 

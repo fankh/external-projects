@@ -1,7 +1,8 @@
 /** M-3-7 데이터 Table 관리 (W-20, 슬라이드 66·46) — Excel 문법 인라인 편집 ·
  *  Hierarchy 주소 = Macro 참조 경로 · row_key_num 범위 조회 안내. */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { TABLE12, TABLE12_ROWS, type TableRow } from '../../api/mock/dataCode'
+import { tableCrudService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -10,21 +11,69 @@ import type { ScreenProps } from '../../shell/Shell'
 
 export function DataTableScreen({ active }: ScreenProps) {
   const shell = useShell()
-  const [rows, setRows] = useState<TableRow[]>(TABLE12_ROWS)
+  const [rows, setRows] = useState<TableRow[]>([])
   const [selKey, setSelKey] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ key: string; col: number } | null>(null)
-  const [dirty, setDirty] = useState(0)
+  const [dirtyKeys, setDirtyKeys] = useState<Set<string>>(new Set())
+  const fileInput = useRef<HTMLInputElement>(null)
+  const dirty = dirtyKeys.size
+
+  const load = async () => {
+    const data = await tableCrudService.get(TABLE12.name)
+    if (data) {
+      setRows(data.rows.map((r) => ({
+        key: r.key,
+        cols: TABLE12.columns.map((c) => r.values[c] ?? null),
+        remarks: '',
+      })))
+    } else {
+      setRows(TABLE12_ROWS)   // mock 폴백
+    }
+    setDirtyKeys(new Set())
+  }
+
+  useEffect(() => { void load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const rowValues = (r: TableRow): Record<string, number | null> =>
+    Object.fromEntries(TABLE12.columns.map((c, i) => [c, r.cols[i]]))
 
   const save = () => {
-    setDirty(0)
-    shell.setStatusMsg('Table12 저장 — 참조 Macro 4건 영향 검토 대상')
+    void (async () => {
+      for (const key of dirtyKeys) {
+        const r = rows.find((x) => x.key === key)
+        if (r) await tableCrudService.updateRow(TABLE12.name, key, rowValues(r))
+      }
+      setDirtyKeys(new Set())
+      shell.setStatusMsg(`Table12 저장 ${dirtyKeys.size}행 (tbl_data_row) — 참조 Macro 4건 영향 검토 대상`)
+    })()
   }
 
   const addRow = () => {
-    const nextKey = String(Math.max(...rows.map((r) => Number(r.key))) + 90)
-    setRows((prev) => [...prev, { key: nextKey, cols: [null, null, null, null, null], remarks: '' }])
-    setSelKey(nextKey)
-    setDirty((d) => d + 1)
+    const nextKey = String(Math.max(0, ...rows.map((r) => Number(r.key) || 0)) + 90)
+    void (async () => {
+      await tableCrudService.addRow(TABLE12.name, nextKey, {})
+      setRows((prev) => [...prev, { key: nextKey, cols: TABLE12.columns.map(() => null), remarks: '' }])
+      setSelKey(nextKey)
+      shell.setStatusMsg(`행 추가 — Key ${nextKey} (row_key_num 자동 파싱)`)
+    })()
+  }
+
+  const importExcel = (f: globalThis.File) => {
+    void (async () => {
+      try {
+        const report = await tableCrudService.importExcel(TABLE12.name, f)
+        if (report) {
+          await load()
+          shell.setStatusMsg(`Excel Import — 신규 ${report.inserted} · 갱신 ${report.updated}`
+            + (report.rejected.length ? ` · 거부 ${report.rejected.length} (${report.rejected[0]} …)` : ''))
+        } else {
+          shell.setStatusMsg('Excel Import — 백엔드 불가 (mock 모드)')
+        }
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : 'Import 실패'}</span>)
+      }
+    })()
   }
 
   useFKeys(active, useMemo(() => ({ F2: addRow, F12: save }), [rows])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -34,7 +83,7 @@ export function DataTableScreen({ active }: ScreenProps) {
       ? { ...r, cols: r.cols.map((c, i) => (i === col ? (v.trim() === '' ? null : Number(v)) : c)) }
       : r)))
     setEditing(null)
-    setDirty((d) => d + 1)
+    setDirtyKeys((prev) => new Set(prev).add(key))
   }
 
   const cols: GridColumn<TableRow>[] = [
@@ -82,7 +131,14 @@ export function DataTableScreen({ active }: ScreenProps) {
           <div className="toolbar" style={{ border: '1px solid var(--line)' }}>
             <Btn onClick={addRow}>＋ 행 추가 F2</Btn>
             <Btn>✎ 편집</Btn>
-            <Btn>⬇ Excel Import</Btn>
+            <input ref={fileInput} type="file" accept=".xlsx" style={{ display: 'none' }}
+              aria-label="Excel 파일"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) importExcel(f)
+                e.target.value = ''
+              }} />
+            <Btn onClick={() => fileInput.current?.click()}>⬇ Excel Import</Btn>
             <Btn>⬆ Export</Btn>
             <span style={{ flex: 1 }} />
             <span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>

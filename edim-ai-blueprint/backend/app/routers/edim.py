@@ -8,17 +8,20 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import io
 import json
 import os
 import time
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi import Depends
+from fastapi import APIRouter, HTTPException, Request, UploadFile
+from fastapi import Depends, File, Form
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.db import db_ok, get_pool
+from app.services import storage
 from app.services.edim_seed import TENANT
 
 SECRET = os.getenv("EDIM_SECRET", "edim-dev-secret").encode()
@@ -215,6 +218,180 @@ def tech_data(airflow: float = 0, pressure: float = 0) -> list[dict[str, Any]]:
         rows = [{"model": r[0], **r[1]} for r in cur.fetchall()]
     rows.sort(key=lambda x: abs(x["pd"] - airflow) + abs(x["pt"] - pressure))
     return rows
+
+
+# ── SVC-05 Table CRUD + Excel Import (TBL-001~006) ──
+def _table_id(cur, tid: int, name: str) -> tuple[int, list[str]]:
+    cur.execute(
+        """SELECT table_id, column_def FROM tbl_data_table
+           WHERE tenant_id=%s AND table_name=%s""", (tid, name))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"table not found: {name}")
+    return row[0], list(row[1].get("columns", []))
+
+
+@router.get("/tables/{name}")
+def get_table(name: str) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        table_id, columns = _table_id(cur, tid, name)
+        cur.execute(
+            """SELECT row_key, row_values FROM tbl_data_row
+               WHERE table_id=%s ORDER BY row_key_num NULLS LAST, row_key""", (table_id,))
+        rows = [{"key": r[0], "values": r[1]} for r in cur.fetchall()]
+    return {"name": name, "columns": columns, "rows": rows}
+
+
+class TableRowRequest(BaseModel):
+    key: str
+    values: dict[str, float | int | None] = {}
+
+
+@router.post("/tables/{name}/rows", status_code=201)
+def add_table_row(name: str, body: TableRowRequest) -> dict[str, Any]:
+    key = body.key.strip()
+    if not key:
+        raise HTTPException(422, detail="Key 필수")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        table_id, _ = _table_id(cur, tid, name)
+        cur.execute("SELECT 1 FROM tbl_data_row WHERE table_id=%s AND row_key=%s",
+                    (table_id, key))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"Key 중복: {key}")
+        num = float(key) if key.replace(".", "", 1).isdigit() else None
+        cur.execute(
+            """INSERT INTO tbl_data_row (table_id, row_key, row_key_num, row_values)
+               VALUES (%s,%s,%s,%s)""",
+            (table_id, key, num, json.dumps({k: v for k, v in body.values.items() if v is not None})))
+    return {"key": key}
+
+
+@router.put("/tables/{name}/rows/{key}")
+def update_table_row(name: str, key: str, body: TableRowRequest) -> dict[str, Any]:
+    values = {k: v for k, v in body.values.items() if v is not None}
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        table_id, _ = _table_id(cur, tid, name)
+        cur.execute(
+            """UPDATE tbl_data_row SET row_values=%s
+               WHERE table_id=%s AND row_key=%s RETURNING row_id""",
+            (json.dumps(values), table_id, key))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"row not found: {key}")
+    return {"key": key, "values": values}
+
+
+@router.delete("/tables/{name}/rows/{key}")
+def delete_table_row(name: str, key: str) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        table_id, _ = _table_id(cur, tid, name)
+        cur.execute("DELETE FROM tbl_data_row WHERE table_id=%s AND row_key=%s RETURNING row_id",
+                    (table_id, key))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"row not found: {key}")
+    return {"deleted": key}
+
+
+@router.post("/tables/{name}/import-excel")
+async def import_excel(name: str, uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+    """정형 양식(1행 헤더 = Key + 열 이름) — Key 중복은 갱신, 수치 아닌 셀은 무시."""
+    import openpyxl
+    data = await uploadedFile.read()
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, detail="Excel 파일이 아닙니다 (.xlsx)")
+    ws = wb.active
+    header = [str(c.value).strip() if c.value is not None else "" for c in ws[1]]
+    inserted = updated = 0
+    rejected: list[str] = []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        table_id, columns = _table_id(cur, tid, name)
+        col_idx = {c: header.index(c) for c in columns if c in header}
+        if not col_idx:
+            raise HTTPException(422, detail=f"헤더 불일치 — 필요 열: {columns}")
+        for row in ws.iter_rows(min_row=2):
+            key = str(row[0].value).strip() if row[0].value is not None else ""
+            if not key:
+                continue
+            values: dict[str, float] = {}
+            for col, idx in col_idx.items():
+                v = row[idx].value
+                if isinstance(v, (int, float)):
+                    values[col] = v
+                elif v is not None:
+                    rejected.append(f"{key}.{col}: 수치 아님 ({v})")
+            num = float(key) if key.replace(".", "", 1).isdigit() else None
+            cur.execute(
+                """INSERT INTO tbl_data_row (table_id, row_key, row_key_num, row_values)
+                   VALUES (%s,%s,%s,%s)
+                   ON CONFLICT (table_id, row_key)
+                   DO UPDATE SET row_values = tbl_data_row.row_values || EXCLUDED.row_values
+                   RETURNING (xmax = 0)""",
+                (table_id, key, num, json.dumps(values)))
+            if cur.fetchone()[0]:
+                inserted += 1
+            else:
+                updated += 1
+    return {"inserted": inserted, "updated": updated, "rejected": rejected}
+
+
+# ── SVC-12 파일 업/다운로드 (MinIO 프록시) ──
+@router.post("/files/upload", status_code=201)
+async def upload_file(
+    uploadedFile: UploadFile = File(...),
+    folder: str = Form("RECEIVED"),
+    project: str = Form("PS-61313-5"),
+) -> dict[str, Any]:
+    if folder not in ("DWG", "PRICE", "DATA", "BOM", "RECEIVED"):
+        raise HTTPException(422, detail=f"folder 오류: {folder}")
+    data = await uploadedFile.read()
+    if len(data) > 100 * 1024 * 1024:
+        raise HTTPException(413, detail="100MB 초과")
+    fname = (uploadedFile.filename or "file").replace("/", "_")
+    key = f"{project}/{folder}/{fname}"
+    try:
+        storage.put_object(key, data, uploadedFile.content_type or "application/octet-stream")
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
+                    (tid, project))
+        prj = cur.fetchone()
+        cur.execute(
+            """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
+               file_path, file_size)
+               VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING file_id""",
+            (tid, prj[0] if prj else None, folder, fname,
+             (fname.rsplit(".", 1)[-1] if "." in fname else "BIN").upper()[:10],
+             key, len(data)))
+        file_id = cur.fetchone()[0]
+    return {"fileId": file_id, "key": key, "size": len(data)}
+
+
+@router.get("/files/download/{file_id}")
+def download_file(file_id: int) -> StreamingResponse:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT file_path, file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
+            (tid, file_id))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"file not found: {file_id}")
+    try:
+        obj = storage.get_object(row[0])
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    from urllib.parse import quote
+    return StreamingResponse(
+        obj.stream(64 * 1024), media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(row[1])}"})
 
 
 # ── SVC-08 Cost ──
@@ -704,7 +881,22 @@ def project_files(project: str = "PS-61313-5") -> list[dict[str, Any]]:
         }
         for r in rows
     ]
-    return files + RECEIVED_FILES
+    # 업로드 실파일 (dwg_file — MinIO 저장, fileId 로 다운로드 가능)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT f.file_id, f.file_name, f.file_type, f.folder,
+                      to_char(f.uploaded_date,'MM-DD')
+               FROM dwg_file f
+               LEFT JOIN prj_project p ON p.project_id=f.project_id
+               WHERE f.tenant_id=%s AND (p.project_no=%s OR f.project_id IS NULL)
+               ORDER BY f.file_id""", (tid, project))
+        uploads = [
+            {"name": r[1], "fileType": r[2], "kind": "업로드", "kindTone": "info",
+             "run": "-", "date": r[4], "folder": r[3], "fileId": r[0]}
+            for r in cur.fetchall()
+        ]
+    return files + uploads + RECEIVED_FILES
 
 
 # ── SVC-07 CPQ / ENG-02 Run ──

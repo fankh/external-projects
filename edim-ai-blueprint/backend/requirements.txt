@@ -7,3 +7,5 @@ ifcopenshell
 anthropic
 psycopg[binary]
 psycopg_pool
+openpyxl
+minio

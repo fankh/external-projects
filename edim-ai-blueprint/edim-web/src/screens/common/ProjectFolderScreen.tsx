@@ -1,8 +1,8 @@
 /** M-15-8/9 Project Folder·이력 조회 (W-24, 슬라이드 64) — 폴더 5종 자동 분류
  *  (dwg_file.folder CHECK) · sys_history diff. */
-import { useEffect, useState } from 'react'
-import { FOLDERS, type FolderFile } from '../../api/mock/dataMore'
-import { fileService, historyService, type HistoryRow } from '../../api/services'
+import { useEffect, useRef, useState } from 'react'
+import { FOLDERS } from '../../api/mock/dataMore'
+import { fileService, historyService, type FolderFileEx, type HistoryRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -13,17 +13,37 @@ export function ProjectFolderScreen(_props: ScreenProps) {
   const [folder, setFolder] = useState<string>('DWG')
   const [selFile, setSelFile] = useState<string | null>(null)
   const [hist, setHist] = useState<HistoryRow[]>([])
-  const [files, setFiles] = useState<FolderFile[]>([])
+  const [files, setFiles] = useState<FolderFileEx[]>([])
+  const fileInput = useRef<HTMLInputElement>(null)
+
+  const loadFiles = () => void fileService.list('PS-61313-5').then(setFiles)
 
   useEffect(() => {
     void historyService.recent().then(setHist)
-    void fileService.list('PS-61313-5').then(setFiles)
-  }, [])
+    loadFiles()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const upload = (f: globalThis.File) => {
+    void (async () => {
+      try {
+        const ok = await fileService.upload(f, folder, 'PS-61313-5')
+        if (ok) {
+          loadFiles()
+          shell.setStatusMsg(`업로드 — ${f.name} → ${folder}/ (MinIO 버킷 edim + dwg_file 등록)`)
+        } else {
+          shell.setStatusMsg('업로드 — 백엔드 불가 (mock 모드)')
+        }
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : '업로드 실패'}</span>)
+      }
+    })()
+  }
 
   const rows = files.filter((f) => f.folder === folder)
   const sel = files.find((f) => f.name === selFile) ?? null
 
-  const cols: GridColumn<FolderFile>[] = [
+  const cols: GridColumn<FolderFileEx>[] = [
     { key: 'name', header: '파일명', code: true, render: (r) => r.name },
     { key: 'type', header: '유형', width: 44, align: 'center', render: (r) => r.fileType },
     {
@@ -36,7 +56,16 @@ export function ProjectFolderScreen(_props: ScreenProps) {
       key: 'dl', header: '', width: 36, align: 'center',
       render: (r) => (
         <span className="b ic" style={{ height: 18, width: 18, fontSize: 10 }}
-          onClick={() => shell.setStatusMsg(`다운로드 — ${r.name} (SVC-12 presigned URL)`)}>⬇</span>
+          onClick={() => {
+            if (r.fileId != null) {
+              void fileService.download(r.fileId, r.name)
+                .then(() => shell.setStatusMsg(`다운로드 — ${r.name} (MinIO 스트리밍)`))
+                .catch((e: Error) => shell.setStatusMsg(
+                  <span style={{ color: 'var(--err)' }}>{e.message}</span>))
+            } else {
+              shell.setStatusMsg(`${r.name} — Run 산출물 바이너리 생성은 S5 (Run 파이프라인 실체화)`)
+            }
+          }}>⬇</span>
       ),
     },
   ]
@@ -107,6 +136,13 @@ export function ProjectFolderScreen(_props: ScreenProps) {
           </GroupBox>
           <GroupBox title="일괄 작업">
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <input ref={fileInput} type="file" style={{ display: 'none' }} aria-label="업로드 파일"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) upload(f)
+                  e.target.value = ''
+                }} />
+              <Btn variant="pri" onClick={() => fileInput.current?.click()}>⬆ 업로드 ({folder})</Btn>
               <Btn onClick={() => shell.setStatusMsg(`ZIP 다운로드 — ${folder} ${rows.length}건`)}>ZIP 다운로드</Btn>
               <Btn onClick={() => shell.setStatusMsg('고객 전달용 — 워터마크·Grade 통제 적용 내보내기')}>고객 전달용 내보내기</Btn>
             </div>
