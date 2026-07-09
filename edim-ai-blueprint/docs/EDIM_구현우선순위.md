@@ -61,7 +61,7 @@ P2-1 알림 ←─ 승인·이벤트 쓰기 (완료됨)
 | **S2** ✅ 완료 (2026-07-09) | P1-1 + P1-3 | Table12 CRUD·Excel Import(upsert·거부 리포트) 실저장 ✓ · 파일 업/다운로드(MinIO 프록시, dwg_file) 바이트 일치 ✓ |
 | **S3** ✅ 완료 (2026-07-09) | P1-4 (엔진 v1: 사칙·비교·IF/IFERROR/AND/OR·SUM계열·Var(기본값)·Table 단일/범위집계·PreC) | Design Editor 치수 실계산(B=756·D=Table12(B,710)=760·K=1134) ✓ · Studio Run 실평가 2685·수식 편집·오류 시 승인 차단 ✓ |
 | **S4** ✅ 완료 (2026-07-09) | P2-1 + P2-2 + P3-2 | 승인 요청/결정→알림 수신(벨 60s 폴링·읽음) ✓ · GENERAL 쓰기 403(decide/table/users/unlock) ✓ · **push→자동 배포**(systemd 타이머 2분 폴링 — Jenkins UI 파이프라인은 선택 사항으로 대체) ✓ |
-| **S5** | P3-1 + P2-4 | Run 이 실 산출물(PDF 견적서) 을 Folder 에 저장 |
+| **S5** ✅ 완료 (2026-07-09) | P3-1 + P2-4 | **Run 실 파이프라인**: BOM 영속(cpq_selection_item)→치수 엔진 평가→**제작 DXF(ezdxf)**→단가 resolve→**견적서 PDF(reportlab·워터마크·CJK)**+BOM XLSX→**MinIO+Folder 즉시 노출·다운로드** ✓ (바이트 검증: %PDF·R2010·PK) |
 | 이후 | P2-3 · P3-3 · P4-* | 번역 콘텐츠·운영 준비·협의 항목 확정 후 |
 
 > WBS(착수 2026-08-03 가정) 관점: S1~S3 은 WBS P1(기반)·P2(코어) 구간의 선행 검증(PoC)에 해당하며,
