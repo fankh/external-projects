@@ -1,6 +1,6 @@
 /** 셸 상태 — MDI 탭 · 활성 모듈 · 상태바 메시지. */
 import {
-  createContext, useCallback, useContext, useMemo, useState, type ReactNode,
+  createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode,
 } from 'react'
 
 export type ModuleId = 'cpq' | 'plm' | 'code' | 'erp' | 'toolbox' | 'common'
@@ -35,10 +35,44 @@ export function useShell(): ShellState {
 
 let seq = 0
 
+// ── MDI 탭 영속 (localStorage) — 새로고침·재접속 후 복원 ──
+// Run 탭(cpq-run:*)은 제외: 복원 시 파이프라인이 재실행되므로 휘발성으로 둔다.
+const TABS_KEY = 'edim-open-tabs'
+
+function persistable(tabs: OpenTab[]): OpenTab[] {
+  return tabs.filter((t) => t.screenId !== 'cpq-run')
+}
+
+function loadTabs(): { tabs: OpenTab[]; activeTabId: string | null } {
+  try {
+    const raw = localStorage.getItem(TABS_KEY)
+    if (!raw) return { tabs: [], activeTabId: null }
+    const saved = JSON.parse(raw) as { tabs?: OpenTab[]; activeTabId?: string | null }
+    const tabs = persistable((saved.tabs ?? []).filter(
+      (t) => t && typeof t.id === 'string' && typeof t.screenId === 'string'))
+    const activeTabId = tabs.some((t) => t.id === saved.activeTabId)
+      ? saved.activeTabId ?? null
+      : (tabs[tabs.length - 1]?.id ?? null)
+    return { tabs, activeTabId }
+  } catch {
+    return { tabs: [], activeTabId: null }
+  }
+}
+
+function saveTabs(tabs: OpenTab[], activeTabId: string | null): void {
+  try {
+    const keep = persistable(tabs)
+    localStorage.setItem(TABS_KEY, JSON.stringify({
+      tabs: keep,
+      activeTabId: keep.some((t) => t.id === activeTabId) ? activeTabId : null,
+    }))
+  } catch { /* quota 등 — 영속 실패는 무시 */ }
+}
+
 export function ShellProvider(props: { initialModule: ModuleId; children: ReactNode }) {
   const [module, setModuleState] = useState<ModuleId>(props.initialModule)
-  const [tabs, setTabs] = useState<OpenTab[]>([])
-  const [activeTabId, setActiveTabId] = useState<string | null>(null)
+  const [tabs, setTabs] = useState<OpenTab[]>(() => loadTabs().tabs)
+  const [activeTabId, setActiveTabId] = useState<string | null>(() => loadTabs().activeTabId)
   const [statusMsg, setStatusMsg] = useState<ReactNode | null>(null)
 
   const setModule = useCallback((m: ModuleId) => {
@@ -75,6 +109,11 @@ export function ShellProvider(props: { initialModule: ModuleId; children: ReactN
   }, [])
 
   const activateTab = useCallback((id: string) => setActiveTabId(id), [])
+
+  // 탭 변경 시마다 저장 — 새로고침 후 loadTabs() 로 복원
+  useEffect(() => {
+    saveTabs(tabs, activeTabId)
+  }, [tabs, activeTabId])
 
   const value = useMemo(() => ({
     module, setModule, tabs, activeTabId, openTab, closeTab, activateTab,

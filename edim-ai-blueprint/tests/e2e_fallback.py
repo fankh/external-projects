@@ -257,6 +257,18 @@ with sync_playwright() as pw:
     ok("data source indicator = MOCK (fallback)",
        page.locator(".statusbar", has_text="MOCK").count() >= 1)
 
+    # 12b. MDI 탭 영속 — 새로고침 후 복원 (Run 탭 제외)
+    before_tabs = page.locator(".mdi .t").count()
+    run_tabs = page.locator(".mdi .t", has_text="Run").count() \
+        + page.locator(".mdi .t", has_text="실행").count()
+    # preview 는 /common 등 SPA 경로 미지원(운영은 nginx fallback) → BASE 재진입으로 검증
+    page.goto(BASE, wait_until="load")
+    page.wait_for_selector(".mdi .t", timeout=15000)
+    after_tabs = page.locator(".mdi .t").count()
+    ok(f"tabs persist after reload ({before_tabs}→{after_tabs}, run 탭 {run_tabs} 제외)",
+       after_tabs >= before_tabs - run_tabs and after_tabs > 5)
+    ok("active tab restored", page.locator(".mdi .t.on").count() == 1)
+
     # 13. MDI 탭 라인 유지 — 전체 탭 닫아도 스트립 높이 유지
     while page.locator(".mdi .t .x").count() > 0:
         page.locator(".mdi .t .x").first.click()

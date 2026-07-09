@@ -46,11 +46,14 @@ let token: string | null = sessionStorage.getItem('edim-token')
 /** API 도달 불가 (네트워크/503) — mock 폴백 신호 */
 class ApiUnavailable extends Error {}
 
+const API_TIMEOUT_MS = 6000   // 응답 없는 프록시/백엔드 → mock 폴백 (행 방지)
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
     res = await fetch(API + path, {
       ...init,
+      signal: init?.signal ?? AbortSignal.timeout(API_TIMEOUT_MS),
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -194,7 +197,7 @@ export const tableCrudService = {
     form.append('uploadedFile', file)
     try {
       const res = await fetch(`${API}/tables/${encodeURIComponent(name)}/import-excel`, {
-        method: 'POST', body: form,
+        method: 'POST', body: form, signal: AbortSignal.timeout(30_000),
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       })
       if (!res.ok) {
@@ -500,7 +503,7 @@ export const fileService = {
     form.append('project', project)
     try {
       const res = await fetch(`${API}/files/upload`, {
-        method: 'POST', body: form,
+        method: 'POST', body: form, signal: AbortSignal.timeout(60_000),
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       })
       if (!res.ok) {
@@ -510,7 +513,7 @@ export const fileService = {
       setSource('live')
       return true
     } catch (e) {
-      if (e instanceof TypeError) { setSource('mock'); return false }
+      if (e instanceof TypeError || e instanceof DOMException) { setSource('mock'); return false }
       throw e
     }
   },
