@@ -1,7 +1,8 @@
 /** M-14-7 ERP Process Set-up (W-14, 슬라이드 17·10) — erp_process_def 커스터마이징 ·
  *  System DB 영향 변경은 Platform 승인 필요. */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DEPTS, PROCESS_DEFS, PROCESS_FLOW_1, type ProcessDefRow } from '../../api/mock/dataErp'
+import { processDefService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useShell } from '../../shell/ShellContext'
@@ -13,6 +14,29 @@ export function ProcessSetupScreen({ active }: ScreenProps) {
   const [dept, setDept] = useState('영업')
   const [selCode, setSelCode] = useState<string>('OR')
   const [defs, setDefs] = useState<ProcessDefRow[]>(PROCESS_DEFS)
+
+  // 공정 정의 실데이터 (erp_process_def + edge) — form 은 mock 보강 (DB 미보유 컬럼)
+  useEffect(() => {
+    void processDefService.get().then((r) => {
+      if (!r || r.defs.length === 0) return
+      const codeOf = new Map(r.defs.map((d) => [d.id, d.code]))
+      setDefs(r.defs.map((d) => {
+        const mock = PROCESS_DEFS.find((m) => m.code === d.code)
+        return {
+          code: d.code, name: d.name, dept: d.dept,
+          prev: r.edges.filter((e) => e.to === d.id).map((e) => codeOf.get(e.from)).join(',') || '—',
+          next: r.edges.filter((e) => e.from === d.id).map((e) => codeOf.get(e.to)).join(',') || '—',
+          form: mock?.form ?? '—',
+          auto: d.auto,
+          // 규칙 컬럼은 DB 미보유 — mock 보강 (고객 협의 후 스키마 확장 대상)
+          precondition: mock?.precondition ?? '—',
+          deadlineRule: mock?.deadlineRule ?? '—',
+          ownerRule: mock?.ownerRule ?? '—',
+        }
+      }))
+      shell.setStatusMsg(`공정 정의 로드 — ${r.defs.length}건 (erp_process_def·edge ${r.edges.length})`)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sel = defs.find((d) => d.code === selCode) ?? null
   const rows = defs.filter((d) => dept === '전체' || d.dept === dept

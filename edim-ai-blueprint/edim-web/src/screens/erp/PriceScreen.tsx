@@ -32,6 +32,20 @@ export function PriceScreen({ active }: ScreenProps) {
     [prices, supplier],
   )
 
+  // 재고 단가 4값 — cst_price 재고 이력에서 실산출 (백엔드 불가 시 mock)
+  const stock = useMemo(() => {
+    const stockRows = prices.filter((p) => p.source === '재고')
+    if (stockRows.length === 0) return STOCK_PRICE
+    const code = stockRows[0].code
+    const vals = stockRows.filter((r) => r.code === code).map((r) => r.price)
+    return {
+      code,
+      max: Math.max(...vals), min: Math.min(...vals),
+      avg: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length),
+      last: vals[0],   // valid_from DESC 정렬 — 첫 행 = 최근
+    }
+  }, [prices])
+
   const simulate = () => {
     void (async () => {
       const r = await erpService.resolvePrice(simCode.trim(), simDate.trim())
@@ -87,15 +101,15 @@ export function PriceScreen({ active }: ScreenProps) {
                 code: '상세', title: r.code, params: { code: r.code, name: r.name },
               })} />
           </GroupBox>
-          <GroupBox title={`재고 단가 산출 — ${STOCK_PRICE.code} (입출고 기반 자동, ERP-021)`} noPad>
+          <GroupBox title={`재고 단가 산출 — ${stock.code} (입출고 기반 자동, ERP-021)`} noPad>
             <table className="g">
               <thead><tr><th>최고</th><th>최저</th><th>평균</th><th>최근</th></tr></thead>
               <tbody>
                 <tr>
-                  <td className="num">{STOCK_PRICE.max.toLocaleString()}</td>
-                  <td className="num">{STOCK_PRICE.min.toLocaleString()}</td>
-                  <td className="num">{STOCK_PRICE.avg.toLocaleString()}</td>
-                  <td className="num">{STOCK_PRICE.last.toLocaleString()}</td>
+                  <td className="num">{stock.max.toLocaleString()}</td>
+                  <td className="num">{stock.min.toLocaleString()}</td>
+                  <td className="num">{stock.avg.toLocaleString()}</td>
+                  <td className="num">{stock.last.toLocaleString()}</td>
                 </tr>
               </tbody>
             </table>

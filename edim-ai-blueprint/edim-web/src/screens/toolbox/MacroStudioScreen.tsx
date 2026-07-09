@@ -1,11 +1,11 @@
 /** S-2-2 Toolbox Macro Studio (W-07, 슬라이드 29·59) — 4-Way Sync
  *  (Prompt↔Macro↔Flowchart↔Coding) · Test Run 통과(TESTED)해야 승인 요청 가능. */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   FUNCTIONS, MACRO_CODING_PY, MACRO_DESC, MACRO_FORMULA, MACRO_META, MACRO_PROMPT,
 } from '../../api/mock/dataMore'
 import { TABLE12_ROWS } from '../../api/mock/dataCode'
-import { aiService, macroService } from '../../api/services'
+import { aiService, macroLibService, macroService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
@@ -26,6 +26,18 @@ export function MacroStudioScreen({ active }: ScreenProps) {
   const [aiDesc, setAiDesc] = useState<string | null>(null)
   const [aiCoding, setAiCoding] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Macro 라이브러리 실데이터 로드 (tbx_macro) — Studio 데모 Macro 를 DB 에서
+  useEffect(() => {
+    void macroLibService.list().then((rows) => {
+      const m = rows?.find((r) => r.prompt) ?? rows?.[0]
+      if (m && rows) {
+        if (m.prompt) setPrompt(m.prompt)
+        setFormula(m.expr)
+        shell.setStatusMsg(`Macro 라이브러리 로드 — ${m.name} (tbx_macro ${rows.length}건)`)
+      }
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generate = () => {
     setBusy(true)

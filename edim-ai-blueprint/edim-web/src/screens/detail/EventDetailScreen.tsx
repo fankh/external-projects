@@ -1,7 +1,8 @@
 /** 프로세스 이벤트 상세 (드릴다운) — Dashboard 이상 경고 더블클릭으로 진입.
  *  erp_process_event: 선행→현재→후행 · 기한 · 처리 이력 · 완료/에스컬레이션. */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { EVENT_DETAILS } from '../../api/mock/dataDetail'
+import { eventService } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
@@ -9,9 +10,26 @@ import type { ScreenProps } from '../../shell/Shell'
 export function EventDetailScreen({ tab }: ScreenProps) {
   const shell = useShell()
   const project = String(tab.params?.project ?? 'PS-612')
-  const ev = EVENT_DETAILS[project] ?? EVENT_DETAILS['PS-612']
+  const [ev, setEv] = useState(EVENT_DETAILS[project] ?? EVENT_DETAILS['PS-612'])
   const [comment, setComment] = useState('')
   const [done, setDone] = useState(false)
+
+  // 실 이벤트(erp_process_event) 필드로 갱신 — 전후 공정·이력은 mock 구조 유지
+  useEffect(() => {
+    void eventService.list().then((rows) => {
+      const live = rows.find((r) => r.project === project && r.status !== 'DONE')
+        ?? rows.find((r) => r.project === project)
+      if (live) {
+        setEv((prev) => ({
+          ...prev,
+          project: live.project, processCode: live.code,
+          processName: live.procName ?? prev.processName,
+          owner: live.owner, deadline: live.deadline + (live.delayed ? ' (지연)' : ''),
+          status: live.status,
+        }))
+      }
+    })
+  }, [project])
 
   const complete = () => {
     if (!comment.trim()) {

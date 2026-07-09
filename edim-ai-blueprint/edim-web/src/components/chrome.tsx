@@ -47,6 +47,9 @@ function MenuDrop(props: {
       className={props.open ? 'mod on' : undefined}
       onClick={props.onToggle} data-menu={props.label}>
       {props.label}
+      <span aria-hidden style={{
+        fontSize: 8, marginLeft: 3, opacity: .55, verticalAlign: 1,
+      }}>▾</span>
       {props.open ? (
         <div style={{
           position: 'absolute', top: '100%', left: 0, zIndex: 60, minWidth: 190,

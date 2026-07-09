@@ -983,6 +983,79 @@ def history(limit: int = 20) -> list[dict[str, Any]]:
         ]
 
 
+# ── 잔여 mock 실데이터화 (v4.0) — 치수 정의·Macro 목록·공정 정의·역참조 ──
+
+@router.get("/drawings/dimensions")
+def drawing_dimensions(drawing: str = "KDCR 3-13") -> list[dict[str, Any]]:
+    """Design Rule 치수 Set-up — dwg_dimension + tbx_macro (Design Editor·부품 상세 실데이터)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT d.dim_label, d.dim_type, d.variant_value, m.macro_expr
+               FROM dwg_dimension d
+               JOIN dwg_drawing w ON w.drawing_id=d.drawing_id
+               LEFT JOIN tbx_macro m ON m.macro_id=d.macro_id
+               WHERE d.tenant_id=%s AND w.drawing_no=%s
+               ORDER BY d.dim_label""", (tid, drawing))
+        return [
+            {"no": r[0],
+             "value": (r[3] if r[3] else (r[2] or "")),
+             "binding": "MACRO" if r[3] else "VARIANT",
+             "kind": r[1]}
+            for r in cur.fetchall()
+        ]
+
+
+@router.get("/macros")
+def macros_list() -> list[dict[str, Any]]:
+    """Toolbox Macro 라이브러리 — tbx_macro 실데이터 (S-2-2 좌측 목록)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT macro_name, macro_expr, status, COALESCE(hierarchy_address,''),
+                      COALESCE(prompt_text,''), COALESCE(description_text,'')
+               FROM tbx_macro WHERE tenant_id=%s ORDER BY macro_id""", (tid,))
+        return [
+            {"name": r[0], "expr": r[1], "status": r[2], "address": r[3],
+             "prompt": r[4], "description": r[5]}
+            for r in cur.fetchall()
+        ]
+
+
+@router.get("/erp/process-defs")
+def process_defs() -> dict[str, Any]:
+    """공정 정의·흐름 — erp_process_def + erp_process_edge (M-14-7·Dashboard 흐름)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT proc_def_id, proc_code, proc_name, department, is_auto
+               FROM erp_process_def WHERE tenant_id=%s ORDER BY proc_def_id""", (tid,))
+        defs = [{"id": r[0], "code": r[1], "name": r[2], "dept": r[3], "auto": bool(r[4])}
+                for r in cur.fetchall()]
+        cur.execute(
+            "SELECT from_def_id, to_def_id FROM erp_process_edge WHERE tenant_id=%s", (tid,))
+        edges = [{"from": r[0], "to": r[1]} for r in cur.fetchall()]
+    return {"defs": defs, "edges": edges}
+
+
+@router.get("/codes/{code}/referencers")
+def code_referencers(code: str) -> list[dict[str, Any]]:
+    """Where-Used 역참조 — 이 코드를 child 로 갖는 mother (코드 상세 Referencers)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT mc.main_code, mc.code_name, r.quantity, r.approval_status
+               FROM code_relationship r
+               JOIN product_code cc ON cc.product_code_id=r.child_code_id
+               JOIN product_code mc ON mc.product_code_id=r.mother_code_id
+               WHERE r.tenant_id=%s AND cc.main_code=%s
+               ORDER BY mc.main_code""", (tid, code))
+        return [
+            {"code": r[0], "name": r[1], "qty": float(r[2]), "status": r[3]}
+            for r in cur.fetchall()
+        ]
+
+
 # ── SVC-03 Sub Code 항목 등록 (S-1-1 write) ──
 class NewItemRequest(BaseModel):
     slot: str

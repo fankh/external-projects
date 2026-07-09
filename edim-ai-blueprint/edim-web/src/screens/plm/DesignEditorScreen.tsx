@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasBlock, DimensionDef } from '../../api/types'
 import { DWG_BLOCKS, DWG_DIMS, MACRO_CODING } from '../../api/mock/data'
-import { cadService, macroService, type CadDocument } from '../../api/services'
+import { cadService, drawingService, macroService, type CadDocument } from '../../api/services'
 import { CadSvg } from '../../components/CadSvg'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
@@ -63,8 +63,15 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
     })
   }
 
-  // 최초 진입 시 CAD 작도 로드 (기본 모드 = CAD)
-  useEffect(() => { loadCad(dims) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // 최초 진입 — 치수 정의를 실DB(dwg_dimension)에서 로드 후 CAD 작도 (기본 모드 = CAD)
+  useEffect(() => {
+    void (async () => {
+      const d = await drawingService.dimensions()
+      const src = d && d.length ? d : dims   // 백엔드 불가 시 mock 폴백
+      if (d && d.length) setDims(d)
+      loadCad(src)
+    })()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleCad = () => {
     const next = !cadMode

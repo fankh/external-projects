@@ -1,7 +1,9 @@
 /** 코드 상세 (드릴다운) — BOM·Child Group·발주·단가 그리드 더블클릭으로 진입.
  *  코드 자산(도면·단가 이력·Referencers·승인 이력)을 한 탭에 집약. */
+import { useEffect, useState } from 'react'
 import { CODE_APPROVAL_HIST, WHERE_USED } from '../../api/mock/dataDetail'
 import { PRICES } from '../../api/mock/dataErp'
+import { referencerService } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid } from '../../components/DenseGrid'
@@ -16,7 +18,18 @@ export function CodeDetailScreen({ tab }: ScreenProps) {
   const base = Object.keys(WHERE_USED).find((k) => code.startsWith(k))
     ?? code.split('-').slice(0, 2).join('-')
   const prices = PRICES.filter((p) => code.startsWith(p.code))
-  const used = WHERE_USED[base] ?? []
+  const [used, setUsed] = useState(WHERE_USED[base] ?? [])
+
+  // Where-Used 실데이터 — code_relationship 역참조 (백엔드 불가·무결과 시 mock 유지)
+  useEffect(() => {
+    void referencerService.list(base).then((rows) => {
+      if (rows && rows.length) {
+        setUsed(rows.map((r) => ({
+          mother: r.code, desc: r.name, qty: r.qty, level: r.status,
+        })))
+      }
+    })
+  }, [base])
 
   return (
     <div className="fill-col">

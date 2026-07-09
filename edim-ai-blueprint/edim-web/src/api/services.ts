@@ -1,6 +1,6 @@
 /** 서비스 계층 — 실 API(/api/v1, PostgreSQL 54테이블) 우선, 불가 시 mock 폴백.
  *  각 함수 주석 = 대응 REST 엔드포인트 (OpenAPI docs/api/edim-openapi.yaml). */
-import type { ExpandResult, RunResult, RunStep, SlotDef, TechDataRow, User } from './types'
+import type { DimensionDef, ExpandResult, RunResult, RunStep, SlotDef, TechDataRow, User } from './types'
 import {
   expandBom, finishedGoods, KOF_SLOTS, RUN_LOGS, RUN_OUTPUTS, RUN_STEPS, TECH_DATA,
 } from './mock/data'
@@ -614,6 +614,63 @@ export interface CadDocument {
   layers: CadLayer[]
   entities: CadEntity[]
   skippedEntityCounts: Record<string, number>
+}
+
+// ── 잔여 mock 실데이터화 (v4.0) — 치수 정의·Macro 목록·공정 정의·역참조 ──
+export interface MacroLibRow {
+  name: string; expr: string; status: string; address: string
+  prompt: string; description: string
+}
+export interface ProcessDefApi { id: number; code: string; name: string; dept: string; auto: boolean }
+export interface ProcessDefsResponse { defs: ProcessDefApi[]; edges: { from: number; to: number }[] }
+export interface ReferencerRow { code: string; name: string; qty: number; status: string }
+
+export const drawingService = {
+  /** GET /api/v1/drawings/dimensions — dwg_dimension + tbx_macro (Design Rule 실데이터) */
+  async dimensions(drawing = 'KDCR 3-13'): Promise<DimensionDef[] | null> {
+    try {
+      return await api<DimensionDef[]>(`/drawings/dimensions?drawing=${encodeURIComponent(drawing)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
+export const macroLibService = {
+  /** GET /api/v1/macros — tbx_macro 라이브러리 */
+  async list(): Promise<MacroLibRow[] | null> {
+    try {
+      return await api<MacroLibRow[]>('/macros')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
+export const processDefService = {
+  /** GET /api/v1/erp/process-defs — erp_process_def + edge */
+  async get(): Promise<ProcessDefsResponse | null> {
+    try {
+      return await api<ProcessDefsResponse>('/erp/process-defs')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
+export const referencerService = {
+  /** GET /api/v1/codes/{code}/referencers — Where-Used 역참조 */
+  async list(code: string): Promise<ReferencerRow[] | null> {
+    try {
+      return await api<ReferencerRow[]>(`/codes/${encodeURIComponent(code)}/referencers`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
 }
 
 export const cadService = {
