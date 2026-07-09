@@ -6,6 +6,7 @@ export function Cvs(props: {
   blocks: CanvasBlock[]
   selectedId?: string | null
   onSelect?: (b: CanvasBlock) => void
+  onOpen?: (b: CanvasBlock) => void   // 더블클릭 = 상세 (레거시 문법)
   dims?: { x: number; y: number; w: number; label: string }[]
   labels?: { x: number; y: number; text: string }[]
   style?: CSSProperties
@@ -25,7 +26,8 @@ export function Cvs(props: {
             left: b.x, top: b.y, width: b.w, height: b.h,
             borderStyle: b.dashed ? 'dashed' : undefined,
           }}
-          onClick={() => props.onSelect?.(b)}>
+          onClick={() => props.onSelect?.(b)}
+          onDoubleClick={() => props.onOpen?.(b)}>
           {b.name}
           {b.sub ? <small>{b.sub}</small> : null}
         </div>

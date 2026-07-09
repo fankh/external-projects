@@ -105,13 +105,18 @@ export function RunScreen({ active }: ScreenProps) {
       </div>
       <DenseGrid columns={stepCols} rows={result?.steps ?? []} rowKey={(r) => r.no} />
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0 }}>
-        <GroupBox title="산출물 — PS-61313-5" style={{ flex: 1.35 }} noPad
+        <GroupBox title="산출물 — PS-61313-5 (더블클릭=문서 상세)" style={{ flex: 1.35 }} noPad
           right={<>
             <span className="b" style={{ height: 18, fontSize: 10 }}>ZIP ⬇</span>
             <span className="b" style={{ height: 18, fontSize: 10 }}>폴더 열기</span>
           </>}>
           {done
-            ? <DenseGrid columns={outCols} rows={result?.outputs ?? []} rowKey={(_, i) => i} />
+            ? <DenseGrid columns={outCols} rows={result?.outputs ?? []} rowKey={(_, i) => i}
+                onRowDoubleClick={(r) => shell.openTab({
+                  id: `doc-detail:${r.file}`, screenId: 'doc-detail',
+                  code: '문서', title: r.file.slice(0, 14),
+                  params: { file: r.file, folder: r.folder, fileType: r.fileType, status: r.status },
+                })} />
             : <div style={{ padding: 10, color: 'var(--txt-mute)' }}>파이프라인 완료 후 표시됩니다…</div>}
         </GroupBox>
         <GroupBox title="실행 로그" style={{ flex: 1 }} noPad

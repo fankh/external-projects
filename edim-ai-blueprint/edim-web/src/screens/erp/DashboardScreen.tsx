@@ -6,6 +6,7 @@ import {
 } from '../../api/mock/dataErp'
 import { Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
+import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
 function FlowRow(props: { items: readonly { code: string; st: string }[] }) {
@@ -22,7 +23,13 @@ function FlowRow(props: { items: readonly { code: string; st: string }[] }) {
 }
 
 export function DashboardScreen(_props: ScreenProps) {
+  const shell = useShell()
   const [project, setProject] = useState('Micron #7')
+
+  const openEvent = (proj: string) => shell.openTab({
+    id: `event-detail:${proj}`, screenId: 'event-detail',
+    code: '이벤트', title: proj, params: { project: proj },
+  })
 
   return (
     <div className="fill-col">
@@ -92,12 +99,13 @@ export function DashboardScreen(_props: ScreenProps) {
               </tbody>
             </table>
           </GroupBox>
-          <GroupBox title="이상 경고 (시간·자금)" noPad>
+          <GroupBox title="이상 경고 (시간·자금) — 더블클릭=이벤트 상세" noPad>
             <table className="g">
               <thead><tr><th>구분</th><th>Project</th><th>내용</th></tr></thead>
               <tbody>
                 {ALERTS.map((a) => (
-                  <tr key={a.project}>
+                  <tr key={a.project} onDoubleClick={() => openEvent(a.project)}
+                    style={{ cursor: 'pointer' }}>
                     <td style={{ color: 'var(--err)', fontWeight: 700 }}>{a.kind}</td>
                     <td className="code">{a.project}</td>
                     <td>{a.message}</td>

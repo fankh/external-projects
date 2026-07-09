@@ -72,9 +72,13 @@ export function PriceScreen({ active }: ScreenProps) {
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
-          <GroupBox title={`단가 대장 — ${rows.length}건`} noPad style={{ flex: 1 }}>
+          <GroupBox title={`단가 대장 — ${rows.length}건 (더블클릭=코드 상세)`} noPad style={{ flex: 1 }}>
             <DenseGrid columns={cols} rows={rows} rowKey={(_, i) => i}
-              selectedKey={selIdx} onRowClick={(_, i) => setSelIdx(i)} />
+              selectedKey={selIdx} onRowClick={(_, i) => setSelIdx(i)}
+              onRowDoubleClick={(r) => shell.openTab({
+                id: `code-detail:${r.code}`, screenId: 'code-detail',
+                code: '상세', title: r.code, params: { code: r.code, name: r.name },
+              })} />
           </GroupBox>
           <GroupBox title={`재고 단가 산출 — ${STOCK_PRICE.code} (입출고 기반 자동, ERP-021)`} noPad>
             <table className="g">

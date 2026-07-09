@@ -104,8 +104,12 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
         </div>
         <div className="split-h" />
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
-          <GroupBox title="[ Child Group ]" right={<Chip tone="ok">Approved</Chip>} noPad>
-            <DenseGrid columns={childCols} rows={CHILD_GROUP} rowKey={(r) => r.code} />
+          <GroupBox title="[ Child Group ] — 더블클릭=코드 상세" right={<Chip tone="ok">Approved</Chip>} noPad>
+            <DenseGrid columns={childCols} rows={CHILD_GROUP} rowKey={(r) => r.code}
+              onRowDoubleClick={(r) => shell.openTab({
+                id: `code-detail:${r.code}`, screenId: 'code-detail',
+                code: '상세', title: r.code, params: { code: r.code, name: r.desc },
+              })} />
           </GroupBox>
           <GroupBox style={{ flex: 1 }}
             title="[ Part List Running Test ]"

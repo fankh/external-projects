@@ -124,12 +124,17 @@ export function SelectionScreen({ active }: ScreenProps) {
               ))}
             </div>
           </GroupBox>
-          <GroupBox title="BOM · 실시간 가격" style={{ flex: 1 }} noPad
+          <GroupBox title="BOM · 실시간 가격 — 더블클릭=코드 상세" style={{ flex: 1 }} noPad
             right={<span className="b" style={{ height: 18, fontSize: 10 }}>전체 47</span>}>
             <DenseGrid columns={cols} rows={bom}
               rowKey={(r) => r.resolvedCode}
               selectedKey={selBom}
               onRowClick={(r) => setSelBom(r.resolvedCode)}
+              onRowDoubleClick={(r) => shell.openTab({
+                id: `code-detail:${r.resolvedCode}`, screenId: 'code-detail',
+                code: '상세', title: r.resolvedCode,
+                params: { code: r.resolvedCode, name: r.name },
+              })}
               footer={<>
                 <td colSpan={4}>합계 (47항목)</td>
                 <td className="num">{totalK.toLocaleString()}</td>

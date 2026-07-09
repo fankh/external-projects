@@ -13,6 +13,10 @@ import { WorkProcessScreen } from '../screens/plm/WorkProcessScreen'
 import { SubCodeScreen } from '../screens/code/SubCodeScreen'
 import { CodeRelationshipScreen } from '../screens/code/CodeRelationshipScreen'
 import { DataTableScreen } from '../screens/code/DataTableScreen'
+import { CodeDetailScreen } from '../screens/detail/CodeDetailScreen'
+import { OutputDocScreen } from '../screens/detail/OutputDocScreen'
+import { PartDetailScreen } from '../screens/detail/PartDetailScreen'
+import { EventDetailScreen } from '../screens/detail/EventDetailScreen'
 import { ProjectScreen } from '../screens/erp/ProjectScreen'
 import { DashboardScreen } from '../screens/erp/DashboardScreen'
 import { PriceScreen } from '../screens/erp/PriceScreen'
@@ -38,6 +42,11 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'erp-price': PriceScreen,
   'erp-process': ProcessSetupScreen,
   'erp-purchase': PurchaseScreen,
+  // 상세 (드릴다운 — 더블클릭으로 진입, params 필수)
+  'code-detail': CodeDetailScreen,
+  'doc-detail': OutputDocScreen,
+  'part-detail': PartDetailScreen,
+  'event-detail': EventDetailScreen,
 }
 
 export function Shell(props: { user: User }) {

@@ -90,6 +90,10 @@ export function PurchaseScreen({ active }: ScreenProps) {
             title={<span>발주 요청 — <b style={{ color: 'var(--err)' }}>PR-61313-2</b>
               <span style={{ fontWeight: 400, color: 'var(--txt-dim)' }}> (Project OR-61313-5 · BOM BM 21456)</span></span>}>
             <DenseGrid columns={cols} rows={items} rowKey={(r) => r.code}
+              onRowDoubleClick={(r) => shell.openTab({
+                id: `code-detail:${r.code}`, screenId: 'code-detail',
+                code: '상세', title: r.code, params: { code: r.code, name: r.name },
+              })}
               footer={<>
                 <td colSpan={6}>선택 {items.filter((r) => r.checked).length}건</td>
                 <td className="num">{totalSel.toLocaleString()}</td>

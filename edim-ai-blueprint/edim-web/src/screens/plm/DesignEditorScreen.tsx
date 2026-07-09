@@ -87,6 +87,10 @@ export function DesignEditorScreen({ active }: ScreenProps) {
             setCoord(`X ${(e.clientX - r.left).toFixed(1)}  Y ${(e.clientY - r.top).toFixed(1)}`)
           }}>
           <Cvs blocks={DWG_BLOCKS} selectedId={selBlock?.id ?? null} onSelect={setSelBlock}
+            onOpen={(b) => shell.openTab({
+              id: `part-detail:${b.id}`, screenId: 'part-detail',
+              code: '부품', title: b.name, params: { partId: b.id },
+            })}
             dims={[
               { x: 150, y: 16, w: 330, label: `B = ${dimB}` },
               { x: 200, y: 34, w: 180, label: `A = ${dimA}` },
@@ -100,7 +104,7 @@ export function DesignEditorScreen({ active }: ScreenProps) {
             ]}
             style={{ flex: 1, minHeight: 320 }}>
             <div style={{ position: 'absolute', left: 236, top: 116, fontSize: 9, color: 'var(--txt-dim)' }}>
-              Bearing housing ← 더블클릭 (부품 정보)
+              Block 더블클릭 = 부품 정보 상세
             </div>
           </Cvs>
           <CommandLine

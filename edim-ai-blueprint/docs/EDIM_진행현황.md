@@ -43,7 +43,8 @@ REQ(80) → 기능(179) → 메뉴(98) → 화면(W-01~24) → 컴포넌트(39) 
   - PLM: Design Editor(S-4-1-1: 파라메트릭 A=700→B=756) · Work Process(S-4-1-2: MAKE/BUY)
   - Code Set-up: Sub Code 등록(S-1-1: 중복검토→승인요청 PENDING) · Code Relationship(S-1-4: Running Test 통과해야 승인 — CODE-009) · 데이터 Table(M-3-7: Excel식 셀 편집)
   - ERP: Project 등록(S-3-5: 영업단계 상태기계) · Dashboard(M-14-4: KPI·공정 흐름) · 단가 관리(M-12-5: resolve 시뮬레이션 ①→④) · Process Set-up(M-14-7: 정의 편집→Platform 승인) · 구매·발주(M-8-2: Stock Check→PO 생성)
-- **검증**: tsc 무오류 · Playwright 스모크 20/20 · 콘솔 에러 0
+- **상세(드릴다운) 4종** — 레거시 문법 "더블클릭=상세" 구현 (b01 채택 항목): **코드 상세**(BOM·Child·단가·발주 그리드에서 진입 — 도면·단가 이력·Referencers·승인 이력) · **문서 상세**(Run 산출물 — doc_control 상태 Set-up→Accepted·Grade M 워터마크) · **부품 상세**(Design Editor Block — 치수 바인딩·Work Process·조립순서 ◆) · **이벤트 상세**(Dashboard 이상경고 — 전후 공정·완료 처리→후행 생성)
+- **검증**: tsc 무오류 · Playwright 스모크 33/33 · 콘솔 에러 0
 - **배포**: dist 커밋 → 서버 rsync `/var/www/edim/edim-static/` + nginx `/cpq` `/plm` `/code` `/erp` SPA fallback
 
 ## 2. 인프라 현황 (edim.seekerslab.com)
@@ -56,7 +57,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 |---|---|
 | / | 프로토타입 앱 (AI 샘플 모드 — `ANTHROPIC_API_KEY` 미설정) |
 | /docs/ | **산출물 다운로드 포털** (29종: PDF 9·XLSX 9·SQL 2·YAML 1·HTML 3·근거 4·기타) |
-| **/cpq · /plm · /code · /erp** | **EDIM 업무 앱 (edim-web, dense B안 — 13화면, mock API)** |
+| **/cpq · /plm · /code · /erp** | **EDIM 업무 앱 (edim-web, dense B안 — 13화면 + 상세 4종, mock API)** |
 | /design/ · /design/hifi/ · /design/dense/ | 화면설계서(24) · 디자인 A · 디자인 B(★채택 — 전 화면 dense 확정) |
 | /api/* | 백엔드 REST (health·models·drawings) |
 | /jenkins/ | Jenkins LTS — **자체 로그인** (`auth_basic off`) |
