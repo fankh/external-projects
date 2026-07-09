@@ -648,6 +648,66 @@ export const drawingService = {
       throw e
     }
   },
+  /** PUT /api/v1/drawings/dimensions — F12 임시저장 (null=백엔드 불가) */
+  async saveDimensions(dims: DimensionDef[], drawing = 'KDCR 3-13'):
+    Promise<{ variantSaved: number; macroSaved: number } | null> {
+    try {
+      return await api<{ variantSaved: number; macroSaved: number }>('/drawings/dimensions', {
+        method: 'PUT', body: JSON.stringify({ drawing, dims }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
+export const workProcessService = {
+  /** GET /api/v1/erp/work-process — 저장된 MAKE/BUY */
+  async get(code = 'KDCR 3-13'): Promise<{ item: string; makeOrBuy: 'MAKE' | 'BUY' }[] | null> {
+    try {
+      return await api<{ item: string; makeOrBuy: 'MAKE' | 'BUY' }[]>(
+        `/erp/work-process?code=${encodeURIComponent(code)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** PUT /api/v1/erp/work-process — MAKE/BUY 저장 (true=영속) */
+  async save(items: { item: string; makeOrBuy: string }[], code = 'KDCR 3-13'): Promise<boolean> {
+    try {
+      await api('/erp/work-process', { method: 'PUT', body: JSON.stringify({ code, items }) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
+export const uiFormService = {
+  /** GET /api/v1/toolbox/forms/{name} — 저장된 레이아웃 (404/불가 = null) */
+  async get(name: string): Promise<{ version: number; layout: unknown[] } | null> {
+    try {
+      return await api<{ version: number; layout: unknown[] }>(
+        `/toolbox/forms/${encodeURIComponent(name)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      if (e instanceof Error && e.message.includes('Form 없음')) return null
+      throw e
+    }
+  },
+  /** PUT /api/v1/toolbox/forms/{name} — layout_def 저장, version+1 (null=백엔드 불가) */
+  async save(name: string, layout: unknown[]): Promise<{ version: number } | null> {
+    try {
+      return await api<{ version: number }>(`/toolbox/forms/${encodeURIComponent(name)}`, {
+        method: 'PUT', body: JSON.stringify({ layout }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
 }
 
 export const macroLibService = {

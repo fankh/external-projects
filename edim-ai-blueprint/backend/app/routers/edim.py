@@ -1118,6 +1118,134 @@ def save_macro(name: str, body: MacroSave) -> dict[str, Any]:
     return {"macroId": row[0], "status": "DRAFT"}
 
 
+# ── B2 — 편집 영속화: 치수 저장 · Work Process · UI Form ──
+
+class DimsSave(BaseModel):
+    drawing: str = "KDCR 3-13"
+    dims: list[dict[str, Any]] = []
+
+
+@router.put("/drawings/dimensions", dependencies=[SETUP])
+def save_dimensions(body: DimsSave) -> dict[str, Any]:
+    """Design Editor 임시저장 F12 — VARIANT 는 variant_value, =식은 바인딩된 tbx_macro 갱신."""
+    n_var = n_macro = 0
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        for d in body.dims:
+            label = str(d.get("no", "")).strip()[:10]
+            value = str(d.get("value", "")).strip()
+            if not label or not value:
+                continue
+            if value.startswith("="):
+                cur.execute(
+                    """UPDATE tbx_macro m SET macro_expr=%s, updated_at=now()
+                       FROM dwg_dimension dd
+                       JOIN dwg_drawing w ON w.drawing_id=dd.drawing_id
+                       WHERE m.macro_id=dd.macro_id AND dd.tenant_id=%s
+                         AND w.drawing_no=%s AND dd.dim_label=%s""",
+                    (value, tid, body.drawing, label))
+                n_macro += cur.rowcount
+            else:
+                try:
+                    num = float(value)
+                except ValueError:
+                    continue
+                # MACRO 바인딩 치수의 평가값은 파생값 — 덮어쓰지 않음 (ck_dim_binding)
+                cur.execute(
+                    """UPDATE dwg_dimension dd SET variant_value=%s, updated_at=now()
+                       FROM dwg_drawing w
+                       WHERE w.drawing_id=dd.drawing_id AND dd.tenant_id=%s
+                         AND w.drawing_no=%s AND dd.dim_label=%s AND dd.macro_id IS NULL""",
+                    (num, tid, body.drawing, label))
+                n_var += cur.rowcount
+    return {"variantSaved": n_var, "macroSaved": n_macro}
+
+
+class WorkProcessSave(BaseModel):
+    code: str = "KDCR 3-13"
+    items: list[dict[str, Any]] = []   # {item, makeOrBuy}
+
+
+@router.get("/erp/work-process")
+def get_work_process(code: str = "KDCR 3-13") -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT wp.process_type, wp.make_or_buy
+               FROM erp_work_process wp
+               JOIN product_code pc ON pc.product_code_id=wp.product_code_id
+               WHERE wp.tenant_id=%s AND pc.main_code=%s ORDER BY wp.seq_no""",
+            (tid, code))
+        return [{"item": r[0], "makeOrBuy": r[1]} for r in cur.fetchall()]
+
+
+@router.put("/erp/work-process", dependencies=[SETUP])
+def save_work_process(body: WorkProcessSave) -> dict[str, Any]:
+    """Work Process MAKE/BUY 저장 — erp_work_process upsert (S-4-1-2 F12)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+            (tid, body.code))
+        pc = cur.fetchone()
+        if not pc:
+            raise HTTPException(404, detail=f"코드 없음: {body.code}")
+        n = 0
+        for i, it in enumerate(body.items):
+            item = str(it.get("item", "")).strip()[:20]
+            mob = str(it.get("makeOrBuy", "")).strip().upper()
+            if not item or mob not in ("MAKE", "BUY"):
+                continue
+            cur.execute(
+                """UPDATE erp_work_process SET make_or_buy=%s, seq_no=%s, updated_at=now()
+                   WHERE tenant_id=%s AND product_code_id=%s AND process_type=%s""",
+                (mob, i, tid, pc[0], item))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO erp_work_process (tenant_id, product_code_id, process_type,
+                       seq_no, make_or_buy) VALUES (%s,%s,%s,%s,%s)""",
+                    (tid, pc[0], item, i, mob))
+            n += 1
+    return {"saved": n}
+
+
+class FormSave(BaseModel):
+    layout: list[dict[str, Any]] = []
+    formType: str = "SCREEN"
+
+
+@router.get("/toolbox/forms/{name}")
+def get_form(name: str) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT form_id, version, layout_def FROM tbx_ui_form
+               WHERE tenant_id=%s AND form_name=%s""", (tid, name))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"Form 없음: {name}")
+    return {"formId": row[0], "version": row[1], "layout": row[2]}
+
+
+@router.put("/toolbox/forms/{name}", dependencies=[SETUP])
+def save_form(name: str, body: FormSave) -> dict[str, Any]:
+    """UI Designer 레이아웃 저장 — tbx_ui_form upsert (version+1)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE tbx_ui_form SET layout_def=%s, version=version+1, updated_at=now()
+               WHERE tenant_id=%s AND form_name=%s RETURNING form_id, version""",
+            (json.dumps(body.layout), tid, name))
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                """INSERT INTO tbx_ui_form (tenant_id, form_name, form_type, layout_def)
+                   VALUES (%s,%s,%s,%s) RETURNING form_id, version""",
+                (tid, name, body.formType.strip()[:30] or "SCREEN", json.dumps(body.layout)))
+            row = cur.fetchone()
+    return {"formId": row[0], "version": row[1]}
+
+
 # ── SVC-03 Sub Code 항목 등록 (S-1-1 write) ──
 class NewItemRequest(BaseModel):
     slot: str

@@ -1,8 +1,9 @@
 /** S-4-1-2 Work Process 공정 데이터 (W-19) — 제조비 계산(CST-003) 입력.
  *  MAKE/BUY 구분이 Pricing Run 의 원가 경로를 결정. */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { MaterialRow } from '../../api/types'
 import { MACRO_CODING, MATERIAL_ROWS, PROCESS_DEF, PROCESS_OPTIONS } from '../../api/mock/data'
+import { workProcessService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -21,12 +22,31 @@ export function WorkProcessScreen({ active }: ScreenProps) {
   const [selItem, setSelItem] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
 
+  // 저장된 MAKE/BUY 실데이터 복원 (erp_work_process)
+  useEffect(() => {
+    void workProcessService.get().then((saved) => {
+      if (saved && saved.length) {
+        setRows((prev) => prev.map((r) => {
+          const s = saved.find((x) => x.item === r.item)
+          return s ? { ...r, makeBuy: s.makeOrBuy, timeMin: s.makeOrBuy === 'BUY' ? null : (r.timeMin ?? 45) } : r
+        }))
+      }
+    })
+  }, [])
+
   const save = () => {
-    setDirty(false)
-    shell.setStatusMsg('공정 데이터 저장 — 제조비 입력 갱신 (CST-003)')
+    void workProcessService.save(rows.map((r) => ({ item: r.item, makeOrBuy: r.makeBuy })))
+      .then((ok) => {
+        if (ok) {
+          setDirty(false)
+          shell.setStatusMsg('공정 데이터 저장 ✓ — erp_work_process 영속 (CST-003 원가 경로 반영)')
+        } else {
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>저장 불가 — 백엔드 연결 필요</span>)
+        }
+      })
   }
 
-  useFKeys(active, useMemo(() => ({ F12: save }), [])) // eslint-disable-line react-hooks/exhaustive-deps
+  useFKeys(active, useMemo(() => ({ F12: save }), [rows])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleMakeBuy = (item: string) => {
     setRows((prev) => prev.map((r) => (r.item === item

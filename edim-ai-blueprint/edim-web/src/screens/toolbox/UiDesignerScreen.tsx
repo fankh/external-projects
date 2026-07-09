@@ -1,22 +1,51 @@
 /** S-2-1 Toolbox UI Designer (W-08, 슬라이드 27·28) — Widget 팔레트 클릭 배치 ·
  *  Object Inspector · layout_def 저장→승인→게시 (TBX-001~004). */
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { INITIAL_WIDGETS, WIDGET_PALETTE, type Widget } from '../../api/mock/dataMore'
-import { aiService, approvalService } from '../../api/services'
+import { aiService, approvalService, uiFormService } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { useShell } from '../../shell/ShellContext'
+import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
 let widgetSeq = 5
 
-export function UiDesignerScreen(_props: ScreenProps) {
+const FORM_NAME = 'CPQ/Selection'
+
+export function UiDesignerScreen({ active }: ScreenProps) {
   const shell = useShell()
   const [widgets, setWidgets] = useState<Widget[]>(INITIAL_WIDGETS)
   const [selId, setSelId] = useState<string | null>('w1')
   const [dirty, setDirty] = useState(false)
+  const [version, setVersion] = useState(1)
   const [aiText, setAiText] = useState('')
 
   const sel = widgets.find((w) => w.id === selId) ?? null
+
+  // 저장된 layout_def 복원 (tbx_ui_form)
+  useEffect(() => {
+    void uiFormService.get(FORM_NAME).then((r) => {
+      if (r && Array.isArray(r.layout) && r.layout.length) {
+        setWidgets(r.layout as Widget[])
+        setVersion(r.version)
+        widgetSeq = r.layout.length + 5
+      }
+    })
+  }, [])
+
+  const saveLayout = async (): Promise<boolean> => {
+    const r = await uiFormService.save(FORM_NAME, widgets)
+    if (r) {
+      setDirty(false)
+      setVersion(r.version)
+      shell.setStatusMsg(`레이아웃 저장 ✓ — tbx_ui_form v${r.version} (layout_def JSONB)`)
+      return true
+    }
+    shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>저장 불가 — 백엔드 연결 필요</span>)
+    return false
+  }
+
+  useFKeys(active, useMemo(() => ({ F12: () => { void saveLayout() } }), [widgets])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addWidget = (kind: string) => {
     const id = `w${widgetSeq++}`
@@ -33,16 +62,21 @@ export function UiDesignerScreen(_props: ScreenProps) {
     <div className="fill-col">
       <div className="qband">
         <span style={{ fontSize: 10.5, color: 'var(--txt-dim)' }}>
-          Form — CPQ / Selection {dirty ? '*' : ''}
+          Form — CPQ / Selection v{version} {dirty ? '*' : ''}
         </span>
         <span style={{ flex: 1 }} />
         <Btn onClick={() => shell.setStatusMsg('미리보기 — 동적 렌더러 실행 (TBX-003)')}>미리보기</Btn>
-        <Btn>버전</Btn>
+        <Btn onClick={() => { void saveLayout() }}>저장 F12</Btn>
         <Btn variant="pri" onClick={() => {
-          void approvalService.request('tbx_ui_form', 'UI Form 게시 — S-2-1 초안 layout_def')
-            .then((ok) => shell.setStatusMsg(ok
+          void (async () => {
+            // 게시 = 현재 레이아웃 저장 후 승인 요청 (TBX-004)
+            if (!await saveLayout()) return
+            const ok = await approvalService.request(
+              'tbx_ui_form', `UI Form 게시 — ${FORM_NAME} v${version + 1} layout_def`)
+            shell.setStatusMsg(ok
               ? '게시 승인 요청 ✓ — 승인함(M-15-2) 등록 · 승인 후 게시 (TBX-004)'
-              : <span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요</span>))
+              : <span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요</span>)
+          })()
         }}>
           게시 (승인 후)
         </Btn>

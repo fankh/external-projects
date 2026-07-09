@@ -156,7 +156,11 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
       loadCad(dims)
     },
     F9: runMacro,
-    F12: () => shell.setStatusMsg('Block 임시저장 — 승인 후 사용 가능 (DWG-012)'),
+    F12: () => {
+      void drawingService.saveDimensions(dims).then((r) => shell.setStatusMsg(r
+        ? `임시저장 ✓ — VARIANT ${r.variantSaved}건 · Macro 식 ${r.macroSaved}건 (dwg_dimension/tbx_macro)`
+        : <span style={{ color: 'var(--err)' }}>저장 불가 — 백엔드 연결 필요</span>))
+    },
   }), [dims, cadMode, shell.setStatusMsg])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dimA = dims.find((d) => d.no === 'A')?.value ?? '670'
@@ -309,7 +313,11 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
           </GroupBox>
           <div style={{ display: 'flex', gap: 4 }}>
             <Btn style={{ flex: 1, justifyContent: 'center' }}
-              onClick={() => shell.setStatusMsg('Block 임시저장 (DRAFT)')}>{t('common.tempSave', '임시저장 F12')}</Btn>
+              onClick={() => {
+                void drawingService.saveDimensions(dims).then((r) => shell.setStatusMsg(r
+                  ? `임시저장 ✓ — VARIANT ${r.variantSaved}건 · Macro 식 ${r.macroSaved}건 (dwg_dimension/tbx_macro)`
+                  : <span style={{ color: 'var(--err)' }}>저장 불가 — 백엔드 연결 필요</span>))
+              }}>{t('common.tempSave', '임시저장 F12')}</Btn>
             <Btn variant="pri" style={{ flex: 1, justifyContent: 'center' }}
               onClick={() => {
                 void approvalService.request('dwg_drawing',
