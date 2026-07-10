@@ -390,6 +390,7 @@ def run_seed() -> None:
             seed_v16(cur, row[0])
             seed_v17(cur, row[0])
             seed_v18(cur, row[0])
+            seed_v19(cur, row[0])
             return
 
         cur.execute(
@@ -503,6 +504,7 @@ def run_seed() -> None:
         seed_v16(cur, tid)
         seed_v17(cur, tid)
         seed_v18(cur, tid)
+        seed_v19(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -2109,3 +2111,33 @@ def seed_v18(cur, tid: int) -> None:
         logger.info("seed v18 — 접수 자료 2건 실데이터화 (RECEIVED, MinIO)")
     except Exception as e:  # noqa: BLE001 — storage 불가 시 다음 기동에서 재시도
         logger.warning("seed v18 skip: %s", e)
+
+
+# ── seed v19 — F2 사용자 등록·수정 UI 키 ──
+
+UI_TRANSLATIONS_V19: dict[str, tuple[str, str, str]] = {
+    "access.editUser": ("Edit Info", "情報修正", "编辑信息"),
+    "access.regTitle": ("Register User — sys_user", "ユーザー登録 — sys_user", "用户登记 — sys_user"),
+    "access.regLoginPh": ("lowercase·digits·._- min 3 chars", "小文字・数字・._- 3文字以上", "小写·数字·._- 至少3位"),
+    "access.email": ("Email", "メール", "邮箱"),
+    "access.initPw": ("Initial Password", "初期パスワード", "初始密码"),
+    "access.initPwPh": ("min 4 chars — change after handover", "4文字以上 — 引き渡し後に変更推奨", "至少4位 — 交付后建议修改"),
+    "access.regNeedFields": ("login, name and initial password are required",
+                             "login・氏名・初期パスワードは必須です", "login·姓名·初始密码为必填"),
+    "access.regNeedName": ("Name cannot be empty", "氏名は空にできません", "姓名不能为空"),
+    "access.editTitle": ("Edit Info — {n}", "情報修正 — {n}", "编辑信息 — {n}"),
+    "access.editSubmit": ("Save F12", "保存 F12", "保存 F12"),
+}
+
+
+def seed_v19(cur, tid: int) -> None:
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V19.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))

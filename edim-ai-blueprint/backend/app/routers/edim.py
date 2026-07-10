@@ -11,6 +11,7 @@ import hmac
 import io
 import json
 import os
+import re
 import time
 from datetime import date
 from typing import Any
@@ -1744,11 +1745,12 @@ def users() -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT login_id, user_name, department, user_level, status
+            """SELECT login_id, user_name, department, user_level, status, email
                FROM sys_user WHERE tenant_id=%s ORDER BY user_id""", (tid,))
         return [
             {"login": r[0], "name": r[1], "dept": r[2] or "-", "level": r[3],
-             "role": (r[2] or "") + " " + ROLE_LABEL.get(r[3], r[3]), "status": r[4]}
+             "role": (r[2] or "") + " " + ROLE_LABEL.get(r[3], r[3]), "status": r[4],
+             "email": r[5] or ""}
             for r in cur.fetchall()
         ]
 
@@ -1795,6 +1797,125 @@ def change_user_level(login: str, request: Request, body: LevelChangeRequest) ->
         _audit(cur, tid, "sys_user", row[0], "LEVEL_CHANGE", request.state.user_id,
                after={"level": level}, before={"level": row[1]})
     return {"login": login, "level": level}
+
+
+# ── F2 — 사용자 등록·프로필 수정·삭제 (M-14-6, SYS-005) ──
+
+_LOGIN_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,49}$")
+
+
+class UserCreate(BaseModel):
+    login: str
+    name: str
+    department: str = ""
+    email: str = ""
+    level: str = "GENERAL"
+    initialPassword: str
+
+
+@router.post("/users", status_code=201, dependencies=[ADMIN])
+def create_user(body: UserCreate, request: Request) -> dict[str, Any]:
+    """사용자 신규 등록 (F2) — 초기 비밀번호는 관리자가 지정, USER_CREATE 감사."""
+    login = body.login.strip().lower()
+    if not _LOGIN_RE.fullmatch(login):
+        raise HTTPException(422, detail="login 은 소문자·숫자·._- 3~50자 (첫 글자는 영숫자)")
+    if not body.name.strip():
+        raise HTTPException(422, detail="이름을 입력하십시오")
+    level = body.level.strip().upper()
+    if level not in ("GENERAL", "SETUP", "ADMIN"):
+        raise HTTPException(422, detail="레벨은 GENERAL/SETUP/ADMIN 중 하나 (PLATFORM 은 테넌트 관리 전용)")
+    if len(body.initialPassword) < 4:
+        raise HTTPException(422, detail="초기 비밀번호는 4자 이상이어야 합니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM sys_user WHERE tenant_id=%s AND login_id=%s", (tid, login))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"이미 존재하는 login: {login}")
+        cur.execute(
+            """INSERT INTO sys_user (tenant_id, login_id, user_name, email, password_hash,
+               department, user_level, status, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,'ACTIVE',%s) RETURNING user_id""",
+            (tid, login, body.name.strip(), body.email.strip() or None,
+             hashlib.sha256(body.initialPassword.encode()).hexdigest(),
+             body.department.strip() or None, level, request.state.login))
+        uid = cur.fetchone()[0]
+        _audit(cur, tid, "sys_user", uid, "USER_CREATE", request.state.user_id,
+               after={"login": login, "name": body.name.strip(), "level": level})
+    return {"login": login, "name": body.name.strip(), "dept": body.department.strip() or "-",
+            "level": level, "status": "ACTIVE"}
+
+
+class UserPatch(BaseModel):
+    name: str | None = None
+    department: str | None = None
+    email: str | None = None
+
+
+@router.patch("/users/{login}", dependencies=[ADMIN])
+def patch_user(login: str, body: UserPatch, request: Request) -> dict[str, Any]:
+    """사용자 프로필 수정 (F2) — 이름·부서·이메일 (레벨은 /level, 상태는 /active·/unlock)."""
+    fields = {k: v for k, v in (("user_name", body.name), ("department", body.department),
+                                ("email", body.email)) if v is not None}
+    if not fields:
+        raise HTTPException(422, detail="수정할 필드가 없습니다 (name/department/email)")
+    if "user_name" in fields and not fields["user_name"].strip():
+        raise HTTPException(422, detail="이름은 비울 수 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT user_id, user_name, department, email FROM sys_user
+               WHERE tenant_id=%s AND login_id=%s""", (tid, login))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        before = {"name": row[1], "department": row[2], "email": row[3]}
+        sets = ", ".join(f"{k}=%s" for k in fields)
+        cur.execute(
+            f"UPDATE sys_user SET {sets}, updated_by=%s, updated_at=now() WHERE user_id=%s",
+            (*[v.strip() or None for v in fields.values()], request.state.login, row[0]))
+        _audit(cur, tid, "sys_user", row[0], "USER_UPDATE", request.state.user_id,
+               after={k: (v.strip() or None) for k, v in
+                      (("name", body.name), ("department", body.department),
+                       ("email", body.email)) if v is not None},
+               before={k: before[k] for k in
+                       ("name", "department", "email")
+                       if (k == "name" and body.name is not None)
+                       or (k == "department" and body.department is not None)
+                       or (k == "email" and body.email is not None)})
+    return {"login": login, "updated": sorted(fields)}
+
+
+@router.delete("/users/{login}", dependencies=[ADMIN])
+def delete_user(login: str, request: Request) -> dict[str, Any]:
+    """사용자 삭제 (F2) — 업무 이력이 있으면 409 (비활성화 사용), 무참조만 하드 삭제."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+                    (tid, login))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        uid = row[0]
+        if uid == request.state.user_id:
+            raise HTTPException(422, detail="본인 계정은 삭제할 수 없습니다")
+        for tbl, col, label in (
+            ("sys_history", "actor_id", "감사 이력"),
+            ("sys_approval_request", "requester_id", "승인 요청"),
+            ("sys_approval_request", "approver_id", "승인 처리"),
+            ("sys_notification", "user_id", "알림"),
+            ("prj_project", "manager_id", "프로젝트 담당"),
+            ("erp_process_event", "assignee_id", "업무 이벤트"),
+        ):
+            cur.execute(f"SELECT count(*) FROM {tbl} WHERE {col}=%s", (uid,))
+            c = cur.fetchone()[0]
+            if c:
+                raise HTTPException(
+                    409, detail=f"참조 존재 — {label} {c}건 (삭제 대신 비활성화를 사용하십시오)")
+        cur.execute("DELETE FROM sys_user_role WHERE user_id=%s", (uid,))
+        cur.execute("DELETE FROM sys_user WHERE user_id=%s", (uid,))
+        _audit(cur, tid, "sys_user", uid, "USER_DELETE", request.state.user_id,
+               after={"login": login})
+    return {"deleted": login}
 
 
 # ── SVC-09 ERP 이벤트 (업무함 M-15-3 · Dashboard 경고) ──

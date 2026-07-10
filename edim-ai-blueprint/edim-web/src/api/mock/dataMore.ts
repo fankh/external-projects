@@ -84,6 +84,7 @@ export interface UserRow {
   login: string; name: string; dept: string
   level: 'PLATFORM' | 'ADMIN' | 'SETUP' | 'GENERAL'
   role: string; status: 'ACTIVE' | 'LOCKED' | 'DISABLED'
+  email?: string
 }
 export const USERS: UserRow[] = [
   { login: 'ysgang', name: 'YS.Gang', dept: '기술', level: 'SETUP', role: '설계 Set-up', status: 'ACTIVE' },

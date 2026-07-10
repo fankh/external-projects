@@ -15,7 +15,11 @@ export function AccessControlScreen({ active }: ScreenProps) {
   const { t } = useI18n()
   const [users, setUsers] = useState<UserRow[]>([])
   const [dept, setDept] = useState('전체')
+  const [levelFilter, setLevelFilter] = useState('전체')
+  const [query, setQuery] = useState('')
   const [selLogin, setSelLogin] = useState<string | null>(null)
+  const [showReg, setShowReg] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
 
   const load = () => {
     void userService.list().then((rows) => {
@@ -59,8 +63,12 @@ export function AccessControlScreen({ active }: ScreenProps) {
   }
 
   const rows = useMemo(
-    () => users.filter((u) => dept === '전체' || u.dept === dept),
-    [users, dept],
+    () => users.filter((u) => (dept === '전체' || u.dept === dept)
+      && (levelFilter === '전체' || u.level === levelFilter)
+      && (!query.trim()
+        || u.login.toLowerCase().includes(query.trim().toLowerCase())
+        || u.name.toLowerCase().includes(query.trim().toLowerCase()))),
+    [users, dept, levelFilter, query],
   )
   const sel = users.find((u) => u.login === selLogin) ?? null
 
@@ -101,8 +109,13 @@ export function AccessControlScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F8: () => shell.setStatusMsg(`조회 — 사용자 ${rows.length}명`),
-  }), [rows.length])) // eslint-disable-line react-hooks/exhaustive-deps
+    F2: () => setShowReg(true),
+    F8: () => {
+      load()
+      loadRoles()
+      shell.setStatusMsg('사용자·권한 재조회 (sys_user·sys_role_permission)')
+    },
+  }), [])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cols: GridColumn<UserRow>[] = [
     { key: 'login', header: 'login', width: 70, code: true, render: (r) => r.login },
@@ -125,16 +138,17 @@ export function AccessControlScreen({ active }: ScreenProps) {
       <div className="qband">
         <label>{t('access.search', '검색')}</label>
         <input className="in" style={{ width: 140 }} placeholder={t('access.searchPh', 'login·이름')}
-          aria-label="사용자 검색" />
+          aria-label="사용자 검색" value={query} onChange={(e) => setQuery(e.target.value)} />
         <label>{t('dash.dept', '부서')}</label>
         <Combo width={72} value={dept}
           options={[{ value: '전체', label: t('enum.all', '전체') }, '기술', '영업', '재무']}
           onChange={setDept} />
         <label>{t('access.level', '레벨')}</label>
-        <Combo width={90} value="전체"
-          options={[{ value: '전체', label: t('enum.all', '전체') }, 'ADMIN', 'SETUP', 'GENERAL']} />
+        <Combo width={90} value={levelFilter}
+          options={[{ value: '전체', label: t('enum.all', '전체') }, 'ADMIN', 'SETUP', 'GENERAL']}
+          onChange={setLevelFilter} />
         <span style={{ flex: 1 }} />
-        <Btn variant="pri">{t('access.addUser', '＋ 사용자 등록')}</Btn>
+        <Btn variant="pri" onClick={() => setShowReg(true)}>{t('access.addUser', '＋ 사용자 등록')}</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
@@ -190,6 +204,7 @@ export function AccessControlScreen({ active }: ScreenProps) {
                   ? `초대 발송 ✓ — ${sel.login} 인앱 알림 + 감사 기록 (메일 서버 미설정 — 인앱 채널)`
                   : <span style={{ color: 'var(--err)' }}>초대 불가 — 백엔드 연결 필요</span>))
               }}>{t('access.inviteMail', '초대 (인앱)')}</Btn>
+              <Btn disabled={!sel} onClick={() => setShowEdit(true)}>{t('access.editUser', '정보 수정')}</Btn>
               <Btn disabled={sel?.status !== 'LOCKED'} onClick={unlock}>{t('access.unlock', '잠금 해제')}</Btn>
               <Btn style={{ borderColor: 'var(--err)', color: 'var(--err)' }} disabled={!sel}
                 onClick={() => {
@@ -264,6 +279,157 @@ export function AccessControlScreen({ active }: ScreenProps) {
               · {t('access.principle3', '테넌트 관리(ADM-001)는 Platform 전용')}
             </div>
           </GroupBox>
+        </div>
+      </div>
+      {showReg ? (
+        <UserRegDialog
+          onClose={() => setShowReg(false)}
+          onSaved={(u) => {
+            setShowReg(false)
+            setSelLogin(u.login)
+            load()
+            shell.setStatusMsg(`사용자 등록 ✓ — ${u.login} · ${u.level} (sys_user + USER_CREATE 감사)`)
+          }} />
+      ) : null}
+      {showEdit && sel ? (
+        <UserEditDialog user={sel}
+          onClose={() => setShowEdit(false)}
+          onSaved={(fields) => {
+            setShowEdit(false)
+            load()
+            shell.setStatusMsg(`정보 수정 ✓ — ${sel.login}: ${fields.join(', ')} (USER_UPDATE 감사)`)
+          }} />
+      ) : null}
+    </div>
+  )
+}
+
+// ── F2 — 사용자 등록 다이얼로그 (초기 비밀번호는 관리자 지정, 첫 로그인 후 변경 권장) ──
+function UserRegDialog(props: { onClose: () => void; onSaved: (u: UserRow) => void }) {
+  const { t } = useI18n()
+  const [form, setForm] = useState({
+    login: '', name: '', department: '기술', email: '', level: 'GENERAL', initialPassword: '',
+  })
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = () => {
+    if (!form.login.trim() || !form.name.trim() || !form.initialPassword) {
+      setErr(t('access.regNeedFields', 'login·이름·초기 비밀번호는 필수입니다'))
+      return
+    }
+    setBusy(true)
+    void userService.create({ ...form, login: form.login.trim(), name: form.name.trim() })
+      .then((u) => {
+        if (!u) {
+          setErr(t('common.needBackend', '백엔드 연결 필요 (mock 모드)'))
+          setBusy(false)
+          return
+        }
+        props.onSaved(u)
+      })
+      .catch((e: Error) => { setErr(e.message); setBusy(false) })
+  }
+
+  return (
+    <div data-user-reg style={{
+      position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={props.onClose}>
+      <div style={{ width: 380, background: '#fff', border: '1px solid var(--line-strong)', boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+          <b>{t('access.regTitle', '사용자 등록 — sys_user')}</b><span className="sp" />
+          <span style={{ cursor: 'pointer' }} onClick={props.onClose}>✕</span>
+        </div>
+        <div className="frm" style={{ padding: 10 }}>
+          <label>login<i>*</i></label>
+          <input className="in req" value={form.login} autoFocus aria-label="등록 login"
+            placeholder={t('access.regLoginPh', '소문자·숫자·._- 3자 이상')}
+            onChange={(e) => setForm({ ...form, login: e.target.value })} />
+          <label>{t('access.name', '이름')}<i>*</i></label>
+          <input className="in req" value={form.name} aria-label="등록 이름"
+            onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <label>{t('dash.dept', '부서')}</label>
+          <Combo value={form.department} options={['기술', '영업', '재무']}
+            onChange={(v) => setForm({ ...form, department: v })} />
+          <label>{t('access.email', '이메일')}</label>
+          <input className="in" value={form.email} aria-label="등록 이메일"
+            onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <label>{t('access.level', '레벨')}</label>
+          <Combo value={form.level} options={['GENERAL', 'SETUP', 'ADMIN']}
+            onChange={(v) => setForm({ ...form, level: v })} />
+          <label>{t('access.initPw', '초기 비밀번호')}<i>*</i></label>
+          <input className="in req" type="password" value={form.initialPassword}
+            aria-label="초기 비밀번호" placeholder={t('access.initPwPh', '4자 이상 — 전달 후 변경 권장')}
+            onChange={(e) => setForm({ ...form, initialPassword: e.target.value })}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit() }} />
+        </div>
+        {err ? <div style={{ color: 'var(--err)', fontSize: 11, padding: '0 10px 6px' }}>{err}</div> : null}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, padding: '0 10px 10px' }}>
+          <Btn onClick={props.onClose}>{t('price.cancel', '취소')}</Btn>
+          <Btn variant="pri" disabled={busy} onClick={submit}>{t('prj.regSubmit', '등록 F12')}</Btn>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── F2 — 사용자 정보 수정 다이얼로그 (이름·부서·이메일 — 레벨/상태는 계정 작업에서) ──
+function UserEditDialog(props: {
+  user: UserRow; onClose: () => void; onSaved: (fields: string[]) => void
+}) {
+  const { t } = useI18n()
+  const [name, setName] = useState(props.user.name)
+  const [department, setDepartment] = useState(props.user.dept === '-' ? '기술' : props.user.dept)
+  const [email, setEmail] = useState(props.user.email ?? '')
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = () => {
+    if (!name.trim()) {
+      setErr(t('access.regNeedName', '이름은 비울 수 없습니다'))
+      return
+    }
+    setBusy(true)
+    void userService.update(props.user.login, { name: name.trim(), department, email: email.trim() })
+      .then((ok) => {
+        if (!ok) {
+          setErr(t('common.needBackend', '백엔드 연결 필요 (mock 모드)'))
+          setBusy(false)
+          return
+        }
+        props.onSaved(['name', 'department', 'email'])
+      })
+      .catch((e: Error) => { setErr(e.message); setBusy(false) })
+  }
+
+  return (
+    <div data-user-edit style={{
+      position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={props.onClose}>
+      <div style={{ width: 360, background: '#fff', border: '1px solid var(--line-strong)', boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+          <b>{t('access.editTitle', '정보 수정 — {n}').replace('{n}', props.user.login)}</b><span className="sp" />
+          <span style={{ cursor: 'pointer' }} onClick={props.onClose}>✕</span>
+        </div>
+        <div className="frm" style={{ padding: 10 }}>
+          <label>{t('access.name', '이름')}<i>*</i></label>
+          <input className="in req" value={name} autoFocus aria-label="수정 이름"
+            onChange={(e) => setName(e.target.value)} />
+          <label>{t('dash.dept', '부서')}</label>
+          <Combo value={department} options={['기술', '영업', '재무']} onChange={setDepartment} />
+          <label>{t('access.email', '이메일')}</label>
+          <input className="in" value={email} aria-label="수정 이메일"
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit() }} />
+        </div>
+        {err ? <div style={{ color: 'var(--err)', fontSize: 11, padding: '0 10px 6px' }}>{err}</div> : null}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, padding: '0 10px 10px' }}>
+          <Btn onClick={props.onClose}>{t('price.cancel', '취소')}</Btn>
+          <Btn variant="pri" disabled={busy} onClick={submit}>{t('access.editSubmit', '저장 F12')}</Btn>
         </div>
       </div>
     </div>

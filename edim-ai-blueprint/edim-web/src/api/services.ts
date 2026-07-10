@@ -383,6 +383,41 @@ export const userService = {
       return USERS
     }
   },
+  /** POST /api/v1/users — 신규 등록 + USER_CREATE 감사 (F2, honest-write) */
+  async create(u: {
+    login: string; name: string; department: string; email: string
+    level: string; initialPassword: string
+  }): Promise<UserRow | null> {
+    try {
+      return await api('/users', { method: 'POST', body: JSON.stringify(u) })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return null   // mock 모드 — 정직 거부
+    }
+  },
+  /** PATCH /api/v1/users/{login} — 프로필(이름·부서·이메일) 수정 + USER_UPDATE 감사 (F2) */
+  async update(login: string, patch: { name?: string; department?: string; email?: string }):
+    Promise<boolean> {
+    try {
+      await api(`/users/${encodeURIComponent(login)}`, {
+        method: 'PATCH', body: JSON.stringify(patch),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** DELETE /api/v1/users/{login} — 무참조만 (업무 이력 존재 시 409 throw) */
+  async remove(login: string): Promise<boolean> {
+    try {
+      await api(`/users/${encodeURIComponent(login)}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
   /** POST /api/v1/users/{login}/unlock */
   async unlock(login: string): Promise<void> {
     try {

@@ -239,6 +239,16 @@ with sync_playwright() as pw:
     page.get_by_role("button", name="잠금 해제").click()
     page.wait_for_timeout(600)
     ok("unlock park.f", page.locator(".st:visible", has_text="LOCKED").count() == 0)
+    # F2 등록 다이얼로그 — mock 모드 정직 거부
+    page.get_by_role("button", name="＋ 사용자 등록").click()
+    page.wait_for_selector("[data-user-reg]", timeout=3000)
+    page.locator("[data-user-reg] input[aria-label='등록 login']").fill("fb.test")
+    page.locator("[data-user-reg] input[aria-label='등록 이름']").fill("폴백")
+    page.locator("[data-user-reg] input[aria-label='초기 비밀번호']").fill("test1234")
+    page.locator("[data-user-reg] button", has_text="등록").first.click()
+    page.wait_for_selector("[data-user-reg] >> text=백엔드 연결 필요", timeout=4000)
+    ok("user create honest-reject (mock)", True)
+    page.locator("[data-user-reg] button", has_text="취소").click()
     page.screenshot(path=f"{SHOT}/35-access.png")
 
     # 10. 공통 모듈

@@ -26,6 +26,7 @@ SUITES = [
     "live_b20_macro.py",            # Macro 4-Way·CODING·역참조·함수 검색
     "live_b21_system.py",           # auth/me·다중 역할·Hierarchy 편집·문서 전이
     "live_f1_project.py",           # 프로젝트 대장·PS 채번·접수자료 실업로드·컨텍스트
+    "live_f2_users.py",             # 사용자 등록·프로필 수정·삭제 보호 (ssh psql 정리)
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]

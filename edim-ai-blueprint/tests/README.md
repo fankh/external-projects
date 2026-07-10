@@ -32,6 +32,7 @@ py tests\live_all.py
 | `live_b20_macro.py` | Macro 4-Way 왕복·CODING 422·참조 추출/영향도·함수 검색 (17체크, atexit 원복) | B20 |
 | `live_b21_system.py` | auth/me·다중 역할·Hierarchy 편집·문서 전이·초대/비활성·중복검토·Child 추가 (29체크, 자체 정리) | B21 |
 | `live_f1_project.py` | 프로젝트 대장·PS 채번·삭제 보호(단계/참조)·접수자료 실업로드·타이틀바 컨텍스트 (자체 정리) | F1 |
+| `live_f2_users.py` | 사용자 등록(USER_CREATE 감사)·실로그인·프로필 PATCH·삭제 보호(이력 409/본인 422)·UI 다이얼로그 (정리: API + **ssh psql** — 로그인 감사행 FK) | F2 |
 | `live_cad.py` | CAD 뷰/Import/Export (DXF) | INT-04 |
 | `live_s3_macro_engine.py` | Macro 엔진 실평가 | ENG-01 |
 | `live_s4_rbac_notify.py` | RBAC·알림 흐름 | S4 |
