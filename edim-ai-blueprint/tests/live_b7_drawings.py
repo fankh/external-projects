@@ -52,7 +52,10 @@ with sync_playwright() as pw:
     p.locator(".tn", has_text="도면 대장 (M-4-1)").click()
     p.locator("td", has_text="KDCR 3-13").first.wait_for(timeout=8000)
     ok("도면 대장 그리드 (dwg_drawing)", p.locator("tr", has_text="KDCR 3-13").count() >= 1)
-    ok("구형 도면 대체됨 표기", p.locator("tr", has_text="KDCR 3-12").locator(".st", has_text="대체됨").count() == 1)
+    # 대체됨 칩은 supersedure 조회 완료 후 렌더 — 즉시 count 는 레이스, 대기 후 검증
+    expect(p.locator("tr", has_text="KDCR 3-12").locator(".st", has_text="대체됨")) \
+        .to_have_count(1, timeout=8000)
+    ok("구형 도면 대체됨 표기", True)
     p.locator("td", has_text="KDCR 3-13").first.click()
     p.locator("tr", has_text="흡입콘 치수 보정").wait_for(timeout=5000)
     ok("Rev 이력 A·B (dwg_revision)", p.locator("text=최초 발행").count() >= 1)
