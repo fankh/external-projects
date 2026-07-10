@@ -9,6 +9,7 @@ import { approvalService } from '../../api/services'
 import { Btn, Chip, Fx, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -17,10 +18,14 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
   const shell = useShell()
   const { setStatusMsg } = shell
   const { t } = useI18n()
+  const perm = usePermission()
   const [reqs, setReqs] = useState<ApprovalReq[]>([])
   const [selId, setSelId] = useState<number | null>(null)
   const [comment, setComment] = useState('')
   const [decided, setDecided] = useState<{ target: string; result: string; date: string }[]>([])
+  const [view, setView] = useState<'inbox' | 'mine'>('inbox')
+  // F3 — 결정 권한 (decide = SETUP+; GENERAL 은 읽기 전용 + 내 요청)
+  const canDecide = perm.canWrite('com-approval')
 
   const load = useCallback(() => {
     void approvalService.inbox().then((rows) => {
@@ -35,7 +40,11 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
     F8: () => { load(); setStatusMsg('승인함 재조회 (sys_approval_request)') },
   }), [load, setStatusMsg]))
 
-  const sel = reqs.find((r) => r.id === selId) ?? null
+  const mine = useMemo(
+    () => reqs.filter((r) => r.requesterLogin === perm.login),
+    [reqs, perm.login])
+  const visible = view === 'mine' ? mine : reqs
+  const sel = visible.find((r) => r.id === selId) ?? null
 
   const decide = (approve: boolean) => {
     if (!sel) return
@@ -78,9 +87,14 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
         <div style={{ width: 160, display: 'flex', flexDirection: 'column', gap: 6, flex: 'none' }}>
           <GroupBox title={t('appr.inbox', '승인함')} noPad>
             <div className="tree2">
-              <div className="tn sel"><span className="pm">·</span>{t('appr.toProcess', '처리할 요청')} ({reqs.length})</div>
-              <div className="tn"><span className="pm">·</span>{t('appr.myReqs', '내 요청')} (2)</div>
-              <div className="tn"><span className="pm">·</span>{t('appr.delegatedReqs', '위임받은 요청')} (1)</div>
+              <div className={`tn ${view === 'inbox' ? 'sel' : ''}`} data-view-inbox
+                onClick={() => { setView('inbox'); setSelId(null) }}>
+                <span className="pm">·</span>{t('appr.toProcess', '처리할 요청')} ({reqs.length})
+              </div>
+              <div className={`tn ${view === 'mine' ? 'sel' : ''}`} data-view-mine
+                onClick={() => { setView('mine'); setSelId(null) }}>
+                <span className="pm">·</span>{t('appr.myReqs', '내 요청')} ({mine.length})
+              </div>
               <div className="tn"><span className="pm">·</span>{t('appr.history', '이력')} ({APPROVAL_HIST.length + decided.length})</div>
             </div>
           </GroupBox>
@@ -94,9 +108,21 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="fill-col" style={{ gap: 6, overflow: 'auto' }}>
-          <GroupBox title={t('appr.toProcessN', '처리할 요청 — {n}건').replace('{n}', String(reqs.length))} noPad>
-            <DenseGrid columns={cols} rows={reqs} rowKey={(r) => r.id}
-              selectedKey={selId} onRowClick={(r) => setSelId(r.id)} />
+          <GroupBox title={(view === 'mine'
+            ? t('appr.myReqsN', '내 요청 — {n}건')
+            : t('appr.toProcessN', '처리할 요청 — {n}건')).replace('{n}', String(visible.length))} noPad>
+            {visible.length
+              ? (
+                <DenseGrid columns={cols} rows={visible} rowKey={(r) => r.id}
+                  selectedKey={selId} onRowClick={(r) => setSelId(r.id)} />
+              )
+              : (
+                <div style={{ padding: 10, color: 'var(--txt-mute)', fontSize: 11 }}>
+                  {view === 'mine'
+                    ? t('appr.noMine', '내가 요청한 대기 건 없음 (requester = 본인)')
+                    : t('appr.noPending', '대기 중인 요청 없음')}
+                </div>
+              )}
           </GroupBox>
           {sel ? (
             <GroupBox title={`${t('appr.detail', '상세')} — ${sel.target}`} style={{ flex: 1 }}>
@@ -125,12 +151,17 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
                     : t('appr.slotReview', 'Slot 정의·값 목록 변경 검토')}
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 4, marginTop: 8, justifyContent: 'flex-end' }}>
-                <input className="in" style={{ width: 260 }} value={comment} aria-label="코멘트"
+              <div style={{ display: 'flex', gap: 4, marginTop: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                {!canDecide ? <Chip tone="warn">{t('appr.readOnly', '읽기 전용 — 결정 권한 없음')}</Chip> : null}
+                <input className="in" style={{ width: 240 }} value={comment} aria-label="코멘트"
+                  disabled={!canDecide}
                   placeholder={t('appr.commentPh', '코멘트 (반려 시 필수)')} onChange={(e) => setComment(e.target.value)} />
-                <Btn style={{ borderColor: 'var(--err)', color: 'var(--err)' }}
+                <Btn style={{ borderColor: 'var(--err)', color: 'var(--err)' }} disabled={!canDecide}
+                  title={canDecide ? undefined : perm.denyWrite}
                   onClick={() => decide(false)}>{t('common.reject', '반려')}</Btn>
-                <Btn variant="run" onClick={() => decide(true)}>{t('common.approve', '승인')}</Btn>
+                <Btn variant="run" disabled={!canDecide}
+                  title={canDecide ? undefined : perm.denyWrite}
+                  onClick={() => decide(true)}>{t('common.approve', '승인')}</Btn>
               </div>
             </GroupBox>
           ) : (

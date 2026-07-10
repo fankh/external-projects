@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { companyService, type CompanyRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -14,6 +15,7 @@ const TYPE_TONE: Record<string, 'ok' | 'warn' | 'info'> = {
 
 export function CompanyMasterScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { setStatusMsg } = shell
   const [rows, setRows] = useState<CompanyRow[]>([])
   const [offline, setOffline] = useState(false)
@@ -56,7 +58,10 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F2: () => setShowReg(true),
+    F2: () => {
+      if (!perm.canWrite('erp-company-master')) { shell.setStatusMsg(perm.denyWrite); return }
+      setShowReg(true)
+    },
     F8: () => { void load(); setStatusMsg('업체 대장 재조회 (com_company)') },
   }), [])) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -81,7 +86,9 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
           단가 대장(cst_price)·발주 공급처의 마스터 원천 — 단가 등록 시 신규 업체는 자동 생성됨
         </span>
         <span style={{ flex: 1 }} />
-        <Btn variant="pri" onClick={() => setShowReg(true)}>＋ 등록 F2</Btn>
+        <Btn variant="pri" disabled={!perm.canWrite('erp-company-master')}
+          title={perm.canWrite('erp-company-master') ? undefined : perm.denyWrite}
+          onClick={() => setShowReg(true)}>＋ 등록 F2</Btn>
       </div>
       {showReg ? (
         <div data-com-reg style={{

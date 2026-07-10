@@ -8,6 +8,7 @@ import { LnavTree } from '../components/LnavTree'
 import { LocaleSwitcher, useI18n } from '../i18n/I18nContext'
 import { DevReqDialog } from './DevReqDialog'
 import { NotificationBell } from './NotificationBell'
+import { usePermission } from './PermissionContext'
 import { useShell, type OpenTab } from './ShellContext'
 import { MENU_TREE, SCREEN_BY_NODE } from './menus'
 import type { TreeNode } from '../components/LnavTree'
@@ -103,6 +104,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
 export function Shell(props: { user: User }) {
   const shell = useShell()
   const { t } = useI18n()
+  const perm = usePermission()
   const menu = MENU_TREE[shell.module]
   const [source, setSource] = useState<DataSource>('unknown')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -302,14 +304,18 @@ export function Shell(props: { user: User }) {
   }, [])
 
   // 좌측 트리 라벨 번역 — menu.<nodeId> 키, 미존재 시 KO 라벨 폴백
+  // F3 — 권한 없는 메뉴 미표시 (SYS-005): 읽기 자체가 막힌 관리 화면은 GENERAL 트리에서 제거
   const trNodes = useMemo(() => {
-    const walk = (ns: TreeNode[]): TreeNode[] => ns.map((n) => ({
-      ...n,
-      label: t(`menu.${n.id}`, n.label),
-      children: n.children ? walk(n.children) : n.children,
-    }))
+    const hidden = perm.canReadAdmin ? new Set<string>() : new Set(['erp-access'])
+    const walk = (ns: TreeNode[]): TreeNode[] => ns
+      .filter((n) => !hidden.has(n.id))
+      .map((n) => ({
+        ...n,
+        label: t(`menu.${n.id}`, n.label),
+        children: n.children ? walk(n.children) : n.children,
+      }))
     return walk(menu.nodes)
-  }, [menu, t])
+  }, [menu, t, perm.canReadAdmin])
 
   // MDI 탭 제목 번역 — screen.<screenId> 키 (상세 탭 등 동적 제목은 키 미정의 → 원제 유지)
   const trTabs = useMemo(

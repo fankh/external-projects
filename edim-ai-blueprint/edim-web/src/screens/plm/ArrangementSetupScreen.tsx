@@ -6,12 +6,14 @@ import {
 } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
 export function ArrangementSetupScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { setStatusMsg } = shell
   const [rows, setRows] = useState<ArrangementRow[]>([])
   const [offline, setOffline] = useState(false)
@@ -83,7 +85,10 @@ export function ArrangementSetupScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F2: () => setShowReg(true),
+    F2: () => {
+      if (!perm.canWrite('plm-arr')) { shell.setStatusMsg(perm.denyWrite); return }
+      setShowReg(true)
+    },
     F8: () => { void load(); setStatusMsg('Arrangement 재조회 (arrangement_code)') },
   }), [])) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -116,7 +121,9 @@ export function ArrangementSetupScreen({ active }: ScreenProps) {
           구성 코드 = 배치 조건(방향·설치) + 구성품 목록 — C-1 Arrangement 콤보의 원천
         </span>
         <span style={{ flex: 1 }} />
-        <Btn variant="pri" onClick={() => setShowReg(true)}>＋ 등록 F2</Btn>
+        <Btn variant="pri" disabled={!perm.canWrite('plm-arr')}
+          title={perm.canWrite('plm-arr') ? undefined : perm.denyWrite}
+          onClick={() => setShowReg(true)}>＋ 등록 F2</Btn>
       </div>
       {showReg ? (
         <div data-arr-reg style={{

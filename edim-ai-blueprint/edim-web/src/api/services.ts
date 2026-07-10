@@ -136,7 +136,7 @@ export const authService = {
       }
       return {
         userId, name: 'YS.Gang', department: '기술연구소',
-        userLevel: 'SETUP', tenantId: 'nova',
+        userLevel: 'ADMIN', tenantId: 'nova',   // 실서버 시드(v4 승격)와 동일
       }
     }
   },

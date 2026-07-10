@@ -6,6 +6,7 @@ import { roleService, sysService, userService, type RoleRow } from '../../api/se
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { AccessDenied, usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -13,6 +14,7 @@ import type { ScreenProps } from '../../shell/Shell'
 export function AccessControlScreen({ active }: ScreenProps) {
   const shell = useShell()
   const { t } = useI18n()
+  const perm = usePermission()
   const [users, setUsers] = useState<UserRow[]>([])
   const [dept, setDept] = useState('전체')
   const [levelFilter, setLevelFilter] = useState('전체')
@@ -22,21 +24,25 @@ export function AccessControlScreen({ active }: ScreenProps) {
   const [showEdit, setShowEdit] = useState(false)
 
   const load = () => {
+    if (!perm.canReadAdmin) return   // F3 — GENERAL 은 GET /users 자체가 403 (진입 가드로 안내)
     void userService.list().then((rows) => {
       setUsers(rows)
       setSelLogin((cur) => cur ?? rows[0]?.login ?? null)
     })
   }
-  useEffect(load, [])
+  useEffect(load, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // 권한 매트릭스 실데이터 (B14 — sys_role/sys_role_permission)
   const [roles, setRoles] = useState<RoleRow[]>([])
   const [rbacOffline, setRbacOffline] = useState(false)
-  const loadRoles = () => void roleService.list().then((r) => {
-    if (r === null) setRbacOffline(true)
-    else { setRbacOffline(false); setRoles(r) }
-  })
-  useEffect(() => { loadRoles() }, [])
+  const loadRoles = () => {
+    if (!perm.canReadAdmin) return
+    void roleService.list().then((r) => {
+      if (r === null) setRbacOffline(true)
+      else { setRbacOffline(false); setRoles(r) }
+    })
+  }
+  useEffect(() => { loadRoles() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const RESOURCES = [
     'cpq-selection', 'plm-design', 'code-subcode', 'code-datatable',
@@ -109,13 +115,19 @@ export function AccessControlScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F2: () => setShowReg(true),
+    F2: () => {
+      if (!perm.isAdmin) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{perm.denyAdmin}</span>)
+        return
+      }
+      setShowReg(true)
+    },
     F8: () => {
       load()
       loadRoles()
       shell.setStatusMsg('사용자·권한 재조회 (sys_user·sys_role_permission)')
     },
-  }), [])) // eslint-disable-line react-hooks/exhaustive-deps
+  }), [perm.isAdmin])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cols: GridColumn<UserRow>[] = [
     { key: 'login', header: 'login', width: 70, code: true, render: (r) => r.login },
@@ -133,6 +145,11 @@ export function AccessControlScreen({ active }: ScreenProps) {
     },
   ]
 
+  // F3 — 진입 가드: GENERAL 은 읽기(GET /users)도 403 — 403 안내 화면
+  if (!perm.canReadAdmin) {
+    return <AccessDenied screen="사용자·권한 (M-14-6)" need="SETUP" />
+  }
+
   return (
     <div className="fill-col">
       <div className="qband">
@@ -148,7 +165,9 @@ export function AccessControlScreen({ active }: ScreenProps) {
           options={[{ value: '전체', label: t('enum.all', '전체') }, 'ADMIN', 'SETUP', 'GENERAL']}
           onChange={setLevelFilter} />
         <span style={{ flex: 1 }} />
-        <Btn variant="pri" onClick={() => setShowReg(true)}>{t('access.addUser', '＋ 사용자 등록')}</Btn>
+        <Btn variant="pri" disabled={!perm.isAdmin}
+          title={perm.isAdmin ? undefined : perm.denyAdmin}
+          onClick={() => setShowReg(true)}>{t('access.addUser', '＋ 사용자 등록')}</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
@@ -204,9 +223,15 @@ export function AccessControlScreen({ active }: ScreenProps) {
                   ? `초대 발송 ✓ — ${sel.login} 인앱 알림 + 감사 기록 (메일 서버 미설정 — 인앱 채널)`
                   : <span style={{ color: 'var(--err)' }}>초대 불가 — 백엔드 연결 필요</span>))
               }}>{t('access.inviteMail', '초대 (인앱)')}</Btn>
-              <Btn disabled={!sel} onClick={() => setShowEdit(true)}>{t('access.editUser', '정보 수정')}</Btn>
-              <Btn disabled={sel?.status !== 'LOCKED'} onClick={unlock}>{t('access.unlock', '잠금 해제')}</Btn>
-              <Btn style={{ borderColor: 'var(--err)', color: 'var(--err)' }} disabled={!sel}
+              <Btn disabled={!sel || !perm.isAdmin}
+                title={perm.isAdmin ? undefined : perm.denyAdmin}
+                onClick={() => setShowEdit(true)}>{t('access.editUser', '정보 수정')}</Btn>
+              <Btn disabled={sel?.status !== 'LOCKED' || !perm.isAdmin}
+                title={perm.isAdmin ? undefined : perm.denyAdmin}
+                onClick={unlock}>{t('access.unlock', '잠금 해제')}</Btn>
+              <Btn style={{ borderColor: 'var(--err)', color: 'var(--err)' }}
+                disabled={!sel || !perm.isAdmin}
+                title={perm.isAdmin ? undefined : perm.denyAdmin}
                 onClick={() => {
                   if (!sel) return
                   const activate = sel.status === 'DISABLED'
@@ -227,7 +252,8 @@ export function AccessControlScreen({ active }: ScreenProps) {
               <Combo width={92} value={newLevel}
                 options={['PLATFORM', 'ADMIN', 'SETUP', 'GENERAL']}
                 onChange={(v) => setNewLevel(v as UserRow['level'])} />
-              <Btn disabled={!sel || sel.level === newLevel} onClick={changeLevel}>
+              <Btn disabled={!sel || sel.level === newLevel || !perm.isAdmin}
+                title={perm.isAdmin ? undefined : perm.denyAdmin} onClick={changeLevel}>
                 {t('access.changeLevel', '레벨 변경 (감사)')}
               </Btn>
             </div>

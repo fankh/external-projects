@@ -5,12 +5,14 @@ import { partService, type PartRow, type SupplierCodeRow } from '../../api/servi
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
 export function PartLedgerScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { t } = useI18n()
   const [rows, setRows] = useState<PartRow[] | null>(null)
   const [sel, setSel] = useState<string | null>(null)
@@ -105,7 +107,10 @@ export function PartLedgerScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F2: () => setShowReg(true),
+    F2: () => {
+      if (!perm.canWrite('plm-parts')) { shell.setStatusMsg(perm.denyWrite); return }
+      setShowReg(true)
+    },
     F3: removeSel,
     F8: () => { load(); shell.setStatusMsg('부품 대장 재조회 (prt_part)') },
   }), [sel])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -135,7 +140,9 @@ export function PartLedgerScreen({ active }: ScreenProps) {
           : <Chip tone="info">prt_part {rows.length}건</Chip>}
         <span style={{ flex: 1 }} />
         <Btn onClick={() => { load(); shell.setStatusMsg('부품 대장 재조회 (prt_part)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
-        <Btn variant="pri" onClick={() => setShowReg(true)}>{t('parts.registerF2', '＋ 부품 등록 F2')}</Btn>
+        <Btn variant="pri" disabled={!perm.canWrite('plm-parts')}
+          title={perm.canWrite('plm-parts') ? undefined : perm.denyWrite}
+          onClick={() => setShowReg(true)}>{t('parts.registerF2', '＋ 부품 등록 F2')}</Btn>
       </div>
       {showReg ? (
         <div data-part-reg style={{

@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { materialService, type MaterialRowApi } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
 export function MaterialGpiScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { setStatusMsg } = shell
   const [rows, setRows] = useState<MaterialRowApi[]>([])
   const [offline, setOffline] = useState(false)
@@ -56,7 +58,10 @@ export function MaterialGpiScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F2: () => setShowReg(true),
+    F2: () => {
+      if (!perm.canWrite('code-raw')) { shell.setStatusMsg(perm.denyWrite); return }
+      setShowReg(true)
+    },
     F8: () => { void load(); setStatusMsg('재질 마스터 재조회 (mat_material)') },
   }), [])) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -85,7 +90,9 @@ export function MaterialGpiScreen({ active }: ScreenProps) {
           GPI(General Purpose Item) — Work Process 재질 매핑·제조비 밀도 계산의 원천 (CST-003)
         </span>
         <span style={{ flex: 1 }} />
-        <Btn variant="pri" onClick={() => setShowReg(true)}>＋ 등록 F2</Btn>
+        <Btn variant="pri" disabled={!perm.canWrite('code-raw')}
+          title={perm.canWrite('code-raw') ? undefined : perm.denyWrite}
+          onClick={() => setShowReg(true)}>＋ 등록 F2</Btn>
       </div>
       {showReg ? (
         <div data-mat-reg style={{

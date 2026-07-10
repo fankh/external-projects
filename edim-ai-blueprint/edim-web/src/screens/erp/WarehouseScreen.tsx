@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { warehouseService, type WarehouseNode } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { useI18n } from '../../i18n/I18nContext'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -15,6 +16,7 @@ const TYPES = ['REGION', 'PLANT', 'WAREHOUSE', 'STORAGE', 'SECTOR']
 
 export function WarehouseScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { t } = useI18n()
   const [nodes, setNodes] = useState<WarehouseNode[] | null>(null)
   const [sel, setSel] = useState<string | null>(null)
@@ -73,7 +75,10 @@ export function WarehouseScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F2: () => setShowAdd(true),
+    F2: () => {
+      if (!perm.canWrite('erp-warehouse')) { shell.setStatusMsg(perm.denyWrite); return }
+      setShowAdd(true)
+    },
     F3: removeSel,
     F8: () => { load(); shell.setStatusMsg('창고 계층 재조회 (erp_warehouse)') },
   }), [sel])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -92,7 +97,9 @@ export function WarehouseScreen({ active }: ScreenProps) {
         </span>
         <span style={{ flex: 1 }} />
         <Btn onClick={() => { load(); shell.setStatusMsg('창고 계층 재조회 (erp_warehouse)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
-        <Btn variant="pri" onClick={() => setShowAdd(true)}>{t('wh.addF2', '＋ 위치 등록 F2')}</Btn>
+        <Btn variant="pri" disabled={!perm.canWrite('erp-warehouse')}
+          title={perm.canWrite('erp-warehouse') ? undefined : perm.denyWrite}
+          onClick={() => setShowAdd(true)}>{t('wh.addF2', '＋ 위치 등록 F2')}</Btn>
       </div>
       {showAdd ? (
         <div data-wh-add style={{

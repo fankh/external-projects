@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { codeValueService, type CodeValueRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -14,6 +15,7 @@ const TONE: Record<string, 'ok' | 'warn' | 'info'> = {
 
 export function VariantConstantScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { setStatusMsg } = shell
   const [group, setGroup] = useState('KOF')
   const [rows, setRows] = useState<CodeValueRow[]>([])
@@ -106,7 +108,9 @@ export function VariantConstantScreen({ active }: ScreenProps) {
                 onChange={(e) => setAdd({ ...add, valueName: e.target.value })} />
             </div>
             <div style={{ textAlign: 'right', marginTop: 6 }}>
-              <Btn variant="pri" onClick={register}>등록 F12</Btn>
+              <Btn variant="pri" disabled={!perm.canWrite('code-variant')}
+                title={perm.canWrite('code-variant') ? undefined : perm.denyWrite}
+                onClick={register}>등록 F12</Btn>
             </div>
           </GroupBox>
           <GroupBox title="승인 흐름">

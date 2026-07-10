@@ -8,6 +8,7 @@ import {
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -20,6 +21,7 @@ const STAGE_KEYS: Record<string, string> = {
 
 export function ProjectScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { t } = useI18n()
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [selNo, setSelNo] = useState<string | null>(null)
@@ -81,7 +83,10 @@ export function ProjectScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F2: () => setShowReg(true),
+    F2: () => {
+      if (!perm.canWrite('erp-project')) { shell.setStatusMsg(perm.denyWrite); return }
+      setShowReg(true)
+    },
     F3: removeProject,
     F8: () => { loadProjects(selNo ?? undefined); shell.setStatusMsg('프로젝트 대장 재조회 (prj_project)') },
     F12: save,
@@ -160,7 +165,9 @@ export function ProjectScreen({ active }: ScreenProps) {
         <input className="in ro" style={{ width: 56 }} value={sel?.item || '-'} readOnly aria-label="Item" />
         <span style={{ flex: 1 }} />
         {dirty ? <Chip tone="warn">{t('prj.unsaved', '미저장')}</Chip> : null}
-        <Btn onClick={() => setShowReg(true)}>{t('prj.newF2', '＋ 신규 F2')}</Btn>
+        <Btn disabled={!perm.canWrite('erp-project')}
+          title={perm.canWrite('erp-project') ? undefined : perm.denyWrite}
+          onClick={() => setShowReg(true)}>{t('prj.newF2', '＋ 신규 F2')}</Btn>
         <Btn variant="pri" onClick={save}>{t('prj.saveF12', '저장 F12')}</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>

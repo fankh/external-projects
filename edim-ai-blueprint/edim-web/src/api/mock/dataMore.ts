@@ -55,6 +55,7 @@ export const DUCT_CALC = [
 export interface ApprovalReq {
   id: number; assetType: string; target: string; reqKind: 'CREATE' | 'UPDATE'
   requester: string; reqDate: string; stage: string; tested: boolean
+  requesterLogin?: string   // F3 — '내 요청' 필터 (라이브 응답 필드)
 }
 export const APPROVAL_REQS: ApprovalReq[] = [
   { id: 1, assetType: 'Code', target: 'KOF / G: Impeller Type', reqKind: 'CREATE', requester: 'YS.Gang', reqDate: '07-06', stage: '승인', tested: false },

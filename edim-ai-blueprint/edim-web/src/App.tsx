@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { User } from './api/types'
 import { I18nProvider } from './i18n/I18nContext'
 import { LoginScreen } from './screens/common/LoginScreen'
+import { PermissionProvider } from './shell/PermissionContext'
 import { Shell } from './shell/Shell'
 import { ShellProvider, type ModuleId } from './shell/ShellContext'
 
@@ -40,7 +41,9 @@ export default function App() {
         }} />
       ) : (
         <ShellProvider initialModule={initialModule()}>
-          <Shell user={user} />
+          <PermissionProvider user={user}>
+            <Shell user={user} />
+          </PermissionProvider>
         </ShellProvider>
       )}
     </I18nProvider>

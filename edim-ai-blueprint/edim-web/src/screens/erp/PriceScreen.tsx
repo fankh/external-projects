@@ -6,6 +6,7 @@ import { erpService, priceService, priceWriteService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -21,6 +22,7 @@ export const SOURCE_KEYS: Record<PriceRow['source'], string> = {
 
 export function PriceScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { t } = useI18n()
   const [supplier, setSupplier] = useState('전체')
   const [table, setTable] = useState('전체 (4종)')
@@ -170,7 +172,9 @@ export function PriceScreen({ active }: ScreenProps) {
             e.target.value = ''
           }} />
         <Btn onClick={() => xlsInput.current?.click()}>⬇ Excel Import</Btn>
-        <Btn variant="pri" onClick={() => setShowReg(true)}>{t('price.addPrice', '＋ 단가 등록')}</Btn>
+        <Btn variant="pri" disabled={!perm.canWrite('erp-price')}
+          title={perm.canWrite('erp-price') ? undefined : perm.denyWrite}
+          onClick={() => setShowReg(true)}>{t('price.addPrice', '＋ 단가 등록')}</Btn>
       </div>
       {showReg ? (
         <div data-price-reg style={{

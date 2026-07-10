@@ -6,6 +6,7 @@ import { docService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -17,6 +18,7 @@ const STATUS_TONE: Record<DocRow['status'], 'ok' | 'warn' | 'info'> = {
 
 export function DocumentMgmtScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { t } = useI18n()
   const [docs, setDocs] = useState<DocRow[]>([])
   const [statusFilter, setStatusFilter] = useState<string>('전체')
@@ -105,7 +107,9 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
         <input className="in" style={{ width: 160 }} value={search} aria-label="검색"
           onChange={(e) => setSearch(e.target.value)} />
         <span style={{ flex: 1 }} />
-        <Btn variant="pri" onClick={() => setShowReg(true)}>{t('docmgmt.addDoc', '＋ 문서 등록')}</Btn>
+        <Btn variant="pri" disabled={!perm.canWrite('cpq-docmgmt')}
+          title={perm.canWrite('cpq-docmgmt') ? undefined : perm.denyWrite}
+          onClick={() => setShowReg(true)}>{t('docmgmt.addDoc', '＋ 문서 등록')}</Btn>
       </div>
       {showReg ? (
         <div data-doc-reg style={{

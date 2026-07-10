@@ -391,6 +391,7 @@ def run_seed() -> None:
             seed_v17(cur, row[0])
             seed_v18(cur, row[0])
             seed_v19(cur, row[0])
+            seed_v20(cur, row[0])
             return
 
         cur.execute(
@@ -505,6 +506,7 @@ def run_seed() -> None:
         seed_v17(cur, tid)
         seed_v18(cur, tid)
         seed_v19(cur, tid)
+        seed_v20(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -2132,6 +2134,39 @@ UI_TRANSLATIONS_V19: dict[str, tuple[str, str, str]] = {
 
 def seed_v19(cur, tid: int) -> None:
     for key, (en, ja, zh) in UI_TRANSLATIONS_V19.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v20 — F3 권한 게이팅 UI 키 ──
+
+UI_TRANSLATIONS_V20: dict[str, tuple[str, str, str]] = {
+    "perm.needSetup": ("Insufficient permission — SETUP or higher required (SYS-005)",
+                       "権限不足 — SETUP 以上が必要 (SYS-005)", "权限不足 — 需要 SETUP 及以上 (SYS-005)"),
+    "perm.needAdmin": ("Insufficient permission — ADMIN only (SYS-005)",
+                       "権限不足 — ADMIN 専用 (SYS-005)", "权限不足 — 仅限 ADMIN (SYS-005)"),
+    "perm.deniedTitle": ("Access denied (403)", "アクセス権限なし (403)", "无访问权限 (403)"),
+    "perm.deniedBody": ("{s} is accessible to {n} or higher — request permission from an administrator (SYS-005)",
+                        "{s} は {n} 以上のみアクセス可能 — 管理者に権限を申請してください (SYS-005)",
+                        "{s} 仅限 {n} 及以上访问 — 请向管理员申请权限 (SYS-005)"),
+    "appr.myReqsN": ("My Requests — {n}", "自分の申請 — {n}件", "我的申请 — {n}件"),
+    "appr.noMine": ("No pending requests of mine (requester = me)",
+                    "自分が申請した保留中の件はありません (requester = 本人)",
+                    "没有我提交的待处理申请 (requester = 本人)"),
+    "appr.noPending": ("No pending requests", "保留中の申請はありません", "没有待处理的申请"),
+    "appr.readOnly": ("Read-only — no decision permission", "読み取り専用 — 決裁権限なし", "只读 — 无审批权限"),
+}
+
+
+def seed_v20(cur, tid: int) -> None:
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V20.items():
         for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

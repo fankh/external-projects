@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { verificationService, type VerificationRow } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -12,6 +13,7 @@ const DRAWING = 'KDCR 3-13'
 
 export function QualityScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { setStatusMsg } = shell
   const [rows, setRows] = useState<VerificationRow[]>([])
   const [offline, setOffline] = useState(false)
@@ -96,7 +98,9 @@ export function QualityScreen({ active }: ScreenProps) {
                 onChange={(e) => setAdd({ ...add, warning: e.target.value })} />
             </div>
             <div style={{ textAlign: 'right', marginTop: 6 }}>
-              <Btn variant="pri" onClick={register}>등록 F12</Btn>
+              <Btn variant="pri" disabled={!perm.canWrite('plm-quality')}
+                title={perm.canWrite('plm-quality') ? undefined : perm.denyWrite}
+                onClick={register}>등록 F12</Btn>
             </div>
           </GroupBox>
           <GroupBox title="동작 방식">

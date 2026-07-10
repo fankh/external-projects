@@ -9,6 +9,7 @@ import {
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -19,6 +20,7 @@ const STATUS_TONE: Record<string, 'ok' | 'warn' | 'info' | 'err'> = {
 
 export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { t } = useI18n()
   const [drawings, setDrawings] = useState<DrawingRow[]>([])
   const [sel, setSel] = useState<string | null>(null)
@@ -151,7 +153,10 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F2: () => setShowReg(true),
+    F2: () => {
+      if (!perm.canWrite('plm-drawings')) { shell.setStatusMsg(perm.denyWrite); return }
+      setShowReg(true)
+    },
     F8: () => { load(); shell.setStatusMsg('도면 대장 재조회 (dwg_drawing)') },
   }), [])) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -184,7 +189,9 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('dwg.dblOpenHint', '더블클릭 = 연결 DXF CAD 뷰어')}</span>
         <span style={{ flex: 1 }} />
         <Btn onClick={() => { load(); shell.setStatusMsg('도면 대장 재조회 (dwg_drawing)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
-        <Btn variant="pri" onClick={() => setShowReg(true)}>{t('dwg.registerF2', '＋ 도면 등록 F2')}</Btn>
+        <Btn variant="pri" disabled={!perm.canWrite('plm-drawings')}
+          title={perm.canWrite('plm-drawings') ? undefined : perm.denyWrite}
+          onClick={() => setShowReg(true)}>{t('dwg.registerF2', '＋ 도면 등록 F2')}</Btn>
       </div>
       {showReg ? (
         <div data-dwg-reg style={{

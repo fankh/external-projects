@@ -1507,7 +1507,8 @@ def approvals_inbox() -> list[dict[str, Any]]:
         cur.execute(
             """SELECT a.approval_id, a.target_table, a.request_type, a.step,
                       u.user_name, to_char(a.requested_at,'MM-DD'), a.comment,
-                      COALESCE(pc.main_code, dc.doc_no, a.target_table||'#'||a.target_id)
+                      COALESCE(pc.main_code, dc.doc_no, a.target_table||'#'||a.target_id),
+                      u.login_id
                FROM sys_approval_request a
                JOIN sys_user u ON u.user_id=a.requester_id
                LEFT JOIN product_code pc
@@ -1521,7 +1522,8 @@ def approvals_inbox() -> list[dict[str, Any]]:
         return [
             {"id": r[0], "assetType": type_label.get(r[1], r[1]),
              "target": r[6] or r[7], "reqKind": r[2], "requester": r[4],
-             "reqDate": r[5], "stage": r[3], "tested": r[1] == "tbx_macro"}
+             "reqDate": r[5], "stage": r[3], "tested": r[1] == "tbx_macro",
+             "requesterLogin": r[8]}   # F3 — '내 요청' 필터용
             for r in cur.fetchall()
         ]
 

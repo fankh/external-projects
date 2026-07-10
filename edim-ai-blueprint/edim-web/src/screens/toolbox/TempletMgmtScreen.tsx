@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { approvalService, templetService, type TempletRow } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -11,6 +12,7 @@ import type { ScreenProps } from '../../shell/Shell'
 export function TempletMgmtScreen({ active }: ScreenProps) {
   const shell = useShell()
   const { setStatusMsg } = shell
+  const perm = usePermission()
   const [rows, setRows] = useState<TempletRow[]>([])
   const [offline, setOffline] = useState(false)
   const [sel, setSel] = useState<string | null>(null)
@@ -33,6 +35,10 @@ export function TempletMgmtScreen({ active }: ScreenProps) {
   useEffect(() => { void load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = () => {
+    if (!perm.canWrite('tbx-templet')) {   // F3 — 쓰기 게이트 (서버 SETUP 가드와 동일)
+      setStatusMsg(perm.denyWrite)
+      return
+    }
     if (!sel) {
       setStatusMsg('저장 — Templet 을 선택하거나 신규 이름을 입력하십시오')
       return

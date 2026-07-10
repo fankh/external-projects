@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { hierarchyService, sysService, type HierarchyNode } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -11,6 +12,7 @@ const TREE_TYPES = ['PRODUCT', 'GENERAL_DB', 'CONFIG']
 
 export function HierarchyScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const perm = usePermission()
   const { setStatusMsg } = shell
   const [treeType, setTreeType] = useState('PRODUCT')
   const [nodes, setNodes] = useState<HierarchyNode[]>([])
@@ -81,7 +83,10 @@ export function HierarchyScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
-    F2: () => setShowAdd(true),
+    F2: () => {
+      if (!perm.canWrite('code-hierarchy')) { shell.setStatusMsg(perm.denyWrite); return }
+      setShowAdd(true)
+    },
     F3: deleteNode,
     F8: () => { void load(); setStatusMsg(`Hierarchy 재조회 — ${treeType} (sys_hierarchy)`) },
   }), [treeType, sel])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -109,7 +114,9 @@ export function HierarchyScreen({ active }: ScreenProps) {
         </span>
         <span style={{ flex: 1 }} />
         <Btn onClick={deleteNode}>{'삭제 F3'}</Btn>
-        <Btn variant="pri" onClick={() => setShowAdd(true)}>＋ 노드 등록 F2</Btn>
+        <Btn variant="pri" disabled={!perm.canWrite('code-hierarchy')}
+          title={perm.canWrite('code-hierarchy') ? undefined : perm.denyWrite}
+          onClick={() => setShowAdd(true)}>＋ 노드 등록 F2</Btn>
       </div>
       {showAdd ? (
         <div data-hier-add style={{

@@ -6,7 +6,7 @@ export interface User {
   userId: string
   name: string
   department: string
-  userLevel: 'PLATFORM' | 'ADMIN' | 'SETUP' | 'USER'
+  userLevel: 'PLATFORM' | 'ADMIN' | 'SETUP' | 'GENERAL' | 'USER'
   tenantId: string
 }
 
