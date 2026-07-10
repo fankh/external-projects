@@ -1994,6 +1994,14 @@ def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         actor_id = request.state.user_id
+        # uq_approval_pending — 동일 대상의 PENDING 이 이미 있으면 정직한 409
+        cur.execute(
+            """SELECT approval_id FROM sys_approval_request
+               WHERE tenant_id=%s AND target_table=%s AND target_id=%s AND result IS NULL""",
+            (tid, tt, body.targetId))
+        dup = cur.fetchone()
+        if dup:
+            raise HTTPException(409, detail=f"이미 승인 대기 중 — {tt} (승인함 #{dup[0]} 처리 후 재요청)")
         cur.execute(
             """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
                request_type, step, requester_id, comment)
