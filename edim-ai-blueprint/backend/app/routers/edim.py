@@ -15,7 +15,7 @@ import time
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile
+from fastapi import APIRouter, HTTPException, Request, Response, UploadFile
 from fastapi import Depends, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -33,8 +33,18 @@ PUBLIC_SUFFIXES = ("/health", "/auth/login")
 
 LEVEL_RANK = {"GENERAL": 0, "SETUP": 1, "ADMIN": 2, "PLATFORM": 3}
 
+TOKEN_TTL = 8 * 3600        # 발급 수명
+RENEW_WINDOW = 30 * 60      # 만료 30분 전부터 응답 헤더로 재발급 (B8 — 하드컷 제거)
 
-def require_auth(request: Request) -> None:
+
+def _issue_token(login: str, ttl: int = TOKEN_TTL) -> str:
+    exp = int(time.time()) + ttl
+    payload = f"{login}.{exp}"
+    sig = hmac.new(SECRET, payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}.{sig}"
+
+
+def require_auth(request: Request, response: Response) -> None:
     # /i18n/{locale} 는 로그인 화면에서도 필요 — 공개
     if request.url.path.endswith(PUBLIC_SUFFIXES) or "/i18n/" in request.url.path:
         return
@@ -62,6 +72,9 @@ def require_auth(request: Request) -> None:
     request.state.login = login
     request.state.user_id = row[0]
     request.state.level = row[1]
+    # 슬라이딩 갱신 — 잔여 30분 미만이면 새 토큰을 헤더로 전달 (프론트가 교체)
+    if int(exp) - time.time() < RENEW_WINDOW:
+        response.headers["X-EDIM-Token"] = _issue_token(login)
 
 
 def min_level(name: str):
@@ -85,6 +98,18 @@ def _notify(cur, tid: int, user_id: int, notify_type: str, title: str,
     cur.execute(
         """INSERT INTO sys_notification (tenant_id, user_id, notify_type, title, link_url)
            VALUES (%s,%s,%s,%s,%s)""", (tid, user_id, notify_type, title[:200], link))
+
+
+def _audit(cur, tid: int, target_table: str, target_id: int, action: str,
+           actor_id: int, after: dict | None = None, before: dict | None = None) -> None:
+    """보안 감사 — sys_history 공통 기록 (SYS-005·B8)."""
+    cur.execute(
+        """INSERT INTO sys_history (tenant_id, target_table, target_id, action,
+                                    actor_id, before_data, after_data)
+           VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+        (tid, target_table, target_id, action[:20], actor_id,
+         json.dumps(before) if before else None,
+         json.dumps(after) if after else None))
 
 
 router = APIRouter(prefix="/api/v1", tags=["edim"], dependencies=[Depends(require_auth)])
@@ -131,32 +156,94 @@ def i18n_bundle(locale: str) -> dict[str, str]:
 
 
 # ── SVC-01 Auth ──
+MAX_LOGIN_FAILS = 5   # 연속 실패 → 자동 LOCKED (B8, SEC-002)
+
+
 class LoginRequest(BaseModel):
     userId: str
     password: str
+    ttlSeconds: int | None = None   # 토큰 수명 단축 (갱신 검증용, 60s~8h 클램프)
 
 
 @router.post("/auth/login")
 def login(body: LoginRequest) -> dict[str, Any]:
+    login_id = body.userId.strip()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT user_id, user_name, department, user_level, password_hash
-               FROM sys_user WHERE tenant_id=%s AND login_id=%s AND status='ACTIVE'""",
-            (tid, body.userId.strip()))
+            """SELECT user_id, user_name, department, user_level, password_hash, status
+               FROM sys_user WHERE tenant_id=%s AND login_id=%s""", (tid, login_id))
         row = cur.fetchone()
-    if not row or hashlib.sha256(body.password.encode()).hexdigest() != row[4]:
-        raise HTTPException(401, detail="사번 또는 비밀번호가 올바르지 않습니다")
-    exp = int(time.time()) + 8 * 3600
-    payload = f"{body.userId}.{exp}"
-    sig = hmac.new(SECRET, payload.encode(), hashlib.sha256).hexdigest()
+        if not row:
+            # 미존재 사용자 — sys_history.actor_id FK 로 기록 불가, 정보 노출 방지 위해 동일 메시지
+            raise HTTPException(401, detail="사번 또는 비밀번호가 올바르지 않습니다")
+        uid, status = row[0], row[5]
+        if status == "LOCKED":
+            _audit(cur, tid, "sys_user", uid, "LOGIN_DENY", uid, {"reason": "LOCKED"})
+            raise HTTPException(403, detail="계정 잠금(LOCKED) — 관리자에게 잠금 해제를 요청하십시오")
+        if status != "ACTIVE":
+            raise HTTPException(401, detail="사번 또는 비밀번호가 올바르지 않습니다")
+        if hashlib.sha256(body.password.encode()).hexdigest() != row[4]:
+            _audit(cur, tid, "sys_user", uid, "LOGIN_FAIL", uid, {"login": login_id})
+            # 마지막 성공/잠금해제 이후 연속 실패 수 — 도달 시 자동 잠금
+            cur.execute(
+                """SELECT count(*) FROM sys_history
+                   WHERE tenant_id=%s AND target_table='sys_user' AND target_id=%s
+                     AND action='LOGIN_FAIL'
+                     AND acted_at > COALESCE(
+                       (SELECT max(acted_at) FROM sys_history
+                        WHERE tenant_id=%s AND target_table='sys_user' AND target_id=%s
+                          AND action IN ('LOGIN_OK','UNLOCK')), '-infinity')""",
+                (tid, uid, tid, uid))
+            fails = cur.fetchone()[0]
+            if fails >= MAX_LOGIN_FAILS:
+                cur.execute(
+                    "UPDATE sys_user SET status='LOCKED', updated_at=now() WHERE user_id=%s", (uid,))
+                _audit(cur, tid, "sys_user", uid, "LOCK", uid,
+                       {"reason": f"로그인 {fails}회 연속 실패 자동 잠금"})
+                raise HTTPException(
+                    403, detail=f"로그인 {MAX_LOGIN_FAILS}회 실패 — 계정이 잠겼습니다 (관리자 잠금 해제 필요)")
+            raise HTTPException(
+                401, detail=f"사번 또는 비밀번호가 올바르지 않습니다 (실패 {fails}/{MAX_LOGIN_FAILS})")
+        _audit(cur, tid, "sys_user", uid, "LOGIN_OK", uid, {"login": login_id})
+    ttl = max(60, min(int(body.ttlSeconds or TOKEN_TTL), TOKEN_TTL))
     return {
-        "token": f"{payload}.{sig}",
+        "token": _issue_token(login_id, ttl),
         "user": {
-            "userId": body.userId, "name": row[1], "department": row[2] or "",
+            "userId": login_id, "name": row[1], "department": row[2] or "",
             "userLevel": row[3], "tenantId": TENANT,
         },
     }
+
+
+class PasswordChangeRequest(BaseModel):
+    currentPassword: str
+    newPassword: str
+
+
+@router.put("/users/me/password")
+def change_my_password(request: Request, body: PasswordChangeRequest) -> dict[str, Any]:
+    """비밀번호 변경 (B8, SEC-001) — 현재 비밀번호 검증 후 교체 + 감사."""
+    new = body.newPassword
+    if len(new) < 4:
+        raise HTTPException(422, detail="새 비밀번호는 4자 이상이어야 합니다")
+    if new == body.currentPassword:
+        raise HTTPException(422, detail="새 비밀번호가 현재 비밀번호와 같습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        uid = request.state.user_id
+        cur.execute("SELECT password_hash FROM sys_user WHERE user_id=%s", (uid,))
+        row = cur.fetchone()
+        if hashlib.sha256(body.currentPassword.encode()).hexdigest() != row[0]:
+            _audit(cur, tid, "sys_user", uid, "PW_CHANGE_FAIL", uid,
+                   {"reason": "현재 비밀번호 불일치"})
+            raise HTTPException(403, detail="현재 비밀번호가 올바르지 않습니다")
+        cur.execute(
+            """UPDATE sys_user SET password_hash=%s, updated_by=%s, updated_at=now()
+               WHERE user_id=%s""",
+            (hashlib.sha256(new.encode()).hexdigest(), request.state.login, uid))
+        _audit(cur, tid, "sys_user", uid, "PW_CHANGE", uid)   # 비밀번호 자체는 기록하지 않음
+    return {"login": request.state.login, "changed": True}
 
 
 # ── SVC-03 Code ──
@@ -937,16 +1024,47 @@ def users() -> list[dict[str, Any]]:
 
 
 @router.post("/users/{login}/unlock", dependencies=[ADMIN])
-def unlock_user(login: str) -> dict[str, Any]:
+def unlock_user(login: str, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """UPDATE sys_user SET status='ACTIVE'
+            """UPDATE sys_user SET status='ACTIVE', updated_by=%s, updated_at=now()
                WHERE tenant_id=%s AND login_id=%s AND status='LOCKED'
-               RETURNING user_id""", (tid, login))
-        if not cur.fetchone():
+               RETURNING user_id""", (request.state.login, tid, login))
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(404, detail=f"LOCKED 계정 아님: {login}")
+        _audit(cur, tid, "sys_user", row[0], "UNLOCK", request.state.user_id,
+               {"login": login})   # 잠금 해제 = 실패 카운터 초기화 기준점 (B8)
     return {"login": login, "status": "ACTIVE"}
+
+
+class LevelChangeRequest(BaseModel):
+    level: str
+
+
+@router.patch("/users/{login}/level", dependencies=[ADMIN])
+def change_user_level(login: str, request: Request, body: LevelChangeRequest) -> dict[str, Any]:
+    """권한 레벨 변경 (B8 감사 확장) — before/after 를 sys_history 에 기록."""
+    level = body.level.strip().upper()
+    if level not in LEVEL_RANK:
+        raise HTTPException(422, detail=f"레벨은 {'/'.join(LEVEL_RANK)} 중 하나여야 합니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT user_id, user_level FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+            (tid, login))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        if row[1] == level:
+            raise HTTPException(409, detail=f"{login} 은 이미 {level} 입니다")
+        cur.execute(
+            """UPDATE sys_user SET user_level=%s, updated_by=%s, updated_at=now()
+               WHERE user_id=%s""", (level, request.state.login, row[0]))
+        _audit(cur, tid, "sys_user", row[0], "LEVEL_CHANGE", request.state.user_id,
+               after={"level": level}, before={"level": row[1]})
+    return {"login": login, "level": level}
 
 
 # ── SVC-09 ERP 이벤트 (업무함 M-15-3 · Dashboard 경고) ──

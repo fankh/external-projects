@@ -88,6 +88,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     setSource('live')
     throw new Error(body.detail)
   }
+  // B8 — 토큰 슬라이딩 갱신 (백엔드가 만료 30분 전 새 토큰을 헤더로 전달)
+  const renewed = res.headers.get('X-EDIM-Token')
+  if (renewed && renewed !== token) {
+    token = renewed
+    sessionStorage.setItem('edim-token', renewed)
+  }
   try {
     const out = await res.json() as T
     setSource('live')
@@ -132,6 +138,19 @@ export const authService = {
         userId, name: 'YS.Gang', department: '기술연구소',
         userLevel: 'SETUP', tenantId: 'nova',
       }
+    }
+  },
+  /** PUT /api/v1/users/me/password — 비밀번호 변경 (B8; mock 모드는 정직 거부) */
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    try {
+      await api('/users/me/password', {
+        method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) {
+        throw new Error('백엔드 연결 필요 — MOCK 모드에서는 비밀번호를 변경할 수 없습니다')
+      }
+      throw e
     }
   },
 }
@@ -370,6 +389,18 @@ export const userService = {
       await api(`/users/${encodeURIComponent(login)}/unlock`, { method: 'POST' })
     } catch (e) {
       if (!(e instanceof ApiUnavailable)) throw e
+    }
+  },
+  /** PATCH /api/v1/users/{login}/level — 권한 레벨 변경 + 감사 (true=반영, false=백엔드 불가) */
+  async changeLevel(login: string, level: string): Promise<boolean> {
+    try {
+      await api(`/users/${encodeURIComponent(login)}/level`, {
+        method: 'PATCH', body: JSON.stringify({ level }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
     }
   },
 }

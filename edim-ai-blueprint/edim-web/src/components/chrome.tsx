@@ -6,11 +6,28 @@ export function TitleBar(props: {
   context?: ReactNode
   user: string
   bell?: ReactNode
+  /** 사용자 라벨 클릭 드롭다운 — 비밀번호 변경·로그아웃 (B8) */
+  userMenu?: MenuItem[]
   /** 모듈 링크 — 헤더에 배치 (메뉴라인은 드롭다운 전용) */
   activeModule?: ModuleKey
   onModule?: (m: ModuleKey) => void
 }) {
   const { t } = useI18n()
+  const [userOpen, setUserOpen] = useState(false)
+  const userRef = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!userOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (!userRef.current?.contains(e.target as Node)) setUserOpen(false)
+    }
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setUserOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onEsc)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onEsc)
+    }
+  }, [userOpen])
   return (
     <div className="titlebar">
       <span className="lg">E</span>
@@ -39,7 +56,33 @@ export function TitleBar(props: {
       {props.context ? <span style={{ color: '#B9C7E2' }}>{props.context}</span> : null}
       <span className="sp" />
       {props.bell}
-      <span className="u">{props.user}</span>
+      {props.userMenu?.length ? (
+        <span ref={userRef} className="u" data-user-menu
+          style={{ position: 'relative', cursor: 'pointer' }}
+          title="사용자 메뉴 — 비밀번호 변경·로그아웃"
+          onClick={() => setUserOpen((v) => !v)}>
+          {props.user} <span aria-hidden style={{ fontSize: 8, opacity: .6 }}>▾</span>
+          {userOpen ? (
+            <div style={{
+              position: 'absolute', top: '100%', right: 0, zIndex: 60, minWidth: 150,
+              background: '#fff', border: '1px solid var(--line-strong)',
+              boxShadow: '0 4px 12px rgba(20,26,40,.22)', padding: '3px 0',
+              color: 'var(--txt)', fontWeight: 400, whiteSpace: 'nowrap', textAlign: 'left',
+            }}>
+              {props.userMenu.map((it, i) => it.sep ? (
+                <div key={i} style={{ borderTop: '1px solid var(--line)', margin: '3px 0' }} />
+              ) : (
+                <div key={i} style={{ padding: '4px 12px', fontSize: 11.5, cursor: 'pointer' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#EDF2FA' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
+                  onClick={(e) => { e.stopPropagation(); setUserOpen(false); it.onClick?.() }}>
+                  {it.label}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </span>
+      ) : <span className="u">{props.user}</span>}
     </div>
   )
 }

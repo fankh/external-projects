@@ -1,8 +1,9 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
-import { pingBackend, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
+import { authService, pingBackend, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar, type MenuItem } from '../components/chrome'
+import { Btn } from '../components/controls'
 import { LnavTree } from '../components/LnavTree'
 import { LocaleSwitcher, useI18n } from '../i18n/I18nContext'
 import { NotificationBell } from './NotificationBell'
@@ -175,6 +176,12 @@ export function Shell(props: { user: User }) {
 
   // ── 메뉴바 드롭다운 ──
   const [showHelp, setShowHelp] = useState(false)
+  const [showPw, setShowPw] = useState(false)
+  const logout = () => {
+    sessionStorage.removeItem('edim-session')
+    sessionStorage.removeItem('edim-token')
+    window.location.reload()
+  }
   useEffect(() => {
     if (!showHelp) return
     const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowHelp(false) }
@@ -192,11 +199,8 @@ export function Shell(props: { user: User }) {
       { label: t('common.save', '저장'), hint: 'F12', onClick: () => fkey('F12') },
       { label: t('common.print', '인쇄'), onClick: () => window.print() },
       { sep: true, label: '' },
-      { label: '로그아웃', onClick: () => {
-        sessionStorage.removeItem('edim-session')
-        sessionStorage.removeItem('edim-token')
-        window.location.reload()
-      } },
+      { label: '비밀번호 변경', onClick: () => setShowPw(true) },
+      { label: '로그아웃', onClick: logout },
     ],
     '편집': [
       { label: '실행 취소', onClick: () => shell.setStatusMsg('실행 취소 — 활성 화면 편집 이력 기준') },
@@ -284,6 +288,11 @@ export function Shell(props: { user: User }) {
   return (
     <div className="app">
       <TitleBar user={userLabel} bell={<><LocaleSwitcher /><NotificationBell /></>}
+        userMenu={[
+          { label: '비밀번호 변경', onClick: () => setShowPw(true) },
+          { sep: true, label: '' },
+          { label: '로그아웃', onClick: logout },
+        ]}
         activeModule={shell.module} onModule={shell.setModule} />
       <MenuBar activeModule={shell.module} onModule={shell.setModule} menus={menus} />
       <div className="toolbar">
@@ -458,6 +467,75 @@ export function Shell(props: { user: User }) {
           </div>
         </div>
       ) : null}
+      {showPw ? (
+        <PasswordDialog user={props.user}
+          onClose={() => setShowPw(false)}
+          onDone={() => {
+            setShowPw(false)
+            shell.setStatusMsg('비밀번호 변경 완료 — 다음 로그인부터 새 비밀번호 (sys_user, 감사 기록)')
+          }} />
+      ) : null}
+    </div>
+  )
+}
+
+/** 비밀번호 변경 다이얼로그 (B8) — PUT /users/me/password, mock 모드는 정직 거부. */
+function PasswordDialog(props: { user: User; onClose: () => void; onDone: () => void }) {
+  const [cur, setCur] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = () => {
+    if (!cur || !next) { setMsg('현재·새 비밀번호를 입력하십시오'); return }
+    if (next !== confirm) { setMsg('새 비밀번호 확인이 일치하지 않습니다'); return }
+    setBusy(true)
+    void (async () => {
+      try {
+        await authService.changePassword(cur, next)
+        props.onDone()
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : String(e))
+        setBusy(false)
+      }
+    })()
+  }
+
+  return (
+    <div data-pw-dialog style={{
+      position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={props.onClose}>
+      <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 320, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+          <b>비밀번호 변경 — {props.user.userId}</b><span className="sp" />
+          <span style={{ cursor: 'pointer' }} onClick={props.onClose}>✕</span>
+        </div>
+        <div className="frm c2" style={{ padding: 10 }}>
+          <label>현재 비밀번호 *</label>
+          <input className="in req" type="password" value={cur} aria-label="현재 비밀번호"
+            autoFocus onChange={(e) => setCur(e.target.value)} />
+          <label>새 비밀번호 *</label>
+          <input className="in req" type="password" value={next} aria-label="새 비밀번호"
+            placeholder="4자 이상" onChange={(e) => setNext(e.target.value)} />
+          <label>새 비밀번호 확인 *</label>
+          <input className="in req" type="password" value={confirm} aria-label="새 비밀번호 확인"
+            onChange={(e) => setConfirm(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit() }} />
+        </div>
+        {msg ? (
+          <div style={{ padding: '0 10px 6px', fontSize: 11, color: 'var(--err)' }}>{msg}</div>
+        ) : null}
+        <div style={{ padding: '0 10px 6px', fontSize: 10, color: 'var(--txt-mute)' }}>
+          로그인 5회 실패 시 계정이 자동 잠금(LOCKED)되며 관리자 해제가 필요합니다.
+        </div>
+        <div style={{ display: 'flex', gap: 4, padding: '0 10px 10px', justifyContent: 'flex-end' }}>
+          <Btn onClick={props.onClose}>취소</Btn>
+          <Btn variant="pri" disabled={busy} onClick={submit}>{busy ? '변경 중…' : '변경'}</Btn>
+        </div>
+      </div>
     </div>
   )
 }

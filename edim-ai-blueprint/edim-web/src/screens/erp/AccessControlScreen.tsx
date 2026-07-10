@@ -37,6 +37,26 @@ export function AccessControlScreen({ active }: ScreenProps) {
     })()
   }
 
+  const [newLevel, setNewLevel] = useState<UserRow['level']>('SETUP')
+  const changeLevel = () => {
+    if (!sel) return
+    void (async () => {
+      try {
+        const ok = await userService.changeLevel(sel.login, newLevel)
+        if (!ok) {
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+            레벨 변경 실패 — 백엔드 연결 필요 (MOCK 모드는 sys_user 를 변경할 수 없음)</span>)
+          return
+        }
+        setUsers((prev) => prev.map((u) => (u.login === sel.login ? { ...u, level: newLevel } : u)))
+        shell.setStatusMsg(`레벨 변경 — ${sel.login} → ${newLevel} (sys_history LEVEL_CHANGE 감사)`)
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          레벨 변경 실패 — {e instanceof Error ? e.message : String(e)}</span>)
+      }
+    })()
+  }
+
   useFKeys(active, useMemo(() => ({
     F8: () => shell.setStatusMsg(`조회 — 사용자 ${rows.length}명`),
   }), [rows.length])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -105,6 +125,15 @@ export function AccessControlScreen({ active }: ScreenProps) {
               <Btn disabled={sel?.status !== 'LOCKED'} onClick={unlock}>잠금 해제</Btn>
               <Btn style={{ borderColor: 'var(--err)', color: 'var(--err)' }}
                 onClick={() => shell.setStatusMsg(`비활성화 — ${sel?.login} (ADMIN 확인 필요)`)}>비활성화</Btn>
+            </div>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 6 }}>
+              <label style={{ fontSize: 10.5 }}>레벨</label>
+              <Combo width={92} value={newLevel}
+                options={['PLATFORM', 'ADMIN', 'SETUP', 'GENERAL']}
+                onChange={(v) => setNewLevel(v as UserRow['level'])} />
+              <Btn disabled={!sel || sel.level === newLevel} onClick={changeLevel}>
+                레벨 변경 (감사)
+              </Btn>
             </div>
           </GroupBox>
           <GroupBox title="최근 감사 로그" noPad>
