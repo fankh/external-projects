@@ -1344,6 +1344,134 @@ export const drawingLedgerService = {
   },
 }
 
+// ── B17 부품 마스터 — prt_part·dwg_bom·prt_supplier_code_map·product_code_item ──
+
+export interface PartRow {
+  partId: number
+  partNo: string
+  name: string
+  spec: string
+  material: string | null
+  supplier: string | null
+  productCode: string | null
+  unit: string
+  weight: number | null
+  isStandard: boolean
+  bomCount: number
+}
+
+export interface BomRow {
+  bomId: number
+  itemNo: number
+  partNo: string
+  partName: string
+  qty: number
+  assemblySeq: number | null
+  assemblyNote: string
+  unit: string
+  isStandard: boolean
+}
+
+export interface SupplierCodeRow {
+  mapId: number
+  supplier: string
+  supplierCode: string
+  supplierName: string
+}
+
+export interface SlotItemRow {
+  pcItemId: number
+  slot: string
+  itemName: string
+  required: boolean
+  sortOrder: number
+}
+
+export const partService = {
+  /** GET /api/v1/parts — 부품 대장 (null=백엔드 불가) */
+  async list(): Promise<PartRow[] | null> {
+    try {
+      return await api<PartRow[]>('/parts')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/parts — 등록 (409=중복 throw, false=백엔드 불가) */
+  async create(body: {
+    partNo: string; name: string; spec: string; materialCode: string
+    supplier: string; productCode: string; unit: string; weight: number | null
+    isStandard: boolean
+  }): Promise<boolean> {
+    try {
+      await api('/parts', { method: 'POST', body: JSON.stringify(body) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** DELETE /api/v1/parts/{no} — BOM 참조 시 409 */
+  async remove(partNo: string): Promise<boolean> {
+    try {
+      await api(`/parts/${encodeURIComponent(partNo)}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** GET /api/v1/parts/{no}/supplier-codes — ERP-018 매핑 */
+  async supplierCodes(partNo: string): Promise<SupplierCodeRow[] | null> {
+    try {
+      return await api<SupplierCodeRow[]>(`/parts/${encodeURIComponent(partNo)}/supplier-codes`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/parts/{no}/supplier-codes */
+  async addSupplierCode(partNo: string, supplier: string, supplierCode: string, supplierName: string):
+  Promise<boolean> {
+    try {
+      await api(`/parts/${encodeURIComponent(partNo)}/supplier-codes`, {
+        method: 'POST', body: JSON.stringify({ supplier, supplierCode, supplierName }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** GET /api/v1/drawings/{no}/bom — 조립순서 정렬 BOM */
+  async bom(drawingNo: string): Promise<BomRow[] | null> {
+    try {
+      return await api<BomRow[]>(`/drawings/${encodeURIComponent(drawingNo)}/bom`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/codes/{code}/supplier-codes — 발주 문서 표시용 */
+  async codeSupplierCodes(code: string): Promise<SupplierCodeRow[] | null> {
+    try {
+      return await api<SupplierCodeRow[]>(`/codes/${encodeURIComponent(code)}/supplier-codes`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/codes/{code}/slot-items — 필수 슬롯 정의 */
+  async slotItems(code: string): Promise<SlotItemRow[] | null> {
+    try {
+      return await api<SlotItemRow[]>(`/codes/${encodeURIComponent(code)}/slot-items`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
 export interface DrawingVariantRow {
   drawingNo: string
   name: string

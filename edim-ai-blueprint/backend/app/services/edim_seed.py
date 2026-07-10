@@ -102,6 +102,139 @@ def _ensure_dev_table(cur) -> None:
         created_at  TIMESTAMPTZ NOT NULL DEFAULT now())""")
 
 
+# ── seed v15 — B17: 부품 마스터(prt_part)·도면 BOM(dwg_bom)·공급자 코드(prt_supplier_code_map)·슬롯 정의 ──
+
+# (part_no, name, spec, material_code, supplier, product_main_code, unit, weight, is_standard)
+PARTS_V15 = [
+    ('PRT-CAS-900', 'Casing Φ900', 'Fan 원심 Casing 용접구조', 'SPHC', None, 'KDCR 3-13', 'EA', 42.5, False),
+    ('PRT-IMP-900', 'Impeller Airfoil 900', '밸런싱 등급 G6.3', 'SS400', '효성', 'KDCR 3-13', 'EA', 18.2, False),
+    ('PRT-SHF-045', 'Shaft Φ45', '연마 h6', 'SS400', '중원', None, 'EA', 12.0, True),
+    ('PRT-BRG-6210', 'Bearing 6210', 'Deep Groove 2RS', None, '중원', None, 'EA', 0.5, True),
+]
+
+# (part_no, qty, assembly_seq, assembly_note) — KDCR 3-13 조립순서 ◆
+BOM_V15 = [
+    ('PRT-BRG-6210', 2, 1, 'Bearing 압입 (양단)'),
+    ('PRT-SHF-045', 1, 2, '축 조립·수평 확인'),
+    ('PRT-IMP-900', 1, 5, 'Impeller 밸런싱 후 체결'),
+    ('PRT-CAS-900', 1, 6, 'Casing 최종 조립'),
+]
+
+# (part_no, supplier, supplier_code, supplier_name)
+SUPPLIER_CODES_V15 = [
+    ('PRT-BRG-6210', '중원', 'JW-6210-2RS', 'Deep Groove Ball Bearing 6210'),
+    ('PRT-IMP-900', '효성', 'HS-IMP-900A', 'Airfoil Impeller 900'),
+]
+
+# (item_slot, source item_name, is_required, sort) — 'KDP 1-21' 필수 슬롯 정의
+SLOT_ITEMS_V15 = [
+    ('A', 'Fan Model', True, 1),
+    ('B', 'Fan Size', True, 2),
+    ('C', 'Material', False, 3),
+]
+
+LABELS_V15 = {
+    'menu.plm-parts': ('Part Ledger (M-4-7)', '部品台帳 (M-4-7)', '零件台账 (M-4-7)'),
+    'screen.plm-parts': ('Part Ledger', '部品台帳', '零件台账'),
+    'parts.title': ('Part Ledger — prt_part', '部品台帳 — prt_part', '零件台账 — prt_part'),
+    'parts.registerF2': ('+ Register Part F2', '＋ 部品登録 F2', '＋ 零件登记 F2'),
+    'parts.partNo': ('Part No.', '部品番号', '零件编号'),
+    'parts.partName': ('Part Name', '部品名', '零件名'),
+    'parts.specCol': ('Spec', '仕様', '规格'),
+    'parts.materialCol': ('Material', '材質', '材质'),
+    'parts.supplierCol': ('Supplier', '仕入先', '供应商'),
+    'parts.weightCol': ('Weight(kg)', '重量(kg)', '重量(kg)'),
+    'parts.stdChip': ('STD', 'STD', 'STD'),
+    'parts.bomCol': ('BOM Refs', 'BOM 参照', 'BOM 引用'),
+    'parts.supCodes': ('Supplier Code Map (ERP-018)', '仕入先コードマップ (ERP-018)', '供应商代码映射 (ERP-018)'),
+    'parts.supCodeAdd': ('Add Mapping', 'マッピング追加', '添加映射'),
+    'parts.selectHint': ('Select a part row to view supplier code mappings', '部品行を選択すると仕入先コードを表示', '选择零件行以查看供应商代码'),
+    'parts.noSupCodes': ('No supplier code mappings', '仕入先コードマッピングなし', '无供应商代码映射'),
+    'editor.bomLive': ('Sub Item DWG · Assembly Seq (dwg_bom)', 'Sub Item DWG · 組立順序 (dwg_bom)', 'Sub Item DWG · 装配顺序 (dwg_bom)'),
+    'purchase.supCode': ('Supplier Code', '仕入先コード', '供应商代码'),
+    'detail.slotDef': ('Required Slot Definition (product_code_item)', '必須スロット定義 (product_code_item)', '必需槽位定义 (product_code_item)'),
+}
+
+
+def seed_v15(cur, tid: int) -> None:
+    cur.execute('SELECT 1 FROM prt_part WHERE tenant_id=%s LIMIT 1', (tid,))
+    if not cur.fetchone():
+        ids: dict[str, int] = {}
+        for no, name, spec, mat, sup, pcode, unit, weight, std in PARTS_V15:
+            mid = None
+            if mat:
+                cur.execute('SELECT material_id FROM mat_material WHERE tenant_id=%s AND material_code=%s',
+                            (tid, mat))
+                m = cur.fetchone()
+                mid = m[0] if m else None
+            sid = None
+            if sup:
+                cur.execute('SELECT company_id FROM com_company WHERE tenant_id=%s AND company_name=%s LIMIT 1',
+                            (tid, sup))
+                s = cur.fetchone()
+                sid = s[0] if s else None
+            pcid = None
+            if pcode:
+                cur.execute('SELECT min(product_code_id) FROM product_code WHERE tenant_id=%s AND main_code=%s',
+                            (tid, pcode))
+                pc = cur.fetchone()
+                pcid = pc[0] if pc else None
+            cur.execute(
+                """INSERT INTO prt_part (tenant_id, part_no, part_name, specification, material_id,
+                   supplier_id, product_code_id, unit, weight, is_standard)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING part_id""",
+                (tid, no, name, spec, mid, sid, pcid, unit, weight, std))
+            ids[no] = cur.fetchone()[0]
+        cur.execute(
+            "SELECT drawing_id FROM dwg_drawing WHERE tenant_id=%s AND drawing_no='KDCR 3-13'", (tid,))
+        d = cur.fetchone()
+        if d:
+            for i, (no, qty, seq, note) in enumerate(BOM_V15, start=1):
+                cur.execute(
+                    """INSERT INTO dwg_bom (drawing_id, part_id, item_no, quantity, assembly_seq, assembly_note)
+                       VALUES (%s,%s,%s,%s,%s,%s)""", (d[0], ids[no], i, qty, seq, note))
+        for no, sup, scode, sname in SUPPLIER_CODES_V15:
+            cur.execute('SELECT company_id FROM com_company WHERE tenant_id=%s AND company_name=%s LIMIT 1',
+                        (tid, sup))
+            s = cur.fetchone()
+            if s:
+                cur.execute(
+                    """INSERT INTO prt_supplier_code_map (tenant_id, part_id, supplier_id,
+                       supplier_code, supplier_name) VALUES (%s,%s,%s,%s,%s)""",
+                    (tid, ids[no], s[0], scode, sname))
+        logger.info('seed v15 — prt_part %d + bom %d + supplier_code %d',
+                    len(PARTS_V15), len(BOM_V15), len(SUPPLIER_CODES_V15))
+    cur.execute('SELECT 1 FROM product_code_item LIMIT 1')
+    if not cur.fetchone():
+        cur.execute(
+            "SELECT min(product_code_id) FROM product_code WHERE tenant_id=%s AND main_code='KDP 1-21'",
+            (tid,))
+        pc = cur.fetchone()
+        if pc and pc[0]:
+            n = 0
+            for slot, item_name, req, sort in SLOT_ITEMS_V15:
+                cur.execute('SELECT item_id FROM code_item WHERE tenant_id=%s AND item_name=%s LIMIT 1',
+                            (tid, item_name))
+                ci = cur.fetchone()
+                if ci:
+                    cur.execute(
+                        """INSERT INTO product_code_item (product_code_id, item_slot, source_item_id,
+                           is_required, sort_order) VALUES (%s,%s,%s,%s,%s)""",
+                        (pc[0], slot, ci[0], req, sort))
+                    n += 1
+            logger.info('seed v15 — product_code_item %d', n)
+    for key, (en, ja, zh) in LABELS_V15.items():
+        for locale, text in (('en', en), ('ja', ja), ('zh', zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
 def run_seed() -> None:
     pool = get_pool()
     if pool is None:
@@ -126,6 +259,7 @@ def run_seed() -> None:
             seed_v12(cur, row[0])
             seed_v13(cur, row[0])
             seed_v14(cur, row[0])
+            seed_v15(cur, row[0])
             return
 
         cur.execute(
@@ -235,6 +369,7 @@ def run_seed() -> None:
         seed_v12(cur, tid)
         seed_v13(cur, tid)
         seed_v14(cur, tid)
+        seed_v15(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──

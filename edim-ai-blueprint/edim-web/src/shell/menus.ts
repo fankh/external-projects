@@ -42,6 +42,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'plm-quality': { screenId: 'plm-quality', code: 'M-4-5', title: 'Quality' },
   'erp-company-master': { screenId: 'erp-company-master', code: 'M-14-2', title: '공급처·거래처' },
   'code-hierarchy': { screenId: 'code-hierarchy', code: 'M-3-1', title: 'Hierarchy 주소' },
+  'plm-parts': { screenId: 'plm-parts', code: 'M-4-7', title: '부품 대장' },
 }
 
 export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> = {
@@ -82,6 +83,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
           { id: 'plm-workprocess', label: 'Work Process (S-4-1-2)' },
           { id: 'plm-material', label: 'Material (M-4-4)' },
           { id: 'plm-quality', label: 'Quality (M-4-5)' },
+          { id: 'plm-parts', label: '부품 대장 (M-4-7)' },
         ],
       },
       {

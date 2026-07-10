@@ -2,7 +2,7 @@
  *  Stock Check 재고 충족 제외 · 단가 resolve · 공급자 코드 매핑. */
 import { useEffect, useMemo, useState } from 'react'
 import type { PriceRow, PrItem } from '../../api/mock/dataErp'
-import { erpService, purchaseService } from '../../api/services'
+import { erpService, partService, purchaseService, type SupplierCodeRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -76,6 +76,22 @@ export function PurchaseScreen({ active }: ScreenProps) {
     void erpService.resolvePrice('FDV-480', '2026-07-09').then(setResolved)
   }, [])
 
+  // 공급자 코드 매핑 실데이터 (B17 ERP-018) — PR 품목 + 대표 제품코드
+  const [supMaps, setSupMaps] = useState<(SupplierCodeRow & { code: string })[]>([])
+  useEffect(() => {
+    if (!items.length) return
+    const codes = [...new Set([...items.map((r) => r.code), 'KDCR 3-13'])]
+    void (async () => {
+      const out: (SupplierCodeRow & { code: string })[] = []
+      for (const c of codes) {
+        const maps = await partService.codeSupplierCodes(c)
+        if (maps === null) return   // 백엔드 불가 → mock 유지
+        out.push(...maps.map((m) => ({ ...m, code: c })))
+      }
+      setSupMaps(out)
+    })()
+  }, [items])
+
   return (
     <div className="fill-col">
       <div className="qband">
@@ -136,11 +152,29 @@ export function PurchaseScreen({ active }: ScreenProps) {
               </span>
             </div>
           </GroupBox>
-          <GroupBox title={t('purch.supplierMap', '공급자 코드 매핑 (ERP-018)')}>
-            <div style={{ fontSize: 10.5, color: 'var(--txt-dim)', lineHeight: 1.8 }}>
-              {t('purch.supplierMapHint', '발주서에 공급자측 코드 표기')}<br />
-              <code style={{ fontSize: 10.5 }}>FDV-480 ↔ HS-M480 (효성)</code>
+          <GroupBox title={t('purch.supplierMap', '공급자 코드 매핑 (ERP-018)')} noPad
+            right={supMaps.length ? <Chip tone="ok">prt_supplier_code_map</Chip> : <Chip tone="warn">MOCK</Chip>}>
+            <div style={{ fontSize: 10.5, color: 'var(--txt-dim)', lineHeight: 1.8, padding: 6 }}>
+              {t('purch.supplierMapHint', '발주서에 공급자측 코드 표기')}
             </div>
+            {supMaps.length ? (
+              <table className="g" data-supmap-live>
+                <thead><tr><th>Code</th><th>{t('purch.supplierCode', '공급자 코드')}</th><th>Supplier</th></tr></thead>
+                <tbody>
+                  {supMaps.map((m) => (
+                    <tr key={m.mapId} title={m.supplierName}>
+                      <td className="c" style={{ fontFamily: 'Consolas, monospace' }}>{m.code}</td>
+                      <td className="c" style={{ fontFamily: 'Consolas, monospace' }}>{m.supplierCode}</td>
+                      <td className="c">{m.supplier}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ padding: '0 6px 6px' }}>
+                <code style={{ fontSize: 10.5 }}>FDV-480 ↔ HS-M480 (효성)</code>
+              </div>
+            )}
           </GroupBox>
           <GroupBox title={t('purch.purchaseTerms', '구매 조건 (ERP-017)')}>
             <div style={{ fontSize: 10.5, color: 'var(--txt-dim)', lineHeight: 1.8 }}>

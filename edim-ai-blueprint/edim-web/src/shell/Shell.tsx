@@ -16,6 +16,7 @@ import { TechDataScreen } from '../screens/cpq/TechDataScreen'
 import { RunScreen } from '../screens/cpq/RunScreen'
 import { ArrangementSetupScreen } from '../screens/plm/ArrangementSetupScreen'
 import { DesignEditorScreen } from '../screens/plm/DesignEditorScreen'
+import { PartLedgerScreen } from '../screens/plm/PartLedgerScreen'
 import { QualityScreen } from '../screens/plm/QualityScreen'
 import { HierarchyScreen } from '../screens/code/HierarchyScreen'
 import { MaterialGpiScreen } from '../screens/code/MaterialGpiScreen'
@@ -84,6 +85,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'plm-quality': QualityScreen,
   'erp-company-master': CompanyMasterScreen,
   'code-hierarchy': HierarchyScreen,
+  'plm-parts': PartLedgerScreen,
   'com-approval': ApprovalInboxScreen,
   'com-tasks': TaskBoxScreen,
   'com-folder': ProjectFolderScreen,

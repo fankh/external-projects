@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { CODE_APPROVAL_HIST, WHERE_USED, type ApprovalHistRow } from '../../api/mock/dataDetail'
 import { PRICES } from '../../api/mock/dataErp'
-import { drawingLedgerService, referencerService } from '../../api/services'
+import { drawingLedgerService, partService, referencerService, type SlotItemRow } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid } from '../../components/DenseGrid'
@@ -37,6 +37,12 @@ export function CodeDetailScreen({ tab }: ScreenProps) {
   // 승인 이력 실조회 — sys_approval_request (B7, CODE_APPROVAL_HIST mock 대체; base code 기준)
   useEffect(() => {
     void drawingLedgerService.approvalHistory(base).then(setHist)
+  }, [base])
+
+  // 필수 슬롯 정의 — product_code_item (B17; 정의된 코드만 박스 표시)
+  const [slots, setSlots] = useState<SlotItemRow[] | null>(null)
+  useEffect(() => {
+    void partService.slotItems(base).then(setSlots)
   }, [base])
 
   // 도면 열기 — dwg_drawing 연결 DXF 를 CAD 뷰어로 (B7, 도면번호 = base code)
@@ -155,6 +161,25 @@ export function CodeDetailScreen({ tab }: ScreenProps) {
               <b style={{ color: 'var(--title-navy)' }}>기술자료</b> Fan 성능 Variant
             </div>
           </GroupBox>
+          {slots && slots.length ? (
+            <GroupBox title="필수 슬롯 정의 (product_code_item)" noPad
+              right={<Chip tone="ok">{slots.length}슬롯</Chip>}>
+              <table className="g" data-slot-def>
+                <thead><tr><th>Slot</th><th>항목</th><th>필수</th></tr></thead>
+                <tbody>
+                  {slots.map((s) => (
+                    <tr key={s.pcItemId}>
+                      <td className="c"><b>{s.slot}</b></td>
+                      <td>{s.itemName}</td>
+                      <td className="c">{s.required
+                        ? <Chip tone="err">필수</Chip>
+                        : <Chip tone="info">선택</Chip>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </GroupBox>
+          ) : null}
           <GroupBox title="승인 이력 (sys_approval_request)" noPad
             right={hist === null
               ? <Chip tone="warn">MOCK</Chip>

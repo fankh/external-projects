@@ -3183,6 +3183,265 @@ def drawing_relations(drawing_no: str) -> list[dict[str, Any]]:
                 for r in cur.fetchall()]
 
 
+# ── B17 부품 마스터 — prt_part·dwg_bom·prt_supplier_code_map·product_code_item ──
+
+@router.get("/parts")
+def parts_list() -> list[dict[str, Any]]:
+    """부품 대장 — 재질·공급처·제품코드 조인 (M-4-7)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT p.part_id, p.part_no, p.part_name, COALESCE(p.specification,''),
+                      m.material_code, c.company_name, pc.main_code, p.unit,
+                      p.weight, p.is_standard,
+                      (SELECT count(*) FROM dwg_bom b WHERE b.part_id=p.part_id)
+               FROM prt_part p
+               LEFT JOIN mat_material m ON m.material_id=p.material_id
+               LEFT JOIN com_company c ON c.company_id=p.supplier_id
+               LEFT JOIN product_code pc ON pc.product_code_id=p.product_code_id
+               WHERE p.tenant_id=%s ORDER BY p.part_no""", (tid,))
+        return [
+            {"partId": r[0], "partNo": r[1], "name": r[2], "spec": r[3],
+             "material": r[4], "supplier": r[5], "productCode": r[6], "unit": r[7],
+             "weight": float(r[8]) if r[8] is not None else None,
+             "isStandard": r[9], "bomCount": r[10]}
+            for r in cur.fetchall()
+        ]
+
+
+class PartCreate(BaseModel):
+    partNo: str
+    name: str
+    spec: str = ""
+    materialCode: str = ""       # mat_material.material_code (없으면 미연결)
+    supplier: str = ""           # com_company 이름 — 미존재 시 자동 생성 (단가 등록과 동일)
+    productCode: str = ""        # product_code.main_code
+    unit: str = "EA"
+    weight: float | None = None
+    isStandard: bool = False
+
+
+@router.post("/parts", status_code=201, dependencies=[SETUP])
+def part_create(request: Request, body: PartCreate) -> dict[str, Any]:
+    no, name = body.partNo.strip(), body.name.strip()
+    if not no or not name:
+        raise HTTPException(422, detail="부품번호·부품명은 필수입니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM prt_part WHERE tenant_id=%s AND part_no=%s", (tid, no))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"부품번호 중복: {no}")
+        mid = None
+        if body.materialCode.strip():
+            cur.execute("SELECT material_id FROM mat_material WHERE tenant_id=%s AND material_code=%s",
+                        (tid, body.materialCode.strip()))
+            m = cur.fetchone()
+            if not m:
+                raise HTTPException(422, detail=f"재질 코드 없음: {body.materialCode} (M-3-2 등록 필요)")
+            mid = m[0]
+        sid = None
+        if body.supplier.strip():
+            cur.execute("SELECT company_id FROM com_company WHERE tenant_id=%s AND company_name=%s LIMIT 1",
+                        (tid, body.supplier.strip()))
+            s = cur.fetchone()
+            if s:
+                sid = s[0]
+            else:
+                cur.execute(
+                    """INSERT INTO com_company (tenant_id, company_name, company_type)
+                       VALUES (%s,%s,'SUPPLIER') RETURNING company_id""", (tid, body.supplier.strip()))
+                sid = cur.fetchone()[0]
+        pcid = None
+        if body.productCode.strip():
+            cur.execute("SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s LIMIT 1",
+                        (tid, body.productCode.strip()))
+            pc = cur.fetchone()
+            if not pc:
+                raise HTTPException(422, detail=f"제품코드 없음: {body.productCode}")
+            pcid = pc[0]
+        cur.execute(
+            """INSERT INTO prt_part (tenant_id, part_no, part_name, specification, material_id,
+               supplier_id, product_code_id, unit, weight, is_standard, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING part_id""",
+            (tid, no, name[:200], body.spec.strip()[:300] or None, mid, sid, pcid,
+             body.unit.strip()[:10] or "EA", body.weight, body.isStandard, request.state.login))
+        part_id = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'prt_part',%s,'CREATE',%s,%s)""",
+            (tid, part_id, request.state.user_id, json.dumps({"partNo": no, "name": name})))
+    return {"partId": part_id, "partNo": no}
+
+
+@router.delete("/parts/{part_no}", dependencies=[SETUP])
+def part_delete(part_no: str, request: Request) -> dict[str, Any]:
+    """부품 삭제 — BOM 참조 중이면 409 보호, 공급자 코드 매핑은 연쇄 정리."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT part_id FROM prt_part WHERE tenant_id=%s AND part_no=%s", (tid, part_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"부품 없음: {part_no}")
+        pid = row[0]
+        cur.execute("SELECT 1 FROM dwg_bom WHERE part_id=%s LIMIT 1", (pid,))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"BOM 이 참조하는 부품은 삭제 불가: {part_no}")
+        cur.execute("DELETE FROM prt_supplier_code_map WHERE part_id=%s", (pid,))
+        cur.execute("DELETE FROM prt_part WHERE part_id=%s", (pid,))
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'prt_part',%s,'DELETE',%s,%s)""",
+            (tid, pid, request.state.user_id, json.dumps({"partNo": part_no})))
+    return {"deleted": part_no}
+
+
+@router.get("/drawings/{drawing_no}/bom")
+def drawing_bom(drawing_no: str) -> list[dict[str, Any]]:
+    """도면 BOM — dwg_bom×prt_part (조립순서 assembly_seq 정렬, 부품 상세 ◆ 원천)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing_no)
+        cur.execute(
+            """SELECT b.bom_id, b.item_no, p.part_no, p.part_name, b.quantity,
+                      b.assembly_seq, COALESCE(b.assembly_note,''), p.unit, p.is_standard
+               FROM dwg_bom b JOIN prt_part p ON p.part_id=b.part_id
+               WHERE b.drawing_id=%s
+               ORDER BY COALESCE(b.assembly_seq, 999), b.item_no""", (did,))
+        return [
+            {"bomId": r[0], "itemNo": r[1], "partNo": r[2], "partName": r[3],
+             "qty": float(r[4]), "assemblySeq": r[5], "assemblyNote": r[6],
+             "unit": r[7], "isStandard": r[8]}
+            for r in cur.fetchall()
+        ]
+
+
+class BomAdd(BaseModel):
+    partNo: str
+    qty: float = 1
+    assemblySeq: int | None = None
+    assemblyNote: str = ""
+
+
+@router.post("/drawings/{drawing_no}/bom", status_code=201, dependencies=[SETUP])
+def drawing_bom_add(drawing_no: str, request: Request, body: BomAdd) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing_no)
+        cur.execute("SELECT part_id FROM prt_part WHERE tenant_id=%s AND part_no=%s",
+                    (tid, body.partNo.strip()))
+        p = cur.fetchone()
+        if not p:
+            raise HTTPException(422, detail=f"부품 없음: {body.partNo} (부품 대장 등록 필요)")
+        cur.execute("SELECT 1 FROM dwg_bom WHERE drawing_id=%s AND part_id=%s", (did, p[0]))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"이미 BOM 에 있는 부품: {body.partNo}")
+        cur.execute("SELECT COALESCE(max(item_no),0)+1 FROM dwg_bom WHERE drawing_id=%s", (did,))
+        item_no = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO dwg_bom (drawing_id, part_id, item_no, quantity, assembly_seq, assembly_note)
+               VALUES (%s,%s,%s,%s,%s,NULLIF(%s,'')) RETURNING bom_id""",
+            (did, p[0], item_no, body.qty, body.assemblySeq, body.assemblyNote.strip()[:500]))
+        bom_id = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'dwg_bom',%s,'CREATE',%s,%s)""",
+            (tid, bom_id, request.state.user_id,
+             json.dumps({"drawingNo": drawing_no, "partNo": body.partNo, "qty": body.qty})))
+    return {"bomId": bom_id, "itemNo": item_no}
+
+
+@router.delete("/drawings/{drawing_no}/bom/{bom_id}", dependencies=[SETUP])
+def drawing_bom_delete(drawing_no: str, bom_id: int) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing_no)
+        cur.execute("DELETE FROM dwg_bom WHERE drawing_id=%s AND bom_id=%s RETURNING bom_id",
+                    (did, bom_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"BOM 행 없음: #{bom_id}")
+    return {"deleted": bom_id}
+
+
+@router.get("/parts/{part_no}/supplier-codes")
+def part_supplier_codes(part_no: str) -> list[dict[str, Any]]:
+    """공급자 코드 매핑 (ERP-018) — 부품 기준."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT m.map_id, c.company_name, m.supplier_code, COALESCE(m.supplier_name,'')
+               FROM prt_supplier_code_map m
+               JOIN prt_part p ON p.part_id=m.part_id
+               JOIN com_company c ON c.company_id=m.supplier_id
+               WHERE m.tenant_id=%s AND p.part_no=%s ORDER BY m.map_id""", (tid, part_no))
+        return [{"mapId": r[0], "supplier": r[1], "supplierCode": r[2], "supplierName": r[3]}
+                for r in cur.fetchall()]
+
+
+class SupplierCodeAdd(BaseModel):
+    supplier: str
+    supplierCode: str
+    supplierName: str = ""
+
+
+@router.post("/parts/{part_no}/supplier-codes", status_code=201, dependencies=[SETUP])
+def part_supplier_code_add(part_no: str, request: Request, body: SupplierCodeAdd) -> dict[str, Any]:
+    if not body.supplier.strip() or not body.supplierCode.strip():
+        raise HTTPException(422, detail="공급처·공급자 코드는 필수입니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT part_id FROM prt_part WHERE tenant_id=%s AND part_no=%s", (tid, part_no))
+        p = cur.fetchone()
+        if not p:
+            raise HTTPException(404, detail=f"부품 없음: {part_no}")
+        cur.execute("SELECT company_id FROM com_company WHERE tenant_id=%s AND company_name=%s LIMIT 1",
+                    (tid, body.supplier.strip()))
+        s = cur.fetchone()
+        if s:
+            sid = s[0]
+        else:
+            cur.execute("""INSERT INTO com_company (tenant_id, company_name, company_type)
+                           VALUES (%s,%s,'SUPPLIER') RETURNING company_id""", (tid, body.supplier.strip()))
+            sid = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO prt_supplier_code_map (tenant_id, part_id, supplier_id, supplier_code,
+               supplier_name, created_by) VALUES (%s,%s,%s,%s,NULLIF(%s,''),%s) RETURNING map_id""",
+            (tid, p[0], sid, body.supplierCode.strip()[:50], body.supplierName.strip()[:200],
+             request.state.login))
+        return {"mapId": cur.fetchone()[0]}
+
+
+@router.get("/codes/{code}/supplier-codes")
+def code_supplier_codes(code: str) -> list[dict[str, Any]]:
+    """공급자 코드 매핑 — 제품코드 기준 (발주 문서 표시용, 부품 경유 포함)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT m.map_id, c.company_name, m.supplier_code, COALESCE(m.supplier_name,'')
+               FROM prt_supplier_code_map m
+               JOIN com_company c ON c.company_id=m.supplier_id
+               LEFT JOIN prt_part p ON p.part_id=m.part_id
+               LEFT JOIN product_code pc
+                 ON pc.product_code_id=COALESCE(m.product_code_id, p.product_code_id)
+               WHERE m.tenant_id=%s AND pc.main_code=%s ORDER BY m.map_id""", (tid, code))
+        return [{"mapId": r[0], "supplier": r[1], "supplierCode": r[2], "supplierName": r[3]}
+                for r in cur.fetchall()]
+
+
+@router.get("/codes/{code}/slot-items")
+def code_slot_items(code: str) -> list[dict[str, Any]]:
+    """제품코드 필수 슬롯 정의 — product_code_item×code_item (C-1 슬롯 구성의 DB 원천)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT i.pc_item_id, i.item_slot, ci.item_name, i.is_required, i.sort_order
+               FROM product_code_item i
+               JOIN product_code pc ON pc.product_code_id=i.product_code_id AND pc.tenant_id=%s
+               JOIN code_item ci ON ci.item_id=i.source_item_id
+               WHERE pc.main_code=%s ORDER BY i.sort_order, i.item_slot""", (tid, code))
+        return [{"pcItemId": r[0], "slot": r[1], "itemName": r[2], "required": r[3],
+                 "sortOrder": r[4]} for r in cur.fetchall()]
+
+
 @router.get("/codes/{code}/approval-history")
 def code_approval_history(code: str) -> list[dict[str, Any]]:
     """코드 승인 이력 — sys_approval_request 실조회 (코드 상세 CODE_APPROVAL_HIST mock 대체).

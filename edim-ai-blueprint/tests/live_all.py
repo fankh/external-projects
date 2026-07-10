@@ -20,6 +20,7 @@ SUITES = [
     "live_b2_persistence.py",
     "live_b7_drawings.py",
     "live_b16_drawing_detail.py",   # 도면 상세 탭·단계별 승인·Simulation
+    "live_b17_parts.py",            # 부품 마스터·BOM·공급자 코드·슬롯 정의
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]

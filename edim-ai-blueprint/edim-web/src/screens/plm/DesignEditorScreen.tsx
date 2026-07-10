@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasBlock, DimensionDef } from '../../api/types'
 import { DWG_BLOCKS, DWG_DIMS, MACRO_CODING } from '../../api/mock/data'
 import {
-  approvalService, cadService, drawingLedgerService, drawingService, macroService,
-  type CadDocument, type DwgRelationRow,
+  approvalService, cadService, drawingLedgerService, drawingService, macroService, partService,
+  type BomRow, type CadDocument, type DwgRelationRow,
 } from '../../api/services'
 import { CadSvg } from '../../components/CadSvg'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
@@ -157,6 +157,8 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
   // B16 — Block 캔버스·부품 관계 실데이터 (dwg_document·dwg_part_relation, 불가 시 mock)
   const [blocks, setBlocks] = useState<CanvasBlock[]>(DWG_BLOCKS)
   const [relations, setRelations] = useState<DwgRelationRow[] | null>(null)
+  // B17 — 조립순서 = dwg_bom 실데이터
+  const [bom, setBom] = useState<BomRow[] | null>(null)
 
   // 치수 편집 이력 (B12) — undo/redo 시 CAD 재작도
   const hist = useEditHistory(active, dims, setDims, (kind, v) => {
@@ -206,6 +208,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
       }
     })
     void drawingLedgerService.relations('KDCR 3-13').then(setRelations)
+    void partService.bom('KDCR 3-13').then(setBom)   // 조립순서 ◆ (B17)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleCad = () => {
@@ -390,7 +393,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
             <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock}
               onOpen={(b) => shell.openTab({
                 id: `part-detail:${b.id}`, screenId: 'part-detail',
-                code: '부품', title: b.name, params: { partId: b.id },
+                code: '부품', title: b.name, params: { partId: b.id, name: b.name },
               })}
               dims={[
                 { x: 150, y: 16, w: 330, label: `B = ${dimB}` },
@@ -482,11 +485,26 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
             if (cadMode) loadCad(next)
             shell.setStatusMsg('Simulation 적용 ✓ — 치수 반영 + CAD 재작도 (DWG-024)')
           }} />
-          <GroupBox title={t('editor.subItemDwg', 'Sub Item DWG · 조립순서')}>
-            <div style={{ fontSize: 11, lineHeight: 1.9 }}>
-              ① Bearing · ② Shaft · ③ Inlet-Cone R<br />
-              ④ Inlet-Cone L · ⑤ Impeller <Chip tone="info">◆ {t('editor.asmSeq', '조립순서')}</Chip>
-            </div>
+          <GroupBox title={t('editor.subItemDwg', 'Sub Item DWG · 조립순서')}
+            right={bom !== null && bom.length
+              ? <Chip tone="ok">dwg_bom {bom.length}</Chip>
+              : <Chip tone="warn">MOCK</Chip>}>
+            {bom !== null && bom.length ? (
+              <div data-bom-live style={{ fontSize: 11, lineHeight: 1.9 }}>
+                {bom.map((b) => (
+                  <div key={b.bomId} title={b.assemblyNote}>
+                    {'①②③④⑤⑥⑦⑧⑨'[(b.assemblySeq ?? 9) - 1] ?? '◇'} {b.partName}
+                    <span style={{ color: 'var(--txt-mute)', fontSize: 10 }}> ×{b.qty} {b.partNo}</span>
+                  </div>
+                ))}
+                <Chip tone="info">◆ {t('editor.asmSeq', '조립순서')}</Chip>
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, lineHeight: 1.9 }}>
+                ① Bearing · ② Shaft · ③ Inlet-Cone R<br />
+                ④ Inlet-Cone L · ⑤ Impeller <Chip tone="info">◆ {t('editor.asmSeq', '조립순서')}</Chip>
+              </div>
+            )}
           </GroupBox>
           <div style={{ display: 'flex', gap: 4 }}>
             <Btn style={{ flex: 1, justifyContent: 'center' }}

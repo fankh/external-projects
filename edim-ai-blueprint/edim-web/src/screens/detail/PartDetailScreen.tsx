@@ -1,7 +1,9 @@
 /** 부품 정보 상세 (드릴다운) — Design Editor 캔버스 Block 더블클릭으로 진입 (DWG-012).
- *  치수 바인딩 · Work Process · 조립 순서 ◆ · QC 주의사항. */
+ *  치수 바인딩 · Work Process · 조립 순서 ◆ (dwg_bom 실데이터, B17) · QC 주의사항. */
+import { useEffect, useState } from 'react'
 import { PART_INFO } from '../../api/mock/dataDetail'
 import { DWG_DIMS, PROCESS_DEF } from '../../api/mock/data'
+import { partService, type BomRow } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
@@ -10,8 +12,18 @@ import type { ScreenProps } from '../../shell/Shell'
 export function PartDetailScreen({ tab }: ScreenProps) {
   const shell = useShell()
   const partId = String(tab.params?.partId ?? 'brgL')
+  const partName = typeof tab.params?.name === 'string' ? tab.params.name : null
   const info = PART_INFO[partId] ?? PART_INFO.casing
   const dims = DWG_DIMS.filter((d) => info.dims.includes(d.no))
+
+  // 조립 순서 ◆ — dwg_bom 실데이터 (블록명 매칭, 불가 시 mock seq)
+  const [bom, setBom] = useState<BomRow[] | null>(null)
+  useEffect(() => { void partService.bom('KDCR 3-13').then(setBom) }, [])
+  const wantName = (partName ?? info.name).toLowerCase()
+  const bomRow = bom?.find((b) =>
+    b.partName.toLowerCase().includes(wantName) || wantName.includes(b.partName.split(' ')[0].toLowerCase()))
+  const seq = bomRow?.assemblySeq ?? info.assemblySeq
+  const maxSeq = bom?.length ? Math.max(...bom.map((b) => b.assemblySeq ?? 0), seq) : 5
 
   return (
     <div className="fill-col">
@@ -83,17 +95,25 @@ export function PartDetailScreen({ tab }: ScreenProps) {
               제조비 = 시간 × 임율 × 장비 (CST-003 입력)
             </div>
           </GroupBox>
-          <GroupBox title={`◆ 조립 순서 — ${info.assemblySeq}번째`}>
+          <GroupBox title={`◆ 조립 순서 — ${seq}번째`}
+            right={bomRow
+              ? <Chip tone="ok">dwg_bom #{bomRow.itemNo}</Chip>
+              : bom !== null ? <Chip tone="warn">MOCK</Chip> : null}>
             <div className="flow">
-              {[1, 2, 3, 4, 5].map((n, i) => (
+              {Array.from({ length: Math.max(maxSeq, 5) }, (_, i) => i + 1).map((n, i, arr) => (
                 <span key={n} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <span className={`fs ${n === info.assemblySeq ? 'now' : n < info.assemblySeq ? 'done' : ''}`}>
+                  <span className={`fs ${n === seq ? 'now' : n < seq ? 'done' : ''}`}>
                     ◆{n}
                   </span>
-                  {i < 4 ? <span className="ar">→</span> : null}
+                  {i < arr.length - 1 ? <span className="ar">→</span> : null}
                 </span>
               ))}
             </div>
+            {bomRow?.assemblyNote ? (
+              <div style={{ fontSize: 10.5, color: 'var(--txt-dim)', marginTop: 4 }}>
+                {bomRow.assemblyNote} — 수량 ×{bomRow.qty} ({bomRow.partNo})
+              </div>
+            ) : null}
           </GroupBox>
           <GroupBox title="주의사항 (QC/Material/Mfg)">
             <div style={{ fontSize: 11, lineHeight: 1.8 }}>
