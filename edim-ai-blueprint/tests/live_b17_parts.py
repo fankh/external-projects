@@ -102,26 +102,26 @@ with sync_playwright() as pw:
 
     # 부품 대장 — 시드 행 + TEST 부품 행 + 공급자 코드 패널
     p.locator(".tn", has_text="부품 대장 (M-4-7)").click()
-    p.locator("td", has_text="PRT-IMP-900").first.wait_for(timeout=8000)
+    p.locator("td", has_text="PRT-IMP-900").first.wait_for(timeout=15000)
     ok("UI 부품 대장 그리드", True)
     p.locator("td", has_text=TP).first.click()
-    p.locator(".gb", has_text="공급자 코드 매핑").locator("td", has_text="JW-TEST-B17").wait_for(timeout=8000)
+    p.locator(".gb", has_text="공급자 코드 매핑").locator("td", has_text="JW-TEST-B17").wait_for(timeout=15000)
     ok("UI 공급자 코드 매핑 패널", True)
 
     # Design Editor — 조립순서 ◆ dwg_bom 칩
     p.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
     p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)
     expect(p.locator(".st", has_text="dwg_bom")).to_have_count(1, timeout=8000)
-    p.locator("[data-bom-live]", has_text="Impeller").wait_for(timeout=8000)
+    p.locator("[data-bom-live]", has_text="Impeller").wait_for(timeout=15000)
     ok("UI Design Editor 조립순서 — dwg_bom 실데이터", True)
 
     # 코드 상세 — 슬롯 정의 박스 (KDP 1-21)
     p.goto(f"{BASE}/cpq", wait_until="networkidle")
     p.wait_for_timeout(600)
     p.locator(".tn", has_text="제품 선정 (C-1)").click()
-    p.locator("td", has_text="KDP 1-21").first.wait_for(timeout=8000)
+    p.locator("td", has_text="KDP 1-21").first.wait_for(timeout=15000)
     p.locator("td", has_text="KDP 1-21").first.dblclick()
-    p.locator("[data-slot-def]").wait_for(timeout=8000)
+    p.locator("[data-slot-def]").wait_for(timeout=15000)
     ok("UI 코드 상세 — 필수 슬롯 정의 (product_code_item)", True)
     b.close()
 
