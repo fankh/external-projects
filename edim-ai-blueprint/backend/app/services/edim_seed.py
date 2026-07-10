@@ -77,12 +77,30 @@ TECH_ROWS = [
 SUPPLIERS = ["효성", "LG", "중원", "대신금속"]
 
 
+def _ensure_dev_table(cur) -> None:
+    """개발서버 운영 도구 — 운영자 요구사항 접수함 (54-테이블 설계 스키마 외, 멱등 생성)."""
+    cur.execute("""CREATE TABLE IF NOT EXISTS dev_requirement (
+        req_id      SERIAL PRIMARY KEY,
+        tenant_id   INT NOT NULL,
+        screen_id   VARCHAR(50),
+        category    VARCHAR(20)  NOT NULL DEFAULT 'CHANGE',
+        title       VARCHAR(200) NOT NULL,
+        content     TEXT         NOT NULL DEFAULT '',
+        priority    VARCHAR(10)  NOT NULL DEFAULT 'P2',
+        status      VARCHAR(20)  NOT NULL DEFAULT 'OPEN',
+        requester   VARCHAR(50)  NOT NULL,
+        resolution  TEXT,
+        created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+        resolved_at TIMESTAMPTZ)""")
+
+
 def run_seed() -> None:
     pool = get_pool()
     if pool is None:
         logger.warning("seed skipped — DB unavailable")
         return
     with pool.connection() as conn, conn.cursor() as cur:
+        _ensure_dev_table(cur)
         cur.execute("SELECT tenant_id FROM sys_tenant WHERE tenant_code=%s", (TENANT,))
         row = cur.fetchone()
         if row:

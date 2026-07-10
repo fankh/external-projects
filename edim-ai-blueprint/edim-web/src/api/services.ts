@@ -1504,3 +1504,64 @@ export const cpqService = {
     return { runId: liveRunId, cancel }
   },
 }
+
+// ── 개발서버 전용 — 운영자 요구사항 접수 (dev_requirement) ──
+
+export interface DevRequirement {
+  reqId: number
+  screenId: string
+  category: 'CHANGE' | 'BUG' | 'FEATURE'
+  title: string
+  content: string
+  priority: 'P1' | 'P2' | 'P3'
+  status: 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'REJECTED'
+  requester: string
+  resolution: string
+  createdAt: string
+  resolvedAt: string | null
+}
+
+export const devReqService = {
+  /** GET /api/v1/config — devMode 게이트 (백엔드 불가/구버전 → false = 버튼 숨김) */
+  async devMode(): Promise<boolean> {
+    try {
+      return (await api<{ devMode: boolean }>('/config')).devMode === true
+    } catch {
+      return false
+    }
+  },
+  /** GET /api/v1/dev/requirements */
+  async list(): Promise<DevRequirement[]> {
+    try {
+      return await api<DevRequirement[]>('/dev/requirements')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — 요구사항 목록을 불러올 수 없습니다')
+      throw e
+    }
+  },
+  /** POST /api/v1/dev/requirements — 쓰기는 정직 (mock 저장 없음) */
+  async create(body: {
+    title: string; content: string; category: string; priority: string; screenId: string
+  }): Promise<number> {
+    try {
+      const r = await api<{ reqId: number }>('/dev/requirements', {
+        method: 'POST', body: JSON.stringify(body),
+      })
+      return r.reqId
+    } catch (e) {
+      if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — MOCK 모드에서는 등록할 수 없습니다')
+      throw e
+    }
+  },
+  /** PATCH /api/v1/dev/requirements/{id} — 상태 변경 (SETUP+) */
+  async setStatus(reqId: number, status: string, resolution = ''): Promise<void> {
+    try {
+      await api(`/dev/requirements/${reqId}`, {
+        method: 'PATCH', body: JSON.stringify({ status, resolution }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — 상태를 변경할 수 없습니다')
+      throw e
+    }
+  },
+}

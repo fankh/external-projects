@@ -1,11 +1,12 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
-import { authService, pingBackend, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
+import { authService, devReqService, pingBackend, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar, type MenuItem } from '../components/chrome'
 import { Btn } from '../components/controls'
 import { LnavTree } from '../components/LnavTree'
 import { LocaleSwitcher, useI18n } from '../i18n/I18nContext'
+import { DevReqDialog } from './DevReqDialog'
 import { NotificationBell } from './NotificationBell'
 import { useShell, type OpenTab } from './ShellContext'
 import { MENU_TREE, SCREEN_BY_NODE } from './menus'
@@ -192,6 +193,11 @@ export function Shell(props: { user: User }) {
   // ── 메뉴바 드롭다운 ──
   const [showHelp, setShowHelp] = useState(false)
   const [showPw, setShowPw] = useState(false)
+
+  // 개발서버 전용 — 요구사항 접수 (GET /config devMode 게이트, 운영 배포에서는 버튼 자체가 없음)
+  const [devMode, setDevMode] = useState(false)
+  const [showDevReq, setShowDevReq] = useState(false)
+  useEffect(() => { void devReqService.devMode().then(setDevMode) }, [])
   const logout = () => {
     sessionStorage.removeItem('edim-session')
     sessionStorage.removeItem('edim-token')
@@ -302,7 +308,13 @@ export function Shell(props: { user: User }) {
 
   return (
     <div className="app">
-      <TitleBar user={userLabel} bell={<><LocaleSwitcher /><NotificationBell /></>}
+      <TitleBar user={userLabel} bell={<>
+        {devMode ? (
+          <span data-devreq-btn title="요구사항 접수 (개발서버 전용)"
+            style={{ cursor: 'pointer', fontSize: 13, padding: '0 4px' }}
+            onClick={() => setShowDevReq(true)}>📝</span>
+        ) : null}
+        <LocaleSwitcher /><NotificationBell /></>}
         userMenu={[
           { label: '비밀번호 변경', onClick: () => setShowPw(true) },
           { sep: true, label: '' },
@@ -494,6 +506,16 @@ export function Shell(props: { user: User }) {
           onDone={() => {
             setShowPw(false)
             shell.setStatusMsg('비밀번호 변경 완료 — 다음 로그인부터 새 비밀번호 (sys_user, 감사 기록)')
+          }} />
+      ) : null}
+      {showDevReq ? (
+        <DevReqDialog
+          screenId={shell.tabs.find((t2) => t2.id === shell.activeTabId)?.screenId ?? ''}
+          canManage={props.user.userLevel === 'SETUP' || props.user.userLevel === 'ADMIN' || props.user.userLevel === 'PLATFORM'}
+          onClose={() => setShowDevReq(false)}
+          onSaved={(m) => {
+            setShowDevReq(false)
+            shell.setStatusMsg(m)
           }} />
       ) : null}
     </div>

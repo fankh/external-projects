@@ -70,9 +70,10 @@ with sync_playwright() as pw:
     p.locator('td input:visible').fill('700')
     p.keyboard.press('Enter')
     p.get_by_role('button', name='Run F9').click()
-    p.locator('text=B = 756').wait_for(timeout=5000)
+    # 치수 패널이 테이블형으로 변경 — "B = 756" 텍스트 대신 행(B|756|MACRO) 검증
+    p.locator('tr:visible', has_text='MACRO').filter(has_text='756').first.wait_for(timeout=5000)
     assert p.locator('td:visible', has_text='760').count() >= 1
-    assert p.locator('text=K = 1134').count() == 1
+    assert p.locator('tr:visible', has_text='1134').filter(has_text='K').count() == 1
     print('PASS Design Editor parametric via engine (B=756, D=760, K=1134)')
     p.screenshot(path=r'C:\temp\edim-shots\55-live-s3.png')
     b.close()

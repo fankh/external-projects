@@ -30,6 +30,7 @@ py tests\live_all.py
 | `live_s4_rbac_notify.py` | RBAC·알림 흐름 | S4 |
 | `live_s5_run_pipeline.py` | Run 파이프라인 산출물 바이트 검증 (PDF/DXF/XLSX) | S5 |
 | `check_i18n_en.py` | EN 전환 한글 잔존 0 — 24화면+로그인 (`BASE` env 로 프리뷰/라이브 전환) | B9 |
+| `live_dev_requirements.py` | 개발서버 요구사항 접수 — devMode 게이트·CRUD·RBAC 403·UI 모달 왕복 (자체 정리) | 운영 도구 |
 
 ## CI
 

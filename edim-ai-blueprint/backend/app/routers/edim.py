@@ -139,6 +139,113 @@ def health() -> dict[str, Any]:
     return {"status": "ok", "db": db_ok()}
 
 
+# ── 운영 설정 노출 — 개발서버 전용 기능 게이트 ──
+DEV_MODE = os.getenv("EDIM_DEV_MODE", "") == "1"
+
+
+@router.get("/config")
+def app_config() -> dict[str, Any]:
+    """프론트 기능 게이트 — devMode 는 개발서버(EDIM_DEV_MODE=1)에서만 true."""
+    return {"devMode": DEV_MODE}
+
+
+# ── 개발서버 전용: 운영자 요구사항 접수 (dev_requirement — 54-테이블 설계 외 운영 도구) ──
+
+def _require_dev_mode() -> None:
+    if not DEV_MODE:
+        raise HTTPException(404, detail="개발서버 전용 기능입니다")
+
+
+class DevReqCreate(BaseModel):
+    title: str
+    content: str = ""
+    category: str = "CHANGE"     # CHANGE | BUG | FEATURE
+    priority: str = "P2"         # P1 | P2 | P3
+    screenId: str = ""
+
+
+class DevReqPatch(BaseModel):
+    status: str                  # OPEN | IN_PROGRESS | DONE | REJECTED
+    resolution: str = ""
+
+
+@router.get("/dev/requirements")
+def dev_req_list(status: str = "") -> list[dict[str, Any]]:
+    """요구사항 목록 — 전 사용자 조회 가능 (최신 우선, status 필터 옵션)."""
+    _require_dev_mode()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        q = """SELECT req_id, screen_id, category, title, content, priority, status,
+                      requester, COALESCE(resolution,''),
+                      to_char(created_at,'YYYY-MM-DD HH24:MI'),
+                      to_char(resolved_at,'YYYY-MM-DD HH24:MI')
+               FROM dev_requirement WHERE tenant_id=%s"""
+        args: list[Any] = [tid]
+        if status:
+            q += " AND status=%s"
+            args.append(status)
+        cur.execute(q + " ORDER BY req_id DESC", args)
+        return [
+            {"reqId": r[0], "screenId": r[1] or "", "category": r[2], "title": r[3],
+             "content": r[4], "priority": r[5], "status": r[6], "requester": r[7],
+             "resolution": r[8], "createdAt": r[9], "resolvedAt": r[10]}
+            for r in cur.fetchall()
+        ]
+
+
+@router.post("/dev/requirements", status_code=201)
+def dev_req_create(request: Request, body: DevReqCreate) -> dict[str, Any]:
+    """요구사항 등록 — 로그인한 운영자 누구나 (GENERAL 포함)."""
+    _require_dev_mode()
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(422, detail="제목은 필수입니다")
+    if body.category not in ("CHANGE", "BUG", "FEATURE"):
+        raise HTTPException(422, detail=f"분류 오류: {body.category} (CHANGE|BUG|FEATURE)")
+    if body.priority not in ("P1", "P2", "P3"):
+        raise HTTPException(422, detail=f"우선순위 오류: {body.priority} (P1|P2|P3)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """INSERT INTO dev_requirement (tenant_id, screen_id, category, title, content,
+               priority, requester) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING req_id""",
+            (tid, body.screenId.strip()[:50] or None, body.category, title[:200],
+             body.content.strip(), body.priority, request.state.login))
+        return {"reqId": cur.fetchone()[0], "status": "OPEN"}
+
+
+@router.patch("/dev/requirements/{req_id}", dependencies=[SETUP])
+def dev_req_update(req_id: int, body: DevReqPatch) -> dict[str, Any]:
+    """상태 변경 (SETUP+) — 처리 라운드에서 IN_PROGRESS/DONE/REJECTED 마킹."""
+    _require_dev_mode()
+    if body.status not in ("OPEN", "IN_PROGRESS", "DONE", "REJECTED"):
+        raise HTTPException(422, detail=f"상태 오류: {body.status}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE dev_requirement
+               SET status=%s, resolution=NULLIF(%s,''),
+                   resolved_at=CASE WHEN %s IN ('DONE','REJECTED') THEN now() ELSE NULL END
+               WHERE tenant_id=%s AND req_id=%s RETURNING req_id""",
+            (body.status, body.resolution.strip(), body.status, tid, req_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"요구사항 없음: #{req_id}")
+    return {"reqId": req_id, "status": body.status}
+
+
+@router.delete("/dev/requirements/{req_id}", dependencies=[SETUP])
+def dev_req_delete(req_id: int) -> dict[str, Any]:
+    """삭제 (SETUP+) — 잘못 등록한 항목 정리."""
+    _require_dev_mode()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("DELETE FROM dev_requirement WHERE tenant_id=%s AND req_id=%s RETURNING req_id",
+                    (tid, req_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"요구사항 없음: #{req_id}")
+    return {"deleted": req_id}
+
+
 # ── SVC-01 i18n 번들 (REQ-N-015 · SYS-021) ──
 @router.get("/i18n/{locale}")
 def i18n_bundle(locale: str) -> dict[str, str]:

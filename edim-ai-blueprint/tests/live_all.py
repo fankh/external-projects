@@ -20,6 +20,7 @@ SUITES = [
     "live_b2_persistence.py",
     "live_b7_drawings.py",
     "live_security.py",
+    "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]
 
 env = {**os.environ, "PYTHONUTF8": "1", "BASE": "https://edim.seekerslab.com/"}
