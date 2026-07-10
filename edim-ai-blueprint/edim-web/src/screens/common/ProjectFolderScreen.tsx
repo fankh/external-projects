@@ -12,6 +12,7 @@ import type { ScreenProps } from '../../shell/Shell'
 export function ProjectFolderScreen({ tab }: ScreenProps) {
   const shell = useShell()
   const { t } = useI18n()
+  const [diffRow, setDiffRow] = useState<HistoryRow | null>(null)   // F7 — diff 모달
   const [folder, setFolder] = useState<string>('DWG')
   const [selFile, setSelFile] = useState<string | null>(null)
   const [hist, setHist] = useState<HistoryRow[]>([])
@@ -124,7 +125,16 @@ export function ProjectFolderScreen({ tab }: ScreenProps) {
                     <td className="c">{h.by}</td>
                     <td className="c">
                       <span className="b" style={{ height: 18, fontSize: 10 }}
-                        onClick={() => shell.setStatusMsg(`diff — ${h.target} before/after JSON 비교`)}>diff</span>
+                        onClick={() => {
+                          // F7 — 실 diff 모달 (페이로드 없는 행·mock 행은 정직 안내)
+                          if (h.before == null && h.after == null) {
+                            shell.setStatusMsg(h.historyId
+                              ? t('folder.diffNoPayload', 'diff — 이 작업은 변경 페이로드가 없습니다 (조회성 이벤트)')
+                              : t('common.needBackend', '백엔드 연결 필요 (mock 모드)'))
+                            return
+                          }
+                          setDiffRow(h)
+                        }}>diff</span>
                     </td>
                   </tr>
                 ))}
@@ -164,6 +174,66 @@ export function ProjectFolderScreen({ tab }: ScreenProps) {
               {t('folder.receivedDesc', '접수 자료(S-3-5) + 데이터 이행 원본 보존 (이행계획서 §2-4)')}
             </div>
           </GroupBox>
+        </div>
+      </div>
+      {diffRow ? <HistoryDiffModal row={diffRow} onClose={() => setDiffRow(null)} /> : null}
+    </div>
+  )
+}
+
+
+// ── F7 — sys_history before/after JSON 비교 모달 (변경 필드 하이라이트) ──
+function HistoryDiffModal(props: { row: HistoryRow; onClose: () => void }) {
+  const { t } = useI18n()
+  const before = props.row.before ?? {}
+  const after = props.row.after ?? {}
+  const keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)])).sort()
+  const fmt = (v: unknown) => (v === undefined ? '—' : JSON.stringify(v))
+  return (
+    <div data-hist-diff style={{
+      position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={props.onClose}>
+      <div style={{ width: 560, maxHeight: '70vh', overflow: 'auto', background: '#fff', border: '1px solid var(--line-strong)', boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+          <b>{t('folder.diffTitle', 'diff — {t} · {a}')
+            .replace('{t}', props.row.target).replace('{a}', props.row.action)}</b><span className="sp" />
+          <span style={{ cursor: 'pointer' }} onClick={props.onClose}>✕</span>
+        </div>
+        <table className="g" style={{ width: '100%' }}>
+          <thead>
+            <tr>
+              <th style={{ width: 120 }}>{t('folder.diffField', '필드')}</th>
+              <th>{t('appr.before', '변경 전')}</th>
+              <th>{t('appr.after', '변경 후')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {keys.length ? keys.map((k) => {
+              const b = (before as Record<string, unknown>)[k]
+              const a = (after as Record<string, unknown>)[k]
+              const changed = JSON.stringify(b) !== JSON.stringify(a)
+              return (
+                <tr key={k} data-diff-changed={changed || undefined}>
+                  <td className="code">{k}</td>
+                  <td style={changed ? { background: '#FBEBEA', color: 'var(--err)' } : undefined}>
+                    {fmt(b)}
+                  </td>
+                  <td style={changed ? { background: '#EAF6EC', fontWeight: 600 } : undefined}>
+                    {fmt(a)}
+                  </td>
+                </tr>
+              )
+            }) : (
+              <tr><td colSpan={3} style={{ padding: 10, color: 'var(--txt-mute)' }}>
+                {t('folder.diffEmpty', '기록된 필드 없음')}
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+        <div style={{ padding: '6px 10px', fontSize: 10, color: 'var(--txt-mute)' }}>
+          {props.row.at} · {props.row.by} · sys_history #{props.row.historyId ?? '—'}
         </div>
       </div>
     </div>

@@ -31,6 +31,7 @@ SUITES = [
     "live_f4_noop.py",              # 무반응 일소 — 관계 승인·Export·PrintSetup 위젯·F8 표준
     "live_f5_updates.py",           # 마스터 수정 전면 — 왕복 수정·보호 게이트 (원복)
     "live_f6_search.py",            # 통합 검색 확장 — 6그룹·딥링크·SETUP 게이트
+    "live_f7_diff.py",              # 이력 diff 모달 — before/after 하이라이트
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]

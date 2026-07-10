@@ -2454,11 +2454,12 @@ def history(limit: int = 20) -> list[dict[str, Any]]:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT to_char(h.acted_at,'MM-DD HH24:MI'), h.target_table||' #'||h.target_id,
-                      h.action, u.user_name
+                      h.action, u.user_name, h.history_id, h.before_data, h.after_data
                FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
                WHERE h.tenant_id=%s ORDER BY h.history_id DESC LIMIT %s""", (tid, limit))
         return [
-            {"at": r[0], "target": r[1], "action": r[2], "by": r[3]}
+            {"at": r[0], "target": r[1], "action": r[2], "by": r[3],
+             "historyId": r[4], "before": r[5], "after": r[6]}   # F7 — diff 뷰어
             for r in cur.fetchall()
         ]
 

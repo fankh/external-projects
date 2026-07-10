@@ -606,7 +606,13 @@ export const priceService = {
 }
 
 // ── SYS-012 이력 ──
-export interface HistoryRow { at: string; target: string; action: string; by: string }
+export interface HistoryRow {
+  at: string; target: string; action: string; by: string
+  // F7 — diff 뷰어 (mock 행에는 없음)
+  historyId?: number
+  before?: Record<string, unknown> | null
+  after?: Record<string, unknown> | null
+}
 
 export const historyService = {
   /** GET /api/v1/history — sys_history */

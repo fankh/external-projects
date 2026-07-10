@@ -395,6 +395,7 @@ def run_seed() -> None:
             seed_v21(cur, row[0])
             seed_v22(cur, row[0])
             seed_v23(cur, row[0])
+            seed_v24(cur, row[0])
             return
 
         cur.execute(
@@ -513,6 +514,7 @@ def run_seed() -> None:
         seed_v21(cur, tid)
         seed_v22(cur, tid)
         seed_v23(cur, tid)
+        seed_v24(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -2256,6 +2258,29 @@ UI_TRANSLATIONS_V23: dict[str, tuple[str, str, str]] = {
 
 def seed_v23(cur, tid: int) -> None:
     for key, (en, ja, zh) in UI_TRANSLATIONS_V23.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v24 — F7 이력 diff 뷰어 UI 키 ──
+
+UI_TRANSLATIONS_V24: dict[str, tuple[str, str, str]] = {
+    "folder.diffNoPayload": ('diff — this action has no change payload (read-only event)', 'diff — この操作には変更ペイロードがありません (照会イベント)', 'diff — 此操作没有变更载荷 (查询类事件)'),
+    "folder.diffTitle": ('diff — {t} · {a}', 'diff — {t} · {a}', 'diff — {t} · {a}'),
+    "folder.diffField": ('Field', 'フィールド', '字段'),
+    "folder.diffEmpty": ('No recorded fields', '記録されたフィールドなし', '无记录字段'),
+}
+
+
+def seed_v24(cur, tid: int) -> None:
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V24.items():
         for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

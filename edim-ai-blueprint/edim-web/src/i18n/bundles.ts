@@ -2,6 +2,10 @@
  *  생성물: tools/gen_i18n_bundles.py (원천 = backend/app/services/edim_seed.py — 직접 편집 금지). */
 export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
   en: {
+    'folder.diffNoPayload': 'diff — this action has no change payload (read-only event)',
+    'folder.diffTitle': 'diff — {t} · {a}',
+    'folder.diffField': 'Field',
+    'folder.diffEmpty': 'No recorded fields',
     'search.parts': 'Parts',
     'search.companies': 'Companies',
     'search.warehouses': 'Warehouse·Location',
@@ -748,6 +752,10 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'screen.plm-drawings': 'Drawing Ledger',
   },
   ja: {
+    'folder.diffNoPayload': 'diff — この操作には変更ペイロードがありません (照会イベント)',
+    'folder.diffTitle': 'diff — {t} · {a}',
+    'folder.diffField': 'フィールド',
+    'folder.diffEmpty': '記録されたフィールドなし',
     'search.parts': '部品',
     'search.companies': '取引先',
     'search.warehouses': '倉庫・位置',
@@ -1480,6 +1488,10 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'screen.plm-drawings': '図面台帳',
   },
   zh: {
+    'folder.diffNoPayload': 'diff — 此操作没有变更载荷 (查询类事件)',
+    'folder.diffTitle': 'diff — {t} · {a}',
+    'folder.diffField': '字段',
+    'folder.diffEmpty': '无记录字段',
     'search.parts': '零件',
     'search.companies': '供应商·客户',
     'search.warehouses': '仓库·位置',
