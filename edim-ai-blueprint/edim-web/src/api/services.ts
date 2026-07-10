@@ -1284,6 +1284,108 @@ export const drawingLedgerService = {
       throw e
     }
   },
+  // ── B16 도면 상세 탭 — Variants·첨부·단계별 승인·블록·부품 관계 ──
+  /** GET /api/v1/drawings/{no}/variants — 동일 패밀리 도면 (null=백엔드 불가) */
+  async variants(no: string): Promise<DrawingVariantRow[] | null> {
+    try {
+      return await api<DrawingVariantRow[]>(`/drawings/${encodeURIComponent(no)}/variants`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/drawings/{no}/files — 첨부 (dwg_file 연결분) */
+  async files(no: string): Promise<DrawingFileRow[] | null> {
+    try {
+      return await api<DrawingFileRow[]>(`/drawings/${encodeURIComponent(no)}/files`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/drawings/{no}/approvals — 단계별 승인 (WRITE→REVIEW→APPROVE) */
+  async stepApprovals(no: string): Promise<DwgApprovalRow[] | null> {
+    try {
+      return await api<DwgApprovalRow[]>(`/drawings/${encodeURIComponent(no)}/approvals`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/drawings/{no}/approvals — 단계 결정 (순서 강제·반려=DRAFT 복귀, 쓰기 정직) */
+  async decideStep(no: string, step: string, approve: boolean, comment: string):
+  Promise<{ drawingStatus: string | null }> {
+    try {
+      return await api(`/drawings/${encodeURIComponent(no)}/approvals`, {
+        method: 'POST', body: JSON.stringify({ step, approve, comment }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — 승인 단계를 처리할 수 없습니다')
+      throw e
+    }
+  },
+  /** GET /api/v1/drawings/{no}/blocks — dwg_document (Design Editor Block 원천) */
+  async blocks(no: string): Promise<DrawingBlockRow[] | null> {
+    try {
+      return await api<DrawingBlockRow[]>(`/drawings/${encodeURIComponent(no)}/blocks`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/drawings/{no}/relations — dwg_part_relation (정렬·접촉 조건 + Macro) */
+  async relations(no: string): Promise<DwgRelationRow[] | null> {
+    try {
+      return await api<DwgRelationRow[]>(`/drawings/${encodeURIComponent(no)}/relations`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
+export interface DrawingVariantRow {
+  drawingNo: string
+  name: string
+  rev: string
+  status: string
+  superseded: boolean
+}
+
+export interface DrawingFileRow {
+  fileId: number
+  fileName: string
+  fileType: string
+  size: number
+  date: string
+}
+
+export interface DwgApprovalRow {
+  approvalId: number
+  step: 'WRITE' | 'REVIEW' | 'APPROVE'
+  result: 'APPROVED' | 'REJECTED' | null
+  comment: string
+  date: string
+  by: string
+}
+
+export interface DrawingBlockRow {
+  documentId: number
+  blockName: string
+  content: { x: number; y: number; w: number; h: number; sub?: string; dashed?: boolean }
+  originX: number | null
+  originY: number | null
+}
+
+export interface DwgRelationRow {
+  relationId: number
+  blockA: string
+  blockB: string
+  align: string
+  contact: string
+  macro: string | null
+  priority: number
+  status: string
 }
 
 export const cadService = {

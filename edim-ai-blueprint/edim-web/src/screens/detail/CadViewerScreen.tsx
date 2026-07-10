@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { cadService, fileService, type CadDocument } from '../../api/services'
 import { Btn, Chip } from '../../components/controls'
-import { CadSvg } from '../../components/CadSvg'
+import { CadSvg, type LayerOverride } from '../../components/CadSvg'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
@@ -34,13 +34,17 @@ export function CadViewerScreen({ tab }: ScreenProps) {
       })
   }, [fileId, setStatusMsg])
 
+  // B16 DWG-025 특성 편집 — 레이어별 색·선굵기 오버라이드 (표시 속성, 원본 DXF 불변)
+  const [overrides, setOverrides] = useState<Record<string, LayerOverride>>({})
+
   const layerColor = useMemo(() => {
     const m: Record<string, string> = {}
     doc?.layers.forEach((l) => {
-      m[l.layerName] = l.colorHex === '#ffffff' ? '#2B3A55' : l.colorHex
+      m[l.layerName] = overrides[l.layerName]?.color
+        ?? (l.colorHex === '#ffffff' ? '#2B3A55' : l.colorHex)
     })
     return m
-  }, [doc])
+  }, [doc, overrides])
 
   return (
     <div className="fill-col">
@@ -77,13 +81,33 @@ export function CadViewerScreen({ tab }: ScreenProps) {
                   })}>
                   <input type="checkbox" readOnly checked={!hidden.has(l.layerName)}
                     aria-label={`레이어 ${l.layerName}`} />
-                  <span style={{
-                    width: 10, height: 10, background: layerColor[l.layerName],
-                    border: '1px solid var(--line)', flex: 'none',
-                  }} />
-                  {l.layerName}
+                  {/* 특성 편집 (DWG-025) — 색상 클릭 = 변경, 클릭 전파 차단 */}
+                  <input type="color" value={layerColor[l.layerName] ?? '#2B3A55'}
+                    aria-label={`레이어 색 ${l.layerName}`}
+                    style={{ width: 14, height: 14, padding: 0, border: '1px solid var(--line)', flex: 'none', cursor: 'pointer' }}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setOverrides((cur) => ({
+                      ...cur, [l.layerName]: { ...cur[l.layerName], color: e.target.value },
+                    }))} />
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.layerName}</span>
+                  <select className="in" value={overrides[l.layerName]?.width ?? 1}
+                    aria-label={`레이어 굵기 ${l.layerName}`}
+                    style={{ fontSize: 9, padding: '0 1px', width: 34, flex: 'none' }}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setOverrides((cur) => ({
+                      ...cur, [l.layerName]: { ...cur[l.layerName], width: Number(e.target.value) },
+                    }))}>
+                    {[1, 2, 3].map((w) => <option key={w} value={w}>{w}×</option>)}
+                  </select>
                 </div>
               ))}
+              {Object.keys(overrides).length ? (
+                <div style={{ padding: '2px 8px', textAlign: 'right' }}>
+                  <Btn style={{ height: 18, fontSize: 9.5 }} onClick={() => setOverrides({})}>
+                    {t('cad.resetProps', '특성 원복')}
+                  </Btn>
+                </div>
+              ) : null}
             </div>
             {doc ? (
               <div style={{ padding: '6px 8px', fontSize: 10, color: 'var(--txt-dim)', lineHeight: 1.8, borderTop: '1px solid var(--line)' }}>
@@ -98,7 +122,7 @@ export function CadViewerScreen({ tab }: ScreenProps) {
         </div>
         <div style={{ flex: 1, background: '#fff', minWidth: 0 }}>
           {doc ? (
-            <CadSvg doc={doc} hiddenLayers={hidden} />
+            <CadSvg doc={doc} hiddenLayers={hidden} layerOverrides={overrides} />
           ) : (
             <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11.5, textAlign: 'center', lineHeight: 2 }}>
               {error

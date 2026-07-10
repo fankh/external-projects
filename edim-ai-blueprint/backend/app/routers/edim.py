@@ -2914,7 +2914,8 @@ def create_drawing(request: Request, body: DrawingCreate) -> dict[str, Any]:
 
 @router.delete("/drawings/{drawing_no}", dependencies=[SETUP])
 def delete_drawing(drawing_no: str, request: Request) -> dict[str, Any]:
-    """도면 삭제 — DRAFT 한정 (발행/대체 도면 보호). Rev·Supersedure 이력 함께 정리."""
+    """도면 삭제 — RELEASED 보호 (발행 도면 불가). Rev·Supersedure·승인·블록·관계 연쇄 정리,
+    연결 파일은 보존(도면 링크만 해제)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -2924,11 +2925,15 @@ def delete_drawing(drawing_no: str, request: Request) -> dict[str, Any]:
         if not row:
             raise HTTPException(404, detail=f"도면 없음: {drawing_no}")
         did, status = row
-        if status != "DRAFT":
-            raise HTTPException(409, detail=f"DRAFT 도면만 삭제 가능 (현재 {status})")
+        if status == "RELEASED":
+            raise HTTPException(409, detail=f"RELEASED 도면은 삭제 불가 (현재 {status})")
         cur.execute(
             "DELETE FROM dwg_supersedure WHERE old_drawing_id=%s OR new_drawing_id=%s",
             (did, did))
+        cur.execute("DELETE FROM dwg_approval WHERE drawing_id=%s", (did,))
+        cur.execute("DELETE FROM dwg_document WHERE drawing_id=%s", (did,))
+        cur.execute("DELETE FROM dwg_part_relation WHERE drawing_id=%s", (did,))
+        cur.execute("UPDATE dwg_file SET drawing_id=NULL WHERE drawing_id=%s", (did,))
         cur.execute("DELETE FROM dwg_revision WHERE drawing_id=%s", (did,))
         cur.execute("DELETE FROM dwg_drawing WHERE drawing_id=%s", (did,))
         cur.execute(
@@ -3032,6 +3037,150 @@ def create_supersedure(request: Request, body: SupersedeRequest) -> dict[str, An
             (tid, sid, request.state.user_id,
              json.dumps({"old": body.oldNo, "new": body.newNo, "reason": body.reason})))
     return {"supersedureId": sid}
+
+
+# ── B16 도면 상세 — Variants·첨부·단계별 승인·블록·부품 관계 (dwg_* 도메인 완결) ──
+
+@router.get("/drawings/{drawing_no}/variants")
+def drawing_variants(drawing_no: str) -> list[dict[str, Any]]:
+    """Variants — 동일 패밀리 도면 (도면번호 마지막 '-' 토큰 앞 접두 일치, 자신 제외)."""
+    no = drawing_no.strip()
+    prefix = no.rsplit("-", 1)[0] + "-" if "-" in no else no
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT d.drawing_no, d.drawing_name, d.current_rev, d.status,
+                      EXISTS(SELECT 1 FROM dwg_supersedure s WHERE s.old_drawing_id=d.drawing_id)
+               FROM dwg_drawing d
+               WHERE d.tenant_id=%s AND d.drawing_no LIKE %s AND d.drawing_no<>%s
+               ORDER BY d.drawing_no""", (tid, prefix + "%", no))
+        return [{"drawingNo": r[0], "name": r[1], "rev": r[2], "status": r[3],
+                 "superseded": r[4]} for r in cur.fetchall()]
+
+
+@router.get("/drawings/{drawing_no}/files")
+def drawing_files(drawing_no: str) -> list[dict[str, Any]]:
+    """첨부 — 이 도면에 연결된 dwg_file (Run DXF·업로드본)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing_no)
+        cur.execute(
+            """SELECT file_id, file_name, file_type, COALESCE(file_size,0),
+                      to_char(uploaded_date,'YYYY-MM-DD HH24:MI')
+               FROM dwg_file WHERE tenant_id=%s AND drawing_id=%s
+               ORDER BY file_id DESC""", (tid, did))
+        return [{"fileId": r[0], "fileName": r[1], "fileType": r[2], "size": r[3],
+                 "date": r[4]} for r in cur.fetchall()]
+
+
+DWG_APPROVAL_STEPS = ("WRITE", "REVIEW", "APPROVE")
+
+
+@router.get("/drawings/{drawing_no}/approvals")
+def drawing_approvals(drawing_no: str) -> list[dict[str, Any]]:
+    """단계별 승인 이력 — dwg_approval (WRITE→REVIEW→APPROVE)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing_no)
+        cur.execute(
+            """SELECT a.approval_id, a.step, a.result, COALESCE(a.comment,''),
+                      to_char(a.approval_date,'YYYY-MM-DD'), u.user_name
+               FROM dwg_approval a JOIN sys_user u ON u.user_id=a.approver_id
+               WHERE a.drawing_id=%s ORDER BY a.approval_id""", (did,))
+        return [{"approvalId": r[0], "step": r[1], "result": r[2], "comment": r[3],
+                 "date": r[4], "by": r[5]} for r in cur.fetchall()]
+
+
+class DwgApprovalCreate(BaseModel):
+    step: str                 # WRITE | REVIEW | APPROVE
+    approve: bool = True
+    comment: str = ""
+
+
+@router.post("/drawings/{drawing_no}/approvals", status_code=201, dependencies=[SETUP])
+def drawing_approval_decide(drawing_no: str, request: Request, body: DwgApprovalCreate) -> dict[str, Any]:
+    """단계 결정 — 순서 강제 (이전 단계 APPROVED 필요), 반려 시 도면 DRAFT 복귀.
+
+    상태 전이: WRITE 승인→REVIEW · APPROVE 승인→APPROVED · 반려→DRAFT (이후 단계 재진행)."""
+    step = body.step.strip().upper()
+    if step not in DWG_APPROVAL_STEPS:
+        raise HTTPException(422, detail=f"step 오류: {body.step} (WRITE|REVIEW|APPROVE)")
+    if not body.approve and not body.comment.strip():
+        raise HTTPException(422, detail="반려는 코멘트 필수")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing_no)
+        cur.execute(
+            """SELECT step FROM dwg_approval
+               WHERE drawing_id=%s AND result='APPROVED'""", (did,))
+        approved = {r[0] for r in cur.fetchall()}
+        idx = DWG_APPROVAL_STEPS.index(step)
+        if step in approved:
+            raise HTTPException(409, detail=f"이미 승인된 단계: {step}")
+        if idx > 0 and DWG_APPROVAL_STEPS[idx - 1] not in approved:
+            raise HTTPException(409, detail=f"이전 단계({DWG_APPROVAL_STEPS[idx - 1]}) 승인 후 진행 가능")
+        result = "APPROVED" if body.approve else "REJECTED"
+        cur.execute(
+            """INSERT INTO dwg_approval (drawing_id, step, approver_id, approval_date, result, comment)
+               VALUES (%s,%s,%s,CURRENT_DATE,%s,NULLIF(%s,'')) RETURNING approval_id""",
+            (did, step, request.state.user_id, result, body.comment.strip()[:1000]))
+        approval_id = cur.fetchone()[0]
+        new_status = None
+        if not body.approve:
+            new_status = "DRAFT"
+            cur.execute("DELETE FROM dwg_approval WHERE drawing_id=%s AND result='APPROVED'", (did,))
+        elif step == "WRITE":
+            new_status = "REVIEW"
+        elif step == "APPROVE":
+            new_status = "APPROVED"
+        if new_status:
+            cur.execute(
+                """UPDATE dwg_drawing SET status=%s, updated_by=%s, updated_at=now()
+                   WHERE drawing_id=%s AND status<>'RELEASED'""",
+                (new_status, request.state.login, did))
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'dwg_approval',%s,'DECIDE',%s,%s)""",
+            (tid, approval_id, request.state.user_id,
+             json.dumps({"drawingNo": drawing_no, "step": step, "result": result})))
+    return {"approvalId": approval_id, "step": step, "result": result,
+            "drawingStatus": new_status}
+
+
+@router.get("/drawings/{drawing_no}/blocks")
+def drawing_blocks(drawing_no: str) -> list[dict[str, Any]]:
+    """도면 블록 — dwg_document (Design Editor Block 패널 원천, content=좌표/치수 JSONB)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing_no)
+        cur.execute(
+            """SELECT document_id, COALESCE(block_name,''), content, origin_x, origin_y
+               FROM dwg_document WHERE tenant_id=%s AND drawing_id=%s
+               ORDER BY document_id""", (tid, did))
+        return [
+            {"documentId": r[0], "blockName": r[1], "content": r[2],
+             "originX": float(r[3]) if r[3] is not None else None,
+             "originY": float(r[4]) if r[4] is not None else None}
+            for r in cur.fetchall()
+        ]
+
+
+@router.get("/drawings/{drawing_no}/relations")
+def drawing_relations(drawing_no: str) -> list[dict[str, Any]]:
+    """부품 관계 — dwg_part_relation (정렬·접촉 조건 + Macro 규칙, 부품 상세 실데이터)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing_no)
+        cur.execute(
+            """SELECT r.relation_id, r.block_a, r.block_b, COALESCE(r.condition_align,''),
+                      COALESCE(r.condition_contact,''), m.macro_name, r.priority, r.approval_status
+               FROM dwg_part_relation r
+               LEFT JOIN tbx_macro m ON m.macro_id=r.value_macro_id
+               WHERE r.tenant_id=%s AND r.drawing_id=%s ORDER BY r.priority, r.relation_id""",
+            (tid, did))
+        return [{"relationId": r[0], "blockA": r[1], "blockB": r[2], "align": r[3],
+                 "contact": r[4], "macro": r[5], "priority": r[6], "status": r[7]}
+                for r in cur.fetchall()]
 
 
 @router.get("/codes/{code}/approval-history")

@@ -147,13 +147,17 @@ function entityInfo(e: CadEntity): { title: string; rows: [string, string][] } {
   }
 }
 
+export interface LayerOverride { color?: string; width?: number }   // B16 특성 편집 (DWG-025)
+
 export function CadSvg(props: {
   doc: CadDocument
   hiddenLayers?: Set<string>
+  layerOverrides?: Record<string, LayerOverride>
 }) {
   const { doc } = props
   const { t } = useI18n()
   const hidden = props.hiddenLayers ?? new Set<string>()
+  const overrides = props.layerOverrides ?? {}
 
   // 맞춤(fit) 뷰박스 — SVG 는 y-반전 그룹으로 그리므로 y 는 [-maxY, -minY]
   const fit = useMemo<VB>(() => {
@@ -280,10 +284,12 @@ export function CadSvg(props: {
   const layerColor = useMemo(() => {
     const m: Record<string, string> = {}
     doc.layers.forEach((l) => {
-      m[l.layerName] = l.colorHex === '#ffffff' ? '#2B3A55' : l.colorHex
+      // 특성 편집 오버라이드 우선 (B16 DWG-025)
+      m[l.layerName] = overrides[l.layerName]?.color
+        ?? (l.colorHex === '#ffffff' ? '#2B3A55' : l.colorHex)
     })
     return m
-  }, [doc])
+  }, [doc, overrides])
 
   // 화면상 선 굵기 일정 유지 — 현재 뷰 크기에 비례
   const strokeW = Math.max(view.w, view.h) / 500
@@ -314,8 +320,9 @@ export function CadSvg(props: {
 
   const render = (e: CadEntity, isSel: boolean) => {
     const color = isSel ? '#D97706' : (layerColor[e.layerName] ?? '#2B3A55')
+    const wMul = overrides[e.layerName]?.width ?? 1
     const common = {
-      stroke: color, strokeWidth: isSel ? strokeW * 2.5 : strokeW, fill: 'none' as const,
+      stroke: color, strokeWidth: (isSel ? strokeW * 2.5 : strokeW) * wMul, fill: 'none' as const,
     }
     switch (e.entityType) {
       case 'line':

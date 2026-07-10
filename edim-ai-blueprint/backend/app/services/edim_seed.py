@@ -125,6 +125,7 @@ def run_seed() -> None:
             seed_v11(cur, row[0])
             seed_v12(cur, row[0])
             seed_v13(cur, row[0])
+            seed_v14(cur, row[0])
             return
 
         cur.execute(
@@ -233,6 +234,7 @@ def run_seed() -> None:
         seed_v11(cur, tid)
         seed_v12(cur, tid)
         seed_v13(cur, tid)
+        seed_v14(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -1631,6 +1633,109 @@ MENU_UPDATES_V13 = {
 def seed_v13(cur, tid: int) -> None:
     # 키 단위 멱등 — UPDATE 후 미존재 시 INSERT (v10/v11 과 동일 패턴)
     for key, (en, ja, zh) in MENU_UPDATES_V13.items():
+        for locale, text in (('en', en), ('ja', ja), ('zh', zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v14 — B16: 도면 블록(dwg_document)·단계별 승인(dwg_approval)·부품 관계(dwg_part_relation) ──
+
+# Design Editor Block 패널 원천 (KDCR 3-13) — content = 캔버스 좌표/치수
+BLOCKS_V14 = [
+    ('Casing', {'x': 190, 'y': 60, 'w': 220, 'h': 180}, 190, 60),
+    ('Impeller', {'x': 230, 'y': 80, 'w': 140, 'h': 100, 'sub': 'Airfoil 900'}, 230, 80),
+    ('Shaft', {'x': 80, 'y': 150, 'w': 440, 'h': 12}, 80, 150),
+    ('Brg-L', {'x': 96, 'y': 138, 'w': 26, 'h': 34}, 96, 138),
+    ('Brg-R', {'x': 478, 'y': 138, 'w': 26, 'h': 34}, 478, 138),
+    ('Inlet Cone-L', {'x': 150, 'y': 96, 'w': 40, 'h': 110, 'dashed': True}, 150, 96),
+    ('Inlet Cone-R', {'x': 410, 'y': 96, 'w': 40, 'h': 110, 'dashed': True}, 410, 96),
+]
+
+# (block_a, block_b, align, contact, macro_name, priority)
+RELATIONS_V14 = [
+    ('Impeller', 'Shaft', 'center', 'face', 'Shaft 길이 계산', 1),
+    ('Casing', 'Inlet Cone-L', 'vertical', 'line', None, 2),
+    ('Casing', 'Inlet Cone-R', 'vertical', 'line', None, 2),
+]
+
+TAB_LABELS_V14 = {
+    'dwg.detailTitle': ('Drawing Detail', '図面詳細', '图纸详情'),
+    'dwg.tabRev': ('Rev History', 'Rev 履歴', 'Rev 历史'),
+    'dwg.tabApproval': ('Approval Steps', '承認ステップ', '审批步骤'),
+    'dwg.tabVariants': ('Variants', 'Variants', 'Variants'),
+    'dwg.tabReferencers': ('Referencers', 'Referencers', 'Referencers'),
+    'dwg.tabAttachment': ('Attachment', '添付', '附件'),
+    'dwg.needBackend': ('Backend connection required', 'バックエンド接続が必要', '需要后端连接'),
+    'dwg.noVariants': ('No drawings in the same family', '同一ファミリの図面なし', '无同族图纸'),
+    'dwg.noRefs': ('No parent references this drawing (code)', 'この図面(コード)を参照する上位なし', '无上级引用此图纸(代码)'),
+    'dwg.noFiles': ('No linked files (auto-linked when Run outputs are generated)',
+                    'リンクされたファイルなし (Run 生成時に自動リンク)', '无关联文件 (Run 生成时自动关联)'),
+    'dwg.motherCol': ('Parent Code', '上位コード', '上级代码'),
+    'dwg.descCol': ('Description', '説明', '说明'),
+    'dwg.stepCol': ('Step', 'ステップ', '步骤'),
+    'dwg.resultCol': ('Result', '結果', '结果'),
+    'dwg.chainDone': ('Approval chain complete', '承認チェーン完了', '审批链完成'),
+    'dwg.noSteps': ('No approval history — start from WRITE step', '承認履歴なし — 作成から進行', '无审批记录 — 从编写开始'),
+    'dwg.stepCommentPh': ('Comment (required on reject)', 'コメント (却下時必須)', '备注 (驳回时必填)'),
+    'dwg.approveBtn': ('Approve', '承認', '批准'),
+    'dwg.rejectBtn': ('Reject', '却下', '驳回'),
+    'editor.simPanel': ('Simulation', 'シミュレーション', '仿真'),
+    'editor.simHint': ('Change a VARIANT dim — MACRO dims re-evaluate instantly (no save)',
+                       'VARIANT 寸法を変更 — MACRO 寸法が即時再計算 (保存なし)',
+                       '修改 VARIANT 尺寸 — MACRO 尺寸即时重算 (不保存)'),
+    'editor.simApply': ('Apply (commit dims)', '適用 (寸法反映)', '应用 (提交尺寸)'),
+    'editor.relAlign': ('Align', '整列', '对齐'),
+    'editor.relContact': ('Contact', '接触', '接触'),
+}
+
+
+def seed_v14(cur, tid: int) -> None:
+    cur.execute(
+        """SELECT drawing_id FROM dwg_drawing WHERE tenant_id=%s AND drawing_no='KDCR 3-13'""",
+        (tid,))
+    d = cur.fetchone()
+    if d:
+        did = d[0]
+        cur.execute('SELECT 1 FROM dwg_document WHERE tenant_id=%s LIMIT 1', (tid,))
+        if not cur.fetchone():
+            for name, content, ox, oy in BLOCKS_V14:
+                cur.execute(
+                    """INSERT INTO dwg_document (tenant_id, drawing_id, block_name, content,
+                       origin_x, origin_y) VALUES (%s,%s,%s,%s,%s,%s)""",
+                    (tid, did, name, json.dumps(content), ox, oy))
+            logger.info('seed v14 — dwg_document %d블록', len(BLOCKS_V14))
+        cur.execute('SELECT 1 FROM dwg_approval WHERE drawing_id=%s LIMIT 1', (did,))
+        if not cur.fetchone():
+            cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id='edim'", (tid,))
+            uid = cur.fetchone()[0]
+            for step in ('WRITE', 'REVIEW', 'APPROVE'):
+                cur.execute(
+                    """INSERT INTO dwg_approval (drawing_id, step, approver_id, approval_date,
+                       result, comment) VALUES (%s,%s,%s,CURRENT_DATE,'APPROVED','최초 발행 승인 체인')""",
+                    (did, step, uid))
+            logger.info('seed v14 — dwg_approval 3단계 (KDCR 3-13)')
+        cur.execute('SELECT 1 FROM dwg_part_relation WHERE tenant_id=%s LIMIT 1', (tid,))
+        if not cur.fetchone():
+            for a, b, align, contact, macro_name, prio in RELATIONS_V14:
+                mid = None
+                if macro_name:
+                    cur.execute('SELECT macro_id FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s',
+                                (tid, macro_name))
+                    m = cur.fetchone()
+                    mid = m[0] if m else None
+                cur.execute(
+                    """INSERT INTO dwg_part_relation (tenant_id, drawing_id, block_a, block_b,
+                       condition_align, condition_contact, value_macro_id, priority, approval_status)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'APPROVED')""",
+                    (tid, did, a, b, align, contact, mid, prio))
+            logger.info('seed v14 — dwg_part_relation %d건', len(RELATIONS_V14))
+    for key, (en, ja, zh) in TAB_LABELS_V14.items():
         for locale, text in (('en', en), ('ja', ja), ('zh', zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

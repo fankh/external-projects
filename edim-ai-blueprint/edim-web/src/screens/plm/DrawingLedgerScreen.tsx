@@ -2,7 +2,9 @@
  *  등록(F2)·Rev 올리기·Supersedure 대체 등록, 더블클릭=연결 DXF CAD 뷰어. */
 import { useEffect, useMemo, useState } from 'react'
 import {
-  drawingLedgerService, type DrawingRow, type RevisionRow, type SupersedureRow,
+  drawingLedgerService, referencerService,
+  type DrawingFileRow, type DrawingRow, type DrawingVariantRow, type DwgApprovalRow,
+  type ReferencerRow, type RevisionRow, type SupersedureRow,
 } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -26,6 +28,11 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
   const [reg, setReg] = useState({ drawingNo: '', name: '', drawingType: 'PART', kind: 'STANDARD' })
   const [revReason, setRevReason] = useState('')
   const [supForm, setSupForm] = useState({ oldNo: '', newNo: '', reason: '' })
+  // B16 상세 탭 — Rev | 승인 단계 | Variants | Referencers | 첨부
+  const [dtab, setDtab] = useState<'rev' | 'appr' | 'var' | 'ref' | 'att'>('rev')
+  const [variants, setVariants] = useState<DrawingVariantRow[] | null>(null)
+  const [refs, setRefs] = useState<ReferencerRow[] | null>(null)
+  const [files, setFiles] = useState<DrawingFileRow[] | null>(null)
 
   const load = () => {
     void drawingLedgerService.list().then(setDrawings)
@@ -43,6 +50,14 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
     if (!sel) { setRevs([]); return }
     void drawingLedgerService.revisions(sel).then(setRevs)
   }, [sel])
+
+  // 상세 탭 데이터 — 선택/탭 변경 시 해당 탭만 조회
+  useEffect(() => {
+    if (!sel) return
+    if (dtab === 'var') void drawingLedgerService.variants(sel).then(setVariants)
+    else if (dtab === 'ref') void referencerService.list(sel).then(setRefs)
+    else if (dtab === 'att') void drawingLedgerService.files(sel).then(setFiles)
+  }, [sel, dtab])
 
   const selected = useMemo(() => drawings.find((d) => d.drawingNo === sel), [drawings, sel])
 
@@ -215,31 +230,121 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
         </div>
         <div className="split-h" />
         <div style={{ width: 330, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title={`${t('dwg.revHistory', 'Rev 이력')}${sel ? ` — ${sel}` : ''} (dwg_revision)`} noPad>
+          <GroupBox title={`${t('dwg.detailTitle', '도면 상세')}${sel ? ` — ${sel}` : ''}`} noPad>
             {sel ? (
               <>
-                <table className="g">
-                  <thead><tr><th>Rev</th><th>{t('dwg.dateCol', '일자')}</th>
-                    <th>{t('dwg.reasonCol', '사유')}</th><th>{t('dwg.byCol', '처리자')}</th></tr></thead>
-                  <tbody>
-                    {revs.map((r) => (
-                      <tr key={r.rev}>
-                        <td className="c"><b>{r.rev}</b></td>
-                        <td className="c">{r.date}</td>
-                        <td>{r.reason}</td>
-                        <td className="c">{r.by}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div style={{ display: 'flex', gap: 4, padding: 6, alignItems: 'center' }}>
-                  <input className="in" style={{ flex: 1 }} value={revReason} aria-label="Rev 사유"
-                    placeholder={t('dwg.revReasonPh', '개정 사유')} onChange={(e) => setRevReason(e.target.value)} />
-                  <Btn variant="pri" onClick={revUp}>
-                    {t('dwg.revUp', 'Rev 올리기')}
-                    {selected ? ` (${selected.rev}→${t('dwg.nextRev', '다음')})` : ''}
-                  </Btn>
+                <div className="mdi" style={{ flex: 'none' }}>
+                  {([
+                    ['rev', t('dwg.tabRev', 'Rev 이력')],
+                    ['appr', t('dwg.tabApproval', '승인 단계')],
+                    ['var', t('dwg.tabVariants', 'Variants')],
+                    ['ref', t('dwg.tabReferencers', 'Referencers')],
+                    ['att', t('dwg.tabAttachment', '첨부')],
+                  ] as const).map(([k, label]) => (
+                    <span key={k} className={`t ${dtab === k ? 'on' : ''}`}
+                      onClick={() => setDtab(k)}>{label}</span>
+                  ))}
                 </div>
+                {dtab === 'rev' ? (
+                  <>
+                    <table className="g">
+                      <thead><tr><th>Rev</th><th>{t('dwg.dateCol', '일자')}</th>
+                        <th>{t('dwg.reasonCol', '사유')}</th><th>{t('dwg.byCol', '처리자')}</th></tr></thead>
+                      <tbody>
+                        {revs.map((r) => (
+                          <tr key={r.rev}>
+                            <td className="c"><b>{r.rev}</b></td>
+                            <td className="c">{r.date}</td>
+                            <td>{r.reason}</td>
+                            <td className="c">{r.by}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div style={{ display: 'flex', gap: 4, padding: 6, alignItems: 'center' }}>
+                      <input className="in" style={{ flex: 1 }} value={revReason} aria-label="Rev 사유"
+                        placeholder={t('dwg.revReasonPh', '개정 사유')} onChange={(e) => setRevReason(e.target.value)} />
+                      <Btn variant="pri" onClick={revUp}>
+                        {t('dwg.revUp', 'Rev 올리기')}
+                        {selected ? ` (${selected.rev}→${t('dwg.nextRev', '다음')})` : ''}
+                      </Btn>
+                    </div>
+                  </>
+                ) : dtab === 'appr' ? (
+                  <DwgApprovalTab no={sel} onStatusChange={load} />
+                ) : dtab === 'var' ? (
+                  variants === null ? (
+                    <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.needBackend', '백엔드 연결 필요')}</div>
+                  ) : variants.length === 0 ? (
+                    <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.noVariants', '동일 패밀리 도면 없음')}</div>
+                  ) : (
+                    <table className="g">
+                      <thead><tr><th>Drawing No.</th><th>{t('dwg.drawingName', '도면명')}</th>
+                        <th>Rev</th><th>{t('dwg.statusCol', '상태')}</th></tr></thead>
+                      <tbody>
+                        {variants.map((v) => (
+                          <tr key={v.drawingNo} style={{ cursor: 'pointer' }} onClick={() => setSel(v.drawingNo)}>
+                            <td className="c" style={{ fontFamily: 'Consolas, monospace' }}>{v.drawingNo}</td>
+                            <td>{v.name}</td>
+                            <td className="c"><b>{v.rev}</b></td>
+                            <td className="c">
+                              <Chip tone={STATUS_TONE[v.status] ?? 'info'}>{v.status}</Chip>
+                              {v.superseded ? <Chip tone="err">{t('dwg.superseded', '대체됨')}</Chip> : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )
+                ) : dtab === 'ref' ? (
+                  refs === null ? (
+                    <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.needBackend', '백엔드 연결 필요')}</div>
+                  ) : refs.length === 0 ? (
+                    <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.noRefs', '이 도면(코드)을 참조하는 상위 없음')}</div>
+                  ) : (
+                    <table className="g">
+                      <thead><tr><th>{t('dwg.motherCol', '상위 코드')}</th><th>{t('dwg.descCol', '설명')}</th>
+                        <th>Qty</th><th>{t('dwg.statusCol', '상태')}</th></tr></thead>
+                      <tbody>
+                        {refs.map((r, i) => (
+                          <tr key={i}>
+                            <td className="c" style={{ fontFamily: 'Consolas, monospace' }}>{r.code}</td>
+                            <td>{r.name}</td>
+                            <td className="r">{r.qty}</td>
+                            <td className="c">{r.status}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )
+                ) : (
+                  files === null ? (
+                    <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.needBackend', '백엔드 연결 필요')}</div>
+                  ) : files.length === 0 ? (
+                    <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.noFiles', '연결 파일 없음 (Run 산출물 생성 시 자동 연결)')}</div>
+                  ) : (
+                    <table className="g">
+                      <thead><tr><th>{t('dwg.fileCol', '파일 (DXF)')}</th><th>{t('dwg.typeCol', '유형')}</th>
+                        <th>Size</th><th>{t('dwg.dateCol', '일자')}</th></tr></thead>
+                      <tbody>
+                        {files.map((f) => (
+                          <tr key={f.fileId} style={{ cursor: 'pointer' }}
+                            title={t('dwg.dblOpenHint', '더블클릭 = 연결 DXF CAD 뷰어')}
+                            onDoubleClick={() => shell.openTab({
+                              id: `cad-viewer:${f.fileId}`, screenId: 'cad-viewer', code: 'CAD',
+                              title: f.fileName.slice(0, 16),
+                              params: { fileId: f.fileId, name: f.fileName, from: tab.id },
+                            })}>
+                            <td style={{ fontFamily: 'Consolas, monospace' }}>{f.fileName}</td>
+                            <td className="c">{f.fileType}</td>
+                            <td className="r">{f.size ? `${Math.round(f.size / 1024)}KB` : '-'}</td>
+                            <td className="c">{f.date}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )
+                )}
               </>
             ) : (
               <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>
@@ -288,6 +393,97 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
           </GroupBox>
         </div>
       </div>
+    </div>
+  )
+}
+
+const STEP_LABEL: Record<string, string> = { WRITE: '작성', REVIEW: '검토', APPROVE: '승인' }
+const STEPS = ['WRITE', 'REVIEW', 'APPROVE'] as const
+
+/** B16 — 단계별 승인 탭 (dwg_approval WRITE→REVIEW→APPROVE, 반려=DRAFT 복귀) */
+function DwgApprovalTab(props: { no: string; onStatusChange: () => void }) {
+  const shell = useShell()
+  const { t } = useI18n()
+  const [rows, setRows] = useState<DwgApprovalRow[] | null>(null)
+  const [comment, setComment] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const reload = () => { void drawingLedgerService.stepApprovals(props.no).then(setRows) }
+  useEffect(reload, [props.no]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (rows === null) {
+    return <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.needBackend', '백엔드 연결 필요')}</div>
+  }
+  const approved = new Set(rows.filter((r) => r.result === 'APPROVED').map((r) => r.step))
+  const next = STEPS.find((s) => !approved.has(s))
+
+  const decide = (approve: boolean) => {
+    if (!next) return
+    if (!approve && !comment.trim()) {
+      shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>반려는 코멘트 필수</span>)
+      return
+    }
+    setBusy(true)
+    void (async () => {
+      try {
+        const r = await drawingLedgerService.decideStep(props.no, next, approve, comment.trim())
+        setComment('')
+        reload()
+        props.onStatusChange()
+        shell.setStatusMsg(
+          `${props.no} ${STEP_LABEL[next]} ${approve ? '승인' : '반려'} ✓${r.drawingStatus ? ` — 도면 상태 ${r.drawingStatus}` : ''} (dwg_approval)`)
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : '처리 실패'}</span>)
+      } finally {
+        setBusy(false)
+      }
+    })()
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 4, padding: 6, alignItems: 'center' }}>
+        {STEPS.map((s, i) => (
+          <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {i > 0 ? <span style={{ color: 'var(--txt-mute)' }}>→</span> : null}
+            <Chip tone={approved.has(s) ? 'ok' : s === next ? 'warn' : 'info'}>
+              {STEP_LABEL[s]}{approved.has(s) ? ' ✓' : s === next ? ' …' : ''}
+            </Chip>
+          </span>
+        ))}
+        {!next ? <span style={{ fontSize: 10, color: 'var(--ok)', marginLeft: 4 }}>{t('dwg.chainDone', '승인 체인 완료')}</span> : null}
+      </div>
+      {rows.length ? (
+        <table className="g">
+          <thead><tr><th>{t('dwg.stepCol', '단계')}</th><th>{t('dwg.resultCol', '결과')}</th>
+            <th>{t('dwg.dateCol', '일자')}</th><th>{t('dwg.byCol', '처리자')}</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.approvalId} title={r.comment}>
+                <td className="c">{STEP_LABEL[r.step] ?? r.step}</td>
+                <td className="c">
+                  <Chip tone={r.result === 'APPROVED' ? 'ok' : 'err'}>{r.result === 'APPROVED' ? '승인' : '반려'}</Chip>
+                </td>
+                <td className="c">{r.date}</td>
+                <td className="c">{r.by}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div style={{ padding: '4px 10px', fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.noSteps', '승인 이력 없음 — 작성 단계부터 진행')}</div>
+      )}
+      {next ? (
+        <div style={{ display: 'flex', gap: 4, padding: 6, alignItems: 'center' }}>
+          <input className="in" style={{ flex: 1 }} value={comment} aria-label="단계 코멘트"
+            placeholder={t('dwg.stepCommentPh', '코멘트 (반려 시 필수)')} onChange={(e) => setComment(e.target.value)} />
+          <Btn variant="pri" disabled={busy} onClick={() => decide(true)}>
+            {STEP_LABEL[next]} {t('dwg.approveBtn', '승인')}
+          </Btn>
+          <Btn disabled={busy} onClick={() => decide(false)}>{t('dwg.rejectBtn', '반려')}</Btn>
+        </div>
+      ) : null}
     </div>
   )
 }

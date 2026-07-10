@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasBlock, DimensionDef } from '../../api/types'
 import { DWG_BLOCKS, DWG_DIMS, MACRO_CODING } from '../../api/mock/data'
-import { approvalService, cadService, drawingService, macroService, type CadDocument } from '../../api/services'
+import {
+  approvalService, cadService, drawingLedgerService, drawingService, macroService,
+  type CadDocument, type DwgRelationRow,
+} from '../../api/services'
 import { CadSvg } from '../../components/CadSvg'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
@@ -16,6 +19,104 @@ import type { ScreenProps } from '../../shell/Shell'
 
 // 툴 식별자(내부 값) — 표시 텍스트는 컴포넌트 내 toolLabels 로 번역
 const CAD_TOOLS = ['복사 CO', '이동', '반전', '연장', '삭제 E', '회전 RO', '자르기 TR', 'Block REG', '치수 DI', '특성 CH']
+
+/** B16 DWG-024 — Simulation(What-if) 판넬: VARIANT 치수 변경 → MACRO 치수 즉시 재평가 (저장 없음). */
+function SimulationPanel(props: {
+  dims: DimensionDef[]
+  onApply: (next: DimensionDef[]) => void
+}) {
+  const { t } = useI18n()
+  const [vars, setVars] = useState<Record<string, string>>({})
+  const [preview, setPreview] = useState<Record<string, number> | null>(null)
+  const [live, setLive] = useState(true)
+  const variantDims = props.dims.filter((d) => !d.value.trim().startsWith('='))
+  const macroDims = props.dims.filter((d) => d.value.trim().startsWith('='))
+
+  // 입력 디바운스 → MACRO 식 전부 엔진 재평가 (미리보기 전용, dims 커밋 없음)
+  useEffect(() => {
+    if (!Object.keys(vars).length) { setPreview(null); return }
+    const timer = setTimeout(() => {
+      void (async () => {
+        const nums: Record<string, number> = {}
+        for (const d of variantDims) {
+          const raw = vars[d.no] ?? d.value
+          const n = Number(raw)
+          if (!Number.isNaN(n)) nums[d.no] = n
+        }
+        const out: Record<string, number> = {}
+        for (const d of macroDims) {
+          const r = await macroService.evaluate(d.value, nums)
+          if (r === null) { setLive(false); setPreview(null); return }
+          if (r.ok && r.value != null) {
+            nums[d.no] = r.value
+            out[d.no] = r.value
+          }
+        }
+        setLive(true)
+        setPreview(out)
+      })()
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [vars]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = () => {
+    if (!preview) return
+    props.onApply(props.dims.map((d) => {
+      if (vars[d.no] !== undefined && !Number.isNaN(Number(vars[d.no]))) {
+        return { ...d, value: vars[d.no] }
+      }
+      if (preview[d.no] !== undefined) return { ...d, value: String(preview[d.no]) }
+      return d
+    }))
+    setVars({})
+    setPreview(null)
+  }
+
+  return (
+    <GroupBox title={t('editor.simPanel', 'Simulation')} noPad
+      right={live
+        ? <span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>ENG-01</span>
+        : <Chip tone="warn">MOCK</Chip>}>
+      <div data-sim-panel style={{ padding: 6 }}>
+        <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginBottom: 4 }}>
+          {t('editor.simHint', 'VARIANT 치수 변경 — MACRO 치수 즉시 재평가 (저장 없음)')}
+        </div>
+        <div className="frm c2">
+          {variantDims.map((d) => (
+            <span key={d.no} style={{ display: 'contents' }}>
+              <label>{d.no}</label>
+              <input className="in" style={{ width: 70 }} value={vars[d.no] ?? d.value}
+                aria-label={`Sim ${d.no}`}
+                onChange={(e) => setVars((cur) => ({ ...cur, [d.no]: e.target.value }))} />
+            </span>
+          ))}
+        </div>
+        {preview ? (
+          <div style={{ marginTop: 4, fontSize: 11 }}>
+            {macroDims.map((d) => {
+              const cur = Number(d.value)
+              const nv = preview[d.no]
+              if (nv === undefined) return null
+              const changed = !Number.isNaN(cur) && Math.abs(nv - cur) > 1e-9
+              return (
+                <div key={d.no} style={{ display: 'flex', gap: 6 }}>
+                  <b style={{ width: 18 }}>{d.no}</b>
+                  <span data-sim-val={d.no} style={{ color: changed ? 'var(--title-navy)' : undefined }}>
+                    {nv}{changed && !Number.isNaN(cur) ? ` (Δ ${nv - cur > 0 ? '+' : ''}${Math.round((nv - cur) * 100) / 100})` : ''}
+                  </span>
+                </div>
+              )
+            })}
+            <div style={{ textAlign: 'right', marginTop: 4 }}>
+              <Btn variant="pri" onClick={apply}>{t('editor.simApply', '적용 (치수 반영)')}</Btn>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </GroupBox>
+  )
+}
+
 
 /** =A+56, =A*1.62 형태의 Macro 를 A 값 기준으로 평가 (mock — ENG-01) */
 function evalDims(dims: DimensionDef[]): DimensionDef[] {
@@ -53,6 +154,9 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
   const [cadMode, setCadMode] = useState(true)
   const [cadDoc, setCadDoc] = useState<CadDocument | null>(null)
   const [cadOffline, setCadOffline] = useState(false)
+  // B16 — Block 캔버스·부품 관계 실데이터 (dwg_document·dwg_part_relation, 불가 시 mock)
+  const [blocks, setBlocks] = useState<CanvasBlock[]>(DWG_BLOCKS)
+  const [relations, setRelations] = useState<DwgRelationRow[] | null>(null)
 
   // 치수 편집 이력 (B12) — undo/redo 시 CAD 재작도
   const hist = useEditHistory(active, dims, setDims, (kind, v) => {
@@ -91,6 +195,17 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
       if (d && d.length) setDims(d)
       loadCad(src)
     })()
+    // Block 목록 = dwg_document 실데이터 (B16) — 편집 캔버스·부품 정보 진입에 사용
+    void drawingLedgerService.blocks('KDCR 3-13').then((bs) => {
+      if (bs && bs.length) {
+        setBlocks(bs.map((b) => ({
+          id: `blk:${b.documentId}`, name: b.blockName, sub: b.content.sub,
+          x: b.content.x, y: b.content.y, w: b.content.w, h: b.content.h,
+          dashed: b.content.dashed,
+        })))
+      }
+    })
+    void drawingLedgerService.relations('KDCR 3-13').then(setRelations)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleCad = () => {
@@ -272,7 +387,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
               )}
             </div>
           ) : (
-            <Cvs blocks={DWG_BLOCKS} selectedId={selBlock?.id ?? null} onSelect={setSelBlock}
+            <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock}
               onOpen={(b) => shell.openTab({
                 id: `part-detail:${b.id}`, screenId: 'part-detail',
                 code: '부품', title: b.name, params: { partId: b.id },
@@ -332,17 +447,41 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
               {evaluated ? <Chip tone="ok">{t('editor.evaluated', '평가 ✓')}</Chip> : null}
             </div>
           </GroupBox>
-          <GroupBox title="Part relationship set-up">
-            <div className="frm c2">
-              <label>A</label><Combo value="Casing" options={['Casing', 'Impeller', 'Shaft']} />
-              <label>B</label><Combo value="Impeller" options={['Casing', 'Impeller', 'Shaft']} />
-            </div>
-            <div style={{ fontSize: 10, lineHeight: 1.7, marginTop: 4, color: 'var(--txt-dim)' }}>
-              {t('editor.relCond', '조건1: 수직·수평·중심·중앙 / 조건2: 접촉(면·선·점)·좌표·각도')}<br />
-              {t('editor.relValue', '관계값')}: <span className="fx" style={{ display: 'inline', padding: '1px 6px' }}>=A2.Table23_3*Var32_2</span><br />
-              {t('editor.relPriority', '우선순위: A/B ① → B/C ② (순환 자동 점검)')}
-            </div>
+          <GroupBox title="Part relationship set-up" noPad
+            right={relations !== null && relations.length
+              ? <Chip tone="ok">dwg_part_relation {relations.length}</Chip>
+              : <Chip tone="warn">MOCK</Chip>}>
+            {relations !== null && relations.length ? (
+              <table className="g">
+                <thead><tr><th>A / B</th><th>{t('editor.relAlign', '정렬')}</th>
+                  <th>{t('editor.relContact', '접촉')}</th><th>Macro</th><th>①</th></tr></thead>
+                <tbody>
+                  {relations.map((r) => (
+                    <tr key={r.relationId}>
+                      <td style={{ fontSize: 10 }}>{r.blockA} / {r.blockB}</td>
+                      <td className="c">{r.align || '-'}</td>
+                      <td className="c">{r.contact || '-'}</td>
+                      <td style={{ fontSize: 10 }}>{r.macro ?? '-'}</td>
+                      <td className="c">{r.priority}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ fontSize: 10, lineHeight: 1.7, padding: 6, color: 'var(--txt-dim)' }}>
+                {t('editor.relCond', '조건1: 수직·수평·중심·중앙 / 조건2: 접촉(면·선·점)·좌표·각도')}<br />
+                {t('editor.relValue', '관계값')}: <span className="fx" style={{ display: 'inline', padding: '1px 6px' }}>=A2.Table23_3*Var32_2</span><br />
+                {t('editor.relPriority', '우선순위: A/B ① → B/C ② (순환 자동 점검)')}
+              </div>
+            )}
           </GroupBox>
+          <SimulationPanel dims={dims} onApply={(next) => {
+            hist.push()
+            setDims(next)
+            setEvaluated(true)
+            if (cadMode) loadCad(next)
+            shell.setStatusMsg('Simulation 적용 ✓ — 치수 반영 + CAD 재작도 (DWG-024)')
+          }} />
           <GroupBox title={t('editor.subItemDwg', 'Sub Item DWG · 조립순서')}>
             <div style={{ fontSize: 11, lineHeight: 1.9 }}>
               ① Bearing · ② Shaft · ③ Inlet-Cone R<br />
