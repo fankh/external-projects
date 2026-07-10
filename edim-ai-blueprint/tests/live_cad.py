@@ -97,8 +97,8 @@ with sync_playwright() as pw:
     n_ent = p.locator('svg[data-cad-svg] g > *').count()
     assert p.locator('svg[data-cad-svg] text', has_text='EDIM CAD TEST').count() == 1
     print(f'PASS UI viewer renders imported DXF ({n_ent} svg entities)')
-    # 레이어 토글
-    p.locator('.tn', has_text='0').first.click()
+    # 레이어 토글 — 뷰어 패널의 체크박스 (좌측 트리 .tn 오매칭 방지)
+    p.get_by_label('레이어 0', exact=True).click()
     p.wait_for_timeout(300)
     assert p.locator('svg[data-cad-svg] circle').count() == 0
     print('PASS layer visibility toggle hides entities')
