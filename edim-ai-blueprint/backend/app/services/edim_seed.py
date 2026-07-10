@@ -389,6 +389,7 @@ def run_seed() -> None:
             seed_v15(cur, row[0])
             seed_v16(cur, row[0])
             seed_v17(cur, row[0])
+            seed_v18(cur, row[0])
             return
 
         cur.execute(
@@ -501,6 +502,7 @@ def run_seed() -> None:
         seed_v15(cur, tid)
         seed_v16(cur, tid)
         seed_v17(cur, tid)
+        seed_v18(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -2011,3 +2013,99 @@ def seed_v14(cur, tid: int) -> None:
                 cur.execute(
                     """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
                        VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v18 — F1 프로젝트 도메인: 접수 자료 실데이터화 + 신규 UI 키 ──
+
+UI_TRANSLATIONS_V18: dict[str, tuple[str, str, str]] = {
+    "prj.name": ("Project Name", "プロジェクト名", "项目名称"),
+    "prj.newF2": ("＋ New F2", "＋ 新規 F2", "＋ 新建 F2"),
+    "prj.ledger": ("Project Ledger — {n}", "プロジェクト台帳 — {n}件", "项目台账 — {n}件"),
+    "prj.activeCtx": ("Selection = titlebar context", "選択 = タイトルバーのコンテキスト", "选择 = 标题栏上下文"),
+    "prj.noFiles": ("No received files — register via + Upload (MinIO RECEIVED + dwg_file)",
+                    "受領資料なし — ＋アップロードで登録 (MinIO RECEIVED + dwg_file)",
+                    "暂无接收资料 — 通过＋上传登记 (MinIO RECEIVED + dwg_file)"),
+    "prj.regTitle": ("Register Project — prj_project", "プロジェクト登録 — prj_project", "项目登记 — prj_project"),
+    "prj.regNeedName": ("Enter the project name", "プロジェクト名を入力してください", "请输入项目名称"),
+    "prj.regClientPh": ("Client — auto-created if absent (com_company)",
+                        "顧客 — 未登録なら自動作成 (com_company)",
+                        "客户 — 不存在时自动创建 (com_company)"),
+    "prj.regSubmit": ("Register F12", "登録 F12", "登记 F12"),
+    "common.needBackend": ("Backend connection required (mock mode)",
+                           "バックエンド接続が必要 (mock モード)", "需要后端连接 (mock 模式)"),
+    "shell.noProject": ("No project selected", "プロジェクト未選択", "未选择项目"),
+}
+
+
+def seed_v18(cur, tid: int) -> None:
+    # 신규 UI 키 업서트 (키 단위 멱등)
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V18.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+    # 접수 자료 실데이터화 — mock RECEIVED_FILES → dwg_file + MinIO 실객체
+    cur.execute(
+        """SELECT 1 FROM dwg_file WHERE tenant_id=%s AND folder='RECEIVED'
+           AND file_name='Micron7_사양서_v2.xlsx'""", (tid,))
+    if cur.fetchone():
+        return
+    cur.execute(
+        "SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no='PS-61313-5'",
+        (tid,))
+    prj = cur.fetchone()
+    if not prj:
+        return
+    try:
+        import io
+
+        from openpyxl import Workbook
+        from reportlab.pdfgen import canvas
+
+        from app.services import storage
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "사양"
+        for row in (["항목", "값"], ["풍량", "690 m3/min"], ["정압", "85 mmAq"],
+                    ["전원", "440V 60Hz"], ["비고", "Micron #7 Pre-Sales 접수 사양"]):
+            ws.append(row)
+        xbuf = io.BytesIO()
+        wb.save(xbuf)
+
+        pbuf = io.BytesIO()
+        c = canvas.Canvas(pbuf, pagesize=(595, 842))
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(80, 780, "Site Layout - Micron #7 (received document)")
+        c.setFont("Helvetica", 10)
+        c.rect(80, 400, 430, 320)
+        c.rect(100, 560, 140, 110)
+        c.drawString(110, 610, "AHU #1")
+        c.rect(280, 560, 140, 110)
+        c.drawString(290, 610, "Fan Room")
+        c.drawString(90, 380, "Received 2026-07-07 / Pre-Sales")
+        c.showPage()
+        c.save()
+
+        objects = (
+            ("Micron7_사양서_v2.xlsx", "XLSX", xbuf.getvalue(),
+             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            ("현장 배치도.pdf", "PDF", pbuf.getvalue(), "application/pdf"),
+        )
+        # 스토리지 업로드 먼저 전부 성공해야 INSERT (부분 등재 방지)
+        for fname, _t, data, ctype in objects:
+            storage.put_object(f"PS-61313-5/RECEIVED/{fname}", data, ctype)
+        for fname, ftype, data, _c in objects:
+            cur.execute(
+                """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
+                   file_path, file_size, uploaded_date)
+                   VALUES (%s,%s,'RECEIVED',%s,%s,%s,%s,'2026-07-07')""",
+                (tid, prj[0], fname, ftype, f"PS-61313-5/RECEIVED/{fname}", len(data)))
+        logger.info("seed v18 — 접수 자료 2건 실데이터화 (RECEIVED, MinIO)")
+    except Exception as e:  # noqa: BLE001 — storage 불가 시 다음 기동에서 재시도
+        logger.warning("seed v18 skip: %s", e)

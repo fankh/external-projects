@@ -90,14 +90,22 @@ with sync_playwright() as pw:
     ok("dashboard KPI + flow", page.locator(".flow .fs").count() >= 10)
     page.screenshot(path=f"{SHOT}/13-dashboard.png")
 
-    # Project 등록 — 영업단계 변경
+    # Project 등록 — 대장(F1) + 영업단계 변경 + honest-write
     page.locator(".tn", has_text="Project 등록 (S-3-5)").click()
     page.locator("input[aria-label='Project No']").wait_for(timeout=3000)
+    page.wait_for_timeout(600)
+    ok("project ledger mock row", page.locator("table.g:visible tbody tr", has_text="PS-61313-5").count() >= 1)
     page.locator(".flow .fs", has_text="계약").first.click()
     ok("stage → 계약 (now chip)",
        "now" in (page.locator(".flow .fs", has_text="계약").first.get_attribute("class") or ""))
-    page.get_by_role("button", name="＋ 업로드").click()
-    ok("file upload row added", page.locator("tr", has_text="추가자료_1.pdf").count() == 1)
+    # F2 등록 — mock 모드에서는 정직 거부
+    page.keyboard.press("F2")
+    page.wait_for_selector("[data-prj-reg]", timeout=3000)
+    page.locator("[data-prj-reg] input").first.fill("폴백 검증")
+    page.locator("[data-prj-reg] button", has_text="등록").first.click()
+    page.wait_for_selector("text=백엔드 연결 필요", timeout=4000)
+    ok("project create honest-reject (mock)", True)
+    page.locator("[data-prj-reg] button", has_text="취소").click()
     page.screenshot(path=f"{SHOT}/14-project.png")
 
     # 단가 관리 — resolve 시뮬레이션
@@ -115,13 +123,17 @@ with sync_playwright() as pw:
     ok("process def edit panel", page.locator("text=정의 편집 — AP 승인 도서").count() == 1)
     page.screenshot(path=f"{SHOT}/16-process.png")
 
-    # 구매·발주 — Stock Check + PO 생성
+    # 구매·발주 — Stock Check + PO 조건 다이얼로그 (B19) — mock 은 정직 거부
     page.locator(".tn", has_text="발주 PR·PO (M-8-2)").click()
     page.locator("text=PR-61313-2").first.wait_for(timeout=3000)
     page.get_by_role("button", name="Stock list Check F8").click()
-    page.get_by_role("button", name="발주 생성 → PO-61313-2 F12").click()
-    page.locator("text=PO-61313-2 생성").first.wait_for(timeout=3000)
-    ok("PO created (RA 대기)", True)
+    page.get_by_role("button", name="발주 생성 (조건 입력) F12").click()
+    page.wait_for_selector("[data-po-dialog]", timeout=3000)
+    ok("PO condition dialog (ERP-017)", True)
+    page.get_by_role("button", name="발주 확정").click()
+    page.wait_for_selector("text=발주를 생성할 수 없습니다", timeout=4000)
+    ok("PO honest-reject (mock)", True)
+    page.locator("[data-po-dialog] button", has_text="취소").click()
     page.screenshot(path=f"{SHOT}/17-purchase.png")
 
     # 5. 드릴다운 상세 (더블클릭)

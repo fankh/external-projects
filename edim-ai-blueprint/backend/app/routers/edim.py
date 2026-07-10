@@ -1245,6 +1245,7 @@ def evaluate_macro(body: EvaluateRequest) -> dict[str, Any]:
 # ── SVC-12 파일 업/다운로드 (MinIO 프록시) ──
 @router.post("/files/upload", status_code=201, dependencies=[SETUP])
 async def upload_file(
+    request: Request,
     uploadedFile: UploadFile = File(...),
     folder: str = Form("RECEIVED"),
     project: str = Form("PS-61313-5"),
@@ -1271,11 +1272,11 @@ async def upload_file(
         prj = cur.fetchone()
         cur.execute(
             """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
-               file_path, file_size)
-               VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING file_id""",
+               file_path, file_size, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING file_id""",
             (tid, prj[0] if prj else None, folder, fname,
              (fname.rsplit(".", 1)[-1] if "." in fname else "BIN").upper()[:10],
-             key, len(data)))
+             key, len(data), request.state.login))
         file_id = cur.fetchone()[0]
     return {"fileId": file_id, "key": key, "size": len(data)}
 
@@ -1946,6 +1947,118 @@ def patch_project(project_no: str, body: StagePatch) -> dict[str, Any]:
                VALUES (%s,'prj_project',%s,'STAGE',%s,%s)""",
             (tid, row[0], actor[0], json.dumps({"stage": code})))
     return {"projectNo": project_no, "stage": body.stage}
+
+
+@router.get("/projects")
+def list_projects() -> list[dict[str, Any]]:
+    """프로젝트 목록 (F1) — S-3-5 대장·타이틀바 컨텍스트 공용."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT p.project_no, p.project_name, p.project_type, p.sales_stage,
+                      p.client_contact, p.status, COALESCE(p.note,''),
+                      to_char(p.created_at,'YYYY-MM-DD'), COALESCE(c.company_name,'')
+               FROM prj_project p
+               LEFT JOIN com_company c ON c.company_id=p.customer_id
+               WHERE p.tenant_id=%s ORDER BY p.project_id DESC""", (tid,))
+        rows = cur.fetchall()
+    return [{"projectNo": r[0], "projectName": r[1], "projectType": r[2] or "Client",
+             "stage": STAGE_LABEL.get(r[3], r[3]), "clientContact": r[4] or "",
+             "status": r[5], "item": r[6], "registeredAt": r[7], "client": r[8]} for r in rows]
+
+
+class ProjectCreate(BaseModel):
+    projectName: str
+    projectType: str = "Client"
+    item: str = ""
+    client: str = ""
+    clientContact: str = ""
+
+
+@router.post("/projects", status_code=201, dependencies=[SETUP])
+def create_project(body: ProjectCreate, request: Request) -> dict[str, Any]:
+    """프로젝트 신규 등록 (F1) — PS 자동 채번. item 은 note 컬럼에 보관 (스키마 무변경)."""
+    name = body.projectName.strip()
+    if not name:
+        raise HTTPException(422, detail="Project명을 입력하십시오")
+    if body.projectType not in ("Client", "Stock", "R&D"):
+        raise HTTPException(422, detail=f"알 수 없는 Type: {body.projectType}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        # PS 자동 채번 — 'PS-<숫자>' 단일 세그먼트 최대치 + 1 (시드 PS-612 → PS-613 …)
+        cur.execute(
+            r"""SELECT COALESCE(MAX((substring(project_no FROM '^PS-(\d+)$'))::int), 600)
+               FROM prj_project WHERE tenant_id=%s AND project_no ~ '^PS-\d+$'""", (tid,))
+        seq = (cur.fetchone()[0] or 600) + 1
+        project_no = f"PS-{seq}"
+        for _ in range(50):
+            cur.execute("SELECT 1 FROM prj_project WHERE tenant_id=%s AND project_no=%s",
+                        (tid, project_no))
+            if not cur.fetchone():
+                break
+            seq += 1
+            project_no = f"PS-{seq}"
+        customer_id = None
+        client = body.client.strip()
+        if client:
+            # 고객사 자동 연결 — 없으면 CUSTOMER 로 생성 (단가 공급처 패턴 재사용)
+            cur.execute(
+                """SELECT company_id FROM com_company
+                   WHERE tenant_id=%s AND company_name=%s""", (tid, client))
+            c = cur.fetchone()
+            if c:
+                customer_id = c[0]
+            else:
+                cur.execute(
+                    """INSERT INTO com_company (tenant_id, company_type, company_name)
+                       VALUES (%s,'CUSTOMER',%s) RETURNING company_id""", (tid, client))
+                customer_id = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO prj_project (tenant_id, project_no, project_name, project_type,
+               customer_id, client_contact, note, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING project_id""",
+            (tid, project_no, name, body.projectType, customer_id,
+             body.clientContact.strip(), body.item.strip(), request.state.login))
+        pid = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'prj_project',%s,'PROJECT_CREATE',%s,%s)""",
+            (tid, pid, request.state.user_id,
+             json.dumps({"projectNo": project_no, "name": name, "type": body.projectType})))
+    return {"projectNo": project_no, "projectName": name, "projectType": body.projectType,
+            "stage": "기술 제안", "item": body.item, "client": client,
+            "clientContact": body.clientContact,
+            "status": "IN_PROGRESS", "registeredAt": date.today().isoformat()}
+
+
+@router.delete("/projects/{project_no}", dependencies=[SETUP])
+def delete_project(project_no: str, request: Request) -> dict[str, Any]:
+    """프로젝트 삭제 (F1) — 기술 제안 단계 + 무참조만 (참조 존재 시 409)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("""SELECT project_id, sales_stage FROM prj_project
+                       WHERE tenant_id=%s AND project_no=%s""", (tid, project_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"project not found: {project_no}")
+        pid, stage = row
+        if stage != "TECH_PROPOSAL":
+            raise HTTPException(
+                409, detail=f"기술 제안 단계만 삭제 가능 (현재 {STAGE_LABEL.get(stage, stage)})")
+        for tbl, label in (("cpq_selection", "견적 선택"), ("cst_quotation", "견적서"),
+                           ("dwg_file", "파일"), ("dwg_drawing", "도면"),
+                           ("erp_process_event", "이벤트")):
+            cur.execute(
+                f"SELECT count(*) FROM {tbl} WHERE tenant_id=%s AND project_id=%s", (tid, pid))
+            n = cur.fetchone()[0]
+            if n:
+                raise HTTPException(409, detail=f"참조 존재 — {label} {n}건 (삭제 불가)")
+        cur.execute("DELETE FROM prj_project WHERE project_id=%s", (pid,))
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'prj_project',%s,'PROJECT_DELETE',%s,%s)""",
+            (tid, pid, request.state.user_id, json.dumps({"projectNo": project_no})))
+    return {"deleted": project_no}
 
 
 # ── SVC-08 단가 대장 ──
@@ -2720,12 +2833,6 @@ def pr_items() -> list[dict[str, Any]]:
 # ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──
 OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
                "DATA": ("기술자료", "ok"), "BOM": ("BOM", "ok")}
-RECEIVED_FILES = [
-    {"name": "Micron7_사양서_v2.xlsx", "fileType": "XLSX", "kind": "접수자료",
-     "kindTone": "info", "run": "-", "date": "07-07", "folder": "RECEIVED"},
-    {"name": "현장 배치도.pdf", "fileType": "PDF", "kind": "접수자료",
-     "kindTone": "info", "run": "-", "date": "07-07", "folder": "RECEIVED"},
-]
 
 
 @router.get("/files")
@@ -2756,17 +2863,18 @@ def project_files(project: str = "PS-61313-5") -> list[dict[str, Any]]:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT f.file_id, f.file_name, f.file_type, f.folder,
-                      to_char(f.uploaded_date,'MM-DD')
+                      to_char(f.uploaded_date,'MM-DD'), f.created_by
                FROM dwg_file f
                LEFT JOIN prj_project p ON p.project_id=f.project_id
                WHERE f.tenant_id=%s AND (p.project_no=%s OR f.project_id IS NULL)
                ORDER BY f.file_id""", (tid, project))
         uploads = [
-            {"name": r[1], "fileType": r[2], "kind": "업로드", "kindTone": "info",
-             "run": "-", "date": r[4], "folder": r[3], "fileId": r[0]}
+            {"name": r[1], "fileType": r[2],
+             "kind": "접수자료" if r[3] == "RECEIVED" else "업로드", "kindTone": "info",
+             "run": "-", "date": r[4], "folder": r[3], "fileId": r[0], "registrant": r[5]}
             for r in cur.fetchall()
         ]
-    return files + uploads + RECEIVED_FILES
+    return files + uploads
 
 
 # ── SVC-07 CPQ / ENG-02 Run — 실 파이프라인 (P3-1 · P2-4) ──

@@ -1,18 +1,16 @@
-/** S-3-5 ERP Project 등록·관리 (W-09, 슬라이드 4·52) — PS 자동 채번 ·
- *  영업 단계 상태기계 · 접수 자료 등록. */
-import { useEffect, useMemo, useState } from 'react'
+/** S-3-5 ERP Project 등록·관리 (W-09, 슬라이드 4·52) — 프로젝트 대장(F1) ·
+ *  PS 자동 채번 · 영업 단계 상태기계 · 접수 자료 실업로드(MinIO RECEIVED). */
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { SALES_STAGES } from '../../api/mock/dataErp'
 import {
-  PROJECT, RECEIVED_FILES, SALES_STAGES, type ReceivedFile,
-} from '../../api/mock/dataErp'
-import { projectService, sysService } from '../../api/services'
+  fileService, projectService, sysService, type FolderFileEx, type ProjectRow,
+} from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
-
-let fileSeq = 1
 
 // 영업 단계 표시 번역 키 — 내부 값(상태기계 전이)은 한글 원문 유지
 const STAGE_KEYS: Record<string, string> = {
@@ -23,45 +21,125 @@ const STAGE_KEYS: Record<string, string> = {
 export function ProjectScreen({ active }: ScreenProps) {
   const shell = useShell()
   const { t } = useI18n()
-  const [stage, setStage] = useState(PROJECT.stage)
-  const [client, setClient] = useState(PROJECT.client)
-  const [files, setFiles] = useState<ReceivedFile[]>(RECEIVED_FILES)
+  const [projects, setProjects] = useState<ProjectRow[]>([])
+  const [selNo, setSelNo] = useState<string | null>(null)
+  const [stage, setStage] = useState('기술 제안')
+  const [files, setFiles] = useState<FolderFileEx[]>([])
   const [dupName, setDupName] = useState('KDCR 3-13')   // B21 중복검토 대상
   const [dirty, setDirty] = useState(false)
+  const [showReg, setShowReg] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    // prj_project 실 조회 — 저장된 영업 단계 복원
-    void projectService.get(PROJECT.projectNo).then((p) => setStage(p.stage))
-  }, [])
+  const sel = projects.find((p) => p.projectNo === selNo) ?? null
+
+  const loadProjects = (keep?: string) => {
+    void projectService.list().then((rows) => {
+      setProjects(rows)
+      const pick = (keep && rows.find((r) => r.projectNo === keep))
+        || rows.find((r) => r.projectNo === shell.activeProject?.no)
+        || rows[0]
+      if (pick) selectProject(pick, rows)
+    })
+  }
+
+  const selectProject = (p: ProjectRow, _rows?: ProjectRow[]) => {
+    setSelNo(p.projectNo)
+    setStage(p.stage)
+    setDirty(false)
+    shell.setActiveProject({ no: p.projectNo, name: p.projectName, stage: p.stage })
+    void fileService.list(p.projectNo).then((all) =>
+      setFiles(all.filter((f) => f.folder === 'RECEIVED')))
+  }
+
+  useEffect(() => { loadProjects() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = () => {
+    if (!sel) return
     void (async () => {
-      await projectService.setStage(PROJECT.projectNo, stage)
+      await projectService.setStage(sel.projectNo, stage)
       setDirty(false)
-      shell.setStatusMsg(`저장 — ${PROJECT.projectNo} · sales_stage=[${stage}] 전이 + 이력 (SYS-017)`)
+      setProjects((prev) => prev.map((p) => (p.projectNo === sel.projectNo ? { ...p, stage } : p)))
+      shell.setActiveProject({ no: sel.projectNo, name: sel.projectName, stage })
+      shell.setStatusMsg(`저장 — ${sel.projectNo} · sales_stage=[${stage}] 전이 + 이력 (SYS-017)`)
     })()
   }
 
-  useFKeys(active, useMemo(() => ({ F12: save }), [stage])) // eslint-disable-line react-hooks/exhaustive-deps
+  const removeProject = () => {
+    if (!sel) {
+      shell.setStatusMsg('F3 삭제 — 프로젝트를 먼저 선택하십시오')
+      return
+    }
+    void projectService.remove(sel.projectNo).then((ok) => {
+      if (!ok) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>삭제 불가 — 백엔드 연결 필요 (mock)</span>)
+        return
+      }
+      shell.setStatusMsg(`삭제 — ${sel.projectNo} (prj_project, 이력 기록)`)
+      setSelNo(null)
+      loadProjects()
+    }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
+  useFKeys(active, useMemo(() => ({
+    F2: () => setShowReg(true),
+    F3: removeProject,
+    F8: () => { loadProjects(selNo ?? undefined); shell.setStatusMsg('프로젝트 대장 재조회 (prj_project)') },
+    F12: save,
+  }), [stage, selNo, projects])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const upload = () => {
-    setFiles((prev) => [...prev, {
-      name: `추가자료_${fileSeq++}.pdf`, fileType: 'PDF',
-      registrant: 'YS.Gang', date: '2026-07-09',
-    }])
-    shell.setStatusMsg('접수 자료 업로드 — Project Folder RECEIVED 저장')
+    if (!sel) {
+      shell.setStatusMsg('업로드 — 프로젝트를 먼저 선택하십시오')
+      return
+    }
+    fileInput.current?.click()
+  }
+
+  const onFilePicked = (f: File) => {
+    if (!sel) return
+    void fileService.upload(f, 'RECEIVED', sel.projectNo).then((ok) => {
+      if (ok) {
+        shell.setStatusMsg(`접수 자료 업로드 ✓ — ${f.name} → ${sel.projectNo}/RECEIVED (MinIO + dwg_file)`)
+        void fileService.list(sel.projectNo).then((all) =>
+          setFiles(all.filter((x) => x.folder === 'RECEIVED')))
+      } else {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>업로드 불가 — 백엔드 연결 필요 (mock)</span>)
+      }
+    }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }
 
   const stageLabel = (s: string) => (STAGE_KEYS[s] ? t(STAGE_KEYS[s], s) : s)
 
-  const fileCols: GridColumn<ReceivedFile>[] = [
+  const prjCols: GridColumn<ProjectRow>[] = [
+    { key: 'no', header: 'No', width: 86, render: (r) => <span className="code">{r.projectNo}</span> },
+    { key: 'name', header: t('prj.name', 'Project명'), render: (r) => r.projectName },
+    { key: 'type', header: 'Type', width: 52, align: 'center', render: (r) => r.projectType },
+    { key: 'item', header: 'Item', width: 48, align: 'center', render: (r) => r.item || '-' },
+    {
+      key: 'stage', header: t('prj.salesStage', '영업 단계'), width: 76, align: 'center',
+      render: (r) => <Chip tone={r.stage === '종료' ? 'info' : r.stage === '계약' ? 'ok' : 'warn'}>{stageLabel(r.stage)}</Chip>,
+    },
+    { key: 'reg', header: t('prj.registeredAt', '등록일'), width: 78, align: 'center', render: (r) => r.registeredAt },
+  ]
+
+  const fileCols: GridColumn<FolderFileEx>[] = [
     { key: 'name', header: t('prj.fileName', '파일명'), render: (r) => r.name },
     { key: 'type', header: t('prj.fileType', '유형'), width: 48, align: 'center', render: (r) => r.fileType },
-    { key: 'reg', header: t('prj.registrant', '등록자'), width: 64, align: 'center', render: (r) => r.registrant },
-    { key: 'date', header: t('prj.date', '일자'), width: 80, align: 'center', render: (r) => r.date },
+    {
+      key: 'reg', header: t('prj.registrant', '등록자'), width: 64, align: 'center',
+      render: (r) => r.registrant ?? '-',
+    },
+    { key: 'date', header: t('prj.date', '일자'), width: 60, align: 'center', render: (r) => r.date },
     {
       key: 'act', header: '', width: 60, align: 'center',
-      render: () => <span className="b" style={{ height: 18, fontSize: 10 }}>{t('common.preview', '미리보기')}</span>,
+      render: (r) => (r.fileId
+        ? (
+          <span className="b" style={{ height: 18, fontSize: 10 }}
+            onClick={() => void fileService.download(r.fileId!, r.name)}>
+            ⬇ {t('common.download', '다운로드')}
+          </span>
+        )
+        : null),
     },
   ]
 
@@ -70,44 +148,38 @@ export function ProjectScreen({ active }: ScreenProps) {
       <div className="qband">
         <label>Project No.</label>
         <input className="in ro" style={{ width: 100, fontFamily: 'Consolas, monospace' }}
-          value={PROJECT.projectNo} readOnly aria-label="Project No" />
+          value={sel?.projectNo ?? ''} readOnly aria-label="Project No" />
         <Chip tone="info">{t('prj.autoNumber', '자동 채번 (PS-)')}</Chip>
         <label>{t('prj.salesStage', '영업 단계')}<i>*</i></label>
         <Combo width={100} value={stage}
           options={SALES_STAGES.map((s) => ({ value: s, label: stageLabel(s) }))}
           onChange={(v) => { setStage(v); setDirty(true) }} />
         <label>Type</label>
-        <Combo width={80} value={PROJECT.projectType} options={['Client', 'Stock', 'R&D']} />
+        <input className="in ro" style={{ width: 64 }} value={sel?.projectType ?? ''} readOnly aria-label="Type" />
         <label>Item</label>
-        <Combo width={72} value={PROJECT.item} options={['AHU', 'Fan', 'DUCT']} />
+        <input className="in ro" style={{ width: 56 }} value={sel?.item || '-'} readOnly aria-label="Item" />
         <span style={{ flex: 1 }} />
         {dirty ? <Chip tone="warn">{t('prj.unsaved', '미저장')}</Chip> : null}
+        <Btn onClick={() => setShowReg(true)}>{t('prj.newF2', '＋ 신규 F2')}</Btn>
         <Btn variant="pri" onClick={save}>{t('prj.saveF12', '저장 F12')}</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
-          <GroupBox title={`Project — ${PROJECT.projectNo}`} right={<Chip tone="warn">{t('prj.approvalWaiting', 'Approval ☑ 대기')}</Chip>}>
+          <GroupBox title={t('prj.ledger', '프로젝트 대장 — {n}건').replace('{n}', String(projects.length))} noPad
+            right={<Chip tone="info">{t('prj.activeCtx', '선택 = 타이틀바 컨텍스트')}</Chip>}>
+            <DenseGrid columns={prjCols} rows={projects} rowKey={(r) => r.projectNo}
+              selectedKey={selNo ?? undefined} onRowClick={(r) => selectProject(r)} />
+          </GroupBox>
+          <GroupBox title={`Project — ${sel?.projectNo ?? '—'}`}>
             <div className="frm">
-              <label>Client<i>*</i></label>
-              <input className="in req" value={client} aria-label="Client"
-                onChange={(e) => { setClient(e.target.value); setDirty(true) }} />
+              <label>Client</label>
+              <input className="in ro" value={sel?.client || '-'} readOnly aria-label="Client" />
               <label>{t('prj.registeredAt', '등록일')}</label>
-              <input className="in ro" value={PROJECT.registeredAt} readOnly aria-label="등록일" />
+              <input className="in ro" value={sel?.registeredAt ?? ''} readOnly aria-label="등록일" />
               <label>{t('prj.clientContact', 'Client 담당자')}</label>
-              <input className="in" defaultValue={PROJECT.clientContact} aria-label="Client 담당자"
-                onChange={() => setDirty(true)} />
-              <label>{t('prj.owner', '담당자')}<i>*</i></label>
-              <Combo value={PROJECT.owner} options={['YKK', 'YS.Gang', 'Kim']} />
-              <label>Document Code</label>
-              <input className="in ro" value={PROJECT.documentCode} readOnly
-                style={{ fontFamily: 'Consolas, monospace' }} aria-label="Document Code" />
-              <label>Remarks</label>
-              <input className="in" aria-label="Remarks" onChange={() => setDirty(true)} />
-            </div>
-            <div style={{ marginTop: 6 }} className="frm c2">
-              <label>{t('prj.requirements', '요구사항·Pain Point')}</label>
-              <input className="in" style={{ height: 34 }} aria-label="요구사항"
-                defaultValue="고효율 · 저소음 우선, 8월 말 납기" onChange={() => setDirty(true)} />
+              <input className="in ro" value={sel?.clientContact || '-'} readOnly aria-label="Client 담당자" />
+              <label>{t('prj.status', '상태')}</label>
+              <input className="in ro" value={sel?.status ?? ''} readOnly aria-label="상태" />
             </div>
           </GroupBox>
           <GroupBox title={t('prj.stageHistory', '영업 단계 — 변경 이력 기록')}>
@@ -130,7 +202,19 @@ export function ProjectScreen({ active }: ScreenProps) {
           </GroupBox>
           <GroupBox title={t('prj.receivedFiles', '접수 자료 등록 (File)')} style={{ flex: 1 }} noPad
             right={<Btn style={{ height: 18, fontSize: 10 }} onClick={upload}>{t('prj.addUpload', '＋ 업로드')}</Btn>}>
-            <DenseGrid columns={fileCols} rows={files} rowKey={(r) => r.name} />
+            <input ref={fileInput} type="file" style={{ display: 'none' }} aria-label="접수 자료 파일"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) onFilePicked(f)
+                e.target.value = ''
+              }} />
+            {files.length
+              ? <DenseGrid columns={fileCols} rows={files} rowKey={(r) => r.fileId ?? r.name} />
+              : (
+                <div style={{ padding: 10, color: 'var(--txt-mute)', fontSize: 11 }}>
+                  {t('prj.noFiles', '접수 자료 없음 — ＋ 업로드로 등록 (MinIO RECEIVED + dwg_file)')}
+                </div>
+              )}
           </GroupBox>
         </div>
         <div className="split-h" />
@@ -161,18 +245,9 @@ export function ProjectScreen({ active }: ScreenProps) {
               </div>
             </div>
           </GroupBox>
-          <GroupBox title="Table" noPad
-            right={<span className="b" style={{ height: 18, fontSize: 10 }}>＋ ✎ ⬇</span>}>
-            <table className="g">
-              <thead><tr><th>Item</th><th>A</th><th>C</th><th>E</th></tr></thead>
-              <tbody>
-                <tr><td className="code">560</td><td className="num"></td><td className="num">45</td><td className="num">656</td></tr>
-              </tbody>
-            </table>
-          </GroupBox>
           <GroupBox title={t('prj.printSetup', 'Print 설정')}>
             <Btn onClick={() => {
-              // B21 — S-3-4 Print Set-up 화면 탭 직행 (예정 문구 제거)
+              // B21 — S-3-4 Print Set-up 화면 탭 직행
               shell.openTab({
                 id: 'cpq-print', screenId: 'cpq-print', code: 'S-3-4', title: 'Print Set-up',
               })
@@ -192,6 +267,85 @@ export function ProjectScreen({ active }: ScreenProps) {
               </tbody>
             </table>
           </GroupBox>
+        </div>
+      </div>
+      {showReg ? (
+        <ProjectRegDialog
+          onClose={() => setShowReg(false)}
+          onSaved={(p) => {
+            setShowReg(false)
+            shell.setStatusMsg(`프로젝트 등록 ✓ — ${p.projectNo} · ${p.projectName} (PS 자동 채번)`)
+            loadProjects(p.projectNo)
+          }} />
+      ) : null}
+    </div>
+  )
+}
+
+// ── 신규 등록 다이얼로그 (F2) — PS 자동 채번은 서버가 수행 ──
+function ProjectRegDialog(props: { onClose: () => void; onSaved: (p: ProjectRow) => void }) {
+  const { t } = useI18n()
+  const [name, setName] = useState('')
+  const [type, setType] = useState('Client')
+  const [item, setItem] = useState('AHU')
+  const [client, setClient] = useState('')
+  const [contact, setContact] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = () => {
+    if (!name.trim()) {
+      setErr(t('prj.regNeedName', 'Project명을 입력하십시오'))
+      return
+    }
+    setBusy(true)
+    void projectService.create({
+      projectName: name.trim(), projectType: type, item, client: client.trim(),
+      clientContact: contact.trim(),
+    }).then((p) => {
+      if (!p) {
+        setErr(t('common.needBackend', '백엔드 연결 필요 (mock 모드)'))
+        setBusy(false)
+        return
+      }
+      props.onSaved(p)
+    }).catch((e: Error) => { setErr(e.message); setBusy(false) })
+  }
+
+  return (
+    <div data-prj-reg style={{
+      position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={props.onClose}>
+      <div style={{
+        width: 400, background: '#fff', border: '1px solid var(--line-strong)',
+        boxShadow: '0 8px 30px rgba(20,26,40,.35)',
+      }} onClick={(e) => e.stopPropagation()}>
+        <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+          <b>{t('prj.regTitle', '프로젝트 등록 — prj_project')}</b><span className="sp" />
+          <span style={{ cursor: 'pointer' }} onClick={props.onClose}>✕</span>
+        </div>
+        <div className="frm" style={{ padding: 10 }}>
+          <label>{t('prj.name', 'Project명')}<i>*</i></label>
+          <input className="in req" value={name} autoFocus aria-label="Project명"
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit() }} />
+          <label>Type</label>
+          <Combo value={type} options={['Client', 'Stock', 'R&D']} onChange={setType} />
+          <label>Item</label>
+          <Combo value={item} options={['AHU', 'Fan', 'DUCT']} onChange={setItem} />
+          <label>Client</label>
+          <input className="in" value={client} aria-label="Client"
+            placeholder={t('prj.regClientPh', '고객사 — 없으면 자동 생성 (com_company)')}
+            onChange={(e) => setClient(e.target.value)} />
+          <label>{t('prj.clientContact', 'Client 담당자')}</label>
+          <input className="in" value={contact} aria-label="Client 담당자"
+            onChange={(e) => setContact(e.target.value)} />
+        </div>
+        {err ? <div style={{ color: 'var(--err)', fontSize: 11, padding: '0 10px 6px' }}>{err}</div> : null}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, padding: '0 10px 10px' }}>
+          <Btn onClick={props.onClose}>{t('price.cancel', '취소')}</Btn>
+          <Btn variant="pri" disabled={busy} onClick={submit}>{t('prj.regSubmit', '등록 F12')}</Btn>
         </div>
       </div>
     </div>

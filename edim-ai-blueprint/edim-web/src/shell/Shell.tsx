@@ -1,7 +1,7 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
-import { authService, devReqService, pingBackend, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
+import { authService, devReqService, pingBackend, projectService, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar, type MenuItem } from '../components/chrome'
 import { Btn } from '../components/controls'
 import { LnavTree } from '../components/LnavTree'
@@ -283,10 +283,23 @@ export function Shell(props: { user: User }) {
     ['그리드 더블클릭', '상세 탭 (코드·문서·부품·이벤트)'],
   ]
 
-  const userLabel = useMemo(
-    () => `Micron #7 (Pre-Sales) · ${props.user.department} · ${props.user.name} [${props.user.userLevel}]`,
-    [props.user],
-  )
+  // F1 — 타이틀바 활성 프로젝트 컨텍스트 (prj_project 실데이터, 미선택 시 목록 첫 건 자동)
+  const userLabel = useMemo(() => {
+    const prj = shell.activeProject
+      ? `${shell.activeProject.name} (${shell.activeProject.no})`
+      : t('shell.noProject', '프로젝트 미선택')
+    return `${prj} · ${props.user.department} · ${props.user.name} [${props.user.userLevel}]`
+  }, [props.user, shell.activeProject])
+
+  useEffect(() => {
+    if (shell.activeProject) return
+    // 저장된 컨텍스트가 없으면 프로젝트 목록 첫 건 (최신 등록순)
+    void projectService.list().then((rows) => {
+      const p = rows[0]
+      if (p) shell.setActiveProject({ no: p.projectNo, name: p.projectName, stage: p.stage })
+    }).catch(() => { /* mock/오프라인 — 미선택 유지 */ })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 좌측 트리 라벨 번역 — menu.<nodeId> 키, 미존재 시 KO 라벨 폴백
   const trNodes = useMemo(() => {

@@ -13,6 +13,13 @@ export interface OpenTab {
   params?: Record<string, unknown>
 }
 
+/** 활성 프로젝트 컨텍스트 (F1) — 타이틀바 표시 + 화면 기본 프로젝트 */
+export interface ActiveProject {
+  no: string
+  name: string
+  stage: string
+}
+
 interface ShellState {
   module: ModuleId
   setModule: (m: ModuleId) => void
@@ -23,6 +30,8 @@ interface ShellState {
   activateTab: (id: string) => void
   statusMsg: ReactNode | null
   setStatusMsg: (m: ReactNode | null) => void
+  activeProject: ActiveProject | null
+  setActiveProject: (p: ActiveProject) => void
 }
 
 const Ctx = createContext<ShellState | null>(null)
@@ -115,11 +124,32 @@ function saveTabs(tabs: OpenTab[], activeTabId: string | null): void {
   } catch { /* quota 등 — 영속 실패는 무시 */ }
 }
 
+const PROJECT_KEY = 'edim-active-project'
+
+function loadActiveProject(): ActiveProject | null {
+  try {
+    const raw = localStorage.getItem(PROJECT_KEY)
+    if (!raw) return null
+    const p = JSON.parse(raw) as ActiveProject
+    return p && typeof p.no === 'string' && typeof p.name === 'string' ? p : null
+  } catch {
+    return null
+  }
+}
+
 export function ShellProvider(props: { initialModule: ModuleId; children: ReactNode }) {
   const [module, setModuleState] = useState<ModuleId>(props.initialModule)
   const [tabs, setTabs] = useState<OpenTab[]>(() => loadTabs().tabs)
   const [activeTabId, setActiveTabId] = useState<string | null>(() => loadTabs().activeTabId)
   const [statusMsg, setStatusMsg] = useState<ReactNode | null>(null)
+  const [activeProject, setActiveProjectState] = useState<ActiveProject | null>(loadActiveProject)
+
+  const setActiveProject = useCallback((p: ActiveProject) => {
+    setActiveProjectState(p)
+    try {
+      localStorage.setItem(PROJECT_KEY, JSON.stringify(p))
+    } catch { /* quota — 무시 */ }
+  }, [])
 
   // 콜백에서 최신값 참조 (의존성 없는 안정 콜백 유지)
   const moduleRef = useRef(module)
@@ -194,8 +224,9 @@ export function ShellProvider(props: { initialModule: ModuleId; children: ReactN
 
   const value = useMemo(() => ({
     module, setModule, tabs, activeTabId, openTab, closeTab, activateTab,
-    statusMsg, setStatusMsg,
-  }), [module, setModule, tabs, activeTabId, openTab, closeTab, activateTab, statusMsg])
+    statusMsg, setStatusMsg, activeProject, setActiveProject,
+  }), [module, setModule, tabs, activeTabId, openTab, closeTab, activateTab,
+    statusMsg, activeProject, setActiveProject])
 
   return <Ctx.Provider value={value}>{props.children}</Ctx.Provider>
 }

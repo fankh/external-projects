@@ -457,7 +457,56 @@ export const eventService = {
 }
 
 // ── SVC-09 Project ──
+export interface ProjectRow {
+  projectNo: string
+  projectName: string
+  projectType: string
+  stage: string
+  clientContact: string
+  status: string
+  item: string
+  registeredAt: string
+  client: string
+}
+
 export const projectService = {
+  /** GET /api/v1/projects — 프로젝트 대장 (F1) */
+  async list(): Promise<ProjectRow[]> {
+    try {
+      return await api('/projects')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return [{
+        projectNo: MOCK_PROJECT.projectNo, projectName: 'Micron #7',
+        projectType: MOCK_PROJECT.projectType, stage: MOCK_PROJECT.stage,
+        clientContact: MOCK_PROJECT.clientContact, status: 'IN_PROGRESS',
+        item: MOCK_PROJECT.item, registeredAt: MOCK_PROJECT.registeredAt,
+        client: MOCK_PROJECT.client,
+      }]
+    }
+  },
+  /** POST /api/v1/projects — 신규 등록 + PS 자동 채번 (F1, honest-write) */
+  async create(p: {
+    projectName: string; projectType: string; item: string
+    client: string; clientContact: string
+  }): Promise<ProjectRow | null> {
+    try {
+      return await api('/projects', { method: 'POST', body: JSON.stringify(p) })
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return null   // mock 모드 — 정직 거부
+    }
+  },
+  /** DELETE /api/v1/projects/{no} — 기술 제안 + 무참조만 (409 보호) */
+  async remove(no: string): Promise<boolean> {
+    try {
+      await api(`/projects/${encodeURIComponent(no)}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return false
+    }
+  },
   /** GET /api/v1/projects/{no} */
   async get(no: string): Promise<{ stage: string; clientContact: string }> {
     try {
@@ -606,7 +655,7 @@ export const purchaseService = {
 }
 
 // ── SVC-12 Project Folder 파일 (MinIO 프록시) ──
-export interface FolderFileEx extends FolderFile { fileId?: number }
+export interface FolderFileEx extends FolderFile { fileId?: number; registrant?: string }
 
 export const fileService = {
   /** GET /api/v1/files — cpq_output 실산출물 + dwg_file 업로드 + RECEIVED */
