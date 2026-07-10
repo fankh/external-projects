@@ -1,5 +1,8 @@
 /** M-16 EDIM App Mobile 미리보기 (W-16, 슬라이드 77) — QR 진입·승인·자재 입출고.
- *  내부는 dense 토큰, 터치 타깃만 32px 예외. 웹 승인함(M-15-2)과 동일 데이터 (APP-002). */
+ *  내부는 dense 토큰, 터치 타깃만 32px 예외. 웹 승인함(M-15-2)과 동일 데이터 (APP-002 — B11 실배선). */
+import { useEffect, useRef, useState } from 'react'
+import { approvalService, eventService, fileService, type ErpEvent } from '../../api/services'
+import type { ApprovalReq } from '../../api/mock/dataMore'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
@@ -8,6 +11,58 @@ import type { ScreenProps } from '../../shell/Shell'
 export function MobilePreviewScreen(_props: ScreenProps) {
   const shell = useShell()
   const { t } = useI18n()
+
+  // B11 — 실데이터: 대기 승인 1건 + 미완료 이벤트 1건 (웹과 동일 원천)
+  const [req, setReq] = useState<ApprovalReq | null>(null)
+  const [ev, setEv] = useState<ErpEvent | null>(null)
+  const photoInput = useRef<HTMLInputElement>(null)
+
+  const loadReq = () => void approvalService.inbox()
+    .then((rows) => setReq(rows[rows.length - 1] ?? null))
+  useEffect(() => {
+    loadReq()
+    void eventService.list().then((rows) =>
+      setEv(rows.find((r) => r.status !== 'DONE' && r.eventId != null) ?? null))
+  }, [])
+
+  const decide = (approve: boolean) => {
+    if (!req) {
+      shell.setStatusMsg('모바일 승인 — 대기 중인 요청 없음')
+      return
+    }
+    void (async () => {
+      try {
+        await approvalService.decide(req.id, approve, approve ? '모바일 승인 (APP-002)' : '모바일 반려 (APP-002)')
+        shell.setStatusMsg(`모바일 ${approve ? '승인' : '반려'} ✓ — ${req.target} (웹 승인함과 동일 데이터·규칙, 요청자 알림)`)
+        loadReq()
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : '처리 실패'}</span>)
+      }
+    })()
+  }
+
+  const receive = () => {
+    if (!ev?.eventId) {
+      shell.setStatusMsg('입고 처리 — 미완료 이벤트 없음 (백엔드 필요)')
+      return
+    }
+    void eventService.complete(ev.eventId, '모바일 입고 처리 (MI-002)')
+      .then(() => {
+        shell.setStatusMsg(`입고 처리 ✓ — 이벤트 #${ev.eventId} ${ev.project} DONE (오프라인 캐시 APP-004)`)
+        void eventService.list().then((rows) =>
+          setEv(rows.find((r) => r.status !== 'DONE' && r.eventId != null) ?? null))
+      })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
+  const attachPhoto = (f: globalThis.File) => {
+    void fileService.upload(f, 'RECEIVED', 'PS-61313-5')
+      .then((ok) => shell.setStatusMsg(ok
+        ? `사진 첨부 ✓ — ${f.name} (RECEIVED 폴더 · MinIO, Folder 화면에서 확인)`
+        : <span style={{ color: 'var(--err)' }}>사진 첨부 불가 — 백엔드 연결 필요</span>))
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
   return (
     <div className="fill-col" style={{ overflow: 'auto' }}>
       <div className="qband">
@@ -53,11 +108,13 @@ export function MobilePreviewScreen(_props: ScreenProps) {
             <div className="pscr">
               <div className="pbar"><span>← {t('mobile.taskApproval', '업무 승인')}</span><span>PS-61313-5</span></div>
               <div className="gb">
-                <div className="gt">{t('appr.drawing', '도면')} KDCR 3-13 Rev.B</div>
+                <div className="gt">{req ? `${req.assetType} ${req.target}` : `${t('appr.drawing', '도면')} — 대기 없음`}</div>
                 <div className="gc">
                   <div className="cvs" style={{ height: 64 }} />
                   <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginTop: 4, lineHeight: 1.6 }}>
-                    {t('mobile.request', '요청')}: Kim · 07-07<br />{t('taskbox.kind', '구분')}: 개정 승인 (검토 완료)
+                    {req
+                      ? <>{t('mobile.request', '요청')}: {req.requester} · {req.reqDate}<br />{t('taskbox.kind', '구분')}: {req.reqKind} ({req.stage})</>
+                      : <>{t('mobile.request', '요청')}: —<br />{t('taskbox.kind', '구분')}: 처리할 승인 요청 없음</>}
                   </div>
                 </div>
               </div>
@@ -69,9 +126,9 @@ export function MobilePreviewScreen(_props: ScreenProps) {
               </div>
               <div style={{ display: 'flex', gap: 4, marginTop: 'auto' }}>
                 <Btn style={{ flex: 1, height: 32, justifyContent: 'center', borderColor: 'var(--err)', color: 'var(--err)' }}
-                  onClick={() => shell.setStatusMsg('모바일 반려 — 웹 승인함과 동일 규칙 (APP-002)')}>{t('common.reject', '반려')}</Btn>
+                  onClick={() => decide(false)}>{t('common.reject', '반려')}</Btn>
                 <Btn variant="run" style={{ flex: 1, height: 32, justifyContent: 'center' }}
-                  onClick={() => shell.setStatusMsg('모바일 승인 — APPROVED 전이 (APP-002)')}>{t('common.approve', '승인')}</Btn>
+                  onClick={() => decide(true)}>{t('common.approve', '승인')}</Btn>
               </div>
             </div>
           </div>
@@ -100,9 +157,17 @@ export function MobilePreviewScreen(_props: ScreenProps) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 4, marginTop: 'auto' }}>
-                <Btn style={{ flex: 1, height: 32, justifyContent: 'center' }}>📸 {t('mobile.attachPhoto', '사진 첨부')}</Btn>
+                <input ref={photoInput} type="file" accept="image/*" style={{ display: 'none' }}
+                  aria-label="사진 첨부"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) attachPhoto(f)
+                    e.target.value = ''
+                  }} />
+                <Btn style={{ flex: 1, height: 32, justifyContent: 'center' }}
+                  onClick={() => photoInput.current?.click()}>📸 {t('mobile.attachPhoto', '사진 첨부')}</Btn>
                 <Btn variant="pri" style={{ flex: 1, height: 32, justifyContent: 'center' }}
-                  onClick={() => shell.setStatusMsg('입고 처리 — 오프라인 캐시 지원 (APP-004)')}>{t('mobile.receive', '입고 처리')}</Btn>
+                  onClick={receive}>{t('mobile.receive', '입고 처리')}</Btn>
               </div>
             </div>
           </div>
