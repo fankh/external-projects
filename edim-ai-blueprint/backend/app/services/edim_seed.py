@@ -98,6 +98,7 @@ def run_seed() -> None:
             seed_v10(cur, row[0])
             seed_v11(cur, row[0])
             seed_v12(cur, row[0])
+            seed_v13(cur, row[0])
             return
 
         cur.execute(
@@ -205,6 +206,7 @@ def run_seed() -> None:
         seed_v10(cur, tid)
         seed_v11(cur, tid)
         seed_v12(cur, tid)
+        seed_v13(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -1588,3 +1590,27 @@ def seed_v12(cur, tid: int) -> None:
                 (tid, ids.get(parent), ttype, name, symbol, address))
             ids[address] = cur.fetchone()[0]
         logger.info('seed v12 — sys_hierarchy %d', len(HIERARCHY_V12))
+
+
+# ── seed v13 — B13/B14 신규 화면 메뉴·화면 번역 키 (sys_translation) ──
+
+MENU_UPDATES_V13 = {
+    'menu.code-hierarchy': ('Hierarchy Address (M-3-1)', 'Hierarchy アドレス (M-3-1)', 'Hierarchy 地址 (M-3-1)'),
+    'menu.erp-company-master': ('Suppliers & Customers (M-14-2)', '仕入先·取引先 (M-14-2)', '供应商·客户 (M-14-2)'),
+    'screen.code-hierarchy': ('Hierarchy Address', 'Hierarchy アドレス', 'Hierarchy 地址'),
+    'screen.erp-company-master': ('Suppliers & Customers', '仕入先·取引先', '供应商·客户'),
+}
+
+
+def seed_v13(cur, tid: int) -> None:
+    # 키 단위 멱등 — UPDATE 후 미존재 시 INSERT (v10/v11 과 동일 패턴)
+    for key, (en, ja, zh) in MENU_UPDATES_V13.items():
+        for locale, text in (('en', en), ('ja', ja), ('zh', zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))

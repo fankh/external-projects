@@ -6,7 +6,7 @@
 실행: PYTHONUTF8=1 py tests/live_b7_drawings.py
 정리: 스위트 말미에 자체 수행 (approvals decide + DELETE /drawings/TEST-B7-001).
 """
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 BASE = "https://edim.seekerslab.com"
 TNO = "TEST-B7-001"
@@ -106,8 +106,10 @@ with sync_playwright() as pw:
     p.locator(".mdi .t.on", has_text="상세").wait_for(timeout=5000)
     p.locator(".gb", has_text="승인 이력").locator("tr", has_text="승인 요청").first.wait_for(timeout=5000)
     ok("승인 이력 실조회 (sys_approval_request)", True)
-    ok("승인 이력 라이브 (MOCK 칩 없음)",
-       p.locator(".gb", has_text="승인 이력").locator(".st", has_text="MOCK").count() == 0)
+    # MOCK 칩은 fetch 완료 전(hist===null)에도 표시되므로 사라질 때까지 대기 (레이스 방지)
+    expect(p.locator(".gb", has_text="승인 이력").locator(".st", has_text="MOCK")) \
+        .to_have_count(0, timeout=8000)
+    ok("승인 이력 라이브 (MOCK 칩 없음)", True)
     p.get_by_role("button", name="도면 열기").click()
     p.locator(".mdi .t.on", has_text="CAD").wait_for(timeout=10000)
     p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)

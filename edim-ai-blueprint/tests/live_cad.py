@@ -63,7 +63,7 @@ print('PASS re-view imported file from MinIO')
 
 # 3. export-dxf (dims 지정)
 dxf = req('POST', '/cad/export-dxf', {'dims': {'A': 700, 'B': 756, 'K': 1134}}, A, raw=True)
-assert b'SECTION' in dxf[:200] and b'AC1024' in dxf[:2000] and b'K=1134' in dxf
+assert b'SECTION' in dxf[:200] and b'AC1024' in dxf[:2000] and b'K = 1134' in dxf
 print(f'PASS cad/export-dxf — {len(dxf)}B, dims embedded (K=1134)')
 
 # 4. DWG → 501 (ODA 미설정)
