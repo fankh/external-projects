@@ -221,7 +221,13 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
             { value: 'Snap: 끝점·중앙·중심', label: t('editor.snapOn', 'Snap: 끝점·중앙·중심') },
             'Snap: OFF',
           ]} />
-        <Btn>Simulation</Btn>
+        <Btn onClick={() => {
+          // Simulation = 전체 Macro 재평가 + CAD 재작도 시퀀스 (B10)
+          if (!cadMode) setCadMode(true)
+          shell.setStatusMsg('Simulation — 전체 Macro 재평가 → CAD 재작도 (F9 시퀀스)')
+          setTimeout(() => window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'F9', cancelable: true })), 60)
+        }}>Simulation</Btn>
         <Sep />
         <input ref={cadInput} type="file" accept=".dxf,.dwg" style={{ display: 'none' }}
           aria-label="CAD 파일"

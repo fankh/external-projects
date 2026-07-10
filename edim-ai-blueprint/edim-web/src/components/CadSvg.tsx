@@ -260,6 +260,23 @@ export function CadSvg(props: {
     return () => el.removeEventListener('wheel', onWheel)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // CommandLine 실명령 (B10) — ZOOM/FIT/MEASURE 를 CustomEvent 로 수신
+  useEffect(() => {
+    const onCmd = (e: Event) => {
+      const a = (e as CustomEvent<{ action?: string }>).detail?.action
+      if (a === 'zoom-in') zoomCenter(1 / 1.4)
+      else if (a === 'zoom-out') zoomCenter(1.4)
+      else if (a === 'fit') setVb(null)
+      else if (a === 'measure') {
+        const next = !measureRef.current
+        setMeasureOn(next)
+        if (!next) { setM1(null); setM2(null); setMHover(null) }
+      }
+    }
+    window.addEventListener('edim-cad-cmd', onCmd)
+    return () => window.removeEventListener('edim-cad-cmd', onCmd)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const layerColor = useMemo(() => {
     const m: Record<string, string> = {}
     doc.layers.forEach((l) => {

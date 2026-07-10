@@ -812,6 +812,53 @@ export const searchService = {
   },
 }
 
+export const c1Service = {
+  /** POST /api/v1/cpq/quote-preview.pdf — 현재 슬롯으로 견적서 즉석 렌더 (blob URL, null=백엔드 불가) */
+  async quotePreviewPdf(slotValues: Record<string, string>): Promise<string | null> {
+    try {
+      const res = await fetch(`${API}/cpq/quote-preview.pdf`, {
+        method: 'POST', signal: AbortSignal.timeout(15_000),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ rootCode: 'KDCR 3-13', slotValues }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string } | null
+        throw new Error(body?.detail ?? `HTTP ${res.status}`)
+      }
+      setSource('live')
+      return URL.createObjectURL(await res.blob())
+    } catch (e) {
+      if (e instanceof Error && !(e instanceof TypeError) && e.name !== 'TimeoutError') throw e
+      setSource('mock')
+      return null
+    }
+  },
+  /** POST /api/v1/cpq/spec-import — 사양 Excel(Slot·Value) → slotValues (null=백엔드 불가) */
+  async specImport(file: globalThis.File): Promise<Record<string, string> | null> {
+    const form = new FormData()
+    form.append('uploadedFile', file)
+    try {
+      const res = await fetch(`${API}/cpq/spec-import`, {
+        method: 'POST', body: form, signal: AbortSignal.timeout(30_000),
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string } | null
+        throw new Error(body?.detail ?? `HTTP ${res.status}`)
+      }
+      setSource('live')
+      return (await res.json() as { slotValues: Record<string, string> }).slotValues
+    } catch (e) {
+      if (e instanceof Error && !(e instanceof TypeError) && e.name !== 'TimeoutError') throw e
+      setSource('mock')
+      return null
+    }
+  },
+}
+
 export const renderService = {
   /** POST /api/v1/render/pdf — 범용 PDF 렌더 (blob URL, null=백엔드 불가) */
   async pdf(title: string, lines: string[], opts?: { subtitle?: string; confidential?: boolean }):

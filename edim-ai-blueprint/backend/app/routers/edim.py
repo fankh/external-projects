@@ -348,6 +348,63 @@ def expand(body: ExpandRequest) -> dict[str, Any]:
     }
 
 
+# ── B10 — C-1 마감: 견적 미리보기 PDF · 사양 Excel Import (CPQ-002) ──
+
+class QuotePreview(BaseModel):
+    rootCode: str = "KDCR 3-13"
+    slotValues: dict[str, str] = {}
+
+
+@router.post("/cpq/quote-preview.pdf", dependencies=[SETUP])
+def quote_preview(body: QuotePreview) -> Any:
+    """견적 미리보기 — 현재 슬롯 선택으로 BOM 전개+단가 후 견적서 PDF 즉석 렌더 (영속 없음)."""
+    from types import SimpleNamespace
+
+    from fastapi.responses import Response
+
+    from ..services import run_pipeline as rp
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        rows = _expand_rows(cur, tid, body.rootCode, body.slotValues)
+    if not rows:
+        raise HTTPException(404, detail=f"root code not found: {body.rootCode}")
+    items = [{
+        "resolvedCode": _resolved(r[0], r[4] or {}), "name": r[1],
+        "quantity": float(r[2]),
+        "priceK": round(float(r[6]) / 1000) if r[6] is not None else None,
+    } for r in rows]
+    total_k = sum((i["priceK"] or 0) * i["quantity"] for i in items)
+    ns = SimpleNamespace(items=items, total_k=total_k, files=[])
+    rp.step_quotation(ns, "PS-61313-5 · 미리보기")
+    return Response(content=ns.files[-1][3], media_type="application/pdf",
+                    headers={"Content-Disposition": "inline; filename=\"quote-preview.pdf\""})
+
+
+@router.post("/cpq/spec-import", dependencies=[SETUP])
+async def spec_import(uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+    """사양 Excel Import — 헤더 Slot·Value 2열 → slotValues (CPQ-002)."""
+    import openpyxl
+    data = await uploadedFile.read()
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, detail="Excel 파일이 아닙니다 (.xlsx)")
+    ws = wb.active
+    header = [str(c.value).strip() if c.value is not None else "" for c in ws[1]]
+    if "Slot" not in header or "Value" not in header:
+        raise HTTPException(422, detail="헤더 불일치 — 필요 열: Slot·Value")
+    si, vi = header.index("Slot"), header.index("Value")
+    sv: dict[str, str] = {}
+    for row in ws.iter_rows(min_row=2):
+        s, v = row[si].value, row[vi].value
+        if s is None or v is None:
+            continue
+        sv[str(s).strip().upper()[:5]] = str(v).strip()
+    if not sv:
+        raise HTTPException(422, detail="유효한 Slot·Value 행 없음")
+    return {"slotValues": sv}
+
+
 # ── SVC-05 Table ──
 @router.get("/tables/tech-data")
 def tech_data(airflow: float = 0, pressure: float = 0) -> list[dict[str, Any]]:

@@ -1,7 +1,7 @@
 /** C-1 CPQ 제품 선정 (W-02 / 디자인시안 b03) —
  *  조회밴드 F8 · 구성 캔버스+커맨드 라인 · 슬롯 선택 → BOM 재전개 · EDIM Run F9. */
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { cadService, codeService, type CadDocument } from '../../api/services'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { c1Service, cadService, codeService, type CadDocument } from '../../api/services'
 import type { BomItem, CanvasBlock } from '../../api/types'
 import { CadSvg } from '../../components/CadSvg'
 import { AHU_BLOCKS, DEFAULT_SLOT_VALUES, PRODUCT_SLOTS } from '../../api/mock/data'
@@ -31,6 +31,7 @@ export function SelectionScreen({ active }: ScreenProps) {
   const [selBlock, setSelBlock] = useState<CanvasBlock | null>(AHU_BLOCKS[2])
   const [selBom, setSelBom] = useState<string | null>(null)
   const [cmdEcho, setCmdEcho] = useState('기준점 지정 >')
+  const specInput = useRef<HTMLInputElement>(null)
   // CAD 모드 — 구성도의 정본은 서버 작도 DXF (INT-04)
   const [cadMode, setCadMode] = useState(false)
   const [cadDoc, setCadDoc] = useState<CadDocument | null>(null)
@@ -90,6 +91,74 @@ export function SelectionScreen({ active }: ScreenProps) {
     void apply(next)   // 슬롯 변경 = 즉시 재전개 (CPQ-004)
   }
 
+  // 사양 Excel Import (CPQ-002) — Slot·Value 2열 → 슬롯 자동 세팅 + 재전개
+  const importSpec = (f: globalThis.File) => {
+    void (async () => {
+      try {
+        const sv = await c1Service.specImport(f)
+        if (!sv) {
+          setStatusMsg(<span style={{ color: 'var(--err)' }}>사양 Import 불가 — 백엔드 연결 필요</span>)
+          return
+        }
+        const next = { ...slotValues, ...sv }
+        setSlotValues(next)
+        await apply(next)
+        setStatusMsg(`사양 Import ✓ — 슬롯 ${Object.keys(sv).length}건 반영 (${Object.entries(sv).map(([k, v]) => `${k}=${v}`).join(' · ')})`)
+      } catch (e) {
+        setStatusMsg(<span style={{ color: 'var(--err)' }}>
+          {e instanceof Error ? e.message : 'Import 실패'}</span>)
+      }
+    })()
+  }
+
+  // 견적 미리보기 — Run 없이 현재 슬롯으로 견적서 PDF 즉석 렌더
+  const quotePreview = () => {
+    void c1Service.quotePreviewPdf(slotValues)
+      .then((url) => {
+        if (url) {
+          window.open(url, '_blank')
+          setStatusMsg('견적 미리보기 ✓ — 현재 슬롯 BOM·단가 실렌더 (영속 없음)')
+        } else {
+          setStatusMsg(<span style={{ color: 'var(--err)' }}>미리보기 불가 — 백엔드 연결 필요</span>)
+        }
+      })
+      .catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
+  // CommandLine 실명령 — ZOOM [IN|OUT] · FIT · MEASURE · SELECT <code> · RUN
+  const runCommand = (raw: string) => {
+    const [cmd, ...rest] = raw.trim().split(/\s+/)
+    const arg = rest.join(' ')
+    const c = (cmd ?? '').toUpperCase()
+    const cad = (action: string) => {
+      if (!cadMode) toggleCad()
+      window.dispatchEvent(new CustomEvent('edim-cad-cmd', { detail: { action } }))
+    }
+    if (c === 'ZOOM') {
+      cad(arg.toUpperCase() === 'OUT' ? 'zoom-out' : 'zoom-in')
+      setStatusMsg(`ZOOM ${arg.toUpperCase() === 'OUT' ? 'OUT' : 'IN'} — CAD 캔버스`)
+    } else if (c === 'FIT') {
+      cad('fit')
+      setStatusMsg('FIT — 도면 맞춤')
+    } else if (c === 'MEASURE') {
+      cad('measure')
+      setStatusMsg('MEASURE — 두 점 클릭 = 거리 (끝점/중심 스냅)')
+    } else if (c === 'RUN') {
+      startRun()
+    } else if (c === 'SELECT' && arg) {
+      const hit = bom.find((b) => b.resolvedCode.toUpperCase().includes(arg.toUpperCase()))
+      if (hit) {
+        setSelBom(hit.resolvedCode)
+        setStatusMsg(`SELECT — ${hit.resolvedCode} (${hit.name})`)
+      } else {
+        setStatusMsg(<span style={{ color: 'var(--err)' }}>SELECT — BOM 에 없음: {arg}</span>)
+      }
+    } else {
+      setStatusMsg('명령: ZOOM [IN|OUT] · FIT · MEASURE · SELECT <code> · RUN')
+    }
+    setCmdEcho(`${raw} ✓ >`)
+  }
+
   const totalK = bom.reduce((s, b) => s + (b.priceK ?? 0) * b.quantity, 0)
 
   const cols: GridColumn<BomItem>[] = [
@@ -120,7 +189,14 @@ export function SelectionScreen({ active }: ScreenProps) {
           onChange={(e) => setPressure(e.target.value)} />
         <span className="unit">mmAq</span>
         <span style={{ flex: 1 }} />
-        <Btn>{t('cpq.specExcel', '사양 Excel ⬆')}</Btn>
+        <input ref={specInput} type="file" accept=".xlsx" style={{ display: 'none' }}
+          aria-label="사양 Excel"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) importSpec(f)
+            e.target.value = ''
+          }} />
+        <Btn onClick={() => specInput.current?.click()}>{t('cpq.specExcel', '사양 Excel ⬆')}</Btn>
         <Btn variant="pri" disabled={busy} onClick={() => void apply(slotValues)}>
           {busy ? '…' : t('cpq.applyF8', '적용 F8')}
         </Btn>
@@ -161,7 +237,7 @@ export function SelectionScreen({ active }: ScreenProps) {
           <CommandLine
             prompt={selBlock ? `MOVE 선택=${selBlock.name}  ${cmdEcho}` : '명령 대기 >'}
             coord="X 2,140.5  Y 386.0 | 스냅 ON"
-            onCommand={(cmd) => setCmdEcho(`${cmd} ✓ >`)} />
+            onCommand={runCommand} />
         </div>
         <div className="split-h" />
         <div style={{ width: 378, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
@@ -198,7 +274,7 @@ export function SelectionScreen({ active }: ScreenProps) {
               </>} />
           </GroupBox>
           <div style={{ display: 'flex', gap: 4 }}>
-            <Btn style={{ flex: 1, justifyContent: 'center' }}>{t('cpq.quotePreview', '견적 미리보기')}</Btn>
+            <Btn style={{ flex: 1, justifyContent: 'center' }} onClick={quotePreview}>{t('cpq.quotePreview', '견적 미리보기')}</Btn>
             <Btn variant="run" style={{ flex: 1.4, justifyContent: 'center' }} onClick={startRun}>
               ▶ EDIM Run F9
             </Btn>
