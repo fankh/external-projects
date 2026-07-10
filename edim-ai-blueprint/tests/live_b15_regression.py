@@ -75,9 +75,9 @@ with sync_playwright() as pw:
                      "folder": "NOPE", "project": "PS-61313-5"})
     ok("업로드 folder 오류 -> 422", r.status == 422)
 
-    # 5. i18n 폴백 — 미지원 로케일은 빈 사전, en 은 확장 키 포함
+    # 5. i18n 폴백 — 미지원 로케일은 404 (정직 거부), en 은 확장 키 포함
     r = req.get(f"{BASE}/i18n/xx")
-    ok("i18n 미지원 로케일 -> 200 빈 사전", r.ok and r.json() == {})
+    ok("i18n 미지원 로케일 -> 404", r.status == 404)
     r = req.get(f"{BASE}/i18n/en")
     ok("i18n en >= 600 키", r.ok and len(r.json()) >= 600)
 

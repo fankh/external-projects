@@ -34,7 +34,7 @@ doc = view['document']
 types = {e['entityType'] for e in doc['entities']}
 texts = [e['textContent'] for e in doc['entities'] if e['entityType'] == 'text']
 assert {'polyline', 'circle', 'text'} <= types, types
-assert any('A=670' in t for t in texts), texts
+assert any('A = 670' in t for t in texts), texts
 print(f"PASS cad/view run DXF — {len(doc['entities'])} entities {sorted(types)}, dims {texts}")
 
 # 2. 샘플 DXF 생성 → import → view
