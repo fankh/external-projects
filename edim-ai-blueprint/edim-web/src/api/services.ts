@@ -1519,6 +1519,14 @@ export interface DevRequirement {
   resolution: string
   createdAt: string
   resolvedAt: string | null
+  imageCount: number
+}
+
+export interface DevReqImage {
+  imageId: number
+  fileName: string
+  size: number
+  contentType: string
 }
 
 export const devReqService = {
@@ -1563,5 +1571,36 @@ export const devReqService = {
       if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — 상태를 변경할 수 없습니다')
       throw e
     }
+  },
+  /** POST /api/v1/dev/requirements/{id}/images — 스크린샷 첨부 (multipart) */
+  async uploadImage(reqId: number, file: globalThis.File): Promise<void> {
+    const form = new FormData()
+    form.append('uploadedFile', file)
+    let res: Response
+    try {
+      res = await fetch(`${API}/dev/requirements/${reqId}/images`, {
+        method: 'POST', body: form, signal: AbortSignal.timeout(30_000),
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+    } catch {
+      throw new Error('백엔드 연결 필요 — 이미지를 첨부할 수 없습니다')
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { detail?: string } | null
+      throw new Error(body?.detail ?? `HTTP ${res.status}`)
+    }
+  },
+  /** GET /api/v1/dev/requirements/{id}/images */
+  async listImages(reqId: number): Promise<DevReqImage[]> {
+    return await api<DevReqImage[]>(`/dev/requirements/${reqId}/images`)
+  },
+  /** GET /api/v1/dev/requirements/images/{imageId} — authorized fetch → blob URL (<img> 는 헤더 불가) */
+  async imageBlobUrl(imageId: number): Promise<string> {
+    const res = await fetch(`${API}/dev/requirements/images/${imageId}`, {
+      signal: AbortSignal.timeout(30_000),
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) throw new Error(`이미지 로드 실패 (HTTP ${res.status})`)
+    return URL.createObjectURL(await res.blob())
   },
 }

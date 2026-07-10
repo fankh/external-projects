@@ -175,20 +175,21 @@ def dev_req_list(status: str = "") -> list[dict[str, Any]]:
     _require_dev_mode()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        q = """SELECT req_id, screen_id, category, title, content, priority, status,
-                      requester, COALESCE(resolution,''),
-                      to_char(created_at,'YYYY-MM-DD HH24:MI'),
-                      to_char(resolved_at,'YYYY-MM-DD HH24:MI')
-               FROM dev_requirement WHERE tenant_id=%s"""
+        q = """SELECT r.req_id, r.screen_id, r.category, r.title, r.content, r.priority, r.status,
+                      r.requester, COALESCE(r.resolution,''),
+                      to_char(r.created_at,'YYYY-MM-DD HH24:MI'),
+                      to_char(r.resolved_at,'YYYY-MM-DD HH24:MI'),
+                      (SELECT count(*) FROM dev_requirement_image i WHERE i.req_id=r.req_id)
+               FROM dev_requirement r WHERE r.tenant_id=%s"""
         args: list[Any] = [tid]
         if status:
-            q += " AND status=%s"
+            q += " AND r.status=%s"
             args.append(status)
-        cur.execute(q + " ORDER BY req_id DESC", args)
+        cur.execute(q + " ORDER BY r.req_id DESC", args)
         return [
             {"reqId": r[0], "screenId": r[1] or "", "category": r[2], "title": r[3],
              "content": r[4], "priority": r[5], "status": r[6], "requester": r[7],
-             "resolution": r[8], "createdAt": r[9], "resolvedAt": r[10]}
+             "resolution": r[8], "createdAt": r[9], "resolvedAt": r[10], "imageCount": r[11]}
             for r in cur.fetchall()
         ]
 
@@ -235,15 +236,90 @@ def dev_req_update(req_id: int, body: DevReqPatch) -> dict[str, Any]:
 
 @router.delete("/dev/requirements/{req_id}", dependencies=[SETUP])
 def dev_req_delete(req_id: int) -> dict[str, Any]:
-    """삭제 (SETUP+) — 잘못 등록한 항목 정리."""
+    """삭제 (SETUP+) — 첨부 이미지(MinIO 객체 포함)까지 연쇄 정리."""
     _require_dev_mode()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        cur.execute("SELECT file_path FROM dev_requirement_image WHERE req_id=%s", (req_id,))
+        keys = [r[0] for r in cur.fetchall()]
         cur.execute("DELETE FROM dev_requirement WHERE tenant_id=%s AND req_id=%s RETURNING req_id",
                     (tid, req_id))
         if not cur.fetchone():
             raise HTTPException(404, detail=f"요구사항 없음: #{req_id}")
+    for key in keys:  # 이미지 행은 FK CASCADE — 객체는 여기서 제거
+        try:
+            storage.remove_object(key)
+        except RuntimeError:
+            pass  # 스토리지 불가 시 orphan (버킷 정리 배치 대상)
     return {"deleted": req_id}
+
+
+# ── 요구사항 첨부 이미지 — 스크린샷 붙여넣기/업로드 (MinIO dev-req/ prefix) ──
+
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp")
+IMAGE_MAX_BYTES = 10 * 1024 * 1024
+
+
+@router.post("/dev/requirements/{req_id}/images", status_code=201)
+async def dev_req_image_upload(req_id: int, uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+    """이미지 첨부 — 등록자 포함 전 사용자 (OPEN 요구에 스크린샷 추가)."""
+    _require_dev_mode()
+    fname = (uploadedFile.filename or "image.png").replace("/", "_")
+    if not fname.lower().endswith(IMAGE_EXTS):
+        raise HTTPException(422, detail=f"이미지 파일만 첨부 가능: {fname} (png/jpg/gif/webp)")
+    data = await uploadedFile.read()
+    if len(data) > IMAGE_MAX_BYTES:
+        raise HTTPException(413, detail="10MB 초과")
+    if not data:
+        raise HTTPException(422, detail="빈 파일")
+    ctype = uploadedFile.content_type or "image/png"
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM dev_requirement WHERE tenant_id=%s AND req_id=%s", (tid, req_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"요구사항 없음: #{req_id}")
+        cur.execute(
+            """INSERT INTO dev_requirement_image (req_id, file_name, file_path, file_size, content_type)
+               VALUES (%s,%s,%s,%s,%s) RETURNING image_id""",
+            (req_id, fname[:200], "", len(data), ctype[:60]))
+        image_id = cur.fetchone()[0]
+        key = f"dev-req/{req_id}/{image_id}_{fname}"
+        cur.execute("UPDATE dev_requirement_image SET file_path=%s WHERE image_id=%s", (key, image_id))
+    try:
+        storage.put_object(key, data, ctype)
+    except RuntimeError:
+        with _conn() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM dev_requirement_image WHERE image_id=%s", (image_id,))
+        raise HTTPException(503, detail="storage unavailable")
+    return {"imageId": image_id, "fileName": fname, "size": len(data)}
+
+
+@router.get("/dev/requirements/{req_id}/images")
+def dev_req_image_list(req_id: int) -> list[dict[str, Any]]:
+    _require_dev_mode()
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """SELECT image_id, file_name, file_size, content_type
+               FROM dev_requirement_image WHERE req_id=%s ORDER BY image_id""", (req_id,))
+        return [{"imageId": r[0], "fileName": r[1], "size": r[2], "contentType": r[3]}
+                for r in cur.fetchall()]
+
+
+@router.get("/dev/requirements/images/{image_id}")
+def dev_req_image_get(image_id: int) -> StreamingResponse:
+    """이미지 바이트 스트림 — 프론트는 authorized fetch → blob URL 로 표시."""
+    _require_dev_mode()
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT file_path, content_type FROM dev_requirement_image WHERE image_id=%s", (image_id,))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"이미지 없음: #{image_id}")
+    try:
+        obj = storage.get_object(row[0])
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    return StreamingResponse(obj.stream(64 * 1024), media_type=row[1])
 
 
 # ── SVC-01 i18n 번들 (REQ-N-015 · SYS-021) ──

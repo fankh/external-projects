@@ -92,6 +92,14 @@ def _ensure_dev_table(cur) -> None:
         resolution  TEXT,
         created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
         resolved_at TIMESTAMPTZ)""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS dev_requirement_image (
+        image_id    SERIAL PRIMARY KEY,
+        req_id      INT NOT NULL REFERENCES dev_requirement(req_id) ON DELETE CASCADE,
+        file_name   VARCHAR(200) NOT NULL,
+        file_path   VARCHAR(300) NOT NULL,
+        file_size   INT NOT NULL,
+        content_type VARCHAR(60) NOT NULL DEFAULT 'image/png',
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now())""")
 
 
 def run_seed() -> None:
