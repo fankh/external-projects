@@ -67,7 +67,7 @@ with sync_playwright() as pw:
     p.wait_for_timeout(400)
     p.locator(".tn", has_text="Macro Studio (S-2-2)").click()
     p.wait_for_timeout(1200)
-    p.get_by_role("button", name="저장 (v0.3)").click()
+    p.get_by_role("button", name="저장 (4-Way)").click()   # B20: 4-Way 전체 영속으로 개칭
     p.wait_for_timeout(800)
     ok("Macro 저장 (tbx_macro DRAFT)", "저장 ✓" in sb())
     macros = p.evaluate("""async () => {

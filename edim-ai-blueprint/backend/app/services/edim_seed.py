@@ -293,6 +293,75 @@ def seed_v16(cur, tid: int) -> None:
                        VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
 
 
+# ── seed v17 — B20: Macro 4-Way 필드·CODING 모드·tbx_macro_ref ──
+
+FLOWCHART_V17 = {
+    'nodes': [
+        {'id': 'f1', 'name': 'Impeller 참조', 'sub': 'Table12', 'x': 20, 'y': 12, 'w': 110, 'h': 34},
+        {'id': 'f2', 'name': 'Casing 폭', 'sub': 'Table12', 'x': 20, 'y': 60, 'w': 110, 'h': 34},
+        {'id': 'f3', 'name': 'FES 여유', 'sub': 'Var', 'x': 20, 'y': 108, 'w': 110, 'h': 34},
+        {'id': 'f4', 'name': 'Σ Shaft 길이', 'x': 150, 'y': 60, 'w': 90, 'h': 34},
+    ],
+    'edges': [['f1', 'f4'], ['f2', 'f4'], ['f3', 'f4']],
+}
+
+CODE_TEXT_V17 = (
+    "def shaft_length(mc: float, fes: float) -> float:\n"
+    "    base = table12('E', 560, 800, agg='SUM')  # Casing 구간 합\n"
+    "    margin = var('FES', fes)                  # 여유 (Variant)\n"
+    "    return round((base + margin) * prec(1), 1)\n")
+
+CODING_MACRO_V17 = (
+    "def weight_estimate(parts: list[dict]) -> float:\n"
+    "    \"\"\"부품 중량 합산 — prt_part.weight × BOM 수량 (CODING 모드 데모).\"\"\"\n"
+    "    return sum(p['weight'] * p['qty'] for p in parts if p.get('weight'))\n")
+
+
+def seed_v17(cur, tid: int) -> None:
+    # 4-Way 필드 보강 — Shaft 길이 계산 (미보유 시 1회)
+    cur.execute(
+        """SELECT macro_id, code_text FROM tbx_macro
+           WHERE tenant_id=%s AND macro_name='Shaft 길이 계산'""", (tid,))
+    m = cur.fetchone()
+    if m and not m[1]:
+        cur.execute(
+            """UPDATE tbx_macro SET code_text=%s, flowchart_def=%s,
+               description_text=COALESCE(description_text,
+                 'Casing 구간 Table 합계에 FES 여유를 더해 Shaft 길이를 산출 — MC>500 조건 분기'),
+               test_input=%s, test_result=%s WHERE macro_id=%s""",
+            (CODE_TEXT_V17, json.dumps(FLOWCHART_V17),
+             json.dumps({'MC': 520, 'FES': 15}), json.dumps({'value': 2685, 'ok': True}),
+             m[0]))
+        logger.info('seed v17 — Shaft 길이 계산 4-Way 필드 보강')
+    # CODING 모드 데모 매크로
+    cur.execute(
+        "SELECT 1 FROM tbx_macro WHERE tenant_id=%s AND apply_type='CODING' LIMIT 1", (tid,))
+    if not cur.fetchone():
+        cur.execute(
+            """INSERT INTO tbx_macro (tenant_id, macro_name, code_text, description_text,
+               apply_type, status)
+               VALUES (%s,'중량 추정 (Coding)',%s,'BOM 중량 합산 — 복잡 로직은 Coding 모드 (TBX-010)',
+                       'CODING','DRAFT')""", (tid, CODING_MACRO_V17))
+        logger.info('seed v17 — CODING 모드 매크로 1건')
+    # tbx_macro_ref — Table 참조 매크로 (DIM D = Table12 참조)
+    cur.execute('SELECT 1 FROM tbx_macro_ref LIMIT 1')
+    if not cur.fetchone():
+        cur.execute("SELECT table_id FROM tbl_data_table WHERE tenant_id=%s AND table_name='Table12'",
+                    (tid,))
+        t = cur.fetchone()
+        if t:
+            n = 0
+            cur.execute(
+                """SELECT macro_id, macro_expr FROM tbx_macro
+                   WHERE tenant_id=%s AND macro_expr ILIKE '%%Table12%%'""", (tid,))
+            for mid, _expr in cur.fetchall():
+                cur.execute(
+                    """INSERT INTO tbx_macro_ref (macro_id, ref_type, ref_target_id)
+                       VALUES (%s,'TABLE',%s)""", (mid, t[0]))
+                n += 1
+            logger.info('seed v17 — tbx_macro_ref %d건 (Table12)', n)
+
+
 def run_seed() -> None:
     pool = get_pool()
     if pool is None:
@@ -319,6 +388,7 @@ def run_seed() -> None:
             seed_v14(cur, row[0])
             seed_v15(cur, row[0])
             seed_v16(cur, row[0])
+            seed_v17(cur, row[0])
             return
 
         cur.execute(
@@ -430,6 +500,7 @@ def run_seed() -> None:
         seed_v14(cur, tid)
         seed_v15(cur, tid)
         seed_v16(cur, tid)
+        seed_v17(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──

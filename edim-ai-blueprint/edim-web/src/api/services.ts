@@ -725,10 +725,24 @@ export interface CadDocument {
 }
 
 // ── 잔여 mock 실데이터화 (v4.0) — 치수 정의·Macro 목록·공정 정의·역참조 ──
+export interface FlowchartNode {
+  id: string; name: string; sub?: string; x: number; y: number; w: number; h: number
+}
+
 export interface MacroLibRow {
   name: string; expr: string; status: string; address: string
   prompt: string; description: string
+  // B20 — 4-Way Sync 전체 필드
+  codeText: string
+  flowchartDef: { nodes: FlowchartNode[]; edges: string[][] } | null
+  applyType: 'MACRO' | 'CODING'
+  version: number
+  testInput: Record<string, number> | null
+  testResult: { value?: number; ok?: boolean } | null
 }
+
+export interface MacroFn { name: string; sig: string; desc: string; keywords: string }
+export interface MacroRefRow { refType: string; target: string }
 export interface ProcessDefApi { id: number; code: string; name: string; dept: string; auto: boolean }
 export interface ProcessDefsResponse { defs: ProcessDefApi[]; edges: { from: number; to: number }[] }
 export interface ReferencerRow { code: string; name: string; qty: number; status: string }
@@ -1169,15 +1183,44 @@ export const macroLibService = {
       throw e
     }
   },
-  /** PUT /api/v1/macros/{name} — tbx_macro upsert DRAFT (true=영속, false=백엔드 불가) */
-  async save(name: string, expr: string, prompt = ''): Promise<boolean> {
+  /** PUT /api/v1/macros/{name} — 4-Way Sync 전체 upsert DRAFT (B20; true=영속, false=백엔드 불가) */
+  async save(name: string, expr: string, prompt = '', extra?: {
+    codeText?: string; flowchartDef?: object | null; descriptionText?: string
+    applyType?: string; testInput?: object | null; testResult?: object | null
+  }): Promise<{ version: number; refs: number } | null> {
     try {
-      await api(`/macros/${encodeURIComponent(name)}`, {
-        method: 'PUT', body: JSON.stringify({ prompt, expr }),
+      return await api(`/macros/${encodeURIComponent(name)}`, {
+        method: 'PUT', body: JSON.stringify({ prompt, expr, ...extra }),
       })
-      return true
     } catch (e) {
-      if (e instanceof ApiUnavailable) return false
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/macros/functions?q= — 함수 카탈로그·자연어 검색 (TBX-014) */
+  async searchFunctions(q: string): Promise<MacroFn[] | null> {
+    try {
+      return await api<MacroFn[]>(`/macros/functions?q=${encodeURIComponent(q)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/macros/{name}/refs — Table 참조 (tbx_macro_ref) */
+  async refs(name: string): Promise<MacroRefRow[] | null> {
+    try {
+      return await api<MacroRefRow[]>(`/macros/${encodeURIComponent(name)}/refs`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/tables/{name}/impact — 이 Table 을 참조하는 Macro (영향도) */
+  async tableImpact(table: string): Promise<{ macro: string; status: string }[] | null> {
+    try {
+      return await api(`/tables/${encodeURIComponent(table)}/impact`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
       throw e
     }
   },

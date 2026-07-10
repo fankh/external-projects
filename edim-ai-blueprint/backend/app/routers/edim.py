@@ -2174,11 +2174,15 @@ def macros_list() -> list[dict[str, Any]]:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT macro_name, macro_expr, status, COALESCE(hierarchy_address,''),
-                      COALESCE(prompt_text,''), COALESCE(description_text,'')
+                      COALESCE(prompt_text,''), COALESCE(description_text,''),
+                      COALESCE(code_text,''), flowchart_def, apply_type, version,
+                      test_input, test_result
                FROM tbx_macro WHERE tenant_id=%s ORDER BY macro_id""", (tid,))
         return [
-            {"name": r[0], "expr": r[1], "status": r[2], "address": r[3],
-             "prompt": r[4], "description": r[5]}
+            {"name": r[0], "expr": r[1] or "", "status": r[2], "address": r[3],
+             "prompt": r[4], "description": r[5], "codeText": r[6],
+             "flowchartDef": r[7], "applyType": r[8], "version": r[9],
+             "testInput": r[10], "testResult": r[11]}
             for r in cur.fetchall()
         ]
 
@@ -2261,30 +2265,141 @@ def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
 
 class MacroSave(BaseModel):
     prompt: str = ""
-    expr: str
+    expr: str = ""
+    codeText: str = ""                       # B20 — Coding 패널
+    flowchartDef: dict[str, Any] | None = None   # B20 — Flowchart 노드/엣지
+    descriptionText: str = ""                # B20 — Description 패널
+    applyType: str = ""                      # MACRO | CODING (빈 값 = 유지)
+    testInput: dict[str, Any] | None = None  # B20 — 마지막 Test Run 영속
+    testResult: dict[str, Any] | None = None
+
+
+# 엔진 내장 함수 — 이 외의 호출형 토큰은 Table 참조로 간주 (tbx_macro_ref 추출)
+ENGINE_BUILTINS = {"IF", "IFERROR", "AND", "OR", "NOT", "SUM", "MIN", "MAX", "VAR", "PREC"}
+
+
+def _rebuild_macro_refs(cur, tid: int, macro_id: int, expr: str) -> int:
+    """수식에서 Table 참조 추출 → tbx_macro_ref 재구성 (영향도 분석 원천)."""
+    import re as _re
+    cur.execute("DELETE FROM tbx_macro_ref WHERE macro_id=%s", (macro_id,))
+    n = 0
+    for token in set(_re.findall(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(", expr or "")):
+        if token.upper() in ENGINE_BUILTINS:
+            continue
+        cur.execute("SELECT table_id FROM tbl_data_table WHERE tenant_id=%s AND table_name=%s",
+                    (tid, token))
+        t = cur.fetchone()
+        if t:
+            cur.execute(
+                """INSERT INTO tbx_macro_ref (macro_id, ref_type, ref_target_id)
+                   VALUES (%s,'TABLE',%s)""", (macro_id, t[0]))
+            n += 1
+    return n
 
 
 @router.put("/macros/{name}", dependencies=[SETUP])
 def save_macro(name: str, body: MacroSave) -> dict[str, Any]:
-    """Macro Studio 저장 — tbx_macro upsert (DRAFT 버전)."""
-    if not body.expr.strip():
+    """Macro Studio 저장 — 4-Way Sync 전체 영속 (수식·코드·플로차트·설명 + Test 결과, B20).
+
+    apply_type: MACRO=수식 실행 · CODING=코드 기반 (엔진 v1 미실행 — 등록·관리)."""
+    at = body.applyType.strip().upper()
+    if at and at not in ("MACRO", "CODING"):
+        raise HTTPException(422, detail=f"apply_type 오류: {body.applyType} (MACRO|CODING)")
+    if at != "CODING" and not body.expr.strip() and not at:
         raise HTTPException(422, detail="수식이 비어 있습니다")
+    if at == "CODING" and not body.codeText.strip():
+        raise HTTPException(422, detail="CODING 모드는 코드가 필수입니다")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """UPDATE tbx_macro SET macro_expr=%s,
+            """UPDATE tbx_macro SET
+               macro_expr=CASE WHEN %s<>'' THEN %s ELSE macro_expr END,
                prompt_text=CASE WHEN %s<>'' THEN %s ELSE prompt_text END,
-               status='DRAFT'
-               WHERE tenant_id=%s AND macro_name=%s RETURNING macro_id""",
-            (body.expr.strip(), body.prompt.strip(), body.prompt.strip(), tid, name))
+               code_text=CASE WHEN %s<>'' THEN %s ELSE code_text END,
+               description_text=CASE WHEN %s<>'' THEN %s ELSE description_text END,
+               flowchart_def=COALESCE(%s, flowchart_def),
+               test_input=COALESCE(%s, test_input),
+               test_result=COALESCE(%s, test_result),
+               apply_type=CASE WHEN %s<>'' THEN %s ELSE apply_type END,
+               version=version+1, status='DRAFT', updated_at=now()
+               WHERE tenant_id=%s AND macro_name=%s RETURNING macro_id, version""",
+            (body.expr.strip(), body.expr.strip(),
+             body.prompt.strip(), body.prompt.strip(),
+             body.codeText.strip(), body.codeText.strip(),
+             body.descriptionText.strip(), body.descriptionText.strip(),
+             json.dumps(body.flowchartDef) if body.flowchartDef is not None else None,
+             json.dumps(body.testInput) if body.testInput is not None else None,
+             json.dumps(body.testResult) if body.testResult is not None else None,
+             at, at, tid, name))
         row = cur.fetchone()
         if not row:
             cur.execute(
-                """INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr, prompt_text, status)
-                   VALUES (%s,%s,%s,NULLIF(%s,''),'DRAFT') RETURNING macro_id""",
-                (tid, name, body.expr.strip(), body.prompt.strip()))
+                """INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr, prompt_text,
+                   code_text, description_text, flowchart_def, test_input, test_result,
+                   apply_type, status)
+                   VALUES (%s,%s,NULLIF(%s,''),NULLIF(%s,''),NULLIF(%s,''),NULLIF(%s,''),
+                           %s,%s,%s,%s,'DRAFT') RETURNING macro_id, version""",
+                (tid, name, body.expr.strip(), body.prompt.strip(), body.codeText.strip(),
+                 body.descriptionText.strip(),
+                 json.dumps(body.flowchartDef) if body.flowchartDef is not None else None,
+                 json.dumps(body.testInput) if body.testInput is not None else None,
+                 json.dumps(body.testResult) if body.testResult is not None else None,
+                 at or "MACRO"))
             row = cur.fetchone()
-    return {"macroId": row[0], "status": "DRAFT"}
+        refs = _rebuild_macro_refs(cur, tid, row[0], body.expr)
+    return {"macroId": row[0], "version": row[1], "status": "DRAFT", "refs": refs}
+
+
+@router.get("/macros/functions")
+def macro_functions(q: str = "") -> list[dict[str, Any]]:
+    """함수 카탈로그·자연어 검색 (TBX-014 로컬) — name·설명·키워드 매칭."""
+    catalog = [
+        {"name": "IF", "sig": "IF(조건, 참값, 거짓값)", "desc": "조건 분기", "keywords": "조건 분기 만약 if"},
+        {"name": "IFERROR", "sig": "IFERROR(식, 대체값)", "desc": "오류 시 대체값", "keywords": "오류 에러 대체 fallback"},
+        {"name": "AND", "sig": "AND(a, b, …)", "desc": "논리곱", "keywords": "그리고 모두 논리"},
+        {"name": "OR", "sig": "OR(a, b, …)", "desc": "논리합", "keywords": "또는 하나라도 논리"},
+        {"name": "NOT", "sig": "NOT(a)", "desc": "부정", "keywords": "아니다 반전 부정"},
+        {"name": "SUM", "sig": "Table(열, 시작:끝)", "desc": "범위 합계 (Table 범위 조회 기본)", "keywords": "합계 더하기 총합 범위 sum"},
+        {"name": "MIN", "sig": "Table(열, 시작:끝, MIN)", "desc": "범위 최솟값", "keywords": "최소 작은 min"},
+        {"name": "MAX", "sig": "Table(열, 시작:끝, MAX)", "desc": "범위 최댓값", "keywords": "최대 큰 max"},
+        {"name": "VAR", "sig": "Var(이름, 기본값)", "desc": "Variant 변수 참조", "keywords": "변수 배리언트 참조 variant"},
+        {"name": "PREC", "sig": "PreC(자릿수)", "desc": "정밀도(반올림 자릿수) 지정", "keywords": "반올림 정밀도 자릿수 소수"},
+        {"name": "Table12", "sig": "Table12(열, 키[:키2])", "desc": "데이터 Table 단일/범위 조회", "keywords": "테이블 조회 데이터 표 참조 lookup"},
+    ]
+    needle = q.strip().lower()
+    if not needle:
+        return catalog
+    return [f for f in catalog
+            if needle in f["name"].lower() or needle in f["desc"].lower()
+            or needle in f["keywords"].lower()]
+
+
+@router.get("/macros/{name}/refs")
+def macro_refs(name: str) -> list[dict[str, Any]]:
+    """Macro 참조 — 이 매크로가 참조하는 Table (tbx_macro_ref)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT r.ref_type, t.table_name
+               FROM tbx_macro_ref r
+               JOIN tbx_macro m ON m.macro_id=r.macro_id AND m.tenant_id=%s
+               LEFT JOIN tbl_data_table t ON t.table_id=r.ref_target_id AND r.ref_type='TABLE'
+               WHERE m.macro_name=%s ORDER BY r.ref_id""", (tid, name))
+        return [{"refType": r[0], "target": r[1] or "?"} for r in cur.fetchall()]
+
+
+@router.get("/tables/{name}/impact")
+def table_impact(name: str) -> list[dict[str, Any]]:
+    """영향도 분석 — 이 Table 을 참조하는 Macro 목록 (tbx_macro_ref 역방향)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT m.macro_name, m.status, m.apply_type
+               FROM tbx_macro_ref r
+               JOIN tbl_data_table t ON t.table_id=r.ref_target_id AND r.ref_type='TABLE'
+               JOIN tbx_macro m ON m.macro_id=r.macro_id
+               WHERE t.tenant_id=%s AND t.table_name=%s ORDER BY m.macro_name""", (tid, name))
+        return [{"macro": r[0], "status": r[1], "applyType": r[2]} for r in cur.fetchall()]
 
 
 # ── B2 — 편집 영속화: 치수 저장 · Work Process · UI Form ──
