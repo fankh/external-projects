@@ -46,8 +46,22 @@ tok = req("POST", "/auth/login", {"userId": "edim", "password": "edim"})["token"
 A = {"Authorization": f"Bearer {tok}"}
 NAME = quote("Shaft 길이 계산")
 
-# 0. 스냅샷 — 스위트 종료 시 원복
+# 0. 스냅샷 — 스위트 종료 시 원복 (finally 로 크래시에도 보장)
 before = next(m for m in req("GET", "/macros", headers=A) if m["name"] == "Shaft 길이 계산")
+
+
+def restore_snapshot() -> None:
+    req("PUT", f"/macros/{NAME}", {
+        "expr": before["expr"], "prompt": before["prompt"],
+        "codeText": before["codeText"], "descriptionText": before["description"],
+        "flowchartDef": before["flowchartDef"], "applyType": before["applyType"],
+        "testInput": before["testInput"], "testResult": before["testResult"],
+    }, A)
+
+
+# 크래시 포함 어떤 종료 경로에서도 원복 (이후 실행의 시드 전제 보존)
+import atexit  # noqa: E402
+atexit.register(restore_snapshot)
 
 # 1. 시드 v17 — 4-Way 필드·CODING 매크로·참조
 ok("시드 4-Way (code·flowchart·desc)", bool(before["codeText"])
@@ -87,9 +101,9 @@ ok("applyType 오류 -> 422",
    status_of("PUT", "/macros/TEST-B20-X", {"expr": "=1", "applyType": "NOPE"}, A) == 422)
 
 # 4. 함수 자연어 검색 (TBX-014)
-fns = req("GET", "/macros/functions?q=반올림", headers=A)
+fns = req("GET", f"/macros/functions?q={quote('반올림')}", headers=A)
 ok("검색 '반올림' → PreC", any(f["name"] == "PREC" for f in fns))
-fns = req("GET", "/macros/functions?q=합계", headers=A)
+fns = req("GET", f"/macros/functions?q={quote('합계')}", headers=A)
 ok("검색 '합계' → SUM", any(f["name"] == "SUM" for f in fns))
 fns = req("GET", "/macros/functions", headers=A)
 ok("전체 카탈로그 ≥10", len(fns) >= 10)
@@ -113,13 +127,8 @@ with sync_playwright() as pw:
     ok("UI 기능 찾기 — '합계' → SUM", True)
     b.close()
 
-# 6. 원복 — 스냅샷으로 되돌림 (테스트 흔적 제거)
-req("PUT", f"/macros/{NAME}", {
-    "expr": before["expr"], "prompt": before["prompt"],
-    "codeText": before["codeText"], "descriptionText": before["description"],
-    "flowchartDef": before["flowchartDef"], "applyType": before["applyType"],
-    "testInput": before["testInput"], "testResult": before["testResult"],
-}, A)
+# 6. 원복 — 스냅샷으로 되돌림 (atexit 로도 보장되지만 명시 검증)
+restore_snapshot()
 restored = next(m for m in req("GET", "/macros", headers=A) if m["name"] == "Shaft 길이 계산")
 ok("원복 — 스냅샷 복원 (b20 흔적 제거)", "b20-roundtrip" not in restored["codeText"]
    and len(restored["flowchartDef"]["nodes"]) == 4)
