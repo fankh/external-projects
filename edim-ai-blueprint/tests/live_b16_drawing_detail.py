@@ -47,6 +47,10 @@ tok = req("POST", "/auth/login", {"userId": "edim", "password": "edim"})["token"
 A = {"Authorization": f"Bearer {tok}"}
 K = quote("KDCR 3-13")
 
+# 자가 치유 — 이전 크래시 잔존 TEST 도면 제거 (반복 실행 안정성)
+if status_of("DELETE", f"/drawings/{quote(TNO)}", headers=A) == 200:
+    print(f"preclean: {TNO} 잔존 제거")
+
 # 1. 시드 v14 — 블록·관계·승인 체인
 blocks = req("GET", f"/drawings/{K}/blocks", headers=A)
 ok("블록 7건 (dwg_document)", len(blocks) == 7 and any(b["blockName"] == "Impeller" for b in blocks))

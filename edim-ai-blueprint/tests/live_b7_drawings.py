@@ -44,6 +44,26 @@ def api(p, method: str, path: str, body=None, status_only=False):
     }""", [method, path, body, status_only])
 
 
+def _preclean() -> None:
+    """이전 크래시 잔존 자가 치유 — TEST 도면·PENDING 승인 제거 (반복 실행 안정성)."""
+    import json as _json
+    import urllib.error as _ue
+    import urllib.request as _ur
+    from urllib.parse import quote as _q
+    r = _ur.Request(f"{BASE}/api/v1/auth/login",
+                    data=_json.dumps({"userId": "edim", "password": "edim"}).encode(),
+                    headers={"Content-Type": "application/json"}, method="POST")
+    tok = _json.loads(_ur.urlopen(r).read())["token"]
+    try:
+        _ur.urlopen(_ur.Request(f"{BASE}/api/v1/drawings/{_q(TNO)}",
+                                headers={"Authorization": f"Bearer {tok}"}, method="DELETE"))
+        print(f"preclean: {TNO} 잔존 제거")
+    except _ue.HTTPError:
+        pass
+
+
+_preclean()
+
 with sync_playwright() as pw:
     b, p = login(pw, f"{BASE}/plm")
     sb = lambda: p.locator(".statusbar").inner_text()  # noqa: E731
@@ -67,8 +87,8 @@ with sync_playwright() as pw:
     p.get_by_label("등록 도면번호").fill(TNO)
     p.get_by_label("등록 도면명").fill("B7 검증용 임시 도면")
     p.get_by_role("button", name="등록 F12").click()
-    p.wait_for_timeout(800)
-    ok("도면 등록 ✓", "도면 등록 ✓" in sb())
+    p.locator(".statusbar", has_text="도면 등록 ✓").wait_for(timeout=12000)   # 부하 내성
+    ok("도면 등록 ✓", True)
     p.locator("tr", has_text=TNO).wait_for(timeout=5000)
     ok("등록 행 대장 즉시 반영 (Rev.A DRAFT)",
        p.locator("tr", has_text=TNO).locator(".st", has_text="DRAFT").count() == 1)
@@ -82,8 +102,8 @@ with sync_playwright() as pw:
     p.wait_for_timeout(400)
     p.get_by_label("Rev 사유").fill("검증 개정")
     p.get_by_role("button", name="Rev 올리기").click()
-    p.wait_for_timeout(800)
-    ok("Rev 올리기 A→B", "Rev.A → Rev.B" in sb())
+    p.locator(".statusbar", has_text="Rev.A → Rev.B").wait_for(timeout=12000)
+    ok("Rev 올리기 A→B", True)
     ok("Rev 이력에 검증 개정", p.locator("tr", has_text="검증 개정").count() >= 1)
 
     # 4. Supersedure 대체 등록 — TEST 도면 → KDCR 3-13
@@ -93,8 +113,8 @@ with sync_playwright() as pw:
     combos.nth(1).select_option("KDCR 3-13")
     p.get_by_label("대체 사유").fill("검증용 대체")
     p.get_by_role("button", name="대체 등록").click()
-    p.wait_for_timeout(800)
-    ok("Supersedure 등록 ✓", "Supersedure ✓" in sb())
+    p.locator(".statusbar", has_text="Supersedure ✓").wait_for(timeout=12000)
+    ok("Supersedure 등록 ✓", True)
     ok("대체 이력 행 추가", gb.locator("tr", has_text=TNO).count() >= 1)
 
     # 5. 코드 상세 — 도면 열기 = CAD 뷰어 (dwg_file 연결), 승인 이력 실조회

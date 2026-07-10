@@ -28,6 +28,23 @@ def login(pw, url: str):
     return b, p
 
 
+def _preclean() -> None:
+    """자가 치유 — 이전 크래시가 남긴 E=325 를 320 으로 원복 (반복 실행 안정성)."""
+    import json as _json
+    import urllib.request as _ur
+    r = _ur.Request(f"{BASE}/api/v1/auth/login",
+                    data=_json.dumps({"userId": "edim", "password": "edim"}).encode(),
+                    headers={"Content-Type": "application/json"}, method="POST")
+    tok = _json.loads(_ur.urlopen(r).read())["token"]
+    body = _json.dumps({"drawing": "KDCR 3-13", "dims": [
+        {"no": "E", "value": "320", "binding": "VARIANT", "kind": "DETAIL"}]}).encode()
+    _ur.urlopen(_ur.Request(f"{BASE}/api/v1/drawings/dimensions", data=body,
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": f"Bearer {tok}"}, method="PUT"))
+
+
+_preclean()
+
 with sync_playwright() as pw:
     b, p = login(pw, f"{BASE}/plm")
     sb = lambda: p.locator(".statusbar").inner_text()  # noqa: E731
