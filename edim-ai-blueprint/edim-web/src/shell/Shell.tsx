@@ -382,7 +382,7 @@ export function Shell(props: { user: User }) {
         <span style={{ position: 'relative' }}>
           <input ref={searchRef} className="in" style={{ width: 200 }}
             value={searchQ}
-            placeholder={t('shell.searchPh', '화면코드·코드·도면 검색 (⌘K)')}
+            placeholder={t('shell.searchPh', '화면·코드·부품·업체·문서 검색 (⌘K)')}
             onChange={(e) => setSearchQ(e.target.value)}
             onFocus={() => { if (searchQ.trim().length >= 2) setSearchOpen(true) }}
             onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }} />
@@ -411,6 +411,30 @@ export function Shell(props: { user: User }) {
                     id: `cad-viewer:${f.fileId}`, screenId: 'cad-viewer',
                     code: 'CAD', title: f.name.slice(0, 16),
                     params: { fileId: f.fileId, name: f.name } }) })) },
+                // ── F6 — 확장 그룹 딥링크 ──
+                { label: t('search.parts', '부품'), items: (searchRes?.parts ?? []).map((p) => ({
+                  key: `p:${p.partNo}`, text: `${p.partNo} — ${p.name}`,
+                  open: () => shell.openTab({
+                    id: `part-detail:${p.partNo}`, screenId: 'part-detail',
+                    code: '부품', title: p.name, params: { partId: p.partNo, name: p.name } }) })) },
+                { label: t('search.companies', '공급처·거래처'), items: (searchRes?.companies ?? []).map((c) => ({
+                  key: `co:${c.companyId}`, text: `${c.name} (${c.companyType})`,
+                  open: () => shell.openTab(SCREEN_BY_NODE['erp-company-master']) })) },
+                { label: t('search.warehouses', '창고·위치'), items: (searchRes?.warehouses ?? []).map((w) => ({
+                  key: `w:${w.code}`, text: `${w.code} — ${w.name} (${w.locationType})`,
+                  open: () => shell.openTab(SCREEN_BY_NODE['erp-warehouse']) })) },
+                { label: 'Macro', items: (searchRes?.macros ?? []).map((m) => ({
+                  key: `m:${m.name}`, text: `${m.name} (${m.applyType} · ${m.status})`,
+                  open: () => shell.openTab(SCREEN_BY_NODE['tbx-macro']) })) },
+                { label: t('search.projects', '프로젝트'), items: (searchRes?.projects ?? []).map((p) => ({
+                  key: `pr:${p.projectNo}`, text: `${p.projectNo} — ${p.name} (${p.stage})`,
+                  open: () => {
+                    shell.setActiveProject({ no: p.projectNo, name: p.name, stage: p.stage })
+                    shell.openTab(SCREEN_BY_NODE['erp-project'])
+                  } })) },
+                { label: t('search.users', '사용자'), items: (searchRes?.users ?? []).map((u) => ({
+                  key: `u:${u.login}`, text: `${u.login} — ${u.name} [${u.level}]`,
+                  open: () => shell.openTab(SCREEN_BY_NODE['erp-access']) })) },
               ].filter((g) => g.items.length > 0).map((g) => (
                 <div key={g.label}>
                   <div style={{ background: 'var(--grid-head, #DCE3EE)', padding: '2px 8px', fontWeight: 700, fontSize: 10 }}>{g.label}</div>

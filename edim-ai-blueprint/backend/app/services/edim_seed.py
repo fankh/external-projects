@@ -394,6 +394,7 @@ def run_seed() -> None:
             seed_v20(cur, row[0])
             seed_v21(cur, row[0])
             seed_v22(cur, row[0])
+            seed_v23(cur, row[0])
             return
 
         cur.execute(
@@ -511,6 +512,7 @@ def run_seed() -> None:
         seed_v20(cur, tid)
         seed_v21(cur, tid)
         seed_v22(cur, tid)
+        seed_v23(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -2229,6 +2231,31 @@ UI_TRANSLATIONS_V22: dict[str, tuple[str, str, str]] = {
 
 def seed_v22(cur, tid: int) -> None:
     for key, (en, ja, zh) in UI_TRANSLATIONS_V22.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v23 — F6 통합 검색 확장 UI 키 ──
+
+UI_TRANSLATIONS_V23: dict[str, tuple[str, str, str]] = {
+    "search.parts": ('Parts', '部品', '零件'),
+    "search.companies": ('Companies', '取引先', '供应商·客户'),
+    "search.warehouses": ('Warehouse·Location', '倉庫・位置', '仓库·位置'),
+    "search.projects": ('Projects', 'プロジェクト', '项目'),
+    "search.users": ('Users', 'ユーザー', '用户'),
+    "shell.searchPh": ('Search screens·codes·parts·companies·docs (⌘K)', '画面・コード・部品・取引先・文書検索 (⌘K)', '搜索画面·代码·零件·供应商·文档 (⌘K)'),
+}
+
+
+def seed_v23(cur, tid: int) -> None:
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V23.items():
         for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

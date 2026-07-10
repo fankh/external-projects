@@ -935,6 +935,13 @@ export interface SearchResults {
   codes: { code: string; name: string }[]
   docs: { docNo: string; title: string; grade: string }[]
   files: { fileId: number; name: string; type: string }[]
+  // F6 — 확장 그룹 (구버전 백엔드 폴백 대비 optional)
+  parts?: { partNo: string; name: string }[]
+  companies?: { companyId: number; name: string; companyType: string }[]
+  warehouses?: { code: string; name: string; locationType: string }[]
+  macros?: { name: string; applyType: string; status: string }[]
+  projects?: { projectNo: string; name: string; stage: string }[]
+  users?: { login: string; name: string; level: string }[]
 }
 
 export const searchService = {
