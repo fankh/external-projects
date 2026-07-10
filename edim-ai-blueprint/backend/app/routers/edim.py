@@ -2425,9 +2425,9 @@ def global_search(q: str, request: Request) -> dict[str, list[dict[str, Any]]]:
         out["warehouses"] = [{"code": r[0], "name": r[1], "locationType": r[2]}
                              for r in cur.fetchall()]
         cur.execute(
-            """SELECT macro_name, apply_type, approval_status FROM tbx_macro
+            """SELECT DISTINCT ON (macro_name) macro_name, apply_type, status FROM tbx_macro
                WHERE tenant_id=%s AND macro_name ILIKE %s
-               ORDER BY macro_name LIMIT 8""", (tid, like))
+               ORDER BY macro_name, version DESC LIMIT 8""", (tid, like))
         out["macros"] = [{"name": r[0], "applyType": r[1], "status": r[2]}
                          for r in cur.fetchall()]
         cur.execute(
