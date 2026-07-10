@@ -405,6 +405,10 @@ def persist_outputs(cur, tid: int, run_id: int, project_no: str, r: PipelineResu
     cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
                 (tid, project_no))
     prj = cur.fetchone()
+    # 제작 DXF 는 KDCR 3-13 부품도(build_part_dxf) — 도면 대장(dwg_drawing) 연결 (B7)
+    cur.execute("SELECT drawing_id FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s",
+                (tid, "KDCR 3-13"))
+    dwg = cur.fetchone()
     file_ids: list[int] = []
     ctypes = {"PDF": "application/pdf", "DXF": "application/dxf",
               "XLSX": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
@@ -412,10 +416,11 @@ def persist_outputs(cur, tid: int, run_id: int, project_no: str, r: PipelineResu
         key = f"{project_no}/{folder}/run{run_id}_{fname}"
         storage.put_object(key, data, ctypes.get(ftype, "application/octet-stream"))
         cur.execute(
-            """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
-               file_path, file_size)
-               VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING file_id""",
-            (tid, prj[0] if prj else None, folder, fname, ftype, key, len(data)))
+            """INSERT INTO dwg_file (tenant_id, project_id, folder, drawing_id, file_name,
+               file_type, file_path, file_size)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING file_id""",
+            (tid, prj[0] if prj else None, folder,
+             dwg[0] if (dwg and ftype == "DXF") else None, fname, ftype, key, len(data)))
         fid = cur.fetchone()[0]
         file_ids.append(fid)
         cur.execute(

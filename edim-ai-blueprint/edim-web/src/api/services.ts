@@ -13,7 +13,10 @@ import {
   CHILD_GROUP, runningTest as mockRunningTest,
   type ChildDef, type RunningTestRow,
 } from './mock/dataCode'
-import { FOLDER_FILES, type FolderFile } from './mock/dataMore'
+import {
+  DRAWING_REVS, DRAWINGS, FOLDER_FILES, SUPERSEDURES,
+  type DrawingRow, type FolderFile, type RevisionRow, type SupersedureRow,
+} from './mock/dataMore'
 import {
   APPROVAL_REQS, DEPT_TASKS, DOCS, SYS_HISTORY, USERS,
   type ApprovalReq, type DocRow, type TaskRow, type UserRow,
@@ -896,6 +899,85 @@ export const referencerService = {
   async list(code: string): Promise<ReferencerRow[] | null> {
     try {
       return await api<ReferencerRow[]>(`/codes/${encodeURIComponent(code)}/referencers`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
+// ── B7 — PLM 도면 대장 (dwg_drawing·dwg_revision·dwg_supersedure) ──
+
+export type { DrawingRow, RevisionRow, SupersedureRow } from './mock/dataMore'
+
+export const drawingLedgerService = {
+  /** GET /api/v1/drawings — 도면 대장 (code 지정 시 해당 도면만; 읽기는 mock 폴백) */
+  async list(code?: string): Promise<DrawingRow[]> {
+    try {
+      return await api<DrawingRow[]>(`/drawings${code ? `?code=${encodeURIComponent(code)}` : ''}`)
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return code ? DRAWINGS.filter((d) => d.drawingNo === code) : DRAWINGS
+    }
+  },
+  /** POST /api/v1/drawings — 도면 등록 + Rev.A (409=중복 throw, false=백엔드 불가) */
+  async create(row: { drawingNo: string; name: string; drawingType: string; kind: string }):
+  Promise<boolean> {
+    try {
+      await api('/drawings', { method: 'POST', body: JSON.stringify(row) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** GET /api/v1/drawings/{no}/revisions — Rev 이력 (최신 우선) */
+  async revisions(no: string): Promise<RevisionRow[]> {
+    try {
+      return await api<RevisionRow[]>(`/drawings/${encodeURIComponent(no)}/revisions`)
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return DRAWING_REVS[no] ?? []
+    }
+  },
+  /** POST /api/v1/drawings/{no}/revisions — Rev 올리기 (반환=새 Rev, null=백엔드 불가) */
+  async revUp(no: string, reason: string): Promise<string | null> {
+    try {
+      const r = await api<{ rev: string }>(`/drawings/${encodeURIComponent(no)}/revisions`, {
+        method: 'POST', body: JSON.stringify({ reason }),
+      })
+      return r.rev
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/drawings/supersedures — Rev 대체 이력 */
+  async supersedures(): Promise<SupersedureRow[]> {
+    try {
+      return await api<SupersedureRow[]>('/drawings/supersedures')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return SUPERSEDURES
+    }
+  },
+  /** POST /api/v1/drawings/supersedures — 대체 등록 (409=이미 대체 throw) */
+  async supersede(oldNo: string, newNo: string, reason: string): Promise<boolean> {
+    try {
+      await api('/drawings/supersedures', {
+        method: 'POST', body: JSON.stringify({ oldNo, newNo, reason }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** GET /api/v1/codes/{code}/approval-history — sys_approval_request 실조회 (null=백엔드 불가) */
+  async approvalHistory(code: string):
+  Promise<{ date: string; action: string; by: string; note: string }[] | null> {
+    try {
+      return await api(`/codes/${encodeURIComponent(code)}/approval-history`)
     } catch (e) {
       if (e instanceof ApiUnavailable) return null
       throw e

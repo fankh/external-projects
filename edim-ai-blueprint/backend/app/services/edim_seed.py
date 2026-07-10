@@ -93,6 +93,7 @@ def run_seed() -> None:
             seed_v5(cur, row[0])
             seed_v6(cur, row[0])
             seed_v7(cur, row[0])
+            seed_v8(cur, row[0])
             return
 
         cur.execute(
@@ -195,6 +196,7 @@ def run_seed() -> None:
         seed_v5(cur, tid)
         seed_v6(cur, tid)
         seed_v7(cur, tid)
+        seed_v8(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -568,3 +570,47 @@ def seed_v7(cur, tid: int) -> None:
             n += 1
     if n:
         logger.info("seed v7 — UI 번역 확장 %d행 삽입 (화면·메뉴·CAD)", n)
+
+
+# ── seed v8 — 도면 대장 (B7): Rev 이력·Supersedure 실데이터 + Run DXF 도면 연결 ──
+
+def seed_v8(cur, tid: int) -> None:
+    cur.execute(
+        "SELECT drawing_id FROM dwg_drawing WHERE tenant_id=%s AND drawing_no='KDCR 3-13'",
+        (tid,))
+    row = cur.fetchone()
+    if not row:
+        return   # v5 도면이 아직 없음 (다음 기동 시 처리)
+    did = row[0]
+    # Run 산출 DXF 는 KDCR 3-13 제작도(build_part_dxf) — 미연결분 도면에 연결 (매 기동 멱등)
+    cur.execute(
+        """UPDATE dwg_file SET drawing_id=%s
+           WHERE tenant_id=%s AND drawing_id IS NULL AND folder='DWG' AND file_type='DXF'""",
+        (did, tid))
+    cur.execute("SELECT 1 FROM dwg_revision WHERE drawing_id=%s", (did,))
+    if cur.fetchone():
+        return
+    for rev, rdate, reason, by in [
+        ("A", "2026-06-12", "최초 발행", "YS.Gang"),
+        ("B", "2026-06-28", "흡입콘 치수 보정 (E 310→320)", "Kim"),
+    ]:
+        cur.execute(
+            """INSERT INTO dwg_revision (drawing_id, rev_no, rev_date, rev_reason, revised_by)
+               VALUES (%s,%s,%s,%s,%s)""", (did, rev, rdate, reason, by))
+    # 구형 도면 + 대체 이력 (Supersedure 화면 실데이터)
+    cur.execute(
+        """INSERT INTO dwg_drawing (tenant_id, drawing_no, drawing_name, drawing_type,
+           dwg_kind, current_rev, status)
+           VALUES (%s,'KDCR 3-12','Fan 원심 Casing 제작도 (구형)','PART','MANUFACTURING',
+                   'C','RELEASED')
+           RETURNING drawing_id""", (tid,))
+    old_id = cur.fetchone()[0]
+    cur.execute(
+        """INSERT INTO dwg_revision (drawing_id, rev_no, rev_date, rev_reason, revised_by)
+           VALUES (%s,'C','2026-05-30','최종 개정 (단종)','YS.Gang')""", (old_id,))
+    cur.execute(
+        """INSERT INTO dwg_supersedure (tenant_id, old_drawing_id, new_drawing_id,
+           reason, superseded_date)
+           VALUES (%s,%s,%s,'설계 개정 — 신형 Casing 계열(3-13)로 대체','2026-06-12')""",
+        (tid, old_id, did))
+    logger.info("seed v8 complete — dwg_revision 3건 · dwg_supersedure 1건 · Run DXF 연결")

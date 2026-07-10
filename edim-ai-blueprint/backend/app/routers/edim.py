@@ -1982,3 +1982,224 @@ def run_status(run_id: int) -> dict[str, Any]:
         "runId": run_id, "status": state["status"], "progress": progress,
         "steps": state["steps"], "outputs": state["outputs"], "logs": state["logs"],
     }
+
+
+# ── B7 — PLM 도면 대장 (dwg_drawing·dwg_revision·dwg_supersedure 개방) ──
+
+def _rev_next(rev: str) -> str:
+    """Rev 문자 증가 — A→B…Z→AA (엑셀 컬럼 방식)."""
+    letters = list(rev.strip().upper() or "@")   # '@'+1 == 'A'
+    i = len(letters) - 1
+    while i >= 0:
+        if letters[i] != "Z":
+            letters[i] = chr(ord(letters[i]) + 1)
+            return "".join(letters)
+        letters[i] = "A"
+        i -= 1
+    return "A" + "".join(letters)
+
+
+def _drawing_id(cur, tid: int, drawing_no: str) -> int:
+    cur.execute(
+        "SELECT drawing_id FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s",
+        (tid, drawing_no.strip()))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"도면 없음: {drawing_no}")
+    return row[0]
+
+
+@router.get("/drawings")
+def drawings_list(code: str = "") -> list[dict[str, Any]]:
+    """도면 대장 — dwg_drawing + Rev 수·최신 DXF 연결. code 지정 시 해당 도면번호만."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        where, params = "d.tenant_id=%s", [tid]
+        if code.strip():
+            where += " AND d.drawing_no=%s"
+            params.append(code.strip())
+        cur.execute(
+            f"""SELECT d.drawing_no, d.drawing_name, d.drawing_type, d.dwg_kind,
+                       d.current_rev, d.status,
+                       (SELECT COUNT(*) FROM dwg_revision r WHERE r.drawing_id=d.drawing_id),
+                       f.file_id, f.file_name,
+                       EXISTS (SELECT 1 FROM dwg_supersedure s WHERE s.old_drawing_id=d.drawing_id)
+                FROM dwg_drawing d
+                LEFT JOIN LATERAL (
+                    SELECT file_id, file_name FROM dwg_file
+                    WHERE drawing_id=d.drawing_id AND file_type='DXF'
+                    ORDER BY file_id DESC LIMIT 1) f ON TRUE
+                WHERE {where} ORDER BY d.drawing_no""", params)
+        return [
+            {"drawingNo": r[0], "name": r[1], "type": r[2], "kind": r[3],
+             "rev": r[4], "status": r[5], "revCount": r[6],
+             "fileId": r[7], "fileName": r[8], "superseded": bool(r[9])}
+            for r in cur.fetchall()
+        ]
+
+
+class DrawingCreate(BaseModel):
+    drawingNo: str
+    name: str
+    drawingType: str = "PART"
+    kind: str = "STANDARD"
+
+
+@router.post("/drawings", status_code=201, dependencies=[SETUP])
+def create_drawing(request: Request, body: DrawingCreate) -> dict[str, Any]:
+    """도면 등록 — dwg_drawing insert + Rev.A 이력 (중복 409)."""
+    no, name = body.drawingNo.strip(), body.name.strip()
+    if not no or not name:
+        raise HTTPException(422, detail="도면번호·도면명은 필수입니다")
+    if body.drawingType not in ("ASSEMBLY", "PART", "LAYOUT"):
+        raise HTTPException(422, detail=f"유형 오류: {body.drawingType} (ASSEMBLY|PART|LAYOUT)")
+    if body.kind not in ("APPROVAL", "MANUFACTURING", "STANDARD"):
+        raise HTTPException(422, detail=f"Kind 오류: {body.kind}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT 1 FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s", (tid, no))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"도면번호 중복: {no}")
+        cur.execute(
+            """INSERT INTO dwg_drawing (tenant_id, drawing_no, drawing_name, drawing_type,
+               dwg_kind, current_rev, status, created_by)
+               VALUES (%s,%s,%s,%s,%s,'A','DRAFT',%s) RETURNING drawing_id""",
+            (tid, no, name[:200], body.drawingType, body.kind, request.state.login))
+        drawing_id = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO dwg_revision (drawing_id, rev_no, rev_date, rev_reason, revised_by)
+               VALUES (%s,'A',CURRENT_DATE,'최초 발행',%s)""",
+            (drawing_id, request.state.login))
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'dwg_drawing',%s,'CREATE',%s,%s)""",
+            (tid, drawing_id, request.state.user_id,
+             json.dumps({"drawingNo": no, "name": name})))
+    return {"drawingId": drawing_id, "rev": "A", "status": "DRAFT"}
+
+
+@router.get("/drawings/{drawing_no}/revisions")
+def drawing_revisions(drawing_no: str) -> list[dict[str, Any]]:
+    """Rev 이력 — dwg_revision (최신 우선)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing_no)
+        cur.execute(
+            """SELECT rev_no, to_char(rev_date,'YYYY-MM-DD'), COALESCE(rev_reason,''), revised_by
+               FROM dwg_revision WHERE drawing_id=%s ORDER BY revision_id DESC""", (did,))
+        return [{"rev": r[0], "date": r[1], "reason": r[2], "by": r[3]} for r in cur.fetchall()]
+
+
+class RevUpRequest(BaseModel):
+    reason: str = ""
+
+
+@router.post("/drawings/{drawing_no}/revisions", status_code=201, dependencies=[SETUP])
+def rev_up(drawing_no: str, request: Request, body: RevUpRequest) -> dict[str, Any]:
+    """Rev 올리기 — current_rev 증가 + dwg_revision 행 + 이력 (B→C)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT drawing_id, current_rev FROM dwg_drawing
+               WHERE tenant_id=%s AND drawing_no=%s""", (tid, drawing_no.strip()))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"도면 없음: {drawing_no}")
+        did, cur_rev = row
+        new_rev = _rev_next(cur_rev)
+        cur.execute(
+            """INSERT INTO dwg_revision (drawing_id, rev_no, rev_date, rev_reason, revised_by)
+               VALUES (%s,%s,CURRENT_DATE,%s,%s)""",
+            (did, new_rev, body.reason.strip()[:500] or f"Rev {cur_rev}→{new_rev}",
+             request.state.login))
+        cur.execute(
+            """UPDATE dwg_drawing SET current_rev=%s, updated_by=%s, updated_at=now()
+               WHERE drawing_id=%s""", (new_rev, request.state.login, did))
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'dwg_drawing',%s,'REV_UP',%s,%s)""",
+            (tid, did, request.state.user_id,
+             json.dumps({"from": cur_rev, "to": new_rev, "reason": body.reason})))
+    return {"drawingNo": drawing_no, "rev": new_rev, "prevRev": cur_rev}
+
+
+@router.get("/drawings/supersedures")
+def supersedures_list() -> list[dict[str, Any]]:
+    """Supersedure — Rev 대체 이력 (구도면 → 신도면)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT o.drawing_no, o.drawing_name, n.drawing_no, n.current_rev,
+                      COALESCE(s.reason,''), to_char(s.superseded_date,'YYYY-MM-DD')
+               FROM dwg_supersedure s
+               JOIN dwg_drawing o ON o.drawing_id=s.old_drawing_id
+               JOIN dwg_drawing n ON n.drawing_id=s.new_drawing_id
+               WHERE s.tenant_id=%s ORDER BY s.supersedure_id DESC""", (tid,))
+        return [
+            {"oldNo": r[0], "oldName": r[1], "newNo": r[2], "newRev": r[3],
+             "reason": r[4], "date": r[5]}
+            for r in cur.fetchall()
+        ]
+
+
+class SupersedeRequest(BaseModel):
+    oldNo: str
+    newNo: str
+    reason: str = ""
+
+
+@router.post("/drawings/supersedures", status_code=201, dependencies=[SETUP])
+def create_supersedure(request: Request, body: SupersedeRequest) -> dict[str, Any]:
+    """대체 등록 — old 도면을 new 도면으로 대체 (old 는 1회만, 409)."""
+    if body.oldNo.strip() == body.newNo.strip():
+        raise HTTPException(422, detail="구도면과 신도면이 같습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        old_id = _drawing_id(cur, tid, body.oldNo)
+        new_id = _drawing_id(cur, tid, body.newNo)
+        cur.execute("SELECT 1 FROM dwg_supersedure WHERE old_drawing_id=%s", (old_id,))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"이미 대체된 도면: {body.oldNo}")
+        cur.execute(
+            """INSERT INTO dwg_supersedure (tenant_id, old_drawing_id, new_drawing_id,
+               reason, superseded_date, created_by)
+               VALUES (%s,%s,%s,%s,CURRENT_DATE,%s) RETURNING supersedure_id""",
+            (tid, old_id, new_id, body.reason.strip()[:500] or None, request.state.login))
+        sid = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'dwg_supersedure',%s,'CREATE',%s,%s)""",
+            (tid, sid, request.state.user_id,
+             json.dumps({"old": body.oldNo, "new": body.newNo, "reason": body.reason})))
+    return {"supersedureId": sid}
+
+
+@router.get("/codes/{code}/approval-history")
+def code_approval_history(code: str) -> list[dict[str, Any]]:
+    """코드 승인 이력 — sys_approval_request 실조회 (코드 상세 CODE_APPROVAL_HIST mock 대체).
+    product_code 직접 target + comment 라벨 매칭 (범용 승인 요청의 코드 연결)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+            (tid, code))
+        pc = cur.fetchone()
+        cur.execute(
+            """SELECT a.request_type, a.result, COALESCE(a.comment,''),
+                      to_char(a.requested_at,'YYYY-MM-DD'), to_char(a.decided_at,'YYYY-MM-DD'),
+                      ru.user_name, au.user_name
+               FROM sys_approval_request a
+               JOIN sys_user ru ON ru.user_id=a.requester_id
+               LEFT JOIN sys_user au ON au.user_id=a.approver_id
+               WHERE a.tenant_id=%s AND ((a.target_table='product_code' AND a.target_id=%s)
+                     OR a.comment ILIKE %s)
+               ORDER BY a.approval_id""",
+            (tid, pc[0] if pc else -1, f"%{code}%"))
+        rows: list[dict[str, Any]] = []
+        for rt, result, comment, req_d, dec_d, req_by, app_by in cur.fetchall():
+            rows.append({"date": req_d, "action": f"승인 요청 ({rt})", "by": req_by, "note": comment})
+            if result:
+                label = "승인 (APPROVED)" if result == "APPROVED" else f"반려 ({result})"
+                rows.append({"date": dec_d or req_d, "action": label, "by": app_by or "-", "note": ""})
+        return rows

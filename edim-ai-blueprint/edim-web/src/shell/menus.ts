@@ -13,6 +13,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'cpq-selection': { screenId: 'cpq-selection', code: 'C-1', title: '제품 선정 — AHU 5' },
   'cpq-techdata': { screenId: 'cpq-techdata', code: 'C-2', title: '기술 데이터' },
   'plm-design': { screenId: 'plm-design', code: 'S-4-1-1', title: 'Design Editor' },
+  'plm-drawings': { screenId: 'plm-drawings', code: 'M-4-1', title: '도면 대장' },
   'plm-workprocess': { screenId: 'plm-workprocess', code: 'S-4-1-2', title: 'Work Process' },
   'code-subcode': { screenId: 'code-subcode', code: 'S-1-1', title: 'Sub Code 등록' },
   'code-relationship': { screenId: 'code-relationship', code: 'S-1-4', title: 'Code Relationship' },
@@ -67,6 +68,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
           {
             id: 'plm-designmgmt', label: 'Design management', children: [
               { id: 'plm-design', label: 'Design Editor (S-4-1-1)' },
+              { id: 'plm-drawings', label: '도면 대장 (M-4-1)' },
             ],
           },
           { id: 'plm-workprocess', label: 'Work Process (S-4-1-2)' },

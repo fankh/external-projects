@@ -127,3 +127,30 @@ export const SYS_HISTORY = [
   { at: '07-07 09:12', target: 'KDCR 3-13 관계', action: 'UPDATE → 승인', by: 'YS.Gang' },
   { at: '07-06 17:44', target: 'Hierarchy /CODE/FAN', action: 'MOVE (address 갱신)', by: 'admin' },
 ]
+
+// ── M-4-1 도면 대장 (dwg_drawing·dwg_revision·dwg_supersedure — B7 mock 폴백) ──
+export interface DrawingRow {
+  drawingNo: string; name: string; type: string; kind: string
+  rev: string; status: string; revCount: number
+  fileId: number | null; fileName: string | null; superseded: boolean
+}
+export interface RevisionRow { rev: string; date: string; reason: string; by: string }
+export interface SupersedureRow {
+  oldNo: string; oldName: string; newNo: string; newRev: string; reason: string; date: string
+}
+export const DRAWINGS: DrawingRow[] = [
+  { drawingNo: 'KDCR 3-12', name: 'Fan 원심 Casing 제작도 (구형)', type: 'PART', kind: 'MANUFACTURING', rev: 'C', status: 'RELEASED', revCount: 1, fileId: null, fileName: null, superseded: true },
+  { drawingNo: 'KDCR 3-13', name: 'Fan 원심 Casing 제작도', type: 'PART', kind: 'MANUFACTURING', rev: 'B', status: 'APPROVED', revCount: 2, fileId: null, fileName: 'KDCR3-13_mfg.dxf', superseded: false },
+]
+export const DRAWING_REVS: Record<string, RevisionRow[]> = {
+  'KDCR 3-13': [
+    { rev: 'B', date: '2026-06-28', reason: '흡입콘 치수 보정 (E 310→320)', by: 'Kim' },
+    { rev: 'A', date: '2026-06-12', reason: '최초 발행', by: 'YS.Gang' },
+  ],
+  'KDCR 3-12': [
+    { rev: 'C', date: '2026-05-30', reason: '최종 개정 (단종)', by: 'YS.Gang' },
+  ],
+}
+export const SUPERSEDURES: SupersedureRow[] = [
+  { oldNo: 'KDCR 3-12', oldName: 'Fan 원심 Casing 제작도 (구형)', newNo: 'KDCR 3-13', newRev: 'B', reason: '설계 개정 — 신형 Casing 계열(3-13)로 대체', date: '2026-06-12' },
+]

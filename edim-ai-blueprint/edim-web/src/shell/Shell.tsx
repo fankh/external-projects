@@ -13,6 +13,7 @@ import { SelectionScreen } from '../screens/cpq/SelectionScreen'
 import { TechDataScreen } from '../screens/cpq/TechDataScreen'
 import { RunScreen } from '../screens/cpq/RunScreen'
 import { DesignEditorScreen } from '../screens/plm/DesignEditorScreen'
+import { DrawingLedgerScreen } from '../screens/plm/DrawingLedgerScreen'
 import { WorkProcessScreen } from '../screens/plm/WorkProcessScreen'
 import { SubCodeScreen } from '../screens/code/SubCodeScreen'
 import { CodeRelationshipScreen } from '../screens/code/CodeRelationshipScreen'
@@ -49,6 +50,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'cpq-techdata': TechDataScreen,
   'cpq-run': RunScreen,
   'plm-design': DesignEditorScreen,
+  'plm-drawings': DrawingLedgerScreen,
   'plm-workprocess': WorkProcessScreen,
   'code-subcode': SubCodeScreen,
   'code-relationship': CodeRelationshipScreen,
@@ -305,10 +307,10 @@ export function Shell(props: { user: User }) {
             code: '상세', title: 'KDCR 3-13',
             params: { code: 'KDCR 3-13', name: 'Fan 원심 Casing' },
           })}>Referencers</span>
-        <span className="b" title="개정 대체 이력 — Project Folder·이력"
+        <span className="b" title="개정 대체 이력 — 도면 대장 (dwg_supersedure)"
           onClick={() => {
-            shell.openTab(SCREEN_BY_NODE['com-folder'])
-            shell.setStatusMsg('Supersedure — Rev 대체 이력은 이력(M-15-9) 그리드에서 diff 확인')
+            shell.openTab(SCREEN_BY_NODE['plm-drawings'])
+            shell.setStatusMsg('Supersedure — 도면 대장(M-4-1) 우측 대체 이력 (dwg_supersedure)')
           }}>Supersedure</span>
         <span style={{ flex: 1 }} />
         <span style={{ position: 'relative' }}>
