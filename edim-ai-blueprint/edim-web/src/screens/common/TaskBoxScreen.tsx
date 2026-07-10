@@ -116,7 +116,14 @@ export function TaskBoxScreen(_props: ScreenProps) {
                   : null}
               </div>
               <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                <Btn onClick={() => shell.setStatusMsg('처리 Form 열기 — erp_process_def.form_id (Toolbox)')}>
+                <Btn onClick={() => {
+                  // B21 — UI Designer(Form) 탭 직행 (프로세스 컨텍스트 전달)
+                  shell.openTab({
+                    id: 'tbx-ui', screenId: 'tbx-ui', code: 'S-2-1', title: 'UI Designer',
+                    params: { from: 'taskbox', task: sel.code },
+                  })
+                  shell.setStatusMsg(`처리 Form 열기 ✓ — ${sel.code} → UI Designer (tbx_ui_form)`)
+                }}>
                   {t('taskbox.openForm', '처리 Form 열기 (Toolbox)')}
                 </Btn>
                 <Btn variant="run" disabled={sel.status === 'DONE'} onClick={complete}>

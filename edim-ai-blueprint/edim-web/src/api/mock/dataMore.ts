@@ -83,7 +83,7 @@ export const DEPT_TASKS: TaskRow[] = [
 export interface UserRow {
   login: string; name: string; dept: string
   level: 'PLATFORM' | 'ADMIN' | 'SETUP' | 'GENERAL'
-  role: string; status: 'ACTIVE' | 'LOCKED'
+  role: string; status: 'ACTIVE' | 'LOCKED' | 'DISABLED'
 }
 export const USERS: UserRow[] = [
   { login: 'ysgang', name: 'YS.Gang', dept: '기술', level: 'SETUP', role: '설계 Set-up', status: 'ACTIVE' },

@@ -1,7 +1,8 @@
 /** 산출물 문서 상세 (드릴다운) — Run 산출물 그리드 더블클릭으로 진입.
  *  doc_control: Doc No 채번 · Set-up→Check→Approve→Accepted 상태 · Grade 통제. */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DOC_HIST, DOC_STAGES } from '../../api/mock/dataDetail'
+import { renderService, sysService } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
@@ -13,6 +14,30 @@ export function OutputDocScreen({ tab }: ScreenProps) {
   const fileType = String(tab.params?.fileType ?? 'PDF')
   const initStage = String(tab.params?.status ?? '').includes('승인') ? 1 : 1
   const [stageIdx, setStageIdx] = useState(initStage)
+  // B21 — 실채번 (POST /documents/allocate-code, 불가 시 안내 문자열)
+  const [docNo, setDocNo] = useState<string | null>(null)
+  useEffect(() => {
+    void sysService.allocateDocNo(folder || 'DOC').then(setDocNo)
+  }, [folder])
+
+  // B21 — 미리보기/Print = 워터마크 실렌더 (렌더 사양은 문서 정보와 동일)
+  const renderDoc = (print: boolean) => {
+    void renderService.pdf(`${file} — 산출물 문서`, [
+      `Doc No: ${docNo ?? '(채번 대기)'}`, `폴더: ${folder} · 유형: ${fileType}`,
+      `상태: ${DOC_STAGES[stageIdx]}`, 'Grade M — Management (워터마크 강제)',
+      'EDIM Run 산출 정본 — doc_control 통제 문서',
+    ], { subtitle: 'EDIM 산출물 문서 상세', confidential: true })
+      .then((url) => {
+        if (url === null) {
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>렌더 불가 — 백엔드 연결 필요</span>)
+          return
+        }
+        const w = window.open(url, '_blank')
+        if (print) w?.addEventListener('load', () => w.print())
+        shell.setStatusMsg(`${print ? 'Print' : '미리보기'} ✓ — 워터마크 실렌더 (Grade M · reportlab)`)
+      })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
 
   const requestApproval = () => {
     setStageIdx((i) => Math.min(i + 1, DOC_STAGES.length - 1))
@@ -24,13 +49,13 @@ export function OutputDocScreen({ tab }: ScreenProps) {
       <div className="qband">
         <label>Doc No</label>
         <input className="in ro" style={{ width: 130, fontFamily: 'Consolas, monospace' }}
-          value="DOC-61313-DWG-07" readOnly aria-label="Doc No" />
-        <Chip tone="info">자동 채번</Chip>
+          value={docNo ?? '채번 중…'} readOnly aria-label="Doc No" />
+        <Chip tone={docNo ? 'ok' : 'warn'}>{docNo ? '자동 채번 (allocate-code)' : '백엔드 필요'}</Chip>
         <label>Grade</label>
         <Chip tone="warn">M — Management</Chip>
         <span style={{ flex: 1 }} />
-        <Btn onClick={() => shell.setStatusMsg('미리보기 — 워터마크 적용 렌더')}>미리보기</Btn>
-        <Btn onClick={() => shell.setStatusMsg('Print — Grade M: 워터마크 강제·이력 기록')}>🖨 Print</Btn>
+        <Btn onClick={() => renderDoc(false)}>미리보기</Btn>
+        <Btn onClick={() => renderDoc(true)}>🖨 Print</Btn>
         <Btn variant="pri" onClick={requestApproval}>승인 요청</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>

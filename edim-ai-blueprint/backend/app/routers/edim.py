@@ -2949,6 +2949,337 @@ def run_costs(run_id: int) -> list[dict[str, Any]]:
     return [{"calcType": r[0], "lines": r[1].get("lines", []), "total": float(r[2])} for r in rows]
 
 
+# ── B21 시스템·UX 마감 — auth/me·다중 역할·Hierarchy 편집·문서 채번/전이·초대/비활성 ──
+
+@router.get("/auth/me")
+def auth_me(request: Request) -> dict[str, Any]:
+    """현재 세션 사용자 — 프론트 세션 복원·역할 표시 (스펙 get_auth_me)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT login_id, user_name, department, user_level, status
+               FROM sys_user WHERE tenant_id=%s AND user_id=%s""", (tid, request.state.user_id))
+        row = cur.fetchone()
+        cur.execute(
+            """SELECT r.role_name FROM sys_user_role ur
+               JOIN sys_role r ON r.role_id=ur.role_id
+               WHERE ur.user_id=%s ORDER BY r.role_name""", (request.state.user_id,))
+        roles = [x[0] for x in cur.fetchall()]
+    return {"login": row[0], "name": row[1], "department": row[2],
+            "userLevel": row[3], "status": row[4], "roles": roles}
+
+
+@router.get("/auth/permissions")
+def auth_permissions(request: Request) -> dict[str, str]:
+    """유효 권한 매트릭스 — user_level 암묵 역할 + sys_user_role 할당 역할의 합집합 (WRITE 우선)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT user_level FROM sys_user WHERE tenant_id=%s AND user_id=%s",
+                    (tid, request.state.user_id))
+        level = cur.fetchone()[0]
+        cur.execute(
+            """SELECT p.resource_key, p.action
+               FROM sys_role_permission p JOIN sys_role r ON r.role_id=p.role_id
+               WHERE r.tenant_id=%s AND (r.role_name=%s OR r.role_id IN
+                 (SELECT role_id FROM sys_user_role WHERE user_id=%s))""",
+            (tid, level, request.state.user_id))
+        out: dict[str, str] = {}
+        for key, action in cur.fetchall():
+            if out.get(key) != "WRITE":   # WRITE ⊃ READ
+                out[key] = action
+    return out
+
+
+@router.get("/users/{login}/roles")
+def user_roles(login: str) -> list[str]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT r.role_name FROM sys_user u
+               JOIN sys_user_role ur ON ur.user_id=u.user_id
+               JOIN sys_role r ON r.role_id=ur.role_id
+               WHERE u.tenant_id=%s AND u.login_id=%s ORDER BY r.role_name""", (tid, login))
+        return [x[0] for x in cur.fetchall()]
+
+
+class RolesAssign(BaseModel):
+    roles: list[str]
+
+
+@router.put("/users/{login}/roles", dependencies=[SETUP])
+def user_roles_assign(login: str, request: Request, body: RolesAssign) -> dict[str, Any]:
+    """다중 역할 할당 — sys_user_role 전체 교체 (감사 ROLE_ASSIGN)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id=%s", (tid, login))
+        u = cur.fetchone()
+        if not u:
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        role_ids = []
+        for name in body.roles:
+            cur.execute("SELECT role_id FROM sys_role WHERE tenant_id=%s AND role_name=%s",
+                        (tid, name.strip().upper()))
+            r = cur.fetchone()
+            if not r:
+                raise HTTPException(422, detail=f"역할 없음: {name}")
+            role_ids.append(r[0])
+        cur.execute("DELETE FROM sys_user_role WHERE user_id=%s", (u[0],))
+        for rid in role_ids:
+            cur.execute("INSERT INTO sys_user_role (user_id, role_id) VALUES (%s,%s)", (u[0], rid))
+        _audit(cur, tid, "sys_user_role", u[0], "ROLE_ASSIGN", request.state.user_id,
+               {"login": login, "roles": body.roles})
+    return {"login": login, "roles": body.roles}
+
+
+@router.post("/users/{login}/invite", dependencies=[SETUP])
+def user_invite(login: str, request: Request) -> dict[str, Any]:
+    """초대 안내 — 메일 서버 미설정 환경: 인앱 알림 + 감사 (정직한 범위)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT user_id, user_name FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+                    (tid, login))
+        u = cur.fetchone()
+        if not u:
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        _notify(cur, tid, u[0], "INVITE",
+                f"EDIM 초대 — {u[1]}님, 시스템 사용을 시작하십시오 (edim.seekerslab.com)", "/cpq")
+        _audit(cur, tid, "sys_user", u[0], "INVITE", request.state.user_id, {"login": login})
+    return {"login": login, "channel": "IN_APP", "note": "메일 서버 미설정 — 인앱 알림 발송"}
+
+
+class ActivePatch(BaseModel):
+    active: bool
+
+
+@router.patch("/users/{login}/active", dependencies=[SETUP])
+def user_active(login: str, request: Request, body: ActivePatch) -> dict[str, Any]:
+    """계정 비활성화/재활성 — DISABLED 는 로그인 거부 (본인 비활성화 불가)."""
+    if login == request.state.login and not body.active:
+        raise HTTPException(422, detail="본인 계정은 비활성화할 수 없습니다")
+    new_status = "ACTIVE" if body.active else "DISABLED"
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_user SET status=%s, updated_at=now()
+               WHERE tenant_id=%s AND login_id=%s RETURNING user_id""",
+            (new_status, tid, login))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        _audit(cur, tid, "sys_user", row[0],
+               "REACTIVATE" if body.active else "DEACTIVATE",
+               request.state.user_id, {"login": login, "status": new_status})
+    return {"login": login, "status": new_status}
+
+
+class HierarchyNodeCreate(BaseModel):
+    treeType: str = "PRODUCT"
+    name: str
+    symbol: str = ""
+    address: str
+    parentAddress: str = ""
+
+
+@router.post("/hierarchy/nodes", status_code=201, dependencies=[SETUP])
+def hierarchy_node_create(request: Request, body: HierarchyNodeCreate) -> dict[str, Any]:
+    """Hierarchy 노드 등록 — 주소 유일(409), 상위 주소 검증 (M-3-1 편집 개방)."""
+    name, addr = body.name.strip(), body.address.strip()
+    if not name or not addr:
+        raise HTTPException(422, detail="이름·주소는 필수입니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM sys_hierarchy WHERE tenant_id=%s AND address=%s", (tid, addr))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"주소 중복: {addr}")
+        parent_id = None
+        if body.parentAddress.strip():
+            cur.execute("SELECT hierarchy_id FROM sys_hierarchy WHERE tenant_id=%s AND address=%s",
+                        (tid, body.parentAddress.strip()))
+            p = cur.fetchone()
+            if not p:
+                raise HTTPException(422, detail=f"상위 주소 없음: {body.parentAddress}")
+            parent_id = p[0]
+            if not addr.startswith(body.parentAddress.strip() + "/"):
+                raise HTTPException(422, detail="주소는 상위 주소로 시작해야 합니다 (예: /M/ENG/새노드)")
+        cur.execute(
+            """INSERT INTO sys_hierarchy (tenant_id, parent_id, tree_type, node_name, symbol,
+               address, approval_status) VALUES (%s,%s,%s,%s,NULLIF(%s,''),%s,'DRAFT')
+               RETURNING hierarchy_id""",
+            (tid, parent_id, body.treeType.strip().upper(), name[:100], body.symbol.strip()[:30], addr[:500]))
+        hid = cur.fetchone()[0]
+        _audit(cur, tid, "sys_hierarchy", hid, "CREATE", request.state.user_id,
+               {"address": addr, "name": name})
+    return {"hierarchyId": hid, "address": addr}
+
+
+class HierarchyNodePatch(BaseModel):
+    name: str = ""
+    symbol: str = ""
+
+
+@router.patch("/hierarchy/nodes/{node_id}", dependencies=[SETUP])
+def hierarchy_node_patch(node_id: int, request: Request, body: HierarchyNodePatch) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_hierarchy SET
+               node_name=CASE WHEN %s<>'' THEN %s ELSE node_name END,
+               symbol=CASE WHEN %s<>'' THEN %s ELSE symbol END,
+               updated_at=now()
+               WHERE tenant_id=%s AND hierarchy_id=%s RETURNING address""",
+            (body.name.strip(), body.name.strip()[:100],
+             body.symbol.strip(), body.symbol.strip()[:30], tid, node_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"노드 없음: #{node_id}")
+        _audit(cur, tid, "sys_hierarchy", node_id, "UPDATE", request.state.user_id,
+               {"name": body.name, "symbol": body.symbol})
+    return {"hierarchyId": node_id, "address": row[0]}
+
+
+@router.delete("/hierarchy/nodes/{node_id}", dependencies=[SETUP])
+def hierarchy_node_delete(node_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM sys_hierarchy WHERE parent_id=%s LIMIT 1", (node_id,))
+        if cur.fetchone():
+            raise HTTPException(409, detail="하위 노드가 있는 노드는 삭제 불가")
+        cur.execute(
+            "DELETE FROM sys_hierarchy WHERE tenant_id=%s AND hierarchy_id=%s RETURNING address",
+            (tid, node_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"노드 없음: #{node_id}")
+        _audit(cur, tid, "sys_hierarchy", node_id, "DELETE", request.state.user_id,
+               {"address": row[0]})
+    return {"deleted": node_id}
+
+
+class AllocateCode(BaseModel):
+    docType: str = "DOC"
+
+
+@router.post("/documents/allocate-code", dependencies=[SETUP])
+def document_allocate_code(body: AllocateCode) -> dict[str, Any]:
+    """문서 채번 — 유형별 순번 (DOC-001 채번 규칙: {TYPE}-{seq:04d}, 중복 회피)."""
+    dt = body.docType.strip().upper()[:10] or "DOC"
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*) FROM doc_control WHERE tenant_id=%s AND doc_type=%s", (tid, dt))
+        seq = cur.fetchone()[0] + 1
+        while True:
+            candidate = f"{dt}-{seq:04d}"
+            cur.execute("SELECT 1 FROM doc_control WHERE tenant_id=%s AND doc_no=%s", (tid, candidate))
+            if not cur.fetchone():
+                break
+            seq += 1
+    return {"docNo": candidate, "docType": dt}
+
+
+DOC_TRANSITIONS = {"SET_UP": ("CHECK",), "CHECK": ("APPROVE", "SET_UP"),
+                   "APPROVE": ("ACCEPTED", "SET_UP"), "ACCEPTED": ()}
+
+
+class DocStatusPatch(BaseModel):
+    status: str
+
+
+@router.patch("/documents/{doc_no}/status", dependencies=[SETUP])
+def document_status(doc_no: str, request: Request, body: DocStatusPatch) -> dict[str, Any]:
+    """문서 상태 전이 — SET_UP→CHECK→APPROVE→ACCEPTED (반려=SET_UP 복귀, 유효 전이만)."""
+    new = body.status.strip().upper()
+    if new not in DOC_TRANSITIONS:
+        raise HTTPException(422, detail=f"상태 오류: {body.status} ({'/'.join(DOC_TRANSITIONS)})")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT doc_control_id, released_status FROM doc_control
+               WHERE tenant_id=%s AND doc_no=%s ORDER BY doc_control_id DESC LIMIT 1""",
+            (tid, doc_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"문서 없음: {doc_no}")
+        if new not in DOC_TRANSITIONS[row[1]]:
+            raise HTTPException(409, detail=f"전이 불가: {row[1]} → {new} (허용: {', '.join(DOC_TRANSITIONS[row[1]]) or '없음'})")
+        cur.execute(
+            """UPDATE doc_control SET released_status=%s,
+               approval_date=CASE WHEN %s='ACCEPTED' THEN CURRENT_DATE ELSE approval_date END,
+               approver_id=CASE WHEN %s='ACCEPTED' THEN %s ELSE approver_id END,
+               updated_at=now() WHERE doc_control_id=%s""",
+            (new, new, new, request.state.user_id, row[0]))
+        _audit(cur, tid, "doc_control", row[0], "STATUS", request.state.user_id,
+               {"docNo": doc_no, "from": row[1], "to": new})
+    return {"docNo": doc_no, "status": new}
+
+
+class RelationshipAdd(BaseModel):
+    mother: str
+    child: str
+    qty: float = 1
+
+
+@router.post("/codes/relationships", status_code=201, dependencies=[SETUP])
+def relationship_add(request: Request, body: RelationshipAdd) -> dict[str, Any]:
+    """Child 추가 (S-1-4) — DRAFT 등록, Running Test 통과 후 승인 (CODE-009)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        ids = {}
+        for label, code in (("mother", body.mother.strip()), ("child", body.child.strip())):
+            cur.execute(
+                "SELECT min(product_code_id) FROM product_code WHERE tenant_id=%s AND main_code=%s",
+                (tid, code))
+            r = cur.fetchone()
+            if not r or not r[0]:
+                raise HTTPException(422, detail=f"코드 없음: {code}")
+            ids[label] = r[0]
+        if ids["mother"] == ids["child"]:
+            raise HTTPException(422, detail="Mother 와 Child 가 같습니다")
+        cur.execute(
+            """SELECT 1 FROM code_relationship
+               WHERE tenant_id=%s AND mother_code_id=%s AND child_code_id=%s""",
+            (tid, ids["mother"], ids["child"]))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"이미 등록된 관계: {body.mother} → {body.child}")
+        cur.execute(
+            """INSERT INTO code_relationship (tenant_id, mother_code_id, child_code_id, quantity,
+               approval_status, created_by) VALUES (%s,%s,%s,%s,'DRAFT',%s) RETURNING rel_id""",
+            (tid, ids["mother"], ids["child"], body.qty, request.state.login))
+        rel_id = cur.fetchone()[0]
+        _audit(cur, tid, "code_relationship", rel_id, "CREATE", request.state.user_id,
+               {"mother": body.mother, "child": body.child, "qty": body.qty})
+    return {"relId": rel_id, "status": "DRAFT"}
+
+
+@router.delete("/codes/relationships/{rel_id}", dependencies=[SETUP])
+def relationship_delete(rel_id: int, request: Request) -> dict[str, Any]:
+    """관계 삭제 — DRAFT 한정 (승인 관계 보호)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """DELETE FROM code_relationship
+               WHERE tenant_id=%s AND rel_id=%s AND approval_status='DRAFT' RETURNING rel_id""",
+            (tid, rel_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"DRAFT 관계 없음: #{rel_id}")
+    return {"deleted": rel_id}
+
+
+@router.get("/erp/projects/check-duplicate")
+def project_check_duplicate(name: str = "", no: str = "") -> dict[str, Any]:
+    """프로젝트 중복검토 (S-3-5) — 이름/번호 ILIKE 실질의."""
+    if not name.strip() and not no.strip():
+        raise HTTPException(422, detail="검토할 이름 또는 번호를 입력하십시오")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT project_no, project_name FROM prj_project
+               WHERE tenant_id=%s AND (project_name ILIKE %s OR project_no ILIKE %s)
+               LIMIT 10""",
+            (tid, f"%{name.strip() or chr(1)}%", f"%{no.strip() or chr(1)}%"))
+        matches = [{"no": r[0], "name": r[1]} for r in cur.fetchall()]
+    return {"duplicate": bool(matches), "matches": matches}
+
+
 # ── B19 창고·저장위치 계층 — erp_warehouse (ERP-020/021) ──
 
 WAREHOUSE_TYPES = ("REGION", "PLANT", "WAREHOUSE", "STORAGE", "SECTOR")

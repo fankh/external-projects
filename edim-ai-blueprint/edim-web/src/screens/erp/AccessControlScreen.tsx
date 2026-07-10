@@ -2,7 +2,7 @@
  *  액션 4종 (권한승인정의서 모델) · 감사 기록. */
 import { useEffect, useMemo, useState } from 'react'
 import { AUDIT_LOG, type UserRow } from '../../api/mock/dataMore'
-import { roleService, userService, type RoleRow } from '../../api/services'
+import { roleService, sysService, userService, type RoleRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -17,12 +17,13 @@ export function AccessControlScreen({ active }: ScreenProps) {
   const [dept, setDept] = useState('전체')
   const [selLogin, setSelLogin] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = () => {
     void userService.list().then((rows) => {
       setUsers(rows)
-      setSelLogin(rows[0]?.login ?? null)
+      setSelLogin((cur) => cur ?? rows[0]?.login ?? null)
     })
-  }, [])
+  }
+  useEffect(load, [])
 
   // 권한 매트릭스 실데이터 (B14 — sys_role/sys_role_permission)
   const [roles, setRoles] = useState<RoleRow[]>([])
@@ -62,6 +63,13 @@ export function AccessControlScreen({ active }: ScreenProps) {
     [users, dept],
   )
   const sel = users.find((u) => u.login === selLogin) ?? null
+
+  // B21 — 선택 사용자의 다중 역할 (sys_user_role)
+  const [selRoles, setSelRoles] = useState<string[] | null>(null)
+  useEffect(() => {
+    if (!selLogin) { setSelRoles(null); return }
+    void sysService.roles(selLogin).then(setSelRoles)
+  }, [selLogin])
 
   const unlock = () => {
     if (!sel || sel.status !== 'LOCKED') return
@@ -175,10 +183,29 @@ export function AccessControlScreen({ active }: ScreenProps) {
         <div style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
           <GroupBox title={t('access.accountActions', '계정 작업 — {n}').replace('{n}', sel?.login ?? '—')}>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <Btn onClick={() => shell.setStatusMsg(`초대 메일 발송 — ${sel?.login}`)}>{t('access.inviteMail', '초대 메일')}</Btn>
+              <Btn disabled={!sel} onClick={() => {
+                // B21 — 인앱 초대 알림 (메일 서버 미설정 환경의 정직한 범위)
+                if (!sel) return
+                void sysService.invite(sel.login).then((ok) => shell.setStatusMsg(ok
+                  ? `초대 발송 ✓ — ${sel.login} 인앱 알림 + 감사 기록 (메일 서버 미설정 — 인앱 채널)`
+                  : <span style={{ color: 'var(--err)' }}>초대 불가 — 백엔드 연결 필요</span>))
+              }}>{t('access.inviteMail', '초대 (인앱)')}</Btn>
               <Btn disabled={sel?.status !== 'LOCKED'} onClick={unlock}>{t('access.unlock', '잠금 해제')}</Btn>
-              <Btn style={{ borderColor: 'var(--err)', color: 'var(--err)' }}
-                onClick={() => shell.setStatusMsg(`비활성화 — ${sel?.login} (ADMIN 확인 필요)`)}>{t('access.deactivate', '비활성화')}</Btn>
+              <Btn style={{ borderColor: 'var(--err)', color: 'var(--err)' }} disabled={!sel}
+                onClick={() => {
+                  if (!sel) return
+                  const activate = sel.status === 'DISABLED'
+                  void sysService.setActive(sel.login, activate)
+                    .then((ok) => {
+                      if (!ok) {
+                        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>처리 불가 — 백엔드 연결 필요</span>)
+                        return
+                      }
+                      load()
+                      shell.setStatusMsg(`${sel.login} ${activate ? '재활성 ✓' : '비활성화 ✓ — 로그인 거부'} (sys_user, 감사 기록)`)
+                    })
+                    .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+                }}>{sel?.status === 'DISABLED' ? t('access.reactivate', '재활성') : t('access.deactivate', '비활성화')}</Btn>
             </div>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 6 }}>
               <label style={{ fontSize: 10.5 }}>{t('access.level', '레벨')}</label>
@@ -188,6 +215,36 @@ export function AccessControlScreen({ active }: ScreenProps) {
               <Btn disabled={!sel || sel.level === newLevel} onClick={changeLevel}>
                 {t('access.changeLevel', '레벨 변경 (감사)')}
               </Btn>
+            </div>
+            {/* B21 — 다중 역할 할당 (sys_user_role) */}
+            <div data-user-roles style={{ marginTop: 6, borderTop: '1px solid var(--line-soft)', paddingTop: 6 }}>
+              <label style={{ fontSize: 10.5 }}>{t('access.roles', '역할 (다중, sys_user_role)')}</label>
+              {selRoles === null ? (
+                <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}> {t('dwg.needBackend', '백엔드 연결 필요')}</span>
+              ) : (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 3 }}>
+                  {['PLATFORM', 'ADMIN', 'SETUP', 'GENERAL'].map((rname) => (
+                    <label key={rname} style={{ fontSize: 10.5, display: 'inline-flex', gap: 3, alignItems: 'center' }}>
+                      <input type="checkbox" checked={selRoles.includes(rname)}
+                        aria-label={`역할 ${rname}`} disabled={!sel}
+                        onChange={(e) => {
+                          if (!sel) return
+                          const next = e.target.checked
+                            ? [...selRoles, rname] : selRoles.filter((x) => x !== rname)
+                          void sysService.assignRoles(sel.login, next).then((ok) => {
+                            if (!ok) {
+                              shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>역할 변경 불가 — 백엔드 연결 필요</span>)
+                              return
+                            }
+                            setSelRoles(next)
+                            shell.setStatusMsg(`역할 할당 ✓ — ${sel.login}: ${next.join(', ') || '(없음)'} (ROLE_ASSIGN 감사)`)
+                          })
+                        }} />
+                      {rname}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </GroupBox>
           <GroupBox title={t('access.auditLog', '최근 감사 로그')} noPad>

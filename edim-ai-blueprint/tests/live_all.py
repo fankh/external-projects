@@ -24,6 +24,7 @@ SUITES = [
     "live_b18_cost.py",             # 원가 상세·PCR 수익성·견적 lifecycle
     "live_b19_warehouse.py",        # 창고 계층·QCR·PO 문서
     "live_b20_macro.py",            # Macro 4-Way·CODING·역참조·함수 검색
+    "live_b21_system.py",           # auth/me·다중 역할·Hierarchy 편집·문서 전이
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]

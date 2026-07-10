@@ -22,6 +22,7 @@ export function UiDesignerScreen({ active }: ScreenProps) {
   const [dirty, setDirty] = useState(false)
   const [version, setVersion] = useState(1)
   const [aiText, setAiText] = useState('')
+  const [showPreview, setShowPreview] = useState(false)   // B21 — 동적 렌더 미리보기
 
   const sel = widgets.find((w) => w.id === selId) ?? null
 
@@ -75,7 +76,42 @@ export function UiDesignerScreen({ active }: ScreenProps) {
           Form — CPQ / Selection v{version} {dirty ? '*' : ''}
         </span>
         <span style={{ flex: 1 }} />
-        <Btn onClick={() => shell.setStatusMsg('미리보기 — 동적 렌더러 실행 (TBX-003)')}>{t('common.preview', '미리보기')}</Btn>
+        <Btn onClick={() => setShowPreview(true)}>{t('common.preview', '미리보기')}</Btn>
+        {showPreview ? (
+          <div data-ui-preview style={{
+            position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }} onClick={() => setShowPreview(false)}>
+            <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 520, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
+              onClick={(e) => e.stopPropagation()}>
+              <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+                <b>Form 미리보기 — {FORM_NAME} v{version} (동적 렌더, TBX-003)</b><span className="sp" />
+                <span style={{ cursor: 'pointer' }} onClick={() => setShowPreview(false)}>✕</span>
+              </div>
+              {/* layout_def 를 그대로 렌더 — 배치 좌표·크기·라벨이 실 폼으로 */}
+              <div style={{ position: 'relative', height: 340, margin: 10, border: '1px solid var(--line)', background: '#FAFBFC', overflow: 'hidden' }}>
+                {widgets.map((w) => (
+                  <div key={w.id} style={{ position: 'absolute', left: w.x, top: w.y, width: w.w }}>
+                    {w.kind === 'Button' ? <Btn style={{ width: '100%', justifyContent: 'center' }}>{w.label}</Btn>
+                      : w.kind === 'Combo' ? (
+                        <select className="in" style={{ width: '100%', height: w.h }} aria-label={w.label}>
+                          <option>{w.label}</option>
+                        </select>
+                      ) : w.kind === 'Check' ? (
+                        <label style={{ fontSize: 11 }}><input type="checkbox" /> {w.label}</label>
+                      ) : (
+                        <input className="in" style={{ width: '100%', height: w.h }}
+                          placeholder={w.label} aria-label={w.label} />
+                      )}
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '0 10px 10px', fontSize: 10, color: 'var(--txt-mute)' }}>
+                위젯 {widgets.length}개 — 게시(승인) 후 처리 Form 으로 사용됩니다 (tbx_ui_form v{version}).
+              </div>
+            </div>
+          </div>
+        ) : null}
         <Btn onClick={() => { void saveLayout() }}>{t('uidsn.saveF12', '저장 F12')}</Btn>
         <Btn variant="pri" onClick={() => {
           void (async () => {

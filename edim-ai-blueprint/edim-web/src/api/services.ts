@@ -1387,6 +1387,146 @@ export const drawingLedgerService = {
   },
 }
 
+// ── B21 시스템·UX 마감 — auth/me·다중 역할·Hierarchy 편집·문서 채번/전이·초대/비활성 ──
+
+export const sysService = {
+  /** GET /api/v1/auth/me */
+  async me(): Promise<{ login: string; name: string; userLevel: string; roles: string[] } | null> {
+    try {
+      return await api('/auth/me')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/auth/permissions — 유효 권한 (역할 합집합) */
+  async myPermissions(): Promise<Record<string, string> | null> {
+    try {
+      return await api('/auth/permissions')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET/PUT /api/v1/users/{login}/roles — 다중 역할 */
+  async roles(login: string): Promise<string[] | null> {
+    try {
+      return await api(`/users/${encodeURIComponent(login)}/roles`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  async assignRoles(login: string, roles: string[]): Promise<boolean> {
+    try {
+      await api(`/users/${encodeURIComponent(login)}/roles`, {
+        method: 'PUT', body: JSON.stringify({ roles }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** POST /api/v1/users/{login}/invite — 인앱 알림 (메일 서버 미설정 정직 범위) */
+  async invite(login: string): Promise<boolean> {
+    try {
+      await api(`/users/${encodeURIComponent(login)}/invite`, { method: 'POST' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** PATCH /api/v1/users/{login}/active — 비활성화/재활성 */
+  async setActive(login: string, active: boolean): Promise<boolean> {
+    try {
+      await api(`/users/${encodeURIComponent(login)}/active`, {
+        method: 'PATCH', body: JSON.stringify({ active }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** Hierarchy 노드 편집 (M-3-1) */
+  async hierarchyAdd(body: {
+    treeType: string; name: string; symbol: string; address: string; parentAddress: string
+  }): Promise<boolean> {
+    try {
+      await api('/hierarchy/nodes', { method: 'POST', body: JSON.stringify(body) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  async hierarchyPatch(id: number, name: string, symbol: string): Promise<boolean> {
+    try {
+      await api(`/hierarchy/nodes/${id}`, { method: 'PATCH', body: JSON.stringify({ name, symbol }) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  async hierarchyDelete(id: number): Promise<boolean> {
+    try {
+      await api(`/hierarchy/nodes/${id}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** 문서 채번 + 상태 전이 */
+  async allocateDocNo(docType: string): Promise<string | null> {
+    try {
+      const r = await api<{ docNo: string }>('/documents/allocate-code', {
+        method: 'POST', body: JSON.stringify({ docType }),
+      })
+      return r.docNo
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  async docStatus(docNo: string, status: string): Promise<boolean> {
+    try {
+      await api(`/documents/${encodeURIComponent(docNo)}/status`, {
+        method: 'PATCH', body: JSON.stringify({ status }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** Child 관계 추가 (S-1-4) */
+  async relationshipAdd(mother: string, child: string, qty: number): Promise<boolean> {
+    try {
+      await api('/codes/relationships', {
+        method: 'POST', body: JSON.stringify({ mother, child, qty }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** 프로젝트 중복검토 (S-3-5) */
+  async projectDupCheck(name: string, no: string):
+  Promise<{ duplicate: boolean; matches: { no: string; name: string }[] } | null> {
+    try {
+      return await api(`/erp/projects/check-duplicate?name=${encodeURIComponent(name)}&no=${encodeURIComponent(no)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
 // ── B19 창고·저장위치 계층 + 구매 상세 — erp_warehouse·QCR·PO ──
 
 export interface WarehouseNode {

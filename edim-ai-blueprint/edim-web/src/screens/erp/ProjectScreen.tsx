@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   PROJECT, RECEIVED_FILES, SALES_STAGES, type ReceivedFile,
 } from '../../api/mock/dataErp'
-import { projectService } from '../../api/services'
+import { projectService, sysService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -26,6 +26,7 @@ export function ProjectScreen({ active }: ScreenProps) {
   const [stage, setStage] = useState(PROJECT.stage)
   const [client, setClient] = useState(PROJECT.client)
   const [files, setFiles] = useState<ReceivedFile[]>(RECEIVED_FILES)
+  const [dupName, setDupName] = useState('KDCR 3-13')   // B21 중복검토 대상
   const [dirty, setDirty] = useState(false)
 
   useEffect(() => {
@@ -142,8 +143,21 @@ export function ProjectScreen({ active }: ScreenProps) {
               <Combo value="Data" options={['Data', 'File', 'Image']} />
               <label>Name</label>
               <div style={{ display: 'flex', gap: 4 }}>
-                <input className="in" defaultValue="KDCR 3-13" aria-label="Upload Name" />
-                <Btn onClick={() => shell.setStatusMsg('중복 없음 ✓')}>{t('prj.dupCheck', '중복검토')}</Btn>
+                <input className="in" value={dupName} aria-label="Upload Name"
+                  onChange={(e) => setDupName(e.target.value)} />
+                <Btn onClick={() => {
+                  // B21 — 실 중복검토 (prj_project ILIKE)
+                  void sysService.projectDupCheck(dupName, dupName).then((r) => {
+                    if (r === null) {
+                      shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>중복검토 불가 — 백엔드 연결 필요</span>)
+                      return
+                    }
+                    shell.setStatusMsg(r.duplicate
+                      ? <span style={{ color: 'var(--warn)' }}>
+                          중복 {r.matches.length}건 — {r.matches.map((m) => m.no).join(', ')} (prj_project 실질의)</span>
+                      : `중복 없음 ✓ — "${dupName}" (prj_project 실질의)`)
+                  }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+                }}>{t('prj.dupCheck', '중복검토')}</Btn>
               </div>
             </div>
           </GroupBox>
@@ -157,7 +171,13 @@ export function ProjectScreen({ active }: ScreenProps) {
             </table>
           </GroupBox>
           <GroupBox title={t('prj.printSetup', 'Print 설정')}>
-            <Btn onClick={() => shell.setStatusMsg('Print Set-up 호출 (S-3-4) — 예정 화면')}>
+            <Btn onClick={() => {
+              // B21 — S-3-4 Print Set-up 화면 탭 직행 (예정 문구 제거)
+              shell.openTab({
+                id: 'cpq-print', screenId: 'cpq-print', code: 'S-3-4', title: 'Print Set-up',
+              })
+              shell.setStatusMsg('Print Set-up (S-3-4) 열기 ✓')
+            }}>
               {t('prj.printSetupCall', '🖨 Print Set-up 호출')}
             </Btn>
           </GroupBox>

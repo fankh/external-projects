@@ -1,8 +1,8 @@
-/** M-3-1 Hierarchy 주소 체계 (B14) — sys_hierarchy 트리 조회.
+/** M-3-1 Hierarchy 주소 체계 (B14/B21) — sys_hierarchy 트리 조회 + 노드 편집 (등록/개명/삭제).
  *  /C(코드)·/M(Macro)·/T(Table) 주소가 tbx_macro·tbl 의 hierarchy_address 원천. */
 import { useEffect, useMemo, useState } from 'react'
-import { hierarchyService, type HierarchyNode } from '../../api/services'
-import { Chip, Combo, Fx, GroupBox } from '../../components/controls'
+import { hierarchyService, sysService, type HierarchyNode } from '../../api/services'
+import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -16,6 +16,10 @@ export function HierarchyScreen({ active }: ScreenProps) {
   const [nodes, setNodes] = useState<HierarchyNode[]>([])
   const [offline, setOffline] = useState(false)
   const [sel, setSel] = useState<HierarchyNode | null>(null)
+  // B21 — 노드 편집
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ name: '', symbol: '', address: '' })
+  const [editName, setEditName] = useState('')
 
   const load = async () => {
     const r = await hierarchyService.list(treeType)
@@ -24,10 +28,63 @@ export function HierarchyScreen({ active }: ScreenProps) {
     setNodes(r)
   }
   useEffect(() => { void load() }, [treeType]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setEditName(sel?.name ?? '') }, [sel])
+
+  const addNode = () => {
+    if (!form.name.trim() || !form.address.trim()) {
+      setStatusMsg(<span style={{ color: 'var(--err)' }}>이름·주소를 입력하십시오</span>)
+      return
+    }
+    void sysService.hierarchyAdd({
+      treeType, name: form.name.trim(), symbol: form.symbol.trim(),
+      address: form.address.trim(), parentAddress: sel?.address ?? '',
+    }).then((ok) => {
+      if (!ok) {
+        setStatusMsg(<span style={{ color: 'var(--err)' }}>등록 불가 — 백엔드 연결 필요</span>)
+        return
+      }
+      setShowAdd(false)
+      setForm({ name: '', symbol: '', address: '' })
+      void load()
+      setStatusMsg(`노드 등록 ✓ — ${form.address} (sys_hierarchy DRAFT, 감사 기록)`)
+    }).catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
+  const renameNode = () => {
+    if (!sel || !editName.trim() || editName === sel.name) return
+    void sysService.hierarchyPatch(sel.id, editName.trim(), '')
+      .then((ok) => {
+        if (!ok) {
+          setStatusMsg(<span style={{ color: 'var(--err)' }}>변경 불가 — 백엔드 연결 필요</span>)
+          return
+        }
+        void load()
+        setStatusMsg(`노드 개명 ✓ — ${sel.name} → ${editName} (주소 불변, 참조 무결성 유지)`)
+      }).catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
+  const deleteNode = () => {
+    if (!sel) {
+      setStatusMsg(<span style={{ color: 'var(--warn)' }}>삭제 — 노드를 선택하십시오</span>)
+      return
+    }
+    void sysService.hierarchyDelete(sel.id)
+      .then((ok) => {
+        if (!ok) {
+          setStatusMsg(<span style={{ color: 'var(--err)' }}>삭제 불가 — 백엔드 연결 필요</span>)
+          return
+        }
+        setSel(null)
+        void load()
+        setStatusMsg(`노드 삭제 ✓ — ${sel.address}`)
+      }).catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
 
   useFKeys(active, useMemo(() => ({
+    F2: () => setShowAdd(true),
+    F3: deleteNode,
     F8: () => { void load(); setStatusMsg(`Hierarchy 재조회 — ${treeType} (sys_hierarchy)`) },
-  }), [treeType])) // eslint-disable-line react-hooks/exhaustive-deps
+  }), [treeType, sel])) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 트리 렌더 — parentId 기반 들여쓰기
   const depthOf = (n: HierarchyNode): number => {
@@ -51,7 +108,42 @@ export function HierarchyScreen({ active }: ScreenProps) {
           주소(address)가 Macro(/M/…)·Table(/T/…)·Code(/C/…)의 계층 참조 경로 — 데이터 Table 의 Hierarchy 주소와 동일 체계
         </span>
         <span style={{ flex: 1 }} />
+        <Btn onClick={deleteNode}>{'삭제 F3'}</Btn>
+        <Btn variant="pri" onClick={() => setShowAdd(true)}>＋ 노드 등록 F2</Btn>
       </div>
+      {showAdd ? (
+        <div data-hier-add style={{
+          position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowAdd(false)}>
+          <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 340, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+              <b>노드 등록 — sys_hierarchy{sel ? ` (상위: ${sel.address})` : ' (최상위)'}</b><span className="sp" />
+              <span style={{ cursor: 'pointer' }} onClick={() => setShowAdd(false)}>✕</span>
+            </div>
+            <div className="frm c2" style={{ padding: 10 }}>
+              <label>이름 *</label>
+              <input className="in req" value={form.name} aria-label="노드 이름" autoFocus
+                onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <label>Symbol</label>
+              <input className="in" value={form.symbol} aria-label="노드 Symbol"
+                onChange={(e) => setForm({ ...form, symbol: e.target.value })} />
+              <label>주소 *</label>
+              <input className="in req" value={form.address} aria-label="노드 주소"
+                placeholder={sel ? `${sel.address}/새노드` : '/M'}
+                onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            </div>
+            <div style={{ padding: '0 10px 6px', fontSize: 10, color: 'var(--txt-mute)' }}>
+              선택 노드가 상위가 됩니다 — 주소는 상위 주소로 시작해야 합니다 (검증됨).
+            </div>
+            <div style={{ display: 'flex', gap: 4, padding: '0 10px 10px', justifyContent: 'flex-end' }}>
+              <Btn onClick={() => setShowAdd(false)}>취소</Btn>
+              <Btn variant="pri" onClick={addNode}>등록 F12</Btn>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`주소 트리 — ${treeType} (${nodes.length})`} noPad style={{ flex: 1 }}>
           {offline ? (
@@ -79,7 +171,12 @@ export function HierarchyScreen({ active }: ScreenProps) {
           <GroupBox title="노드 정보">
             {sel ? (
               <div style={{ fontSize: 11, lineHeight: 2 }}>
-                <b>{sel.name}</b> <Chip tone={sel.status === 'APPROVED' ? 'ok' : 'warn'}>{sel.status}</Chip><br />
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <input className="in" value={editName} aria-label="노드 이름 편집"
+                    style={{ flex: 1 }} onChange={(e) => setEditName(e.target.value)} />
+                  <Btn disabled={!editName.trim() || editName === sel.name} onClick={renameNode}>개명</Btn>
+                </div>
+                <Chip tone={sel.status === 'APPROVED' ? 'ok' : 'warn'}>{sel.status}</Chip><br />
                 Symbol: <span className="code">{sel.symbol}</span><br />
                 주소: <Fx>{sel.address}</Fx>
               </div>

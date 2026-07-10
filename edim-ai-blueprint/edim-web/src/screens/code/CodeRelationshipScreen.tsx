@@ -2,7 +2,7 @@
  *  Running Test 통과(CODE-009)해야 승인 요청 가능. */
 import { useEffect, useMemo, useState } from 'react'
 import { MOTHER, type RunningTestRow } from '../../api/mock/dataCode'
-import { relationshipService, type ChildRow } from '../../api/services'
+import { relationshipService, sysService, type ChildRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -21,6 +21,9 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
   const [slots, setSlots] = useState<Record<string, string>>({ B: '13', C: '32', E: '15' })
   const [testRows, setTestRows] = useState<RunningTestRow[] | null>(null)
   const [tested, setTested] = useState(false)
+  // B21 — Child 실등록 폼
+  const [addChild, setAddChild] = useState('')
+  const [addQty, setAddQty] = useState('1')
 
   useEffect(() => {
     void relationshipService.children(MOTHER.code).then((rows) => {
@@ -99,15 +102,33 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
           </div>
           <GroupBox title="Add Child" right={<>
             <Combo width={130} value="Product / Sub Code" options={['Product / Sub Code', 'X-Code']} />
-            <Btn onClick={() => shell.setStatusMsg('Child 추가 — Slot 매핑 후 Running Test 필요')}>＋ Add</Btn>
+            <Btn onClick={() => {
+              // B21 — code_relationship 실등록 (DRAFT, Running Test 통과 후 승인 CODE-009)
+              if (!addChild.trim()) {
+                shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>Child Code 를 입력하십시오</span>)
+                return
+              }
+              void sysService.relationshipAdd(MOTHER.code, addChild.trim(), Number(addQty) || 1)
+                .then((ok) => {
+                  if (!ok) {
+                    shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>Child 추가 불가 — 백엔드 연결 필요</span>)
+                    return
+                  }
+                  void relationshipService.children(MOTHER.code).then((rows) => { if (rows) setChildren(rows) })
+                  shell.setStatusMsg(`Child 추가 ✓ — ${MOTHER.code} → ${addChild} ×${addQty} (DRAFT, Running Test 후 승인)`)
+                })
+                .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+            }}>＋ Add</Btn>
           </>}>
             <div className="frm">
               <label>Child Code</label>
-              <input className="in ro" value="KDI 21" readOnly aria-label="Child Code" />
+              <input className="in" value={addChild} aria-label="Child Code"
+                placeholder="예: KDI 21" onChange={(e) => setAddChild(e.target.value)} />
               <label>Description</label>
               <input className="in" defaultValue="Inlet Cone W/O FF" aria-label="Child Description" />
               <label>Q'ty</label>
-              <input className="in" defaultValue="2" style={{ maxWidth: 64 }} aria-label="Qty" />
+              <input className="in" value={addQty} style={{ maxWidth: 64 }} aria-label="Qty"
+                onChange={(e) => setAddQty(e.target.value)} />
               <label>{t('codrel.slotMap', 'Slot 매핑')}</label>
               <input className="in" defaultValue="A↔A · B↔B · C↔C" aria-label="Slot 매핑" />
             </div>
