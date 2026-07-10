@@ -2,7 +2,7 @@
  *  Stock Check 재고 충족 제외 · 단가 resolve · 공급자 코드 매핑. */
 import { useEffect, useMemo, useState } from 'react'
 import type { PriceRow, PrItem } from '../../api/mock/dataErp'
-import { erpService, partService, purchaseService, type SupplierCodeRow } from '../../api/services'
+import { erpService, partService, purchaseService, warehouseService, type SupplierCodeRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -27,14 +27,47 @@ export function PurchaseScreen({ active }: ScreenProps) {
     shell.setStatusMsg('Stock list Check — 재고 충족 1건 발주 대상 제외 (ERP-007)')
   }
 
+  // B19 — PO 조건 다이얼로그 (ERP-017) → doc_control PO 문서 영속
+  const [showPo, setShowPo] = useState(false)
+  const [poNo, setPoNo] = useState<string | null>(null)
+  const [poForm, setPoForm] = useState({
+    deliveryTerms: 'EXW 창원공장', transport: '육로 (트럭)', minOrderQty: '1', certRequired: false,
+  })
+
   const createPo = () => {
     const n = items.filter((r) => r.checked).length
     if (!n) {
       shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>선택된 품목 없음</span>)
       return
     }
-    setPoCreated(true)
-    shell.setStatusMsg(`PO-61313-2 생성 (${n}품목) — 구매 승인(RA) 대기 · 구매 단가 cst_price(PURCHASE) 적재`)
+    setShowPo(true)
+  }
+
+  const confirmPo = () => {
+    const selItems = items.filter((r) => r.checked)
+    void warehouseService.createPo({
+      codes: selItems.map((r) => r.code), totalK: totalSel,
+      deliveryTerms: poForm.deliveryTerms, transport: poForm.transport,
+      minOrderQty: Number(poForm.minOrderQty) || 1, certRequired: poForm.certRequired,
+    })
+      .then((r) => {
+        setShowPo(false)
+        setPoCreated(true)
+        setPoNo(r.poNo)
+        shell.setStatusMsg(`${r.poNo} 생성 ✓ (${selItems.length}품목) — doc_control PO 문서 등록 (조건·공급자 코드 병기)`)
+      })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
+  const issueQcr = () => {
+    const codes = items.filter((r) => r.checked).map((r) => r.code)
+    if (!codes.length) {
+      shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>선택된 품목 없음 — QCR 대상 선택</span>)
+      return
+    }
+    void warehouseService.issueQcr(codes)
+      .then((no) => shell.setStatusMsg(`${no} 발행 ✓ (${codes.length}품목) — 감사 기록·구매 담당 알림 (공급자 회신 대기)`))
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }
 
   useFKeys(active, useMemo(() => ({ F8: stockCheck, F12: createPo }), [items])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -94,6 +127,46 @@ export function PurchaseScreen({ active }: ScreenProps) {
 
   return (
     <div className="fill-col">
+      {showPo ? (
+        <div data-po-dialog style={{
+          position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowPo(false)}>
+          <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 340, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
+              <b>{t('purch.poDialog', 'PO 조건 (ERP-017)')}</b><span className="sp" />
+              <span style={{ cursor: 'pointer' }} onClick={() => setShowPo(false)}>✕</span>
+            </div>
+            <div className="frm c2" style={{ padding: 10 }}>
+              <label>{t('purch.delivery', '납품조건')}</label>
+              <Combo width={160} value={poForm.deliveryTerms}
+                options={['EXW 창원공장', 'FOB 부산', 'CIP 지정장소']}
+                onChange={(v) => setPoForm({ ...poForm, deliveryTerms: v })} />
+              <label>{t('purch.transport', '운송수단')}</label>
+              <Combo width={160} value={poForm.transport}
+                options={['육로 (트럭)', '해상 (컨테이너)', '항공']}
+                onChange={(v) => setPoForm({ ...poForm, transport: v })} />
+              <label>{t('purch.minQty', '최소구매수량')}</label>
+              <input className="in" value={poForm.minOrderQty} aria-label="최소구매수량"
+                onChange={(e) => setPoForm({ ...poForm, minOrderQty: e.target.value })} />
+              <label>{t('purch.cert', '인증서 요구')}</label>
+              <span>
+                <input type="checkbox" checked={poForm.certRequired} aria-label="인증서 요구"
+                  onChange={(e) => setPoForm({ ...poForm, certRequired: e.target.checked })} />
+                {' '}Mill Sheet·성적서
+              </span>
+            </div>
+            <div style={{ padding: '0 10px 6px', fontSize: 10, color: 'var(--txt-mute)' }}>
+              발주서는 doc_control PO 문서로 영속 — 공급자 코드(ERP-018)가 품목에 병기됩니다.
+            </div>
+            <div style={{ display: 'flex', gap: 4, padding: '0 10px 10px', justifyContent: 'flex-end' }}>
+              <Btn onClick={() => setShowPo(false)}>{t('dwg.cancel', '취소')}</Btn>
+              <Btn variant="pri" onClick={confirmPo}>{t('purch.poConfirm', '발주 확정')}</Btn>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="qband">
         <label>Project</label>
         <Combo width={110} value="Micron #7" options={['Micron #7', 'PS-598']} />
@@ -136,9 +209,9 @@ export function PurchaseScreen({ active }: ScreenProps) {
               </>} />
           </GroupBox>
           <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
-            {poCreated ? <Chip tone="ok">{t('purch.poCreated', 'PO-61313-2 생성 — RA 승인 대기')}</Chip> : null}
-            <Btn onClick={() => shell.setStatusMsg('견적 요청(QCR) 발행 — 공급자 회신 대기')}>{t('purch.qcrBtn', '견적 요청 (QCR)')}</Btn>
-            <Btn variant="pri" onClick={createPo}>{t('purch.createPoF12', '발주 생성 → PO-61313-2 F12')}</Btn>
+            {poCreated ? <Chip tone="ok">{poNo ?? 'PO'} {t('purch.poCreatedSuffix', '생성 — RA 승인 대기')}</Chip> : null}
+            <Btn onClick={issueQcr}>{t('purch.qcrBtn', '견적 요청 (QCR)')}</Btn>
+            <Btn variant="pri" onClick={createPo}>{t('purch.createPoF12Short', '발주 생성 (조건 입력) F12')}</Btn>
           </div>
         </div>
         <div className="split-h" />

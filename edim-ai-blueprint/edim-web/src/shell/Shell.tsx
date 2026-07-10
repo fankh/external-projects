@@ -24,6 +24,7 @@ import { CompanyMasterScreen } from '../screens/erp/CompanyMasterScreen'
 import { VariantConstantScreen } from '../screens/code/VariantConstantScreen'
 import { TempletMgmtScreen } from '../screens/toolbox/TempletMgmtScreen'
 import { DrawingLedgerScreen } from '../screens/plm/DrawingLedgerScreen'
+import { WarehouseScreen } from '../screens/erp/WarehouseScreen'
 import { WorkProcessScreen } from '../screens/plm/WorkProcessScreen'
 import { SubCodeScreen } from '../screens/code/SubCodeScreen'
 import { CodeRelationshipScreen } from '../screens/code/CodeRelationshipScreen'
@@ -86,6 +87,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'erp-company-master': CompanyMasterScreen,
   'code-hierarchy': HierarchyScreen,
   'plm-parts': PartLedgerScreen,
+  'erp-warehouse': WarehouseScreen,
   'com-approval': ApprovalInboxScreen,
   'com-tasks': TaskBoxScreen,
   'com-folder': ProjectFolderScreen,

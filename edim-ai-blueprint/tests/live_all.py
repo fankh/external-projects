@@ -22,6 +22,7 @@ SUITES = [
     "live_b16_drawing_detail.py",   # 도면 상세 탭·단계별 승인·Simulation
     "live_b17_parts.py",            # 부품 마스터·BOM·공급자 코드·슬롯 정의
     "live_b18_cost.py",             # 원가 상세·PCR 수익성·견적 lifecycle
+    "live_b19_warehouse.py",        # 창고 계층·QCR·PO 문서
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]

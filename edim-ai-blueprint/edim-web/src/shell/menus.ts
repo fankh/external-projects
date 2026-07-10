@@ -43,6 +43,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'erp-company-master': { screenId: 'erp-company-master', code: 'M-14-2', title: '공급처·거래처' },
   'code-hierarchy': { screenId: 'code-hierarchy', code: 'M-3-1', title: 'Hierarchy 주소' },
   'plm-parts': { screenId: 'plm-parts', code: 'M-4-7', title: '부품 대장' },
+  'erp-warehouse': { screenId: 'erp-warehouse', code: 'M-8-4', title: '창고·저장위치' },
 }
 
 export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> = {
@@ -132,6 +133,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       {
         id: 'erp-purchasing', label: 'Purchasing', children: [
           { id: 'erp-purchase', label: '발주 PR·PO (M-8-2)' },
+          { id: 'erp-warehouse', label: '창고·저장위치 (M-8-4)' },
         ],
       },
       {

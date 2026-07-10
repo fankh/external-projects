@@ -1344,6 +1344,80 @@ export const drawingLedgerService = {
   },
 }
 
+// ── B19 창고·저장위치 계층 + 구매 상세 — erp_warehouse·QCR·PO ──
+
+export interface WarehouseNode {
+  warehouseId: number
+  parentId: number | null
+  type: 'REGION' | 'PLANT' | 'WAREHOUSE' | 'STORAGE' | 'SECTOR'
+  code: string
+  name: string
+  hazard: string
+  inspection: string
+  remarks: string
+  depth: number
+  path: string
+}
+
+export const warehouseService = {
+  /** GET /api/v1/erp/warehouses — 계층 트리 (경로 정렬, null=백엔드 불가) */
+  async tree(): Promise<WarehouseNode[] | null> {
+    try {
+      return await api<WarehouseNode[]>('/erp/warehouses')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/erp/warehouses — 계층 순서 강제 (409=중복·422=계층 오류 throw) */
+  async create(body: {
+    parentCode: string; locationType: string; code: string; name: string
+    hazard: string; inspection: string; remarks: string
+  }): Promise<boolean> {
+    try {
+      await api('/erp/warehouses', { method: 'POST', body: JSON.stringify(body) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** DELETE /api/v1/erp/warehouses/{code} — 하위 존재 시 409 */
+  async remove(code: string): Promise<boolean> {
+    try {
+      await api(`/erp/warehouses/${encodeURIComponent(code)}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** POST /api/v1/erp/qcr — 견적 요청 발행 (감사+알림, 쓰기 정직) */
+  async issueQcr(codes: string[], note = ''): Promise<string> {
+    try {
+      const r = await api<{ qcrNo: string }>('/erp/qcr', {
+        method: 'POST', body: JSON.stringify({ codes, note }),
+      })
+      return r.qcrNo
+    } catch (e) {
+      if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — QCR 을 발행할 수 없습니다')
+      throw e
+    }
+  },
+  /** POST /api/v1/erp/po — 발주 = doc_control PO 문서 영속 (조건·공급자 코드 병기) */
+  async createPo(body: {
+    codes: string[]; totalK: number; deliveryTerms: string; transport: string
+    minOrderQty: number; certRequired: boolean
+  }): Promise<{ poNo: string; terms: string }> {
+    try {
+      return await api('/erp/po', { method: 'POST', body: JSON.stringify(body) })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — 발주를 생성할 수 없습니다')
+      throw e
+    }
+  },
+}
+
 // ── B18 원가·수익성 — cst_calc·cst_pcr·cst_quotation ──
 
 export interface RunCostRow {

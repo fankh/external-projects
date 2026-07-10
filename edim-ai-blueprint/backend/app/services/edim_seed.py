@@ -235,6 +235,64 @@ def seed_v15(cur, tid: int) -> None:
                        VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
 
 
+# ── seed v16 — B19: 창고/저장위치 계층 (erp_warehouse, ERP-020/021) ──
+
+# (location_type, code, name, parent_code, hazard, inspection)
+WAREHOUSES_V16 = [
+    ('REGION', 'KR-CW', '창원 사업장', None, None, None),
+    ('PLANT', 'CW-P1', '1공장 (Fan 조립)', 'KR-CW', None, None),
+    ('WAREHOUSE', 'P1-WH-A', '자재창고 A', 'CW-P1', None, '6개월'),
+    ('STORAGE', 'WH-A-GEN', '일반 자재 보관', 'P1-WH-A', None, '3개월'),
+    ('STORAGE', 'WH-A-HAZ', '위험물 보관소', 'P1-WH-A', '액체·가스 (도료·용접가스)', '1개월'),
+    ('SECTOR', 'GEN-A01', 'A-01 (표준 부품)', 'WH-A-GEN', None, None),
+    ('SECTOR', 'HAZ-H01', 'H-01 (인화성 액체)', 'WH-A-HAZ', '액체', '1개월'),
+]
+
+LABELS_V16 = {
+    'menu.erp-warehouse': ('Warehouse·Storage (M-8-4)', '倉庫·保管場所 (M-8-4)', '仓库·储位 (M-8-4)'),
+    'screen.erp-warehouse': ('Warehouse·Storage', '倉庫·保管場所', '仓库·储位'),
+    'wh.title': ('Warehouse/Storage Hierarchy — erp_warehouse', '倉庫/保管場所階層 — erp_warehouse', '仓库/储位层级 — erp_warehouse'),
+    'wh.addF2': ('+ Add Location F2', '＋ 位置追加 F2', '＋ 添加位置 F2'),
+    'wh.typeCol': ('Type', '種別', '类型'),
+    'wh.codeCol': ('Code', 'コード', '代码'),
+    'wh.nameCol': ('Name', '名称', '名称'),
+    'wh.hazardCol': ('Hazard Allowed', '危険物許可', '危险品许可'),
+    'wh.inspectionCol': ('Inspection Cycle', '検査周期', '检查周期'),
+    'wh.hierHint': ('Hierarchy: REGION→PLANT→WAREHOUSE→STORAGE→SECTOR (order enforced)',
+                    '階層: REGION→PLANT→WAREHOUSE→STORAGE→SECTOR (順序強制)',
+                    '层级: REGION→PLANT→WAREHOUSE→STORAGE→SECTOR (强制顺序)'),
+    'purch.poDialog': ('PO Terms (ERP-017)', 'PO 条件 (ERP-017)', 'PO 条款 (ERP-017)'),
+    'purch.delivery': ('Delivery Terms', '納品条件', '交货条款'),
+    'purch.transport': ('Transport', '輸送手段', '运输方式'),
+    'purch.minQty': ('Min Order Qty', '最小購買数量', '最小采购量'),
+    'purch.cert': ('Certificate Required', '証明書要求', '要求证书'),
+}
+
+
+def seed_v16(cur, tid: int) -> None:
+    cur.execute('SELECT 1 FROM erp_warehouse WHERE tenant_id=%s LIMIT 1', (tid,))
+    if not cur.fetchone():
+        ids: dict[str, int] = {}
+        for lt, code, name, parent, hazard, insp in WAREHOUSES_V16:
+            cur.execute(
+                """INSERT INTO erp_warehouse (tenant_id, parent_id, location_type, location_code,
+                   location_name, hazard_allowed, inspection_cycle)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING warehouse_id""",
+                (tid, ids.get(parent), lt, code, name, hazard, insp))
+            ids[code] = cur.fetchone()[0]
+        logger.info('seed v16 — erp_warehouse %d노드', len(WAREHOUSES_V16))
+    for key, (en, ja, zh) in LABELS_V16.items():
+        for locale, text in (('en', en), ('ja', ja), ('zh', zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
 def run_seed() -> None:
     pool = get_pool()
     if pool is None:
@@ -260,6 +318,7 @@ def run_seed() -> None:
             seed_v13(cur, row[0])
             seed_v14(cur, row[0])
             seed_v15(cur, row[0])
+            seed_v16(cur, row[0])
             return
 
         cur.execute(
@@ -370,6 +429,7 @@ def run_seed() -> None:
         seed_v13(cur, tid)
         seed_v14(cur, tid)
         seed_v15(cur, tid)
+        seed_v16(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──

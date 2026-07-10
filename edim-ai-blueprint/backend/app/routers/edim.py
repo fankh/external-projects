@@ -1630,6 +1630,28 @@ def documents() -> list[dict[str, Any]]:
         ]
 
 
+@router.delete("/documents/{doc_no}", dependencies=[SETUP])
+def document_delete(doc_no: str, request: Request) -> dict[str, Any]:
+    """문서 삭제 — SET_UP(작성 중) 상태 한정 (승인/발행 문서 보호). 최신 행 기준."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT doc_control_id, released_status FROM doc_control
+               WHERE tenant_id=%s AND doc_no=%s ORDER BY doc_control_id DESC LIMIT 1""",
+            (tid, doc_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"문서 없음: {doc_no}")
+        if row[1] != "SET_UP":
+            raise HTTPException(409, detail=f"SET_UP 문서만 삭제 가능 (현재 {row[1]})")
+        cur.execute("DELETE FROM doc_control WHERE doc_control_id=%s", (row[0],))
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'doc_control',%s,'DELETE',%s,%s)""",
+            (tid, row[0], request.state.user_id, json.dumps({"docNo": doc_no})))
+    return {"deleted": doc_no}
+
+
 # ── B4 — 문서 등록 + Grade 워터마크 PDF 렌더 (SVC-11 · DOC-002) ──
 
 class DocCreate(BaseModel):
@@ -2810,6 +2832,196 @@ def run_costs(run_id: int) -> list[dict[str, Any]]:
     if not rows:
         raise HTTPException(404, detail=f"원가 상세 없음 — Run #{run_id} (v10.2 이후 실행분부터 적재)")
     return [{"calcType": r[0], "lines": r[1].get("lines", []), "total": float(r[2])} for r in rows]
+
+
+# ── B19 창고·저장위치 계층 — erp_warehouse (ERP-020/021) ──
+
+WAREHOUSE_TYPES = ("REGION", "PLANT", "WAREHOUSE", "STORAGE", "SECTOR")
+
+
+@router.get("/erp/warehouses")
+def warehouse_tree() -> list[dict[str, Any]]:
+    """창고/저장위치 계층 — 재귀 CTE 로 경로 정렬 (depth 포함)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """WITH RECURSIVE t AS (
+                 SELECT warehouse_id, parent_id, location_type, location_code, location_name,
+                        hazard_allowed, inspection_cycle, remarks, 0 AS depth,
+                        location_code::text AS path
+                 FROM erp_warehouse WHERE tenant_id=%s AND parent_id IS NULL
+                 UNION ALL
+                 SELECT w.warehouse_id, w.parent_id, w.location_type, w.location_code,
+                        w.location_name, w.hazard_allowed, w.inspection_cycle, w.remarks,
+                        t.depth+1, t.path || '/' || w.location_code
+                 FROM erp_warehouse w JOIN t ON w.parent_id=t.warehouse_id)
+               SELECT warehouse_id, parent_id, location_type, location_code, location_name,
+                      COALESCE(hazard_allowed,''), COALESCE(inspection_cycle,''),
+                      COALESCE(remarks,''), depth, path
+               FROM t ORDER BY path""", (tid,))
+        return [
+            {"warehouseId": r[0], "parentId": r[1], "type": r[2], "code": r[3], "name": r[4],
+             "hazard": r[5], "inspection": r[6], "remarks": r[7], "depth": r[8], "path": r[9]}
+            for r in cur.fetchall()
+        ]
+
+
+class WarehouseCreate(BaseModel):
+    parentCode: str = ""         # 빈 값 = 최상위 (REGION)
+    locationType: str
+    code: str
+    name: str
+    hazard: str = ""
+    inspection: str = ""
+    remarks: str = ""
+
+
+@router.post("/erp/warehouses", status_code=201, dependencies=[SETUP])
+def warehouse_create(request: Request, body: WarehouseCreate) -> dict[str, Any]:
+    lt = body.locationType.strip().upper()
+    if lt not in WAREHOUSE_TYPES:
+        raise HTTPException(422, detail=f"위치 유형 오류: {body.locationType} ({'|'.join(WAREHOUSE_TYPES)})")
+    code, name = body.code.strip(), body.name.strip()
+    if not code or not name:
+        raise HTTPException(422, detail="위치 코드·이름은 필수입니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM erp_warehouse WHERE tenant_id=%s AND location_code=%s", (tid, code))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"위치 코드 중복: {code}")
+        parent_id = None
+        if body.parentCode.strip():
+            cur.execute(
+                """SELECT warehouse_id, location_type FROM erp_warehouse
+                   WHERE tenant_id=%s AND location_code=%s""", (tid, body.parentCode.strip()))
+            pr = cur.fetchone()
+            if not pr:
+                raise HTTPException(422, detail=f"상위 위치 없음: {body.parentCode}")
+            # 계층 순서 강제 — 자식 유형은 부모 유형보다 하위여야 함
+            if WAREHOUSE_TYPES.index(lt) <= WAREHOUSE_TYPES.index(pr[1]):
+                raise HTTPException(422, detail=f"계층 오류: {pr[1]} 아래에 {lt} 불가 (REGION→PLANT→WAREHOUSE→STORAGE→SECTOR)")
+            parent_id = pr[0]
+        elif lt != "REGION":
+            raise HTTPException(422, detail="최상위는 REGION 만 가능")
+        cur.execute(
+            """INSERT INTO erp_warehouse (tenant_id, parent_id, location_type, location_code,
+               location_name, hazard_allowed, inspection_cycle, remarks, created_by)
+               VALUES (%s,%s,%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''),NULLIF(%s,''),%s)
+               RETURNING warehouse_id""",
+            (tid, parent_id, lt, code[:30], name[:100], body.hazard.strip()[:100],
+             body.inspection.strip()[:30], body.remarks.strip()[:300], request.state.login))
+        wid = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'erp_warehouse',%s,'CREATE',%s,%s)""",
+            (tid, wid, request.state.user_id, json.dumps({"code": code, "type": lt})))
+    return {"warehouseId": wid, "code": code}
+
+
+@router.delete("/erp/warehouses/{code}", dependencies=[SETUP])
+def warehouse_delete(code: str, request: Request) -> dict[str, Any]:
+    """위치 삭제 — 하위 위치 존재 시 409 보호."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT warehouse_id FROM erp_warehouse WHERE tenant_id=%s AND location_code=%s",
+                    (tid, code))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"위치 없음: {code}")
+        cur.execute("SELECT 1 FROM erp_warehouse WHERE parent_id=%s LIMIT 1", (row[0],))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"하위 위치가 있는 노드는 삭제 불가: {code}")
+        cur.execute("DELETE FROM erp_warehouse WHERE warehouse_id=%s", (row[0],))
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'erp_warehouse',%s,'DELETE',%s,%s)""",
+            (tid, row[0], request.state.user_id, json.dumps({"code": code})))
+    return {"deleted": code}
+
+
+# ── B19 QCR 발행·PO 문서 등록 — 구매 상세 (ERP-017) ──
+
+class QcrIssue(BaseModel):
+    codes: list[str]
+    note: str = ""
+
+
+@router.post("/erp/qcr", status_code=201, dependencies=[SETUP])
+def qcr_issue(request: Request, body: QcrIssue) -> dict[str, Any]:
+    """견적 요청(QCR) 발행 — 감사 기록 + 구매 담당(SETUP+) 알림 (공급자 회신 대기)."""
+    codes = [c.strip() for c in body.codes if c.strip()]
+    if not codes:
+        raise HTTPException(422, detail="발행 대상 품목이 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*)+1 FROM sys_history WHERE tenant_id=%s AND action='QCR_ISSUE'",
+                    (tid,))
+        qcr_no = f"QCR-{cur.fetchone()[0]:04d}"
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'erp_qcr',0,'QCR_ISSUE',%s,%s) RETURNING history_id""",
+            (tid, request.state.user_id,
+             json.dumps({"qcrNo": qcr_no, "codes": codes, "note": body.note.strip()[:300]})))
+        cur.execute(
+            """SELECT user_id FROM sys_user
+               WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN') AND user_id<>%s""",
+            (tid, request.state.user_id))
+        for (uid,) in cur.fetchall():
+            _notify(cur, tid, uid, "QCR_ISSUE",
+                    f"견적 요청 발행 — {qcr_no} ({len(codes)}품목, 공급자 회신 대기)", "/erp")
+    return {"qcrNo": qcr_no, "codes": len(codes)}
+
+
+class PoCreate(BaseModel):
+    codes: list[str]
+    totalK: float = 0
+    deliveryTerms: str = "EXW 창원공장"      # ERP-017 납품조건
+    transport: str = "육로 (트럭)"           # 운송수단
+    minOrderQty: int = 1                     # 최소구매수량
+    certRequired: bool = False               # 인증서 요구
+
+
+@router.post("/erp/po", status_code=201, dependencies=[SETUP])
+def po_create(request: Request, body: PoCreate) -> dict[str, Any]:
+    """발주 생성 — PO 를 doc_control 문서로 영속 (구매 조건 remarks·공급자 코드 라인 포함)."""
+    codes = [c.strip() for c in body.codes if c.strip()]
+    if not codes:
+        raise HTTPException(422, detail="발주 품목이 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT count(*)+1 FROM doc_control WHERE tenant_id=%s AND doc_type='PO'", (tid,))
+        seq = cur.fetchone()[0]
+        po_no = f"PO-61313-{seq}"
+        # 공급자 코드 매핑 병기 (ERP-018 — 발주 문서에 공급자 코드 표시)
+        sup_lines: list[str] = []
+        for c in codes:
+            cur.execute(
+                """SELECT m.supplier_code, co.company_name
+                   FROM prt_supplier_code_map m
+                   JOIN com_company co ON co.company_id=m.supplier_id
+                   LEFT JOIN prt_part p ON p.part_id=m.part_id
+                   LEFT JOIN product_code pc
+                     ON pc.product_code_id=COALESCE(m.product_code_id, p.product_code_id)
+                   WHERE m.tenant_id=%s AND pc.main_code=%s LIMIT 1""", (tid, c))
+            m = cur.fetchone()
+            sup_lines.append(f"{c}↔{m[0]}({m[1]})" if m else c)
+        terms = (f"납품:{body.deliveryTerms.strip()[:40]} · 운송:{body.transport.strip()[:30]}"
+                 f" · 최소수량:{body.minOrderQty} · 인증서:{'요구' if body.certRequired else '불요'}"
+                 f" · 품목:{', '.join(sup_lines)}")
+        cur.execute(
+            """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, released_status,
+               version, person, management_grade, remarks, created_by)
+               VALUES (%s,%s,%s,'PO','SET_UP','v1.0',%s,'S-3',%s,%s) RETURNING doc_control_id""",
+            (tid, po_no, f"발주서 {po_no} — {len(codes)}품목 {body.totalK:,.0f}K",
+             request.state.login, terms[:500], request.state.login))
+        doc_id = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'doc_control',%s,'PO_CREATE',%s,%s)""",
+            (tid, doc_id, request.state.user_id,
+             json.dumps({"poNo": po_no, "codes": codes, "terms": terms[:300]})))
+    return {"poNo": po_no, "docNo": po_no, "terms": terms}
 
 
 # ── B18 수익성(PCR)·견적 lifecycle — cst_pcr·cst_quotation ──
