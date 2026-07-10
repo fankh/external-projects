@@ -15,6 +15,9 @@ import { TechDataScreen } from '../screens/cpq/TechDataScreen'
 import { RunScreen } from '../screens/cpq/RunScreen'
 import { ArrangementSetupScreen } from '../screens/plm/ArrangementSetupScreen'
 import { DesignEditorScreen } from '../screens/plm/DesignEditorScreen'
+import { QualityScreen } from '../screens/plm/QualityScreen'
+import { MaterialGpiScreen } from '../screens/code/MaterialGpiScreen'
+import { VariantConstantScreen } from '../screens/code/VariantConstantScreen'
 import { TempletMgmtScreen } from '../screens/toolbox/TempletMgmtScreen'
 import { DrawingLedgerScreen } from '../screens/plm/DrawingLedgerScreen'
 import { WorkProcessScreen } from '../screens/plm/WorkProcessScreen'
@@ -72,6 +75,10 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'tbx-ui': UiDesignerScreen,
   'tbx-templet': TempletMgmtScreen,
   'plm-arr': ArrangementSetupScreen,
+  'code-variant': VariantConstantScreen,
+  'code-raw': MaterialGpiScreen,
+  'plm-material': MaterialGpiScreen,
+  'plm-quality': QualityScreen,
   'com-approval': ApprovalInboxScreen,
   'com-tasks': TaskBoxScreen,
   'com-folder': ProjectFolderScreen,

@@ -96,6 +96,7 @@ def run_seed() -> None:
             seed_v8(cur, row[0])
             seed_v9(cur, row[0])
             seed_v10(cur, row[0])
+            seed_v11(cur, row[0])
             return
 
         cur.execute(
@@ -201,6 +202,7 @@ def run_seed() -> None:
         seed_v8(cur, tid)
         seed_v9(cur, tid)
         seed_v10(cur, tid)
+        seed_v11(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -1443,6 +1445,74 @@ def seed_v10(cur, tid: int) -> None:
         logger.info('seed v10 — templet %d건', len(TEMPLETS_V10))
     # 메뉴 라벨 갱신 (— 예정 해제) + 신규 화면 키 — 키 단위 멱등
     for key, (en, ja, zh) in MENU_UPDATES_V10.items():
+        for locale, text in (('en', en), ('ja', ja), ('zh', zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v11 — B13-2: 재질·검증 규칙 샘플 + 메뉴 라벨 갱신 ──
+
+MATERIALS_V11 = [
+    ('SS400', '일반 구조용 압연강', 'STEEL', 7.85, 'KS D 3503', None),
+    ('STS304', '스테인리스 강판', 'STEEL', 7.93, 'KS D 3698', None),
+    ('AL6061', '알루미늄 합금', 'ALUMINUM', 2.70, 'KS D 6701', None),
+    ('SPHC', '열간압연 강판', 'STEEL', 7.85, 'KS D 3501', None),
+]
+
+VERIFICATIONS_V11 = [
+    ('B 치수 상한 검증', 'DIM B (KDCR 3-13)', 'B(H) 가 900 을 초과하면 Casing 표준 강판 폭 초과 — 설계 재검토'),
+    ('K 전장 간섭 검증', 'DIM K (KDCR 3-13)', 'K 전장이 1,500 초과 시 표준 베이스 프레임 간섭 — Arrangement 확인'),
+]
+
+MENU_UPDATES_V11 = {
+    'menu.code-variant': ('Variant·Constant (S-1-2)', 'Variant·Constant (S-1-2)', 'Variant·Constant (S-1-2)'),
+    'menu.code-raw': ('Raw Material·GPI (M-3-2)', 'Raw Material·GPI (M-3-2)', 'Raw Material·GPI (M-3-2)'),
+    'menu.plm-material': ('Material (M-4-4)', 'Material (M-4-4)', 'Material (M-4-4)'),
+    'menu.plm-quality': ('Quality (M-4-5)', 'Quality (M-4-5)', 'Quality (M-4-5)'),
+    'screen.code-variant': ('Variant·Constant', 'Variant·Constant', 'Variant·Constant'),
+    'screen.code-raw': ('Raw Material·GPI', 'Raw Material·GPI', 'Raw Material·GPI'),
+    'screen.plm-material': ('Material', 'Material', 'Material'),
+    'screen.plm-quality': ('Quality', 'Quality', 'Quality'),
+}
+
+
+def seed_v11(cur, tid: int) -> None:
+    cur.execute('SELECT 1 FROM mat_material WHERE tenant_id=%s LIMIT 1', (tid,))
+    if not cur.fetchone():
+        for code, name, mtype, density, std, hazard in MATERIALS_V11:
+            cur.execute(
+                """INSERT INTO mat_material (tenant_id, material_code, material_name,
+                   material_type, density, standard, hazard_class)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                (tid, code, name, mtype, density, std, hazard))
+        logger.info('seed v11 — mat_material %d건', len(MATERIALS_V11))
+    cur.execute('SELECT 1 FROM dwg_verification WHERE tenant_id=%s LIMIT 1', (tid,))
+    if not cur.fetchone():
+        cur.execute(
+            """SELECT drawing_id FROM dwg_drawing
+               WHERE tenant_id=%s AND drawing_no='KDCR 3-13' LIMIT 1""", (tid,))
+        d = cur.fetchone()
+        if d:
+            n = 0
+            for rule, macro_name, warning in VERIFICATIONS_V11:
+                cur.execute(
+                    'SELECT macro_id FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s',
+                    (tid, macro_name))
+                m = cur.fetchone()
+                if m:
+                    cur.execute(
+                        """INSERT INTO dwg_verification (tenant_id, drawing_id, rule_name,
+                           macro_id, warning_message) VALUES (%s,%s,%s,%s,%s)""",
+                        (tid, d[0], rule, m[0], warning))
+                    n += 1
+            logger.info('seed v11 — dwg_verification %d건', n)
+    for key, (en, ja, zh) in MENU_UPDATES_V11.items():
         for locale, text in (('en', en), ('ja', ja), ('zh', zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

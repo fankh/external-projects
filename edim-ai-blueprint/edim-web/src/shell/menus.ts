@@ -36,6 +36,10 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'erp-purchase': { screenId: 'erp-purchase', code: 'M-8-2', title: '구매·발주' },
   'plm-arr': { screenId: 'plm-arr', code: 'M-4-2', title: 'Arrangement Set-Up' },
   'tbx-templet': { screenId: 'tbx-templet', code: 'S-2-3', title: 'Templet 관리' },
+  'code-variant': { screenId: 'code-variant', code: 'S-1-2', title: 'Variant·Constant' },
+  'code-raw': { screenId: 'code-raw', code: 'M-3-2', title: 'Raw Material·GPI' },
+  'plm-material': { screenId: 'plm-material', code: 'M-4-4', title: 'Material' },
+  'plm-quality': { screenId: 'plm-quality', code: 'M-4-5', title: 'Quality' },
 }
 
 export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> = {
@@ -74,8 +78,8 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
             ],
           },
           { id: 'plm-workprocess', label: 'Work Process (S-4-1-2)' },
-          { id: 'plm-material', label: 'Material — 예정' },
-          { id: 'plm-quality', label: 'Quality — 예정' },
+          { id: 'plm-material', label: 'Material (M-4-4)' },
+          { id: 'plm-quality', label: 'Quality (M-4-5)' },
         ],
       },
       {
@@ -96,7 +100,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
               { id: 'code-subcode', label: 'Sub Code 등록 (S-1-1)' },
             ],
           },
-          { id: 'code-raw', label: 'Raw Material·GPI — 예정' },
+          { id: 'code-raw', label: 'Raw Material·GPI (M-3-2)' },
         ],
       },
       {
@@ -107,7 +111,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       {
         id: 'code-data', label: 'Data', children: [
           { id: 'code-datatable', label: '데이터 Table 관리 (M-3-7)' },
-          { id: 'code-variant', label: 'Variant·Constant — 예정' },
+          { id: 'code-variant', label: 'Variant·Constant (S-1-2)' },
         ],
       },
     ],

@@ -551,6 +551,169 @@ def save_templet(name: str, body: TempletSave) -> dict[str, Any]:
     return {"templetId": row[0], "status": "DRAFT"}
 
 
+# ── B13-2 — Variant·Constant (S-1-2) · Raw Material·GPI (M-3-2) · Quality (M-4-5) ──
+
+@router.get("/codes/values")
+def code_values(group: str = "KOF") -> list[dict[str, Any]]:
+    """그룹 슬롯별 값 목록 — code_item + code_item_value (S-1-2)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT i.item_slot, i.item_name, v.value_code, COALESCE(v.value_name,''),
+                      v.approval_status
+               FROM code_item i
+               JOIN code_group g ON g.group_id=i.group_id
+               LEFT JOIN code_item_value v ON v.item_id=i.item_id
+               WHERE i.tenant_id=%s AND g.group_code=%s
+               ORDER BY i.item_slot, v.sort_order""", (tid, group))
+        return [
+            {"slot": r[0], "itemName": r[1], "valueCode": r[2] or "", "valueName": r[3],
+             "status": r[4] or "-"}
+            for r in cur.fetchall()
+        ]
+
+
+class ValueAdd(BaseModel):
+    group: str = "KOF"
+    slot: str
+    valueCode: str
+    valueName: str = ""
+
+
+@router.post("/codes/values", status_code=201, dependencies=[SETUP])
+def add_code_value(request: Request, body: ValueAdd) -> dict[str, Any]:
+    """슬롯 값 추가 — PENDING + 승인 요청 자동 (add_item 패턴)."""
+    if not body.slot.strip() or not body.valueCode.strip():
+        raise HTTPException(422, detail="필수(노란 셀) — Slot·값 코드")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT i.item_id FROM code_item i
+               JOIN code_group g ON g.group_id=i.group_id
+               WHERE i.tenant_id=%s AND g.group_code=%s AND i.item_slot=%s""",
+            (tid, body.group, body.slot.strip().upper()))
+        item = cur.fetchone()
+        if not item:
+            raise HTTPException(404, detail=f"Slot 없음: {body.group}/{body.slot}")
+        cur.execute(
+            "SELECT 1 FROM code_item_value WHERE item_id=%s AND value_code=%s",
+            (item[0], body.valueCode.strip()[:30]))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 값 {body.valueCode} 이미 등록됨")
+        cur.execute(
+            """INSERT INTO code_item_value (tenant_id, item_id, value_code, value_name,
+               approval_status, sort_order)
+               VALUES (%s,%s,%s,NULLIF(%s,''),'PENDING',
+                       (SELECT COALESCE(max(sort_order),0)+1 FROM code_item_value WHERE item_id=%s))
+               RETURNING value_id""",
+            (tid, item[0], body.valueCode.strip()[:30], body.valueName.strip()[:100], item[0]))
+        vid = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
+               request_type, step, requester_id, comment)
+               VALUES (%s,'code_item_value',%s,'CREATE','승인',%s,%s)""",
+            (tid, vid, request.state.user_id,
+             f"슬롯 값 등록 — {body.group}/{body.slot} {body.valueCode}"[:200]))
+    return {"valueId": vid, "status": "PENDING"}
+
+
+@router.get("/materials")
+def materials() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT material_code, material_name, material_type,
+                      density, COALESCE(standard,''), COALESCE(hazard_class,'')
+               FROM mat_material WHERE tenant_id=%s ORDER BY material_id""", (tid,))
+        return [
+            {"code": r[0], "name": r[1], "materialType": r[2],
+             "density": float(r[3]) if r[3] is not None else None,
+             "standard": r[4], "hazard": r[5]}
+            for r in cur.fetchall()
+        ]
+
+
+class MaterialCreate(BaseModel):
+    code: str
+    name: str
+    materialType: str = "STEEL"
+    density: float | None = None
+    standard: str = ""
+    hazard: str = ""
+
+
+@router.post("/materials", status_code=201, dependencies=[SETUP])
+def create_material(body: MaterialCreate) -> dict[str, Any]:
+    if not body.code.strip() or not body.name.strip():
+        raise HTTPException(422, detail="필수(노란 셀) — 재질 코드·명")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT 1 FROM mat_material WHERE tenant_id=%s AND material_code=%s",
+            (tid, body.code.strip()))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 재질 {body.code} 이미 등록됨")
+        cur.execute(
+            """INSERT INTO mat_material (tenant_id, material_code, material_name,
+               material_type, density, standard, hazard_class)
+               VALUES (%s,%s,%s,%s,%s,NULLIF(%s,''),NULLIF(%s,'')) RETURNING material_id""",
+            (tid, body.code.strip()[:30], body.name.strip()[:100],
+             body.materialType.strip()[:20], body.density,
+             body.standard.strip()[:30], body.hazard.strip()[:30]))
+        mid = cur.fetchone()[0]
+    return {"materialId": mid}
+
+
+@router.get("/drawings/{drawing_no}/verifications")
+def drawing_verifications(drawing_no: str) -> list[dict[str, Any]]:
+    """검증 Macro 규칙 — dwg_verification (Quality M-4-5)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT v.rule_name, m.macro_name, v.warning_message, v.is_active
+               FROM dwg_verification v
+               JOIN dwg_drawing d ON d.drawing_id=v.drawing_id
+               JOIN tbx_macro m ON m.macro_id=v.macro_id
+               WHERE v.tenant_id=%s AND d.drawing_no=%s ORDER BY v.verification_id""",
+            (tid, drawing_no))
+        return [
+            {"rule": r[0], "macro": r[1], "warning": r[2], "active": bool(r[3])}
+            for r in cur.fetchall()
+        ]
+
+
+class VerificationAdd(BaseModel):
+    ruleName: str
+    macroName: str
+    warning: str
+
+
+@router.post("/drawings/{drawing_no}/verifications", status_code=201, dependencies=[SETUP])
+def add_drawing_verification(drawing_no: str, body: VerificationAdd) -> dict[str, Any]:
+    if not body.ruleName.strip() or not body.warning.strip():
+        raise HTTPException(422, detail="필수(노란 셀) — 규칙명·경고 문구")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT drawing_id FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s LIMIT 1",
+            (tid, drawing_no))
+        d = cur.fetchone()
+        if not d:
+            raise HTTPException(404, detail=f"도면 없음: {drawing_no}")
+        cur.execute(
+            "SELECT macro_id FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s",
+            (tid, body.macroName.strip()))
+        m = cur.fetchone()
+        if not m:
+            raise HTTPException(404, detail=f"Macro 없음: {body.macroName}")
+        cur.execute(
+            """INSERT INTO dwg_verification (tenant_id, drawing_id, rule_name, macro_id,
+               warning_message) VALUES (%s,%s,%s,%s,%s) RETURNING verification_id""",
+            (tid, d[0], body.ruleName.strip()[:100], m[0], body.warning.strip()[:500]))
+        vid = cur.fetchone()[0]
+    return {"verificationId": vid}
+
+
 # ── SVC-05 Table ──
 @router.get("/tables/tech-data")
 def tech_data(airflow: float = 0, pressure: float = 0) -> list[dict[str, Any]]:

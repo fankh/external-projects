@@ -892,6 +892,83 @@ export const templetService = {
   },
 }
 
+// ── B13-2 — Variant·Constant · Raw Material · Quality ──
+export interface CodeValueRow {
+  slot: string; itemName: string; valueCode: string; valueName: string; status: string
+}
+export interface MaterialRowApi {
+  code: string; name: string; materialType: string
+  density: number | null; standard: string; hazard: string
+}
+export interface VerificationRow {
+  rule: string; macro: string; warning: string; active: boolean
+}
+
+export const codeValueService = {
+  async list(group = 'KOF'): Promise<CodeValueRow[] | null> {
+    try {
+      return await api<CodeValueRow[]>(`/codes/values?group=${encodeURIComponent(group)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  async add(v: { group: string; slot: string; valueCode: string; valueName: string }): Promise<boolean> {
+    try {
+      await api('/codes/values', { method: 'POST', body: JSON.stringify(v) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
+export const materialService = {
+  async list(): Promise<MaterialRowApi[] | null> {
+    try {
+      return await api<MaterialRowApi[]>('/materials')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  async create(m: {
+    code: string; name: string; materialType: string
+    density: number | null; standard: string; hazard: string
+  }): Promise<boolean> {
+    try {
+      await api('/materials', { method: 'POST', body: JSON.stringify(m) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
+export const verificationService = {
+  async list(drawing = 'KDCR 3-13'): Promise<VerificationRow[] | null> {
+    try {
+      return await api<VerificationRow[]>(`/drawings/${encodeURIComponent(drawing)}/verifications`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  async add(drawing: string, v: { ruleName: string; macroName: string; warning: string }): Promise<boolean> {
+    try {
+      await api(`/drawings/${encodeURIComponent(drawing)}/verifications`, {
+        method: 'POST', body: JSON.stringify(v),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const c1Service = {
   /** POST /api/v1/cpq/quote-preview.pdf — 현재 슬롯으로 견적서 즉석 렌더 (blob URL, null=백엔드 불가) */
   async quotePreviewPdf(slotValues: Record<string, string>): Promise<string | null> {
