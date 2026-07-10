@@ -216,8 +216,10 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
   return (
     <div className="fill-col">
       <div className="toolbar">
-        <span className="b ic" title="실행 취소">↶</span>
-        <span className="b ic" title="다시 실행">↷</span>
+        <span className="b ic" title="실행 취소 (Ctrl+Z)"
+          onClick={() => window.dispatchEvent(new CustomEvent('edim-undo'))}>↶</span>
+        <span className="b ic" title="다시 실행 (Ctrl+Y)"
+          onClick={() => window.dispatchEvent(new CustomEvent('edim-redo'))}>↷</span>
         <Sep />
         {CAD_TOOLS.map((tl) => (
           <Btn key={tl} variant={tool === tl ? 'pri' : 'default'} onClick={() => setTool(tl)}>
