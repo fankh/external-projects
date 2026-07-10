@@ -12,6 +12,14 @@ from playwright.sync_api import sync_playwright
 BASE = os.environ.get("BASE", "http://localhost:4173/edim-static/")
 KOREAN = re.compile(r"[가-힣]")
 
+
+def deep_link(module: str, tab: str) -> str:
+    """dev/preview(/edim-static/)=#/{module}/{tab} · 운영(nginx SPA)=/{module}#{tab}"""
+    if "edim-static" in BASE:
+        return f"{BASE}#/{module}/{tab}"
+    origin = BASE.split("/", 3)[0] + "//" + BASE.split("/", 3)[2]
+    return f"{origin}/{module}#{tab}"
+
 # 화면 딥링크: (module, tabId=screenId)
 SCREENS = [
     ("cpq", "cpq-selection"), ("cpq", "cpq-techdata"), ("cpq", "cpq-doctpl"),
@@ -85,7 +93,7 @@ with sync_playwright() as pw:
     page.wait_for_selector(".app .titlebar", timeout=8000)
 
     for module, tab in SCREENS:
-        page.goto(f"{BASE}#/{module}/{tab}", wait_until="load")
+        page.goto(deep_link(module, tab), wait_until="load")
         page.wait_for_selector(".app .titlebar", timeout=8000)
         page.wait_for_timeout(700)   # 화면 로드·번들 적용
         scan(page, tab)
