@@ -1,7 +1,7 @@
 EDIM 백로그 자동 계속 ("do next") — 무인 실행 회차.
 
 절차 (반드시 순서대로):
-1. `git pull` 로 최신화. `git log -1 --format=%ct` 로 마지막 커밋 시각 확인 — **최근 20분 내 커밋이 있으면** 다른 회차/사용자가 진행 중일 수 있으니 "skip — 최근 커밋 진행 중" 한 줄만 출력하고 종료하라.
+1. `git status --porcelain` 확인 — **미커밋 변경이 있으면** 사용자/다른 회차가 작업 중이므로 "skip — 워크트리 사용 중" 한 줄만 출력하고 종료하라. 깨끗하면 `git pull` 로 최신화. (동시 실행은 러너의 lock 파일이 별도로 차단한다.)
 2. `docs/EDIM_미구현기능목록.md` 를 읽고 **다음 미체크 배치**(B1~B15 순서, 🔶 표시는 잔여 항목부터)를 선택한다.
 3. 그 배치를 **통째로** 구현한다:
    - 백엔드: `backend/app/routers/edim.py` + `backend/app/services/` (기존 패턴 준수 — require_auth/min_level, `_conn()` 은 autocommit, 정직한 4xx detail)
