@@ -856,14 +856,16 @@ def drawing_verifications(drawing_no: str) -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT v.rule_name, m.macro_name, v.warning_message, v.is_active
+            """SELECT v.rule_name, m.macro_name, v.warning_message, v.is_active,
+                      v.verification_id
                FROM dwg_verification v
                JOIN dwg_drawing d ON d.drawing_id=v.drawing_id
                JOIN tbx_macro m ON m.macro_id=v.macro_id
                WHERE v.tenant_id=%s AND d.drawing_no=%s ORDER BY v.verification_id""",
             (tid, drawing_no))
         return [
-            {"rule": r[0], "macro": r[1], "warning": r[2], "active": bool(r[3])}
+            {"rule": r[0], "macro": r[1], "warning": r[2], "active": bool(r[3]),
+             "verificationId": r[4]}
             for r in cur.fetchall()
         ]
 
