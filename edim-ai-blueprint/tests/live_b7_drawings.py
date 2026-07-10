@@ -4,7 +4,7 @@
 도면 대장 UI 조회 → 등록(+중복 409) → Rev 올리기 → Supersedure → 코드 상세
 도면 열기(CAD)·승인 이력 실조회 왕복 검증.
 실행: PYTHONUTF8=1 py tests/live_b7_drawings.py
-테스트 행 정리는 psql 로 별도 수행 (TEST-B7-% 도면·supersedure·history).
+정리: 스위트 말미에 자체 수행 (approvals decide + DELETE /drawings/TEST-B7-001).
 """
 from playwright.sync_api import sync_playwright
 
@@ -116,6 +116,13 @@ with sync_playwright() as pw:
     hist = api(p, "GET", "/history?limit=10")
     acts = {h["action"] for h in hist}
     ok("sys_history CREATE·REV_UP 기록", "REV_UP" in acts and "CREATE" in acts)
+
+    # 정리 — PENDING 잔존 시 다음 실행이 409(uq_approval_pending), TEST 도면 잔존 시 등록 중복 409
+    done = api(p, "POST", f"/approvals/{aid['approvalId']}/decide",
+               {"approve": True, "comment": "B7 검증 자동 정리"}, status_only=True)
+    ok("승인 요청 정리 (decide)", done == 200)
+    gone = api(p, "DELETE", f"/drawings/{TNO}", status_only=True)
+    ok("TEST 도면 정리 (DELETE /drawings — DRAFT 한정)", gone == 200)
 
     b.close()
     print(f"\nlive B7: {n}/{n} pass")

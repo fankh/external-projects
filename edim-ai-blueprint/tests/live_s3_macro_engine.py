@@ -64,7 +64,7 @@ with sync_playwright() as pw:
     print('PASS Studio error blocks approval (TESTED gate)')
 
     # Design Editor — A=700 → B=756, D=Table12(B,710)=760, K=1134
-    p.locator('.menubar span.mod', has_text='PLM').click()
+    p.locator('.titlebar span.mod', has_text='PLM').click()   # v5.0: 모듈 링크가 헤더로 이동
     p.locator('.tn', has_text='Design Editor (S-4-1-1)').click()
     p.locator('td span:visible', has_text='670').dblclick()
     p.locator('td input:visible').fill('700')

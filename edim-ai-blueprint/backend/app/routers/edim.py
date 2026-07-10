@@ -2695,6 +2695,32 @@ def create_drawing(request: Request, body: DrawingCreate) -> dict[str, Any]:
     return {"drawingId": drawing_id, "rev": "A", "status": "DRAFT"}
 
 
+@router.delete("/drawings/{drawing_no}", dependencies=[SETUP])
+def delete_drawing(drawing_no: str, request: Request) -> dict[str, Any]:
+    """도면 삭제 — DRAFT 한정 (발행/대체 도면 보호). Rev·Supersedure 이력 함께 정리."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT drawing_id, status FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s",
+            (tid, drawing_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"도면 없음: {drawing_no}")
+        did, status = row
+        if status != "DRAFT":
+            raise HTTPException(409, detail=f"DRAFT 도면만 삭제 가능 (현재 {status})")
+        cur.execute(
+            "DELETE FROM dwg_supersedure WHERE old_drawing_id=%s OR new_drawing_id=%s",
+            (did, did))
+        cur.execute("DELETE FROM dwg_revision WHERE drawing_id=%s", (did,))
+        cur.execute("DELETE FROM dwg_drawing WHERE drawing_id=%s", (did,))
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'dwg_drawing',%s,'DELETE',%s,%s)""",
+            (tid, did, request.state.user_id, json.dumps({"drawingNo": drawing_no})))
+    return {"deleted": drawing_no}
+
+
 @router.get("/drawings/{drawing_no}/revisions")
 def drawing_revisions(drawing_no: str) -> list[dict[str, Any]]:
     """Rev 이력 — dwg_revision (최신 우선)."""
