@@ -97,6 +97,7 @@ def run_seed() -> None:
             seed_v9(cur, row[0])
             seed_v10(cur, row[0])
             seed_v11(cur, row[0])
+            seed_v12(cur, row[0])
             return
 
         cur.execute(
@@ -203,6 +204,7 @@ def run_seed() -> None:
         seed_v9(cur, tid)
         seed_v10(cur, tid)
         seed_v11(cur, tid)
+        seed_v12(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -1523,3 +1525,66 @@ def seed_v11(cur, tid: int) -> None:
                 cur.execute(
                     """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
                        VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v12 — B14: 역할·권한 매트릭스 + Hierarchy 주소 체계 ──
+
+ROLES_V12 = [
+    ('PLATFORM', '플랫폼 관리 — 시스템 정의 변경'),
+    ('ADMIN', '관리자 — 사용자·권한·잠금해제'),
+    ('SETUP', '설계 Set-up — 코드·도면·Macro 편집'),
+    ('GENERAL', '일반 — 조회·업무 처리'),
+]
+
+# (role, screenId, action) — WRITE ⊃ READ
+PERMS_V12 = [
+    ('PLATFORM', '*', 'WRITE'),
+    ('ADMIN', 'erp-access', 'WRITE'), ('ADMIN', 'com-approval', 'WRITE'),
+    ('ADMIN', 'erp-dashboard', 'READ'), ('ADMIN', 'cpq-selection', 'READ'),
+    ('SETUP', 'cpq-selection', 'WRITE'), ('SETUP', 'plm-design', 'WRITE'),
+    ('SETUP', 'code-subcode', 'WRITE'), ('SETUP', 'code-datatable', 'WRITE'),
+    ('SETUP', 'tbx-macro', 'WRITE'), ('SETUP', 'erp-price', 'WRITE'),
+    ('SETUP', 'com-approval', 'WRITE'), ('SETUP', 'erp-access', 'READ'),
+    ('GENERAL', 'cpq-selection', 'READ'), ('GENERAL', 'erp-dashboard', 'READ'),
+    ('GENERAL', 'com-tasks', 'WRITE'), ('GENERAL', 'com-folder', 'READ'),
+]
+
+# (tree_type, name, symbol, address, parent_address)
+HIERARCHY_V12 = [
+    ('PRODUCT', 'Code', 'C', '/C', None),
+    ('PRODUCT', 'Engineering', 'ENG', '/C/ENG', '/C'),
+    ('PRODUCT', 'Fan', 'FAN', '/C/ENG/FAN', '/C/ENG'),
+    ('PRODUCT', 'Macro', 'M', '/M', None),
+    ('PRODUCT', 'ENG Macro', 'ENG', '/M/ENG', '/M'),
+    ('PRODUCT', 'Fan Macro', 'FAN', '/M/ENG/FAN', '/M/ENG'),
+    ('GENERAL_DB', 'Table', 'T', '/T', None),
+    ('GENERAL_DB', 'ENG Table', 'ENG', '/T/ENG', '/T'),
+    ('GENERAL_DB', 'Variant', 'VAR', '/T/ENG/VARIANT', '/T/ENG'),
+]
+
+
+def seed_v12(cur, tid: int) -> None:
+    cur.execute('SELECT 1 FROM sys_role WHERE tenant_id=%s LIMIT 1', (tid,))
+    if not cur.fetchone():
+        role_ids = {}
+        for name, desc in ROLES_V12:
+            cur.execute(
+                """INSERT INTO sys_role (tenant_id, role_name, description)
+                   VALUES (%s,%s,%s) RETURNING role_id""", (tid, name, desc))
+            role_ids[name] = cur.fetchone()[0]
+        for role, key, action in PERMS_V12:
+            cur.execute(
+                """INSERT INTO sys_role_permission (role_id, resource_type, resource_key, action)
+                   VALUES (%s,'MENU',%s,%s)""", (role_ids[role], key, action))
+        logger.info('seed v12 — sys_role %d + permission %d', len(ROLES_V12), len(PERMS_V12))
+    cur.execute('SELECT 1 FROM sys_hierarchy WHERE tenant_id=%s LIMIT 1', (tid,))
+    if not cur.fetchone():
+        ids = {}
+        for ttype, name, symbol, address, parent in HIERARCHY_V12:
+            cur.execute(
+                """INSERT INTO sys_hierarchy (tenant_id, parent_id, tree_type, node_name,
+                   symbol, address, approval_status)
+                   VALUES (%s,%s,%s,%s,%s,%s,'APPROVED') RETURNING hierarchy_id""",
+                (tid, ids.get(parent), ttype, name, symbol, address))
+            ids[address] = cur.fetchone()[0]
+        logger.info('seed v12 — sys_hierarchy %d', len(HIERARCHY_V12))

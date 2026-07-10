@@ -1,8 +1,8 @@
 /** M-14-6 사용자·권한 관리 (W-23, 슬라이드 57·72) — 레벨 4단계 × 리소스 4유형 ×
  *  액션 4종 (권한승인정의서 모델) · 감사 기록. */
 import { useEffect, useMemo, useState } from 'react'
-import { AUDIT_LOG, ROLE_MATRIX, type UserRow } from '../../api/mock/dataMore'
-import { userService } from '../../api/services'
+import { AUDIT_LOG, type UserRow } from '../../api/mock/dataMore'
+import { roleService, userService, type RoleRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -23,6 +23,39 @@ export function AccessControlScreen({ active }: ScreenProps) {
       setSelLogin(rows[0]?.login ?? null)
     })
   }, [])
+
+  // 권한 매트릭스 실데이터 (B14 — sys_role/sys_role_permission)
+  const [roles, setRoles] = useState<RoleRow[]>([])
+  const [rbacOffline, setRbacOffline] = useState(false)
+  const loadRoles = () => void roleService.list().then((r) => {
+    if (r === null) setRbacOffline(true)
+    else { setRbacOffline(false); setRoles(r) }
+  })
+  useEffect(() => { loadRoles() }, [])
+
+  const RESOURCES = [
+    'cpq-selection', 'plm-design', 'code-subcode', 'code-datatable',
+    'tbx-macro', 'erp-price', 'com-approval', 'erp-access',
+  ]
+  const CYCLE: Record<string, string> = { NONE: 'READ', READ: 'WRITE', WRITE: 'NONE' }
+  const cellOf = (role: RoleRow, key: string): string =>
+    (role.permissions['*'] === 'WRITE' ? '*' : (role.permissions[key] ?? 'NONE'))
+  const clickCell = (role: RoleRow, key: string) => {
+    if (role.permissions['*'] === 'WRITE') {
+      shell.setStatusMsg(`${role.name} — 전체 권한(와일드카드) 역할은 셀 편집 불가`)
+      return
+    }
+    const next = CYCLE[cellOf(role, key)]
+    void roleService.setPermissions(role.name, { [key]: next })
+      .then((ok) => {
+        if (!ok) {
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>권한 변경 불가 — 백엔드 연결 필요</span>)
+          return
+        }
+        loadRoles()
+        shell.setStatusMsg(`권한 변경 ✓ — ${role.name}/${key} → ${next} (sys_role_permission · PERM_CHANGE 감사)`)
+      })
+  }
 
   const rows = useMemo(
     () => users.filter((u) => dept === '전체' || u.dept === dept),
@@ -105,19 +138,33 @@ export function AccessControlScreen({ active }: ScreenProps) {
             .replace('{n}', sel?.role ?? '—')} noPad>
             <table className="g">
               <thead>
-                <tr><th>{t('access.resource', '리소스')}</th><th style={{ width: 50 }}>VIEW</th><th style={{ width: 50 }}>EDIT</th><th style={{ width: 62 }}>APPROVE</th><th style={{ width: 52 }}>SETUP</th></tr>
+                <tr>
+                  <th>{t('access.resource', '리소스')}</th>
+                  {roles.map((r) => <th key={r.name} style={{ width: 62 }}>{r.name}</th>)}
+                </tr>
               </thead>
               <tbody>
-                {ROLE_MATRIX.map((m) => (
-                  <tr key={m.resource}>
-                    <td className="code">{m.resource}</td>
-                    {[m.view, m.edit, m.approve, m.setup].map((v, i) => (
-                      <td key={i} className="c">
-                        <input type="checkbox" defaultChecked={v}
-                          aria-label={`${m.resource}-${i}`}
-                          onChange={() => shell.setStatusMsg('권한 변경 — 즉시 반영 + 감사 기록 (SYS-005)')} />
-                      </td>
-                    ))}
+                {rbacOffline ? (
+                  <tr><td colSpan={roles.length + 1} style={{ padding: 10, color: 'var(--txt-mute)' }}>
+                    백엔드 연결 필요 — 권한 매트릭스는 실DB(sys_role_permission)에서만 표시됩니다
+                  </td></tr>
+                ) : RESOURCES.map((key) => (
+                  <tr key={key}>
+                    <td className="code">{key}</td>
+                    {roles.map((r) => {
+                      const v = cellOf(r, key)
+                      return (
+                        <td key={r.name} className="c" data-perm={`${r.name}:${key}`}
+                          style={{ cursor: v === '*' ? 'default' : 'pointer', userSelect: 'none' }}
+                          title={v === '*' ? '전체 권한' : '클릭 = NONE→READ→WRITE 순환'}
+                          onClick={() => clickCell(r, key)}>
+                          {v === '*' ? <Chip tone="info">ALL</Chip>
+                            : v === 'WRITE' ? <Chip tone="ok">W</Chip>
+                              : v === 'READ' ? <Chip tone="warn">R</Chip>
+                                : <span style={{ color: 'var(--txt-mute)' }}>—</span>}
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))}
               </tbody>

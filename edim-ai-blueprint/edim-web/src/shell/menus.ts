@@ -40,6 +40,8 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'code-raw': { screenId: 'code-raw', code: 'M-3-2', title: 'Raw Material·GPI' },
   'plm-material': { screenId: 'plm-material', code: 'M-4-4', title: 'Material' },
   'plm-quality': { screenId: 'plm-quality', code: 'M-4-5', title: 'Quality' },
+  'erp-company-master': { screenId: 'erp-company-master', code: 'M-14-2', title: '공급처·거래처' },
+  'code-hierarchy': { screenId: 'code-hierarchy', code: 'M-3-1', title: 'Hierarchy 주소' },
 }
 
 export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> = {
@@ -110,6 +112,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       },
       {
         id: 'code-data', label: 'Data', children: [
+          { id: 'code-hierarchy', label: 'Hierarchy 주소 (M-3-1)' },
           { id: 'code-datatable', label: '데이터 Table 관리 (M-3-7)' },
           { id: 'code-variant', label: 'Variant·Constant (S-1-2)' },
         ],
@@ -137,6 +140,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       {
         id: 'erp-company', label: 'Company Info.', children: [
           { id: 'erp-dashboard', label: 'Dashboard (M-14-4)' },
+          { id: 'erp-company-master', label: '공급처·거래처 (M-14-2)' },
           { id: 'erp-process', label: 'Process Set-up (M-14-7)' },
           { id: 'erp-access', label: '사용자·권한 (M-14-6)' },
         ],

@@ -714,6 +714,126 @@ def add_drawing_verification(drawing_no: str, body: VerificationAdd) -> dict[str
     return {"verificationId": vid}
 
 
+# ── B14 — 마스터 데이터 (com_company) · RBAC 동적화 (sys_role) · Hierarchy ──
+
+@router.get("/companies")
+def companies() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT company_name, company_type, COALESCE(nation,''),
+                      COALESCE(evaluation_grade,''), COALESCE(payment_terms,'')
+               FROM com_company WHERE tenant_id=%s ORDER BY company_id""", (tid,))
+        return [
+            {"name": r[0], "companyType": r[1], "nation": r[2], "grade": r[3], "terms": r[4]}
+            for r in cur.fetchall()
+        ]
+
+
+class CompanyCreate(BaseModel):
+    name: str
+    companyType: str = "SUPPLIER"
+    nation: str = ""
+    grade: str = ""
+    terms: str = ""
+
+
+@router.post("/companies", status_code=201, dependencies=[SETUP])
+def create_company(body: CompanyCreate) -> dict[str, Any]:
+    if not body.name.strip():
+        raise HTTPException(422, detail="필수(노란 셀) — 업체명")
+    ctype = body.companyType.strip().upper()
+    if ctype not in ("CUSTOMER", "SUPPLIER", "PARTNER", "BANK"):
+        raise HTTPException(422, detail=f"유형 오류: {body.companyType}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT 1 FROM com_company WHERE tenant_id=%s AND company_name=%s",
+            (tid, body.name.strip()))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 업체 {body.name} 이미 등록됨")
+        cur.execute(
+            """INSERT INTO com_company (tenant_id, company_name, company_type, nation,
+               evaluation_grade, payment_terms)
+               VALUES (%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''),NULLIF(%s,'')) RETURNING company_id""",
+            (tid, body.name.strip()[:200], ctype, body.nation.strip()[:50],
+             body.grade.strip()[:10], body.terms.strip()[:200]))
+        cid = cur.fetchone()[0]
+    return {"companyId": cid}
+
+
+@router.get("/roles")
+def roles() -> list[dict[str, Any]]:
+    """역할 + 권한 매트릭스 — sys_role/sys_role_permission (M-14-6 실데이터)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT r.role_id, r.role_name, COALESCE(r.description,'')
+               FROM sys_role r WHERE r.tenant_id=%s ORDER BY r.role_id""", (tid,))
+        out = [{"name": r[1], "description": r[2], "_id": r[0]} for r in cur.fetchall()]
+        for role in out:
+            cur.execute(
+                """SELECT resource_key, action FROM sys_role_permission
+                   WHERE role_id=%s ORDER BY resource_key""", (role["_id"],))
+            perms: dict[str, str] = {}
+            for key, action in cur.fetchall():
+                # WRITE 가 READ 를 포함 — 셀 표기는 최상위 권한
+                if perms.get(key) != "WRITE":
+                    perms[key] = action
+            role["permissions"] = perms
+            del role["_id"]
+    return out
+
+
+class RolePermissions(BaseModel):
+    permissions: dict[str, str] = {}   # resource_key(screenId) -> 'READ'|'WRITE'|'NONE'
+
+
+@router.put("/roles/{role_name}/permissions", dependencies=[SETUP])
+def set_role_permissions(role_name: str, request: Request, body: RolePermissions) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT role_id FROM sys_role WHERE tenant_id=%s AND role_name=%s",
+            (tid, role_name))
+        role = cur.fetchone()
+        if not role:
+            raise HTTPException(404, detail=f"역할 없음: {role_name}")
+        n = 0
+        for key, action in body.permissions.items():
+            act = action.strip().upper()
+            cur.execute(
+                "DELETE FROM sys_role_permission WHERE role_id=%s AND resource_key=%s",
+                (role[0], key[:200]))
+            if act in ("READ", "WRITE"):
+                cur.execute(
+                    """INSERT INTO sys_role_permission (role_id, resource_type, resource_key, action)
+                       VALUES (%s,'MENU',%s,%s)""", (role[0], key[:200], act))
+            n += 1
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'sys_role_permission',%s,'PERM_CHANGE',%s,%s)""",
+            (tid, role[0], request.state.user_id, json.dumps(body.permissions)))
+    return {"role": role_name, "updated": n}
+
+
+@router.get("/hierarchy")
+def hierarchy(treeType: str = "PRODUCT") -> list[dict[str, Any]]:
+    """Hierarchy 주소 체계 — tbx_macro/tbl 의 hierarchy_address 원천 (M-3-1)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT hierarchy_id, parent_id, node_name, COALESCE(symbol,''),
+                      address, approval_status
+               FROM sys_hierarchy WHERE tenant_id=%s AND tree_type=%s
+               ORDER BY sort_order, hierarchy_id""", (tid, treeType.strip().upper()))
+        return [
+            {"id": r[0], "parentId": r[1], "name": r[2], "symbol": r[3],
+             "address": r[4], "status": r[5]}
+            for r in cur.fetchall()
+        ]
+
+
 # ── SVC-05 Table ──
 @router.get("/tables/tech-data")
 def tech_data(airflow: float = 0, pressure: float = 0) -> list[dict[str, Any]]:

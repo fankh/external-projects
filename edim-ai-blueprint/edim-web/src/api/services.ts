@@ -969,6 +969,72 @@ export const verificationService = {
   },
 }
 
+// ── B14 — 마스터 데이터 · RBAC 동적화 · Hierarchy ──
+export interface CompanyRow {
+  name: string; companyType: string; nation: string; grade: string; terms: string
+}
+export interface RoleRow {
+  name: string; description: string; permissions: Record<string, string>
+}
+export interface HierarchyNode {
+  id: number; parentId: number | null; name: string
+  symbol: string; address: string; status: string
+}
+
+export const companyService = {
+  async list(): Promise<CompanyRow[] | null> {
+    try {
+      return await api<CompanyRow[]>('/companies')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  async create(c: CompanyRow): Promise<boolean> {
+    try {
+      await api('/companies', { method: 'POST', body: JSON.stringify(c) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
+export const roleService = {
+  async list(): Promise<RoleRow[] | null> {
+    try {
+      return await api<RoleRow[]>('/roles')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** PUT /api/v1/roles/{name}/permissions — 매트릭스 셀 저장 (true=영속) */
+  async setPermissions(role: string, permissions: Record<string, string>): Promise<boolean> {
+    try {
+      await api(`/roles/${encodeURIComponent(role)}/permissions`, {
+        method: 'PUT', body: JSON.stringify({ permissions }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
+export const hierarchyService = {
+  async list(treeType = 'PRODUCT'): Promise<HierarchyNode[] | null> {
+    try {
+      return await api<HierarchyNode[]>(`/hierarchy?treeType=${encodeURIComponent(treeType)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
 export const c1Service = {
   /** POST /api/v1/cpq/quote-preview.pdf — 현재 슬롯으로 견적서 즉석 렌더 (blob URL, null=백엔드 불가) */
   async quotePreviewPdf(slotValues: Record<string, string>): Promise<string | null> {
