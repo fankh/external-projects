@@ -101,10 +101,8 @@ with sync_playwright() as pw:
     ok("코드 승인 요청 등록", aid.get("status") == "PENDING")
     hist_rows = api(p, "GET", "/codes/KDCR 3-13/approval-history")
     ok("approval-history API 에 B7 라벨", any("B7 검증" in r["note"] for r in hist_rows))
-    p.locator(".titlebar span.mod", has_text="CPQ").click()
-    p.locator(".tn", has_text="제품 선정 (C-1)").click()
-    p.locator("td.code", has_text="KDCR 3-13").first.wait_for(timeout=8000)
-    p.locator("td.code", has_text="KDCR 3-13").first.dblclick()
+    # 툴바 Referencers = KDCR 3-13 코드 상세 직행
+    p.locator(".toolbar .b", has_text="Referencers").click()
     p.locator(".mdi .t.on", has_text="상세").wait_for(timeout=5000)
     p.locator(".gb", has_text="승인 이력").locator("tr", has_text="승인 요청").first.wait_for(timeout=5000)
     ok("승인 이력 실조회 (sys_approval_request)", True)

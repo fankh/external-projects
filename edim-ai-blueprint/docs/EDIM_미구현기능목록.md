@@ -57,13 +57,15 @@
 - [x] 알림 벨: 모두 읽음(서버 미읽음 0 검증) · 알림 클릭 → 유형별 화면 탭 이동 (승인함/업무함/Dashboard)
 - [x] 이벤트 상세 = 실 이벤트 필드 + 재배정/에스컬 기록은 sys_history (mock history 는 시연용 전후 공정 표시로 유지)
 
-### B7. PLM 도면 대장 — 미사용 핵심 도메인 개방
-dwg_drawing·dwg_revision·dwg_approval·dwg_supersedure 테이블이 전부 잠자고 있다.
-- [ ] `GET/POST /drawings` — 도면 대장 목록·등록 (dwg_drawing)
-- [ ] `GET /drawings/{no}/revisions` + Rev 올리기 (dwg_revision, 현재 Rev.B → C)
-- [ ] Supersedure 실데이터: 툴바/코드 상세 Supersedure 버튼 → Rev 대체 이력 화면
-- [ ] 코드 상세 "도면 열기" = 해당 도면 CAD 뷰어 (dwg_file 연결)
-- [ ] 코드 상세 승인 이력 = sys_approval_request 실조회 (CODE_APPROVAL_HIST mock 대체)
+### B7. PLM 도면 대장 — 미사용 핵심 도메인 개방 ✅ (v6.5, 2026-07-10)
+dwg_drawing·dwg_revision·dwg_supersedure 개방 — 신규 화면 도면 대장(M-4-1, PLM Design management).
+- [x] `GET/POST /drawings` — 도면 대장 목록·등록 (dwg_drawing + Rev.A 자동, 중복 409 — 라이브 검증)
+- [x] `GET/POST /drawings/{no}/revisions` — Rev 이력 + Rev 올리기 (dwg_revision, A→B 라이브 검증; 시드 v8 = KDCR 3-13 Rev A/B)
+- [x] Supersedure 실데이터: `GET/POST /drawings/supersedures` — 구도면 KDCR 3-12→3-13 시드 + 대체 등록 실동작, 툴바/코드 상세 Supersedure 버튼 = 도면 대장 화면
+- [x] 코드 상세 "도면 열기" = 연결 DXF CAD 뷰어 (dwg_file.drawing_id — Run 파이프라인 DXF 자동 연결 + 시드 v8 소급 연결)
+- [x] 코드 상세 승인 이력 = `GET /codes/{code}/approval-history` (sys_approval_request 실조회, 백엔드 불가 시에만 MOCK 칩)
+- [x] 테스트: tests/live_b7_drawings.py 17/17 (등록→409→Rev up→Supersedure→승인 이력→CAD·sys_history)
+- dwg_approval 테이블은 범용 sys_approval_request 로 갈음 (도면 승인도 POST /approvals 사용) — 별도 개방 불요
 
 ### B8. 보안 강화 배치
 - [ ] `PUT /users/me/password` + 타이틀바 사용자 메뉴에 비밀번호 변경 다이얼로그
