@@ -1,8 +1,11 @@
 /** EDIM Run (디자인시안 b05) — 단계 그리드 + 진행률 → 산출물·로그 2그리드. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { cpqService, fileService } from '../../api/services'
+import {
+  costService, cpqService, fileService,
+  type PcrResult, type QuotationRow, type RunCostRow,
+} from '../../api/services'
 import type { RunLogEntry, RunOutput, RunResult, RunStep } from '../../api/types'
-import { Btn, Chip, GroupBox } from '../../components/controls'
+import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
@@ -164,6 +167,127 @@ export function RunScreen({ active, tab }: ScreenProps) {
           <DenseGrid columns={logCols} rows={result?.logs ?? []} rowKey={(_, i) => i} mono />
         </GroupBox>
       </div>
+      {done && result?.runId ? <CostPanel runId={result.runId} /> : null}
+    </div>
+  )
+}
+
+const CALC_LABEL: Record<string, string> = {
+  MATERIAL: '재료비', MANUFACTURING: '제조비', DIRECT: '직접경비',
+}
+
+/** B18 — 원가 상세(cst_calc) → PCR 수익성 → 견적 확정(cst_quotation) 패널 */
+function CostPanel(props: { runId: number }) {
+  const shell = useShell()
+  const { t } = useI18n()
+  const [costs, setCosts] = useState<RunCostRow[] | null>(null)
+  const [bt, setBt] = useState('PRE_SALES')
+  const [pcr, setPcr] = useState<PcrResult | null>(null)
+  const [quotes, setQuotes] = useState<QuotationRow[] | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    void costService.runCosts(props.runId).then(setCosts)
+    void costService.quotationList().then(setQuotes)
+  }, [props.runId])
+
+  const makePcr = () => {
+    setBusy(true)
+    void costService.pcrCreate(bt)
+      .then((r) => {
+        setPcr(r)
+        shell.setStatusMsg(
+          `PCR ✓ — ${bt} 매출 ${(r.revenue / 1000).toLocaleString()}K · 기여마진 ${(r.contributionMargin / 1000).toLocaleString()}K · EBIT ${(r.ebit / 1000).toLocaleString()}K (cst_pcr)`)
+      })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+      .finally(() => setBusy(false))
+  }
+
+  const makeQuote = () => {
+    setBusy(true)
+    void costService.quotationCreate(bt)
+      .then((r) => {
+        shell.setStatusMsg(`견적 확정 ✓ — ${r.quotationNo} · ${(r.total / 1000).toLocaleString()}K (cst_quotation)`)
+        void costService.quotationList().then(setQuotes)
+      })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+      .finally(() => setBusy(false))
+  }
+
+  const openPdf = (q: QuotationRow) => {
+    void costService.quotationPdfUrl(q.quotationId)
+      .then((url) => window.open(url, '_blank'))
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
+  return (
+    <div data-cost-panel style={{ display: 'flex', gap: 6, flex: 'none', maxHeight: 190 }}>
+      <GroupBox title={t('run.costTitle', '원가 상세 (cst_calc)')} noPad style={{ flex: 1, overflow: 'auto' }}
+        right={costs ? <Chip tone="ok">3분류</Chip> : <Chip tone="warn">{t('run.noCosts', '미적재')}</Chip>}>
+        {costs ? (
+          <table className="g">
+            <thead><tr><th>{t('run.calcType', '분류')}</th><th>{t('run.calcLines', '내역')}</th>
+              <th style={{ textAlign: 'right' }}>{t('run.calcTotal', '합계')}</th></tr></thead>
+            <tbody>
+              {costs.map((c) => (
+                <tr key={c.calcType} title={c.lines.map((ln) => JSON.stringify(ln)).join('\n')}>
+                  <td className="c">{CALC_LABEL[c.calcType] ?? c.calcType}</td>
+                  <td className="c">{c.lines.length}건</td>
+                  <td className="num">{c.total.toLocaleString()}</td>
+                </tr>
+              ))}
+              <tr>
+                <td className="c" colSpan={2}><b>{t('run.directTotal', '직접비 계')}</b></td>
+                <td className="num"><b>{costs.reduce((s, c) => s + c.total, 0).toLocaleString()}</b></td>
+              </tr>
+            </tbody>
+          </table>
+        ) : (
+          <div style={{ padding: 8, fontSize: 11, color: 'var(--txt-mute)' }}>
+            {t('run.noCostsHint', '원가 상세 없음 — 이 Run 실행분부터 cst_calc 적재')}
+          </div>
+        )}
+      </GroupBox>
+      <GroupBox title={t('run.pcrTitle', 'PCR 수익성 → 견적 (cst_pcr·cst_quotation)')} noPad
+        style={{ flex: 1.3, overflow: 'auto' }}>
+        <div style={{ display: 'flex', gap: 4, padding: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Combo width={100} value={bt}
+            options={[{ value: 'PRE_SALES', label: 'Pre-Sales' }, { value: 'MAIN', label: 'Main' }]}
+            onChange={setBt} />
+          <Btn disabled={busy || !costs} onClick={makePcr}>{t('run.pcrCreate', 'PCR 생성')}</Btn>
+          <Btn variant="pri" disabled={busy} onClick={makeQuote}>{t('run.quoteConfirm', '견적 확정')}</Btn>
+          {pcr ? (
+            <span data-pcr-result style={{ fontSize: 10.5 }}>
+              {t('run.pcrMargin', '기여마진')} <b>{(pcr.contributionMargin / 1000).toLocaleString()}K</b>
+              {' · '}EBIT <b style={{ color: pcr.ebit >= 0 ? 'var(--ok)' : 'var(--err)' }}>
+                {(pcr.ebit / 1000).toLocaleString()}K</b>
+            </span>
+          ) : null}
+        </div>
+        {quotes && quotes.length ? (
+          <table className="g" data-quote-list>
+            <thead><tr><th>No.</th><th>{t('run.quoteTotal', '금액')}</th>
+              <th>{t('dwg.dateCol', '일자')}</th><th>PDF</th></tr></thead>
+            <tbody>
+              {quotes.slice(0, 4).map((q) => (
+                <tr key={q.quotationId}>
+                  <td className="c" style={{ fontFamily: 'Consolas, monospace' }}>{q.quotationNo}</td>
+                  <td className="num">{q.total.toLocaleString()}</td>
+                  <td className="c">{q.date}</td>
+                  <td className="c">
+                    <span className="b" style={{ height: 18, fontSize: 10 }}
+                      onClick={() => openPdf(q)}>{t('common.preview', '미리보기')}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div style={{ padding: '0 8px 6px', fontSize: 10.5, color: 'var(--txt-mute)' }}>
+            {t('run.noQuotes', '확정 견적 없음 — PCR 생성 후 견적 확정')}
+          </div>
+        )}
+      </GroupBox>
     </div>
   )
 }

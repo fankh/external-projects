@@ -1344,6 +1344,87 @@ export const drawingLedgerService = {
   },
 }
 
+// ── B18 원가·수익성 — cst_calc·cst_pcr·cst_quotation ──
+
+export interface RunCostRow {
+  calcType: 'MATERIAL' | 'MANUFACTURING' | 'DIRECT'
+  lines: Record<string, unknown>[]
+  total: number
+}
+
+export interface PcrResult {
+  pcrId: number
+  businessType: string
+  revenue: number
+  directCostTotal: number
+  contributionMargin: number
+  ebit: number
+}
+
+export interface QuotationRow {
+  quotationId: number
+  quotationNo: string
+  total: number
+  currency: string
+  status: string
+  date: string
+  project: string
+  customer: string
+}
+
+export const costService = {
+  /** GET /api/v1/cpq/runs/{id}/costs — Run 원가 3분류 (null=백엔드 불가/미적재) */
+  async runCosts(runId: number): Promise<RunCostRow[] | null> {
+    try {
+      return await api<RunCostRow[]>(`/cpq/runs/${runId}/costs`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      if (e instanceof Error && e.message.includes('원가 상세 없음')) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/cost/pcr — PCR upsert (쓰기 정직) */
+  async pcrCreate(businessType: string, marginRate = 0.35): Promise<PcrResult> {
+    try {
+      return await api<PcrResult>('/cost/pcr', {
+        method: 'POST', body: JSON.stringify({ businessType, marginRate }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — PCR 을 생성할 수 없습니다')
+      throw e
+    }
+  },
+  /** POST /api/v1/cost/quotations — 견적 확정 (PCR 필요 409) */
+  async quotationCreate(businessType: string): Promise<{ quotationNo: string; total: number }> {
+    try {
+      return await api('/cost/quotations', {
+        method: 'POST', body: JSON.stringify({ businessType }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — 견적을 확정할 수 없습니다')
+      throw e
+    }
+  },
+  /** GET /api/v1/cost/quotations */
+  async quotationList(): Promise<QuotationRow[] | null> {
+    try {
+      return await api<QuotationRow[]>('/cost/quotations')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/cost/quotations/{id}/render.pdf — 인증 fetch → blob URL */
+  async quotationPdfUrl(quotationId: number): Promise<string> {
+    const res = await fetch(`${API}/cost/quotations/${quotationId}/render.pdf`, {
+      signal: AbortSignal.timeout(30_000),
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) throw new Error(`견적서 렌더 실패 (HTTP ${res.status})`)
+    return URL.createObjectURL(await res.blob())
+  },
+}
+
 // ── B17 부품 마스터 — prt_part·dwg_bom·prt_supplier_code_map·product_code_item ──
 
 export interface PartRow {

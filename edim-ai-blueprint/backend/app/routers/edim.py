@@ -2715,6 +2715,9 @@ async def _advance(run_id: int, tid: int, selection_id: int,
             for w in r.warn:
                 log(f"warn {w}", "warn")
             log(f"pricing total {r.total_k:,.0f}K · resolve {r.resolved}/{len(r.items)}")
+            # 원가 상세 영속 (B18) — cst_calc 3분류 (재료비/제조비/직접경비)
+            _write_cst_calc(cur, tid, run_id, r)
+            log("cst_calc — MATERIAL·MANUFACTURING·DIRECT 상세 적재")
 
             # 5. 견적서 PDF + BOM XLSX
             t0 = begin(4)
@@ -2754,6 +2757,263 @@ async def _advance(run_id: int, tid: int, selection_id: int,
                     (json.dumps({"error": str(e)}), run_id))
         except Exception:  # noqa: BLE001
             pass
+
+
+def _write_cst_calc(cur, tid: int, run_id: int, r) -> None:
+    """B18 — Run 원가 상세 3분류를 cst_calc 에 영속 (detail=JSONB 라인 내역).
+
+    MATERIAL = BOM 단가 resolve 결과 · MANUFACTURING = 조립 공수(dwg_bom 노트×표준 임율)
+    · DIRECT = 운송/검사 직접경비 (재료비 비율)."""
+    material_lines = [
+        {"code": i["resolvedCode"], "name": i.get("name", ""), "qty": i["quantity"],
+         "priceK": i["priceK"], "amount": round((i["priceK"] or 0) * 1000 * i["quantity"])}
+        for i in r.items
+    ]
+    material_total = round(r.total_k * 1000)
+    # 제조비 — dwg_bom 조립 스텝 × 표준 2h × 임율 55,000/h (CST-003 입력 전 표준치)
+    cur.execute(
+        """SELECT COALESCE(b.assembly_note, p.part_name)
+           FROM dwg_bom b JOIN prt_part p ON p.part_id=b.part_id
+           JOIN dwg_drawing d ON d.drawing_id=b.drawing_id
+           WHERE d.tenant_id=%s AND d.drawing_no='KDCR 3-13'
+           ORDER BY COALESCE(b.assembly_seq, 999)""", (tid,))
+    steps = [row[0] for row in cur.fetchall()] or ["조립 (표준)"]
+    rate = 55_000
+    mfg_lines = [{"step": s, "hours": 2, "rate": rate, "amount": 2 * rate} for s in steps]
+    mfg_total = sum(ln["amount"] for ln in mfg_lines)
+    direct_lines = [
+        {"item": "운송·포장", "basis": "재료비 3%", "amount": round(material_total * 0.03)},
+        {"item": "검사·시운전", "basis": "재료비 2%", "amount": round(material_total * 0.02)},
+    ]
+    direct_total = sum(ln["amount"] for ln in direct_lines)
+    cur.execute("DELETE FROM cst_calc WHERE tenant_id=%s AND run_id=%s", (tid, run_id))
+    for ctype, lines, total in (
+        ("MATERIAL", material_lines, material_total),
+        ("MANUFACTURING", mfg_lines, mfg_total),
+        ("DIRECT", direct_lines, direct_total),
+    ):
+        cur.execute(
+            """INSERT INTO cst_calc (tenant_id, run_id, calc_type, detail, total_amount)
+               VALUES (%s,%s,%s,%s,%s)""",
+            (tid, run_id, ctype, json.dumps({"lines": lines}), total))
+
+
+@router.get("/cpq/runs/{run_id}/costs")
+def run_costs(run_id: int) -> list[dict[str, Any]]:
+    """Run 원가 상세 — cst_calc 3분류 (B18)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT calc_type, detail, total_amount FROM cst_calc
+               WHERE tenant_id=%s AND run_id=%s ORDER BY calc_id""", (tid, run_id))
+        rows = cur.fetchall()
+    if not rows:
+        raise HTTPException(404, detail=f"원가 상세 없음 — Run #{run_id} (v10.2 이후 실행분부터 적재)")
+    return [{"calcType": r[0], "lines": r[1].get("lines", []), "total": float(r[2])} for r in rows]
+
+
+# ── B18 수익성(PCR)·견적 lifecycle — cst_pcr·cst_quotation ──
+
+PCR_BUSINESS_TYPES = ("PRE_SALES", "MAIN")
+
+
+def _latest_cost_base(cur, tid: int) -> tuple[int, dict[str, float]]:
+    """최근 SUCCESS Run 의 cst_calc 합계 → (run_id, {MATERIAL, MANUFACTURING, DIRECT})."""
+    cur.execute(
+        """SELECT c.run_id, c.calc_type, c.total_amount
+           FROM cst_calc c JOIN cpq_run r ON r.run_id=c.run_id AND r.status='SUCCESS'
+           WHERE c.tenant_id=%s AND c.run_id=(
+             SELECT max(c2.run_id) FROM cst_calc c2
+             JOIN cpq_run r2 ON r2.run_id=c2.run_id AND r2.status='SUCCESS'
+             WHERE c2.tenant_id=%s)""", (tid, tid))
+    rows = cur.fetchall()
+    if not rows:
+        raise HTTPException(409, detail="원가 상세가 있는 SUCCESS Run 이 없습니다 — EDIM Run 먼저 실행")
+    totals = {r[1]: float(r[2]) for r in rows}
+    return rows[0][0], totals
+
+
+class PcrCreate(BaseModel):
+    businessType: str = "PRE_SALES"
+    marginRate: float = 0.35     # 목표 마진율 — 매출 = 직접비 × (1+rate)
+
+
+@router.post("/cost/pcr", dependencies=[SETUP])
+def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
+    """PCR 수익성 보고서 — 최근 Run 원가 기반 산출 (UNIQUE selection×business_type upsert)."""
+    bt = body.businessType.strip().upper()
+    if bt not in PCR_BUSINESS_TYPES:
+        raise HTTPException(422, detail=f"사업유형 오류: {body.businessType} (PRE_SALES|MAIN)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT min(selection_id) FROM cpq_selection WHERE tenant_id=%s", (tid,))
+        sel = cur.fetchone()
+        if not sel or not sel[0]:
+            raise HTTPException(409, detail="cpq_selection 없음")
+        run_id, totals = _latest_cost_base(cur, tid)
+        direct_total = sum(totals.values())
+        revenue = round(direct_total * (1 + body.marginRate))
+        sga = round(revenue * 0.08)
+        margin = revenue - direct_total
+        ebit = margin - sga
+        sections = {
+            "runId": run_id, "revenue": revenue,
+            "material": totals.get("MATERIAL", 0),
+            "manufacturing": totals.get("MANUFACTURING", 0),
+            "direct": totals.get("DIRECT", 0),
+            "sga": sga, "marginRate": body.marginRate,
+        }
+        cur.execute(
+            """UPDATE cst_pcr SET sections=%s, direct_cost_total=%s, contribution_margin=%s,
+               ebit=%s, status='DRAFT', updated_by=%s, updated_at=now()
+               WHERE tenant_id=%s AND selection_id=%s AND business_type=%s RETURNING pcr_id""",
+            (json.dumps(sections), direct_total, margin, ebit, request.state.login,
+             tid, sel[0], bt))
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                """INSERT INTO cst_pcr (tenant_id, selection_id, business_type, sections,
+                   direct_cost_total, contribution_margin, ebit, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING pcr_id""",
+                (tid, sel[0], bt, json.dumps(sections), direct_total, margin, ebit,
+                 request.state.login))
+            row = cur.fetchone()
+    return {"pcrId": row[0], "businessType": bt, "revenue": revenue,
+            "directCostTotal": direct_total, "contributionMargin": margin, "ebit": ebit}
+
+
+@router.get("/cost/pcr")
+def pcr_list() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT p.pcr_id, p.business_type, p.sections, p.direct_cost_total,
+                      p.contribution_margin, p.ebit, p.status, s.finished_goods_code
+               FROM cst_pcr p JOIN cpq_selection s ON s.selection_id=p.selection_id
+               WHERE p.tenant_id=%s ORDER BY p.pcr_id""", (tid,))
+        return [
+            {"pcrId": r[0], "businessType": r[1], "sections": r[2],
+             "directCostTotal": float(r[3]),
+             "contributionMargin": float(r[4]) if r[4] is not None else None,
+             "ebit": float(r[5]) if r[5] is not None else None,
+             "status": r[6], "code": r[7]}
+            for r in cur.fetchall()
+        ]
+
+
+class QuotationCreate(BaseModel):
+    businessType: str = "PRE_SALES"
+    validityPeriod: str = "견적일로부터 30일"
+    deliveryTerms: str = "FOB 부산"
+    paymentTerms: str = "T/T 30일"
+
+
+@router.post("/cost/quotations", status_code=201, dependencies=[SETUP])
+def quotation_create(request: Request, body: QuotationCreate) -> dict[str, Any]:
+    """견적 확정 — PCR 기반 cst_quotation 행 생성 (line_items = 최근 Run 원가 라인)."""
+    bt = body.businessType.strip().upper()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT p.pcr_id, p.sections, p.selection_id, s.project_id
+               FROM cst_pcr p JOIN cpq_selection s ON s.selection_id=p.selection_id
+               WHERE p.tenant_id=%s AND p.business_type=%s
+               ORDER BY p.pcr_id DESC LIMIT 1""", (tid, bt))
+        pcr = cur.fetchone()
+        if not pcr:
+            raise HTTPException(409, detail=f"PCR 없음 ({bt}) — 수익성 보고서 먼저 생성")
+        cur.execute(
+            "SELECT company_id FROM com_company WHERE tenant_id=%s ORDER BY company_id LIMIT 1", (tid,))
+        customer = cur.fetchone()[0]
+        run_id = pcr[1].get("runId")
+        cur.execute(
+            """SELECT detail FROM cst_calc WHERE tenant_id=%s AND run_id=%s AND calc_type='MATERIAL'""",
+            (tid, run_id))
+        mat = cur.fetchone()
+        line_items = (mat[0].get("lines", []) if mat else [])
+        total = pcr[1].get("revenue", 0)
+        cur.execute("SELECT count(*)+1 FROM cst_quotation WHERE tenant_id=%s", (tid,))
+        seq = cur.fetchone()[0]
+        qno = f"QT-{run_id}-{seq:03d}"
+        cur.execute(
+            """INSERT INTO cst_quotation (tenant_id, quotation_no, pcr_id, project_id, customer_id,
+               total_amount, currency, vat_mode, validity_period, delivery_terms, payment_terms,
+               line_items, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,'KRW','별도',%s,%s,%s,%s,%s) RETURNING quotation_id""",
+            (tid, qno, pcr[0], pcr[3], customer, total, body.validityPeriod.strip()[:50],
+             body.deliveryTerms.strip()[:200], body.paymentTerms.strip()[:200],
+             json.dumps(line_items), request.state.login))
+        qid = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'cst_quotation',%s,'CREATE',%s,%s)""",
+            (tid, qid, request.state.user_id, json.dumps({"quotationNo": qno, "total": total})))
+    return {"quotationId": qid, "quotationNo": qno, "total": total}
+
+
+@router.get("/cost/quotations")
+def quotation_list() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT q.quotation_id, q.quotation_no, q.total_amount, q.currency, q.status,
+                      to_char(q.created_at,'YYYY-MM-DD'), p.project_no, c.company_name,
+                      q.validity_period, q.delivery_terms, q.payment_terms
+               FROM cst_quotation q
+               JOIN prj_project p ON p.project_id=q.project_id
+               JOIN com_company c ON c.company_id=q.customer_id
+               WHERE q.tenant_id=%s ORDER BY q.quotation_id DESC""", (tid,))
+        return [
+            {"quotationId": r[0], "quotationNo": r[1], "total": float(r[2]), "currency": r[3],
+             "status": r[4], "date": r[5], "project": r[6], "customer": r[7],
+             "validity": r[8], "delivery": r[9], "payment": r[10]}
+            for r in cur.fetchall()
+        ]
+
+
+@router.delete("/cost/quotations/{quotation_id}", dependencies=[SETUP])
+def quotation_delete(quotation_id: int, request: Request) -> dict[str, Any]:
+    """견적 삭제 — DRAFT 한정 (발행/승인 견적 보호)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT status, quotation_no FROM cst_quotation WHERE tenant_id=%s AND quotation_id=%s",
+            (tid, quotation_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"견적 없음: #{quotation_id}")
+        if row[0] != "DRAFT":
+            raise HTTPException(409, detail=f"DRAFT 견적만 삭제 가능 (현재 {row[0]})")
+        cur.execute("DELETE FROM cst_quotation WHERE quotation_id=%s", (quotation_id,))
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'cst_quotation',%s,'DELETE',%s,%s)""",
+            (tid, quotation_id, request.state.user_id, json.dumps({"quotationNo": row[1]})))
+    return {"deleted": quotation_id}
+
+
+@router.get("/cost/quotations/{quotation_id}/render.pdf")
+def quotation_render(quotation_id: int) -> Any:
+    """견적서 PDF 렌더 — 영속 행(line_items) 기준 (quote-preview 와 동일 렌더러)."""
+    from types import SimpleNamespace
+
+    from fastapi.responses import Response
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT q.quotation_no, q.line_items, q.total_amount, p.project_no
+               FROM cst_quotation q JOIN prj_project p ON p.project_id=q.project_id
+               WHERE q.tenant_id=%s AND q.quotation_id=%s""", (tid, quotation_id))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"견적 없음: #{quotation_id}")
+    items = [{"resolvedCode": ln.get("code", "?"), "name": ln.get("name", ""),
+              "quantity": ln.get("qty", 1), "priceK": ln.get("priceK")}
+             for ln in row[1]]
+    ns = SimpleNamespace(items=items, total_k=float(row[2]) / 1000, files=[])
+    rp.step_quotation(ns, f"{row[3]} · {row[0]}")
+    return Response(content=ns.files[-1][3], media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename=\"{row[0]}.pdf\""})
 
 
 @router.post("/cpq/runs", status_code=202)
