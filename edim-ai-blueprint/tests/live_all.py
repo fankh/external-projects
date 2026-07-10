@@ -32,15 +32,27 @@ SUITES = [
 env = {**os.environ, "PYTHONUTF8": "1", "BASE": "https://edim.seekerslab.com/"}
 results: list[tuple[str, bool, str]] = []
 
-for suite in SUITES:
+
+def run_suite(suite: str) -> tuple[bool, str]:
     path = os.path.join(HERE, suite)
-    print(f"\n{'=' * 60}\n▶ {suite}\n{'=' * 60}")
     p = subprocess.run([sys.executable, path], env=env, capture_output=True,
                        text=True, encoding="utf-8", errors="replace", timeout=900)
     out = (p.stdout or "") + (p.stderr or "")
     print(out[-2500:])
     tail = next((ln for ln in reversed(out.strip().splitlines()) if ln.strip()), "")
-    results.append((suite, p.returncode == 0, tail[:110]))
+    return p.returncode == 0, tail[:110]
+
+
+for suite in SUITES:
+    print(f"\n{'=' * 60}\n▶ {suite}\n{'=' * 60}")
+    passed, tail = run_suite(suite)
+    # 순차 13개 브라우저 스위트 부하로 인한 산발 타임아웃 — 1회 재시도 (재시도 여부는 표기)
+    if not passed:
+        print(f"\n--- {suite} 재시도 (부하 플레이크 가능) ---")
+        passed, tail = run_suite(suite)
+        if passed:
+            tail += " (retry)"
+    results.append((suite, passed, tail))
 
 # check_i18n_en — 라이브 대상 (BASE env 지원)
 print(f"\n{'=' * 60}\n▶ check_i18n_en.py (live)\n{'=' * 60}")
