@@ -60,7 +60,7 @@ with sync_playwright() as pw:
 
     # 1. 목록 — email 필드 포함
     rows = call(tok, "GET", "/users").json()
-    ok("사용자 목록 >=6", len(rows) >= 6)
+    ok("사용자 목록 >=5 (시드 edim·kim01·park.f·lee.t·jang.s)", len(rows) >= 5)
     ok("email 필드 노출", all("email" in r for r in rows))
 
     # 2. 권한 — GENERAL 등록/수정/삭제 403
