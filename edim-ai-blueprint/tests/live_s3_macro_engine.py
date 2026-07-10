@@ -66,7 +66,9 @@ with sync_playwright() as pw:
     # Design Editor — A=700 → B=756, D=Table12(B,710)=760, K=1134
     p.locator('.titlebar span.mod', has_text='PLM').click()   # v5.0: 모듈 링크가 헤더로 이동
     p.locator('.tn', has_text='Design Editor (S-4-1-1)').click()
-    p.locator('td span:visible', has_text='670').dblclick()
+    # DB 치수 로드(670.0000 포맷) 완료를 기다린 후 편집 — mock 값(670) 선편집 시 로드가 덮어씀 (레이스)
+    p.locator('td span:visible', has_text='670.0000').wait_for(timeout=10000)
+    p.locator('td span:visible', has_text='670.0000').dblclick()
     p.locator('td input:visible').fill('700')
     p.keyboard.press('Enter')
     p.get_by_role('button', name='Run F9').click()
