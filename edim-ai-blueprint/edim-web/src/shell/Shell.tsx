@@ -203,8 +203,8 @@ export function Shell(props: { user: User }) {
       { label: '로그아웃', onClick: logout },
     ],
     '편집': [
-      { label: '실행 취소', onClick: () => shell.setStatusMsg('실행 취소 — 활성 화면 편집 이력 기준') },
-      { label: '다시 실행', onClick: () => shell.setStatusMsg('다시 실행 — 활성 화면 편집 이력 기준') },
+      { label: '실행 취소', hint: 'Ctrl+Z', onClick: () => window.dispatchEvent(new CustomEvent('edim-undo')) },
+      { label: '다시 실행', hint: 'Ctrl+Y', onClick: () => window.dispatchEvent(new CustomEvent('edim-redo')) },
       { sep: true, label: '' },
       { label: t('common.delete', '삭제'), hint: 'F3', onClick: () => fkey('F3') },
     ],
@@ -300,10 +300,10 @@ export function Shell(props: { user: User }) {
         <span className="b ic" title="저장 (F12)" onClick={() => fkey('F12')}>💾</span>
         <span className="b ic" title="인쇄" onClick={() => window.print()}>🖨</span>
         <span className="sep" />
-        <span className="b ic" title="실행 취소"
-          onClick={() => shell.setStatusMsg('실행 취소 — 활성 화면 편집 이력 기준 (전역 이력은 sys_history 참조)')}>↶</span>
-        <span className="b ic" title="다시 실행"
-          onClick={() => shell.setStatusMsg('다시 실행 — 활성 화면 편집 이력 기준')}>↷</span>
+        <span className="b ic" title="실행 취소 (Ctrl+Z)"
+          onClick={() => window.dispatchEvent(new CustomEvent('edim-undo'))}>↶</span>
+        <span className="b ic" title="다시 실행 (Ctrl+Y)"
+          onClick={() => window.dispatchEvent(new CustomEvent('edim-redo'))}>↷</span>
         <span className="sep" />
         <span className="b" title="VARIANT 바인딩 치수 — Design Editor"
           onClick={() => {

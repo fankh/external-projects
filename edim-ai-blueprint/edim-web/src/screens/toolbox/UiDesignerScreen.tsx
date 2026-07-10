@@ -6,6 +6,7 @@ import { aiService, approvalService, uiFormService } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
+import { useEditHistory } from '../../shell/useEditHistory'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
@@ -49,7 +50,14 @@ export function UiDesignerScreen({ active }: ScreenProps) {
 
   useFKeys(active, useMemo(() => ({ F12: () => { void saveLayout() } }), [widgets])) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 위젯 배치 이력 (B12)
+  const hist = useEditHistory(active, widgets, setWidgets, (kind) => {
+    setDirty(true)
+    shell.setStatusMsg(`${kind === 'undo' ? '실행 취소' : '다시 실행'} — 위젯 배치 이력`)
+  })
+
   const addWidget = (kind: string) => {
+    hist.push()
     const id = `w${widgetSeq++}`
     setWidgets((prev) => [...prev, {
       id, kind, label: kind,

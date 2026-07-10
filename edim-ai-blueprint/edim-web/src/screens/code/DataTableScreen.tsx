@@ -7,6 +7,7 @@ import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
+import { useEditHistory } from '../../shell/useEditHistory'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
@@ -161,7 +162,13 @@ export function DataTableScreen({ active }: ScreenProps) {
 
   useFKeys(active, useMemo(() => ({ F2: addRow, F3: deleteRow, F12: save }), [rows, selKey])) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 셀 편집 이력 (B12) — undo/redo 시 dirty 유지 (저장 전 로컬 상태만 이동)
+  const hist = useEditHistory(active, rows, setRows, (kind) => {
+    shell.setStatusMsg(`${kind === 'undo' ? '실행 취소' : '다시 실행'} — Table12 셀 이력 (F12 저장 전 로컬)`)
+  })
+
   const setCell = (key: string, col: number, v: string) => {
+    hist.push()
     setRows((prev) => prev.map((r) => (r.key === key
       ? { ...r, cols: r.cols.map((c, i) => (i === col ? (v.trim() === '' ? null : Number(v)) : c)) }
       : r)))

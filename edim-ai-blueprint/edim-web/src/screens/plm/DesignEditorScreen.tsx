@@ -10,6 +10,7 @@ import { CommandLine, Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
+import { useEditHistory } from '../../shell/useEditHistory'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
@@ -52,6 +53,12 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
   const [cadMode, setCadMode] = useState(true)
   const [cadDoc, setCadDoc] = useState<CadDocument | null>(null)
   const [cadOffline, setCadOffline] = useState(false)
+
+  // 치수 편집 이력 (B12) — undo/redo 시 CAD 재작도
+  const hist = useEditHistory(active, dims, setDims, (kind, v) => {
+    if (cadMode) loadCad(v)
+    shell.setStatusMsg(`${kind === 'undo' ? '실행 취소' : '다시 실행'} — 치수 이력 (A=${v.find((d) => d.no === 'A')?.value ?? '?'})`)
+  })
 
   const numericDims = (src: DimensionDef[]): Record<string, number> => {
     const vars: Record<string, number> = {}
@@ -150,6 +157,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
         }
       }
       if (live) {
+        hist.push()   // Run 전 상태 스냅샷 — Ctrl+Z 로 평가 전으로 복귀
         setDims(next)
         setEvaluated(true)
         if (cadMode) loadCad(next)   // CAD 모드 — 평가 치수로 도면 재작도
@@ -190,6 +198,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
             aria-label={`치수 ${r.no}`}
             onBlur={(e) => {
               const v = e.target.value.trim()
+              hist.push()   // 편집 이력 (B12)
               setDims((prev) => prev.map((d) => (d.no === r.no ? { ...d, value: v } : d)))
               setEditingNo(null)
             }}
