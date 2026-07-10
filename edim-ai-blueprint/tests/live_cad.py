@@ -89,8 +89,9 @@ with sync_playwright() as pw:
     p.get_by_role('button', name='로그인 (Enter)').click()
     p.wait_for_selector('.app .titlebar', timeout=8000)
     p.locator('.tn', has_text='Project Folder·이력 (M-15-8/9)').click()
-    p.locator('td.code:visible', has_text='sample_import.dxf').wait_for(timeout=8000)
-    p.locator('tr:visible', has_text='sample_import.dxf').dblclick()
+    p.locator('.gb', has_text='DWG —').wait_for(timeout=15000)   # 파일 그리드 로드 완료 대기
+    p.locator('td.code:visible', has_text='sample_import.dxf').first.wait_for(timeout=15000)
+    p.locator('tr:visible', has_text='sample_import.dxf').first.dblclick()
     p.locator('.mdi .t.on', has_text='CAD').wait_for(timeout=5000)
     p.locator('svg[data-cad-svg] circle').wait_for(timeout=8000)
     n_ent = p.locator('svg[data-cad-svg] g > *').count()
@@ -103,4 +104,23 @@ with sync_playwright() as pw:
     print('PASS layer visibility toggle hides entities')
     p.screenshot(path=r'C:\temp\edim-shots\60-cad-viewer.png')
     b.close()
+
+# 6. 정리 — import 한 샘플 파일 삭제 (반복 실행 시 누적 방지) + 참조 파일 409 보호 확인
+try:
+    req('DELETE', f"/files/{dxf_out['fileId']}", headers=A)
+    print('FAIL run 산출물 삭제는 409 여야 함')
+except urllib.error.HTTPError as e:
+    assert e.code == 409, e.code
+    print('PASS run 산출물 파일 삭제 -> 409 (cpq_output 참조 보호)')
+# 이번 실행 + 과거 누적 sample_import 전부 정리
+files = req('GET', '/files?project=PS-61313-5', headers=A)
+samples = [f for f in files if f.get('name') == 'sample_import.dxf' and f.get('fileId')]
+removed = 0
+for f in samples:
+    try:
+        req('DELETE', f"/files/{f['fileId']}", headers=A)
+        removed += 1
+    except urllib.error.HTTPError:
+        pass
+print(f'PASS cleanup — sample_import.dxf {removed}건 삭제')
 print('CAD LIVE: all pass')

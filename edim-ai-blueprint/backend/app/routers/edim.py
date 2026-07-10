@@ -1117,6 +1117,40 @@ def download_file(file_id: int) -> StreamingResponse:
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(row[1])}"})
 
 
+@router.delete("/files/{file_id}", dependencies=[SETUP])
+def delete_file(file_id: int, request: Request) -> dict[str, Any]:
+    """파일 삭제 — Run 산출물·견적서가 참조 중이면 409 (MinIO 객체 + dwg_file 행 제거)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT file_path, file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
+            (tid, file_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"file not found: {file_id}")
+        cur.execute("SELECT 1 FROM cpq_output WHERE file_id=%s LIMIT 1", (file_id,))
+        if cur.fetchone():
+            raise HTTPException(409, detail="Run 산출물이 참조하는 파일은 삭제 불가")
+        cur.execute("SELECT 1 FROM cst_quotation WHERE doc_file_id=%s LIMIT 1", (file_id,))
+        if cur.fetchone():
+            raise HTTPException(409, detail="견적서가 참조하는 파일은 삭제 불가")
+        cur.execute("DELETE FROM dwg_file WHERE tenant_id=%s AND file_id=%s", (tid, file_id))
+        # 동일 key 를 공유하는 다른 행(재업로드 덮어쓰기)이 남아 있으면 객체는 보존
+        cur.execute("SELECT 1 FROM dwg_file WHERE tenant_id=%s AND file_path=%s LIMIT 1",
+                    (tid, row[0]))
+        key_shared = cur.fetchone() is not None
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+               VALUES (%s,'dwg_file',%s,'DELETE',%s,%s)""",
+            (tid, file_id, request.state.user_id, json.dumps({"fileName": row[1]})))
+    if not key_shared:
+        try:
+            storage.remove_object(row[0])
+        except RuntimeError:
+            pass  # 스토리지 불가 시 DB 정리만 — 객체는 orphan (버킷 정리 배치 대상)
+    return {"deleted": file_id}
+
+
 # ── INT-04 CAD 호환 — DXF 뷰/Import/Export (DWG 는 ODA 플러그블) ──
 def _parse_cad_bytes(data: bytes, file_name: str) -> dict[str, Any]:
     """DXF(직접)/DWG(ODA 변환 후) → 정규화 DrawingDocument(JSON)."""

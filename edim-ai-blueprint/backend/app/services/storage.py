@@ -55,3 +55,10 @@ def get_object(key: str):
     if client is None:
         raise RuntimeError("storage unavailable")
     return client.get_object(BUCKET, key)
+
+
+def remove_object(key: str) -> None:
+    client = get_client()
+    if client is None:
+        raise RuntimeError("storage unavailable")
+    client.remove_object(BUCKET, key)
