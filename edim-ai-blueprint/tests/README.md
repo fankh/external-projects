@@ -27,6 +27,7 @@ py tests\live_all.py
 | `live_b7_drawings.py` | 도면 대장·Rev 올리기·Supersedure·승인 이력 (17체크) | B7 |
 | `live_b16_drawing_detail.py` | 도면 상세 탭·단계별 승인 왕복·블록/관계 시드·Simulation 실평가 (24체크, 자체 정리) | B16 |
 | `live_b17_parts.py` | 부품 CRUD(409 보호)·BOM 왕복·공급자 코드·슬롯 정의 (19체크, 자체 정리) | B17 |
+| `live_b18_cost.py` | Run 원가 3분류·PCR 산출식/upsert·견적 생성/렌더/삭제 (19체크, 자체 정리) | B18 |
 | `live_cad.py` | CAD 뷰/Import/Export (DXF) | INT-04 |
 | `live_s3_macro_engine.py` | Macro 엔진 실평가 | ENG-01 |
 | `live_s4_rbac_notify.py` | RBAC·알림 흐름 | S4 |

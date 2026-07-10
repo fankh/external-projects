@@ -95,8 +95,11 @@ with sync_playwright() as pw:
     p.get_by_label("비밀번호").fill("edim")
     p.get_by_role("button", name="로그인 (Enter)").click()
     p.wait_for_selector(".app .titlebar", timeout=8000)
-    p.locator(".tn", has_text="EDIM Run").click()
-    p.locator("[data-cost-panel]").wait_for(timeout=40000)   # 파이프라인 완료 후 표시
+    # Run 탭은 트리에 없음 — C-1 에서 F9(Run) 로 진입
+    p.locator(".tn", has_text="제품 선정 (C-1)").click()
+    p.wait_for_timeout(1000)
+    p.keyboard.press("F9")
+    p.locator("[data-cost-panel]").wait_for(timeout=60000)   # 파이프라인 완료 후 표시
     p.locator("[data-cost-panel] td", has_text="재료비").wait_for(timeout=8000)
     ok("UI 원가 패널 — 3분류 표", True)
     p.get_by_role("button", name="PCR 생성").click()
