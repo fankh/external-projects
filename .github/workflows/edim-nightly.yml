@@ -1,0 +1,50 @@
+name: EDIM Nightly
+
+# 야간 회귀 (B15) — GitHub 러너에서 실행 가능한 범위: 빌드 + 폴백 52체크 + EN 잔존 0 (프리뷰).
+# 라이브 서버 스위트(tests/live_all.py)는 서버 접근이 필요해 로컬/운영에서 실행한다.
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC = KST 12:00
+  workflow_dispatch:
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: edim-ai-blueprint/edim-web/package-lock.json
+
+      - name: Build edim-web
+        working-directory: edim-ai-blueprint/edim-web
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Fallback regression (52 checks)
+        working-directory: edim-ai-blueprint
+        run: |
+          (cd edim-web && npm run preview >/tmp/preview.log 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:4173/edim-static/ >/dev/null && break
+            sleep 1
+          done
+          python tests/e2e_fallback.py
+
+      - name: i18n EN remnant check (preview)
+        working-directory: edim-ai-blueprint
+        run: python tests/check_i18n_en.py

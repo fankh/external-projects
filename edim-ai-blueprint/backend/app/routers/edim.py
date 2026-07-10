@@ -1068,6 +1068,10 @@ async def upload_file(
 ) -> dict[str, Any]:
     if folder not in ("DWG", "PRICE", "DATA", "BOM", "RECEIVED"):
         raise HTTPException(422, detail=f"folder 오류: {folder}")
+    # 실행 파일 차단 (B15 — 업로드 에러 케이스)
+    blocked = (".exe", ".bat", ".cmd", ".msi", ".scr", ".ps1", ".sh", ".dll", ".com")
+    if (uploadedFile.filename or "").lower().endswith(blocked):
+        raise HTTPException(422, detail=f"허용되지 않는 파일 형식: {uploadedFile.filename}")
     data = await uploadedFile.read()
     if len(data) > 100 * 1024 * 1024:
         raise HTTPException(413, detail="100MB 초과")

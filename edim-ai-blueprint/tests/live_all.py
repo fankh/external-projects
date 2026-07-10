@@ -1,0 +1,55 @@
+# -*- coding: utf-8 -*-
+"""라이브 스위트 통합 러너 (B15) — 실서버(edim.seekerslab.com) 대상 전 스위트 순차 실행.
+
+개별 실패해도 계속 진행, 마지막에 요약 + 실패 있으면 종료코드 1.
+실행: PYTHONUTF8=1 py tests/live_all.py
+"""
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+SUITES = [
+    "live_b15_regression.py",   # 인증·RBAC 먼저 (다른 스위트의 전제)
+    "live_s3_macro_engine.py",
+    "live_s4_rbac_notify.py",
+    "live_s5_run_pipeline.py",
+    "live_cad.py",
+    "live_b1_approval_flow.py",
+    "live_b2_persistence.py",
+    "live_b7_drawings.py",
+    "live_security.py",
+]
+
+env = {**os.environ, "PYTHONUTF8": "1", "BASE": "https://edim.seekerslab.com/"}
+results: list[tuple[str, bool, str]] = []
+
+for suite in SUITES:
+    path = os.path.join(HERE, suite)
+    print(f"\n{'=' * 60}\n▶ {suite}\n{'=' * 60}")
+    p = subprocess.run([sys.executable, path], env=env, capture_output=True,
+                       text=True, encoding="utf-8", errors="replace", timeout=900)
+    out = (p.stdout or "") + (p.stderr or "")
+    print(out[-2500:])
+    tail = next((ln for ln in reversed(out.strip().splitlines()) if ln.strip()), "")
+    results.append((suite, p.returncode == 0, tail[:110]))
+
+# check_i18n_en — 라이브 대상 (BASE env 지원)
+print(f"\n{'=' * 60}\n▶ check_i18n_en.py (live)\n{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_i18n_en.py")],
+                   env={**env, "BASE": "https://edim.seekerslab.com/cpq"},
+                   capture_output=True, text=True, encoding="utf-8", errors="replace",
+                   timeout=900)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_i18n_en.py", p.returncode == 0, ""))
+
+print(f"\n{'=' * 60}\n라이브 스위트 요약\n{'=' * 60}")
+failed = 0
+for name, passed, tail in results:
+    mark = "✅" if passed else "❌"
+    print(f"{mark} {name:32s} {tail}")
+    if not passed:
+        failed += 1
+print(f"\n{len(results) - failed}/{len(results)} suites green")
+sys.exit(1 if failed else 0)
