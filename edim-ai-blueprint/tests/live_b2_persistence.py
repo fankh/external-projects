@@ -35,13 +35,14 @@ with sync_playwright() as pw:
     # 1. Design Editor — E 치수 변경 → F12 저장 → 서버 값 확인 → 원복
     p.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
     p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)
-    p.wait_for_timeout(400)
-    p.locator("td span:visible", has_text="320").first.dblclick()
+    # DB 치수 로드 완료 대기 (mock 값 선편집 → 로드 덮어쓰기 레이스 방지, s3 과 동일)
+    p.locator("td span:visible", has_text="320.0000").first.wait_for(timeout=10000)
+    p.locator("td span:visible", has_text="320.0000").first.dblclick()
     p.locator("td input:visible").fill("325")
     p.keyboard.press("Enter")
     p.get_by_role("button", name="임시저장 F12").click()
-    p.wait_for_timeout(1000)
-    ok("치수 임시저장 (dwg_dimension)", "임시저장 ✓" in sb())
+    p.locator(".statusbar", has_text="임시저장 ✓").wait_for(timeout=12000)
+    ok("치수 임시저장 (dwg_dimension)", True)
     dims = p.evaluate("""async () => {
       const t = sessionStorage.getItem('edim-token')
       const r = await fetch('/api/v1/drawings/dimensions', { headers: { Authorization: 'Bearer ' + t } })

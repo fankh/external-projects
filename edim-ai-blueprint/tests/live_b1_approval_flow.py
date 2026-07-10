@@ -68,8 +68,9 @@ with sync_playwright() as pw:
     p.locator(".tn", has_text="Macro Studio (S-2-2)").click()
     p.wait_for_timeout(1200)
     p.get_by_role("button", name="저장 (4-Way)").click()   # B20: 4-Way 전체 영속으로 개칭
-    p.wait_for_timeout(800)
-    ok("Macro 저장 (tbx_macro DRAFT)", "저장 ✓" in sb())
+    # 4-Way 저장은 왕복이 길다 — 고정 대기 대신 상태바 도착 대기 (부하 내성)
+    p.locator(".statusbar", has_text="저장 ✓").wait_for(timeout=12000)
+    ok("Macro 저장 (tbx_macro DRAFT)", True)
     macros = p.evaluate("""async () => {
       const t = sessionStorage.getItem('edim-token')
       const r = await fetch('/api/v1/macros', { headers: { Authorization: 'Bearer ' + t } })

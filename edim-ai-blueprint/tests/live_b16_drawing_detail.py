@@ -104,7 +104,7 @@ with sync_playwright() as pw:
     detail = p.locator(".gb", has_text="도면 상세")   # 좌측 그리드·Supersedure 오매칭 방지
     # Variants 탭
     detail.locator(".mdi .t", has_text="Variants").click()
-    expect(detail.locator("tr", has_text="KDCR 3-12")).to_have_count(1, timeout=8000)
+    expect(detail.locator("tr", has_text="KDCR 3-12")).to_have_count(1, timeout=15000)
     ok("UI Variants 탭 — 패밀리 도면", True)
     # 승인 단계 탭 — 시드 체인 완료 표기
     detail.locator(".mdi .t", has_text="승인 단계").click()
@@ -118,7 +118,7 @@ with sync_playwright() as pw:
     # Design Editor — Sim 판넬 + 부품 관계 실데이터
     p.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
     p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)
-    expect(p.locator(".st", has_text="dwg_part_relation 3")).to_have_count(1, timeout=8000)
+    expect(p.locator(".st", has_text="dwg_part_relation 3")).to_have_count(1, timeout=15000)
     ok("UI 부품 관계 — dwg_part_relation 3 칩", True)
     sim_a = p.get_by_label("Sim A")
     sim_a.fill("700")
