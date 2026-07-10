@@ -236,6 +236,21 @@ export const tableCrudService = {
       throw e
     }
   },
+  /** GET /api/v1/tables/{name}/export.xlsx — Table XLSX 다운로드 (F4) */
+  async exportXlsx(name: string): Promise<boolean> {
+    const res = await fetch(`${API}/tables/${encodeURIComponent(name)}/export.xlsx`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }).catch(() => null)
+    if (!res || !res.ok) return false
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${name}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+    return true
+  },
   /** POST /api/v1/tables/{name}/import-excel — 정형 양식, Key 중복은 갱신 */
   async importExcel(name: string, file: globalThis.File): Promise<ImportReport | null> {
     const form = new FormData()
@@ -297,11 +312,12 @@ export const erpService = {
 // ── SVC-10 Approval (승인함) ──
 export const approvalService = {
   /** POST /api/v1/approvals — 범용 승인 요청 (true=등록, false=백엔드 불가) */
-  async request(targetTable: string, label: string, targetId = 0, requestType = 'UPDATE'): Promise<boolean> {
+  async request(targetTable: string, label: string, targetId = 0, requestType = 'UPDATE',
+    targetCode = ''): Promise<boolean> {
     try {
       await api('/approvals', {
         method: 'POST',
-        body: JSON.stringify({ targetTable, targetId, requestType, label }),
+        body: JSON.stringify({ targetTable, targetId, requestType, label, targetCode }),
       })
       return true
     } catch (e) {

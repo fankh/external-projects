@@ -392,6 +392,7 @@ def run_seed() -> None:
             seed_v18(cur, row[0])
             seed_v19(cur, row[0])
             seed_v20(cur, row[0])
+            seed_v21(cur, row[0])
             return
 
         cur.execute(
@@ -507,6 +508,7 @@ def run_seed() -> None:
         seed_v18(cur, tid)
         seed_v19(cur, tid)
         seed_v20(cur, tid)
+        seed_v21(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -2167,6 +2169,37 @@ UI_TRANSLATIONS_V20: dict[str, tuple[str, str, str]] = {
 
 def seed_v20(cur, tid: int) -> None:
     for key, (en, ja, zh) in UI_TRANSLATIONS_V20.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v21 — F4 무반응 일소 UI 키 ──
+
+UI_TRANSLATIONS_V21: dict[str, tuple[str, str, str]] = {
+    "subcode.addValueHint": ('Add value — type the new value at the end of Sub Item (separated by ·)', '値追加 — Sub Item 末尾に新しい値を入力 (·区切り)', '添加值 — 在 Sub Item 末尾输入新值 (·分隔)'),
+    "dtable.editNeedRow": ('Edit — select a row first', '編集 — 行を先に選択してください', '编辑 — 请先选择行'),
+    "printsetup.bindNeedSel": ('Bind data — select a widget on the canvas first', 'Data 位置指定 — キャンバスでウィジェットを先に選択', '数据绑定 — 请先在画布中选择控件'),
+    "printsetup.defaultDone": ('Default layout ✓ — 6 widgets (header·Data×2·graph·table·footer)', '基本様式配置 ✓ — 6ウィジェット', '默认版式 ✓ — 6个控件'),
+    "printsetup.dataAdded": ("Data widget added ✓ — bind a path via [Bind Data]", 'Data ウィジェット追加 ✓ — Data 位置指定でパスをバインド', '已添加数据控件 ✓ — 通过数据绑定指定路径'),
+    "printsetup.graphAdded": ('Graph widget added ✓ — [graph:performance]', 'グラフウィジェット追加 ✓ — [グラフ:performance]', '已添加图表控件 ✓ — [图表:performance]'),
+    "printsetup.printerHint": ('Real render in new window — print via browser (Ctrl+P)', '実レンダー新ウィンドウ — ブラウザ印刷 (Ctrl+P)', '新窗口实渲染 — 浏览器打印 (Ctrl+P)'),
+    "printsetup.officeHint": ('After customer templates are finalized (P4-1 — DOCX/XLSX forms)', '顧客様式確定後 (P4-1 — DOCX/XLSX)', '客户模板确认后 (P4-1 — DOCX/XLSX)'),
+    "printsetup.bindTitle": ('Bind Data — placeholder binding', 'Data 位置指定 — バインディング', '数据绑定 — 占位符绑定'),
+    "printsetup.bindTarget": ('Target widget', '対象ウィジェット', '目标控件'),
+    "printsetup.bindPath": ('Data path', 'データパス', '数据路径'),
+    "printsetup.bindSubmit": ('Bind F12', 'バインド F12', '绑定 F12'),
+}
+
+
+def seed_v21(cur, tid: int) -> None:
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V21.items():
         for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

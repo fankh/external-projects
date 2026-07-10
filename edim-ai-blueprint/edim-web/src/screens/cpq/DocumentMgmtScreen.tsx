@@ -25,12 +25,13 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
   const [search, setSearch] = useState('')
   const [selDoc, setSelDoc] = useState<string | null>(null)
 
-  useEffect(() => {
-    void docService.list().then((rows) => {
-      setDocs(rows)
-      setSelDoc(rows[0]?.docNo ?? null)
-    })
-  }, [])
+  const load = () => docService.list().then((rows) => {
+    setDocs(rows)
+    setSelDoc((cur) => cur ?? rows[0]?.docNo ?? null)
+    return rows.length
+  })
+
+  useEffect(() => { void load() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = useMemo(() => docs.filter((d) =>
     (statusFilter === '전체' || d.status.startsWith(statusFilter))
@@ -38,8 +39,12 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
     [docs, statusFilter, search])
 
   useFKeys(active, useMemo(() => ({
-    F8: () => shell.setStatusMsg(`조회 — ${rows.length}건 (Grade 미달 문서는 마스킹, DOC-002)`),
-  }), [rows.length])) // eslint-disable-line react-hooks/exhaustive-deps
+    F8: () => {
+      // F4 — 실재조회 (타 화면 F8 표준과 동일)
+      void load().then((n) =>
+        shell.setStatusMsg(`재조회 ✓ — ${n}건 (doc_control · Grade 미달 문서는 마스킹, DOC-002)`))
+    },
+  }), [])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sel = docs.find((d) => d.docNo === selDoc) ?? null
   const stageIdx = sel ? STAGES.findIndex((s) => sel.status.startsWith(s)) : -1

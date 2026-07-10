@@ -2,7 +2,7 @@
  *  Running Test 통과(CODE-009)해야 승인 요청 가능. */
 import { useEffect, useMemo, useState } from 'react'
 import { MOTHER, type RunningTestRow } from '../../api/mock/dataCode'
-import { relationshipService, sysService, type ChildRow } from '../../api/services'
+import { approvalService, relationshipService, sysService, type ChildRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -165,7 +165,17 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
               ? <Chip tone="ok">{t('codrel.testPassed', 'Running Test 통과')}</Chip>
               : <Chip tone="warn">{t('codrel.testNeeded', 'Test 필요')}</Chip>}
             <Btn variant="pri" disabled={!tested}
-              onClick={() => shell.setStatusMsg('승인 요청 — Code Relationship (PENDING)')}>
+              onClick={() => {
+                // F4 — 실배선: 범용 승인 API (승인 시 mother 관계 세트 APPROVED 전이)
+                void approvalService.request(
+                  'code_relationship',
+                  `Code Relationship — ${MOTHER.code} (Running Test ${testRows ? testRows.length - 1 : 0}행 통과)`,
+                  0, 'UPDATE', MOTHER.code)
+                  .then((ok) => shell.setStatusMsg(ok
+                    ? `승인 요청 ✓ — ${MOTHER.code} 관계 (승인함 등록 · 승인 시 APPROVED 전이)`
+                    : <span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요 (mock)</span>))
+                  .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+              }}>
               {t('common.requestApproval', '승인 요청')}
             </Btn>
           </div>

@@ -78,8 +78,16 @@ export function CodeDetailScreen({ tab }: ScreenProps) {
         <Chip tone="ok">APPROVED</Chip>
         <Chip tone="info">Grade B</Chip>
         <span style={{ flex: 1 }} />
-        <Btn>Variants</Btn>
-        <Btn>Referencers</Btn>
+        <Btn onClick={() => {
+          // F4 — 셸 툴바와 동선 통일: VARIANT 바인딩 치수 = Design Editor
+          shell.openTab(SCREEN_BY_NODE['plm-design'])
+          shell.setStatusMsg(`Variants — ${code} VARIANT 바인딩 치수 (Design Editor)`)
+        }}>Variants</Btn>
+        <Btn onClick={() => {
+          // F4 — 화면 내 Where-Used 판넬로 스크롤 (이미 실데이터)
+          document.querySelector('[data-referencers-box]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          shell.setStatusMsg(`Referencers — ${base} Where-Used ${used.length}건 (code_relationship 역참조)`)
+        }}>Referencers</Btn>
         <Btn onClick={() => {
           shell.openTab(SCREEN_BY_NODE['plm-drawings'])
           shell.setStatusMsg('Supersedure — 도면 대장(M-4-1) 우측 대체 이력 (dwg_supersedure)')
@@ -120,7 +128,7 @@ export function CodeDetailScreen({ tab }: ScreenProps) {
               </div>
             )}
           </GroupBox>
-          <GroupBox title={`Referencers (Where-Used) — ${used.length}건`} noPad
+          <GroupBox title={<span data-referencers-box>{`Referencers (Where-Used) — ${used.length}건`}</span>} noPad
             right={<span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>이 코드를 사용하는 Mother</span>}>
             {used.length ? (
               <DenseGrid rows={used} rowKey={(r) => r.mother}

@@ -70,11 +70,18 @@ export function SubCodeScreen({ active }: ScreenProps) {
     })()
   }
 
+  const reload = () => {
+    void codeSetupService.groupTable('KOF').then((r) => {
+      setRows(r)
+      shell.setStatusMsg(`재조회 ✓ — Group KOF · ${r.length}개 Slot (code_item)`)
+    })
+  }
+
   useFKeys(active, useMemo(() => ({
     F2: reset,
-    F8: () => shell.setStatusMsg(`조회 — Group KOF · ${rows.length}개 Slot`),
-    F12: () => shell.setStatusMsg('저장 완료 (승인 전 DRAFT)'),
-  }), [rows.length])) // eslint-disable-line react-hooks/exhaustive-deps
+    F8: reload,
+    F12: requestApproval,   // F4 — 저장 = 실제 쓰기 경로(등록+승인 요청)와 동일
+  }), [newItemNo, newDesc, newValues])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cols: GridColumn<SubCodeSlot>[] = [
     { key: 'slot', header: 'Slot', width: 34, align: 'center', render: (r) => <b>{r.slot}</b> },
@@ -103,12 +110,12 @@ export function SubCodeScreen({ active }: ScreenProps) {
           { value: '대기', label: t('enum.waiting', '대기') },
         ]} />
         <span style={{ flex: 1 }} />
-        <Btn onClick={() => shell.setStatusMsg(`조회 — Group KOF · ${rows.length}개 Slot`)}>
+        <Btn onClick={reload}>
           {t('subcode.queryF8', '조회 F8')}
         </Btn>
         <Btn onClick={reset}>{t('subcode.newF2', '신규 F2')}</Btn>
         <Btn onClick={checkDup}>{t('subcode.dupCheck', '중복검토')}</Btn>
-        <Btn variant="pri">{t('subcode.saveF12', '저장 F12')}</Btn>
+        <Btn variant="pri" onClick={requestApproval}>{t('subcode.saveF12', '저장 F12')}</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox style={{ flex: 1.3 }} noPad
@@ -131,7 +138,7 @@ export function SubCodeScreen({ active }: ScreenProps) {
               <input className="in req" value={newDesc} aria-label="설명(신규)"
                 onChange={(e) => setNewDesc(e.target.value)} />
               <label>Sub Item</label>
-              <input className="in" value={newValues} aria-label="Sub Item"
+              <input className="in" value={newValues} aria-label="Sub Item" data-subitem-input
                 onChange={(e) => setNewValues(e.target.value)} />
               <label>{t('subcode.refTable', '참조 Table')}</label>
               <Combo value="— 없음" options={[
@@ -141,7 +148,13 @@ export function SubCodeScreen({ active }: ScreenProps) {
             </div>
             <div style={{ marginTop: 6, display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
               {dupChecked ? <Chip tone="ok">{t('subcode.dupCheck', '중복검토')} ✓</Chip> : null}
-              <Btn>{t('subcode.addValue', '＋ 값 추가')}</Btn>
+              <Btn onClick={() => {
+                // F4 — 값 구분자(·) 추가 + 입력 포커스 (Sub Item 은 · 구분 목록)
+                setNewValues((prev) => (prev.trim() ? `${prev.trim()} · ` : prev))
+                const el = document.querySelector<HTMLInputElement>('[data-subitem-input]')
+                el?.focus()
+                shell.setStatusMsg(t('subcode.addValueHint', '값 추가 — Sub Item 끝에 새 값 입력 (· 구분)'))
+              }}>{t('subcode.addValue', '＋ 값 추가')}</Btn>
               <Btn variant="pri" onClick={requestApproval}>{t('common.requestApproval', '승인 요청')}</Btn>
             </div>
           </GroupBox>

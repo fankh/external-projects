@@ -1056,6 +1056,32 @@ def get_table(name: str) -> dict[str, Any]:
     return {"name": name, "columns": columns, "rows": rows}
 
 
+@router.get("/tables/{name}/export.xlsx")
+def export_table_xlsx(name: str) -> Response:
+    """Table XLSX 내보내기 (F4 — M-3-7 '⬆ Export' 실배선, D8 XLSX 트랙 1호)."""
+    from openpyxl import Workbook
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        table_id, columns = _table_id(cur, tid, name)
+        cur.execute(
+            """SELECT row_key, row_values FROM tbl_data_row
+               WHERE table_id=%s ORDER BY row_key_num NULLS LAST, row_key""", (table_id,))
+        rows = cur.fetchall()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = name[:31]
+    ws.append(["Key", *columns])
+    for key, values in rows:
+        ws.append([key, *[values.get(c) for c in columns]])
+    buf = io.BytesIO()
+    wb.save(buf)
+    from urllib.parse import quote
+    return Response(
+        buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}.xlsx"})
+
+
 class TableRowRequest(BaseModel):
     key: str
     values: dict[str, float | int | None] = {}
@@ -1518,7 +1544,8 @@ def approvals_inbox() -> list[dict[str, Any]]:
                WHERE a.tenant_id=%s AND a.result IS NULL
                ORDER BY a.approval_id""", (tid,))
         type_label = {"product_code": "Code", "doc_control": "문서",
-                      "code_item": "Code", "tbx_macro": "Macro"}
+                      "code_item": "Code", "tbx_macro": "Macro",
+                      "code_relationship": "관계"}
         return [
             {"id": r[0], "assetType": type_label.get(r[1], r[1]),
              "target": r[6] or r[7], "reqKind": r[2], "requester": r[4],
@@ -1559,6 +1586,12 @@ def decide(approval_id: int, request: Request, body: DecideRequest) -> dict[str,
             cur.execute(
                 "UPDATE product_code SET approval_status=%s WHERE product_code_id=%s",
                 ("APPROVED" if body.approve else "REJECTED", row[1]))
+        elif row[0] == "code_relationship":
+            # F4 — Mother 코드의 관계 세트 전이 (Running Test 통과 승인, CODE-009)
+            cur.execute(
+                """UPDATE code_relationship SET approval_status=%s
+                   WHERE tenant_id=%s AND mother_code_id=%s""",
+                ("APPROVED" if body.approve else "REJECTED", tid, row[1]))
         cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id='edim'", (tid,))
         actor = cur.fetchone()
         cur.execute(
@@ -2464,6 +2497,7 @@ class ApprovalCreate(BaseModel):
     targetId: int = 0
     requestType: str = "UPDATE"
     label: str = ""
+    targetCode: str = ""   # F4 — product code 문자열로 대상 지정 (code_relationship 등)
 
 
 @router.post("/approvals", status_code=201, dependencies=[SETUP])
@@ -2473,11 +2507,21 @@ def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         actor_id = request.state.user_id
+        target_id = body.targetId
+        if body.targetCode.strip() and not target_id:
+            # F4 — 코드 문자열 → product_code_id (Code Relationship 승인 등)
+            cur.execute(
+                "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+                (tid, body.targetCode.strip()))
+            hit = cur.fetchone()
+            if not hit:
+                raise HTTPException(404, detail=f"code not found: {body.targetCode}")
+            target_id = hit[0]
         # uq_approval_pending — 동일 대상의 PENDING 이 이미 있으면 정직한 409
         cur.execute(
             """SELECT approval_id FROM sys_approval_request
                WHERE tenant_id=%s AND target_table=%s AND target_id=%s AND result IS NULL""",
-            (tid, tt, body.targetId))
+            (tid, tt, target_id))
         dup = cur.fetchone()
         if dup:
             raise HTTPException(409, detail=f"이미 승인 대기 중 — {tt} (승인함 #{dup[0]} 처리 후 재요청)")
@@ -2485,7 +2529,7 @@ def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
             """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
                request_type, step, requester_id, comment)
                VALUES (%s,%s,%s,%s,'승인',%s,%s) RETURNING approval_id""",
-            (tid, tt, body.targetId, body.requestType.strip()[:20] or "UPDATE",
+            (tid, tt, target_id, body.requestType.strip()[:20] or "UPDATE",
              actor_id, body.label.strip()[:200]))
         approval_id = cur.fetchone()[0]
         # 승인권자(SETUP+) 알림 — 요청자 제외 (SVC-13)

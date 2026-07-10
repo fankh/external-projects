@@ -1,13 +1,13 @@
 # EDIM API 동기화 현황 — OpenAPI 스펙 ↔ 구현 라우터
 
-> B22 산출물 (2026-07-10). 설계 시점 OpenAPI(107 op) 와 구현(154 op)의 정합 기록.
+> B22 산출물 (2026-07-10). 설계 시점 OpenAPI(107 op) 와 구현(155 op)의 정합 기록.
 > 재생성: `py tests/_tmp_routes.py` 패턴 (edim.py `@router.*` 추출) — 신규 엔드포인트 추가 시 본 문서 갱신.
 
 ## 요약
 
 | 구분 | 수 | 비고 |
 |---|---|---|
-| 구현 라우터 (edim.py `/api/v1`) | **154 op** | B1~B21 + F1(프로젝트 3 op) + F2(사용자 3 op) 반영 |
+| 구현 라우터 (edim.py `/api/v1`) | **155 op** | B1~B21 + F1~F4 (프로젝트 3·사용자 3·Table export 1 op) 반영 |
 | 설계 OpenAPI 정의 | 107 op | EDIM_OpenAPI (분석 단계 산출물) |
 | 스펙 정의 → 구현 완료 (동일/대체 경로) | ~90 op | 대체 경로는 아래 매핑 표 |
 | 스펙 정의 → 후속 (외부 의존·범위 제외) | 17 op | 사유 명기 |
@@ -54,7 +54,7 @@
 2. 스펙 문서(EDIM_OpenAPI) 재생성은 본사업 착수 시점에 일괄 수행 (docs/tools 체인) — 그 전까지 본 문서가 정합 기준.
 3. 후속 항목이 구현되면 위 표에서 제거하고 미구현기능목록 §B 와 함께 갱신한다.
 
-## 전체 라우터 인벤토리 (154 op)
+## 전체 라우터 인벤토리 (155 op)
 
 <details>
 <summary>도메인별 요약 (엔드포인트 수)</summary>
@@ -63,7 +63,7 @@
 |---|---|---|---|---|
 | drawings (도면·치수·BOM·승인) | 21 | | erp (대시보드·이벤트·창고·구매) | 16 |
 | dev (요구사항 접수) | 7 | | codes (코드·관계·슬롯) | 13 |
-| macros·tables (Toolbox) | 12 | | documents·files (문서·파일) | 10 |
+| macros·tables (Toolbox) | 13 | | documents·files (문서·파일) | 10 |
 | cost·cpq (원가·견적·Run) | 11 | | users·auth·roles (인증·권한) | 16 |
 | projects (프로젝트 대장 — F1) | 5 | | 기타 (검색·알림·이력·i18n·CAD·부품·자재·업체 등) | 43 |
 

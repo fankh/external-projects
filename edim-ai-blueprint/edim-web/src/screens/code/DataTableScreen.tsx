@@ -222,7 +222,16 @@ export function DataTableScreen({ active }: ScreenProps) {
           </GroupBox>
           <div className="toolbar" style={{ border: '1px solid var(--line)' }}>
             <Btn onClick={addRow}>{t('dtable.addRowF2', '＋ 행 추가 F2')}</Btn>
-            <Btn>✎ {t('common.edit', '편집')}</Btn>
+            <Btn onClick={() => {
+              // F4 — 선택 행 첫 값 셀 인라인 편집 (더블클릭과 동일 경로)
+              const key = selKey ?? rows[0]?.key
+              if (!key) {
+                shell.setStatusMsg(t('dtable.editNeedRow', '편집 — 행을 먼저 선택하십시오'))
+                return
+              }
+              setSelKey(key)
+              setEditing({ key, col: 0 })
+            }}>✎ {t('common.edit', '편집')}</Btn>
             <input ref={fileInput} type="file" accept=".xlsx" style={{ display: 'none' }}
               aria-label="Excel 파일"
               onChange={(e) => {
@@ -231,7 +240,12 @@ export function DataTableScreen({ active }: ScreenProps) {
                 e.target.value = ''
               }} />
             <Btn onClick={() => fileInput.current?.click()}>⬇ Excel Import</Btn>
-            <Btn>⬆ Export</Btn>
+            <Btn onClick={() => {
+              // F4 — 실 XLSX 내보내기 (D8 XLSX 트랙 1호)
+              void tableCrudService.exportXlsx(TABLE12.name).then((ok) => shell.setStatusMsg(ok
+                ? `Export ✓ — ${TABLE12.name}.xlsx (${rows.length}행)`
+                : <span style={{ color: 'var(--err)' }}>Export 불가 — 백엔드 연결 필요 (mock)</span>))
+            }}>⬆ Export</Btn>
             <span style={{ flex: 1 }} />
             <span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>
               {t('dtable.keyHint', 'Key 숫자면 row_key_num 자동 파싱 — 범위 조회(10:25) 정렬 보장')}

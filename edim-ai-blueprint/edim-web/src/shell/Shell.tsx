@@ -358,14 +358,21 @@ export function Shell(props: { user: User }) {
         <span className="b" title="VARIANT 바인딩 치수 — Design Editor"
           onClick={() => {
             shell.openTab(SCREEN_BY_NODE['plm-design'])
-            shell.setStatusMsg('Variants — VARIANT 바인딩 치수: C=45 · E=320 (Design Rule 그리드)')
+            shell.setStatusMsg('Variants — VARIANT 바인딩 치수 (Design Editor, Design Rule 그리드)')
           }}>Variants</span>
         <span className="b" title="현재 코드를 참조하는 상위 — 코드 상세"
-          onClick={() => shell.openTab({
-            id: 'code-detail:KDCR 3-13', screenId: 'code-detail',
-            code: '상세', title: 'KDCR 3-13',
-            params: { code: 'KDCR 3-13', name: 'Fan 원심 Casing' },
-          })}>Referencers</span>
+          onClick={() => {
+            // F4 — 활성 컨텍스트 우선: 활성(또는 마지막) 코드 상세 탭의 코드, 없으면 시드 데모 코드
+            const detailTabs = shell.tabs.filter((tb) => tb.screenId === 'code-detail')
+            const ctx = detailTabs.find((tb) => tb.id === shell.activeTabId) ?? detailTabs[detailTabs.length - 1]
+            const code = String(ctx?.params?.code ?? 'KDCR 3-13')
+            const name = String(ctx?.params?.name ?? 'Fan 원심 Casing')
+            shell.openTab({
+              id: `code-detail:${code}`, screenId: 'code-detail',
+              code: '상세', title: code, params: { code, name },
+            })
+            shell.setStatusMsg(`Referencers — ${code} Where-Used (코드 상세)`)
+          }}>Referencers</span>
         <span className="b" title="개정 대체 이력 — 도면 대장 (dwg_supersedure)"
           onClick={() => {
             shell.openTab(SCREEN_BY_NODE['plm-drawings'])
