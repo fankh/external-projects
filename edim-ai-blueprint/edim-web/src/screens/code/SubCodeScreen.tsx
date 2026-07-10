@@ -6,12 +6,14 @@ import { codeSetupService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
 export function SubCodeScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [rows, setRows] = useState<SubCodeSlot[]>([])
   const [selSlot, setSelSlot] = useState<string | null>(null)
 
@@ -76,13 +78,14 @@ export function SubCodeScreen({ active }: ScreenProps) {
 
   const cols: GridColumn<SubCodeSlot>[] = [
     { key: 'slot', header: 'Slot', width: 34, align: 'center', render: (r) => <b>{r.slot}</b> },
-    { key: 'label', header: '항목', width: 110, render: (r) => r.label },
-    { key: 'values', header: '값 목록', code: true, render: (r) => r.values },
-    { key: 'count', header: '건수', width: 40, align: 'right', render: (r) => r.count },
+    { key: 'label', header: t('subcode.item', '항목'), width: 110, render: (r) => r.label },
+    { key: 'values', header: t('subcode.valueList', '값 목록'), code: true, render: (r) => r.values },
+    { key: 'count', header: t('subcode.count', '건수'), width: 40, align: 'right', render: (r) => r.count },
     {
-      key: 'status', header: '상태', width: 52, align: 'center',
+      key: 'status', header: t('subcode.status', '상태'), width: 52, align: 'center',
       render: (r) => (r.status === 'APPROVED'
-        ? <Chip tone="ok">승인</Chip> : <Chip tone="warn">대기</Chip>),
+        ? <Chip tone="ok">{t('subcode.approved', '승인')}</Chip>
+        : <Chip tone="warn">{t('enum.waiting', '대기')}</Chip>),
     },
   ]
 
@@ -91,15 +94,21 @@ export function SubCodeScreen({ active }: ScreenProps) {
       <div className="qband">
         <label>Group<i>*</i></label>
         <input className="in req" style={{ width: 64 }} defaultValue="KOF" aria-label="Group" />
-        <label>설명</label>
+        <label>{t('subcode.desc', '설명')}</label>
         <input className="in" style={{ width: 170 }} defaultValue="Specification - Fan" aria-label="설명" />
-        <label>승인상태</label>
-        <Combo width={84} value="전체" options={['전체', '승인', '대기']} />
+        <label>{t('subcode.apprStatus', '승인상태')}</label>
+        <Combo width={84} value="전체" options={[
+          { value: '전체', label: t('enum.all', '전체') },
+          { value: '승인', label: t('subcode.approved', '승인') },
+          { value: '대기', label: t('enum.waiting', '대기') },
+        ]} />
         <span style={{ flex: 1 }} />
-        <Btn onClick={() => shell.setStatusMsg(`조회 — Group KOF · ${rows.length}개 Slot`)}>조회 F8</Btn>
-        <Btn onClick={reset}>신규 F2</Btn>
-        <Btn onClick={checkDup}>중복검토</Btn>
-        <Btn variant="pri">저장 F12</Btn>
+        <Btn onClick={() => shell.setStatusMsg(`조회 — Group KOF · ${rows.length}개 Slot`)}>
+          {t('subcode.queryF8', '조회 F8')}
+        </Btn>
+        <Btn onClick={reset}>{t('subcode.newF2', '신규 F2')}</Btn>
+        <Btn onClick={checkDup}>{t('subcode.dupCheck', '중복검토')}</Btn>
+        <Btn variant="pri">{t('subcode.saveF12', '저장 F12')}</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox style={{ flex: 1.3 }} noPad
@@ -112,27 +121,31 @@ export function SubCodeScreen({ active }: ScreenProps) {
             selectedKey={selSlot} onRowClick={(r) => setSelSlot(r.slot)} />
         </GroupBox>
         <div style={{ width: 330, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title={`신규 항목 (${newItemNo || nextSlot()}) — 필수는 노란 셀`}>
+          <GroupBox title={t('subcode.newItemTitle', '신규 항목 ({n}) — 필수는 노란 셀')
+            .replace('{n}', newItemNo || nextSlot())}>
             <div className="frm c2">
               <label>Item No<i>*</i></label>
               <input className="in req" value={newItemNo} aria-label="Item No"
                 onChange={(e) => { setNewItemNo(e.target.value); setDupChecked(false) }} />
-              <label>설명<i>*</i></label>
+              <label>{t('subcode.desc', '설명')}<i>*</i></label>
               <input className="in req" value={newDesc} aria-label="설명(신규)"
                 onChange={(e) => setNewDesc(e.target.value)} />
               <label>Sub Item</label>
               <input className="in" value={newValues} aria-label="Sub Item"
                 onChange={(e) => setNewValues(e.target.value)} />
-              <label>참조 Table</label>
-              <Combo value="— 없음" options={['— 없음', 'Table12 (Variant)']} />
+              <label>{t('subcode.refTable', '참조 Table')}</label>
+              <Combo value="— 없음" options={[
+                { value: '— 없음', label: t('subcode.none', '— 없음') },
+                'Table12 (Variant)',
+              ]} />
             </div>
             <div style={{ marginTop: 6, display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
-              {dupChecked ? <Chip tone="ok">중복검토 ✓</Chip> : null}
-              <Btn>＋ 값 추가</Btn>
-              <Btn variant="pri" onClick={requestApproval}>승인 요청</Btn>
+              {dupChecked ? <Chip tone="ok">{t('subcode.dupCheck', '중복검토')} ✓</Chip> : null}
+              <Btn>{t('subcode.addValue', '＋ 값 추가')}</Btn>
+              <Btn variant="pri" onClick={requestApproval}>{t('common.requestApproval', '승인 요청')}</Btn>
             </div>
           </GroupBox>
-          <GroupBox title="코드 자산 — KDCR 3-13" style={{ flex: 1 }}>
+          <GroupBox title={t('subcode.codeAsset', '코드 자산 — KDCR 3-13')} style={{ flex: 1 }}>
             <div style={{ fontSize: 11, lineHeight: 1.9 }}>
               <b style={{ color: 'var(--title-navy)' }}>DWG</b> PDF·CAD
               <Chip tone="info">3D ☑ 2D ☐</Chip>
@@ -141,7 +154,7 @@ export function SubCodeScreen({ active }: ScreenProps) {
               <b style={{ color: 'var(--title-navy)' }}>Table</b> KDCR 3-13 (Variant)
               <span className="b" style={{ float: 'right', height: 18, fontSize: 10 }}
                 onClick={() => shell.openTab({ id: 'code-datatable', screenId: 'code-datatable', code: 'M-3-7', title: '데이터 Table' })}>
-                열기
+                {t('subcode.open', '열기')}
               </span>
             </div>
           </GroupBox>

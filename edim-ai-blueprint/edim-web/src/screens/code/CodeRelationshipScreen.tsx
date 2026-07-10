@@ -6,6 +6,7 @@ import { relationshipService, type ChildRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -14,6 +15,7 @@ const SLOT_OPTS: Record<string, string[]> = { B: ['13', '21', '32'], C: ['32', '
 
 export function CodeRelationshipScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [children, setChildren] = useState<ChildRow[]>([])
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [slots, setSlots] = useState<Record<string, string>>({ B: '13', C: '32', E: '15' })
@@ -91,8 +93,8 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
             <Cvs blocks={[{ id: 'm', name: 'Mother', sub: MOTHER.code, x: 30, y: 12, w: 120, h: 60 }]}
               style={{ width: 190, height: 90 }} />
             <div style={{ flex: 1, fontSize: 10.5, color: 'var(--txt-dim)', lineHeight: 1.7 }}>
-              Code Source: 각 Slot 의 항목 정의 표시 · 3D ☑ 2D ☐<br />
-              Slot 매핑(slot_map)으로 Mother 값이 Child 코드 자릿수에 전파 (CODE-008)
+              {t('codrel.codeSourceHint', 'Code Source: 각 Slot 의 항목 정의 표시 · 3D ☑ 2D ☐')}<br />
+              {t('codrel.slotMapHint', 'Slot 매핑(slot_map)으로 Mother 값이 Child 코드 자릿수에 전파 (CODE-008)')}
             </div>
           </div>
           <GroupBox title="Add Child" right={<>
@@ -106,14 +108,14 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
               <input className="in" defaultValue="Inlet Cone W/O FF" aria-label="Child Description" />
               <label>Q'ty</label>
               <input className="in" defaultValue="2" style={{ maxWidth: 64 }} aria-label="Qty" />
-              <label>Slot 매핑</label>
+              <label>{t('codrel.slotMap', 'Slot 매핑')}</label>
               <input className="in" defaultValue="A↔A · B↔B · C↔C" aria-label="Slot 매핑" />
             </div>
           </GroupBox>
         </div>
         <div className="split-h" />
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
-          <GroupBox title="[ Child Group ] — 더블클릭=코드 상세" right={<Chip tone="ok">Approved</Chip>} noPad>
+          <GroupBox title={t('codrel.childGroup', '[ Child Group ] — 더블클릭=코드 상세')} right={<Chip tone="ok">Approved</Chip>} noPad>
             <DenseGrid columns={childCols} rows={children} rowKey={(r) => r.code}
               onRowDoubleClick={(r) => shell.openTab({
                 id: `code-detail:${r.code}`, screenId: 'code-detail',
@@ -133,15 +135,17 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
               ? <DenseGrid columns={testCols} rows={testRows} rowKey={(r) => r.no} />
               : (
                 <div style={{ padding: 10, color: 'var(--txt-mute)', fontSize: 11 }}>
-                  Mother Slot 조합(B·C·E)을 선택하고 Run — 조건 일치 Child 전량 전개 검증
+                  {t('codrel.runHint', 'Mother Slot 조합(B·C·E)을 선택하고 Run — 조건 일치 Child 전량 전개 검증')}
                 </div>
               )}
           </GroupBox>
           <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
-            {tested ? <Chip tone="ok">Running Test 통과</Chip> : <Chip tone="warn">Test 필요</Chip>}
+            {tested
+              ? <Chip tone="ok">{t('codrel.testPassed', 'Running Test 통과')}</Chip>
+              : <Chip tone="warn">{t('codrel.testNeeded', 'Test 필요')}</Chip>}
             <Btn variant="pri" disabled={!tested}
               onClick={() => shell.setStatusMsg('승인 요청 — Code Relationship (PENDING)')}>
-              승인 요청
+              {t('common.requestApproval', '승인 요청')}
             </Btn>
           </div>
         </div>

@@ -8,6 +8,7 @@ import { TABLE12_ROWS } from '../../api/mock/dataCode'
 import { aiService, approvalService, macroLibService, macroService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -16,6 +17,7 @@ const VIEWS = ['Prompt', 'Macro', 'Flowchart'] as const
 
 export function MacroStudioScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [view, setView] = useState<typeof VIEWS[number]>('Prompt')
   const [prompt, setPrompt] = useState(MACRO_PROMPT)
   const [formula, setFormula] = useState(MACRO_FORMULA)
@@ -109,13 +111,13 @@ export function MacroStudioScreen({ active }: ScreenProps) {
         <label>Grade</label>
         <Combo width={62} value={MACRO_META.grade} options={['S-1', 'S-2', 'S-3']} />
         <span style={{ flex: 1 }} />
-        {tested ? <Chip tone="info">TESTED</Chip> : <Chip tone="warn">미검증</Chip>}
+        {tested ? <Chip tone="info">TESTED</Chip> : <Chip tone="warn">{t('studio.notTested', '미검증')}</Chip>}
         <Btn onClick={() => {
           void macroLibService.save('Shaft 길이 계산', formula, prompt)
             .then((ok) => shell.setStatusMsg(ok
               ? '저장 ✓ — tbx_macro DRAFT (v0.3)'
               : <span style={{ color: 'var(--err)' }}>저장 불가 — 백엔드 연결 필요</span>))
-        }}>저장 (v0.3)</Btn>
+        }}>{t('studio.saveVer', '저장 (v0.3)')}</Btn>
         <Btn variant="pri" disabled={!tested}
           onClick={() => {
             void (async () => {
@@ -127,7 +129,7 @@ export function MacroStudioScreen({ active }: ScreenProps) {
                 : <span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요</span>)
             })()
           }}>
-          검증·승인 요청
+          {t('studio.verifyApprove', '검증·승인 요청')}
         </Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
@@ -153,7 +155,7 @@ export function MacroStudioScreen({ active }: ScreenProps) {
               </tbody>
             </table>
           </GroupBox>
-          <GroupBox title="[ 함수 마법사 ]">
+          <GroupBox title={t('studio.fnWizard', '[ 함수 마법사 ]')}>
             <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
               {FUNCTIONS.map((f) => (
                 <span key={f} className="b" style={{ height: 18, fontSize: 10 }}
@@ -161,8 +163,9 @@ export function MacroStudioScreen({ active }: ScreenProps) {
               ))}
             </div>
           </GroupBox>
-          <GroupBox title="[ 기능 찾기 ]">
-            <input className="in" style={{ width: '100%' }} placeholder="자연어로 기능 검색…"
+          <GroupBox title={t('studio.findFeature', '[ 기능 찾기 ]')}>
+            <input className="in" style={{ width: '100%' }}
+              placeholder={t('studio.searchNl', '자연어로 기능 검색…')}
               aria-label="기능 찾기" />
           </GroupBox>
         </div>
@@ -172,11 +175,11 @@ export function MacroStudioScreen({ active }: ScreenProps) {
               <input className="in" style={{ flex: 1 }} value={prompt} aria-label="Prompt"
                 onChange={(e) => { setPrompt(e.target.value); setGenerated(false) }} />
               <Btn variant="pri" disabled={busy} onClick={generate}>
-                {busy ? '생성 중…' : '▶ 생성 (AI)'}
+                {busy ? t('studio.generating', '생성 중…') : t('studio.generateAi', '▶ 생성 (AI)')}
               </Btn>
             </div>
           </GroupBox>
-          <GroupBox title="Macro — Excel 호환 문법 (편집 가능)" right={<>
+          <GroupBox title={t('studio.macroTitle', 'Macro — Excel 호환 문법 (편집 가능)')} right={<>
             {result != null ? <b style={{ color: 'var(--ok)' }}>{result}</b> : null}
             <Btn variant="run" style={{ height: 18, fontSize: 10 }} onClick={testRun}>Run F9</Btn>
           </>}>
@@ -184,7 +187,7 @@ export function MacroStudioScreen({ active }: ScreenProps) {
               value={formula} aria-label="Macro 수식"
               onChange={(e) => { setFormula(e.target.value); setTested(false); setResult(null) }} />
             {!generated && formula !== MACRO_FORMULA
-              ? <Chip tone="warn">Prompt 와 불일치 — 동기화 제안</Chip> : null}
+              ? <Chip tone="warn">{t('studio.syncSuggest', 'Prompt 와 불일치 — 동기화 제안')}</Chip> : null}
           </GroupBox>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, flex: 1, minHeight: 0 }}>
             <GroupBox title="Flowchart">
@@ -205,7 +208,7 @@ export function MacroStudioScreen({ active }: ScreenProps) {
             </GroupBox>
           </div>
           <div style={{ fontSize: 10, color: 'var(--txt-mute)' }}>
-            4-Way Sync — 한쪽 수정 시 나머지 동기화 제안 · 간단 계산=Macro / 복잡=Coding(AI) (TBX-008/010)
+            {t('studio.syncHint', '4-Way Sync — 한쪽 수정 시 나머지 동기화 제안 · 간단 계산=Macro / 복잡=Coding(AI) (TBX-008/010)')}
           </div>
         </div>
       </div>

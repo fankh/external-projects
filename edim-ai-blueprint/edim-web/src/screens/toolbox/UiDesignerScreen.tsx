@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { INITIAL_WIDGETS, WIDGET_PALETTE, type Widget } from '../../api/mock/dataMore'
 import { aiService, approvalService, uiFormService } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -14,6 +15,7 @@ const FORM_NAME = 'CPQ-Selection'   // 경로 세그먼트 — '/' 는 라우팅
 
 export function UiDesignerScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [widgets, setWidgets] = useState<Widget[]>(INITIAL_WIDGETS)
   const [selId, setSelId] = useState<string | null>('w1')
   const [dirty, setDirty] = useState(false)
@@ -65,8 +67,8 @@ export function UiDesignerScreen({ active }: ScreenProps) {
           Form — CPQ / Selection v{version} {dirty ? '*' : ''}
         </span>
         <span style={{ flex: 1 }} />
-        <Btn onClick={() => shell.setStatusMsg('미리보기 — 동적 렌더러 실행 (TBX-003)')}>미리보기</Btn>
-        <Btn onClick={() => { void saveLayout() }}>저장 F12</Btn>
+        <Btn onClick={() => shell.setStatusMsg('미리보기 — 동적 렌더러 실행 (TBX-003)')}>{t('common.preview', '미리보기')}</Btn>
+        <Btn onClick={() => { void saveLayout() }}>{t('uidsn.saveF12', '저장 F12')}</Btn>
         <Btn variant="pri" onClick={() => {
           void (async () => {
             // 게시 = 현재 레이아웃 저장 후 승인 요청 (TBX-004)
@@ -78,7 +80,7 @@ export function UiDesignerScreen({ active }: ScreenProps) {
               : <span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요</span>)
           })()
         }}>
-          게시 (승인 후)
+          {t('uidsn.publish', '게시 (승인 후)')}
         </Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
@@ -92,7 +94,7 @@ export function UiDesignerScreen({ active }: ScreenProps) {
               <div className="tn"><span className="pm">+</span>Print Form</div>
             </div>
           </GroupBox>
-          <GroupBox title="Widget Box — 클릭=배치" noPad>
+          <GroupBox title={t('uidsn.widgetBox', 'Widget Box — 클릭=배치')} noPad>
             <div className="tree2">
               {WIDGET_PALETTE.map((g) => (
                 <div key={g.group}>
@@ -118,11 +120,11 @@ export function UiDesignerScreen({ active }: ScreenProps) {
               </div>
             ))}
             <div style={{ position: 'absolute', left: 10, bottom: 6, fontSize: 9.5, color: 'var(--txt-mute)' }}>
-              팔레트 클릭 배치 → 속성 편집 → 동작 Templet 바인딩 → 저장·버전 → 승인·게시
+              {t('uidsn.flowHint', '팔레트 클릭 배치 → 속성 편집 → 동작 Templet 바인딩 → 저장·버전 → 승인·게시')}
             </div>
           </div>
           <div style={{ fontSize: 10, color: 'var(--txt-mute)' }}>
-            Button → Command Templet (복사·대상·Data) · Combo → Data Set-up (Table 바인딩)
+            {t('uidsn.bindHint', 'Button → Command Templet (복사·대상·Data) · Combo → Data Set-up (Table 바인딩)')}
           </div>
         </div>
         <div className="split-h" />
@@ -152,9 +154,9 @@ export function UiDesignerScreen({ active }: ScreenProps) {
               </tbody>
             </table>
           </GroupBox>
-          <GroupBox title="[ UI 개발 AI ]">
+          <GroupBox title={t('uidsn.aiTitle', '[ UI 개발 AI ]')}>
             <input className="in" style={{ width: '100%' }} value={aiText} aria-label="AI 설명"
-              placeholder="개발할 Application 설명 입력…"
+              placeholder={t('uidsn.aiPlaceholder', '개발할 Application 설명 입력…')}
               onChange={(e) => setAiText(e.target.value)} />
             <div style={{ textAlign: 'right', marginTop: 4 }}>
               <Btn variant="run" onClick={() => {
@@ -175,13 +177,13 @@ export function UiDesignerScreen({ active }: ScreenProps) {
                     ? `AI 초안 ✓ (Claude) — 위젯 ${r.widgets.length}개: ${r.notes.slice(0, 60)}`
                     : `AI 초안 (${r.mode === 'sample' ? '샘플 모드 — API 키 미설정' : `오류: ${r.error}`}) — 위젯 ${r.widgets.length}개`)
                 })()
-              }}>UI 초안 제안</Btn>
+              }}>{t('uidsn.aiDraft', 'UI 초안 제안')}</Btn>
             </div>
             <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 4 }}>
-              → 용도 / 항목 / 필요 DB Table 정리 후 Templet 제안 · 호출하여 Customizing
+              {t('uidsn.aiHint', '→ 용도 / 항목 / 필요 DB Table 정리 후 Templet 제안 · 호출하여 Customizing')}
             </div>
           </GroupBox>
-          {dirty ? <Chip tone="warn">미저장 변경</Chip> : null}
+          {dirty ? <Chip tone="warn">{t('uidsn.unsaved', '미저장 변경')}</Chip> : null}
         </div>
       </div>
     </div>

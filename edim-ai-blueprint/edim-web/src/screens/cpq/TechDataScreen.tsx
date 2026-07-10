@@ -4,6 +4,7 @@ import { tableService } from '../../api/services'
 import type { TechDataRow } from '../../api/types'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -13,6 +14,7 @@ const DIRECTIONS = ['L0', 'L90', 'L180', 'L270', 'R0', 'R90', 'R180', 'R270']
 export function TechDataScreen({ active }: ScreenProps) {
   const shell = useShell()
   const { setStatusMsg } = shell   // 안정 참조 — 재조회 루프 방지
+  const { t } = useI18n()
   const [direction, setDirection] = useState('R0')
   const [airflow, setAirflow] = useState('2000')
   const [pressure, setPressure] = useState('200')
@@ -41,7 +43,7 @@ export function TechDataScreen({ active }: ScreenProps) {
     { key: 'pd', header: 'Pd', width: 44, align: 'right', render: (r) => r.pd },
     { key: 'pt', header: 'Pt', width: 44, align: 'right', render: (r) => r.pt },
     { key: 'rpm', header: 'RPM', width: 50, align: 'right', render: (r) => r.rpm },
-    { key: 'eff', header: '효율', width: 44, align: 'right', render: (r) => r.eff },
+    { key: 'eff', header: t('techdata.eff', '효율'), width: 44, align: 'right', render: (r) => r.eff },
     { key: 'power', header: 'Power', width: 50, align: 'right', render: (r) => r.power },
     { key: 'sound', header: 'Sound', width: 50, align: 'right', render: (r) => r.sound },
   ]
@@ -58,19 +60,19 @@ export function TechDataScreen({ active }: ScreenProps) {
         <Combo width={110} value="DWG View" options={['DWG View', '3D View', 'Section']} />
         <span style={{ flex: 1 }} />
         <Btn>＋ Add Item</Btn>
-        <Btn variant="pri" onClick={() => void query()}>조회 F8</Btn>
+        <Btn variant="pri" onClick={() => void query()}>{t('techdata.queryF8', '조회 F8')}</Btn>
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <div className="fill-col" style={{ flex: 1, padding: 6, gap: 6, overflow: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 6 }}>
-            <GroupBox title={`선정 Fan 도면 — ${direction}`}>
+            <GroupBox title={t('techdata.selFanDrawing', '선정 Fan 도면 — {n}').replace('{n}', direction)}>
               <div className="cvs" style={{ height: 148 }}>
                 <div className="m2 sel" style={{ left: 40, top: 24, width: 110, height: 90 }}>
                   Fan<small>{selModel ? `KAD ${selModel}` : '—'}</small>
                 </div>
               </div>
             </GroupBox>
-            <GroupBox title="설계 옵션 — 승인된 Sub Code 값만 (CODE-003)">
+            <GroupBox title={t('techdata.designOptions', '설계 옵션 — 승인된 Sub Code 값만 (CODE-003)')}>
               <div className="frm">
                 <label>Model</label>
                 <Combo value={model} options={['KAD 1120 4KA-9', 'KAD 1000 4KA-7', 'KFD 900 2K']} onChange={setModel} />
@@ -100,17 +102,17 @@ export function TechDataScreen({ active }: ScreenProps) {
             </GroupBox>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, flex: 1, minHeight: 0 }}>
-            <GroupBox title="Technical Data — Table 범위 조회 + Macro (TBL-004)" noPad>
+            <GroupBox title={t('techdata.techDataTitle', 'Technical Data — Table 범위 조회 + Macro (TBL-004)')} noPad>
               <DenseGrid columns={cols} rows={rows}
                 rowKey={(r) => r.model} selectedKey={selModel}
                 onRowClick={(r) => setSelModel(r.model)} />
             </GroupBox>
-            <GroupBox title="성능 곡선 — 선정점 하이라이트">
+            <GroupBox title={t('techdata.perfCurve', '성능 곡선 — 선정점 하이라이트')}>
               <div className="cvs" style={{ height: '100%', minHeight: 140 }}>
                 {sel ? (
                   <>
                     <div className="d2" style={{ left: 20, top: 18, width: 200 }}>
-                      <span>선정점 {sel.model} · {sel.rpm} RPM</span>
+                      <span>{t('techdata.selPoint', '선정점')} {sel.model} · {sel.rpm} RPM</span>
                     </div>
                     <div className="m2 sel" style={{
                       left: 60 + rows.indexOf(sel) * 36, top: 90 - sel.eff / 2, width: 12, height: 12,
@@ -118,7 +120,7 @@ export function TechDataScreen({ active }: ScreenProps) {
                   </>
                 ) : null}
                 <div style={{ position: 'absolute', right: 8, bottom: 6, fontSize: 9.5, color: 'var(--txt-mute)' }}>
-                  그래프 마법사 Templet (TBX-011)
+                  {t('techdata.graphWizard', '그래프 마법사 Templet (TBX-011)')}
                 </div>
               </div>
             </GroupBox>
@@ -126,7 +128,9 @@ export function TechDataScreen({ active }: ScreenProps) {
         </div>
         <div className="split-h" />
         <div style={{ width: 300, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
-          <GroupBox title="Product Code" right={sel ? <Chip tone="ok">유효</Chip> : <Chip tone="warn">미선정</Chip>}>
+          <GroupBox title="Product Code" right={sel
+            ? <Chip tone="ok">{t('techdata.valid', '유효')}</Chip>
+            : <Chip tone="warn">{t('techdata.notSelected', '미선정')}</Chip>}>
             <input className="in ro" style={{ width: '100%', fontFamily: 'Consolas, monospace' }}
               value={productCode} readOnly aria-label="Product Code" />
           </GroupBox>
@@ -146,9 +150,9 @@ export function TechDataScreen({ active }: ScreenProps) {
           </GroupBox>
           <GroupBox title="Sub Item Technical data">
             <div style={{ fontSize: 11, lineHeight: 1.9 }}>
-              Fan 성능표 (PDF) <Chip tone="ok">생성</Chip><br />
-              밀도 보정 계산서 <Chip tone="ok">생성</Chip><br />
-              소음 예측 (Sound {sel?.sound ?? '—'} dB) <Chip tone="info">DRAFT</Chip>
+              {t('techdata.fanPerfTable', 'Fan 성능표 (PDF)')} <Chip tone="ok">{t('techdata.generated', '생성')}</Chip><br />
+              {t('techdata.densityCalc', '밀도 보정 계산서')} <Chip tone="ok">{t('techdata.generated', '생성')}</Chip><br />
+              {t('techdata.soundForecast', '소음 예측 (Sound {n} dB)').replace('{n}', String(sel?.sound ?? '—'))} <Chip tone="info">DRAFT</Chip>
             </div>
           </GroupBox>
         </div>

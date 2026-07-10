@@ -2,12 +2,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { notificationService, type Notification } from '../api/services'
 import { Chip } from '../components/controls'
+import { useI18n } from '../i18n/I18nContext'
 import { useShell, type ModuleId } from './ShellContext'
 
 const MODULE_IDS = ['cpq', 'plm', 'code', 'erp', 'toolbox', 'common']
 
 export function NotificationBell() {
   const shell = useShell()
+  const { t } = useI18n()
   const [items, setItems] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -70,20 +72,20 @@ export function NotificationBell() {
           boxShadow: '0 6px 20px rgba(20,26,40,.28)',
           color: 'var(--txt)', fontSize: 11.5, fontWeight: 400, textAlign: 'left',
         }}>
-          <div className="gt">알림<span className="sp" />
+          <div className="gt">{t('bell.title', '알림')}<span className="sp" />
             <span style={{ fontWeight: 500, color: 'var(--txt-mute)', fontSize: 10 }}>
-              미읽음 {unread} · 60s 폴링
+              {t('bell.unreadPoll', '미읽음 {n} · 60s 폴링').replace('{n}', String(unread))}
             </span>
             {unread > 0 ? (
               <span data-read-all role="button" style={{
                 marginLeft: 8, cursor: 'pointer', fontSize: 10, color: 'var(--title-navy)',
                 fontWeight: 700, textDecoration: 'underline',
-              }} onClick={(e) => { e.stopPropagation(); readAll() }}>모두 읽음</span>
+              }} onClick={(e) => { e.stopPropagation(); readAll() }}>{t('bell.readAll', '모두 읽음')}</span>
             ) : null}
           </div>
           <div className="gc p0" style={{ maxHeight: 280, overflow: 'auto' }}>
             {items.length === 0 ? (
-              <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>알림 없음</div>
+              <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('bell.empty', '알림 없음')}</div>
             ) : (
               <table className="g">
                 <tbody>

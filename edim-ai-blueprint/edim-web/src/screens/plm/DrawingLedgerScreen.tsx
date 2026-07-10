@@ -6,6 +6,7 @@ import {
 } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -16,6 +17,7 @@ const STATUS_TONE: Record<string, 'ok' | 'warn' | 'info' | 'err'> = {
 
 export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [drawings, setDrawings] = useState<DrawingRow[]>([])
   const [sel, setSel] = useState<string | null>(null)
   const [revs, setRevs] = useState<RevisionRow[]>([])
@@ -140,21 +142,21 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
 
   const cols: GridColumn<DrawingRow>[] = [
     { key: 'no', header: 'Drawing No.', width: 96, code: true, render: (r) => r.drawingNo },
-    { key: 'name', header: '도면명', render: (r) => r.name },
-    { key: 'type', header: '유형', width: 72, align: 'center', render: (r) => r.type },
+    { key: 'name', header: t('dwg.drawingName', '도면명'), render: (r) => r.name },
+    { key: 'type', header: t('dwg.typeCol', '유형'), width: 72, align: 'center', render: (r) => r.type },
     { key: 'kind', header: 'Kind', width: 100, align: 'center', render: (r) => r.kind },
     { key: 'rev', header: 'Rev', width: 40, align: 'center', render: (r) => <b>{r.rev}</b> },
-    { key: 'revc', header: 'Rev수', width: 40, align: 'right', render: (r) => r.revCount },
+    { key: 'revc', header: t('dwg.revCount', 'Rev수'), width: 40, align: 'right', render: (r) => r.revCount },
     {
-      key: 'st', header: '상태', width: 78, align: 'center',
+      key: 'st', header: t('dwg.statusCol', '상태'), width: 78, align: 'center',
       render: (r) => (
         <>
           <Chip tone={STATUS_TONE[r.status] ?? 'info'}>{r.status}</Chip>
-          {r.superseded ? <Chip tone="err">대체됨</Chip> : null}
+          {r.superseded ? <Chip tone="err">{t('dwg.superseded', '대체됨')}</Chip> : null}
         </>
       ),
     },
-    { key: 'file', header: '파일 (DXF)', width: 130, render: (r) => r.fileName ?? '-' },
+    { key: 'file', header: t('dwg.fileCol', '파일 (DXF)'), width: 130, render: (r) => r.fileName ?? '-' },
   ]
 
   const nos = drawings.map((d) => d.drawingNo)
@@ -162,12 +164,12 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
   return (
     <div className="fill-col">
       <div className="qband">
-        <label>도면 대장</label>
-        <Chip tone="info">dwg_drawing {drawings.length}건</Chip>
-        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>더블클릭 = 연결 DXF CAD 뷰어</span>
+        <label>{t('dwg.ledger', '도면 대장')}</label>
+        <Chip tone="info">{t('dwg.countChip', 'dwg_drawing {n}건').replace('{n}', String(drawings.length))}</Chip>
+        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('dwg.dblOpenHint', '더블클릭 = 연결 DXF CAD 뷰어')}</span>
         <span style={{ flex: 1 }} />
-        <Btn onClick={() => { load(); shell.setStatusMsg('도면 대장 재조회 (dwg_drawing)') }}>조회 F8</Btn>
-        <Btn variant="pri" onClick={() => setShowReg(true)}>＋ 도면 등록 F2</Btn>
+        <Btn onClick={() => { load(); shell.setStatusMsg('도면 대장 재조회 (dwg_drawing)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
+        <Btn variant="pri" onClick={() => setShowReg(true)}>{t('dwg.registerF2', '＋ 도면 등록 F2')}</Btn>
       </div>
       {showReg ? (
         <div data-dwg-reg style={{
@@ -177,18 +179,18 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
           <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 340, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
             onClick={(e) => e.stopPropagation()}>
             <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
-              <b>도면 등록 — dwg_drawing</b><span className="sp" />
+              <b>{t('dwg.regTitle', '도면 등록 — dwg_drawing')}</b><span className="sp" />
               <span style={{ cursor: 'pointer' }} onClick={() => setShowReg(false)}>✕</span>
             </div>
             <div className="frm c2" style={{ padding: 10 }}>
-              <label>도면번호 *</label>
+              <label>{t('dwg.drawingNo', '도면번호')} *</label>
               <input className="in req" value={reg.drawingNo} aria-label="등록 도면번호"
-                placeholder="예: KDCR 3-15"
+                placeholder={t('dwg.noPlaceholder', '예: KDCR 3-15')}
                 onChange={(e) => setReg({ ...reg, drawingNo: e.target.value })} />
-              <label>도면명 *</label>
+              <label>{t('dwg.drawingName', '도면명')} *</label>
               <input className="in req" value={reg.name} aria-label="등록 도면명"
                 onChange={(e) => setReg({ ...reg, name: e.target.value })} />
-              <label>유형</label>
+              <label>{t('dwg.typeCol', '유형')}</label>
               <Combo width={140} value={reg.drawingType} options={['PART', 'ASSEMBLY', 'LAYOUT']}
                 onChange={(v) => setReg({ ...reg, drawingType: v })} />
               <label>Kind</label>
@@ -196,15 +198,16 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
                 onChange={(v) => setReg({ ...reg, kind: v })} />
             </div>
             <div style={{ display: 'flex', gap: 4, padding: '0 10px 10px', justifyContent: 'flex-end' }}>
-              <Btn onClick={() => setShowReg(false)}>취소</Btn>
-              <Btn variant="pri" onClick={register}>등록 F12</Btn>
+              <Btn onClick={() => setShowReg(false)}>{t('dwg.cancel', '취소')}</Btn>
+              <Btn variant="pri" onClick={register}>{t('dwg.registerF12', '등록 F12')}</Btn>
             </div>
           </div>
         </div>
       ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ gap: 6, flex: 1.3, overflow: 'auto' }}>
-          <GroupBox title={`도면 목록 — ${drawings.length}건 (클릭=Rev 이력)`} noPad style={{ flex: 1 }}>
+          <GroupBox title={t('dwg.listTitle', '도면 목록 — {n}건 (클릭=Rev 이력)')
+            .replace('{n}', String(drawings.length))} noPad style={{ flex: 1 }}>
             <DenseGrid columns={cols} rows={drawings} rowKey={(r) => r.drawingNo}
               selectedKey={sel} onRowClick={(r) => setSel(r.drawingNo)}
               onRowDoubleClick={openCad} />
@@ -212,11 +215,12 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
         </div>
         <div className="split-h" />
         <div style={{ width: 330, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title={`Rev 이력${sel ? ` — ${sel}` : ''} (dwg_revision)`} noPad>
+          <GroupBox title={`${t('dwg.revHistory', 'Rev 이력')}${sel ? ` — ${sel}` : ''} (dwg_revision)`} noPad>
             {sel ? (
               <>
                 <table className="g">
-                  <thead><tr><th>Rev</th><th>일자</th><th>사유</th><th>처리자</th></tr></thead>
+                  <thead><tr><th>Rev</th><th>{t('dwg.dateCol', '일자')}</th>
+                    <th>{t('dwg.reasonCol', '사유')}</th><th>{t('dwg.byCol', '처리자')}</th></tr></thead>
                   <tbody>
                     {revs.map((r) => (
                       <tr key={r.rev}>
@@ -230,23 +234,26 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
                 </table>
                 <div style={{ display: 'flex', gap: 4, padding: 6, alignItems: 'center' }}>
                   <input className="in" style={{ flex: 1 }} value={revReason} aria-label="Rev 사유"
-                    placeholder="개정 사유" onChange={(e) => setRevReason(e.target.value)} />
+                    placeholder={t('dwg.revReasonPh', '개정 사유')} onChange={(e) => setRevReason(e.target.value)} />
                   <Btn variant="pri" onClick={revUp}>
-                    Rev 올리기{selected ? ` (${selected.rev}→다음)` : ''}
+                    {t('dwg.revUp', 'Rev 올리기')}
+                    {selected ? ` (${selected.rev}→${t('dwg.nextRev', '다음')})` : ''}
                   </Btn>
                 </div>
               </>
             ) : (
               <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>
-                좌측 도면 행을 선택하면 Rev 이력이 표시됩니다
+                {t('dwg.selectHint', '좌측 도면 행을 선택하면 Rev 이력이 표시됩니다')}
               </div>
             )}
           </GroupBox>
-          <GroupBox title={`Supersedure — ${sups.length}건 (dwg_supersedure)`} noPad
-            right={<span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>구도면 → 신도면 대체</span>}>
+          <GroupBox title={t('dwg.supTitle', 'Supersedure — {n}건 (dwg_supersedure)')
+            .replace('{n}', String(sups.length))} noPad
+            right={<span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>{t('dwg.supHint', '구도면 → 신도면 대체')}</span>}>
             {sups.length ? (
               <table className="g">
-                <thead><tr><th>구도면</th><th>신도면</th><th>일자</th></tr></thead>
+                <thead><tr><th>{t('dwg.oldNo', '구도면')}</th><th>{t('dwg.newNo', '신도면')}</th>
+                  <th>{t('dwg.dateCol', '일자')}</th></tr></thead>
                 <tbody>
                   {sups.map((s, i) => (
                     <tr key={i} title={s.reason}>
@@ -260,21 +267,23 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
                 </tbody>
               </table>
             ) : (
-              <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>대체 이력 없음</div>
+              <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.noSup', '대체 이력 없음')}</div>
             )}
             <div className="frm c2" style={{ padding: 6, borderTop: '1px solid var(--line-soft)' }}>
-              <label>구도면</label>
-              <Combo width={150} value={supForm.oldNo || '(선택)'} options={['(선택)', ...nos]}
+              <label>{t('dwg.oldNo', '구도면')}</label>
+              <Combo width={150} value={supForm.oldNo || '(선택)'}
+                options={[{ value: '(선택)', label: t('dwg.selectOpt', '(선택)') }, ...nos]}
                 onChange={(v) => setSupForm({ ...supForm, oldNo: v === '(선택)' ? '' : v })} />
-              <label>신도면</label>
-              <Combo width={150} value={supForm.newNo || '(선택)'} options={['(선택)', ...nos]}
+              <label>{t('dwg.newNo', '신도면')}</label>
+              <Combo width={150} value={supForm.newNo || '(선택)'}
+                options={[{ value: '(선택)', label: t('dwg.selectOpt', '(선택)') }, ...nos]}
                 onChange={(v) => setSupForm({ ...supForm, newNo: v === '(선택)' ? '' : v })} />
-              <label>사유</label>
+              <label>{t('dwg.reasonCol', '사유')}</label>
               <input className="in" value={supForm.reason} aria-label="대체 사유"
                 onChange={(e) => setSupForm({ ...supForm, reason: e.target.value })} />
             </div>
             <div style={{ textAlign: 'right', padding: '0 6px 6px' }}>
-              <Btn onClick={supersede}>대체 등록</Btn>
+              <Btn onClick={supersede}>{t('dwg.supRegister', '대체 등록')}</Btn>
             </div>
           </GroupBox>
         </div>

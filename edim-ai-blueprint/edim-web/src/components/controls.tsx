@@ -19,9 +19,12 @@ export function Btn(props: {
   )
 }
 
+/** 옵션은 문자열 또는 {value,label} — 값(필터 키)은 유지하고 표시만 번역할 때 label 사용 */
+export type ComboOption = string | { value: string; label: string }
+
 export function Combo(props: {
   value: string
-  options: string[]
+  options: ComboOption[]
   onChange?: (v: string) => void
   width?: number
   disabled?: boolean
@@ -29,7 +32,11 @@ export function Combo(props: {
   return (
     <select className="cb2" style={{ width: props.width }} value={props.value}
       disabled={props.disabled} onChange={(e) => props.onChange?.(e.target.value)}>
-      {props.options.map((o) => <option key={o} value={o}>{o}</option>)}
+      {props.options.map((o) => {
+        const v = typeof o === 'string' ? o : o.value
+        const l = typeof o === 'string' ? o : o.label
+        return <option key={v} value={v}>{l}</option>
+      })}
     </select>
   )
 }

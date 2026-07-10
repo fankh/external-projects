@@ -13,6 +13,7 @@ import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
+// 툴 식별자(내부 값) — 표시 텍스트는 컴포넌트 내 toolLabels 로 번역
 const CAD_TOOLS = ['복사 CO', '이동', '반전', '연장', '삭제 E', '회전 RO', '자르기 TR', 'Block REG', '치수 DI', '특성 CH']
 
 /** =A+56, =A*1.62 형태의 Macro 를 A 값 기준으로 평가 (mock — ENG-01) */
@@ -28,6 +29,18 @@ function evalDims(dims: DimensionDef[]): DimensionDef[] {
 export function DesignEditorScreen({ active, tab }: ScreenProps) {
   const shell = useShell()
   const { t } = useI18n()
+  // CAD 툴 표시 라벨 — 내부 값(tool 상태·명령 프롬프트)은 한글 원문 유지
+  const toolLabels: Record<string, string> = {
+    '복사 CO': t('editor.toolCopy', '복사 CO'),
+    '이동': t('editor.toolMove', '이동'),
+    '반전': t('editor.toolMirror', '반전'),
+    '연장': t('editor.toolExtend', '연장'),
+    '삭제 E': t('editor.toolErase', '삭제 E'),
+    '회전 RO': t('editor.toolRotate', '회전 RO'),
+    '자르기 TR': t('editor.toolTrim', '자르기 TR'),
+    '치수 DI': t('editor.toolDim', '치수 DI'),
+    '특성 CH': t('editor.toolProps', '특성 CH'),
+  }
   const [tool, setTool] = useState('이동')
   const [selBlock, setSelBlock] = useState<CanvasBlock | null>(DWG_BLOCKS[1])
   const [dims, setDims] = useState<DimensionDef[]>(DWG_DIMS)
@@ -188,7 +201,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
       key: 'bind', header: 'Set-up', width: 64, align: 'center',
       render: (r) => <Chip tone={r.binding === 'MACRO' ? 'info' : 'ok'}>{r.binding}</Chip>,
     },
-    { key: 'kind', header: '구분', width: 50, align: 'center', render: (r) => r.kind },
+    { key: 'kind', header: t('editor.kindCol', '구분'), width: 50, align: 'center', render: (r) => r.kind },
   ]
 
   return (
@@ -197,11 +210,17 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
         <span className="b ic" title="실행 취소">↶</span>
         <span className="b ic" title="다시 실행">↷</span>
         <Sep />
-        {CAD_TOOLS.map((t) => (
-          <Btn key={t} variant={tool === t ? 'pri' : 'default'} onClick={() => setTool(t)}>{t}</Btn>
+        {CAD_TOOLS.map((tl) => (
+          <Btn key={tl} variant={tool === tl ? 'pri' : 'default'} onClick={() => setTool(tl)}>
+            {toolLabels[tl] ?? tl}
+          </Btn>
         ))}
         <Sep />
-        <Combo width={150} value="Snap: 끝점·중앙·중심" options={['Snap: 끝점·중앙·중심', 'Snap: OFF']} />
+        <Combo width={150} value="Snap: 끝점·중앙·중심"
+          options={[
+            { value: 'Snap: 끝점·중앙·중심', label: t('editor.snapOn', 'Snap: 끝점·중앙·중심') },
+            'Snap: OFF',
+          ]} />
         <Btn>Simulation</Btn>
         <Sep />
         <input ref={cadInput} type="file" accept=".dxf,.dwg" style={{ display: 'none' }}
@@ -211,8 +230,8 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
             if (f) importCad(f)
             e.target.value = ''
           }} />
-        <Btn onClick={() => cadInput.current?.click()}>DXF 열기</Btn>
-        <Btn onClick={exportCad}>DXF 내보내기</Btn>
+        <Btn onClick={() => cadInput.current?.click()}>{t('editor.openDxf', 'DXF 열기')}</Btn>
+        <Btn onClick={exportCad}>{t('editor.exportDxf', 'DXF 내보내기')}</Btn>
         <Sep />
         <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()}>{t('common.edit', '편집')}</Btn>
         <Btn variant={cadMode ? 'pri' : 'default'} onClick={() => !cadMode && toggleCad()}>CAD</Btn>
@@ -229,7 +248,9 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
                 <CadSvg doc={cadDoc} />
               ) : (
                 <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>
-                  {cadOffline ? 'CAD 작도는 백엔드가 필요합니다 (MOCK 모드)' : '작도 중…'}
+                  {cadOffline
+                    ? t('editor.cadNeedsBackend', 'CAD 작도는 백엔드가 필요합니다 (MOCK 모드)')
+                    : t('editor.drawing', '작도 중…')}
                 </div>
               )}
             </div>
@@ -252,7 +273,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
               ]}
               style={{ flex: 1, minHeight: 320 }}>
               <div style={{ position: 'absolute', left: 236, top: 116, fontSize: 9, color: 'var(--txt-dim)' }}>
-                Block 더블클릭 = 부품 정보 상세
+                {t('editor.blockDblHint', 'Block 더블클릭 = 부품 정보 상세')}
               </div>
             </Cvs>
           )}
@@ -263,7 +284,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
           <div style={{ display: 'flex', gap: 8, padding: '4px 2px', fontSize: 10, color: 'var(--txt-dim)', flexWrap: 'wrap' }}>
             <span>● Key Dimension</span><span style={{ color: '#74a9d8' }}>● Detail Dimension</span>
             <span style={{ color: '#2e8b57' }}>● Arrangement</span>
-            <span style={{ color: '#e0a400' }}>● 검증 Macro</span>
+            <span style={{ color: '#e0a400' }}>● {t('editor.verifyMacro', '검증 Macro')}</span>
             <span>◆ Assembling Seq · QC/Material/Mfg</span>
           </div>
         </div>
@@ -281,8 +302,8 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
               ))}
             </div>
           </GroupBox>
-          <GroupBox title="Design Rule — 치수 Set-up" noPad
-            right={<span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>더블클릭 = 편집</span>}>
+          <GroupBox title={t('editor.designRule', 'Design Rule — 치수 Set-up')} noPad
+            right={<span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>{t('editor.dblEdit', '더블클릭 = 편집')}</span>}>
             <DenseGrid columns={ruleCols} rows={dims} rowKey={(r) => r.no} />
           </GroupBox>
           <GroupBox title="Coding" right={
@@ -290,8 +311,8 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
           }>
             <Fx>{MACRO_CODING}</Fx>
             <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginTop: 3 }}>
-              EDIM Macro 호출 → 계산식 표시·직접 입력 가능
-              {evaluated ? <Chip tone="ok">평가 ✓</Chip> : null}
+              {t('editor.macroHint', 'EDIM Macro 호출 → 계산식 표시·직접 입력 가능')}
+              {evaluated ? <Chip tone="ok">{t('editor.evaluated', '평가 ✓')}</Chip> : null}
             </div>
           </GroupBox>
           <GroupBox title="Part relationship set-up">
@@ -300,15 +321,15 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
               <label>B</label><Combo value="Impeller" options={['Casing', 'Impeller', 'Shaft']} />
             </div>
             <div style={{ fontSize: 10, lineHeight: 1.7, marginTop: 4, color: 'var(--txt-dim)' }}>
-              조건1: 수직·수평·중심·중앙 / 조건2: 접촉(면·선·점)·좌표·각도<br />
-              관계값: <span className="fx" style={{ display: 'inline', padding: '1px 6px' }}>=A2.Table23_3*Var32_2</span><br />
-              우선순위: A/B ① → B/C ② (순환 자동 점검)
+              {t('editor.relCond', '조건1: 수직·수평·중심·중앙 / 조건2: 접촉(면·선·점)·좌표·각도')}<br />
+              {t('editor.relValue', '관계값')}: <span className="fx" style={{ display: 'inline', padding: '1px 6px' }}>=A2.Table23_3*Var32_2</span><br />
+              {t('editor.relPriority', '우선순위: A/B ① → B/C ② (순환 자동 점검)')}
             </div>
           </GroupBox>
-          <GroupBox title="Sub Item DWG · 조립순서">
+          <GroupBox title={t('editor.subItemDwg', 'Sub Item DWG · 조립순서')}>
             <div style={{ fontSize: 11, lineHeight: 1.9 }}>
               ① Bearing · ② Shaft · ③ Inlet-Cone R<br />
-              ④ Inlet-Cone L · ⑤ Impeller <Chip tone="info">◆ 조립순서</Chip>
+              ④ Inlet-Cone L · ⑤ Impeller <Chip tone="info">◆ {t('editor.asmSeq', '조립순서')}</Chip>
             </div>
           </GroupBox>
           <div style={{ display: 'flex', gap: 4 }}>

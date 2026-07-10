@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { DUCT_CALC } from '../../api/mock/dataMore'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
 export function DuctDesignScreen(_props: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [placed, setPlaced] = useState(false)
   const [diffusers, setDiffusers] = useState(3)
 
@@ -19,47 +21,62 @@ export function DuctDesignScreen(_props: ScreenProps) {
   return (
     <div className="fill-col">
       <div className="qband">
-        <Chip tone="err">사업 범위 확정 대상 (보완노트 §3.3)</Chip>
-        <label>층</label>
+        <Chip tone="err">{t('duct.scopeChip', '사업 범위 확정 대상 (보완노트 §3.3)')}</Chip>
+        <label>{t('duct.floor', '층')}</label>
         <Combo width={58} value="3F" options={['1F', '2F', '3F']} />
-        <Btn>복수 층 (Point XYZ)</Btn>
+        <Btn>{t('duct.multiFloor', '복수 층 (Point XYZ)')}</Btn>
         <span style={{ flex: 1 }} />
-        <Btn variant="run" onClick={autoPlace}>▶ 자동 배치 (최단 경로·유체 흐름)</Btn>
+        <Btn variant="run" onClick={autoPlace}>{t('duct.autoPlace', '▶ 자동 배치 (최단 경로·유체 흐름)')}</Btn>
         <Btn disabled={!placed} onClick={() => {
           setDiffusers((d) => d + 1)
           shell.setStatusMsg(`Diffuser ${diffusers + 1}개 — 수량 조정`)
-        }}>Diffuser 추가</Btn>
-        <Btn disabled={!placed}>수동 조정 (Drag·Click)</Btn>
+        }}>{t('duct.addDiffuser', 'Diffuser 추가')}</Btn>
+        <Btn disabled={!placed}>{t('duct.manualAdjust', '수동 조정 (Drag·Click)')}</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div style={{ width: 210, display: 'flex', flexDirection: 'column', gap: 6, flex: 'none', overflow: 'auto' }}>
-          <GroupBox title="설계 조건">
+          <GroupBox title={t('duct.designCond', '설계 조건')}>
             <div className="frm c2">
-              <label>용도</label>
-              <Combo value="급기" options={['급기', '배기', '환기']} />
-              <label>풍량 기준</label>
-              <Combo value="환기 횟수" options={['환기 횟수', '인원', '발열']} />
-              <label>공기 조건</label>
+              <label>{t('duct.usage', '용도')}</label>
+              <Combo value="급기" options={[
+                { value: '급기', label: t('duct.supply', '급기') },
+                { value: '배기', label: t('duct.exhaust', '배기') },
+                { value: '환기', label: t('duct.vent', '환기') },
+              ]} />
+              <label>{t('duct.airflowBasis', '풍량 기준')}</label>
+              <Combo value="환기 횟수" options={[
+                { value: '환기 횟수', label: t('duct.ach', '환기 횟수') },
+                { value: '인원', label: t('duct.occupancy', '인원') },
+                { value: '발열', label: t('duct.heatLoad', '발열') },
+              ]} />
+              <label>{t('duct.airCond', '공기 조건')}</label>
               <input className="in" defaultValue="Air · 20℃ · 50%" aria-label="공기 조건" />
-              <label>유속 기준</label>
-              <Combo value="Std 선택" options={['Std 선택', '저속', '고속']} />
-              <label>층고/보/텍스</label>
+              <label>{t('duct.velocityBasis', '유속 기준')}</label>
+              <Combo value="Std 선택" options={[
+                { value: 'Std 선택', label: t('duct.stdSelect', 'Std 선택') },
+                { value: '저속', label: t('duct.lowVel', '저속') },
+                { value: '고속', label: t('duct.highVel', '고속') },
+              ]} />
+              <label>{t('duct.ceiling', '층고/보/텍스')}</label>
               <input className="in" defaultValue="4.2 / 0.6 / 2.8 m" aria-label="층고" />
               <label>Duct Option</label>
-              <Combo value="점검구·Turning" options={['점검구·Turning', '기본']} />
+              <Combo value="점검구·Turning" options={[
+                { value: '점검구·Turning', label: t('duct.accessTurning', '점검구·Turning') },
+                { value: '기본', label: t('duct.basic', '기본') },
+              ]} />
             </div>
           </GroupBox>
-          <GroupBox title="출발–종착">
+          <GroupBox title={t('duct.startEnd', '출발–종착')}>
             <div className="frm c2">
-              <label>장비</label>
+              <label>{t('duct.equipment', '장비')}</label>
               <Combo value="AHU-3" options={['AHU-3', 'AHU-5']} />
-              <label>실</label>
+              <label>{t('duct.room', '실')}</label>
               <Combo value="Cleanroom A" options={['Cleanroom A', 'Room B']} />
             </div>
           </GroupBox>
-          <GroupBox title="도면 호출 (AI 판독)">
+          <GroupBox title={t('duct.drawingCall', '도면 호출 (AI 판독)')}>
             <div style={{ fontSize: 10, color: 'var(--txt-dim)', lineHeight: 1.7 }}>
-              건축도 AI 판독: 램프·빔·소방구역·실 구분 → 설치 불가 지역 표시 (DUCT-001)
+              {t('duct.aiReadHint', '건축도 AI 판독: 램프·빔·소방구역·실 구분 → 설치 불가 지역 표시 (DUCT-001)')}
             </div>
           </GroupBox>
         </div>
@@ -90,22 +107,23 @@ export function DuctDesignScreen(_props: ScreenProps) {
                   <div key={i} style={{ position: 'absolute', left: 110 + i * 66, top: 90, width: 9, height: 9, background: 'var(--run)', borderRadius: '50%' }} />
                 ))}
                 <div style={{ position: 'absolute', left: 120, top: 106, fontSize: 9, color: 'var(--run)' }}>
-                  ● Diffuser {diffusers}개 자동 배치 (수량 조정 가능)
+                  ● {t('duct.diffuserPlaced', 'Diffuser {n}개 자동 배치 (수량 조정 가능)')
+                    .replace('{n}', String(diffusers))}
                 </div>
               </>
             ) : (
               <div style={{ position: 'absolute', left: 90, top: 96, fontSize: 10.5, color: 'var(--txt-mute)' }}>
-                ▶ 자동 배치를 실행하십시오
+                {t('duct.runAutoHint', '▶ 자동 배치를 실행하십시오')}
               </div>
             )}
           </div>
         </div>
         <div className="split-h" />
         <div style={{ width: 270, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title="기술자료 계산" noPad>
+          <GroupBox title={t('duct.techCalc', '기술자료 계산')} noPad>
             {placed ? (
               <table className="g">
-                <thead><tr><th>항목</th><th>값</th></tr></thead>
+                <thead><tr><th>{t('duct.itemCol', '항목')}</th><th>{t('duct.valueCol', '값')}</th></tr></thead>
                 <tbody>
                   {DUCT_CALC.map((c) => (
                     <tr key={c.item}>
@@ -118,23 +136,24 @@ export function DuctDesignScreen(_props: ScreenProps) {
               </table>
             ) : (
               <div style={{ padding: 10, fontSize: 10.5, color: 'var(--txt-mute)' }}>
-                배치 후 압력손실·Leak·하중 계산
+                {t('duct.calcHint', '배치 후 압력손실·Leak·하중 계산')}
               </div>
             )}
           </GroupBox>
-          <GroupBox title="Duct 자재 DB">
+          <GroupBox title={t('duct.materialDb', 'Duct 자재 DB')}>
             <div style={{ fontSize: 10.5, color: 'var(--txt-dim)', lineHeight: 1.8 }}>
-              종류·손실·무게·Size별 최대길이<br />Pitting·Hanger·Joint·Insulation
+              {t('duct.materialHint', '종류·손실·무게·Size별 최대길이')}<br />Pitting·Hanger·Joint·Insulation
             </div>
           </GroupBox>
-          <GroupBox title="EDIM 연결" right={
+          <GroupBox title={t('duct.edimLink', 'EDIM 연결')} right={
             <Btn variant="run" style={{ height: 18, fontSize: 10 }} disabled={!placed}
               onClick={() => shell.setStatusMsg('EDIM Run — Duct BOM·스크랩 최적화·구매·견적 연동 (DUCT-007)')}>
               EDIM Run
             </Btn>
           }>
             <div style={{ fontSize: 10.5, color: 'var(--txt-dim)', lineHeight: 1.7 }}>
-              기술: BOM/Code · 제조: 최소 스크랩<br />자재: 구매 · 영업: 견적
+              {t('duct.edimHint1', '기술: BOM/Code · 제조: 최소 스크랩')}<br />
+              {t('duct.edimHint2', '자재: 구매 · 영업: 견적')}
             </div>
           </GroupBox>
         </div>

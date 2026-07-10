@@ -7,12 +7,14 @@ import { workProcessService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
 export function WorkProcessScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [process, setProcess] = useState(PROCESS_DEF.process)
   const [workplace, setWorkplace] = useState(PROCESS_DEF.workplace)
   const [person, setPerson] = useState(String(PROCESS_DEF.person))
@@ -59,9 +61,9 @@ export function WorkProcessScreen({ active }: ScreenProps) {
     { key: 'item', header: 'Item', width: 50, code: true, render: (r) => r.item },
     { key: 'wh', header: 'Warehouse', width: 70, align: 'center', render: (r) => r.warehouse },
     { key: 'min', header: 'Min Stock', width: 62, align: 'right', render: (r) => r.minStock },
-    { key: 'sup', header: '공급자', width: 70, render: (r) => r.supplier },
+    { key: 'sup', header: t('wp.supplier', '공급자'), width: 70, render: (r) => r.supplier },
     {
-      key: 'mb', header: '제조/구매 (더블클릭 전환)', width: 130, align: 'center',
+      key: 'mb', header: t('wp.makeBuy', '제조/구매 (더블클릭 전환)'), width: 130, align: 'center',
       render: (r) => (
         <span onDoubleClick={() => toggleMakeBuy(r.item)} style={{ cursor: 'pointer' }}>
           <Chip tone={r.makeBuy === 'MAKE' ? 'info' : 'ok'}>{r.makeBuy}</Chip>
@@ -69,7 +71,7 @@ export function WorkProcessScreen({ active }: ScreenProps) {
       ),
     },
     {
-      key: 'time', header: 'Time(분)', width: 58, align: 'right',
+      key: 'time', header: t('wp.timeMin', 'Time(분)'), width: 58, align: 'right',
       render: (r) => (r.timeMin == null ? '-' : r.timeMin),
     },
     { key: 'rem', header: 'Remarks', render: (r) => r.remarks },
@@ -95,12 +97,13 @@ export function WorkProcessScreen({ active }: ScreenProps) {
           onChange={(e) => { setWtime(e.target.value); setDirty(true) }} />
         <span className="unit">hr</span>
         <span style={{ flex: 1 }} />
-        {dirty ? <Chip tone="warn">미저장 변경</Chip> : null}
-        <Btn variant="pri" onClick={save}>저장 F12</Btn>
+        {dirty ? <Chip tone="warn">{t('wp.unsaved', '미저장 변경')}</Chip> : null}
+        <Btn variant="pri" onClick={save}>{t('wp.saveF12', '저장 F12')}</Btn>
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <div className="fill-col" style={{ flex: 1, padding: 6, gap: 6, overflow: 'auto' }}>
-          <GroupBox title={`공정 정의 — KDCR 3-13 · ${process} @ ${workplace}`} noPad>
+          <GroupBox title={t('wp.processDef', '공정 정의 — KDCR 3-13 · {p} @ {w}')
+            .replace('{p}', process).replace('{w}', workplace)} noPad>
             <DenseGrid columns={cols} rows={rows}
               rowKey={(r) => r.item} selectedKey={selItem}
               onRowClick={(r) => setSelItem(r.item)} />
@@ -138,12 +141,14 @@ export function WorkProcessScreen({ active }: ScreenProps) {
               </tbody>
             </table>
           </GroupBox>
-          <GroupBox title="원가 경로 (Pricing Run)">
+          <GroupBox title={t('wp.costPath', '원가 경로 (Pricing Run)')}>
             <div style={{ fontSize: 11, lineHeight: 1.9 }}>
-              MAKE {rows.filter((r) => r.makeBuy === 'MAKE').length}건 → 제조비 (시간×임율)<br />
-              BUY {rows.filter((r) => r.makeBuy === 'BUY').length}건 → 구매 단가 resolve<br />
+              {t('wp.makePath', 'MAKE {n}건 → 제조비 (시간×임율)')
+                .replace('{n}', String(rows.filter((r) => r.makeBuy === 'MAKE').length))}<br />
+              {t('wp.buyPath', 'BUY {n}건 → 구매 단가 resolve')
+                .replace('{n}', String(rows.filter((r) => r.makeBuy === 'BUY').length))}<br />
               <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>
-                MAKE/BUY 전환은 Material Data 더블클릭
+                {t('wp.toggleHint', 'MAKE/BUY 전환은 Material Data 더블클릭')}
               </span>
             </div>
           </GroupBox>

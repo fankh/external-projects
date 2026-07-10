@@ -5,6 +5,7 @@ import { STOCK_PRICE, type PriceRow } from '../../api/mock/dataErp'
 import { erpService, priceService, priceWriteService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -13,8 +14,14 @@ const SOURCE_TONE: Record<PriceRow['source'], 'ok' | 'warn' | 'info'> = {
   '견적적용': 'ok', '구매': 'info', '재고': 'warn', '견적': 'info',
 }
 
+// 단가 Table 원천(enum) 표시 번역 키 — 내부 값(cst_price source)은 원문 유지
+export const SOURCE_KEYS: Record<PriceRow['source'], string> = {
+  '견적적용': 'enum.quoteApplied', '구매': 'enum.purchase', '재고': 'enum.stock', '견적': 'enum.quote',
+}
+
 export function PriceScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [supplier, setSupplier] = useState('전체')
   const [table, setTable] = useState('전체 (4종)')
   const [showReg, setShowReg] = useState(false)
@@ -117,33 +124,42 @@ export function PriceScreen({ active }: ScreenProps) {
 
   const cols: GridColumn<PriceRow>[] = [
     { key: 'code', header: 'Code No.', width: 70, code: true, render: (r) => r.code },
-    { key: 'name', header: '품명', render: (r) => r.name },
+    { key: 'name', header: t('cpq.name', '품명'), render: (r) => r.name },
     { key: 'sup', header: 'Supplier', width: 60, align: 'center', render: (r) => r.supplier },
     { key: 'price', header: 'Price', width: 74, align: 'right', render: (r) => r.price.toLocaleString() },
     {
       key: 'src', header: 'Price table', width: 66, align: 'center',
-      render: (r) => <Chip tone={SOURCE_TONE[r.source]}>{r.source}</Chip>,
+      render: (r) => <Chip tone={SOURCE_TONE[r.source]}>{t(SOURCE_KEYS[r.source], r.source)}</Chip>,
     },
-    { key: 'from', header: '적용 시작', width: 78, align: 'center', render: (r) => r.from },
-    { key: 'to', header: '적용 종료', width: 78, align: 'center', render: (r) => r.to ?? '-' },
+    { key: 'from', header: t('price.validFrom', '적용 시작'), width: 78, align: 'center', render: (r) => r.from },
+    { key: 'to', header: t('price.validTo', '적용 종료'), width: 78, align: 'center', render: (r) => r.to ?? '-' },
     {
-      key: 'st', header: '상태', width: 56, align: 'center',
-      render: (r) => (r.active ? <Chip tone="ok">적용중</Chip> : <Chip tone="warn">만료</Chip>),
+      key: 'st', header: t('prj.status', '상태'), width: 56, align: 'center',
+      render: (r) => (r.active
+        ? <Chip tone="ok">{t('enum.active', '적용중')}</Chip>
+        : <Chip tone="warn">{t('enum.expired', '만료')}</Chip>),
     },
   ]
 
   return (
     <div className="fill-col">
       <div className="qband">
-        <label>단가 Table</label>
+        <label>{t('price.priceTable', '단가 Table')}</label>
         <Combo width={120} value={table} onChange={setTable}
-          options={['전체 (4종)', '1. 견적', '2. 구매 이력', '3. 재고 단가', '4. 견적 적용']} />
-        <label>공급처</label>
-        <Combo width={80} value={supplier} options={['전체', '효성', 'LG', '중원', '대신금속']}
+          options={[
+            { value: '전체 (4종)', label: t('price.tableAll', '전체 (4종)') },
+            { value: '1. 견적', label: t('price.tableQuote', '1. 견적') },
+            { value: '2. 구매 이력', label: t('price.tablePurchase', '2. 구매 이력') },
+            { value: '3. 재고 단가', label: t('price.tableStock', '3. 재고 단가') },
+            { value: '4. 견적 적용', label: t('price.tableApplied', '4. 견적 적용') },
+          ]} />
+        <label>{t('price.supplier', '공급처')}</label>
+        <Combo width={80} value={supplier}
+          options={[{ value: '전체', label: t('enum.all', '전체') }, '효성', 'LG', '중원', '대신금속']}
           onChange={setSupplier} />
-        <label>통화</label>
+        <label>{t('price.currency', '통화')}</label>
         <Combo width={64} value="KRW" options={['KRW', 'USD', 'JPY']} />
-        <label>적용일</label>
+        <label>{t('price.applyDate', '적용일')}</label>
         <Combo width={84} value="2026-07" options={['2026-07', '2026-06', '2026-05']} />
         <span style={{ flex: 1 }} />
         <input ref={xlsInput} type="file" accept=".xlsx" style={{ display: 'none' }}
@@ -154,7 +170,7 @@ export function PriceScreen({ active }: ScreenProps) {
             e.target.value = ''
           }} />
         <Btn onClick={() => xlsInput.current?.click()}>⬇ Excel Import</Btn>
-        <Btn variant="pri" onClick={() => setShowReg(true)}>＋ 단가 등록</Btn>
+        <Btn variant="pri" onClick={() => setShowReg(true)}>{t('price.addPrice', '＋ 단가 등록')}</Btn>
       </div>
       {showReg ? (
         <div data-price-reg style={{
@@ -164,39 +180,47 @@ export function PriceScreen({ active }: ScreenProps) {
           <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 340, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
             onClick={(e) => e.stopPropagation()}>
             <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
-              <b>단가 등록 — cst_price</b><span className="sp" />
+              <b>{t('price.regTitle', '단가 등록 — cst_price')}</b><span className="sp" />
               <span style={{ cursor: 'pointer' }} onClick={() => setShowReg(false)}>✕</span>
             </div>
             <div className="frm c2" style={{ padding: 10 }}>
               <label>Code *</label>
               <input className="in req" value={reg.code} aria-label="등록 Code"
                 onChange={(e) => setReg({ ...reg, code: e.target.value })} />
-              <label>공급처</label>
+              <label>{t('price.supplier', '공급처')}</label>
               <input className="in" value={reg.supplier} aria-label="등록 공급처"
                 onChange={(e) => setReg({ ...reg, supplier: e.target.value })} />
-              <label>단가 *</label>
+              <label>{t('price.priceLbl', '단가')} *</label>
               <input className="in req" value={reg.price} aria-label="등록 단가" placeholder="KRW"
                 onChange={(e) => setReg({ ...reg, price: e.target.value })} />
               <label>Table</label>
-              <Combo width={120} value={reg.source} options={['견적', '구매', '재고', '견적적용']}
+              <Combo width={120} value={reg.source}
+                options={[
+                  { value: '견적', label: t('enum.quote', '견적') },
+                  { value: '구매', label: t('enum.purchase', '구매') },
+                  { value: '재고', label: t('enum.stock', '재고') },
+                  { value: '견적적용', label: t('enum.quoteApplied', '견적적용') },
+                ]}
                 onChange={(v) => setReg({ ...reg, source: v })} />
-              <label>적용 시작 *</label>
+              <label>{t('price.validFrom', '적용 시작')} *</label>
               <input className="in req" value={reg.validFrom} aria-label="적용 시작"
                 onChange={(e) => setReg({ ...reg, validFrom: e.target.value })} />
-              <label>적용 종료</label>
-              <input className="in" value={reg.validTo} aria-label="적용 종료" placeholder="(무기한)"
+              <label>{t('price.validTo', '적용 종료')}</label>
+              <input className="in" value={reg.validTo} aria-label="적용 종료"
+                placeholder={t('price.noExpiry', '(무기한)')}
                 onChange={(e) => setReg({ ...reg, validTo: e.target.value })} />
             </div>
             <div style={{ display: 'flex', gap: 4, padding: '0 10px 10px', justifyContent: 'flex-end' }}>
-              <Btn onClick={() => setShowReg(false)}>취소</Btn>
-              <Btn variant="pri" onClick={register}>등록 F12</Btn>
+              <Btn onClick={() => setShowReg(false)}>{t('price.cancel', '취소')}</Btn>
+              <Btn variant="pri" onClick={register}>{t('price.registerF12', '등록 F12')}</Btn>
             </div>
           </div>
         </div>
       ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
-          <GroupBox title={`단가 대장 — ${rows.length}건 (더블클릭=코드 상세)`} noPad style={{ flex: 1 }}>
+          <GroupBox title={t('price.ledger', '단가 대장 — {n}건 (더블클릭=코드 상세)')
+            .replace('{n}', String(rows.length))} noPad style={{ flex: 1 }}>
             <DenseGrid columns={cols} rows={rows} rowKey={(_, i) => i}
               selectedKey={selIdx} onRowClick={(_, i) => setSelIdx(i)}
               onRowDoubleClick={(r) => shell.openTab({
@@ -204,9 +228,13 @@ export function PriceScreen({ active }: ScreenProps) {
                 code: '상세', title: r.code, params: { code: r.code, name: r.name },
               })} />
           </GroupBox>
-          <GroupBox title={`재고 단가 산출 — ${stock.code} (입출고 기반 자동, ERP-021)`} noPad>
+          <GroupBox title={t('price.stockCalc', '재고 단가 산출 — {n} (입출고 기반 자동, ERP-021)')
+            .replace('{n}', stock.code)} noPad>
             <table className="g">
-              <thead><tr><th>최고</th><th>최저</th><th>평균</th><th>최근</th></tr></thead>
+              <thead><tr>
+                <th>{t('price.max', '최고')}</th><th>{t('price.min', '최저')}</th>
+                <th>{t('price.avg', '평균')}</th><th>{t('price.last', '최근')}</th>
+              </tr></thead>
               <tbody>
                 <tr>
                   <td className="num">{stock.max.toLocaleString()}</td>
@@ -220,36 +248,36 @@ export function PriceScreen({ active }: ScreenProps) {
         </div>
         <div className="split-h" />
         <div style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title="적용 우선순위 (Pricing Run resolve)">
+          <GroupBox title={t('price.priority', '적용 우선순위 (Pricing Run resolve)')}>
             <div className="flow">
-              <span className="fs now">① 견적적용</span><span className="ar">→</span>
-              <span className="fs">② 구매이력</span><span className="ar">→</span>
-              <span className="fs">③ 재고단가</span><span className="ar">→</span>
-              <span className="fs">④ 견적</span>
+              <span className="fs now">{t('price.prio1', '① 견적적용')}</span><span className="ar">→</span>
+              <span className="fs">{t('price.prio2', '② 구매이력')}</span><span className="ar">→</span>
+              <span className="fs">{t('price.prio3', '③ 재고단가')}</span><span className="ar">→</span>
+              <span className="fs">{t('price.prio4', '④ 견적')}</span>
             </div>
             <div style={{ fontSize: 10, color: 'var(--txt-mute)', marginTop: 4 }}>
-              Code·기간 일치 우선 — EXCLUDE 제약으로 기간 중복 차단 (DB v0.5)
+              {t('price.priorityHint', 'Code·기간 일치 우선 — EXCLUDE 제약으로 기간 중복 차단 (DB v0.5)')}
             </div>
           </GroupBox>
-          <GroupBox title="Resolve 시뮬레이션">
+          <GroupBox title={t('price.resolveSim', 'Resolve 시뮬레이션')}>
             <div className="frm c2">
               <label>Code</label>
               <input className="in" value={simCode} aria-label="Sim Code"
                 onChange={(e) => setSimCode(e.target.value)} />
-              <label>기준일</label>
+              <label>{t('price.baseDate', '기준일')}</label>
               <input className="in" value={simDate} aria-label="Sim Date"
                 onChange={(e) => setSimDate(e.target.value)} />
             </div>
             <div style={{ textAlign: 'right', marginTop: 6 }}>
-              <Btn variant="run" onClick={simulate}>조회 F8</Btn>
+              <Btn variant="run" onClick={simulate}>{t('price.queryF8', '조회 F8')}</Btn>
             </div>
             {simResult !== undefined ? (
               <div style={{ marginTop: 6, fontSize: 11.5 }}>
                 {simResult
                   ? <>→ <b>{simResult.price.toLocaleString()} KRW</b>
-                    <Chip tone={SOURCE_TONE[simResult.source]}>{simResult.source}</Chip>
+                    <Chip tone={SOURCE_TONE[simResult.source]}>{t(SOURCE_KEYS[simResult.source], simResult.source)}</Chip>
                     <span style={{ color: 'var(--txt-dim)' }}> {simResult.supplier} · {simResult.from}~{simResult.to ?? ''}</span></>
-                  : <Chip tone="err">단가 없음</Chip>}
+                  : <Chip tone="err">{t('price.noPrice', '단가 없음')}</Chip>}
               </div>
             ) : null}
           </GroupBox>

@@ -5,6 +5,7 @@ import type { DocRow } from '../../api/mock/dataMore'
 import { docService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -16,6 +17,7 @@ const STATUS_TONE: Record<DocRow['status'], 'ok' | 'warn' | 'info'> = {
 
 export function DocumentMgmtScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [docs, setDocs] = useState<DocRow[]>([])
   const [statusFilter, setStatusFilter] = useState<string>('전체')
   const [search, setSearch] = useState('')
@@ -82,7 +84,9 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
     { key: 'd', header: 'date', width: 46, align: 'center', render: (r) => r.date },
     {
       key: 'st', header: 'Released Status', width: 90, align: 'center',
-      render: (r) => <Chip tone={STATUS_TONE[r.status]}>{r.status}</Chip>,
+      render: (r) => <Chip tone={STATUS_TONE[r.status]}>
+        {r.status === 'Approve 대기' ? t('docmgmt.approveWaiting', 'Approve 대기') : r.status}
+      </Chip>,
     },
     { key: 'ap', header: 'Approver', width: 56, align: 'center', render: (r) => r.approver },
     { key: 'ad', header: 'App. Date', width: 58, align: 'center', render: (r) => r.appDate },
@@ -93,15 +97,15 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
   return (
     <div className="fill-col">
       <div className="qband">
-        <label>문서 유형</label>
-        <Combo width={80} value="전체" options={['전체', 'Technical', 'General']} />
+        <label>{t('docmgmt.docType', '문서 유형')}</label>
+        <Combo width={80} value="전체" options={[{ value: '전체', label: t('enum.all', '전체') }, 'Technical', 'General']} />
         <label>Grade</label>
-        <Combo width={64} value="전체" options={['전체', 'S-1', 'S-2', 'S-3']} />
-        <label>검색</label>
+        <Combo width={64} value="전체" options={[{ value: '전체', label: t('enum.all', '전체') }, 'S-1', 'S-2', 'S-3']} />
+        <label>{t('docmgmt.search', '검색')}</label>
         <input className="in" style={{ width: 160 }} value={search} aria-label="검색"
           onChange={(e) => setSearch(e.target.value)} />
         <span style={{ flex: 1 }} />
-        <Btn variant="pri" onClick={() => setShowReg(true)}>＋ 문서 등록</Btn>
+        <Btn variant="pri" onClick={() => setShowReg(true)}>{t('docmgmt.addDoc', '＋ 문서 등록')}</Btn>
       </div>
       {showReg ? (
         <div data-doc-reg style={{
@@ -111,17 +115,17 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
           <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 330, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }}
             onClick={(e) => e.stopPropagation()}>
             <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}>
-              <b>문서 등록 — doc_control</b><span className="sp" />
+              <b>{t('docmgmt.regTitle', '문서 등록 — doc_control')}</b><span className="sp" />
               <span style={{ cursor: 'pointer' }} onClick={() => setShowReg(false)}>✕</span>
             </div>
             <div className="frm c2" style={{ padding: 10 }}>
               <label>DOC No *</label>
               <input className="in req" value={reg.docNo} aria-label="문서 번호" placeholder="DF 342-236 A"
                 onChange={(e) => setReg({ ...reg, docNo: e.target.value })} />
-              <label>제목 *</label>
+              <label>{t('docmgmt.titleReq', '제목 *')}</label>
               <input className="in req" value={reg.title} aria-label="문서 제목"
                 onChange={(e) => setReg({ ...reg, title: e.target.value })} />
-              <label>유형</label>
+              <label>{t('docmgmt.type', '유형')}</label>
               <Combo width={130} value={reg.docType} options={['TECH_DOC', 'QUOTE', 'REPORT', 'FORM']}
                 onChange={(v) => setReg({ ...reg, docType: v })} />
               <label>Grade</label>
@@ -129,19 +133,19 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
                 onChange={(v) => setReg({ ...reg, grade: v })} />
             </div>
             <div style={{ display: 'flex', gap: 4, padding: '0 10px 10px', justifyContent: 'flex-end' }}>
-              <Btn onClick={() => setShowReg(false)}>취소</Btn>
-              <Btn variant="pri" onClick={register}>등록 F12</Btn>
+              <Btn onClick={() => setShowReg(false)}>{t('docmgmt.cancel', '취소')}</Btn>
+              <Btn variant="pri" onClick={register}>{t('docmgmt.registerF12', '등록 F12')}</Btn>
             </div>
           </div>
         </div>
       ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div style={{ width: 158, display: 'flex', flexDirection: 'column', gap: 6, flex: 'none' }}>
-          <GroupBox title="상태 필터" noPad>
+          <GroupBox title={t('docmgmt.statusFilter', '상태 필터')} noPad>
             <div className="tree2">
               <div className={`tn ${statusFilter === '전체' ? 'sel' : ''}`}
                 onClick={() => setStatusFilter('전체')}>
-                <span className="pm">·</span>전체 ({docs.length})
+                <span className="pm">·</span>{t('enum.all', '전체')} ({docs.length})
               </div>
               {STAGES.map((s, i) => (
                 <div key={s} className={`tn l2 ${statusFilter === s ? 'sel' : ''}`}
@@ -151,7 +155,7 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
               ))}
             </div>
           </GroupBox>
-          <GroupBox title="분류" noPad>
+          <GroupBox title={t('docmgmt.category', '분류')} noPad>
             <div className="tree2">
               <div className="tn"><span className="pm">−</span>Product</div>
               <div className="tn l2 sel"><span className="pm">·</span>AHU · Fan</div>
@@ -160,7 +164,7 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="fill-col" style={{ gap: 6, overflow: 'auto' }}>
-          <GroupBox title={`문서 대장 — ${rows.length}건 (더블클릭=문서 상세)`} noPad style={{ flex: 1 }}>
+          <GroupBox title={t('docmgmt.docLedger', '문서 대장 — {n}건 (더블클릭=문서 상세)').replace('{n}', String(rows.length))} noPad style={{ flex: 1 }}>
             <DenseGrid columns={cols} rows={rows} rowKey={(r) => r.docNo}
               selectedKey={selDoc} onRowClick={(r) => setSelDoc(r.docNo)}
               onRowDoubleClick={(r) => shell.openTab({
@@ -170,7 +174,7 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
               })} />
           </GroupBox>
           {sel ? (
-            <GroupBox title={`선택 문서 — ${sel.title} · Progress`}>
+            <GroupBox title={t('docmgmt.selDocProgress', '선택 문서 — {n} · Progress').replace('{n}', sel.title)}>
               <div className="flow">
                 {STAGES.map((s, i) => (
                   <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -190,19 +194,19 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
         </div>
         <div className="split-h" />
         <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title="미리보기 — Grade 통제">
+          <GroupBox title={t('docmgmt.previewGrade', '미리보기 — Grade 통제')}>
             {pdfUrl ? (
               <iframe title="문서 미리보기" src={pdfUrl} data-doc-preview
                 style={{ width: '100%', height: 240, border: '1px solid var(--line)' }} />
             ) : (
               <div className="cvs" style={{ height: 150 }}>
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, color: 'var(--txt-mute)', textAlign: 'center' }}>
-                  {sel ? '렌더 중… (백엔드 필요)' : '문서 선택'}<br />
+                  {sel ? t('docmgmt.rendering', '렌더 중… (백엔드 필요)') : t('docmgmt.selectDoc', '문서 선택')}<br />
                 </div>
               </div>
             )}
             <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 3 }}>
-              S-1/S-2 는 CONFIDENTIAL 워터마크 강제 · 권한 미달 시 마스킹 (DOC-002)
+              {t('docmgmt.gradeHint', 'S-1/S-2 는 CONFIDENTIAL 워터마크 강제 · 권한 미달 시 마스킹 (DOC-002)')}
             </div>
           </GroupBox>
           <GroupBox title="Print" right={<Btn style={{ height: 18, fontSize: 10 }}
@@ -214,7 +218,7 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
                 shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>Print 불가 — 백엔드 연결 필요</span>)
               }
             }}>🖨</Btn>}>
-            <div style={{ fontSize: 10, color: 'var(--txt-dim)' }}>워터마크·출력 통제 적용 (실렌더)</div>
+            <div style={{ fontSize: 10, color: 'var(--txt-dim)' }}>{t('docmgmt.printHint', '워터마크·출력 통제 적용 (실렌더)')}</div>
           </GroupBox>
         </div>
       </div>

@@ -5,12 +5,14 @@ import { TABLE12, TABLE12_ROWS, type TableRow } from '../../api/mock/dataCode'
 import { tableCrudService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
 export function DataTableScreen({ active }: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [rows, setRows] = useState<TableRow[]>([])
   const [selKey, setSelKey] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ key: string; col: number } | null>(null)
@@ -194,12 +196,14 @@ export function DataTableScreen({ active }: ScreenProps) {
     <div className="fill-col">
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
-          <GroupBox title="Table 정의">
+          <GroupBox title={t('dtable.tableDef', 'Table 정의')}>
             <div className="frm">
               <label>Name</label>
               <div style={{ display: 'flex', gap: 4 }}>
                 <input className="in ro" value={TABLE12.name} readOnly aria-label="Table Name" />
-                <Btn onClick={() => shell.setStatusMsg('중복 없음 ✓ — Table12')}>중복검토</Btn>
+                <Btn onClick={() => shell.setStatusMsg('중복 없음 ✓ — Table12')}>
+                  {t('subcode.dupCheck', '중복검토')}
+                </Btn>
               </div>
               <label>Table Type</label>
               <Combo value={TABLE12.type} options={['Variant', 'Tech', 'Constant']} />
@@ -210,8 +214,8 @@ export function DataTableScreen({ active }: ScreenProps) {
             </div>
           </GroupBox>
           <div className="toolbar" style={{ border: '1px solid var(--line)' }}>
-            <Btn onClick={addRow}>＋ 행 추가 F2</Btn>
-            <Btn>✎ 편집</Btn>
+            <Btn onClick={addRow}>{t('dtable.addRowF2', '＋ 행 추가 F2')}</Btn>
+            <Btn>✎ {t('common.edit', '편집')}</Btn>
             <input ref={fileInput} type="file" accept=".xlsx" style={{ display: 'none' }}
               aria-label="Excel 파일"
               onChange={(e) => {
@@ -223,27 +227,29 @@ export function DataTableScreen({ active }: ScreenProps) {
             <Btn>⬆ Export</Btn>
             <span style={{ flex: 1 }} />
             <span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>
-              Key 숫자면 row_key_num 자동 파싱 — 범위 조회(10:25) 정렬 보장
+              {t('dtable.keyHint', 'Key 숫자면 row_key_num 자동 파싱 — 범위 조회(10:25) 정렬 보장')}
             </span>
-            {dirty > 0 ? <Chip tone="warn">변경 {dirty}건 미저장</Chip> : null}
-            <Btn variant="pri" onClick={save}>저장 F12</Btn>
+            {dirty > 0
+              ? <Chip tone="warn">{t('dtable.unsaved', '변경 {n}건 미저장').replace('{n}', String(dirty))}</Chip>
+              : null}
+            <Btn variant="pri" onClick={save}>{t('subcode.saveF12', '저장 F12')}</Btn>
           </div>
-          <GroupBox title="Table12 — 셀 더블클릭 = 편집 (Excel 문법)" noPad style={{ flex: 1 }}>
+          <GroupBox title={t('dtable.gridTitle', 'Table12 — 셀 더블클릭 = 편집 (Excel 문법)')} noPad style={{ flex: 1 }}>
             <DenseGrid columns={cols} rows={rows} rowKey={(r) => r.key}
               selectedKey={selKey} onRowClick={(r) => setSelKey(r.key)} />
           </GroupBox>
         </div>
         <div className="split-h" />
         <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title="Table Address — Hierarchy = DB 주소">
+          <GroupBox title={t('dtable.addressTitle', 'Table Address — Hierarchy = DB 주소')}>
             <Fx>{TABLE12.address}</Fx>
             <div style={{ fontSize: 10, color: 'var(--txt-mute)', marginTop: 3 }}>
-              Macro 가 이 경로로 참조: <code style={{ fontSize: 10 }}>Table12(E,10:25,Cos2)</code>
+              {t('dtable.macroRefHint', 'Macro 가 이 경로로 참조:')} <code style={{ fontSize: 10 }}>Table12(E,10:25,Cos2)</code>
             </div>
           </GroupBox>
-          <GroupBox title="참조 Macro — 영향도 4건" noPad>
+          <GroupBox title={t('dtable.refMacroTitle', '참조 Macro — 영향도 4건')} noPad>
             <table className="g">
-              <thead><tr><th>Macro</th><th>사용식</th><th>화면</th></tr></thead>
+              <thead><tr><th>Macro</th><th>{t('dtable.usage', '사용식')}</th><th>{t('dtable.screen', '화면')}</th></tr></thead>
               <tbody>
                 {TABLE12.refMacros.map((m) => (
                   <tr key={m.macro}>
@@ -255,17 +261,17 @@ export function DataTableScreen({ active }: ScreenProps) {
               </tbody>
             </table>
           </GroupBox>
-          <GroupBox title="Import 규칙">
+          <GroupBox title={t('dtable.importRules', 'Import 규칙')}>
             <div style={{ fontSize: 10.5, lineHeight: 1.8, color: 'var(--txt-dim)' }}>
-              · 정형 양식(1행 헤더 = 열 이름) Excel 만 허용<br />
-              · Key 중복 행은 거부 — 오류 리포트 다운로드<br />
-              · 수치 열 텍스트 혼입 시 해당 셀 무시(경고)
+              · {t('dtable.importRule1', '정형 양식(1행 헤더 = 열 이름) Excel 만 허용')}<br />
+              · {t('dtable.importRule2', 'Key 중복 행은 거부 — 오류 리포트 다운로드')}<br />
+              · {t('dtable.importRule3', '수치 열 텍스트 혼입 시 해당 셀 무시(경고)')}
             </div>
           </GroupBox>
-          <GroupBox title="승인 상태">
+          <GroupBox title={t('dtable.apprStatus', '승인 상태')}>
             <Chip tone="ok">Approved</Chip>
             <span style={{ fontSize: 10, color: 'var(--txt-mute)', marginLeft: 6 }}>
-              변경 저장 시 재승인 대상 (Grade 정책)
+              {t('dtable.reapprovalHint', '변경 저장 시 재승인 대상 (Grade 정책)')}
             </span>
           </GroupBox>
         </div>

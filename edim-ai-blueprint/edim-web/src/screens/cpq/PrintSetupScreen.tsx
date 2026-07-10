@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { approvalService, renderService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
@@ -10,7 +11,15 @@ const FORMS = ['Technical Report', '견적서 (CLT)', '작업지시서', '검사
 
 export function PrintSetupScreen(_props: ScreenProps) {
   const shell = useShell()
+  const { t } = useI18n()
   const [form, setForm] = useState(FORMS[0])
+  // 내부 값(form 상태·렌더 파라미터)은 한국어 원문 유지 — 표시만 번역
+  const formOptions = [
+    'Technical Report',
+    { value: '견적서 (CLT)', label: t('printsetup.quoteForm', '견적서 (CLT)') },
+    { value: '작업지시서', label: t('printsetup.workOrder', '작업지시서') },
+    { value: '검사성적서', label: t('printsetup.inspectReport', '검사성적서') },
+  ]
   const [watermark, setWatermark] = useState(true)
   const [status, setStatus] = useState<'DRAFT' | 'PENDING'>('DRAFT')
 
@@ -18,11 +27,11 @@ export function PrintSetupScreen(_props: ScreenProps) {
     <div className="fill-col">
       <div className="qband">
         <label>Print Form</label>
-        <Combo width={140} value={form} options={FORMS} onChange={(v) => { setForm(v); setStatus('DRAFT') }} />
+        <Combo width={140} value={form} options={formOptions} onChange={(v) => { setForm(v); setStatus('DRAFT') }} />
         <span className="sep" />
-        <Btn onClick={() => shell.setStatusMsg('Data 위치 지정 — 자리표시자에 데이터 경로 바인딩')}>Data 위치 지정</Btn>
+        <Btn onClick={() => shell.setStatusMsg('Data 위치 지정 — 자리표시자에 데이터 경로 바인딩')}>{t('printsetup.dataBind', 'Data 위치 지정')}</Btn>
         <Btn variant={watermark ? 'pri' : 'default'} onClick={() => setWatermark(!watermark)}>
-          워터마크 {watermark ? 'ON' : 'OFF'}
+          {t('printsetup.watermark', '워터마크')} {watermark ? 'ON' : 'OFF'}
         </Btn>
         <span style={{ flex: 1 }} />
         <Btn variant="run" onClick={() => {
@@ -52,19 +61,19 @@ export function PrintSetupScreen(_props: ScreenProps) {
         <div className="fill-col" style={{ gap: 4 }}>
           <div className="cvs" style={{ flex: 1, minHeight: 340, background: '#fff' }}>
             <div className="m2" style={{ left: 40, top: 16, width: 480, height: 36, borderStyle: 'dashed' }}>
-              머리글 — 로고 · Title · DOC No.
+              {t('printsetup.headerPh', '머리글 — 로고 · Title · DOC No.')}
             </div>
             <div className="m2 sel" style={{ left: 40, top: 66, width: 220, height: 52 }}>
-              [Data] Customer·Date·담당
+              {t('printsetup.dataCustomer', '[Data] Customer·Date·담당')}
             </div>
             <div className="m2 sel" style={{ left: 280, top: 66, width: 240, height: 52 }}>
               [Data] Input Value·Result
             </div>
             <div className="m2" style={{ left: 40, top: 132, width: 280, height: 140 }}>
-              [그래프] 성능 곡선
+              {t('printsetup.graphPerf', '[그래프] 성능 곡선')}
             </div>
             <div className="m2" style={{ left: 340, top: 132, width: 180, height: 140 }}>
-              [Table] 기술 Data
+              {t('printsetup.tableTech', '[Table] 기술 Data')}
             </div>
             {watermark ? (
               <div style={{
@@ -73,48 +82,59 @@ export function PrintSetupScreen(_props: ScreenProps) {
               }}>CONFIDENTIAL</div>
             ) : null}
             <div className="m2" style={{ left: 40, top: 288, width: 480, height: 24, borderStyle: 'dashed' }}>
-              바닥글 — 페이지 · 회사 정보
+              {t('printsetup.footerPh', '바닥글 — 페이지 · 회사 정보')}
             </div>
           </div>
           <div style={{ fontSize: 10, color: 'var(--txt-mute)' }}>
-            자리표시자 배치 → 데이터 경로 바인딩 → 게시된 Form 은 SVC-11 이 렌더 (견적서·PCR·작업지시서 공통)
+            {t('printsetup.flowHint', '자리표시자 배치 → 데이터 경로 바인딩 → 게시된 Form 은 SVC-11 이 렌더 (견적서·PCR·작업지시서 공통)')}
           </div>
         </div>
         <div className="split-h" />
         <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title="출력 설정">
+          <GroupBox title={t('printsetup.outputSettings', '출력 설정')}>
             <div className="frm c2">
               <label>Type of File</label>
               <Combo value="PDF" options={['PDF', 'XLSX', 'DOCX']} />
-              <label>용지</label>
-              <Combo value="A4 세로" options={['A4 세로', 'A4 가로', 'A3']} />
-              <label>색상</label>
-              <Combo value="칼라" options={['칼라', '흑백']} />
-              <label>Font / 크기</label>
+              <label>{t('printsetup.paper', '용지')}</label>
+              <Combo value="A4 세로" options={[
+                { value: 'A4 세로', label: t('printsetup.a4Portrait', 'A4 세로') },
+                { value: 'A4 가로', label: t('printsetup.a4Landscape', 'A4 가로') },
+                'A3',
+              ]} />
+              <label>{t('printsetup.color', '색상')}</label>
+              <Combo value="칼라" options={[
+                { value: '칼라', label: t('printsetup.colorOpt', '칼라') },
+                { value: '흑백', label: t('printsetup.monoOpt', '흑백') },
+              ]} />
+              <label>{t('printsetup.fontSize', 'Font / 크기')}</label>
               <Combo value="Pretendard 10" options={['Pretendard 10', 'Malgun 10']} />
-              <label>여백</label>
+              <label>{t('printsetup.margin', '여백')}</label>
               <input className="in" defaultValue="15/15/20/20 mm" aria-label="여백" />
-              <label>머리글·바닥글</label>
-              <Combo value="표준 Templet" options={['표준 Templet', '없음']} />
-              <label>워터마크</label>
-              <Combo value={watermark ? 'CONFIDENTIAL' : '없음'} options={['CONFIDENTIAL', '없음']}
+              <label>{t('printsetup.headerFooter', '머리글·바닥글')}</label>
+              <Combo value="표준 Templet" options={[
+                { value: '표준 Templet', label: t('printsetup.stdTemplet', '표준 Templet') },
+                { value: '없음', label: t('printsetup.none', '없음') },
+              ]} />
+              <label>{t('printsetup.watermark', '워터마크')}</label>
+              <Combo value={watermark ? 'CONFIDENTIAL' : '없음'}
+                options={['CONFIDENTIAL', { value: '없음', label: t('printsetup.none', '없음') }]}
                 onChange={(v) => setWatermark(v !== '없음')} />
             </div>
           </GroupBox>
           <GroupBox title="Call Form">
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <Btn>기본 양식 배치</Btn>
-              <Btn>Data 호출</Btn>
-              <Btn>그래프 불러오기</Btn>
+              <Btn>{t('printsetup.defaultLayout', '기본 양식 배치')}</Btn>
+              <Btn>{t('printsetup.dataCall', 'Data 호출')}</Btn>
+              <Btn>{t('printsetup.loadGraph', '그래프 불러오기')}</Btn>
             </div>
           </GroupBox>
-          <GroupBox title="내보내기">
+          <GroupBox title={t('printsetup.export', '내보내기')}>
             <div style={{ display: 'flex', gap: 4 }}>
               <Btn>Printer</Btn><Btn>PDF</Btn><Btn>Office</Btn>
             </div>
           </GroupBox>
-          <GroupBox title="저장" right={status === 'DRAFT'
-            ? <Chip tone="info">DRAFT</Chip> : <Chip tone="warn">승인 대기</Chip>}>
+          <GroupBox title={t('common.save', '저장')} right={status === 'DRAFT'
+            ? <Chip tone="info">DRAFT</Chip> : <Chip tone="warn">{t('printsetup.approvalPending', '승인 대기')}</Chip>}>
             <div style={{ textAlign: 'right' }}>
               <Btn variant="pri" disabled={status === 'PENDING'} onClick={() => {
                 void approvalService.request('doc_control', `Print Form 게시 — ${form}`)
@@ -126,10 +146,10 @@ export function PrintSetupScreen(_props: ScreenProps) {
                       shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>승인 요청 불가 — 백엔드 연결 필요</span>)
                     }
                   })
-              }}>승인 요청 → 게시</Btn>
+              }}>{t('printsetup.requestPublish', '승인 요청 → 게시')}</Btn>
             </div>
             <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 4 }}>
-              Grade 통제 문서는 워터마크·출력 제한 강제 (DOC-002)
+              {t('printsetup.gradeHint', 'Grade 통제 문서는 워터마크·출력 제한 강제 (DOC-002)')}
             </div>
           </GroupBox>
         </div>

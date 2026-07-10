@@ -2,6 +2,7 @@
  *  줌/팬 내장: 휠 = 커서 기준 줌 · 배경 드래그 = 이동 · 배경 더블클릭/⌂ = 원위치. */
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import type { CanvasBlock } from '../api/types'
+import { useI18n } from '../i18n/I18nContext'
 
 export function Cvs(props: {
   blocks: CanvasBlock[]
@@ -140,10 +141,11 @@ export function CommandLine(props: {
   coord?: string
   onCommand?: (cmd: string) => void
 }) {
+  const { t } = useI18n()
   const [value, setValue] = useState('')
   return (
     <div className="cmdline">
-      <span className="lbl">명령:</span>
+      <span className="lbl">{t('cvs.cmd', '명령:')}</span>
       <span style={{ color: 'var(--title-navy)' }}>{props.prompt}</span>
       <input value={value} onChange={(e) => setValue(e.target.value)} aria-label="명령 입력"
         onKeyDown={(e) => {

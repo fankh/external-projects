@@ -8,6 +8,7 @@ import { MACRO_FORMULA } from '../../api/mock/dataMore'
 import { approvalService } from '../../api/services'
 import { Btn, Chip, Fx, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -15,6 +16,7 @@ import type { ScreenProps } from '../../shell/Shell'
 export function ApprovalInboxScreen({ active }: ScreenProps) {
   const shell = useShell()
   const { setStatusMsg } = shell
+  const { t } = useI18n()
   const [reqs, setReqs] = useState<ApprovalReq[]>([])
   const [selId, setSelId] = useState<number | null>(null)
   const [comment, setComment] = useState('')
@@ -58,14 +60,14 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
   }
 
   const cols: GridColumn<ApprovalReq>[] = [
-    { key: 't', header: '유형', width: 48, align: 'center', render: (r) => r.assetType },
-    { key: 'target', header: '대상', render: (r) => r.target },
-    { key: 'k', header: '요청 구분', width: 62, align: 'center', code: true, render: (r) => r.reqKind },
-    { key: 'req', header: '요청자', width: 58, align: 'center', render: (r) => r.requester },
-    { key: 'd', header: '요청일', width: 48, align: 'center', render: (r) => r.reqDate },
-    { key: 'stage', header: '단계', width: 40, align: 'center', render: (r) => r.stage },
+    { key: 't', header: t('appr.type', '유형'), width: 48, align: 'center', render: (r) => r.assetType },
+    { key: 'target', header: t('appr.target', '대상'), render: (r) => r.target },
+    { key: 'k', header: t('appr.reqKind', '요청 구분'), width: 62, align: 'center', code: true, render: (r) => r.reqKind },
+    { key: 'req', header: t('appr.requester', '요청자'), width: 58, align: 'center', render: (r) => r.requester },
+    { key: 'd', header: t('appr.reqDate', '요청일'), width: 48, align: 'center', render: (r) => r.reqDate },
+    { key: 'stage', header: t('appr.stage', '단계'), width: 40, align: 'center', render: (r) => r.stage },
     {
-      key: 'st', header: '상태', width: 72, align: 'center',
+      key: 'st', header: t('appr.status', '상태'), width: 72, align: 'center',
       render: (r) => (r.tested ? <Chip tone="info">Tested ✓</Chip> : <Chip tone="warn">Pending</Chip>),
     },
   ]
@@ -74,83 +76,88 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
     <div className="fill-col">
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div style={{ width: 160, display: 'flex', flexDirection: 'column', gap: 6, flex: 'none' }}>
-          <GroupBox title="승인함" noPad>
+          <GroupBox title={t('appr.inbox', '승인함')} noPad>
             <div className="tree2">
-              <div className="tn sel"><span className="pm">·</span>처리할 요청 ({reqs.length})</div>
-              <div className="tn"><span className="pm">·</span>내 요청 (2)</div>
-              <div className="tn"><span className="pm">·</span>위임받은 요청 (1)</div>
-              <div className="tn"><span className="pm">·</span>이력 ({APPROVAL_HIST.length + decided.length})</div>
+              <div className="tn sel"><span className="pm">·</span>{t('appr.toProcess', '처리할 요청')} ({reqs.length})</div>
+              <div className="tn"><span className="pm">·</span>{t('appr.myReqs', '내 요청')} (2)</div>
+              <div className="tn"><span className="pm">·</span>{t('appr.delegatedReqs', '위임받은 요청')} (1)</div>
+              <div className="tn"><span className="pm">·</span>{t('appr.history', '이력')} ({APPROVAL_HIST.length + decided.length})</div>
             </div>
           </GroupBox>
-          <GroupBox title="자산 유형" noPad>
+          <GroupBox title={t('appr.assetType', '자산 유형')} noPad>
             <div className="tree2" style={{ fontSize: 11 }}>
               <div className="tn"><span className="pm">·</span>☑ Code ({reqs.filter((r) => r.assetType === 'Code').length})</div>
-              <div className="tn"><span className="pm">·</span>☑ 도면 ({reqs.filter((r) => r.assetType === '도면').length})</div>
+              <div className="tn"><span className="pm">·</span>☑ {t('appr.drawing', '도면')} ({reqs.filter((r) => r.assetType === '도면').length})</div>
               <div className="tn"><span className="pm">·</span>☑ Macro ({reqs.filter((r) => r.assetType === 'Macro').length})</div>
-              <div className="tn"><span className="pm">·</span>☐ Table · Form · 문서</div>
+              <div className="tn"><span className="pm">·</span>☐ {t('appr.tableFormDoc', 'Table · Form · 문서')}</div>
             </div>
           </GroupBox>
         </div>
         <div className="fill-col" style={{ gap: 6, overflow: 'auto' }}>
-          <GroupBox title={`처리할 요청 — ${reqs.length}건`} noPad>
+          <GroupBox title={t('appr.toProcessN', '처리할 요청 — {n}건').replace('{n}', String(reqs.length))} noPad>
             <DenseGrid columns={cols} rows={reqs} rowKey={(r) => r.id}
               selectedKey={selId} onRowClick={(r) => setSelId(r.id)} />
           </GroupBox>
           {sel ? (
-            <GroupBox title={`상세 — ${sel.target}`} style={{ flex: 1 }}>
+            <GroupBox title={`${t('appr.detail', '상세')} — ${sel.target}`} style={{ flex: 1 }}>
               {sel.assetType === 'Macro' ? (
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                     <div>
-                      <div style={{ fontSize: 10, color: 'var(--txt-dim)', marginBottom: 3 }}>변경 전 (v0.2)</div>
+                      <div style={{ fontSize: 10, color: 'var(--txt-dim)', marginBottom: 3 }}>{t('appr.before', '변경 전')} (v0.2)</div>
                       <Fx>{MACRO_BEFORE}</Fx>
                     </div>
                     <div>
-                      <div style={{ fontSize: 10, color: 'var(--txt-dim)', marginBottom: 3 }}>변경 후 (v0.3)</div>
+                      <div style={{ fontSize: 10, color: 'var(--txt-dim)', marginBottom: 3 }}>{t('appr.after', '변경 후')} (v0.3)</div>
                       <Fx style={{ borderColor: 'var(--ok)' }}>{MACRO_FORMULA}</Fx>
                     </div>
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--txt-dim)', marginTop: 6 }}>
-                    Test Run: 입력 {'{MC:520, FES:15}'} → 결과 <b style={{ color: 'var(--ok)' }}>786</b>
-                    · 참조 무결성 ✓ · 순환 참조 없음 ✓
+                    Test Run: {t('appr.input', '입력')} {'{MC:520, FES:15}'} → {t('appr.result', '결과')} <b style={{ color: 'var(--ok)' }}>786</b>
+                    · {t('appr.refIntegrity', '참조 무결성')} ✓ · {t('appr.noCircular', '순환 참조 없음')} ✓
                   </div>
                 </>
               ) : (
                 <div style={{ fontSize: 11, color: 'var(--txt-dim)', lineHeight: 1.9 }}>
                   {sel.reqKind} — {sel.target}<br />
-                  {sel.assetType === '도면' ? 'Rev 비교: Rev.A → Rev.B (치수 B 재검토 반영)' : 'Slot 정의·값 목록 변경 검토'}
+                  {sel.assetType === '도면'
+                    ? t('appr.revCompare', 'Rev 비교: Rev.A → Rev.B (치수 B 재검토 반영)')
+                    : t('appr.slotReview', 'Slot 정의·값 목록 변경 검토')}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 4, marginTop: 8, justifyContent: 'flex-end' }}>
                 <input className="in" style={{ width: 260 }} value={comment} aria-label="코멘트"
-                  placeholder="코멘트 (반려 시 필수)" onChange={(e) => setComment(e.target.value)} />
+                  placeholder={t('appr.commentPh', '코멘트 (반려 시 필수)')} onChange={(e) => setComment(e.target.value)} />
                 <Btn style={{ borderColor: 'var(--err)', color: 'var(--err)' }}
-                  onClick={() => decide(false)}>반려</Btn>
-                <Btn variant="run" onClick={() => decide(true)}>승인</Btn>
+                  onClick={() => decide(false)}>{t('common.reject', '반려')}</Btn>
+                <Btn variant="run" onClick={() => decide(true)}>{t('common.approve', '승인')}</Btn>
               </div>
             </GroupBox>
           ) : (
-            <div style={{ padding: 16, color: 'var(--txt-mute)', fontSize: 11 }}>요청을 선택하십시오</div>
+            <div style={{ padding: 16, color: 'var(--txt-mute)', fontSize: 11 }}>{t('appr.selectReq', '요청을 선택하십시오')}</div>
           )}
         </div>
         <div className="split-h" />
         <div style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title="승인 규칙">
+          <GroupBox title={t('appr.rules', '승인 규칙')}>
             <div style={{ fontSize: 10.5, lineHeight: 1.8, color: 'var(--txt-dim)' }}>
-              · 승인 시 approval_status=APPROVED 전이<br />
-              · System DB 영향 작업은 Platform 승인 필요<br />
-              · AI 생성물은 검증(Test) 통과 후에만 승인 가능
+              · {t('appr.rule1', '승인 시 approval_status=APPROVED 전이')}<br />
+              · {t('appr.rule2', 'System DB 영향 작업은 Platform 승인 필요')}<br />
+              · {t('appr.rule3', 'AI 생성물은 검증(Test) 통과 후에만 승인 가능')}
             </div>
           </GroupBox>
-          <GroupBox title="이력" noPad>
+          <GroupBox title={t('appr.history', '이력')} noPad>
             <table className="g">
-              <thead><tr><th>대상</th><th>결과</th><th>일자</th></tr></thead>
+              <thead><tr><th>{t('appr.target', '대상')}</th><th>{t('appr.result', '결과')}</th><th>{t('appr.date', '일자')}</th></tr></thead>
               <tbody>
                 {[...decided, ...APPROVAL_HIST].map((h, i) => (
                   <tr key={i}>
                     <td>{h.target}</td>
                     <td className="c">
-                      <Chip tone={h.result === '승인' ? 'ok' : 'warn'}>{h.result}</Chip>
+                      <Chip tone={h.result === '승인' ? 'ok' : 'warn'}>
+                        {h.result === '승인' ? t('common.approve', '승인')
+                          : h.result === '반려' ? t('common.reject', '반려') : h.result}
+                      </Chip>
                     </td>
                     <td className="c">{h.date}</td>
                   </tr>
@@ -158,9 +165,9 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
               </tbody>
             </table>
           </GroupBox>
-          <GroupBox title="모바일 동기">
+          <GroupBox title={t('appr.mobileSync', '모바일 동기')}>
             <div style={{ fontSize: 10.5, color: 'var(--txt-dim)' }}>
-              모바일 승인(M-16)과 동일 데이터·규칙 (APP-002)
+              {t('appr.mobileSyncDesc', '모바일 승인(M-16)과 동일 데이터·규칙 (APP-002)')}
             </div>
           </GroupBox>
         </div>
