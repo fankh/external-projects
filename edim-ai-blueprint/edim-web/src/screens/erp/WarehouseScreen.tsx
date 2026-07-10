@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { warehouseService, type WarehouseNode } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { useI18n } from '../../i18n/I18nContext'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
@@ -21,6 +22,7 @@ export function WarehouseScreen({ active }: ScreenProps) {
   const [nodes, setNodes] = useState<WarehouseNode[] | null>(null)
   const [sel, setSel] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)   // F5 — 선택 노드 수정
   const [form, setForm] = useState({
     parentCode: '', locationType: 'STORAGE', code: '', name: '',
     hazard: '', inspection: '', remarks: '',
@@ -97,6 +99,9 @@ export function WarehouseScreen({ active }: ScreenProps) {
         </span>
         <span style={{ flex: 1 }} />
         <Btn onClick={() => { load(); shell.setStatusMsg('창고 계층 재조회 (erp_warehouse)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
+        <Btn disabled={!perm.canWrite('erp-warehouse') || !sel}
+          title={perm.canWrite('erp-warehouse') ? undefined : perm.denyWrite}
+          onClick={() => setShowEdit(true)}>{t('wh.editBtn', '✎ 수정')}</Btn>
         <Btn variant="pri" disabled={!perm.canWrite('erp-warehouse')}
           title={perm.canWrite('erp-warehouse') ? undefined : perm.denyWrite}
           onClick={() => setShowAdd(true)}>{t('wh.addF2', '＋ 위치 등록 F2')}</Btn>
@@ -139,6 +144,31 @@ export function WarehouseScreen({ active }: ScreenProps) {
           </div>
         </div>
       ) : null}
+      {showEdit && sel ? (() => {
+        const node = (nodes ?? []).find((x) => x.code === sel)
+        if (!node) return null
+        return (
+          <QuickEditDialog dataAttr="wh-edit" title={`위치 수정 — ${node.code}`}
+            fields={[
+              { key: 'code', label: 'Code', value: node.code, readOnly: true },
+              { key: 'name', label: t('wh.name', '위치명'), value: node.name, required: true },
+              { key: 'hazard', label: t('wh.hazard', '위험물 허용'), value: node.hazard ?? '' },
+              { key: 'inspection', label: t('wh.inspection', '검사주기'), value: node.inspection ?? '' },
+              { key: 'remarks', label: t('wh.remarks', '비고'), value: node.remarks ?? '' },
+            ]}
+            onClose={() => setShowEdit(false)}
+            onSubmit={async (v) => {
+              const ok = await warehouseService.update(node.code, {
+                name: v.name, hazard: v.hazard, inspection: v.inspection, remarks: v.remarks,
+              })
+              if (!ok) return t('common.needBackend', '백엔드 연결 필요 (mock 모드)')
+              setShowEdit(false)
+              load()
+              shell.setStatusMsg(`위치 수정 ✓ — ${node.code} (erp_warehouse · WH_UPDATE 감사)`)
+              return null
+            }} />
+        )
+      })() : null}
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`${t('wh.title', '창고/저장위치 계층 — erp_warehouse')} (F3=삭제·하위 보호)`} noPad style={{ height: '100%', overflow: 'auto' }}>
           <table className="g" data-wh-tree>

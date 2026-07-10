@@ -393,6 +393,7 @@ def run_seed() -> None:
             seed_v19(cur, row[0])
             seed_v20(cur, row[0])
             seed_v21(cur, row[0])
+            seed_v22(cur, row[0])
             return
 
         cur.execute(
@@ -509,6 +510,7 @@ def run_seed() -> None:
         seed_v19(cur, tid)
         seed_v20(cur, tid)
         seed_v21(cur, tid)
+        seed_v22(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -2200,6 +2202,33 @@ UI_TRANSLATIONS_V21: dict[str, tuple[str, str, str]] = {
 
 def seed_v21(cur, tid: int) -> None:
     for key, (en, ja, zh) in UI_TRANSLATIONS_V21.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v22 — F5 마스터 수정 UI 키 ──
+
+UI_TRANSLATIONS_V22: dict[str, tuple[str, str, str]] = {
+    "qedit.required": ('Required: {n}', '必須入力: {n}', '必填: {n}'),
+    "qedit.saveF12": ('Save F12', '保存 F12', '保存 F12'),
+    "parts.editBtn": ('Edit', '修正', '编辑'),
+    "wh.editBtn": ('Edit', '修正', '编辑'),
+    "price.closeBtn": ('Close Validity', '適用終了', '结束适用'),
+    "price.closeSubmit": ('Close F12', '締切 F12', '结束 F12'),
+    "docmgmt.editMeta": ('Edit Meta', 'メタ修正', '编辑元数据'),
+    "docmgmt.title": ('Title', 'タイトル', '标题'),
+}
+
+
+def seed_v22(cur, tid: int) -> None:
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V22.items():
         for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { companyService, type CompanyRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
@@ -21,6 +22,7 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
   const [offline, setOffline] = useState(false)
   const [typeFilter, setTypeFilter] = useState('전체')
   const [showReg, setShowReg] = useState(false)
+  const [editRow, setEditRow] = useState<CompanyRow | null>(null)   // F5 — 더블클릭 수정
   const [reg, setReg] = useState<CompanyRow>({
     name: '', companyType: 'SUPPLIER', nation: 'KR', grade: '', terms: '',
   })
@@ -125,6 +127,31 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
           </div>
         </div>
       ) : null}
+      {editRow ? (
+        <QuickEditDialog dataAttr="com-edit" title={`업체 수정 — ${editRow.name}`}
+          fields={[
+            { key: 'name', label: '업체명', value: editRow.name, required: true },
+            { key: 'companyType', label: '유형', value: editRow.companyType, type: 'combo',
+              options: ['SUPPLIER', 'CUSTOMER', 'PARTNER', 'BANK'] },
+            { key: 'nation', label: '국가', value: editRow.nation },
+            { key: 'grade', label: '평가 등급', value: editRow.grade },
+            { key: 'terms', label: '결제 조건', value: editRow.terms },
+            { key: 'remarks', label: '비고', value: editRow.remarks ?? '' },
+          ]}
+          onClose={() => setEditRow(null)}
+          onSubmit={async (v) => {
+            if (!editRow.companyId) return '백엔드 연결 필요 (mock 모드)'
+            const ok = await companyService.update(editRow.companyId, {
+              name: v.name, companyType: v.companyType, nation: v.nation,
+              grade: v.grade, terms: v.terms, remarks: v.remarks,
+            })
+            if (!ok) return '백엔드 연결 필요 (mock 모드)'
+            setEditRow(null)
+            await load()
+            setStatusMsg(`업체 수정 ✓ — ${v.name} (com_company · COMPANY_UPDATE 감사)`)
+            return null
+          }} />
+      ) : null}
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`업체 대장 — ${visible.length}건`} noPad style={{ height: '100%' }}>
           {offline ? (
@@ -132,7 +159,11 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
               백엔드 연결 필요 — 업체 대장은 실DB(com_company)에서만 조회됩니다
             </div>
           ) : (
-            <DenseGrid columns={cols} rows={visible} rowKey={(r) => r.name} />
+            <DenseGrid columns={cols} rows={visible} rowKey={(r) => r.name}
+              onRowDoubleClick={(r) => {
+                if (!perm.canWrite('erp-company-master')) { setStatusMsg(perm.denyWrite); return }
+                setEditRow(r)
+              }} />
           )}
         </GroupBox>
       </div>

@@ -6,6 +6,7 @@ import { erpService, priceService, priceWriteService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
@@ -31,14 +32,17 @@ export function PriceScreen({ active }: ScreenProps) {
     code: 'FDV-480', supplier: '효성', price: '', source: '견적', validFrom: '2026-07-09', validTo: '',
   })
   const [selIdx, setSelIdx] = useState<number | null>(null)
+  const [showClose, setShowClose] = useState(false)   // F5 — 적용 종료 마감
   const [simCode, setSimCode] = useState('FDV-480')
   const [simDate, setSimDate] = useState('2026-07-09')
   const [simResult, setSimResult] = useState<PriceRow | null | undefined>(undefined)
 
   const [prices, setPrices] = useState<PriceRow[]>([])
 
+  const load = async () => { await priceService.list().then(setPrices) }
+
   useEffect(() => {
-    void priceService.list().then(setPrices)
+    void load()
   }, [])
 
   // 단가 Table 콤보 실필터 (B3)
@@ -172,10 +176,34 @@ export function PriceScreen({ active }: ScreenProps) {
             e.target.value = ''
           }} />
         <Btn onClick={() => xlsInput.current?.click()}>⬇ Excel Import</Btn>
+        <Btn disabled={!perm.canWrite('erp-price') || selIdx === null}
+          title={perm.canWrite('erp-price') ? undefined : perm.denyWrite}
+          onClick={() => setShowClose(true)}>{t('price.closeBtn', '적용 종료')}</Btn>
         <Btn variant="pri" disabled={!perm.canWrite('erp-price')}
           title={perm.canWrite('erp-price') ? undefined : perm.denyWrite}
           onClick={() => setShowReg(true)}>{t('price.addPrice', '＋ 단가 등록')}</Btn>
       </div>
+      {showClose && selIdx !== null && rows[selIdx] ? (
+        <QuickEditDialog dataAttr="price-close"
+          title={`적용 종료 마감 — ${rows[selIdx].code} (${rows[selIdx].supplier})`}
+          submitLabel={t('price.closeSubmit', '마감 F12')}
+          fields={[
+            { key: 'price', label: t('price.priceLbl', '단가'), value: rows[selIdx].price.toLocaleString(), readOnly: true },
+            { key: 'from', label: t('price.validFrom', '적용 시작'), value: rows[selIdx].from, readOnly: true },
+            { key: 'validTo', label: t('price.validTo', '적용 종료'), value: rows[selIdx].to ?? '', required: true },
+          ]}
+          onClose={() => setShowClose(false)}
+          onSubmit={async (v) => {
+            const row = rows[selIdx]
+            if (!row.priceId) return t('common.needBackend', '백엔드 연결 필요 (mock 모드)')
+            const ok = await priceWriteService.close(row.priceId, v.validTo.trim())
+            if (!ok) return t('common.needBackend', '백엔드 연결 필요 (mock 모드)')
+            setShowClose(false)
+            void load()
+            shell.setStatusMsg(`적용 종료 마감 ✓ — ${row.code} → ${v.validTo} (cst_price · PRICE_CLOSE 감사)`)
+            return null
+          }} />
+      ) : null}
       {showReg ? (
         <div data-price-reg style={{
           position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',

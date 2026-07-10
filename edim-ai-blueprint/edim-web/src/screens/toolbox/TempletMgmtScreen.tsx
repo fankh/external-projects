@@ -83,8 +83,21 @@ export function TempletMgmtScreen({ active }: ScreenProps) {
     setStatusMsg(`신규 Templet — ${name} (정의 편집 후 F12 저장)`)
   }
 
+  const removeTemplet = () => {   // F5 — 삭제 (시스템·RELEASED 보호 409)
+    if (!perm.canWrite('tbx-templet')) { setStatusMsg(perm.denyWrite); return }
+    if (!sel) { setStatusMsg('삭제 — Templet 을 먼저 선택하십시오'); return }
+    void templetService.remove(sel).then((ok) => {
+      if (!ok) { setStatusMsg('삭제 불가 — 백엔드 연결 필요 (mock)'); return }
+      setStatusMsg(`Templet 삭제 ✓ — ${sel} (TEMPLET_DELETE 감사)`)
+      setSel(null)
+      setDefText('')
+      void load()
+    }).catch((e: Error) => setStatusMsg(e.message))
+  }
+
   useFKeys(active, useMemo(() => ({
     F2: newTemplet,
+    F3: removeTemplet,
     F8: () => { void load(); setStatusMsg('Templet 재조회 (tbx_templet)') },
     F12: save,
   }), [sel, ttype, defText])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -108,6 +121,7 @@ export function TempletMgmtScreen({ active }: ScreenProps) {
         <span style={{ flex: 1 }} />
         {dirty ? <Chip tone="warn">미저장</Chip> : null}
         <Btn onClick={newTemplet}>＋ 신규 F2</Btn>
+        <Btn disabled={!sel} onClick={removeTemplet}>삭제 F3</Btn>
         <Btn variant="pri" onClick={save}>저장 F12</Btn>
         <Btn variant="run" onClick={requestApproval}>승인 요청</Btn>
       </div>

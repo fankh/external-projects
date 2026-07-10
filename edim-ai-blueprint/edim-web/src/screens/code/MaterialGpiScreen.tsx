@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { materialService, type MaterialRowApi } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
@@ -17,6 +18,7 @@ export function MaterialGpiScreen({ active }: ScreenProps) {
   const [offline, setOffline] = useState(false)
   const [typeFilter, setTypeFilter] = useState('전체')
   const [showReg, setShowReg] = useState(false)
+  const [editRow, setEditRow] = useState<MaterialRowApi | null>(null)   // F5
   const [reg, setReg] = useState({
     code: '', name: '', materialType: 'STEEL', density: '', standard: '', hazard: '',
   })
@@ -132,6 +134,30 @@ export function MaterialGpiScreen({ active }: ScreenProps) {
           </div>
         </div>
       ) : null}
+      {editRow ? (
+        <QuickEditDialog dataAttr="mat-edit" title={`재질 수정 — ${editRow.code}`}
+          fields={[
+            { key: 'name', label: '재질명', value: editRow.name, required: true },
+            { key: 'materialType', label: '유형', value: editRow.materialType, type: 'combo',
+              options: ['STEEL', 'ALUMINUM', 'PLASTIC'] },
+            { key: 'density', label: '밀도', value: editRow.density != null ? String(editRow.density) : '' },
+            { key: 'standard', label: '규격', value: editRow.standard },
+            { key: 'hazard', label: '유해 등급', value: editRow.hazard },
+          ]}
+          onClose={() => setEditRow(null)}
+          onSubmit={async (v) => {
+            const ok = await materialService.update(editRow.code, {
+              name: v.name, materialType: v.materialType,
+              density: v.density.trim() ? Number(v.density) : null,
+              standard: v.standard, hazard: v.hazard,
+            })
+            if (!ok) return '백엔드 연결 필요 (mock 모드)'
+            setEditRow(null)
+            await load()
+            setStatusMsg(`재질 수정 ✓ — ${editRow.code} (mat_material · MATERIAL_UPDATE 감사)`)
+            return null
+          }} />
+      ) : null}
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`재질 마스터 — ${visible.length}건`} noPad style={{ height: '100%' }}>
           {offline ? (
@@ -139,7 +165,11 @@ export function MaterialGpiScreen({ active }: ScreenProps) {
               백엔드 연결 필요 — 재질 마스터는 실DB(mat_material)에서만 조회됩니다
             </div>
           ) : (
-            <DenseGrid columns={cols} rows={visible} rowKey={(r) => r.code} />
+            <DenseGrid columns={cols} rows={visible} rowKey={(r) => r.code}
+              onRowDoubleClick={(r) => {
+                if (!perm.canWrite('code-raw')) { setStatusMsg(perm.denyWrite); return }
+                setEditRow(r)
+              }} />
           )}
         </GroupBox>
       </div>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { codeValueService, type CodeValueRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
@@ -55,6 +56,9 @@ export function VariantConstantScreen({ active }: ScreenProps) {
     })()
   }
 
+  const [selIdx, setSelIdx] = useState<number | null>(null)
+  const [showEdit, setShowEdit] = useState(false)   // F5 — 값 수정
+
   useFKeys(active, useMemo(() => ({
     F8: () => { void load(); setStatusMsg(`값 목록 재조회 — ${group} (code_item_value)`) },
   }), [group])) // eslint-disable-line react-hooks/exhaustive-deps
@@ -82,7 +86,39 @@ export function VariantConstantScreen({ active }: ScreenProps) {
           승인(APPROVED)된 값만 C-1 슬롯 콤보·BOM 전개에 노출 (CODE-003)
         </span>
         <span style={{ flex: 1 }} />
+        <Btn disabled={!perm.canWrite('code-variant') || selIdx === null || !visible[selIdx ?? -1]?.valueId}
+          title={perm.canWrite('code-variant') ? undefined : perm.denyWrite}
+          onClick={() => setShowEdit(true)}>✎ 값 수정</Btn>
+        <Btn disabled={!perm.canWrite('code-variant') || selIdx === null || !visible[selIdx ?? -1]?.valueId}
+          title={perm.canWrite('code-variant') ? undefined : perm.denyWrite}
+          onClick={() => {
+            const r = selIdx !== null ? visible[selIdx] : null
+            if (!r?.valueId) return
+            void codeValueService.patch(r.valueId, { deprecate: true }).then((ok) => {
+              if (!ok) { setStatusMsg('백엔드 연결 필요 (mock 모드)'); return }
+              void load()
+              setStatusMsg(`값 폐기 ✓ — ${r.slot}/${r.valueCode} → DEPRECATED (전개 제외 대상)`)
+            })
+          }}>폐기</Btn>
       </div>
+      {showEdit && selIdx !== null && visible[selIdx] ? (
+        <QuickEditDialog dataAttr="value-edit"
+          title={`값 수정 — ${visible[selIdx].slot}/${visible[selIdx].valueCode}`}
+          fields={[
+            { key: 'valueName', label: '값 명칭', value: visible[selIdx].valueName, required: true },
+          ]}
+          onClose={() => setShowEdit(false)}
+          onSubmit={async (v) => {
+            const r = visible[selIdx]
+            if (!r.valueId) return '백엔드 연결 필요 (mock 모드)'
+            const ok = await codeValueService.patch(r.valueId, { valueName: v.valueName })
+            if (!ok) return '백엔드 연결 필요 (mock 모드)'
+            setShowEdit(false)
+            await load()
+            setStatusMsg(`값 수정 ✓ — ${r.slot}/${r.valueCode} (code_item_value · VALUE_UPDATE 감사)`)
+            return null
+          }} />
+      ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`값 목록 — ${group} (${visible.length})`} noPad style={{ flex: 1 }}>
           {offline ? (
@@ -90,7 +126,8 @@ export function VariantConstantScreen({ active }: ScreenProps) {
               백엔드 연결 필요 — 값 목록은 실DB(code_item_value)에서만 조회됩니다
             </div>
           ) : (
-            <DenseGrid columns={cols} rows={visible} rowKey={(_, i) => i} />
+            <DenseGrid columns={cols} rows={visible} rowKey={(_, i) => i}
+              selectedKey={selIdx} onRowClick={(_, i) => setSelIdx(i)} />
           )}
         </GroupBox>
         <div className="split-h" />

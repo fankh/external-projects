@@ -367,6 +367,19 @@ export const docService = {
       throw e
     }
   },
+  /** PATCH /api/v1/documents/{no}/meta — 제목·유형·Grade 수정 (F5, ACCEPTED 409 throw) */
+  async updateMeta(docNo: string, p: { title?: string; docType?: string; grade?: string }):
+    Promise<boolean> {
+    try {
+      await api(`/documents/${encodeURIComponent(docNo)}/meta`, {
+        method: 'PATCH', body: JSON.stringify(p),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
   /** GET /api/v1/documents/{no}/render.pdf — Grade 워터마크 실렌더 (blob URL, null=백엔드 불가) */
   async renderPdf(docNo: string): Promise<string | null> {
     try {
@@ -872,6 +885,16 @@ export const drawingService = {
 }
 
 export const priceWriteService = {
+  /** PATCH /api/v1/prices/{id} — 적용 종료일 마감(정정) (F5) */
+  async close(priceId: number, validTo: string): Promise<boolean> {
+    try {
+      await api(`/prices/${priceId}`, { method: 'PATCH', body: JSON.stringify({ validTo }) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
   /** POST /api/v1/prices — 단가 등록 (true=등록, false=백엔드 불가; 422/409 는 throw) */
   async create(row: {
     code: string; supplier: string; price: number
@@ -933,6 +956,7 @@ export interface ArrangementRow {
 }
 export interface ArrangementComponent {
   position: string; code: string; name: string; quantity: number
+  componentId?: number
 }
 export interface TempletRow {
   name: string; templetType: string; definition: Record<string, unknown>
@@ -980,6 +1004,28 @@ export const arrangementService = {
       throw e
     }
   },
+  /** PATCH /api/v1/arrangements/{code}/components/{id} — 수량 수정 (F5) */
+  async updateComponent(code: string, componentId: number, quantity: number): Promise<boolean> {
+    try {
+      await api(`/arrangements/${encodeURIComponent(code)}/components/${componentId}`, {
+        method: 'PATCH', body: JSON.stringify({ quantity }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** DELETE /api/v1/arrangements/{code}/components/{id} — 구성품 삭제 (F5) */
+  async removeComponent(code: string, componentId: number): Promise<boolean> {
+    try {
+      await api(`/arrangements/${encodeURIComponent(code)}/components/${componentId}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
 }
 
 export const templetService = {
@@ -989,6 +1035,16 @@ export const templetService = {
       return await api<TempletRow[]>('/toolbox/templets')
     } catch (e) {
       if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** DELETE /api/v1/templets/{name} — 시스템·RELEASED 보호 409 (F5) */
+  async remove(name: string): Promise<boolean> {
+    try {
+      await api(`/templets/${encodeURIComponent(name)}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
       throw e
     }
   },
@@ -1009,6 +1065,7 @@ export const templetService = {
 // ── B13-2 — Variant·Constant · Raw Material · Quality ──
 export interface CodeValueRow {
   slot: string; itemName: string; valueCode: string; valueName: string; status: string
+  valueId?: number
 }
 export interface MaterialRowApi {
   code: string; name: string; materialType: string
@@ -1016,6 +1073,7 @@ export interface MaterialRowApi {
 }
 export interface VerificationRow {
   rule: string; macro: string; warning: string; active: boolean
+  verificationId?: number
 }
 
 export const codeValueService = {
@@ -1030,6 +1088,17 @@ export const codeValueService = {
   async add(v: { group: string; slot: string; valueCode: string; valueName: string }): Promise<boolean> {
     try {
       await api('/codes/values', { method: 'POST', body: JSON.stringify(v) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** PATCH /api/v1/codes/values/{id} — 값 수정·폐기(DEPRECATED) (F5) */
+  async patch(valueId: number, p: { valueName?: string; description?: string; deprecate?: boolean }):
+    Promise<boolean> {
+    try {
+      await api(`/codes/values/${valueId}`, { method: 'PATCH', body: JSON.stringify(p) })
       return true
     } catch (e) {
       if (e instanceof ApiUnavailable) return false
@@ -1059,6 +1128,21 @@ export const materialService = {
       throw e
     }
   },
+  /** PUT /api/v1/materials/{code} — 재질 수정 (F5) */
+  async update(code: string, p: {
+    name?: string; materialType?: string; density?: number | null
+    standard?: string; hazard?: string
+  }): Promise<boolean> {
+    try {
+      await api(`/materials/${encodeURIComponent(code)}`, {
+        method: 'PUT', body: JSON.stringify(p),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
 }
 
 export const verificationService = {
@@ -1081,11 +1165,24 @@ export const verificationService = {
       throw e
     }
   },
+  /** PUT /api/v1/verifications/{id} — 규칙 수정·비활성 (F5) */
+  async update(verificationId: number, p: {
+    ruleName?: string; warningMessage?: string; isActive?: boolean
+  }): Promise<boolean> {
+    try {
+      await api(`/verifications/${verificationId}`, { method: 'PUT', body: JSON.stringify(p) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
 }
 
 // ── B14 — 마스터 데이터 · RBAC 동적화 · Hierarchy ──
 export interface CompanyRow {
   name: string; companyType: string; nation: string; grade: string; terms: string
+  companyId?: number; remarks?: string
 }
 export interface RoleRow {
   name: string; description: string; permissions: Record<string, string>
@@ -1107,6 +1204,19 @@ export const companyService = {
   async create(c: CompanyRow): Promise<boolean> {
     try {
       await api('/companies', { method: 'POST', body: JSON.stringify(c) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** PUT /api/v1/companies/{id} — 수정 (F5, 중복명 409 throw) */
+  async update(companyId: number, p: {
+    name?: string; companyType?: string; nation?: string
+    grade?: string; terms?: string; remarks?: string
+  }): Promise<boolean> {
+    try {
+      await api(`/companies/${companyId}`, { method: 'PUT', body: JSON.stringify(p) })
       return true
     } catch (e) {
       if (e instanceof ApiUnavailable) return false
@@ -1274,6 +1384,16 @@ export const uiFormService = {
 }
 
 export const macroLibService = {
+  /** DELETE /api/v1/macros/{name} — 참조 보호 409 throw (F5, Studio F3) */
+  async remove(name: string): Promise<boolean> {
+    try {
+      await api(`/macros/${encodeURIComponent(name)}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
   /** GET /api/v1/macros — tbx_macro 라이브러리 */
   async list(): Promise<MacroLibRow[] | null> {
     try {
@@ -1665,6 +1785,20 @@ export const warehouseService = {
       throw e
     }
   },
+  /** PATCH /api/v1/erp/warehouses/{code} — 개명·속성 수정 (F5) */
+  async update(code: string, p: {
+    name?: string; hazard?: string; inspection?: string; remarks?: string
+  }): Promise<boolean> {
+    try {
+      await api(`/erp/warehouses/${encodeURIComponent(code)}`, {
+        method: 'PATCH', body: JSON.stringify(p),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
   /** DELETE /api/v1/erp/warehouses/{code} — 하위 존재 시 409 */
   async remove(code: string): Promise<boolean> {
     try {
@@ -1826,6 +1960,21 @@ export interface SlotItemRow {
 }
 
 export const partService = {
+  /** PUT /api/v1/parts/{no} — 속성 수정 (F5; 422=재질/코드 검증 throw) */
+  async update(partNo: string, p: {
+    name?: string; specification?: string; materialCode?: string
+    supplier?: string; code?: string; weight?: number; isStandard?: boolean
+  }): Promise<boolean> {
+    try {
+      await api(`/parts/${encodeURIComponent(partNo)}`, {
+        method: 'PUT', body: JSON.stringify(p),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
   /** GET /api/v1/parts — 부품 대장 (null=백엔드 불가) */
   async list(): Promise<PartRow[] | null> {
     try {

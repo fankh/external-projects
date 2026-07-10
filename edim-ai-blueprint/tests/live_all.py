@@ -29,6 +29,7 @@ SUITES = [
     "live_f2_users.py",             # 사용자 등록·프로필 수정·삭제 보호 (ssh psql 정리)
     "live_f3_rbac_ui.py",           # 권한 기반 UI 게이팅 — 메뉴 숨김·403 안내·버튼 disabled
     "live_f4_noop.py",              # 무반응 일소 — 관계 승인·Export·PrintSetup 위젯·F8 표준
+    "live_f5_updates.py",           # 마스터 수정 전면 — 왕복 수정·보호 게이트 (원복)
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]

@@ -34,6 +34,7 @@ py tests\live_all.py
 | `live_f1_project.py` | 프로젝트 대장·PS 채번·삭제 보호(단계/참조)·접수자료 실업로드·타이틀바 컨텍스트 (자체 정리) | F1 |
 | `live_f3_rbac_ui.py` | 권한 UI 게이팅 — GENERAL 메뉴 숨김/403 안내/버튼 disabled·SETUP 부분 허용·ADMIN 과차단 회귀 (정리: ssh psql) | F3 |
 | `live_f4_noop.py` | 무반응 일소 — S-1-4 관계 승인 전이·S-1-1 F8/값추가·Table Export XLSX·PrintSetup 위젯/바인딩/PDF·코드상세/툴바 컨텍스트·문서함 F8 | F4 |
+| `live_f5_updates.py` | 마스터 수정 전면 — 공급처/부품/재질/규칙/값/창고/단가 마감/문서 메타/Templet·Macro 삭제/구성품 (왕복 원복, 잔여는 psql) | F5 |
 | `live_f2_users.py` | 사용자 등록(USER_CREATE 감사)·실로그인·프로필 PATCH·삭제 보호(이력 409/본인 422)·UI 다이얼로그 (정리: API + **ssh psql** — 로그인 감사행 FK) | F2 |
 | `live_cad.py` | CAD 뷰/Import/Export (DXF) | INT-04 |
 | `live_s3_macro_engine.py` | Macro 엔진 실평가 | ENG-01 |

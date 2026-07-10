@@ -614,14 +614,16 @@ def arrangement_components(code: str) -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT COALESCE(c.position_key,''), pc.main_code, pc.code_name, c.quantity
+            """SELECT COALESCE(c.position_key,''), pc.main_code, pc.code_name, c.quantity,
+                      c.component_id
                FROM arrangement_component c
                JOIN arrangement_code a ON a.arrangement_id=c.arrangement_id
                JOIN product_code pc ON pc.product_code_id=c.product_code_id
                WHERE a.tenant_id=%s AND a.arrangement_code=%s ORDER BY c.sort_order""",
             (tid, code))
         return [
-            {"position": r[0], "code": r[1], "name": r[2], "quantity": float(r[3])}
+            {"position": r[0], "code": r[1], "name": r[2], "quantity": float(r[3]),
+             "componentId": r[4]}
             for r in cur.fetchall()
         ]
 
@@ -744,7 +746,7 @@ def code_values(group: str = "KOF") -> list[dict[str, Any]]:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT i.item_slot, i.item_name, v.value_code, COALESCE(v.value_name,''),
-                      v.approval_status
+                      v.approval_status, v.value_id
                FROM code_item i
                JOIN code_group g ON g.group_id=i.group_id
                LEFT JOIN code_item_value v ON v.item_id=i.item_id
@@ -752,7 +754,7 @@ def code_values(group: str = "KOF") -> list[dict[str, Any]]:
                ORDER BY i.item_slot, v.sort_order""", (tid, group))
         return [
             {"slot": r[0], "itemName": r[1], "valueCode": r[2] or "", "valueName": r[3],
-             "status": r[4] or "-"}
+             "status": r[4] or "-", "valueId": r[5]}
             for r in cur.fetchall()
         ]
 
@@ -906,10 +908,12 @@ def companies() -> list[dict[str, Any]]:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT company_name, company_type, COALESCE(nation,''),
-                      COALESCE(evaluation_grade,''), COALESCE(payment_terms,'')
+                      COALESCE(evaluation_grade,''), COALESCE(payment_terms,''),
+                      company_id, COALESCE(remarks,'')
                FROM com_company WHERE tenant_id=%s ORDER BY company_id""", (tid,))
         return [
-            {"name": r[0], "companyType": r[1], "nation": r[2], "grade": r[3], "terms": r[4]}
+            {"name": r[0], "companyType": r[1], "nation": r[2], "grade": r[3], "terms": r[4],
+             "companyId": r[5], "remarks": r[6]}
             for r in cur.fetchall()
         ]
 
@@ -1656,13 +1660,14 @@ def documents() -> list[dict[str, Any]]:
         cur.execute(
             """SELECT d.doc_no, d.title, d.person, to_char(d.created_at,'MM-DD'),
                       d.released_status, u.user_name,
-                      to_char(d.approval_date,'MM-DD'), d.version, d.management_grade
+                      to_char(d.approval_date,'MM-DD'), d.version, d.management_grade,
+                      d.doc_type
                FROM doc_control d LEFT JOIN sys_user u ON u.user_id=d.approver_id
                WHERE d.tenant_id=%s ORDER BY d.doc_control_id""", (tid,))
         return [
             {"docNo": r[0], "title": r[1], "person": r[2], "date": r[3],
              "status": STATUS_LABEL[r[4]], "approver": r[5] or "-",
-             "appDate": r[6] or "-", "version": r[7], "grade": r[8]}
+             "appDate": r[6] or "-", "version": r[7], "grade": r[8], "docType": r[9]}
             for r in cur.fetchall()
         ]
 
@@ -2226,7 +2231,7 @@ def prices() -> list[dict[str, Any]]:
             """SELECT pc.main_code, pc.code_name, COALESCE(cc.company_name,'-'),
                       p.price, p.price_source, p.valid_from, p.valid_to,
                       (p.valid_from <= CURRENT_DATE AND
-                       (p.valid_to IS NULL OR p.valid_to >= CURRENT_DATE))
+                       (p.valid_to IS NULL OR p.valid_to >= CURRENT_DATE)), p.price_id
                FROM cst_price p
                JOIN product_code pc ON pc.product_code_id=p.product_code_id
                LEFT JOIN com_company cc ON cc.company_id=p.supplier_id
@@ -2235,7 +2240,7 @@ def prices() -> list[dict[str, Any]]:
         return [
             {"code": r[0], "name": r[1], "supplier": r[2], "price": float(r[3]),
              "source": SOURCE_LABEL[r[4]], "from": r[5].isoformat(),
-             "to": r[6].isoformat() if r[6] else None, "active": bool(r[7])}
+             "to": r[6].isoformat() if r[6] else None, "active": bool(r[7]), "priceId": r[8]}
             for r in cur.fetchall()
         ]
 
@@ -4663,3 +4668,453 @@ def code_approval_history(code: str) -> list[dict[str, Any]]:
                 label = "승인 (APPROVED)" if result == "APPROVED" else f"반려 ({result})"
                 rows.append({"date": dec_d or req_d, "action": label, "by": app_by or "-", "note": ""})
         return rows
+
+
+# ══ F5 — 마스터 데이터 수정·정정 전면 (등록만 있고 Update 가 없던 도메인) ══
+
+
+class CompanyPatch(BaseModel):
+    name: str | None = None
+    companyType: str | None = None
+    nation: str | None = None
+    grade: str | None = None
+    terms: str | None = None
+    remarks: str | None = None
+
+
+@router.put("/companies/{company_id}", dependencies=[SETUP])
+def update_company(company_id: int, body: CompanyPatch, request: Request) -> dict[str, Any]:
+    """공급처·거래처 수정 (F5) — M-14-2 행 더블클릭."""
+    if body.companyType and body.companyType not in ("CUSTOMER", "SUPPLIER", "PARTNER", "BANK"):
+        raise HTTPException(422, detail=f"유형 오류: {body.companyType}")
+    if body.name is not None and not body.name.strip():
+        raise HTTPException(422, detail="업체명은 비울 수 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT company_name FROM com_company WHERE tenant_id=%s AND company_id=%s",
+                    (tid, company_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"company not found: {company_id}")
+        if body.name and body.name.strip() != row[0]:
+            cur.execute(
+                """SELECT 1 FROM com_company WHERE tenant_id=%s AND company_name=%s
+                   AND company_id<>%s""", (tid, body.name.strip(), company_id))
+            if cur.fetchone():
+                raise HTTPException(409, detail=f"업체명 중복: {body.name.strip()}")
+        fields = {
+            "company_name": body.name.strip() if body.name is not None else None,
+            "company_type": body.companyType,
+            "nation": body.nation,
+            "evaluation_grade": body.grade,
+            "payment_terms": body.terms,
+            "remarks": body.remarks,
+        }
+        sets = {k: v for k, v in fields.items() if v is not None}
+        if not sets:
+            raise HTTPException(422, detail="수정할 필드가 없습니다")
+        assign = ", ".join(f"{k}=%s" for k in sets)
+        cur.execute(
+            f"UPDATE com_company SET {assign}, updated_by=%s, updated_at=now() WHERE company_id=%s",
+            (*sets.values(), request.state.login, company_id))
+        _audit(cur, tid, "com_company", company_id, "COMPANY_UPDATE", request.state.user_id,
+               after={k: str(v) for k, v in sets.items()}, before={"name": row[0]})
+    return {"companyId": company_id, "updated": sorted(sets)}
+
+
+class PartPatch(BaseModel):
+    name: str | None = None
+    specification: str | None = None
+    materialCode: str | None = None      # 빈 문자열 = 연결 해제
+    supplier: str | None = None          # 빈 문자열 = 연결 해제, 미존재 시 자동 생성
+    code: str | None = None              # 제품코드 연결, 빈 문자열 = 해제
+    weight: float | None = None
+    isStandard: bool | None = None
+
+
+@router.put("/parts/{part_no}", dependencies=[SETUP])
+def update_part(part_no: str, body: PartPatch, request: Request) -> dict[str, Any]:
+    """부품 속성 수정 (F5) — M-4-7 (등록·삭제만 있던 도메인)."""
+    if body.name is not None and not body.name.strip():
+        raise HTTPException(422, detail="부품명은 비울 수 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT part_id, part_name FROM prt_part WHERE tenant_id=%s AND part_no=%s",
+                    (tid, part_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"part not found: {part_no}")
+        sets: dict[str, Any] = {}
+        if body.name is not None:
+            sets["part_name"] = body.name.strip()
+        if body.specification is not None:
+            sets["specification"] = body.specification.strip() or None
+        if body.weight is not None:
+            sets["weight"] = body.weight
+        if body.isStandard is not None:
+            sets["is_standard"] = body.isStandard
+        if body.materialCode is not None:
+            if body.materialCode.strip():
+                cur.execute(
+                    "SELECT material_id FROM mat_material WHERE tenant_id=%s AND material_code=%s",
+                    (tid, body.materialCode.strip()))
+                m = cur.fetchone()
+                if not m:
+                    raise HTTPException(422, detail=f"재질 없음: {body.materialCode} (M-3-2 등록 필요)")
+                sets["material_id"] = m[0]
+            else:
+                sets["material_id"] = None
+        if body.supplier is not None:
+            if body.supplier.strip():
+                cur.execute(
+                    "SELECT company_id FROM com_company WHERE tenant_id=%s AND company_name=%s",
+                    (tid, body.supplier.strip()))
+                c = cur.fetchone()
+                if c:
+                    sets["supplier_id"] = c[0]
+                else:
+                    cur.execute(
+                        """INSERT INTO com_company (tenant_id, company_type, company_name)
+                           VALUES (%s,'SUPPLIER',%s) RETURNING company_id""",
+                        (tid, body.supplier.strip()))
+                    sets["supplier_id"] = cur.fetchone()[0]
+            else:
+                sets["supplier_id"] = None
+        if body.code is not None:
+            if body.code.strip():
+                cur.execute(
+                    "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+                    (tid, body.code.strip()))
+                pc = cur.fetchone()
+                if not pc:
+                    raise HTTPException(422, detail=f"제품코드 없음: {body.code}")
+                sets["product_code_id"] = pc[0]
+            else:
+                sets["product_code_id"] = None
+        if not sets:
+            raise HTTPException(422, detail="수정할 필드가 없습니다")
+        assign = ", ".join(f"{k}=%s" for k in sets)
+        cur.execute(
+            f"UPDATE prt_part SET {assign}, updated_by=%s, updated_at=now() WHERE part_id=%s",
+            (*sets.values(), request.state.login, row[0]))
+        _audit(cur, tid, "prt_part", row[0], "PART_UPDATE", request.state.user_id,
+               after={k: str(v) for k, v in sets.items()}, before={"name": row[1]})
+    return {"partNo": part_no, "updated": sorted(sets)}
+
+
+class MaterialPatch(BaseModel):
+    name: str | None = None
+    materialType: str | None = None
+    density: float | None = None
+    standard: str | None = None
+    hazard: str | None = None
+
+
+@router.put("/materials/{code}", dependencies=[SETUP])
+def update_material(code: str, body: MaterialPatch, request: Request) -> dict[str, Any]:
+    """재질 수정 (F5) — M-3-2."""
+    if body.name is not None and not body.name.strip():
+        raise HTTPException(422, detail="재질명은 비울 수 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT material_id, material_name FROM mat_material WHERE tenant_id=%s AND material_code=%s",
+            (tid, code))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"material not found: {code}")
+        fields = {
+            "material_name": body.name.strip() if body.name is not None else None,
+            "material_type": body.materialType,
+            "density": body.density,
+            "standard": body.standard,
+            "hazard_class": body.hazard,
+        }
+        sets = {k: v for k, v in fields.items() if v is not None}
+        if not sets:
+            raise HTTPException(422, detail="수정할 필드가 없습니다")
+        assign = ", ".join(f"{k}=%s" for k in sets)
+        cur.execute(
+            f"UPDATE mat_material SET {assign}, updated_by=%s, updated_at=now() WHERE material_id=%s",
+            (*sets.values(), request.state.login, row[0]))
+        _audit(cur, tid, "mat_material", row[0], "MATERIAL_UPDATE", request.state.user_id,
+               after={k: str(v) for k, v in sets.items()}, before={"name": row[1]})
+    return {"code": code, "updated": sorted(sets)}
+
+
+class VerificationPatch(BaseModel):
+    ruleName: str | None = None
+    warningMessage: str | None = None
+    isActive: bool | None = None
+
+
+@router.put("/verifications/{verification_id}", dependencies=[SETUP])
+def update_verification(verification_id: int, body: VerificationPatch,
+                        request: Request) -> dict[str, Any]:
+    """검증 규칙 수정·비활성 (F5) — M-4-5."""
+    if body.ruleName is not None and not body.ruleName.strip():
+        raise HTTPException(422, detail="규칙명은 비울 수 없습니다")
+    fields = {
+        "rule_name": body.ruleName.strip() if body.ruleName is not None else None,
+        "warning_message": body.warningMessage,
+        "is_active": body.isActive,
+    }
+    sets = {k: v for k, v in fields.items() if v is not None}
+    if not sets:
+        raise HTTPException(422, detail="수정할 필드가 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT rule_name FROM dwg_verification WHERE tenant_id=%s AND verification_id=%s",
+            (tid, verification_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"verification not found: {verification_id}")
+        assign = ", ".join(f"{k}=%s" for k in sets)
+        cur.execute(
+            f"UPDATE dwg_verification SET {assign}, updated_by=%s, updated_at=now() "
+            "WHERE verification_id=%s",
+            (*sets.values(), request.state.login, verification_id))
+        _audit(cur, tid, "dwg_verification", verification_id, "VERIFY_UPDATE",
+               request.state.user_id,
+               after={k: str(v) for k, v in sets.items()}, before={"name": row[0]})
+    return {"verificationId": verification_id, "updated": sorted(sets)}
+
+
+class ValuePatch(BaseModel):
+    valueName: str | None = None
+    description: str | None = None
+    deprecate: bool = False
+
+
+@router.patch("/codes/values/{value_id}", dependencies=[SETUP])
+def patch_code_value(value_id: int, body: ValuePatch, request: Request) -> dict[str, Any]:
+    """Variant 값 수정·폐기 (F5) — S-1-2. 폐기 = approval_status DEPRECATED."""
+    sets: dict[str, Any] = {}
+    if body.valueName is not None:
+        sets["value_name"] = body.valueName.strip()
+    if body.description is not None:
+        sets["description"] = body.description.strip() or None
+    if body.deprecate:
+        sets["approval_status"] = "DEPRECATED"
+    if not sets:
+        raise HTTPException(422, detail="수정할 필드가 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT value_code, approval_status FROM code_item_value WHERE tenant_id=%s AND value_id=%s",
+            (tid, value_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"value not found: {value_id}")
+        assign = ", ".join(f"{k}=%s" for k in sets)
+        cur.execute(
+            f"UPDATE code_item_value SET {assign}, updated_by=%s, updated_at=now() WHERE value_id=%s",
+            (*sets.values(), request.state.login, value_id))
+        _audit(cur, tid, "code_item_value", value_id, "VALUE_UPDATE", request.state.user_id,
+               after={k: str(v) for k, v in sets.items()},
+               before={"code": row[0], "status": row[1]})
+    return {"valueId": value_id, "updated": sorted(sets)}
+
+
+class WarehousePatch(BaseModel):
+    name: str | None = None
+    hazard: str | None = None
+    inspection: str | None = None
+    remarks: str | None = None
+
+
+@router.patch("/erp/warehouses/{code}", dependencies=[SETUP])
+def patch_warehouse(code: str, body: WarehousePatch, request: Request) -> dict[str, Any]:
+    """창고 노드 개명·속성 수정 (F5) — M-8-4 (code 는 불변)."""
+    if body.name is not None and not body.name.strip():
+        raise HTTPException(422, detail="위치명은 비울 수 없습니다")
+    fields = {
+        "location_name": body.name.strip() if body.name is not None else None,
+        "hazard_allowed": body.hazard,
+        "inspection_cycle": body.inspection,
+        "remarks": body.remarks,
+    }
+    sets = {k: v for k, v in fields.items() if v is not None}
+    if not sets:
+        raise HTTPException(422, detail="수정할 필드가 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT warehouse_id, location_name FROM erp_warehouse WHERE tenant_id=%s AND location_code=%s",
+            (tid, code))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"warehouse not found: {code}")
+        assign = ", ".join(f"{k}=%s" for k in sets)
+        cur.execute(
+            f"UPDATE erp_warehouse SET {assign}, updated_by=%s, updated_at=now() WHERE warehouse_id=%s",
+            (*sets.values(), request.state.login, row[0]))
+        _audit(cur, tid, "erp_warehouse", row[0], "WH_UPDATE", request.state.user_id,
+               after={k: str(v) for k, v in sets.items()}, before={"name": row[1]})
+    return {"code": code, "updated": sorted(sets)}
+
+
+class PriceClose(BaseModel):
+    validTo: str          # YYYY-MM-DD — 적용 종료일 마감(정정)
+
+
+@router.patch("/prices/{price_id}", dependencies=[SETUP])
+def close_price(price_id: int, body: PriceClose, request: Request) -> dict[str, Any]:
+    """단가 적용 종료일 마감 (F5) — M-12-5 (잘못 등록한 단가 정정 동선)."""
+    try:
+        to = date.fromisoformat(body.validTo.strip())
+    except ValueError:
+        raise HTTPException(422, detail=f"날짜 형식 오류: {body.validTo} (YYYY-MM-DD)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT valid_from, valid_to FROM cst_price WHERE tenant_id=%s AND price_id=%s",
+            (tid, price_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"price not found: {price_id}")
+        if to < row[0]:
+            raise HTTPException(422, detail=f"종료일이 적용 시작({row[0]}) 이전입니다")
+        cur.execute(
+            "UPDATE cst_price SET valid_to=%s, updated_by=%s, updated_at=now() WHERE price_id=%s",
+            (to, request.state.login, price_id))
+        _audit(cur, tid, "cst_price", price_id, "PRICE_CLOSE", request.state.user_id,
+               after={"validTo": body.validTo},
+               before={"validTo": row[1].isoformat() if row[1] else None})
+    return {"priceId": price_id, "validTo": body.validTo}
+
+
+class DocMetaPatch(BaseModel):
+    title: str | None = None
+    docType: str | None = None
+    grade: str | None = None
+
+
+@router.patch("/documents/{doc_no}/meta", dependencies=[SETUP])
+def patch_document_meta(doc_no: str, body: DocMetaPatch, request: Request) -> dict[str, Any]:
+    """문서 메타(제목·유형·Grade) 수정 (F5) — ACCEPTED(승인 완료) 문서는 409 통제."""
+    if body.title is not None and not body.title.strip():
+        raise HTTPException(422, detail="제목은 비울 수 없습니다")
+    if body.grade and body.grade not in ("S-1", "S-2", "S-3", "S-4"):
+        raise HTTPException(422, detail=f"Grade 오류: {body.grade}")
+    fields = {
+        "title": body.title.strip() if body.title is not None else None,
+        "doc_type": body.docType,
+        "management_grade": body.grade,
+    }
+    sets = {k: v for k, v in fields.items() if v is not None}
+    if not sets:
+        raise HTTPException(422, detail="수정할 필드가 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT doc_control_id, released_status, title FROM doc_control
+               WHERE tenant_id=%s AND doc_no=%s
+               ORDER BY doc_control_id DESC LIMIT 1""", (tid, doc_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"document not found: {doc_no}")
+        if row[1] == "ACCEPTED":
+            raise HTTPException(409, detail="승인 완료(ACCEPTED) 문서는 메타 수정 불가 — 개정 절차 사용")
+        assign = ", ".join(f"{k}=%s" for k in sets)
+        cur.execute(
+            f"UPDATE doc_control SET {assign}, updated_by=%s, updated_at=now() WHERE doc_control_id=%s",
+            (*sets.values(), request.state.login, row[0]))
+        _audit(cur, tid, "doc_control", row[0], "DOC_META_UPDATE", request.state.user_id,
+               after={k: str(v) for k, v in sets.items()}, before={"title": row[2]})
+    return {"docNo": doc_no, "updated": sorted(sets)}
+
+
+@router.delete("/templets/{name}", dependencies=[SETUP])
+def delete_templet(name: str, request: Request) -> dict[str, Any]:
+    """Templet 삭제 (F5) — 시스템·게시(RELEASED) 보호 409."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT templet_id, approval_status, is_system FROM tbx_templet "
+            "WHERE tenant_id=%s AND templet_name=%s", (tid, name))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"templet not found: {name}")
+        if row[2]:
+            raise HTTPException(409, detail="시스템 Templet 은 삭제 불가")
+        if row[1] == "RELEASED":
+            raise HTTPException(409, detail="게시(RELEASED) Templet 은 삭제 불가 — 개정 절차 사용")
+        cur.execute("DELETE FROM tbx_templet WHERE templet_id=%s", (row[0],))
+        _audit(cur, tid, "tbx_templet", row[0], "TEMPLET_DELETE", request.state.user_id,
+               after={"name": name})
+    return {"deleted": name}
+
+
+@router.delete("/macros/{name}", dependencies=[SETUP])
+def delete_macro(name: str, request: Request) -> dict[str, Any]:
+    """Macro 삭제 (F5) — 치수식·검증 규칙·구성 join 참조 보호 409 (Studio F3 실배선)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT macro_id FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s",
+                    (tid, name))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"macro not found: {name}")
+        mid = row[0]
+        for sql, label in (
+            ("SELECT count(*) FROM dwg_dimension WHERE macro_id=%s", "치수식"),
+            ("SELECT count(*) FROM dwg_verification WHERE macro_id=%s", "검증 규칙"),
+            ("SELECT count(*) FROM arrangement_component WHERE join_macro_id=%s", "구성 join"),
+        ):
+            cur.execute(sql, (mid,))
+            c = cur.fetchone()[0]
+            if c:
+                raise HTTPException(409, detail=f"참조 존재 — {label} {c}건 (삭제 불가)")
+        cur.execute("DELETE FROM tbx_macro_ref WHERE macro_id=%s", (mid,))
+        cur.execute("DELETE FROM tbx_macro WHERE macro_id=%s", (mid,))
+        _audit(cur, tid, "tbx_macro", mid, "MACRO_DELETE", request.state.user_id,
+               after={"name": name})
+    return {"deleted": name}
+
+
+class ComponentPatch(BaseModel):
+    quantity: float
+
+
+@router.patch("/arrangements/{code}/components/{component_id}", dependencies=[SETUP])
+def patch_arrangement_component(code: str, component_id: int, body: ComponentPatch,
+                                request: Request) -> dict[str, Any]:
+    """Arrangement 구성품 수량 수정 (F5) — M-4-2."""
+    if body.quantity <= 0:
+        raise HTTPException(422, detail="수량은 0보다 커야 합니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT c.component_id, c.quantity FROM arrangement_component c
+               JOIN arrangement_code a ON a.arrangement_id=c.arrangement_id
+               WHERE a.tenant_id=%s AND a.arrangement_code=%s AND c.component_id=%s""",
+            (tid, code, component_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"component not found: {component_id}")
+        cur.execute("UPDATE arrangement_component SET quantity=%s WHERE component_id=%s",
+                    (body.quantity, component_id))
+        _audit(cur, tid, "arrangement_component", component_id, "ARR_COMP_UPDATE",
+               request.state.user_id,
+               after={"quantity": body.quantity}, before={"quantity": float(row[1])})
+    return {"componentId": component_id, "quantity": body.quantity}
+
+
+@router.delete("/arrangements/{code}/components/{component_id}", dependencies=[SETUP])
+def delete_arrangement_component(code: str, component_id: int, request: Request) -> dict[str, Any]:
+    """Arrangement 구성품 삭제 (F5) — M-4-2."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """DELETE FROM arrangement_component c
+               USING arrangement_code a
+               WHERE a.arrangement_id=c.arrangement_id AND a.tenant_id=%s
+                 AND a.arrangement_code=%s AND c.component_id=%s
+               RETURNING c.component_id""", (tid, code, component_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"component not found: {component_id}")
+        _audit(cur, tid, "arrangement_component", component_id, "ARR_COMP_DELETE",
+               request.state.user_id, after={"arrangement": code})
+    return {"deleted": component_id}

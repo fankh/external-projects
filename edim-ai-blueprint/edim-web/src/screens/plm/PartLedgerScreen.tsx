@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { partService, type PartRow, type SupplierCodeRow } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { useI18n } from '../../i18n/I18nContext'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
@@ -17,6 +18,7 @@ export function PartLedgerScreen({ active }: ScreenProps) {
   const [rows, setRows] = useState<PartRow[] | null>(null)
   const [sel, setSel] = useState<string | null>(null)
   const [showReg, setShowReg] = useState(false)
+  const [editRow, setEditRow] = useState<PartRow | null>(null)   // F5 — 속성 수정
   const [reg, setReg] = useState({
     partNo: '', name: '', spec: '', materialCode: '', supplier: '',
     productCode: '', unit: 'EA', weight: '', isStandard: false,
@@ -140,6 +142,12 @@ export function PartLedgerScreen({ active }: ScreenProps) {
           : <Chip tone="info">prt_part {rows.length}건</Chip>}
         <span style={{ flex: 1 }} />
         <Btn onClick={() => { load(); shell.setStatusMsg('부품 대장 재조회 (prt_part)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
+        <Btn disabled={!perm.canWrite('plm-parts') || !sel}
+          title={perm.canWrite('plm-parts') ? undefined : perm.denyWrite}
+          onClick={() => {
+            const r = (rows ?? []).find((x) => x.partNo === sel)
+            if (r) setEditRow(r)
+          }}>{t('parts.editBtn', '✎ 수정')}</Btn>
         <Btn variant="pri" disabled={!perm.canWrite('plm-parts')}
           title={perm.canWrite('plm-parts') ? undefined : perm.denyWrite}
           onClick={() => setShowReg(true)}>{t('parts.registerF2', '＋ 부품 등록 F2')}</Btn>
@@ -189,6 +197,32 @@ export function PartLedgerScreen({ active }: ScreenProps) {
             </div>
           </div>
         </div>
+      ) : null}
+      {editRow ? (
+        <QuickEditDialog dataAttr="part-edit" title={`부품 수정 — ${editRow.partNo}`}
+          fields={[
+            { key: 'name', label: t('parts.partName', '부품명'), value: editRow.name, required: true },
+            { key: 'specification', label: t('parts.specCol', '사양'), value: editRow.spec },
+            { key: 'materialCode', label: t('parts.materialCol', '재질'), value: editRow.material ?? '' },
+            { key: 'supplier', label: t('parts.supplierCol', '공급처'), value: editRow.supplier ?? '' },
+            { key: 'code', label: 'Code', value: editRow.productCode ?? '' },
+            { key: 'weight', label: t('parts.weightCol', '중량(kg)'), value: editRow.weight != null ? String(editRow.weight) : '' },
+            { key: 'isStandard', label: 'STD', value: editRow.isStandard ? 'Y' : 'N', type: 'combo', options: ['Y', 'N'] },
+          ]}
+          onClose={() => setEditRow(null)}
+          onSubmit={async (v) => {
+            const ok = await partService.update(editRow.partNo, {
+              name: v.name, specification: v.specification, materialCode: v.materialCode,
+              supplier: v.supplier, code: v.code,
+              weight: v.weight.trim() ? Number(v.weight) : undefined,
+              isStandard: v.isStandard === 'Y',
+            })
+            if (!ok) return t('common.needBackend', '백엔드 연결 필요 (mock 모드)')
+            setEditRow(null)
+            load()
+            shell.setStatusMsg(`부품 수정 ✓ — ${editRow.partNo} (prt_part · PART_UPDATE 감사)`)
+            return null
+          }} />
       ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`${t('parts.title', '부품 대장 — prt_part')} (F3=삭제·BOM 참조 보호)`} noPad style={{ flex: 1.4 }}>

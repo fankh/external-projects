@@ -6,6 +6,7 @@ import { docService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
@@ -24,6 +25,7 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
   const [statusFilter, setStatusFilter] = useState<string>('전체')
   const [search, setSearch] = useState('')
   const [selDoc, setSelDoc] = useState<string | null>(null)
+  const [showMeta, setShowMeta] = useState(false)   // F5 — 메타 수정
 
   const load = () => docService.list().then((rows) => {
     setDocs(rows)
@@ -112,10 +114,35 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
         <input className="in" style={{ width: 160 }} value={search} aria-label="검색"
           onChange={(e) => setSearch(e.target.value)} />
         <span style={{ flex: 1 }} />
+        <Btn disabled={!perm.canWrite('cpq-docmgmt') || !sel}
+          title={perm.canWrite('cpq-docmgmt') ? undefined : perm.denyWrite}
+          onClick={() => setShowMeta(true)}>{t('docmgmt.editMeta', '메타 수정')}</Btn>
         <Btn variant="pri" disabled={!perm.canWrite('cpq-docmgmt')}
           title={perm.canWrite('cpq-docmgmt') ? undefined : perm.denyWrite}
           onClick={() => setShowReg(true)}>{t('docmgmt.addDoc', '＋ 문서 등록')}</Btn>
       </div>
+      {showMeta && sel ? (
+        <QuickEditDialog dataAttr="doc-meta"
+          title={`문서 메타 수정 — ${sel.docNo}`}
+          fields={[
+            { key: 'title', label: t('docmgmt.title', '제목'), value: sel.title, required: true },
+            { key: 'docType', label: t('docmgmt.docType', '문서 유형'), value: sel.docType ?? 'TECH_DOC', type: 'combo',
+              options: ['TECH_DOC', 'QUOTE', 'REPORT', 'FORM'] },
+            { key: 'grade', label: 'Grade', value: sel.grade, type: 'combo',
+              options: ['S-1', 'S-2', 'S-3', 'S-4'] },
+          ]}
+          onClose={() => setShowMeta(false)}
+          onSubmit={async (v) => {
+            const ok = await docService.updateMeta(sel.docNo, {
+              title: v.title, docType: v.docType, grade: v.grade,
+            })
+            if (!ok) return t('common.needBackend', '백엔드 연결 필요 (mock 모드)')
+            setShowMeta(false)
+            void load()
+            shell.setStatusMsg(`메타 수정 ✓ — ${sel.docNo} (doc_control · DOC_META_UPDATE 감사, ACCEPTED 는 409 통제)`)
+            return null
+          }} />
+      ) : null}
       {showReg ? (
         <div data-doc-reg style={{
           position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)',

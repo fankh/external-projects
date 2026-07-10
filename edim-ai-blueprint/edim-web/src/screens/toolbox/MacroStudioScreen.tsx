@@ -138,6 +138,13 @@ export function MacroStudioScreen({ active }: ScreenProps) {
   }
 
   useFKeys(active, useMemo(() => ({
+    F3: () => {
+      // F5 — Macro 삭제 실배선 ('해당 동작이 없습니다' 폴백 제거): 참조 존재 시 서버 409 정직 표기
+      void macroLibService.remove('Shaft 길이 계산').then((ok) => shell.setStatusMsg(ok
+        ? 'Macro 삭제 ✓ — Shaft 길이 계산 (MACRO_DELETE 감사)'
+        : <span style={{ color: 'var(--err)' }}>삭제 불가 — 백엔드 연결 필요 (mock)</span>))
+        .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+    },
     F9: testRun,
     F12: () => {
       void saveAll().then((ok) => shell.setStatusMsg(ok

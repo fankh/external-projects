@@ -6,6 +6,7 @@ import {
 } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
@@ -22,6 +23,11 @@ export function ArrangementSetupScreen({ active }: ScreenProps) {
   const [showReg, setShowReg] = useState(false)
   const [reg, setReg] = useState({ code: '', name: '', family: 'AHU', direction: '', install: '' })
   const [comp, setComp] = useState({ productCode: '', position: '', quantity: '1' })
+  const [editComp, setEditComp] = useState<ArrangementComponent | null>(null)   // F5 — 수량 수정
+
+  const loadComps = (code: string) => {
+    void arrangementService.components(code).then((c) => setComps(c ?? []))
+  }
 
   const load = async () => {
     const r = await arrangementService.list()
@@ -33,7 +39,7 @@ export function ArrangementSetupScreen({ active }: ScreenProps) {
 
   useEffect(() => {
     if (!sel) { setComps([]); return }
-    void arrangementService.components(sel).then((c) => setComps(c ?? []))
+    void loadComps(sel)
   }, [sel])
 
   const register = () => {
@@ -107,7 +113,28 @@ export function ArrangementSetupScreen({ active }: ScreenProps) {
     { key: 'pos', header: 'Position', width: 66, align: 'center', code: true, render: (r) => r.position || '—' },
     { key: 'code', header: 'Code', width: 96, code: true, render: (r) => r.code },
     { key: 'name', header: '품명', render: (r) => r.name },
-    { key: 'qty', header: "Q'ty", width: 40, align: 'right', render: (r) => r.quantity },
+    { key: 'qty', header: "Q'ty", width: 40, align: 'right', render: (r) => r.quantity },  {
+      key: 'act', header: '', width: 58, align: 'center',
+      render: (r) => (r.componentId ? (
+        <span style={{ display: 'inline-flex', gap: 4 }}>
+          <span className="b" style={{ height: 17, fontSize: 10 }} title="수량 수정"
+            onClick={() => {
+              if (!perm.canWrite('plm-arr')) { setStatusMsg(perm.denyWrite); return }
+              setEditComp(r)
+            }}>✎</span>
+          <span className="b" style={{ height: 17, fontSize: 10 }} title="구성품 삭제"
+            onClick={() => {
+              if (!perm.canWrite('plm-arr')) { setStatusMsg(perm.denyWrite); return }
+              if (!sel || !r.componentId) return
+              void arrangementService.removeComponent(sel, r.componentId).then((ok) => {
+                if (!ok) { setStatusMsg('삭제 불가 — 백엔드 연결 필요 (mock)'); return }
+                void loadComps(sel)
+                setStatusMsg(`구성품 삭제 ✓ — ${r.code} (ARR_COMP_DELETE 감사)`)
+              })
+            }}>✕</span>
+        </span>
+      ) : null),
+    },
   ]
 
   const selRow = rows.find((r) => r.code === sel) ?? null
@@ -159,6 +186,24 @@ export function ArrangementSetupScreen({ active }: ScreenProps) {
             </div>
           </div>
         </div>
+      ) : null}
+      {editComp && sel ? (
+        <QuickEditDialog dataAttr="comp-edit" title={`구성품 수량 — ${editComp.code}`}
+          fields={[
+            { key: 'quantity', label: '수량', value: String(editComp.quantity), required: true },
+          ]}
+          onClose={() => setEditComp(null)}
+          onSubmit={async (v) => {
+            const q = Number(v.quantity)
+            if (!Number.isFinite(q) || q <= 0) return '수량은 0보다 큰 숫자여야 합니다'
+            if (!editComp.componentId) return '백엔드 연결 필요 (mock 모드)'
+            const ok = await arrangementService.updateComponent(sel, editComp.componentId, q)
+            if (!ok) return '백엔드 연결 필요 (mock 모드)'
+            setEditComp(null)
+            void loadComps(sel)
+            setStatusMsg(`수량 수정 ✓ — ${editComp.code} → ${q} (ARR_COMP_UPDATE 감사)`)
+            return null
+          }} />
       ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`구성 코드 대장 — ${rows.length}건`} noPad style={{ flex: 1.1 }}>

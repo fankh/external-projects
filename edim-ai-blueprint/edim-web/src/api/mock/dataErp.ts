@@ -71,6 +71,7 @@ export interface PriceRow {
   price: number
   source: PriceSource
   from: string
+  priceId?: number
   to: string | null
   active: boolean
 }

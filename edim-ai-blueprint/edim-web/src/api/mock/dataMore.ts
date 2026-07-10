@@ -33,6 +33,7 @@ export interface DocRow {
   docNo: string; title: string; person: string; date: string
   status: 'Set-up' | 'Check' | 'Approve 대기' | 'Accepted'
   approver: string; appDate: string; version: string; grade: string
+  docType?: string
 }
 export const DOCS: DocRow[] = [
   { docNo: 'DF 342-234 E', title: 'Density 계산서', person: 'Kim', date: '07-01', status: 'Check', approver: '-', appDate: '-', version: 'KD-0.2', grade: 'S-2' },

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { verificationService, type VerificationRow } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
@@ -18,6 +19,8 @@ export function QualityScreen({ active }: ScreenProps) {
   const [rows, setRows] = useState<VerificationRow[]>([])
   const [offline, setOffline] = useState(false)
   const [add, setAdd] = useState({ ruleName: '', macroName: 'DIM B (KDCR 3-13)', warning: '' })
+  const [selIdx, setSelIdx] = useState<number | null>(null)
+  const [showEdit, setShowEdit] = useState(false)   // F5 — 규칙 수정
 
   const load = async () => {
     const r = await verificationService.list(DRAWING)
@@ -72,7 +75,42 @@ export function QualityScreen({ active }: ScreenProps) {
           검증 Macro = 치수 평가 후 규칙 위반 시 경고 (● 검증 Macro — Design Editor 범례와 동일 도메인)
         </span>
         <span style={{ flex: 1 }} />
+        <Btn disabled={!perm.canWrite('plm-quality') || selIdx === null}
+          title={perm.canWrite('plm-quality') ? undefined : perm.denyWrite}
+          onClick={() => setShowEdit(true)}>✎ 수정</Btn>
+        <Btn disabled={!perm.canWrite('plm-quality') || selIdx === null}
+          title={perm.canWrite('plm-quality') ? undefined : perm.denyWrite}
+          onClick={() => {
+            const r = selIdx !== null ? rows[selIdx] : null
+            if (!r?.verificationId) { setStatusMsg('백엔드 연결 필요 (mock 모드)'); return }
+            void verificationService.update(r.verificationId, { isActive: !r.active })
+              .then((ok) => {
+                if (!ok) { setStatusMsg('백엔드 연결 필요 (mock 모드)'); return }
+                void load()
+                setStatusMsg(`규칙 ${r.active ? '비활성' : '활성'} ✓ — ${r.rule} (VERIFY_UPDATE 감사)`)
+              })
+          }}>{selIdx !== null && rows[selIdx] && !rows[selIdx].active ? '활성' : '비활성'}</Btn>
       </div>
+      {showEdit && selIdx !== null && rows[selIdx] ? (
+        <QuickEditDialog dataAttr="verify-edit" title={`규칙 수정 — ${rows[selIdx].rule}`}
+          fields={[
+            { key: 'ruleName', label: '규칙명', value: rows[selIdx].rule, required: true },
+            { key: 'warningMessage', label: '경고 문구', value: rows[selIdx].warning, required: true },
+          ]}
+          onClose={() => setShowEdit(false)}
+          onSubmit={async (v) => {
+            const r = rows[selIdx]
+            if (!r.verificationId) return '백엔드 연결 필요 (mock 모드)'
+            const ok = await verificationService.update(r.verificationId, {
+              ruleName: v.ruleName, warningMessage: v.warningMessage,
+            })
+            if (!ok) return '백엔드 연결 필요 (mock 모드)'
+            setShowEdit(false)
+            await load()
+            setStatusMsg(`규칙 수정 ✓ — ${v.ruleName} (dwg_verification · VERIFY_UPDATE 감사)`)
+            return null
+          }} />
+      ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`검증 규칙 — ${rows.length}건 (DWG-018)`} noPad style={{ flex: 1 }}>
           {offline ? (
@@ -80,7 +118,13 @@ export function QualityScreen({ active }: ScreenProps) {
               백엔드 연결 필요 — 검증 규칙은 실DB(dwg_verification)에서만 조회됩니다
             </div>
           ) : (
-            <DenseGrid columns={cols} rows={rows} rowKey={(_, i) => i} />
+            <DenseGrid columns={cols} rows={rows} rowKey={(_, i) => i}
+              selectedKey={selIdx} onRowClick={(_, i) => setSelIdx(i)}
+              onRowDoubleClick={(_, i) => {
+                if (!perm.canWrite('plm-quality')) { setStatusMsg(perm.denyWrite); return }
+                setSelIdx(i)
+                setShowEdit(true)
+              }} />
           )}
         </GroupBox>
         <div className="split-h" />
