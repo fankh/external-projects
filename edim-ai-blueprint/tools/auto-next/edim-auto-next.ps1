@@ -21,8 +21,10 @@ New-Item -ItemType File $lock -Force | Out-Null
 try {
     Set-Location $repo
     $prompt = Get-Content (Join-Path $repo 'tools\auto-next\edim-auto-next-prompt.md') -Raw -Encoding utf8
-    # 무인 회차 — 권한 프롬프트 없이 실행 (로그로 전 과정 감사 가능). 빈 stdin 으로 경고 억제.
-    $null | & claude -p $prompt --dangerously-skip-permissions 2>&1 | Out-File $log -Encoding utf8
+    # 무인 회차 — 권한 프롬프트 없이 실행. stream-json 으로 진행 과정을 실시간 로그에 남긴다
+    # (tail: Get-Content <log> -Tail 20 -Wait). 빈 stdin 으로 경고 억제.
+    $null | & claude -p $prompt --dangerously-skip-permissions --verbose --output-format stream-json 2>&1 |
+        Out-File $log -Encoding utf8
     "exit: $LASTEXITCODE" | Out-File $log -Append -Encoding utf8
 } finally {
     Remove-Item $lock -Force -ErrorAction SilentlyContinue
