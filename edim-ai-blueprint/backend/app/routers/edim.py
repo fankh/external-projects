@@ -405,6 +405,152 @@ async def spec_import(uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     return {"slotValues": sv}
 
 
+# ── B13 — Arrangement Set-Up (M-4-2) · Templet 관리 (S-2-3) ──
+
+@router.get("/arrangements")
+def arrangements() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT a.arrangement_code, a.arrangement_name, a.product_family,
+                      COALESCE(a.direction_option,''), COALESCE(a.install_option,''),
+                      a.approval_status,
+                      (SELECT count(*) FROM arrangement_component c
+                        WHERE c.arrangement_id=a.arrangement_id)
+               FROM arrangement_code a WHERE a.tenant_id=%s ORDER BY a.arrangement_id""", (tid,))
+        return [
+            {"code": r[0], "name": r[1], "family": r[2], "direction": r[3],
+             "install": r[4], "status": r[5], "components": int(r[6])}
+            for r in cur.fetchall()
+        ]
+
+
+@router.get("/arrangements/{code}/components")
+def arrangement_components(code: str) -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT COALESCE(c.position_key,''), pc.main_code, pc.code_name, c.quantity
+               FROM arrangement_component c
+               JOIN arrangement_code a ON a.arrangement_id=c.arrangement_id
+               JOIN product_code pc ON pc.product_code_id=c.product_code_id
+               WHERE a.tenant_id=%s AND a.arrangement_code=%s ORDER BY c.sort_order""",
+            (tid, code))
+        return [
+            {"position": r[0], "code": r[1], "name": r[2], "quantity": float(r[3])}
+            for r in cur.fetchall()
+        ]
+
+
+class ArrangementCreate(BaseModel):
+    code: str
+    name: str
+    family: str = "AHU"
+    direction: str = ""
+    install: str = ""
+
+
+@router.post("/arrangements", status_code=201, dependencies=[SETUP])
+def create_arrangement(request: Request, body: ArrangementCreate) -> dict[str, Any]:
+    if not body.code.strip() or not body.name.strip():
+        raise HTTPException(422, detail="필수(노란 셀) — Code·명칭")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT 1 FROM arrangement_code WHERE tenant_id=%s AND arrangement_code=%s",
+            (tid, body.code.strip()))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — Arrangement {body.code} 이미 등록됨")
+        cur.execute(
+            """INSERT INTO arrangement_code (tenant_id, arrangement_code, arrangement_name,
+               product_family, direction_option, install_option)
+               VALUES (%s,%s,%s,%s,NULLIF(%s,''),NULLIF(%s,'')) RETURNING arrangement_id""",
+            (tid, body.code.strip(), body.name.strip(), body.family.strip()[:50],
+             body.direction.strip(), body.install.strip()))
+        arr_id = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
+               request_type, step, requester_id, comment)
+               VALUES (%s,'arrangement_code',%s,'CREATE','승인',%s,%s)""",
+            (tid, arr_id, request.state.user_id,
+             f"Arrangement 등록 — {body.code} {body.name}"[:200]))
+    return {"arrangementId": arr_id, "status": "DRAFT"}
+
+
+class ComponentAdd(BaseModel):
+    productCode: str
+    position: str = ""
+    quantity: float = 1
+
+
+@router.post("/arrangements/{code}/components", status_code=201, dependencies=[SETUP])
+def add_arrangement_component(code: str, body: ComponentAdd) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT arrangement_id FROM arrangement_code WHERE tenant_id=%s AND arrangement_code=%s",
+            (tid, code))
+        a = cur.fetchone()
+        if not a:
+            raise HTTPException(404, detail=f"Arrangement 없음: {code}")
+        cur.execute(
+            "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+            (tid, body.productCode.strip()))
+        pc = cur.fetchone()
+        if not pc:
+            raise HTTPException(404, detail=f"코드 없음: {body.productCode}")
+        cur.execute(
+            """INSERT INTO arrangement_component (arrangement_id, product_code_id,
+               position_key, quantity, sort_order)
+               VALUES (%s,%s,NULLIF(%s,''),%s,
+                       (SELECT COALESCE(max(sort_order),0)+1 FROM arrangement_component
+                         WHERE arrangement_id=%s))
+               RETURNING component_id""",
+            (a[0], pc[0], body.position.strip()[:30], body.quantity, a[0]))
+        cid = cur.fetchone()[0]
+    return {"componentId": cid}
+
+
+@router.get("/toolbox/templets")
+def templets() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT templet_name, templet_type, definition, approval_status, is_system
+               FROM tbx_templet WHERE tenant_id=%s ORDER BY templet_id""", (tid,))
+        return [
+            {"name": r[0], "templetType": r[1], "definition": r[2],
+             "status": r[3], "system": bool(r[4])}
+            for r in cur.fetchall()
+        ]
+
+
+class TempletSave(BaseModel):
+    templetType: str = "COMMAND"
+    definition: dict[str, Any] = {}
+
+
+@router.put("/toolbox/templets/{name}", dependencies=[SETUP])
+def save_templet(name: str, body: TempletSave) -> dict[str, Any]:
+    """Templet upsert — 저장 시 DRAFT 로 회귀 (승인은 POST /approvals)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE tbx_templet SET definition=%s, templet_type=%s,
+               approval_status='DRAFT', updated_at=now()
+               WHERE tenant_id=%s AND templet_name=%s RETURNING templet_id""",
+            (json.dumps(body.definition), body.templetType.strip()[:30], tid, name))
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                """INSERT INTO tbx_templet (tenant_id, templet_name, templet_type, definition)
+                   VALUES (%s,%s,%s,%s) RETURNING templet_id""",
+                (tid, name, body.templetType.strip()[:30] or "COMMAND",
+                 json.dumps(body.definition)))
+            row = cur.fetchone()
+    return {"templetId": row[0], "status": "DRAFT"}
+
+
 # ── SVC-05 Table ──
 @router.get("/tables/tech-data")
 def tech_data(airflow: float = 0, pressure: float = 0) -> list[dict[str, Any]]:

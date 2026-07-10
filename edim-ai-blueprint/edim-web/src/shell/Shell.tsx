@@ -13,7 +13,9 @@ import type { TreeNode } from '../components/LnavTree'
 import { SelectionScreen } from '../screens/cpq/SelectionScreen'
 import { TechDataScreen } from '../screens/cpq/TechDataScreen'
 import { RunScreen } from '../screens/cpq/RunScreen'
+import { ArrangementSetupScreen } from '../screens/plm/ArrangementSetupScreen'
 import { DesignEditorScreen } from '../screens/plm/DesignEditorScreen'
+import { TempletMgmtScreen } from '../screens/toolbox/TempletMgmtScreen'
 import { DrawingLedgerScreen } from '../screens/plm/DrawingLedgerScreen'
 import { WorkProcessScreen } from '../screens/plm/WorkProcessScreen'
 import { SubCodeScreen } from '../screens/code/SubCodeScreen'
@@ -68,6 +70,8 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'erp-access': AccessControlScreen,
   'tbx-macro': MacroStudioScreen,
   'tbx-ui': UiDesignerScreen,
+  'tbx-templet': TempletMgmtScreen,
+  'plm-arr': ArrangementSetupScreen,
   'com-approval': ApprovalInboxScreen,
   'com-tasks': TaskBoxScreen,
   'com-folder': ProjectFolderScreen,

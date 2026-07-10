@@ -812,6 +812,86 @@ export const searchService = {
   },
 }
 
+// ── B13 — Arrangement Set-Up · Templet 관리 ──
+export interface ArrangementRow {
+  code: string; name: string; family: string
+  direction: string; install: string; status: string; components: number
+}
+export interface ArrangementComponent {
+  position: string; code: string; name: string; quantity: number
+}
+export interface TempletRow {
+  name: string; templetType: string; definition: Record<string, unknown>
+  status: string; system: boolean
+}
+
+export const arrangementService = {
+  /** GET /api/v1/arrangements (null=백엔드 불가) */
+  async list(): Promise<ArrangementRow[] | null> {
+    try {
+      return await api<ArrangementRow[]>('/arrangements')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/arrangements/{code}/components */
+  async components(code: string): Promise<ArrangementComponent[] | null> {
+    try {
+      return await api<ArrangementComponent[]>(`/arrangements/${encodeURIComponent(code)}/components`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/arrangements — 등록 + 승인 요청 자동 (true=등록) */
+  async create(a: { code: string; name: string; family: string; direction: string; install: string }): Promise<boolean> {
+    try {
+      await api('/arrangements', { method: 'POST', body: JSON.stringify(a) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** POST /api/v1/arrangements/{code}/components */
+  async addComponent(code: string, c: { productCode: string; position: string; quantity: number }): Promise<boolean> {
+    try {
+      await api(`/arrangements/${encodeURIComponent(code)}/components`, {
+        method: 'POST', body: JSON.stringify(c),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
+export const templetService = {
+  /** GET /api/v1/toolbox/templets (null=백엔드 불가) */
+  async list(): Promise<TempletRow[] | null> {
+    try {
+      return await api<TempletRow[]>('/toolbox/templets')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** PUT /api/v1/toolbox/templets/{name} — upsert DRAFT (true=영속) */
+  async save(name: string, templetType: string, definition: Record<string, unknown>): Promise<boolean> {
+    try {
+      await api(`/toolbox/templets/${encodeURIComponent(name)}`, {
+        method: 'PUT', body: JSON.stringify({ templetType, definition }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const c1Service = {
   /** POST /api/v1/cpq/quote-preview.pdf — 현재 슬롯으로 견적서 즉석 렌더 (blob URL, null=백엔드 불가) */
   async quotePreviewPdf(slotValues: Record<string, string>): Promise<string | null> {

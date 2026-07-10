@@ -34,6 +34,8 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'erp-price': { screenId: 'erp-price', code: 'M-12-5', title: '단가 관리' },
   'erp-process': { screenId: 'erp-process', code: 'M-14-7', title: 'Process Set-up' },
   'erp-purchase': { screenId: 'erp-purchase', code: 'M-8-2', title: '구매·발주' },
+  'plm-arr': { screenId: 'plm-arr', code: 'M-4-2', title: 'Arrangement Set-Up' },
+  'tbx-templet': { screenId: 'tbx-templet', code: 'S-2-3', title: 'Templet 관리' },
 }
 
 export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> = {
@@ -81,7 +83,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
           { id: 'plm-duct', label: '건축설비 Duct (M-4-3)' },
         ],
       },
-      { id: 'plm-arr', label: 'Arrangement Set-Up — 예정' },
+      { id: 'plm-arr', label: 'Arrangement Set-Up (M-4-2)' },
     ],
   },
   code: {
@@ -150,7 +152,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
           { id: 'tbx-macro', label: 'Macro Studio (S-2-2)' },
         ],
       },
-      { id: 'tbx-templet', label: 'Templet 관리 — 예정' },
+      { id: 'tbx-templet', label: 'Templet 관리 (S-2-3)' },
     ],
   },
   common: {

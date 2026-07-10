@@ -95,6 +95,7 @@ def run_seed() -> None:
             seed_v7(cur, row[0])
             seed_v8(cur, row[0])
             seed_v9(cur, row[0])
+            seed_v10(cur, row[0])
             return
 
         cur.execute(
@@ -199,6 +200,7 @@ def run_seed() -> None:
         seed_v7(cur, tid)
         seed_v8(cur, tid)
         seed_v9(cur, tid)
+        seed_v10(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -1385,3 +1387,68 @@ def seed_v9(cur, tid: int) -> None:
             n += 1
     if n:
         logger.info("seed v9 — UI 번역 전면 확장 %d행 삽입 (24화면 크롬, B9)", n)
+
+
+# ── seed v10 — B13: Arrangement·Templet 샘플 + 메뉴 라벨 갱신 ──
+
+ARRANGEMENTS_V10 = [
+    ('ARR-DD2', 'Double Deck 2 표준 구성', 'AHU', '좌우 대칭·상부 배기', '실내 설치·방진 마운트',
+     [('KAD 900 FW', 'CENTER', 1), ('KDP 1-21', 'LEFT', 1), ('H 22 380', 'RIGHT', 1)]),
+    ('ARR-SD1', 'Single Deck 표준 구성', 'AHU', '단층·전면 흡입', '옥상 설치·방수 커버',
+     [('KAD 900 FW', 'CENTER', 1), ('KDP 9', 'REAR', 2)]),
+]
+
+TEMPLETS_V10 = [
+    ('CMD-COPY', 'COMMAND', {'action': 'copy', 'target': 'selection', 'data': 'clipboard'}),
+    ('DATA-TBL12', 'DATA', {'table': 'Table12', 'binding': 'combo', 'keyColumn': 'Key'}),
+    ('FORM-QUOTE', 'FORM', {'form': 'CLT', 'placeholders': ['project.no', 'customer', 'bom']}),
+]
+
+MENU_UPDATES_V10 = {
+    'menu.plm-arr': ('Arrangement Set-Up (M-4-2)', 'Arrangement Set-Up (M-4-2)', 'Arrangement Set-Up (M-4-2)'),
+    'menu.tbx-templet': ('Templet Mgmt (S-2-3)', 'Templet 管理 (S-2-3)', 'Templet 管理 (S-2-3)'),
+    'screen.plm-arr': ('Arrangement Set-Up', 'Arrangement Set-Up', 'Arrangement Set-Up'),
+    'screen.tbx-templet': ('Templet Mgmt', 'Templet 管理', 'Templet 管理'),
+}
+
+
+def seed_v10(cur, tid: int) -> None:
+    cur.execute('SELECT 1 FROM arrangement_code WHERE tenant_id=%s LIMIT 1', (tid,))
+    if not cur.fetchone():
+        for code, name, family, direction, install, comps in ARRANGEMENTS_V10:
+            cur.execute(
+                """INSERT INTO arrangement_code (tenant_id, arrangement_code, arrangement_name,
+                   product_family, direction_option, install_option, approval_status)
+                   VALUES (%s,%s,%s,%s,%s,%s,'APPROVED') RETURNING arrangement_id""",
+                (tid, code, name, family, direction, install))
+            arr_id = cur.fetchone()[0]
+            for i, (pc_code, pos, qty) in enumerate(comps):
+                cur.execute(
+                    'SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s',
+                    (tid, pc_code))
+                pc = cur.fetchone()
+                if pc:
+                    cur.execute(
+                        """INSERT INTO arrangement_component (arrangement_id, product_code_id,
+                           position_key, quantity, sort_order) VALUES (%s,%s,%s,%s,%s)""",
+                        (arr_id, pc[0], pos, qty, i))
+        logger.info('seed v10 — arrangement %d건', len(ARRANGEMENTS_V10))
+    cur.execute('SELECT 1 FROM tbx_templet WHERE tenant_id=%s LIMIT 1', (tid,))
+    if not cur.fetchone():
+        for name, ttype, definition in TEMPLETS_V10:
+            cur.execute(
+                """INSERT INTO tbx_templet (tenant_id, templet_name, templet_type, definition,
+                   approval_status) VALUES (%s,%s,%s,%s,'APPROVED')""",
+                (tid, name, ttype, json.dumps(definition)))
+        logger.info('seed v10 — templet %d건', len(TEMPLETS_V10))
+    # 메뉴 라벨 갱신 (— 예정 해제) + 신규 화면 키 — 키 단위 멱등
+    for key, (en, ja, zh) in MENU_UPDATES_V10.items():
+        for locale, text in (('en', en), ('ja', ja), ('zh', zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
