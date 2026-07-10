@@ -1479,6 +1479,7 @@ MENU_UPDATES_V11 = {
     'screen.code-raw': ('Raw Material·GPI', 'Raw Material·GPI', 'Raw Material·GPI'),
     'screen.plm-material': ('Material', 'Material', 'Material'),
     'screen.plm-quality': ('Quality', 'Quality', 'Quality'),
+    'menu.com-search': ('Global Search (⌘K)', '統合検索 (⌘K)', '全局搜索 (⌘K)'),
 }
 
 

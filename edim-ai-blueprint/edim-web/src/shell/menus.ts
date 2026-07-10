@@ -166,7 +166,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       { id: 'com-tasks', label: '부서 업무함 (M-15-3)' },
       { id: 'com-folder', label: 'Project Folder·이력 (M-15-8/9)' },
       { id: 'com-mobile', label: 'Mobile App 미리보기 (M-16)' },
-      { id: 'com-search', label: '통합 검색 — 예정' },
+      { id: 'com-search', label: '통합 검색 (⌘K)' },
     ],
   },
 }

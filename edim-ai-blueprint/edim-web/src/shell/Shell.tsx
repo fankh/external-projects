@@ -396,6 +396,12 @@ export function Shell(props: { user: User }) {
             if (s) shell.openTab(s)
           }}
           onSelect={(n) => {
+            // 통합 검색 = 전역 ⌘K 검색창 포커스 (B13-2)
+            if (n.id === 'com-search') {
+              searchRef.current?.focus()
+              shell.setStatusMsg('통합 검색 — 화면코드·코드·문서·도면 (⌘K)')
+              return
+            }
             // 리프 단일클릭도 열기 (더블클릭은 레거시 문법이지만 웹 관례 병행)
             const s = SCREEN_BY_NODE[n.id]
             if (s && !n.children?.length) shell.openTab(s)
