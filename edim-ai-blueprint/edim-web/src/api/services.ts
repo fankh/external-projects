@@ -718,6 +718,26 @@ export const dashboardService = {
   },
 }
 
+// ── C3 분석 — Run 통계 + 원가 추이 (cpq_run·cst_calc 누적) ──
+export interface AnalyticsData {
+  runStats: { total: number; success: number; failed: number; successRate: number; avgDurationSec: number }
+  recentRuns: { runId: number; status: string; runType: string; durationSec: number | null; at: string }[]
+  costByType: Record<string, { total: number; runs: number }>
+  costTrend: { runId: number; material: number; manufacturing: number; direct: number }[]
+}
+
+export const analyticsService = {
+  /** GET /api/v1/erp/analytics (null=백엔드 불가) */
+  async get(): Promise<AnalyticsData | null> {
+    try {
+      return await api<AnalyticsData>('/erp/analytics')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
 // ── SVC-09 발주 품목 ──
 export const purchaseService = {
   /** GET /api/v1/erp/pr-items — 단가 resolve 실연동 */

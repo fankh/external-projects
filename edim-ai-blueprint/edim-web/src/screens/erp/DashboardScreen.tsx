@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ALERTS, DEPT_EVENTS, KPIS, PROCESS_FLOW_1, PROCESS_FLOW_2,
 } from '../../api/mock/dataErp'
-import { dashboardService, eventService, projectService, type DashboardData } from '../../api/services'
-import { Combo, GroupBox } from '../../components/controls'
+import { analyticsService, dashboardService, eventService, projectService, type AnalyticsData, type DashboardData } from '../../api/services'
+import { Chip, Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useI18n } from '../../i18n/I18nContext'
 import { SCREEN_BY_NODE } from '../../shell/menus'
@@ -76,7 +76,9 @@ export function DashboardScreen({ active }: ScreenProps) {
     })
   }, [])
 
+  const [anly, setAnly] = useState<AnalyticsData | null>(null)
   useEffect(() => { load() }, [load])
+  useEffect(() => { void analyticsService.get().then(setAnly) }, [])
   useEffect(() => { void projectService.list().then((r) => setProjectOpts(r.map((p) => p.projectName))) }, [])
 
   useFKeys(active, useMemo(() => ({
@@ -149,6 +151,49 @@ export function DashboardScreen({ active }: ScreenProps) {
             ]} style={{ height: 130 }} />
           </GroupBox>
         </div>
+        {anly ? (
+          <GroupBox title={t('dash.analytics', 'EDIM Run 분석 — 통계·원가 추이 (cpq_run·cst_calc)')}
+            right={<Chip tone="ok">{t('dash.anlyRuns', '실 누적 {n}건').replace('{n}', String(anly.runStats.total))}</Chip>}>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[
+                  { l: t('dash.anlyTotal', '총 Run'), v: String(anly.runStats.total) },
+                  { l: t('dash.anlyRate', '성공률'), v: `${anly.runStats.successRate}%` },
+                  { l: t('dash.anlyAvg', '평균 소요'), v: `${anly.runStats.avgDurationSec}s` },
+                  { l: t('dash.anlyFail', '실패'), v: String(anly.runStats.failed), err: anly.runStats.failed > 0 },
+                ].map((s) => (
+                  <div key={s.l} style={{ minWidth: 72, textAlign: 'center', padding: '4px 8px', border: '1px solid var(--line)', background: '#fff' }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: s.err ? 'var(--err)' : 'var(--title-navy)' }}>{s.v}</div>
+                    <div style={{ fontSize: 10, color: 'var(--txt-dim)' }}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ flex: 1, minWidth: 230 }}>
+                {(() => {
+                  const c = anly.costByType
+                  const rows = [
+                    { k: t('dash.costMat', '재료비'), v: c.MATERIAL?.total ?? 0, color: '#2F6FB0' },
+                    { k: t('dash.costMfg', '제조비'), v: c.MANUFACTURING?.total ?? 0, color: '#2F9463' },
+                    { k: t('dash.costDir', '직접경비'), v: c.DIRECT?.total ?? 0, color: '#B4820B' },
+                  ]
+                  const max = Math.max(1, ...rows.map((r) => r.v))
+                  return rows.map((r) => (
+                    <div key={r.k} style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '3px 0', fontSize: 11 }}>
+                      <span style={{ width: 52, color: 'var(--txt-dim)' }}>{r.k}</span>
+                      <div style={{ flex: 1, background: '#EEF1F5', height: 12 }}>
+                        <div style={{ width: `${r.v / max * 100}%`, height: '100%', background: r.color }} />
+                      </div>
+                      <span style={{ width: 96, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>₩ {Math.round(r.v).toLocaleString()}</span>
+                    </div>
+                  ))
+                })()}
+                <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 2 }}>
+                  {t('dash.anlyHint', '누적 Run 원가 3분류 합계 — 원천 cst_calc (B18)')}
+                </div>
+              </div>
+            </div>
+          </GroupBox>
+        ) : null}
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 6 }}>
           <GroupBox title={t('dash.deptEvents', '부서별 Event 상황')} noPad>
             <table className="g">

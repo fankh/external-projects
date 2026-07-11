@@ -3116,6 +3116,45 @@ def dashboard() -> dict[str, Any]:
     }
 
 
+@router.get("/erp/analytics")
+def analytics() -> dict[str, Any]:
+    """C3 분석 — Run 통계(cpq_run) + 원가 추이(cst_calc) 누적 집계."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT count(*), count(*) FILTER (WHERE status='SUCCESS'),
+                      count(*) FILTER (WHERE status='FAILED'),
+                      avg(EXTRACT(EPOCH FROM (finished_at-started_at))) FILTER (WHERE finished_at IS NOT NULL)
+               FROM cpq_run WHERE tenant_id=%s""", (tid,))
+        total, success, failed, avg_sec = cur.fetchone()
+        cur.execute(
+            """SELECT run_id, status, run_type,
+                      EXTRACT(EPOCH FROM (finished_at-started_at)), to_char(started_at,'MM-DD HH24:MI')
+               FROM cpq_run WHERE tenant_id=%s ORDER BY run_id DESC LIMIT 10""", (tid,))
+        recent = [{"runId": x[0], "status": x[1], "runType": x[2],
+                   "durationSec": round(float(x[3]), 1) if x[3] is not None else None, "at": x[4]}
+                  for x in cur.fetchall()]
+        cur.execute(
+            """SELECT calc_type, COALESCE(sum(total_amount),0), count(DISTINCT run_id)
+               FROM cst_calc WHERE tenant_id=%s GROUP BY calc_type""", (tid,))
+        cost = {x[0]: {"total": float(x[1]), "runs": x[2]} for x in cur.fetchall()}
+        # 최근 원가 있는 Run 별 3분류 (추이 — 최근 8건)
+        cur.execute(
+            """SELECT run_id,
+                      sum(total_amount) FILTER (WHERE calc_type='MATERIAL'),
+                      sum(total_amount) FILTER (WHERE calc_type='MANUFACTURING'),
+                      sum(total_amount) FILTER (WHERE calc_type='DIRECT')
+               FROM cst_calc WHERE tenant_id=%s GROUP BY run_id ORDER BY run_id DESC LIMIT 8""", (tid,))
+        trend = [{"runId": x[0], "material": float(x[1] or 0), "manufacturing": float(x[2] or 0),
+                  "direct": float(x[3] or 0)} for x in cur.fetchall()][::-1]
+    return {
+        "runStats": {"total": total, "success": success, "failed": failed,
+                     "successRate": round(success / total * 100, 1) if total else 0,
+                     "avgDurationSec": round(float(avg_sec), 1) if avg_sec else 0},
+        "recentRuns": recent, "costByType": cost, "costTrend": trend,
+    }
+
+
 # ── SVC-09 발주 품목 (M-8-2) — 단가 resolve 실연동 ──
 PR_META = {
     "FDV-480": {"supplierCode": "HS-M480", "qty": 2, "requiredDate": "08-20", "delivery": "EXW"},
