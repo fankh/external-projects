@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ALERTS, DEPT_EVENTS, KPIS, PROCESS_FLOW_1, PROCESS_FLOW_2,
 } from '../../api/mock/dataErp'
-import { dashboardService, eventService, type DashboardData } from '../../api/services'
+import { dashboardService, eventService, projectService, type DashboardData } from '../../api/services'
 import { Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useI18n } from '../../i18n/I18nContext'
@@ -56,7 +56,8 @@ export function DashboardScreen({ active }: ScreenProps) {
   const shell = useShell()
   const { setStatusMsg } = shell
   const { t } = useI18n()
-  const [project, setProject] = useState('Micron #7')
+  const [project, setProject] = useState(shell.activeProject?.name ?? 'Micron #7')
+  const [projectOpts, setProjectOpts] = useState<string[]>([])
   const [alerts, setAlerts] = useState(ALERTS)
   const [data, setData] = useState<DashboardData>({ kpis: KPIS, deptEvents: DEPT_EVENTS })
 
@@ -76,6 +77,7 @@ export function DashboardScreen({ active }: ScreenProps) {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { void projectService.list().then((r) => setProjectOpts(r.map((p) => p.projectName))) }, [])
 
   useFKeys(active, useMemo(() => ({
     F8: () => { load(); setStatusMsg('Dashboard 재집계 (erp_process_event)') },
@@ -91,7 +93,8 @@ export function DashboardScreen({ active }: ScreenProps) {
       <div className="qband">
         <label>Project</label>
         <Combo width={130} value={project}
-          options={[{ value: '전체', label: t('enum.all', '전체') }, 'Micron #7', 'PS-598', 'PS-612']}
+          options={[{ value: '전체', label: t('enum.all', '전체') },
+            ...(projectOpts.length ? projectOpts : [project])]}
           onChange={setProject} />
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>

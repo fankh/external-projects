@@ -57,7 +57,7 @@ export function SelectionScreen({ active }: ScreenProps) {
       const r = await codeService.expand(sv)
       setFinished(r.finishedGoodsCode)
       setBom(r.items)
-      setStatusMsg(`BOM 재전개 ${r.items.length}항목 (전체 47)`)
+      setStatusMsg(`BOM 재전개 ${r.items.length}항목 (구성 블록 ${AHU_BLOCKS.length})`)
     } finally {
       setBusy(false)
     }
@@ -176,7 +176,8 @@ export function SelectionScreen({ active }: ScreenProps) {
     <div className="fill-col">
       <div className="qband">
         <label>Project<i>*</i></label>
-        <Combo width={120} value="Micron #7" options={['Micron #7', 'PS-61313-5']} />
+        <Combo width={120} value={shell.activeProject?.name ?? 'Micron #7'}
+          options={[shell.activeProject?.name ?? 'Micron #7']} />
         <label>Arrangement</label>
         <Combo width={140} value={arrangement} options={['Double Deck 2', 'Single Deck', 'Return Top']}
           onChange={setArrangement} />
@@ -258,7 +259,7 @@ export function SelectionScreen({ active }: ScreenProps) {
             </div>
           </GroupBox>
           <GroupBox title={t('cpq.bomTitle', 'BOM · 실시간 가격')} style={{ flex: 1 }} noPad
-            right={<span className="b" style={{ height: 18, fontSize: 10 }}>전체 47</span>}>
+            right={<span className="b" style={{ height: 18, fontSize: 10 }}>전체 {AHU_BLOCKS.length}</span>}>
             <DenseGrid columns={cols} rows={bom}
               rowKey={(r) => r.resolvedCode}
               selectedKey={selBom}

@@ -78,7 +78,8 @@ export function ProjectFolderScreen({ tab }: ScreenProps) {
     <div className="fill-col">
       <div className="qband">
         <label>Project</label>
-        <Combo width={110} value="Micron #7" options={['Micron #7', 'PS-598']} />
+        <Combo width={110} value={shell.activeProject?.name ?? 'Micron #7'}
+          options={[shell.activeProject?.name ?? 'Micron #7']} />
         <span style={{ fontFamily: 'Consolas, monospace', color: 'var(--title-navy)' }}>PS-61313-5</span>
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>

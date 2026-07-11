@@ -40,7 +40,8 @@ export function DocTemplateScreen({ active }: ScreenProps) {
     <div className="fill-col">
       <div className="qband">
         <label>Project</label>
-        <Combo width={110} value="Micron #7" options={['Micron #7', 'PS-598']} />
+        <Combo width={110} value={shell.activeProject?.name ?? 'Micron #7'}
+          options={[shell.activeProject?.name ?? 'Micron #7']} />
         <label>Document</label>
         <Combo width={130} value="밀도 계산서" options={[
           { value: '밀도 계산서', label: t('doctpl.densityCalcDoc', '밀도 계산서') },

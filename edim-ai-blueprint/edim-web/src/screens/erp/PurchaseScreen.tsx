@@ -171,7 +171,8 @@ export function PurchaseScreen({ active }: ScreenProps) {
       ) : null}
       <div className="qband">
         <label>Project</label>
-        <Combo width={110} value="Micron #7" options={['Micron #7', 'PS-598']} />
+        <Combo width={110} value={shell.activeProject?.name ?? 'Micron #7'}
+          options={[shell.activeProject?.name ?? 'Micron #7']} />
         <label>{t('dash.kind', '구분')}</label>
         <Combo width={124} value={filter}
           options={[
