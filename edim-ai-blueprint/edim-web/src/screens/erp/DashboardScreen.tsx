@@ -8,6 +8,7 @@ import { dashboardService, eventService, type DashboardData } from '../../api/se
 import { Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useI18n } from '../../i18n/I18nContext'
+import { SCREEN_BY_NODE } from '../../shell/menus'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -19,6 +20,14 @@ export const FLOW_STEP_KEYS: Record<string, string> = {
   'MR 제작의뢰': 'dash.flowMr', 'PR 발주요청': 'dash.flowPr', 'PO 발주': 'dash.flowPo',
   'MI 입고': 'dash.flowMi', 'MP 생산계획': 'dash.flowMp', 'WR 작업지시': 'dash.flowWr',
   'FF 완성': 'dash.flowFf', 'DF 납품': 'dash.flowDf', 'IR 기성청구': 'dash.flowIr',
+}
+
+// F10 — KPI 드릴다운 대상 (지표 → 담당 화면)
+const KPI_DRILL: Record<string, { node: string; msg: string }> = {
+  '진행 Project': { node: 'erp-project', msg: '진행 Project — 프로젝트 대장 (S-3-5)' },
+  '승인 대기': { node: 'com-approval', msg: '승인 대기 — 승인함 (M-15-2)' },
+  '이번 달 수주': { node: 'erp-project', msg: '수주 — 프로젝트 대장 (수주 관리는 D1 트랙)' },
+  '이상 경고 (시간·자금)': { node: 'com-tasks', msg: '이상 경고 — 부서 업무함 (M-15-3, 완료 처리)' },
 }
 
 // KPI 타일 라벨 번역 키 (집계 데이터의 label 문자열 기준)
@@ -93,7 +102,16 @@ export function DashboardScreen({ active }: ScreenProps) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
           {data.kpis.map((k) => (
             <div key={k.label} className="gb">
-              <div className="gc" style={{ textAlign: 'center', padding: '8px 6px' }}>
+              <div className="gc" data-kpi={k.label} role="button"
+                style={{ textAlign: 'center', padding: '8px 6px', cursor: 'pointer' }}
+                title={t('dash.kpiDrillHint', '클릭 = 해당 화면')}
+                onClick={() => {
+                  // F10 — KPI 드릴다운: 지표별 담당 화면 탭
+                  const target = KPI_DRILL[k.label]
+                  if (!target) return
+                  shell.openTab(SCREEN_BY_NODE[target.node])
+                  shell.setStatusMsg(target.msg)
+                }}>
                 <div style={{
                   fontSize: 20, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
                   color: k.err ? 'var(--err)' : 'var(--title-navy)',

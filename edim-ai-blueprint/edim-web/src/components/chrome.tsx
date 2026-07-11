@@ -1,5 +1,5 @@
 /** 앱 크롬 — 타이틀바 · 메뉴바(드롭다운) · MDI 탭 · 상태바 (디자인시안 b03 문법). */
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useI18n } from '../i18n/I18nContext'
 
 export function TitleBar(props: {
@@ -215,15 +215,61 @@ export function MdiTabs(props: {
   onActivate: (id: string) => void
   onClose: (id: string) => void
 }) {
+  // F10 — 탭 과다 시 폭 압축으로 제목 판독 불가 → 최소폭 + 가로 스크롤 + ▾ 오버플로 목록
+  const [listOpen, setListOpen] = useState(false)
+  const stripRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // 활성 탭을 항상 가시 영역으로
+    stripRef.current?.querySelector<HTMLElement>('.t.on')
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [props.activeId, props.tabs.length])
   return (
-    <div className="mdi">
-      {props.tabs.map((t) => (
-        <span key={t.id} className={`t ${t.id === props.activeId ? 'on' : ''}`}
-          onClick={() => props.onActivate(t.id)}>
-          {t.code} {t.title}
-          <span className="x" onClick={(e) => { e.stopPropagation(); props.onClose(t.id) }}>×</span>
+    <div className="mdi" style={{ display: 'flex', alignItems: 'stretch', minWidth: 0 }}>
+      <div ref={stripRef} data-mdi-strip style={{
+        display: 'flex', overflowX: 'auto', scrollbarWidth: 'none', minWidth: 0, flex: 1,
+      }}>
+        {props.tabs.map((t) => (
+          <span key={t.id} className={`t ${t.id === props.activeId ? 'on' : ''}`}
+            style={{ flex: '0 0 auto', maxWidth: 190 }}
+            title={`${t.code} ${t.title}`}
+            onClick={() => props.onActivate(t.id)}>
+            <span style={{
+              display: 'inline-block', maxWidth: 150, overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom',
+            }}>{t.code} {t.title}</span>
+            <span className="x" onClick={(e) => { e.stopPropagation(); props.onClose(t.id) }}>×</span>
+          </span>
+        ))}
+      </div>
+      {props.tabs.length > 0 ? (
+        <span style={{ position: 'relative', flex: '0 0 auto', display: 'flex' }}>
+          <span className="t" data-mdi-overflow title="열린 탭 목록"
+            style={{ flex: '0 0 auto' }}
+            onClick={() => setListOpen((v) => !v)}>▾ {props.tabs.length}</span>
+          {listOpen ? (
+            <div data-mdi-list style={{
+              position: 'absolute', top: '100%', right: 0, zIndex: 80, minWidth: 220,
+              maxHeight: 300, overflowY: 'auto', background: '#fff',
+              border: '1px solid var(--line-strong)', boxShadow: '0 4px 12px rgba(20,26,40,.22)',
+              fontSize: 11,
+            }}>
+              {props.tabs.map((t) => (
+                <div key={t.id} style={{
+                  padding: '4px 10px', cursor: 'pointer', display: 'flex', gap: 6,
+                  fontWeight: t.id === props.activeId ? 700 : 400,
+                }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#EDF2FA' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
+                  onClick={() => { props.onActivate(t.id); setListOpen(false) }}>
+                  <span style={{ flex: 1 }}>{t.id === props.activeId ? '● ' : ''}{t.code} {t.title}</span>
+                  <span style={{ color: 'var(--txt-mute)' }}
+                    onClick={(e) => { e.stopPropagation(); props.onClose(t.id) }}>×</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </span>
-      ))}
+      ) : null}
     </div>
   )
 }

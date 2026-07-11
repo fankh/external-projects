@@ -396,6 +396,7 @@ def run_seed() -> None:
             seed_v22(cur, row[0])
             seed_v23(cur, row[0])
             seed_v24(cur, row[0])
+            seed_v25(cur, row[0])
             return
 
         cur.execute(
@@ -515,6 +516,7 @@ def run_seed() -> None:
         seed_v22(cur, tid)
         seed_v23(cur, tid)
         seed_v24(cur, tid)
+        seed_v25(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
@@ -2281,6 +2283,28 @@ UI_TRANSLATIONS_V24: dict[str, tuple[str, str, str]] = {
 
 def seed_v24(cur, tid: int) -> None:
     for key, (en, ja, zh) in UI_TRANSLATIONS_V24.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+# ── seed v25 — F10 조회 UX 소품 UI 키 ──
+
+UI_TRANSLATIONS_V25: dict[str, tuple[str, str, str]] = {
+    "dash.kpiDrillHint": ('Click = open the owning screen', 'クリック = 担当画面を開く', '点击 = 打开对应画面'),
+    "appr.etcTypes": ('Relation·Doc·Others', '関係・文書・その他', '关系·文档·其他'),
+    "appr.searchPh": ('Search target·requester', '対象・申請者検索', '搜索对象·申请人'),
+}
+
+
+def seed_v25(cur, tid: int) -> None:
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V25.items():
         for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

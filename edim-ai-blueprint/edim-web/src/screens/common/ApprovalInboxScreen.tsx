@@ -14,6 +14,22 @@ import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
 
+// F10 — 자산 유형 필터 정의 (승인함 좌측 체크박스 실동작)
+const TYPE_FILTERS = [
+  { key: 'code', label: (_t: (k: string, ko: string) => string) => 'Code',
+    match: (r: ApprovalReq) => r.assetType === 'Code',
+    count: (rs: ApprovalReq[]) => rs.filter((r) => r.assetType === 'Code').length },
+  { key: 'dwg', label: (t: (k: string, ko: string) => string) => t('appr.drawing', '도면'),
+    match: (r: ApprovalReq) => r.assetType === '도면',
+    count: (rs: ApprovalReq[]) => rs.filter((r) => r.assetType === '도면').length },
+  { key: 'macro', label: (_t: (k: string, ko: string) => string) => 'Macro',
+    match: (r: ApprovalReq) => r.assetType === 'Macro',
+    count: (rs: ApprovalReq[]) => rs.filter((r) => r.assetType === 'Macro').length },
+  { key: 'etc', label: (t: (k: string, ko: string) => string) => t('appr.etcTypes', '관계·문서·기타'),
+    match: (r: ApprovalReq) => !['Code', '도면', 'Macro'].includes(r.assetType),
+    count: (rs: ApprovalReq[]) => rs.filter((r) => !['Code', '도면', 'Macro'].includes(r.assetType)).length },
+]
+
 export function ApprovalInboxScreen({ active }: ScreenProps) {
   const shell = useShell()
   const { setStatusMsg } = shell
@@ -24,6 +40,9 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
   const [comment, setComment] = useState('')
   const [decided, setDecided] = useState<{ target: string; result: string; date: string }[]>([])
   const [view, setView] = useState<'inbox' | 'mine'>('inbox')
+  // F10 — 자산 유형 필터 (기본 전체 ON) + 대상/요청자 검색
+  const [types, setTypes] = useState<Set<string>>(new Set(TYPE_FILTERS.map((x) => x.key)))
+  const [query, setQuery] = useState('')
   // F3 — 결정 권한 (decide = SETUP+; GENERAL 은 읽기 전용 + 내 요청)
   const canDecide = perm.canWrite('com-approval')
 
@@ -40,10 +59,18 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
     F8: () => { load(); setStatusMsg('승인함 재조회 (sys_approval_request)') },
   }), [load, setStatusMsg]))
 
+  const matchType = (r: ApprovalReq) => {
+    const tf = TYPE_FILTERS.find((x) => x.match(r))
+    return tf ? types.has(tf.key) : true
+  }
+  const matchQuery = (r: ApprovalReq) =>
+    !query.trim()
+    || r.target.toLowerCase().includes(query.trim().toLowerCase())
+    || r.requester.toLowerCase().includes(query.trim().toLowerCase())
   const mine = useMemo(
     () => reqs.filter((r) => r.requesterLogin === perm.login),
     [reqs, perm.login])
-  const visible = view === 'mine' ? mine : reqs
+  const visible = (view === 'mine' ? mine : reqs).filter((r) => matchType(r) && matchQuery(r))
   const sel = visible.find((r) => r.id === selId) ?? null
 
   const decide = (approve: boolean) => {
@@ -100,17 +127,29 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
           </GroupBox>
           <GroupBox title={t('appr.assetType', '자산 유형')} noPad>
             <div className="tree2" style={{ fontSize: 11 }}>
-              <div className="tn"><span className="pm">·</span>☑ Code ({reqs.filter((r) => r.assetType === 'Code').length})</div>
-              <div className="tn"><span className="pm">·</span>☑ {t('appr.drawing', '도면')} ({reqs.filter((r) => r.assetType === '도면').length})</div>
-              <div className="tn"><span className="pm">·</span>☑ Macro ({reqs.filter((r) => r.assetType === 'Macro').length})</div>
-              <div className="tn"><span className="pm">·</span>☐ {t('appr.tableFormDoc', 'Table · Form · 문서')}</div>
+              {TYPE_FILTERS.map((tf) => (
+                <div key={tf.key} className="tn" data-type-filter={tf.key}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setTypes((prev) => {
+                    const next = new Set(prev)
+                    if (next.has(tf.key)) next.delete(tf.key)
+                    else next.add(tf.key)
+                    return next
+                  })}>
+                  <span className="pm">·</span>
+                  {types.has(tf.key) ? '☑' : '☐'} {tf.label(t)} ({tf.count(reqs)})
+                </div>
+              ))}
             </div>
           </GroupBox>
         </div>
         <div className="fill-col" style={{ gap: 6, overflow: 'auto' }}>
           <GroupBox title={(view === 'mine'
             ? t('appr.myReqsN', '내 요청 — {n}건')
-            : t('appr.toProcessN', '처리할 요청 — {n}건')).replace('{n}', String(visible.length))} noPad>
+            : t('appr.toProcessN', '처리할 요청 — {n}건')).replace('{n}', String(visible.length))} noPad
+            right={<input className="in" style={{ width: 150, height: 18, fontSize: 10 }}
+              placeholder={t('appr.searchPh', '대상·요청자 검색')} aria-label="승인함 검색"
+              value={query} onChange={(e) => setQuery(e.target.value)} />}>
             {visible.length
               ? (
                 <DenseGrid columns={cols} rows={visible} rowKey={(r) => r.id}

@@ -2,6 +2,9 @@
  *  생성물: tools/gen_i18n_bundles.py (원천 = backend/app/services/edim_seed.py — 직접 편집 금지). */
 export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
   en: {
+    'dash.kpiDrillHint': 'Click = open the owning screen',
+    'appr.etcTypes': 'Relation·Doc·Others',
+    'appr.searchPh': 'Search target·requester',
     'folder.diffNoPayload': 'diff — this action has no change payload (read-only event)',
     'folder.diffTitle': 'diff — {t} · {a}',
     'folder.diffField': 'Field',
@@ -752,6 +755,9 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'screen.plm-drawings': 'Drawing Ledger',
   },
   ja: {
+    'dash.kpiDrillHint': 'クリック = 担当画面を開く',
+    'appr.etcTypes': '関係・文書・その他',
+    'appr.searchPh': '対象・申請者検索',
     'folder.diffNoPayload': 'diff — この操作には変更ペイロードがありません (照会イベント)',
     'folder.diffTitle': 'diff — {t} · {a}',
     'folder.diffField': 'フィールド',
@@ -1488,6 +1494,9 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'screen.plm-drawings': '図面台帳',
   },
   zh: {
+    'dash.kpiDrillHint': '点击 = 打开对应画面',
+    'appr.etcTypes': '关系·文档·其他',
+    'appr.searchPh': '搜索对象·申请人',
     'folder.diffNoPayload': 'diff — 此操作没有变更载荷 (查询类事件)',
     'folder.diffTitle': 'diff — {t} · {a}',
     'folder.diffField': '字段',

@@ -39,6 +39,7 @@ py tests\live_all.py
 | `live_f7_diff.py` | 이력 diff 모달 — historyId/before/after 노출·변경 필드 하이라이트·무페이로드 정직 안내 | F7 |
 | `live_f8_sort.py` | 그리드 정렬 — DenseGrid 헤더 asc/desc/해제·선택 무결성·JSX 열 제외·서버 sort 화이트리스트 (조회 전용) | F8 |
 | `live_f9_escape.py` | 다이얼로그 Escape 표준 — 등록/QuickEdit/PO/프로젝트/요구사항 5종 닫힘·무다이얼로그 무해 | F9 |
+| `live_f10_ux.py` | 탭 오버플로(▾ 목록·최소폭)·KPI 드릴다운 2종·승인함 유형/검색 필터 (조회 전용) | F10 |
 | `live_f2_users.py` | 사용자 등록(USER_CREATE 감사)·실로그인·프로필 PATCH·삭제 보호(이력 409/본인 422)·UI 다이얼로그 (정리: API + **ssh psql** — 로그인 감사행 FK) | F2 |
 | `live_cad.py` | CAD 뷰/Import/Export (DXF) | INT-04 |
 | `live_s3_macro_engine.py` | Macro 엔진 실평가 | ENG-01 |
