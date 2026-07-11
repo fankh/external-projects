@@ -1655,17 +1655,25 @@ def read_all_notifications(request: Request) -> dict[str, Any]:
 STATUS_LABEL = {"SET_UP": "Set-up", "CHECK": "Check", "APPROVE": "Approve 대기", "ACCEPTED": "Accepted"}
 
 
+DOC_SORT = {"docNo": "d.doc_no", "title": "d.title", "date": "d.created_at",
+            "status": "d.released_status", "grade": "d.management_grade"}
+
+
 @router.get("/documents")
-def documents() -> list[dict[str, Any]]:
+def documents(sort: str = "", dir: str = "asc") -> list[dict[str, Any]]:
+    # F8 — 서버 정렬 (화이트리스트; 기본 = 등록순)
+    order = "d.doc_control_id"
+    if sort in DOC_SORT:
+        order = f"{DOC_SORT[sort]} {'DESC' if dir == 'desc' else 'ASC'}"
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT d.doc_no, d.title, d.person, to_char(d.created_at,'MM-DD'),
+            f"""SELECT d.doc_no, d.title, d.person, to_char(d.created_at,'MM-DD'),
                       d.released_status, u.user_name,
                       to_char(d.approval_date,'MM-DD'), d.version, d.management_grade,
                       d.doc_type
                FROM doc_control d LEFT JOIN sys_user u ON u.user_id=d.approver_id
-               WHERE d.tenant_id=%s ORDER BY d.doc_control_id""", (tid,))
+               WHERE d.tenant_id=%s ORDER BY {order}""", (tid,))
         return [
             {"docNo": r[0], "title": r[1], "person": r[2], "date": r[3],
              "status": STATUS_LABEL[r[4]], "approver": r[5] or "-",
@@ -2225,12 +2233,20 @@ def delete_project(project_no: str, request: Request) -> dict[str, Any]:
 
 
 # ── SVC-08 단가 대장 ──
+PRICE_SORT = {"code": "pc.main_code", "price": "p.price", "from": "p.valid_from",
+              "supplier": "cc.company_name"}
+
+
 @router.get("/prices")
-def prices() -> list[dict[str, Any]]:
+def prices(sort: str = "", dir: str = "asc") -> list[dict[str, Any]]:
+    # F8 — 대량 대장 서버 정렬 (화이트리스트 컬럼만; 기본 = 코드·적용일 역순)
+    order = "pc.main_code, p.valid_from DESC"
+    if sort in PRICE_SORT:
+        order = f"{PRICE_SORT[sort]} {'DESC' if dir == 'desc' else 'ASC'}"
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT pc.main_code, pc.code_name, COALESCE(cc.company_name,'-'),
+            f"""SELECT pc.main_code, pc.code_name, COALESCE(cc.company_name,'-'),
                       p.price, p.price_source, p.valid_from, p.valid_to,
                       (p.valid_from <= CURRENT_DATE AND
                        (p.valid_to IS NULL OR p.valid_to >= CURRENT_DATE)), p.price_id
@@ -2238,7 +2254,7 @@ def prices() -> list[dict[str, Any]]:
                JOIN product_code pc ON pc.product_code_id=p.product_code_id
                LEFT JOIN com_company cc ON cc.company_id=p.supplier_id
                WHERE p.tenant_id=%s AND pc.main_code IN ('FDV-480','KDC-1','EWT-3')
-               ORDER BY pc.main_code, p.valid_from DESC""", (tid,))
+               ORDER BY {order}""", (tid,))
         return [
             {"code": r[0], "name": r[1], "supplier": r[2], "price": float(r[3]),
              "source": SOURCE_LABEL[r[4]], "from": r[5].isoformat(),
@@ -2448,15 +2464,23 @@ def global_search(q: str, request: Request) -> dict[str, list[dict[str, Any]]]:
 
 
 # ── SYS-012 이력 (M-15-9) ──
+HISTORY_SORT = {"at": "h.acted_at", "action": "h.action", "target": "h.target_table",
+                "by": "u.user_name"}
+
+
 @router.get("/history")
-def history(limit: int = 20) -> list[dict[str, Any]]:
+def history(limit: int = 20, sort: str = "", dir: str = "desc") -> list[dict[str, Any]]:
+    # F8 — 서버 정렬 (화이트리스트; 기본 = 최신순)
+    order = "h.history_id DESC"
+    if sort in HISTORY_SORT:
+        order = f"{HISTORY_SORT[sort]} {'DESC' if dir == 'desc' else 'ASC'}"
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT to_char(h.acted_at,'MM-DD HH24:MI'), h.target_table||' #'||h.target_id,
+            f"""SELECT to_char(h.acted_at,'MM-DD HH24:MI'), h.target_table||' #'||h.target_id,
                       h.action, u.user_name, h.history_id, h.before_data, h.after_data
                FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
-               WHERE h.tenant_id=%s ORDER BY h.history_id DESC LIMIT %s""", (tid, limit))
+               WHERE h.tenant_id=%s ORDER BY {order} LIMIT %s""", (tid, limit))
         return [
             {"at": r[0], "target": r[1], "action": r[2], "by": r[3],
              "historyId": r[4], "before": r[5], "after": r[6]}   # F7 — diff 뷰어

@@ -37,6 +37,7 @@ py tests\live_all.py
 | `live_f5_updates.py` | 마스터 수정 전면 — 공급처/부품/재질/규칙/값/창고/단가 마감/문서 메타/Templet·Macro 삭제/구성품 (왕복 원복, 잔여는 psql) | F5 |
 | `live_f6_search.py` | 통합 검색 확장 — 부품/공급처/창고/매크로/프로젝트 그룹·사용자 SETUP 게이트·딥링크 3종 (조회 전용) | F6 |
 | `live_f7_diff.py` | 이력 diff 모달 — historyId/before/after 노출·변경 필드 하이라이트·무페이로드 정직 안내 | F7 |
+| `live_f8_sort.py` | 그리드 정렬 — DenseGrid 헤더 asc/desc/해제·선택 무결성·JSX 열 제외·서버 sort 화이트리스트 (조회 전용) | F8 |
 | `live_f2_users.py` | 사용자 등록(USER_CREATE 감사)·실로그인·프로필 PATCH·삭제 보호(이력 409/본인 422)·UI 다이얼로그 (정리: API + **ssh psql** — 로그인 감사행 FK) | F2 |
 | `live_cad.py` | CAD 뷰/Import/Export (DXF) | INT-04 |
 | `live_s3_macro_engine.py` | Macro 엔진 실평가 | ENG-01 |
