@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { PART_INFO } from '../../api/mock/dataDetail'
 import { DWG_DIMS, PROCESS_DEF } from '../../api/mock/data'
-import { partService, type BomRow } from '../../api/services'
+import { partService, type BomRow, type PartDetail } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { useShell } from '../../shell/ShellContext'
@@ -13,16 +13,34 @@ export function PartDetailScreen({ tab }: ScreenProps) {
   const shell = useShell()
   const partId = String(tab.params?.partId ?? 'brgL')
   const partName = typeof tab.params?.name === 'string' ? tab.params.name : null
-  const info = PART_INFO[partId] ?? PART_INFO.casing
-  const dims = DWG_DIMS.filter((d) => info.dims.includes(d.no))
+  const drawing = String(tab.params?.drawing ?? 'KDCR 3-13')
+  const mockInfo = PART_INFO[partId] ?? PART_INFO.casing
+
+  // G3-b — 부품 상세 실데이터 (도면 BOM 블록 매칭 + 치수 + 공정, 불가/미매칭 시 mock)
+  const [detail, setDetail] = useState<PartDetail | null>(null)
+  useEffect(() => {
+    void partService.detail(drawing, partName ?? mockInfo.name).then(setDetail)
+  }, [drawing, partName, mockInfo.name])
+  const rp = detail?.part ?? null
+  const info = {
+    name: rp?.name ?? mockInfo.name,
+    code: rp?.partNo ?? mockInfo.code,
+    material: (rp?.material && rp.material !== '-') ? rp.material : mockInfo.material,
+    makeBuy: (rp?.makeBuy && rp.makeBuy !== '-') ? rp.makeBuy : mockInfo.makeBuy,
+    status: rp ? (rp.isStandard ? 'APPROVED' : mockInfo.status) : mockInfo.status,
+    caution: mockInfo.caution,
+  }
+  const dims = (detail?.dims.length ? detail.dims : DWG_DIMS.filter((d) => mockInfo.dims.includes(d.no)))
+  const proc = detail?.process ?? PROCESS_DEF
+  const procReal = detail?.process != null
 
   // 조립 순서 ◆ — dwg_bom 실데이터 (블록명 매칭, 불가 시 mock seq)
   const [bom, setBom] = useState<BomRow[] | null>(null)
-  useEffect(() => { void partService.bom('KDCR 3-13').then(setBom) }, [])
+  useEffect(() => { void partService.bom(drawing).then(setBom) }, [drawing])
   const wantName = (partName ?? info.name).toLowerCase()
   const bomRow = bom?.find((b) =>
     b.partName.toLowerCase().includes(wantName) || wantName.includes(b.partName.split(' ')[0].toLowerCase()))
-  const seq = bomRow?.assemblySeq ?? info.assemblySeq
+  const seq = bomRow?.assemblySeq ?? rp?.assemblySeq ?? mockInfo.assemblySeq
   const maxSeq = bom?.length ? Math.max(...bom.map((b) => b.assemblySeq ?? 0), seq) : 5
 
   return (
@@ -53,7 +71,8 @@ export function PartDetailScreen({ tab }: ScreenProps) {
               dims={[{ x: 70, y: 12, w: 180, label: dims[0] ? `${dims[0].no} = ${dims[0].value}` : '' }]}
               style={{ height: 170 }} />
           </GroupBox>
-          <GroupBox title={`치수 바인딩 — ${dims.length}건 (DWG-005/006)`} noPad>
+          <GroupBox title={`치수 바인딩 — ${dims.length}건 (DWG-005/006)`} noPad
+            right={detail?.dims.length ? <Chip tone="ok">dwg_dimension</Chip> : <Chip tone="warn">MOCK</Chip>}>
             <table className="g">
               <thead><tr><th>No.</th><th>값</th><th>Set-up</th><th>구분</th></tr></thead>
               <tbody>
@@ -80,16 +99,17 @@ export function PartDetailScreen({ tab }: ScreenProps) {
         </div>
         <div className="split-h" />
         <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
-          <GroupBox title="Work Process 연결 (DWG-021)">
+          <GroupBox title="Work Process 연결 (DWG-021)"
+            right={procReal ? <Chip tone="ok">erp_work_process</Chip> : <Chip tone="warn">MOCK</Chip>}>
             <div className="frm c2">
               <label>Process</label>
-              <input className="in ro" value={PROCESS_DEF.process} readOnly aria-label="Process" />
+              <input className="in ro" value={proc.process} readOnly aria-label="Process" />
               <label>Work place</label>
-              <input className="in ro" value={PROCESS_DEF.workplace} readOnly aria-label="Workplace" />
+              <input className="in ro" value={proc.workplace} readOnly aria-label="Workplace" />
               <label>인원·Skill</label>
-              <input className="in ro" value={`${PROCESS_DEF.person}명 · ${PROCESS_DEF.skill}`} readOnly aria-label="인원" />
+              <input className="in ro" value={`${proc.person}명 · ${proc.skill}`} readOnly aria-label="인원" />
               <label>W. Time</label>
-              <input className="in ro" value={`${PROCESS_DEF.wtimeHr} hr`} readOnly aria-label="WTime" />
+              <input className="in ro" value={`${proc.wtimeHr} hr`} readOnly aria-label="WTime" />
             </div>
             <div style={{ fontSize: 10, color: 'var(--txt-mute)', marginTop: 4 }}>
               제조비 = 시간 × 임율 × 장비 (CST-003 입력)

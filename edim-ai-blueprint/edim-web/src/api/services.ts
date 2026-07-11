@@ -1992,6 +1992,19 @@ export interface SlotItemRow {
   sortOrder: number
 }
 
+export interface PartDetail {
+  drawing: string
+  block: string
+  part: {
+    partNo: string; name: string; spec: string; material: string; supplier: string
+    weight: number | null; isStandard: boolean; makeBuy: string
+    assemblySeq: number | null; assemblyNote: string; qty: number; itemNo: number
+  } | null
+  dims: { no: string; value: string; binding: 'MACRO' | 'VARIANT'; kind: string }[]
+  process: { process: string; workplace: string; person: number; skill: string
+    wtimeHr: number; makeBuy: string } | null
+}
+
 export const partService = {
   /** PUT /api/v1/parts/{no} — 속성 수정 (F5; 422=재질/코드 검증 throw) */
   async update(partNo: string, p: {
@@ -2067,6 +2080,16 @@ export const partService = {
   async bom(drawingNo: string): Promise<BomRow[] | null> {
     try {
       return await api<BomRow[]>(`/drawings/${encodeURIComponent(drawingNo)}/bom`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/parts/detail — 부품 상세 집계 (G3-b; null=백엔드 불가) */
+  async detail(drawing: string, block: string): Promise<PartDetail | null> {
+    try {
+      return await api<PartDetail>(
+        `/parts/detail?drawing=${encodeURIComponent(drawing)}&block=${encodeURIComponent(block)}`)
     } catch (e) {
       if (e instanceof ApiUnavailable) return null
       throw e

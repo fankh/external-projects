@@ -393,7 +393,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
             <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock}
               onOpen={(b) => shell.openTab({
                 id: `part-detail:${b.id}`, screenId: 'part-detail',
-                code: '부품', title: b.name, params: { partId: b.id, name: b.name },
+                code: '부품', title: b.name, params: { partId: b.id, name: b.name, drawing: 'KDCR 3-13' },
               })}
               dims={[
                 { x: 150, y: 16, w: 330, label: `B = ${dimB}` },

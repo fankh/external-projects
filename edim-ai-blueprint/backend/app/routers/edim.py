@@ -4525,6 +4525,67 @@ def parts_list() -> list[dict[str, Any]]:
         ]
 
 
+@router.get("/parts/detail")
+def part_detail(drawing: str = "KDCR 3-13", block: str = "") -> dict[str, Any]:
+    """부품 상세 집계 (G3-b) — 도면 BOM 에서 블록명 매칭 부품 + 실 치수 + 공정.
+
+    블록↔부품은 도면 BOM 내 이름 스코프 매칭(B17 패턴, 전역 아님). 미매칭 시 part=null(정직).
+    치수 = dwg_dimension(도면 실 A/B/C…), 공정 = 부품 product_code 의 erp_work_process.
+    """
+    want = block.strip().lower()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, drawing)
+        cur.execute(
+            """SELECT b.item_no, b.quantity, b.assembly_seq, COALESCE(b.assembly_note,''),
+                      p.part_no, p.part_name, COALESCE(p.specification,''),
+                      m.material_code, c.company_name, p.weight, p.is_standard, p.product_code_id
+               FROM dwg_bom b JOIN prt_part p ON p.part_id=b.part_id
+               LEFT JOIN mat_material m ON m.material_id=p.material_id
+               LEFT JOIN com_company c ON c.company_id=p.supplier_id
+               WHERE b.drawing_id=%s ORDER BY b.item_no""", (did,))
+        rows = cur.fetchall()
+        part = None
+        for r in rows:
+            pn = (r[5] or "").lower()
+            first = pn.split(" ")[0] if pn else ""
+            if want and (pn.startswith(want.split(" ")[0]) or want in pn or (first and first in want)):
+                part = r
+                break
+        if part is None and not want and rows:
+            part = rows[0]
+
+        process = None
+        if part and part[11]:
+            cur.execute(
+                """SELECT process_type, workshop, person_count, skill_grade, work_time, make_or_buy
+                   FROM erp_work_process WHERE tenant_id=%s AND product_code_id=%s
+                   ORDER BY seq_no LIMIT 1""", (tid, part[11]))
+            pr = cur.fetchone()
+            if pr:
+                process = {"process": pr[0], "workplace": pr[1] or "-", "person": pr[2] or 0,
+                           "skill": pr[3] or "-", "wtimeHr": float(pr[4]) if pr[4] is not None else 0,
+                           "makeBuy": pr[5] or "-"}
+
+        cur.execute(
+            """SELECT d.dim_label, d.dim_type, d.variant_value, mm.macro_expr
+               FROM dwg_dimension d LEFT JOIN tbx_macro mm ON mm.macro_id=d.macro_id
+               WHERE d.tenant_id=%s AND d.drawing_id=%s ORDER BY d.dim_label""", (tid, did))
+        dims = [{"no": r[0], "value": str(r[3]) if r[3] else (str(r[2]) if r[2] is not None else ""),
+                 "binding": "MACRO" if r[3] else "VARIANT", "kind": r[1]} for r in cur.fetchall()]
+
+    part_obj = None
+    if part:
+        part_obj = {
+            "partNo": part[4], "name": part[5], "spec": part[6],
+            "material": part[7] or "-", "supplier": part[8] or "-",
+            "weight": float(part[9]) if part[9] is not None else None, "isStandard": part[10],
+            "makeBuy": process["makeBuy"] if process else "-",
+            "assemblySeq": part[2], "assemblyNote": part[3], "qty": float(part[1]), "itemNo": part[0],
+        }
+    return {"drawing": drawing, "block": block, "part": part_obj, "dims": dims, "process": process}
+
+
 class PartCreate(BaseModel):
     partNo: str
     name: str
