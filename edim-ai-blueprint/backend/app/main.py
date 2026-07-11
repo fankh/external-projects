@@ -57,6 +57,18 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="edim-ai-blueprint", version="0.2.0", lifespan=lifespan)
 
+# C8 — 구조화 요청 로깅(traceId·지연) + 메트릭 미들웨어
+from app.observability import METRICS, observability_middleware  # noqa: E402
+
+app.middleware("http")(observability_middleware)
+
+
+@app.get("/api/v1/metrics", tags=["health"])
+def metrics() -> dict:
+    """간이 관측성 메트릭 (C8 / INF-07) — 요청 수·오류율·지연(avg/p95)·상태별. 인메모리."""
+    return METRICS.snapshot()
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
