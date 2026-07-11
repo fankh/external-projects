@@ -57,11 +57,13 @@ with sync_playwright() as pw:
     page.locator(".tn", has_text="단가 관리 (M-12-5)").first.click()
     page.wait_for_timeout(1500)
 
-    grid = page.locator("table.g:visible").first
+    grid = page.locator("table.g:visible", has=page.locator("th", has_text="Price table")).first
+    grid.wait_for(timeout=8000)
     col_prices = lambda: [t.replace(",", "") for t in grid.locator("tbody tr td:nth-child(4)").all_inner_texts()]  # noqa: E731
     base_order = col_prices()
 
-    hdr = grid.locator("th", has_text="단가").first
+    import re as _re
+    hdr = grid.locator("th", has_text=_re.compile(r"^Price( ▲| ▼)?$")).first
     hdr.click()
     page.wait_for_timeout(300)
     asc_ui = [float(x) for x in col_prices()]
