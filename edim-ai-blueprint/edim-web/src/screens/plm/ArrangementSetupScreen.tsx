@@ -8,6 +8,7 @@ import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -24,6 +25,7 @@ export function ArrangementSetupScreen({ active }: ScreenProps) {
   const [reg, setReg] = useState({ code: '', name: '', family: 'AHU', direction: '', install: '' })
   const [comp, setComp] = useState({ productCode: '', position: '', quantity: '1' })
   const [editComp, setEditComp] = useState<ArrangementComponent | null>(null)   // F5 — 수량 수정
+  useEscapeClose(showReg, () => setShowReg(false))
 
   const loadComps = (code: string) => {
     void arrangementService.components(code).then((c) => setComps(c ?? []))

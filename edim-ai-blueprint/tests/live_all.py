@@ -33,6 +33,7 @@ SUITES = [
     "live_f6_search.py",            # 통합 검색 확장 — 6그룹·딥링크·SETUP 게이트
     "live_f7_diff.py",              # 이력 diff 모달 — before/after 하이라이트
     "live_f8_sort.py",              # 그리드 정렬 — 헤더 토글·선택 무결성·서버 sort
+    "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]

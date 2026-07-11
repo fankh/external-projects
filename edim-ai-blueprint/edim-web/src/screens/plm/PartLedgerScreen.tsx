@@ -7,6 +7,7 @@ import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { useI18n } from '../../i18n/I18nContext'
 import { usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -19,6 +20,7 @@ export function PartLedgerScreen({ active }: ScreenProps) {
   const [sel, setSel] = useState<string | null>(null)
   const [showReg, setShowReg] = useState(false)
   const [editRow, setEditRow] = useState<PartRow | null>(null)   // F5 — 속성 수정
+  useEscapeClose(showReg, () => setShowReg(false))
   const [reg, setReg] = useState({
     partNo: '', name: '', spec: '', materialCode: '', supplier: '',
     productCode: '', unit: 'EA', weight: '', isStandard: false,

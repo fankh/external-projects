@@ -6,6 +6,7 @@ import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { useI18n } from '../../i18n/I18nContext'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -23,6 +24,7 @@ export function WarehouseScreen({ active }: ScreenProps) {
   const [sel, setSel] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [showEdit, setShowEdit] = useState(false)   // F5 — 선택 노드 수정
+  useEscapeClose(showAdd, () => setShowAdd(false))
   const [form, setForm] = useState({
     parentCode: '', locationType: 'STORAGE', code: '', name: '',
     hazard: '', inspection: '', remarks: '',

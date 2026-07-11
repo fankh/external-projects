@@ -6,6 +6,7 @@ import { fileService, historyService, type FolderFileEx, type HistoryRow } from 
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
@@ -185,6 +186,7 @@ export function ProjectFolderScreen({ tab }: ScreenProps) {
 // ── F7 — sys_history before/after JSON 비교 모달 (변경 필드 하이라이트) ──
 function HistoryDiffModal(props: { row: HistoryRow; onClose: () => void }) {
   const { t } = useI18n()
+  useEscapeClose(true, props.onClose)
   const before = props.row.before ?? {}
   const after = props.row.after ?? {}
   const keys = Array.from(new Set([...Object.keys(before), ...Object.keys(after)])).sort()

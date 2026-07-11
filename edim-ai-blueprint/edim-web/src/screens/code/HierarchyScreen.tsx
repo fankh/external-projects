@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { hierarchyService, sysService, type HierarchyNode } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -20,6 +21,7 @@ export function HierarchyScreen({ active }: ScreenProps) {
   const [sel, setSel] = useState<HierarchyNode | null>(null)
   // B21 — 노드 편집
   const [showAdd, setShowAdd] = useState(false)
+  useEscapeClose(showAdd, () => setShowAdd(false))
   const [form, setForm] = useState({ name: '', symbol: '', address: '' })
   const [editName, setEditName] = useState('')
 

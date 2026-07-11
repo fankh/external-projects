@@ -10,6 +10,7 @@ import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -27,6 +28,7 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
   const [revs, setRevs] = useState<RevisionRow[]>([])
   const [sups, setSups] = useState<SupersedureRow[]>([])
   const [showReg, setShowReg] = useState(false)
+  useEscapeClose(showReg, () => setShowReg(false))
   const [reg, setReg] = useState({ drawingNo: '', name: '', drawingType: 'PART', kind: 'STANDARD' })
   const [revReason, setRevReason] = useState('')
   const [supForm, setSupForm] = useState({ oldNo: '', newNo: '', reason: '' })

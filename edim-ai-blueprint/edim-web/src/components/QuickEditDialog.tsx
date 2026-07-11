@@ -1,6 +1,7 @@
 /** F5 — 공용 수정 다이얼로그: 필드 정의 → 값 수집 → onSubmit (성공 null · 오류 메시지 string).
  *  마스터 데이터 수정 동선 표준 (공급처·부품·재질·검증 규칙·창고·단가 마감·문서 메타 등). */
 import { useState } from 'react'
+import { useEscapeClose } from '../shell/useEscapeClose'
 import { Btn, Combo } from './controls'
 import { useI18n } from '../i18n/I18nContext'
 
@@ -23,6 +24,7 @@ export function QuickEditDialog(props: {
   onClose: () => void
 }) {
   const { t } = useI18n()
+  useEscapeClose(true, props.onClose)
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(props.fields.map((f) => [f.key, f.value])))
   const [err, setErr] = useState<string | null>(null)

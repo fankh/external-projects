@@ -6,6 +6,7 @@ import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -19,6 +20,7 @@ export function MaterialGpiScreen({ active }: ScreenProps) {
   const [typeFilter, setTypeFilter] = useState('전체')
   const [showReg, setShowReg] = useState(false)
   const [editRow, setEditRow] = useState<MaterialRowApi | null>(null)   // F5
+  useEscapeClose(showReg, () => setShowReg(false))
   const [reg, setReg] = useState({
     code: '', name: '', materialType: 'STEEL', density: '', standard: '', hazard: '',
   })

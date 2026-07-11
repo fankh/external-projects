@@ -7,6 +7,7 @@ import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { AccessDenied, usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -333,6 +334,7 @@ export function AccessControlScreen({ active }: ScreenProps) {
 // ── F2 — 사용자 등록 다이얼로그 (초기 비밀번호는 관리자 지정, 첫 로그인 후 변경 권장) ──
 function UserRegDialog(props: { onClose: () => void; onSaved: (u: UserRow) => void }) {
   const { t } = useI18n()
+  useEscapeClose(true, props.onClose)
   const [form, setForm] = useState({
     login: '', name: '', department: '기술', email: '', level: 'GENERAL', initialPassword: '',
   })
@@ -406,6 +408,7 @@ function UserEditDialog(props: {
   user: UserRow; onClose: () => void; onSaved: (fields: string[]) => void
 }) {
   const { t } = useI18n()
+  useEscapeClose(true, props.onClose)
   const [name, setName] = useState(props.user.name)
   const [department, setDepartment] = useState(props.user.dept === '-' ? '기술' : props.user.dept)
   const [email, setEmail] = useState(props.user.email ?? '')

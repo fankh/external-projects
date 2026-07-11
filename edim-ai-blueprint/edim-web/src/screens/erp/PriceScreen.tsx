@@ -8,6 +8,7 @@ import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -33,6 +34,7 @@ export function PriceScreen({ active }: ScreenProps) {
   })
   const [selIdx, setSelIdx] = useState<number | null>(null)
   const [showClose, setShowClose] = useState(false)   // F5 — 적용 종료 마감
+  useEscapeClose(showReg, () => setShowReg(false))
   const [simCode, setSimCode] = useState('FDV-480')
   const [simDate, setSimDate] = useState('2026-07-09')
   const [simResult, setSimResult] = useState<PriceRow | null | undefined>(undefined)

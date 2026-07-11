@@ -6,6 +6,7 @@ import { erpService, partService, purchaseService, warehouseService, type Suppli
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -29,6 +30,7 @@ export function PurchaseScreen({ active }: ScreenProps) {
 
   // B19 — PO 조건 다이얼로그 (ERP-017) → doc_control PO 문서 영속
   const [showPo, setShowPo] = useState(false)
+  useEscapeClose(showPo, () => setShowPo(false))
   const [poNo, setPoNo] = useState<string | null>(null)
   const [poForm, setPoForm] = useState({
     deliveryTerms: 'EXW 창원공장', transport: '육로 (트럭)', minOrderQty: '1', certRequired: false,

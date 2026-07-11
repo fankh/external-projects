@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { approvalService, renderService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { useI18n } from '../../i18n/I18nContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
@@ -46,6 +47,7 @@ export function PrintSetupScreen(_props: ScreenProps) {
   const [selBox, setSelBox] = useState<number | null>(2)
   const [showBind, setShowBind] = useState(false)
   const [bindPath, setBindPath] = useState('project.no')
+  useEscapeClose(showBind, () => setShowBind(false))
 
   // 현재 배치 → 렌더 라인 (Print Test·Printer·PDF 공용 — 배치가 실제 출력을 결정)
   const renderLines = () => [

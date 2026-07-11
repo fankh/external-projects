@@ -2,6 +2,7 @@
  *  운영자가 수정·개선 요구를 남기면 DB 에 저장되고, 이후 처리 라운드에서 일괄 반영한다.
  *  스크린샷 첨부: 파일 선택 또는 Ctrl+V 붙여넣기 (MinIO dev-req/). 쓰기는 정직 — mock 저장 없음. */
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { useEscapeClose } from './useEscapeClose'
 import { devReqService, type DevRequirement } from '../api/services'
 import { Btn, Chip } from '../components/controls'
 
@@ -60,6 +61,7 @@ export function DevReqDialog(props: {
   onClose: () => void
   onSaved: (msg: string) => void
 }) {
+  useEscapeClose(true, props.onClose)
   const [tab, setTab] = useState<'new' | 'list'>('new')
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')

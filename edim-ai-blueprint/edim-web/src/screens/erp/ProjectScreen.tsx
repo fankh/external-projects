@@ -9,6 +9,7 @@ import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -292,6 +293,7 @@ export function ProjectScreen({ active }: ScreenProps) {
 // ── 신규 등록 다이얼로그 (F2) — PS 자동 채번은 서버가 수행 ──
 function ProjectRegDialog(props: { onClose: () => void; onSaved: (p: ProjectRow) => void }) {
   const { t } = useI18n()
+  useEscapeClose(true, props.onClose)
   const [name, setName] = useState('')
   const [type, setType] = useState('Client')
   const [item, setItem] = useState('AHU')

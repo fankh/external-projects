@@ -8,6 +8,7 @@ import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
+import { useEscapeClose } from '../../shell/useEscapeClose'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
@@ -64,6 +65,7 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
 
   // ＋ 문서 등록
   const [showReg, setShowReg] = useState(false)
+  useEscapeClose(showReg, () => setShowReg(false))
   const [reg, setReg] = useState({ docNo: '', title: '', docType: 'TECH_DOC', grade: 'S-3' })
   const register = () => {
     void (async () => {
