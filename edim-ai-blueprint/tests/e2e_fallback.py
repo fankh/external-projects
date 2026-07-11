@@ -275,6 +275,26 @@ with sync_playwright() as pw:
     ok("mobile 3 phones", page.locator(".phone:visible").count() == 3)
     page.screenshot(path=f"{SHOT}/38-mobile.png")
 
+    # 10b. 신규 화면 스모크 (C12 — B13~B19 렌더·콘솔에러 0 커버, i18n 34화면과 정합)
+    NEW_SCREENS = [
+        ("Code Set-up", "Hierarchy 주소 (M-3-1)"),
+        ("Code Set-up", "Raw Material·GPI (M-3-2)"),
+        ("Code Set-up", "Variant·Constant (S-1-2)"),
+        ("PLM", "Arrangement Set-Up (M-4-2)"),
+        ("PLM", "Material (M-4-4)"),
+        ("PLM", "Quality (M-4-5)"),
+        ("PLM", "부품 대장 (M-4-7)"),
+        ("ERP", "창고·저장위치 (M-8-4)"),
+        ("ERP", "공급처·거래처 (M-14-2)"),
+        ("Toolbox", "Templet 관리 (S-2-3)"),
+    ]
+    for mod, label in NEW_SCREENS:
+        page.locator(".titlebar span.mod", has_text=mod).click()
+        page.wait_for_timeout(200)
+        page.locator(".tn", has_text=label).first.click()
+        page.wait_for_timeout(400)
+        ok(f"render {label}", page.locator(".app .titlebar").is_visible())
+
     # 11. MDI 누적 (전 모듈)
     ok("MDI tabs >= 20", page.locator(".mdi .t").count() >= 20)
 

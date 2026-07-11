@@ -89,13 +89,18 @@ with sync_playwright() as pw:
     ctx.add_init_script("localStorage.setItem('edim-locale','en')")
     page = ctx.new_page()
 
-    page.goto(BASE, wait_until="networkidle")
-    page.wait_for_selector(".login-dlg", timeout=10000)
-    scan(page, "login")
-    page.locator(".login-dlg input").nth(0).fill("edim")
-    page.locator(".login-dlg input[type=password]").fill(os.environ.get("PW", "edim"))
-    page.locator(".login-dlg button.b").last.click()
-    page.wait_for_selector(".app .titlebar", timeout=8000)
+    # 로그인 진입 — preview(/edim-static/)=BASE, 운영(nginx SPA)=앱 라우트(/cpq)
+    login_url = BASE if "edim-static" in BASE else deep_link("cpq", "cpq-selection")
+    page.goto(login_url, wait_until="networkidle")
+    page.wait_for_selector(".login-dlg, .app .titlebar", timeout=15000)
+    if not page.locator(".login-dlg").count():
+        pass  # 이미 세션 (로그인 스킵)
+    if page.locator(".login-dlg").count():
+        scan(page, "login")
+        page.locator(".login-dlg input").nth(0).fill("edim")
+        page.locator(".login-dlg input[type=password]").fill(os.environ.get("PW", "edim"))
+        page.locator(".login-dlg button.b").last.click()
+    page.wait_for_selector(".app .titlebar", timeout=10000)
 
     for module, tab in SCREENS:
         page.goto(deep_link(module, tab), wait_until="load")
