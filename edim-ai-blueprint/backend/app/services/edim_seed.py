@@ -362,6 +362,28 @@ def seed_v17(cur, tid: int) -> None:
             logger.info('seed v17 — tbx_macro_ref %d건 (Table12)', n)
 
 
+def _seed_invariants(cur, tid: int) -> None:
+    """버전 게이트와 무관하게 매 기동 실행되는 불변식 재확정 (자기치유).
+
+    seed_v4 는 멱등(1회)이라, 라이브 테스트·수동 조작이 데모 계정을 강등하면
+    복원되지 않는다. 여기서 레벨이 다를 때만 재승격하고, 실제 치유 시에만 감사 남긴다.
+    """
+    cur.execute(
+        """UPDATE sys_user SET user_level='ADMIN', updated_at=now()
+           WHERE tenant_id=%s AND login_id='edim' AND user_level<>'ADMIN'
+           RETURNING user_id""", (tid,))
+    healed = cur.fetchone()
+    if healed:
+        uid = healed[0]
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action,
+               actor_id, before_data, after_data)
+               VALUES (%s,'sys_user',%s,'LEVEL_CHANGE',%s,
+                       '{"level":"(demoted)","source":"seed self-heal"}'::jsonb,
+                       '{"level":"ADMIN"}'::jsonb)""", (tid, uid, uid))
+        logger.info("seed invariant healed — edim 레벨 → ADMIN 재확정")
+
+
 def run_seed() -> None:
     pool = get_pool()
     if pool is None:
@@ -397,6 +419,7 @@ def run_seed() -> None:
             seed_v23(cur, row[0])
             seed_v24(cur, row[0])
             seed_v25(cur, row[0])
+            _seed_invariants(cur, row[0])
             return
 
         cur.execute(
@@ -517,6 +540,7 @@ def run_seed() -> None:
         seed_v23(cur, tid)
         seed_v24(cur, tid)
         seed_v25(cur, tid)
+        _seed_invariants(cur, tid)
 
 
 # ── seed v2 — 승인함·문서함·사용자·프로세스 이벤트·이력 (배치 A) ──
