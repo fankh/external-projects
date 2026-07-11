@@ -7,8 +7,34 @@
 import os
 import subprocess
 import sys
+import time
+import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+HEALTH = "https://edim.seekerslab.com/api/v1/health"
+
+
+def wait_ready(stable=2, timeout=180):
+    """C7 — 배포 중 스위트 충돌 방지: /health(db:true) 가 연속 stable 회 OK 될 때까지 대기.
+
+    autodeploy 재기동/마이그레이션 창에 스위트가 물리면 오탐이 나므로, 시작 전 준비 확인.
+    """
+    oks = 0
+    for _ in range(timeout // 3):
+        try:
+            with urllib.request.urlopen(HEALTH, timeout=5) as r:
+                if b'"db":true' in r.read():
+                    oks += 1
+                    if oks >= stable:
+                        return True
+                    time.sleep(3)
+                    continue
+        except Exception:  # noqa: BLE001
+            pass
+        oks = 0
+        time.sleep(3)
+    print("WARN — /health 준비 대기 타임아웃 (배포 중일 수 있음)")
+    return False
 
 SUITES = [
     "live_b15_regression.py",   # 인증·RBAC 먼저 (다른 스위트의 전제)
@@ -41,6 +67,11 @@ SUITES = [
 
 env = {**os.environ, "PYTHONUTF8": "1", "BASE": "https://edim.seekerslab.com/"}
 results: list[tuple[str, bool, str]] = []
+
+# C7 — 배포-준비 대기 (배포 창 충돌 방지). SKIP_WAIT=1 로 생략 가능.
+if os.getenv("SKIP_WAIT") != "1":
+    print("배포-준비 확인 (/health db:true) …")
+    wait_ready()
 
 
 def run_suite(suite: str) -> tuple[bool, str]:
