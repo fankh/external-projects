@@ -77,18 +77,16 @@ async def observability_middleware(request: Request, call_next):
     finally:
         latency_ms = (time.perf_counter() - t0) * 1000
         METRICS.observe(status, latency_ms)
-        # 헬스·메트릭 폴링은 로그 소음 → INFO 생략(집계는 함)
+        # 헬스·메트릭 폴링은 로그 소음 → 생략(집계는 함)
         path = request.url.path
         if not path.endswith(("/health", "/metrics")):
-            _log.info(json.dumps({
-                "traceId": trace_id, "method": request.method, "path": path,
-                "status": status, "latencyMs": round(latency_ms, 1),
-            }, ensure_ascii=False))
+            rec = {"log": "req", "traceId": trace_id, "method": request.method,
+                   "path": path, "status": status, "latencyMs": round(latency_ms, 1)}
+            if status >= 500:
+                rec["event"] = "server_error"
+            # print(flush) — uvicorn 런타임에서 logging 스트림 캡처가 불안정해 직접 stderr 출력
+            print(json.dumps(rec, ensure_ascii=False), file=sys.stderr, flush=True)
         if status >= 500:
-            _log.error(json.dumps({
-                "traceId": trace_id, "event": "server_error",
-                "method": request.method, "path": path, "latencyMs": round(latency_ms, 1),
-            }, ensure_ascii=False))
             _auto_file_bug(trace_id, request.method, path, status)
 
 
