@@ -38,6 +38,7 @@ def wait_ready(stable=2, timeout=180):
 
 SUITES = [
     "live_b15_regression.py",   # 인증·RBAC 먼저 (다른 스위트의 전제)
+    "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
     "live_s3_macro_engine.py",
     "live_s4_rbac_notify.py",
     "live_s5_run_pipeline.py",

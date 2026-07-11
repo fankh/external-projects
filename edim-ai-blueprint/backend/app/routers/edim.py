@@ -345,7 +345,7 @@ MAX_LOGIN_FAILS = 5   # 연속 실패 → 자동 LOCKED (B8, SEC-002)
 # C10 — 로그인 레이트리밋 (무차별 대입 완화; 계정 잠금 이전 단계 속도 제한, 인메모리)
 from collections import deque  # noqa: E402
 
-LOGIN_RATE_MAX = 10       # WINDOW 초 내 최대 시도
+LOGIN_RATE_MAX = 30       # WINDOW 초 내 최대 시도 (계정 잠금 5회가 1차 방어, 레이트리밋은 2차)
 LOGIN_RATE_WINDOW = 60
 _login_hits: dict[str, deque] = {}
 
