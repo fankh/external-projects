@@ -7,6 +7,7 @@ ifcopenshell
 anthropic
 psycopg[binary]
 psycopg_pool
+alembic
 openpyxl
 minio
 reportlab

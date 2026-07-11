@@ -390,7 +390,7 @@ def run_seed() -> None:
         logger.warning("seed skipped — DB unavailable")
         return
     with pool.connection() as conn, conn.cursor() as cur:
-        _ensure_dev_table(cur)
+        # dev_requirement 테이블은 마이그레이션(0002)이 담당 — 시드는 데이터만 (C6)
         cur.execute("SELECT tenant_id FROM sys_tenant WHERE tenant_code=%s", (TENANT,))
         row = cur.fetchone()
         if row:
