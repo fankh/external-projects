@@ -49,6 +49,7 @@ import { EventDetailScreen } from '../screens/detail/EventDetailScreen'
 import { ProjectScreen } from '../screens/erp/ProjectScreen'
 import { DashboardScreen } from '../screens/erp/DashboardScreen'
 import { PriceScreen } from '../screens/erp/PriceScreen'
+import { SalesOrderScreen } from '../screens/erp/SalesOrderScreen'
 import { ProcessSetupScreen } from '../screens/erp/ProcessSetupScreen'
 import { PurchaseScreen } from '../screens/erp/PurchaseScreen'
 
@@ -70,6 +71,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'erp-project': ProjectScreen,
   'erp-dashboard': DashboardScreen,
   'erp-price': PriceScreen,
+  'erp-sales-order': SalesOrderScreen,
   'erp-process': ProcessSetupScreen,
   'erp-purchase': PurchaseScreen,
   'cpq-docmgmt': DocumentMgmtScreen,

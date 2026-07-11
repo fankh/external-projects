@@ -4331,6 +4331,82 @@ def quotation_delete(quotation_id: int, request: Request) -> dict[str, Any]:
     return {"deleted": quotation_id}
 
 
+QUOTE_TRANSITIONS = {"DRAFT": ("SENT",), "SENT": ("ORDERED", "LOST"), "ORDERED": (), "LOST": ()}
+
+
+class QuoteStatusPatch(BaseModel):
+    status: str
+    contractAmount: float | None = None
+    expectedDelivery: str | None = None   # YYYY-MM-DD (ORDERED 시)
+
+
+@router.patch("/cost/quotations/{quotation_id}/status", dependencies=[SETUP])
+def quotation_status(quotation_id: int, request: Request, body: QuoteStatusPatch) -> dict[str, Any]:
+    """견적 lifecycle 전이 (D1) — DRAFT→SENT→ORDERED/LOST. ORDERED = 수주(계약금액·납기·영업단계 CONTRACT)."""
+    new = body.status.strip().upper()
+    if new not in ("SENT", "ORDERED", "LOST"):
+        raise HTTPException(422, detail="상태 오류 (SENT/ORDERED/LOST)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT status, project_id, total_amount, quotation_no
+               FROM cst_quotation WHERE tenant_id=%s AND quotation_id=%s""", (tid, quotation_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"견적 없음: #{quotation_id}")
+        cur_status, project_id, total, qno = row
+        if new not in QUOTE_TRANSITIONS.get(cur_status, ()):
+            raise HTTPException(409, detail=f"전이 불가: {cur_status} → {new} "
+                                f"(허용: {', '.join(QUOTE_TRANSITIONS.get(cur_status, ())) or '없음'})")
+        if new == "ORDERED":
+            amt = body.contractAmount if body.contractAmount is not None else float(total)
+            cur.execute(
+                """UPDATE cst_quotation SET status='ORDERED', contract_amount=%s,
+                   order_date=CURRENT_DATE, expected_delivery=%s, updated_at=now()
+                   WHERE quotation_id=%s""", (amt, body.expectedDelivery, quotation_id))
+            # 프로젝트 영업단계 자동 전이 → CONTRACT (D1 고리)
+            cur.execute(
+                """UPDATE prj_project SET sales_stage='CONTRACT', updated_at=now()
+                   WHERE project_id=%s AND sales_stage NOT IN ('CONTRACT','CLOSED')""", (project_id,))
+        else:
+            cur.execute("UPDATE cst_quotation SET status=%s, updated_at=now() WHERE quotation_id=%s",
+                        (new, quotation_id))
+        _audit(cur, tid, "cst_quotation", quotation_id, "STATUS", request.state.user_id,
+               {"quotationNo": qno, "from": cur_status, "to": new})
+    return {"quotationId": quotation_id, "status": new}
+
+
+@router.get("/cost/orders")
+def sales_orders() -> dict[str, Any]:
+    """수주 잔고 (D1) — ORDERED 견적(프로젝트별 수주액·납기·단계) + 수주율 지표."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT q.quotation_no, q.contract_amount, q.total_amount,
+                      to_char(q.order_date,'YYYY-MM-DD'), to_char(q.expected_delivery,'YYYY-MM-DD'),
+                      p.project_no, p.project_name, p.sales_stage, c.company_name
+               FROM cst_quotation q
+               JOIN prj_project p ON p.project_id=q.project_id
+               JOIN com_company c ON c.company_id=q.customer_id
+               WHERE q.tenant_id=%s AND q.status='ORDERED'
+               ORDER BY q.order_date DESC NULLS LAST, q.quotation_id DESC""", (tid,))
+        orders = [
+            {"quotationNo": r[0], "contractAmount": float(r[1]) if r[1] is not None else float(r[2]),
+             "quoteAmount": float(r[2]), "orderDate": r[3], "expectedDelivery": r[4],
+             "project": r[5], "projectName": r[6], "stage": r[7], "customer": r[8]}
+            for r in cur.fetchall()
+        ]
+        cur.execute(
+            """SELECT count(*) FILTER (WHERE status='ORDERED'),
+                      count(*) FILTER (WHERE status IN ('SENT','ORDERED','LOST'))
+               FROM cst_quotation WHERE tenant_id=%s""", (tid,))
+        won, decided = cur.fetchone()
+    total_amt = sum(o["contractAmount"] for o in orders)
+    return {"orders": orders, "orderCount": len(orders),
+            "orderRate": round(won / decided, 3) if decided else 0.0,
+            "totalAmount": total_amt}
+
+
 @router.get("/cost/quotations/{quotation_id}/render.pdf")
 def quotation_render(quotation_id: int) -> Any:
     """견적서 PDF 렌더 — 영속 행(line_items) 기준 (quote-preview 와 동일 렌더러)."""

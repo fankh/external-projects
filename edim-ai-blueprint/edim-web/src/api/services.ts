@@ -1994,6 +1994,50 @@ export interface QuotationRow {
   customer: string
 }
 
+// D1 — 수주 관리 (Sales Order)
+export interface SalesOrder {
+  quotationNo: string
+  contractAmount: number
+  quoteAmount: number
+  orderDate: string | null
+  expectedDelivery: string | null
+  project: string
+  projectName: string
+  stage: string
+  customer: string
+}
+export interface OrdersData {
+  orders: SalesOrder[]
+  orderCount: number
+  orderRate: number
+  totalAmount: number
+}
+
+export const orderService = {
+  /** GET /api/v1/cost/orders — 수주 잔고 + 수주율 (D1; null=백엔드 불가) */
+  async list(): Promise<OrdersData | null> {
+    try {
+      return await api<OrdersData>('/cost/orders')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** PATCH /api/v1/cost/quotations/{id}/status — 견적 lifecycle 전이 (SENT/ORDERED/LOST) */
+  async transition(id: number, status: string, contractAmount?: number, expectedDelivery?: string): Promise<boolean> {
+    try {
+      await api(`/cost/quotations/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, contractAmount, expectedDelivery }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const costService = {
   /** GET /api/v1/cpq/runs/{id}/costs — Run 원가 3분류 (null=백엔드 불가/미적재) */
   async runCosts(runId: number): Promise<RunCostRow[] | null> {

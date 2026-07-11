@@ -30,6 +30,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'com-folder': { screenId: 'com-folder', code: 'M-15-8', title: 'Project Folder' },
   'com-mobile': { screenId: 'com-mobile', code: 'M-16', title: 'Mobile 미리보기' },
   'erp-project': { screenId: 'erp-project', code: 'S-3-5', title: 'Project 등록' },
+  'erp-sales-order': { screenId: 'erp-sales-order', code: 'D-1', title: '수주 관리' },
   'erp-dashboard': { screenId: 'erp-dashboard', code: 'M-14-4', title: 'Dashboard' },
   'erp-price': { screenId: 'erp-price', code: 'M-12-5', title: '단가 관리' },
   'erp-process': { screenId: 'erp-process', code: 'M-14-7', title: 'Process Set-up' },
@@ -128,6 +129,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       {
         id: 'erp-sales', label: 'Sales', children: [
           { id: 'erp-project', label: 'Project 등록 (S-3-5)' },
+          { id: 'erp-sales-order', label: '수주 관리 (D-1)' },
         ],
       },
       {
