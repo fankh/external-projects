@@ -5,6 +5,7 @@
 배포: /var/www/edim/docs/index.html + files/ (서버 pull 후 copy)
 실행: py docs/tools/make_docs_portal.py
 """
+import hashlib
 import html
 import os
 from datetime import datetime
@@ -83,10 +84,12 @@ def main():
         st = os.stat(p)
         ext = os.path.splitext(rel)[1].lower()
         badge, color = TYPE_BADGE.get(ext, ("FILE", "#5A6270"))
+        with open(p, "rb") as fh:
+            ver = hashlib.sha256(fh.read()).hexdigest()[:8]  # C13 — 변경 감지 해시
         groups.setdefault(grp, []).append({
             "rel": rel, "title": title, "desc": desc, "badge": badge, "color": color,
             "size": fsize(st.st_size), "big": st.st_size > 5 << 20,
-            "date": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"),
+            "date": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"), "ver": ver,
         })
         total += 1
 
@@ -104,7 +107,8 @@ def main():
       <tr><td class="c"><span class="tb2" style="background:{it["color"]}">{it["badge"]}</span></td>
       <td><b>{html.escape(it["title"])}</b></td>
       <td class="dim2">{html.escape(it["desc"])}{warn}</td>
-      <td class="num">{it["size"]}</td><td class="c">{it["date"]}</td>
+      <td class="num">{it["size"]}</td>
+      <td class="c">{it["date"]}<br><span style="font-size:9px;color:var(--mute);font-family:Consolas,monospace" title="내용 해시 (변경 감지)">{it["ver"]}</span></td>
       <td class="c"><a class="b" href="{href}" download="{fname}">⬇ 다운로드</a></td></tr>'''
         rows_html += "\n    </table></div>\n"
 

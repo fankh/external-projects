@@ -42,7 +42,37 @@ def body_cell(cell, center=False):
     cell.alignment = CENTER if center else WRAP
 
 
+def _read_frozen(sheet, id_col, verdict_cols, verdict_at):
+    """기존 FVT xlsx 에서 판정 기입 행을 보존 (C13 freeze — 재생성 덮어쓰기 방지).
+
+    반환 {기능/REQ ID: {열idx: 값}} — 판정(verdict_at) 이 채워진 행만.
+    """
+    if not os.path.exists(OUT):
+        return {}
+    try:
+        wb = openpyxl.load_workbook(OUT, read_only=True, data_only=True)
+        if sheet not in wb.sheetnames:
+            return {}
+        frozen = {}
+        for row in wb[sheet].iter_rows(min_row=2, values_only=True):
+            if len(row) <= verdict_at or not row[id_col]:
+                continue
+            verdict = row[verdict_at]
+            if verdict not in (None, ""):
+                frozen[row[id_col]] = {c: row[c] for c in verdict_cols
+                                       if len(row) > c and row[c] not in (None, "")}
+        wb.close()
+        return frozen
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def main():
+    # C13 — 기존 판정 보존 (기능: id=col1, 판정~비고=col6~10 / 비기능: id=col1, 판정~비고=col5~9)
+    frozen_feat = _read_frozen("기능확인항목", 1, [6, 7, 8, 9, 10], 6)
+    frozen_nfr = _read_frozen("비기능확인항목", 1, [5, 6, 7, 8, 9], 5)
+    if frozen_feat or frozen_nfr:
+        print(f"freeze — 보존 판정: 기능 {len(frozen_feat)}·비기능 {len(frozen_nfr)}")
     # 기능정의서 로드
     feats = []
     wb = openpyxl.load_workbook(F_FEAT, read_only=True)
@@ -117,8 +147,9 @@ def main():
         if f["module"] not in module_fill:
             module_fill[f["module"]] = PatternFill("solid", fgColor=PALETTE[mi % len(PALETTE)])
             mi += 1
+        fr = frozen_feat.get(f["id"], {})
         ws.append([n, f["id"], f["module"], f["name"], f["desc"], f["phase"],
-                   "", "", "", "", ""])
+                   fr.get(6, ""), fr.get(7, ""), fr.get(8, ""), fr.get(9, ""), fr.get(10, "")])
         for c in range(1, len(headers) + 1):
             body_cell(ws.cell(row=ws.max_row, column=c), center=c in (1, 2, 6, 7, 8, 10))
         ws.cell(row=ws.max_row, column=3).fill = module_fill[f["module"]]
@@ -133,7 +164,9 @@ def main():
     ws.append(headers)
     style_header(ws, len(headers))
     for n, f in enumerate(nfrs, 1):
-        ws.append([n, f["id"], f["cat"], f["name"], f["crit"], "", "", "", "", ""])
+        fr = frozen_nfr.get(f["id"], {})
+        ws.append([n, f["id"], f["cat"], f["name"], f["crit"],
+                   fr.get(5, ""), fr.get(6, ""), fr.get(7, ""), fr.get(8, ""), fr.get(9, "")])
         for c in range(1, len(headers) + 1):
             body_cell(ws.cell(row=ws.max_row, column=c), center=c in (1, 2, 3, 6, 9))
     for i, w in enumerate([5, 11, 9, 18, 36, 6, 14, 8, 9, 16], 1):
