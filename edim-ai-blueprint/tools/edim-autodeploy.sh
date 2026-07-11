@@ -22,7 +22,8 @@ REMOTE=$(git rev-parse origin/master)
 [ "$LOCAL" = "$REMOTE" ] && exit 0
 echo "deploy: ${LOCAL:0:7} -> ${REMOTE:0:7}"
 
-git pull --ff-only --quiet
+# 순수 배포 타깃 — 로컬 변경 폐기하고 origin 과 정확히 일치 (dirty-tree pull 실패 방지)
+git reset --hard origin/master --quiet
 cd "$APP"
 
 # 1) 백엔드 이미지 빌드 (다운타임 아님 — 기존 컨테이너 계속 서비스)
