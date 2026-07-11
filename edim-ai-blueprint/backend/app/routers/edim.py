@@ -2896,6 +2896,43 @@ def save_work_process(body: WorkProcessSave) -> dict[str, Any]:
     return {"saved": n}
 
 
+@router.get("/erp/work-process/materials")
+def work_process_materials(code: str = "KDCR 3-13") -> list[dict[str, Any]]:
+    """Work Process 자재행 (G3-c) — 도면 BOM 부품 + erp_work_process(make/buy·창고·시간) 실조인.
+
+    자재행 = 코드(=도면) BOM 의 실 부품(부품명·공급처). make/buy 는 erp_work_process 저장값,
+    없으면 is_standard 기본(표준=BUY·비표준=MAKE). 창고·최소재고·시간은 저장 시 채워짐.
+    """
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        did = _drawing_id(cur, tid, code)
+        cur.execute(
+            "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s", (tid, code))
+        pcr = cur.fetchone()
+        pcid = pcr[0] if pcr else None
+        cur.execute(
+            """SELECT p.part_name, COALESCE(c.company_name,''), p.is_standard,
+                      COALESCE(p.specification,''),
+                      wp.make_or_buy, wp.warehouse, wp.min_stock, wp.work_time
+               FROM dwg_bom b JOIN prt_part p ON p.part_id=b.part_id
+               LEFT JOIN com_company c ON c.company_id=p.supplier_id
+               LEFT JOIN erp_work_process wp
+                 ON wp.tenant_id=%s AND wp.product_code_id=%s AND wp.process_type=p.part_name
+               WHERE b.drawing_id=%s ORDER BY b.item_no""",
+            (tid, pcid, did))
+        out = []
+        for r in cur.fetchall():
+            mb = r[4] or ("BUY" if r[2] else "MAKE")
+            out.append({
+                "item": r[0], "warehouse": r[5] or "-",
+                "minStock": float(r[6]) if r[6] is not None else 0,
+                "supplier": r[1] or "-", "makeBuy": mb,
+                "timeMin": (float(r[7]) if r[7] is not None else 45) if mb == "MAKE" else None,
+                "remarks": r[3],
+            })
+        return out
+
+
 class FormSave(BaseModel):
     layout: list[dict[str, Any]] = []
     formType: str = "SCREEN"

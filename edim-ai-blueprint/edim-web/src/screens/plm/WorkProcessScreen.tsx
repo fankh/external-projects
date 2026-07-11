@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { MaterialRow } from '../../api/types'
 import { MACRO_CODING, MATERIAL_ROWS, PROCESS_DEF, PROCESS_OPTIONS } from '../../api/mock/data'
-import { workProcessService } from '../../api/services'
+import { drawingLedgerService, workProcessService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -21,23 +21,29 @@ export function WorkProcessScreen({ active }: ScreenProps) {
   const [skill, setSkill] = useState(PROCESS_DEF.skill)
   const [wtime, setWtime] = useState(String(PROCESS_DEF.wtimeHr))
   const [rows, setRows] = useState<MaterialRow[]>(MATERIAL_ROWS)
+  const [rowsReal, setRowsReal] = useState(false)
   const [selItem, setSelItem] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
-
-  // 저장된 MAKE/BUY 실데이터 복원 (erp_work_process)
+  // G3-c — 코드(도면) 컨텍스트 + 실 자재행 (도면 BOM + erp_work_process)
+  const [code, setCode] = useState('KDCR 3-13')
+  const [codeOpts, setCodeOpts] = useState<string[]>([])
   useEffect(() => {
-    void workProcessService.get().then((saved) => {
-      if (saved && saved.length) {
-        setRows((prev) => prev.map((r) => {
-          const s = saved.find((x) => x.item === r.item)
-          return s ? { ...r, makeBuy: s.makeOrBuy, timeMin: s.makeOrBuy === 'BUY' ? null : (r.timeMin ?? 45) } : r
-        }))
-      }
+    void drawingLedgerService.list().then((ds) => {
+      const nos = ds.map((d) => d.drawingNo)
+      if (nos.length) setCodeOpts(Array.from(new Set(nos)))
     })
   }, [])
 
+  // 자재행 = 선택 코드의 도면 BOM 부품 + 저장된 MAKE/BUY (불가/무결과 시 mock)
+  useEffect(() => {
+    void workProcessService.materials(code).then((mats) => {
+      if (mats && mats.length) { setRows(mats); setRowsReal(true) } else { setRows(MATERIAL_ROWS); setRowsReal(false) }
+      setDirty(false)
+    })
+  }, [code])
+
   const save = () => {
-    void workProcessService.save(rows.map((r) => ({ item: r.item, makeOrBuy: r.makeBuy })))
+    void workProcessService.save(rows.map((r) => ({ item: r.item, makeOrBuy: r.makeBuy })), code)
       .then((ok) => {
         if (ok) {
           setDirty(false)
@@ -80,6 +86,9 @@ export function WorkProcessScreen({ active }: ScreenProps) {
   return (
     <div className="fill-col">
       <div className="qband">
+        <label>Code</label>
+        <Combo width={130} value={code} options={codeOpts.length ? codeOpts : [code]}
+          onChange={setCode} />
         <label>Process</label>
         <Combo width={110} value={process} options={PROCESS_OPTIONS.process}
           onChange={(v) => { setProcess(v); setDirty(true) }} />
@@ -102,8 +111,9 @@ export function WorkProcessScreen({ active }: ScreenProps) {
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <div className="fill-col" style={{ flex: 1, padding: 6, gap: 6, overflow: 'auto' }}>
-          <GroupBox title={t('wp.processDef', '공정 정의 — KDCR 3-13 · {p} @ {w}')
-            .replace('{p}', process).replace('{w}', workplace)} noPad>
+          <GroupBox title={t('wp.processDef', '공정 정의 — {c} · {p} @ {w}')
+            .replace('{c}', code).replace('{p}', process).replace('{w}', workplace)} noPad
+            right={rowsReal ? <Chip tone="ok">dwg_bom×erp_work_process</Chip> : <Chip tone="warn">MOCK</Chip>}>
             <DenseGrid columns={cols} rows={rows}
               rowKey={(r) => r.item} selectedKey={selItem}
               onRowClick={(r) => setSelItem(r.item)} />
@@ -129,7 +139,7 @@ export function WorkProcessScreen({ active }: ScreenProps) {
           </GroupBox>
           <GroupBox title="Code">
             <input className="in ro" style={{ width: '100%', fontFamily: 'Consolas, monospace' }}
-              value="KDCR 3-13" readOnly aria-label="Code" />
+              value={code} readOnly aria-label="Code" />
           </GroupBox>
           <GroupBox title="Table — Work Process" noPad
             right={<span className="b" style={{ height: 18, fontSize: 10 }}>＋ ✎ ⬇</span>}>

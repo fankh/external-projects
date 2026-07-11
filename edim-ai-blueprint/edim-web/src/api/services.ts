@@ -1,6 +1,6 @@
 /** 서비스 계층 — 실 API(/api/v1, PostgreSQL 54테이블) 우선, 불가 시 mock 폴백.
  *  각 함수 주석 = 대응 REST 엔드포인트 (OpenAPI docs/api/edim-openapi.yaml). */
-import type { DimensionDef, ExpandResult, RunResult, RunStep, SlotDef, TechDataRow, User } from './types'
+import type { DimensionDef, ExpandResult, MaterialRow, RunResult, RunStep, SlotDef, TechDataRow, User } from './types'
 import {
   expandBom, finishedGoods, KOF_SLOTS, RUN_LOGS, RUN_OUTPUTS, RUN_STEPS, TECH_DATA,
 } from './mock/data'
@@ -1361,6 +1361,15 @@ export const workProcessService = {
     try {
       return await api<{ item: string; makeOrBuy: 'MAKE' | 'BUY' }[]>(
         `/erp/work-process?code=${encodeURIComponent(code)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/erp/work-process/materials — 자재행 실데이터 (도면 BOM+공정, G3-c; null=불가) */
+  async materials(code = 'KDCR 3-13'): Promise<MaterialRow[] | null> {
+    try {
+      return await api<MaterialRow[]>(`/erp/work-process/materials?code=${encodeURIComponent(code)}`)
     } catch (e) {
       if (e instanceof ApiUnavailable) return null
       throw e
