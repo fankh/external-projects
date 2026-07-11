@@ -310,6 +310,11 @@ export const erpService = {
 }
 
 // ── SVC-10 Approval (승인함) ──
+/** 승인함이 바뀌었음을 셸 크롬(승인 대기 카운트)에 알리는 전역 신호 — 요청·결정 성공 시 발신. */
+export function notifyInboxChanged(): void {
+  try { window.dispatchEvent(new CustomEvent('edim-inbox-refresh')) } catch { /* SSR/비브라우저 */ }
+}
+
 export const approvalService = {
   /** POST /api/v1/approvals — 범용 승인 요청 (true=등록, false=백엔드 불가) */
   async request(targetTable: string, label: string, targetId = 0, requestType = 'UPDATE',
@@ -319,6 +324,7 @@ export const approvalService = {
         method: 'POST',
         body: JSON.stringify({ targetTable, targetId, requestType, label, targetCode }),
       })
+      notifyInboxChanged()
       return true
     } catch (e) {
       if (e instanceof ApiUnavailable) return false
@@ -340,6 +346,7 @@ export const approvalService = {
       await api(`/approvals/${id}/decide`, {
         method: 'POST', body: JSON.stringify({ approve, comment }),
       })
+      notifyInboxChanged()
     } catch (e) {
       if (!(e instanceof ApiUnavailable)) throw e
     }

@@ -1,7 +1,7 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
-import { authService, devReqService, pingBackend, projectService, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
+import { approvalService, authService, dashboardService, devReqService, pingBackend, projectService, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar, type MenuItem } from '../components/chrome'
 import { Btn } from '../components/controls'
 import { LnavTree } from '../components/LnavTree'
@@ -195,6 +195,21 @@ export function Shell(props: { user: User }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [setStatusMsg])
+
+  // ── 셸 크롬 카운트 (G1) — 승인 대기 = 실 inbox, PL 지연 = 부서 이벤트 delayed 합 ──
+  // 초기 + 60초 폴링 + 승인 요청·결정 시 즉시 갱신(edim-inbox-refresh)
+  const [inboxCount, setInboxCount] = useState(0)
+  const [delayedCount, setDelayedCount] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const loadInbox = () => void approvalService.inbox().then((r) => { if (alive) setInboxCount(r.length) })
+    const loadDelayed = () => void dashboardService.get().then(
+      (d) => { if (alive) setDelayedCount(d.deptEvents.reduce((s, e) => s + e.delayed, 0)) })
+    loadInbox(); loadDelayed()
+    const t = setInterval(() => { loadInbox(); loadDelayed() }, 60_000)
+    window.addEventListener('edim-inbox-refresh', loadInbox)
+    return () => { alive = false; clearInterval(t); window.removeEventListener('edim-inbox-refresh', loadInbox) }
+  }, [])
 
   // ── 메뉴바 드롭다운 ──
   const [showHelp, setShowHelp] = useState(false)
@@ -481,10 +496,10 @@ export function Shell(props: { user: User }) {
               <div className="hd">{t('shell.todo', 'To-Do')}</div>
               <div style={{ padding: '6px 8px', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {t('shell.todoApproval', '승인 확인')}<span style={{ flex: 1 }} /><span className="st warn">1</span>
+                  {t('shell.todoApproval', '승인 확인')}<span style={{ flex: 1 }} /><span className={inboxCount > 0 ? 'st warn' : 'st'}>{inboxCount}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {t('shell.todoPl', 'PL 지연')}<span style={{ flex: 1 }} /><span className="st err">1</span>
+                  {t('shell.todoPl', 'PL 지연')}<span style={{ flex: 1 }} /><span className={delayedCount > 0 ? 'st err' : 'st'}>{delayedCount}</span>
                 </div>
               </div>
             </div>
@@ -518,7 +533,7 @@ export function Shell(props: { user: User }) {
         ]}
         cells={[
           ...(shell.statusMsg ? [shell.statusMsg] : []),
-          `${t('shell.pending', '승인 대기')} 4`,
+          `${t('shell.pending', '승인 대기')} ${inboxCount}`,
         ]}
         dbLabel={source === 'live'
           ? <span>DB: <b style={{ color: 'var(--ok)' }}>EDIM-PRD (PG16)</b></span>
