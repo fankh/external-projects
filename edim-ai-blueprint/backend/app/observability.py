@@ -6,13 +6,22 @@
 """
 import json
 import logging
+import sys
 import time
 import uuid
 from collections import deque
 
 from starlette.requests import Request
 
+# 전용 stdout 핸들러 — uvicorn 이 서빙 시작 후 로깅을 재구성해도 요청 로그가 확실히 출력되도록
+# (propagate=False 로 root/uvicorn 설정과 독립)
 _log = logging.getLogger("edim.req")
+if not _log.handlers:
+    _h = logging.StreamHandler(sys.stdout)
+    _h.setFormatter(logging.Formatter("%(message)s"))
+    _log.addHandler(_h)
+    _log.setLevel(logging.INFO)
+    _log.propagate = False
 
 
 class Metrics:
