@@ -26,11 +26,12 @@ export function RunScreen({ active, tab }: ScreenProps) {
   }
   const cancelRef = useRef<(() => void) | null>(null)
 
+  const selectionId = typeof tab.params?.selectionId === 'number' ? tab.params.selectionId : undefined
   const start = useCallback(() => {
     cancelRef.current?.()
-    const { cancel } = cpqService.startRun(setResult)
+    const { cancel } = cpqService.startRun(setResult, selectionId)
     cancelRef.current = cancel
-  }, [])
+  }, [selectionId])
 
   useEffect(() => {
     start()

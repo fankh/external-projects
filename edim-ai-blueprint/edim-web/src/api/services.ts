@@ -2372,7 +2372,7 @@ function mockRun(onProgress: (r: RunResult) => void): { runId: number; cancel: (
 
 export const cpqService = {
   /** POST /api/v1/cpq/runs (202) → GET /api/v1/cpq/runs/{id} 폴링 (비동기 잡 패턴). */
-  startRun(onProgress: (r: RunResult) => void): { runId: number; cancel: () => void } {
+  startRun(onProgress: (r: RunResult) => void, selectionId?: number): { runId: number; cancel: () => void } {
     let cancelled = false
     let liveRunId = 0
     const cancel = () => { cancelled = true }
@@ -2381,7 +2381,8 @@ export const cpqService = {
       let started: { runId: number }
       try {
         started = await api<{ runId: number }>('/cpq/runs', {
-          method: 'POST', body: JSON.stringify({ runType: 'ALL' }),
+          method: 'POST',
+          body: JSON.stringify(selectionId ? { runType: 'ALL', selectionId } : { runType: 'ALL' }),
         })
       } catch (e) {
         if (e instanceof ApiUnavailable && !cancelled) {
@@ -2404,6 +2405,53 @@ export const cpqService = {
     })()
 
     return { runId: liveRunId, cancel }
+  },
+}
+
+// ── C1 CPQ 멀티 견적 — cpq_selection CRUD ──
+export interface SelectionRow {
+  selectionId: number
+  finishedGoodsCode: string
+  slotValues: Record<string, string>
+  status: string
+  createdAt: string
+  xCodeStatus: string | null
+  isStandard: boolean
+  runCount: number
+}
+
+export const selectionService = {
+  /** GET /api/v1/cpq/selections?projectNo= (null=백엔드 불가) */
+  async list(projectNo = ''): Promise<SelectionRow[] | null> {
+    try {
+      return await api<SelectionRow[]>(`/cpq/selections?projectNo=${encodeURIComponent(projectNo)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/cpq/selections — 견적안 저장 (selectionId 반환, false=백엔드 불가) */
+  async save(body: { projectNo: string; rootCode?: string; finishedGoodsCode: string
+    slotValues: Record<string, string>; specInput?: Record<string, unknown> }): Promise<number | false> {
+    try {
+      const r = await api<{ selectionId: number }>('/cpq/selections', {
+        method: 'POST', body: JSON.stringify(body),
+      })
+      return r.selectionId
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** DELETE /api/v1/cpq/selections/{id} — 삭제 (Run 참조 시 409 throw) */
+  async remove(selectionId: number): Promise<boolean> {
+    try {
+      await api(`/cpq/selections/${selectionId}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
   },
 }
 

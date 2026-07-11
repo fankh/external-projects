@@ -3260,6 +3260,7 @@ _runs: dict[int, dict[str, Any]] = {}  # 진행 상태 (산출물·완료는 DB 
 
 class RunRequest(BaseModel):
     runType: str = "ALL"
+    selectionId: int | None = None   # C1 — 지정 견적안 대상 실행 (미지정 시 최신)
 
 
 def _out_row(folder: str, fname: str, ftype: str, file_id: int | None) -> dict[str, Any]:
@@ -4148,17 +4149,106 @@ def quotation_render(quotation_id: int) -> Any:
                     headers={"Content-Disposition": f"inline; filename=\"{row[0]}.pdf\""})
 
 
+class SelectionCreate(BaseModel):
+    projectNo: str
+    rootCode: str = "KDCR 3-13"
+    finishedGoodsCode: str
+    slotValues: dict[str, str] = {}
+    specInput: dict[str, Any] | None = None
+
+
+@router.get("/cpq/selections")
+def list_selections(projectNo: str = "") -> list[dict[str, Any]]:
+    """견적안 목록 (C1 — 프로젝트별 저장된 구성/불러오기 대상)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        if projectNo.strip():
+            cur.execute(
+                """SELECT s.selection_id, s.finished_goods_code, s.slot_values, s.status,
+                          to_char(s.created_at,'MM-DD HH24:MI'), s.x_code_status, s.is_standard,
+                          (SELECT count(*) FROM cpq_run r WHERE r.selection_id=s.selection_id)
+                   FROM cpq_selection s JOIN prj_project p ON p.project_id=s.project_id
+                   WHERE s.tenant_id=%s AND p.project_no=%s ORDER BY s.selection_id DESC""",
+                (tid, projectNo.strip()))
+        else:
+            cur.execute(
+                """SELECT s.selection_id, s.finished_goods_code, s.slot_values, s.status,
+                          to_char(s.created_at,'MM-DD HH24:MI'), s.x_code_status, s.is_standard,
+                          (SELECT count(*) FROM cpq_run r WHERE r.selection_id=s.selection_id)
+                   FROM cpq_selection s WHERE s.tenant_id=%s ORDER BY s.selection_id DESC LIMIT 20""",
+                (tid,))
+        return [{"selectionId": r[0], "finishedGoodsCode": r[1], "slotValues": r[2],
+                 "status": r[3], "createdAt": r[4], "xCodeStatus": r[5],
+                 "isStandard": r[6], "runCount": r[7]} for r in cur.fetchall()]
+
+
+@router.post("/cpq/selections", status_code=201, dependencies=[SETUP])
+def create_selection(request: Request, body: SelectionCreate) -> dict[str, Any]:
+    """견적안 저장 (C1) — 현재 C-1 구성(슬롯·완성 코드·사양)을 cpq_selection 으로 영속."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
+                    (tid, body.projectNo.strip()))
+        prj = cur.fetchone()
+        if not prj:
+            raise HTTPException(404, detail=f"프로젝트 없음: {body.projectNo}")
+        cur.execute("SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+                    (tid, body.rootCode.strip()))
+        pc = cur.fetchone()
+        if not pc:
+            raise HTTPException(422, detail=f"루트 코드 없음: {body.rootCode}")
+        is_std = not body.finishedGoodsCode.upper().startswith("X")
+        cur.execute(
+            """INSERT INTO cpq_selection (tenant_id, project_id, finished_goods_code,
+               product_code_id, slot_values, spec_input, is_standard, status,
+               x_code_status, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,'DRAFT',%s,%s) RETURNING selection_id""",
+            (tid, prj[0], body.finishedGoodsCode.strip()[:100], pc[0],
+             json.dumps(body.slotValues), json.dumps(body.specInput) if body.specInput else None,
+             is_std, None if is_std else "PENDING", str(request.state.user_id)))
+        sid = cur.fetchone()[0]
+        _audit(cur, tid, "cpq_selection", sid, "CREATE", request.state.user_id,
+               {"finishedGoodsCode": body.finishedGoodsCode, "project": body.projectNo})
+    return {"selectionId": sid, "status": "DRAFT"}
+
+
+@router.delete("/cpq/selections/{selection_id}", dependencies=[SETUP])
+def delete_selection(selection_id: int, request: Request) -> dict[str, Any]:
+    """견적안 삭제 (C1) — Run 참조 시 409 보호."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM cpq_run WHERE selection_id=%s LIMIT 1", (selection_id,))
+        if cur.fetchone():
+            raise HTTPException(409, detail="Run 이력이 있는 견적안은 삭제 불가 (참조 보호)")
+        cur.execute(
+            "DELETE FROM cpq_selection WHERE tenant_id=%s AND selection_id=%s RETURNING finished_goods_code",
+            (tid, selection_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"견적안 없음: #{selection_id}")
+        _audit(cur, tid, "cpq_selection", selection_id, "DELETE", request.state.user_id,
+               {"finishedGoodsCode": row[0]})
+    return {"deleted": selection_id}
+
+
 @router.post("/cpq/runs", status_code=202)
 async def start_run(body: RunRequest) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute(
-            """SELECT s.selection_id, s.slot_values, p.project_no
-               FROM cpq_selection s JOIN prj_project p ON p.project_id=s.project_id
-               WHERE s.tenant_id=%s ORDER BY s.selection_id LIMIT 1""", (tid,))
+        if body.selectionId:   # C1 — 지정 견적안
+            cur.execute(
+                """SELECT s.selection_id, s.slot_values, p.project_no
+                   FROM cpq_selection s JOIN prj_project p ON p.project_id=s.project_id
+                   WHERE s.tenant_id=%s AND s.selection_id=%s""", (tid, body.selectionId))
+        else:                  # 미지정 — 최신 견적안
+            cur.execute(
+                """SELECT s.selection_id, s.slot_values, p.project_no
+                   FROM cpq_selection s JOIN prj_project p ON p.project_id=s.project_id
+                   WHERE s.tenant_id=%s ORDER BY s.selection_id DESC LIMIT 1""", (tid,))
         sel = cur.fetchone()
         if not sel:
-            raise HTTPException(503, detail="seed selection missing")
+            raise HTTPException(404 if body.selectionId else 503,
+                                detail="견적안 없음" if body.selectionId else "seed selection missing")
         cur.execute(
             """INSERT INTO cpq_run (tenant_id, selection_id, run_type, status)
                VALUES (%s,%s,%s,'RUNNING') RETURNING run_id""",

@@ -1,7 +1,7 @@
 /** C-1 CPQ 제품 선정 (W-02 / 디자인시안 b03) —
  *  조회밴드 F8 · 구성 캔버스+커맨드 라인 · 슬롯 선택 → BOM 재전개 · EDIM Run F9. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { c1Service, cadService, codeService, type CadDocument } from '../../api/services'
+import { c1Service, cadService, codeService, selectionService, type CadDocument, type SelectionRow } from '../../api/services'
 import type { BomItem, CanvasBlock } from '../../api/types'
 import { CadSvg } from '../../components/CadSvg'
 import { AHU_BLOCKS, DEFAULT_SLOT_VALUES, PRODUCT_SLOTS } from '../../api/mock/data'
@@ -65,13 +65,44 @@ export function SelectionScreen({ active }: ScreenProps) {
 
   useEffect(() => { void apply(DEFAULT_SLOT_VALUES) }, [apply])
 
+  // C1 — 견적안(cpq_selection) 저장/불러오기
+  const projectNo = shell.activeProject?.no ?? 'PS-61313-5'
+  const [selections, setSelections] = useState<SelectionRow[]>([])
+  const [savedSelId, setSavedSelId] = useState<number | null>(null)
+  const loadSelections = useCallback(() => {
+    void selectionService.list(projectNo).then((rows) => { if (rows) setSelections(rows) })
+  }, [projectNo])
+  useEffect(() => { loadSelections() }, [loadSelections])
+
+  const saveSelection = useCallback(() => {
+    void selectionService.save({
+      projectNo, rootCode: 'KDCR 3-13',
+      finishedGoodsCode: finished || 'KDCR 3-13-13-15', slotValues,
+    }).then((r) => {
+      if (r === false) { setStatusMsg(<span style={{ color: 'var(--err)' }}>저장 불가 — 백엔드 연결 필요</span>); return }
+      setSavedSelId(r); loadSelections()
+      setStatusMsg(`견적안 저장 ✓ — #${r} ${finished || 'KDCR 3-13-13-15'} (cpq_selection · Run 대상)`)
+    })
+  }, [projectNo, finished, slotValues, loadSelections, setStatusMsg])
+
+  const loadSelection = (idStr: string) => {
+    if (!idStr) { setSavedSelId(null); return }
+    const sel = selections.find((s) => String(s.selectionId) === idStr)
+    if (!sel) return
+    setSavedSelId(sel.selectionId)
+    setSlotValues(sel.slotValues)
+    void apply(sel.slotValues)
+    setStatusMsg(`견적안 불러오기 — #${sel.selectionId} ${sel.finishedGoodsCode} (슬롯 ${Object.keys(sel.slotValues).length})`)
+  }
+
   const startRun = useCallback(() => {
     const n = runTabSeq++
     openTab({
       id: `cpq-run:${n}`, screenId: 'cpq-run',
-      code: 'Run', title: `실행 #${n}`,
+      code: 'Run', title: savedSelId ? `실행 #${n} (견적안 ${savedSelId})` : `실행 #${n}`,
+      params: savedSelId ? { selectionId: savedSelId } : undefined,
     })
-  }, [openTab])
+  }, [openTab, savedSelId])
 
   useFKeys(active, useMemo(() => ({
     F2: () => {
@@ -82,8 +113,8 @@ export function SelectionScreen({ active }: ScreenProps) {
     },
     F8: () => { void apply(slotValues) },
     F9: startRun,
-    F12: () => setStatusMsg(`견적 저장 — ${finished || 'KDP 1-21-13-15'} · BOM ${bom.length}항목 (cpq_selection_item 은 Run 시 영속)`),
-  }), [apply, slotValues, startRun, finished, bom.length, setStatusMsg]))
+    F12: saveSelection,
+  }), [apply, slotValues, startRun, saveSelection]))
 
   const setSlot = (slot: string, v: string) => {
     const next = { ...slotValues, [slot]: v }
@@ -178,6 +209,12 @@ export function SelectionScreen({ active }: ScreenProps) {
         <label>Project<i>*</i></label>
         <Combo width={120} value={shell.activeProject?.name ?? 'Micron #7'}
           options={[shell.activeProject?.name ?? 'Micron #7']} />
+        <label>{t('cpq.quote', '견적안')}</label>
+        <Combo width={150} value={savedSelId ? String(savedSelId) : ''}
+          options={[{ value: '', label: t('cpq.quoteNew', '새 견적') },
+            ...selections.map((s) => ({ value: String(s.selectionId), label: `#${s.selectionId} ${s.finishedGoodsCode}` }))]}
+          onChange={loadSelection} />
+        <Btn onClick={saveSelection}>{t('cpq.quoteSave', '견적안 저장 F12')}</Btn>
         <label>Arrangement</label>
         <Combo width={140} value={arrangement} options={['Double Deck 2', 'Single Deck', 'Return Top']}
           onChange={setArrangement} />
