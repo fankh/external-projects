@@ -1740,6 +1740,54 @@ def create_document(request: Request, body: DocCreate) -> dict[str, Any]:
     return {"docId": doc_id, "status": "Set-up"}
 
 
+class RegisterOutput(BaseModel):
+    fileName: str
+    folder: str = "DWG"
+    fileType: str = "PDF"
+
+
+@router.post("/documents/register-output", dependencies=[SETUP])
+def register_output(request: Request, body: RegisterOutput) -> dict[str, Any]:
+    """Run 산출물을 doc_control 정본으로 find-or-create (승인 상태 영속 — G3-a).
+
+    파일명 기준 멱등: 이미 등록됐으면 기존 doc_no·released_status 반환(재진입 시 상태 유지),
+    없으면 RUN 유형으로 채번·등록. 이후 PATCH /documents/{no}/status 로 실 상태 전이.
+    """
+    title = body.fileName.strip()[:200]
+    if not title:
+        raise HTTPException(422, detail="필수 — 파일명")
+    dt = "RUN"
+    grade = "S-2" if title.lower().endswith(".pdf") or "견적" in title else "S-3"
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT doc_no, released_status FROM doc_control
+               WHERE tenant_id=%s AND doc_type=%s AND title=%s
+               ORDER BY doc_control_id DESC LIMIT 1""", (tid, dt, title))
+        row = cur.fetchone()
+        if row:
+            return {"docNo": row[0], "status": row[1], "created": False}
+        cur.execute("SELECT count(*) FROM doc_control WHERE tenant_id=%s AND doc_type=%s", (tid, dt))
+        seq = cur.fetchone()[0] + 1
+        while True:
+            doc_no = f"{dt}-{seq:04d}"
+            cur.execute("SELECT 1 FROM doc_control WHERE tenant_id=%s AND doc_no=%s", (tid, doc_no))
+            if not cur.fetchone():
+                break
+            seq += 1
+        cur.execute("SELECT user_name FROM sys_user WHERE user_id=%s", (request.state.user_id,))
+        person = (cur.fetchone() or ["-"])[0]
+        cur.execute(
+            """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, ref_type,
+               released_status, version, person, management_grade)
+               VALUES (%s,%s,%s,%s,'RUN_OUTPUT','SET_UP','KD-0.1',%s,%s) RETURNING doc_control_id""",
+            (tid, doc_no, title, dt, person, grade))
+        doc_id = cur.fetchone()[0]
+        _audit(cur, tid, "doc_control", doc_id, "CREATE", request.state.user_id,
+               {"docNo": doc_no, "title": title, "source": "run-output"})
+    return {"docNo": doc_no, "status": "SET_UP", "created": True}
+
+
 @router.get("/documents/{doc_no}/render.pdf")
 def render_document(doc_no: str) -> Any:
     """문서 PDF 실렌더 — Grade S-1/S-2 는 CONFIDENTIAL 워터마크 강제 (DOC-002)."""

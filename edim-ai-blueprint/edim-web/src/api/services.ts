@@ -1743,6 +1743,19 @@ export const sysService = {
       throw e
     }
   },
+  /** Run 산출물을 doc_control 정본으로 find-or-create (승인 상태 영속 — G3-a; null=백엔드 불가) */
+  async registerOutput(fileName: string, folder: string, fileType: string):
+    Promise<{ docNo: string; status: string } | null> {
+    try {
+      const r = await api<{ docNo: string; status: string }>('/documents/register-output', {
+        method: 'POST', body: JSON.stringify({ fileName, folder, fileType }),
+      })
+      return { docNo: r.docNo, status: r.status }
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
   /** Child 관계 추가 (S-1-4) */
   async relationshipAdd(mother: string, child: string, qty: number): Promise<boolean> {
     try {

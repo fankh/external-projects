@@ -7,18 +7,24 @@ import { Btn, Chip, GroupBox } from '../../components/controls'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
+// doc_control 상태 ↔ DOC_STAGES 인덱스 (Set-up/Check/Approve/Accepted)
+const BACKEND_STATUS = ['SET_UP', 'CHECK', 'APPROVE', 'ACCEPTED']
+const STATUS_IDX: Record<string, number> = { SET_UP: 0, CHECK: 1, APPROVE: 2, ACCEPTED: 3 }
+
 export function OutputDocScreen({ tab }: ScreenProps) {
   const shell = useShell()
   const file = String(tab.params?.file ?? '문서')
   const folder = String(tab.params?.folder ?? 'DWG')
   const fileType = String(tab.params?.fileType ?? 'PDF')
-  const initStage = String(tab.params?.status ?? '').includes('승인') ? 1 : 1
-  const [stageIdx, setStageIdx] = useState(initStage)
-  // B21 — 실채번 (POST /documents/allocate-code, 불가 시 안내 문자열)
+  const [stageIdx, setStageIdx] = useState(0)
+  // G3-a — Run 산출물을 doc_control 정본으로 find-or-create (승인 상태 영속)
   const [docNo, setDocNo] = useState<string | null>(null)
   useEffect(() => {
-    void sysService.allocateDocNo(folder || 'DOC').then(setDocNo)
-  }, [folder])
+    void sysService.registerOutput(file, folder, fileType).then((r) => {
+      if (r) { setDocNo(r.docNo); setStageIdx(STATUS_IDX[r.status] ?? 0) }
+      else void sysService.allocateDocNo(folder || 'DOC').then(setDocNo)  // 백엔드 불가 폴백
+    })
+  }, [file, folder, fileType])
 
   // B21 — 미리보기/Print = 워터마크 실렌더 (렌더 사양은 문서 정보와 동일)
   const renderDoc = (print: boolean) => {
@@ -40,8 +46,17 @@ export function OutputDocScreen({ tab }: ScreenProps) {
   }
 
   const requestApproval = () => {
-    setStageIdx((i) => Math.min(i + 1, DOC_STAGES.length - 1))
-    shell.setStatusMsg(`승인 요청 — ${file} (다음 단계: ${DOC_STAGES[Math.min(stageIdx + 1, 3)]})`)
+    const nextIdx = Math.min(stageIdx + 1, DOC_STAGES.length - 1)
+    if (nextIdx === stageIdx) return  // 이미 Accepted
+    if (!docNo) { setStageIdx(nextIdx); return }  // 채번 대기/폴백 — 로컬만
+    void sysService.docStatus(docNo, BACKEND_STATUS[nextIdx]).then((ok) => {
+      if (ok) {
+        setStageIdx(nextIdx)
+        shell.setStatusMsg(`상태 전이 ✓ — ${docNo} → ${DOC_STAGES[nextIdx]} (doc_control 영속)`)
+      } else {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요 — 상태 미영속</span>)
+      }
+    }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }
 
   return (
