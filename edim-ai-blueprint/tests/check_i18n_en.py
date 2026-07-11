@@ -32,6 +32,11 @@ SCREENS = [
     ("toolbox", "tbx-ui"), ("toolbox", "tbx-macro"),
     ("common", "com-approval"), ("common", "com-tasks"), ("common", "com-folder"),
     ("common", "com-mobile"),
+    # C12 — B13~B19 신규 화면 확장 (24→34)
+    ("code", "code-hierarchy"), ("code", "code-raw"), ("code", "code-variant"),
+    ("plm", "plm-arr"), ("plm", "plm-material"), ("plm", "plm-quality"), ("plm", "plm-parts"),
+    ("erp", "erp-warehouse"), ("erp", "erp-company-master"),
+    ("toolbox", "tbx-templet"),
 ]
 
 # 크롬 텍스트 셀렉터 (데이터 셀 td 는 제외 — 단, 칩 .st 은 상태 enum 이므로 포함)

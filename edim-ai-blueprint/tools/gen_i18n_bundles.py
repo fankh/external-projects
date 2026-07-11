@@ -15,14 +15,41 @@ OUT = ROOT / "edim-web" / "src" / "i18n" / "bundles.ts"
 
 src = SEED.read_text(encoding="utf-8")
 
+
+def is_translation_dict(d: object) -> bool:
+    """번역 사전 판별 — 키가 문자열이고 값이 모두 (en, ja, zh) 3-문자열 튜플."""
+    if not isinstance(d, dict) or not d:
+        return False
+    return all(
+        isinstance(k, str) and isinstance(v, tuple) and len(v) == 3
+        and all(isinstance(x, str) for x in v)
+        for k, v in d.items()
+    )
+
+
+# 이름이 아닌 **형태**로 수집 — UI_TRANSLATIONS*·TAB_LABELS_V14 등 모든 번역 사전 수렴
+# (F1 발견: 인라인 시드 키가 재생성 시 유실되던 문제 해소 — 단일 진실 보장)
 merged: dict[str, tuple[str, str, str]] = {}
-for m in re.finditer(r"^(UI_TRANSLATIONS\w*)\s*:[^=]*=\s*(\{.*?^\})", src, re.S | re.M):
-    d = ast.literal_eval(m.group(2))
+tree = ast.parse(src)
+for node in tree.body:
+    if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+        continue
+    if not isinstance(node.value, ast.Dict):
+        continue
+    try:
+        d = ast.literal_eval(node.value)
+    except (ValueError, SyntaxError):
+        continue
+    if not is_translation_dict(d):
+        continue
+    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+    name = getattr(targets[0], "id", "?")
+    dupes = set(merged) & set(d)
     merged.update(d)
-    print(f"{m.group(1)}: {len(d)} keys")
+    print(f"{name}: {len(d)} keys" + (f"  (덮어쓴 중복 {len(dupes)})" if dupes else ""))
 
 if not merged:
-    sys.exit("UI_TRANSLATIONS 딕셔너리를 찾지 못함")
+    sys.exit("번역 사전을 찾지 못함")
 
 
 def ts_str(s: str) -> str:
