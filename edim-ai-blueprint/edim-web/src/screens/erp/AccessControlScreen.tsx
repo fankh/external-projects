@@ -1,8 +1,8 @@
 /** M-14-6 사용자·권한 관리 (W-23, 슬라이드 57·72) — 레벨 4단계 × 리소스 4유형 ×
  *  액션 4종 (권한승인정의서 모델) · 감사 기록. */
 import { useEffect, useMemo, useState } from 'react'
-import { AUDIT_LOG, type UserRow } from '../../api/mock/dataMore'
-import { roleService, sysService, userService, type RoleRow } from '../../api/services'
+import { type UserRow } from '../../api/mock/dataMore'
+import { historyService, roleService, sysService, userService, type HistoryRow, type RoleRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -24,12 +24,23 @@ export function AccessControlScreen({ active }: ScreenProps) {
   const [showReg, setShowReg] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
 
+  // C11 — 감사 로그 실데이터 (sys_history, 계정·보안 액션 필터)
+  const [audit, setAudit] = useState<HistoryRow[]>([])
+  const SEC_ACTION = /LOGIN|LOCK|UNLOCK|PW_CHANGE|LEVEL|PERM|ROLE|USER_|INVITE|ACTIVAT|STATUS/i
+  const loadAudit = () => {
+    if (!perm.canReadAdmin) return
+    void historyService.recent().then((rows) => {
+      const acc = rows.filter((r) => r.target === 'sys_user' || SEC_ACTION.test(r.action))
+      setAudit((acc.length ? acc : rows).slice(0, 12))
+    })
+  }
   const load = () => {
     if (!perm.canReadAdmin) return   // F3 — GENERAL 은 GET /users 자체가 403 (진입 가드로 안내)
     void userService.list().then((rows) => {
       setUsers(rows)
       setSelLogin((cur) => cur ?? rows[0]?.login ?? null)
     })
+    loadAudit()   // 계정 작업(재조회/변경) 시 감사 로그 동반 갱신
   }
   useEffect(load, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -289,13 +300,18 @@ export function AccessControlScreen({ active }: ScreenProps) {
               )}
             </div>
           </GroupBox>
-          <GroupBox title={t('access.auditLog', '최근 감사 로그')} noPad>
+          <GroupBox title={t('access.auditLog', '최근 감사 로그')} noPad
+            right={<Chip tone="ok">sys_history</Chip>}>
             <table className="g">
               <thead><tr><th>{t('access.at', '일시')}</th><th>{t('access.action', '작업')}</th></tr></thead>
               <tbody>
-                {AUDIT_LOG.map((a, i) => (
-                  <tr key={i}><td className="c">{a.at}</td><td>{a.action}</td></tr>
+                {audit.map((a, i) => (
+                  <tr key={a.historyId ?? i}><td className="c">{a.at}</td>
+                    <td>{a.action}{a.target && a.target !== 'sys_user' ? ` · ${a.target}` : ''}{a.by ? ` (${a.by})` : ''}</td></tr>
                 ))}
+                {audit.length === 0 ? (
+                  <tr><td className="c" colSpan={2} style={{ color: 'var(--txt-mute)' }}>기록 없음</td></tr>
+                ) : null}
               </tbody>
             </table>
           </GroupBox>
