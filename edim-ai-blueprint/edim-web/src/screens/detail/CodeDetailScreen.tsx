@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { CODE_APPROVAL_HIST, WHERE_USED, type ApprovalHistRow } from '../../api/mock/dataDetail'
 import { PRICES } from '../../api/mock/dataErp'
-import { drawingLedgerService, partService, referencerService, type SlotItemRow } from '../../api/services'
+import { drawingLedgerService, partService, priceService, referencerService, type SlotItemRow } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
 import { DenseGrid } from '../../components/DenseGrid'
@@ -18,7 +18,13 @@ export function CodeDetailScreen({ tab }: ScreenProps) {
   // 단가·Referencers 는 base code (resolved 접미 제거) 로 조회
   const base = Object.keys(WHERE_USED).find((k) => code.startsWith(k))
     ?? code.split('-').slice(0, 2).join('-')
-  const prices = PRICES.filter((p) => code.startsWith(p.code))
+  // 단가 이력 — cst_price 실조회 (mock 초기값 → 실데이터 교체; base code 접두 매칭)
+  const [prices, setPrices] = useState(() => PRICES.filter((p) => code.startsWith(p.code)))
+  useEffect(() => {
+    void priceService.list().then((rows) => {
+      setPrices(rows.filter((p) => code.startsWith(p.code) || base.startsWith(p.code)))
+    }).catch(() => { /* 백엔드 불가 — mock 초기값 유지 */ })
+  }, [code, base])
   const [used, setUsed] = useState(WHERE_USED[base] ?? [])
   // 승인 이력 — null = 백엔드 불가 (mock 표시), [] = 라이브인데 이력 없음 (정직 표기)
   const [hist, setHist] = useState<ApprovalHistRow[] | null>(null)
