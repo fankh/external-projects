@@ -17,7 +17,8 @@ from starlette.requests import Request
 # (propagate=False 로 root/uvicorn 설정과 독립)
 _log = logging.getLogger("edim.req")
 if not _log.handlers:
-    _h = logging.StreamHandler(sys.stdout)
+    # stderr — uvicorn 런타임 로그와 동일 스트림(docker logs 캡처 확실). stdout 은 서빙 후 미캡처.
+    _h = logging.StreamHandler(sys.stderr)
     _h.setFormatter(logging.Formatter("%(message)s"))
     _log.addHandler(_h)
     _log.setLevel(logging.INFO)
