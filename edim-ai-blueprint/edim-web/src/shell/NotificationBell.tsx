@@ -1,6 +1,6 @@
 /** 타이틀바 알림 벨 (SVC-13) — 60초 폴링, 클릭 = 읽음 + 해당 화면 이동, 모두 읽음 (B6). */
 import { useEffect, useRef, useState } from 'react'
-import { notificationService, type Notification } from '../api/services'
+import { notificationService, type Notification, type NotificationDigest } from '../api/services'
 import { Chip } from '../components/controls'
 import { useI18n } from '../i18n/I18nContext'
 import { useShell, type ModuleId } from './ShellContext'
@@ -12,15 +12,20 @@ export function NotificationBell() {
   const { t } = useI18n()
   const [items, setItems] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
+  const [filterType, setFilterType] = useState('')
+  const [digest, setDigest] = useState<NotificationDigest | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
-  const load = () => void notificationService.list().then(setItems)
+  const load = () => {
+    void notificationService.list(filterType).then(setItems)
+    void notificationService.digest().then(setDigest)
+  }
 
   useEffect(() => {
     load()
     const t = setInterval(load, 60_000)
     return () => clearInterval(t)
-  }, [])
+  }, [filterType])   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -83,6 +88,27 @@ export function NotificationBell() {
               }} onClick={(e) => { e.stopPropagation(); readAll() }}>{t('bell.readAll', '모두 읽음')}</span>
             ) : null}
           </div>
+          {digest && (digest.overdue > 0 || digest.high > 0) ? (
+            <div data-digest style={{ padding: '4px 9px', fontSize: 10.5, background: 'var(--warn-bg, #FCF3DF)',
+              borderBottom: '1px solid var(--line)', color: 'var(--txt-dim)', display: 'flex', gap: 8 }}>
+              {digest.high > 0 ? <span style={{ color: 'var(--err)', fontWeight: 700 }}>
+                {t('bell.high', '긴급')} {digest.high}</span> : null}
+              {digest.overdue > 0 ? <span>{t('bell.overdue', '지연 이벤트')} {digest.overdue}</span> : null}
+              <span className="sp" style={{ flex: 1 }} />
+              <span style={{ color: 'var(--mute)' }}>{t('bell.digest', '요약')}</span>
+            </div>
+          ) : null}
+          <div style={{ padding: '3px 9px', borderBottom: '1px solid var(--line-soft)' }}>
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
+              aria-label="알림 유형 필터" style={{ fontSize: 10.5, width: '100%' }}>
+              <option value="">{t('bell.allTypes', '전체 유형')}</option>
+              <option value="ESCALATION">{t('bell.typeEsc', '에스컬레이션')}</option>
+              <option value="DEADLINE_WARN">{t('bell.typeDdl', '기한 경고')}</option>
+              <option value="APPROVAL_REQUEST">{t('bell.typeAppr', '승인 요청')}</option>
+              <option value="APPROVAL_RESULT">{t('bell.typeApprRes', '승인 결과')}</option>
+              <option value="TASK_ASSIGNED">{t('bell.typeTask', '업무 배정')}</option>
+            </select>
+          </div>
           <div className="gc p0" style={{ maxHeight: 280, overflow: 'auto' }}>
             {items.length === 0 ? (
               <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('bell.empty', '알림 없음')}</div>
@@ -94,7 +120,7 @@ export function NotificationBell() {
                       style={{ cursor: 'pointer' }} onClick={() => clickItem(n)}>
                       <td style={{ width: 74 }} className="c">{n.at}</td>
                       <td>
-                        {n.read ? null : <Chip tone="warn">N</Chip>}{' '}
+                        {n.priority === 'HIGH' ? <Chip tone="err">!</Chip> : (n.read ? null : <Chip tone="warn">N</Chip>)}{' '}
                         <span style={{ fontSize: 11 }}>{n.title}</span>
                       </td>
                     </tr>

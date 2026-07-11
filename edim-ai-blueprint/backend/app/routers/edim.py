@@ -1731,22 +1731,54 @@ def decide(approval_id: int, request: Request, body: DecideRequest) -> dict[str,
 
 
 # ── SVC-13 알림 ──
+TYPE_PRIORITY = {"ESCALATION": "HIGH", "DEADLINE_WARN": "HIGH",
+                 "APPROVAL_REQUEST": "MED", "APPROVAL_RESULT": "MED", "TASK_ASSIGNED": "MED"}
+
+
 @router.get("/notifications")
-def notifications(request: Request, limit: int = 20) -> list[dict[str, Any]]:
+def notifications(request: Request, limit: int = 20, type: str = "") -> list[dict[str, Any]]:
+    """알림 목록 (C4 — 우선순위 파생·유형 필터). ORDER: 미읽음→우선순위(HIGH>MED>LOW)→최신."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        params: list[Any] = [tid, request.state.user_id]
+        type_clause = ""
+        if type.strip():
+            type_clause = " AND notify_type=%s"
+            params.append(type.strip())
+        params.append(limit)
+        cur.execute(
+            f"""SELECT notification_id, notify_type, title, link_url, is_read,
+                      to_char(created_at,'MM-DD HH24:MI')
+               FROM sys_notification
+               WHERE tenant_id=%s AND user_id=%s{type_clause}
+               ORDER BY is_read,
+                        CASE notify_type WHEN 'ESCALATION' THEN 0 WHEN 'DEADLINE_WARN' THEN 0
+                             WHEN 'APPROVAL_REQUEST' THEN 1 WHEN 'APPROVAL_RESULT' THEN 1
+                             WHEN 'TASK_ASSIGNED' THEN 1 ELSE 2 END,
+                        notification_id DESC LIMIT %s""", tuple(params))
+        return [
+            {"id": r[0], "type": r[1], "title": r[2], "link": r[3],
+             "read": r[4], "at": r[5], "priority": TYPE_PRIORITY.get(r[1], "LOW")}
+            for r in cur.fetchall()
+        ]
+
+
+@router.get("/notifications/digest")
+def notifications_digest(request: Request) -> dict[str, Any]:
+    """알림 다이제스트 (C4) — 미읽음 유형별 요약 + 지연 이벤트 수 (로그인 시 요약)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT notification_id, notify_type, title, link_url, is_read,
-                      to_char(created_at,'MM-DD HH24:MI')
-               FROM sys_notification
-               WHERE tenant_id=%s AND user_id=%s
-               ORDER BY is_read, notification_id DESC LIMIT %s""",
-            (tid, request.state.user_id, limit))
-        return [
-            {"id": r[0], "type": r[1], "title": r[2], "link": r[3],
-             "read": r[4], "at": r[5]}
-            for r in cur.fetchall()
-        ]
+            """SELECT notify_type, count(*) FROM sys_notification
+               WHERE tenant_id=%s AND user_id=%s AND is_read=false GROUP BY notify_type""",
+            (tid, request.state.user_id))
+        by_type = {r[0]: r[1] for r in cur.fetchall()}
+        cur.execute(
+            """SELECT count(*) FROM erp_process_event
+               WHERE tenant_id=%s AND status<>'DONE' AND due_date < CURRENT_DATE""", (tid,))
+        overdue = cur.fetchone()[0]
+    high = sum(v for k, v in by_type.items() if TYPE_PRIORITY.get(k) == "HIGH")
+    return {"unread": sum(by_type.values()), "byType": by_type, "overdue": overdue, "high": high}
 
 
 @router.post("/notifications/{notification_id}/read")
@@ -2241,6 +2273,40 @@ def escalate_event(event_id: int, request: Request, body: EscalateRequest) -> di
                VALUES (%s,'erp_process_event',%s,'ESCALATE',%s,%s)""",
             (tid, event_id, request.state.user_id, json.dumps({"reason": body.reason})))
     return {"eventId": event_id, "notified": n}
+
+
+@router.post("/erp/events/escalate-overdue", dependencies=[SETUP])
+def escalate_overdue(request: Request) -> dict[str, Any]:
+    """지연 이벤트 자동 에스컬레이션 (C4 / JOB-05) — 기한 초과 미처리 이벤트를 ADMIN 상위 보고.
+
+    멱등: data.autoEscalated 플래그로 재통지 방지 (스케줄러/수동 재실행 안전).
+    """
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT e.event_id, e.due_date, p.project_no, d.proc_name
+               FROM erp_process_event e
+               JOIN prj_project p ON p.project_id=e.project_id
+               JOIN erp_process_def d ON d.proc_def_id=e.proc_def_id
+               WHERE e.tenant_id=%s AND e.status<>'DONE' AND e.due_date < CURRENT_DATE
+                 AND COALESCE((e.data->>'autoEscalated')::boolean, false) = false""", (tid,))
+        overdue = cur.fetchall()
+        cur.execute(
+            "SELECT user_id FROM sys_user WHERE tenant_id=%s AND user_level IN ('ADMIN','PLATFORM')", (tid,))
+        admins = [r[0] for r in cur.fetchall()]
+        escalated = []
+        for ev_id, due, proj, pname in overdue:
+            for uid in admins:
+                _notify(cur, tid, uid, "ESCALATION",
+                        f"지연 자동 에스컬레이션 — {proj} {pname} (기한 {due} 초과)", "/erp")
+            cur.execute(
+                """UPDATE erp_process_event
+                   SET data = COALESCE(data,'{}'::jsonb) || '{"autoEscalated":true}'::jsonb,
+                       updated_at=now() WHERE event_id=%s""", (ev_id,))
+            _audit(cur, tid, "erp_process_event", ev_id, "AUTO_ESCALATE", request.state.user_id,
+                   {"project": proj, "process": pname, "due": str(due)})
+            escalated.append({"eventId": ev_id, "project": proj, "process": pname, "due": str(due)})
+    return {"escalated": len(escalated), "admins": len(admins), "events": escalated}
 
 
 # ── SVC-09 Project (S-3-5) ──

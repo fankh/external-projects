@@ -862,15 +862,32 @@ export interface Notification {
   link: string | null
   read: boolean
   at: string
+  priority?: 'HIGH' | 'MED' | 'LOW'
+}
+
+export interface NotificationDigest {
+  unread: number
+  byType: Record<string, number>
+  overdue: number
+  high: number
 }
 
 export const notificationService = {
-  /** GET /api/v1/notifications — 폴링 (WS 는 후속, 인터페이스정의서 §3 폴백) */
-  async list(): Promise<Notification[]> {
+  /** GET /api/v1/notifications — 폴링 (C4 우선순위·유형 필터; WS 는 후속) */
+  async list(type = ''): Promise<Notification[]> {
     try {
-      return await api<Notification[]>('/notifications')
+      return await api<Notification[]>(`/notifications${type ? `?type=${encodeURIComponent(type)}` : ''}`)
     } catch (e) {
       if (e instanceof ApiUnavailable) return []
+      throw e
+    }
+  },
+  /** GET /api/v1/notifications/digest — 로그인 시 요약 (C4; null=백엔드 불가) */
+  async digest(): Promise<NotificationDigest | null> {
+    try {
+      return await api<NotificationDigest>('/notifications/digest')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
       throw e
     }
   },
