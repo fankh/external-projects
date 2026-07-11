@@ -663,6 +663,58 @@ export const codeSetupService = {
       return 'mock'
     }
   },
+  /** GET /api/v1/codes/groups — 코드 그룹 목록 (C2) */
+  async listGroups(): Promise<{ groupCode: string; groupName: string; groupType: string; slotCount: number; status: string }[]> {
+    try {
+      return await api('/codes/groups')
+    } catch (e) {
+      if (!(e instanceof ApiUnavailable)) throw e
+      return [{ groupCode: 'KOF', groupName: 'Specification - Fan', groupType: 'SPECIFICATION', slotCount: 6, status: 'APPROVED' }]
+    }
+  },
+  /** POST /api/v1/codes/groups — 그룹 등록 (C2; 409=중복 throw, false=백엔드 불가) */
+  async createGroup(body: { groupCode: string; groupName: string; groupType: string; hierarchyAddress?: string }): Promise<boolean> {
+    try {
+      await api('/codes/groups', { method: 'POST', body: JSON.stringify(body) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** GET /api/v1/codes/groups/{g}/export.xlsx — 그룹 code_item 다운로드 (C2) */
+  async exportGroup(group: string): Promise<boolean> {
+    const res = await fetch(`${API}/codes/groups/${encodeURIComponent(group)}/export.xlsx`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }).catch(() => null)
+    if (!res || !res.ok) return false
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `${group}.xlsx`; a.click()
+    URL.revokeObjectURL(url)
+    return true
+  },
+  /** POST /api/v1/codes/groups/{g}/import-excel — code_item 일괄 Import (C2, 거부 리포트) */
+  async importGroup(group: string, file: globalThis.File): Promise<ImportReport | null> {
+    const form = new FormData()
+    form.append('uploadedFile', file)
+    try {
+      const res = await fetch(`${API}/codes/groups/${encodeURIComponent(group)}/import-excel`, {
+        method: 'POST', body: form, signal: AbortSignal.timeout(30_000),
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string } | null
+        throw new Error(body?.detail ?? `HTTP ${res.status}`)
+      }
+      setSource('live')
+      return await res.json() as ImportReport
+    } catch (e) {
+      if (e instanceof Error && !(e instanceof TypeError)) throw e
+      return null
+    }
+  },
 }
 
 // ── SVC-03 Code Relationship (S-1-4) ──

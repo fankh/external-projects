@@ -1,6 +1,6 @@
 /** S-1-1 Sub Code 등록 (W-04 / 디자인시안 b04) — 마스터(그리드)-디테일(폼) 표준형.
  *  중복검토(CODE-006) · 승인 요청 → PENDING 행 추가. */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SubCodeSlot } from '../../api/mock/dataCode'
 import { codeSetupService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
@@ -16,10 +16,16 @@ export function SubCodeScreen({ active }: ScreenProps) {
   const { t } = useI18n()
   const [rows, setRows] = useState<SubCodeSlot[]>([])
   const [selSlot, setSelSlot] = useState<string | null>(null)
-
+  // C2 — 코드 그룹 관리 (셀렉터·등록·Excel 왕복)
+  const [group, setGroup] = useState('KOF')
+  const [groups, setGroups] = useState<{ groupCode: string; groupName: string; groupType: string; slotCount: number; status: string }[]>([])
+  const fileRef = useRef<HTMLInputElement>(null)
+  const loadGroups = () => void codeSetupService.listGroups().then(setGroups)
+  useEffect(() => { loadGroups() }, [])
   useEffect(() => {
-    void codeSetupService.groupTable('KOF').then(setRows)
-  }, [])
+    void codeSetupService.groupTable(group).then(setRows)
+  }, [group])
+  const groupName = groups.find((g) => g.groupCode === group)?.groupName ?? 'Specification - Fan'
   const [newItemNo, setNewItemNo] = useState('G')
   const [newDesc, setNewDesc] = useState('Impeller Type')
   const [newValues, setNewValues] = useState('Airfoil · Forward · 900 1000 1120')
@@ -52,9 +58,9 @@ export function SubCodeScreen({ active }: ScreenProps) {
     const values = newValues.split(/[·,]+|\s{2,}/).map((v) => v.trim()).filter(Boolean)
     void (async () => {
       try {
-        const mode = await codeSetupService.addItem('KOF', slot, newDesc, values)
+        const mode = await codeSetupService.addItem(group, slot, newDesc, values)
         if (mode === 'live') {
-          setRows(await codeSetupService.groupTable('KOF'))
+          setRows(await codeSetupService.groupTable(group))
         } else {
           setRows((prev) => [
             ...prev.filter((r) => r.slot !== slot),
@@ -71,10 +77,38 @@ export function SubCodeScreen({ active }: ScreenProps) {
   }
 
   const reload = () => {
-    void codeSetupService.groupTable('KOF').then((r) => {
+    void codeSetupService.groupTable(group).then((r) => {
       setRows(r)
-      shell.setStatusMsg(`재조회 ✓ — Group KOF · ${r.length}개 Slot (code_item)`)
+      shell.setStatusMsg(`재조회 ✓ — Group ${group} · ${r.length}개 Slot (code_item)`)
     })
+  }
+
+  // C2 — 그룹 등록·Excel 왕복
+  const createGroup = () => {
+    const code = window.prompt('그룹 코드 (예: KOF2)')?.trim().toUpperCase()
+    if (!code) return
+    const name = window.prompt('그룹 이름 (예: Specification - Fan)')?.trim()
+    if (!name) return
+    void codeSetupService.createGroup({ groupCode: code, groupName: name, groupType: 'SPECIFICATION' })
+      .then((ok) => {
+        if (ok) { loadGroups(); setGroup(code); shell.setStatusMsg(`그룹 등록 ✓ — ${code} ${name} (code_group DRAFT)`) }
+        else shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>등록 불가 — 백엔드 연결 필요</span>)
+      })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+  const doExport = () => {
+    void codeSetupService.exportGroup(group).then((ok) => {
+      shell.setStatusMsg(ok ? `Excel 내보내기 ✓ — ${group}.xlsx (code_item)`
+        : <span style={{ color: 'var(--err)' }}>내보내기 불가 — 백엔드 연결 필요</span>)
+    })
+  }
+  const doImport = (f: globalThis.File) => {
+    void codeSetupService.importGroup(group, f).then((rep) => {
+      if (!rep) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>Import 불가 — 백엔드 연결 필요</span>); return }
+      reload(); loadGroups()
+      const rej = rep.rejected.length ? ` · 거부 ${rep.rejected.length}` : ''
+      shell.setStatusMsg(`Excel Import ✓ — 추가 ${rep.inserted}·갱신 ${rep.updated}${rej} (code_item)`)
+    }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }
 
   useFKeys(active, useMemo(() => ({
@@ -100,9 +134,12 @@ export function SubCodeScreen({ active }: ScreenProps) {
     <div className="fill-col">
       <div className="qband">
         <label>Group<i>*</i></label>
-        <input className="in req" style={{ width: 64 }} defaultValue="KOF" aria-label="Group" />
+        <Combo width={90} value={group}
+          options={groups.length ? groups.map((g) => g.groupCode) : [group]}
+          onChange={setGroup} />
+        <Btn onClick={createGroup}>{t('subcode.groupReg', '그룹 등록')}</Btn>
         <label>{t('subcode.desc', '설명')}</label>
-        <input className="in" style={{ width: 170 }} defaultValue="Specification - Fan" aria-label="설명" />
+        <input className="in ro" style={{ width: 160 }} value={groupName} readOnly aria-label="설명" />
         <label>{t('subcode.apprStatus', '승인상태')}</label>
         <Combo width={84} value="전체" options={[
           { value: '전체', label: t('enum.all', '전체') },
@@ -119,10 +156,15 @@ export function SubCodeScreen({ active }: ScreenProps) {
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox style={{ flex: 1.3 }} noPad
-          title="Registered Code Table — KOF"
+          title={`Registered Code Table — ${group}`}
           right={<>
-            <Chip tone="ok">Approved</Chip>
-            <span className="b" style={{ height: 18, fontSize: 10 }}>Excel ⬆⬇</span>
+            <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }}
+              aria-label="code_item Excel"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
+            <span className="b" style={{ height: 18, fontSize: 10, cursor: 'pointer' }}
+              onClick={() => fileRef.current?.click()}>Excel ⬆</span>
+            <span className="b" style={{ height: 18, fontSize: 10, cursor: 'pointer' }}
+              onClick={doExport}>Excel ⬇</span>
           </>}>
           <DenseGrid columns={cols} rows={rows} rowKey={(r) => r.slot}
             selectedKey={selSlot} onRowClick={(r) => setSelSlot(r.slot)} />

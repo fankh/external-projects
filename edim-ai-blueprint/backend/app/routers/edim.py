@@ -456,6 +456,128 @@ def group_slots(group: str) -> list[dict[str, Any]]:
         ]
 
 
+class GroupCreate(BaseModel):
+    groupCode: str
+    groupName: str
+    groupType: str = "SPECIFICATION"
+    hierarchyAddress: str = ""
+
+
+@router.get("/codes/groups")
+def list_groups() -> list[dict[str, Any]]:
+    """코드 그룹 목록 (C2 — S-1-1 상위 그룹 관리)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT cg.group_code, cg.group_name, cg.group_type, cg.hierarchy_address,
+                      cg.approval_status, count(ci.item_id)
+               FROM code_group cg LEFT JOIN code_item ci ON ci.group_id=cg.group_id
+               WHERE cg.tenant_id=%s GROUP BY cg.group_id ORDER BY cg.group_code""", (tid,))
+        return [{"groupCode": r[0], "groupName": r[1], "groupType": r[2],
+                 "hierarchyAddress": r[3], "status": r[4], "slotCount": r[5]}
+                for r in cur.fetchall()]
+
+
+@router.post("/codes/groups", status_code=201, dependencies=[SETUP])
+def create_group(request: Request, body: GroupCreate) -> dict[str, Any]:
+    """코드 그룹 등록 (C2) — DRAFT 로 생성."""
+    gt = body.groupType.strip().upper()
+    if gt not in ("SPECIFICATION", "RAW_MATERIAL", "GPI", "PRODUCT"):
+        raise HTTPException(422, detail="그룹 유형 오류 (SPECIFICATION/RAW_MATERIAL/GPI/PRODUCT)")
+    code = body.groupCode.strip().upper()[:20]
+    if not code or not body.groupName.strip():
+        raise HTTPException(422, detail="필수 — 그룹 코드·이름")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM code_group WHERE tenant_id=%s AND group_code=%s", (tid, code))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 그룹 코드 {code}")
+        addr = body.hierarchyAddress.strip() or f"/C/{code}"
+        cur.execute(
+            """INSERT INTO code_group (tenant_id, group_code, group_name, group_type,
+               hierarchy_address, approval_status, created_by)
+               VALUES (%s,%s,%s,%s,%s,'DRAFT',%s) RETURNING group_id""",
+            (tid, code, body.groupName.strip()[:100], gt, addr, str(request.state.user_id)))
+        gid = cur.fetchone()[0]
+        _audit(cur, tid, "code_group", gid, "CREATE", request.state.user_id, {"groupCode": code})
+    return {"groupCode": code, "status": "DRAFT"}
+
+
+@router.get("/codes/groups/{group}/export.xlsx")
+def export_group_xlsx(group: str) -> Response:
+    """그룹 code_item Excel 내보내기 (C2 — Slot·Item Name·Sort·Values)."""
+    from openpyxl import Workbook
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT group_id FROM code_group WHERE tenant_id=%s AND group_code=%s", (tid, group))
+        g = cur.fetchone()
+        if not g:
+            raise HTTPException(404, detail=f"그룹 없음: {group}")
+        cur.execute(
+            """SELECT ci.item_slot, ci.item_name, ci.sort_order,
+                      string_agg(civ.value_code, ',' ORDER BY civ.sort_order)
+               FROM code_item ci LEFT JOIN code_item_value civ ON civ.item_id=ci.item_id
+               WHERE ci.group_id=%s GROUP BY ci.item_id ORDER BY ci.item_slot""", (g[0],))
+        rows = cur.fetchall()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = group[:31]
+    ws.append(["Slot", "Item Name", "Sort", "Values"])
+    for r in rows:
+        ws.append([r[0], r[1], r[2], r[3] or ""])
+    buf = io.BytesIO()
+    wb.save(buf)
+    from urllib.parse import quote
+    return Response(
+        buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(group)}.xlsx"})
+
+
+@router.post("/codes/groups/{group}/import-excel", dependencies=[SETUP])
+async def import_group_excel(group: str, request: Request,
+                             uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+    """code_item 일괄 Import (C2) — Slot·Item Name 헤더, 행 단위 거부 리포트 (Slot 중복=갱신)."""
+    import openpyxl
+    data = await uploadedFile.read()
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, detail="Excel 파일이 아닙니다 (.xlsx)")
+    ws = wb.active
+    header = [str(c.value).strip().lower() if c.value is not None else "" for c in ws[1]]
+    if "slot" not in header or "item name" not in header:
+        raise HTTPException(422, detail="헤더 필요 — Slot, Item Name")
+    si, ni = header.index("slot"), header.index("item name")
+    inserted = updated = 0
+    rejected: list[str] = []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT group_id FROM code_group WHERE tenant_id=%s AND group_code=%s", (tid, group))
+        g = cur.fetchone()
+        if not g:
+            raise HTTPException(404, detail=f"그룹 없음: {group}")
+        for i, row in enumerate(ws.iter_rows(min_row=2), 2):
+            slot = str(row[si].value).strip().upper()[:5] if si < len(row) and row[si].value is not None else ""
+            nm = str(row[ni].value).strip()[:100] if ni < len(row) and row[ni].value is not None else ""
+            if not slot or not nm:
+                rejected.append(f"{i}행: Slot·Item Name 필수")
+                continue
+            cur.execute("SELECT item_id FROM code_item WHERE group_id=%s AND item_slot=%s", (g[0], slot))
+            ex = cur.fetchone()
+            if ex:
+                cur.execute("UPDATE code_item SET item_name=%s, updated_at=now() WHERE item_id=%s", (nm, ex[0]))
+                updated += 1
+            else:
+                cur.execute(
+                    """INSERT INTO code_item (tenant_id, group_id, item_slot, item_name, sort_order)
+                       VALUES (%s,%s,%s,%s,%s)""", (tid, g[0], slot, nm, inserted + updated))
+                inserted += 1
+        _audit(cur, tid, "code_group", g[0], "IMPORT", request.state.user_id,
+               {"group": group, "inserted": inserted, "updated": updated, "rejected": len(rejected)})
+    return {"inserted": inserted, "updated": updated, "rejected": rejected}
+
+
 class ExpandRequest(BaseModel):
     rootCode: str = "KDCR 3-13"
     slotValues: dict[str, str]
