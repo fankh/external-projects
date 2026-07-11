@@ -19,6 +19,8 @@ TMP_DIR = os.path.join(BASE, "tools", "_tmp_html")
 # (MD 상대경로, PDF 파일명, 문서 제목)
 DOCS = [
     ("EDIM_개요.md", "EDIM_시스템개요서.pdf", "EDIM 시스템 개요서"),
+    ("EDIM_사업수행계획서.md", "EDIM_사업수행계획서.pdf", "EDIM 사업수행계획서"),
+    ("EDIM_보안관리계획서.md", "EDIM_보안관리계획서.pdf", "EDIM 보안관리계획서"),
     ("README.md", "EDIM_문서관리요약.pdf", "EDIM 문서 관리 요약"),
     ("EDIM_요구사항_보완노트.md", "EDIM_요구사항보완노트.pdf", "EDIM 요구사항 보완노트"),
     ("EDIM_DB_정의서.md", "EDIM_DB정의서.pdf", "EDIM DB 정의서"),

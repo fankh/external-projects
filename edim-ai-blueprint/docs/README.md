@@ -3,11 +3,11 @@
 > **edim-ai-blueprint 프로젝트 문서 체계의 단일 진입점.**
 > 무엇이 어디에 있고, 서로 어떻게 연결되며, 어떻게 수정·재생성하는지를 요약한다.
 >
-> 전체 산출물 현황·계획의 단일 기준: [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx) (34종)
+> 전체 산출물 현황·계획의 단일 기준: [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx) (37종)
 
 | 항목 | 내용 |
 |---|---|
-| 최종 갱신 | 2026-07-07 |
+| 최종 갱신 | 2026-07-11 (착수 문서 3종 완료) |
 | 원천 자료 | `reference/EDIM Tool System EP2.pptx` (NOVA Solution, 78슬라이드) |
 | 저장소 | https://github.com/fankh/external-projects (`edim-ai-blueprint/docs/`) |
 | 온라인 열람 | 화면설계서: https://edim.seekerslab.com/design/ · 디자인 A: /design/hifi/ · **디자인 B(권고): /design/dense/** |
@@ -77,13 +77,16 @@ flowchart TB
 | 컴포넌트 정의서 | [`EDIM_컴포넌트_정의서.md`](EDIM_컴포넌트_정의서.md) / [`xlsx`](EDIM_컴포넌트정의서.xlsx) | v0.2 | MD + Excel | 39컴포넌트·API 108 — **구축 상태 열 포함** (개발 서버 현황) |
 | DB 정의서 | [`EDIM_DB_정의서.md`](EDIM_DB_정의서.md) / [`xlsx`](EDIM_DB정의서.xlsx) | v0.5 | MD + Excel | 54테이블 462컬럼 (i18n) — 설계 원칙·공통코드·미결정 8건 |
 | 요구사항추적표 (RTM) | [`EDIM_요구사항추적표.xlsx`](EDIM_요구사항추적표.xlsx) | 자동 | Excel 3시트 | REQ→기능→메뉴→화면→컴포넌트→DB 180행, **커버리지 179/179** |
-| 산출물목록 | [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx) | v0.1 | Excel 2시트 | 34종 레지스터 — 상태·우선 권고. **신규 문서는 여기에 먼저 등록** |
+| 산출물목록 | [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx) | v0.2 | Excel 2시트 | 37종 레지스터 — 상태·우선 권고. **신규 문서는 여기에 먼저 등록** |
 | 권한·승인 정의서 | [`EDIM_권한승인정의서.xlsx`](EDIM_권한승인정의서.xlsx) | v0.1 | Excel 6시트 | 역할 4종·매트릭스(97메뉴 자동)·승인 상태기계 13·Platform 범위·Grade |
 | 개발 표준 정의서 | [`EDIM_개발표준정의서.md`](EDIM_개발표준정의서.md) | v0.1 | MD | 공통 원칙·명명·API 규약·FE/BE·Git/리뷰·테스트·보안·CI — 개정 트리거 연동 |
 | DB DDL·검증 | [`ddl/edim_schema.sql`](ddl/edim_schema.sql) / [`ddl/verify_runtime.sql`](ddl/verify_runtime.sql) | v0.4.1 | SQL | 실 PG16 검증 통과 — BOM 재귀·제약 6종·Project Folder 실행 확인 |
 | WBS·일정표 | [`04_WBS/EDIM_WBS.xlsx`](04_WBS/EDIM_WBS.xlsx) | v0.1 | Excel 3시트 | 38 Task·44주 간트·마일스톤 4 — 시작일 가정 |
 | 기능확인서 (FVT) | [`03_기능확인서_FVT/EDIM_기능확인서.xlsx`](03_기능확인서_FVT/EDIM_기능확인서.xlsx) | v0.1 | Excel 6시트 (자동) | 기능 179·비기능 22 확인 항목·결함목록·승인란 — 판정 기입 후 버전 고정 |
 | 데이터 이행 계획서 | [`EDIM_데이터이행계획서.md`](EDIM_데이터이행계획서.md) | v0.1 | MD | 이행 대상 9·원칙 5·절차 5단계·검증 6기준·AI 학습 연계 |
+| 사업수행계획서 | [`EDIM_사업수행계획서.md`](EDIM_사업수행계획서.md) | v0.1 | MD | 범위·조직·일정·관리 체계 — 계약 확정(시작일·인력·협의 4건) 시 v1.0 승격 |
+| 위험관리대장 | [`EDIM_위험관리대장.xlsx`](EDIM_위험관리대장.xlsx) | v0.1 | Excel 2시트 (자동) | 초기 위험 14건(3×3 평가·대응 전략) — `make_risk_xlsx.py` 재생성, 주간 갱신 |
+| 보안관리계획서 | [`EDIM_보안관리계획서.md`](EDIM_보안관리계획서.md) | v0.1 | MD | REQ-N 보안 기준선·RBAC·데이터/문서 보안·인프라·사고 대응 — 솔루션 범위 협의 후 v0.2 |
 | 인터페이스 정의서 | [`EDIM_인터페이스정의서.md`](EDIM_인터페이스정의서.md) · [`api/edim-openapi.yaml`](api/edim-openapi.yaml) | v0.1 | MD + OpenAPI 3.1 | 공통 규약(4로케일)·시나리오·WS·외부 연계 8종 — **스펙은 APIS 목록에서 자동 생성** |
 | 클래스 정의서 | [`EDIM_클래스정의서.md`](EDIM_클래스정의서.md) | v0.1 | MD (classDiagram 2) | 언어 중립 도메인 모델 — 11도메인, 인바리언트↔DB 제약 이중 방어 대응표 |
 | 디자인 시안 A (Modern) | [`EDIM_디자인시안.html`](EDIM_디자인시안.html) | v0.1 | HTML | 브랜드 접점용 (로그인·Dashboard·모바일) · /design/hifi/ |
@@ -143,6 +146,7 @@ py docs/tools/make_component_xlsx.py      # 컴포넌트정의서
 py docs/tools/make_doclist_xlsx.py        # 산출물목록
 py docs/tools/make_authz_xlsx.py          # 권한승인정의서 (메뉴 수정 후 재실행)
 py docs/tools/make_wbs_xlsx.py            # WBS (START 상수 = 시작일 가정)
+py docs/tools/make_risk_xlsx.py           # 위험관리대장 (RISKS 목록 수정 후 재실행)
 py docs/tools/make_fvt_xlsx.py            # 기능확인서 (기능정의서 기반 — 판정 기입 전까지만)
 py docs/tools/make_openapi.py             # OpenAPI 스펙 (APIS 수정 후 필수 — 자동 검증)
 py docs/tools/md2pdf.py                   # MD 9종 → docs/pdf/ PDF (Mermaid 렌더 포함, MD 수정 후 필수)
@@ -178,10 +182,10 @@ py docs/tools/make_docs_portal.py         # 다운로드 포털 (파일 추가·
 
 ## 5. 다음 작성 우선순위
 
-산출물목록 v0.1 기준 (상세는 [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx)):
+산출물목록 v0.2 기준 (상세는 [`EDIM_산출물목록.xlsx`](EDIM_산출물목록.xlsx)):
 
-1. ~~권한·승인 정의서~~ — ✅ 완료 (v0.1)
-2. ~~개발 표준 정의서~~ — ✅ 완료 (v0.1)
-3. **데이터 이행 계획서** — 고객 기존 자료 이관 + AI 학습 연계 (조기 협의)
-4. WBS 내용화 (P1~P5) · FVT 내용화 (기능 178건 → 확인 항목)
+1. ~~권한·승인 정의서~~ · ~~개발 표준 정의서~~ · ~~데이터 이행 계획서~~ · ~~WBS·FVT 내용화~~ — ✅ 완료
+2. ~~착수 문서 3종 (사업수행계획서·위험관리대장·보안관리계획서)~~ — ✅ 완료 (v0.1, 2026-07-11)
+3. **배치(Job) 정의서 · 보고서/양식 정의서** — Run·AI 파이프라인 잡, Print Form 양식
+4. 운영자·사용자 매뉴얼 (안정화 단계) · 현행분석서·제안서 (고객사·사업 조건 확정 후)
 5. 고객 협의 대기: 보안 솔루션 범위 · DUCT 사업 범위 · ERP 자체구현/연계 경계 (보완노트 §3.3)
