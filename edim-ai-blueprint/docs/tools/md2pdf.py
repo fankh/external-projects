@@ -30,6 +30,7 @@ DOCS = [
     ("EDIM_개발표준정의서.md", "EDIM_개발표준정의서.pdf", "EDIM 개발 표준 정의서"),
     ("EDIM_데이터이행계획서.md", "EDIM_데이터이행계획서.pdf", "EDIM 데이터 이행 계획서"),
     ("EDIM_배치보고서양식정의서.md", "EDIM_배치보고서양식정의서.pdf", "EDIM 배치·보고서양식 정의서"),
+    ("EDIM_설치배포매뉴얼.md", "EDIM_설치배포매뉴얼.pdf", "EDIM 설치·배포 매뉴얼"),
     ("EDIM_사용자가이드.md", "EDIM_사용자가이드.pdf", "EDIM 사용자 가이드"),
     ("EDIM_관리자가이드.md", "EDIM_관리자가이드.pdf", "EDIM 관리자 가이드"),
     ("EDIM_시연시나리오.md", "EDIM_시연시나리오.pdf", "EDIM 시연 시나리오"),
