@@ -14,6 +14,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  backend-unit:
+    # C5 — 백엔드 순수 로직 단위 테스트 (macro_engine 등, DB 불요·라이브 서버 불요)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pytest
+        run: pip install pytest
+      - name: Run backend unit tests
+        working-directory: edim-ai-blueprint/backend
+        run: python -m pytest tests/ -v
+
   regression:
     runs-on: ubuntu-latest
     timeout-minutes: 15
