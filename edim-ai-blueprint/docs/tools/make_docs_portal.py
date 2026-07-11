@@ -51,6 +51,9 @@ FILES = [
  ("계획·이행", "pdf/EDIM_보안관리계획서.pdf", "보안관리계획서", "REQ-N 보안 기준선·RBAC·문서 Grade·인프라·사고 대응"),
  ("계획·이행", "pdf/EDIM_데이터이행계획서.pdf", "데이터 이행 계획서", "이행 대상 9종·5단계·검증 6기준·AI 학습 연계"),
 
+ ("매뉴얼", "pdf/EDIM_사용자가이드.pdf", "사용자 가이드", "공통 조작(F-Key·탭·검색)·모듈별 안내·FAQ — GENERAL·SETUP 대상"),
+ ("매뉴얼", "pdf/EDIM_관리자가이드.pdf", "관리자 가이드", "계정·권한·문서 통제·승인 운영·서버 운영·장애 대응 — ADMIN/PLATFORM"),
+
  ("근거 자료", "reference/EDIM Tool System EP2.pptx", "원본 발표자료 (PPTX)", "NOVA Solution · 78슬라이드 — 대용량"),
  ("근거 자료", "reference/EDIM Tool System EP2.pdf", "발표자료 렌더링 (PDF)", "슬라이드 시각 확인용 — 대용량"),
  ("근거 자료", "reference/EDIM_EP2_slide_text.txt", "슬라이드 텍스트 추출", "전 슬라이드 텍스트"),
