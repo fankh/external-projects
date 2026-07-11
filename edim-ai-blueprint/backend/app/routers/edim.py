@@ -3389,17 +3389,95 @@ def pr_items() -> list[dict[str, Any]]:
             r = cur.fetchone()
             if not r:
                 continue
-            stock_ok = bool(meta.get("stockOk"))
+            # D2 — Stock Check 실재고 기반 (inv_stock 총 보유수량 ≥ 소요수량)
+            cur.execute(
+                "SELECT COALESCE(sum(quantity),0) FROM inv_stock WHERE tenant_id=%s AND item_code=%s",
+                (tid, code))
+            on_hand = float(cur.fetchone()[0])
+            stock_ok = on_hand >= meta["qty"]
             out.append({
                 "code": code, "name": r[0],
                 "supplierCode": meta["supplierCode"],
                 "supplier": "-" if stock_ok else (r[2] or "-"),
-                "qty": meta["qty"],
+                "qty": meta["qty"], "onHand": on_hand,
                 "price": None if stock_ok else (float(r[1]) if r[1] is not None else None),
                 "requiredDate": meta["requiredDate"], "delivery": meta["delivery"],
                 "stockOk": stock_ok, "checked": not stock_ok,
             })
     return out
+
+
+class InboundRequest(BaseModel):
+    itemCode: str
+    itemName: str = ""
+    locationCode: str
+    quantity: float
+    refNo: str = ""
+
+
+@router.post("/erp/stock/inbound", status_code=201, dependencies=[SETUP])
+def stock_inbound(request: Request, body: InboundRequest) -> dict[str, Any]:
+    """입고 처리 (D2) — PO 품목 입고 → inv_movement(IN) + inv_stock upsert. 발주→재고 고리(MI)."""
+    item = body.itemCode.strip()[:50]
+    loc = body.locationCode.strip()[:30]
+    if not item or not loc or body.quantity <= 0:
+        raise HTTPException(422, detail="필수 — 품목·위치·수량(>0)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """INSERT INTO inv_movement (tenant_id, item_code, location_code, movement_type,
+               quantity, ref_type, ref_no, created_by)
+               VALUES (%s,%s,%s,'IN',%s,'PO',%s,%s)""",
+            (tid, item, loc, body.quantity, body.refNo.strip()[:50] or None, str(request.state.user_id)))
+        cur.execute(
+            """INSERT INTO inv_stock (tenant_id, item_code, item_name, location_code, quantity)
+               VALUES (%s,%s,%s,%s,%s)
+               ON CONFLICT (tenant_id, item_code, location_code)
+               DO UPDATE SET quantity = inv_stock.quantity + EXCLUDED.quantity,
+                             item_name = COALESCE(EXCLUDED.item_name, inv_stock.item_name),
+                             updated_at = now()
+               RETURNING quantity""",
+            (tid, item, body.itemName.strip()[:200] or None, loc, body.quantity))
+        on_hand = float(cur.fetchone()[0])
+        _audit(cur, tid, "inv_stock", 0, "INBOUND", request.state.user_id,
+               {"item": item, "location": loc, "qty": body.quantity})
+    return {"itemCode": item, "locationCode": loc, "onHand": on_hand}
+
+
+@router.get("/erp/stock")
+def stock_list() -> list[dict[str, Any]]:
+    """재고 조회 (D2) — 품목×창고 위치 현재 수량."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT s.item_code, s.item_name, s.location_code, w.location_name,
+                      s.quantity, s.unit, to_char(s.updated_at,'YYYY-MM-DD HH24:MI')
+               FROM inv_stock s
+               LEFT JOIN erp_warehouse w ON w.tenant_id=s.tenant_id AND w.location_code=s.location_code
+               WHERE s.tenant_id=%s ORDER BY s.item_code, s.location_code""", (tid,))
+        return [{"itemCode": r[0], "itemName": r[1] or "-", "locationCode": r[2],
+                 "locationName": r[3] or r[2], "quantity": float(r[4]), "unit": r[5],
+                 "updatedAt": r[6]} for r in cur.fetchall()]
+
+
+@router.get("/erp/stock/movements")
+def stock_movements(item: str = "", limit: int = 30) -> list[dict[str, Any]]:
+    """입출고 이력 (D2)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        params: list[Any] = [tid]
+        clause = ""
+        if item.strip():
+            clause = " AND item_code=%s"
+            params.append(item.strip())
+        params.append(limit)
+        cur.execute(
+            f"""SELECT item_code, location_code, movement_type, quantity, ref_type, ref_no,
+                       to_char(moved_at,'MM-DD HH24:MI')
+                FROM inv_movement WHERE tenant_id=%s{clause}
+                ORDER BY movement_id DESC LIMIT %s""", tuple(params))
+        return [{"itemCode": r[0], "locationCode": r[1], "type": r[2], "quantity": float(r[3]),
+                 "refType": r[4], "refNo": r[5], "at": r[6]} for r in cur.fetchall()]
 
 
 # ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──

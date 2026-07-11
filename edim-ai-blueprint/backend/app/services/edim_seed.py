@@ -419,6 +419,7 @@ def run_seed() -> None:
             seed_v23(cur, row[0])
             seed_v24(cur, row[0])
             seed_v25(cur, row[0])
+            seed_v26(cur, row[0])
             _seed_invariants(cur, row[0])
             return
 
@@ -540,6 +541,7 @@ def run_seed() -> None:
         seed_v23(cur, tid)
         seed_v24(cur, tid)
         seed_v25(cur, tid)
+        seed_v26(cur, tid)
         _seed_invariants(cur, tid)
 
 
@@ -2338,3 +2340,22 @@ def seed_v25(cur, tid: int) -> None:
                 cur.execute(
                     """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
                        VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+def seed_v26(cur, tid: int) -> None:
+    """D2 — 데모 재고 (inv_stock, 멱등: 마이그레이션 0004 후·비어있을 때만)."""
+    cur.execute("SELECT to_regclass('public.inv_stock')")
+    if not cur.fetchone()[0]:
+        return
+    cur.execute("SELECT 1 FROM inv_stock WHERE tenant_id=%s LIMIT 1", (tid,))
+    if cur.fetchone():
+        return
+    for code, name, loc, qty in [("EWT-3", "Water Trap", "GEN-A01", 5),
+                                 ("KDC-1", "Casing 강판", "WH-A-GEN", 2)]:
+        cur.execute(
+            """INSERT INTO inv_stock (tenant_id, item_code, item_name, location_code, quantity)
+               VALUES (%s,%s,%s,%s,%s)""", (tid, code, name, loc, qty))
+        cur.execute(
+            """INSERT INTO inv_movement (tenant_id, item_code, location_code, movement_type,
+               quantity, ref_type) VALUES (%s,%s,%s,'IN',%s,'SEED')""", (tid, code, loc, qty))
+    logger.info("seed v26 — 데모 재고 2건")

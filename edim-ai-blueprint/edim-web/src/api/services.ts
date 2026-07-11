@@ -2013,6 +2013,49 @@ export interface OrdersData {
   totalAmount: number
 }
 
+// D2 — 입고·재고 관리
+export interface StockRow {
+  itemCode: string; itemName: string; locationCode: string; locationName: string
+  quantity: number; unit: string; updatedAt: string
+}
+export interface MovementRow {
+  itemCode: string; locationCode: string; type: 'IN' | 'OUT'; quantity: number
+  refType: string | null; refNo: string | null; at: string
+}
+
+export const inventoryService = {
+  /** GET /api/v1/erp/stock — 재고 조회 (품목×위치; null=백엔드 불가) */
+  async stock(): Promise<StockRow[] | null> {
+    try {
+      return await api<StockRow[]>('/erp/stock')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/erp/stock/movements — 입출고 이력 */
+  async movements(item = ''): Promise<MovementRow[] | null> {
+    try {
+      return await api<MovementRow[]>(`/erp/stock/movements${item ? `?item=${encodeURIComponent(item)}` : ''}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/erp/stock/inbound — 입고 처리 (PO→MI; false=백엔드 불가) */
+  async inbound(body: { itemCode: string; itemName?: string; locationCode: string; quantity: number; refNo?: string }): Promise<number | false> {
+    try {
+      const r = await api<{ onHand: number }>('/erp/stock/inbound', {
+        method: 'POST', body: JSON.stringify(body),
+      })
+      return r.onHand
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const orderService = {
   /** GET /api/v1/cost/orders — 수주 잔고 + 수주율 (D1; null=백엔드 불가) */
   async list(): Promise<OrdersData | null> {
