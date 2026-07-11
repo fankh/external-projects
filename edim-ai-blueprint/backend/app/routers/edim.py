@@ -342,6 +342,23 @@ def i18n_bundle(locale: str) -> dict[str, str]:
 # ── SVC-01 Auth ──
 MAX_LOGIN_FAILS = 5   # 연속 실패 → 자동 LOCKED (B8, SEC-002)
 
+# C10 — 로그인 레이트리밋 (무차별 대입 완화; 계정 잠금 이전 단계 속도 제한, 인메모리)
+from collections import deque  # noqa: E402
+
+LOGIN_RATE_MAX = 10       # WINDOW 초 내 최대 시도
+LOGIN_RATE_WINDOW = 60
+_login_hits: dict[str, deque] = {}
+
+
+def _login_rate_check(key: str) -> None:
+    now = time.time()
+    dq = _login_hits.setdefault(key, deque(maxlen=64))
+    while dq and now - dq[0] > LOGIN_RATE_WINDOW:
+        dq.popleft()
+    if len(dq) >= LOGIN_RATE_MAX:
+        raise HTTPException(429, detail="로그인 시도 과다 — 잠시 후 다시 시도하십시오 (rate limit)")
+    dq.append(now)
+
 
 class LoginRequest(BaseModel):
     userId: str
@@ -352,6 +369,7 @@ class LoginRequest(BaseModel):
 @router.post("/auth/login")
 def login(body: LoginRequest) -> dict[str, Any]:
     login_id = body.userId.strip()
+    _login_rate_check(login_id or "-")   # C10 — 속도 제한 (429)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
