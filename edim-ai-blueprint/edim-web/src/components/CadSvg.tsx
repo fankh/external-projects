@@ -92,11 +92,17 @@ function entityBBox(e: CadEntity): { minx: number; miny: number; maxx: number; m
   }
 }
 
-/** 스냅 후보점 — 끝점·정점·중심 */
+/** 스냅 후보점 — 끝점·정점·중점·중심 */
 function snapPoints(e: CadEntity): Pt[] {
+  const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
   switch (e.entityType) {
-    case 'line': return [e.startPoint!, e.endPoint!]
-    case 'polyline': return e.vertexPoints!
+    case 'line': return [e.startPoint!, e.endPoint!, mid(e.startPoint!, e.endPoint!)]
+    case 'polyline': {
+      const v = e.vertexPoints!
+      const mids = v.slice(1).map((p, i) => mid(v[i], p))
+      if (e.isClosed && v.length > 2) mids.push(mid(v[v.length - 1], v[0]))
+      return [...v, ...mids]
+    }
     case 'circle': return [e.centerPoint!]
     case 'arc': {
       const c = e.centerPoint!
@@ -236,6 +242,7 @@ export function CadSvg(props: {
   drawRef.current = drawTool
   const ddraw = useRef<{ ax: number; ay: number } | null>(null)
   const [drawPreview, setDrawPreview] = useState<{ ax: number; ay: number; bx: number; by: number } | null>(null)
+  const [snapMark, setSnapMark] = useState<Pt | null>(null)   // 스냅 히트 표시
   const selected = useMemo(
     () => (selIds.size === 1 ? doc.entities.find((e) => e.entityId === selId) ?? null : null),
     [doc, selId, selIds])
@@ -257,7 +264,7 @@ export function CadSvg(props: {
   useEffect(() => {
     setM1(null); setM2(null); setMHover(null); clearSel(); setEditPreview(null)
     edrag.current = null; mdrag.current = null; setMarquee(null)
-    ddraw.current = null; setDrawPreview(null)
+    ddraw.current = null; setDrawPreview(null); setSnapMark(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc])
 
@@ -284,8 +291,8 @@ export function CadSvg(props: {
     () => doc.entities.filter((e) => !hidden.has(e.layerName)),
     [doc, hidden])
 
-  /** 스냅 — 화면 10px 이내 끝점/정점/중심 */
-  const snap = (p: Pt): Pt => {
+  /** 스냅 — 화면 10px 이내 끝점/정점/중점/중심 (hit 여부 포함) */
+  const snapHit = (p: Pt): { pt: Pt; hit: boolean } => {
     const tol = pxScale(viewRef.current) * 10
     let best: Pt | null = null
     let bd = tol
@@ -295,7 +302,19 @@ export function CadSvg(props: {
         if (d < bd) { bd = d; best = c }
       }
     }
-    return best ?? p
+    return best ? { pt: best, hit: true } : { pt: p, hit: false }
+  }
+  const snap = (p: Pt): Pt => snapHit(p).pt
+  // 작도 끝점 — 스냅 우선, 미스냅 시 Shift=Ortho(수평/수직 제약)
+  const drawEnd = (raw: Pt, start: Pt, shift: boolean): { pt: Pt; snapped: boolean } => {
+    const s = snapHit(raw)
+    if (s.hit) return { pt: s.pt, snapped: true }
+    if (shift && drawRef.current !== 'circle') {
+      return Math.abs(raw.x - start.x) >= Math.abs(raw.y - start.y)
+        ? { pt: { x: raw.x, y: start.y }, snapped: false }
+        : { pt: { x: start.x, y: raw.y }, snapped: false }
+    }
+    return { pt: raw, snapped: false }
   }
 
   const zoomAt = (clientX: number, clientY: number, factor: number) => {
@@ -476,7 +495,7 @@ export function CadSvg(props: {
           runOps((id) => ({ op: 'delete', entityId: id })); clearSel()
         } else if (e.key === 'Escape') {
           e.preventDefault()
-          setM1(null); setM2(null); setMHover(null); clearSel(); setDrawTool(null); ddraw.current = null; setDrawPreview(null)
+          setM1(null); setM2(null); setMHover(null); clearSel(); setDrawTool(null); ddraw.current = null; setDrawPreview(null); setSnapMark(null)
         }
       }}>
       <svg ref={svgRef} width="100%" height="100%" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
@@ -488,10 +507,11 @@ export function CadSvg(props: {
         onPointerDown={(e) => {
           if (e.button !== 0 && e.button !== 1) return
           e.currentTarget.setPointerCapture(e.pointerId)
-          if (drawRef.current && e.button === 0) {   // 자유 작도 시작
-            const p = toDrawing(e.clientX, e.clientY)
-            ddraw.current = { ax: p.x, ay: p.y }
-            setDrawPreview({ ax: p.x, ay: p.y, bx: p.x, by: p.y })
+          if (drawRef.current && e.button === 0) {   // 자유 작도 시작 (스냅)
+            const s = snapHit(toDrawing(e.clientX, e.clientY))
+            ddraw.current = { ax: s.pt.x, ay: s.pt.y }
+            setDrawPreview({ ax: s.pt.x, ay: s.pt.y, bx: s.pt.x, by: s.pt.y })
+            setSnapMark(s.hit ? s.pt : null)
             return
           }
           const editing = editRef.current && !measureRef.current
@@ -519,8 +539,10 @@ export function CadSvg(props: {
         onPointerMove={(e) => {
           setCur(toDrawing(e.clientX, e.clientY))   // 실시간 좌표
           if (ddraw.current) {
-            const p = toDrawing(e.clientX, e.clientY)
-            setDrawPreview({ ax: ddraw.current.ax, ay: ddraw.current.ay, bx: p.x, by: p.y })
+            const start = { x: ddraw.current.ax, y: ddraw.current.ay }
+            const end = drawEnd(toDrawing(e.clientX, e.clientY), start, e.shiftKey)
+            setDrawPreview({ ax: start.x, ay: start.y, bx: end.pt.x, by: end.pt.y })
+            setSnapMark(end.snapped ? end.pt : null)
             return
           }
           if (edrag.current) {
@@ -551,8 +573,8 @@ export function CadSvg(props: {
           if (ddraw.current) {
             const a = ddraw.current
             ddraw.current = null
-            const b = toDrawing(e.clientX, e.clientY)
-            setDrawPreview(null)
+            const b = drawEnd(toDrawing(e.clientX, e.clientY), { x: a.ax, y: a.ay }, e.shiftKey).pt
+            setDrawPreview(null); setSnapMark(null)
             const tool = drawRef.current
             const lyr = doc.layers[0]?.layerName ?? '0'
             if (tool === 'line' && Math.hypot(b.x - a.ax, b.y - a.ay) > pxScale(viewRef.current) * 3)
@@ -598,9 +620,9 @@ export function CadSvg(props: {
         }}
         onPointerCancel={() => {
           drag.current = null; edrag.current = null; mdrag.current = null; ddraw.current = null
-          setEditPreview(null); setMarquee(null); setDrawPreview(null); setDragging(false)
+          setEditPreview(null); setMarquee(null); setDrawPreview(null); setSnapMark(null); setDragging(false)
         }}
-        onPointerLeave={() => setCur(null)}
+        onPointerLeave={() => { setCur(null); setSnapMark(null) }}
         onDoubleClick={() => { if (!measureRef.current) setVb(null) }}>
         {gridOn ? (
           <g data-cad-grid>
@@ -634,6 +656,10 @@ export function CadSvg(props: {
             return <rect data-cad-draw x={Math.min(d.ax, d.bx)} y={Math.min(d.ay, d.by)}
               width={Math.abs(d.bx - d.ax)} height={Math.abs(d.by - d.ay)} {...cm} />
           })() : null}
+          {snapMark ? (
+            <rect data-cad-snap x={snapMark.x - px(5)} y={snapMark.y - px(5)} width={px(10)} height={px(10)}
+              fill="none" stroke="#E0A100" strokeWidth={strokeW * 1.6} />
+          ) : null}
         </g>
         {/* 측정 오버레이 — 도면 좌표 (y 부호 반전) */}
         {m1 && mEnd ? (
@@ -763,7 +789,7 @@ export function CadSvg(props: {
         {measureOn
           ? t('cad.measureHint', '두 점 클릭 = 거리 측정 · 끝점/중심 자동 스냅')
           : drawTool
-            ? t('cad.drawHint', '드래그 = 작도(선/원/사각) → DXF 추가 · Esc 취소')
+            ? t('cad.drawHint', '드래그 = 작도(선/원/사각) · 끝점/중점/중심 스냅 · Shift=수평·수직(Ortho) · Esc')
             : editOn
               ? t('cad.editHint', '엔티티 드래그=이동 · 빈곳 드래그=박스선택 · Shift+클릭=추가 · 중클릭=팬 · Delete=삭제')
               : t('cad.hint', '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성')}
