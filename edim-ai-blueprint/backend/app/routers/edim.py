@@ -6558,6 +6558,105 @@ def pcr_list() -> list[dict[str, Any]]:
         ]
 
 
+@router.get("/reports/catalog")
+def reports_catalog() -> list[dict[str, Any]]:
+    """리포트 센터 카탈로그 — 산발 리포트 생성기 목록 + 건수(데이터 기반)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*) FROM cst_pcr WHERE tenant_id=%s", (tid,))
+        pcr = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM cst_quotation WHERE tenant_id=%s", (tid,))
+        quot = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM doc_control WHERE tenant_id=%s", (tid,))
+        docs = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM dwg_file WHERE tenant_id=%s", (tid,))
+        dwg = cur.fetchone()[0]
+    return [
+        {"id": "pcr", "name": "PCR 수익성 보고서", "category": "원가", "kind": "PDF", "count": pcr,
+         "screen": "cpq-run", "desc": "기여마진·EBIT 수익성 분석 (RPT-07)"},
+        {"id": "quotation", "name": "견적서", "category": "영업", "kind": "PDF", "count": quot,
+         "screen": "cpq-run", "desc": "PCR 기반 견적서 렌더"},
+        {"id": "document", "name": "문서(Grade 워터마크)", "category": "문서", "kind": "PDF", "count": docs,
+         "screen": "cpq-docmgmt", "desc": "doc_control 문서 렌더 (S-1/S-2 CONFIDENTIAL)"},
+        {"id": "cad-plot", "name": "CAD 축척 도면", "category": "설계", "kind": "PDF", "count": dwg,
+         "screen": "com-folder", "desc": "DXF 1:scale 벡터 출력"},
+        {"id": "audit", "name": "감사 로그", "category": "보안", "kind": "XLSX", "count": None,
+         "screen": "erp-audit", "desc": "sys_history 기간/사용자/작업 필터 export"},
+    ]
+
+
+@router.get("/reports/pcr/{pcr_id}.pdf")
+def pcr_report_pdf(pcr_id: int) -> StreamingResponse:
+    """PCR 수익성 보고서 PDF (RPT-07) — 기여마진·EBIT·원가 구성."""
+    import io as _io
+
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfgen import canvas
+
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT p.business_type, p.sections, p.direct_cost_total, p.contribution_margin,
+                      p.ebit, p.status, s.finished_goods_code, COALESCE(pr.project_no,''),
+                      to_char(p.created_at,'YYYY-MM-DD')
+               FROM cst_pcr p JOIN cpq_selection s ON s.selection_id=p.selection_id
+               LEFT JOIN prj_project pr ON pr.project_id=s.project_id
+               WHERE p.tenant_id=%s AND p.pcr_id=%s""", (tid, pcr_id))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"PCR 없음: {pcr_id}")
+    biz, sections, direct, margin, ebit, status, code, proj, created = row
+
+    try:
+        pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
+        font = "HYSMyeongJo-Medium"
+    except Exception:
+        font = "Helvetica"
+    buf = _io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    W, H = A4
+    y = H - 60
+    c.setFont(font, 16); c.setFillColorRGB(0.09, 0.16, 0.31)
+    c.drawString(50, y, "PCR 수익성 보고서 (RPT-07)"); y -= 8
+    c.setStrokeColorRGB(0.09, 0.16, 0.31); c.setLineWidth(1.2); c.line(50, y, W - 50, y); y -= 24
+
+    def line(label: str, val: str, bold: bool = False) -> None:
+        nonlocal y
+        c.setFont(font, 11 if not bold else 12)
+        c.setFillColorRGB(0.35, 0.4, 0.5); c.drawString(54, y, label)
+        c.setFillColorRGB(0.1, 0.12, 0.18); c.drawRightString(W - 54, y, val)
+        y -= 20
+
+    def won(v: Any) -> str:
+        return f"{float(v):,.0f} 원" if v is not None else "—"
+
+    line("제품 코드", str(code)); line("프로젝트", proj or "—")
+    line("사업 유형", str(biz)); line("상태", str(status)); line("작성일", str(created))
+    y -= 6; c.setStrokeColorRGB(0.8, 0.84, 0.9); c.line(50, y, W - 50, y); y -= 22
+    line("직접비 합계", won(direct))
+    if isinstance(sections, (list, tuple)):
+        for sec in sections:
+            if isinstance(sec, dict):
+                nm = sec.get("name") or sec.get("label") or sec.get("key") or "-"
+                amt = sec.get("amount", sec.get("value", sec.get("total")))
+                line(f"  · {nm}", won(amt) if isinstance(amt, (int, float)) else str(amt))
+    elif isinstance(sections, dict):
+        for k, v in sections.items():
+            line(f"  · {k}", won(v) if isinstance(v, (int, float)) else str(v))
+    y -= 6; c.setStrokeColorRGB(0.8, 0.84, 0.9); c.line(50, y, W - 50, y); y -= 22
+    line("기여마진 (Contribution Margin)", won(margin), True)
+    line("EBIT", won(ebit), True)
+
+    c.setFont(font, 8); c.setFillColorRGB(0.5, 0.55, 0.62)
+    c.drawString(50, 40, f"EDIM · PCR #{pcr_id} · cst_pcr")
+    c.showPage(); c.save()
+    return StreamingResponse(
+        _io.BytesIO(buf.getvalue()), media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="PCR_{pcr_id}.pdf"'})
+
+
 class QuotationCreate(BaseModel):
     businessType: str = "PRE_SALES"
     validityPeriod: str = "견적일로부터 30일"

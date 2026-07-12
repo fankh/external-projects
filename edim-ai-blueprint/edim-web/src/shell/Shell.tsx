@@ -14,6 +14,7 @@ import { MENU_TREE, SCREEN_BY_NODE } from './menus'
 import type { TreeNode } from '../components/LnavTree'
 import { SelectionScreen } from '../screens/cpq/SelectionScreen'
 import { XCodeReviewScreen } from '../screens/cpq/XCodeReviewScreen'
+import { ReportCenterScreen } from '../screens/cpq/ReportCenterScreen'
 import { TechDataScreen } from '../screens/cpq/TechDataScreen'
 import { RunScreen } from '../screens/cpq/RunScreen'
 import { ArrangementSetupScreen } from '../screens/plm/ArrangementSetupScreen'
@@ -98,6 +99,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'cpq-docmgmt': DocumentMgmtScreen,
   'cpq-doctpl': DocTemplateScreen,
   'cpq-print': PrintSetupScreen,
+  'cpq-reports': ReportCenterScreen,
   'plm-duct': DuctDesignScreen,
   'erp-access': AccessControlScreen,
   'erp-audit': AuditQueryScreen,

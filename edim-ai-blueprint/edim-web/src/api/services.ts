@@ -3315,6 +3315,46 @@ export interface ProductCodeRow {
   status: string; createdAt: string; refs: number
 }
 
+export interface ReportCatalogRow {
+  id: string; name: string; category: string; kind: string; count: number | null; screen: string; desc: string
+}
+export interface PcrReportRow {
+  pcrId: number; businessType: string; code: string; directCostTotal: number
+  contributionMargin: number | null; ebit: number | null; status: string
+}
+
+export const reportService = {
+  /** GET /api/v1/reports/catalog — 리포트 카탈로그 */
+  async catalog(): Promise<ReportCatalogRow[] | null> {
+    try {
+      return await api<ReportCatalogRow[]>('/reports/catalog')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/cost/pcr — PCR 목록 */
+  async pcrList(): Promise<PcrReportRow[] | null> {
+    try {
+      return await api<PcrReportRow[]>('/cost/pcr')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/reports/pcr/{id}.pdf — PCR 보고서 PDF (auth blob → 새 창) */
+  async pcrPdf(pcrId: number): Promise<void> {
+    const res = await fetch(`${API}/reports/pcr/${pcrId}.pdf`, {
+      signal: AbortSignal.timeout(30_000),
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) throw new Error(`PCR PDF 실패 (HTTP ${res.status})`)
+    const url = URL.createObjectURL(await res.blob())
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  },
+}
+
 export const productCodeService = {
   /** GET /api/v1/codes/products — 제품 코드 마스터 목록 */
   async list(status = ''): Promise<ProductCodeRow[] | null> {
