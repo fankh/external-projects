@@ -74,6 +74,7 @@ SUITES = [
     "live_g5_ui_overflow.py",       # UI 회귀 — 감사 이중 스크롤 제거·⚙ 컬럼 메뉴 fixed(클리핑 회피)
     "live_g3_xcode.py",             # X-code 검토 — PENDING 대기열·승인/반려·표준 제외·재검토 409·422
     "live_g3_product_master.py",    # 제품 코드 마스터 CRUD — 생성/중복 409/상태 전이/참조 삭제 409
+    "live_g2_paging.py",            # 그리드 페이지네이션 — 100행/페이지·페이저·전체 다중선택·찾기 재페이지
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
     "live_security.py",
