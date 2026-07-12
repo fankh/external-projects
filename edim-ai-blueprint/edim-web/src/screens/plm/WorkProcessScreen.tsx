@@ -6,6 +6,7 @@ import { MACRO_CODING, MATERIAL_ROWS, PROCESS_DEF, PROCESS_OPTIONS } from '../..
 import { drawingLedgerService, workProcessService } from '../../api/services'
 import { Btn, Chip, Combo, Fx, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
+import { downloadCsv } from '../../utils/csv'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
@@ -175,7 +176,14 @@ export function WorkProcessScreen({ active }: ScreenProps) {
               value={code} readOnly aria-label="Code" />
           </GroupBox>
           <GroupBox title="Table — Work Process" noPad
-            right={<span className="b" style={{ height: 18, fontSize: 10 }}>＋ ✎ ⬇</span>}>
+            right={<span className="b" data-wp-csv style={{ height: 18, fontSize: 10, cursor: 'pointer' }}
+              title="공정 자재 CSV 내보내기"
+              onClick={() => {
+                downloadCsv(`workprocess_${code}`,
+                  ['Item', 'Warehouse', 'MinStock', 'Supplier', 'MakeBuy', 'TimeMin', 'Remarks'],
+                  rows.map((r) => [r.item, r.warehouse, r.minStock, r.supplier, r.makeBuy, r.timeMin ?? '', r.remarks]))
+                shell.setStatusMsg(`공정 자재 CSV ✓ — ${rows.length}행 (${code})`)
+              }}>⬇ CSV</span>}>
             <table className="g">
               <thead><tr><th>Item</th><th>A</th><th>C</th><th>E</th></tr></thead>
               <tbody>

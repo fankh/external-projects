@@ -16,6 +16,7 @@ export function RunScreen({ active, tab }: ScreenProps) {
   const shell = useShell()
   const { setStatusMsg } = shell   // 안정 참조 — statusMsg(JSX) 루프 방지
   const { t } = useI18n()
+  const projectNo = shell.activeProject?.no ?? 'PS-61313-5'
   const [result, setResult] = useState<RunResult | null>(null)
 
   const STEP_CHIP: Record<RunStep['status'], { tone: 'ok' | 'warn' | 'info'; label: string } | null> = {
@@ -149,10 +150,16 @@ export function RunScreen({ active, tab }: ScreenProps) {
       </div>
       <DenseGrid columns={stepCols} rows={result?.steps ?? []} rowKey={(r) => r.no} />
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0 }}>
-        <GroupBox title={t('run.outputsTitle', '산출물 — PS-61313-5 (더블클릭=문서 상세)')} style={{ flex: 1.35 }} noPad
+        <GroupBox title={`${t('run.outputs', '산출물')} — ${projectNo} (${t('run.dblDetail', '더블클릭=문서 상세')})`} style={{ flex: 1.35 }} noPad
           right={<>
-            <span className="b" style={{ height: 18, fontSize: 10 }}>ZIP ⬇</span>
-            <span className="b" style={{ height: 18, fontSize: 10 }}>{t('run.openFolder', '폴더 열기')}</span>
+            <span className="b" data-run-zip style={{ height: 18, fontSize: 10, cursor: 'pointer' }}
+              onClick={() => void fileService.downloadZip(
+                `/files/zip?project=${encodeURIComponent(projectNo)}`, `${projectNo}_outputs.zip`)
+                .then((n) => setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `ZIP 다운로드 ✓ — ${n}건 (프로젝트 산출물)`))
+                .catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))}>ZIP ⬇</span>
+            <span className="b" data-run-folder style={{ height: 18, fontSize: 10, cursor: 'pointer' }}
+              onClick={() => { shell.openTab({ screenId: 'com-folder', code: 'M-15-8', title: 'Project Folder' }); setStatusMsg('Project Folder 이동 — 산출물·이력') }}>
+              {t('run.openFolder', '폴더 열기')}</span>
           </>}>
           {done
             ? <DenseGrid columns={outCols} rows={result?.outputs ?? []} rowKey={(_, i) => i}
