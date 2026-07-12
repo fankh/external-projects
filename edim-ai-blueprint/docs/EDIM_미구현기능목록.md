@@ -41,7 +41,7 @@
 
 ### B4. 문서 도메인 완성 + 인쇄 렌더 (P2-4) ✅ (v5.5~5.8, 2026-07-09)
 - [x] `POST /documents` — ＋ 문서 등록 다이얼로그 (doc_control insert + 승인 요청 자동, 중복 409 — 라이브 검증)
-- [x] `GET /documents/{no}/render.pdf` — build_doc_pdf, **S-1/S-2 CONFIDENTIAL 워터마크 강제** (pypdf 텍스트 추출로 게이트 검증; doc_no 중복 시 최신 행 렌더 버그 수정)
+- [x] `GET /documents/{no}/render.pdf` — build_doc_pdf, **S-1/S-2 CONFIDENTIAL 워터마크 강제** (pypdf 텍스트 추출로 게이트 검증; doc_no 중복 시 최신 행 렌더 버그 수정) · **워터마크 강화(v13.88)**: 단일 중앙 → 페이지 전면 대각 타일 반복(크롭·부분 캡처 방지, build_doc_pdf·build_lines_pdf 공용 `_draw_watermark`)
 - [x] 문서함 미리보기 = 실 PDF iframe(blob) · Print = 실렌더 새 창
 - [x] Print Set-up "Print Test" = 자리표시자 치환 실렌더 (범용 `POST /render/pdf`, 워터마크 토글 연동 — 라이브 검증)
 - [x] Doc Templet Print = 계산값 포함 PDF (Density ρ 실측치 렌더 — pypdf 추출 검증)
