@@ -61,6 +61,7 @@ import { CostActualScreen } from '../screens/erp/CostActualScreen'
 import { MilestoneScreen } from '../screens/erp/MilestoneScreen'
 import { ProcessSetupScreen } from '../screens/erp/ProcessSetupScreen'
 import { PurchaseScreen } from '../screens/erp/PurchaseScreen'
+import { PoOrderScreen } from '../screens/erp/PoOrderScreen'
 
 export interface ScreenProps {
   active: boolean
@@ -88,6 +89,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'erp-milestone': MilestoneScreen,
   'erp-process': ProcessSetupScreen,
   'erp-purchase': PurchaseScreen,
+  'erp-po': PoOrderScreen,
   'cpq-docmgmt': DocumentMgmtScreen,
   'cpq-doctpl': DocTemplateScreen,
   'cpq-print': PrintSetupScreen,

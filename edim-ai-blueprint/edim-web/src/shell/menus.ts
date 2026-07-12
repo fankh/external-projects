@@ -34,6 +34,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'erp-project': { screenId: 'erp-project', code: 'S-3-5', title: 'Project 등록' },
   'erp-sales-order': { screenId: 'erp-sales-order', code: 'D-1', title: '수주 관리' },
   'erp-inventory': { screenId: 'erp-inventory', code: 'D-2', title: '재고 관리' },
+  'erp-po': { screenId: 'erp-po', code: 'G-3', title: '발주 (PO)' },
   'erp-work-order': { screenId: 'erp-work-order', code: 'D-3', title: '작업지시' },
   'erp-quality': { screenId: 'erp-quality', code: 'D-4', title: '검사·품질' },
   'erp-dashboard': { screenId: 'erp-dashboard', code: 'M-14-4', title: 'Dashboard' },
@@ -146,6 +147,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       {
         id: 'erp-purchasing', label: 'Purchasing', children: [
           { id: 'erp-purchase', label: '발주 PR·PO (M-8-2)' },
+          { id: 'erp-po', label: '발주 라이프사이클 (G-3)' },
           { id: 'erp-inventory', label: '재고 관리 (D-2)' },
           { id: 'erp-warehouse', label: '창고·저장위치 (M-8-4)' },
         ],

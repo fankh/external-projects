@@ -5606,6 +5606,184 @@ def po_create(request: Request, body: PoCreate) -> dict[str, Any]:
     return {"poNo": po_no, "docNo": po_no, "terms": terms}
 
 
+# ── G3 발주 라이프사이클 (erp_po) — 헤더+라인·승인·입고(GR)·3-way 수량 match ──
+PO_STATUS_LABEL = {"DRAFT": "작성", "APPROVED": "승인", "RECEIVING": "입고중",
+                   "CLOSED": "완료", "CANCELLED": "취소"}
+
+
+class PoLineIn(BaseModel):
+    itemCode: str = ""
+    itemName: str
+    qty: float = 1
+    unitPrice: float = 0
+
+
+class PoLifecycleCreate(BaseModel):
+    supplier: str = ""
+    expectedDate: str = ""
+    note: str = ""
+    items: list[PoLineIn] = []
+
+
+@router.post("/erp/pos", status_code=201, dependencies=[SETUP])
+def po_lc_create(request: Request, body: PoLifecycleCreate) -> dict[str, Any]:
+    """구조화 발주 생성 (G3) — 헤더 + 라인아이템, DRAFT."""
+    items = [i for i in body.items if i.itemName.strip() and i.qty > 0]
+    if not items:
+        raise HTTPException(422, detail="발주 라인아이템이 없습니다 (품명·수량>0)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*) FROM erp_po WHERE tenant_id=%s", (tid,))
+        seq = cur.fetchone()[0] + 1
+        while True:
+            po_no = f"PO-{seq:05d}"
+            cur.execute("SELECT 1 FROM erp_po WHERE tenant_id=%s AND po_no=%s", (tid, po_no))
+            if not cur.fetchone():
+                break
+            seq += 1
+        cur.execute(
+            """INSERT INTO erp_po (tenant_id, po_no, supplier, expected_date, note, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s) RETURNING po_id""",
+            (tid, po_no, body.supplier.strip()[:200] or None,
+             body.expectedDate.strip() or None, body.note.strip()[:500] or None,
+             str(request.state.user_id)))
+        po_id = cur.fetchone()[0]
+        for n, it in enumerate(items):
+            cur.execute(
+                """INSERT INTO erp_po_item (po_id, item_code, item_name, order_qty, unit_price, sort_order)
+                   VALUES (%s,%s,%s,%s,%s,%s)""",
+                (po_id, it.itemCode.strip()[:50] or None, it.itemName.strip()[:200],
+                 it.qty, it.unitPrice, n))
+        _audit(cur, tid, "erp_po", po_id, "PO_LC_CREATE", request.state.user_id,
+               {"poNo": po_no, "lines": len(items)})
+    return {"poNo": po_no, "status": "DRAFT", "lines": len(items)}
+
+
+@router.get("/erp/pos")
+def po_lc_list(status: str = "") -> list[dict[str, Any]]:
+    """발주 목록 (G3) — 총액·입고 진척·3-way match 상태."""
+    clause, params = "", []
+    st = status.strip().upper()
+    if st in PO_STATUS_LABEL:
+        clause = " AND p.status=%s"
+        params.append(st)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            f"""SELECT p.po_no, COALESCE(p.supplier,''), p.status,
+                       to_char(p.order_date,'YYYY-MM-DD'), to_char(p.expected_date,'YYYY-MM-DD'),
+                       count(i.po_item_id), COALESCE(sum(i.order_qty*i.unit_price),0),
+                       COALESCE(sum(i.order_qty),0), COALESCE(sum(i.received_qty),0)
+                FROM erp_po p LEFT JOIN erp_po_item i ON i.po_id=p.po_id
+                WHERE p.tenant_id=%s{clause}
+                GROUP BY p.po_id ORDER BY p.po_id DESC""", (tid, *params))
+        rows = []
+        for r in cur.fetchall():
+            oq, rq = float(r[7]), float(r[8])
+            rows.append({"poNo": r[0], "supplier": r[1], "status": r[2],
+                         "statusLabel": PO_STATUS_LABEL.get(r[2], r[2]),
+                         "orderDate": r[3], "expectedDate": r[4], "lines": r[5],
+                         "amount": float(r[6]), "orderQty": oq, "receivedQty": rq,
+                         "progress": round(rq / oq * 100) if oq else 0,
+                         "matched": oq > 0 and rq == oq})
+        return rows
+
+
+@router.get("/erp/pos/{po_no}")
+def po_lc_detail(po_no: str) -> dict[str, Any]:
+    """발주 상세 + 라인 (G3)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT po_id, po_no, COALESCE(supplier,''), status, to_char(order_date,'YYYY-MM-DD'),
+                      to_char(expected_date,'YYYY-MM-DD'), COALESCE(note,'')
+               FROM erp_po WHERE tenant_id=%s AND po_no=%s""", (tid, po_no))
+        h = cur.fetchone()
+        if not h:
+            raise HTTPException(404, detail=f"발주 없음: {po_no}")
+        cur.execute(
+            """SELECT po_item_id, COALESCE(item_code,''), item_name, order_qty, unit_price, received_qty
+               FROM erp_po_item WHERE po_id=%s ORDER BY sort_order, po_item_id""", (h[0],))
+        items = [{"poItemId": r[0], "itemCode": r[1], "itemName": r[2], "orderQty": float(r[3]),
+                  "unitPrice": float(r[4]), "receivedQty": float(r[5]),
+                  "remaining": float(r[3]) - float(r[5])} for r in cur.fetchall()]
+        return {"poNo": h[1], "supplier": h[2], "status": h[3], "statusLabel": PO_STATUS_LABEL.get(h[3], h[3]),
+                "orderDate": h[4], "expectedDate": h[5], "note": h[6], "items": items}
+
+
+@router.patch("/erp/pos/{po_no}/approve", dependencies=[SETUP])
+def po_lc_approve(po_no: str, request: Request) -> dict[str, Any]:
+    """발주 승인 (G3) — DRAFT→APPROVED (입고 가능)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT po_id, status FROM erp_po WHERE tenant_id=%s AND po_no=%s", (tid, po_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"발주 없음: {po_no}")
+        if row[1] != "DRAFT":
+            raise HTTPException(409, detail=f"승인 불가 — 현재 {PO_STATUS_LABEL.get(row[1], row[1])}")
+        cur.execute("UPDATE erp_po SET status='APPROVED', approved_at=now() WHERE po_id=%s", (row[0],))
+        _audit(cur, tid, "erp_po", row[0], "PO_APPROVE", request.state.user_id, {"poNo": po_no})
+    return {"poNo": po_no, "status": "APPROVED"}
+
+
+class PoReceiveLine(BaseModel):
+    poItemId: int
+    qty: float
+
+
+class PoReceive(BaseModel):
+    items: list[PoReceiveLine] = []
+
+
+@router.post("/erp/pos/{po_no}/receive", dependencies=[SETUP])
+def po_lc_receive(po_no: str, request: Request, body: PoReceive) -> dict[str, Any]:
+    """입고(GR) 처리 (G3) — 라인별 received_qty += qty, 발주 초과 409(3-way 수량 match).
+    승인/입고중 상태만. 전 라인 입고 완료 시 CLOSED. inv_movement(IN) 기록."""
+    if not body.items:
+        raise HTTPException(422, detail="입고 라인이 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT po_id, status FROM erp_po WHERE tenant_id=%s AND po_no=%s", (tid, po_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"발주 없음: {po_no}")
+        po_id, status = row
+        if status not in ("APPROVED", "RECEIVING"):
+            raise HTTPException(409, detail=f"입고 불가 — 승인 후 가능 (현재 {PO_STATUS_LABEL.get(status, status)})")
+        received = 0
+        for line in body.items:
+            if line.qty <= 0:
+                continue
+            cur.execute(
+                "SELECT item_code, item_name, order_qty, received_qty FROM erp_po_item "
+                "WHERE po_item_id=%s AND po_id=%s", (line.poItemId, po_id))
+            it = cur.fetchone()
+            if not it:
+                raise HTTPException(404, detail=f"발주 라인 없음: {line.poItemId}")
+            code, name, oq, rq = it[0], it[1], float(it[2]), float(it[3])
+            if rq + line.qty > oq + 1e-6:
+                raise HTTPException(409, detail=f"입고 초과 — {name}: 발주 {oq}, 기입고 {rq}, 요청 {line.qty} (3-way 불일치)")
+            cur.execute("UPDATE erp_po_item SET received_qty=received_qty+%s WHERE po_item_id=%s",
+                        (line.qty, line.poItemId))
+            cur.execute(
+                """INSERT INTO inv_movement (tenant_id, item_code, location_code, movement_type,
+                   quantity, ref_type, ref_no)
+                   VALUES (%s,%s,%s,'IN',%s,'PO',%s)""",
+                (tid, code or name[:50], 'WH-RECV', line.qty, po_no))
+            received += 1
+        # 상태 전이 — 전 라인 입고 완료면 CLOSED, 아니면 RECEIVING
+        cur.execute(
+            "SELECT COALESCE(sum(order_qty),0), COALESCE(sum(received_qty),0) FROM erp_po_item WHERE po_id=%s",
+            (po_id,))
+        oq, rq = cur.fetchone()
+        new_status = "CLOSED" if float(rq) >= float(oq) and float(oq) > 0 else "RECEIVING"
+        cur.execute("UPDATE erp_po SET status=%s WHERE po_id=%s", (new_status, po_id))
+        _audit(cur, tid, "erp_po", po_id, "PO_RECEIVE", request.state.user_id,
+               {"poNo": po_no, "lines": received, "status": new_status})
+    return {"poNo": po_no, "received": received, "status": new_status}
+
+
 # ── B18 수익성(PCR)·견적 lifecycle — cst_pcr·cst_quotation ──
 
 PCR_BUSINESS_TYPES = ("PRE_SALES", "MAIN")

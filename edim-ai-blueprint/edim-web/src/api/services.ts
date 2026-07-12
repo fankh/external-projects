@@ -2468,6 +2468,43 @@ export const xlsxService = {
   },
 }
 
+// G3 — 발주 라이프사이클 (PO 헤더+라인·승인·입고)
+export interface PoRow {
+  poNo: string; supplier: string; status: string; statusLabel: string
+  orderDate: string; expectedDate: string | null; lines: number; amount: number
+  orderQty: number; receivedQty: number; progress: number; matched: boolean
+}
+export interface PoItem {
+  poItemId: number; itemCode: string; itemName: string; orderQty: number
+  unitPrice: number; receivedQty: number; remaining: number
+}
+export interface PoDetail {
+  poNo: string; supplier: string; status: string; statusLabel: string
+  orderDate: string; expectedDate: string | null; note: string; items: PoItem[]
+}
+
+export const poService = {
+  async list(status = ''): Promise<PoRow[] | null> {
+    const q = status ? `?status=${status}` : ''
+    try { return await api<PoRow[]>(`/erp/pos${q}`) } catch (e) { if (e instanceof ApiUnavailable) return null; throw e }
+  },
+  async detail(poNo: string): Promise<PoDetail | null> {
+    try { return await api<PoDetail>(`/erp/pos/${encodeURIComponent(poNo)}`) } catch (e) { if (e instanceof ApiUnavailable) return null; throw e }
+  },
+  async create(body: { supplier?: string; expectedDate?: string; note?: string; items: { itemCode?: string; itemName: string; qty: number; unitPrice: number }[] }): Promise<string | false> {
+    try { return (await api<{ poNo: string }>('/erp/pos', { method: 'POST', body: JSON.stringify(body) })).poNo }
+    catch (e) { if (e instanceof ApiUnavailable) return false; throw e }
+  },
+  async approve(poNo: string): Promise<boolean> {
+    try { await api(`/erp/pos/${encodeURIComponent(poNo)}/approve`, { method: 'PATCH', body: '{}' }); return true }
+    catch (e) { if (e instanceof ApiUnavailable) return false; throw e }
+  },
+  async receive(poNo: string, items: { poItemId: number; qty: number }[]): Promise<{ received: number; status: string } | false> {
+    try { return await api(`/erp/pos/${encodeURIComponent(poNo)}/receive`, { method: 'POST', body: JSON.stringify({ items }) }) }
+    catch (e) { if (e instanceof ApiUnavailable) return false; throw e }
+  },
+}
+
 // D8 — 사용자 환경설정 (즐겨찾기·컬럼 설정 등)
 export const prefService = {
   /** GET /api/v1/prefs/{key} — 값(null=미설정/백엔드 불가) */
