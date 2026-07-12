@@ -1672,6 +1672,53 @@ def resolve_price(code: str, at: str | None = None) -> dict[str, Any]:
 
 
 # ── SVC-10 Approval (승인함 M-15-2) ──
+def _apply_eco(cur, tid: int, eco_id: int, approve: bool,
+               actor_login: str, actor_id: int) -> None:
+    """설계변경(ECO) 승인 결과 적용 — 승인 시 상태 APPLIED + Rev-up(DRAWING) + ECN 통지."""
+    cur.execute(
+        "SELECT eco_no, title, target_type, target_no, status FROM eco_change "
+        "WHERE tenant_id=%s AND eco_id=%s", (tid, eco_id))
+    e = cur.fetchone()
+    if not e:
+        return
+    eco_no, title, ttype, tno, _status = e
+    if not approve:
+        cur.execute("UPDATE eco_change SET status='REJECTED' WHERE eco_id=%s", (eco_id,))
+        return
+    rev_from = rev_to = None
+    if ttype == "DRAWING":
+        cur.execute(
+            "SELECT drawing_id, current_rev FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s",
+            (tid, tno))
+        d = cur.fetchone()
+        if d:
+            did, cur_rev = d
+            rev_from = cur_rev
+            rev_to = _rev_next(cur_rev)
+            cur.execute(
+                """INSERT INTO dwg_revision (drawing_id, rev_no, rev_date, rev_reason, revised_by)
+                   VALUES (%s,%s,CURRENT_DATE,%s,%s)""",
+                (did, rev_to, f"ECO {eco_no} — {title[:400]}", actor_login))
+            cur.execute(
+                "UPDATE dwg_drawing SET current_rev=%s, updated_by=%s, updated_at=now() "
+                "WHERE drawing_id=%s", (rev_to, actor_login, did))
+            cur.execute(
+                """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+                   VALUES (%s,'dwg_drawing',%s,'REV_UP',%s,%s)""",
+                (tid, did, actor_id, json.dumps({"from": cur_rev, "to": rev_to, "eco": eco_no})))
+    cur.execute(
+        "UPDATE eco_change SET status='APPLIED', rev_from=%s, rev_to=%s, applied_at=now() "
+        "WHERE eco_id=%s", (rev_from, rev_to, eco_id))
+    # 변경 통지(ECN) — 영향 부서(SETUP/ADMIN) 알림
+    ecn = f"설계변경 통지(ECN) — {eco_no} {title[:50]}"
+    if rev_to:
+        ecn += f" (Rev {rev_from}→{rev_to} 적용)"
+    cur.execute(
+        "SELECT user_id FROM sys_user WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN')", (tid,))
+    for (uid,) in cur.fetchall():
+        _notify(cur, tid, uid, "TASK_ASSIGNED", ecn, "/plm")
+
+
 @router.get("/approvals/inbox")
 def approvals_inbox() -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
@@ -1679,7 +1726,8 @@ def approvals_inbox() -> list[dict[str, Any]]:
         cur.execute(
             """SELECT a.approval_id, a.target_table, a.request_type, a.step,
                       u.user_name, to_char(a.requested_at,'MM-DD'), a.comment,
-                      COALESCE(pc.main_code, dc.doc_no, a.target_table||'#'||a.target_id),
+                      COALESCE(pc.main_code, dc.doc_no,
+                               ec.eco_no||' '||ec.title, a.target_table||'#'||a.target_id),
                       u.login_id
                FROM sys_approval_request a
                JOIN sys_user u ON u.user_id=a.requester_id
@@ -1687,11 +1735,13 @@ def approvals_inbox() -> list[dict[str, Any]]:
                  ON a.target_table='product_code' AND pc.product_code_id=a.target_id
                LEFT JOIN doc_control dc
                  ON a.target_table='doc_control' AND dc.doc_control_id=a.target_id
+               LEFT JOIN eco_change ec
+                 ON a.target_table='eco_change' AND ec.eco_id=a.target_id
                WHERE a.tenant_id=%s AND a.result IS NULL
                ORDER BY a.approval_id""", (tid,))
         type_label = {"product_code": "Code", "doc_control": "문서",
                       "code_item": "Code", "tbx_macro": "Macro",
-                      "code_relationship": "관계"}
+                      "code_relationship": "관계", "eco_change": "설계변경"}
         return [
             {"id": r[0], "assetType": type_label.get(r[1], r[1]),
              "target": r[6] or r[7], "reqKind": r[2], "requester": r[4],
@@ -1738,6 +1788,10 @@ def decide(approval_id: int, request: Request, body: DecideRequest) -> dict[str,
                 """UPDATE code_relationship SET approval_status=%s
                    WHERE tenant_id=%s AND mother_code_id=%s""",
                 ("APPROVED" if body.approve else "REJECTED", tid, row[1]))
+        elif row[0] == "eco_change":
+            # D5 — 설계변경 승인: 승인 시 Rev-up 자동 적용(DRAWING) + 변경 통지(ECN)
+            _apply_eco(cur, tid, row[1], body.approve,
+                       request.state.login, request.state.user_id)
         cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id='edim'", (tid,))
         actor = cur.fetchone()
         cur.execute(
@@ -3652,6 +3706,120 @@ def qc_inspection_list(result: str = "", inspType: str = "") -> list[dict[str, A
         return [{"inspNo": x[0], "inspType": x[1], "refNo": x[2], "itemCode": x[3],
                  "itemName": x[4], "result": x[5], "measured": x[6], "inspector": x[7],
                  "inspectedAt": x[8]} for x in cur.fetchall()]
+
+
+# ── D5 설계 변경 관리 (eco_change) — Rev-up 을 공식 절차로 ──
+def _eco_impact(cur, tid: int, target_type: str, target_no: str) -> dict[str, Any]:
+    """영향 분석 자동 첨부 — CODE=Where-Used 역참조, DRAWING=Rev 이력·현재 Rev."""
+    if target_type == "CODE":
+        cur.execute(
+            """SELECT mc.main_code, mc.code_name, r.quantity
+               FROM code_relationship r
+               JOIN product_code cc ON cc.product_code_id=r.child_code_id
+               JOIN product_code mc ON mc.product_code_id=r.mother_code_id
+               WHERE r.tenant_id=%s AND cc.main_code=%s ORDER BY mc.main_code""",
+            (tid, target_no))
+        wu = [{"code": r[0], "name": r[1], "qty": float(r[2])} for r in cur.fetchall()]
+        return {"kind": "CODE", "whereUsedCount": len(wu), "whereUsed": wu,
+                "note": f"이 코드를 사용하는 상위(mother) 코드 {len(wu)}건 — 변경 시 동반 검토 필요"}
+    # DRAWING — 현재 Rev + Rev 이력 수
+    cur.execute(
+        """SELECT d.current_rev,
+                  (SELECT count(*) FROM dwg_revision r WHERE r.drawing_id=d.drawing_id)
+           FROM dwg_drawing d WHERE d.tenant_id=%s AND d.drawing_no=%s""",
+        (tid, target_no))
+    d = cur.fetchone()
+    if not d:
+        return {"kind": "DRAWING", "found": False, "note": "도면 미등록 — 승인 시 Rev-up 대상 없음"}
+    return {"kind": "DRAWING", "found": True, "currentRev": d[0], "revCount": d[1],
+            "note": f"현재 Rev {d[0]} · 개정 이력 {d[1]}건 — 승인 시 Rev-up 자동 적용"}
+
+
+class EcoCreate(BaseModel):
+    title: str
+    targetType: str               # DRAWING | CODE
+    targetNo: str
+    reason: str = ""
+
+
+@router.post("/eco/changes", status_code=201, dependencies=[SETUP])
+def eco_create(request: Request, body: EcoCreate) -> dict[str, Any]:
+    """설계변경 요청(ECR) 등록 (D5) — 영향 분석 자동 첨부 + 승인 요청(sys_approval_request) 연동."""
+    tt = body.targetType.strip().upper()
+    if tt not in ("DRAWING", "CODE"):
+        raise HTTPException(422, detail="대상 유형 오류 (DRAWING/CODE)")
+    if not body.title.strip() or not body.targetNo.strip():
+        raise HTTPException(422, detail="필수 — 제목·대상 번호")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        impact = _eco_impact(cur, tid, tt, body.targetNo.strip())
+        cur.execute("SELECT count(*) FROM eco_change WHERE tenant_id=%s", (tid,))
+        seq = cur.fetchone()[0] + 1
+        while True:
+            eco_no = f"ECO-{seq:04d}"
+            cur.execute("SELECT 1 FROM eco_change WHERE tenant_id=%s AND eco_no=%s", (tid, eco_no))
+            if not cur.fetchone():
+                break
+            seq += 1
+        cur.execute(
+            """INSERT INTO eco_change (tenant_id, eco_no, title, reason, target_type,
+               target_no, impact_data, status, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,'SUBMITTED',%s) RETURNING eco_id""",
+            (tid, eco_no, body.title.strip()[:200], body.reason.strip()[:1000] or None,
+             tt, body.targetNo.strip()[:80], json.dumps(impact), str(request.state.user_id)))
+        eco_id = cur.fetchone()[0]
+        # 단계 승인 — 기존 승인함(sys_approval_request) 재사용
+        cur.execute(
+            """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
+               request_type, step, requester_id, comment)
+               VALUES (%s,'eco_change',%s,'CHANGE','승인',%s,%s)""",
+            (tid, eco_id, request.state.user_id, f"{eco_no} {body.title.strip()[:150]}"))
+        cur.execute(
+            """SELECT user_id FROM sys_user
+               WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN') AND user_id<>%s""",
+            (tid, request.state.user_id))
+        for (uid,) in cur.fetchall():
+            _notify(cur, tid, uid, "APPROVAL_REQUEST",
+                    f"설계변경 승인 요청 — {eco_no} {body.title.strip()[:60]}", "/common")
+        _audit(cur, tid, "eco_change", eco_id, "ECR", request.state.user_id,
+               {"ecoNo": eco_no, "target": f"{tt}:{body.targetNo}"})
+    return {"ecoNo": eco_no, "status": "SUBMITTED", "impact": impact}
+
+
+@router.get("/eco/changes")
+def eco_list() -> list[dict[str, Any]]:
+    """설계변경 목록 (D5)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT eco_no, title, target_type, target_no, status,
+                      COALESCE(rev_from,''), COALESCE(rev_to,''),
+                      COALESCE((impact_data->>'whereUsedCount')::int,
+                               (impact_data->>'revCount')::int, 0),
+                      to_char(created_at,'MM-DD HH24:MI'),
+                      COALESCE(reason,'')
+               FROM eco_change WHERE tenant_id=%s ORDER BY eco_id DESC""", (tid,))
+        return [{"ecoNo": r[0], "title": r[1], "targetType": r[2], "targetNo": r[3],
+                 "status": r[4], "revFrom": r[5], "revTo": r[6], "impactCount": r[7],
+                 "createdAt": r[8], "reason": r[9]} for r in cur.fetchall()]
+
+
+@router.get("/eco/changes/{eco_no}")
+def eco_detail(eco_no: str) -> dict[str, Any]:
+    """설계변경 상세 + 영향 분석 (D5)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT eco_no, title, COALESCE(reason,''), target_type, target_no, status,
+                      COALESCE(rev_from,''), COALESCE(rev_to,''), impact_data,
+                      to_char(created_at,'MM-DD HH24:MI'), to_char(applied_at,'MM-DD HH24:MI')
+               FROM eco_change WHERE tenant_id=%s AND eco_no=%s""", (tid, eco_no))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"설계변경 없음: {eco_no}")
+        return {"ecoNo": r[0], "title": r[1], "reason": r[2], "targetType": r[3],
+                "targetNo": r[4], "status": r[5], "revFrom": r[6], "revTo": r[7],
+                "impact": r[8], "createdAt": r[9], "appliedAt": r[10]}
 
 
 # ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──

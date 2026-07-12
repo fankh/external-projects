@@ -2135,6 +2135,36 @@ export const qcService = {
   },
 }
 
+// D5 — 설계 변경 관리 (ECO/ECN)
+export interface EcoChange {
+  ecoNo: string; title: string; targetType: 'DRAWING' | 'CODE'; targetNo: string
+  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'APPLIED'
+  revFrom: string; revTo: string; impactCount: number; createdAt: string; reason: string
+}
+
+export const ecoService = {
+  /** GET /api/v1/eco/changes (null=백엔드 불가) */
+  async list(): Promise<EcoChange[] | null> {
+    try {
+      return await api<EcoChange[]>('/eco/changes')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/eco/changes — ECR 등록 (영향 분석 자동 첨부, ecoNo+impact 반환, false=백엔드 불가) */
+  async create(body: { title: string; targetType: string; targetNo: string; reason?: string }): Promise<{ ecoNo: string; impact: Record<string, unknown> } | false> {
+    try {
+      return await api<{ ecoNo: string; impact: Record<string, unknown> }>('/eco/changes', {
+        method: 'POST', body: JSON.stringify(body),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const orderService = {
   /** GET /api/v1/cost/orders — 수주 잔고 + 수주율 (D1; null=백엔드 불가) */
   async list(): Promise<OrdersData | null> {

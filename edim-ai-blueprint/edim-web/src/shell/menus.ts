@@ -47,6 +47,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'erp-company-master': { screenId: 'erp-company-master', code: 'M-14-2', title: '공급처·거래처' },
   'code-hierarchy': { screenId: 'code-hierarchy', code: 'M-3-1', title: 'Hierarchy 주소' },
   'plm-parts': { screenId: 'plm-parts', code: 'M-4-7', title: '부품 대장' },
+  'plm-eco': { screenId: 'plm-eco', code: 'D-5', title: '설계 변경(ECO)' },
   'erp-warehouse': { screenId: 'erp-warehouse', code: 'M-8-4', title: '창고·저장위치' },
 }
 
@@ -89,6 +90,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
           { id: 'plm-material', label: 'Material (M-4-4)' },
           { id: 'plm-quality', label: 'Quality (M-4-5)' },
           { id: 'plm-parts', label: '부품 대장 (M-4-7)' },
+          { id: 'plm-eco', label: '설계 변경 ECO/ECN (D-5)' },
         ],
       },
       {

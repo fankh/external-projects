@@ -18,6 +18,7 @@ import { RunScreen } from '../screens/cpq/RunScreen'
 import { ArrangementSetupScreen } from '../screens/plm/ArrangementSetupScreen'
 import { DesignEditorScreen } from '../screens/plm/DesignEditorScreen'
 import { PartLedgerScreen } from '../screens/plm/PartLedgerScreen'
+import { EcoChangeScreen } from '../screens/plm/EcoChangeScreen'
 import { QualityScreen } from '../screens/plm/QualityScreen'
 import { HierarchyScreen } from '../screens/code/HierarchyScreen'
 import { MaterialGpiScreen } from '../screens/code/MaterialGpiScreen'
@@ -96,6 +97,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'erp-company-master': CompanyMasterScreen,
   'code-hierarchy': HierarchyScreen,
   'plm-parts': PartLedgerScreen,
+  'plm-eco': EcoChangeScreen,
   'erp-warehouse': WarehouseScreen,
   'com-approval': ApprovalInboxScreen,
   'com-tasks': TaskBoxScreen,
