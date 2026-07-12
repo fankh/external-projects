@@ -570,7 +570,7 @@ def create_product(request: Request, body: ProductCreate) -> dict[str, Any]:
         raise HTTPException(422, detail="필수 — 코드·코드명")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT group_id FROM code_group WHERE tenant_id=%s AND group_code=%s",
+        cur.execute("SELECT group_id, COALESCE(hierarchy_address,'') FROM code_group WHERE tenant_id=%s AND group_code=%s",
                     (tid, body.groupCode.strip()))
         grp = cur.fetchone()
         if not grp:
@@ -578,10 +578,11 @@ def create_product(request: Request, body: ProductCreate) -> dict[str, Any]:
         cur.execute("SELECT 1 FROM product_code WHERE tenant_id=%s AND main_code=%s", (tid, main))
         if cur.fetchone():
             raise HTTPException(409, detail=f"중복 — 코드 {main}")
+        addr = f"{grp[1]}/{main}" if grp[1] else f"/C/{body.groupCode.strip()}/{main}"
         cur.execute(
-            """INSERT INTO product_code (tenant_id, main_code, group_id, code_name, approval_status)
-               VALUES (%s,%s,%s,%s,'DRAFT') RETURNING product_code_id""",
-            (tid, main, grp[0], body.codeName.strip()[:200]))
+            """INSERT INTO product_code (tenant_id, main_code, group_id, code_name, hierarchy_address, approval_status, created_by)
+               VALUES (%s,%s,%s,%s,%s,'DRAFT',%s) RETURNING product_code_id""",
+            (tid, main, grp[0], body.codeName.strip()[:200], addr[:200], str(request.state.user_id)))
         pid = cur.fetchone()[0]
         _audit(cur, tid, "product_code", pid, "CREATE", request.state.user_id, {"mainCode": main})
     return {"productCodeId": pid, "mainCode": main, "status": "DRAFT"}
