@@ -54,12 +54,13 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
 
   // 미리보기 = 실 PDF 렌더 (Grade 워터마크) — 선택 변경 시 갱신
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfDenied, setPdfDenied] = useState<string | null>(null)   // D9 — 등급 열람 차단 메시지
   useEffect(() => {
-    setPdfUrl(null)
+    setPdfUrl(null); setPdfDenied(null)
     if (!selDoc) return
     let revoked: string | null = null
     void docService.renderPdf(selDoc).then((u) => { revoked = u; setPdfUrl(u) })
-      .catch(() => setPdfUrl(null))
+      .catch((e: Error) => { setPdfUrl(null); setPdfDenied(e.message || '미리보기 불가') })
     return () => { if (revoked) URL.revokeObjectURL(revoked) }
   }, [selDoc])
 
@@ -236,6 +237,13 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
             {pdfUrl ? (
               <iframe title="문서 미리보기" src={pdfUrl} data-doc-preview
                 style={{ width: '100%', height: 240, border: '1px solid var(--line)' }} />
+            ) : pdfDenied ? (
+              <div className="cvs" data-doc-denied style={{ height: 150, border: '1px solid var(--err)' }}>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--err)', textAlign: 'center', padding: 8 }}>
+                  <span style={{ fontSize: 18 }}>🔒</span>
+                  {pdfDenied}
+                </div>
+              </div>
             ) : (
               <div className="cvs" style={{ height: 150 }}>
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, color: 'var(--txt-mute)', textAlign: 'center' }}>

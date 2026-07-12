@@ -592,8 +592,8 @@ export const projectService = {
       return false
     }
   },
-  /** GET /api/v1/projects/{no} */
-  async get(no: string): Promise<{ stage: string; clientContact: string }> {
+  /** GET /api/v1/projects/{no} — updatedAt = D9 낙관적 잠금 버전 토큰 */
+  async get(no: string): Promise<{ stage: string; clientContact: string; updatedAt?: string }> {
     try {
       return await api(`/projects/${encodeURIComponent(no)}`)
     } catch (e) {
@@ -601,14 +601,14 @@ export const projectService = {
       return { stage: MOCK_PROJECT.stage, clientContact: MOCK_PROJECT.clientContact }
     }
   },
-  /** PATCH /api/v1/projects/{no} — sales_stage 전이 + 이력 */
-  async setStage(no: string, stage: string): Promise<void> {
+  /** PATCH /api/v1/projects/{no} — sales_stage 전이 + 이력. baseUpdatedAt 전달 시 D9 동시편집 충돌 409 전파 */
+  async setStage(no: string, stage: string, baseUpdatedAt = ''): Promise<void> {
     try {
       await api(`/projects/${encodeURIComponent(no)}`, {
-        method: 'PATCH', body: JSON.stringify({ stage }),
+        method: 'PATCH', body: JSON.stringify({ stage, baseUpdatedAt }),
       })
     } catch (e) {
-      if (!(e instanceof ApiUnavailable)) throw e
+      if (!(e instanceof ApiUnavailable)) throw e   // 409 충돌 등은 호출부로 전파
     }
   },
 }

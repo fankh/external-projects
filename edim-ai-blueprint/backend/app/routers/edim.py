@@ -2048,21 +2048,33 @@ def register_output(request: Request, body: RegisterOutput) -> dict[str, Any]:
     return {"docNo": doc_no, "status": "SET_UP", "created": True}
 
 
+# D9 — 문서 Grade 열람 통제: 미달 레벨은 열람 차단 (워터마크 위 단계 강제)
+DOC_GRADE_POLICY = {"S-1": ("ADMIN", "PLATFORM"), "S-2": ("SETUP", "ADMIN", "PLATFORM")}
+
+
 @router.get("/documents/{doc_no}/render.pdf")
-def render_document(doc_no: str) -> Any:
-    """문서 PDF 실렌더 — Grade S-1/S-2 는 CONFIDENTIAL 워터마크 강제 (DOC-002)."""
+def render_document(doc_no: str, request: Request) -> Any:
+    """문서 PDF 실렌더 — Grade 열람 통제(S-1=ADMIN+, S-2=SETUP+) + S-1/S-2 CONFIDENTIAL 워터마크 (DOC-002/DOC-004)."""
     from ..services import run_pipeline as rp
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT title, doc_type, released_status, version, person, management_grade,
-                      to_char(created_at,'YYYY-MM-DD')
+                      to_char(created_at,'YYYY-MM-DD'), doc_control_id
                FROM doc_control WHERE tenant_id=%s AND doc_no=%s
                ORDER BY doc_control_id DESC LIMIT 1""", (tid, doc_no))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"문서 없음: {doc_no}")
-    title, dtype, status, ver, person, grade, cdate = row
+        title, dtype, status, ver, person, grade, cdate, doc_id = row
+        # 열람 enforcement — 등급 미달 레벨은 403 + 거부 감사
+        allowed = DOC_GRADE_POLICY.get(grade or "")
+        if allowed and request.state.level not in allowed:
+            _audit(cur, tid, "doc_control", doc_id, "READ_DENY", request.state.user_id,
+                   {"docNo": doc_no, "grade": grade, "level": request.state.level})
+            raise HTTPException(
+                403, detail=f"열람 권한 부족 — {grade} 등급 문서는 {'/'.join(allowed)} 만 열람 가능 "
+                            f"(현재 등급: {request.state.level})")
     watermark = grade in ("S-1", "S-2")
     pdf = rp.build_doc_pdf(
         doc_no=doc_no, title=title, doc_type=dtype, status=STATUS_LABEL.get(status, status),
@@ -2421,44 +2433,56 @@ STAGE_MAP = {"기술 제안": "TECH_PROPOSAL", "견적": "QUOTE", "협의": "NEG
 STAGE_LABEL = {v: k for k, v in STAGE_MAP.items()}
 
 
+# D9 — 동시 편집 보호: 낙관적 잠금 버전 토큰 (updated_at, 없으면 created_at)
+_VER_FMT = "YYYY-MM-DD HH24:MI:SS.US"
+
+
 @router.get("/projects/{project_no}")
 def get_project(project_no: str) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT project_no, project_name, project_type, sales_stage, client_contact
+            f"""SELECT project_no, project_name, project_type, sales_stage, client_contact,
+                       to_char(COALESCE(updated_at, created_at),'{_VER_FMT}')
                FROM prj_project WHERE tenant_id=%s AND project_no=%s""", (tid, project_no))
         r = cur.fetchone()
     if not r:
         raise HTTPException(404, detail=f"project not found: {project_no}")
     return {"projectNo": r[0], "projectName": r[1], "projectType": r[2] or "Client",
-            "stage": STAGE_LABEL.get(r[3], r[3]), "clientContact": r[4] or ""}
+            "stage": STAGE_LABEL.get(r[3], r[3]), "clientContact": r[4] or "",
+            "updatedAt": r[5]}   # D9 — 낙관적 잠금 버전 토큰
 
 
 class StagePatch(BaseModel):
     stage: str
+    baseUpdatedAt: str = ""   # D9 — 조회 시점 버전 (불일치 시 409)
 
 
 @router.patch("/projects/{project_no}", dependencies=[SETUP])
-def patch_project(project_no: str, body: StagePatch) -> dict[str, Any]:
+def patch_project(project_no: str, request: Request, body: StagePatch) -> dict[str, Any]:
     code = STAGE_MAP.get(body.stage)
     if not code:
         raise HTTPException(422, detail=f"알 수 없는 영업 단계: {body.stage}")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """UPDATE prj_project SET sales_stage=%s, updated_at=now()
-               WHERE tenant_id=%s AND project_no=%s RETURNING project_id""",
-            (code, tid, project_no))
+            f"""SELECT project_id, to_char(COALESCE(updated_at, created_at),'{_VER_FMT}')
+               FROM prj_project WHERE tenant_id=%s AND project_no=%s""", (tid, project_no))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"project not found: {project_no}")
-        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s LIMIT 1", (tid,))
-        actor = cur.fetchone()
+        # D9 — 낙관적 잠금: 조회 이후 다른 사용자가 먼저 수정했으면 409
+        if body.baseUpdatedAt.strip() and body.baseUpdatedAt.strip() != row[1]:
+            raise HTTPException(
+                409, detail="다른 사용자가 먼저 수정했습니다 — 재조회 후 다시 시도하십시오 (동시 편집 충돌)")
+        cur.execute(
+            """UPDATE prj_project SET sales_stage=%s, updated_at=now()
+               WHERE tenant_id=%s AND project_no=%s""",
+            (code, tid, project_no))
         cur.execute(
             """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
                VALUES (%s,'prj_project',%s,'STAGE',%s,%s)""",
-            (tid, row[0], actor[0], json.dumps({"stage": code})))
+            (tid, row[0], request.state.user_id, json.dumps({"stage": code})))
     return {"projectNo": project_no, "stage": body.stage}
 
 

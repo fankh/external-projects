@@ -30,6 +30,7 @@ export function ProjectScreen({ active }: ScreenProps) {
   const [files, setFiles] = useState<FolderFileEx[]>([])
   const [dupName, setDupName] = useState('KDCR 3-13')   // B21 중복검토 대상
   const [dirty, setDirty] = useState(false)
+  const [baseVer, setBaseVer] = useState('')   // D9 — 낙관적 잠금 버전 토큰
   const [showReg, setShowReg] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -49,6 +50,8 @@ export function ProjectScreen({ active }: ScreenProps) {
     setSelNo(p.projectNo)
     setStage(p.stage)
     setDirty(false)
+    // D9 — 낙관적 잠금 버전 토큰 확보 (저장 시 동시편집 충돌 감지)
+    void projectService.get(p.projectNo).then((d) => setBaseVer(d.updatedAt ?? ''))
     shell.setActiveProject({ no: p.projectNo, name: p.projectName, stage: p.stage })
     void fileService.list(p.projectNo).then((all) =>
       setFiles(all.filter((f) => f.folder === 'RECEIVED')))
@@ -59,8 +62,21 @@ export function ProjectScreen({ active }: ScreenProps) {
   const save = () => {
     if (!sel) return
     void (async () => {
-      await projectService.setStage(sel.projectNo, stage)
+      try {
+        await projectService.setStage(sel.projectNo, stage, baseVer)
+      } catch (e) {
+        // D9 — 동시편집 충돌(409): 재조회 안내 + 최신 버전 재확보
+        const msg = e instanceof Error ? e.message : String(e)
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{msg}</span>)
+        const d = await projectService.get(sel.projectNo)
+        setBaseVer(d.updatedAt ?? '')
+        setStage(d.stage)
+        setDirty(false)
+        return
+      }
       setDirty(false)
+      // 저장 성공 → 버전 토큰 갱신 (연속 저장 대비)
+      void projectService.get(sel.projectNo).then((d) => setBaseVer(d.updatedAt ?? ''))
       setProjects((prev) => prev.map((p) => (p.projectNo === sel.projectNo ? { ...p, stage } : p)))
       shell.setActiveProject({ no: sel.projectNo, name: sel.projectName, stage })
       shell.setStatusMsg(`저장 — ${sel.projectNo} · sales_stage=[${stage}] 전이 + 이력 (SYS-017)`)
