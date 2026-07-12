@@ -187,6 +187,8 @@ export function CadSvg(props: {
   const [m2, setM2] = useState<Pt | null>(null)
   const [mHover, setMHover] = useState<Pt | null>(null)
   const [selId, setSelId] = useState<string | null>(null)
+  const [cur, setCur] = useState<Pt | null>(null)   // 실시간 커서 도면 좌표
+  const [gridOn, setGridOn] = useState(false)       // 그리드 오버레이
   const selected = useMemo(
     () => doc.entities.find((e) => e.entityId === selId) ?? null, [doc, selId])
 
@@ -294,6 +296,25 @@ export function CadSvg(props: {
   // 화면상 선 굵기 일정 유지 — 현재 뷰 크기에 비례
   const strokeW = Math.max(view.w, view.h) / 500
   const px = (n: number) => n * Math.max(view.w, view.h) / 700 // 화면 px 근사 → 도면 단위
+
+  // 그리드 오버레이 — 뷰 폭 기준 nice-step(1/2/5×10ⁿ) 격자선 (SVG 좌표, 원점 축 강조)
+  const gridStep = useMemo(() => {
+    const raw = Math.max(view.w, view.h) / 12
+    if (!(raw > 0)) return 0
+    const p = Math.pow(10, Math.floor(Math.log10(raw)))
+    const nn = raw / p
+    return (nn >= 5 ? 5 : nn >= 2 ? 2 : 1) * p
+  }, [view])
+  const gridLines = useMemo(() => {
+    if (!gridOn || !gridStep) return [] as { x1: number; y1: number; x2: number; y2: number; axis: boolean }[]
+    const out: { x1: number; y1: number; x2: number; y2: number; axis: boolean }[] = []
+    const s = gridStep
+    for (let x = Math.floor(view.x / s) * s; x <= view.x + view.w; x += s)
+      out.push({ x1: x, y1: view.y, x2: x, y2: view.y + view.h, axis: Math.abs(x) < s / 2 })
+    for (let y = Math.floor(view.y / s) * s; y <= view.y + view.h; y += s)
+      out.push({ x1: view.x, y1: y, x2: view.x + view.w, y2: y, axis: Math.abs(y) < s / 2 })
+    return out
+  }, [gridOn, gridStep, view])
 
   /** 클릭 위치의 엔티티 조회 (화면 8px 허용) */
   const pick = (p: Pt): CadEntity | null => {
@@ -403,6 +424,7 @@ export function CadSvg(props: {
           setDragging(true)
         }}
         onPointerMove={(e) => {
+          setCur(toDrawing(e.clientX, e.clientY))   // 실시간 좌표
           const d = drag.current
           if (d) {
             if (Math.hypot(e.clientX - d.px, e.clientY - d.py) > 4) d.moved = true
@@ -422,7 +444,16 @@ export function CadSvg(props: {
           if (d && !d.moved) handleClick(e.clientX, e.clientY)
         }}
         onPointerCancel={() => { drag.current = null; setDragging(false) }}
+        onPointerLeave={() => setCur(null)}
         onDoubleClick={() => { if (!measureRef.current) setVb(null) }}>
+        {gridOn ? (
+          <g data-cad-grid>
+            {gridLines.map((ln, i) => (
+              <line key={i} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2}
+                stroke={ln.axis ? '#B9C4D6' : '#E3E8F0'} strokeWidth={strokeW * (ln.axis ? 0.9 : 0.5)} />
+            ))}
+          </g>
+        ) : null}
         <g transform="scale(1,-1)">
           {visibleEntities.filter((e) => e.entityId !== selId).map((e) => render(e, false))}
           {selected && !hidden.has(selected.layerName) ? render(selected, true) : null}
@@ -454,6 +485,10 @@ export function CadSvg(props: {
           onClick={() => zoomCenter(1.4)}>－</button>
         <button type="button" style={btn} title={t('cad.fitTitle', '맞춤 (더블클릭)')} data-cad-fit
           onClick={() => setVb(null)}>⌂</button>
+        <button type="button" data-cad-grid-toggle
+          style={{ ...btn, ...(gridOn ? { background: '#26406E', color: '#fff', borderColor: '#26406E' } : {}) }}
+          title={t('cad.gridTitle', '그리드 오버레이')}
+          onClick={() => setGridOn((o) => !o)}>▦</button>
         <button type="button" data-cad-measure-toggle
           style={{
             ...btn, width: 'auto', padding: '0 7px', fontSize: 10.5,
@@ -466,6 +501,18 @@ export function CadSvg(props: {
             if (!next) { setM1(null); setM2(null); setMHover(null) }
           }}>📏 {t('cad.measure', '측정')}</button>
       </div>
+      {/* 우하단 — 실시간 커서 도면 좌표 (측정 라벨과 겹치지 않게 힌트 위) */}
+      {cur ? (
+        <div data-cad-coord style={{
+          position: 'absolute', bottom: 26, right: 8, fontSize: 10,
+          fontFamily: 'Consolas, monospace', color: 'var(--txt)', background: '#ffffffee',
+          border: '1px solid var(--line)', padding: '2px 6px', borderRadius: 2,
+          pointerEvents: 'none', userSelect: 'none',
+        }}>
+          X {Number(cur.x.toFixed(1)).toLocaleString()}  Y {Number(cur.y.toFixed(1)).toLocaleString()}
+          {gridOn && gridStep ? <span style={{ color: 'var(--txt-mute)' }}>  · grid {Number(gridStep).toLocaleString()}</span> : null}
+        </div>
+      ) : null}
       {/* 좌하단 — 측정 결과 / 엔티티 속성 */}
       {measureLabel ? (
         <div data-cad-measure-label style={{
