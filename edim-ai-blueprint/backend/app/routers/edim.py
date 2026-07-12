@@ -3822,6 +3822,94 @@ def eco_detail(eco_no: str) -> dict[str, Any]:
                 "impact": r[8], "createdAt": r[9], "appliedAt": r[10]}
 
 
+# ── D6 원가 실적 (cst_actual) — 추정이 실적으로 검증되는 고리 ──
+COST_CATEGORIES = ("MATERIAL", "MANUFACTURING", "DIRECT")
+COST_CAT_LABEL = {"MATERIAL": "재료비", "MANUFACTURING": "제조비", "DIRECT": "직접경비"}
+VARIANCE_ALERT_RATE = 0.10   # 실적이 추정 대비 +10% 초과 시 경보
+
+
+class CostActualCreate(BaseModel):
+    category: str                 # MATERIAL | MANUFACTURING | DIRECT
+    itemCode: str = ""
+    itemName: str = ""
+    poNo: str = ""
+    qty: float = 1
+    unitPrice: float = 0
+
+
+@router.post("/cost/actuals", status_code=201, dependencies=[SETUP])
+def cost_actual_create(request: Request, body: CostActualCreate) -> dict[str, Any]:
+    """구매 실적 적재 (D6) — PO 확정 단가 → 실적 원가(cst_calc 추정과 분리 기록)."""
+    cat = body.category.strip().upper()
+    if cat not in COST_CATEGORIES:
+        raise HTTPException(422, detail=f"원가 분류 오류 ({'/'.join(COST_CATEGORIES)})")
+    if body.qty <= 0 or body.unitPrice < 0:
+        raise HTTPException(422, detail="수량·단가 확인 (수량>0, 단가≥0)")
+    amount = round(body.qty * body.unitPrice, 2)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """INSERT INTO cst_actual (tenant_id, category, item_code, item_name, po_no,
+               qty, unit_price, amount, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING actual_id""",
+            (tid, cat, body.itemCode.strip()[:50] or None, body.itemName.strip()[:200] or None,
+             body.poNo.strip()[:50] or None, body.qty, body.unitPrice, amount,
+             str(request.state.user_id)))
+        aid = cur.fetchone()[0]
+        _audit(cur, tid, "cst_actual", aid, "ACTUAL", request.state.user_id,
+               {"category": cat, "amount": amount, "poNo": body.poNo})
+    return {"actualId": aid, "category": cat, "amount": amount}
+
+
+@router.get("/cost/actuals")
+def cost_actual_list() -> list[dict[str, Any]]:
+    """실적 원가 목록 (D6)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT actual_id, category, COALESCE(item_code,''), COALESCE(item_name,''),
+                      COALESCE(po_no,''), qty, unit_price, amount,
+                      to_char(recorded_at,'MM-DD HH24:MI')
+               FROM cst_actual WHERE tenant_id=%s ORDER BY actual_id DESC""", (tid,))
+        return [{"actualId": r[0], "category": r[1], "itemCode": r[2], "itemName": r[3],
+                 "poNo": r[4], "qty": float(r[5]), "unitPrice": float(r[6]),
+                 "amount": float(r[7]), "recordedAt": r[8]} for r in cur.fetchall()]
+
+
+@router.get("/cost/variance")
+def cost_variance() -> dict[str, Any]:
+    """견적(추정) vs 실적 차이 분석 (D6) — 분류별 추정/실적/차이·차이율 + 임계 경보."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        # 추정 — 최근 SUCCESS Run 의 cst_calc 분류 합계 (없으면 0)
+        try:
+            run_id, est = _latest_cost_base(cur, tid)
+        except HTTPException:
+            run_id, est = None, {}
+        # 실적 — cst_actual 분류 합계
+        cur.execute(
+            "SELECT category, COALESCE(sum(amount),0) FROM cst_actual WHERE tenant_id=%s GROUP BY category",
+            (tid,))
+        act = {r[0]: float(r[1]) for r in cur.fetchall()}
+        cats = []
+        for c in COST_CATEGORIES:
+            e = float(est.get(c, 0))
+            a = act.get(c, 0.0)
+            var = round(a - e, 2)
+            rate = (var / e) if e else (1.0 if a else 0.0)
+            cats.append({"category": c, "label": COST_CAT_LABEL[c], "estimate": e,
+                         "actual": a, "variance": var, "varianceRate": round(rate, 4),
+                         "alert": rate > VARIANCE_ALERT_RATE})
+        te = sum(x["estimate"] for x in cats)
+        ta = sum(x["actual"] for x in cats)
+        tv = round(ta - te, 2)
+        trate = (tv / te) if te else (1.0 if ta else 0.0)
+        return {"runId": run_id, "estimateAvailable": run_id is not None,
+                "categories": cats, "totalEstimate": te, "totalActual": ta,
+                "totalVariance": tv, "totalVarianceRate": round(trate, 4),
+                "alert": trate > VARIANCE_ALERT_RATE, "alertRate": VARIANCE_ALERT_RATE}
+
+
 # ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──
 OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
                "DATA": ("기술자료", "ok"), "BOM": ("BOM", "ok")}

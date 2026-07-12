@@ -2165,6 +2165,55 @@ export const ecoService = {
   },
 }
 
+// D6 — 원가 실적 (Cost Actual / Variance)
+export interface CostActual {
+  actualId: number; category: 'MATERIAL' | 'MANUFACTURING' | 'DIRECT'
+  itemCode: string; itemName: string; poNo: string
+  qty: number; unitPrice: number; amount: number; recordedAt: string
+}
+export interface VarianceCat {
+  category: string; label: string; estimate: number; actual: number
+  variance: number; varianceRate: number; alert: boolean
+}
+export interface VarianceData {
+  runId: number | null; estimateAvailable: boolean; categories: VarianceCat[]
+  totalEstimate: number; totalActual: number; totalVariance: number
+  totalVarianceRate: number; alert: boolean; alertRate: number
+}
+
+export const costActualService = {
+  /** GET /api/v1/cost/actuals (null=백엔드 불가) */
+  async list(): Promise<CostActual[] | null> {
+    try {
+      return await api<CostActual[]>('/cost/actuals')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/cost/variance — 견적 vs 실적 차이 분석 (null=백엔드 불가) */
+  async variance(): Promise<VarianceData | null> {
+    try {
+      return await api<VarianceData>('/cost/variance')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/cost/actuals — 실적 적재 (amount 반환, false=백엔드 불가) */
+  async create(body: { category: string; itemCode?: string; itemName?: string; poNo?: string; qty: number; unitPrice: number }): Promise<number | false> {
+    try {
+      const r = await api<{ amount: number }>('/cost/actuals', {
+        method: 'POST', body: JSON.stringify(body),
+      })
+      return r.amount
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const orderService = {
   /** GET /api/v1/cost/orders — 수주 잔고 + 수주율 (D1; null=백엔드 불가) */
   async list(): Promise<OrdersData | null> {
