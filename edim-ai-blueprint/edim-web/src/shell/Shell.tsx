@@ -213,6 +213,11 @@ export function Shell(props: { user: User }) {
       const inField = tag0 === 'INPUT' || tag0 === 'TEXTAREA' || tag0 === 'SELECT'
       if ((e.ctrlKey || e.metaKey) && !e.altKey) {
         const k = e.key.toLowerCase()
+        // Ctrl+F: 그리드에 포커스가 있으면 그리드 내 찾기(DenseGrid)에 양보, 아니면 전역 검색
+        if (k === 'f') {
+          const ae = document.activeElement as HTMLElement | null
+          if (ae && ae.closest('table.g, [data-grid-wrap]')) return
+        }
         if (k === 'k' || k === 'f') { e.preventDefault(); searchRef.current?.focus(); return }  // 검색/찾기
         if (k === 's') { e.preventDefault(); fkey('F12'); return }                                 // 저장
         if (k === 'p') { e.preventDefault(); window.print(); return }                              // 인쇄

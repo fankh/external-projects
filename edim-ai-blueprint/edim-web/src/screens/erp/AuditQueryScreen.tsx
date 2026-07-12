@@ -9,6 +9,7 @@ import { AccessDenied, usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import { useFKeys } from '../../shell/useFKeys'
 import type { ScreenProps } from '../../shell/Shell'
+import { downloadCsv } from '../../utils/csv'
 
 export function AuditQueryScreen({ active }: ScreenProps) {
   const shell = useShell()
@@ -23,6 +24,7 @@ export function AuditQueryScreen({ active }: ScreenProps) {
   const [actions, setActions] = useState<string[]>([])
   const [users, setUsers] = useState<string[]>([])
   const [sel, setSel] = useState<number | null>(null)
+  const [selKeys, setSelKeys] = useState<Set<string | number>>(new Set())
 
   const filter = useCallback(() => ({
     fromDate, toDate, user, action, target, limit: 500,
@@ -31,7 +33,7 @@ export function AuditQueryScreen({ active }: ScreenProps) {
   const load = useCallback(() => {
     if (!perm.canReadAdmin) return
     void auditService.query(filter()).then((r) => {
-      if (r) { setRows(r.rows); setActions(r.actions); setUsers(r.users) }
+      if (r) { setRows(r.rows); setActions(r.actions); setUsers(r.users); setSelKeys(new Set()) }
     }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }, [filter, perm.canReadAdmin, shell])
 
@@ -43,6 +45,14 @@ export function AuditQueryScreen({ active }: ScreenProps) {
       .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `감사 로그 XLSX ✓ — ${n}건 (필터 적용)`))
   }
   const reset = () => { setFromDate(''); setToDate(''); setUser(''); setAction(''); setTarget('') }
+  const exportSelected = () => {
+    const chosen = rows.filter((r) => selKeys.has(r.historyId))
+    if (!chosen.length) return
+    downloadCsv('audit-selected',
+      ['일시', '작업', '대상', '수행자', '사번'],
+      chosen.map((r) => [r.at, r.action, r.target, r.by, r.login]))
+    shell.setStatusMsg(`선택 ${chosen.length}행 CSV ✓`)
+  }
 
   if (!perm.canReadAdmin) return <AccessDenied screen="감사 조회 (M-14-6)" need="SETUP" />
 
@@ -74,6 +84,7 @@ export function AuditQueryScreen({ active }: ScreenProps) {
           placeholder="예: cst_price" onChange={(e) => setTarget(e.target.value)} />
         <span style={{ flex: 1 }} />
         <Btn onClick={reset}>{t('audit.reset', '초기화')}</Btn>
+        <Btn onClick={exportSelected} disabled={selKeys.size === 0}>⬇ 선택 CSV{selKeys.size ? ` (${selKeys.size})` : ''}</Btn>
         <Btn onClick={exportXlsx}>⬇ XLSX</Btn>
         <Btn variant="pri" onClick={load}>{t('common.query', '조회')} F8</Btn>
       </div>
@@ -84,7 +95,8 @@ export function AuditQueryScreen({ active }: ScreenProps) {
           noPad>
           {rows.length ? (
             <DenseGrid prefKey="audit" columns={cols} rows={rows} rowKey={(r) => r.historyId}
-              selectedKey={sel} onRowClick={(r) => setSel(r.historyId)} />
+              selectedKey={sel} onRowClick={(r) => setSel(r.historyId)}
+              multiSelect selectedKeys={selKeys} onSelectionChange={setSelKeys} />
           ) : (
             <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>
               {t('audit.empty', '조회 결과 없음 — 필터 조정 후 F8')}

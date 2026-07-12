@@ -1,7 +1,8 @@
 /** 레거시 그리드 — 24px 행·양방향 실선·줄무늬·선택 옐로·합계 푸터 (디자인시안 .g).
  *  F8 — 헤더 클릭 정렬 (none→asc→desc 토글, ▲▼ 표시): 원본 인덱스를 보존해
  *  rowKey/onRowClick/selectedKey 가 정렬과 무관하게 동작한다 (index 기반 선택 화면 안전).
- *  정렬값: col.sortValue > render 원시값(string/number) — JSX 셀은 sortValue 미지정 시 정렬 제외. */
+ *  정렬값: col.sortValue > render 원시값(string/number) — JSX 셀은 sortValue 미지정 시 정렬 제외.
+ *  G2 — 그리드 내 찾기(Ctrl+F, 보이는 셀 텍스트 부분일치 필터) · 공용 다중행 선택(multiSelect: 체크박스 열·Shift 범위·전체선택). */
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { prefService } from '../api/services'
 import { downloadCsv } from '../utils/csv'
@@ -20,12 +21,13 @@ export interface GridColumn<T> {
 }
 
 type SortDir = 'asc' | 'desc'
+type Key = string | number
 
 export function DenseGrid<T>(props: {
   columns: GridColumn<T>[]
   rows: T[]
-  rowKey: (row: T, index: number) => string | number
-  selectedKey?: string | number | null
+  rowKey: (row: T, index: number) => Key
+  selectedKey?: Key | null
   onRowClick?: (row: T, index: number) => void
   onRowDoubleClick?: (row: T, index: number) => void
   footer?: ReactNode        // <tr> 내용
@@ -33,12 +35,26 @@ export function DenseGrid<T>(props: {
   style?: CSSProperties
   /** D8 — 지정 시 컬럼 표시/숨김 ⚙ 토글 + 서버 영속(prefs gridColumns[prefKey]) */
   prefKey?: string
+  /** G2 — 그리드 내 찾기 비활성(기본 활성) */
+  findable?: boolean
+  /** G2 — 공용 다중행 선택(체크박스 열). selectedKeys/onSelectionChange 와 함께 사용 */
+  multiSelect?: boolean
+  selectedKeys?: Set<Key>
+  onSelectionChange?: (keys: Set<Key>) => void
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir } | null>(null)
   // D8 — 컬럼 표시 설정
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [colMenu, setColMenu] = useState(false)
   const colRef = useRef<HTMLSpanElement>(null)
+  // G2 — 그리드 내 찾기
+  const findable = props.findable !== false
+  const [findOpen, setFindOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const findInputRef = useRef<HTMLInputElement>(null)
+  // G2 — 다중 선택 Shift 범위 앵커(shown 인덱스)
+  const anchorRef = useRef<number | null>(null)
+
   useEffect(() => {
     if (!props.prefKey) return
     void prefService.get<Record<string, string[]>>('gridColumns').then((m) => {
@@ -112,6 +128,22 @@ export function DenseGrid<T>(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.rows, props.columns, sort])
 
+  // 셀의 검색·CSV 텍스트(원시값/sortValue, JSX 는 '')
+  const cellText = (c: GridColumn<T>, row: T, idx: number): string | number => {
+    if (c.sortValue) { const v = c.sortValue(row); return v == null ? '' : v }
+    const r = c.render(row, idx)
+    return (typeof r === 'string' || typeof r === 'number') ? r : ''
+  }
+
+  // G2 — 찾기 필터(보이는 컬럼 텍스트 부분일치)
+  const q = query.trim().toLowerCase()
+  const shown = useMemo(() => {
+    if (!q) return view
+    return view.filter(({ row, origIdx }) =>
+      cols.some((c) => String(cellText(c, row, origIdx)).toLowerCase().includes(q)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, q, cols])
+
   const clickHeader = (c: GridColumn<T>) => {
     if (!sortableOf(c)) return
     setSort((cur) => {
@@ -124,12 +156,19 @@ export function DenseGrid<T>(props: {
   // G2 — 키보드 행 내비게이션 (↑↓·Home/End·PgUp/Dn·Enter=열기)
   const gridRef = useRef<HTMLTableElement>(null)
   const navigate = (delta: number) => {
-    if (!props.onRowClick || view.length === 0) return
-    const cur = view.findIndex(({ row, origIdx }) => props.rowKey(row, origIdx) === props.selectedKey)
-    const next = Math.max(0, Math.min(view.length - 1, (cur < 0 ? 0 : cur + delta)))
-    props.onRowClick(view[next].row, view[next].origIdx)
+    if (!props.onRowClick || shown.length === 0) return
+    const cur = shown.findIndex(({ row, origIdx }) => props.rowKey(row, origIdx) === props.selectedKey)
+    const next = Math.max(0, Math.min(shown.length - 1, (cur < 0 ? 0 : cur + delta)))
+    props.onRowClick(shown[next].row, shown[next].origIdx)
   }
+  const openFind = () => { setFindOpen(true); setTimeout(() => findInputRef.current?.focus(), 0) }
+  const closeFind = () => { setFindOpen(false); setQuery(''); gridRef.current?.focus() }
   const onKeyDown = (e: ReactKeyboardEvent) => {
+    // 찾기: 그리드 포커스 시 Ctrl+F 가 전역 검색 대신 그리드 내 찾기
+    if (findable && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+      e.preventDefault(); e.stopPropagation(); openFind(); return
+    }
+    if (e.key === 'Escape' && findOpen) { e.preventDefault(); closeFind(); return }
     if (!props.onRowClick) return
     const k = e.key
     if (k === 'ArrowDown') { e.preventDefault(); navigate(1) }
@@ -139,7 +178,7 @@ export function DenseGrid<T>(props: {
     else if (k === 'PageDown') { e.preventDefault(); navigate(10) }
     else if (k === 'PageUp') { e.preventDefault(); navigate(-10) }
     else if (k === 'Enter' && props.onRowDoubleClick) {
-      const cur = view.find(({ row, origIdx }) => props.rowKey(row, origIdx) === props.selectedKey)
+      const cur = shown.find(({ row, origIdx }) => props.rowKey(row, origIdx) === props.selectedKey)
       if (cur) { e.preventDefault(); props.onRowDoubleClick(cur.row, cur.origIdx) }
     }
   }
@@ -147,27 +186,54 @@ export function DenseGrid<T>(props: {
     gridRef.current?.querySelector('tr.sel')?.scrollIntoView({ block: 'nearest' })
   }, [props.selectedKey])
 
-  // G2 — 보이는 컬럼·정렬 순서 그대로 CSV 내보내기 (셀 원시값/sortValue 기준)
-  const csvCell = (c: GridColumn<T>, row: T, idx: number): string | number => {
-    if (c.sortValue) { const v = c.sortValue(row); return v == null ? '' : v }
-    const r = c.render(row, idx)
-    return (typeof r === 'string' || typeof r === 'number') ? r : ''
+  // G2 — 다중 선택
+  const selKeys = props.selectedKeys
+  const isSel = (k: Key) => !!selKeys?.has(k)
+  const emit = (next: Set<Key>) => props.onSelectionChange?.(next)
+  const toggleOne = (k: Key) => {
+    const next = new Set(selKeys ?? [])
+    if (next.has(k)) next.delete(k); else next.add(k)
+    emit(next)
   }
+  const selectRange = (aIdx: number, bIdx: number) => {
+    const [lo, hi] = aIdx <= bIdx ? [aIdx, bIdx] : [bIdx, aIdx]
+    const next = new Set(selKeys ?? [])
+    for (let i = lo; i <= hi; i++) next.add(props.rowKey(shown[i].row, shown[i].origIdx))
+    emit(next)
+  }
+  const allShownSel = shown.length > 0 && shown.every(({ row, origIdx }) => isSel(props.rowKey(row, origIdx)))
+  const someShownSel = shown.some(({ row, origIdx }) => isSel(props.rowKey(row, origIdx)))
+  const toggleAllShown = () => {
+    const next = new Set(selKeys ?? [])
+    if (allShownSel) shown.forEach(({ row, origIdx }) => next.delete(props.rowKey(row, origIdx)))
+    else shown.forEach(({ row, origIdx }) => next.add(props.rowKey(row, origIdx)))
+    emit(next)
+  }
+
+  // G2 — 보이는 컬럼·정렬 순서·찾기 필터 그대로 CSV 내보내기
   const exportCsv = () => {
     downloadCsv(props.prefKey || 'grid',
       cols.map((c) => (typeof c.header === 'string' ? c.header : c.key)),
-      view.map(({ row, origIdx }) => cols.map((c) => csvCell(c, row, origIdx))))
+      shown.map(({ row, origIdx }) => cols.map((c) => cellText(c, row, origIdx))))
   }
 
+  const ms = props.multiSelect
   const table = (
     <table ref={gridRef} className="g"
-      tabIndex={props.onRowClick ? 0 : undefined} onKeyDown={onKeyDown}
+      tabIndex={(props.onRowClick || findable) ? 0 : undefined} onKeyDown={onKeyDown}
       style={{
         ...(props.mono ? { fontFamily: 'Consolas, monospace', fontSize: '10.5px' } : null),
         ...props.style,
       }}>
       <thead>
         <tr>
+          {ms ? (
+            <th style={{ width: 26, cursor: 'pointer' }} title="전체 선택/해제" onClick={(e) => e.stopPropagation()}>
+              <input type="checkbox" aria-label="전체 선택" checked={allShownSel}
+                ref={(el) => { if (el) el.indeterminate = someShownSel && !allShownSel }}
+                onChange={toggleAllShown} />
+            </th>
+          ) : null}
           {cols.map((c) => {
             const sortable = sortableOf(c)
             const active = sort?.key === c.key
@@ -188,12 +254,22 @@ export function DenseGrid<T>(props: {
         </tr>
       </thead>
       <tbody>
-        {view.map(({ row, origIdx }) => {
+        {shown.map(({ row, origIdx }, i) => {
           const k = props.rowKey(row, origIdx)
+          const checked = ms && isSel(k)
           return (
-            <tr key={k} className={props.selectedKey === k ? 'sel' : undefined}
+            <tr key={k} className={[props.selectedKey === k ? 'sel' : '', checked ? 'msel' : ''].filter(Boolean).join(' ') || undefined}
               onClick={() => props.onRowClick?.(row, origIdx)}
               onDoubleClick={() => props.onRowDoubleClick?.(row, origIdx)}>
+              {ms ? (
+                <td className="c" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" aria-label="행 선택" checked={!!checked} readOnly
+                    onClick={(e) => {
+                      if (e.shiftKey && anchorRef.current != null) selectRange(anchorRef.current, i)
+                      else { toggleOne(k); anchorRef.current = i }
+                    }} />
+                </td>
+              ) : null}
               {cols.map((c) => (
                 <td key={c.key} className={tdClass(c)}>{c.render(row, origIdx)}</td>
               ))}
@@ -205,36 +281,57 @@ export function DenseGrid<T>(props: {
     </table>
   )
 
-  if (!props.prefKey) return table
-  // D8 — 컬럼 표시 설정 ⚙ (우상단 오버레이)
+  const overlay = (findable || props.prefKey) ? (
+    <span style={{ position: 'absolute', top: 2, right: 2, zIndex: 6, display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+      {findable ? (
+        findOpen ? (
+          <span className="gb" style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '1px 3px', boxShadow: '0 2px 8px rgba(20,26,40,.2)' }}>
+            <input ref={findInputRef} className="in" style={{ width: 120, height: 16, fontSize: 10.5 }}
+              placeholder="찾기…" value={query} onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') closeFind() }} />
+            <span style={{ fontSize: 9.5, color: 'var(--txt-mute)', minWidth: 26, textAlign: 'right' }}>
+              {q ? `${shown.length}/${view.length}` : ''}</span>
+            <span className="b ic" style={{ fontSize: 11, opacity: 0.7, cursor: 'pointer' }} title="닫기 (Esc)"
+              onClick={() => { setFindOpen(false); setQuery('') }}>✕</span>
+          </span>
+        ) : (
+          <span className="b ic" title="찾기 (Ctrl+F)" style={{ fontSize: 11, opacity: 0.6, cursor: 'pointer' }}
+            onClick={openFind}>🔍</span>
+        )
+      ) : null}
+      {props.prefKey ? (
+        <span ref={colRef} style={{ position: 'relative' }}>
+          <span className="b ic" data-col-menu title="컬럼 표시 설정" style={{ fontSize: 11, opacity: 0.7, cursor: 'pointer' }}
+            onClick={() => setColMenu((o) => !o)}>⚙</span>
+          {colMenu ? (
+            <div className="gb" style={{
+              position: 'absolute', right: 0, top: 20, width: 180, zIndex: 100,
+              boxShadow: '0 6px 20px rgba(20,26,40,.28)', textAlign: 'left',
+            }}>
+              <div className="gt" style={{ fontSize: 10 }}>컬럼 표시</div>
+              <div className="gc p0" style={{ maxHeight: 260, overflow: 'auto', padding: 4 }}>
+                {props.columns.map((c) => (
+                  <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, padding: '2px 4px', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!hidden.has(c.key)} onChange={() => toggleCol(c.key)} />
+                    {typeof c.header === 'string' ? c.header : c.key}
+                  </label>
+                ))}
+              </div>
+              <div style={{ borderTop: '1px solid var(--line)', padding: 4 }}>
+                <span className="b" data-grid-csv style={{ fontSize: 10.5, cursor: 'pointer', width: '100%', justifyContent: 'center' }}
+                  onClick={() => { exportCsv(); setColMenu(false) }}>⬇ CSV 내보내기</span>
+              </div>
+            </div>
+          ) : null}
+        </span>
+      ) : null}
+    </span>
+  ) : null
+
+  if (!overlay) return table
   return (
-    <div style={{ position: 'relative' }}>
-      <span ref={colRef} style={{ position: 'absolute', top: 2, right: 2, zIndex: 5 }}>
-        <span className="b ic" data-col-menu title="컬럼 표시 설정"
-          style={{ fontSize: 11, opacity: 0.7 }}
-          onClick={() => setColMenu((o) => !o)}>⚙</span>
-        {colMenu ? (
-          <div className="gb" style={{
-            position: 'absolute', right: 0, top: 20, width: 180, zIndex: 100,
-            boxShadow: '0 6px 20px rgba(20,26,40,.28)', textAlign: 'left',
-          }}>
-            <div className="gt" style={{ fontSize: 10 }}>컬럼 표시</div>
-            <div className="gc p0" style={{ maxHeight: 260, overflow: 'auto', padding: 4 }}>
-              {props.columns.map((c) => (
-                <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, padding: '2px 4px', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={!hidden.has(c.key)}
-                    onChange={() => toggleCol(c.key)} />
-                  {typeof c.header === 'string' ? c.header : c.key}
-                </label>
-              ))}
-            </div>
-            <div style={{ borderTop: '1px solid var(--line)', padding: 4 }}>
-              <span className="b" data-grid-csv style={{ fontSize: 10.5, cursor: 'pointer', width: '100%', justifyContent: 'center' }}
-                onClick={() => { exportCsv(); setColMenu(false) }}>⬇ CSV 내보내기</span>
-            </div>
-          </div>
-        ) : null}
-      </span>
+    <div data-grid-wrap style={{ position: 'relative' }}>
+      {overlay}
       {table}
     </div>
   )

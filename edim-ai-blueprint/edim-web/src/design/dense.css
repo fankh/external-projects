@@ -65,6 +65,8 @@ body {
 .g td { padding: 0 6px; height: 24px; border: 1px solid var(--line-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g tbody tr:nth-child(even) td { background: #F7F9FC; }
 .g tbody tr.sel td { background: var(--sel-yellow); }
+.g tbody tr.msel td { background: #E3EEFF; }
+.g tbody tr.msel.sel td { background: #DCE8CF; }
 .g tbody tr:hover td { background: #FDF6DE; }
 .g td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .g td.c { text-align: center; }
