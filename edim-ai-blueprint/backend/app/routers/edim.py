@@ -1867,10 +1867,12 @@ def cad_view(file_id: int) -> dict[str, Any]:
 
 
 class CadEditOp(BaseModel):
-    op: str            # 'move' | 'delete'
+    op: str            # 'move' | 'delete' | 'copy' | 'rotate' | 'mirror'
     entityId: str
     dx: float = 0.0
     dy: float = 0.0
+    angle: float = 0.0    # rotate — 도(°), 반시계
+    axis: str = "y"       # mirror — 'y'=수직축(좌우반전) · 'x'=수평축(상하반전)
 
 
 class CadEditRequest(BaseModel):
@@ -1885,11 +1887,20 @@ _CAD_EDIT_TYPES = ("LINE", "LWPOLYLINE", "POLYLINE", "CIRCLE", "ARC", "TEXT", "M
 def cad_edit(file_id: int, request: Request, body: CadEditRequest) -> dict[str, Any]:
     """G1 엔티티 편집 — 이동/삭제 → DXF 재저장(MinIO 덮어쓰기) 후 재파싱 문서 반환.
     entityId = 인식 엔티티(LINE/POLYLINE/CIRCLE/ARC/TEXT) 모델스페이스 순번(e1..) — importer 규칙과 동일."""
+    import math
     import tempfile
     from pathlib import Path
 
     import ezdxf
     from ezdxf import recover
+    from ezdxf.bbox import extents
+    from ezdxf.math import Matrix44
+
+    def _pivot(entity: Any) -> tuple[float, float] | None:
+        bb = extents([entity])
+        if not bb.has_data:
+            return None
+        return bb.center.x, bb.center.y
 
     if not body.ops:
         raise HTTPException(422, detail="편집 작업이 없습니다")
@@ -1937,8 +1948,42 @@ def cad_edit(file_id: int, request: Request, body: CadEditRequest) -> dict[str, 
                     applied += 1
                 except (AttributeError, TypeError):
                     try:
-                        from ezdxf.math import Matrix44
                         ent.transform(Matrix44.translate(op.dx, op.dy, 0))
+                        applied += 1
+                    except Exception:
+                        pass
+            elif op.op == "copy":
+                try:
+                    new = ent.copy()
+                    msp.add_entity(new)
+                    new.translate(op.dx, op.dy, 0)
+                    applied += 1
+                except Exception:
+                    pass
+            elif op.op == "rotate":
+                piv = _pivot(ent)
+                if piv:
+                    cx, cy = piv
+                    m = Matrix44.chain(
+                        Matrix44.translate(-cx, -cy, 0),
+                        Matrix44.z_rotate(math.radians(op.angle)),
+                        Matrix44.translate(cx, cy, 0))
+                    try:
+                        ent.transform(m)
+                        applied += 1
+                    except Exception:
+                        pass
+            elif op.op == "mirror":
+                piv = _pivot(ent)
+                if piv:
+                    cx, cy = piv
+                    sx, sy = (-1, 1) if op.axis == "y" else (1, -1)
+                    m = Matrix44.chain(
+                        Matrix44.translate(-cx, -cy, 0),
+                        Matrix44.scale(sx, sy, 1),
+                        Matrix44.translate(cx, cy, 0))
+                    try:
+                        ent.transform(m)
                         applied += 1
                     except Exception:
                         pass

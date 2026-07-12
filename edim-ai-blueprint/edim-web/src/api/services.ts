@@ -2950,8 +2950,8 @@ export const cadService = {
       throw e
     }
   },
-  /** POST /api/v1/cad/view/{fileId}/edit — 엔티티 이동/삭제 → DXF 재저장 후 재파싱 문서 */
-  async edit(fileId: number, ops: { op: 'move' | 'delete'; entityId: string; dx?: number; dy?: number }[]):
+  /** POST /api/v1/cad/view/{fileId}/edit — 엔티티 이동/삭제/복사/회전/미러 → DXF 재저장 후 재파싱 문서 */
+  async edit(fileId: number, ops: { op: 'move' | 'delete' | 'copy' | 'rotate' | 'mirror'; entityId: string; dx?: number; dy?: number; angle?: number; axis?: 'x' | 'y' }[]):
   Promise<{ applied: number; document: CadDocument }> {
     return api<{ applied: number; document: CadDocument }>(`/cad/view/${fileId}/edit`, {
       method: 'POST', body: JSON.stringify({ ops }),

@@ -149,7 +149,10 @@ function entityInfo(e: CadEntity): { title: string; rows: [string, string][] } {
 
 export interface LayerOverride { color?: string; width?: number }   // B16 특성 편집 (DWG-025)
 
-export interface CadEditOp { op: 'move' | 'delete'; entityId: string; dx?: number; dy?: number }
+export interface CadEditOp {
+  op: 'move' | 'delete' | 'copy' | 'rotate' | 'mirror'
+  entityId: string; dx?: number; dy?: number; angle?: number; axis?: 'x' | 'y'
+}
 
 export function CadSvg(props: {
   doc: CadDocument
@@ -592,9 +595,16 @@ export function CadSvg(props: {
             <b style={{ color: '#D97706' }}>{info.title}</b>
             <span style={{ flex: 1 }} />
             {props.editable && editOn && selId ? (
-              <span data-cad-delete style={{ cursor: 'pointer', color: '#B3372F' }}
-                title="삭제 (Delete)"
-                onClick={() => { props.onEdit?.([{ op: 'delete', entityId: selId }]); setSelId(null) }}>🗑</span>
+              <>
+                <span data-cad-copy style={{ cursor: 'pointer' }} title="복사"
+                  onClick={() => { const off = Math.max(view.w, view.h) * 0.04; props.onEdit?.([{ op: 'copy', entityId: selId, dx: off, dy: off }]) }}>⧉</span>
+                <span data-cad-rotate style={{ cursor: 'pointer' }} title="회전 90°"
+                  onClick={() => props.onEdit?.([{ op: 'rotate', entityId: selId, angle: 90 }])}>⟳</span>
+                <span data-cad-mirror style={{ cursor: 'pointer' }} title="좌우 반전(수직축)"
+                  onClick={() => props.onEdit?.([{ op: 'mirror', entityId: selId, axis: 'y' }])}>⇋</span>
+                <span data-cad-delete style={{ cursor: 'pointer', color: '#B3372F' }} title="삭제 (Delete)"
+                  onClick={() => { props.onEdit?.([{ op: 'delete', entityId: selId }]); setSelId(null) }}>🗑</span>
+              </>
             ) : null}
             <span style={{ cursor: 'pointer', color: 'var(--txt-mute)' }}
               onClick={() => setSelId(null)}>✕</span>
