@@ -3310,6 +3310,62 @@ export interface XReviewRow {
   projectNo: string; projectName: string; createdAt: string; createdBy: string
 }
 
+export interface ProductCodeRow {
+  productCodeId: number; mainCode: string; codeName: string; groupCode: string
+  status: string; createdAt: string; refs: number
+}
+
+export const productCodeService = {
+  /** GET /api/v1/codes/products — 제품 코드 마스터 목록 */
+  async list(status = ''): Promise<ProductCodeRow[] | null> {
+    try {
+      return await api<ProductCodeRow[]>(`/codes/products${status ? `?status=${status}` : ''}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/codes/groups — 그룹 콤보용 */
+  async groups(): Promise<{ groupCode: string; groupName: string }[]> {
+    try {
+      return await api<{ groupCode: string; groupName: string }[]>('/codes/groups')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return []
+      throw e
+    }
+  },
+  /** POST /api/v1/codes/products — 수동 생성 (중복 409·그룹 없음 422 throw) */
+  async create(body: { mainCode: string; codeName: string; groupCode: string }): Promise<boolean> {
+    try {
+      await api('/codes/products', { method: 'POST', body: JSON.stringify(body) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** PATCH /api/v1/codes/products/{id} — 코드명·상태 수정 */
+  async patch(id: number, body: { codeName?: string; status?: string }): Promise<boolean> {
+    try {
+      await api(`/codes/products/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** DELETE /api/v1/codes/products/{id} — 삭제 (참조 시 409 throw) */
+  async remove(id: number): Promise<boolean> {
+    try {
+      await api(`/codes/products/${id}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 // ── 개발서버 전용 — 운영자 요구사항 접수 (dev_requirement) ──
 
 export interface DevRequirement {

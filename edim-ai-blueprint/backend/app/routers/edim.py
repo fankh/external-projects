@@ -521,6 +521,123 @@ def create_group(request: Request, body: GroupCreate) -> dict[str, Any]:
     return {"groupCode": code, "status": "DRAFT"}
 
 
+# ── G3 제품 코드 마스터 CRUD (수동 생성/수정/비활성) ──
+# product_code 참조 테이블 (삭제 가드) — (table, fk_column)
+_PC_REFS = [
+    ("code_relationship", "mother_code_id"), ("code_relationship", "child_code_id"),
+    ("cst_price", "product_code_id"), ("cpq_selection", "product_code_id"),
+    ("cpq_selection_item", "child_code_id"), ("dwg_dimension", "product_code_id"),
+    ("erp_work_process", "product_code_id"), ("product_code_item", "product_code_id"),
+    ("prt_part", "product_code_id"), ("prt_supplier_code_map", "product_code_id"),
+    ("arrangement_component", "product_code_id"),
+]
+
+
+@router.get("/codes/products")
+def list_products(status: str = "") -> list[dict[str, Any]]:
+    """제품 코드 마스터 목록 — main_code·code_name·그룹·상태·참조 수."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        params: list[Any] = [tid]
+        clause = ""
+        if status.strip() and status != "ALL":
+            clause = " AND pc.approval_status=%s"
+            params.append(status.strip())
+        cur.execute(
+            f"""SELECT pc.product_code_id, pc.main_code, pc.code_name, cg.group_code,
+                       pc.approval_status, to_char(pc.created_at,'YYYY-MM-DD'),
+                       (SELECT count(*) FROM code_relationship cr
+                          WHERE cr.mother_code_id=pc.product_code_id OR cr.child_code_id=pc.product_code_id)
+                       + (SELECT count(*) FROM cst_price p WHERE p.product_code_id=pc.product_code_id)
+                       + (SELECT count(*) FROM cpq_selection s WHERE s.product_code_id=pc.product_code_id)
+                FROM product_code pc JOIN code_group cg ON cg.group_id=pc.group_id
+                WHERE pc.tenant_id=%s{clause} ORDER BY pc.main_code""", tuple(params))
+        return [{"productCodeId": r[0], "mainCode": r[1], "codeName": r[2], "groupCode": r[3],
+                 "status": r[4], "createdAt": r[5], "refs": int(r[6])} for r in cur.fetchall()]
+
+
+class ProductCreate(BaseModel):
+    mainCode: str
+    codeName: str
+    groupCode: str
+
+
+@router.post("/codes/products", status_code=201, dependencies=[SETUP])
+def create_product(request: Request, body: ProductCreate) -> dict[str, Any]:
+    """제품 코드 수동 생성 — DRAFT (중복 main_code 409·그룹 없음 422)."""
+    main = body.mainCode.strip()[:50]
+    if not main or not body.codeName.strip():
+        raise HTTPException(422, detail="필수 — 코드·코드명")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT group_id FROM code_group WHERE tenant_id=%s AND group_code=%s",
+                    (tid, body.groupCode.strip()))
+        grp = cur.fetchone()
+        if not grp:
+            raise HTTPException(422, detail=f"그룹 없음: {body.groupCode}")
+        cur.execute("SELECT 1 FROM product_code WHERE tenant_id=%s AND main_code=%s", (tid, main))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 코드 {main}")
+        cur.execute(
+            """INSERT INTO product_code (tenant_id, main_code, group_id, code_name, approval_status)
+               VALUES (%s,%s,%s,%s,'DRAFT') RETURNING product_code_id""",
+            (tid, main, grp[0], body.codeName.strip()[:200]))
+        pid = cur.fetchone()[0]
+        _audit(cur, tid, "product_code", pid, "CREATE", request.state.user_id, {"mainCode": main})
+    return {"productCodeId": pid, "mainCode": main, "status": "DRAFT"}
+
+
+class ProductPatch(BaseModel):
+    codeName: str | None = None
+    status: str | None = None   # DRAFT | APPROVED | INACTIVE
+
+
+@router.patch("/codes/products/{product_code_id}", dependencies=[SETUP])
+def patch_product(product_code_id: int, request: Request, body: ProductPatch) -> dict[str, Any]:
+    """제품 코드 수정 — 코드명·상태(DRAFT/APPROVED/INACTIVE=비활성)."""
+    sets: list[str] = []
+    params: list[Any] = []
+    if body.codeName is not None and body.codeName.strip():
+        sets.append("code_name=%s"); params.append(body.codeName.strip()[:200])
+    if body.status is not None:
+        st = body.status.strip().upper()
+        if st not in ("DRAFT", "APPROVED", "INACTIVE"):
+            raise HTTPException(422, detail="상태는 DRAFT/APPROVED/INACTIVE")
+        sets.append("approval_status=%s"); params.append(st)
+    if not sets:
+        raise HTTPException(422, detail="변경할 값이 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        params += [tid, product_code_id]
+        cur.execute(
+            f"UPDATE product_code SET {', '.join(sets)} WHERE tenant_id=%s AND product_code_id=%s "
+            "RETURNING main_code, code_name, approval_status", tuple(params))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail="코드 없음")
+        _audit(cur, tid, "product_code", product_code_id, "UPDATE", request.state.user_id,
+               {"codeName": body.codeName, "status": body.status})
+    return {"mainCode": row[0], "codeName": row[1], "status": row[2]}
+
+
+@router.delete("/codes/products/{product_code_id}", dependencies=[SETUP])
+def delete_product(product_code_id: int, request: Request) -> dict[str, Any]:
+    """제품 코드 삭제 — 참조 있으면 409(비활성 권장)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        for table, col in _PC_REFS:
+            cur.execute(f"SELECT 1 FROM {table} WHERE {col}=%s LIMIT 1", (product_code_id,))
+            if cur.fetchone():
+                raise HTTPException(409, detail=f"참조 있어 삭제 불가({table}) — 비활성(INACTIVE) 처리 권장")
+        cur.execute("DELETE FROM product_code WHERE tenant_id=%s AND product_code_id=%s RETURNING main_code",
+                    (tid, product_code_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail="코드 없음")
+        _audit(cur, tid, "product_code", product_code_id, "DELETE", request.state.user_id, {"mainCode": row[0]})
+    return {"deleted": product_code_id, "mainCode": row[0]}
+
+
 @router.get("/codes/groups/{group}/export.xlsx")
 def export_group_xlsx(group: str) -> Response:
     """그룹 code_item Excel 내보내기 (C2 — Slot·Item Name·Sort·Values)."""

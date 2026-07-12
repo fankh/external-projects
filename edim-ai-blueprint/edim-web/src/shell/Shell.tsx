@@ -32,6 +32,7 @@ import { WarehouseScreen } from '../screens/erp/WarehouseScreen'
 import { WorkProcessScreen } from '../screens/plm/WorkProcessScreen'
 import { SubCodeScreen } from '../screens/code/SubCodeScreen'
 import { CodeRelationshipScreen } from '../screens/code/CodeRelationshipScreen'
+import { ProductCodeMasterScreen } from '../screens/code/ProductCodeMasterScreen'
 import { DataTableScreen } from '../screens/code/DataTableScreen'
 import { DocumentMgmtScreen } from '../screens/cpq/DocumentMgmtScreen'
 import { DocTemplateScreen } from '../screens/cpq/DocTemplateScreen'
@@ -80,6 +81,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'plm-workprocess': WorkProcessScreen,
   'code-subcode': SubCodeScreen,
   'code-relationship': CodeRelationshipScreen,
+  'code-master': ProductCodeMasterScreen,
   'code-datatable': DataTableScreen,
   'erp-project': ProjectScreen,
   'erp-dashboard': DashboardScreen,
