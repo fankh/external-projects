@@ -62,3 +62,11 @@ def remove_object(key: str) -> None:
     if client is None:
         raise RuntimeError("storage unavailable")
     client.remove_object(BUCKET, key)
+
+
+def list_object_keys(prefix: str = "") -> list[str]:
+    """버킷 내 오브젝트 키 목록 (GC용). 미설정 시 RuntimeError."""
+    client = get_client()
+    if client is None:
+        raise RuntimeError("storage unavailable")
+    return [o.object_name for o in client.list_objects(BUCKET, prefix=prefix or None, recursive=True)]

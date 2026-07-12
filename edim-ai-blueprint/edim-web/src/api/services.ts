@@ -2545,6 +2545,15 @@ export const runService = {
       throw e
     }
   },
+  /** POST /api/v1/files/gc — MinIO orphan 오브젝트 GC (ADMIN, apply=false=dry-run) */
+  async gcStorage(apply: boolean): Promise<{ totalObjects: number; orphans: number; removed: number; applied: boolean } | null> {
+    try {
+      return await api('/files/gc', { method: 'POST', body: JSON.stringify({ apply }) })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
 }
 
 export const orderService = {

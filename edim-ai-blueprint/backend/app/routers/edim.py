@@ -1754,6 +1754,40 @@ def delete_file(file_id: int, request: Request) -> dict[str, Any]:
     return {"deleted": file_id}
 
 
+class FileGcRequest(BaseModel):
+    apply: bool = False    # false=dry-run(목록만), true=실제 삭제
+    prefix: str = ""       # 특정 프로젝트/폴더 접두어로 한정 (선택)
+
+
+@router.post("/files/gc", dependencies=[ADMIN])
+def files_gc(request: Request, body: FileGcRequest) -> dict[str, Any]:
+    """MinIO 객체 GC — dwg_file 미참조 orphan 정리 (E2/E3 잔여). 기본 dry-run, apply=true 실삭제."""
+    try:
+        keys = storage.list_object_keys(body.prefix.strip())
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        # 버킷은 테넌트 공유 — 전체 dwg_file.file_path 를 참조 집합으로
+        cur.execute("SELECT DISTINCT file_path FROM dwg_file")
+        referenced = {r[0] for r in cur.fetchall()}
+        orphans = [k for k in keys if k not in referenced]
+        removed: list[str] = []
+        if body.apply:
+            for k in orphans:
+                try:
+                    storage.remove_object(k)
+                    removed.append(k)
+                except RuntimeError:
+                    break
+            if removed:
+                _audit(cur, tid, "dwg_file", 0, "MINIO_GC", request.state.user_id,
+                       {"removed": len(removed), "prefix": body.prefix})
+    return {"totalObjects": len(keys), "referenced": len(keys) - len(orphans),
+            "orphans": len(orphans), "removed": len(removed), "applied": body.apply,
+            "sampleOrphans": orphans[:20]}
+
+
 # ── INT-04 CAD 호환 — DXF 뷰/Import/Export (DWG 는 ODA 플러그블) ──
 def _parse_cad_bytes(data: bytes, file_name: str) -> dict[str, Any]:
     """DXF(직접)/DWG(ODA 변환 후) → 정규화 DrawingDocument(JSON)."""

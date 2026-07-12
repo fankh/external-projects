@@ -50,6 +50,19 @@ export function RunHistoryScreen({ active }: ScreenProps) {
     }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }
 
+  const gcStorage = () => {
+    void runService.gcStorage(false).then((dry) => {
+      if (!dry) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드/스토리지 연결 필요</span>); return }
+      if (dry.orphans === 0) { shell.setStatusMsg(`MinIO 정리 — orphan 없음 (전체 ${dry.totalObjects}개 모두 참조됨)`); return }
+      if (!window.confirm(`MinIO orphan ${dry.orphans}개 / 전체 ${dry.totalObjects}개. 삭제하시겠습니까?`)) {
+        shell.setStatusMsg(`MinIO 점검 — orphan ${dry.orphans}개 (dry-run, 삭제 안 함)`); return
+      }
+      void runService.gcStorage(true).then((r) => {
+        if (r) shell.setStatusMsg(`MinIO 정리 ✓ — orphan ${r.removed}개 삭제 (전체 ${r.totalObjects})`)
+      })
+    }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
   const cleanup = () => {
     const n = Number((window.prompt('최근 몇 건을 유지하시겠습니까? (그 외 미참조 Run 일괄 정리)', '5') || '').replace(/[^\d]/g, ''))
     if (!n) return
@@ -101,6 +114,7 @@ export function RunHistoryScreen({ active }: ScreenProps) {
         </span>
         <span style={{ flex: 1 }} />
         <Btn disabled={!canWrite} onClick={cleanup}>{t('run.cleanup', '보관 정리')}</Btn>
+        <Btn disabled={!canWrite} onClick={gcStorage}>{t('run.gc', 'MinIO 정리')}</Btn>
         <Btn onClick={load}>{t('common.query', '조회')} F8</Btn>
       </div>
       <div className="fill-col" style={{ padding: 6, gap: 6, overflow: 'auto' }}>
