@@ -5599,6 +5599,24 @@ def quotation_status(quotation_id: int, request: Request, body: QuoteStatusPatch
             cur.execute(
                 """UPDATE prj_project SET sales_stage='CONTRACT', updated_at=now()
                    WHERE project_id=%s AND sales_stage NOT IN ('CONTRACT','CLOSED')""", (project_id,))
+            # 마일스톤 자동 시딩 (D1→D7 고리) — 표준 5단계, 기존 단계는 보존(ON CONFLICT)
+            cur.execute("SELECT project_no FROM prj_project WHERE project_id=%s", (project_id,))
+            pno = cur.fetchone()
+            offs = {"ORDER": 0, "DESIGN": 14, "PURCHASE": 30, "PRODUCTION": 50, "SHIPMENT": 70}
+            if pno:
+                for stg in MILESTONE_STAGES:
+                    if stg == "SHIPMENT" and body.expectedDelivery:
+                        cur.execute(
+                            """INSERT INTO prj_milestone (tenant_id, project_no, stage, planned_date, note, created_by)
+                               VALUES (%s,%s,%s,%s::date,'수주 자동 시딩',%s)
+                               ON CONFLICT (tenant_id, project_no, stage) DO NOTHING""",
+                            (tid, pno[0], stg, body.expectedDelivery, str(request.state.user_id)))
+                    else:
+                        cur.execute(
+                            """INSERT INTO prj_milestone (tenant_id, project_no, stage, planned_date, note, created_by)
+                               VALUES (%s,%s,%s,CURRENT_DATE + (%s||' days')::interval,'수주 자동 시딩',%s)
+                               ON CONFLICT (tenant_id, project_no, stage) DO NOTHING""",
+                            (tid, pno[0], stg, offs[stg], str(request.state.user_id)))
         else:
             cur.execute("UPDATE cst_quotation SET status=%s, updated_at=now() WHERE quotation_id=%s",
                         (new, quotation_id))
