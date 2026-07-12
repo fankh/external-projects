@@ -3093,6 +3093,18 @@ export const cadService = {
       throw e
     }
   },
+  /** POST /api/v1/cad/part-drawing/save — 부품도를 dwg_file 로 실체화(편집 대상 fileId 반환) */
+  async partDrawingSave(dims: Record<string, number>, name = 'part_edit.dxf'):
+  Promise<{ fileId: number; document: CadDocument } | null> {
+    try {
+      return await api<{ fileId: number; document: CadDocument }>('/cad/part-drawing/save', {
+        method: 'POST', body: JSON.stringify({ dims, name }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
   /** POST /api/v1/cad/export-dxf — 현재 치수로 제작 DXF 다운로드 */
   async exportDxf(dims: Record<string, number>): Promise<void> {
     const res = await fetch(`${API}/cad/export-dxf`, {

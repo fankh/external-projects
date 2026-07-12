@@ -190,6 +190,9 @@ export function CadSvg(props: {
   /** G1 편집 — 지정 시 ✎ 편집 모드(선택 엔티티 드래그 이동·Delete 삭제) 활성 */
   editable?: boolean
   onEdit?: (ops: CadEditOp[]) => void
+  /** 외부 툴바 제어 — move/copy/rotate/mirror/erase/trim/extend/line/circle/rect/properties (소비 후 onToolConsumed) */
+  activeTool?: string | null
+  onToolConsumed?: () => void
 }) {
   const { doc } = props
   const { t } = useI18n()
@@ -275,6 +278,26 @@ export function CadSvg(props: {
     ddraw.current = null; setDrawPreview(null); setSnapMark(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc])
+
+  // 외부 툴바 제어 — activeTool 을 내부 편집 모드/동작으로 매핑
+  useEffect(() => {
+    const tsel = props.activeTool
+    if (!tsel || !props.editable) return
+    setEditOn(true); setMeasureOn(false)
+    if (tsel === 'trim' || tsel === 'extend') { setTrimTool(true); setDrawTool(null); setTrimBoundary(null) }
+    else if (tsel === 'line' || tsel === 'circle' || tsel === 'rect') { setDrawTool(tsel); setTrimTool(false) }
+    else {
+      setTrimTool(false); setDrawTool(null)
+      const off = Math.max(view.w, view.h) * 0.04
+      if (tsel === 'copy') runOps((id) => ({ op: 'copy', entityId: id, dx: off, dy: off }))
+      else if (tsel === 'rotate') runOps((id) => ({ op: 'rotate', entityId: id, angle: 90 }))
+      else if (tsel === 'mirror') runOps((id) => ({ op: 'mirror', entityId: id, axis: 'y' }))
+      else if (tsel === 'erase') { runOps((id) => ({ op: 'delete', entityId: id })); clearSel() }
+      // 'move'·'properties' 는 편집 모드 진입만 (선택 후 드래그/클릭)
+    }
+    props.onToolConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.activeTool])
 
   // client px → 도면 단위 스케일 (preserveAspectRatio=meet 기준)
   const pxScale = (v: VB) => {

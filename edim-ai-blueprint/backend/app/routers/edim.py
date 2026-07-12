@@ -2363,6 +2363,56 @@ def cad_part_drawing(body: PartDrawingRequest) -> dict[str, Any]:
     return {"dims": dims, "document": _parse_cad_bytes(data, "KDCR3-13_part.dxf")}
 
 
+class PartDrawingSaveRequest(BaseModel):
+    dims: dict[str, float] = {}
+    name: str = "part_edit.dxf"
+    project: str = "PS-61313-5"
+
+
+@router.post("/cad/part-drawing/save", dependencies=[SETUP])
+def cad_part_drawing_save(request: Request, body: PartDrawingSaveRequest) -> dict[str, Any]:
+    """Design Editor 편집 대상화 — 현재 치수 부품도를 dwg_file(MinIO)로 실체화(같은 이름=덮어쓰기).
+    반환 fileId 로 /cad/view/{id}/edit 편집·영속 가능."""
+    from app.services import run_pipeline as rp
+
+    dims = {k: float(v) for k, v in body.dims.items()}
+    if not dims:
+        r = rp.PipelineResult()
+        with _conn() as conn, conn.cursor() as cur:
+            tid = _tenant_id(cur)
+            rp.step_dims(cur, tid, _make_table_resolver(cur, tid), r)
+        dims = r.dims
+    data = rp.build_part_dxf(dims)
+    fname = (body.name or "part_edit.dxf").replace("/", "_")
+    if not fname.lower().endswith(".dxf"):
+        fname += ".dxf"
+    key = f"{body.project}/DWG/{fname}"
+    try:
+        storage.put_object(key, data, "application/dxf")
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
+                    (tid, body.project))
+        prj = cur.fetchone()
+        cur.execute(
+            "SELECT file_id FROM dwg_file WHERE tenant_id=%s AND folder='DWG' AND file_name=%s",
+            (tid, fname))
+        row = cur.fetchone()
+        if row:
+            file_id = row[0]
+            cur.execute("UPDATE dwg_file SET file_path=%s, file_size=%s WHERE file_id=%s",
+                        (key, len(data), file_id))
+        else:
+            cur.execute(
+                """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
+                   file_path, file_size) VALUES (%s,%s,'DWG',%s,'DXF',%s,%s) RETURNING file_id""",
+                (tid, prj[0] if prj else None, fname, key, len(data)))
+            file_id = cur.fetchone()[0]
+    return {"fileId": file_id, "document": _parse_cad_bytes(data, fname)}
+
+
 class CadExportRequest(BaseModel):
     dims: dict[str, float] = {}
 

@@ -7,7 +7,7 @@ import {
   approvalService, cadService, drawingLedgerService, drawingService, macroService, partService,
   type BomRow, type CadDocument, type DwgRelationRow,
 } from '../../api/services'
-import { CadSvg } from '../../components/CadSvg'
+import { CadSvg, type CadEditOp } from '../../components/CadSvg'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -144,6 +144,13 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
     '특성 CH': t('editor.toolProps', '특성 CH'),
   }
   const [tool, setTool] = useState('이동')
+  // CAD 편집 — 부품도를 dwg_file 로 실체화(editFileId) 후 CadSvg 편집·영속. activeTool = 툴바 제어
+  const [editFileId, setEditFileId] = useState<number | null>(null)
+  const [activeTool, setActiveTool] = useState<string | null>(null)
+  const TOOL_KEY: Record<string, string> = {
+    '이동': 'move', '복사 CO': 'copy', '반전': 'mirror', '연장': 'extend',
+    '삭제 E': 'erase', '회전 RO': 'rotate', '자르기 TR': 'trim', '특성 CH': 'properties',
+  }
   const [selBlock, setSelBlock] = useState<CanvasBlock | null>(DWG_BLOCKS[1])
   const [dims, setDims] = useState<DimensionDef[]>(DWG_DIMS)
   const [editingNo, setEditingNo] = useState<string | null>(null)
@@ -184,9 +191,31 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
         shell.setStatusMsg('CAD 작도는 백엔드가 필요합니다 — 편집(모의) 캔버스 표시 (MOCK 모드)')
       } else {
         setCadDoc(d)
+        setEditFileId(null)   // 재작도 시 편집 대상 파일 무효화(다음 편집에서 재실체화)
         shell.setStatusMsg(`부품도 CAD — 엔티티 ${d.entities.length} (Run 제작도면과 동일 정본)`)
       }
     })
+  }
+
+  const onCadEdit = (ops: CadEditOp[]) => {
+    if (editFileId == null) return
+    void cadService.edit(editFileId, ops)
+      .then((r) => { setCadDoc(r.document); shell.setStatusMsg(`CAD 편집 ✓ — ${r.applied}건 반영·DXF 재저장 (엔티티 ${r.document.entities.length})`) })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+  const useTool = (tl: string) => {
+    setTool(tl)
+    const key = TOOL_KEY[tl]
+    if (!key) { shell.setStatusMsg(`${toolLabels[tl] ?? tl} — Block 삽입·치수 기입은 후속 지원`); return }
+    if (!cadMode) setCadMode(true)
+    if (editFileId != null) { setActiveTool(key); return }
+    void cadService.partDrawingSave(numericDims(dims))
+      .then((r) => {
+        if (!r) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>편집 대상화 실패 — 백엔드 필요</span>); return }
+        setCadDoc(r.document); setEditFileId(r.fileId); setActiveTool(key)
+        shell.setStatusMsg(`CAD 편집: ${toolLabels[tl] ?? tl} — 블록 선택 후 적용`)
+      })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }
 
   // 최초 진입 — 치수 정의를 실DB(dwg_dimension)에서 로드 후 CAD 작도 (기본 모드 = CAD)
@@ -340,7 +369,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
           onClick={() => window.dispatchEvent(new CustomEvent('edim-redo'))}>↷</span>
         <Sep />
         {CAD_TOOLS.map((tl) => (
-          <Btn key={tl} variant={tool === tl ? 'pri' : 'default'} onClick={() => setTool(tl)}>
+          <Btn key={tl} variant={tool === tl ? 'pri' : 'default'} onClick={() => useTool(tl)}>
             {toolLabels[tl] ?? tl}
           </Btn>
         ))}
@@ -380,7 +409,8 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
           {cadMode ? (
             <div style={{ flex: 1, minHeight: 320, border: '1px solid var(--line)', background: '#fff' }}>
               {cadDoc ? (
-                <CadSvg doc={cadDoc} />
+                <CadSvg doc={cadDoc} editable={cadMode && editFileId != null} onEdit={onCadEdit}
+                  activeTool={activeTool} onToolConsumed={() => setActiveTool(null)} />
               ) : (
                 <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>
                   {cadOffline
