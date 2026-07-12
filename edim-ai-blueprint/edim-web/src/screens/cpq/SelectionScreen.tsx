@@ -1,7 +1,7 @@
 /** C-1 CPQ 제품 선정 (W-02 / 디자인시안 b03) —
  *  조회밴드 F8 · 구성 캔버스+커맨드 라인 · 슬롯 선택 → BOM 재전개 · EDIM Run F9. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { c1Service, cadService, codeService, selectionService, type CadDocument, type SelectionRow } from '../../api/services'
+import { arrangementService, c1Service, cadService, codeService, selectionService, type CadDocument, type SelectionRow } from '../../api/services'
 import type { BomItem, CanvasBlock } from '../../api/types'
 import { CadSvg } from '../../components/CadSvg'
 import { AHU_BLOCKS, DEFAULT_SLOT_VALUES, PRODUCT_SLOTS } from '../../api/mock/data'
@@ -29,6 +29,8 @@ export function SelectionScreen({ active }: ScreenProps) {
   const [bom, setBom] = useState<BomItem[]>([])
   const [busy, setBusy] = useState(false)
   const [selBlock, setSelBlock] = useState<CanvasBlock | null>(AHU_BLOCKS[2])
+  // C11 — 서버 구성 블록 (arrangement_component geometry), 불가 시 AHU_BLOCKS 폴백
+  const [arrBlocks, setArrBlocks] = useState<CanvasBlock[] | null>(null)
   const [selBom, setSelBom] = useState<string | null>(null)
   const [cmdEcho, setCmdEcho] = useState('기준점 지정 >')
   const specInput = useRef<HTMLInputElement>(null)
@@ -73,6 +75,23 @@ export function SelectionScreen({ active }: ScreenProps) {
     void selectionService.list(projectNo).then((rows) => { if (rows) setSelections(rows) })
   }, [projectNo])
   useEffect(() => { loadSelections() }, [loadSelections])
+
+  // C11 — 배치 라벨 → arrangement_code 매핑, 서버 구성 블록(geometry) 로드
+  const ARR_CODE: Record<string, string> = {
+    'Double Deck 2': 'ARR-DD2', 'Single Deck': 'ARR-SD1', 'Return Top': 'ARR-DD2',
+  }
+  useEffect(() => {
+    void arrangementService.components(ARR_CODE[arrangement] ?? 'ARR-DD2').then((cs) => {
+      if (cs && cs.length) {
+        setArrBlocks(cs.map((c) => ({
+          id: String(c.componentId ?? c.code), name: c.code,
+          sub: c.position || `×${c.quantity}`,
+          x: c.x ?? 20, y: c.y ?? 20, w: c.w ?? 130, h: c.h ?? 56,
+        })))
+      } else setArrBlocks(null)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrangement])
 
   const saveSelection = useCallback(() => {
     void selectionService.save({
@@ -266,7 +285,7 @@ export function SelectionScreen({ active }: ScreenProps) {
               )}
             </div>
           ) : (
-            <Cvs blocks={AHU_BLOCKS} selectedId={selBlock?.id ?? null}
+            <Cvs blocks={arrBlocks ?? AHU_BLOCKS} selectedId={selBlock?.id ?? null}
               onSelect={setSelBlock}
               dims={[{ x: 36, y: 10, w: 430, label: '4,504' }]}
               labels={[{ x: 472, y: 34, text: '3,254' }]}

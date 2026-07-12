@@ -1113,6 +1113,7 @@ export interface ArrangementRow {
 export interface ArrangementComponent {
   position: string; code: string; name: string; quantity: number
   componentId?: number
+  x?: number; y?: number; w?: number; h?: number   // C11 — 구성도 좌표
 }
 export interface TempletRow {
   name: string; templetType: string; definition: Record<string, unknown>

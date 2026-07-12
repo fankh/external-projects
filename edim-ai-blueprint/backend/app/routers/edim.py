@@ -867,17 +867,47 @@ def arrangement_components(code: str) -> list[dict[str, Any]]:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT COALESCE(c.position_key,''), pc.main_code, pc.code_name, c.quantity,
-                      c.component_id
+                      c.component_id, c.pos_x, c.pos_y, c.width, c.height, c.sort_order
                FROM arrangement_component c
                JOIN arrangement_code a ON a.arrangement_id=c.arrangement_id
                JOIN product_code pc ON pc.product_code_id=c.product_code_id
                WHERE a.tenant_id=%s AND a.arrangement_code=%s ORDER BY c.sort_order""",
             (tid, code))
-        return [
-            {"position": r[0], "code": r[1], "name": r[2], "quantity": float(r[3]),
-             "componentId": r[4]}
-            for r in cur.fetchall()
-        ]
+        rows = cur.fetchall()
+    return [
+        {"position": r[0], "code": r[1], "name": r[2], "quantity": float(r[3]),
+         "componentId": r[4],
+         # C11 — geometry (미지정 시 sort_order 기반 2열 자동 배치 폴백)
+         "x": r[5] if r[5] is not None else 20 + (r[9] % 2) * 150,
+         "y": r[6] if r[6] is not None else 20 + (r[9] // 2) * 70,
+         "w": r[7] if r[7] is not None else 130,
+         "h": r[8] if r[8] is not None else 56}
+        for r in rows
+    ]
+
+
+class GeometryPatch(BaseModel):
+    x: int
+    y: int
+    w: int = 130
+    h: int = 56
+
+
+@router.patch("/arrangements/{code}/components/{component_id}/geometry", dependencies=[SETUP])
+def set_component_geometry(code: str, component_id: int, body: GeometryPatch) -> dict[str, Any]:
+    """구성도 블록 좌표 저장 (C11) — 드래그 배치 영속."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE arrangement_component c SET pos_x=%s, pos_y=%s, width=%s, height=%s
+               FROM arrangement_code a
+               WHERE c.arrangement_id=a.arrangement_id AND a.tenant_id=%s
+                 AND a.arrangement_code=%s AND c.component_id=%s
+               RETURNING c.component_id""",
+            (body.x, body.y, max(40, body.w), max(30, body.h), tid, code, component_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"구성 컴포넌트 없음: {component_id}")
+    return {"componentId": component_id, "x": body.x, "y": body.y, "w": body.w, "h": body.h}
 
 
 class ArrangementCreate(BaseModel):
