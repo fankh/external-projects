@@ -36,7 +36,11 @@ export function EcoChangeScreen({ active }: ScreenProps) {
     const title = window.prompt('변경 제목 (예: 케이싱 두께 상향)')?.trim()
     if (!title) return
     const reason = window.prompt('변경 사유 (생략 가능)', '')?.trim() || undefined
-    void ecoService.create({ title, targetType: ttype, targetNo, reason })
+    // D5 — 도면 대체: 신 도면번호 지정 시 승인 후 Rev-up 대신 Supersedure 자동 등록
+    const newDrawingNo = ttype === 'DRAWING'
+      ? (window.prompt('대체 도면번호 (다른 도면으로 대체 시 입력, 비우면 Rev-up)', '')?.trim() || undefined)
+      : undefined
+    void ecoService.create({ title, targetType: ttype, targetNo, reason, newDrawingNo })
       .then((r) => {
         if (r === false) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
         load()

@@ -1881,22 +1881,42 @@ def _apply_eco(cur, tid: int, eco_id: int, approve: bool,
                actor_login: str, actor_id: int) -> None:
     """설계변경(ECO) 승인 결과 적용 — 승인 시 상태 APPLIED + Rev-up(DRAWING) + ECN 통지."""
     cur.execute(
-        "SELECT eco_no, title, target_type, target_no, status FROM eco_change "
+        "SELECT eco_no, title, target_type, target_no, status, impact_data FROM eco_change "
         "WHERE tenant_id=%s AND eco_id=%s", (tid, eco_id))
     e = cur.fetchone()
     if not e:
         return
-    eco_no, title, ttype, tno, _status = e
+    eco_no, title, ttype, tno, _status, impact = e
     if not approve:
         cur.execute("UPDATE eco_change SET status='REJECTED' WHERE eco_id=%s", (eco_id,))
         return
     rev_from = rev_to = None
+    superseded = None                        # D5 — 대체 도면 (신·구)
+    new_dwg = (impact or {}).get("supersededBy") if isinstance(impact, dict) else None
     if ttype == "DRAWING":
         cur.execute(
             "SELECT drawing_id, current_rev FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s",
             (tid, tno))
         d = cur.fetchone()
-        if d:
+        if d and new_dwg:
+            # 도면 대체(Supersedure) — 구도면 → 신도면 (Rev-up 대신 대체 이력)
+            old_id = d[0]
+            cur.execute("SELECT drawing_id FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s",
+                        (tid, str(new_dwg)))
+            nd = cur.fetchone()
+            cur.execute("SELECT 1 FROM dwg_supersedure WHERE old_drawing_id=%s", (old_id,))
+            if nd and nd[0] != old_id and not cur.fetchone():
+                cur.execute(
+                    """INSERT INTO dwg_supersedure (tenant_id, old_drawing_id, new_drawing_id,
+                       reason, superseded_date, created_by)
+                       VALUES (%s,%s,%s,%s,CURRENT_DATE,%s)""",
+                    (tid, old_id, nd[0], f"ECO {eco_no} — {title[:400]}", actor_login))
+                superseded = str(new_dwg)
+                cur.execute(
+                    """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+                       VALUES (%s,'dwg_drawing',%s,'SUPERSEDE',%s,%s)""",
+                    (tid, old_id, actor_id, json.dumps({"old": tno, "new": new_dwg, "eco": eco_no})))
+        elif d:
             did, cur_rev = d
             rev_from = cur_rev
             rev_to = _rev_next(cur_rev)
@@ -1918,6 +1938,8 @@ def _apply_eco(cur, tid: int, eco_id: int, approve: bool,
     ecn = f"설계변경 통지(ECN) — {eco_no} {title[:50]}"
     if rev_to:
         ecn += f" (Rev {rev_from}→{rev_to} 적용)"
+    if superseded:
+        ecn += f" (도면 대체: {tno}→{superseded})"
     cur.execute(
         "SELECT user_id FROM sys_user WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN')", (tid,))
     for (uid,) in cur.fetchall():
@@ -4265,6 +4287,7 @@ class EcoCreate(BaseModel):
     targetType: str               # DRAWING | CODE
     targetNo: str
     reason: str = ""
+    newDrawingNo: str = ""        # D5 — 대체 도면(supersede) 지정 시 승인 후 Rev-up 대신 대체 이력
 
 
 @router.post("/eco/changes", status_code=201, dependencies=[SETUP])
@@ -4278,6 +4301,10 @@ def eco_create(request: Request, body: EcoCreate) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         impact = _eco_impact(cur, tid, tt, body.targetNo.strip())
+        # D5 — 대체 도면 지정 시 영향 분석에 병기 (승인 시 dwg_supersedure 자동 등록)
+        if tt == "DRAWING" and body.newDrawingNo.strip():
+            impact["supersededBy"] = body.newDrawingNo.strip()[:80]
+            impact["mode"] = "SUPERSEDE"
         cur.execute("SELECT count(*) FROM eco_change WHERE tenant_id=%s", (tid,))
         seq = cur.fetchone()[0] + 1
         while True:
