@@ -1,6 +1,6 @@
 /** C-2 CPQ 기술 데이터 (W-03) — 설계옵션 → Technical Data 범위조회(F8) → 선정. */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { tableService } from '../../api/services'
+import { renderService, tableService } from '../../api/services'
 import type { TechDataRow } from '../../api/types'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -38,6 +38,58 @@ export function TechDataScreen({ active }: ScreenProps) {
   const productCode = selModel ? `KAD-${selModel}-6-21-4-SR-7` : '—'
   const sel = rows.find((r) => r.model === selModel) ?? null
 
+  // E1 — Fan 성능표 (PDF) 실생성 (선정 기술 데이터 + 후보 모델)
+  const fanPerfPdf = () => {
+    if (!sel) { setStatusMsg(<span style={{ color: 'var(--err)' }}>선정 모델을 먼저 선택하십시오</span>); return }
+    const lines = [
+      `선정점: ${sel.model} · ${sel.rpm} RPM · 효율 ${sel.eff}%`,
+      `풍량 ${airflow} ㎥/min · 정압 ${pressure} mmAq · 방향 ${direction}`,
+      `Pd ${sel.pd} · Pt ${sel.pt} · Power ${sel.power} kW · Sound ${sel.sound} dB`,
+      '',
+      '── 후보 모델 (Table 범위 조회) ──',
+      'Model      Pd    Pt   RPM  Eff  Power Sound',
+      ...rows.map((r) => `${r.model.padEnd(10)} ${String(r.pd).padStart(4)} ${String(r.pt).padStart(4)} ${String(r.rpm).padStart(4)} ${String(r.eff).padStart(4)} ${String(r.power).padStart(5)} ${String(r.sound).padStart(5)}`),
+    ]
+    void renderService.pdf(`Fan 성능표 — ${sel.model}`, lines, { subtitle: 'C-2 Technical Data (TBL-004) 실렌더' })
+      .then((url) => {
+        if (url) { window.open(url, '_blank'); setStatusMsg(`Fan 성능표 PDF ✓ — ${sel.model} 실렌더 (SVC-11)`) }
+        else setStatusMsg(<span style={{ color: 'var(--err)' }}>렌더 불가 — 백엔드 연결 필요</span>)
+      })
+      .catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
+  // E1 — 밀도 보정 계산서 (PDF) 실생성 (습공기 밀도 근사 → 정압 보정)
+  const densityPdf = () => {
+    const rho = 1.293 * (273.15 / (273.15 + 20)) * (1 - 0.378 * 0.0234 * 0.8 / 101.325)
+    const rhoR = Math.round(rho * 1000) / 1000
+    const corrected = sel ? Math.round(sel.pt * (rhoR / 1.2) * 10) / 10 : null
+    const lines = [
+      '입력: 온도 20 ℃ · 상대습도 80 % · 대기압 101.325 kPa',
+      `표준 밀도 ρ₀ = 1.2 kg/m³ · 계산 밀도 ρ = ${rhoR} kg/m³ (승인 Macro TBX-011)`,
+      sel ? `정압 밀도 보정: Pt ${sel.pt} → ${corrected} mmAq (ρ/ρ₀ 비례)` : '(모델 미선정 — 보정 대상 없음)',
+      '',
+      'Document Templet(C-3) 밀도 계산서 표준 양식',
+    ]
+    void renderService.pdf('밀도 보정 계산서', lines, { subtitle: 'C-2 → C-3 Document Templet 연계' })
+      .then((url) => {
+        if (url) { window.open(url, '_blank'); setStatusMsg(`밀도 보정 계산서 PDF ✓ — ρ ${rhoR} kg/m³ (TBX-011)`) }
+        else setStatusMsg(<span style={{ color: 'var(--err)' }}>렌더 불가 — 백엔드 연결 필요</span>)
+      })
+      .catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
+  // E1 — ＋ Add Item: BOM 항목은 Design Editor(code_relationship)에서 관리 → 실화면 이동
+  const addItem = () => {
+    shell.openTab({ screenId: 'plm-design', code: 'S-4-1-1', title: 'Design Editor' })
+    setStatusMsg(`BOM 항목 추가 — Design Editor 로 이동 (${productCode} · code_relationship 관리)`)
+  }
+
+  // E1 — DWG View: 선정 Fan 도면을 Design Editor 도면 뷰로 전환
+  const dwgView = (mode: string) => {
+    shell.openTab({ screenId: 'plm-design', code: 'S-4-1-1', title: 'Design Editor' })
+    setStatusMsg(`${mode} — 선정 Fan ${selModel ? `KAD ${selModel}` : ''} 도면 뷰 (Design Editor · CAD)`)
+  }
+
   const cols: GridColumn<TechDataRow>[] = [
     { key: 'model', header: 'Model', width: 54, code: true, render: (r) => r.model },
     { key: 'pd', header: 'Pd', width: 44, align: 'right', render: (r) => r.pd },
@@ -57,9 +109,10 @@ export function TechDataScreen({ active }: ScreenProps) {
             onClick={() => setDirection(d)}>{d}</Btn>
         ))}
         <span className="sep" />
-        <Combo width={110} value="DWG View" options={['DWG View', '3D View', 'Section']} />
+        <Combo width={110} value="DWG View" options={['DWG View', '3D View', 'Section']}
+          onChange={dwgView} />
         <span style={{ flex: 1 }} />
-        <Btn>＋ Add Item</Btn>
+        <Btn onClick={addItem}>＋ Add Item</Btn>
         <Btn variant="pri" onClick={() => void query()}>{t('techdata.queryF8', '조회 F8')}</Btn>
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -107,22 +160,8 @@ export function TechDataScreen({ active }: ScreenProps) {
                 rowKey={(r) => r.model} selectedKey={selModel}
                 onRowClick={(r) => setSelModel(r.model)} />
             </GroupBox>
-            <GroupBox title={t('techdata.perfCurve', '성능 곡선 — 선정점 하이라이트')}>
-              <div className="cvs" style={{ height: '100%', minHeight: 140 }}>
-                {sel ? (
-                  <>
-                    <div className="d2" style={{ left: 20, top: 18, width: 200 }}>
-                      <span>{t('techdata.selPoint', '선정점')} {sel.model} · {sel.rpm} RPM</span>
-                    </div>
-                    <div className="m2 sel" style={{
-                      left: 60 + rows.indexOf(sel) * 36, top: 90 - sel.eff / 2, width: 12, height: 12,
-                    }} />
-                  </>
-                ) : null}
-                <div style={{ position: 'absolute', right: 8, bottom: 6, fontSize: 9.5, color: 'var(--txt-mute)' }}>
-                  {t('techdata.graphWizard', '그래프 마법사 Templet (TBX-011)')}
-                </div>
-              </div>
+            <GroupBox title={t('techdata.perfCurve', '성능 곡선 — Pt·효율 (선정점 하이라이트)')}>
+              <PerfCurve rows={rows} sel={sel} />
             </GroupBox>
           </div>
         </div>
@@ -149,14 +188,75 @@ export function TechDataScreen({ active }: ScreenProps) {
             </table>
           </GroupBox>
           <GroupBox title="Sub Item Technical data">
-            <div style={{ fontSize: 11, lineHeight: 1.9 }}>
-              {t('techdata.fanPerfTable', 'Fan 성능표 (PDF)')} <Chip tone="ok">{t('techdata.generated', '생성')}</Chip><br />
-              {t('techdata.densityCalc', '밀도 보정 계산서')} <Chip tone="ok">{t('techdata.generated', '생성')}</Chip><br />
-              {t('techdata.soundForecast', '소음 예측 (Sound {n} dB)').replace('{n}', String(sel?.sound ?? '—'))} <Chip tone="info">DRAFT</Chip>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Btn style={{ height: 20, fontSize: 10 }} disabled={!sel} onClick={fanPerfPdf}>
+                  📄 {t('techdata.fanPerfTable', 'Fan 성능표 (PDF)')} 생성
+                </Btn>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Btn style={{ height: 20, fontSize: 10 }} onClick={densityPdf}>
+                  📄 {t('techdata.densityCalc', '밀도 보정 계산서')} 생성
+                </Btn>
+              </div>
+              <div style={{ color: 'var(--txt-dim)' }}>
+                {t('techdata.soundForecast', '소음 예측 (Sound {n} dB)').replace('{n}', String(sel?.sound ?? '—'))} <Chip tone="info">DRAFT</Chip>
+              </div>
             </div>
           </GroupBox>
         </div>
       </div>
     </div>
+  )
+}
+
+/** E1 — 성능 곡선 실 SVG: 후보 모델의 Pt(정압) 곡선 + 효율 곡선, 선정점 하이라이트. */
+function PerfCurve({ rows, sel }: { rows: TechDataRow[]; sel: TechDataRow | null }) {
+  if (rows.length === 0) {
+    return (
+      <div className="cvs" style={{ height: '100%', minHeight: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: 11, color: 'var(--txt-mute)' }}>조회(F8) 후 선정점·성능 곡선 표시</span>
+      </div>
+    )
+  }
+  const W = 300, H = 150, PL = 30, PR = 30, PT = 12, PB = 22
+  const iw = W - PL - PR, ih = H - PT - PB
+  const n = rows.length
+  const xs = (i: number) => PL + (n === 1 ? iw / 2 : (i / (n - 1)) * iw)
+  const pts = rows.map((r) => r.pt)
+  const ptMin = Math.min(...pts), ptMax = Math.max(...pts)
+  const ptSpan = ptMax - ptMin || 1
+  const yPt = (v: number) => PT + ih - ((v - ptMin) / ptSpan) * ih
+  const yEff = (v: number) => PT + ih - (v / 100) * ih   // 효율 0~100%
+  const ptPath = rows.map((r, i) => `${i === 0 ? 'M' : 'L'}${xs(i).toFixed(1)},${yPt(r.pt).toFixed(1)}`).join(' ')
+  const effPath = rows.map((r, i) => `${i === 0 ? 'M' : 'L'}${xs(i).toFixed(1)},${yEff(r.eff).toFixed(1)}`).join(' ')
+  const selI = sel ? rows.indexOf(sel) : -1
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" style={{ minHeight: 140 }} role="img" aria-label="성능 곡선">
+      {/* 축 */}
+      <line x1={PL} y1={PT} x2={PL} y2={PT + ih} stroke="var(--line)" />
+      <line x1={PL} y1={PT + ih} x2={PL + iw} y2={PT + ih} stroke="var(--line)" />
+      <text x={PL - 4} y={PT + 6} fontSize="7" textAnchor="end" fill="var(--txt-mute)">{ptMax}</text>
+      <text x={PL - 4} y={PT + ih} fontSize="7" textAnchor="end" fill="var(--txt-mute)">{ptMin}</text>
+      <text x={PL + iw} y={PT + ih + 14} fontSize="7.5" textAnchor="end" fill="var(--txt-mute)">Model →</text>
+      {/* 효율 곡선 (보조) */}
+      <path d={effPath} fill="none" stroke="#7FB2E8" strokeWidth="1" strokeDasharray="3 2" opacity="0.8" />
+      {/* Pt 곡선 (주) */}
+      <path d={ptPath} fill="none" stroke="var(--title-navy)" strokeWidth="1.6" />
+      {rows.map((r, i) => (
+        <g key={r.model}>
+          <circle cx={xs(i)} cy={yPt(r.pt)} r={i === selI ? 4.5 : 2.5}
+            fill={i === selI ? 'var(--err)' : 'var(--title-navy)'}
+            stroke="#fff" strokeWidth={i === selI ? 1.5 : 0} />
+          <text x={xs(i)} y={PT + ih + 9} fontSize="6.5" textAnchor="middle" fill="var(--txt-mute)">{r.model}</text>
+        </g>
+      ))}
+      {sel ? (
+        <text x={PL + 2} y={PT + 8} fontSize="8" fill="var(--err)" fontWeight="700">
+          선정점 {sel.model} · Pt {sel.pt} · 효율 {sel.eff}% · {sel.rpm} RPM
+        </text>
+      ) : null}
+      <text x={PL + iw} y={PT + 8} fontSize="6.5" textAnchor="end" fill="#7FB2E8">┈ 효율</text>
+    </svg>
   )
 }
