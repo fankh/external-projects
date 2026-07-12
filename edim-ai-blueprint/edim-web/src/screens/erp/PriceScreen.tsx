@@ -257,7 +257,7 @@ export function PriceScreen({ active }: ScreenProps) {
         <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>
           <GroupBox title={t('price.ledger', '단가 대장 — {n}건 (더블클릭=코드 상세)')
             .replace('{n}', String(rows.length))} noPad style={{ flex: 1 }}>
-            <DenseGrid columns={cols} rows={rows} rowKey={(_, i) => i}
+            <DenseGrid prefKey="prices" columns={cols} rows={rows} rowKey={(_, i) => i}
               selectedKey={selIdx} onRowClick={(_, i) => setSelIdx(i)}
               onRowDoubleClick={(r) => shell.openTab({
                 id: `code-detail:${r.code}`, screenId: 'code-detail',

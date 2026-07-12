@@ -163,7 +163,7 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
               백엔드 연결 필요 — 업체 대장은 실DB(com_company)에서만 조회됩니다
             </div>
           ) : (
-            <DenseGrid columns={cols} rows={visible} rowKey={(r) => r.name}
+            <DenseGrid prefKey="companies" columns={cols} rows={visible} rowKey={(r) => r.name}
               onRowDoubleClick={(r) => {
                 if (!perm.canWrite('erp-company-master')) { setStatusMsg(perm.denyWrite); return }
                 setEditRow(r)

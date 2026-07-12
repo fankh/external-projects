@@ -2,7 +2,8 @@
  *  F8 — 헤더 클릭 정렬 (none→asc→desc 토글, ▲▼ 표시): 원본 인덱스를 보존해
  *  rowKey/onRowClick/selectedKey 가 정렬과 무관하게 동작한다 (index 기반 선택 화면 안전).
  *  정렬값: col.sortValue > render 원시값(string/number) — JSX 셀은 sortValue 미지정 시 정렬 제외. */
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { prefService } from '../api/services'
 
 export interface GridColumn<T> {
   key: string
@@ -29,8 +30,44 @@ export function DenseGrid<T>(props: {
   footer?: ReactNode        // <tr> 내용
   mono?: boolean
   style?: CSSProperties
+  /** D8 — 지정 시 컬럼 표시/숨김 ⚙ 토글 + 서버 영속(prefs gridColumns[prefKey]) */
+  prefKey?: string
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir } | null>(null)
+  // D8 — 컬럼 표시 설정
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [colMenu, setColMenu] = useState(false)
+  const colRef = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!props.prefKey) return
+    void prefService.get<Record<string, string[]>>('gridColumns').then((m) => {
+      const h = m && m[props.prefKey!]
+      if (Array.isArray(h)) setHidden(new Set(h))
+    })
+  }, [props.prefKey])
+  useEffect(() => {
+    if (!colMenu) return
+    const onDoc = (e: MouseEvent) => {
+      if (colRef.current && !colRef.current.contains(e.target as Node)) setColMenu(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [colMenu])
+  const toggleCol = (key: string) => {
+    setHidden((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      if (props.prefKey) {
+        void prefService.get<Record<string, string[]>>('gridColumns').then((m) => {
+          const map = (m && typeof m === 'object') ? { ...m } : {}
+          map[props.prefKey!] = [...next]
+          void prefService.set('gridColumns', map)
+        })
+      }
+      return next
+    })
+  }
+  const cols = props.prefKey ? props.columns.filter((c) => !hidden.has(c.key)) : props.columns
 
   const tdClass = (c: GridColumn<T>) => {
     const cls: string[] = []
@@ -83,14 +120,14 @@ export function DenseGrid<T>(props: {
     })
   }
 
-  return (
+  const table = (
     <table className="g" style={{
       ...(props.mono ? { fontFamily: 'Consolas, monospace', fontSize: '10.5px' } : null),
       ...props.style,
     }}>
       <thead>
         <tr>
-          {props.columns.map((c) => {
+          {cols.map((c) => {
             const sortable = sortableOf(c)
             const active = sort?.key === c.key
             return (
@@ -116,7 +153,7 @@ export function DenseGrid<T>(props: {
             <tr key={k} className={props.selectedKey === k ? 'sel' : undefined}
               onClick={() => props.onRowClick?.(row, origIdx)}
               onDoubleClick={() => props.onRowDoubleClick?.(row, origIdx)}>
-              {props.columns.map((c) => (
+              {cols.map((c) => (
                 <td key={c.key} className={tdClass(c)}>{c.render(row, origIdx)}</td>
               ))}
             </tr>
@@ -125,5 +162,35 @@ export function DenseGrid<T>(props: {
       </tbody>
       {props.footer ? <tfoot><tr>{props.footer}</tr></tfoot> : null}
     </table>
+  )
+
+  if (!props.prefKey) return table
+  // D8 — 컬럼 표시 설정 ⚙ (우상단 오버레이)
+  return (
+    <div style={{ position: 'relative' }}>
+      <span ref={colRef} style={{ position: 'absolute', top: 2, right: 2, zIndex: 5 }}>
+        <span className="b ic" data-col-menu title="컬럼 표시 설정"
+          style={{ fontSize: 11, opacity: 0.7 }}
+          onClick={() => setColMenu((o) => !o)}>⚙</span>
+        {colMenu ? (
+          <div className="gb" style={{
+            position: 'absolute', right: 0, top: 20, width: 180, zIndex: 100,
+            boxShadow: '0 6px 20px rgba(20,26,40,.28)', textAlign: 'left',
+          }}>
+            <div className="gt" style={{ fontSize: 10 }}>컬럼 표시</div>
+            <div className="gc p0" style={{ maxHeight: 260, overflow: 'auto', padding: 4 }}>
+              {props.columns.map((c) => (
+                <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, padding: '2px 4px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!hidden.has(c.key)}
+                    onChange={() => toggleCol(c.key)} />
+                  {typeof c.header === 'string' ? c.header : c.key}
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </span>
+      {table}
+    </div>
   )
 }

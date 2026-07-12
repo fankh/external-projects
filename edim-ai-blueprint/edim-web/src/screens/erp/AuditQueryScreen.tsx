@@ -83,7 +83,7 @@ export function AuditQueryScreen({ active }: ScreenProps) {
           right={<Chip tone={rows.length ? 'ok' : 'warn'}>{rows.length}건{rows.length >= 500 ? ' (상위 500)' : ''}</Chip>}
           noPad>
           {rows.length ? (
-            <DenseGrid columns={cols} rows={rows} rowKey={(r) => r.historyId}
+            <DenseGrid prefKey="audit" columns={cols} rows={rows} rowKey={(r) => r.historyId}
               selectedKey={sel} onRowClick={(r) => setSel(r.historyId)} />
           ) : (
             <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>

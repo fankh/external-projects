@@ -234,7 +234,7 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
         <div className="fill-col" style={{ gap: 6, flex: 1.3, overflow: 'auto' }}>
           <GroupBox title={t('dwg.listTitle', '도면 목록 — {n}건 (클릭=Rev 이력)')
             .replace('{n}', String(drawings.length))} noPad style={{ flex: 1 }}>
-            <DenseGrid columns={cols} rows={drawings} rowKey={(r) => r.drawingNo}
+            <DenseGrid prefKey="drawings" columns={cols} rows={drawings} rowKey={(r) => r.drawingNo}
               selectedKey={sel} onRowClick={(r) => setSel(r.drawingNo)}
               onRowDoubleClick={openCad} />
           </GroupBox>
