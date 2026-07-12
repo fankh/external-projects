@@ -148,7 +148,7 @@ export function QualityScreen({ active }: ScreenProps) {
           )}
         </GroupBox>
         <div className="split-h" />
-        <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="규칙 등록">
             <div className="frm c2">
               <label>규칙명 *</label>

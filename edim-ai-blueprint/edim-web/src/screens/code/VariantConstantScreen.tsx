@@ -131,7 +131,7 @@ export function VariantConstantScreen({ active }: ScreenProps) {
           )}
         </GroupBox>
         <div className="split-h" />
-        <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="값 등록 — PENDING 승인 흐름">
             <div className="frm c2">
               <label>Slot *</label>

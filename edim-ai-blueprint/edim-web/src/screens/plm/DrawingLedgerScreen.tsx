@@ -240,7 +240,7 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 330, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 330, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={`${t('dwg.detailTitle', '도면 상세')}${sel ? ` — ${sel}` : ''}`} noPad>
             {sel ? (
               <>

@@ -148,7 +148,7 @@ export function ProcessSetupScreen({ active }: ScreenProps) {
           ) : null}
         </div>
         <div className="split-h" />
-        <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="DB Set-up (5-2)">
             <div style={{ fontSize: 10.5, color: 'var(--txt-dim)', lineHeight: 1.8 }}>
               {t('procset.dbSetupHint', '프로세스별 데이터 항목 정의')}<br />

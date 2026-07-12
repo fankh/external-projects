@@ -161,7 +161,7 @@ export function ProjectFolderScreen({ tab }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('folder.selectedFile', '선택 파일')}>
             <div className="cvs" style={{ height: 110 }}>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, color: 'var(--txt-mute)', textAlign: 'center' }}>

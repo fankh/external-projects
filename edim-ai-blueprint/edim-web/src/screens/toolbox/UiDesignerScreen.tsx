@@ -172,7 +172,7 @@ export function UiDesignerScreen({ active }: ScreenProps) {
           </div>
         </div>
         <div className="split-h" />
-        <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="Object Inspector" noPad>
             <table className="g">
               <thead><tr><th>Object</th><th>Class</th></tr></thead>

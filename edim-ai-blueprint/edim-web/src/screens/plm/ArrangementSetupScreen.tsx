@@ -219,7 +219,7 @@ export function ArrangementSetupScreen({ active }: ScreenProps) {
           )}
         </GroupBox>
         <div className="split-h" />
-        <div style={{ width: 380, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 380, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={sel ? `구성품 — ${sel} (${comps.length})` : '구성품 — 선택 없음'} noPad>
             <DenseGrid columns={compCols} rows={comps} rowKey={(_, i) => i} />
           </GroupBox>

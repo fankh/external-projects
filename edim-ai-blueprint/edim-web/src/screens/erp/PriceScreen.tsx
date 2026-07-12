@@ -283,7 +283,7 @@ export function PriceScreen({ active }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('price.priority', '적용 우선순위 (Pricing Run resolve)')}>
             <div className="flow">
               <span className="fs now">{t('price.prio1', '① 견적적용')}</span><span className="ar">→</span>

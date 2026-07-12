@@ -218,7 +218,7 @@ export function PurchaseScreen({ active }: ScreenProps) {
           </div>
         </div>
         <div className="split-h" />
-        <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('purch.priceResolve', '단가 Resolve (CST-001)')}>
             <div style={{ fontSize: 10.5, lineHeight: 1.8 }}>
               FDV-480 → <b>{resolved ? resolved.price.toLocaleString() : '—'}</b>

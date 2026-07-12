@@ -92,7 +92,7 @@ export function DocTemplateScreen({ active }: ScreenProps) {
           </div>
         </div>
         <div className="split-h" />
-        <div style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="Document Code">
             <input className="in ro" style={{ width: '100%', fontFamily: 'Consolas, monospace' }}
               value="EU-3-2020-450-6-21-4-SR-7" readOnly aria-label="Document Code" />

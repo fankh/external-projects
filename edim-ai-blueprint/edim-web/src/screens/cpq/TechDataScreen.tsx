@@ -166,7 +166,7 @@ export function TechDataScreen({ active }: ScreenProps) {
           </div>
         </div>
         <div className="split-h" />
-        <div style={{ width: 300, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 300, display: 'flex', flexDirection: 'column', padding: 6, gap: 6 }}>
           <GroupBox title="Product Code" right={sel
             ? <Chip tone="ok">{t('techdata.valid', '유효')}</Chip>
             : <Chip tone="warn">{t('techdata.notSelected', '미선정')}</Chip>}>

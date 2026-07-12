@@ -176,7 +176,7 @@ export function HierarchyScreen({ active }: ScreenProps) {
           )}
         </GroupBox>
         <div className="split-h" />
-        <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="노드 정보">
             {sel ? (
               <div style={{ fontSize: 11, lineHeight: 2 }}>

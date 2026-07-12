@@ -120,7 +120,7 @@ export function EventDetailScreen({ tab }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="처리 이력" noPad>
             <table className="g">
               <thead><tr><th>일자</th><th>행위</th><th>주체</th></tr></thead>

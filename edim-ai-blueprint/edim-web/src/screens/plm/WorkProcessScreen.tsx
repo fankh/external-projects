@@ -161,7 +161,7 @@ export function WorkProcessScreen({ active }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 296, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 296, display: 'flex', flexDirection: 'column', padding: 6, gap: 6 }}>
           <GroupBox title="Coding" right={
             <Btn variant="run" style={{ height: 18, fontSize: 10 }}
               onClick={() => shell.setStatusMsg('제조비 산식 평가 ✓ — 시간×임율×장비 (DWG-021)')}>

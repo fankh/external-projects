@@ -139,7 +139,7 @@ export function PrintSetupScreen(_props: ScreenProps) {
           </div>
         </div>
         <div className="split-h" />
-        <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('printsetup.outputSettings', '출력 설정')}>
             <div className="frm c2">
               <label>Type of File</label>

@@ -134,7 +134,7 @@ export function TaskBoxScreen(_props: ScreenProps) {
           ) : null}
         </div>
         <div className="split-h" />
-        <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('taskbox.alerts', '이상 경고')} noPad>
             <table className="g">
               <thead><tr><th>{t('taskbox.kind', '구분')}</th><th>{t('taskbox.content', '내용')}</th></tr></thead>

@@ -251,7 +251,7 @@ export function AccessControlScreen({ active }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('access.accountActions', '계정 작업 — {n}').replace('{n}', sel?.login ?? '—')}>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               <Btn disabled={!sel} onClick={() => {

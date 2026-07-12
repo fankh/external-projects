@@ -169,7 +169,7 @@ export function SubCodeScreen({ active }: ScreenProps) {
           <DenseGrid columns={cols} rows={rows} rowKey={(r) => r.slot}
             selectedKey={selSlot} onRowClick={(r) => setSelSlot(r.slot)} />
         </GroupBox>
-        <div style={{ width: 330, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 330, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('subcode.newItemTitle', '신규 항목 ({n}) — 필수는 노란 셀')
             .replace('{n}', newItemNo || nextSlot())}>
             <div className="frm c2">

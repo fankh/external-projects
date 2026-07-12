@@ -232,7 +232,7 @@ export function DocumentMgmtScreen({ active }: ScreenProps) {
           ) : null}
         </div>
         <div className="split-h" />
-        <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('docmgmt.previewGrade', '미리보기 — Grade 통제')}>
             {pdfUrl ? (
               <iframe title="문서 미리보기" src={pdfUrl} data-doc-preview

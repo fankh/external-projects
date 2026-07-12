@@ -278,7 +278,7 @@ export function SelectionScreen({ active }: ScreenProps) {
             onCommand={runCommand} />
         </div>
         <div className="split-h" />
-        <div style={{ width: 378, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 378, display: 'flex', flexDirection: 'column', padding: 6, gap: 6 }}>
           <GroupBox title={t('cpq.finishedCode', '완성품 Code')} right={<Chip tone="ok">유효</Chip>}>
             <div style={{
               fontFamily: 'Consolas, monospace', fontSize: 11,

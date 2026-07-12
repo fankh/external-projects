@@ -242,7 +242,7 @@ export function ProjectScreen({ active }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="Data Up-Load">
             <div className="frm c2">
               <label>Department</label>

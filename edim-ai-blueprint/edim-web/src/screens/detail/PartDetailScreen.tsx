@@ -98,7 +98,7 @@ export function PartDetailScreen({ tab }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="Work Process 연결 (DWG-021)"
             right={procReal ? <Chip tone="ok">erp_work_process</Chip> : <Chip tone="warn">MOCK</Chip>}>
             <div className="frm c2">

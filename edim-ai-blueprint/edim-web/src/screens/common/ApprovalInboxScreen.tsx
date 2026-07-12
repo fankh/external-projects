@@ -283,7 +283,7 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
           )}
         </div>
         <div className="split-h" />
-        <div style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 290, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('appr.rules', '승인 규칙')}>
             <div style={{ fontSize: 10.5, lineHeight: 1.8, color: 'var(--txt-dim)' }}>
               · {t('appr.rule1', '승인 시 approval_status=APPROVED 전이')}<br />

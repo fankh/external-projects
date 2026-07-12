@@ -95,7 +95,7 @@ export function OutputDocScreen({ tab }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 330, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 330, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title="문서 정보">
             <div className="frm c2">
               <label>파일</label>

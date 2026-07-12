@@ -261,7 +261,7 @@ export function DataTableScreen({ active }: ScreenProps) {
           </GroupBox>
         </div>
         <div className="split-h" />
-        <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <GroupBox title={t('dtable.addressTitle', 'Table Address — Hierarchy = DB 주소')}>
             <Fx>{TABLE12.address}</Fx>
             <div style={{ fontSize: 10, color: 'var(--txt-mute)', marginTop: 3 }}>
