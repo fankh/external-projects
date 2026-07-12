@@ -72,6 +72,7 @@ SUITES = [
     "live_g3_atp.py",               # 재고 예약/할당(ATP) — 예약·가용 초과 409·목록·해제·pr-items available
     "live_g3_supplier_eval.py",     # 공급처 평가/등급 — 가중 총점·등급·upsert·마스터 반영(psql 정리)
     "live_g5_ui_overflow.py",       # UI 회귀 — 감사 이중 스크롤 제거·⚙ 컬럼 메뉴 fixed(클리핑 회피)
+    "live_g3_xcode.py",             # X-code 검토 — PENDING 대기열·승인/반려·표준 제외·재검토 409·422
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
     "live_security.py",
