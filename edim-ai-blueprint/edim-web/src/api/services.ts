@@ -1404,6 +1404,39 @@ export const companyService = {
       throw e
     }
   },
+  /** GET /api/v1/erp/suppliers/{id}/metrics — 발주 이행 지표 */
+  async metrics(companyId: number): Promise<SupplierMetrics | null> {
+    try {
+      return await api<SupplierMetrics>(`/erp/suppliers/${companyId}/metrics`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/erp/suppliers/evals?company_id= — 평가 목록 */
+  async evals(companyId: number): Promise<SupplierEval[] | null> {
+    try {
+      return await api<SupplierEval[]>(`/erp/suppliers/evals?company_id=${companyId}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/erp/suppliers/evals — 평가 등록/갱신 → 총점·등급 */
+  async addEval(body: { supplierId: number; period: string; delivery: number; quality: number; price: number; note?: string }): Promise<{ evalId: number; total: number; grade: string }> {
+    return api<{ evalId: number; total: number; grade: string }>('/erp/suppliers/evals', {
+      method: 'POST', body: JSON.stringify(body),
+    })
+  },
+}
+
+export interface SupplierMetrics {
+  companyId: number; supplier: string; poCount: number; closedCount: number
+  orderedQty: number; receivedQty: number; fulfillmentPct: number; suggestedDelivery: number
+}
+export interface SupplierEval {
+  evalId: number; supplierId: number; supplier: string; period: string
+  delivery: number; quality: number; price: number; total: number; grade: string; note: string; createdAt: string
 }
 
 export const roleService = {

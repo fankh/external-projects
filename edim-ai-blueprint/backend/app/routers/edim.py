@@ -4472,6 +4472,110 @@ def stock_reservation_release(reservation_id: int, request: Request) -> dict[str
     return {"reservationId": reservation_id, "itemCode": row[0], "available": avail}
 
 
+# ── G3 공급처 평가/등급 ──
+def _supplier_grade(total: float) -> str:
+    return "A" if total >= 90 else "B" if total >= 80 else "C" if total >= 70 else "D"
+
+
+@router.get("/erp/suppliers/{company_id}/metrics")
+def supplier_metrics(company_id: int) -> dict[str, Any]:
+    """발주 이행 지표 — PO 건수·발주/입고 수량·이행률(납기 산출 힌트)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT company_name FROM com_company WHERE tenant_id=%s AND company_id=%s",
+                    (tid, company_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail="company not found")
+        name = row[0]
+        cur.execute("SELECT count(*), count(*) FILTER (WHERE status='CLOSED') "
+                    "FROM erp_po WHERE tenant_id=%s AND supplier=%s", (tid, name))
+        po_count, closed = cur.fetchone()
+        cur.execute(
+            """SELECT COALESCE(sum(i.order_qty),0), COALESCE(sum(i.received_qty),0)
+               FROM erp_po_item i JOIN erp_po p ON p.po_id=i.po_id
+               WHERE p.tenant_id=%s AND p.supplier=%s""", (tid, name))
+        ordered, received = cur.fetchone()
+        ordered, received = float(ordered), float(received)
+        fulfillment = round(received / ordered * 100, 1) if ordered > 0 else 0.0
+    return {"companyId": company_id, "supplier": name, "poCount": po_count,
+            "closedCount": closed, "orderedQty": ordered, "receivedQty": received,
+            "fulfillmentPct": fulfillment, "suggestedDelivery": min(100.0, fulfillment)}
+
+
+@router.get("/erp/suppliers/evals")
+def supplier_evals(company_id: int = 0) -> list[dict[str, Any]]:
+    """공급처 평가 목록 (company_id 지정 시 해당 업체만)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        params: list[Any] = [tid]
+        clause = ""
+        if company_id:
+            clause = " AND e.supplier_id=%s"
+            params.append(company_id)
+        cur.execute(
+            f"""SELECT e.eval_id, e.supplier_id, c.company_name, e.period, e.delivery,
+                       e.quality, e.price, e.total, e.grade, COALESCE(e.note,''),
+                       to_char(e.created_at,'YYYY-MM-DD')
+                FROM com_supplier_eval e JOIN com_company c ON c.company_id=e.supplier_id
+                WHERE e.tenant_id=%s{clause}
+                ORDER BY e.period DESC, e.eval_id DESC""", tuple(params))
+        return [{"evalId": r[0], "supplierId": r[1], "supplier": r[2], "period": r[3],
+                 "delivery": float(r[4]), "quality": float(r[5]), "price": float(r[6]),
+                 "total": float(r[7]), "grade": r[8], "note": r[9], "createdAt": r[10]}
+                for r in cur.fetchall()]
+
+
+class SupplierEvalRequest(BaseModel):
+    supplierId: int
+    period: str
+    delivery: float = 0
+    quality: float = 0
+    price: float = 0
+    note: str = ""
+
+
+@router.post("/erp/suppliers/evals", status_code=201, dependencies=[SETUP])
+def supplier_eval_create(request: Request, body: SupplierEvalRequest) -> dict[str, Any]:
+    """공급처 평가 등록/갱신 — 가중 총점(납기.4·품질.4·단가.2)→등급, com_company 등급 반영."""
+    period = body.period.strip()[:7]
+    if not period:
+        raise HTTPException(422, detail="필수 — 평가 기간(YYYY-MM)")
+    for v in (body.delivery, body.quality, body.price):
+        if not (0 <= v <= 100):
+            raise HTTPException(422, detail="점수는 0~100")
+    total = round(body.delivery * 0.4 + body.quality * 0.4 + body.price * 0.2, 2)
+    grade = _supplier_grade(total)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT company_name FROM com_company WHERE tenant_id=%s AND company_id=%s",
+                    (tid, body.supplierId))
+        if not cur.fetchone():
+            raise HTTPException(404, detail="company not found")
+        cur.execute(
+            """INSERT INTO com_supplier_eval
+               (tenant_id, supplier_id, period, delivery, quality, price, total, grade, note, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+               ON CONFLICT (tenant_id, supplier_id, period)
+               DO UPDATE SET delivery=EXCLUDED.delivery, quality=EXCLUDED.quality,
+                             price=EXCLUDED.price, total=EXCLUDED.total, grade=EXCLUDED.grade,
+                             note=EXCLUDED.note, created_at=now()
+               RETURNING eval_id""",
+            (tid, body.supplierId, period, body.delivery, body.quality, body.price,
+             total, grade, body.note.strip()[:300] or None, str(request.state.user_id)))
+        eval_id = cur.fetchone()[0]
+        # 최신 등급을 마스터에 반영 (해당 업체의 최신 period 평가 등급)
+        cur.execute(
+            """UPDATE com_company SET evaluation_grade=(
+                 SELECT grade FROM com_supplier_eval
+                 WHERE tenant_id=%s AND supplier_id=%s ORDER BY period DESC, eval_id DESC LIMIT 1)
+               WHERE tenant_id=%s AND company_id=%s""",
+            (tid, body.supplierId, tid, body.supplierId))
+        _audit(cur, tid, "com_supplier_eval", eval_id, "SUPP_EVAL", request.state.user_id,
+               {"supplierId": body.supplierId, "period": period, "total": total, "grade": grade})
+    return {"evalId": eval_id, "total": total, "grade": grade}
+
+
 class WorkOrderCreate(BaseModel):
     title: str
     drawingNo: str = ""

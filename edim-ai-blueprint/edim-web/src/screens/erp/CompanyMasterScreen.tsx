@@ -1,7 +1,7 @@
 /** M-14-2 공급처·거래처 대장 (B14) — com_company 실 CRUD.
  *  단가(cst_price.supplier_id)·발주 공급처의 마스터 원천. */
 import { useEffect, useMemo, useState } from 'react'
-import { companyService, xlsxService, type CompanyRow } from '../../api/services'
+import { companyService, xlsxService, type CompanyRow, type SupplierEval, type SupplierMetrics } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
@@ -28,6 +28,42 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
   const [reg, setReg] = useState<CompanyRow>({
     name: '', companyType: 'SUPPLIER', nation: 'KR', grade: '', terms: '',
   })
+  // G3 공급처 평가 스코어카드
+  const [selected, setSelected] = useState<CompanyRow | null>(null)
+  const [metrics, setMetrics] = useState<SupplierMetrics | null>(null)
+  const [evals, setEvals] = useState<SupplierEval[]>([])
+  const [ev, setEv] = useState({ period: '', delivery: '', quality: '', price: '', note: '' })
+
+  const selectSupplier = (r: CompanyRow) => {
+    setSelected(r)
+    setMetrics(null); setEvals([])
+    if (!r.companyId) return
+    setEv({ period: new Date().toISOString().slice(0, 7), delivery: '', quality: '', price: '', note: '' })
+    void companyService.metrics(r.companyId).then((m) => setMetrics(m))
+    void companyService.evals(r.companyId).then((e) => setEvals(e ?? []))
+  }
+  const saveEval = () => {
+    if (!selected?.companyId) return
+    const d = Number(ev.delivery), q = Number(ev.quality), pr = Number(ev.price)
+    if (!ev.period.trim() || [d, q, pr].some((x) => !(x >= 0 && x <= 100))) {
+      setStatusMsg(<span style={{ color: 'var(--err)' }}>필수 — 기간(YYYY-MM)·점수 0~100</span>); return
+    }
+    void companyService.addEval({ supplierId: selected.companyId, period: ev.period.trim(), delivery: d, quality: q, price: pr, note: ev.note })
+      .then((r) => {
+        setStatusMsg(`평가 저장 ✓ — ${selected.name} ${ev.period} 총점 ${r.total} · 등급 ${r.grade}`)
+        void companyService.evals(selected.companyId!).then((e) => setEvals(e ?? []))
+        void load()
+      })
+      .catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+  const evCols: GridColumn<SupplierEval>[] = [
+    { key: 'period', header: '기간', width: 66, align: 'center', render: (r) => r.period },
+    { key: 'd', header: '납기', width: 44, align: 'right', render: (r) => r.delivery },
+    { key: 'q', header: '품질', width: 44, align: 'right', render: (r) => r.quality },
+    { key: 'p', header: '단가', width: 44, align: 'right', render: (r) => r.price },
+    { key: 'total', header: '총점', width: 48, align: 'right', sortValue: (r) => r.total, render: (r) => <b>{r.total}</b> },
+    { key: 'grade', header: '등급', width: 44, align: 'center', render: (r) => <Chip tone={r.grade === 'A' ? 'ok' : r.grade === 'D' ? 'warn' : 'info'}>{r.grade}</Chip> },
+  ]
 
   const load = async () => {
     const r = await companyService.list()
@@ -156,20 +192,72 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
             return null
           }} />
       ) : null}
-      <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
-        <GroupBox title={`업체 대장 — ${visible.length}건`} noPad style={{ height: '100%' }}>
+      <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
+        <GroupBox title={`업체 대장 — ${visible.length}건`} noPad style={{ flex: 1, minHeight: 0 }}>
           {offline ? (
             <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>
               백엔드 연결 필요 — 업체 대장은 실DB(com_company)에서만 조회됩니다
             </div>
           ) : (
             <DenseGrid prefKey="companies" columns={cols} rows={visible} rowKey={(r) => r.name}
+              selectedKey={selected?.name ?? null}
+              onRowClick={selectSupplier}
               onRowDoubleClick={(r) => {
                 if (!perm.canWrite('erp-company-master')) { setStatusMsg(perm.denyWrite); return }
                 setEditRow(r)
               }} />
           )}
         </GroupBox>
+        {selected ? (
+          <div data-supplier-eval style={{ width: 380, display: 'flex', flexDirection: 'column', gap: 6, minHeight: 0 }}>
+            <GroupBox noPad title={`공급처 평가 — ${selected.name}`}
+              right={selected.grade ? <Chip tone={selected.grade === 'A' ? 'ok' : 'info'}>등급 {selected.grade}</Chip> : null}>
+              <div style={{ padding: 8, fontSize: 10.5, lineHeight: 1.9 }}>
+                {metrics ? (
+                  <div style={{ color: 'var(--txt-dim)' }}>
+                    발주 {metrics.poCount}건 (완료 {metrics.closedCount}) · 발주 {metrics.orderedQty} / 입고 {metrics.receivedQty}<br />
+                    이행률 <b style={{ color: 'var(--title-navy)' }}>{metrics.fulfillmentPct}%</b> → 납기 점수 제안 {metrics.suggestedDelivery}
+                  </div>
+                ) : <span style={{ color: 'var(--txt-mute)' }}>지표 로드 중…</span>}
+                <div className="frm c2" style={{ marginTop: 6 }}>
+                  <label>기간</label>
+                  <input className="in" value={ev.period} placeholder="YYYY-MM" aria-label="평가 기간"
+                    onChange={(e) => setEv({ ...ev, period: e.target.value })} />
+                  <label>납기(0~100)</label>
+                  <div style={{ display: 'flex', gap: 3 }}>
+                    <input className="in" value={ev.delivery} aria-label="납기 점수"
+                      onChange={(e) => setEv({ ...ev, delivery: e.target.value })} />
+                    <Btn style={{ fontSize: 9.5 }} disabled={!metrics}
+                      onClick={() => setEv((v) => ({ ...v, delivery: String(metrics?.suggestedDelivery ?? '') }))}>자동</Btn>
+                  </div>
+                  <label>품질(0~100)</label>
+                  <input className="in" value={ev.quality} aria-label="품질 점수"
+                    onChange={(e) => setEv({ ...ev, quality: e.target.value })} />
+                  <label>단가(0~100)</label>
+                  <input className="in" value={ev.price} aria-label="단가 점수"
+                    onChange={(e) => setEv({ ...ev, price: e.target.value })} />
+                  <label>비고</label>
+                  <input className="in" value={ev.note} aria-label="비고"
+                    onChange={(e) => setEv({ ...ev, note: e.target.value })} />
+                </div>
+                <div style={{ textAlign: 'right', marginTop: 6 }}>
+                  <Btn variant="pri" disabled={!perm.canWrite('erp-company-master')}
+                    onClick={saveEval}>평가 저장</Btn>
+                </div>
+                <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 3 }}>
+                  총점 = 납기×0.4 + 품질×0.4 + 단가×0.2 · A≥90 B≥80 C≥70 D
+                </div>
+              </div>
+            </GroupBox>
+            <GroupBox noPad style={{ flex: 1, minHeight: 0 }} title={`평가 이력 — ${evals.length}건`}>
+              {evals.length ? (
+                <DenseGrid columns={evCols} rows={evals} rowKey={(r) => r.evalId} />
+              ) : (
+                <div style={{ padding: 10, fontSize: 10.5, color: 'var(--txt-mute)' }}>평가 이력 없음</div>
+              )}
+            </GroupBox>
+          </div>
+        ) : null}
       </div>
     </div>
   )
