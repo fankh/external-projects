@@ -3571,6 +3571,89 @@ def work_order_status(wo_no: str, request: Request, body: WoStatusPatch) -> dict
     return {"woNo": wo_no, "status": new}
 
 
+# ── D4 검사·품질 기록 (qc_inspection) — 규칙이 판정이 되는 고리 ──
+QC_TYPES = ("INCOMING", "PROCESS", "OUTGOING")
+QC_RESULTS = ("PASS", "FAIL", "CONDITIONAL")
+
+
+class QcInspectionCreate(BaseModel):
+    inspType: str                 # INCOMING | PROCESS | OUTGOING
+    result: str                   # PASS | FAIL | CONDITIONAL
+    refNo: str = ""               # PO/WO/도면 등 참조
+    itemCode: str = ""
+    itemName: str = ""
+    measured: str = ""            # 측정값·판정 근거
+    inspector: str = ""
+
+
+@router.post("/qc/inspections", status_code=201, dependencies=[SETUP])
+def qc_inspection_create(request: Request, body: QcInspectionCreate) -> dict[str, Any]:
+    """검사 결과 등록 (D4) — 수입·공정·출하 검사. 불합격·조건부 시 품질 관리자 알림."""
+    itype = body.inspType.strip().upper()
+    result = body.result.strip().upper()
+    if itype not in QC_TYPES:
+        raise HTTPException(422, detail=f"검사 유형 오류 ({'/'.join(QC_TYPES)})")
+    if result not in QC_RESULTS:
+        raise HTTPException(422, detail=f"판정 오류 ({'/'.join(QC_RESULTS)})")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*) FROM qc_inspection WHERE tenant_id=%s", (tid,))
+        seq = cur.fetchone()[0] + 1
+        while True:
+            insp_no = f"QC-{seq:04d}"
+            cur.execute("SELECT 1 FROM qc_inspection WHERE tenant_id=%s AND insp_no=%s", (tid, insp_no))
+            if not cur.fetchone():
+                break
+            seq += 1
+        cur.execute(
+            """INSERT INTO qc_inspection (tenant_id, insp_no, insp_type, ref_no, item_code,
+               item_name, result, measured, inspector, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING inspection_id""",
+            (tid, insp_no, itype, body.refNo.strip()[:50] or None,
+             body.itemCode.strip()[:50] or None, body.itemName.strip()[:200] or None,
+             result, body.measured.strip()[:500] or None, body.inspector.strip()[:50] or None,
+             str(request.state.user_id)))
+        insp_id = cur.fetchone()[0]
+        if result in ("FAIL", "CONDITIONAL"):
+            # 이상 고리 — 품질 관리자(ADMIN/PLATFORM) 알림 (불합격/조건부 통지)
+            tag = "불합격" if result == "FAIL" else "조건부"
+            label = (body.itemName or body.itemCode or body.refNo or "").strip()
+            cur.execute(
+                "SELECT user_id FROM sys_user WHERE tenant_id=%s AND user_level IN ('ADMIN','PLATFORM')",
+                (tid,))
+            for (uid,) in cur.fetchall():
+                _notify(cur, tid, uid, "TASK_ASSIGNED",
+                        f"검사 {tag} — {insp_no} {label[:50]}", "/plm")
+        _audit(cur, tid, "qc_inspection", insp_id, "INSPECT", request.state.user_id,
+               {"inspNo": insp_no, "type": itype, "result": result})
+    return {"inspNo": insp_no, "result": result}
+
+
+@router.get("/qc/inspections")
+def qc_inspection_list(result: str = "", inspType: str = "") -> list[dict[str, Any]]:
+    """검사 기록 목록 (D4) — 결과·유형 필터."""
+    clause, params = "", []
+    r = result.strip().upper()
+    if r in QC_RESULTS:
+        clause += " AND result=%s"
+        params.append(r)
+    it = inspType.strip().upper()
+    if it in QC_TYPES:
+        clause += " AND insp_type=%s"
+        params.append(it)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            f"""SELECT insp_no, insp_type, COALESCE(ref_no,''), COALESCE(item_code,''),
+                       COALESCE(item_name,''), result, COALESCE(measured,''),
+                       COALESCE(inspector,''), to_char(inspected_at,'MM-DD HH24:MI')
+                FROM qc_inspection WHERE tenant_id=%s{clause}
+                ORDER BY inspection_id DESC""", (tid, *params))
+        return [{"inspNo": x[0], "inspType": x[1], "refNo": x[2], "itemCode": x[3],
+                 "itemName": x[4], "result": x[5], "measured": x[6], "inspector": x[7],
+                 "inspectedAt": x[8]} for x in cur.fetchall()]
+
+
 # ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──
 OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
                "DATA": ("기술자료", "ok"), "BOM": ("BOM", "ok")}

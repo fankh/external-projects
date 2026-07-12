@@ -2099,6 +2099,42 @@ export const workOrderService = {
   },
 }
 
+// D4 — 검사·품질 기록 (QC Inspection)
+export interface QcInspection {
+  inspNo: string; inspType: 'INCOMING' | 'PROCESS' | 'OUTGOING'
+  refNo: string; itemCode: string; itemName: string
+  result: 'PASS' | 'FAIL' | 'CONDITIONAL'; measured: string
+  inspector: string; inspectedAt: string
+}
+
+export const qcService = {
+  /** GET /api/v1/qc/inspections (null=백엔드 불가) */
+  async list(result = '', inspType = ''): Promise<QcInspection[] | null> {
+    const qs = new URLSearchParams()
+    if (result) qs.set('result', result)
+    if (inspType) qs.set('inspType', inspType)
+    const q = qs.toString()
+    try {
+      return await api<QcInspection[]>(`/qc/inspections${q ? `?${q}` : ''}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/qc/inspections — 검사 등록 (inspNo 반환, false=백엔드 불가) */
+  async create(body: { inspType: string; result: string; refNo?: string; itemCode?: string; itemName?: string; measured?: string; inspector?: string }): Promise<string | false> {
+    try {
+      const r = await api<{ inspNo: string }>('/qc/inspections', {
+        method: 'POST', body: JSON.stringify(body),
+      })
+      return r.inspNo
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const orderService = {
   /** GET /api/v1/cost/orders — 수주 잔고 + 수주율 (D1; null=백엔드 불가) */
   async list(): Promise<OrdersData | null> {
