@@ -2,7 +2,7 @@
  *  레이어 표시 토글 · 휠 줌 · 맞춤 · 다운로드. DWG 는 ODA 미설정 시 501 안내. */
 import { useEffect, useMemo, useState } from 'react'
 import { cadService, fileService, type CadDocument } from '../../api/services'
-import { Btn, Chip } from '../../components/controls'
+import { Btn, Chip, Combo } from '../../components/controls'
 import { CadSvg, type CadEditOp, type LayerOverride } from '../../components/CadSvg'
 import { useI18n } from '../../i18n/I18nContext'
 import { usePermission } from '../../shell/PermissionContext'
@@ -20,6 +20,8 @@ export function CadViewerScreen({ tab }: ScreenProps) {
   const [offline, setOffline] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [plotScale, setPlotScale] = useState('100')
+  const [plotPaper, setPlotPaper] = useState('A4')
 
   useEffect(() => {
     void cadService.view(fileId)
@@ -74,6 +76,15 @@ export function CadViewerScreen({ tab }: ScreenProps) {
         <span className="sep" />
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>휠 줌 · 드래그 이동 · 더블클릭 맞춤</span>
         <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('cad.scale', '축척')} 1:</span>
+        <Combo width={64} value={plotScale} onChange={setPlotScale}
+          options={['20', '50', '100', '200', '500', '1000']} />
+        <Combo width={54} value={plotPaper} onChange={setPlotPaper} options={['A4', 'A3']} />
+        <Btn onClick={() => {
+          void cadService.plot(fileId, Number(plotScale), plotPaper, 'landscape')
+            .then(() => setStatusMsg(`축척 PDF — 1:${plotScale} · ${plotPaper} 가로`))
+            .catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+        }}>🖶 {t('cad.plot', '축척 PDF')}</Btn>
         <Btn onClick={() => {
           void fileService.download(fileId, name)
             .catch((e: Error) => setStatusMsg(

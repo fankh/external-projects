@@ -1866,6 +1866,113 @@ def cad_view(file_id: int) -> dict[str, Any]:
     return {"fileId": file_id, "document": _parse_cad_bytes(data, row[1])}
 
 
+def _build_cad_plot_pdf(doc: dict[str, Any], scale: float, paper: str, orient: str) -> bytes:
+    """정규화 DrawingDocument → 축척(1:scale) 벡터 PDF (reportlab). 단위=mm 가정."""
+    import io as _io
+    import math as _m
+
+    from reportlab.lib.pagesizes import A3, A4, landscape, portrait
+    from reportlab.pdfgen import canvas
+
+    pg = {"A4": A4, "A3": A3}.get(paper.upper(), A4)
+    pg = landscape(pg) if orient == "landscape" else portrait(pg)
+    W, H = pg
+    buf = _io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=pg)
+
+    ents = doc.get("entities", [])
+    b = doc.get("bounds", {}) or {}
+    minx, miny = b.get("minX", 0.0), b.get("minY", 0.0)
+    maxx, maxy = b.get("maxX", 0.0), b.get("maxY", 0.0)
+    k = (72.0 / 25.4) / scale                       # 도면 단위(mm) → pt
+    ox = W / 2 - (minx + maxx) / 2 * k              # 도면 중심 → 용지 중심
+    oy = H / 2 - (miny + maxy) / 2 * k
+
+    def X(x: float) -> float:
+        return ox + x * k
+
+    def Y(y: float) -> float:
+        return oy + y * k
+
+    c.setLineWidth(0.3)
+    c.setStrokeColorRGB(0.16, 0.23, 0.33)
+    for e in ents:
+        t = e.get("entityType")
+        try:
+            if t == "line":
+                c.line(X(e["startPoint"]["x"]), Y(e["startPoint"]["y"]),
+                       X(e["endPoint"]["x"]), Y(e["endPoint"]["y"]))
+            elif t == "circle":
+                c.circle(X(e["centerPoint"]["x"]), Y(e["centerPoint"]["y"]), e["radius"] * k, stroke=1, fill=0)
+            elif t == "arc":
+                cx, cy, r = e["centerPoint"]["x"], e["centerPoint"]["y"], e["radius"]
+                a0, a1 = e["startAngleDegrees"], e["endAngleDegrees"]
+                if a1 < a0:
+                    a1 += 360
+                steps = max(6, int((a1 - a0) / 6))
+                path = c.beginPath()
+                for i in range(steps + 1):
+                    ang = _m.radians(a0 + (a1 - a0) * i / steps)
+                    px, py = X(cx + r * _m.cos(ang)), Y(cy + r * _m.sin(ang))
+                    (path.moveTo if i == 0 else path.lineTo)(px, py)
+                c.drawPath(path)
+            elif t == "polyline":
+                vs = e.get("vertexPoints", [])
+                if len(vs) >= 2:
+                    path = c.beginPath()
+                    path.moveTo(X(vs[0]["x"]), Y(vs[0]["y"]))
+                    for v in vs[1:]:
+                        path.lineTo(X(v["x"]), Y(v["y"]))
+                    if e.get("isClosed"):
+                        path.close()
+                    c.drawPath(path)
+            elif t == "text":
+                ip = e["insertionPoint"]
+                c.setFont("Helvetica", max(4.0, (e.get("textHeight") or 10) * k))
+                c.drawString(X(ip["x"]), Y(ip["y"]), str(e.get("textContent") or ""))
+        except (KeyError, TypeError):
+            continue
+
+    c.setLineWidth(0.6)
+    c.setStrokeColorRGB(0.16, 0.23, 0.33)
+    c.rect(10, 10, W - 20, H - 20)
+    c.setFont("Helvetica", 8)
+    c.setFillColorRGB(0.16, 0.23, 0.33)
+    c.drawString(16, 15, f"SCALE 1:{int(scale)}  ·  {doc.get('drawingName', '')}  ·  units {doc.get('units', '')}  ·  {paper.upper()} {orient}")
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+@router.get("/cad/view/{file_id}/plot.pdf")
+def cad_plot(file_id: int, scale: float = 100, paper: str = "A4",
+             orient: str = "landscape") -> StreamingResponse:
+    """축척 인쇄(plot to scale) — DXF 를 1:scale 벡터 PDF 로 출력."""
+    import io as _io
+    from pathlib import Path
+
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT file_path, file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
+            (tid, file_id))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"file not found: {file_id}")
+    try:
+        data = storage.get_object(row[0]).read()
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    if scale <= 0:
+        scale = 100
+    doc = _parse_cad_bytes(data, row[1])
+    pdf = _build_cad_plot_pdf(doc, scale, paper, orient)
+    stem = Path(row[1]).stem
+    return StreamingResponse(
+        _io.BytesIO(pdf), media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{stem}_1-{int(scale)}.pdf"'})
+
+
 class CadEditOp(BaseModel):
     op: str            # 'move' | 'delete' | 'copy' | 'rotate' | 'mirror' | 'add'
     entityId: str = ""

@@ -2957,6 +2957,17 @@ export const cadService = {
       method: 'POST', body: JSON.stringify({ ops }),
     })
   },
+  /** GET /api/v1/cad/view/{fileId}/plot.pdf — 축척(1:scale) 벡터 PDF 를 새 창으로 */
+  async plot(fileId: number, scale: number, paper = 'A4', orient = 'landscape'): Promise<void> {
+    const res = await fetch(`${API}/cad/view/${fileId}/plot.pdf?scale=${scale}&paper=${paper}&orient=${orient}`, {
+      signal: AbortSignal.timeout(30_000),
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) throw new Error(`축척 PDF 실패 (HTTP ${res.status})`)
+    const url = URL.createObjectURL(await res.blob())
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  },
   /** POST /api/v1/cad/import — DXF/DWG 업로드 + 파싱 + Folder 등록 */
   async importFile(file: globalThis.File, project: string):
   Promise<{ fileId: number; document: CadDocument } | null> {
