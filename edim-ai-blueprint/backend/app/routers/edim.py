@@ -1768,10 +1768,16 @@ def files_gc(request: Request, body: FileGcRequest) -> dict[str, Any]:
         raise HTTPException(503, detail="storage unavailable")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        # 버킷은 테넌트 공유 — 전체 dwg_file.file_path 를 참조 집합으로
-        cur.execute("SELECT DISTINCT file_path FROM dwg_file")
-        referenced = {r[0] for r in cur.fetchall()}
-        orphans = [k for k in keys if k not in referenced]
+        # 버킷은 테넌트 공유 — MinIO 키를 저장하는 모든 테이블을 참조 집합으로 합집합
+        referenced: set[str] = set()
+        cur.execute("SELECT DISTINCT file_path FROM dwg_file WHERE file_path IS NOT NULL")
+        referenced.update(r[0] for r in cur.fetchall())
+        cur.execute("SELECT DISTINCT file_path FROM dev_requirement_image WHERE file_path IS NOT NULL")
+        referenced.update(r[0] for r in cur.fetchall())
+        # 시스템 샘플/시드 오브젝트는 보호 (GC 대상 제외)
+        PROTECTED_PREFIX = ("sample_data/", "sample_")
+        orphans = [k for k in keys
+                   if k not in referenced and not k.startswith(PROTECTED_PREFIX)]
         removed: list[str] = []
         if body.apply:
             for k in orphans:
