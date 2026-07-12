@@ -4273,17 +4273,22 @@ def pr_items() -> list[dict[str, Any]]:
             r = cur.fetchone()
             if not r:
                 continue
-            # D2 — Stock Check 실재고 기반 (inv_stock 총 보유수량 ≥ 소요수량)
+            # D2 — Stock Check 실재고 기반 · ATP(가용재고 = 보유 − ACTIVE 예약) ≥ 소요수량
             cur.execute(
                 "SELECT COALESCE(sum(quantity),0) FROM inv_stock WHERE tenant_id=%s AND item_code=%s",
                 (tid, code))
             on_hand = float(cur.fetchone()[0])
-            stock_ok = on_hand >= meta["qty"]
+            cur.execute(
+                "SELECT COALESCE(sum(quantity),0) FROM inv_reservation "
+                "WHERE tenant_id=%s AND item_code=%s AND status='ACTIVE'", (tid, code))
+            reserved = float(cur.fetchone()[0])
+            available = on_hand - reserved
+            stock_ok = available >= meta["qty"]
             out.append({
                 "code": code, "name": r[0],
                 "supplierCode": meta["supplierCode"],
                 "supplier": "-" if stock_ok else (r[2] or "-"),
-                "qty": meta["qty"], "onHand": on_hand,
+                "qty": meta["qty"], "onHand": on_hand, "reserved": reserved, "available": available,
                 "price": None if stock_ok else (float(r[1]) if r[1] is not None else None),
                 "requiredDate": meta["requiredDate"], "delivery": meta["delivery"],
                 "stockOk": stock_ok, "checked": not stock_ok,
@@ -4362,6 +4367,109 @@ def stock_movements(item: str = "", limit: int = 30) -> list[dict[str, Any]]:
                 ORDER BY movement_id DESC LIMIT %s""", tuple(params))
         return [{"itemCode": r[0], "locationCode": r[1], "type": r[2], "quantity": float(r[3]),
                  "refType": r[4], "refNo": r[5], "at": r[6]} for r in cur.fetchall()]
+
+
+def _atp(cur: Any, tid: int, item: str) -> tuple[float, float, float]:
+    """(on_hand, reserved(ACTIVE), available) — 품목 단위 가용재고."""
+    cur.execute("SELECT COALESCE(sum(quantity),0) FROM inv_stock WHERE tenant_id=%s AND item_code=%s",
+                (tid, item))
+    on_hand = float(cur.fetchone()[0])
+    cur.execute("SELECT COALESCE(sum(quantity),0) FROM inv_reservation "
+                "WHERE tenant_id=%s AND item_code=%s AND status='ACTIVE'", (tid, item))
+    reserved = float(cur.fetchone()[0])
+    return on_hand, reserved, on_hand - reserved
+
+
+@router.get("/erp/stock/atp")
+def stock_atp() -> list[dict[str, Any]]:
+    """가용재고(ATP) — 품목별 보유·ACTIVE 예약·가용(보유−예약)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT x.item_code, max(x.item_name), sum(x.on_hand) AS on_hand,
+                      COALESCE(sum(x.reserved),0) AS reserved
+               FROM (
+                 SELECT item_code, max(item_name) item_name, sum(quantity) on_hand, 0 reserved
+                   FROM inv_stock WHERE tenant_id=%s GROUP BY item_code
+                 UNION ALL
+                 SELECT item_code, NULL, 0, sum(quantity)
+                   FROM inv_reservation WHERE tenant_id=%s AND status='ACTIVE' GROUP BY item_code
+               ) x GROUP BY x.item_code ORDER BY x.item_code""", (tid, tid))
+        out = []
+        for r in cur.fetchall():
+            on_hand, reserved = float(r[2]), float(r[3])
+            out.append({"itemCode": r[0], "itemName": r[1] or "-", "onHand": on_hand,
+                        "reserved": reserved, "available": on_hand - reserved})
+        return out
+
+
+class ReserveRequest(BaseModel):
+    itemCode: str
+    quantity: float
+    refType: str = "SO"
+    refNo: str = ""
+
+
+@router.post("/erp/stock/reserve", status_code=201, dependencies=[SETUP])
+def stock_reserve(request: Request, body: ReserveRequest) -> dict[str, Any]:
+    """재고 예약 — 가용재고(ATP) 초과 시 409. 수주/작업지시가 재고 선점."""
+    item = body.itemCode.strip()[:50]
+    if not item or body.quantity <= 0:
+        raise HTTPException(422, detail="필수 — 품목·수량(>0)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        on_hand, reserved, available = _atp(cur, tid, item)
+        if body.quantity > available:
+            raise HTTPException(409, detail=f"가용재고 부족 — 요청 {body.quantity} > 가용 {available} (보유 {on_hand}·예약 {reserved})")
+        cur.execute(
+            """INSERT INTO inv_reservation (tenant_id, item_code, quantity, ref_type, ref_no, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s) RETURNING reservation_id""",
+            (tid, item, body.quantity, body.refType.strip()[:20] or None,
+             body.refNo.strip()[:50] or None, str(request.state.user_id)))
+        rid = cur.fetchone()[0]
+        _audit(cur, tid, "inv_reservation", rid, "RESERVE", request.state.user_id,
+               {"item": item, "qty": body.quantity, "ref": body.refNo})
+        _, _, avail_after = _atp(cur, tid, item)
+    return {"reservationId": rid, "itemCode": item, "available": avail_after}
+
+
+@router.get("/erp/stock/reservations")
+def stock_reservations(item: str = "", status: str = "ACTIVE") -> list[dict[str, Any]]:
+    """예약 목록 (기본 ACTIVE)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        params: list[Any] = [tid]
+        clause = ""
+        if status.strip() and status != "ALL":
+            clause += " AND status=%s"
+            params.append(status.strip())
+        if item.strip():
+            clause += " AND item_code=%s"
+            params.append(item.strip())
+        cur.execute(
+            f"""SELECT reservation_id, item_code, quantity, ref_type, ref_no, status,
+                       to_char(created_at,'MM-DD HH24:MI')
+                FROM inv_reservation WHERE tenant_id=%s{clause}
+                ORDER BY reservation_id DESC LIMIT 100""", tuple(params))
+        return [{"reservationId": r[0], "itemCode": r[1], "quantity": float(r[2]),
+                 "refType": r[3], "refNo": r[4], "status": r[5], "at": r[6]} for r in cur.fetchall()]
+
+
+@router.post("/erp/stock/reservations/{reservation_id}/release", dependencies=[SETUP])
+def stock_reservation_release(reservation_id: int, request: Request) -> dict[str, Any]:
+    """예약 해제 — ACTIVE → RELEASED (가용재고 복원)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "UPDATE inv_reservation SET status='RELEASED' "
+            "WHERE tenant_id=%s AND reservation_id=%s AND status='ACTIVE' RETURNING item_code",
+            (tid, reservation_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(409, detail="해제 불가 — ACTIVE 예약 아님")
+        _audit(cur, tid, "inv_reservation", reservation_id, "RESERVE_RELEASE", request.state.user_id, {})
+        _, _, avail = _atp(cur, tid, row[0])
+    return {"reservationId": reservation_id, "itemCode": row[0], "available": avail}
 
 
 class WorkOrderCreate(BaseModel):

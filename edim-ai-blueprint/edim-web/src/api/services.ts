@@ -2094,6 +2094,11 @@ export interface MovementRow {
   itemCode: string; locationCode: string; type: 'IN' | 'OUT'; quantity: number
   refType: string | null; refNo: string | null; at: string
 }
+export interface AtpRow { itemCode: string; itemName: string; onHand: number; reserved: number; available: number }
+export interface ReservationRow {
+  reservationId: number; itemCode: string; quantity: number
+  refType: string | null; refNo: string | null; status: string; at: string
+}
 
 export const inventoryService = {
   /** GET /api/v1/erp/stock — 재고 조회 (품목×위치; null=백엔드 불가) */
@@ -2125,6 +2130,34 @@ export const inventoryService = {
       if (e instanceof ApiUnavailable) return false
       throw e
     }
+  },
+  /** GET /api/v1/erp/stock/atp — 가용재고(보유·예약·가용) */
+  async atp(): Promise<AtpRow[] | null> {
+    try {
+      return await api<AtpRow[]>('/erp/stock/atp')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/erp/stock/reservations — 예약 목록 (기본 ACTIVE) */
+  async reservations(status = 'ACTIVE'): Promise<ReservationRow[] | null> {
+    try {
+      return await api<ReservationRow[]>(`/erp/stock/reservations?status=${status}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/erp/stock/reserve — 재고 예약 (가용 초과 409) */
+  async reserve(body: { itemCode: string; quantity: number; refType?: string; refNo?: string }): Promise<{ reservationId: number; available: number }> {
+    return api<{ reservationId: number; available: number }>('/erp/stock/reserve', {
+      method: 'POST', body: JSON.stringify(body),
+    })
+  },
+  /** POST /api/v1/erp/stock/reservations/{id}/release — 예약 해제 */
+  async release(id: number): Promise<{ available: number }> {
+    return api<{ available: number }>(`/erp/stock/reservations/${id}/release`, { method: 'POST' })
   },
 }
 
