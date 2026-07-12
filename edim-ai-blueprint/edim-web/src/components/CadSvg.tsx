@@ -170,8 +170,10 @@ function entityInfo(e: CadEntity): { title: string; rows: [string, string][] } {
 export interface LayerOverride { color?: string; width?: number }   // B16 특성 편집 (DWG-025)
 
 export interface CadEditOp {
-  op: 'move' | 'delete' | 'copy' | 'rotate' | 'mirror'
-  entityId: string; dx?: number; dy?: number; angle?: number; axis?: 'x' | 'y'
+  op: 'move' | 'delete' | 'copy' | 'rotate' | 'mirror' | 'add'
+  entityId?: string; dx?: number; dy?: number; angle?: number; axis?: 'x' | 'y'
+  entityType?: 'line' | 'circle' | 'rect'; layer?: string
+  x1?: number; y1?: number; x2?: number; y2?: number; radius?: number
 }
 
 export function CadSvg(props: {
@@ -228,6 +230,12 @@ export function CadSvg(props: {
   const mdrag = useRef<{ ax: number; ay: number } | null>(null)   // 마퀴 앵커(도면 좌표)
   const [marquee, setMarquee] = useState<{ ax: number; ay: number; bx: number; by: number } | null>(null)
   const [editPreview, setEditPreview] = useState<{ dx: number; dy: number } | null>(null)   // 그룹 이동 프리뷰
+  // G1 자유 작도(line/circle/rect)
+  const [drawTool, setDrawTool] = useState<null | 'line' | 'circle' | 'rect'>(null)
+  const drawRef = useRef(drawTool)
+  drawRef.current = drawTool
+  const ddraw = useRef<{ ax: number; ay: number } | null>(null)
+  const [drawPreview, setDrawPreview] = useState<{ ax: number; ay: number; bx: number; by: number } | null>(null)
   const selected = useMemo(
     () => (selIds.size === 1 ? doc.entities.find((e) => e.entityId === selId) ?? null : null),
     [doc, selId, selIds])
@@ -249,6 +257,7 @@ export function CadSvg(props: {
   useEffect(() => {
     setM1(null); setM2(null); setMHover(null); clearSel(); setEditPreview(null)
     edrag.current = null; mdrag.current = null; setMarquee(null)
+    ddraw.current = null; setDrawPreview(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc])
 
@@ -467,18 +476,24 @@ export function CadSvg(props: {
           runOps((id) => ({ op: 'delete', entityId: id })); clearSel()
         } else if (e.key === 'Escape') {
           e.preventDefault()
-          setM1(null); setM2(null); setMHover(null); clearSel()
+          setM1(null); setM2(null); setMHover(null); clearSel(); setDrawTool(null); ddraw.current = null; setDrawPreview(null)
         }
       }}>
       <svg ref={svgRef} width="100%" height="100%" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
         data-cad-svg
         style={{
           display: 'block', touchAction: 'none',
-          cursor: measureOn ? 'crosshair' : dragging ? 'grabbing' : 'grab',
+          cursor: (measureOn || drawTool) ? 'crosshair' : dragging ? 'grabbing' : 'grab',
         }}
         onPointerDown={(e) => {
           if (e.button !== 0 && e.button !== 1) return
           e.currentTarget.setPointerCapture(e.pointerId)
+          if (drawRef.current && e.button === 0) {   // 자유 작도 시작
+            const p = toDrawing(e.clientX, e.clientY)
+            ddraw.current = { ax: p.x, ay: p.y }
+            setDrawPreview({ ax: p.x, ay: p.y, bx: p.x, by: p.y })
+            return
+          }
           const editing = editRef.current && !measureRef.current
           if (editing && e.button === 0) {
             const p = toDrawing(e.clientX, e.clientY)
@@ -503,6 +518,11 @@ export function CadSvg(props: {
         }}
         onPointerMove={(e) => {
           setCur(toDrawing(e.clientX, e.clientY))   // 실시간 좌표
+          if (ddraw.current) {
+            const p = toDrawing(e.clientX, e.clientY)
+            setDrawPreview({ ax: ddraw.current.ax, ay: ddraw.current.ay, bx: p.x, by: p.y })
+            return
+          }
           if (edrag.current) {
             const s = edrag.current
             const a = toDrawing(s.sx, s.sy)
@@ -528,6 +548,23 @@ export function CadSvg(props: {
           }
         }}
         onPointerUp={(e) => {
+          if (ddraw.current) {
+            const a = ddraw.current
+            ddraw.current = null
+            const b = toDrawing(e.clientX, e.clientY)
+            setDrawPreview(null)
+            const tool = drawRef.current
+            const lyr = doc.layers[0]?.layerName ?? '0'
+            if (tool === 'line' && Math.hypot(b.x - a.ax, b.y - a.ay) > pxScale(viewRef.current) * 3)
+              props.onEdit?.([{ op: 'add', entityType: 'line', layer: lyr, x1: a.ax, y1: a.ay, x2: b.x, y2: b.y }])
+            else if (tool === 'circle') {
+              const r = Math.hypot(b.x - a.ax, b.y - a.ay)
+              if (r > pxScale(viewRef.current) * 3)
+                props.onEdit?.([{ op: 'add', entityType: 'circle', layer: lyr, x1: a.ax, y1: a.ay, radius: r }])
+            } else if (tool === 'rect' && Math.abs(b.x - a.ax) > pxScale(viewRef.current) * 3 && Math.abs(b.y - a.ay) > pxScale(viewRef.current) * 3)
+              props.onEdit?.([{ op: 'add', entityType: 'rect', layer: lyr, x1: a.ax, y1: a.ay, x2: b.x, y2: b.y }])
+            return
+          }
           if (edrag.current) {
             const s = edrag.current
             edrag.current = null
@@ -560,8 +597,8 @@ export function CadSvg(props: {
           if (d && !d.moved) handleClick(e.clientX, e.clientY)
         }}
         onPointerCancel={() => {
-          drag.current = null; edrag.current = null; mdrag.current = null
-          setEditPreview(null); setMarquee(null); setDragging(false)
+          drag.current = null; edrag.current = null; mdrag.current = null; ddraw.current = null
+          setEditPreview(null); setMarquee(null); setDrawPreview(null); setDragging(false)
         }}
         onPointerLeave={() => setCur(null)}
         onDoubleClick={() => { if (!measureRef.current) setVb(null) }}>
@@ -589,6 +626,14 @@ export function CadSvg(props: {
               fill="rgba(47,148,99,.13)" stroke="#2F9463" strokeWidth={strokeW}
               strokeDasharray={`${px(5)} ${px(3)}`} />
           ) : null}
+          {drawPreview ? (() => {
+            const d = drawPreview
+            const cm = { stroke: '#2F9463', strokeWidth: strokeW * 1.5, fill: 'none' as const, strokeDasharray: `${px(5)} ${px(3)}` }
+            if (drawTool === 'line') return <line data-cad-draw x1={d.ax} y1={d.ay} x2={d.bx} y2={d.by} {...cm} />
+            if (drawTool === 'circle') return <circle data-cad-draw cx={d.ax} cy={d.ay} r={Math.hypot(d.bx - d.ax, d.by - d.ay)} {...cm} />
+            return <rect data-cad-draw x={Math.min(d.ax, d.bx)} y={Math.min(d.ay, d.by)}
+              width={Math.abs(d.bx - d.ax)} height={Math.abs(d.by - d.ay)} {...cm} />
+          })() : null}
         </g>
         {/* 측정 오버레이 — 도면 좌표 (y 부호 반전) */}
         {m1 && mEnd ? (
@@ -628,8 +673,18 @@ export function CadSvg(props: {
               const next = !editOn
               setEditOn(next)
               if (next) { setMeasureOn(false); setM1(null); setM2(null); setMHover(null) }
-              else { edrag.current = null; mdrag.current = null; setEditPreview(null); setMarquee(null) }
+              else { edrag.current = null; mdrag.current = null; setEditPreview(null); setMarquee(null); setDrawTool(null) }
             }}>✎ {t('cad.edit', '편집')}</button>
+        ) : null}
+        {props.editable && editOn ? (
+          <>
+            {([['line', '／', '선'], ['circle', '○', '원'], ['rect', '▭', '사각']] as const).map(([tool, icon, label]) => (
+              <button key={tool} type="button" data-cad-draw-tool={tool}
+                style={{ ...btn, width: 'auto', padding: '0 6px', fontSize: 11, ...(drawTool === tool ? { background: '#2F9463', color: '#fff', borderColor: '#2F9463' } : {}) }}
+                title={`작도 — ${label} (드래그)`}
+                onClick={() => setDrawTool((cur) => (cur === tool ? null : tool))}>{icon}</button>
+            ))}
+          </>
         ) : null}
         <button type="button" data-cad-grid-toggle
           style={{ ...btn, ...(gridOn ? { background: '#26406E', color: '#fff', borderColor: '#26406E' } : {}) }}
@@ -707,9 +762,11 @@ export function CadSvg(props: {
       }}>
         {measureOn
           ? t('cad.measureHint', '두 점 클릭 = 거리 측정 · 끝점/중심 자동 스냅')
-          : editOn
-            ? t('cad.editHint', '엔티티 드래그=이동 · 빈곳 드래그=박스선택 · Shift+클릭=추가 · 중클릭=팬 · Delete=삭제')
-            : t('cad.hint', '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성')}
+          : drawTool
+            ? t('cad.drawHint', '드래그 = 작도(선/원/사각) → DXF 추가 · Esc 취소')
+            : editOn
+              ? t('cad.editHint', '엔티티 드래그=이동 · 빈곳 드래그=박스선택 · Shift+클릭=추가 · 중클릭=팬 · Delete=삭제')
+              : t('cad.hint', '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성')}
         {' · +/−/0/M/Esc'}
       </div>
     </div>

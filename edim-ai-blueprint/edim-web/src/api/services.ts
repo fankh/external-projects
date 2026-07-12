@@ -2951,7 +2951,7 @@ export const cadService = {
     }
   },
   /** POST /api/v1/cad/view/{fileId}/edit — 엔티티 이동/삭제/복사/회전/미러 → DXF 재저장 후 재파싱 문서 */
-  async edit(fileId: number, ops: { op: 'move' | 'delete' | 'copy' | 'rotate' | 'mirror'; entityId: string; dx?: number; dy?: number; angle?: number; axis?: 'x' | 'y' }[]):
+  async edit(fileId: number, ops: { op: 'move' | 'delete' | 'copy' | 'rotate' | 'mirror' | 'add'; entityId?: string; dx?: number; dy?: number; angle?: number; axis?: 'x' | 'y'; entityType?: 'line' | 'circle' | 'rect'; layer?: string; x1?: number; y1?: number; x2?: number; y2?: number; radius?: number }[]):
   Promise<{ applied: number; document: CadDocument }> {
     return api<{ applied: number; document: CadDocument }>(`/cad/view/${fileId}/edit`, {
       method: 'POST', body: JSON.stringify({ ops }),

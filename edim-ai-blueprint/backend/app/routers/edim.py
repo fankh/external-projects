@@ -1867,12 +1867,20 @@ def cad_view(file_id: int) -> dict[str, Any]:
 
 
 class CadEditOp(BaseModel):
-    op: str            # 'move' | 'delete' | 'copy' | 'rotate' | 'mirror'
-    entityId: str
+    op: str            # 'move' | 'delete' | 'copy' | 'rotate' | 'mirror' | 'add'
+    entityId: str = ""
     dx: float = 0.0
     dy: float = 0.0
     angle: float = 0.0    # rotate — 도(°), 반시계
     axis: str = "y"       # mirror — 'y'=수직축(좌우반전) · 'x'=수평축(상하반전)
+    # add(자유 작도) — line/circle/rect
+    entityType: str = ""  # 'line' | 'circle' | 'rect'
+    layer: str = "0"
+    x1: float = 0.0
+    y1: float = 0.0
+    x2: float = 0.0
+    y2: float = 0.0
+    radius: float = 0.0
 
 
 class CadEditRequest(BaseModel):
@@ -1936,6 +1944,30 @@ def cad_edit(file_id: int, request: Request, body: CadEditRequest) -> dict[str, 
                 id_map[f"e{seq}"] = entity
         applied = 0
         for op in body.ops:
+            if op.op == "add":   # 자유 작도 — entityId 불요
+                lyr = op.layer or "0"
+                if lyr not in doc.layers:
+                    try:
+                        doc.layers.new(lyr)
+                    except Exception:
+                        pass
+                attr = {"layer": lyr}
+                try:
+                    if op.entityType == "line":
+                        msp.add_line((op.x1, op.y1), (op.x2, op.y2), dxfattribs=attr)
+                        applied += 1
+                    elif op.entityType == "circle":
+                        r = op.radius or math.hypot(op.x2 - op.x1, op.y2 - op.y1)
+                        if r > 0:
+                            msp.add_circle((op.x1, op.y1), r, dxfattribs=attr)
+                            applied += 1
+                    elif op.entityType == "rect":
+                        pts = [(op.x1, op.y1), (op.x2, op.y1), (op.x2, op.y2), (op.x1, op.y2)]
+                        msp.add_lwpolyline(pts, close=True, dxfattribs=attr)
+                        applied += 1
+                except Exception:
+                    pass
+                continue
             ent = id_map.get(op.entityId)
             if ent is None:
                 continue
