@@ -151,6 +151,40 @@ export function Shell(props: { user: User }) {
   const openFavorite = (f: { screenId: string; code: string; title: string }) =>
     shell.openTab({ screenId: f.screenId, code: f.code, title: f.title })
 
+  // D8 — 최근 항목 (서버 영속, activeTab 변경 시 기록)
+  type RecentItem = { screenId: string; code: string; title: string }
+  const [recent, setRecent] = useState<RecentItem[]>([])
+  const [recentOpen, setRecentOpen] = useState(false)
+  const recentRef = useRef<HTMLSpanElement>(null)
+  const recentLoaded = useRef(false)
+  useEffect(() => {
+    void prefService.get<RecentItem[]>('recent').then((r) => {
+      if (Array.isArray(r)) setRecent(r)
+      recentLoaded.current = true
+    })
+  }, [])
+  useEffect(() => {
+    if (!recentLoaded.current || !activeTab) return
+    // 상세/휘발 탭 제외 — 메뉴 화면만 최근에 기록
+    if (!SCREEN_BY_NODE[activeTab.screenId]) return
+    setRecent((prev) => {
+      const item = { screenId: activeTab.screenId, code: activeTab.code, title: activeTab.title }
+      const next = [item, ...prev.filter((r) => r.screenId !== item.screenId)].slice(0, 10)
+      if (JSON.stringify(next) === JSON.stringify(prev)) return prev
+      void prefService.set('recent', next)
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab?.screenId])
+  useEffect(() => {
+    if (!recentOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (recentRef.current && !recentRef.current.contains(e.target as Node)) setRecentOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [recentOpen])
+
   useEffect(() => {
     const unsub = subscribeDataSource(setSource)
     void pingBackend()
@@ -432,6 +466,27 @@ export function Shell(props: { user: User }) {
             style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             onClick={() => openFavorite(f)}>★ {f.title}</span>
         ))}
+        {/* D8 — 최근 항목 드롭다운 */}
+        <span ref={recentRef} style={{ position: 'relative', display: 'inline-flex' }}>
+          <span className="b" data-recent-toggle title="최근 연 화면"
+            onClick={() => setRecentOpen((o) => !o)}>🕘 최근</span>
+          {recentOpen && recent.length ? (
+            <div className="gb" style={{
+              position: 'absolute', left: 0, top: 22, width: 220, zIndex: 100,
+              boxShadow: '0 6px 20px rgba(20,26,40,.28)', textAlign: 'left',
+            }}>
+              <div className="gc p0" style={{ maxHeight: 300, overflow: 'auto' }}>
+                {recent.map((r) => (
+                  <div key={r.screenId} data-recent-item className="tn"
+                    style={{ cursor: 'pointer', padding: '4px 9px', fontSize: 11 }}
+                    onClick={() => { openFavorite(r); setRecentOpen(false) }}>
+                    <span style={{ color: 'var(--txt-mute)', fontSize: 9.5 }}>{r.code}</span> {r.title}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </span>
         <span className="sep" />
         <span className="b" title="VARIANT 바인딩 치수 — Design Editor"
           onClick={() => {
