@@ -628,8 +628,7 @@ def export_warehouses_xlsx() -> Response:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT location_code, location_name, location_type,
-                      CASE WHEN hazard_allowed THEN 'Y' ELSE 'N' END,
-                      COALESCE(inspection_cycle,''), COALESCE(remarks,'')
+                      COALESCE(hazard_allowed,''), COALESCE(inspection_cycle,''), COALESCE(remarks,'')
                FROM erp_warehouse WHERE tenant_id=%s ORDER BY location_code""", (tid,))
         rows = [[r[0], r[1], r[2], r[3], r[4], r[5]] for r in cur.fetchall()]
     return _xlsx_response("창고", ["위치코드", "위치명", "유형", "위험물", "점검주기", "비고"], rows, "warehouses")
