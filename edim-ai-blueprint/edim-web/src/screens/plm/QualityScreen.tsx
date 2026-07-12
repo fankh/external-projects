@@ -51,8 +51,27 @@ export function QualityScreen({ active }: ScreenProps) {
     })()
   }
 
+  // D4 — 측정값 자동 판정: 규칙 Macro 평가 → 합/부 제안
+  const runAutoVerify = () => {
+    const raw = window.prompt('측정값 입력 (예: MC=520, FES=15) — 활성 규칙 Macro 변수', 'MC=520, FES=15')
+    if (raw == null) return
+    const measurements: Record<string, number> = {}
+    for (const pair of raw.split(',')) {
+      const [k, v] = pair.split('=').map((s) => s.trim())
+      if (k && v !== undefined && !Number.isNaN(Number(v))) measurements[k] = Number(v)
+    }
+    void verificationService.verify(DRAWING, measurements).then((r) => {
+      if (!r) { setStatusMsg(<span style={{ color: 'var(--err)' }}>판정 불가 — 활성 규칙 없음/백엔드</span>); return }
+      const tone = r.suggestion === '합격' ? 'var(--ok)' : 'var(--err)'
+      const failRule = r.results.find((x) => !x.pass)
+      setStatusMsg(<span>자동 판정: <b style={{ color: tone }}>{r.suggestion}</b> — {r.pass}/{r.evaluated} 통과
+        {failRule ? ` · 위반: ${failRule.rule} (${failRule.warning ?? ''})` : ''}</span>)
+    }).catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
   useFKeys(active, useMemo(() => ({
     F8: () => { void load(); setStatusMsg('검증 규칙 재조회 (dwg_verification)') },
+    F9: runAutoVerify,
   }), [])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cols: GridColumn<VerificationRow>[] = [
@@ -75,6 +94,7 @@ export function QualityScreen({ active }: ScreenProps) {
           검증 Macro = 치수 평가 후 규칙 위반 시 경고 (● 검증 Macro — Design Editor 범례와 동일 도메인)
         </span>
         <span style={{ flex: 1 }} />
+        <Btn onClick={runAutoVerify}>⚖ 자동 판정</Btn>
         <Btn disabled={!perm.canWrite('plm-quality') || selIdx === null}
           title={perm.canWrite('plm-quality') ? undefined : perm.denyWrite}
           onClick={() => setShowEdit(true)}>✎ 수정</Btn>

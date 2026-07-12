@@ -1154,6 +1154,47 @@ def add_drawing_verification(drawing_no: str, body: VerificationAdd) -> dict[str
     return {"verificationId": vid}
 
 
+class VerifyRunRequest(BaseModel):
+    measurements: dict[str, float] = {}   # 규칙 Macro 입력 변수 (측정값)
+
+
+@router.post("/drawings/{drawing_no}/verify")
+def verify_drawing(drawing_no: str, body: VerifyRunRequest) -> dict[str, Any]:
+    """검증 규칙 자동 판정 (D4) — 측정값을 활성 규칙 Macro 로 평가해 합/부 제안.
+    규칙 값이 참(≠0)=통과, 거짓/오류=위반(warning). 전건 통과=합격 제안, 아니면 불합격."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT v.rule_name, m.macro_name, m.macro_expr, v.warning_message
+               FROM dwg_verification v
+               JOIN dwg_drawing d ON d.drawing_id=v.drawing_id
+               JOIN tbx_macro m ON m.macro_id=v.macro_id
+               WHERE v.tenant_id=%s AND d.drawing_no=%s AND v.is_active=true
+               ORDER BY v.verification_id""", (tid, drawing_no))
+        rules = cur.fetchall()
+        if not rules:
+            raise HTTPException(404, detail=f"활성 검증 규칙 없음: {drawing_no}")
+        resolver = _make_table_resolver(cur, tid)
+        results = []
+        for rule_name, macro_name, expr, warn in rules:
+            ev = Evaluator(dict(body.measurements), resolver)
+            try:
+                val = ev.run(expr or "0")
+                passed = bool(val) and float(val) != 0.0
+                res = {"rule": rule_name, "macro": macro_name,
+                       "value": float(val) if isinstance(val, (int, float)) else None,
+                       "pass": passed, "warning": None if passed else warn}
+            except MacroError as e:
+                res = {"rule": rule_name, "macro": macro_name, "value": None,
+                       "pass": False, "warning": f"{warn} (평가 오류: {e})"}
+            results.append(res)
+    fails = sum(1 for r in results if not r["pass"])
+    suggestion = "합격" if fails == 0 else "불합격"
+    return {"drawingNo": drawing_no, "evaluated": len(results),
+            "pass": len(results) - fails, "fail": fails,
+            "suggestion": suggestion, "results": results}
+
+
 # ── B14 — 마스터 데이터 (com_company) · RBAC 동적화 (sys_role) · Hierarchy ──
 
 @router.get("/companies")

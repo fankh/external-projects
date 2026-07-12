@@ -1321,6 +1321,18 @@ export const verificationService = {
       throw e
     }
   },
+  /** POST /api/v1/drawings/{no}/verify — 측정값 자동 판정 (D4; null=백엔드/규칙 없음) */
+  async verify(drawing: string, measurements: Record<string, number>):
+  Promise<{ suggestion: string; evaluated: number; pass: number; fail: number; results: { rule: string; pass: boolean; value: number | null; warning: string | null }[] } | null> {
+    try {
+      return await api(`/drawings/${encodeURIComponent(drawing)}/verify`, {
+        method: 'POST', body: JSON.stringify({ measurements }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
   /** PUT /api/v1/verifications/{id} — 규칙 수정·비활성 (F5) */
   async update(verificationId: number, p: {
     ruleName?: string; warningMessage?: string; isActive?: boolean
