@@ -24,6 +24,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'plm-duct': { screenId: 'plm-duct', code: 'M-4-3', title: '건축설비 Duct' },
   'erp-access': { screenId: 'erp-access', code: 'M-14-6', title: '사용자·권한' },
   'erp-audit': { screenId: 'erp-audit', code: 'M-14-6A', title: '감사 조회' },
+  'erp-anomaly': { screenId: 'erp-anomaly', code: 'M-14-4A', title: '이상 이벤트' },
   'tbx-macro': { screenId: 'tbx-macro', code: 'S-2-2', title: 'Macro Studio' },
   'tbx-ui': { screenId: 'tbx-ui', code: 'S-2-1', title: 'UI Designer' },
   'com-approval': { screenId: 'com-approval', code: 'M-15-2', title: '승인함' },
@@ -164,6 +165,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       {
         id: 'erp-company', label: 'Company Info.', children: [
           { id: 'erp-dashboard', label: 'Dashboard (M-14-4)' },
+          { id: 'erp-anomaly', label: '이상 이벤트 (M-14-4A)' },
           { id: 'erp-company-master', label: '공급처·거래처 (M-14-2)' },
           { id: 'erp-process', label: 'Process Set-up (M-14-7)' },
           { id: 'erp-access', label: '사용자·권한 (M-14-6)' },

@@ -2334,6 +2334,48 @@ export const milestoneService = {
   },
 }
 
+// 이상 이벤트 통합 (QC 불합격·원가 차이·마일스톤 지연)
+export interface AnomalyRow {
+  anomalyId: number; source: 'QC' | 'COST' | 'MILESTONE' | 'MANUAL'
+  severity: 'HIGH' | 'MED' | 'LOW'; title: string; refNo: string
+  status: 'OPEN' | 'ACK' | 'RESOLVED'; createdAt: string; resolvedAt: string | null
+}
+
+export const anomalyService = {
+  /** GET /api/v1/anomalies — 상태/출처 필터 (null=백엔드 불가) */
+  async list(status = '', source = ''): Promise<{ rows: AnomalyRow[]; open: number; openHigh: number } | null> {
+    const qs = new URLSearchParams()
+    if (status) qs.set('status', status)
+    if (source) qs.set('source', source)
+    const q = qs.toString()
+    try {
+      return await api(`/anomalies${q ? `?${q}` : ''}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/anomalies/scan — 원가 차이·마일스톤 지연 스캔 (created 반환) */
+  async scan(): Promise<{ created: number; total: number } | null> {
+    try {
+      return await api('/anomalies/scan', { method: 'POST', body: '{}' })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** PATCH /api/v1/anomalies/{id}/status — OPEN→ACK→RESOLVED */
+  async transition(anomalyId: number, status: string): Promise<boolean> {
+    try {
+      await api(`/anomalies/${anomalyId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 // D9 — 전용 감사 조회 (기간/사용자/작업 필터)
 export interface AuditRow {
   at: string; target: string; action: string; by: string; login: string

@@ -37,6 +37,7 @@ import { PrintSetupScreen } from '../screens/cpq/PrintSetupScreen'
 import { DuctDesignScreen } from '../screens/plm/DuctDesignScreen'
 import { AccessControlScreen } from '../screens/erp/AccessControlScreen'
 import { AuditQueryScreen } from '../screens/erp/AuditQueryScreen'
+import { AnomalyScreen } from '../screens/erp/AnomalyScreen'
 import { MacroStudioScreen } from '../screens/toolbox/MacroStudioScreen'
 import { RunHistoryScreen } from '../screens/toolbox/RunHistoryScreen'
 import { UiDesignerScreen } from '../screens/toolbox/UiDesignerScreen'
@@ -93,6 +94,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'plm-duct': DuctDesignScreen,
   'erp-access': AccessControlScreen,
   'erp-audit': AuditQueryScreen,
+  'erp-anomaly': AnomalyScreen,
   'tbx-macro': MacroStudioScreen,
   'tbx-ui': UiDesignerScreen,
   'tbx-templet': TempletMgmtScreen,

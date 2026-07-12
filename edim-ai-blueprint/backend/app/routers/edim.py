@@ -4020,6 +4020,10 @@ def qc_inspection_create(request: Request, body: QcInspectionCreate) -> dict[str
             for (uid,) in cur.fetchall():
                 _notify(cur, tid, uid, "TASK_ASSIGNED",
                         f"검사 {tag} — {insp_no} {label[:50]}", "/plm")
+            # 이상 이벤트 승격 (D4→통합) — 불합격=HIGH, 조건부=MED
+            _raise_anomaly(cur, tid, "QC", "HIGH" if result == "FAIL" else "MED",
+                           f"검사 {tag} — {insp_no} {label[:60]}", insp_no, f"QC:{insp_no}",
+                           {"type": itype, "result": result})
         _audit(cur, tid, "qc_inspection", insp_id, "INSPECT", request.state.user_id,
                {"inspNo": insp_no, "type": itype, "result": result})
     return {"inspNo": insp_no, "result": result}
@@ -4115,6 +4119,118 @@ def qc_certificate(refNo: str = "", item: str = "", result: str = "") -> Any:
     fname = f"QC성적서_{refNo or item or 'all'}.pdf"
     return Response(pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f"inline; filename*=UTF-8''{quote(fname)}"})
+
+
+# ── 이상 이벤트 통합 (sys_anomaly) — QC 불합격·원가 차이·마일스톤 지연 승격 ──
+def _raise_anomaly(cur, tid: int, source: str, severity: str, title: str,
+                   ref_no: str | None, dedup_key: str, detail: dict[str, Any]) -> None:
+    """이상 이벤트 등록 (dedup_key 중복 시 무시 — 스캔 반복 안전)."""
+    cur.execute(
+        """INSERT INTO sys_anomaly (tenant_id, source, severity, title, ref_no, dedup_key, detail)
+           VALUES (%s,%s,%s,%s,%s,%s,%s)
+           ON CONFLICT (tenant_id, dedup_key) DO NOTHING""",
+        (tid, source, severity, title[:300], (ref_no or None), dedup_key[:120], json.dumps(detail)))
+
+
+@router.post("/anomalies/scan", dependencies=[SETUP])
+def anomaly_scan(request: Request) -> dict[str, Any]:
+    """이상 스캔 (D6/D7 승격) — 원가 차이경보·마일스톤 지연을 이상 이벤트로 등록 (dedup)."""
+    before = 0
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*) FROM sys_anomaly WHERE tenant_id=%s", (tid,))
+        before = cur.fetchone()[0]
+        # 1) 원가 차이경보 (D6) — 분류별 실적이 추정 대비 +임계 초과
+        try:
+            _run_id, est = _latest_cost_base(cur, tid)
+        except HTTPException:
+            est = {}
+        if est:
+            cur.execute(
+                "SELECT category, COALESCE(sum(amount),0) FROM cst_actual WHERE tenant_id=%s GROUP BY category",
+                (tid,))
+            act = {r[0]: float(r[1]) for r in cur.fetchall()}
+            for cat in COST_CATEGORIES:
+                e = float(est.get(cat, 0))
+                a = act.get(cat, 0.0)
+                if e and (a - e) / e > VARIANCE_ALERT_RATE:
+                    rate = round((a - e) / e * 100, 1)
+                    _raise_anomaly(cur, tid, "COST", "HIGH" if rate > 25 else "MED",
+                                   f"원가 차이경보 — {COST_CAT_LABEL[cat]} +{rate}% (추정 {e:,.0f}→실적 {a:,.0f})",
+                                   cat, f"COST:{cat}", {"estimate": e, "actual": a, "rate": rate})
+        # 2) 마일스톤 지연 (D7) — 계획일 초과·미완
+        cur.execute(
+            """SELECT project_no, stage, to_char(planned_date,'YYYY-MM-DD'),
+                      (CURRENT_DATE - planned_date)
+               FROM prj_milestone
+               WHERE tenant_id=%s AND actual_date IS NULL AND planned_date < CURRENT_DATE""", (tid,))
+        for proj, stage, planned, days in cur.fetchall():
+            _raise_anomaly(cur, tid, "MILESTONE", "HIGH" if days > 14 else "MED",
+                           f"마일스톤 지연 — {proj} {MILESTONE_LABEL.get(stage, stage)} ({days}일 초과, 계획 {planned})",
+                           proj, f"MILESTONE:{proj}:{stage}", {"days": days, "planned": planned})
+        cur.execute("SELECT count(*) FROM sys_anomaly WHERE tenant_id=%s", (tid,))
+        after = cur.fetchone()[0]
+    return {"created": after - before, "total": after}
+
+
+@router.get("/anomalies")
+def anomaly_list(status: str = "", source: str = "") -> dict[str, Any]:
+    """이상 이벤트 목록 (통합) — 상태·출처 필터 + 요약."""
+    clause, params = "", []
+    st = status.strip().upper()
+    if st in ("OPEN", "ACK", "RESOLVED"):
+        clause += " AND status=%s"
+        params.append(st)
+    sc = source.strip().upper()
+    if sc in ("QC", "COST", "MILESTONE", "MANUAL"):
+        clause += " AND source=%s"
+        params.append(sc)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            f"""SELECT anomaly_id, source, severity, title, COALESCE(ref_no,''), status,
+                       to_char(created_at,'MM-DD HH24:MI'), to_char(resolved_at,'MM-DD HH24:MI')
+                FROM sys_anomaly WHERE tenant_id=%s{clause}
+                ORDER BY (status='RESOLVED'),
+                         CASE severity WHEN 'HIGH' THEN 0 WHEN 'MED' THEN 1 ELSE 2 END,
+                         anomaly_id DESC""", (tid, *params))
+        rows = [{"anomalyId": r[0], "source": r[1], "severity": r[2], "title": r[3],
+                 "refNo": r[4], "status": r[5], "createdAt": r[6], "resolvedAt": r[7]}
+                for r in cur.fetchall()]
+        cur.execute(
+            "SELECT count(*) FILTER (WHERE status='OPEN'), count(*) FILTER (WHERE status='OPEN' AND severity='HIGH') "
+            "FROM sys_anomaly WHERE tenant_id=%s", (tid,))
+        s = cur.fetchone()
+    return {"rows": rows, "open": s[0], "openHigh": s[1]}
+
+
+ANOMALY_TRANSITIONS = {"OPEN": ("ACK", "RESOLVED"), "ACK": ("RESOLVED",), "RESOLVED": ()}
+
+
+class AnomalyStatus(BaseModel):
+    status: str
+
+
+@router.patch("/anomalies/{anomaly_id}/status", dependencies=[SETUP])
+def anomaly_status(anomaly_id: int, request: Request, body: AnomalyStatus) -> dict[str, Any]:
+    """이상 이벤트 상태 전이 — OPEN→ACK→RESOLVED."""
+    new = body.status.strip().upper()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT status FROM sys_anomaly WHERE tenant_id=%s AND anomaly_id=%s",
+                    (tid, anomaly_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"이상 이벤트 없음: {anomaly_id}")
+        if new not in ANOMALY_TRANSITIONS.get(row[0], ()):
+            raise HTTPException(409, detail=f"전이 불가: {row[0]} → {new}")
+        cur.execute(
+            "UPDATE sys_anomaly SET status=%s, "
+            "resolved_at=CASE WHEN %s='RESOLVED' THEN now() ELSE resolved_at END "
+            "WHERE anomaly_id=%s", (new, new, anomaly_id))
+        _audit(cur, tid, "sys_anomaly", anomaly_id, "ANOMALY_STATUS", request.state.user_id,
+               {"from": row[0], "to": new})
+    return {"anomalyId": anomaly_id, "status": new}
 
 
 # ── D5 설계 변경 관리 (eco_change) — Rev-up 을 공식 절차로 ──
