@@ -2214,6 +2214,63 @@ export const costActualService = {
   },
 }
 
+// D7 — 프로젝트 일정·마일스톤
+export interface Milestone {
+  milestoneId: number; projectNo: string; stage: string; stageLabel: string
+  plannedDate: string; actualDate: string | null; status: 'PENDING' | 'DONE'
+  note: string; delayStatus: 'DONE' | 'OVERDUE' | 'DUE_SOON' | 'PENDING'; daysLeft: number
+}
+export interface MilestoneSummary {
+  projects: { projectNo: string; total: number; done: number; overdue: number; dueSoon: number; progress: number }[]
+  totalOverdue: number; totalDueSoon: number; projectCount: number
+}
+
+export const milestoneService = {
+  /** GET /api/v1/erp/milestones (null=백엔드 불가) */
+  async list(project = ''): Promise<Milestone[] | null> {
+    const q = project ? `?project=${encodeURIComponent(project)}` : ''
+    try {
+      return await api<Milestone[]>(`/erp/milestones${q}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/erp/milestones/summary (null=백엔드 불가) */
+  async summary(): Promise<MilestoneSummary | null> {
+    try {
+      return await api<MilestoneSummary>('/erp/milestones/summary')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/erp/milestones — 단계 납기 등록 (id 반환, false=백엔드 불가) */
+  async create(body: { projectNo: string; stage: string; plannedDate: string; note?: string }): Promise<number | false> {
+    try {
+      const r = await api<{ milestoneId: number }>('/erp/milestones', {
+        method: 'POST', body: JSON.stringify(body),
+      })
+      return r.milestoneId
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** PATCH /api/v1/erp/milestones/{id}/done — 완료 처리 */
+  async done(milestoneId: number, actualDate = ''): Promise<boolean> {
+    try {
+      await api(`/erp/milestones/${milestoneId}/done`, {
+        method: 'PATCH', body: JSON.stringify({ actualDate }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const orderService = {
   /** GET /api/v1/cost/orders — 수주 잔고 + 수주율 (D1; null=백엔드 불가) */
   async list(): Promise<OrdersData | null> {

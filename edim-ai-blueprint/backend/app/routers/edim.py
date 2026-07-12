@@ -3910,6 +3910,128 @@ def cost_variance() -> dict[str, Any]:
                 "alert": trate > VARIANCE_ALERT_RATE, "alertRate": VARIANCE_ALERT_RATE}
 
 
+# ── D7 프로젝트 일정·마일스톤 (prj_milestone) ──
+MILESTONE_STAGES = ("ORDER", "DESIGN", "PURCHASE", "PRODUCTION", "SHIPMENT")
+MILESTONE_LABEL = {"ORDER": "수주", "DESIGN": "설계", "PURCHASE": "구매",
+                   "PRODUCTION": "제작", "SHIPMENT": "출하"}
+DUE_SOON_DAYS = 7   # 계획일 D-7 이내 = 임박
+
+
+class MilestoneCreate(BaseModel):
+    projectNo: str
+    stage: str                    # ORDER | DESIGN | PURCHASE | PRODUCTION | SHIPMENT
+    plannedDate: str              # YYYY-MM-DD
+    note: str = ""
+
+
+@router.post("/erp/milestones", status_code=201, dependencies=[SETUP])
+def milestone_create(request: Request, body: MilestoneCreate) -> dict[str, Any]:
+    """마일스톤 등록 (D7) — 프로젝트 단계별 납기 (project×stage UNIQUE upsert)."""
+    stage = body.stage.strip().upper()
+    if stage not in MILESTONE_STAGES:
+        raise HTTPException(422, detail=f"단계 오류 ({'/'.join(MILESTONE_STAGES)})")
+    if not body.projectNo.strip() or not body.plannedDate.strip():
+        raise HTTPException(422, detail="필수 — 프로젝트·계획일")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM prj_project WHERE tenant_id=%s AND project_no=%s",
+                    (tid, body.projectNo.strip()))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"프로젝트 없음: {body.projectNo}")
+        cur.execute(
+            """INSERT INTO prj_milestone (tenant_id, project_no, stage, planned_date, note, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s)
+               ON CONFLICT (tenant_id, project_no, stage)
+               DO UPDATE SET planned_date=EXCLUDED.planned_date, note=EXCLUDED.note
+               RETURNING milestone_id""",
+            (tid, body.projectNo.strip()[:30], stage, body.plannedDate.strip(),
+             body.note.strip()[:300] or None, str(request.state.user_id)))
+        mid = cur.fetchone()[0]
+        _audit(cur, tid, "prj_milestone", mid, "PLAN", request.state.user_id,
+               {"project": body.projectNo, "stage": stage, "planned": body.plannedDate})
+    return {"milestoneId": mid, "stage": stage}
+
+
+_MILESTONE_SELECT = """
+    SELECT milestone_id, project_no, stage, to_char(planned_date,'YYYY-MM-DD'),
+           to_char(actual_date,'YYYY-MM-DD'), status, COALESCE(note,''),
+           CASE WHEN actual_date IS NOT NULL THEN 'DONE'
+                WHEN planned_date < CURRENT_DATE THEN 'OVERDUE'
+                WHEN planned_date <= CURRENT_DATE + %s THEN 'DUE_SOON'
+                ELSE 'PENDING' END,
+           (planned_date - CURRENT_DATE)
+    FROM prj_milestone WHERE tenant_id=%s"""
+
+
+def _milestone_row(r) -> dict[str, Any]:
+    return {"milestoneId": r[0], "projectNo": r[1], "stage": r[2],
+            "stageLabel": MILESTONE_LABEL.get(r[2], r[2]), "plannedDate": r[3],
+            "actualDate": r[4], "status": r[5], "note": r[6],
+            "delayStatus": r[7], "daysLeft": r[8]}
+
+
+@router.get("/erp/milestones")
+def milestone_list(project: str = "") -> list[dict[str, Any]]:
+    """마일스톤 목록 (D7) — 지연 임박/초과 자동 판정. 단계 순 정렬."""
+    order = ("ORDER BY project_no, array_position(ARRAY['ORDER','DESIGN','PURCHASE',"
+             "'PRODUCTION','SHIPMENT']::text[], stage)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        if project.strip():
+            cur.execute(_MILESTONE_SELECT + " AND project_no=%s " + order,
+                        (DUE_SOON_DAYS, tid, project.strip()))
+        else:
+            cur.execute(_MILESTONE_SELECT + " " + order, (DUE_SOON_DAYS, tid))
+        return [_milestone_row(r) for r in cur.fetchall()]
+
+
+class MilestoneDone(BaseModel):
+    actualDate: str = ""          # 생략 시 오늘
+
+
+@router.patch("/erp/milestones/{milestone_id}/done", dependencies=[SETUP])
+def milestone_done(milestone_id: int, request: Request, body: MilestoneDone) -> dict[str, Any]:
+    """마일스톤 완료 (D7) — 실제 완료일 기록 + 진척 갱신."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        ad = body.actualDate.strip() or None
+        cur.execute(
+            """UPDATE prj_milestone
+               SET status='DONE', actual_date=COALESCE(%s::date, CURRENT_DATE)
+               WHERE tenant_id=%s AND milestone_id=%s RETURNING project_no, stage""",
+            (ad, tid, milestone_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"마일스톤 없음: {milestone_id}")
+        _audit(cur, tid, "prj_milestone", milestone_id, "DONE", request.state.user_id,
+               {"project": row[0], "stage": row[1]})
+    return {"milestoneId": milestone_id, "status": "DONE"}
+
+
+@router.get("/erp/milestones/summary")
+def milestone_summary() -> dict[str, Any]:
+    """마일스톤 요약 (D7) — 지연/임박 카운트 + 프로젝트별 진척 롤업 (Dashboard)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT project_no,
+                      count(*),
+                      count(*) FILTER (WHERE actual_date IS NOT NULL),
+                      count(*) FILTER (WHERE actual_date IS NULL AND planned_date < CURRENT_DATE),
+                      count(*) FILTER (WHERE actual_date IS NULL AND planned_date >= CURRENT_DATE
+                                       AND planned_date <= CURRENT_DATE + %s)
+               FROM prj_milestone WHERE tenant_id=%s GROUP BY project_no ORDER BY project_no""",
+            (DUE_SOON_DAYS, tid))
+        projects = [{"projectNo": r[0], "total": r[1], "done": r[2],
+                     "overdue": r[3], "dueSoon": r[4],
+                     "progress": round(r[2] / r[1] * 100) if r[1] else 0}
+                    for r in cur.fetchall()]
+        return {"projects": projects,
+                "totalOverdue": sum(p["overdue"] for p in projects),
+                "totalDueSoon": sum(p["dueSoon"] for p in projects),
+                "projectCount": len(projects)}
+
+
 # ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──
 OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
                "DATA": ("기술자료", "ok"), "BOM": ("BOM", "ok")}
