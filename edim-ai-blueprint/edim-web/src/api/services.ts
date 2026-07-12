@@ -2318,6 +2318,44 @@ export const milestoneService = {
   },
 }
 
+// D9 — 전용 감사 조회 (기간/사용자/작업 필터)
+export interface AuditRow {
+  at: string; target: string; action: string; by: string; login: string
+  historyId: number; before: unknown; after: unknown
+}
+export interface AuditFilter { fromDate?: string; toDate?: string; user?: string; action?: string; target?: string; limit?: number }
+
+export const auditService = {
+  /** GET /api/v1/audit — 필터 조회 (ADMIN; null=백엔드 불가/권한) */
+  async query(f: AuditFilter = {}): Promise<{ rows: AuditRow[]; actions: string[]; users: string[]; count: number } | null> {
+    const qs = new URLSearchParams()
+    if (f.fromDate) qs.set('fromDate', f.fromDate)
+    if (f.toDate) qs.set('toDate', f.toDate)
+    if (f.user) qs.set('user', f.user)
+    if (f.action) qs.set('action', f.action)
+    if (f.target) qs.set('target', f.target)
+    if (f.limit) qs.set('limit', String(f.limit))
+    const q = qs.toString()
+    try {
+      return await api(`/audit${q ? `?${q}` : ''}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** 감사 로그 XLSX 내보내기 (동일 필터) */
+  exportPath(f: AuditFilter = {}): string {
+    const qs = new URLSearchParams()
+    if (f.fromDate) qs.set('fromDate', f.fromDate)
+    if (f.toDate) qs.set('toDate', f.toDate)
+    if (f.user) qs.set('user', f.user)
+    if (f.action) qs.set('action', f.action)
+    if (f.target) qs.set('target', f.target)
+    qs.set('limit', '10000')
+    return `/history/export.xlsx?${qs.toString()}`
+  },
+}
+
 // D8 — 대장 그리드 XLSX 내보내기 (공용)
 export const xlsxService = {
   /** GET {path} → XLSX blob 다운로드. 반환 = 행 수(X-Row-Count) 또는 -1(실패) */

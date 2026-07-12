@@ -36,6 +36,7 @@ import { DocTemplateScreen } from '../screens/cpq/DocTemplateScreen'
 import { PrintSetupScreen } from '../screens/cpq/PrintSetupScreen'
 import { DuctDesignScreen } from '../screens/plm/DuctDesignScreen'
 import { AccessControlScreen } from '../screens/erp/AccessControlScreen'
+import { AuditQueryScreen } from '../screens/erp/AuditQueryScreen'
 import { MacroStudioScreen } from '../screens/toolbox/MacroStudioScreen'
 import { RunHistoryScreen } from '../screens/toolbox/RunHistoryScreen'
 import { UiDesignerScreen } from '../screens/toolbox/UiDesignerScreen'
@@ -91,6 +92,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'cpq-print': PrintSetupScreen,
   'plm-duct': DuctDesignScreen,
   'erp-access': AccessControlScreen,
+  'erp-audit': AuditQueryScreen,
   'tbx-macro': MacroStudioScreen,
   'tbx-ui': UiDesignerScreen,
   'tbx-templet': TempletMgmtScreen,

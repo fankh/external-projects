@@ -648,18 +648,20 @@ def export_companies_xlsx() -> Response:
 
 
 @router.get("/history/export.xlsx")
-def export_history_xlsx(limit: int = 1000) -> Response:
-    """감사 로그 XLSX (D8)."""
+def export_history_xlsx(limit: int = 1000, fromDate: str = "", toDate: str = "",
+                        user: str = "", action: str = "", target: str = "") -> Response:
+    """감사 로그 XLSX (D8/D9) — 감사 조회와 동일 필터(기간/사용자/작업/대상) 적용."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        where, params = _audit_where(tid, fromDate, toDate, user, action, target)
         cur.execute(
-            """SELECT to_char(h.acted_at,'YYYY-MM-DD HH24:MI:SS'),
-                      h.target_table||' #'||h.target_id, h.action, u.user_name
-               FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
-               WHERE h.tenant_id=%s ORDER BY h.history_id DESC LIMIT %s""",
-            (tid, max(1, min(limit, 10000))))
-        rows = [[r[0], r[1], r[2], r[3]] for r in cur.fetchall()]
-    return _xlsx_response("감사로그", ["일시", "대상", "작업", "수행자"], rows, "audit")
+            f"""SELECT to_char(h.acted_at,'YYYY-MM-DD HH24:MI:SS'),
+                       h.target_table||' #'||h.target_id, h.action, u.user_name, u.login_id
+                FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
+                WHERE {where} ORDER BY h.history_id DESC LIMIT %s""",
+            (*params, max(1, min(limit, 10000))))
+        rows = [[r[0], r[1], r[2], r[3], r[4]] for r in cur.fetchall()]
+    return _xlsx_response("감사로그", ["일시", "대상", "작업", "수행자", "사번"], rows, "audit")
 
 
 @router.post("/codes/groups/{group}/import-excel", dependencies=[SETUP])
@@ -3059,6 +3061,54 @@ def history(limit: int = 20, sort: str = "", dir: str = "desc") -> list[dict[str
              "historyId": r[4], "before": r[5], "after": r[6]}   # F7 — diff 뷰어
             for r in cur.fetchall()
         ]
+
+
+# ── D9 전용 감사 조회 (sys_history 필터) — 기간·사용자·작업 ──
+def _audit_where(tid: int, fromDate: str, toDate: str, user: str,
+                 action: str, target: str) -> tuple[str, list[Any]]:
+    clauses, params = ["h.tenant_id=%s"], [tid]
+    if fromDate.strip():
+        clauses.append("h.acted_at >= %s::date")
+        params.append(fromDate.strip())
+    if toDate.strip():
+        clauses.append("h.acted_at < (%s::date + 1)")
+        params.append(toDate.strip())
+    if user.strip():
+        clauses.append("u.login_id = %s")
+        params.append(user.strip())
+    if action.strip():
+        clauses.append("h.action ILIKE %s")
+        params.append(f"%{action.strip()}%")
+    if target.strip():
+        clauses.append("h.target_table ILIKE %s")
+        params.append(f"%{target.strip()}%")
+    return " AND ".join(clauses), params
+
+
+@router.get("/audit", dependencies=[ADMIN])
+def audit_query(fromDate: str = "", toDate: str = "", user: str = "",
+                action: str = "", target: str = "", limit: int = 200) -> dict[str, Any]:
+    """전용 감사 조회 (D9) — 기간/사용자/작업/대상 필터. ADMIN 전용."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        where, params = _audit_where(tid, fromDate, toDate, user, action, target)
+        cur.execute(
+            f"""SELECT to_char(h.acted_at,'YYYY-MM-DD HH24:MI'),
+                       h.target_table||' #'||h.target_id, h.action, u.user_name, u.login_id,
+                       h.history_id, h.before_data, h.after_data
+                FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
+                WHERE {where} ORDER BY h.history_id DESC LIMIT %s""",
+            (*params, max(1, min(limit, 2000))))
+        rows = [{"at": r[0], "target": r[1], "action": r[2], "by": r[3], "login": r[4],
+                 "historyId": r[5], "before": r[6], "after": r[7]} for r in cur.fetchall()]
+        # 필터 드롭다운용 facet (전체 tenant 기준 distinct)
+        cur.execute("SELECT DISTINCT action FROM sys_history WHERE tenant_id=%s ORDER BY action", (tid,))
+        actions = [r[0] for r in cur.fetchall()]
+        cur.execute(
+            """SELECT DISTINCT u.login_id FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
+               WHERE h.tenant_id=%s ORDER BY u.login_id""", (tid,))
+        users = [r[0] for r in cur.fetchall()]
+    return {"rows": rows, "actions": actions, "users": users, "count": len(rows)}
 
 
 # ── 잔여 mock 실데이터화 (v4.0) — 치수 정의·Macro 목록·공정 정의·역참조 ──
