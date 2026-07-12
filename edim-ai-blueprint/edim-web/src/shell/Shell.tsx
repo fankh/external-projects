@@ -13,6 +13,7 @@ import { useShell, type OpenTab } from './ShellContext'
 import { MENU_TREE, SCREEN_BY_NODE } from './menus'
 import type { TreeNode } from '../components/LnavTree'
 import { SelectionScreen } from '../screens/cpq/SelectionScreen'
+import { XCodeReviewScreen } from '../screens/cpq/XCodeReviewScreen'
 import { TechDataScreen } from '../screens/cpq/TechDataScreen'
 import { RunScreen } from '../screens/cpq/RunScreen'
 import { ArrangementSetupScreen } from '../screens/plm/ArrangementSetupScreen'
@@ -71,6 +72,7 @@ export interface ScreenProps {
 
 const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'cpq-selection': SelectionScreen,
+  'cpq-xreview': XCodeReviewScreen,
   'cpq-techdata': TechDataScreen,
   'cpq-run': RunScreen,
   'plm-design': DesignEditorScreen,

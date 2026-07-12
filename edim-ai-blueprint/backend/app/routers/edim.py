@@ -6712,6 +6712,52 @@ def create_selection(request: Request, body: SelectionCreate) -> dict[str, Any]:
     return {"selectionId": sid, "status": "DRAFT"}
 
 
+@router.get("/cpq/x-review")
+def x_review_list() -> list[dict[str, Any]]:
+    """X-code 검토 대기열 — 비표준(X) 코드 견적안 중 x_code_status='PENDING'."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT s.selection_id, s.finished_goods_code, s.slot_values, p.project_no,
+                      COALESCE(p.project_name,''), to_char(s.created_at,'YYYY-MM-DD HH24:MI'), s.created_by
+               FROM cpq_selection s JOIN prj_project p ON p.project_id=s.project_id
+               WHERE s.tenant_id=%s AND s.x_code_status='PENDING'
+               ORDER BY s.selection_id DESC""", (tid,))
+        return [{"selectionId": r[0], "finishedGoodsCode": r[1], "slotValues": r[2],
+                 "projectNo": r[3], "projectName": r[4], "createdAt": r[5], "createdBy": r[6]}
+                for r in cur.fetchall()]
+
+
+class XReviewRequest(BaseModel):
+    decision: str          # APPROVE | REJECT
+    comment: str = ""
+
+
+@router.post("/cpq/selections/{selection_id}/x-review", dependencies=[SETUP])
+def x_review(selection_id: int, request: Request, body: XReviewRequest) -> dict[str, Any]:
+    """X-code 검토 결정 — PENDING → APPROVED/REJECTED, 요청자 알림·감사."""
+    new_status = {"APPROVE": "APPROVED", "REJECT": "REJECTED"}.get(body.decision.strip().upper())
+    if not new_status:
+        raise HTTPException(422, detail="decision 은 APPROVE 또는 REJECT")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE cpq_selection SET x_code_status=%s
+               WHERE tenant_id=%s AND selection_id=%s AND x_code_status='PENDING'
+               RETURNING finished_goods_code, created_by""",
+            (new_status, tid, selection_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(409, detail="검토 불가 — PENDING X-code 견적안 아님")
+        code, created_by = row
+        _audit(cur, tid, "cpq_selection", selection_id, "X_CODE_REVIEW", request.state.user_id,
+               {"decision": new_status, "code": code, "comment": body.comment})
+        if created_by and str(created_by).isdigit():
+            _notify(cur, tid, int(created_by), "X_CODE_RESULT",
+                    f"X-code {code} {'승인' if new_status == 'APPROVED' else '반려'}", "/cpq")
+    return {"selectionId": selection_id, "finishedGoodsCode": code, "xCodeStatus": new_status}
+
+
 @router.delete("/cpq/selections/{selection_id}", dependencies=[SETUP])
 def delete_selection(selection_id: int, request: Request) -> dict[str, Any]:
     """견적안 삭제 (C1) — Run 참조 시 409 보호."""

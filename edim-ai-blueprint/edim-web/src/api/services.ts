@@ -3288,6 +3288,26 @@ export const selectionService = {
       throw e
     }
   },
+  /** GET /api/v1/cpq/x-review — X-code 검토 대기열 (PENDING) */
+  async xReviewList(): Promise<XReviewRow[] | null> {
+    try {
+      return await api<XReviewRow[]>('/cpq/x-review')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/cpq/selections/{id}/x-review — 승인/반려 */
+  async xReview(selectionId: number, decision: 'APPROVE' | 'REJECT', comment = ''): Promise<{ xCodeStatus: string }> {
+    return api<{ xCodeStatus: string }>(`/cpq/selections/${selectionId}/x-review`, {
+      method: 'POST', body: JSON.stringify({ decision, comment }),
+    })
+  },
+}
+
+export interface XReviewRow {
+  selectionId: number; finishedGoodsCode: string; slotValues: Record<string, string>
+  projectNo: string; projectName: string; createdAt: string; createdBy: string
 }
 
 // ── 개발서버 전용 — 운영자 요구사항 접수 (dev_requirement) ──

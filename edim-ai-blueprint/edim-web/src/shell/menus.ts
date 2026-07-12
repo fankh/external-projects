@@ -12,6 +12,7 @@ export interface ScreenDef {
 export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'cpq-selection': { screenId: 'cpq-selection', code: 'C-1', title: '제품 선정 — AHU 5' },
   'cpq-techdata': { screenId: 'cpq-techdata', code: 'C-2', title: '기술 데이터' },
+  'cpq-xreview': { screenId: 'cpq-xreview', code: 'C-1X', title: 'X-code 검토' },
   'plm-design': { screenId: 'plm-design', code: 'S-4-1-1', title: 'Design Editor' },
   'plm-drawings': { screenId: 'plm-drawings', code: 'M-4-1', title: '도면 대장' },
   'plm-workprocess': { screenId: 'plm-workprocess', code: 'S-4-1-2', title: 'Work Process' },
@@ -68,6 +69,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
             id: 'cpq-ahu', label: 'AHU', children: [
               { id: 'cpq-selection', label: '제품 선정 (C-1)' },
               { id: 'cpq-techdata', label: '기술 데이터 (C-2)' },
+              { id: 'cpq-xreview', label: 'X-code 검토 (C-1X)' },
             ],
           },
           { id: 'cpq-fan', label: 'Fan', children: [] },
