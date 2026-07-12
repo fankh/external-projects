@@ -5345,6 +5345,110 @@ def run_status(run_id: int) -> dict[str, Any]:
     }
 
 
+# ── E3 Run 산출물 누적 관리 (cpq_run 이력·정리) ──
+def _run_refs(cur, tid: int) -> tuple[set[int], int | None]:
+    """(견적/PCR 이 참조하는 run_id 집합, 최신 SUCCESS run_id) — 삭제 보호 판단."""
+    cur.execute(
+        "SELECT DISTINCT (sections->>'runId')::bigint FROM cst_pcr "
+        "WHERE tenant_id=%s AND sections->>'runId' IS NOT NULL", (tid,))
+    refs = {r[0] for r in cur.fetchall() if r[0] is not None}
+    cur.execute(
+        "SELECT max(run_id) FROM cpq_run WHERE tenant_id=%s AND status='SUCCESS'", (tid,))
+    latest = cur.fetchone()[0]
+    return refs, latest
+
+
+@router.get("/cpq/runs")
+def run_list() -> list[dict[str, Any]]:
+    """Run 이력 (E3) — 전체 Run 목록 + 산출물 수 + 참조/최신 보호 플래그."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        refs, latest = _run_refs(cur, tid)
+        cur.execute(
+            """SELECT r.run_id, r.status, r.run_type, to_char(r.started_at,'MM-DD HH24:MI'),
+                      EXTRACT(EPOCH FROM (r.finished_at - r.started_at)),
+                      (SELECT count(*) FROM cpq_output o WHERE o.run_id=r.run_id),
+                      COALESCE(r.created_by,'system')
+               FROM cpq_run r WHERE r.tenant_id=%s ORDER BY r.run_id DESC""", (tid,))
+        return [{"runId": x[0], "status": x[1], "runType": x[2], "startedAt": x[3],
+                 "durationSec": round(float(x[4]), 1) if x[4] is not None else None,
+                 "outputCount": x[5], "createdBy": x[6],
+                 "latest": x[0] == latest, "referenced": x[0] in refs,
+                 "protected": x[0] == latest or x[0] in refs} for x in cur.fetchall()]
+
+
+@router.get("/cpq/runs/{run_id}/outputs")
+def run_outputs(run_id: int) -> list[dict[str, Any]]:
+    """Run 산출물 드릴다운 (E3)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM cpq_run WHERE tenant_id=%s AND run_id=%s", (tid, run_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"run not found: {run_id}")
+        cur.execute(
+            """SELECT output_type, data->>'file', data->>'fileType', to_char(created_at,'MM-DD HH24:MI')
+               FROM cpq_output WHERE run_id=%s ORDER BY output_id""", (run_id,))
+        return [{"outputType": r[0], "file": r[1] or "output", "fileType": r[2] or "PDF",
+                 "createdAt": r[3]} for r in cur.fetchall()]
+
+
+def _delete_run(cur, tid: int, run_id: int) -> None:
+    """Run 물리 삭제 — 자식(cst_calc·cpq_output) 먼저 정리 (FK). dwg_file/MinIO 는 보존."""
+    cur.execute("DELETE FROM cst_calc WHERE tenant_id=%s AND run_id=%s", (tid, run_id))
+    cur.execute("DELETE FROM cpq_output WHERE run_id=%s", (run_id,))
+    cur.execute("DELETE FROM cpq_run WHERE tenant_id=%s AND run_id=%s", (tid, run_id))
+    _runs.pop(run_id, None)
+
+
+@router.delete("/cpq/runs/{run_id}", dependencies=[SETUP])
+def run_delete(run_id: int, request: Request) -> dict[str, Any]:
+    """Run 정리 (E3) — 견적(PCR) 참조·최신 SUCCESS Run 은 409 보호."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM cpq_run WHERE tenant_id=%s AND run_id=%s", (tid, run_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"run not found: {run_id}")
+        refs, latest = _run_refs(cur, tid)
+        if run_id == latest:
+            raise HTTPException(409, detail="최신 SUCCESS Run 은 정리 불가 — 현재 원가/견적 기준")
+        if run_id in refs:
+            raise HTTPException(409, detail="견적(PCR)이 참조 중인 Run — 정리 불가")
+        _delete_run(cur, tid, run_id)
+        _audit(cur, tid, "cpq_run", run_id, "RUN_DELETE", request.state.user_id, {"runId": run_id})
+    return {"runId": run_id, "deleted": True}
+
+
+class RunCleanup(BaseModel):
+    keepLatest: int = 5   # 최근 N건 유지
+
+
+@router.post("/cpq/runs/cleanup", dependencies=[SETUP])
+def run_cleanup(request: Request, body: RunCleanup) -> dict[str, Any]:
+    """보관 정책 정리 (E3) — 최근 N건 유지, 그 외 미참조 Run 일괄 정리 (참조·최신 보호)."""
+    keep = max(1, min(body.keepLatest, 100))
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        refs, latest = _run_refs(cur, tid)
+        cur.execute(
+            "SELECT run_id FROM cpq_run WHERE tenant_id=%s ORDER BY run_id DESC", (tid,))
+        all_ids = [r[0] for r in cur.fetchall()]
+        keep_ids = set(all_ids[:keep])
+        if latest is not None:
+            keep_ids.add(latest)
+        deleted, skipped = [], []
+        for rid in all_ids[keep:]:
+            if rid in keep_ids or rid in refs:
+                skipped.append(rid)
+                continue
+            _delete_run(cur, tid, rid)
+            deleted.append(rid)
+        if deleted:
+            _audit(cur, tid, "cpq_run", 0, "RUN_CLEANUP", request.state.user_id,
+                   {"deleted": deleted, "keepLatest": keep})
+    return {"deleted": len(deleted), "skipped": len(skipped),
+            "keptLatest": keep, "deletedIds": deleted}
+
+
 # ── B7 — PLM 도면 대장 (dwg_drawing·dwg_revision·dwg_supersedure 개방) ──
 
 def _rev_next(rev: str) -> str:

@@ -2329,6 +2329,54 @@ export const menuService = {
   },
 }
 
+// E3 — Run 산출물 누적 관리 (Run 이력)
+export interface RunRow {
+  runId: number; status: string; runType: string; startedAt: string
+  durationSec: number | null; outputCount: number; createdBy: string
+  latest: boolean; referenced: boolean; protected: boolean
+}
+export interface RunOutput { outputType: string; file: string; fileType: string; createdAt: string }
+
+export const runService = {
+  /** GET /api/v1/cpq/runs — Run 이력 (null=백엔드 불가) */
+  async list(): Promise<RunRow[] | null> {
+    try {
+      return await api<RunRow[]>('/cpq/runs')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/cpq/runs/{id}/outputs — 산출물 드릴다운 */
+  async outputs(runId: number): Promise<RunOutput[] | null> {
+    try {
+      return await api<RunOutput[]>(`/cpq/runs/${runId}/outputs`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** DELETE /api/v1/cpq/runs/{id} — 정리 (참조·최신 409 전파) */
+  async remove(runId: number): Promise<boolean> {
+    try {
+      await api(`/cpq/runs/${runId}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** POST /api/v1/cpq/runs/cleanup — 보관 정책 정리 */
+  async cleanup(keepLatest: number): Promise<{ deleted: number; skipped: number } | null> {
+    try {
+      return await api('/cpq/runs/cleanup', { method: 'POST', body: JSON.stringify({ keepLatest }) })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
 export const orderService = {
   /** GET /api/v1/cost/orders — 수주 잔고 + 수주율 (D1; null=백엔드 불가) */
   async list(): Promise<OrdersData | null> {

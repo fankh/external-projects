@@ -42,6 +42,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'erp-purchase': { screenId: 'erp-purchase', code: 'M-8-2', title: '구매·발주' },
   'plm-arr': { screenId: 'plm-arr', code: 'M-4-2', title: 'Arrangement Set-Up' },
   'tbx-templet': { screenId: 'tbx-templet', code: 'S-2-3', title: 'Templet 관리' },
+  'tbx-runs': { screenId: 'tbx-runs', code: 'E-3', title: 'Run 이력' },
   'code-variant': { screenId: 'code-variant', code: 'S-1-2', title: 'Variant·Constant' },
   'code-raw': { screenId: 'code-raw', code: 'M-3-2', title: 'Raw Material·GPI' },
   'plm-material': { screenId: 'plm-material', code: 'M-4-4', title: 'Material' },
@@ -183,6 +184,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
         ],
       },
       { id: 'tbx-templet', label: 'Templet 관리 (S-2-3)' },
+      { id: 'tbx-runs', label: 'Run 이력·정리 (E-3)' },
     ],
   },
   common: {
