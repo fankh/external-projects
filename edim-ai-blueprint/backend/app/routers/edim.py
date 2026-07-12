@@ -1974,8 +1974,9 @@ def cad_plot(file_id: int, scale: float = 100, paper: str = "A4",
 
 
 class CadEditOp(BaseModel):
-    op: str            # 'move' | 'delete' | 'copy' | 'rotate' | 'mirror' | 'add'
+    op: str            # 'move' | 'delete' | 'copy' | 'rotate' | 'mirror' | 'add' | 'trim'
     entityId: str = ""
+    boundaryId: str = ""  # trim/연장 — 경계선 엔티티(교점 계산)
     dx: float = 0.0
     dy: float = 0.0
     angle: float = 0.0    # rotate — 도(°), 반시계
@@ -2016,6 +2017,19 @@ def cad_edit(file_id: int, request: Request, body: CadEditRequest) -> dict[str, 
         if not bb.has_data:
             return None
         return bb.center.x, bb.center.y
+
+    def _line_isect(a: Any, b: Any) -> tuple[float, float] | None:
+        """두 LINE 무한연장 교점 (평행/동일 시 None)."""
+        x1, y1 = a.dxf.start.x, a.dxf.start.y
+        x2, y2 = a.dxf.end.x, a.dxf.end.y
+        x3, y3 = b.dxf.start.x, b.dxf.start.y
+        x4, y4 = b.dxf.end.x, b.dxf.end.y
+        d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+        if abs(d) < 1e-9:
+            return None
+        px = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / d
+        py = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / d
+        return px, py
 
     if not body.ops:
         raise HTTPException(422, detail="편집 작업이 없습니다")
@@ -2074,6 +2088,23 @@ def cad_edit(file_id: int, request: Request, body: CadEditRequest) -> dict[str, 
                         applied += 1
                 except Exception:
                     pass
+                continue
+            if op.op == "trim":   # 트림/연장 — 대상 선의 가까운 끝점을 경계선 교점으로 이동
+                tgt = id_map.get(op.entityId)
+                bnd = id_map.get(op.boundaryId)
+                if tgt is None or bnd is None or tgt.dxftype() != "LINE" or bnd.dxftype() != "LINE":
+                    continue
+                inter = _line_isect(tgt, bnd)
+                if inter is None:
+                    continue
+                s, e2 = tgt.dxf.start, tgt.dxf.end
+                ds = math.hypot(s.x - op.x1, s.y - op.y1)
+                de = math.hypot(e2.x - op.x1, e2.y - op.y1)
+                if ds <= de:
+                    tgt.dxf.start = (inter[0], inter[1], 0)
+                else:
+                    tgt.dxf.end = (inter[0], inter[1], 0)
+                applied += 1
                 continue
             ent = id_map.get(op.entityId)
             if ent is None:

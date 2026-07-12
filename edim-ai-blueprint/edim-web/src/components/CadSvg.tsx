@@ -176,10 +176,11 @@ function entityInfo(e: CadEntity): { title: string; rows: [string, string][] } {
 export interface LayerOverride { color?: string; width?: number }   // B16 특성 편집 (DWG-025)
 
 export interface CadEditOp {
-  op: 'move' | 'delete' | 'copy' | 'rotate' | 'mirror' | 'add'
+  op: 'move' | 'delete' | 'copy' | 'rotate' | 'mirror' | 'add' | 'trim'
   entityId?: string; dx?: number; dy?: number; angle?: number; axis?: 'x' | 'y'
   entityType?: 'line' | 'circle' | 'rect'; layer?: string
   x1?: number; y1?: number; x2?: number; y2?: number; radius?: number
+  boundaryId?: string
 }
 
 export function CadSvg(props: {
@@ -243,6 +244,13 @@ export function CadSvg(props: {
   const ddraw = useRef<{ ax: number; ay: number } | null>(null)
   const [drawPreview, setDrawPreview] = useState<{ ax: number; ay: number; bx: number; by: number } | null>(null)
   const [snapMark, setSnapMark] = useState<Pt | null>(null)   // 스냅 히트 표시
+  // G1 트림/연장
+  const [trimTool, setTrimTool] = useState(false)
+  const trimRef = useRef(false)
+  trimRef.current = trimTool && !!props.editable
+  const [trimBoundary, setTrimBoundary] = useState<string | null>(null)
+  const trimBoundaryRef = useRef<string | null>(null)
+  trimBoundaryRef.current = trimBoundary
   const selected = useMemo(
     () => (selIds.size === 1 ? doc.entities.find((e) => e.entityId === selId) ?? null : null),
     [doc, selId, selIds])
@@ -419,17 +427,23 @@ export function CadSvg(props: {
       const sp = snap(p)
       if (m1 === null || m2 !== null) { setM1(sp); setM2(null); setMHover(null) }
       else setM2(sp)
+    } else if (trimRef.current) {
+      const h = pick(p)
+      if (!h) { setTrimBoundary(null); return }
+      if (!trimBoundaryRef.current) { setTrimBoundary(h.entityId); return }   // 1) 경계선
+      if (h.entityId !== trimBoundaryRef.current)                             // 2) 대상 선 끝 클릭
+        props.onEdit?.([{ op: 'trim', entityId: h.entityId, boundaryId: trimBoundaryRef.current, x1: p.x, y1: p.y }])
     } else {
       const h = pick(p)
       if (h) selectOnly(h.entityId); else clearSel()
     }
   }
 
-  const render = (e: CadEntity, isSel: boolean) => {
-    const color = isSel ? '#D97706' : (layerColor[e.layerName] ?? '#2B3A55')
+  const render = (e: CadEntity, isSel: boolean, colorOverride?: string) => {
+    const color = colorOverride ?? (isSel ? '#D97706' : (layerColor[e.layerName] ?? '#2B3A55'))
     const wMul = overrides[e.layerName]?.width ?? 1
     const common = {
-      stroke: color, strokeWidth: (isSel ? strokeW * 2.5 : strokeW) * wMul, fill: 'none' as const,
+      stroke: color, strokeWidth: (isSel || colorOverride ? strokeW * 2.5 : strokeW) * wMul, fill: 'none' as const,
     }
     switch (e.entityType) {
       case 'line':
@@ -495,7 +509,7 @@ export function CadSvg(props: {
           runOps((id) => ({ op: 'delete', entityId: id })); clearSel()
         } else if (e.key === 'Escape') {
           e.preventDefault()
-          setM1(null); setM2(null); setMHover(null); clearSel(); setDrawTool(null); ddraw.current = null; setDrawPreview(null); setSnapMark(null)
+          setM1(null); setM2(null); setMHover(null); clearSel(); setDrawTool(null); ddraw.current = null; setDrawPreview(null); setSnapMark(null); setTrimTool(false); setTrimBoundary(null)
         }
       }}>
       <svg ref={svgRef} width="100%" height="100%" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
@@ -514,7 +528,7 @@ export function CadSvg(props: {
             setSnapMark(s.hit ? s.pt : null)
             return
           }
-          const editing = editRef.current && !measureRef.current
+          const editing = editRef.current && !measureRef.current && !trimRef.current
           if (editing && e.button === 0) {
             const p = toDrawing(e.clientX, e.clientY)
             const hit = pick(p)
@@ -660,6 +674,10 @@ export function CadSvg(props: {
             <rect data-cad-snap x={snapMark.x - px(5)} y={snapMark.y - px(5)} width={px(10)} height={px(10)}
               fill="none" stroke="#E0A100" strokeWidth={strokeW * 1.6} />
           ) : null}
+          {trimBoundary ? (() => {
+            const be = visibleEntities.find((e) => e.entityId === trimBoundary && !hidden.has(e.layerName))
+            return be ? <g data-cad-trim-boundary>{render(be, false, '#2563EB')}</g> : null
+          })() : null}
         </g>
         {/* 측정 오버레이 — 도면 좌표 (y 부호 반전) */}
         {m1 && mEnd ? (
@@ -699,7 +717,7 @@ export function CadSvg(props: {
               const next = !editOn
               setEditOn(next)
               if (next) { setMeasureOn(false); setM1(null); setM2(null); setMHover(null) }
-              else { edrag.current = null; mdrag.current = null; setEditPreview(null); setMarquee(null); setDrawTool(null) }
+              else { edrag.current = null; mdrag.current = null; setEditPreview(null); setMarquee(null); setDrawTool(null); setTrimTool(false); setTrimBoundary(null) }
             }}>✎ {t('cad.edit', '편집')}</button>
         ) : null}
         {props.editable && editOn ? (
@@ -708,8 +726,12 @@ export function CadSvg(props: {
               <button key={tool} type="button" data-cad-draw-tool={tool}
                 style={{ ...btn, width: 'auto', padding: '0 6px', fontSize: 11, ...(drawTool === tool ? { background: '#2F9463', color: '#fff', borderColor: '#2F9463' } : {}) }}
                 title={`작도 — ${label} (드래그)`}
-                onClick={() => setDrawTool((cur) => (cur === tool ? null : tool))}>{icon}</button>
+                onClick={() => { setTrimTool(false); setTrimBoundary(null); setDrawTool((cur) => (cur === tool ? null : tool)) }}>{icon}</button>
             ))}
+            <button type="button" data-cad-trim-toggle
+              style={{ ...btn, width: 'auto', padding: '0 6px', fontSize: 11, ...(trimTool ? { background: '#2563EB', color: '#fff', borderColor: '#2563EB' } : {}) }}
+              title={t('cad.trimTitle', '트림/연장 — 경계선 클릭 후 대상 선 끝 클릭')}
+              onClick={() => { setDrawTool(null); setTrimBoundary(null); setTrimTool((o) => !o) }}>✂</button>
           </>
         ) : null}
         <button type="button" data-cad-grid-toggle
@@ -788,8 +810,10 @@ export function CadSvg(props: {
       }}>
         {measureOn
           ? t('cad.measureHint', '두 점 클릭 = 거리 측정 · 끝점/중심 자동 스냅')
-          : drawTool
-            ? t('cad.drawHint', '드래그 = 작도(선/원/사각) · 끝점/중점/중심 스냅 · Shift=수평·수직(Ortho) · Esc')
+          : trimTool
+            ? t('cad.trimHint', `트림/연장 — ${trimBoundary ? '대상 선의 조정할 끝 근처 클릭' : '경계선 클릭'} · Esc 취소`)
+            : drawTool
+              ? t('cad.drawHint', '드래그 = 작도(선/원/사각) · 끝점/중점/중심 스냅 · Shift=수평·수직(Ortho) · Esc')
             : editOn
               ? t('cad.editHint', '엔티티 드래그=이동 · 빈곳 드래그=박스선택 · Shift+클릭=추가 · 중클릭=팬 · Delete=삭제')
               : t('cad.hint', '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성')}
