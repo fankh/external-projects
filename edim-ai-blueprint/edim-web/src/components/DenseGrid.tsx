@@ -37,6 +37,8 @@ export function DenseGrid<T>(props: {
   prefKey?: string
   /** G2 — 그리드 내 찾기 비활성(기본 활성) */
   findable?: boolean
+  /** G2 — 페이지당 행수(미지정 시 150행 초과하면 자동 100행 페이지네이션) */
+  pageSize?: number
   /** G2 — 공용 다중행 선택(체크박스 열). selectedKeys/onSelectionChange 와 함께 사용 */
   multiSelect?: boolean
   selectedKeys?: Set<Key>
@@ -52,6 +54,7 @@ export function DenseGrid<T>(props: {
   const findable = props.findable !== false
   const [findOpen, setFindOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [page, setPage] = useState(0)   // G2 — 페이지네이션(0-based)
   const findInputRef = useRef<HTMLInputElement>(null)
   // G2 — 다중 선택 Shift 범위 앵커(shown 인덱스)
   const anchorRef = useRef<number | null>(null)
@@ -145,6 +148,14 @@ export function DenseGrid<T>(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, q, cols])
 
+  // G2 — 페이지네이션: 150행 초과 시 자동 100행/페이지 (소규모 그리드는 단일 페이지=기존 동작)
+  const effPage = props.pageSize ?? (shown.length > 150 ? 100 : (shown.length || 1))
+  const pageCount = Math.max(1, Math.ceil(shown.length / effPage))
+  const curPage = Math.min(page, pageCount - 1)
+  const pageStart = curPage * effPage
+  const pageRows = shown.slice(pageStart, pageStart + effPage)
+  useEffect(() => { setPage(0) }, [q])
+
   const clickHeader = (c: GridColumn<T>) => {
     if (!sortableOf(c)) return
     setSort((cur) => {
@@ -160,6 +171,8 @@ export function DenseGrid<T>(props: {
     if (!props.onRowClick || shown.length === 0) return
     const cur = shown.findIndex(({ row, origIdx }) => props.rowKey(row, origIdx) === props.selectedKey)
     const next = Math.max(0, Math.min(shown.length - 1, (cur < 0 ? 0 : cur + delta)))
+    const np = Math.floor(next / effPage)
+    if (np !== curPage) setPage(np)   // 페이지 경계 넘어가면 자동 이동
     props.onRowClick(shown[next].row, shown[next].origIdx)
   }
   const openFind = () => { setFindOpen(true); setTimeout(() => findInputRef.current?.focus(), 0) }
@@ -255,7 +268,8 @@ export function DenseGrid<T>(props: {
         </tr>
       </thead>
       <tbody>
-        {shown.map(({ row, origIdx }, i) => {
+        {pageRows.map(({ row, origIdx }, li) => {
+          const i = pageStart + li   // shown 전역 인덱스(범위 선택·앵커용)
           const k = props.rowKey(row, origIdx)
           const checked = ms && isSel(k)
           return (
@@ -334,11 +348,32 @@ export function DenseGrid<T>(props: {
     </span>
   ) : null
 
-  if (!overlay) return table
+  const pager = pageCount > 1 ? (
+    <div data-grid-pager style={{
+      position: 'sticky', bottom: 0, zIndex: 3,
+      display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6,
+      padding: '2px 6px', borderTop: '1px solid var(--line)', background: '#EEF2F8',
+      fontSize: 10.5, color: 'var(--txt-dim)',
+    }}>
+      <span>{(pageStart + 1).toLocaleString()}–{Math.min(pageStart + effPage, shown.length).toLocaleString()} / {shown.length.toLocaleString()}행</span>
+      <span className="b ic" style={{ cursor: curPage > 0 ? 'pointer' : 'default', opacity: curPage > 0 ? 0.8 : 0.3 }}
+        title="처음" onClick={() => curPage > 0 && setPage(0)}>«</span>
+      <span className="b ic" style={{ cursor: curPage > 0 ? 'pointer' : 'default', opacity: curPage > 0 ? 0.8 : 0.3 }}
+        title="이전" onClick={() => setPage((p) => Math.max(0, p - 1))}>‹</span>
+      <span style={{ minWidth: 54, textAlign: 'center' }}>{curPage + 1} / {pageCount}</span>
+      <span className="b ic" style={{ cursor: curPage < pageCount - 1 ? 'pointer' : 'default', opacity: curPage < pageCount - 1 ? 0.8 : 0.3 }}
+        title="다음" onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}>›</span>
+      <span className="b ic" style={{ cursor: curPage < pageCount - 1 ? 'pointer' : 'default', opacity: curPage < pageCount - 1 ? 0.8 : 0.3 }}
+        title="마지막" onClick={() => curPage < pageCount - 1 && setPage(pageCount - 1)}>»</span>
+    </div>
+  ) : null
+
+  if (!overlay && !pager) return table
   return (
     <div data-grid-wrap style={{ position: 'relative' }}>
       {overlay}
       {table}
+      {pager}
     </div>
   )
 }
