@@ -1,0 +1,118 @@
+# -*- coding: utf-8 -*-
+"""G2 라이브 — DenseGrid 그리드 내 찾기(Ctrl+F) + 공용 다중행 선택.
+
+UI(감사 조회 M-14-6A, ADMIN):
+  찾기 — 🔍/Ctrl+F 로 찾기창 열기 → 부분일치 필터(보이는 행 감소·n/m 카운트)·Esc 복원.
+  다중선택 — 헤더 체크박스=전체선택(.msel)·행 체크박스 토글·Shift 범위·'선택 CSV(N)' 버튼 활성.
+실행: PYTHONUTF8=1 py tests/live_g2_grid.py
+정리: 데이터 생성 없음 (조회/클라이언트 CSV 전용).
+"""
+import re
+from playwright.sync_api import sync_playwright
+
+BASE = "https://edim.seekerslab.com"
+n = 0
+
+
+def ok(label: str, cond: bool) -> None:
+    global n
+    assert cond, f"FAIL {label}"
+    n += 1
+    print(f"PASS {label}")
+
+
+with sync_playwright() as pw:
+    b = pw.chromium.launch()
+    page = b.new_context(viewport={"width": 1600, "height": 900}).new_page()
+    page.goto(f"{BASE}/erp", wait_until="domcontentloaded")
+    page.wait_for_selector(".login-dlg, .app .titlebar", timeout=15000)
+    if page.locator(".login-dlg").count():
+        page.get_by_label("사번").fill("edim")
+        page.get_by_label("비밀번호").fill("edim")
+        page.get_by_role("button", name="로그인 (Enter)").click()
+    page.wait_for_selector(".app .titlebar", timeout=15000)
+
+    # 감사 조회 열기 (ERP)
+    page.locator(".titlebar .mod", has_text="ERP").first.click()
+    page.wait_for_timeout(400)
+    page.locator(".tn", has_text="감사 조회").first.click()
+    page.wait_for_timeout(1500)
+
+    wrap = page.locator("[data-grid-wrap]", has=page.locator("table.g")).first
+    wrap.wait_for(timeout=8000)
+    grid = wrap.locator("table.g").first
+    ok("감사 조회 접근(ADMIN) — 그리드 렌더", grid.locator("tbody tr").count() > 0)
+    base_rows = grid.locator("tbody tr").count()
+
+    # ── 그리드 내 찾기 ──
+    # 첫 행의 '작업(action)' 칩 텍스트를 필터어로 사용
+    action0 = grid.locator("tbody tr").first.locator("td").nth(2).inner_text().strip()
+    term = action0[: max(3, len(action0) // 2)]
+
+    # 🔍 아이콘으로 찾기창 열기
+    wrap.locator("[title='찾기 (Ctrl+F)']").click()
+    page.wait_for_timeout(200)
+    find = wrap.locator("input[placeholder='찾기…']")
+    ok("🔍 = 찾기창 표시", find.count() == 1 and find.is_visible())
+    find.fill(term)
+    page.wait_for_timeout(300)
+    filtered = grid.locator("tbody tr").count()
+    ok(f"찾기 '{term}' = 행 필터(부분일치)", 0 < filtered <= base_rows)
+    # 남은 모든 행이 필터어를 포함
+    all_have = all(term.lower() in r.lower()
+                   for r in grid.locator("tbody tr").all_inner_texts())
+    ok("필터 결과 전 행이 검색어 포함", all_have)
+    # n/m 카운트 표기
+    count_txt = wrap.inner_text()
+    ok("n/m 카운트 표기", re.search(rf"{filtered}\s*/\s*{base_rows}", count_txt) is not None)
+
+    # 없는 문자열 → 0행
+    find.fill("ZZZ_없는검색어_QWX")
+    page.wait_for_timeout(250)
+    ok("무매치 = 0행", grid.locator("tbody tr").count() == 0)
+    # Esc = 찾기 해제·전체 복원
+    find.press("Escape")
+    page.wait_for_timeout(250)
+    ok("Esc = 찾기 해제·전체 행 복원", grid.locator("tbody tr").count() == base_rows)
+
+    # Ctrl+F 경로(그리드 포커스 → 전역검색 대신 그리드 내 찾기)
+    grid.locator("tbody tr").first.click()   # 그리드 포커스
+    page.keyboard.press("Control+f")
+    page.wait_for_timeout(200)
+    ok("Ctrl+F(그리드 포커스) = 그리드 내 찾기 개시",
+       wrap.locator("input[placeholder='찾기…']").is_visible())
+    wrap.locator("input[placeholder='찾기…']").press("Escape")
+    page.wait_for_timeout(150)
+
+    # ── 공용 다중행 선택 ──
+    csv_btn = page.get_by_role("button", name=re.compile(r"선택 CSV"))
+    ok("초기 '선택 CSV' 버튼 비활성", csv_btn.is_disabled())
+
+    head_cb = grid.locator("thead input[type=checkbox]").first
+    head_cb.click()   # 전체 선택
+    page.wait_for_timeout(200)
+    ok("헤더 체크박스 = 전체 선택(.msel 전 행)",
+       grid.locator("tbody tr.msel").count() == base_rows)
+    ok("전체 선택 후 '선택 CSV(N)' 활성",
+       (not csv_btn.is_disabled()) and re.search(rf"\({base_rows}\)", csv_btn.inner_text()) is not None)
+
+    head_cb.click()   # 전체 해제
+    page.wait_for_timeout(200)
+    ok("헤더 재클릭 = 전체 해제", grid.locator("tbody tr.msel").count() == 0
+       and csv_btn.is_disabled())
+
+    # 개별 + Shift 범위 (행 0 클릭 → 행 3 Shift-클릭 = 4행)
+    cbs = grid.locator("tbody tr td input[type=checkbox]")
+    if cbs.count() >= 4:
+        cbs.nth(0).click()
+        page.wait_for_timeout(120)
+        cbs.nth(3).click(modifiers=["Shift"])
+        page.wait_for_timeout(200)
+        ok("Shift 범위 선택 = 4행", grid.locator("tbody tr.msel").count() == 4
+           and re.search(r"\(4\)", csv_btn.inner_text()) is not None)
+    else:
+        ok("Shift 범위(행 부족 시 스킵)", True)
+
+    b.close()
+
+print(f"\nOK — live_g2_grid {n}/{n}")

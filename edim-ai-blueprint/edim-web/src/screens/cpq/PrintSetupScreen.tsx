@@ -229,7 +229,7 @@ export function PrintSetupScreen(_props: ScreenProps) {
               <b>{t('printsetup.bindTitle', 'Data 위치 지정 — 자리표시자 바인딩')}</b><span className="sp" />
               <span style={{ cursor: 'pointer' }} onClick={() => setShowBind(false)}>✕</span>
             </div>
-            <div className="frm" style={{ padding: 10 }}>
+            <div className="frm c2" style={{ padding: 10 }}>
               <label>{t('printsetup.bindTarget', '대상 위젯')}</label>
               <input className="in ro" value={selected.label} readOnly aria-label="대상 위젯" />
               <label>{t('printsetup.bindPath', '데이터 경로')}</label>

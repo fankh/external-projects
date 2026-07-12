@@ -131,13 +131,15 @@ body {
 .split-v { height: 5px; background: var(--chrome); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: row-resize; flex: none; }
 
 /* 폼 (라벨 우측정렬 — 레거시 문법) */
-.frm { display: grid; grid-template-columns: 88px 1fr 88px 1fr; gap: 4px 6px; align-items: center; }
-.frm.c2 { grid-template-columns: 88px 1fr; }
+.frm { display: grid; grid-template-columns: 88px minmax(0, 1fr) 88px minmax(0, 1fr); gap: 4px 6px; align-items: center; }
+.frm.c2 { grid-template-columns: 88px minmax(0, 1fr); }
 .frm label { text-align: right; font-size: 11px; color: var(--txt-dim); padding-right: 2px; }
 .frm label i { color: var(--err); font-style: normal; }
 
 /* 캔버스 (도면) */
 .cvs { position: relative; background: #fff; border: 1px solid var(--line); background-image: linear-gradient(var(--line-soft) 1px, transparent 1px), linear-gradient(90deg, var(--line-soft) 1px, transparent 1px); background-size: 14px 14px; overflow: hidden; }
+/* CAD 캔버스·이동 블록에서 드래그 시 텍스트 선택(grabbing) 방지 */
+.cvs, [data-cad-wrap], [data-cad-svg], .m2 { user-select: none; -webkit-user-select: none; -moz-user-select: none; }
 .m2 { position: absolute; border: 1px solid #4A6FA5; background: #F3F7FC; font-size: 10px; color: #2B4A78; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; cursor: pointer; text-align: center; }
 .m2 small { font-weight: 400; color: var(--txt-mute); font-size: 9px; }
 .m2.sel { border: 1.5px solid var(--run); background: #EDF7F1; color: var(--run); }
