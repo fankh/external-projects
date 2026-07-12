@@ -44,6 +44,22 @@ export function ProjectFolderScreen({ tab }: ScreenProps) {
     })()
   }
 
+  const PROJECT = 'PS-61313-5'
+  const zipDownload = () => {
+    void fileService.downloadZip(
+      `/files/zip?project=${encodeURIComponent(PROJECT)}&folder=${encodeURIComponent(folder)}`,
+      `${PROJECT}_${folder}.zip`)
+      .then((n) => shell.setStatusMsg(`ZIP 다운로드 ✓ — ${folder} ${n}건 (MinIO 수집·압축 스트림)`))
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+  const customerExport = () => {
+    void fileService.downloadZip(
+      `/files/export-package?project=${encodeURIComponent(PROJECT)}`,
+      `${PROJECT}_고객전달.zip`)
+      .then((n) => shell.setStatusMsg(`고객 전달 패키지 ✓ — 산출물 ${n}건 + 전달목록 (내부 접수자료 제외)`))
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
   const rows = files.filter((f) => f.folder === folder)
   const sel = files.find((f) => f.name === selFile) ?? null
 
@@ -167,8 +183,8 @@ export function ProjectFolderScreen({ tab }: ScreenProps) {
                   e.target.value = ''
                 }} />
               <Btn variant="pri" onClick={() => fileInput.current?.click()}>⬆ {t('common.upload', '업로드')} ({folder})</Btn>
-              <Btn onClick={() => shell.setStatusMsg(`ZIP 다운로드 — ${folder} ${rows.length}건`)}>{t('folder.zipDownload', 'ZIP 다운로드')}</Btn>
-              <Btn onClick={() => shell.setStatusMsg('고객 전달용 — 워터마크·Grade 통제 적용 내보내기')}>{t('folder.customerExport', '고객 전달용 내보내기')}</Btn>
+              <Btn onClick={zipDownload} disabled={rows.length === 0}>{t('folder.zipDownload', 'ZIP 다운로드')}</Btn>
+              <Btn onClick={customerExport}>{t('folder.customerExport', '고객 전달용 내보내기')}</Btn>
             </div>
           </GroupBox>
           <GroupBox title={t('folder.receivedTitle', 'RECEIVED 폴더')}>

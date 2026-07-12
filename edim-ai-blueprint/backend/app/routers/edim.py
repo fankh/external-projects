@@ -1474,6 +1474,99 @@ def download_file(file_id: int) -> StreamingResponse:
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(row[1])}"})
 
 
+def _zip_files(rows: list[tuple], prefix_by_folder: bool = True,
+               extra: dict[str, bytes] | None = None) -> bytes:
+    """(file_path, file_name, folder[, ...]) 행 → ZIP 바이트. MinIO 객체 수집, arcname 중복 회피."""
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    used: dict[str, int] = {}
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in (extra or {}).items():
+            zf.writestr(name, data)
+        for r in rows:
+            path, name, folder = r[0], r[1], r[2]
+            try:
+                obj = storage.get_object(path)
+                data = obj.read()
+                obj.close()
+                obj.release_conn()
+            except Exception:
+                continue   # 누락 객체는 건너뜀 (부분 다운로드)
+            arc = f"{folder}/{name}" if prefix_by_folder else name
+            n = used.get(arc, 0)
+            used[arc] = n + 1
+            if n:
+                base, dot, ext = name.rpartition(".")
+                arc = f"{folder}/{n}_{name}" if prefix_by_folder else f"{n}_{name}"
+            zf.writestr(arc, data)
+    return buf.getvalue()
+
+
+@router.get("/files/zip")
+def files_zip(project: str = "PS-61313-5", folder: str = "") -> StreamingResponse:
+    """폴더 파일 일괄 ZIP 다운로드 (E2) — 선택 폴더(또는 전체)의 dwg_file 을 MinIO 에서 수집."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        q = ("""SELECT f.file_path, f.file_name, f.folder FROM dwg_file f
+                JOIN prj_project p ON p.project_id=f.project_id AND p.tenant_id=%s
+                WHERE p.project_no=%s""")
+        params: list[Any] = [tid, project]
+        if folder.strip():
+            q += " AND f.folder=%s"
+            params.append(folder.strip())
+        q += " ORDER BY f.folder, f.file_id"
+        cur.execute(q, tuple(params))
+        rows = cur.fetchall()
+    if not rows:
+        raise HTTPException(404, detail="다운로드할 파일이 없습니다")
+    blob = _zip_files(rows)
+    from urllib.parse import quote
+    zipname = f"{project}{('_' + folder.strip()) if folder.strip() else ''}.zip"
+    return StreamingResponse(iter([blob]), media_type="application/zip",
+                             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(zipname)}",
+                                      "X-File-Count": str(len(rows))})
+
+
+# 고객 전달 제외 폴더 — 내부 접수자료(RECEIVED)는 산출물이 아니므로 미포함
+DELIVER_FOLDERS = ["DWG", "PRICE", "DATA", "BOM"]
+
+
+@router.get("/files/export-package")
+def files_export_package(project: str = "PS-61313-5") -> StreamingResponse:
+    """고객 전달용 내보내기 (E2) — 산출물 폴더만 ZIP + 전달 매니페스트. 내부 접수자료 제외."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT f.file_path, f.file_name, f.folder, to_char(f.created_at,'YYYY-MM-DD')
+               FROM dwg_file f
+               JOIN prj_project p ON p.project_id=f.project_id AND p.tenant_id=%s
+               WHERE p.project_no=%s AND f.folder = ANY(%s)
+               ORDER BY f.folder, f.file_id""",
+            (tid, project, DELIVER_FOLDERS))
+        rows = cur.fetchall()
+        cur.execute("SELECT project_name FROM prj_project WHERE tenant_id=%s AND project_no=%s",
+                    (tid, project))
+        pn = cur.fetchone()
+    if not rows:
+        raise HTTPException(404, detail="전달할 산출물이 없습니다 (DWG/PRICE/DATA/BOM)")
+    manifest = [
+        "EDIM 고객 전달 패키지 (Customer Delivery Package)",
+        f"프로젝트: {project}" + (f" — {pn[0]}" if pn else ""),
+        f"파일 수: {len(rows)}건",
+        "포함: 산출물(DWG/PRICE/DATA/BOM)  ·  제외: 내부 접수자료(RECEIVED)·S-1/S-2 등급 문서",
+        "-" * 56,
+    ]
+    manifest += [f"[{r[2]}] {r[1]}  ({r[3]})" for r in rows]
+    extra = {"전달목록.txt": ("\n".join(manifest)).encode("utf-8")}
+    blob = _zip_files(rows, extra=extra)
+    from urllib.parse import quote
+    zipname = f"{project}_고객전달.zip"
+    return StreamingResponse(iter([blob]), media_type="application/zip",
+                             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(zipname)}",
+                                      "X-File-Count": str(len(rows))})
+
+
 @router.delete("/files/{file_id}", dependencies=[SETUP])
 def delete_file(file_id: int, request: Request) -> dict[str, Any]:
     """파일 삭제 — Run 산출물·견적서가 참조 중이면 409 (MinIO 객체 + dwg_file 행 제거)."""

@@ -866,6 +866,25 @@ export const fileService = {
     a.click()
     URL.revokeObjectURL(url)
   },
+  /** E2 — 폴더/프로젝트 파일 ZIP 다운로드. downloadPath 예: /files/zip?project=…&folder=… */
+  async downloadZip(path: string, zipName: string): Promise<number> {
+    const res = await fetch(`${API}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) {
+      const b = await res.json().catch(() => null) as { detail?: string } | null
+      throw new Error(b?.detail ?? `다운로드 실패 (HTTP ${res.status})`)
+    }
+    const count = Number(res.headers.get('X-File-Count') || 0)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = zipName
+    a.click()
+    URL.revokeObjectURL(url)
+    return count
+  },
 }
 
 // ── SVC-13 알림 ──
