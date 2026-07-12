@@ -59,7 +59,8 @@ body {
 
 /* ═══ 그리드 (레거시 핵심) — 양방향 실선·24px행·줄무늬 ═══ */
 .g { width: 100%; border-collapse: collapse; font-size: 11.5px; background: #fff; }
-.g th { background: var(--grid-head); color: var(--grid-head-txt); font-weight: 700; font-size: 11px; padding: 0 6px; height: 24px; border: 1px solid var(--line); text-align: center; position: relative; white-space: nowrap; }
+.g th { background: var(--grid-head); color: var(--grid-head-txt); font-weight: 700; font-size: 11px; padding: 0 6px; height: 24px; border: 1px solid var(--line); text-align: center; position: sticky; top: 0; z-index: 2; white-space: nowrap; box-shadow: 0 1px 0 var(--line); }
+.g:focus-visible { outline: 2px solid var(--title-navy); outline-offset: -2px; }
 .g th .flt { position: absolute; right: 3px; color: #7A87A0; font-size: 9px; }
 .g td { padding: 0 6px; height: 24px; border: 1px solid var(--line-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g tbody tr:nth-child(even) td { background: #F7F9FC; }

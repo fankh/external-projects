@@ -2,7 +2,7 @@
  *  F8 — 헤더 클릭 정렬 (none→asc→desc 토글, ▲▼ 표시): 원본 인덱스를 보존해
  *  rowKey/onRowClick/selectedKey 가 정렬과 무관하게 동작한다 (index 기반 선택 화면 안전).
  *  정렬값: col.sortValue > render 원시값(string/number) — JSX 셀은 sortValue 미지정 시 정렬 제외. */
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { prefService } from '../api/services'
 
 export interface GridColumn<T> {
@@ -120,11 +120,39 @@ export function DenseGrid<T>(props: {
     })
   }
 
+  // G2 — 키보드 행 내비게이션 (↑↓·Home/End·PgUp/Dn·Enter=열기)
+  const gridRef = useRef<HTMLTableElement>(null)
+  const navigate = (delta: number) => {
+    if (!props.onRowClick || view.length === 0) return
+    const cur = view.findIndex(({ row, origIdx }) => props.rowKey(row, origIdx) === props.selectedKey)
+    const next = Math.max(0, Math.min(view.length - 1, (cur < 0 ? 0 : cur + delta)))
+    props.onRowClick(view[next].row, view[next].origIdx)
+  }
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (!props.onRowClick) return
+    const k = e.key
+    if (k === 'ArrowDown') { e.preventDefault(); navigate(1) }
+    else if (k === 'ArrowUp') { e.preventDefault(); navigate(-1) }
+    else if (k === 'Home') { e.preventDefault(); navigate(-1e9) }
+    else if (k === 'End') { e.preventDefault(); navigate(1e9) }
+    else if (k === 'PageDown') { e.preventDefault(); navigate(10) }
+    else if (k === 'PageUp') { e.preventDefault(); navigate(-10) }
+    else if (k === 'Enter' && props.onRowDoubleClick) {
+      const cur = view.find(({ row, origIdx }) => props.rowKey(row, origIdx) === props.selectedKey)
+      if (cur) { e.preventDefault(); props.onRowDoubleClick(cur.row, cur.origIdx) }
+    }
+  }
+  useEffect(() => {
+    gridRef.current?.querySelector('tr.sel')?.scrollIntoView({ block: 'nearest' })
+  }, [props.selectedKey])
+
   const table = (
-    <table className="g" style={{
-      ...(props.mono ? { fontFamily: 'Consolas, monospace', fontSize: '10.5px' } : null),
-      ...props.style,
-    }}>
+    <table ref={gridRef} className="g"
+      tabIndex={props.onRowClick ? 0 : undefined} onKeyDown={onKeyDown}
+      style={{
+        ...(props.mono ? { fontFamily: 'Consolas, monospace', fontSize: '10.5px' } : null),
+        ...props.style,
+      }}>
       <thead>
         <tr>
           {cols.map((c) => {
