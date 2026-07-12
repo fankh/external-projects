@@ -2318,6 +2318,26 @@ export const milestoneService = {
   },
 }
 
+// D8 — 대장 그리드 XLSX 내보내기 (공용)
+export const xlsxService = {
+  /** GET {path} → XLSX blob 다운로드. 반환 = 행 수(X-Row-Count) 또는 -1(실패) */
+  async download(path: string, filename: string): Promise<number> {
+    const res = await fetch(`${API}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }).catch(() => null)
+    if (!res || !res.ok) return -1
+    const count = Number(res.headers.get('X-Row-Count') || 0)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+    return count
+  },
+}
+
 // D10 — Head 메뉴 편집 (사용자별 모듈 표시 구성)
 export const menuService = {
   /** GET /api/v1/menu/config — 현재 사용자 표시 모듈 (null=백엔드 불가 → 전체 표시) */

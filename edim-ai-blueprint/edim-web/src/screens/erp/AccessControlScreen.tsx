@@ -2,7 +2,7 @@
  *  액션 4종 (권한승인정의서 모델) · 감사 기록. */
 import { useEffect, useMemo, useState } from 'react'
 import { type UserRow } from '../../api/mock/dataMore'
-import { historyService, menuService, roleService, sysService, userService, type HistoryRow, type RoleRow } from '../../api/services'
+import { historyService, menuService, roleService, sysService, userService, xlsxService, type HistoryRow, type RoleRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -351,7 +351,14 @@ export function AccessControlScreen({ active }: ScreenProps) {
             </div>
           </GroupBox>
           <GroupBox title={t('access.auditLog', '최근 감사 로그')} noPad
-            right={<Chip tone="ok">sys_history</Chip>}>
+            right={(
+              <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                <span data-audit-xlsx role="button" style={{ fontSize: 10, color: 'var(--title-navy)', cursor: 'pointer', textDecoration: 'underline' }}
+                  onClick={() => void xlsxService.download('/history/export.xlsx', 'audit')
+                    .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `감사 로그 XLSX ✓ — ${n}건`))}>⬇ XLSX</span>
+                <Chip tone="ok">sys_history</Chip>
+              </span>
+            )}>
             <table className="g">
               <thead><tr><th>{t('access.at', '일시')}</th><th>{t('access.action', '작업')}</th></tr></thead>
               <tbody>

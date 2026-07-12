@@ -2,7 +2,7 @@
  *  재고단가 4값(ERP-021) · Resolve 시뮬레이션 = Pricing Run 규칙. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { STOCK_PRICE, type PriceRow } from '../../api/mock/dataErp'
-import { erpService, priceService, priceWriteService } from '../../api/services'
+import { erpService, priceService, priceWriteService, xlsxService } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -177,6 +177,8 @@ export function PriceScreen({ active }: ScreenProps) {
             if (f) importXls(f)
             e.target.value = ''
           }} />
+        <Btn onClick={() => void xlsxService.download('/prices/export.xlsx', 'prices')
+          .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `단가 XLSX ✓ — ${n}건`))}>⬇ XLSX</Btn>
         <Btn onClick={() => xlsInput.current?.click()}>⬇ Excel Import</Btn>
         <Btn disabled={!perm.canWrite('erp-price') || selIdx === null}
           title={perm.canWrite('erp-price') ? undefined : perm.denyWrite}

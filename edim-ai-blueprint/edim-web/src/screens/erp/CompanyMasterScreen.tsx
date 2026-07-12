@@ -1,7 +1,7 @@
 /** M-14-2 공급처·거래처 대장 (B14) — com_company 실 CRUD.
  *  단가(cst_price.supplier_id)·발주 공급처의 마스터 원천. */
 import { useEffect, useMemo, useState } from 'react'
-import { companyService, type CompanyRow } from '../../api/services'
+import { companyService, xlsxService, type CompanyRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
@@ -90,6 +90,8 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
           단가 대장(cst_price)·발주 공급처의 마스터 원천 — 단가 등록 시 신규 업체는 자동 생성됨
         </span>
         <span style={{ flex: 1 }} />
+        <Btn onClick={() => void xlsxService.download('/companies/export.xlsx', 'companies')
+          .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `거래처 XLSX ✓ — ${n}건`))}>⬇ XLSX</Btn>
         <Btn variant="pri" disabled={!perm.canWrite('erp-company-master')}
           title={perm.canWrite('erp-company-master') ? undefined : perm.denyWrite}
           onClick={() => setShowReg(true)}>＋ 등록 F2</Btn>

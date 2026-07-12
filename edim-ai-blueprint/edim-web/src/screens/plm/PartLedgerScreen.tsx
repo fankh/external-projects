@@ -1,7 +1,7 @@
 /** M-4-7 부품 대장 (B17) — prt_part 실 CRUD + 공급자 코드 매핑 (ERP-018).
  *  등록 F2 · 행 선택 = 우측 공급자 코드 · BOM 참조 부품 삭제 보호 (409). */
 import { useEffect, useMemo, useState } from 'react'
-import { partService, type PartRow, type SupplierCodeRow } from '../../api/services'
+import { partService, xlsxService, type PartRow, type SupplierCodeRow } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
@@ -143,6 +143,8 @@ export function PartLedgerScreen({ active }: ScreenProps) {
           ? <Chip tone="warn">{t('dwg.needBackend', '백엔드 연결 필요')}</Chip>
           : <Chip tone="info">prt_part {rows.length}건</Chip>}
         <span style={{ flex: 1 }} />
+        <Btn onClick={() => void xlsxService.download('/parts/export.xlsx', 'parts')
+          .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `부품 XLSX ✓ — ${n}건`))}>⬇ XLSX</Btn>
         <Btn onClick={() => { load(); shell.setStatusMsg('부품 대장 재조회 (prt_part)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
         <Btn disabled={!perm.canWrite('plm-parts') || !sel}
           title={perm.canWrite('plm-parts') ? undefined : perm.denyWrite}

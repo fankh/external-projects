@@ -2,7 +2,7 @@
  *  등록(F2)·Rev 올리기·Supersedure 대체 등록, 더블클릭=연결 DXF CAD 뷰어. */
 import { useEffect, useMemo, useState } from 'react'
 import {
-  drawingLedgerService, referencerService,
+  drawingLedgerService, referencerService, xlsxService,
   type DrawingFileRow, type DrawingRow, type DrawingVariantRow, type DwgApprovalRow,
   type ReferencerRow, type RevisionRow, type SupersedureRow,
 } from '../../api/services'
@@ -190,6 +190,8 @@ export function DrawingLedgerScreen({ active, tab }: ScreenProps) {
         <Chip tone="info">{t('dwg.countChip', 'dwg_drawing {n}건').replace('{n}', String(drawings.length))}</Chip>
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('dwg.dblOpenHint', '더블클릭 = 연결 DXF CAD 뷰어')}</span>
         <span style={{ flex: 1 }} />
+        <Btn onClick={() => void xlsxService.download('/drawings/export.xlsx', 'drawings')
+          .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `도면 XLSX ✓ — ${n}건`))}>⬇ XLSX</Btn>
         <Btn onClick={() => { load(); shell.setStatusMsg('도면 대장 재조회 (dwg_drawing)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
         <Btn variant="pri" disabled={!perm.canWrite('plm-drawings')}
           title={perm.canWrite('plm-drawings') ? undefined : perm.denyWrite}

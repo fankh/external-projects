@@ -552,6 +552,117 @@ def export_group_xlsx(group: str) -> Response:
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(group)}.xlsx"})
 
 
+# ── D8 XLSX export 전면 — 주요 대장 그리드 Excel 내보내기 ──
+def _xlsx_response(sheet: str, headers: list[str], rows: list[list[Any]], filename: str) -> Response:
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = sheet[:31]
+    ws.append(headers)
+    for r in rows:
+        ws.append(r)
+    buf = io.BytesIO()
+    wb.save(buf)
+    from urllib.parse import quote
+    return Response(
+        buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}.xlsx",
+                 "X-Row-Count": str(len(rows))})
+
+
+@router.get("/prices/export.xlsx")
+def export_prices_xlsx() -> Response:
+    """단가 대장 XLSX (D8)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT pc.main_code, pc.code_name, COALESCE(cc.company_name,'-'),
+                      p.price, p.price_source, p.valid_from, p.valid_to
+               FROM cst_price p JOIN product_code pc ON pc.product_code_id=p.product_code_id
+               LEFT JOIN com_company cc ON cc.company_id=p.supplier_id
+               WHERE p.tenant_id=%s ORDER BY pc.main_code, p.valid_from DESC""", (tid,))
+        rows = [[r[0], r[1], r[2], float(r[3]), SOURCE_LABEL.get(r[4], r[4]),
+                 r[5].isoformat(), r[6].isoformat() if r[6] else ""] for r in cur.fetchall()]
+    return _xlsx_response("단가", ["코드", "품명", "공급처", "단가", "출처", "적용일", "만료일"], rows, "prices")
+
+
+@router.get("/parts/export.xlsx")
+def export_parts_xlsx() -> Response:
+    """부품 대장 XLSX (D8)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT p.part_no, p.part_name, COALESCE(p.specification,''),
+                      COALESCE(m.material_code,''), COALESCE(c.company_name,''),
+                      COALESCE(pc.main_code,''), p.unit, p.weight, p.is_standard
+               FROM prt_part p
+               LEFT JOIN mat_material m ON m.material_id=p.material_id
+               LEFT JOIN com_company c ON c.company_id=p.supplier_id
+               LEFT JOIN product_code pc ON pc.product_code_id=p.product_code_id
+               WHERE p.tenant_id=%s ORDER BY p.part_no""", (tid,))
+        rows = [[r[0], r[1], r[2], r[3], r[4], r[5], r[6],
+                 float(r[7]) if r[7] is not None else "", "표준" if r[8] else "사양"]
+                for r in cur.fetchall()]
+    return _xlsx_response("부품", ["부품번호", "품명", "사양", "재질", "공급처", "제품코드", "단위", "중량", "구분"], rows, "parts")
+
+
+@router.get("/drawings/export.xlsx")
+def export_drawings_xlsx() -> Response:
+    """도면 대장 XLSX (D8)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT d.drawing_no, d.drawing_name, d.drawing_type, d.dwg_kind,
+                      d.current_rev, d.status,
+                      (SELECT COUNT(*) FROM dwg_revision r WHERE r.drawing_id=d.drawing_id)
+               FROM dwg_drawing d WHERE d.tenant_id=%s ORDER BY d.drawing_no""", (tid,))
+        rows = [[r[0], r[1], r[2], r[3], r[4], r[5], r[6]] for r in cur.fetchall()]
+    return _xlsx_response("도면", ["도면번호", "도면명", "유형", "종류", "Rev", "상태", "개정수"], rows, "drawings")
+
+
+@router.get("/erp/warehouses/export.xlsx")
+def export_warehouses_xlsx() -> Response:
+    """창고·저장위치 XLSX (D8)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT location_code, location_name, location_type,
+                      CASE WHEN hazard_allowed THEN 'Y' ELSE 'N' END,
+                      COALESCE(inspection_cycle,''), COALESCE(remarks,'')
+               FROM erp_warehouse WHERE tenant_id=%s ORDER BY location_code""", (tid,))
+        rows = [[r[0], r[1], r[2], r[3], r[4], r[5]] for r in cur.fetchall()]
+    return _xlsx_response("창고", ["위치코드", "위치명", "유형", "위험물", "점검주기", "비고"], rows, "warehouses")
+
+
+@router.get("/companies/export.xlsx")
+def export_companies_xlsx() -> Response:
+    """공급처·거래처 XLSX (D8)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT company_name, company_type, COALESCE(nation,''),
+                      COALESCE(evaluation_grade,''), COALESCE(payment_terms,''), COALESCE(remarks,'')
+               FROM com_company WHERE tenant_id=%s ORDER BY company_id""", (tid,))
+        rows = [[r[0], r[1], r[2], r[3], r[4], r[5]] for r in cur.fetchall()]
+    return _xlsx_response("거래처", ["업체명", "구분", "국가", "평가등급", "결제조건", "비고"], rows, "companies")
+
+
+@router.get("/history/export.xlsx")
+def export_history_xlsx(limit: int = 1000) -> Response:
+    """감사 로그 XLSX (D8)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT to_char(h.acted_at,'YYYY-MM-DD HH24:MI:SS'),
+                      h.target_table||' #'||h.target_id, h.action, u.user_name
+               FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
+               WHERE h.tenant_id=%s ORDER BY h.history_id DESC LIMIT %s""",
+            (tid, max(1, min(limit, 10000))))
+        rows = [[r[0], r[1], r[2], r[3]] for r in cur.fetchall()]
+    return _xlsx_response("감사로그", ["일시", "대상", "작업", "수행자"], rows, "audit")
+
+
 @router.post("/codes/groups/{group}/import-excel", dependencies=[SETUP])
 async def import_group_excel(group: str, request: Request,
                              uploadedFile: UploadFile = File(...)) -> dict[str, Any]:

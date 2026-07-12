@@ -1,7 +1,7 @@
 /** M-8-4 창고·저장위치 계층 (B19, ERP-020/021) — erp_warehouse 실 CRUD.
  *  REGION→PLANT→WAREHOUSE→STORAGE→SECTOR 5계층 (순서 강제), 위험물 허용·검사주기. */
 import { useEffect, useMemo, useState } from 'react'
-import { warehouseService, type WarehouseNode } from '../../api/services'
+import { warehouseService, xlsxService, type WarehouseNode } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { useI18n } from '../../i18n/I18nContext'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
@@ -100,6 +100,8 @@ export function WarehouseScreen({ active }: ScreenProps) {
           {t('wh.hierHint', '계층: REGION→PLANT→WAREHOUSE→STORAGE→SECTOR (순서 강제)')}
         </span>
         <span style={{ flex: 1 }} />
+        <Btn onClick={() => void xlsxService.download('/erp/warehouses/export.xlsx', 'warehouses')
+          .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `창고 XLSX ✓ — ${n}건`))}>⬇ XLSX</Btn>
         <Btn onClick={() => { load(); shell.setStatusMsg('창고 계층 재조회 (erp_warehouse)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
         <Btn disabled={!perm.canWrite('erp-warehouse') || !sel}
           title={perm.canWrite('erp-warehouse') ? undefined : perm.denyWrite}
