@@ -504,6 +504,15 @@ export const eventService = {
       return DEPT_TASKS
     }
   },
+  /** GET /api/v1/erp/events/{id}/flow — 전후 공정 (E4, erp_process_edge; null=백엔드 불가) */
+  async flow(eventId: number): Promise<{ current: string; currentCode: string; prev: string[]; next: string[] } | null> {
+    try {
+      return await api(`/erp/events/${eventId}/flow`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
   /** POST /api/v1/erp/events/{id}/complete */
   async complete(eventId: number | undefined, comment: string): Promise<void> {
     if (eventId == null) return

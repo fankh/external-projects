@@ -15,20 +15,28 @@ export function EventDetailScreen({ tab }: ScreenProps) {
   const [comment, setComment] = useState('')
   const [done, setDone] = useState(false)
 
-  // 실 이벤트(erp_process_event) 필드로 갱신 — 전후 공정·이력은 mock 구조 유지
+  // 실 이벤트(erp_process_event) 필드 + 전후 공정(erp_process_edge, E4) 실데이터 갱신
   useEffect(() => {
     void eventService.list().then((rows) => {
       const live = rows.find((r) => r.project === project && r.status !== 'DONE')
         ?? rows.find((r) => r.project === project)
-      if (live) {
-        setEventId(live.eventId ?? null)
-        setEv((prev) => ({
-          ...prev,
-          project: live.project, processCode: live.code,
-          processName: live.procName ?? prev.processName,
-          owner: live.owner, deadline: live.deadline + (live.delayed ? ' (지연)' : ''),
-          status: live.status,
-        }))
+      if (!live) return
+      setEventId(live.eventId ?? null)
+      setEv((prev) => ({
+        ...prev,
+        project: live.project, processCode: live.code,
+        processName: live.procName ?? prev.processName,
+        owner: live.owner, deadline: live.deadline + (live.delayed ? ' (지연)' : ''),
+        status: live.status,
+      }))
+      if (live.eventId != null) {
+        void eventService.flow(live.eventId).then((f) => {
+          if (f) setEv((prev) => ({
+            ...prev,
+            prev: f.prev.length ? f.prev.join(' / ') : '(선행 없음)',
+            next: f.next.length ? f.next.join(' / ') : '(후행 없음)',
+          }))
+        })
       }
     })
   }, [project])

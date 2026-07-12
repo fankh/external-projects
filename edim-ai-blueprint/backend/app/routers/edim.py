@@ -2994,6 +2994,33 @@ def macros_list() -> list[dict[str, Any]]:
         ]
 
 
+@router.get("/erp/events/{event_id}/flow")
+def event_flow(event_id: int) -> dict[str, Any]:
+    """이벤트 전후 공정 (E4) — erp_process_edge 기반 선행/후행 공정 실데이터."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT e.proc_def_id, d.proc_name, d.proc_code
+               FROM erp_process_event e JOIN erp_process_def d ON d.proc_def_id=e.proc_def_id
+               WHERE e.tenant_id=%s AND e.event_id=%s""", (tid, event_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"event not found: {event_id}")
+        cur_def, cur_name, cur_code = row
+        cur.execute(
+            """SELECT d.proc_name FROM erp_process_edge x
+               JOIN erp_process_def d ON d.proc_def_id=x.from_def_id
+               WHERE x.tenant_id=%s AND x.to_def_id=%s ORDER BY d.proc_def_id""", (tid, cur_def))
+        prev = [r[0] for r in cur.fetchall()]
+        cur.execute(
+            """SELECT d.proc_name FROM erp_process_edge x
+               JOIN erp_process_def d ON d.proc_def_id=x.to_def_id
+               WHERE x.tenant_id=%s AND x.from_def_id=%s ORDER BY d.proc_def_id""", (tid, cur_def))
+        nxt = [r[0] for r in cur.fetchall()]
+    return {"eventId": event_id, "current": cur_name, "currentCode": cur_code,
+            "prev": prev, "next": nxt}
+
+
 @router.get("/erp/process-defs")
 def process_defs() -> dict[str, Any]:
     """공정 정의·흐름 — erp_process_def + erp_process_edge (M-14-7·Dashboard 흐름)."""

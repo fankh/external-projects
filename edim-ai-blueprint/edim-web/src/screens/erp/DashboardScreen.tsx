@@ -89,6 +89,11 @@ export function DashboardScreen({ active }: ScreenProps) {
     id: `event-detail:${proj}`, screenId: 'event-detail',
     code: '이벤트', title: proj, params: { project: proj },
   })
+  // E4 — 부서별 Event 행 더블클릭 = 부서 업무함 진입 (이상 경고 그리드와 동선 통일)
+  const openDept = (dept: string) => {
+    shell.openTab(SCREEN_BY_NODE['com-tasks'])
+    setStatusMsg(`${dept} — 부서 업무함 (M-15-3) 진입 (부서 이벤트 처리)`)
+  }
 
   return (
     <div className="fill-col">
@@ -195,7 +200,7 @@ export function DashboardScreen({ active }: ScreenProps) {
           </GroupBox>
         ) : null}
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 6 }}>
-          <GroupBox title={t('dash.deptEvents', '부서별 Event 상황')} noPad>
+          <GroupBox title={t('dash.deptEvents', '부서별 Event 상황 — 더블클릭=부서 업무함')} noPad>
             <table className="g">
               <thead>
                 <tr>
@@ -208,7 +213,7 @@ export function DashboardScreen({ active }: ScreenProps) {
               </thead>
               <tbody>
                 {data.deptEvents.map((d) => (
-                  <tr key={d.dept}>
+                  <tr key={d.dept} onDoubleClick={() => openDept(d.dept)} style={{ cursor: 'pointer' }}>
                     <td>{d.dept}</td>
                     <td className="num">{d.waiting}</td>
                     <td className="num">{d.running}</td>
