@@ -46,6 +46,7 @@ export function DenseGrid<T>(props: {
   // D8 — 컬럼 표시 설정
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [colMenu, setColMenu] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
   const colRef = useRef<HTMLSpanElement>(null)
   // G2 — 그리드 내 찾기
   const findable = props.findable !== false
@@ -302,11 +303,16 @@ export function DenseGrid<T>(props: {
       {props.prefKey ? (
         <span ref={colRef} style={{ position: 'relative' }}>
           <span className="b ic" data-col-menu title="컬럼 표시 설정" style={{ fontSize: 11, opacity: 0.7, cursor: 'pointer' }}
-            onClick={() => setColMenu((o) => !o)}>⚙</span>
+            onClick={(e) => {
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setMenuPos({ top: r.bottom + 2, right: Math.max(4, window.innerWidth - r.right) })
+              setColMenu((o) => !o)
+            }}>⚙</span>
           {colMenu ? (
+            // position:fixed — GroupBox(.gc overflow:auto) 클리핑 회피
             <div className="gb" style={{
-              position: 'absolute', right: 0, top: 20, width: 180, zIndex: 100,
-              boxShadow: '0 6px 20px rgba(20,26,40,.28)', textAlign: 'left',
+              position: 'fixed', top: menuPos?.top ?? 0, right: menuPos?.right ?? 4, width: 180, zIndex: 1000,
+              maxHeight: '70vh', boxShadow: '0 6px 20px rgba(20,26,40,.28)', textAlign: 'left',
             }}>
               <div className="gt" style={{ fontSize: 10 }}>컬럼 표시</div>
               <div className="gc p0" style={{ maxHeight: 260, overflow: 'auto', padding: 4 }}>

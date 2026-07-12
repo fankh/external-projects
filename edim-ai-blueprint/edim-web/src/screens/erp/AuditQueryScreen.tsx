@@ -88,11 +88,11 @@ export function AuditQueryScreen({ active }: ScreenProps) {
         <Btn onClick={exportXlsx}>⬇ XLSX</Btn>
         <Btn variant="pri" onClick={load}>{t('common.query', '조회')} F8</Btn>
       </div>
-      <div className="fill-col" style={{ padding: 6, gap: 6, overflow: 'auto' }}>
+      <div className="fill-col" style={{ padding: 6, gap: 6, overflow: 'hidden' }}>
         <GroupBox
           title={t('audit.title', '감사 로그 — sys_history (전 도메인 변경 이력)')}
           right={<Chip tone={rows.length ? 'ok' : 'warn'}>{rows.length}건{rows.length >= 500 ? ' (상위 500)' : ''}</Chip>}
-          noPad>
+          noPad style={{ flex: 1, minHeight: 0 }}>
           {rows.length ? (
             <DenseGrid prefKey="audit" columns={cols} rows={rows} rowKey={(r) => r.historyId}
               selectedKey={sel} onRowClick={(r) => setSel(r.historyId)}
@@ -107,7 +107,7 @@ export function AuditQueryScreen({ active }: ScreenProps) {
           const r = rows.find((x) => x.historyId === sel)
           if (!r || (!r.before && !r.after)) return null
           return (
-            <GroupBox title={t('audit.detail', '변경 상세 — before / after')} noPad>
+            <GroupBox title={t('audit.detail', '변경 상세 — before / after')} noPad style={{ flex: 'none', maxHeight: '40%' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: 6, fontSize: 10.5 }}>
                 <div>
                   <div style={{ color: 'var(--txt-dim)', marginBottom: 2 }}>{t('audit.before', '변경 전')}</div>
