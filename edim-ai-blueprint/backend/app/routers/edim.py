@@ -4423,8 +4423,20 @@ def _eco_impact(cur, tid: int, target_type: str, target_no: str) -> dict[str, An
     d = cur.fetchone()
     if not d:
         return {"kind": "DRAWING", "found": False, "note": "도면 미등록 — 승인 시 Rev-up 대상 없음"}
+    # B20 Table 영향도 — 이 도면 치수 매크로가 참조하는 데이터 Table 수 (변경 파급 범위)
+    cur.execute(
+        """SELECT count(DISTINCT mr.ref_target_id), count(DISTINCT d.dimension_id)
+           FROM dwg_dimension d
+           JOIN dwg_drawing w ON w.drawing_id=d.drawing_id
+           JOIN tbx_macro_ref mr ON mr.macro_id=d.macro_id AND mr.ref_type='TABLE'
+           WHERE d.tenant_id=%s AND w.drawing_no=%s""",
+        (tid, target_no))
+    tref = cur.fetchone()
+    table_refs, dim_macros = (tref[0] or 0, tref[1] or 0) if tref else (0, 0)
     return {"kind": "DRAWING", "found": True, "currentRev": d[0], "revCount": d[1],
-            "note": f"현재 Rev {d[0]} · 개정 이력 {d[1]}건 — 승인 시 Rev-up 자동 적용"}
+            "tableRefs": table_refs, "dimMacros": dim_macros,
+            "note": f"현재 Rev {d[0]} · 개정 이력 {d[1]}건 · Table 영향도 {table_refs}개(치수 매크로 {dim_macros}) "
+                    f"— 승인 시 Rev-up 자동 적용"}
 
 
 class EcoCreate(BaseModel):
