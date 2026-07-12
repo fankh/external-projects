@@ -24,6 +24,13 @@ export function WorkProcessScreen({ active }: ScreenProps) {
   const [rowsReal, setRowsReal] = useState(false)
   const [selItem, setSelItem] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
+  const [cadView, setCadView] = useState<'2D' | '3D'>('2D')   // E5 — CAD 뷰 토글
+
+  // E5 — 공정 항목 ↔ 도면 블록 매핑: 각 Item 을 블록으로 배치 (선택 = 블록 하이라이트)
+  const cadBlocks = useMemo(() => rows.map((r, i) => ({
+    id: r.item, name: r.item, sub: r.makeBuy,
+    x: 10 + (i % 3) * 66, y: 12 + Math.floor(i / 3) * 50, w: 58, h: 40,
+  })), [rows])
   // G3-c — 코드(도면) 컨텍스트 + 실 자재행 (도면 BOM + erp_work_process)
   const [code, setCode] = useState('KDCR 3-13')
   const [codeOpts, setCodeOpts] = useState<string[]>([])
@@ -118,13 +125,39 @@ export function WorkProcessScreen({ active }: ScreenProps) {
               rowKey={(r) => r.item} selectedKey={selItem}
               onRowClick={(r) => setSelItem(r.item)} />
           </GroupBox>
-          <GroupBox title="CAD Mapping ☑"
-            right={<span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>3D ☑ 2D ☐</span>}>
-            <Cvs blocks={[
-              { id: 'c', name: 'Casing', x: 40, y: 20, w: 130, h: 80 },
-              { id: 'i', name: 'Impeller', sub: selItem ?? '—', x: 66, y: 34, w: 78, h: 52 },
-            ]} selectedId={selItem ? 'i' : null}
-              style={{ height: 120 }} />
+          <GroupBox title={t('wp.cadMapping', 'CAD Mapping — 공정 항목 ↔ 도면 블록')}
+            right={(
+              <span style={{ display: 'inline-flex', gap: 2 }}>
+                {(['2D', '3D'] as const).map((v) => (
+                  <span key={v} role="button" data-cad-view={v}
+                    onClick={() => setCadView(v)}
+                    style={{
+                      cursor: 'pointer', fontSize: 9.5, padding: '1px 7px', borderRadius: 2,
+                      fontWeight: cadView === v ? 700 : 500,
+                      color: cadView === v ? '#fff' : 'var(--txt-mute)',
+                      background: cadView === v ? 'var(--title-navy)' : 'transparent',
+                      border: '1px solid var(--line)',
+                    }}>{v === '2D' ? '2D ☑' : '3D'}</span>
+                ))}
+              </span>
+            )}>
+            {cadView === '2D' ? (
+              <Cvs blocks={cadBlocks} selectedId={selItem}
+                onSelect={(b) => setSelItem(b.id)}
+                style={{ height: 120 }} />
+            ) : (
+              <div className="cvs" style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: 11, color: 'var(--txt-mute)', textAlign: 'center', lineHeight: 1.7 }}>
+                  🧊 {t('wp.cad3d', '3D 뷰 — §C 범위 외 (2D 도면 블록 매핑만 지원)')}<br />
+                  <span style={{ fontSize: 9.5 }}>{t('wp.cad3dHint', '2D 로 전환하면 선택 항목의 도면 블록이 하이라이트됩니다')}</span>
+                </span>
+              </div>
+            )}
+            {selItem && cadView === '2D' ? (
+              <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginTop: 3 }}>
+                {t('wp.cadSelected', '선택 블록: {i} (그리드 행 ↔ 도면 블록 연동)').replace('{i}', selItem)}
+              </div>
+            ) : null}
           </GroupBox>
         </div>
         <div className="split-h" />
