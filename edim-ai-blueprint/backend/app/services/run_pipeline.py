@@ -216,6 +216,26 @@ def step_pricing(r: PipelineResult) -> str:
     return f"단가 resolve {r.resolved}/{len(r.items)}"
 
 
+def _draw_watermark(c, w: float, h: float, text: str) -> None:
+    """대외비 워터마크 — 페이지 전면 대각 타일 반복 (크롭·부분 캡처 방지, DOC-002 강화)."""
+    from reportlab.lib import colors
+    c.saveState()
+    c.setFont("Helvetica-Bold", 26)
+    c.setFillColor(colors.Color(0.80, 0.30, 0.30, alpha=0.10))
+    c.translate(w / 2, h / 2)
+    c.rotate(35)
+    c.translate(-w / 2, -h / 2)
+    step_x, step_y = 300, 165
+    y = -int(h)
+    while y < int(2 * h):
+        x = -int(w)
+        while x < int(2 * w):
+            c.drawString(x, y, text)
+            x += step_x
+        y += step_y
+    c.restoreState()
+
+
 def build_doc_pdf(*, doc_no: str, title: str, doc_type: str, status: str, version: str,
                   person: str, grade: str, created: str, confidential: bool) -> bytes:
     """문서 관리 PDF 실렌더 (B4 · SVC-11) — Grade S-1/S-2 는 CONFIDENTIAL 워터마크 강제."""
@@ -240,13 +260,7 @@ def build_doc_pdf(*, doc_no: str, title: str, doc_type: str, status: str, versio
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
     if confidential:
-        c.saveState()
-        c.setFont("Helvetica-Bold", 44)
-        c.setFillColor(colors.Color(0.8, 0.3, 0.3, alpha=0.12))
-        c.translate(w / 2, h / 2)
-        c.rotate(30)
-        c.drawCentredString(0, 0, f"CONFIDENTIAL - {grade}")
-        c.restoreState()
+        _draw_watermark(c, w, h, f"CONFIDENTIAL · {grade}")
     c.setFont(font_name, 16)
     c.drawString(50, h - 60, title)
     c.setFont(font_name, 9)
@@ -294,13 +308,7 @@ def build_lines_pdf(*, title: str, subtitle: str = "", lines: list[str],
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
     if confidential:
-        c.saveState()
-        c.setFont("Helvetica-Bold", 44)
-        c.setFillColor(colors.Color(0.8, 0.3, 0.3, alpha=0.12))
-        c.translate(w / 2, h / 2)
-        c.rotate(30)
-        c.drawCentredString(0, 0, "CONFIDENTIAL - NOVA")
-        c.restoreState()
+        _draw_watermark(c, w, h, "CONFIDENTIAL · NOVA")
     c.setFont(font_name, 15)
     c.drawString(50, h - 58, title[:70])
     if subtitle:
