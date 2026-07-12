@@ -61,6 +61,7 @@ SUITES = [
     "live_f7_diff.py",              # 이력 diff 모달 — before/after 하이라이트
     "live_f8_sort.py",              # 그리드 정렬 — 헤더 토글·선택 무결성·서버 sort
     "live_g2_grid.py",              # 그리드 내 찾기(Ctrl+F)·공용 다중행 선택(전체·Shift 범위·선택 CSV)
+    "live_g1_cad_view.py",          # CAD 뷰어 — 실시간 드로잉 좌표·그리드 오버레이 토글
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
     "live_security.py",
