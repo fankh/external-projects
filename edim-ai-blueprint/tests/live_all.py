@@ -60,6 +60,7 @@ SUITES = [
     "live_f6_search.py",            # 통합 검색 확장 — 6그룹·딥링크·SETUP 게이트
     "live_f7_diff.py",              # 이력 diff 모달 — before/after 하이라이트
     "live_f8_sort.py",              # 그리드 정렬 — 헤더 토글·선택 무결성·서버 sort
+    "live_g2_grid.py",              # 그리드 내 찾기(Ctrl+F)·공용 다중행 선택(전체·Shift 범위·선택 CSV)
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
     "live_security.py",

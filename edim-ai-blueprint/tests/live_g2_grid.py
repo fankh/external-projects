@@ -36,7 +36,8 @@ with sync_playwright() as pw:
     page.locator(".titlebar .mod", has_text="ERP").first.click()
     page.wait_for_timeout(400)
     page.locator(".tn", has_text="감사 조회").first.click()
-    page.wait_for_timeout(1500)
+    page.wait_for_selector("table.g tbody tr", timeout=15000)   # 감사 500행 로드(콜드 스타트 여유)
+    page.wait_for_timeout(400)
 
     wrap = page.locator("[data-grid-wrap]", has=page.locator("table.g")).first
     wrap.wait_for(timeout=8000)
@@ -45,9 +46,11 @@ with sync_playwright() as pw:
     base_rows = grid.locator("tbody tr").count()
 
     # ── 그리드 내 찾기 ──
-    # 첫 행의 '작업(action)' 칩 텍스트를 필터어로 사용
-    action0 = grid.locator("tbody tr").first.locator("td").nth(2).inner_text().strip()
-    term = action0[: max(3, len(action0) // 2)]
+    # 검색 대상은 원시값 컬럼(작업 열은 Chip=JSX 라 비검색). 다중선택 체크박스 열로 인덱스 +1.
+    # 열: [0]체크박스 [1]일시 [2]작업(칩) [3]대상 [4]수행자 [5]사번 → 대상(target) 사용
+    tds = grid.locator("tbody tr").first.locator("td")
+    target0 = tds.nth(3).inner_text().strip() or tds.nth(4).inner_text().strip()
+    term = target0[: max(3, len(target0) // 2)]
 
     # 🔍 아이콘으로 찾기창 열기
     wrap.locator("[title='찾기 (Ctrl+F)']").click()
