@@ -907,9 +907,14 @@ export interface NotificationDigest {
 
 export const notificationService = {
   /** GET /api/v1/notifications — 폴링 (C4 우선순위·유형 필터; WS 는 후속) */
-  async list(type = ''): Promise<Notification[]> {
+  async list(type = '', unreadOnly = false, limit = 20): Promise<Notification[]> {
+    const qs = new URLSearchParams()
+    if (type) qs.set('type', type)
+    if (unreadOnly) qs.set('unreadOnly', 'true')
+    if (limit !== 20) qs.set('limit', String(limit))
+    const q = qs.toString()
     try {
-      return await api<Notification[]>(`/notifications${type ? `?type=${encodeURIComponent(type)}` : ''}`)
+      return await api<Notification[]>(`/notifications${q ? `?${q}` : ''}`)
     } catch (e) {
       if (e instanceof ApiUnavailable) return []
       throw e

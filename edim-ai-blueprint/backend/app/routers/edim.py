@@ -1935,8 +1935,10 @@ TYPE_PRIORITY = {"ESCALATION": "HIGH", "DEADLINE_WARN": "HIGH",
 
 
 @router.get("/notifications")
-def notifications(request: Request, limit: int = 20, type: str = "") -> list[dict[str, Any]]:
-    """알림 목록 (C4 — 우선순위 파생·유형 필터). ORDER: 미읽음→우선순위(HIGH>MED>LOW)→최신."""
+def notifications(request: Request, limit: int = 20, type: str = "",
+                  unreadOnly: bool = False) -> list[dict[str, Any]]:
+    """알림 목록 (C4/E6 — 우선순위 파생·유형 필터·활성/보관함). ORDER: 미읽음→우선순위→최신.
+    unreadOnly=true = 활성(미읽음만), false = 보관함(읽음 포함, 소실 방지)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         params: list[Any] = [tid, request.state.user_id]
@@ -1944,7 +1946,9 @@ def notifications(request: Request, limit: int = 20, type: str = "") -> list[dic
         if type.strip():
             type_clause = " AND notify_type=%s"
             params.append(type.strip())
-        params.append(limit)
+        if unreadOnly:
+            type_clause += " AND is_read=false"
+        params.append(max(1, min(limit, 100)))
         cur.execute(
             f"""SELECT notification_id, notify_type, title, link_url, is_read,
                       to_char(created_at,'MM-DD HH24:MI')

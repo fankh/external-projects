@@ -13,11 +13,13 @@ export function NotificationBell() {
   const [items, setItems] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const [filterType, setFilterType] = useState('')
+  const [view, setView] = useState<'active' | 'archive'>('active')   // E6 — 활성/보관함
   const [digest, setDigest] = useState<NotificationDigest | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   const load = () => {
-    void notificationService.list(filterType).then(setItems)
+    // E6 — 활성=미읽음, 보관함=읽음 포함 최근 50건 (모두 읽음 후 소실 방지)
+    void notificationService.list(filterType, view === 'active', view === 'archive' ? 50 : 20).then(setItems)
     void notificationService.digest().then(setDigest)
   }
 
@@ -25,7 +27,7 @@ export function NotificationBell() {
     load()
     const t = setInterval(load, 60_000)
     return () => clearInterval(t)
-  }, [filterType])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filterType, view])   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -35,7 +37,8 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
-  const unread = items.filter((n) => !n.read).length
+  // 배지는 항상 전체 미읽음 수(digest) — 활성/보관함 뷰·유형필터와 무관
+  const unread = digest?.unread ?? items.filter((n) => !n.read).length
 
   const clickItem = (n: Notification) => {
     if (!n.read) {
@@ -98,6 +101,21 @@ export function NotificationBell() {
               <span style={{ color: 'var(--mute)' }}>{t('bell.digest', '요약')}</span>
             </div>
           ) : null}
+          {/* E6 — 활성/보관함 탭 */}
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--line-soft)' }}>
+            {([['active', t('bell.active', '활성')], ['archive', t('bell.archive', '보관함')]] as const).map(([v, label]) => (
+              <span key={v} data-notif-view={v} role="button"
+                onClick={() => setView(v)}
+                style={{
+                  flex: 1, textAlign: 'center', padding: '4px 0', fontSize: 10.5, cursor: 'pointer',
+                  fontWeight: view === v ? 700 : 500,
+                  color: view === v ? 'var(--title-navy)' : 'var(--txt-mute)',
+                  borderBottom: view === v ? '2px solid var(--title-navy)' : '2px solid transparent',
+                }}>
+                {label}{v === 'active' && unread > 0 ? ` (${unread})` : ''}
+              </span>
+            ))}
+          </div>
           <div style={{ padding: '3px 9px', borderBottom: '1px solid var(--line-soft)' }}>
             <select value={filterType} onChange={(e) => setFilterType(e.target.value)}
               aria-label="알림 유형 필터" style={{ fontSize: 10.5, width: '100%' }}>
@@ -111,7 +129,18 @@ export function NotificationBell() {
           </div>
           <div className="gc p0" style={{ maxHeight: 280, overflow: 'auto' }}>
             {items.length === 0 ? (
-              <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('bell.empty', '알림 없음')}</div>
+              <div style={{ padding: '14px 10px', fontSize: 11, color: 'var(--txt-mute)', textAlign: 'center', lineHeight: 1.7 }}>
+                <div style={{ fontSize: 18 }}>{view === 'active' ? '✅' : '📭'}</div>
+                {view === 'active'
+                  ? t('bell.emptyActive', '새 알림 없음 — 모두 확인했습니다')
+                  : t('bell.emptyArchive', '보관된 알림이 없습니다')}
+                {view === 'active' ? (
+                  <div style={{ fontSize: 10, marginTop: 2 }}>
+                    <span data-goto-archive role="button" style={{ color: 'var(--title-navy)', cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => setView('archive')}>{t('bell.seeArchive', '보관함에서 지난 알림 보기')}</span>
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <table className="g">
                 <tbody>
