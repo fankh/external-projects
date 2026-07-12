@@ -65,6 +65,7 @@ SUITES = [
     "live_g1_cad_edit.py",          # CAD 엔티티 편집 — 이동/삭제 라운드트립·DXF 재저장·영속(정리)
     "live_g1_cad_edit2.py",         # CAD 엔티티 편집 2차 — 복사(+1)·회전 90°·미러(길이 보존·반사 항등식)
     "live_g1_cad_marquee.py",       # CAD 마퀴 다중 선택 + 일괄 편집(박스 선택→🗑 일괄 삭제·다중 op 배열)
+    "live_g1_cad_draw.py",          # CAD 자유 작도 — line/circle/rect 생성→DXF 추가·영속(UI 드래그)
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
     "live_security.py",
