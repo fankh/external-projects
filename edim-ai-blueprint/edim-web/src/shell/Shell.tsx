@@ -1,7 +1,7 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
-import { approvalService, authService, dashboardService, devReqService, menuService, pingBackend, projectService, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
+import { approvalService, authService, dashboardService, devReqService, menuService, pingBackend, prefService, projectService, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar, type MenuItem } from '../components/chrome'
 import { Btn } from '../components/controls'
 import { LnavTree } from '../components/LnavTree'
@@ -130,6 +130,26 @@ export function Shell(props: { user: User }) {
   const searchRef = useRef<HTMLInputElement>(null)
   // D10 — 사용자별 표시 모듈 (null=미로딩/전체)
   const [allowedModules, setAllowedModules] = useState<string[] | null>(null)
+  // D8 — 화면 즐겨찾기 (서버 영속)
+  const [favorites, setFavorites] = useState<{ screenId: string; code: string; title: string }[]>([])
+  useEffect(() => {
+    void prefService.get<{ screenId: string; code: string; title: string }[]>('favorites')
+      .then((f) => { if (Array.isArray(f)) setFavorites(f) })
+  }, [])
+  const activeTab = shell.tabs.find((tb) => tb.id === shell.activeTabId) ?? null
+  const isFav = activeTab ? favorites.some((f) => f.screenId === activeTab.screenId) : false
+  const toggleFavorite = () => {
+    if (!activeTab) { shell.setStatusMsg('즐겨찾기 — 화면 탭을 먼저 여십시오'); return }
+    const exists = favorites.some((f) => f.screenId === activeTab.screenId)
+    const next = exists
+      ? favorites.filter((f) => f.screenId !== activeTab.screenId)
+      : [...favorites, { screenId: activeTab.screenId, code: activeTab.code, title: activeTab.title }]
+    setFavorites(next)
+    void prefService.set('favorites', next)
+    shell.setStatusMsg(exists ? `즐겨찾기 해제 — ${activeTab.title}` : `즐겨찾기 추가 ✓ — ${activeTab.title} (서버 저장)`)
+  }
+  const openFavorite = (f: { screenId: string; code: string; title: string }) =>
+    shell.openTab({ screenId: f.screenId, code: f.code, title: f.title })
 
   useEffect(() => {
     const unsub = subscribeDataSource(setSource)
@@ -400,6 +420,18 @@ export function Shell(props: { user: User }) {
           onClick={() => window.dispatchEvent(new CustomEvent('edim-undo'))}>↶</span>
         <span className="b ic" title="다시 실행 (Ctrl+Y)"
           onClick={() => window.dispatchEvent(new CustomEvent('edim-redo'))}>↷</span>
+        <span className="sep" />
+        {/* D8 — 화면 즐겨찾기 */}
+        <span className="b ic" data-fav-toggle
+          title={isFav ? '즐겨찾기 해제' : '현재 화면 즐겨찾기 추가'}
+          style={{ color: isFav ? '#E8B84B' : undefined }}
+          onClick={toggleFavorite}>{isFav ? '★' : '☆'}</span>
+        {favorites.slice(0, 8).map((f) => (
+          <span key={f.screenId} className="b" data-fav-chip
+            title={`즐겨찾기 — ${f.code} ${f.title}`}
+            style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            onClick={() => openFavorite(f)}>★ {f.title}</span>
+        ))}
         <span className="sep" />
         <span className="b" title="VARIANT 바인딩 치수 — Design Editor"
           onClick={() => {

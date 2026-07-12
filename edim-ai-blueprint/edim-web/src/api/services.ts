@@ -2455,6 +2455,30 @@ export const xlsxService = {
   },
 }
 
+// D8 — 사용자 환경설정 (즐겨찾기·컬럼 설정 등)
+export const prefService = {
+  /** GET /api/v1/prefs/{key} — 값(null=미설정/백엔드 불가) */
+  async get<T = unknown>(key: string): Promise<T | null> {
+    try {
+      const r = await api<{ value: T | null }>(`/prefs/${encodeURIComponent(key)}`)
+      return r.value
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** PUT /api/v1/prefs/{key} — 저장 (true=성공, false=백엔드 불가) */
+  async set(key: string, value: unknown): Promise<boolean> {
+    try {
+      await api(`/prefs/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ value }) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 // D10 — Head 메뉴 편집 (사용자별 모듈 표시 구성)
 export const menuService = {
   /** GET /api/v1/menu/config — 현재 사용자 표시 모듈 (null=백엔드 불가 → 전체 표시) */

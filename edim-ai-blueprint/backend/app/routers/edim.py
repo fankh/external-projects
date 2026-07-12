@@ -4775,6 +4775,43 @@ def menu_config_put(login: str, request: Request, body: MenuConfigPut) -> dict[s
     return {"login": login, "modules": mods, "effective": eff, "restricted": restricted}
 
 
+# ── D8 사용자 환경설정 (sys_user_pref) — 즐겨찾기·컬럼 설정 등 ──
+PREF_KEYS = ("favorites", "recent", "gridColumns")
+
+
+class PrefPut(BaseModel):
+    value: Any = None   # 임의 JSON (배열/객체) — 클라이언트 UI 상태
+
+
+@router.get("/prefs/{key}")
+def pref_get(key: str, request: Request) -> dict[str, Any]:
+    """현재 사용자 환경설정 조회 (D8). 미설정 시 빈 값."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT pref_value FROM sys_user_pref WHERE tenant_id=%s AND login_id=%s AND pref_key=%s",
+            (tid, request.state.login, key.strip()[:60]))
+        row = cur.fetchone()
+    return {"key": key, "value": row[0] if row else None}
+
+
+@router.put("/prefs/{key}")
+def pref_put(key: str, request: Request, body: PrefPut) -> dict[str, Any]:
+    """환경설정 저장 (D8) — key-value(jsonb) upsert. 사용자 본인 범위."""
+    k = key.strip()[:60]
+    if not k:
+        raise HTTPException(422, detail="pref key 필요")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """INSERT INTO sys_user_pref (tenant_id, login_id, pref_key, pref_value)
+               VALUES (%s,%s,%s,%s)
+               ON CONFLICT (tenant_id, login_id, pref_key)
+               DO UPDATE SET pref_value=EXCLUDED.pref_value, updated_at=now()""",
+            (tid, request.state.login, k, json.dumps(body.value)))
+    return {"key": k, "saved": True}
+
+
 # ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──
 OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
                "DATA": ("기술자료", "ok"), "BOM": ("BOM", "ok")}
