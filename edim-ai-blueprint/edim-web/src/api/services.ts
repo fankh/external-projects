@@ -2950,6 +2950,13 @@ export const cadService = {
       throw e
     }
   },
+  /** POST /api/v1/cad/view/{fileId}/edit — 엔티티 이동/삭제 → DXF 재저장 후 재파싱 문서 */
+  async edit(fileId: number, ops: { op: 'move' | 'delete'; entityId: string; dx?: number; dy?: number }[]):
+  Promise<{ applied: number; document: CadDocument }> {
+    return api<{ applied: number; document: CadDocument }>(`/cad/view/${fileId}/edit`, {
+      method: 'POST', body: JSON.stringify({ ops }),
+    })
+  },
   /** POST /api/v1/cad/import — DXF/DWG 업로드 + 파싱 + Folder 등록 */
   async importFile(file: globalThis.File, project: string):
   Promise<{ fileId: number; document: CadDocument } | null> {

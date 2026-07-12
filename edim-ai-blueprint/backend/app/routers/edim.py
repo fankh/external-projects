@@ -1866,6 +1866,102 @@ def cad_view(file_id: int) -> dict[str, Any]:
     return {"fileId": file_id, "document": _parse_cad_bytes(data, row[1])}
 
 
+class CadEditOp(BaseModel):
+    op: str            # 'move' | 'delete'
+    entityId: str
+    dx: float = 0.0
+    dy: float = 0.0
+
+
+class CadEditRequest(BaseModel):
+    ops: list[CadEditOp]
+
+
+# importer 와 동일한 인식 타입 집합 — entityId(e1..) 순번 규칙 일치 보장
+_CAD_EDIT_TYPES = ("LINE", "LWPOLYLINE", "POLYLINE", "CIRCLE", "ARC", "TEXT", "MTEXT")
+
+
+@router.post("/cad/view/{file_id}/edit", dependencies=[SETUP])
+def cad_edit(file_id: int, request: Request, body: CadEditRequest) -> dict[str, Any]:
+    """G1 엔티티 편집 — 이동/삭제 → DXF 재저장(MinIO 덮어쓰기) 후 재파싱 문서 반환.
+    entityId = 인식 엔티티(LINE/POLYLINE/CIRCLE/ARC/TEXT) 모델스페이스 순번(e1..) — importer 규칙과 동일."""
+    import tempfile
+    from pathlib import Path
+
+    import ezdxf
+    from ezdxf import recover
+
+    if not body.ops:
+        raise HTTPException(422, detail="편집 작업이 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT file_path, file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
+            (tid, file_id))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"file not found: {file_id}")
+    file_path, file_name = row
+    if Path(file_name).suffix.lower() != ".dxf":
+        raise HTTPException(501, detail="편집은 DXF 만 지원 (DWG=ODA 변환 대기)")
+    try:
+        data = storage.get_object(file_path).read()
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+
+    with tempfile.TemporaryDirectory(prefix="edim_cadedit_") as tmp:
+        src = Path(tmp) / Path(file_name).name
+        src.write_bytes(data)
+        try:
+            doc = ezdxf.readfile(str(src))
+        except ezdxf.DXFStructureError:
+            doc, _auditor = recover.readfile(str(src))
+        msp = doc.modelspace()
+        id_map: dict[str, Any] = {}
+        seq = 0
+        for entity in msp:
+            if entity.dxftype() in _CAD_EDIT_TYPES:
+                seq += 1
+                id_map[f"e{seq}"] = entity
+        applied = 0
+        for op in body.ops:
+            ent = id_map.get(op.entityId)
+            if ent is None:
+                continue
+            if op.op == "delete":
+                msp.delete_entity(ent)
+                applied += 1
+            elif op.op == "move":
+                try:
+                    ent.translate(op.dx, op.dy, 0)   # 도면 좌표 델타
+                    applied += 1
+                except (AttributeError, TypeError):
+                    try:
+                        from ezdxf.math import Matrix44
+                        ent.transform(Matrix44.translate(op.dx, op.dy, 0))
+                        applied += 1
+                    except Exception:
+                        pass
+        if applied == 0:
+            raise HTTPException(422, detail="적용 가능한 편집 대상이 없습니다 (entityId 확인)")
+        out = Path(tmp) / "edited.dxf"
+        doc.saveas(str(out))
+        new_bytes = out.read_bytes()
+
+    try:
+        storage.put_object(file_path, new_bytes, "application/dxf")
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("UPDATE dwg_file SET file_size=%s WHERE tenant_id=%s AND file_id=%s",
+                    (len(new_bytes), tid, file_id))
+        _audit(cur, tid, "dwg_file", file_id, "CAD_EDIT", request.state.user_id,
+               {"ops": len(body.ops), "applied": applied})
+    return {"fileId": file_id, "applied": applied,
+            "document": _parse_cad_bytes(new_bytes, file_name)}
+
+
 @router.post("/cad/import", status_code=201, dependencies=[SETUP])
 async def cad_import(
     uploadedFile: UploadFile = File(...),

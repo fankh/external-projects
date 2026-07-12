@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { cadService, fileService, type CadDocument } from '../../api/services'
 import { Btn, Chip } from '../../components/controls'
-import { CadSvg, type LayerOverride } from '../../components/CadSvg'
+import { CadSvg, type CadEditOp, type LayerOverride } from '../../components/CadSvg'
 import { useI18n } from '../../i18n/I18nContext'
+import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
 export function CadViewerScreen({ tab }: ScreenProps) {
   const shell = useShell()
   const { t } = useI18n()
+  const perm = usePermission()
   const { setStatusMsg } = shell
   const fileId = Number(tab.params?.fileId ?? 0)
   const name = String(tab.params?.name ?? 'drawing.dxf')
@@ -36,6 +38,18 @@ export function CadViewerScreen({ tab }: ScreenProps) {
 
   // B16 DWG-025 특성 편집 — 레이어별 색·선굵기 오버라이드 (표시 속성, 원본 DXF 불변)
   const [overrides, setOverrides] = useState<Record<string, LayerOverride>>({})
+
+  // G1 엔티티 편집 — 이동/삭제 → DXF 재저장(SETUP). DXF 만 편집 가능(DWG=501)
+  const canEdit = perm.canWrite() && (doc?.sourceFormat === 'dxf')
+  const onEdit = (ops: CadEditOp[]) => {
+    void cadService.edit(fileId, ops)
+      .then((r) => {
+        setDoc(r.document)
+        const op = ops[0]
+        setStatusMsg(`CAD ${op.op === 'delete' ? '삭제' : '이동'} ✓ — ${r.applied}건 반영·DXF 재저장 (엔티티 ${r.document.entities.length})`)
+      })
+      .catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
 
   const layerColor = useMemo(() => {
     const m: Record<string, string> = {}
@@ -122,7 +136,8 @@ export function CadViewerScreen({ tab }: ScreenProps) {
         </div>
         <div style={{ flex: 1, background: '#fff', minWidth: 0 }}>
           {doc ? (
-            <CadSvg doc={doc} hiddenLayers={hidden} layerOverrides={overrides} />
+            <CadSvg doc={doc} hiddenLayers={hidden} layerOverrides={overrides}
+              editable={canEdit} onEdit={onEdit} />
           ) : (
             <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11.5, textAlign: 'center', lineHeight: 2 }}>
               {error

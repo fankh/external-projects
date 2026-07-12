@@ -149,10 +149,15 @@ function entityInfo(e: CadEntity): { title: string; rows: [string, string][] } {
 
 export interface LayerOverride { color?: string; width?: number }   // B16 특성 편집 (DWG-025)
 
+export interface CadEditOp { op: 'move' | 'delete'; entityId: string; dx?: number; dy?: number }
+
 export function CadSvg(props: {
   doc: CadDocument
   hiddenLayers?: Set<string>
   layerOverrides?: Record<string, LayerOverride>
+  /** G1 편집 — 지정 시 ✎ 편집 모드(선택 엔티티 드래그 이동·Delete 삭제) 활성 */
+  editable?: boolean
+  onEdit?: (ops: CadEditOp[]) => void
 }) {
   const { doc } = props
   const { t } = useI18n()
@@ -189,11 +194,17 @@ export function CadSvg(props: {
   const [selId, setSelId] = useState<string | null>(null)
   const [cur, setCur] = useState<Pt | null>(null)   // 실시간 커서 도면 좌표
   const [gridOn, setGridOn] = useState(false)       // 그리드 오버레이
+  // G1 편집 모드
+  const [editOn, setEditOn] = useState(false)
+  const editRef = useRef(editOn)
+  editRef.current = editOn && !!props.editable
+  const edrag = useRef<{ id: string; sx: number; sy: number } | null>(null)
+  const [editPreview, setEditPreview] = useState<{ id: string; dx: number; dy: number } | null>(null)
   const selected = useMemo(
     () => doc.entities.find((e) => e.entityId === selId) ?? null, [doc, selId])
 
-  // 문서 변경 시 측정·선택 초기화
-  useEffect(() => { setM1(null); setM2(null); setMHover(null); setSelId(null) }, [doc])
+  // 문서 변경 시 측정·선택·편집 프리뷰 초기화
+  useEffect(() => { setM1(null); setM2(null); setMHover(null); setSelId(null); setEditPreview(null); edrag.current = null }, [doc])
 
   // client px → 도면 단위 스케일 (preserveAspectRatio=meet 기준)
   const pxScale = (v: VB) => {
@@ -403,6 +414,10 @@ export function CadSvg(props: {
           const next = !measureOn
           setMeasureOn(next)
           if (!next) { setM1(null); setM2(null); setMHover(null) }
+        } else if ((e.key === 'Delete' || e.key === 'Backspace') && props.editable && editOn && selId) {
+          // 편집 모드 — 선택 엔티티 삭제 (전역 F3 로 전파 차단)
+          e.preventDefault(); e.nativeEvent.stopImmediatePropagation()
+          props.onEdit?.([{ op: 'delete', entityId: selId }]); setSelId(null)
         } else if (e.key === 'Escape') {
           e.preventDefault()
           setM1(null); setM2(null); setMHover(null); setSelId(null)
@@ -417,6 +432,15 @@ export function CadSvg(props: {
         onPointerDown={(e) => {
           if (e.button !== 0) return
           e.currentTarget.setPointerCapture(e.pointerId)
+          // 편집 모드: 엔티티 히트 시 이동 드래그 시작(팬 대신)
+          if (editRef.current && !measureRef.current) {
+            const hit = pick(toDrawing(e.clientX, e.clientY))
+            if (hit) {
+              setSelId(hit.entityId)
+              edrag.current = { id: hit.entityId, sx: e.clientX, sy: e.clientY }
+              return
+            }
+          }
           drag.current = {
             px: e.clientX, py: e.clientY, vb: viewRef.current,
             scale: pxScale(viewRef.current), moved: false,
@@ -425,6 +449,13 @@ export function CadSvg(props: {
         }}
         onPointerMove={(e) => {
           setCur(toDrawing(e.clientX, e.clientY))   // 실시간 좌표
+          if (edrag.current) {
+            const s = edrag.current
+            const a = toDrawing(s.sx, s.sy)
+            const b = toDrawing(e.clientX, e.clientY)
+            setEditPreview({ id: s.id, dx: b.x - a.x, dy: b.y - a.y })
+            return
+          }
           const d = drag.current
           if (d) {
             if (Math.hypot(e.clientX - d.px, e.clientY - d.py) > 4) d.moved = true
@@ -438,12 +469,23 @@ export function CadSvg(props: {
           }
         }}
         onPointerUp={(e) => {
+          if (edrag.current) {
+            const s = edrag.current
+            edrag.current = null
+            const a = toDrawing(s.sx, s.sy)
+            const b = toDrawing(e.clientX, e.clientY)
+            const dx = b.x - a.x, dy = b.y - a.y
+            setEditPreview(null)
+            if (Math.hypot(dx, dy) > pxScale(viewRef.current) * 3)  // 클릭 오차 초과 = 이동
+              props.onEdit?.([{ op: 'move', entityId: s.id, dx, dy }])
+            return
+          }
           const d = drag.current
           drag.current = null
           setDragging(false)
           if (d && !d.moved) handleClick(e.clientX, e.clientY)
         }}
-        onPointerCancel={() => { drag.current = null; setDragging(false) }}
+        onPointerCancel={() => { drag.current = null; edrag.current = null; setEditPreview(null); setDragging(false) }}
         onPointerLeave={() => setCur(null)}
         onDoubleClick={() => { if (!measureRef.current) setVb(null) }}>
         {gridOn ? (
@@ -456,7 +498,11 @@ export function CadSvg(props: {
         ) : null}
         <g transform="scale(1,-1)">
           {visibleEntities.filter((e) => e.entityId !== selId).map((e) => render(e, false))}
-          {selected && !hidden.has(selected.layerName) ? render(selected, true) : null}
+          {selected && !hidden.has(selected.layerName) ? (
+            editPreview && editPreview.id === selId
+              ? <g transform={`translate(${editPreview.dx} ${editPreview.dy})`}>{render(selected, true)}</g>
+              : render(selected, true)
+          ) : null}
         </g>
         {/* 측정 오버레이 — 도면 좌표 (y 부호 반전) */}
         {m1 && mEnd ? (
@@ -485,6 +531,20 @@ export function CadSvg(props: {
           onClick={() => zoomCenter(1.4)}>－</button>
         <button type="button" style={btn} title={t('cad.fitTitle', '맞춤 (더블클릭)')} data-cad-fit
           onClick={() => setVb(null)}>⌂</button>
+        {props.editable ? (
+          <button type="button" data-cad-edit-toggle
+            style={{
+              ...btn, width: 'auto', padding: '0 7px', fontSize: 10.5,
+              ...(editOn ? { background: '#2F9463', color: '#fff', borderColor: '#2F9463' } : {}),
+            }}
+            title={t('cad.editTitle', '편집 — 엔티티 드래그 이동 · Delete 삭제')}
+            onClick={() => {
+              const next = !editOn
+              setEditOn(next)
+              if (next) { setMeasureOn(false); setM1(null); setM2(null); setMHover(null) }
+              else { edrag.current = null; setEditPreview(null) }
+            }}>✎ {t('cad.edit', '편집')}</button>
+        ) : null}
         <button type="button" data-cad-grid-toggle
           style={{ ...btn, ...(gridOn ? { background: '#26406E', color: '#fff', borderColor: '#26406E' } : {}) }}
           title={t('cad.gridTitle', '그리드 오버레이')}
@@ -531,6 +591,11 @@ export function CadSvg(props: {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <b style={{ color: '#D97706' }}>{info.title}</b>
             <span style={{ flex: 1 }} />
+            {props.editable && editOn && selId ? (
+              <span data-cad-delete style={{ cursor: 'pointer', color: '#B3372F' }}
+                title="삭제 (Delete)"
+                onClick={() => { props.onEdit?.([{ op: 'delete', entityId: selId }]); setSelId(null) }}>🗑</span>
+            ) : null}
             <span style={{ cursor: 'pointer', color: 'var(--txt-mute)' }}
               onClick={() => setSelId(null)}>✕</span>
           </div>
@@ -549,7 +614,9 @@ export function CadSvg(props: {
       }}>
         {measureOn
           ? t('cad.measureHint', '두 점 클릭 = 거리 측정 · 끝점/중심 자동 스냅')
-          : t('cad.hint', '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성')}
+          : editOn
+            ? t('cad.editHint', '엔티티 드래그 = 이동 · 선택 후 Delete = 삭제 (DXF 재저장)')
+            : t('cad.hint', '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성')}
         {' · +/−/0/M/Esc'}
       </div>
     </div>
