@@ -5622,6 +5622,150 @@ def calendar_due(start: str, days: int) -> dict[str, Any]:
     return {"start": start, "days": days, "due": due.isoformat()}
 
 
+# ── G3 다통화/환율 + 세금 엔진 (fx_rate·tax_code) ──
+def _fx_rate(cur, tid: int, currency: str) -> float | None:
+    """최신 환율(외화 1 = ? KRW). KRW=1."""
+    c = currency.strip().upper()
+    if c == "KRW":
+        return 1.0
+    cur.execute("SELECT rate FROM fx_rate WHERE tenant_id=%s AND currency=%s "
+                "ORDER BY valid_from DESC LIMIT 1", (tid, c))
+    r = cur.fetchone()
+    return float(r[0]) if r else None
+
+
+@router.get("/finance/fx")
+def fx_list() -> list[dict[str, Any]]:
+    """환율 목록 — 통화별 최신 (기준통화 KRW=1 포함)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT DISTINCT ON (currency) fx_id, currency, rate, to_char(valid_from,'YYYY-MM-DD')
+               FROM fx_rate WHERE tenant_id=%s ORDER BY currency, valid_from DESC""", (tid,))
+        rows = [{"fxId": r[0], "currency": r[1], "rate": float(r[2]), "validFrom": r[3]}
+                for r in cur.fetchall()]
+    return [{"fxId": 0, "currency": "KRW", "rate": 1.0, "validFrom": "기준통화"}] + rows
+
+
+class FxCreate(BaseModel):
+    currency: str
+    rate: float
+    validFrom: str = ""
+
+
+@router.post("/finance/fx", status_code=201, dependencies=[SETUP])
+def fx_upsert(request: Request, body: FxCreate) -> dict[str, Any]:
+    """환율 등록/갱신 (통화+적용일 upsert). KRW 는 기준통화라 등록 불가."""
+    c = body.currency.strip().upper()[:3]
+    if c == "KRW":
+        raise HTTPException(422, detail="KRW 는 기준통화(고정 1)")
+    if not c or body.rate <= 0:
+        raise HTTPException(422, detail="필수 — 통화·환율(>0)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        vf = body.validFrom.strip() or None
+        cur.execute(
+            """INSERT INTO fx_rate (tenant_id, currency, rate, valid_from, created_by)
+               VALUES (%s,%s,%s,COALESCE(%s::date, CURRENT_DATE),%s)
+               ON CONFLICT (tenant_id, currency, valid_from)
+               DO UPDATE SET rate=EXCLUDED.rate RETURNING fx_id""",
+            (tid, c, body.rate, vf, str(request.state.user_id)))
+        fid = cur.fetchone()[0]
+        _audit(cur, tid, "fx_rate", fid, "FX_SET", request.state.user_id, {"currency": c, "rate": body.rate})
+    return {"fxId": fid, "currency": c, "rate": body.rate}
+
+
+@router.delete("/finance/fx/{fx_id}", dependencies=[SETUP])
+def fx_delete(fx_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("DELETE FROM fx_rate WHERE tenant_id=%s AND fx_id=%s RETURNING currency", (tid, fx_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail="환율 없음")
+        _audit(cur, tid, "fx_rate", fx_id, "DELETE", request.state.user_id, {})
+    return {"deleted": fx_id}
+
+
+@router.get("/finance/tax-codes")
+def tax_codes() -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT tax_id, code, name, rate_pct FROM tax_code WHERE tenant_id=%s ORDER BY code", (tid,))
+        return [{"taxId": r[0], "code": r[1], "name": r[2], "ratePct": float(r[3])} for r in cur.fetchall()]
+
+
+class TaxCreate(BaseModel):
+    code: str
+    name: str
+    ratePct: float = 0
+
+
+@router.post("/finance/tax-codes", status_code=201, dependencies=[SETUP])
+def tax_code_create(request: Request, body: TaxCreate) -> dict[str, Any]:
+    code = body.code.strip().upper()[:20]
+    if not code or not body.name.strip():
+        raise HTTPException(422, detail="필수 — 코드·명칭")
+    if not (0 <= body.ratePct <= 100):
+        raise HTTPException(422, detail="세율 0~100")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM tax_code WHERE tenant_id=%s AND code=%s", (tid, code))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 세금코드 {code}")
+        cur.execute(
+            "INSERT INTO tax_code (tenant_id, code, name, rate_pct, created_by) "
+            "VALUES (%s,%s,%s,%s,%s) RETURNING tax_id",
+            (tid, code, body.name.strip()[:100], body.ratePct, str(request.state.user_id)))
+        tx = cur.fetchone()[0]
+        _audit(cur, tid, "tax_code", tx, "CREATE", request.state.user_id, {"code": code})
+    return {"taxId": tx, "code": code}
+
+
+@router.delete("/finance/tax-codes/{tax_id}", dependencies=[SETUP])
+def tax_code_delete(tax_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("DELETE FROM tax_code WHERE tenant_id=%s AND tax_id=%s RETURNING code", (tid, tax_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail="세금코드 없음")
+        _audit(cur, tid, "tax_code", tax_id, "DELETE", request.state.user_id, {})
+    return {"deleted": tax_id}
+
+
+class QuoteCalcRequest(BaseModel):
+    currency: str = "KRW"
+    amount: float = 0
+    taxCode: str = ""
+
+
+@router.post("/finance/quote-calc")
+def quote_calc(body: QuoteCalcRequest) -> dict[str, Any]:
+    """세금엔진 — 통화 금액 → 세액·합계 + 기준통화(KRW) 환산."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        rate = _fx_rate(cur, tid, body.currency)
+        if rate is None:
+            raise HTTPException(422, detail=f"환율 미등록 통화: {body.currency}")
+        pct = 0.0
+        if body.taxCode.strip():
+            cur.execute("SELECT rate_pct FROM tax_code WHERE tenant_id=%s AND code=%s",
+                        (tid, body.taxCode.strip().upper()))
+            tr = cur.fetchone()
+            if not tr:
+                raise HTTPException(422, detail=f"세금코드 없음: {body.taxCode}")
+            pct = float(tr[0])
+    cur_c = body.currency.strip().upper()
+    amt = round(body.amount, 2)
+    tax = round(amt * pct / 100, 2)
+    total = round(amt + tax, 2)
+    return {
+        "currency": cur_c, "rate": rate, "taxPct": pct,
+        "amount": amt, "taxAmount": tax, "total": total,
+        "baseAmount": round(amt * rate, 2), "baseTax": round(tax * rate, 2),
+        "baseTotal": round(total * rate, 2), "baseCurrency": "KRW",
+    }
+
+
 # ── D10 Head 메뉴 편집 (sys_menu_config) — 사용자별 모듈 표시 구성 ──
 ALL_MODULES = ["cpq", "plm", "code", "erp", "toolbox", "common"]
 MODULE_LABELS = {"cpq": "CPQ", "plm": "PLM", "code": "Code Set-up",

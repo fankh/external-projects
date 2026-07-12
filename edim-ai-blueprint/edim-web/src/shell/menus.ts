@@ -45,6 +45,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'erp-cost-actual': { screenId: 'erp-cost-actual', code: 'D-6', title: '원가 실적' },
   'erp-milestone': { screenId: 'erp-milestone', code: 'D-7', title: '일정·마일스톤' },
   'erp-calendar': { screenId: 'erp-calendar', code: 'M-8-6', title: '근무일·휴일 캘린더' },
+  'erp-finance': { screenId: 'erp-finance', code: 'M-13-1', title: '다통화·세금 마스터' },
   'erp-process': { screenId: 'erp-process', code: 'M-14-7', title: 'Process Set-up' },
   'erp-purchase': { screenId: 'erp-purchase', code: 'M-8-2', title: '구매·발주' },
   'plm-arr': { screenId: 'plm-arr', code: 'M-4-2', title: 'Arrangement Set-Up' },
@@ -152,6 +153,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
           { id: 'erp-sales-order', label: '수주 관리 (D-1)' },
           { id: 'erp-milestone', label: '일정·마일스톤 (D-7)' },
           { id: 'erp-calendar', label: '근무일·휴일 캘린더 (M-8-6)' },
+          { id: 'erp-finance', label: '다통화·세금 마스터 (M-13-1)' },
         ],
       },
       {

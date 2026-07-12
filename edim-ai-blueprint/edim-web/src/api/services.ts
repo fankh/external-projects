@@ -3328,6 +3328,37 @@ export interface ProductCodeRow {
   status: string; createdAt: string; refs: number
 }
 
+export interface FxRow { fxId: number; currency: string; rate: number; validFrom: string }
+export interface TaxCodeRow { taxId: number; code: string; name: string; ratePct: number }
+export interface QuoteCalc {
+  currency: string; rate: number; taxPct: number; amount: number; taxAmount: number; total: number
+  baseAmount: number; baseTax: number; baseTotal: number; baseCurrency: string
+}
+
+export const financeService = {
+  async fx(): Promise<FxRow[] | null> {
+    try { return await api<FxRow[]>('/finance/fx') } catch (e) { if (e instanceof ApiUnavailable) return null; throw e }
+  },
+  async setFx(currency: string, rate: number, validFrom = ''): Promise<boolean> {
+    try { await api('/finance/fx', { method: 'POST', body: JSON.stringify({ currency, rate, validFrom }) }); return true } catch (e) { if (e instanceof ApiUnavailable) return false; throw e }
+  },
+  async removeFx(id: number): Promise<boolean> {
+    try { await api(`/finance/fx/${id}`, { method: 'DELETE' }); return true } catch (e) { if (e instanceof ApiUnavailable) return false; throw e }
+  },
+  async taxCodes(): Promise<TaxCodeRow[] | null> {
+    try { return await api<TaxCodeRow[]>('/finance/tax-codes') } catch (e) { if (e instanceof ApiUnavailable) return null; throw e }
+  },
+  async addTax(code: string, name: string, ratePct: number): Promise<boolean> {
+    try { await api('/finance/tax-codes', { method: 'POST', body: JSON.stringify({ code, name, ratePct }) }); return true } catch (e) { if (e instanceof ApiUnavailable) return false; throw e }
+  },
+  async removeTax(id: number): Promise<boolean> {
+    try { await api(`/finance/tax-codes/${id}`, { method: 'DELETE' }); return true } catch (e) { if (e instanceof ApiUnavailable) return false; throw e }
+  },
+  async quoteCalc(currency: string, amount: number, taxCode: string): Promise<QuoteCalc> {
+    return api<QuoteCalc>('/finance/quote-calc', { method: 'POST', body: JSON.stringify({ currency, amount, taxCode }) })
+  },
+}
+
 export interface HolidayRow { holidayId: number; date: string; name: string }
 
 export const calendarService = {
