@@ -4848,17 +4848,20 @@ OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
 
 
 @router.get("/files")
-def project_files(project: str = "PS-61313-5") -> list[dict[str, Any]]:
+def project_files(project: str = "PS-61313-5", allRuns: bool = False) -> list[dict[str, Any]]:
+    """Project Folder 파일 — 기본은 최신 SUCCESS Run 산출물만(최신 Rev 필터). allRuns=true=전체 Run."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        run_clause = ("" if allRuns else
+                      " AND r.run_id = (SELECT max(run_id) FROM cpq_run "
+                      "WHERE tenant_id=%s AND status='SUCCESS')")
+        params = (tid,) if allRuns else (tid, tid)
         cur.execute(
-            """SELECT o.output_type, o.data->>'file', o.data->>'fileType',
-                      o.run_id, to_char(o.created_at,'MM-DD')
-               FROM cpq_output o
-               JOIN cpq_run r ON r.run_id=o.run_id AND r.tenant_id=%s
-               WHERE r.run_id = (SELECT max(run_id) FROM cpq_run
-                                 WHERE tenant_id=%s AND status='SUCCESS')
-               ORDER BY o.output_id""", (tid, tid))
+            f"""SELECT o.output_type, o.data->>'file', o.data->>'fileType',
+                       o.run_id, to_char(o.created_at,'MM-DD')
+                FROM cpq_output o
+                JOIN cpq_run r ON r.run_id=o.run_id AND r.tenant_id=%s{run_clause}
+                ORDER BY o.run_id DESC, o.output_id""", params)
         rows = cur.fetchall()
     files = [
         {

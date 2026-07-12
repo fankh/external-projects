@@ -18,14 +18,15 @@ export function ProjectFolderScreen({ tab }: ScreenProps) {
   const [selFile, setSelFile] = useState<string | null>(null)
   const [hist, setHist] = useState<HistoryRow[]>([])
   const [files, setFiles] = useState<FolderFileEx[]>([])
+  const [allRuns, setAllRuns] = useState(false)   // E3 — 최신 Rev(기본) / 전체 Rev 토글
   const fileInput = useRef<HTMLInputElement>(null)
 
-  const loadFiles = () => void fileService.list('PS-61313-5').then(setFiles)
+  const loadFiles = () => void fileService.list('PS-61313-5', allRuns).then(setFiles)
 
   useEffect(() => {
     void historyService.recent().then(setHist)
     loadFiles()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allRuns]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const upload = (f: globalThis.File) => {
     void (async () => {
@@ -183,6 +184,9 @@ export function ProjectFolderScreen({ tab }: ScreenProps) {
                   e.target.value = ''
                 }} />
               <Btn variant="pri" onClick={() => fileInput.current?.click()}>⬆ {t('common.upload', '업로드')} ({folder})</Btn>
+              <Btn onClick={() => setAllRuns((v) => !v)}
+                title="최신 Rev(기본) / 전체 Run 산출물 전환">
+                {allRuns ? '전체 Rev ✓' : '최신 Rev'}</Btn>
               <Btn onClick={zipDownload} disabled={rows.length === 0}>{t('folder.zipDownload', 'ZIP 다운로드')}</Btn>
               <Btn onClick={customerExport}>{t('folder.customerExport', '고객 전달용 내보내기')}</Btn>
             </div>

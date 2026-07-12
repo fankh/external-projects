@@ -831,9 +831,9 @@ export interface FolderFileEx extends FolderFile { fileId?: number; registrant?:
 
 export const fileService = {
   /** GET /api/v1/files — cpq_output 실산출물 + dwg_file 업로드 + RECEIVED */
-  async list(project: string): Promise<FolderFileEx[]> {
+  async list(project: string, allRuns = false): Promise<FolderFileEx[]> {
     try {
-      return await api<FolderFileEx[]>(`/files?project=${encodeURIComponent(project)}`)
+      return await api<FolderFileEx[]>(`/files?project=${encodeURIComponent(project)}${allRuns ? '&allRuns=true' : ''}`)
     } catch (e) {
       if (!(e instanceof ApiUnavailable)) throw e
       return FOLDER_FILES
