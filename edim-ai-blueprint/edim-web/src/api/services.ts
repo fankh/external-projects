@@ -2468,6 +2468,25 @@ export const xlsxService = {
   },
 }
 
+// G3 — BOM 비교 (두 코드 구성 diff)
+export interface BomCompare {
+  base: string; target: string; baseCount: number; targetCount: number
+  added: { code: string; name: string; qty: number }[]
+  removed: { code: string; name: string; qty: number }[]
+  changed: { code: string; name: string; baseQty: number; targetQty: number }[]
+  unchanged: number; identical: boolean
+}
+export const bomService = {
+  async compare(base: string, target: string): Promise<BomCompare | null> {
+    try {
+      return await api<BomCompare>(`/codes/bom-compare?base=${encodeURIComponent(base)}&target=${encodeURIComponent(target)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
 // G3 — 발주 라이프사이클 (PO 헤더+라인·승인·입고)
 export interface PoRow {
   poNo: string; supplier: string; status: string; statusLabel: string

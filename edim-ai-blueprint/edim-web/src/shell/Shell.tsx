@@ -19,6 +19,7 @@ import { ArrangementSetupScreen } from '../screens/plm/ArrangementSetupScreen'
 import { DesignEditorScreen } from '../screens/plm/DesignEditorScreen'
 import { PartLedgerScreen } from '../screens/plm/PartLedgerScreen'
 import { EcoChangeScreen } from '../screens/plm/EcoChangeScreen'
+import { BomCompareScreen } from '../screens/plm/BomCompareScreen'
 import { QualityScreen } from '../screens/plm/QualityScreen'
 import { HierarchyScreen } from '../screens/code/HierarchyScreen'
 import { MaterialGpiScreen } from '../screens/code/MaterialGpiScreen'
@@ -110,6 +111,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'code-hierarchy': HierarchyScreen,
   'plm-parts': PartLedgerScreen,
   'plm-eco': EcoChangeScreen,
+  'plm-bom-compare': BomCompareScreen,
   'erp-warehouse': WarehouseScreen,
   'com-approval': ApprovalInboxScreen,
   'com-tasks': TaskBoxScreen,

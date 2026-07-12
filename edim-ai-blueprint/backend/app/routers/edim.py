@@ -3348,6 +3348,50 @@ def code_referencers(code: str) -> list[dict[str, Any]]:
         ]
 
 
+def _code_children(cur, tid: int, code: str) -> dict[str, dict[str, Any]] | None:
+    """코드의 BOM 구성(child main_code → {name, qty}). 코드 미존재 시 None."""
+    cur.execute("SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+                (tid, code))
+    if not cur.fetchone():
+        return None
+    cur.execute(
+        """SELECT cc.main_code, cc.code_name, r.quantity
+           FROM code_relationship r
+           JOIN product_code mc ON mc.product_code_id=r.mother_code_id
+           JOIN product_code cc ON cc.product_code_id=r.child_code_id
+           WHERE r.tenant_id=%s AND mc.main_code=%s ORDER BY cc.main_code""", (tid, code))
+    return {r[0]: {"name": r[1], "qty": float(r[2])} for r in cur.fetchall()}
+
+
+@router.get("/codes/bom-compare")
+def bom_compare(base: str = "", target: str = "") -> dict[str, Any]:
+    """BOM 비교 (G3) — 두 코드 구성 diff: 추가/삭제/수량변경/동일."""
+    if not base.strip() or not target.strip():
+        raise HTTPException(422, detail="base·target 코드 필요")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        b = _code_children(cur, tid, base.strip())
+        t = _code_children(cur, tid, target.strip())
+    if b is None:
+        raise HTTPException(404, detail=f"코드 없음: {base}")
+    if t is None:
+        raise HTTPException(404, detail=f"코드 없음: {target}")
+    added, removed, changed, same = [], [], [], 0
+    for code, tv in t.items():
+        if code not in b:
+            added.append({"code": code, "name": tv["name"], "qty": tv["qty"]})
+        elif b[code]["qty"] != tv["qty"]:
+            changed.append({"code": code, "name": tv["name"], "baseQty": b[code]["qty"], "targetQty": tv["qty"]})
+        else:
+            same += 1
+    for code, bv in b.items():
+        if code not in t:
+            removed.append({"code": code, "name": bv["name"], "qty": bv["qty"]})
+    return {"base": base, "target": target, "baseCount": len(b), "targetCount": len(t),
+            "added": added, "removed": removed, "changed": changed, "unchanged": same,
+            "identical": not added and not removed and not changed}
+
+
 # ── B1 — 범용 승인 요청 (모든 화면의 승인 요청 버튼 실배선) + Macro 저장 ──
 
 class ApprovalCreate(BaseModel):
