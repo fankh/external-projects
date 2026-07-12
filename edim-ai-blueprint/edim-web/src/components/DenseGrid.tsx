@@ -4,6 +4,7 @@
  *  정렬값: col.sortValue > render 원시값(string/number) — JSX 셀은 sortValue 미지정 시 정렬 제외. */
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { prefService } from '../api/services'
+import { downloadCsv } from '../utils/csv'
 
 export interface GridColumn<T> {
   key: string
@@ -146,6 +147,18 @@ export function DenseGrid<T>(props: {
     gridRef.current?.querySelector('tr.sel')?.scrollIntoView({ block: 'nearest' })
   }, [props.selectedKey])
 
+  // G2 — 보이는 컬럼·정렬 순서 그대로 CSV 내보내기 (셀 원시값/sortValue 기준)
+  const csvCell = (c: GridColumn<T>, row: T, idx: number): string | number => {
+    if (c.sortValue) { const v = c.sortValue(row); return v == null ? '' : v }
+    const r = c.render(row, idx)
+    return (typeof r === 'string' || typeof r === 'number') ? r : ''
+  }
+  const exportCsv = () => {
+    downloadCsv(props.prefKey || 'grid',
+      cols.map((c) => (typeof c.header === 'string' ? c.header : c.key)),
+      view.map(({ row, origIdx }) => cols.map((c) => csvCell(c, row, origIdx))))
+  }
+
   const table = (
     <table ref={gridRef} className="g"
       tabIndex={props.onRowClick ? 0 : undefined} onKeyDown={onKeyDown}
@@ -214,6 +227,10 @@ export function DenseGrid<T>(props: {
                   {typeof c.header === 'string' ? c.header : c.key}
                 </label>
               ))}
+            </div>
+            <div style={{ borderTop: '1px solid var(--line)', padding: 4 }}>
+              <span className="b" data-grid-csv style={{ fontSize: 10.5, cursor: 'pointer', width: '100%', justifyContent: 'center' }}
+                onClick={() => { exportCsv(); setColMenu(false) }}>⬇ CSV 내보내기</span>
             </div>
           </div>
         ) : null}

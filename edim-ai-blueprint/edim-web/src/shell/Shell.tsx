@@ -205,13 +205,20 @@ export function Shell(props: { user: User }) {
   const { tabs, activeTabId, closeTab, activateTab } = shell
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        searchRef.current?.focus()
-        return
+      const tag0 = (e.target as HTMLElement).tagName
+      const inField = tag0 === 'INPUT' || tag0 === 'TEXTAREA' || tag0 === 'SELECT'
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        const k = e.key.toLowerCase()
+        if (k === 'k' || k === 'f') { e.preventDefault(); searchRef.current?.focus(); return }  // 검색/찾기
+        if (k === 's') { e.preventDefault(); fkey('F12'); return }                                 // 저장
+        if (k === 'p') { e.preventDefault(); window.print(); return }                              // 인쇄
+      }
+      // Delete = 삭제(F3) — 입력 필드 밖에서만
+      if (e.key === 'Delete' && !e.ctrlKey && !e.metaKey && !e.altKey && !inField) {
+        e.preventDefault(); fkey('F3'); return
       }
       if (!e.altKey || e.ctrlKey || e.metaKey) return
-      const tag = (e.target as HTMLElement).tagName
+      const tag = tag0
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (e.key.toLowerCase() === 'w') {
         e.preventDefault()
