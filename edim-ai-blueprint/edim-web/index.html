@@ -3,11 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1F4E8C" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
     <title>EDIM — NOVA Solution</title>
+    <style>
+      /* SPA 부트 스플래시 — JS 로드 전 즉시 페인트(빈 화면 방지). React 마운트 시 #root 교체 */
+      @keyframes edim-spin { to { transform: rotate(360deg) } }
+      #edim-boot { position: fixed; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 14px; background: #fff;
+        font-family: system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif; color: #1F4E8C; }
+      #edim-boot .lg { font-size: 22px; font-weight: 800; letter-spacing: .6px }
+      #edim-boot .sp { width: 26px; height: 26px; border: 3px solid #E1E5EB;
+        border-top-color: #1F4E8C; border-radius: 50%; animation: edim-spin .7s linear infinite }
+      #edim-boot .tx { font-size: 11px; color: #8A93A5 }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="edim-boot">
+        <div class="lg">EDIM</div>
+        <div class="sp"></div>
+        <div class="tx">Loading…</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
