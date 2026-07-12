@@ -51,6 +51,7 @@ import { DashboardScreen } from '../screens/erp/DashboardScreen'
 import { PriceScreen } from '../screens/erp/PriceScreen'
 import { SalesOrderScreen } from '../screens/erp/SalesOrderScreen'
 import { InventoryScreen } from '../screens/erp/InventoryScreen'
+import { WorkOrderScreen } from '../screens/erp/WorkOrderScreen'
 import { ProcessSetupScreen } from '../screens/erp/ProcessSetupScreen'
 import { PurchaseScreen } from '../screens/erp/PurchaseScreen'
 
@@ -74,6 +75,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'erp-price': PriceScreen,
   'erp-sales-order': SalesOrderScreen,
   'erp-inventory': InventoryScreen,
+  'erp-work-order': WorkOrderScreen,
   'erp-process': ProcessSetupScreen,
   'erp-purchase': PurchaseScreen,
   'cpq-docmgmt': DocumentMgmtScreen,

@@ -3480,6 +3480,97 @@ def stock_movements(item: str = "", limit: int = 30) -> list[dict[str, Any]]:
                  "refType": r[4], "refNo": r[5], "at": r[6]} for r in cur.fetchall()]
 
 
+class WorkOrderCreate(BaseModel):
+    title: str
+    drawingNo: str = ""
+    projectNo: str = ""
+    assemblyNote: str = ""
+    assignee: str = ""
+
+
+WO_TRANSITIONS = {"ISSUED": ("STARTED",), "STARTED": ("DONE",), "DONE": ()}
+
+
+@router.post("/erp/work-orders", status_code=201, dependencies=[SETUP])
+def work_order_create(request: Request, body: WorkOrderCreate) -> dict[str, Any]:
+    """작업지시 발행 (D3) — 설계 패키지(도면·BOM·공정)를 제작 지시로. WO-{seq} 채번, ISSUED."""
+    if not body.title.strip():
+        raise HTTPException(422, detail="필수 — 작업지시 제목")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*) FROM erp_work_order WHERE tenant_id=%s", (tid,))
+        seq = cur.fetchone()[0] + 1
+        while True:
+            wo_no = f"WO-{seq:04d}"
+            cur.execute("SELECT 1 FROM erp_work_order WHERE tenant_id=%s AND wo_no=%s", (tid, wo_no))
+            if not cur.fetchone():
+                break
+            seq += 1
+        cur.execute(
+            """INSERT INTO erp_work_order (tenant_id, wo_no, drawing_no, project_no, title,
+               assembly_note, assignee, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING wo_id""",
+            (tid, wo_no, body.drawingNo.strip()[:50] or None, body.projectNo.strip()[:30] or None,
+             body.title.strip()[:200], body.assemblyNote.strip()[:500] or None,
+             body.assignee.strip()[:50] or None, str(request.state.user_id)))
+        wo_id = cur.fetchone()[0]
+        _audit(cur, tid, "erp_work_order", wo_id, "ISSUE", request.state.user_id,
+               {"woNo": wo_no, "title": body.title})
+    return {"woNo": wo_no, "status": "ISSUED"}
+
+
+@router.get("/erp/work-orders")
+def work_order_list() -> list[dict[str, Any]]:
+    """작업지시 목록 (D3)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT wo_no, title, drawing_no, project_no, status, COALESCE(assignee,''),
+                      to_char(issued_at,'MM-DD HH24:MI'), to_char(done_at,'MM-DD HH24:MI'),
+                      COALESCE(assembly_note,'')
+               FROM erp_work_order WHERE tenant_id=%s ORDER BY wo_id DESC""", (tid,))
+        return [{"woNo": r[0], "title": r[1], "drawingNo": r[2], "projectNo": r[3],
+                 "status": r[4], "assignee": r[5], "issuedAt": r[6], "doneAt": r[7],
+                 "assemblyNote": r[8]} for r in cur.fetchall()]
+
+
+class WoStatusPatch(BaseModel):
+    status: str
+
+
+@router.patch("/erp/work-orders/{wo_no}/status", dependencies=[SETUP])
+def work_order_status(wo_no: str, request: Request, body: WoStatusPatch) -> dict[str, Any]:
+    """작업지시 상태 전이 (D3) — ISSUED→STARTED→DONE. 완료 시 부서 후속(알림) 연동."""
+    new = body.status.strip().upper()
+    if new not in ("STARTED", "DONE"):
+        raise HTTPException(422, detail="상태 오류 (STARTED/DONE)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT wo_id, status, title FROM erp_work_order WHERE tenant_id=%s AND wo_no=%s",
+            (tid, wo_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"작업지시 없음: {wo_no}")
+        wo_id, cur_status, title = row
+        if new not in WO_TRANSITIONS.get(cur_status, ()):
+            raise HTTPException(409, detail=f"전이 불가: {cur_status} → {new} "
+                                f"(허용: {', '.join(WO_TRANSITIONS.get(cur_status, ())) or '없음'})")
+        ts_col = "started_at" if new == "STARTED" else "done_at"
+        cur.execute(f"UPDATE erp_work_order SET status=%s, {ts_col}=now() WHERE wo_id=%s",
+                    (new, wo_id))
+        if new == "DONE":
+            # 부서 후속 — 생산 관리자(ADMIN/PLATFORM) 알림 (완료 통지, D3 고리)
+            cur.execute(
+                "SELECT user_id FROM sys_user WHERE tenant_id=%s AND user_level IN ('ADMIN','PLATFORM')",
+                (tid,))
+            for (uid,) in cur.fetchall():
+                _notify(cur, tid, uid, "TASK_ASSIGNED", f"작업지시 완료 — {wo_no} {title[:50]}", "/erp")
+        _audit(cur, tid, "erp_work_order", wo_id, "STATUS", request.state.user_id,
+               {"woNo": wo_no, "from": cur_status, "to": new})
+    return {"woNo": wo_no, "status": new}
+
+
 # ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──
 OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
                "DATA": ("기술자료", "ok"), "BOM": ("BOM", "ok")}

@@ -2056,6 +2056,49 @@ export const inventoryService = {
   },
 }
 
+// D3 — 작업지시 (Work Order)
+export interface WorkOrder {
+  woNo: string; title: string; drawingNo: string | null; projectNo: string | null
+  status: 'ISSUED' | 'STARTED' | 'DONE'; assignee: string; issuedAt: string
+  doneAt: string | null; assemblyNote: string
+}
+
+export const workOrderService = {
+  /** GET /api/v1/erp/work-orders (null=백엔드 불가) */
+  async list(): Promise<WorkOrder[] | null> {
+    try {
+      return await api<WorkOrder[]>('/erp/work-orders')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/erp/work-orders — 발행 (woNo 반환, false=백엔드 불가) */
+  async create(body: { title: string; drawingNo?: string; projectNo?: string; assemblyNote?: string; assignee?: string }): Promise<string | false> {
+    try {
+      const r = await api<{ woNo: string }>('/erp/work-orders', {
+        method: 'POST', body: JSON.stringify(body),
+      })
+      return r.woNo
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** PATCH /api/v1/erp/work-orders/{no}/status — ISSUED→STARTED→DONE */
+  async transition(woNo: string, status: string): Promise<boolean> {
+    try {
+      await api(`/erp/work-orders/${encodeURIComponent(woNo)}/status`, {
+        method: 'PATCH', body: JSON.stringify({ status }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const orderService = {
   /** GET /api/v1/cost/orders — 수주 잔고 + 수주율 (D1; null=백엔드 불가) */
   async list(): Promise<OrdersData | null> {
