@@ -2618,6 +2618,7 @@ export interface PartRow {
   weight: number | null
   isStandard: boolean
   bomCount: number
+  updatedAt?: string   // D9 — 낙관적 잠금 토큰
 }
 
 export interface BomRow {
@@ -2665,6 +2666,7 @@ export const partService = {
   async update(partNo: string, p: {
     name?: string; specification?: string; materialCode?: string
     supplier?: string; code?: string; weight?: number; isStandard?: boolean
+    baseUpdatedAt?: string   // D9 — 낙관적 잠금 (409 전파)
   }): Promise<boolean> {
     try {
       await api(`/parts/${encodeURIComponent(partNo)}`, {
@@ -2673,7 +2675,7 @@ export const partService = {
       return true
     } catch (e) {
       if (e instanceof ApiUnavailable) return false
-      throw e
+      throw e   // 409 충돌은 호출부로 전파
     }
   },
   /** GET /api/v1/parts — 부품 대장 (null=백엔드 불가) */

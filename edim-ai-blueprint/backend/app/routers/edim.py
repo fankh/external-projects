@@ -6290,10 +6290,11 @@ def parts_list() -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT p.part_id, p.part_no, p.part_name, COALESCE(p.specification,''),
+            f"""SELECT p.part_id, p.part_no, p.part_name, COALESCE(p.specification,''),
                       m.material_code, c.company_name, pc.main_code, p.unit,
                       p.weight, p.is_standard,
-                      (SELECT count(*) FROM dwg_bom b WHERE b.part_id=p.part_id)
+                      (SELECT count(*) FROM dwg_bom b WHERE b.part_id=p.part_id),
+                      to_char(COALESCE(p.updated_at,p.created_at),'{_VER_FMT}')
                FROM prt_part p
                LEFT JOIN mat_material m ON m.material_id=p.material_id
                LEFT JOIN com_company c ON c.company_id=p.supplier_id
@@ -6303,7 +6304,7 @@ def parts_list() -> list[dict[str, Any]]:
             {"partId": r[0], "partNo": r[1], "name": r[2], "spec": r[3],
              "material": r[4], "supplier": r[5], "productCode": r[6], "unit": r[7],
              "weight": float(r[8]) if r[8] is not None else None,
-             "isStandard": r[9], "bomCount": r[10]}
+             "isStandard": r[9], "bomCount": r[10], "updatedAt": r[11]}   # D9 잠금 토큰
             for r in cur.fetchall()
         ]
 
@@ -6692,20 +6693,25 @@ class PartPatch(BaseModel):
     code: str | None = None              # 제품코드 연결, 빈 문자열 = 해제
     weight: float | None = None
     isStandard: bool | None = None
+    baseUpdatedAt: str = ""              # D9 — 낙관적 잠금 (불일치 409)
 
 
 @router.put("/parts/{part_no}", dependencies=[SETUP])
 def update_part(part_no: str, body: PartPatch, request: Request) -> dict[str, Any]:
-    """부품 속성 수정 (F5) — M-4-7 (등록·삭제만 있던 도메인)."""
+    """부품 속성 수정 (F5) — M-4-7 (등록·삭제만 있던 도메인). D9 낙관적 잠금."""
     if body.name is not None and not body.name.strip():
         raise HTTPException(422, detail="부품명은 비울 수 없습니다")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT part_id, part_name FROM prt_part WHERE tenant_id=%s AND part_no=%s",
-                    (tid, part_no))
+        cur.execute(
+            f"""SELECT part_id, part_name, to_char(COALESCE(updated_at,created_at),'{_VER_FMT}')
+               FROM prt_part WHERE tenant_id=%s AND part_no=%s""", (tid, part_no))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"part not found: {part_no}")
+        if body.baseUpdatedAt.strip() and body.baseUpdatedAt.strip() != row[2]:
+            raise HTTPException(
+                409, detail="다른 사용자가 먼저 수정했습니다 — 재조회 후 다시 시도하십시오 (동시 편집 충돌)")
         sets: dict[str, Any] = {}
         if body.name is not None:
             sets["part_name"] = body.name.strip()

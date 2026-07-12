@@ -215,13 +215,20 @@ export function PartLedgerScreen({ active }: ScreenProps) {
           ]}
           onClose={() => setEditRow(null)}
           onSubmit={async (v) => {
-            const ok = await partService.update(editRow.partNo, {
-              name: v.name, specification: v.specification, materialCode: v.materialCode,
-              supplier: v.supplier, code: v.code,
-              weight: v.weight.trim() ? Number(v.weight) : undefined,
-              isStandard: v.isStandard === 'Y',
-            })
-            if (!ok) return t('common.needBackend', '백엔드 연결 필요 (mock 모드)')
+            try {
+              const ok = await partService.update(editRow.partNo, {
+                name: v.name, specification: v.specification, materialCode: v.materialCode,
+                supplier: v.supplier, code: v.code,
+                weight: v.weight.trim() ? Number(v.weight) : undefined,
+                isStandard: v.isStandard === 'Y',
+                baseUpdatedAt: editRow.updatedAt,   // D9 — 낙관적 잠금
+              })
+              if (!ok) return t('common.needBackend', '백엔드 연결 필요 (mock 모드)')
+            } catch (e) {
+              // D9 — 동시 편집 충돌(409) 재조회 안내
+              load()
+              return e instanceof Error ? e.message : '수정 실패'
+            }
             setEditRow(null)
             load()
             shell.setStatusMsg(`부품 수정 ✓ — ${editRow.partNo} (prt_part · PART_UPDATE 감사)`)
