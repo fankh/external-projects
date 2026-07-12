@@ -120,6 +120,10 @@ body {
 .gb .gt .sp { flex: 1; }
 .gb .gc { padding: 6px; overflow: auto; }
 .gb .gc.p0 { padding: 0; }
+/* 사이드 패널 — 섹션별 개별 스크롤 대신 전체 하나의 세로 스크롤 (박스는 자연 높이 유지) */
+.side-scroll { overflow-y: auto; overflow-x: hidden; }
+.side-scroll > * { flex: 0 0 auto; }
+.side-scroll .gb .gc { overflow: visible; }
 .split-h { width: 5px; background: var(--chrome); border-left: 1px solid var(--line); border-right: 1px solid var(--line); cursor: col-resize; flex: none; }
 .split-v { height: 5px; background: var(--chrome); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: row-resize; flex: none; }
 

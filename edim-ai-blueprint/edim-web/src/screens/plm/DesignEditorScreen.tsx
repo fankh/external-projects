@@ -424,7 +424,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
           </div>
         </div>
         <div className="split-h" />
-        <div style={{ width: 312, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
+        <div className="side-scroll" style={{ width: 312, display: 'flex', flexDirection: 'column', padding: 6, gap: 6 }}>
           <GroupBox title="Code">
             <input className="in ro" style={{ width: '100%', fontFamily: 'Consolas, monospace' }}
               value="KDCR 3-13" readOnly aria-label="Code" />
