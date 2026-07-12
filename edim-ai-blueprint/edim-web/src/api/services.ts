@@ -2285,6 +2285,50 @@ export const milestoneService = {
   },
 }
 
+// D10 — Head 메뉴 편집 (사용자별 모듈 표시 구성)
+export const menuService = {
+  /** GET /api/v1/menu/config — 현재 사용자 표시 모듈 (null=백엔드 불가 → 전체 표시) */
+  async myModules(): Promise<string[] | null> {
+    try {
+      const r = await api<{ modules: string[] }>('/menu/config')
+      return r.modules
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/menu/modules — 구성 가능한 모듈 목록 */
+  async modules(): Promise<{ id: string; label: string }[]> {
+    try {
+      return await api('/menu/modules')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return []
+      throw e
+    }
+  },
+  /** GET /api/v1/menu/config/{login} — 특정 사용자 구성 (ADMIN) */
+  async getConfig(login: string): Promise<{ modules: string[]; effective: string[]; restricted: boolean } | null> {
+    try {
+      return await api(`/menu/config/${encodeURIComponent(login)}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** PUT /api/v1/menu/config/{login} — 표시 모듈 저장 (ADMIN, 빈 목록=제한 해제) */
+  async setConfig(login: string, modules: string[]): Promise<boolean> {
+    try {
+      await api(`/menu/config/${encodeURIComponent(login)}`, {
+        method: 'PUT', body: JSON.stringify({ modules }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const orderService = {
   /** GET /api/v1/cost/orders — 수주 잔고 + 수주율 (D1; null=백엔드 불가) */
   async list(): Promise<OrdersData | null> {

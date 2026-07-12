@@ -4090,6 +4090,82 @@ def milestone_summary() -> dict[str, Any]:
                 "projectCount": len(projects)}
 
 
+# ── D10 Head 메뉴 편집 (sys_menu_config) — 사용자별 모듈 표시 구성 ──
+ALL_MODULES = ["cpq", "plm", "code", "erp", "toolbox", "common"]
+MODULE_LABELS = {"cpq": "CPQ", "plm": "PLM", "code": "Code Set-up",
+                 "erp": "ERP", "toolbox": "Toolbox", "common": "공통"}
+
+
+def _effective_modules(stored: list[str] | None) -> tuple[list[str], bool]:
+    """저장 구성 → 실효 모듈. 빈/미설정=전체. 'common' 은 항상 포함(잠금 방지)."""
+    if not stored:
+        return list(ALL_MODULES), False
+    eff = [m for m in ALL_MODULES if m in stored or m == "common"]
+    return (eff or list(ALL_MODULES)), True
+
+
+@router.get("/menu/modules")
+def menu_modules() -> list[dict[str, str]]:
+    """구성 가능한 모듈 목록 (D10 관리 UI)."""
+    return [{"id": m, "label": MODULE_LABELS[m]} for m in ALL_MODULES]
+
+
+@router.get("/menu/config")
+def menu_config(request: Request) -> dict[str, Any]:
+    """현재 사용자의 표시 모듈 (D10) — Shell 필터용."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT modules FROM sys_menu_config WHERE tenant_id=%s AND login_id=%s",
+                    (tid, request.state.login))
+        row = cur.fetchone()
+    eff, restricted = _effective_modules(row[0] if row else None)
+    return {"modules": eff, "restricted": restricted}
+
+
+@router.get("/menu/config/{login}", dependencies=[ADMIN])
+def menu_config_get(login: str) -> dict[str, Any]:
+    """특정 사용자의 저장 구성 (D10 관리 — ADMIN)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM sys_user WHERE tenant_id=%s AND login_id=%s", (tid, login))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        cur.execute("SELECT modules FROM sys_menu_config WHERE tenant_id=%s AND login_id=%s",
+                    (tid, login))
+        row = cur.fetchone()
+    stored = row[0] if row else []
+    eff, restricted = _effective_modules(stored)
+    return {"login": login, "modules": stored, "effective": eff, "restricted": restricted}
+
+
+class MenuConfigPut(BaseModel):
+    modules: list[str]   # 표시 허용 모듈 목록 (빈 목록 = 제한 해제, 전체 표시)
+
+
+@router.put("/menu/config/{login}", dependencies=[ADMIN])
+def menu_config_put(login: str, request: Request, body: MenuConfigPut) -> dict[str, Any]:
+    """사용자 표시 모듈 구성 저장 (D10 — ADMIN). 빈 목록 = 제한 해제."""
+    mods = [m for m in body.modules if m in ALL_MODULES]
+    invalid = [m for m in body.modules if m not in ALL_MODULES]
+    if invalid:
+        raise HTTPException(422, detail=f"알 수 없는 모듈: {', '.join(invalid)}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM sys_user WHERE tenant_id=%s AND login_id=%s", (tid, login))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        cur.execute(
+            """INSERT INTO sys_menu_config (tenant_id, login_id, modules, updated_by)
+               VALUES (%s,%s,%s,%s)
+               ON CONFLICT (tenant_id, login_id)
+               DO UPDATE SET modules=EXCLUDED.modules, updated_by=EXCLUDED.updated_by, updated_at=now()""",
+            (tid, login, json.dumps(mods), request.state.login))
+        _audit(cur, tid, "sys_menu_config", 0, "MENU_CONFIG", request.state.user_id,
+               {"login": login, "modules": mods})
+    eff, restricted = _effective_modules(mods)
+    return {"login": login, "modules": mods, "effective": eff, "restricted": restricted}
+
+
 # ── SVC-12 Project Folder 파일 (M-15-8) — cpq_output 실데이터 ──
 OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
                "DATA": ("기술자료", "ok"), "BOM": ("BOM", "ok")}

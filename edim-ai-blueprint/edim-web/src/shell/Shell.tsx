@@ -1,7 +1,7 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import type { User } from '../api/types'
-import { approvalService, authService, dashboardService, devReqService, pingBackend, projectService, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
+import { approvalService, authService, dashboardService, devReqService, menuService, pingBackend, projectService, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar, type MenuItem } from '../components/chrome'
 import { Btn } from '../components/controls'
 import { LnavTree } from '../components/LnavTree'
@@ -122,12 +122,22 @@ export function Shell(props: { user: User }) {
   const menu = MENU_TREE[shell.module]
   const [source, setSource] = useState<DataSource>('unknown')
   const searchRef = useRef<HTMLInputElement>(null)
+  // D10 — 사용자별 표시 모듈 (null=미로딩/전체)
+  const [allowedModules, setAllowedModules] = useState<string[] | null>(null)
 
   useEffect(() => {
     const unsub = subscribeDataSource(setSource)
     void pingBackend()
+    void menuService.myModules().then((m) => { if (m) setAllowedModules(m) })
     return unsub
   }, [])
+
+  // D10 — 현재 모듈이 표시 목록에서 빠졌으면 허용된 첫 모듈로 이동
+  useEffect(() => {
+    if (allowedModules && allowedModules.length && !allowedModules.includes(shell.module)) {
+      shell.setModule(allowedModules[0] as typeof shell.module)
+    }
+  }, [allowedModules, shell])
 
   // ── 전역 단축키 ──
   //  Ctrl/⌘+K = 검색 · Alt+W = 탭 닫기 · Alt+←/→ = 탭 이동 · Alt+1~9 = n번째 탭
@@ -372,7 +382,8 @@ export function Shell(props: { user: User }) {
           { sep: true, label: '' },
           { label: '로그아웃', onClick: logout },
         ]}
-        activeModule={shell.module} onModule={shell.setModule} />
+        activeModule={shell.module} onModule={shell.setModule}
+        modules={allowedModules as Parameters<typeof TitleBar>[0]['modules']} />
       <MenuBar activeModule={shell.module} onModule={shell.setModule} menus={menus} />
       <div className="toolbar">
         <span className="b ic" title="신규 (F2)" onClick={() => fkey('F2')}>▤</span>

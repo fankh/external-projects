@@ -11,6 +11,8 @@ export function TitleBar(props: {
   /** 모듈 링크 — 헤더에 배치 (메뉴라인은 드롭다운 전용) */
   activeModule?: ModuleKey
   onModule?: (m: ModuleKey) => void
+  /** D10 — 표시 허용 모듈 필터 (미지정 = 전체) */
+  modules?: ModuleKey[]
 }) {
   const { t } = useI18n()
   const [userOpen, setUserOpen] = useState(false)
@@ -35,7 +37,7 @@ export function TitleBar(props: {
       <span style={{ color: '#8FA5CC' }}>— NOVA Solution</span>
       {props.onModule ? (
         <span style={{ display: 'inline-flex', gap: 2, marginLeft: 14 }}>
-          {MODULES.map((m) => {
+          {MODULES.filter((m) => !props.modules || props.modules.includes(m.id)).map((m) => {
             const on = props.activeModule === m.id
             return (
               <span key={m.id} className={`mod ${on ? 'on' : ''}`}

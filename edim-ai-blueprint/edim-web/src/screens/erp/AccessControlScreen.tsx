@@ -2,7 +2,7 @@
  *  액션 4종 (권한승인정의서 모델) · 감사 기록. */
 import { useEffect, useMemo, useState } from 'react'
 import { type UserRow } from '../../api/mock/dataMore'
-import { historyService, roleService, sysService, userService, type HistoryRow, type RoleRow } from '../../api/services'
+import { historyService, menuService, roleService, sysService, userService, type HistoryRow, type RoleRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -89,6 +89,32 @@ export function AccessControlScreen({ active }: ScreenProps) {
     [users, dept, levelFilter, query],
   )
   const sel = users.find((u) => u.login === selLogin) ?? null
+
+  // D10 — 선택 사용자의 표시 모듈 구성 (sys_menu_config)
+  const [menuMods, setMenuMods] = useState<string[]>([])
+  const [menuRestricted, setMenuRestricted] = useState(false)
+  const [allMods, setAllMods] = useState<{ id: string; label: string }[]>([])
+  useEffect(() => { void menuService.modules().then(setAllMods) }, [])
+  useEffect(() => {
+    if (!selLogin || !perm.canReadAdmin) { setMenuMods([]); setMenuRestricted(false); return }
+    void menuService.getConfig(selLogin).then((c) => {
+      if (c) { setMenuMods(c.modules); setMenuRestricted(c.restricted) }
+      else { setMenuMods([]); setMenuRestricted(false) }
+    })
+  }, [selLogin, perm.canReadAdmin])
+  const toggleMod = (id: string) => setMenuMods((prev) =>
+    prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id])
+  const saveMenuConfig = () => {
+    if (!sel) return
+    void menuService.setConfig(sel.login, menuMods).then((ok) => {
+      if (!ok) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
+      setMenuRestricted(menuMods.length > 0)
+      loadAudit()
+      shell.setStatusMsg(menuMods.length
+        ? `표시 모듈 저장 ✓ — ${sel.login}: ${menuMods.join(', ')} (본인 재로그인 시 적용)`
+        : `표시 제한 해제 ✓ — ${sel.login}: 전체 모듈 표시`)
+    }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
 
   // B21 — 선택 사용자의 다중 역할 (sys_user_role)
   const [selRoles, setSelRoles] = useState<string[] | null>(null)
@@ -298,6 +324,30 @@ export function AccessControlScreen({ active }: ScreenProps) {
                   ))}
                 </div>
               )}
+            </div>
+          </GroupBox>
+          {/* D10 — 표시 모듈 구성 (sys_menu_config) */}
+          <GroupBox title={t('access.menuConfig', '표시 모듈 (Head 메뉴 · D10)')}
+            right={<Chip tone={menuRestricted ? 'warn' : 'ok'}>{menuRestricted ? '제한' : '전체'}</Chip>}>
+            <div style={{ fontSize: 10, color: 'var(--txt-dim)', marginBottom: 4 }}>
+              {t('access.menuConfigHint', '선택 = 표시 · 미선택 전부 = 전체 표시 (공통은 항상 표시)')}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {allMods.map((m) => (
+                <label key={m.id} style={{ fontSize: 10.5, display: 'inline-flex', alignItems: 'center', gap: 3,
+                  opacity: (!sel || m.id === 'common') ? 0.55 : 1 }}>
+                  <input type="checkbox" aria-label={`모듈 ${m.label}`} disabled={!sel || m.id === 'common'}
+                    checked={m.id === 'common' || menuMods.includes(m.id)}
+                    onChange={() => toggleMod(m.id)} />
+                  {m.label}
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 6 }}>
+              <Btn style={{ height: 20, fontSize: 10 }} disabled={!sel || !perm.canWrite('erp-access')}
+                onClick={() => setMenuMods([])}>{t('access.menuClear', '제한 해제')}</Btn>
+              <Btn variant="pri" style={{ height: 20, fontSize: 10 }} disabled={!sel || !perm.canWrite('erp-access')}
+                onClick={saveMenuConfig}>{t('access.menuSave', '표시 모듈 저장')}</Btn>
             </div>
           </GroupBox>
           <GroupBox title={t('access.auditLog', '최근 감사 로그')} noPad
