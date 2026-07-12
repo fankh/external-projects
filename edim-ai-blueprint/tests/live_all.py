@@ -68,6 +68,7 @@ SUITES = [
     "live_g1_cad_draw.py",          # CAD 자유 작도 — line/circle/rect 생성→DXF 추가·영속(UI 드래그)
     "live_g1_cad_plot.py",          # CAD 축척 인쇄 — 1:scale 벡터 PDF(A4/A3·가로세로·기본축척·404)
     "live_g1_cad_snap.py",          # CAD 객체 스냅 + Ortho — 끝점/중점 스냅 작도·Shift 축정렬(정확 좌표)
+    "live_g1_cad_trim.py",          # CAD 트림/연장 — 경계선 교점으로 끝점 단축/연장·평행 422·영속
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
     "live_security.py",
