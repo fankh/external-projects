@@ -1756,50 +1756,84 @@ class DecideRequest(BaseModel):
     comment: str = ""
 
 
+def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str,
+                    actor_login: str, actor_id: int) -> str | None:
+    """단건 승인 결정 적용 — 상태 전이 + 요청자 알림 + 자산 전이 + 이력.
+    처리 가능한 요청이 아니면 None (이미 결정됨/미존재). decide·decide_batch 공용."""
+    result = "APPROVED" if approve else "REJECTED"
+    cur.execute(
+        """UPDATE sys_approval_request
+           SET result=%s, comment=NULLIF(%s,'') , decided_at=now()
+           WHERE tenant_id=%s AND approval_id=%s AND result IS NULL
+           RETURNING target_table, target_id, requester_id, comment""",
+        (result, comment.strip(), tid, approval_id))
+    row = cur.fetchone()
+    if not row:
+        return None
+    # 요청자 알림 (SVC-13)
+    _notify(cur, tid, row[2], "APPROVAL_RESULT",
+            f"{'승인' if approve else '반려'} — {row[0]} #{row[1]}"
+            + (f" ({comment.strip()})" if comment.strip() else ""),
+            "/common")
+    # 대상 자산 상태 전이 + 이력
+    if row[0] == "product_code":
+        cur.execute(
+            "UPDATE product_code SET approval_status=%s WHERE product_code_id=%s",
+            (result, row[1]))
+    elif row[0] == "code_relationship":
+        # F4 — Mother 코드의 관계 세트 전이 (Running Test 통과 승인, CODE-009)
+        cur.execute(
+            """UPDATE code_relationship SET approval_status=%s
+               WHERE tenant_id=%s AND mother_code_id=%s""",
+            (result, tid, row[1]))
+    elif row[0] == "eco_change":
+        # D5 — 설계변경 승인: 승인 시 Rev-up 자동 적용(DRAWING) + 변경 통지(ECN)
+        _apply_eco(cur, tid, row[1], approve, actor_login, actor_id)
+    cur.execute(
+        """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+           VALUES (%s,%s,%s,%s,%s,%s)""",
+        (tid, row[0], row[1], result, actor_id, json.dumps({"comment": comment})))
+    return result
+
+
 @router.post("/approvals/{approval_id}/decide", dependencies=[SETUP])
 def decide(approval_id: int, request: Request, body: DecideRequest) -> dict[str, Any]:
     if not body.approve and not body.comment.strip():
         raise HTTPException(422, detail="반려는 코멘트 필수")
-    result = "APPROVED" if body.approve else "REJECTED"
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute(
-            """UPDATE sys_approval_request
-               SET result=%s, comment=NULLIF(%s,'') , decided_at=now()
-               WHERE tenant_id=%s AND approval_id=%s AND result IS NULL
-               RETURNING target_table, target_id, requester_id, comment""",
-            (result, body.comment.strip(), tid, approval_id))
-        row = cur.fetchone()
-        if not row:
+        result = _apply_decision(cur, tid, approval_id, body.approve, body.comment,
+                                 request.state.login, request.state.user_id)
+        if result is None:
             raise HTTPException(404, detail=f"처리 가능한 요청 없음: {approval_id}")
-        # 요청자 알림 (SVC-13)
-        _notify(cur, tid, row[2], "APPROVAL_RESULT",
-                f"{'승인' if body.approve else '반려'} — {row[0]} #{row[1]}"
-                + (f" ({body.comment.strip()})" if body.comment.strip() else ""),
-                "/common")
-        # 대상 자산 상태 전이 + 이력
-        if row[0] == "product_code":
-            cur.execute(
-                "UPDATE product_code SET approval_status=%s WHERE product_code_id=%s",
-                ("APPROVED" if body.approve else "REJECTED", row[1]))
-        elif row[0] == "code_relationship":
-            # F4 — Mother 코드의 관계 세트 전이 (Running Test 통과 승인, CODE-009)
-            cur.execute(
-                """UPDATE code_relationship SET approval_status=%s
-                   WHERE tenant_id=%s AND mother_code_id=%s""",
-                ("APPROVED" if body.approve else "REJECTED", tid, row[1]))
-        elif row[0] == "eco_change":
-            # D5 — 설계변경 승인: 승인 시 Rev-up 자동 적용(DRAWING) + 변경 통지(ECN)
-            _apply_eco(cur, tid, row[1], body.approve,
-                       request.state.login, request.state.user_id)
-        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id='edim'", (tid,))
-        actor = cur.fetchone()
-        cur.execute(
-            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
-               VALUES (%s,%s,%s,%s,%s,%s)""",
-            (tid, row[0], row[1], result, actor[0] if actor else 1,
-             json.dumps({"comment": body.comment})))
     return {"approvalId": approval_id, "result": result}
+
+
+class DecideBatchRequest(BaseModel):
+    approvalIds: list[int]
+    approve: bool
+    comment: str = ""
+
+
+@router.post("/approvals/decide-batch", dependencies=[SETUP])
+def decide_batch(request: Request, body: DecideBatchRequest) -> dict[str, Any]:
+    """승인함 일괄 승인/반려 (D8) — 다중 선택 처리. 이미 결정된 건은 건너뜀."""
+    if not body.approvalIds:
+        raise HTTPException(422, detail="선택된 요청이 없습니다")
+    if not body.approve and not body.comment.strip():
+        raise HTTPException(422, detail="일괄 반려는 코멘트 필수")
+    if len(body.approvalIds) > 200:
+        raise HTTPException(422, detail="한 번에 최대 200건")
+    done, skipped = [], []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        for aid in body.approvalIds:
+            r = _apply_decision(cur, tid, aid, body.approve, body.comment,
+                                request.state.login, request.state.user_id)
+            (done if r is not None else skipped).append(aid)
+    return {"result": "APPROVED" if body.approve else "REJECTED",
+            "processed": len(done), "skipped": len(skipped),
+            "processedIds": done, "skippedIds": skipped}
 
 
 # ── SVC-13 알림 ──

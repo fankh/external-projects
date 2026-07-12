@@ -43,6 +43,8 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
   // F10 — 자산 유형 필터 (기본 전체 ON) + 대상/요청자 검색
   const [types, setTypes] = useState<Set<string>>(new Set(TYPE_FILTERS.map((x) => x.key)))
   const [query, setQuery] = useState('')
+  // D8 — 다중 선택 일괄 처리
+  const [checked, setChecked] = useState<Set<number>>(new Set())
   // F3 — 결정 권한 (decide = SETUP+; GENERAL 은 읽기 전용 + 내 요청)
   const canDecide = perm.canWrite('com-approval')
 
@@ -95,7 +97,66 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
     })()
   }
 
-  const cols: GridColumn<ApprovalReq>[] = [
+  const toggle = (id: number) => setChecked((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const allVisibleChecked = visible.length > 0 && visible.every((r) => checked.has(r.id))
+  const toggleAll = () => setChecked((prev) => {
+    if (visible.every((r) => prev.has(r.id))) {
+      const next = new Set(prev); visible.forEach((r) => next.delete(r.id)); return next
+    }
+    const next = new Set(prev); visible.forEach((r) => next.add(r.id)); return next
+  })
+  const checkedVisible = visible.filter((r) => checked.has(r.id))
+
+  const batchDecide = async (approve: boolean) => {
+    let picked = checkedVisible
+    let macroBlocked = 0
+    if (approve) {
+      const before = picked.length
+      picked = picked.filter((r) => !(r.assetType === 'Macro' && !r.tested))
+      macroBlocked = before - picked.length
+    }
+    if (!picked.length) {
+      shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>
+        {macroBlocked ? 'Test 미통과 Macro 는 일괄 승인 제외 — 선택 건 없음' : '선택된 요청이 없습니다'}
+      </span>)
+      return
+    }
+    let cmt = comment.trim()
+    if (!approve && !cmt) {
+      cmt = window.prompt('일괄 반려 사유 (필수)', '')?.trim() || ''
+      if (!cmt) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>반려는 코멘트 필수</span>); return }
+    }
+    const ids = picked.map((r) => r.id)
+    const r = await approvalService.decideBatch(ids, approve, cmt)
+    if (!r) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
+    setDecided((prev) => [
+      ...picked.map((p) => ({ target: p.target, result: approve ? '승인' : '반려', date: '07-12' })),
+      ...prev,
+    ])
+    setReqs((prev) => prev.filter((x) => !ids.includes(x.id)))
+    setChecked(new Set()); setSelId(null); setComment('')
+    shell.setStatusMsg(`일괄 ${approve ? '승인' : '반려'} ✓ — ${r.processed}건 처리`
+      + (r.skipped ? `, ${r.skipped}건 건너뜀` : '')
+      + (macroBlocked ? ` (Test 미통과 Macro ${macroBlocked}건 제외)` : ''))
+  }
+
+  const chkCol: GridColumn<ApprovalReq> = {
+    key: 'chk', width: 30, align: 'center', noSort: true,
+    header: (
+      <input type="checkbox" aria-label="전체 선택" checked={allVisibleChecked}
+        onChange={toggleAll} onClick={(e) => e.stopPropagation()} />
+    ),
+    render: (r) => (
+      <input type="checkbox" aria-label="선택" checked={checked.has(r.id)}
+        onChange={() => toggle(r.id)} onClick={(e) => e.stopPropagation()} />
+    ),
+  }
+
+  const baseCols: GridColumn<ApprovalReq>[] = [
     { key: 't', header: t('appr.type', '유형'), width: 48, align: 'center', render: (r) => r.assetType },
     { key: 'target', header: t('appr.target', '대상'), render: (r) => r.target },
     { key: 'k', header: t('appr.reqKind', '요청 구분'), width: 62, align: 'center', code: true, render: (r) => r.reqKind },
@@ -107,6 +168,7 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
       render: (r) => (r.tested ? <Chip tone="info">Tested ✓</Chip> : <Chip tone="warn">Pending</Chip>),
     },
   ]
+  const cols: GridColumn<ApprovalReq>[] = canDecide ? [chkCol, ...baseCols] : baseCols
 
   return (
     <div className="fill-col">
@@ -147,9 +209,22 @@ export function ApprovalInboxScreen({ active }: ScreenProps) {
           <GroupBox title={(view === 'mine'
             ? t('appr.myReqsN', '내 요청 — {n}건')
             : t('appr.toProcessN', '처리할 요청 — {n}건')).replace('{n}', String(visible.length))} noPad
-            right={<input className="in" style={{ width: 150, height: 18, fontSize: 10 }}
-              placeholder={t('appr.searchPh', '대상·요청자 검색')} aria-label="승인함 검색"
-              value={query} onChange={(e) => setQuery(e.target.value)} />}>
+            right={(
+              <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                {canDecide && checkedVisible.length ? (
+                  <>
+                    <span style={{ fontSize: 10, color: 'var(--txt-dim)' }}>{checkedVisible.length}건 선택</span>
+                    <Btn variant="run" style={{ height: 18, fontSize: 10 }}
+                      onClick={() => void batchDecide(true)}>일괄 승인</Btn>
+                    <Btn style={{ height: 18, fontSize: 10, borderColor: 'var(--err)', color: 'var(--err)' }}
+                      onClick={() => void batchDecide(false)}>일괄 반려</Btn>
+                  </>
+                ) : null}
+                <input className="in" style={{ width: 150, height: 18, fontSize: 10 }}
+                  placeholder={t('appr.searchPh', '대상·요청자 검색')} aria-label="승인함 검색"
+                  value={query} onChange={(e) => setQuery(e.target.value)} />
+              </span>
+            )}>
             {visible.length
               ? (
                 <DenseGrid columns={cols} rows={visible} rowKey={(r) => r.id}

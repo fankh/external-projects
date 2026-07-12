@@ -351,6 +351,20 @@ export const approvalService = {
       if (!(e instanceof ApiUnavailable)) throw e
     }
   },
+  /** POST /api/v1/approvals/decide-batch — 일괄 승인/반려 (D8, null=백엔드 불가) */
+  async decideBatch(approvalIds: number[], approve: boolean, comment = ''):
+  Promise<{ processed: number; skipped: number } | null> {
+    try {
+      const r = await api<{ processed: number; skipped: number }>('/approvals/decide-batch', {
+        method: 'POST', body: JSON.stringify({ approvalIds, approve, comment }),
+      })
+      notifyInboxChanged()
+      return r
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
 }
 
 // ── SVC-11 Documents (문서함) ──
