@@ -150,6 +150,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
   const TOOL_KEY: Record<string, string> = {
     '이동': 'move', '복사 CO': 'copy', '반전': 'mirror', '연장': 'extend',
     '삭제 E': 'erase', '회전 RO': 'rotate', '자르기 TR': 'trim', '특성 CH': 'properties',
+    '치수 DI': 'dim', 'Block REG': 'block',
   }
   const [selBlock, setSelBlock] = useState<CanvasBlock | null>(DWG_BLOCKS[1])
   const [dims, setDims] = useState<DimensionDef[]>(DWG_DIMS)
@@ -213,7 +214,8 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
       .then((r) => {
         if (!r) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>편집 대상화 실패 — 백엔드 필요</span>); return }
         setCadDoc(r.document); setEditFileId(r.fileId); setActiveTool(key)
-        shell.setStatusMsg(`CAD 편집: ${toolLabels[tl] ?? tl} — 블록 선택 후 적용`)
+        const hint = ['dim', 'block', 'line', 'circle', 'rect'].includes(key) ? '드래그하여 배치' : '블록 선택 후 적용'
+        shell.setStatusMsg(`CAD 편집: ${toolLabels[tl] ?? tl} — ${hint}`)
       })
       .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }

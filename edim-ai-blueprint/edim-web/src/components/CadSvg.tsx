@@ -178,10 +178,12 @@ export interface LayerOverride { color?: string; width?: number }   // B16 특�
 export interface CadEditOp {
   op: 'move' | 'delete' | 'copy' | 'rotate' | 'mirror' | 'add' | 'trim'
   entityId?: string; dx?: number; dy?: number; angle?: number; axis?: 'x' | 'y'
-  entityType?: 'line' | 'circle' | 'rect'; layer?: string
+  entityType?: 'line' | 'circle' | 'rect' | 'dim' | 'block'; layer?: string
   x1?: number; y1?: number; x2?: number; y2?: number; radius?: number
-  boundaryId?: string
+  boundaryId?: string; text?: string
 }
+
+type DrawTool = 'line' | 'circle' | 'rect' | 'dim' | 'block'
 
 export function CadSvg(props: {
   doc: CadDocument
@@ -241,7 +243,7 @@ export function CadSvg(props: {
   const [marquee, setMarquee] = useState<{ ax: number; ay: number; bx: number; by: number } | null>(null)
   const [editPreview, setEditPreview] = useState<{ dx: number; dy: number } | null>(null)   // 그룹 이동 프리뷰
   // G1 자유 작도(line/circle/rect)
-  const [drawTool, setDrawTool] = useState<null | 'line' | 'circle' | 'rect'>(null)
+  const [drawTool, setDrawTool] = useState<null | DrawTool>(null)
   const drawRef = useRef(drawTool)
   drawRef.current = drawTool
   const ddraw = useRef<{ ax: number; ay: number } | null>(null)
@@ -285,7 +287,7 @@ export function CadSvg(props: {
     if (!tsel || !props.editable) return
     setEditOn(true); setMeasureOn(false)
     if (tsel === 'trim' || tsel === 'extend') { setTrimTool(true); setDrawTool(null); setTrimBoundary(null) }
-    else if (tsel === 'line' || tsel === 'circle' || tsel === 'rect') { setDrawTool(tsel); setTrimTool(false) }
+    else if (tsel === 'line' || tsel === 'circle' || tsel === 'rect' || tsel === 'dim' || tsel === 'block') { setDrawTool(tsel); setTrimTool(false) }
     else {
       setTrimTool(false); setDrawTool(null)
       const off = Math.max(view.w, view.h) * 0.04
@@ -622,6 +624,10 @@ export function CadSvg(props: {
                 props.onEdit?.([{ op: 'add', entityType: 'circle', layer: lyr, x1: a.ax, y1: a.ay, radius: r }])
             } else if (tool === 'rect' && Math.abs(b.x - a.ax) > pxScale(viewRef.current) * 3 && Math.abs(b.y - a.ay) > pxScale(viewRef.current) * 3)
               props.onEdit?.([{ op: 'add', entityType: 'rect', layer: lyr, x1: a.ax, y1: a.ay, x2: b.x, y2: b.y }])
+            else if (tool === 'dim' && Math.hypot(b.x - a.ax, b.y - a.ay) > pxScale(viewRef.current) * 3)
+              props.onEdit?.([{ op: 'add', entityType: 'dim', x1: a.ax, y1: a.ay, x2: b.x, y2: b.y }])
+            else if (tool === 'block' && Math.abs(b.x - a.ax) > pxScale(viewRef.current) * 3 && Math.abs(b.y - a.ay) > pxScale(viewRef.current) * 3)
+              props.onEdit?.([{ op: 'add', entityType: 'block', x1: a.ax, y1: a.ay, x2: b.x, y2: b.y, text: 'BLOCK' }])
             return
           }
           if (edrag.current) {
@@ -688,7 +694,7 @@ export function CadSvg(props: {
           {drawPreview ? (() => {
             const d = drawPreview
             const cm = { stroke: '#2F9463', strokeWidth: strokeW * 1.5, fill: 'none' as const, strokeDasharray: `${px(5)} ${px(3)}` }
-            if (drawTool === 'line') return <line data-cad-draw x1={d.ax} y1={d.ay} x2={d.bx} y2={d.by} {...cm} />
+            if (drawTool === 'line' || drawTool === 'dim') return <line data-cad-draw x1={d.ax} y1={d.ay} x2={d.bx} y2={d.by} {...cm} />
             if (drawTool === 'circle') return <circle data-cad-draw cx={d.ax} cy={d.ay} r={Math.hypot(d.bx - d.ax, d.by - d.ay)} {...cm} />
             return <rect data-cad-draw x={Math.min(d.ax, d.bx)} y={Math.min(d.ay, d.by)}
               width={Math.abs(d.bx - d.ax)} height={Math.abs(d.by - d.ay)} {...cm} />

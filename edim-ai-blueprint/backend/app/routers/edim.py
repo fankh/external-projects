@@ -2099,14 +2099,15 @@ class CadEditOp(BaseModel):
     dy: float = 0.0
     angle: float = 0.0    # rotate — 도(°), 반시계
     axis: str = "y"       # mirror — 'y'=수직축(좌우반전) · 'x'=수평축(상하반전)
-    # add(자유 작도) — line/circle/rect
-    entityType: str = ""  # 'line' | 'circle' | 'rect'
+    # add(자유 작도) — line/circle/rect/dim/block
+    entityType: str = ""  # 'line' | 'circle' | 'rect' | 'dim' | 'block'
     layer: str = "0"
     x1: float = 0.0
     y1: float = 0.0
     x2: float = 0.0
     y2: float = 0.0
     radius: float = 0.0
+    text: str = ""        # dim=자동거리 · block=라벨
 
 
 class CadEditRequest(BaseModel):
@@ -2203,6 +2204,34 @@ def cad_edit(file_id: int, request: Request, body: CadEditRequest) -> dict[str, 
                     elif op.entityType == "rect":
                         pts = [(op.x1, op.y1), (op.x2, op.y1), (op.x2, op.y2), (op.x1, op.y2)]
                         msp.add_lwpolyline(pts, close=True, dxfattribs=attr)
+                        applied += 1
+                    elif op.entityType == "dim":   # 치수 — 치수선 + 거리 텍스트(중점)
+                        dlyr = {"layer": lyr if lyr != "0" else "DIM"}
+                        if dlyr["layer"] not in doc.layers:
+                            try:
+                                doc.layers.new(dlyr["layer"])
+                            except Exception:
+                                pass
+                        msp.add_line((op.x1, op.y1), (op.x2, op.y2), dxfattribs=dlyr)
+                        d = math.hypot(op.x2 - op.x1, op.y2 - op.y1)
+                        th = max(1.0, d * 0.06)
+                        te = msp.add_text(f"{d:.0f}", height=th, dxfattribs=dlyr)
+                        te.set_placement(((op.x1 + op.x2) / 2, (op.y1 + op.y2) / 2 + th * 0.3))
+                        applied += 1
+                    elif op.entityType == "block":   # 블록 삽입 — 라벨 박스(사각+텍스트)
+                        blyr = {"layer": lyr if lyr != "0" else "BLOCK"}
+                        if blyr["layer"] not in doc.layers:
+                            try:
+                                doc.layers.new(blyr["layer"])
+                            except Exception:
+                                pass
+                        pts = [(op.x1, op.y1), (op.x2, op.y1), (op.x2, op.y2), (op.x1, op.y2)]
+                        msp.add_lwpolyline(pts, close=True, dxfattribs=blyr)
+                        label = (op.text or "BLOCK")[:40]
+                        bh = max(1.0, abs(op.y2 - op.y1) * 0.25)
+                        tb = msp.add_text(label, height=bh, dxfattribs=blyr)
+                        tb.set_placement((min(op.x1, op.x2) + abs(op.x2 - op.x1) * 0.1,
+                                          (op.y1 + op.y2) / 2))
                         applied += 1
                 except Exception:
                     pass
