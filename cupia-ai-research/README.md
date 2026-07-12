@@ -66,6 +66,7 @@ cupia-ai-research/
     ├── 02_요구사항/         ← REQUIREMENTS_..._v0.1.docx (기능/비기능/데이터 요구, REQ/NFR/DAT ID 체계)
     ├── 03_기능확인서_FVT/   ← FVT_..._v0.1.xlsx (검증 항목 18건, SOW 인수 기준 기반)
     ├── 04_WBS/             ← WBS_..._v0.1.xlsx (WBS+간트 4~12월, 투입인력 시트)
+    ├── 05_시스템구성/       ← COMPONENTS_과제1/과제2_v0.1.docx (구성요소·기능 정의서, FN/PR ID 체계)
     └── reference/          ← 발주처 제공 원본 자료
 ```
 
