@@ -5432,7 +5432,15 @@ _MILESTONE_SELECT = """
                 WHEN planned_date < CURRENT_DATE THEN 'OVERDUE'
                 WHEN planned_date <= CURRENT_DATE + %s THEN 'DUE_SOON'
                 ELSE 'PENDING' END,
-           (planned_date - CURRENT_DATE)
+           (planned_date - CURRENT_DATE),
+           CASE WHEN actual_date IS NOT NULL THEN 0 ELSE
+             (SELECT count(*)::int FROM generate_series(
+                LEAST(CURRENT_DATE, planned_date) + 1, GREATEST(CURRENT_DATE, planned_date),
+                interval '1 day') gs
+              WHERE extract(dow FROM gs) NOT IN (0, 6)
+                AND gs::date NOT IN (SELECT holiday_date FROM cal_holiday WHERE tenant_id=%s))
+             * CASE WHEN planned_date < CURRENT_DATE THEN -1 ELSE 1 END
+           END
     FROM prj_milestone WHERE tenant_id=%s"""
 
 
@@ -5440,7 +5448,7 @@ def _milestone_row(r) -> dict[str, Any]:
     return {"milestoneId": r[0], "projectNo": r[1], "stage": r[2],
             "stageLabel": MILESTONE_LABEL.get(r[2], r[2]), "plannedDate": r[3],
             "actualDate": r[4], "status": r[5], "note": r[6],
-            "delayStatus": r[7], "daysLeft": r[8]}
+            "delayStatus": r[7], "daysLeft": r[8], "workdaysLeft": r[9]}
 
 
 @router.get("/erp/milestones")
@@ -5452,9 +5460,9 @@ def milestone_list(project: str = "") -> list[dict[str, Any]]:
         tid = _tenant_id(cur)
         if project.strip():
             cur.execute(_MILESTONE_SELECT + " AND project_no=%s " + order,
-                        (DUE_SOON_DAYS, tid, project.strip()))
+                        (DUE_SOON_DAYS, tid, tid, project.strip()))
         else:
-            cur.execute(_MILESTONE_SELECT + " " + order, (DUE_SOON_DAYS, tid))
+            cur.execute(_MILESTONE_SELECT + " " + order, (DUE_SOON_DAYS, tid, tid))
         return [_milestone_row(r) for r in cur.fetchall()]
 
 
@@ -5503,6 +5511,115 @@ def milestone_summary() -> dict[str, Any]:
                 "totalOverdue": sum(p["overdue"] for p in projects),
                 "totalDueSoon": sum(p["dueSoon"] for p in projects),
                 "projectCount": len(projects)}
+
+
+# ── G3 근무일/휴일 캘린더 (cal_holiday) — 영업일 기준 기한 계산 ──
+def _holiday_set(cur, tid: int) -> set:
+    cur.execute("SELECT holiday_date FROM cal_holiday WHERE tenant_id=%s", (tid,))
+    return {r[0] for r in cur.fetchall()}
+
+
+def _add_workdays(start: "date", n: int, holidays: set) -> "date":
+    from datetime import timedelta
+    d = start
+    step = 1 if n >= 0 else -1
+    cnt = 0
+    while cnt < abs(n):
+        d = d + timedelta(days=step)
+        if d.weekday() < 5 and d not in holidays:
+            cnt += 1
+    return d
+
+
+@router.get("/calendar/holidays")
+def holidays_list(year: int = 0) -> list[dict[str, Any]]:
+    """공휴일 목록 (year 지정 시 해당 연도)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        if year:
+            cur.execute("SELECT holiday_id, to_char(holiday_date,'YYYY-MM-DD'), name FROM cal_holiday "
+                        "WHERE tenant_id=%s AND extract(year FROM holiday_date)=%s ORDER BY holiday_date",
+                        (tid, year))
+        else:
+            cur.execute("SELECT holiday_id, to_char(holiday_date,'YYYY-MM-DD'), name FROM cal_holiday "
+                        "WHERE tenant_id=%s ORDER BY holiday_date", (tid,))
+        return [{"holidayId": r[0], "date": r[1], "name": r[2]} for r in cur.fetchall()]
+
+
+class HolidayCreate(BaseModel):
+    date: str
+    name: str
+
+
+@router.post("/calendar/holidays", status_code=201, dependencies=[SETUP])
+def holiday_create(request: Request, body: HolidayCreate) -> dict[str, Any]:
+    """공휴일 등록 (중복 날짜 409)."""
+    if not body.date.strip() or not body.name.strip():
+        raise HTTPException(422, detail="필수 — 날짜·명칭")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM cal_holiday WHERE tenant_id=%s AND holiday_date=%s::date",
+                    (tid, body.date.strip()))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — {body.date} 이미 등록됨")
+        cur.execute(
+            "INSERT INTO cal_holiday (tenant_id, holiday_date, name, created_by) "
+            "VALUES (%s,%s::date,%s,%s) RETURNING holiday_id",
+            (tid, body.date.strip(), body.name.strip()[:100], str(request.state.user_id)))
+        hid = cur.fetchone()[0]
+        _audit(cur, tid, "cal_holiday", hid, "CREATE", request.state.user_id,
+               {"date": body.date, "name": body.name})
+    return {"holidayId": hid, "date": body.date}
+
+
+@router.delete("/calendar/holidays/{holiday_id}", dependencies=[SETUP])
+def holiday_delete(holiday_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("DELETE FROM cal_holiday WHERE tenant_id=%s AND holiday_id=%s RETURNING holiday_date",
+                    (tid, holiday_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail="공휴일 없음")
+        _audit(cur, tid, "cal_holiday", holiday_id, "DELETE", request.state.user_id, {})
+    return {"deleted": holiday_id}
+
+
+@router.get("/calendar/workdays")
+def calendar_workdays(start: str, end: str) -> dict[str, Any]:
+    """두 날짜 사이 영업일 수 (주말·공휴일 제외, start 제외·end 포함)."""
+    from datetime import date as _date
+    try:
+        d1 = _date.fromisoformat(start.strip()); d2 = _date.fromisoformat(end.strip())
+    except ValueError:
+        raise HTTPException(422, detail="날짜 형식 YYYY-MM-DD")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        hol = _holiday_set(cur, tid)
+    from datetime import timedelta
+    lo, hi = (d1, d2) if d1 <= d2 else (d2, d1)
+    cnt = 0
+    d = lo
+    while d < hi:
+        d = d + timedelta(days=1)
+        if d.weekday() < 5 and d not in hol:
+            cnt += 1
+    return {"start": start, "end": end, "workdays": cnt if d1 <= d2 else -cnt}
+
+
+@router.get("/calendar/due")
+def calendar_due(start: str, days: int) -> dict[str, Any]:
+    """start 로부터 N 영업일 후(음수=이전) 날짜."""
+    from datetime import date as _date
+    try:
+        d0 = _date.fromisoformat(start.strip())
+    except ValueError:
+        raise HTTPException(422, detail="날짜 형식 YYYY-MM-DD")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        hol = _holiday_set(cur, tid)
+    due = _add_workdays(d0, days, hol)
+    return {"start": start, "days": days, "due": due.isoformat()}
 
 
 # ── D10 Head 메뉴 편집 (sys_menu_config) — 사용자별 모듈 표시 구성 ──

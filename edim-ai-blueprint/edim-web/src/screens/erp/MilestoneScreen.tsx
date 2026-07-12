@@ -75,6 +75,13 @@ export function MilestoneScreen({ active }: ScreenProps) {
         </Chip>
       ),
     },
+    {
+      key: 'wd', header: t('ms.workdays', '영업일'), width: 74, align: 'right',
+      sortValue: (r) => r.workdaysLeft,
+      render: (r) => (r.status === 'DONE' ? '-'
+        : <span style={{ color: r.workdaysLeft < 0 ? 'var(--err)' : r.workdaysLeft <= 3 ? 'var(--warn)' : 'var(--txt)' }}>
+          {r.workdaysLeft < 0 ? `${-r.workdaysLeft}d 초과` : `${r.workdaysLeft}d`}</span>),
+    },
     { key: 'note', header: t('ms.note', '비고'), render: (r) => r.note || '-' },
     {
       key: 'do', header: t('ms.action', '진행'), width: 66, align: 'center',

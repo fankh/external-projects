@@ -2373,6 +2373,7 @@ export interface Milestone {
   milestoneId: number; projectNo: string; stage: string; stageLabel: string
   plannedDate: string; actualDate: string | null; status: 'PENDING' | 'DONE'
   note: string; delayStatus: 'DONE' | 'OVERDUE' | 'DUE_SOON' | 'PENDING'; daysLeft: number
+  workdaysLeft: number
 }
 export interface MilestoneSummary {
   projects: { projectNo: string; total: number; done: number; overdue: number; dueSoon: number; progress: number }[]
@@ -3325,6 +3326,58 @@ export interface XReviewRow {
 export interface ProductCodeRow {
   productCodeId: number; mainCode: string; codeName: string; groupCode: string
   status: string; createdAt: string; refs: number
+}
+
+export interface HolidayRow { holidayId: number; date: string; name: string }
+
+export const calendarService = {
+  /** GET /api/v1/calendar/holidays */
+  async holidays(year = 0): Promise<HolidayRow[] | null> {
+    try {
+      return await api<HolidayRow[]>(`/calendar/holidays${year ? `?year=${year}` : ''}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** POST /api/v1/calendar/holidays (중복 409 throw) */
+  async addHoliday(date: string, name: string): Promise<boolean> {
+    try {
+      await api('/calendar/holidays', { method: 'POST', body: JSON.stringify({ date, name }) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** DELETE /api/v1/calendar/holidays/{id} */
+  async removeHoliday(id: number): Promise<boolean> {
+    try {
+      await api(`/calendar/holidays/${id}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** GET /api/v1/calendar/due?start=&days= — N영업일 후 납기 */
+  async due(start: string, days: number): Promise<{ due: string } | null> {
+    try {
+      return await api<{ due: string }>(`/calendar/due?start=${start}&days=${days}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/calendar/workdays?start=&end= — 사이 영업일 수 */
+  async workdays(start: string, end: string): Promise<{ workdays: number } | null> {
+    try {
+      return await api<{ workdays: number }>(`/calendar/workdays?start=${start}&end=${end}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
 }
 
 export interface ReportCatalogRow {
