@@ -9,6 +9,7 @@ export function Cvs(props: {
   selectedId?: string | null
   onSelect?: (b: CanvasBlock) => void
   onOpen?: (b: CanvasBlock) => void   // 더블클릭 = 상세 (레거시 문법)
+  onMoveBlock?: (id: string, x: number, y: number) => void   // G1 — 드래그 이동(영속)
   dims?: { x: number; y: number; w: number; label: string }[]
   labels?: { x: number; y: number; text: string }[]
   style?: CSSProperties
@@ -20,6 +21,9 @@ export function Cvs(props: {
   const ref = useRef<HTMLDivElement>(null)
   const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null)
   const [dragging, setDragging] = useState(false)
+  // G1 — 블록 이동 드래그 (편집 모드: onMoveBlock 제공 시)
+  const bdrag = useRef<{ id: string; ox: number; oy: number; px: number; py: number } | null>(null)
+  const [moved, setMoved] = useState<Record<string, { x: number; y: number }>>({})
 
   // React 합성 onWheel 은 passive → 네이티브 리스너로 preventDefault
   useEffect(() => {
@@ -61,12 +65,27 @@ export function Cvs(props: {
         setDragging(true)
       }}
       onPointerMove={(e) => {
+        const bd = bdrag.current
+        if (bd) {   // G1 — 블록 이동 (스케일 보정)
+          const dx = (e.clientX - bd.px) / tRef.current.s
+          const dy = (e.clientY - bd.py) / tRef.current.s
+          setMoved((m) => ({ ...m, [bd.id]: { x: Math.round(bd.ox + dx), y: Math.round(bd.oy + dy) } }))
+          return
+        }
         const d = drag.current
         if (!d) return
         setT((cur) => ({ ...cur, x: d.x + e.clientX - d.px, y: d.y + e.clientY - d.py }))
       }}
-      onPointerUp={() => { drag.current = null; setDragging(false) }}
-      onPointerCancel={() => { drag.current = null; setDragging(false) }}
+      onPointerUp={() => {
+        const bd = bdrag.current
+        if (bd) {
+          const pos = moved[bd.id]
+          if (pos && props.onMoveBlock) props.onMoveBlock(bd.id, pos.x, pos.y)
+          bdrag.current = null; setDragging(false); return
+        }
+        drag.current = null; setDragging(false)
+      }}
+      onPointerCancel={() => { drag.current = null; bdrag.current = null; setDragging(false) }}
       onDoubleClick={(e) => { if (isBg(e)) setT({ x: 0, y: 0, s: 1 }) }}>
       <div style={{
         position: 'absolute', inset: 0,
@@ -78,19 +97,31 @@ export function Cvs(props: {
             <span>{d.label}</span>
           </div>
         ))}
-        {props.blocks.map((b) => (
+        {props.blocks.map((b) => {
+          const pos = moved[b.id] ?? { x: b.x, y: b.y }
+          return (
           <div key={b.id}
             className={`m2 ${props.selectedId === b.id ? 'sel' : ''}`}
             style={{
-              left: b.x, top: b.y, width: b.w, height: b.h,
+              left: pos.x, top: pos.y, width: b.w, height: b.h,
               borderStyle: b.dashed ? 'dashed' : undefined,
+              cursor: props.onMoveBlock ? 'move' : undefined,
             }}
+            onPointerDown={props.onMoveBlock ? (e) => {
+              if (e.button !== 0) return
+              e.stopPropagation()
+              ref.current?.setPointerCapture(e.pointerId)
+              bdrag.current = { id: b.id, ox: pos.x, oy: pos.y, px: e.clientX, py: e.clientY }
+              setDragging(true)
+              props.onSelect?.(b)
+            } : undefined}
             onClick={() => props.onSelect?.(b)}
             onDoubleClick={() => props.onOpen?.(b)}>
             {b.name}
             {b.sub ? <small>{b.sub}</small> : null}
           </div>
-        ))}
+          )
+        })}
         {props.labels?.map((l, i) => (
           <div key={i} style={{ position: 'absolute', left: l.x, top: l.y, color: '#3B6BB4', fontSize: 9 }}>
             {l.text}

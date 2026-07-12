@@ -287,6 +287,16 @@ export function SelectionScreen({ active }: ScreenProps) {
           ) : (
             <Cvs blocks={arrBlocks ?? AHU_BLOCKS} selectedId={selBlock?.id ?? null}
               onSelect={setSelBlock}
+              onMoveBlock={arrBlocks ? (id, x, y) => {
+                const blk = arrBlocks.find((b) => b.id === id)
+                if (!blk) return
+                setArrBlocks((prev) => prev && prev.map((b) => (b.id === id ? { ...b, x, y } : b)))
+                void arrangementService.setGeometry(ARR_CODE[arrangement] ?? 'ARR-DD2', Number(id),
+                  { x, y, w: blk.w, h: blk.h })
+                  .then((ok) => setStatusMsg(ok
+                    ? `블록 이동 ✓ — ${blk.name} (${x},${y}) 저장 (arrangement_component)`
+                    : <span style={{ color: 'var(--err)' }}>이동 저장 불가 — 백엔드 연결 필요</span>))
+              } : undefined}
               dims={[{ x: 36, y: 10, w: 430, label: '4,504' }]}
               labels={[{ x: 472, y: 34, text: '3,254' }]}
               style={{ flex: 1, minHeight: 250 }} />

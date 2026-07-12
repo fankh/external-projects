@@ -1183,6 +1183,18 @@ export const arrangementService = {
       throw e
     }
   },
+  /** PATCH .../{id}/geometry — G1 구성도 블록 좌표 저장(드래그 배치) */
+  async setGeometry(code: string, componentId: number, g: { x: number; y: number; w: number; h: number }): Promise<boolean> {
+    try {
+      await api(`/arrangements/${encodeURIComponent(code)}/components/${componentId}/geometry`, {
+        method: 'PATCH', body: JSON.stringify(g),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
 }
 
 export const templetService = {
