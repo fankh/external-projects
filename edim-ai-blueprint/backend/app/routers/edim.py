@@ -4255,6 +4255,40 @@ def anomaly_status(anomaly_id: int, request: Request, body: AnomalyStatus) -> di
     return {"anomalyId": anomaly_id, "status": new}
 
 
+ESCALATE_AGE_DAYS = 3   # OPEN 이상 방치 임계 (일)
+
+
+@router.post("/anomalies/escalate", dependencies=[SETUP])
+def anomaly_escalate(request: Request) -> dict[str, Any]:
+    """이상 자동 에스컬레이션 (C4 연계) — 미처리(OPEN) HIGH 또는 임계 방치를 관리자 ESCALATION 통지.
+    이미 에스컬레이션된 건은 재통지 안 함(detail.escalated)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT anomaly_id, title, severity FROM sys_anomaly
+               WHERE tenant_id=%s AND status='OPEN'
+                 AND COALESCE((detail->>'escalated')::boolean, false)=false
+                 AND (severity='HIGH' OR created_at < now() - (%s||' days')::interval)
+               ORDER BY anomaly_id""", (tid, ESCALATE_AGE_DAYS))
+        rows = cur.fetchall()
+        cur.execute(
+            "SELECT user_id FROM sys_user WHERE tenant_id=%s AND user_level IN ('ADMIN','PLATFORM')",
+            (tid,))
+        admins = [r[0] for r in cur.fetchall()]
+        escalated = []
+        for aid, title, sev in rows:
+            for uid in admins:
+                _notify(cur, tid, uid, "ESCALATION",
+                        f"이상 에스컬레이션 [{sev}] — {title[:80]}", "/erp")
+            cur.execute(
+                "UPDATE sys_anomaly SET detail = COALESCE(detail,'{}'::jsonb) || '{\"escalated\":true}'::jsonb "
+                "WHERE anomaly_id=%s", (aid,))
+            _audit(cur, tid, "sys_anomaly", aid, "ANOMALY_ESCALATE", request.state.user_id,
+                   {"severity": sev})
+            escalated.append(aid)
+    return {"escalated": len(escalated), "admins": len(admins)}
+
+
 # ── D5 설계 변경 관리 (eco_change) — Rev-up 을 공식 절차로 ──
 def _eco_impact(cur, tid: int, target_type: str, target_no: str) -> dict[str, Any]:
     """영향 분석 자동 첨부 — CODE=Where-Used 역참조, DRAWING=Rev 이력·현재 Rev."""

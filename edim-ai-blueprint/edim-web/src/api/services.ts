@@ -2364,6 +2364,15 @@ export const anomalyService = {
       throw e
     }
   },
+  /** POST /api/v1/anomalies/escalate — 미처리 HIGH/방치 자동 에스컬레이션 (C4) */
+  async escalate(): Promise<{ escalated: number; admins: number } | null> {
+    try {
+      return await api('/anomalies/escalate', { method: 'POST', body: '{}' })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
   /** PATCH /api/v1/anomalies/{id}/status — OPEN→ACK→RESOLVED */
   async transition(anomalyId: number, status: string): Promise<boolean> {
     try {

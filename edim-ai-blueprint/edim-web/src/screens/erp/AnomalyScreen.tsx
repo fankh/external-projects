@@ -39,6 +39,16 @@ export function AnomalyScreen({ active }: ScreenProps) {
     }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }, [load, shell])
 
+  const escalate = useCallback(() => {
+    void anomalyService.escalate().then((r) => {
+      if (!r) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
+      load()
+      shell.setStatusMsg(r.escalated
+        ? `에스컬레이션 ✓ — ${r.escalated}건 관리자 ${r.admins}명 통지 (미처리 HIGH·방치)`
+        : '에스컬레이션 대상 없음 (미처리 HIGH·임계 방치 없음)')
+    }).catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }, [load, shell])
+
   useFKeys(active, useMemo(() => ({ F8: load, F9: scan }), [load, scan]))
 
   const transition = (a: AnomalyRow, st: string) => {
@@ -84,6 +94,7 @@ export function AnomalyScreen({ active }: ScreenProps) {
           { value: 'ACK', label: '확인' }, { value: 'RESOLVED', label: '해소' },
         ]} />
         <Btn onClick={scan}>{t('anom.scan', '이상 스캔 F9')}</Btn>
+        <Btn onClick={escalate}>{t('anom.escalate', '에스컬레이션')}</Btn>
         <Btn onClick={load}>{t('common.query', '조회')} F8</Btn>
       </div>
       <div className="fill-col" style={{ padding: 6, gap: 6, overflow: 'auto' }}>
