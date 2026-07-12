@@ -2180,6 +2180,22 @@ export const qcService = {
       throw e
     }
   },
+  /** GET /api/v1/qc/certificate.pdf — 성적서 PDF 새 창 (true=성공, false=대상없음/불가) */
+  async certificate(f: { refNo?: string; item?: string; result?: string } = {}): Promise<boolean> {
+    const qs = new URLSearchParams()
+    if (f.refNo) qs.set('refNo', f.refNo)
+    if (f.item) qs.set('item', f.item)
+    if (f.result) qs.set('result', f.result)
+    const q = qs.toString()
+    const res = await fetch(`${API}/qc/certificate.pdf${q ? `?${q}` : ''}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    }).catch(() => null)
+    if (!res || !res.ok) return false
+    const url = URL.createObjectURL(await res.blob())
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30_000)
+    return true
+  },
 }
 
 // D5 — 설계 변경 관리 (ECO/ECN)

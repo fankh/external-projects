@@ -4050,6 +4050,73 @@ def qc_inspection_list(result: str = "", inspType: str = "") -> list[dict[str, A
                  "inspectedAt": x[8]} for x in cur.fetchall()]
 
 
+QC_RESULT_KO = {"PASS": "합격", "FAIL": "불합격", "CONDITIONAL": "조건부"}
+
+
+@router.get("/qc/certificate.pdf")
+def qc_certificate(refNo: str = "", item: str = "", result: str = "") -> Any:
+    """QC 성적서 PDF (D4) — 검사 이력 기반. 인증서 요구 PO(ERP-017 certRequired) 연계 표기."""
+    from fastapi.responses import Response
+
+    from ..services import run_pipeline as rp
+    clause, params = "", []
+    if refNo.strip():
+        clause += " AND ref_no=%s"
+        params.append(refNo.strip())
+    if item.strip():
+        clause += " AND (item_code=%s OR item_name=%s)"
+        params.extend([item.strip(), item.strip()])
+    r = result.strip().upper()
+    if r in QC_RESULTS:
+        clause += " AND result=%s"
+        params.append(r)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            f"""SELECT insp_no, insp_type, COALESCE(item_name, item_code, '-'),
+                       result, COALESCE(measured,''), COALESCE(inspector,'-'),
+                       to_char(inspected_at,'YYYY-MM-DD'), COALESCE(ref_no,'')
+                FROM qc_inspection WHERE tenant_id=%s{clause}
+                ORDER BY inspection_id""", (tid, *params))
+        insp = cur.fetchall()
+        if not insp:
+            raise HTTPException(404, detail="성적서 대상 검사 기록이 없습니다")
+        # ERP-017 — refNo 가 인증서 요구 PO 면 연계 표기
+        cert_required = False
+        if refNo.strip():
+            cur.execute(
+                "SELECT 1 FROM doc_control WHERE tenant_id=%s AND doc_no=%s AND doc_type='PO' "
+                "AND remarks LIKE '%%인증서:요구%%'", (tid, refNo.strip()))
+            cert_required = cur.fetchone() is not None
+    total = len(insp)
+    passed = sum(1 for x in insp if x[3] == "PASS")
+    failed = sum(1 for x in insp if x[3] == "FAIL")
+    cond = total - passed - failed
+    overall = "합격" if failed == 0 else "불합격"
+    lines = [
+        f"발행일: {insp[0][6]}   대상: {refNo or item or '전체 검사'}",
+        f"종합 판정: {overall}   (합격 {passed} · 조건부 {cond} · 불합격 {failed} / 총 {total}건)",
+    ]
+    if cert_required:
+        lines.append("※ 인증서 요구 발주(PO) 연계 — 본 성적서는 납품 인증 첨부용 (ERP-017)")
+    lines.append("-" * 58)
+    lines.append("검사번호   유형    대상                판정    검사자    검사일")
+    type_ko = {"INCOMING": "수입", "PROCESS": "공정", "OUTGOING": "출하"}
+    for x in insp:
+        lines.append(
+            f"{x[0]:<9} {type_ko.get(x[1], x[1]):<5} {x[2][:18]:<18} "
+            f"{QC_RESULT_KO.get(x[3], x[3]):<5} {x[5][:8]:<8} {x[6]}")
+        if x[4]:
+            lines.append(f"           └ 측정/근거: {x[4][:70]}")
+    lines += ["-" * 58, "본 성적서는 EDIM 검사 이력(qc_inspection)에 근거하여 자동 생성되었습니다."]
+    pdf = rp.build_lines_pdf(title=f"QC 성적서 (Quality Certificate) — {overall}",
+                             subtitle="EDIM 품질 검사 성적서 (D4)", lines=lines)
+    from urllib.parse import quote
+    fname = f"QC성적서_{refNo or item or 'all'}.pdf"
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename*=UTF-8''{quote(fname)}"})
+
+
 # ── D5 설계 변경 관리 (eco_change) — Rev-up 을 공식 절차로 ──
 def _eco_impact(cur, tid: int, target_type: str, target_no: str) -> dict[str, Any]:
     """영향 분석 자동 첨부 — CODE=Where-Used 역참조, DRAWING=Rev 이력·현재 Rev."""

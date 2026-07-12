@@ -80,6 +80,10 @@ export function QualityInspectionScreen({ active }: ScreenProps) {
           { value: 'FAIL', label: '불합격' },
           { value: 'CONDITIONAL', label: '조건부' },
         ]} />
+        <Btn onClick={() => void qcService.certificate({ result: filter })
+          .then((ok) => shell.setStatusMsg(ok
+            ? 'QC 성적서 PDF ✓ — 검사 이력 기반 (인증서 요구 PO 연계)'
+            : <span style={{ color: 'var(--err)' }}>성적서 대상 검사 기록 없음</span>))}>📄 성적서 PDF</Btn>
         <Btn onClick={register}>{t('qc.registerF2', '검사 등록 F2')}</Btn>
         <Btn onClick={load}>{t('common.query', '조회')} F8</Btn>
       </div>
