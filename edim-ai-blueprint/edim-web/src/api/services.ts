@@ -1481,6 +1481,26 @@ export const roleService = {
       throw e
     }
   },
+  /** POST /api/v1/roles — 역할 생성 (중복/예약 409 throw) */
+  async create(name: string, description = ''): Promise<boolean> {
+    try {
+      await api('/roles', { method: 'POST', body: JSON.stringify({ name, description }) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** DELETE /api/v1/roles/{name} — 역할 삭제 (내장·배정 시 409 throw) */
+  async remove(name: string): Promise<boolean> {
+    try {
+      await api(`/roles/${encodeURIComponent(name)}`, { method: 'DELETE' })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
 }
 
 export const hierarchyService = {

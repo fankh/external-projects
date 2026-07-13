@@ -56,6 +56,21 @@ export function AccessControlScreen({ active }: ScreenProps) {
   }
   useEffect(() => { loadRoles() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 역할 생성/삭제 (내장 4종 보호)
+  const BUILTIN = ['PLATFORM', 'ADMIN', 'SETUP', 'GENERAL']
+  const [newRole, setNewRole] = useState('')
+  const addRole = () => {
+    if (!newRole.trim()) return
+    void roleService.create(newRole.trim())
+      .then((ok) => { if (ok) { setNewRole(''); loadRoles(); shell.setStatusMsg(`역할 생성 ✓ — ${newRole.trim().toUpperCase()}`) } })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+  const delRole = (name: string) => {
+    void roleService.remove(name)
+      .then((ok) => { if (ok) { loadRoles(); shell.setStatusMsg(`역할 삭제 ✓ — ${name}`) } })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
   const RESOURCES = [
     'cpq-selection', 'plm-design', 'code-subcode', 'code-datatable',
     'tbx-macro', 'erp-price', 'com-approval', 'erp-access',
@@ -214,12 +229,27 @@ export function AccessControlScreen({ active }: ScreenProps) {
               selectedKey={selLogin} onRowClick={(r) => setSelLogin(r.login)} />
           </GroupBox>
           <GroupBox title={t('access.roleEdit', '역할 편집 — {n} (기본값: 권한승인정의서 98메뉴 매트릭스)')
-            .replace('{n}', sel?.role ?? '—')} noPad>
+            .replace('{n}', sel?.role ?? '—')} noPad
+            right={perm.isAdmin ? (
+              <span style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                <input className="in" style={{ width: 90, height: 18, fontSize: 10 }} value={newRole}
+                  placeholder="새 역할명" aria-label="새 역할명" onChange={(e) => setNewRole(e.target.value)} />
+                <Btn style={{ height: 18, fontSize: 9.5 }} onClick={addRole}>＋ 역할</Btn>
+              </span>
+            ) : null}>
             <table className="g">
               <thead>
                 <tr>
                   <th>{t('access.resource', '리소스')}</th>
-                  {roles.map((r) => <th key={r.name} style={{ width: 62 }}>{r.name}</th>)}
+                  {roles.map((r) => (
+                    <th key={r.name} style={{ width: 62 }}>
+                      {r.name}
+                      {perm.isAdmin && !BUILTIN.includes(r.name) ? (
+                        <span data-del-role={r.name} title="역할 삭제" style={{ cursor: 'pointer', color: 'var(--err)', marginLeft: 3 }}
+                          onClick={() => delRole(r.name)}>✕</span>
+                      ) : null}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>

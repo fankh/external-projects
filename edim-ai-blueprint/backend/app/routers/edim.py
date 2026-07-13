@@ -1492,6 +1492,58 @@ def set_role_permissions(role_name: str, request: Request, body: RolePermissions
     return {"role": role_name, "updated": n}
 
 
+_BUILTIN_ROLES = {"PLATFORM", "ADMIN", "SETUP", "GENERAL"}
+
+
+class RoleCreate(BaseModel):
+    name: str
+    description: str = ""
+
+
+@router.post("/roles", status_code=201, dependencies=[ADMIN])
+def create_role(request: Request, body: RoleCreate) -> dict[str, Any]:
+    """역할 생성 (커스텀) — 예약(내장) 이름·중복 409."""
+    name = body.name.strip().upper()[:50]
+    if not name:
+        raise HTTPException(422, detail="필수 — 역할명")
+    if name in _BUILTIN_ROLES:
+        raise HTTPException(409, detail=f"예약된 내장 역할: {name}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM sys_role WHERE tenant_id=%s AND role_name=%s", (tid, name))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 역할 {name}")
+        cur.execute(
+            "INSERT INTO sys_role (tenant_id, role_name, description, created_by) "
+            "VALUES (%s,%s,NULLIF(%s,''),%s) RETURNING role_id",
+            (tid, name, body.description.strip()[:200], str(request.state.user_id)))
+        rid = cur.fetchone()[0]
+        _audit(cur, tid, "sys_role", rid, "ROLE_CREATE", request.state.user_id, {"name": name})
+    return {"roleId": rid, "name": name}
+
+
+@router.delete("/roles/{role_name}", dependencies=[ADMIN])
+def delete_role(role_name: str, request: Request) -> dict[str, Any]:
+    """역할 삭제 — 내장 역할·사용자 배정 시 409. 권한 매트릭스는 연쇄 정리."""
+    name = role_name.strip().upper()
+    if name in _BUILTIN_ROLES:
+        raise HTTPException(409, detail=f"내장 역할은 삭제 불가: {name}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT role_id FROM sys_role WHERE tenant_id=%s AND role_name=%s", (tid, name))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"역할 없음: {role_name}")
+        rid = row[0]
+        cur.execute("SELECT count(*) FROM sys_user_role WHERE role_id=%s", (rid,))
+        if cur.fetchone()[0] > 0:
+            raise HTTPException(409, detail="사용자에 배정된 역할 — 배정 해제 후 삭제")
+        cur.execute("DELETE FROM sys_role_permission WHERE role_id=%s", (rid,))
+        cur.execute("DELETE FROM sys_role WHERE tenant_id=%s AND role_id=%s", (tid, rid))
+        _audit(cur, tid, "sys_role", rid, "ROLE_DELETE", request.state.user_id, {"name": name})
+    return {"deleted": name}
+
+
 @router.get("/hierarchy")
 def hierarchy(treeType: str = "PRODUCT") -> list[dict[str, Any]]:
     """Hierarchy 주소 체계 — tbx_macro/tbl 의 hierarchy_address 원천 (M-3-1)."""
