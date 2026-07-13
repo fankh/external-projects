@@ -265,7 +265,7 @@ export function PartLedgerScreen({ active }: ScreenProps) {
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`${t('parts.title', '부품 대장 — prt_part')} (F3=삭제·BOM 참조 보호)`} noPad style={{ flex: 1.4 }}>
           <DenseGrid prefKey="parts" columns={cols} rows={rows ?? []} rowKey={(r) => r.partNo}
-            selectedKey={sel} onRowClick={(r) => setSel(r.partNo)}
+            selectedKey={sel} onRowClick={(r) => setSel(r.partNo)} stickyFirst
             rowActions={(r) => [
               { label: '선택', onClick: () => setSel(r.partNo) },
               ...(perm.canWrite('plm-parts') ? [{ label: '삭제', danger: true, onClick: () => removePart(r.partNo) }] : []),

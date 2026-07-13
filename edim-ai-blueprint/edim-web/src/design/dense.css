@@ -66,6 +66,14 @@ body {
 .g tbody tr:nth-child(even) td { background: #F7F9FC; }
 .g tbody tr.sel td { background: var(--sel-yellow); }
 .g tbody tr.msel td { background: #E3EEFF; }
+/* G2 첫 컬럼 고정 — 가로 스크롤 시 식별 열 유지 (행 상태별 배경 미러) */
+.g th.stick { position: sticky; z-index: 3; }
+.g td.stick { position: sticky; z-index: 1; background: #fff; border-right: 1px solid var(--line-strong); }
+.g th.stick { border-right: 1px solid var(--line-strong); }
+.g tbody tr:nth-child(even) td.stick { background: #F7F9FC; }
+.g tbody tr:hover td.stick { background: #FDF6DE; }
+.g tbody tr.sel td.stick { background: var(--sel-yellow); }
+.g tbody tr.msel td.stick { background: #E3EEFF; }
 .g tbody tr.msel.sel td { background: #DCE8CF; }
 .g tbody tr:hover td { background: #FDF6DE; }
 .g td.num { text-align: right; font-variant-numeric: tabular-nums; }

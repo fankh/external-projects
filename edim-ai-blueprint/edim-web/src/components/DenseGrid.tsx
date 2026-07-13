@@ -45,6 +45,8 @@ export function DenseGrid<T>(props: {
   onSelectionChange?: (keys: Set<Key>) => void
   /** G2 — 행 우클릭 컨텍스트 메뉴 액션 (셀/행 복사는 기본 제공) */
   rowActions?: (row: T, index: number) => { label: string; onClick: () => void; danger?: boolean }[]
+  /** G2 — 첫 데이터 컬럼 고정(가로 스크롤 시 식별 열 유지) */
+  stickyFirst?: boolean
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir } | null>(null)
   // D8 — 컬럼 표시 설정
@@ -309,6 +311,7 @@ export function DenseGrid<T>(props: {
   }
 
   const ms = props.multiSelect
+  const stickOff = ms ? 26 : 0
   const table = (
     <table ref={gridRef} className="g"
       tabIndex={(props.onRowClick || findable) ? 0 : undefined} onKeyDown={onKeyDown}
@@ -319,7 +322,9 @@ export function DenseGrid<T>(props: {
       <thead>
         <tr>
           {ms ? (
-            <th style={{ width: 26, cursor: 'pointer' }} title="전체 선택/해제" onClick={(e) => e.stopPropagation()}>
+            <th className={props.stickyFirst ? 'stick' : undefined}
+              style={{ width: 26, cursor: 'pointer', ...(props.stickyFirst ? { left: 0 } : null) }}
+              title="전체 선택/해제" onClick={(e) => e.stopPropagation()}>
               <input type="checkbox" aria-label="전체 선택" checked={allShownSel}
                 ref={(el) => { if (el) el.indeterminate = someShownSel && !allShownSel }}
                 onChange={toggleAllShown} />
@@ -329,8 +334,10 @@ export function DenseGrid<T>(props: {
             const sortable = sortableOf(c)
             const active = sort?.key === c.key
             const w = colW[c.key] ?? c.width
+            const stick = props.stickyFirst && c === cols[0]
             return (
               <th key={c.key}
+                className={stick ? 'stick' : undefined}
                 draggable={!!props.prefKey}
                 onDragStart={() => { dragCol.current = c.key }}
                 onDragOver={(e) => { if (props.prefKey && dragCol.current) e.preventDefault() }}
@@ -338,6 +345,7 @@ export function DenseGrid<T>(props: {
                 style={{
                   position: 'relative',
                   ...(w ? { width: w } : null),
+                  ...(stick ? { left: stickOff } : null),
                   ...(sortable ? { cursor: 'pointer', userSelect: 'none' } : null),
                 }}
                 aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
@@ -373,7 +381,8 @@ export function DenseGrid<T>(props: {
               onClick={() => props.onRowClick?.(row, origIdx)}
               onDoubleClick={() => props.onRowDoubleClick?.(row, origIdx)}>
               {ms ? (
-                <td className="c" onClick={(e) => e.stopPropagation()}>
+                <td className={`c${props.stickyFirst ? ' stick' : ''}`} onClick={(e) => e.stopPropagation()}
+                  style={props.stickyFirst ? { left: 0 } : undefined}>
                   <input type="checkbox" aria-label="행 선택" checked={!!checked} readOnly
                     onClick={(e) => {
                       if (e.shiftKey && anchorRef.current != null) selectRange(anchorRef.current, i)
@@ -381,10 +390,14 @@ export function DenseGrid<T>(props: {
                     }} />
                 </td>
               ) : null}
-              {cols.map((c) => (
-                <td key={c.key} className={tdClass(c)}
-                  onContextMenu={(e) => openCtx(e, row, origIdx, c)}>{c.render(row, origIdx)}</td>
-              ))}
+              {cols.map((c) => {
+                const stick = props.stickyFirst && c === cols[0]
+                return (
+                  <td key={c.key} className={[tdClass(c), stick ? 'stick' : ''].filter(Boolean).join(' ') || undefined}
+                    style={stick ? { left: stickOff } : undefined}
+                    onContextMenu={(e) => openCtx(e, row, origIdx, c)}>{c.render(row, origIdx)}</td>
+                )
+              })}
             </tr>
           )
         })}
