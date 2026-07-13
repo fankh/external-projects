@@ -60,4 +60,4 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
 - **P1 완료** — 기반(쿠키 인증·미들웨어·서버 API·i18n·앱 크롬) + 레퍼런스 화면 `/erp/eco-ledger`. 런타임 SSR 실증.
 - **P2 완료** — 공유 컴포넌트 전부 이관: `controls`·`DenseGrid`·클라이언트 i18n·**`CadSvg`(최난도)**·`cadBridge`·`cadOps`. 하드 의존성 클리어. 남음: `Cvs`(블록 캔버스, 필요 화면 시).
 - **P3 진행 중** — 읽기 화면 배치 이관. 레시피 정착(page.tsx SSR fetch + `'use client'` DenseGrid, `ScreenHeader` 공용). Report Center 는 순수 서버 컴포넌트(카드, 클라 JS 127B).
-- **이관 28/59 화면**: +work-order·quality·purchase(pr-items 재고판정). write 4. 남음: design-editor·cad-viewer·CPQ Run(비동기)·approval·folder·sub-code·datatable·bom-compare·toolbox·process-setup 등. ※nginx 중지 중 = 빌드검증만(23~28 미스모크), 복구 후 런타임 검증 필요.
+- **이관 31/59 화면**(과반): +run-history·approval-inbox·documents. write 4. 남음: design-editor·cad-viewer·CPQ Run(비동기)·bom-compare·sub-code·datatable·variant·process-setup·folder·tech-data·macro·ui-designer·templet 등. ※nginx 중지 중 = 빌드검증만(23~31 미스모크).
