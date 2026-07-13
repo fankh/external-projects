@@ -3,7 +3,7 @@
  *  rowKey/onRowClick/selectedKey 가 정렬과 무관하게 동작한다 (index 기반 선택 화면 안전).
  *  정렬값: col.sortValue > render 원시값(string/number) — JSX 셀은 sortValue 미지정 시 정렬 제외.
  *  G2 — 그리드 내 찾기(Ctrl+F, 보이는 셀 텍스트 부분일치 필터) · 공용 다중행 선택(multiSelect: 체크박스 열·Shift 범위·전체선택). */
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import { prefService } from '../api/services'
 import { downloadCsv } from '../utils/csv'
 
@@ -43,6 +43,8 @@ export function DenseGrid<T>(props: {
   multiSelect?: boolean
   selectedKeys?: Set<Key>
   onSelectionChange?: (keys: Set<Key>) => void
+  /** G2 — 행 우클릭 컨텍스트 메뉴 액션 (셀/행 복사는 기본 제공) */
+  rowActions?: (row: T, index: number) => { label: string; onClick: () => void; danger?: boolean }[]
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir } | null>(null)
   // D8 — 컬럼 표시 설정
@@ -63,6 +65,16 @@ export function DenseGrid<T>(props: {
   const [colOrder, setColOrder] = useState<string[]>([])
   const resizeRef = useRef<{ key: string; startX: number; startW: number } | null>(null)
   const dragCol = useRef<string | null>(null)
+  // G2 — 우클릭 컨텍스트 메뉴
+  const [ctx, setCtx] = useState<{ x: number; y: number; actions: { label: string; onClick: () => void; danger?: boolean }[] } | null>(null)
+  useEffect(() => {
+    if (!ctx) return
+    const close = () => setCtx(null)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('keydown', close)
+    return () => { window.removeEventListener('mousedown', close); window.removeEventListener('scroll', close, true); window.removeEventListener('keydown', close) }
+  }, [ctx])
 
   const persistPref = (bucket: string, val: unknown) => {
     if (!props.prefKey) return
@@ -284,6 +296,18 @@ export function DenseGrid<T>(props: {
       shown.map(({ row, origIdx }) => cols.map((c) => cellText(c, row, origIdx))))
   }
 
+  const openCtx = (e: ReactMouseEvent, row: T, idx: number, c: GridColumn<T>) => {
+    e.preventDefault()
+    const cellStr = String(cellText(c, row, idx))
+    const rowTsv = cols.map((cc) => String(cellText(cc, row, idx))).join('\t')
+    const acts = [
+      { label: '셀 복사', onClick: () => void navigator.clipboard?.writeText(cellStr) },
+      { label: '행 복사(TSV)', onClick: () => void navigator.clipboard?.writeText(rowTsv) },
+      ...(props.rowActions?.(row, idx) ?? []),
+    ]
+    setCtx({ x: e.clientX, y: e.clientY, actions: acts })
+  }
+
   const ms = props.multiSelect
   const table = (
     <table ref={gridRef} className="g"
@@ -358,7 +382,8 @@ export function DenseGrid<T>(props: {
                 </td>
               ) : null}
               {cols.map((c) => (
-                <td key={c.key} className={tdClass(c)}>{c.render(row, origIdx)}</td>
+                <td key={c.key} className={tdClass(c)}
+                  onContextMenu={(e) => openCtx(e, row, origIdx, c)}>{c.render(row, origIdx)}</td>
               ))}
             </tr>
           )
@@ -443,12 +468,27 @@ export function DenseGrid<T>(props: {
     </div>
   ) : null
 
-  if (!overlay && !pager) return table
+  const ctxMenu = ctx ? (
+    <div data-ctx-menu className="gb" style={{
+      position: 'fixed', top: ctx.y, left: ctx.x, zIndex: 1000, minWidth: 130,
+      boxShadow: '0 6px 20px rgba(20,26,40,.28)', padding: 3,
+    }} onMouseDown={(e) => e.stopPropagation()}>
+      {ctx.actions.map((a, i) => (
+        <div key={i} data-ctx-item className="b" style={{
+          fontSize: 10.5, padding: '3px 8px', cursor: 'pointer', width: '100%',
+          justifyContent: 'flex-start', color: a.danger ? 'var(--err)' : undefined,
+        }} onClick={() => { a.onClick(); setCtx(null) }}>{a.label}</div>
+      ))}
+    </div>
+  ) : null
+
+  if (!overlay && !pager && !props.rowActions) return ctx ? <>{table}{ctxMenu}</> : table
   return (
     <div data-grid-wrap style={{ position: 'relative' }}>
       {overlay}
       {table}
       {pager}
+      {ctxMenu}
     </div>
   )
 }

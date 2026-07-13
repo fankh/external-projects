@@ -74,6 +74,19 @@ export function PartLedgerScreen({ active }: ScreenProps) {
     })()
   }
 
+  const removePart = (no: string) => {
+    void (async () => {
+      try {
+        const ok = await partService.remove(no)
+        if (!ok) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>삭제 불가 — 백엔드 연결 필요</span>); return }
+        if (sel === no) setSel(null)
+        load()
+        shell.setStatusMsg(`부품 삭제 ✓ — ${no}`)
+      } catch (e) {
+        shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e instanceof Error ? e.message : '삭제 실패'}</span>)
+      }
+    })()
+  }
   const removeSel = () => {
     if (!sel) {
       shell.setStatusMsg(<span style={{ color: 'var(--warn)' }}>삭제 — 대상 부품 행을 선택하십시오</span>)
@@ -252,7 +265,11 @@ export function PartLedgerScreen({ active }: ScreenProps) {
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <GroupBox title={`${t('parts.title', '부품 대장 — prt_part')} (F3=삭제·BOM 참조 보호)`} noPad style={{ flex: 1.4 }}>
           <DenseGrid prefKey="parts" columns={cols} rows={rows ?? []} rowKey={(r) => r.partNo}
-            selectedKey={sel} onRowClick={(r) => setSel(r.partNo)} />
+            selectedKey={sel} onRowClick={(r) => setSel(r.partNo)}
+            rowActions={(r) => [
+              { label: '선택', onClick: () => setSel(r.partNo) },
+              ...(perm.canWrite('plm-parts') ? [{ label: '삭제', danger: true, onClick: () => removePart(r.partNo) }] : []),
+            ]} />
         </GroupBox>
         <div className="split-h" />
         <GroupBox title={`${t('parts.supCodes', '공급자 코드 매핑 (ERP-018)')}${sel ? ` — ${sel}` : ''}`} noPad
