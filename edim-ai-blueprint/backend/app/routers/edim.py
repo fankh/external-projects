@@ -7398,6 +7398,55 @@ def pcr_list() -> list[dict[str, Any]]:
         ]
 
 
+@router.get("/cost/pcr/{pcr_id}/actual")
+def pcr_actual(pcr_id: int) -> dict[str, Any]:
+    """실적 반영 PCR 재계산 (D6) — 매출 고정, 직접비를 실적(cst_actual, 프로젝트 귀속)으로 치환 →
+    기여마진·EBIT 재산출 + 추정 대비 차이. 실적 없으면 actualAvailable=false."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT p.sections, p.direct_cost_total, p.contribution_margin, p.ebit, p.selection_id
+               FROM cst_pcr p WHERE p.tenant_id=%s AND p.pcr_id=%s""", (tid, pcr_id))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"PCR 없음: #{pcr_id}")
+        sections, est_direct, est_margin, est_ebit, sel_id = r
+        revenue = float(sections.get("revenue", 0))
+        sga = float(sections.get("sga", 0))
+        # PCR 프로젝트 (selection→project)
+        cur.execute(
+            """SELECT pj.project_no FROM cpq_selection s
+               JOIN prj_project pj ON pj.project_id=s.project_id
+               WHERE s.selection_id=%s""", (sel_id,))
+        prow = cur.fetchone()
+        project_no = prow[0] if prow else ""
+        # 실적 직접비 — 프로젝트 귀속분 합계
+        if project_no:
+            cur.execute("SELECT COALESCE(sum(amount),0), count(*) FROM cst_actual "
+                        "WHERE tenant_id=%s AND project_no=%s", (tid, project_no))
+        else:
+            cur.execute("SELECT COALESCE(sum(amount),0), count(*) FROM cst_actual WHERE tenant_id=%s", (tid,))
+        act_row = cur.fetchone()
+        act_direct, act_count = float(act_row[0]), act_row[1]
+    est_direct = float(est_direct)
+    est_margin = float(est_margin) if est_margin is not None else revenue - est_direct
+    est_ebit = float(est_ebit) if est_ebit is not None else est_margin - sga
+    act_margin = round(revenue - act_direct, 2)
+    act_ebit = round(act_margin - sga, 2)
+    return {
+        "pcrId": pcr_id, "projectNo": project_no, "revenue": revenue, "sga": sga,
+        "actualAvailable": act_count > 0, "actualCount": act_count,
+        "estimate": {"directCost": est_direct, "margin": est_margin, "ebit": est_ebit,
+                     "marginPct": round(est_margin / revenue, 4) if revenue else 0},
+        "actual": {"directCost": act_direct, "margin": act_margin, "ebit": act_ebit,
+                   "marginPct": round(act_margin / revenue, 4) if revenue else 0},
+        "variance": {"directCost": round(act_direct - est_direct, 2),
+                     "margin": round(act_margin - est_margin, 2),
+                     "ebit": round(act_ebit - est_ebit, 2),
+                     "marginPctDelta": round((act_margin - est_margin) / revenue, 4) if revenue else 0},
+    }
+
+
 @router.get("/reports/catalog")
 def reports_catalog() -> list[dict[str, Any]]:
     """리포트 센터 카탈로그 — 산발 리포트 생성기 목록 + 건수(데이터 기반)."""

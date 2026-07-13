@@ -3587,6 +3587,13 @@ export interface PcrReportRow {
   pcrId: number; businessType: string; code: string; directCostTotal: number
   contributionMargin: number | null; ebit: number | null; status: string
 }
+export interface PcrLeg { directCost: number; margin: number; ebit: number; marginPct: number }
+export interface PcrActual {
+  pcrId: number; projectNo: string; revenue: number; sga: number
+  actualAvailable: boolean; actualCount: number
+  estimate: PcrLeg; actual: PcrLeg
+  variance: { directCost: number; margin: number; ebit: number; marginPctDelta: number }
+}
 
 export const reportService = {
   /** GET /api/v1/reports/catalog — 리포트 카탈로그 */
@@ -3602,6 +3609,15 @@ export const reportService = {
   async pcrList(): Promise<PcrReportRow[] | null> {
     try {
       return await api<PcrReportRow[]>('/cost/pcr')
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/cost/pcr/{id}/actual — 실적 반영 PCR 재계산(추정 vs 실적 기여마진·EBIT) */
+  async pcrActual(pcrId: number): Promise<PcrActual | null> {
+    try {
+      return await api<PcrActual>(`/cost/pcr/${pcrId}/actual`)
     } catch (e) {
       if (e instanceof ApiUnavailable) return null
       throw e

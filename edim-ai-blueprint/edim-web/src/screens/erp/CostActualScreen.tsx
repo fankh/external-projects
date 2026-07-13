@@ -1,7 +1,7 @@
 /** D6 원가 실적 (Cost Actual) — 추정이 실적으로 검증되는 고리.
  *  PO 확정 단가 → 실적 원가 적재(cst_calc 추정과 분리) + 견적 vs 실적 차이 분석·차이율 경보. */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { costActualService, type CostActual, type VarianceData } from '../../api/services'
+import { costActualService, reportService, type CostActual, type PcrActual, type VarianceData } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
@@ -20,12 +20,18 @@ export function CostActualScreen({ active }: ScreenProps) {
   const { t } = useI18n()
   const [rows, setRows] = useState<CostActual[]>([])
   const [vd, setVd] = useState<VarianceData | null>(null)
+  const [pcr, setPcr] = useState<PcrActual | null>(null)
   const [cat, setCat] = useState('MATERIAL')
   const [proj, setProj] = useState('')   // 프로젝트 귀속 필터 ('' = 전체)
 
   const load = useCallback(() => {
     void costActualService.list(proj).then((r) => { if (r) setRows(r) })
     void costActualService.variance(proj).then(setVd)
+    // 실적 반영 PCR — 최초 PCR 의 추정 vs 실적 기여마진·EBIT
+    void reportService.pcrList().then((list) => {
+      if (list && list.length) void reportService.pcrActual(list[0].pcrId).then(setPcr)
+      else setPcr(null)
+    })
   }, [proj])
   useEffect(() => { load() }, [load])
 
@@ -119,6 +125,35 @@ export function CostActualScreen({ active }: ScreenProps) {
               </div>
             ))}
           </div>
+        ) : null}
+        {pcr ? (
+          <GroupBox title={t('act.pcrTitle', '실적 반영 PCR — 기여마진·EBIT 영향')} noPad
+            right={<Chip tone={pcr.variance.margin < 0 ? 'err' : 'ok'}>
+              {pcr.actualAvailable
+                ? `기여마진 ${pcr.variance.margin >= 0 ? '+' : ''}${won(pcr.variance.margin)} (${pct(pcr.variance.marginPctDelta)})`
+                : '실적 미적재 — 프로젝트 귀속 실적 필요'}
+            </Chip>}>
+            <table className="g">
+              <thead><tr>
+                <th>{t('act.pcrLeg', '구분')}</th><th className="num">{t('act.pcrRevenue', '매출')}</th>
+                <th className="num">{t('act.pcrDirect', '직접비')}</th><th className="num">{t('act.pcrMargin', '기여마진')}</th>
+                <th className="num">EBIT</th><th className="num">{t('act.pcrMarginPct', '마진율')}</th>
+              </tr></thead>
+              <tbody>
+                <tr><td>{t('act.pcrEst', '추정(견적)')}</td><td className="num">{won(pcr.revenue)}</td>
+                  <td className="num">{won(pcr.estimate.directCost)}</td><td className="num">{won(pcr.estimate.margin)}</td>
+                  <td className="num">{won(pcr.estimate.ebit)}</td><td className="num">{pct(pcr.estimate.marginPct)}</td></tr>
+                <tr><td><b>{t('act.pcrAct', '실적 반영')}</b></td><td className="num">{won(pcr.revenue)}</td>
+                  <td className="num">{won(pcr.actual.directCost)}</td>
+                  <td className="num" style={{ color: pcr.actual.margin < pcr.estimate.margin ? 'var(--err)' : 'var(--ok)' }}>{won(pcr.actual.margin)}</td>
+                  <td className="num" style={{ color: pcr.actual.ebit < pcr.estimate.ebit ? 'var(--err)' : 'var(--ok)' }}>{won(pcr.actual.ebit)}</td>
+                  <td className="num">{pct(pcr.actual.marginPct)}</td></tr>
+              </tbody>
+            </table>
+            <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', padding: '3px 6px' }}>
+              매출 고정 · 직접비→실적(cst_actual{pcr.projectNo ? ` · ${pcr.projectNo} 귀속` : ''}, {pcr.actualCount}건) 치환 재계산
+            </div>
+          </GroupBox>
         ) : null}
         <GroupBox title={t('act.listTitle', '실적 원가 내역 — PO 확정 단가 기반 (cst_actual)')} noPad>
           {rows.length ? (
