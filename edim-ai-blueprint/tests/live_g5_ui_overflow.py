@@ -35,8 +35,12 @@ with sync_playwright() as pw:
     p.locator('.titlebar .mod', has_text='ERP').first.click(); p.wait_for_timeout(300)
     p.locator('.tn', has_text='감사 조회').first.click()
     p.wait_for_selector('table.g tbody tr', timeout=15000); p.wait_for_timeout(400)
-    scrolls = p.evaluate('''() => { const o=[]; const w=e=>{const c=getComputedStyle(e); if((c.overflowY==='auto'||c.overflowY==='scroll')&&e.scrollHeight>e.clientHeight+2) o.push((e.className||e.tagName).toString()); for(const k of e.children) w(k);}; w(document.querySelector('.app')); return o; }''')
-    ok(f"감사 조회 세로 스크롤 1개 (이중 제거) — {scrolls}", len(scrolls) == 1)
+    # 콘텐츠 영역(.workarea)만 검사 — 좌측 메뉴 트리(.tree2/.lnav) 스크롤은 제외
+    scrolls = p.evaluate('''() => { const o=[]; const w=e=>{const cls=(e.className||'').toString();
+      if(/tree2|lnav|mdi/.test(cls)) return;   // 네비게이션 제외
+      const c=getComputedStyle(e); if((c.overflowY==='auto'||c.overflowY==='scroll')&&e.scrollHeight>e.clientHeight+2) o.push(cls||e.tagName);
+      for(const k of e.children) w(k);}; w(document.querySelector('.workarea')||document.querySelector('.app')); return o; }''')
+    ok(f"감사 조회 콘텐츠 세로 스크롤 1개 (이중 제거) — {scrolls}", len(scrolls) == 1)
 
     # 부품 대장 — ⚙ 드롭다운 fixed·뷰포트 내
     p.locator('.titlebar .mod', has_text='PLM').first.click(); p.wait_for_timeout(400)

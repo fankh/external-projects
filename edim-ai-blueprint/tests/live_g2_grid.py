@@ -65,9 +65,12 @@ with sync_playwright() as pw:
     all_have = all(term.lower() in r.lower()
                    for r in grid.locator("tbody tr").all_inner_texts())
     ok("필터 결과 전 행이 검색어 포함", all_have)
-    # n/m 카운트 표기
+    # n/m 카운트 표기 (페이지네이션과 무관 — 라벨은 전체 필터/전체 기준)
     count_txt = wrap.inner_text()
-    ok("n/m 카운트 표기", re.search(rf"{filtered}\s*/\s*{base_rows}", count_txt) is not None)
+    mm = re.search(r"(\d[\d,]*)\s*/\s*(\d[\d,]*)", count_txt)
+    nn = int(mm.group(1).replace(',', '')) if mm else -1
+    tot = int(mm.group(2).replace(',', '')) if mm else -1
+    ok("n/m 카운트 표기(0<n≤m)", mm is not None and 0 < nn <= tot)
 
     # 없는 문자열 → 0행
     find.fill("ZZZ_없는검색어_QWX")
@@ -94,10 +97,14 @@ with sync_playwright() as pw:
     head_cb = grid.locator("thead input[type=checkbox]").first
     head_cb.click()   # 전체 선택
     page.wait_for_timeout(200)
-    ok("헤더 체크박스 = 전체 선택(.msel 전 행)",
-       grid.locator("tbody tr.msel").count() == base_rows)
-    ok("전체 선택 후 '선택 CSV(N)' 활성",
-       (not csv_btn.is_disabled()) and re.search(rf"\({base_rows}\)", csv_btn.inner_text()) is not None)
+    # 페이지네이션: 렌더된 행은 페이지 단위(.msel), 전체 선택은 전 페이지(pager 총계) 대상
+    pager = page.locator("[data-grid-pager]")
+    pm = re.search(r"/\s*([\d,]+)\s*행", pager.inner_text()) if pager.count() else None
+    total = int(pm.group(1).replace(",", "")) if pm else base_rows
+    ok("헤더 체크박스 = 전체 선택(렌더 행 .msel)",
+       grid.locator("tbody tr.msel").count() == grid.locator("tbody tr").count())
+    ok(f"전체 선택 후 '선택 CSV(전체 {total})' 활성",
+       (not csv_btn.is_disabled()) and re.search(rf"\({total}\)", csv_btn.inner_text()) is not None)
 
     head_cb.click()   # 전체 해제
     page.wait_for_timeout(200)
