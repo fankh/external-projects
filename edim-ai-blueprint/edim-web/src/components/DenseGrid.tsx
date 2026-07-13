@@ -58,6 +58,20 @@ export function DenseGrid<T>(props: {
   const findInputRef = useRef<HTMLInputElement>(null)
   // G2 — 다중 선택 Shift 범위 앵커(shown 인덱스)
   const anchorRef = useRef<number | null>(null)
+  // G2 — 컬럼 리사이즈/순서 (prefKey 영속)
+  const [colW, setColW] = useState<Record<string, number>>({})
+  const [colOrder, setColOrder] = useState<string[]>([])
+  const resizeRef = useRef<{ key: string; startX: number; startW: number } | null>(null)
+  const dragCol = useRef<string | null>(null)
+
+  const persistPref = (bucket: string, val: unknown) => {
+    if (!props.prefKey) return
+    void prefService.get<Record<string, unknown>>(bucket).then((m) => {
+      const map = (m && typeof m === 'object') ? { ...m } : {}
+      map[props.prefKey!] = val
+      void prefService.set(bucket, map)
+    })
+  }
 
   useEffect(() => {
     if (!props.prefKey) return
@@ -65,7 +79,40 @@ export function DenseGrid<T>(props: {
       const h = m && m[props.prefKey!]
       if (Array.isArray(h)) setHidden(new Set(h))
     })
+    void prefService.get<Record<string, Record<string, number>>>('gridColWidths').then((m) => {
+      const w = m && m[props.prefKey!]
+      if (w && typeof w === 'object') setColW(w)
+    })
+    void prefService.get<Record<string, string[]>>('gridColOrder').then((m) => {
+      const o = m && m[props.prefKey!]
+      if (Array.isArray(o)) setColOrder(o)
+    })
   }, [props.prefKey])
+
+  // 컬럼 리사이즈 — 헤더 우측 핸들 드래그(window 리스너)
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const r = resizeRef.current
+      if (!r) return
+      const w = Math.max(40, r.startW + (e.clientX - r.startX))
+      setColW((prev) => ({ ...prev, [r.key]: w }))
+    }
+    const onUp = () => {
+      if (resizeRef.current) { resizeRef.current = null; setColW((w) => { persistPref('gridColWidths', w); return w }) }
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.prefKey])
+
+  const reorderCol = (from: string, to: string) => {
+    const order = (colOrder.length ? colOrder : props.columns.map((c) => c.key)).filter((k) => k !== from)
+    const at = order.indexOf(to)
+    order.splice(at < 0 ? order.length : at, 0, from)
+    setColOrder(order)
+    persistPref('gridColOrder', order)
+  }
   useEffect(() => {
     if (!colMenu) return
     const onDoc = (e: MouseEvent) => {
@@ -88,7 +135,13 @@ export function DenseGrid<T>(props: {
       return next
     })
   }
-  const cols = props.prefKey ? props.columns.filter((c) => !hidden.has(c.key)) : props.columns
+  const ordered = colOrder.length
+    ? [...props.columns].sort((a, b) => {
+      const ia = colOrder.indexOf(a.key), ib = colOrder.indexOf(b.key)
+      return (ia < 0 ? 1e6 : ia) - (ib < 0 ? 1e6 : ib)
+    })
+    : props.columns
+  const cols = props.prefKey ? ordered.filter((c) => !hidden.has(c.key)) : ordered
 
   const tdClass = (c: GridColumn<T>) => {
     const cls: string[] = []
@@ -251,17 +304,36 @@ export function DenseGrid<T>(props: {
           {cols.map((c) => {
             const sortable = sortableOf(c)
             const active = sort?.key === c.key
+            const w = colW[c.key] ?? c.width
             return (
               <th key={c.key}
+                draggable={!!props.prefKey}
+                onDragStart={() => { dragCol.current = c.key }}
+                onDragOver={(e) => { if (props.prefKey && dragCol.current) e.preventDefault() }}
+                onDrop={() => { const f = dragCol.current; dragCol.current = null; if (f && f !== c.key) reorderCol(f, c.key) }}
                 style={{
-                  ...(c.width ? { width: c.width } : null),
+                  position: 'relative',
+                  ...(w ? { width: w } : null),
                   ...(sortable ? { cursor: 'pointer', userSelect: 'none' } : null),
                 }}
                 aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                title={sortable ? '클릭 = 정렬 (▲→▼→해제)' : undefined}
+                title={sortable ? '클릭 = 정렬 · 드래그 = 열 이동 · 우측 경계 = 너비' : (props.prefKey ? '드래그 = 열 이동' : undefined)}
                 onClick={() => clickHeader(c)}>
                 {c.header}
                 {active ? <span style={{ fontSize: 9 }}> {sort!.dir === 'asc' ? '▲' : '▼'}</span> : null}
+                {props.prefKey ? (
+                  <span data-col-resize style={{
+                    position: 'absolute', top: 0, right: 0, width: 6, height: '100%',
+                    cursor: 'col-resize', userSelect: 'none',
+                  }}
+                    draggable={false}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => {
+                      e.stopPropagation(); e.preventDefault()
+                      const th = (e.currentTarget.parentElement as HTMLElement)
+                      resizeRef.current = { key: c.key, startX: e.clientX, startW: w ?? th.offsetWidth }
+                    }} />
+                ) : null}
               </th>
             )
           })}
@@ -337,9 +409,12 @@ export function DenseGrid<T>(props: {
                   </label>
                 ))}
               </div>
-              <div style={{ borderTop: '1px solid var(--line)', padding: 4 }}>
-                <span className="b" data-grid-csv style={{ fontSize: 10.5, cursor: 'pointer', width: '100%', justifyContent: 'center' }}
-                  onClick={() => { exportCsv(); setColMenu(false) }}>⬇ CSV 내보내기</span>
+              <div style={{ borderTop: '1px solid var(--line)', padding: 4, display: 'flex', gap: 4 }}>
+                <span className="b" data-grid-csv style={{ fontSize: 10.5, cursor: 'pointer', flex: 1, justifyContent: 'center' }}
+                  onClick={() => { exportCsv(); setColMenu(false) }}>⬇ CSV</span>
+                <span className="b" data-col-reset style={{ fontSize: 10.5, cursor: 'pointer', flex: 1, justifyContent: 'center' }}
+                  title="너비·순서 초기화"
+                  onClick={() => { setColW({}); setColOrder([]); persistPref('gridColWidths', {}); persistPref('gridColOrder', []); setColMenu(false) }}>↺ 컬럼 초기화</span>
               </div>
             </div>
           ) : null}
