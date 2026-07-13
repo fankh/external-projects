@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { getLocale } from '@/lib/session'
 import { SESSION_COOKIE } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
+import { I18nProvider } from '@/components/I18nProvider'
+import { LocaleSwitcher } from '@/components/LocaleSwitcher'
 
 // 이관 완료 화면만 네비에 노출(점진 확장). label 은 i18n.
 const NAV: { href: string; key: string; ko: string }[] = [
@@ -24,12 +26,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const t = (k: string, ko: string) => translate(bundle, k, ko)
 
   return (
+    <I18nProvider locale={locale} bundle={bundle}>
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <div className="titlebar" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 10px' }}>
         <b style={{ fontSize: 12.5 }}>EDIM</b>
         <span style={{ fontSize: 10.5, opacity: 0.8 }}>NOVA Solution · Next SSR</span>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, opacity: 0.7 }}>{locale.toUpperCase()}</span>
+        <LocaleSwitcher />
         <form action={logout}>
           <button type="submit" className="b" style={{ height: 18, fontSize: 10 }}>로그아웃</button>
         </form>
@@ -49,5 +52,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+    </I18nProvider>
   )
 }
