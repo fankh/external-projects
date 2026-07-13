@@ -15,6 +15,7 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/code/product-codes', key: 'menu.code-master', ko: '제품 코드 마스터 (M-3-8)' },
   { href: '/erp/prices', key: 'menu.erp-price', ko: '단가 대장 (M-12-5)' },
   { href: '/erp/po', key: 'menu.erp-po', ko: '발주 대장 (G-3)' },
+  { href: '/erp/inventory', key: 'menu.erp-inventory', ko: '재고 관리 (D-2)' },
   { href: '/erp/milestones', key: 'menu.erp-milestone', ko: '일정·마일스톤 (D-7)' },
   { href: '/erp/warehouses', key: 'menu.erp-warehouse', ko: '창고 위치 (M-8-1)' },
   { href: '/erp/holidays', key: 'menu.erp-calendar', ko: '근무일·휴일 캘린더 (M-8-6)' },
