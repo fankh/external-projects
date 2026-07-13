@@ -34,6 +34,29 @@ function segDist(p: Pt, a: Pt, b: Pt): number {
   return dist(p, { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) })
 }
 
+/** 두 선분 교차점 (양 선분 내부일 때만 반환) — 교차점 스냅용 */
+function segSegIntersect(a1: Pt, a2: Pt, b1: Pt, b2: Pt): Pt | null {
+  const d = (a2.x - a1.x) * (b2.y - b1.y) - (a2.y - a1.y) * (b2.x - b1.x)
+  if (Math.abs(d) < 1e-9) return null
+  const t = ((b1.x - a1.x) * (b2.y - b1.y) - (b1.y - a1.y) * (b2.x - b1.x)) / d
+  const u = ((b1.x - a1.x) * (a2.y - a1.y) - (b1.y - a1.y) * (a2.x - a1.x)) / d
+  if (t < 0 || t > 1 || u < 0 || u > 1) return null
+  return { x: a1.x + t * (a2.x - a1.x), y: a1.y + t * (a2.y - a1.y) }
+}
+
+/** 엔티티의 선분 목록 (교차점 계산용) */
+function entitySegments(e: CadEntity): [Pt, Pt][] {
+  if (e.entityType === 'line') return [[e.startPoint!, e.endPoint!]]
+  if (e.entityType === 'polyline') {
+    const v = e.vertexPoints!
+    const segs: [Pt, Pt][] = []
+    for (let i = 0; i < v.length - 1; i++) segs.push([v[i], v[i + 1]])
+    if (e.isClosed && v.length > 2) segs.push([v[v.length - 1], v[0]])
+    return segs
+  }
+  return []
+}
+
 /** 엔티티까지의 거리 (도면 좌표) — 히트 테스트용 */
 function entityDist(p: Pt, e: CadEntity): number {
   switch (e.entityType) {
@@ -324,7 +347,7 @@ export function CadSvg(props: {
     () => doc.entities.filter((e) => !hidden.has(e.layerName)),
     [doc, hidden])
 
-  /** 스냅 — 화면 10px 이내 끝점/정점/중점/중심 (hit 여부 포함) */
+  /** 스냅 — 화면 10px 이내 끝점/정점/중점/중심 + 선-선 교차점 (hit 여부 포함) */
   const snapHit = (p: Pt): { pt: Pt; hit: boolean } => {
     const tol = pxScale(viewRef.current) * 10
     let best: Pt | null = null
@@ -335,17 +358,32 @@ export function CadSvg(props: {
         if (d < bd) { bd = d; best = c }
       }
     }
+    // 교차점 스냅 — 커서 근처 선분들의 교점 (인접 엔티티 한정)
+    const near = visibleEntities.filter((e) => (e.entityType === 'line' || e.entityType === 'polyline')
+      && entitySegments(e).some((sg) => segDist(p, sg[0], sg[1]) < tol * 2))
+    for (let i = 0; i < near.length; i++) {
+      for (let j = i + 1; j < near.length; j++) {
+        for (const s1 of entitySegments(near[i])) {
+          for (const s2 of entitySegments(near[j])) {
+            const x = segSegIntersect(s1[0], s1[1], s2[0], s2[1])
+            if (x) { const d = dist(p, x); if (d < bd) { bd = d; best = x } }
+          }
+        }
+      }
+    }
     return best ? { pt: best, hit: true } : { pt: p, hit: false }
   }
   const snap = (p: Pt): Pt => snapHit(p).pt
-  // 작도 끝점 — 스냅 우선, 미스냅 시 Shift=Ortho(수평/수직 제약)
+  // 작도 끝점 — 스냅 우선, 미스냅 시 Shift=Polar(45° 8방향 각도 제약)
   const drawEnd = (raw: Pt, start: Pt, shift: boolean): { pt: Pt; snapped: boolean } => {
     const s = snapHit(raw)
     if (s.hit) return { pt: s.pt, snapped: true }
     if (shift && drawRef.current !== 'circle') {
-      return Math.abs(raw.x - start.x) >= Math.abs(raw.y - start.y)
-        ? { pt: { x: raw.x, y: start.y }, snapped: false }
-        : { pt: { x: start.x, y: raw.y }, snapped: false }
+      const dx = raw.x - start.x, dy = raw.y - start.y
+      const len = Math.hypot(dx, dy)
+      const step = Math.PI / 4                       // 45° 폴라 스텝
+      const ang = Math.round(Math.atan2(dy, dx) / step) * step
+      return { pt: { x: start.x + len * Math.cos(ang), y: start.y + len * Math.sin(ang) }, snapped: false }
     }
     return { pt: raw, snapped: false }
   }
@@ -838,11 +876,11 @@ export function CadSvg(props: {
         borderRadius: 2, pointerEvents: 'none', userSelect: 'none',
       }}>
         {measureOn
-          ? t('cad.measureHint', '두 점 클릭 = 거리 측정 · 끝점/중심 자동 스냅')
+          ? t('cad.measureHint', '두 점 클릭 = 거리 측정 · 끝점/중점/중심/교차점 스냅')
           : trimTool
             ? t('cad.trimHint', `트림/연장 — ${trimBoundary ? '대상 선의 조정할 끝 근처 클릭' : '경계선 클릭'} · Esc 취소`)
             : drawTool
-              ? t('cad.drawHint', '드래그 = 작도(선/원/사각) · 끝점/중점/중심 스냅 · Shift=수평·수직(Ortho) · Esc')
+              ? t('cad.drawHint', '드래그 = 작도 · 끝점/중점/중심/교차점 스냅 · Shift=Polar(45°) · Esc')
             : editOn
               ? t('cad.editHint', '엔티티 드래그=이동 · 빈곳 드래그=박스선택 · Shift+클릭=추가 · 중클릭=팬 · Delete=삭제')
               : t('cad.hint', '휠 줌 · 드래그 이동 · 더블클릭 맞춤 · 클릭 = 속성')}
