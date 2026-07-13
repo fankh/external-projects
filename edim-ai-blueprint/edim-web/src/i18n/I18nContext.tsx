@@ -1,7 +1,7 @@
 /** i18n 런타임 (REQ-N-015) — locale ko/en/ja/zh, KO 폴백 (개발표준 §4).
  *  번들: GET /api/v1/i18n/{locale} (sys_translation) — 불가 시 내장 사전 폴백. */
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode,
+  createContext, useCallback, useContext, useMemo, useState, type ReactNode,
 } from 'react'
 import { OFFLINE_BUNDLES } from './bundles'
 
@@ -25,15 +25,6 @@ export function useI18n(): I18nState {
   return v
 }
 
-async function fetchBundle(locale: Locale): Promise<Record<string, string>> {
-  if (locale === 'ko') return {}
-  try {
-    const res = await fetch(`/api/v1/i18n/${locale}`, { signal: AbortSignal.timeout(5000) })
-    if (res.ok) return await res.json() as Record<string, string>
-  } catch { /* 오프라인 — 내장 사전 */ }
-  return OFFLINE_BUNDLES[locale] ?? {}
-}
-
 const offlineOf = (l: Locale): Record<string, string> => (l === 'ko' ? {} : (OFFLINE_BUNDLES[l] ?? {}))
 
 export function I18nProvider(props: { children: ReactNode }) {
@@ -41,14 +32,10 @@ export function I18nProvider(props: { children: ReactNode }) {
     const saved = localStorage.getItem(LOCALE_KEY)
     return (LOCALES as string[]).includes(saved ?? '') ? saved as Locale : 'ko'
   })
-  // 빌드타임 baked 번들로 동기 초기화 → 첫 페인트부터 번역(무플래시, SSR 등가)
-  const [bundle, setBundle] = useState<Record<string, string>>(() => offlineOf(locale))
-
-  useEffect(() => {
-    // 즉시: 내장 번들(무플래시) → 배경: DB 최신 번들 병합(신규 키 반영)
-    setBundle(offlineOf(locale))
-    void fetchBundle(locale).then((b) => setBundle((prev) => ({ ...prev, ...b })))
-  }, [locale])
+  // 번들은 빌드타임 baked(OFFLINE_BUNDLES)에서 동기 파생 — 런타임 fetch/재설정 없음.
+  // 로드 후 i18n 상태 변경 0 (SSR 등가·무플래시). 로케일 전환 시 useMemo 즉시 재산출.
+  // (UI 번역은 seed→bundles 단일원천이며 빌드마다 재생성되므로 DB fetch 는 불필요)
+  const bundle = useMemo(() => offlineOf(locale), [locale])
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l)
