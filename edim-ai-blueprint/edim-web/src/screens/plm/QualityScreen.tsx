@@ -112,7 +112,7 @@ export function QualityScreen({ active }: ScreenProps) {
           }}>{selIdx !== null && rows[selIdx] && !rows[selIdx].active ? '활성' : '비활성'}</Btn>
       </div>
       {showEdit && selIdx !== null && rows[selIdx] ? (
-        <QuickEditDialog dataAttr="verify-edit" title={`규칙 수정 — ${rows[selIdx].rule}`}
+        <QuickEditDialog dataAttr="verify-edit" title={`규칙 수정 — ${rows[selIdx].rule}`} compact
           fields={[
             { key: 'ruleName', label: '규칙명', value: rows[selIdx].rule, required: true },
             { key: 'warningMessage', label: '경고 문구', value: rows[selIdx].warning, required: true },
