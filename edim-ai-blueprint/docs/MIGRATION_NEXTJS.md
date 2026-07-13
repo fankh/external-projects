@@ -60,4 +60,4 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
 - **P1 완료** — 기반(쿠키 인증·미들웨어·서버 API·i18n·앱 크롬) + 레퍼런스 화면 `/erp/eco-ledger`. 런타임 SSR 실증.
 - **P2 완료** — 공유 컴포넌트 전부 이관: `controls`·`DenseGrid`·클라이언트 i18n·**`CadSvg`(최난도)**·`cadBridge`·`cadOps`. 하드 의존성 클리어. 남음: `Cvs`(블록 캔버스, 필요 화면 시).
 - **P3 진행 중** — 읽기 화면 배치 이관. 레시피 정착(page.tsx SSR fetch + `'use client'` DenseGrid, `ScreenHeader` 공용). Report Center 는 순수 서버 컴포넌트(카드, 클라 JS 127B).
-- **이관 38/59 화면**: +datatable(동적 컬럼 — `/tables/{name}` columns[] 로 GridColumn 런타임 생성, ?name= 전환). write 4. 남음: CPQ Run(비동기)·design-editor·variant·tech-data·work-process·ui-designer·bom-compare·code-relationship(Cvs)·code/part detail. ※nginx 중지 중=빌드검증만.
+- **이관 39/59 화면**: +CPQ Run(**비동기 파이프라인** — 서버액션 `startRun`(POST 202)→`pollRun` 800ms 폴링 루프, 진행률·단계 그리드·산출물·로그). 비동기 패턴 실증(서버 액션이 백엔드 백그라운드 태스크를 폴링). CostPanel(cst_calc·PCR·견적 확정)은 후속 슬라이스. write 4. 남음: Run CostPanel·design-editor·variant·tech-data·work-process·ui-designer·bom-compare·code-relationship(Cvs)·code/part detail. ※nginx 중지 중=빌드검증만.
