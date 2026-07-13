@@ -46,8 +46,9 @@ def _issue_token(login: str, ttl: int = TOKEN_TTL) -> str:
 
 
 def require_auth(request: Request, response: Response) -> None:
-    # /i18n/{locale} 는 로그인 화면에서도 필요 — 공개
-    if request.url.path.endswith(PUBLIC_SUFFIXES) or "/i18n/" in request.url.path:
+    # /i18n/{locale} 번들은 로그인 화면에서도 필요 — 공개. 단 /i18n/data* (데이터 번역 관리·오버레이)는 인증 필요.
+    if request.url.path.endswith(PUBLIC_SUFFIXES) or (
+            "/i18n/" in request.url.path and "/i18n/data" not in request.url.path):
         return
     auth = request.headers.get("authorization", "")
     if not auth.startswith("Bearer "):
