@@ -5,6 +5,8 @@ import { MOTHER, type RunningTestRow } from '../../api/mock/dataCode'
 import { approvalService, relationshipService, sysService, type ChildRow } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { Cvs } from '../../components/Cvs'
+import { BlockCadView } from '../../components/BlockCadView'
+import type { CanvasBlock } from '../../api/types'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
@@ -24,6 +26,20 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
   // B21 — Child 실등록 폼
   const [addChild, setAddChild] = useState('')
   const [addQty, setAddQty] = useState('1')
+  // 엔진 통합 — 구성도를 Cvs(블록) / CadSvg(DXF 실엔진) 로 전환
+  const [cadView, setCadView] = useState(false)
+
+  // Mother + Child 블록 다이어그램 (엔진 통합 브리지 공용 모델)
+  const relBlocks = useMemo<CanvasBlock[]>(() => {
+    const blocks: CanvasBlock[] = [{ id: 'm', name: 'Mother', sub: MOTHER.code, x: 200, y: 12, w: 150, h: 60 }]
+    children.slice(0, 8).forEach((c, i) => {
+      blocks.push({ id: c.code, name: 'Child', sub: c.code, x: 20 + i * 130, y: 130, w: 118, h: 52, dashed: !checked.has(c.code) })
+    })
+    return blocks
+  }, [children, checked])
+  const relDims = useMemo(() => (children.length
+    ? [{ x: 20, y: 205, w: Math.max(150, Math.min(children.length, 8) * 130 - 12), label: `Child ${Math.min(children.length, 8)}` }]
+    : []), [children])
 
   useEffect(() => {
     void relationshipService.children(MOTHER.code).then((rows) => {
@@ -92,14 +108,26 @@ export function CodeRelationshipScreen({ active }: ScreenProps) {
               </tbody>
             </table>
           </GroupBox>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <Cvs blocks={[{ id: 'm', name: 'Mother', sub: MOTHER.code, x: 30, y: 12, w: 120, h: 60 }]}
-              style={{ width: 190, height: 90 }} />
-            <div style={{ flex: 1, fontSize: 10.5, color: 'var(--txt-dim)', lineHeight: 1.7 }}>
-              {t('codrel.codeSourceHint', 'Code Source: 각 Slot 의 항목 정의 표시 · 3D ☑ 2D ☐')}<br />
-              {t('codrel.slotMapHint', 'Slot 매핑(slot_map)으로 Mother 값이 Child 코드 자릿수에 전파 (CODE-008)')}
+          <GroupBox title={t('codrel.diagram', '구성도 — Mother · Child')} noPad
+            right={
+              <span style={{ display: 'flex', gap: 4 }}>
+                <Btn style={{ height: 18, fontSize: 9.5 }} variant={cadView ? 'default' : 'pri'} onClick={() => setCadView(false)}>{t('codrel.viewBlock', '블록')}</Btn>
+                <Btn style={{ height: 18, fontSize: 9.5 }} variant={cadView ? 'pri' : 'default'} onClick={() => setCadView(true)}>{t('codrel.viewCad', 'CAD 실엔진')}</Btn>
+              </span>
+            }>
+            <div style={{ height: 230 }}>
+              {cadView ? (
+                <BlockCadView blocks={relBlocks} dims={relDims} name={`CodeRel_${MOTHER.code}`}
+                  onStatus={(m) => shell.setStatusMsg(m)}
+                  onError={(m) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{m}</span>)} />
+              ) : (
+                <Cvs blocks={relBlocks} dims={relDims} style={{ width: '100%', height: '100%' }} />
+              )}
             </div>
-          </div>
+            <div style={{ fontSize: 10, color: 'var(--txt-dim)', lineHeight: 1.7, padding: '3px 6px' }}>
+              {t('codrel.slotMapHint', 'Slot 매핑(slot_map)으로 Mother 값이 Child 코드 자릿수에 전파 (CODE-008)')} · {t('codrel.engineUnify', 'CAD 실엔진 = 동일 블록을 정규화 DrawingDocument 로 렌더·DXF 익스포트')}
+            </div>
+          </GroupBox>
           <GroupBox title="Add Child" right={<>
             <Combo width={130} value="Product / Sub Code" options={['Product / Sub Code', 'X-Code']} />
             <Btn onClick={() => {

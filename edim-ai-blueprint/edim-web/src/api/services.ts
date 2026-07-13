@@ -3259,6 +3259,22 @@ export const cadService = {
     a.click()
     URL.revokeObjectURL(url)
   },
+  /** POST /api/v1/cad/from-blocks.dxf — 블록 다이어그램 DXF 다운로드 (엔진 통합) */
+  async blocksDxf(body: { name?: string; blocks: unknown[]; dims?: unknown[]; labels?: unknown[] }): Promise<void> {
+    const res = await fetch(`${API}/cad/from-blocks.dxf`, {
+      method: 'POST', signal: AbortSignal.timeout(15_000),
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) throw new Error(`DXF 다운로드 실패 (HTTP ${res.status})`)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${(body.name ?? 'block_diagram').replace(/\s+/g, '_')}.dxf`
+    a.click()
+    URL.revokeObjectURL(url)
+  },
   /** POST /api/v1/cad/part-drawing — 현재 치수로 부품도 작도 (Design Editor CAD 모드) */
   async partDrawing(dims: Record<string, number>): Promise<CadDocument | null> {
     try {

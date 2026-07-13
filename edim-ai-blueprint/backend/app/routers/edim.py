@@ -2622,6 +2622,63 @@ def cad_duct_layout(diffusers: int = 3, floor: str = "3F") -> dict[str, Any]:
     return {"document": _parse_cad_bytes(data, "duct_layout.dxf")}
 
 
+class CadBlock(BaseModel):
+    id: str = ""
+    name: str = ""
+    sub: str = ""
+    x: float
+    y: float
+    w: float
+    h: float
+    dashed: bool = False
+
+
+class CadDim(BaseModel):
+    x: float
+    y: float
+    w: float
+    label: str = ""
+
+
+class CadLabel(BaseModel):
+    x: float
+    y: float
+    text: str = ""
+
+
+class BlockDocRequest(BaseModel):
+    name: str = "Block Diagram"
+    blocks: list[CadBlock] = []
+    dims: list[CadDim] = []
+    labels: list[CadLabel] = []
+
+
+def _block_dxf_bytes(body: BlockDocRequest) -> bytes:
+    from app.services.run_pipeline import build_blocks_dxf
+    if not body.blocks:
+        raise HTTPException(422, detail="blocks 가 비어 있습니다")
+    return build_blocks_dxf(
+        [b.model_dump() for b in body.blocks[:500]],
+        [d.model_dump() for d in body.dims[:200]],
+        [lb.model_dump() for lb in body.labels[:200]],
+        body.name.strip()[:80] or "Block Diagram")
+
+
+@router.post("/cad/from-blocks")
+def cad_from_blocks(body: BlockDocRequest) -> dict[str, Any]:
+    """블록 캔버스(Cvs 모델) → 정규화 DrawingDocument (엔진 통합 — CadSvg 실엔진 렌더 공용)."""
+    return {"document": _parse_cad_bytes(_block_dxf_bytes(body), "block_diagram.dxf")}
+
+
+@router.post("/cad/from-blocks.dxf")
+def cad_from_blocks_dxf(body: BlockDocRequest) -> StreamingResponse:
+    """블록 캔버스 → DXF 다운로드 (블록 다이어그램 DXF 익스포트)."""
+    import io as _io
+    return StreamingResponse(
+        _io.BytesIO(_block_dxf_bytes(body)), media_type="application/dxf",
+        headers={"Content-Disposition": "attachment; filename=block_diagram.dxf"})
+
+
 class PartDrawingRequest(BaseModel):
     dims: dict[str, float] = {}
 

@@ -261,6 +261,46 @@ def build_duct_layout_dxf(diffusers: int = 3, floor: str = "3F") -> bytes:
     return buf.getvalue().encode()
 
 
+def build_blocks_dxf(blocks: list[dict], dims: list[dict] | None = None,
+                     labels: list[dict] | None = None, name: str = "Block Diagram") -> bytes:
+    """블록 캔버스(Cvs 모델)를 정규화 DrawingDocument 원천인 실 DXF 로 작도 (엔진 통합).
+
+    div 좌표(y-down) → 도면 좌표(y-up)로 y 부호 반전. 블록=닫힌 폴리라인+라벨, 치수=선+텍스트."""
+    import ezdxf
+    doc = ezdxf.new("R2010")
+    doc.layers.add("BLOCK", color=5)
+    doc.layers.add("BLOCK_DASHED", color=1)
+    doc.layers.add("DIM", color=3)
+    doc.layers.add("LABEL", color=250)
+    msp = doc.modelspace()
+    for blk in blocks:
+        x, y, w, h = float(blk["x"]), float(blk["y"]), float(blk["w"]), float(blk["h"])
+        layer = "BLOCK_DASHED" if blk.get("dashed") else "BLOCK"
+        # y-down → y-up : 상단 y=-y, 하단 y=-(y+h)
+        msp.add_lwpolyline(
+            [(x, -y), (x + w, -y), (x + w, -(y + h)), (x, -(y + h)), (x, -y)],
+            dxfattribs={"layer": layer})
+        if blk.get("name"):
+            msp.add_text(str(blk["name"]), height=max(9, h * 0.18), dxfattribs={"layer": "LABEL"}) \
+                .set_placement((x + w / 2, -(y + h * 0.38)), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+        if blk.get("sub"):
+            msp.add_text(str(blk["sub"]), height=max(7, h * 0.13), dxfattribs={"layer": "LABEL"}) \
+                .set_placement((x + w / 2, -(y + h * 0.66)), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+    for d in (dims or []):
+        x, y, w = float(d["x"]), float(d["y"]), float(d["w"])
+        msp.add_line((x, -y), (x + w, -y), dxfattribs={"layer": "DIM"})
+        if d.get("label"):
+            msp.add_text(str(d["label"]), height=12, dxfattribs={"layer": "DIM"}) \
+                .set_placement((x + w / 2, -y + 14), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+    for lb in (labels or []):
+        msp.add_text(str(lb.get("text", "")), height=11, dxfattribs={"layer": "LABEL"}) \
+            .set_placement((float(lb["x"]), -float(lb["y"])))
+    msp.add_text(name, height=13, dxfattribs={"layer": "LABEL"}).set_placement((0, 24))
+    buf = io.StringIO()
+    doc.write(buf)
+    return buf.getvalue().encode()
+
+
 def step_pricing(r: PipelineResult) -> str:
     r.total_k = sum((i["priceK"] or 0) * i["quantity"] for i in r.items)
     r.resolved = sum(1 for i in r.items if i["priceK"] is not None)

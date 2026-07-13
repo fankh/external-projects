@@ -2,7 +2,9 @@
 
 AI 기반 2D 도면(블루프린트) 생성 시스템의 구조 문서. 모든 다이어그램은 Mermaid로 작성했다.
 
-핵심 설계 원칙: **모든 입력(DXF · DWG · IFC · AI 프롬프트)은 하나의 정규화된 `DrawingDocument` JSON으로 수렴**하고, 프론트엔드는 이 형식만 SVG로 렌더링하며, DXF 익스포터는 이 형식만 소비한다.
+핵심 설계 원칙: **모든 입력(DXF · DWG · IFC · AI 프롬프트 · 블록 캔버스)은 하나의 정규화된 `DrawingDocument` JSON으로 수렴**하고, 프론트엔드는 이 형식만 SVG로 렌더링하며, DXF 익스포터는 이 형식만 소비한다.
+
+> **엔진 통합 (v18.5)** — 초기에는 블록 다이어그램(`Cvs`, div 기반)과 DXF 뷰어(`CadSvg`, SVG 기반)가 이원화돼 있었다. 이를 통합하여 블록 모델(`CanvasBlock[]`)도 `DrawingDocument`로 수렴시켰다: 클라이언트 브리지 `blocksToCadDoc`(`components/cadBridge.ts`)가 즉시 변환(div y-down → 도면 y-up)하여 `CadSvg` 실엔진으로 렌더하고, 서버 `POST /cad/from-blocks[.dxf]`(`build_blocks_dxf`, ezdxf)가 동일 모델을 실 DXF 로 작도해 정규화 문서 반환·DXF 익스포트를 제공한다. 재사용 컴포넌트 `<BlockCadView>`. 따라서 `CadSvg`가 단일 렌더/익스포트 백엔드이며, `Cvs`는 경량 인터랙션(드래그·줌) 전용으로 남는다.
 
 ---
 
