@@ -2186,6 +2186,11 @@ export interface StockRow {
 export interface MovementRow {
   itemCode: string; locationCode: string; type: 'IN' | 'OUT'; quantity: number
   refType: string | null; refNo: string | null; at: string
+  lotNo?: string; serialNo?: string
+}
+export interface LotRow {
+  itemCode: string; lotNo: string; serialNo: string
+  locationCode: string; balance: number; lastAt: string
 }
 export interface AtpRow { itemCode: string; itemName: string; onHand: number; reserved: number; available: number }
 export interface ReservationRow {
@@ -2212,8 +2217,8 @@ export const inventoryService = {
       throw e
     }
   },
-  /** POST /api/v1/erp/stock/inbound — 입고 처리 (PO→MI; false=백엔드 불가) */
-  async inbound(body: { itemCode: string; itemName?: string; locationCode: string; quantity: number; refNo?: string }): Promise<number | false> {
+  /** POST /api/v1/erp/stock/inbound — 입고 처리 (PO→MI; false=백엔드 불가; lot/serial=추적 차원) */
+  async inbound(body: { itemCode: string; itemName?: string; locationCode: string; quantity: number; refNo?: string; lotNo?: string; serialNo?: string }): Promise<number | false> {
     try {
       const r = await api<{ onHand: number }>('/erp/stock/inbound', {
         method: 'POST', body: JSON.stringify(body),
@@ -2221,6 +2226,28 @@ export const inventoryService = {
       return r.onHand
     } catch (e) {
       if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+  /** GET /api/v1/erp/stock/lots — 로트/시리얼 잔량 (이력 산출) */
+  async lots(item = ''): Promise<LotRow[] | null> {
+    try {
+      return await api<LotRow[]>(`/erp/stock/lots${item ? `?item=${encodeURIComponent(item)}` : ''}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/erp/stock/trace — 로트/시리얼 이력 추적(genealogy) */
+  async trace(q: { lot?: string; serial?: string; item?: string }): Promise<MovementRow[] | null> {
+    const p = new URLSearchParams()
+    if (q.lot) p.set('lot', q.lot)
+    if (q.serial) p.set('serial', q.serial)
+    if (q.item) p.set('item', q.item)
+    try {
+      return await api<MovementRow[]>(`/erp/stock/trace?${p.toString()}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
       throw e
     }
   },

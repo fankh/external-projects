@@ -4649,22 +4649,29 @@ class InboundRequest(BaseModel):
     locationCode: str
     quantity: float
     refNo: str = ""
+    lotNo: str = ""        # 로트 번호 (배치 추적)
+    serialNo: str = ""     # 시리얼 번호 (직번 단위 추적)
 
 
 @router.post("/erp/stock/inbound", status_code=201, dependencies=[SETUP])
 def stock_inbound(request: Request, body: InboundRequest) -> dict[str, Any]:
-    """입고 처리 (D2) — PO 품목 입고 → inv_movement(IN) + inv_stock upsert. 발주→재고 고리(MI)."""
+    """입고 처리 (D2) — PO 품목 입고 → inv_movement(IN) + inv_stock upsert. 발주→재고 고리(MI).
+
+    로트/시리얼 지정 시 이력에 추적 차원 적재(규제·직번 부품 genealogy)."""
     item = body.itemCode.strip()[:50]
     loc = body.locationCode.strip()[:30]
     if not item or not loc or body.quantity <= 0:
         raise HTTPException(422, detail="필수 — 품목·위치·수량(>0)")
+    lot = body.lotNo.strip()[:50] or None
+    serial = body.serialNo.strip()[:80] or None
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
             """INSERT INTO inv_movement (tenant_id, item_code, location_code, movement_type,
-               quantity, ref_type, ref_no, created_by)
-               VALUES (%s,%s,%s,'IN',%s,'PO',%s,%s)""",
-            (tid, item, loc, body.quantity, body.refNo.strip()[:50] or None, str(request.state.user_id)))
+               quantity, ref_type, ref_no, lot_no, serial_no, created_by)
+               VALUES (%s,%s,%s,'IN',%s,'PO',%s,%s,%s,%s)""",
+            (tid, item, loc, body.quantity, body.refNo.strip()[:50] or None,
+             lot, serial, str(request.state.user_id)))
         cur.execute(
             """INSERT INTO inv_stock (tenant_id, item_code, item_name, location_code, quantity)
                VALUES (%s,%s,%s,%s,%s)
@@ -4676,8 +4683,9 @@ def stock_inbound(request: Request, body: InboundRequest) -> dict[str, Any]:
             (tid, item, body.itemName.strip()[:200] or None, loc, body.quantity))
         on_hand = float(cur.fetchone()[0])
         _audit(cur, tid, "inv_stock", 0, "INBOUND", request.state.user_id,
-               {"item": item, "location": loc, "qty": body.quantity})
-    return {"itemCode": item, "locationCode": loc, "onHand": on_hand}
+               {"item": item, "location": loc, "qty": body.quantity, "lot": lot, "serial": serial})
+    return {"itemCode": item, "locationCode": loc, "onHand": on_hand,
+            "lotNo": lot, "serialNo": serial}
 
 
 @router.get("/erp/stock")
@@ -4709,11 +4717,67 @@ def stock_movements(item: str = "", limit: int = 30) -> list[dict[str, Any]]:
         params.append(limit)
         cur.execute(
             f"""SELECT item_code, location_code, movement_type, quantity, ref_type, ref_no,
-                       to_char(moved_at,'MM-DD HH24:MI')
+                       to_char(moved_at,'MM-DD HH24:MI'), lot_no, serial_no
                 FROM inv_movement WHERE tenant_id=%s{clause}
                 ORDER BY movement_id DESC LIMIT %s""", tuple(params))
         return [{"itemCode": r[0], "locationCode": r[1], "type": r[2], "quantity": float(r[3]),
-                 "refType": r[4], "refNo": r[5], "at": r[6]} for r in cur.fetchall()]
+                 "refType": r[4], "refNo": r[5], "at": r[6],
+                 "lotNo": r[7] or "", "serialNo": r[8] or ""} for r in cur.fetchall()]
+
+
+@router.get("/erp/stock/lots")
+def stock_lots(item: str = "") -> list[dict[str, Any]]:
+    """로트/시리얼 잔량 (D2) — 이력에서 산출: 로트·시리얼별 (IN−OUT) 잔량·위치.
+
+    규제·직번 부품 추적성: inv_stock(품목×위치 집계)엔 없는 로트 차원."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        params: list[Any] = [tid]
+        clause = ""
+        if item.strip():
+            clause = " AND item_code=%s"
+            params.append(item.strip())
+        cur.execute(
+            f"""SELECT item_code, lot_no, serial_no,
+                       max(location_code) AS location_code,
+                       sum(CASE WHEN movement_type='IN' THEN quantity ELSE -quantity END) AS balance,
+                       to_char(max(moved_at),'YYYY-MM-DD HH24:MI') AS last_at
+                FROM inv_movement
+                WHERE tenant_id=%s AND (lot_no IS NOT NULL OR serial_no IS NOT NULL){clause}
+                GROUP BY item_code, lot_no, serial_no
+                ORDER BY item_code, lot_no NULLS LAST, serial_no NULLS LAST""", tuple(params))
+        return [{"itemCode": r[0], "lotNo": r[1] or "", "serialNo": r[2] or "",
+                 "locationCode": r[3], "balance": float(r[4]), "lastAt": r[5]}
+                for r in cur.fetchall()]
+
+
+@router.get("/erp/stock/trace")
+def stock_trace(lot: str = "", serial: str = "", item: str = "") -> list[dict[str, Any]]:
+    """로트/시리얼 이력 추적 (D2, genealogy) — 지정 로트 또는 시리얼의 전 입출고 이력."""
+    if not lot.strip() and not serial.strip():
+        raise HTTPException(422, detail="lot 또는 serial 중 하나는 지정해야 합니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        params: list[Any] = [tid]
+        conds = []
+        if lot.strip():
+            conds.append("lot_no=%s")
+            params.append(lot.strip())
+        if serial.strip():
+            conds.append("serial_no=%s")
+            params.append(serial.strip())
+        if item.strip():
+            conds.append("item_code=%s")
+            params.append(item.strip())
+        where = " AND ".join(conds)
+        cur.execute(
+            f"""SELECT item_code, location_code, movement_type, quantity, ref_type, ref_no,
+                       to_char(moved_at,'YYYY-MM-DD HH24:MI'), lot_no, serial_no
+                FROM inv_movement WHERE tenant_id=%s AND {where}
+                ORDER BY movement_id ASC""", tuple(params))
+        return [{"itemCode": r[0], "locationCode": r[1], "type": r[2], "quantity": float(r[3]),
+                 "refType": r[4], "refNo": r[5], "at": r[6],
+                 "lotNo": r[7] or "", "serialNo": r[8] or ""} for r in cur.fetchall()]
 
 
 def _atp(cur: Any, tid: int, item: str) -> tuple[float, float, float]:
