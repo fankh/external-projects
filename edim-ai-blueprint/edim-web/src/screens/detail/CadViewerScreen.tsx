@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { cadService, fileService, type CadDocument } from '../../api/services'
 import { Btn, Chip, Combo } from '../../components/controls'
 import { CadSvg, type CadEditOp, type LayerOverride } from '../../components/CadSvg'
+import { applyMovesLocal } from '../../components/cadOps'
 import { useI18n } from '../../i18n/I18nContext'
 import { usePermission } from '../../shell/PermissionContext'
 import { useShell } from '../../shell/ShellContext'
@@ -44,6 +45,18 @@ export function CadViewerScreen({ tab }: ScreenProps) {
   // G1 엔티티 편집 — 이동/삭제 → DXF 재저장(SETUP). DXF 만 편집 가능(DWG=501)
   const canEdit = perm.canWrite() && (doc?.sourceFormat === 'dxf')
   const onEdit = (ops: CadEditOp[]) => {
+    // 이동은 낙관적 로컬 적용(즉시) + 배경 서버 영속 — 왕복 대기 제거
+    const optimistic = doc ? applyMovesLocal(doc, ops) : null
+    if (optimistic) {
+      setDoc(optimistic)
+      void cadService.edit(fileId, ops)
+        .then(() => setStatusMsg(`CAD 이동 ✓ — ${ops.length}건 (배경 DXF 재저장)`))
+        .catch((e: Error) => {
+          void cadService.view(fileId).then((d) => { if (d) setDoc(d) })
+          setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message} — 서버 복원</span>)
+        })
+      return
+    }
     void cadService.edit(fileId, ops)
       .then((r) => {
         setDoc(r.document)

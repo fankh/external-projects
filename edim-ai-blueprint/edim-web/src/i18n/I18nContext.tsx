@@ -34,15 +34,20 @@ async function fetchBundle(locale: Locale): Promise<Record<string, string>> {
   return OFFLINE_BUNDLES[locale] ?? {}
 }
 
+const offlineOf = (l: Locale): Record<string, string> => (l === 'ko' ? {} : (OFFLINE_BUNDLES[l] ?? {}))
+
 export function I18nProvider(props: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
     const saved = localStorage.getItem(LOCALE_KEY)
     return (LOCALES as string[]).includes(saved ?? '') ? saved as Locale : 'ko'
   })
-  const [bundle, setBundle] = useState<Record<string, string>>({})
+  // 빌드타임 baked 번들로 동기 초기화 → 첫 페인트부터 번역(무플래시, SSR 등가)
+  const [bundle, setBundle] = useState<Record<string, string>>(() => offlineOf(locale))
 
   useEffect(() => {
-    void fetchBundle(locale).then(setBundle)
+    // 즉시: 내장 번들(무플래시) → 배경: DB 최신 번들 병합(신규 키 반영)
+    setBundle(offlineOf(locale))
+    void fetchBundle(locale).then((b) => setBundle((prev) => ({ ...prev, ...b })))
   }, [locale])
 
   const setLocale = useCallback((l: Locale) => {

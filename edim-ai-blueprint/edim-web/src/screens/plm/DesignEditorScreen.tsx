@@ -8,6 +8,7 @@ import {
   type BomRow, type CadDocument, type DwgRelationRow,
 } from '../../api/services'
 import { CadSvg, type CadEditOp } from '../../components/CadSvg'
+import { applyMovesLocal } from '../../components/cadOps'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '../../components/controls'
 import { CommandLine, Cvs } from '../../components/Cvs'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -200,6 +201,19 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
 
   const onCadEdit = (ops: CadEditOp[]) => {
     if (editFileId == null) return
+    // 이동(move)은 낙관적 로컬 적용 → 즉시 반영, 서버는 배경 영속(왕복 대기 제거)
+    const optimistic = cadDoc ? applyMovesLocal(cadDoc, ops) : null
+    if (optimistic) {
+      setCadDoc(optimistic)
+      void cadService.edit(editFileId, ops)
+        .then(() => shell.setStatusMsg(`이동 반영 ✓ — ${ops.length}건 (배경 DXF 재저장)`))
+        .catch((e: Error) => {
+          // 실패 시 서버 정본으로 복원
+          void cadService.view(editFileId).then((d) => { if (d) setCadDoc(d) })
+          shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message} — 서버 복원</span>)
+        })
+      return
+    }
     void cadService.edit(editFileId, ops)
       .then((r) => { setCadDoc(r.document); shell.setStatusMsg(`CAD 편집 ✓ — ${r.applied}건 반영·DXF 재저장 (엔티티 ${r.document.entities.length})`) })
       .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
