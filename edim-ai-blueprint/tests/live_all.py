@@ -79,6 +79,7 @@ SUITES = [
     "live_g1_design_edit.py",       # Design Editor CAD 명령 툴바 — 부품도 실체화·복사/삭제 편집·편집모드 활성
     "live_g1_dim_block.py",         # CAD 치수(DI)·블록(REG) 삽입 — 치수선+거리텍스트·라벨박스·레이어·영속
     "live_g3_calendar.py",          # 근무일/휴일 캘린더 — 공휴일 CRUD·영업일 계산·납기·마일스톤 workdaysLeft
+    "live_g3_finance.py",           # 다통화/환율+세금엔진 — 환율 CRUD·세금코드·세액·KRW 환산·미등록 422
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
     "live_security.py",
