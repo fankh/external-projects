@@ -41,6 +41,12 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
 ```
 경로별로 next 앱에 프록시, 이관 완료 시 legacy 제거.
 
+### ⚠️ 사용자 지시: "이관 완료 후 nginx 중지"
+- **조건**: 59화면 전부 이관 완료(컷오버) 시점에만 실행. 현재 10/59 → **미실행**.
+- **주의(실행 전 확인 필요)**: 현재 nginx 는 단순 정적 서빙이 아니라 ① TLS 종단 ② Basic Auth(`/etc/nginx/.edim_htpasswd`) ③ `/api/v1` → FastAPI 프록시 ④ `/docs`·`/minio`·`/jenkins` 등 라우팅을 담당. `systemctl stop nginx` 를 문자대로 하면 사이트·API·TLS 전부 중단됨.
+- **권장 해석**: "정적 SPA 서빙 역할의 nginx 를 걷어낸다" = Next.js Node 서버(`next start`, Docker)가 앱을 서빙하고, **nginx 는 리버스 프록시(TLS·auth·/api 유지)로 축소** 하거나, Next 앞단에 별도 리버스 프록시로 대체. 완전 중지는 TLS/백엔드까지 내려가므로 컷오버 시 사용자와 최종 확인.
+- 컷오버 체크리스트에 반영. 실행은 마이그레이션 완료 + 사용자 재확인 후.
+
 ## 리스크
 - 하이드레이션 불일치(상호작용 앱의 고전적 시간 소모원) — 화면별 E2E 로 방지.
 - 인증 쿠키/CSRF — 서버 액션 + SameSite=Lax.
