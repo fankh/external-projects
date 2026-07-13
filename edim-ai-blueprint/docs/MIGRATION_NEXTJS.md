@@ -48,5 +48,6 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
 
 ## 현황
 - **P1 완료** — 기반(쿠키 인증·미들웨어·서버 API·i18n·앱 크롬) + 레퍼런스 화면 `/erp/eco-ledger`. 런타임 SSR 실증.
-- **P2 진행 중** — 공유 컴포넌트 `controls`·`DenseGrid` 이관(클라이언트 아일랜드) + `/erp/audit` SSR(감사 100행·컬럼필터·찾기 동작). 남음: `CadSvg`·`Cvs`·`chrome`(타이틀바/MDI)·`cadBridge/cadOps`·hooks.
-- 이관 완료 화면(2/59): eco-ledger, audit. 화면 이관 레시피 = `page.tsx`(SSR fetch) + `'use client'` 그리드/폼 아일랜드.
+- **P2 완료(핵심)** — 공유 컴포넌트 `controls`·`DenseGrid`·클라이언트 i18n(`I18nProvider`·`useI18n`·`LocaleSwitcher`) 이관. 남음: `CadSvg`·`Cvs`·`cadBridge/cadOps`(P4 CAD 화면 시).
+- **P3 진행 중** — 읽기 화면 배치: 거래처·부품·단가 대장 + 공용 `ScreenHeader`. 레시피 정착(page.tsx SSR fetch + `'use client'` DenseGrid).
+- **이관 5/59**: eco-ledger, audit, companies, parts, prices. 다음 배치 후보: product-code, drawings, po, milestone, report-center, dashboard(변형).
