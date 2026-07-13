@@ -1,7 +1,7 @@
 /** M-16 EDIM App Mobile 미리보기 (W-16, 슬라이드 77) — QR 진입·승인·자재 입출고.
  *  내부는 dense 토큰, 터치 타깃만 32px 예외. 웹 승인함(M-15-2)과 동일 데이터 (APP-002 — B11 실배선). */
 import { useEffect, useRef, useState } from 'react'
-import { approvalService, eventService, fileService, type ErpEvent } from '../../api/services'
+import { approvalService, eventService, fileService, inventoryService, type ErpEvent } from '../../api/services'
 import type { ApprovalReq } from '../../api/mock/dataMore'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { useI18n } from '../../i18n/I18nContext'
@@ -16,6 +16,10 @@ export function MobilePreviewScreen(_props: ScreenProps) {
   const [req, setReq] = useState<ApprovalReq | null>(null)
   const [ev, setEv] = useState<ErpEvent | null>(null)
   const photoInput = useRef<HTMLInputElement>(null)
+  // I-006 — 자재 QR 입고 실배선 (scanned item → 실 재고 입고)
+  const [mItem, setMItem] = useState('FDV-480')
+  const [mQty, setMQty] = useState('2')
+  const M_LOC = 'WS1-C'   // WS 1 / Sector C
 
   const loadReq = () => void approvalService.inbox()
     .then((rows) => setReq(rows[rows.length - 1] ?? null))
@@ -42,16 +46,29 @@ export function MobilePreviewScreen(_props: ScreenProps) {
     })()
   }
 
+  // 자재 QR 스캔 — 품목코드 입력(현장 스캐너 대체)
+  const scanQr = () => {
+    const c = window.prompt(t('mobile.qrPrompt', '자재 QR 스캔 — 품목코드'), mItem)?.trim()
+    if (c) { setMItem(c); shell.setStatusMsg(`QR 스캔 ✓ — ${c} (입고 대상 지정)`) }
+  }
+
+  // 입고 처리 — 실 재고 입고(inv_movement IN + inv_stock, 단가 자동) + 연계 이벤트 완료
   const receive = () => {
-    if (!ev?.eventId) {
-      shell.setStatusMsg('입고 처리 — 미완료 이벤트 없음 (백엔드 필요)')
+    const q = Number(mQty.replace(/[^\d.]/g, '')) || 0
+    if (!mItem.trim() || q <= 0) {
+      shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{t('mobile.receiveNeed', '품목·수량(>0) 필요')}</span>)
       return
     }
-    void eventService.complete(ev.eventId, '모바일 입고 처리 (MI-002)')
-      .then(() => {
-        shell.setStatusMsg(`입고 처리 ✓ — 이벤트 #${ev.eventId} ${ev.project} DONE (오프라인 캐시 APP-004)`)
-        void eventService.list().then((rows) =>
-          setEv(rows.find((r) => r.status !== 'DONE' && r.eventId != null) ?? null))
+    void inventoryService.inbound({ itemCode: mItem.trim(), itemName: 'Motor H22 380V', locationCode: M_LOC, quantity: q, refNo: 'MI-MOBILE' })
+      .then((r) => {
+        if (r === false) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>입고 처리 불가 — 백엔드 연결 필요</span>); return }
+        // 연계 미완료 이벤트가 있으면 함께 완료
+        if (ev?.eventId) {
+          void eventService.complete(ev.eventId, '모바일 입고 처리 (MI-002)')
+            .then(() => void eventService.list().then((rows) =>
+              setEv(rows.find((x) => x.status !== 'DONE' && x.eventId != null) ?? null)))
+        }
+        shell.setStatusMsg(`입고 처리 ✓ — ${mItem.trim()} +${q} @ ${M_LOC} · 재고 ${r.onHand}·평가 ₩${Math.round(r.value).toLocaleString()}${r.priceAuto ? '(STOCK 자동)' : ''} (inv_movement IN, 실 재고 · APP-004 오프라인 캐시)`)
       })
       .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }
@@ -140,15 +157,17 @@ export function MobilePreviewScreen(_props: ScreenProps) {
             <div className="pt"><i /></div>
             <div className="pscr">
               <div className="pbar"><span>← {t('mobile.materialInOut', '자재 입출고')}</span><span>MI</span></div>
-              <div className="cvs" style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: 10, color: 'var(--txt-dim)' }}>📷 {t('mobile.materialQrScan', '자재 QR 스캔')}</span>
+              <div className="cvs" data-mobile-qr style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                onClick={scanQr} title={t('mobile.qrPrompt', '자재 QR 스캔 — 품목코드')}>
+                <span style={{ fontSize: 10, color: 'var(--txt-dim)' }}>📷 {t('mobile.materialQrScan', '자재 QR 스캔')} — {mItem}</span>
               </div>
               <div className="gb">
-                <div className="gt">Motor H22 380V (FDV-480)</div>
+                <div className="gt">Motor H22 380V ({mItem})</div>
                 <div className="gc">
                   <div className="frm c2">
                     <label>{t('mobile.qty', '수량')}</label>
-                    <input className="in" defaultValue="2 EA" aria-label="수량" style={{ height: 26 }} />
+                    <input className="in" value={mQty} aria-label="수량" style={{ height: 26 }}
+                      onChange={(e) => setMQty(e.target.value)} />
                     <label>{t('mobile.warehouse', '창고')}</label>
                     <input className="in ro" value="WS 1 / Sector C" readOnly aria-label="창고" style={{ height: 26 }} />
                     <label>Project</label>
