@@ -25,6 +25,8 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/plm/parts', key: 'menu.plm-parts', ko: '부품 대장 (M-4-7)' },
   { href: '/plm/drawings', key: 'menu.plm-drawings', ko: '도면 대장 (M-4-1)' },
   { href: '/plm/eco-change', key: 'menu.plm-eco-change', ko: '설계 변경 (ECR/ECO)' },
+  { href: '/plm/bom-compare', key: 'menu.plm-bom-compare', ko: 'BOM 비교 (M-4-8)' },
+  { href: '/detail/part', key: 'menu.detail-part', ko: '부품 상세 (G3-b)' },
   { href: '/cpq/tech-data', key: 'menu.cpq-techdata', ko: 'Tech Data (SVC-05)' },
   { href: '/plm/duct', key: 'menu.plm-duct', ko: '건축설비 Duct (M-4-3)' },
   { href: '/plm/arrangement', key: 'menu.plm-arr', ko: 'Arrangement Set-Up (M-4-2)' },
