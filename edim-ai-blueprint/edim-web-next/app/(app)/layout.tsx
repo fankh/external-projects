@@ -13,6 +13,7 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/erp/companies', key: 'menu.erp-company-master', ko: '거래처 대장 (M-14-2)' },
   { href: '/plm/parts', key: 'menu.plm-parts', ko: '부품 대장 (M-4-7)' },
   { href: '/plm/drawings', key: 'menu.plm-drawings', ko: '도면 대장 (M-4-1)' },
+  { href: '/plm/duct', key: 'menu.plm-duct', ko: '건축설비 Duct (M-4-3)' },
   { href: '/code/product-codes', key: 'menu.code-master', ko: '제품 코드 마스터 (M-3-8)' },
   { href: '/erp/prices', key: 'menu.erp-price', ko: '단가 대장 (M-12-5)' },
   { href: '/erp/po', key: 'menu.erp-po', ko: '발주 대장 (G-3)' },
