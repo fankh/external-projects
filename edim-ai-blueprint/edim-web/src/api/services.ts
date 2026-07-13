@@ -1440,6 +1440,17 @@ export const companyService = {
       throw e
     }
   },
+  /** POST /api/v1/companies/batch — 일괄 활성/비활성 (다중 선택) */
+  async batch(ids: number[], activeFlag: boolean): Promise<{ done: number; requested: number } | null> {
+    try {
+      return await api<{ done: number; requested: number }>('/companies/batch', {
+        method: 'POST', body: JSON.stringify({ ids, active: activeFlag }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
   /** GET /api/v1/erp/suppliers/{id}/metrics — 발주 이행 지표 */
   async metrics(companyId: number): Promise<SupplierMetrics | null> {
     try {
@@ -3590,6 +3601,23 @@ export const productCodeService = {
       throw e
     }
   },
+  /** POST /api/v1/codes/products/batch — 일괄 상태 변경/삭제 (다중 선택) */
+  async batch(ids: number[], action: 'STATUS' | 'DELETE', status = ''): Promise<BatchResult | null> {
+    try {
+      return await api<BatchResult>('/codes/products/batch', {
+        method: 'POST', body: JSON.stringify({ ids, action, status }),
+      })
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
+export interface BatchResult {
+  done: number; requested: number
+  action?: string; status?: string | null
+  skipped?: { id: string; code?: string; reason: string }[]
 }
 
 // ── 개발서버 전용 — 운영자 요구사항 접수 (dev_requirement) ──

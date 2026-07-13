@@ -639,6 +639,58 @@ def delete_product(product_code_id: int, request: Request) -> dict[str, Any]:
     return {"deleted": product_code_id, "mainCode": row[0]}
 
 
+class ProductBatch(BaseModel):
+    ids: list[int]
+    action: str            # STATUS | DELETE
+    status: str = ""       # action=STATUS 시 DRAFT/APPROVED/INACTIVE
+
+
+@router.post("/codes/products/batch", dependencies=[SETUP])
+def batch_product(request: Request, body: ProductBatch) -> dict[str, Any]:
+    """제품 코드 일괄 작업 (그리드 다중 선택) — 상태 변경 또는 삭제.
+
+    부분 실패 허용: 항목별 처리, 삭제는 참조 있으면 skip(사유 반환). 최대 200건."""
+    ids = list(dict.fromkeys(body.ids))[:200]
+    if not ids:
+        raise HTTPException(422, detail="대상이 없습니다")
+    action = body.action.strip().upper()
+    if action not in ("STATUS", "DELETE"):
+        raise HTTPException(422, detail="action 은 STATUS 또는 DELETE")
+    st = body.status.strip().upper()
+    if action == "STATUS" and st not in ("DRAFT", "APPROVED", "INACTIVE"):
+        raise HTTPException(422, detail="상태는 DRAFT/APPROVED/INACTIVE")
+    done = 0
+    skipped: list[dict[str, str]] = []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        for pid in ids:
+            cur.execute("SELECT main_code FROM product_code WHERE tenant_id=%s AND product_code_id=%s",
+                        (tid, pid))
+            row = cur.fetchone()
+            if not row:
+                skipped.append({"id": str(pid), "reason": "없음"}); continue
+            main_code = row[0]
+            if action == "DELETE":
+                ref = None
+                for table, col in _PC_REFS:
+                    cur.execute(f"SELECT 1 FROM {table} WHERE {col}=%s LIMIT 1", (pid,))
+                    if cur.fetchone():
+                        ref = table; break
+                if ref:
+                    skipped.append({"id": str(pid), "code": main_code, "reason": f"참조({ref})"}); continue
+                cur.execute("DELETE FROM product_code WHERE tenant_id=%s AND product_code_id=%s", (tid, pid))
+                _audit(cur, tid, "product_code", pid, "DELETE", request.state.user_id,
+                       {"mainCode": main_code, "batch": True})
+            else:
+                cur.execute("UPDATE product_code SET approval_status=%s "
+                            "WHERE tenant_id=%s AND product_code_id=%s", (st, tid, pid))
+                _audit(cur, tid, "product_code", pid, "UPDATE", request.state.user_id,
+                       {"status": st, "batch": True})
+            done += 1
+    return {"action": action, "status": st or None, "done": done,
+            "skipped": skipped, "requested": len(ids)}
+
+
 @router.get("/codes/groups/{group}/export.xlsx")
 def export_group_xlsx(group: str) -> Response:
     """그룹 code_item Excel 내보내기 (C2 — Slot·Item Name·Sort·Values)."""
@@ -8576,6 +8628,29 @@ def update_company(company_id: int, body: CompanyPatch, request: Request) -> dic
         _audit(cur, tid, "com_company", company_id, "COMPANY_UPDATE", request.state.user_id,
                after={k: str(v) for k, v in sets.items()}, before={"name": row[0]})
     return {"companyId": company_id, "updated": sorted(sets)}
+
+
+class CompanyBatch(BaseModel):
+    ids: list[int]
+    active: bool           # True=재활성 · False=비활성
+
+
+@router.post("/companies/batch", dependencies=[SETUP])
+def batch_company(request: Request, body: CompanyBatch) -> dict[str, Any]:
+    """거래처 일괄 활성/비활성 (그리드 다중 선택) — 소프트, 최대 200건."""
+    ids = list(dict.fromkeys(body.ids))[:200]
+    if not ids:
+        raise HTTPException(422, detail="대상이 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "UPDATE com_company SET is_active=%s, updated_by=%s, updated_at=now() "
+            "WHERE tenant_id=%s AND company_id = ANY(%s) RETURNING company_id",
+            (body.active, request.state.login, tid, ids))
+        changed = [r[0] for r in cur.fetchall()]
+        _audit(cur, tid, "com_company", 0, "COMPANY_BATCH", request.state.user_id,
+               {"active": body.active, "count": len(changed), "ids": changed[:50]})
+    return {"active": body.active, "done": len(changed), "requested": len(ids)}
 
 
 class PartPatch(BaseModel):

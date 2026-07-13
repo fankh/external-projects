@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { companyService, xlsxService, type CompanyRow, type SupplierEval, type SupplierMetrics } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
 import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { usePermission } from '../../shell/PermissionContext'
@@ -24,6 +25,8 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
   const [typeFilter, setTypeFilter] = useState('전체')
   const [showReg, setShowReg] = useState(false)
   const [editRow, setEditRow] = useState<CompanyRow | null>(null)   // F5 — 더블클릭 수정
+  const [sel, setSel] = useState<Set<number>>(new Set())
+  const [bulk, setBulk] = useState<boolean | null>(null)   // true=재활성 · false=비활성 · null=닫힘
   useEscapeClose(showReg, () => setShowReg(false))
   const [reg, setReg] = useState<CompanyRow>({
     name: '', companyType: 'SUPPLIER', nation: 'KR', grade: '', terms: '',
@@ -80,9 +83,18 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
     const r = await companyService.list()
     if (r === null) { setOffline(true); return }
     setOffline(false)
-    setRows(r)
+    setRows(r); setSel(new Set())
   }
   useEffect(() => { void load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const runBulkCompany = async (): Promise<string | null> => {
+    if (bulk === null) return null
+    const r = await companyService.batch([...sel], bulk)
+    if (r === null) return '백엔드 연결 필요 (mock 모드)'
+    setBulk(null); await load()
+    setStatusMsg(`일괄 ${bulk ? '재활성' : '비활성'} ✓ — ${r.done}/${r.requested}건 (com_company · COMPANY_BATCH 감사)`)
+    return null
+  }
 
   const visible = rows.filter((r) => typeFilter === '전체' || r.companyType === typeFilter)
 
@@ -145,6 +157,14 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
         <span style={{ flex: 1 }} />
         <Btn onClick={() => void xlsxService.download('/companies/export.xlsx', 'companies')
           .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `거래처 XLSX ✓ — ${n}건`))}>⬇ XLSX</Btn>
+        {sel.size > 0 ? (
+          <>
+            <Chip tone="info">{sel.size} 선택</Chip>
+            <Btn disabled={!perm.canWrite('erp-company-master')} onClick={() => setBulk(false)}>일괄 비활성</Btn>
+            <Btn disabled={!perm.canWrite('erp-company-master')} onClick={() => setBulk(true)}>일괄 재활성</Btn>
+            <span style={{ width: 8 }} />
+          </>
+        ) : null}
         <input ref={impRef} type="file" accept=".xlsx" style={{ display: 'none' }} aria-label="대량 등록 파일"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
         <Btn disabled={!perm.canWrite('erp-company-master')} title="헤더: 업체명·유형·국가·결제조건"
@@ -216,6 +236,16 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
             return null
           }} />
       ) : null}
+      {bulk !== null ? (
+        <ConfirmDialog dataAttr="com-bulk"
+          title={`일괄 ${bulk ? '재활성' : '비활성'} — ${sel.size}건`}
+          confirmLabel={`${bulk ? '재활성' : '비활성'} (${sel.size})`}
+          message={bulk
+            ? <>선택한 <b>{sel.size}건</b>을 재활성합니다 — 고객/공급처 선택 리스트에 다시 노출됩니다.</>
+            : <>선택한 <b>{sel.size}건</b>을 비활성합니다 — 이력은 보존되나 선택 리스트에서 제외됩니다.</>}
+          onConfirm={runBulkCompany}
+          onClose={() => setBulk(null)} />
+      ) : null}
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         <GroupBox title={`업체 대장 — ${visible.length}건`} noPad style={{ flex: 1, minHeight: 0 }}>
           {offline ? (
@@ -223,8 +253,9 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
               백엔드 연결 필요 — 업체 대장은 실DB(com_company)에서만 조회됩니다
             </div>
           ) : (
-            <DenseGrid prefKey="companies" columns={cols} rows={visible} rowKey={(r) => r.name}
-              selectedKey={selected?.name ?? null}
+            <DenseGrid prefKey="companies" columns={cols} rows={visible} rowKey={(r) => r.companyId ?? r.name}
+              multiSelect selectedKeys={sel as Set<string | number>} onSelectionChange={(k) => setSel(k as Set<number>)}
+              selectedKey={selected?.companyId ?? selected?.name ?? null}
               onRowClick={selectSupplier}
               onRowDoubleClick={(r) => {
                 if (!perm.canWrite('erp-company-master')) { setStatusMsg(perm.denyWrite); return }
