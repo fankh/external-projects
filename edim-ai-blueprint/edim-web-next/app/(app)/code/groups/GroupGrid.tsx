@@ -1,0 +1,23 @@
+'use client'
+
+import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
+import { Chip } from '@/components/controls'
+
+export interface GroupRow {
+  groupCode: string; groupName: string; groupType: string
+  hierarchyAddress: string; status: string; slotCount: number
+}
+
+const cols: GridColumn<GroupRow>[] = [
+  { key: 'code', header: '그룹 코드', width: 110, code: true, render: (r) => r.groupCode },
+  { key: 'name', header: '그룹명', render: (r) => r.groupName },
+  { key: 'type', header: '유형', width: 90, align: 'center', sortValue: (r) => r.groupType, render: (r) => r.groupType || '—' },
+  { key: 'addr', header: '계층 주소', width: 120, code: true, render: (r) => r.hierarchyAddress || '—' },
+  { key: 'slots', header: 'Slot', width: 56, align: 'right', sortValue: (r) => r.slotCount, render: (r) => r.slotCount },
+  { key: 'status', header: '상태', width: 84, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={r.status === 'APPROVED' ? 'ok' : 'info'}>{r.status}</Chip> },
+]
+
+export function GroupGrid({ rows }: { rows: GroupRow[] }) {
+  return <DenseGrid prefKey="next-groups" colFilter columns={cols} rows={rows}
+    rowKey={(r) => r.groupCode} emptyText="코드 그룹이 없습니다" />
+}
