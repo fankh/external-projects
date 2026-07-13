@@ -7315,16 +7315,26 @@ def quotation_render(quotation_id: int) -> Any:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT q.quotation_no, q.line_items, q.total_amount, p.project_no
+            """SELECT q.quotation_no, q.line_items, q.total_amount, p.project_no, q.currency, q.vat_mode
                FROM cst_quotation q JOIN prj_project p ON p.project_id=q.project_id
                WHERE q.tenant_id=%s AND q.quotation_id=%s""", (tid, quotation_id))
         row = cur.fetchone()
-    if not row:
-        raise HTTPException(404, detail=f"견적 없음: #{quotation_id}")
+        if not row:
+            raise HTTPException(404, detail=f"견적 없음: #{quotation_id}")
+        total = float(row[2])
+        pct = 0.0
+        if row[5] and row[5] != "별도":
+            cur.execute("SELECT rate_pct FROM tax_code WHERE tenant_id=%s AND code=%s", (tid, row[5]))
+            tr = cur.fetchone()
+            if tr:
+                pct = float(tr[0])
     items = [{"resolvedCode": ln.get("code", "?"), "name": ln.get("name", ""),
               "quantity": ln.get("qty", 1), "priceK": ln.get("priceK")}
              for ln in row[1]]
-    ns = SimpleNamespace(items=items, total_k=float(row[2]) / 1000, files=[])
+    subtotal = round(total / (1 + pct / 100), 2) if pct else total
+    ns = SimpleNamespace(items=items, total_k=total / 1000, files=[],
+                         currency=row[4], subtotal=subtotal, tax=round(total - subtotal, 2),
+                         tax_pct=pct, total_cur=total)
     rp.step_quotation(ns, f"{row[3]} · {row[0]}")
     return Response(content=ns.files[-1][3], media_type="application/pdf",
                     headers={"Content-Disposition": f"inline; filename=\"{row[0]}.pdf\""})

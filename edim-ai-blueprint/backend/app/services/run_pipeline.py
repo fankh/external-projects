@@ -381,8 +381,20 @@ def step_quotation(r: PipelineResult, project_no: str) -> str:
         c.drawRightString(520, y, amt)
         y -= 14
     c.line(50, y - 1, 545, y - 1)
-    c.setFont(font_name, 10)
-    c.drawRightString(520, y - 16, f"합계  {r.total_k:,.0f} 천원")
+    ccy = getattr(r, "currency", None)
+    if not ccy or ccy == "KRW":
+        c.setFont(font_name, 10)
+        c.drawRightString(520, y - 16, f"합계  {r.total_k:,.0f} 천원")
+    # 통화·세액 요약 블록 (v16.2 — 견적 통화·세액 자동적재)
+    if ccy:
+        yy = y - (40 if ccy == "KRW" else 16)
+        c.setFont(font_name, 8.5)
+        c.drawString(300, yy, f"통화 (Currency): {ccy}")
+        c.drawRightString(520, yy, f"공급가액  {getattr(r, 'subtotal', 0):,.0f} {ccy}"); yy -= 14
+        pct = getattr(r, "tax_pct", 0)
+        c.drawRightString(520, yy, f"세액 ({pct:g}%)  {getattr(r, 'tax', 0):,.0f} {ccy}"); yy -= 14
+        c.setFont(font_name, 10)
+        c.drawRightString(520, yy, f"합계 (Total)  {getattr(r, 'total_cur', 0):,.0f} {ccy}")
     c.setFont(font_name, 7.5)
     c.drawString(50, 40, "EDIM Tool System — 승인 전 배포 금지 (Management Grade)")
     c.showPage()
