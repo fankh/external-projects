@@ -7437,12 +7437,56 @@ def quotation_status(quotation_id: int, request: Request, body: QuoteStatusPatch
                                VALUES (%s,%s,%s,CURRENT_DATE + (%s||' days')::interval,'수주 자동 시딩',%s)
                                ON CONFLICT (tenant_id, project_no, stage) DO NOTHING""",
                             (tid, pno[0], stg, offs[stg], str(request.state.user_id)))
+            # 후속 이벤트 자동 생성 (D1→업무함 고리) — OR(수주)의 후행 프로세스를 TODO 로 시딩(설계 착수 TODO)
+            followups = _seed_order_followups(cur, tid, project_id, quotation_id, qno, request.state.user_id)
         else:
             cur.execute("UPDATE cst_quotation SET status=%s, updated_at=now() WHERE quotation_id=%s",
                         (new, quotation_id))
         _audit(cur, tid, "cst_quotation", quotation_id, "STATUS", request.state.user_id,
-               {"quotationNo": qno, "from": cur_status, "to": new})
-    return {"quotationId": quotation_id, "status": new}
+               {"quotationNo": qno, "from": cur_status, "to": new,
+                "followups": [f["code"] for f in followups] if new == "ORDERED" else None})
+    return {"quotationId": quotation_id, "status": new,
+            "followupEvents": followups if new == "ORDERED" else []}
+
+
+def _seed_order_followups(cur: Any, tid: int, project_id: int, quotation_id: int,
+                          qno: str, user_id: int) -> list[dict[str, Any]]:
+    """수주 확정 시 OR(수주)의 후행 프로세스를 TODO 이벤트로 생성 (업무함 착수 TODO).
+
+    erp_process_edge 로 OR 후행(AP 승인도서·PL Part List)을 조회 → 프로젝트별 미존재 시 생성·담당자 알림.
+    담당자: 프로젝트 관리자 우선, 없으면 수행자. 중복 방지(같은 proc×project 있으면 skip)."""
+    cur.execute("SELECT proc_def_id FROM erp_process_def WHERE tenant_id=%s AND proc_code='OR'", (tid,))
+    or_def = cur.fetchone()
+    if not or_def:
+        return []
+    cur.execute(
+        """SELECT d.proc_def_id, d.proc_code, d.proc_name
+           FROM erp_process_edge e JOIN erp_process_def d ON d.proc_def_id=e.to_def_id
+           WHERE e.tenant_id=%s AND e.from_def_id=%s ORDER BY d.proc_code""", (tid, or_def[0]))
+    successors = cur.fetchall()
+    cur.execute("SELECT manager_id FROM prj_project WHERE project_id=%s", (project_id,))
+    mgr = cur.fetchone()
+    assignee = mgr[0] if mgr and mgr[0] else user_id
+    lead = {"AP": 7, "PL": 10}   # 착수 리드타임(영업일 아닌 캘린더 근사)
+    seeded: list[dict[str, Any]] = []
+    for pdid, pcode, pname in successors:
+        cur.execute(
+            "SELECT 1 FROM erp_process_event WHERE tenant_id=%s AND proc_def_id=%s AND project_id=%s LIMIT 1",
+            (tid, pdid, project_id))
+        if cur.fetchone():
+            continue
+        cur.execute(
+            """INSERT INTO erp_process_event (tenant_id, proc_def_id, project_id, ref_type, ref_id,
+               status, assignee_id, due_date, created_by)
+               VALUES (%s,%s,%s,'QUOTATION',%s,'TODO',%s,
+                       CURRENT_DATE + (%s||' days')::interval, %s) RETURNING event_id""",
+            (tid, pdid, project_id, quotation_id, assignee, lead.get(pcode, 7), str(user_id)))
+        eid = cur.fetchone()[0]
+        seeded.append({"eventId": eid, "code": pcode, "name": pname})
+        if assignee:
+            _notify(cur, tid, int(assignee), "ORDER_FOLLOWUP",
+                    f"수주 후속 착수 — {pname} ({qno})", "/erp")
+    return seeded
 
 
 @router.get("/cost/orders")

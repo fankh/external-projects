@@ -2824,16 +2824,17 @@ export const orderService = {
       throw e
     }
   },
-  /** PATCH /api/v1/cost/quotations/{id}/status — 견적 lifecycle 전이 (SENT/ORDERED/LOST) */
-  async transition(id: number, status: string, contractAmount?: number, expectedDelivery?: string): Promise<boolean> {
+  /** PATCH /api/v1/cost/quotations/{id}/status — 견적 lifecycle 전이 (SENT/ORDERED/LOST)
+   *  ORDERED 시 followupEvents(후속 착수 TODO) 반환. null=백엔드 불가 */
+  async transition(id: number, status: string, contractAmount?: number, expectedDelivery?: string):
+    Promise<{ status: string; followupEvents?: { eventId: number; code: string; name: string }[] } | null> {
     try {
-      await api(`/cost/quotations/${id}/status`, {
+      return await api(`/cost/quotations/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status, contractAmount, expectedDelivery }),
       })
-      return true
     } catch (e) {
-      if (e instanceof ApiUnavailable) return false
+      if (e instanceof ApiUnavailable) return null
       throw e
     }
   },

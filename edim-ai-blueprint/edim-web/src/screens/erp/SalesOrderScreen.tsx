@@ -40,12 +40,16 @@ export function SalesOrderScreen({ active }: ScreenProps) {
       expectedDelivery = d?.trim() || undefined
     }
     void orderService.transition(q.quotationId, status, contractAmount, expectedDelivery)
-      .then((ok) => {
-        if (!ok) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
+      .then((res) => {
+        if (!res) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
         load()
-        shell.setStatusMsg(status === 'ORDERED'
-          ? `수주 전환 ✓ — ${q.quotationNo} → ORDERED (계약 ${won(contractAmount ?? q.total)}, 프로젝트 CONTRACT 전이)`
-          : `상태 전이 ✓ — ${q.quotationNo} → ${status}`)
+        if (status === 'ORDERED') {
+          const fu = res.followupEvents ?? []
+          const fuTxt = fu.length ? ` · 후속 착수 TODO ${fu.length}건 자동 생성(${fu.map((f) => f.name).join('·')})` : ''
+          shell.setStatusMsg(`수주 전환 ✓ — ${q.quotationNo} → ORDERED (계약 ${won(contractAmount ?? q.total)}, 프로젝트 CONTRACT 전이${fuTxt})`)
+        } else {
+          shell.setStatusMsg(`상태 전이 ✓ — ${q.quotationNo} → ${status}`)
+        }
       })
       .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
   }
