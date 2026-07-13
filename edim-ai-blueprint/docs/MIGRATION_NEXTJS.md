@@ -17,10 +17,14 @@ Vite React SPA(`edim-web/`) → **Next.js App Router SSR**(`edim-web-next/`) 이
 - **레이아웃**: `app/(app)/layout.tsx` = 앱 크롬(타이틀바·네비). 각 화면은 `page.tsx`(서버) + 상호작용 아일랜드(`'use client'`).
 
 ## 화면 이관 레시피 (59개 공통 패턴)
-1. `app/(app)/<모듈>/<화면>/page.tsx` — 서버 컴포넌트. `lib/api` 로 초기 데이터 SSR fetch.
-2. 상호작용부(그리드 필터·정렬·편집·CAD)는 `components/<X>.client.tsx`(`'use client'`)로 분리, 초기 데이터를 props 로 주입.
-3. 뮤테이션은 **서버 액션** 또는 route handler → FastAPI. 낙관적 UI 유지.
+1. `app/(app)/<모듈>/<화면>/page.tsx` — 서버 컴포넌트. `lib/api`(apiServer) 로 초기 데이터 SSR fetch(`dynamic='force-dynamic'`).
+2. 상호작용부(그리드 필터·정렬·편집·CAD)는 `<X>Grid.tsx`(`'use client'`)로 분리, 초기 데이터를 props 로 주입.
+3. **뮤테이션(P4 확립)**: `actions.ts`(`'use server'`) — apiServer POST/PUT/DELETE → `revalidatePath('/…')`.
+   - 등록/수정 폼: 클라이언트 `useActionState(action)` → 에러/성공 state 표시, 성공 시 revalidate 로 그리드 자동 갱신.
+   - 행 삭제/토글: 클라이언트에서 서버액션 import → `useTransition` + `router.refresh()`.
+   - 확인 다이얼로그(파괴적): `confirm()` 또는 공용 다이얼로그.
 4. 브라우저 전용 API(localStorage·window·canvas·getScreenCTM)는 클라이언트 아일랜드 내부로만.
+   레퍼런스: `/erp/holidays`(read+write 서버액션 완성).
 
 ## 공유 컴포넌트 이관 (기반)
 `DenseGrid`(그리드), `CadSvg`(CAD 편집), `Cvs`, `controls`, `chrome`, `cadBridge/cadOps`, i18n, hooks.
