@@ -77,6 +77,7 @@ SUITES = [
     "live_g3_product_master.py",    # 제품 코드 마스터 CRUD — 생성/중복 409/상태 전이/참조 삭제 409
     "live_g2_paging.py",            # 그리드 페이지네이션 — 100행/페이지·페이저·전체 다중선택·찾기 재페이지
     "live_g2_colprefs.py",          # 그리드 컬럼 리사이즈·순서 변경 영속(prefKey)·초기화
+    "live_g2_ctxmenu.py",           # 그리드 우클릭 컨텍스트 메뉴 — 셀/행 복사(클립보드)·rowActions
     "live_g3_report_center.py",     # Report Center — 카탈로그·PCR 보고서 PDF(RPT-07)·404
     "live_g1_design_edit.py",       # Design Editor CAD 명령 툴바 — 부품도 실체화·복사/삭제 편집·편집모드 활성
     "live_g1_dim_block.py",         # CAD 치수(DI)·블록(REG) 삽입 — 치수선+거리텍스트·라벨박스·레이어·영속
