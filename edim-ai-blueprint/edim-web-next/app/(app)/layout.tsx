@@ -9,6 +9,9 @@ import { LocaleSwitcher } from '@/components/LocaleSwitcher'
 
 // 이관 완료 화면만 네비에 노출(점진 확장). label 은 i18n.
 const NAV: { href: string; key: string; ko: string }[] = [
+  { href: '/erp/companies', key: 'menu.erp-company-master', ko: '거래처 대장 (M-14-2)' },
+  { href: '/plm/parts', key: 'menu.plm-parts', ko: '부품 대장 (M-4-7)' },
+  { href: '/erp/prices', key: 'menu.erp-price', ko: '단가 대장 (M-12-5)' },
   { href: '/erp/eco-ledger', key: 'menu.plm-eco-ledger', ko: '변경 이력 대장 (D-5L)' },
   { href: '/erp/audit', key: 'menu.erp-audit', ko: '감사 조회 (M-14-6A)' },
 ]
