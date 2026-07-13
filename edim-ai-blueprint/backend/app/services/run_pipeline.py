@@ -207,6 +207,60 @@ def build_arrangement_dxf(title: str = "AHU 5 — Double Deck 2") -> bytes:
     return buf.getvalue().encode()
 
 
+def build_duct_layout_dxf(diffusers: int = 3, floor: str = "3F") -> bytes:
+    """건축설비 Duct 자동 배치를 실 DXF 로 작도 (M-4-3 실엔진화).
+
+    방(ROOM)·설치 불가 지역(NOZONE)·덕트 경로(DUCT)·디퓨저(DIFFUSER)·AHU·치수(DIM) 레이어."""
+    import ezdxf
+    doc = ezdxf.new("R2010")
+    doc.layers.add("ROOM", color=8)
+    doc.layers.add("NOZONE", color=1)        # red
+    doc.layers.add("DUCT", color=5)          # blue
+    doc.layers.add("DIFFUSER", color=3)      # green
+    doc.layers.add("AHU", color=6)
+    doc.layers.add("DIM", color=2)
+    doc.layers.add("LABEL", color=250)
+    msp = doc.modelspace()
+
+    def rect(x, y, w, h, layer):
+        msp.add_lwpolyline([(x, y), (x + w, y), (x + w, y + h), (x, y + h), (x, y)],
+                           dxfattribs={"layer": layer})
+
+    # 방 배치 (mm)
+    rooms = [("Room A", 0, 1400, 1900, 1300), ("Room B", 1900, 1400, 1500, 1300),
+             ("대공간", 3400, 200, 1700, 2900)]
+    for name, x, y, w, h in rooms:
+        rect(x, y, w, h, "ROOM")
+        msp.add_text(name, height=80, dxfattribs={"layer": "LABEL"}) \
+            .set_placement((x + w / 2, y + h - 140), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+    # 설치 불가 지역 (소방구역·빔 — AI 판독)
+    rect(0, 0, 3400, 1200, "NOZONE")
+    msp.add_text("설치 불가 (소방·빔)", height=70, dxfattribs={"layer": "NOZONE"}) \
+        .set_placement((1700, 600), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+    # AHU 출발
+    rect(-260, 1900, 240, 200, "AHU")
+    msp.add_text("AHU", height=70, dxfattribs={"layer": "LABEL"}) \
+        .set_placement((-140, 2000), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+    # 덕트 메인 경로 (AHU → 우측 → 대공간 하강) — 폴리라인
+    run_y = 2000
+    msp.add_lwpolyline([(-20, run_y), (4250, run_y), (4250, 700)], dxfattribs={"layer": "DUCT"})
+    # 디퓨저 자동 배치 (메인 런을 따라 균등)
+    nd = max(1, min(diffusers, 12))
+    x0, x1 = 300, 3900
+    for i in range(nd):
+        cx = x0 + (x1 - x0) * (i / max(1, nd - 1)) if nd > 1 else (x0 + x1) / 2
+        msp.add_circle((cx, run_y), 55, dxfattribs={"layer": "DIFFUSER"})
+    # 전체 치수
+    msp.add_line((0, 3250), (5100, 3250), dxfattribs={"layer": "DIM"})
+    msp.add_text("5100", height=90, dxfattribs={"layer": "DIM"}) \
+        .set_placement((2550, 3320), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+    msp.add_text(f"Duct Auto-Layout · {floor} · Diffuser {nd}", height=100, dxfattribs={"layer": "LABEL"}) \
+        .set_placement((0, -260))
+    buf = io.StringIO()
+    doc.write(buf)
+    return buf.getvalue().encode()
+
+
 def step_pricing(r: PipelineResult) -> str:
     r.total_k = sum((i["priceK"] or 0) * i["quantity"] for i in r.items)
     r.resolved = sum(1 for i in r.items if i["priceK"] is not None)

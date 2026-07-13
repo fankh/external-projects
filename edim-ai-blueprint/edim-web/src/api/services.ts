@@ -3226,6 +3226,16 @@ export const cadService = {
       throw e
     }
   },
+  /** GET /api/v1/cad/duct-layout — 건축설비 Duct 자동 배치 CAD 정본 (M-4-3 실엔진) */
+  async ductLayout(diffusers = 3, floor = '3F'): Promise<CadDocument | null> {
+    try {
+      const r = await api<{ document: CadDocument }>(`/cad/duct-layout?diffusers=${diffusers}&floor=${encodeURIComponent(floor)}`)
+      return r.document
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
   /** GET /api/v1/cad/arrangement.dxf — 구성도 DXF 다운로드 */
   async arrangementDxf(): Promise<void> {
     const res = await fetch(`${API}/cad/arrangement.dxf`, {

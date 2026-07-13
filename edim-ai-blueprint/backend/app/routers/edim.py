@@ -2614,6 +2614,14 @@ def cad_arrangement_dxf() -> StreamingResponse:
         headers={"Content-Disposition": "attachment; filename=AHU5_arrangement.dxf"})
 
 
+@router.get("/cad/duct-layout")
+def cad_duct_layout(diffusers: int = 3, floor: str = "3F") -> dict[str, Any]:
+    """건축설비 Duct 자동 배치 CAD 정본 (M-4-3) — 실 DXF 작도 후 정규화 문서 반환."""
+    from app.services.run_pipeline import build_duct_layout_dxf
+    data = build_duct_layout_dxf(max(1, min(diffusers, 12)), floor.strip()[:10] or "3F")
+    return {"document": _parse_cad_bytes(data, "duct_layout.dxf")}
+
+
 class PartDrawingRequest(BaseModel):
     dims: dict[str, float] = {}
 

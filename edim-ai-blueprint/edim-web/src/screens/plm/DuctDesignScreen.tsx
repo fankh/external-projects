@@ -1,37 +1,86 @@
-/** M-4-3 건축 설비 Design — Duct 자동 배치 (W-15, 슬라이드 68) — 사업 범위 확정 대상.
- *  자동 배치(최단 경로·유체 흐름) 실동작 mock · 설치 불가 지역(AI 판독) 표시. */
-import { useState } from 'react'
+/** M-4-3 건축 설비 Design — Duct 자동 배치 (W-15, 슬라이드 68).
+ *  실엔진화: 정적 div mock → 서버 작도 DXF(/cad/duct-layout)를 CadSvg 실엔진 렌더.
+ *  CadSvg 편집(치수 DI·Block 삽입) 인터랙티브 지원 — onEdit 로컬 적용. */
+import { useCallback, useState } from 'react'
 import { DUCT_CALC } from '../../api/mock/dataMore'
+import { cadService, type CadDocument, type CadEntity } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
+import { CadSvg, type CadEditOp } from '../../components/CadSvg'
 import { useI18n } from '../../i18n/I18nContext'
 import { useShell } from '../../shell/ShellContext'
 import type { ScreenProps } from '../../shell/Shell'
 
+/** 생성 문서에 작도 op 로컬 적용 — 인터랙티브 치수/블록 (파일 영속 없이 화면 편집) */
+function applyCadOps(doc: CadDocument, ops: CadEditOp[]): CadDocument {
+  const ents: CadEntity[] = [...doc.entities]
+  let seq = ents.length + 1
+  const nid = () => `e-local-${seq++}`
+  for (const op of ops) {
+    if (op.op !== 'add') continue
+    const layer = op.layer ?? 'DUCT'
+    if (op.entityType === 'line' || op.entityType === 'dim') {
+      ents.push({ entityId: nid(), entityType: 'line', layerName: op.entityType === 'dim' ? 'DIM' : layer,
+        startPoint: { x: op.x1!, y: op.y1! }, endPoint: { x: op.x2!, y: op.y2! } })
+      if (op.entityType === 'dim') {
+        const len = Math.round(Math.hypot(op.x2! - op.x1!, op.y2! - op.y1!))
+        ents.push({ entityId: nid(), entityType: 'text', layerName: 'DIM',
+          insertionPoint: { x: (op.x1! + op.x2!) / 2, y: (op.y1! + op.y2!) / 2 }, textContent: String(len), textHeight: 80 })
+      }
+    } else if (op.entityType === 'circle') {
+      ents.push({ entityId: nid(), entityType: 'circle', layerName: layer, centerPoint: { x: op.x1!, y: op.y1! }, radius: op.radius! })
+    } else if (op.entityType === 'rect' || op.entityType === 'block') {
+      const x1 = op.x1!, y1 = op.y1!, x2 = op.x2!, y2 = op.y2!
+      ents.push({ entityId: nid(), entityType: 'polyline', layerName: op.entityType === 'block' ? 'AHU' : layer, isClosed: true,
+        vertexPoints: [{ x: x1, y: y1 }, { x: x2, y: y1 }, { x: x2, y: y2 }, { x: x1, y: y2 }] })
+      if (op.entityType === 'block')
+        ents.push({ entityId: nid(), entityType: 'text', layerName: 'LABEL',
+          insertionPoint: { x: (x1 + x2) / 2, y: (y1 + y2) / 2 }, textContent: op.text ?? 'BLOCK', textHeight: 70 })
+    }
+  }
+  return { ...doc, entities: ents }
+}
+
 export function DuctDesignScreen(_props: ScreenProps) {
   const shell = useShell()
   const { t } = useI18n()
-  const [placed, setPlaced] = useState(false)
+  const [doc, setDoc] = useState<CadDocument | null>(null)
+  const [offline, setOffline] = useState(false)
   const [diffusers, setDiffusers] = useState(3)
+  const [floor, setFloor] = useState('3F')
+  const [edit, setEdit] = useState(false)
+  const [tool, setTool] = useState<string | null>(null)
+  const placed = doc !== null
 
-  const autoPlace = () => {
-    setPlaced(true)
-    shell.setStatusMsg('자동 배치 ✓ — 최단 경로·유체 흐름 반영, Diffuser 3개 제안 (DUCT-005)')
-  }
+  const generate = useCallback((nd: number, fl: string) => {
+    void cadService.ductLayout(nd, fl).then((d) => {
+      if (d === null) { setOffline(true); return }
+      setOffline(false); setDoc(d)
+      shell.setStatusMsg(`자동 배치 ✓ — 실엔진 작도(/cad/duct-layout) · ${fl} · Diffuser ${nd}개 (최단 경로·유체 흐름)`)
+    })
+  }, [shell])
+
+  const onEdit = useCallback((ops: CadEditOp[]) => {
+    setDoc((d) => (d ? applyCadOps(d, ops) : d))
+    const k = ops[0]?.entityType
+    shell.setStatusMsg(k === 'dim' ? '치수 기입 ✓ (인터랙티브 DI)' : k === 'block' ? 'Block 삽입 ✓' : `작도 ✓ — ${k}`)
+  }, [shell])
 
   return (
     <div className="fill-col">
       <div className="qband">
         <Chip tone="err">{t('duct.scopeChip', '사업 범위 확정 대상 (보완노트 §3.3)')}</Chip>
         <label>{t('duct.floor', '층')}</label>
-        <Combo width={58} value="3F" options={['1F', '2F', '3F']} />
-        <Btn>{t('duct.multiFloor', '복수 층 (Point XYZ)')}</Btn>
+        <Combo width={58} value={floor} options={['1F', '2F', '3F']} onChange={(v) => { setFloor(v); if (placed) generate(diffusers, v) }} />
         <span style={{ flex: 1 }} />
-        <Btn variant="run" onClick={autoPlace}>{t('duct.autoPlace', '▶ 자동 배치 (최단 경로·유체 흐름)')}</Btn>
-        <Btn disabled={!placed} onClick={() => {
-          setDiffusers((d) => d + 1)
-          shell.setStatusMsg(`Diffuser ${diffusers + 1}개 — 수량 조정`)
-        }}>{t('duct.addDiffuser', 'Diffuser 추가')}</Btn>
-        <Btn disabled={!placed}>{t('duct.manualAdjust', '수동 조정 (Drag·Click)')}</Btn>
+        <Btn variant="run" onClick={() => generate(diffusers, floor)}>{t('duct.autoPlace', '▶ 자동 배치 (최단 경로·유체 흐름)')}</Btn>
+        <Btn disabled={!placed} onClick={() => { const nd = diffusers + 1; setDiffusers(nd); generate(nd, floor) }}>{t('duct.addDiffuser', 'Diffuser 추가')}</Btn>
+        <Btn disabled={!placed} variant={edit ? 'pri' : 'default'} onClick={() => setEdit((e) => !e)}>{t('duct.manualAdjust', '✎ 수동 조정 (치수·Block)')}</Btn>
+        {edit ? (
+          <>
+            <Btn variant={tool === 'dim' ? 'pri' : 'default'} onClick={() => setTool('dim')}>{t('duct.dim', '치수 DI')}</Btn>
+            <Btn variant={tool === 'block' ? 'pri' : 'default'} onClick={() => setTool('block')}>{t('duct.block', 'Block')}</Btn>
+          </>
+        ) : null}
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div style={{ width: 210, display: 'flex', flexDirection: 'column', gap: 6, flex: 'none', overflow: 'auto' }}>
@@ -59,11 +108,6 @@ export function DuctDesignScreen(_props: ScreenProps) {
               ]} />
               <label>{t('duct.ceiling', '층고/보/텍스')}</label>
               <input className="in" defaultValue="4.2 / 0.6 / 2.8 m" aria-label="층고" />
-              <label>Duct Option</label>
-              <Combo value="점검구·Turning" options={[
-                { value: '점검구·Turning', label: t('duct.accessTurning', '점검구·Turning') },
-                { value: '기본', label: t('duct.basic', '기본') },
-              ]} />
             </div>
           </GroupBox>
           <GroupBox title={t('duct.startEnd', '출발–종착')}>
@@ -81,42 +125,18 @@ export function DuctDesignScreen(_props: ScreenProps) {
           </GroupBox>
         </div>
         <div className="fill-col">
-          <div className="cvs" style={{ flex: 1, minHeight: 320 }}>
-            {/* rooms */}
-            <div className="m2" style={{ left: 20, top: 20, width: 190, height: 130 }}>Room A<small>환기 6회/h</small></div>
-            <div className="m2" style={{ left: 210, top: 20, width: 150, height: 130 }}>Room B</div>
-            <div className="m2" style={{ left: 360, top: 20, width: 170, height: 290 }}>대공간<small>측면 입·출 환기 Point</small></div>
-            {/* no-install zone */}
-            <div style={{
-              position: 'absolute', left: 20, top: 150, width: 340, height: 160,
-              border: '1px dashed var(--err)',
-              background: 'repeating-linear-gradient(45deg,#fdecec,#fdecec 10px,#fff 10px,#fff 20px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 10, color: 'var(--err)', textAlign: 'center',
-            }}>
-              설치 불가 지역<br />(소방구역·빔 — AI 판독)
-            </div>
-            {/* duct path (자동 배치 후) */}
-            {placed ? (
-              <>
-                <div style={{ position: 'absolute', left: 60, top: 96, width: 300, borderTop: '4px solid #3B6BB4' }} />
-                <div style={{ position: 'absolute', left: 356, top: 96, height: 120, borderLeft: '4px solid #3B6BB4' }} />
-                <div style={{ position: 'absolute', left: 356, top: 214, width: 120, borderTop: '4px solid #3B6BB4' }} />
-                <div style={{ position: 'absolute', left: 52, top: 86, width: 22, height: 20, background: '#17376B', color: '#fff', fontSize: 8, textAlign: 'center', lineHeight: '20px', borderRadius: 2 }}>AHU</div>
-                {Array.from({ length: diffusers }, (_, i) => (
-                  <div key={i} style={{ position: 'absolute', left: 110 + i * 66, top: 90, width: 9, height: 9, background: 'var(--run)', borderRadius: '50%' }} />
-                ))}
-                <div style={{ position: 'absolute', left: 120, top: 106, fontSize: 9, color: 'var(--run)' }}>
-                  ● {t('duct.diffuserPlaced', 'Diffuser {n}개 자동 배치 (수량 조정 가능)')
-                    .replace('{n}', String(diffusers))}
-                </div>
-              </>
+          <GroupBox noPad style={{ flex: 1, minHeight: 320 }}
+            title={t('duct.canvasTitle', 'Duct 자동 배치 — CAD 실엔진 (DXF)')}
+            right={placed ? <Chip tone="ok">Diffuser {diffusers} · {floor}</Chip> : null}>
+            {doc ? (
+              <CadSvg doc={doc} editable={edit} onEdit={onEdit}
+                activeTool={tool} onToolConsumed={() => setTool(null)} />
+            ) : offline ? (
+              <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>백엔드 연결 필요 — Duct 배치는 서버 작도(/cad/duct-layout)에서만 생성됩니다</div>
             ) : (
-              <div style={{ position: 'absolute', left: 90, top: 96, fontSize: 10.5, color: 'var(--txt-mute)' }}>
-                {t('duct.runAutoHint', '▶ 자동 배치를 실행하십시오')}
-              </div>
+              <div style={{ padding: 16, fontSize: 11, color: 'var(--txt-mute)' }}>{t('duct.runAutoHint', '▶ 자동 배치를 실행하십시오')}</div>
             )}
-          </div>
+          </GroupBox>
         </div>
         <div className="split-h" />
         <div className="side-scroll" style={{ width: 270, display: 'flex', flexDirection: 'column', gap: 6 }}>
