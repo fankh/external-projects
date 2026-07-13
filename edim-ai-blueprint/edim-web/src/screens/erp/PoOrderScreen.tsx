@@ -100,7 +100,7 @@ export function PoOrderScreen({ active }: ScreenProps) {
         <div className="fill-col" style={{ flex: 1.3, padding: 6, gap: 6, overflow: 'auto' }}>
           <GroupBox title={t('po.listTitle', '발주 목록 — erp_po')} noPad>
             {rows.length ? (
-              <DenseGrid columns={cols} rows={rows} rowKey={(r) => r.poNo} prefKey="po"
+              <DenseGrid columns={cols} rows={rows} rowKey={(r) => r.poNo} prefKey="po" colFilter
                 selectedKey={sel} onRowClick={(r) => setSel(r.poNo)} />
             ) : (
               <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>

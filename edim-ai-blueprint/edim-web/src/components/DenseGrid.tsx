@@ -21,6 +21,8 @@ export interface GridColumn<T> {
   /** G2 — 인라인 셀 편집(더블클릭). onCellEdit 과 함께 사용 · editValue 로 편집 초기값 지정 */
   editable?: boolean
   editValue?: (row: T) => string
+  /** G2 — 헤더 컬럼 필터 제외(액션·자유텍스트 열 등). colFilter 활성 시에만 의미 */
+  noFilter?: boolean
 }
 
 type SortDir = 'asc' | 'desc'
@@ -52,6 +54,8 @@ export function DenseGrid<T>(props: {
   stickyFirst?: boolean
   /** G2 — 인라인 셀 편집 커밋 (column.editable 열 더블클릭 → 입력 → Enter/blur) */
   onCellEdit?: (row: T, index: number, key: string, value: string) => void
+  /** G2 — 헤더 컬럼 필터(Excel autofilter식 값 체크리스트). 컬럼별 noFilter 로 제외 */
+  colFilter?: boolean
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir } | null>(null)
   // D8 — 컬럼 표시 설정
@@ -59,6 +63,11 @@ export function DenseGrid<T>(props: {
   const [colMenu, setColMenu] = useState(false)
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
   const colRef = useRef<HTMLSpanElement>(null)
+  // G2 — 헤더 컬럼 필터 (Excel autofilter식 값 체크리스트)
+  const [colFilters, setColFilters] = useState<Record<string, Set<string>>>({})
+  const [fltOpen, setFltOpen] = useState<{ key: string; top: number; left: number } | null>(null)
+  const [fltSearch, setFltSearch] = useState('')
+  const [fltDraft, setFltDraft] = useState<Set<string>>(new Set())
   // G2 — 그리드 내 찾기
   const findable = props.findable !== false
   const [findOpen, setFindOpen] = useState(false)
@@ -214,14 +223,37 @@ export function DenseGrid<T>(props: {
     return (typeof r === 'string' || typeof r === 'number') ? r : ''
   }
 
-  // G2 — 찾기 필터(보이는 컬럼 텍스트 부분일치)
+  // G2 — 헤더 컬럼 필터: 각 컬럼의 고유값(비어있지 않은) 목록
+  const distinctValues = (c: GridColumn<T>): string[] => {
+    const set = new Set<string>()
+    props.rows.forEach((row, i) => {
+      const v = String(cellText(c, row, i))
+      if (v !== '') set.add(v)
+    })
+    return [...set].sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }))
+  }
+  const filterableOf = (c: GridColumn<T>) =>
+    !!props.colFilter && !c.noFilter && distinctValues(c).length > 1
+  const activeFilterKeys = Object.keys(colFilters).filter((k) => colFilters[k]?.size)
+
+  // G2 — 찾기 필터(보이는 컬럼 텍스트 부분일치) + 컬럼 필터(값 체크리스트, AND)
   const q = query.trim().toLowerCase()
   const shown = useMemo(() => {
-    if (!q) return view
-    return view.filter(({ row, origIdx }) =>
-      cols.some((c) => String(cellText(c, row, origIdx)).toLowerCase().includes(q)))
+    let out = view
+    if (activeFilterKeys.length) {
+      out = out.filter(({ row, origIdx }) => activeFilterKeys.every((k) => {
+        const c = cols.find((cc) => cc.key === k)
+        if (!c) return true
+        return colFilters[k].has(String(cellText(c, row, origIdx)))
+      }))
+    }
+    if (q) {
+      out = out.filter(({ row, origIdx }) =>
+        cols.some((c) => String(cellText(c, row, origIdx)).toLowerCase().includes(q)))
+    }
+    return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, q, cols])
+  }, [view, q, cols, colFilters])
 
   // G2 — 페이지네이션: 150행 초과 시 자동 100행/페이지 (소규모 그리드는 단일 페이지=기존 동작)
   const effPage = props.pageSize ?? (shown.length > 150 ? 100 : (shown.length || 1))
@@ -229,7 +261,7 @@ export function DenseGrid<T>(props: {
   const curPage = Math.min(page, pageCount - 1)
   const pageStart = curPage * effPage
   const pageRows = shown.slice(pageStart, pageStart + effPage)
-  useEffect(() => { setPage(0) }, [q])
+  useEffect(() => { setPage(0) }, [q, colFilters])
 
   const clickHeader = (c: GridColumn<T>) => {
     if (!sortableOf(c)) return
@@ -366,6 +398,22 @@ export function DenseGrid<T>(props: {
                 onClick={() => clickHeader(c)}>
                 {c.header}
                 {active ? <span style={{ fontSize: 9 }}> {sort!.dir === 'asc' ? '▲' : '▼'}</span> : null}
+                {filterableOf(c) ? (
+                  <span data-col-filter
+                    title={colFilters[c.key]?.size ? '필터 적용됨 — 클릭하여 편집' : '컬럼 필터'}
+                    style={{ cursor: 'pointer', marginLeft: 3, fontSize: 9, color: colFilters[c.key]?.size ? 'var(--accent, #2f6bd6)' : '#7A87A0' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (fltOpen?.key === c.key) { setFltOpen(null); return }
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setFltSearch('')
+                      // 초안 = 현재 필터(있으면) 또는 전체 선택
+                      setFltDraft(new Set(colFilters[c.key] ?? distinctValues(c)))
+                      setFltOpen({ key: c.key, top: r.bottom + 2, left: Math.min(r.left, window.innerWidth - 222) })
+                    }}>
+                    {colFilters[c.key]?.size ? '▼' : '▽'}
+                  </span>
+                ) : null}
                 {props.prefKey ? (
                   <span data-col-resize style={{
                     position: 'absolute', top: 0, right: 0, width: 6, height: '100%',
@@ -527,13 +575,66 @@ export function DenseGrid<T>(props: {
     </div>
   ) : null
 
-  if (!overlay && !pager && !props.rowActions) return ctx ? <>{table}{ctxMenu}</> : table
+  const fltCol = fltOpen ? props.columns.find((c) => c.key === fltOpen.key) : undefined
+  const fltMenu = fltOpen && fltCol ? (() => {
+    const all = distinctValues(fltCol)
+    const shownVals = fltSearch.trim()
+      ? all.filter((v) => v.toLowerCase().includes(fltSearch.trim().toLowerCase())) : all
+    const apply = () => {
+      setColFilters((prev) => {
+        const next = { ...prev }
+        // 전체 선택 = 필터 없음(제거), 부분 선택 = 필터 적용
+        if (fltDraft.size === 0 || fltDraft.size === all.length) delete next[fltOpen.key]
+        else next[fltOpen.key] = new Set(fltDraft)
+        return next
+      })
+      setFltOpen(null)
+    }
+    return (
+      <>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000 }} onMouseDown={() => setFltOpen(null)} />
+        <div data-col-filter-menu className="gb" style={{
+          position: 'fixed', top: fltOpen.top, left: fltOpen.left, width: 210, zIndex: 1001,
+          boxShadow: '0 6px 20px rgba(20,26,40,.28)', textAlign: 'left',
+        }} onMouseDown={(e) => e.stopPropagation()}>
+          <div className="gt" style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ flex: 1 }}>{typeof fltCol.header === 'string' ? fltCol.header : fltOpen.key} 필터</span>
+            <span style={{ cursor: 'pointer', color: 'var(--txt-mute)' }} onClick={() => setFltDraft(new Set(all))}>전체</span>
+            <span style={{ cursor: 'pointer', color: 'var(--txt-mute)' }} onClick={() => setFltDraft(new Set())}>해제</span>
+          </div>
+          <div style={{ padding: 4 }}>
+            <input className="in" style={{ width: '100%', height: 18, fontSize: 10.5 }} placeholder="값 검색…"
+              value={fltSearch} autoFocus onChange={(e) => setFltSearch(e.target.value)} />
+          </div>
+          <div className="gc p0" style={{ maxHeight: 220, overflow: 'auto', padding: '0 4px 4px' }}>
+            {shownVals.map((v) => (
+              <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, padding: '2px 4px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={fltDraft.has(v)}
+                  onChange={() => setFltDraft((p) => { const n = new Set(p); if (n.has(v)) n.delete(v); else n.add(v); return n })} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
+              </label>
+            ))}
+            {!shownVals.length ? <div style={{ fontSize: 10, color: 'var(--txt-mute)', padding: 4 }}>일치 값 없음</div> : null}
+          </div>
+          <div style={{ borderTop: '1px solid var(--line)', padding: 4, display: 'flex', gap: 4 }}>
+            <span className="b" style={{ fontSize: 10.5, cursor: 'pointer', flex: 1, justifyContent: 'center' }}
+              onClick={() => setFltOpen(null)}>취소</span>
+            <span className="b pri" data-col-filter-apply style={{ fontSize: 10.5, cursor: 'pointer', flex: 1, justifyContent: 'center' }}
+              onClick={apply}>적용 ({fltDraft.size})</span>
+          </div>
+        </div>
+      </>
+    )
+  })() : null
+
+  if (!overlay && !pager && !props.rowActions && !fltMenu) return ctx ? <>{table}{ctxMenu}</> : table
   return (
     <div data-grid-wrap style={{ position: 'relative' }}>
       {overlay}
       {table}
       {pager}
       {ctxMenu}
+      {fltMenu}
     </div>
   )
 }

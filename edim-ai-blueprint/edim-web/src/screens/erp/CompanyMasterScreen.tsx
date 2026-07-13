@@ -269,7 +269,7 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
               백엔드 연결 필요 — 업체 대장은 실DB(com_company)에서만 조회됩니다
             </div>
           ) : (
-            <DenseGrid prefKey="companies" columns={cols} rows={visible} rowKey={(r) => r.companyId ?? r.name}
+            <DenseGrid prefKey="companies" colFilter columns={cols} rows={visible} rowKey={(r) => r.companyId ?? r.name}
               multiSelect selectedKeys={sel as Set<string | number>} onSelectionChange={(k) => setSel(k as Set<number>)}
               selectedKey={selected?.companyId ?? selected?.name ?? null}
               onRowClick={selectSupplier}
