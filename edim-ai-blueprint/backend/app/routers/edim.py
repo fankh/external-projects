@@ -5717,61 +5717,81 @@ class CostActualCreate(BaseModel):
     poNo: str = ""
     qty: float = 1
     unitPrice: float = 0
+    projectNo: str = ""           # 프로젝트 귀속 (선택)
 
 
 @router.post("/cost/actuals", status_code=201, dependencies=[SETUP])
 def cost_actual_create(request: Request, body: CostActualCreate) -> dict[str, Any]:
-    """구매 실적 적재 (D6) — PO 확정 단가 → 실적 원가(cst_calc 추정과 분리 기록)."""
+    """구매 실적 적재 (D6) — PO 확정 단가 → 실적 원가(cst_calc 추정과 분리 기록). 프로젝트 귀속(선택)."""
     cat = body.category.strip().upper()
     if cat not in COST_CATEGORIES:
         raise HTTPException(422, detail=f"원가 분류 오류 ({'/'.join(COST_CATEGORIES)})")
     if body.qty <= 0 or body.unitPrice < 0:
         raise HTTPException(422, detail="수량·단가 확인 (수량>0, 단가≥0)")
     amount = round(body.qty * body.unitPrice, 2)
+    pno = body.projectNo.strip()[:30] or None
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        if pno:
+            cur.execute("SELECT 1 FROM prj_project WHERE tenant_id=%s AND project_no=%s", (tid, pno))
+            if not cur.fetchone():
+                raise HTTPException(404, detail=f"프로젝트 없음: {pno}")
         cur.execute(
             """INSERT INTO cst_actual (tenant_id, category, item_code, item_name, po_no,
-               qty, unit_price, amount, created_by)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING actual_id""",
+               qty, unit_price, amount, project_no, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING actual_id""",
             (tid, cat, body.itemCode.strip()[:50] or None, body.itemName.strip()[:200] or None,
-             body.poNo.strip()[:50] or None, body.qty, body.unitPrice, amount,
+             body.poNo.strip()[:50] or None, body.qty, body.unitPrice, amount, pno,
              str(request.state.user_id)))
         aid = cur.fetchone()[0]
         _audit(cur, tid, "cst_actual", aid, "ACTUAL", request.state.user_id,
-               {"category": cat, "amount": amount, "poNo": body.poNo})
-    return {"actualId": aid, "category": cat, "amount": amount}
+               {"category": cat, "amount": amount, "poNo": body.poNo, "projectNo": pno})
+    return {"actualId": aid, "category": cat, "amount": amount, "projectNo": pno}
 
 
 @router.get("/cost/actuals")
-def cost_actual_list() -> list[dict[str, Any]]:
-    """실적 원가 목록 (D6)."""
+def cost_actual_list(project: str = "") -> list[dict[str, Any]]:
+    """실적 원가 목록 (D6). project 지정 시 해당 프로젝트 귀속분만."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        params: list[Any] = [tid]
+        clause = ""
+        if project.strip():
+            clause = " AND project_no=%s"
+            params.append(project.strip())
         cur.execute(
-            """SELECT actual_id, category, COALESCE(item_code,''), COALESCE(item_name,''),
+            f"""SELECT actual_id, category, COALESCE(item_code,''), COALESCE(item_name,''),
                       COALESCE(po_no,''), qty, unit_price, amount,
-                      to_char(recorded_at,'MM-DD HH24:MI')
-               FROM cst_actual WHERE tenant_id=%s ORDER BY actual_id DESC""", (tid,))
+                      to_char(recorded_at,'MM-DD HH24:MI'), COALESCE(project_no,'')
+               FROM cst_actual WHERE tenant_id=%s{clause} ORDER BY actual_id DESC""", tuple(params))
         return [{"actualId": r[0], "category": r[1], "itemCode": r[2], "itemName": r[3],
                  "poNo": r[4], "qty": float(r[5]), "unitPrice": float(r[6]),
-                 "amount": float(r[7]), "recordedAt": r[8]} for r in cur.fetchall()]
+                 "amount": float(r[7]), "recordedAt": r[8], "projectNo": r[9]}
+                for r in cur.fetchall()]
 
 
 @router.get("/cost/variance")
-def cost_variance() -> dict[str, Any]:
-    """견적(추정) vs 실적 차이 분석 (D6) — 분류별 추정/실적/차이·차이율 + 임계 경보."""
+def cost_variance(project: str = "") -> dict[str, Any]:
+    """견적(추정) vs 실적 차이 분석 (D6) — 분류별 추정/실적/차이·차이율 + 임계 경보.
+
+    project 지정 시 추정(프로젝트 Run)·실적(프로젝트 귀속) 모두 프로젝트 스코프."""
+    proj = project.strip()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        # 추정 — 최근 SUCCESS Run 의 cst_calc 분류 합계 (없으면 0)
+        # 추정 — 최근 SUCCESS Run 의 cst_calc 분류 합계 (없으면 0), 프로젝트 스코프
         try:
-            run_id, est = _latest_cost_base(cur, tid)
+            run_id, est = _latest_cost_base(cur, tid, proj)
         except HTTPException:
             run_id, est = None, {}
-        # 실적 — cst_actual 분류 합계
+        # 실적 — cst_actual 분류 합계 (프로젝트 스코프)
+        aparams: list[Any] = [tid]
+        aclause = ""
+        if proj:
+            aclause = " AND project_no=%s"
+            aparams.append(proj)
         cur.execute(
-            "SELECT category, COALESCE(sum(amount),0) FROM cst_actual WHERE tenant_id=%s GROUP BY category",
-            (tid,))
+            f"SELECT category, COALESCE(sum(amount),0) FROM cst_actual WHERE tenant_id=%s{aclause} GROUP BY category",
+            tuple(aparams))
         act = {r[0]: float(r[1]) for r in cur.fetchall()}
         cats = []
         for c in COST_CATEGORIES:
@@ -5786,7 +5806,7 @@ def cost_variance() -> dict[str, Any]:
         ta = sum(x["actual"] for x in cats)
         tv = round(ta - te, 2)
         trate = (tv / te) if te else (1.0 if ta else 0.0)
-        return {"runId": run_id, "estimateAvailable": run_id is not None,
+        return {"runId": run_id, "estimateAvailable": run_id is not None, "projectNo": proj,
                 "categories": cats, "totalEstimate": te, "totalActual": ta,
                 "totalVariance": tv, "totalVarianceRate": round(trate, 4),
                 "alert": trate > VARIANCE_ALERT_RATE, "alertRate": VARIANCE_ALERT_RATE}
@@ -7223,18 +7243,37 @@ def po_lc_receive(po_no: str, request: Request, body: PoReceive) -> dict[str, An
 PCR_BUSINESS_TYPES = ("PRE_SALES", "MAIN")
 
 
-def _latest_cost_base(cur, tid: int) -> tuple[int, dict[str, float]]:
-    """최근 SUCCESS Run 의 cst_calc 합계 → (run_id, {MATERIAL, MANUFACTURING, DIRECT})."""
-    cur.execute(
-        """SELECT c.run_id, c.calc_type, c.total_amount
-           FROM cst_calc c JOIN cpq_run r ON r.run_id=c.run_id AND r.status='SUCCESS'
-           WHERE c.tenant_id=%s AND c.run_id=(
-             SELECT max(c2.run_id) FROM cst_calc c2
-             JOIN cpq_run r2 ON r2.run_id=c2.run_id AND r2.status='SUCCESS'
-             WHERE c2.tenant_id=%s)""", (tid, tid))
+def _latest_cost_base(cur, tid: int, project_no: str = "") -> tuple[int, dict[str, float]]:
+    """최근 SUCCESS Run 의 cst_calc 합계 → (run_id, {MATERIAL, MANUFACTURING, DIRECT}).
+
+    project_no 지정 시 해당 프로젝트(run→selection→project) 스코프의 최근 Run 만."""
+    if project_no.strip():
+        cur.execute(
+            """SELECT c.run_id, c.calc_type, c.total_amount
+               FROM cst_calc c
+               JOIN cpq_run r ON r.run_id=c.run_id AND r.status='SUCCESS'
+               JOIN cpq_selection s ON s.selection_id=r.selection_id
+               JOIN prj_project p ON p.project_id=s.project_id
+               WHERE c.tenant_id=%s AND p.project_no=%s AND c.run_id=(
+                 SELECT max(c2.run_id) FROM cst_calc c2
+                 JOIN cpq_run r2 ON r2.run_id=c2.run_id AND r2.status='SUCCESS'
+                 JOIN cpq_selection s2 ON s2.selection_id=r2.selection_id
+                 JOIN prj_project p2 ON p2.project_id=s2.project_id
+                 WHERE c2.tenant_id=%s AND p2.project_no=%s)""",
+            (tid, project_no.strip(), tid, project_no.strip()))
+    else:
+        cur.execute(
+            """SELECT c.run_id, c.calc_type, c.total_amount
+               FROM cst_calc c JOIN cpq_run r ON r.run_id=c.run_id AND r.status='SUCCESS'
+               WHERE c.tenant_id=%s AND c.run_id=(
+                 SELECT max(c2.run_id) FROM cst_calc c2
+                 JOIN cpq_run r2 ON r2.run_id=c2.run_id AND r2.status='SUCCESS'
+                 WHERE c2.tenant_id=%s)""", (tid, tid))
     rows = cur.fetchall()
     if not rows:
-        raise HTTPException(409, detail="원가 상세가 있는 SUCCESS Run 이 없습니다 — EDIM Run 먼저 실행")
+        detail = (f"프로젝트 {project_no} 의 원가 상세 SUCCESS Run 이 없습니다"
+                  if project_no.strip() else "원가 상세가 있는 SUCCESS Run 이 없습니다 — EDIM Run 먼저 실행")
+        raise HTTPException(409, detail=detail)
     totals = {r[1]: float(r[2]) for r in rows}
     return rows[0][0], totals
 

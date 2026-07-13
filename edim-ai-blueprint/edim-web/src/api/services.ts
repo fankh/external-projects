@@ -2479,39 +2479,39 @@ export interface EcoLedger {
 export interface CostActual {
   actualId: number; category: 'MATERIAL' | 'MANUFACTURING' | 'DIRECT'
   itemCode: string; itemName: string; poNo: string
-  qty: number; unitPrice: number; amount: number; recordedAt: string
+  qty: number; unitPrice: number; amount: number; recordedAt: string; projectNo?: string
 }
 export interface VarianceCat {
   category: string; label: string; estimate: number; actual: number
   variance: number; varianceRate: number; alert: boolean
 }
 export interface VarianceData {
-  runId: number | null; estimateAvailable: boolean; categories: VarianceCat[]
+  runId: number | null; estimateAvailable: boolean; projectNo?: string; categories: VarianceCat[]
   totalEstimate: number; totalActual: number; totalVariance: number
   totalVarianceRate: number; alert: boolean; alertRate: number
 }
 
 export const costActualService = {
-  /** GET /api/v1/cost/actuals (null=백엔드 불가) */
-  async list(): Promise<CostActual[] | null> {
+  /** GET /api/v1/cost/actuals (project 지정 시 귀속분만; null=백엔드 불가) */
+  async list(project = ''): Promise<CostActual[] | null> {
     try {
-      return await api<CostActual[]>('/cost/actuals')
+      return await api<CostActual[]>(`/cost/actuals${project ? `?project=${encodeURIComponent(project)}` : ''}`)
     } catch (e) {
       if (e instanceof ApiUnavailable) return null
       throw e
     }
   },
-  /** GET /api/v1/cost/variance — 견적 vs 실적 차이 분석 (null=백엔드 불가) */
-  async variance(): Promise<VarianceData | null> {
+  /** GET /api/v1/cost/variance — 견적 vs 실적 차이 분석 (project 스코프; null=백엔드 불가) */
+  async variance(project = ''): Promise<VarianceData | null> {
     try {
-      return await api<VarianceData>('/cost/variance')
+      return await api<VarianceData>(`/cost/variance${project ? `?project=${encodeURIComponent(project)}` : ''}`)
     } catch (e) {
       if (e instanceof ApiUnavailable) return null
       throw e
     }
   },
   /** POST /api/v1/cost/actuals — 실적 적재 (amount 반환, false=백엔드 불가) */
-  async create(body: { category: string; itemCode?: string; itemName?: string; poNo?: string; qty: number; unitPrice: number }): Promise<number | false> {
+  async create(body: { category: string; itemCode?: string; itemName?: string; poNo?: string; qty: number; unitPrice: number; projectNo?: string }): Promise<number | false> {
     try {
       const r = await api<{ amount: number }>('/cost/actuals', {
         method: 'POST', body: JSON.stringify(body),

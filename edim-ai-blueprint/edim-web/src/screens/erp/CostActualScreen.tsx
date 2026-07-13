@@ -21,27 +21,29 @@ export function CostActualScreen({ active }: ScreenProps) {
   const [rows, setRows] = useState<CostActual[]>([])
   const [vd, setVd] = useState<VarianceData | null>(null)
   const [cat, setCat] = useState('MATERIAL')
+  const [proj, setProj] = useState('')   // 프로젝트 귀속 필터 ('' = 전체)
 
   const load = useCallback(() => {
-    void costActualService.list().then((r) => { if (r) setRows(r) })
-    void costActualService.variance().then(setVd)
-  }, [])
+    void costActualService.list(proj).then((r) => { if (r) setRows(r) })
+    void costActualService.variance(proj).then(setVd)
+  }, [proj])
   useEffect(() => { load() }, [load])
 
   const record = useCallback(() => {
     const itemName = window.prompt('실적 품목명 (예: Casing Φ900)', '')?.trim() || ''
     const poNo = window.prompt('PO 번호 (확정 단가 근거, 생략 가능)', '')?.trim() || undefined
+    const projectNo = window.prompt('프로젝트 귀속 (PS-…, 생략 가능)', proj || shell.activeProject?.no || '')?.trim() || undefined
     const qty = Number((window.prompt('수량', '1') || '1').replace(/[^\d.]/g, '')) || 0
     const unitPrice = Number((window.prompt('확정 단가 (₩)', '0') || '0').replace(/[^\d.]/g, '')) || 0
     if (qty <= 0) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>수량은 0보다 커야 합니다</span>); return }
-    void costActualService.create({ category: cat, itemName, poNo, qty, unitPrice })
+    void costActualService.create({ category: cat, itemName, poNo, qty, unitPrice, projectNo })
       .then((amt) => {
         if (amt === false) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
         load()
-        shell.setStatusMsg(`실적 적재 ✓ — ${CAT_LABEL[cat]} ${won(amt)} (추정 대비 차이 재계산)`)
+        shell.setStatusMsg(`실적 적재 ✓ — ${CAT_LABEL[cat]} ${won(amt)}${projectNo ? ` · ${projectNo} 귀속` : ''} (추정 대비 차이 재계산)`)
       })
       .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
-  }, [cat, load, shell])
+  }, [cat, proj, load, shell])
 
   useFKeys(active, useMemo(() => ({ F8: load, F2: record }), [load, record]))
 
@@ -52,6 +54,7 @@ export function CostActualScreen({ active }: ScreenProps) {
     { key: 'qty', header: t('act.qty', '수량'), width: 60, align: 'right', render: (r) => r.qty.toLocaleString() },
     { key: 'up', header: t('act.unit', '단가'), width: 100, align: 'right', render: (r) => won(r.unitPrice) },
     { key: 'amt', header: t('act.amt', '금액'), width: 120, align: 'right', code: true, render: (r) => won(r.amount) },
+    { key: 'prj', header: t('act.proj', '프로젝트'), width: 92, align: 'center', render: (r) => r.projectNo || '—' },
     { key: 'at', header: t('act.at', '적재'), width: 92, align: 'center', render: (r) => r.recordedAt },
   ]
 
@@ -74,6 +77,9 @@ export function CostActualScreen({ active }: ScreenProps) {
           {t('act.hint', 'PO 확정 단가→실적 원가 적재(추정과 분리) · 견적 vs 실적 차이·차이율 경보 (D6)')}
         </span>
         <span style={{ flex: 1 }} />
+        <label>{t('act.proj', '프로젝트')}</label>
+        <input className="in" style={{ width: 96 }} value={proj} placeholder={t('act.projAll', '전체')} aria-label="프로젝트 귀속"
+          onChange={(e) => setProj(e.target.value.trim())} />
         <Combo value={cat} onChange={setCat} width={110} options={[
           { value: 'MATERIAL', label: '재료비' },
           { value: 'MANUFACTURING', label: '제조비' },
@@ -84,12 +90,12 @@ export function CostActualScreen({ active }: ScreenProps) {
       </div>
       <div className="fill-col" style={{ padding: 6, gap: 6, overflow: 'auto' }}>
         <GroupBox
-          title={t('act.varTitle', '견적(추정) vs 실적 차이 분석')}
+          title={`${t('act.varTitle', '견적(추정) vs 실적 차이 분석')}${proj ? ` — ${proj}` : ` (${t('act.projAll', '전체')})`}`}
           right={vd ? (
             <Chip tone={vd.alert ? 'err' : 'ok'}>
               {vd.estimateAvailable
                 ? `총 차이 ${pct(vd.totalVarianceRate)}${vd.alert ? ` — 임계 +${(vd.alertRate * 100).toFixed(0)}% 초과 경보` : ' — 정상'}`
-                : '추정 Run 없음 — EDIM Run 먼저 실행'}
+                : (proj ? `${proj} 추정 Run 없음` : '추정 Run 없음 — EDIM Run 먼저 실행')}
             </Chip>
           ) : undefined}
           noPad
