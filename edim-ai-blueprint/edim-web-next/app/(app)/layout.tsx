@@ -11,9 +11,14 @@ import { LocaleSwitcher } from '@/components/LocaleSwitcher'
 const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/erp/companies', key: 'menu.erp-company-master', ko: '거래처 대장 (M-14-2)' },
   { href: '/plm/parts', key: 'menu.plm-parts', ko: '부품 대장 (M-4-7)' },
+  { href: '/plm/drawings', key: 'menu.plm-drawings', ko: '도면 대장 (M-4-1)' },
+  { href: '/code/product-codes', key: 'menu.code-master', ko: '제품 코드 마스터 (M-3-8)' },
   { href: '/erp/prices', key: 'menu.erp-price', ko: '단가 대장 (M-12-5)' },
+  { href: '/erp/po', key: 'menu.erp-po', ko: '발주 대장 (G-3)' },
+  { href: '/erp/milestones', key: 'menu.erp-milestone', ko: '일정·마일스톤 (D-7)' },
   { href: '/erp/eco-ledger', key: 'menu.plm-eco-ledger', ko: '변경 이력 대장 (D-5L)' },
   { href: '/erp/audit', key: 'menu.erp-audit', ko: '감사 조회 (M-14-6A)' },
+  { href: '/cpq/reports', key: 'menu.cpq-reports', ko: 'Report Center (RPT)' },
 ]
 
 async function logout() {
