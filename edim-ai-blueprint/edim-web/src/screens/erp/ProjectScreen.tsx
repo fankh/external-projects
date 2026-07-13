@@ -7,6 +7,7 @@ import {
 } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
+import { QuickEditDialog } from '../../components/QuickEditDialog'
 import { useI18n } from '../../i18n/I18nContext'
 import { usePermission } from '../../shell/PermissionContext'
 import { useEscapeClose } from '../../shell/useEscapeClose'
@@ -32,6 +33,7 @@ export function ProjectScreen({ active }: ScreenProps) {
   const [dirty, setDirty] = useState(false)
   const [baseVer, setBaseVer] = useState('')   // D9 — 낙관적 잠금 버전 토큰
   const [showReg, setShowReg] = useState(false)
+  const [showMeta, setShowMeta] = useState(false)   // 메타(명/고객/납기) 수정
   const fileInput = useRef<HTMLInputElement>(null)
 
   const sel = projects.find((p) => p.projectNo === selNo) ?? null
@@ -194,10 +196,21 @@ export function ProjectScreen({ active }: ScreenProps) {
             <DenseGrid columns={prjCols} rows={projects} rowKey={(r) => r.projectNo}
               selectedKey={selNo ?? undefined} onRowClick={(r) => selectProject(r)} />
           </GroupBox>
-          <GroupBox title={`Project — ${sel?.projectNo ?? '—'}`}>
+          <GroupBox title={`Project — ${sel?.projectNo ?? '—'}`}
+            right={sel ? (
+              <Btn style={{ height: 18, fontSize: 10 }} disabled={!perm.canWrite('erp-project')}
+                title={perm.canWrite('erp-project') ? t('prj.editMeta', '메타(명/고객/납기) 수정') : perm.denyWrite}
+                onClick={() => { if (perm.canWrite('erp-project')) setShowMeta(true); else shell.setStatusMsg(perm.denyWrite) }}>
+                ✎ {t('prj.edit', '수정')}
+              </Btn>
+            ) : null}>
             <div className="frm">
+              <label>{t('prj.name', 'Project명')}</label>
+              <input className="in ro" value={sel?.projectName ?? ''} readOnly aria-label="Project명" />
               <label>Client</label>
               <input className="in ro" value={sel?.client || '-'} readOnly aria-label="Client" />
+              <label>{t('prj.dueDate', '납기')}</label>
+              <input className="in ro" value={sel?.dueDate || '-'} readOnly aria-label="납기" />
               <label>{t('prj.registeredAt', '등록일')}</label>
               <input className="in ro" value={sel?.registeredAt ?? ''} readOnly aria-label="등록일" />
               <label>{t('prj.clientContact', 'Client 담당자')}</label>
@@ -300,6 +313,28 @@ export function ProjectScreen({ active }: ScreenProps) {
             setShowReg(false)
             shell.setStatusMsg(`프로젝트 등록 ✓ — ${p.projectNo} · ${p.projectName} (PS 자동 채번)`)
             loadProjects(p.projectNo)
+          }} />
+      ) : null}
+      {showMeta && sel ? (
+        <QuickEditDialog dataAttr="prj-meta" title={`${t('prj.editMetaTitle', '프로젝트 메타 수정')} — ${sel.projectNo}`}
+          fields={[
+            { key: 'projectName', label: t('prj.name', 'Project명'), value: sel.projectName, required: true },
+            { key: 'client', label: 'Client', value: sel.client || '' },
+            { key: 'dueDate', label: t('prj.dueDate', '납기'), value: sel.dueDate || '', placeholder: 'YYYY-MM-DD' },
+          ]}
+          onClose={() => setShowMeta(false)}
+          onSubmit={async (v) => {
+            try {
+              const ok = await projectService.patchMeta(sel.projectNo,
+                { projectName: v.projectName, client: v.client, dueDate: v.dueDate }, baseVer)
+              if (!ok) return t('common.needBackend', '백엔드 연결 필요 (mock 모드)')
+            } catch (e) {
+              return e instanceof Error ? e.message : String(e)   // 409 충돌·422 표시
+            }
+            setShowMeta(false)
+            loadProjects(sel.projectNo)
+            shell.setStatusMsg(`프로젝트 메타 수정 ✓ — ${sel.projectNo} · ${v.projectName} (prj_project · PROJECT_UPDATE 이력)`)
+            return null
           }} />
       ) : null}
     </div>

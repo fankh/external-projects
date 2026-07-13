@@ -1346,17 +1346,20 @@ def verify_drawing(drawing_no: str, body: VerifyRunRequest) -> dict[str, Any]:
 # ── B14 — 마스터 데이터 (com_company) · RBAC 동적화 (sys_role) · Hierarchy ──
 
 @router.get("/companies")
-def companies() -> list[dict[str, Any]]:
+def companies(active_only: bool = False) -> list[dict[str, Any]]:
+    """거래처 목록. active_only=true 면 비활성 제외 (고객/공급처 선택 리스트용)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT company_name, company_type, COALESCE(nation,''),
                       COALESCE(evaluation_grade,''), COALESCE(payment_terms,''),
-                      company_id, COALESCE(remarks,'')
-               FROM com_company WHERE tenant_id=%s ORDER BY company_id""", (tid,))
+                      company_id, COALESCE(remarks,''), COALESCE(is_active, true)
+               FROM com_company WHERE tenant_id=%s
+                 AND (%s = false OR COALESCE(is_active, true) = true)
+               ORDER BY company_id""", (tid, active_only))
         return [
             {"name": r[0], "companyType": r[1], "nation": r[2], "grade": r[3], "terms": r[4],
-             "companyId": r[5], "remarks": r[6]}
+             "companyId": r[5], "remarks": r[6], "isActive": r[7]}
             for r in cur.fetchall()
         ]
 
@@ -3400,15 +3403,29 @@ def get_project(project_no: str) -> dict[str, Any]:
 
 
 class StagePatch(BaseModel):
-    stage: str
-    baseUpdatedAt: str = ""   # D9 — 조회 시점 버전 (불일치 시 409)
+    stage: str | None = None            # 영업 단계 (미지정 시 메타만 수정)
+    projectName: str | None = None      # 프로젝트명 수정
+    client: str | None = None           # 고객사명 수정 (없으면 CUSTOMER 자동 생성, "" = 연결 해제)
+    dueDate: str | None = None          # 납기 YYYY-MM-DD ("" = 해제)
+    baseUpdatedAt: str = ""             # D9 — 조회 시점 버전 (불일치 시 409)
 
 
 @router.patch("/projects/{project_no}", dependencies=[SETUP])
 def patch_project(project_no: str, request: Request, body: StagePatch) -> dict[str, Any]:
-    code = STAGE_MAP.get(body.stage)
-    if not code:
-        raise HTTPException(422, detail=f"알 수 없는 영업 단계: {body.stage}")
+    """프로젝트 단계·메타(명/고객/납기) 수정 — D9 낙관적 잠금·감사."""
+    code = None
+    if body.stage is not None:
+        code = STAGE_MAP.get(body.stage)
+        if not code:
+            raise HTTPException(422, detail=f"알 수 없는 영업 단계: {body.stage}")
+    if body.projectName is not None and not body.projectName.strip():
+        raise HTTPException(422, detail="Project명은 비울 수 없습니다")
+    due = None
+    if body.dueDate is not None and body.dueDate.strip():
+        try:
+            due = date.fromisoformat(body.dueDate.strip())
+        except ValueError:
+            raise HTTPException(422, detail=f"납기 날짜 형식 오류: {body.dueDate} (YYYY-MM-DD)")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -3421,15 +3438,50 @@ def patch_project(project_no: str, request: Request, body: StagePatch) -> dict[s
         if body.baseUpdatedAt.strip() and body.baseUpdatedAt.strip() != row[1]:
             raise HTTPException(
                 409, detail="다른 사용자가 먼저 수정했습니다 — 재조회 후 다시 시도하십시오 (동시 편집 충돌)")
+
+        sets: dict[str, Any] = {}
+        after: dict[str, Any] = {}
+        if code is not None:
+            sets["sales_stage"] = code
+            after["stage"] = code
+        if body.projectName is not None:
+            sets["project_name"] = body.projectName.strip()
+            after["projectName"] = body.projectName.strip()
+        if body.dueDate is not None:
+            sets["due_date"] = due               # "" → NULL 로 해제
+            after["dueDate"] = due.isoformat() if due else None
+        if body.client is not None:
+            client = body.client.strip()
+            customer_id = None
+            if client:
+                cur.execute(
+                    "SELECT company_id FROM com_company WHERE tenant_id=%s AND company_name=%s",
+                    (tid, client))
+                c = cur.fetchone()
+                if c:
+                    customer_id = c[0]
+                else:
+                    cur.execute(
+                        """INSERT INTO com_company (tenant_id, company_type, company_name)
+                           VALUES (%s,'CUSTOMER',%s) RETURNING company_id""", (tid, client))
+                    customer_id = cur.fetchone()[0]
+            sets["customer_id"] = customer_id     # "" → NULL 로 해제
+            after["client"] = client
+
+        if not sets:
+            raise HTTPException(422, detail="수정할 항목이 없습니다")
+
+        assign = ", ".join(f"{k}=%s" for k in sets)
         cur.execute(
-            """UPDATE prj_project SET sales_stage=%s, updated_at=now()
-               WHERE tenant_id=%s AND project_no=%s""",
-            (code, tid, project_no))
+            f"UPDATE prj_project SET {assign}, updated_by=%s, updated_at=now() "
+            "WHERE tenant_id=%s AND project_no=%s",
+            (*sets.values(), request.state.login, tid, project_no))
+        action = "STAGE" if set(sets) == {"sales_stage"} else "PROJECT_UPDATE"
         cur.execute(
             """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
-               VALUES (%s,'prj_project',%s,'STAGE',%s,%s)""",
-            (tid, row[0], request.state.user_id, json.dumps({"stage": code})))
-    return {"projectNo": project_no, "stage": body.stage}
+               VALUES (%s,'prj_project',%s,%s,%s,%s)""",
+            (tid, row[0], action, request.state.user_id, json.dumps(after)))
+    return {"projectNo": project_no, "stage": body.stage, "updated": sorted(after)}
 
 
 @router.get("/projects")
@@ -3440,14 +3492,16 @@ def list_projects() -> list[dict[str, Any]]:
         cur.execute(
             """SELECT p.project_no, p.project_name, p.project_type, p.sales_stage,
                       p.client_contact, p.status, COALESCE(p.note,''),
-                      to_char(p.created_at,'YYYY-MM-DD'), COALESCE(c.company_name,'')
+                      to_char(p.created_at,'YYYY-MM-DD'), COALESCE(c.company_name,''),
+                      to_char(p.due_date,'YYYY-MM-DD')
                FROM prj_project p
                LEFT JOIN com_company c ON c.company_id=p.customer_id
                WHERE p.tenant_id=%s ORDER BY p.project_id DESC""", (tid,))
         rows = cur.fetchall()
     return [{"projectNo": r[0], "projectName": r[1], "projectType": r[2] or "Client",
              "stage": STAGE_LABEL.get(r[3], r[3]), "clientContact": r[4] or "",
-             "status": r[5], "item": r[6], "registeredAt": r[7], "client": r[8]} for r in rows]
+             "status": r[5], "item": r[6], "registeredAt": r[7], "client": r[8],
+             "dueDate": r[9] or ""} for r in rows]
 
 
 class ProjectCreate(BaseModel):
@@ -8415,6 +8469,7 @@ class CompanyPatch(BaseModel):
     grade: str | None = None
     terms: str | None = None
     remarks: str | None = None
+    active: bool | None = None      # 거래처 비활성/재활성 (소프트 — 선택 리스트 제외)
 
 
 @router.put("/companies/{company_id}", dependencies=[SETUP])
@@ -8446,6 +8501,8 @@ def update_company(company_id: int, body: CompanyPatch, request: Request) -> dic
             "remarks": body.remarks,
         }
         sets = {k: v for k, v in fields.items() if v is not None}
+        if body.active is not None:            # bool 은 None-필터에서 걸러지므로 별도 처리
+            sets["is_active"] = body.active
         if not sets:
             raise HTTPException(422, detail="수정할 필드가 없습니다")
         assign = ", ".join(f"{k}=%s" for k in sets)

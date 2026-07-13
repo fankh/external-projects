@@ -561,6 +561,7 @@ export interface ProjectRow {
   item: string
   registeredAt: string
   client: string
+  dueDate?: string
 }
 
 export const projectService = {
@@ -618,6 +619,19 @@ export const projectService = {
       })
     } catch (e) {
       if (!(e instanceof ApiUnavailable)) throw e   // 409 충돌 등은 호출부로 전파
+    }
+  },
+  /** PATCH /api/v1/projects/{no} — 메타(명/고객/납기) 수정. baseUpdatedAt = D9 충돌 409 전파 */
+  async patchMeta(no: string, meta: { projectName?: string; client?: string; dueDate?: string },
+    baseUpdatedAt = ''): Promise<boolean> {
+    try {
+      await api(`/projects/${encodeURIComponent(no)}`, {
+        method: 'PATCH', body: JSON.stringify({ ...meta, baseUpdatedAt }),
+      })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e   // 409 충돌·422 등은 호출부로 전파
     }
   },
 }
@@ -1363,7 +1377,7 @@ export const verificationService = {
 // ── B14 — 마스터 데이터 · RBAC 동적화 · Hierarchy ──
 export interface CompanyRow {
   name: string; companyType: string; nation: string; grade: string; terms: string
-  companyId?: number; remarks?: string
+  companyId?: number; remarks?: string; isActive?: boolean
 }
 export interface RoleRow {
   name: string; description: string; permissions: Record<string, string>
@@ -1395,9 +1409,10 @@ async function importExcel(path: string, file: globalThis.File): Promise<{ inser
 export const companyService = {
   /** POST /api/v1/companies/import-excel — 거래처 대량 등록 */
   importExcel: (file: globalThis.File) => importExcel('/companies/import-excel', file),
-  async list(): Promise<CompanyRow[] | null> {
+  /** activeOnly=true → 비활성 제외 (고객/공급처 선택 리스트용) */
+  async list(activeOnly = false): Promise<CompanyRow[] | null> {
     try {
-      return await api<CompanyRow[]>('/companies')
+      return await api<CompanyRow[]>(`/companies${activeOnly ? '?active_only=true' : ''}`)
     } catch (e) {
       if (e instanceof ApiUnavailable) return null
       throw e
@@ -1412,10 +1427,10 @@ export const companyService = {
       throw e
     }
   },
-  /** PUT /api/v1/companies/{id} — 수정 (F5, 중복명 409 throw) */
+  /** PUT /api/v1/companies/{id} — 수정 (F5, 중복명 409 throw; active=비활성/재활성) */
   async update(companyId: number, p: {
     name?: string; companyType?: string; nation?: string
-    grade?: string; terms?: string; remarks?: string
+    grade?: string; terms?: string; remarks?: string; active?: boolean
   }): Promise<boolean> {
     try {
       await api(`/companies/${companyId}`, { method: 'PUT', body: JSON.stringify(p) })

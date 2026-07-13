@@ -13,6 +13,7 @@ export interface QField {
   options?: string[]
   readOnly?: boolean
   required?: boolean
+  placeholder?: string
 }
 
 export function QuickEditDialog(props: {
@@ -66,7 +67,7 @@ export function QuickEditDialog(props: {
               ) : (
                 <input className={`in ${f.readOnly ? 'ro' : f.required ? 'req' : ''}`}
                   value={values[f.key]} readOnly={f.readOnly} autoFocus={i === 0 && !f.readOnly}
-                  aria-label={f.label}
+                  aria-label={f.label} placeholder={f.placeholder}
                   onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value }))}
                   onKeyDown={(e) => { if (e.key === 'Enter') submit() }} />
               )}

@@ -125,6 +125,12 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
     { key: 'nation', header: '국가', width: 42, align: 'center', render: (r) => r.nation || '—' },
     { key: 'grade', header: '평가', width: 42, align: 'center', render: (r) => r.grade || '—' },
     { key: 'terms', header: '결제 조건', render: (r) => r.terms || '—' },
+    {
+      key: 'active', header: '상태', width: 58, align: 'center',
+      render: (r) => r.isActive === false
+        ? <Chip tone="warn">비활성</Chip>
+        : <span style={{ color: 'var(--txt-mute)', fontSize: 10 }}>활성</span>,
+    },
   ]
 
   return (
@@ -192,6 +198,8 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
             { key: 'grade', label: '평가 등급', value: editRow.grade },
             { key: 'terms', label: '결제 조건', value: editRow.terms },
             { key: 'remarks', label: '비고', value: editRow.remarks ?? '' },
+            { key: 'active', label: '상태', value: editRow.isActive === false ? '비활성' : '활성',
+              type: 'combo', options: ['활성', '비활성'] },
           ]}
           onClose={() => setEditRow(null)}
           onSubmit={async (v) => {
@@ -199,11 +207,12 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
             const ok = await companyService.update(editRow.companyId, {
               name: v.name, companyType: v.companyType, nation: v.nation,
               grade: v.grade, terms: v.terms, remarks: v.remarks,
+              active: v.active === '활성',
             })
             if (!ok) return '백엔드 연결 필요 (mock 모드)'
             setEditRow(null)
             await load()
-            setStatusMsg(`업체 수정 ✓ — ${v.name} (com_company · COMPANY_UPDATE 감사)`)
+            setStatusMsg(`업체 수정 ✓ — ${v.name}${v.active === '비활성' ? ' (비활성 — 선택 리스트 제외)' : ''} (com_company · COMPANY_UPDATE 감사)`)
             return null
           }} />
       ) : null}
