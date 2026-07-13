@@ -1,7 +1,8 @@
 /** EDIM Run (디자인시안 b05) — 단계 그리드 + 진행률 → 산출물·로그 2그리드. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  costService, cpqService, fileService,
+  costService, cpqService, fileService, financeService,
+  type FxRow, type TaxCodeRow,
   type PcrResult, type QuotationRow, type RunCostRow,
 } from '../../api/services'
 import type { RunLogEntry, RunOutput, RunResult, RunStep } from '../../api/types'
@@ -193,10 +194,16 @@ function CostPanel(props: { runId: number }) {
   const [pcr, setPcr] = useState<PcrResult | null>(null)
   const [quotes, setQuotes] = useState<QuotationRow[] | null>(null)
   const [busy, setBusy] = useState(false)
+  const [cur, setCur] = useState('KRW')
+  const [taxCode, setTaxCode] = useState('')
+  const [fxOpts, setFxOpts] = useState<FxRow[]>([])
+  const [taxOpts, setTaxOpts] = useState<TaxCodeRow[]>([])
 
   useEffect(() => {
     void costService.runCosts(props.runId).then(setCosts)
     void costService.quotationList().then(setQuotes)
+    void financeService.fx().then((r) => { if (r) setFxOpts(r) })
+    void financeService.taxCodes().then((r) => { if (r) setTaxOpts(r) })
   }, [props.runId])
 
   const makePcr = () => {
@@ -213,9 +220,9 @@ function CostPanel(props: { runId: number }) {
 
   const makeQuote = () => {
     setBusy(true)
-    void costService.quotationCreate(bt)
+    void costService.quotationCreate(bt, cur, taxCode)
       .then((r) => {
-        shell.setStatusMsg(`견적 확정 ✓ — ${r.quotationNo} · ${(r.total / 1000).toLocaleString()}K (cst_quotation)`)
+        shell.setStatusMsg(`견적 확정 ✓ — ${r.quotationNo} · ${r.currency} ${r.subtotal.toLocaleString()} + 세액 ${r.tax.toLocaleString()}(${r.taxPct}%) = ${r.total.toLocaleString()}`)
         void costService.quotationList().then(setQuotes)
       })
       .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
@@ -263,6 +270,10 @@ function CostPanel(props: { runId: number }) {
             options={[{ value: 'PRE_SALES', label: 'Pre-Sales' }, { value: 'MAIN', label: 'Main' }]}
             onChange={setBt} />
           <Btn disabled={busy || !costs} onClick={makePcr}>{t('run.pcrCreate', 'PCR 생성')}</Btn>
+          <Combo width={72} value={cur} onChange={setCur}
+            options={fxOpts.length ? fxOpts.map((f) => f.currency) : ['KRW']} />
+          <Combo width={96} value={taxCode} onChange={setTaxCode}
+            options={[{ value: '', label: '세금 없음' }, ...taxOpts.map((tt) => ({ value: tt.code, label: `${tt.code} ${tt.ratePct}%` }))]} />
           <Btn variant="pri" disabled={busy} onClick={makeQuote}>{t('run.quoteConfirm', '견적 확정')}</Btn>
           {pcr ? (
             <span data-pcr-result style={{ fontSize: 10.5 }}>
@@ -274,13 +285,14 @@ function CostPanel(props: { runId: number }) {
         </div>
         {quotes && quotes.length ? (
           <table className="g" data-quote-list>
-            <thead><tr><th>No.</th><th>{t('run.quoteTotal', '금액')}</th>
+            <thead><tr><th>No.</th><th>{t('run.quoteTotal', '금액')}</th><th>세액</th>
               <th>{t('dwg.dateCol', '일자')}</th><th>PDF</th></tr></thead>
             <tbody>
               {quotes.slice(0, 4).map((q) => (
-                <tr key={q.quotationId}>
+                <tr key={q.quotationId} title={q.taxCode && q.taxCode !== '별도' ? `공급가 ${q.subtotal?.toLocaleString()} + 세액 ${q.tax?.toLocaleString()} (${q.taxCode})` : undefined}>
                   <td className="c" style={{ fontFamily: 'Consolas, monospace' }}>{q.quotationNo}</td>
-                  <td className="num">{q.total.toLocaleString()}</td>
+                  <td className="num">{q.currency !== 'KRW' ? `${q.currency} ` : ''}{q.total.toLocaleString()}</td>
+                  <td className="num">{q.tax ? q.tax.toLocaleString() : '-'}</td>
                   <td className="c">{q.date}</td>
                   <td className="c">
                     <span className="b" style={{ height: 18, fontSize: 10 }}

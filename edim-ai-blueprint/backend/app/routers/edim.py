@@ -7098,6 +7098,8 @@ class QuotationCreate(BaseModel):
     validityPeriod: str = "견적일로부터 30일"
     deliveryTerms: str = "FOB 부산"
     paymentTerms: str = "T/T 30일"
+    currency: str = "KRW"
+    taxCode: str = ""
 
 
 @router.post("/cost/quotations", status_code=201, dependencies=[SETUP])
@@ -7123,7 +7125,24 @@ def quotation_create(request: Request, body: QuotationCreate) -> dict[str, Any]:
             (tid, run_id))
         mat = cur.fetchone()
         line_items = (mat[0].get("lines", []) if mat else [])
-        total = pcr[1].get("revenue", 0)
+        revenue_krw = float(pcr[1].get("revenue", 0))   # PCR 매출(기준통화 KRW)
+        # 다통화/세금엔진 — 통화 환산 + 세액 적재
+        cur_c = body.currency.strip().upper()[:3] or "KRW"
+        rate = _fx_rate(cur, tid, cur_c)
+        if rate is None:
+            raise HTTPException(422, detail=f"환율 미등록 통화: {cur_c} (다통화 마스터 등록 필요)")
+        pct = 0.0
+        if body.taxCode.strip():
+            cur.execute("SELECT rate_pct FROM tax_code WHERE tenant_id=%s AND code=%s",
+                        (tid, body.taxCode.strip().upper()))
+            tr = cur.fetchone()
+            if not tr:
+                raise HTTPException(422, detail=f"세금코드 없음: {body.taxCode}")
+            pct = float(tr[0])
+        subtotal = round(revenue_krw / rate, 2)      # 견적 통화 공급가액
+        tax = round(subtotal * pct / 100, 2)
+        total = round(subtotal + tax, 2)             # 세액 포함 합계(견적 통화)
+        vat_mode = body.taxCode.strip().upper() or "별도"
         cur.execute("SELECT count(*)+1 FROM cst_quotation WHERE tenant_id=%s", (tid,))
         seq = cur.fetchone()[0]
         qno = f"QT-{run_id}-{seq:03d}"
@@ -7131,36 +7150,45 @@ def quotation_create(request: Request, body: QuotationCreate) -> dict[str, Any]:
             """INSERT INTO cst_quotation (tenant_id, quotation_no, pcr_id, project_id, customer_id,
                total_amount, currency, vat_mode, validity_period, delivery_terms, payment_terms,
                line_items, created_by)
-               VALUES (%s,%s,%s,%s,%s,%s,'KRW','별도',%s,%s,%s,%s,%s) RETURNING quotation_id""",
-            (tid, qno, pcr[0], pcr[3], customer, total, body.validityPeriod.strip()[:50],
-             body.deliveryTerms.strip()[:200], body.paymentTerms.strip()[:200],
-             json.dumps(line_items), request.state.login))
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING quotation_id""",
+            (tid, qno, pcr[0], pcr[3], customer, total, cur_c, vat_mode,
+             body.validityPeriod.strip()[:50], body.deliveryTerms.strip()[:200],
+             body.paymentTerms.strip()[:200], json.dumps(line_items), request.state.login))
         qid = cur.fetchone()[0]
         cur.execute(
             """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
                VALUES (%s,'cst_quotation',%s,'CREATE',%s,%s)""",
-            (tid, qid, request.state.user_id, json.dumps({"quotationNo": qno, "total": total})))
-    return {"quotationId": qid, "quotationNo": qno, "total": total}
+            (tid, qid, request.state.user_id,
+             json.dumps({"quotationNo": qno, "currency": cur_c, "subtotal": subtotal, "tax": tax, "total": total})))
+    return {"quotationId": qid, "quotationNo": qno, "currency": cur_c, "rate": rate,
+            "taxPct": pct, "subtotal": subtotal, "tax": tax, "total": total}
 
 
 @router.get("/cost/quotations")
 def quotation_list() -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        cur.execute("SELECT code, rate_pct FROM tax_code WHERE tenant_id=%s", (tid,))
+        tax_rates = {c: float(p) for c, p in cur.fetchall()}
         cur.execute(
             """SELECT q.quotation_id, q.quotation_no, q.total_amount, q.currency, q.status,
                       to_char(q.created_at,'YYYY-MM-DD'), p.project_no, c.company_name,
-                      q.validity_period, q.delivery_terms, q.payment_terms
+                      q.validity_period, q.delivery_terms, q.payment_terms, q.vat_mode
                FROM cst_quotation q
                JOIN prj_project p ON p.project_id=q.project_id
                JOIN com_company c ON c.company_id=q.customer_id
                WHERE q.tenant_id=%s ORDER BY q.quotation_id DESC""", (tid,))
-        return [
-            {"quotationId": r[0], "quotationNo": r[1], "total": float(r[2]), "currency": r[3],
-             "status": r[4], "date": r[5], "project": r[6], "customer": r[7],
-             "validity": r[8], "delivery": r[9], "payment": r[10]}
-            for r in cur.fetchall()
-        ]
+        out = []
+        for r in cur.fetchall():
+            total = float(r[2])
+            pct = tax_rates.get(r[11], 0.0)   # vat_mode = 세금코드
+            subtotal = round(total / (1 + pct / 100), 2) if pct else total
+            out.append({"quotationId": r[0], "quotationNo": r[1], "total": total, "currency": r[3],
+                        "status": r[4], "date": r[5], "project": r[6], "customer": r[7],
+                        "validity": r[8], "delivery": r[9], "payment": r[10],
+                        "taxCode": r[11], "taxPct": pct, "subtotal": subtotal,
+                        "tax": round(total - subtotal, 2)})
+        return out
 
 
 @router.delete("/cost/quotations/{quotation_id}", dependencies=[SETUP])

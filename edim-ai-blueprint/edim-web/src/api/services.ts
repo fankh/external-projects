@@ -2138,6 +2138,10 @@ export interface QuotationRow {
   date: string
   project: string
   customer: string
+  taxCode?: string
+  taxPct?: number
+  subtotal?: number
+  tax?: number
 }
 
 // D1 — 수주 관리 (Sales Order)
@@ -2804,11 +2808,12 @@ export const costService = {
       throw e
     }
   },
-  /** POST /api/v1/cost/quotations — 견적 확정 (PCR 필요 409) */
-  async quotationCreate(businessType: string): Promise<{ quotationNo: string; total: number }> {
+  /** POST /api/v1/cost/quotations — 견적 확정 (통화·세금코드 → 세액 자동적재, PCR 필요 409) */
+  async quotationCreate(businessType: string, currency = 'KRW', taxCode = ''):
+  Promise<{ quotationNo: string; currency: string; subtotal: number; taxPct: number; tax: number; total: number }> {
     try {
       return await api('/cost/quotations', {
-        method: 'POST', body: JSON.stringify({ businessType }),
+        method: 'POST', body: JSON.stringify({ businessType, currency, taxCode }),
       })
     } catch (e) {
       if (e instanceof ApiUnavailable) throw new Error('백엔드 연결 필요 — 견적을 확정할 수 없습니다')
