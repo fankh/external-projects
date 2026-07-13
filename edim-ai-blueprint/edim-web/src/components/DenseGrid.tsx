@@ -343,9 +343,9 @@ export function DenseGrid<T>(props: {
                 onDragOver={(e) => { if (props.prefKey && dragCol.current) e.preventDefault() }}
                 onDrop={() => { const f = dragCol.current; dragCol.current = null; if (f && f !== c.key) reorderCol(f, c.key) }}
                 style={{
-                  position: 'relative',
+                  position: stick ? 'sticky' : 'relative',
                   ...(w ? { width: w } : null),
-                  ...(stick ? { left: stickOff } : null),
+                  ...(stick ? { left: stickOff, zIndex: 3 } : null),
                   ...(sortable ? { cursor: 'pointer', userSelect: 'none' } : null),
                 }}
                 aria-sort={active ? (sort!.dir === 'asc' ? 'ascending' : 'descending') : undefined}
