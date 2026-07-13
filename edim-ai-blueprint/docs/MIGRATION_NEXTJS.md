@@ -1,0 +1,50 @@
+# EDIM — Next.js SSR 마이그레이션 계획 (Option B)
+
+Vite React SPA(`edim-web/`) → **Next.js App Router SSR**(`edim-web-next/`) 이관.
+결정(사용자 승인): **페이지-퍼-라우트(진성 SSR)** · **병렬 앱(strangler-fig)** · **기능 프리즈 후 이관**.
+
+## 원칙
+- 백엔드(FastAPI `/api/v1`)는 **불변**. 프런트만 이관.
+- `edim-web/`(라이브)는 그대로 유지. `edim-web-next/`를 병렬 구축, 경로별 nginx 라우팅으로 점진 컷오버.
+- MDI 다중 탭 → **URL 라우트**(`/erp/audit`, `/plm/drawings` …). 브라우저 네이티브 네비게이션.
+- 인증: sessionStorage Bearer → **httpOnly 쿠키 세션**(서버 컴포넌트가 fetch 시 토큰 전달).
+
+## 아키텍처
+- **세션**: 로그인 서버 액션이 FastAPI `/auth/login` 호출 → 토큰을 httpOnly 쿠키(`edim_session`)에 저장. `middleware.ts`가 미인증 시 `/login` 리다이렉트.
+- **서버 API**(`lib/api.ts`): 쿠키 토큰을 읽어 `Authorization: Bearer` 로 FastAPI 호출. 서버 컴포넌트/route handler 전용.
+- **클라이언트 API**(`lib/apiClient.ts`): 브라우저 상호작용(필터·편집)용. 쿠키 자동 전송(same-origin) 또는 `/bff` 프록시.
+- **i18n**: locale 쿠키(`edim_locale`) → 서버에서 읽어 SSR, 하이드레이션 불일치 없음. 번들은 빌드타임 baked(`lib/i18n/bundles.ts`, 기존과 동일 원천).
+- **레이아웃**: `app/(app)/layout.tsx` = 앱 크롬(타이틀바·네비). 각 화면은 `page.tsx`(서버) + 상호작용 아일랜드(`'use client'`).
+
+## 화면 이관 레시피 (59개 공통 패턴)
+1. `app/(app)/<모듈>/<화면>/page.tsx` — 서버 컴포넌트. `lib/api` 로 초기 데이터 SSR fetch.
+2. 상호작용부(그리드 필터·정렬·편집·CAD)는 `components/<X>.client.tsx`(`'use client'`)로 분리, 초기 데이터를 props 로 주입.
+3. 뮤테이션은 **서버 액션** 또는 route handler → FastAPI. 낙관적 UI 유지.
+4. 브라우저 전용 API(localStorage·window·canvas·getScreenCTM)는 클라이언트 아일랜드 내부로만.
+
+## 공유 컴포넌트 이관 (기반)
+`DenseGrid`(그리드), `CadSvg`(CAD 편집), `Cvs`, `controls`, `chrome`, `cadBridge/cadOps`, i18n, hooks.
+대부분 `'use client'` 경계. DenseGrid·CadSvg 는 상호작용 무거움 → 클라이언트 유지, 초기 rows 만 SSR props.
+
+## 단계 로드맵
+- **P1 — 기반 + 레퍼런스 화면(현재)**: 스캐폴드·쿠키 인증·미들웨어·서버/클라 API·i18n·앱 레이아웃 + 1개 화면(ERP 감사/변경이력) SSR. `next build` 통과.
+- **P2 — 공유 컴포넌트**: controls·chrome·DenseGrid·CadSvg 이관(클라이언트 아일랜드화). 좌측 네비/타이틀바 완성.
+- **P3 — 읽기 위주 화면(~25)**: 대장·조회·리포트·대시보드. SSR 이득 큰 것부터.
+- **P4 — 상호작용 화면(~25)**: 편집 폼·CPQ Run·CAD·Toolbox. 서버 액션 뮤테이션.
+- **P5 — 인증/권한 심화**: 역할 가드(미들웨어+서버), 알림, 프리퍼런스.
+- **P6 — 배포/컷오버**: Node 런타임(Docker) + nginx 경로별 라우팅(이관 완료 경로는 next, 나머지 legacy) → 전면 컷오버.
+
+## nginx 컷오버 (P6)
+```
+location /erp/audit { proxy_pass http://edim-next; }   # 이관 완료 경로
+location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
+```
+경로별로 next 앱에 프록시, 이관 완료 시 legacy 제거.
+
+## 리스크
+- 하이드레이션 불일치(상호작용 앱의 고전적 시간 소모원) — 화면별 E2E 로 방지.
+- 인증 쿠키/CSRF — 서버 액션 + SameSite=Lax.
+- MDI UX 상실 → URL 네비로 대체(사용자 승인). 최근/즐겨찾기로 다중 창 감각 일부 보완.
+
+## 현황
+- P1 진행 중. 화면 인벤토리·진척은 이 문서에 갱신.
