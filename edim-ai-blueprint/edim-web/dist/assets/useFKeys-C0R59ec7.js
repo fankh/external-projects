@@ -1,0 +1,1 @@
+import{on as e}from"./ShellContext-CI9Z84Gz.js";var t=e();function n(e,n){(0,t.useEffect)(()=>{if(!e)return;let t=e=>{let t=n[e.key];t&&(e.preventDefault(),e.__handled=!0,t())};return window.addEventListener(`keydown`,t),()=>window.removeEventListener(`keydown`,t)},[e,n])}export{n as t};

@@ -1,5 +1,5 @@
 /** 앱 프레임 — 타이틀바 · 메뉴바 · 툴바 · MDI · 좌측 메뉴트리 · 상태바. */
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentType, type LazyExoticComponent } from 'react'
 import type { User } from '../api/types'
 import { approvalService, authService, dashboardService, devReqService, menuService, pingBackend, prefService, projectService, searchService, subscribeDataSource, type DataSource, type SearchResults } from '../api/services'
 import { MdiTabs, MenuBar, StatusBar, TitleBar, type MenuItem } from '../components/chrome'
@@ -12,131 +12,73 @@ import { usePermission } from './PermissionContext'
 import { useShell, type OpenTab } from './ShellContext'
 import { MENU_TREE, SCREEN_BY_NODE } from './menus'
 import type { TreeNode } from '../components/LnavTree'
-import { SelectionScreen } from '../screens/cpq/SelectionScreen'
-import { XCodeReviewScreen } from '../screens/cpq/XCodeReviewScreen'
-import { ReportCenterScreen } from '../screens/cpq/ReportCenterScreen'
-import { TechDataScreen } from '../screens/cpq/TechDataScreen'
-import { RunScreen } from '../screens/cpq/RunScreen'
-import { ArrangementSetupScreen } from '../screens/plm/ArrangementSetupScreen'
-import { DesignEditorScreen } from '../screens/plm/DesignEditorScreen'
-import { PartLedgerScreen } from '../screens/plm/PartLedgerScreen'
-import { EcoChangeScreen } from '../screens/plm/EcoChangeScreen'
-import { BomCompareScreen } from '../screens/plm/BomCompareScreen'
-import { QualityScreen } from '../screens/plm/QualityScreen'
-import { HierarchyScreen } from '../screens/code/HierarchyScreen'
-import { MaterialGpiScreen } from '../screens/code/MaterialGpiScreen'
-import { CompanyMasterScreen } from '../screens/erp/CompanyMasterScreen'
-import { VariantConstantScreen } from '../screens/code/VariantConstantScreen'
-import { TempletMgmtScreen } from '../screens/toolbox/TempletMgmtScreen'
-import { DrawingLedgerScreen } from '../screens/plm/DrawingLedgerScreen'
-import { WarehouseScreen } from '../screens/erp/WarehouseScreen'
-import { WorkProcessScreen } from '../screens/plm/WorkProcessScreen'
-import { SubCodeScreen } from '../screens/code/SubCodeScreen'
-import { CodeRelationshipScreen } from '../screens/code/CodeRelationshipScreen'
-import { ProductCodeMasterScreen } from '../screens/code/ProductCodeMasterScreen'
-import { DataI18nScreen } from '../screens/code/DataI18nScreen'
-import { EcoLedgerScreen } from '../screens/plm/EcoLedgerScreen'
-import { DataTableScreen } from '../screens/code/DataTableScreen'
-import { DocumentMgmtScreen } from '../screens/cpq/DocumentMgmtScreen'
-import { DocTemplateScreen } from '../screens/cpq/DocTemplateScreen'
-import { PrintSetupScreen } from '../screens/cpq/PrintSetupScreen'
-import { DuctDesignScreen } from '../screens/plm/DuctDesignScreen'
-import { AccessControlScreen } from '../screens/erp/AccessControlScreen'
-import { AuditQueryScreen } from '../screens/erp/AuditQueryScreen'
-import { AnomalyScreen } from '../screens/erp/AnomalyScreen'
-import { MacroStudioScreen } from '../screens/toolbox/MacroStudioScreen'
-import { RunHistoryScreen } from '../screens/toolbox/RunHistoryScreen'
-import { UiDesignerScreen } from '../screens/toolbox/UiDesignerScreen'
-import { ApprovalInboxScreen } from '../screens/common/ApprovalInboxScreen'
-import { TaskBoxScreen } from '../screens/common/TaskBoxScreen'
-import { ProjectFolderScreen } from '../screens/common/ProjectFolderScreen'
-import { MobilePreviewScreen } from '../screens/common/MobilePreviewScreen'
-import { CadViewerScreen } from '../screens/detail/CadViewerScreen'
-import { CodeDetailScreen } from '../screens/detail/CodeDetailScreen'
-import { OutputDocScreen } from '../screens/detail/OutputDocScreen'
-import { PartDetailScreen } from '../screens/detail/PartDetailScreen'
-import { EventDetailScreen } from '../screens/detail/EventDetailScreen'
-import { ProjectScreen } from '../screens/erp/ProjectScreen'
-import { DashboardScreen } from '../screens/erp/DashboardScreen'
-import { PriceScreen } from '../screens/erp/PriceScreen'
-import { SalesOrderScreen } from '../screens/erp/SalesOrderScreen'
-import { InventoryScreen } from '../screens/erp/InventoryScreen'
-import { WorkOrderScreen } from '../screens/erp/WorkOrderScreen'
-import { QualityInspectionScreen } from '../screens/erp/QualityInspectionScreen'
-import { CostActualScreen } from '../screens/erp/CostActualScreen'
-import { MilestoneScreen } from '../screens/erp/MilestoneScreen'
-import { HolidayCalendarScreen } from '../screens/erp/HolidayCalendarScreen'
-import { FinanceMasterScreen } from '../screens/erp/FinanceMasterScreen'
-import { ProcessSetupScreen } from '../screens/erp/ProcessSetupScreen'
-import { PurchaseScreen } from '../screens/erp/PurchaseScreen'
-import { PoOrderScreen } from '../screens/erp/PoOrderScreen'
 
 export interface ScreenProps {
   active: boolean
   tab: OpenTab
 }
 
-const SCREENS: Record<string, ComponentType<ScreenProps>> = {
-  'cpq-selection': SelectionScreen,
-  'cpq-xreview': XCodeReviewScreen,
-  'cpq-techdata': TechDataScreen,
-  'cpq-run': RunScreen,
-  'plm-design': DesignEditorScreen,
-  'plm-drawings': DrawingLedgerScreen,
-  'plm-workprocess': WorkProcessScreen,
-  'code-subcode': SubCodeScreen,
-  'code-relationship': CodeRelationshipScreen,
-  'code-master': ProductCodeMasterScreen,
-  'i18n-data': DataI18nScreen,
-  'code-datatable': DataTableScreen,
-  'erp-project': ProjectScreen,
-  'erp-dashboard': DashboardScreen,
-  'erp-price': PriceScreen,
-  'erp-sales-order': SalesOrderScreen,
-  'erp-inventory': InventoryScreen,
-  'erp-work-order': WorkOrderScreen,
-  'erp-quality': QualityInspectionScreen,
-  'erp-cost-actual': CostActualScreen,
-  'erp-milestone': MilestoneScreen,
-  'erp-calendar': HolidayCalendarScreen,
-  'erp-finance': FinanceMasterScreen,
-  'erp-process': ProcessSetupScreen,
-  'erp-purchase': PurchaseScreen,
-  'erp-po': PoOrderScreen,
-  'cpq-docmgmt': DocumentMgmtScreen,
-  'cpq-doctpl': DocTemplateScreen,
-  'cpq-print': PrintSetupScreen,
-  'cpq-reports': ReportCenterScreen,
-  'plm-duct': DuctDesignScreen,
-  'erp-access': AccessControlScreen,
-  'erp-audit': AuditQueryScreen,
-  'erp-anomaly': AnomalyScreen,
-  'tbx-macro': MacroStudioScreen,
-  'tbx-ui': UiDesignerScreen,
-  'tbx-templet': TempletMgmtScreen,
-  'tbx-runs': RunHistoryScreen,
-  'plm-arr': ArrangementSetupScreen,
-  'code-variant': VariantConstantScreen,
-  'code-raw': MaterialGpiScreen,
-  'plm-material': MaterialGpiScreen,
-  'plm-quality': QualityScreen,
-  'erp-company-master': CompanyMasterScreen,
-  'code-hierarchy': HierarchyScreen,
-  'plm-parts': PartLedgerScreen,
-  'plm-eco': EcoChangeScreen,
-  'plm-eco-ledger': EcoLedgerScreen,
-  'plm-bom-compare': BomCompareScreen,
-  'erp-warehouse': WarehouseScreen,
-  'com-approval': ApprovalInboxScreen,
-  'com-tasks': TaskBoxScreen,
-  'com-folder': ProjectFolderScreen,
-  'com-mobile': MobilePreviewScreen,
+const SCREENS: Record<string, LazyExoticComponent<ComponentType<ScreenProps>>> = {
+  'cpq-selection': lazy(() => import('../screens/cpq/SelectionScreen').then((m) => ({ default: m.SelectionScreen }))),
+  'cpq-xreview': lazy(() => import('../screens/cpq/XCodeReviewScreen').then((m) => ({ default: m.XCodeReviewScreen }))),
+  'cpq-techdata': lazy(() => import('../screens/cpq/TechDataScreen').then((m) => ({ default: m.TechDataScreen }))),
+  'cpq-run': lazy(() => import('../screens/cpq/RunScreen').then((m) => ({ default: m.RunScreen }))),
+  'plm-design': lazy(() => import('../screens/plm/DesignEditorScreen').then((m) => ({ default: m.DesignEditorScreen }))),
+  'plm-drawings': lazy(() => import('../screens/plm/DrawingLedgerScreen').then((m) => ({ default: m.DrawingLedgerScreen }))),
+  'plm-workprocess': lazy(() => import('../screens/plm/WorkProcessScreen').then((m) => ({ default: m.WorkProcessScreen }))),
+  'code-subcode': lazy(() => import('../screens/code/SubCodeScreen').then((m) => ({ default: m.SubCodeScreen }))),
+  'code-relationship': lazy(() => import('../screens/code/CodeRelationshipScreen').then((m) => ({ default: m.CodeRelationshipScreen }))),
+  'code-master': lazy(() => import('../screens/code/ProductCodeMasterScreen').then((m) => ({ default: m.ProductCodeMasterScreen }))),
+  'i18n-data': lazy(() => import('../screens/code/DataI18nScreen').then((m) => ({ default: m.DataI18nScreen }))),
+  'code-datatable': lazy(() => import('../screens/code/DataTableScreen').then((m) => ({ default: m.DataTableScreen }))),
+  'erp-project': lazy(() => import('../screens/erp/ProjectScreen').then((m) => ({ default: m.ProjectScreen }))),
+  'erp-dashboard': lazy(() => import('../screens/erp/DashboardScreen').then((m) => ({ default: m.DashboardScreen }))),
+  'erp-price': lazy(() => import('../screens/erp/PriceScreen').then((m) => ({ default: m.PriceScreen }))),
+  'erp-sales-order': lazy(() => import('../screens/erp/SalesOrderScreen').then((m) => ({ default: m.SalesOrderScreen }))),
+  'erp-inventory': lazy(() => import('../screens/erp/InventoryScreen').then((m) => ({ default: m.InventoryScreen }))),
+  'erp-work-order': lazy(() => import('../screens/erp/WorkOrderScreen').then((m) => ({ default: m.WorkOrderScreen }))),
+  'erp-quality': lazy(() => import('../screens/erp/QualityInspectionScreen').then((m) => ({ default: m.QualityInspectionScreen }))),
+  'erp-cost-actual': lazy(() => import('../screens/erp/CostActualScreen').then((m) => ({ default: m.CostActualScreen }))),
+  'erp-milestone': lazy(() => import('../screens/erp/MilestoneScreen').then((m) => ({ default: m.MilestoneScreen }))),
+  'erp-calendar': lazy(() => import('../screens/erp/HolidayCalendarScreen').then((m) => ({ default: m.HolidayCalendarScreen }))),
+  'erp-finance': lazy(() => import('../screens/erp/FinanceMasterScreen').then((m) => ({ default: m.FinanceMasterScreen }))),
+  'erp-process': lazy(() => import('../screens/erp/ProcessSetupScreen').then((m) => ({ default: m.ProcessSetupScreen }))),
+  'erp-purchase': lazy(() => import('../screens/erp/PurchaseScreen').then((m) => ({ default: m.PurchaseScreen }))),
+  'erp-po': lazy(() => import('../screens/erp/PoOrderScreen').then((m) => ({ default: m.PoOrderScreen }))),
+  'cpq-docmgmt': lazy(() => import('../screens/cpq/DocumentMgmtScreen').then((m) => ({ default: m.DocumentMgmtScreen }))),
+  'cpq-doctpl': lazy(() => import('../screens/cpq/DocTemplateScreen').then((m) => ({ default: m.DocTemplateScreen }))),
+  'cpq-print': lazy(() => import('../screens/cpq/PrintSetupScreen').then((m) => ({ default: m.PrintSetupScreen }))),
+  'cpq-reports': lazy(() => import('../screens/cpq/ReportCenterScreen').then((m) => ({ default: m.ReportCenterScreen }))),
+  'plm-duct': lazy(() => import('../screens/plm/DuctDesignScreen').then((m) => ({ default: m.DuctDesignScreen }))),
+  'erp-access': lazy(() => import('../screens/erp/AccessControlScreen').then((m) => ({ default: m.AccessControlScreen }))),
+  'erp-audit': lazy(() => import('../screens/erp/AuditQueryScreen').then((m) => ({ default: m.AuditQueryScreen }))),
+  'erp-anomaly': lazy(() => import('../screens/erp/AnomalyScreen').then((m) => ({ default: m.AnomalyScreen }))),
+  'tbx-macro': lazy(() => import('../screens/toolbox/MacroStudioScreen').then((m) => ({ default: m.MacroStudioScreen }))),
+  'tbx-ui': lazy(() => import('../screens/toolbox/UiDesignerScreen').then((m) => ({ default: m.UiDesignerScreen }))),
+  'tbx-templet': lazy(() => import('../screens/toolbox/TempletMgmtScreen').then((m) => ({ default: m.TempletMgmtScreen }))),
+  'tbx-runs': lazy(() => import('../screens/toolbox/RunHistoryScreen').then((m) => ({ default: m.RunHistoryScreen }))),
+  'plm-arr': lazy(() => import('../screens/plm/ArrangementSetupScreen').then((m) => ({ default: m.ArrangementSetupScreen }))),
+  'code-variant': lazy(() => import('../screens/code/VariantConstantScreen').then((m) => ({ default: m.VariantConstantScreen }))),
+  'code-raw': lazy(() => import('../screens/code/MaterialGpiScreen').then((m) => ({ default: m.MaterialGpiScreen }))),
+  'plm-material': lazy(() => import('../screens/code/MaterialGpiScreen').then((m) => ({ default: m.MaterialGpiScreen }))),
+  'plm-quality': lazy(() => import('../screens/plm/QualityScreen').then((m) => ({ default: m.QualityScreen }))),
+  'erp-company-master': lazy(() => import('../screens/erp/CompanyMasterScreen').then((m) => ({ default: m.CompanyMasterScreen }))),
+  'code-hierarchy': lazy(() => import('../screens/code/HierarchyScreen').then((m) => ({ default: m.HierarchyScreen }))),
+  'plm-parts': lazy(() => import('../screens/plm/PartLedgerScreen').then((m) => ({ default: m.PartLedgerScreen }))),
+  'plm-eco': lazy(() => import('../screens/plm/EcoChangeScreen').then((m) => ({ default: m.EcoChangeScreen }))),
+  'plm-eco-ledger': lazy(() => import('../screens/plm/EcoLedgerScreen').then((m) => ({ default: m.EcoLedgerScreen }))),
+  'plm-bom-compare': lazy(() => import('../screens/plm/BomCompareScreen').then((m) => ({ default: m.BomCompareScreen }))),
+  'erp-warehouse': lazy(() => import('../screens/erp/WarehouseScreen').then((m) => ({ default: m.WarehouseScreen }))),
+  'com-approval': lazy(() => import('../screens/common/ApprovalInboxScreen').then((m) => ({ default: m.ApprovalInboxScreen }))),
+  'com-tasks': lazy(() => import('../screens/common/TaskBoxScreen').then((m) => ({ default: m.TaskBoxScreen }))),
+  'com-folder': lazy(() => import('../screens/common/ProjectFolderScreen').then((m) => ({ default: m.ProjectFolderScreen }))),
+  'com-mobile': lazy(() => import('../screens/common/MobilePreviewScreen').then((m) => ({ default: m.MobilePreviewScreen }))),
   // 상세 (드릴다운 — 더블클릭으로 진입, params 필수)
-  'code-detail': CodeDetailScreen,
-  'cad-viewer': CadViewerScreen,
-  'doc-detail': OutputDocScreen,
-  'part-detail': PartDetailScreen,
-  'event-detail': EventDetailScreen,
+  'code-detail': lazy(() => import('../screens/detail/CodeDetailScreen').then((m) => ({ default: m.CodeDetailScreen }))),
+  'cad-viewer': lazy(() => import('../screens/detail/CadViewerScreen').then((m) => ({ default: m.CadViewerScreen }))),
+  'doc-detail': lazy(() => import('../screens/detail/OutputDocScreen').then((m) => ({ default: m.OutputDocScreen }))),
+  'part-detail': lazy(() => import('../screens/detail/PartDetailScreen').then((m) => ({ default: m.PartDetailScreen }))),
+  'event-detail': lazy(() => import('../screens/detail/EventDetailScreen').then((m) => ({ default: m.EventDetailScreen }))),
 }
 
 export function Shell(props: { user: User }) {
@@ -665,7 +607,7 @@ export function Shell(props: { user: User }) {
               return (
                 <div key={tab.id} className="fill-col"
                   style={active ? undefined : { display: 'none' }}>
-                  {Screen ? <Screen active={active} tab={tab} /> : null}
+                  {Screen ? <Suspense fallback={<div className="fill-col" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>불러오는 중…</div>}><Screen active={active} tab={tab} /></Suspense> : null}
                 </div>
               )
             })
