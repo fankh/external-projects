@@ -199,6 +199,49 @@ export function DashboardScreen({ active }: ScreenProps) {
             </div>
           </GroupBox>
         ) : null}
+        {anly?.variance ? (() => {
+          const v = anly.variance
+          const won = (x: number) => `₩ ${Math.round(x).toLocaleString()}`
+          const pct = (r: number) => `${r >= 0 ? '+' : ''}${(r * 100).toFixed(1)}%`
+          return (
+            <GroupBox title={t('dash.varTitle', '견적 vs 실적 차이 — 원가 (추정=Run · 실적=cst_actual)')}
+              right={<Chip tone={!v.hasActual ? 'info' : v.alert ? 'err' : 'ok'}>
+                {v.hasActual
+                  ? `총 차이 ${won(v.totalVariance)} (${pct(v.totalVarianceRate)})${v.alert ? ` — 임계 초과 경보` : ''}`
+                  : t('dash.varNoActual', '실적 미적재 — 실적 적재 시 차이 표시')}
+              </Chip>}>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[
+                    { l: t('dash.varEst', '총 추정'), v: won(v.totalEstimate), c: 'var(--txt)' },
+                    { l: t('dash.varAct', '총 실적'), v: won(v.totalActual), c: 'var(--title-navy)' },
+                    { l: t('dash.varDiff', '총 차이'), v: `${won(v.totalVariance)}`, c: v.alert ? 'var(--err)' : 'var(--ok)' },
+                  ].map((s) => (
+                    <div key={s.l} style={{ minWidth: 96, textAlign: 'center', padding: '4px 8px', border: '1px solid var(--line)', background: '#fff' }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: s.c }}>{s.v}</div>
+                      <div style={{ fontSize: 10, color: 'var(--txt-dim)' }}>{s.l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ flex: 1, minWidth: 260 }}>
+                  {v.categories.map((c) => (
+                    <div key={c.category} style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '3px 0', fontSize: 11 }}>
+                      <span style={{ width: 52, color: 'var(--txt-dim)' }}>{c.label}</span>
+                      <span style={{ width: 92, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--txt-mute)' }}>{won(c.estimate)}</span>
+                      <span style={{ color: 'var(--txt-mute)' }}>→</span>
+                      <span style={{ width: 92, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{won(c.actual)}</span>
+                      <span style={{ width: 66, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: c.alert ? 'var(--err)' : 'var(--txt-dim)' }}>
+                        {pct(c.varianceRate)}{c.alert ? ' ⚠' : ''}</span>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 2 }}>
+                    {t('dash.varHint', '분류별 추정→실적·차이율 (임계 +10% 초과 경보) — D6 원가 실적 연동')}
+                  </div>
+                </div>
+              </div>
+            </GroupBox>
+          )
+        })() : null}
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 6 }}>
           <GroupBox title={t('dash.deptEvents', '부서별 Event 상황 — 더블클릭=부서 업무함')} noPad>
             <table className="g">

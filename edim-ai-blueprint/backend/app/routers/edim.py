@@ -4735,11 +4735,31 @@ def analytics() -> dict[str, Any]:
                FROM cst_calc WHERE tenant_id=%s GROUP BY run_id ORDER BY run_id DESC LIMIT 8""", (tid,))
         trend = [{"runId": x[0], "material": float(x[1] or 0), "manufacturing": float(x[2] or 0),
                   "direct": float(x[3] or 0)} for x in cur.fetchall()][::-1]
+        # C3 — 견적(추정) vs 실적 차이 위젯 (추정=최근 Run cst_calc, 실적=cst_actual)
+        try:
+            _, est = _latest_cost_base(cur, tid)
+        except HTTPException:
+            est = {}
+        cur.execute("SELECT category, COALESCE(sum(amount),0) FROM cst_actual WHERE tenant_id=%s GROUP BY category",
+                    (tid,))
+        act = {x[0]: float(x[1]) for x in cur.fetchall()}
+        vcats = []
+        for c in COST_CATEGORIES:
+            e = float(est.get(c, 0)); a = act.get(c, 0.0)
+            rate = ((a - e) / e) if e else (1.0 if a else 0.0)
+            vcats.append({"category": c, "label": COST_CAT_LABEL[c], "estimate": e, "actual": a,
+                          "variance": round(a - e, 2), "varianceRate": round(rate, 4),
+                          "alert": rate > VARIANCE_ALERT_RATE})
+        te = sum(x["estimate"] for x in vcats); ta = sum(x["actual"] for x in vcats)
+        trate = ((ta - te) / te) if te else (1.0 if ta else 0.0)
+        variance = {"categories": vcats, "totalEstimate": te, "totalActual": ta,
+                    "totalVariance": round(ta - te, 2), "totalVarianceRate": round(trate, 4),
+                    "alert": trate > VARIANCE_ALERT_RATE, "hasActual": ta > 0}
     return {
         "runStats": {"total": total, "success": success, "failed": failed,
                      "successRate": round(success / total * 100, 1) if total else 0,
                      "avgDurationSec": round(float(avg_sec), 1) if avg_sec else 0},
-        "recentRuns": recent, "costByType": cost, "costTrend": trend,
+        "recentRuns": recent, "costByType": cost, "costTrend": trend, "variance": variance,
     }
 
 

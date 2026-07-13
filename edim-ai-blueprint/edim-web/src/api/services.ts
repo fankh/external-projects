@@ -808,11 +808,19 @@ export const dashboardService = {
 }
 
 // ── C3 분석 — Run 통계 + 원가 추이 (cpq_run·cst_calc 누적) ──
+export interface AnalyticsVarianceCat {
+  category: string; label: string; estimate: number; actual: number
+  variance: number; varianceRate: number; alert: boolean
+}
 export interface AnalyticsData {
   runStats: { total: number; success: number; failed: number; successRate: number; avgDurationSec: number }
   recentRuns: { runId: number; status: string; runType: string; durationSec: number | null; at: string }[]
   costByType: Record<string, { total: number; runs: number }>
   costTrend: { runId: number; material: number; manufacturing: number; direct: number }[]
+  variance?: {
+    categories: AnalyticsVarianceCat[]; totalEstimate: number; totalActual: number
+    totalVariance: number; totalVarianceRate: number; alert: boolean; hasActual: boolean
+  }
 }
 
 export const analyticsService = {
