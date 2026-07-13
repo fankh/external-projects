@@ -2227,7 +2227,7 @@ export interface OrdersData {
 // D2 — 입고·재고 관리
 export interface StockRow {
   itemCode: string; itemName: string; locationCode: string; locationName: string
-  quantity: number; unit: string; updatedAt: string
+  quantity: number; unit: string; updatedAt: string; unitPrice?: number; value?: number
 }
 export interface MovementRow {
   itemCode: string; locationCode: string; type: 'IN' | 'OUT'; quantity: number
@@ -2263,13 +2263,12 @@ export const inventoryService = {
       throw e
     }
   },
-  /** POST /api/v1/erp/stock/inbound — 입고 처리 (PO→MI; false=백엔드 불가; lot/serial=추적 차원) */
-  async inbound(body: { itemCode: string; itemName?: string; locationCode: string; quantity: number; refNo?: string; lotNo?: string; serialNo?: string }): Promise<number | false> {
+  /** POST /api/v1/erp/stock/inbound — 입고 처리 (PO→MI; false=백엔드 불가; lot/serial=추적 차원; unitPrice 미지정 시 cst_price STOCK 자동) */
+  async inbound(body: { itemCode: string; itemName?: string; locationCode: string; quantity: number; refNo?: string; lotNo?: string; serialNo?: string; unitPrice?: number }): Promise<{ onHand: number; avgPrice: number; priceAuto: boolean; value: number } | false> {
     try {
-      const r = await api<{ onHand: number }>('/erp/stock/inbound', {
+      return await api<{ onHand: number; avgPrice: number; priceAuto: boolean; value: number }>('/erp/stock/inbound', {
         method: 'POST', body: JSON.stringify(body),
       })
-      return r.onHand
     } catch (e) {
       if (e instanceof ApiUnavailable) return false
       throw e

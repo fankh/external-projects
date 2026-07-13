@@ -4786,6 +4786,29 @@ def pr_items() -> list[dict[str, Any]]:
     return out
 
 
+def _stock_price(cur, tid: int, item_code: str) -> float:
+    """cst_price(STOCK, 유효기간 내) 자동 조회 — item_code → part_no 또는 product main_code 매칭.
+
+    미등록 시 0.0 (단가 없음)."""
+    cur.execute(
+        """SELECT cp.price FROM cst_price cp
+           JOIN prt_part p ON p.part_id=cp.part_id
+           WHERE cp.tenant_id=%s AND p.part_no=%s AND cp.price_source='STOCK'
+             AND cp.valid_from<=CURRENT_DATE AND (cp.valid_to IS NULL OR cp.valid_to>=CURRENT_DATE)
+           ORDER BY cp.valid_from DESC LIMIT 1""", (tid, item_code))
+    r = cur.fetchone()
+    if r:
+        return float(r[0])
+    cur.execute(
+        """SELECT cp.price FROM cst_price cp
+           JOIN product_code pc ON pc.product_code_id=cp.product_code_id
+           WHERE cp.tenant_id=%s AND pc.main_code=%s AND cp.price_source='STOCK'
+             AND cp.valid_from<=CURRENT_DATE AND (cp.valid_to IS NULL OR cp.valid_to>=CURRENT_DATE)
+           ORDER BY cp.valid_from DESC LIMIT 1""", (tid, item_code))
+    r = cur.fetchone()
+    return float(r[0]) if r else 0.0
+
+
 class InboundRequest(BaseModel):
     itemCode: str
     itemName: str = ""
@@ -4794,57 +4817,78 @@ class InboundRequest(BaseModel):
     refNo: str = ""
     lotNo: str = ""        # 로트 번호 (배치 추적)
     serialNo: str = ""     # 시리얼 번호 (직번 단위 추적)
+    unitPrice: float | None = None   # 입고 단가 (미지정 시 cst_price STOCK 자동 적재)
 
 
 @router.post("/erp/stock/inbound", status_code=201, dependencies=[SETUP])
 def stock_inbound(request: Request, body: InboundRequest) -> dict[str, Any]:
     """입고 처리 (D2) — PO 품목 입고 → inv_movement(IN) + inv_stock upsert. 발주→재고 고리(MI).
 
-    로트/시리얼 지정 시 이력에 추적 차원 적재(규제·직번 부품 genealogy)."""
+    로트/시리얼 지정 시 이력에 추적 차원 적재. 단가 미지정 시 cst_price(STOCK) 자동 적재 →
+    이동평균 단가·평가액 산출."""
     item = body.itemCode.strip()[:50]
     loc = body.locationCode.strip()[:30]
     if not item or not loc or body.quantity <= 0:
         raise HTTPException(422, detail="필수 — 품목·위치·수량(>0)")
+    if body.unitPrice is not None and body.unitPrice < 0:
+        raise HTTPException(422, detail="단가는 0 이상이어야 합니다")
     lot = body.lotNo.strip()[:50] or None
     serial = body.serialNo.strip()[:80] or None
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 단가 결정 — 명시 지정 우선, 없으면 cst_price(STOCK) 자동 적재
+        auto = body.unitPrice is None
+        in_price = _stock_price(cur, tid, item) if auto else float(body.unitPrice)
         cur.execute(
             """INSERT INTO inv_movement (tenant_id, item_code, location_code, movement_type,
                quantity, ref_type, ref_no, lot_no, serial_no, created_by)
                VALUES (%s,%s,%s,'IN',%s,'PO',%s,%s,%s,%s)""",
             (tid, item, loc, body.quantity, body.refNo.strip()[:50] or None,
              lot, serial, str(request.state.user_id)))
+        # 이동평균 — 기존 (수량·단가) + 입고분 가중평균
         cur.execute(
-            """INSERT INTO inv_stock (tenant_id, item_code, item_name, location_code, quantity)
-               VALUES (%s,%s,%s,%s,%s)
+            "SELECT quantity, unit_price FROM inv_stock WHERE tenant_id=%s AND item_code=%s AND location_code=%s",
+            (tid, item, loc))
+        prev = cur.fetchone()
+        if prev:
+            q0, p0 = float(prev[0]), float(prev[1])
+            new_q = q0 + body.quantity
+            new_price = round((q0 * p0 + body.quantity * in_price) / new_q, 2) if new_q else in_price
+        else:
+            new_price = round(in_price, 2)
+        cur.execute(
+            """INSERT INTO inv_stock (tenant_id, item_code, item_name, location_code, quantity, unit_price)
+               VALUES (%s,%s,%s,%s,%s,%s)
                ON CONFLICT (tenant_id, item_code, location_code)
                DO UPDATE SET quantity = inv_stock.quantity + EXCLUDED.quantity,
                              item_name = COALESCE(EXCLUDED.item_name, inv_stock.item_name),
-                             updated_at = now()
+                             unit_price = %s, updated_at = now()
                RETURNING quantity""",
-            (tid, item, body.itemName.strip()[:200] or None, loc, body.quantity))
+            (tid, item, body.itemName.strip()[:200] or None, loc, body.quantity, new_price, new_price))
         on_hand = float(cur.fetchone()[0])
         _audit(cur, tid, "inv_stock", 0, "INBOUND", request.state.user_id,
-               {"item": item, "location": loc, "qty": body.quantity, "lot": lot, "serial": serial})
+               {"item": item, "location": loc, "qty": body.quantity, "lot": lot, "serial": serial,
+                "unitPrice": in_price, "priceAuto": auto})
     return {"itemCode": item, "locationCode": loc, "onHand": on_hand,
-            "lotNo": lot, "serialNo": serial}
+            "lotNo": lot, "serialNo": serial, "unitPrice": in_price,
+            "avgPrice": new_price, "priceAuto": auto, "value": round(on_hand * new_price, 2)}
 
 
 @router.get("/erp/stock")
 def stock_list() -> list[dict[str, Any]]:
-    """재고 조회 (D2) — 품목×창고 위치 현재 수량."""
+    """재고 조회 (D2) — 품목×창고 위치 현재 수량·단가(이동평균)·평가액."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT s.item_code, s.item_name, s.location_code, w.location_name,
-                      s.quantity, s.unit, to_char(s.updated_at,'YYYY-MM-DD HH24:MI')
+                      s.quantity, s.unit, to_char(s.updated_at,'YYYY-MM-DD HH24:MI'), s.unit_price
                FROM inv_stock s
                LEFT JOIN erp_warehouse w ON w.tenant_id=s.tenant_id AND w.location_code=s.location_code
                WHERE s.tenant_id=%s ORDER BY s.item_code, s.location_code""", (tid,))
         return [{"itemCode": r[0], "itemName": r[1] or "-", "locationCode": r[2],
                  "locationName": r[3] or r[2], "quantity": float(r[4]), "unit": r[5],
-                 "updatedAt": r[6]} for r in cur.fetchall()]
+                 "updatedAt": r[6], "unitPrice": float(r[7]),
+                 "value": round(float(r[4]) * float(r[7]), 2)} for r in cur.fetchall()]
 
 
 @router.get("/erp/stock/movements")

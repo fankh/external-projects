@@ -21,6 +21,7 @@ export function InventoryScreen({ active }: ScreenProps) {
   const [qty, setQty] = useState('1')
   const [lotNo, setLotNo] = useState('')
   const [serialNo, setSerialNo] = useState('')
+  const [price, setPrice] = useState('')
   const [lots, setLots] = useState<LotRow[]>([])
   const [trace, setTrace] = useState<MovementRow[]>([])
   const [traceKey, setTraceKey] = useState<string | null>(null)
@@ -47,18 +48,20 @@ export function InventoryScreen({ active }: ScreenProps) {
       shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>필수 — 품목·위치·수량(&gt;0)</span>)
       return
     }
+    const up = price.trim() ? Number(price.replace(/[^\d.]/g, '')) : undefined
     void inventoryService.inbound({
       itemCode: item.trim(), locationCode: loc.trim(), quantity: q, refNo: 'MI',
-      lotNo: lotNo.trim() || undefined, serialNo: serialNo.trim() || undefined,
+      lotNo: lotNo.trim() || undefined, serialNo: serialNo.trim() || undefined, unitPrice: up,
     })
-      .then((onHand) => {
-        if (onHand === false) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
+      .then((r) => {
+        if (r === false) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
         load()
         const tr = [lotNo.trim() && `Lot ${lotNo.trim()}`, serialNo.trim() && `S/N ${serialNo.trim()}`].filter(Boolean).join(' · ')
-        shell.setStatusMsg(`입고 처리 ✓ — ${item.trim()} +${q} @ ${loc.trim()}${tr ? ` (${tr})` : ''} (재고 ${onHand}, inv_movement IN)`)
+        const pr = `단가 ₩${Math.round(r.avgPrice).toLocaleString()}${r.priceAuto ? '(STOCK 자동)' : ''}·평가 ₩${Math.round(r.value).toLocaleString()}`
+        shell.setStatusMsg(`입고 처리 ✓ — ${item.trim()} +${q} @ ${loc.trim()}${tr ? ` (${tr})` : ''} · ${pr} (재고 ${r.onHand})`)
       })
       .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
-  }, [item, loc, qty, lotNo, serialNo, load, shell])
+  }, [item, loc, qty, lotNo, serialNo, price, load, shell])
 
   const reserve = useCallback(() => {
     const q = Number(qty)
@@ -99,7 +102,9 @@ export function InventoryScreen({ active }: ScreenProps) {
     { key: 'name', header: t('inv.name', '품명'), render: (r) => r.itemName },
     { key: 'loc', header: t('inv.location', '위치'), width: 110, render: (r) => r.locationName },
     { key: 'qty', header: t('inv.qty', '수량'), width: 70, align: 'right', render: (r) => `${r.quantity} ${r.unit}` },
-    { key: 'upd', header: t('inv.updated', '갱신'), width: 120, align: 'center', render: (r) => r.updatedAt },
+    { key: 'price', header: t('inv.unitPrice', '단가'), width: 84, align: 'right', sortValue: (r) => r.unitPrice ?? 0, render: (r) => `₩${Math.round(r.unitPrice ?? 0).toLocaleString()}` },
+    { key: 'value', header: t('inv.value', '평가액'), width: 100, align: 'right', code: true, sortValue: (r) => r.value ?? 0, render: (r) => `₩${Math.round(r.value ?? 0).toLocaleString()}` },
+    { key: 'upd', header: t('inv.updated', '갱신'), width: 116, align: 'center', render: (r) => r.updatedAt },
   ]
   const mCols: GridColumn<MovementRow>[] = [
     { key: 'at', header: t('inv.at', '일시'), width: 90, align: 'center', render: (r) => r.at },
@@ -143,6 +148,9 @@ export function InventoryScreen({ active }: ScreenProps) {
         <label>S/N</label>
         <input className="in" style={{ width: 74 }} value={serialNo} placeholder={t('inv.serialPh', '시리얼(선택)')} aria-label="Serial"
           onChange={(e) => setSerialNo(e.target.value)} />
+        <label>{t('inv.price', '단가')}</label>
+        <input className="in" style={{ width: 78 }} value={price} placeholder={t('inv.pricePh', 'STOCK 자동')} aria-label="입고 단가"
+          onChange={(e) => setPrice(e.target.value)} />
         <Btn variant="pri" onClick={inbound}>{t('inv.inboundF12', '입고 F12')}</Btn>
         <Btn onClick={reserve}>{t('inv.reserve', '예약')}</Btn>
         <span style={{ flex: 1 }} />
@@ -152,7 +160,9 @@ export function InventoryScreen({ active }: ScreenProps) {
         <div style={{ flex: 1.3, display: 'flex', flexDirection: 'column', gap: 6, minHeight: 0 }}>
           <GroupBox style={{ flex: 1, minHeight: 0 }} noPad
             title={t('inv.stockTitle', '재고 현황 — 품목×위치 (inv_stock)')}
-            right={<span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{stock.length}종</span>}>
+            right={<span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>
+              {stock.length}종 · {t('inv.totalValue', '총 평가액')} ₩{Math.round(stock.reduce((s, r) => s + (r.value ?? 0), 0)).toLocaleString()}
+            </span>}>
             {stock.length ? (
               <DenseGrid columns={sCols} rows={stock} rowKey={(r) => `${r.itemCode}@${r.locationCode}`}
                 onRowClick={(r) => { setItem(r.itemCode); setLoc(r.locationCode) }} />
