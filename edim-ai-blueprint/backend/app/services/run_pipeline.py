@@ -276,10 +276,10 @@ def build_blocks_dxf(blocks: list[dict], dims: list[dict] | None = None,
     for blk in blocks:
         x, y, w, h = float(blk["x"]), float(blk["y"]), float(blk["w"]), float(blk["h"])
         layer = "BLOCK_DASHED" if blk.get("dashed") else "BLOCK"
-        # y-down → y-up : 상단 y=-y, 하단 y=-(y+h)
+        # y-down → y-up : 상단 y=-y, 하단 y=-(y+h) · 닫힌 폴리곤
         msp.add_lwpolyline(
-            [(x, -y), (x + w, -y), (x + w, -(y + h)), (x, -(y + h)), (x, -y)],
-            dxfattribs={"layer": layer})
+            [(x, -y), (x + w, -y), (x + w, -(y + h)), (x, -(y + h))],
+            close=True, dxfattribs={"layer": layer})
         if blk.get("name"):
             msp.add_text(str(blk["name"]), height=max(9, h * 0.18), dxfattribs={"layer": "LABEL"}) \
                 .set_placement((x + w / 2, -(y + h * 0.38)), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
