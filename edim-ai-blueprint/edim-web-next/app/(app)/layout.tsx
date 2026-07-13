@@ -34,6 +34,7 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/code/subcode', key: 'menu.code-subcode', ko: 'Sub Code 등록 (S-1-1)' },
   { href: '/code/datatable', key: 'menu.code-datatable', ko: '데이터 Table (M-3-7)' },
   { href: '/code/variant', key: 'menu.code-variant', ko: '배리언트 상수 (S-1-2)' },
+  { href: '/code/relationship', key: 'menu.code-relationship', ko: 'Code Relationship (S-1-4)' },
   { href: '/code/materials', key: 'menu.code-raw', ko: 'Raw Material·GPI (M-3-2)' },
   { href: '/code/product-codes', key: 'menu.code-master', ko: '제품 코드 마스터 (M-3-8)' },
   { href: '/erp/prices', key: 'menu.erp-price', ko: '단가 대장 (M-12-5)' },
