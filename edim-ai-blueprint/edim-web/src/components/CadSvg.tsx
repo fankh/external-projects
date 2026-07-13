@@ -57,6 +57,15 @@ function entitySegments(e: CadEntity): [Pt, Pt][] {
   return []
 }
 
+/** 수선의 발 — 점 s 에서 무한직선 a-b 로 내린 수선의 발 (perp 스냅) */
+function perpFoot(s: Pt, a: Pt, b: Pt): Pt {
+  const dx = b.x - a.x, dy = b.y - a.y
+  const l2 = dx * dx + dy * dy
+  if (!l2) return a
+  const t = ((s.x - a.x) * dx + (s.y - a.y) * dy) / l2
+  return { x: a.x + t * dx, y: a.y + t * dy }
+}
+
 /** 엔티티까지의 거리 (도면 좌표) — 히트 테스트용 */
 function entityDist(p: Pt, e: CadEntity): number {
   switch (e.entityType) {
@@ -272,6 +281,7 @@ export function CadSvg(props: {
   const ddraw = useRef<{ ax: number; ay: number } | null>(null)
   const [drawPreview, setDrawPreview] = useState<{ ax: number; ay: number; bx: number; by: number } | null>(null)
   const [snapMark, setSnapMark] = useState<Pt | null>(null)   // 스냅 히트 표시
+  const [perpMark, setPerpMark] = useState(false)             // perp(수선) 스냅 여부
   // G1 트림/연장
   const [trimTool, setTrimTool] = useState(false)
   const trimRef = useRef(false)
@@ -374,10 +384,30 @@ export function CadSvg(props: {
     return best ? { pt: best, hit: true } : { pt: p, hit: false }
   }
   const snap = (p: Pt): Pt => snapHit(p).pt
-  // 작도 끝점 — 스냅 우선, 미스냅 시 Shift=Polar(45° 8방향 각도 제약)
-  const drawEnd = (raw: Pt, start: Pt, shift: boolean): { pt: Pt; snapped: boolean } => {
+  /** perp(수선) 스냅 — start 에서 커서 근처 선/폴리라인 세그먼트로 내린 수선의 발 */
+  const perpHit = (p: Pt, start: Pt): { pt: Pt; hit: boolean } => {
+    const tol = pxScale(viewRef.current) * 10
+    let best: Pt | null = null
+    let bd = tol * 2
+    for (const e of visibleEntities) {
+      if (e.entityType !== 'line' && e.entityType !== 'polyline') continue
+      for (const [a, b] of entitySegments(e)) {
+        if (segDist(p, a, b) > tol * 2) continue     // 커서가 이 세그먼트 근처일 때만
+        const foot = perpFoot(start, a, b)
+        const d = dist(p, foot)
+        if (d < bd) { bd = d; best = foot }
+      }
+    }
+    return best ? { pt: best, hit: true } : { pt: p, hit: false }
+  }
+  // 작도 끝점 — 점스냅 우선 → perp(수선) → Shift=Polar(45° 8방향)
+  const drawEnd = (raw: Pt, start: Pt, shift: boolean): { pt: Pt; snapped: boolean; perp?: boolean } => {
     const s = snapHit(raw)
     if (s.hit) return { pt: s.pt, snapped: true }
+    if (drawRef.current !== 'circle') {
+      const pf = perpHit(raw, start)
+      if (pf.hit) return { pt: pf.pt, snapped: true, perp: true }
+    }
     if (shift && drawRef.current !== 'circle') {
       const dx = raw.x - start.x, dy = raw.y - start.y
       const len = Math.hypot(dx, dy)
@@ -620,6 +650,7 @@ export function CadSvg(props: {
             const end = drawEnd(toDrawing(e.clientX, e.clientY), start, e.shiftKey)
             setDrawPreview({ ax: start.x, ay: start.y, bx: end.pt.x, by: end.pt.y })
             setSnapMark(end.snapped ? end.pt : null)
+            setPerpMark(!!end.perp)
             return
           }
           if (edrag.current) {
@@ -651,7 +682,7 @@ export function CadSvg(props: {
             const a = ddraw.current
             ddraw.current = null
             const b = drawEnd(toDrawing(e.clientX, e.clientY), { x: a.ax, y: a.ay }, e.shiftKey).pt
-            setDrawPreview(null); setSnapMark(null)
+            setDrawPreview(null); setSnapMark(null); setPerpMark(false)
             const tool = drawRef.current
             const lyr = doc.layers[0]?.layerName ?? '0'
             if (tool === 'line' && Math.hypot(b.x - a.ax, b.y - a.ay) > pxScale(viewRef.current) * 3)
@@ -738,8 +769,19 @@ export function CadSvg(props: {
               width={Math.abs(d.bx - d.ax)} height={Math.abs(d.by - d.ay)} {...cm} />
           })() : null}
           {snapMark ? (
-            <rect data-cad-snap x={snapMark.x - px(5)} y={snapMark.y - px(5)} width={px(10)} height={px(10)}
-              fill="none" stroke="#E0A100" strokeWidth={strokeW * 1.6} />
+            <g data-cad-snap {...(perpMark ? { 'data-cad-perp': true } : {})}>
+              <rect x={snapMark.x - px(5)} y={snapMark.y - px(5)} width={px(10)} height={px(10)}
+                fill="none" stroke={perpMark ? '#2563EB' : '#E0A100'} strokeWidth={strokeW * 1.6} />
+              {perpMark ? (
+                // ⊥ 수선 스냅 글리프 (세로 stem + 가로 base)
+                <>
+                  <line x1={snapMark.x} y1={snapMark.y - px(3.5)} x2={snapMark.x} y2={snapMark.y + px(3.5)}
+                    stroke="#2563EB" strokeWidth={strokeW * 1.3} />
+                  <line x1={snapMark.x - px(3.5)} y1={snapMark.y + px(3.5)} x2={snapMark.x + px(3.5)} y2={snapMark.y + px(3.5)}
+                    stroke="#2563EB" strokeWidth={strokeW * 1.3} />
+                </>
+              ) : null}
+            </g>
           ) : null}
           {trimBoundary ? (() => {
             const be = visibleEntities.find((e) => e.entityId === trimBoundary && !hidden.has(e.layerName))
