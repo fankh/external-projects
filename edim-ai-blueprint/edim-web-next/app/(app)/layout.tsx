@@ -8,6 +8,7 @@ import { bundleFor, translate } from '@/lib/i18n'
 // 이관 완료 화면만 네비에 노출(점진 확장). label 은 i18n.
 const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/erp/eco-ledger', key: 'menu.plm-eco-ledger', ko: '변경 이력 대장 (D-5L)' },
+  { href: '/erp/audit', key: 'menu.erp-audit', ko: '감사 조회 (M-14-6A)' },
 ]
 
 async function logout() {
