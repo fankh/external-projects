@@ -1393,6 +1393,50 @@ def create_company(body: CompanyCreate) -> dict[str, Any]:
     return {"companyId": cid}
 
 
+def _load_ws(data: bytes, required: list[str]) -> tuple[Any, dict[str, int]]:
+    """xlsx 로드 + 헤더 검증 → (worksheet, 열인덱스맵)."""
+    import openpyxl
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, detail="Excel 파일이 아닙니다 (.xlsx)")
+    ws = wb.active
+    header = [str(c.value).strip() if c.value is not None else "" for c in ws[1]]
+    miss = [h for h in required if h not in header]
+    if miss:
+        raise HTTPException(422, detail=f"헤더 누락: {miss} (필요: {required})")
+    return ws, {h: header.index(h) for h in header if h}
+
+
+@router.post("/companies/import-excel", dependencies=[SETUP])
+async def import_companies_excel(uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+    """거래처 대량 등록 — 헤더: 업체명·유형·국가·결제조건 (중복명 거부). 유형 미지정=SUPPLIER."""
+    ws, idx = _load_ws(await uploadedFile.read(), ["업체명"])
+    inserted, rejected = 0, []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        for r_i, row in enumerate(ws.iter_rows(min_row=2), start=2):
+            def cell(col: str) -> str:
+                i = idx.get(col)
+                v = row[i].value if i is not None else None
+                return str(v).strip() if v is not None else ""
+            name = cell("업체명")
+            if not name:
+                continue
+            ctype = (cell("유형") or "SUPPLIER").upper()
+            if ctype not in ("CUSTOMER", "SUPPLIER", "PARTNER", "BANK"):
+                rejected.append(f"{r_i}행 {name}: 유형 오류({ctype})"); continue
+            cur.execute("SELECT 1 FROM com_company WHERE tenant_id=%s AND company_name=%s", (tid, name[:200]))
+            if cur.fetchone():
+                rejected.append(f"{r_i}행 {name}: 중복"); continue
+            cur.execute(
+                """INSERT INTO com_company (tenant_id, company_name, company_type, nation, payment_terms)
+                   VALUES (%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''))""",
+                (tid, name[:200], ctype, cell("국가")[:50], cell("결제조건")[:200]))
+            inserted += 1
+    return {"inserted": inserted, "rejected": rejected, "rejectedCount": len(rejected)}
+
+
 @router.get("/roles")
 def roles() -> list[dict[str, Any]]:
     """역할 + 권한 매트릭스 — sys_role/sys_role_permission (M-14-6 실데이터)."""
@@ -8022,6 +8066,54 @@ def part_create(request: Request, body: PartCreate) -> dict[str, Any]:
                VALUES (%s,'prt_part',%s,'CREATE',%s,%s)""",
             (tid, part_id, request.state.user_id, json.dumps({"partNo": no, "name": name})))
     return {"partId": part_id, "partNo": no}
+
+
+@router.post("/parts/import-excel", dependencies=[SETUP])
+async def import_parts_excel(request: Request, uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+    """부품 대량 등록 — 헤더: 부품번호·부품명·사양·단위·중량·공급처 (중복 부품번호 거부, 공급처 자동생성)."""
+    ws, idx = _load_ws(await uploadedFile.read(), ["부품번호", "부품명"])
+    inserted, rejected = 0, []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        for r_i, row in enumerate(ws.iter_rows(min_row=2), start=2):
+            def cell(col: str) -> str:
+                i = idx.get(col)
+                v = row[i].value if i is not None else None
+                return str(v).strip() if v is not None else ""
+            no, name = cell("부품번호"), cell("부품명")
+            if not no or not name:
+                if no or name:
+                    rejected.append(f"{r_i}행: 부품번호·부품명 필수")
+                continue
+            cur.execute("SELECT 1 FROM prt_part WHERE tenant_id=%s AND part_no=%s", (tid, no))
+            if cur.fetchone():
+                rejected.append(f"{r_i}행 {no}: 중복"); continue
+            weight = None
+            wtxt = cell("중량")
+            if wtxt:
+                try:
+                    weight = float(wtxt)
+                except ValueError:
+                    weight = None
+            sid = None
+            sup = cell("공급처")
+            if sup:
+                cur.execute("SELECT company_id FROM com_company WHERE tenant_id=%s AND company_name=%s LIMIT 1", (tid, sup))
+                s = cur.fetchone()
+                if s:
+                    sid = s[0]
+                else:
+                    cur.execute("INSERT INTO com_company (tenant_id, company_name, company_type) "
+                                "VALUES (%s,%s,'SUPPLIER') RETURNING company_id", (tid, sup[:200]))
+                    sid = cur.fetchone()[0]
+            cur.execute(
+                """INSERT INTO prt_part (tenant_id, part_no, part_name, specification, supplier_id,
+                   unit, weight, is_standard, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,TRUE,%s)""",
+                (tid, no[:50], name[:200], cell("사양")[:300] or None, sid,
+                 cell("단위")[:10] or "EA", weight, request.state.login))
+            inserted += 1
+    return {"inserted": inserted, "rejected": rejected, "rejectedCount": len(rejected)}
 
 
 @router.delete("/parts/{part_no}", dependencies=[SETUP])

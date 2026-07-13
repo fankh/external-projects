@@ -1,6 +1,6 @@
 /** M-14-2 공급처·거래처 대장 (B14) — com_company 실 CRUD.
  *  단가(cst_price.supplier_id)·발주 공급처의 마스터 원천. */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { companyService, xlsxService, type CompanyRow, type SupplierEval, type SupplierMetrics } from '../../api/services'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -65,6 +65,17 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
     { key: 'grade', header: '등급', width: 44, align: 'center', render: (r) => <Chip tone={r.grade === 'A' ? 'ok' : r.grade === 'D' ? 'warn' : 'info'}>{r.grade}</Chip> },
   ]
 
+  const impRef = useRef<HTMLInputElement>(null)
+  const doImport = (f: File) => {
+    void companyService.importExcel(f)
+      .then((r) => {
+        if (!r) { setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
+        void load()
+        setStatusMsg(`거래처 대량등록 ✓ — 등록 ${r.inserted}건${r.rejected.length ? ` · 거부 ${r.rejected.length}건 (${r.rejected.slice(0, 2).join('; ')}${r.rejected.length > 2 ? '…' : ''})` : ''}`)
+      })
+      .catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
+
   const load = async () => {
     const r = await companyService.list()
     if (r === null) { setOffline(true); return }
@@ -128,6 +139,10 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
         <span style={{ flex: 1 }} />
         <Btn onClick={() => void xlsxService.download('/companies/export.xlsx', 'companies')
           .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `거래처 XLSX ✓ — ${n}건`))}>⬇ XLSX</Btn>
+        <input ref={impRef} type="file" accept=".xlsx" style={{ display: 'none' }} aria-label="대량 등록 파일"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
+        <Btn disabled={!perm.canWrite('erp-company-master')} title="헤더: 업체명·유형·국가·결제조건"
+          onClick={() => impRef.current?.click()}>⬆ 대량등록</Btn>
         <Btn variant="pri" disabled={!perm.canWrite('erp-company-master')}
           title={perm.canWrite('erp-company-master') ? undefined : perm.denyWrite}
           onClick={() => setShowReg(true)}>＋ 등록 F2</Btn>

@@ -1373,7 +1373,28 @@ export interface HierarchyNode {
   symbol: string; address: string; status: string
 }
 
+async function importExcel(path: string, file: globalThis.File): Promise<{ inserted: number; rejected: string[] } | null> {
+  const form = new FormData()
+  form.append('uploadedFile', file)
+  try {
+    const res = await fetch(`${API}${path}`, {
+      method: 'POST', body: form, signal: AbortSignal.timeout(60_000),
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) {
+      const b = await res.json().catch(() => null) as { detail?: string } | null
+      throw new Error(b?.detail ?? `HTTP ${res.status}`)
+    }
+    return await res.json() as { inserted: number; rejected: string[] }
+  } catch (e) {
+    if (e instanceof TypeError || e instanceof DOMException) return null
+    throw e
+  }
+}
+
 export const companyService = {
+  /** POST /api/v1/companies/import-excel — 거래처 대량 등록 */
+  importExcel: (file: globalThis.File) => importExcel('/companies/import-excel', file),
   async list(): Promise<CompanyRow[] | null> {
     try {
       return await api<CompanyRow[]>('/companies')
@@ -2852,6 +2873,8 @@ export interface PartDetail {
 }
 
 export const partService = {
+  /** POST /api/v1/parts/import-excel — 부품 대량 등록 */
+  importExcel: (file: globalThis.File) => importExcel('/parts/import-excel', file),
   /** PUT /api/v1/parts/{no} — 속성 수정 (F5; 422=재질/코드 검증 throw) */
   async update(partNo: string, p: {
     name?: string; specification?: string; materialCode?: string

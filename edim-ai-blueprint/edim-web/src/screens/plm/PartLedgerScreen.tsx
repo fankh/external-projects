@@ -1,6 +1,6 @@
 /** M-4-7 부품 대장 (B17) — prt_part 실 CRUD + 공급자 코드 매핑 (ERP-018).
  *  등록 F2 · 행 선택 = 우측 공급자 코드 · BOM 참조 부품 삭제 보호 (409). */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { partService, xlsxService, type PartRow, type SupplierCodeRow } from '../../api/services'
 import { Btn, Chip, GroupBox } from '../../components/controls'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -29,6 +29,16 @@ export function PartLedgerScreen({ active }: ScreenProps) {
   const [supForm, setSupForm] = useState({ supplier: '', supplierCode: '', supplierName: '' })
 
   const load = () => { void partService.list().then(setRows) }
+  const impRef = useRef<HTMLInputElement>(null)
+  const doImport = (f: File) => {
+    void partService.importExcel(f)
+      .then((r) => {
+        if (!r) { shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>백엔드 연결 필요</span>); return }
+        load()
+        shell.setStatusMsg(`부품 대량등록 ✓ — 등록 ${r.inserted}건${r.rejected.length ? ` · 거부 ${r.rejected.length}건 (${r.rejected.slice(0, 2).join('; ')}${r.rejected.length > 2 ? '…' : ''})` : ''}`)
+      })
+      .catch((e: Error) => shell.setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+  }
   useEffect(load, [])
 
   useEffect(() => {
@@ -145,6 +155,10 @@ export function PartLedgerScreen({ active }: ScreenProps) {
         <span style={{ flex: 1 }} />
         <Btn onClick={() => void xlsxService.download('/parts/export.xlsx', 'parts')
           .then((n) => shell.setStatusMsg(n < 0 ? <span style={{ color: 'var(--err)' }}>내보내기 불가</span> : `부품 XLSX ✓ — ${n}건`))}>⬇ XLSX</Btn>
+        <input ref={impRef} type="file" accept=".xlsx" style={{ display: 'none' }} aria-label="대량 등록 파일"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
+        <Btn disabled={!perm.canWrite('plm-parts')} title="헤더: 부품번호·부품명·사양·단위·중량·공급처"
+          onClick={() => impRef.current?.click()}>⬆ 대량등록</Btn>
         <Btn onClick={() => { load(); shell.setStatusMsg('부품 대장 재조회 (prt_part)') }}>{t('dwg.queryF8', '조회 F8')}</Btn>
         <Btn disabled={!perm.canWrite('plm-parts') || !sel}
           title={perm.canWrite('plm-parts') ? undefined : perm.denyWrite}
