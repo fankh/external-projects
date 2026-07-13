@@ -169,6 +169,7 @@ export function ProductCodeMasterScreen({ active }: ScreenProps) {
             <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>백엔드 연결 필요 — 제품 코드는 실DB(product_code)에서만 조회됩니다</div>
           ) : (
             <DenseGrid prefKey="product-codes" columns={cols} rows={rows} rowKey={(r) => r.productCodeId}
+              emptyText={`${statusFilter === 'ALL' ? '' : statusFilter + ' '}제품 코드가 없습니다`}
               multiSelect selectedKeys={sel as Set<string | number>} onSelectionChange={(k) => setSel(k as Set<number>)}
               onRowDoubleClick={(r) => { if (canWrite) setEdit(r); else setStatusMsg(perm.denyWrite) }}
               onCellEdit={(r, _i, _k, v) => {

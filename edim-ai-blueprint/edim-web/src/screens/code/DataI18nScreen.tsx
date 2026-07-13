@@ -86,11 +86,9 @@ export function DataI18nScreen({ active }: ScreenProps) {
             <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>
               백엔드 연결 필요 — 데이터 번역은 실DB(sys_translation)에서만 관리됩니다
             </div>
-          ) : rows.length ? (
-            <DenseGrid prefKey="data-i18n" columns={cols} rows={rows} rowKey={(r) => r.entityId}
-              onCellEdit={(r, _i, _k, v) => saveCell(r, v)} />
           ) : (
-            <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>대상 데이터가 없습니다</div>
+            <DenseGrid prefKey="data-i18n" columns={cols} rows={rows} rowKey={(r) => r.entityId}
+              emptyText="대상 데이터가 없습니다" onCellEdit={(r, _i, _k, v) => saveCell(r, v)} />
           )}
         </GroupBox>
       </div>

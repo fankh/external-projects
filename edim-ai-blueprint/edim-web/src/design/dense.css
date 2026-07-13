@@ -195,3 +195,7 @@ body {
 /* 스크롤 영역 유틸 */
 .fill-col { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .scroll { overflow: auto; min-height: 0; }
+
+/* G2 — 그리드 로딩 스피너 표준 */
+@keyframes dg-spin { to { transform: rotate(360deg); } }
+.dg-spin { animation: dg-spin 0.7s linear infinite; }

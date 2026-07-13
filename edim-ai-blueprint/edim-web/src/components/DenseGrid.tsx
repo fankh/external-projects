@@ -56,6 +56,10 @@ export function DenseGrid<T>(props: {
   onCellEdit?: (row: T, index: number, key: string, value: string) => void
   /** G2 — 헤더 컬럼 필터(Excel autofilter식 값 체크리스트). 컬럼별 noFilter 로 제외 */
   colFilter?: boolean
+  /** G2 — 로딩 상태 표준(헤더 유지 + 중앙 로딩 표시). rows 는 [] 로 전달. 문자열 지정 시 커스텀 문구 */
+  loading?: boolean | string
+  /** G2 — 빈 상태 표준 메시지(rows 비었고 loading 아닐 때 중앙 표시). 미지정 시 빈 tbody */
+  emptyText?: ReactNode
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir } | null>(null)
   // D8 — 컬럼 표시 설정
@@ -481,6 +485,26 @@ export function DenseGrid<T>(props: {
             </tr>
           )
         })}
+        {!pageRows.length && (props.loading || props.emptyText != null) ? (
+          <tr data-grid-state>
+            <td colSpan={cols.length + (ms ? 1 : 0)} style={{ textAlign: 'center', padding: '22px 10px', color: 'var(--txt-mute)' }}>
+              {props.loading ? (
+                <span data-grid-loading style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                  <span className="dg-spin" style={{
+                    width: 12, height: 12, border: '2px solid var(--line-strong)',
+                    borderTopColor: 'var(--accent, #2f6bd6)', borderRadius: '50%', display: 'inline-block',
+                  }} />
+                  {typeof props.loading === 'string' ? props.loading : '불러오는 중…'}
+                </span>
+              ) : (
+                <span data-grid-empty style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                  <span style={{ fontSize: 18, opacity: 0.5 }}>📭</span>
+                  <span style={{ fontSize: 11 }}>{props.emptyText}</span>
+                </span>
+              )}
+            </td>
+          </tr>
+        ) : null}
       </tbody>
       {props.footer ? <tfoot><tr>{props.footer}</tr></tfoot> : null}
     </table>

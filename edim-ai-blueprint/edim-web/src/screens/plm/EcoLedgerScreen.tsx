@@ -22,13 +22,16 @@ export function EcoLedgerScreen({ active }: ScreenProps) {
   const { setStatusMsg } = shell
   const [data, setData] = useState<EcoLedger | null>(null)
   const [offline, setOffline] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('전체')
   const [ttype, setTtype] = useState('전체')
 
   const load = useCallback(() => {
     const st = status === '전체' ? '' : status
     const tt = ttype === '전체' ? '' : ttype
+    setLoading(true)
     void ecoService.ledger(st, tt).then((r) => {
+      setLoading(false)
       if (r === null) { setOffline(true); return }
       setOffline(false); setData(r)
     })
@@ -85,10 +88,9 @@ export function EcoLedgerScreen({ active }: ScreenProps) {
         <GroupBox title={`설계 변경 이력 — ${rows.length}건`} noPad style={{ height: '100%' }}>
           {offline ? (
             <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>백엔드 연결 필요 — 변경 이력은 실DB(eco_change)에서만 조회됩니다</div>
-          ) : rows.length ? (
-            <DenseGrid prefKey="eco-ledger" colFilter columns={cols} rows={rows} rowKey={(r) => r.ecoNo} />
           ) : (
-            <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>변경 이력이 없습니다 (필터 조건 확인)</div>
+            <DenseGrid prefKey="eco-ledger" colFilter columns={cols} rows={rows} rowKey={(r) => r.ecoNo}
+              loading={loading && !data} emptyText="변경 이력이 없습니다 (필터 조건 확인)" />
           )}
         </GroupBox>
       </div>
