@@ -81,6 +81,7 @@ SUITES = [
     "live_g3_calendar.py",          # 근무일/휴일 캘린더 — 공휴일 CRUD·영업일 계산·납기·마일스톤 workdaysLeft
     "live_g3_finance.py",           # 다통화/환율+세금엔진 — 환율 CRUD·세금코드·세액·KRW 환산·미등록 422
     "live_g3_bulk_import.py",       # 핵심 마스터 대량 import — 거래처/부품 xlsx 등록·중복 거부·헤더 422(psql 정리)
+    "live_g3_roles.py",             # 역할 생성/삭제 — 커스텀 생성·예약/중복 409·내장/배정 삭제 409(edim 복원)
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
     "live_security.py",
