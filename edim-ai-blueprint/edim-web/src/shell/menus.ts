@@ -19,6 +19,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'code-subcode': { screenId: 'code-subcode', code: 'S-1-1', title: 'Sub Code 등록' },
   'code-relationship': { screenId: 'code-relationship', code: 'S-1-4', title: 'Code Relationship' },
   'code-master': { screenId: 'code-master', code: 'M-3-8', title: '제품 코드 마스터' },
+  'i18n-data': { screenId: 'i18n-data', code: 'M-13-2', title: '데이터 번역' },
   'code-datatable': { screenId: 'code-datatable', code: 'M-3-7', title: '데이터 Table' },
   'cpq-docmgmt': { screenId: 'cpq-docmgmt', code: 'M-5-4', title: '문서함' },
   'cpq-doctpl': { screenId: 'cpq-doctpl', code: 'C-3', title: 'Document Templet' },
@@ -132,6 +133,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
       {
         id: 'code-product', label: 'Product Code', children: [
           { id: 'code-master', label: '제품 코드 마스터 (M-3-8)' },
+          { id: 'i18n-data', label: '데이터 번역 (M-13-2)' },
           { id: 'code-relationship', label: 'Code Relationship (S-1-4)' },
         ],
       },

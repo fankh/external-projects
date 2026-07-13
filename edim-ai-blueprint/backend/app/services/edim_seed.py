@@ -880,6 +880,7 @@ UI_TRANSLATIONS_V7: dict[str, tuple[str, str, str]] = {
     "menu.plm-eco": ("Design Change ECO/ECN (D-5)", "設計変更 ECO/ECN (D-5)", "设计变更 ECO/ECN (D-5)"),
     "menu.plm-bom-compare": ("BOM Compare (G-3B)", "BOM比較 (G-3B)", "BOM 比较 (G-3B)"),
     "menu.code-master": ("Product Code Master (M-3-8)", "製品コードマスタ (M-3-8)", "产品编码主数据 (M-3-8)"),
+    "menu.i18n-data": ("Data Translation (M-13-2)", "データ翻訳 (M-13-2)", "数据翻译 (M-13-2)"),
     "menu.erp-sales-order": ("Sales Order (D-1)", "受注管理 (D-1)", "订单管理 (D-1)"),
     "menu.erp-milestone": ("Schedule / Milestone (D-7)", "日程・マイルストーン (D-7)", "进度・里程碑 (D-7)"),
     "menu.erp-calendar": ("Workday / Holiday Calendar (M-8-6)", "稼働日・休日カレンダー (M-8-6)", "工作日・假日日历 (M-8-6)"),

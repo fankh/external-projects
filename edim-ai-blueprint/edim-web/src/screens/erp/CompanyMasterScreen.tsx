@@ -1,7 +1,8 @@
 /** M-14-2 공급처·거래처 대장 (B14) — com_company 실 CRUD.
  *  단가(cst_price.supplier_id)·발주 공급처의 마스터 원천. */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { companyService, xlsxService, type CompanyRow, type SupplierEval, type SupplierMetrics } from '../../api/services'
+import { companyService, dataI18nService, xlsxService, type CompanyRow, type SupplierEval, type SupplierMetrics } from '../../api/services'
+import { useI18n } from '../../i18n/I18nContext'
 import { Btn, Chip, Combo, GroupBox } from '../../components/controls'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { DenseGrid, type GridColumn } from '../../components/DenseGrid'
@@ -19,7 +20,9 @@ const TYPE_TONE: Record<string, 'ok' | 'warn' | 'info'> = {
 export function CompanyMasterScreen({ active }: ScreenProps) {
   const shell = useShell()
   const perm = usePermission()
+  const { locale } = useI18n()
   const { setStatusMsg } = shell
+  const [nameI18n, setNameI18n] = useState<Record<string, string>>({})
   const [rows, setRows] = useState<CompanyRow[]>([])
   const [offline, setOffline] = useState(false)
   const [typeFilter, setTypeFilter] = useState('전체')
@@ -86,6 +89,11 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
     setRows(r); setSel(new Set())
   }
   useEffect(() => { void load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // 데이터 콘텐츠 i18n — 비-KO 로케일이면 거래처명 번역 오버레이 로드
+  useEffect(() => {
+    if (locale === 'ko') { setNameI18n({}); return }
+    void dataI18nService.map('COMPANY', locale).then(setNameI18n)
+  }, [locale])
 
   const runBulkCompany = async (): Promise<string | null> => {
     if (bulk === null) return null
@@ -129,7 +137,15 @@ export function CompanyMasterScreen({ active }: ScreenProps) {
   }), [])) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cols: GridColumn<CompanyRow>[] = [
-    { key: 'name', header: '업체명', render: (r) => r.name },
+    {
+      key: 'name', header: '업체명',
+      render: (r) => {
+        const tr = r.companyId != null ? nameI18n[String(r.companyId)] : undefined
+        return tr
+          ? <span>{tr} <span style={{ color: 'var(--txt-mute)', fontSize: 10 }}>({r.name})</span></span>
+          : r.name
+      },
+    },
     {
       key: 'type', header: '유형', width: 76, align: 'center',
       render: (r) => <Chip tone={TYPE_TONE[r.companyType] ?? 'info'}>{r.companyType}</Chip>,

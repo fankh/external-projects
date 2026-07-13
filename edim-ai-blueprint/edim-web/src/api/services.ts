@@ -1406,6 +1406,41 @@ async function importExcel(path: string, file: globalThis.File): Promise<{ inser
   }
 }
 
+// ── 데이터 콘텐츠 i18n — 마스터 데이터 번역 트랙 (sys_translation) ──
+export interface DataTransRow { entityId: number; source: string; value: string }
+export type DataEntityType = 'COMPANY' | 'PRODUCT' | 'DOCUMENT'
+
+export const dataI18nService = {
+  /** GET /api/v1/i18n/data/{type}?locale= — 원문+번역 목록 (관리 화면) */
+  async list(entityType: DataEntityType, locale: string): Promise<DataTransRow[] | null> {
+    try {
+      return await api<DataTransRow[]>(`/i18n/data/${entityType}?locale=${locale}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+  /** GET /api/v1/i18n/data/{type}/map?locale= — {entityId: 번역} 오버레이 맵 */
+  async map(entityType: DataEntityType, locale: string): Promise<Record<string, string>> {
+    if (locale === 'ko') return {}
+    try {
+      return await api<Record<string, string>>(`/i18n/data/${entityType}/map?locale=${locale}`)
+    } catch {
+      return {}
+    }
+  },
+  /** PUT /api/v1/i18n/data — 번역 저장(빈 값=삭제) */
+  async upsert(entityType: DataEntityType, entityId: number, locale: string, value: string): Promise<boolean> {
+    try {
+      await api('/i18n/data', { method: 'PUT', body: JSON.stringify({ entityType, entityId, locale, value }) })
+      return true
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return false
+      throw e
+    }
+  },
+}
+
 export const companyService = {
   /** POST /api/v1/companies/import-excel — 거래처 대량 등록 */
   importExcel: (file: globalThis.File) => importExcel('/companies/import-excel', file),

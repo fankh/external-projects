@@ -339,6 +339,96 @@ def i18n_bundle(locale: str) -> dict[str, str]:
         return dict(cur.fetchall())
 
 
+# ── 데이터 콘텐츠 i18n — 마스터 데이터(품명·거래처·문서명) 번역 트랙 (sys_translation 재사용) ──
+# entity_type → (source table, id 컬럼, 원문 컬럼, field 라벨)
+DATA_I18N_SOURCES: dict[str, tuple[str, str, str, str]] = {
+    "COMPANY": ("com_company", "company_id", "company_name", "name"),
+    "PRODUCT": ("product_code", "product_code_id", "code_name", "codeName"),
+    "DOCUMENT": ("doc_control", "doc_control_id", "title", "title"),
+}
+
+
+def _data_i18n_src(entity_type: str) -> tuple[str, str, str, str]:
+    src = DATA_I18N_SOURCES.get(entity_type.strip().upper())
+    if not src:
+        raise HTTPException(404, detail=f"지원하지 않는 entity_type: {entity_type} "
+                            f"(COMPANY/PRODUCT/DOCUMENT)")
+    return src
+
+
+@router.get("/i18n/data/{entity_type}")
+def i18n_data_list(entity_type: str, locale: str) -> list[dict[str, Any]]:
+    """마스터 데이터 번역 관리 — 원문 + 현재 번역(빈 값 = 미번역). SETUP 화면용."""
+    if locale not in ("en", "ja", "zh"):
+        raise HTTPException(422, detail=f"locale 오류: {locale} (en/ja/zh)")
+    et = entity_type.strip().upper()
+    table, id_col, name_col, field = _data_i18n_src(et)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            f"""SELECT s.{id_col}, s.{name_col}, COALESCE(t.text,'')
+                FROM {table} s
+                LEFT JOIN sys_translation t
+                  ON t.tenant_id=s.tenant_id AND t.entity_type=%s AND t.entity_id=s.{id_col}
+                     AND t.field=%s AND t.locale=%s
+                WHERE s.tenant_id=%s ORDER BY s.{id_col}""",
+            (et, field, locale, tid))
+        return [{"entityId": r[0], "source": r[1] or "", "value": r[2]} for r in cur.fetchall()]
+
+
+@router.get("/i18n/data/{entity_type}/map")
+def i18n_data_map(entity_type: str, locale: str) -> dict[str, str]:
+    """번역 오버레이 맵 — {entityId(str): 번역문}. 비어있지 않은 것만. 목록 렌더 오버레이용."""
+    if locale not in ("en", "ja", "zh"):
+        return {}
+    et = entity_type.strip().upper()
+    _table, _id_col, _name_col, field = _data_i18n_src(et)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT entity_id, text FROM sys_translation
+               WHERE tenant_id=%s AND entity_type=%s AND field=%s AND locale=%s AND text<>''""",
+            (tid, et, field, locale))
+        return {str(r[0]): r[1] for r in cur.fetchall()}
+
+
+class DataTransUpsert(BaseModel):
+    entityType: str
+    entityId: int
+    locale: str
+    value: str
+
+
+@router.put("/i18n/data", dependencies=[SETUP])
+def i18n_data_upsert(request: Request, body: DataTransUpsert) -> dict[str, Any]:
+    """마스터 데이터 번역 저장/삭제 (빈 값 = 삭제). sys_translation upsert."""
+    et = body.entityType.strip().upper()
+    _table, _id_col, _name_col, field = _data_i18n_src(et)
+    if body.locale not in ("en", "ja", "zh"):
+        raise HTTPException(422, detail=f"locale 오류: {body.locale}")
+    val = body.value.strip()[:1000]
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        if not val:
+            cur.execute(
+                """DELETE FROM sys_translation WHERE tenant_id=%s AND locale=%s
+                   AND entity_type=%s AND entity_id=%s AND field=%s""",
+                (tid, body.locale, et, body.entityId, field))
+            _audit(cur, tid, "sys_translation", body.entityId, "DATA_I18N_DEL",
+                   request.state.user_id, {"entityType": et, "locale": body.locale})
+            return {"entityType": et, "entityId": body.entityId, "locale": body.locale, "deleted": True}
+        cur.execute(
+            """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text,
+               created_by, updated_by, updated_at)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,now())
+               ON CONFLICT (tenant_id, locale, entity_type, entity_id, field)
+               DO UPDATE SET text=EXCLUDED.text, updated_by=EXCLUDED.updated_by, updated_at=now()""",
+            (tid, body.locale, et, body.entityId, field, val, request.state.login, request.state.login))
+        _audit(cur, tid, "sys_translation", body.entityId, "DATA_I18N", request.state.user_id,
+               {"entityType": et, "locale": body.locale, "value": val})
+    return {"entityType": et, "entityId": body.entityId, "locale": body.locale, "value": val}
+
+
 # ── SVC-01 Auth ──
 MAX_LOGIN_FAILS = 5   # 연속 실패 → 자동 LOCKED (B8, SEC-002)
 
