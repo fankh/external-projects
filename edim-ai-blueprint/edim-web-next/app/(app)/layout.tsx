@@ -20,6 +20,9 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/erp/holidays', key: 'menu.erp-calendar', ko: '근무일·휴일 캘린더 (M-8-6)' },
   { href: '/erp/finance', key: 'menu.erp-finance', ko: '다통화·세금 마스터 (M-13-1)' },
   { href: '/erp/eco-ledger', key: 'menu.plm-eco-ledger', ko: '변경 이력 대장 (D-5L)' },
+  { href: '/erp/anomaly', key: 'menu.erp-anomaly', ko: '이상 이벤트 (M-14-4A)' },
+  { href: '/erp/roles', key: 'menu.erp-access', ko: '권한 매트릭스 (M-14-6)' },
+  { href: '/cpq/x-review', key: 'menu.cpq-xreview', ko: 'X-code 검토 (C-1X)' },
   { href: '/erp/audit', key: 'menu.erp-audit', ko: '감사 조회 (M-14-6A)' },
   { href: '/cpq/reports', key: 'menu.cpq-reports', ko: 'Report Center (RPT)' },
 ]
