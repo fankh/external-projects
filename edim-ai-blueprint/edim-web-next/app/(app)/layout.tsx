@@ -25,6 +25,7 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/plm/duct', key: 'menu.plm-duct', ko: '건축설비 Duct (M-4-3)' },
   { href: '/plm/arrangement', key: 'menu.plm-arr', ko: 'Arrangement Set-Up (M-4-2)' },
   { href: '/code/groups', key: 'menu.code-hierarchy', ko: '코드 그룹 (S-1)' },
+  { href: '/code/subcode', key: 'menu.code-subcode', ko: 'Sub Code 등록 (S-1-1)' },
   { href: '/code/materials', key: 'menu.code-raw', ko: 'Raw Material·GPI (M-3-2)' },
   { href: '/code/product-codes', key: 'menu.code-master', ko: '제품 코드 마스터 (M-3-8)' },
   { href: '/erp/prices', key: 'menu.erp-price', ko: '단가 대장 (M-12-5)' },
