@@ -68,6 +68,7 @@ SUITES = [
     "live_g1_cad_draw.py",          # CAD 자유 작도 — line/circle/rect 생성→DXF 추가·영속(UI 드래그)
     "live_g1_cad_plot.py",          # CAD 축척 인쇄 — 1:scale 벡터 PDF(A4/A3·가로세로·기본축척·404)
     "live_g1_cad_snap.py",          # CAD 객체 스냅 + Ortho — 끝점/중점 스냅 작도·Shift 축정렬(정확 좌표)
+    "live_g1_cad_snap2.py",         # CAD 교차점 스냅 + Polar 45° — 교점 정확 스냅·Shift 45° 각도 정렬
     "live_g1_cad_trim.py",          # CAD 트림/연장 — 경계선 교점으로 끝점 단축/연장·평행 422·영속
     "live_g3_atp.py",               # 재고 예약/할당(ATP) — 예약·가용 초과 409·목록·해제·pr-items available
     "live_g3_supplier_eval.py",     # 공급처 평가/등급 — 가중 총점·등급·upsert·마스터 반영(psql 정리)
