@@ -878,6 +878,7 @@ UI_TRANSLATIONS_V7: dict[str, tuple[str, str, str]] = {
     # 신규 화면 메뉴 라벨 (한글 잔존 해소 — check_i18n_en)
     "menu.cpq-xreview": ("X-code Review (C-1X)", "X-codeレビュー (C-1X)", "X-code 审核 (C-1X)"),
     "menu.plm-eco": ("Design Change ECO/ECN (D-5)", "設計変更 ECO/ECN (D-5)", "设计变更 ECO/ECN (D-5)"),
+    "menu.plm-eco-ledger": ("Change History Ledger (D-5L)", "変更履歴台帳 (D-5L)", "变更历史台账 (D-5L)"),
     "menu.plm-bom-compare": ("BOM Compare (G-3B)", "BOM比較 (G-3B)", "BOM 比较 (G-3B)"),
     "menu.code-master": ("Product Code Master (M-3-8)", "製品コードマスタ (M-3-8)", "产品编码主数据 (M-3-8)"),
     "menu.i18n-data": ("Data Translation (M-13-2)", "データ翻訳 (M-13-2)", "数据翻译 (M-13-2)"),

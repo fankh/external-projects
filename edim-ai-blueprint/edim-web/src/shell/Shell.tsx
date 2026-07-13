@@ -35,6 +35,7 @@ import { SubCodeScreen } from '../screens/code/SubCodeScreen'
 import { CodeRelationshipScreen } from '../screens/code/CodeRelationshipScreen'
 import { ProductCodeMasterScreen } from '../screens/code/ProductCodeMasterScreen'
 import { DataI18nScreen } from '../screens/code/DataI18nScreen'
+import { EcoLedgerScreen } from '../screens/plm/EcoLedgerScreen'
 import { DataTableScreen } from '../screens/code/DataTableScreen'
 import { DocumentMgmtScreen } from '../screens/cpq/DocumentMgmtScreen'
 import { DocTemplateScreen } from '../screens/cpq/DocTemplateScreen'
@@ -123,6 +124,7 @@ const SCREENS: Record<string, ComponentType<ScreenProps>> = {
   'code-hierarchy': HierarchyScreen,
   'plm-parts': PartLedgerScreen,
   'plm-eco': EcoChangeScreen,
+  'plm-eco-ledger': EcoLedgerScreen,
   'plm-bom-compare': BomCompareScreen,
   'erp-warehouse': WarehouseScreen,
   'com-approval': ApprovalInboxScreen,

@@ -2450,6 +2450,29 @@ export const ecoService = {
       throw e
     }
   },
+  /** GET /api/v1/eco/ledger — 변경 이력 대장(라이프사이클+집계, null=백엔드 불가) */
+  async ledger(status = '', targetType = ''): Promise<EcoLedger | null> {
+    const p = new URLSearchParams()
+    if (status) p.set('status', status)
+    if (targetType) p.set('targetType', targetType)
+    try {
+      return await api<EcoLedger>(`/eco/ledger${p.toString() ? `?${p}` : ''}`)
+    } catch (e) {
+      if (e instanceof ApiUnavailable) return null
+      throw e
+    }
+  },
+}
+
+export interface EcoLedgerRow {
+  ecoNo: string; title: string; targetType: 'DRAWING' | 'CODE'; targetNo: string
+  status: string; revFrom: string; revTo: string; reason: string
+  createdBy: string; createdAt: string; appliedAt: string
+  newDrawingNo: string; changeType: string; revTransition: string
+}
+export interface EcoLedger {
+  summary: { total: number; applied: number; pending: number; rejected: number }
+  rows: EcoLedgerRow[]
 }
 
 // D6 — 원가 실적 (Cost Actual / Variance)

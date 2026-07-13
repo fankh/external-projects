@@ -5634,6 +5634,58 @@ def eco_list() -> list[dict[str, Any]]:
                  "createdAt": r[8], "reason": r[9]} for r in cur.fetchall()]
 
 
+@router.get("/eco/ledger")
+def eco_ledger(status: str = "", targetType: str = "") -> dict[str, Any]:
+    """변경 이력 대장 전용 뷰 (D5) — 전체 설계변경 라이프사이클 대장 + 상태 집계.
+
+    변경유형 파생: APPLIED+rev_to=Rev-up · APPLIED+rev_null=대체(Supersede) · REJECTED=반려 · else 진행."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        conds = ["tenant_id=%s"]
+        params: list[Any] = [tid]
+        if status.strip():
+            conds.append("status=%s"); params.append(status.strip().upper())
+        if targetType.strip():
+            conds.append("target_type=%s"); params.append(targetType.strip().upper())
+        where = " AND ".join(conds)
+        cur.execute(
+            f"""SELECT eco_no, title, target_type, target_no, status,
+                       COALESCE(rev_from,''), COALESCE(rev_to,''), COALESCE(reason,''),
+                       created_by, to_char(created_at,'YYYY-MM-DD HH24:MI'),
+                       to_char(applied_at,'YYYY-MM-DD HH24:MI'),
+                       COALESCE(impact_data->>'newDrawingNo','')
+                FROM eco_change WHERE {where} ORDER BY eco_id DESC""", tuple(params))
+        rows = []
+        for r in cur.fetchall():
+            st, rev_to, new_dwg = r[4], r[6], r[11]
+            if st == "REJECTED":
+                ctype = "반려"
+            elif st == "APPLIED" and rev_to:
+                ctype = "Rev-up"
+            elif st == "APPLIED" and (new_dwg or not rev_to):
+                ctype = "대체"
+            else:
+                ctype = "진행"
+            rows.append({
+                "ecoNo": r[0], "title": r[1], "targetType": r[2], "targetNo": r[3],
+                "status": st, "revFrom": r[5], "revTo": rev_to, "reason": r[7],
+                "createdBy": r[8], "createdAt": r[9], "appliedAt": r[10] or "",
+                "newDrawingNo": new_dwg, "changeType": ctype,
+                "revTransition": (f"{r[5] or '—'} → {rev_to}" if rev_to else (f"→ {new_dwg}" if new_dwg else "—")),
+            })
+        # 상태 집계 (필터 무관 전체)
+        cur.execute(
+            """SELECT status, count(*) FROM eco_change WHERE tenant_id=%s GROUP BY status""", (tid,))
+        by_status = {k: v for k, v in cur.fetchall()}
+        summary = {
+            "total": sum(by_status.values()),
+            "applied": by_status.get("APPLIED", 0),
+            "pending": by_status.get("SUBMITTED", 0) + by_status.get("APPROVED", 0) + by_status.get("DRAFT", 0),
+            "rejected": by_status.get("REJECTED", 0),
+        }
+    return {"summary": summary, "rows": rows}
+
+
 @router.get("/eco/changes/{eco_no}")
 def eco_detail(eco_no: str) -> dict[str, Any]:
     """설계변경 상세 + 영향 분석 (D5)."""

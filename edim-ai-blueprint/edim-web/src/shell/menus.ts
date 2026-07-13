@@ -60,6 +60,7 @@ export const SCREEN_BY_NODE: Record<string, ScreenDef> = {
   'code-hierarchy': { screenId: 'code-hierarchy', code: 'M-3-1', title: 'Hierarchy 주소' },
   'plm-parts': { screenId: 'plm-parts', code: 'M-4-7', title: '부품 대장' },
   'plm-eco': { screenId: 'plm-eco', code: 'D-5', title: '설계 변경(ECO)' },
+  'plm-eco-ledger': { screenId: 'plm-eco-ledger', code: 'D-5L', title: '변경 이력 대장' },
   'plm-bom-compare': { screenId: 'plm-bom-compare', code: 'G-3B', title: 'BOM 비교' },
   'erp-warehouse': { screenId: 'erp-warehouse', code: 'M-8-4', title: '창고·저장위치' },
 }
@@ -106,6 +107,7 @@ export const MENU_TREE: Record<ModuleId, { title: string; nodes: TreeNode[] }> =
           { id: 'plm-quality', label: 'Quality (M-4-5)' },
           { id: 'plm-parts', label: '부품 대장 (M-4-7)' },
           { id: 'plm-eco', label: '설계 변경 ECO/ECN (D-5)' },
+          { id: 'plm-eco-ledger', label: '변경 이력 대장 (D-5L)' },
           { id: 'plm-bom-compare', label: 'BOM 비교 (G-3B)' },
         ],
       },
