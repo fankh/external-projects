@@ -66,7 +66,7 @@ export function ProductCodeMasterScreen({ active }: ScreenProps) {
 
   const cols: GridColumn<ProductCodeRow>[] = [
     { key: 'code', header: '코드', width: 130, code: true, render: (r) => r.mainCode },
-    { key: 'name', header: '코드명', render: (r) => r.codeName },
+    { key: 'name', header: '코드명 (더블클릭 편집)', editable: canWrite, editValue: (r) => r.codeName, render: (r) => r.codeName },
     { key: 'group', header: '그룹', width: 90, align: 'center', render: (r) => r.groupCode },
     { key: 'status', header: '상태', width: 84, align: 'center', render: (r) => <Chip tone={STATUS_TONE[r.status] ?? 'info'}>{r.status}</Chip> },
     { key: 'refs', header: '참조', width: 50, align: 'right', sortValue: (r) => r.refs, render: (r) => r.refs },
@@ -135,7 +135,13 @@ export function ProductCodeMasterScreen({ active }: ScreenProps) {
             <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>백엔드 연결 필요 — 제품 코드는 실DB(product_code)에서만 조회됩니다</div>
           ) : (
             <DenseGrid prefKey="product-codes" columns={cols} rows={rows} rowKey={(r) => r.productCodeId}
-              onRowDoubleClick={(r) => { if (canWrite) setEdit(r); else setStatusMsg(perm.denyWrite) }} />
+              onRowDoubleClick={(r) => { if (canWrite) setEdit(r); else setStatusMsg(perm.denyWrite) }}
+              onCellEdit={(r, _i, _k, v) => {
+                if (!v.trim() || v === r.codeName) return
+                void productCodeService.patch(r.productCodeId, { codeName: v.trim() })
+                  .then((ok) => { if (ok) { load(); setStatusMsg(`코드명 수정 ✓ — ${r.mainCode}: ${v.trim()}`) } })
+                  .catch((e: Error) => setStatusMsg(<span style={{ color: 'var(--err)' }}>{e.message}</span>))
+              }} />
           )}
         </GroupBox>
       </div>

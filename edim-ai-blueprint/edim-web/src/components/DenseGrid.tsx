@@ -18,6 +18,9 @@ export interface GridColumn<T> {
   sortValue?: (row: T) => string | number | null
   /** 명시적 정렬 비활성 (액션 열 등) */
   noSort?: boolean
+  /** G2 — 인라인 셀 편집(더블클릭). onCellEdit 과 함께 사용 · editValue 로 편집 초기값 지정 */
+  editable?: boolean
+  editValue?: (row: T) => string
 }
 
 type SortDir = 'asc' | 'desc'
@@ -47,6 +50,8 @@ export function DenseGrid<T>(props: {
   rowActions?: (row: T, index: number) => { label: string; onClick: () => void; danger?: boolean }[]
   /** G2 — 첫 데이터 컬럼 고정(가로 스크롤 시 식별 열 유지) */
   stickyFirst?: boolean
+  /** G2 — 인라인 셀 편집 커밋 (column.editable 열 더블클릭 → 입력 → Enter/blur) */
+  onCellEdit?: (row: T, index: number, key: string, value: string) => void
 }) {
   const [sort, setSort] = useState<{ key: string; dir: SortDir } | null>(null)
   // D8 — 컬럼 표시 설정
@@ -67,6 +72,9 @@ export function DenseGrid<T>(props: {
   const [colOrder, setColOrder] = useState<string[]>([])
   const resizeRef = useRef<{ key: string; startX: number; startW: number } | null>(null)
   const dragCol = useRef<string | null>(null)
+  // G2 — 인라인 셀 편집
+  const [editing, setEditing] = useState<{ row: T; idx: number; key: string } | null>(null)
+  const [editVal, setEditVal] = useState('')
   // G2 — 우클릭 컨텍스트 메뉴
   const [ctx, setCtx] = useState<{ x: number; y: number; actions: { label: string; onClick: () => void; danger?: boolean }[] } | null>(null)
   useEffect(() => {
@@ -312,6 +320,11 @@ export function DenseGrid<T>(props: {
 
   const ms = props.multiSelect
   const stickOff = ms ? 26 : 0
+  const commitEdit = () => {
+    const ed = editing
+    if (ed && props.onCellEdit) props.onCellEdit(ed.row, ed.idx, ed.key, editVal)
+    setEditing(null)
+  }
   const table = (
     <table ref={gridRef} className="g"
       tabIndex={(props.onRowClick || findable) ? 0 : undefined} onKeyDown={onKeyDown}
@@ -392,10 +405,29 @@ export function DenseGrid<T>(props: {
               ) : null}
               {cols.map((c) => {
                 const stick = props.stickyFirst && c === cols[0]
+                const canEdit = c.editable && !!props.onCellEdit
+                const isEditing = editing && editing.key === c.key && props.rowKey(editing.row, editing.idx) === k
                 return (
                   <td key={c.key} className={[tdClass(c), stick ? 'stick' : ''].filter(Boolean).join(' ') || undefined}
                     style={stick ? { left: stickOff } : undefined}
-                    onContextMenu={(e) => openCtx(e, row, origIdx, c)}>{c.render(row, origIdx)}</td>
+                    onContextMenu={(e) => openCtx(e, row, origIdx, c)}
+                    onDoubleClick={canEdit ? (e) => {
+                      e.stopPropagation()
+                      setEditVal(c.editValue ? c.editValue(row) : String(cellText(c, row, origIdx)))
+                      setEditing({ row, idx: origIdx, key: c.key })
+                    } : undefined}>
+                    {isEditing ? (
+                      <input className="in" data-cell-edit autoFocus value={editVal}
+                        style={{ width: '100%', height: 18, fontSize: 10.5, padding: '0 2px' }}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setEditVal(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
+                          else if (e.key === 'Escape') { e.preventDefault(); setEditing(null) }
+                        }} />
+                    ) : c.render(row, origIdx)}
+                  </td>
                 )
               })}
             </tr>

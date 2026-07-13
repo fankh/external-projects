@@ -280,7 +280,7 @@ export function SelectionScreen({ active }: ScreenProps) {
                 <CadSvg doc={cadDoc} />
               ) : (
                 <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>
-                  {cadOffline ? 'CAD 작도는 백엔드가 필요합니다 (MOCK 모드)' : '작도 중…'}
+                  {cadOffline ? 'CAD 서버 연결 실패 — 새로고침하세요 (일시적 연결 오류)' : '작도 중…'}
                 </div>
               )}
             </div>

@@ -189,7 +189,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
         // 백엔드 불가 → 편집(모의) 캔버스로 폴백
         setCadOffline(true)
         setCadMode(false)
-        shell.setStatusMsg('CAD 작도는 백엔드가 필요합니다 — 편집(모의) 캔버스 표시 (MOCK 모드)')
+        shell.setStatusMsg('CAD 서버 연결 실패 — 편집 캔버스로 폴백 (새로고침 시 서버 도면 복원)')
       } else {
         setCadDoc(d)
         setEditFileId(null)   // 재작도 시 편집 대상 파일 무효화(다음 편집에서 재실체화)
@@ -416,7 +416,7 @@ export function DesignEditorScreen({ active, tab }: ScreenProps) {
               ) : (
                 <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>
                   {cadOffline
-                    ? t('editor.cadNeedsBackend', 'CAD 작도는 백엔드가 필요합니다 (MOCK 모드)')
+                    ? t('editor.cadNeedsBackend', 'CAD 서버 연결 실패 — 새로고침하세요 (일시적 연결 오류)')
                     : t('editor.drawing', '작도 중…')}
                 </div>
               )}

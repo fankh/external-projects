@@ -154,7 +154,7 @@ export function CadViewerScreen({ tab }: ScreenProps) {
               {error
                 ? <span style={{ color: 'var(--err)' }}>{error}</span>
                 : offline
-                  ? <>CAD 파싱은 백엔드가 필요합니다 (현재 MOCK 모드)<br />
+                  ? <>CAD 서버 연결 실패 — 새로고침하세요 (일시적 연결 오류)<br />
                     <span style={{ fontSize: 10.5 }}>ezdxf 파서 — DWG 는 ODA File Converter 설정 후 지원</span></>
                   : '로드 중…'}
             </div>
