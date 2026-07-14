@@ -2,11 +2,10 @@
 #
 #   docker compose up -d --build          # backend 기동 (127.0.0.1:8000)
 #
-# 프론트엔드는 정적 빌드 후 호스트 nginx가 서빙:
-#   docker run --rm -v ./frontend:/app -w /app node:20-alpine sh -c "npm ci && npm run build"
-#   sudo rsync -a --delete frontend/dist/ /var/www/edim/
-#
-# 호스트 nginx가 TLS 종단 + / → /var/www/edim + /api → 127.0.0.1:8000 프록시.
+# 프론트엔드 (P6 이후 — Next.js SSR):
+#   docker compose up -d --build web-next    # Node 런타임 127.0.0.1:3000
+#   호스트 nginx: / → 127.0.0.1:3000 (리버스 프록시), /api/v1 → :8000, /docs·/minio 유지, TLS·BasicAuth 유지.
+#   (legacy 정적 SPA 서빙 /var/www/edim 은 컷오버 시 제거. 롤백=nginx root 를 정적으로 되돌림.)
 services:
   backend:
     build: ./backend
@@ -20,6 +19,22 @@ services:
     networks:
       - default
       - infra   # edim-postgres (~/apps/infra) 접근 — DATABASE_URL 은 backend/.env
+
+  web-next:
+    build:
+      context: ./edim-web-next
+      args:
+        # 서버 컴포넌트/액션이 이 도메인으로 FastAPI 호출 (컨테이너→호스트 nginx 경유 또는 backend 직결)
+        EDIM_API_BASE: ${EDIM_API_BASE:-https://edim.seekerslab.com/api/v1}
+    container_name: edim-web-next
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      EDIM_API_BASE: ${EDIM_API_BASE:-https://edim.seekerslab.com/api/v1}
+      NODE_ENV: production
+    networks:
+      - default
 
 networks:
   infra:

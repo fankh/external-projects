@@ -77,4 +77,12 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
 - **P5 진행 중 — 권한/역할 가드**: `lib/auth.ts`(SSR `getMe`·`getPermissions`·`hasLevel`) + `PermissionProvider`(클라 컨텍스트, me+perms 서버 시드, `canWrite`/`isAdmin`/`canReadAdmin`, LEVEL_RANK) + `AccessDenied`(서버 페이지 가드 표준). 레이아웃: me+perms SSR 로드→NAV `minLevel` 필터(roles·audit=SETUP 숨김)+타이틀바 사용자 표기. 페이지 가드: roles·audit `hasLevel('SETUP')` 미달 시 AccessDenied. 쓰기 게이팅 레퍼런스: CompanyForm `canWrite('company_master')` 로 폼 disable+사유 툴팁. **프론트=UX 게이팅, 서버 RBAC 이 실 가드**. 남음(P5): 알림·서버 동기 prefs.
 - **P5 알림 + 쓰기 게이팅 확장**: `NotificationBell`(타이틀바 벨 — SSR digest 로 미읽음 배지 시드, 열 때 `/notifications` 로드, 항목 클릭=읽음 처리+링크 이동, 모두 읽음 `/notifications/read-all`) + `components/notifications/actions.ts`(list/digest/markRead/markAllRead 서버액션). 쓰기 게이팅을 holidays(`calendar`)·inventory(`inventory`)·cost-actual(`cost_actual`) 폼으로 확장(disable+🔒 사유). 
 - **P5 완료 — 서버 동기 prefs**: `lib/prefActions.ts`(`getPref`/`setPref` 서버액션 → GET/PUT `/prefs/{key}`) + `prefClient` write-through(서버 우선·localStorage 캐시 폴백, 오프라인/즉시성). DenseGrid 컬럼 폭/순서/표시가 SPA 와 동일하게 서버 영속. **P5 전체 완료**(역할 가드·알림·서버 prefs).
-- **남은 작업 — P6만**: Node 런타임 배포(`next start` 또는 standalone) + nginx per-path 컷오버(정적 SPA 서빙만 제거, TLS·BasicAuth·`/api/v1`·`/docs`·`/minio` 프록시는 유지 — 리버스 프록시로 축소). ※현재까지 nginx 중지 = 빌드검증만, 런타임 배포 전.
+- **P6 배포 아티팩트 준비 완료(빌드검증)**: `next.config` `output:'standalone'` + `edim-web-next/Dockerfile`(멀티스테이지, standalone `server.js` — 빌드 확인) + `.dockerignore` + `public/.gitkeep` + docker-compose `web-next` 서비스(127.0.0.1:3000, `EDIM_API_BASE` arg/env) + `deploy/nginx.edim.conf`(리버스 프록시 레퍼런스). 실 컷오버는 서버에서 실행(아래 런북).
+
+### P6 컷오버 런북 (서버에서 실행 — nginx 재구성 포함)
+1. `sudo git -C ~/apps/external-projects/edim-ai-blueprint reset --hard origin/master`
+2. `docker compose up -d --build web-next` → `curl -I http://127.0.0.1:3000` (200 확인)
+3. `sudo cp deploy/nginx.edim.conf /etc/nginx/sites-available/edim` (기존 정적 `location /` → Next 프록시로 교체; `/api/v1`·`/docs`·`/minio`·TLS·BasicAuth 유지)
+4. `sudo nginx -t && sudo systemctl reload nginx` (중지 상태였다면 `start`)
+5. 스모크: 로그인→SSR 렌더→쓰기 1건→알림 벨. 실패 시 롤백=`location /` 를 정적 root(`/var/www/edim`)로 되돌리고 reload.
+- **주의**: 현재 nginx 중지 상태 = 사이트/API/TLS 전부 다운. 컷오버가 곧 복구. 정적 SPA(`edim-web/`)는 그대로 두어 즉시 롤백 경로 유지.
