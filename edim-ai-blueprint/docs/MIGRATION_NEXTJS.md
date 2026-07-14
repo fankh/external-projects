@@ -84,5 +84,5 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
 2. `docker compose up -d --build web-next` → `curl -I http://127.0.0.1:3000` (200 확인)
 3. `sudo cp deploy/nginx.edim.conf /etc/nginx/sites-available/edim` (기존 정적 `location /` → Next 프록시로 교체; `/api/v1`·`/docs`·`/minio`·TLS·BasicAuth 유지)
 4. `sudo nginx -t && sudo systemctl reload nginx` (중지 상태였다면 `start`)
-5. 스모크: 로그인→SSR 렌더→쓰기 1건→알림 벨. 실패 시 롤백=`location /` 를 정적 root(`/var/www/edim`)로 되돌리고 reload.
+5. 스모크: `cd edim-web-next && BASE=http://127.0.0.1:3000 EDIM_USER=edim EDIM_PASS=edim npm run smoke` (미인증 가드·로그인·쿠키 SSR 렌더·핵심 화면·알림 벨 검증, 실패 시 exit 1). 컷오버 후 `BASE=https://edim.seekerslab.com` 로 재실행. 실패 시 롤백=`location /` 를 정적 root(`/var/www/edim`)로 되돌리고 reload.
 - **주의**: 현재 nginx 중지 상태 = 사이트/API/TLS 전부 다운. 컷오버가 곧 복구. 정적 SPA(`edim-web/`)는 그대로 두어 즉시 롤백 경로 유지.
