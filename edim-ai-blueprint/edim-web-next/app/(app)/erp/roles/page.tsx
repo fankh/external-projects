@@ -1,10 +1,13 @@
 import { apiServer, ApiError } from '@/lib/api'
 import { ScreenHeader } from '@/components/ScreenHeader'
+import { AccessDenied } from '@/components/AccessDenied'
+import { hasLevel } from '@/lib/auth'
 import { RoleGrid, type RoleRow } from './RoleGrid'
 
 export const dynamic = 'force-dynamic'
 
 export default async function RolesPage() {
+  if (!(await hasLevel('SETUP'))) return <AccessDenied minLevel="SETUP" />
   let rows: RoleRow[] = []
   let err: string | null = null
   try {

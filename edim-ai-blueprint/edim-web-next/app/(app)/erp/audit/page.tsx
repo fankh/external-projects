@@ -1,4 +1,6 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { AccessDenied } from '@/components/AccessDenied'
+import { hasLevel } from '@/lib/auth'
 import { AuditGrid, type AuditRow } from './AuditGrid'
 
 interface AuditData { rows: AuditRow[]; actions?: string[]; users?: string[] }
@@ -6,6 +8,7 @@ interface AuditData { rows: AuditRow[]; actions?: string[]; users?: string[] }
 export const dynamic = 'force-dynamic'
 
 export default async function AuditPage() {
+  if (!(await hasLevel('SETUP'))) return <AccessDenied minLevel="SETUP" />
   let data: AuditData | null = null
   let err: string | null = null
   try {
