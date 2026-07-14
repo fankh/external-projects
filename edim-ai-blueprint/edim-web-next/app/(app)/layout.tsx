@@ -14,6 +14,8 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/erp/tasks', key: 'menu.com-tasks', ko: '업무함 (M-15-3)' },
   { href: '/common/folder', key: 'menu.com-folder', ko: 'Project Folder (M-15-8)' },
   { href: '/cpq/documents', key: 'menu.cpq-docmgmt', ko: '문서함 (M-5-4)' },
+  { href: '/cpq/doc-template', key: 'menu.cpq-doctpl', ko: 'Document Templet (C-3)' },
+  { href: '/detail/output', key: 'menu.detail-output', ko: '산출물 문서 상세 (G3-a)' },
   { href: '/erp/process', key: 'menu.erp-process', ko: '프로세스 정의 (S-4-1-2)' },
   { href: '/toolbox/macros', key: 'menu.tbx-macro', ko: 'Macro Studio (S-2-2)' },
   { href: '/toolbox/ui-designer', key: 'menu.tbx-ui-designer', ko: 'UI Designer (S-2-1)' },
