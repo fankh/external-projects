@@ -44,6 +44,8 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/erp/inventory', key: 'menu.erp-inventory', ko: '재고 관리 (D-2)' },
   { href: '/erp/work-order', key: 'menu.erp-work-order', ko: '작업지시 (D-3)' },
   { href: '/erp/quality', key: 'menu.erp-quality', ko: '검사·품질 (D-4)' },
+  { href: '/plm/quality', key: 'menu.plm-quality', ko: '설계 검증 규칙 (D-4V)' },
+  { href: '/plm/work-process', key: 'menu.plm-work-process', ko: '작업공정 MAKE/BUY (G3-c)' },
   { href: '/erp/purchase', key: 'menu.erp-purchase', ko: '구매·발주 요청 (M-8-2)' },
   { href: '/erp/cost-actual', key: 'menu.erp-cost-actual', ko: '원가 실적·차이 (D-6)' },
   { href: '/erp/milestones', key: 'menu.erp-milestone', ko: '일정·마일스톤 (D-7)' },
