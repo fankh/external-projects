@@ -8,8 +8,6 @@ __pycache__/
 node_modules/
 frontend/dist/
 # edim-web-react/dist 는 배포 산출물로 커밋한다 (서버 node 불필요)
-# 로컬 백업 사본(레거시 React SPA) — git 이력이 원본 보존, 중복 커밋 방지
-edim-web-react.bak/
 
 # Generated samples & uploads
 backend/sample_data/*.dxf
