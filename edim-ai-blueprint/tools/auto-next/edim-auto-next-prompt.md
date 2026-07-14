@@ -5,7 +5,7 @@ EDIM 백로그 자동 계속 ("do next") — 무인 실행 회차.
 2. `docs/EDIM_미구현기능목록.md` 를 읽고 **다음 미체크 배치**(B1~B15 순서, 🔶 표시는 잔여 항목부터)를 선택한다.
 3. 그 배치를 **통째로** 구현한다:
    - 백엔드: `backend/app/routers/edim.py` + `backend/app/services/` (기존 패턴 준수 — require_auth/min_level, `_conn()` 은 autocommit, 정직한 4xx detail)
-   - 프론트: `edim-web/` — `npm run build` 통과 필수. mock 스타일 가짜 성공 금지: 쓰기 실패는 붉은 "백엔드 연결 필요" 상태 메시지.
+   - 프론트: `edim-web-react/` — `npm run build` 통과 필수. mock 스타일 가짜 성공 금지: 쓰기 실패는 붉은 "백엔드 연결 필요" 상태 메시지.
    - 회귀: `npm run preview` 백그라운드 + `PYTHONUTF8=1 py tests/e2e_fallback.py` → **52/52 유지** (honest-write 로 기대값이 바뀌면 스위트를 그에 맞게 수정).
    - 커밋: `v<다음버전>: <type>(<scope>): <설명>` — AI 표기·Co-Authored-By 절대 금지. master push (auto-deploy 가 2분 내 배포).
    - 배포 확인: `ssh edim-server 'journalctl -u edim-autodeploy.service ...'` 로 "deploy done: <sha>" 대기 + `/api/v1/health` ok.

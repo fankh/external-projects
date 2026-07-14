@@ -34,7 +34,7 @@ if ! docker compose build backend; then
 fi
 
 # 2) 정적 자산 먼저 배포 (백엔드 무관, 즉시 반영)
-rsync -a --delete edim-web/dist/ /var/www/edim/edim-static/
+rsync -a --delete edim-web-react/dist/ /var/www/edim/edim-static/
 rsync -a --delete docs/ /var/www/edim/docs/files/
 cp docs/portal.html /var/www/edim/docs/index.html
 chown -R www-data:www-data /var/www/edim/edim-static /var/www/edim/docs
