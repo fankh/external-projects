@@ -8,6 +8,8 @@ import { getMe, getPermissions, LEVEL_RANK } from '@/lib/auth'
 import { I18nProvider } from '@/components/I18nProvider'
 import { PermissionProvider } from '@/components/PermissionProvider'
 import { LocaleSwitcher } from '@/components/LocaleSwitcher'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { notificationDigest } from '@/components/notifications/actions'
 
 // 이관 완료 화면만 네비에 노출(점진 확장). label 은 i18n. minLevel = 진입 최소 등급(SETUP 등, 미지정=전체).
 const NAV: { href: string; key: string; ko: string; minLevel?: string }[] = [
@@ -82,8 +84,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const bundle = bundleFor(locale)
   const t = (k: string, ko: string) => translate(bundle, k, ko)
 
-  // P5 — 권한 게이팅 시드 (me + permissions SSR)
-  const [me, perms] = await Promise.all([getMe(), getPermissions()])
+  // P5 — 권한 게이팅 시드 (me + permissions SSR) + 알림 요약
+  const [me, perms, digest] = await Promise.all([getMe(), getPermissions(), notificationDigest()])
   const rank = LEVEL_RANK[me?.userLevel ?? 'GENERAL'] ?? 0
   // 진입 최소 등급 미만 화면은 네비에서 숨김(서버 RBAC 이 실제 가드)
   const nav = NAV.filter((n) => !n.minLevel || rank >= (LEVEL_RANK[n.minLevel] ?? 0))
@@ -97,6 +99,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <span style={{ fontSize: 10.5, opacity: 0.8 }}>NOVA Solution · Next SSR</span>
         <span style={{ flex: 1 }} />
         {me ? <span style={{ fontSize: 10.5, color: 'var(--txt-mute)' }}>{me.name} · {me.userLevel}</span> : null}
+        <NotificationBell initialUnread={digest.unread} />
         <LocaleSwitcher />
         <form action={logout}>
           <button type="submit" className="b" style={{ height: 18, fontSize: 10 }}>로그아웃</button>
