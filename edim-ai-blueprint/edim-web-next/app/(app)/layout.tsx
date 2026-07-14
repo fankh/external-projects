@@ -24,6 +24,7 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/erp/companies', key: 'menu.erp-company-master', ko: '거래처 대장 (M-14-2)' },
   { href: '/plm/parts', key: 'menu.plm-parts', ko: '부품 대장 (M-4-7)' },
   { href: '/plm/drawings', key: 'menu.plm-drawings', ko: '도면 대장 (M-4-1)' },
+  { href: '/plm/design', key: 'menu.plm-design', ko: 'Design Editor (S-4-1-1)' },
   { href: '/plm/eco-change', key: 'menu.plm-eco-change', ko: '설계 변경 (ECR/ECO)' },
   { href: '/plm/bom-compare', key: 'menu.plm-bom-compare', ko: 'BOM 비교 (M-4-8)' },
   { href: '/detail/part', key: 'menu.detail-part', ko: '부품 상세 (G3-b)' },
