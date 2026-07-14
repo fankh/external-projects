@@ -16,6 +16,7 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/cpq/documents', key: 'menu.cpq-docmgmt', ko: '문서함 (M-5-4)' },
   { href: '/erp/process', key: 'menu.erp-process', ko: '프로세스 정의 (S-4-1-2)' },
   { href: '/toolbox/macros', key: 'menu.tbx-macro', ko: 'Macro Studio (S-2-2)' },
+  { href: '/toolbox/ui-designer', key: 'menu.tbx-ui-designer', ko: 'UI Designer (S-2-1)' },
   { href: '/toolbox/templets', key: 'menu.tbx-templet', ko: 'Templet 관리 (S-2-3)' },
   { href: '/cpq/run', key: 'menu.cpq-run', ko: 'Run 파이프라인 (C-1)' },
   { href: '/toolbox/runs', key: 'menu.tbx-runs', ko: 'Run 이력·정리 (E-3)' },
