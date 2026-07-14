@@ -12,6 +12,8 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/erp/dashboard', key: 'menu.erp-dashboard', ko: 'ERP Dashboard' },
   { href: '/common/approval', key: 'menu.com-approval', ko: '승인함 (M-15-2)' },
   { href: '/erp/tasks', key: 'menu.com-tasks', ko: '업무함 (M-15-3)' },
+  { href: '/common/mobile', key: 'menu.com-mobile', ko: '모바일 미리보기 (APP)' },
+  { href: '/cpq/print-setup', key: 'menu.cpq-print', ko: 'Print Set-up (S-3-4)' },
   { href: '/common/folder', key: 'menu.com-folder', ko: 'Project Folder (M-15-8)' },
   { href: '/cpq/documents', key: 'menu.cpq-docmgmt', ko: '문서함 (M-5-4)' },
   { href: '/cpq/doc-template', key: 'menu.cpq-doctpl', ko: 'Document Templet (C-3)' },

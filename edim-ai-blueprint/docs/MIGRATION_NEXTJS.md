@@ -59,7 +59,7 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
 ## 현황
 - **P1 완료** — 기반(쿠키 인증·미들웨어·서버 API·i18n·앱 크롬) + 레퍼런스 화면 `/erp/eco-ledger`. 런타임 SSR 실증.
 - **P2 완료** — 공유 컴포넌트 전부 이관: `controls`·`DenseGrid`·클라이언트 i18n·**`CadSvg`(최난도)**·`cadBridge`·`cadOps`. 하드 의존성 클리어. 남음: `Cvs`(블록 캔버스, 필요 화면 시).
-- **P3 진행 중** — 읽기 화면 배치 이관. 레시피 정착(page.tsx SSR fetch + `'use client'` DenseGrid, `ScreenHeader` 공용). Report Center 는 순수 서버 컴포넌트(카드, 클라 JS 127B).
+- **P3 완료** — 전 59개 화면 이관 완료. 레시피 정착(page.tsx SSR fetch + `'use client'` 아일랜드, `ScreenHeader` 공용). 최난도 CAD 에디터(Design Editor·UI Designer·Selection) + 비동기 Run 파이프라인 + 바이너리/멀티파트 Route Handler(CAD import/export·PDF 렌더·견적서) 포함.
 - **CPQ Run 39/59**: **비동기 파이프라인** — 서버액션 `startRun`(POST 202)→`pollRun` 800ms 폴링 루프, 진행률·단계 그리드·산출물·로그. 비동기 패턴 실증(서버 액션이 백엔드 백그라운드 태스크를 폴링). CostPanel(cst_calc·PCR·견적 확정)은 후속 슬라이스.
 - **이관 43/59 화면**: +tech-data(`/tables/tech-data?airflow=&pressure=` 성능표, Enter 재조회)·eco-change(`/eco/changes` ECR/ECO 대장)·variant(`/codes/values?group=` 배리언트 상수, ?group= 전환)·projects(`/projects` 대장).
 - **이관 45/59 화면**: +bom-compare(`/codes/bom-compare?base=&target=` 추가/삭제/변경 3분할 diff, Enter 비교)·detail/part(`/parts/detail`+`/drawings/{no}/bom` 병렬 — 속성·공정·치수바인딩·BOM 드릴다운).
@@ -72,4 +72,6 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
 - **이관 53/59 화면 — UI Designer**: Widget 팔레트 클릭 배치 + Object Inspector/Property Editor + 동적 렌더 미리보기 + layout_def 저장(`/toolbox/forms/{name}` PUT, version+1) + 게시 승인 + AI UI 초안(`/ai/ui-suggest`). useEditHistory(undo/redo) 재사용. SSR: 저장 레이아웃 복원. 두 최난도 에디터(design·ui) 완료. 
 - **Run CostPanel 완결**: Run 성공 후 원가 상세(cst_calc)→PCR 수익성(`/cost/pcr`)→견적 확정(`/cost/quotations`, 통화·세금) 슬라이스. loadCostPanel 4병렬 서버액션 + 견적서 PDF Route Handler(`/api/cost/quotation-pdf`). Run 화면 기능 완비. 
 - **이관 54/59 화면 — Selection(C-1)**: 슬롯 선택 → BOM 재전개(`/codes/products/expand` 재귀 CTE+slot_map) + 구성도 Cvs/CadSvg 토글(`/cad/arrangement`) + 견적안 저장/불러오기(`/cpq/selections`) + Run 실행(→`/cpq/run?selectionId=`) + CommandLine. SSR 초기: expand+selections+arrangement 병렬. 
-- **이관 56/59 화면**: +doc-template(C-3 — Input→Macro 밀도 계산→습공기 선도 Cvs→Print, 공용 `/api/render/pdf` Route Handler + `lib/pdf` openRenderedPdf)·detail/output(G3-a — SSR register-output 채번→상태흐름 Set-up→Check→Approve→Accepted PATCH·워터마크 PDF). 공용 PDF 렌더 인프라 확보. 남음: print-setup·mobile-preview. ※nginx 중지 중=빌드검증만.
+- **이관 56/59 화면**: +doc-template(C-3 — Input→Macro 밀도 계산→습공기 선도 Cvs→Print, 공용 `/api/render/pdf` Route Handler + `lib/pdf` openRenderedPdf)·detail/output(G3-a — SSR register-output 채번→상태흐름 Set-up→Check→Approve→Accepted PATCH·워터마크 PDF). 공용 PDF 렌더 인프라 확보. 
+- **이관 59/59 화면 — P3 완료** ✅: +print-setup(S-3-4 — 양식 자리표시자 캔버스·워터마크·PDF 실렌더·게시 승인)·mobile-preview(APP — 폰 프레임 3탭: 승인함 승인/반려·업무함 완료·입고 처리, 서버액션 revalidate). **전 59개 SPA 화면 이관 완료**(58 (app) 페이지 + /login). 전체 build 통과.
+- **남은 작업(비화면)**: P5(권한/역할 가드·알림·서버 동기 prefs), P6(Node 런타임 배포 + nginx per-path 컷오버). ※현재까지 nginx 중지 = 빌드검증만, 런타임 배포 전.
