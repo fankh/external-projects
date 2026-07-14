@@ -5,6 +5,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
 import { startRun, pollRun, type RunResult, type RunStep, type RunOutput, type RunLogEntry } from './actions'
+import { CostPanel } from './CostPanel'
 
 const STEP_CHIP: Record<RunStep['status'], { tone: 'ok' | 'warn' | 'info'; label: string } | null> = {
   PENDING: null, RUNNING: { tone: 'info', label: '실행 중' }, DONE: { tone: 'ok', label: '완료' }, WARN: { tone: 'warn', label: 'warn 1' },
@@ -88,6 +89,7 @@ export function RunPanel({ selectionId }: { selectionId?: number }) {
           </div>
         </div>
       </div>
+      {done && result?.runId ? <CostPanel runId={result.runId} /> : null}
     </div>
   )
 }
