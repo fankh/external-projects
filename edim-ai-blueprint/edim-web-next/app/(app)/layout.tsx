@@ -28,6 +28,7 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/plm/bom-compare', key: 'menu.plm-bom-compare', ko: 'BOM 비교 (M-4-8)' },
   { href: '/detail/part', key: 'menu.detail-part', ko: '부품 상세 (G3-b)' },
   { href: '/detail/event', key: 'menu.detail-event', ko: '이벤트 상세 (E-4)' },
+  { href: '/detail/code', key: 'menu.detail-code', ko: '코드 상세 (드릴다운)' },
   { href: '/code/data-i18n', key: 'menu.code-data-i18n', ko: '데이터 다국어 (M-3-9)' },
   { href: '/cpq/tech-data', key: 'menu.cpq-techdata', ko: 'Tech Data (SVC-05)' },
   { href: '/plm/duct', key: 'menu.plm-duct', ko: '건축설비 Duct (M-4-3)' },
