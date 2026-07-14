@@ -175,7 +175,8 @@ py docs/tools/make_docs_portal.py         # 다운로드 포털 (파일 추가·
 | `C:\repos\external-projects` | 보조 클론 | `git pull` |
 | 서버 `~/apps/external-projects` | 배포 소스 | **자동** — `edim-autodeploy.timer`(2분)가 push 감지 → pull·docker build·rsync (로그: `journalctl -u edim-autodeploy`) |
 | https://edim.seekerslab.com/design/ | 화면설계서 열람 | 화면설계서 변경 시 `sudo cp docs/EDIM_화면설계서.html /var/www/edim/design/index.html` |
-| **https://edim.seekerslab.com/cpq · /plm · /code · /erp · /toolbox · /common** | **EDIM 업무 앱 (edim-web — dense B안 실구현, mock API, 24화면 전량+상세 4종 드릴다운)** | `edim-web/` 수정 → `npm run build`(dist 커밋) → 서버 `git pull` 후 `sudo rsync -a --delete edim-ai-blueprint/edim-web/dist/ /var/www/edim/edim-static/` |
+| **https://edim.seekerslab.com/** (전 화면) | **EDIM 업무 앱 — 메인 = Next.js SSR (`edim-web-next/`, 59화면 전량, 쿠키 인증·서버 렌더·서버 액션)** | `edim-web-next/` 수정 → push → 서버 `edim-autodeploy` 가 `docker compose build/up web-next`(127.0.0.1:3000) + nginx `/`→3000. 컷오버 런북: `docs/MIGRATION_NEXTJS.md` §P6 |
+| ~~https://edim.seekerslab.com (정적)~~ 레거시 | **Vite React SPA (`edim-web-react/`, 백업 `edim-web-react.bak/`)** — Next 로 대체됨. 롤백 자산으로만 `/var/www/edim/edim-static` 유지 | `edim-web-react/` 는 동결(feature freeze). 롤백 시 nginx `location /` 를 정적 root 로 되돌림 |
 | **https://edim.seekerslab.com/docs/** | **산출물 다운로드 포털** (29종) | `py docs/tools/make_docs_portal.py` → 커밋·푸시 → 서버 `git pull` 후 `sudo rsync -a --delete docs/ /var/www/edim/docs/files/ && sudo cp docs/portal.html /var/www/edim/docs/index.html` |
 
 > **접근 제어**: `/design/`·`/docs/`·`/api/`·루트(/)는 Basic Auth `edim`/`edim` (`/etc/nginx/.edim_htpasswd`).
