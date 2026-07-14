@@ -18,6 +18,7 @@ const NAV: { href: string; key: string; ko: string }[] = [
   { href: '/toolbox/macros', key: 'menu.tbx-macro', ko: 'Macro Studio (S-2-2)' },
   { href: '/toolbox/ui-designer', key: 'menu.tbx-ui-designer', ko: 'UI Designer (S-2-1)' },
   { href: '/toolbox/templets', key: 'menu.tbx-templet', ko: 'Templet 관리 (S-2-3)' },
+  { href: '/cpq/selection', key: 'menu.cpq-selection', ko: '제품 선정 (C-1)' },
   { href: '/cpq/run', key: 'menu.cpq-run', ko: 'Run 파이프라인 (C-1)' },
   { href: '/toolbox/runs', key: 'menu.tbx-runs', ko: 'Run 이력·정리 (E-3)' },
   { href: '/erp/projects', key: 'menu.erp-project', ko: '프로젝트 대장 (F-1)' },
