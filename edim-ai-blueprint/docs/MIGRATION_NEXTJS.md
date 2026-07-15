@@ -77,12 +77,11 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
 - **P5 진행 중 — 권한/역할 가드**: `lib/auth.ts`(SSR `getMe`·`getPermissions`·`hasLevel`) + `PermissionProvider`(클라 컨텍스트, me+perms 서버 시드, `canWrite`/`isAdmin`/`canReadAdmin`, LEVEL_RANK) + `AccessDenied`(서버 페이지 가드 표준). 레이아웃: me+perms SSR 로드→NAV `minLevel` 필터(roles·audit=SETUP 숨김)+타이틀바 사용자 표기. 페이지 가드: roles·audit `hasLevel('SETUP')` 미달 시 AccessDenied. 쓰기 게이팅 레퍼런스: CompanyForm `canWrite('company_master')` 로 폼 disable+사유 툴팁. **프론트=UX 게이팅, 서버 RBAC 이 실 가드**. 남음(P5): 알림·서버 동기 prefs.
 - **P5 알림 + 쓰기 게이팅 확장**: `NotificationBell`(타이틀바 벨 — SSR digest 로 미읽음 배지 시드, 열 때 `/notifications` 로드, 항목 클릭=읽음 처리+링크 이동, 모두 읽음 `/notifications/read-all`) + `components/notifications/actions.ts`(list/digest/markRead/markAllRead 서버액션). 쓰기 게이팅을 holidays(`calendar`)·inventory(`inventory`)·cost-actual(`cost_actual`) 폼으로 확장(disable+🔒 사유). 
 - **P5 완료 — 서버 동기 prefs**: `lib/prefActions.ts`(`getPref`/`setPref` 서버액션 → GET/PUT `/prefs/{key}`) + `prefClient` write-through(서버 우선·localStorage 캐시 폴백, 오프라인/즉시성). DenseGrid 컬럼 폭/순서/표시가 SPA 와 동일하게 서버 영속. **P5 전체 완료**(역할 가드·알림·서버 prefs).
-- **P6 배포 아티팩트 준비 완료(빌드검증)**: `next.config` `output:'standalone'` + `edim-web-next/Dockerfile`(멀티스테이지, standalone `server.js` — 빌드 확인) + `.dockerignore` + `public/.gitkeep` + docker-compose `web-next` 서비스(127.0.0.1:3000, `EDIM_API_BASE` arg/env) + `deploy/nginx.edim.conf`(리버스 프록시 레퍼런스). 실 컷오버는 서버에서 실행(아래 런북).
-
-### P6 컷오버 런북 (서버에서 실행 — nginx 재구성 포함)
-1. `sudo git -C ~/apps/external-projects/edim-ai-blueprint reset --hard origin/master`
-2. `docker compose up -d --build web-next` → `curl -I http://127.0.0.1:3000` (200 확인)
-3. `sudo cp deploy/nginx.edim.conf /etc/nginx/sites-available/edim` (기존 정적 `location /` → Next 프록시로 교체; `/api/v1`·`/docs`·`/minio`·TLS·BasicAuth 유지)
-4. `sudo nginx -t && sudo systemctl reload nginx` (중지 상태였다면 `start`)
-5. 스모크: `cd edim-web-next && BASE=http://127.0.0.1:3000 EDIM_USER=edim EDIM_PASS=edim npm run smoke` (미인증 가드·로그인·쿠키 SSR 렌더·핵심 화면·알림 벨 검증, 실패 시 exit 1). 컷오버 후 `BASE=https://edim.seekerslab.com` 로 재실행. 실패 시 롤백=`location /` 를 정적 root(`/var/www/edim`)로 되돌리고 reload.
-- **주의**: 현재 nginx 중지 상태 = 사이트/API/TLS 전부 다운. 컷오버가 곧 복구. 정적 SPA(`edim-web/`)는 그대로 두어 즉시 롤백 경로 유지.
+- **P6 배포 아티팩트 준비 완료(빌드검증)**: `next.config` `output:'standalone'` + `edim-web-next/Dockerfile`(멀티스테이지, standalone `server.js` — 빌드 확인) + `.dockerignore` + `public/.gitkeep` + docker-compose `web-next` 서비스(127.0.0.1:3000, `EDIM_API_BASE` arg/env) + `deploy/nginx.edim.conf`(리버스 프록시 레퍼런스).
+- **✅ P6 컷오버 완료 (2026-07-15, 사용자 재확인 후 실행)** — **Next.js SSR 이 메인 웹 콘솔.** 라이브 스모크 `BASE=https://edim.seekerslab.com` **13/13 통과**(미인증 가드·로그인·핵심 8화면 SSR·알림 벨). 실행 내역:
+  1. 서버 `.env`(edim-ai-blueprint/) — `EDIM_API_BASE=http://backend:8000/api/v1`. **주의: 공개 도메인 기본값은 서버에서 hairpin NAT 로 자기 도메인 접속 불가** → 컨테이너 간 직결(compose `default` 네트워크, 서비스명 `backend`).
+  2. `docker compose up -d --build web-next` → `:3000/login` 200.
+  3. nginx — **레퍼런스 conf 를 그대로 덮지 않고 라이브 구성과 병합**(사이트 파일명 `edim.seekerslab.com`): `location /`→Next 프록시(auth_basic off, 앱 자체 로그인) + `/_next/static` 장기캐시 + **Next 라우트 핸들러 `/api/cad/`·`/api/render/`·`/api/cost/` → Next**(더 구체적 prefix 로 FastAPI `/api/` 보다 우선), 유지=`/api/v1`(JSON 503 폴백)·`/docs` 포털·`/agents`·`/jenkins`·`/minio/ui`·certbot TLS·사이트 기본 BasicAuth. 레거시 SPA 라우트 블록(/cpq /plm …try_files)은 제거(→Next). 적용본=`deploy/nginx.edim.conf`(라이브와 동기), 백업=`…/sites-available/edim.seekerslab.com.bak-pre-next`.
+  4. `nginx -t && systemctl reload` → 스모크 13/13 + 보존 라우트 검증(docs 401·api health 200·edim-static 200·jenkins 200).
+  5. 신 autodeploy 설치(`sudo cp tools/edim-autodeploy.sh /usr/local/bin/`) — 이후 push 는 backend+web-next 빌드·기동 + Next 3000 health-gate.
+- **롤백**: nginx `location /` 를 정적(`try_files $uri /edim-static/index.html`)으로 되돌리고 reload — 레거시 React SPA(`edim-web-react/dist`, autodeploy 가 `/var/www/edim/edim-static` 에 계속 rsync)로 즉시 복귀. 백업 conf 복원이 가장 빠름.
