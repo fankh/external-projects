@@ -85,3 +85,8 @@ location / { try_files ... /edim-static/index.html; }   # 미이관 = legacy SPA
   4. `nginx -t && systemctl reload` → 스모크 13/13 + 보존 라우트 검증(docs 401·api health 200·edim-static 200·jenkins 200).
   5. 신 autodeploy 설치(`sudo cp tools/edim-autodeploy.sh /usr/local/bin/`) — 이후 push 는 backend+web-next 빌드·기동 + Next 3000 health-gate.
 - **롤백**: nginx `location /` 를 정적(`try_files $uri /edim-static/index.html`)으로 되돌리고 reload — 레거시 React SPA(`edim-web-react/dist`, autodeploy 가 `/var/www/edim/edim-static` 에 계속 rsync)로 즉시 복귀. 백업 conf 복원이 가장 빠름.
+
+### ⚠️ 기능 패리티 감사 (2026-07-15, 컷오버 직후 전수 대조)
+"전 59화면 이관"은 **조회(SSR) 기준**이다. 쓰기/워크플로는 **15/58 화면만 서버액션 보유** — 결재(승인함·X-review·업무함),
+대장 CRUD(도면·부품·ECO·프로젝트·단가·창고 등), Excel 왕복, PDF 발급, 셸 전역 계층(⌘K 검색·단축키·F-key 수신)이 미이관.
+전체 갭 목록·심각도·복구 로드맵(N1~N7): **docs/EDIM_Next_기능패리티감사.md**. 복구 완료 전 업무 쓰기 경로는 레거시(/edim-static) 병행 사용 가능.
