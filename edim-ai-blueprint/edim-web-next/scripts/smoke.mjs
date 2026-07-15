@@ -135,6 +135,13 @@ async function main() {
   await assertRenders('/erp/work-order', ['발행'], token)
   await assertRenders('/erp/anomaly', ['이상 스캔'], token)
 
+  // 4e) N3b ERP 공급망 복구 — 발주/입고/예약/검사/단가 액션 UI 렌더
+  await assertRenders('/erp/purchase', ['PO 발주 확정'], token)
+  await assertRenders('/erp/po', ['발주 생성'], token)
+  await assertRenders('/erp/inventory', ['가용재고 ATP'], token)
+  await assertRenders('/erp/quality', ['검사 등록'], token)
+  await assertRenders('/erp/prices', ['단가 등록'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 

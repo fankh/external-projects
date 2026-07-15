@@ -1,15 +1,23 @@
 import { apiServer, ApiError } from '@/lib/api'
-import { ScreenHeader } from '@/components/ScreenHeader'
 import { StockGrid, type StockRow } from './StockGrid'
 import { InboundForm } from './InboundForm'
+import { StockPanels, type AtpRow, type MovementRow, type ReservationRow } from './StockPanels'
 
 export const dynamic = 'force-dynamic'
 
 export default async function InventoryPage() {
   let rows: StockRow[] = []
+  let atp: AtpRow[] = []
+  let reservations: ReservationRow[] = []
+  let movements: MovementRow[] = []
   let err: string | null = null
   try {
-    rows = await apiServer<StockRow[]>('/erp/stock')
+    ;[rows, atp, reservations, movements] = await Promise.all([
+      apiServer<StockRow[]>('/erp/stock'),
+      apiServer<AtpRow[]>('/erp/stock/atp').catch(() => []),
+      apiServer<ReservationRow[]>('/erp/stock/reservations?status=ACTIVE').catch(() => []),
+      apiServer<MovementRow[]>('/erp/stock/trace').catch(() => []),
+    ])
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
@@ -22,12 +30,15 @@ export default async function InventoryPage() {
         {!err ? <span className="chip info">{rows.length}종</span> : null}
         {!err ? <span className="chip ok">총 평가액 ₩{Math.round(totalValue).toLocaleString()}</span> : null}
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /erp/stock</span>
+        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /erp/stock · atp · reservations · trace</span>
       </div>
       <InboundForm />
-      <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
-        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <StockGrid rows={rows} />}
-      </div>
+      {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
+        <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ flex: 1.2, minHeight: 0 }}><StockGrid rows={rows} /></div>
+          <StockPanels atp={atp} reservations={reservations} movements={movements} />
+        </div>
+      )}
     </div>
   )
 }
