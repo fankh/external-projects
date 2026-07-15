@@ -46,9 +46,9 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 20. ~~**환율·세금(erp/finance)** — 등록/삭제·세금엔진 계산기~~ ✅ v17.3~17.4 (계산기 응답 스키마 정합 수정 포함)
 21. ~~**창고(erp/warehouses)** — 위치 등록(계층 검증)·삭제~~ ✅ v17.3 (수정 QuickEdit 은 후속 P2)
 22. **거래처(erp/companies)** — 공급처 평가 스코어카드·Excel 대량등록 상실 (기본 등록·토글은 동작)
-23. **사용자·권한(erp/roles)** — 사용자 관리 전체(등록/수정/잠금해제/레벨변경/초대)·권한 셀 토글·역할 CRUD 상실 — 관리자 기능 부재
-24. **Code Set-up 5화면** — subcode(그룹등록·Excel 왕복·중복검토·승인), product-codes(CRUD·상태전이·일괄), datatable(셀 편집·행 CRUD·Excel), variant(등록·수정·폐기), materials(등록·수정) 전부 상실
-25. **Hierarchy(code/groups)** — React sys_hierarchy 트리 편집기가 code_group 목록(다른 엔티티)으로 대체 — 계층 관리 기능의 Next 대응 화면 자체가 없음
+23. ~~**사용자·권한(erp/roles)** — 사용자 등록/잠금해제/레벨변경/비활성 + 권한 셀 토글 + 역할 CRUD~~ ✅ v17.9 (라이브 E2E: 사용자 등록→레벨 SETUP→역할 생성/삭제 — 초대·다중역할·모듈 구성은 후속 P2)
+24. **Code Set-up 5화면** — ~~product-codes(등록·상태전이·삭제)·variant(등록·수정·폐기)·materials(등록·수정)~~ ✅ v17.9 · **subcode(그룹등록·Excel 왕복·중복검토·승인)·datatable(셀 편집·행 CRUD·Excel) 잔여 — N4b**
+25. **Hierarchy(code/groups)** — React sys_hierarchy 트리 편집기가 code_group 목록(다른 엔티티)으로 대체 — 계층 관리 기능의 Next 대응 화면 자체가 없음 — N4b
 26. **Macro Studio(toolbox/macros)** — 4-Way Sync 스튜디오(AI 생성·Test Run·함수 마법사·저장·승인) 전체 상실
 27. **Templet 관리(toolbox/templets)** — CRUD·JSON 정의 편집기·승인 상실
 28. **Run 이력(toolbox/runs)** — 산출물 드릴다운·Run 정리·MinIO GC 상실
