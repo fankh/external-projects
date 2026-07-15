@@ -26,7 +26,7 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 2. ~~**X-code 검토(cpq/x-review)** — 결재 액션·의견 입력~~ ✅ v16.8 (행 선택+승인/반려+의견)
 3. ~~**업무함(erp/tasks)** — 완료 처리~~ ✅ v16.8 (+더블클릭→이벤트 상세 드릴다운) · 뷰 필터(내업무/부서)는 후속(P2)
 4. ~~**이벤트 상세(detail/event)** — 완료·재배정·에스컬레이션~~ ✅ v16.8 (액션 패널)
-5. **이상 이벤트(erp/anomaly)** — 스캔(F9)·에스컬레이션·확인/해소 전이 상실
+5. ~~**이상 이벤트(erp/anomaly)** — 스캔·에스컬레이션·확인/해소 전이~~ ✅ v17.3~17.5 (+이관 시점부터 잠복하던 SSR 500 수정 — /anomalies 응답 언랩)
 
 ### 도메인 워크플로 (문서·설계·구매·생산) — 🔶 **PLM 5화면 N2 복구 (v17.0~17.1)**
 6. **문서함(cpq/documents)** — 등록·메타수정(ACCEPTED 통제)·PDF 미리보기+Grade 열람통제·상세 드릴다운 상실
@@ -35,16 +35,16 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 9. ~~**부품 대장(plm/parts)** — 부품 등록·공급자 매핑~~ ✅ v17.0 (수정·삭제·Excel 왕복은 후속 P2)
 10. ~~**Arrangement(plm/arrangement)** — M-4-2 구성코드/구성품 CRUD~~ ✅ v17.0 (대장+등록+구성품 추가/수량/삭제, CAD 구성도는 보조 패널 유지)
 11. ~~**검증 규칙(plm/quality)** — 규칙 신규 등록~~ ✅ v17.0
-12. **수주 관리(erp/sales-order)** — 발송/수주/실주 전이 + 수주 전환(계약금액·후속 TODO) 상실
-13. **구매(erp/purchase·po)** — Stock Check·PO 발주 확정·QCR 발행·승인·입고(GR 3-way match) 상실
-14. **재고(erp/inventory)** — 예약/해제·Lot/Serial 추적·ATP·입출고 이력 상실 (입고만 잔존)
-15. **작업지시(erp/work-order)** — 발행·착수/완료 전이 상실
-16. **검사·품질(erp/quality)** — 검사 등록(판정)·성적서 PDF 상실
-17. **프로젝트(erp/projects)** — 등록·단계 저장(409 낙관적 잠금)·삭제·메타수정·파일 업로드 상실
-18. **마일스톤(erp/milestones)** — 납기 등록·완료 처리 상실
-19. **단가(erp/prices)** — 등록·Excel Import·적용 마감·Resolve 시뮬레이션 상실
-20. **환율·세금(erp/finance)** — 등록/삭제·세금엔진 계산기 상실
-21. **창고(erp/warehouses)** — 위치 등록(계층 검증)·수정·삭제 상실
+12. ~~**수주 관리(erp/sales-order)** — 발송/수주/실주 전이 + 수주 전환~~ ✅ v17.3 (견적 Lifecycle 그리드 신설, 후속 TODO 건수 표시)
+13. **구매(erp/purchase·po)** — Stock Check·PO 발주 확정·QCR 발행·승인·입고(GR 3-way match) 상실 — N3b
+14. **재고(erp/inventory)** — 예약/해제·Lot/Serial 추적·ATP·입출고 이력 상실 (입고만 잔존) — N3b
+15. ~~**작업지시(erp/work-order)** — 발행·착수/완료 전이~~ ✅ v17.3
+16. **검사·품질(erp/quality)** — 검사 등록(판정)·성적서 PDF 상실 — N3b
+17. ~~**프로젝트(erp/projects)** — 등록·단계 저장(409 낙관적 잠금)·삭제~~ ✅ v17.3 (메타수정·파일 업로드는 후속 P2)
+18. ~~**마일스톤(erp/milestones)** — 납기 등록·완료 처리~~ ✅ v17.3
+19. **단가(erp/prices)** — 등록·Excel Import·적용 마감·Resolve 시뮬레이션 상실 — N3b
+20. ~~**환율·세금(erp/finance)** — 등록/삭제·세금엔진 계산기~~ ✅ v17.3~17.4 (계산기 응답 스키마 정합 수정 포함)
+21. ~~**창고(erp/warehouses)** — 위치 등록(계층 검증)·삭제~~ ✅ v17.3 (수정 QuickEdit 은 후속 P2)
 22. **거래처(erp/companies)** — 공급처 평가 스코어카드·Excel 대량등록 상실 (기본 등록·토글은 동작)
 23. **사용자·권한(erp/roles)** — 사용자 관리 전체(등록/수정/잠금해제/레벨변경/초대)·권한 셀 토글·역할 CRUD 상실 — 관리자 기능 부재
 24. **Code Set-up 5화면** — subcode(그룹등록·Excel 왕복·중복검토·승인), product-codes(CRUD·상태전이·일괄), datatable(셀 편집·행 CRUD·Excel), variant(등록·수정·폐기), materials(등록·수정) 전부 상실
