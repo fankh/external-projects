@@ -18,10 +18,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: edim-ai-blueprint/edim-web/package-lock.json
+          cache-dependency-path: edim-ai-blueprint/edim-web-react/package-lock.json
 
-      - name: Build edim-web
-        working-directory: edim-ai-blueprint/edim-web
+      - name: Build edim-web-react (rollback asset)
+        working-directory: edim-ai-blueprint/edim-web-react
         run: |
           npm ci
           npm run build
@@ -38,7 +38,7 @@ jobs:
       - name: Fallback regression (52 checks)
         working-directory: edim-ai-blueprint
         run: |
-          (cd edim-web && npm run preview >/tmp/preview.log 2>&1 &)
+          (cd edim-web-react && npm run preview >/tmp/preview.log 2>&1 &)
           for i in $(seq 1 30); do
             curl -sf http://localhost:4173/edim-static/ >/dev/null && break
             sleep 1

@@ -1,6 +1,6 @@
 name: EDIM CI
 
-# edim-ai-blueprint 회귀 게이트 — 빌드 + 52체크 폴백 E2E (Playwright, mock 모드).
+# edim-ai-blueprint 회귀 게이트 — Next 빌드 + 백엔드 유닛/DB + 레거시 폴백 E2E.
 # 서버 auto-deploy(2분 폴링)와 병행: 실패 시 커밋 상태 ✗ 로 즉시 알림.
 on:
   push:
@@ -29,7 +29,63 @@ jobs:
         working-directory: edim-ai-blueprint/backend
         run: python -m pytest tests/ -v
 
+  backend-db:
+    # C5 잔여 — DB 필요 로직 (승인 전이·창고 계층): services postgres + 커버리지 리포트
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: edim
+          POSTGRES_PASSWORD: edim
+          POSTGRES_DB: edim
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U edim"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: edim-ai-blueprint/backend/requirements-dev.txt
+      - name: Install backend deps
+        working-directory: edim-ai-blueprint/backend
+        run: pip install -r requirements-dev.txt
+      - name: Run tests with coverage (unit + DB)
+        working-directory: edim-ai-blueprint/backend
+        env:
+          DATABASE_URL: postgresql://edim:edim@localhost:5432/edim
+        run: >
+          python -m pytest tests/ -v
+          --cov=app --cov-report=term-missing --cov-report=xml
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: edim-ai-blueprint/backend/coverage.xml
+
+  web-next-build:
+    # 메인 웹 콘솔 (Next.js SSR — 2026-07-15 컷오버) 빌드 게이트
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: edim-ai-blueprint/edim-web-next/package-lock.json
+      - name: Build edim-web-next
+        working-directory: edim-ai-blueprint/edim-web-next
+        run: |
+          npm ci
+          npm run build
+
   regression:
+    # 레거시 React SPA (롤백 자산) — 폴백 52체크 E2E (Playwright, mock 모드)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -39,10 +95,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: edim-ai-blueprint/edim-web/package-lock.json
+          cache-dependency-path: edim-ai-blueprint/edim-web-react/package-lock.json
 
-      - name: Build edim-web
-        working-directory: edim-ai-blueprint/edim-web
+      - name: Build edim-web-react (rollback asset)
+        working-directory: edim-ai-blueprint/edim-web-react
         run: |
           npm ci
           npm run build
@@ -59,7 +115,7 @@ jobs:
       - name: Run fallback regression suite
         working-directory: edim-ai-blueprint
         run: |
-          (cd edim-web && npm run preview >/tmp/preview.log 2>&1 &)
+          (cd edim-web-react && npm run preview >/tmp/preview.log 2>&1 &)
           for i in $(seq 1 30); do
             curl -sf http://localhost:4173/edim-static/ >/dev/null && break
             sleep 1
