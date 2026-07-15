@@ -7,7 +7,11 @@ import { apiServer, ApiError } from '@/lib/api'
 const PATH = '/erp/finance'
 
 export interface ActState { error?: string; ok?: string }
-export interface QuoteCalc { currency: string; amount: number; taxPct: number; tax: number; total: number; krwTotal: number }
+export interface QuoteCalc {
+  currency: string; rate: number; taxPct: number; amount: number
+  taxAmount: number; total: number; baseAmount: number; baseTax: number
+  baseTotal: number; baseCurrency: string
+}
 
 export async function addFx(currency: string, rate: number, validFrom: string): Promise<ActState> {
   if (!currency.trim() || !rate) return { error: '통화·환율은 필수입니다' }

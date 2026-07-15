@@ -80,7 +80,7 @@ export function FinanceGrids({ fx, tax }: { fx: FxRow[]; tax: TaxRow[] }) {
             if (r.error) { setSt({ error: r.error }); setCalc(null) } else { setCalc(r.result ?? null); setSt({}) }
           })}>계산</button>
           {calc ? (
-            <span>세액 <b>{calc.tax.toLocaleString()}</b> · 합계 <b>{calc.total.toLocaleString()} {calc.currency}</b> · KRW 환산 <b>₩{Math.round(calc.krwTotal).toLocaleString()}</b></span>
+            <span>세액 <b>{calc.taxAmount.toLocaleString()}</b> · 합계 <b>{calc.total.toLocaleString()} {calc.currency}</b> · {calc.baseCurrency} 환산 <b>₩{Math.round(calc.baseTotal).toLocaleString()}</b></span>
           ) : null}
           {st.error ? <span style={{ color: 'var(--err)' }}>{st.error}</span> : null}
           {st.ok ? <span style={{ color: 'var(--run)' }}>{st.ok}</span> : null}
