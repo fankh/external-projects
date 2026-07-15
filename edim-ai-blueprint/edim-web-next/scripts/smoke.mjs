@@ -142,6 +142,12 @@ async function main() {
   await assertRenders('/erp/quality', ['검사 등록'], token)
   await assertRenders('/erp/prices', ['단가 등록'], token)
 
+  // 4f) N4 관리자·Code Set-up 복구 — 사용자/매트릭스/코드 CRUD UI 렌더
+  await assertRenders('/erp/roles', ['사용자 등록', '권한 매트릭스'], token)
+  await assertRenders('/code/product-codes', ['코드 등록'], token)
+  await assertRenders('/code/variant', ['값 등록'], token)
+  await assertRenders('/code/materials', ['재질 등록'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 
