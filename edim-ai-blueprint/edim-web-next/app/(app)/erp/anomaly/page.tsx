@@ -8,7 +8,9 @@ export default async function AnomalyPage() {
   let rows: AnomalyRow[] = []
   let err: string | null = null
   try {
-    rows = await apiServer<AnomalyRow[]>('/anomalies')
+    // 응답 = { rows, open, openHigh } (배열 아님 — 미그레이션 시 오인해 SSR 500 이던 화면)
+    const d = await apiServer<{ rows: AnomalyRow[] }>('/anomalies')
+    rows = d.rows ?? []
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
