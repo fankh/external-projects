@@ -1,7 +1,10 @@
 'use client'
 
+/** 승인함 — 다중선택 결재(승인/반려·코멘트) 아일랜드 (N1 복구). */
+import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { decide, decideBatch, type DecideState } from './actions'
 
 export interface ApprovalRow {
   id: number; assetType: string; target: string; reqKind: string
@@ -19,6 +22,39 @@ const cols: GridColumn<ApprovalRow>[] = [
 ]
 
 export function ApprovalGrid({ rows }: { rows: ApprovalRow[] }) {
-  return <DenseGrid prefKey="next-approval" colFilter columns={cols} rows={rows}
-    rowKey={(r) => r.id} emptyText="대기 중인 승인 요청이 없습니다" />
+  const [selected, setSelected] = useState<Set<string | number>>(new Set())
+  const [comment, setComment] = useState('')
+  const [st, setSt] = useState<DecideState>({})
+  const [pending, start] = useTransition()
+
+  const run = (approve: boolean) => {
+    const ids = [...selected].map(Number)
+    if (ids.length === 0) { setSt({ error: '결재할 요청을 선택하십시오' }); return }
+    start(async () => {
+      const r = ids.length === 1
+        ? await decide(ids[0], approve, comment)
+        : await decideBatch(ids, approve, comment)
+      setSt(r)
+      if (r.ok) { setSelected(new Set()); setComment('') }
+    })
+  }
+
+  return (
+    <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, color: 'var(--txt-dim)' }}>선택 {selected.size}건</span>
+        <input className="in" style={{ width: 260 }} placeholder="결재 의견 (반려 시 필수)"
+          value={comment} onChange={(e) => setComment(e.target.value)} />
+        <button className="b run" disabled={pending} onClick={() => run(true)}>승인</button>
+        <button className="b" disabled={pending} onClick={() => run(false)}>반려</button>
+        {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
+        {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <DenseGrid prefKey="next-approval" colFilter columns={cols} rows={rows}
+          rowKey={(r) => r.id} multiSelect selectedKeys={selected} onSelectionChange={setSelected}
+          emptyText="대기 중인 승인 요청이 없습니다" />
+      </div>
+    </div>
+  )
 }

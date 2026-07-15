@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { apiServer, ApiError } from '@/lib/api'
 import { ScreenHeader } from '@/components/ScreenHeader'
+import { EventActions } from './EventActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,7 @@ export default async function EventDetailPage({ searchParams }: { searchParams: 
                 </div>
               </div>
             ) : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>이벤트가 없습니다</div>}
+            {sel ? <EventActions eventId={sel.eventId} status={sel.status} /> : null}
             {flow ? (
               <div className="gb" style={{ padding: 10, flex: 1, minHeight: 0 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8 }}>공정 흐름 (erp_process_edge)</div>

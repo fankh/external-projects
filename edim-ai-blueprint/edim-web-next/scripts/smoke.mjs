@@ -113,6 +113,12 @@ async function main() {
   await assertRenders('/code/datatable', ['데이터 Table'], token)
   await assertRenders('/toolbox/ui-designer', ['UI Designer', 'Widget'], token)
 
+  // 4b) N1 결재 복구 — 결재/처리 액션 UI 렌더 (서버액션 아일랜드)
+  await assertRenders('/common/approval', ['결재 의견'], token)
+  await assertRenders('/cpq/x-review', ['검토 의견'], token)
+  await assertRenders('/erp/tasks', ['완료 처리'], token)
+  await assertRenders('/detail/event', ['이벤트 처리'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 
