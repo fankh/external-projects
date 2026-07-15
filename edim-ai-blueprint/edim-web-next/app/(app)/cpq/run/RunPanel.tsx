@@ -51,6 +51,11 @@ export function RunPanel({ selectionId }: { selectionId?: number }) {
     { key: 'file', header: t('run.file', '파일'), render: (r) => r.file },
     { key: 'type', header: t('run.type', '유형'), width: 46, align: 'center', render: (r) => r.fileType },
     { key: 'status', header: t('run.status', '상태'), width: 96, align: 'center', render: (r) => <Chip tone={r.statusTone}>{r.status}</Chip> },
+    // N5 — 산출물 다음 행동: 다운로드 + 상세(더블클릭과 동일)
+    { key: 'act', header: t('run.action', '행동'), width: 64, align: 'center', render: (r) => r.fileId != null ? (
+      <button className="b" style={{ height: 18, fontSize: 10 }} title="다운로드"
+        onClick={() => window.open(`/api/next/bin?kind=file&id=${r.fileId}&name=${encodeURIComponent(r.file)}`, '_blank')}>⬇</button>
+    ) : '—' },
   ]
   const logCols: GridColumn<RunLogEntry>[] = [
     { key: 't', header: t('run.time', '시각'), width: 58, align: 'center', render: (r) => r.time },
@@ -78,7 +83,8 @@ export function RunPanel({ selectionId }: { selectionId?: number }) {
         <div className="gb" style={{ flex: 1.35, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('run.outputs', '산출물')}</div>
           <div style={{ flex: 1, minHeight: 0 }}>
-            {done ? <DenseGrid columns={outCols} rows={result?.outputs ?? []} rowKey={(_, i) => i} />
+            {done ? <DenseGrid columns={outCols} rows={result?.outputs ?? []} rowKey={(_, i) => i}
+              onRowDoubleClick={(r) => { window.location.href = `/detail/output?file=${encodeURIComponent(r.file)}&folder=${encodeURIComponent(r.folder)}&fileType=${encodeURIComponent(r.fileType)}` }} />
               : <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('run.waitPipeline', '파이프라인 완료 후 표시됩니다…')}</div>}
           </div>
         </div>

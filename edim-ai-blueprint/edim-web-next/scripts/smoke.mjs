@@ -153,6 +153,11 @@ async function main() {
   await assertRenders('/code/datatable', ['행 추가'], token)
   await assertRenders('/code/groups', ['Hierarchy 주소'], token)
 
+  // 4h) N5a 문서 파이프라인 복구 — 문서 등록/미리보기·PCR PDF·폴더 업로드/ZIP
+  await assertRenders('/cpq/documents', ['문서 등록', 'PDF 미리보기'], token)
+  await assertRenders('/cpq/reports', ['PCR 수익성 보고서'], token)
+  await assertRenders('/common/folder', ['업로드', 'ZIP'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 
