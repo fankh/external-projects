@@ -7,6 +7,7 @@ interface Analytics {
   runStats: { total: number; success: number; failed: number; successRate: number; avgDurationSec: number }
   costByType: Record<string, { total: number; runs: number }>
   variance?: { categories: VarCat[]; totalEstimate: number; totalActual: number; totalVariance: number; totalVarianceRate: number; alert: boolean; hasActual: boolean }
+  monthlyOrders?: { month: string; revenue: number; margin: number | null; marginRate: number | null; orders: number }[]
 }
 
 const won = (n: number) => `₩ ${Math.round(n).toLocaleString()}`
@@ -25,6 +26,8 @@ export default async function DashboardPage() {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
   const v = an?.variance
+  const mo = an?.monthlyOrders ?? []
+  const maxRev = Math.max(1, ...mo.map((m) => m.revenue))
   const cost = an?.costByType ?? {}
   const costRows = [
     { k: '재료비', v: cost.MATERIAL?.total ?? 0, c: '#2F6FB0' },
@@ -79,6 +82,42 @@ export default async function DashboardPage() {
                 ))}
               </div>
             </div>
+          </div>
+        ) : null}
+
+        {an ? (
+          <div className="gb" style={{ padding: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--title-navy)' }}>월별 매출·기여마진 추이 — 수주(ORDERED)</span>
+              {mo.length ? (
+                <span className="chip info">{mo.reduce((s, m) => s + m.orders, 0)}건 · {won(mo.reduce((s, m) => s + m.revenue, 0))}</span>
+              ) : (
+                <span className="chip info">수주 데이터 없음</span>
+              )}
+            </div>
+            {mo.map((m) => (
+              <div key={m.month} style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '3px 0', fontSize: 11 }}>
+                <span style={{ width: 56, color: 'var(--txt-dim)' }}>{m.month}</span>
+                <div style={{ flex: 1, background: '#EEF1F5', height: 12, position: 'relative' }}>
+                  <div style={{ width: `${(m.revenue / maxRev) * 100}%`, height: '100%', background: '#2F6FB0' }} />
+                  {m.margin !== null && m.margin >= 0 ? (
+                    <div style={{ position: 'absolute', left: 0, top: 0, width: `${(m.margin / maxRev) * 100}%`, height: '100%', background: '#2F9463', opacity: 0.85 }} />
+                  ) : null}
+                </div>
+                <span style={{ width: 110, textAlign: 'right' }}>{won(m.revenue)}</span>
+                <span style={{ width: 120, textAlign: 'right', color: 'var(--txt-dim)' }}>
+                  {m.margin !== null ? `기여 ${won(m.margin)}` : '기여 —'}
+                  {m.marginRate !== null ? ` (${(m.marginRate * 100).toFixed(1)}%)` : ''}
+                </span>
+                <span style={{ width: 34, textAlign: 'right', color: 'var(--txt-mute)' }}>{m.orders}건</span>
+              </div>
+            ))}
+            {mo.length ? (
+              <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 10, color: 'var(--txt-dim)' }}>
+                <span><span style={{ display: 'inline-block', width: 8, height: 8, background: '#2F6FB0', marginRight: 4 }} />계약액</span>
+                <span><span style={{ display: 'inline-block', width: 8, height: 8, background: '#2F9463', marginRight: 4 }} />기여마진</span>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

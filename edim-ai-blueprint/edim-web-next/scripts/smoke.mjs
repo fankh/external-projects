@@ -92,7 +92,7 @@ async function main() {
 
   // 4) 쿠키 기반 SSR — 서버 HTML 에 데이터/마커 포함(진성 SSR)
   await assertRenders('/erp/eco-ledger', ['SSR ·', '변경 이력'], token)
-  await assertRenders('/erp/dashboard', ['SSR ·'], token)
+  await assertRenders('/erp/dashboard', ['SSR ·', '월별 매출·기여마진'], token)
   await assertRenders('/plm/parts', ['SSR ·'], token)
   await assertRenders('/plm/design', ['Design Editor', 'Design Rule'], token)
   await assertRenders('/cpq/run', ['Run 파이프라인'], token)

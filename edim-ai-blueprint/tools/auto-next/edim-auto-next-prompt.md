@@ -5,10 +5,10 @@ EDIM 백로그 자동 계속 ("do next") — 무인 실행 회차.
 2. `docs/EDIM_미구현기능목록.md` 를 읽고 **다음 미체크 배치**(B1~B15 순서, 🔶 표시는 잔여 항목부터)를 선택한다.
 3. 그 배치를 **통째로** 구현한다:
    - 백엔드: `backend/app/routers/edim.py` + `backend/app/services/` (기존 패턴 준수 — require_auth/min_level, `_conn()` 은 autocommit, 정직한 4xx detail)
-   - 프론트: `edim-web-react/` — `npm run build` 통과 필수. mock 스타일 가짜 성공 금지: 쓰기 실패는 붉은 "백엔드 연결 필요" 상태 메시지.
-   - 회귀: `npm run preview` 백그라운드 + `PYTHONUTF8=1 py tests/e2e_fallback.py` → **52/52 유지** (honest-write 로 기대값이 바뀌면 스위트를 그에 맞게 수정).
-   - 커밋: `v<다음버전>: <type>(<scope>): <설명>` — AI 표기·Co-Authored-By 절대 금지. master push (auto-deploy 가 2분 내 배포).
-   - 배포 확인: `ssh edim-server 'journalctl -u edim-autodeploy.service ...'` 로 "deploy done: <sha>" 대기 + `/api/v1/health` ok.
+   - 프론트: **`edim-web-next/` (메인 웹 콘솔 — 2026-07-15 컷오버)** — `npm run build` 통과 필수. 화면 레시피=MIGRATION_NEXTJS.md(page.tsx SSR fetch + 'use client' 아일랜드 + 서버액션 뮤테이션). mock 스타일 가짜 성공 금지: 쓰기 실패는 정직한 오류 상태 표시. (`edim-web-react/`는 롤백 자산 — 신규 기능 작업 금지.)
+   - 회귀: `cd edim-web-next && npm run build` + 스모크 `BASE=https://edim.seekerslab.com EDIM_USER=edim EDIM_PASS=edim npm run smoke` → **13/13 유지**(배포 후 실행). 신규 화면·핵심 변경은 smoke.mjs 에 마커 추가.
+   - 커밋: `v<다음버전>: <type>(<scope>): <설명>` — AI 표기·Co-Authored-By 절대 금지. master push (auto-deploy 가 2분 내 배포 — backend+web-next 빌드·기동, Next 3000 health-gate).
+   - 배포 확인: `ssh edim-server 'journalctl -u edim-autodeploy.service ...'` 로 "deploy done: <sha> (backend + Next SSR healthy)" 대기 + `/api/v1/health` ok.
    - 라이브 검증: Playwright 로 https://edim.seekerslab.com (edim/edim 로그인) 에서 신규 기능 실동작 확인. 테스트가 만든 DB 행은 psql(`sudo docker exec edim-postgres psql -U edim -d edim`) 로 정리.
    - 문서: 백로그 파일 해당 항목 `[x]` 체크(배치 제목에 ✅ + 버전), `docs/EDIM_진행현황.md` 에 한 줄 요약 추가, 커밋·push.
 4. 한 회차에 **한 배치만** 완료하고 종료한다 (다음 회차가 이어감).

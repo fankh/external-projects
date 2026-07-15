@@ -4812,11 +4812,27 @@ def analytics() -> dict[str, Any]:
         variance = {"categories": vcats, "totalEstimate": te, "totalActual": ta,
                     "totalVariance": round(ta - te, 2), "totalVarianceRate": round(trate, 4),
                     "alert": trate > VARIANCE_ALERT_RATE, "hasActual": ta > 0}
+        # C3 잔여 — 월별 매출/기여마진 추이 (D1 수주: ORDERED 견적 계약액 + PCR 기여마진)
+        cur.execute(
+            """SELECT to_char(q.order_date,'YYYY-MM'),
+                      COALESCE(sum(COALESCE(q.contract_amount, q.total_amount)),0),
+                      sum(p.contribution_margin), count(*)
+               FROM cst_quotation q JOIN cst_pcr p ON p.pcr_id=q.pcr_id
+               WHERE q.tenant_id=%s AND q.status='ORDERED' AND q.order_date IS NOT NULL
+               GROUP BY 1 ORDER BY 1 DESC LIMIT 12""", (tid,))
+        monthly = []
+        for ym, rev, margin, cnt in cur.fetchall()[::-1]:
+            rev = float(rev)
+            m = float(margin) if margin is not None else None
+            monthly.append({"month": ym, "revenue": rev, "margin": m,
+                            "marginRate": round(m / rev, 4) if (m is not None and rev) else None,
+                            "orders": cnt})
     return {
         "runStats": {"total": total, "success": success, "failed": failed,
                      "successRate": round(success / total * 100, 1) if total else 0,
                      "avgDurationSec": round(float(avg_sec), 1) if avg_sec else 0},
         "recentRuns": recent, "costByType": cost, "costTrend": trend, "variance": variance,
+        "monthlyOrders": monthly,
     }
 
 

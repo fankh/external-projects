@@ -161,5 +161,6 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 일자 | 내용 |
 |---|---|
 | 2026-07-15 | **Next.js SSR 컷오버 완료** — 메인 웹 콘솔 = `edim-web-next`(컨테이너 :3000, nginx `/`→Next 프록시, 라이브 스모크 13/13). 레거시 React SPA 는 `/edim-static` 롤백 자산. 신 autodeploy(backend+web-next health-gate) 설치. 상세: MIGRATION_NEXTJS.md P6 |
+| 2026-07-15 | C3 완료(v16.0) — 월별 매출·기여마진 추이(`/erp/analytics` monthlyOrders + Next Dashboard 패널). PCR PDF 는 v15.3 기구현 확인. auto-next 프롬프트 Next 시대 갱신(신규 프론트 작업=edim-web-next) |
 | 2026-07-11 | 착수 3종(사업수행계획·위험관리대장·보안관리계획) + 배치·보고서양식 v0.2 + 매뉴얼 3종(사용자·관리자·설치배포) — **협의 불요 문서 산출물 전량 완료**, 레지스터 완료 27/37, 포털 38파일 |
 | 2026-07-07 | 최초 작성 — 산출물 21종 완료·포털 공개(Basic Auth)·PDF 파이프라인 구축 시점 |
