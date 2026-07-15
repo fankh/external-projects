@@ -67,12 +67,43 @@ jobs:
           name: backend-coverage
           path: edim-ai-blueprint/backend/coverage.xml
 
-  web-next-build:
-    # 메인 웹 콘솔 (Next.js SSR — 2026-07-15 컷오버) 빌드 게이트
+  web-next-e2e:
+    # 메인 웹 콘솔 (Next.js SSR — 2026-07-15 컷오버) — 빌드 + 풀스택 스모크 13체크
+    # postgres 서비스 + FastAPI(uvicorn, 자동 마이그레이션·시드) + next start → scripts/smoke.mjs
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: edim
+          POSTGRES_PASSWORD: edim
+          POSTGRES_DB: edim
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U edim"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: edim-ai-blueprint/backend/requirements.txt
+      - name: Install backend deps
+        working-directory: edim-ai-blueprint/backend
+        run: pip install -r requirements.txt
+      - name: Start backend (migrate + seed on fresh DB)
+        working-directory: edim-ai-blueprint/backend
+        env:
+          DATABASE_URL: postgresql://edim:edim@localhost:5432/edim
+        run: |
+          nohup python -m uvicorn app.main:app --port 8000 >/tmp/backend.log 2>&1 &
+          for i in $(seq 1 45); do
+            curl -sf http://localhost:8000/api/v1/health 2>/dev/null | grep -q '"db":true' && exit 0
+            sleep 2
+          done
+          echo "backend health timeout"; tail -50 /tmp/backend.log; exit 1
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -80,9 +111,25 @@ jobs:
           cache-dependency-path: edim-ai-blueprint/edim-web-next/package-lock.json
       - name: Build edim-web-next
         working-directory: edim-ai-blueprint/edim-web-next
+        env:
+          EDIM_API_BASE: http://localhost:8000/api/v1
         run: |
           npm ci
           npm run build
+      - name: Start Next SSR + run smoke (13 checks)
+        working-directory: edim-ai-blueprint/edim-web-next
+        env:
+          EDIM_API_BASE: http://localhost:8000/api/v1
+          BASE: http://localhost:3000
+          EDIM_USER: edim
+          EDIM_PASS: edim
+        run: |
+          nohup npm run start >/tmp/next.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://localhost:3000/login && break
+            sleep 2
+          done
+          npm run smoke || { tail -30 /tmp/next.log; exit 1; }
 
   regression:
     # 레거시 React SPA (롤백 자산) — 폴백 52체크 E2E (Playwright, mock 모드)
