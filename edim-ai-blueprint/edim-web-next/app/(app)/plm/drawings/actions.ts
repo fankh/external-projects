@@ -12,7 +12,7 @@ export async function createDrawing(_prev: ActState, formData: FormData): Promis
   const drawingNo = String(formData.get('drawingNo') ?? '').trim()
   const name = String(formData.get('name') ?? '').trim()
   const drawingType = String(formData.get('drawingType') ?? 'PART').trim()
-  const kind = String(formData.get('kind') ?? '2D').trim()
+  const kind = String(formData.get('kind') ?? 'APPROVAL').trim()
   if (!drawingNo || !name) return { error: '도면번호·도면명은 필수입니다' }
   try {
     await apiServer('/drawings', { method: 'POST', body: JSON.stringify({ drawingNo, name, drawingType, kind }) })

@@ -17,8 +17,10 @@ export function DrawingRegForm() {
       <select className="in" name="drawingType" defaultValue="PART" style={{ width: 92 }}>
         <option value="PART">PART</option><option value="ASSEMBLY">ASSEMBLY</option><option value="LAYOUT">LAYOUT</option>
       </select>
-      <select className="in" name="kind" defaultValue="2D" style={{ width: 58 }}>
-        <option value="2D">2D</option><option value="3D">3D</option>
+      <select className="in" name="kind" defaultValue="APPROVAL" style={{ width: 120 }}>
+        <option value="APPROVAL">APPROVAL(승인용)</option>
+        <option value="MANUFACTURING">MANUFACTURING(제작용)</option>
+        <option value="STANDARD">STANDARD(표준)</option>
       </select>
       <button className="b run" type="submit" disabled={pending}>＋ 도면 등록</button>
       {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
