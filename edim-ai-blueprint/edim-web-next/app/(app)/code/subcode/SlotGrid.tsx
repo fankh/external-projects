@@ -1,8 +1,11 @@
 'use client'
 
+/** Sub Code 등록 — 그룹 등록·항목 등록(중복검토 CODE-006 + 승인)·Excel 왕복 (N4b 복구). */
+import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { addItem, createGroup, importGroupExcel, type ActState } from './actions'
 
 export interface SlotRow {
   slot: string; label: string; values: string; allValues: string
@@ -19,15 +22,69 @@ const cols: GridColumn<SlotRow>[] = [
 
 export function SlotGrid({ rows, group }: { rows: SlotRow[]; group: string }) {
   const router = useRouter()
+  const [grpSt, grpAction, grpPending] = useActionState(createGroup, {} as ActState)
+  const [impSt, impAction, impPending] = useActionState(importGroupExcel, {} as ActState)
+  const [itemNo, setItemNo] = useState('')
+  const [desc, setDesc] = useState('')
+  const [values, setValues] = useState('')
+  const [dupMsg, setDupMsg] = useState<{ text: string; err?: boolean } | null>(null)
+  const [dupOk, setDupOk] = useState(false)
+  const [st, setSt] = useState<ActState>({})
+  const [pending, start] = useTransition()
+
+  const checkDup = () => {
+    const slot = itemNo.trim().toUpperCase()
+    if (!slot) { setDupMsg({ text: 'Item No 를 입력하십시오', err: true }); return }
+    const dup = rows.some((r) => r.slot === slot)
+    setDupOk(!dup)
+    setDupMsg(dup
+      ? { text: `중복 — Item ${slot} 이미 등록됨 (CODE-006)`, err: true }
+      : { text: `중복 없음 ✓ — Item ${slot} 사용 가능` })
+  }
+
   return (
-    <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '4px 6px' }}>
+    <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '4px 6px 0', flexWrap: 'wrap' }}>
         <label style={{ fontSize: 11 }}>그룹</label>
-        <input className="in" defaultValue={group} style={{ height: 22, fontSize: 11, width: 100 }}
+        <input className="in" defaultValue={group} style={{ height: 22, fontSize: 11, width: 70 }}
           onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/code/subcode?group=${encodeURIComponent((e.target as HTMLInputElement).value)}`) }} />
-        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>Enter 로 그룹 전환</span>
+        <form action={grpAction} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <input className="in req" name="groupCode" placeholder="새 그룹 코드" style={{ width: 90 }} />
+          <input className="in req" name="groupName" placeholder="그룹 이름" style={{ width: 110 }} />
+          <select className="in" name="groupType" defaultValue="PRODUCT" style={{ width: 90 }}>
+            {['PRODUCT', 'PART', 'MATERIAL', 'ETC'].map((t) => <option key={t}>{t}</option>)}
+          </select>
+          <button className="b" type="submit" disabled={grpPending}>그룹 등록</button>
+        </form>
+        <span className="sep" />
+        <form action={impAction} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <input type="hidden" name="group" value={group} />
+          <input className="in" type="file" name="uploadedFile" accept=".xlsx" style={{ width: 180, fontSize: 10 }} />
+          <button className="b" type="submit" disabled={impPending}>⬆ Import</button>
+        </form>
+        <button className="b" onClick={() => window.open(`/api/next/xlsx?kind=group&id=${encodeURIComponent(group)}`, '_blank')}>⬇ Export</button>
+        {(grpSt.error || impSt.error) ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{grpSt.error || impSt.error}</span> : null}
+        {(grpSt.ok || impSt.ok) ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{grpSt.ok || impSt.ok}</span> : null}
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '0 6px', flexWrap: 'wrap', fontSize: 11 }}>
+        <span style={{ fontWeight: 600 }}>신규 항목</span>
+        <input className="in req" style={{ width: 60 }} placeholder="Item No" value={itemNo}
+          onChange={(e) => { setItemNo(e.target.value); setDupOk(false); setDupMsg(null) }} />
+        <input className="in req" style={{ width: 130 }} placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} />
+        <input className="in" style={{ width: 180 }} placeholder="값 목록 (· 또는 , 구분)" value={values} onChange={(e) => setValues(e.target.value)} />
+        <button className="b" onClick={checkDup}>중복검토</button>
+        <button className="b run" disabled={pending || !dupOk} title={dupOk ? undefined : '중복검토 통과 후 요청 가능'}
+          onClick={() => start(async () => {
+            const vals = values.split(/[·,]+|\s{2,}/).map((v) => v.trim()).filter(Boolean)
+            const r = await addItem(group, itemNo, desc, vals)
+            setSt(r)
+            if (r.ok) { setItemNo(''); setDesc(''); setValues(''); setDupOk(false); setDupMsg(null) }
+          })}>승인 요청</button>
+        {dupMsg ? <span style={{ color: dupMsg.err ? 'var(--err)' : 'var(--run)' }}>{dupMsg.text}</span> : null}
+        {st.error ? <span style={{ color: 'var(--err)' }}>{st.error}</span> : null}
+        {st.ok ? <span style={{ color: 'var(--run)' }}>{st.ok}</span> : null}
+      </div>
+      <div style={{ flex: 1, minHeight: 0, padding: '0 6px 6px' }}>
         <DenseGrid prefKey="next-slots" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.slot} emptyText="Slot 이 없습니다" />
       </div>

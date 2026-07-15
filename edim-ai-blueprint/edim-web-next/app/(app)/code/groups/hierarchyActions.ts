@@ -1,0 +1,49 @@
+'use server'
+
+/** Hierarchy 주소 (M-3-1) 뮤테이션 (N4b) — sys_hierarchy 노드 등록·개명·삭제. */
+import { revalidatePath } from 'next/cache'
+import { apiServer, ApiError } from '@/lib/api'
+
+const PATH = '/code/groups'
+
+export interface ActState { error?: string; ok?: string }
+
+export async function addHierarchyNode(_prev: ActState, formData: FormData): Promise<ActState> {
+  const name = String(formData.get('name') ?? '').trim()
+  const address = String(formData.get('address') ?? '').trim()
+  if (!name || !address) return { error: '이름·주소는 필수입니다' }
+  const body = {
+    treeType: String(formData.get('treeType') ?? 'PRODUCT').trim(),
+    name, address,
+    symbol: String(formData.get('symbol') ?? '').trim(),
+    parentAddress: String(formData.get('parentAddress') ?? '').trim(),
+  }
+  try {
+    await apiServer('/hierarchy/nodes', { method: 'POST', body: JSON.stringify(body) })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '노드 등록 실패' }
+  }
+  revalidatePath(PATH)
+  return { ok: `${address} ${name} 등록` }
+}
+
+export async function renameHierarchyNode(id: number, name: string, symbol: string): Promise<ActState> {
+  if (!name.trim()) return { error: '새 이름을 입력하십시오' }
+  try {
+    await apiServer(`/hierarchy/nodes/${id}`, { method: 'PATCH', body: JSON.stringify({ name: name.trim(), symbol }) })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '개명 실패' }
+  }
+  revalidatePath(PATH)
+  return { ok: `#${id} → ${name}` }
+}
+
+export async function deleteHierarchyNode(id: number): Promise<ActState> {
+  try {
+    await apiServer(`/hierarchy/nodes/${id}`, { method: 'DELETE' })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '삭제 실패 (하위/참조 보호 가능)' }
+  }
+  revalidatePath(PATH)
+  return { ok: `#${id} 삭제` }
+}

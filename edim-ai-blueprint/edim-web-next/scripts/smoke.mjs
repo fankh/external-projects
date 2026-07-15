@@ -148,6 +148,11 @@ async function main() {
   await assertRenders('/code/variant', ['값 등록'], token)
   await assertRenders('/code/materials', ['재질 등록'], token)
 
+  // 4g) N4b Code Set-up 마감 — subcode/datatable/Hierarchy 액션 UI 렌더
+  await assertRenders('/code/subcode', ['중복검토', '승인 요청'], token)
+  await assertRenders('/code/datatable', ['행 추가'], token)
+  await assertRenders('/code/groups', ['Hierarchy 주소'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 
