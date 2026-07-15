@@ -29,7 +29,7 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 5. ~~**이상 이벤트(erp/anomaly)** — 스캔·에스컬레이션·확인/해소 전이~~ ✅ v17.3~17.5 (+이관 시점부터 잠복하던 SSR 500 수정 — /anomalies 응답 언랩)
 
 ### 도메인 워크플로 (문서·설계·구매·생산) — 🔶 **PLM 5화면 N2 복구 (v17.0~17.1)**
-6. **문서함(cpq/documents)** — 등록·메타수정(ACCEPTED 통제)·PDF 미리보기+Grade 열람통제·상세 드릴다운 상실
+6. ~~**문서함(cpq/documents)** — 등록·메타수정·PDF 미리보기·상세 드릴다운~~ ✅ v18.3 (라이브 E2E: 등록→PDF 렌더 200→메타 수정 — /api/next/bin 프록시)
 7. ~~**도면 대장(plm/drawings)** — 도면 등록·Rev-up·Supersedure·단계승인·상세~~ ✅ v17.0~17.1 (등록+Rev.A·Rev 이력·WRITE→REVIEW→APPROVE 단계승인·Supersedure — 라이브 E2E: 등록→Rev.B→WRITE ✓)
 8. ~~**설계 변경(plm/eco-change)** — ECR 등록~~ ✅ v17.0 (영향분석 자동첨부 건수 표시)
 9. ~~**부품 대장(plm/parts)** — 부품 등록·공급자 매핑~~ ✅ v17.0 (수정·삭제·Excel 왕복은 후속 P2)
@@ -52,11 +52,11 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 26. **Macro Studio(toolbox/macros)** — 4-Way Sync 스튜디오(AI 생성·Test Run·함수 마법사·저장·승인) 전체 상실
 27. **Templet 관리(toolbox/templets)** — CRUD·JSON 정의 편집기·승인 상실
 28. **Run 이력(toolbox/runs)** — 산출물 드릴다운·Run 정리·MinIO GC 상실
-29. **Run 산출물(cpq/run)** — "다음 행동"(미리보기/다운로드/AP요청/QCR/ERP 전송) 열 상실
+29. ~~**Run 산출물(cpq/run)** — 다운로드·상세 드릴다운~~ ✅ v18.3 (AP요청/QCR/ERP 전송 라벨은 후속 P2)
 30. **Tech Data(cpq/tech-data)** — Fan 성능표 PDF·밀도 계산서 PDF·성능 곡선·선정 연동 상실
-31. **Report Center(cpq/reports)** — PCR 보고서 그리드+PDF 생성 상실 (카탈로그 카드만)
+31. ~~**Report Center(cpq/reports)** — PCR 보고서 그리드+PDF~~ ✅ v18.3 (라이브: PCR PDF 200)
 32. **선정(cpq/selection)** — 사양 Excel Import·견적 미리보기 PDF 상실
-33. **Project Folder(common/folder)** — 폴더 분류·업로드·ZIP/고객전달 다운로드·이력 diff 상실
+33. ~~**Project Folder(common/folder)** — 업로드·개별/ZIP 다운로드·DXF 드릴다운~~ ✅ v18.3 (라이브: ZIP 2.4MB — 폴더 트리 분류·이력 diff 는 후속 P2)
 
 ### 셸 전역
 34. **⌘K 통합검색** — searchService·검색 UI 부재
