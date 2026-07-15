@@ -1,6 +1,7 @@
 import { apiServer, ApiError } from '@/lib/api'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { EcoGrid, type EcoChange } from './EcoGrid'
+import { EcrForm } from './EcrForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,7 @@ export default async function EcoChangePage() {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <ScreenHeader title="설계 변경 (ECR/ECO)" count={err ? undefined : rows.length} source="/eco/changes" />
+      <div style={{ padding: '4px 6px 0' }}><EcrForm /></div>
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <EcoGrid rows={rows} />}
       </div>

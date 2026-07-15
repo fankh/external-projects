@@ -119,6 +119,13 @@ async function main() {
   await assertRenders('/erp/tasks', ['완료 처리'], token)
   await assertRenders('/detail/event', ['이벤트 처리'], token)
 
+  // 4c) N2 PLM 대장 CRUD 복구 — 등록 폼/패널 렌더
+  await assertRenders('/plm/drawings', ['도면 등록'], token)
+  await assertRenders('/plm/parts', ['부품 등록'], token)
+  await assertRenders('/plm/eco-change', ['ECR 등록'], token)
+  await assertRenders('/plm/arrangement', ['구성 등록'], token)
+  await assertRenders('/plm/quality', ['규칙 등록'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 

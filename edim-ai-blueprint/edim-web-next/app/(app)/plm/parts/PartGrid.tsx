@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 
@@ -21,7 +22,11 @@ const cols: GridColumn<PartRow>[] = [
   { key: 'bom', header: 'BOM', width: 48, align: 'right', sortValue: (r) => r.bomCount, render: (r) => r.bomCount },
 ]
 
-export function PartGrid({ rows }: { rows: PartRow[] }) {
+export function PartGrid({ rows, selectedNo }: { rows: PartRow[]; selectedNo?: string | null }) {
+  const router = useRouter()
+  const sel = rows.find((r) => r.partNo === selectedNo)
   return <DenseGrid prefKey="next-parts" colFilter columns={cols} rows={rows}
-    rowKey={(r) => r.partId} emptyText="부품이 없습니다" />
+    rowKey={(r) => r.partId} selectedKey={sel?.partId}
+    onRowClick={(r) => router.push(`/plm/parts?no=${encodeURIComponent(r.partNo)}`)}
+    emptyText="부품이 없습니다" />
 }

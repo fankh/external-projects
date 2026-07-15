@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 
@@ -19,7 +20,10 @@ const cols: GridColumn<DrawingRow>[] = [
   { key: 'sup', header: '대체', width: 48, align: 'center', sortValue: (r) => (r.superseded ? 1 : 0), render: (r) => r.superseded ? <Chip tone="warn">대체</Chip> : '—' },
 ]
 
-export function DrawingGrid({ rows }: { rows: DrawingRow[] }) {
+export function DrawingGrid({ rows, selectedNo }: { rows: DrawingRow[]; selectedNo?: string | null }) {
+  const router = useRouter()
   return <DenseGrid prefKey="next-drawings" colFilter columns={cols} rows={rows}
-    rowKey={(r) => r.drawingNo} emptyText="도면이 없습니다" />
+    rowKey={(r) => r.drawingNo} selectedKey={selectedNo ?? undefined}
+    onRowClick={(r) => router.push(`/plm/drawings?no=${encodeURIComponent(r.drawingNo)}`)}
+    emptyText="도면이 없습니다" />
 }

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
-import { toggleRule, verify, type VerifyResult } from './actions'
+import { addRule, toggleRule, verify, type VerifyResult } from './actions'
 
 export interface VerificationRow { rule: string; macro: string; warning: string; active: boolean; verificationId?: number }
 
@@ -12,6 +12,18 @@ export function QualityView({ rows, drawing }: { rows: VerificationRow[]; drawin
   const [meas, setMeas] = useState('')
   const [result, setResult] = useState<VerifyResult | null>(null)
   const [msg, setMsg] = useState<{ text: string; err?: boolean } | null>(null)
+  const [ruleName, setRuleName] = useState('')
+  const [macroName, setMacroName] = useState('')
+  const [warning, setWarning] = useState('')
+
+  const doAdd = () => {
+    start(async () => {
+      const r = await addRule(drawing, ruleName, macroName, warning)
+      if (r.error) { setMsg({ text: r.error, err: true }); return }
+      setMsg({ text: r.ok ?? '등록' })
+      setRuleName(''); setMacroName(''); setWarning('')
+    })
+  }
 
   const doToggle = (r: VerificationRow) => {
     if (r.verificationId == null) return
@@ -49,6 +61,12 @@ export function QualityView({ rows, drawing }: { rows: VerificationRow[]; drawin
         <div style={{ flex: 1, minHeight: 0 }}>
           <DenseGrid prefKey="next-verifications" colFilter columns={cols} rows={rows}
             rowKey={(r, i) => r.verificationId ?? `${r.rule}-${i}`} emptyText="검증 규칙이 없습니다" />
+        </div>
+        <div style={{ display: 'flex', gap: 4, padding: 6, alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid var(--line)' }}>
+          <input className="in req" style={{ width: 110 }} placeholder="규칙명" value={ruleName} onChange={(e) => setRuleName(e.target.value)} />
+          <input className="in req" style={{ width: 150, fontFamily: 'Consolas, monospace' }} placeholder="Macro 식 (=A>=…)" value={macroName} onChange={(e) => setMacroName(e.target.value)} />
+          <input className="in" style={{ flex: 1, minWidth: 100 }} placeholder="경고 메시지" value={warning} onChange={(e) => setWarning(e.target.value)} />
+          <button className="b run" disabled={pending} onClick={doAdd} style={{ height: 20, fontSize: 10.5 }}>＋ 규칙 등록</button>
         </div>
       </div>
       <div className="gb" style={{ width: 320, display: 'flex', flexDirection: 'column', padding: 8, gap: 6 }}>

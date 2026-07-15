@@ -16,6 +16,21 @@ export async function toggleRule(verificationId: number, isActive: boolean): Pro
   }
 }
 
+/** 규칙 등록 (N2 복구) — dwg_verification. */
+export async function addRule(drawing: string, ruleName: string, macroName: string, warning: string): Promise<{ ok?: string; error?: string }> {
+  if (!ruleName.trim() || !macroName.trim()) return { error: '규칙명·Macro 는 필수입니다' }
+  try {
+    await apiServer(`/drawings/${encodeURIComponent(drawing)}/verifications`, {
+      method: 'POST',
+      body: JSON.stringify({ ruleName: ruleName.trim(), macroName: macroName.trim(), warning: warning.trim() }),
+    })
+    revalidatePath('/plm/quality')
+    return { ok: `규칙 ${ruleName} 등록` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '규칙 등록 실패' }
+  }
+}
+
 /** 측정값 자동 판정 (D4). */
 export async function verify(drawing: string, measurements: Record<string, number>): Promise<{ result?: VerifyResult; error?: string }> {
   try {
