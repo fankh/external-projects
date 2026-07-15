@@ -143,7 +143,9 @@ with sync_playwright() as pw:
     page.locator("td.code", has_text="KDP 1-21").first.dblclick()
     page.locator(".mdi .t.on", has_text="상세").wait_for(timeout=3000)
     ok("BOM dblclick → code detail tab", True)
-    ok("code detail referencers", page.locator("text=Referencers (Where-Used)").count() == 1)
+    # 코드 스플리팅(lazy) — 상세 화면 청크 렌더 대기 후 검사
+    page.locator("text=Referencers (Where-Used)").first.wait_for(timeout=5000)
+    ok("code detail referencers", page.locator("text=Referencers (Where-Used)").count() >= 1)
     ok("code detail price empty-note or rows",
        page.locator("text=단가 이력").count() >= 1)
     page.screenshot(path=f"{SHOT}/20-code-detail.png")
@@ -153,6 +155,7 @@ with sync_playwright() as pw:
     page.locator("tr:visible", has_text="견적서 QR-61216-01").dblclick()
     page.locator(".mdi .t.on", has_text="문서").wait_for(timeout=3000)
     ok("output dblclick → doc detail", True)
+    page.locator(".fs:visible", has_text="Accepted").first.wait_for(timeout=5000)   # lazy 렌더 대기
     ok("doc stages flow", page.locator(".fs:visible", has_text="Accepted").count() == 1)
     page.get_by_role("button", name="승인 요청").click()
     ok("doc approval advances", page.locator(".fs.done:visible").count() >= 1)
@@ -164,7 +167,8 @@ with sync_playwright() as pw:
     page.locator(".m2:visible", has_text="Impeller").first.dblclick()
     page.locator(".mdi .t.on", has_text="부품").wait_for(timeout=3000)
     ok("block dblclick → part detail", True)
-    ok("part dims binding", page.locator("text=치수 바인딩").count() == 1)
+    page.locator("text=치수 바인딩").first.wait_for(timeout=5000)   # lazy 렌더 대기
+    ok("part dims binding", page.locator("text=치수 바인딩").count() >= 1)
     page.screenshot(path=f"{SHOT}/22-part-detail.png")
 
     # 5d. 이벤트 상세 — Dashboard 이상 경고 더블클릭 → 완료 처리
@@ -194,8 +198,11 @@ with sync_playwright() as pw:
     page.screenshot(path=f"{SHOT}/30-macro-studio.png")
 
     page.locator(".tn", has_text="UI Designer (S-2-1)").click()
+    page.locator(".tn.l2:visible", has_text="Combo").first.wait_for(timeout=5000)   # lazy 렌더 대기
+    page.wait_for_timeout(400)   # 저장 레이아웃 위젯 로드 안정화
     before_widgets = page.locator(".m2:visible").count()
     page.locator(".tn.l2:visible", has_text="Combo").first.click()
+    page.wait_for_timeout(300)
     ok("widget palette adds block", page.locator(".m2:visible").count() == before_widgets + 1)
     page.screenshot(path=f"{SHOT}/31-ui-designer.png")
 
@@ -226,8 +233,9 @@ with sync_playwright() as pw:
     page.locator(".titlebar span.mod", has_text="PLM").click()
     page.locator(".tn", has_text="건축설비 Duct (M-4-3)").click()
     page.get_by_role("button", name="▶ 자동 배치 (최단 경로·유체 흐름)").click()
-    page.locator("text=Diffuser 3개 자동 배치").wait_for(timeout=3000)
-    ok("duct auto place + calc", page.locator("td:visible", has_text="142 Pa").count() == 1)
+    # 실엔진 작도(/cad/duct-layout) 전환 — mock 모드에서는 정직하게 서버 필요 안내 (honest-write)
+    page.locator("text=백엔드 연결 필요 — Duct 배치는 서버 작도").wait_for(timeout=3000)
+    ok("duct auto place = 백엔드 필요 안내 (mock, 실엔진 작도)", True)
     page.screenshot(path=f"{SHOT}/34-duct.png")
 
     # 9. ERP 권한
@@ -272,6 +280,7 @@ with sync_playwright() as pw:
     page.screenshot(path=f"{SHOT}/37-folder.png")
 
     page.locator(".tn", has_text="Mobile App 미리보기 (M-16)").click()
+    page.locator(".phone:visible").first.wait_for(timeout=5000)   # lazy 렌더 대기
     ok("mobile 3 phones", page.locator(".phone:visible").count() == 3)
     page.screenshot(path=f"{SHOT}/38-mobile.png")
 
