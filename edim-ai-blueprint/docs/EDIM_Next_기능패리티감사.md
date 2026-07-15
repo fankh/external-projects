@@ -21,11 +21,11 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 
 ## P1 — 기능 상실 (업무 불가, 우선 복구)
 
-### 결재·업무 처리 (가장 치명적 — 워크플로 중단)
-1. **승인함(common/approval)** — 승인/반려 단건·일괄·코멘트·Macro diff 전부 상실 (React `ApprovalInboxScreen.tsx:78-318`)
-2. **X-code 검토(cpq/x-review)** — 결재 액션·의견 입력 상실 (React `XCodeReviewScreen.tsx:30-64`)
-3. **업무함(erp/tasks)** — 완료 처리·필터·상세 flow 상실 (React `TaskBoxScreen.tsx:35-172`)
-4. **이벤트 상세(detail/event)** — 완료·재배정·에스컬레이션 상실 (React `EventDetailScreen.tsx:44-120`)
+### 결재·업무 처리 (가장 치명적 — 워크플로 중단) — 🔶 **N1 핵심 복구 (v16.8)**
+1. ~~**승인함(common/approval)** — 승인/반려 단건·일괄·코멘트~~ ✅ v16.8 (다중선택+decide/decide-batch, 라이브 결재 E2E 검증) · Macro diff 패널은 후속(P2)
+2. ~~**X-code 검토(cpq/x-review)** — 결재 액션·의견 입력~~ ✅ v16.8 (행 선택+승인/반려+의견)
+3. ~~**업무함(erp/tasks)** — 완료 처리~~ ✅ v16.8 (+더블클릭→이벤트 상세 드릴다운) · 뷰 필터(내업무/부서)는 후속(P2)
+4. ~~**이벤트 상세(detail/event)** — 완료·재배정·에스컬레이션~~ ✅ v16.8 (액션 패널)
 5. **이상 이벤트(erp/anomaly)** — 스캔(F9)·에스컬레이션·확인/해소 전이 상실
 
 ### 도메인 워크플로 (문서·설계·구매·생산)
