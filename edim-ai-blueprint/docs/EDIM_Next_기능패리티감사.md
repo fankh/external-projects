@@ -36,13 +36,13 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 10. ~~**Arrangement(plm/arrangement)** — M-4-2 구성코드/구성품 CRUD~~ ✅ v17.0 (대장+등록+구성품 추가/수량/삭제, CAD 구성도는 보조 패널 유지)
 11. ~~**검증 규칙(plm/quality)** — 규칙 신규 등록~~ ✅ v17.0
 12. ~~**수주 관리(erp/sales-order)** — 발송/수주/실주 전이 + 수주 전환~~ ✅ v17.3 (견적 Lifecycle 그리드 신설, 후속 TODO 건수 표시)
-13. **구매(erp/purchase·po)** — Stock Check·PO 발주 확정·QCR 발행·승인·입고(GR 3-way match) 상실 — N3b
-14. **재고(erp/inventory)** — 예약/해제·Lot/Serial 추적·ATP·입출고 이력 상실 (입고만 잔존) — N3b
+13. ~~**구매(erp/purchase·po)** — PO 발주 확정·QCR 발행·승인·입고(GR)~~ ✅ v17.7 (라이브 E2E: PO-00001 생성→승인→부분입고 50% — Stock Check 필터는 후속 P2)
+14. ~~**재고(erp/inventory)** — 예약/해제·Lot 추적·ATP·입출고 이력~~ ✅ v17.7 (3패널: ATP·예약 등록/해제·이력)
 15. ~~**작업지시(erp/work-order)** — 발행·착수/완료 전이~~ ✅ v17.3
-16. **검사·품질(erp/quality)** — 검사 등록(판정)·성적서 PDF 상실 — N3b
+16. ~~**검사·품질(erp/quality)** — 검사 등록(판정)·성적서 PDF~~ ✅ v17.7 (라이브 E2E: 등록→성적서 PDF 200 · /api/qc 프록시 + nginx 라우트 추가)
 17. ~~**프로젝트(erp/projects)** — 등록·단계 저장(409 낙관적 잠금)·삭제~~ ✅ v17.3 (메타수정·파일 업로드는 후속 P2)
 18. ~~**마일스톤(erp/milestones)** — 납기 등록·완료 처리~~ ✅ v17.3
-19. **단가(erp/prices)** — 등록·Excel Import·적용 마감·Resolve 시뮬레이션 상실 — N3b
+19. ~~**단가(erp/prices)** — 등록·Excel Import·적용 마감~~ ✅ v17.7 (Import=서버액션 multipart+거부 리포트 — Resolve 시뮬레이션은 후속 P2)
 20. ~~**환율·세금(erp/finance)** — 등록/삭제·세금엔진 계산기~~ ✅ v17.3~17.4 (계산기 응답 스키마 정합 수정 포함)
 21. ~~**창고(erp/warehouses)** — 위치 등록(계층 검증)·삭제~~ ✅ v17.3 (수정 QuickEdit 은 후속 P2)
 22. **거래처(erp/companies)** — 공급처 평가 스코어카드·Excel 대량등록 상실 (기본 등록·토글은 동작)
