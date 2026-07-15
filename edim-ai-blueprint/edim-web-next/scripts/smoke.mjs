@@ -82,6 +82,19 @@ async function main() {
   await assertGuardRedirect('/erp/eco-ledger')
   await assertGuardRedirect('/plm/design')
 
+  // 1b) 모듈 루트 URL → 대표 화면 리다이렉트 (레거시 SPA 경로 호환, 404 방지)
+  for (const [src, dest] of [
+    ['/erp', '/erp/dashboard'], ['/cpq', '/cpq/selection'], ['/plm', '/plm/parts'],
+    ['/code', '/code/subcode'], ['/toolbox', '/toolbox/macros'], ['/common', '/common/approval'],
+  ]) {
+    try {
+      const res = await rawGet(src)
+      const loc = res.headers.get('location') ?? ''
+      if ([307, 308, 302].includes(res.status) && loc.includes(dest)) ok(`모듈 루트: ${src} → ${dest}`)
+      else bad(`모듈 루트: ${src} → ${dest}`, `status ${res.status}, location "${loc}"`)
+    } catch (e) { bad(`모듈 루트: ${src}`, e.message) }
+  }
+
   // 2) 로그인 페이지 자체는 미인증 접근 가능
   await assertRenders('/login', ['사번', 'password'])
 
