@@ -126,6 +126,15 @@ async function main() {
   await assertRenders('/plm/arrangement', ['구성 등록'], token)
   await assertRenders('/plm/quality', ['규칙 등록'], token)
 
+  // 4d) N3a ERP 대장 CRUD 복구 — 등록/전이 액션 UI 렌더
+  await assertRenders('/erp/projects', ['프로젝트 등록'], token)
+  await assertRenders('/erp/sales-order', ['수주 전환'], token)
+  await assertRenders('/erp/milestones', ['납기 등록'], token)
+  await assertRenders('/erp/finance', ['세액 계산기'], token)
+  await assertRenders('/erp/warehouses', ['위치 등록'], token)
+  await assertRenders('/erp/work-order', ['발행'], token)
+  await assertRenders('/erp/anomaly', ['이상 스캔'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 

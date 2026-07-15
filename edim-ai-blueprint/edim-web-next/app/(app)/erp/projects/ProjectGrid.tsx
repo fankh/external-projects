@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 
@@ -21,6 +22,10 @@ const cols: GridColumn<ProjectRow>[] = [
   { key: 'registeredAt', header: '등록일', width: 84, align: 'center', render: (r) => r.registeredAt },
 ]
 
-export function ProjectGrid({ rows }: { rows: ProjectRow[] }) {
-  return <DenseGrid prefKey="next-projects" colFilter columns={cols} rows={rows} rowKey={(r) => r.projectNo} emptyText="프로젝트가 없습니다" />
+export function ProjectGrid({ rows, selectedNo }: { rows: ProjectRow[]; selectedNo?: string | null }) {
+  const router = useRouter()
+  return <DenseGrid prefKey="next-projects" colFilter columns={cols} rows={rows} rowKey={(r) => r.projectNo}
+    selectedKey={selectedNo ?? undefined}
+    onRowClick={(r) => router.push(`/erp/projects?no=${encodeURIComponent(r.projectNo)}`)}
+    emptyText="프로젝트가 없습니다" />
 }
