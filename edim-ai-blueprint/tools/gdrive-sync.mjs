@@ -96,7 +96,8 @@ async function upsert(filePath, baseName, ext, parent, existing) {
     ['reference/EDIM Tool System EP2.pptx', '01_발표자료(Slides)'],
   ]
   for (const f of readdirSync(DOCS)) {
-    if (f.toLowerCase().endsWith('.xlsx') && !f.startsWith('~$')) plan.push([f, null])
+    // 변경관리대장은 Drive 원본이 정본(엔지니어 편집) — 절대 덮어쓰지 않음(tools/gdrive-change-register.mjs 소관)
+    if (f.toLowerCase().endsWith('.xlsx') && !f.startsWith('~$') && !f.includes('변경관리대장')) plan.push([f, null])
   }
   for (const f of readdirSync(new URL('./pdf/', DOCS))) {
     if (f.toLowerCase().endsWith('.pdf')) plan.push([`pdf/${f}`, '05_PDF(원본)'])
