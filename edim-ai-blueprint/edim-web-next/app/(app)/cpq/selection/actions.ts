@@ -36,3 +36,26 @@ export async function arrangementCad(): Promise<CadDocument | null> {
     throw e
   }
 }
+
+/** 사양 Excel Import (N5b) — Slot·Value 2열 → slotValues. */
+export async function specImport(formData: FormData): Promise<{ slotValues?: Record<string, string>; error?: string }> {
+  const { getToken } = await import('@/lib/session')
+  const file = formData.get('uploadedFile')
+  if (!(file instanceof File) || file.size === 0) return { error: '사양 Excel 파일을 선택하십시오' }
+  const token = await getToken()
+  const fd = new FormData()
+  fd.append('uploadedFile', file)
+  const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
+  const res = await fetch(`${API_BASE}/cpq/spec-import`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: fd, cache: 'no-store',
+  })
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`
+    try { detail = (await res.json())?.detail ?? detail } catch { /* non-json */ }
+    return { error: detail }
+  }
+  const r = await res.json() as { slotValues: Record<string, string> }
+  return { slotValues: r.slotValues }
+}

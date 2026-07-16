@@ -7,7 +7,7 @@ import { CadSvg } from '@/components/CadSvg'
 import { Btn, Chip, GroupBox } from '@/components/controls'
 import { CommandLine, Cvs } from '@/components/Cvs'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
-import { expand, saveSelection, arrangementCad, type BomItem, type SelectionRow } from './actions'
+import { expand, saveSelection, arrangementCad, specImport, type BomItem, type SelectionRow } from './actions'
 
 const PRODUCT_SLOTS = [
   { slot: 'B', label: 'Size', values: ['13', '21', '32'] },
@@ -94,6 +94,34 @@ export function SelectionView(props: {
           <option value="">견적안 불러오기…</option>
           {props.selections.map((s) => <option key={s.selectionId} value={s.selectionId}>#{s.selectionId} {s.finishedGoodsCode}</option>)}
         </select>
+        {/* N5b — 사양 Excel Import (Slot·Value → 슬롯 자동 세팅 + 재전개) */}
+        <label className="b" style={{ cursor: 'pointer' }} title="사양 Excel (Slot·Value 2열)">
+          ⬆ 사양 Excel
+          <input type="file" accept=".xlsx" style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (!f) return
+              const fd = new FormData(); fd.append('uploadedFile', f)
+              void specImport(fd).then((r) => {
+                if (r.error || !r.slotValues) { say(r.error ?? '사양 Import 실패'); return }
+                setSlotValues(r.slotValues); reExpand(r.slotValues)
+                say(`사양 Import ✓ — ${Object.keys(r.slotValues).length}개 슬롯 적용`)
+              })
+              e.target.value = ''
+            }} />
+        </label>
+        <Btn onClick={() => {
+          // N5b — 견적 미리보기 (Run 없이 현재 슬롯 즉석 렌더)
+          void fetch('/api/next/quote-preview', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rootCode: 'KDCR 3-13', slotValues }),
+          }).then(async (res) => {
+            if (!res.ok) { say(`견적 미리보기 실패 (HTTP ${res.status})`); return }
+            const url = URL.createObjectURL(await res.blob())
+            window.open(url, '_blank')
+            setTimeout(() => URL.revokeObjectURL(url), 60_000)
+          })
+        }}>견적 미리보기</Btn>
         <Btn onClick={save}>저장 F12</Btn>
         <Btn variant="run" onClick={startRun}>Run ▶ F9</Btn>
       </div>

@@ -158,6 +158,13 @@ async function main() {
   await assertRenders('/cpq/reports', ['PCR 수익성 보고서'], token)
   await assertRenders('/common/folder', ['업로드', 'ZIP'], token)
 
+  // 4i) N5b 스튜디오·PDF 복구 — Macro/Templet 편집·Run 정리·성능표 PDF·사양 Excel
+  await assertRenders('/toolbox/macros', ['Test Run'], token)
+  await assertRenders('/toolbox/templets', ['Templet 편집'], token)
+  await assertRenders('/toolbox/runs', ['보관 정리'], token)
+  await assertRenders('/cpq/tech-data', ['Fan 성능표 PDF'], token)
+  await assertRenders('/cpq/selection', ['사양 Excel', '견적 미리보기'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 

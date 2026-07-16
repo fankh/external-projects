@@ -1,7 +1,10 @@
 'use client'
 
+/** Tech Data (C-2) — 성능 범위 조회 + 선정 모델 PDF 발급 (N5b 복구). */
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
+import { openRenderedPdf } from '@/lib/pdf'
 
 export interface TechDataRow { model: string; pd: number; pt: number; rpm: number; eff: number; power: number; sound: number }
 
@@ -20,6 +23,9 @@ const cols: GridColumn<TechDataRow>[] = [
 export function TechGrid({ rows, airflow, pressure }: { rows: TechDataRow[]; airflow: number; pressure: number }) {
   const router = useRouter()
   const sp = useSearchParams()
+  const [selModel, setSelModel] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ text: string; err?: boolean } | null>(null)
+  const sel = rows.find((r) => r.model === selModel) ?? null
   const go = (a: number, p: number) => router.push(`/cpq/tech-data?airflow=${a}&pressure=${p}`)
   const onKey = (key: 'airflow' | 'pressure') => (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
@@ -28,17 +34,54 @@ export function TechGrid({ rows, airflow, pressure }: { rows: TechDataRow[]; air
     const p = key === 'pressure' ? v : Number(sp.get('pressure')) || pressure
     go(a, p)
   }
+
+  // E1 — Fan 성능표 PDF (선정 모델 + 후보 목록 실렌더)
+  const fanPerfPdf = async () => {
+    if (!sel) { setMsg({ text: '선정 모델을 먼저 클릭하십시오', err: true }); return }
+    const lines = [
+      `선정점: ${sel.model} · ${sel.rpm} RPM · 효율 ${sel.eff}%`,
+      `풍량 ${airflow} CMH · 정압 ${pressure} Pa`,
+      `Pd ${sel.pd} · Pt ${sel.pt} · Power ${sel.power} kW · Sound ${sel.sound} dB`,
+      '', '── 후보 모델 (Table 범위 조회) ──',
+      'Model      Pd    Pt   RPM  Eff  Power Sound',
+      ...rows.map((r) => `${r.model.padEnd(10)} ${String(r.pd).padStart(4)} ${String(r.pt).padStart(4)} ${String(r.rpm).padStart(4)} ${String(r.eff).padStart(4)} ${String(r.power).padStart(5)} ${String(r.sound).padStart(5)}`),
+    ]
+    const ok = await openRenderedPdf(`Fan 성능표 — ${sel.model}`, lines, { subtitle: 'C-2 Technical Data (TBL-004) 실렌더' })
+    setMsg(ok ? { text: `Fan 성능표 PDF ✓ — ${sel.model}` } : { text: '렌더 불가 — 백엔드 연결 필요', err: true })
+  }
+
+  // E1 — 밀도 보정 계산서 PDF (습공기 근사 → 정압 보정)
+  const densityPdf = async () => {
+    const rho = 1.293 * (273.15 / (273.15 + 20)) * (1 - 0.378 * 0.0234 * 0.8 / 101.325)
+    const rhoR = Math.round(rho * 1000) / 1000
+    const corrected = sel ? Math.round(sel.pt * (rhoR / 1.2) * 10) / 10 : null
+    const lines = [
+      '입력: 온도 20 ℃ · 상대습도 80 % · 대기압 101.325 kPa',
+      `표준 밀도 ρ₀ = 1.2 kg/m³ · 계산 밀도 ρ = ${rhoR} kg/m³ (승인 Macro TBX-011)`,
+      sel ? `정압 밀도 보정: Pt ${sel.pt} → ${corrected} (ρ/ρ₀ 비례)` : '(모델 미선정 — 보정 대상 없음)',
+      '', 'Document Templet(C-3) 밀도 계산서 표준 양식',
+    ]
+    const ok = await openRenderedPdf('밀도 보정 계산서', lines, { subtitle: 'C-2 → C-3 Document Templet 연계' })
+    setMsg(ok ? { text: `밀도 보정 계산서 PDF ✓ — ρ ${rhoR} kg/m³` } : { text: '렌더 불가 — 백엔드 연결 필요', err: true })
+  }
+
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '4px 6px' }}>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '4px 6px', flexWrap: 'wrap' }}>
         <label style={{ fontSize: 11 }}>풍량 CMH</label>
         <input className="in" defaultValue={airflow} onKeyDown={onKey('airflow')} style={{ height: 22, fontSize: 11, width: 84 }} />
         <label style={{ fontSize: 11 }}>정압 Pa</label>
         <input className="in" defaultValue={pressure} onKeyDown={onKey('pressure')} style={{ height: 22, fontSize: 11, width: 72 }} />
-        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>Enter 로 재조회 · row_key_num 범위</span>
+        <span className="sep" />
+        <button className="b" onClick={() => void fanPerfPdf()}>🖶 Fan 성능표 PDF{sel ? ` (${sel.model})` : ''}</button>
+        <button className="b" onClick={() => void densityPdf()}>🖶 밀도 계산서 PDF</button>
+        {msg ? <span style={{ fontSize: 11, color: msg.err ? 'var(--err)' : 'var(--run)' }}>{msg.text}</span>
+          : <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>행 클릭=선정 · Enter 재조회</span>}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <DenseGrid prefKey="next-techdata" colFilter columns={cols} rows={rows} rowKey={(r) => r.model} emptyText="해당 조건의 성능 데이터가 없습니다" />
+        <DenseGrid prefKey="next-techdata" colFilter columns={cols} rows={rows} rowKey={(r) => r.model}
+          selectedKey={selModel ?? undefined} onRowClick={(r) => setSelModel(r.model)}
+          emptyText="해당 조건의 성능 데이터가 없습니다" />
       </div>
     </div>
   )

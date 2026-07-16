@@ -1,7 +1,10 @@
 'use client'
 
+/** Run 이력·정리 — Run 삭제·보관 정리·MinIO GC (N5b 복구). */
+import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { cleanupRuns, deleteRun, gcStorage, type ActState } from './actions'
 
 export interface RunRow {
   runId: number; status: string; runType: string; startedAt: string
@@ -21,6 +24,43 @@ const cols: GridColumn<RunRow>[] = [
 ]
 
 export function RunGrid({ rows }: { rows: RunRow[] }) {
-  return <DenseGrid prefKey="next-runs" colFilter columns={cols} rows={rows}
-    rowKey={(r) => r.runId} emptyText="Run 이력이 없습니다" />
+  const [selId, setSelId] = useState<number | null>(null)
+  const [keep, setKeep] = useState('10')
+  const [st, setSt] = useState<ActState>({})
+  const [pending, start] = useTransition()
+  const sel = rows.find((r) => r.runId === selId) ?? null
+
+  return (
+    <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', fontSize: 11 }}>
+        <span style={{ color: 'var(--txt-dim)' }}>{sel ? `선택 Run #${sel.runId}` : '행 클릭=선택'}</span>
+        <button className="b" disabled={pending || !sel || sel.latest || sel.referenced}
+          title={sel?.latest || sel?.referenced ? '최신/참조 Run 은 보호됩니다' : undefined}
+          onClick={() => {
+            if (sel && confirm(`Run #${sel.runId} 을 정리하시겠습니까? (산출물 포함)`))
+              start(async () => { setSt(await deleteRun(sel.runId)); setSelId(null) })
+          }}>Run 정리</button>
+        <span className="sep" />
+        <label>최신 유지</label>
+        <input className="in" style={{ width: 44, textAlign: 'right' }} value={keep} onChange={(e) => setKeep(e.target.value)} />
+        <button className="b" disabled={pending} onClick={() => {
+          if (confirm(`최신 ${keep}건만 유지하고 나머지를 정리하시겠습니까?`))
+            start(async () => setSt(await cleanupRuns(Math.max(1, Number(keep) || 10))))
+        }}>보관 정리</button>
+        <span className="sep" />
+        <button className="b" disabled={pending} onClick={() => start(async () => setSt(await gcStorage(false)))}>MinIO GC 미리보기</button>
+        <button className="b" disabled={pending} onClick={() => {
+          if (confirm('고아 오브젝트를 실제로 삭제하시겠습니까?'))
+            start(async () => setSt(await gcStorage(true)))
+        }}>GC 적용</button>
+        {st.error ? <span style={{ color: 'var(--err)' }}>{st.error}</span> : null}
+        {st.ok ? <span style={{ color: 'var(--run)' }}>{st.ok}</span> : null}
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <DenseGrid prefKey="next-runs" colFilter columns={cols} rows={rows}
+          rowKey={(r) => r.runId} selectedKey={selId ?? undefined}
+          onRowClick={(r) => setSelId(r.runId)} emptyText="Run 이력이 없습니다" />
+      </div>
+    </div>
+  )
 }
