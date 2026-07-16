@@ -66,9 +66,10 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 35. ~~**전역 단축키·F-key 수신**~~ ✅ v18.9 (Alt+W/←→/1~9·Ctrl+K + useFKeys 훅 — Macro F12/F9·데이터 Table F12/F3 배선, 라이브 E2E: Alt+← 탭 이동·F9 평가) + 비밀번호 변경 다이얼로그(B8) 복원
 
 ## P2 (편의 저하 — 2순위)
-즐겨찾기·To-Do 푸터·F1 프로젝트 컨텍스트·비밀번호 변경 다이얼로그·데이터소스 표시·상태바 승인대기 카운트·
-대시보드 드릴다운·감사 필터/XLSX·Audit before/after 패널·CAD 뷰어(레이어 특성편집·편집 영속·축척 PDF·DXF 다운로드)·
+~~To-Do 푸터~~ ✅ v20.2 · ~~상태바 승인대기 카운트~~ ✅ v20.2 · ~~비밀번호 변경 다이얼로그~~ ✅ v18.9 · ~~데이터소스 표시(DB 라벨)~~ ✅ v18.9 — 잔여:
+즐겨찾기·F1 프로젝트 컨텍스트·대시보드 드릴다운·감사 필터/XLSX·Audit before/after 패널·CAD 뷰어(레이어 특성편집·편집 영속·축척 PDF·DXF 다운로드)·
 Duct(수동 도구·층 선택·기술계산표)·Work Process(공정 파라미터·CAD 매핑·Coding)·낙관적 잠금 안내·XLSX export 전반.
+- To-Do 푸터/상태바 카운트: shellCounts 서버액션(/approvals/inbox 길이 + /erp/dashboard delayed 합), 초기+라우팅+60초 폴링+edim-inbox-refresh 즉시 갱신. 라이브: 상태바 `승인 대기 3` 실데이터.
 
 ## P3 (사소 — 3순위)
 화면 라벨 i18n 하드코딩(전 화면), F-key 라벨만 잔존, 로그인 부가 요소(로케일·테넌트·버전), MDI 파라미터 다중 인스턴스,
