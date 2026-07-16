@@ -21,6 +21,22 @@ export async function searchQuery(q: string): Promise<{ result?: SearchResults; 
   }
 }
 
+/** 화면 즐겨찾기 (D8, P2) — /prefs/favorites 서버 영속. */
+export interface FavItem { href: string; code: string; title: string }
+
+export async function getFavorites(): Promise<FavItem[]> {
+  try {
+    const r = await apiServer<{ value: FavItem[] | null }>('/prefs/favorites')
+    return Array.isArray(r.value) ? r.value : []
+  } catch { return [] }
+}
+
+export async function saveFavorites(items: FavItem[]): Promise<void> {
+  try {
+    await apiServer('/prefs/favorites', { method: 'PUT', body: JSON.stringify({ value: items }) })
+  } catch { /* 백엔드 불가 — 다음 세션에서 재시도 */ }
+}
+
 /** 셸 크롬 카운트 (P2) — 승인 대기 = 실 inbox 길이, PL 지연 = 부서 이벤트 delayed 합. */
 export async function shellCounts(): Promise<{ inbox: number; delayed: number }> {
   const [inbox, dash] = await Promise.all([

@@ -3,9 +3,8 @@ import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
 import { AccessDenied } from '@/components/AccessDenied'
 import { hasLevel } from '@/lib/auth'
-import { AuditGrid, type AuditRow } from './AuditGrid'
-
-interface AuditData { rows: AuditRow[]; actions?: string[]; users?: string[] }
+import { AuditPanel } from './AuditGrid'
+import type { AuditData } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +16,7 @@ export default async function AuditPage() {
   let data: AuditData | null = null
   let err: string | null = null
   try {
-    data = await apiServer<AuditData>('/audit?limit=200')
+    data = await apiServer<AuditData>('/audit?limit=500')
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
@@ -31,10 +30,10 @@ export default async function AuditPage() {
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /audit (ADMIN)</span>
       </div>
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
-        {err ? (
+        {err || !data ? (
           <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div>
         ) : (
-          <AuditGrid rows={data?.rows ?? []} />
+          <AuditPanel initial={data} />
         )}
       </div>
     </div>

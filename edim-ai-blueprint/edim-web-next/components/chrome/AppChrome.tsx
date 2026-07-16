@@ -9,7 +9,7 @@ import { MenuBar, MdiTabs, StatusBar, TitleBar, type MdiTab, type MenuItem } fro
 import { GlobalSearch } from './GlobalSearch'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MENU_TREE, moduleOfPath, type ModuleKey, type NavNode } from './menus'
-import { changePassword, shellCounts } from './shellActions'
+import { changePassword, getFavorites, saveFavorites, shellCounts, type FavItem } from './shellActions'
 
 const TABS_KEY = 'edim-next-tabs'
 const MAX_TABS = 12
@@ -101,6 +101,24 @@ export function AppChrome(props: {
     return () => window.removeEventListener('keydown', onKey)
   }, [tabs, pathname, router, closeTab, stepTab])
 
+  // ── 화면 즐겨찾기 (D8, P2) — /prefs/favorites 서버 영속 ──
+  const [favs, setFavs] = useState<FavItem[]>([])
+  useEffect(() => { void getFavorites().then(setFavs) }, [])
+  const curInfo = HREF_INFO[pathname]
+  const isFav = curInfo != null && favs.some((f) => f.href === pathname)
+  const toggleFav = () => {
+    if (!curInfo) return
+    const next = isFav
+      ? favs.filter((f) => f.href !== pathname)
+      : [...favs, { href: pathname, code: curInfo.code, title: curInfo.title }]
+    setFavs(next)
+    void saveFavorites(next)
+  }
+  const favLabel = (f: FavItem) => {
+    const info = HREF_INFO[f.href]
+    return (info ? t(`menu.${info.id}`, f.title) : f.title).replace(/\s*\([^)]*\)\s*$/, '')
+  }
+
   // ── 셸 크롬 카운트 (P2) — 승인 대기 = 실 inbox, PL 지연 = 부서 이벤트 delayed 합 ──
   //    초기 + 라우팅 변경 + 60초 폴링 + edim-inbox-refresh(승인 결정) 즉시 갱신
   const [counts, setCounts] = useState({ inbox: 0, delayed: 0 })
@@ -161,7 +179,22 @@ export function AppChrome(props: {
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TitleBar user={props.user} bell={props.bell} right={props.right}
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
-      <MenuBar menus={menus} right={<GlobalSearch />} />
+      <MenuBar menus={menus} right={
+        <>
+          {/* D8 — 화면 즐겨찾기: ★ 토글 + 칩 (최대 8) */}
+          <span className="b ic" data-fav-toggle
+            title={curInfo ? (isFav ? t('shell.favRemove', '즐겨찾기 해제') : t('shell.favAdd', '현재 화면 즐겨찾기 추가')) : t('shell.favNoScreen', '즐겨찾기 — 화면을 먼저 여십시오')}
+            style={{ color: isFav ? '#E8B84B' : undefined, cursor: curInfo ? 'pointer' : 'default', marginLeft: 8 }}
+            onClick={toggleFav}>{isFav ? '★' : '☆'}</span>
+          {favs.slice(0, 8).map((f) => (
+            <span key={f.href} className="b" data-fav-chip
+              title={`${t('shell.favorite', '즐겨찾기')} — ${f.code} ${favLabel(f)}`}
+              style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
+              onClick={() => router.push(f.href)}>★ {favLabel(f)}</span>
+          ))}
+          <GlobalSearch />
+        </>
+      } />
       {pwOpen ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setPwOpen(false)}>

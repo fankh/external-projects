@@ -1,7 +1,16 @@
+import Link from 'next/link'
 import { apiServer, ApiError } from '@/lib/api'
 import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
+
+// F10 — KPI 드릴다운 (지표 라벨 → 담당 화면, 레거시 KPI_DRILL 동등)
+const KPI_DRILL: Record<string, string> = {
+  '진행 Project': '/erp/projects',
+  '승인 대기': '/common/approval',
+  '이번 달 수주': '/erp/projects',
+  '이상 경고 (시간·자금)': '/erp/tasks',
+}
 
 interface Dash { kpis: { label: string; value: string; err?: boolean }[]; deptEvents: { dept: string; waiting: number; running: number; doneWeek: number; delayed: number }[] }
 interface VarCat { category: string; label: string; estimate: number; actual: number; variance: number; varianceRate: number; alert: boolean }
@@ -49,12 +58,20 @@ export default async function DashboardPage() {
 
         {dash ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
-            {dash.kpis.map((k) => (
-              <div key={k.label} className="gb" style={{ textAlign: 'center', padding: '10px 6px' }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: k.err ? 'var(--err)' : 'var(--title-navy)' }}>{k.value}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--txt-dim)' }}>{k.label}</div>
-              </div>
-            ))}
+            {dash.kpis.map((k) => {
+              const drill = KPI_DRILL[k.label]
+              const tile = (
+                <div className="gb" style={{ textAlign: 'center', padding: '10px 6px', cursor: drill ? 'pointer' : undefined, height: '100%' }}
+                  title={drill ? t('dash.kpiDrillHint', '클릭 = 해당 화면') : undefined}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: k.err ? 'var(--err)' : 'var(--title-navy)' }}>{k.value}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--txt-dim)' }}>{k.label}</div>
+                </div>
+              )
+              // F10 — KPI 드릴다운: 지표별 담당 화면 이동
+              return drill
+                ? <Link key={k.label} href={drill} data-kpi={k.label} style={{ textDecoration: 'none', color: 'inherit' }}>{tile}</Link>
+                : <div key={k.label} data-kpi={k.label}>{tile}</div>
+            })}
           </div>
         ) : null}
 
@@ -152,8 +169,9 @@ export default async function DashboardPage() {
             <table className="g" style={{ width: '100%' }}>
               <thead><tr><th>{t('dash.dept', '부서')}</th><th>{t('enum.waiting', '대기')}</th><th>{t('enum.progress', '진행')}</th><th>{t('dash.doneWeek', '완료(주)')}</th><th>{t('enum.delayed', '지연')}</th></tr></thead>
               <tbody>
+                {/* E4 — 부서 행 클릭 = 부서 업무함 (M-15-3) */}
                 {dash.deptEvents.map((d) => (
-                  <tr key={d.dept}><td>{d.dept}</td><td className="c">{d.waiting}</td><td className="c">{d.running}</td><td className="c">{d.doneWeek}</td><td className="c" style={{ color: d.delayed > 0 ? 'var(--err)' : undefined }}>{d.delayed}</td></tr>
+                  <tr key={d.dept}><td><Link href="/erp/tasks" title={t('dash.deptDrillHint', '클릭 = 부서 업무함 (M-15-3)')} style={{ color: 'inherit' }}>{d.dept}</Link></td><td className="c">{d.waiting}</td><td className="c">{d.running}</td><td className="c">{d.doneWeek}</td><td className="c" style={{ color: d.delayed > 0 ? 'var(--err)' : undefined }}>{d.delayed}</td></tr>
                 ))}
               </tbody>
             </table>
