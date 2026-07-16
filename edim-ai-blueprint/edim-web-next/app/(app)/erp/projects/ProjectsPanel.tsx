@@ -3,6 +3,7 @@
 /** 프로젝트 대장 액션 (N3) — 등록 폼 + 선택 프로젝트 영업단계 전이(낙관적 잠금)·삭제. */
 import { useActionState, useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { createProject, deleteProject, setStage, type ActState } from './actions'
 
@@ -12,18 +13,28 @@ export function ProjectRegForm() {
   const { t } = useI18n()
   const [st, action, pending] = useActionState(createProject, {} as ActState)
   return (
-    <form action={action} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-      <input className="in req" name="projectName" placeholder={t('prj.name', '프로젝트명')} style={{ width: 160 }} />
-      <select className="in" name="projectType" defaultValue="신규" style={{ width: 70 }}>
-        <option value="신규">신규</option><option value="변경">변경</option><option value="AS">AS</option>
-      </select>
-      <input className="in" name="item" placeholder={t('prj.itemPh', 'Item (AHU 등)')} style={{ width: 100 }} />
-      <input className="in req" name="client" placeholder={t('prj.client', '고객사')} style={{ width: 110 }} />
-      <input className="in" name="clientContact" placeholder={t('prj.clientContact', '고객 담당')} style={{ width: 90 }} />
-      <button className="b run" type="submit" disabled={pending}>{t('prj.addBtn', '＋ 프로젝트 등록')}</button>
-      {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
-      {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
-    </form>
+    <RegisterModal trigger={t('prj.addBtn', '＋ 프로젝트 등록')} title={t('prj.regTitle', '프로젝트 등록')} ok={st.ok}>
+      {() => (
+        <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+          <label>{t('prj.name', '프로젝트명')}</label>
+          <input className="in req" name="projectName" autoFocus />
+          <label>{t('prj.type', '유형')}</label>
+          <select className="in" name="projectType" defaultValue="신규">
+            <option value="신규">신규</option><option value="변경">변경</option><option value="AS">AS</option>
+          </select>
+          <label>{t('prj.itemLabel', 'Item')}</label>
+          <input className="in" name="item" placeholder={t('prj.itemPh', 'AHU 등')} />
+          <label>{t('prj.client', '고객사')}</label>
+          <input className="in req" name="client" />
+          <label>{t('prj.clientContact', '고객 담당')}</label>
+          <input className="in" name="clientContact" />
+          <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center', marginTop: 4 }}>
+            {st.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{st.error}</span> : null}
+            <button className="b run" type="submit" disabled={pending}>{t('common.register', '등록')}</button>
+          </div>
+        </form>
+      )}
+    </RegisterModal>
   )
 }
 
