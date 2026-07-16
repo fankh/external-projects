@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { ChunkReloadGuard } from '@/components/ChunkReloadGuard'
 
 export const metadata: Metadata = {
   title: 'EDIM — NOVA Solution',
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <ChunkReloadGuard />
+        {children}
+      </body>
     </html>
   )
 }
