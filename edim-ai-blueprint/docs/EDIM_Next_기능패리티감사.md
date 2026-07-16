@@ -49,13 +49,13 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 23. ~~**사용자·권한(erp/roles)** — 사용자 등록/잠금해제/레벨변경/비활성 + 권한 셀 토글 + 역할 CRUD~~ ✅ v17.9 (라이브 E2E: 사용자 등록→레벨 SETUP→역할 생성/삭제 — 초대·다중역할·모듈 구성은 후속 P2)
 24. ~~**Code Set-up 5화면**~~ ✅ v17.9~18.1 전체 완료 — product-codes·variant·materials(v17.9) + subcode(그룹등록·중복검토 게이트→승인·Excel 왕복)·datatable(행 편집 패널·추가/삭제·Excel — 라이브 E2E: UT99 추가→저장→삭제 왕복) (v18.1)
 25. ~~**Hierarchy(code/groups)**~~ ✅ v18.1 — sys_hierarchy 트리 패널 신설(treeType 전환·노드 등록/개명/삭제), code_group 그리드 병치. **/api/next/ 공용 프리픽스** 신설(XLSX 프록시, nginx 1회 라우팅으로 이후 핸들러 커버)
-26. **Macro Studio(toolbox/macros)** — 4-Way Sync 스튜디오(AI 생성·Test Run·함수 마법사·저장·승인) 전체 상실
-27. **Templet 관리(toolbox/templets)** — CRUD·JSON 정의 편집기·승인 상실
-28. **Run 이력(toolbox/runs)** — 산출물 드릴다운·Run 정리·MinIO GC 상실
+26. ~~**Macro Studio(toolbox/macros)** — 식 편집·Test Run·저장·승인·삭제~~ ✅ v18.5 (라이브 E2E: =IF 식 평가 결과 30 — 4-Way Sync 뷰·AI 생성은 후속 P2)
+27. ~~**Templet 관리(toolbox/templets)** — JSON 정의 편집기·upsert·삭제~~ ✅ v18.5~18.7 (+definition 객체 렌더 **잠복 SSR 500** 수정)
+28. ~~**Run 이력(toolbox/runs)** — Run 정리·보관 정리·MinIO GC~~ ✅ v18.5
 29. ~~**Run 산출물(cpq/run)** — 다운로드·상세 드릴다운~~ ✅ v18.3 (AP요청/QCR/ERP 전송 라벨은 후속 P2)
-30. **Tech Data(cpq/tech-data)** — Fan 성능표 PDF·밀도 계산서 PDF·성능 곡선·선정 연동 상실
+30. ~~**Tech Data(cpq/tech-data)** — 행 선정 + Fan 성능표/밀도 계산서 PDF~~ ✅ v18.5 (성능 곡선 SVG 는 후속 P2)
 31. ~~**Report Center(cpq/reports)** — PCR 보고서 그리드+PDF~~ ✅ v18.3 (라이브: PCR PDF 200)
-32. **선정(cpq/selection)** — 사양 Excel Import·견적 미리보기 PDF 상실
+32. ~~**선정(cpq/selection)** — 사양 Excel Import·견적 미리보기 PDF~~ ✅ v18.5
 33. ~~**Project Folder(common/folder)** — 업로드·개별/ZIP 다운로드·DXF 드릴다운~~ ✅ v18.3 (라이브: ZIP 2.4MB — 폴더 트리 분류·이력 diff 는 후속 P2)
 
 ### 셸 전역
