@@ -19,11 +19,13 @@ export function ProjectRegForm() {
           <label>{t('prj.name', '프로젝트명')}</label>
           <input className="in req" name="projectName" autoFocus />
           <label>{t('prj.type', '유형')}</label>
-          <select className="in" name="projectType" defaultValue="신규">
-            <option value="신규">신규</option><option value="변경">변경</option><option value="AS">AS</option>
+          <select className="in" name="projectType" defaultValue="Client">
+            <option value="Client">Client</option><option value="Stock">Stock</option><option value="R&D">R&D</option>
           </select>
           <label>{t('prj.itemLabel', 'Item')}</label>
-          <input className="in" name="item" placeholder={t('prj.itemPh', 'AHU 등')} />
+          <select className="in" name="item" defaultValue="AHU">
+            <option value="AHU">AHU</option><option value="Fan">Fan</option><option value="DUCT">DUCT</option>
+          </select>
           <label>{t('prj.client', '고객사')}</label>
           <input className="in req" name="client" />
           <label>{t('prj.clientContact', '고객 담당')}</label>
