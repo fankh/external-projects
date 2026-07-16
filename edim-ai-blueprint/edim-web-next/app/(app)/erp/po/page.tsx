@@ -1,4 +1,6 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { PoGrid, type PoRow } from './PoGrid'
 import { PoCreateForm, PoDetailPanel, type PoDetail } from './PoPanel'
@@ -6,6 +8,10 @@ import { PoCreateForm, PoDetailPanel, type PoDetail } from './PoPanel'
 export const dynamic = 'force-dynamic'
 
 export default async function PoPage({ searchParams }: { searchParams: Promise<{ no?: string }> }) {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
+
   let rows: PoRow[] = []
   let err: string | null = null
   try {
@@ -21,7 +27,7 @@ export default async function PoPage({ searchParams }: { searchParams: Promise<{
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="발주 대장 (G-3)" count={err ? undefined : rows.length} source="/erp/pos" />
+      <ScreenHeader title={`${t('po.ledger', '발주 대장')} (G-3)`} count={err ? undefined : rows.length} source="/erp/pos" />
       <div style={{ padding: '4px 6px 0' }}><PoCreateForm /></div>
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
@@ -30,7 +36,7 @@ export default async function PoPage({ searchParams }: { searchParams: Promise<{
             <div style={{ width: 380, overflow: 'auto' }}>
               {detail
                 ? <PoDetailPanel detail={detail} />
-                : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>행을 클릭하면 라인·승인·입고(GR)를 관리합니다</div>}
+                : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{t('po.selectHint', '행을 클릭하면 라인·승인·입고(GR)를 관리합니다')}</div>}
             </div>
           </>
         )}

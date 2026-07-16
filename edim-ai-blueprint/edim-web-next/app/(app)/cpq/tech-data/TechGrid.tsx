@@ -4,24 +4,25 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
+import { useI18n } from '@/components/I18nProvider'
 import { openRenderedPdf } from '@/lib/pdf'
 
 export interface TechDataRow { model: string; pd: number; pt: number; rpm: number; eff: number; power: number; sound: number }
 
 const num = (v: number, d = 0) => v == null ? '—' : v.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d })
 
-const cols: GridColumn<TechDataRow>[] = [
-  { key: 'model', header: '모델', width: 96, code: true, render: (r) => r.model },
-  { key: 'pd', header: '정압 Pd', width: 80, align: 'right', sortValue: (r) => r.pd, render: (r) => num(r.pd) },
-  { key: 'pt', header: '전압 Pt', width: 80, align: 'right', sortValue: (r) => r.pt, render: (r) => num(r.pt) },
-  { key: 'rpm', header: 'RPM', width: 72, align: 'right', sortValue: (r) => r.rpm, render: (r) => num(r.rpm) },
-  { key: 'eff', header: '효율 %', width: 70, align: 'right', sortValue: (r) => r.eff, render: (r) => num(r.eff, 1) },
-  { key: 'power', header: '동력 kW', width: 78, align: 'right', sortValue: (r) => r.power, render: (r) => num(r.power, 2) },
-  { key: 'sound', header: '소음 dB', width: 76, align: 'right', sortValue: (r) => r.sound, render: (r) => num(r.sound, 1) },
-]
-
 export function TechGrid({ rows, airflow, pressure }: { rows: TechDataRow[]; airflow: number; pressure: number }) {
   const router = useRouter()
+  const { t } = useI18n()
+  const cols: GridColumn<TechDataRow>[] = [
+    { key: 'model', header: t('techdata.model', '모델'), width: 96, code: true, render: (r) => r.model },
+    { key: 'pd', header: t('techdata.staticPd', '정압 Pd'), width: 80, align: 'right', sortValue: (r) => r.pd, render: (r) => num(r.pd) },
+    { key: 'pt', header: t('techdata.totalPt', '전압 Pt'), width: 80, align: 'right', sortValue: (r) => r.pt, render: (r) => num(r.pt) },
+    { key: 'rpm', header: 'RPM', width: 72, align: 'right', sortValue: (r) => r.rpm, render: (r) => num(r.rpm) },
+    { key: 'eff', header: `${t('techdata.eff', '효율')} %`, width: 70, align: 'right', sortValue: (r) => r.eff, render: (r) => num(r.eff, 1) },
+    { key: 'power', header: `${t('techdata.power', '동력')} kW`, width: 78, align: 'right', sortValue: (r) => r.power, render: (r) => num(r.power, 2) },
+    { key: 'sound', header: `${t('techdata.sound', '소음')} dB`, width: 76, align: 'right', sortValue: (r) => r.sound, render: (r) => num(r.sound, 1) },
+  ]
   const sp = useSearchParams()
   const [selModel, setSelModel] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ text: string; err?: boolean } | null>(null)
@@ -68,20 +69,20 @@ export function TechGrid({ rows, airflow, pressure }: { rows: TechDataRow[]; air
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '4px 6px', flexWrap: 'wrap' }}>
-        <label style={{ fontSize: 11 }}>풍량 CMH</label>
+        <label style={{ fontSize: 11 }}>{t('cpq.airflow', '풍량')} CMH</label>
         <input className="in" defaultValue={airflow} onKeyDown={onKey('airflow')} style={{ height: 22, fontSize: 11, width: 84 }} />
-        <label style={{ fontSize: 11 }}>정압 Pa</label>
+        <label style={{ fontSize: 11 }}>{t('cpq.pressure', '정압')} Pa</label>
         <input className="in" defaultValue={pressure} onKeyDown={onKey('pressure')} style={{ height: 22, fontSize: 11, width: 72 }} />
         <span className="sep" />
-        <button className="b" onClick={() => void fanPerfPdf()}>🖶 Fan 성능표 PDF{sel ? ` (${sel.model})` : ''}</button>
-        <button className="b" onClick={() => void densityPdf()}>🖶 밀도 계산서 PDF</button>
+        <button className="b" onClick={() => void fanPerfPdf()}>🖶 {t('techdata.fanPerfPdf', 'Fan 성능표 PDF')}{sel ? ` (${sel.model})` : ''}</button>
+        <button className="b" onClick={() => void densityPdf()}>🖶 {t('techdata.densityPdf', '밀도 계산서 PDF')}</button>
         {msg ? <span style={{ fontSize: 11, color: msg.err ? 'var(--err)' : 'var(--run)' }}>{msg.text}</span>
-          : <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>행 클릭=선정 · Enter 재조회</span>}
+          : <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('techdata.rowHint', '행 클릭=선정 · Enter 재조회')}</span>}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-techdata" colFilter columns={cols} rows={rows} rowKey={(r) => r.model}
           selectedKey={selModel ?? undefined} onRowClick={(r) => setSelModel(r.model)}
-          emptyText="해당 조건의 성능 데이터가 없습니다" />
+          emptyText={t('techdata.noData', '해당 조건의 성능 데이터가 없습니다')} />
       </div>
     </div>
   )

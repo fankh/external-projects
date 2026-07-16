@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Chip, GroupBox } from '@/components/controls'
+import { useI18n } from '@/components/I18nProvider'
 import { addHierarchyNode, deleteHierarchyNode, renameHierarchyNode, type ActState } from './hierarchyActions'
 
 export interface HierarchyNode {

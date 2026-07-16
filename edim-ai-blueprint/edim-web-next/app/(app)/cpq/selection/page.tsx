@@ -1,4 +1,6 @@
 import { apiServer } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import type { CanvasBlock } from '@/lib/cadTypes'
 import { SelectionView } from './SelectionView'
@@ -13,6 +15,9 @@ const PROJECT = 'PS-61313-5'
 const ARR_CODE = 'ARR-DD2'
 
 export default async function SelectionPage() {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   const [expand, selections, comps] = await Promise.all([
     apiServer<ExpandResult>('/codes/products/expand', { method: 'POST', body: JSON.stringify({ rootCode: 'KDCR 3-13', slotValues: DEFAULT_SLOTS }) }).catch(() => null),
     apiServer<SelectionRow[]>(`/cpq/selections?projectNo=${encodeURIComponent(PROJECT)}`).catch(() => []),
@@ -26,7 +31,7 @@ export default async function SelectionPage() {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="제품 선정 (C-1) — KDCR 3-13" source="/codes/products/expand · /cpq/selections · /arrangements" />
+      <ScreenHeader title={`${t('menu.cpq-selection', '제품 선정 (C-1)')} — KDCR 3-13`} source="/codes/products/expand · /cpq/selections · /arrangements" />
       <div style={{ flex: 1, minHeight: 0 }}>
         <SelectionView projectNo={PROJECT} initialFinished={finished} initialBom={bom} initialSlots={DEFAULT_SLOTS} selections={selections} arrBlocks={arrBlocks} />
       </div>

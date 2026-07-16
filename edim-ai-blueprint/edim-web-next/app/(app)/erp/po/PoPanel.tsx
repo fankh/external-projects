@@ -3,6 +3,7 @@
 /** 발주 라이프사이클 패널 (N3b) — 생성 폼 + 상세(라인·승인·입고 GR). */
 import { useActionState, useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
+import { useI18n } from '@/components/I18nProvider'
 import { approvePo, createPoOrder, receivePo, type ActState } from './actions'
 
 export interface PoItem {
@@ -15,15 +16,16 @@ export interface PoDetail {
 }
 
 export function PoCreateForm() {
+  const { t } = useI18n()
   const [st, action, pending] = useActionState(createPoOrder, {} as ActState)
   return (
     <form action={action} style={{ display: 'flex', gap: 4, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <input className="in" name="supplier" placeholder="공급처" style={{ width: 100 }} />
-      <input className="in" name="expectedDate" placeholder="예정일 YYYY-MM-DD" style={{ width: 116 }} />
-      <input className="in" name="note" placeholder="비고" style={{ width: 110 }} />
-      <textarea className="in" name="items" placeholder={'품명,수량,단가 (줄당 1건)\n예: 임펠러 #450,2,120000'}
+      <input className="in" name="supplier" placeholder={t('po.supplier', '공급처')} style={{ width: 100 }} />
+      <input className="in" name="expectedDate" placeholder={t('po.expectedPh', '예정일 YYYY-MM-DD')} style={{ width: 116 }} />
+      <input className="in" name="note" placeholder={t('po.note', '비고')} style={{ width: 110 }} />
+      <textarea className="in" name="items" placeholder={t('po.itemsPh', '품명,수량,단가 (줄당 1건)\n예: 임펠러 #450,2,120000')}
         style={{ width: 240, height: 38, fontSize: 10.5, resize: 'vertical' }} />
-      <button className="b run" type="submit" disabled={pending}>＋ 발주 생성</button>
+      <button className="b run" type="submit" disabled={pending}>{t('po.createBtn', '＋ 발주 생성')}</button>
       {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
       {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
     </form>
@@ -31,6 +33,7 @@ export function PoCreateForm() {
 }
 
 export function PoDetailPanel({ detail }: { detail: PoDetail }) {
+  const { t } = useI18n()
   const [qty, setQty] = useState<Record<number, string>>({})
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
@@ -41,14 +44,14 @@ export function PoDetailPanel({ detail }: { detail: PoDetail }) {
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <b style={{ color: 'var(--title-navy)' }}>{detail.poNo}</b>
         <Chip tone={detail.status === 'DONE' ? 'ok' : detail.status === 'DRAFT' ? 'info' : 'warn'}>{detail.statusLabel || detail.status}</Chip>
-        <span style={{ color: 'var(--txt-dim)' }}>{detail.supplier || '—'} · 발주 {detail.orderDate}</span>
+        <span style={{ color: 'var(--txt-dim)' }}>{detail.supplier || '—'} · {t('po.order', '발주')} {detail.orderDate}</span>
         {detail.status === 'DRAFT' ? (
           <button className="b run" disabled={pending}
-            onClick={() => start(async () => setSt(await approvePo(detail.poNo)))}>승인</button>
+            onClick={() => start(async () => setSt(await approvePo(detail.poNo)))}>{t('common.approve', '승인')}</button>
         ) : null}
       </div>
       <table className="g" style={{ width: '100%' }}>
-        <thead><tr><th>품목</th><th>발주</th><th>기입고</th><th>잔여</th><th>입고 수량</th></tr></thead>
+        <thead><tr><th>{t('po.item', '품목')}</th><th>{t('po.order', '발주')}</th><th>{t('po.receivedQty', '기입고')}</th><th>{t('po.rem', '잔여')}</th><th>{t('po.recvQty', '입고 수량')}</th></tr></thead>
         <tbody>{detail.items.map((it) => (
           <tr key={it.poItemId}>
             <td>{it.itemName}</td>
@@ -68,7 +71,7 @@ export function PoDetailPanel({ detail }: { detail: PoDetail }) {
           const items = detail.items.map((it) => ({ poItemId: it.poItemId, qty: Number(qty[it.poItemId]) || 0 }))
           const r = await receivePo(detail.poNo, items)
           setSt(r); if (r.ok) setQty({})
-        })}>입고 처리 (GR)</button>
+        })}>{t('po.receiveBtn', '입고 처리 (GR)')}</button>
         {st.error ? <span style={{ color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ color: 'var(--run)' }}>{st.ok}</span> : null}
       </div>

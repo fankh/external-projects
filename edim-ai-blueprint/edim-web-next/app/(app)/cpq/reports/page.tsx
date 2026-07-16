@@ -1,4 +1,6 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { PcrPanel, type PcrRow } from './PcrPanel'
 
@@ -7,6 +9,9 @@ interface Report { id: string; name: string; category: string; kind: string; cou
 export const dynamic = 'force-dynamic'
 
 export default async function ReportCenterPage() {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   let rows: Report[] = []
   let pcr: PcrRow[] = []
   let err: string | null = null
@@ -20,7 +25,7 @@ export default async function ReportCenterPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="Report Center (RPT)" count={err ? undefined : rows.length} countLabel="종" source="/reports/catalog" />
+      <ScreenHeader title="Report Center (RPT)" count={err ? undefined : rows.length} countLabel={t('rpt.kindsUnit', '종')} source="/reports/catalog" />
       <div style={{ flex: 1, minHeight: 0, padding: 10, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
         {err ? (
           <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div>

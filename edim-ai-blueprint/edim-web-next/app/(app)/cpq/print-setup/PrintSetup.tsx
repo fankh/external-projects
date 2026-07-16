@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Btn, Chip, GroupBox } from '@/components/controls'
+import { useI18n } from '@/components/I18nProvider'
 import { openRenderedPdf } from '@/lib/pdf'
 import { publishForm } from './actions'
 
@@ -17,6 +18,13 @@ const DEFAULT_BOXES: FormBox[] = [
 ]
 
 export function PrintSetup() {
+  const { t } = useI18n()
+  // 내부 값(form 상태·렌더 파라미터)은 한국어 원문 유지 — 표시만 번역
+  const formLabel = (f: string) =>
+    f === '견적서 (CLT)' ? t('printsetup.quoteForm', '견적서 (CLT)')
+      : f === '작업지시서' ? t('printsetup.workOrder', '작업지시서')
+        : f === '검사성적서' ? t('printsetup.inspectReport', '검사성적서')
+          : f
   const [form, setForm] = useState(FORMS[0])
   const [watermark, setWatermark] = useState(true)
   const [status, setStatus] = useState<'DRAFT' | 'PENDING'>('DRAFT')
@@ -42,20 +50,20 @@ export function PrintSetup() {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="qband" style={{ gap: 6 }}>
-        <label style={{ fontSize: 11 }}>양식</label>
+        <label style={{ fontSize: 11 }}>{t('printsetup.form', '양식')}</label>
         <select className="in" value={form} onChange={(e) => setForm(e.target.value)} style={{ height: 22, fontSize: 11 }}>
-          {FORMS.map((f) => <option key={f} value={f}>{f}</option>)}
+          {FORMS.map((f) => <option key={f} value={f}>{formLabel(f)}</option>)}
         </select>
-        <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}><input type="checkbox" checked={watermark} onChange={(e) => setWatermark(e.target.checked)} /> 워터마크</label>
+        <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}><input type="checkbox" checked={watermark} onChange={(e) => setWatermark(e.target.checked)} /> {t('printsetup.watermark', '워터마크')}</label>
         <Chip tone={status === 'DRAFT' ? 'info' : 'warn'}>{status}</Chip>
         <span style={{ flex: 1 }} />
         <Btn onClick={() => render('Print Test')}>Print Test</Btn>
         <Btn onClick={() => render('PDF')}>PDF</Btn>
-        <Btn variant="pri" disabled={pending || status === 'PENDING'} onClick={publish}>게시 (승인 후)</Btn>
+        <Btn variant="pri" disabled={pending || status === 'PENDING'} onClick={publish}>{t('printsetup.publish', '게시 (승인 후)')}</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ flex: 1 }}>
-          <GroupBox title="양식 캔버스 — [Data]/[그래프]/[Table] 자리표시자" noPad>
+          <GroupBox title={t('printsetup.canvasTitle', '양식 캔버스 — [Data]/[그래프]/[Table] 자리표시자')} noPad>
             <div className="cvs" style={{ flex: 1, minHeight: 340 }}>
               {boxes.map((b) => (
                 <div key={b.id} className={`m2 ${selBox === b.id ? 'sel' : ''}`} style={{ left: b.x, top: b.y, width: b.w, height: b.h, borderStyle: b.dashed ? 'dashed' : undefined, fontSize: 9.5 }} onClick={() => setSelBox(b.id)}>{b.label}</div>
@@ -67,17 +75,17 @@ export function PrintSetup() {
         </div>
         <div className="split-h" />
         <div className="side-scroll" style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <GroupBox title="자리표시자 목록" noPad>
+          <GroupBox title={t('printsetup.placeholderList', '자리표시자 목록')} noPad>
             <table className="g"><thead><tr><th>ID</th><th>Placeholder</th></tr></thead>
               <tbody>{boxes.map((b) => (
                 <tr key={b.id} className={selBox === b.id ? 'sel' : undefined} onClick={() => setSelBox(b.id)}><td className="code">{b.id}</td><td style={{ fontSize: 10 }}>{b.label}</td></tr>
               ))}</tbody></table>
           </GroupBox>
-          <GroupBox title="출력 설정">
+          <GroupBox title={t('printsetup.outputSettings', '출력 설정')}>
             <div style={{ fontSize: 11, lineHeight: 2, padding: 4 }}>
-              <div>용지 <b>A4 세로</b></div><div>머리글/바닥글 <b>표준 Templet</b></div>
-              <div>워터마크 <b>{watermark ? 'CONFIDENTIAL' : '없음'}</b></div>
-              <div style={{ fontSize: 10, color: 'var(--txt-mute)', marginTop: 4 }}>Office(xlsx/docx) 출력은 P4-1 대기 — 현재 PDF 실렌더만 지원</div>
+              <div>{t('printsetup.paper', '용지')} <b>{t('printsetup.a4Portrait', 'A4 세로')}</b></div><div>{t('printsetup.headerFooter', '머리글·바닥글')} <b>{t('printsetup.stdTemplet', '표준 Templet')}</b></div>
+              <div>{t('printsetup.watermark', '워터마크')} <b>{watermark ? 'CONFIDENTIAL' : t('printsetup.none', '없음')}</b></div>
+              <div style={{ fontSize: 10, color: 'var(--txt-mute)', marginTop: 4 }}>{t('printsetup.officeWait', 'Office(xlsx/docx) 출력은 P4-1 대기 — 현재 PDF 실렌더만 지원')}</div>
             </div>
           </GroupBox>
         </div>

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CanvasBlock, CadDocument } from '@/lib/cadTypes'
 import { CadSvg } from '@/components/CadSvg'
+import { useI18n } from '@/components/I18nProvider'
 import { Btn, Chip, GroupBox } from '@/components/controls'
 import { CommandLine, Cvs } from '@/components/Cvs'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
@@ -31,6 +32,7 @@ export function SelectionView(props: {
   arrBlocks: CanvasBlock[] | null
 }) {
   const router = useRouter()
+  const { t } = useI18n()
   const [slotValues, setSlotValues] = useState<Record<string, string>>(props.initialSlots)
   const [finished, setFinished] = useState(props.initialFinished)
   const [bom, setBom] = useState<BomItem[]>(props.initialBom)
@@ -73,15 +75,15 @@ export function SelectionView(props: {
   const bomCols: GridColumn<BomItem>[] = [
     { key: 'lv', header: 'Lv', width: 30, align: 'center', render: (r) => r.level },
     { key: 'code', header: 'Resolved Code', width: 150, code: true, render: (r) => r.resolvedCode },
-    { key: 'name', header: '품명', render: (r) => r.name },
+    { key: 'name', header: t('cpq.name', '품명'), render: (r) => r.name },
     { key: 'qty', header: "Q'ty", width: 42, align: 'right', sortValue: (r) => r.quantity, render: (r) => r.quantity },
-    { key: 'price', header: '단가(K)', width: 72, align: 'right', sortValue: (r) => r.priceK ?? -1, render: (r) => r.priceK == null ? <span style={{ color: 'var(--warn)' }}>미확정</span> : r.priceK.toLocaleString() },
+    { key: 'price', header: t('cpq.unitPriceK', '단가(K)'), width: 72, align: 'right', sortValue: (r) => r.priceK ?? -1, render: (r) => r.priceK == null ? <span style={{ color: 'var(--warn)' }}>{t('cpq.unpriced', '미확정')}</span> : r.priceK.toLocaleString() },
   ]
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="qband" style={{ gap: 8 }}>
-        <span style={{ fontSize: 11 }}>완성품 <b style={{ fontFamily: 'Consolas, monospace', color: 'var(--title-navy)' }}>{finished || '—'}</b></span>
+        <span style={{ fontSize: 11 }}>{t('cpq.finishedCode', '완성품')} <b style={{ fontFamily: 'Consolas, monospace', color: 'var(--title-navy)' }}>{finished || '—'}</b></span>
         {PRODUCT_SLOTS.map((s) => (
           <span key={s.slot} style={{ fontSize: 11 }}>{s.slot}
             <select className="in" value={slotValues[s.slot] ?? ''} onChange={(e) => setSlot(s.slot, e.target.value)} style={{ height: 20, fontSize: 10, marginLeft: 2 }}>
@@ -90,13 +92,13 @@ export function SelectionView(props: {
           </span>
         ))}
         <span style={{ flex: 1 }} />
-        <select className="in" value={savedSelId ?? ''} onChange={(e) => loadSel(e.target.value)} style={{ height: 22, fontSize: 11 }} aria-label="견적안">
-          <option value="">견적안 불러오기…</option>
+        <select className="in" value={savedSelId ?? ''} onChange={(e) => loadSel(e.target.value)} style={{ height: 22, fontSize: 11 }} aria-label={t('cpq.quote', '견적안')}>
+          <option value="">{t('cpq.quoteLoad', '견적안 불러오기…')}</option>
           {props.selections.map((s) => <option key={s.selectionId} value={s.selectionId}>#{s.selectionId} {s.finishedGoodsCode}</option>)}
         </select>
         {/* N5b — 사양 Excel Import (Slot·Value → 슬롯 자동 세팅 + 재전개) */}
-        <label className="b" style={{ cursor: 'pointer' }} title="사양 Excel (Slot·Value 2열)">
-          ⬆ 사양 Excel
+        <label className="b" style={{ cursor: 'pointer' }} title={t('cpq.specExcelHint', '사양 Excel (Slot·Value 2열)')}>
+          {t('cpq.specExcel', '⬆ 사양 Excel')}
           <input type="file" accept=".xlsx" style={{ display: 'none' }}
             onChange={(e) => {
               const f = e.target.files?.[0]
@@ -121,32 +123,32 @@ export function SelectionView(props: {
             window.open(url, '_blank')
             setTimeout(() => URL.revokeObjectURL(url), 60_000)
           })
-        }}>견적 미리보기</Btn>
-        <Btn onClick={save}>저장 F12</Btn>
+        }}>{t('cpq.quotePreview', '견적 미리보기')}</Btn>
+        <Btn onClick={save}>{t('cpq.quoteSave', '저장 F12')}</Btn>
         <Btn variant="run" onClick={startRun}>Run ▶ F9</Btn>
       </div>
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ flex: 1.2, gap: 4 }}>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 600, flex: 1 }}>구성도 (Arrangement)</span>
-            <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()} style={{ height: 18, fontSize: 9.5 }}>블록</Btn>
+            <span style={{ fontSize: 11, fontWeight: 600, flex: 1 }}>{t('cpq.arrangement', '구성도 (Arrangement)')}</span>
+            <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()} style={{ height: 18, fontSize: 9.5 }}>{t('cpq.block', '블록')}</Btn>
             <Btn variant={cadMode ? 'pri' : 'default'} onClick={() => !cadMode && toggleCad()} style={{ height: 18, fontSize: 9.5 }}>CAD</Btn>
           </div>
           {cadMode ? (
             <div style={{ flex: 1, minHeight: 280, border: '1px solid var(--line)', background: '#fff' }}>
-              {cadDoc ? <CadSvg doc={cadDoc} /> : <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>{cadOffline ? 'CAD 서버 연결 실패' : '작도 중…'}</div>}
+              {cadDoc ? <CadSvg doc={cadDoc} /> : <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>{cadOffline ? t('cpq.cadOffline', 'CAD 서버 연결 실패') : t('cpq.drawing', '작도 중…')}</div>}
             </div>
           ) : (
             <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock} style={{ flex: 1, minHeight: 280 }} />
           )}
-          <CommandLine prompt={selBlock ? `선택=${selBlock.name}  기준점 지정 >` : '명령 대기 >'} coord="스냅 ON" onCommand={(cmd) => say(`명령 실행: ${cmd}`)} />
+          <CommandLine prompt={selBlock ? `${t('cpq.cmdSelected', '선택')}=${selBlock.name}  ${t('cpq.cmdBasePoint', '기준점 지정 >')}` : t('cpq.cmdIdle', '명령 대기 >')} coord={t('cpq.snapOn', '스냅 ON')} onCommand={(cmd) => say(`명령 실행: ${cmd}`)} />
           {status ? <div style={{ fontSize: 11, color: status.err ? 'var(--err)' : 'var(--run)' }}>{status.text}</div> : null}
         </div>
         <div className="split-h" />
         <div className="fill-col" style={{ width: 420, minWidth: 0 }}>
-          <GroupBox title={`BOM 전개 — ${bom.length}항목 (재귀 CTE + slot_map)`} noPad right={pending ? <Chip tone="info">전개 중…</Chip> : <Chip tone="ok">실 DB</Chip>}>
+          <GroupBox title={t('cpq.bomExpandTitle', 'BOM 전개 — {n}항목 (재귀 CTE + slot_map)').replace('{n}', String(bom.length))} noPad right={pending ? <Chip tone="info">{t('cpq.expanding', '전개 중…')}</Chip> : <Chip tone="ok">{t('cpq.liveDb', '실 DB')}</Chip>}>
             <div style={{ height: '100%', minHeight: 0 }}>
-              <DenseGrid prefKey="next-selection-bom" colFilter columns={bomCols} rows={bom} rowKey={(r, i) => `${r.resolvedCode}-${i}`} emptyText="전개 항목 없음" />
+              <DenseGrid prefKey="next-selection-bom" colFilter columns={bomCols} rows={bom} rowKey={(r, i) => `${r.resolvedCode}-${i}`} emptyText={t('cpq.noExpandItems', '전개 항목 없음')} />
             </div>
           </GroupBox>
         </div>

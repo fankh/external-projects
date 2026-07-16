@@ -7,12 +7,11 @@ import { useI18n } from '@/components/I18nProvider'
 import { startRun, pollRun, type RunResult, type RunStep, type RunOutput, type RunLogEntry } from './actions'
 import { CostPanel } from './CostPanel'
 
-const STEP_CHIP: Record<RunStep['status'], { tone: 'ok' | 'warn' | 'info'; label: string } | null> = {
-  PENDING: null, RUNNING: { tone: 'info', label: '실행 중' }, DONE: { tone: 'ok', label: '완료' }, WARN: { tone: 'warn', label: 'warn 1' },
-}
-
 export function RunPanel({ selectionId }: { selectionId?: number }) {
   const { t } = useI18n()
+  const STEP_CHIP: Record<RunStep['status'], { tone: 'ok' | 'warn' | 'info'; label: string } | null> = {
+    PENDING: null, RUNNING: { tone: 'info', label: t('run.running', '실행 중') }, DONE: { tone: 'ok', label: t('enum.done', '완료') }, WARN: { tone: 'warn', label: 'warn 1' },
+  }
   const [result, setResult] = useState<RunResult | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const runningRef = useRef(false)   // 폴링 중복 방지
@@ -53,7 +52,7 @@ export function RunPanel({ selectionId }: { selectionId?: number }) {
     { key: 'status', header: t('run.status', '상태'), width: 96, align: 'center', render: (r) => <Chip tone={r.statusTone}>{r.status}</Chip> },
     // N5 — 산출물 다음 행동: 다운로드 + 상세(더블클릭과 동일)
     { key: 'act', header: t('run.action', '행동'), width: 64, align: 'center', render: (r) => r.fileId != null ? (
-      <button className="b" style={{ height: 18, fontSize: 10 }} title="다운로드"
+      <button className="b" style={{ height: 18, fontSize: 10 }} title={t('common.download', '다운로드')}
         onClick={() => window.open(`/api/next/bin?kind=file&id=${r.fileId}&name=${encodeURIComponent(r.file)}`, '_blank')}>⬇</button>
     ) : '—' },
   ]

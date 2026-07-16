@@ -1,3 +1,5 @@
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { RunPanel } from './RunPanel'
 
@@ -7,9 +9,12 @@ export const dynamic = 'force-dynamic'
 export default async function RunPage({ searchParams }: { searchParams: Promise<{ selectionId?: string }> }) {
   const sp = await searchParams
   const selectionId = sp.selectionId ? Number(sp.selectionId) : undefined
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="Run 파이프라인 (C-1)" source="POST /cpq/runs → /cpq/runs/{id}" />
+      <ScreenHeader title={t('run.pipelineTitle', 'Run 파이프라인 (C-1)')} source="POST /cpq/runs → /cpq/runs/{id}" />
       <div style={{ flex: 1, minHeight: 0 }}>
         <RunPanel selectionId={Number.isFinite(selectionId) ? selectionId : undefined} />
       </div>

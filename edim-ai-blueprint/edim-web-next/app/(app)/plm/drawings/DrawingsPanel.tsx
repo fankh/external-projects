@@ -3,26 +3,28 @@
 /** 도면 대장 액션 패널 (N2) — 등록 폼 + 선택 도면의 Rev-up·단계 승인·Supersedure. */
 import { useActionState, useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
+import { useI18n } from '@/components/I18nProvider'
 import { addSupersedure, createDrawing, decideStep, revUp, type ActState } from './actions'
 
 export interface RevisionRow { rev: string; reason: string; date: string; by: string }
 export interface StepRow { approvalId: number; step: string; result: string | null; comment: string | null; date: string | null; by: string | null }
 
 export function DrawingRegForm() {
+  const { t } = useI18n()
   const [st, action, pending] = useActionState(createDrawing, {} as ActState)
   return (
     <form action={action} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-      <input className="in req" name="drawingNo" placeholder="도면번호 (KDCR …)" style={{ width: 120 }} />
-      <input className="in req" name="name" placeholder="도면명" style={{ width: 150 }} />
+      <input className="in req" name="drawingNo" placeholder={t('dwg.drawingNo', '도면번호 (KDCR …)')} style={{ width: 120 }} />
+      <input className="in req" name="name" placeholder={t('dwg.drawingName', '도면명')} style={{ width: 150 }} />
       <select className="in" name="drawingType" defaultValue="PART" style={{ width: 92 }}>
         <option value="PART">PART</option><option value="ASSEMBLY">ASSEMBLY</option><option value="LAYOUT">LAYOUT</option>
       </select>
       <select className="in" name="kind" defaultValue="APPROVAL" style={{ width: 120 }}>
-        <option value="APPROVAL">APPROVAL(승인용)</option>
-        <option value="MANUFACTURING">MANUFACTURING(제작용)</option>
-        <option value="STANDARD">STANDARD(표준)</option>
+        <option value="APPROVAL">{t('dwg.kindApproval', 'APPROVAL(승인용)')}</option>
+        <option value="MANUFACTURING">{t('dwg.kindManufacturing', 'MANUFACTURING(제작용)')}</option>
+        <option value="STANDARD">{t('dwg.kindStandard', 'STANDARD(표준)')}</option>
       </select>
-      <button className="b run" type="submit" disabled={pending}>＋ 도면 등록</button>
+      <button className="b run" type="submit" disabled={pending}>{t('dwg.registerBtn', '＋ 도면 등록')}</button>
       {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
       {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
     </form>
@@ -32,6 +34,7 @@ export function DrawingRegForm() {
 const STEPS = ['WRITE', 'REVIEW', 'APPROVE']
 
 export function DrawingDetail({ no, revisions, steps }: { no: string; revisions: RevisionRow[]; steps: StepRow[] }) {
+  const { t } = useI18n()
   const [reason, setReason] = useState('')
   const [comment, setComment] = useState('')
   const [supNew, setSupNew] = useState('')
@@ -42,52 +45,52 @@ export function DrawingDetail({ no, revisions, steps }: { no: string; revisions:
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}>
-      <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>도면 {no}</div>
+      <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('dwg.detailPrefix', '도면')} {no}</div>
 
       <div className="gb" style={{ padding: 6 }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>Rev 이력 — {revisions.length}건</div>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('dwg.tabRev', 'Rev 이력')} — {revisions.length}건</div>
         <table className="g" style={{ width: '100%' }}>
-          <thead><tr><th>Rev</th><th>사유</th><th>일자</th><th>작성</th></tr></thead>
+          <thead><tr><th>Rev</th><th>{t('dwg.reasonCol', '사유')}</th><th>{t('dwg.dateCol', '일자')}</th><th>{t('dwg.byCol', '작성')}</th></tr></thead>
           <tbody>{revisions.map((r) => (
             <tr key={r.rev}><td className="c code">{r.rev}</td><td>{r.reason || '—'}</td><td className="c">{r.date}</td><td className="c">{r.by}</td></tr>
           ))}</tbody>
         </table>
         <div style={{ display: 'flex', gap: 4, marginTop: 4, alignItems: 'center' }}>
-          <input className="in" style={{ flex: 1 }} placeholder="Rev 사유" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <input className="in" style={{ flex: 1 }} placeholder={t('dwg.revReasonPh', 'Rev 사유')} value={reason} onChange={(e) => setReason(e.target.value)} />
           <button className="b" disabled={pending} onClick={() => start(async () => {
             const r = await revUp(no, reason); setSt(r); if (r.ok) setReason('')
-          })}>Rev 올리기</button>
+          })}>{t('dwg.revUp', 'Rev 올리기')}</button>
         </div>
       </div>
 
       <div className="gb" style={{ padding: 6 }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>단계 승인 (WRITE→REVIEW→APPROVE)</div>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('dwg.tabApproval', '단계 승인')} (WRITE→REVIEW→APPROVE)</div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           {STEPS.map((s) => {
             const d = decided.get(s)
             return <Chip key={s} tone={d?.result === 'APPROVED' ? 'ok' : d?.result === 'REJECTED' ? 'err' : s === nextStep ? 'warn' : 'info'}>
-              {s}{d?.result ? ` ${d.result === 'APPROVED' ? '✓' : '✗'}` : s === nextStep ? ' (대기)' : ''}
+              {s}{d?.result ? ` ${d.result === 'APPROVED' ? '✓' : '✗'}` : s === nextStep ? ` (${t('dwg.pendingChip', '대기')})` : ''}
             </Chip>
           })}
         </div>
         <div style={{ display: 'flex', gap: 4, marginTop: 6, alignItems: 'center' }}>
-          <input className="in" style={{ flex: 1 }} placeholder="결재 코멘트 (반려 필수)" value={comment} onChange={(e) => setComment(e.target.value)} />
+          <input className="in" style={{ flex: 1 }} placeholder={t('dwg.stepCommentPh', '결재 코멘트 (반려 필수)')} value={comment} onChange={(e) => setComment(e.target.value)} />
           <button className="b run" disabled={pending || !nextStep} onClick={() => start(async () => {
             const r = await decideStep(no, nextStep!, true, comment); setSt(r); if (r.ok) setComment('')
-          })}>{nextStep ?? '완료'} 승인</button>
+          })}>{nextStep ?? t('dwg.done', '완료')} {t('dwg.approveBtn', '승인')}</button>
           <button className="b" disabled={pending || !nextStep} onClick={() => start(async () => {
             const r = await decideStep(no, nextStep!, false, comment); setSt(r); if (r.ok) setComment('')
-          })}>반려</button>
+          })}>{t('dwg.rejectBtn', '반려')}</button>
         </div>
       </div>
 
       <div className="gb" style={{ padding: 6 }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>Supersedure — 이 도면을 신도면으로 대체</div>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('dwg.supPanelTitle', 'Supersedure — 이 도면을 신도면으로 대체')}</div>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <input className="in" style={{ flex: 1 }} placeholder="신도면 번호" value={supNew} onChange={(e) => setSupNew(e.target.value)} />
+          <input className="in" style={{ flex: 1 }} placeholder={t('dwg.newNo', '신도면 번호')} value={supNew} onChange={(e) => setSupNew(e.target.value)} />
           <button className="b" disabled={pending} onClick={() => start(async () => {
             const r = await addSupersedure(no, supNew, '대체 등록'); setSt(r); if (r.ok) setSupNew('')
-          })}>대체 등록</button>
+          })}>{t('dwg.supRegister', '대체 등록')}</button>
         </div>
       </div>
 

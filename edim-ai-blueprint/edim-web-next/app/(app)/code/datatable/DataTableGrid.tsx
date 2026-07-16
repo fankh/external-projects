@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
+import { useI18n } from '@/components/I18nProvider'
 import { useFKeys } from '@/hooks/useFKeys'
 import { addTableRow, deleteTableRow, importTableExcel, updateTableRow, type ActState } from './actions'
 
@@ -13,6 +14,7 @@ const toNum = (s: string): number | null => (s.trim() === '' ? null : Number(s))
 
 /** 동적 컬럼 그리드 — columns(string[]) 로 GridColumn 을 런타임 생성. */
 export function DataTableGrid({ name, columns, rows }: { name: string; columns: string[]; rows: TableRow[] }) {
+  const { t } = useI18n()
   const router = useRouter()
   const [impSt, impAction, impPending] = useActionState(importTableExcel, {} as ActState)
   const [selKey, setSelKey] = useState<string | null>(null)
@@ -56,15 +58,15 @@ export function DataTableGrid({ name, columns, rows }: { name: string; columns: 
         <form action={impAction} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <input type="hidden" name="name" value={name} />
           <input className="in" type="file" name="uploadedFile" accept=".xlsx" style={{ width: 180, fontSize: 10 }} />
-          <button className="b" type="submit" disabled={impPending}>⬆ Import</button>
+          <button className="b" type="submit" disabled={impPending}>{t('dtable.importBtn', '⬆ Import')}</button>
         </form>
-        <button className="b" onClick={() => window.open(`/api/next/xlsx?kind=table&id=${encodeURIComponent(name)}`, '_blank')}>⬇ Export</button>
+        <button className="b" onClick={() => window.open(`/api/next/xlsx?kind=table&id=${encodeURIComponent(name)}`, '_blank')}>{t('dtable.exportBtn', '⬇ Export')}</button>
         <span className="sep" />
-        <input className="in" style={{ width: 76 }} placeholder="새 Key" value={newKey} onChange={(e) => setNewKey(e.target.value)} />
+        <input className="in" style={{ width: 76 }} placeholder={t('dtable.newKeyPh', '새 Key')} value={newKey} onChange={(e) => setNewKey(e.target.value)} />
         <button className="b" disabled={pending} onClick={() => start(async () => {
           const r = await addTableRow(name, newKey, Object.fromEntries(columns.map((c) => [c, null])))
           setSt(r); if (r.ok) setNewKey('')
-        })}>＋ 행 추가</button>
+        })}>{t('dtable.addRow', '＋ 행 추가')}</button>
         {(impSt.error || st.error) ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{impSt.error || st.error}</span> : null}
         {(impSt.ok || st.ok) ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{impSt.ok || st.ok}</span> : null}
       </div>
@@ -78,17 +80,17 @@ export function DataTableGrid({ name, columns, rows }: { name: string; columns: 
                 onChange={(e) => setEdit((cur) => ({ ...cur, [c]: e.target.value }))} />
             </label>
           ))}
-          <button className="b run" disabled={pending} onClick={() => start(async () => setSt(await updateTableRow(name, sel.key, editValues())))}>저장 (F12)</button>
+          <button className="b run" disabled={pending} onClick={() => start(async () => setSt(await updateTableRow(name, sel.key, editValues())))}>{t('subcode.saveF12', '저장 (F12)')}</button>
           <button className="b" disabled={pending} onClick={() => {
             if (confirm(`행 ${sel.key} 를 삭제하시겠습니까?`))
               start(async () => { setSt(await deleteTableRow(name, sel.key)); setSelKey(null) })
-          }}>행 삭제</button>
+          }}>{t('dtable.delRow', '행 삭제')}</button>
         </div>
-      ) : <div style={{ padding: '0 6px', fontSize: 10.5, color: 'var(--txt-mute)' }}>행 클릭 = 편집 패널 열기</div>}
+      ) : <div style={{ padding: '0 6px', fontSize: 10.5, color: 'var(--txt-mute)' }}>{t('dtable.rowClickHint', '행 클릭 = 편집 패널 열기')}</div>}
       <div style={{ flex: 1, minHeight: 0, padding: '0 6px 6px' }}>
         <DenseGrid prefKey={`next-table-${name}`} colFilter columns={cols} rows={rows}
           rowKey={(r) => r.key} selectedKey={selKey ?? undefined}
-          onRowClick={selectRow} emptyText="데이터 행이 없습니다" />
+          onRowClick={selectRow} emptyText={t('dtable.empty', '데이터 행이 없습니다')} />
       </div>
     </div>
   )
