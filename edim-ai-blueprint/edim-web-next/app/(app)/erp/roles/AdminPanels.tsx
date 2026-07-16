@@ -4,6 +4,7 @@
 import { useActionState, useMemo, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip, GroupBox } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import {
   changeUserLevel, createRole, createUser, deleteRole,
@@ -41,19 +42,32 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
 
   return (
     <GroupBox title={`${t('access.userLedger', '사용자 대장')} — ${rows.length}명`} noPad style={{ flex: 1.3, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      <form action={regAction} style={{ display: 'flex', gap: 4, padding: 4, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid var(--line)' }}>
-        <input className="in req" name="login" placeholder={t('access.loginIdPh', '로그인 ID')} style={{ width: 84 }} />
-        <input className="in req" name="name" placeholder={t('access.name', '이름')} style={{ width: 84 }} />
-        <input className="in" name="department" placeholder={t('dash.dept', '부서')} style={{ width: 76 }} />
-        <input className="in" name="email" placeholder="email" style={{ width: 120 }} />
-        <select className="in" name="level" defaultValue="GENERAL" style={{ width: 86 }}>
-          {LEVELS.map((l) => <option key={l}>{l}</option>)}
-        </select>
-        <input className="in req" name="initialPassword" placeholder={t('access.initPw', '초기 비밀번호')} style={{ width: 96 }} />
-        <button className="b run" type="submit" disabled={regPending}>{t('access.addUser', '＋ 사용자 등록')}</button>
-        {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{regSt.error}</span> : null}
-        {regSt.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{regSt.ok}</span> : null}
-      </form>
+      <div style={{ display: 'flex', gap: 4, padding: 4, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid var(--line)' }}>
+        <RegisterModal trigger={t('access.addUser', '＋ 사용자 등록')} title={t('access.userRegTitle', '사용자 등록')} ok={regSt.ok}>
+          {() => (
+            <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('access.loginId', '로그인 ID')}</label>
+              <input className="in req" name="login" placeholder={t('access.loginIdPh', '로그인 ID')} autoFocus />
+              <label>{t('access.name', '이름')}</label>
+              <input className="in req" name="name" />
+              <label>{t('dash.dept', '부서')}</label>
+              <input className="in" name="department" />
+              <label>Email</label>
+              <input className="in" name="email" placeholder="email" />
+              <label>{t('access.level', '레벨')}</label>
+              <select className="in" name="level" defaultValue="GENERAL">
+                {LEVELS.map((l) => <option key={l}>{l}</option>)}
+              </select>
+              <label>{t('access.initPw', '초기 비밀번호')}</label>
+              <input className="in req" name="initialPassword" />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+                {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{regSt.error}</span> : null}
+                <button className="b run" type="submit" disabled={regPending}>{t('common.register', '등록')}</button>
+              </div>
+            </form>
+          )}
+        </RegisterModal>
+      </div>
       <div style={{ display: 'flex', gap: 4, padding: 4, alignItems: 'center', flexWrap: 'wrap', fontSize: 11, borderBottom: '1px solid var(--line)' }}>
         <span style={{ color: 'var(--txt-dim)' }}>{sel ? `${t('access.selected', '선택')} ${sel.login} (${sel.status})` : t('access.clickSelect', '행 클릭=선택')}</span>
         <button className="b" disabled={pending || !sel || sel.status !== 'LOCKED'}

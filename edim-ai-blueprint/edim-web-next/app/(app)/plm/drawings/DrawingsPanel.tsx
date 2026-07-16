@@ -3,6 +3,7 @@
 /** 도면 대장 액션 패널 (N2) — 등록 폼 + 선택 도면의 Rev-up·단계 승인·Supersedure. */
 import { useActionState, useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { addSupersedure, createDrawing, decideStep, revUp, type ActState } from './actions'
 
@@ -13,21 +14,30 @@ export function DrawingRegForm() {
   const { t } = useI18n()
   const [st, action, pending] = useActionState(createDrawing, {} as ActState)
   return (
-    <form action={action} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-      <input className="in req" name="drawingNo" placeholder={t('dwg.drawingNo', '도면번호 (KDCR …)')} style={{ width: 120 }} />
-      <input className="in req" name="name" placeholder={t('dwg.drawingName', '도면명')} style={{ width: 150 }} />
-      <select className="in" name="drawingType" defaultValue="PART" style={{ width: 92 }}>
-        <option value="PART">PART</option><option value="ASSEMBLY">ASSEMBLY</option><option value="LAYOUT">LAYOUT</option>
-      </select>
-      <select className="in" name="kind" defaultValue="APPROVAL" style={{ width: 120 }}>
-        <option value="APPROVAL">{t('dwg.kindApproval', 'APPROVAL(승인용)')}</option>
-        <option value="MANUFACTURING">{t('dwg.kindManufacturing', 'MANUFACTURING(제작용)')}</option>
-        <option value="STANDARD">{t('dwg.kindStandard', 'STANDARD(표준)')}</option>
-      </select>
-      <button className="b run" type="submit" disabled={pending}>{t('dwg.registerBtn', '＋ 도면 등록')}</button>
-      {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
-      {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
-    </form>
+    <RegisterModal trigger={t('dwg.registerBtn', '＋ 도면 등록')} title={t('dwg.regTitle', '도면 등록')} ok={st.ok}>
+      {() => (
+        <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+          <label>{t('dwg.drawingNo', '도면번호 (KDCR …)')}</label>
+          <input className="in req" name="drawingNo" autoFocus />
+          <label>{t('dwg.drawingName', '도면명')}</label>
+          <input className="in req" name="name" />
+          <label>{t('dwg.drawingTypeLabel', '도면 유형')}</label>
+          <select className="in" name="drawingType" defaultValue="PART">
+            <option value="PART">PART</option><option value="ASSEMBLY">ASSEMBLY</option><option value="LAYOUT">LAYOUT</option>
+          </select>
+          <label>{t('dwg.kindLabel', '구분')}</label>
+          <select className="in" name="kind" defaultValue="APPROVAL">
+            <option value="APPROVAL">{t('dwg.kindApproval', 'APPROVAL(승인용)')}</option>
+            <option value="MANUFACTURING">{t('dwg.kindManufacturing', 'MANUFACTURING(제작용)')}</option>
+            <option value="STANDARD">{t('dwg.kindStandard', 'STANDARD(표준)')}</option>
+          </select>
+          <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+            {st.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{st.error}</span> : null}
+            <button className="b run" type="submit" disabled={pending}>{t('common.register', '등록')}</button>
+          </div>
+        </form>
+      )}
+    </RegisterModal>
   )
 }
 

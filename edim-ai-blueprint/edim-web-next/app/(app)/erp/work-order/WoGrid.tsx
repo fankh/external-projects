@@ -4,6 +4,7 @@
 import { useActionState, useTransition, useState } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { issueWorkOrder, transitionWorkOrder, type ActState } from './actions'
 
@@ -38,15 +39,28 @@ export function WoGrid({ rows }: { rows: WoRow[] }) {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <form action={regAction} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input className="in req" name="title" placeholder={t('wo.titlePh', '작업지시 제목')} style={{ width: 170 }} />
-        <input className="in" name="drawingNo" placeholder={t('wo.drawingNoPh', '도면번호')} style={{ width: 110 }} />
-        <input className="in" name="projectNo" placeholder={t('wo.projectNoPh', '프로젝트 No')} style={{ width: 100 }} />
-        <input className="in" name="assignee" placeholder={t('wo.assigneePh', '담당 ID')} style={{ width: 80 }} />
-        <button className="b run" type="submit" disabled={regPending}>{t('wo.issueBtn', '＋ 발행')}</button>
-        {(regSt.error || st.error) ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{regSt.error || st.error}</span> : null}
-        {(regSt.ok || st.ok) ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{regSt.ok || st.ok}</span> : null}
-      </form>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        <RegisterModal trigger={t('wo.issueBtn', '＋ 발행')} title={t('wo.issueTitle', '작업지시 발행')} ok={regSt.ok}>
+          {() => (
+            <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('wo.titleCol', '제목')}</label>
+              <input className="in req" name="title" placeholder={t('wo.titlePh', '작업지시 제목')} autoFocus />
+              <label>{t('wo.drawing', '도면')}</label>
+              <input className="in" name="drawingNo" placeholder={t('wo.drawingNoPh', '도면번호')} />
+              <label>Project</label>
+              <input className="in" name="projectNo" placeholder={t('wo.projectNoPh', '프로젝트 No')} />
+              <label>{t('wo.assignee', '담당')}</label>
+              <input className="in" name="assignee" placeholder={t('wo.assigneePh', '담당 ID')} />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+                {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{regSt.error}</span> : null}
+                <button className="b run" type="submit" disabled={regPending}>{t('common.register', '등록')}</button>
+              </div>
+            </form>
+          )}
+        </RegisterModal>
+        {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
+        {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
+      </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-wo" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.woNo} emptyText={t('wo.empty', '작업지시가 없습니다')} />

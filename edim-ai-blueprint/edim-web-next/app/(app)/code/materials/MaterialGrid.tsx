@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { createMaterial, updateMaterial, type ActState } from './actions'
 
@@ -32,16 +33,31 @@ export function MaterialGrid({ rows }: { rows: MaterialRow[] }) {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <form action={regAction} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input className="in req" name="code" placeholder={t('raw.codeCol', '재질 코드')} style={{ width: 90 }} />
-        <input className="in req" name="name" placeholder={t('raw.name', '재질명')} style={{ width: 120 }} />
-        <select className="in" name="materialType" defaultValue="STEEL" style={{ width: 86 }}>
-          {['STEEL', 'STAINLESS', 'AL', 'PLASTIC', 'ETC'].map((ty) => <option key={ty}>{ty}</option>)}
-        </select>
-        <input className="in" name="density" placeholder={t('raw.density', '밀도')} style={{ width: 62 }} />
-        <input className="in" name="standard" placeholder={t('raw.standardPh', '규격 (KS 등)')} style={{ width: 96 }} />
-        <input className="in" name="hazard" placeholder={t('raw.hazardPh', '위험 표기')} style={{ width: 76 }} />
-        <button className="b run" type="submit" disabled={regPending}>{t('raw.addBtn', '＋ 재질 등록')}</button>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        <RegisterModal trigger={t('raw.addBtn', '＋ 재질 등록')} title={t('raw.regTitle', '재질 등록')} ok={regSt.ok}>
+          {() => (
+            <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('raw.codeCol', '재질 코드')}</label>
+              <input className="in req" name="code" autoFocus />
+              <label>{t('raw.name', '재질명')}</label>
+              <input className="in req" name="name" />
+              <label>{t('raw.type', '유형')}</label>
+              <select className="in" name="materialType" defaultValue="STEEL">
+                {['STEEL', 'STAINLESS', 'AL', 'PLASTIC', 'ETC'].map((ty) => <option key={ty}>{ty}</option>)}
+              </select>
+              <label>{t('raw.density', '밀도')}</label>
+              <input className="in" name="density" />
+              <label>{t('raw.standard', '규격')}</label>
+              <input className="in" name="standard" placeholder={t('raw.standardPh', '규격 (KS 등)')} />
+              <label>{t('raw.hazardCol', '위험')}</label>
+              <input className="in" name="hazard" placeholder={t('raw.hazardPh', '위험 표기')} />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+                {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{regSt.error}</span> : null}
+                <button className="b run" type="submit" disabled={regPending}>{t('common.register', '등록')}</button>
+              </div>
+            </form>
+          )}
+        </RegisterModal>
         <span className="sep" />
         <input className="in" style={{ width: 100 }} placeholder={t('raw.editNamePh', '새 재질명 (수정)')} value={newName} onChange={(e) => setNewName(e.target.value)} />
         <input className="in" style={{ width: 62 }} placeholder={t('raw.editDensityPh', '새 밀도')} value={newDensity} onChange={(e) => setNewDensity(e.target.value)} />
@@ -56,9 +72,9 @@ export function MaterialGrid({ rows }: { rows: MaterialRow[] }) {
             setNewName(''); setNewDensity('')
           })
         }}>{t('raw.editBtn', '수정')}{sel ? ` (${sel.code})` : ''}</button>
-        {(regSt.error || st.error) ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{regSt.error || st.error}</span> : null}
-        {(regSt.ok || st.ok) ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{regSt.ok || st.ok}</span> : null}
-      </form>
+        {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
+        {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
+      </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-materials" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.code} selectedKey={selCode ?? undefined}

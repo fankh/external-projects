@@ -2,6 +2,7 @@
 
 /** 부품 대장 액션 패널 (N2) — 등록 폼 + 선택 부품의 공급자 코드 매핑(ERP-018). */
 import { useActionState, useState, useTransition } from 'react'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { addSupplierCode, createPart, type ActState } from './actions'
 
@@ -11,21 +12,34 @@ export function PartRegForm() {
   const { t } = useI18n()
   const [st, action, pending] = useActionState(createPart, {} as ActState)
   return (
-    <form action={action} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-      <input className="in req" name="partNo" placeholder={t('parts.partNo', '부품번호')} style={{ width: 110 }} />
-      <input className="in req" name="name" placeholder={t('parts.partName', '부품명')} style={{ width: 130 }} />
-      <input className="in" name="spec" placeholder={t('parts.specCol', '사양')} style={{ width: 120 }} />
-      <input className="in" name="materialCode" placeholder={t('parts.materialCol', '재질')} style={{ width: 80 }} />
-      <input className="in" name="supplier" placeholder={t('parts.supplierCol', '공급처')} style={{ width: 100 }} />
-      <input className="in" name="unit" placeholder={t('parts.unitCol', '단위')} defaultValue="EA" style={{ width: 46 }} />
-      <input className="in" name="weight" placeholder={t('parts.weightCol', '중량')} style={{ width: 60 }} />
-      <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
-        <input type="checkbox" name="isStandard" />{t('parts.stdChip', '표준')}
-      </label>
-      <button className="b run" type="submit" disabled={pending}>{t('parts.registerBtn', '＋ 부품 등록')}</button>
-      {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
-      {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
-    </form>
+    <RegisterModal trigger={t('parts.registerBtn', '＋ 부품 등록')} title={t('parts.regTitle', '부품 등록')} ok={st.ok}>
+      {() => (
+        <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+          <label>{t('parts.partNo', '부품번호')}</label>
+          <input className="in req" name="partNo" autoFocus />
+          <label>{t('parts.partName', '부품명')}</label>
+          <input className="in req" name="name" />
+          <label>{t('parts.specCol', '사양')}</label>
+          <input className="in" name="spec" />
+          <label>{t('parts.materialCol', '재질')}</label>
+          <input className="in" name="materialCode" />
+          <label>{t('parts.supplierCol', '공급처')}</label>
+          <input className="in" name="supplier" />
+          <label>{t('parts.unitCol', '단위')}</label>
+          <input className="in" name="unit" defaultValue="EA" />
+          <label>{t('parts.weightCol', '중량')}</label>
+          <input className="in" name="weight" />
+          <label>{t('parts.stdChip', '표준')}</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <input type="checkbox" name="isStandard" />
+          </label>
+          <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+            {st.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{st.error}</span> : null}
+            <button className="b run" type="submit" disabled={pending}>{t('common.register', '등록')}</button>
+          </div>
+        </form>
+      )}
+    </RegisterModal>
   )
 }
 

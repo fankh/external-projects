@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { createWarehouse, deleteWarehouse, type ActState } from './actions'
 
@@ -32,15 +33,29 @@ export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <form action={regAction} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input className="in" name="parentCode" placeholder={t('wh.parentPh', '상위 코드 (없음=최상위)')} style={{ width: 130 }} defaultValue={sel?.code ?? ''} key={sel?.code ?? 'root'} />
-        <select className="in" name="locationType" defaultValue="REGION" style={{ width: 100 }}>
-          {TYPES.map((ty) => <option key={ty} value={ty}>{ty}</option>)}
-        </select>
-        <input className="in req" name="code" placeholder={t('wh.locCodeCol', '위치 코드')} style={{ width: 90 }} />
-        <input className="in req" name="name" placeholder={t('wh.name', '위치명')} style={{ width: 110 }} />
-        <input className="in" name="remarks" placeholder={t('wh.remarks', '비고')} style={{ width: 100 }} />
-        <button className="b run" type="submit" disabled={regPending}>{t('wh.addLoc', '＋ 위치 등록')}</button>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        <RegisterModal trigger={t('wh.addLoc', '＋ 위치 등록')} title={t('wh.regTitle', '위치 등록')} ok={regSt.ok}>
+          {() => (
+            <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('wh.parentCode', '상위 코드')}</label>
+              <input className="in" name="parentCode" placeholder={t('wh.parentPh', '상위 코드 (없음=최상위)')} defaultValue={sel?.code ?? ''} key={sel?.code ?? 'root'} />
+              <label>{t('wh.typeCol', '유형')}</label>
+              <select className="in" name="locationType" defaultValue="REGION">
+                {TYPES.map((ty) => <option key={ty} value={ty}>{ty}</option>)}
+              </select>
+              <label>{t('wh.locCodeCol', '위치 코드')}</label>
+              <input className="in req" name="code" autoFocus />
+              <label>{t('wh.name', '위치명')}</label>
+              <input className="in req" name="name" />
+              <label>{t('wh.remarks', '비고')}</label>
+              <input className="in" name="remarks" />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+                {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{regSt.error}</span> : null}
+                <button className="b run" type="submit" disabled={regPending}>{t('common.register', '등록')}</button>
+              </div>
+            </form>
+          )}
+        </RegisterModal>
         <span className="sep" />
         <button className="b" disabled={pending || !sel} onClick={(e) => {
           e.preventDefault()
@@ -48,9 +63,9 @@ export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
           if (confirm(`${sel.code} 를 삭제하시겠습니까? (하위 존재 시 거부)`))
             start(async () => { setSt(await deleteWarehouse(sel.code)); setSelId(null) })
         }}>{t('wh.deleteBtn', '삭제')}{sel ? ` (${sel.code})` : ''}</button>
-        {(regSt.error || st.error) ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{regSt.error || st.error}</span> : null}
-        {(regSt.ok || st.ok) ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{regSt.ok || st.ok}</span> : null}
-      </form>
+        {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
+        {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
+      </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-warehouses" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.warehouseId} selectedKey={selId ?? undefined}

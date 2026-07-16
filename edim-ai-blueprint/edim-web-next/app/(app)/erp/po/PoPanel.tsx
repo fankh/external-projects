@@ -3,6 +3,7 @@
 /** 발주 라이프사이클 패널 (N3b) — 생성 폼 + 상세(라인·승인·입고 GR). */
 import { useActionState, useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { approvePo, createPoOrder, receivePo, type ActState } from './actions'
 
@@ -19,16 +20,25 @@ export function PoCreateForm() {
   const { t } = useI18n()
   const [st, action, pending] = useActionState(createPoOrder, {} as ActState)
   return (
-    <form action={action} style={{ display: 'flex', gap: 4, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <input className="in" name="supplier" placeholder={t('po.supplier', '공급처')} style={{ width: 100 }} />
-      <input className="in" name="expectedDate" placeholder={t('po.expectedPh', '예정일 YYYY-MM-DD')} style={{ width: 116 }} />
-      <input className="in" name="note" placeholder={t('po.note', '비고')} style={{ width: 110 }} />
-      <textarea className="in" name="items" placeholder={t('po.itemsPh', '품명,수량,단가 (줄당 1건)\n예: 임펠러 #450,2,120000')}
-        style={{ width: 240, height: 38, fontSize: 10.5, resize: 'vertical' }} />
-      <button className="b run" type="submit" disabled={pending}>{t('po.createBtn', '＋ 발주 생성')}</button>
-      {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
-      {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
-    </form>
+    <RegisterModal trigger={t('po.createBtn', '＋ 발주 생성')} title={t('po.createTitle', '발주 생성')} ok={st.ok} width={440}>
+      {() => (
+        <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+          <label>{t('po.supplier', '공급처')}</label>
+          <input className="in" name="supplier" autoFocus />
+          <label>{t('po.expected', '예정일')}</label>
+          <input className="in" name="expectedDate" placeholder={t('po.expectedPh', '예정일 YYYY-MM-DD')} />
+          <label>{t('po.note', '비고')}</label>
+          <input className="in" name="note" />
+          <label style={{ alignSelf: 'start', marginTop: 4 }}>{t('po.item', '품목')}</label>
+          <textarea className="in" name="items" placeholder={t('po.itemsPh', '품명,수량,단가 (줄당 1건)\n예: 임펠러 #450,2,120000')}
+            style={{ height: 60, fontSize: 10.5, resize: 'vertical' }} />
+          <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+            {st.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{st.error}</span> : null}
+            <button className="b run" type="submit" disabled={pending}>{t('common.register', '등록')}</button>
+          </div>
+        </form>
+      )}
+    </RegisterModal>
   )
 }
 

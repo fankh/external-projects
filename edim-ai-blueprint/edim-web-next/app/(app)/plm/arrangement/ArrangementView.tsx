@@ -5,6 +5,7 @@ import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { addComponent, createArrangement, deleteComponent, patchComponentQty, type ActState } from './actions'
 
@@ -20,16 +21,26 @@ export function ArrangementRegForm() {
   const { t } = useI18n()
   const [st, action, pending] = useActionState(createArrangement, {} as ActState)
   return (
-    <form action={action} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-      <input className="in req" name="code" placeholder={t('arr.codePh', '구성 Code (ARR-…)')} style={{ width: 110 }} />
-      <input className="in req" name="name" placeholder={t('arr.namePh', '이름')} style={{ width: 130 }} />
-      <input className="in" name="family" placeholder="Family" style={{ width: 80 }} />
-      <input className="in" name="direction" placeholder="Direction" style={{ width: 80 }} />
-      <input className="in" name="install" placeholder="Install" style={{ width: 80 }} />
-      <button className="b run" type="submit" disabled={pending}>＋ {t('arr.regBtn', '구성 등록')}</button>
-      {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
-      {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
-    </form>
+    <RegisterModal trigger={`＋ ${t('arr.regBtn', '구성 등록')}`} title={t('arr.regTitle', '구성 등록')} ok={st.ok}>
+      {() => (
+        <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+          <label>{t('arr.codePh', '구성 Code (ARR-…)')}</label>
+          <input className="in req" name="code" autoFocus />
+          <label>{t('arr.namePh', '이름')}</label>
+          <input className="in req" name="name" />
+          <label>Family</label>
+          <input className="in" name="family" />
+          <label>Direction</label>
+          <input className="in" name="direction" />
+          <label>Install</label>
+          <input className="in" name="install" />
+          <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+            {st.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{st.error}</span> : null}
+            <button className="b run" type="submit" disabled={pending}>{t('common.register', '등록')}</button>
+          </div>
+        </form>
+      )}
+    </RegisterModal>
   )
 }
 

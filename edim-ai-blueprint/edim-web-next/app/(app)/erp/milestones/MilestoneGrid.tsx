@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { addMilestone, completeMilestone, type ActState } from './actions'
 
@@ -41,22 +42,35 @@ export function MilestoneGrid({ rows }: { rows: Milestone[] }) {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <form action={regAction} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input className="in req" name="projectNo" placeholder={t('ms.projectPh', '프로젝트 No')} style={{ width: 100 }} />
-        <select className="in" name="stage" style={{ width: 76 }}>
-          {STAGE_OPTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
-        <input className="in req" name="plannedDate" placeholder={t('ms.plannedPh', '계획일 YYYY-MM-DD')} style={{ width: 116 }} />
-        <input className="in" name="note" placeholder={t('ms.note', '비고')} style={{ width: 130 }} />
-        <button className="b run" type="submit" disabled={regPending}>{t('ms.addBtn', '＋ 납기 등록')}</button>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        <RegisterModal trigger={t('ms.addBtn', '＋ 납기 등록')} title={t('ms.regTitle', '납기 등록')} ok={regSt.ok}>
+          {() => (
+            <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('ms.project', '프로젝트')}</label>
+              <input className="in req" name="projectNo" placeholder={t('ms.projectPh', '프로젝트 No')} autoFocus />
+              <label>{t('ms.stage', '단계')}</label>
+              <select className="in" name="stage">
+                {STAGE_OPTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <label>{t('ms.plannedCol', '계획일')}</label>
+              <input className="in req" name="plannedDate" placeholder={t('ms.plannedPh', '계획일 YYYY-MM-DD')} />
+              <label>{t('ms.note', '비고')}</label>
+              <input className="in" name="note" />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+                {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{regSt.error}</span> : null}
+                <button className="b run" type="submit" disabled={regPending}>{t('common.register', '등록')}</button>
+              </div>
+            </form>
+          )}
+        </RegisterModal>
         <span className="sep" />
         <button className="b" disabled={pending || !sel || sel.status === 'DONE'} onClick={() => {
           if (!sel) return
           start(async () => { setSt(await completeMilestone(sel.milestoneId, new Date().toISOString().slice(0, 10))); setSelId(null) })
         }}>{t('ms.complete', '완료 처리')}{sel && sel.status !== 'DONE' ? ` (${sel.projectNo} ${sel.stageLabel || sel.stage})` : ''}</button>
-        {(regSt.error || st.error) ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{regSt.error || st.error}</span> : null}
-        {(regSt.ok || st.ok) ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{regSt.ok || st.ok}</span> : null}
-      </form>
+        {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
+        {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
+      </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-milestones" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.milestoneId} selectedKey={selId ?? undefined}

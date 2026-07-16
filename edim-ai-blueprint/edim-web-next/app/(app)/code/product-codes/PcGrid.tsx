@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { createProductCode, deleteProductCode, setProductStatus, type ActState } from './actions'
 
@@ -34,11 +35,23 @@ export function PcGrid({ rows }: { rows: PcRow[] }) {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <form action={regAction} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input className="in req" name="mainCode" placeholder={t('master.codePh', '코드 (KDP …)')} style={{ width: 120 }} />
-        <input className="in req" name="codeName" placeholder={t('master.name', '코드명')} style={{ width: 140 }} />
-        <input className="in req" name="groupCode" placeholder={t('master.groupPh', '그룹 (KOF 등)')} style={{ width: 90 }} />
-        <button className="b run" type="submit" disabled={regPending}>{t('master.addBtn', '＋ 코드 등록')}</button>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        <RegisterModal trigger={t('master.addBtn', '＋ 코드 등록')} title={t('master.regTitle', '제품 코드 등록')} ok={regSt.ok}>
+          {() => (
+            <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('master.codePh', '코드 (KDP …)')}</label>
+              <input className="in req" name="mainCode" autoFocus />
+              <label>{t('master.name', '코드명')}</label>
+              <input className="in req" name="codeName" />
+              <label>{t('master.groupPh', '그룹 (KOF 등)')}</label>
+              <input className="in req" name="groupCode" />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+                {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{regSt.error}</span> : null}
+                <button className="b run" type="submit" disabled={regPending}>{t('common.register', '등록')}</button>
+              </div>
+            </form>
+          )}
+        </RegisterModal>
         <span className="sep" />
         <span style={{ fontSize: 11, color: 'var(--txt-dim)' }}>{sel ? `${t('master.selected', '선택')} ${sel.mainCode} (${sel.status})` : t('master.clickSelect', '행 클릭=선택')}</span>
         <button className="b" disabled={pending || !sel || sel.status === 'APPROVED'} onClick={() => transition('APPROVED')}>{t('master.approve', '승인')}</button>
@@ -48,9 +61,9 @@ export function PcGrid({ rows }: { rows: PcRow[] }) {
           if (sel && confirm(`${sel.mainCode} 를 삭제하시겠습니까? (참조 시 거부)`))
             start(async () => { setSt(await deleteProductCode(sel.productCodeId)); setSelId(null) })
         }}>{t('master.delete', '삭제')}</button>
-        {(regSt.error || st.error) ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{regSt.error || st.error}</span> : null}
-        {(regSt.ok || st.ok) ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{regSt.ok || st.ok}</span> : null}
-      </form>
+        {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
+        {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
+      </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-pc" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.productCodeId} selectedKey={selId ?? undefined}

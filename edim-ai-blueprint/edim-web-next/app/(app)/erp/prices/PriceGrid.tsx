@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { closePrice, createPrice, importPricesExcel, type ActState } from './actions'
 
@@ -37,18 +38,30 @@ export function PriceGrid({ rows }: { rows: PriceRow[] }) {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <form action={regAction} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input className="in req" name="code" placeholder={t('price.code', '코드')} style={{ width: 100 }} />
-        <input className="in req" name="supplier" placeholder={t('price.supplier', '공급처')} style={{ width: 100 }} />
-        <input className="in req" name="price" placeholder={t('price.priceLbl', '단가')} style={{ width: 84 }} />
-        <select className="in" name="source" defaultValue="PURCHASE" style={{ width: 96 }}>
-          {['PURCHASE', 'ESTIMATE', 'CONTRACT', 'STOCK'].map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <input className="in" name="validFrom" placeholder={t('price.validFromPh', '적용시작 YYYY-MM-DD')} style={{ width: 128 }} />
-        <button className="b run" type="submit" disabled={regPending}>{t('price.addPrice', '＋ 단가 등록')}</button>
-        {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{regSt.error}</span> : null}
-        {regSt.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{regSt.ok}</span> : null}
-      </form>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        <RegisterModal trigger={t('price.addPrice', '＋ 단가 등록')} title={t('price.regTitle', '단가 등록')} ok={regSt.ok}>
+          {() => (
+            <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('price.code', '코드')}</label>
+              <input className="in req" name="code" autoFocus />
+              <label>{t('price.supplier', '공급처')}</label>
+              <input className="in req" name="supplier" />
+              <label>{t('price.priceLbl', '단가')}</label>
+              <input className="in req" name="price" />
+              <label>{t('dash.kind', '구분')}</label>
+              <select className="in" name="source" defaultValue="PURCHASE">
+                {['PURCHASE', 'ESTIMATE', 'CONTRACT', 'STOCK'].map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <label>{t('price.validFrom', '유효 시작')}</label>
+              <input className="in" name="validFrom" placeholder={t('price.validFromPh', '적용시작 YYYY-MM-DD')} />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+                {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{regSt.error}</span> : null}
+                <button className="b run" type="submit" disabled={regPending}>{t('common.register', '등록')}</button>
+              </div>
+            </form>
+          )}
+        </RegisterModal>
+      </div>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', fontSize: 11 }}>
         <form action={impAction} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <input className="in" type="file" name="uploadedFile" accept=".xlsx" style={{ width: 200, fontSize: 10 }} />

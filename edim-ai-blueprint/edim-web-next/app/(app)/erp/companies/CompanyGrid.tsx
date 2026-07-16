@@ -13,7 +13,7 @@ export interface CompanyRow {
 
 const TONE: Record<string, 'ok' | 'warn' | 'info'> = { SUPPLIER: 'info', CUSTOMER: 'ok', PARTNER: 'warn', BANK: 'warn' }
 
-export function CompanyGrid({ rows }: { rows: CompanyRow[] }) {
+export function CompanyGrid({ rows, selectedId }: { rows: CompanyRow[]; selectedId?: number | null }) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const toggle = (r: CompanyRow) => {
@@ -32,5 +32,7 @@ export function CompanyGrid({ rows }: { rows: CompanyRow[] }) {
   ]
 
   return <DenseGrid prefKey="next-companies" colFilter columns={cols} rows={rows}
-    rowKey={(r) => r.companyId ?? r.name} emptyText="거래처가 없습니다" />
+    rowKey={(r) => r.companyId ?? r.name} selectedKey={selectedId ?? undefined}
+    onRowClick={(r) => { if (r.companyType === 'SUPPLIER' && r.companyId != null) router.push(`/erp/companies?sel=${r.companyId}`) }}
+    emptyText="거래처가 없습니다" />
 }

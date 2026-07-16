@@ -5,6 +5,7 @@ import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { createDocument, updateDocMeta, type ActState } from './actions'
 
@@ -38,17 +39,26 @@ export function DocGrid({ rows }: { rows: DocRow[] }) {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <form action={regAction} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input className="in req" name="docNo" placeholder={t('docmgmt.docNoPh', '문서번호 (DOC-…)')} style={{ width: 116 }} />
-        <input className="in req" name="title" placeholder={t('docmgmt.title', '제목')} style={{ width: 160 }} />
-        <input className="in" name="docType" placeholder={t('docmgmt.typePh', '유형 (DWG/QUO…)')} style={{ width: 96 }} />
-        <select className="in" name="grade" defaultValue="GENERAL" style={{ width: 84 }}>
-          {GRADES.map((g) => <option key={g}>{g}</option>)}
-        </select>
-        <button className="b run" type="submit" disabled={regPending}>{t('docmgmt.addDoc', '＋ 문서 등록')}</button>
-        {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{regSt.error}</span> : null}
-        {regSt.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{regSt.ok}</span> : null}
-      </form>
+      <RegisterModal trigger={t('docmgmt.addDoc', '＋ 문서 등록')} title={t('docmgmt.regTitle', '문서 등록')} ok={regSt.ok}>
+        {() => (
+          <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+            <label>{t('docmgmt.docNoPh', '문서번호 (DOC-…)')}</label>
+            <input className="in req" name="docNo" autoFocus />
+            <label>{t('docmgmt.title', '제목')}</label>
+            <input className="in req" name="title" />
+            <label>{t('docmgmt.type', '유형')}</label>
+            <input className="in" name="docType" placeholder={t('docmgmt.typePh', '유형 (DWG/QUO…)')} />
+            <label>Grade</label>
+            <select className="in" name="grade" defaultValue="GENERAL">
+              {GRADES.map((g) => <option key={g}>{g}</option>)}
+            </select>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
+              {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{regSt.error}</span> : null}
+              <button className="b run" type="submit" disabled={regPending}>{t('common.register', '등록')}</button>
+            </div>
+          </form>
+        )}
+      </RegisterModal>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', fontSize: 11 }}>
         <span style={{ color: 'var(--txt-dim)' }}>{sel ? `${t('docmgmt.selected', '선택')} ${sel.docNo}` : t('docmgmt.rowHint', '행 클릭=선택 · 더블클릭=상세')}</span>
         <button className="b" disabled={!sel} onClick={() => sel && window.open(`/api/next/bin?kind=docpdf&id=${encodeURIComponent(sel.docNo)}`, '_blank')}>
