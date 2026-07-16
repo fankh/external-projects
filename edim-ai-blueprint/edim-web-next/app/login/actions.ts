@@ -11,7 +11,10 @@ export interface LoginState { error?: string }
 export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const userId = String(formData.get('userId') ?? '').trim()
   const password = String(formData.get('password') ?? '')
-  const next = String(formData.get('next') ?? '/erp/eco-ledger') || '/erp/eco-ledger'
+  const rawNext = String(formData.get('next') ?? '')
+  // next='/' 은 루트→/erp/dashboard 재리다이렉트라 서버액션 중첩 리다이렉트 오류를 유발.
+  // 실제 랜딩(/erp/dashboard)로 정규화 — /login·비-슬래시도 기본값 처리.
+  const next = rawNext.startsWith('/') && rawNext !== '/' && rawNext !== '/login' ? rawNext : '/erp/dashboard'
   if (!userId || !password) return { error: '사번과 비밀번호를 입력하십시오' }
 
   let token: string
@@ -26,5 +29,5 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production',
     path: '/', maxAge: 60 * 60 * 8,
   })
-  redirect(next.startsWith('/') ? next : '/erp/eco-ledger')
+  redirect(next)
 }

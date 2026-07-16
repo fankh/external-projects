@@ -12,7 +12,8 @@ export function middleware(req: NextRequest) {
   }
   if (!authed) {
     const url = new URL('/login', req.url)
-    url.searchParams.set('next', pathname)
+    // 루트('/')는 랜딩 재리다이렉트라 next 로 쓰면 중첩 리다이렉트 오류 → 구체 경로만 next 로.
+    if (pathname !== '/') url.searchParams.set('next', pathname)
     return NextResponse.redirect(url)
   }
   return NextResponse.next()
