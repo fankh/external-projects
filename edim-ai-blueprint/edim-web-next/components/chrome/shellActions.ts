@@ -21,6 +21,16 @@ export async function searchQuery(q: string): Promise<{ result?: SearchResults; 
   }
 }
 
+/** 셸 크롬 카운트 (P2) — 승인 대기 = 실 inbox 길이, PL 지연 = 부서 이벤트 delayed 합. */
+export async function shellCounts(): Promise<{ inbox: number; delayed: number }> {
+  const [inbox, dash] = await Promise.all([
+    apiServer<unknown[]>('/approvals/inbox').catch(() => []),
+    apiServer<{ deptEvents?: { delayed: number }[] }>('/erp/dashboard').catch(() => ({ deptEvents: [] })),
+  ])
+  const delayed = (dash.deptEvents ?? []).reduce((s, e) => s + (e.delayed ?? 0), 0)
+  return { inbox: Array.isArray(inbox) ? inbox.length : 0, delayed }
+}
+
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok?: string; error?: string }> {
   if (!currentPassword || !newPassword) return { error: '현재/새 비밀번호를 입력하십시오' }
   if (newPassword.length < 4) return { error: '새 비밀번호가 너무 짧습니다' }

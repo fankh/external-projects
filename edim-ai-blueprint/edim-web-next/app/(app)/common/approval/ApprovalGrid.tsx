@@ -36,7 +36,10 @@ export function ApprovalGrid({ rows }: { rows: ApprovalRow[] }) {
         ? await decide(ids[0], approve, comment)
         : await decideBatch(ids, approve, comment)
       setSt(r)
-      if (r.ok) { setSelected(new Set()); setComment('') }
+      if (r.ok) {
+        setSelected(new Set()); setComment('')
+        window.dispatchEvent(new Event('edim-inbox-refresh'))  // 셸 승인 대기 카운트 즉시 갱신
+      }
     })
   }
 

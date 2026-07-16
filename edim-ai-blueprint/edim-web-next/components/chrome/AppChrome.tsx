@@ -9,7 +9,7 @@ import { MenuBar, MdiTabs, StatusBar, TitleBar, type MdiTab, type MenuItem } fro
 import { GlobalSearch } from './GlobalSearch'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MENU_TREE, moduleOfPath, type ModuleKey, type NavNode } from './menus'
-import { changePassword } from './shellActions'
+import { changePassword, shellCounts } from './shellActions'
 
 const TABS_KEY = 'edim-next-tabs'
 const MAX_TABS = 12
@@ -101,6 +101,18 @@ export function AppChrome(props: {
     return () => window.removeEventListener('keydown', onKey)
   }, [tabs, pathname, router, closeTab, stepTab])
 
+  // ── 셸 크롬 카운트 (P2) — 승인 대기 = 실 inbox, PL 지연 = 부서 이벤트 delayed 합 ──
+  //    초기 + 라우팅 변경 + 60초 폴링 + edim-inbox-refresh(승인 결정) 즉시 갱신
+  const [counts, setCounts] = useState({ inbox: 0, delayed: 0 })
+  useEffect(() => {
+    let alive = true
+    const load = () => void shellCounts().then((c) => { if (alive) setCounts(c) })
+    load()
+    const timer = setInterval(load, 60_000)
+    window.addEventListener('edim-inbox-refresh', load)
+    return () => { alive = false; clearInterval(timer); window.removeEventListener('edim-inbox-refresh', load) }
+  }, [pathname])
+
   // ── 비밀번호 변경 다이얼로그 (B8) ──
   const [pwOpen, setPwOpen] = useState(false)
   const [pwCur, setPwCur] = useState(''); const [pwNew, setPwNew] = useState('')
@@ -174,12 +186,33 @@ export function AppChrome(props: {
         onActivate={(id) => router.push(id)} onClose={closeTab} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <LnavTree title={moduleTitle} nodes={trNodes} selectedId={selectedId}
-          onSelect={(n) => { if (n.href) router.push(n.href) }} width={220} />
+          onSelect={(n) => { if (n.href) router.push(n.href) }} width={220}
+          footer={
+            <div style={{ borderTop: '1px solid var(--line)' }}>
+              <div className="hd">{t('shell.todo', 'To-Do')}</div>
+              <div style={{ padding: '6px 8px', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                  onClick={() => router.push('/common/approval')} title={t('shell.todoApprovalHint', '승인함 열기')}>
+                  {t('shell.todoApproval', '승인 확인')}<span style={{ flex: 1 }} /><span className={counts.inbox > 0 ? 'st warn' : 'st'}>{counts.inbox}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                  onClick={() => router.push('/erp/dashboard')} title={t('shell.todoPlHint', '대시보드 열기')}>
+                  {t('shell.todoPl', 'PL 지연')}<span style={{ flex: 1 }} /><span className={counts.delayed > 0 ? 'st err' : 'st'}>{counts.delayed}</span>
+                </div>
+              </div>
+            </div>
+          } />
         <main className="workarea" style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {props.children}
         </main>
       </div>
-      <StatusBar cells={[<span key="ssr">SSR · {pathname}</span>]} />
+      <StatusBar cells={[
+        <span key="pending" className={counts.inbox > 0 ? 'st warn' : undefined}
+          style={{ cursor: 'pointer' }} onClick={() => router.push('/common/approval')}>
+          {t('shell.pending', '승인 대기')} {counts.inbox}
+        </span>,
+        <span key="ssr">SSR · {pathname}</span>,
+      ]} />
     </div>
   )
 }
