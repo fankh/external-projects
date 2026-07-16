@@ -1,4 +1,6 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { RelationshipView, type ChildRow } from './RelationshipView'
 
@@ -19,6 +21,8 @@ const MOTHER = {
 }
 
 export default async function RelationshipPage() {
+  const bundle = bundleFor(await getLocale())
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   let children: ChildRow[] = []
   let err: string | null = null
   try {
@@ -28,7 +32,7 @@ export default async function RelationshipPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="Code Relationship (S-1-4)" count={err ? undefined : children.length} countLabel="child" source="/codes/relationships/{mother}/children" />
+      <ScreenHeader title={`${t('rel.title', 'Code Relationship')} (S-1-4)`} count={err ? undefined : children.length} countLabel={t('rel.childUnit', 'child')} source="/codes/relationships/{mother}/children" />
       {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div>
         : <RelationshipView mother={MOTHER} children={children} />}
     </div>

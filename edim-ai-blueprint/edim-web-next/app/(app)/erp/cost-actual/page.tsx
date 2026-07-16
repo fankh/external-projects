@@ -1,4 +1,6 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ActualGrid, type ActualRow } from './ActualGrid'
 import { ActualForm } from './ActualForm'
 
@@ -11,6 +13,9 @@ const pct = (r: number) => `${r >= 0 ? '+' : ''}${(r * 100).toFixed(1)}%`
 export const dynamic = 'force-dynamic'
 
 export default async function CostActualPage() {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   let rows: ActualRow[] = []
   let v: Variance | null = null
   let err: string | null = null
@@ -22,9 +27,9 @@ export default async function CostActualPage() {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="qband" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderBottom: '1px solid var(--line)' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--title-navy)' }}>원가 실적·차이분석 (D-6)</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--title-navy)' }}>{t('costact.title', '원가 실적·차이분석')} (D-6)</span>
         {!err ? <span className="chip info">{rows.length}건</span> : null}
-        {v ? <span className={`chip ${v.alert ? 'err' : 'ok'}`}>총 차이 {won(v.totalVariance)} ({pct(v.totalVarianceRate)}){v.alert ? ' — 경보' : ''}</span> : null}
+        {v ? <span className={`chip ${v.alert ? 'err' : 'ok'}`}>{t('costact.totalVar', '총 차이')} {won(v.totalVariance)} ({pct(v.totalVarianceRate)}){v.alert ? ` — ${t('costact.alert', '경보')}` : ''}</span> : null}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /cost/actuals · /cost/variance</span>
       </div>
@@ -34,7 +39,7 @@ export default async function CostActualPage() {
         {v ? (
           <div className="gb" style={{ padding: 0 }}>
             <table className="g" style={{ width: '100%' }}>
-              <thead><tr><th>원가 분류</th><th>추정(견적)</th><th>실적</th><th>차이</th><th>차이율</th></tr></thead>
+              <thead><tr><th>{t('act.vcat', '원가 분류')}</th><th>{t('act.est', '추정(견적)')}</th><th>{t('act.act', '실적')}</th><th>{t('act.var', '차이')}</th><th>{t('act.rate', '차이율')}</th></tr></thead>
               <tbody>
                 {v.categories.map((c) => (
                   <tr key={c.category}>

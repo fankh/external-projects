@@ -153,6 +153,7 @@ export function MdiTabs(props: {
   onActivate: (id: string) => void
   onClose: (id: string) => void
 }) {
+  const { t: tr } = useI18n()
   const [listOpen, setListOpen] = useState(false)
   const stripRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -179,7 +180,7 @@ export function MdiTabs(props: {
       </div>
       {props.tabs.length > 0 ? (
         <span style={{ position: 'relative', flex: '0 0 auto', display: 'flex' }}>
-          <span className="t" data-mdi-overflow title="열린 탭 목록"
+          <span className="t" data-mdi-overflow title={tr('shell.openTabs', '열린 탭 목록')}
             style={{ flex: '0 0 auto' }}
             onClick={() => setListOpen((v) => !v)}>▾ {props.tabs.length}</span>
           {listOpen ? (
@@ -211,15 +212,16 @@ export function MdiTabs(props: {
 }
 
 export function StatusBar(props: { cells?: ReactNode[] }) {
+  const { t } = useI18n()
   const fkeys: { key: string; label: string }[] = [
-    { key: 'F2', label: '신규' }, { key: 'F3', label: '삭제' }, { key: 'F8', label: '조회' },
-    { key: 'F9', label: 'Run' }, { key: 'F12', label: '저장' },
+    { key: 'F2', label: t('common.new', '신규') }, { key: 'F3', label: t('common.delete', '삭제') }, { key: 'F8', label: t('common.query', '조회') },
+    { key: 'F9', label: 'Run' }, { key: 'F12', label: t('common.save', '저장') },
   ]
   return (
     <div className="statusbar">
       {fkeys.map((f) => (
         <span key={f.key} className="cell" data-fkey={f.key}
-          style={{ cursor: 'pointer' }} title={`클릭 = ${f.key}`}
+          style={{ cursor: 'pointer' }} title={`${t('shell.clickHint', '클릭 =')} ${f.key}`}
           onClick={() => window.dispatchEvent(new CustomEvent('edim-fkey', { detail: f.key }))}>
           <b>{f.key}</b> {f.label}
         </span>

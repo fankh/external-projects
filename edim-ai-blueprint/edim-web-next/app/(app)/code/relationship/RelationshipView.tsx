@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { useI18n } from '@/components/I18nProvider'
 import { Cvs } from '@/components/Cvs'
 import type { CanvasBlock } from '@/lib/cadTypes'
 import { runningTest, addChild, requestApproval, type RunningTestRow } from './actions'
@@ -13,6 +14,7 @@ interface Mother { code: string; desc: string; slots: { slot: string; label: str
 const SLOT_OPTS: Record<string, string[]> = { B: ['13', '21', '32'], C: ['32', '45'], E: ['15', '21'] }
 
 export function RelationshipView({ mother, children }: { mother: Mother; children: ChildRow[] }) {
+  const { t } = useI18n()
   const [checked, setChecked] = useState<Set<string>>(new Set(children.map((c) => c.code)))
   const [slots, setSlots] = useState<Record<string, string>>({ B: '13', C: '32', E: '15' })
   const [testRows, setTestRows] = useState<RunningTestRow[] | null>(null)
@@ -76,14 +78,14 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
             <tbody><tr>{mother.slots.map((s) => <td key={s.slot} className="code">{s.values}</td>)}</tr></tbody></table>
         </div>
         <div className="gb">
-          <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>구성도 — Mother · Child</div>
+          <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('codrel.diagram', '구성도 — Mother · Child')}</div>
           <div style={{ height: 230 }}><Cvs blocks={relBlocks} dims={relDims} style={{ width: '100%', height: '100%' }} /></div>
-          <div style={{ fontSize: 10, color: 'var(--txt-dim)', lineHeight: 1.7, padding: '3px 6px' }}>Slot 매핑(slot_map)으로 Mother 값이 Child 코드 자릿수에 전파 (CODE-008)</div>
+          <div style={{ fontSize: 10, color: 'var(--txt-dim)', lineHeight: 1.7, padding: '3px 6px' }}>{t('codrel.slotMapHint', 'Slot 매핑(slot_map)으로 Mother 값이 Child 코드 자릿수에 전파 (CODE-008)')}</div>
         </div>
         <div className="gb" style={{ padding: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Add Child</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input className="in" value={addCode} placeholder="예: KDI 21" aria-label="Child Code" onChange={(e) => setAddCode(e.target.value)} style={{ height: 22, fontSize: 11, width: 130 }} />
+            <input className="in" value={addCode} placeholder={t('rel.addCodePh', '예: KDI 21')} aria-label="Child Code" onChange={(e) => setAddCode(e.target.value)} style={{ height: 22, fontSize: 11, width: 130 }} />
             <input className="in" value={addQty} aria-label="Qty" onChange={(e) => setAddQty(e.target.value)} style={{ height: 22, fontSize: 11, width: 56 }} />
             <button className="b" disabled={pending} onClick={doAdd} style={{ height: 22, fontSize: 11 }}>＋ Add</button>
           </div>
@@ -106,12 +108,12 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
             {testRows ? <DenseGrid columns={testCols} rows={testRows} rowKey={(r) => r.no} />
-              : <div style={{ padding: 10, color: 'var(--txt-mute)', fontSize: 11 }}>Mother Slot 조합(B·C·E)을 선택하고 Run — 조건 일치 Child 전량 전개 검증</div>}
+              : <div style={{ padding: 10, color: 'var(--txt-mute)', fontSize: 11 }}>{t('codrel.runHint', 'Mother Slot 조합(B·C·E)을 선택하고 Run — 조건 일치 Child 전량 전개 검증')}</div>}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
-          {tested ? <Chip tone="ok">Running Test 통과</Chip> : <Chip tone="warn">Test 필요</Chip>}
-          <button className="b" disabled={!tested || pending} onClick={doApprove} style={{ height: 22, fontSize: 11 }}>승인 요청</button>
+          {tested ? <Chip tone="ok">{t('codrel.testPassed', 'Running Test 통과')}</Chip> : <Chip tone="warn">{t('codrel.testNeeded', 'Test 필요')}</Chip>}
+          <button className="b" disabled={!tested || pending} onClick={doApprove} style={{ height: 22, fontSize: 11 }}>{t('common.requestApproval', '승인 요청')}</button>
         </div>
       </div>
       {msg ? <div style={{ position: 'fixed', bottom: 8, left: 230, fontSize: 11, padding: '4px 10px', background: msg.err ? '#FBEAEA' : '#EAF3EC', color: msg.err ? 'var(--err)' : 'var(--run)', border: '1px solid var(--line)', borderRadius: 3 }}>{msg.text}</div> : null}

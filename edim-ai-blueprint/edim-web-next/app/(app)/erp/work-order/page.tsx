@@ -1,10 +1,14 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { WoGrid, type WoRow } from './WoGrid'
 
 export const dynamic = 'force-dynamic'
 
 export default async function WorkOrderPage() {
+  const bundle = bundleFor(await getLocale())
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   let rows: WoRow[] = []
   let err: string | null = null
   try {
@@ -14,7 +18,7 @@ export default async function WorkOrderPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="작업지시 (D-3)" count={err ? undefined : rows.length} source="/erp/work-process" />
+      <ScreenHeader title={`${t('wo.header', '작업지시')} (D-3)`} count={err ? undefined : rows.length} source="/erp/work-process" />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <WoGrid rows={rows} />}
       </div>

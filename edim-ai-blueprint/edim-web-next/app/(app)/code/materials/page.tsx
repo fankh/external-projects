@@ -1,10 +1,14 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { MaterialGrid, type MaterialRow } from './MaterialGrid'
 
 export const dynamic = 'force-dynamic'
 
 export default async function MaterialsPage() {
+  const bundle = bundleFor(await getLocale())
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   let rows: MaterialRow[] = []
   let err: string | null = null
   try {
@@ -14,7 +18,7 @@ export default async function MaterialsPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="Raw Material·GPI (M-3-2)" count={err ? undefined : rows.length} source="/materials" />
+      <ScreenHeader title={`${t('raw.title', 'Raw Material·GPI')} (M-3-2)`} count={err ? undefined : rows.length} source="/materials" />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <MaterialGrid rows={rows} />}
       </div>

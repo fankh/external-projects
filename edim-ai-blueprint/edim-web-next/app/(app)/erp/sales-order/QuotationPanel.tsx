@@ -4,6 +4,7 @@
 import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { useI18n } from '@/components/I18nProvider'
 import { transitionQuotation, type ActState } from './actions'
 
 export interface QuotationRow {
@@ -14,6 +15,7 @@ export interface QuotationRow {
 const TONE: Record<string, 'ok' | 'warn' | 'info' | 'err'> = { DRAFT: 'info', SENT: 'warn', ORDERED: 'ok', LOST: 'err' }
 
 export function QuotationPanel({ rows }: { rows: QuotationRow[] }) {
+  const { t } = useI18n()
   const [selId, setSelId] = useState<number | null>(null)
   const [amount, setAmount] = useState('')
   const [delivery, setDelivery] = useState('')
@@ -22,12 +24,12 @@ export function QuotationPanel({ rows }: { rows: QuotationRow[] }) {
   const sel = rows.find((r) => r.quotationId === selId) ?? null
 
   const cols: GridColumn<QuotationRow>[] = [
-    { key: 'no', header: '견적번호', width: 120, code: true, render: (r) => r.quotationNo },
-    { key: 'proj', header: '프로젝트', width: 100, render: (r) => r.project },
-    { key: 'cust', header: '고객', width: 110, render: (r) => r.customer },
-    { key: 'total', header: '금액', width: 100, align: 'right', sortValue: (r) => r.total, render: (r) => `${r.currency} ${Math.round(r.total).toLocaleString()}` },
-    { key: 'date', header: '일자', width: 84, align: 'center', render: (r) => r.date },
-    { key: 'status', header: '상태', width: 76, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={TONE[r.status] ?? 'info'}>{r.status}</Chip> },
+    { key: 'no', header: t('order.quoteNo', '견적번호'), width: 120, code: true, render: (r) => r.quotationNo },
+    { key: 'proj', header: t('so.project', '프로젝트'), width: 100, render: (r) => r.project },
+    { key: 'cust', header: t('order.customer', '고객'), width: 110, render: (r) => r.customer },
+    { key: 'total', header: t('order.amount', '금액'), width: 100, align: 'right', sortValue: (r) => r.total, render: (r) => `${r.currency} ${Math.round(r.total).toLocaleString()}` },
+    { key: 'date', header: t('so.date', '일자'), width: 84, align: 'center', render: (r) => r.date },
+    { key: 'status', header: t('order.status', '상태'), width: 76, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={TONE[r.status] ?? 'info'}>{r.status}</Chip> },
   ]
 
   const run = (status: 'SENT' | 'ORDERED' | 'LOST') => {
@@ -43,21 +45,21 @@ export function QuotationPanel({ rows }: { rows: QuotationRow[] }) {
 
   return (
     <div className="gb" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>견적 Lifecycle — DRAFT→SENT→ORDERED/LOST</div>
+      <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('so.lifecycleTitle', '견적 Lifecycle — DRAFT→SENT→ORDERED/LOST')}</div>
       <div style={{ display: 'flex', gap: 4, padding: '0 6px 4px', alignItems: 'center', flexWrap: 'wrap', fontSize: 11 }}>
-        <span style={{ color: 'var(--txt-dim)' }}>{sel ? `선택 ${sel.quotationNo} (${sel.status})` : '행 클릭=선택'}</span>
-        <button className="b" disabled={pending || !sel || sel.status !== 'DRAFT'} onClick={() => run('SENT')}>발송</button>
-        <input className="in" style={{ width: 110 }} placeholder="계약금액 (수주)" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        <input className="in" style={{ width: 100 }} placeholder="납기 YYYY-MM-DD" value={delivery} onChange={(e) => setDelivery(e.target.value)} />
-        <button className="b run" disabled={pending || !sel || sel.status !== 'SENT'} onClick={() => run('ORDERED')}>수주 전환</button>
-        <button className="b" disabled={pending || !sel || sel.status !== 'SENT'} onClick={() => run('LOST')}>실주</button>
+        <span style={{ color: 'var(--txt-dim)' }}>{sel ? `${t('so.selected', '선택')} ${sel.quotationNo} (${sel.status})` : t('so.clickSelect', '행 클릭=선택')}</span>
+        <button className="b" disabled={pending || !sel || sel.status !== 'DRAFT'} onClick={() => run('SENT')}>{t('so.send', '발송')}</button>
+        <input className="in" style={{ width: 110 }} placeholder={t('so.contractPh', '계약금액 (수주)')} value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <input className="in" style={{ width: 100 }} placeholder={t('so.deliveryPh', '납기 YYYY-MM-DD')} value={delivery} onChange={(e) => setDelivery(e.target.value)} />
+        <button className="b run" disabled={pending || !sel || sel.status !== 'SENT'} onClick={() => run('ORDERED')}>{t('so.orderConvert', '수주 전환')}</button>
+        <button className="b" disabled={pending || !sel || sel.status !== 'SENT'} onClick={() => run('LOST')}>{t('so.lost', '실주')}</button>
         {st.error ? <span style={{ color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ color: 'var(--run)' }}>{st.ok}</span> : null}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-quotations" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.quotationId} selectedKey={selId ?? undefined}
-          onRowClick={(r) => setSelId(r.quotationId)} emptyText="견적이 없습니다" />
+          onRowClick={(r) => setSelId(r.quotationId)} emptyText={t('so.emptyQuotes', '견적이 없습니다')} />
       </div>
     </div>
   )

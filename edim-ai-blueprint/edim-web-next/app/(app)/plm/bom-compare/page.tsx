@@ -1,10 +1,16 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { BomCompareView, type BomCompare } from './BomCompareView'
 
 export const dynamic = 'force-dynamic'
 
 export default async function BomComparePage({ searchParams }: { searchParams: Promise<{ base?: string; target?: string }> }) {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
+
   const sp = await searchParams
   const base = (sp.base ?? '').trim()
   const target = (sp.target ?? '').trim()
@@ -19,9 +25,9 @@ export default async function BomComparePage({ searchParams }: { searchParams: P
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="BOM 비교 (M-4-8)" source="/codes/bom-compare" />
+      <ScreenHeader title={t('bomcmp.title', 'BOM 비교 (M-4-8)')} source="/codes/bom-compare" />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
-        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div>
+        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div>
           : <BomCompareView data={data} base={base} target={target} />}
       </div>
     </div>

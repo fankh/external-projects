@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { EventActions } from './EventActions'
 
@@ -17,6 +19,9 @@ function FlowNode({ label, tone }: { label: string; tone: 'prev' | 'cur' | 'next
 }
 
 export default async function EventDetailPage({ searchParams }: { searchParams: Promise<{ eventId?: string }> }) {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   let events: EventRow[] = []
   let err: string | null = null
   try {
@@ -34,13 +39,13 @@ export default async function EventDetailPage({ searchParams }: { searchParams: 
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="이벤트 상세 (E-4)" count={err ? undefined : events.length} countLabel="event" source="/erp/events · /erp/events/{id}/flow" />
+      <ScreenHeader title={`${t('detail.eventTitle', '이벤트 상세')} (E-4)`} count={err ? undefined : events.length} countLabel="event" source="/erp/events · /erp/events/{id}/flow" />
       {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 6, padding: 6 }}>
           <div className="gb" style={{ width: 320, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>이벤트 목록</div>
+            <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('detail.eventList', '이벤트 목록')}</div>
             <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-              <table className="g"><thead><tr><th>공정</th><th>제목</th><th>담당</th><th>상태</th></tr></thead>
+              <table className="g"><thead><tr><th>{t('detail.procCol', '공정')}</th><th>{t('detail.titleCol', '제목')}</th><th>{t('detail.ownerCol', '담당')}</th><th>{t('detail.statusCol', '상태')}</th></tr></thead>
                 <tbody>{events.map((e) => (
                   <tr key={e.eventId} style={{ background: e.eventId === sel?.eventId ? 'var(--edit-cell)' : undefined }}>
                     <td className="code"><Link href={`/detail/event?eventId=${e.eventId}`} style={{ color: 'var(--title-navy)', textDecoration: 'none' }}>{e.code}</Link></td>
@@ -55,25 +60,25 @@ export default async function EventDetailPage({ searchParams }: { searchParams: 
               <div className="gb" style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--title-navy)' }}>{sel.procName} — {sel.title}</div>
                 <div style={{ fontSize: 11, display: 'flex', gap: 16 }}>
-                  <span>프로젝트 <b>{sel.project}</b></span><span>담당 <b>{sel.owner}</b></span>
-                  <span>기한 <b style={{ color: sel.delayed ? 'var(--err)' : undefined }}>{sel.deadline}{sel.delayed ? ' (지연)' : ''}</b></span>
-                  <span>상태 <b style={{ color: statusColor(sel.status) }}>{sel.status}</b></span>
+                  <span>{t('detail.project', '프로젝트')} <b>{sel.project}</b></span><span>{t('detail.ownerCol', '담당')} <b>{sel.owner}</b></span>
+                  <span>{t('detail.deadline', '기한')} <b style={{ color: sel.delayed ? 'var(--err)' : undefined }}>{sel.deadline}{sel.delayed ? ` (${t('detail.delayed', '지연')})` : ''}</b></span>
+                  <span>{t('detail.statusCol', '상태')} <b style={{ color: statusColor(sel.status) }}>{sel.status}</b></span>
                 </div>
               </div>
-            ) : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>이벤트가 없습니다</div>}
+            ) : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{t('detail.noEvent', '이벤트가 없습니다')}</div>}
             {sel ? <EventActions eventId={sel.eventId} status={sel.status} /> : null}
             {flow ? (
               <div className="gb" style={{ padding: 10, flex: 1, minHeight: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8 }}>공정 흐름 (erp_process_edge)</div>
+                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8 }}>{t('detail.procFlow', '공정 흐름')} (erp_process_edge)</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  {flow.prev.length ? flow.prev.map((p) => <FlowNode key={p} label={p} tone="prev" />) : <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>(선행 없음)</span>}
+                  {flow.prev.length ? flow.prev.map((p) => <FlowNode key={p} label={p} tone="prev" />) : <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('detail.noPrev', '(선행 없음)')}</span>}
                   <span style={{ fontSize: 14, color: 'var(--txt-mute)' }}>→</span>
                   <FlowNode label={`${flow.current} (${flow.currentCode})`} tone="cur" />
                   <span style={{ fontSize: 14, color: 'var(--txt-mute)' }}>→</span>
-                  {flow.next.length ? flow.next.map((n) => <FlowNode key={n} label={n} tone="next" />) : <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>(후행 없음)</span>}
+                  {flow.next.length ? flow.next.map((n) => <FlowNode key={n} label={n} tone="next" />) : <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('detail.noNext', '(후행 없음)')}</span>}
                 </div>
               </div>
-            ) : sel ? <div className="gb" style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>공정 흐름 정보 없음</div> : null}
+            ) : sel ? <div className="gb" style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{t('detail.noFlow', '공정 흐름 정보 없음')}</div> : null}
           </div>
         </div>
       )}

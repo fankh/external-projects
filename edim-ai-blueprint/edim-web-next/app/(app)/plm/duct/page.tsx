@@ -1,10 +1,16 @@
 import { apiServer, ApiError } from '@/lib/api'
 import type { CadDocument } from '@/lib/cadTypes'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { DuctCanvas } from './DuctCanvas'
 
 export const dynamic = 'force-dynamic'
 
 export default async function DuctPage({ searchParams }: { searchParams: Promise<{ diffusers?: string }> }) {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
+
   const sp = await searchParams
   const diffusers = Math.max(1, Math.min(12, Number(sp.diffusers) || 3))
   let doc: CadDocument | null = null
@@ -18,7 +24,7 @@ export default async function DuctPage({ searchParams }: { searchParams: Promise
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {err ? (
-        <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div>
+        <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div>
       ) : doc ? (
         <DuctCanvas doc={doc} diffusers={diffusers} />
       ) : null}

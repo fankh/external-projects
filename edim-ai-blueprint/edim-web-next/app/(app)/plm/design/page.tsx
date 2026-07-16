@@ -1,4 +1,6 @@
 import { apiServer } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import type { CanvasBlock, CadDocument, DimensionDef, DrawingBlockRow, DwgRelationRow } from '@/lib/cadTypes'
 import { DesignEditor } from './DesignEditor'
@@ -31,6 +33,10 @@ const numeric = (src: DimensionDef[]) => {
 }
 
 export default async function DesignPage() {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
+
   // 치수 정의 실DB 로드 → 없으면 mock 폴백
   const dbDims = await apiServer<DimensionDef[]>(`/drawings/dimensions?drawing=${encodeURIComponent(DWG)}`).catch(() => null)
   const dims = dbDims && dbDims.length ? dbDims : DWG_DIMS
@@ -47,7 +53,7 @@ export default async function DesignPage() {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="Design Editor (S-4-1-1) — KDCR 3-13" source="/drawings/dimensions · /cad/part-drawing · blocks/relations/bom" />
+      <ScreenHeader title={t('design.title', 'Design Editor (S-4-1-1) — KDCR 3-13')} source="/drawings/dimensions · /cad/part-drawing · blocks/relations/bom" />
       <div style={{ flex: 1, minHeight: 0 }}>
         <DesignEditor initialDims={dims} initialDoc={doc} blocks={blocks} relations={relations} bom={bom} />
       </div>

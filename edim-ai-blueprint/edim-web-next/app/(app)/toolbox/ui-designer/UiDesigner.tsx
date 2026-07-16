@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Btn, Chip, GroupBox } from '@/components/controls'
+import { useI18n } from '@/components/I18nProvider'
 import { useEditHistory } from '@/hooks/useEditHistory'
 import { saveLayout, publishForm, aiSuggest, type Widget } from './actions'
 
@@ -15,6 +16,7 @@ const WIDGET_PALETTE = [
 ]
 
 export function UiDesigner({ initialWidgets, initialVersion }: { initialWidgets: Widget[]; initialVersion: number }) {
+  const { t } = useI18n()
   const [widgets, setWidgets] = useState<Widget[]>(initialWidgets)
   const [selId, setSelId] = useState<string | null>(initialWidgets[0]?.id ?? null)
   const [dirty, setDirty] = useState(false)
@@ -61,16 +63,16 @@ export function UiDesigner({ initialWidgets, initialVersion }: { initialWidgets:
       <div className="qband">
         <span style={{ fontSize: 10.5, color: 'var(--txt-dim)' }}>Form — CPQ / Selection v{version} {dirty ? '*' : ''}</span>
         <span style={{ flex: 1 }} />
-        <Btn onClick={() => setShowPreview(true)}>미리보기</Btn>
-        <span className="b ic" title="실행 취소" onClick={() => window.dispatchEvent(new CustomEvent('edim-undo'))}>↶</span>
-        <span className="b ic" title="다시 실행" onClick={() => window.dispatchEvent(new CustomEvent('edim-redo'))}>↷</span>
-        <Btn onClick={() => { void doSave() }}>저장 F12</Btn>
-        <Btn variant="pri" onClick={publish}>게시 (승인 후)</Btn>
+        <Btn onClick={() => setShowPreview(true)}>{t('common.preview', '미리보기')}</Btn>
+        <span className="b ic" title={t('common.undo', '실행 취소')} onClick={() => window.dispatchEvent(new CustomEvent('edim-undo'))}>↶</span>
+        <span className="b ic" title={t('common.redo', '다시 실행')} onClick={() => window.dispatchEvent(new CustomEvent('edim-redo'))}>↷</span>
+        <Btn onClick={() => { void doSave() }}>{t('uidsn.saveF12', '저장 F12')}</Btn>
+        <Btn variant="pri" onClick={publish}>{t('uidsn.publish', '게시 (승인 후)')}</Btn>
       </div>
       {showPreview ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowPreview(false)}>
           <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 520, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }} onClick={(e) => e.stopPropagation()}>
-            <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}><b>Form 미리보기 — {FORM_NAME} v{version} (동적 렌더, TBX-003)</b><span style={{ flex: 1 }} /><span style={{ cursor: 'pointer' }} onClick={() => setShowPreview(false)}>✕</span></div>
+            <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}><b>{t('uidsn.previewTitle', 'Form 미리보기')} — {FORM_NAME} v{version} {t('uidsn.previewRenderNote', '(동적 렌더, TBX-003)')}</b><span style={{ flex: 1 }} /><span style={{ cursor: 'pointer' }} onClick={() => setShowPreview(false)}>✕</span></div>
             <div style={{ position: 'relative', height: 340, margin: 10, border: '1px solid var(--line)', background: '#FAFBFC', overflow: 'hidden' }}>
               {widgets.map((w) => (
                 <div key={w.id} style={{ position: 'absolute', left: w.x, top: w.y, width: w.w }}>
@@ -81,13 +83,13 @@ export function UiDesigner({ initialWidgets, initialVersion }: { initialWidgets:
                 </div>
               ))}
             </div>
-            <div style={{ padding: '0 10px 10px', fontSize: 10, color: 'var(--txt-mute)' }}>위젯 {widgets.length}개 — 게시(승인) 후 처리 Form 으로 사용됩니다 (tbx_ui_form v{version}).</div>
+            <div style={{ padding: '0 10px 10px', fontSize: 10, color: 'var(--txt-mute)' }}>{t('uidsn.previewCaption', '위젯 {n}개 — 게시(승인) 후 처리 Form 으로 사용됩니다 (tbx_ui_form v{v}).').replace('{n}', String(widgets.length)).replace('{v}', String(version))}</div>
           </div>
         </div>
       ) : null}
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div style={{ width: 190, display: 'flex', flexDirection: 'column', gap: 6, flex: 'none', overflow: 'auto' }}>
-          <GroupBox title="Widget Box — 클릭=배치" noPad>
+          <GroupBox title={t('uidsn.widgetBox', 'Widget Box — 클릭=배치')} noPad>
             <div className="tree2">
               {WIDGET_PALETTE.map((g) => (
                 <div key={g.group}>
@@ -103,7 +105,7 @@ export function UiDesigner({ initialWidgets, initialVersion }: { initialWidgets:
             {widgets.map((w) => (
               <div key={w.id} className={`m2 ${selId === w.id ? 'sel' : ''}`} style={{ left: w.x, top: w.y, width: w.w, height: w.h }} onClick={() => setSelId(w.id)}>{w.label}</div>
             ))}
-            <div style={{ position: 'absolute', left: 10, bottom: 6, fontSize: 9.5, color: 'var(--txt-mute)' }}>팔레트 클릭 배치 → 속성 편집 → 동작 Templet 바인딩 → 저장·버전 → 승인·게시</div>
+            <div style={{ position: 'absolute', left: 10, bottom: 6, fontSize: 9.5, color: 'var(--txt-mute)' }}>{t('uidsn.flowHint', '팔레트 클릭 배치 → 속성 편집 → 동작 Templet 바인딩 → 저장·버전 → 승인·게시')}</div>
           </div>
           {status ? <div style={{ fontSize: 11, color: status.err ? 'var(--err)' : 'var(--run)' }}>{status.text}</div> : null}
         </div>
@@ -123,12 +125,12 @@ export function UiDesigner({ initialWidgets, initialVersion }: { initialWidgets:
                 <tr><td>geometry</td><td className="code">{sel ? `${sel.x},${sel.y} ${sel.w}×${sel.h}` : '-'}</td></tr>
               </tbody></table>
           </GroupBox>
-          <GroupBox title="[ UI 개발 AI ]">
-            <input className="in" style={{ width: '100%' }} value={aiText} aria-label="AI 설명" placeholder="개발할 Application 설명 입력…" onChange={(e) => setAiText(e.target.value)} />
-            <div style={{ textAlign: 'right', marginTop: 4 }}><Btn variant="run" onClick={runAi}>UI 초안 제안</Btn></div>
-            <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 4 }}>→ 용도 / 항목 / 필요 DB Table 정리 후 Templet 제안</div>
+          <GroupBox title={t('uidsn.aiTitle', '[ UI 개발 AI ]')}>
+            <input className="in" style={{ width: '100%' }} value={aiText} aria-label="AI 설명" placeholder={t('uidsn.aiPlaceholder', '개발할 Application 설명 입력…')} onChange={(e) => setAiText(e.target.value)} />
+            <div style={{ textAlign: 'right', marginTop: 4 }}><Btn variant="run" onClick={runAi}>{t('uidsn.aiDraft', 'UI 초안 제안')}</Btn></div>
+            <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 4 }}>{t('uidsn.aiHintShort', '→ 용도 / 항목 / 필요 DB Table 정리 후 Templet 제안')}</div>
           </GroupBox>
-          {dirty ? <Chip tone="warn">미저장 변경</Chip> : null}
+          {dirty ? <Chip tone="warn">{t('uidsn.unsaved', '미저장 변경')}</Chip> : null}
         </div>
       </div>
     </div>

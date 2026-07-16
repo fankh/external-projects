@@ -1,14 +1,19 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import type { CadDocument } from '@/lib/cadTypes'
 import { CadViewer } from './CadViewer'
 
 export const dynamic = 'force-dynamic'
 
 export default async function CadViewerPage({ searchParams }: { searchParams: Promise<{ fileId?: string }> }) {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   const sp = await searchParams
   const fileId = Number(sp.fileId)
   if (!fileId) {
-    return <div style={{ padding: 16, fontSize: 11, color: 'var(--txt-mute)' }}>?fileId=&lt;id&gt; 로 도면을 여십시오 (Project Folder 드릴다운)</div>
+    return <div style={{ padding: 16, fontSize: 11, color: 'var(--txt-mute)' }}>{t('detail.cadOpenHint', '?fileId=<id> 로 도면을 여십시오 (Project Folder 드릴다운)')}</div>
   }
   let doc: CadDocument | null = null
   let err: string | null = null

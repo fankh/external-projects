@@ -1,10 +1,16 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { WorkProcessView, type MaterialRow } from './WorkProcessView'
 
 export const dynamic = 'force-dynamic'
 
 export default async function WorkProcessPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
+
   const sp = await searchParams
   const code = (sp.code ?? 'KDCR 3-13').trim() || 'KDCR 3-13'
   let materials: MaterialRow[] = []
@@ -24,9 +30,9 @@ export default async function WorkProcessPage({ searchParams }: { searchParams: 
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`작업공정 MAKE/BUY (G3-c) — ${code}`} count={err ? undefined : rows.length} source="/erp/work-process/materials" />
+      <ScreenHeader title={`${t('wp.title', '작업공정 MAKE/BUY (G3-c)')} — ${code}`} count={err ? undefined : rows.length} source="/erp/work-process/materials" />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
-        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <WorkProcessView initial={rows} code={code} />}
+        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div> : <WorkProcessView initial={rows} code={code} />}
       </div>
     </div>
   )

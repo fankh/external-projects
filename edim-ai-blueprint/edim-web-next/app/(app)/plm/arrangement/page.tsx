@@ -1,5 +1,7 @@
 import { apiServer, ApiError } from '@/lib/api'
 import type { CadDocument } from '@/lib/cadTypes'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { ArrangementCanvas } from './ArrangementCanvas'
 import { ArrangementGrid, ArrangementRegForm, ComponentPanel, type ArrangementComponent, type ArrangementRow } from './ArrangementView'
@@ -7,6 +9,10 @@ import { ArrangementGrid, ArrangementRegForm, ComponentPanel, type ArrangementCo
 export const dynamic = 'force-dynamic'
 
 export default async function ArrangementPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
+
   let rows: ArrangementRow[] = []
   let err: string | null = null
   try {
@@ -28,10 +34,10 @@ export default async function ArrangementPage({ searchParams }: { searchParams: 
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="Arrangement Set-Up (M-4-2)" count={err ? undefined : rows.length} source="/arrangements" />
+      <ScreenHeader title={t('arr.title', 'Arrangement Set-Up (M-4-2)')} count={err ? undefined : rows.length} source="/arrangements" />
       <div style={{ padding: '4px 6px 0' }}><ArrangementRegForm /></div>
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
-        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
+        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div> : (
           <>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ flex: 1, minHeight: 0 }}><ArrangementGrid rows={rows} selectedCode={selCode} /></div>
@@ -40,7 +46,7 @@ export default async function ArrangementPage({ searchParams }: { searchParams: 
             <div style={{ width: 340, overflow: 'auto' }}>
               {selCode
                 ? <ComponentPanel code={selCode} rows={components} />
-                : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>행을 클릭하면 구성품을 관리합니다</div>}
+                : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{t('arr.selectHint', '행을 클릭하면 구성품을 관리합니다')}</div>}
             </div>
           </>
         )}

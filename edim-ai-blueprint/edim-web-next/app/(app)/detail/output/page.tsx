@@ -1,4 +1,6 @@
 import { apiServer } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { OutputDocView } from './OutputDocView'
 
@@ -7,6 +9,9 @@ export const dynamic = 'force-dynamic'
 const STATUS_IDX: Record<string, number> = { SET_UP: 0, CHECK: 1, APPROVE: 2, ACCEPTED: 3 }
 
 export default async function OutputDocPage({ searchParams }: { searchParams: Promise<{ file?: string; folder?: string; fileType?: string }> }) {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   const sp = await searchParams
   const file = (sp.file ?? '문서').trim()
   const folder = (sp.folder ?? 'DWG').trim()
@@ -25,7 +30,7 @@ export default async function OutputDocPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`산출물 문서 상세 — ${file}`} source="/documents/register-output · /status" />
+      <ScreenHeader title={`${t('detail.outputTitle', '산출물 문서 상세')} — ${file}`} source="/documents/register-output · /status" />
       <div style={{ flex: 1, minHeight: 0 }}>
         <OutputDocView file={file} folder={folder} fileType={fileType} docNo={docNo} initialStage={stage} />
       </div>

@@ -1,10 +1,15 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { TempletGrid, type TempletRow } from './TempletGrid'
 
 export const dynamic = 'force-dynamic'
 
 export default async function TempletsPage() {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   let rows: TempletRow[] = []
   let err: string | null = null
   try {
@@ -14,7 +19,7 @@ export default async function TempletsPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="Templet 관리 (S-2-3)" count={err ? undefined : rows.length} source="/toolbox/templets" />
+      <ScreenHeader title={`${t('templet.title', 'Templet 관리')} (S-2-3)`} count={err ? undefined : rows.length} source="/toolbox/templets" />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <TempletGrid rows={rows} />}
       </div>

@@ -1,4 +1,6 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { I18nEditor, type DataTransRow } from './I18nEditor'
 
@@ -7,6 +9,8 @@ export const dynamic = 'force-dynamic'
 const ENTITIES = ['COMPANY', 'PRODUCT', 'DOCUMENT']
 
 export default async function DataI18nPage({ searchParams }: { searchParams: Promise<{ entity?: string; locale?: string }> }) {
+  const bundle = bundleFor(await getLocale())
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   const sp = await searchParams
   const entity = ENTITIES.includes(sp.entity ?? '') ? sp.entity! : 'COMPANY'
   const locale = (sp.locale ?? 'en').trim() || 'en'
@@ -20,7 +24,7 @@ export default async function DataI18nPage({ searchParams }: { searchParams: Pro
   const done = rows.filter((r) => r.value).length
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="데이터 다국어 (M-3-9)" count={err ? undefined : `${done}/${rows.length}`} countLabel="번역" source="/i18n/data/{type}" />
+      <ScreenHeader title={`${t('di18n.title', '데이터 다국어')} (M-3-9)`} count={err ? undefined : `${done}/${rows.length}`} countLabel={t('di18n.transUnit', '번역')} source="/i18n/data/{type}" />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div>
           : <I18nEditor rows={rows} entity={entity} locale={locale} />}

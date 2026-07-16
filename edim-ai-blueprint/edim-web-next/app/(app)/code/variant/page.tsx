@@ -1,10 +1,14 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { VariantGrid, type CodeValueRow } from './VariantGrid'
 
 export const dynamic = 'force-dynamic'
 
 export default async function VariantPage({ searchParams }: { searchParams: Promise<{ group?: string }> }) {
+  const bundle = bundleFor(await getLocale())
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   const sp = await searchParams
   const group = (sp.group ?? 'KOF').trim() || 'KOF'
   let rows: CodeValueRow[] = []
@@ -16,7 +20,7 @@ export default async function VariantPage({ searchParams }: { searchParams: Prom
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`배리언트 상수 (S-1-2) — ${group}`} count={err ? undefined : rows.length} source="/codes/values" />
+      <ScreenHeader title={`${t('variant.title', '배리언트 상수')} (S-1-2) — ${group}`} count={err ? undefined : rows.length} source="/codes/values" />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <VariantGrid rows={rows} group={group} />}
       </div>

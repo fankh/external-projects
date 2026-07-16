@@ -8,6 +8,7 @@ import { applyMovesLocal } from '@/components/cadOps'
 import { Btn, Chip, Combo, Fx, GroupBox, Sep } from '@/components/controls'
 import { CommandLine, Cvs } from '@/components/Cvs'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
+import { useI18n } from '@/components/I18nProvider'
 import { useEditHistory } from '@/hooks/useEditHistory'
 import {
   evaluateMacro, cadPartDrawing, cadPartDrawingSave, cadEdit, cadView, saveDimensions, requestApproval,
@@ -33,6 +34,7 @@ function evalDimsMock(dims: DimensionDef[]): DimensionDef[] {
 
 /** DWG-024 Simulation — VARIANT 변경 → MACRO 즉시 재평가 (저장 없음). */
 function SimulationPanel({ dims, onApply }: { dims: DimensionDef[]; onApply: (n: DimensionDef[]) => void }) {
+  const { t } = useI18n()
   const [vars, setVars] = useState<Record<string, string>>({})
   const [preview, setPreview] = useState<Record<string, number> | null>(null)
   const [live, setLive] = useState(true)
@@ -66,9 +68,9 @@ function SimulationPanel({ dims, onApply }: { dims: DimensionDef[]; onApply: (n:
   }
 
   return (
-    <GroupBox title="Simulation" noPad right={live ? <span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>ENG-01</span> : <Chip tone="warn">MOCK</Chip>}>
+    <GroupBox title={t('editor.simPanel', 'Simulation')} noPad right={live ? <span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>ENG-01</span> : <Chip tone="warn">MOCK</Chip>}>
       <div style={{ padding: 6 }}>
-        <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginBottom: 4 }}>VARIANT 치수 변경 — MACRO 치수 즉시 재평가 (저장 없음)</div>
+        <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginBottom: 4 }}>{t('editor.simHint', 'VARIANT 치수 변경 — MACRO 치수 즉시 재평가 (저장 없음)')}</div>
         <div className="frm c2">
           {variantDims.map((d) => (
             <span key={d.no} style={{ display: 'contents' }}>
@@ -93,7 +95,7 @@ function SimulationPanel({ dims, onApply }: { dims: DimensionDef[]; onApply: (n:
                 </div>
               )
             })}
-            <div style={{ textAlign: 'right', marginTop: 4 }}><Btn variant="pri" onClick={apply}>적용 (치수 반영)</Btn></div>
+            <div style={{ textAlign: 'right', marginTop: 4 }}><Btn variant="pri" onClick={apply}>{t('editor.simApply', '적용 (치수 반영)')}</Btn></div>
           </div>
         ) : null}
       </div>
@@ -108,7 +110,20 @@ export function DesignEditor(props: {
   relations: DwgRelationRow[]
   bom: BomRow[]
 }) {
+  const { t } = useI18n()
   const router = useRouter()
+  // CAD 툴 표시 라벨 — 내부 값(tool 상태·명령 프롬프트·TOOL_KEY)은 한글 원문 유지
+  const toolLabels: Record<string, string> = {
+    '복사 CO': t('editor.toolCopy', '복사 CO'),
+    '이동': t('editor.toolMove', '이동'),
+    '반전': t('editor.toolMirror', '반전'),
+    '연장': t('editor.toolExtend', '연장'),
+    '삭제 E': t('editor.toolErase', '삭제 E'),
+    '회전 RO': t('editor.toolRotate', '회전 RO'),
+    '자르기 TR': t('editor.toolTrim', '자르기 TR'),
+    '치수 DI': t('editor.toolDim', '치수 DI'),
+    '특성 CH': t('editor.toolProps', '특성 CH'),
+  }
   const [tool, setTool] = useState('이동')
   const [editFileId, setEditFileId] = useState<number | null>(null)
   const [activeTool, setActiveTool] = useState<string | null>(null)
@@ -218,23 +233,23 @@ export function DesignEditor(props: {
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
       : <span onDoubleClick={() => setEditingNo(r.no)}>{r.value}</span>) },
     { key: 'bind', header: 'Set-up', width: 64, align: 'center', render: (r) => <Chip tone={r.binding === 'MACRO' ? 'info' : 'ok'}>{r.binding}</Chip> },
-    { key: 'kind', header: '구분', width: 50, align: 'center', render: (r) => r.kind },
+    { key: 'kind', header: t('editor.kindCol', '구분'), width: 50, align: 'center', render: (r) => r.kind },
   ]
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="toolbar">
-        <span className="b ic" title="실행 취소 (Ctrl+Z)" onClick={() => window.dispatchEvent(new CustomEvent('edim-undo'))}>↶</span>
-        <span className="b ic" title="다시 실행 (Ctrl+Y)" onClick={() => window.dispatchEvent(new CustomEvent('edim-redo'))}>↷</span>
+        <span className="b ic" title={t('editor.undo', '실행 취소 (Ctrl+Z)')} onClick={() => window.dispatchEvent(new CustomEvent('edim-undo'))}>↶</span>
+        <span className="b ic" title={t('editor.redo', '다시 실행 (Ctrl+Y)')} onClick={() => window.dispatchEvent(new CustomEvent('edim-redo'))}>↷</span>
         <Sep />
-        {CAD_TOOLS.map((tl) => <Btn key={tl} variant={tool === tl ? 'pri' : 'default'} onClick={() => useTool(tl)}>{tl}</Btn>)}
+        {CAD_TOOLS.map((tl) => <Btn key={tl} variant={tool === tl ? 'pri' : 'default'} onClick={() => useTool(tl)}>{toolLabels[tl] ?? tl}</Btn>)}
         <Sep />
         <input ref={cadInput} type="file" accept=".dxf,.dwg" style={{ display: 'none' }} aria-label="CAD 파일"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) importCad(f); e.target.value = '' }} />
-        <Btn onClick={() => cadInput.current?.click()}>DXF 열기</Btn>
-        <Btn onClick={exportCad}>DXF 내보내기</Btn>
+        <Btn onClick={() => cadInput.current?.click()}>{t('editor.openDxf', 'DXF 열기')}</Btn>
+        <Btn onClick={exportCad}>{t('editor.exportDxf', 'DXF 내보내기')}</Btn>
         <Sep />
-        <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()}>편집</Btn>
+        <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()}>{t('common.edit', '편집')}</Btn>
         <Btn variant={cadMode ? 'pri' : 'default'} onClick={() => !cadMode && toggleCad()}>CAD</Btn>
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -243,7 +258,7 @@ export function DesignEditor(props: {
           {cadMode ? (
             <div style={{ flex: 1, minHeight: 320, border: '1px solid var(--line)', background: '#fff' }}>
               {cadDoc ? <CadSvg doc={cadDoc} editable={cadMode && editFileId != null} onEdit={onCadEdit} activeTool={activeTool} onToolConsumed={() => setActiveTool(null)} />
-                : <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>{cadOffline ? 'CAD 서버 연결 실패 — 새로고침하세요' : '작도 중…'}</div>}
+                : <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>{cadOffline ? t('editor.cadNeedsBackend', 'CAD 서버 연결 실패 — 새로고침하세요') : t('editor.drawing', '작도 중…')}</div>}
             </div>
           ) : (
             <Cvs blocks={props.blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock}
@@ -257,33 +272,33 @@ export function DesignEditor(props: {
         </div>
         <div className="split-h" />
         <div className="side-scroll" style={{ width: 312, display: 'flex', flexDirection: 'column', padding: 6, gap: 6, overflow: 'auto' }}>
-          <GroupBox title="Design Rule — 치수 Set-up" noPad right={<span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>더블클릭 = 편집</span>}>
+          <GroupBox title={t('editor.designRule', 'Design Rule — 치수 Set-up')} noPad right={<span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>{t('editor.dblEdit', '더블클릭 = 편집')}</span>}>
             <DenseGrid columns={ruleCols} rows={dims} rowKey={(r) => r.no} />
           </GroupBox>
           <GroupBox title="Coding" right={<Btn variant="run" style={{ height: 18, fontSize: 10 }} onClick={runMacro}>Run F9</Btn>}>
             <Fx>{MACRO_CODING}</Fx>
-            <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginTop: 3 }}>EDIM Macro 호출 → 계산식 표시·직접 입력 가능 {evaluated ? <Chip tone="ok">평가 ✓</Chip> : null}</div>
+            <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginTop: 3 }}>{t('editor.macroHint', 'EDIM Macro 호출 → 계산식 표시·직접 입력 가능')} {evaluated ? <Chip tone="ok">{t('editor.evaluated', '평가 ✓')}</Chip> : null}</div>
           </GroupBox>
-          <GroupBox title="Part relationship set-up" noPad right={props.relations.length ? <Chip tone="ok">dwg_part_relation {props.relations.length}</Chip> : <Chip tone="warn">없음</Chip>}>
+          <GroupBox title="Part relationship set-up" noPad right={props.relations.length ? <Chip tone="ok">dwg_part_relation {props.relations.length}</Chip> : <Chip tone="warn">{t('design.none', '없음')}</Chip>}>
             {props.relations.length ? (
-              <table className="g"><thead><tr><th>A / B</th><th>정렬</th><th>접촉</th><th>Macro</th><th>①</th></tr></thead>
+              <table className="g"><thead><tr><th>A / B</th><th>{t('editor.relAlign', '정렬')}</th><th>{t('editor.relContact', '접촉')}</th><th>Macro</th><th>①</th></tr></thead>
                 <tbody>{props.relations.map((r) => (
                   <tr key={r.relationId}><td style={{ fontSize: 10 }}>{r.blockA} / {r.blockB}</td><td className="c">{r.align || '-'}</td><td className="c">{r.contact || '-'}</td><td style={{ fontSize: 10 }}>{r.macro ?? '-'}</td><td className="c">{r.priority}</td></tr>
                 ))}</tbody></table>
-            ) : <div style={{ fontSize: 10, lineHeight: 1.7, padding: 6, color: 'var(--txt-dim)' }}>관계 정의 없음 — 조건1: 수직·수평·중심 / 조건2: 접촉·좌표·각도</div>}
+            ) : <div style={{ fontSize: 10, lineHeight: 1.7, padding: 6, color: 'var(--txt-dim)' }}>{t('design.relEmpty', '관계 정의 없음 — 조건1: 수직·수평·중심 / 조건2: 접촉·좌표·각도')}</div>}
           </GroupBox>
           <SimulationPanel dims={dims} onApply={(next) => { hist.push(); setDims(next); setEvaluated(true); if (cadMode) loadCad(next); say('Simulation 적용 ✓ — 치수 반영 + CAD 재작도 (DWG-024)') }} />
-          <GroupBox title="Sub Item DWG · 조립순서" right={props.bom.length ? <Chip tone="ok">dwg_bom {props.bom.length}</Chip> : <Chip tone="warn">없음</Chip>}>
+          <GroupBox title={t('editor.subItemDwg', 'Sub Item DWG · 조립순서')} right={props.bom.length ? <Chip tone="ok">dwg_bom {props.bom.length}</Chip> : <Chip tone="warn">{t('design.none', '없음')}</Chip>}>
             {props.bom.length ? (
               <div style={{ fontSize: 11, lineHeight: 1.9 }}>
                 {props.bom.map((b) => <div key={b.bomId} title={b.assemblyNote}>{'①②③④⑤⑥⑦⑧⑨'[(b.assemblySeq ?? 9) - 1] ?? '◇'} {b.partName}<span style={{ color: 'var(--txt-mute)', fontSize: 10 }}> ×{b.qty} {b.partNo}</span></div>)}
-                <Chip tone="info">◆ 조립순서</Chip>
+                <Chip tone="info">◆ {t('editor.asmSeq', '조립순서')}</Chip>
               </div>
-            ) : <div style={{ fontSize: 11, color: 'var(--txt-mute)' }}>조립순서 BOM 없음</div>}
+            ) : <div style={{ fontSize: 11, color: 'var(--txt-mute)' }}>{t('design.bomEmpty', '조립순서 BOM 없음')}</div>}
           </GroupBox>
           <div style={{ display: 'flex', gap: 4 }}>
-            <Btn style={{ flex: 1, justifyContent: 'center' }} onClick={doSave}>임시저장 F12</Btn>
-            <Btn variant="pri" style={{ flex: 1, justifyContent: 'center' }} onClick={doApprove}>승인 요청</Btn>
+            <Btn style={{ flex: 1, justifyContent: 'center' }} onClick={doSave}>{t('common.tempSave', '임시저장 F12')}</Btn>
+            <Btn variant="pri" style={{ flex: 1, justifyContent: 'center' }} onClick={doApprove}>{t('common.requestApproval', '승인 요청')}</Btn>
           </div>
         </div>
       </div>

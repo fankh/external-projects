@@ -4,12 +4,14 @@
  *  300ms 디바운스 · Ctrl(⌘)+K = 포커스('edim-focus-search' 이벤트). */
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useI18n } from '@/components/I18nProvider'
 import { HREF_INFO } from './menus'
 import { searchQuery, type SearchResults } from './shellActions'
 
 interface Hit { group: string; label: string; href: string }
 
 export function GlobalSearch() {
+  const { t } = useI18n()
   const router = useRouter()
   const [q, setQ] = useState('')
   const [hits, setHits] = useState<Hit[]>([])
@@ -36,7 +38,7 @@ export function GlobalSearch() {
       const screens: Hit[] = Object.entries(HREF_INFO)
         .filter(([, info]) => info.title.toLowerCase().includes(text.toLowerCase()) || info.code.toLowerCase().includes(text.toLowerCase()))
         .slice(0, 5)
-        .map(([href, info]) => ({ group: '화면', label: `${info.code} ${info.title}`, href }))
+        .map(([href, info]) => ({ group: t('search.screens', '화면'), label: `${info.code} ${info.title}`, href }))
       // 2) 서버 검색 (코드·문서·파일·부품·프로젝트)
       const r = await searchQuery(text)
       if (r.error) { setErr(r.error); setHits(screens); setOpen(true); return }
@@ -44,11 +46,11 @@ export function GlobalSearch() {
       const s: SearchResults = r.result!
       const rows: Hit[] = [
         ...screens,
-        ...s.codes.slice(0, 6).map((c) => ({ group: '코드', label: `${c.code} — ${c.name}`, href: `/detail/code?code=${encodeURIComponent(c.code)}` })),
-        ...s.docs.slice(0, 5).map((d) => ({ group: '문서', label: `${d.docNo} ${d.title}`, href: '/cpq/documents' })),
-        ...s.files.slice(0, 5).map((f) => ({ group: '파일', label: `${f.name} (${f.type})`, href: f.type === 'DXF' ? `/detail/cad-viewer?fileId=${f.fileId}` : '/common/folder' })),
-        ...(s.parts ?? []).slice(0, 4).map((p) => ({ group: '부품', label: `${p.partNo} ${p.name}`, href: `/plm/parts?no=${encodeURIComponent(p.partNo)}` })),
-        ...(s.projects ?? []).slice(0, 4).map((p) => ({ group: '프로젝트', label: `${p.projectNo} ${p.name}`, href: `/erp/projects?no=${encodeURIComponent(p.projectNo)}` })),
+        ...s.codes.slice(0, 6).map((c) => ({ group: t('search.codes', '코드'), label: `${c.code} — ${c.name}`, href: `/detail/code?code=${encodeURIComponent(c.code)}` })),
+        ...s.docs.slice(0, 5).map((d) => ({ group: t('search.docs', '문서'), label: `${d.docNo} ${d.title}`, href: '/cpq/documents' })),
+        ...s.files.slice(0, 5).map((f) => ({ group: t('search.files', '파일'), label: `${f.name} (${f.type})`, href: f.type === 'DXF' ? `/detail/cad-viewer?fileId=${f.fileId}` : '/common/folder' })),
+        ...(s.parts ?? []).slice(0, 4).map((p) => ({ group: t('search.parts', '부품'), label: `${p.partNo} ${p.name}`, href: `/plm/parts?no=${encodeURIComponent(p.partNo)}` })),
+        ...(s.projects ?? []).slice(0, 4).map((p) => ({ group: t('search.projects', '프로젝트'), label: `${p.projectNo} ${p.name}`, href: `/erp/projects?no=${encodeURIComponent(p.projectNo)}` })),
       ]
       setHits(rows)
       setOpen(true)
@@ -58,7 +60,7 @@ export function GlobalSearch() {
   return (
     <div ref={boxRef} style={{ position: 'relative', marginLeft: 'auto' }}>
       <input ref={inputRef} className="in" data-global-search
-        placeholder="화면·코드·부품·문서 검색 (Ctrl+K)"
+        placeholder={t('shell.searchPh', '화면·코드·부품·문서 검색 (Ctrl+K)')}
         value={q} onChange={(e) => run(e.target.value)}
         onFocus={() => hits.length && setOpen(true)}
         onKeyDown={(e) => {
@@ -81,7 +83,7 @@ export function GlobalSearch() {
               <span style={{ width: 52, color: 'var(--txt-mute)', flex: 'none' }}>{h.group}</span>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.label}</span>
             </div>
-          )) : <div style={{ padding: '5px 10px', color: 'var(--txt-mute)' }}>결과 없음</div>}
+          )) : <div style={{ padding: '5px 10px', color: 'var(--txt-mute)' }}>{t('search.noResult', '결과 없음')}</div>}
         </div>
       ) : null}
     </div>

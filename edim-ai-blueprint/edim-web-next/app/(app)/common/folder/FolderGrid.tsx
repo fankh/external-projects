@@ -5,6 +5,7 @@ import { useActionState } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { useI18n } from '@/components/I18nProvider'
 import { uploadProjectFile, type ActState } from './actions'
 
 export interface FolderFile {
@@ -15,19 +16,20 @@ export interface FolderFile {
 const FOLDERS = ['RECEIVED', 'DWG', 'BOM', 'PRICE', 'DOC']
 
 export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: string }) {
+  const { t } = useI18n()
   const router = useRouter()
   const [upSt, upAction, upPending] = useActionState(uploadProjectFile, {} as ActState)
 
   const cols: GridColumn<FolderFile>[] = [
-    { key: 'name', header: '파일명', render: (r) => r.name },
-    { key: 'type', header: '유형', width: 60, align: 'center', sortValue: (r) => r.fileType, render: (r) => r.fileType },
-    { key: 'folder', header: '폴더', width: 100, align: 'center', sortValue: (r) => r.folder, render: (r) => r.folder },
-    { key: 'kind', header: '종류', width: 90, align: 'center', sortValue: (r) => r.kind, render: (r) => <Chip tone={r.kindTone}>{r.kind}</Chip> },
+    { key: 'name', header: t('folder.fileName', '파일명'), render: (r) => r.name },
+    { key: 'type', header: t('folder.typeCol', '유형'), width: 60, align: 'center', sortValue: (r) => r.fileType, render: (r) => r.fileType },
+    { key: 'folder', header: t('run.folder', '폴더'), width: 100, align: 'center', sortValue: (r) => r.folder, render: (r) => r.folder },
+    { key: 'kind', header: t('folder.kindCol', '종류'), width: 90, align: 'center', sortValue: (r) => r.kind, render: (r) => <Chip tone={r.kindTone}>{r.kind}</Chip> },
     { key: 'run', header: 'Run', width: 60, align: 'center', render: (r) => r.run || '—' },
-    { key: 'reg', header: '등록자', width: 80, align: 'center', render: (r) => r.registrant || '—' },
-    { key: 'date', header: '일자', width: 96, align: 'center', render: (r) => r.date },
+    { key: 'reg', header: t('folder.registrant', '등록자'), width: 80, align: 'center', render: (r) => r.registrant || '—' },
+    { key: 'date', header: t('folder.dateCol', '일자'), width: 96, align: 'center', render: (r) => r.date },
     { key: 'dl', header: '⬇', width: 40, align: 'center', render: (r) => r.fileId != null ? (
-      <button className="b" style={{ height: 18, fontSize: 10 }} title="다운로드"
+      <button className="b" style={{ height: 18, fontSize: 10 }} title={t('common.download', '다운로드')}
         onClick={() => window.open(`/api/next/bin?kind=file&id=${r.fileId}&name=${encodeURIComponent(r.name)}`, '_blank')}>⬇</button>
     ) : '—' },
   ]
@@ -44,9 +46,9 @@ export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: str
             {FOLDERS.map((f) => <option key={f}>{f}</option>)}
           </select>
           <input className="in" type="file" name="uploadedFile" style={{ width: 190, fontSize: 10 }} />
-          <button className="b run" type="submit" disabled={upPending}>⬆ 업로드</button>
+          <button className="b run" type="submit" disabled={upPending}>{t('folder.uploadBtn', '⬆ 업로드')}</button>
         </form>
-        <button className="b" onClick={() => window.open(`/api/next/bin?kind=zip&project=${encodeURIComponent(project)}`, '_blank')}>⬇ ZIP (전체)</button>
+        <button className="b" onClick={() => window.open(`/api/next/bin?kind=zip&project=${encodeURIComponent(project)}`, '_blank')}>{t('folder.zipAll', '⬇ ZIP (전체)')}</button>
         {upSt.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{upSt.error}</span> : null}
         {upSt.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{upSt.ok}</span> : null}
       </div>
@@ -54,7 +56,7 @@ export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: str
         <DenseGrid prefKey="next-folder" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.fileId ?? r.name}
           onRowDoubleClick={(r) => { if (r.fileType === 'DXF' && r.fileId != null) router.push(`/detail/cad-viewer?fileId=${r.fileId}`) }}
-          emptyText="파일이 없습니다" />
+          emptyText={t('folder.empty', '파일이 없습니다')} />
       </div>
     </div>
   )

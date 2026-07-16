@@ -1,4 +1,6 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { AccessDenied } from '@/components/AccessDenied'
 import { hasLevel } from '@/lib/auth'
@@ -8,6 +10,8 @@ export const dynamic = 'force-dynamic'
 
 export default async function RolesPage() {
   if (!(await hasLevel('SETUP'))) return <AccessDenied minLevel="SETUP" />
+  const bundle = bundleFor(await getLocale())
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   let roles: RoleRow[] = []
   let users: UserRow[] = []
   let err: string | null = null
@@ -21,7 +25,7 @@ export default async function RolesPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="사용자·권한 (M-14-6)" count={err ? undefined : users.length} countLabel="사용자" source="/users · /roles" />
+      <ScreenHeader title={`${t('access.title', '사용자·권한')} (M-14-6)`} count={err ? undefined : users.length} countLabel={t('access.userUnit', '사용자')} source="/users · /roles" />
       {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
         <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <UsersPanel rows={users} />

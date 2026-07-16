@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Chip } from '@/components/controls'
+import { useI18n } from '@/components/I18nProvider'
 
 export interface BomCompare {
   base: string; target: string; baseCount: number; targetCount: number
@@ -23,6 +24,7 @@ function DiffTable({ title, tone, children }: { title: string; tone: 'ok' | 'err
 }
 
 export function BomCompareView({ data, base, target }: { data: BomCompare | null; base: string; target: string }) {
+  const { t } = useI18n()
   const router = useRouter()
   const sp = useSearchParams()
   const go = (b: string, t: string) => router.push(`/plm/bom-compare?base=${encodeURIComponent(b)}&target=${encodeURIComponent(t)}`)
@@ -34,30 +36,30 @@ export function BomCompareView({ data, base, target }: { data: BomCompare | null
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '4px 6px' }}>
-        <label style={{ fontSize: 11 }}>기준(base)</label>
+        <label style={{ fontSize: 11 }}>{t('bom.base', '기준(base)')}</label>
         <input className="in" defaultValue={base} onKeyDown={onKey('base')} style={{ height: 22, fontSize: 11, width: 130 }} />
-        <label style={{ fontSize: 11 }}>대상(target)</label>
+        <label style={{ fontSize: 11 }}>{t('bom.target', '대상(target)')}</label>
         <input className="in" defaultValue={target} onKeyDown={onKey('target')} style={{ height: 22, fontSize: 11, width: 130 }} />
-        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>Enter 로 비교</span>
+        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('bomcmp.enterHint', 'Enter 로 비교')}</span>
         {data ? (
           <span style={{ marginLeft: 'auto', fontSize: 11 }}>
-            {data.identical ? <Chip tone="ok">동일 BOM</Chip> : <Chip tone="warn">차이 있음</Chip>}
-            {'  '}base {data.baseCount} · target {data.targetCount} · 유지 {data.unchanged}
+            {data.identical ? <Chip tone="ok">{t('bomcmp.identical', '동일 BOM')}</Chip> : <Chip tone="warn">{t('bomcmp.hasDiff', '차이 있음')}</Chip>}
+            {'  '}base {data.baseCount} · target {data.targetCount} · {t('bomcmp.kept', '유지')} {data.unchanged}
           </span>
         ) : null}
       </div>
-      {!data ? <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>비교 결과 없음 — 코드를 입력하세요</div> : (
+      {!data ? <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{t('bomcmp.empty', '비교 결과 없음 — 코드를 입력하세요')}</div> : (
         <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0 }}>
-          <DiffTable title={`추가 ${data.added.length}`} tone="ok">
-            <table className="g"><thead><tr><th>코드</th><th>이름</th><th style={{ textAlign: 'right' }}>수량</th></tr></thead>
+          <DiffTable title={`${t('bom.added', '추가')} ${data.added.length}`} tone="ok">
+            <table className="g"><thead><tr><th>{t('bom.code', '코드')}</th><th>{t('bomcmp.nameCol', '이름')}</th><th style={{ textAlign: 'right' }}>{t('bom.qty', '수량')}</th></tr></thead>
               <tbody>{data.added.map((r) => <tr key={r.code}><td className="code">{r.code}</td><td>{r.name}</td><td className="num">{r.qty}</td></tr>)}</tbody></table>
           </DiffTable>
-          <DiffTable title={`삭제 ${data.removed.length}`} tone="err">
-            <table className="g"><thead><tr><th>코드</th><th>이름</th><th style={{ textAlign: 'right' }}>수량</th></tr></thead>
+          <DiffTable title={`${t('bom.removed', '삭제')} ${data.removed.length}`} tone="err">
+            <table className="g"><thead><tr><th>{t('bom.code', '코드')}</th><th>{t('bomcmp.nameCol', '이름')}</th><th style={{ textAlign: 'right' }}>{t('bom.qty', '수량')}</th></tr></thead>
               <tbody>{data.removed.map((r) => <tr key={r.code}><td className="code">{r.code}</td><td>{r.name}</td><td className="num">{r.qty}</td></tr>)}</tbody></table>
           </DiffTable>
-          <DiffTable title={`변경 ${data.changed.length}`} tone="warn">
-            <table className="g"><thead><tr><th>코드</th><th>이름</th><th style={{ textAlign: 'right' }}>기준→대상</th></tr></thead>
+          <DiffTable title={`${t('bomcmp.changed', '변경')} ${data.changed.length}`} tone="warn">
+            <table className="g"><thead><tr><th>{t('bom.code', '코드')}</th><th>{t('bomcmp.nameCol', '이름')}</th><th style={{ textAlign: 'right' }}>{t('bomcmp.baseToTarget', '기준→대상')}</th></tr></thead>
               <tbody>{data.changed.map((r) => <tr key={r.code}><td className="code">{r.code}</td><td>{r.name}</td><td className="num">{r.baseQty}→{r.targetQty}</td></tr>)}</tbody></table>
           </DiffTable>
         </div>

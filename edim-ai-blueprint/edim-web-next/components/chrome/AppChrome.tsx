@@ -109,7 +109,7 @@ export function AppChrome(props: {
   const menus: Record<string, MenuItem[]> = {
     '파일': [
       { label: t('common.print', '인쇄'), onClick: () => window.print() },
-      { label: '비밀번호 변경', onClick: () => { setPwMsg(null); setPwOpen(true) } },
+      { label: t('shell.changePw', '비밀번호 변경'), onClick: () => { setPwMsg(null); setPwOpen(true) } },
       { sep: true, label: '' },
       { label: t('shell.logout', '로그아웃'), onClick: () => {
         document.querySelector<HTMLFormElement>('form[data-logout]')?.requestSubmit()
@@ -118,16 +118,16 @@ export function AppChrome(props: {
     '도구': [
       { label: 'Macro Studio (S-2-2)', onClick: () => router.push('/toolbox/macros') },
       { label: 'UI Designer (S-2-1)', onClick: () => router.push('/toolbox/ui-designer') },
-      { label: '데이터 Table (M-3-7)', onClick: () => router.push('/code/datatable') },
+      { label: t('shell.dataTable', '데이터 Table (M-3-7)'), onClick: () => router.push('/code/datatable') },
       { sep: true, label: '' },
-      { label: '문서 포털 (docs)', onClick: () => window.open('/docs/', '_blank') },
+      { label: t('shell.docsPortal', '문서 포털 (docs)'), onClick: () => window.open('/docs/', '_blank') },
     ],
     '창': [
-      { label: '다음 탭', hint: 'Alt+→', onClick: () => stepTab(1), disabled: tabs.length === 0 },
-      { label: '이전 탭', hint: 'Alt+←', onClick: () => stepTab(-1), disabled: tabs.length === 0 },
-      { label: '탭 닫기', disabled: !HREF_INFO[pathname],
+      { label: t('shell.nextTab', '다음 탭'), hint: 'Alt+→', onClick: () => stepTab(1), disabled: tabs.length === 0 },
+      { label: t('shell.prevTab', '이전 탭'), hint: 'Alt+←', onClick: () => stepTab(-1), disabled: tabs.length === 0 },
+      { label: t('shell.closeTab', '탭 닫기'), disabled: !HREF_INFO[pathname],
         onClick: () => closeTab(pathname) },
-      { label: '모든 탭 닫기', disabled: tabs.length === 0,
+      { label: t('shell.closeAllTabs', '모든 탭 닫기'), disabled: tabs.length === 0,
         onClick: () => { setTabs([]); try { localStorage.setItem(TABS_KEY, '[]') } catch { /* quota */ } } },
       { sep: true, label: '' },
       ...trTabs.slice(0, 12).map((tab) => ({
@@ -136,7 +136,7 @@ export function AppChrome(props: {
       })),
     ],
     '도움말': [
-      { label: '시연 시나리오 (PDF)', onClick: () => window.open('/docs/files/pdf/EDIM_시연시나리오.pdf', '_blank') },
+      { label: t('shell.demoScenario', '시연 시나리오 (PDF)'), onClick: () => window.open('/docs/files/pdf/EDIM_시연시나리오.pdf', '_blank') },
       { sep: true, label: '' },
       { label: 'EDIM Tool System — NOVA Solution', disabled: true },
     ],
@@ -155,17 +155,17 @@ export function AppChrome(props: {
           onClick={() => setPwOpen(false)}>
           <div className="gb" style={{ width: 320, padding: 12, background: '#fff', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}
             onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>비밀번호 변경</div>
-            <input className="in req" type="password" placeholder="현재 비밀번호" value={pwCur} onChange={(e) => setPwCur(e.target.value)} />
-            <input className="in req" type="password" placeholder="새 비밀번호" value={pwNew} onChange={(e) => setPwNew(e.target.value)} />
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('shell.changePw', '비밀번호 변경')}</div>
+            <input className="in req" type="password" placeholder={t('shell.currentPw', '현재 비밀번호')} value={pwCur} onChange={(e) => setPwCur(e.target.value)} />
+            <input className="in req" type="password" placeholder={t('shell.newPw', '새 비밀번호')} value={pwNew} onChange={(e) => setPwNew(e.target.value)} />
             {pwMsg ? <div style={{ color: pwMsg.err ? 'var(--err)' : 'var(--run)' }}>{pwMsg.text}</div> : null}
             <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
               <button className="b run" disabled={pwPending} onClick={() => startPw(async () => {
                 const r = await changePassword(pwCur, pwNew)
-                setPwMsg(r.error ? { text: r.error, err: true } : { text: r.ok ?? '완료' })
+                setPwMsg(r.error ? { text: r.error, err: true } : { text: r.ok ?? t('enum.done', '완료') })
                 if (r.ok) { setPwCur(''); setPwNew(''); setTimeout(() => setPwOpen(false), 900) }
-              })}>변경</button>
-              <button className="b" onClick={() => setPwOpen(false)}>닫기</button>
+              })}>{t('shell.changeBtn', '변경')}</button>
+              <button className="b" onClick={() => setPwOpen(false)}>{t('common.close', '닫기')}</button>
             </div>
           </div>
         </div>

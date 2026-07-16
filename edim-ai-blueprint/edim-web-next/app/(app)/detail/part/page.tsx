@@ -1,4 +1,6 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { getLocale } from '@/lib/session'
+import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +18,9 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default async function PartDetailPage({ searchParams }: { searchParams: Promise<{ drawing?: string; block?: string }> }) {
+  const locale = await getLocale()
+  const bundle = bundleFor(locale)
+  const t = (k: string, ko: string) => translate(bundle, k, ko)
   const sp = await searchParams
   const drawing = (sp.drawing ?? 'KDCR 3-13').trim()
   const block = (sp.block ?? 'brgL').trim()
@@ -34,41 +39,41 @@ export default async function PartDetailPage({ searchParams }: { searchParams: P
   const p = detail?.part
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`부품 상세 — ${block} (${drawing})`} source="/parts/detail · /drawings/{no}/bom" />
+      <ScreenHeader title={`${t('detail.partTitle', '부품 상세')} — ${block} (${drawing})`} source="/parts/detail · /drawings/{no}/bom" />
       {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 6, padding: 6 }}>
           <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div className="gb" style={{ padding: 8, gap: 4, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2 }}>속성</div>
-              <Field label="부품번호" value={p?.partNo} />
-              <Field label="이름" value={p?.name} />
-              <Field label="규격" value={p?.spec} />
-              <Field label="재질" value={p?.material} />
-              <Field label="공급처" value={p?.supplier} />
-              <Field label="중량" value={p?.weight != null ? `${p.weight} kg` : '—'} />
+              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2 }}>{t('detail.attrs', '속성')}</div>
+              <Field label={t('detail.partNo', '부품번호')} value={p?.partNo} />
+              <Field label={t('detail.name', '이름')} value={p?.name} />
+              <Field label={t('detail.spec', '규격')} value={p?.spec} />
+              <Field label={t('detail.material', '재질')} value={p?.material} />
+              <Field label={t('detail.supplier', '공급처')} value={p?.supplier} />
+              <Field label={t('detail.weight', '중량')} value={p?.weight != null ? `${p.weight} kg` : '—'} />
               <Field label="Make/Buy" value={p?.makeBuy} />
-              <Field label="수량" value={p?.qty} />
+              <Field label={t('detail.qty', '수량')} value={p?.qty} />
             </div>
             {detail?.process ? (
               <div className="gb" style={{ padding: 8, gap: 4, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2 }}>공정</div>
-                <Field label="공정" value={detail.process.process} />
-                <Field label="작업장" value={detail.process.workplace} />
-                <Field label="인원" value={detail.process.person} />
-                <Field label="숙련도" value={detail.process.skill} />
-                <Field label="공수" value={`${detail.process.wtimeHr} h`} />
+                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 2 }}>{t('detail.process', '공정')}</div>
+                <Field label={t('detail.process', '공정')} value={detail.process.process} />
+                <Field label={t('detail.workplace', '작업장')} value={detail.process.workplace} />
+                <Field label={t('detail.person', '인원')} value={detail.process.person} />
+                <Field label={t('detail.skill', '숙련도')} value={detail.process.skill} />
+                <Field label={t('detail.wtime', '공수')} value={`${detail.process.wtimeHr} h`} />
               </div>
             ) : null}
           </div>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div className="gb" style={{ flex: 'none', maxHeight: 180, overflow: 'auto' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>치수 바인딩 ({detail?.dims.length ?? 0})</div>
-              <table className="g"><thead><tr><th>번호</th><th>값</th><th>바인딩</th><th>종류</th></tr></thead>
+              <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('detail.dimBinding', '치수 바인딩')} ({detail?.dims.length ?? 0})</div>
+              <table className="g"><thead><tr><th>{t('detail.noCol', '번호')}</th><th>{t('detail.valCol', '값')}</th><th>{t('detail.bindCol', '바인딩')}</th><th>{t('detail.kindCol', '종류')}</th></tr></thead>
                 <tbody>{(detail?.dims ?? []).map((d) => <tr key={d.no}><td className="code">{d.no}</td><td className="num">{d.value}</td><td className="c">{d.binding}</td><td className="c">{d.kind}</td></tr>)}</tbody></table>
             </div>
             <div className="gb" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>도면 BOM ({bom.length})</div>
-              <table className="g"><thead><tr><th>No</th><th>부품번호</th><th>이름</th><th style={{ textAlign: 'right' }}>수량</th><th>단위</th><th>조립순서</th></tr></thead>
+              <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('detail.drawingBom', '도면 BOM')} ({bom.length})</div>
+              <table className="g"><thead><tr><th>No</th><th>{t('detail.partNo', '부품번호')}</th><th>{t('detail.name', '이름')}</th><th style={{ textAlign: 'right' }}>{t('detail.qty', '수량')}</th><th>{t('detail.unit', '단위')}</th><th>{t('detail.assemblySeq', '조립순서')}</th></tr></thead>
                 <tbody>{bom.map((r) => <tr key={r.bomId}><td className="c">{r.itemNo}</td><td className="code">{r.partNo}</td><td>{r.partName}</td><td className="num">{r.qty}</td><td className="c">{r.unit}</td><td className="c">{r.assemblySeq ?? '—'}</td></tr>)}</tbody></table>
             </div>
           </div>
