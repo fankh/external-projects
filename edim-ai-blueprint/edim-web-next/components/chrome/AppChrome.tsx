@@ -2,12 +2,14 @@
 /** 앱 셸 — 타이틀바(모듈)·메뉴바·MDI 탭(최근 화면)·모듈 트리·상태바.
  *  MDI 다중탭 → URL 라우팅 대체: 방문 화면을 탭 스트립으로 유지(localStorage), 클릭=이동.
  *  레거시 SPA Shell.tsx 의 크롬 구조 포팅. */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useI18n } from '@/components/I18nProvider'
 import { MenuBar, MdiTabs, StatusBar, TitleBar, type MdiTab, type MenuItem } from './chrome'
+import { GlobalSearch } from './GlobalSearch'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MENU_TREE, moduleOfPath, type ModuleKey, type NavNode } from './menus'
+import { changePassword } from './shellActions'
 
 const TABS_KEY = 'edim-next-tabs'
 const MAX_TABS = 12
@@ -75,9 +77,39 @@ export function AppChrome(props: {
     const idx = Math.max(0, tabs.findIndex((x) => x.id === pathname))
     router.push(tabs[(idx + dir + tabs.length) % tabs.length].id)
   }, [tabs, pathname, router])
+
+  // ── 전역 단축키 (N6 복구) — Alt+W/←→/1~9 · Ctrl(⌘)+K · F2/F3/F8/F9/F12 → edim-fkey ──
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const editing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement)?.tagName ?? '')
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault(); window.dispatchEvent(new Event('edim-focus-search')); return
+      }
+      if (e.altKey && e.key.toLowerCase() === 'w') { e.preventDefault(); closeTab(pathname); return }
+      if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); stepTab(1); return }
+      if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); stepTab(-1); return }
+      if (e.altKey && /^[1-9]$/.test(e.key)) {
+        const t = tabs[Number(e.key) - 1]
+        if (t) { e.preventDefault(); router.push(t.id) }
+        return
+      }
+      if (!editing && /^F(2|3|5|8|9|12)$/.test(e.key)) {
+        e.preventDefault(); window.dispatchEvent(new CustomEvent('edim-fkey', { detail: e.key }))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [tabs, pathname, router, closeTab, stepTab])
+
+  // ── 비밀번호 변경 다이얼로그 (B8) ──
+  const [pwOpen, setPwOpen] = useState(false)
+  const [pwCur, setPwCur] = useState(''); const [pwNew, setPwNew] = useState('')
+  const [pwMsg, setPwMsg] = useState<{ text: string; err?: boolean } | null>(null)
+  const [pwPending, startPw] = useTransition()
   const menus: Record<string, MenuItem[]> = {
     '파일': [
       { label: t('common.print', '인쇄'), onClick: () => window.print() },
+      { label: '비밀번호 변경', onClick: () => { setPwMsg(null); setPwOpen(true) } },
       { sep: true, label: '' },
       { label: t('shell.logout', '로그아웃'), onClick: () => {
         document.querySelector<HTMLFormElement>('form[data-logout]')?.requestSubmit()
@@ -117,7 +149,27 @@ export function AppChrome(props: {
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TitleBar user={props.user} bell={props.bell} right={props.right}
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
-      <MenuBar menus={menus} />
+      <MenuBar menus={menus} right={<GlobalSearch />} />
+      {pwOpen ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setPwOpen(false)}>
+          <div className="gb" style={{ width: 320, padding: 12, background: '#fff', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>비밀번호 변경</div>
+            <input className="in req" type="password" placeholder="현재 비밀번호" value={pwCur} onChange={(e) => setPwCur(e.target.value)} />
+            <input className="in req" type="password" placeholder="새 비밀번호" value={pwNew} onChange={(e) => setPwNew(e.target.value)} />
+            {pwMsg ? <div style={{ color: pwMsg.err ? 'var(--err)' : 'var(--run)' }}>{pwMsg.text}</div> : null}
+            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+              <button className="b run" disabled={pwPending} onClick={() => startPw(async () => {
+                const r = await changePassword(pwCur, pwNew)
+                setPwMsg(r.error ? { text: r.error, err: true } : { text: r.ok ?? '완료' })
+                if (r.ok) { setPwCur(''); setPwNew(''); setTimeout(() => setPwOpen(false), 900) }
+              })}>변경</button>
+              <button className="b" onClick={() => setPwOpen(false)}>닫기</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <MdiTabs tabs={trTabs} activeId={pathname}
         onActivate={(id) => router.push(id)} onClose={closeTab} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>

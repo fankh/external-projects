@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
+import { useFKeys } from '@/hooks/useFKeys'
 import { addTableRow, deleteTableRow, importTableExcel, updateTableRow, type ActState } from './actions'
 
 export interface TableRow { key: string; values: Record<string, string | number | null> }
@@ -36,6 +37,15 @@ export function DataTableGrid({ name, columns, rows }: { name: string; columns: 
   }
   const editValues = (): Record<string, number | null> =>
     Object.fromEntries(columns.map((c) => [c, toNum(edit[c] ?? '')]))
+
+  // N6 — F-key 수신: F12 저장(선택 행) · F3 삭제
+  useFKeys({
+    F12: () => { if (sel) start(async () => setSt(await updateTableRow(name, sel.key, editValues()))) },
+    F3: () => {
+      if (sel && confirm(`행 ${sel.key} 를 삭제하시겠습니까?`))
+        start(async () => { setSt(await deleteTableRow(name, sel.key)); setSelKey(null) })
+    },
+  })
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>

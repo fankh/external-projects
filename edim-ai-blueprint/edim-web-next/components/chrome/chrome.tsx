@@ -101,7 +101,7 @@ function MenuDrop(props: {
   )
 }
 
-export function MenuBar(props: { menus: Record<string, MenuItem[]> }) {
+export function MenuBar(props: { menus: Record<string, MenuItem[]>; right?: ReactNode }) {
   const { t } = useI18n()
   const [open, setOpen] = useState<string | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
@@ -125,7 +125,7 @@ export function MenuBar(props: { menus: Record<string, MenuItem[]> }) {
     [t('shell.tools', '도구'), '도구'], [t('shell.window', '창'), '창'], [t('shell.help', '도움말'), '도움말'],
   ]
   return (
-    <div className="menubar" ref={barRef}>
+    <div className="menubar" ref={barRef} style={{ alignItems: 'center' }}>
       {order.map(([label, key]) => {
         const items = props.menus[key]
         if (!items) return <span key={key}>{label}</span>
@@ -136,6 +136,7 @@ export function MenuBar(props: { menus: Record<string, MenuItem[]> }) {
             onClose={() => setOpen(null)} />
         )
       })}
+      {props.right}
     </div>
   )
 }

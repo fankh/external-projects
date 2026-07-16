@@ -4,6 +4,7 @@
 import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
+import { useFKeys } from '@/hooks/useFKeys'
 import { deleteMacro, evaluateMacro, requestMacroApproval, saveMacro, type ActState, type EvalResult } from './actions'
 
 export interface MacroRow {
@@ -42,6 +43,12 @@ export function MacroGrid({ rows }: { rows: MacroRow[] }) {
   const select = (r: MacroRow) => {
     setSelName(r.name); setName(r.name); setExpr(r.expr); setPrompt(r.prompt); setEvalR(null)
   }
+
+  // N6 — F-key 수신: F12 저장 · F9 Test Run (셸 상태바/키보드 디스패치)
+  useFKeys({
+    F12: () => start(async () => setSt(await saveMacro(name, expr, prompt))),
+    F9: () => { if (expr.trim()) start(async () => setEvalR(await evaluateMacro(expr, parseVars(vars)))) },
+  })
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', gap: 6 }}>

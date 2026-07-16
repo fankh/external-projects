@@ -165,6 +165,9 @@ async function main() {
   await assertRenders('/cpq/tech-data', ['Fan 성능표 PDF'], token)
   await assertRenders('/cpq/selection', ['사양 Excel', '견적 미리보기'], token)
 
+  // 4j) N6 셸 전역 — ⌘K 통합검색 입력 렌더
+  await assertRenders('/erp/dashboard', ['Ctrl+K'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 
