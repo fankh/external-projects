@@ -27,7 +27,8 @@ export interface FavItem { href: string; code: string; title: string }
 export async function getFavorites(): Promise<FavItem[]> {
   try {
     const r = await apiServer<{ value: FavItem[] | null }>('/prefs/favorites')
-    return Array.isArray(r.value) ? r.value : []
+    // 레거시 SPA 항목({screenId,...} — href 없음)은 라우팅 불가 → 제외 (다음 저장 시 자연 정리)
+    return Array.isArray(r.value) ? r.value.filter((f) => typeof f.href === 'string' && f.href.startsWith('/')) : []
   } catch { return [] }
 }
 
