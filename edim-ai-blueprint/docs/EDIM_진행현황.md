@@ -174,5 +174,8 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 2026-07-16 | **N5b 스튜디오·PDF 복구(v18.5~18.7)** — Macro Studio(식 편집·Test Run 실평가 라이브 E2E·저장·승인)·Templet 편집기(+잠복 SSR 500 수정)·Run 정리/MinIO GC·Fan 성능표/밀도 PDF·사양 Excel·견적 미리보기. 스모크 55/55 — **N5 전체 완료** |
 | 2026-07-16 | **GDrive 재동기(v18.6)** — 사용자 Drive 파일 삭제 후 `tools/gdrive-sync.mjs` 신설(멱등: 동일명 files.update, id·공유 링크 불변)·30파일 재업로드(xlsx→Sheets 12·pptx→Slides 1·PDF 17). 이후 변경분은 사용자 트리거 시 재실행 |
 | 2026-07-16 | **N6 셸 전역 복구(v18.9)** — ⌘K 통합검색(화면+코드·문서·파일·부품·프로젝트 딥링크)·전역 단축키(Alt+W/←→/1~9·Ctrl+K)·useFKeys 수신 체계(Macro F12/F9·Table F12/F3)·비밀번호 변경(B8). 라이브 E2E: Ctrl+K 포커스·Alt+← 탭·F9 평가. 스모크 56/56 — **패리티 감사 P1 35건 전량 해소 (N1~N6 완료)** |
+| 2026-07-16 | **N7 i18n 재배선 완료(v19.2~19.4)** — 전 59화면 하드코딩 한국어 → t() (병렬 6에이전트, ~85파일). 서버=getLocale+translate·클라=useI18n, 모듈 cols 컴포넌트 이동. KO 폴백 유지·EN 전환 라이브 검증(File/Edit/Tools…). 신규 키 EN/JA/ZH 시드는 후속. 전체 빌드+스모크 56/56 |
+| 2026-07-16 | **edimsol.com 도메인 추가(v19.1)** — nginx server_name 3도메인 + certbot 확장, http→https·auth 가드·스모크 56/56 라이브 검증(edimsol.com) |
+| 2026-07-16 | **변경관리대장 Google Sheet(v19.3)** — tools/gdrive-change-register.mjs(create/read), 엔지니어 변경요청 기입 → 담당자 read 로 수집. Drive 원본 정본(sync 제외). 시트 공유 EDIM 루트 |
 | 2026-07-11 | 착수 3종(사업수행계획·위험관리대장·보안관리계획) + 배치·보고서양식 v0.2 + 매뉴얼 3종(사용자·관리자·설치배포) — **협의 불요 문서 산출물 전량 완료**, 레지스터 완료 27/37, 포털 38파일 |
 | 2026-07-07 | 최초 작성 — 산출물 21종 완료·포털 공개(Basic Auth)·PDF 파이프라인 구축 시점 |

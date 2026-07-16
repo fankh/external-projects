@@ -20,7 +20,7 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 | 개별 서버액션 화면 (data-i18n·relationship·quality 판정·work-process·holidays·inventory 입고·companies·cost-actual·mobile·print-setup·output) | ✅/🔶 핵심 동작 |
 | **대장형 CRUD + 결재/상태전이 워크플로 (43화면)** | ❌ **읽기 전용으로 축소 — P1** |
 | **셸 전역 계층 (⌘K 검색·F-key·전역 단축키·즐겨찾기·To-Do·비밀번호 변경)** | ❌ 미이관 (크롬 시각 구조는 v16.6 에서 복원) |
-| i18n (화면 라벨 t()) | ❌ eco-ledger·RunPanel 외 하드코딩 한국어 (로케일 전환 시 KO 잔존) |
+| i18n (화면 라벨 t()) | ✅ **N7 완료 (v19.2~19.4)** — 전 59화면 t() 재배선, EN 전환 라이브 검증(File/Edit/…). 신규 키 EN/JA/ZH 시드는 후속 |
 
 ## P1 — 기능 상실 (업무 불가, 우선 복구)
 
