@@ -48,7 +48,7 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 19. ~~**단가(erp/prices)** — 등록·Excel Import·적용 마감~~ ✅ v17.7 (Import=서버액션 multipart+거부 리포트 — Resolve 시뮬레이션은 후속 P2)
 20. ~~**환율·세금(erp/finance)** — 등록/삭제·세금엔진 계산기~~ ✅ v17.3~17.4 (계산기 응답 스키마 정합 수정 포함)
 21. ~~**창고(erp/warehouses)** — 위치 등록(계층 검증)·삭제~~ ✅ v17.3 (수정 QuickEdit 은 후속 P2)
-22. **거래처(erp/companies)** — 공급처 평가 스코어카드·Excel 대량등록 상실 (기본 등록·토글은 동작)
+22. ~~**거래처(erp/companies)** — 공급처 평가 스코어카드·Excel 대량등록~~ ✅ v20.0 (라이브 E2E: 등록 모달[평가등급 필드]→SUPPLIER 행 클릭→이행지표·평가이력→평가 저장[총점·등급] · Excel 대량등록 /companies/import-excel — 테스트 행 DB 정리 완료)
 23. ~~**사용자·권한(erp/roles)** — 사용자 등록/잠금해제/레벨변경/비활성 + 권한 셀 토글 + 역할 CRUD~~ ✅ v17.9 (라이브 E2E: 사용자 등록→레벨 SETUP→역할 생성/삭제 — 초대·다중역할·모듈 구성은 후속 P2)
 24. ~~**Code Set-up 5화면**~~ ✅ v17.9~18.1 전체 완료 — product-codes·variant·materials(v17.9) + subcode(그룹등록·중복검토 게이트→승인·Excel 왕복)·datatable(행 편집 패널·추가/삭제·Excel — 라이브 E2E: UT99 추가→저장→삭제 왕복) (v18.1)
 25. ~~**Hierarchy(code/groups)**~~ ✅ v18.1 — sys_hierarchy 트리 패널 신설(treeType 전환·노드 등록/개명/삭제), code_group 그리드 병치. **/api/next/ 공용 프리픽스** 신설(XLSX 프록시, nginx 1회 라우팅으로 이후 핸들러 커버)
