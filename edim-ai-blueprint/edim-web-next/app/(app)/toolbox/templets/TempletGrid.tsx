@@ -6,12 +6,16 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { deleteTemplet, saveTemplet, type ActState } from './actions'
 
-export interface TempletRow { name: string; templetType: string; definition: string; status: string; system: boolean }
+export interface TempletRow { name: string; templetType: string; definition: string | Record<string, unknown>; status: string; system: boolean }
+
+// definition 은 API 가 객체로 반환 — React child 로 직접 렌더 불가(잠복 SSR 500 원인)
+const defStr = (d: TempletRow['definition']): string =>
+  typeof d === 'string' ? d : d ? JSON.stringify(d) : ''
 
 const cols: GridColumn<TempletRow>[] = [
   { key: 'name', header: 'Templet', width: 160, code: true, render: (r) => r.name },
   { key: 'type', header: '유형', width: 110, align: 'center', sortValue: (r) => r.templetType, render: (r) => r.templetType },
-  { key: 'def', header: '정의', render: (r) => r.definition || '—' },
+  { key: 'def', header: '정의', render: (r) => defStr(r.definition) || '—' },
   { key: 'sys', header: '시스템', width: 64, align: 'center', sortValue: (r) => (r.system ? 1 : 0), render: (r) => r.system ? <Chip tone="info">시스템</Chip> : <Chip tone="ok">커스텀</Chip> },
   { key: 'status', header: '상태', width: 84, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={r.status === 'ACTIVE' ? 'ok' : 'info'}>{r.status}</Chip> },
 ]
@@ -29,7 +33,8 @@ export function TempletGrid({ rows }: { rows: TempletRow[] }) {
 
   const select = (r: TempletRow) => {
     setSelName(r.name); setName(r.name); setType(r.templetType || 'FORM')
-    try { setDef(JSON.stringify(JSON.parse(r.definition || '{}'), null, 2)) } catch { setDef(r.definition || '{}') }
+    const s = defStr(r.definition) || '{}'
+    try { setDef(JSON.stringify(JSON.parse(s), null, 2)) } catch { setDef(s) }
   }
 
   return (
