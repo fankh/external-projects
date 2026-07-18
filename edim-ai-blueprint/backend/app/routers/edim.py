@@ -8153,6 +8153,54 @@ def _seed_order_followups(cur: Any, tid: int, project_id: int, quotation_id: int
     return seeded
 
 
+@router.get("/erp/production/schedule")
+def production_schedule() -> dict[str, Any]:
+    """생산 스케줄·Capacity 1차 (U4·ERP-023, 슬라이드 46) — 미완료 작업지시 × Work Process 공수.
+
+    소요 공수 = 해당 도면 코드의 erp_work_process MAKE 행 work_time 합(분, U3 파라미터).
+    작업장 Capacity = 작업장별 인원 최대치 × 480분/일 근사 (상세 캘린더는 후속).
+    """
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT wo.wo_no, wo.title, wo.drawing_no, wo.project_no, wo.status,
+                      COALESCE(wo.assignee,''), to_char(wo.issued_at,'YYYY-MM-DD'),
+                      GREATEST(0, (CURRENT_DATE - wo.issued_at::date)) AS age_days,
+                      COALESCE((SELECT SUM(wp.work_time) FROM erp_work_process wp
+                                JOIN product_code pc ON pc.product_code_id = wp.product_code_id
+                                WHERE wp.tenant_id = wo.tenant_id AND pc.main_code = wo.drawing_no
+                                  AND wp.make_or_buy = 'MAKE'), 0) AS work_min
+               FROM erp_work_order wo
+               WHERE wo.tenant_id=%s AND wo.status IN ('ISSUED','STARTED')
+               ORDER BY wo.issued_at""", (tid,))
+        orders = [{"woNo": r[0], "title": r[1], "drawingNo": r[2], "projectNo": r[3],
+                   "status": r[4], "assignee": r[5], "issuedAt": r[6],
+                   "ageDays": int(r[7]), "workMin": float(r[8])} for r in cur.fetchall()]
+        # 작업장 부하 — 미완료 WO 도면들의 MAKE 공수 × 작업장 (U3 workshop 파라미터)
+        cur.execute(
+            """SELECT COALESCE(wp.workshop,'(미지정)'),
+                      SUM(wp.work_time) AS load_min,
+                      MAX(COALESCE(wp.person_count,1)) AS persons
+               FROM erp_work_order wo
+               JOIN product_code pc ON pc.main_code = wo.drawing_no
+               JOIN erp_work_process wp ON wp.tenant_id = wo.tenant_id
+                    AND wp.product_code_id = pc.product_code_id AND wp.make_or_buy='MAKE'
+               WHERE wo.tenant_id=%s AND wo.status IN ('ISSUED','STARTED')
+                 AND wp.work_time IS NOT NULL
+               GROUP BY COALESCE(wp.workshop,'(미지정)') ORDER BY 2 DESC""", (tid,))
+        workshops = []
+        for r in cur.fetchall():
+            load_min = float(r[1] or 0)
+            persons = int(r[2] or 1)
+            cap_min = persons * 480.0
+            workshops.append({"workshop": r[0], "loadMin": load_min, "persons": persons,
+                              "capMinPerDay": cap_min,
+                              "loadPct": round(load_min / cap_min * 100, 1) if cap_min else 0,
+                              "daysNeeded": round(load_min / cap_min, 2) if cap_min else 0})
+    return {"orders": orders, "workshops": workshops,
+            "openCount": len(orders), "totalWorkMin": sum(o["workMin"] for o in orders)}
+
+
 @router.get("/erp/mrp")
 def mrp_plan(leadDays: int = 14) -> dict[str, Any]:
     """MRP 자재 소요 계획 1차 (U4·M-8-5, ERP-022) — 수주(ORDERED 견적) 자재 라인 × 현재고 대비.
