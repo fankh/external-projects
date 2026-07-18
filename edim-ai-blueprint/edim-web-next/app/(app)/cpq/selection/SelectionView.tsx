@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CanvasBlock, CadDocument } from '@/lib/cadTypes'
 import { CadSvg } from '@/components/CadSvg'
 import { useI18n } from '@/components/I18nProvider'
 import { Btn, Chip, GroupBox } from '@/components/controls'
 import { CommandLine, Cvs } from '@/components/Cvs'
+import { Modal } from '@/components/Modal'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { expand, saveSelection, arrangementCad, specImport, type BomItem, type SelectionRow } from './actions'
 
@@ -44,7 +45,38 @@ export function SelectionView(props: {
   const [status, setStatus] = useState<{ text: string; err?: boolean } | null>(null)
   const [pending, start] = useTransition()
   const say = (text: string, err = false) => setStatus({ text, err })
-  const blocks = props.arrBlocks ?? AHU_BLOCKS
+  // U1 — 모듈 드래그 배치(좌표 영속) + 더블클릭 세부선정 (localStorage)
+  const [geom, setGeom] = useState<Record<string, { x: number; y: number }>>({})
+  const [blockOpts, setBlockOpts] = useState<Record<string, Record<string, string>>>({})
+  const [detailBlock, setDetailBlock] = useState<CanvasBlock | null>(null)
+  useEffect(() => {
+    try {
+      setGeom(JSON.parse(localStorage.getItem('edim-c1-geom') ?? '{}'))
+      setBlockOpts(JSON.parse(localStorage.getItem('edim-c1-opts') ?? '{}'))
+    } catch { /* corrupt */ }
+  }, [])
+  const moveBlock = (id: string, x: number, y: number) => {
+    setGeom((g) => {
+      const next = { ...g, [id]: { x, y } }
+      try { localStorage.setItem('edim-c1-geom', JSON.stringify(next)) } catch { /* quota */ }
+      return next
+    })
+    say(`배치 이동 — ${id} → (${x}, ${y})`)
+  }
+  const saveOpts = (id: string, opts: Record<string, string>) => {
+    setBlockOpts((m) => {
+      const next = { ...m, [id]: opts }
+      try { localStorage.setItem('edim-c1-opts', JSON.stringify(next)) } catch { /* quota */ }
+      return next
+    })
+  }
+  const baseBlocks = props.arrBlocks ?? AHU_BLOCKS
+  const blocks = useMemo(() => baseBlocks.map((b) => {
+    const g = geom[b.id]
+    const o = blockOpts[b.id]
+    const summary = o ? Object.values(o).filter(Boolean).slice(0, 2).join('·') : ''
+    return { ...b, ...(g ?? {}), sub: summary ? `${b.sub ? b.sub + ' · ' : ''}${summary}` : b.sub }
+  }), [baseBlocks, geom, blockOpts])
 
   const reExpand = (sv: Record<string, string>) => start(async () => {
     const r = await expand(sv)
@@ -127,6 +159,9 @@ export function SelectionView(props: {
         <Btn onClick={save}>{t('cpq.quoteSave', '저장 F12')}</Btn>
         <Btn variant="run" onClick={startRun}>Run ▶ F9</Btn>
       </div>
+      <DetailSelectModal block={detailBlock} initial={detailBlock ? blockOpts[detailBlock.id] : undefined}
+        onClose={() => setDetailBlock(null)}
+        onSave={(opts) => { if (detailBlock) { saveOpts(detailBlock.id, opts); say(`세부선정 저장 — ${detailBlock.name}`) } setDetailBlock(null) }} />
       <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
         <div className="fill-col" style={{ flex: 1.2, gap: 4 }}>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -139,7 +174,7 @@ export function SelectionView(props: {
               {cadDoc ? <CadSvg doc={cadDoc} /> : <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>{cadOffline ? t('cpq.cadOffline', 'CAD 서버 연결 실패') : t('cpq.drawing', '작도 중…')}</div>}
             </div>
           ) : (
-            <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock} style={{ flex: 1, minHeight: 280 }} />
+            <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock} onOpen={setDetailBlock} onMoveBlock={moveBlock} style={{ flex: 1, minHeight: 280 }} />
           )}
           <CommandLine prompt={selBlock ? `${t('cpq.cmdSelected', '선택')}=${selBlock.name}  ${t('cpq.cmdBasePoint', '기준점 지정 >')}` : t('cpq.cmdIdle', '명령 대기 >')} coord={t('cpq.snapOn', '스냅 ON')} onCommand={(cmd) => say(`명령 실행: ${cmd}`)} />
           {status ? <div style={{ fontSize: 11, color: status.err ? 'var(--err)' : 'var(--run)' }}>{status.text}</div> : null}
@@ -154,5 +189,49 @@ export function SelectionView(props: {
         </div>
       </div>
     </div>
+  )
+}
+
+/** U1/U15 — 모듈 더블클릭 세부선정 (슬라이드 7 설계 옵션) — 기술·물성 옵션 콤보. */
+const DETAIL_FIELDS: { key: string; label: string; options: string[] }[] = [
+  { key: 'material', label: 'Material type', options: ['', 'Carbon Steel', 'SUS304', 'AL'] },
+  { key: 'class', label: 'Impeller Class', options: ['', 'CL1', 'CL2', 'CL3'] },
+  { key: 'spark', label: 'Spark proof', options: ['', 'none', 'AMCA-A', 'AMCA-B', 'AMCA-C'] },
+  { key: 'airflowDev', label: 'Airflow device', options: ['', 'none', 'Airflow', 'IGV'] },
+  { key: 'casing', label: 'Casing Type', options: ['', 'Steel S', 'Galvanized', 'SUS'] },
+  { key: 'motor', label: 'Motor Type', options: ['', 'TEFC', 'ODP'] },
+  { key: 'supplier', label: 'Supplier', options: ['', '효성', 'LG', 'ABB'] },
+  { key: 'pole', label: 'Pole', options: ['', '2P', '4P', '6P'] },
+  { key: 'voltage', label: 'Phase·Voltage', options: ['', 'Φ3 380V', 'Φ3 440V', 'Φ1 220V'] },
+]
+
+function DetailSelectModal({ block, initial, onClose, onSave }: {
+  block: CanvasBlock | null
+  initial?: Record<string, string>
+  onClose: () => void
+  onSave: (opts: Record<string, string>) => void
+}) {
+  const { t } = useI18n()
+  const [opts, setOpts] = useState<Record<string, string>>({})
+  useEffect(() => { setOpts(initial ?? {}) }, [block?.id, initial])
+  if (!block) return null
+  return (
+    <Modal open onClose={onClose} title={`${t('cpq.detailSelect', '모듈 세부선정')} — ${block.name}`} width={380}>
+      <div data-detail-select style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center', fontSize: 11 }}>
+        {DETAIL_FIELDS.map((f) => (
+          <span key={f.key} style={{ display: 'contents' }}>
+            <label>{f.label}</label>
+            <select className="in" value={opts[f.key] ?? ''} style={{ height: 20, fontSize: 10.5 }}
+              onChange={(e) => setOpts((m) => ({ ...m, [f.key]: e.target.value }))}>
+              {f.options.map((o) => <option key={o} value={o}>{o || '—'}</option>)}
+            </select>
+          </span>
+        ))}
+        <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 4 }}>
+          <button className="b run" data-detail-save onClick={() => onSave(opts)}>{t('common.save', '저장')}</button>
+          <button className="b" onClick={onClose}>{t('common.close', '닫기')}</button>
+        </div>
+      </div>
+    </Modal>
   )
 }
