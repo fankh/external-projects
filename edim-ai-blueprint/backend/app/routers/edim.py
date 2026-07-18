@@ -8153,6 +8153,63 @@ def _seed_order_followups(cur: Any, tid: int, project_id: int, quotation_id: int
     return seeded
 
 
+# ── U17 설계우선순위 테이블 (슬라이드 44, S-4-1-2) ──
+
+class DesignParamItem(BaseModel):
+    no: str
+    designPriority: int | None = None
+    dataPriority: int | None = None
+    basePoint: str = ""
+    errorCheck: str = ""
+    remarks: str = ""
+
+
+class DesignParamsSave(BaseModel):
+    drawing: str
+    items: list[DesignParamItem] = []
+
+
+@router.get("/drawings/dimensions/design-params")
+def design_params(drawing: str = "KDCR 3-13") -> list[dict[str, Any]]:
+    """치수별 설계 파라미터 (U17) — 설계/자료 우선순위·기준점·오류체크."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT d.dim_label, d.dim_type, d.design_priority, d.data_priority,
+                      COALESCE(d.base_point,''), COALESCE(d.error_check,''), COALESCE(d.remarks,'')
+               FROM dwg_dimension d JOIN dwg_drawing w ON w.drawing_id=d.drawing_id
+               WHERE d.tenant_id=%s AND w.drawing_no=%s
+               ORDER BY d.design_priority NULLS LAST, d.dim_label""", (tid, drawing))
+        return [{"no": r[0], "kind": r[1], "designPriority": r[2], "dataPriority": r[3],
+                 "basePoint": r[4], "errorCheck": r[5], "remarks": r[6]} for r in cur.fetchall()]
+
+
+@router.put("/drawings/dimensions/design-params", dependencies=[SETUP])
+def design_params_save(request: Request, body: DesignParamsSave) -> dict[str, Any]:
+    """설계 파라미터 일괄 저장 (U17) — dim_label 기준 갱신."""
+    n = 0
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT drawing_id FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s",
+            (tid, body.drawing.strip()))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"도면 없음: {body.drawing}")
+        for it in body.items:
+            cur.execute(
+                """UPDATE dwg_dimension SET design_priority=%s, data_priority=%s,
+                       base_point=NULLIF(%s,''), error_check=NULLIF(%s,''), remarks=NULLIF(%s,'')
+                   WHERE tenant_id=%s AND drawing_id=%s AND dim_label=%s""",
+                (it.designPriority, it.dataPriority, it.basePoint.strip()[:100],
+                 it.errorCheck.strip()[:100], it.remarks.strip()[:300],
+                 tid, row[0], it.no.strip()[:10]))
+            n += cur.rowcount
+        _audit(cur, tid, "dwg_dimension", row[0], "DESIGN_PARAMS_SAVE", request.state.user_id,
+               after={"drawing": body.drawing, "rows": n})
+    return {"updated": n}
+
+
 @router.get("/erp/production/schedule")
 def production_schedule() -> dict[str, Any]:
     """생산 스케줄·Capacity 1차 (U4·ERP-023, 슬라이드 46) — 미완료 작업지시 × Work Process 공수.
