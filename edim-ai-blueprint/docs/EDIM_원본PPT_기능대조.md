@@ -140,13 +140,13 @@
 - [x] Set-up 3화면 장착 — Sub Code(S-1-1)·제품 코드 마스터(M-3-8)·Document Templet(C-3) ✅ v21.8. 라이브 E2E: 3화면 렌더·미리보기 4행·Run·업로드(정리 완료)
 - [ ] 잔여 화면(S-1-3~6·S-4-1-x 등) 확산 — 수요 확인 후 점진
 
-## U14. 좌하단 Schedule management 상시 패널 (전 화면 공통, 시각 확인) — ✅ 핵심 구현 (v21.2)
+## U14. 좌하단 Schedule management 상시 패널 (전 화면 공통, 시각 확인) — ✅ 완결 (v23.9)
 
 기획: 전 화면 좌측 트리 하단에 **그리드형 개인 업무 패널** — To-do list(Item·Doc No.·Task·Remarks·Person·Status·Next 컬럼 그리드), Done items(동일 그리드), Schedule(달력), Approval Request List.
 
 - [x] To-do 미니 그리드 — 승인 inbox 상위 3건(유형·대상, 클릭→승인함) + PL 지연 ✅ v21.2 (shellCounts inboxTop)
 - [x] Schedule — 지연/임박 마일스톤 상위 3건(OVERDUE 적색, 클릭→마일스톤) ✅ v21.2 (shellCounts upcoming)
-- [ ] Done items 축소 그리드·미니 달력 — 후속 (수요 확인 후)
+- [x] Done items(최근 승인 결과 3)·미니 달력(이번 달 마일스톤 납기 마킹·오늘 하이라이트·클릭=마일스톤) ✅ v23.9. 라이브 E2E 6/6
 
 ## U15. 시각 검증 추가 발견 (소형·세부)
 
