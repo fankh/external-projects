@@ -79,11 +79,59 @@ export function TechGrid({ rows, airflow, pressure }: { rows: TechDataRow[]; air
         {msg ? <span style={{ fontSize: 11, color: msg.err ? 'var(--err)' : 'var(--run)' }}>{msg.text}</span>
           : <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('techdata.rowHint', '행 클릭=선정 · Enter 재조회')}</span>}
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
-        <DenseGrid prefKey="next-techdata" colFilter columns={cols} rows={rows} rowKey={(r) => r.model}
-          selectedKey={selModel ?? undefined} onRowClick={(r) => setSelModel(r.model)}
-          emptyText={t('techdata.noData', '해당 조건의 성능 데이터가 없습니다')} />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <DenseGrid prefKey="next-techdata" colFilter columns={cols} rows={rows} rowKey={(r) => r.model}
+            selectedKey={selModel ?? undefined} onRowClick={(r) => setSelModel(r.model)}
+            emptyText={t('techdata.noData', '해당 조건의 성능 데이터가 없습니다')} />
+        </div>
+        {rows.length >= 2 ? <PerfCurve rows={rows} selModel={selModel} onSelect={setSelModel} /> : null}
       </div>
+    </div>
+  )
+}
+
+/** U15 — 성능 곡선 SVG (슬라이드 7·8) — 모델별 전압 Pt(실선)·효율(점선) 비교, 클릭=선정. */
+function PerfCurve({ rows, selModel, onSelect }: { rows: TechDataRow[]; selModel: string | null; onSelect: (m: string) => void }) {
+  const { t } = useI18n()
+  const W = 330, H = 240, PAD = { l: 38, r: 34, t: 14, b: 34 }
+  const iw = W - PAD.l - PAD.r, ih = H - PAD.t - PAD.b
+  const sorted = [...rows].sort((a, b) => a.model.localeCompare(b.model, undefined, { numeric: true }))
+  const ptMax = Math.max(...sorted.map((r) => r.pt)) * 1.1 || 1
+  const x = (i: number) => PAD.l + (sorted.length === 1 ? iw / 2 : (i * iw) / (sorted.length - 1))
+  const yPt = (v: number) => PAD.t + ih - (v / ptMax) * ih
+  const yEff = (v: number) => PAD.t + ih - (v / 100) * ih
+  const ptPath = sorted.map((r, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${yPt(r.pt).toFixed(1)}`).join(' ')
+  const effPath = sorted.map((r, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${yEff(r.eff).toFixed(1)}`).join(' ')
+  return (
+    <div className="gb" data-perf-curve style={{ width: W + 16, flexShrink: 0, padding: 8, fontSize: 10.5, overflow: 'auto' }}>
+      <div style={{ fontWeight: 700, color: 'var(--title-navy)', marginBottom: 4 }}>{t('techdata.curveTitle', '성능 곡선')} — Pt · {t('techdata.eff', '효율')}</div>
+      <svg width={W} height={H} style={{ display: 'block', background: '#fff', border: '1px solid var(--line)' }}>
+        {/* 격자 + 축 */}
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+          <g key={f}>
+            <line x1={PAD.l} x2={W - PAD.r} y1={PAD.t + ih * f} y2={PAD.t + ih * f} stroke="#EDF1F7" />
+            <text x={PAD.l - 4} y={PAD.t + ih * f + 3} fontSize={8} textAnchor="end" fill="#8A93A6">{Math.round(ptMax * (1 - f))}</text>
+            <text x={W - PAD.r + 4} y={PAD.t + ih * f + 3} fontSize={8} fill="#2F9463">{Math.round(100 * (1 - f))}%</text>
+          </g>
+        ))}
+        <path d={ptPath} fill="none" stroke="#1F4E8C" strokeWidth={1.6} />
+        <path d={effPath} fill="none" stroke="#2F9463" strokeWidth={1.3} strokeDasharray="4 3" />
+        {sorted.map((r, i) => (
+          <g key={r.model} style={{ cursor: 'pointer' }} onClick={() => onSelect(r.model)}>
+            <circle cx={x(i)} cy={yPt(r.pt)} r={r.model === selModel ? 5 : 3}
+              fill={r.model === selModel ? '#C0392B' : '#1F4E8C'} />
+            <circle cx={x(i)} cy={yEff(r.eff)} r={r.model === selModel ? 4 : 2.5} fill="#2F9463" opacity={0.85} />
+            <text x={x(i)} y={H - PAD.b + 12} fontSize={8} textAnchor="middle"
+              fill={r.model === selModel ? '#C0392B' : '#5B6472'}
+              fontWeight={r.model === selModel ? 700 : 400}
+              transform={sorted.length > 6 ? `rotate(-35 ${x(i)} ${H - PAD.b + 12})` : undefined}>{r.model}</text>
+          </g>
+        ))}
+        <text x={PAD.l} y={10} fontSize={8.5} fill="#1F4E8C">— Pt (Pa)</text>
+        <text x={PAD.l + 70} y={10} fontSize={8.5} fill="#2F9463">- - {t('techdata.eff', '효율')} (%)</text>
+      </svg>
+      <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', marginTop: 4 }}>{t('techdata.curveHint', '점 클릭 = 모델 선정 (선정점 적색)')}</div>
     </div>
   )
 }

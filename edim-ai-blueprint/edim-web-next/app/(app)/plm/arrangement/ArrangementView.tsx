@@ -17,11 +17,16 @@ export interface ArrangementComponent {
   position: string; code: string; name: string; quantity: number; componentId?: number
 }
 
+/** U15 — Fan Direction 8방향 (슬라이드 38 L0~R270) + Installation Code. */
+const FAN_DIRECTIONS = ['L0', 'L90', 'L180', 'L270', 'R0', 'R90', 'R180', 'R270']
+const INSTALL_CODES = ['Direct Driven', 'Belt In-Line', 'Belt Along']
+
 export function ArrangementRegForm() {
   const { t } = useI18n()
   const [st, action, pending] = useActionState(createArrangement, {} as ActState)
+  const [direction, setDirection] = useState('')
   return (
-    <RegisterModal trigger={`＋ ${t('arr.regBtn', '구성 등록')}`} title={t('arr.regTitle', '구성 등록')} ok={st.ok}>
+    <RegisterModal trigger={`＋ ${t('arr.regBtn', '구성 등록')}`} title={t('arr.regTitle', '구성 등록')} ok={st.ok} width={430}>
       {() => (
         <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
           <label>{t('arr.codePh', '구성 Code (ARR-…)')}</label>
@@ -30,10 +35,25 @@ export function ArrangementRegForm() {
           <input className="in req" name="name" />
           <label>Family</label>
           <input className="in" name="family" />
-          <label>Direction</label>
-          <input className="in" name="direction" />
-          <label>Install</label>
-          <input className="in" name="install" />
+          <label>Fan Direction</label>
+          <div data-fan-direction style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+            <input type="hidden" name="direction" value={direction} />
+            {FAN_DIRECTIONS.map((d) => (
+              <button key={d} type="button" className="b"
+                data-fan-dir={d}
+                style={{
+                  height: 20, fontSize: 9.5, padding: '0 5px',
+                  background: direction === d ? 'var(--title-navy)' : undefined,
+                  color: direction === d ? '#fff' : undefined,
+                }}
+                onClick={() => setDirection(direction === d ? '' : d)}>{d}</button>
+            ))}
+          </div>
+          <label>Installation</label>
+          <select className="in" name="install" defaultValue="">
+            <option value="">{t('arr.installNone', '— 미지정 —')}</option>
+            {INSTALL_CODES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
           <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
             {st.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{st.error}</span> : null}
             <button className="b run" type="submit" disabled={pending}>{t('common.register', '등록')}</button>
