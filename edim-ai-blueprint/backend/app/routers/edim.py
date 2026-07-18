@@ -4522,21 +4522,44 @@ def save_work_process(body: WorkProcessSave) -> dict[str, Any]:
         pc = cur.fetchone()
         if not pc:
             raise HTTPException(404, detail=f"코드 없음: {body.code}")
+        def _num(v):
+            try:
+                return float(v) if v is not None and str(v).strip() != "" else None
+            except (TypeError, ValueError):
+                return None
+
         n = 0
         for i, it in enumerate(body.items):
             item = str(it.get("item", "")).strip()[:20]
             mob = str(it.get("makeOrBuy", "")).strip().upper()
             if not item or mob not in ("MAKE", "BUY"):
                 continue
+            # U3 공정 파라미터 (슬라이드 45) — 미전달 필드는 None(기존 값 유지 아님: 전체 행 저장 방식)
+            workshop = str(it.get("workshop", "") or "").strip()[:50] or None
+            warehouse = str(it.get("warehouse", "") or "").strip()[:50] or None
+            if warehouse == "-":
+                warehouse = None
+            person = it.get("person")
+            person = int(person) if isinstance(person, (int, float)) and person >= 0 else None
+            skill = str(it.get("skill", "") or "").strip()[:20] or None
+            work_time = _num(it.get("timeMin"))
+            min_stock = _num(it.get("minStock"))
+            remarks = str(it.get("remarks", "") or "").strip()[:300] or None
             cur.execute(
-                """UPDATE erp_work_process SET make_or_buy=%s, seq_no=%s, updated_at=now()
+                """UPDATE erp_work_process SET make_or_buy=%s, seq_no=%s, workshop=%s,
+                       warehouse=%s, min_stock=%s, person_count=%s, skill_grade=%s,
+                       work_time=%s, remarks=%s, updated_at=now()
                    WHERE tenant_id=%s AND product_code_id=%s AND process_type=%s""",
-                (mob, i, tid, pc[0], item))
+                (mob, i, workshop, warehouse, min_stock, person, skill, work_time, remarks,
+                 tid, pc[0], item))
             if cur.rowcount == 0:
                 cur.execute(
                     """INSERT INTO erp_work_process (tenant_id, product_code_id, process_type,
-                       seq_no, make_or_buy) VALUES (%s,%s,%s,%s,%s)""",
-                    (tid, pc[0], item, i, mob))
+                       seq_no, make_or_buy, workshop, warehouse, min_stock, person_count,
+                       skill_grade, work_time, remarks)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (tid, pc[0], item, i, mob, workshop, warehouse, min_stock, person,
+                     skill, work_time, remarks))
             n += 1
     return {"saved": n}
 
@@ -4558,7 +4581,8 @@ def work_process_materials(code: str = "KDCR 3-13") -> list[dict[str, Any]]:
         cur.execute(
             """SELECT p.part_name, COALESCE(c.company_name,''), p.is_standard,
                       COALESCE(p.specification,''),
-                      wp.make_or_buy, wp.warehouse, wp.min_stock, wp.work_time
+                      wp.make_or_buy, wp.warehouse, wp.min_stock, wp.work_time,
+                      wp.workshop, wp.person_count, wp.skill_grade, wp.remarks
                FROM dwg_bom b JOIN prt_part p ON p.part_id=b.part_id
                LEFT JOIN com_company c ON c.company_id=p.supplier_id
                LEFT JOIN erp_work_process wp
@@ -4573,7 +4597,9 @@ def work_process_materials(code: str = "KDCR 3-13") -> list[dict[str, Any]]:
                 "minStock": float(r[6]) if r[6] is not None else 0,
                 "supplier": r[1] or "-", "makeBuy": mb,
                 "timeMin": (float(r[7]) if r[7] is not None else 45) if mb == "MAKE" else None,
-                "remarks": r[3],
+                # U3 공정 파라미터 (슬라이드 45 — Work place·Person·Skill)
+                "workshop": r[8] or "", "person": r[9], "skill": r[10] or "",
+                "remarks": (r[11] or r[3]) or "",
             })
         return out
 

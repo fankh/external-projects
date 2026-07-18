@@ -2,7 +2,7 @@
 /** 앱 셸 — 타이틀바(모듈)·메뉴바·MDI 탭(최근 화면)·모듈 트리·상태바.
  *  MDI 다중탭 → URL 라우팅 대체: 방문 화면을 탭 스트립으로 유지(localStorage), 클릭=이동.
  *  레거시 SPA Shell.tsx 의 크롬 구조 포팅. */
-import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useI18n } from '@/components/I18nProvider'
 import { MenuBar, MdiTabs, StatusBar, TitleBar, type MdiTab, type MenuItem, type NavMenu } from './chrome'
@@ -82,6 +82,30 @@ export function AppChrome(props: {
     })
   }, [module])
   const [navEditOpen, setNavEditOpen] = useState(false)
+
+  // ── U11 판넬 리사이즈 — 좌측 트리 폭 드래그 조절 (localStorage 영속) ──
+  const [navW, setNavW] = useState(220)
+  const navWRef = useRef(220)
+  navWRef.current = navW
+  useEffect(() => {
+    try {
+      const w = Number(localStorage.getItem('edim-lnav-width'))
+      if (w >= 140 && w <= 420) setNavW(w)
+    } catch { /* quota */ }
+  }, [])
+  const startNavResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const sx = e.clientX
+    const sw = navWRef.current
+    const onMove = (ev: MouseEvent) => setNavW(Math.min(420, Math.max(140, sw + ev.clientX - sx)))
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      try { localStorage.setItem('edim-lnav-width', String(navWRef.current)) } catch { /* quota */ }
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
 
   // ── 모듈 트리 — 커스텀 존재 시 플랫 리프 목록, 없으면 기본 전체 트리 (권한 숨김 + 라벨 번역) ──
   const custom = leftNavLoaded ? leftNav[module] : undefined
@@ -291,7 +315,7 @@ export function AppChrome(props: {
         onActivate={(id) => router.push(id)} onClose={closeTab} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <LnavTree title={moduleTitle} nodes={trNodes} selectedId={selectedId}
-          onSelect={(n) => { if (n.href) router.push(n.href) }} width={220}
+          onSelect={(n) => { if (n.href) router.push(n.href) }} width={navW}
           headerAction={
             <span className="b ic" data-lnav-edit title={t('shell.menuEdit', '메뉴 편집')}
               style={{ cursor: 'pointer', fontSize: 11 }} onClick={() => setNavEditOpen(true)}>✎</span>
@@ -336,6 +360,11 @@ export function AppChrome(props: {
               </div>
             </div>
           } />
+        {/* U11 — 트리 폭 드래그 핸들 */}
+        <div data-lnav-resize onMouseDown={startNavResize}
+          style={{ width: 4, cursor: 'col-resize', flexShrink: 0, background: 'transparent' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--line)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }} />
         <main className="workarea" style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {props.children}
         </main>
