@@ -7178,7 +7178,7 @@ def hierarchy_node_info(node_id: int) -> dict[str, Any]:
                       to_char(h.updated_at,'YYYY-MM-DD HH24:MI'),
                       (SELECT count(*) FROM sys_hierarchy c
                        WHERE c.tenant_id=h.tenant_id AND c.tree_type=h.tree_type
-                         AND c.address LIKE h.address || '.%') AS descendants
+                         AND c.address LIKE h.address || '.%%') AS descendants
                FROM sys_hierarchy h WHERE h.tenant_id=%s AND h.hierarchy_id=%s""",
             (tid, node_id))
         r = cur.fetchone()
