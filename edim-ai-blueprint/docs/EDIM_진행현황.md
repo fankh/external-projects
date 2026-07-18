@@ -174,6 +174,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 2026-07-16 | **N5b 스튜디오·PDF 복구(v18.5~18.7)** — Macro Studio(식 편집·Test Run 실평가 라이브 E2E·저장·승인)·Templet 편집기(+잠복 SSR 500 수정)·Run 정리/MinIO GC·Fan 성능표/밀도 PDF·사양 Excel·견적 미리보기. 스모크 55/55 — **N5 전체 완료** |
 | 2026-07-16 | **GDrive 재동기(v18.6)** — 사용자 Drive 파일 삭제 후 `tools/gdrive-sync.mjs` 신설(멱등: 동일명 files.update, id·공유 링크 불변)·30파일 재업로드(xlsx→Sheets 12·pptx→Slides 1·PDF 17). 이후 변경분은 사용자 트리거 시 재실행 |
 | 2026-07-16 | **N6 셸 전역 복구(v18.9)** — ⌘K 통합검색(화면+코드·문서·파일·부품·프로젝트 딥링크)·전역 단축키(Alt+W/←→/1~9·Ctrl+K)·useFKeys 수신 체계(Macro F12/F9·Table F12/F3)·비밀번호 변경(B8). 라이브 E2E: Ctrl+K 포커스·Alt+← 탭·F9 평가. 스모크 56/56 — **패리티 감사 P1 35건 전량 해소 (N1~N6 완료)** |
+| 2026-07-18 | **U4 스케줄링·Capacity(v24.1)** — GET /erp/production/schedule(미완료 WO × U3 공정 공수) + D-3 패널(작업장 부하 바·WO 공수·경과일). **잠복 버그 수정**: D-3 이 /erp/work-process 를 조회해 WO 그리드 공백 → /erp/work-orders 정정. 라이브 왕복: WO-0001 발행→공수 135분·부하 28.1%→완료 정리 |
 | 2026-07-18 | **U14 완결(v23.9)** — To-Do 패널 Done items(최근 승인 결과 3) + 미니 달력(마일스톤 납기 점 마킹·오늘 하이라이트). 라이브 E2E 6/6 — **PPT Schedule management 패널 원형 완성** |
 | 2026-07-18 | **U1 캔버스 1단계(v23.6~23.7)** — C-1 모듈 드래그 배치(좌표 영속)+더블클릭 세부선정 모달(슬라이드 7 옵션 9종, 블록 라벨 요약). 발견·수정: Cvs 루트 pointer capture 가 파생 dblclick 을 리타겟해 onOpen 미동작 → 블록 자신 캡처로 수정. 라이브 E2E 7/7(드래그·영속·모달·옵션 저장·정리) |
 | 2026-07-18 | **U11 완결(v23.4)** — 색상 테마 4종(파일 메뉴·data-theme 토큰·localStorage) + 회사 로고(sys_tenant.settings, ADMIN 다이얼로그·타이틀바). 라이브 E2E 6/6(테마 적용/영속/복원·로고 업로드/렌더/제거) |
