@@ -3628,6 +3628,57 @@ STAGE_LABEL = {v: k for k, v in STAGE_MAP.items()}
 _VER_FMT = "YYYY-MM-DD HH24:MI:SS.US"
 
 
+# ── U9 Project 중심 대화 (SYS-018·M-15-5) — 코멘트 스레드 ──
+
+class CommentCreate(BaseModel):
+    body: str
+
+
+@router.get("/projects/{project_no}/comments")
+def project_comments(project_no: str) -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT comment_id, author, body, to_char(created_at,'MM-DD HH24:MI')
+               FROM sys_project_comment WHERE tenant_id=%s AND project_no=%s
+               ORDER BY comment_id DESC LIMIT 100""", (tid, project_no.strip()))
+        return [{"id": r[0], "author": r[1], "body": r[2], "at": r[3]} for r in cur.fetchall()]
+
+
+@router.post("/projects/{project_no}/comments", status_code=201)
+def project_comment_add(project_no: str, request: Request, body: CommentCreate) -> dict[str, Any]:
+    """프로젝트 대화 등록 (U9) — 이력 관리(수정 불가·본인/ADMIN 삭제만)."""
+    text = body.body.strip()
+    if not text:
+        raise HTTPException(422, detail="내용을 입력하십시오")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM prj_project WHERE tenant_id=%s AND project_no=%s", (tid, project_no.strip()))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"프로젝트 없음: {project_no}")
+        cur.execute(
+            """INSERT INTO sys_project_comment (tenant_id, project_no, author, body)
+               VALUES (%s,%s,%s,%s) RETURNING comment_id""",
+            (tid, project_no.strip(), request.state.login, text[:1000]))
+        cid = cur.fetchone()[0]
+    return {"id": cid}
+
+
+@router.delete("/projects/comments/{comment_id}")
+def project_comment_delete(comment_id: int, request: Request) -> dict[str, Any]:
+    """대화 삭제 — 본인 또는 ADMIN 이상."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT author FROM sys_project_comment WHERE tenant_id=%s AND comment_id=%s", (tid, comment_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"코멘트 없음: {comment_id}")
+        if row[0] != request.state.login and LEVEL_RANK.get(request.state.level, 0) < LEVEL_RANK.get("ADMIN", 99):
+            raise HTTPException(403, detail="본인 또는 ADMIN 만 삭제할 수 있습니다")
+        cur.execute("DELETE FROM sys_project_comment WHERE tenant_id=%s AND comment_id=%s", (tid, comment_id))
+    return {"deleted": True}
+
+
 @router.get("/projects/{project_no}")
 def get_project(project_no: str) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:

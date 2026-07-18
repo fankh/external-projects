@@ -2,6 +2,9 @@ import { apiServer, ApiError } from '@/lib/api'
 import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
+import { getMe } from '@/lib/auth'
+import { CommentThread } from './CommentThread'
+import type { CommentRow } from './commentActions'
 import { ProjectGrid, type ProjectRow } from './ProjectGrid'
 import { ProjectRegForm, ProjectStagePanel } from './ProjectsPanel'
 
@@ -20,9 +23,17 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams
   const sel = sp.no ? rows.find((r) => r.projectNo === sp.no) ?? null : null
   let updatedAt = ''
+  let comments: CommentRow[] = []
+  let myLogin = ''
   if (sel) {
-    const d = await apiServer<{ stage: string; updatedAt?: string }>(`/projects/${encodeURIComponent(sel.projectNo)}`).catch(() => null)
+    const [d, cs, me] = await Promise.all([
+      apiServer<{ stage: string; updatedAt?: string }>(`/projects/${encodeURIComponent(sel.projectNo)}`).catch(() => null),
+      apiServer<CommentRow[]>(`/projects/${encodeURIComponent(sel.projectNo)}/comments`).catch(() => []),
+      getMe(),
+    ])
     updatedAt = d?.updatedAt ?? ''
+    comments = cs
+    myLogin = me?.login ?? ''
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -34,7 +45,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
             <div style={{ flex: 1, minWidth: 0 }}><ProjectGrid rows={rows} selectedNo={sel?.projectNo} /></div>
             <div style={{ width: 320, overflow: 'auto' }}>
               {sel
-                ? <ProjectStagePanel no={sel.projectNo} stage={sel.stage} updatedAt={updatedAt} />
+                ? <><ProjectStagePanel no={sel.projectNo} stage={sel.stage} updatedAt={updatedAt} /><CommentThread projectNo={sel.projectNo} initial={comments} myLogin={myLogin} /></>
                 : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{t('prj.rowHint', '행을 클릭하면 영업 단계 전이·삭제를 관리합니다')}</div>}
             </div>
           </>
