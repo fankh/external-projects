@@ -174,6 +174,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 2026-07-16 | **N5b 스튜디오·PDF 복구(v18.5~18.7)** — Macro Studio(식 편집·Test Run 실평가 라이브 E2E·저장·승인)·Templet 편집기(+잠복 SSR 500 수정)·Run 정리/MinIO GC·Fan 성능표/밀도 PDF·사양 Excel·견적 미리보기. 스모크 55/55 — **N5 전체 완료** |
 | 2026-07-16 | **GDrive 재동기(v18.6)** — 사용자 Drive 파일 삭제 후 `tools/gdrive-sync.mjs` 신설(멱등: 동일명 files.update, id·공유 링크 불변)·30파일 재업로드(xlsx→Sheets 12·pptx→Slides 1·PDF 17). 이후 변경분은 사용자 트리거 시 재실행 |
 | 2026-07-16 | **N6 셸 전역 복구(v18.9)** — ⌘K 통합검색(화면+코드·문서·파일·부품·프로젝트 딥링크)·전역 단축키(Alt+W/←→/1~9·Ctrl+K)·useFKeys 수신 체계(Macro F12/F9·Table F12/F3)·비밀번호 변경(B8). 라이브 E2E: Ctrl+K 포커스·Alt+← 탭·F9 평가. 스모크 56/56 — **패리티 감사 P1 35건 전량 해소 (N1~N6 완료)** |
+| 2026-07-18 | **알림 드롭다운 제목 미표시 수정(v22.3)** — 타이틀바 내부라 흰 글자색을 상속해 흰 배경에 안 보이던 잠복 버그(사용자 스크린샷 제보). 드롭다운에 color/fontWeight/textAlign 명시. 라이브: 제목 rgb(30,34,42) 렌더 확인 |
 | 2026-07-18 | **U4 MRP 1차 + 판넬 접기/펼치기(v22.0~22.1)** — GET /erp/mrp(수주 ORDERED 자재 라인 × inv_stock 현재고 → 부족·발주 권장일) + M-8-5 신규 화면(Purchasing 드롭다운) · 좌측 트리/우측 Sub Work Place **접기·펼치기**(localStorage 영속, 사용자 요청). 라이브 E2E 8/8. 수정: erp_stock→inv_stock 테이블명·/cost/orders 데코레이터 복원 |
 | 2026-07-18 | **U13 우측 공용 패널(v21.8, Sub Work Place E-4)** — 공통 3종(Data Up-Load·Table 미리보기/딥링크·Coding 즉석 Run) + GET /tables 신설, Set-up 3화면(S-1-1·M-3-8·C-3) 장착. 라이브 E2E 4/4·업로드 테스트 파일 정리 |
 | 2026-07-18 | **U6 Print Set-up 완성(v21.6, P2)** — 출력 옵션(용지 A4/A3/LETTER·방향·여백mm·글꼴pt·칼라/흑백·바닥글) 렌더 반영 + **Office(xlsx) 내보내기**(POST /render/xlsx). 라이브: A3 가로 MediaBox·xlsx 다운로드 검증. RenderOpts 공용화(기존 호출 호환) |
