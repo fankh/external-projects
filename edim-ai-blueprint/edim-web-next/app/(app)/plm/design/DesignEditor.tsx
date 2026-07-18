@@ -288,6 +288,7 @@ export function DesignEditor(props: {
             ) : <div style={{ fontSize: 10, lineHeight: 1.7, padding: 6, color: 'var(--txt-dim)' }}>{t('design.relEmpty', '관계 정의 없음 — 조건1: 수직·수평·중심 / 조건2: 접촉·좌표·각도')}</div>}
           </GroupBox>
           <SimulationPanel dims={dims} onApply={(next) => { hist.push(); setDims(next); setEvaluated(true); if (cadMode) loadCad(next); say('Simulation 적용 ✓ — 치수 반영 + CAD 재작도 (DWG-024)') }} />
+          <PriorityCheckPanel dims={dims} />
           <GroupBox title={t('editor.subItemDwg', 'Sub Item DWG · 조립순서')} right={props.bom.length ? <Chip tone="ok">dwg_bom {props.bom.length}</Chip> : <Chip tone="warn">{t('design.none', '없음')}</Chip>}>
             {props.bom.length ? (
               <div style={{ fontSize: 11, lineHeight: 1.9 }}>
@@ -303,5 +304,68 @@ export function DesignEditor(props: {
         </div>
       </div>
     </div>
+  )
+}
+
+/** U2 — 설계 우선순위·순환 참조 자동 점검 (슬라이드 67 [관계 진행 우선순위]).
+ *  MACRO 치수의 참조 토큰(다른 치수 라벨)으로 의존 그래프 구성 → 위상 정렬(평가 순서) + 순환 경고.
+ *  참조 추정은 토큰 휴리스틱(함수어 제외) — Table 열 인자와 동명 라벨은 참조로 간주될 수 있음(명시). */
+const MACRO_FN_WORDS = new Set(['IF', 'IFERROR', 'AND', 'OR', 'NOT', 'SUM', 'SUMIF', 'VAR', 'PREC', 'COS', 'SIN', 'TAN', 'ABS', 'MIN', 'MAX', 'ROUND'])
+
+function PriorityCheckPanel({ dims }: { dims: DimensionDef[] }) {
+  const { t } = useI18n()
+  const labels = new Set(dims.map((d) => d.no))
+  const deps: Record<string, string[]> = {}
+  for (const d of dims) {
+    const v = d.value.trim()
+    if (!v.startsWith('=')) { deps[d.no] = []; continue }
+    const toks = v.toUpperCase().match(/\b[A-Z]{1,3}\b(?!\s*\()/g) ?? []
+    deps[d.no] = [...new Set(toks.filter((tk) => tk !== d.no && labels.has(tk) && !MACRO_FN_WORDS.has(tk)))]
+  }
+  // Kahn 위상 정렬 — indegree = 자신이 참조하는 치수 수 (참조 먼저 평가), 잔여 = 순환
+  const indeg: Record<string, number> = {}
+  for (const k of Object.keys(deps)) indeg[k] = deps[k].length
+  const order: string[] = []
+  const q = Object.keys(indeg).filter((k) => indeg[k] === 0).sort()
+  const rdeps: Record<string, string[]> = {}
+  for (const k of Object.keys(deps)) for (const r of deps[k]) (rdeps[r] ??= []).push(k)
+  const iq = [...q]
+  const seen = new Set<string>()
+  while (iq.length) {
+    const n = iq.shift()!
+    if (seen.has(n)) continue
+    seen.add(n); order.push(n)
+    for (const m of (rdeps[n] ?? [])) {
+      indeg[m] -= 1
+      if (indeg[m] === 0) iq.push(m)
+    }
+  }
+  const cyclic = Object.keys(deps).filter((k) => !seen.has(k))
+  const macroCount = dims.filter((d) => d.value.trim().startsWith('=')).length
+  return (
+    <GroupBox title={t('editor.priorityCheck', '우선순위·순환 점검 (U2)')} noPad
+      right={cyclic.length
+        ? <Chip tone="err">{t('editor.cycleFound', '순환 {n}').replace('{n}', String(cyclic.length))}</Chip>
+        : <Chip tone="ok">{t('editor.noCycle', '순환 없음')}</Chip>}>
+      <div data-priority-check style={{ padding: 6, fontSize: 10.5, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div>
+          <span style={{ color: 'var(--txt-mute)' }}>{t('editor.evalOrder', '평가 순서')} ({macroCount} MACRO): </span>
+          {order.map((n, i) => (
+            <span key={n} className="code" style={{ marginRight: 3, fontWeight: deps[n].length ? 700 : 400 }}>{i + 1}.{n}</span>
+          ))}
+        </div>
+        {cyclic.length ? (
+          <div data-cycle-warning style={{ color: 'var(--err)', fontWeight: 700 }}>
+            ⚠ {t('editor.cycleWarn', '순환 참조 — 잘못된 자료 추출 위험 (슬라이드 67)')}: {cyclic.join(' ↔ ')}
+          </div>
+        ) : null}
+        {Object.entries(deps).filter(([, r]) => r.length).map(([k, r]) => (
+          <div key={k} style={{ fontSize: 9.5, color: cyclic.includes(k) ? 'var(--err)' : 'var(--txt-mute)' }}>
+            {k} ← {r.join(', ')}
+          </div>
+        ))}
+        <div style={{ fontSize: 9, color: 'var(--txt-mute)' }}>{t('editor.priorityNote', '참조는 수식 토큰 휴리스틱 — Table 열 인자 동명 라벨 포함 가능')}</div>
+      </div>
+    </GroupBox>
   )
 }
