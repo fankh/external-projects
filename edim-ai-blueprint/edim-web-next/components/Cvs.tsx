@@ -112,7 +112,8 @@ export function Cvs(props: {
             onPointerDown={props.onMoveBlock ? (e) => {
               if (e.button !== 0) return
               e.stopPropagation()
-              ref.current?.setPointerCapture(e.pointerId)
+              // 캡처는 블록 자신에 — 루트 캡처 시 파생 dblclick 이 캔버스로 리타겟되어 onOpen 이 죽는다 (U1)
+              ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
               bdrag.current = { id: b.id, ox: pos.x, oy: pos.y, px: e.clientX, py: e.clientY }
               setDragging(true)
               props.onSelect?.(b)
