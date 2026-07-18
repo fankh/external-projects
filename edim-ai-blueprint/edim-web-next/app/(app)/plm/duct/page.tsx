@@ -6,17 +6,18 @@ import { DuctCanvas } from './DuctCanvas'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DuctPage({ searchParams }: { searchParams: Promise<{ diffusers?: string }> }) {
+export default async function DuctPage({ searchParams }: { searchParams: Promise<{ diffusers?: string; floor?: string }> }) {
   const locale = await getLocale()
   const bundle = bundleFor(locale)
   const t = (k: string, ko: string) => translate(bundle, k, ko)
 
   const sp = await searchParams
   const diffusers = Math.max(1, Math.min(12, Number(sp.diffusers) || 3))
+  const floor = ['1F', '2F', '3F', 'RF'].includes(sp.floor ?? '') ? sp.floor! : '3F'
   let doc: CadDocument | null = null
   let err: string | null = null
   try {
-    const r = await apiServer<{ document: CadDocument }>(`/cad/duct-layout?diffusers=${diffusers}&floor=3F`)
+    const r = await apiServer<{ document: CadDocument }>(`/cad/duct-layout?diffusers=${diffusers}&floor=${encodeURIComponent(floor)}`)
     doc = r.document
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
@@ -26,7 +27,7 @@ export default async function DuctPage({ searchParams }: { searchParams: Promise
       {err ? (
         <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div>
       ) : doc ? (
-        <DuctCanvas doc={doc} diffusers={diffusers} />
+        <DuctCanvas doc={doc} diffusers={diffusers} floor={floor} />
       ) : null}
     </div>
   )
