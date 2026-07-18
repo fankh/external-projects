@@ -71,7 +71,7 @@ Next 에서 **읽기 전용 그리드로 축소**되었다. 레거시 React 는 
 ~~F1 프로젝트 컨텍스트~~ ✅ v21.2 (타이틀바 활성 프로젝트 — localStorage 레거시 동일 키+첫 프로젝트 시드+행 클릭 edim-set-project) ·
 ~~XLSX export 전반~~ ✅ v21.2 (대장 5종 prices·parts·drawings·warehouses·companies — /api/next/xlsx 프록시+ScreenHeader 버튼, 라이브 5/5 200) — 잔여:
 CAD 뷰어(레이어 특성편집·편집 영속·축척 PDF·DXF 다운로드)·
-Duct(수동 도구·층 선택·기술계산표)·Work Process(공정 파라미터·CAD 매핑·Coding)·낙관적 잠금 안내.
+Duct(수동 도구·층 선택·기술계산표)·Work Process(~~공정 파라미터~~ ✅ v21.4·~~CAD 매핑~~ ✅ E5·Coding)·낙관적 잠금 안내.
 - To-Do 푸터/상태바 카운트: shellCounts 서버액션(/approvals/inbox 길이 + /erp/dashboard delayed 합), 초기+라우팅+60초 폴링+edim-inbox-refresh 즉시 갱신. 라이브: 상태바 `승인 대기 3` 실데이터.
 - 즐겨찾기(D8): 메뉴바 ★ 토글+칩(최대 8), /prefs/favorites 서버 영속. 레거시 SPA 항목(screenId 기반, href 없음)은 읽기 시 필터(v20.5). 라이브 E2E: 추가→칩 이동→해제.
 - 감사(M-14-6A): 레거시 AuditQueryScreen 풀 포팅 — facet 콤보 필터·F8 재조회·선택 CSV·XLSX(kind=audit 프록시)·before/after 상세 패널. 라이브: XLSX 200.
