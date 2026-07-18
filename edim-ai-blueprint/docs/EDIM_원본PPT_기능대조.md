@@ -125,7 +125,7 @@
 
 ---
 
-## U13. 화면 공통 우측 도구 패널 체계 — Sub Work Place Templet (슬라이드 4·7·8·38·45·66 시각 확인) — ❌ 미구현 (구조적)
+## U13. 화면 공통 우측 도구 패널 체계 — Sub Work Place Templet (슬라이드 4·7·8·38·45·66 시각 확인) — ✅ 핵심 구현 (v21.8)
 
 기획: 거의 **모든 화면 우측에 공통 모듈 3~4종을 상시 배치**하는 템플릿 체계(E-4) —
 ① **Data Up-Load** (부서·유형(Table/Data/File/Image)·이름·설명 + 업로드/찾기/Hierarchy 아이콘)
@@ -135,8 +135,9 @@
 
 현재: 화면별 개별 구성만 있고 "우측 공통 모듈 템플릿" 체계 없음. 기능 단위(업로드·Table 편집·Macro Run)는 각자 화면에 존재하므로 **재사용 컴포넌트 3종 + 화면별 장착**으로 구현 가능.
 
-- [ ] `<DataUploadPanel/>`·`<TablePanel/>`·`<CodingPanel/>` 공통 컴포넌트화
-- [ ] 주요 Set-up 화면(S-1-x·S-3-x·S-4-x 대응 화면)에 우측 패널 장착
+- [x] `DataUploadPanel`(부서·유형·이름·파일→/files/upload DATA)·`TablePanel`(콤보+미리보기+편집/XLSX 딥링크)·`CodingPanel`(Macro 콤보+즉석 Run) 공통 컴포넌트화 ✅ v21.8 (components/panels, GET /tables 신설)
+- [x] Set-up 3화면 장착 — Sub Code(S-1-1)·제품 코드 마스터(M-3-8)·Document Templet(C-3) ✅ v21.8. 라이브 E2E: 3화면 렌더·미리보기 4행·Run·업로드(정리 완료)
+- [ ] 잔여 화면(S-1-3~6·S-4-1-x 등) 확산 — 수요 확인 후 점진
 
 ## U14. 좌하단 Schedule management 상시 패널 (전 화면 공통, 시각 확인) — ✅ 핵심 구현 (v21.2)
 
