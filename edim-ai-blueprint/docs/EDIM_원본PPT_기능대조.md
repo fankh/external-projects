@@ -151,11 +151,11 @@
 ## U15. 시각 검증 추가 발견 (소형·세부)
 
 - [ ] **Approval 툴바 모듈** — 우상단 공통 아이콘 세트(승인 요청·송부·확인·저장·편집·삭제) 표준화 (슬라이드 전반)
-- [ ] **Fan Direction 8방향 선택기**(L0~R270 아이콘) + **Installation Code**(Direct Driven/Belt In-Line/Belt Along) — Arrangement Set-up (38)
+- [x] **Fan Direction 8방향 선택기** + **Installation Code** ✅ v22.9 — Arrangement 등록 모달(L0~R270 토글 버튼 + Direct Driven/Belt In-Line/Belt Along 콤보, 기존 direction_option/install_option 컬럼 — 스키마 무변경). 라이브 E2E
 - [ ] **3D 지원** — 화면 곳곳의 3D/2D 토글 + H-1 "Drawing Control: **DXF & STEP**" — 현재 DXF 2D만, STEP/3D 뷰 없음 (18·38)
 - [ ] **모듈 더블클릭 세부선정 폼** — C-2의 Impeller/Inlet cone/Casing/Motor 옵션 콤보 상세 폼 (7, U1 연계)
-- [ ] **성능 곡선 인터랙티브 차트** — C-2·Print 미리보기 내 fan curve (7·8·50, 기존 P2 잔여 "성능 곡선 SVG"와 동일)
-- [ ] **BOM 트리 가격 병기** — BOM 패널에 Price 컬럼(미확정 X 표시) (5)
+- [x] **성능 곡선 SVG** ✅ v22.9 — C-2 우측 패널(모델별 Pt 실선·효율 점선, 점 클릭=선정·적색 하이라이트). 라이브 E2E
+- [x] **BOM 트리 가격 병기** — 기구현 확인 ✅ (C-1 SelectionView 단가(K) 컬럼, expand priceK — 감사 시점 오판 정정)
 - [ ] **인쇄 다이얼로그** — 프린터 선택·용지·방향·컬러 등 OS 인쇄 설정 UI 통합 (50, U6 연계)
 
 ---
