@@ -379,12 +379,19 @@ def build_doc_pdf(*, doc_no: str, title: str, doc_type: str, status: str, versio
 
 
 def build_lines_pdf(*, title: str, subtitle: str = "", lines: list[str],
-                    confidential: bool = False) -> bytes:
-    """범용 라인 PDF (B4 · SVC-11) — Print Set-up Test·Doc Templet Print 공용."""
+                    confidential: bool = False, paper: str = "A4", land: bool = False,
+                    margin_mm: float = 17.6, font_pt: float = 9.5,
+                    grayscale: bool = False, footer_text: str = "") -> bytes:
+    """범용 라인 PDF (B4 · SVC-11 · U6) — Print Set-up Test·Doc Templet Print 공용.
+
+    U6 출력 옵션(슬라이드 50): 용지(A4/A3/LETTER)·방향·여백(mm)·글꼴 크기·색상(칼라/흑백)·바닥글.
+    기본값은 기존 렌더와 동일(하위 호환).
+    """
     import os
 
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A3, A4, LETTER, landscape
+    from reportlab.lib.units import mm
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.cidfonts import UnicodeCIDFont
     from reportlab.pdfbase.ttfonts import TTFont
@@ -398,25 +405,34 @@ def build_lines_pdf(*, title: str, subtitle: str = "", lines: list[str],
         font_name = "NanumGothic"
     else:
         pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
+    size = {"A4": A4, "A3": A3, "LETTER": LETTER}.get(paper.upper(), A4)
+    if land:
+        size = landscape(size)
+    m = max(5.0, min(40.0, float(margin_mm or 17.6))) * mm
+    fs = max(6.0, min(16.0, float(font_pt or 9.5)))
+    rule = colors.black if grayscale else colors.HexColor("#1F4E8C")
     buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    w, h = A4
+    c = canvas.Canvas(buf, pagesize=size)
+    w, h = size
     if confidential:
         _draw_watermark(c, w, h, "CONFIDENTIAL · NOVA")
     c.setFont(font_name, 15)
-    c.drawString(50, h - 58, title[:70])
+    c.drawString(m, h - m - 24, title[:70])
     if subtitle:
         c.setFont(font_name, 9)
-        c.drawString(50, h - 76, subtitle[:110])
-    c.setStrokeColor(colors.HexColor("#1F4E8C"))
-    c.line(50, h - 86, w - 50, h - 86)
-    y = h - 112
-    c.setFont(font_name, 9.5)
-    for line in lines[:44]:
-        c.drawString(50, y, str(line)[:110])
-        y -= 15
+        c.drawString(m, h - m - 42, subtitle[:110])
+    c.setStrokeColor(rule)
+    c.line(m, h - m - 52, w - m, h - m - 52)
+    y = h - m - 78
+    c.setFont(font_name, fs)
+    line_h = fs * 1.58
+    max_lines = max(1, int((y - m - 20) / line_h))
+    for line in lines[:max_lines]:
+        c.drawString(m, y, str(line)[:140])
+        y -= line_h
     c.setFont(font_name, 7.5)
-    c.drawString(50, 40, f"EDIM Tool System · NOVA Solution · {date.today().isoformat()} 자동 생성")
+    c.drawString(m, max(20.0, m - 8), footer_text[:120] or
+                 f"EDIM Tool System · NOVA Solution · {date.today().isoformat()} 자동 생성")
     c.showPage()
     c.save()
     return buf.getvalue()

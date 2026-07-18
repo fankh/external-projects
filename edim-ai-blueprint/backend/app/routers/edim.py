@@ -3248,19 +3248,38 @@ class RenderRequest(BaseModel):
     subtitle: str = ""
     lines: list[str] = []
     confidential: bool = False
+    # U6 출력 옵션 (슬라이드 50) — 미전달 시 기존 동작
+    paper: str = "A4"          # A4 | A3 | LETTER
+    landscapeMode: bool = False
+    marginMm: float = 17.6
+    fontPt: float = 9.5
+    grayscale: bool = False
+    footerText: str = ""
 
 
 @router.post("/render/pdf", dependencies=[SETUP])
 def render_generic_pdf(body: RenderRequest) -> Any:
-    """범용 PDF 렌더 (SVC-11) — Print Set-up Test 출력·Doc Templet Print."""
+    """범용 PDF 렌더 (SVC-11·U6) — Print Set-up Test 출력·Doc Templet Print. 용지·여백·글꼴·색상 옵션."""
     from fastapi.responses import Response
 
     from ..services import run_pipeline as rp
     pdf = rp.build_lines_pdf(
         title=body.title.strip() or "EDIM 출력", subtitle=body.subtitle.strip(),
-        lines=body.lines, confidential=body.confidential)
+        lines=body.lines, confidential=body.confidential,
+        paper=body.paper, land=body.landscapeMode, margin_mm=body.marginMm,
+        font_pt=body.fontPt, grayscale=body.grayscale, footer_text=body.footerText.strip())
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": "inline; filename=\"edim-print.pdf\""})
+
+
+@router.post("/render/xlsx", dependencies=[SETUP])
+def render_generic_xlsx(body: RenderRequest) -> Any:
+    """범용 Office(xlsx) 내보내기 (U6, 슬라이드 50 'File 내보내기') — 렌더 라인을 시트로."""
+    rows: list[list[Any]] = [[ln] for ln in body.lines]
+    if body.subtitle.strip():
+        rows.insert(0, [body.subtitle.strip()])
+    return _xlsx_response((body.title.strip() or "EDIM 출력")[:31],
+                          [body.title.strip() or "EDIM 출력"], rows, "edim-print")
 
 
 # ── SVC-01 Users (M-14-6) ──
