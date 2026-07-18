@@ -7958,7 +7958,7 @@ def mrp_plan(leadDays: int = 14) -> dict[str, Any]:
                 if qno not in r["orders"]:
                     r["orders"].append(qno)
         cur.execute(
-            "SELECT item_code, COALESCE(SUM(quantity),0) FROM erp_stock WHERE tenant_id=%s GROUP BY item_code",
+            "SELECT item_code, COALESCE(SUM(quantity),0) FROM inv_stock WHERE tenant_id=%s GROUP BY item_code",
             (tid,))
         on_hand = {r[0]: float(r[1]) for r in cur.fetchall()}
     rows = []

@@ -3,6 +3,7 @@
  *  사용: 페이지 콘텐츠를 flex row 로 감싸고 <SubWorkPlace /> 를 우측에 둔다. */
 import { apiServer } from '@/lib/api'
 import { CodingPanel, DataUploadPanel, TablePanel, type MacroInfo } from './PanelsClient'
+import { SwpCollapse } from './SwpCollapse'
 import type { TableInfo } from './actions'
 
 export async function SubWorkPlace() {
@@ -12,10 +13,10 @@ export async function SubWorkPlace() {
   ])
   const slim: MacroInfo[] = (macros ?? []).map((m) => ({ name: m.name, expr: m.expr, status: m.status }))
   return (
-    <div data-subworkplace style={{ width: 268, flexShrink: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <SwpCollapse>
       <DataUploadPanel />
       <TablePanel tables={tables ?? []} />
       <CodingPanel macros={slim} />
-    </div>
+    </SwpCollapse>
   )
 }

@@ -83,6 +83,18 @@ export function AppChrome(props: {
   }, [module])
   const [navEditOpen, setNavEditOpen] = useState(false)
 
+  // ── 좌측 판넬 접기/펼치기 (localStorage 영속) ──
+  const [lnavCollapsed, setLnavCollapsed] = useState(false)
+  useEffect(() => {
+    try { setLnavCollapsed(localStorage.getItem('edim-lnav-collapsed') === '1') } catch { /* quota */ }
+  }, [])
+  const toggleLnav = useCallback(() => {
+    setLnavCollapsed((c) => {
+      try { localStorage.setItem('edim-lnav-collapsed', c ? '0' : '1') } catch { /* quota */ }
+      return !c
+    })
+  }, [])
+
   // ── U11 판넬 리사이즈 — 좌측 트리 폭 드래그 조절 (localStorage 영속) ──
   const [navW, setNavW] = useState(220)
   const navWRef = useRef(220)
@@ -314,11 +326,25 @@ export function AppChrome(props: {
       <MdiTabs tabs={trTabs} activeId={pathname}
         onActivate={(id) => router.push(id)} onClose={closeTab} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        {lnavCollapsed ? (
+          // 접힌 좌측 레일 — 클릭으로 펼침
+          <div data-lnav-expand onClick={toggleLnav} title={t('shell.expand', '펼치기')}
+            style={{ width: 22, flexShrink: 0, borderRight: '1px solid var(--line)', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 8, gap: 6,
+              background: 'var(--panel, #F4F6FA)' }}>
+            <span style={{ fontSize: 11 }}>»</span>
+            <span style={{ writingMode: 'vertical-rl', fontSize: 9.5, color: 'var(--txt-mute)' }}>{moduleTitle}</span>
+          </div>
+        ) : (
         <LnavTree title={moduleTitle} nodes={trNodes} selectedId={selectedId}
           onSelect={(n) => { if (n.href) router.push(n.href) }} width={navW}
           headerAction={
-            <span className="b ic" data-lnav-edit title={t('shell.menuEdit', '메뉴 편집')}
-              style={{ cursor: 'pointer', fontSize: 11 }} onClick={() => setNavEditOpen(true)}>✎</span>
+            <span style={{ display: 'inline-flex', gap: 2 }}>
+              <span className="b ic" data-lnav-edit title={t('shell.menuEdit', '메뉴 편집')}
+                style={{ cursor: 'pointer', fontSize: 11 }} onClick={() => setNavEditOpen(true)}>✎</span>
+              <span className="b ic" data-lnav-collapse title={t('shell.collapse', '접기')}
+                style={{ cursor: 'pointer', fontSize: 11 }} onClick={toggleLnav}>«</span>
+            </span>
           }
           emptyHint={t('shell.leftNavEmpty', '표시할 메뉴가 없습니다 — ✎ 메뉴 편집')}
           footer={
@@ -360,11 +386,14 @@ export function AppChrome(props: {
               </div>
             </div>
           } />
-        {/* U11 — 트리 폭 드래그 핸들 */}
-        <div data-lnav-resize onMouseDown={startNavResize}
-          style={{ width: 4, cursor: 'col-resize', flexShrink: 0, background: 'transparent' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--line)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }} />
+        )}
+        {/* U11 — 트리 폭 드래그 핸들 (펼침 상태만) */}
+        {!lnavCollapsed ? (
+          <div data-lnav-resize onMouseDown={startNavResize}
+            style={{ width: 4, cursor: 'col-resize', flexShrink: 0, background: 'transparent' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--line)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }} />
+        ) : null}
         <main className="workarea" style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {props.children}
         </main>
