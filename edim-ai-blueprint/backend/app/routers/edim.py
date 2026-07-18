@@ -1708,6 +1708,21 @@ def hierarchy(treeType: str = "PRODUCT") -> list[dict[str, Any]]:
 
 
 # ── SVC-05 Table ──
+@router.get("/tables")
+def tables_list() -> list[dict[str, Any]]:
+    """데이터 Table 목록 (U13 우측 공용 패널·M-3-7 콤보) — 이름·유형·행 수."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT t.table_name, t.table_type, COALESCE(t.department,''),
+                      COALESCE(t.description,''), count(r.row_id)
+               FROM tbl_data_table t LEFT JOIN tbl_data_row r ON r.table_id=t.table_id
+               WHERE t.tenant_id=%s
+               GROUP BY t.table_id ORDER BY t.table_name""", (tid,))
+        return [{"name": r[0], "type": r[1], "department": r[2],
+                 "description": r[3], "rows": r[4]} for r in cur.fetchall()]
+
+
 @router.get("/tables/tech-data")
 def tech_data(airflow: float = 0, pressure: float = 0) -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:

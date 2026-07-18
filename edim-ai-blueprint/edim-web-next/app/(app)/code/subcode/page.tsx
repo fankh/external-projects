@@ -2,6 +2,7 @@ import { apiServer, ApiError } from '@/lib/api'
 import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
+import { SubWorkPlace } from '@/components/panels/SubWorkPlace'
 import { SlotGrid, type SlotRow } from './SlotGrid'
 
 export const dynamic = 'force-dynamic'
@@ -22,8 +23,9 @@ export default async function SubCodePage({ searchParams }: { searchParams: Prom
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <ScreenHeader title={`${t('menu.code-subcode', 'Sub Code 등록 (S-1-1)')} — ${group}`} count={err ? undefined : rows.length} countLabel="slot" source="/codes/groups/{group}/slots" />
-      <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
-        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <SlotGrid rows={rows} group={group} />}
+      <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
+        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <div style={{ flex: 1, minWidth: 0 }}><SlotGrid rows={rows} group={group} /></div>}
+        <SubWorkPlace />
       </div>
     </div>
   )
