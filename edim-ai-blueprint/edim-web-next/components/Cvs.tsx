@@ -12,6 +12,7 @@ export function Cvs(props: {
   onSelect?: (b: CanvasBlock) => void
   onOpen?: (b: CanvasBlock) => void   // 더블클릭 = 상세 (레거시 문법)
   onMoveBlock?: (id: string, x: number, y: number) => void   // G1 — 드래그 이동(영속)
+  snap?: number              // U2 — 드래그 스냅 그리드 (px, 0/미지정 = 해제)
   dims?: { x: number; y: number; w: number; label: string }[]
   labels?: { x: number; y: number; text: string }[]
   style?: CSSProperties
@@ -68,10 +69,14 @@ export function Cvs(props: {
       }}
       onPointerMove={(e) => {
         const bd = bdrag.current
-        if (bd) {   // G1 — 블록 이동 (스케일 보정)
+        if (bd) {   // G1 — 블록 이동 (스케일 보정 + U2 스냅)
           const dx = (e.clientX - bd.px) / tRef.current.s
           const dy = (e.clientY - bd.py) / tRef.current.s
-          setMoved((m) => ({ ...m, [bd.id]: { x: Math.round(bd.ox + dx), y: Math.round(bd.oy + dy) } }))
+          const g = props.snap && props.snap > 0 ? props.snap : 1
+          setMoved((m) => ({ ...m, [bd.id]: {
+            x: Math.round((bd.ox + dx) / g) * g,
+            y: Math.round((bd.oy + dy) / g) * g,
+          } }))
           return
         }
         const d = drag.current
@@ -108,6 +113,8 @@ export function Cvs(props: {
               left: pos.x, top: pos.y, width: b.w, height: b.h,
               borderStyle: b.dashed ? 'dashed' : undefined,
               cursor: props.onMoveBlock ? 'move' : undefined,
+              // U1 — 회전·반전 (블록 중심 기준)
+              transform: (b.rot || b.flip) ? `rotate(${b.rot ?? 0}deg) scaleX(${b.flip ? -1 : 1})` : undefined,
             }}
             onPointerDown={props.onMoveBlock ? (e) => {
               if (e.button !== 0) return
@@ -120,8 +127,11 @@ export function Cvs(props: {
             } : undefined}
             onClick={() => props.onSelect?.(b)}
             onDoubleClick={() => props.onOpen?.(b)}>
-            {b.name}
-            {b.sub ? <small>{b.sub}</small> : null}
+            {/* 반전 시 라벨은 역변환으로 가독 유지 */}
+            <span style={b.flip ? { display: 'inline-block', transform: 'scaleX(-1)' } : undefined}>
+              {b.name}
+              {b.sub ? <small style={{ display: 'block' }}>{b.sub}</small> : null}
+            </span>
           </div>
           )
         })}

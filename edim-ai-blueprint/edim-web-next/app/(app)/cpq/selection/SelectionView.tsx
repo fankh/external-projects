@@ -46,7 +46,7 @@ export function SelectionView(props: {
   const [pending, start] = useTransition()
   const say = (text: string, err = false) => setStatus({ text, err })
   // U1 — 모듈 드래그 배치(좌표 영속) + 더블클릭 세부선정 (localStorage)
-  const [geom, setGeom] = useState<Record<string, { x: number; y: number }>>({})
+  const [geom, setGeom] = useState<Record<string, { x?: number; y?: number; rot?: number; flip?: boolean }>>({})
   const [blockOpts, setBlockOpts] = useState<Record<string, Record<string, string>>>({})
   const [detailBlock, setDetailBlock] = useState<CanvasBlock | null>(null)
   useEffect(() => {
@@ -57,11 +57,47 @@ export function SelectionView(props: {
   }, [])
   const moveBlock = (id: string, x: number, y: number) => {
     setGeom((g) => {
-      const next = { ...g, [id]: { x, y } }
+      const next = { ...g, [id]: { ...(g[id] ?? {}), x, y } }
       try { localStorage.setItem('edim-c1-geom', JSON.stringify(next)) } catch { /* quota */ }
       return next
     })
     say(`배치 이동 — ${id} → (${x}, ${y})`)
+  }
+  // U1 2단계 — 회전·반전·스냅 (선택 블록 대상, localStorage 영속)
+  const [snapOn, setSnapOn] = useState(true)
+  const patchGeom = (id: string, p: Partial<{ x: number; y: number; rot: number; flip: boolean }>) => {
+    setGeom((g) => {
+      const next = { ...g, [id]: { ...(g[id] ?? {}), ...p } }
+      try { localStorage.setItem('edim-c1-geom', JSON.stringify(next)) } catch { /* quota */ }
+      return next
+    })
+  }
+  const rotateSel = (deg = 90) => {
+    if (!selBlock) { say('회전 — 블록을 먼저 선택하십시오', true); return }
+    const cur = (geom[selBlock.id]?.rot ?? 0)
+    const rot = ((cur + deg) % 360 + 360) % 360
+    patchGeom(selBlock.id, { rot })
+    say(`회전 RO — ${selBlock.name} → ${rot}°`)
+  }
+  const mirrorSel = () => {
+    if (!selBlock) { say('반전 — 블록을 먼저 선택하십시오', true); return }
+    const flip = !(geom[selBlock.id]?.flip ?? false)
+    patchGeom(selBlock.id, { flip })
+    say(`반전 MI — ${selBlock.name} ${flip ? '적용' : '해제'}`)
+  }
+  const resetGeom = () => {
+    setGeom({})
+    try { localStorage.removeItem('edim-c1-geom') } catch { /* quota */ }
+    say('배치 초기화 — 기본 위치·회전 복원')
+  }
+  const runCommand = (cmd: string) => {
+    const c = cmd.trim().toUpperCase()
+    const [op, arg] = c.split(/\s+/)
+    if (op === 'ROTATE' || op === 'RO') rotateSel(Number(arg) || 90)
+    else if (op === 'MIRROR' || op === 'MI') mirrorSel()
+    else if (op === 'SNAP') { const on = arg ? arg === 'ON' : !snapOn; setSnapOn(on); say(`스냅 ${on ? 'ON (10px)' : 'OFF'}`) }
+    else if (op === 'RESET') resetGeom()
+    else say(`명령 실행: ${cmd} (지원: ROTATE [deg] · MIRROR · SNAP ON|OFF · RESET)`)
   }
   const saveOpts = (id: string, opts: Record<string, string>) => {
     setBlockOpts((m) => {
@@ -77,6 +113,7 @@ export function SelectionView(props: {
     const summary = o ? Object.values(o).filter(Boolean).slice(0, 2).join('·') : ''
     return { ...b, ...(g ?? {}), sub: summary ? `${b.sub ? b.sub + ' · ' : ''}${summary}` : b.sub }
   }), [baseBlocks, geom, blockOpts])
+  const geomTyped: Record<string, { x?: number; y?: number; rot?: number; flip?: boolean }> = geom
 
   const reExpand = (sv: Record<string, string>) => start(async () => {
     const r = await expand(sv)
@@ -168,15 +205,19 @@ export function SelectionView(props: {
             <span style={{ fontSize: 11, fontWeight: 600, flex: 1 }}>{t('cpq.arrangement', '구성도 (Arrangement)')}</span>
             <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()} style={{ height: 18, fontSize: 9.5 }}>{t('cpq.block', '블록')}</Btn>
             <Btn variant={cadMode ? 'pri' : 'default'} onClick={() => !cadMode && toggleCad()} style={{ height: 18, fontSize: 9.5 }}>CAD</Btn>
+            <span className="sep" />
+            <Btn onClick={() => rotateSel(90)} title={t('cpq.rotateHint', '선택 블록 90° 회전 (RO)')} style={{ height: 18, fontSize: 9.5 }} data-rotate-btn>⟳ RO</Btn>
+            <Btn onClick={mirrorSel} title={t('cpq.mirrorHint', '선택 블록 좌우 반전 (MI)')} style={{ height: 18, fontSize: 9.5 }} data-mirror-btn>⇋ MI</Btn>
+            <Btn variant={snapOn ? 'pri' : 'default'} onClick={() => { setSnapOn(!snapOn); say(`스냅 ${!snapOn ? 'ON (10px)' : 'OFF'}`) }} style={{ height: 18, fontSize: 9.5 }} data-snap-btn>SNAP</Btn>
           </div>
           {cadMode ? (
             <div style={{ flex: 1, minHeight: 280, border: '1px solid var(--line)', background: '#fff' }}>
               {cadDoc ? <CadSvg doc={cadDoc} /> : <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>{cadOffline ? t('cpq.cadOffline', 'CAD 서버 연결 실패') : t('cpq.drawing', '작도 중…')}</div>}
             </div>
           ) : (
-            <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock} onOpen={setDetailBlock} onMoveBlock={moveBlock} style={{ flex: 1, minHeight: 280 }} />
+            <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock} onOpen={setDetailBlock} onMoveBlock={moveBlock} snap={snapOn ? 10 : 0} style={{ flex: 1, minHeight: 280 }} />
           )}
-          <CommandLine prompt={selBlock ? `${t('cpq.cmdSelected', '선택')}=${selBlock.name}  ${t('cpq.cmdBasePoint', '기준점 지정 >')}` : t('cpq.cmdIdle', '명령 대기 >')} coord={t('cpq.snapOn', '스냅 ON')} onCommand={(cmd) => say(`명령 실행: ${cmd}`)} />
+          <CommandLine prompt={selBlock ? `${t('cpq.cmdSelected', '선택')}=${selBlock.name}  ${t('cpq.cmdBasePoint', '기준점 지정 >')}` : t('cpq.cmdIdle', '명령 대기 >')} coord={snapOn ? t('cpq.snapOn', '스냅 ON') : t('cpq.snapOff', '스냅 OFF')} onCommand={runCommand} />
           {status ? <div style={{ fontSize: 11, color: status.err ? 'var(--err)' : 'var(--run)' }}>{status.text}</div> : null}
         </div>
         <div className="split-h" />

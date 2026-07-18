@@ -1,5 +1,5 @@
 /** CAD 정규화 문서 타입 (SPA services.ts 와 동일) — CadSvg·bridge 공용. */
-export interface CanvasBlock { id: string; name: string; sub?: string; x: number; y: number; w: number; h: number; dashed?: boolean }
+export interface CanvasBlock { id: string; name: string; sub?: string; x: number; y: number; w: number; h: number; dashed?: boolean; rot?: number; flip?: boolean }
 export interface DimensionDef { no: string; value: string; binding: 'MACRO' | 'VARIANT'; kind: 'KEY' | 'DETAIL' }
 export interface DwgRelationRow { relationId: number; blockA: string; blockB: string; align: string; contact: string; macro: string | null; priority: number }
 export interface DrawingBlockRow { documentId: number; blockName: string; content: { x: number; y: number; w: number; h: number; sub?: string; dashed?: boolean }; originX: number | null; originY: number | null }
