@@ -11,11 +11,15 @@ export function TitleBar(props: {
   right?: ReactNode           // 로그아웃 폼 등 서버 요소
   activeModule?: ModuleKey
   onModule?: (m: ModuleKey) => void
+  logo?: string               // U11 — 테넌트 로고 (data URL)
 }) {
   const { t } = useI18n()
   return (
     <div className="titlebar">
-      <span className="lg">E</span>
+      {props.logo
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={props.logo} alt="logo" data-tenant-logo style={{ height: 18, maxWidth: 90, objectFit: 'contain', background: '#fff', borderRadius: 2, padding: '0 2px' }} />
+        : <span className="lg">E</span>}
       <b>EDIM</b>
       <span style={{ color: '#8FA5CC' }}>— NOVA Solution</span>
       {props.onModule ? (

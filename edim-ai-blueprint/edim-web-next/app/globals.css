@@ -9,6 +9,8 @@ body{font-family:'Malgun Gothic','Segoe UI',system-ui,sans-serif}
    밀도: 본문 11.5px · 그리드 행 24px · 컨트롤 높이 22px · radius 0~2px */
 :root {
   --chrome: #E9EBEE;          /* 윈도우 크롬 */
+  --chrome-a: #26406E;        /* 타이틀바 그라데이션 (U11 테마 토큰) */
+  --chrome-b: #17376B;
   --panel: #FFFFFF;
   --line-strong: #9AA2AF;     /* 패널 외곽 — 레거시는 선이 진하다 */
   --line: #C2C8D2;
@@ -91,7 +93,12 @@ body {
 
 /* ═══ 앱 크롬 (메뉴바·툴바·MDI·상태바) ═══ */
 .app { border: 1px solid var(--line-strong); background: var(--chrome); height: 100vh; display: flex; flex-direction: column; }
-.titlebar { display: flex; align-items: center; gap: 8px; background: linear-gradient(180deg, #26406E, #17376B); color: #fff; padding: 5px 10px; font-size: 11.5px; flex: none; }
+.titlebar { display: flex; align-items: center; gap: 8px; background: linear-gradient(180deg, var(--chrome-a), var(--chrome-b)); color: #fff; padding: 5px 10px; font-size: 11.5px; flex: none; }
+
+/* ── U11 색상 테마 (슬라이드 57 — Frame/canvas 색상 사용자 변경) ── */
+body[data-theme="graphite"] { --chrome-a: #3A3F47; --chrome-b: #22262D; --title-navy: #4A6FA5; --navy-deep: #22262D; --grid-head: #E2E4E8; --grid-head-txt: #33383F; }
+body[data-theme="forest"] { --chrome-a: #1F5C46; --chrome-b: #123E2F; --title-navy: #1F6E52; --navy-deep: #123E2F; --grid-head: #DDEAE3; --grid-head-txt: #234439; }
+body[data-theme="burgundy"] { --chrome-a: #6E2634; --chrome-b: #4A1620; --title-navy: #8C1F3A; --navy-deep: #4A1620; --grid-head: #EEDEE2; --grid-head-txt: #55232E; }
 .titlebar .lg { width: 18px; height: 18px; background: #2F9463; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 10px; }
 .titlebar .sp { flex: 1; }
 .titlebar .u { font-size: 10.5px; color: #B9C7E2; }

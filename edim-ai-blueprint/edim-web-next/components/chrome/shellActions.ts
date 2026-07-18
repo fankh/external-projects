@@ -21,6 +21,16 @@ export async function searchQuery(q: string): Promise<{ result?: SearchResults; 
   }
 }
 
+/** U11 테넌트 로고 설정 (ADMIN) — data URL base64. '' = 제거. */
+export async function saveBranding(logoData: string): Promise<{ ok?: string; error?: string }> {
+  try {
+    await apiServer('/tenant/branding', { method: 'PUT', body: JSON.stringify({ logoData }) })
+    return { ok: logoData ? '로고 설정 완료' : '로고 제거 완료' }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '설정 실패 (ADMIN 권한·64KB 이하)' }
+  }
+}
+
 /** 화면 즐겨찾기 (D8, P2) — /prefs/favorites 서버 영속. */
 export interface FavItem { href: string; code: string; title: string }
 

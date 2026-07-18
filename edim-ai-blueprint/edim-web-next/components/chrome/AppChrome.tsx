@@ -10,7 +10,15 @@ import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
-import { changePassword, firstProject, getFavorites, getLeftNav, saveFavorites, saveLeftNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
+import { changePassword, firstProject, getFavorites, getLeftNav, saveBranding, saveFavorites, saveLeftNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
+
+/** U11 색상 테마 프리셋 (슬라이드 57) — globals.css body[data-theme] 토큰. */
+const THEMES: { id: string; label: string }[] = [
+  { id: '', label: '기본 (Navy)' },
+  { id: 'graphite', label: 'Graphite' },
+  { id: 'forest', label: 'Forest' },
+  { id: 'burgundy', label: 'Burgundy' },
+]
 
 /** F1 — 활성 프로젝트 컨텍스트 (레거시 SPA 동일 키) */
 const PROJECT_KEY = 'edim-active-project'
@@ -34,6 +42,7 @@ export function AppChrome(props: {
   canReadAdmin: boolean
   bell?: ReactNode
   right?: ReactNode          // 로그아웃 폼 (서버 액션)
+  logo?: string              // U11 — 테넌트 로고
   children: ReactNode
 }) {
   const { t } = useI18n()
@@ -239,6 +248,38 @@ export function AppChrome(props: {
     return () => { alive = false; clearInterval(timer); window.removeEventListener('edim-inbox-refresh', load) }
   }, [pathname])
 
+  // ── U11 색상 테마 — localStorage 영속, body[data-theme] 적용 ──
+  const [theme, setTheme] = useState('')
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('edim-theme') ?? ''
+      setTheme(v)
+      if (v) document.body.dataset.theme = v
+    } catch { /* quota */ }
+  }, [])
+  const applyTheme = useCallback((id: string) => {
+    setTheme(id)
+    if (id) document.body.dataset.theme = id
+    else delete document.body.dataset.theme
+    try { localStorage.setItem('edim-theme', id) } catch { /* quota */ }
+  }, [])
+
+  // ── U11 로고 설정 다이얼로그 (ADMIN) ──
+  const [logoOpen, setLogoOpen] = useState(false)
+  const [logoMsg, setLogoMsg] = useState<{ text: string; err?: boolean } | null>(null)
+  const [logoPending, startLogo] = useTransition()
+  const uploadLogo = (file: File | null) => {
+    if (!file) return
+    if (file.size > 48 * 1024) { setLogoMsg({ text: '48KB 이하 이미지를 사용하십시오', err: true }); return }
+    const reader = new FileReader()
+    reader.onload = () => startLogo(async () => {
+      const r = await saveBranding(String(reader.result))
+      setLogoMsg(r.error ? { text: r.error, err: true } : { text: r.ok ?? '완료' })
+      if (r.ok) setTimeout(() => window.location.reload(), 800)
+    })
+    reader.readAsDataURL(file)
+  }
+
   // ── 비밀번호 변경 다이얼로그 (B8) ──
   const [pwOpen, setPwOpen] = useState(false)
   const [pwCur, setPwCur] = useState(''); const [pwNew, setPwNew] = useState('')
@@ -248,6 +289,16 @@ export function AppChrome(props: {
     '파일': [
       { label: t('common.print', '인쇄'), onClick: () => window.print() },
       { label: t('shell.changePw', '비밀번호 변경'), onClick: () => { setPwMsg(null); setPwOpen(true) } },
+      { sep: true, label: '' },
+      { label: t('shell.theme', '색상 테마'), header: true },
+      ...THEMES.map((th) => ({
+        label: `${theme === th.id ? '● ' : ''}${th.label}`,
+        onClick: () => applyTheme(th.id),
+      })),
+      ...(props.canReadAdmin ? [
+        { sep: true, label: '' },
+        { label: t('shell.logoSetting', '회사 로고 설정'), onClick: () => { setLogoMsg(null); setLogoOpen(true) } },
+      ] : []),
       { sep: true, label: '' },
       { label: t('shell.logout', '로그아웃'), onClick: () => {
         document.querySelector<HTMLFormElement>('form[data-logout]')?.requestSubmit()
@@ -285,7 +336,7 @@ export function AppChrome(props: {
 
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TitleBar user={userLabel} bell={props.bell} right={props.right}
+      <TitleBar user={userLabel} bell={props.bell} right={props.right} logo={props.logo}
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
       <MenuBar menus={menus} extra={navMenus} right={
         <>
@@ -401,6 +452,30 @@ export function AppChrome(props: {
       <LeftNavEditModal open={navEditOpen} onClose={() => setNavEditOpen(false)}
         module={module} canReadAdmin={props.canReadAdmin}
         value={leftNav[module]} onSave={applyLeftNav} />
+      {/* U11 — 로고 설정 다이얼로그 (ADMIN) */}
+      {logoOpen ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setLogoOpen(false)}>
+          <div className="gb" data-logo-dialog style={{ width: 340, padding: 12, background: '#fff', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('shell.logoSetting', '회사 로고 설정')}</div>
+            <div style={{ fontSize: 10.5, color: 'var(--txt-mute)' }}>{t('shell.logoHint', '타이틀바에 표시할 로고 이미지 (PNG/SVG, 48KB 이하 권장 높이 18px 배율)')}</div>
+            <input type="file" accept="image/*" className="in" disabled={logoPending}
+              onChange={(e) => uploadLogo(e.target.files?.[0] ?? null)} />
+            {props.logo ? (
+              <button className="b" disabled={logoPending} onClick={() => startLogo(async () => {
+                const r = await saveBranding('')
+                setLogoMsg(r.error ? { text: r.error, err: true } : { text: r.ok ?? '완료' })
+                if (r.ok) setTimeout(() => window.location.reload(), 800)
+              })}>{t('shell.logoRemove', '로고 제거 (기본 E 마크)')}</button>
+            ) : null}
+            {logoMsg ? <div style={{ color: logoMsg.err ? 'var(--err)' : 'var(--run)' }}>{logoMsg.text}</div> : null}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="b" onClick={() => setLogoOpen(false)}>{t('common.close', '닫기')}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <StatusBar cells={[
         <span key="pending" className={counts.inbox > 0 ? 'st warn' : undefined}
           style={{ cursor: 'pointer' }} onClick={() => router.push('/common/approval')}>

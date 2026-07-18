@@ -6675,6 +6675,43 @@ class PrefPut(BaseModel):
     value: Any = None   # 임의 JSON (배열/객체) — 클라이언트 UI 상태
 
 
+# ── U11 테넌트 브랜딩 (슬라이드 57 — 회사 로고 배치) ──
+
+class BrandingPut(BaseModel):
+    logoData: str = ""   # data URL (base64) — '' = 제거
+
+
+@router.get("/tenant/branding")
+def tenant_branding() -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT settings FROM sys_tenant WHERE tenant_id=%s", (tid,))
+        row = cur.fetchone()
+        st = row[0] if row and row[0] else {}
+    return {"logoData": st.get("logoData") or None}
+
+
+@router.put("/tenant/branding", dependencies=[ADMIN])
+def tenant_branding_put(request: Request, body: BrandingPut) -> dict[str, Any]:
+    """테넌트 로고 설정 (U11) — data URL base64, 64KB 상한. '' = 제거."""
+    data = body.logoData.strip()
+    if data:
+        if not data.startswith("data:image/"):
+            raise HTTPException(422, detail="data:image/* 형식의 data URL 이어야 합니다")
+        if len(data) > 64 * 1024:
+            raise HTTPException(422, detail="로고는 64KB 이하로 축소하십시오")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_tenant
+               SET settings = COALESCE(settings,'{}'::jsonb) || jsonb_build_object('logoData', %s::text)
+               WHERE tenant_id=%s""",
+            (data or None, tid))
+        _audit(cur, tid, "sys_tenant", tid, "BRANDING_SET", request.state.user_id,
+               after={"logo": bool(data)})
+    return {"saved": True}
+
+
 @router.get("/prefs/{key}")
 def pref_get(key: str, request: Request) -> dict[str, Any]:
     """현재 사용자 환경설정 조회 (D8). 미설정 시 빈 값."""
