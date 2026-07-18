@@ -121,6 +121,7 @@ export const MENU_TREE: Record<ModuleKey, { title: string; nodes: NavNode[] }> =
           { id: 'erp-purchase', label: '발주 PR·PO (M-8-2)', href: '/erp/purchase', code: 'M-8-2' },
           { id: 'erp-po', label: '발주 라이프사이클 (G-3)', href: '/erp/po', code: 'G-3' },
           { id: 'erp-inventory', label: '재고 관리 (D-2)', href: '/erp/inventory', code: 'D-2' },
+          { id: 'erp-mrp', label: 'MRP 자재 소요 (M-8-5)', href: '/erp/mrp', code: 'M-8-5' },
           { id: 'erp-warehouse', label: '창고·저장위치 (M-8-4)', href: '/erp/warehouses', code: 'M-8-4' },
         ],
       },

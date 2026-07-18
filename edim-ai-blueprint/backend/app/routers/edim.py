@@ -7925,6 +7925,59 @@ def _seed_order_followups(cur: Any, tid: int, project_id: int, quotation_id: int
     return seeded
 
 
+@router.get("/erp/mrp")
+def mrp_plan(leadDays: int = 14) -> dict[str, Any]:
+    """MRP 자재 소요 계획 1차 (U4·M-8-5, ERP-022) — 수주(ORDERED 견적) 자재 라인 × 현재고 대비.
+
+    소요 = ORDERED 견적 line_items(재료비 라인: code·qty) 집계, 보유 = erp_stock 합계.
+    부족분 발주 권장일 = 최단 납기 - leadDays (리드타임 기본 14일 — 공급처별 리드타임은 후속).
+    """
+    lead = max(0, min(90, leadDays))
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT q.quotation_no, to_char(q.expected_delivery,'YYYY-MM-DD'),
+                      p.project_no, q.line_items
+               FROM cst_quotation q JOIN prj_project p ON p.project_id=q.project_id
+               WHERE q.tenant_id=%s AND q.status='ORDERED'
+               ORDER BY q.expected_delivery NULLS LAST""", (tid,))
+        req: dict[str, dict[str, Any]] = {}
+        order_count = 0
+        for qno, due, prj, items in cur.fetchall():
+            order_count += 1
+            for it in (items or []):
+                code = str(it.get("code", "")).strip()
+                if not code:
+                    continue
+                qty = float(it.get("qty", 0) or 0)
+                r = req.setdefault(code, {"code": code, "name": it.get("name", ""),
+                                          "required": 0.0, "dueDate": due, "orders": []})
+                r["required"] += qty
+                if due and (not r["dueDate"] or due < r["dueDate"]):
+                    r["dueDate"] = due
+                if qno not in r["orders"]:
+                    r["orders"].append(qno)
+        cur.execute(
+            "SELECT item_code, COALESCE(SUM(quantity),0) FROM erp_stock WHERE tenant_id=%s GROUP BY item_code",
+            (tid,))
+        on_hand = {r[0]: float(r[1]) for r in cur.fetchall()}
+    rows = []
+    for r in sorted(req.values(), key=lambda x: (x["dueDate"] or "9999", x["code"])):
+        oh = on_hand.get(r["code"], 0.0)
+        shortage = max(0.0, r["required"] - oh)
+        order_by = ""
+        if r["dueDate"]:
+            from datetime import datetime, timedelta
+            try:
+                order_by = (datetime.strptime(r["dueDate"], "%Y-%m-%d") - timedelta(days=lead)).strftime("%Y-%m-%d")
+            except ValueError:
+                order_by = ""
+        rows.append({**r, "onHand": oh, "shortage": shortage, "orderBy": order_by,
+                     "status": "SHORT" if shortage > 0 else "OK"})
+    return {"rows": rows, "orderCount": order_count,
+            "shortCount": sum(1 for x in rows if x["status"] == "SHORT"), "leadDays": lead}
+
+
 @router.get("/cost/orders")
 def sales_orders() -> dict[str, Any]:
     """수주 잔고 (D1) — ORDERED 견적(프로젝트별 수주액·납기·단계) + 수주율 지표."""
