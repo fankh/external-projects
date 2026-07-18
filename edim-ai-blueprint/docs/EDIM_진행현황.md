@@ -174,6 +174,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 2026-07-16 | **N5b 스튜디오·PDF 복구(v18.5~18.7)** — Macro Studio(식 편집·Test Run 실평가 라이브 E2E·저장·승인)·Templet 편집기(+잠복 SSR 500 수정)·Run 정리/MinIO GC·Fan 성능표/밀도 PDF·사양 Excel·견적 미리보기. 스모크 55/55 — **N5 전체 완료** |
 | 2026-07-16 | **GDrive 재동기(v18.6)** — 사용자 Drive 파일 삭제 후 `tools/gdrive-sync.mjs` 신설(멱등: 동일명 files.update, id·공유 링크 불변)·30파일 재업로드(xlsx→Sheets 12·pptx→Slides 1·PDF 17). 이후 변경분은 사용자 트리거 시 재실행 |
 | 2026-07-16 | **N6 셸 전역 복구(v18.9)** — ⌘K 통합검색(화면+코드·문서·파일·부품·프로젝트 딥링크)·전역 단축키(Alt+W/←→/1~9·Ctrl+K)·useFKeys 수신 체계(Macro F12/F9·Table F12/F3)·비밀번호 변경(B8). 라이브 E2E: Ctrl+K 포커스·Alt+← 탭·F9 평가. 스모크 56/56 — **패리티 감사 P1 35건 전량 해소 (N1~N6 완료)** |
+| 2026-07-18 | **U8 Duct 심화(v23.1~23.2)** — 층 선택(1F~RF)·기술계산표(압력손실 f=0.019·SMACNA C Leak·Magnus 결로·자중/행거·풍량 비교 + 계산서 PDF)·Duct BOM(도면 라인 길이 합산 산출)→PR 연결. 라이브 E2E 7/7. 중복 i18n 키로 1회 빌드 게이트 롤백→즉시 수정 재배포(무영향) |
 | 2026-07-18 | **U15 소형(v22.9)** — Fan Direction 8방향+Installation Code 선택기(Arrangement 등록, 슬라이드 38) · 성능 곡선 SVG(C-2 Pt/효율 비교, 점 클릭 선정 — P2 잔여 해소) · BOM 단가 병기 기구현 확인 정정. 라이브 E2E 7/7 |
 | 2026-07-18 | **U9 QR 딥링크 + Project 중심 대화(v22.7, alembic 0024)** — QrBadge(현장 스캔→모바일 딥링크, 프로젝트·모바일 화면)·sys_project_comment 코멘트 스레드(본인/ADMIN 삭제 가드, 프로젝트 대장 업무 소통 패널). 라이브 E2E 9/9(등록→삭제 왕복·QR 캔버스 픽셀 검증·자체 정리) |
 | 2026-07-18 | **U5 창고·자재 심화(v22.5, alembic 0023)** — 로트 유통기한(입고 입력·PATCH·EXPIRED/EXPIRING 경고 패널) · 창고 정기점검 실적(erp_wh_inspection, 위치 선택 패널) · 대체 자재(prt_part_substitute, 부품 대장 패널). 마이그레이션 라이브 자동 적용, E2E 왕복(테스트 데이터 정리 완료) |
