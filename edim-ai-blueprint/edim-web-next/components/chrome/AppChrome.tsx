@@ -238,7 +238,7 @@ export function AppChrome(props: {
 
   // ── 셸 크롬 카운트+To-do 패널 (P2/U14) — inbox 상위 3·PL 지연·임박 마일스톤 ──
   //    초기 + 라우팅 변경 + 60초 폴링 + edim-inbox-refresh(승인 결정) 즉시 갱신
-  const [counts, setCounts] = useState<ShellPanelData>({ inbox: 0, delayed: 0, inboxTop: [], upcoming: [] })
+  const [counts, setCounts] = useState<ShellPanelData>({ inbox: 0, delayed: 0, inboxTop: [], upcoming: [], done: [], msDates: [] })
   useEffect(() => {
     let alive = true
     const load = () => void shellCounts().then((c) => { if (alive) setCounts(c) })
@@ -418,6 +418,21 @@ export function AppChrome(props: {
                   onClick={() => router.push('/erp/dashboard')} title={t('shell.todoPlHint', '대시보드 열기')}>
                   {t('shell.todoPl', 'PL 지연')}<span style={{ flex: 1 }} /><span className={counts.delayed > 0 ? 'st err' : 'st'}>{counts.delayed}</span>
                 </div>
+                {/* U14 — Done items: 최근 승인 결과 3 */}
+                {counts.done.length ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
+                      onClick={() => router.push('/common/approval')}>
+                      {t('shell.doneItems', 'Done items')}<span style={{ flex: 1 }} />
+                    </div>
+                    {counts.done.map((d, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 4, paddingLeft: 6, color: 'var(--txt-dim)' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{d.title}</span>
+                        <span style={{ fontSize: 9.5, color: 'var(--txt-mute)', flexShrink: 0 }}>{d.at.slice(0, 5)}</span>
+                      </div>
+                    ))}
+                  </>
+                ) : null}
                 {/* U14 — Schedule: 임박/지연 마일스톤 상위 3 */}
                 {counts.upcoming.length ? (
                   <>
@@ -434,6 +449,8 @@ export function AppChrome(props: {
                     ))}
                   </>
                 ) : null}
+                {/* U14 — 미니 달력: 이번 달 마일스톤 납기 마킹 */}
+                <MiniCalendar dates={counts.msDates} onOpen={() => router.push('/erp/milestones')} />
               </div>
             </div>
           } />
@@ -483,6 +500,51 @@ export function AppChrome(props: {
         </span>,
         <span key="ssr">SSR · {pathname}</span>,
       ]} />
+    </div>
+  )
+}
+
+/** U14 — 미니 달력: 이번 달 마일스톤 납기 마킹 (OVERDUE 적·DUE_SOON 황·기타 회색), 클릭=마일스톤. */
+function MiniCalendar({ dates, onOpen }: { dates: { date: string; delayStatus: string }[]; onOpen: () => void }) {
+  const [ym, setYm] = useState<{ y: number; m: number } | null>(null)
+  useEffect(() => {
+    const now = new Date()
+    setYm({ y: now.getFullYear(), m: now.getMonth() })
+  }, [])
+  if (!ym) return null
+  const first = new Date(ym.y, ym.m, 1)
+  const daysInMonth = new Date(ym.y, ym.m + 1, 0).getDate()
+  const lead = first.getDay()
+  const prefix = `${ym.y}-${String(ym.m + 1).padStart(2, '0')}-`
+  const byDay: Record<number, string> = {}
+  for (const d of dates) {
+    if (!d.date.startsWith(prefix)) continue
+    const day = Number(d.date.slice(8, 10))
+    const cur = byDay[day]
+    // 심각도 우선: OVERDUE > DUE_SOON > 기타
+    if (cur === 'OVERDUE') continue
+    if (d.delayStatus === 'OVERDUE' || cur !== 'DUE_SOON' || d.delayStatus === 'DUE_SOON') byDay[day] = d.delayStatus
+  }
+  const dotColor = (s: string) => s === 'OVERDUE' ? 'var(--err)' : s === 'DUE_SOON' ? 'var(--warn, #B4820B)' : 'var(--txt-mute)'
+  const today = new Date()
+  const isThisMonth = today.getFullYear() === ym.y && today.getMonth() === ym.m
+  const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
+  return (
+    <div data-mini-calendar style={{ marginTop: 2, cursor: 'pointer' }} onClick={onOpen} title="마일스톤 열기">
+      <div style={{ fontSize: 9, color: 'var(--txt-mute)', marginBottom: 1 }}>{ym.y}.{String(ym.m + 1).padStart(2, '0')}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1, fontSize: 8.5, textAlign: 'center' }}>
+        {['일', '월', '화', '수', '목', '금', '토'].map((d) => <div key={d} style={{ color: 'var(--txt-mute)' }}>{d}</div>)}
+        {cells.map((day, i) => day == null ? <div key={`e${i}`} /> : (
+          <div key={day} style={{
+            position: 'relative', padding: '1px 0', borderRadius: 2,
+            background: isThisMonth && day === today.getDate() ? 'var(--sel-yellow, #FFF3C2)' : undefined,
+            fontWeight: byDay[day] ? 700 : 400,
+          }}>
+            {day}
+            {byDay[day] ? <span style={{ position: 'absolute', bottom: -1, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: 2, background: dotColor(byDay[day]) }} /> : null}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

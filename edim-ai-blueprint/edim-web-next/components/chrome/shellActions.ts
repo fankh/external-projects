@@ -71,23 +71,28 @@ export async function saveLeftNav(p: LeftNavPref): Promise<void> {
   } catch { /* 백엔드 불가 — 세션 내 낙관 상태 유지 */ }
 }
 
-/** 셸 크롬 카운트+To-do 패널 (P2/U14) — 승인 inbox 상위 3·PL 지연 합·임박/지연 마일스톤 상위 3. */
+/** 셸 크롬 카운트+To-do 패널 (P2/U14) — 승인 inbox 상위 3·PL 지연 합·임박/지연 마일스톤 상위 3
+ *  + Done items(최근 승인 결과 3)·미니 달력(마일스톤 납기 일자별 상태). */
 export interface ShellPanelData {
   inbox: number
   delayed: number
   inboxTop: { id: number; assetType: string; target: string }[]
   upcoming: { projectNo: string; stageLabel: string; plannedDate: string; delayStatus: string }[]
+  done: { title: string; at: string }[]
+  msDates: { date: string; delayStatus: string }[]   // 전체 마일스톤 납기 (달력 마킹용)
 }
 
 export async function shellCounts(): Promise<ShellPanelData> {
-  const [inbox, dash, ms] = await Promise.all([
+  const [inbox, dash, ms, doneNoti] = await Promise.all([
     apiServer<{ id: number; assetType: string; target: string }[]>('/approvals/inbox').catch(() => []),
     apiServer<{ deptEvents?: { delayed: number }[] }>('/erp/dashboard').catch(() => ({ deptEvents: [] })),
     apiServer<{ projectNo: string; stageLabel: string; plannedDate: string; delayStatus: string; status: string }[]>('/erp/milestones').catch(() => []),
+    apiServer<{ title: string; at: string }[]>('/notifications?type=APPROVAL_RESULT&limit=3').catch(() => []),
   ])
   const delayed = (dash.deptEvents ?? []).reduce((s, e) => s + (e.delayed ?? 0), 0)
   const rows = Array.isArray(inbox) ? inbox : []
-  const upcoming = (Array.isArray(ms) ? ms : [])
+  const msRows = Array.isArray(ms) ? ms : []
+  const upcoming = msRows
     .filter((m) => m.delayStatus === 'OVERDUE' || m.delayStatus === 'DUE_SOON')
     .sort((a, b) => (a.delayStatus === b.delayStatus ? a.plannedDate.localeCompare(b.plannedDate) : a.delayStatus === 'OVERDUE' ? -1 : 1))
     .slice(0, 3)
@@ -97,6 +102,8 @@ export async function shellCounts(): Promise<ShellPanelData> {
     delayed,
     inboxTop: rows.slice(0, 3).map((r) => ({ id: r.id, assetType: r.assetType, target: r.target })),
     upcoming,
+    done: (Array.isArray(doneNoti) ? doneNoti : []).map((n) => ({ title: n.title, at: n.at })),
+    msDates: msRows.filter((m) => m.plannedDate).map((m) => ({ date: m.plannedDate, delayStatus: m.delayStatus })),
   }
 }
 
