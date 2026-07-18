@@ -4979,6 +4979,7 @@ class InboundRequest(BaseModel):
     lotNo: str = ""        # 로트 번호 (배치 추적)
     serialNo: str = ""     # 시리얼 번호 (직번 단위 추적)
     unitPrice: float | None = None   # 입고 단가 (미지정 시 cst_price STOCK 자동 적재)
+    expiryDate: str = ""   # 유통기한 YYYY-MM-DD (U5 — 로트 만료 경고 근거)
 
 
 @router.post("/erp/stock/inbound", status_code=201, dependencies=[SETUP])
@@ -5002,10 +5003,10 @@ def stock_inbound(request: Request, body: InboundRequest) -> dict[str, Any]:
         in_price = _stock_price(cur, tid, item) if auto else float(body.unitPrice)
         cur.execute(
             """INSERT INTO inv_movement (tenant_id, item_code, location_code, movement_type,
-               quantity, ref_type, ref_no, lot_no, serial_no, created_by)
-               VALUES (%s,%s,%s,'IN',%s,'PO',%s,%s,%s,%s)""",
+               quantity, ref_type, ref_no, lot_no, serial_no, expiry_date, created_by)
+               VALUES (%s,%s,%s,'IN',%s,'PO',%s,%s,%s,NULLIF(%s,'')::date,%s)""",
             (tid, item, loc, body.quantity, body.refNo.strip()[:50] or None,
-             lot, serial, str(request.state.user_id)))
+             lot, serial, body.expiryDate.strip()[:10], str(request.state.user_id)))
         # 이동평균 — 기존 (수량·단가) + 입고분 가중평균
         cur.execute(
             "SELECT quantity, unit_price FROM inv_stock WHERE tenant_id=%s AND item_code=%s AND location_code=%s",
@@ -5089,14 +5090,153 @@ def stock_lots(item: str = "") -> list[dict[str, Any]]:
             f"""SELECT item_code, lot_no, serial_no,
                        max(location_code) AS location_code,
                        sum(CASE WHEN movement_type='IN' THEN quantity ELSE -quantity END) AS balance,
-                       to_char(max(moved_at),'YYYY-MM-DD HH24:MI') AS last_at
+                       to_char(max(moved_at),'YYYY-MM-DD HH24:MI') AS last_at,
+                       to_char(min(expiry_date),'YYYY-MM-DD') AS expiry,
+                       CASE WHEN min(expiry_date) IS NULL THEN ''
+                            WHEN min(expiry_date) < CURRENT_DATE THEN 'EXPIRED'
+                            WHEN min(expiry_date) <= CURRENT_DATE + 30 THEN 'EXPIRING'
+                            ELSE 'OK' END AS expiry_status
                 FROM inv_movement
                 WHERE tenant_id=%s AND (lot_no IS NOT NULL OR serial_no IS NOT NULL){clause}
                 GROUP BY item_code, lot_no, serial_no
                 ORDER BY item_code, lot_no NULLS LAST, serial_no NULLS LAST""", tuple(params))
         return [{"itemCode": r[0], "lotNo": r[1] or "", "serialNo": r[2] or "",
-                 "locationCode": r[3], "balance": float(r[4]), "lastAt": r[5]}
+                 "locationCode": r[3], "balance": float(r[4]), "lastAt": r[5],
+                 "expiry": r[6] or "", "expiryStatus": r[7]}
                 for r in cur.fetchall()]
+
+
+class LotExpirySet(BaseModel):
+    itemCode: str
+    lotNo: str
+    expiryDate: str   # YYYY-MM-DD, '' = 해제
+
+
+@router.patch("/erp/stock/lots/expiry", dependencies=[SETUP])
+def set_lot_expiry(request: Request, body: LotExpirySet) -> dict[str, Any]:
+    """로트 유통기한 설정/해제 (U5) — 해당 품목×로트 전 이동행에 반영."""
+    item = body.itemCode.strip()[:50]
+    lot = body.lotNo.strip()[:50]
+    if not item or not lot:
+        raise HTTPException(422, detail="itemCode·lotNo 필요")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE inv_movement SET expiry_date=NULLIF(%s,'')::date
+               WHERE tenant_id=%s AND item_code=%s AND lot_no=%s""",
+            (body.expiryDate.strip()[:10], tid, item, lot))
+        if cur.rowcount == 0:
+            raise HTTPException(404, detail=f"로트 없음: {item} / {lot}")
+        _audit(cur, tid, "inv_movement", 0, "LOT_EXPIRY_SET", request.state.user_id,
+               after={"item": item, "lot": lot, "expiry": body.expiryDate.strip()[:10] or None})
+    return {"updated": True}
+
+
+# ── U5 창고 정기점검 실적 (슬라이드 46 — 보관 품질 유지) ──
+
+class InspectionCreate(BaseModel):
+    result: str = "OK"     # OK | ISSUE
+    note: str = ""
+
+
+@router.get("/erp/warehouses/{code}/inspections")
+def wh_inspections(code: str) -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT inspection_id, result, COALESCE(note,''), inspected_by,
+                      to_char(inspected_at,'YYYY-MM-DD HH24:MI')
+               FROM erp_wh_inspection WHERE tenant_id=%s AND location_code=%s
+               ORDER BY inspected_at DESC LIMIT 50""", (tid, code.strip()[:50]))
+        return [{"id": r[0], "result": r[1], "note": r[2], "by": r[3], "at": r[4]}
+                for r in cur.fetchall()]
+
+
+@router.post("/erp/warehouses/{code}/inspections", status_code=201, dependencies=[SETUP])
+def wh_inspection_add(code: str, request: Request, body: InspectionCreate) -> dict[str, Any]:
+    """창고 위치 점검 실적 등록 (U5) — 검사주기 필드(B19)의 실적 기록."""
+    result = body.result.strip().upper()
+    if result not in ("OK", "ISSUE"):
+        raise HTTPException(422, detail=f"result 오류: {body.result} (OK|ISSUE)")
+    loc = code.strip()[:50]
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM erp_warehouse WHERE tenant_id=%s AND location_code=%s", (tid, loc))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"위치 없음: {loc}")
+        cur.execute(
+            """INSERT INTO erp_wh_inspection (tenant_id, location_code, result, note, inspected_by)
+               VALUES (%s,%s,%s,NULLIF(%s,''),%s) RETURNING inspection_id""",
+            (tid, loc, result, body.note.strip()[:300], request.state.login))
+        iid = cur.fetchone()[0]
+        _audit(cur, tid, "erp_wh_inspection", iid, "WH_INSPECT", request.state.user_id,
+               after={"location": loc, "result": result})
+    return {"id": iid}
+
+
+# ── U5 대체 자재 (슬라이드 46 — 대체 자재 연구·적용) ──
+
+class SubstituteAdd(BaseModel):
+    substituteNo: str
+    note: str = ""
+
+
+@router.get("/parts/{part_no}/substitutes")
+def part_substitutes(part_no: str) -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT s.sub_id, p2.part_no, p2.part_name, COALESCE(s.note,''),
+                      to_char(s.created_at,'YYYY-MM-DD')
+               FROM prt_part_substitute s
+               JOIN prt_part p ON p.part_id=s.part_id
+               JOIN prt_part p2 ON p2.part_id=s.substitute_part_id
+               WHERE s.tenant_id=%s AND p.part_no=%s ORDER BY s.sub_id""",
+            (tid, part_no.strip()))
+        return [{"id": r[0], "partNo": r[1], "partName": r[2], "note": r[3], "at": r[4]}
+                for r in cur.fetchall()]
+
+
+@router.post("/parts/{part_no}/substitutes", status_code=201, dependencies=[SETUP])
+def part_substitute_add(part_no: str, request: Request, body: SubstituteAdd) -> dict[str, Any]:
+    """대체 자재 연결 (U5) — 자기 자신 422·미존재 404·중복 409."""
+    sub_no = body.substituteNo.strip()
+    if not sub_no:
+        raise HTTPException(422, detail="substituteNo 필요")
+    if sub_no == part_no.strip():
+        raise HTTPException(422, detail="자기 자신은 대체 자재로 지정할 수 없습니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT part_id FROM prt_part WHERE tenant_id=%s AND part_no=%s", (tid, part_no.strip()))
+        p1 = cur.fetchone()
+        cur.execute("SELECT part_id FROM prt_part WHERE tenant_id=%s AND part_no=%s", (tid, sub_no))
+        p2 = cur.fetchone()
+        if not p1 or not p2:
+            raise HTTPException(404, detail=f"부품 없음: {part_no if not p1 else sub_no}")
+        cur.execute(
+            "SELECT 1 FROM prt_part_substitute WHERE tenant_id=%s AND part_id=%s AND substitute_part_id=%s",
+            (tid, p1[0], p2[0]))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"이미 등록된 대체 관계: {part_no} → {sub_no}")
+        cur.execute(
+            """INSERT INTO prt_part_substitute (tenant_id, part_id, substitute_part_id, note)
+               VALUES (%s,%s,%s,NULLIF(%s,'')) RETURNING sub_id""",
+            (tid, p1[0], p2[0], body.note.strip()[:300]))
+        sid = cur.fetchone()[0]
+        _audit(cur, tid, "prt_part_substitute", sid, "PART_SUBSTITUTE_ADD", request.state.user_id,
+               after={"part": part_no.strip(), "substitute": sub_no})
+    return {"id": sid}
+
+
+@router.delete("/parts/substitutes/{sub_id}", dependencies=[SETUP])
+def part_substitute_delete(sub_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("DELETE FROM prt_part_substitute WHERE tenant_id=%s AND sub_id=%s", (tid, sub_id))
+        if cur.rowcount == 0:
+            raise HTTPException(404, detail=f"대체 관계 없음: {sub_id}")
+        _audit(cur, tid, "prt_part_substitute", sub_id, "PART_SUBSTITUTE_DEL", request.state.user_id)
+    return {"deleted": True}
 
 
 @router.get("/erp/stock/trace")

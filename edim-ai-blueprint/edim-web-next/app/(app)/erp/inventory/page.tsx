@@ -3,7 +3,7 @@ import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
 import { StockGrid, type StockRow } from './StockGrid'
 import { InboundForm } from './InboundForm'
-import { StockPanels, type AtpRow, type MovementRow, type ReservationRow } from './StockPanels'
+import { StockPanels, type AtpRow, type LotRow, type MovementRow, type ReservationRow } from './StockPanels'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,13 +15,15 @@ export default async function InventoryPage() {
   let atp: AtpRow[] = []
   let reservations: ReservationRow[] = []
   let movements: MovementRow[] = []
+  let lots: LotRow[] = []
   let err: string | null = null
   try {
-    ;[rows, atp, reservations, movements] = await Promise.all([
+    ;[rows, atp, reservations, movements, lots] = await Promise.all([
       apiServer<StockRow[]>('/erp/stock'),
       apiServer<AtpRow[]>('/erp/stock/atp').catch(() => []),
       apiServer<ReservationRow[]>('/erp/stock/reservations?status=ACTIVE').catch(() => []),
       apiServer<MovementRow[]>('/erp/stock/trace').catch(() => []),
+      apiServer<LotRow[]>('/erp/stock/lots').catch(() => []),
     ])
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
@@ -41,7 +43,7 @@ export default async function InventoryPage() {
       {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
         <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ flex: 1.2, minHeight: 0 }}><StockGrid rows={rows} /></div>
-          <StockPanels atp={atp} reservations={reservations} movements={movements} />
+          <StockPanels atp={atp} reservations={reservations} movements={movements} lots={lots} />
         </div>
       )}
     </div>

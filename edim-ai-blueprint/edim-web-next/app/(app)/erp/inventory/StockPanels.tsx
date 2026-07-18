@@ -4,14 +4,15 @@
 import { useState, useTransition } from 'react'
 import { GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { releaseReservation, reserveStock, type ActState } from './stockActions'
+import { releaseReservation, reserveStock, setLotExpiry, type ActState } from './stockActions'
 
 export interface AtpRow { itemCode: string; itemName: string; onHand: number; reserved: number; available: number }
 export interface ReservationRow { reservationId: number; itemCode: string; quantity: number; refType: string | null; refNo: string | null; status: string; createdAt: string }
 export interface MovementRow { moveId: number; itemCode: string; moveType: string; quantity: number; lotNo: string | null; refNo: string | null; movedAt: string }
+export interface LotRow { itemCode: string; lotNo: string; serialNo: string; locationCode: string; balance: number; lastAt: string; expiry: string; expiryStatus: '' | 'OK' | 'EXPIRING' | 'EXPIRED' }
 
-export function StockPanels({ atp, reservations, movements }: {
-  atp: AtpRow[]; reservations: ReservationRow[]; movements: MovementRow[]
+export function StockPanels({ atp, reservations, movements, lots }: {
+  atp: AtpRow[]; reservations: ReservationRow[]; movements: MovementRow[]; lots: LotRow[]
 }) {
   const { t } = useI18n()
   const [item, setItem] = useState('')
@@ -57,6 +58,7 @@ export function StockPanels({ atp, reservations, movements }: {
           {st.ok ? <span style={{ fontSize: 10.5, color: 'var(--run)' }}>{st.ok}</span> : null}
         </div>
       </GroupBox>
+      <LotExpiryPanel lots={lots} />
       <GroupBox title={`${t('inv.movePanel', '입출고 이력 (Lot 추적)')} — ${t('inv.recent', '최근')} ${movements.length}건`} noPad style={{ flex: 1.2, minHeight: 0, overflow: 'auto' }}>
         <table className="g" style={{ width: '100%' }}>
           <thead><tr><th>{t('inv.item', '품목')}</th><th>{t('inv.type', '구분')}</th><th>{t('inv.qty', '수량')}</th><th>Lot</th><th>{t('inv.refCol', '참조')}</th><th>{t('inv.at', '일시')}</th></tr></thead>
@@ -68,5 +70,39 @@ export function StockPanels({ atp, reservations, movements }: {
         </table>
       </GroupBox>
     </div>
+  )
+}
+
+/** U5 로트 유통기한 패널 — 만료(EXPIRED)/임박(EXPIRING 30일) 경고 + 기한 설정. */
+function LotExpiryPanel({ lots }: { lots: LotRow[] }) {
+  const { t } = useI18n()
+  const [edit, setEdit] = useState<Record<string, string>>({})
+  const [st, setSt] = useState<ActState>({})
+  const [pending, start] = useTransition()
+  const key = (r: LotRow) => `${r.itemCode}|${r.lotNo}`
+  const tone = (s: string) => s === 'EXPIRED' ? 'var(--err)' : s === 'EXPIRING' ? 'var(--warn, #B4820B)' : 'var(--run)'
+  const withLot = lots.filter((r) => r.lotNo)
+  return (
+    <GroupBox title={`${t('inv.lotPanel', 'Lot 유통기한')} — ${withLot.length}건`} noPad style={{ flex: 1.2, minHeight: 0, overflow: 'auto' }} data-lot-panel>
+      <table className="g" style={{ width: '100%' }}>
+        <thead><tr><th>{t('inv.item', '품목')}</th><th>Lot</th><th>{t('inv.balance', '잔량')}</th><th>{t('inv.expiry', '유통기한')}</th><th></th></tr></thead>
+        <tbody>{withLot.length ? withLot.map((r) => (
+          <tr key={key(r)}>
+            <td className="code">{r.itemCode}</td><td className="c">{r.lotNo}</td><td className="c">{r.balance}</td>
+            <td className="c">
+              {r.expiry ? <span style={{ color: tone(r.expiryStatus), fontWeight: r.expiryStatus !== 'OK' ? 700 : 400 }}>{r.expiry}{r.expiryStatus === 'EXPIRED' ? ' ⚠' : r.expiryStatus === 'EXPIRING' ? ' !' : ''}</span> : '—'}
+            </td>
+            <td className="c" style={{ whiteSpace: 'nowrap' }}>
+              <input className="in" type="date" value={edit[key(r)] ?? r.expiry} style={{ width: 108, height: 17, fontSize: 9.5 }}
+                onChange={(e) => setEdit((m) => ({ ...m, [key(r)]: e.target.value }))} />
+              <button className="b" data-lot-save disabled={pending} style={{ height: 17, fontSize: 9.5, marginLeft: 2 }}
+                onClick={() => start(async () => setSt(await setLotExpiry(r.itemCode, r.lotNo, edit[key(r)] ?? r.expiry)))}>{t('common.save', '저장')}</button>
+            </td>
+          </tr>
+        )) : <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--txt-mute)' }}>{t('inv.noLots', 'Lot 재고 없음')}</td></tr>}</tbody>
+      </table>
+      {st.error ? <div style={{ padding: 4, fontSize: 10, color: 'var(--err)' }}>{st.error}</div> : null}
+      {st.ok ? <div style={{ padding: 4, fontSize: 10, color: 'var(--run)' }}>{st.ok}</div> : null}
+    </GroupBox>
   )
 }

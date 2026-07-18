@@ -4,7 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
-import { addSupplierCode, createPart, type ActState } from './actions'
+import { addSubstitute, addSupplierCode, createPart, deleteSubstitute, type ActState } from './actions'
 
 export interface SupplierCodeRow { supplier: string; supplierCode: string; supplierName: string }
 
@@ -73,6 +73,40 @@ export function SupplierCodePanel({ partNo, rows }: { partNo: string; rows: Supp
       </div>
       {st.error ? <div style={{ color: 'var(--err)', marginTop: 3 }}>{st.error}</div> : null}
       {st.ok ? <div style={{ color: 'var(--run)', marginTop: 3 }}>{st.ok}</div> : null}
+    </div>
+  )
+}
+
+export interface SubstituteRow { id: number; partNo: string; partName: string; note: string; at: string }
+
+/** U5 대체 자재 패널 — 선택 부품의 대체 관계 목록·연결·해제. */
+export function SubstitutePanel({ partNo, rows }: { partNo: string; rows: SubstituteRow[] }) {
+  const { t } = useI18n()
+  const [subNo, setSubNo] = useState('')
+  const [note, setNote] = useState('')
+  const [st, setSt] = useState<ActState>({})
+  const [pending, start] = useTransition()
+  return (
+    <div className="gb" data-substitute-panel style={{ padding: 8, fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+      <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('parts.substTitle', '대체 자재')} — {partNo} ({rows.length})</div>
+      <table className="g" style={{ width: '100%' }}>
+        <thead><tr><th>{t('parts.substNo', '대체 부품')}</th><th>{t('parts.partName', '부품명')}</th><th>{t('parts.note', '비고')}</th><th></th></tr></thead>
+        <tbody>{rows.length ? rows.map((r) => (
+          <tr key={r.id}><td className="code">{r.partNo}</td><td>{r.partName}</td><td>{r.note || '—'}</td>
+            <td className="c"><button className="b" disabled={pending} style={{ height: 17, fontSize: 9.5 }}
+              onClick={() => start(async () => setSt(await deleteSubstitute(r.id)))}>✕</button></td></tr>
+        )) : <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--txt-mute)' }}>{t('parts.noSubst', '대체 관계 없음')}</td></tr>}</tbody>
+      </table>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input className="in" style={{ width: 110 }} placeholder={t('parts.substPh', '대체 부품번호')} value={subNo} onChange={(e) => setSubNo(e.target.value)} />
+        <input className="in" style={{ width: 90 }} placeholder={t('parts.note', '비고')} value={note} onChange={(e) => setNote(e.target.value)} />
+        <button className="b run" data-subst-add disabled={pending} onClick={() => start(async () => {
+          const r = await addSubstitute(partNo, subNo, note)
+          setSt(r); if (r.ok) { setSubNo(''); setNote('') }
+        })}>＋ {t('parts.substLink', '연결')}</button>
+        {st.error ? <span style={{ color: 'var(--err)', fontSize: 10.5 }}>{st.error}</span> : null}
+        {st.ok ? <span style={{ color: 'var(--run)', fontSize: 10.5 }}>{st.ok}</span> : null}
+      </div>
     </div>
   )
 }

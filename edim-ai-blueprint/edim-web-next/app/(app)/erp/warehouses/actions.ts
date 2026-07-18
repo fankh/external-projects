@@ -38,3 +38,23 @@ export async function deleteWarehouse(code: string): Promise<ActState> {
   revalidatePath(PATH)
   return { ok: `${code} 삭제` }
 }
+
+/** U5 창고 정기점검 실적. */
+export interface InspectionRow { id: number; result: 'OK' | 'ISSUE'; note: string; by: string; at: string }
+
+export async function listInspections(code: string): Promise<InspectionRow[]> {
+  try {
+    return await apiServer<InspectionRow[]>(`/erp/warehouses/${encodeURIComponent(code)}/inspections`)
+  } catch { return [] }
+}
+
+export async function addInspection(code: string, result: string, note: string): Promise<ActState> {
+  try {
+    await apiServer(`/erp/warehouses/${encodeURIComponent(code)}/inspections`, {
+      method: 'POST', body: JSON.stringify({ result, note }),
+    })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '점검 등록 실패' }
+  }
+  return { ok: `${code} 점검 기록 (${result})` }
+}

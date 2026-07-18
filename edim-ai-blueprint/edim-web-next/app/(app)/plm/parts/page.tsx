@@ -4,7 +4,7 @@ import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { XlsxButton } from '@/components/XlsxButton'
 import { PartGrid, type PartRow } from './PartGrid'
-import { PartRegForm, SupplierCodePanel, type SupplierCodeRow } from './PartsPanel'
+import { PartRegForm, SubstitutePanel, SupplierCodePanel, type SubstituteRow, type SupplierCodeRow } from './PartsPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,8 +23,12 @@ export default async function PartsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams
   const selNo = sp.no && rows.some((r) => r.partNo === sp.no) ? sp.no : null
   let suppliers: SupplierCodeRow[] = []
+  let substitutes: SubstituteRow[] = []
   if (selNo) {
-    suppliers = await apiServer<SupplierCodeRow[]>(`/parts/${encodeURIComponent(selNo)}/supplier-codes`).catch(() => [])
+    ;[suppliers, substitutes] = await Promise.all([
+      apiServer<SupplierCodeRow[]>(`/parts/${encodeURIComponent(selNo)}/supplier-codes`).catch(() => []),
+      apiServer<SubstituteRow[]>(`/parts/${encodeURIComponent(selNo)}/substitutes`).catch(() => []),
+    ])
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -36,7 +40,7 @@ export default async function PartsPage({ searchParams }: { searchParams: Promis
             <div style={{ flex: 1, minWidth: 0 }}><PartGrid rows={rows} selectedNo={selNo} /></div>
             <div style={{ width: 330, overflow: 'auto' }}>
               {selNo
-                ? <SupplierCodePanel partNo={selNo} rows={suppliers} />
+                ? <><SupplierCodePanel partNo={selNo} rows={suppliers} /><SubstitutePanel partNo={selNo} rows={substitutes} /></>
                 : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{t('parts.selectHint', '행을 클릭하면 공급자 코드 매핑을 관리합니다')}</div>}
             </div>
           </>

@@ -31,3 +31,16 @@ export async function releaseReservation(id: number): Promise<ActState> {
     return { error: e instanceof ApiError ? e.message : '해제 실패' }
   }
 }
+
+/** U5 로트 유통기한 설정/해제. */
+export async function setLotExpiry(itemCode: string, lotNo: string, expiryDate: string): Promise<ActState> {
+  try {
+    await apiServer('/erp/stock/lots/expiry', {
+      method: 'PATCH', body: JSON.stringify({ itemCode, lotNo, expiryDate }),
+    })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '유통기한 설정 실패' }
+  }
+  revalidatePath('/erp/inventory')
+  return { ok: `${itemCode}/${lotNo} 유통기한 ${expiryDate || '해제'}` }
+}

@@ -1,12 +1,12 @@
 'use client'
 
-/** 창고·저장위치 — 계층 등록/삭제 액션 (N3 복구). */
-import { useActionState, useState, useTransition } from 'react'
+/** 창고·저장위치 — 계층 등록/삭제 + 정기점검 실적 (N3·U5). */
+import { useActionState, useEffect, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
-import { createWarehouse, deleteWarehouse, type ActState } from './actions'
+import { addInspection, createWarehouse, deleteWarehouse, listInspections, type ActState, type InspectionRow } from './actions'
 
 export interface WarehouseRow {
   warehouseId: number; parentId: number | null; type: string; code: string; name: string
@@ -30,6 +30,24 @@ export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
   const sel = rows.find((r) => r.warehouseId === selId) ?? null
+
+  // ── U5 정기점검 실적 — 선택 위치의 점검 이력 + 등록 ──
+  const [inspections, setInspections] = useState<InspectionRow[]>([])
+  const [inspResult, setInspResult] = useState<'OK' | 'ISSUE'>('OK')
+  const [inspNote, setInspNote] = useState('')
+  const [inspSt, setInspSt] = useState<ActState>({})
+  useEffect(() => {
+    if (!sel) { setInspections([]); return }
+    let alive = true
+    void listInspections(sel.code).then((r) => { if (alive) setInspections(r) })
+    return () => { alive = false }
+  }, [sel?.code])  // eslint-disable-line react-hooks/exhaustive-deps
+  const submitInspection = () => start(async () => {
+    if (!sel) return
+    const r = await addInspection(sel.code, inspResult, inspNote)
+    setInspSt(r)
+    if (r.ok) { setInspNote(''); setInspections(await listInspections(sel.code)) }
+  })
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -66,10 +84,33 @@ export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
         {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
-        <DenseGrid prefKey="next-warehouses" colFilter columns={cols} rows={rows}
-          rowKey={(r) => r.warehouseId} selectedKey={selId ?? undefined}
-          onRowClick={(r) => setSelId(r.warehouseId)} emptyText={t('wh.empty', '창고 위치가 없습니다')} />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <DenseGrid prefKey="next-warehouses" colFilter columns={cols} rows={rows}
+            rowKey={(r) => r.warehouseId} selectedKey={selId ?? undefined}
+            onRowClick={(r) => setSelId(r.warehouseId)} emptyText={t('wh.empty', '창고 위치가 없습니다')} />
+        </div>
+        {sel ? (
+          <div className="gb" data-inspection-panel style={{ width: 300, overflow: 'auto', padding: 8, fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('wh.inspTitle', '정기점검 실적')} — {sel.code} ({inspections.length})</div>
+            <table className="g" style={{ width: '100%' }}>
+              <thead><tr><th>{t('wh.inspResult', '판정')}</th><th>{t('wh.remarks', '비고')}</th><th>{t('wh.inspBy', '점검자')}</th><th>{t('wh.inspAt', '일시')}</th></tr></thead>
+              <tbody>{inspections.length ? inspections.map((i) => (
+                <tr key={i.id}><td className="c"><Chip tone={i.result === 'OK' ? 'ok' : 'err'}>{i.result}</Chip></td>
+                  <td>{i.note || '—'}</td><td className="c">{i.by}</td><td className="c" style={{ fontSize: 9.5 }}>{i.at}</td></tr>
+              )) : <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--txt-mute)' }}>{t('wh.noInsp', '점검 기록 없음')}</td></tr>}</tbody>
+            </table>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid var(--line)', paddingTop: 6 }}>
+              <select className="in" value={inspResult} onChange={(e) => setInspResult(e.target.value as 'OK' | 'ISSUE')} style={{ height: 20, fontSize: 10.5 }}>
+                <option value="OK">OK</option><option value="ISSUE">ISSUE</option>
+              </select>
+              <input className="in" style={{ flex: 1, minWidth: 90 }} placeholder={t('wh.inspNotePh', '점검 비고')} value={inspNote} onChange={(e) => setInspNote(e.target.value)} />
+              <button className="b run" data-insp-add disabled={pending} onClick={submitInspection}>＋ {t('wh.inspAdd', '점검 기록')}</button>
+              {inspSt.error ? <span style={{ color: 'var(--err)', fontSize: 10 }}>{inspSt.error}</span> : null}
+              {inspSt.ok ? <span style={{ color: 'var(--run)', fontSize: 10 }}>{inspSt.ok}</span> : null}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
