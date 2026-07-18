@@ -39,7 +39,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
         🔔{unread > 0 ? <span style={{ position: 'absolute', top: -4, right: -4, background: 'var(--err)', color: '#fff', fontSize: 8, fontWeight: 700, borderRadius: 8, minWidth: 13, height: 13, lineHeight: '13px', padding: '0 3px' }}>{unread > 99 ? '99+' : unread}</span> : null}
       </button>
       {open ? (
-        <div style={{ position: 'absolute', top: 24, right: 0, width: 320, maxHeight: 400, overflow: 'auto', background: '#fff', border: '1px solid var(--line-strong)', borderRadius: 4, boxShadow: '0 6px 24px rgba(20,26,40,.25)', zIndex: 200 }}>
+        <div style={{ position: 'absolute', top: 24, right: 0, width: 320, maxHeight: 400, overflow: 'auto', background: '#fff', color: 'var(--txt)', fontWeight: 400, textAlign: 'left', border: '1px solid var(--line-strong)', borderRadius: 4, boxShadow: '0 6px 24px rgba(20,26,40,.25)', zIndex: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid var(--line)' }}>
             <b style={{ fontSize: 11.5 }}>알림 {unread > 0 ? `(${unread})` : ''}</b>
             <span style={{ flex: 1 }} />
