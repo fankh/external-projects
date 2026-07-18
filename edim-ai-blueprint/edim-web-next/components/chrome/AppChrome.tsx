@@ -5,11 +5,12 @@
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useI18n } from '@/components/I18nProvider'
-import { MenuBar, MdiTabs, StatusBar, TitleBar, type MdiTab, type MenuItem } from './chrome'
+import { MenuBar, MdiTabs, StatusBar, TitleBar, type MdiTab, type MenuItem, type NavMenu } from './chrome'
 import { GlobalSearch } from './GlobalSearch'
+import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
-import { HREF_INFO, MENU_TREE, moduleOfPath, type ModuleKey, type NavNode } from './menus'
-import { changePassword, getFavorites, saveFavorites, shellCounts, type FavItem } from './shellActions'
+import { HREF_INFO, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
+import { changePassword, getFavorites, getLeftNav, saveFavorites, saveLeftNav, shellCounts, type FavItem, type LeftNavPref } from './shellActions'
 
 const TABS_KEY = 'edim-next-tabs'
 const MAX_TABS = 12
@@ -57,8 +58,30 @@ export function AppChrome(props: {
       return info ? { ...tab, title: t(`menu.${info.id}`, tab.title).replace(/\s*\([^)]*\)\s*$/, '') } : tab
     }), [tabs, t])
 
-  // ── 모듈 트리 — 권한 숨김 + 라벨 번역 ──
+  // ── 좌측 사용자 메뉴 목록 (/prefs/leftnav) — 모듈별 leaf id 순서, 부재 = 기본 전체 트리 ──
+  const [leftNav, setLeftNav] = useState<LeftNavPref>({})
+  const [leftNavLoaded, setLeftNavLoaded] = useState(false)
+  useEffect(() => { void getLeftNav().then((p) => { setLeftNav(p); setLeftNavLoaded(true) }) }, [])
+  const applyLeftNav = useCallback((ids?: string[]) => {
+    setLeftNav((cur) => {
+      const next = { ...cur }
+      if (ids) next[module] = ids
+      else delete next[module]
+      void saveLeftNav(next)
+      return next
+    })
+  }, [module])
+  const [navEditOpen, setNavEditOpen] = useState(false)
+
+  // ── 모듈 트리 — 커스텀 존재 시 플랫 리프 목록, 없으면 기본 전체 트리 (권한 숨김 + 라벨 번역) ──
+  const custom = leftNavLoaded ? leftNav[module] : undefined
   const trNodes = useMemo(() => {
+    if (custom) {
+      return custom
+        .map((id) => NODE_BY_ID[id])
+        .filter((n): n is NavNode => !!n?.href && (props.canReadAdmin || n.minLevel !== 'SETUP'))
+        .map((n) => ({ id: n.id, href: n.href, label: t(`menu.${n.id}`, n.label), icon: '▣' }))
+    }
     const walk = (ns: NavNode[]): TreeNode[] => ns
       .filter((n) => props.canReadAdmin || n.minLevel !== 'SETUP')
       .map((n) => ({
@@ -68,8 +91,22 @@ export function AppChrome(props: {
         children: n.children ? walk(n.children) : undefined,
       }))
     return walk(MENU_TREE[module].nodes)
-  }, [module, t, props.canReadAdmin])
+  }, [module, t, props.canReadAdmin, custom])
   const selectedId = HREF_INFO[pathname]?.id ?? null
+
+  // ── 헤더 카테고리 드롭다운 — 모듈 그룹 → 상단 메뉴바 (원본 PPT Head 메뉴) ──
+  const navMenus: NavMenu[] = useMemo(() =>
+    navDropdowns(module, props.canReadAdmin).map((d) => ({
+      key: d.id,
+      label: t(`menu.${d.id}`, d.label),
+      items: d.entries.flatMap((e, i): MenuItem[] => e.kind === 'header'
+        ? [...(i > 0 ? [{ sep: true, label: '' }] : []), { label: t(`menu.${e.node.id}`, e.node.label), header: true }]
+        : [{
+            label: t(`menu.${e.node.id}`, e.node.label).replace(/\s*\([^)]*\)\s*$/, ''),
+            hint: e.node.code,
+            onClick: () => router.push(e.node.href!),
+          }]),
+    })), [module, props.canReadAdmin, t, router])
 
   // ── 메뉴바 드롭다운 ──
   const stepTab = useCallback((dir: 1 | -1) => {
@@ -179,14 +216,14 @@ export function AppChrome(props: {
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TitleBar user={props.user} bell={props.bell} right={props.right}
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
-      <MenuBar menus={menus} right={
+      <MenuBar menus={menus} extra={navMenus} right={
         <>
           {/* D8 — 화면 즐겨찾기: ★ 토글 + 칩 (최대 8) */}
           <span className="b ic" data-fav-toggle
             title={curInfo ? (isFav ? t('shell.favRemove', '즐겨찾기 해제') : t('shell.favAdd', '현재 화면 즐겨찾기 추가')) : t('shell.favNoScreen', '즐겨찾기 — 화면을 먼저 여십시오')}
             style={{ color: isFav ? '#E8B84B' : undefined, cursor: curInfo ? 'pointer' : 'default', marginLeft: 8 }}
             onClick={toggleFav}>{isFav ? '★' : '☆'}</span>
-          {favs.slice(0, 8).map((f) => (
+          {favs.slice(0, 5).map((f) => (
             <span key={f.href} className="b" data-fav-chip
               title={`${t('shell.favorite', '즐겨찾기')} — ${f.code} ${favLabel(f)}`}
               style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
@@ -220,6 +257,11 @@ export function AppChrome(props: {
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <LnavTree title={moduleTitle} nodes={trNodes} selectedId={selectedId}
           onSelect={(n) => { if (n.href) router.push(n.href) }} width={220}
+          headerAction={
+            <span className="b ic" data-lnav-edit title={t('shell.menuEdit', '메뉴 편집')}
+              style={{ cursor: 'pointer', fontSize: 11 }} onClick={() => setNavEditOpen(true)}>✎</span>
+          }
+          emptyHint={t('shell.leftNavEmpty', '표시할 메뉴가 없습니다 — ✎ 메뉴 편집')}
           footer={
             <div style={{ borderTop: '1px solid var(--line)' }}>
               <div className="hd">{t('shell.todo', 'To-Do')}</div>
@@ -239,6 +281,9 @@ export function AppChrome(props: {
           {props.children}
         </main>
       </div>
+      <LeftNavEditModal open={navEditOpen} onClose={() => setNavEditOpen(false)}
+        module={module} canReadAdmin={props.canReadAdmin}
+        value={leftNav[module]} onSave={applyLeftNav} />
       <StatusBar cells={[
         <span key="pending" className={counts.inbox > 0 ? 'st warn' : undefined}
           style={{ cursor: 'pointer' }} onClick={() => router.push('/common/approval')}>

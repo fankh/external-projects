@@ -62,15 +62,23 @@ export function LnavTree(props: {
   onSelect?: (n: TreeNode) => void
   footer?: ReactNode
   width?: number
+  headerAction?: ReactNode   // 우측 액션 (✎ 메뉴 편집)
+  emptyHint?: string         // 빈 목록 안내
 }) {
   return (
     <div className="lnav" style={props.width ? { width: props.width } : undefined}>
-      <div className="hd">{props.title}</div>
+      <div className="hd" style={{ display: 'flex', alignItems: 'center' }}>
+        <span style={{ flex: 1 }}>{props.title}</span>
+        {props.headerAction}
+      </div>
       <div className="tree2" style={{ flex: 1 }}>
         {props.nodes.map((n) => (
           <Node key={n.id} node={n} depth={1}
             selectedId={props.selectedId} onSelect={props.onSelect} />
         ))}
+        {props.nodes.length === 0 && props.emptyHint ? (
+          <div style={{ padding: '8px 10px', fontSize: 10.5, color: 'var(--txt-mute)' }}>{props.emptyHint}</div>
+        ) : null}
       </div>
       {props.footer}
     </div>

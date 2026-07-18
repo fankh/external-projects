@@ -38,6 +38,29 @@ export async function saveFavorites(items: FavItem[]): Promise<void> {
   } catch { /* 백엔드 불가 — 다음 세션에서 재시도 */ }
 }
 
+/** 좌측 사용자 메뉴 목록 — 모듈별 leaf node id 순서. 키 부재 = 기본 전체 트리, [] = 의도적 빈 목록. */
+export type LeftNavPref = Partial<Record<string, string[]>>
+
+export async function getLeftNav(): Promise<LeftNavPref> {
+  try {
+    const r = await apiServer<{ value: LeftNavPref | null }>('/prefs/leftnav')
+    const v = r.value
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    // 모듈별 검증 — 문자열 배열이 아니면 해당 모듈만 기본 트리 폴백
+    const out: LeftNavPref = {}
+    for (const [k, ids] of Object.entries(v)) {
+      if (Array.isArray(ids) && ids.every((x) => typeof x === 'string')) out[k] = ids
+    }
+    return out
+  } catch { return {} }
+}
+
+export async function saveLeftNav(p: LeftNavPref): Promise<void> {
+  try {
+    await apiServer('/prefs/leftnav', { method: 'PUT', body: JSON.stringify({ value: p }) })
+  } catch { /* 백엔드 불가 — 세션 내 낙관 상태 유지 */ }
+}
+
 /** 셸 크롬 카운트 (P2) — 승인 대기 = 실 inbox 길이, PL 지연 = 부서 이벤트 delayed 합. */
 export async function shellCounts(): Promise<{ inbox: number; delayed: number }> {
   const [inbox, dash] = await Promise.all([

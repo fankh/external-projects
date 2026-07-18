@@ -52,6 +52,7 @@ export interface MenuItem {
   onClick?: () => void
   disabled?: boolean
   sep?: boolean
+  header?: boolean       // 비클릭 섹션 라벨 (3단계 그룹 평탄화)
 }
 
 function MenuDrop(props: {
@@ -60,11 +61,12 @@ function MenuDrop(props: {
   open: boolean
   onToggle: () => void
   onClose: () => void
+  dataKey?: string       // data-nav-cat (스모크/E2E 셀렉터)
 }) {
   return (
     <span style={{ position: 'relative' }}
       className={props.open ? 'mod on' : undefined}
-      onClick={props.onToggle} data-menu={props.label}>
+      onClick={props.onToggle} data-menu={props.label} data-nav-cat={props.dataKey}>
       {props.label}
       <span aria-hidden style={{ fontSize: 8, marginLeft: 3, opacity: .55, verticalAlign: 1 }}>▾</span>
       {props.open ? (
@@ -76,6 +78,9 @@ function MenuDrop(props: {
         }}>
           {props.items.map((it, i) => it.sep ? (
             <div key={i} style={{ borderTop: '1px solid var(--line)', margin: '3px 0' }} />
+          ) : it.header ? (
+            <div key={i} style={{ padding: '4px 12px 2px', fontSize: 10.5, fontWeight: 700, color: 'var(--title-navy)' }}
+              onClick={(e) => e.stopPropagation()}>{it.label}</div>
           ) : (
             <div key={i}
               style={{
@@ -101,7 +106,10 @@ function MenuDrop(props: {
   )
 }
 
-export function MenuBar(props: { menus: Record<string, MenuItem[]>; right?: ReactNode }) {
+/** 헤더 카테고리 드롭다운 (모듈별 메뉴 그룹) */
+export interface NavMenu { key: string; label: string; items: MenuItem[] }
+
+export function MenuBar(props: { menus: Record<string, MenuItem[]>; extra?: NavMenu[]; right?: ReactNode }) {
   const { t } = useI18n()
   const [open, setOpen] = useState<string | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
@@ -121,11 +129,11 @@ export function MenuBar(props: { menus: Record<string, MenuItem[]>; right?: Reac
   }, [open])
 
   const order: [string, string][] = [
-    [t('shell.file', '파일'), '파일'], [t('shell.edit', '편집'), '편집'], [t('shell.view', '조회'), '조회'],
+    [t('shell.file', '파일'), '파일'],
     [t('shell.tools', '도구'), '도구'], [t('shell.window', '창'), '창'], [t('shell.help', '도움말'), '도움말'],
   ]
   return (
-    <div className="menubar" ref={barRef} style={{ alignItems: 'center' }}>
+    <div className="menubar" ref={barRef} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
       {order.map(([label, key]) => {
         const items = props.menus[key]
         if (!items) return <span key={key}>{label}</span>
@@ -136,6 +144,17 @@ export function MenuBar(props: { menus: Record<string, MenuItem[]>; right?: Reac
             onClose={() => setOpen(null)} />
         )
       })}
+      {props.extra?.length ? (
+        <>
+          <span aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'var(--line)', margin: '2px 6px' }} />
+          {props.extra.map((m) => (
+            <MenuDrop key={m.key} label={m.label} items={m.items} dataKey={m.key}
+              open={open === `nav:${m.key}`}
+              onToggle={() => setOpen((cur) => (cur === `nav:${m.key}` ? null : `nav:${m.key}`))}
+              onClose={() => setOpen(null)} />
+          ))}
+        </>
+      ) : null}
       {props.right}
     </div>
   )

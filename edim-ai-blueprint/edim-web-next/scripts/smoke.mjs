@@ -168,6 +168,10 @@ async function main() {
   // 4j) N6 셸 전역 — ⌘K 통합검색 입력 렌더
   await assertRenders('/erp/dashboard', ['Ctrl+K'], token)
 
+  // 4k) 네비 개편 — 헤더 카테고리 드롭다운(data-nav-cat) + 좌측 메뉴 편집(✎)
+  await assertRenders('/erp/projects', ['data-nav-cat="erp-purchasing"', 'data-nav-cat="erp-company"', 'data-lnav-edit'], token)
+  await assertRenders('/cpq/selection', ['data-nav-cat="cpq-doc"'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 

@@ -204,3 +204,60 @@ export function moduleOfPath(pathname: string): ModuleKey {
   if (seg === 'detail') return 'common'
   return (MODULES.some((m) => m.id === seg) ? seg : 'erp') as ModuleKey
 }
+
+/** id → 노드 (좌측 사용자 목록 복원용) */
+export const NODE_BY_ID: Record<string, NavNode> = (() => {
+  const out: Record<string, NavNode> = {}
+  const walk = (ns: NavNode[]) => ns.forEach((n) => { out[n.id] = n; if (n.children) walk(n.children) })
+  Object.values(MENU_TREE).forEach((m) => walk(m.nodes))
+  return out
+})()
+
+const visible = (n: NavNode, includeSetup: boolean) => includeSetup || n.minLevel !== 'SETUP'
+
+/** 모듈의 리프 전체 (깊이우선, SETUP 필터) — 좌측 목록 기본값·편집 모달 카탈로그 */
+export function moduleLeaves(module: ModuleKey, includeSetup: boolean): NavNode[] {
+  const out: NavNode[] = []
+  const walk = (ns: NavNode[]) => ns.forEach((n) => {
+    if (!visible(n, includeSetup)) return
+    if (n.href) out.push(n)
+    if (n.children) walk(n.children)
+  })
+  walk(MENU_TREE[module].nodes)
+  return out
+}
+
+/** 헤더 메뉴바 드롭다운 — 최상위 그룹 = 드롭다운, 3단계 하위 그룹 = 섹션 헤더 + 리프 전개.
+ *  최상위 직속 리프는 모듈 타이틀 이름의 합성 드롭다운(<module>-direct)으로 묶는다. */
+export interface NavDropdownEntry { kind: 'header' | 'leaf'; node: NavNode }
+export interface NavDropdown { id: string; label: string; entries: NavDropdownEntry[] }
+
+export function navDropdowns(module: ModuleKey, includeSetup: boolean): NavDropdown[] {
+  const out: NavDropdown[] = []
+  let direct: NavNode[] = []
+  const flushDirect = () => {
+    if (direct.length === 0) return
+    out.push({ id: `${module}-direct`, label: MENU_TREE[module].title, entries: direct.map((n) => ({ kind: 'leaf' as const, node: n })) })
+    direct = []
+  }
+  // 그룹 내부 전개: 직속 리프 먼저, 하위 그룹은 섹션 헤더 + 리프 재귀 (헤더 뒤에 무관 리프가 붙지 않도록)
+  const expand = (ns: NavNode[], entries: NavDropdownEntry[]) => {
+    const vis = ns.filter((n) => visible(n, includeSetup))
+    vis.filter((n) => n.href).forEach((n) => entries.push({ kind: 'leaf', node: n }))
+    vis.filter((n) => !n.href && n.children?.length).forEach((n) => {
+      const sub: NavDropdownEntry[] = []
+      expand(n.children!, sub)
+      if (sub.some((e) => e.kind === 'leaf')) entries.push({ kind: 'header', node: n }, ...sub)
+    })
+  }
+  MENU_TREE[module].nodes.forEach((n) => {
+    if (!visible(n, includeSetup)) return
+    if (n.href) { direct.push(n); return }
+    flushDirect()
+    const entries: NavDropdownEntry[] = []
+    expand(n.children ?? [], entries)
+    if (entries.some((e) => e.kind === 'leaf')) out.push({ id: n.id, label: n.label, entries })
+  })
+  flushDirect()
+  return out
+}
