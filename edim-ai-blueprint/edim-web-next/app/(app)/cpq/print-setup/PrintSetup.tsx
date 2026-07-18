@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Btn, Chip, GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { downloadRenderedXlsx, openRenderedPdf, type RenderOpts } from '@/lib/pdf'
+import { downloadRenderedXlsx, openRenderedPdf, printRenderedPdf, type RenderOpts } from '@/lib/pdf'
 import { publishForm } from './actions'
 
 const FORMS = ['Technical Report', '견적서 (CLT)', '작업지시서', '검사성적서']
@@ -56,6 +56,9 @@ export function PrintSetup() {
     .then((ok) => say(ok ? `${label} ✓ — ${form} 실렌더 (${paper} ${land ? '가로' : '세로'} · ${grayscale ? '흑백' : '칼라'})` : '렌더 불가 — 백엔드 연결 필요', !ok))
   const exportOffice = () => void downloadRenderedXlsx(`${form} — Office`, renderLines(), renderOpts('Office'))
     .then((ok) => say(ok ? `Office(xlsx) 내보내기 ✓ — ${form}` : '내보내기 불가 — 백엔드 연결 필요', !ok))
+  // U15 — OS 인쇄 다이얼로그 (슬라이드 50): 렌더 PDF 를 숨김 프레임에 적재 후 print()
+  const printDialog = () => void printRenderedPdf(`${form} — 인쇄`, renderLines(), renderOpts('인쇄'))
+    .then((ok) => say(ok ? `인쇄 다이얼로그 호출 ✓ — ${form} (${paper} ${land ? '가로' : '세로'})` : '인쇄 불가 — 백엔드 연결 필요', !ok))
   const publish = () => start(async () => {
     const r = await publishForm(form)
     if (r.error) { say(r.error, true); return }
@@ -73,6 +76,7 @@ export function PrintSetup() {
         <Chip tone={status === 'DRAFT' ? 'info' : 'warn'}>{status}</Chip>
         <span style={{ flex: 1 }} />
         <Btn onClick={() => render('Print Test')}>Print Test</Btn>
+        <Btn onClick={printDialog}>🖨 {t('printsetup.printDialog', '인쇄')}</Btn>
         <Btn onClick={() => render('PDF')}>PDF</Btn>
         <Btn onClick={exportOffice} data-office-export>Office (xlsx)</Btn>
         <Btn variant="pri" disabled={pending || status === 'PENDING'} onClick={publish}>{t('printsetup.publish', '게시 (승인 후)')}</Btn>
