@@ -7160,6 +7160,96 @@ def hierarchy_node_patch(node_id: int, request: Request, body: HierarchyNodePatc
     return {"hierarchyId": node_id, "address": row[0]}
 
 
+# ── U18 Hierarchy 편집 심화 (슬라이드 64) — 노드 이동(주소 연쇄 재계산)·정보 ──
+
+class HierarchyMove(BaseModel):
+    targetParentId: int | None = None   # None = 루트로 이동
+
+
+@router.get("/hierarchy/nodes/{node_id}/info")
+def hierarchy_node_info(node_id: int) -> dict[str, Any]:
+    """노드 속성/정보 (U18) — 주소·심볼·상태·하위 수·이력 메타."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT h.address, h.node_name, COALESCE(h.symbol,''), h.tree_type,
+                      h.approval_status, h.is_system, COALESCE(h.remarks,''),
+                      h.created_by, to_char(h.created_at,'YYYY-MM-DD HH24:MI'),
+                      to_char(h.updated_at,'YYYY-MM-DD HH24:MI'),
+                      (SELECT count(*) FROM sys_hierarchy c
+                       WHERE c.tenant_id=h.tenant_id AND c.tree_type=h.tree_type
+                         AND c.address LIKE h.address || '.%') AS descendants
+               FROM sys_hierarchy h WHERE h.tenant_id=%s AND h.hierarchy_id=%s""",
+            (tid, node_id))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"노드 없음: #{node_id}")
+    return {"address": r[0], "name": r[1], "symbol": r[2], "treeType": r[3],
+            "status": r[4], "isSystem": r[5], "remarks": r[6],
+            "createdBy": r[7], "createdAt": r[8], "updatedAt": r[9], "descendants": int(r[10])}
+
+
+@router.post("/hierarchy/nodes/{node_id}/move", dependencies=[SETUP])
+def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> dict[str, Any]:
+    """노드 이동 (U18) — 대상 부모 하위로 재배치, 본인+하위 전체 주소 접두 연쇄 재계산.
+
+    가드: 시스템 노드 불가·자기 자신/자기 하위로 이동 불가·트리 불일치 422.
+    """
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT address, tree_type, is_system FROM sys_hierarchy
+               WHERE tenant_id=%s AND hierarchy_id=%s""", (tid, node_id))
+        src = cur.fetchone()
+        if not src:
+            raise HTTPException(404, detail=f"노드 없음: #{node_id}")
+        if src[2]:
+            raise HTTPException(422, detail="시스템 제공 노드는 이동할 수 없습니다")
+        old_addr, tree = src[0], src[1]
+        if body.targetParentId is not None:
+            cur.execute(
+                """SELECT address, tree_type FROM sys_hierarchy
+                   WHERE tenant_id=%s AND hierarchy_id=%s""", (tid, body.targetParentId))
+            tgt = cur.fetchone()
+            if not tgt:
+                raise HTTPException(404, detail=f"대상 노드 없음: #{body.targetParentId}")
+            if tgt[1] != tree:
+                raise HTTPException(422, detail="다른 트리로는 이동할 수 없습니다")
+            if tgt[0] == old_addr or tgt[0].startswith(old_addr + "."):
+                raise HTTPException(422, detail="자기 자신 또는 하위로는 이동할 수 없습니다")
+            parent_addr = tgt[0]
+        else:
+            parent_addr = ""
+        # 새 주소 = 대상 부모 하위 다음 순번 (형제 마지막 세그먼트 최대+1 — 비수치 세그먼트는 무시)
+        if parent_addr:
+            cur.execute(
+                """SELECT address FROM sys_hierarchy
+                   WHERE tenant_id=%s AND tree_type=%s AND address LIKE %s AND address NOT LIKE %s""",
+                (tid, tree, parent_addr + ".%", parent_addr + ".%.%"))
+            segs = [a[0][len(parent_addr) + 1:] for a in cur.fetchall()]
+        else:
+            cur.execute(
+                "SELECT address FROM sys_hierarchy WHERE tenant_id=%s AND tree_type=%s AND address NOT LIKE '%%.%%'",
+                (tid, tree))
+            segs = [a[0] for a in cur.fetchall()]
+        next_seq = max((int(x) for x in segs if x.isdigit()), default=0) + 1
+        new_addr = f"{parent_addr}.{next_seq}" if parent_addr else str(next_seq)
+        # 본인 + 하위 연쇄 접두 치환
+        cur.execute(
+            """UPDATE sys_hierarchy
+               SET address = %s || substring(address from %s), updated_at = now()
+               WHERE tenant_id=%s AND tree_type=%s
+                 AND (address = %s OR address LIKE %s)""",
+            (new_addr, len(old_addr) + 1, tid, tree, old_addr, old_addr + ".%"))
+        moved = cur.rowcount
+        cur.execute(
+            "UPDATE sys_hierarchy SET parent_id=%s WHERE tenant_id=%s AND hierarchy_id=%s",
+            (body.targetParentId, tid, node_id))
+        _audit(cur, tid, "sys_hierarchy", node_id, "NODE_MOVE", request.state.user_id,
+               after={"from": old_addr, "to": new_addr, "moved": moved})
+    return {"hierarchyId": node_id, "newAddress": new_addr, "moved": moved}
+
+
 @router.delete("/hierarchy/nodes/{node_id}", dependencies=[SETUP])
 def hierarchy_node_delete(node_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:

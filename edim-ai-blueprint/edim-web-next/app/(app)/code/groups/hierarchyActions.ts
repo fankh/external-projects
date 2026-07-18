@@ -47,3 +47,27 @@ export async function deleteHierarchyNode(id: number): Promise<ActState> {
   revalidatePath(PATH)
   return { ok: `#${id} 삭제` }
 }
+
+/** U18 — 노드 이동 (대상 부모 하위로, 하위 주소 연쇄 재계산). targetParentId null = 루트. */
+export async function moveHierarchyNode(id: number, targetParentId: number | null): Promise<ActState> {
+  try {
+    const r = await apiServer<{ newAddress: string; moved: number }>(`/hierarchy/nodes/${id}/move`, {
+      method: 'POST', body: JSON.stringify({ targetParentId }),
+    })
+    revalidatePath('/code/groups')
+    return { ok: `이동 ✓ — 새 주소 ${r.newAddress} (${r.moved}노드)` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '이동 실패' }
+  }
+}
+
+export interface NodeInfo {
+  address: string; name: string; symbol: string; treeType: string; status: string
+  isSystem: boolean; remarks: string; createdBy: string; createdAt: string; updatedAt: string; descendants: number
+}
+
+export async function getNodeInfo(id: number): Promise<NodeInfo | null> {
+  try {
+    return await apiServer<NodeInfo>(`/hierarchy/nodes/${id}/info`)
+  } catch { return null }
+}

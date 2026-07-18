@@ -5,7 +5,7 @@ import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Chip, GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { addHierarchyNode, deleteHierarchyNode, renameHierarchyNode, type ActState } from './hierarchyActions'
+import { addHierarchyNode, deleteHierarchyNode, getNodeInfo, moveHierarchyNode, renameHierarchyNode, type ActState, type NodeInfo } from './hierarchyActions'
 
 export interface HierarchyNode {
   id: number; parentId: number | null; name: string
@@ -21,6 +21,23 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
   const [pending, start] = useTransition()
   const sel = nodes.find((n) => n.id === selId) ?? null
   const depth = (n: HierarchyNode) => Math.max(0, n.address.split('.').length - 1)
+
+  // ── U18 편집 심화 — 검색·컨텍스트 메뉴·이동(잘라내기→붙여넣기)·속성 ──
+  const [query, setQuery] = useState('')
+  const [ctx, setCtx] = useState<{ x: number; y: number; node: HierarchyNode } | null>(null)
+  const [cutId, setCutId] = useState<number | null>(null)
+  const [info, setInfo] = useState<NodeInfo | null>(null)
+  const shown = query.trim()
+    ? nodes.filter((n) => n.name.toLowerCase().includes(query.trim().toLowerCase()) || n.address.includes(query.trim()))
+    : nodes
+  const openInfo = (id: number) => start(async () => setInfo(await getNodeInfo(id)))
+  const pasteInto = (target: HierarchyNode | null) => {
+    if (cutId == null) return
+    start(async () => {
+      setSt(await moveHierarchyNode(cutId, target?.id ?? null))
+      setCutId(null)
+    })
+  }
 
   return (
     <GroupBox title={`Hierarchy 주소 (M-3-1) — ${treeType} · ${nodes.length}노드`} noPad
@@ -40,6 +57,7 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
           <button className="b run" type="submit" disabled={regPending}>＋ 노드</button>
         </form>
         <span className="sep" />
+        <input className="in" data-h-search style={{ width: 96 }} placeholder="검색 (이름·주소)" value={query} onChange={(e) => setQuery(e.target.value)} />
         <input className="in" style={{ width: 100 }} placeholder="새 이름 (개명)" value={newName} onChange={(e) => setNewName(e.target.value)} />
         <button className="b" disabled={pending || !sel || !newName.trim()} onClick={() => {
           if (sel) start(async () => { setSt(await renameHierarchyNode(sel.id, newName, sel.symbol)); setNewName('') })
@@ -51,19 +69,64 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
         {(regSt.error || st.error) ? <span style={{ color: 'var(--err)' }}>{regSt.error || st.error}</span> : null}
         {(regSt.ok || st.ok) ? <span style={{ color: 'var(--run)' }}>{regSt.ok || st.ok}</span> : null}
       </div>
-      <div className="tree2" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        {nodes.length ? nodes.map((n) => (
+      <div className="tree2" style={{ flex: 1, minHeight: 0, overflow: 'auto' }} onClick={() => setCtx(null)}>
+        {cutId != null ? (
+          <div style={{ padding: '3px 8px', fontSize: 10, background: 'var(--sel-yellow, #FFF3C2)' }}>
+            ✂ {nodes.find((n) => n.id === cutId)?.address} 이동 대기 — 대상 노드 우클릭 → 붙여넣기 (루트로: <span style={{ textDecoration: 'underline', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); pasteInto(null) }}>여기</span>)
+          </div>
+        ) : null}
+        {shown.length ? shown.map((n) => (
           <div key={n.id} className={`tn ${n.id === selId ? 'sel' : ''}`}
-            style={{ paddingLeft: 6 + depth(n) * 14 }}
-            onClick={() => setSelId(n.id)}>
+            style={{ paddingLeft: 6 + depth(n) * 14, opacity: n.id === cutId ? 0.5 : 1 }}
+            onClick={() => setSelId(n.id)}
+            onContextMenu={(e) => { e.preventDefault(); setSelId(n.id); setCtx({ x: e.clientX, y: e.clientY, node: n }) }}>
             <span className="ico">▣</span>
             <span className="code" style={{ minWidth: 56 }}>{n.address}</span>
             {n.name}
             {n.symbol ? <span style={{ color: 'var(--txt-mute)' }}> ({n.symbol})</span> : null}
             {n.status !== 'ACTIVE' ? <Chip tone="warn">{n.status}</Chip> : null}
           </div>
-        )) : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>노드가 없습니다 — 루트 노드를 등록하십시오</div>}
+        )) : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{query ? '검색 결과 없음' : '노드가 없습니다 — 루트 노드를 등록하십시오'}</div>}
       </div>
+      {/* U18 — 컨텍스트 메뉴 (슬라이드 64) */}
+      {ctx ? (
+        <div data-h-ctx style={{ position: 'fixed', left: ctx.x, top: ctx.y, zIndex: 200, background: '#fff',
+          border: '1px solid var(--line-strong)', boxShadow: '0 4px 12px rgba(20,26,40,.25)', fontSize: 11, minWidth: 130 }}
+          onClick={(e) => e.stopPropagation()}>
+          {[
+            { label: '✂ 잘라내기 (이동)', act: () => { setCutId(ctx.node.id); setCtx(null) } },
+            ...(cutId != null && cutId !== ctx.node.id ? [{ label: '📥 여기에 붙여넣기', act: () => { pasteInto(ctx.node); setCtx(null) } }] : []),
+            { label: 'ℹ 속성·정보', act: () => { openInfo(ctx.node.id); setCtx(null) } },
+            { label: '🗑 삭제', act: () => { setCtx(null); if (confirm(`${ctx.node.address} ${ctx.node.name} 을 삭제하시겠습니까?`)) start(async () => { setSt(await deleteHierarchyNode(ctx.node.id)); setSelId(null) }) } },
+          ].map((m) => (
+            <div key={m.label} style={{ padding: '5px 12px', cursor: 'pointer' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#EDF2FA' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
+              onClick={m.act}>{m.label}</div>
+          ))}
+        </div>
+      ) : null}
+      {/* U18 — 속성/정보 다이얼로그 */}
+      {info ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setInfo(null)}>
+          <div className="gb" data-h-info style={{ width: 320, padding: 12, background: '#fff', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>노드 속성 — {info.name}</div>
+            <table className="g" style={{ width: '100%' }}><tbody>
+              {[['주소', info.address], ['트리', info.treeType], ['심볼', info.symbol || '—'],
+                ['상태', info.status], ['시스템 제공', info.isSystem ? '예 (편집 제한)' : '아니오'],
+                ['하위 노드', String(info.descendants)], ['작성', `${info.createdBy} · ${info.createdAt}`],
+                ['수정', info.updatedAt || '—'], ['비고', info.remarks || '—']].map(([k, v]) => (
+                <tr key={k}><td style={{ width: 84, color: 'var(--txt-mute)' }}>{k}</td><td>{v}</td></tr>
+              ))}
+            </tbody></table>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="b" onClick={() => setInfo(null)}>닫기</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </GroupBox>
   )
 }
