@@ -13,13 +13,25 @@ const PATHS: Record<string, (id: string) => string> = {
 /** 감사 로그 XLSX — 필터 파라미터 허용 목록 통과 (P2). */
 const AUDIT_PARAMS = ['fromDate', 'toDate', 'user', 'action', 'target'] as const
 
+/** 대장 XLSX export — 파라미터 없는 전체 대장 (P2 XLSX export 전반). */
+const LEDGERS: Record<string, string> = {
+  prices: '/prices/export.xlsx',
+  parts: '/parts/export.xlsx',
+  drawings: '/drawings/export.xlsx',
+  warehouses: '/erp/warehouses/export.xlsx',
+  companies: '/companies/export.xlsx',
+}
+
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
   const kind = sp.get('kind') ?? ''
   const id = sp.get('id') ?? ''
   let path: string
   let filename = id
-  if (kind === 'audit') {
+  if (LEDGERS[kind]) {
+    path = LEDGERS[kind]
+    filename = kind
+  } else if (kind === 'audit') {
     const qs = new URLSearchParams()
     for (const k of AUDIT_PARAMS) { const v = sp.get(k); if (v) qs.set(k, v) }
     qs.set('limit', '10000')

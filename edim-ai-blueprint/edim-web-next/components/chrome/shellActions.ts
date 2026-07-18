@@ -61,14 +61,42 @@ export async function saveLeftNav(p: LeftNavPref): Promise<void> {
   } catch { /* 백엔드 불가 — 세션 내 낙관 상태 유지 */ }
 }
 
-/** 셸 크롬 카운트 (P2) — 승인 대기 = 실 inbox 길이, PL 지연 = 부서 이벤트 delayed 합. */
-export async function shellCounts(): Promise<{ inbox: number; delayed: number }> {
-  const [inbox, dash] = await Promise.all([
-    apiServer<unknown[]>('/approvals/inbox').catch(() => []),
+/** 셸 크롬 카운트+To-do 패널 (P2/U14) — 승인 inbox 상위 3·PL 지연 합·임박/지연 마일스톤 상위 3. */
+export interface ShellPanelData {
+  inbox: number
+  delayed: number
+  inboxTop: { id: number; assetType: string; target: string }[]
+  upcoming: { projectNo: string; stageLabel: string; plannedDate: string; delayStatus: string }[]
+}
+
+export async function shellCounts(): Promise<ShellPanelData> {
+  const [inbox, dash, ms] = await Promise.all([
+    apiServer<{ id: number; assetType: string; target: string }[]>('/approvals/inbox').catch(() => []),
     apiServer<{ deptEvents?: { delayed: number }[] }>('/erp/dashboard').catch(() => ({ deptEvents: [] })),
+    apiServer<{ projectNo: string; stageLabel: string; plannedDate: string; delayStatus: string; status: string }[]>('/erp/milestones').catch(() => []),
   ])
   const delayed = (dash.deptEvents ?? []).reduce((s, e) => s + (e.delayed ?? 0), 0)
-  return { inbox: Array.isArray(inbox) ? inbox.length : 0, delayed }
+  const rows = Array.isArray(inbox) ? inbox : []
+  const upcoming = (Array.isArray(ms) ? ms : [])
+    .filter((m) => m.delayStatus === 'OVERDUE' || m.delayStatus === 'DUE_SOON')
+    .sort((a, b) => (a.delayStatus === b.delayStatus ? a.plannedDate.localeCompare(b.plannedDate) : a.delayStatus === 'OVERDUE' ? -1 : 1))
+    .slice(0, 3)
+    .map((m) => ({ projectNo: m.projectNo, stageLabel: m.stageLabel, plannedDate: m.plannedDate, delayStatus: m.delayStatus }))
+  return {
+    inbox: rows.length,
+    delayed,
+    inboxTop: rows.slice(0, 3).map((r) => ({ id: r.id, assetType: r.assetType, target: r.target })),
+    upcoming,
+  }
+}
+
+/** F1 프로젝트 컨텍스트 시드 — 미선택 시 프로젝트 목록 첫 건. */
+export async function firstProject(): Promise<{ no: string; name: string; stage: string } | null> {
+  try {
+    const rows = await apiServer<{ projectNo: string; projectName: string; stage?: string }[]>('/projects')
+    const p = Array.isArray(rows) ? rows[0] : null
+    return p ? { no: p.projectNo, name: p.projectName, stage: p.stage ?? '' } : null
+  } catch { return null }
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok?: string; error?: string }> {

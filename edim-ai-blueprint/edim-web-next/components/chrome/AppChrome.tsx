@@ -10,7 +10,17 @@ import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
-import { changePassword, getFavorites, getLeftNav, saveFavorites, saveLeftNav, shellCounts, type FavItem, type LeftNavPref } from './shellActions'
+import { changePassword, firstProject, getFavorites, getLeftNav, saveFavorites, saveLeftNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
+
+/** F1 — 활성 프로젝트 컨텍스트 (레거시 SPA 동일 키) */
+const PROJECT_KEY = 'edim-active-project'
+interface ActiveProject { no: string; name: string; stage: string }
+function loadActiveProject(): ActiveProject | null {
+  try {
+    const p = JSON.parse(localStorage.getItem(PROJECT_KEY) ?? 'null') as ActiveProject | null
+    return p && typeof p.no === 'string' && typeof p.name === 'string' ? p : null
+  } catch { return null }
+}
 
 const TABS_KEY = 'edim-next-tabs'
 const MAX_TABS = 12
@@ -156,9 +166,34 @@ export function AppChrome(props: {
     return (info ? t(`menu.${info.id}`, f.title) : f.title).replace(/\s*\([^)]*\)\s*$/, '')
   }
 
-  // ── 셸 크롬 카운트 (P2) — 승인 대기 = 실 inbox, PL 지연 = 부서 이벤트 delayed 합 ──
+  // ── F1 활성 프로젝트 컨텍스트 — localStorage + 미선택 시 첫 프로젝트 시드 + edim-set-project 수신 ──
+  const [activeProject, setActiveProject] = useState<ActiveProject | null>(null)
+  useEffect(() => {
+    const stored = loadActiveProject()
+    if (stored) { setActiveProject(stored); return }
+    void firstProject().then((p) => {
+      if (!p) return
+      setActiveProject(p)
+      try { localStorage.setItem(PROJECT_KEY, JSON.stringify(p)) } catch { /* quota */ }
+    })
+  }, [])
+  useEffect(() => {
+    const onSet = (e: Event) => {
+      const p = (e as CustomEvent).detail as ActiveProject
+      if (!p?.no) return
+      setActiveProject(p)
+      try { localStorage.setItem(PROJECT_KEY, JSON.stringify(p)) } catch { /* quota */ }
+    }
+    window.addEventListener('edim-set-project', onSet)
+    return () => window.removeEventListener('edim-set-project', onSet)
+  }, [])
+  const userLabel = activeProject
+    ? `${activeProject.name} (${activeProject.no}) · ${props.user}`
+    : props.user
+
+  // ── 셸 크롬 카운트+To-do 패널 (P2/U14) — inbox 상위 3·PL 지연·임박 마일스톤 ──
   //    초기 + 라우팅 변경 + 60초 폴링 + edim-inbox-refresh(승인 결정) 즉시 갱신
-  const [counts, setCounts] = useState({ inbox: 0, delayed: 0 })
+  const [counts, setCounts] = useState<ShellPanelData>({ inbox: 0, delayed: 0, inboxTop: [], upcoming: [] })
   useEffect(() => {
     let alive = true
     const load = () => void shellCounts().then((c) => { if (alive) setCounts(c) })
@@ -214,7 +249,7 @@ export function AppChrome(props: {
 
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TitleBar user={props.user} bell={props.bell} right={props.right}
+      <TitleBar user={userLabel} bell={props.bell} right={props.right}
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
       <MenuBar menus={menus} extra={navMenus} right={
         <>
@@ -263,17 +298,41 @@ export function AppChrome(props: {
           }
           emptyHint={t('shell.leftNavEmpty', '표시할 메뉴가 없습니다 — ✎ 메뉴 편집')}
           footer={
-            <div style={{ borderTop: '1px solid var(--line)' }}>
+            <div style={{ borderTop: '1px solid var(--line)' }} data-todo-panel>
               <div className="hd">{t('shell.todo', 'To-Do')}</div>
-              <div style={{ padding: '6px 8px', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+              <div style={{ padding: '4px 8px 6px', fontSize: 10.5, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* U14 — 승인 inbox 상위 3 미니 그리드 */}
+                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
                   onClick={() => router.push('/common/approval')} title={t('shell.todoApprovalHint', '승인함 열기')}>
                   {t('shell.todoApproval', '승인 확인')}<span style={{ flex: 1 }} /><span className={counts.inbox > 0 ? 'st warn' : 'st'}>{counts.inbox}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                {counts.inboxTop.map((r) => (
+                  <div key={r.id} style={{ display: 'flex', gap: 4, cursor: 'pointer', paddingLeft: 6 }}
+                    onClick={() => router.push('/common/approval')}>
+                    <span style={{ color: 'var(--txt-mute)', fontSize: 9.5, flexShrink: 0 }}>{r.assetType}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.target}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
                   onClick={() => router.push('/erp/dashboard')} title={t('shell.todoPlHint', '대시보드 열기')}>
                   {t('shell.todoPl', 'PL 지연')}<span style={{ flex: 1 }} /><span className={counts.delayed > 0 ? 'st err' : 'st'}>{counts.delayed}</span>
                 </div>
+                {/* U14 — Schedule: 임박/지연 마일스톤 상위 3 */}
+                {counts.upcoming.length ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
+                      onClick={() => router.push('/erp/milestones')} title={t('shell.scheduleHint', '마일스톤 열기')}>
+                      {t('shell.schedule', 'Schedule')}<span style={{ flex: 1 }} />
+                    </div>
+                    {counts.upcoming.map((m, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 4, cursor: 'pointer', paddingLeft: 6 }}
+                        onClick={() => router.push('/erp/milestones')}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.projectNo} {m.stageLabel}</span>
+                        <span style={{ fontSize: 9.5, color: m.delayStatus === 'OVERDUE' ? 'var(--err)' : 'var(--warn, #B4820B)', flexShrink: 0 }}>{m.plannedDate.slice(5)}</span>
+                      </div>
+                    ))}
+                  </>
+                ) : null}
               </div>
             </div>
           } />

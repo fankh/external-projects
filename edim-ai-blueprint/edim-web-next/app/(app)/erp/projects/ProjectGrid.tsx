@@ -27,6 +27,10 @@ export function ProjectGrid({ rows, selectedNo }: { rows: ProjectRow[]; selected
   ]
   return <DenseGrid prefKey="next-projects" colFilter columns={cols} rows={rows} rowKey={(r) => r.projectNo}
     selectedKey={selectedNo ?? undefined}
-    onRowClick={(r) => router.push(`/erp/projects?no=${encodeURIComponent(r.projectNo)}`)}
+    onRowClick={(r) => {
+      // F1 — 타이틀바 활성 프로젝트 컨텍스트 갱신
+      window.dispatchEvent(new CustomEvent('edim-set-project', { detail: { no: r.projectNo, name: r.projectName, stage: r.stage } }))
+      router.push(`/erp/projects?no=${encodeURIComponent(r.projectNo)}`)
+    }}
     emptyText={t('prj.empty', '프로젝트가 없습니다')} />
 }

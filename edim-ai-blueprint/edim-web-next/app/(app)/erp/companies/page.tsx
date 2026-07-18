@@ -2,6 +2,7 @@ import { apiServer, ApiError } from '@/lib/api'
 import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
+import { XlsxButton } from '@/components/XlsxButton'
 import { CompanyGrid, type CompanyRow } from './CompanyGrid'
 import { CompanyForm } from './CompanyForm'
 import { SupplierPanel, type SupplierEval, type SupplierMetrics } from './SupplierPanel'
@@ -33,7 +34,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={t('menu.erp-company-master', '거래처 대장 (M-14-2)')} count={err ? undefined : rows.length} source="/companies" />
+      <ScreenHeader title={t('menu.erp-company-master', '거래처 대장 (M-14-2)')} count={err ? undefined : rows.length} source="/companies" right={<XlsxButton kind="companies" />} />
       <CompanyForm />
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (

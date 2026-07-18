@@ -2,6 +2,7 @@ import { apiServer, ApiError } from '@/lib/api'
 import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
+import { XlsxButton } from '@/components/XlsxButton'
 import { DrawingGrid, type DrawingRow } from './DrawingGrid'
 import { DrawingDetail, DrawingRegForm, type RevisionRow, type StepRow } from './DrawingsPanel'
 
@@ -31,7 +32,7 @@ export default async function DrawingsPage({ searchParams }: { searchParams: Pro
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={t('menu.plm-drawings', '도면 대장 (M-4-1)')} count={err ? undefined : rows.length} source="/drawings" />
+      <ScreenHeader title={t('menu.plm-drawings', '도면 대장 (M-4-1)')} count={err ? undefined : rows.length} source="/drawings" right={<XlsxButton kind="drawings" />} />
       <div style={{ padding: '4px 6px 0' }}><DrawingRegForm /></div>
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div> : (
