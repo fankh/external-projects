@@ -12,6 +12,7 @@ export function TitleBar(props: {
   activeModule?: ModuleKey
   onModule?: (m: ModuleKey) => void
   logo?: string               // U11 — 테넌트 로고 (data URL)
+  allowed?: string[]          // D10 — 표시 모듈 (undefined = 전체)
 }) {
   const { t } = useI18n()
   return (
@@ -24,7 +25,7 @@ export function TitleBar(props: {
       <span style={{ color: '#8FA5CC' }}>— NOVA Solution</span>
       {props.onModule ? (
         <span style={{ display: 'inline-flex', gap: 2, marginLeft: 14 }}>
-          {MODULES.map((m) => {
+          {MODULES.filter((m) => !props.allowed || props.allowed.includes(m.id)).map((m) => {
             const on = props.activeModule === m.id
             return (
               <span key={m.id} className={`mod ${on ? 'on' : ''}`}

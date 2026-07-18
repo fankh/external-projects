@@ -22,10 +22,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const locale = await getLocale()
   const bundle = bundleFor(locale)
 
-  // P5 — 권한 게이팅 시드 (me + permissions SSR) + 알림 요약 + 테넌트 로고 (U11)
-  const [me, perms, digest, branding] = await Promise.all([
+  // P5 — 권한 게이팅 시드 (me + permissions SSR) + 알림 요약 + 테넌트 로고 (U11) + D10 표시 모듈
+  const { apiServer } = await import('@/lib/api')
+  const [me, perms, digest, branding, menuCfg] = await Promise.all([
     getMe(), getPermissions(), notificationDigest(),
-    (await import('@/lib/api')).apiServer<{ logoData: string | null }>('/tenant/branding').catch(() => ({ logoData: null })),
+    apiServer<{ logoData: string | null }>('/tenant/branding').catch(() => ({ logoData: null })),
+    apiServer<{ modules: string[]; restricted: boolean }>('/menu/config').catch(() => ({ modules: [], restricted: false })),
   ])
   const rank = LEVEL_RANK[me?.userLevel ?? 'GENERAL'] ?? 0
   const canReadAdmin = rank >= (LEVEL_RANK['SETUP'] ?? 99)
@@ -35,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <I18nProvider locale={locale} bundle={bundle}>
     <PermissionProvider login={me?.login ?? ''} level={me?.userLevel ?? 'GENERAL'} perms={perms}>
       <AppChrome user={userLabel} canReadAdmin={canReadAdmin} logo={branding.logoData ?? undefined}
+        allowedModules={menuCfg.restricted ? menuCfg.modules : undefined}
         bell={<><NotificationBell initialUnread={digest.unread} /><LocaleSwitcher /></>}
         right={
           <form action={logout} data-logout>

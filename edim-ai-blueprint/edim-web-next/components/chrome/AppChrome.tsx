@@ -43,12 +43,19 @@ export function AppChrome(props: {
   bell?: ReactNode
   right?: ReactNode          // 로그아웃 폼 (서버 액션)
   logo?: string              // U11 — 테넌트 로고
+  allowedModules?: string[]  // D10 — 표시 모듈 (undefined = 전체)
   children: ReactNode
 }) {
   const { t } = useI18n()
   const router = useRouter()
   const pathname = usePathname()
   const module = moduleOfPath(pathname)
+  // D10 — 표시 모듈 제한: 차단 모듈 직접 진입 시 첫 허용 모듈로
+  useEffect(() => {
+    const allowed = props.allowedModules
+    if (!allowed || allowed.length === 0 || allowed.includes(module)) return
+    router.replace(`/${allowed[0]}`)
+  }, [module, props.allowedModules, router])
 
   // ── MDI 탭 (최근 화면) — 방문 시 upsert, 새로고침 간 유지 ──
   const [tabs, setTabs] = useState<MdiTab[]>([])
@@ -91,6 +98,7 @@ export function AppChrome(props: {
     })
   }, [module])
   const [navEditOpen, setNavEditOpen] = useState(false)
+  const [shortcutOpen, setShortcutOpen] = useState(false)
 
   // ── 좌측 판넬 접기/펼치기 (localStorage 영속) ──
   const [lnavCollapsed, setLnavCollapsed] = useState(false)
@@ -325,6 +333,7 @@ export function AppChrome(props: {
       })),
     ],
     '도움말': [
+      { label: t('shell.shortcuts', '단축키 안내'), onClick: () => setShortcutOpen(true) },
       { label: t('shell.demoScenario', '시연 시나리오 (PDF)'), onClick: () => window.open('/docs/files/pdf/EDIM_시연시나리오.pdf', '_blank') },
       { sep: true, label: '' },
       { label: 'EDIM Tool System — NOVA Solution', disabled: true },
@@ -336,7 +345,7 @@ export function AppChrome(props: {
 
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TitleBar user={userLabel} bell={props.bell} right={props.right} logo={props.logo}
+      <TitleBar user={userLabel} bell={props.bell} right={props.right} logo={props.logo} allowed={props.allowedModules}
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
       <MenuBar menus={menus} extra={navMenus} right={
         <>
@@ -469,6 +478,35 @@ export function AppChrome(props: {
       <LeftNavEditModal open={navEditOpen} onClose={() => setNavEditOpen(false)}
         module={module} canReadAdmin={props.canReadAdmin}
         value={leftNav[module]} onSave={applyLeftNav} />
+      {/* P3 — 단축키 안내 */}
+      {shortcutOpen ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setShortcutOpen(false)}>
+          <div className="gb" data-shortcut-dialog style={{ width: 380, padding: 12, background: '#fff', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('shell.shortcuts', '단축키 안내')}</div>
+            <table className="g" style={{ width: '100%' }}>
+              <tbody>
+                {[
+                  ['Ctrl(⌘)+K', t('shell.scGlobalSearch', '통합 검색 포커스')],
+                  ['Alt+← / →', t('shell.scTabMove', 'MDI 탭 이동')],
+                  ['Alt+1~9', t('shell.scTabJump', '탭 번호 선택')],
+                  ['Alt+W', t('shell.scTabClose', '탭 닫기')],
+                  ['F2 / F3 / F8', t('shell.scFkeyCrud', '신규 · 삭제 · 조회 (활성 화면)')],
+                  ['F9 / F12', t('shell.scFkeyRun', 'Run · 저장 (활성 화면)')],
+                  ['Ctrl+F', t('shell.scGridFind', '그리드 내 찾기')],
+                  ['Esc', t('shell.scEsc', '다이얼로그 닫기')],
+                ].map(([k, d]) => (
+                  <tr key={k}><td className="code" style={{ width: 110 }}>{k}</td><td>{d}</td></tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="b" onClick={() => setShortcutOpen(false)}>{t('common.close', '닫기')}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {/* U11 — 로고 설정 다이얼로그 (ADMIN) */}
       {logoOpen ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
