@@ -174,6 +174,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 2026-07-16 | **N5b 스튜디오·PDF 복구(v18.5~18.7)** — Macro Studio(식 편집·Test Run 실평가 라이브 E2E·저장·승인)·Templet 편집기(+잠복 SSR 500 수정)·Run 정리/MinIO GC·Fan 성능표/밀도 PDF·사양 Excel·견적 미리보기. 스모크 55/55 — **N5 전체 완료** |
 | 2026-07-16 | **GDrive 재동기(v18.6)** — 사용자 Drive 파일 삭제 후 `tools/gdrive-sync.mjs` 신설(멱등: 동일명 files.update, id·공유 링크 불변)·30파일 재업로드(xlsx→Sheets 12·pptx→Slides 1·PDF 17). 이후 변경분은 사용자 트리거 시 재실행 |
 | 2026-07-16 | **N6 셸 전역 복구(v18.9)** — ⌘K 통합검색(화면+코드·문서·파일·부품·프로젝트 딥링크)·전역 단축키(Alt+W/←→/1~9·Ctrl+K)·useFKeys 수신 체계(Macro F12/F9·Table F12/F3)·비밀번호 변경(B8). 라이브 E2E: Ctrl+K 포커스·Alt+← 탭·F9 평가. 스모크 56/56 — **패리티 감사 P1 35건 전량 해소 (N1~N6 완료)** |
+| 2026-07-18 | **U1 2단계(v24.6)** — C-1 블록 회전(RO)·반전(MI)·스냅(10px) + CommandLine 실명령(ROTATE/MIRROR/SNAP/RESET), geom 영속 확장. 라이브 E2E 7/7(RESET 자체 정리) |
 | 2026-07-18 | **PPT 대조 트랙 종합 마감(v24.5)** — v20.0~v24.4 배치 20+건 회귀 검증: 라이브 스모크 **59/59 전체 그린**(edimsol.com). 요약 스냅샷 갱신 — 완결 2군(U11·U14)·핵심 7군(U3·U4·U5·U6·U8·U9·U13)·1단계 2군(U1·U2)·U15 4/7. 잔여 = CAD 심화(U1/U2 2단계)·U15 3건·API키 대기(U7/U10)·협의(U12) |
 | 2026-07-18 | **U2 1단계(v24.3)** — 설계 우선순위·순환 참조 자동 점검(Design Editor 패널: 치수 참조 위상 정렬·순환 경고, 휴리스틱 한계 명시). 라이브: 실치수 3 MACRO 평가 순서·참조 그래프 렌더 |
 | 2026-07-18 | **U4 스케줄링·Capacity(v24.1)** — GET /erp/production/schedule(미완료 WO × U3 공정 공수) + D-3 패널(작업장 부하 바·WO 공수·경과일). **잠복 버그 수정**: D-3 이 /erp/work-process 를 조회해 WO 그리드 공백 → /erp/work-orders 정정. 라이브 왕복: WO-0001 발행→공수 135분·부하 28.1%→완료 정리 |
