@@ -142,14 +142,13 @@
 - [ ] `<DataUploadPanel/>`·`<TablePanel/>`·`<CodingPanel/>` 공통 컴포넌트화
 - [ ] 주요 Set-up 화면(S-1-x·S-3-x·S-4-x 대응 화면)에 우측 패널 장착
 
-## U14. 좌하단 Schedule management 상시 패널 (전 화면 공통, 시각 확인) — 🔶 부분
+## U14. 좌하단 Schedule management 상시 패널 (전 화면 공통, 시각 확인) — ✅ 핵심 구현 (v21.2)
 
 기획: 전 화면 좌측 트리 하단에 **그리드형 개인 업무 패널** — To-do list(Item·Doc No.·Task·Remarks·Person·Status·Next 컬럼 그리드), Done items(동일 그리드), Schedule(달력), Approval Request List.
 
-현재: To-Do 푸터(승인 확인·PL 지연 **카운트 2줄**, v20.2)만 — 그리드형 아님, Done items·달력 없음.
-
-- [ ] To-do 그리드(내 승인 대기 + 내 업무함 행) / Done items 축소 그리드
-- [ ] Schedule 미니 달력(마일스톤 납기 연동)
+- [x] To-do 미니 그리드 — 승인 inbox 상위 3건(유형·대상, 클릭→승인함) + PL 지연 ✅ v21.2 (shellCounts inboxTop)
+- [x] Schedule — 지연/임박 마일스톤 상위 3건(OVERDUE 적색, 클릭→마일스톤) ✅ v21.2 (shellCounts upcoming)
+- [ ] Done items 축소 그리드·미니 달력 — 후속 (수요 확인 후)
 
 ## U15. 시각 검증 추가 발견 (소형·세부)
 
