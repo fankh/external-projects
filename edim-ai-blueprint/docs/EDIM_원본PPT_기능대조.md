@@ -1,7 +1,7 @@
 # EDIM 원본 PPT 기능 대조 — 미구현 기능 감사
 
 > 원본: `docs/reference/EDIM Tool System EP2.pptx` (78슬라이드, 2026-03).
-> 방법: 전 슬라이드 텍스트·표·발표자 노트 전수 추출 → 구현 코드(edim-web-next·backend)·기존 감사 문서(미구현기능목록 B1~G5·Next 패리티감사) 대조 (2026-07-16).
+> 방법: ① 전 슬라이드 텍스트·표·발표자 노트 전수 추출(2026-07-16) ② **전 슬라이드 이미지 렌더링 후 시각 검증**(2026-07-18, LibreOffice→PDF→PNG 78장 — UI 목업의 시각 요소는 텍스트 추출로 누락되므로) → 구현 코드(edim-web-next·backend)·기존 감사 문서(미구현기능목록 B1~G5·Next 패리티감사) 대조.
 > 목적: **원본 기획서가 요구하나 아직 구현되지 않았거나 부분 구현인 기능**의 전수 목록. 기존 백로그가 "구현물 기준 감사"였다면 본 문서는 "기획서 기준 감사".
 
 ## 요약
@@ -9,8 +9,9 @@
 | 구분 | 수 | 내용 |
 |---|---|---|
 | 원본 핵심 요구 구현 완료 | 대부분 | RCCS 코드 체계(S-1-1~6)·CPQ Run(BOM/원가/도면/기술자료)·문서 통제(워터마크·Grade)·승인 워크플로·ERP 이벤트 체인·Macro 엔진·Hierarchy·검색·모바일 1차 |
-| **완전 미구현** | 6군 | U4 MRP·U9 QR/현장소통·U10 AI 학습·U11 셸 소품·U12 Digital Twin·U7 일부(그래프 마법사·인터넷 검색·AI Q&A) |
-| **부분 구현 (기획 대비 부족)** | 7군 | U1 Selection 캔버스·U2 파라메트릭 설계·U3 Work Process·U5 창고 심화·U6 Print Set-up·U7 Toolbox·U8 Duct |
+| **완전 미구현** | 7군 | U4 MRP·U9 QR/현장소통·U10 AI 학습·U11 셸 소품·U12 Digital Twin·U13 우측 공통 패널 체계·U7 일부(그래프 마법사·인터넷 검색·AI Q&A) |
+| **부분 구현 (기획 대비 부족)** | 8군 | U1 Selection 캔버스·U2 파라메트릭 설계·U3 Work Process·U5 창고 심화·U6 Print Set-up·U7 Toolbox·U8 Duct·U14 Schedule 패널 |
+| 시각 검증 추가 (소형) | U15 | Approval 툴바 표준화·Fan Direction/Installation Code·3D(STEP)·세부선정 폼·성능 곡선·BOM 가격·인쇄 다이얼로그 |
 
 ---
 
@@ -128,6 +129,40 @@
 
 ---
 
+## U13. 화면 공통 우측 도구 패널 체계 — Sub Work Place Templet (슬라이드 4·7·8·38·45·66 시각 확인) — ❌ 미구현 (구조적)
+
+기획: 거의 **모든 화면 우측에 공통 모듈 3~4종을 상시 배치**하는 템플릿 체계(E-4) —
+① **Data Up-Load** (부서·유형(Table/Data/File/Image)·이름·설명 + 업로드/찾기/Hierarchy 아이콘)
+② **Table** (Table List 콤보 + Add/Edit/**Excel Import** + **중복검토** 링크 + 미리보기 그리드)
+③ **Coding** (Coding List 콤보 + Item·매크로 수식 표시 + **즉석 Run**)
+④ 화면 문맥 패널 (Specification 사양표·BOM 트리·Sub Item list·Document Code 등).
+
+현재: 화면별 개별 구성만 있고 "우측 공통 모듈 템플릿" 체계 없음. 기능 단위(업로드·Table 편집·Macro Run)는 각자 화면에 존재하므로 **재사용 컴포넌트 3종 + 화면별 장착**으로 구현 가능.
+
+- [ ] `<DataUploadPanel/>`·`<TablePanel/>`·`<CodingPanel/>` 공통 컴포넌트화
+- [ ] 주요 Set-up 화면(S-1-x·S-3-x·S-4-x 대응 화면)에 우측 패널 장착
+
+## U14. 좌하단 Schedule management 상시 패널 (전 화면 공통, 시각 확인) — 🔶 부분
+
+기획: 전 화면 좌측 트리 하단에 **그리드형 개인 업무 패널** — To-do list(Item·Doc No.·Task·Remarks·Person·Status·Next 컬럼 그리드), Done items(동일 그리드), Schedule(달력), Approval Request List.
+
+현재: To-Do 푸터(승인 확인·PL 지연 **카운트 2줄**, v20.2)만 — 그리드형 아님, Done items·달력 없음.
+
+- [ ] To-do 그리드(내 승인 대기 + 내 업무함 행) / Done items 축소 그리드
+- [ ] Schedule 미니 달력(마일스톤 납기 연동)
+
+## U15. 시각 검증 추가 발견 (소형·세부)
+
+- [ ] **Approval 툴바 모듈** — 우상단 공통 아이콘 세트(승인 요청·송부·확인·저장·편집·삭제) 표준화 (슬라이드 전반)
+- [ ] **Fan Direction 8방향 선택기**(L0~R270 아이콘) + **Installation Code**(Direct Driven/Belt In-Line/Belt Along) — Arrangement Set-up (38)
+- [ ] **3D 지원** — 화면 곳곳의 3D/2D 토글 + H-1 "Drawing Control: **DXF & STEP**" — 현재 DXF 2D만, STEP/3D 뷰 없음 (18·38)
+- [ ] **모듈 더블클릭 세부선정 폼** — C-2의 Impeller/Inlet cone/Casing/Motor 옵션 콤보 상세 폼 (7, U1 연계)
+- [ ] **성능 곡선 인터랙티브 차트** — C-2·Print 미리보기 내 fan curve (7·8·50, 기존 P2 잔여 "성능 곡선 SVG"와 동일)
+- [ ] **BOM 트리 가격 병기** — BOM 패널에 Price 컬럼(미확정 X 표시) (5)
+- [ ] **인쇄 다이얼로그** — 프린터 선택·용지·방향·컬러 등 OS 인쇄 설정 UI 통합 (50, U6 연계)
+
+---
+
 ## 구현 완료 확인 (원본 요구 → 구현 근거, 대표만)
 
 | 원본 (슬라이드) | 구현 |
@@ -145,7 +180,8 @@
 
 ## 권장 순서 (기존 백로그 연계)
 
-1. **U3 + U6 + U11** — 소·중형, 외부 의존 없음 (P2 잔여 Work Process·즐겨찾기류와 같은 결)
+0. **U14 + U15 소형(Approval 툴바·BOM 가격)** — 즉시 가능한 셸/공통 개선
+1. **U3 + U6 + U11 + U13** — 소·중형, 외부 의존 없음 (U13 공통 패널이 이후 화면 작업의 기반)
 2. **U5 + U4(MRP 1차)** — ERP 사이클 완결 연장 (D-트랙 후속)
 3. **U1 + U2** — 캔버스 편집 트랙 (9차 감사 G1과 통합 추진)
 4. **U8 Duct 수동도구·기술계산표** — P2 잔여와 동일 항목
