@@ -229,6 +229,8 @@ export function CadSvg(props: {
   /** 외부 툴바 제어 — move/copy/rotate/mirror/erase/trim/extend/line/circle/rect/properties (소비 후 onToolConsumed) */
   activeTool?: string | null
   onToolConsumed?: () => void
+  /** U2 Block — 선택 엔티티 id 통지 (Block 등록용) */
+  onSelectionChange?: (ids: string[]) => void
 }) {
   const { doc } = props
   const { t } = useI18n()
@@ -264,6 +266,9 @@ export function CadSvg(props: {
   const [mHover, setMHover] = useState<Pt | null>(null)
   const [selId, setSelId] = useState<string | null>(null)   // 주 선택(속성 패널)
   const [selIds, setSelIds] = useState<Set<string>>(new Set())   // 전체 선택 집합(다중)
+  const selChangeRef = useRef(props.onSelectionChange)
+  selChangeRef.current = props.onSelectionChange
+  useEffect(() => { selChangeRef.current?.(Array.from(selIds)) }, [selIds])
   const selIdsRef = useRef(selIds)
   selIdsRef.current = selIds
   const [cur, setCur] = useState<Pt | null>(null)   // 실시간 커서 도면 좌표

@@ -2581,6 +2581,147 @@ def cad_edit(file_id: int, request: Request, body: CadEditRequest) -> dict[str, 
             "document": _parse_cad_bytes(new_bytes, file_name)}
 
 
+# ── U2 — Block 단위 저장·상위 호출 (s63: "저장 > Block 단위로 저장 (상위 호출 시 Block 상태)") ──
+class BlockCreate(BaseModel):
+    name: str
+    entityIds: list[str] = []
+
+
+class BlockInsertReq(BaseModel):
+    name: str
+    x: float = 0.0
+    y: float = 0.0
+
+
+def _load_dwg_dxf(file_id: int) -> tuple[bytes, str, str]:
+    from pathlib import Path
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT file_path, file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
+                    (tid, file_id))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"file not found: {file_id}")
+    file_path, file_name = row
+    if Path(file_name).suffix.lower() != ".dxf":
+        raise HTTPException(501, detail="Block 은 DXF 만 지원")
+    try:
+        data = storage.get_object(file_path).read()
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    return data, file_path, file_name
+
+
+def _store_dwg_dxf(file_id: int, file_path: str, new_bytes: bytes, user_id: str, action: str, detail: dict) -> None:
+    try:
+        storage.put_object(file_path, new_bytes, "application/dxf")
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("UPDATE dwg_file SET file_size=%s WHERE tenant_id=%s AND file_id=%s",
+                    (len(new_bytes), tid, file_id))
+        _audit(cur, tid, "dwg_file", file_id, action, user_id, detail)
+
+
+def _open_dxf(tmp: str, file_name: str, data: bytes):
+    from pathlib import Path
+    import ezdxf
+    from ezdxf import recover
+    src = Path(tmp) / Path(file_name).name
+    src.write_bytes(data)
+    try:
+        return ezdxf.readfile(str(src))
+    except ezdxf.DXFStructureError:
+        doc, _a = recover.readfile(str(src))
+        return doc
+
+
+@router.get("/cad/view/{file_id}/blocks")
+def cad_blocks(file_id: int) -> dict[str, Any]:
+    """사용자 Block 목록 (*레이아웃 제외)."""
+    import tempfile
+    data, _fp, file_name = _load_dwg_dxf(file_id)
+    with tempfile.TemporaryDirectory(prefix="edim_blk_") as tmp:
+        doc = _open_dxf(tmp, file_name, data)
+        out = [{"name": b.name, "entities": len(list(b))}
+               for b in doc.blocks if not b.name.startswith(("*", "_"))]
+    return {"blocks": out}
+
+
+@router.post("/cad/view/{file_id}/blocks", dependencies=[SETUP])
+def cad_block_create(file_id: int, request: Request, body: BlockCreate) -> dict[str, Any]:
+    """선택 엔티티 → 명명 Block 등록 (원자 엔티티는 Block 참조로 대체 — 원위치 INSERT)."""
+    import re as _re
+    import tempfile
+    from pathlib import Path
+
+    from ezdxf.bbox import extents
+    from ezdxf.math import Matrix44
+
+    name = body.name.strip()
+    if not _re.fullmatch(r"[A-Za-z0-9_\-]{1,30}", name):
+        raise HTTPException(422, detail="Block 이름: 영문/숫자/_- 1~30자")
+    if not body.entityIds:
+        raise HTTPException(422, detail="선택 엔티티가 없습니다")
+    data, file_path, file_name = _load_dwg_dxf(file_id)
+    with tempfile.TemporaryDirectory(prefix="edim_blk_") as tmp:
+        doc = _open_dxf(tmp, file_name, data)
+        if name in doc.blocks:
+            raise HTTPException(409, detail=f"Block 중복: {name}")
+        msp = doc.modelspace()
+        id_map: dict[str, Any] = {}
+        seq = 0
+        for entity in msp:
+            if entity.dxftype() in _CAD_EDIT_TYPES:
+                seq += 1
+                id_map[f"e{seq}"] = entity
+        picked = [id_map[i] for i in body.entityIds if i in id_map]
+        if not picked:
+            raise HTTPException(422, detail="적용 가능한 엔티티가 없습니다 (entityId 확인)")
+        bb = extents(picked)
+        bx, by = (bb.extmin.x, bb.extmin.y) if bb.has_data else (0.0, 0.0)
+        blk = doc.blocks.new(name=name)
+        for ent in picked:
+            c = ent.copy()
+            try:
+                c.transform(Matrix44.translate(-bx, -by, 0))
+            except Exception:
+                pass
+            blk.add_entity(c)
+            msp.delete_entity(ent)
+        msp.add_blockref(name, insert=(bx, by))
+        out = Path(tmp) / "blocked.dxf"
+        doc.saveas(str(out))
+        new_bytes = out.read_bytes()
+    _store_dwg_dxf(file_id, file_path, new_bytes, request.state.user_id, "BLOCK_REG",
+                   {"name": name, "entities": len(picked)})
+    return {"fileId": file_id, "name": name, "entities": len(picked),
+            "document": _parse_cad_bytes(new_bytes, file_name)}
+
+
+@router.post("/cad/view/{file_id}/blocks/insert", dependencies=[SETUP])
+def cad_block_insert(file_id: int, request: Request, body: BlockInsertReq) -> dict[str, Any]:
+    """상위 호출 — 등록 Block 을 지정 좌표에 INSERT."""
+    import tempfile
+    from pathlib import Path
+
+    name = body.name.strip()
+    data, file_path, file_name = _load_dwg_dxf(file_id)
+    with tempfile.TemporaryDirectory(prefix="edim_blk_") as tmp:
+        doc = _open_dxf(tmp, file_name, data)
+        if name not in doc.blocks or name.startswith(("*", "_")):
+            raise HTTPException(404, detail=f"Block 없음: {name}")
+        doc.modelspace().add_blockref(name, insert=(body.x, body.y))
+        out = Path(tmp) / "inserted.dxf"
+        doc.saveas(str(out))
+        new_bytes = out.read_bytes()
+    _store_dwg_dxf(file_id, file_path, new_bytes, request.state.user_id, "BLOCK_INSERT",
+                   {"name": name, "x": body.x, "y": body.y})
+    return {"fileId": file_id, "name": name,
+            "document": _parse_cad_bytes(new_bytes, file_name)}
+
+
 @router.post("/cad/import", status_code=201, dependencies=[SETUP])
 async def cad_import(
     uploadedFile: UploadFile = File(...),

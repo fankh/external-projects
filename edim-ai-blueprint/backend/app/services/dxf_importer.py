@@ -50,6 +50,7 @@ def convert_dxf_to_drawing_document(dxf_file_path: str, drawing_name: str,
     normalized_entities = []
     skipped_entity_counter: Counter = Counter()
     entity_sequence_number = 0
+    block_entity_sequence = 0
 
     def next_entity_id() -> str:
         nonlocal entity_sequence_number
@@ -119,6 +120,48 @@ def convert_dxf_to_drawing_document(dxf_file_path: str, drawing_name: str,
                 textHeight=dxf_entity.dxf.char_height,
                 rotationDegrees=dxf_entity.dxf.rotation,
             ))
+        elif dxf_type == "INSERT":
+            # U2 — Block 참조 전개 렌더 (파생 엔티티는 b-id: 물리 엔티티 e-순번 보존 → 편집 id 정합)
+            try:
+                sub_entities = list(dxf_entity.virtual_entities())
+            except Exception:
+                sub_entities = []
+            for sub in sub_entities:
+                sub_type = sub.dxftype()
+                block_entity_sequence += 1
+                sub_id = f"b{block_entity_sequence}"
+                sub_layer = sub.dxf.layer if sub.dxf.hasattr("layer") else layer_name
+                if sub_type == "LINE":
+                    normalized_entities.append(LineEntity(
+                        entityId=sub_id, layerName=sub_layer,
+                        startPoint=Point2D(x=sub.dxf.start.x, y=sub.dxf.start.y),
+                        endPoint=Point2D(x=sub.dxf.end.x, y=sub.dxf.end.y)))
+                elif sub_type == "LWPOLYLINE":
+                    normalized_entities.append(PolylineEntity(
+                        entityId=sub_id, layerName=sub_layer,
+                        vertexPoints=[Point2D(x=pt[0], y=pt[1]) for pt in sub.get_points()],
+                        isClosed=bool(sub.closed)))
+                elif sub_type == "CIRCLE":
+                    normalized_entities.append(CircleEntity(
+                        entityId=sub_id, layerName=sub_layer,
+                        centerPoint=Point2D(x=sub.dxf.center.x, y=sub.dxf.center.y),
+                        radius=sub.dxf.radius))
+                elif sub_type == "ARC":
+                    normalized_entities.append(ArcEntity(
+                        entityId=sub_id, layerName=sub_layer,
+                        centerPoint=Point2D(x=sub.dxf.center.x, y=sub.dxf.center.y),
+                        radius=sub.dxf.radius,
+                        startAngleDegrees=sub.dxf.start_angle,
+                        endAngleDegrees=sub.dxf.end_angle))
+                elif sub_type == "TEXT":
+                    normalized_entities.append(TextEntity(
+                        entityId=sub_id, layerName=sub_layer,
+                        insertionPoint=Point2D(x=sub.dxf.insert.x, y=sub.dxf.insert.y),
+                        textContent=sub.dxf.text, textHeight=sub.dxf.height,
+                        rotationDegrees=sub.dxf.rotation))
+                else:
+                    block_entity_sequence -= 1
+                    skipped_entity_counter[f"INSERT:{sub_type}"] += 1
         else:
             skipped_entity_counter[dxf_type] += 1
 

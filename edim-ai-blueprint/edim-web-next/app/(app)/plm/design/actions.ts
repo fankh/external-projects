@@ -71,3 +71,35 @@ export async function requestApproval(label: string): Promise<boolean> {
     throw e
   }
 }
+
+/** U2 Block — 목록/등록/호출 (s63 "Block 단위 저장·상위 호출"). */
+export interface CadBlockInfo { name: string; entities: number }
+
+export async function cadBlocks(fileId: number): Promise<CadBlockInfo[]> {
+  try {
+    const r = await apiServer<{ blocks: CadBlockInfo[] }>(`/cad/view/${fileId}/blocks`)
+    return r.blocks
+  } catch { return [] }
+}
+
+export async function cadBlockCreate(fileId: number, name: string, entityIds: string[]): Promise<{ document?: CadDocument; error?: string }> {
+  try {
+    const r = await apiServer<{ document: CadDocument }>(`/cad/view/${fileId}/blocks`, {
+      method: 'POST', body: JSON.stringify({ name, entityIds }),
+    })
+    return { document: r.document }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '등록 실패' }
+  }
+}
+
+export async function cadBlockInsert(fileId: number, name: string, x: number, y: number): Promise<{ document?: CadDocument; error?: string }> {
+  try {
+    const r = await apiServer<{ document: CadDocument }>(`/cad/view/${fileId}/blocks/insert`, {
+      method: 'POST', body: JSON.stringify({ name, x, y }),
+    })
+    return { document: r.document }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '호출 실패' }
+  }
+}

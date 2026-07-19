@@ -11,7 +11,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { useI18n } from '@/components/I18nProvider'
 import { useEditHistory } from '@/hooks/useEditHistory'
 import {
-  evaluateMacro, cadPartDrawing, cadPartDrawingSave, cadEdit, cadView, saveDimensions, requestApproval,
+  evaluateMacro, cadPartDrawing, cadPartDrawingSave, cadEdit, cadView, saveDimensions, requestApproval, cadBlocks, cadBlockCreate, cadBlockInsert, type CadBlockInfo,
 } from './actions'
 
 interface BomRow { bomId: number; partNo: string; partName: string; qty: number; assemblySeq: number | null; assemblyNote: string }
@@ -134,6 +134,35 @@ export function DesignEditor(props: {
   const [evaluated, setEvaluated] = useState(false)
   const [cadMode, setCadMode] = useState(true)
   const [cadDoc, setCadDoc] = useState<CadDocument | null>(props.initialDoc)
+  // U2 — Block 단위 저장·상위 호출 (편집 대상화 후 활성)
+  const [cadSel, setCadSel] = useState<string[]>([])
+  const [blkList, setBlkList] = useState<CadBlockInfo[]>([])
+  const [blkName, setBlkName] = useState('')
+  const [blkPick, setBlkPick] = useState('')
+  const [blkX, setBlkX] = useState('0')
+  const [blkY, setBlkY] = useState('0')
+  useEffect(() => {
+    if (editFileId == null) { setBlkList([]); return }
+    void cadBlocks(editFileId).then((bs) => { setBlkList(bs); setBlkPick(bs[0]?.name ?? '') })
+  }, [editFileId])
+  const regBlock = () => {
+    if (editFileId == null || !blkName.trim() || !cadSel.length) return
+    void cadBlockCreate(editFileId, blkName.trim(), cadSel).then((r) => {
+      if (r.error) { say(r.error, true); return }
+      setCadDoc(r.document!)
+      say(`Block 등록 ✓ — ${blkName.trim()} (${cadSel.length} 엔티티 → Block 참조 대체)`)
+      setBlkName('')
+      void cadBlocks(editFileId).then((bs) => { setBlkList(bs); setBlkPick(blkName.trim()) })
+    })
+  }
+  const insBlock = () => {
+    if (editFileId == null || !blkPick) return
+    void cadBlockInsert(editFileId, blkPick, Number(blkX) || 0, Number(blkY) || 0).then((r) => {
+      if (r.error) { say(r.error, true); return }
+      setCadDoc(r.document!)
+      say(`Block 호출 ✓ — ${blkPick} @ (${blkX}, ${blkY})`)
+    })
+  }
   const [cadOffline, setCadOffline] = useState(props.initialDoc === null)
   const [status, setStatus] = useState<{ text: string; err?: boolean } | null>(null)
   const cadInput = useRef<HTMLInputElement>(null)
@@ -257,7 +286,7 @@ export function DesignEditor(props: {
           onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setCoord(`X ${(e.clientX - r.left).toFixed(1)}  Y ${(e.clientY - r.top).toFixed(1)}`) }}>
           {cadMode ? (
             <div style={{ flex: 1, minHeight: 320, border: '1px solid var(--line)', background: '#fff' }}>
-              {cadDoc ? <CadSvg doc={cadDoc} editable={cadMode && editFileId != null} onEdit={onCadEdit} activeTool={activeTool} onToolConsumed={() => setActiveTool(null)} />
+              {cadDoc ? <CadSvg doc={cadDoc} editable={cadMode && editFileId != null} onEdit={onCadEdit} activeTool={activeTool} onToolConsumed={() => setActiveTool(null)} onSelectionChange={setCadSel} />
                 : <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>{cadOffline ? t('editor.cadNeedsBackend', 'CAD 서버 연결 실패 — 새로고침하세요') : t('editor.drawing', '작도 중…')}</div>}
             </div>
           ) : (
@@ -278,6 +307,28 @@ export function DesignEditor(props: {
           <GroupBox title="Coding" right={<Btn variant="run" style={{ height: 18, fontSize: 10 }} onClick={runMacro}>Run F9</Btn>}>
             <Fx>{MACRO_CODING}</Fx>
             <div style={{ fontSize: 9.5, color: 'var(--txt-dim)', marginTop: 3 }}>{t('editor.macroHint', 'EDIM Macro 호출 → 계산식 표시·직접 입력 가능')} {evaluated ? <Chip tone="ok">{t('editor.evaluated', '평가 ✓')}</Chip> : null}</div>
+          </GroupBox>
+          <GroupBox title={t('editor.blockTitle', 'Block — 단위 저장·상위 호출')} noPad>
+            <div style={{ padding: 6, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 10.5 }}>
+              {editFileId == null ? (
+                <div style={{ color: 'var(--txt-mute)' }}>{t('editor.blockNeedEdit', 'CAD 편집 도구를 먼저 실행해 편집 대상을 만드십시오 (예: 이동)')}</div>
+              ) : null}
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <input className="in" data-blk-name value={blkName} placeholder={t('editor.blockNamePh', 'Block 이름 (영문/숫자)')}
+                  aria-label="Block 이름" onChange={(e) => setBlkName(e.target.value)} style={{ height: 20, fontSize: 10, flex: 1 }} />
+                <Btn data-blk-reg disabled={editFileId == null || !blkName.trim() || !cadSel.length} onClick={regBlock}
+                  title={t('editor.blockRegHint', '선택 엔티티를 Block 으로 등록 (원위치 INSERT 대체)')} style={{ height: 20, fontSize: 10 }}>REG ({cadSel.length})</Btn>
+              </div>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <select className="in" data-blk-list value={blkPick} aria-label="Block 목록" onChange={(e) => setBlkPick(e.target.value)} style={{ height: 20, fontSize: 10, flex: 1 }}>
+                  {blkList.length ? blkList.map((b) => <option key={b.name} value={b.name}>{b.name} ({b.entities})</option>) : <option value="">{t('editor.blockNone', '(등록 Block 없음)')}</option>}
+                </select>
+                <input className="in" data-blk-x value={blkX} aria-label="X" onChange={(e) => setBlkX(e.target.value)} style={{ height: 20, fontSize: 10, width: 46 }} />
+                <input className="in" data-blk-y value={blkY} aria-label="Y" onChange={(e) => setBlkY(e.target.value)} style={{ height: 20, fontSize: 10, width: 46 }} />
+                <Btn data-blk-ins disabled={editFileId == null || !blkPick} onClick={insBlock}
+                  title={t('editor.blockInsHint', '상위 호출 — 지정 좌표에 Block INSERT')} style={{ height: 20, fontSize: 10 }}>{t('editor.blockCall', '호출')}</Btn>
+              </div>
+            </div>
           </GroupBox>
           <GroupBox title="Part relationship set-up" noPad right={props.relations.length ? <Chip tone="ok">dwg_part_relation {props.relations.length}</Chip> : <Chip tone="warn">{t('design.none', '없음')}</Chip>}>
             {props.relations.length ? (
