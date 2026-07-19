@@ -189,6 +189,24 @@ async function main() {
   await assertRenders('/plm/design', ['SYNC', 'data-blk-name'], token)
   await assertRenders('/plm/work-process', ['data-design-priority'], token)
 
+  // 4n) U8 덕트 수동 조정 · U29 3D 뷰어 (v29.4~v28.9)
+  await assertRenders('/plm/duct', ['data-duct-edit', '수동 조정'], token)
+  await assertRenders('/detail/model3d', ['data-3d-viewer', '제품 3D 뷰어'], token)
+
+  // 4o) API 계약 — U30 테넌트 메뉴 · U27 공학 함수 카탈로그
+  async function assertApi(name, path, check) {
+    try {
+      const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } })
+      const body = await res.json()
+      if (res.ok && check(body)) ok(`API: ${name}`)
+      else bad(`API: ${name}`, `status ${res.status}`)
+    } catch (e) { bad(`API: ${name}`, e.message) }
+  }
+  await assertApi('/tenant/leftnav (U30)', '/tenant/leftnav', (j) => j && typeof j.value === 'object')
+  await assertApi('/tenant/headnav (U30)', '/tenant/headnav', (j) => j && typeof j.value === 'object')
+  await assertApi('/macros/functions 보간→INTERP (U27)', `/macros/functions?q=${encodeURIComponent('보간')}`,
+    (j) => Array.isArray(j) && j.some((f) => f.name === 'INTERP'))
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 
