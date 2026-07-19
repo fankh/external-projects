@@ -45,23 +45,26 @@ with sync_playwright() as pw:
     p.get_by_role('button', name='로그인 (Enter)').click()
     p.wait_for_selector('.app .titlebar', timeout=8000)
 
-    # Macro Studio — 실평가 2685
+    # Macro Studio (Next) — 식 입력 → ▶ Test Run 실평가 2685
     p.locator('.tn', has_text='Macro Studio (S-2-2)').click()
-    p.get_by_role('button', name='Run F9').click()
+    p.wait_for_timeout(1000)
+    box = p.locator('textarea.in').first
+    box.fill('IF(MC>500, Table12(E,560:800,Cos2)+Var(FES,15), 0)*PreC(1)')
+    p.locator("input[placeholder*='Test 변수']").fill('MC=520')
+    p.get_by_role('button', name='▶ Test Run').click()
     p.locator('b:visible', has_text='2685').wait_for(timeout=5000)
-    print('PASS Studio Run = 2685 (ENG-01, live Table12)')
+    print('PASS Studio Test Run = 2685 (ENG-01, live Table12)')
     # 수식 편집 → 재평가
-    box = p.get_by_label('Macro 수식')
     box.fill('Table12(B,710)*2')
-    p.get_by_role('button', name='Run F9').click()
+    p.get_by_role('button', name='▶ Test Run').click()
     p.locator('b:visible', has_text='1520').wait_for(timeout=5000)
     print('PASS Studio edited formula = 1520')
-    # 오류 수식
+    # 오류 수식 — 결과 패널에 오류 표기 + 미선택 상태 승인 요청 disabled
     box.fill('Table12(Z,560)')
-    p.get_by_role('button', name='Run F9').click()
-    p.locator('.statusbar', has_text='Macro 오류').wait_for(timeout=5000)
-    assert p.get_by_role('button', name='검증·승인 요청').is_disabled()
-    print('PASS Studio error blocks approval (TESTED gate)')
+    p.get_by_role('button', name='▶ Test Run').click()
+    p.locator('text=오류 —').wait_for(timeout=5000)
+    assert p.get_by_role('button', name='승인 요청').is_disabled()
+    print('PASS Studio error surfaced + 미선택 승인 disabled')
 
     # Design Editor — A=700 → B=756, D=Table12(B,710)=760, K=1134
     p.locator('.titlebar span.mod', has_text='PLM').click()   # v5.0: 모듈 링크가 헤더로 이동

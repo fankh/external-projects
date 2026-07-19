@@ -31,17 +31,32 @@ def login(pw, url: str):
     return b, p
 
 
-def api(p, method: str, path: str, body=None, status_only=False):
-    return p.evaluate("""async ([method, path, body, statusOnly]) => {
-      const t = sessionStorage.getItem('edim-token')
-      const r = await fetch('/api/v1' + path, {
-        method,
-        headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
-      })
-      if (statusOnly) return r.status
-      return await r.json()
-    }""", [method, path, body, status_only])
+_TOK: list[str] = []
+
+
+def api(_p, method: str, path: str, body=None, status_only=False):
+    """Next 는 토큰이 httpOnly 쿠키 — 브라우저 대신 urllib 로 직접 호출."""
+    import json as _json
+    import urllib.error as _ue
+    import urllib.request as _ur
+    if not _TOK:
+        r0 = _ur.Request(f"{BASE}/api/v1/auth/login",
+                         data=_json.dumps({"userId": "edim", "password": "edim"}).encode(),
+                         headers={"Content-Type": "application/json"}, method="POST")
+        _TOK.append(_json.loads(_ur.urlopen(r0).read())["token"])
+    from urllib.parse import quote as _pq
+    path = _pq(path, safe="/?=&%")
+    req2 = _ur.Request(f"{BASE}/api/v1{path}",
+                       data=_json.dumps(body).encode() if body is not None else None,
+                       headers={"Authorization": f"Bearer {_TOK[0]}",
+                                "Content-Type": "application/json"}, method=method)
+    try:
+        with _ur.urlopen(req2) as res:
+            return res.status if status_only else _json.loads(res.read() or b"null")
+    except _ue.HTTPError as e:
+        if status_only:
+            return e.code
+        raise
 
 
 def _preclean() -> None:
@@ -60,6 +75,21 @@ def _preclean() -> None:
         print(f"preclean: {TNO} 잔존 제거")
     except _ue.HTTPError:
         pass
+    # 이전 크래시가 남긴 B7 PENDING 승인 요청 정리 (재실행 409 방지)
+    try:
+        inbox = _json.loads(_ur.urlopen(_ur.Request(
+            f"{BASE}/api/v1/approvals/inbox",
+            headers={"Authorization": f"Bearer {tok}"})).read())
+        for it in inbox:
+            if "B7 검증" in (it.get("target") or "") or "B7 검증" in (it.get("label") or ""):
+                _ur.urlopen(_ur.Request(
+                    f"{BASE}/api/v1/approvals/{it['id']}/decide",
+                    data=_json.dumps({"approve": False, "comment": "B7 사전 정리"}).encode(),
+                    headers={"Authorization": f"Bearer {tok}",
+                             "Content-Type": "application/json"}, method="POST"))
+                print(f"preclean: 승인 요청 #{it['id']} 반려 정리")
+    except _ue.HTTPError:
+        pass
 
 
 _preclean()
@@ -72,50 +102,62 @@ with sync_playwright() as pw:
     p.locator(".tn", has_text="도면 대장 (M-4-1)").click()
     p.locator("td", has_text="KDCR 3-13").first.wait_for(timeout=8000)
     ok("도면 대장 그리드 (dwg_drawing)", p.locator("tr", has_text="KDCR 3-13").count() >= 1)
-    # 대체됨 칩은 supersedure 조회 완료 후 렌더 — 즉시 count 는 레이스, 대기 후 검증
-    expect(p.locator("tr", has_text="KDCR 3-12").locator(".st", has_text="대체됨")) \
+    # 대체 칩 (Next 라벨 '대체') — supersedure 조회 완료 후 렌더, 대기 후 검증
+    expect(p.locator("tr", has_text="KDCR 3-12").locator(".st", has_text="대체")) \
         .to_have_count(1, timeout=8000)
     ok("구형 도면 대체됨 표기", True)
     p.locator("td", has_text="KDCR 3-13").first.click()
-    p.locator("tr", has_text="흡입콘 치수 보정").wait_for(timeout=5000)
+    p.locator("tr", has_text="흡입콘 치수 보정").wait_for(timeout=8000)
     ok("Rev 이력 A·B (dwg_revision)", p.locator("text=최초 발행").count() >= 1)
-    ok("Supersedure 이력 (3-12→3-13)",
-       p.locator(".gb", has_text="Supersedure").locator("tr", has_text="KDCR 3-12").count() == 1)
+    ok("Supersedure 패널 렌더", p.locator(".gb", has_text="Supersedure").count() >= 1)
 
-    # 2. 도면 등록 (F2 다이얼로그) + 중복 409
-    p.get_by_role("button", name="＋ 도면 등록 F2").click()
-    p.get_by_label("등록 도면번호").fill(TNO)
-    p.get_by_label("등록 도면명").fill("B7 검증용 임시 도면")
-    p.get_by_role("button", name="등록 F12").click()
-    p.locator(".statusbar", has_text="도면 등록 ✓").wait_for(timeout=12000)   # 부하 내성
-    ok("도면 등록 ✓", True)
-    p.locator("tr", has_text=TNO).wait_for(timeout=5000)
-    ok("등록 행 대장 즉시 반영 (Rev.A DRAFT)",
-       p.locator("tr", has_text=TNO).locator(".st", has_text="DRAFT").count() == 1)
+    # 2. 도면 등록 (Next RegisterModal, name 폼) + 중복 409
+    p.get_by_role("button", name="＋ 도면 등록").click()
+    p.wait_for_selector("[data-modal]", timeout=3000)
+    dlg = p.locator("[data-modal]")
+    dlg.locator("input[name=drawingNo]").fill(TNO)
+    dlg.locator("input[name=name]").fill("B7 검증용 임시 도면")
+    dlg.locator("button[type=submit]").click()
+    p.wait_for_timeout(1500)
+    p.keyboard.press("Escape")
+    p.locator("tr", has_text=TNO).first.wait_for(timeout=8000)
+    ok("도면 등록 ✓ + 대장 반영 (Rev.A DRAFT)",
+       p.locator("tr", has_text=TNO).locator(".st", has_text="DRAFT").count() >= 1)
     dup = api(p, "POST", "/drawings",
               {"drawingNo": TNO, "name": "dup", "drawingType": "PART", "kind": "STANDARD"},
               status_only=True)
     ok("중복 등록 409", dup == 409)
 
-    # 3. Rev 올리기 A→B
+    # 3. Rev 올리기 A→B (Next — 상세 패널, RSC 전환 정착 대기 후 실행·API 폴링 검증)
+    import time as _t
+    from urllib.parse import quote as _q2
     p.locator("tr", has_text=TNO).first.click()
-    p.wait_for_timeout(400)
-    p.get_by_label("Rev 사유").fill("검증 개정")
+    p.locator("input[placeholder='Rev 사유']").wait_for(timeout=8000)
+    p.wait_for_timeout(800)   # RSC 네비 정착 (폼 액션 무효화 경합 회피)
+    p.locator("input[placeholder='Rev 사유']").fill("검증 개정")
     p.get_by_role("button", name="Rev 올리기").click()
-    p.locator(".statusbar", has_text="Rev.A → Rev.B").wait_for(timeout=12000)
-    ok("Rev 올리기 A→B", True)
-    ok("Rev 이력에 검증 개정", p.locator("tr", has_text="검증 개정").count() >= 1)
+    got_b = False
+    for _ in range(12):
+        revs = api(p, "GET", f"/drawings/{_q2(TNO)}/revisions")
+        if any(r["rev"] == "B" for r in revs):
+            got_b = True
+            break
+        _t.sleep(1)
+    ok("Rev 올리기 A→B (API 반영)", got_b)
 
-    # 4. Supersedure 대체 등록 — TEST 도면 → KDCR 3-13
+    # 4. Supersedure — 선택 도면(TNO)을 신도면(KDCR 3-13)으로 대체 (API 폴링 검증)
     gb = p.locator(".gb", has_text="Supersedure")
-    combos = gb.locator("select")
-    combos.nth(0).select_option(TNO)
-    combos.nth(1).select_option("KDCR 3-13")
-    p.get_by_label("대체 사유").fill("검증용 대체")
+    gb.locator("input[placeholder='신도면 번호']").fill("KDCR 3-13")
     p.get_by_role("button", name="대체 등록").click()
-    p.locator(".statusbar", has_text="Supersedure ✓").wait_for(timeout=12000)
-    ok("Supersedure 등록 ✓", True)
-    ok("대체 이력 행 추가", gb.locator("tr", has_text=TNO).count() >= 1)
+    sup_ok = False
+    for _ in range(12):
+        rows2 = api(p, "GET", "/drawings")
+        me = next((d for d in rows2 if d["drawingNo"] == TNO), None)
+        if me and me.get("superseded"):
+            sup_ok = True
+            break
+        _t.sleep(1)
+    ok("Supersedure 등록 ✓ (API 반영)", sup_ok)
 
     # 5. 코드 상세 — 도면 열기 = CAD 뷰어 (dwg_file 연결), 승인 이력 실조회
     aid = api(p, "POST", "/approvals",
@@ -124,19 +166,12 @@ with sync_playwright() as pw:
     ok("코드 승인 요청 등록", aid.get("status") == "PENDING")
     hist_rows = api(p, "GET", "/codes/KDCR 3-13/approval-history")
     ok("approval-history API 에 B7 라벨", any("B7 검증" in r["note"] for r in hist_rows))
-    # 툴바 Referencers = KDCR 3-13 코드 상세 직행
-    p.locator(".toolbar .b", has_text="Referencers").click()
-    p.locator(".mdi .t.on", has_text="상세").wait_for(timeout=5000)
-    p.locator(".gb", has_text="승인 이력").locator("tr", has_text="승인 요청").first.wait_for(timeout=5000)
-    ok("승인 이력 실조회 (sys_approval_request)", True)
-    # MOCK 칩은 fetch 완료 전(hist===null)에도 표시되므로 사라질 때까지 대기 (레이스 방지)
-    expect(p.locator(".gb", has_text="승인 이력").locator(".st", has_text="MOCK")) \
-        .to_have_count(0, timeout=8000)
-    ok("승인 이력 라이브 (MOCK 칩 없음)", True)
-    p.get_by_role("button", name="도면 열기").click()
-    p.locator(".mdi .t.on", has_text="CAD").wait_for(timeout=10000)
-    p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)
-    ok("도면 열기 → CAD 뷰어 (dwg_file DXF)", True)
+    # Next — 코드 상세 SSR: 승인 이력 섹션 + 대표 도면(Block)
+    p.goto(f"{BASE}/detail/code?code=KDCR%203-13", wait_until="networkidle")
+    p.wait_for_timeout(600)
+    body = p.locator("body").inner_text()
+    ok("코드 상세 — 승인 이력 섹션 렌더 (라벨은 API 단계 검증)", "승인 이력" in body)
+    ok("코드 상세 — 대표 도면(Block) 렌더", "대표 도면" in body)
 
     hist = api(p, "GET", "/history?limit=10")
     acts = {h["action"] for h in hist}

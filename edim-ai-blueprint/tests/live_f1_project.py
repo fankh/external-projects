@@ -139,26 +139,30 @@ with sync_playwright() as pw:
     ok("UI 대장 행 >=3", page.locator("table.g:visible tbody tr").count() >= 3)
     ok("UI 타이틀바 프로젝트 컨텍스트", "(PS-" in page.locator(".titlebar").inner_text())
 
-    page.keyboard.press("F2")
-    page.wait_for_selector("[data-prj-reg]", timeout=3000)
-    dlg = page.locator("[data-prj-reg]")
-    dlg.locator("input").first.fill("F1 UI 프로젝트")
-    dlg.locator("button", has_text="등록").first.click()
-    page.wait_for_selector("text=프로젝트 등록 ✓", timeout=6000)
-    sb = page.locator(".statusbar").inner_text()
-    mno = re.search(r"PS-\d+", sb)
-    ok("UI 등록 ✓ + 채번 표시", mno is not None)
-    page.wait_for_timeout(800)
-    ok("UI 타이틀바 = 신규 프로젝트", "F1 UI 프로젝트" in page.locator(".titlebar").inner_text())
+    # Next — RegisterModal(data-modal): 프로젝트명+고객사 필수, ok 문구 'PS-… 등록'
+    page.get_by_role("button", name="＋ 프로젝트 등록").click()
+    page.wait_for_selector("[data-modal]", timeout=3000)
+    dlg = page.locator("[data-modal]")
+    dlg.locator("input[name=projectName]").fill("F1 UI 프로젝트")
+    dlg.locator("input[name=client]").fill("F1 검증 고객")
+    dlg.locator("button[type=submit]").click()
+    page.wait_for_timeout(1500)
+    created = [p2 for p2 in call(tok, "GET", "/projects").json()
+               if p2["projectName"] == "F1 UI 프로젝트"]
+    ok("UI 등록 ✓ + PS 채번", len(created) == 1
+       and re.match(r"PS-\d+", created[0]["projectNo"]) is not None)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(600)
+    ok("UI 목록 반영", page.locator("table.g:visible tbody tr", has_text="F1 UI 프로젝트").count() >= 1)
 
-    # 시드 첫 프로젝트 재선택 → 컨텍스트 복귀 (정리 겸)
+    # 행 클릭 = 타이틀바 프로젝트 컨텍스트 (edim-set-project)
     page.locator("table.g:visible tbody tr", has_text="PS-61313-5").first.click()
     page.wait_for_timeout(600)
     ok("UI 컨텍스트 복귀 (Micron #7)", "Micron #7" in page.locator(".titlebar").inner_text())
     b.close()
 
-    # UI 생성분 정리
-    ok("UI 프로젝트 정리",
-       call(tok, "DELETE", f"/projects/{mno.group(0)}").status == 200)
+    # UI 생성분 정리 (기술 제안·무참조 → 삭제 가능)
+    ok("UI 프로젝트 정리", call(
+        tok, "DELETE", f"/projects/{created[0]['projectNo']}").status == 200)
 
 print(f"\nOK — live_f1_project {n}/{n}")
