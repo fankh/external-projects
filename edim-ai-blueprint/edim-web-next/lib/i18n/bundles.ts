@@ -1902,6 +1902,7 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'approval.viewMineHint': 'Show only my pending requests',
     'approval.emptyMine': 'No pending requests of mine',
     'parts.editTitle': 'Edit part',
+    'wh.editTitle': 'Edit location',
   },
   ja: {
     'menu.plm-parts': '部品台帳 (M-4-7)',
@@ -3804,6 +3805,7 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'approval.viewMineHint': '自分が要請した待機件のみ表示',
     'approval.emptyMine': '自分が要請した待機件なし',
     'parts.editTitle': '部品修正',
+    'wh.editTitle': '位置修正',
   },
   zh: {
     'menu.plm-parts': '零件台账 (M-4-7)',
@@ -5706,5 +5708,6 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'approval.viewMineHint': '仅显示我请求的待办',
     'approval.emptyMine': '没有我请求的待办',
     'parts.editTitle': '部件修改',
+    'wh.editTitle': '位置修改',
   },
 }

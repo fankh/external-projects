@@ -8,6 +8,27 @@ const PATH = '/erp/warehouses'
 
 export interface ActState { error?: string; ok?: string }
 
+/** 창고 수정 (F5 이식) — 위치명·비고·위험물·검사주기 (PATCH /erp/warehouses/{code}, 폼 액션). */
+export async function updateWarehouse(_prev: ActState, formData: FormData): Promise<ActState> {
+  const code = String(formData.get('code') ?? '').trim()
+  const name = String(formData.get('name') ?? '').trim()
+  if (!code) return { error: '수정 대상이 없습니다' }
+  if (!name) return { error: '위치명은 비울 수 없습니다' }
+  const body = {
+    name,
+    remarks: String(formData.get('remarks') ?? '').trim(),
+    hazard: formData.get('hazard') === 'on',
+    inspection: formData.get('inspection') === 'on',
+  }
+  try {
+    await apiServer(`/erp/warehouses/${encodeURIComponent(code)}`, { method: 'PATCH', body: JSON.stringify(body) })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '수정 실패' }
+  }
+  revalidatePath(PATH)
+  return { ok: `위치 수정 ✓ — ${code}` }
+}
+
 export async function createWarehouse(_prev: ActState, formData: FormData): Promise<ActState> {
   const code = String(formData.get('code') ?? '').trim()
   const name = String(formData.get('name') ?? '').trim()

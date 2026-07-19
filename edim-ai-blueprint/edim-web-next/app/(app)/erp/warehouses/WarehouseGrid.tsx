@@ -7,7 +7,7 @@ import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { usePermission } from '@/components/PermissionProvider'
-import { addInspection, createWarehouse, deleteWarehouse, listInspections, type ActState, type InspectionRow } from './actions'
+import { addInspection, createWarehouse, deleteWarehouse, listInspections, updateWarehouse, type ActState, type InspectionRow } from './actions'
 
 export interface WarehouseRow {
   warehouseId: number; parentId: number | null; type: string; code: string; name: string
@@ -32,6 +32,10 @@ export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
   const sel = rows.find((r) => r.warehouseId === selId) ?? null
+  // F5 이식 — 수정 다이얼로그 (위치명·비고·위험물·검사주기)
+  const [edit, setEdit] = useState<WarehouseRow | null>(null)
+  const [editSt, editAction, editPending] = useActionState(updateWarehouse, {} as ActState)
+  useEffect(() => { if (editSt.ok) setEdit(null) }, [editSt.ok])
 
   // ── U5 정기점검 실적 — 선택 위치의 점검 이력 + 등록 ──
   const [inspections, setInspections] = useState<InspectionRow[]>([])
@@ -84,8 +88,12 @@ export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
           if (confirm(`${sel.code} 를 삭제하시겠습니까? (하위 존재 시 거부)`))
             start(async () => { setSt(await deleteWarehouse(sel.code)); setSelId(null) })
         }}>{t('wh.deleteBtn', '삭제')}{sel ? ` (${sel.code})` : ''}</button>
+        <button className="b" data-wh-edit-open disabled={!sel || !perm.canWrite('erp-warehouse')}
+          title={perm.canWrite('erp-warehouse') ? undefined : perm.denyWrite}
+          onClick={() => sel && setEdit(sel)}>{t('raw.editBtn', '수정')}</button>
         {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
+        {editSt.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{editSt.ok}</span> : null}
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 6 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -115,6 +123,38 @@ export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
           </div>
         ) : null}
       </div>
+      {/* F5 이식 — 창고 수정 다이얼로그 (code 불변, PATCH) */}
+      {edit ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setEdit(null)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setEdit(null) }}>
+          <form action={editAction} className="gb" data-wh-edit key={edit.warehouseId}
+            style={{ width: 320, padding: 12, background: '#fff', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 8 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('wh.editTitle', '위치 수정')} — {edit.code}</div>
+            <input type="hidden" name="code" value={edit.code} />
+            <div className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('wh.name', '위치명')}</label>
+              <input className="in req" name="name" aria-label="수정 위치명" defaultValue={edit.name} autoFocus />
+              <label>{t('wh.remarks', '비고')}</label>
+              <input className="in" name="remarks" defaultValue={edit.remarks || ''} />
+              <label>{t('wh.hazardShort', '위험물')}</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <input type="checkbox" name="hazard" defaultChecked={edit.hazard} aria-label="위험물 허용" />
+              </label>
+              <label>{t('wh.inspShort', '검사')}</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <input type="checkbox" name="inspection" defaultChecked={edit.inspection} aria-label="검사 주기" />
+              </label>
+            </div>
+            {editSt.error ? <div style={{ color: 'var(--err)' }}>{editSt.error}</div> : null}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+              <button className="b" type="button" onClick={() => setEdit(null)}>{t('common.cancel', '취소')}</button>
+              <button className="b pri" type="submit" disabled={editPending}>{t('common.save', '저장')}</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   )
 }
