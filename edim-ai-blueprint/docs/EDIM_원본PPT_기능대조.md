@@ -249,6 +249,19 @@ E-4 SWP 모듈 명세 중 미배치 2종: **Child Component**(BOM Mother 연결 
 - [x] Child Component 패널 ✅ v27.4 — SWP 4번째 패널: mother 조회(기본 KDCR 3-13)→child 표(코드·설명·수량)+📄 코드 상세 딥링크. 라이브: 5행·/detail/code 이동
 - [x] Table Excel Import 진입점 ✅ v27.4 — Table 패널 하단 .xlsx 업로드 폼(기존 import-excel 멀티파트 재사용, 신규/갱신/거부 집계 표시). 라이브: FanTechData UT999 신규 1건 왕복(Import→반영 확인→삭제 원상)
 
+## 7차 조사 신규 태스크 (2026-07-19, 발표자 노트 전수 추출 — U27~U28)
+
+> python-pptx 로 78장 발표자 노트 51건·숨김 슬라이드(0건) 전수 추출. 노트 대부분은 제품 설계/선정/서류 3종 표준 흐름 반복(기추적:
+> U1~U3·U15·문서함)이며 s56 Head 권한 구조=D10/U21, s77 QR 현장=Mobile App 협의, s05 6면/분할통합=U1 잔여 재확인. 신규 2건.
+
+### U27. 공학 함수 Templet — 매크로 엔진 확장 (s27 노트 "공학 함수 Templet") — ❌ 미구현
+현행 엔진 내장 = 논리/집계/Var/PreC 10종뿐. 노트: "Excel Macro 기능 모두 포함 + 공학 함수 Templet".
+- [ ] 엔진 공학 함수 16종: ABS·SQRT·ROUND·POWER·EXP·LN·LOG·MOD·CEILING·FLOOR·PI·SIN·COS·TAN·RADIANS·DEGREES + INTERP(2점 선형 보간)
+- [ ] ENGINE_BUILTINS·/macros/functions 카탈로그 동기(함수 마법사 자동 노출) + 단위 테스트
+
+### U28. AI 내부 자료 질의응답 (s27 노트 "AI 질의 응답 — 내부 자료 검색·응답용") — ⏸ API 키 대기
+U7/U10(C9)과 동일 그룹 — ANTHROPIC_API_KEY 입력 시: 내부 Table·문서·코드 자료 검색 기반 질의응답 패널(도구 호출형). 인터넷 검색 Tool 은 별도 협의.
+
 ## 구현 완료 확인 (원본 요구 → 구현 근거, 대표만)
 
 | 원본 (슬라이드) | 구현 |

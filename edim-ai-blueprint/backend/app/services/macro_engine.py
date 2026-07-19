@@ -24,6 +24,11 @@ class MacroError(Exception):
     pass
 
 
+# U27 — 공학 함수 Templet (s27 노트)
+_ENG_FUNCS = {"ABS", "SQRT", "ROUND", "POWER", "EXP", "LN", "LOG", "MOD",
+              "CEILING", "FLOOR", "PI", "SIN", "COS", "TAN", "RADIANS", "DEGREES", "INTERP"}
+
+
 # ── 토크나이저 ──
 @dataclass
 class Tok:
@@ -210,6 +215,74 @@ class Evaluator:
         self.tables = table_resolver
         self.trace: list[str] = []
 
+    def _eng(self, name: str, a: list) -> float:  # noqa: C901
+        """U27 — 공학 함수 Templet (s27 노트): Excel 호환 수학·삼각·보간."""
+        import math
+        def n(i: int) -> float:
+            return self.eval(a[i])
+        if name == "ABS":
+            return abs(n(0))
+        if name == "SQRT":
+            v = n(0)
+            if v < 0:
+                raise MacroError("SQRT: 음수")
+            return math.sqrt(v)
+        if name == "ROUND":
+            d = int(n(1)) if len(a) > 1 else 0
+            return round(n(0), d)
+        if name == "POWER":
+            return n(0) ** n(1)
+        if name == "EXP":
+            return math.exp(n(0))
+        if name == "LN":
+            v = n(0)
+            if v <= 0:
+                raise MacroError("LN: 0 이하")
+            return math.log(v)
+        if name == "LOG":
+            v = n(0)
+            if v <= 0:
+                raise MacroError("LOG: 0 이하")
+            base = n(1) if len(a) > 1 else 10.0
+            return math.log(v, base)
+        if name == "MOD":
+            d = n(1)
+            if d == 0:
+                raise MacroError("MOD: 0 으로 나눔")
+            return math.fmod(n(0), d)
+        if name == "CEILING":
+            step = n(1) if len(a) > 1 else 1.0
+            if step == 0:
+                raise MacroError("CEILING: step 0")
+            return math.ceil(n(0) / step) * step
+        if name == "FLOOR":
+            step = n(1) if len(a) > 1 else 1.0
+            if step == 0:
+                raise MacroError("FLOOR: step 0")
+            return math.floor(n(0) / step) * step
+        if name == "PI":
+            return math.pi
+        if name == "SIN":
+            return math.sin(n(0))
+        if name == "COS":
+            return math.cos(n(0))
+        if name == "TAN":
+            return math.tan(n(0))
+        if name == "RADIANS":
+            return math.radians(n(0))
+        if name == "DEGREES":
+            return math.degrees(n(0))
+        if name == "INTERP":
+            if len(a) != 5:
+                raise MacroError("INTERP(x, x1, y1, x2, y2) — 2점 선형 보간")
+            x, x1, y1, x2, y2 = (n(i) for i in range(5))
+            if x2 == x1:
+                raise MacroError("INTERP: x1 = x2")
+            v = y1 + (y2 - y1) * (x - x1) / (x2 - x1)
+            self.trace.append(f"INTERP({x:g}; {x1:g}→{y1:g}, {x2:g}→{y2:g})={v:g}")
+            return v
+        raise MacroError(f"미지원 공학 함수: {name}")
+
     def run(self, src: str) -> float:
         src = src.strip()
         if src.startswith("="):
@@ -304,6 +377,8 @@ class Evaluator:
             raise MacroError(f"미정의 Var: {a[0].name}")
         if name == "PREC":
             return self.eval(a[0]) if a else 1.0
+        if name in _ENG_FUNCS:
+            return self._eng(name, a)
         # 그 외 = Table 참조: Table(col, key | lo:hi [, agg])
         if not a or not isinstance(a[0], Ref):
             raise MacroError(f"{node.name}(열, key|범위 [, 집계]) 형식이어야 합니다")

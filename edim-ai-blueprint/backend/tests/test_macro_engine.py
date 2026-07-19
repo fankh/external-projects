@@ -147,3 +147,41 @@ def test_result_rounding():
     # run() 은 6자리 반올림
     assert ev("1/3") == pytest.approx(0.333333, abs=1e-6)
     assert not math.isnan(ev("1/3"))
+
+
+# ── U27 공학 함수 Templet ──
+def _run1(expr, variables=None):
+    ev = Evaluator(variables or {}, lambda *a: 0.0)
+    return ev.run(expr)
+
+
+def test_eng_basic():
+    assert _run1("=ABS(-3)") == 3
+    assert _run1("=SQRT(16)") == 4
+    assert _run1("=ROUND(3.14159, 2)") == 3.14
+    assert _run1("=POWER(2, 10)") == 1024
+    assert _run1("=MOD(10, 3)") == 1
+    assert _run1("=CEILING(311, 50)") == 350
+    assert _run1("=FLOOR(311, 50)") == 300
+
+
+def test_eng_trig_log():
+    import math
+    assert abs(_run1("=SIN(RADIANS(30))") - 0.5) < 1e-6
+    assert abs(_run1("=DEGREES(PI())") - 180) < 1e-6
+    assert _run1("=LOG(1000)") == 3
+    assert abs(_run1("=LN(EXP(2))") - 2) < 1e-6
+
+
+def test_eng_interp():
+    # 성능표 보간: x=560→45, x=630→52 사이 x=600
+    v = _run1("=INTERP(600, 560, 45, 630, 52)")
+    assert abs(v - (45 + 7 * 40 / 70)) < 1e-6
+
+
+def test_eng_errors():
+    import pytest
+    with pytest.raises(MacroError):
+        _run1("=SQRT(-1)")
+    with pytest.raises(MacroError):
+        _run1("=INTERP(1, 2, 3, 2, 5)")

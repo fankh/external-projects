@@ -4408,7 +4408,10 @@ class MacroSave(BaseModel):
 
 
 # 엔진 내장 함수 — 이 외의 호출형 토큰은 Table 참조로 간주 (tbx_macro_ref 추출)
-ENGINE_BUILTINS = {"IF", "IFERROR", "AND", "OR", "NOT", "SUM", "MIN", "MAX", "VAR", "PREC"}
+ENGINE_BUILTINS = {"IF", "IFERROR", "AND", "OR", "NOT", "SUM", "MIN", "MAX", "VAR", "PREC",
+                   # U27 — 공학 함수 Templet
+                   "ABS", "SQRT", "ROUND", "POWER", "EXP", "LN", "LOG", "MOD",
+                   "CEILING", "FLOOR", "PI", "SIN", "COS", "TAN", "RADIANS", "DEGREES", "INTERP"}
 
 
 def _rebuild_macro_refs(cur, tid: int, macro_id: int, expr: str) -> int:
@@ -4498,6 +4501,24 @@ def macro_functions(q: str = "") -> list[dict[str, Any]]:
         {"name": "VAR", "sig": "Var(이름, 기본값)", "desc": "Variant 변수 참조", "keywords": "변수 배리언트 참조 variant"},
         {"name": "PREC", "sig": "PreC(자릿수)", "desc": "정밀도(반올림 자릿수) 지정", "keywords": "반올림 정밀도 자릿수 소수"},
         {"name": "Table12", "sig": "Table12(열, 키[:키2])", "desc": "데이터 Table 단일/범위 조회", "keywords": "테이블 조회 데이터 표 참조 lookup"},
+        # U27 — 공학 함수 Templet (s27 노트)
+        {"name": "ABS", "sig": "ABS(x)", "desc": "절댓값", "keywords": "절대값 absolute"},
+        {"name": "SQRT", "sig": "SQRT(x)", "desc": "제곱근", "keywords": "제곱근 루트 root"},
+        {"name": "ROUND", "sig": "ROUND(x, 자릿수)", "desc": "반올림", "keywords": "반올림 자릿수"},
+        {"name": "POWER", "sig": "POWER(x, y)", "desc": "거듭제곱 x^y", "keywords": "거듭제곱 승 지수"},
+        {"name": "EXP", "sig": "EXP(x)", "desc": "지수 e^x", "keywords": "지수 exponential"},
+        {"name": "LN", "sig": "LN(x)", "desc": "자연로그", "keywords": "자연로그 로그"},
+        {"name": "LOG", "sig": "LOG(x[, 밑])", "desc": "로그 (기본 10)", "keywords": "로그 상용"},
+        {"name": "MOD", "sig": "MOD(a, b)", "desc": "나머지", "keywords": "나머지 모듈로"},
+        {"name": "CEILING", "sig": "CEILING(x[, 단위])", "desc": "단위 올림", "keywords": "올림 규격 단위"},
+        {"name": "FLOOR", "sig": "FLOOR(x[, 단위])", "desc": "단위 내림", "keywords": "내림 절사"},
+        {"name": "PI", "sig": "PI()", "desc": "원주율", "keywords": "원주율 파이"},
+        {"name": "SIN", "sig": "SIN(rad)", "desc": "사인 (라디안)", "keywords": "사인 삼각"},
+        {"name": "COS", "sig": "COS(rad)", "desc": "코사인 (라디안)", "keywords": "코사인 삼각"},
+        {"name": "TAN", "sig": "TAN(rad)", "desc": "탄젠트 (라디안)", "keywords": "탄젠트 삼각"},
+        {"name": "RADIANS", "sig": "RADIANS(도)", "desc": "도→라디안", "keywords": "각도 라디안 변환"},
+        {"name": "DEGREES", "sig": "DEGREES(rad)", "desc": "라디안→도", "keywords": "각도 도 변환"},
+        {"name": "INTERP", "sig": "INTERP(x, x1, y1, x2, y2)", "desc": "2점 선형 보간", "keywords": "보간 선형 interpolation 성능표"},
     ]
     needle = q.strip().lower()
     if not needle:
