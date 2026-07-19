@@ -54,3 +54,32 @@ export async function uploadPanelFile(_prev: { ok?: string; error?: string }, fo
   }
   return { ok: `업로드 ✓ — ${file.name} (${project} · DATA)` }
 }
+
+export interface RelChild { code: string; desc: string; qty: number; remarks: string }
+
+/** U26 — Child Component 패널: mother 연결 Sub Code 표. */
+export async function getRelChildren(mother: string): Promise<RelChild[] | null> {
+  try {
+    return await apiServer<RelChild[]>(`/codes/relationships/${encodeURIComponent(mother.trim())}/children`)
+  } catch { return null }
+}
+
+/** U26 — Table 패널 Excel Import (기존 /tables/{name}/import-excel 재사용, 멀티파트 raw fetch). */
+export async function importTableExcel(_prev: { ok?: string; error?: string }, formData: FormData): Promise<{ ok?: string; error?: string }> {
+  const name = String(formData.get('tableName') ?? '').trim()
+  const file = formData.get('excelFile')
+  if (!name || !(file instanceof File) || file.size === 0) return { error: 'Table·파일을 지정하십시오' }
+  const token = await getToken()
+  const fd = new FormData()
+  fd.append('uploadedFile', file)
+  const res = await fetch(`${API_BASE}/tables/${encodeURIComponent(name)}/import-excel`, {
+    method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd, cache: 'no-store',
+  })
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`
+    try { detail = (await res.json())?.detail ?? detail } catch { /* non-json */ }
+    return { error: detail }
+  }
+  const r = await res.json() as { inserted: number; updated: number; rejected: string[] }
+  return { ok: `Import ✓ — 신규 ${r.inserted} · 갱신 ${r.updated}${r.rejected?.length ? ` · 거부 ${r.rejected.length}` : ''}` }
+}

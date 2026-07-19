@@ -237,6 +237,18 @@ Table 데이터 → 차트 생성 위저드(Qt 스타일). 현재 성능 곡선(
 - [ ] Table 선택 → 열 매핑 → 라인/막대 SVG 차트 생성 (Data Up-Load Table 연계)
 - [ ] 생성 차트 문서/print set-up 연계 — 범위 협의 후 착수
 
+## 6차 조사 신규 태스크 (2026-07-19, 잔여 미열람 전수 열람 — U26)
+
+> 추가 열람: 1·2·3·6·9·12·14·16·19·21·23·25·28·54·56·60·63·69·71·77 — 이로써 78장 전량 열람 완료(잔여는 동일 화면 연속 페이지 32·35·40·43·48·52뿐).
+> 기구현·기분류 확인: s09 문서 4종=U19/문서함, s25 CAD 학습=C9(API 키 대기), s28 UI Designer 상세=U16(Signal/Slot 협의),
+> s54=s53 동일(PR·PO 기구현), s56 작업판 구조=U13/U21, s60 Selection 툴바=C-1+U16, s63 Design 툴바 상세=U2 잔여(파라메트릭),
+> s77 Mobile App=M-16(별도 앱 협의). 신규 갭 1건.
+
+### U26. Sub Work Place 보강 — Child Component 패널 + Spec Import 진입점 (슬라이드 69) — ❌ 미구현
+E-4 SWP 모듈 명세 중 미배치 2종: **Child Component**(BOM Mother 연결 Sub Code 표 + 세부 정보 Data 아이콘), **Specification**(정형 Excel Import — 백엔드 /tables/{name}/import-excel 은 기구현, SWP 진입점 부재).
+- [ ] Child Component 패널 — mother 코드 조회 → child 표(코드·설명·수량) + 코드 상세 딥링크
+- [ ] Table 패널에 Excel Import 진입점 (기존 import-excel 재사용)
+
 ## 구현 완료 확인 (원본 요구 → 구현 근거, 대표만)
 
 | 원본 (슬라이드) | 구현 |

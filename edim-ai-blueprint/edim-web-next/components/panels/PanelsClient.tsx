@@ -6,7 +6,7 @@ import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { evalPanelMacro, getTableRows, uploadPanelFile, type TableInfo, type TableRows } from './actions'
+import { evalPanelMacro, getRelChildren, getTableRows, importTableExcel, uploadPanelFile, type RelChild, type TableInfo, type TableRows } from './actions'
 
 export interface MacroInfo { name: string; expr: string; status: string }
 
@@ -64,6 +64,7 @@ export function TablePanel({ tables }: { tables: TableInfo[] }) {
         </div>
         {info?.description ? <div style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>{info.type} · {info.description}</div> : null}
         <button className="b" data-panel-preview disabled={!sel || pending} onClick={() => load(sel)} style={{ height: 19, fontSize: 10 }}>{pending ? '…' : t('panel.preview', '미리보기 (상위 4행)')}</button>
+        <ImportRow tableName={sel} />
         {preview ? (
           <div style={{ overflowX: 'auto' }}>
             <table className="g" style={{ fontSize: 9 }}>
@@ -106,6 +107,66 @@ export function CodingPanel({ macros }: { macros: MacroInfo[] }) {
           <button className="b run" data-panel-run disabled={!cur?.expr || pending} onClick={run} style={{ height: 19, fontSize: 10 }}>Run</button>
           {result ? <span data-panel-result style={{ fontSize: 10, fontWeight: 700, color: result.ok ? 'var(--run)' : 'var(--err)' }}>{result.text}</span> : null}
         </div>
+      </div>
+    </GroupBox>
+  )
+}
+
+function ImportRow({ tableName }: { tableName: string }) {
+  const { t } = useI18n()
+  const [st, action, pending] = useActionState(importTableExcel, {})
+  return (
+    <form action={action} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+      <input type="hidden" name="tableName" value={tableName} />
+      <input type="file" name="excelFile" accept=".xlsx" className="in" style={{ fontSize: 9, flex: 1, minWidth: 110 }} aria-label="Excel" />
+      <button type="submit" className="b" data-panel-import disabled={pending || !tableName} style={{ height: 19, fontSize: 9.5 }}
+        title={t('panel.importHint', '정형 Excel Import — 1행 헤더(Key+열), Key 중복은 갱신 (E-4 Specification)')}>⬆ Excel</button>
+      {st.error ? <span style={{ color: 'var(--err)', fontSize: 9 }}>{st.error}</span> : null}
+      {st.ok ? <span data-panel-import-ok style={{ color: 'var(--run)', fontSize: 9 }}>{st.ok}</span> : null}
+    </form>
+  )
+}
+
+/** U26 — Child Component 패널 (슬라이드 69): mother 연결 Sub Code 표 + 코드 상세 딥링크. */
+export function ChildPanel() {
+  const { t } = useI18n()
+  const router = useRouter()
+  const [mother, setMother] = useState('KDCR 3-13')
+  const [rows, setRows] = useState<RelChild[] | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [pending, start] = useTransition()
+  const load = () => start(async () => {
+    const r = await getRelChildren(mother)
+    if (r === null) { setMsg(t('panel.childErr', '조회 실패 — Mother 코드 확인')); setRows(null) }
+    else { setMsg(null); setRows(r) }
+  })
+  return (
+    <GroupBox title="Child Component" noPad>
+      <div style={{ padding: 6, fontSize: 10.5, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <input className="in" data-panel-mother value={mother} aria-label="Mother" onChange={(e) => setMother(e.target.value)}
+            style={{ height: 19, fontSize: 10, flex: 1 }} placeholder="Mother (KDCR 3-13)" />
+          <button className="b" data-panel-child-load disabled={pending || !mother.trim()} onClick={load} style={{ height: 19, fontSize: 9.5 }}>{t('panel.query', '조회')}</button>
+        </div>
+        {msg ? <div style={{ color: 'var(--err)', fontSize: 9.5 }}>{msg}</div> : null}
+        {rows ? (
+          <div data-panel-children style={{ overflowX: 'auto', maxHeight: 130, overflowY: 'auto' }}>
+            <table className="g" style={{ fontSize: 9 }}>
+              <thead><tr><th>Child</th><th>Desc.</th><th>Q&apos;ty</th><th>Data</th></tr></thead>
+              <tbody>{rows.map((r) => (
+                <tr key={r.code}>
+                  <td className="c code">{r.code}</td>
+                  <td className="c" style={{ maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.desc}</td>
+                  <td className="c" style={{ textAlign: 'right' }}>{r.qty}</td>
+                  <td className="c" style={{ textAlign: 'center', cursor: 'pointer' }}
+                    title={t('panel.childDetail', '코드 상세 (Tech·Variant·도면)')}
+                    onClick={() => router.push(`/detail/code?code=${encodeURIComponent(r.code)}`)}>📄</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            {!rows.length ? <div style={{ padding: 4, color: 'var(--txt-mute)', fontSize: 9.5 }}>{t('panel.noChildren', 'Child 없음')}</div> : null}
+          </div>
+        ) : null}
       </div>
     </GroupBox>
   )
