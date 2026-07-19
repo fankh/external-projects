@@ -170,11 +170,12 @@
 
 > 78장 중 이전 패스에서 열람하지 않았던 슬라이드(27·36·44·64·70·74 등)를 추가 시각 검증해 발굴한 신규 태스크.
 
-### U16. UI Designer 위젯 액션·데이터 바인딩 (슬라이드 27) — ❌ 미구현
+### U16. UI Designer 위젯 액션·데이터 바인딩 (슬라이드 27) — ✅ 핵심 구현 (v26.2)
 Qt Designer 급 상세: **Commend button set-up macro**(동작 콤보: 저장/삭제/복사/등록/찾기 + 대상 + Data 지정), **Combo box set-up macro**(Data set-up·Active set-up — Table 열 바인딩), **실행 설정 다이얼로그**(클릭 시: 하이퍼링크/프로그램/매크로/개체 실행). 현재 UI Designer 는 팔레트 배치·레이아웃 저장까지.
-- [ ] 위젯 선택 → 액션 설정 다이얼로그 (동작·대상·Data, tbx_ui_form layout_def 확장)
-- [ ] Combo Data 바인딩 (Table 참조 → 옵션 소스)
-- [ ] 미리보기 모달에서 바인딩 동작 확인
+- [x] 액션 설정 다이얼로그 ✅ v26.2 — 위젯 더블클릭/⚙ Set-up: 동작 매크로 8종(저장/삭제/복사/등록/찾기/하이퍼링크/프로그램 실행/매크로)+대상+Data, layout_def(action) 영속(백엔드 스키마 무변경 — list[dict] 통과). Property Editor action/data bind 행
+- [x] Combo Data 바인딩 ✅ v26.2 — GET /toolbox/bind-options 화이트리스트(prt_part·cst_quotation 열) distinct 값, 다이얼로그 테이블·열 선택+조회 미리보기. 라이브: prt_part.part_no 4건·비화이트리스트 422 차단
+- [x] 미리보기 바인딩 동작 ✅ v26.2 — 미리보기 모달: 바인딩 Combo 실데이터 옵션 렌더(4건)·버튼 클릭 시 설정 동작 표시. 라이브 E2E 8/8(설정→속성 반영→미리보기→저장 layout_def 영속 검증→원 레이아웃 원복)
+- [ ] 실행 설정 고급(하이퍼링크 실이동·프로그램/개체 실행 새시) — 게시 Form 런타임(TBX-003 동적 렌더) 연계 후속
 
 ### U17. Work Process 설계우선순위 테이블 (슬라이드 44) — ✅ 핵심 구현 (v25.3)
 - [x] Dim.별 설계 파라미터 표 ✅ v25.3 — dwg_dimension 기존 미사용 컬럼(design/data_priority·base_point) 개방 + error_check 추가(alembic 0025), GET/PUT design-params, Work Process 화면 편집 그리드(우선순위·상위자료·기준점·오류체크 '④ > 300'·비고). 라이브 왕복 6/6(저장→영속→원복)

@@ -174,6 +174,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 2026-07-16 | **N5b 스튜디오·PDF 복구(v18.5~18.7)** — Macro Studio(식 편집·Test Run 실평가 라이브 E2E·저장·승인)·Templet 편집기(+잠복 SSR 500 수정)·Run 정리/MinIO GC·Fan 성능표/밀도 PDF·사양 Excel·견적 미리보기. 스모크 55/55 — **N5 전체 완료** |
 | 2026-07-16 | **GDrive 재동기(v18.6)** — 사용자 Drive 파일 삭제 후 `tools/gdrive-sync.mjs` 신설(멱등: 동일명 files.update, id·공유 링크 불변)·30파일 재업로드(xlsx→Sheets 12·pptx→Slides 1·PDF 17). 이후 변경분은 사용자 트리거 시 재실행 |
 | 2026-07-16 | **N6 셸 전역 복구(v18.9)** — ⌘K 통합검색(화면+코드·문서·파일·부품·프로젝트 딥링크)·전역 단축키(Alt+W/←→/1~9·Ctrl+K)·useFKeys 수신 체계(Macro F12/F9·Table F12/F3)·비밀번호 변경(B8). 라이브 E2E: Ctrl+K 포커스·Alt+← 탭·F9 평가. 스모크 56/56 — **패리티 감사 P1 35건 전량 해소 (N1~N6 완료)** |
+| 2026-07-19 | **U16 UI Designer 액션·바인딩(v26.2)** — Widget Set-up 다이얼로그(동작 8종·대상·Data)·Combo 테이블 열 바인딩(/toolbox/bind-options 화이트리스트)·미리보기 실데이터 옵션·layout_def 영속. 라이브 E2E 8/8(원 레이아웃 원복) |
 | 2026-07-19 | **U20 Relationship 소품(v26.0)** — Child Data 링크(코드 상세 딥링크)·구성도 블록/CAD 토글(정본 SVG 미리보기)·EBOM Run 표기+CSV Export. 라이브 E2E 5/5 |
 | 2026-07-19 | **U19 PCR 비용 트리 + CLT 견적서(v25.8)** — breakdown API(원가 3분류 라인+판관 분해·Full costs·EBIT)·Report Center 트리 패널 · 견적 렌더 CLT 공식 양식 전환. 라이브 E2E 8/8(정합 4종·견적 생성→pypdf 마커 검증→삭제 왕복) |
 | 2026-07-18 | **U18 Hierarchy 편집 심화(v25.5~25.6)** — 노드 이동(주소 접두 연쇄 재계산·순환/시스템/타트리 가드)·속성 정보·우클릭 컨텍스트 메뉴·트리 검색. 라이브 E2E: API 4/4(이동 901.1·순환 422)+UI 3/3(검색 9→1·메뉴·속성), 테스트 노드 전량 정리. psycopg % 이스케이프 500 즉시 수정 |
