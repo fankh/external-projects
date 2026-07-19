@@ -94,7 +94,7 @@ function SimulationPanel({ dims, onApply }: { dims: DimensionDef[]; onApply: (n:
               return (
                 <div key={d.no} style={{ display: 'flex', gap: 6 }}>
                   <b style={{ width: 18 }}>{d.no}</b>
-                  <span style={{ color: changed ? 'var(--title-navy)' : undefined }}>
+                  <span data-sim-val={d.no} style={{ color: changed ? 'var(--title-navy)' : undefined }}>
                     {nv}{changed && !Number.isNaN(cur) ? ` (Δ ${nv - cur > 0 ? '+' : ''}${Math.round((nv - cur) * 100) / 100})` : ''}
                   </span>
                 </div>

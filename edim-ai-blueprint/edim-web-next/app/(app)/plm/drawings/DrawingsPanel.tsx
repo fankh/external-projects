@@ -43,7 +43,11 @@ export function DrawingRegForm() {
 
 const STEPS = ['WRITE', 'REVIEW', 'APPROVE']
 
-export function DrawingDetail({ no, revisions, steps }: { no: string; revisions: RevisionRow[]; steps: StepRow[] }) {
+export function DrawingDetail({ no, revisions, steps, variants = [], files = [] }: {
+  no: string; revisions: RevisionRow[]; steps: StepRow[]
+  variants?: { drawingNo: string; name: string; status: string }[]
+  files?: { fileId: number; fileName: string; fileType: string }[]
+}) {
   const { t } = useI18n()
   const [reason, setReason] = useState('')
   const [comment, setComment] = useState('')
@@ -92,6 +96,37 @@ export function DrawingDetail({ no, revisions, steps }: { no: string; revisions:
             const r = await decideStep(no, nextStep!, false, comment); setSt(r); if (r.ok) setComment('')
           })}>{t('dwg.rejectBtn', '반려')}</button>
         </div>
+      </div>
+
+      {/* B16 — Variants (동일 패밀리 도면) */}
+      <div className="gb" data-dwg-variants style={{ padding: 6 }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Variants — {variants.length}{t('detail.cases', '건')}</div>
+        {variants.length ? (
+          <table className="g" style={{ width: '100%' }}>
+            <thead><tr><th>No</th><th>{t('dwg.nameCol', '도면명')}</th><th style={{ width: 64 }}>{t('common.status', '상태')}</th></tr></thead>
+            <tbody>{variants.map((v) => (
+              <tr key={v.drawingNo}><td className="c code">{v.drawingNo}</td><td>{v.name}</td><td className="c">{v.status}</td></tr>
+            ))}</tbody>
+          </table>
+        ) : <div style={{ fontSize: 10.5, color: 'var(--txt-mute)' }}>{t('dwg.noVariants', '패밀리 도면 없음')}</div>}
+      </div>
+
+      {/* B16 — 첨부 (연결 dwg_file) */}
+      <div className="gb" data-dwg-files style={{ padding: 6 }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('dwg.attachTitle', '첨부')} — {files.length}{t('detail.cases', '건')}</div>
+        {files.length ? (
+          <table className="g" style={{ width: '100%' }}>
+            <thead><tr><th>{t('folder.fileName', '파일명')}</th><th style={{ width: 48 }}>{t('folder.typeCol', '유형')}</th></tr></thead>
+            <tbody>{files.map((f) => (
+              <tr key={f.fileId}>
+                <td>{f.fileType === 'DXF'
+                  ? <a href={`/detail/cad-viewer?fileId=${f.fileId}`} style={{ color: 'var(--title-navy)' }}>{f.fileName}</a>
+                  : f.fileName}</td>
+                <td className="c">{f.fileType}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        ) : <div style={{ fontSize: 10.5, color: 'var(--txt-mute)' }}>{t('dwg.noFiles', '연결 파일 없음')}</div>}
       </div>
 
       <div className="gb" style={{ padding: 6 }}>

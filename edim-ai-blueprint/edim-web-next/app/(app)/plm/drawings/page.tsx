@@ -24,10 +24,14 @@ export default async function DrawingsPage({ searchParams }: { searchParams: Pro
   const selNo = sp.no && rows.some((r) => r.drawingNo === sp.no) ? sp.no : null
   let revisions: RevisionRow[] = []
   let steps: StepRow[] = []
+  let variants: { drawingNo: string; name: string; status: string }[] = []
+  let files: { fileId: number; fileName: string; fileType: string }[] = []
   if (selNo) {
-    ;[revisions, steps] = await Promise.all([
+    ;[revisions, steps, variants, files] = await Promise.all([
       apiServer<RevisionRow[]>(`/drawings/${encodeURIComponent(selNo)}/revisions`).catch(() => []),
       apiServer<StepRow[]>(`/drawings/${encodeURIComponent(selNo)}/approvals`).catch(() => []),
+      apiServer<{ drawingNo: string; name: string; status: string }[]>(`/drawings/${encodeURIComponent(selNo)}/variants`).catch(() => []),
+      apiServer<{ fileId: number; fileName: string; fileType: string }[]>(`/drawings/${encodeURIComponent(selNo)}/files`).catch(() => []),
     ])
   }
   return (
@@ -40,7 +44,7 @@ export default async function DrawingsPage({ searchParams }: { searchParams: Pro
             <div style={{ flex: 1, minWidth: 0 }}><DrawingGrid rows={rows} selectedNo={selNo} /></div>
             <div style={{ width: 340, overflow: 'auto' }}>
               {selNo
-                ? <DrawingDetail no={selNo} revisions={revisions} steps={steps} />
+                ? <DrawingDetail no={selNo} revisions={revisions} steps={steps} variants={variants} files={files} />
                 : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{t('dwg.selectHint', '행을 클릭하면 Rev 이력·단계 승인·Supersedure 를 관리합니다')}</div>}
             </div>
           </>

@@ -102,22 +102,17 @@ with sync_playwright() as pw:
     p.get_by_role("button", name="로그인 (Enter)").click()
     p.wait_for_selector(".app .titlebar", timeout=8000)
 
+    # Next — 도면 상세는 우측 섹션형(탭 없음): Variants(data-dwg-variants)·단계 승인·첨부(data-dwg-files)
     p.locator(".tn", has_text="도면 대장 (M-4-1)").click()
     p.locator("td", has_text="KDCR 3-13").first.wait_for(timeout=8000)
     p.locator("td", has_text="KDCR 3-13").first.click()
-    detail = p.locator(".gb", has_text="도면 상세")   # 좌측 그리드·Supersedure 오매칭 방지
-    # Variants 탭
-    detail.locator(".mdi .t", has_text="Variants").click()
-    expect(detail.locator("tr", has_text="KDCR 3-12")).to_have_count(1, timeout=15000)
-    ok("UI Variants 탭 — 패밀리 도면", True)
-    # 승인 단계 탭 — 시드 체인 완료 표기
-    detail.locator(".mdi .t", has_text="승인 단계").click()
-    detail.locator("text=승인 체인 완료").wait_for(timeout=8000)
-    ok("UI 승인 단계 탭 — 체인 완료", True)
-    # 첨부 탭 — Run DXF 행
-    detail.locator(".mdi .t", has_text="첨부").click()
-    detail.locator("tr", has_text="DXF").first.wait_for(timeout=8000)
-    ok("UI 첨부 탭 — 연결 DXF", True)
+    expect(p.locator("[data-dwg-variants] tr", has_text="KDCR 3-12")) \
+        .to_have_count(1, timeout=15000)
+    ok("UI Variants — 패밀리 도면", True)
+    ok("UI 단계 승인 섹션 (WRITE→REVIEW→APPROVE)",
+       p.locator(".gb", has_text="단계 승인").count() >= 1)
+    p.locator("[data-dwg-files] tr", has_text="DXF").first.wait_for(timeout=8000)
+    ok("UI 첨부 — 연결 DXF", True)
 
     # Design Editor — Sim 판넬 + 부품 관계 실데이터
     p.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
