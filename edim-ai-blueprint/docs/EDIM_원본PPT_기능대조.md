@@ -15,7 +15,7 @@
 | ⏸ **외부 의존** | U7 Toolbox AI·U10 AI 도면 학습·U28 내부 질의응답 | **키 설치 완료(2026-07-19, backend/.env 600·컨테이너 반영) — API 크레딧 잔액 부족(400 credit balance too low)으로 대기. 충전 시 즉시 라이브** |
 | ⏸ **협의 대상** | U12 Digital Twin/AR/MES 연계 · U8 건축도 판독 · U9 AR | 본사업 범위 협의 |
 
-> 회귀 게이트: 라이브 스모크 **82/82** (2026-07-19, edimsol.com — U10 도면-코드 칩·related-codes API 포함 전체 그린).
+> 회귀 게이트: 라이브 스모크 **83/83** (2026-07-19, edimsol.com — 전 화면 Playwright 스윕에서 발견한 /erp/process 500 수정 후 편입, 전체 그린).
 
 ---
 

@@ -134,6 +134,7 @@ async function main() {
   await assertRenders('/erp/warehouses', ['위치 등록'], token)
   await assertRenders('/erp/work-order', ['발행'], token)
   await assertRenders('/erp/anomaly', ['이상 스캔'], token)
+  await assertRenders('/erp/process', ['프로세스 정의'], token)
 
   // 4e) N3b ERP 공급망 복구 — 발주/입고/예약/검사/단가 액션 UI 렌더
   await assertRenders('/erp/purchase', ['PO 발주 확정'], token)
