@@ -63,3 +63,17 @@ export async function getMacroFunctions(q: string): Promise<MacroFn[]> {
     return await apiServer<MacroFn[]>(`/macros/functions?q=${encodeURIComponent(q)}`)
   } catch { return [] }
 }
+
+/** U7 (AI-04) — Prompt→Macro 생성: 키·크레딧 준비 시 live, 아니면 sample/error 폴백. */
+export interface AiMacroResult { mode: 'live' | 'sample' | 'error'; formula: string; description: string; coding: string; error?: string }
+
+export async function aiGenerateMacro(prompt: string): Promise<AiMacroResult | null> {
+  try {
+    return await apiServer<AiMacroResult>('/ai/macro-generate', {
+      method: 'POST', body: JSON.stringify({ prompt }),
+    })
+  } catch (e) {
+    if (e instanceof ApiError) return null
+    throw e
+  }
+}

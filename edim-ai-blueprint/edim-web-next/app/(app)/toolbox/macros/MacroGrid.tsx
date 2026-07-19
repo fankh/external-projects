@@ -6,7 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useFKeys } from '@/hooks/useFKeys'
 import { useI18n } from '@/components/I18nProvider'
-import { deleteMacro, evaluateMacro, getMacroFunctions, requestMacroApproval, saveMacro, type ActState, type EvalResult, type MacroFn } from './actions'
+import { aiGenerateMacro, deleteMacro, evaluateMacro, getMacroFunctions, requestMacroApproval, saveMacro, type ActState, type EvalResult, type MacroFn } from './actions'
 
 export interface MacroRow {
   name: string; expr: string; status: string; address: string; prompt: string
@@ -56,6 +56,20 @@ export function MacroGrid({ rows }: { rows: MacroRow[] }) {
     setExpr((cur) => (cur.trim() ? `${cur} ${f.sig}` : `=${f.sig}`))
     setFnOpen(false)
   }
+  // U7 (AI-04) — Prompt→Macro AI 생성 (sample/live 모드 표시)
+  const [aiMode, setAiMode] = useState<string | null>(null)
+  const runAiGen = () => {
+    if (!prompt.trim()) { setSt({ error: 'Prompt(자연어 설명)를 먼저 입력하십시오' }); return }
+    start(async () => {
+      const r = await aiGenerateMacro(prompt.trim())
+      if (!r) { setSt({ error: 'AI 생성 불가 — 백엔드 필요' }); return }
+      setExpr(r.formula.startsWith('=') ? r.formula : `=${r.formula}`)
+      setAiMode(r.mode)
+      setSt(r.mode === 'live'
+        ? { ok: `AI 생성 ✓ (Claude live) — ${r.description.slice(0, 60)}` }
+        : { ok: `AI 생성 (${r.mode === 'sample' ? '샘플 모드 — API 키/크레딧 대기' : `오류 폴백: ${(r.error ?? '').slice(0, 40)}`}) — 식 삽입됨` })
+    })
+  }
 
   const select = (r: MacroRow) => {
     setSelName(r.name); setName(r.name); setExpr(r.expr); setPrompt(r.prompt); setEvalR(null)
@@ -103,7 +117,12 @@ export function MacroGrid({ rows }: { rows: MacroRow[] }) {
             </div>
           </div>
         ) : null}
-        <input className="in" placeholder={t('macro.promptPh', 'Prompt (자연어 설명)')} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <input className="in" placeholder={t('macro.promptPh', 'Prompt (자연어 설명)')} value={prompt} onChange={(e) => setPrompt(e.target.value)} style={{ flex: 1 }} />
+          <button className="b" data-ai-gen disabled={pending} onClick={runAiGen}
+            title={t('macro.aiGenHint', 'AI-04 Prompt→Macro — Claude 로 EDIM Macro 식 생성 (키/크레딧 없으면 샘플)')} style={{ height: 22, fontSize: 10 }}>🤖 {t('macro.aiGen', 'AI 생성')}</button>
+          {aiMode ? <span data-ai-mode className={`st ${aiMode === 'live' ? 'ok' : ''}`} style={{ fontSize: 9.5 }}>{aiMode}</span> : null}
+        </div>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
           <input className="in" style={{ flex: 1, minWidth: 110, fontFamily: 'Consolas, monospace' }} placeholder={t('macro.varsPh', 'Test 변수: A=560, B=2')}
             value={vars} onChange={(e) => setVars(e.target.value)} />
