@@ -1942,6 +1942,17 @@ def ai_chat(body: AiChatRequest) -> dict[str, Any]:
         _q("""SELECT drawing_no, drawing_name FROM dwg_drawing
               WHERE tenant_id=%s AND (drawing_no ILIKE %s OR drawing_name ILIKE %s) LIMIT 5""",
            "도면", "/plm/drawings")
+        # U10 2단계 — 도면 내용(추출 텍스트) 검색: 파일 뷰어 딥링크
+        for t in like:
+            cur.execute(
+                """SELECT f.file_id, f.file_name FROM dwg_text_index ti
+                   JOIN dwg_file f ON f.file_id = ti.file_id
+                   WHERE ti.tenant_id=%s AND ti.content ILIKE %s LIMIT 4""", (tid, t))
+            for fid, fname in cur.fetchall():
+                ref = {"kind": "도면 내용", "code": str(fname), "title": f"file {fid} — 추출 텍스트 일치",
+                       "href": f"/detail/cad-viewer?fileId={fid}"}
+                if ref not in refs:
+                    refs.append(ref)
     refs = refs[:18]
 
     from app.services.ai_assist import _client
@@ -2701,6 +2712,62 @@ def _open_dxf(tmp: str, file_name: str, data: bytes):
     except ezdxf.DXFStructureError:
         doc, _a = recover.readfile(str(src))
         return doc
+
+
+def _extract_dxf_texts(data: bytes, file_name: str) -> tuple[str, int]:
+    """U10 선행 — DXF 에서 TEXT/MTEXT·레이어명 추출 (검색 인덱스용)."""
+    import tempfile
+    doc_texts: list[str] = []
+    count = 0
+    with tempfile.TemporaryDirectory(prefix="edim_idx_") as tmp:
+        doc = _open_dxf(tmp, file_name, data)
+        for e in doc.modelspace():
+            count += 1
+            t = e.dxftype()
+            if t == "TEXT":
+                doc_texts.append(str(e.dxf.text))
+            elif t == "MTEXT":
+                doc_texts.append(str(e.text))
+        doc_texts.extend(str(l.dxf.name) for l in doc.layers)
+    content = " ".join(x.strip() for x in doc_texts if x and x.strip())[:20000]
+    return content, count
+
+
+@router.post("/cad/view/{file_id}/index", dependencies=[SETUP])
+def cad_text_index(file_id: int) -> dict[str, Any]:
+    """도면 텍스트 인덱싱 — TEXT/MTEXT·레이어명 추출 → dwg_text_index upsert."""
+    data, _fp, file_name = _load_dwg_dxf(file_id)
+    content, count = _extract_dxf_texts(data, file_name)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """INSERT INTO dwg_text_index (file_id, tenant_id, content, entity_count, indexed_at)
+               VALUES (%s,%s,%s,%s,now())
+               ON CONFLICT (file_id) DO UPDATE SET content=EXCLUDED.content,
+                   entity_count=EXCLUDED.entity_count, indexed_at=now()""",
+            (file_id, tid, content, count))
+    return {"fileId": file_id, "chars": len(content), "entities": count,
+            "preview": content[:120]}
+
+
+@router.post("/cad/index-all", dependencies=[SETUP])
+def cad_index_all() -> dict[str, Any]:
+    """도면 텍스트 일괄 인덱싱 — DXF 파일 전량 (최대 50건/회)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT file_id, file_name FROM dwg_file
+               WHERE tenant_id=%s AND lower(file_name) LIKE '%%.dxf'
+               ORDER BY file_id LIMIT 50""", (tid,))
+        targets = cur.fetchall()
+    done, failed = [], []
+    for fid, _fn in targets:
+        try:
+            r = cad_text_index(fid)
+            done.append({"fileId": fid, "chars": r["chars"]})
+        except HTTPException:
+            failed.append(fid)
+    return {"indexed": len(done), "failed": failed, "files": done[:10]}
 
 
 @router.get("/cad/view/{file_id}/blocks")
