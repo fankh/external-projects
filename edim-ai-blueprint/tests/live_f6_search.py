@@ -86,9 +86,10 @@ with sync_playwright() as pw:
     ok("부품 딥링크 — /plm/parts?no=", "/plm/parts" in page.url)
 
     # 프로젝트 검색 → S-3-5 (프로젝트 대장 딥링크)
+    # 주의: 이전 검색 hits 가 남은 드롭다운이 먼저 열림 — 새 결과(PS-61313-5)로 갱신될 때까지 대기
     page.keyboard.press("Control+k")
     page.locator("[data-global-search]").fill("Micron")
-    page.wait_for_selector("[data-search-results]", timeout=5000)
+    page.locator("[data-search-results] div", has_text="PS-61313-5").first.wait_for(timeout=6000)
     dd = page.locator("[data-search-results]").inner_text()
     ok("드롭다운 — 프로젝트 그룹 표시", "프로젝트" in dd)
     page.locator("[data-search-results] div", has_text="PS-61313-5").last.click()
@@ -98,7 +99,7 @@ with sync_playwright() as pw:
     # 공급처 검색 → M-14-2
     page.keyboard.press("Control+k")
     page.locator("[data-global-search]").fill("대신")
-    page.wait_for_selector("[data-search-results]", timeout=5000)
+    page.locator("[data-search-results] div", has_text="대신금속").first.wait_for(timeout=6000)
     page.locator("[data-search-results] div", has_text="대신금속").last.click()
     page.wait_for_timeout(1200)
     ok("공급처 딥링크 — M-14-2 탭", "M-14-2" in page.locator(".mdi").inner_text())

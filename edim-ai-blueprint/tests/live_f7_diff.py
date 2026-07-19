@@ -54,30 +54,35 @@ with sync_playwright() as pw:
         page.get_by_label("비밀번호").fill("edim")
         page.get_by_role("button", name="로그인 (Enter)").click()
     page.wait_for_selector(".app .titlebar", timeout=15000)
-    page.locator(".tn", has_text="Project Folder·이력 (M-15-8/9)").first.click()
-    page.wait_for_timeout(1500)
+    # Next — 감사 조회(M-14-6A) 행 선택 → 필드별 diff 하이라이트 패널 (레거시 M-15-9 diff 모달 동등)
+    page.locator(".titlebar .mod", has_text="ERP").first.click()
+    page.wait_for_timeout(400)
+    page.locator(".tn", has_text="감사 조회").first.click()
+    page.wait_for_selector("table.g:visible tbody tr", timeout=15000)
+    page.wait_for_timeout(500)
 
-    # LEVEL_CHANGE 행의 diff 클릭 → 모달 + 변경 필드 하이라이트
-    row = page.locator("tr", has_text="LEVEL_CHANGE").first
-    row.locator("span.b", has_text="diff").click()
+    # 그리드 내 찾기로 LEVEL_CHANGE 행만 필터 → 첫 행 클릭
+    wrap = page.locator("[data-grid-wrap]").first
+    wrap.locator("[title='찾기 (Ctrl+F)']").click()
+    wrap.locator("input[placeholder='찾기…']").fill("LEVEL_CHANGE")
+    page.wait_for_timeout(400)
+    page.locator("table.g:visible tbody tr", has_text="LEVEL_CHANGE").first.click()
     page.wait_for_selector("[data-hist-diff]", timeout=4000)
-    ok("diff 모달 오픈", True)
+    ok("diff 패널 오픈", True)
     ok("변경 전/후 컬럼", page.locator("[data-hist-diff] th", has_text="변경 전").count() == 1)
     ok("변경 필드 하이라이트", page.locator("[data-hist-diff] [data-diff-changed]").count() >= 1)
     body = page.locator("[data-hist-diff]").inner_text()
     ok("level 필드 값 표기", "level" in body)
-    page.locator("[data-hist-diff] .titlebar span", has_text="✕").click()
-    page.wait_for_timeout(300)
-    ok("모달 닫기", page.locator("[data-hist-diff]").count() == 0)
 
-    # 페이로드 없는 행 (LOGIN_OK 등) — 정직 안내
-    noload = page.locator("tr", has_text="LOGIN_OK").first
+    # 페이로드 없는 행 (LOGIN_OK 등) — 상세 패널 미표시 (정직)
+    wrap.locator("input[placeholder='찾기…']").fill("LOGIN_OK")
+    page.wait_for_timeout(400)
+    noload = page.locator("table.g:visible tbody tr", has_text="LOGIN_OK").first
     if noload.count():
-        noload.locator("span.b", has_text="diff").click()
+        noload.click()
         page.wait_for_timeout(400)
-        ok("페이로드 없는 행 — 정직 안내",
-           "페이로드" in page.locator(".statusbar").inner_text()
-           or page.locator("[data-hist-diff]").count() == 1)
+        ok("페이로드 없는 행 — diff 패널 미표시(정직)",
+           page.locator("[data-hist-diff]").count() == 0)
     else:
         ok("LOGIN_OK 행 없음 — 안내 검사 생략", True)
     b.close()

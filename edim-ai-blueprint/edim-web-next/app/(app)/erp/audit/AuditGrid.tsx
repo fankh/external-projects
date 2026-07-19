@@ -104,15 +104,30 @@ export function AuditPanel({ initial }: { initial: AuditData }) {
       </GroupBox>
       {selRow && (selRow.before || selRow.after) ? (
         <GroupBox title={t('audit.detail', '변경 상세 — before / after')} noPad style={{ flex: 'none', maxHeight: '40%', overflow: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: 6, fontSize: 10.5 }}>
-            <div>
-              <div style={{ color: 'var(--txt-dim)', marginBottom: 2 }}>{t('audit.before', '변경 전')}</div>
-              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{selRow.before ? JSON.stringify(selRow.before, null, 1) : '—'}</pre>
-            </div>
-            <div>
-              <div style={{ color: 'var(--txt-dim)', marginBottom: 2 }}>{t('audit.after', '변경 후')}</div>
-              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{selRow.after ? JSON.stringify(selRow.after, null, 1) : '—'}</pre>
-            </div>
+          {/* F7 이식 — 필드별 diff (변경 필드 하이라이트, 레거시 M-15-9 diff 모달 동등) */}
+          <div data-hist-diff style={{ padding: 6, fontSize: 10.5 }}>
+            <table className="g" style={{ width: '100%' }}>
+              <thead><tr>
+                <th style={{ width: 120 }}>{t('audit.fieldCol', '필드')}</th>
+                <th>{t('audit.before', '변경 전')}</th>
+                <th>{t('audit.after', '변경 후')}</th>
+              </tr></thead>
+              <tbody>
+                {[...new Set([...Object.keys(selRow.before ?? {}), ...Object.keys(selRow.after ?? {})])].map((k) => {
+                  const bv = selRow.before?.[k]
+                  const av = selRow.after?.[k]
+                  const changed = JSON.stringify(bv) !== JSON.stringify(av)
+                  return (
+                    <tr key={k} {...(changed ? { 'data-diff-changed': '' } : {})}
+                      style={changed ? { background: '#FFF3C2' } : undefined}>
+                      <td style={{ fontWeight: changed ? 700 : 400 }}>{k}</td>
+                      <td style={{ wordBreak: 'break-all' }}>{bv === undefined ? '—' : JSON.stringify(bv)}</td>
+                      <td style={{ wordBreak: 'break-all', color: changed ? 'var(--err)' : undefined }}>{av === undefined ? '—' : JSON.stringify(av)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </GroupBox>
       ) : null}

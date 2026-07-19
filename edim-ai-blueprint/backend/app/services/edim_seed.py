@@ -3568,6 +3568,7 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "search.users": ('Users', 'ユーザー', '用户'),
     "search.parts": ('Parts', '部品', '部件'),
     "search.projects": ('Projects', 'プロジェクト', '项目'),
+    "audit.fieldCol": ('Field', 'フィールド', '字段'),
 }
 
 def seed_v32(cur, tid: int) -> None:

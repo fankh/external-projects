@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState, useTransition } from 'react'
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Btn, Chip } from '@/components/controls'
@@ -26,6 +26,18 @@ export function CompanyGrid({ rows, selectedId }: { rows: CompanyRow[]; selected
   }
   // 수정 성공 → 다이얼로그 닫기 (성공 문구는 그리드 상단에 유지)
   useEffect(() => { if (editSt.ok) setEdit(null) }, [editSt.ok])
+  // 클릭/더블클릭 판별 — dblclick 에 딸린 ?sel RSC 네비게이션이 폼 액션을 무효화하므로 지연 네비
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const rowClick = (r: CompanyRow) => {
+    if (clickTimer.current) clearTimeout(clickTimer.current)
+    clickTimer.current = setTimeout(() => {
+      if (r.companyType === 'SUPPLIER' && r.companyId != null) router.push(`/erp/companies?sel=${r.companyId}`)
+    }, 260)
+  }
+  const rowDblClick = (r: CompanyRow) => {
+    if (clickTimer.current) { clearTimeout(clickTimer.current); clickTimer.current = null }
+    if (r.companyId != null) setEdit(r)
+  }
 
   const cols: GridColumn<CompanyRow>[] = [
     { key: 'name', header: t('company.name', '업체명'), render: (r) => r.name },
@@ -43,8 +55,8 @@ export function CompanyGrid({ rows, selectedId }: { rows: CompanyRow[]; selected
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-companies" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.companyId ?? r.name} selectedKey={selectedId ?? undefined}
-          onRowClick={(r) => { if (r.companyType === 'SUPPLIER' && r.companyId != null) router.push(`/erp/companies?sel=${r.companyId}`) }}
-          onRowDoubleClick={(r) => { if (r.companyId != null) setEdit(r) }}
+          onRowClick={rowClick}
+          onRowDoubleClick={rowDblClick}
           emptyText={t('company.empty', '거래처가 없습니다')} />
       </div>
       {/* F5 이식 — 더블클릭 수정 다이얼로그 (평가등급·결제조건, 폼 액션) */}
