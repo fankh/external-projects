@@ -200,7 +200,7 @@ async function main() {
 
   // 4q) U7 AI 생성 버튼 · U28 내부 Q&A (v31.7~v31.9)
   await assertRenders('/toolbox/macros', ['AI 생성'], token)
-  await assertRenders('/toolbox/assistant', ['data-assist-q', '내부 Q&A'], token)
+  await assertRenders('/toolbox/assistant', ['data-assist-q', 'AI-08'], token)
 
   // 4o) API 계약 — U30 테넌트 메뉴 · U27 공학 함수 카탈로그
   async function assertApi(name, path, check) {
