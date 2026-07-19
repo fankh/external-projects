@@ -259,8 +259,10 @@ E-4 SWP 모듈 명세 중 미배치 2종: **Child Component**(BOM Mother 연결 
 - [x] 엔진 공학 함수 17종 ✅ v27.8 — ABS/SQRT/ROUND/POWER/EXP/LN/LOG/MOD/CEILING/FLOOR/PI/SIN/COS/TAN/RADIANS/DEGREES/INTERP(2점 보간·trace), 오류 가드(음수 SQRT·0 나눔·역보간). 단위 테스트 4건 추가(35/35)
 - [x] 카탈로그 동기 ✅ v27.8 — ENGINE_BUILTINS(Table 참조 오인 방지)·/macros/functions 17건 등록 → 함수 마법사 28함수 자동 노출. 라이브 E2E 9/9(SQRT·CEILING·삼각·INTERP 49.0·오류·기존 회귀·'삼각'→SIN/COS/TAN 검색)
 
-### U28. AI 내부 자료 질의응답 (s27 노트 "AI 질의 응답 — 내부 자료 검색·응답용") — ⏸ API 키 대기
-U7/U10(C9)과 동일 그룹 — ANTHROPIC_API_KEY 입력 시: 내부 Table·문서·코드 자료 검색 기반 질의응답 패널(도구 호출형). 인터넷 검색 Tool 은 별도 협의.
+### U28. AI 내부 자료 질의응답 (s27 노트 "AI 질의 응답 — 내부 자료 검색·응답용") — 🔶 1단계 (v31.9, 합성=크레딧 대기)
+U7/U10(C9)과 동일 그룹. 인터넷 검색 Tool 은 별도 협의.
+- [x] 1단계 ✅ v31.9 — 내부 Q&A 화면(AI-08, /toolbox/assistant): POST /ai/chat 키워드 검색(제품 코드·문서·데이터 Table·Macro·부품, 근거 딥링크 표) 항시 동작, live 시 Claude 근거 한정 합성(모드 배지). 라이브 E2E 8/8(검색·422·딥링크 이동, 폴백 안내)
+- [ ] live 합성 품질 검증 + 대화 이력 — 크레딧 충전 시
 
 ## 8차 조사 신규 태스크 (2026-07-19, 내장 미디어 전수 스캔 — U29)
 
