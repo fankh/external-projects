@@ -193,6 +193,11 @@ async function main() {
   await assertRenders('/plm/duct', ['data-duct-edit', '수동 조정'], token)
   await assertRenders('/detail/model3d', ['data-3d-viewer', '제품 3D 뷰어'], token)
 
+  // 4p) U32 Approval 스트립 · U33 테넌트 메뉴 관리 (v30.6~v31.0)
+  await assertRenders('/code/groups', ['data-approval-strip'], token)
+  await assertRenders('/code/product-codes', ['data-approval-strip'], token)
+  await assertRenders('/erp/tenant-menus', ['data-tmenu-scope', '테넌트 메뉴 관리'], token)
+
   // 4o) API 계약 — U30 테넌트 메뉴 · U27 공학 함수 카탈로그
   async function assertApi(name, path, check) {
     try {
