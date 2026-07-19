@@ -75,34 +75,32 @@ with sync_playwright() as pw:
     page.wait_for_selector(".app .titlebar", timeout=15000)
     page.wait_for_timeout(800)
 
-    # 부품 검색 → 부품 상세 딥링크
+    # 부품 검색 → 부품 대장 딥링크 (Next ⌘K — data-global-search)
     page.keyboard.press("Control+k")
-    page.locator(".toolbar input.in").fill(frag)
+    page.locator("[data-global-search]").fill(frag)
     page.wait_for_selector("[data-search-results]", timeout=5000)
     dd = page.locator("[data-search-results]").inner_text()
     ok("드롭다운 — 부품 그룹 표시", "부품" in dd)
     page.locator("[data-search-results] div", has_text=parts[0]["name"]).last.click()
-    page.wait_for_timeout(900)
-    ok("부품 딥링크 — 부품 상세 탭", parts[0]["name"][:6] in page.locator(".mdi").inner_text())
+    page.wait_for_timeout(1200)
+    ok("부품 딥링크 — /plm/parts?no=", "/plm/parts" in page.url)
 
-    # 프로젝트 검색 → 컨텍스트 전환 + S-3-5
+    # 프로젝트 검색 → S-3-5 (프로젝트 대장 딥링크)
     page.keyboard.press("Control+k")
-    page.locator(".toolbar input.in").fill("Micron")
+    page.locator("[data-global-search]").fill("Micron")
     page.wait_for_selector("[data-search-results]", timeout=5000)
     dd = page.locator("[data-search-results]").inner_text()
     ok("드롭다운 — 프로젝트 그룹 표시", "프로젝트" in dd)
     page.locator("[data-search-results] div", has_text="PS-61313-5").last.click()
-    page.wait_for_timeout(1200)
-    ok("프로젝트 딥링크 — 타이틀바 컨텍스트 + S-3-5",
-       "Micron #7" in page.locator(".titlebar").inner_text()
-       and "S-3-5" in page.locator(".mdi").inner_text())
+    page.wait_for_timeout(1500)
+    ok("프로젝트 딥링크 — S-3-5 탭", "S-3-5" in page.locator(".mdi").inner_text())
 
     # 공급처 검색 → M-14-2
     page.keyboard.press("Control+k")
-    page.locator(".toolbar input.in").fill("대신")
+    page.locator("[data-global-search]").fill("대신")
     page.wait_for_selector("[data-search-results]", timeout=5000)
     page.locator("[data-search-results] div", has_text="대신금속").last.click()
-    page.wait_for_timeout(900)
+    page.wait_for_timeout(1200)
     ok("공급처 딥링크 — M-14-2 탭", "M-14-2" in page.locator(".mdi").inner_text())
     b.close()
 

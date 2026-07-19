@@ -10,6 +10,9 @@ export interface SearchResults {
   parts?: { partNo: string; name: string }[]
   projects?: { projectNo: string; name: string; stage: string }[]
   users?: { login: string; name: string; level: string }[]
+  companies?: { companyId: number; name: string; companyType: string }[]
+  warehouses?: { code: string; name: string }[]
+  macros?: { name: string; description: string }[]
 }
 
 export async function searchQuery(q: string): Promise<{ result?: SearchResults; error?: string }> {

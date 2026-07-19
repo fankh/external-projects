@@ -3563,6 +3563,11 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "devreq.resolution": ('Resolution', '処理', '处理'),
     "shell.newPwConfirm": ('Confirm new password', '新パスワード確認', '确认新密码'),
     "shell.pwMismatch": ('New password confirmation does not match', '新パスワード確認が一致しません', '新密码确认不一致'),
+    "search.companies": ('Suppliers', '仕入先', '供应商'),
+    "search.warehouses": ('Warehouses', '倉庫', '仓库'),
+    "search.users": ('Users', 'ユーザー', '用户'),
+    "search.parts": ('Parts', '部品', '部件'),
+    "search.projects": ('Projects', 'プロジェクト', '项目'),
 }
 
 def seed_v32(cur, tid: int) -> None:

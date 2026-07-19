@@ -51,6 +51,11 @@ export function GlobalSearch() {
         ...s.files.slice(0, 5).map((f) => ({ group: t('search.files', '파일'), label: `${f.name} (${f.type})`, href: f.type === 'DXF' ? `/detail/cad-viewer?fileId=${f.fileId}` : '/common/folder' })),
         ...(s.parts ?? []).slice(0, 4).map((p) => ({ group: t('search.parts', '부품'), label: `${p.partNo} ${p.name}`, href: `/plm/parts?no=${encodeURIComponent(p.partNo)}` })),
         ...(s.projects ?? []).slice(0, 4).map((p) => ({ group: t('search.projects', '프로젝트'), label: `${p.projectNo} ${p.name}`, href: `/erp/projects?no=${encodeURIComponent(p.projectNo)}` })),
+        // F6 확장 — 공급처·창고·Macro·사용자(SETUP 게이트는 서버) 그룹
+        ...(s.companies ?? []).slice(0, 4).map((c) => ({ group: t('search.companies', '공급처'), label: c.name, href: `/erp/companies?sel=${c.companyId}` })),
+        ...(s.warehouses ?? []).slice(0, 4).map((w) => ({ group: t('search.warehouses', '창고'), label: `${w.code} ${w.name}`, href: '/erp/warehouses' })),
+        ...(s.macros ?? []).slice(0, 4).map((m) => ({ group: 'Macro', label: m.name, href: '/toolbox/macros' })),
+        ...(s.users ?? []).slice(0, 4).map((u) => ({ group: t('search.users', '사용자'), label: `${u.login} ${u.name}`, href: '/erp/roles' })),
       ]
       setHits(rows)
       setOpen(true)
@@ -69,7 +74,7 @@ export function GlobalSearch() {
         }}
         style={{ width: 230, height: 20, fontSize: 10.5 }} />
       {open ? (
-        <div style={{
+        <div data-search-results style={{
           position: 'absolute', top: '100%', right: 0, zIndex: 90, minWidth: 300, maxHeight: 340,
           overflowY: 'auto', background: '#fff', border: '1px solid var(--line-strong)',
           boxShadow: '0 4px 12px rgba(20,26,40,.22)', fontSize: 11,
