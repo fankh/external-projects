@@ -13,6 +13,13 @@ export async function GET(req: NextRequest) {
   if (kind === 'docpdf' && id) { path = `/documents/${encodeURIComponent(id)}/render.pdf`; filename = `${id}.pdf` }
   else if (kind === 'pcr' && id) { path = `/reports/pcr/${encodeURIComponent(id)}.pdf`; filename = `PCR-${id}.pdf` }
   else if (kind === 'file' && id) { path = `/files/download/${encodeURIComponent(id)}`; filename = sp.get('name') ?? `file-${id}` }
+  else if (kind === 'cadplot' && id) {
+    const scale = sp.get('scale') ?? '100'
+    const paper = sp.get('paper') ?? 'A4'
+    const orient = sp.get('orient') ?? 'landscape'
+    path = `/cad/view/${encodeURIComponent(id)}/plot.pdf?scale=${encodeURIComponent(scale)}&paper=${encodeURIComponent(paper)}&orient=${encodeURIComponent(orient)}`
+    filename = `cad-${id}-1-${scale}.pdf`
+  }
   else if (kind === 'zip') {
     const project = sp.get('project') ?? ''
     if (!project) return NextResponse.json({ detail: 'project 필요' }, { status: 422 })
@@ -20,7 +27,7 @@ export async function GET(req: NextRequest) {
     path = `/files/zip?project=${encodeURIComponent(project)}${folder ? `&folder=${encodeURIComponent(folder)}` : ''}`
     filename = `${project}${folder ? `-${folder}` : ''}.zip`
   }
-  if (!path) return NextResponse.json({ detail: 'kind(docpdf|pcr|file|zip) 오류' }, { status: 422 })
+  if (!path) return NextResponse.json({ detail: 'kind(docpdf|pcr|file|zip|cadplot) 오류' }, { status: 422 })
 
   const token = await getToken()
   const res = await fetch(API_BASE + path, {
@@ -29,7 +36,7 @@ export async function GET(req: NextRequest) {
   })
   if (!res.ok) return NextResponse.json({ detail: `HTTP ${res.status}` }, { status: res.status })
   const buf = await res.arrayBuffer()
-  const inline = kind === 'docpdf' || kind === 'pcr'
+  const inline = kind === 'docpdf' || kind === 'pcr' || kind === 'cadplot'
   return new NextResponse(buf, {
     headers: {
       'Content-Type': res.headers.get('content-type') ?? 'application/octet-stream',

@@ -11,7 +11,9 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SEED = ROOT / "backend" / "app" / "services" / "edim_seed.py"
-OUT = ROOT / "edim-web" / "src" / "i18n" / "bundles.ts"
+# 메인 = Next (2026-07-15 컷오버). 레거시 SPA 번들은 존재할 때만 동기화.
+OUT = ROOT / "edim-web-next" / "lib" / "i18n" / "bundles.ts"
+OUT_LEGACY = ROOT / "edim-web-react" / "src" / "i18n" / "bundles.ts"
 
 src = SEED.read_text(encoding="utf-8")
 
@@ -67,5 +69,9 @@ for i, loc in enumerate(("en", "ja", "zh")):
         lines.append(f"    {ts_str(key)}: {ts_str(merged[key][i])},")
     lines.append("  },")
 lines.append("}")
-OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+body = "\n".join(lines) + "\n"
+OUT.write_text(body, encoding="utf-8")
 print(f"OK — {OUT.relative_to(ROOT)} ({len(merged)} keys x en/ja/zh)")
+if OUT_LEGACY.exists():
+    OUT_LEGACY.write_text(body, encoding="utf-8")
+    print(f"OK — {OUT_LEGACY.relative_to(ROOT)} (레거시 동기화)")

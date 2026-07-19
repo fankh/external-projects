@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getLocale } from '@/lib/session'
 import { SESSION_COOKIE } from '@/lib/session'
-import { bundleFor } from '@/lib/i18n'
+import { bundleFor, translate } from '@/lib/i18n'
 import { getMe, getPermissions, LEVEL_RANK } from '@/lib/auth'
 import { I18nProvider } from '@/components/I18nProvider'
 import { PermissionProvider } from '@/components/PermissionProvider'
@@ -45,7 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         bell={<><NotificationBell initialUnread={digest.unread} /><LocaleSwitcher /></>}
         right={
           <form action={logout} data-logout>
-            <button type="submit" className="b" style={{ height: 18, fontSize: 10 }}>로그아웃</button>
+            <button type="submit" className="b" style={{ height: 18, fontSize: 10 }}>{translate(bundle, 'shell.logout', '로그아웃')}</button>
           </form>
         }>
         {children}

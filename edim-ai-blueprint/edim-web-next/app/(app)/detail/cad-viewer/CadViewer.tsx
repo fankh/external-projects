@@ -10,6 +10,7 @@ export function CadViewer({ doc, fileId, related = [] }: { doc: CadDocument; fil
   const { t } = useI18n()
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [edit, setEdit] = useState(false)
+  const [plotScale, setPlotScale] = useState('100')
   const toggle = (l: string) => setHidden((s) => { const n = new Set(s); n.has(l) ? n.delete(l) : n.add(l); return n })
   const canEdit = doc.sourceFormat === 'dxf'
 
@@ -19,7 +20,14 @@ export function CadViewer({ doc, fileId, related = [] }: { doc: CadDocument; fil
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--title-navy)' }}>{doc.drawingName}</span>
         <span className="chip info">{doc.sourceFormat.toUpperCase()}</span>
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('detail.entities', '엔티티')} {doc.entities.length} · file {fileId}</span>
-        {canEdit ? <button type="button" className={`b ${edit ? 'pri' : ''}`} style={{ height: 18, fontSize: 10 }} onClick={() => setEdit((e) => !e)}>✎ {t('detail.edit', '편집')}</button> : null}
+        {canEdit ? <button type="button" data-cad-edit-toggle className={`b ${edit ? 'pri' : ''}`} style={{ height: 18, fontSize: 10 }} onClick={() => setEdit((e) => !e)}>✎ {t('detail.edit', '편집')}</button> : null}
+        <select className="in" data-cad-plot-scale value={plotScale} aria-label={t('cad.plotScale', '축척')}
+          style={{ height: 18, fontSize: 9.5, width: 58 }} onChange={(e) => setPlotScale(e.target.value)}>
+          {['50', '100', '200'].map((s) => <option key={s} value={s}>1:{s}</option>)}
+        </select>
+        <button type="button" data-cad-plot className="b" style={{ height: 18, fontSize: 10 }}
+          title={t('cad.plotHint', '1:축척 벡터 PDF 인쇄 (A4 가로)')}
+          onClick={() => window.open(`/api/next/bin?kind=cadplot&id=${fileId}&scale=${plotScale}&paper=A4&orient=landscape`, '_blank')}>🖶 {t('cad.plotBtn', '축척 PDF')}</button>
         <a href="/detail/model3d" data-3d-link className="b" style={{ height: 18, fontSize: 10, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
           title={t('detail.model3dHint', '제품 3D 뷰어 — 원본 PPT 내장 GLB 정본 (U29)')}>🧊 3D</a>
         {related.map((r) => (
