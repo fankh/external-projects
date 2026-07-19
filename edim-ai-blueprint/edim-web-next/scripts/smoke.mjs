@@ -196,7 +196,7 @@ async function main() {
   // 4p) U32 Approval 스트립 · U33 테넌트 메뉴 관리 (v30.6~v31.0)
   await assertRenders('/code/groups', ['data-approval-strip'], token)
   await assertRenders('/code/product-codes', ['data-approval-strip'], token)
-  await assertRenders('/erp/tenant-menus', ['data-tmenu-scope', '테넌트 메뉴 관리', 'data-tmenu-folder-name'], token)
+  await assertRenders('/erp/tenant-menus', ['data-tmenu-scope', '테넌트 메뉴 관리', 'data-tmenu-folder-name', '📁'], token)
 
   // 4q) U7 AI 생성 버튼 · U28 내부 Q&A (v31.7~v31.9)
   await assertRenders('/toolbox/macros', ['AI 생성'], token)
