@@ -1908,6 +1908,8 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'wp.minUnit': 'min',
     'wp.rateLabel': 'Rate (KRW/h)',
     'wp.codingHint': 'Evaluate mfg cost formula — WT=ΣW.Time · PERSONS=Σpersons (DWG-021, ENG-01)',
+    'wh.inspCycle': 'Inspection cycle',
+    'wh.inspCyclePh': 'e.g. 6 months (empty = no change)',
   },
   ja: {
     'menu.plm-parts': '部品台帳 (M-4-7)',
@@ -3816,6 +3818,8 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'wp.minUnit': '分',
     'wp.rateLabel': '賃率(円/h)',
     'wp.codingHint': '製造費算式実評価 — WT=ΣW.Time · PERSONS=Σ人員 (DWG-021, ENG-01)',
+    'wh.inspCycle': '検査周期',
+    'wh.inspCyclePh': '例: 6ヶ月 (空 = 変更なし)',
   },
   zh: {
     'menu.plm-parts': '零件台账 (M-4-7)',
@@ -5724,5 +5728,7 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'wp.minUnit': '分',
     'wp.rateLabel': '工时费率(元/h)',
     'wp.codingHint': '制造费公式实评估 — WT=ΣW.Time · PERSONS=Σ人员 (DWG-021, ENG-01)',
+    'wh.inspCycle': '检验周期',
+    'wh.inspCyclePh': '例: 6个月 (空 = 不变更)',
   },
 }

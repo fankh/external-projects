@@ -142,10 +142,9 @@ export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
               <label style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <input type="checkbox" name="hazard" defaultChecked={edit.hazard} aria-label="위험물 허용" />
               </label>
-              <label>{t('wh.inspShort', '검사')}</label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <input type="checkbox" name="inspection" defaultChecked={edit.inspection} aria-label="검사 주기" />
-              </label>
+              <label>{t('wh.inspCycle', '검사주기')}</label>
+              <input className="in" name="inspection" aria-label="검사 주기"
+                placeholder={t('wh.inspCyclePh', '예: 6개월 (빈 값 = 변경 없음)')} />
             </div>
             {editSt.error ? <div style={{ color: 'var(--err)' }}>{editSt.error}</div> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>

@@ -3594,6 +3594,8 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "wp.minUnit": ('min', '分', '分'),
     "wp.rateLabel": ('Rate (KRW/h)', '賃率(円/h)', '工时费率(元/h)'),
     "wp.codingHint": ('Evaluate mfg cost formula — WT=ΣW.Time · PERSONS=Σpersons (DWG-021, ENG-01)', '製造費算式実評価 — WT=ΣW.Time · PERSONS=Σ人員 (DWG-021, ENG-01)', '制造费公式实评估 — WT=ΣW.Time · PERSONS=Σ人员 (DWG-021, ENG-01)'),
+    "wh.inspCycle": ('Inspection cycle', '検査周期', '检验周期'),
+    "wh.inspCyclePh": ('e.g. 6 months (empty = no change)', '例: 6ヶ月 (空 = 変更なし)', '例: 6个月 (空 = 不变更)'),
 }
 
 def seed_v32(cur, tid: int) -> None:

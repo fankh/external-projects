@@ -14,11 +14,13 @@ export async function updateWarehouse(_prev: ActState, formData: FormData): Prom
   const name = String(formData.get('name') ?? '').trim()
   if (!code) return { error: '수정 대상이 없습니다' }
   if (!name) return { error: '위치명은 비울 수 없습니다' }
+  // 백엔드 WarehousePatch — hazard 'Y'/'N', inspection 은 주기 문자열(빈 값 = 변경 없음)
+  const inspection = String(formData.get('inspection') ?? '').trim()
   const body = {
     name,
     remarks: String(formData.get('remarks') ?? '').trim(),
-    hazard: formData.get('hazard') === 'on',
-    inspection: formData.get('inspection') === 'on',
+    hazard: formData.get('hazard') === 'on' ? 'Y' : 'N',
+    ...(inspection ? { inspection } : {}),
   }
   try {
     await apiServer(`/erp/warehouses/${encodeURIComponent(code)}`, { method: 'PATCH', body: JSON.stringify(body) })
