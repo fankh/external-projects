@@ -12,7 +12,8 @@ export default async function ProcessPage() {
   let rows: ProcRow[] = []
   let err: string | null = null
   try {
-    rows = await apiServer<ProcRow[]>('/erp/process-defs')
+    const r = await apiServer<{ defs: ProcRow[] } | ProcRow[]>('/erp/process-defs')
+    rows = Array.isArray(r) ? r : (r.defs ?? [])
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
