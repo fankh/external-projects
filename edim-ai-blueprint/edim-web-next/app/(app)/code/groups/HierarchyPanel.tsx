@@ -5,7 +5,7 @@ import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Chip, GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { addHierarchyNode, deleteHierarchyNode, getNodeInfo, moveHierarchyNode, renameHierarchyNode, type ActState, type NodeInfo } from './hierarchyActions'
+import { addHierarchyNode, deleteHierarchyNode, getNodeInfo, moveHierarchyNode, renameHierarchyNode, validateHierarchy, type ActState, type NodeInfo, type ValidateResult } from './hierarchyActions'
 
 export interface HierarchyNode {
   id: number; parentId: number | null; name: string
@@ -27,6 +27,9 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
   const [ctx, setCtx] = useState<{ x: number; y: number; node: HierarchyNode } | null>(null)
   const [cutId, setCutId] = useState<number | null>(null)
   const [info, setInfo] = useState<NodeInfo | null>(null)
+  // U22 — 정합 점검 (슬라이드 57-⑧)
+  const [vres, setVres] = useState<ValidateResult | null>(null)
+  const runValidate = () => start(async () => setVres(await validateHierarchy(treeType)))
   const shown = query.trim()
     ? nodes.filter((n) => n.name.toLowerCase().includes(query.trim().toLowerCase()) || n.address.includes(query.trim()))
     : nodes
@@ -58,6 +61,7 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
         </form>
         <span className="sep" />
         <input className="in" data-h-search style={{ width: 96 }} placeholder="검색 (이름·주소)" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <button className="b" data-h-validate disabled={pending} title="저장 전 정합 점검 — 주소 중복·고아 노드·부모 주소 불일치 (57-⑧)" onClick={runValidate}>점검</button>
         <input className="in" style={{ width: 100 }} placeholder="새 이름 (개명)" value={newName} onChange={(e) => setNewName(e.target.value)} />
         <button className="b" disabled={pending || !sel || !newName.trim()} onClick={() => {
           if (sel) start(async () => { setSt(await renameHierarchyNode(sel.id, newName, sel.symbol)); setNewName('') })
@@ -69,6 +73,19 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
         {(regSt.error || st.error) ? <span style={{ color: 'var(--err)' }}>{regSt.error || st.error}</span> : null}
         {(regSt.ok || st.ok) ? <span style={{ color: 'var(--run)' }}>{regSt.ok || st.ok}</span> : null}
       </div>
+      {vres ? (
+        <div data-h-validate-result style={{ padding: '4px 8px', fontSize: 10.5, borderBottom: '1px solid var(--line)', background: vres.ok ? '#EAF3EC' : '#FBEAEA', maxHeight: 120, overflow: 'auto' }}>
+          {vres.ok
+            ? <span style={{ color: 'var(--run)' }}>정합 점검 ✓ — {vres.tree} {vres.nodes}노드 이상 없음 (주소 중복·고아·부모 불일치·루트 형식)</span>
+            : (<>
+                <div style={{ color: 'var(--err)', fontWeight: 700 }}>정합 이상 {vres.issues.length}건 — 수정 후 저장·승인 진행</div>
+                {vres.issues.map((iss, i2) => (
+                  <div key={i2} style={{ color: 'var(--err)' }}>· [{iss.type}] {iss.address} {iss.name} — {iss.detail}</div>
+                ))}
+              </>)}
+          <span style={{ float: 'right', cursor: 'pointer', color: 'var(--txt-dim)' }} onClick={() => setVres(null)}>✕</span>
+        </div>
+      ) : null}
       <div className="tree2" style={{ flex: 1, minHeight: 0, overflow: 'auto' }} onClick={() => setCtx(null)}>
         {cutId != null ? (
           <div style={{ padding: '3px 8px', fontSize: 10, background: 'var(--sel-yellow, #FFF3C2)' }}>

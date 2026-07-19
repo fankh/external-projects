@@ -71,3 +71,13 @@ export async function getNodeInfo(id: number): Promise<NodeInfo | null> {
     return await apiServer<NodeInfo>(`/hierarchy/nodes/${id}/info`)
   } catch { return null }
 }
+
+export interface HierarchyIssue { type: string; nodeId: number; name: string; address: string; detail: string }
+export interface ValidateResult { tree: string; nodes: number; ok: boolean; issues: HierarchyIssue[] }
+
+/** U22 — 저장 전 정합 점검 (주소 중복·고아·부모 불일치·루트 형식). */
+export async function validateHierarchy(tree: string): Promise<ValidateResult | null> {
+  try {
+    return await apiServer<ValidateResult>(`/hierarchy/validate?tree=${encodeURIComponent(tree)}`)
+  } catch { return null }
+}

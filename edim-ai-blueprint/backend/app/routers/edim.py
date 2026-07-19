@@ -7188,6 +7188,39 @@ class HierarchyMove(BaseModel):
     targetParentId: int | None = None   # None = 루트로 이동
 
 
+@router.get("/hierarchy/validate")
+def hierarchy_validate(tree: str = "PRODUCT") -> dict[str, Any]:
+    """U22 — 저장 전 정합 점검 (슬라이드 57-⑧): 주소 중복·고아 노드·부모 주소 불일치·루트 형식."""
+    issues: list[dict[str, Any]] = []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT hierarchy_id, parent_id, node_name, address FROM sys_hierarchy
+               WHERE tenant_id=%s AND tree_type=%s ORDER BY address""", (tid, tree))
+        rows = cur.fetchall()
+        by_id = {r[0]: r for r in rows}
+        seen: dict[str, int] = {}
+        for hid, parent_id, name, addr in rows:
+            if addr in seen:
+                issues.append({"type": "DUP_ADDRESS", "nodeId": hid, "name": name, "address": addr,
+                               "detail": f"주소 중복 — #{seen[addr]} 와 동일"})
+            else:
+                seen[addr] = hid
+            if parent_id is not None and parent_id not in by_id:
+                issues.append({"type": "ORPHAN", "nodeId": hid, "name": name, "address": addr,
+                               "detail": f"고아 노드 — 부모 #{parent_id} 없음"})
+            elif parent_id is not None:
+                paddr = by_id[parent_id][3]
+                segs = addr.split(".")
+                if not (addr.startswith(paddr + ".") and len(segs) == len(paddr.split(".")) + 1):
+                    issues.append({"type": "ADDR_MISMATCH", "nodeId": hid, "name": name, "address": addr,
+                                   "detail": f"부모 주소 불일치 — 부모 {paddr} 의 한 단계 하위 아님"})
+            if parent_id is None and "." in addr:
+                issues.append({"type": "ROOT_FORMAT", "nodeId": hid, "name": name, "address": addr,
+                               "detail": "루트 노드 주소에 구분점 포함"})
+    return {"tree": tree, "nodes": len(rows), "ok": not issues, "issues": issues}
+
+
 @router.get("/hierarchy/nodes/{node_id}/info")
 def hierarchy_node_info(node_id: int) -> dict[str, Any]:
     """노드 속성/정보 (U18) — 주소·심볼·상태·하위 수·이력 메타."""
