@@ -72,10 +72,10 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
         <span style={{ color: 'var(--txt-dim)' }}>{sel ? `${t('access.selected', '선택')} ${sel.login} (${sel.status})` : t('access.clickSelect', '행 클릭=선택')}</span>
         <button className="b" disabled={pending || !sel || sel.status !== 'LOCKED'}
           onClick={() => sel && start(async () => setSt(await unlockUser(sel.login)))}>{t('access.unlock', '잠금 해제')}</button>
-        <select className="in" style={{ width: 86 }} value={level} onChange={(e) => setLevel(e.target.value)}>
+        <select className="in" data-level-select style={{ width: 86 }} value={level} onChange={(e) => setLevel(e.target.value)}>
           {LEVELS.map((l) => <option key={l}>{l}</option>)}
         </select>
-        <button className="b" disabled={pending || !sel}
+        <button className="b" data-level-change disabled={pending || !sel}
           onClick={() => sel && start(async () => setSt(await changeUserLevel(sel.login, level)))}>{t('access.levelChange', '레벨 변경')}</button>
         <button className="b" disabled={pending || !sel}
           onClick={() => sel && start(async () => setSt(await setUserActive(sel.login, sel.status === 'DISABLED')))}>

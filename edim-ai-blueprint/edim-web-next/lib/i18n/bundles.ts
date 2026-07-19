@@ -1881,6 +1881,8 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'devreq.colManage': 'Manage',
     'devreq.noContent': '(no details)',
     'devreq.resolution': 'Resolution',
+    'shell.newPwConfirm': 'Confirm new password',
+    'shell.pwMismatch': 'New password confirmation does not match',
   },
   ja: {
     'menu.plm-parts': '部品台帳 (M-4-7)',
@@ -3762,6 +3764,8 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'devreq.colManage': '処理',
     'devreq.noContent': '(詳細なし)',
     'devreq.resolution': '処理',
+    'shell.newPwConfirm': '新パスワード確認',
+    'shell.pwMismatch': '新パスワード確認が一致しません',
   },
   zh: {
     'menu.plm-parts': '零件台账 (M-4-7)',
@@ -5643,5 +5647,7 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'devreq.colManage': '处理',
     'devreq.noContent': '(无详细内容)',
     'devreq.resolution': '处理',
+    'shell.newPwConfirm': '确认新密码',
+    'shell.pwMismatch': '新密码确认不一致',
   },
 }

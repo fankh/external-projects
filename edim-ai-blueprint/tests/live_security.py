@@ -137,16 +137,18 @@ with sync_playwright() as pw:
     p.wait_for_timeout(1200)
     ok("구비밀번호 오류 붉은 안내",
        "올바르지" in p.locator("[data-pw-dialog]").inner_text())
-    p.locator("[data-pw-dialog] .titlebar span", has_text="✕").click()
+    p.locator("[data-pw-dialog] span", has_text="✕").first.click()
 
-    # 사용자·권한 화면 — 레벨 변경 버튼 실배선 (jang.s GENERAL→SETUP→원복)
+    # 사용자·권한 화면 — 레벨 변경 버튼 실배선 (jang.s GENERAL→SETUP→원복, API 검증)
     p.locator(".tn", has_text="사용자·권한 (M-14-6)").click()
     p.wait_for_selector("td.code >> text=jang.s", timeout=8000)
     p.locator("tr", has_text="jang.s").first.click()
-    p.get_by_role("button", name="레벨 변경 (감사)").click()
-    p.wait_for_timeout(1000)
-    ok("UI 레벨 변경 (sys_history LEVEL_CHANGE)",
-       "레벨 변경" in p.locator(".statusbar").inner_text())
+    p.locator("[data-level-select]").select_option("SETUP")
+    p.locator("[data-level-change]").click()
+    p.wait_for_timeout(1200)
+    st_ui, users_ui, _ = call("GET", "/users", token=admin_token)
+    jang = next(u for u in users_ui if u["login"] == "jang.s")
+    ok("UI 레벨 변경 (sys_history LEVEL_CHANGE)", jang["userLevel" if "userLevel" in jang else "level"] == "SETUP")
     b.close()
 
 st, _, _ = call("PATCH", "/users/jang.s/level", {"level": "GENERAL"}, admin_token)

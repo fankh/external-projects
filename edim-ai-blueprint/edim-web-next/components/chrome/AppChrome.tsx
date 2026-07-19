@@ -383,6 +383,7 @@ export function AppChrome(props: {
   // ── 비밀번호 변경 다이얼로그 (B8) ──
   const [pwOpen, setPwOpen] = useState(false)
   const [pwCur, setPwCur] = useState(''); const [pwNew, setPwNew] = useState('')
+  const [pwNew2, setPwNew2] = useState('')
   const [pwMsg, setPwMsg] = useState<{ text: string; err?: boolean } | null>(null)
   const [pwPending, startPw] = useTransition()
   const menus: Record<string, MenuItem[]> = {
@@ -444,6 +445,12 @@ export function AppChrome(props: {
             onClick={() => setDevReqOpen(true)}>📝</span>
         ) : null}
         {props.bell}</>} right={props.right} logo={props.logo} allowed={props.allowedModules}
+        userMenu={[
+          { label: t('shell.changePw', '비밀번호 변경'), onClick: () => { setPwMsg(null); setPwOpen(true) } },
+          { label: t('shell.logout', '로그아웃'), onClick: () => {
+            document.querySelector<HTMLFormElement>('form[data-logout]')?.requestSubmit()
+          } },
+        ]}
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
       <MenuBar menus={menus} extra={navMenus} right={
         <>
@@ -468,17 +475,22 @@ export function AppChrome(props: {
       {pwOpen ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setPwOpen(false)}>
-          <div className="gb" style={{ width: 320, padding: 12, background: '#fff', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}
+          <div className="gb" data-pw-dialog style={{ width: 320, padding: 12, background: '#fff', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}
             onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('shell.changePw', '비밀번호 변경')}</div>
-            <input className="in req" type="password" placeholder={t('shell.currentPw', '현재 비밀번호')} value={pwCur} onChange={(e) => setPwCur(e.target.value)} />
-            <input className="in req" type="password" placeholder={t('shell.newPw', '새 비밀번호')} value={pwNew} onChange={(e) => setPwNew(e.target.value)} />
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)', display: 'flex', alignItems: 'center' }}>
+              {t('shell.changePw', '비밀번호 변경')}<span style={{ flex: 1 }} />
+              <span style={{ cursor: 'pointer', fontWeight: 400 }} onClick={() => setPwOpen(false)}>✕</span>
+            </div>
+            <input className="in req" type="password" aria-label="현재 비밀번호" placeholder={t('shell.currentPw', '현재 비밀번호')} value={pwCur} onChange={(e) => setPwCur(e.target.value)} />
+            <input className="in req" type="password" aria-label="새 비밀번호" placeholder={t('shell.newPw', '새 비밀번호')} value={pwNew} onChange={(e) => setPwNew(e.target.value)} />
+            <input className="in req" type="password" aria-label="새 비밀번호 확인" placeholder={t('shell.newPwConfirm', '새 비밀번호 확인')} value={pwNew2} onChange={(e) => setPwNew2(e.target.value)} />
             {pwMsg ? <div style={{ color: pwMsg.err ? 'var(--err)' : 'var(--run)' }}>{pwMsg.text}</div> : null}
             <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
               <button className="b run" disabled={pwPending} onClick={() => startPw(async () => {
+                if (pwNew !== pwNew2) { setPwMsg({ text: t('shell.pwMismatch', '새 비밀번호 확인이 일치하지 않습니다'), err: true }); return }
                 const r = await changePassword(pwCur, pwNew)
                 setPwMsg(r.error ? { text: r.error, err: true } : { text: r.ok ?? t('enum.done', '완료') })
-                if (r.ok) { setPwCur(''); setPwNew(''); setTimeout(() => setPwOpen(false), 900) }
+                if (r.ok) { setPwCur(''); setPwNew(''); setPwNew2(''); setTimeout(() => setPwOpen(false), 900) }
               })}>{t('shell.changeBtn', '변경')}</button>
               <button className="b" onClick={() => setPwOpen(false)}>{t('common.close', '닫기')}</button>
             </div>

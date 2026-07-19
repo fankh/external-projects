@@ -13,8 +13,10 @@ export function TitleBar(props: {
   onModule?: (m: ModuleKey) => void
   logo?: string               // U11 — 테넌트 로고 (data URL)
   allowed?: string[]          // D10 — 표시 모듈 (undefined = 전체)
+  userMenu?: { label: string; onClick: () => void }[]   // B8 — 사용자 메뉴 (비밀번호 변경·로그아웃)
 }) {
   const { t } = useI18n()
+  const [userOpen, setUserOpen] = useState(false)
   return (
     <div className="titlebar">
       {props.logo
@@ -45,7 +47,27 @@ export function TitleBar(props: {
       ) : null}
       <span className="sp" />
       {props.bell}
-      <span className="u">{props.user}</span>
+      {props.userMenu?.length ? (
+        <span style={{ position: 'relative' }}>
+          <span className="u" data-user-menu style={{ cursor: 'pointer' }}
+            onClick={() => setUserOpen((o) => !o)}>{props.user} ▾</span>
+          {userOpen ? (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 149 }} onClick={() => setUserOpen(false)} />
+              <div style={{ position: 'absolute', right: 0, top: '100%', zIndex: 150, background: '#fff',
+                border: '1px solid var(--line-strong)', boxShadow: '0 4px 12px rgba(20,26,40,.25)',
+                fontSize: 11, minWidth: 130, color: 'var(--txt, #222)' }}>
+                {props.userMenu.map((m) => (
+                  <div key={m.label} style={{ padding: '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#EDF2FA' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
+                    onClick={() => { setUserOpen(false); m.onClick() }}>{m.label}</div>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </span>
+      ) : <span className="u">{props.user}</span>}
       {props.right}
     </div>
   )
