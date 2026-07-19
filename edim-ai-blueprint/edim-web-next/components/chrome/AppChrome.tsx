@@ -10,7 +10,7 @@ import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
-import { changePassword, firstProject, getFavorites, getHeadNav, getLeftNav, getTenantNav, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
+import { changePassword, firstProject, getFavorites, getHeadNav, getLeftNav, getTenantHeadNav, getTenantNav, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
 
 /** U11 색상 테마 프리셋 (슬라이드 57) — globals.css body[data-theme] 토큰. */
 const THEMES: { id: string; label: string }[] = [
@@ -116,7 +116,19 @@ export function AppChrome(props: {
   // ── U21 헤더 드롭다운 사용자 목록 (/prefs/headnav) — 부재 = 기본 전체 드롭다운 ──
   const [headNav, setHeadNav] = useState<LeftNavPref>({})
   const [headNavLoaded, setHeadNavLoaded] = useState(false)
-  useEffect(() => { void getHeadNav().then((p) => { setHeadNav(p); setHeadNavLoaded(true) }) }, [])
+  const [tenantHeadNav, setTenantHeadNav] = useState<LeftNavPref>({})
+  useEffect(() => {
+    void Promise.all([getHeadNav(), getTenantHeadNav()]).then(([p, tn]) => {
+      setHeadNav(p); setTenantHeadNav(tn); setHeadNavLoaded(true)
+    })
+  }, [])
+  const applyTenantHeadNav = useCallback((ids: string[]) => {
+    setTenantHeadNav((cur) => {
+      const next = { ...cur, [module]: ids }
+      void saveTenantHeadNav(next)
+      return next
+    })
+  }, [module])
   const applyHeadNav = useCallback((ids?: string[]) => {
     setHeadNav((cur) => {
       const next = { ...cur }
@@ -187,7 +199,7 @@ export function AppChrome(props: {
 
   // ── 헤더 카테고리 드롭다운 — 모듈 그룹 → 상단 메뉴바 (원본 PPT Head 메뉴) ──
   // U21: 사용자 목록 존재 시 그 순서·구성으로 재구성 (그룹 = 최초 등장 순, 섹션 헤더 생략)
-  const headCustom = headNavLoaded ? headNav[module] : undefined
+  const headCustom = headNavLoaded ? (headNav[module] ?? tenantHeadNav[module]) : undefined
   const navMenus: NavMenu[] = useMemo(() => {
     const drops = navDropdowns(module, props.canReadAdmin)
     if (headCustom) {
@@ -532,6 +544,7 @@ export function AppChrome(props: {
       <LeftNavEditModal open={headEditOpen} onClose={() => setHeadEditOpen(false)}
         module={module} canReadAdmin={props.canReadAdmin}
         value={headNav[module]} onSave={applyHeadNav}
+        onSaveTenant={props.canReadAdmin ? applyTenantHeadNav : undefined}
         title={t('shell.headEditTitle', '헤더 메뉴 편집')} />
       <LeftNavEditModal open={navEditOpen} onClose={() => setNavEditOpen(false)}
         onSaveTenant={props.canReadAdmin ? applyTenantNav : undefined}

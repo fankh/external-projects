@@ -6943,6 +6943,35 @@ def tenant_leftnav_put(request: Request, body: TenantLeftNavPut) -> dict[str, An
     return {"value": v}
 
 
+@router.get("/tenant/headnav")
+def tenant_headnav() -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT settings FROM sys_tenant WHERE tenant_id=%s", (tid,))
+        row = cur.fetchone()
+        st = row[0] if row and row[0] else {}
+    v = st.get("tenantHeadNav")
+    return {"value": v if isinstance(v, dict) else {}}
+
+
+@router.put("/tenant/headnav", dependencies=[ADMIN])
+def tenant_headnav_put(request: Request, body: TenantLeftNavPut) -> dict[str, Any]:
+    """U30 확장 — 테넌트 기본 헤더 드롭다운 (관리자). {} = 기본 전체 복귀."""
+    v = body.value or {}
+    for k, ids in v.items():
+        if not isinstance(ids, list) or not all(isinstance(x, str) for x in ids):
+            raise HTTPException(422, detail=f"모듈 {k}: 문자열 배열이어야 합니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_tenant
+               SET settings = COALESCE(settings,'{}'::jsonb) || jsonb_build_object('tenantHeadNav', %s::jsonb)
+               WHERE tenant_id=%s""", (json.dumps(v), tid))
+        _audit(cur, tid, "sys_tenant", tid, "TENANT_HEADNAV_SET", request.state.user_id,
+               {"modules": list(v.keys())})
+    return {"value": v}
+
+
 @router.get("/tenant/branding")
 def tenant_branding() -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:

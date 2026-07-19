@@ -171,3 +171,26 @@ export async function saveTenantNav(p: LeftNavPref): Promise<{ error?: string }>
     return { error: e instanceof ApiError ? e.message : '저장 실패' }
   }
 }
+
+/** U30 확장 — 테넌트 기본 헤더 드롭다운. */
+export async function getTenantHeadNav(): Promise<LeftNavPref> {
+  try {
+    const r = await apiServer<{ value: LeftNavPref | null }>('/tenant/headnav')
+    const v = r.value
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    const out: LeftNavPref = {}
+    for (const [k, ids] of Object.entries(v)) {
+      if (Array.isArray(ids) && ids.every((x) => typeof x === 'string')) out[k] = ids
+    }
+    return out
+  } catch { return {} }
+}
+
+export async function saveTenantHeadNav(p: LeftNavPref): Promise<{ error?: string }> {
+  try {
+    await apiServer('/tenant/headnav', { method: 'PUT', body: JSON.stringify({ value: p }) })
+    return {}
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '저장 실패' }
+  }
+}
