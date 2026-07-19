@@ -1,6 +1,6 @@
 {
   "name": "edim-web-next",
-  "version": "0.1.0",
+  "version": "34.36.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
