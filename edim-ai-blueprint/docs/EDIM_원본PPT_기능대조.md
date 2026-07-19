@@ -83,10 +83,10 @@
 
 기획: 함수 마법사(✅ B20)·**그래프 마법사**·5-모드(Prompt–Macro–Flowchart–Description–Coding) **상호 자동 변환**(현재 4-way 영속만, 변환 없음)·**Coding 런타임 실행**(현재 정직 게이트)·**인터넷 검색 Tool**·**AI 질의응답(사내 자료 검색·응답)**·**UI 개발 AI(설명→UI 자동 제안)**.
 
-- [ ] 그래프 마법사 (Table → 차트 생성·문서 삽입)
-- [ ] 모드 간 자동 변환 (Prompt→Macro→Flowchart→Coding — AI 의존, C9 연계)
-- [ ] AI Q&A 패널 (ai/chat — C9 백로그와 동일)
-- [ ] UI 개발 AI (ui-suggest — C9)
+- [x] 그래프 마법사 ✅ — U25 완결 참조 (v27.6 위저드 + v29.6 SVG 다운로드·인쇄)
+- [x] Prompt→Macro 프런트 배선 ✅ v31.7 — Macro Studio 🤖 AI 생성 버튼(/ai/macro-generate): 생성 식 자동 삽입·모드 배지(live/sample/error). 라이브: 폴백 모드에서 샘플 식 삽입 확인, 크레딧 충전 시 자동 live. Flowchart/Coding 변환은 live 전환 후
+- [x] UI 개발 AI 프런트 배선 ✅ (기존 v2x) — UI Designer 'UI 초안 제안'(/ai/ui-suggest) 기배선 — live 전환만 대기
+- [ ] AI Q&A 패널 (ai/chat — U28과 통합, 크레딧 충전 시)
 - [ ] 인터넷 검색 도구 (외부 의존·정책 협의)
 
 ## U8. 건축 설비 Duct 설계 심화 (슬라이드 68) — ✅ 핵심 구현 (v23.1~23.2)
