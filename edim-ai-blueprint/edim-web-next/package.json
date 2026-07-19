@@ -10,10 +10,12 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
+    "@types/three": "^0.185.1",
     "next": "^15.1.6",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",

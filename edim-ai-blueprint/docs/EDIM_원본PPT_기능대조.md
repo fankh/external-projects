@@ -262,6 +262,16 @@ E-4 SWP 모듈 명세 중 미배치 2종: **Child Component**(BOM Mother 연결 
 ### U28. AI 내부 자료 질의응답 (s27 노트 "AI 질의 응답 — 내부 자료 검색·응답용") — ⏸ API 키 대기
 U7/U10(C9)과 동일 그룹 — ANTHROPIC_API_KEY 입력 시: 내부 Table·문서·코드 자료 검색 기반 질의응답 패널(도구 호출형). 인터넷 검색 Tool 은 별도 협의.
 
+## 8차 조사 신규 태스크 (2026-07-19, 내장 미디어 전수 스캔 — U29)
+
+> PPT 내장 미디어 242건 스캔(zip ppt/media). 대형 이미지들은 스톡아트/화면 캡처(기열람)였고,
+> **model3d1.glb — 18MB glTF 2.0 제품 3D 모델**을 발굴. 3D/STEP 트랙의 "자료 부재" 전제가 해소됨.
+
+### U29. 제품 3D 뷰어 — PPT 내장 GLB 정본 (DWG 패널 "3D ☑" 실체) — ✅ 구현 (v28.9)
+- [x] GLB 정본 등재 ✅ — public/models/ahu-fan.glb (18MB, glTF 2.0) — 원본 PPT 내장 3D 모델 추출
+- [x] 웹 3D 뷰어 ✅ — /detail/model3d: three.js 동적 로드(GLTFLoader·OrbitControls), 바운딩 자동 중심·거리, 드래그 회전/휠 줌/우클릭 이동, CAD 뷰어 🧊 3D 진입 링크
+- [ ] 코드별 3D 모델 연결(dwg_file 3D 유형 등재·다중 모델) — 추가 모델 자료 입수 시
+
 ## 구현 완료 확인 (원본 요구 → 구현 근거, 대표만)
 
 | 원본 (슬라이드) | 구현 |

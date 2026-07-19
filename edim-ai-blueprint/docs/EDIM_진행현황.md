@@ -174,6 +174,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 2026-07-16 | **N5b 스튜디오·PDF 복구(v18.5~18.7)** — Macro Studio(식 편집·Test Run 실평가 라이브 E2E·저장·승인)·Templet 편집기(+잠복 SSR 500 수정)·Run 정리/MinIO GC·Fan 성능표/밀도 PDF·사양 Excel·견적 미리보기. 스모크 55/55 — **N5 전체 완료** |
 | 2026-07-16 | **GDrive 재동기(v18.6)** — 사용자 Drive 파일 삭제 후 `tools/gdrive-sync.mjs` 신설(멱등: 동일명 files.update, id·공유 링크 불변)·30파일 재업로드(xlsx→Sheets 12·pptx→Slides 1·PDF 17). 이후 변경분은 사용자 트리거 시 재실행 |
 | 2026-07-16 | **N6 셸 전역 복구(v18.9)** — ⌘K 통합검색(화면+코드·문서·파일·부품·프로젝트 딥링크)·전역 단축키(Alt+W/←→/1~9·Ctrl+K)·useFKeys 수신 체계(Macro F12/F9·Table F12/F3)·비밀번호 변경(B8). 라이브 E2E: Ctrl+K 포커스·Alt+← 탭·F9 평가. 스모크 56/56 — **패리티 감사 P1 35건 전량 해소 (N1~N6 완료)** |
+| 2026-07-19 | **원본 PPT 8차 조사 + U29 3D 뷰어(v28.9)** — 내장 미디어 242건 스캔 → 18MB glTF 제품 3D 모델 발굴·정본 등재, three.js 3D 뷰어(/detail/model3d, 궤도 컨트롤)·CAD 뷰어 진입 링크 |
 | 2026-07-19 | **회귀 스모크 확장 — 70/70 그린** — v25~v28 신규 기능 마커 11화면 추가(위젯 Set-up·Hierarchy 점검·Relationship 소품·헤더 편집·채번 규칙·함수 마법사·차트·SWP Child·분할통합·SYNC·Block 패널·설계 파라미터), edimsol.com 전체 통과 |
 | 2026-07-19 | **U2 파라메트릭 전면 동기(v28.6) — U2 전 항목 완결** — 치수 변경 디바운스 자동 재작도·저장본 동시 갱신·SYNC 토글. 라이브 E2E 6/6(기하 해시 왕복 검증). CAD 심화 트랙 잔여=U1 6면 뷰(도면 자료 대기)만 |
 | 2026-07-19 | **U2 Block 저장·호출(v28.4)** — Block 등록/목록/호출 API·INSERT 전개 렌더(b-id)·Design Editor Block 패널. 라이브 API 8+UI 5 검사(오류 가드 3종 포함). U2 잔여=파라메트릭 전면 동기만 |
