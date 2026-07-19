@@ -91,7 +91,9 @@ ok("노드 삭제", not any(x["id"] == node["id"]
 
 # 5. 문서 채번 + 상태 전이 (정리 가능하도록 APPROVE→반려→SET_UP→삭제; ACCEPTED 보호는 시드 문서로)
 r = req("POST", "/documents/allocate-code", {"docType": "DWG"}, A)
-ok("채번 — DWG-{seq:04d}", r["docNo"].startswith("DWG-") and len(r["docNo"]) == 8)
+# 규칙 기반 채번(U33 — {TYPE}-{YYYY}-{SEQ:4} 등 테넌트 템플릿) — 접두·말미 시퀀스만 검증
+ok("채번 — 규칙 기반 (DWG- 접두 + 숫자 SEQ)",
+   r["docNo"].startswith("DWG-") and r["docNo"].rsplit("-", 1)[-1].isdigit())
 doc_no = f"TEST-B21-{r['docNo']}"
 req("POST", "/documents", {"docNo": doc_no, "title": "B21 전이 검증"}, A)
 ok("역방향 전이 -> 409",

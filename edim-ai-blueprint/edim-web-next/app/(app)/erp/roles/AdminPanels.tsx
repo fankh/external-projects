@@ -88,6 +88,7 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
           {sel?.status === 'DISABLED' ? t('access.reactivate', '재활성') : t('access.inactivate', '비활성')}</button>
         {st.error ? <span style={{ color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ color: 'var(--run)' }}>{st.ok}</span> : null}
+        {editSt.ok ? <span style={{ color: 'var(--run)' }}>{editSt.ok}</span> : null}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-users" colFilter columns={cols} rows={rows}
