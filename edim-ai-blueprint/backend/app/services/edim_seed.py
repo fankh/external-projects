@@ -3582,6 +3582,11 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "access.roles": ('Roles (multi, sys_user_role)', 'ロール (複数, sys_user_role)', '角色 (多个, sys_user_role)'),
     "macro.refsLoading": ('Loading refs…', '参照照会中…', '查询引用中…'),
     "macro.noRefs": ('No refs', '参照なし', '无引用'),
+    "access.adminOnly": ('User registration is ADMIN only', 'ユーザー登録は ADMIN 専用', '用户注册仅限 ADMIN'),
+    "approval.readOnly": ('Read-only', '読み取り専用', '只读'),
+    "approval.viewMine": ('My requests', '自分の要請', '我的请求'),
+    "approval.viewMineHint": ('Show only my pending requests', '自分が要請した待機件のみ表示', '仅显示我请求的待办'),
+    "approval.emptyMine": ('No pending requests of mine', '自分が要請した待機件なし', '没有我请求的待办'),
 }
 
 def seed_v32(cur, tid: int) -> None:

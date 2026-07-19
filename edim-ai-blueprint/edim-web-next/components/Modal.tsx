@@ -30,17 +30,19 @@ export function Modal({ open, onClose, title, width = 380, children }: {
 
 /** 등록 다이얼로그 열기 버튼 — 트리거 버튼 + Modal 래핑, 성공 시 자동 닫힘.
  *  사용: <RegisterModal trigger="＋ 등록" title="…" ok={state.ok}>{form}</RegisterModal> */
-export function RegisterModal({ trigger, title, ok, width, children, onOpenChange }: {
+export function RegisterModal({ trigger, title, ok, width, children, onOpenChange, disabled, disabledTitle }: {
   trigger: string; title: string; ok?: string; width?: number
   children: (close: () => void) => ReactNode; onOpenChange?: (open: boolean) => void
+  disabled?: boolean; disabledTitle?: string   // F3 — 권한 게이팅 (disabled + 사유 툴팁)
 }) {
-  return <RegisterModalInner trigger={trigger} title={title} ok={ok} width={width} onOpenChange={onOpenChange}>{children}</RegisterModalInner>
+  return <RegisterModalInner trigger={trigger} title={title} ok={ok} width={width} onOpenChange={onOpenChange} disabled={disabled} disabledTitle={disabledTitle}>{children}</RegisterModalInner>
 }
 
 import { useState } from 'react'
-function RegisterModalInner({ trigger, title, ok, width, children, onOpenChange }: {
+function RegisterModalInner({ trigger, title, ok, width, children, onOpenChange, disabled, disabledTitle }: {
   trigger: string; title: string; ok?: string; width?: number
   children: (close: () => void) => ReactNode; onOpenChange?: (open: boolean) => void
+  disabled?: boolean; disabledTitle?: string
 }) {
   const [open, setOpen] = useState(false)
   const set = (v: boolean) => { setOpen(v); onOpenChange?.(v) }
@@ -50,6 +52,7 @@ function RegisterModalInner({ trigger, title, ok, width, children, onOpenChange 
     <>
       {/* 컬럼 flex(stretch) 하에서도 본문 폭으로 늘어나지 않게 — 내용 크기 고정 */}
       <button className="b run" type="button" onClick={() => set(true)}
+        disabled={disabled} title={disabled ? disabledTitle : undefined}
         style={{ alignSelf: 'flex-start', width: 'fit-content' }}>{trigger}</button>
       <Modal open={open} onClose={() => set(false)} title={title} width={width}>
         {children(() => set(false))}

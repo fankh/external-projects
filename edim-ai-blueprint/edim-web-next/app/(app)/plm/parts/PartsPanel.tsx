@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { addSubstitute, addSupplierCode, createPart, deleteSubstitute, importPartsExcel, type ActState } from './actions'
 
 export interface SupplierCodeRow { supplier: string; supplierCode: string; supplierName: string }
@@ -24,9 +25,11 @@ export function PartImportForm() {
 
 export function PartRegForm() {
   const { t } = useI18n()
+  const perm = usePermission()
   const [st, action, pending] = useActionState(createPart, {} as ActState)
   return (
-    <RegisterModal trigger={t('parts.registerBtn', '＋ 부품 등록')} title={t('parts.regTitle', '부품 등록')} ok={st.ok}>
+    <RegisterModal trigger={t('parts.registerBtn', '＋ 부품 등록')} title={t('parts.regTitle', '부품 등록')} ok={st.ok}
+      disabled={!perm.canWrite('plm-parts')} disabledTitle={perm.denyWrite}>
       {() => (
         <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
           <label>{t('parts.partNo', '부품번호')}</label>

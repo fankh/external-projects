@@ -6,6 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip, GroupBox } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import {
   assignUserRoles, changeUserLevel, createRole, createUser, deleteRole, getUserRoles,
   saveRolePermissions, setUserActive, unlockUser, updateUser, type ActState,
@@ -23,6 +24,7 @@ const ST_TONE: Record<string, 'ok' | 'warn' | 'err'> = { ACTIVE: 'ok', LOCKED: '
 
 export function UsersPanel({ rows }: { rows: UserRow[] }) {
   const { t } = useI18n()
+  const perm = usePermission()
   const [regSt, regAction, regPending] = useActionState(createUser, {} as ActState)
   const [selLogin, setSelLogin] = useState<string | null>(null)
   const [level, setLevel] = useState('GENERAL')
@@ -63,7 +65,8 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
   return (
     <GroupBox title={`${t('access.userLedger', '사용자 대장')} — ${rows.length}${t('access.personUnit', '명')}`} noPad style={{ flex: 1.3, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', gap: 4, padding: 4, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid var(--line)' }}>
-        <RegisterModal trigger={t('access.addUser', '＋ 사용자 등록')} title={t('access.userRegTitle', '사용자 등록')} ok={regSt.ok}>
+        <RegisterModal trigger={t('access.addUser', '＋ 사용자 등록')} title={t('access.userRegTitle', '사용자 등록')} ok={regSt.ok}
+          disabled={!perm.isAdmin} disabledTitle={t('access.adminOnly', '사용자 등록은 ADMIN 전용')}>
           {() => (
             <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
               <label>{t('access.loginId', '로그인 ID')}</label>

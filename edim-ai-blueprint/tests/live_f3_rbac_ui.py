@@ -99,13 +99,8 @@ with sync_playwright() as pw:
     page.wait_for_timeout(600)
     page.locator(".tn", has_text="부품 대장 (M-4-7)").first.click()
     page.wait_for_timeout(1000)
-    ok("GENERAL — 부품 등록 disabled",
-       page.get_by_role("button", name="＋ 부품 등록 F2").is_disabled())
-    page.keyboard.press("F2")
-    page.wait_for_timeout(500)
-    ok("GENERAL — F2 는 다이얼로그 대신 사유",
-       page.locator("[data-part-reg]").count() == 0
-       and "권한 부족" in page.locator(".statusbar").inner_text())
+    ok("GENERAL — 부품 등록 disabled (Next — F2 단축 없음)",
+       page.get_by_role("button", name="＋ 부품 등록").is_disabled())
 
     page.locator(".titlebar .mod", has_text="공통").first.click()
     page.wait_for_timeout(600)

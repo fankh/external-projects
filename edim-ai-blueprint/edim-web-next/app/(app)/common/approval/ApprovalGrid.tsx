@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { decide, decideBatch, type DecideState } from './actions'
 
 export interface ApprovalRow {
@@ -22,6 +23,10 @@ const TYPE_FILTERS: { key: string; label: (t: (k: string, ko: string) => string)
 
 export function ApprovalGrid({ rows }: { rows: ApprovalRow[] }) {
   const { t } = useI18n()
+  const perm = usePermission()
+  const canDecide = perm.canWrite('com-approval')
+  // F3 — 내 요청 뷰 (요청자 = 본인 필터)
+  const [viewMine, setViewMine] = useState(false)
   const cols: GridColumn<ApprovalRow>[] = [
     { key: 'asset', header: t('appr.assetType', '자산유형'), width: 90, align: 'center', sortValue: (r) => r.assetType, render: (r) => r.assetType },
     { key: 'target', header: t('appr.target', '대상'), width: 130, code: true, render: (r) => r.target },
@@ -41,6 +46,7 @@ export function ApprovalGrid({ rows }: { rows: ApprovalRow[] }) {
   const q = query.trim().toLowerCase()
   const shown = rows.filter((r) =>
     TYPE_FILTERS.some((f) => types.has(f.key) && f.match(r))
+    && (!viewMine || r.requesterLogin === perm.login)
     && (!q || r.target.toLowerCase().includes(q) || r.requester.toLowerCase().includes(q)
         || r.requesterLogin.toLowerCase().includes(q)))
   const toggleType = (key: string) => setTypes((prev) => {
@@ -71,8 +77,14 @@ export function ApprovalGrid({ rows }: { rows: ApprovalRow[] }) {
         <span style={{ fontSize: 11, color: 'var(--txt-dim)' }}>{t('approval.selectedN', '선택 {n}건').replace('{n}', String(selected.size))}</span>
         <input className="in" style={{ width: 260 }} placeholder={t('approval.commentPh', '결재 의견 (반려 시 필수)')}
           value={comment} onChange={(e) => setComment(e.target.value)} />
-        <button className="b run" disabled={pending} onClick={() => run(true)}>{t('common.approve', '승인')}</button>
-        <button className="b" disabled={pending} onClick={() => run(false)}>{t('common.reject', '반려')}</button>
+        <button className="b run" disabled={pending || !canDecide} title={canDecide ? undefined : perm.denyWrite}
+          onClick={() => run(true)}>{t('common.approve', '승인')}</button>
+        <button className="b" disabled={pending || !canDecide} title={canDecide ? undefined : perm.denyWrite}
+          onClick={() => run(false)}>{t('common.reject', '반려')}</button>
+        {!canDecide ? <Chip tone="warn">{t('approval.readOnly', '읽기 전용')}</Chip> : null}
+        <button className="b" data-view-mine style={{ height: 20, fontSize: 10.5, opacity: viewMine ? 1 : 0.55 }}
+          title={t('approval.viewMineHint', '내가 요청한 대기 건만 표시')}
+          onClick={() => setViewMine((v) => !v)}>{viewMine ? '☑' : '☐'} {t('approval.viewMine', '내 요청')}</button>
         {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
         <span className="sep" />
@@ -92,7 +104,9 @@ export function ApprovalGrid({ rows }: { rows: ApprovalRow[] }) {
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-approval" colFilter columns={cols} rows={shown}
           rowKey={(r) => r.id} multiSelect selectedKeys={selected} onSelectionChange={setSelected}
-          emptyText={t('approval.empty', '대기 중인 승인 요청이 없습니다')} />
+          emptyText={viewMine
+            ? t('approval.emptyMine', '내가 요청한 대기 건 없음')
+            : t('approval.empty', '대기 중인 승인 요청이 없습니다')} />
       </div>
     </div>
   )

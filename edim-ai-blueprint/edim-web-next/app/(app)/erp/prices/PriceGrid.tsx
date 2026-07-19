@@ -6,6 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { closePrice, createPrice, importPricesExcel, type ActState } from './actions'
 
 export interface PriceRow {
@@ -17,6 +18,7 @@ const won = (n: number) => `₩ ${Math.round(n).toLocaleString()}`
 
 export function PriceGrid({ rows }: { rows: PriceRow[] }) {
   const { t } = useI18n()
+  const perm = usePermission()
   const [regSt, regAction, regPending] = useActionState(createPrice, {} as ActState)
   const [impSt, impAction, impPending] = useActionState(importPricesExcel, {} as ActState)
   const [selKey, setSelKey] = useState<string | number | null>(null)
@@ -44,7 +46,8 @@ export function PriceGrid({ rows }: { rows: PriceRow[] }) {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <RegisterModal trigger={t('price.addPrice', '＋ 단가 등록')} title={t('price.regTitle', '단가 등록')} ok={regSt.ok}>
+        <RegisterModal trigger={t('price.addPrice', '＋ 단가 등록')} title={t('price.regTitle', '단가 등록')} ok={regSt.ok}
+          disabled={!perm.canWrite('erp-price')} disabledTitle={perm.denyWrite}>
           {() => (
             <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
               <label>{t('price.code', '코드')}</label>
