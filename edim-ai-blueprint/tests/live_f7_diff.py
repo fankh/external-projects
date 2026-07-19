@@ -74,17 +74,19 @@ with sync_playwright() as pw:
     body = page.locator("[data-hist-diff]").inner_text()
     ok("level 필드 값 표기", "level" in body)
 
-    # 페이로드 없는 행 (LOGIN_OK 등) — 상세 패널 미표시 (정직)
+    # 다른 행 선택 = 패널 전환 (LOGIN_OK — 페이로드 유무와 무관하게 이전 diff 잔존 금지)
     wrap.locator("input[placeholder='찾기…']").fill("LOGIN_OK")
     page.wait_for_timeout(400)
     noload = page.locator("table.g:visible tbody tr", has_text="LOGIN_OK").first
     if noload.count():
         noload.click()
         page.wait_for_timeout(400)
-        ok("페이로드 없는 행 — diff 패널 미표시(정직)",
-           page.locator("[data-hist-diff]").count() == 0)
+        panel = page.locator("[data-hist-diff]")
+        # 페이로드 없으면 패널 미표시, 있으면 해당 행 페이로드로 갱신 — SETUP→GENERAL 하이라이트 잔존 금지
+        stale = panel.count() and "SETUP" in panel.inner_text() and "GENERAL" in panel.inner_text()
+        ok("행 전환 = 패널 갱신(이전 diff 잔존 없음)", not stale)
     else:
-        ok("LOGIN_OK 행 없음 — 안내 검사 생략", True)
+        ok("LOGIN_OK 행 없음 — 전환 검사 생략", True)
     b.close()
 
 print(f"\nOK — live_f7_diff {n}/{n}")

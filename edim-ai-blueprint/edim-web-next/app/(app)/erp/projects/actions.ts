@@ -8,6 +8,19 @@ const PATH = '/erp/projects'
 
 export interface ActState { error?: string; ok?: string }
 
+/** S-3-5 중복검토 — 이름/번호 ILIKE 실질의 (등록 전 확인). */
+export async function checkProjectDuplicate(name: string): Promise<{ dup?: boolean; matches?: string[]; error?: string }> {
+  if (!name.trim()) return { error: '검토할 프로젝트명을 입력하십시오' }
+  try {
+    const r = await apiServer<{ duplicate: boolean; matches: { no: string; name: string }[] }>(
+      `/erp/projects/check-duplicate?name=${encodeURIComponent(name.trim())}`)
+    const list = r.matches ?? []
+    return { dup: r.duplicate, matches: list.slice(0, 5).map((d) => `${d.no} ${d.name}`) }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '중복검토 실패' }
+  }
+}
+
 export async function createProject(_prev: ActState, formData: FormData): Promise<ActState> {
   const projectName = String(formData.get('projectName') ?? '').trim()
   const client = String(formData.get('client') ?? '').trim()

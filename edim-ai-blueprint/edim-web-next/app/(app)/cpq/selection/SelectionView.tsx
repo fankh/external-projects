@@ -199,6 +199,22 @@ export function SelectionView(props: {
     setSavedSelId(r.selectionId!); say(`견적안 저장 ✓ — #${r.selectionId} ${finished} (cpq_selection · Run 대상)`)
   })
   const startRun = () => router.push(savedSelId ? `/cpq/run?selectionId=${savedSelId}` : '/cpq/run')
+  // 블록 다이어그램 DXF 다운로드 — /cad/from-blocks.dxf 엔진 (레거시 패리티)
+  const blocksDxf = async () => {
+    try {
+      const res = await fetch('/api/cad/export?kind=blocks', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'AHU5_blocks', blocks }),
+      })
+      if (!res.ok) { say(`DXF 다운로드 실패 (HTTP ${res.status})`, true); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'block_diagram.dxf'; a.click()
+      URL.revokeObjectURL(url)
+      say(t('cpq.blocksDxfDone', '블록 다이어그램 DXF ⬇ (from-blocks 엔진)'))
+    } catch { say(t('cpq.blocksDxfFail', 'DXF 다운로드 실패'), true) }
+  }
   const loadSel = (idStr: string) => {
     const sel = props.selections.find((s) => String(s.selectionId) === idStr)
     if (!sel) { setSavedSelId(null); return }
@@ -270,6 +286,8 @@ export function SelectionView(props: {
             <span style={{ fontSize: 11, fontWeight: 600, flex: 1 }}>{t('cpq.arrangement', '구성도 (Arrangement)')}</span>
             <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()} style={{ height: 18, fontSize: 9.5 }}>{t('cpq.block', '블록')}</Btn>
             <Btn variant={cadMode ? 'pri' : 'default'} onClick={() => !cadMode && toggleCad()} style={{ height: 18, fontSize: 9.5 }}>CAD</Btn>
+            {!cadMode ? <Btn data-blocks-dxf onClick={() => void blocksDxf()} style={{ height: 18, fontSize: 9.5 }}
+              title={t('cpq.blocksDxfHint', '블록 다이어그램 DXF 다운로드 (from-blocks 엔진)')}>⬇ DXF</Btn> : null}
             <span className="sep" />
             <Btn onClick={() => rotateSel(90)} title={t('cpq.rotateHint', '선택 블록 90° 회전 (RO)')} style={{ height: 18, fontSize: 9.5 }} data-rotate-btn>⟳ RO</Btn>
             <Btn onClick={mirrorSel} title={t('cpq.mirrorHint', '선택 블록 좌우 반전 (MI)')} style={{ height: 18, fontSize: 9.5 }} data-mirror-btn>⇋ MI</Btn>

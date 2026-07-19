@@ -3,11 +3,13 @@ import { getToken } from '@/lib/session'
 
 const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
-/** DXF 내보내기 프록시 — 현재 치수로 제작 DXF 를 바이너리 스트림. (JSON apiServer 로는 불가) */
+/** DXF 내보내기 프록시 — 제작 DXF(기본) 또는 블록 다이어그램(?kind=blocks → /cad/from-blocks.dxf). */
 export async function POST(req: NextRequest) {
   const token = await getToken()
   const body = await req.text()
-  const res = await fetch(`${API_BASE}/cad/export-dxf`, {
+  const kind = req.nextUrl.searchParams.get('kind')
+  const target = kind === 'blocks' ? '/cad/from-blocks.dxf' : '/cad/export-dxf'
+  const res = await fetch(`${API_BASE}${target}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body,

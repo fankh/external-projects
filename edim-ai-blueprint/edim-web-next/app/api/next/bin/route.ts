@@ -28,6 +28,12 @@ export async function GET(req: NextRequest) {
     path = `/files/zip?project=${encodeURIComponent(project)}${folder ? `&folder=${encodeURIComponent(folder)}` : ''}`
     filename = `${project}${folder ? `-${folder}` : ''}.zip`
   }
+  else if (kind === 'exportpkg') {
+    const project = sp.get('project') ?? ''
+    if (!project) return NextResponse.json({ detail: 'project 필요' }, { status: 422 })
+    path = `/files/export-package?project=${encodeURIComponent(project)}`
+    filename = `${project}-export.zip`
+  }
   if (!path) return NextResponse.json({ detail: 'kind(docpdf|pcr|file|zip|cadplot) 오류' }, { status: 422 })
 
   const token = await getToken()

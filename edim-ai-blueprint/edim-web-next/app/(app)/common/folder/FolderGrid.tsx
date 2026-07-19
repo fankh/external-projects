@@ -55,6 +55,8 @@ export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: str
           <button className="b run" type="submit" disabled={upPending}>{t('folder.uploadBtn', '⬆ 업로드')}</button>
         </form>
         <button className="b" onClick={() => window.open(`/api/next/bin?kind=zip&project=${encodeURIComponent(project)}`, '_blank')}>{t('folder.zipAll', '⬇ ZIP (전체)')}</button>
+        <button className="b" data-export-package title={t('folder.exportPkgHint', '고객 전달용 — 산출물 폴더만 ZIP + 전달 매니페스트 (내부 접수자료 제외, E2)')}
+          onClick={() => window.open(`/api/next/bin?kind=exportpkg&project=${encodeURIComponent(project)}`, '_blank')}>{t('folder.exportPkg', '⬇ 전달 패키지')}</button>
         {upSt.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{upSt.error}</span> : null}
         {upSt.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{upSt.ok}</span> : null}
       </div>

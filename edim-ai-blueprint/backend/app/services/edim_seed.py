@@ -3569,6 +3569,15 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "search.parts": ('Parts', '部品', '部件'),
     "search.projects": ('Projects', 'プロジェクト', '项目'),
     "audit.fieldCol": ('Field', 'フィールド', '字段'),
+    "folder.exportPkg": ('⬇ Delivery package', '⬇ 納品パッケージ', '⬇ 交付包'),
+    "folder.exportPkgHint": ('Customer delivery — outputs-only ZIP + manifest (internal received files excluded, E2)', '顧客納品用 — 成果物のみ ZIP + マニフェスト (内部受領資料除外, E2)', '客户交付用 — 仅产出 ZIP + 清单 (排除内部接收资料, E2)'),
+    "cpq.blocksDxfDone": ('Block diagram DXF ⬇ (from-blocks engine)', 'ブロック図 DXF ⬇ (from-blocks エンジン)', '块图 DXF ⬇ (from-blocks 引擎)'),
+    "cpq.blocksDxfFail": ('DXF download failed', 'DXF ダウンロード失敗', 'DXF 下载失败'),
+    "cpq.blocksDxfHint": ('Download block diagram DXF (from-blocks engine)', 'ブロック図 DXF ダウンロード (from-blocks エンジン)', '下载块图 DXF (from-blocks 引擎)'),
+    "prj.dupCheck": ('Dup check', '重複検討', '查重'),
+    "prj.dupCheckHint": ('S-3-5 duplicate check — query same/similar names', 'S-3-5 重複検討 — 同一/類似名の実照会', 'S-3-5 查重 — 相同/相似名称实查询'),
+    "prj.dupFound": ('Possible duplicates', '重複疑い', '疑似重复'),
+    "prj.dupNone": ('No duplicates ✓', '重複なし ✓', '无重复 ✓'),
 }
 
 def seed_v32(cur, tid: int) -> None:
