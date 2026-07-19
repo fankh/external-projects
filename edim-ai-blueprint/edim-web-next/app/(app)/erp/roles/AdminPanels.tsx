@@ -7,7 +7,7 @@ import { Chip, GroupBox } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import {
-  changeUserLevel, createRole, createUser, deleteRole,
+  assignUserRoles, changeUserLevel, createRole, createUser, deleteRole, getUserRoles,
   saveRolePermissions, setUserActive, unlockUser, updateUser, type ActState,
 } from './actions'
 
@@ -33,6 +33,22 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
   const [editOpen, setEditOpen] = useState(false)
   const [editSt, editAction, editPending] = useActionState(updateUser, {} as ActState)
   useEffect(() => { if (editSt.ok) setEditOpen(false) }, [editSt.ok])
+  // B21 — 다중 역할 (sys_user_role): 선택 시 조회, 체크 토글 = 전체 교체 PUT
+  const [selRoles, setSelRoles] = useState<string[] | null>(null)
+  useEffect(() => {
+    if (!selLogin) { setSelRoles(null); return }
+    void getUserRoles(selLogin).then(setSelRoles)
+  }, [selLogin])
+  const toggleRole = (rname: string) => {
+    if (!sel || selRoles === null) return
+    const next = selRoles.includes(rname) ? selRoles.filter((x) => x !== rname) : [...selRoles, rname]
+    setSelRoles(next)
+    start(async () => {
+      const r = await assignUserRoles(sel.login, next)
+      setSt(r)
+      if (r.error) void getUserRoles(sel.login).then(setSelRoles)   // 실패 시 서버 정본 복원
+    })
+  }
 
   const cols: GridColumn<UserRow>[] = [
     { key: 'login', header: 'ID', width: 84, code: true, render: (r) => r.login },
@@ -89,6 +105,18 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
         {st.error ? <span style={{ color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ color: 'var(--run)' }}>{st.ok}</span> : null}
         {editSt.ok ? <span style={{ color: 'var(--run)' }}>{editSt.ok}</span> : null}
+      </div>
+      {/* B21 — 다중 역할 할당 (sys_user_role, 전체 교체 PUT) */}
+      <div data-user-roles style={{ display: 'flex', gap: 8, padding: '3px 6px', alignItems: 'center', flexWrap: 'wrap', fontSize: 10.5, borderBottom: '1px solid var(--line)' }}>
+        <span style={{ color: 'var(--txt-dim)' }}>{t('access.roles', '역할 (다중, sys_user_role)')}</span>
+        {['PLATFORM', 'ADMIN', 'SETUP', 'GENERAL'].map((rname) => (
+          <label key={rname} style={{ display: 'inline-flex', gap: 3, alignItems: 'center', opacity: sel ? 1 : 0.5 }}>
+            <input type="checkbox" aria-label={`역할 ${rname}`} disabled={!sel || selRoles === null || pending}
+              checked={selRoles?.includes(rname) ?? false} onChange={() => toggleRole(rname)} />
+            {rname}
+          </label>
+        ))}
+        {sel && selRoles === null ? <span style={{ color: 'var(--txt-mute)' }}>{t('devreq.loading', '불러오는 중…')}</span> : null}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-users" colFilter columns={cols} rows={rows}

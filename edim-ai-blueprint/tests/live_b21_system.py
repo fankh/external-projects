@@ -137,14 +137,14 @@ with sync_playwright() as pw:
     p.locator("[data-user-roles]").wait_for(timeout=8000)
     ok("UI 다중 역할 패널 (sys_user_role)", True)
 
+    # Next — Hierarchy 등록은 인라인 폼 (주소·이름 입력 + ＋ 노드)
     p.goto(f"{BASE}/code", wait_until="networkidle")
     p.wait_for_timeout(600)
     p.locator(".tn", has_text="Hierarchy 주소 (M-3-1)").click()
-    p.get_by_role("button", name="＋ 노드 등록 F2").click()
-    p.locator("[data-hier-add]").wait_for(timeout=5000)
-    ok("UI Hierarchy 등록 다이얼로그", True)
-    p.keyboard.press("Escape")
-    p.locator("[data-hier-add]").click(position={"x": 5, "y": 5})   # 바깥 클릭 닫기
+    p.locator("input[name=address]").wait_for(timeout=8000)
+    ok("UI Hierarchy 등록 폼 (인라인 — 주소·이름·＋ 노드)",
+       p.locator("input[name=name]").count() >= 1
+       and p.get_by_role("button", name="＋ 노드").count() >= 1)
 
     p.goto(f"{BASE}/toolbox", wait_until="networkidle")
     p.wait_for_timeout(600)

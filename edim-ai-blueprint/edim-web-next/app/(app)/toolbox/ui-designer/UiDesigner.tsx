@@ -111,7 +111,7 @@ export function UiDesigner({ initialWidgets, initialVersion }: { initialWidgets:
       </div>
       {showPreview ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowPreview(false)}>
-          <div style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 520, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }} onClick={(e) => e.stopPropagation()}>
+          <div data-ui-preview style={{ background: '#fff', border: '1px solid var(--line-strong)', width: 520, boxShadow: '0 8px 30px rgba(20,26,40,.35)' }} onClick={(e) => e.stopPropagation()}>
             <div className="titlebar" style={{ padding: '5px 10px', fontSize: 11.5 }}><b>{t('uidsn.previewTitle', 'Form 미리보기')} — {FORM_NAME} v{version} {t('uidsn.previewRenderNote', '(동적 렌더, TBX-003)')}</b><span style={{ flex: 1 }} /><span style={{ cursor: 'pointer' }} onClick={() => setShowPreview(false)}>✕</span></div>
             <div style={{ position: 'relative', height: 340, margin: 10, border: '1px solid var(--line)', background: '#FAFBFC', overflow: 'hidden' }}>
               {widgets.map((w) => (

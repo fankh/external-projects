@@ -12,6 +12,23 @@ function fail(e: unknown, fallback: string): ActState {
   return { error: e instanceof ApiError ? e.message : fallback }
 }
 
+/** B21 — 사용자 다중 역할 조회/할당 (sys_user_role). */
+export async function getUserRoles(login: string): Promise<string[] | null> {
+  try {
+    return await apiServer<string[]>(`/users/${encodeURIComponent(login)}/roles`)
+  } catch {
+    return null
+  }
+}
+
+export async function assignUserRoles(login: string, roles: string[]): Promise<ActState> {
+  try {
+    await apiServer(`/users/${encodeURIComponent(login)}/roles`, { method: 'PUT', body: JSON.stringify({ roles }) })
+  } catch (e) { return fail(e, '역할 할당 실패') }
+  revalidatePath(PATH)
+  return { ok: `역할 할당 ✓ — ${login} (${roles.join(',') || '없음'})` }
+}
+
 /** 사용자 정보 수정 (F2 이식) — 이름·부서·이메일 (PATCH /users/{login}, 폼 액션). */
 export async function updateUser(_prev: ActState, formData: FormData): Promise<ActState> {
   const login = String(formData.get('login') ?? '').trim()

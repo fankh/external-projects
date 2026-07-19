@@ -3579,6 +3579,7 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "prj.dupFound": ('Possible duplicates', '重複疑い', '疑似重复'),
     "prj.dupNone": ('No duplicates ✓', '重複なし ✓', '无重复 ✓'),
     "cad.dxfDlHint": ('Download source file', '原本ファイルダウンロード', '下载源文件'),
+    "access.roles": ('Roles (multi, sys_user_role)', 'ロール (複数, sys_user_role)', '角色 (多个, sys_user_role)'),
 }
 
 def seed_v32(cur, tid: int) -> None:

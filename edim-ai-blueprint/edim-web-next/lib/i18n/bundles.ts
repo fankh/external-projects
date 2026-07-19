@@ -1893,6 +1893,7 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'prj.dupFound': 'Possible duplicates',
     'prj.dupNone': 'No duplicates ✓',
     'cad.dxfDlHint': 'Download source file',
+    'access.roles': 'Roles (multi, sys_user_role)',
   },
   ja: {
     'menu.plm-parts': '部品台帳 (M-4-7)',
@@ -3786,6 +3787,7 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'prj.dupFound': '重複疑い',
     'prj.dupNone': '重複なし ✓',
     'cad.dxfDlHint': '原本ファイルダウンロード',
+    'access.roles': 'ロール (複数, sys_user_role)',
   },
   zh: {
     'menu.plm-parts': '零件台账 (M-4-7)',
@@ -5679,5 +5681,6 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'prj.dupFound': '疑似重复',
     'prj.dupNone': '无重复 ✓',
     'cad.dxfDlHint': '下载源文件',
+    'access.roles': '角色 (多个, sys_user_role)',
   },
 }
