@@ -4,6 +4,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Chip, GroupBox } from '@/components/controls'
+import { ApprovalStrip } from '@/components/ApprovalStrip'
 import { useI18n } from '@/components/I18nProvider'
 import { addHierarchyNode, deleteHierarchyNode, getNodeInfo, moveHierarchyNode, renameHierarchyNode, validateHierarchy, type ActState, type NodeInfo, type ValidateResult } from './hierarchyActions'
 
@@ -72,6 +73,10 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
         }}>삭제</button>
         {(regSt.error || st.error) ? <span style={{ color: 'var(--err)' }}>{regSt.error || st.error}</span> : null}
         {(regSt.ok || st.ok) ? <span style={{ color: 'var(--run)' }}>{regSt.ok || st.ok}</span> : null}
+        <span className="sep" />
+        <ApprovalStrip targetTable="sys_hierarchy" targetId={sel?.id ?? 0}
+          targetCode={sel?.address ?? ''} label={`Hierarchy 노드 — ${sel?.address ?? ''} ${sel?.name ?? ''}`}
+          status={sel?.status} disabled={!sel} />
       </div>
       {vres ? (
         <div data-h-validate-result style={{ padding: '4px 8px', fontSize: 10.5, borderBottom: '1px solid var(--line)', background: vres.ok ? '#EAF3EC' : '#FBEAEA', maxHeight: 120, overflow: 'auto' }}>
