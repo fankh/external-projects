@@ -215,6 +215,11 @@ async function main() {
   await assertApi('/tenant/headnav (U30)', '/tenant/headnav', (j) => j && typeof j.value === 'object')
   await assertApi('/macros/functions 보간→INTERP (U27)', `/macros/functions?q=${encodeURIComponent('보간')}`,
     (j) => Array.isArray(j) && j.some((f) => f.name === 'INTERP'))
+  await assertApi('/cad/view/8/related-codes (U10)', '/cad/view/8/related-codes',
+    (j) => j && Array.isArray(j.codes))
+
+  // 4r) U10 도면-코드 칩 SSR (v32.6)
+  await assertRenders('/detail/cad-viewer?fileId=8', ['data-related-code'], token)
 
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
