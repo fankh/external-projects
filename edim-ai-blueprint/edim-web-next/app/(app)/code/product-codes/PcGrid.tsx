@@ -7,6 +7,7 @@ import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { createProductCode, deleteProductCode, setProductStatus, type ActState } from './actions'
+import { ApprovalStrip } from '@/components/ApprovalStrip'
 
 export interface PcRow {
   productCodeId: number; mainCode: string; codeName: string; groupCode: string
@@ -63,6 +64,10 @@ export function PcGrid({ rows }: { rows: PcRow[] }) {
         }}>{t('master.delete', '삭제')}</button>
         {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
+        <span className="sep" />
+        <ApprovalStrip targetTable="product_code" targetId={sel?.productCodeId ?? 0}
+          targetCode={sel?.mainCode ?? ''} label={`Product Code — ${sel?.mainCode ?? ''} ${sel?.codeName ?? ''}`}
+          status={sel?.status} disabled={!sel} />
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-pc" colFilter columns={cols} rows={rows}
