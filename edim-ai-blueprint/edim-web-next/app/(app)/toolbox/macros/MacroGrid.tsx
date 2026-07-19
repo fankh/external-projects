@@ -6,7 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useFKeys } from '@/hooks/useFKeys'
 import { useI18n } from '@/components/I18nProvider'
-import { deleteMacro, evaluateMacro, requestMacroApproval, saveMacro, type ActState, type EvalResult } from './actions'
+import { deleteMacro, evaluateMacro, getMacroFunctions, requestMacroApproval, saveMacro, type ActState, type EvalResult, type MacroFn } from './actions'
 
 export interface MacroRow {
   name: string; expr: string; status: string; address: string; prompt: string
@@ -40,6 +40,22 @@ export function MacroGrid({ rows }: { rows: MacroRow[] }) {
   const [evalR, setEvalR] = useState<EvalResult | null>(null)
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
+  // U24 — 함수 마법사 (카탈로그 검색→삽입, 슬라이드 59·24)
+  const [fnOpen, setFnOpen] = useState(false)
+  const [fnQ, setFnQ] = useState('')
+  const [fns, setFns] = useState<MacroFn[]>([])
+  const openFnWizard = () => {
+    setFnOpen(true); setFnQ('')
+    start(async () => setFns(await getMacroFunctions('')))
+  }
+  const searchFns = (q: string) => {
+    setFnQ(q)
+    start(async () => setFns(await getMacroFunctions(q)))
+  }
+  const insertFn = (f: MacroFn) => {
+    setExpr((cur) => (cur.trim() ? `${cur} ${f.sig}` : `=${f.sig}`))
+    setFnOpen(false)
+  }
 
   const select = (r: MacroRow) => {
     setSelName(r.name); setName(r.name); setExpr(r.expr); setPrompt(r.prompt); setEvalR(null)
@@ -61,8 +77,32 @@ export function MacroGrid({ rows }: { rows: MacroRow[] }) {
       <div className="gb" style={{ width: 380, display: 'flex', flexDirection: 'column', gap: 6, padding: 8, fontSize: 11, overflow: 'auto' }}>
         <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('macro.editTitle', 'Macro 편집')} {selName ? `— ${selName}` : t('macro.newHint', '(행 클릭 또는 신규 이름 입력)')}</div>
         <input className="in req" placeholder={t('macro.namePh', 'Macro 이름 (TBX-…)')} value={name} onChange={(e) => setName(e.target.value)} />
-        <textarea className="in" placeholder={t('macro.exprPh', '=IF(A>0, A*B, 0) — Excel 호환 식')} value={expr} onChange={(e) => setExpr(e.target.value)}
-          style={{ fontFamily: 'Consolas, monospace', fontSize: 11, height: 70, resize: 'vertical' }} />
+        <div style={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
+          <textarea className="in" placeholder={t('macro.exprPh', '=IF(A>0, A*B, 0) — Excel 호환 식')} value={expr} onChange={(e) => setExpr(e.target.value)}
+            style={{ fontFamily: 'Consolas, monospace', fontSize: 11, height: 70, resize: 'vertical', flex: 1 }} />
+          <button className="b" data-fn-wizard title={t('macro.fnWizardHint', '함수 마법사 — 검색·설명·삽입 (TBX-014)')} onClick={openFnWizard} style={{ height: 24 }}>ƒx</button>
+        </div>
+        {fnOpen ? (
+          <div data-fn-dialog style={{ border: '1px solid var(--line-strong)', background: '#FAFBFC', padding: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <b style={{ flex: 1 }}>{t('macro.fnWizard', '함수 마법사')}</b>
+              <input className="in" data-fn-search autoFocus style={{ width: 160 }} placeholder={t('macro.fnSearchPh', '검색 (예: 합계, 조건)')}
+                value={fnQ} onChange={(e) => searchFns(e.target.value)} />
+              <span style={{ cursor: 'pointer', color: 'var(--txt-dim)' }} onClick={() => setFnOpen(false)}>✕</span>
+            </div>
+            <div style={{ maxHeight: 150, overflow: 'auto', border: '1px solid var(--line)' }}>
+              {fns.map((f) => (
+                <div key={f.name} data-fn-item style={{ display: 'flex', gap: 8, padding: '2px 6px', borderBottom: '1px solid var(--line)', cursor: 'pointer', alignItems: 'center' }}
+                  onClick={() => insertFn(f)} title={t('macro.fnInsertHint', '클릭 = 식에 삽입')}>
+                  <span className="code" style={{ width: 66, fontWeight: 700 }}>{f.name}</span>
+                  <span className="code" style={{ flex: 1, color: 'var(--txt-dim)' }}>{f.sig}</span>
+                  <span style={{ fontSize: 10, color: 'var(--txt-dim)' }}>{f.desc}</span>
+                </div>
+              ))}
+              {!fns.length ? <div style={{ padding: 6, color: 'var(--txt-mute)' }}>{t('macro.fnNone', '일치 함수 없음')}</div> : null}
+            </div>
+          </div>
+        ) : null}
         <input className="in" placeholder={t('macro.promptPh', 'Prompt (자연어 설명)')} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
           <input className="in" style={{ flex: 1, minWidth: 110, fontFamily: 'Consolas, monospace' }} placeholder={t('macro.varsPh', 'Test 변수: A=560, B=2')}

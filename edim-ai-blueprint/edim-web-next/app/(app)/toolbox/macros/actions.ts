@@ -54,3 +54,12 @@ export async function requestMacroApproval(name: string): Promise<ActState> {
     return { error: e instanceof ApiError ? e.message : '승인 요청 실패' }
   }
 }
+
+export interface MacroFn { name: string; sig: string; desc: string; keywords: string }
+
+/** U24 — 함수 마법사 카탈로그 (자연어 검색, TBX-014). */
+export async function getMacroFunctions(q: string): Promise<MacroFn[]> {
+  try {
+    return await apiServer<MacroFn[]>(`/macros/functions?q=${encodeURIComponent(q)}`)
+  } catch { return [] }
+}
