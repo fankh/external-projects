@@ -12,6 +12,14 @@ export interface ApprovalRow {
   requester: string; reqDate: string; stage: string; tested: boolean; requesterLogin: string
 }
 
+/** 자산 유형 퀵 필터 (레거시 승인함 동등 — F10) */
+const TYPE_FILTERS: { key: string; label: (t: (k: string, ko: string) => string) => string; match: (r: ApprovalRow) => boolean }[] = [
+  { key: 'code', label: () => 'Code', match: (r) => r.assetType === 'Code' },
+  { key: 'dwg', label: (t) => t('appr.drawing', '도면'), match: (r) => r.assetType === '도면' },
+  { key: 'macro', label: () => 'Macro', match: (r) => r.assetType === 'Macro' },
+  { key: 'etc', label: (t) => t('appr.etcTypes', '관계·문서·기타'), match: (r) => !['Code', '도면', 'Macro'].includes(r.assetType) },
+]
+
 export function ApprovalGrid({ rows }: { rows: ApprovalRow[] }) {
   const { t } = useI18n()
   const cols: GridColumn<ApprovalRow>[] = [
@@ -27,6 +35,20 @@ export function ApprovalGrid({ rows }: { rows: ApprovalRow[] }) {
   const [comment, setComment] = useState('')
   const [st, setSt] = useState<DecideState>({})
   const [pending, start] = useTransition()
+  const [types, setTypes] = useState<Set<string>>(new Set(TYPE_FILTERS.map((f) => f.key)))
+  const [query, setQuery] = useState('')
+
+  const q = query.trim().toLowerCase()
+  const shown = rows.filter((r) =>
+    TYPE_FILTERS.some((f) => types.has(f.key) && f.match(r))
+    && (!q || r.target.toLowerCase().includes(q) || r.requester.toLowerCase().includes(q)
+        || r.requesterLogin.toLowerCase().includes(q)))
+  const toggleType = (key: string) => setTypes((prev) => {
+    const next = new Set(prev)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    return next
+  })
 
   const run = (approve: boolean) => {
     const ids = [...selected].map(Number)
@@ -53,9 +75,22 @@ export function ApprovalGrid({ rows }: { rows: ApprovalRow[] }) {
         <button className="b" disabled={pending} onClick={() => run(false)}>{t('common.reject', '반려')}</button>
         {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
+        <span className="sep" />
+        {TYPE_FILTERS.map((f) => {
+          const on = types.has(f.key)
+          const cnt = rows.filter(f.match).length
+          return (
+            <button key={f.key} className="b" data-type-filter={f.key}
+              style={{ height: 20, fontSize: 10.5, opacity: on ? 1 : 0.45 }}
+              title={on ? t('appr.filterOff', '유형 숨김') : t('appr.filterOn', '유형 표시')}
+              onClick={() => toggleType(f.key)}>{on ? '☑' : '☐'} {f.label(t)} ({cnt})</button>
+          )
+        })}
+        <input className="in" style={{ width: 150 }} placeholder={t('appr.searchPh', '대상·요청자 검색')}
+          aria-label="승인함 검색" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <DenseGrid prefKey="next-approval" colFilter columns={cols} rows={rows}
+        <DenseGrid prefKey="next-approval" colFilter columns={cols} rows={shown}
           rowKey={(r) => r.id} multiSelect selectedKeys={selected} onSelectionChange={setSelected}
           emptyText={t('approval.empty', '대기 중인 승인 요청이 없습니다')} />
       </div>

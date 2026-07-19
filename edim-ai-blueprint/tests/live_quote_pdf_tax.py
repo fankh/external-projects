@@ -45,11 +45,11 @@ with sync_playwright() as pw:
         ok("PDF 세액 라인", "세액" in txt)
         ok("PDF 공급가액 라인", "공급가액" in txt)
 
-        # KRW 견적 → 천원 라인 + 요약
+        # KRW 견적 → CLT 양식 합계·세액 (구 '천원' 표기는 CLT 양식 전환으로 폐지 — 단가(K)·통화 표기)
         r2 = req.post(f"{API}/cost/quotations", data={"businessType": "PRE_SALES", "currency": "KRW", "taxCode": "ZZVAT"}).json()
         qid2 = r2["quotationId"]; created.append(qid2)
         txt2 = pdf_text(req.get(f"{API}/cost/quotations/{qid2}/render.pdf").body())
-        ok("KRW PDF 천원 합계 유지", "천원" in txt2 and "세액" in txt2)
+        ok("KRW PDF 합계·세액 표기(CLT 양식)", "KRW" in txt2 and "세액" in txt2 and "공급가액" in txt2)
     finally:
         for q in created:
             req.delete(f"{API}/cost/quotations/{q}")

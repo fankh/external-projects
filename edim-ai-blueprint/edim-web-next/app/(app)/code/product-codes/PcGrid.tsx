@@ -6,7 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
-import { createProductCode, deleteProductCode, setProductStatus, type ActState } from './actions'
+import { createProductCode, deleteProductCode, renameProductCode, setProductStatus, type ActState } from './actions'
 import { ApprovalStrip } from '@/components/ApprovalStrip'
 
 export interface PcRow {
@@ -20,7 +20,7 @@ export function PcGrid({ rows }: { rows: PcRow[] }) {
   const { t } = useI18n()
   const cols: GridColumn<PcRow>[] = [
     { key: 'code', header: t('master.codeCol', '코드'), width: 130, code: true, render: (r) => r.mainCode },
-    { key: 'name', header: t('master.name', '코드명'), render: (r) => r.codeName },
+    { key: 'name', header: t('master.name', '코드명'), editable: true, editValue: (r) => r.codeName, render: (r) => r.codeName },
     { key: 'group', header: t('master.group', '그룹'), width: 90, align: 'center', render: (r) => r.groupCode },
     { key: 'status', header: t('master.status', '상태'), width: 84, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={TONE[r.status] ?? 'info'}>{r.status}</Chip> },
     { key: 'refs', header: t('master.refs', '참조'), width: 50, align: 'right', sortValue: (r) => r.refs, render: (r) => r.refs },
@@ -72,7 +72,12 @@ export function PcGrid({ rows }: { rows: PcRow[] }) {
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-pc" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.productCodeId} selectedKey={selId ?? undefined}
-          onRowClick={(r) => setSelId(r.productCodeId)} emptyText={t('master.empty', '제품 코드가 없습니다')} />
+          onRowClick={(r) => setSelId(r.productCodeId)}
+          onCellEdit={(r, _i, _k, v) => {
+            if (!v.trim() || v.trim() === r.codeName) return
+            start(async () => setSt(await renameProductCode(r.productCodeId, v)))
+          }}
+          emptyText={t('master.empty', '제품 코드가 없습니다')} />
       </div>
     </div>
   )

@@ -22,6 +22,18 @@ export async function createProductCode(_prev: ActState, formData: FormData): Pr
   return { ok: `${mainCode} 등록 (DRAFT)` }
 }
 
+export async function renameProductCode(id: number, codeName: string): Promise<ActState> {
+  const name = codeName.trim()
+  if (!name) return { error: '코드명은 비울 수 없습니다' }
+  try {
+    await apiServer(`/codes/products/${id}`, { method: 'PATCH', body: JSON.stringify({ codeName: name }) })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '코드명 수정 실패' }
+  }
+  revalidatePath(PATH)
+  return { ok: `코드명 수정 ✓ — ${name}` }
+}
+
 export async function setProductStatus(id: number, status: string): Promise<ActState> {
   try {
     await apiServer(`/codes/products/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })

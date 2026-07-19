@@ -201,8 +201,20 @@ export const HREF_INFO: Record<string, ScreenInfo> = (() => {
   return out
 })()
 
-/** pathname → 모듈 (첫 세그먼트; detail 은 공통 취급) */
+/** href → 소유 메뉴 모듈 (경로 접두사와 다를 수 있음 — /erp/tasks 는 공통, /erp/eco-ledger 는 PLM 메뉴 소속) */
+const HREF_MODULE: Record<string, ModuleKey> = (() => {
+  const out: Record<string, ModuleKey> = {}
+  ;(Object.keys(MENU_TREE) as ModuleKey[]).forEach((mk) => {
+    const walk = (ns: NavNode[]) => ns.forEach((n) => { if (n.href) out[n.href] = mk; if (n.children) walk(n.children) })
+    walk(MENU_TREE[mk].nodes)
+  })
+  return out
+})()
+
+/** pathname → 모듈 (메뉴 소유 모듈 우선, 없으면 첫 세그먼트; detail 은 공통 취급) */
 export function moduleOfPath(pathname: string): ModuleKey {
+  const owned = HREF_MODULE[pathname]
+  if (owned) return owned
   const seg = pathname.split('/')[1] ?? ''
   if (seg === 'detail') return 'common'
   return (MODULES.some((m) => m.id === seg) ? seg : 'erp') as ModuleKey

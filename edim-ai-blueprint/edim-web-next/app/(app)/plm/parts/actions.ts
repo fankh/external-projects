@@ -32,6 +32,16 @@ export async function createPart(_prev: ActState, formData: FormData): Promise<A
   return { ok: `${partNo} 등록` }
 }
 
+export async function deletePart(partNo: string): Promise<ActState> {
+  try {
+    await apiServer(`/parts/${encodeURIComponent(partNo)}`, { method: 'DELETE' })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '삭제 실패 (BOM 참조 보호 409 가능)' }
+  }
+  revalidatePath(PATH)
+  return { ok: `부품 삭제 ✓ — ${partNo}` }
+}
+
 export async function addSupplierCode(partNo: string, supplier: string, supplierCode: string, supplierName: string): Promise<ActState> {
   if (!supplier.trim() || !supplierCode.trim()) return { error: '공급처·공급자 코드는 필수입니다' }
   try {

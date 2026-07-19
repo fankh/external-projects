@@ -72,14 +72,15 @@ with sync_playwright() as pw:
     tot = int(mm.group(2).replace(',', '')) if mm else -1
     ok("n/m 카운트 표기(0<n≤m)", mm is not None and 0 < nn <= tot)
 
-    # 없는 문자열 → 0행
+    # 없는 문자열 → 0행 (빈 상태 표준행 [data-grid-state]는 데이터 행이 아님)
     find.fill("ZZZ_없는검색어_QWX")
     page.wait_for_timeout(250)
-    ok("무매치 = 0행", grid.locator("tbody tr").count() == 0)
+    ok("무매치 = 0행", grid.locator("tbody tr:not([data-grid-state])").count() == 0)
     # Esc = 찾기 해제·전체 복원
     find.press("Escape")
     page.wait_for_timeout(250)
-    ok("Esc = 찾기 해제·전체 행 복원", grid.locator("tbody tr").count() == base_rows)
+    ok("Esc = 찾기 해제·전체 행 복원",
+       grid.locator("tbody tr:not([data-grid-state])").count() == base_rows)
 
     # Ctrl+F 경로(그리드 포커스 → 전역검색 대신 그리드 내 찾기)
     grid.locator("tbody tr").first.click()   # 그리드 포커스

@@ -7233,7 +7233,7 @@ def project_files(project: str = "PS-61313-5", allRuns: bool = False) -> list[di
                FROM dwg_file f
                LEFT JOIN prj_project p ON p.project_id=f.project_id
                WHERE f.tenant_id=%s AND (p.project_no=%s OR f.project_id IS NULL)
-               ORDER BY f.file_id""", (tid, project))
+               ORDER BY f.file_id DESC""", (tid, project))
         uploads = [
             {"name": r[1], "fileType": r[2],
              "kind": "접수자료" if r[3] == "RECEIVED" else "업로드", "kindTone": "info",

@@ -74,27 +74,29 @@ with sync_playwright() as pw:
     # 3. 승인함 유형 필터 + 검색
     page.locator(".tn", has_text="승인함 (M-15-2)").first.click()
     page.wait_for_timeout(1200)
-    grid_rows = lambda: page.locator("table.g:visible tbody tr").count()  # noqa: E731
+    # 빈 상태 표준행 [data-grid-state] 는 데이터 행이 아님
+    grid_rows = lambda: page.locator("table.g:visible tbody tr:not([data-grid-state])").count()  # noqa: E731
     total = grid_rows()
     # 전 유형 해제 → 0건 (또는 안내)
     for key in ("code", "dwg", "macro", "etc"):
         page.locator(f"[data-type-filter='{key}']").click()
         page.wait_for_timeout(150)
-    ok("전 유형 해제 = 0건 안내", page.locator("text=대기 중인 요청 없음").count() == 1
+    ok("전 유형 해제 = 0건 안내", page.locator("text=대기 중인 승인 요청이 없습니다").count() >= 1
        or grid_rows() == 0)
     for key in ("code", "dwg", "macro", "etc"):
         page.locator(f"[data-type-filter='{key}']").click()
         page.wait_for_timeout(150)
     ok("전 유형 재선택 = 원래 건수", grid_rows() == total)
     if total:
-        first_target = page.locator("table.g:visible tbody tr").first.locator("td").nth(1).inner_text()
+        # 열: [0]체크박스 [1]자산유형 [2]대상 — 검색은 대상·요청자 매칭
+        first_target = page.locator("table.g:visible tbody tr").first.locator("td").nth(2).inner_text()
         page.locator("input[aria-label='승인함 검색']").fill(first_target[:6])
         page.wait_for_timeout(300)
         ok("검색 필터 동작", 1 <= grid_rows() <= total)
         page.locator("input[aria-label='승인함 검색']").fill("zzz없는대상zzz")
         page.wait_for_timeout(300)
         ok("검색 무결과 = 0건", grid_rows() == 0
-           or page.locator("text=대기 중인 요청 없음").count() == 1)
+           or page.locator("text=대기 중인 승인 요청이 없습니다").count() >= 1)
     else:
         ok("대기 0건 — 검색 검사 생략", True)
         ok("대기 0건 — 무결과 검사 생략", True)

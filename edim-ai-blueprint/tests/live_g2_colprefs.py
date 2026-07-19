@@ -34,7 +34,13 @@ def th(p, text):
 
 
 def data_headers(p):
-    return [t.strip() for t in p.locator('table.g:visible thead th').all_inner_texts() if t.strip()]
+    # 정렬(▲▼)·컬럼 필터(▽) 글리프 제거 후 순수 헤더명만
+    out = []
+    for t in p.locator('table.g:visible thead th').all_inner_texts():
+        h = t.replace('▲', '').replace('▼', '').replace('▽', '').strip()
+        if h:
+            out.append(h)
+    return out
 
 
 def reset_cols(p):

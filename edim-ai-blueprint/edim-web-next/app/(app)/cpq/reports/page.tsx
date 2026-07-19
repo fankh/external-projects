@@ -32,6 +32,9 @@ export default async function ReportCenterPage() {
         ) : (
           <>
           <PcrPanel rows={pcr} />
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--title-navy)' }}>
+            {t('rpt.catalog', '리포트 카탈로그')} — {rows.length}{t('rpt.kindsUnit', '종')}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
             {rows.map((r) => (
               <div key={r.id} className="gb" style={{ padding: 10 }}>
