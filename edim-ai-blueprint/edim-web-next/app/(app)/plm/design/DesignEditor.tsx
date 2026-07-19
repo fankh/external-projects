@@ -18,6 +18,11 @@ interface BomRow { bomId: number; partNo: string; partName: string; qty: number;
 
 const MACRO_CODING = '=IF(MC,CC>500, Table12(E,10:25,Cos2)+Var(FES,15,F3), Table12(E,10:25,Cos1))'
 const CAD_TOOLS = ['복사 CO', '이동', '반전', '연장', '삭제 E', '회전 RO', '자르기 TR', 'Block REG', '치수 DI', '특성 CH']
+// s61 단축 명령 → 도구 (명령줄 실행: RO·MI·CO·E·TR·EX·DI·REG·CH·MOVE)
+const CMD_TOOL: Record<string, string> = {
+  RO: '회전 RO', MI: '반전', CO: '복사 CO', E: '삭제 E', TR: '자르기 TR',
+  EX: '연장', DI: '치수 DI', REG: 'Block REG', CH: '특성 CH', MOVE: '이동', M: '이동',
+}
 const TOOL_KEY: Record<string, string> = {
   '이동': 'move', '복사 CO': 'copy', '반전': 'mirror', '연장': 'extend', '삭제 E': 'erase',
   '회전 RO': 'rotate', '자르기 TR': 'trim', '특성 CH': 'properties', '치수 DI': 'dim', 'Block REG': 'block',
@@ -197,7 +202,7 @@ export function DesignEditor(props: {
   const useTool = (tl: string) => {
     setTool(tl)
     const key = TOOL_KEY[tl]
-    if (!key) { say(`${tl} — Block 삽입·치수 기입은 후속 지원`); return }
+    if (!key) { say(`${tl} — 알 수 없는 도구`); return }
     if (!cadMode) setCadMode(true)
     if (editFileId != null) { setActiveTool(key); return }
     void cadPartDrawingSave(numericDims(dims)).then((r) => {
@@ -323,7 +328,13 @@ export function DesignEditor(props: {
               labels={[{ x: 130, y: 64, text: 'C' }, { x: 460, y: 64, text: 'C' }, { x: 70, y: 120, text: 'G' }, { x: 512, y: 120, text: 'G' }, { x: 220, y: 250, text: 'D' }, { x: 390, y: 250, text: 'D' }, { x: 300, y: 264, text: 'E' }, { x: 530, y: 180, text: 'F' }]}
               style={{ flex: 1, minHeight: 320 }} />
           )}
-          <CommandLine prompt={selBlock ? `${tool.split(' ')[0].toUpperCase()} 선택=${selBlock.name}  기준점 지정 >` : '명령 대기 >'} coord={`${coord} | 스냅 ON`} onCommand={(cmd) => say(`명령 실행: ${cmd}`)} />
+          <CommandLine prompt={selBlock ? `${tool.split(' ')[0].toUpperCase()} 선택=${selBlock.name}  기준점 지정 >` : '명령 대기 >'} coord={`${coord} | 스냅 ON`}
+            onCommand={(cmd) => {
+              const op = cmd.trim().toUpperCase().split(/\s+/)[0]
+              const tl = CMD_TOOL[op]
+              if (tl) useTool(tl)
+              else say(`명령 실행: ${cmd} (지원: RO·MI·CO·E·TR·EX·DI·REG·CH·MOVE)`)
+            }} />
           {status ? <div style={{ fontSize: 11, padding: '3px 4px', color: status.err ? 'var(--err)' : 'var(--run)' }}>{status.text}</div> : null}
         </div>
         <div className="split-h" />
