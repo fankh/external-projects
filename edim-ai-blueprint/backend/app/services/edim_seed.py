@@ -3589,6 +3589,11 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "approval.emptyMine": ('No pending requests of mine', '自分が要請した待機件なし', '没有我请求的待办'),
     "parts.editTitle": ('Edit part', '部品修正', '部件修改'),
     "wh.editTitle": ('Edit location', '位置修正', '位置修改'),
+    "wp.codingOffline": ('Evaluation unavailable — backend required', '評価不可 — バックエンド必要', '无法评估 — 需要后端'),
+    "wp.codingResult": ('Mfg cost formula evaluated ✓', '製造費算式評価 ✓', '制造费公式评估 ✓'),
+    "wp.minUnit": ('min', '分', '分'),
+    "wp.rateLabel": ('Rate (KRW/h)', '賃率(円/h)', '工时费率(元/h)'),
+    "wp.codingHint": ('Evaluate mfg cost formula — WT=ΣW.Time · PERSONS=Σpersons (DWG-021, ENG-01)', '製造費算式実評価 — WT=ΣW.Time · PERSONS=Σ人員 (DWG-021, ENG-01)', '制造费公式实评估 — WT=ΣW.Time · PERSONS=Σ人员 (DWG-021, ENG-01)'),
 }
 
 def seed_v32(cur, tid: int) -> None:

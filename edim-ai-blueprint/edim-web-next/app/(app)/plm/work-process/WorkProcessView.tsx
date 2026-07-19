@@ -7,6 +7,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { useI18n } from '@/components/I18nProvider'
 import { saveMakeBuy } from './actions'
+import { evaluateMacro } from '@/app/(app)/plm/design/actions'
 
 export interface MaterialRow {
   item: string; warehouse: string; minStock: number; supplier: string
@@ -38,6 +39,20 @@ export function WorkProcessView({ initial, code }: { initial: MaterialRow[]; cod
     })))
     if (res.error) { setMsg({ text: res.error, err: true }); return }
     setDirty(false); setMsg({ text: `저장 ✓ — ${rows.length}행 공정 파라미터 (${code})` })
+  })
+
+  // U3/DWG-021 — Coding: 제조비 산식 실평가 (mock Run 승격). WT=Σ W.Time(분), PERSONS=Σ 인원
+  const [codingExpr, setCodingExpr] = useState('=WT/60*RATE*PERSONS')
+  const [rate, setRate] = useState('35000')
+  const [codingR, setCodingR] = useState<{ ok: boolean; text: string } | null>(null)
+  const runCoding = () => start(async () => {
+    const wt = rows.reduce((s, r) => s + (r.timeMin ?? 0), 0)
+    const persons = rows.reduce((s, r) => s + (r.person ?? 0), 0) || 1
+    const r = await evaluateMacro(codingExpr, { WT: wt, RATE: Number(rate) || 0, PERSONS: persons })
+    if (!r) { setCodingR({ ok: false, text: t('wp.codingOffline', '평가 불가 — 백엔드 필요') }); return }
+    setCodingR(r.ok
+      ? { ok: true, text: `${t('wp.codingResult', '제조비 산식 평가 ✓')} — ${Math.round(r.value ?? 0).toLocaleString()} (WT ${wt}${t('wp.minUnit', '분')} · ${persons}${t('access.personUnit', '명')} · DWG-021)` }
+      : { ok: false, text: r.error ?? 'error' })
   })
 
   // F12 = 저장 (셸 edim-fkey 수신)
@@ -84,6 +99,20 @@ export function WorkProcessView({ initial, code }: { initial: MaterialRow[]; cod
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('wp.paramHint', '공정 파라미터(작업장·인원·Skill·W.Time·창고·재고) 인라인 편집 — F12 저장')}</span>
         <button className="b run" data-wp-save disabled={!dirty || pending} onClick={save} style={{ height: 22, fontSize: 11, marginLeft: 'auto' }}>{pending ? t('wp.saving', '저장 중…') : `${t('wp.save', '저장')} F12`}</button>
         {msg ? <span style={{ fontSize: 11, color: msg.err ? 'var(--err)' : 'var(--run)' }}>{msg.text}</span> : null}
+      </div>
+      {/* U3/DWG-021 — Coding: 제조비 산식 (시간×임율×인원) 실평가 (ENG-01) */}
+      <div data-wp-coding style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '0 6px 4px', fontSize: 11, flexWrap: 'wrap' }}>
+        <b style={{ color: 'var(--title-navy)' }}>Coding</b>
+        <input className="in" value={codingExpr} aria-label="Coding 산식"
+          style={{ width: 220, fontFamily: 'Consolas, monospace', height: 20, fontSize: 10.5 }}
+          onChange={(e) => setCodingExpr(e.target.value)} />
+        <label style={{ color: 'var(--txt-dim)' }}>{t('wp.rateLabel', '임율(원/h)')}</label>
+        <input className="in" value={rate} aria-label="임율" style={{ width: 70, height: 20, fontSize: 10.5 }}
+          onChange={(e) => setRate(e.target.value)} />
+        <button className="b run" data-wp-coding-run disabled={pending} onClick={runCoding}
+          title={t('wp.codingHint', '제조비 산식 실평가 — WT=Σ W.Time · PERSONS=Σ 인원 (DWG-021, ENG-01)')}
+          style={{ height: 20, fontSize: 10.5 }}>Run</button>
+        {codingR ? <span style={{ color: codingR.ok ? 'var(--run)' : 'var(--err)' }}>{codingR.text}</span> : null}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-work-process" colFilter columns={cols} rows={rows} rowKey={(r) => r.item} emptyText={t('wp.empty', '자재행이 없습니다')} />
