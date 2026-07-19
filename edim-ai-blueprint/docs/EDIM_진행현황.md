@@ -139,6 +139,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 서버 작업 | Bash 도구 + `ssh edim-server 'bash -s' < script.sh` (PowerShell 5.1 따옴표 손상 회피) |
 | 배포 (docs) | 서버 pull 후 `sudo rsync -a --delete edim-ai-blueprint/docs/ /var/www/edim/docs/files/ && sudo cp edim-ai-blueprint/docs/portal.html /var/www/edim/docs/index.html` |
 | 커밋 | `v0.1: <type>(<scope>): <내용>` — AI 표기 금지, author fankh |
+| 라이브 검증 규율 (2026-07-20 확립) | ① 배포 완료 판정: 서버 SHA 일치 → **빌드 여유 6분 + /health db:true** 후 스위트 실행 (SHA 는 빌드 전 갱신됨) ② **배포 중 스위트 실행 금지** — 재기동 503 으로 오탐 (b18/b20 사례) ③ Next 는 토큰이 httpOnly 쿠키 — 테스트 API 검증은 sessionStorage 아닌 urllib 자체 로그인 ④ dblclick 대상 행이 클릭 네비게이션(?sel 등)을 겸하면 RSC 전환이 이후 폼 액션을 무효화 — 클릭/더블클릭 판별(지연 네비) 필수 ⑤ 스위트는 자기 잔재(승인 요청·업로드·테스트 계정)를 preclean+말미 정리로 자가 치유 ⑥ Btn data-* 는 v34.20 부터 전달 — 이전 빌드 대상 테스트는 텍스트 셀렉터 |
 
 ---
 
@@ -175,6 +176,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 2026-07-16 | **N5b 스튜디오·PDF 복구(v18.5~18.7)** — Macro Studio(식 편집·Test Run 실평가 라이브 E2E·저장·승인)·Templet 편집기(+잠복 SSR 500 수정)·Run 정리/MinIO GC·Fan 성능표/밀도 PDF·사양 Excel·견적 미리보기. 스모크 55/55 — **N5 전체 완료** |
 | 2026-07-16 | **GDrive 재동기(v18.6)** — 사용자 Drive 파일 삭제 후 `tools/gdrive-sync.mjs` 신설(멱등: 동일명 files.update, id·공유 링크 불변)·30파일 재업로드(xlsx→Sheets 12·pptx→Slides 1·PDF 17). 이후 변경분은 사용자 트리거 시 재실행 |
 | 2026-07-16 | **N6 셸 전역 복구(v18.9)** — ⌘K 통합검색(화면+코드·문서·파일·부품·프로젝트 딥링크)·전역 단축키(Alt+W/←→/1~9·Ctrl+K)·useFKeys 수신 체계(Macro F12/F9·Table F12/F3)·비밀번호 변경(B8). 라이브 E2E: Ctrl+K 포커스·Alt+← 탭·F9 평가. 스모크 56/56 — **패리티 감사 P1 35건 전량 해소 (N1~N6 완료)** |
+| 2026-07-20 | **🏁 live_all 57/57 전량 그린(v34.31, 캡스톤 #2)** — 이식 프로그램 종료: 시작점 21 → 42(1차) → **57/57**. 마지막 s4 는 세션 결재 활동의 알림 51건 포화로 인한 목록-윈도우 가정 붕괴 → digest 검증 보정+read-all 정리. RegisterModal 게이팅 11화면 스윕(v34.30)·라이브 검증 규율 6항 문서화 포함. 잔여 백로그 = AI 크레딧·데이터 2건·고객 협의 5건·next 16.3 |
 | 2026-07-20 | **b계열·f계열 이식 완주(v34.21~29)** — 잔여 15종 스위트 전량 처리: f1·f2·s3·b1·b2·b7·b19·cad 그린(52/57 확정), b16(도면 Variants·첨부 섹션 신설)·b17(마커)·b18(Run 흐름)·b20(4-Way 칩·역참조 이식)·f3(RBAC 게이팅 확산 — 등록 disabled+사유·승인함 읽기 전용·내 요청 뷰) 검증 중. **미이식 UI 복구 7건**(정보 수정·다중 역할·4-Way/역참조·Variants/첨부·게이팅) + 운영 정리(승인함 PENDING 22·PO 문서 6·sample dxf 5) + f5/b21 승인 잔재 자가 정리 내장 |
 | 2026-07-19 | **live_all 캡스톤 완주(v34.20)** — 57스위트 전체 완주 **42그린**(트리아지 시작점 21 → 42). f4 12종 그린(마지막: Office 버튼 Btn data-드랍 함정·detail 후 모듈 미복귀 2건 보정), f7 7/7. 잔여 15건은 1차 완주 테일에 가려 있던 미분류 레거시(b1~b21·f1~f3·s3·cad.py — 셀렉터 분류: 대부분 레거시 전용 마커) → 차기 이식 프로그램. 추가: Btn data-* 통과, 부품 ⬆ 대량등록 UI, CAD 뷰어 레이어 특성편집(DWG-025)+⬇ DXF |
 | 2026-07-19 | **F계열 스위트 현대화 완주(v34.14~18)** — EN 크롬 잔존 0(check_i18n_en 33화면 PASS), 보안 27/27(사용자 메뉴·비밀번호 다이얼로그 표준화)·요구사항 21/21·f8/f9 그린. ⌘K F6 그룹 확장(공급처·창고·Macro·사용자), 감사 조회 필드별 diff 하이라이트(F7 이식), f4 무반응 일소 Next 재작성. **실버그 발견·수정**: 거래처 더블클릭 시 ?sel RSC 네비가 이후 폼 액션을 무효화 → 클릭/더블클릭 판별(260ms 지연 네비) |

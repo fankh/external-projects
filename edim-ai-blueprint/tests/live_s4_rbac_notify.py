@@ -71,12 +71,13 @@ if target:
     assert any('승인 —' in n['title'] for n in n1)
     print('PASS decide -> requester notification (APPROVAL_RESULT)')
 
-# 읽음 처리
+# 읽음 처리 — 목록은 상위 N 윈도우라 미읽음 포화 시 개수 불변 가능 → digest(전체 카운트)로 검증
 unread_ids = [n['id'] for n in req('GET', '/notifications', headers=A) if not n['read']]
 if unread_ids:
+    d1 = req('GET', '/notifications/digest', headers=A)['unread']
     req('POST', f'/notifications/{unread_ids[0]}/read', headers=A)
-    n2 = req('GET', '/notifications', headers=A)
-    assert sum(1 for n in n2 if not n['read']) == len(unread_ids) - 1
-    print('PASS mark-read decrements unread')
+    d2 = req('GET', '/notifications/digest', headers=A)['unread']
+    assert d2 == d1 - 1, (d1, d2)
+    print('PASS mark-read decrements unread (digest)')
 
 print('S4 API LIVE: all pass')
