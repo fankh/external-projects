@@ -175,6 +175,20 @@ async function main() {
   await assertRenders('/erp/projects', ['data-nav-cat="erp-purchasing"', 'data-nav-cat="erp-company"', 'data-lnav-edit'], token)
   await assertRenders('/cpq/selection', ['data-nav-cat="cpq-doc"'], token)
 
+  // 4m) U16~U27 신규 기능 (v25~v28) — 위젯 Set-up·Hierarchy 검색/점검·Relationship 소품·헤더 편집·
+  //     채번·함수 마법사·차트·SWP Child·분할통합·파라메트릭 SYNC·Block 패널·설계 파라미터
+  await assertRenders('/toolbox/ui-designer', ['Set-up (동작·바인딩)'], token)
+  await assertRenders('/code/groups', ['data-h-search', 'data-h-validate'], token)
+  await assertRenders('/code/relationship', ['data-child-links', 'EBOM Run'], token)
+  await assertRenders('/erp/dashboard', ['data-hnav-edit'], token)
+  await assertRenders('/cpq/documents', ['채번 규칙', 'data-doc-rule'], token)
+  await assertRenders('/toolbox/macros', ['data-fn-wizard'], token)
+  await assertRenders('/code/datatable', ['data-chart-wizard'], token)
+  await assertRenders('/code/subcode', ['data-panel-mother', 'Child Component'], token)
+  await assertRenders('/cpq/selection', ['분할', '통합'], token)
+  await assertRenders('/plm/design', ['SYNC', 'data-blk-name'], token)
+  await assertRenders('/plm/work-process', ['data-design-priority'], token)
+
   // 5) 권한/알림 시드 (레이아웃) — 사용자 표기 + 알림 벨
   await assertRenders('/erp/eco-ledger', ['🔔'], token)
 
