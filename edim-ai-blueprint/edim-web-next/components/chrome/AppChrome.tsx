@@ -3,14 +3,14 @@
  *  MDI 다중탭 → URL 라우팅 대체: 방문 화면을 탭 스트립으로 유지(localStorage), 클릭=이동.
  *  레거시 SPA Shell.tsx 의 크롬 구조 포팅. */
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/components/I18nProvider'
 import { MenuBar, MdiTabs, StatusBar, TitleBar, type MdiTab, type MenuItem, type NavMenu } from './chrome'
 import { DevReqDialog } from './DevReqDialog'
 import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
-import { HREF_INFO, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
+import { HREF_INFO, MDI_PARAMS, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
 import { changePassword, firstProject, getFavorites, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
 
 /** U11 색상 테마 프리셋 (슬라이드 57) — globals.css body[data-theme] 토큰. */
@@ -68,30 +68,44 @@ export function AppChrome(props: {
   }, [module, props.allowedModules, router])
 
   // ── MDI 탭 (최근 화면) — 방문 시 upsert, 새로고침 간 유지 ──
+  // P3 — 파라미터 다중 인스턴스: MDI_PARAMS 화면은 인스턴스 파라미터별 개별 탭 (탭 id 에 쿼리 포함)
+  const searchParams = useSearchParams()
+  const instanceId = useMemo(() => {
+    const keys = MDI_PARAMS[pathname]
+    if (!keys) return pathname
+    const qs = keys.filter((k) => searchParams.get(k))
+      .map((k) => `${k}=${encodeURIComponent(searchParams.get(k)!)}`).join('&')
+    return qs ? `${pathname}?${qs}` : pathname
+  }, [pathname, searchParams])
   const [tabs, setTabs] = useState<MdiTab[]>([])
   useEffect(() => { setTabs(loadTabs()) }, [])
   useEffect(() => {
     const info = HREF_INFO[pathname]
     if (!info) return
     setTabs((cur) => {
-      if (cur.some((x) => x.id === pathname)) return cur
-      const next = [...cur, { id: pathname, code: info.code, title: info.title }].slice(-MAX_TABS)
+      if (cur.some((x) => x.id === instanceId)) return cur
+      const next = [...cur, { id: instanceId, code: info.code, title: info.title }].slice(-MAX_TABS)
       try { localStorage.setItem(TABS_KEY, JSON.stringify(next)) } catch { /* quota */ }
       return next
     })
-  }, [pathname])
+  }, [pathname, instanceId])
   const closeTab = useCallback((id: string) => {
     setTabs((cur) => {
       const next = cur.filter((x) => x.id !== id)
       try { localStorage.setItem(TABS_KEY, JSON.stringify(next)) } catch { /* quota */ }
-      if (id === pathname) router.push(next.length ? next[next.length - 1].id : '/')
+      if (id === instanceId) router.push(next.length ? next[next.length - 1].id : '/')
       return next
     })
-  }, [pathname, router])
+  }, [instanceId, router])
   const trTabs = useMemo(
     () => tabs.map((tab) => {
-      const info = HREF_INFO[tab.id]
-      return info ? { ...tab, title: t(`menu.${info.id}`, tab.title).replace(/\s*\([^)]*\)\s*$/, '') } : tab
+      const [base, q] = tab.id.split('?')
+      const info = HREF_INFO[base]
+      if (!info) return tab
+      // 인스턴스 파라미터 값 = 탭 라벨 접미(예: 'Work Process · DWG-021')
+      const inst = q ? decodeURIComponent(new URLSearchParams(q).values().next().value ?? '') : ''
+      const title = t(`menu.${info.id}`, tab.title).replace(/\s*\([^)]*\)\s*$/, '')
+      return { ...tab, title: inst ? `${title} · ${inst}` : title }
     }), [tabs, t])
 
   // ── 좌측 사용자 메뉴 목록 (/prefs/leftnav) — 모듈별 leaf id 순서, 부재 = 기본 전체 트리 ──
@@ -266,9 +280,9 @@ export function AppChrome(props: {
   // ── 메뉴바 드롭다운 ──
   const stepTab = useCallback((dir: 1 | -1) => {
     if (tabs.length === 0) return
-    const idx = Math.max(0, tabs.findIndex((x) => x.id === pathname))
+    const idx = Math.max(0, tabs.findIndex((x) => x.id === instanceId))
     router.push(tabs[(idx + dir + tabs.length) % tabs.length].id)
-  }, [tabs, pathname, router])
+  }, [tabs, instanceId, router])
 
   // ── 전역 단축키 (N6 복구) — Alt+W/←→/1~9 · Ctrl(⌘)+K · F2/F3/F8/F9/F12 → edim-fkey ──
   useEffect(() => {
@@ -277,7 +291,7 @@ export function AppChrome(props: {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault(); window.dispatchEvent(new Event('edim-focus-search')); return
       }
-      if (e.altKey && e.key.toLowerCase() === 'w') { e.preventDefault(); closeTab(pathname); return }
+      if (e.altKey && e.key.toLowerCase() === 'w') { e.preventDefault(); closeTab(instanceId); return }
       if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); stepTab(1); return }
       if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); stepTab(-1); return }
       if (e.altKey && /^[1-9]$/.test(e.key)) {
@@ -291,7 +305,7 @@ export function AppChrome(props: {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [tabs, pathname, router, closeTab, stepTab])
+  }, [tabs, pathname, instanceId, router, closeTab, stepTab])
 
   // ── 화면 즐겨찾기 (D8, P2) — /prefs/favorites 서버 영속 ──
   const [favs, setFavs] = useState<FavItem[]>([])
@@ -416,12 +430,12 @@ export function AppChrome(props: {
       { label: t('shell.nextTab', '다음 탭'), hint: 'Alt+→', onClick: () => stepTab(1), disabled: tabs.length === 0 },
       { label: t('shell.prevTab', '이전 탭'), hint: 'Alt+←', onClick: () => stepTab(-1), disabled: tabs.length === 0 },
       { label: t('shell.closeTab', '탭 닫기'), disabled: !HREF_INFO[pathname],
-        onClick: () => closeTab(pathname) },
+        onClick: () => closeTab(instanceId) },
       { label: t('shell.closeAllTabs', '모든 탭 닫기'), disabled: tabs.length === 0,
         onClick: () => { setTabs([]); try { localStorage.setItem(TABS_KEY, '[]') } catch { /* quota */ } } },
       { sep: true, label: '' },
       ...trTabs.slice(0, 12).map((tab) => ({
-        label: `${tab.id === pathname ? '● ' : ''}${tab.code} ${tab.title}`,
+        label: `${tab.id === instanceId ? '● ' : ''}${tab.code} ${tab.title}`,
         onClick: () => router.push(tab.id),
       })),
     ],
@@ -497,7 +511,7 @@ export function AppChrome(props: {
           </div>
         </div>
       ) : null}
-      <MdiTabs tabs={trTabs} activeId={pathname}
+      <MdiTabs tabs={trTabs} activeId={instanceId}
         onActivate={(id) => router.push(id)} onClose={closeTab} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         {lnavCollapsed ? (

@@ -201,6 +201,19 @@ export const HREF_INFO: Record<string, ScreenInfo> = (() => {
   return out
 })()
 
+/** MDI 파라미터 다중 인스턴스 (P3) — 쿼리가 별도 작업 문서를 뜻하는 화면만 파라미터별 개별 탭.
+ *  (sel=·no= 같은 그리드 선택 상태 파라미터는 제외 — 탭 증식 방지) */
+export const MDI_PARAMS: Record<string, string[]> = {
+  '/plm/work-process': ['code'],
+  '/detail/part': ['drawing', 'block'],
+  '/detail/code': ['code', 'name'],
+  '/detail/event': ['eventId'],
+  '/detail/output': ['file', 'folder', 'fileType'],
+  '/detail/cad-viewer': ['fileId'],
+  '/common/folder': ['project'],
+  '/code/datatable': ['name'],
+}
+
 /** href → 소유 메뉴 모듈 (경로 접두사와 다를 수 있음 — /erp/tasks 는 공통, /erp/eco-ledger 는 PLM 메뉴 소속) */
 const HREF_MODULE: Record<string, ModuleKey> = (() => {
   const out: Record<string, ModuleKey> = {}
