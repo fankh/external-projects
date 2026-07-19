@@ -204,7 +204,12 @@ export function DesignEditor(props: {
     const key = TOOL_KEY[tl]
     if (!key) { say(`${tl} — 알 수 없는 도구`); return }
     if (!cadMode) setCadMode(true)
-    if (editFileId != null) { setActiveTool(key); return }
+    if (editFileId != null) {
+      setActiveTool(key)
+      const hint = ['dim', 'block', 'line', 'circle', 'rect'].includes(key) ? '드래그하여 배치' : '블록 선택 후 적용'
+      say(`CAD 편집: ${tl} — ${hint}`)
+      return
+    }
     void cadPartDrawingSave(numericDims(dims)).then((r) => {
       if (!r) { say('편집 대상화 실패 — 백엔드 필요', true); return }
       setCadDoc(r.document); setEditFileId(r.fileId); setActiveTool(key)
