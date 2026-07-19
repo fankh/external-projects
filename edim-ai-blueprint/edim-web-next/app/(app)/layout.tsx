@@ -25,11 +25,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // P5 — 권한 게이팅 시드 (me + permissions SSR) + 알림 요약 + 테넌트 로고 (U11) + D10 표시 모듈
   const { apiServer } = await import('@/lib/api')
-  const [me, perms, digest, branding, menuCfg, leftNav, tenantNav, headNav, tenantHeadNav] = await Promise.all([
+  const [me, perms, digest, branding, menuCfg, leftNav, tenantNav, headNav, tenantHeadNav, cfg] = await Promise.all([
     getMe(), getPermissions(), notificationDigest(),
     apiServer<{ logoData: string | null }>('/tenant/branding').catch(() => ({ logoData: null })),
     apiServer<{ modules: string[]; restricted: boolean }>('/menu/config').catch(() => ({ modules: [], restricted: false })),
     getLeftNav(), getTenantNav(), getHeadNav(), getTenantHeadNav(),
+    apiServer<{ devMode?: boolean }>('/config').catch(() => ({ devMode: false })),
   ])
   const rank = LEVEL_RANK[me?.userLevel ?? 'GENERAL'] ?? 0
   const canReadAdmin = rank >= (LEVEL_RANK['SETUP'] ?? 99)
@@ -39,6 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <I18nProvider locale={locale} bundle={bundle}>
     <PermissionProvider login={me?.login ?? ''} level={me?.userLevel ?? 'GENERAL'} perms={perms}>
       <AppChrome user={userLabel} canReadAdmin={canReadAdmin} logo={branding.logoData ?? undefined}
+        devMode={cfg.devMode === true}
         allowedModules={menuCfg.restricted ? menuCfg.modules : undefined}
         initialLeftNav={leftNav} initialTenantNav={tenantNav}
         initialHeadNav={headNav} initialTenantHeadNav={tenantHeadNav}

@@ -425,6 +425,7 @@ def run_seed() -> None:
             seed_v29(cur, row[0])
             seed_v31(cur, row[0])
             seed_v30(cur, row[0])
+            seed_v32(cur, row[0])
             _seed_invariants(cur, row[0])
             return
 
@@ -552,6 +553,7 @@ def run_seed() -> None:
         seed_v29(cur, tid)
         seed_v31(cur, tid)
         seed_v30(cur, tid)
+        seed_v32(cur, tid)
         _seed_invariants(cur, tid)
 
 
@@ -3514,6 +3516,56 @@ UI_TRANSLATIONS_V30: dict[str, tuple[str, str, str]] = {
 def seed_v30(cur, tid: int) -> None:
     """N7 — Next 포팅기 t() 신설 709키 일괄 시드."""
     for key, (en, ja, zh) in UI_TRANSLATIONS_V30.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
+    "common.cancel": ('Cancel', 'キャンセル', '取消'),
+    "company.statusCol": ('Status', '状態', '状态'),
+    "company.editTitle": ('Edit company', '取引先修正', '往来单位修改'),
+    "company.empty": ('No companies', '取引先なし', '无往来单位'),
+    "enum.active": ('Active', '有効', '有效'),
+    "devreq.btnHint": ('Submit requirement (dev server only)', '要求事項受付 (開発サーバー専用)', '需求受理 (仅开发服务器)'),
+    "devreq.title": ('Requirements — dev server only', '要求事項受付 — 開発サーバー専用', '需求受理 — 仅开发服务器'),
+    "devreq.tabNew": ('New', '登録', '登记'),
+    "devreq.tabList": ('List', '一覧', '列表'),
+    "devreq.fldTitle": ('Title', 'タイトル', '标题'),
+    "devreq.titlePh": ('e.g. add currency select to price dialog', '例: 単価登録ダイアログに通貨選択追加', '例: 在单价登记对话框添加货币选择'),
+    "devreq.fldCategory": ('Category', '分類', '分类'),
+    "devreq.fldPriority": ('Priority', '優先度', '优先级'),
+    "devreq.fldContent": ('Details', '詳細内容', '详细内容'),
+    "devreq.contentPh": ('What to change and how — include repro steps·expected behavior', '何をどう変えるか具体的に — 再現手順・期待動作を含む', '具体说明改什么怎么改 — 含复现步骤·期望行为'),
+    "devreq.fldShot": ('Screenshot', 'スクリーンショット', '截图'),
+    "devreq.pickImage": ('Pick image', '画像選択', '选择图片'),
+    "devreq.pasteHint": ('or capture then Ctrl+V paste (png/jpg/gif/webp · 10MB)', 'またはキャプチャ後 Ctrl+V 貼り付け (png/jpg/gif/webp · 10MB)', '或截图后 Ctrl+V 粘贴 (png/jpg/gif/webp · 10MB)'),
+    "devreq.remove": ('Remove', '除去', '移除'),
+    "devreq.ctxNote": ('Current screen', '現在画面', '当前画面'),
+    "devreq.ctxNote2": (' is saved as context. Submitted items are handled in batch rounds.', ' がコンテキストとして保存されます。受付分は処理ラウンドで一括反映されます。', ' 将作为上下文一并保存。受理的需求将在处理轮次中统一落实。'),
+    "devreq.titleRequired": ('Enter a title', 'タイトルを入力してください', '请输入标题'),
+    "devreq.saving": ('Registering…', '登録中…', '登记中…'),
+    "devreq.loading": ('Loading…', '読み込み中…', '加载中…'),
+    "devreq.empty": ('No requirements submitted.', '受付済み要求事項なし。', '暂无受理的需求。'),
+    "devreq.colTitle": ('Title', 'タイトル', '标题'),
+    "devreq.colCat": ('Cat.', '分類', '分类'),
+    "devreq.colPri": ('Pri', '優先', '优先'),
+    "devreq.colStatus": ('Status', '状態', '状态'),
+    "devreq.colReq": ('Requester', '要請者', '请求人'),
+    "devreq.colManage": ('Manage', '処理', '处理'),
+    "devreq.noContent": ('(no details)', '(詳細なし)', '(无详细内容)'),
+    "devreq.resolution": ('Resolution', '処理', '处理'),
+}
+
+def seed_v32(cur, tid: int) -> None:
+    """F5/devreq 이식분 — 거래처 수정·요구사항 접수 UI 키."""
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V32.items():
         for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

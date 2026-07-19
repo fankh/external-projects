@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
   if (kind === 'docpdf' && id) { path = `/documents/${encodeURIComponent(id)}/render.pdf`; filename = `${id}.pdf` }
   else if (kind === 'pcr' && id) { path = `/reports/pcr/${encodeURIComponent(id)}.pdf`; filename = `PCR-${id}.pdf` }
   else if (kind === 'file' && id) { path = `/files/download/${encodeURIComponent(id)}`; filename = sp.get('name') ?? `file-${id}` }
+  else if (kind === 'devreqimg' && id) { path = `/dev/requirements/images/${encodeURIComponent(id)}`; filename = `devreq-${id}.png` }
   else if (kind === 'cadplot' && id) {
     const scale = sp.get('scale') ?? '100'
     const paper = sp.get('paper') ?? 'A4'
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
   })
   if (!res.ok) return NextResponse.json({ detail: `HTTP ${res.status}` }, { status: res.status })
   const buf = await res.arrayBuffer()
-  const inline = kind === 'docpdf' || kind === 'pcr' || kind === 'cadplot'
+  const inline = kind === 'docpdf' || kind === 'pcr' || kind === 'cadplot' || kind === 'devreqimg'
   return new NextResponse(buf, {
     headers: {
       'Content-Type': res.headers.get('content-type') ?? 'application/octet-stream',

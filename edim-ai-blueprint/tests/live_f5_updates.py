@@ -228,14 +228,14 @@ with sync_playwright() as pw:
     call(tok, "PUT", f"/companies/{tid_row['companyId']}", {"grade": target["grade"] or ""})
     ok("UI 수정 원복", True)
 
-    # 단가 화면 — 적용 종료 버튼 노출 (선택 전 disabled)
+    # 단가 화면 — 적용 마감 버튼 노출 (선택 전 disabled) — Next 라벨 현행화
     page.locator(".tn", has_text="단가 관리 (M-12-5)").first.click()
     page.wait_for_timeout(1200)
-    ok("적용 종료 버튼 (선택 전 disabled)",
-       page.get_by_role("button", name="적용 종료").is_disabled())
+    ok("적용 마감 버튼 (선택 전 disabled)",
+       page.get_by_role("button", name="적용 마감").is_disabled())
     page.locator("table.g:visible tbody tr").first.click()
     page.wait_for_timeout(300)
-    ok("선택 후 enabled", page.get_by_role("button", name="적용 종료").is_enabled())
+    ok("선택 후 enabled", page.get_by_role("button", name="적용 마감").is_enabled())
     b.close()
 
 print(f"\nOK — live_f5_updates {n}/{n}")

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type 
 import { usePathname, useRouter } from 'next/navigation'
 import { useI18n } from '@/components/I18nProvider'
 import { MenuBar, MdiTabs, StatusBar, TitleBar, type MdiTab, type MenuItem, type NavMenu } from './chrome'
+import { DevReqDialog } from './DevReqDialog'
 import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
@@ -49,12 +50,16 @@ export function AppChrome(props: {
   right?: ReactNode          // 로그아웃 폼 (서버 액션)
   logo?: string              // U11 — 테넌트 로고
   allowedModules?: string[]  // D10 — 표시 모듈 (undefined = 전체)
+  devMode?: boolean          // 개발서버 전용 — 요구사항 접수 📝
   children: ReactNode
 }) {
   const { t } = useI18n()
   const router = useRouter()
   const pathname = usePathname()
   const module = moduleOfPath(pathname)
+  // 개발서버 전용 — 요구사항 접수 (레거시 Shell 이식)
+  const [devReqOpen, setDevReqOpen] = useState(false)
+  const [shellMsg, setShellMsg] = useState<string | null>(null)
   // D10 — 표시 모듈 제한: 차단 모듈 직접 진입 시 첫 허용 모듈로
   useEffect(() => {
     const allowed = props.allowedModules
@@ -432,7 +437,13 @@ export function AppChrome(props: {
 
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <TitleBar user={userLabel} bell={props.bell} right={props.right} logo={props.logo} allowed={props.allowedModules}
+      <TitleBar user={userLabel} bell={<>
+        {props.devMode ? (
+          <span data-devreq-btn title={t('devreq.btnHint', '요구사항 접수 (개발서버 전용)')}
+            style={{ cursor: 'pointer', fontSize: 13, padding: '0 4px' }}
+            onClick={() => setDevReqOpen(true)}>📝</span>
+        ) : null}
+        {props.bell}</>} right={props.right} logo={props.logo} allowed={props.allowedModules}
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
       <MenuBar menus={menus} extra={navMenus} right={
         <>
@@ -628,11 +639,17 @@ export function AppChrome(props: {
           </div>
         </div>
       ) : null}
+      {devReqOpen ? (
+        <DevReqDialog screenId={HREF_INFO[pathname]?.id ?? ''} canManage={props.canReadAdmin}
+          onClose={() => setDevReqOpen(false)}
+          onSaved={(m) => { setDevReqOpen(false); setShellMsg(m) }} />
+      ) : null}
       <StatusBar cells={[
         <span key="pending" className={counts.inbox > 0 ? 'st warn' : undefined}
           style={{ cursor: 'pointer' }} onClick={() => router.push('/common/approval')}>
           {t('shell.pending', '승인 대기')} {counts.inbox}
         </span>,
+        ...(shellMsg ? [<span key="msg" style={{ color: 'var(--run)' }}>{shellMsg}</span>] : []),
         <span key="ssr">SSR · {pathname}</span>,
       ]} />
     </div>

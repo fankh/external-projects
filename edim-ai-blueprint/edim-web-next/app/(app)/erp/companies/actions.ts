@@ -34,6 +34,17 @@ export async function toggleCompanyActive(companyId: number, active: boolean): P
   return { ok: active ? '재활성' : '비활성' }
 }
 
+/** 거래처 수정 (F5 이식) — 평가등급·결제조건·국가 (PUT /companies/{id}). */
+export async function updateCompany(companyId: number, body: { grade?: string; terms?: string; nation?: string }): Promise<FormState> {
+  try {
+    await apiServer(`/companies/${companyId}`, { method: 'PUT', body: JSON.stringify(body) })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '수정 실패 (중복명 409 가능)' }
+  }
+  revalidatePath(PATH)
+  return { ok: '업체 수정 ✓' }
+}
+
 /** 거래처 대량 등록 (Excel) — 헤더: 업체명·유형·국가·결제조건. */
 export async function importCompaniesExcel(_prev: FormState, formData: FormData): Promise<FormState> {
   const file = formData.get('uploadedFile')
