@@ -7330,23 +7330,84 @@ def hierarchy_node_delete(node_id: int, request: Request) -> dict[str, Any]:
 
 class AllocateCode(BaseModel):
     docType: str = "DOC"
+    dept: str = ""
+
+
+_DOC_NO_DEFAULT_TEMPLATE = "{TYPE}-{YYYY}-{SEQ:4}"
+
+
+def _doc_numbering_rule(cur) -> dict[str, str]:
+    """U23 — 테넌트 채번 규칙 (sys_tenant.settings.docNumbering, 부재 시 기본)."""
+    tid = _tenant_id(cur)
+    cur.execute("SELECT COALESCE(settings,'{}'::jsonb) FROM sys_tenant WHERE tenant_id=%s", (tid,))
+    st = cur.fetchone()[0] or {}
+    rule = st.get("docNumbering") if isinstance(st, dict) else None
+    rule = rule if isinstance(rule, dict) else {}
+    return {"template": str(rule.get("template") or _DOC_NO_DEFAULT_TEMPLATE),
+            "dept": str(rule.get("dept") or "HQ")}
+
+
+def _render_doc_no(template: str, *, dept: str, doc_type: str, seq: int) -> str:
+    m = re.search(r"\{SEQ:?(\d*)\}", template)
+    width = int(m.group(1) or 4) if m and m.group(1) else 4
+    yyyy = date.today().strftime("%Y")
+    out = (template.replace("{DEPT}", dept).replace("{TYPE}", doc_type)
+           .replace("{YYYY}", yyyy).replace("{YY}", yyyy[2:]))
+    return re.sub(r"\{SEQ:?\d*\}", str(seq).zfill(width), out)
 
 
 @router.post("/documents/allocate-code", dependencies=[SETUP])
 def document_allocate_code(body: AllocateCode) -> dict[str, Any]:
-    """문서 채번 — 유형별 순번 (DOC-001 채번 규칙: {TYPE}-{seq:04d}, 중복 회피)."""
+    """U23 — 규칙 기반 문서 채번 (슬라이드 53 Document Code): settings.docNumbering.template,
+    토큰 {DEPT}·{TYPE}·{YYYY}·{YY}·{SEQ:n}. 유형별 순번, 중복 회피."""
     dt = body.docType.strip().upper()[:10] or "DOC"
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        rule = _doc_numbering_rule(cur)
+        dept = (body.dept.strip() or rule["dept"]).upper()[:10]
         cur.execute("SELECT count(*) FROM doc_control WHERE tenant_id=%s AND doc_type=%s", (tid, dt))
         seq = cur.fetchone()[0] + 1
         while True:
-            candidate = f"{dt}-{seq:04d}"
+            candidate = _render_doc_no(rule["template"], dept=dept, doc_type=dt, seq=seq)
             cur.execute("SELECT 1 FROM doc_control WHERE tenant_id=%s AND doc_no=%s", (tid, candidate))
             if not cur.fetchone():
                 break
             seq += 1
-    return {"docNo": candidate, "docType": dt}
+    return {"docNo": candidate, "docType": dt, "template": rule["template"], "dept": dept}
+
+
+@router.get("/documents/numbering-rule")
+def document_numbering_rule() -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        rule = _doc_numbering_rule(cur)
+    return {**rule, "sample": _render_doc_no(rule["template"], dept=rule["dept"], doc_type="DOC", seq=1)}
+
+
+class NumberingRulePut(BaseModel):
+    template: str
+    dept: str = "HQ"
+
+
+@router.put("/documents/numbering-rule", dependencies=[SETUP])
+def document_numbering_rule_put(request: Request, body: NumberingRulePut) -> dict[str, Any]:
+    tpl = body.template.strip()
+    if not re.search(r"\{SEQ:?\d*\}", tpl):
+        raise HTTPException(422, detail="템플릿에 {SEQ} 토큰이 필요합니다 (예: {DEPT}-{TYPE}-{YYYY}-{SEQ:4})")
+    bad = re.findall(r"\{(?!DEPT\}|TYPE\}|YYYY\}|YY\}|SEQ)[^}]*\}", tpl)
+    if bad:
+        raise HTTPException(422, detail=f"미지원 토큰: {', '.join(bad[:3])} (지원: DEPT/TYPE/YYYY/YY/SEQ:n)")
+    dept = body.dept.strip().upper()[:10] or "HQ"
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_tenant
+               SET settings = COALESCE(settings,'{}'::jsonb)
+                   || jsonb_build_object('docNumbering', jsonb_build_object('template', %s::text, 'dept', %s::text))
+               WHERE tenant_id=%s""", (tpl[:80], dept, tid))
+        _audit(cur, tid, "sys_tenant", tid, "DOC_NUMBERING_SET", request.state.user_id,
+               {"template": tpl[:80], "dept": dept})
+    return {"template": tpl[:80], "dept": dept,
+            "sample": _render_doc_no(tpl, dept=dept, doc_type="DOC", seq=1)}
 
 
 DOC_TRANSITIONS = {"SET_UP": ("CHECK",), "CHECK": ("APPROVE", "SET_UP"),

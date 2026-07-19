@@ -38,3 +38,29 @@ export async function updateDocMeta(docNo: string, p: { title?: string; docType?
   revalidatePath(PATH)
   return { ok: `${docNo} 메타 수정` }
 }
+
+/** U23 — 규칙 기반 자동 채번. */
+export async function allocDocNo(docType: string): Promise<{ docNo: string; template: string } | null> {
+  try {
+    return await apiServer<{ docNo: string; template: string }>('/documents/allocate-code', {
+      method: 'POST', body: JSON.stringify({ docType: docType || 'DOC' }),
+    })
+  } catch { return null }
+}
+
+export interface NumberingRule { template: string; dept: string; sample: string }
+
+export async function getNumberingRule(): Promise<NumberingRule | null> {
+  try { return await apiServer<NumberingRule>('/documents/numbering-rule') } catch { return null }
+}
+
+export async function saveNumberingRule(template: string, dept: string): Promise<NumberingRule | { error: string }> {
+  try {
+    return await apiServer<NumberingRule>('/documents/numbering-rule', {
+      method: 'PUT', body: JSON.stringify({ template, dept }),
+    })
+  } catch (e) {
+    if (e instanceof ApiError) return { error: e.message }
+    throw e
+  }
+}

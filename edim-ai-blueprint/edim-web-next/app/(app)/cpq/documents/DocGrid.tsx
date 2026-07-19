@@ -1,13 +1,13 @@
 'use client'
 
 /** 문서함 — 등록·PDF 미리보기·메타 수정·상세 드릴다운 (N5 복구). */
-import { useActionState, useState, useTransition } from 'react'
+import { useActionState, useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
-import { createDocument, updateDocMeta, type ActState } from './actions'
+import { allocDocNo, createDocument, getNumberingRule, saveNumberingRule, updateDocMeta, type ActState } from './actions'
 
 export interface DocRow {
   docNo: string; title: string; person: string; date: string; status: string
@@ -36,6 +36,24 @@ export function DocGrid({ rows }: { rows: DocRow[] }) {
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
   const sel = rows.find((r) => r.docNo === selNo) ?? null
+  // U23 — 자동 채번(규칙 기반) + 채번 규칙 편집 (슬라이드 53 Document Code)
+  const [docNoVal, setDocNoVal] = useState('')
+  const [docTypeVal, setDocTypeVal] = useState('')
+  const [ruleTpl, setRuleTpl] = useState('')
+  const [ruleDept, setRuleDept] = useState('')
+  const [ruleMsg, setRuleMsg] = useState<{ text: string; err?: boolean } | null>(null)
+  useEffect(() => {
+    void getNumberingRule().then((r) => { if (r) { setRuleTpl(r.template); setRuleDept(r.dept) } })
+  }, [])
+  const doAlloc = () => start(async () => {
+    const r = await allocDocNo(docTypeVal.trim().toUpperCase())
+    if (r) setDocNoVal(r.docNo)
+  })
+  const doSaveRule = () => start(async () => {
+    const r = await saveNumberingRule(ruleTpl, ruleDept)
+    if ('error' in r) setRuleMsg({ text: r.error, err: true })
+    else setRuleMsg({ text: `채번 규칙 저장 ✓ — 예: ${r.sample}` })
+  })
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -43,11 +61,15 @@ export function DocGrid({ rows }: { rows: DocRow[] }) {
         {() => (
           <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
             <label>{t('docmgmt.docNoPh', '문서번호 (DOC-…)')}</label>
-            <input className="in req" name="docNo" autoFocus />
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input className="in req" name="docNo" autoFocus value={docNoVal} onChange={(e) => setDocNoVal(e.target.value)} style={{ flex: 1 }} />
+              <button className="b" type="button" data-doc-alloc disabled={pending} onClick={doAlloc}
+                title={t('docmgmt.allocHint', '규칙 기반 자동 채번 — {DEPT}·{TYPE}·{YYYY}·{SEQ} (슬라이드 53)')}>{t('docmgmt.alloc', '자동 채번')}</button>
+            </div>
             <label>{t('docmgmt.title', '제목')}</label>
             <input className="in req" name="title" />
             <label>{t('docmgmt.type', '유형')}</label>
-            <input className="in" name="docType" placeholder={t('docmgmt.typePh', '유형 (DWG/QUO…)')} />
+            <input className="in" name="docType" placeholder={t('docmgmt.typePh', '유형 (DWG/QUO…)')} value={docTypeVal} onChange={(e) => setDocTypeVal(e.target.value)} />
             <label>Grade</label>
             <select className="in" name="grade" defaultValue="GENERAL">
               {GRADES.map((g) => <option key={g}>{g}</option>)}
@@ -81,6 +103,13 @@ export function DocGrid({ rows }: { rows: DocRow[] }) {
         }}>{t('docmgmt.editMeta', '메타 수정')}</button>
         {st.error ? <span style={{ color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ color: 'var(--run)' }}>{st.ok}</span> : null}
+        <span className="sep" />
+        <label style={{ color: 'var(--txt-dim)' }}>{t('docmgmt.numberingRule', '채번 규칙')}</label>
+        <input className="in" data-doc-rule style={{ width: 190, fontFamily: 'var(--mono, monospace)' }} value={ruleTpl}
+          placeholder="{DEPT}-{TYPE}-{YYYY}-{SEQ:4}" onChange={(e) => setRuleTpl(e.target.value)} />
+        <input className="in" style={{ width: 56 }} value={ruleDept} placeholder="DEPT" onChange={(e) => setRuleDept(e.target.value)} />
+        <button className="b" data-doc-rule-save disabled={pending || !ruleTpl.trim()} onClick={doSaveRule}>{t('common.save', '저장')}</button>
+        {ruleMsg ? <span style={{ color: ruleMsg.err ? 'var(--err)' : 'var(--run)' }}>{ruleMsg.text}</span> : null}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-docs" colFilter columns={cols} rows={rows}
