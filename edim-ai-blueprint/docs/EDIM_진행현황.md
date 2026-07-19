@@ -151,8 +151,9 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 3. ~~배치 정의서 · 보고서/양식 정의서~~ — ✅ 완료 (2026-07-11, 통합본 v0.2: 배치 잡 JOB-01~08 + 양식 RPT/FORM — 고객 양식 확정 시 v0.3)
 4. edim-web 잔여 모듈 화면 구현 (Code Set-up·Toolbox·ERP·공통·Mobile — 전 화면 dense 확정) + mock→실 API 전환(FastAPI + 서버 PG 54테이블)
 5. `ANTHROPIC_API_KEY` 설정 → 앱 AI 샘플 모드 해제
-6. 번역 콘텐츠 제작 (sys_translation en/ja/zh 실데이터)
+6. 번역 콘텐츠 제작 (sys_translation en/ja/zh 실데이터) — **UI 크롬은 v34.9~ N7 시드 단일화 진행 중**(t() 키 전수 시드·check_i18n_en Next 개편); 잔여 = 데이터 콘텐츠(품명·문서 제목 등) 번역 트랙
 7. 고객 협의 대기: 보안 솔루션 범위 · DUCT 사업 범위 · ERP 자체구현/연계 경계 · WBS 시작일(현재 2026-08-03 가정) · Digital Twin 연계 스펙 · ODA 라이선스
+8. **라이브 스위트 현대화 백로그 (v34.8 트리아지 잔여)** — 레거시 SPA 시대 F계열 스위트를 Next 실UI 로 재작성: f4(무반응 일소 — 관계 승인·SubCode·Table·PrintSetup·코드 상세·문서함 F8), f5(마스터 수정), f6(통합 검색→⌘K), f7(이력 diff→감사 before/after), f8(그리드 정렬), f9(Escape 표준), security(사용자 메뉴·비밀번호 다이얼로그), dev_requirements(요구사항 접수 — Next 이식 여부 판단 필요). 기능이 Next 에 없는 항목은 패리티 갭으로 구현 우선
 
 ---
 
