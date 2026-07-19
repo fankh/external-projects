@@ -330,6 +330,42 @@ def _draw_watermark(c, w: float, h: float, text: str) -> None:
     c.restoreState()
 
 
+def _work_instruction_header(c, w: float, h: float, font_name: str, *, title: str,
+                             doc_code: str, issued_by: str = "Sales", language: str = "ko",
+                             revision: str = "A", page: str = "1 (M)") -> float:
+    """U31 — s09 WORK INSTRUCTION 공통 양식 헤더: 6열 메타 행(Category ISO 9001·Issued by·
+    Language·Revision·Page·문서코드) + Title 행. 반환 = 본문 시작 y."""
+    from reportlab.lib import colors
+
+    top = h - 22
+    row1, row2 = 17, 15
+    left, right = 36.0, w - 36.0
+    c.saveState()
+    c.setStrokeColor(colors.HexColor("#8A94A6"))
+    c.setLineWidth(0.7)
+    c.rect(left, top - row1 - row2, right - left, row1 + row2, fill=0, stroke=1)
+    c.line(left, top - row1, right, top - row1)
+    cells = [("Category", "ISO 9001"), ("Issued by dept.", issued_by or "-"),
+             ("Language", language), ("Revision", revision or "A"),
+             ("Page", page), ("Doc No.", doc_code or "-")]
+    xw = (right - left) / len(cells)
+    for i, (k, v) in enumerate(cells):
+        x = left + i * xw
+        if i:
+            c.line(x, top - row1, x, top)
+        c.setFillColor(colors.HexColor("#5A6270"))
+        c.setFont(font_name, 6.2)
+        c.drawString(x + 3, top - 7, k)
+        c.setFillColor(colors.black)
+        c.setFont(font_name, 7.5)
+        c.drawString(x + 3, top - 15, str(v)[:22])
+    c.setFillColor(colors.HexColor("#2B3A55"))
+    c.setFont(font_name, 9)
+    c.drawCentredString((left + right) / 2, top - row1 - 11, f"WORK INSTRUCTION — {str(title)[:60]}")
+    c.restoreState()
+    return top - row1 - row2 - 12
+
+
 def build_doc_pdf(*, doc_no: str, title: str, doc_type: str, status: str, version: str,
                   person: str, grade: str, created: str, confidential: bool) -> bytes:
     """문서 관리 PDF 실렌더 (B4 · SVC-11) — Grade S-1/S-2 는 CONFIDENTIAL 워터마크 강제."""
@@ -355,14 +391,16 @@ def build_doc_pdf(*, doc_no: str, title: str, doc_type: str, status: str, versio
     w, h = A4
     if confidential:
         _draw_watermark(c, w, h, f"CONFIDENTIAL · {grade}")
+    top0 = _work_instruction_header(c, w, h, font_name, title=title, doc_code=doc_no,
+                                    issued_by=doc_type or "Document", revision=version or "A")
     c.setFont(font_name, 16)
-    c.drawString(50, h - 60, title)
+    c.drawString(50, top0 - 14, title)
     c.setFont(font_name, 9)
-    c.drawString(50, h - 80, f"DOC No: {doc_no} · {doc_type} · Ver {version}")
-    c.drawString(50, h - 93, f"작성 {person} · {created} · 상태 {status} · Grade {grade}")
+    c.drawString(50, top0 - 34, f"DOC No: {doc_no} · {doc_type} · Ver {version}")
+    c.drawString(50, top0 - 47, f"작성 {person} · {created} · 상태 {status} · Grade {grade}")
     c.setStrokeColor(colors.HexColor("#1F4E8C"))
-    c.line(50, h - 102, w - 50, h - 102)
-    y = h - 130
+    c.line(50, top0 - 56, w - 50, top0 - 56)
+    y = top0 - 84
     c.setFont(font_name, 9.5)
     for line in [
         "본 문서는 EDIM 문서 관리(doc_control)에서 자동 렌더된 게시본이다.",
@@ -407,15 +445,17 @@ def build_clt_quotation_pdf(*, quotation_no: str, project_name: str, customer: s
     w, h = A4
     navy = colors.HexColor("#1F4E8C")
     m = 16 * mm
+    top0 = _work_instruction_header(c, w, h, fn, title=f"CLT 견적서 {quotation_no}",
+                                    doc_code=quotation_no, issued_by="Sales", revision="A")
     # 헤더 — NOVA Solution · Title
     c.setFillColor(navy)
     c.setFont(fn, 16)
-    c.drawString(m, h - m - 8, "NOVA Solution")
+    c.drawString(m, top0 - 4, "NOVA Solution")
     c.setFont(fn, 13)
-    c.drawRightString(w - m, h - m - 8, "CLT 견적서 (QUOTATION)")
+    c.drawRightString(w - m, top0 - 4, "CLT 견적서 (QUOTATION)")
     c.setStrokeColor(navy)
     c.setLineWidth(1.2)
-    c.line(m, h - m - 16, w - m, h - m - 16)
+    c.line(m, top0 - 12, w - m, top0 - 12)
     # 메타 표
     c.setFillColor(colors.black)
     meta = [
@@ -424,7 +464,7 @@ def build_clt_quotation_pdf(*, quotation_no: str, project_name: str, customer: s
         ("납품조건", delivery_terms or "-", "유효기간", validity or "-"),
         ("지불조건", payment_terms or "-", "통    화", currency),
     ]
-    y = h - m - 34
+    y = top0 - 30
     c.setFont(fn, 9)
     for k1, v1, k2, v2 in meta:
         c.setFillColor(colors.HexColor("#5A6270"))
