@@ -1896,6 +1896,68 @@ def ai_macro_generate(body: AiMacroRequest) -> dict[str, Any]:
     return generate_macro(body.prompt.strip())
 
 
+class AiChatRequest(BaseModel):
+    question: str
+
+
+@router.post("/ai/chat")
+def ai_chat(body: AiChatRequest) -> dict[str, Any]:
+    """U28 (s27 노트 'AI 질의 응답 — 내부 자료 검색·응답용') 1단계.
+    항시: 키워드 기반 내부 자산 검색(코드·문서·Table·Macro·부품) → 근거 목록.
+    live(키+크레딧): 검색 근거를 컨텍스트로 Claude 요약 답변. 폴백은 mode='search'."""
+    q = body.question.strip()
+    if not q:
+        raise HTTPException(422, detail="질문을 입력하십시오")
+    terms = [t for t in re.split(r"\s+", q) if len(t) >= 2][:5] or [q]
+    like = [f"%{t}%" for t in terms]
+    refs: list[dict[str, Any]] = []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+
+        def _q(sql: str, kind: str, href_tpl: str) -> None:
+            for t in like:
+                cur.execute(sql, (tid, t, t))
+                for code, title in cur.fetchall():
+                    ref = {"kind": kind, "code": str(code), "title": str(title or ""),
+                           "href": href_tpl.format(code=str(code))}
+                    if ref not in refs:
+                        refs.append(ref)
+
+        _q("""SELECT main_code, code_name FROM product_code
+              WHERE tenant_id=%s AND (main_code ILIKE %s OR code_name ILIKE %s) LIMIT 5""",
+           "제품 코드", "/detail/code?code={code}")
+        _q("""SELECT doc_no, title FROM doc_control
+              WHERE tenant_id=%s AND (doc_no ILIKE %s OR title ILIKE %s) LIMIT 5""",
+           "문서", "/cpq/documents")
+        _q("""SELECT table_name, COALESCE(description,'') FROM tbl_data_table
+              WHERE tenant_id=%s AND (table_name ILIKE %s OR description ILIKE %s) LIMIT 5""",
+           "데이터 Table", "/code/datatable?name={code}")
+        _q("""SELECT macro_name, COALESCE(description_text,'') FROM tbx_macro
+              WHERE tenant_id=%s AND (macro_name ILIKE %s OR description_text ILIKE %s) LIMIT 5""",
+           "Macro", "/toolbox/macros")
+        _q("""SELECT part_no, part_name FROM prt_part
+              WHERE tenant_id=%s AND (part_no ILIKE %s OR part_name ILIKE %s) LIMIT 5""",
+           "부품", "/plm/parts")
+    refs = refs[:15]
+
+    from app.services.ai_assist import _client
+    client = _client()
+    if client is not None:
+        try:
+            ctx = "\n".join(f"- [{r['kind']}] {r['code']} : {r['title']}" for r in refs) or "(일치 자료 없음)"
+            msg = client.messages.create(
+                model=settings.anthropic_model_id, max_tokens=600,
+                system=("EDIM(제조 CPQ/PLM/ERP 플랫폼) 내부 자료 안내 도우미. 아래 검색된 내부 자산 목록만 근거로 "
+                        "한국어 2~4문장으로 답하고, 목록에 없는 내용은 추정하지 말 것.\n검색 결과:\n" + ctx),
+                messages=[{"role": "user", "content": q}],
+            )
+            return {"mode": "live", "answer": msg.content[0].text[:1200], "refs": refs}
+        except Exception as e:  # noqa: BLE001
+            return {"mode": "error", "error": str(e)[:200],
+                    "answer": f"검색 일치 {len(refs)}건 — 아래 근거를 확인하십시오. (AI 합성은 크레딧 준비 후)", "refs": refs}
+    return {"mode": "search", "answer": f"검색 일치 {len(refs)}건 — 아래 근거를 확인하십시오. (AI 합성은 키 설정 후)", "refs": refs}
+
+
 class AiUiRequest(BaseModel):
     description: str
 

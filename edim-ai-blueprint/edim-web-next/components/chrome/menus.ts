@@ -165,6 +165,7 @@ export const MENU_TREE: Record<ModuleKey, { title: string; nodes: NavNode[] }> =
       },
       { id: 'tbx-templet', label: 'Templet 관리 (S-2-3)', href: '/toolbox/templets', code: 'S-2-3' },
       { id: 'tbx-runs', label: 'Run 이력·정리 (E-3)', href: '/toolbox/runs', code: 'E-3' },
+      { id: 'tbx-assistant', label: '내부 Q&A (AI-08)', href: '/toolbox/assistant', code: 'AI-08' },
     ],
   },
   common: {
