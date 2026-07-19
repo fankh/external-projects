@@ -40,6 +40,9 @@ export function DataTableGrid({ name, columns, rows }: { name: string; columns: 
   const editValues = (): Record<string, number | null> =>
     Object.fromEntries(columns.map((c) => [c, toNum(edit[c] ?? '')]))
 
+  // U25 — 그래프 마법사 (슬라이드 59): 열 매핑 → 라인/막대 SVG
+  const [chartOpen, setChartOpen] = useState(false)
+
   // N6 — F-key 수신: F12 저장(선택 행) · F3 삭제
   useFKeys({
     F12: () => { if (sel) start(async () => setSt(await updateTableRow(name, sel.key, editValues()))) },
@@ -55,6 +58,8 @@ export function DataTableGrid({ name, columns, rows }: { name: string; columns: 
         <label style={{ fontSize: 11 }}>Table</label>
         <input className="in" defaultValue={name} style={{ height: 22, fontSize: 11, width: 110 }}
           onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/code/datatable?name=${encodeURIComponent((e.target as HTMLInputElement).value)}`) }} />
+        <button className="b" data-chart-wizard onClick={() => setChartOpen((v) => !v)} style={{ height: 22, fontSize: 11 }}
+          title={t('dtable.chartHint', '그래프 마법사 — 열 매핑 → 라인/막대 차트 (슬라이드 59)')}>📊 {t('dtable.chart', '차트')}</button>
         <form action={impAction} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <input type="hidden" name="name" value={name} />
           <input className="in" type="file" name="uploadedFile" accept=".xlsx" style={{ width: 180, fontSize: 10 }} />
@@ -87,11 +92,85 @@ export function DataTableGrid({ name, columns, rows }: { name: string; columns: 
           }}>{t('dtable.delRow', '행 삭제')}</button>
         </div>
       ) : <div style={{ padding: '0 6px', fontSize: 10.5, color: 'var(--txt-mute)' }}>{t('dtable.rowClickHint', '행 클릭 = 편집 패널 열기')}</div>}
+      {chartOpen ? <ChartWizard rows={rows} columns={columns} name={name} onClose={() => setChartOpen(false)} /> : null}
       <div style={{ flex: 1, minHeight: 0, padding: '0 6px 6px' }}>
         <DenseGrid prefKey={`next-table-${name}`} colFilter columns={cols} rows={rows}
           rowKey={(r) => r.key} selectedKey={selKey ?? undefined}
           onRowClick={selectRow} emptyText={t('dtable.empty', '데이터 행이 없습니다')} />
       </div>
+    </div>
+  )
+}
+
+/** U25 — 그래프 마법사: X=Key, 시리즈=숫자 열 선택, 라인/막대 SVG (외부 라이브러리 없음). */
+const CHART_COLORS = ['#2F6FB4', '#3E9B57', '#C8552F', '#8058A5', '#B48A2F', '#4B8F8C']
+
+function ChartWizard({ rows, columns, name, onClose }: {
+  rows: TableRow[]; columns: string[]; name: string; onClose: () => void
+}) {
+  const { t } = useI18n()
+  const numericCols = columns.filter((c) => rows.some((r) => typeof r.values[c] === 'number'))
+  const [series, setSeries] = useState<string[]>(numericCols.slice(0, 2))
+  const [kind, setKind] = useState<'line' | 'bar'>('line')
+  const toggle = (c: string) => setSeries((cur) => (cur.includes(c) ? cur.filter((x) => x !== c) : [...cur, c]))
+
+  const W = 560, H = 220, PAD = { l: 46, r: 10, t: 10, b: 24 }
+  const data = rows.map((r) => ({ key: r.key, vals: series.map((c) => (typeof r.values[c] === 'number' ? r.values[c] as number : null)) }))
+  const flat = data.flatMap((d) => d.vals).filter((v): v is number => v != null)
+  const vMax = flat.length ? Math.max(...flat, 0) : 1
+  const vMin = flat.length ? Math.min(...flat, 0) : 0
+  const span = vMax - vMin || 1
+  const px = (i: number) => PAD.l + (data.length <= 1 ? 0 : (i * (W - PAD.l - PAD.r)) / (data.length - 1))
+  const py = (v: number) => H - PAD.b - ((v - vMin) * (H - PAD.t - PAD.b)) / span
+  const bw = Math.max(4, (W - PAD.l - PAD.r) / Math.max(1, data.length) / (series.length + 1))
+
+  return (
+    <div data-chart-panel className="gb" style={{ padding: 6, display: 'flex', gap: 10, fontSize: 10.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
+        <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('dtable.chartTitle', '그래프 마법사')} — {name}<span style={{ float: 'right', cursor: 'pointer' }} onClick={onClose}>✕</span></div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <label><input type="radio" name="ckind" checked={kind === 'line'} onChange={() => setKind('line')} /> {t('dtable.line', '라인')}</label>
+          <label><input type="radio" name="ckind" checked={kind === 'bar'} onChange={() => setKind('bar')} /> {t('dtable.bar', '막대')}</label>
+        </div>
+        <div style={{ color: 'var(--txt-dim)' }}>{t('dtable.seriesPick', '시리즈 (숫자 열)')}</div>
+        {numericCols.map((c, i) => (
+          <label key={c} data-chart-series style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <input type="checkbox" checked={series.includes(c)} onChange={() => toggle(c)} />
+            <span style={{ width: 8, height: 8, background: CHART_COLORS[i % CHART_COLORS.length], display: 'inline-block' }} />{c}
+          </label>
+        ))}
+      </div>
+      <svg data-chart-svg width={W} height={H} style={{ border: '1px solid var(--line)', background: '#fff', maxWidth: '100%' }} viewBox={`0 0 ${W} ${H}`}>
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+          const v = vMin + span * f
+          const y = py(v)
+          return (
+            <g key={f}>
+              <line x1={PAD.l} y1={y} x2={W - PAD.r} y2={y} stroke="#E3E7EE" />
+              <text x={PAD.l - 4} y={y + 3} textAnchor="end" fontSize={8.5} fill="#6B7686">{Math.round(v).toLocaleString()}</text>
+            </g>
+          )
+        })}
+        {data.map((d, i) => (
+          <text key={d.key} x={kind === 'bar' ? PAD.l + (i + 0.5) * ((W - PAD.l - PAD.r) / Math.max(1, data.length)) : px(i)} y={H - 8}
+            textAnchor="middle" fontSize={8.5} fill="#6B7686">{d.key}</text>
+        ))}
+        {series.map((c, si) => {
+          const color = CHART_COLORS[numericCols.indexOf(c) % CHART_COLORS.length]
+          if (kind === 'bar') {
+            const gw = (W - PAD.l - PAD.r) / Math.max(1, data.length)
+            return data.map((d, i) => {
+              const v = d.vals[si]
+              if (v == null) return null
+              const x = PAD.l + i * gw + gw / 2 + (si - series.length / 2) * bw
+              return <rect key={`${c}${d.key}`} x={x} y={Math.min(py(v), py(0))} width={bw - 1} height={Math.abs(py(v) - py(0))} fill={color} />
+            })
+          }
+          const pts = data.map((d, i) => (d.vals[si] == null ? null : `${px(i)},${py(d.vals[si]!)}`)).filter(Boolean).join(' ')
+          return <polyline key={c} points={pts} fill="none" stroke={color} strokeWidth={1.6} />
+        })}
+        {!series.length ? <text x={W / 2} y={H / 2} textAnchor="middle" fontSize={11} fill="#9AA3B0">{t('dtable.noSeries', '시리즈를 선택하십시오')}</text> : null}
+      </svg>
     </div>
   )
 }
