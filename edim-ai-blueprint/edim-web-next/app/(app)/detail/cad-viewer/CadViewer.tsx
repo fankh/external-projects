@@ -6,7 +6,7 @@ import { useI18n } from '@/components/I18nProvider'
 import type { CadDocument } from '@/lib/cadTypes'
 
 /** DXF/DWG 뷰어 — SSR /cad/view/{id} → CadSvg 렌더 + 레이어 토글 + 편집 모드(DXF). */
-export function CadViewer({ doc, fileId }: { doc: CadDocument; fileId: number }) {
+export function CadViewer({ doc, fileId, related = [] }: { doc: CadDocument; fileId: number; related?: { code: string; name: string; href: string }[] }) {
   const { t } = useI18n()
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [edit, setEdit] = useState(false)
@@ -22,6 +22,11 @@ export function CadViewer({ doc, fileId }: { doc: CadDocument; fileId: number })
         {canEdit ? <button type="button" className={`b ${edit ? 'pri' : ''}`} style={{ height: 18, fontSize: 10 }} onClick={() => setEdit((e) => !e)}>✎ {t('detail.edit', '편집')}</button> : null}
         <a href="/detail/model3d" data-3d-link className="b" style={{ height: 18, fontSize: 10, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
           title={t('detail.model3dHint', '제품 3D 뷰어 — 원본 PPT 내장 GLB 정본 (U29)')}>🧊 3D</a>
+        {related.map((r) => (
+          <a key={r.code} href={r.href} data-related-code className="chip info"
+            title={`${t('detail.relatedCode', '관련 제품 코드 (도면 텍스트·파일명 매칭, U10)')} — ${r.name}`}
+            style={{ textDecoration: 'none' }}>🔗 {r.code}</a>
+        ))}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('cad.layer', '레이어')}</span>
         {doc.layers.map((l) => (

@@ -17,9 +17,14 @@ export default async function CadViewerPage({ searchParams }: { searchParams: Pr
   }
   let doc: CadDocument | null = null
   let err: string | null = null
+  let related: { code: string; name: string; href: string }[] = []
   try {
-    const r = await apiServer<{ document: CadDocument }>(`/cad/view/${fileId}`)
+    const [r, rel] = await Promise.all([
+      apiServer<{ document: CadDocument }>(`/cad/view/${fileId}`),
+      apiServer<{ codes: { code: string; name: string; href: string }[] }>(`/cad/view/${fileId}/related-codes`).catch(() => ({ codes: [] })),
+    ])
     doc = r.document
+    related = rel.codes
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
@@ -28,7 +33,7 @@ export default async function CadViewerPage({ searchParams }: { searchParams: Pr
       {err ? (
         <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div>
       ) : doc ? (
-        <CadViewer doc={doc} fileId={fileId} />
+        <CadViewer doc={doc} fileId={fileId} related={related} />
       ) : null}
     </div>
   )

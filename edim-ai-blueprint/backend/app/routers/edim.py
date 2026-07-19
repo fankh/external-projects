@@ -2733,6 +2733,34 @@ def _extract_dxf_texts(data: bytes, file_name: str) -> tuple[str, int]:
     return content, count
 
 
+@router.get("/cad/view/{file_id}/related-codes")
+def cad_related_codes(file_id: int) -> dict[str, Any]:
+    """U10 3단계 — 도면-코드 자동 연결 (s25 '부품명 규칙 기반 분류'):
+    파일명 + 인덱스 텍스트에서 제품 코드(main_code) 매칭."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s", (tid, file_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"file not found: {file_id}")
+        fname = str(row[0])
+        cur.execute("SELECT COALESCE(content,'') FROM dwg_text_index WHERE tenant_id=%s AND file_id=%s",
+                    (tid, file_id))
+        idx = cur.fetchone()
+        content = str(idx[0]) if idx else ""
+        haystack = f"{fname} {content}".upper()
+        compact = haystack.replace(" ", "").replace("-", "").replace("_", "")
+        cur.execute("SELECT main_code, code_name FROM product_code WHERE tenant_id=%s", (tid,))
+        related = []
+        for code, name in cur.fetchall():
+            c = str(code)
+            key = c.upper().replace(" ", "").replace("-", "")
+            if len(key) >= 4 and key in compact:
+                related.append({"code": c, "name": str(name or ""),
+                                "href": f"/detail/code?code={c}"})
+    return {"fileId": file_id, "indexed": bool(content), "codes": related[:8]}
+
+
 @router.post("/cad/view/{file_id}/index", dependencies=[SETUP])
 def cad_text_index(file_id: int) -> dict[str, Any]:
     """도면 텍스트 인덱싱 — TEXT/MTEXT·레이어명 추출 → dwg_text_index upsert."""
