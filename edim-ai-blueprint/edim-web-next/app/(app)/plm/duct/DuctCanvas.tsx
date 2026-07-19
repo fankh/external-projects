@@ -4,7 +4,8 @@
  *  계산은 표준 근사식(마찰 f=0.019·ρ=1.2·SMACNA Class C 근사·아연도 0.8T 6.28kg/m²) — 근거를 표기하고 PDF 계산서 발급. */
 import { useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { CadSvg } from '@/components/CadSvg'
+import { CadSvg, type CadEditOp } from '@/components/CadSvg'
+import { ductEdit, ductLayoutSave } from './actions'
 import { GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
 import { openRenderedPdf } from '@/lib/pdf'
@@ -38,6 +39,27 @@ export function DuctCanvas({ doc, diffusers, floor }: { doc: CadDocument; diffus
   const router = useRouter()
   const sp = useSearchParams()
   const [edit, setEdit] = useState(false)
+  // U8 — 수동 조정 (U1/U2 편집 트랙 통합): 편집 대상화(dwg_file 실체화) 후 이동/삭제/트림 영속
+  const [editDoc, setEditDoc] = useState<CadDocument | null>(null)
+  const [editFileId, setEditFileId] = useState<number | null>(null)
+  const [editMsg, setEditMsg] = useState<string | null>(null)
+  const toggleEdit = () => {
+    if (edit) { setEdit(false); setEditDoc(null); setEditFileId(null); setEditMsg(null); return }
+    setEdit(true)
+    void ductLayoutSave(diffusers, floor).then((r) => {
+      if (!r) { setEditMsg('편집 대상화 실패 — 백엔드 필요'); return }
+      setEditDoc(r.document); setEditFileId(r.fileId)
+      setEditMsg(`수동 조정 모드 ✓ — file ${r.fileId} · ✎ 편집 토글 후 드래그 이동 · Delete 삭제 · ✂ 트림`)
+    })
+  }
+  const onDuctEdit = (ops: CadEditOp[]) => {
+    if (editFileId == null) return
+    void ductEdit(editFileId, ops).then((r) => {
+      if ('error' in r) { setEditMsg(r.error); return }
+      setEditDoc(r.document)
+      setEditMsg(`수동 조정 ✓ — ${r.applied}건 반영 (엔티티 ${r.document.entities.length})`)
+    })
+  }
 
   const nav = (patch: Record<string, string>) => {
     const q = new URLSearchParams(sp.toString())
@@ -116,13 +138,16 @@ export function DuctCanvas({ doc, diffusers, floor }: { doc: CadDocument; diffus
         <span className="chip ok">Diffuser {diffusers}</span>
         <button type="button" className="b" style={{ height: 18, fontSize: 10 }} onClick={() => nav({ diffusers: String(Math.max(1, diffusers - 1)) })}>−</button>
         <button type="button" className="b" style={{ height: 18, fontSize: 10 }} onClick={() => nav({ diffusers: String(Math.min(12, diffusers + 1)) })}>＋ Diffuser</button>
-        <button type="button" className={`b ${edit ? 'pri' : ''}`} style={{ height: 18, fontSize: 10 }} onClick={() => setEdit((e) => !e)}>✎ {t('common.edit', '편집')}</button>
+        <button type="button" data-duct-edit className={`b ${edit ? 'pri' : ''}`} style={{ height: 18, fontSize: 10 }}
+          title={t('duct.editHint', '수동 조정 — 자동 배치를 편집 대상화(dwg_file) 후 이동/삭제/트림 (U1/U2 편집 트랙)')}
+          onClick={toggleEdit}>✎ {t('duct.manualAdjust', '수동 조정')}</button>
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('duct.entity', '엔티티')} {doc.entities.length}</span>
+        {editMsg ? <span data-duct-edit-msg style={{ fontSize: 10, color: 'var(--run)' }}>{editMsg}</span> : null}
+        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('duct.entity', '엔티티')} {(editDoc ?? doc).entities.length}</span>
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 6 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <CadSvg doc={doc} editable={edit} />
+          <CadSvg doc={editDoc ?? doc} editable={edit && editFileId != null} onEdit={onDuctEdit} />
         </div>
         {/* U8 — 기술계산표 + BOM 패널 */}
         <div data-duct-calc style={{ width: 300, flexShrink: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6, padding: '6px 6px 6px 0' }}>

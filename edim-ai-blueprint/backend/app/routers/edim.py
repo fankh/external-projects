@@ -2778,6 +2778,50 @@ def cad_duct_layout(diffusers: int = 3, floor: str = "3F") -> dict[str, Any]:
     return {"document": _parse_cad_bytes(data, "duct_layout.dxf")}
 
 
+class DuctLayoutSaveRequest(BaseModel):
+    diffusers: int = 3
+    floor: str = "3F"
+    project: str = "PS-61313-5"
+
+
+@router.post("/cad/duct-layout/save", dependencies=[SETUP])
+def cad_duct_layout_save(request: Request, body: DuctLayoutSaveRequest) -> dict[str, Any]:
+    """U8 — Duct 배치 편집 대상화: 자동 배치 DXF 를 dwg_file(MinIO) 실체화(같은 이름=덮어쓰기).
+    반환 fileId 로 /cad/view/{id}/edit 수동 조정(이동/삭제/분할=trim/합체) 가능."""
+    from app.services.run_pipeline import build_duct_layout_dxf
+
+    floor = body.floor.strip()[:10] or "3F"
+    data = build_duct_layout_dxf(max(1, min(body.diffusers, 12)), floor)
+    fname = f"duct_{floor}.dxf"
+    key = f"{body.project}/DWG/{fname}"
+    try:
+        storage.put_object(key, data, "application/dxf")
+    except RuntimeError:
+        raise HTTPException(503, detail="storage unavailable")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
+                    (tid, body.project))
+        prj = cur.fetchone()
+        cur.execute(
+            "SELECT file_id FROM dwg_file WHERE tenant_id=%s AND folder='DWG' AND file_name=%s",
+            (tid, fname))
+        row = cur.fetchone()
+        if row:
+            file_id = row[0]
+            cur.execute("UPDATE dwg_file SET file_path=%s, file_size=%s WHERE file_id=%s",
+                        (key, len(data), file_id))
+        else:
+            cur.execute(
+                """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
+                   file_path, file_size) VALUES (%s,%s,'DWG',%s,'DXF',%s,%s) RETURNING file_id""",
+                (tid, prj[0] if prj else None, fname, key, len(data)))
+            file_id = cur.fetchone()[0]
+        _audit(cur, tid, "dwg_file", file_id, "DUCT_EDIT_MATERIALIZE", request.state.user_id,
+               {"floor": floor, "diffusers": body.diffusers})
+    return {"fileId": file_id, "document": _parse_cad_bytes(data, fname)}
+
+
 class CadBlock(BaseModel):
     id: str = ""
     name: str = ""
