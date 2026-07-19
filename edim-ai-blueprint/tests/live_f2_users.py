@@ -34,8 +34,10 @@ def psql(sql: str) -> str:
 
 
 def purge_f2_users() -> None:
-    # f2.* 계정의 자기 감사행(FK actor) 제거 후 계정 제거 — 멱등
+    # f2.* 계정의 FK 참조(감사행·알림·역할) 제거 후 계정 제거 — 멱등
     psql("DELETE FROM sys_history WHERE actor_id IN "
+         "(SELECT user_id FROM sys_user WHERE login_id LIKE 'f2.%')")
+    psql("DELETE FROM sys_notification WHERE user_id IN "
          "(SELECT user_id FROM sys_user WHERE login_id LIKE 'f2.%')")
     psql("DELETE FROM sys_user_role WHERE user_id IN "
          "(SELECT user_id FROM sys_user WHERE login_id LIKE 'f2.%')")
@@ -129,30 +131,39 @@ with sync_playwright() as pw:
     page.locator(".tn", has_text="사용자·권한 (M-14-6)").first.click()
     page.wait_for_timeout(1200)
 
+    # Next — RegisterModal(data-modal) name 속성 폼
     page.get_by_role("button", name="＋ 사용자 등록").click()
-    page.wait_for_selector("[data-user-reg]", timeout=3000)
-    dlg = page.locator("[data-user-reg]")
-    dlg.locator("input[aria-label='등록 login']").fill("f2.ui")
-    dlg.locator("input[aria-label='등록 이름']").fill("F2 UI 사용자")
-    dlg.locator("input[aria-label='초기 비밀번호']").fill("uipass")
-    dlg.locator("button", has_text="등록").first.click()
-    page.wait_for_selector("text=사용자 등록 ✓", timeout=6000)
-    ok("UI 등록 ✓", True)
-    page.wait_for_timeout(600)
+    page.wait_for_selector("[data-modal]", timeout=3000)
+    dlg = page.locator("[data-modal]")
+    dlg.locator("input[name=login]").fill("f2.ui")
+    dlg.locator("input[name=name]").fill("F2 UI 사용자")
+    dlg.locator("input[name=initialPassword]").fill("uipass")
+    dlg.locator("button[type=submit]").click()
+    page.wait_for_timeout(1500)
+    ok("UI 등록 ✓ (API 반영)", any(
+        x["login"] == "f2.ui" for x in call(tok, "GET", "/users").json()))
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(400)
     ok("UI 목록 반영", page.locator("table.g:visible tbody tr", has_text="f2.ui").count() >= 1)
 
-    page.get_by_role("button", name="정보 수정").click()
+    # 정보 수정 (F2 이식 다이얼로그) — f2.ui 행 선택 후
+    page.locator("table.g:visible tbody tr", has_text="f2.ui").first.click()
+    page.wait_for_timeout(300)
+    page.locator("[data-user-edit-open]").click()
     page.wait_for_selector("[data-user-edit]", timeout=3000)
     page.locator("[data-user-edit] input[aria-label='수정 이름']").fill("F2 UI 수정")
-    page.locator("[data-user-edit] button", has_text="저장").first.click()
+    page.locator("[data-user-edit] button[type=submit]").click()
     page.wait_for_selector("text=정보 수정 ✓", timeout=6000)
     ok("UI 정보 수정 ✓", True)
 
-    page.locator("input[aria-label='사용자 검색']").fill("f2.ui")
+    # 검색 — DenseGrid 공용 찾기 (Ctrl+F)
+    wrap = page.locator("[data-grid-wrap]", has=page.locator("tr", has_text="f2.ui")).first
+    wrap.locator("[title='찾기 (Ctrl+F)']").click()
+    wrap.locator("input[placeholder='찾기…']").fill("f2.ui")
     page.wait_for_timeout(400)
-    user_grid = page.locator("table.g:visible").first
-    ok("UI 검색 필터 (1행)", user_grid.locator("tbody tr").count() == 1
-       and "f2.ui" in user_grid.inner_text())
+    ok("UI 검색 필터 (1행)",
+       wrap.locator("tbody tr:not([data-grid-state])").count() == 1
+       and "f2.ui" in wrap.inner_text())
     b.close()
 
     # UI 생성분 정리 (f2.ui 는 로그인 이력 없음 — API 삭제 가능)

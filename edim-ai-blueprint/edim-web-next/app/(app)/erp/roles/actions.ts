@@ -12,6 +12,24 @@ function fail(e: unknown, fallback: string): ActState {
   return { error: e instanceof ApiError ? e.message : fallback }
 }
 
+/** 사용자 정보 수정 (F2 이식) — 이름·부서·이메일 (PATCH /users/{login}, 폼 액션). */
+export async function updateUser(_prev: ActState, formData: FormData): Promise<ActState> {
+  const login = String(formData.get('login') ?? '').trim()
+  const name = String(formData.get('name') ?? '').trim()
+  if (!login) return { error: '수정 대상이 없습니다' }
+  if (!name) return { error: '이름은 필수입니다' }
+  const body = {
+    name,
+    department: String(formData.get('department') ?? '').trim(),
+    email: String(formData.get('email') ?? '').trim(),
+  }
+  try {
+    await apiServer(`/users/${encodeURIComponent(login)}`, { method: 'PATCH', body: JSON.stringify(body) })
+  } catch (e) { return fail(e, '정보 수정 실패') }
+  revalidatePath(PATH)
+  return { ok: `정보 수정 ✓ — ${login}` }
+}
+
 export async function createUser(_prev: ActState, formData: FormData): Promise<ActState> {
   const login = String(formData.get('login') ?? '').trim()
   const name = String(formData.get('name') ?? '').trim()

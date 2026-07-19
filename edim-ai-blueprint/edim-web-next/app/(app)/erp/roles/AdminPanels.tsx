@@ -1,14 +1,14 @@
 'use client'
 
 /** 사용자·권한 관리 (N4 복구) — 사용자 대장(등록·잠금해제·레벨·활성) + 권한 매트릭스(셀 토글·역할 CRUD). */
-import { useActionState, useMemo, useState, useTransition } from 'react'
+import { useActionState, useEffect, useMemo, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip, GroupBox } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import {
   changeUserLevel, createRole, createUser, deleteRole,
-  saveRolePermissions, setUserActive, unlockUser, type ActState,
+  saveRolePermissions, setUserActive, unlockUser, updateUser, type ActState,
 } from './actions'
 
 export interface UserRow {
@@ -29,6 +29,10 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
   const sel = rows.find((r) => r.login === selLogin) ?? null
+  // F2 이식 — 정보 수정 다이얼로그 (이름·부서·이메일, 폼 액션)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editSt, editAction, editPending] = useActionState(updateUser, {} as ActState)
+  useEffect(() => { if (editSt.ok) setEditOpen(false) }, [editSt.ok])
 
   const cols: GridColumn<UserRow>[] = [
     { key: 'login', header: 'ID', width: 84, code: true, render: (r) => r.login },
@@ -72,6 +76,8 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
         <span style={{ color: 'var(--txt-dim)' }}>{sel ? `${t('access.selected', '선택')} ${sel.login} (${sel.status})` : t('access.clickSelect', '행 클릭=선택')}</span>
         <button className="b" disabled={pending || !sel || sel.status !== 'LOCKED'}
           onClick={() => sel && start(async () => setSt(await unlockUser(sel.login)))}>{t('access.unlock', '잠금 해제')}</button>
+        <button className="b" data-user-edit-open disabled={!sel}
+          onClick={() => setEditOpen(true)}>{t('access.editUser', '정보 수정')}</button>
         <select className="in" data-level-select style={{ width: 86 }} value={level} onChange={(e) => setLevel(e.target.value)}>
           {LEVELS.map((l) => <option key={l}>{l}</option>)}
         </select>
@@ -88,6 +94,32 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
           rowKey={(r) => r.login} selectedKey={selLogin ?? undefined}
           onRowClick={(r) => setSelLogin(r.login)} emptyText={t('access.emptyUsers', '사용자가 없습니다')} />
       </div>
+      {/* F2 이식 — 정보 수정 다이얼로그 (이름·부서·이메일) */}
+      {editOpen && sel ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setEditOpen(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setEditOpen(false) }}>
+          <form action={editAction} className="gb" data-user-edit key={sel.login}
+            style={{ width: 320, padding: 12, background: '#fff', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 8 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('access.editUser', '정보 수정')} — {sel.login}</div>
+            <input type="hidden" name="login" value={sel.login} />
+            <div className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('access.name', '이름')}</label>
+              <input className="in req" name="name" aria-label="수정 이름" defaultValue={sel.name} autoFocus />
+              <label>{t('dash.dept', '부서')}</label>
+              <input className="in" name="department" aria-label="수정 부서" defaultValue={sel.dept || ''} />
+              <label>Email</label>
+              <input className="in" name="email" aria-label="수정 이메일" defaultValue={sel.email || ''} />
+            </div>
+            {editSt.error ? <div style={{ color: 'var(--err)' }}>{editSt.error}</div> : null}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+              <button className="b" type="button" onClick={() => setEditOpen(false)}>{t('common.cancel', '취소')}</button>
+              <button className="b pri" type="submit" disabled={editPending}>{t('common.save', '저장')}</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </GroupBox>
   )
 }
