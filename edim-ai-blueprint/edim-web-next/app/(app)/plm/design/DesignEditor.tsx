@@ -210,6 +210,31 @@ export function DesignEditor(props: {
 
   const toggleCad = () => { const next = !cadMode; setCadMode(next); if (next && cadDoc === null && !cadOffline) loadCad(dims) }
 
+  // U2 — 파라메트릭 전면 동기 (마지막 잔여): 치수 변경 → 디바운스 자동 재작도.
+  // 편집 대상(dwg_file)이 있으면 저장본도 함께 재생성 — 치수가 마스터(수동 편집·Block 은 재작도로 대체됨을 상태 문구로 명시.
+  const [paramSync, setParamSync] = useState(true)
+  const dimsSig = dims.map((d) => `${d.no}=${d.value}`).join('|')
+  const syncSkip = useRef(true)
+  useEffect(() => {
+    if (syncSkip.current) { syncSkip.current = false; return }
+    if (!paramSync || !cadMode || cadOffline) return
+    const h = setTimeout(() => {
+      if (editFileId != null) {
+        void cadPartDrawingSave(numericDims(dims)).then((r) => {
+          if (!r) return
+          setCadDoc(r.document); setEditFileId(r.fileId)
+          say(`파라메트릭 동기 ✓ — 치수 반영 재작도 (저장본 갱신 · 엔티티 ${r.document.entities.length})`)
+        }).catch(() => say('파라메트릭 동기 실패 — 백엔드 확인', true))
+      } else {
+        void cadPartDrawing(numericDims(dims)).then((d) => {
+          if (d) { setCadDoc(d); say(`파라메트릭 동기 ✓ — 치수 반영 재작도 (엔티티 ${d.entities.length})`) }
+        })
+      }
+    }, 700)
+    return () => clearTimeout(h)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimsSig, paramSync, cadMode])
+
   const exportCad = () => {
     void fetch('/api/cad/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dims: numericDims(dims) }) })
       .then(async (res) => {
@@ -280,6 +305,8 @@ export function DesignEditor(props: {
         <Sep />
         <Btn variant={cadMode ? 'default' : 'pri'} onClick={() => cadMode && toggleCad()}>{t('common.edit', '편집')}</Btn>
         <Btn variant={cadMode ? 'pri' : 'default'} onClick={() => !cadMode && toggleCad()}>CAD</Btn>
+        <Btn variant={paramSync ? 'pri' : 'default'} onClick={() => { setParamSync((v) => !v); say(`파라메트릭 동기 ${!paramSync ? 'ON — 치수 변경 시 자동 재작도' : 'OFF'}`) }}
+          title={t('editor.paramSyncHint', '파라메트릭 전면 동기 — 치수 변경 시 자동 재작도 (치수선-부품 동기)')}>SYNC</Btn>
       </div>
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <div className="fill-col" style={{ flex: 1, padding: 6 }}
