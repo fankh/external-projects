@@ -48,7 +48,9 @@ function RegisterModalInner({ trigger, title, ok, width, children, onOpenChange 
   useEffect(() => { if (ok && open) set(false) }, [ok])   // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
-      <button className="b run" type="button" onClick={() => set(true)}>{trigger}</button>
+      {/* 컬럼 flex(stretch) 하에서도 본문 폭으로 늘어나지 않게 — 내용 크기 고정 */}
+      <button className="b run" type="button" onClick={() => set(true)}
+        style={{ alignSelf: 'flex-start', width: 'fit-content' }}>{trigger}</button>
       <Modal open={open} onClose={() => set(false)} title={title} width={width}>
         {children(() => set(false))}
       </Modal>
