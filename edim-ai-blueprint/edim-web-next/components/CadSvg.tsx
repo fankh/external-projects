@@ -283,6 +283,11 @@ export function CadSvg(props: {
   const ddraw = useRef<{ ax: number; ay: number } | null>(null)
   const [drawPreview, setDrawPreview] = useState<{ ax: number; ay: number; bx: number; by: number } | null>(null)
   const [snapMark, setSnapMark] = useState<Pt | null>(null)   // 스냅 히트 표시
+  // U2 — 사용자 좌표계(UCS) 원점 (s63 노트 "좌표: 사용자 기본 원점 설정"): 설정 후 좌표 표시는 원점 기준
+  const [ucs, setUcs] = useState<Pt | null>(null)
+  const [ucsArm, setUcsArm] = useState(false)
+  const ucsArmRef = useRef(ucsArm)
+  ucsArmRef.current = ucsArm
   const [perpMark, setPerpMark] = useState(false)             // perp(수선) 스냅 여부
   // G1 트림/연장
   const [trimTool, setTrimTool] = useState(false)
@@ -518,6 +523,12 @@ export function CadSvg(props: {
 
   const handleClick = (clientX: number, clientY: number) => {
     const p = toDrawing(clientX, clientY)
+    if (ucsArmRef.current) {
+      const sp = snap(p)
+      setUcs(sp)
+      setUcsArm(false)
+      return
+    }
     if (measureRef.current) {
       const sp = snap(p)
       if (m1 === null || m2 !== null) { setM1(sp); setM2(null); setMHover(null) }
@@ -604,14 +615,14 @@ export function CadSvg(props: {
           runOps((id) => ({ op: 'delete', entityId: id })); clearSel()
         } else if (e.key === 'Escape') {
           e.preventDefault()
-          setM1(null); setM2(null); setMHover(null); clearSel(); setDrawTool(null); ddraw.current = null; setDrawPreview(null); setSnapMark(null); setTrimTool(false); setTrimBoundary(null)
+          setM1(null); setM2(null); setMHover(null); clearSel(); setDrawTool(null); ddraw.current = null; setDrawPreview(null); setSnapMark(null); setTrimTool(false); setTrimBoundary(null); setUcsArm(false)
         }
       }}>
       <svg ref={svgRef} width="100%" height="100%" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
         data-cad-svg
         style={{
           display: 'block', touchAction: 'none',
-          cursor: (measureOn || drawTool) ? 'crosshair' : dragging ? 'grabbing' : 'grab',
+          cursor: (measureOn || drawTool || ucsArm) ? 'crosshair' : dragging ? 'grabbing' : 'grab',
         }}
         onPointerDown={(e) => {
           if (e.button !== 0 && e.button !== 1) return
@@ -770,6 +781,13 @@ export function CadSvg(props: {
             return <rect data-cad-draw x={Math.min(d.ax, d.bx)} y={Math.min(d.ay, d.by)}
               width={Math.abs(d.bx - d.ax)} height={Math.abs(d.by - d.ay)} {...cm} />
           })() : null}
+          {ucs ? (
+            <g data-cad-ucs>
+              <line x1={ucs.x - px(9)} y1={ucs.y} x2={ucs.x + px(9)} y2={ucs.y} stroke="#7C3AED" strokeWidth={strokeW * 1.5} />
+              <line x1={ucs.x} y1={ucs.y - px(9)} x2={ucs.x} y2={ucs.y + px(9)} stroke="#7C3AED" strokeWidth={strokeW * 1.5} />
+              <circle cx={ucs.x} cy={ucs.y} r={px(4.5)} fill="none" stroke="#7C3AED" strokeWidth={strokeW * 1.5} />
+            </g>
+          ) : null}
           {snapMark ? (
             <g data-cad-snap {...(perpMark ? { 'data-cad-perp': true } : {})}>
               <rect x={snapMark.x - px(5)} y={snapMark.y - px(5)} width={px(10)} height={px(10)}
@@ -860,6 +878,16 @@ export function CadSvg(props: {
             setMeasureOn(next)
             if (!next) { setM1(null); setM2(null); setMHover(null) }
           }}>📏 {t('cad.measure', '측정')}</button>
+        <button type="button" data-cad-ucs-toggle
+          style={{
+            ...btn, width: 'auto', padding: '0 7px', fontSize: 10.5,
+            ...((ucsArm || ucs) ? { background: '#7C3AED', color: '#fff', borderColor: '#7C3AED' } : {}),
+          }}
+          title={t('cad.ucsTitle', 'UCS — 클릭 지점을 사용자 원점으로 (끝점·중심 스냅, 재클릭=해제)')}
+          onClick={() => {
+            if (ucs || ucsArm) { setUcs(null); setUcsArm(false) }
+            else setUcsArm(true)
+          }}>⌖ UCS</button>
       </div>
       {/* 우하단 — 실시간 커서 도면 좌표 (측정 라벨과 겹치지 않게 힌트 위) */}
       {cur ? (
@@ -869,7 +897,8 @@ export function CadSvg(props: {
           border: '1px solid var(--line)', padding: '2px 6px', borderRadius: 2,
           pointerEvents: 'none', userSelect: 'none',
         }}>
-          X {Number(cur.x.toFixed(1)).toLocaleString()}  Y {Number(cur.y.toFixed(1)).toLocaleString()}
+          {ucs ? <span style={{ color: '#7C3AED' }}>UCS </span> : null}
+          X {Number(((cur.x - (ucs?.x ?? 0))).toFixed(1)).toLocaleString()}  Y {Number(((cur.y - (ucs?.y ?? 0))).toFixed(1)).toLocaleString()}
           {gridOn && gridStep ? <span style={{ color: 'var(--txt-mute)' }}>  · grid {Number(gridStep).toLocaleString()}</span> : null}
         </div>
       ) : null}
