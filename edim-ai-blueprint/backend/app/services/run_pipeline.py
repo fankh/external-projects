@@ -563,14 +563,17 @@ def build_lines_pdf(*, title: str, subtitle: str = "", lines: list[str],
     w, h = size
     if confidential:
         _draw_watermark(c, w, h, "CONFIDENTIAL · NOVA")
+    # U31 확산 — 계산서·기술자료 계열도 WORK INSTRUCTION 공통 양식 헤더 (s09)
+    top0 = _work_instruction_header(c, w, h, font_name, title=title,
+                                    doc_code="", issued_by="Engineering")
     c.setFont(font_name, 15)
-    c.drawString(m, h - m - 24, title[:70])
+    c.drawString(m, top0 - 16, title[:70])
     if subtitle:
         c.setFont(font_name, 9)
-        c.drawString(m, h - m - 42, subtitle[:110])
+        c.drawString(m, top0 - 34, subtitle[:110])
     c.setStrokeColor(rule)
-    c.line(m, h - m - 52, w - m, h - m - 52)
-    y = h - m - 78
+    c.line(m, top0 - 44, w - m, top0 - 44)
+    y = top0 - 70
     c.setFont(font_name, fs)
     line_h = fs * 1.58
     max_lines = max(1, int((y - m - 20) / line_h))
