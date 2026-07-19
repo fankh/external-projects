@@ -264,3 +264,32 @@ export function navDropdowns(module: ModuleKey, includeSetup: boolean): NavDropd
   flushDirect()
   return out
 }
+
+/** U34b — 편집 초안에 폴더 마커 자동 주입: 마커가 없으면 MENU_TREE 그룹 구조를 '#라벨' 마커로 재구성.
+ *  (모든 페이지가 폴더 안에 있도록 — 렌더의 폴더 보존 규칙과 동일한 그룹핑) */
+export function withFolderMarkers(ids: string[], module: ModuleKey, includeSetup: boolean): string[] {
+  if (ids.some((id) => id.startsWith('#'))) return ids
+  const order = new Map(ids.map((id, i) => [id, i]))
+  const vis = (n: NavNode) => includeSetup || n.minLevel !== 'SETUP'
+  const leavesOf = (ns: NavNode[]): NavNode[] => ns.filter(vis).flatMap((n) =>
+    [...(n.href ? [n] : []), ...(n.children ? leavesOf(n.children) : [])])
+  const out: string[] = []
+  const used = new Set<string>()
+  // 최상위 직속 리프 → 루트 유지 (마커 앞)
+  MENU_TREE[module].nodes.filter(vis).forEach((n) => {
+    if (n.href && order.has(n.id)) { out.push(n.id); used.add(n.id) }
+  })
+  // 그룹 → '#라벨' + 소속 리프 (커스텀 순서)
+  MENU_TREE[module].nodes.filter(vis).forEach((n) => {
+    if (n.href) return
+    const leaves = leavesOf(n.children ?? [])
+      .filter((l) => order.has(l.id))
+      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+    if (!leaves.length) return
+    out.push(`#${n.label}`)
+    leaves.forEach((l) => { out.push(l.id); used.add(l.id) })
+  })
+  // 트리에 없는 잔여 id 는 말미 루트로 보존
+  ids.forEach((id) => { if (!used.has(id) && !id.startsWith('#')) out.push(id) })
+  return out
+}

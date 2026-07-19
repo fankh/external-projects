@@ -5,7 +5,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { MENU_TREE, NODE_BY_ID, moduleLeaves, type ModuleKey, type NavNode } from '@/components/chrome/menus'
+import { MENU_TREE, NODE_BY_ID, moduleLeaves, withFolderMarkers, type ModuleKey, type NavNode } from '@/components/chrome/menus'
 import { saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, type LeftNavPref } from '@/components/chrome/shellActions'
 
 const MODULES: ModuleKey[] = ['erp', 'cpq', 'plm', 'code', 'toolbox', 'common'] as ModuleKey[]
@@ -23,7 +23,7 @@ export function TenantMenuAdmin({ initialLeft, initialHead, myLeft, myHead }: { 
   const [pending, start] = useTransition()
 
   const store = target === 'left' ? left : head
-  const current = draft ?? store[module] ?? moduleLeaves(module, true).map((n) => n.id)
+  const current = withFolderMarkers(draft ?? store[module] ?? moduleLeaves(module, true).map((n) => n.id), module, true)
   const label = (id: string) => {
     if (id.startsWith('#')) return id.slice(1).trim() || '폴더'
     const n = NODE_BY_ID[id]

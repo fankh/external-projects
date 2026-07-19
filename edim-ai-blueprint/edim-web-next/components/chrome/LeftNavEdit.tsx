@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
-import { MENU_TREE, NODE_BY_ID, moduleLeaves, type ModuleKey, type NavNode } from './menus'
+import { MENU_TREE, NODE_BY_ID, moduleLeaves, withFolderMarkers, type ModuleKey, type NavNode } from './menus'
 
 export function LeftNavEditModal(props: {
   open: boolean
@@ -37,7 +37,7 @@ export function LeftNavEditModal(props: {
   // 열릴 때마다 현재 값(또는 기본 전체 리프)으로 초안 초기화
   useEffect(() => {
     if (!props.open) return
-    setDraft(props.value ?? moduleLeaves(props.module, props.canReadAdmin).map((n) => n.id))
+    setDraft(withFolderMarkers(props.value ?? moduleLeaves(props.module, props.canReadAdmin).map((n) => n.id), props.module, props.canReadAdmin))
   }, [props.open, props.module, props.canReadAdmin, props.value])
 
   const move = (i: number, dir: -1 | 1) => setDraft((cur) => {
