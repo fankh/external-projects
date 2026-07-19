@@ -176,14 +176,24 @@ export function AppChrome(props: {
     window.addEventListener('mouseup', onUp)
   }, [])
 
-  // ── 모듈 트리 — 커스텀 존재 시 플랫 리프 목록, 없으면 기본 전체 트리 (권한 숨김 + 라벨 번역) ──
+  // ── 모듈 트리 — 커스텀(개인/테넌트) 존재 시 폴더 구조 유지 + 포함·순서만 적용, 없으면 기본 전체 트리 ──
   const custom = leftNavLoaded ? (leftNav[module] ?? tenantNav[module]) : undefined
   const trNodes = useMemo(() => {
     if (custom) {
-      return custom
-        .map((id) => NODE_BY_ID[id])
-        .filter((n): n is NavNode => !!n?.href && (props.canReadAdmin || n.minLevel !== 'SETUP'))
-        .map((n) => ({ id: n.id, href: n.href, label: t(`menu.${n.id}`, n.label), icon: '▣' }))
+      // 폴더 보존 렌더: 그룹은 트리 순서 유지, 리프는 커스텀 포함 집합·순서 적용, 빈 그룹 생략
+      const order = new Map(custom.map((id, i) => [id, i]))
+      const vis = (n: NavNode) => props.canReadAdmin || n.minLevel !== 'SETUP'
+      const walkC = (ns: NavNode[]): TreeNode[] => ns.filter(vis).flatMap((n): TreeNode[] => {
+        if (n.href) {
+          return order.has(n.id)
+            ? [{ id: n.id, href: n.href, label: t(`menu.${n.id}`, n.label) }]
+            : []
+        }
+        const children = walkC(n.children ?? [])
+          .sort((a, b) => (order.get(a.id) ?? 9999) - (order.get(b.id) ?? 9999))
+        return children.length ? [{ id: n.id, label: t(`menu.${n.id}`, n.label), children }] : []
+      })
+      return walkC(MENU_TREE[module].nodes)
     }
     const walk = (ns: NavNode[]): TreeNode[] => ns
       .filter((n) => props.canReadAdmin || n.minLevel !== 'SETUP')
