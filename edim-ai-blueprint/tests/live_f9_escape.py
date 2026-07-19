@@ -38,30 +38,29 @@ with sync_playwright() as pw:
         page.wait_for_timeout(400)
         ok(label, page.locator(sel).count() == 0)
 
-    # 1. 단가 등록 다이얼로그 (F 프로브의 원 발견 지점)
+    # 1. 단가 등록 다이얼로그 (RegisterModal — data-modal 표준 마커)
     page.locator(".tn", has_text="단가 관리 (M-12-5)").first.click()
     page.wait_for_timeout(1200)
     esc_closes(lambda: page.get_by_role("button", name="＋ 단가 등록").click(),
-               "[data-price-reg]", "단가 등록 — Escape 닫힘")
+               "[data-modal]", "단가 등록 — Escape 닫힘")
 
-    # 2. QuickEdit (공급처 수정 — F5 공용 다이얼로그 전체 커버)
+    # 2. 공급처 수정 다이얼로그 (F5 이식 — data-com-edit)
     page.locator(".tn", has_text="공급처·거래처 (M-14-2)").first.click()
     page.wait_for_timeout(1200)
     esc_closes(lambda: page.locator("table.g:visible tbody tr").first.dblclick(),
-               "[data-com-edit]", "QuickEdit(공급처 수정) — Escape 닫힘")
+               "[data-com-edit]", "공급처 수정 — Escape 닫힘")
 
-    # 3. PO 조건 다이얼로그
-    page.locator(".tn", has_text="발주 PR·PO (M-8-2)").first.click()
+    # 3. 발주 생성 다이얼로그
+    page.locator(".tn", has_text="발주 라이프사이클 (G-3)").first.click()
     page.wait_for_timeout(1200)
-    page.get_by_role("button", name="Stock list Check F8").click()
-    esc_closes(lambda: page.get_by_role("button", name="발주 생성 (조건 입력) F12").click(),
-               "[data-po-dialog]", "PO 조건 — Escape 닫힘")
+    esc_closes(lambda: page.get_by_role("button", name="＋ 발주 생성").click(),
+               "[data-modal]", "발주 생성 — Escape 닫힘")
 
-    # 4. 프로젝트 등록 (F2)
+    # 4. 프로젝트 등록
     page.locator(".tn", has_text="Project 등록 (S-3-5)").first.click()
     page.wait_for_timeout(1200)
-    esc_closes(lambda: page.keyboard.press("F2"),
-               "[data-prj-reg]", "프로젝트 등록 — Escape 닫힘")
+    esc_closes(lambda: page.get_by_role("button", name="＋ 프로젝트 등록").click(),
+               "[data-modal]", "프로젝트 등록 — Escape 닫힘")
 
     # 5. 요구사항 접수 모달 (개발서버 📝)
     if page.locator(".titlebar", has_text="📝").count() or page.get_by_title("요구사항 접수").count():

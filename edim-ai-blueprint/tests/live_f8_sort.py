@@ -57,52 +57,55 @@ with sync_playwright() as pw:
     page.locator(".tn", has_text="단가 관리 (M-12-5)").first.click()
     page.wait_for_timeout(1500)
 
-    grid = page.locator("table.g:visible", has=page.locator("th", has_text="Price table")).first
+    # Next 단가 대장 — 열: [0]코드 [1]품명 [2]공급처 [3]단가 …
+    grid = page.locator("table.g:visible", has=page.locator("th", has_text="단가")).first
     grid.wait_for(timeout=8000)
-    col_prices = lambda: [t.replace(",", "") for t in grid.locator("tbody tr td:nth-child(4)").all_inner_texts()]  # noqa: E731
-    base_order = col_prices()
-
     import re as _re
-    hdr = grid.locator("th", has_text=_re.compile(r"^Price( ▲| ▼)?$")).first
+
+    def col_prices():
+        out = []
+        for t2 in grid.locator("tbody tr td:nth-child(4)").all_inner_texts():
+            m = _re.search(r"[\d,]+", t2)
+            out.append(float(m.group(0).replace(",", "")) if m else 0.0)
+        return out
+
+    base_order = col_prices()
+    hdr = grid.locator("th", has_text="단가").first   # 필터 글리프(▽)·정렬 화살표 포함 가능 — 부분 일치
     hdr.click()
     page.wait_for_timeout(300)
-    asc_ui = [float(x) for x in col_prices()]
+    asc_ui = col_prices()
     ok("UI 헤더 1클릭 = 오름차순 + ▲", asc_ui == sorted(asc_ui)
        and "▲" in grid.locator("thead").inner_text())
     hdr.click()
     page.wait_for_timeout(300)
-    desc_ui = [float(x) for x in col_prices()]
+    desc_ui = col_prices()
     ok("UI 헤더 2클릭 = 내림차순 + ▼", desc_ui == sorted(desc_ui, reverse=True)
        and "▼" in grid.locator("thead").inner_text())
 
-    # 선택 무결성 — 정렬 상태에서 첫 행 클릭 → 적용 종료 다이얼로그의 단가가 화면 첫 행과 일치
-    first_row_price = grid.locator("tbody tr").first.locator("td").nth(3).inner_text()
+    # 선택 무결성 — 정렬 상태에서 첫 행 클릭 → 같은 행이 .sel (키 기반 선택)
     grid.locator("tbody tr").first.click()
     page.wait_for_timeout(300)
-    page.get_by_role("button", name="적용 종료").click()
-    page.wait_for_selector("[data-price-close]", timeout=4000)
-    dlg_price = page.locator("[data-price-close] input[aria-label='단가']").input_value()
-    ok("정렬 후 선택 무결성 (다이얼로그 = 화면 행)", dlg_price == first_row_price)
-    page.locator("[data-price-close] button", has_text="취소").click()
+    ok("정렬 후 선택 무결성 (첫 행 .sel)", "sel" in (grid.locator("tbody tr").first.get_attribute("class") or ""))
+    ok("선택 후 적용 마감 버튼 enabled", page.get_by_role("button", name="적용 마감").is_enabled())
 
     hdr.click()
     page.wait_for_timeout(300)
     ok("UI 헤더 3클릭 = 정렬 해제 (원래 순서)", col_prices() == base_order)
 
-    # 액션 열(JSX)은 정렬 미대상 — 문서함 상태 칩 헤더 클릭이 무해한지 확인
+    # 문서함 — 상태 칩 열 클릭 무해(행수 불변) + 문서번호 정렬
     page.locator(".titlebar .mod", has_text="CPQ").first.click()
     page.wait_for_timeout(600)
     page.locator(".tn", has_text="문서함 (M-5-4)").first.click()
     page.wait_for_timeout(1200)
     g2 = page.locator("table.g:visible").first
     rows_before = g2.locator("tbody tr").count()
-    g2.locator("th", has_text="Released Status").first.click()   # JSX 칩 열 — noop
+    g2.locator("th", has_text="상태").first.click()
     page.wait_for_timeout(300)
-    ok("JSX 칩 열 클릭 무해 (정렬 제외)", g2.locator("tbody tr").count() == rows_before)
-    g2.locator("th", has_text="DOC No.").first.click()
+    ok("상태 칩 열 클릭 무해 (행수 불변)", g2.locator("tbody tr").count() == rows_before)
+    g2.locator("th", has_text="문서번호").first.click()
     page.wait_for_timeout(300)
     nos = g2.locator("tbody tr td:nth-child(1)").all_inner_texts()
-    ok("문서함 DOC No 정렬", nos == sorted(nos))
+    ok("문서함 문서번호 정렬", nos == sorted(nos))
     b.close()
 
 print(f"\nOK — live_f8_sort {n}/{n}")

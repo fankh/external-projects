@@ -16,7 +16,7 @@ export function Modal({ open, onClose, title, width = 380, children }: {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={onClose}>
-      <div className="gb" style={{ width, maxWidth: '92vw', maxHeight: '88vh', overflow: 'auto', background: '#fff', boxShadow: '0 12px 40px rgba(20,26,40,.4)', display: 'flex', flexDirection: 'column' }}
+      <div className="gb" data-modal style={{ width, maxWidth: '92vw', maxHeight: '88vh', overflow: 'auto', background: '#fff', boxShadow: '0 12px 40px rgba(20,26,40,.4)', display: 'flex', flexDirection: 'column' }}
         onClick={(e) => e.stopPropagation()}>
         <div className="titlebar" style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', fontSize: 12 }}>
           <b style={{ flex: 1 }}>{title}</b>
