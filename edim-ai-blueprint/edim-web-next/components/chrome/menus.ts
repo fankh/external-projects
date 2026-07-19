@@ -144,6 +144,7 @@ export const MENU_TREE: Record<ModuleKey, { title: string; nodes: NavNode[] }> =
           { id: 'erp-company-master', label: '공급처·거래처 (M-14-2)', href: '/erp/companies', code: 'M-14-2' },
           { id: 'erp-process', label: 'Process Set-up (M-14-7)', href: '/erp/process', code: 'M-14-7' },
           { id: 'erp-access', label: '사용자·권한 (M-14-6)', href: '/erp/roles', code: 'M-14-6', minLevel: 'SETUP' },
+      { id: 'erp-tenant-menu', label: '테넌트 메뉴 관리 (M-14-6B)', href: '/erp/tenant-menus', code: 'M-14-6B', minLevel: 'SETUP' },
           { id: 'erp-audit', label: '감사 조회 (M-14-6A)', href: '/erp/audit', code: 'M-14-6A', minLevel: 'SETUP' },
         ],
       },
