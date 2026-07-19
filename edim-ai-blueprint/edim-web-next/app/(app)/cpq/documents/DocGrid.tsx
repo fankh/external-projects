@@ -7,6 +7,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { allocDocNo, createDocument, getNumberingRule, saveNumberingRule, updateDocMeta, type ActState } from './actions'
 
 export interface DocRow {
@@ -19,6 +20,7 @@ const GRADES = ['GENERAL', 'S-2', 'S-1']
 export function DocGrid({ rows }: { rows: DocRow[] }) {
   const router = useRouter()
   const { t } = useI18n()
+  const perm = usePermission()
   // 상태 값(서버 데이터, 일부 한국어 혼재) → 로케일 표시
   const docStatusLabel: Record<string, string> = {
     'Approve 대기': t('docstat.waitApprove', 'Approve 대기'), '작성중': t('docstat.drafting', '작성중'),
@@ -61,7 +63,8 @@ export function DocGrid({ rows }: { rows: DocRow[] }) {
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <RegisterModal trigger={t('docmgmt.addDoc', '＋ 문서 등록')} title={t('docmgmt.regTitle', '문서 등록')} ok={regSt.ok}>
+      <RegisterModal disabled={!perm.canWrite('cpq-docmgmt')} disabledTitle={perm.denyWrite}
+          trigger={t('docmgmt.addDoc', '＋ 문서 등록')} title={t('docmgmt.regTitle', '문서 등록')} ok={regSt.ok}>
         {() => (
           <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
             <label>{t('docmgmt.docNoPh', '문서번호 (DOC-…)')}</label>

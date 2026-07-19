@@ -5,6 +5,7 @@ import { useActionState, useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { approvePo, createPoOrder, receivePo, type ActState } from './actions'
 
 export interface PoItem {
@@ -18,9 +19,11 @@ export interface PoDetail {
 
 export function PoCreateForm() {
   const { t } = useI18n()
+  const perm = usePermission()
   const [st, action, pending] = useActionState(createPoOrder, {} as ActState)
   return (
-    <RegisterModal trigger={t('po.createBtn', '＋ 발주 생성')} title={t('po.createTitle', '발주 생성')} ok={st.ok} width={440}>
+    <RegisterModal disabled={!perm.canWrite('erp-po')} disabledTitle={perm.denyWrite}
+          trigger={t('po.createBtn', '＋ 발주 생성')} title={t('po.createTitle', '발주 생성')} ok={st.ok} width={440}>
       {() => (
         <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
           <label>{t('po.supplier', '공급처')}</label>

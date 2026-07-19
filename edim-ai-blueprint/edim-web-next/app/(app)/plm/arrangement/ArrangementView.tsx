@@ -7,6 +7,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { addComponent, createArrangement, deleteComponent, patchComponentQty, type ActState } from './actions'
 
 export interface ArrangementRow {
@@ -23,10 +24,12 @@ const INSTALL_CODES = ['Direct Driven', 'Belt In-Line', 'Belt Along']
 
 export function ArrangementRegForm() {
   const { t } = useI18n()
+  const perm = usePermission()
   const [st, action, pending] = useActionState(createArrangement, {} as ActState)
   const [direction, setDirection] = useState('')
   return (
-    <RegisterModal trigger={`＋ ${t('arr.regBtn', '구성 등록')}`} title={t('arr.regTitle', '구성 등록')} ok={st.ok} width={430}>
+    <RegisterModal disabled={!perm.canWrite('plm-arr')} disabledTitle={perm.denyWrite}
+          trigger={`＋ ${t('arr.regBtn', '구성 등록')}`} title={t('arr.regTitle', '구성 등록')} ok={st.ok} width={430}>
       {() => (
         <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
           <label>{t('arr.codePh', '구성 Code (ARR-…)')}</label>

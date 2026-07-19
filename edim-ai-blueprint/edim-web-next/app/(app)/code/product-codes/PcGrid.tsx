@@ -6,6 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { createProductCode, deleteProductCode, renameProductCode, setProductStatus, type ActState } from './actions'
 import { ApprovalStrip } from '@/components/ApprovalStrip'
 
@@ -18,6 +19,7 @@ const TONE: Record<string, 'ok' | 'warn' | 'info'> = { APPROVED: 'ok', DRAFT: 'i
 
 export function PcGrid({ rows }: { rows: PcRow[] }) {
   const { t } = useI18n()
+  const perm = usePermission()
   const cols: GridColumn<PcRow>[] = [
     { key: 'code', header: t('master.codeCol', '코드'), width: 130, code: true, render: (r) => r.mainCode },
     { key: 'name', header: t('master.name', '코드명'), editable: true, editValue: (r) => r.codeName, render: (r) => r.codeName },
@@ -37,7 +39,8 @@ export function PcGrid({ rows }: { rows: PcRow[] }) {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <RegisterModal trigger={t('master.addBtn', '＋ 코드 등록')} title={t('master.regTitle', '제품 코드 등록')} ok={regSt.ok}>
+        <RegisterModal disabled={!perm.canWrite('code-master')} disabledTitle={perm.denyWrite}
+          trigger={t('master.addBtn', '＋ 코드 등록')} title={t('master.regTitle', '제품 코드 등록')} ok={regSt.ok}>
           {() => (
             <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
               <label>{t('master.codePh', '코드 (KDP …)')}</label>

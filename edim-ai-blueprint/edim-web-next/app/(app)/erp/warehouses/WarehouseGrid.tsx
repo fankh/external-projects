@@ -6,6 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { addInspection, createWarehouse, deleteWarehouse, listInspections, type ActState, type InspectionRow } from './actions'
 
 export interface WarehouseRow {
@@ -17,6 +18,7 @@ const TYPES = ['REGION', 'PLANT', 'WAREHOUSE', 'STORAGE', 'SECTOR']
 
 export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
   const { t } = useI18n()
+  const perm = usePermission()
   const cols: GridColumn<WarehouseRow>[] = [
     { key: 'code', header: t('wh.locCodeCol', '위치 코드'), width: 130, code: true, render: (r) => <span style={{ paddingLeft: (r.depth ?? 0) * 12 }}>{r.code}</span> },
     { key: 'name', header: t('wh.name', '위치명'), render: (r) => r.name },
@@ -52,7 +54,8 @@ export function WarehouseGrid({ rows }: { rows: WarehouseRow[] }) {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <RegisterModal trigger={t('wh.addLoc', '＋ 위치 등록')} title={t('wh.regTitle', '위치 등록')} ok={regSt.ok}>
+        <RegisterModal disabled={!perm.canWrite('erp-warehouse')} disabledTitle={perm.denyWrite}
+          trigger={t('wh.addLoc', '＋ 위치 등록')} title={t('wh.regTitle', '위치 등록')} ok={regSt.ok}>
           {() => (
             <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
               <label>{t('wh.parentCode', '상위 코드')}</label>

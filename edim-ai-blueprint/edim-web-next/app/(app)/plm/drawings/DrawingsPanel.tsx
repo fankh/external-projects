@@ -5,6 +5,7 @@ import { useActionState, useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { addSupersedure, createDrawing, decideStep, revUp, type ActState } from './actions'
 
 export interface RevisionRow { rev: string; reason: string; date: string; by: string }
@@ -12,9 +13,11 @@ export interface StepRow { approvalId: number; step: string; result: string | nu
 
 export function DrawingRegForm() {
   const { t } = useI18n()
+  const perm = usePermission()
   const [st, action, pending] = useActionState(createDrawing, {} as ActState)
   return (
-    <RegisterModal trigger={t('dwg.registerBtn', '＋ 도면 등록')} title={t('dwg.regTitle', '도면 등록')} ok={st.ok}>
+    <RegisterModal disabled={!perm.canWrite('plm-drawings')} disabledTitle={perm.denyWrite}
+          trigger={t('dwg.registerBtn', '＋ 도면 등록')} title={t('dwg.regTitle', '도면 등록')} ok={st.ok}>
       {() => (
         <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
           <label>{t('dwg.drawingNo', '도면번호 (KDCR …)')}</label>

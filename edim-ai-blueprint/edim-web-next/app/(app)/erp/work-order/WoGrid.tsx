@@ -6,6 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { issueWorkOrder, transitionWorkOrder, type ActState } from './actions'
 
 export interface WoRow {
@@ -15,6 +16,7 @@ export interface WoRow {
 
 export function WoGrid({ rows }: { rows: WoRow[] }) {
   const { t } = useI18n()
+  const perm = usePermission()
   const [regSt, regAction, regPending] = useActionState(issueWorkOrder, {} as ActState)
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
@@ -40,7 +42,8 @@ export function WoGrid({ rows }: { rows: WoRow[] }) {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <RegisterModal trigger={t('wo.issueBtn', '＋ 발행')} title={t('wo.issueTitle', '작업지시 발행')} ok={regSt.ok}>
+        <RegisterModal disabled={!perm.canWrite('erp-work-order')} disabledTitle={perm.denyWrite}
+          trigger={t('wo.issueBtn', '＋ 발행')} title={t('wo.issueTitle', '작업지시 발행')} ok={regSt.ok}>
           {() => (
             <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
               <label>{t('wo.titleCol', '제목')}</label>

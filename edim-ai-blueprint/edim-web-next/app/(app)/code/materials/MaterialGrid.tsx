@@ -6,6 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { createMaterial, updateMaterial, type ActState } from './actions'
 
 export interface MaterialRow {
@@ -15,6 +16,7 @@ export interface MaterialRow {
 
 export function MaterialGrid({ rows }: { rows: MaterialRow[] }) {
   const { t } = useI18n()
+  const perm = usePermission()
   const cols: GridColumn<MaterialRow>[] = [
     { key: 'code', header: t('raw.codeCol', '재질 코드'), width: 120, code: true, render: (r) => r.code },
     { key: 'name', header: t('raw.name', '재질명'), render: (r) => r.name },
@@ -34,7 +36,8 @@ export function MaterialGrid({ rows }: { rows: MaterialRow[] }) {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <RegisterModal trigger={t('raw.addBtn', '＋ 재질 등록')} title={t('raw.regTitle', '재질 등록')} ok={regSt.ok}>
+        <RegisterModal disabled={!perm.canWrite('code-raw')} disabledTitle={perm.denyWrite}
+          trigger={t('raw.addBtn', '＋ 재질 등록')} title={t('raw.regTitle', '재질 등록')} ok={regSt.ok}>
           {() => (
             <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
               <label>{t('raw.codeCol', '재질 코드')}</label>

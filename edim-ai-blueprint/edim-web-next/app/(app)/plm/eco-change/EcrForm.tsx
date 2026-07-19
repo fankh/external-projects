@@ -4,13 +4,16 @@
 import { useActionState } from 'react'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { createEcr, type EcrState } from './actions'
 
 export function EcrForm() {
   const { t } = useI18n()
+  const perm = usePermission()
   const [st, action, pending] = useActionState(createEcr, {} as EcrState)
   return (
-    <RegisterModal trigger={`＋ ${t('eco.regBtn', 'ECR 등록')}`} title={t('eco.regTitle', 'ECR 등록')} ok={st.ok}>
+    <RegisterModal disabled={!perm.canWrite('plm-eco')} disabledTitle={perm.denyWrite}
+          trigger={`＋ ${t('eco.regBtn', 'ECR 등록')}`} title={t('eco.regTitle', 'ECR 등록')} ok={st.ok}>
       {() => (
         <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
           <label>{t('eco.title', '변경 제목')}</label>

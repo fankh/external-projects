@@ -5,12 +5,14 @@ import { useActionState, useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { checkProjectDuplicate, createProject, deleteProject, setStage, type ActState } from './actions'
 
 export const SALES_STAGES = ['기술 제안', '견적', '협의', '계약', '계약 변경', '종료']
 
 export function ProjectRegForm() {
   const { t } = useI18n()
+  const perm = usePermission()
   const [st, action, pending] = useActionState(createProject, {} as ActState)
   const [dupMsg, setDupMsg] = useState<{ text: string; warn?: boolean } | null>(null)
   const [dupPending, startDup] = useTransition()
@@ -22,7 +24,8 @@ export function ProjectRegForm() {
       : { text: t('prj.dupNone', '중복 없음 ✓') })
   })
   return (
-    <RegisterModal trigger={t('prj.addBtn', '＋ 프로젝트 등록')} title={t('prj.regTitle', '프로젝트 등록')} ok={st.ok}>
+    <RegisterModal disabled={!perm.canWrite('erp-project')} disabledTitle={perm.denyWrite}
+          trigger={t('prj.addBtn', '＋ 프로젝트 등록')} title={t('prj.regTitle', '프로젝트 등록')} ok={st.ok}>
       {() => (
         <form action={action} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
           <label>{t('prj.name', '프로젝트명')}</label>

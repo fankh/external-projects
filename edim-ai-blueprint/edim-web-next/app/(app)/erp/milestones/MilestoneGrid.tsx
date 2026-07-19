@@ -6,6 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
+import { usePermission } from '@/components/PermissionProvider'
 import { addMilestone, completeMilestone, type ActState } from './actions'
 
 export interface Milestone {
@@ -25,6 +26,7 @@ const STAGE_OPTS = [
 
 export function MilestoneGrid({ rows }: { rows: Milestone[] }) {
   const { t } = useI18n()
+  const perm = usePermission()
   const cols: GridColumn<Milestone>[] = [
     { key: 'proj', header: t('ms.project', '프로젝트'), width: 100, code: true, render: (r) => r.projectNo },
     { key: 'stage', header: t('ms.stage', '단계'), width: 80, align: 'center', sortValue: (r) => r.stage, render: (r) => r.stageLabel || r.stage },
@@ -43,7 +45,8 @@ export function MilestoneGrid({ rows }: { rows: Milestone[] }) {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-        <RegisterModal trigger={t('ms.addBtn', '＋ 납기 등록')} title={t('ms.regTitle', '납기 등록')} ok={regSt.ok}>
+        <RegisterModal disabled={!perm.canWrite('erp-milestone')} disabledTitle={perm.denyWrite}
+          trigger={t('ms.addBtn', '＋ 납기 등록')} title={t('ms.regTitle', '납기 등록')} ok={regSt.ok}>
           {() => (
             <form action={regAction} className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
               <label>{t('ms.project', '프로젝트')}</label>
