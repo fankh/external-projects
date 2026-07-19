@@ -1938,7 +1938,11 @@ def ai_chat(body: AiChatRequest) -> dict[str, Any]:
         _q("""SELECT part_no, part_name FROM prt_part
               WHERE tenant_id=%s AND (part_no ILIKE %s OR part_name ILIKE %s) LIMIT 5""",
            "부품", "/plm/parts")
-    refs = refs[:15]
+        # U10 선행 — 도면 대장 검색 (도면번호·도면명, AI 도면 학습 트랙의 검색 기반)
+        _q("""SELECT drawing_no, drawing_name FROM dwg_drawing
+              WHERE tenant_id=%s AND (drawing_no ILIKE %s OR drawing_name ILIKE %s) LIMIT 5""",
+           "도면", "/plm/drawings")
+    refs = refs[:18]
 
     from app.services.ai_assist import _client
     client = _client()
