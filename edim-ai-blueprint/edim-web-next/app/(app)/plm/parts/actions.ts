@@ -32,6 +32,30 @@ export async function createPart(_prev: ActState, formData: FormData): Promise<A
   return { ok: `${partNo} 등록` }
 }
 
+/** 부품 수정 (F5 이식) — 부품명·사양·재질·공급처·단위·중량 (PUT /parts/{partNo}, 폼 액션). */
+export async function updatePart(_prev: ActState, formData: FormData): Promise<ActState> {
+  const partNo = String(formData.get('partNo') ?? '').trim()
+  const name = String(formData.get('name') ?? '').trim()
+  if (!partNo) return { error: '수정 대상이 없습니다' }
+  if (!name) return { error: '부품명은 필수입니다' }
+  const weight = String(formData.get('weight') ?? '').trim()
+  const body = {
+    name,
+    spec: String(formData.get('spec') ?? '').trim(),
+    materialCode: String(formData.get('materialCode') ?? '').trim(),
+    supplier: String(formData.get('supplier') ?? '').trim(),
+    unit: String(formData.get('unit') ?? 'EA').trim() || 'EA',
+    weight: weight ? Number(weight) : null,
+  }
+  try {
+    await apiServer(`/parts/${encodeURIComponent(partNo)}`, { method: 'PUT', body: JSON.stringify(body) })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '수정 실패 (미등록 재질 422 가능)' }
+  }
+  revalidatePath(PATH)
+  return { ok: `부품 수정 ✓ — ${partNo}` }
+}
+
 /** 부품 대량 등록 (Excel) — /parts/import-excel (거래처 Import 와 동일 패턴). */
 export async function importPartsExcel(_prev: ActState, formData: FormData): Promise<ActState> {
   const file = formData.get('uploadedFile')

@@ -3587,6 +3587,7 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "approval.viewMine": ('My requests', '自分の要請', '我的请求'),
     "approval.viewMineHint": ('Show only my pending requests', '自分が要請した待機件のみ表示', '仅显示我请求的待办'),
     "approval.emptyMine": ('No pending requests of mine', '自分が要請した待機件なし', '没有我请求的待办'),
+    "parts.editTitle": ('Edit part', '部品修正', '部件修改'),
 }
 
 def seed_v32(cur, tid: int) -> None:
