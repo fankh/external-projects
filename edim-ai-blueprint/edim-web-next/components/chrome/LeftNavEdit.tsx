@@ -14,6 +14,7 @@ export function LeftNavEditModal(props: {
   canReadAdmin: boolean
   value: string[] | undefined                  // 현재 모듈 pref (undefined = 기본 전체)
   onSave: (ids: string[] | undefined) => void  // undefined = 기본값 복원
+  title?: string                               // U21 — 헤더 메뉴 편집 재사용 시 제목 교체
 }) {
   const { t } = useI18n()
   const [draft, setDraft] = useState<string[]>([])
@@ -54,7 +55,7 @@ export function LeftNavEditModal(props: {
   })
 
   return (
-    <Modal open={props.open} onClose={props.onClose} title={t('shell.menuEditTitle', '좌측 메뉴 편집')} width={430}>
+    <Modal open={props.open} onClose={props.onClose} title={props.title ?? t('shell.menuEditTitle', '좌측 메뉴 편집')} width={430}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 11 }}>
         <div>
           <div style={{ fontWeight: 700, color: 'var(--title-navy)', marginBottom: 4 }}>{t('shell.shownItems', '표시 항목')} — {draft.length}</div>

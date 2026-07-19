@@ -10,7 +10,7 @@ import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
-import { changePassword, firstProject, getFavorites, getLeftNav, saveBranding, saveFavorites, saveLeftNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
+import { changePassword, firstProject, getFavorites, getHeadNav, getLeftNav, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
 
 /** U11 색상 테마 프리셋 (슬라이드 57) — globals.css body[data-theme] 토큰. */
 const THEMES: { id: string; label: string }[] = [
@@ -100,6 +100,21 @@ export function AppChrome(props: {
   const [navEditOpen, setNavEditOpen] = useState(false)
   const [shortcutOpen, setShortcutOpen] = useState(false)
 
+  // ── U21 헤더 드롭다운 사용자 목록 (/prefs/headnav) — 부재 = 기본 전체 드롭다운 ──
+  const [headNav, setHeadNav] = useState<LeftNavPref>({})
+  const [headNavLoaded, setHeadNavLoaded] = useState(false)
+  useEffect(() => { void getHeadNav().then((p) => { setHeadNav(p); setHeadNavLoaded(true) }) }, [])
+  const applyHeadNav = useCallback((ids?: string[]) => {
+    setHeadNav((cur) => {
+      const next = { ...cur }
+      if (ids) next[module] = ids
+      else delete next[module]
+      void saveHeadNav(next)
+      return next
+    })
+  }, [module])
+  const [headEditOpen, setHeadEditOpen] = useState(false)
+
   // ── 좌측 판넬 접기/펼치기 (localStorage 영속) ──
   const [lnavCollapsed, setLnavCollapsed] = useState(false)
   useEffect(() => {
@@ -158,8 +173,29 @@ export function AppChrome(props: {
   const selectedId = HREF_INFO[pathname]?.id ?? null
 
   // ── 헤더 카테고리 드롭다운 — 모듈 그룹 → 상단 메뉴바 (원본 PPT Head 메뉴) ──
-  const navMenus: NavMenu[] = useMemo(() =>
-    navDropdowns(module, props.canReadAdmin).map((d) => ({
+  // U21: 사용자 목록 존재 시 그 순서·구성으로 재구성 (그룹 = 최초 등장 순, 섹션 헤더 생략)
+  const headCustom = headNavLoaded ? headNav[module] : undefined
+  const navMenus: NavMenu[] = useMemo(() => {
+    const drops = navDropdowns(module, props.canReadAdmin)
+    if (headCustom) {
+      const groupOf = new Map<string, { id: string; label: string }>()
+      drops.forEach((d) => d.entries.forEach((e) => { if (e.kind === 'leaf') groupOf.set(e.node.id, { id: d.id, label: d.label }) }))
+      const ordered: NavMenu[] = []
+      headCustom.forEach((id) => {
+        const n = NODE_BY_ID[id]
+        const g = groupOf.get(id)
+        if (!n?.href || !g) return
+        let menu = ordered.find((m) => m.key === g.id)
+        if (!menu) { menu = { key: g.id, label: t(`menu.${g.id}`, g.label), items: [] }; ordered.push(menu) }
+        menu.items.push({
+          label: t(`menu.${n.id}`, n.label).replace(/\s*\([^)]*\)\s*$/, ''),
+          hint: n.code,
+          onClick: () => router.push(n.href!),
+        })
+      })
+      return ordered
+    }
+    return drops.map((d) => ({
       key: d.id,
       label: t(`menu.${d.id}`, d.label),
       items: d.entries.flatMap((e, i): MenuItem[] => e.kind === 'header'
@@ -169,7 +205,8 @@ export function AppChrome(props: {
             hint: e.node.code,
             onClick: () => router.push(e.node.href!),
           }]),
-    })), [module, props.canReadAdmin, t, router])
+    }))
+  }, [module, props.canReadAdmin, t, router, headCustom])
 
   // ── 메뉴바 드롭다운 ──
   const stepTab = useCallback((dir: 1 | -1) => {
@@ -349,6 +386,10 @@ export function AppChrome(props: {
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
       <MenuBar menus={menus} extra={navMenus} right={
         <>
+          {/* U21 — 헤더 메뉴 편집 (Head Item 추가/제거/재정렬, /prefs/headnav) */}
+          <span className="b ic" data-hnav-edit
+            title={t('shell.headEdit', '헤더 메뉴 편집 — Head Item 추가·제거·재정렬')}
+            style={{ marginLeft: 8 }} onClick={() => setHeadEditOpen(true)}>✎</span>
           {/* D8 — 화면 즐겨찾기: ★ 토글 + 칩 (최대 8) */}
           <span className="b ic" data-fav-toggle
             title={curInfo ? (isFav ? t('shell.favRemove', '즐겨찾기 해제') : t('shell.favAdd', '현재 화면 즐겨찾기 추가')) : t('shell.favNoScreen', '즐겨찾기 — 화면을 먼저 여십시오')}
@@ -475,6 +516,10 @@ export function AppChrome(props: {
           {props.children}
         </main>
       </div>
+      <LeftNavEditModal open={headEditOpen} onClose={() => setHeadEditOpen(false)}
+        module={module} canReadAdmin={props.canReadAdmin}
+        value={headNav[module]} onSave={applyHeadNav}
+        title={t('shell.headEditTitle', '헤더 메뉴 편집')} />
       <LeftNavEditModal open={navEditOpen} onClose={() => setNavEditOpen(false)}
         module={module} canReadAdmin={props.canReadAdmin}
         value={leftNav[module]} onSave={applyLeftNav} />

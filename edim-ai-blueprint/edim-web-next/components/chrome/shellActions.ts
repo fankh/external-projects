@@ -128,3 +128,23 @@ export async function changePassword(currentPassword: string, newPassword: strin
     return { error: e instanceof ApiError ? e.message : '변경 실패 (현재 비밀번호 확인)' }
   }
 }
+
+/** U21 — 헤더 드롭다운 사용자 목록 (/prefs/headnav, leftnav 와 동일 형태: 모듈별 leaf id 순서). */
+export async function getHeadNav(): Promise<LeftNavPref> {
+  try {
+    const r = await apiServer<{ value: LeftNavPref | null }>('/prefs/headnav')
+    const v = r.value
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    const out: LeftNavPref = {}
+    for (const [k, ids] of Object.entries(v)) {
+      if (Array.isArray(ids) && ids.every((x) => typeof x === 'string')) out[k] = ids
+    }
+    return out
+  } catch { return {} }
+}
+
+export async function saveHeadNav(p: LeftNavPref): Promise<void> {
+  try {
+    await apiServer('/prefs/headnav', { method: 'PUT', body: JSON.stringify({ value: p }) })
+  } catch { /* 오프라인 — 다음 저장에서 재시도 */ }
+}
