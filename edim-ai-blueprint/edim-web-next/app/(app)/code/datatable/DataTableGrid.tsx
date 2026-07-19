@@ -1,7 +1,7 @@
 'use client'
 
 /** 데이터 Table — 행 선택 편집·추가·삭제·Excel 왕복 (N4b 복구). */
-import { useActionState, useState, useTransition } from 'react'
+import { useActionState, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { useI18n } from '@/components/I18nProvider'
@@ -109,6 +109,28 @@ function ChartWizard({ rows, columns, name, onClose }: {
   rows: TableRow[]; columns: string[]; name: string; onClose: () => void
 }) {
   const { t } = useI18n()
+  // U25 잔여 — 문서 연계: 차트 SVG 다운로드·인쇄
+  const svgRef = useRef<SVGSVGElement>(null)
+  const downloadSvg = () => {
+    const el = svgRef.current
+    if (!el) return
+    const blob = new Blob(['<?xml version="1.0"?>\n' + el.outerHTML], { type: 'image/svg+xml' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `chart-${name}.svg`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+  const printChart = () => {
+    const el = svgRef.current
+    if (!el) return
+    const w = window.open('', '_blank', 'width=820,height=460')
+    if (!w) return
+    w.document.write(`<title>${t('dtable.chartDocTitle', '차트')} — ${name}</title><body style="margin:16px;font-family:sans-serif"><h3 style="margin:0 0 8px">${name}</h3>${el.outerHTML}</body>`)
+    w.document.close()
+    w.focus()
+    w.print()
+  }
   const numericCols = columns.filter((c) => rows.some((r) => typeof r.values[c] === 'number'))
   const [series, setSeries] = useState<string[]>(numericCols.slice(0, 2))
   const [kind, setKind] = useState<'line' | 'bar'>('line')
@@ -128,6 +150,12 @@ function ChartWizard({ rows, columns, name, onClose }: {
     <div data-chart-panel className="gb" style={{ padding: 6, display: 'flex', gap: 10, fontSize: 10.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
         <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('dtable.chartTitle', '그래프 마법사')} — {name}<span style={{ float: 'right', cursor: 'pointer' }} onClick={onClose}>✕</span></div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button className="b" data-chart-dl onClick={downloadSvg} style={{ height: 19, fontSize: 9.5 }}
+            title={t('dtable.chartDlHint', '차트 SVG 파일 다운로드 (문서 첨부용)')}>⬇ SVG</button>
+          <button className="b" data-chart-print onClick={printChart} style={{ height: 19, fontSize: 9.5 }}
+            title={t('dtable.chartPrintHint', '차트 인쇄 — 새 창 + OS 인쇄 대화상자')}>🖶 {t('common.print', '인쇄')}</button>
+        </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <label><input type="radio" name="ckind" checked={kind === 'line'} onChange={() => setKind('line')} /> {t('dtable.line', '라인')}</label>
           <label><input type="radio" name="ckind" checked={kind === 'bar'} onChange={() => setKind('bar')} /> {t('dtable.bar', '막대')}</label>
@@ -140,7 +168,7 @@ function ChartWizard({ rows, columns, name, onClose }: {
           </label>
         ))}
       </div>
-      <svg data-chart-svg width={W} height={H} style={{ border: '1px solid var(--line)', background: '#fff', maxWidth: '100%' }} viewBox={`0 0 ${W} ${H}`}>
+      <svg ref={svgRef} data-chart-svg width={W} height={H} xmlns="http://www.w3.org/2000/svg" style={{ border: '1px solid var(--line)', background: '#fff', maxWidth: '100%' }} viewBox={`0 0 ${W} ${H}`}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => {
           const v = vMin + span * f
           const y = py(v)
