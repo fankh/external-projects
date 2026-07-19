@@ -10,7 +10,7 @@ import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
-import { changePassword, firstProject, getFavorites, getHeadNav, getLeftNav, getTenantHeadNav, getTenantNav, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
+import { changePassword, firstProject, getFavorites, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
 
 /** U11 색상 테마 프리셋 (슬라이드 57) — globals.css body[data-theme] 토큰. */
 const THEMES: { id: string; label: string }[] = [
@@ -38,6 +38,11 @@ function loadTabs(): MdiTab[] {
 }
 
 export function AppChrome(props: {
+  // v32.4 — 메뉴 커스텀 SSR (사용자 지시: 서버사이드 렌더): 레이아웃에서 4종 pref 서버 fetch
+  initialLeftNav?: LeftNavPref
+  initialTenantNav?: LeftNavPref
+  initialHeadNav?: LeftNavPref
+  initialTenantHeadNav?: LeftNavPref
   user: string
   canReadAdmin: boolean
   bell?: ReactNode
@@ -85,15 +90,11 @@ export function AppChrome(props: {
     }), [tabs, t])
 
   // ── 좌측 사용자 메뉴 목록 (/prefs/leftnav) — 모듈별 leaf id 순서, 부재 = 기본 전체 트리 ──
-  const [leftNav, setLeftNav] = useState<LeftNavPref>({})
-  const [leftNavLoaded, setLeftNavLoaded] = useState(false)
+  // v32.4 — SSR 초기값 (레이아웃 서버 fetch) — 첫 HTML 부터 커스텀 트리, 깜빡임 없음
+  const [leftNav, setLeftNav] = useState<LeftNavPref>(props.initialLeftNav ?? {})
+  const leftNavLoaded = true
   // U30 — 테넌트 기본 메뉴 (관리자 지정): 개인 pref > 테넌트 기본 > 전체 트리
-  const [tenantNav, setTenantNav] = useState<LeftNavPref>({})
-  useEffect(() => {
-    void Promise.all([getLeftNav(), getTenantNav()]).then(([p, tn]) => {
-      setLeftNav(p); setTenantNav(tn); setLeftNavLoaded(true)
-    })
-  }, [])
+  const [tenantNav, setTenantNav] = useState<LeftNavPref>(props.initialTenantNav ?? {})
   const applyTenantNav = useCallback((ids: string[]) => {
     setTenantNav((cur) => {
       const next = { ...cur, [module]: ids }
@@ -114,14 +115,9 @@ export function AppChrome(props: {
   const [shortcutOpen, setShortcutOpen] = useState(false)
 
   // ── U21 헤더 드롭다운 사용자 목록 (/prefs/headnav) — 부재 = 기본 전체 드롭다운 ──
-  const [headNav, setHeadNav] = useState<LeftNavPref>({})
-  const [headNavLoaded, setHeadNavLoaded] = useState(false)
-  const [tenantHeadNav, setTenantHeadNav] = useState<LeftNavPref>({})
-  useEffect(() => {
-    void Promise.all([getHeadNav(), getTenantHeadNav()]).then(([p, tn]) => {
-      setHeadNav(p); setTenantHeadNav(tn); setHeadNavLoaded(true)
-    })
-  }, [])
+  const [headNav, setHeadNav] = useState<LeftNavPref>(props.initialHeadNav ?? {})
+  const headNavLoaded = true
+  const [tenantHeadNav, setTenantHeadNav] = useState<LeftNavPref>(props.initialTenantHeadNav ?? {})
   const applyTenantHeadNav = useCallback((ids: string[]) => {
     setTenantHeadNav((cur) => {
       const next = { ...cur, [module]: ids }
