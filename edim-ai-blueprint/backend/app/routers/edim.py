@@ -7200,6 +7200,11 @@ def hierarchy_validate(tree: str = "PRODUCT") -> dict[str, Any]:
         rows = cur.fetchall()
         by_id = {r[0]: r for r in rows}
         seen: dict[str, int] = {}
+
+        # 주소 구분자(. 또는 /) 혼용 대응 — 세그먼트 기준 비교
+        def _segs(a: str) -> list[str]:
+            return [x for x in re.split(r"[./]", a) if x]
+
         for hid, parent_id, name, addr in rows:
             if addr in seen:
                 issues.append({"type": "DUP_ADDRESS", "nodeId": hid, "name": name, "address": addr,
@@ -7211,13 +7216,13 @@ def hierarchy_validate(tree: str = "PRODUCT") -> dict[str, Any]:
                                "detail": f"고아 노드 — 부모 #{parent_id} 없음"})
             elif parent_id is not None:
                 paddr = by_id[parent_id][3]
-                segs = addr.split(".")
-                if not (addr.startswith(paddr + ".") and len(segs) == len(paddr.split(".")) + 1):
+                ps, cs = _segs(paddr), _segs(addr)
+                if not (len(cs) == len(ps) + 1 and cs[: len(ps)] == ps):
                     issues.append({"type": "ADDR_MISMATCH", "nodeId": hid, "name": name, "address": addr,
                                    "detail": f"부모 주소 불일치 — 부모 {paddr} 의 한 단계 하위 아님"})
-            if parent_id is None and "." in addr:
+            if parent_id is None and len(_segs(addr)) > 1:
                 issues.append({"type": "ROOT_FORMAT", "nodeId": hid, "name": name, "address": addr,
-                               "detail": "루트 노드 주소에 구분점 포함"})
+                               "detail": "루트 노드 주소가 다중 세그먼트"})
     return {"tree": tree, "nodes": len(rows), "ok": not issues, "issues": issues}
 
 
