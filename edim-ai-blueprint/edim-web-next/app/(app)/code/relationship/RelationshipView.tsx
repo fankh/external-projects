@@ -6,7 +6,11 @@ import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
 import { Cvs } from '@/components/Cvs'
 import type { CanvasBlock } from '@/lib/cadTypes'
-import { runningTest, addChild, requestApproval, type RunningTestRow } from './actions'
+import { useRouter } from 'next/navigation'
+import { CadSvg } from '@/components/CadSvg'
+import { downloadCsv } from '@/lib/csv'
+import type { CadDocument } from '@/lib/cadTypes'
+import { relationshipCad, runningTest, addChild, requestApproval, type RunningTestRow } from './actions'
 
 export interface ChildRow { code: string; desc: string; qty: number; remarks: string; slotMap?: string }
 interface Mother { code: string; desc: string; slots: { slot: string; label: string; values: string }[] }
@@ -15,6 +19,18 @@ const SLOT_OPTS: Record<string, string[]> = { B: ['13', '21', '32'], C: ['32', '
 
 export function RelationshipView({ mother, children }: { mother: Mother; children: ChildRow[] }) {
   const { t } = useI18n()
+  const router = useRouter()
+  // U20 — 구성 실도면 미리보기 (CAD 토글)
+  const [cadMode, setCadMode] = useState(false)
+  const [cadDoc, setCadDoc] = useState<CadDocument | null>(null)
+  const [cadOffline, setCadOffline] = useState(false)
+  const toggleCad = () => {
+    const next = !cadMode
+    setCadMode(next)
+    if (next && cadDoc === null && !cadOffline) {
+      void relationshipCad().then((d) => { if (d === null) setCadOffline(true); else setCadDoc(d) })
+    }
+  }
   const [checked, setChecked] = useState<Set<string>>(new Set(children.map((c) => c.code)))
   const [slots, setSlots] = useState<Record<string, string>>({ B: '13', C: '32', E: '15' })
   const [testRows, setTestRows] = useState<RunningTestRow[] | null>(null)
@@ -61,6 +77,13 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
     { key: 'desc', header: 'Desc.', render: (r) => r.desc },
     { key: 'qty', header: "Q'ty", width: 34, align: 'right', render: (r) => r.qty },
     { key: 'rem', header: 'Remarks', width: 120, render: (r) => r.remarks },
+    { key: 'data', header: 'Data', width: 54, align: 'center', noSort: true, noFilter: true,
+      render: (r) => (
+        <span data-child-links style={{ display: 'inline-flex', gap: 4 }}>
+          <span title={t('codrel.openDetail', '코드 상세 (Tech·Variant·도면)')} style={{ cursor: 'pointer' }}
+            onClick={(e) => { e.stopPropagation(); router.push(`/detail/code?code=${encodeURIComponent(r.code)}`) }}>📄</span>
+        </span>
+      ) },
   ]
   const testCols: GridColumn<RunningTestRow>[] = [
     { key: 'no', header: 'No.', width: 36, align: 'center', render: (r) => r.no },
@@ -78,8 +101,16 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
             <tbody><tr>{mother.slots.map((s) => <td key={s.slot} className="code">{s.values}</td>)}</tr></tbody></table>
         </div>
         <div className="gb">
-          <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('codrel.diagram', '구성도 — Mother · Child')}</div>
-          <div style={{ height: 230 }}><Cvs blocks={relBlocks} dims={relDims} style={{ width: '100%', height: '100%' }} /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 6px' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, flex: 1 }}>{t('codrel.diagram', '구성도 — Mother · Child')}</span>
+            <button className={`b ${cadMode ? '' : 'pri'}`} style={{ height: 18, fontSize: 9.5 }} onClick={() => cadMode && toggleCad()}>{t('cpq.block', '블록')}</button>
+            <button className={`b ${cadMode ? 'pri' : ''}`} data-rel-cad style={{ height: 18, fontSize: 9.5 }} onClick={() => !cadMode && toggleCad()}>CAD</button>
+          </div>
+          <div style={{ height: 230 }}>
+            {cadMode
+              ? (cadDoc ? <CadSvg doc={cadDoc} /> : <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>{cadOffline ? t('cpq.cadOffline', 'CAD 서버 연결 실패') : t('cpq.drawing', '작도 중…')}</div>)
+              : <Cvs blocks={relBlocks} dims={relDims} style={{ width: '100%', height: '100%' }} />}
+          </div>
           <div style={{ fontSize: 10, color: 'var(--txt-dim)', lineHeight: 1.7, padding: '3px 6px' }}>{t('codrel.slotMapHint', 'Slot 매핑(slot_map)으로 Mother 값이 Child 코드 자릿수에 전파 (CODE-008)')}</div>
         </div>
         <div className="gb" style={{ padding: 6 }}>
@@ -104,7 +135,10 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
                 {opts.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             ))}
-            <button className="b" disabled={pending} onClick={runTest} style={{ height: 20, fontSize: 10 }}>Run ▶</button>
+            <button className="b" disabled={pending} onClick={runTest} style={{ height: 20, fontSize: 10 }} title={t('codrel.ebomHint', 'EBOM Run — BOM 관련만 전개 (슬라이드 70)')}>EBOM Run ▶</button>
+            <button className="b" data-ebom-export disabled={!testRows?.length} style={{ height: 20, fontSize: 10 }}
+              onClick={() => testRows && downloadCsv(`ebom-${mother.code}`,
+                ['No', 'Name', 'Qty', 'Remarks'], testRows.map((r) => [r.no, r.name, r.qty, r.remarks]))}>⬇ CSV</button>
           </div>
           <div style={{ flex: 1, minHeight: 0 }}>
             {testRows ? <DenseGrid columns={testCols} rows={testRows} rowKey={(r) => r.no} />

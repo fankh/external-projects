@@ -45,3 +45,11 @@ export async function requestApproval(mother: string, testCount: number): Promis
     return { error: e instanceof ApiError ? e.message : '승인 요청 실패' }
   }
 }
+
+/** U20 — 관계 구성 실도면 (CAD 정본, /cad/arrangement 재사용). */
+export async function relationshipCad(): Promise<import('@/lib/cadTypes').CadDocument | null> {
+  try {
+    const r = await apiServer<{ document: import('@/lib/cadTypes').CadDocument }>('/cad/arrangement')
+    return r.document
+  } catch { return null }
+}
