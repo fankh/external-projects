@@ -4,9 +4,23 @@
 import { useActionState, useState, useTransition } from 'react'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
-import { addSubstitute, addSupplierCode, createPart, deleteSubstitute, type ActState } from './actions'
+import { addSubstitute, addSupplierCode, createPart, deleteSubstitute, importPartsExcel, type ActState } from './actions'
 
 export interface SupplierCodeRow { supplier: string; supplierCode: string; supplierName: string }
+
+/** 부품 대량 등록 (Excel — /parts/import-excel, 거래처 Import 패턴). */
+export function PartImportForm() {
+  const { t } = useI18n()
+  const [impSt, impAction, impPending] = useActionState(importPartsExcel, {} as ActState)
+  return (
+    <form action={impAction} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      <input type="file" name="uploadedFile" accept=".xlsx" className="in" style={{ width: 190, fontSize: 10 }} />
+      <button type="submit" className="b" data-parts-import disabled={impPending}>{t('company.importBtn', '⬆ 대량등록')}</button>
+      {impSt.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{impSt.error}</span> : null}
+      {impSt.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{impSt.ok}</span> : null}
+    </form>
+  )
+}
 
 export function PartRegForm() {
   const { t } = useI18n()

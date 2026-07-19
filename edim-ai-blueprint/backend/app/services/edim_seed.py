@@ -3578,6 +3578,7 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "prj.dupCheckHint": ('S-3-5 duplicate check — query same/similar names', 'S-3-5 重複検討 — 同一/類似名の実照会', 'S-3-5 查重 — 相同/相似名称实查询'),
     "prj.dupFound": ('Possible duplicates', '重複疑い', '疑似重复'),
     "prj.dupNone": ('No duplicates ✓', '重複なし ✓', '无重复 ✓'),
+    "cad.dxfDlHint": ('Download source file', '原本ファイルダウンロード', '下载源文件'),
 }
 
 def seed_v32(cur, tid: int) -> None:

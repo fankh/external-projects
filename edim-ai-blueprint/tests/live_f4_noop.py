@@ -119,9 +119,10 @@ with sync_playwright() as pw:
     page.wait_for_timeout(1200)
     ok("자리표시자 목록 렌더", page.get_by_text("자리표시자 목록", exact=False).count() >= 1)
     ok("용지 선택(data-ps-paper) 노출", page.locator("[data-ps-paper]").count() == 1)
-    ok("Office(xlsx) 실배선 — enabled + 마커",
-       page.locator("[data-office-export]").count() == 1
-       and page.locator("[data-office-export]").is_enabled())
+    # Btn 컴포넌트는 data-* 를 전달하지 않음 — 텍스트 셀렉터 사용 (기존 교훈)
+    office = page.get_by_role("button", name="Office (xlsx)")
+    ok("Office(xlsx) 실배선 — enabled",
+       office.count() >= 1 and office.first.is_enabled())
     with page.expect_popup() as pop2:
         page.get_by_role("button", name="PDF", exact=True).click()
         page.wait_for_timeout(2500)
@@ -135,7 +136,9 @@ with sync_playwright() as pw:
     ok("코드 상세 Referencers(Where-Used)", "Where-Used" in body)
     ok("코드 상세 단가 이력", "단가 이력" in body or "이력" in body)
 
-    # 7. 문서함 — 행 선택 → PDF 미리보기 실배선
+    # 7. 문서함 — 행 선택 → PDF 미리보기 실배선 (detail 화면 후 CPQ 모듈 복귀)
+    page.locator(".titlebar .mod", has_text="CPQ").first.click()
+    page.wait_for_timeout(500)
     page.locator(".tn", has_text="문서함 (M-5-4)").first.click()
     page.wait_for_timeout(1500)
     rows_cnt = page.locator("table.g:visible tbody tr").count()

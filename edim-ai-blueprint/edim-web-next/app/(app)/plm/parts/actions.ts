@@ -32,6 +32,28 @@ export async function createPart(_prev: ActState, formData: FormData): Promise<A
   return { ok: `${partNo} 등록` }
 }
 
+/** 부품 대량 등록 (Excel) — /parts/import-excel (거래처 Import 와 동일 패턴). */
+export async function importPartsExcel(_prev: ActState, formData: FormData): Promise<ActState> {
+  const file = formData.get('uploadedFile')
+  if (!(file instanceof File) || file.size === 0) return { error: 'Excel 파일을 선택하십시오' }
+  const { getToken } = await import('@/lib/session')
+  const token = await getToken()
+  const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
+  const fd = new FormData()
+  fd.append('uploadedFile', file)
+  const res = await fetch(`${API_BASE}/parts/import-excel`, {
+    method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd, cache: 'no-store',
+  })
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`
+    try { detail = (await res.json())?.detail ?? detail } catch { /* non-json */ }
+    return { error: detail }
+  }
+  const r = await res.json() as { inserted: number; rejected: string[] }
+  revalidatePath(PATH)
+  return { ok: `Import — 등록 ${r.inserted}건${r.rejected?.length ? ` · 거부 ${r.rejected.length}` : ''}` }
+}
+
 export async function deletePart(partNo: string): Promise<ActState> {
   try {
     await apiServer(`/parts/${encodeURIComponent(partNo)}`, { method: 'DELETE' })

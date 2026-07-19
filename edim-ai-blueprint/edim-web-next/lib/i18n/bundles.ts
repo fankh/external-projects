@@ -1892,6 +1892,7 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'prj.dupCheckHint': 'S-3-5 duplicate check — query same/similar names',
     'prj.dupFound': 'Possible duplicates',
     'prj.dupNone': 'No duplicates ✓',
+    'cad.dxfDlHint': 'Download source file',
   },
   ja: {
     'menu.plm-parts': '部品台帳 (M-4-7)',
@@ -3784,6 +3785,7 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'prj.dupCheckHint': 'S-3-5 重複検討 — 同一/類似名の実照会',
     'prj.dupFound': '重複疑い',
     'prj.dupNone': '重複なし ✓',
+    'cad.dxfDlHint': '原本ファイルダウンロード',
   },
   zh: {
     'menu.plm-parts': '零件台账 (M-4-7)',
@@ -5676,5 +5678,6 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'prj.dupCheckHint': 'S-3-5 查重 — 相同/相似名称实查询',
     'prj.dupFound': '疑似重复',
     'prj.dupNone': '无重复 ✓',
+    'cad.dxfDlHint': '下载源文件',
   },
 }

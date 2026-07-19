@@ -3,20 +3,20 @@
 /** Dense 소형 컨트롤 — 22px 체계 (디자인시안 b02). */
 import type { CSSProperties, ReactNode } from 'react'
 
-export function Btn(props: {
+export function Btn({ children, variant, onClick, disabled, title, style, ...rest }: {
   children: ReactNode
   variant?: 'default' | 'pri' | 'run' | 'ic'
   onClick?: () => void
   disabled?: boolean
   title?: string
   style?: CSSProperties
-}) {
-  const cls = ['b', props.variant && props.variant !== 'default' ? props.variant : '']
+} & Record<`data-${string}`, string | boolean>) {
+  const cls = ['b', variant && variant !== 'default' ? variant : '']
     .filter(Boolean).join(' ')
   return (
-    <button type="button" className={cls} onClick={props.onClick}
-      disabled={props.disabled} title={props.title} style={props.style}>
-      {props.children}
+    <button type="button" className={cls} onClick={onClick}
+      disabled={disabled} title={title} style={style} {...rest}>
+      {children}
     </button>
   )
 }

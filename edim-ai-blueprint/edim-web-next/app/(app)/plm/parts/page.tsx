@@ -4,7 +4,7 @@ import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { XlsxButton } from '@/components/XlsxButton'
 import { PartGrid, type PartRow } from './PartGrid'
-import { PartRegForm, SubstitutePanel, SupplierCodePanel, type SubstituteRow, type SupplierCodeRow } from './PartsPanel'
+import { PartImportForm, PartRegForm, SubstitutePanel, SupplierCodePanel, type SubstituteRow, type SupplierCodeRow } from './PartsPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +33,10 @@ export default async function PartsPage({ searchParams }: { searchParams: Promis
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <ScreenHeader title={t('menu.plm-parts', '부품 대장 (M-4-7)')} count={err ? undefined : rows.length} source="/parts" right={<XlsxButton kind="parts" />} />
-      <div style={{ padding: '4px 6px 0' }}><PartRegForm /></div>
+      <div style={{ padding: '4px 6px 0', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <PartRegForm />
+        <PartImportForm />
+      </div>
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div> : (
           <>
