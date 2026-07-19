@@ -6,14 +6,16 @@ import { useMemo, useState, useTransition } from 'react'
 import { GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
 import { MENU_TREE, NODE_BY_ID, moduleLeaves, type ModuleKey, type NavNode } from '@/components/chrome/menus'
-import { saveTenantHeadNav, saveTenantNav, type LeftNavPref } from '@/components/chrome/shellActions'
+import { saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, type LeftNavPref } from '@/components/chrome/shellActions'
 
 const MODULES: ModuleKey[] = ['erp', 'cpq', 'plm', 'code', 'toolbox', 'common'] as ModuleKey[]
 
-export function TenantMenuAdmin({ initialLeft, initialHead }: { initialLeft: LeftNavPref; initialHead: LeftNavPref }) {
+export function TenantMenuAdmin({ initialLeft, initialHead, myLeft, myHead }: { initialLeft: LeftNavPref; initialHead: LeftNavPref; myLeft: LeftNavPref; myHead: LeftNavPref }) {
   const { t } = useI18n()
   const [left, setLeft] = useState<LeftNavPref>(initialLeft)
   const [head, setHead] = useState<LeftNavPref>(initialHead)
+  // v31.5 — 개인 설정 가림 경고: 현재 계정의 개인 설정이 테넌트 기본을 덮는 경우 안내·해제
+  const [mine, setMine] = useState<{ left: LeftNavPref; head: LeftNavPref }>({ left: myLeft, head: myHead })
   const [module, setModule] = useState<ModuleKey>('erp')
   const [target, setTarget] = useState<'left' | 'head'>('left')
   const [draft, setDraft] = useState<string[] | null>(null)
@@ -43,6 +45,16 @@ export function TenantMenuAdmin({ initialLeft, initialHead }: { initialLeft: Lef
       [...(n.href ? [n] : []), ...(n.children ? leavesOf(n.children) : [])])
     return leavesOf(MENU_TREE[module].nodes).filter((l) => !inDraft.has(l.id))
   }, [module, current])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const clearMine = () => start(async () => {
+    const cur = target === 'left' ? mine.left : mine.head
+    const next = { ...cur }
+    delete next[module]
+    if (target === 'left') await saveLeftNav(next)
+    else await saveHeadNav(next)
+    setMine((m) => target === 'left' ? { ...m, left: next } : { ...m, head: next })
+    setMsg({ text: t('tmenu.mineCleared', '이 계정의 개인 설정 해제 ✓ — 테넌트 기본이 적용됩니다 (새로고침 후 반영)') })
+  })
 
   const save = (ids: string[] | undefined) => start(async () => {
     const next = { ...(target === 'left' ? left : head) }
@@ -99,6 +111,12 @@ export function TenantMenuAdmin({ initialLeft, initialHead }: { initialLeft: Lef
           ))}
           {!current.length ? <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('tmenu.empty', '항목 없음 — 우측에서 추가')}</div> : null}
         </div>
+        {(target === 'left' ? mine.left : mine.head)[module]?.length ? (
+          <div data-tmenu-mine-warn style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '4px 8px', fontSize: 10.5, background: '#FBF3E2', borderBottom: '1px solid var(--line)' }}>
+            <span style={{ color: '#8A6D1F' }}>⚠ {t('tmenu.mineWarn', '이 계정에는 이 모듈의 개인 설정이 있어 테넌트 기본이 본인 화면에 보이지 않습니다 (개인 > 테넌트 우선)')}</span>
+            <button className="b" data-tmenu-mine-clear disabled={pending} onClick={clearMine} style={{ height: 18, fontSize: 10 }}>{t('tmenu.clearMine', '개인 설정 해제')}</button>
+          </div>
+        ) : null}
         <div style={{ display: 'flex', gap: 6, padding: 6, alignItems: 'center' }}>
           <button className="b run" data-tmenu-save disabled={pending || !draft} onClick={() => save(current)}>{t('tmenu.saveTenant', '🏢 테넌트 기본 저장')}</button>
           <button className="b" data-tmenu-clear disabled={pending} onClick={() => save(undefined)}>{t('tmenu.clear', '지정 해제(전체 복귀)')}</button>
