@@ -244,10 +244,10 @@ Table 데이터 → 차트 생성 위저드(Qt 스타일). 현재 성능 곡선(
 > s54=s53 동일(PR·PO 기구현), s56 작업판 구조=U13/U21, s60 Selection 툴바=C-1+U16, s63 Design 툴바 상세=U2 잔여(파라메트릭),
 > s77 Mobile App=M-16(별도 앱 협의). 신규 갭 1건.
 
-### U26. Sub Work Place 보강 — Child Component 패널 + Spec Import 진입점 (슬라이드 69) — ❌ 미구현
+### U26. Sub Work Place 보강 — Child Component 패널 + Spec Import 진입점 (슬라이드 69) — ✅ 구현 (v27.4)
 E-4 SWP 모듈 명세 중 미배치 2종: **Child Component**(BOM Mother 연결 Sub Code 표 + 세부 정보 Data 아이콘), **Specification**(정형 Excel Import — 백엔드 /tables/{name}/import-excel 은 기구현, SWP 진입점 부재).
-- [ ] Child Component 패널 — mother 코드 조회 → child 표(코드·설명·수량) + 코드 상세 딥링크
-- [ ] Table 패널에 Excel Import 진입점 (기존 import-excel 재사용)
+- [x] Child Component 패널 ✅ v27.4 — SWP 4번째 패널: mother 조회(기본 KDCR 3-13)→child 표(코드·설명·수량)+📄 코드 상세 딥링크. 라이브: 5행·/detail/code 이동
+- [x] Table Excel Import 진입점 ✅ v27.4 — Table 패널 하단 .xlsx 업로드 폼(기존 import-excel 멀티파트 재사용, 신규/갱신/거부 집계 표시). 라이브: FanTechData UT999 신규 1건 왕복(Import→반영 확인→삭제 원상)
 
 ## 구현 완료 확인 (원본 요구 → 구현 근거, 대표만)
 
