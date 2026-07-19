@@ -268,7 +268,13 @@ export function navDropdowns(module: ModuleKey, includeSetup: boolean): NavDropd
 /** U34b — 편집 초안에 폴더 마커 자동 주입: 마커가 없으면 MENU_TREE 그룹 구조를 '#라벨' 마커로 재구성.
  *  (모든 페이지가 폴더 안에 있도록 — 렌더의 폴더 보존 규칙과 동일한 그룹핑) */
 export function withFolderMarkers(ids: string[], module: ModuleKey, includeSetup: boolean): string[] {
-  if (ids.some((id) => id.startsWith('#'))) return ids
+  // 부분 마커: 첫 마커 이전(루트 구간)만 그룹 주입, 사용자 마커 구간은 그대로 보존
+  const firstMarker = ids.findIndex((id) => id.startsWith('#'))
+  if (firstMarker >= 0) {
+    const head = ids.slice(0, firstMarker)
+    const tail = ids.slice(firstMarker)
+    return head.length ? [...withFolderMarkers(head, module, includeSetup), ...tail] : ids
+  }
   const order = new Map(ids.map((id, i) => [id, i]))
   const vis = (n: NavNode) => includeSetup || n.minLevel !== 'SETUP'
   const leavesOf = (ns: NavNode[]): NavNode[] => ns.filter(vis).flatMap((n) =>
