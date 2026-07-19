@@ -65,6 +65,44 @@ export function SelectionView(props: {
   }
   // U1 2단계 — 회전·반전·스냅 (선택 블록 대상, localStorage 영속)
   const [snapOn, setSnapOn] = useState(true)
+  // U1 3단계 — 구성 모듈 분할/통합 (localStorage 영속, s05 노트 "이동, 삭제 및 구성 모듈의 분할 통합")
+  const [layout, setLayout] = useState<{ splits: string[]; merges: [string, string][] }>({ splits: [], merges: [] })
+  const [mergeArm, setMergeArm] = useState(false)
+  useEffect(() => {
+    try {
+      const l = JSON.parse(localStorage.getItem('edim-c1-layout') ?? 'null')
+      if (l && Array.isArray(l.splits) && Array.isArray(l.merges)) setLayout(l)
+    } catch { /* corrupt */ }
+  }, [])
+  const saveLayout2 = (l: { splits: string[]; merges: [string, string][] }) => {
+    setLayout(l)
+    try { localStorage.setItem('edim-c1-layout', JSON.stringify(l)) } catch { /* quota */ }
+  }
+  const splitSel = () => {
+    if (!selBlock) { say('분할 — 블록을 먼저 선택하십시오', true); return }
+    const baseId = selBlock.id.replace(/#[12]$/, '')
+    if (selBlock.id.includes('+')) { say('분할 — 통합 블록은 먼저 통합 해제(RESET) 하십시오', true); return }
+    if (layout.splits.includes(baseId)) { say(`분할 해제 — ${baseId}`, false); saveLayout2({ ...layout, splits: layout.splits.filter((x) => x !== baseId) }); setSelBlock(null); return }
+    saveLayout2({ ...layout, splits: [...layout.splits, baseId] })
+    setSelBlock(null)
+    say(`분할 ⫽ — ${selBlock.name} → ①·② (재클릭 시 해제)`)
+  }
+  const armMerge = () => {
+    if (!selBlock) { say('통합 — 기준 블록을 먼저 선택하십시오', true); return }
+    setMergeArm(true)
+    say(`통합 ⊞ — 기준 ${selBlock.name} · 통합할 대상 블록을 클릭하십시오`)
+  }
+  const onCanvasSelect = (b: CanvasBlock | null) => {
+    if (mergeArm && b && selBlock && b.id !== selBlock.id) {
+      setMergeArm(false)
+      saveLayout2({ ...layout, merges: [...layout.merges, [selBlock.id, b.id]] })
+      say(`통합 ⊞ — ${selBlock.name} + ${b.name} → 단일 모듈`)
+      setSelBlock(null)
+      return
+    }
+    setMergeArm(false)
+    setSelBlock(b)
+  }
   const patchGeom = (id: string, p: Partial<{ x: number; y: number; rot: number; flip: boolean }>) => {
     setGeom((g) => {
       const next = { ...g, [id]: { ...(g[id] ?? {}), ...p } }
@@ -87,8 +125,9 @@ export function SelectionView(props: {
   }
   const resetGeom = () => {
     setGeom({})
-    try { localStorage.removeItem('edim-c1-geom') } catch { /* quota */ }
-    say('배치 초기화 — 기본 위치·회전 복원')
+    saveLayout2({ splits: [], merges: [] })
+    try { localStorage.removeItem('edim-c1-geom'); localStorage.removeItem('edim-c1-layout') } catch { /* quota */ }
+    say('배치 초기화 — 기본 위치·회전·분할/통합 복원')
   }
   const runCommand = (cmd: string) => {
     const c = cmd.trim().toUpperCase()
@@ -96,8 +135,10 @@ export function SelectionView(props: {
     if (op === 'ROTATE' || op === 'RO') rotateSel(Number(arg) || 90)
     else if (op === 'MIRROR' || op === 'MI') mirrorSel()
     else if (op === 'SNAP') { const on = arg ? arg === 'ON' : !snapOn; setSnapOn(on); say(`스냅 ${on ? 'ON (10px)' : 'OFF'}`) }
+    else if (op === 'SPLIT') splitSel()
+    else if (op === 'MERGE') armMerge()
     else if (op === 'RESET') resetGeom()
-    else say(`명령 실행: ${cmd} (지원: ROTATE [deg] · MIRROR · SNAP ON|OFF · RESET)`)
+    else say(`명령 실행: ${cmd} (지원: ROTATE [deg] · MIRROR · SPLIT · MERGE · SNAP ON|OFF · RESET)`)
   }
   const saveOpts = (id: string, opts: Record<string, string>) => {
     setBlockOpts((m) => {
@@ -107,12 +148,36 @@ export function SelectionView(props: {
     })
   }
   const baseBlocks = props.arrBlocks ?? AHU_BLOCKS
-  const blocks = useMemo(() => baseBlocks.map((b) => {
-    const g = geom[b.id]
-    const o = blockOpts[b.id]
-    const summary = o ? Object.values(o).filter(Boolean).slice(0, 2).join('·') : ''
-    return { ...b, ...(g ?? {}), sub: summary ? `${b.sub ? b.sub + ' · ' : ''}${summary}` : b.sub }
-  }), [baseBlocks, geom, blockOpts])
+  const blocks = useMemo(() => {
+    // ① 분할: 대상 블록을 좌/우 하프 모듈 ①·② 로
+    let vis: CanvasBlock[] = baseBlocks.flatMap((b) => {
+      if (!layout.splits.includes(b.id)) return [b]
+      const hw = Math.max(30, Math.floor(b.w / 2))
+      return [
+        { ...b, id: `${b.id}#1`, name: `${b.name} ①`, w: hw },
+        { ...b, id: `${b.id}#2`, name: `${b.name} ②`, x: b.x + hw, w: b.w - hw },
+      ]
+    })
+    // ② 통합: 두 블록의 외접 사각형으로 병합 (양쪽 모두 현존할 때만)
+    for (const [a, c] of layout.merges) {
+      const A = vis.find((v) => v.id === a)
+      const C = vis.find((v) => v.id === c)
+      if (!A || !C) continue
+      const x = Math.min(A.x, C.x), y = Math.min(A.y, C.y)
+      const merged: CanvasBlock = {
+        id: `${a}+${c}`, name: `${A.name}+${C.name}`, sub: A.sub,
+        x, y, w: Math.max(A.x + A.w, C.x + C.w) - x, h: Math.max(A.y + A.h, C.y + C.h) - y,
+      }
+      vis = [...vis.filter((v) => v.id !== a && v.id !== c), merged]
+    }
+    // ③ geom·세부선정 반영
+    return vis.map((b) => {
+      const g = geom[b.id]
+      const o = blockOpts[b.id]
+      const summary = o ? Object.values(o).filter(Boolean).slice(0, 2).join('·') : ''
+      return { ...b, ...(g ?? {}), sub: summary ? `${b.sub ? b.sub + ' · ' : ''}${summary}` : b.sub }
+    })
+  }, [baseBlocks, geom, blockOpts, layout])
   const geomTyped: Record<string, { x?: number; y?: number; rot?: number; flip?: boolean }> = geom
 
   const reExpand = (sv: Record<string, string>) => start(async () => {
@@ -209,13 +274,15 @@ export function SelectionView(props: {
             <Btn onClick={() => rotateSel(90)} title={t('cpq.rotateHint', '선택 블록 90° 회전 (RO)')} style={{ height: 18, fontSize: 9.5 }} data-rotate-btn>⟳ RO</Btn>
             <Btn onClick={mirrorSel} title={t('cpq.mirrorHint', '선택 블록 좌우 반전 (MI)')} style={{ height: 18, fontSize: 9.5 }} data-mirror-btn>⇋ MI</Btn>
             <Btn variant={snapOn ? 'pri' : 'default'} onClick={() => { setSnapOn(!snapOn); say(`스냅 ${!snapOn ? 'ON (10px)' : 'OFF'}`) }} style={{ height: 18, fontSize: 9.5 }} data-snap-btn>SNAP</Btn>
+            <Btn onClick={splitSel} title={t('cpq.splitHint', '선택 모듈 분할 ①·② (SPLIT, 재실행=해제)')} style={{ height: 18, fontSize: 9.5 }} data-split-btn>⫽ {t('cpq.split', '분할')}</Btn>
+            <Btn variant={mergeArm ? 'pri' : 'default'} onClick={armMerge} title={t('cpq.mergeHint', '선택 모듈 + 대상 클릭 → 통합 (MERGE)')} style={{ height: 18, fontSize: 9.5 }} data-merge-btn>⊞ {t('cpq.merge', '통합')}</Btn>
           </div>
           {cadMode ? (
             <div style={{ flex: 1, minHeight: 280, border: '1px solid var(--line)', background: '#fff' }}>
               {cadDoc ? <CadSvg doc={cadDoc} /> : <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--txt-mute)', fontSize: 11 }}>{cadOffline ? t('cpq.cadOffline', 'CAD 서버 연결 실패') : t('cpq.drawing', '작도 중…')}</div>}
             </div>
           ) : (
-            <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={setSelBlock} onOpen={setDetailBlock} onMoveBlock={moveBlock} snap={snapOn ? 10 : 0} style={{ flex: 1, minHeight: 280 }} />
+            <Cvs blocks={blocks} selectedId={selBlock?.id ?? null} onSelect={onCanvasSelect} onOpen={setDetailBlock} onMoveBlock={moveBlock} snap={snapOn ? 10 : 0} style={{ flex: 1, minHeight: 280 }} />
           )}
           <CommandLine prompt={selBlock ? `${t('cpq.cmdSelected', '선택')}=${selBlock.name}  ${t('cpq.cmdBasePoint', '기준점 지정 >')}` : t('cpq.cmdIdle', '명령 대기 >')} coord={snapOn ? t('cpq.snapOn', '스냅 ON') : t('cpq.snapOff', '스냅 OFF')} onCommand={runCommand} />
           {status ? <div style={{ fontSize: 11, color: status.err ? 'var(--err)' : 'var(--run)' }}>{status.text}</div> : null}
