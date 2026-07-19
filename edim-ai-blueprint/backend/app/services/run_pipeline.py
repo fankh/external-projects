@@ -378,6 +378,113 @@ def build_doc_pdf(*, doc_no: str, title: str, doc_type: str, status: str, versio
     return buf.getvalue()
 
 
+def build_clt_quotation_pdf(*, quotation_no: str, project_name: str, customer: str,
+                            items: list[dict], currency: str = "KRW",
+                            subtotal: float = 0, tax: float = 0, total: float = 0,
+                            delivery_terms: str = "", payment_terms: str = "",
+                            validity: str = "", quote_date: str = "") -> bytes:
+    """U19 CLT 견적서 (슬라이드 74 우측 양식) — 표 기반: 헤더 메타 + 품목표 + 합계 + 조건."""
+    import os
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+
+    fn = "HYSMyeongJo-Medium"
+    ttf = "/app/fonts/NanumGothic.ttf"
+    if os.path.exists(ttf):
+        if "NanumGothic" not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont("NanumGothic", ttf))
+        fn = "NanumGothic"
+    else:
+        pdfmetrics.registerFont(UnicodeCIDFont("HYSMyeongJo-Medium"))
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+    navy = colors.HexColor("#1F4E8C")
+    m = 16 * mm
+    # 헤더 — NOVA Solution · Title
+    c.setFillColor(navy)
+    c.setFont(fn, 16)
+    c.drawString(m, h - m - 8, "NOVA Solution")
+    c.setFont(fn, 13)
+    c.drawRightString(w - m, h - m - 8, "CLT 견적서 (QUOTATION)")
+    c.setStrokeColor(navy)
+    c.setLineWidth(1.2)
+    c.line(m, h - m - 16, w - m, h - m - 16)
+    # 메타 표
+    c.setFillColor(colors.black)
+    meta = [
+        ("공 사 명", project_name, "견적번호", quotation_no),
+        ("고 객 사", customer, "견적일자", quote_date or date.today().isoformat()),
+        ("납품조건", delivery_terms or "-", "유효기간", validity or "-"),
+        ("지불조건", payment_terms or "-", "통    화", currency),
+    ]
+    y = h - m - 34
+    c.setFont(fn, 9)
+    for k1, v1, k2, v2 in meta:
+        c.setFillColor(colors.HexColor("#5A6270"))
+        c.drawString(m, y, k1)
+        c.drawString(w / 2 + 4, y, k2)
+        c.setFillColor(colors.black)
+        c.drawString(m + 58, y, str(v1)[:44])
+        c.drawString(w / 2 + 62, y, str(v2)[:30])
+        y -= 14
+    y -= 6
+    # 품목표
+    cols = [m, m + 58 * mm, m + 118 * mm, m + 134 * mm, m + 158 * mm, w - m]
+    c.setFillColor(colors.HexColor("#DCE3EE"))
+    c.rect(m, y - 4, w - 2 * m, 15, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor("#2B3A55"))
+    c.setFont(fn, 8.5)
+    for x, head in zip(cols[:-1], ["장비/품목", "코드", "수량", "단가(K)", "합계(K)"]):
+        c.drawString(x + 2, y, head)
+    y -= 15
+    c.setFont(fn, 8.5)
+    c.setFillColor(colors.black)
+    total_k = 0.0
+    for it in items[:30]:
+        qty = float(it.get("qty", 1) or 1)
+        price_k = it.get("priceK")
+        amt_k = qty * float(price_k) if price_k is not None else None
+        if amt_k is not None:
+            total_k += amt_k
+        c.drawString(cols[0] + 2, y, str(it.get("name", ""))[:38])
+        c.drawString(cols[1] + 2, y, str(it.get("code", ""))[:34])
+        c.drawRightString(cols[3] - 4, y, f"{qty:g}")
+        c.drawRightString(cols[4] - 4, y, f"{float(price_k):,.0f}" if price_k is not None else "미확정")
+        c.drawRightString(cols[5] - 4, y, f"{amt_k:,.0f}" if amt_k is not None else "-")
+        c.setStrokeColor(colors.HexColor("#E1E5EB"))
+        c.line(m, y - 4, w - m, y - 4)
+        y -= 13
+        if y < 60 * mm:
+            break
+    # 합계
+    y -= 4
+    c.setStrokeColor(navy)
+    c.line(m, y, w - m, y)
+    y -= 14
+    c.setFont(fn, 9.5)
+    c.drawString(m + 2, y, f"공급가액: {subtotal:,.0f} {currency}")
+    c.drawString(m + 70 * mm, y, f"세액: {tax:,.0f}")
+    c.setFont(fn, 11)
+    c.setFillColor(navy)
+    c.drawRightString(w - m - 2, y, f"합계: {total:,.0f} {currency}")
+    y -= 20
+    c.setFillColor(colors.HexColor("#5A6270"))
+    c.setFont(fn, 8)
+    c.drawString(m, y, "Remarks: 본 견적은 유효기간 내 유효하며, 사양 변경 시 재견적 대상입니다. (D-3 · CLT 양식)")
+    c.setFont(fn, 7.5)
+    c.drawString(m, 14 * mm, f"EDIM Tool System · NOVA Solution · {date.today().isoformat()} 자동 생성")
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 def build_lines_pdf(*, title: str, subtitle: str = "", lines: list[str],
                     confidential: bool = False, paper: str = "A4", land: bool = False,
                     margin_mm: float = 17.6, font_pt: float = 9.5,

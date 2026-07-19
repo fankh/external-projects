@@ -7850,6 +7850,55 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
             "directCostTotal": direct_total, "contributionMargin": margin, "ebit": ebit}
 
 
+# ── U19 PCR 세부 비용 체계 (슬라이드 74) — 비용 트리(조달/부제조/직접/판관 분해) ──
+
+@router.get("/cost/pcr/{pcr_id}/breakdown")
+def pcr_breakdown(pcr_id: int) -> dict[str, Any]:
+    """PCR 비용 트리 (U19) — Run 원가 라인(재료/제조/직접) + 판관 분해(율 기반 근사, 합계=SGA 8%)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT business_type, sections, direct_cost_total, contribution_margin, ebit
+               FROM cst_pcr WHERE tenant_id=%s AND pcr_id=%s""", (tid, pcr_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"PCR 없음: #{pcr_id}")
+        sec = row[1] or {}
+        run_id = sec.get("runId")
+        lines_by_type: dict[str, list[dict[str, Any]]] = {}
+        if run_id:
+            cur.execute(
+                "SELECT calc_type, detail FROM cst_calc WHERE tenant_id=%s AND run_id=%s", (tid, run_id))
+            for ct, det in cur.fetchall():
+                lines_by_type[ct] = (det or {}).get("lines", [])
+    revenue = float(sec.get("revenue", 0))
+    sga_total = float(sec.get("sga", 0))
+    # 판관 분해 — 슬라이드 74 세부 항목을 율 기반 근사 (합계 = SGA 8%, 근거 명시)
+    sga_rows = [
+        {"name": "Sales overhead (3%)", "amount": round(revenue * 0.03)},
+        {"name": "Adm overhead (2%)", "amount": round(revenue * 0.02)},
+        {"name": "Tech. R&D Cost (2%)", "amount": round(revenue * 0.02)},
+    ]
+    sga_rows.append({"name": "기타 (Travel·Maintenance 등)", "amount": round(sga_total - sum(r["amount"] for r in sga_rows))})
+    def sect(title: str, ct: str, fallback: float) -> dict[str, Any]:
+        rows = [{"name": ln.get("name") or ln.get("code", "?"), "amount": float(ln.get("amount", 0))}
+                for ln in lines_by_type.get(ct, [])]
+        return {"title": title, "rows": rows[:20],
+                "subtotal": float(sec.get(fallback, 0)) if isinstance(fallback, str) else fallback}
+    sections = [
+        {**sect("Procurement cost (재료비)", "MATERIAL", "material")},
+        {**sect("Sub-manufacturing cost (제조비)", "MANUFACTURING", "manufacturing")},
+        {**sect("Other direct cost (직접경비)", "DIRECT", "direct")},
+    ]
+    return {
+        "pcrId": pcr_id, "businessType": row[0], "revenue": revenue,
+        "sections": sections,
+        "directCostTotal": float(row[2]), "contributionMargin": float(row[3]),
+        "sga": {"rows": sga_rows, "subtotal": sga_total, "basis": "율 기반 근사 — 합계 = SGA 8% (CST-005 상세율은 PCR 기준 관리 후속)"},
+        "fullCosts": float(row[2]) + sga_total, "ebit": float(row[4]),
+    }
+
+
 @router.get("/cost/pcr")
 def pcr_list() -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
@@ -8434,15 +8483,18 @@ def sales_orders() -> dict[str, Any]:
 
 @router.get("/cost/quotations/{quotation_id}/render.pdf")
 def quotation_render(quotation_id: int) -> Any:
-    """견적서 PDF 렌더 — 영속 행(line_items) 기준 (quote-preview 와 동일 렌더러)."""
-    from types import SimpleNamespace
-
+    """견적서 PDF 렌더 (U19) — CLT 공식 양식 (슬라이드 74: 헤더 메타·품목표·합계·조건)."""
     from fastapi.responses import Response
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT q.quotation_no, q.line_items, q.total_amount, p.project_no, q.currency, q.vat_mode
-               FROM cst_quotation q JOIN prj_project p ON p.project_id=q.project_id
+            """SELECT q.quotation_no, q.line_items, q.total_amount, p.project_no, q.currency, q.vat_mode,
+                      p.project_name, c.company_name, COALESCE(q.delivery_terms,''),
+                      COALESCE(q.payment_terms,''), COALESCE(q.validity_period,''),
+                      to_char(q.created_at,'YYYY-MM-DD')
+               FROM cst_quotation q
+               JOIN prj_project p ON p.project_id=q.project_id
+               JOIN com_company c ON c.company_id=q.customer_id
                WHERE q.tenant_id=%s AND q.quotation_id=%s""", (tid, quotation_id))
         row = cur.fetchone()
         if not row:
@@ -8454,15 +8506,14 @@ def quotation_render(quotation_id: int) -> Any:
             tr = cur.fetchone()
             if tr:
                 pct = float(tr[0])
-    items = [{"resolvedCode": ln.get("code", "?"), "name": ln.get("name", ""),
-              "quantity": ln.get("qty", 1), "priceK": ln.get("priceK")}
-             for ln in row[1]]
     subtotal = round(total / (1 + pct / 100), 2) if pct else total
-    ns = SimpleNamespace(items=items, total_k=total / 1000, files=[],
-                         currency=row[4], subtotal=subtotal, tax=round(total - subtotal, 2),
-                         tax_pct=pct, total_cur=total)
-    rp.step_quotation(ns, f"{row[3]} · {row[0]}")
-    return Response(content=ns.files[-1][3], media_type="application/pdf",
+    pdf = rp.build_clt_quotation_pdf(
+        quotation_no=row[0], project_name=f"{row[6]} ({row[3]})", customer=row[7],
+        items=[{"code": ln.get("code", "?"), "name": ln.get("name", ""),
+                "qty": ln.get("qty", 1), "priceK": ln.get("priceK")} for ln in row[1]],
+        currency=row[4], subtotal=subtotal, tax=round(total - subtotal, 2), total=total,
+        delivery_terms=row[8], payment_terms=row[9], validity=row[10], quote_date=row[11])
+    return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f"inline; filename=\"{row[0]}.pdf\""})
 
 
