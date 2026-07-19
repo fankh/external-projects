@@ -18,6 +18,11 @@ export function MobilePreview({ inbox, events }: { inbox: ApprovalReq[]; events:
     { k: 'task', label: t('mobile.tabTask', '업무함') },
     { k: 'inbound', label: t('mobile.tabInbound', '입고') },
   ]
+  // 서버 데이터 값(한국어 단계·상태) → 로케일 표시
+  const dataLabel: Record<string, string> = {
+    '승인': t('common.approve', '승인'), '검토': t('stage.review', '검토'),
+    '지연': t('enum.delayed', '지연'), '진행': t('enum.inProgress', '진행'),
+  }
   const [tab, setTab] = useState<TabKey>('approval')
   const [item, setItem] = useState('M-MOT-22')
   const [qty, setQty] = useState('10')
@@ -53,7 +58,7 @@ export function MobilePreview({ inbox, events }: { inbox: ApprovalReq[]; events:
             inbox.length ? inbox.map((r) => (
               <div key={r.id} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: 10, marginBottom: 8 }}>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>{r.assetType} · {r.target}</div>
-                <div style={{ fontSize: 11, color: 'var(--txt-mute)', margin: '3px 0' }}>{r.reqKind} · {r.requester} · {r.reqDate} <Chip tone="info">{r.stage}</Chip></div>
+                <div style={{ fontSize: 11, color: 'var(--txt-mute)', margin: '3px 0' }}>{r.reqKind} · {r.requester} · {r.reqDate} <Chip tone="info">{dataLabel[r.stage] ?? r.stage}</Chip></div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                   <button className="b" disabled={pending} onClick={() => decide(r.id, true)} style={{ flex: 1, height: 30, fontSize: 12, color: 'var(--run)' }}>{t('common.approve', '승인')}</button>
                   <button className="b" disabled={pending} onClick={() => decide(r.id, false)} style={{ flex: 1, height: 30, fontSize: 12, color: 'var(--err)' }}>{t('common.reject', '반려')}</button>
@@ -64,7 +69,7 @@ export function MobilePreview({ inbox, events }: { inbox: ApprovalReq[]; events:
             events.length ? events.map((e) => (
               <div key={e.eventId} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: 10, marginBottom: 8 }}>
                 <div style={{ fontSize: 12, fontWeight: 600 }}>{e.title}</div>
-                <div style={{ fontSize: 11, color: 'var(--txt-mute)', margin: '3px 0' }}>{e.procName} · {e.owner} · {e.deadline}{e.delayed ? ` (${t('mobile.delayed', '지연')})` : ''} <Chip tone={e.status === '지연' ? 'warn' : 'info'}>{e.status}</Chip></div>
+                <div style={{ fontSize: 11, color: 'var(--txt-mute)', margin: '3px 0' }}>{e.procName} · {e.owner} · {e.deadline}{e.delayed ? ` (${t('mobile.delayed', '지연')})` : ''} <Chip tone={e.status === '지연' ? 'warn' : 'info'}>{dataLabel[e.status] ?? e.status}</Chip></div>
                 <button className="b" disabled={pending || e.status === 'DONE'} onClick={() => complete(e.eventId)} style={{ width: '100%', height: 30, fontSize: 12, marginTop: 4 }}>{t('mobile.complete', '완료 처리')}</button>
               </div>
             )) : <Empty text={t('mobile.noTask', '업무 없음')} />

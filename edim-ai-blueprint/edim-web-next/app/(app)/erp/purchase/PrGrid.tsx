@@ -52,10 +52,10 @@ export function PrGrid({ rows }: { rows: PrRow[] }) {
         })}>{t('purch.qcrBtn', 'QCR 발행 (견적 요청)')}</button>
         <span className="sep" />
         <select className="in" style={{ width: 70 }} value={terms} onChange={(e) => setTerms(e.target.value)}>
-          {['FOB', 'CIF', 'DDP', '착불'].map((v) => <option key={v}>{v}</option>)}
+          {[['FOB', 'FOB'], ['CIF', 'CIF'], ['DDP', 'DDP'], ['착불', t('po.collect', '착불')]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
         <select className="in" style={{ width: 64 }} value={transport} onChange={(e) => setTransport(e.target.value)}>
-          {['육상', '해상', '항공'].map((v) => <option key={v}>{v}</option>)}
+          {[['육상', t('po.land', '육상')], ['해상', t('po.sea', '해상')], ['항공', t('po.air', '항공')]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
         <input className="in" style={{ width: 60 }} title={t('purch.minQty', '최소 발주 수량')} value={minQty} onChange={(e) => setMinQty(e.target.value)} />
         <label style={{ display: 'flex', alignItems: 'center', gap: 3 }}>

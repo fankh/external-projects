@@ -23,6 +23,10 @@ export function TaskGrid({ rows }: { rows: TaskRow[] }) {
   const [st, setSt] = useState<EventActionState>({})
   const [pending, start] = useTransition()
   const sel = rows.find((r) => r.eventId === selId) ?? null
+  // 상태 값(서버 데이터, 일부 한국어) → 로케일 표시
+  const statusLabel: Record<string, string> = {
+    '지연': t('enum.delayed', '지연'), '진행': t('enum.inProgress', '진행'),
+  }
 
   const cols: GridColumn<TaskRow>[] = [
     { key: 'code', header: t('task.processCol', '공정'), width: 64, align: 'center', code: true, render: (r) => r.code },
@@ -30,7 +34,7 @@ export function TaskGrid({ rows }: { rows: TaskRow[] }) {
     { key: 'proj', header: 'Project', width: 110, render: (r) => r.project },
     { key: 'owner', header: t('taskbox.owner', '담당'), width: 80, align: 'center', render: (r) => r.owner },
     { key: 'deadline', header: t('taskbox.deadline', '기한'), width: 72, align: 'center', render: (r) => r.deadline },
-    { key: 'status', header: t('appr.status', '상태'), width: 72, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={r.delayed ? 'err' : (TONE[r.status] ?? 'info')}>{r.status}</Chip> },
+    { key: 'status', header: t('appr.status', '상태'), width: 72, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={r.delayed ? 'err' : (TONE[r.status] ?? 'info')}>{statusLabel[r.status] ?? r.status}</Chip> },
   ]
 
   const complete = () => {

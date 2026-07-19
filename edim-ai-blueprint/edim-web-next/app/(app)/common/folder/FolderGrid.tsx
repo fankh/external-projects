@@ -19,12 +19,18 @@ export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: str
   const { t } = useI18n()
   const router = useRouter()
   const [upSt, upAction, upPending] = useActionState(uploadProjectFile, {} as ActState)
+  // 백엔드 kind 값(한국어) → 로케일 표시 (값 자체는 서버 데이터라 클라이언트에서 매핑)
+  const kindLabel: Record<string, string> = {
+    '승인도': t('kind.dwgApproval', '승인도'), '견적/원가': t('kind.quoteCost', '견적/원가'),
+    '기술자료': t('kind.techData', '기술자료'), '접수자료': t('kind.received', '접수자료'),
+    '업로드': t('kind.upload', '업로드'),
+  }
 
   const cols: GridColumn<FolderFile>[] = [
     { key: 'name', header: t('folder.fileName', '파일명'), render: (r) => r.name },
     { key: 'type', header: t('folder.typeCol', '유형'), width: 60, align: 'center', sortValue: (r) => r.fileType, render: (r) => r.fileType },
     { key: 'folder', header: t('run.folder', '폴더'), width: 100, align: 'center', sortValue: (r) => r.folder, render: (r) => r.folder },
-    { key: 'kind', header: t('folder.kindCol', '종류'), width: 90, align: 'center', sortValue: (r) => r.kind, render: (r) => <Chip tone={r.kindTone}>{r.kind}</Chip> },
+    { key: 'kind', header: t('folder.kindCol', '종류'), width: 90, align: 'center', sortValue: (r) => r.kind, render: (r) => <Chip tone={r.kindTone}>{kindLabel[r.kind] ?? r.kind}</Chip> },
     { key: 'run', header: 'Run', width: 60, align: 'center', render: (r) => r.run || '—' },
     { key: 'reg', header: t('folder.registrant', '등록자'), width: 80, align: 'center', render: (r) => r.registrant || '—' },
     { key: 'date', header: t('folder.dateCol', '일자'), width: 96, align: 'center', render: (r) => r.date },

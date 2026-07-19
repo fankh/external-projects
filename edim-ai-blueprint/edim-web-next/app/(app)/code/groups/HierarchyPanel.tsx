@@ -14,6 +14,7 @@ export interface HierarchyNode {
 }
 
 export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; treeType: string }) {
+  const { t } = useI18n()
   const router = useRouter()
   const [regSt, regAction, regPending] = useActionState(addHierarchyNode, {} as ActState)
   const [selId, setSelId] = useState<number | null>(null)
@@ -44,7 +45,7 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
   }
 
   return (
-    <GroupBox title={`Hierarchy 주소 (M-3-1) — ${treeType} · ${nodes.length}노드`} noPad
+    <GroupBox title={`${t('hier.title', 'Hierarchy 주소 (M-3-1)')} — ${treeType} · ${nodes.length}${t('hier.nodeUnit', '노드')}`} noPad
       style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', gap: 4, padding: 4, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid var(--line)', fontSize: 11 }}>
         <label>Tree</label>
@@ -54,23 +55,23 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
         </select>
         <form action={regAction} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
           <input type="hidden" name="treeType" value={treeType} />
-          <input className="in" name="parentAddress" placeholder="상위 주소 (없음=루트)" style={{ width: 116 }} defaultValue={sel?.address ?? ''} key={sel?.address ?? 'root'} />
-          <input className="in req" name="address" placeholder="주소 (1.2.3)" style={{ width: 84 }} />
-          <input className="in req" name="name" placeholder="노드 이름" style={{ width: 110 }} />
+          <input className="in" name="parentAddress" placeholder={t('hier.parentPh', '상위 주소 (없음=루트)')} style={{ width: 116 }} defaultValue={sel?.address ?? ''} key={sel?.address ?? 'root'} />
+          <input className="in req" name="address" placeholder={t('hier.addressPh', '주소 (1.2.3)')} style={{ width: 84 }} />
+          <input className="in req" name="name" placeholder={t('hier.namePh', '노드 이름')} style={{ width: 110 }} />
           <input className="in" name="symbol" placeholder="Symbol" style={{ width: 64 }} />
-          <button className="b run" type="submit" disabled={regPending}>＋ 노드</button>
+          <button className="b run" type="submit" disabled={regPending}>{t('hier.addNode', '＋ 노드')}</button>
         </form>
         <span className="sep" />
-        <input className="in" data-h-search style={{ width: 96 }} placeholder="검색 (이름·주소)" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <button className="b" data-h-validate disabled={pending} title="저장 전 정합 점검 — 주소 중복·고아 노드·부모 주소 불일치 (57-⑧)" onClick={runValidate}>점검</button>
-        <input className="in" style={{ width: 100 }} placeholder="새 이름 (개명)" value={newName} onChange={(e) => setNewName(e.target.value)} />
+        <input className="in" data-h-search style={{ width: 96 }} placeholder={t('hier.searchPh', '검색 (이름·주소)')} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <button className="b" data-h-validate disabled={pending} title={t('hier.validateHint', '저장 전 정합 점검 — 주소 중복·고아 노드·부모 주소 불일치 (57-⑧)')} onClick={runValidate}>{t('hier.validate', '점검')}</button>
+        <input className="in" style={{ width: 100 }} placeholder={t('hier.renamePh', '새 이름 (개명)')} value={newName} onChange={(e) => setNewName(e.target.value)} />
         <button className="b" disabled={pending || !sel || !newName.trim()} onClick={() => {
           if (sel) start(async () => { setSt(await renameHierarchyNode(sel.id, newName, sel.symbol)); setNewName('') })
-        }}>개명</button>
+        }}>{t('hier.rename', '개명')}</button>
         <button className="b" disabled={pending || !sel} onClick={() => {
           if (sel && confirm(`${sel.address} ${sel.name} 을 삭제하시겠습니까?`))
             start(async () => { setSt(await deleteHierarchyNode(sel.id)); setSelId(null) })
-        }}>삭제</button>
+        }}>{t('common.delete', '삭제')}</button>
         {(regSt.error || st.error) ? <span style={{ color: 'var(--err)' }}>{regSt.error || st.error}</span> : null}
         {(regSt.ok || st.ok) ? <span style={{ color: 'var(--run)' }}>{regSt.ok || st.ok}</span> : null}
         <span className="sep" />

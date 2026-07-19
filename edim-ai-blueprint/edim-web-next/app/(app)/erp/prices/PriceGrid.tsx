@@ -24,13 +24,18 @@ export function PriceGrid({ rows }: { rows: PriceRow[] }) {
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
   const sel = rows.find((r) => (r.priceId ?? `${r.code}-${r.from}`) === selKey) ?? null
+  // 백엔드 구분 값(한국어) → 로케일 표시
+  const sourceLabel: Record<string, string> = {
+    '견적적용': t('kind.quoteApplied', '견적적용'), '견적': t('kind.quote', '견적'),
+    '재고': t('kind.stock', '재고'), '구매': t('kind.purchase', '구매'), '수동': t('procset.manual', '수동'),
+  }
 
   const cols: GridColumn<PriceRow>[] = [
     { key: 'code', header: t('price.code', '코드'), width: 120, code: true, render: (r) => r.code },
     { key: 'name', header: t('cpq.name', '품명'), render: (r) => r.name },
     { key: 'supplier', header: t('price.supplier', '공급처'), width: 110, render: (r) => r.supplier || '—' },
     { key: 'price', header: t('price.priceLbl', '단가'), width: 110, align: 'right', sortValue: (r) => r.price, render: (r) => won(r.price) },
-    { key: 'source', header: t('dash.kind', '구분'), width: 78, align: 'center', sortValue: (r) => r.source, render: (r) => <Chip tone="info">{r.source}</Chip> },
+    { key: 'source', header: t('dash.kind', '구분'), width: 78, align: 'center', sortValue: (r) => r.source, render: (r) => <Chip tone="info">{sourceLabel[r.source] ?? r.source}</Chip> },
     { key: 'from', header: t('price.validFrom', '유효 시작'), width: 96, align: 'center', render: (r) => r.from },
     { key: 'to', header: t('price.validTo', '유효 종료'), width: 96, align: 'center', render: (r) => r.to || '—' },
     { key: 'active', header: t('prj.status', '상태'), width: 58, align: 'center', sortValue: (r) => (r.active ? 1 : 0), render: (r) => r.active ? <Chip tone="ok">{t('enum.active', '유효')}</Chip> : <Chip tone="warn">{t('enum.expired', '종료')}</Chip> },

@@ -9,7 +9,6 @@ import type { CadDocument } from '@/lib/cadTypes'
 export function CadViewer({ doc, fileId, related = [] }: { doc: CadDocument; fileId: number; related?: { code: string; name: string; href: string }[] }) {
   const { t } = useI18n()
   const [hidden, setHidden] = useState<Set<string>>(new Set())
-  const [edit, setEdit] = useState(false)
   const [plotScale, setPlotScale] = useState('100')
   const toggle = (l: string) => setHidden((s) => { const n = new Set(s); n.has(l) ? n.delete(l) : n.add(l); return n })
   const canEdit = doc.sourceFormat === 'dxf'
@@ -20,7 +19,6 @@ export function CadViewer({ doc, fileId, related = [] }: { doc: CadDocument; fil
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--title-navy)' }}>{doc.drawingName}</span>
         <span className="chip info">{doc.sourceFormat.toUpperCase()}</span>
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('detail.entities', '엔티티')} {doc.entities.length} · file {fileId}</span>
-        {canEdit ? <button type="button" data-cad-edit-toggle className={`b ${edit ? 'pri' : ''}`} style={{ height: 18, fontSize: 10 }} onClick={() => setEdit((e) => !e)}>✎ {t('detail.edit', '편집')}</button> : null}
         <select className="in" data-cad-plot-scale value={plotScale} aria-label={t('cad.plotScale', '축척')}
           style={{ height: 18, fontSize: 9.5, width: 58 }} onChange={(e) => setPlotScale(e.target.value)}>
           {['50', '100', '200'].map((s) => <option key={s} value={s}>1:{s}</option>)}
@@ -43,7 +41,7 @@ export function CadViewer({ doc, fileId, related = [] }: { doc: CadDocument; fil
         ))}
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <CadSvg doc={doc} hiddenLayers={hidden} editable={edit && canEdit} />
+        <CadSvg doc={doc} hiddenLayers={hidden} editable={canEdit} />
       </div>
     </div>
   )

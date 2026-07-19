@@ -45,15 +45,20 @@ export function ProjectStagePanel({ no, stage, updatedAt }: { no: string; stage:
   const [next, setNext] = useState(stage)
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
+  // 단계 값(한국어, 서버 저장값) → 로케일 표시
+  const stageLabel: Record<string, string> = {
+    '기술 제안': t('stage.proposal', '기술 제안'), '견적': t('kind.quote', '견적'), '협의': t('stage.negotiation', '협의'),
+    '계약': t('stage.contract', '계약'), '계약 변경': t('stage.contractChange', '계약 변경'), '종료': t('stage.closed', '종료'),
+  }
   return (
     <div className="gb" style={{ padding: 8, fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('prj.salesStage', '영업 단계')} — {no}</div>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {SALES_STAGES.map((s) => <Chip key={s} tone={s === stage ? 'ok' : 'info'}>{s}</Chip>)}
+        {SALES_STAGES.map((s) => <Chip key={s} tone={s === stage ? 'ok' : 'info'}>{stageLabel[s] ?? s}</Chip>)}
       </div>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
         <select className="in" value={next} onChange={(e) => setNext(e.target.value)} style={{ width: 110 }}>
-          {SALES_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+          {SALES_STAGES.map((s) => <option key={s} value={s}>{stageLabel[s] ?? s}</option>)}
         </select>
         <button className="b run" disabled={pending || next === stage} onClick={() => start(async () => {
           setSt(await setStage(no, next, updatedAt))   // baseUpdatedAt — 동시편집 시 409 정직 표시

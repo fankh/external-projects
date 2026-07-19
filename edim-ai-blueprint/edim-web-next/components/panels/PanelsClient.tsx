@@ -96,7 +96,7 @@ export function CodingPanel({ macros }: { macros: MacroInfo[] }) {
     <GroupBox title="Coding" noPad>
       <div style={{ padding: 6, fontSize: 10.5, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <select className="in" data-panel-macro value={sel} onChange={(e) => { setSel(e.target.value); setResult(null) }} style={{ height: 19, fontSize: 10, flex: 1 }}>
+          <select className="in" data-panel-macro data-i18n-content value={sel} onChange={(e) => { setSel(e.target.value); setResult(null) }} style={{ height: 19, fontSize: 10, flex: 1 }}>
             {macros.map((m) => <option key={m.name} value={m.name}>{m.name} [{m.status}]</option>)}
           </select>
           <button className="b" style={{ height: 19, fontSize: 9.5 }} onClick={() => router.push('/toolbox/macros')}>Studio</button>

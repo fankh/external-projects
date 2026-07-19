@@ -422,6 +422,8 @@ def run_seed() -> None:
             seed_v26(cur, row[0])
             seed_v27(cur, row[0])
             seed_v28(cur, row[0])
+            seed_v29(cur, row[0])
+            seed_v31(cur, row[0])
             _seed_invariants(cur, row[0])
             return
 
@@ -546,6 +548,8 @@ def run_seed() -> None:
         seed_v26(cur, tid)
         seed_v27(cur, tid)
         seed_v28(cur, tid)
+        seed_v29(cur, tid)
+        seed_v31(cur, tid)
         _seed_invariants(cur, tid)
 
 
@@ -2710,6 +2714,77 @@ UI_TRANSLATIONS_V28: dict[str, tuple[str, str, str]] = {
 def seed_v28(cur, tid: int) -> None:
     """N7 — Next 포팅기 직접 추가 번역 회수분 (bundles.ts → 시드 단일화)."""
     for key, (en, ja, zh) in UI_TRANSLATIONS_V28.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+UI_TRANSLATIONS_V29: dict[str, tuple[str, str, str]] = {
+    "hier.title": ('Hierarchy Address (M-3-1)', '階層アドレス (M-3-1)', '层级地址 (M-3-1)'),
+    "hier.nodeUnit": (' nodes', 'ノード', '节点'),
+    "hier.parentPh": ('Parent address (empty=root)', '上位アドレス (なし=ルート)', '上级地址 (空=根)'),
+    "hier.addressPh": ('Address (1.2.3)', 'アドレス (1.2.3)', '地址 (1.2.3)'),
+    "hier.namePh": ('Node name', 'ノード名', '节点名称'),
+    "hier.addNode": ('＋ Node', '＋ ノード', '＋ 节点'),
+    "hier.searchPh": ('Search (name·address)', '検索 (名前・アドレス)', '搜索 (名称·地址)'),
+    "hier.validateHint": ('Pre-save consistency check — dup address · orphan · parent mismatch (57-⑧)', '保存前整合チェック — アドレス重複・孤児・親不一致 (57-⑧)', '保存前一致性检查 — 地址重复·孤儿·父级不一致 (57-⑧)'),
+    "hier.validate": ('Check', 'チェック', '检查'),
+    "hier.renamePh": ('New name (rename)', '新しい名前 (改名)', '新名称 (改名)'),
+    "hier.rename": ('Rename', '改名', '改名'),
+    "po.collect": ('Collect', '着払い', '到付'),
+    "po.land": ('Land', '陸上', '陆运'),
+    "po.sea": ('Sea', '海上', '海运'),
+    "po.air": ('Air', '航空', '空运'),
+    "purch.code": ('Code', 'コード', '代码'),
+    "purch.reqQty": ('Req', '所要', '需求'),
+}
+
+def seed_v29(cur, tid: int) -> None:
+    """N7 2차 — 하드코딩 래핑분 (Hierarchy·발주 조건 옵션)."""
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V29.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+UI_TRANSLATIONS_V31: dict[str, tuple[str, str, str]] = {
+    "kind.dwgApproval": ('Approval dwg', '承認図', '批准图'),
+    "kind.quoteCost": ('Quote/Cost', '見積/原価', '报价/成本'),
+    "kind.techData": ('Tech data', '技術資料', '技术资料'),
+    "kind.received": ('Received', '受領資料', '接收资料'),
+    "kind.upload": ('Upload', 'アップロード', '上传'),
+    "kind.quoteApplied": ('Quote-applied', '見積適用', '报价适用'),
+    "kind.quote": ('Quote', '見積', '报价'),
+    "kind.stock": ('Stock', '在庫', '库存'),
+    "kind.purchase": ('Purchase', '購買', '采购'),
+    "stage.proposal": ('Proposal', '技術提案', '技术提案'),
+    "stage.negotiation": ('Negotiation', '協議', '协商'),
+    "stage.contract": ('Contract', '契約', '合同'),
+    "stage.contractChange": ('Contract change', '契約変更', '合同变更'),
+    "stage.execution": ('Execution', '遂行', '执行'),
+    "stage.closed": ('Closed', '終了', '结束'),
+    "stage.review": ('Review', '検討', '评审'),
+    "enum.inProgress": ('In progress', '進行', '进行中'),
+    "docstat.waitApprove": ('Awaiting approve', 'Approve 待ち', '待批准'),
+    "docstat.drafting": ('Drafting', '作成中', '编写中'),
+    "access.personUnit": (' users', '名', '名'),
+}
+
+def seed_v31(cur, tid: int) -> None:
+    """N7 3차 — 서버 데이터 값(단계·종류·상태) 클라이언트 표시 매핑 키."""
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V31.items():
         for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
             cur.execute(
                 """UPDATE sys_translation SET text=%s

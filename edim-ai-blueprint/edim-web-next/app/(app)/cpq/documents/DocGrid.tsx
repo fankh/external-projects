@@ -19,13 +19,17 @@ const GRADES = ['GENERAL', 'S-2', 'S-1']
 export function DocGrid({ rows }: { rows: DocRow[] }) {
   const router = useRouter()
   const { t } = useI18n()
+  // 상태 값(서버 데이터, 일부 한국어 혼재) → 로케일 표시
+  const docStatusLabel: Record<string, string> = {
+    'Approve 대기': t('docstat.waitApprove', 'Approve 대기'), '작성중': t('docstat.drafting', '작성중'),
+  }
   const cols: GridColumn<DocRow>[] = [
     { key: 'no', header: t('docmgmt.docNo', '문서번호'), width: 120, code: true, render: (r) => r.docNo },
     { key: 'title', header: t('docmgmt.title', '제목'), render: (r) => r.title },
     { key: 'type', header: t('docmgmt.type', '유형'), width: 84, align: 'center', sortValue: (r) => r.docType, render: (r) => r.docType || '—' },
     { key: 'ver', header: 'Ver', width: 52, align: 'center', render: (r) => r.version || '—' },
     { key: 'grade', header: 'Grade', width: 64, align: 'center', sortValue: (r) => r.grade, render: (r) => r.grade ? <Chip tone="warn">{r.grade}</Chip> : '—' },
-    { key: 'status', header: t('docmgmt.status', '상태'), width: 90, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={r.status === 'ACCEPTED' ? 'ok' : 'info'}>{r.status}</Chip> },
+    { key: 'status', header: t('docmgmt.status', '상태'), width: 90, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={r.status === 'ACCEPTED' ? 'ok' : 'info'}>{docStatusLabel[r.status] ?? r.status}</Chip> },
     { key: 'approver', header: t('docmgmt.approver', '승인자'), width: 80, align: 'center', render: (r) => r.approver || '—' },
     { key: 'appdate', header: t('docmgmt.appDate', '승인일'), width: 96, align: 'center', render: (r) => r.appDate || '—' },
   ]

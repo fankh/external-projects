@@ -71,8 +71,8 @@ def scan(page, screen: str) -> None:
                     }
                 }
             }
-            // 보이는 select 의 옵션 표시 텍스트
-            for (const s of document.querySelectorAll('select')) {
+            // 보이는 select 의 옵션 표시 텍스트 (data-i18n-content = DB 콘텐츠 목록 — 크롬 아님, 제외)
+            for (const s of document.querySelectorAll('select:not([data-i18n-content])')) {
                 if (!s.offsetParent) continue;
                 for (const o of s.options) if (/[가-힣]/.test(o.text)) out.push(['option', o.text.slice(0, 60)]);
             }

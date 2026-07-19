@@ -41,7 +41,7 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
   ]
 
   return (
-    <GroupBox title={`${t('access.userLedger', '사용자 대장')} — ${rows.length}명`} noPad style={{ flex: 1.3, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+    <GroupBox title={`${t('access.userLedger', '사용자 대장')} — ${rows.length}${t('access.personUnit', '명')}`} noPad style={{ flex: 1.3, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', gap: 4, padding: 4, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid var(--line)' }}>
         <RegisterModal trigger={t('access.addUser', '＋ 사용자 등록')} title={t('access.userRegTitle', '사용자 등록')} ok={regSt.ok}>
           {() => (
