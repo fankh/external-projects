@@ -79,7 +79,7 @@ export default async function CodeDetailPage({ searchParams }: { searchParams: P
               </div>
             </div>
             {slots.length ? (
-              <div className="gb">
+              <div className="gb" data-slot-def>
                 <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('detail.reqSlots', '필수 슬롯 정의')} ({slots.length})</div>
                 <table className="g"><thead><tr><th>Slot</th><th>{t('detail.itemCol', '항목')}</th><th>{t('detail.required', '필수')}</th></tr></thead>
                   <tbody>{slots.map((s) => (

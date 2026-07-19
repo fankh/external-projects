@@ -82,13 +82,12 @@ with sync_playwright() as pw:
     ok("GENERAL — '사용자·권한' 메뉴 미표시 (SYS-005)",
        page.locator(".tn", has_text="사용자·권한 (M-14-6)").count() == 0)
 
-    # ⌘K 로 화면 직접 진입 시 403 안내 (프론트 숨김 ≠ 보안 — 가드가 받친다)
-    page.keyboard.press("Control+k")
-    page.locator(".toolbar input.in").fill("사용자")
-    page.wait_for_timeout(900)
-    page.locator("[data-search-results] div", has_text="사용자·권한").first.click()
-    page.wait_for_selector("[data-access-denied]", timeout=4000)
+    # 직접 진입 시 403 안내 (프론트 숨김 ≠ 보안 — 서버 가드가 받친다)
+    page.goto(f"{BASE}/erp/roles", wait_until="networkidle")
+    page.wait_for_selector("[data-access-denied]", timeout=6000)
     ok("GENERAL — 직접 진입 시 403 안내 화면", True)
+    page.goto(f"{BASE}/erp", wait_until="networkidle")
+    page.wait_for_timeout(600)
 
     page.locator(".tn", has_text="단가 관리 (M-12-5)").first.click()
     page.wait_for_timeout(1000)

@@ -385,7 +385,7 @@ export function DesignEditor(props: {
           <PriorityCheckPanel dims={dims} />
           <GroupBox title={t('editor.subItemDwg', 'Sub Item DWG · 조립순서')} right={props.bom.length ? <Chip tone="ok">dwg_bom {props.bom.length}</Chip> : <Chip tone="warn">{t('design.none', '없음')}</Chip>}>
             {props.bom.length ? (
-              <div style={{ fontSize: 11, lineHeight: 1.9 }}>
+              <div data-bom-live style={{ fontSize: 11, lineHeight: 1.9 }}>
                 {props.bom.map((b) => <div key={b.bomId} title={b.assemblyNote}>{'①②③④⑤⑥⑦⑧⑨'[(b.assemblySeq ?? 9) - 1] ?? '◇'} {b.partName}<span style={{ color: 'var(--txt-mute)', fontSize: 10 }}> ×{b.qty} {b.partNo}</span></div>)}
                 <Chip tone="info">◆ {t('editor.asmSeq', '조립순서')}</Chip>
               </div>
