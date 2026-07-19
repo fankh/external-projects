@@ -263,6 +263,7 @@ E-4 SWP 모듈 명세 중 미배치 2종: **Child Component**(BOM Mother 연결 
 U7/U10(C9)과 동일 그룹. 인터넷 검색 Tool 은 별도 협의.
 - [x] 1단계 ✅ v31.9 — 내부 Q&A 화면(AI-08, /toolbox/assistant): POST /ai/chat 키워드 검색(제품 코드·문서·데이터 Table·Macro·부품, 근거 딥링크 표) 항시 동작, live 시 Claude 근거 한정 합성(모드 배지). 라이브 E2E 8/8(검색·422·딥링크 이동, 폴백 안내)
 - [x] U10 2단계 연계 ✅ v32.1~3 — 도면 대장 검색 + 도면 텍스트 인덱스(alembic 0026 dwg_text_index: DXF TEXT/MTEXT·레이어 추출, 단건/일괄 50건) → Q&A '도면 내용' 검색(뷰어 딥링크). 라이브: 일괄 50건 인덱스·추출 단어 검색 적중(KDCR3-13_mfg_RevB.dxf)
+- [x] U10 3단계 ✅ v32.6 — 도면-코드 자동 연결: 파일명+인덱스 텍스트에서 제품 코드 매칭(related-codes) → CAD 뷰어 🔗 관련 코드 칩(SSR·코드 상세 딥링크). 라이브 E2E 5/5(KDCR3-13_mfg_RevB.dxf → KDCR 3-13 정확 매칭·404 가드)
 - [ ] live 합성 품질 검증 + 대화 이력 — 크레딧 충전 시
 
 ## 8차 조사 신규 태스크 (2026-07-19, 내장 미디어 전수 스캔 — U29)
