@@ -58,45 +58,45 @@ with sync_playwright() as pw:
     p.locator("td input:visible").fill("325")
     p.keyboard.press("Enter")
     p.get_by_role("button", name="임시저장 F12").click()
-    p.locator(".statusbar", has_text="임시저장 ✓").wait_for(timeout=12000)
+    p.locator("text=임시저장 ✓").wait_for(timeout=12000)
     ok("치수 임시저장 (dwg_dimension)", True)
-    dims = p.evaluate("""async () => {
-      const t = sessionStorage.getItem('edim-token')
-      const r = await fetch('/api/v1/drawings/dimensions', { headers: { Authorization: 'Bearer ' + t } })
-      return await r.json()
-    }""")
+    # Next 는 토큰이 httpOnly 쿠키 — urllib 로 직접 검증/원복
+    import json as _json
+    import urllib.request as _ur
+    r0 = _ur.Request(f"{BASE}/api/v1/auth/login",
+                     data=_json.dumps({"userId": "edim", "password": "edim"}).encode(),
+                     headers={"Content-Type": "application/json"}, method="POST")
+    _tok = _json.loads(_ur.urlopen(r0).read())["token"]
+    _H = {"Authorization": f"Bearer {_tok}", "Content-Type": "application/json"}
+    dims = _json.loads(_ur.urlopen(_ur.Request(
+        f"{BASE}/api/v1/drawings/dimensions", headers=_H)).read())
     e_dim = next(d for d in dims if d["no"] == "E")
     ok("서버 반영 E=325", float(e_dim["value"]) == 325)
-    # 원복
-    p.evaluate("""async () => {
-      const t = sessionStorage.getItem('edim-token')
-      await fetch('/api/v1/drawings/dimensions', {
-        method: 'PUT',
-        headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ drawing: 'KDCR 3-13', dims: [{ no: 'E', value: '320' }] }),
-      })
-    }""")
+    _ur.urlopen(_ur.Request(f"{BASE}/api/v1/drawings/dimensions",
+                            data=_json.dumps({"drawing": "KDCR 3-13",
+                                              "dims": [{"no": "E", "value": "320"}]}).encode(),
+                            headers=_H, method="PUT"))
 
-    # 2. Work Process — MAKE/BUY 토글 → F12 → 새로고침 후 유지 → 원복
+    # 2. Work Process — MAKE/BUY 버튼 토글 → data-wp-save → 새로고침 후 유지 → 원복
+    # Next 열: [0]자재 [1]공급처 [2]MAKE/BUY(버튼) …
     p.locator(".tn", has_text="Work Process (S-4-1-2)").click()
-    p.wait_for_timeout(800)
-    chip = p.locator("table.g:visible tbody tr").first.locator(".st, span", has_text="MAKE").first
-    before = "MAKE" if chip.count() else "BUY"
-    p.locator("table.g:visible tbody tr").first.locator("td").nth(4).dblclick()
+    p.wait_for_timeout(1000)
+    mb = lambda: p.locator("table.g:visible tbody tr").first.locator("td").nth(2)  # noqa: E731
+    before = mb().inner_text().strip()
+    mb().locator("button").click()
     p.wait_for_timeout(300)
-    p.keyboard.press("F12")
-    p.wait_for_timeout(1000)
-    ok("Work Process 저장 (erp_work_process)", "저장 ✓" in sb())
+    p.locator("[data-wp-save]").click()
+    p.locator("text=저장 ✓").wait_for(timeout=12000)
+    ok("Work Process 저장 (erp_work_process)", True)
     p.reload(wait_until="networkidle")
-    p.wait_for_timeout(1200)
-    p.locator(".tn", has_text="Work Process (S-4-1-2)").click()
-    p.wait_for_timeout(1000)
-    after = p.locator("table.g:visible tbody tr").first.locator("td").nth(4).inner_text().strip()
+    p.wait_for_timeout(1500)
+    after = mb().inner_text().strip()
     ok(f"새로고침 후 MAKE/BUY 유지 ({before}→{after})", after != before)
     # 원복
-    p.locator("table.g:visible tbody tr").first.locator("td").nth(4).dblclick()
-    p.keyboard.press("F12")
-    p.wait_for_timeout(800)
+    mb().locator("button").click()
+    p.wait_for_timeout(300)
+    p.locator("[data-wp-save]").click()
+    p.locator("text=저장 ✓").wait_for(timeout=12000)
 
     # 3. UI Designer — 위젯 추가 → 저장 → 새로고침 후 유지 (버전 증가)
     p.goto(f"{BASE}/toolbox", wait_until="networkidle")
@@ -108,8 +108,8 @@ with sync_playwright() as pw:
     p.wait_for_timeout(300)
     assert p.locator(".m2:visible").count() == n_before + 1, "widget not added"
     p.get_by_role("button", name="저장 F12").click()
-    p.wait_for_timeout(1000)
-    ok("레이아웃 저장 (tbx_ui_form)", "레이아웃 저장 ✓" in sb())
+    p.locator("text=레이아웃 저장 ✓").wait_for(timeout=12000)
+    ok("레이아웃 저장 (tbx_ui_form)", True)
     p.reload(wait_until="networkidle")
     p.wait_for_timeout(1200)
     p.locator(".tn", has_text="UI Designer (S-2-1)").click()

@@ -155,4 +155,12 @@ with sync_playwright() as pw:
     ok("UI Designer 미리보기 — 동적 렌더 모달", True)
     b.close()
 
+# 정리 — 문서 등록이 유발한 자동 승인 요청(TEST-B21) 반려 (승인함 누적 오염 방지)
+for it in req("GET", "/approvals/inbox", headers=A):
+    tgt = it.get("target") or ""
+    if "TEST-B21" in tgt:
+        req("POST", f"/approvals/{it['id']}/decide",
+            {"approve": False, "comment": "B21 자체 정리"}, A)
+ok("승인 요청 잔재 정리", True)
+
 print(f"\nB21 시스템·UX 라이브: {n}/{n} pass")

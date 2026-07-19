@@ -238,4 +238,12 @@ with sync_playwright() as pw:
     ok("선택 후 enabled", page.get_by_role("button", name="적용 마감").is_enabled())
     b.close()
 
+    # 정리 — 본 스위트가 유발한 자동 승인 요청(슬롯 값 F5T·문서 F5-DOC-01) 반려 (승인함 누적 오염 방지)
+    for it in call(tok, "GET", "/approvals/inbox").json():
+        tgt = it.get("target") or ""
+        if "F5T" in tgt or "F5-DOC-01" in tgt or "F5 검증" in tgt:
+            call(tok, "POST", f"/approvals/{it['id']}/decide",
+                 {"approve": False, "comment": "F5 자체 정리"})
+    ok("승인 요청 잔재 정리", True)
+
 print(f"\nOK — live_f5_updates {n}/{n}")

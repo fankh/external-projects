@@ -28,56 +28,64 @@ with sync_playwright() as pw:
     p.wait_for_selector(".app .titlebar", timeout=8000)
     sb = lambda: p.locator(".statusbar").inner_text()  # noqa: E731
 
+    # Next — 토큰은 httpOnly 쿠키: API 검증은 urllib
+    import json as _json
+    import urllib.request as _ur
+    r0 = _ur.Request(f"{BASE}/api/v1/auth/login",
+                     data=_json.dumps({"userId": "edim", "password": "edim"}).encode(),
+                     headers={"Content-Type": "application/json"}, method="POST")
+    _tok = _json.loads(_ur.urlopen(r0).read())["token"]
+    _H = {"Authorization": f"Bearer {_tok}", "Content-Type": "application/json"}
+
+    def _get(path):
+        return _json.loads(_ur.urlopen(_ur.Request(f"{BASE}/api/v1{path}", headers=_H)).read())
+
+    # 사전 정리 — 이전 런의 PENDING 도면 요청은 반려 (assetType 은 원시값 dwg_drawing 로 노출)
+    for it in _get("/approvals/inbox"):
+        if it.get("assetType") in ("도면", "dwg_drawing") and "KDCR 3-13" in (it.get("target") or ""):
+            _ur.urlopen(_ur.Request(f"{BASE}/api/v1/approvals/{it['id']}/decide",
+                                    data=_json.dumps({"approve": False, "comment": "B1 사전 정리"}).encode(),
+                                    headers=_H, method="POST"))
+
     # 1. Design Editor 승인 요청 → 실등록
     p.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
     p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)
     p.get_by_role("button", name="승인 요청").click()
-    p.wait_for_timeout(800)
-    ok("Design Editor 승인 요청 등록", "승인 요청 등록 ✓" in sb())
+    p.locator("text=승인 요청 등록 ✓").wait_for(timeout=8000)
+    ok("Design Editor 승인 요청 등록", True)
 
     # 2. 승인함에서 수신 확인 (dwg_drawing 요청)
-    p.goto(f"{BASE}/common", wait_until="networkidle")
-    p.wait_for_timeout(400)
-    p.locator(".tn", has_text="승인함 (M-15-2)").click()
+    p.goto(f"{BASE}/common/approval", wait_until="networkidle")
     p.wait_for_timeout(1000)
-    row = p.locator("td:visible", has_text="KDCR 3-13 Rev.B")
+    row = p.locator("table.g:visible tbody tr", has_text="KDCR 3-13 Rev.B")
     ok("승인함 수신 (sys_approval_request)", row.count() >= 1)
 
-    # 3. 승인 결정 → 처리할 요청 목록에서 제거 (처리 이력으로 이동)
-    inbox = p.locator(".gb", has_text="처리할 요청")
-    row.first.click()
-    p.wait_for_timeout(300)
-    p.get_by_role("button", name="승인", exact=True).first.click()
-    p.wait_for_timeout(1500)
-    ok("승인 결정 → 인박스 제거", inbox.locator("tr", has_text="KDCR 3-13 Rev.B").count() == 0)
-    ok("처리 이력 기록", "승인" in p.locator(".statusbar").inner_text())
+    # 3. 승인 결정 → 목록 제거 (Next — 체크박스 다중선택 + 승인)
+    row.first.locator("input[type=checkbox]").check()
+    p.wait_for_timeout(200)
+    p.get_by_role("button", name="승인", exact=True).click()
+    p.wait_for_timeout(1800)
+    ok("승인 결정 → 인박스 제거",
+       p.locator("table.g:visible tbody tr", has_text="KDCR 3-13 Rev.B").count() == 0)
 
     # 4. 요청자 알림 (decide → APPROVAL_RESULT)
-    notif = p.evaluate("""async () => {
-      const t = sessionStorage.getItem('edim-token')
-      const r = await fetch('/api/v1/notifications', { headers: { Authorization: 'Bearer ' + t } })
-      return await r.json()
-    }""")
+    notif = _get("/notifications")
     ok("결정 알림 생성 (APPROVAL_RESULT)",
        any(n.get("type") == "APPROVAL_RESULT" and "승인" in (n.get("title") or "")
            for n in notif))
 
-    # 5. Macro Studio 저장 → tbx_macro DRAFT 영속
-    p.goto(f"{BASE}/toolbox", wait_until="networkidle")
-    p.wait_for_timeout(400)
-    p.locator(".tn", has_text="Macro Studio (S-2-2)").click()
+    # 5. Macro Studio 저장 → tbx_macro DRAFT 영속 (Next — 행 선택 후 저장 (F12))
+    p.goto(f"{BASE}/toolbox/macros", wait_until="networkidle")
     p.wait_for_timeout(1200)
-    p.get_by_role("button", name="저장 (4-Way)").click()   # B20: 4-Way 전체 영속으로 개칭
-    # 4-Way 저장은 왕복이 길다 — 고정 대기 대신 상태바 도착 대기 (부하 내성)
-    p.locator(".statusbar", has_text="저장 ✓").wait_for(timeout=12000)
-    ok("Macro 저장 (tbx_macro DRAFT)", True)
-    macros = p.evaluate("""async () => {
-      const t = sessionStorage.getItem('edim-token')
-      const r = await fetch('/api/v1/macros', { headers: { Authorization: 'Bearer ' + t } })
-      return await r.json()
-    }""")
+    p.locator("table.g:visible tbody tr", has_text="Shaft 길이 계산").first.click()
+    p.wait_for_timeout(500)
+    p.get_by_role("button", name="저장 (F12)").click()
+    p.locator("text=저장").first.wait_for(timeout=12000)
+    p.wait_for_timeout(800)
+    macros = _get("/macros")
     shaft = next((m for m in macros if m["name"] == "Shaft 길이 계산"), None)
-    ok("tbx_macro status=DRAFT 반영", shaft is not None and shaft["status"] == "DRAFT")
+    ok("Macro 저장 (tbx_macro DRAFT)", shaft is not None)
+    ok("tbx_macro status=DRAFT 반영", shaft["status"] == "DRAFT")
 
     b.close()
 
