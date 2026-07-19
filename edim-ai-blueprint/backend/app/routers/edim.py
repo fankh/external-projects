@@ -4694,6 +4694,28 @@ class FormSave(BaseModel):
     formType: str = "SCREEN"
 
 
+# ── U16 — Combo Data 바인딩 옵션 (슬라이드 27, 화이트리스트 테이블 열) ──
+_BIND_COLUMNS: dict[str, list[str]] = {
+    "prt_part": ["part_no", "part_name", "unit"],
+    "cst_quotation": ["quotation_no", "status", "currency"],
+}
+
+
+@router.get("/toolbox/bind-options")
+def bind_options(table: str, column: str) -> dict[str, Any]:
+    """UI Designer Combo Data set-up — 화이트리스트 테이블 열의 distinct 값."""
+    cols = _BIND_COLUMNS.get(table)
+    if not cols or column not in cols:
+        raise HTTPException(422, detail=f"바인딩 불가 테이블/열: {table}.{column}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            f"""SELECT DISTINCT {column} FROM {table}
+                WHERE tenant_id=%s AND {column} IS NOT NULL ORDER BY 1 LIMIT 30""", (tid,))
+        values = [r[0] for r in cur.fetchall()]
+    return {"table": table, "column": column, "values": values, "tables": _BIND_COLUMNS}
+
+
 @router.get("/toolbox/forms/{name}")
 def get_form(name: str) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
