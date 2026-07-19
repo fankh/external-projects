@@ -21,8 +21,17 @@ export function LeftNavEditModal(props: {
   const { t } = useI18n()
   const [draft, setDraft] = useState<string[]>([])
   const label = (id: string) => {
+    if (id.startsWith('#')) return id.slice(1).trim() || '폴더'
     const n = NODE_BY_ID[id]
     return n ? t(`menu.${n.id}`, n.label) : id
+  }
+  // U34 — 커스텀 폴더('#이름' 마커): 마커 아래 리프가 폴더 소속
+  const [folderName, setFolderName] = useState('')
+  const addFolder = () => {
+    const nm = folderName.trim()
+    if (!nm) return
+    setDraft((cur) => [...cur, `#${nm}`])
+    setFolderName('')
   }
 
   // 열릴 때마다 현재 값(또는 기본 전체 리프)으로 초안 초기화
@@ -63,8 +72,9 @@ export function LeftNavEditModal(props: {
           <div style={{ fontWeight: 700, color: 'var(--title-navy)', marginBottom: 4 }}>{t('shell.shownItems', '표시 항목')} — {draft.length}</div>
           <div style={{ border: '1px solid var(--line)', maxHeight: 240, overflow: 'auto' }}>
             {draft.map((id, i) => (
-              <div key={id} data-lnav-item={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderBottom: '1px solid var(--line)' }}>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label(id)}</span>
+              <div key={`${id}-${i}`} data-lnav-item={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 6px', borderBottom: '1px solid var(--line)', background: id.startsWith('#') ? 'var(--panel, #F4F6FA)' : undefined }}>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: id.startsWith('#') ? 700 : undefined, color: id.startsWith('#') ? 'var(--title-navy)' : undefined }}>
+                  {id.startsWith('#') ? '📁 ' : ''}{label(id)}</span>
                 <span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>{NODE_BY_ID[id]?.code ?? ''}</span>
                 <button className="b" style={{ height: 17, fontSize: 9, padding: '0 4px' }} disabled={i === 0} onClick={() => move(i, -1)} title="위로">↑</button>
                 <button className="b" style={{ height: 17, fontSize: 9, padding: '0 4px' }} disabled={i === draft.length - 1} onClick={() => move(i, 1)} title="아래로">↓</button>
@@ -75,6 +85,14 @@ export function LeftNavEditModal(props: {
               <div style={{ padding: 8, color: 'var(--txt-mute)' }}>{t('shell.leftNavEmpty', '표시할 메뉴가 없습니다 — 아래에서 추가하십시오')}</div>
             ) : null}
           </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <input className="in" data-lnav-folder-name value={folderName} placeholder={t('shell.folderPh', '새 폴더 이름')}
+            onChange={(e) => setFolderName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addFolder() }} style={{ height: 20, fontSize: 10.5, width: 150 }} />
+          <button className="b" data-lnav-add-folder disabled={!folderName.trim()} onClick={addFolder}
+            title={t('shell.folderHint', '폴더 추가 — 마커 아래 항목들이 폴더 소속 (↑↓ 로 배치)')}>📁 {t('shell.addFolder', '폴더 추가')}</button>
         </div>
 
         {catalog.length ? (

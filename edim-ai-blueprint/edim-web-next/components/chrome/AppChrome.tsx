@@ -176,6 +176,25 @@ export function AppChrome(props: {
   const custom = leftNavLoaded ? (leftNav[module] ?? tenantNav[module]) : undefined
   const trNodes = useMemo(() => {
     if (custom) {
+      // U34 — '#이름' 폴더 마커: 사용자/테넌트 정의 폴더로 재편 (마커 이후 리프가 해당 폴더 소속)
+      if (custom.some((id) => id.startsWith('#'))) {
+        const vis0 = (n: NavNode | undefined): n is NavNode =>
+          !!n?.href && (props.canReadAdmin || n.minLevel !== 'SETUP')
+        const out: TreeNode[] = []
+        let bucket: TreeNode[] = out
+        custom.forEach((entry, i) => {
+          if (entry.startsWith('#')) {
+            const name = entry.slice(1).trim() || '폴더'
+            const folder: TreeNode = { id: `folder:${i}:${name}`, label: name, children: [] }
+            out.push(folder)
+            bucket = folder.children!
+            return
+          }
+          const n = NODE_BY_ID[entry]
+          if (vis0(n)) bucket.push({ id: n.id, href: n.href, label: t(`menu.${n.id}`, n.label) })
+        })
+        return out.filter((x) => x.href || (x.children && x.children.length))
+      }
       // 폴더 보존 렌더: 그룹은 트리 순서 유지, 리프는 커스텀 포함 집합·순서 적용, 빈 그룹 생략
       const order = new Map(custom.map((id, i) => [id, i]))
       const vis = (n: NavNode) => props.canReadAdmin || n.minLevel !== 'SETUP'

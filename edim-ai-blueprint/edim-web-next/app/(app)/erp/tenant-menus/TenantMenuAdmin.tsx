@@ -25,8 +25,17 @@ export function TenantMenuAdmin({ initialLeft, initialHead, myLeft, myHead }: { 
   const store = target === 'left' ? left : head
   const current = draft ?? store[module] ?? moduleLeaves(module, true).map((n) => n.id)
   const label = (id: string) => {
+    if (id.startsWith('#')) return id.slice(1).trim() || '폴더'
     const n = NODE_BY_ID[id]
     return n ? t(`menu.${n.id}`, n.label) : id
+  }
+  // U34 — 커스텀 폴더 마커
+  const [folderName, setFolderName] = useState('')
+  const addFolder = () => {
+    const nm = folderName.trim()
+    if (!nm) return
+    setDraft([...current, `#${nm}`])
+    setFolderName('')
   }
   const pick = (m: ModuleKey, tg: 'left' | 'head') => { setModule(m); setTarget(tg); setDraft(null); setMsg(null) }
   const move = (i: number, dir: -1 | 1) => {
@@ -101,8 +110,9 @@ export function TenantMenuAdmin({ initialLeft, initialHead, myLeft, myHead }: { 
         style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div data-tmenu-list style={{ flex: 1, minHeight: 0, overflow: 'auto', borderBottom: '1px solid var(--line)' }}>
           {current.map((id, i) => (
-            <div key={id} data-tmenu-item={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderBottom: '1px solid var(--line)', fontSize: 11 }}>
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label(id)}</span>
+            <div key={`${id}-${i}`} data-tmenu-item={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderBottom: '1px solid var(--line)', fontSize: 11, background: id.startsWith('#') ? 'var(--panel, #F4F6FA)' : undefined }}>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: id.startsWith('#') ? 700 : undefined, color: id.startsWith('#') ? 'var(--title-navy)' : undefined }}>
+                {id.startsWith('#') ? '📁 ' : ''}{label(id)}</span>
               <span style={{ fontSize: 9.5, color: 'var(--txt-mute)' }}>{NODE_BY_ID[id]?.code ?? ''}</span>
               <button className="b" style={{ height: 17, fontSize: 9, padding: '0 4px' }} disabled={i === 0} onClick={() => move(i, -1)} title="위로">↑</button>
               <button className="b" style={{ height: 17, fontSize: 9, padding: '0 4px' }} disabled={i === current.length - 1} onClick={() => move(i, 1)} title="아래로">↓</button>
@@ -118,6 +128,12 @@ export function TenantMenuAdmin({ initialLeft, initialHead, myLeft, myHead }: { 
           </div>
         ) : null}
         <div style={{ display: 'flex', gap: 6, padding: 6, alignItems: 'center' }}>
+          <input className="in" data-tmenu-folder-name value={folderName} placeholder={t('tmenu.folderPh', '새 폴더 이름')}
+            onChange={(e) => setFolderName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addFolder() }} style={{ height: 20, fontSize: 10.5, width: 120 }} />
+          <button className="b" data-tmenu-add-folder disabled={pending || !folderName.trim()} onClick={addFolder}
+            title={t('tmenu.folderHint', '폴더 추가 — 마커 아래 항목들이 폴더 소속 (↑↓ 배치)')}>📁</button>
+          <span className="sep" />
           <button className="b run" data-tmenu-save disabled={pending || !draft} onClick={() => save(current)}>{t('tmenu.saveTenant', '🏢 테넌트 기본 저장')}</button>
           <button className="b" data-tmenu-clear disabled={pending} onClick={() => save(undefined)}>{t('tmenu.clear', '지정 해제(전체 복귀)')}</button>
           {msg ? <span style={{ fontSize: 10.5, color: msg.err ? 'var(--err)' : 'var(--run)' }}>{msg.text}</span> : null}
