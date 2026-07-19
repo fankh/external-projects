@@ -6,7 +6,7 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useFKeys } from '@/hooks/useFKeys'
 import { useI18n } from '@/components/I18nProvider'
-import { aiGenerateMacro, deleteMacro, evaluateMacro, getMacroFunctions, requestMacroApproval, saveMacro, type ActState, type EvalResult, type MacroFn } from './actions'
+import { aiGenerateMacro, deleteMacro, evaluateMacro, getMacroFunctions, getMacroRefs, requestMacroApproval, saveMacro, type ActState, type EvalResult, type MacroFn } from './actions'
 
 export interface MacroRow {
   name: string; expr: string; status: string; address: string; prompt: string
@@ -71,8 +71,14 @@ export function MacroGrid({ rows }: { rows: MacroRow[] }) {
     })
   }
 
+  // B20 — 4-Way 아티팩트 칩 + 역참조 (tbx_macro_ref)
+  const [selRow, setSelRow] = useState<MacroRow | null>(null)
+  const [refs, setRefs] = useState<{ refType: string; target: string }[] | null>(null)
+
   const select = (r: MacroRow) => {
     setSelName(r.name); setName(r.name); setExpr(r.expr); setPrompt(r.prompt); setEvalR(null)
+    setSelRow(r); setRefs(null)
+    start(async () => setRefs(await getMacroRefs(r.name)))
   }
 
   // N6 — F-key 수신: F12 저장 · F9 Test Run (셸 상태바/키보드 디스패치)
@@ -90,6 +96,21 @@ export function MacroGrid({ rows }: { rows: MacroRow[] }) {
       </div>
       <div className="gb" style={{ width: 380, display: 'flex', flexDirection: 'column', gap: 6, padding: 8, fontSize: 11, overflow: 'auto' }}>
         <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('macro.editTitle', 'Macro 편집')} {selName ? `— ${selName}` : t('macro.newHint', '(행 클릭 또는 신규 이름 입력)')}</div>
+        {/* B20 — 4-Way 아티팩트 칩(수식·flowchart_def·code_text·test_result) + 역참조 */}
+        {selRow ? (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            {selRow.expr ? <Chip tone="ok">expr</Chip> : null}
+            {selRow.flowchartDef ? <Chip tone="info">flowchart_def</Chip> : null}
+            {selRow.codeText ? <Chip tone="info">code_text</Chip> : null}
+            <span data-macro-refs style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+              {refs === null
+                ? <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('macro.refsLoading', '참조 조회 중…')}</span>
+                : refs.length
+                  ? refs.map((rf) => <Chip key={`${rf.refType}:${rf.target}`} tone="warn">{rf.refType}:{rf.target}</Chip>)
+                  : <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>{t('macro.noRefs', '참조 없음')}</span>}
+            </span>
+          </div>
+        ) : null}
         <input className="in req" placeholder={t('macro.namePh', 'Macro 이름 (TBX-…)')} value={name} onChange={(e) => setName(e.target.value)} />
         <div style={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
           <textarea className="in" placeholder={t('macro.exprPh', '=IF(A>0, A*B, 0) — Excel 호환 식')} value={expr} onChange={(e) => setExpr(e.target.value)}

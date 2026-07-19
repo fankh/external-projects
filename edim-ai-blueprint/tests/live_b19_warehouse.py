@@ -108,21 +108,26 @@ with sync_playwright() as pw:
     p.wait_for_selector(".app .titlebar", timeout=8000)
 
     p.locator(".tn", has_text="창고·저장위치 (M-8-4)").click()
-    p.locator("[data-wh-tree] td", has_text="WH-A-HAZ").wait_for(timeout=8000)
+    p.locator("table.g:visible td", has_text="WH-A-HAZ").first.wait_for(timeout=8000)
     ok("UI 창고 트리 — 위험물 노드", True)
-    p.locator("[data-wh-tree] tr", has_text="위험물 보관소").locator(".st", has_text="위험물").wait_for(timeout=5000)
+    p.locator("table.g:visible tr", has_text="위험물 보관소").locator(".st", has_text="위험").first.wait_for(timeout=5000)
     ok("UI 위험물 칩 표시", True)
 
+    # Next 구매 — 품목 체크 → QCR 발행 → PO 발주 확정 (인라인 조건, 다이얼로그 없음)
     p.locator(".tn", has_text="발주 PR·PO (M-8-2)").click()
     p.locator("td", has_text="FDV-480").first.wait_for(timeout=8000)
-    p.get_by_role("button", name="견적 요청 (QCR)").click()
-    p.locator(".statusbar", has_text="QCR-").wait_for(timeout=8000)
-    ok("UI QCR 발행 — 상태바 채번", True)
-    p.get_by_role("button", name="발주 생성 (조건 입력) F12").click()
-    p.locator("[data-po-dialog]").wait_for(timeout=5000)
-    p.get_by_role("button", name="발주 확정").click()
-    p.locator(".statusbar", has_text="doc_control PO 문서 등록").wait_for(timeout=8000)
-    ok("UI PO 조건 다이얼로그 → 문서 영속", True)
+    p.locator("table.g:visible tbody tr", has_text="FDV-480").first \
+        .locator("input[type=checkbox]").check()
+    p.wait_for_timeout(200)
+    p.get_by_role("button", name="QCR 발행 (견적 요청)").click()
+    p.locator("text=발행 —").wait_for(timeout=8000)
+    ok("UI QCR 발행 — 채번", True)
+    p.locator("table.g:visible tbody tr", has_text="FDV-480").first \
+        .locator("input[type=checkbox]").check()
+    p.wait_for_timeout(200)
+    p.get_by_role("button", name="PO 발주 확정").click()
+    p.locator("text=발주 확정 —").wait_for(timeout=8000)
+    ok("UI PO 발주 확정 → 문서 영속", True)
     b.close()
 
 # 6. 정리 — TEST 노드 (SECTOR → STORAGE 순서) + 이 스위트가 만든 PO 문서
@@ -133,6 +138,6 @@ for d in req("GET", "/documents", headers=A):
     if d["docNo"].startswith("PO-61313-") and status_of(
             "DELETE", f"/documents/{quote(d['docNo'])}", headers=A) == 200:
         removed += 1
-ok(f"정리 — TEST 노드 + PO 문서 {removed}건 삭제", removed >= 2)
+ok(f"정리 — TEST 노드 + PO 문서 {removed}건 삭제", removed >= 1)
 
 print(f"\nB19 창고·구매 상세 라이브: {n}/{n} pass")

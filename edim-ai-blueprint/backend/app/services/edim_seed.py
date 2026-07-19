@@ -3580,6 +3580,8 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "prj.dupNone": ('No duplicates ✓', '重複なし ✓', '无重复 ✓'),
     "cad.dxfDlHint": ('Download source file', '原本ファイルダウンロード', '下载源文件'),
     "access.roles": ('Roles (multi, sys_user_role)', 'ロール (複数, sys_user_role)', '角色 (多个, sys_user_role)'),
+    "macro.refsLoading": ('Loading refs…', '参照照会中…', '查询引用中…'),
+    "macro.noRefs": ('No refs', '参照なし', '无引用'),
 }
 
 def seed_v32(cur, tid: int) -> None:

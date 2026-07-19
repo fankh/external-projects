@@ -58,6 +58,13 @@ export async function requestMacroApproval(name: string): Promise<ActState> {
 export interface MacroFn { name: string; sig: string; desc: string; keywords: string }
 
 /** U24 — 함수 마법사 카탈로그 (자연어 검색, TBX-014). */
+/** B20 — Macro 역참조 (tbx_macro_ref: TABLE/VAR/MACRO 의존). */
+export async function getMacroRefs(name: string): Promise<{ refType: string; target: string }[]> {
+  try {
+    return await apiServer<{ refType: string; target: string }[]>(`/macros/${encodeURIComponent(name)}/refs`)
+  } catch { return [] }
+}
+
 export async function getMacroFunctions(q: string): Promise<MacroFn[]> {
   try {
     return await apiServer<MacroFn[]>(`/macros/functions?q=${encodeURIComponent(q)}`)

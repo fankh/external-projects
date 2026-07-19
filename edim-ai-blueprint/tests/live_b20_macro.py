@@ -117,14 +117,19 @@ with sync_playwright() as pw:
     p.get_by_label("비밀번호").fill("edim")
     p.get_by_role("button", name="로그인 (Enter)").click()
     p.wait_for_selector(".app .titlebar", timeout=8000)
+    # Next — 행 선택 시 4-Way 아티팩트 칩·역참조 칩, 기능 찾기는 ƒx 함수 마법사
     p.locator(".tn", has_text="Macro Studio (S-2-2)").click()
+    p.locator("table.g:visible tbody tr", has_text="Shaft 길이 계산").first.wait_for(timeout=10000)
+    p.locator("table.g:visible tbody tr", has_text="Shaft 길이 계산").first.click()
     p.locator(".st", has_text="flowchart_def").wait_for(timeout=10000)
-    ok("UI 4-Way 복원 칩 (flowchart_def·code_text)", True)
+    ok("UI 4-Way 복원 칩 (flowchart_def·code_text)",
+       p.locator(".st", has_text="code_text").count() >= 1)
     p.locator("[data-macro-refs] .st", has_text="TABLE:Table12").wait_for(timeout=8000)
     ok("UI 참조 칩 — TABLE:Table12", True)
-    p.get_by_label("기능 찾기").fill("합계")
-    p.locator("[data-fn-results]", has_text="SUM").wait_for(timeout=8000)
-    ok("UI 기능 찾기 — '합계' → SUM", True)
+    p.locator("[data-fn-wizard]").click()
+    p.locator("[data-fn-search]").fill("합계")
+    p.locator("[data-fn-item]", has_text="SUM").first.wait_for(timeout=8000)
+    ok("UI 기능 찾기 — '합계' → SUM (ƒx 마법사)", True)
     b.close()
 
 # 6. 원복 — 스냅샷으로 되돌림 (atexit 로도 보장되지만 명시 검증)

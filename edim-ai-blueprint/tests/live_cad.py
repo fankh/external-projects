@@ -89,16 +89,16 @@ with sync_playwright() as pw:
     p.get_by_role('button', name='로그인 (Enter)').click()
     p.wait_for_selector('.app .titlebar', timeout=8000)
     p.locator('.tn', has_text='Project Folder·이력 (M-15-8/9)').click()
-    p.locator('.gb', has_text='DWG —').wait_for(timeout=15000)   # 파일 그리드 로드 완료 대기
-    p.locator('td.code:visible', has_text='sample_import.dxf').first.wait_for(timeout=15000)
+    # Next FolderGrid — 최신순 정렬로 업로드가 1페이지 최상단
+    p.locator('tr:visible', has_text='sample_import.dxf').first.wait_for(timeout=15000)
     p.locator('tr:visible', has_text='sample_import.dxf').first.dblclick()
-    p.locator('.mdi .t.on', has_text='CAD').wait_for(timeout=5000)
+    p.locator('.mdi .t.on', has_text='CAD').wait_for(timeout=8000)
     p.locator('svg[data-cad-svg] circle').wait_for(timeout=8000)
     n_ent = p.locator('svg[data-cad-svg] g > *').count()
     assert p.locator('svg[data-cad-svg] text', has_text='EDIM CAD TEST').count() == 1
     print(f'PASS UI viewer renders imported DXF ({n_ent} svg entities)')
-    # 레이어 토글 — 뷰어 패널의 체크박스 (좌측 트리 .tn 오매칭 방지)
-    p.get_by_label('레이어 0', exact=True).click()
+    # 레이어 토글 — Next 뷰어 qband 의 레이어 버튼 (버튼 텍스트 = 레이어명)
+    p.locator('.qband button.b', has_text='0').first.click()
     p.wait_for_timeout(300)
     assert p.locator('svg[data-cad-svg] circle').count() == 0
     print('PASS layer visibility toggle hides entities')
