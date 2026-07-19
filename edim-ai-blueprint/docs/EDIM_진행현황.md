@@ -174,6 +174,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 | 2026-07-16 | **N5b 스튜디오·PDF 복구(v18.5~18.7)** — Macro Studio(식 편집·Test Run 실평가 라이브 E2E·저장·승인)·Templet 편집기(+잠복 SSR 500 수정)·Run 정리/MinIO GC·Fan 성능표/밀도 PDF·사양 Excel·견적 미리보기. 스모크 55/55 — **N5 전체 완료** |
 | 2026-07-16 | **GDrive 재동기(v18.6)** — 사용자 Drive 파일 삭제 후 `tools/gdrive-sync.mjs` 신설(멱등: 동일명 files.update, id·공유 링크 불변)·30파일 재업로드(xlsx→Sheets 12·pptx→Slides 1·PDF 17). 이후 변경분은 사용자 트리거 시 재실행 |
 | 2026-07-16 | **N6 셸 전역 복구(v18.9)** — ⌘K 통합검색(화면+코드·문서·파일·부품·프로젝트 딥링크)·전역 단축키(Alt+W/←→/1~9·Ctrl+K)·useFKeys 수신 체계(Macro F12/F9·Table F12/F3)·비밀번호 변경(B8). 라이브 E2E: Ctrl+K 포커스·Alt+← 탭·F9 평가. 스모크 56/56 — **패리티 감사 P1 35건 전량 해소 (N1~N6 완료)** |
+| 2026-07-19 | **U25 그래프 마법사(v27.6)** — 데이터 Table 차트 위저드(시리즈 다중 선택·라인/막대·순수 SVG). 라이브 E2E 7/7. 이로써 PPT 발굴 태스크 U1~U26 전량 소진(잔여=협의·API 키 대기분) |
 | 2026-07-19 | **원본 PPT 6차 조사 + U26 SWP 보강(v27.4)** — 잔여 미열람 전수 열람(78장 완료)·기구현 확인 → U26 등록·즉시 구현: Child Component 패널(mother→child 표+상세 딥링크)·Table Excel Import 진입점. 라이브 E2E 7/7(Import 왕복 원상 복구) |
 | 2026-07-19 | **원본 PPT 5차 조사 + U24 함수 마법사(v27.2)** — 미열람 14장 검증(대부분 기구현 확인) → U24·U25 등록. U24 즉시 구현: Macro Studio ƒx 함수 마법사(검색·설명·삽입, /macros/functions 배선), 라이브 E2E 7/7. 잔여 U25 그래프 마법사(협의) |
 | 2026-07-19 | **U23 문서 채번 규칙(v27.0)** — 테넌트 채번 규칙(JSONB 템플릿+부문)·allocate-code 규칙화·numbering-rule GET/PUT·등록 폼 자동 채번+규칙 편집. 라이브 E2E 10/10(발급→중복 회피→UI→원복) |
