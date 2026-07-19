@@ -15,6 +15,8 @@ export function LeftNavEditModal(props: {
   value: string[] | undefined                  // 현재 모듈 pref (undefined = 기본 전체)
   onSave: (ids: string[] | undefined) => void  // undefined = 기본값 복원
   title?: string                               // U21 — 헤더 메뉴 편집 재사용 시 제목 교체
+  /** U30 — 관리자: 현재 초안을 테넌트 기본으로 저장 (개인 pref 없는 사용자에게 적용) */
+  onSaveTenant?: (ids: string[]) => void
 }) {
   const { t } = useI18n()
   const [draft, setDraft] = useState<string[]>([])
@@ -98,6 +100,12 @@ export function LeftNavEditModal(props: {
           <button className="b" data-lnav-reset onClick={() => { props.onSave(undefined); props.onClose() }}>
             {t('shell.restoreDefault', '기본값 복원')}
           </button>
+          {props.onSaveTenant ? (
+            <button className="b" data-lnav-save-tenant title={t('shell.saveTenantHint', '이 목록을 테넌트 기본으로 저장 — 개인 설정이 없는 모든 사용자에게 적용 (관리자)')}
+              onClick={() => { props.onSaveTenant?.(draft); props.onClose() }}>
+              🏢 {t('shell.saveTenant', '테넌트 기본 저장')}
+            </button>
+          ) : null}
           <span style={{ flex: 1 }} />
           <button className="b run" data-lnav-save onClick={() => { props.onSave(draft); props.onClose() }}>
             {t('common.save', '저장')}

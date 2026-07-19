@@ -10,7 +10,7 @@ import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
-import { changePassword, firstProject, getFavorites, getHeadNav, getLeftNav, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
+import { changePassword, firstProject, getFavorites, getHeadNav, getLeftNav, getTenantNav, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
 
 /** U11 색상 테마 프리셋 (슬라이드 57) — globals.css body[data-theme] 토큰. */
 const THEMES: { id: string; label: string }[] = [
@@ -87,7 +87,20 @@ export function AppChrome(props: {
   // ── 좌측 사용자 메뉴 목록 (/prefs/leftnav) — 모듈별 leaf id 순서, 부재 = 기본 전체 트리 ──
   const [leftNav, setLeftNav] = useState<LeftNavPref>({})
   const [leftNavLoaded, setLeftNavLoaded] = useState(false)
-  useEffect(() => { void getLeftNav().then((p) => { setLeftNav(p); setLeftNavLoaded(true) }) }, [])
+  // U30 — 테넌트 기본 메뉴 (관리자 지정): 개인 pref > 테넌트 기본 > 전체 트리
+  const [tenantNav, setTenantNav] = useState<LeftNavPref>({})
+  useEffect(() => {
+    void Promise.all([getLeftNav(), getTenantNav()]).then(([p, tn]) => {
+      setLeftNav(p); setTenantNav(tn); setLeftNavLoaded(true)
+    })
+  }, [])
+  const applyTenantNav = useCallback((ids: string[]) => {
+    setTenantNav((cur) => {
+      const next = { ...cur, [module]: ids }
+      void saveTenantNav(next)
+      return next
+    })
+  }, [module])
   const applyLeftNav = useCallback((ids?: string[]) => {
     setLeftNav((cur) => {
       const next = { ...cur }
@@ -152,7 +165,7 @@ export function AppChrome(props: {
   }, [])
 
   // ── 모듈 트리 — 커스텀 존재 시 플랫 리프 목록, 없으면 기본 전체 트리 (권한 숨김 + 라벨 번역) ──
-  const custom = leftNavLoaded ? leftNav[module] : undefined
+  const custom = leftNavLoaded ? (leftNav[module] ?? tenantNav[module]) : undefined
   const trNodes = useMemo(() => {
     if (custom) {
       return custom
@@ -521,6 +534,7 @@ export function AppChrome(props: {
         value={headNav[module]} onSave={applyHeadNav}
         title={t('shell.headEditTitle', '헤더 메뉴 편집')} />
       <LeftNavEditModal open={navEditOpen} onClose={() => setNavEditOpen(false)}
+        onSaveTenant={props.canReadAdmin ? applyTenantNav : undefined}
         module={module} canReadAdmin={props.canReadAdmin}
         value={leftNav[module]} onSave={applyLeftNav} />
       {/* P3 — 단축키 안내 */}

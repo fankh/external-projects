@@ -148,3 +148,26 @@ export async function saveHeadNav(p: LeftNavPref): Promise<void> {
     await apiServer('/prefs/headnav', { method: 'PUT', body: JSON.stringify({ value: p }) })
   } catch { /* 오프라인 — 다음 저장에서 재시도 */ }
 }
+
+/** U30 — 테넌트 기본 좌측 메뉴 (관리자 지정): 개인 pref 부재 시 적용. */
+export async function getTenantNav(): Promise<LeftNavPref> {
+  try {
+    const r = await apiServer<{ value: LeftNavPref | null }>('/tenant/leftnav')
+    const v = r.value
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    const out: LeftNavPref = {}
+    for (const [k, ids] of Object.entries(v)) {
+      if (Array.isArray(ids) && ids.every((x) => typeof x === 'string')) out[k] = ids
+    }
+    return out
+  } catch { return {} }
+}
+
+export async function saveTenantNav(p: LeftNavPref): Promise<{ error?: string }> {
+  try {
+    await apiServer('/tenant/leftnav', { method: 'PUT', body: JSON.stringify({ value: p }) })
+    return {}
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '저장 실패' }
+  }
+}
