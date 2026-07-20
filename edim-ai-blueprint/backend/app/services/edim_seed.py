@@ -3634,6 +3634,10 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "rpt.noActual": ('No purchase actuals — estimate only', '購買実績なし — 推定のみ表示', '无采购实绩 — 仅显示估算'),
     "rpt.actualBasis": ('Actuals', '実績', '实绩'),
     "rpt.estimate": ('Estimate', '推定', '估算'),
+    "detail.bomAdd": ('Add BOM line', 'BOM 追加', '添加 BOM'),
+    "detail.bomPartPh": ('Part no (registered)', '部品番号 (台帳登録分)', '零件号 (已登记)'),
+    "detail.bomNotePh": ('Assembly note', '組立備考', '装配备注'),
+    "detail.bomDelHint": ('Delete BOM line', 'BOM 行を削除', '删除 BOM 行'),
 }
 
 def seed_v32(cur, tid: int) -> None:

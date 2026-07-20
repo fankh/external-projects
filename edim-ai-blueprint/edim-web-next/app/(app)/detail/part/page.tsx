@@ -2,10 +2,9 @@ import { apiServer, ApiError } from '@/lib/api'
 import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
+import { BomEditor, type BomRow } from './BomEditor'
 
 export const dynamic = 'force-dynamic'
-
-interface BomRow { bomId: number; itemNo: number; partNo: string; partName: string; qty: number; assemblySeq: number | null; assemblyNote: string; unit: string; isStandard: boolean }
 interface PartDetail {
   drawing: string; block: string
   part: { partNo: string; name: string; spec: string; material: string; supplier: string; weight: number | null; isStandard: boolean; makeBuy: string; assemblySeq: number | null; assemblyNote: string; qty: number; itemNo: number } | null
@@ -71,11 +70,7 @@ export default async function PartDetailPage({ searchParams }: { searchParams: P
               <table className="g"><thead><tr><th>{t('detail.noCol', '번호')}</th><th>{t('detail.valCol', '값')}</th><th>{t('detail.bindCol', '바인딩')}</th><th>{t('detail.kindCol', '종류')}</th></tr></thead>
                 <tbody>{(detail?.dims ?? []).map((d) => <tr key={d.no}><td className="code">{d.no}</td><td className="num">{d.value}</td><td className="c">{d.binding}</td><td className="c">{d.kind}</td></tr>)}</tbody></table>
             </div>
-            <div className="gb" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('detail.drawingBom', '도면 BOM')} ({bom.length})</div>
-              <table className="g"><thead><tr><th>No</th><th>{t('detail.partNo', '부품번호')}</th><th>{t('detail.name', '이름')}</th><th style={{ textAlign: 'right' }}>{t('detail.qty', '수량')}</th><th>{t('detail.unit', '단위')}</th><th>{t('detail.assemblySeq', '조립순서')}</th></tr></thead>
-                <tbody>{bom.map((r) => <tr key={r.bomId}><td className="c">{r.itemNo}</td><td className="code">{r.partNo}</td><td>{r.partName}</td><td className="num">{r.qty}</td><td className="c">{r.unit}</td><td className="c">{r.assemblySeq ?? '—'}</td></tr>)}</tbody></table>
-            </div>
+            <BomEditor drawing={drawing} rows={bom} />
           </div>
         </div>
       )}

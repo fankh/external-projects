@@ -1948,6 +1948,10 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'rpt.noActual': 'No purchase actuals — estimate only',
     'rpt.actualBasis': 'Actuals',
     'rpt.estimate': 'Estimate',
+    'detail.bomAdd': 'Add BOM line',
+    'detail.bomPartPh': 'Part no (registered)',
+    'detail.bomNotePh': 'Assembly note',
+    'detail.bomDelHint': 'Delete BOM line',
   },
   ja: {
     'menu.plm-parts': '部品台帳 (M-4-7)',
@@ -3896,6 +3900,10 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'rpt.noActual': '購買実績なし — 推定のみ表示',
     'rpt.actualBasis': '実績',
     'rpt.estimate': '推定',
+    'detail.bomAdd': 'BOM 追加',
+    'detail.bomPartPh': '部品番号 (台帳登録分)',
+    'detail.bomNotePh': '組立備考',
+    'detail.bomDelHint': 'BOM 行を削除',
   },
   zh: {
     'menu.plm-parts': '零件台账 (M-4-7)',
@@ -5844,5 +5852,9 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'rpt.noActual': '无采购实绩 — 仅显示估算',
     'rpt.actualBasis': '实绩',
     'rpt.estimate': '估算',
+    'detail.bomAdd': '添加 BOM',
+    'detail.bomPartPh': '零件号 (已登记)',
+    'detail.bomNotePh': '装配备注',
+    'detail.bomDelHint': '删除 BOM 行',
   },
 }
