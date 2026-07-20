@@ -299,8 +299,29 @@ export function AppChrome(props: {
         if (t) { e.preventDefault(); router.push(t.id) }
         return
       }
+      // 폼 필드 방향키 이동 (G2 [L]) — .frm 내 텍스트 입력에서 ↑↓ = 이전/다음 필드 포커스
+      if (editing && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        const el = e.target as HTMLInputElement
+        if (el.tagName === 'INPUT' && !['date', 'number', 'checkbox', 'radio', 'file'].includes(el.type)) {
+          const frm = el.closest('.frm')
+          if (frm) {
+            const fields = Array.from(frm.querySelectorAll<HTMLElement>(
+              'input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])'))
+            const i = fields.indexOf(el)
+            const next = fields[i + (e.key === 'ArrowDown' ? 1 : -1)]
+            if (i >= 0 && next) {
+              e.preventDefault()
+              next.focus()
+              ;(next as HTMLInputElement).select?.()
+            }
+          }
+        }
+        return
+      }
       if (!editing && /^F(2|3|5|8|9|12)$/.test(e.key)) {
-        e.preventDefault(); window.dispatchEvent(new CustomEvent('edim-fkey', { detail: e.key }))
+        e.preventDefault()
+        // F5 = 재조회 별칭 (G2 [L]) — 화면 수신 표준은 F8, F5 는 관습 호환 (기존엔 차단만 하는 죽은 키)
+        window.dispatchEvent(new CustomEvent('edim-fkey', { detail: e.key === 'F5' ? 'F8' : e.key }))
       }
     }
     window.addEventListener('keydown', onKey)
