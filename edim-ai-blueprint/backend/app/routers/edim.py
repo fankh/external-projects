@@ -5352,16 +5352,17 @@ def analytics() -> dict[str, Any]:
     """C3 분석 — Run 통계(cpq_run) + 원가 추이(cst_calc) 누적 집계."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # E3 — 테스트성 Run 은 업무 통계에서 제외 (is_test)
         cur.execute(
             """SELECT count(*), count(*) FILTER (WHERE status='SUCCESS'),
                       count(*) FILTER (WHERE status='FAILED'),
                       avg(EXTRACT(EPOCH FROM (finished_at-started_at))) FILTER (WHERE finished_at IS NOT NULL)
-               FROM cpq_run WHERE tenant_id=%s""", (tid,))
+               FROM cpq_run WHERE tenant_id=%s AND NOT is_test""", (tid,))
         total, success, failed, avg_sec = cur.fetchone()
         cur.execute(
             """SELECT run_id, status, run_type,
                       EXTRACT(EPOCH FROM (finished_at-started_at)), to_char(started_at,'MM-DD HH24:MI')
-               FROM cpq_run WHERE tenant_id=%s ORDER BY run_id DESC LIMIT 10""", (tid,))
+               FROM cpq_run WHERE tenant_id=%s AND NOT is_test ORDER BY run_id DESC LIMIT 10""", (tid,))
         recent = [{"runId": x[0], "status": x[1], "runType": x[2],
                    "durationSec": round(float(x[3]), 1) if x[3] is not None else None, "at": x[4]}
                   for x in cur.fetchall()]
@@ -7347,6 +7348,7 @@ _runs: dict[int, dict[str, Any]] = {}  # 진행 상태 (산출물·완료는 DB 
 class RunRequest(BaseModel):
     runType: str = "ALL"
     selectionId: int | None = None   # C1 — 지정 견적안 대상 실행 (미지정 시 최신)
+    isTest: bool = False             # E3 — 테스트성 Run 표기 (스위트·Studio Test, 통계 제외)
 
 
 def _out_row(folder: str, fname: str, ftype: str, file_id: int | None) -> dict[str, Any]:
@@ -9301,9 +9303,9 @@ async def start_run(body: RunRequest) -> dict[str, Any]:
             raise HTTPException(404 if body.selectionId else 503,
                                 detail="견적안 없음" if body.selectionId else "seed selection missing")
         cur.execute(
-            """INSERT INTO cpq_run (tenant_id, selection_id, run_type, status)
-               VALUES (%s,%s,%s,'RUNNING') RETURNING run_id""",
-            (tid, sel[0], body.runType))
+            """INSERT INTO cpq_run (tenant_id, selection_id, run_type, status, is_test)
+               VALUES (%s,%s,%s,'RUNNING',%s) RETURNING run_id""",
+            (tid, sel[0], body.runType, body.isTest))
         run_id = cur.fetchone()[0]
     _runs[run_id] = {
         "status": "RUNNING", "current": -1, "outputs": [], "logs": [],
@@ -9373,11 +9375,11 @@ def run_list() -> list[dict[str, Any]]:
             """SELECT r.run_id, r.status, r.run_type, to_char(r.started_at,'MM-DD HH24:MI'),
                       EXTRACT(EPOCH FROM (r.finished_at - r.started_at)),
                       (SELECT count(*) FROM cpq_output o WHERE o.run_id=r.run_id),
-                      COALESCE(r.created_by,'system')
+                      COALESCE(r.created_by,'system'), r.is_test
                FROM cpq_run r WHERE r.tenant_id=%s ORDER BY r.run_id DESC""", (tid,))
         return [{"runId": x[0], "status": x[1], "runType": x[2], "startedAt": x[3],
                  "durationSec": round(float(x[4]), 1) if x[4] is not None else None,
-                 "outputCount": x[5], "createdBy": x[6],
+                 "outputCount": x[5], "createdBy": x[6], "isTest": x[7],
                  "latest": x[0] == latest, "referenced": x[0] in refs,
                  "protected": x[0] == latest or x[0] in refs} for x in cur.fetchall()]
 

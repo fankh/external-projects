@@ -22,7 +22,7 @@ tok = req('POST', '/auth/login', {'userId': 'edim', 'password': 'edim'})['token'
 A = {'Authorization': f'Bearer {tok}'}
 
 # 1. Run → 산출 DXF 를 /cad/view 로 파싱
-run = req('POST', '/cpq/runs', {'runType': 'ALL'}, A)
+run = req('POST', '/cpq/runs', {'runType': 'ALL', 'isTest': True}, A)
 for _ in range(40):
     st = req('GET', f"/cpq/runs/{run['runId']}", headers=A)
     if st['status'] != 'RUNNING':

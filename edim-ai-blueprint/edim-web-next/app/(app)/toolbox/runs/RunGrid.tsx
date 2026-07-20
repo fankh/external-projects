@@ -10,6 +10,7 @@ import { cleanupRuns, deleteRun, gcStorage, type ActState } from './actions'
 export interface RunRow {
   runId: number; status: string; runType: string; startedAt: string
   durationSec: number | null; outputCount: number; createdBy: string
+  isTest?: boolean
   latest: boolean; referenced: boolean; protected: boolean
 }
 
@@ -23,7 +24,7 @@ export function RunGrid({ rows }: { rows: RunRow[] }) {
     { key: 'dur', header: t('runs.durCol', '소요(s)'), width: 72, align: 'right', sortValue: (r) => r.durationSec ?? 0, render: (r) => r.durationSec ?? '—' },
     { key: 'out', header: t('run.out', '산출물'), width: 64, align: 'right', sortValue: (r) => r.outputCount, render: (r) => r.outputCount },
     { key: 'by', header: t('runs.byCol', '수행자'), width: 80, align: 'center', render: (r) => r.createdBy },
-    { key: 'flag', header: '', width: 90, align: 'center', noSort: true, noFilter: true, render: (r) => <span style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>{r.latest ? <Chip tone="ok">{t('runs.latest', '최신')}</Chip> : null}{r.referenced ? <Chip tone="info">{t('runs.referenced', '참조')}</Chip> : null}</span> },
+    { key: 'flag', header: '', width: 118, align: 'center', noSort: true, noFilter: true, render: (r) => <span style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>{r.isTest ? <Chip tone="warn">TEST</Chip> : null}{r.latest ? <Chip tone="ok">{t('runs.latest', '최신')}</Chip> : null}{r.referenced ? <Chip tone="info">{t('runs.referenced', '참조')}</Chip> : null}</span> },
   ]
   const [selId, setSelId] = useState<number | null>(null)
   const [keep, setKeep] = useState('10')

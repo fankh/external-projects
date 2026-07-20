@@ -21,7 +21,7 @@ tok = req('POST', '/auth/login', {'userId': 'edim', 'password': 'edim'})['token'
 A = {'Authorization': f'Bearer {tok}'}
 
 # 1. Run 시작 → 폴링
-run = req('POST', '/cpq/runs', {'runType': 'ALL'}, A)
+run = req('POST', '/cpq/runs', {'runType': 'ALL', 'isTest': True}, A)
 rid = run['runId']
 print(f'run #{rid} started')
 for _ in range(40):
