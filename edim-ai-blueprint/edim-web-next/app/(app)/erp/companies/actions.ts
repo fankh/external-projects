@@ -34,6 +34,19 @@ export async function toggleCompanyActive(companyId: number, active: boolean): P
   return { ok: active ? '재활성' : '비활성' }
 }
 
+/** 일괄 활성/비활성 (POST /companies/batch) — 다중 선택 소프트 토글, 최대 200건. */
+export async function batchCompanyActive(ids: number[], active: boolean): Promise<FormState> {
+  if (!ids.length) return { error: '대상을 선택하십시오' }
+  try {
+    const r = await apiServer<{ done: number; requested: number }>(
+      '/companies/batch', { method: 'POST', body: JSON.stringify({ ids, active }) })
+    revalidatePath(PATH)
+    return { ok: `일괄 ${active ? '활성' : '비활성'} ✓ — ${r.done}/${r.requested}건` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '일괄 변경 실패' }
+  }
+}
+
 /** 거래처 수정 (F5 이식) — 평가등급·결제조건 (PUT /companies/{id}, 폼 액션). */
 export async function updateCompany(_prev: FormState, formData: FormData): Promise<FormState> {
   const companyId = Number(formData.get('companyId'))

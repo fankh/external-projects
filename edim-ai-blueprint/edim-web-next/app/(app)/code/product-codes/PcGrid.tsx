@@ -7,7 +7,7 @@ import { Chip } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { usePermission } from '@/components/PermissionProvider'
-import { createProductCode, deleteProductCode, renameProductCode, setProductStatus, type ActState } from './actions'
+import { batchProductCodes, createProductCode, deleteProductCode, renameProductCode, setProductStatus, type ActState } from './actions'
 import { ApprovalStrip } from '@/components/ApprovalStrip'
 
 export interface PcRow {
@@ -35,6 +35,19 @@ export function PcGrid({ rows }: { rows: PcRow[] }) {
   const sel = rows.find((r) => r.productCodeId === selId) ?? null
 
   const transition = (status: string) => sel && start(async () => setSt(await setProductStatus(sel.productCodeId, status)))
+
+  // 일괄 작업 (POST /codes/products/batch) — 다중 선택 상태 전이/삭제
+  const [msel, setMsel] = useState<Set<string | number>>(new Set())
+  const [batchStatus, setBatchStatus] = useState('INACTIVE')
+  const runBatch = (action: 'STATUS' | 'DELETE') => {
+    const ids = [...msel].map(Number).filter((x) => !Number.isNaN(x))
+    if (!ids.length) return
+    if (action === 'DELETE' && !confirm(`선택 ${ids.length}건을 일괄 삭제하시겠습니까? (참조 항목은 skip)`)) return
+    start(async () => {
+      setSt(await batchProductCodes(ids, action, action === 'STATUS' ? batchStatus : undefined))
+      setMsel(new Set())
+    })
+  }
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -65,6 +78,22 @@ export function PcGrid({ rows }: { rows: PcRow[] }) {
           if (sel && confirm(`${sel.mainCode} 를 삭제하시겠습니까? (참조 시 거부)`))
             start(async () => { setSt(await deleteProductCode(sel.productCodeId)); setSelId(null) })
         }}>{t('master.delete', '삭제')}</button>
+        {msel.size > 0 ? (
+          <span data-pc-batch style={{ display: 'inline-flex', gap: 4, alignItems: 'center', fontSize: 11 }}>
+            <span className="sep" />
+            <span style={{ color: 'var(--title-navy)', fontWeight: 600 }}>☑ {msel.size}{t('master.batchCount', '건')}</span>
+            <select className="in" value={batchStatus} onChange={(e) => setBatchStatus(e.target.value)}
+              style={{ height: 20, fontSize: 10.5 }} aria-label="일괄 상태">
+              {['DRAFT', 'APPROVED', 'INACTIVE'].map((s) => <option key={s}>{s}</option>)}
+            </select>
+            <button className="b" data-pc-batch-status disabled={pending || !perm.canWrite('code-master')}
+              title={perm.canWrite('code-master') ? undefined : perm.denyWrite}
+              onClick={() => runBatch('STATUS')}>{t('master.batchApply', '일괄 전이')}</button>
+            <button className="b" data-pc-batch-del disabled={pending || !perm.canWrite('code-master')}
+              title={perm.canWrite('code-master') ? undefined : perm.denyWrite}
+              onClick={() => runBatch('DELETE')}>{t('master.batchDelete', '일괄 삭제')}</button>
+          </span>
+        ) : null}
         {st.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{st.ok}</span> : null}
         <span className="sep" />
@@ -75,6 +104,7 @@ export function PcGrid({ rows }: { rows: PcRow[] }) {
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-pc" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.productCodeId} selectedKey={selId ?? undefined}
+          multiSelect selectedKeys={msel} onSelectionChange={setMsel}
           onRowClick={(r) => setSelId(r.productCodeId)}
           onCellEdit={(r, _i, _k, v) => {
             if (!v.trim() || v.trim() === r.codeName) return

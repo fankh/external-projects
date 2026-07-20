@@ -3602,6 +3602,11 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "rel.draftDelHint": ('Delete DRAFT relation (approved relations protected)', 'DRAFT 関係を削除 (承認済み関係は保護)', '删除 DRAFT 关系 (已批准关系受保护)'),
     "access.invite": ('Invite', '招待', '邀请'),
     "access.inviteHint": ('Send invite — no mail server: in-app notification', '招待案内 — メールサーバー未設定: アプリ内通知', '发送邀请 — 未配置邮件服务器: 应用内通知'),
+    "master.batchCount": (' selected', '件', '件'),
+    "master.batchApply": ('Batch transition', '一括遷移', '批量转换'),
+    "master.batchDelete": ('Batch delete', '一括削除', '批量删除'),
+    "company.batchOn": ('Batch activate', '一括有効', '批量启用'),
+    "company.batchOff": ('Batch deactivate', '一括無効', '批量停用'),
 }
 
 def seed_v32(cur, tid: int) -> None:

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Btn, Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { toggleCompanyActive, updateCompany, type FormState } from './actions'
+import { batchCompanyActive, toggleCompanyActive, updateCompany, type FormState } from './actions'
 
 export interface CompanyRow {
   companyId?: number; name: string; companyType: string; nation: string
@@ -20,6 +20,18 @@ export function CompanyGrid({ rows, selectedId }: { rows: CompanyRow[]; selected
   const [pending, start] = useTransition()
   const [edit, setEdit] = useState<CompanyRow | null>(null)
   const [editSt, editAction, editPending] = useActionState(updateCompany, {} as FormState)
+  // 일괄 활성/비활성 (POST /companies/batch) — 다중 선택
+  const [msel, setMsel] = useState<Set<string | number>>(new Set())
+  const [batchSt, setBatchSt] = useState<FormState>({})
+  const runBatch = (active: boolean) => {
+    const ids = [...msel].map(Number).filter((x) => !Number.isNaN(x))
+    if (!ids.length) return
+    start(async () => {
+      setBatchSt(await batchCompanyActive(ids, active))
+      setMsel(new Set())
+      router.refresh()
+    })
+  }
   const toggle = (r: CompanyRow) => {
     if (r.companyId == null) return
     start(async () => { await toggleCompanyActive(r.companyId!, r.isActive === false); router.refresh() })
@@ -52,9 +64,23 @@ export function CompanyGrid({ rows, selectedId }: { rows: CompanyRow[]; selected
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {editSt.ok ? <div style={{ padding: '2px 6px', fontSize: 11, color: 'var(--run)' }}>{editSt.ok}</div> : null}
+      {(msel.size > 0 || batchSt.ok || batchSt.error) ? (
+        <div data-com-batch style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '2px 6px', fontSize: 11 }}>
+          {msel.size > 0 ? (
+            <>
+              <span style={{ color: 'var(--title-navy)', fontWeight: 600 }}>☑ {msel.size}{t('master.batchCount', '건')}</span>
+              <button className="b" data-com-batch-on disabled={pending} onClick={() => runBatch(true)}>{t('company.batchOn', '일괄 활성')}</button>
+              <button className="b" data-com-batch-off disabled={pending} onClick={() => runBatch(false)}>{t('company.batchOff', '일괄 비활성')}</button>
+            </>
+          ) : null}
+          {batchSt.error ? <span style={{ color: 'var(--err)' }}>{batchSt.error}</span> : null}
+          {batchSt.ok ? <span style={{ color: 'var(--run)' }}>{batchSt.ok}</span> : null}
+        </div>
+      ) : null}
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-companies" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.companyId ?? r.name} selectedKey={selectedId ?? undefined}
+          multiSelect selectedKeys={msel} onSelectionChange={setMsel}
           onRowClick={rowClick}
           onRowDoubleClick={rowDblClick}
           emptyText={t('company.empty', '거래처가 없습니다')} />

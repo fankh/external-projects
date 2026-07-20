@@ -34,6 +34,22 @@ export async function renameProductCode(id: number, codeName: string): Promise<A
   return { ok: `코드명 수정 ✓ — ${name}` }
 }
 
+/** 일괄 작업 (POST /codes/products/batch) — 다중 선택 상태 전이/삭제, 부분 실패 허용(skip 사유). */
+export async function batchProductCodes(ids: number[], action: 'STATUS' | 'DELETE', status?: string): Promise<ActState> {
+  if (!ids.length) return { error: '대상을 선택하십시오' }
+  try {
+    const r = await apiServer<{ done: number; requested: number; skipped: { code?: string; reason: string }[] }>(
+      '/codes/products/batch', { method: 'POST', body: JSON.stringify({ ids, action, status: status ?? '' }) })
+    revalidatePath(PATH)
+    const skip = r.skipped.length
+      ? ` · skip ${r.skipped.length}건 (${r.skipped.slice(0, 3).map((s) => `${s.code ?? '?'}: ${s.reason}`).join(', ')}${r.skipped.length > 3 ? ' …' : ''})`
+      : ''
+    return { ok: `일괄 ${action === 'DELETE' ? '삭제' : `상태→${status}`} ✓ — ${r.done}/${r.requested}건${skip}` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '일괄 작업 실패' }
+  }
+}
+
 export async function setProductStatus(id: number, status: string): Promise<ActState> {
   try {
     await apiServer(`/codes/products/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) })
