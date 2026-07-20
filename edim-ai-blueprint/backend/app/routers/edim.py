@@ -4918,14 +4918,14 @@ def code_where_used(code: str, maxLevel: int = 10) -> dict[str, Any]:
         cur.execute(
             """WITH RECURSIVE up AS (
                  SELECT r.mother_code_id, r.quantity, r.approval_status,
-                        1 AS level, ARRAY[cc.main_code, mc.main_code] AS path
+                        1 AS level, ARRAY[cc.main_code, mc.main_code]::text[] AS path
                  FROM code_relationship r
                  JOIN product_code cc ON cc.product_code_id=r.child_code_id
                  JOIN product_code mc ON mc.product_code_id=r.mother_code_id
                  WHERE r.tenant_id=%s AND cc.main_code=%s
                  UNION ALL
                  SELECT r.mother_code_id, r.quantity, r.approval_status,
-                        up.level+1, up.path || mc.main_code
+                        up.level+1, up.path || mc.main_code::text
                  FROM up
                  JOIN code_relationship r ON r.tenant_id=%s AND r.child_code_id=up.mother_code_id
                  JOIN product_code mc ON mc.product_code_id=r.mother_code_id
