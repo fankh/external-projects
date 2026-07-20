@@ -60,6 +60,7 @@ def scan(page, screen: str) -> None:
             for (const sel of sels) {
                 for (const el of document.querySelectorAll(sel)) {
                     if (!el.offsetParent && el.tagName !== 'OPTION') continue; // 비표시 제외
+                    if (el.closest('[data-i18n-content]')) continue; // DB 콘텐츠 (크롬 아님) — 제외
                     let txt = '';
                     if (sel === '.qband' || sel === '.menubar') {
                         // 컨테이너: 직계 텍스트만 (자식 label/button 은 개별 수집)

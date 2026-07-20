@@ -51,7 +51,8 @@ with sync_playwright() as pw:
         row = p.locator('table.g:visible tbody tr', has_text=CODE).first
         row.wait_for(timeout=8000)
         ok("생성 코드 행 표시", row.count() == 1)
-        name_cell = row.locator('td').nth(1)   # 코드명 열
+        # 코드명 열 — 인덱스 대신 텍스트 지정 (multiSelect 체크박스 열 추가 등 열 구성 변화에 안전)
+        name_cell = row.locator('td', has_text='원래이름').first
         name_cell.dblclick(); p.wait_for_timeout(200)
         inp = p.locator('[data-cell-edit]')
         ok("더블클릭 = 인라인 입력 표시", inp.count() == 1 and inp.is_visible())
@@ -61,7 +62,7 @@ with sync_playwright() as pw:
         ok("인라인 수정 → PATCH 영속", find(CODE)["codeName"] == "인라인수정됨")
 
         # Esc 취소
-        name_cell2 = p.locator('table.g:visible tbody tr', has_text=CODE).first.locator('td').nth(1)
+        name_cell2 = p.locator('table.g:visible tbody tr', has_text=CODE).first.locator('td', has_text='인라인수정됨').first
         name_cell2.dblclick(); p.wait_for_timeout(150)
         p.locator('[data-cell-edit]').fill("취소될값")
         p.locator('[data-cell-edit]').press("Escape")

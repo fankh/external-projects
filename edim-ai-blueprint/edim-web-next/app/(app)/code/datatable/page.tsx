@@ -34,7 +34,8 @@ export default async function DataTablePage({ searchParams }: { searchParams: Pr
         <div data-table-impact style={{ display: 'flex', gap: 5, alignItems: 'center', padding: '3px 8px', fontSize: 10.5, flexWrap: 'wrap', borderBottom: '1px solid var(--line)' }}>
           <b style={{ color: 'var(--title-navy)' }}>{t('dt.impactTitle', '영향도')}</b>
           {impact.length ? impact.map((m) => (
-            <span key={m.macro} className="st info" title={`${m.status} · ${m.applyType}`}>ƒ {m.macro}</span>
+            // Macro 이름 = DB 콘텐츠 (크롬 아님) — EN 잔존 검사 제외 마킹
+            <span key={m.macro} className="st info" data-i18n-content title={`${m.status} · ${m.applyType}`}>ƒ {m.macro}</span>
           )) : <span style={{ color: 'var(--txt-mute)' }}>{t('dt.noImpact', '참조 Macro 없음 — 자유 변경 가능')}</span>}
           {impact.length ? <span style={{ color: 'var(--txt-mute)' }}>{t('dt.impactHint', '— 참조 Macro 존재: 값 변경 시 산식 결과 영향')}</span> : null}
         </div>
