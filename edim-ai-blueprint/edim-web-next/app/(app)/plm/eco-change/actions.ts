@@ -6,6 +6,21 @@ import { apiServer, ApiError } from '@/lib/api'
 
 export interface EcrState { error?: string; ok?: string }
 
+/** ECO 상세 + 영향 분석 (GET /eco/changes/{eco_no}) — 더블클릭 상세 다이얼로그. */
+export interface EcoDetail {
+  ecoNo: string; title: string; reason: string; targetType: string; targetNo: string
+  status: string; revFrom: string; revTo: string; impact: Record<string, unknown> | null
+  createdAt: string; appliedAt: string | null
+}
+
+export async function getEcoDetail(ecoNo: string): Promise<{ detail?: EcoDetail; error?: string }> {
+  try {
+    return { detail: await apiServer<EcoDetail>(`/eco/changes/${encodeURIComponent(ecoNo)}`) }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : 'ECO 상세 조회 실패' }
+  }
+}
+
 export async function createEcr(_prev: EcrState, formData: FormData): Promise<EcrState> {
   const title = String(formData.get('title') ?? '').trim()
   const targetType = String(formData.get('targetType') ?? 'DRAWING').trim()

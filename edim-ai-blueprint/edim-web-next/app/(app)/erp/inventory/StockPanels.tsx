@@ -8,7 +8,7 @@ import { releaseReservation, reserveStock, setLotExpiry, type ActState } from '.
 
 export interface AtpRow { itemCode: string; itemName: string; onHand: number; reserved: number; available: number }
 export interface ReservationRow { reservationId: number; itemCode: string; quantity: number; refType: string | null; refNo: string | null; status: string; createdAt: string }
-export interface MovementRow { moveId: number; itemCode: string; moveType: string; quantity: number; lotNo: string | null; refNo: string | null; movedAt: string }
+export interface MovementRow { itemCode: string; locationCode: string; type: string; quantity: number; refType: string; refNo: string; at: string; lotNo: string; serialNo: string }
 export interface LotRow { itemCode: string; lotNo: string; serialNo: string; locationCode: string; balance: number; lastAt: string; expiry: string; expiryStatus: '' | 'OK' | 'EXPIRING' | 'EXPIRED' }
 
 export function StockPanels({ atp, reservations, movements, lots }: {
@@ -59,13 +59,14 @@ export function StockPanels({ atp, reservations, movements, lots }: {
         </div>
       </GroupBox>
       <LotExpiryPanel lots={lots} />
-      <GroupBox title={`${t('inv.movePanel', '입출고 이력 (Lot 추적)')} — ${t('inv.recent', '최근')} ${movements.length}건`} noPad style={{ flex: 1.2, minHeight: 0, overflow: 'auto' }}>
+      <GroupBox title={`${t('inv.movePanel', '입출고 이동원장')} — ${t('inv.recent', '최근')} ${movements.length}건`} noPad style={{ flex: 1.2, minHeight: 0, overflow: 'auto' }} data-move-ledger>
         <table className="g" style={{ width: '100%' }}>
           <thead><tr><th>{t('inv.item', '품목')}</th><th>{t('inv.type', '구분')}</th><th>{t('inv.qty', '수량')}</th><th>Lot</th><th>{t('inv.refCol', '참조')}</th><th>{t('inv.at', '일시')}</th></tr></thead>
-          <tbody>{movements.length ? movements.map((m) => (
-            <tr key={m.moveId}><td className="code">{m.itemCode}</td><td className="c">{m.moveType}</td>
+          <tbody>{movements.length ? movements.map((m, i) => (
+            <tr key={i}><td className="code">{m.itemCode}</td>
+              <td className="c" style={{ color: m.type === 'IN' ? 'var(--run)' : 'var(--err)' }}>{m.type}</td>
               <td className="c">{m.quantity}</td><td className="c">{m.lotNo || '—'}</td>
-              <td className="c">{m.refNo || '—'}</td><td className="c">{m.movedAt}</td></tr>
+              <td className="c">{m.refNo || '—'}</td><td className="c">{m.at}</td></tr>
           )) : <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--txt-mute)' }}>{t('inv.noTrace', '이력 없음')}</td></tr>}</tbody>
         </table>
       </GroupBox>

@@ -22,7 +22,8 @@ export default async function InventoryPage() {
       apiServer<StockRow[]>('/erp/stock'),
       apiServer<AtpRow[]>('/erp/stock/atp').catch(() => []),
       apiServer<ReservationRow[]>('/erp/stock/reservations?status=ACTIVE').catch(() => []),
-      apiServer<MovementRow[]>('/erp/stock/trace').catch(() => []),
+      // 이동원장 — trace 는 lot/serial 필수(무인자 422·상시 빈 패널이던 잠복 버그) → movements 로 교체
+      apiServer<MovementRow[]>('/erp/stock/movements?limit=30').catch(() => []),
       apiServer<LotRow[]>('/erp/stock/lots').catch(() => []),
     ])
   } catch (e) {
@@ -37,7 +38,7 @@ export default async function InventoryPage() {
         {!err ? <span className="chip info">{rows.length}종</span> : null}
         {!err ? <span className="chip ok">{t('inv.totalValue', '총 평가액')} ₩{Math.round(totalValue).toLocaleString()}</span> : null}
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /erp/stock · atp · reservations · trace</span>
+        <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /erp/stock · atp · reservations · movements</span>
       </div>
       <InboundForm />
       {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (

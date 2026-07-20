@@ -5,7 +5,7 @@ import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { getPcrBreakdown, type PcrBreakdown } from './breakdownActions'
+import { getPcrActual, getPcrBreakdown, type PcrActual, type PcrBreakdown } from './breakdownActions'
 
 export interface PcrRow {
   pcrId: number; businessType: string; code: string; directCostTotal: number
@@ -18,8 +18,11 @@ export function PcrPanel({ rows }: { rows: PcrRow[] }) {
   const { t } = useI18n()
   // U19 — 비용 트리 (행 클릭 시 조회)
   const [bd, setBd] = useState<PcrBreakdown | null>(null)
+  // D6 — 실적 반영 재계산 (추정 vs 실적 차이)
+  const [act, setAct] = useState<PcrActual | null>(null)
   const [, start] = useTransition()
-  const loadBd = (id: number) => start(async () => setBd(await getPcrBreakdown(id)))
+  const loadBd = (id: number) => start(async () => { setAct(null); setBd(await getPcrBreakdown(id)) })
+  const loadAct = (id: number) => start(async () => setAct(await getPcrActual(id)))
   const wonB = (n: number) => `\u20a9 ${Math.round(n).toLocaleString()}`
   const cols: GridColumn<PcrRow>[] = [
     { key: 'id', header: 'PCR', width: 52, align: 'right', code: true, sortValue: (r) => r.pcrId, render: (r) => r.pcrId },
@@ -32,6 +35,10 @@ export function PcrPanel({ rows }: { rows: PcrRow[] }) {
     { key: 'pdf', header: 'PDF', width: 56, align: 'center', render: (r) => (
       <button className="b" style={{ height: 18, fontSize: 10 }} title={t('rpt.pcrPdfHint', 'PCR 수익성 보고서 PDF (RPT-07)')}
         onClick={() => window.open(`/api/next/bin?kind=pcr&id=${r.pcrId}`, '_blank')}>🖶 PDF</button>) },
+    { key: 'actual', header: t('rpt.actualCol', '실적'), width: 56, align: 'center', noSort: true, noFilter: true, render: (r) => (
+      <button className="b" data-pcr-actual style={{ height: 18, fontSize: 10 }}
+        title={t('rpt.actualHint', '실적 반영 재계산 (D-6) — 직접비를 구매 실적으로 치환')}
+        onClick={(e) => { e.stopPropagation(); loadAct(r.pcrId) }}>Δ</button>) },
   ]
   return (
     <div className="gb" style={{ display: 'flex', flexDirection: 'column', minHeight: 220 }}>
@@ -41,6 +48,31 @@ export function PcrPanel({ rows }: { rows: PcrRow[] }) {
           rowKey={(r) => r.pcrId} selectedKey={bd?.pcrId} onRowClick={(r) => loadBd(r.pcrId)}
           emptyText={t('rpt.noPcr', 'PCR 이 없습니다 (Run 원가 확정 후 생성)')} />
       </div>
+      {act ? (
+        <div data-pcr-actual-panel style={{ borderTop: '1px solid var(--line)', padding: 6, fontSize: 10.5 }}>
+          <div style={{ fontWeight: 700, color: 'var(--title-navy)', marginBottom: 4 }}>
+            {t('rpt.actualTitle', '실적 반영 재계산 (D-6)')} — PCR #{act.pcrId}{act.projectNo ? ` · ${act.projectNo}` : ''}
+            {!act.actualAvailable ? <span style={{ color: 'var(--warn, #B4820B)', marginLeft: 6 }}>{t('rpt.noActual', '구매 실적 없음 — 추정만 표시')}</span>
+              : <span style={{ color: 'var(--txt-dim)', marginLeft: 6, fontWeight: 400 }}>{t('rpt.actualBasis', '실적')} {act.actualCount}{t('master.batchCount', '건')}</span>}
+          </div>
+          <table className="g" style={{ width: '100%' }}>
+            <thead><tr><th></th><th>{t('rpt.estimate', '추정')}</th><th>{t('rpt.actualCol', '실적')}</th><th>Δ</th></tr></thead>
+            <tbody>
+              {([['Direct costs', act.estimate.directCost, act.actual.directCost, act.variance.directCost],
+                 ['Contribution margin', act.estimate.margin, act.actual.margin, act.variance.margin],
+                 ['EBIT', act.estimate.ebit, act.actual.ebit, act.variance.ebit]] as [string, number, number, number][]).map(([lbl, e2, a2, v2]) => (
+                <tr key={lbl}>
+                  <td style={{ fontWeight: 600 }}>{lbl}</td>
+                  <td style={{ textAlign: 'right' }}>{wonB(e2)}</td>
+                  <td style={{ textAlign: 'right' }}>{wonB(a2)}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: v2 > 0 === (lbl === 'Direct costs') ? 'var(--err)' : 'var(--run)' }}>
+                    {v2 >= 0 ? '+' : ''}{wonB(v2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
       {bd ? (
         <div data-pcr-breakdown style={{ borderTop: '1px solid var(--line)', padding: 6, fontSize: 10.5, maxHeight: 260, overflow: 'auto' }}>
           <div style={{ fontWeight: 700, color: 'var(--title-navy)', marginBottom: 4 }}>

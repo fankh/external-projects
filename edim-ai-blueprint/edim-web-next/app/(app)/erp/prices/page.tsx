@@ -4,6 +4,7 @@ import { bundleFor, translate } from '@/lib/i18n'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { XlsxButton } from '@/components/XlsxButton'
 import { PriceGrid, type PriceRow } from './PriceGrid'
+import { PriceResolve } from './PriceResolve'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,8 @@ export default async function PricesPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`${t('price.ledgerTitle', '단가 대장')} (M-12-5)`} count={err ? undefined : rows.length} source="/prices" right={<XlsxButton kind="prices" />} />
+      <ScreenHeader title={`${t('price.ledgerTitle', '단가 대장')} (M-12-5)`} count={err ? undefined : rows.length} source="/prices · resolve" right={<XlsxButton kind="prices" />} />
+      <PriceResolve />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <PriceGrid rows={rows} />}
       </div>

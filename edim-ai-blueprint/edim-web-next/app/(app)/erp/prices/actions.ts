@@ -10,6 +10,19 @@ const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v
 
 export interface ActState { error?: string; ok?: string }
 
+/** 단가 해석 (GET /prices/resolve) — 코드·기준일의 유효 단가 1건 (소스 우선순위). */
+export interface ResolvedPrice { code: string; name: string; source: string; price: number; from: string; to: string | null; supplier: string }
+
+export async function resolvePrice(code: string, at?: string): Promise<{ result?: ResolvedPrice; error?: string }> {
+  if (!code.trim()) return { error: '코드를 입력하십시오' }
+  try {
+    const q = at ? `&at=${at}` : ''
+    return { result: await apiServer<ResolvedPrice>(`/prices/resolve?code=${encodeURIComponent(code.trim())}${q}`) }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '단가 해석 실패' }
+  }
+}
+
 export async function createPrice(_prev: ActState, formData: FormData): Promise<ActState> {
   const code = String(formData.get('code') ?? '').trim()
   const supplier = String(formData.get('supplier') ?? '').trim()
