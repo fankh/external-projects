@@ -231,3 +231,66 @@ export async function saveTenantHeadNav(p: LeftNavPref): Promise<{ error?: strin
     return { error: e instanceof ApiError ? e.message : '저장 실패' }
   }
 }
+
+/** 2.0 — 좌측 패널 = 업무 프로세스 (요구 #15/#17). */
+export interface ProcessNode {
+  nodeId: number; parentId: number | null; name: string; icon: string
+  screenHref: string; stepNo: number; note: string; status: string
+}
+
+export async function getProcessTree(): Promise<ProcessNode[]> {
+  try {
+    return await apiServer<ProcessNode[]>('/process/tree')
+  } catch { return [] }
+}
+
+export async function seedProcess(): Promise<{ error?: string; ok?: string }> {
+  try {
+    const r = await apiServer<{ seeded: number }>('/process/seed', { method: 'POST' })
+    return { ok: `표준 프로세스 ${r.seeded}단계 생성` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '프로세스 생성 실패' }
+  }
+}
+
+export async function addProcessNode(
+  name: string, parentId: number | null, screenHref: string, icon: string,
+): Promise<{ error?: string; ok?: string }> {
+  try {
+    await apiServer('/process/nodes', {
+      method: 'POST', body: JSON.stringify({ name, parentId, screenHref, icon }),
+    })
+    return { ok: `${name} 추가` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '단계 추가 실패' }
+  }
+}
+
+export async function patchProcessNode(
+  nodeId: number, patch: { name?: string; screenHref?: string; icon?: string; note?: string },
+): Promise<{ error?: string; ok?: string }> {
+  try {
+    await apiServer(`/process/nodes/${nodeId}`, { method: 'PATCH', body: JSON.stringify(patch) })
+    return { ok: '저장' }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '수정 실패' }
+  }
+}
+
+export async function moveProcessNode(nodeId: number, dir: 'up' | 'down'): Promise<{ error?: string; ok?: string }> {
+  try {
+    await apiServer(`/process/nodes/${nodeId}/move?dir=${dir}`, { method: 'POST' })
+    return { ok: '이동' }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '이동 실패' }
+  }
+}
+
+export async function deleteProcessNode(nodeId: number): Promise<{ error?: string; ok?: string }> {
+  try {
+    const r = await apiServer<{ children: number }>(`/process/nodes/${nodeId}`, { method: 'DELETE' })
+    return { ok: r.children ? `삭제 (하위 ${r.children} 포함)` : '삭제' }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '삭제 실패' }
+  }
+}

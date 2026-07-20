@@ -9,9 +9,10 @@ import { MenuBar, MdiTabs, StatusBar, TitleBar, type MdiTab, type MenuItem, type
 import { DevReqDialog } from './DevReqDialog'
 import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
+import { ProcessNav } from './ProcessNav'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MDI_PARAMS, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
-import { changePassword, firstProject, getFavorites, mfaDisable, mfaEnable, mfaSetup, mfaStatus, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type MfaState, type ShellPanelData } from './shellActions'
+import { getProcessTree, type ProcessNode, changePassword, firstProject, getFavorites, mfaDisable, mfaEnable, mfaSetup, mfaStatus, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type MfaState, type ShellPanelData } from './shellActions'
 
 /** U11 색상 테마 프리셋 (슬라이드 57) — globals.css body[data-theme] 토큰. */
 const THEMES: { id: string; label: string }[] = [
@@ -40,6 +41,7 @@ function loadTabs(): MdiTab[] {
 
 export function AppChrome(props: {
   // v32.4 — 메뉴 커스텀 SSR (사용자 지시: 서버사이드 렌더): 레이아웃에서 4종 pref 서버 fetch
+  initialProcess?: ProcessNode[]
   initialLeftNav?: LeftNavPref
   initialTenantNav?: LeftNavPref
   initialHeadNav?: LeftNavPref
@@ -157,6 +159,20 @@ export function AppChrome(props: {
 
   // ── 좌측 판넬 접기/펼치기 (localStorage 영속) ──
   const [lnavCollapsed, setLnavCollapsed] = useState(false)
+  // 2.0 — 좌측 패널 = 업무 프로세스 (요구 #15). 메뉴 모드는 ☰ 로 전환, 선택은 로컬 보존.
+  const [procNodes, setProcNodes] = useState<ProcessNode[]>(props.initialProcess ?? [])
+  const [procMode, setProcMode] = useState(true)
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem('edim.navMode')
+      if (v === 'menu') setProcMode(false)
+    } catch { /* 저장소 미가용 */ }
+  }, [])
+  const refreshProcess = useCallback(() => { void getProcessTree().then(setProcNodes) }, [])
+  const switchNav = useCallback((toProcess: boolean) => {
+    setProcMode(toProcess)
+    try { window.localStorage.setItem('edim.navMode', toProcess ? 'process' : 'menu') } catch { /* noop */ }
+  }, [])
   useEffect(() => {
     try { setLnavCollapsed(localStorage.getItem('edim-lnav-collapsed') === '1') } catch { /* quota */ }
   }, [])
@@ -483,6 +499,63 @@ export function AppChrome(props: {
   const moduleTitle = module === 'common'
     ? t('menu.moduleCommon', MENU_TREE[module].title) : MENU_TREE[module].title
 
+  // 2.0 — To-Do 푸터는 프로세스/메뉴 두 좌측 모드가 공유한다
+  const todoFooter = (
+            <div style={{ borderTop: '1px solid var(--line)' }} data-todo-panel>
+              <div className="hd">{t('shell.todo', 'To-Do')}</div>
+              <div style={{ padding: '4px 8px 6px', fontSize: 10.5, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* U14 — 승인 inbox 상위 3 미니 그리드 */}
+                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
+                  onClick={() => router.push('/common/approval')} title={t('shell.todoApprovalHint', '승인함 열기')}>
+                  {t('shell.todoApproval', '승인 확인')}<span style={{ flex: 1 }} /><span className={counts.inbox > 0 ? 'st warn' : 'st'}>{counts.inbox}</span>
+                </div>
+                {counts.inboxTop.map((r) => (
+                  <div key={r.id} style={{ display: 'flex', gap: 4, cursor: 'pointer', paddingLeft: 6 }}
+                    onClick={() => router.push('/common/approval')}>
+                    <span style={{ color: 'var(--txt-mute)', fontSize: 9.5, flexShrink: 0 }}>{r.assetType}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.target}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
+                  onClick={() => router.push('/erp/dashboard')} title={t('shell.todoPlHint', '대시보드 열기')}>
+                  {t('shell.todoPl', 'PL 지연')}<span style={{ flex: 1 }} /><span className={counts.delayed > 0 ? 'st err' : 'st'}>{counts.delayed}</span>
+                </div>
+                {/* U14 — Done items: 최근 승인 결과 3 */}
+                {counts.done.length ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
+                      onClick={() => router.push('/common/approval')}>
+                      {t('shell.doneItems', 'Done items')}<span style={{ flex: 1 }} />
+                    </div>
+                    {counts.done.map((d, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 4, paddingLeft: 6, color: 'var(--txt-dim)' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{d.title}</span>
+                        <span style={{ fontSize: 9.5, color: 'var(--txt-mute)', flexShrink: 0 }}>{d.at.slice(0, 5)}</span>
+                      </div>
+                    ))}
+                  </>
+                ) : null}
+                {/* U14 — Schedule: 임박/지연 마일스톤 상위 3 */}
+                {counts.upcoming.length ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
+                      onClick={() => router.push('/erp/milestones')} title={t('shell.scheduleHint', '마일스톤 열기')}>
+                      {t('shell.schedule', 'Schedule')}<span style={{ flex: 1 }} />
+                    </div>
+                    {counts.upcoming.map((m, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 4, cursor: 'pointer', paddingLeft: 6 }}
+                        onClick={() => router.push('/erp/milestones')}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.projectNo} {m.stageLabel}</span>
+                        <span style={{ fontSize: 9.5, color: m.delayStatus === 'OVERDUE' ? 'var(--err)' : 'var(--warn, #B4820B)', flexShrink: 0 }}>{m.plannedDate.slice(5)}</span>
+                      </div>
+                    ))}
+                  </>
+                ) : null}
+                {/* U14 — 미니 달력: 이번 달 마일스톤 납기 마킹 */}
+                <MiniCalendar dates={counts.msDates} onOpen={() => router.push('/erp/milestones')} />
+              </div>
+            </div>
+  )
   return (
     <div className="app" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <TitleBar user={userLabel} bell={<>
@@ -557,6 +630,11 @@ export function AppChrome(props: {
             <span style={{ fontSize: 11 }}>»</span>
             <span style={{ writingMode: 'vertical-rl', fontSize: 9.5, color: 'var(--txt-mute)' }}>{moduleTitle}</span>
           </div>
+        ) : procMode ? (
+          // 2.0 — 좌측 = 업무 프로세스 (요구 #15). 프로세스 미정의 테넌트는 빈 상태에서 시드 안내.
+          <ProcessNav nodes={procNodes} width={navW} activeHref={pathname}
+            canEdit={props.canReadAdmin} onSwitchToMenu={() => switchNav(false)}
+            onRefresh={refreshProcess} footer={todoFooter} />
         ) : (
         <LnavTree title={moduleTitle} nodes={trNodes} selectedId={selectedId}
           onSelect={(n) => { if (n.href) router.push(n.href) }} width={navW}
@@ -564,67 +642,15 @@ export function AppChrome(props: {
             <span style={{ display: 'inline-flex', gap: 2 }}>
               <span className="b ic" data-lnav-edit title={t('shell.menuEdit', '메뉴 편집')}
                 style={{ cursor: 'pointer', fontSize: 11 }} onClick={() => setNavEditOpen(true)}>✎</span>
+              <span className="b ic" data-menu-to-process title={t('process.toProcess', '프로세스 모드로 보기')}
+                style={{ cursor: 'pointer', fontSize: 11 }} onClick={() => switchNav(true)}>⇄</span>
               <span className="b ic" data-lnav-collapse title={t('shell.collapse', '접기')}
                 style={{ cursor: 'pointer', fontSize: 11 }} onClick={toggleLnav}>«</span>
             </span>
           }
           emptyHint={t('shell.leftNavEmpty', '표시할 메뉴가 없습니다 — ✎ 메뉴 편집')}
-          footer={
-            <div style={{ borderTop: '1px solid var(--line)' }} data-todo-panel>
-              <div className="hd">{t('shell.todo', 'To-Do')}</div>
-              <div style={{ padding: '4px 8px 6px', fontSize: 10.5, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* U14 — 승인 inbox 상위 3 미니 그리드 */}
-                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
-                  onClick={() => router.push('/common/approval')} title={t('shell.todoApprovalHint', '승인함 열기')}>
-                  {t('shell.todoApproval', '승인 확인')}<span style={{ flex: 1 }} /><span className={counts.inbox > 0 ? 'st warn' : 'st'}>{counts.inbox}</span>
-                </div>
-                {counts.inboxTop.map((r) => (
-                  <div key={r.id} style={{ display: 'flex', gap: 4, cursor: 'pointer', paddingLeft: 6 }}
-                    onClick={() => router.push('/common/approval')}>
-                    <span style={{ color: 'var(--txt-mute)', fontSize: 9.5, flexShrink: 0 }}>{r.assetType}</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.target}</span>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
-                  onClick={() => router.push('/erp/dashboard')} title={t('shell.todoPlHint', '대시보드 열기')}>
-                  {t('shell.todoPl', 'PL 지연')}<span style={{ flex: 1 }} /><span className={counts.delayed > 0 ? 'st err' : 'st'}>{counts.delayed}</span>
-                </div>
-                {/* U14 — Done items: 최근 승인 결과 3 */}
-                {counts.done.length ? (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
-                      onClick={() => router.push('/common/approval')}>
-                      {t('shell.doneItems', 'Done items')}<span style={{ flex: 1 }} />
-                    </div>
-                    {counts.done.map((d, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 4, paddingLeft: 6, color: 'var(--txt-dim)' }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{d.title}</span>
-                        <span style={{ fontSize: 9.5, color: 'var(--txt-mute)', flexShrink: 0 }}>{d.at.slice(0, 5)}</span>
-                      </div>
-                    ))}
-                  </>
-                ) : null}
-                {/* U14 — Schedule: 임박/지연 마일스톤 상위 3 */}
-                {counts.upcoming.length ? (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 600 }}
-                      onClick={() => router.push('/erp/milestones')} title={t('shell.scheduleHint', '마일스톤 열기')}>
-                      {t('shell.schedule', 'Schedule')}<span style={{ flex: 1 }} />
-                    </div>
-                    {counts.upcoming.map((m, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 4, cursor: 'pointer', paddingLeft: 6 }}
-                        onClick={() => router.push('/erp/milestones')}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.projectNo} {m.stageLabel}</span>
-                        <span style={{ fontSize: 9.5, color: m.delayStatus === 'OVERDUE' ? 'var(--err)' : 'var(--warn, #B4820B)', flexShrink: 0 }}>{m.plannedDate.slice(5)}</span>
-                      </div>
-                    ))}
-                  </>
-                ) : null}
-                {/* U14 — 미니 달력: 이번 달 마일스톤 납기 마킹 */}
-                <MiniCalendar dates={counts.msDates} onOpen={() => router.push('/erp/milestones')} />
-              </div>
-            </div>
-          } />
+          footer={todoFooter}
+ />
         )}
         {/* U11 — 트리 폭 드래그 핸들 (펼침 상태만) */}
         {!lnavCollapsed ? (
@@ -796,6 +822,7 @@ function MiniCalendar({ dates, onOpen }: { dates: { date: string; delayStatus: s
   const today = new Date()
   const isThisMonth = today.getFullYear() === ym.y && today.getMonth() === ym.m
   const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
+
   return (
     <div data-mini-calendar style={{ marginTop: 2, cursor: 'pointer' }} onClick={onOpen} title="마일스톤 열기">
       <div style={{ fontSize: 9, color: 'var(--txt-mute)', marginBottom: 1 }}>{ym.y}.{String(ym.m + 1).padStart(2, '0')}</div>

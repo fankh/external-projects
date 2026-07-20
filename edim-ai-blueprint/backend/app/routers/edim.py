@@ -7700,6 +7700,201 @@ def tenant_branding_put(request: Request, body: BrandingPut) -> dict[str, Any]:
     return {"saved": True}
 
 
+# ── 2.0 좌측 패널 = 업무 프로세스 (요구 #15/#17) — 고객사가 정의하는 프로세스 트리 ──
+
+class ProcessNodeCreate(BaseModel):
+    name: str
+    parentId: int | None = None
+    icon: str = ""
+    screenHref: str = ""
+    note: str = ""
+
+
+class ProcessNodePatch(BaseModel):
+    name: str | None = None
+    icon: str | None = None
+    screenHref: str | None = None
+    note: str | None = None
+    parentId: int | None = None
+    stepNo: int | None = None
+
+
+# 기본 프로세스 — 고객사가 즉시 쓰기 시작할 수 있는 표준 흐름 (전량 편집 가능)
+_PROCESS_SEED: list[tuple[str, str, str, list[tuple[str, str, str]]]] = [
+    ("영업·견적", "①", "", [
+        ("프로젝트 등록", "", "/erp/projects"),
+        ("사양 선택 (CPQ)", "", "/cpq/selection"),
+        ("견적 산출", "", "/cpq/run"),
+        ("견적서 발행", "", "/erp/sales-order"),
+    ]),
+    ("설계·기술", "②", "", [
+        ("Sub Code 관리", "", "/code/subcode"),
+        ("제품 코드", "", "/code/product-codes"),
+        ("BOM 관계", "", "/code/relationship"),
+        ("도면 관리", "", "/plm/drawings"),
+    ]),
+    ("생산·구매", "③", "", [
+        ("작업 지시", "", "/erp/work-order"),
+        ("소요 계획", "", "/erp/mrp"),
+        ("발주", "", "/erp/po"),
+        ("재고", "", "/erp/inventory"),
+    ]),
+    ("품질·출하", "④", "", [
+        ("검사", "", "/erp/quality"),
+        ("ERP Handoff", "", "/erp/sales-order"),
+        ("산출물 패키지", "", "/common/folder"),
+    ]),
+    ("공통", "⑤", "", [
+        ("승인함", "", "/common/approval"),
+        ("Run 이력·Snapshot", "", "/toolbox/runs"),
+    ]),
+]
+
+
+@router.get("/process/tree")
+def process_tree() -> list[dict[str, Any]]:
+    """좌측 프로세스 트리 — 미정의 테넌트는 빈 배열(프런트가 메뉴 모드로 폴백)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT node_id, parent_id, name, COALESCE(icon,''), COALESCE(screen_href,''),
+                      step_no, COALESCE(note,''), status
+               FROM sys_process_node WHERE tenant_id=%s AND status='ACTIVE'
+               ORDER BY COALESCE(parent_id,0), step_no, node_id""", (tid,))
+        return [{"nodeId": r[0], "parentId": r[1], "name": r[2], "icon": r[3],
+                 "screenHref": r[4], "stepNo": r[5], "note": r[6], "status": r[7]}
+                for r in cur.fetchall()]
+
+
+@router.post("/process/seed", dependencies=[SETUP])
+def process_seed(request: Request) -> dict[str, Any]:
+    """표준 프로세스 시드 — 이미 정의돼 있으면 409 (덮어쓰기 방지)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*) FROM sys_process_node WHERE tenant_id=%s", (tid,))
+        if cur.fetchone()[0]:
+            raise HTTPException(409, detail="이미 프로세스가 정의되어 있습니다 — 편집으로 변경하십시오")
+        n = 0
+        for i, (name, icon, href, children) in enumerate(_PROCESS_SEED):
+            cur.execute(
+                """INSERT INTO sys_process_node (tenant_id, parent_id, name, icon, screen_href,
+                                                 step_no, created_by)
+                   VALUES (%s,NULL,%s,%s,NULLIF(%s,''),%s,%s) RETURNING node_id""",
+                (tid, name, icon, href, i, request.state.user_id))
+            pid = cur.fetchone()[0]
+            n += 1
+            for j, (cname, cicon, chref) in enumerate(children):
+                cur.execute(
+                    """INSERT INTO sys_process_node (tenant_id, parent_id, name, icon, screen_href,
+                                                     step_no, created_by)
+                       VALUES (%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''),%s,%s)""",
+                    (tid, pid, cname, cicon, chref, j, request.state.user_id))
+                n += 1
+        _audit(cur, tid, "sys_process_node", 0, "PROCESS_SEED", request.state.user_id, {"nodes": n})
+    return {"seeded": n}
+
+
+@router.post("/process/nodes", status_code=201, dependencies=[SETUP])
+def process_node_create(request: Request, body: ProcessNodeCreate) -> dict[str, Any]:
+    name = body.name.strip()[:80]
+    if not name:
+        raise HTTPException(422, detail="단계 이름은 필수입니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        if body.parentId:
+            cur.execute("SELECT 1 FROM sys_process_node WHERE tenant_id=%s AND node_id=%s",
+                        (tid, body.parentId))
+            if not cur.fetchone():
+                raise HTTPException(404, detail=f"상위 단계 없음: #{body.parentId}")
+        cur.execute(
+            """SELECT COALESCE(max(step_no),-1)+1 FROM sys_process_node
+               WHERE tenant_id=%s AND parent_id IS NOT DISTINCT FROM %s""", (tid, body.parentId))
+        step = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_process_node (tenant_id, parent_id, name, icon, screen_href,
+                                             step_no, note, created_by)
+               VALUES (%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''),%s,NULLIF(%s,''),%s) RETURNING node_id""",
+            (tid, body.parentId, name, body.icon.strip()[:8], body.screenHref.strip()[:200],
+             step, body.note.strip()[:200], request.state.user_id))
+        nid = cur.fetchone()[0]
+        _audit(cur, tid, "sys_process_node", nid, "CREATE", request.state.user_id, {"name": name})
+    return {"nodeId": nid, "stepNo": step}
+
+
+@router.patch("/process/nodes/{node_id}", dependencies=[SETUP])
+def process_node_patch(node_id: int, request: Request, body: ProcessNodePatch) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        if body.parentId is not None and body.parentId == node_id:
+            raise HTTPException(422, detail="자기 자신을 상위로 지정할 수 없습니다")
+        cur.execute(
+            """UPDATE sys_process_node SET
+               name=COALESCE(%s, name),
+               icon=CASE WHEN %s IS NULL THEN icon ELSE NULLIF(%s,'') END,
+               screen_href=CASE WHEN %s IS NULL THEN screen_href ELSE NULLIF(%s,'') END,
+               note=CASE WHEN %s IS NULL THEN note ELSE NULLIF(%s,'') END,
+               parent_id=COALESCE(%s, parent_id),
+               step_no=COALESCE(%s, step_no),
+               updated_at=now()
+               WHERE tenant_id=%s AND node_id=%s RETURNING name, step_no""",
+            (body.name.strip()[:80] if body.name is not None else None,
+             body.icon, (body.icon or "").strip()[:8],
+             body.screenHref, (body.screenHref or "").strip()[:200],
+             body.note, (body.note or "").strip()[:200],
+             body.parentId, body.stepNo, tid, node_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"단계 없음: #{node_id}")
+        _audit(cur, tid, "sys_process_node", node_id, "UPDATE", request.state.user_id,
+               {"name": row[0], "stepNo": row[1]})
+    return {"nodeId": node_id, "name": row[0], "stepNo": row[1]}
+
+
+@router.post("/process/nodes/{node_id}/move", dependencies=[SETUP])
+def process_node_move(node_id: int, request: Request, dir: str = "up") -> dict[str, Any]:
+    """형제 간 순서 이동 — 인접 단계와 step_no 교환."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT parent_id, step_no FROM sys_process_node WHERE tenant_id=%s AND node_id=%s",
+                    (tid, node_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"단계 없음: #{node_id}")
+        parent, step = row
+        op_cmp, order = ("<", "DESC") if dir == "up" else (">", "ASC")
+        cur.execute(
+            f"""SELECT node_id, step_no FROM sys_process_node
+                WHERE tenant_id=%s AND parent_id IS NOT DISTINCT FROM %s AND step_no {op_cmp} %s
+                ORDER BY step_no {order} LIMIT 1""", (tid, parent, step))
+        nb = cur.fetchone()
+        if not nb:
+            return {"nodeId": node_id, "moved": False}
+        cur.execute("UPDATE sys_process_node SET step_no=%s WHERE tenant_id=%s AND node_id=%s",
+                    (nb[1], tid, node_id))
+        cur.execute("UPDATE sys_process_node SET step_no=%s WHERE tenant_id=%s AND node_id=%s",
+                    (step, tid, nb[0]))
+        _audit(cur, tid, "sys_process_node", node_id, "MOVE", request.state.user_id, {"dir": dir})
+    return {"nodeId": node_id, "moved": True}
+
+
+@router.delete("/process/nodes/{node_id}", dependencies=[SETUP])
+def process_node_delete(node_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*) FROM sys_process_node WHERE tenant_id=%s AND parent_id=%s",
+                    (tid, node_id))
+        kids = cur.fetchone()[0]
+        cur.execute(
+            "DELETE FROM sys_process_node WHERE tenant_id=%s AND node_id=%s RETURNING name",
+            (tid, node_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"단계 없음: #{node_id}")
+        _audit(cur, tid, "sys_process_node", node_id, "DELETE", request.state.user_id,
+               {"name": row[0], "children": kids})
+    return {"deleted": node_id, "children": kids}
+
+
 # ── 1.5 정보 접근 권한 관리 (요구 #4/#6) — 역할×정보그룹 매트릭스·임시 접근 ──
 
 class InfoAccessSet(BaseModel):
