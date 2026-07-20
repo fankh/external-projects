@@ -26,6 +26,18 @@ export async function saveSelection(projectNo: string, finishedGoodsCode: string
   }
 }
 
+/** 견적안 삭제 — Run 참조 시 409 보호. */
+export async function deleteSelection(selectionId: number): Promise<{ ok?: true; error?: string }> {
+  const { revalidatePath } = await import('next/cache')
+  try {
+    await apiServer(`/cpq/selections/${selectionId}`, { method: 'DELETE' })
+    revalidatePath('/cpq/selection')
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '견적안 삭제 실패' }
+  }
+}
+
 /** 구성도 CAD 정본 (ezdxf 작도→파싱). */
 export async function arrangementCad(): Promise<CadDocument | null> {
   try {

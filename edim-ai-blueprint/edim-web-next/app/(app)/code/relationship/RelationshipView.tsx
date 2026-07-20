@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { CadSvg } from '@/components/CadSvg'
 import { downloadCsv } from '@/lib/csv'
 import type { CadDocument } from '@/lib/cadTypes'
-import { relationshipCad, runningTest, addChild, requestApproval, type RunningTestRow } from './actions'
+import { relationshipCad, runningTest, addChild, deleteRelationship, requestApproval, type RunningTestRow } from './actions'
 
 export interface ChildRow { code: string; desc: string; qty: number; remarks: string; slotMap?: string }
 interface Mother { code: string; desc: string; slots: { slot: string; label: string; values: string }[] }
@@ -37,6 +37,8 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
   const [tested, setTested] = useState(false)
   const [addCode, setAddCode] = useState('')
   const [addQty, setAddQty] = useState('1')
+  // 세션 내 추가된 DRAFT 관계 — 승인 전 회수(삭제) 대상 (DELETE /codes/relationships/{relId})
+  const [drafts, setDrafts] = useState<{ relId: number; child: string; qty: number }[]>([])
   const [msg, setMsg] = useState<{ text: string; err?: boolean } | null>(null)
   const [pending, start] = useTransition()
 
@@ -63,8 +65,15 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
   const doAdd = () => start(async () => {
     const r = await addChild(mother.code, addCode, Number(addQty) || 1)
     if (r.error) { setMsg({ text: r.error, err: true }); return }
-    setMsg({ text: `Child 추가 ✓ — ${mother.code} → ${addCode} ×${addQty} (DRAFT, Running Test 후 승인)` })
+    if (r.relId) setDrafts((d) => [...d, { relId: r.relId!, child: addCode, qty: Number(addQty) || 1 }])
+    setMsg({ text: `Child 추가 ✓ — ${mother.code} → ${addCode} ×${addQty} (DRAFT #${r.relId}, Running Test 후 승인)` })
     setAddCode('')
+  })
+  const doDeleteDraft = (relId: number) => start(async () => {
+    const r = await deleteRelationship(relId)
+    if (r.error) { setMsg({ text: r.error, err: true }); return }
+    setDrafts((d) => d.filter((x) => x.relId !== relId))
+    setMsg({ text: `DRAFT 관계 #${relId} 삭제 ✓ (승인 전 회수)` })
   })
   const doApprove = () => start(async () => {
     const r = await requestApproval(mother.code, testRows ? testRows.length - 1 : 0)
@@ -120,6 +129,19 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
             <input className="in" value={addQty} aria-label="Qty" onChange={(e) => setAddQty(e.target.value)} style={{ height: 22, fontSize: 11, width: 56 }} />
             <button className="b" disabled={pending} onClick={doAdd} style={{ height: 22, fontSize: 11 }}>＋ Add</button>
           </div>
+          {drafts.length ? (
+            <div data-rel-drafts style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 6, fontSize: 10.5 }}>
+              <span style={{ color: 'var(--txt-dim)' }}>{t('rel.draftLabel', 'DRAFT (승인 전 — ✕ 회수)')}</span>
+              {drafts.map((d) => (
+                <span key={d.relId} className="st info" style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
+                  #{d.relId} {d.child} ×{d.qty}
+                  <span data-rel-draft-del style={{ cursor: 'pointer', fontWeight: 700 }}
+                    title={t('rel.draftDelHint', 'DRAFT 관계 삭제 (승인 관계는 보호)')}
+                    onClick={() => !pending && doDeleteDraft(d.relId)}>✕</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="fill-col" style={{ gap: 6, flex: 1, overflow: 'auto' }}>

@@ -6,6 +6,17 @@ import { apiServer, ApiError } from '@/lib/api'
 
 export interface ActState { error?: string; ok?: string }
 
+/** 견적 삭제 — DRAFT 한정 (백엔드 409 보호). */
+export async function deleteQuotation(id: number): Promise<ActState> {
+  try {
+    await apiServer(`/cost/quotations/${id}`, { method: 'DELETE' })
+    revalidatePath('/erp/sales-order')
+    return { ok: `견적 #${id} 삭제 ✓` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '삭제 실패 (DRAFT 한정)' }
+  }
+}
+
 export async function transitionQuotation(
   id: number, status: 'SENT' | 'ORDERED' | 'LOST',
   contractAmount?: number, expectedDelivery?: string,

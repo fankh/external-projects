@@ -21,15 +21,26 @@ export async function runningTest(mother: string, slotValues: Record<string, str
   }
 }
 
-/** Child 실등록 (DRAFT, Running Test 통과 후 승인 CODE-009). */
-export async function addChild(mother: string, child: string, qty: number): Promise<{ ok?: true; error?: string }> {
+/** Child 실등록 (DRAFT, Running Test 통과 후 승인 CODE-009). relId 반환 — 세션 내 삭제(undo) 대상. */
+export async function addChild(mother: string, child: string, qty: number): Promise<{ relId?: number; error?: string }> {
   if (!child.trim()) return { error: 'Child Code 를 입력하십시오' }
   try {
-    await apiServer('/codes/relationships', { method: 'POST', body: JSON.stringify({ mother, child: child.trim(), qty }) })
+    const r = await apiServer<{ relId: number }>('/codes/relationships', { method: 'POST', body: JSON.stringify({ mother, child: child.trim(), qty }) })
+    revalidatePath('/code/relationship')
+    return { relId: r.relId }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : 'Child 추가 실패' }
+  }
+}
+
+/** DRAFT 관계 삭제 — 승인 전 잘못 추가한 Child 회수 (백엔드: DRAFT 한정, 승인 관계 보호). */
+export async function deleteRelationship(relId: number): Promise<{ ok?: true; error?: string }> {
+  try {
+    await apiServer(`/codes/relationships/${relId}`, { method: 'DELETE' })
     revalidatePath('/code/relationship')
     return { ok: true }
   } catch (e) {
-    return { error: e instanceof ApiError ? e.message : 'Child 추가 실패' }
+    return { error: e instanceof ApiError ? e.message : 'DRAFT 관계 삭제 실패' }
   }
 }
 

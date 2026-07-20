@@ -3596,6 +3596,12 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "wp.codingHint": ('Evaluate mfg cost formula — WT=ΣW.Time · PERSONS=Σpersons (DWG-021, ENG-01)', '製造費算式実評価 — WT=ΣW.Time · PERSONS=Σ人員 (DWG-021, ENG-01)', '制造费公式实评估 — WT=ΣW.Time · PERSONS=Σ人员 (DWG-021, ENG-01)'),
     "wh.inspCycle": ('Inspection cycle', '検査周期', '检验周期'),
     "wh.inspCyclePh": ('e.g. 6 months (empty = no change)', '例: 6ヶ月 (空 = 変更なし)', '例: 6个月 (空 = 不变更)'),
+    "so.delHint": ('Only DRAFT quotations can be deleted (issued/approved protected)', 'DRAFT 見積のみ削除可能 (発行/承認は保護)', '仅可删除 DRAFT 报价 (已发行/已批准受保护)'),
+    "cpq.delSelHint": ('Delete selected quotation draft — 409 protected if Run history exists', '選択した見積案を削除 — Run 履歴があれば 409 保護', '删除所选报价案 — 存在 Run 记录时 409 保护'),
+    "rel.draftLabel": ('DRAFT (pre-approval — ✕ to withdraw)', 'DRAFT (承認前 — ✕ で回収)', 'DRAFT (批准前 — ✕ 撤回)'),
+    "rel.draftDelHint": ('Delete DRAFT relation (approved relations protected)', 'DRAFT 関係を削除 (承認済み関係は保護)', '删除 DRAFT 关系 (已批准关系受保护)'),
+    "access.invite": ('Invite', '招待', '邀请'),
+    "access.inviteHint": ('Send invite — no mail server: in-app notification', '招待案内 — メールサーバー未設定: アプリ内通知', '发送邀请 — 未配置邮件服务器: 应用内通知'),
 }
 
 def seed_v32(cur, tid: int) -> None:

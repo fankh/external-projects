@@ -9,7 +9,7 @@ import { useI18n } from '@/components/I18nProvider'
 import { usePermission } from '@/components/PermissionProvider'
 import {
   assignUserRoles, changeUserLevel, createRole, createUser, deleteRole, getUserRoles,
-  saveRolePermissions, setUserActive, unlockUser, updateUser, type ActState,
+  inviteUser, saveRolePermissions, setUserActive, unlockUser, updateUser, type ActState,
 } from './actions'
 
 export interface UserRow {
@@ -97,6 +97,9 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
           onClick={() => sel && start(async () => setSt(await unlockUser(sel.login)))}>{t('access.unlock', '잠금 해제')}</button>
         <button className="b" data-user-edit-open disabled={!sel}
           onClick={() => setEditOpen(true)}>{t('access.editUser', '정보 수정')}</button>
+        <button className="b" data-user-invite disabled={pending || !sel}
+          title={t('access.inviteHint', '초대 안내 — 메일 서버 미설정: 인앱 알림 발송')}
+          onClick={() => sel && start(async () => setSt(await inviteUser(sel.login)))}>✉ {t('access.invite', '초대')}</button>
         <select className="in" data-level-select style={{ width: 86 }} value={level} onChange={(e) => setLevel(e.target.value)}>
           {LEVELS.map((l) => <option key={l}>{l}</option>)}
         </select>

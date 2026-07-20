@@ -29,6 +29,14 @@ export async function assignUserRoles(login: string, roles: string[]): Promise<A
   return { ok: `역할 할당 ✓ — ${login} (${roles.join(',') || '없음'})` }
 }
 
+/** 초대 안내 (POST /users/{login}/invite) — 메일 서버 미설정 환경: 인앱 알림 + 감사. */
+export async function inviteUser(login: string): Promise<ActState> {
+  try {
+    const r = await apiServer<{ channel: string; note: string }>(`/users/${encodeURIComponent(login)}/invite`, { method: 'POST' })
+    return { ok: `초대 발송 ✓ — ${login} (${r.channel === 'IN_APP' ? '인앱 알림' : r.channel})` }
+  } catch (e) { return fail(e, '초대 실패') }
+}
+
 /** 사용자 정보 수정 (F2 이식) — 이름·부서·이메일 (PATCH /users/{login}, 폼 액션). */
 export async function updateUser(_prev: ActState, formData: FormData): Promise<ActState> {
   const login = String(formData.get('login') ?? '').trim()

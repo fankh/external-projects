@@ -9,7 +9,7 @@ import { Btn, Chip, GroupBox } from '@/components/controls'
 import { CommandLine, Cvs } from '@/components/Cvs'
 import { Modal } from '@/components/Modal'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
-import { expand, saveSelection, arrangementCad, specImport, type BomItem, type SelectionRow } from './actions'
+import { expand, saveSelection, deleteSelection, arrangementCad, specImport, type BomItem, type SelectionRow } from './actions'
 
 const PRODUCT_SLOTS = [
   { slot: 'B', label: 'Size', values: ['13', '21', '32'] },
@@ -246,6 +246,15 @@ export function SelectionView(props: {
           <option value="">{t('cpq.quoteLoad', '견적안 불러오기…')}</option>
           {props.selections.map((s) => <option key={s.selectionId} value={s.selectionId}>#{s.selectionId} {s.finishedGoodsCode}</option>)}
         </select>
+        <button className="b" data-sel-del disabled={pending || !savedSelId}
+          title={t('cpq.delSelHint', '선택한 견적안 삭제 — Run 이력이 있으면 409 보호')}
+          onClick={() => savedSelId && start(async () => {
+            const r = await deleteSelection(savedSelId)
+            if (r.error) { say(r.error, true); return }
+            say(`견적안 #${savedSelId} 삭제 ✓`)
+            setSavedSelId(null)
+            router.refresh()
+          })}>{t('common.delete', '삭제')}</button>
         {/* N5b — 사양 Excel Import (Slot·Value → 슬롯 자동 세팅 + 재전개) */}
         <label className="b" style={{ cursor: 'pointer' }} title={t('cpq.specExcelHint', '사양 Excel (Slot·Value 2열)')}>
           {t('cpq.specExcel', '⬆ 사양 Excel')}

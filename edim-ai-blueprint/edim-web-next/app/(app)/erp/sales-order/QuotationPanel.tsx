@@ -5,7 +5,7 @@ import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { transitionQuotation, type ActState } from './actions'
+import { deleteQuotation, transitionQuotation, type ActState } from './actions'
 
 export interface QuotationRow {
   quotationId: number; quotationNo: string; total: number; currency: string
@@ -53,6 +53,13 @@ export function QuotationPanel({ rows }: { rows: QuotationRow[] }) {
         <input className="in" style={{ width: 100 }} placeholder={t('so.deliveryPh', '납기 YYYY-MM-DD')} value={delivery} onChange={(e) => setDelivery(e.target.value)} />
         <button className="b run" disabled={pending || !sel || sel.status !== 'SENT'} onClick={() => run('ORDERED')}>{t('so.orderConvert', '수주 전환')}</button>
         <button className="b" disabled={pending || !sel || sel.status !== 'SENT'} onClick={() => run('LOST')}>{t('so.lost', '실주')}</button>
+        <button className="b" data-quote-del disabled={pending || !sel || sel.status !== 'DRAFT'}
+          title={t('so.delHint', 'DRAFT 견적만 삭제 가능 (발행/승인 보호)')}
+          onClick={() => sel && start(async () => {
+            const r = await deleteQuotation(sel.quotationId)
+            setSt(r)
+            if (r.ok) setSelId(null)
+          })}>{t('common.delete', '삭제')}</button>
         {st.error ? <span style={{ color: 'var(--err)' }}>{st.error}</span> : null}
         {st.ok ? <span style={{ color: 'var(--run)' }}>{st.ok}</span> : null}
       </div>
