@@ -8,6 +8,7 @@ const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v
 const PATHS: Record<string, (id: string) => string> = {
   group: (id) => `/codes/groups/${encodeURIComponent(id)}/export.xlsx`,
   table: (id) => `/tables/${encodeURIComponent(id)}/export.xlsx`,
+  i18n: (id) => `/i18n/data/${encodeURIComponent(id)}/export.xlsx`,
 }
 
 /** 감사 로그 XLSX — 필터 파라미터 허용 목록 통과 (P2). */

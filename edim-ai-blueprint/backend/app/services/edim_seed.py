@@ -3646,6 +3646,11 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "notif.announceLinkPh": ('Link (optional, /path)', 'リンク (任意, /パス)', '链接 (可选, /路径)'),
     "notif.announceSend": ('Send', '送信', '发送'),
     "notif.announceSent": ('Announcement sent ✓', 'お知らせ送信 ✓', '公告已发送 ✓'),
+    "di18n.exportHint": ('Source + en/ja/zh translation table XLSX (untranslated = blank)', '原文+en/ja/zh 翻訳表 XLSX (未訳=空欄)', '原文+en/ja/zh 翻译表 XLSX (未译=空白)'),
+    "di18n.importHint": ('Bulk import translation XLSX — headers ID·en/ja/zh, blank = no change', '翻訳 XLSX 一括インポート — ヘッダー ID·en/ja/zh, 空欄=変更なし', '批量导入翻译 XLSX — 表头 ID·en/ja/zh, 空白=不变更'),
+    "di18n.importDone": ('Bulk import ✓', '一括インポート ✓', '批量导入 ✓'),
+    "di18n.cellUnit": (' cells', 'セル', '单元格'),
+    "di18n.rejected": ('rejected', '拒否', '拒绝'),
 }
 
 def seed_v32(cur, tid: int) -> None:

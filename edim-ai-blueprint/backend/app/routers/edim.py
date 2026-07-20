@@ -430,6 +430,66 @@ def i18n_data_upsert(request: Request, body: DataTransUpsert) -> dict[str, Any]:
     return {"entityType": et, "entityId": body.entityId, "locale": body.locale, "value": val}
 
 
+@router.get("/i18n/data/{entity_type}/export.xlsx")
+def i18n_data_export(entity_type: str) -> "Response":
+    """데이터 번역 일괄 Export (메뉴정의서 다국어 P2) — 원문 + en/ja/zh 3로케일 한 시트 (미번역=빈 칸)."""
+    et = entity_type.strip().upper()
+    table, id_col, name_col, field = _data_i18n_src(et)
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(f"SELECT {id_col}, {name_col} FROM {table} WHERE tenant_id=%s ORDER BY {id_col}", (tid,))
+        src = cur.fetchall()
+        cur.execute(
+            """SELECT entity_id, locale, text FROM sys_translation
+               WHERE tenant_id=%s AND entity_type=%s AND field=%s""", (tid, et, field))
+        tr = {(r[0], r[1]): r[2] for r in cur.fetchall()}
+    rows = [[r[0], r[1] or "", tr.get((r[0], "en"), ""), tr.get((r[0], "ja"), ""), tr.get((r[0], "zh"), "")]
+            for r in src]
+    return _xlsx_response(f"번역-{et}", ["ID", "원문", "en", "ja", "zh"], rows, f"i18n_{et.lower()}")
+
+
+@router.post("/i18n/data/{entity_type}/import-excel", dependencies=[SETUP])
+async def i18n_data_import(entity_type: str, request: Request,
+                           uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+    """데이터 번역 일괄 Import — 헤더 ID·en/ja/zh. 비어있지 않은 셀만 업서트 (빈 칸=변경 없음, 삭제는 화면에서)."""
+    et = entity_type.strip().upper()
+    table, id_col, _name_col, field = _data_i18n_src(et)
+    ws, idx = _load_ws(await uploadedFile.read(), ["ID"])
+    locs = [lc for lc in ("en", "ja", "zh") if lc in idx]
+    if not locs:
+        raise HTTPException(422, detail="로케일 컬럼(en/ja/zh)이 없습니다")
+    upserted, rejected = 0, []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(f"SELECT {id_col} FROM {table} WHERE tenant_id=%s", (tid,))
+        valid = {r[0] for r in cur.fetchall()}
+        for r_i, row in enumerate(ws.iter_rows(min_row=2), start=2):
+            raw = row[idx["ID"]].value
+            try:
+                eid = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if eid not in valid:
+                rejected.append(f"{r_i}행: 미존재 ID {eid}")
+                continue
+            for lc in locs:
+                v = row[idx[lc]].value
+                val = str(v).strip()[:1000] if v is not None else ""
+                if not val:
+                    continue
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text,
+                       created_by, updated_by, updated_at)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,now())
+                       ON CONFLICT (tenant_id, locale, entity_type, entity_id, field)
+                       DO UPDATE SET text=EXCLUDED.text, updated_by=EXCLUDED.updated_by, updated_at=now()""",
+                    (tid, lc, et, eid, field, val, request.state.login, request.state.login))
+                upserted += 1
+        _audit(cur, tid, "sys_translation", 0, "DATA_I18N_IMPORT", request.state.user_id,
+               {"entityType": et, "upserted": upserted, "rejected": len(rejected)})
+    return {"upserted": upserted, "rejected": rejected, "rejectedCount": len(rejected)}
+
+
 # ── SVC-01 Auth ──
 MAX_LOGIN_FAILS = 5   # 연속 실패 → 자동 LOCKED (B8, SEC-002)
 
