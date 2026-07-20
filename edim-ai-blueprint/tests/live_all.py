@@ -91,6 +91,7 @@ SUITES = [
     "live_g3_roles.py",             # 역할 생성/삭제 — 커스텀 생성·예약/중복 409·내장/배정 삭제 409(edim 복원)
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
+    "live_shell_mdi_login.py",      # MDI 파라미터 다중 인스턴스·로그인 부가 요소
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]
