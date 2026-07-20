@@ -24,6 +24,40 @@ export async function searchQuery(q: string): Promise<{ result?: SearchResults; 
   }
 }
 
+/** 트리아지 #10 — 선택적 MFA (TOTP): 상태·설정·활성화·해제. */
+export interface MfaState { enabled: boolean; pending: boolean }
+
+export async function mfaStatus(): Promise<MfaState> {
+  return apiServer<MfaState>('/users/me/mfa').catch(() => ({ enabled: false, pending: false }))
+}
+
+export async function mfaSetup(): Promise<{ secret?: string; error?: string }> {
+  try {
+    const r = await apiServer<{ secret: string }>('/users/me/mfa/setup', { method: 'POST' })
+    return { secret: r.secret }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : 'MFA 설정 실패' }
+  }
+}
+
+export async function mfaEnable(code: string): Promise<{ ok?: string; error?: string }> {
+  try {
+    await apiServer('/users/me/mfa/enable', { method: 'POST', body: JSON.stringify({ code }) })
+    return { ok: 'MFA 활성화 ✓ — 다음 로그인부터 OTP 필요' }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '활성화 실패' }
+  }
+}
+
+export async function mfaDisable(code: string): Promise<{ ok?: string; error?: string }> {
+  try {
+    await apiServer('/users/me/mfa/disable', { method: 'POST', body: JSON.stringify({ code }) })
+    return { ok: 'MFA 해제 ✓' }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '해제 실패' }
+  }
+}
+
 /** U11 테넌트 로고 설정 (ADMIN) — data URL base64. '' = 제거. */
 export async function saveBranding(logoData: string): Promise<{ ok?: string; error?: string }> {
   try {

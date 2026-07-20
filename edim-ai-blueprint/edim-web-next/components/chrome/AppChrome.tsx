@@ -11,7 +11,7 @@ import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MDI_PARAMS, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
-import { changePassword, firstProject, getFavorites, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type ShellPanelData } from './shellActions'
+import { changePassword, firstProject, getFavorites, mfaDisable, mfaEnable, mfaSetup, mfaStatus, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type MfaState, type ShellPanelData } from './shellActions'
 
 /** U11 색상 테마 프리셋 (슬라이드 57) — globals.css body[data-theme] 토큰. */
 const THEMES: { id: string; label: string }[] = [
@@ -415,6 +415,18 @@ export function AppChrome(props: {
     reader.readAsDataURL(file)
   }
 
+  // ── 트리아지 #10 — MFA 설정 다이얼로그 (opt-in TOTP) ──
+  const [mfaOpen, setMfaOpen] = useState(false)
+  const [mfaSt, setMfaSt] = useState<MfaState | null>(null)
+  const [mfaSecret, setMfaSecret] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+  const [mfaMsg, setMfaMsg] = useState<{ text: string; err?: boolean } | null>(null)
+  const [mfaPending, startMfa] = useTransition()
+  const openMfa = () => {
+    setMfaMsg(null); setMfaSecret(''); setMfaCode(''); setMfaOpen(true)
+    startMfa(async () => setMfaSt(await mfaStatus()))
+  }
+
   // ── 비밀번호 변경 다이얼로그 (B8) ──
   const [pwOpen, setPwOpen] = useState(false)
   const [pwCur, setPwCur] = useState(''); const [pwNew, setPwNew] = useState('')
@@ -482,6 +494,7 @@ export function AppChrome(props: {
         {props.bell}</>} right={props.right} logo={props.logo} allowed={props.allowedModules}
         userMenu={[
           { label: t('shell.changePw', '비밀번호 변경'), onClick: () => { setPwMsg(null); setPwOpen(true) } },
+          { label: t('shell.mfa', 'MFA 설정 (OTP)'), onClick: openMfa },
           { label: t('shell.logout', '로그아웃'), onClick: () => {
             document.querySelector<HTMLFormElement>('form[data-logout]')?.requestSubmit()
           } },
@@ -633,6 +646,61 @@ export function AppChrome(props: {
         onSaveTenant={props.canReadAdmin ? applyTenantNav : undefined}
         module={module} canReadAdmin={props.canReadAdmin}
         value={leftNav[module]} onSave={applyLeftNav} />
+      {/* 트리아지 #10 — MFA 설정 다이얼로그 (opt-in TOTP) */}
+      {mfaOpen ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setMfaOpen(false)}>
+          <div className="gb" data-mfa-dialog style={{ width: 360, padding: 12, background: '#fff', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 8 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>{t('shell.mfa', 'MFA 설정 (OTP)')}
+              {mfaSt ? <span style={{ marginLeft: 6, fontWeight: 400, color: mfaSt.enabled ? 'var(--run)' : 'var(--txt-mute)' }}>
+                {mfaSt.enabled ? t('mfa.on', '활성') : mfaSt.pending ? t('mfa.pending', '설정 중 (미활성)') : t('mfa.off', '비활성')}</span> : null}
+            </div>
+            <div style={{ fontSize: 10.5, color: 'var(--txt-dim)' }}>
+              {t('mfa.hint', '선택 사항 — 활성화하면 로그인 시 인증 앱(TOTP) 6자리 코드가 추가로 필요합니다')}
+            </div>
+            {!mfaSt?.enabled ? (
+              <>
+                <button className="b" data-mfa-setup disabled={mfaPending} onClick={() => startMfa(async () => {
+                  const r = await mfaSetup()
+                  if (r.error) { setMfaMsg({ text: r.error, err: true }); return }
+                  setMfaSecret(r.secret!)
+                  setMfaSt({ enabled: false, pending: true })
+                  setMfaMsg({ text: t('mfa.setupDone', '시크릿 발급 — 인증 앱에 등록 후 코드로 활성화') })
+                })}>{t('mfa.setupBtn', '① 시크릿 발급')}</button>
+                {mfaSecret ? (
+                  <div data-mfa-secret className="code" style={{ padding: 6, background: '#F4F6FA', wordBreak: 'break-all', userSelect: 'all' }}>{mfaSecret}</div>
+                ) : null}
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <input className="in" data-mfa-code inputMode="numeric" maxLength={6} placeholder={t('mfa.codePh', '앱의 6자리 코드')}
+                    value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} style={{ width: 110 }} />
+                  <button className="b run" data-mfa-enable disabled={mfaPending || !mfaCode.trim() || !(mfaSt?.pending || mfaSecret)}
+                    onClick={() => startMfa(async () => {
+                      const r = await mfaEnable(mfaCode)
+                      setMfaMsg(r.error ? { text: r.error, err: true } : { text: r.ok! })
+                      if (r.ok) setMfaSt({ enabled: true, pending: false })
+                    })}>{t('mfa.enableBtn', '② 활성화')}</button>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <input className="in" data-mfa-code inputMode="numeric" maxLength={6} placeholder={t('mfa.codePh', '앱의 6자리 코드')}
+                  value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} style={{ width: 110 }} />
+                <button className="b" data-mfa-disable disabled={mfaPending || !mfaCode.trim()}
+                  onClick={() => startMfa(async () => {
+                    const r = await mfaDisable(mfaCode)
+                    setMfaMsg(r.error ? { text: r.error, err: true } : { text: r.ok! })
+                    if (r.ok) { setMfaSt({ enabled: false, pending: false }); setMfaSecret('') }
+                  })}>{t('mfa.disableBtn', '해제')}</button>
+              </div>
+            )}
+            {mfaMsg ? <div style={{ color: mfaMsg.err ? 'var(--err)' : 'var(--run)' }}>{mfaMsg.text}</div> : null}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="b" onClick={() => setMfaOpen(false)}>{t('common.close', '닫기')}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {/* P3 — 단축키 안내 */}
       {shortcutOpen ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}

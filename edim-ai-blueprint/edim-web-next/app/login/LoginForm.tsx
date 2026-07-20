@@ -41,6 +41,14 @@ export function LoginForm({ next, labels, locale, version, host }: {
         <input id="userId" name="userId" className="in" defaultValue="edim" autoFocus />
         <label htmlFor="password">{labels.password}</label>
         <input id="password" name="password" type="password" className="in" defaultValue="edim" />
+        {/* 트리아지 #10 — MFA 활성 사용자 2단계 (opt-in — 비활성 사용자는 미노출) */}
+        {state.mfaRequired ? (
+          <>
+            <label htmlFor="otp">OTP</label>
+            <input id="otp" name="otp" className="in" data-login-otp inputMode="numeric"
+              maxLength={6} placeholder="6자리 인증 코드" autoFocus />
+          </>
+        ) : null}
         <label htmlFor="tenant">{labels.tenant}</label>
         <input id="tenant" className="in ro" value="NOVA Solution" readOnly />
       </div>

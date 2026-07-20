@@ -515,6 +515,26 @@ class LoginRequest(BaseModel):
     userId: str
     password: str
     ttlSeconds: int | None = None   # 토큰 수명 단축 (갱신 검증용, 60s~8h 클램프)
+    otp: str = ""                   # 트리아지 #10 — MFA 활성 사용자 2단계 코드
+
+
+def _totp_code(secret_b32: str, at: float | None = None, step: int = 30) -> str:
+    """RFC 6238 TOTP (SHA1·6자리·30s) — 표준 인증 앱 호환."""
+    import base64
+    import hmac as _hmac
+    import struct
+    import time as _time
+    key = base64.b32decode(secret_b32)
+    counter = int((at if at is not None else _time.time()) // step)
+    h = _hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+    o = h[-1] & 0x0F
+    return f"{(int.from_bytes(h[o:o + 4], 'big') & 0x7FFFFFFF) % 1_000_000:06d}"
+
+
+def _totp_verify(secret_b32: str, code: str) -> bool:
+    import time as _time
+    c = (code or "").strip()
+    return len(c) == 6 and any(_totp_code(secret_b32, _time.time() + d * 30) == c for d in (-1, 0, 1))
 
 
 @router.post("/auth/login")
@@ -524,7 +544,8 @@ def login(body: LoginRequest) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT user_id, user_name, department, user_level, password_hash, status
+            """SELECT user_id, user_name, department, user_level, password_hash, status,
+                      totp_secret, mfa_enabled
                FROM sys_user WHERE tenant_id=%s AND login_id=%s""", (tid, login_id))
         row = cur.fetchone()
         if not row:
@@ -558,6 +579,13 @@ def login(body: LoginRequest) -> dict[str, Any]:
                     403, detail=f"로그인 {MAX_LOGIN_FAILS}회 실패 — 계정이 잠겼습니다 (관리자 잠금 해제 필요)")
             raise HTTPException(
                 401, detail=f"사번 또는 비밀번호가 올바르지 않습니다 (실패 {fails}/{MAX_LOGIN_FAILS})")
+        # 트리아지 #10 — MFA 활성 사용자 2단계 (비활성 사용자·기존 흐름 무영향)
+        if row[7]:
+            if not body.otp.strip():
+                return {"mfaRequired": True}
+            if not _totp_verify(row[6] or "", body.otp):
+                _audit(cur, tid, "sys_user", uid, "LOGIN_MFA_FAIL", uid, {"login": login_id})
+                raise HTTPException(401, detail="OTP 코드가 올바르지 않습니다 (인증 앱 확인)")
         _audit(cur, tid, "sys_user", uid, "LOGIN_OK", uid, {"login": login_id})
     ttl = max(60, min(int(body.ttlSeconds or TOKEN_TTL), TOKEN_TTL))
     return {
@@ -572,6 +600,70 @@ def login(body: LoginRequest) -> dict[str, Any]:
 class PasswordChangeRequest(BaseModel):
     currentPassword: str
     newPassword: str
+
+
+class MfaCode(BaseModel):
+    code: str = ""
+
+
+@router.get("/users/me/mfa")
+def mfa_status(request: Request) -> dict[str, Any]:
+    """MFA 상태 (트리아지 #10) — enabled / pending(시크릿 발급됨·미활성)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT totp_secret, mfa_enabled FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+                    (tid, request.state.login))
+        row = cur.fetchone()
+    return {"enabled": bool(row and row[1]), "pending": bool(row and row[0] and not row[1])}
+
+
+@router.post("/users/me/mfa/setup")
+def mfa_setup(request: Request) -> dict[str, Any]:
+    """MFA 설정 시작 — TOTP 시크릿 발급 (활성화는 enable 에서 코드 검증 후, 잠금 방지 2단계)."""
+    import base64
+    import secrets as _secrets
+    secret = base64.b32encode(_secrets.token_bytes(20)).decode()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE sys_user SET totp_secret=%s, mfa_enabled=false, updated_at=now()
+               WHERE tenant_id=%s AND login_id=%s RETURNING user_id""",
+            (secret, tid, request.state.login))
+        uid = cur.fetchone()[0]
+        _audit(cur, tid, "sys_user", uid, "MFA_SETUP", uid, {})
+    return {"secret": secret, "issuer": "EDIM", "account": request.state.login,
+            "note": "인증 앱(TOTP)에 시크릿 수동 등록 후 enable 로 코드 검증"}
+
+
+@router.post("/users/me/mfa/enable")
+def mfa_enable(request: Request, body: MfaCode) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT user_id, totp_secret FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+                    (tid, request.state.login))
+        uid, secret = cur.fetchone()
+        if not secret:
+            raise HTTPException(422, detail="setup 먼저 실행하십시오")
+        if not _totp_verify(secret, body.code):
+            raise HTTPException(422, detail="OTP 코드가 올바르지 않습니다 — 인증 앱 시간 확인")
+        cur.execute("UPDATE sys_user SET mfa_enabled=true, updated_at=now() WHERE user_id=%s", (uid,))
+        _audit(cur, tid, "sys_user", uid, "MFA_ENABLE", uid, {})
+    return {"enabled": True}
+
+
+@router.post("/users/me/mfa/disable")
+def mfa_disable(request: Request, body: MfaCode) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT user_id, totp_secret, mfa_enabled FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+                    (tid, request.state.login))
+        uid, secret, enabled = cur.fetchone()
+        if enabled and not _totp_verify(secret or "", body.code):
+            raise HTTPException(422, detail="해제하려면 현재 OTP 코드가 필요합니다")
+        cur.execute("UPDATE sys_user SET totp_secret=NULL, mfa_enabled=false, updated_at=now() "
+                    "WHERE user_id=%s", (uid,))
+        _audit(cur, tid, "sys_user", uid, "MFA_DISABLE", uid, {})
+    return {"enabled": False}
 
 
 @router.put("/users/me/password")

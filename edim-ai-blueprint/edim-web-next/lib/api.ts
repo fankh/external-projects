@@ -34,11 +34,11 @@ export async function apiServer<T>(path: string, init?: RequestInit): Promise<T>
 }
 
 /** 로그인(쿠키 미설정 상태에서 호출) — 토큰+유저 반환 */
-export async function apiLogin(userId: string, password: string): Promise<{ token: string; user: unknown }> {
+export async function apiLogin(userId: string, password: string, otp?: string): Promise<{ token?: string; mfaRequired?: boolean; user?: unknown }> {
   const res = await fetch(API_BASE + '/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, password }),
+    body: JSON.stringify({ userId, password, ...(otp ? { otp } : {}) }),
     cache: 'no-store',
   })
   if (!res.ok) {
