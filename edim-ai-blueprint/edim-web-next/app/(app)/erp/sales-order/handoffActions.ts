@@ -9,6 +9,7 @@ export interface HandoffRow {
   handoffId: number; projectNo: string; runId: number; version: number
   status: string; grade: string | null; checks: { check: string; grade: string; detail: string }[]
   createdAt: string; createdBy: string; acceptedAt: string | null
+  finishedGoodsCode: string; configSnapshotId: number | null
 }
 export interface RunOption { runId: number; startedAt: string }
 

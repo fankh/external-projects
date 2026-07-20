@@ -1977,6 +1977,10 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'handoff.acceptHint': 'Accept into ERP — project work starts',
     'handoff.waitApproval': 'Awaiting approval',
     'handoff.empty': 'No handoffs — create from a SUCCESS run',
+    'subcode.dryRun': 'Preview only',
+    'subcode.dryRunHint': 'Diff review — preview add/update/reject without applying',
+    'folder.pkgTitle': 'Output Package',
+    'folder.pkgOutputs': 'outputs',
   },
   ja: {
     'menu.plm-parts': '部品台帳 (M-4-7)',
@@ -3954,6 +3958,10 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'handoff.acceptHint': 'ERP 受信 — プロジェクト業務開始',
     'handoff.waitApproval': '承認待ち',
     'handoff.empty': 'Handoff なし — SUCCESS Run から作成',
+    'subcode.dryRun': '検討のみ',
+    'subcode.dryRunHint': 'Diff 検討 — 反映せず追加/更新/拒否をプレビュー',
+    'folder.pkgTitle': 'Output Package',
+    'folder.pkgOutputs': '成果物',
   },
   zh: {
     'menu.plm-parts': '零件台账 (M-4-7)',
@@ -5931,5 +5939,9 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'handoff.acceptHint': 'ERP 接收 — 项目业务开始',
     'handoff.waitApproval': '待审批',
     'handoff.empty': '暂无 Handoff — 从 SUCCESS Run 创建',
+    'subcode.dryRun': '仅预览',
+    'subcode.dryRunHint': 'Diff 预览 — 不应用，仅查看新增/更新/拒绝',
+    'folder.pkgTitle': 'Output Package',
+    'folder.pkgOutputs': '产出',
   },
 }

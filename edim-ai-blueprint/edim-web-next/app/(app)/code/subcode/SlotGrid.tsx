@@ -62,6 +62,12 @@ export function SlotGrid({ rows, group }: { rows: SlotRow[]; group: string }) {
         <form action={impAction} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <input type="hidden" name="group" value={group} />
           <input className="in" type="file" name="uploadedFile" accept=".xlsx" style={{ width: 180, fontSize: 10 }} />
+          {/* 트리아지 #32 — Diff Review: 반영 없이 insert/update/거부 미리보기 */}
+          <label style={{ display: 'inline-flex', gap: 3, alignItems: 'center', fontSize: 10.5 }}
+            title={t('subcode.dryRunHint', '검토(Diff) — 반영 없이 추가/갱신/거부 미리보기')}>
+            <input type="checkbox" name="dryRun" data-import-dryrun aria-label="검토만" />
+            {t('subcode.dryRun', '검토만')}
+          </label>
           <button className="b" type="submit" disabled={impPending}>{t('subcode.importBtn', '⬆ Import')}</button>
         </form>
         <button className="b" onClick={() => window.open(`/api/next/xlsx?kind=group&id=${encodeURIComponent(group)}`, '_blank')}>{t('subcode.exportBtn', '⬇ Export')}</button>

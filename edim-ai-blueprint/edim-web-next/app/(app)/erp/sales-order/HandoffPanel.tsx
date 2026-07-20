@@ -41,13 +41,15 @@ export function HandoffPanel({ rows, runs }: { rows: HandoffRow[]; runs: RunOpti
       </div>
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <table className="g" style={{ width: '100%' }}>
-          <thead><tr><th>#</th><th>{t('so.project', '프로젝트')}</th><th>Run</th><th>Ver</th>
+          <thead><tr><th>#</th><th>{t('so.project', '프로젝트')}</th><th>FG Code</th><th>Run</th><th>Ver</th>
             <th>{t('handoff.grade', '검증')}</th><th>{t('order.status', '상태')}</th>
             <th>{t('handoff.at', '생성')}</th><th></th></tr></thead>
           <tbody>{rows.length ? rows.map((h) => (
             <tr key={h.handoffId}>
               <td className="c">{h.handoffId}</td>
               <td className="code">{h.projectNo}</td>
+              {/* 트리아지 #38 — FG Code 는 표시용, 추적은 Snapshot ID (툴팁 병기) */}
+              <td className="code" title={`Config Snapshot #${h.configSnapshotId ?? '—'} · Run #${h.runId}`}>{h.finishedGoodsCode || '—'}</td>
               <td className="c">#{h.runId}</td>
               <td className="c">v{h.version}</td>
               <td className="c">{h.grade ? <Chip tone={h.grade === 'pass' ? 'ok' : 'warn'}>{h.grade}</Chip> : '—'}</td>

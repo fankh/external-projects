@@ -3663,6 +3663,10 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "handoff.acceptHint": ('Accept into ERP — project work starts', 'ERP 受信 — プロジェクト業務開始', 'ERP 接收 — 项目业务开始'),
     "handoff.waitApproval": ('Awaiting approval', '承認待ち', '待审批'),
     "handoff.empty": ('No handoffs — create from a SUCCESS run', 'Handoff なし — SUCCESS Run から作成', '暂无 Handoff — 从 SUCCESS Run 创建'),
+    "subcode.dryRun": ('Preview only', '検討のみ', '仅预览'),
+    "subcode.dryRunHint": ('Diff review — preview add/update/reject without applying', 'Diff 検討 — 反映せず追加/更新/拒否をプレビュー', 'Diff 预览 — 不应用，仅查看新增/更新/拒绝'),
+    "folder.pkgTitle": ('Output Package', 'Output Package', 'Output Package'),
+    "folder.pkgOutputs": ('outputs', '成果物', '产出'),
 }
 
 def seed_v32(cur, tid: int) -> None:

@@ -987,8 +987,10 @@ def export_history_xlsx(limit: int = 1000, fromDate: str = "", toDate: str = "",
 
 @router.post("/codes/groups/{group}/import-excel", dependencies=[SETUP])
 async def import_group_excel(group: str, request: Request,
-                             uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
-    """code_item 일괄 Import (C2) — Slot·Item Name 헤더, 행 단위 거부 리포트 (Slot 중복=갱신)."""
+                             uploadedFile: UploadFile = File(...),
+                             dryRun: bool = False) -> dict[str, Any]:
+    """code_item 일괄 Import (C2) — Slot·Item Name 헤더, 행 단위 거부 리포트 (Slot 중복=갱신).
+    dryRun=true (트리아지 #32 Diff Review): 반영 없이 insert/update/거부 미리보기만 반환."""
     import openpyxl
     data = await uploadedFile.read()
     try:
@@ -1002,6 +1004,7 @@ async def import_group_excel(group: str, request: Request,
     si, ni = header.index("slot"), header.index("item name")
     inserted = updated = 0
     rejected: list[str] = []
+    diff: list[dict[str, Any]] = []
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute("SELECT group_id FROM code_group WHERE tenant_id=%s AND group_code=%s", (tid, group))
@@ -1014,16 +1017,27 @@ async def import_group_excel(group: str, request: Request,
             if not slot or not nm:
                 rejected.append(f"{i}행: Slot·Item Name 필수")
                 continue
-            cur.execute("SELECT item_id FROM code_item WHERE group_id=%s AND item_slot=%s", (g[0], slot))
+            cur.execute("SELECT item_id, item_name FROM code_item WHERE group_id=%s AND item_slot=%s",
+                        (g[0], slot))
             ex = cur.fetchone()
             if ex:
-                cur.execute("UPDATE code_item SET item_name=%s, updated_at=now() WHERE item_id=%s", (nm, ex[0]))
+                if dryRun:
+                    diff.append({"row": i, "slot": slot, "action": "update", "before": ex[1], "after": nm})
+                else:
+                    cur.execute("UPDATE code_item SET item_name=%s, updated_at=now() WHERE item_id=%s",
+                                (nm, ex[0]))
                 updated += 1
             else:
-                cur.execute(
-                    """INSERT INTO code_item (tenant_id, group_id, item_slot, item_name, sort_order)
-                       VALUES (%s,%s,%s,%s,%s)""", (tid, g[0], slot, nm, inserted + updated))
+                if dryRun:
+                    diff.append({"row": i, "slot": slot, "action": "insert", "after": nm})
+                else:
+                    cur.execute(
+                        """INSERT INTO code_item (tenant_id, group_id, item_slot, item_name, sort_order)
+                           VALUES (%s,%s,%s,%s,%s)""", (tid, g[0], slot, nm, inserted + updated))
                 inserted += 1
+        if dryRun:
+            return {"dryRun": True, "inserted": inserted, "updated": updated,
+                    "rejected": rejected, "diff": diff[:50]}
         _audit(cur, tid, "code_group", g[0], "IMPORT", request.state.user_id,
                {"group": group, "inserted": inserted, "updated": updated, "rejected": len(rejected)})
     return {"inserted": inserted, "updated": updated, "rejected": rejected}
@@ -9566,25 +9580,55 @@ def handoff_create(request: Request, body: HandoffCreate) -> dict[str, Any]:
 
 @router.get("/erp/handoffs")
 def handoff_list(project: str = "") -> list[dict[str, Any]]:
-    """Handoff 목록 (트리아지 #49) — 수신 상태 표시."""
+    """Handoff 목록 (트리아지 #49) — 수신 상태 + FG Code·Snapshot ID 병기 (#38 표시/추적 분리)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         params: list[Any] = [tid]
         clause = ""
         if project.strip():
-            clause = " AND project_no=%s"
+            clause = " AND h.project_no=%s"
             params.append(project.strip())
         cur.execute(
-            f"""SELECT handoff_id, project_no, run_id, version, status, validation,
-                       to_char(created_at,'MM-DD HH24:MI'), COALESCE(created_by,''),
-                       to_char(accepted_at,'MM-DD HH24:MI')
-               FROM erp_handoff WHERE tenant_id=%s{clause}
-               ORDER BY handoff_id DESC LIMIT 50""", tuple(params))
+            f"""SELECT h.handoff_id, h.project_no, h.run_id, h.version, h.status, h.validation,
+                       to_char(h.created_at,'MM-DD HH24:MI'), COALESCE(h.created_by,''),
+                       to_char(h.accepted_at,'MM-DD HH24:MI'),
+                       s.finished_goods_code, s.selection_id
+               FROM erp_handoff h
+               LEFT JOIN cpq_run r ON r.run_id=h.run_id
+               LEFT JOIN cpq_selection s ON s.selection_id=r.selection_id
+               WHERE h.tenant_id=%s{clause}
+               ORDER BY h.handoff_id DESC LIMIT 50""", tuple(params))
         return [{"handoffId": r[0], "projectNo": r[1], "runId": r[2], "version": r[3],
                  "status": r[4], "grade": (r[5] or {}).get("grade"),
                  "checks": (r[5] or {}).get("checks", []),
-                 "createdAt": r[6], "createdBy": r[7], "acceptedAt": r[8]}
+                 "createdAt": r[6], "createdBy": r[7], "acceptedAt": r[8],
+                 "finishedGoodsCode": r[9] or "", "configSnapshotId": r[10]}
                 for r in cur.fetchall()]
+
+
+@router.get("/projects/{project_no}/output-packages")
+def project_output_packages(project_no: str) -> list[dict[str, Any]]:
+    """Project Output Package 조회 (트리아지 #42) — SUCCESS Run 단위 산출물 묶음 뷰.
+
+    Package = FG Code(표시) + Config/BOM Snapshot ID(추적) + 산출물 수 + Handoff 상태."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT r.run_id, to_char(r.started_at,'MM-DD HH24:MI'),
+                      (SELECT count(*) FROM cpq_output o WHERE o.run_id=r.run_id),
+                      COALESCE(jsonb_array_length(r.bom_snapshot),0),
+                      s.finished_goods_code, s.selection_id,
+                      (SELECT h.status FROM erp_handoff h
+                       WHERE h.tenant_id=r.tenant_id AND h.run_id=r.run_id
+                       ORDER BY h.handoff_id DESC LIMIT 1)
+               FROM cpq_run r
+               JOIN cpq_selection s ON s.selection_id=r.selection_id
+               JOIN prj_project p ON p.project_id=s.project_id
+               WHERE r.tenant_id=%s AND p.project_no=%s AND r.status='SUCCESS' AND NOT r.is_test
+               ORDER BY r.run_id DESC LIMIT 20""", (tid, project_no))
+        return [{"packageId": r[0], "at": r[1], "outputCount": r[2], "bomRows": r[3],
+                 "finishedGoodsCode": r[4] or "", "configSnapshotId": r[5],
+                 "handoffStatus": r[6]} for r in cur.fetchall()]
 
 
 @router.post("/erp/handoffs/{handoff_id}/accept", dependencies=[SETUP])

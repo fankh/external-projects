@@ -43,11 +43,13 @@ export async function addItem(group: string, slot: string, name: string, values:
 export async function importGroupExcel(_prev: ActState, formData: FormData): Promise<ActState> {
   const group = String(formData.get('group') ?? '').trim()
   const file = formData.get('uploadedFile')
+  // 트리아지 #32 — Diff Review: 검토만 체크 시 반영 없이 미리보기
+  const dryRun = formData.get('dryRun') === 'on'
   if (!(file instanceof File) || file.size === 0) return { error: 'Excel 파일을 선택하십시오' }
   const token = await getToken()
   const fd = new FormData()
   fd.append('uploadedFile', file)
-  const res = await fetch(`${API_BASE}/codes/groups/${encodeURIComponent(group)}/import-excel`, {
+  const res = await fetch(`${API_BASE}/codes/groups/${encodeURIComponent(group)}/import-excel${dryRun ? '?dryRun=true' : ''}`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: fd, cache: 'no-store',
@@ -57,7 +59,15 @@ export async function importGroupExcel(_prev: ActState, formData: FormData): Pro
     try { detail = (await res.json())?.detail ?? detail } catch { /* non-json */ }
     return { error: detail }
   }
-  const r = await res.json() as { inserted: number; updated: number; rejected: string[] }
+  const r = await res.json() as {
+    dryRun?: boolean; inserted: number; updated: number; rejected: string[]
+    diff?: { row: number; slot: string; action: string; before?: string; after: string }[]
+  }
+  if (r.dryRun) {
+    const head = (r.diff ?? []).slice(0, 5)
+      .map((d) => `${d.slot}:${d.action === 'update' ? `${d.before}→${d.after}` : `+${d.after}`}`).join(', ')
+    return { ok: `검토(Diff) — 추가 ${r.inserted} · 갱신 ${r.updated} · 거부 ${r.rejected.length}${head ? ` | ${head}${(r.diff?.length ?? 0) > 5 ? ' …' : ''}` : ''} (미반영)` }
+  }
   revalidatePath(PATH)
   return { ok: `Import — 추가 ${r.inserted} · 갱신 ${r.updated}${r.rejected?.length ? ` · 거부 ${r.rejected.length}` : ''}` }
 }
