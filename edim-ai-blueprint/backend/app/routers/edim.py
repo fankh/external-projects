@@ -12033,6 +12033,7 @@ class ValuePatch(BaseModel):
     valueName: str | None = None
     description: str | None = None
     deprecate: bool = False
+    approve: bool = False   # #28 — 미승인 값 승인 (조합 대상 편입)
 
 
 @router.patch("/codes/values/{value_id}", dependencies=[SETUP])
@@ -12045,6 +12046,10 @@ def patch_code_value(value_id: int, body: ValuePatch, request: Request) -> dict[
         sets["description"] = body.description.strip() or None
     if body.deprecate:
         sets["approval_status"] = "DEPRECATED"
+    if body.approve:
+        if body.deprecate:
+            raise HTTPException(422, detail="승인과 폐기를 동시에 지정할 수 없습니다")
+        sets["approval_status"] = "APPROVED"
     if not sets:
         raise HTTPException(422, detail="수정할 필드가 없습니다")
     with _conn() as conn, conn.cursor() as cur:

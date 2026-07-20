@@ -55,7 +55,9 @@ sel = req("POST", "/cpq/selections", {"projectNo": "PS-61313-5", "rootCode": DWG
                                        "finishedGoodsCode": "KDCR 3-13-13-15", "slotValues": {"B": "13", "C": "32", "E": "15"}})
 sel_id = sel["selectionId"]
 # #28 — 자유텍스트 등록은 Slot 미정의 그룹에서만 허용된다(Slot 그룹은 조합 생성 전용).
-grp = next(g["groupCode"] for g in req("GET", "/codes/groups") if g["slotCount"] == 0)
+_manual = [g["groupCode"] for g in req("GET", "/codes/groups") if g["slotCount"] == 0]
+assert _manual, "Slot 미정의 그룹 없음 — 시드 GEN 확인"
+grp = _manual[0]
 for c in ("KDW-BT1", "KDW-BT2"):
     req("POST", "/codes/products", {"mainCode": c, "codeName": f"배치검증 {c}", "groupCode": grp})
 for nm in ("BATCH-T1", "BATCH-T2"):

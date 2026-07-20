@@ -40,6 +40,23 @@ export async function addItem(group: string, slot: string, name: string, values:
   return { ok: `${slot.toUpperCase()} 등록 — 승인 요청 (PENDING)` }
 }
 
+/** #28 — Slot 의 미승인 값 일괄 승인. 승인된 값만 제품 코드 조합에 쓸 수 있다. */
+export async function approveSlotValues(group: string, slot: string): Promise<ActState> {
+  try {
+    const vals = await apiServer<{ slot: string; valueCode: string; status: string; valueId: number }[]>(
+      `/codes/values?group=${encodeURIComponent(group)}`)
+    const pending = vals.filter((v) => v.slot === slot && v.status !== 'APPROVED' && v.status !== 'DEPRECATED')
+    if (!pending.length) return { error: `${slot} 에 승인 대기 값이 없습니다` }
+    for (const v of pending) {
+      await apiServer(`/codes/values/${v.valueId}`, { method: 'PATCH', body: JSON.stringify({ approve: true }) })
+    }
+    revalidatePath(PATH)
+    return { ok: `${slot} 승인 ${pending.length}건 — 조합 사용 가능 (${pending.map((v) => v.valueCode).join(', ')})` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '승인 실패' }
+  }
+}
+
 export async function importGroupExcel(_prev: ActState, formData: FormData): Promise<ActState> {
   const group = String(formData.get('group') ?? '').trim()
   const file = formData.get('uploadedFile')

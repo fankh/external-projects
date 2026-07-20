@@ -48,7 +48,9 @@ ok("로그인", st == 200 and tok)
 # #28 — Slot 이 정의된 그룹은 조합 생성 전용이라 자유텍스트 등록이 422.
 # 재고 단가 검증이 목적이므로 수기 등록 가능한 Slot 미정의 그룹을 고른다.
 _st, _groups = req("GET", "/codes/groups", tok=tok)
-GROUP = next(g["groupCode"] for g in _groups if g["slotCount"] == 0)
+_manual = [g["groupCode"] for g in _groups if g["slotCount"] == 0]
+assert _manual, "Slot 미정의 그룹 없음 — 시드 GEN 확인"
+GROUP = _manual[0]
 
 STK = "ZZE2E-STK"    # 제품코드(자동 단가 대상)
 MAVG = "ZZE2E-MAVG"  # 이동평균 대상

@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { addItem, createGroup, importGroupExcel, type ActState } from './actions'
+import { addItem, approveSlotValues, createGroup, importGroupExcel, type ActState } from './actions'
+import { usePermission } from '@/components/PermissionProvider'
 
 export interface SlotRow {
   slot: string; label: string; values: string; allValues: string
@@ -25,6 +26,7 @@ export function SlotGrid({ rows, group }: { rows: SlotRow[]; group: string }) {
   const [dupOk, setDupOk] = useState(false)
   const [st, setSt] = useState<ActState>({})
   const [pending, start] = useTransition()
+  const perm = usePermission()
 
   const cols: GridColumn<SlotRow>[] = [
     { key: 'slot', header: 'Slot', width: 64, align: 'center', code: true, render: (r) => r.slot },
@@ -32,6 +34,15 @@ export function SlotGrid({ rows, group }: { rows: SlotRow[]; group: string }) {
     { key: 'values', header: t('subcode.valueList', '값'), render: (r) => r.values || '—' },
     { key: 'count', header: t('subcode.count', '개수'), width: 56, align: 'right', sortValue: (r) => r.count, render: (r) => r.count },
     { key: 'status', header: t('subcode.status', '상태'), width: 84, align: 'center', sortValue: (r) => r.status, render: (r) => <Chip tone={r.approved ? 'ok' : 'info'}>{r.status}</Chip> },
+    // #28 — 승인된 값만 제품 코드 조합에 편입된다. 미승인 Slot 은 여기서 바로 승인.
+    { key: 'approve', header: t('subcode.approveCol', '승인'), width: 60, align: 'center', render: (r) => (
+      r.approved ? <span style={{ color: 'var(--txt-dim)' }}>—</span> : (
+        <button className="b" data-slot-approve={r.slot} disabled={pending || !perm.canWrite('code-master')}
+          title={perm.canWrite('code-master') ? t('subcode.approveHint', '미승인 값을 승인해 조합 대상에 편입') : perm.denyWrite}
+          onClick={(e) => { e.stopPropagation(); start(async () => setSt(await approveSlotValues(group, r.slot))) }}>
+          {t('common.approve', '승인')}
+        </button>
+      )) },
   ]
 
   const checkDup = () => {

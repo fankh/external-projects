@@ -72,6 +72,8 @@ try:
     slotted = [g["groupCode"] for g in groups if g["slotCount"] > 0]
     slotless = [g["groupCode"] for g in groups if g["slotCount"] == 0]
     ok(f"Slot 정의 그룹 존재 ({', '.join(slotted)})", bool(slotted))
+    # 시드 GEN — 조합 대상이 아닌 코드(구매품·일회성)의 정식 수기 등록 창구
+    ok(f"Slot 미정의 그룹 존재 ({', '.join(slotless)})", "GEN" in slotless)
     st, b = req("POST", "/codes/products", TOK,
                 {"mainCode": f"{GRP} FREETEXT", "codeName": "자유텍스트", "groupCode": slotted[0]})
     ok(f"Slot 그룹 자유텍스트 등록 422 ({st})", st == 422 and "조합" in (b or {}).get("detail", ""))
@@ -102,6 +104,17 @@ try:
        all(s["blocked"] and s["pending"] > 0 for s in spec["slots"]) and spec["buildable"] is False)
     st, b = req("POST", "/codes/products/build", TOK, {"groupCode": GRP, "selections": {"A": "X1", "B": "Y1"}})
     ok(f"미승인 값 조합 422 ({st})", st == 422 and "승인" in (b or {}).get("detail", ""))
+
+    # PATCH approve — 승인함을 거치지 않는 직접 승인 경로 (S-1-1 Slot 승인 버튼)
+    st, vals = req("GET", f"/codes/values?group={GRP}", TOK)
+    v_x2 = next(v for v in vals if v["slot"] == "A" and v["valueCode"] == "X2")
+    st, _ = req("PATCH", f"/codes/values/{v_x2['valueId']}", TOK, {"approve": True})
+    ok("값 직접 승인 200", st == 200)
+    st, spec = req("GET", f"/codes/products/builder?group={GRP}", TOK)
+    ok("승인한 값만 Slot A 에 노출 (1건)",
+       [len(s["values"]) for s in spec["slots"] if s["slot"] == "A"] == [1])
+    st, b = req("PATCH", f"/codes/values/{v_x2['valueId']}", TOK, {"approve": True, "deprecate": True})
+    ok(f"승인+폐기 동시 지정 422 ({st})", st == 422)
 
     # ── 3) 승인이 실제로 값에 반영되는지 (기존 결함 수정분) ──
     st, inbox = req("GET", "/approvals/inbox", TOK)

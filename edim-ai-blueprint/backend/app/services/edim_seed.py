@@ -426,6 +426,7 @@ def run_seed() -> None:
             seed_v31(cur, row[0])
             seed_v30(cur, row[0])
             seed_v32(cur, row[0])
+            seed_v33(cur, row[0])
             _seed_invariants(cur, row[0])
             return
 
@@ -3788,6 +3789,24 @@ def seed_v32(cur, tid: int) -> None:
                 cur.execute(
                     """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
                        VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
+
+
+def seed_v33(cur, tid: int) -> None:
+    """#28 — 일반 코드 그룹 GEN (Slot 미정의).
+
+    Slot 이 정의된 그룹은 승인된 Sub Code 조합으로만 제품 코드를 만든다(자유텍스트 금지).
+    반면 구매품·일회성 마스터 코드는 사양 조합의 산물이 아니므로 수기 등록 경로가 필요하다.
+    GEN 은 그 정식 창구 — Slot 을 두지 않아 조합 대상에서 제외된다."""
+    cur.execute("SELECT 1 FROM code_group WHERE tenant_id=%s AND group_code='GEN'", (tid,))
+    if cur.fetchone():
+        return
+    cur.execute("SELECT address FROM sys_hierarchy WHERE tenant_id=%s AND address='/C'", (tid,))
+    addr = "/C/GEN" if cur.fetchone() else "/C"
+    cur.execute(
+        """INSERT INTO code_group (tenant_id, group_code, group_name, group_type,
+           hierarchy_address, approval_status)
+           VALUES (%s,'GEN','일반 코드 (Slot 미정의)','PRODUCT',%s,'APPROVED')""", (tid, addr))
+    logger.info("seed v33 — GEN 일반 코드 그룹 (수기 등록 창구, #28)")
 
 
 def seed_v26(cur, tid: int) -> None:
