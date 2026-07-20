@@ -103,6 +103,7 @@ SUITES = [
     "live_snapshot.py",             # Snapshot 체계 (1.7) — 고정·재현 검증·drift·Handoff 연결
     "live_process_nav.py",          # 좌측 프로세스 패널 (2.0) — 시드·편집·순서·권한
     "live_product_builder.py",      # Product Code Builder (2.2) — 승인 조합 전용·해시·Rev drift
+    "live_bom_basis.py",            # BOM 전개 근거 (2.7) — 관계 Revision 고정·이동 감지·순환/테넌트 가드
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]

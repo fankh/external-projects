@@ -1542,7 +1542,9 @@ def _expand_rows(cur, tid: int, root_code: str, slot_values: dict[str, str]) -> 
             WITH RECURSIVE bom AS (
               SELECT pc.product_code_id, pc.main_code, pc.code_name,
                      1::numeric AS quantity, 0 AS lvl,
-                     %s::jsonb AS slots, pc.main_code::text AS path, ''::text AS ord
+                     %s::jsonb AS slots, pc.main_code::text AS path, ''::text AS ord,
+                     NULL::bigint AS rel_id, NULL::int AS rel_rev,
+                     ARRAY[pc.product_code_id] AS seen
               FROM product_code pc
               WHERE pc.tenant_id=%s AND pc.main_code=%s
               UNION ALL
@@ -1555,12 +1557,17 @@ def _expand_rows(cur, tid: int, root_code: str, slot_values: dict[str, str]) -> 
                        FROM code_relationship_slot_map sm
                        WHERE sm.rel_id = r.rel_id), '{}'::jsonb),
                      (b.path || ' > ' || c.main_code)::text,
-                     (b.ord || lpad(r.sort_order::text, 4, '0'))::text
+                     (b.ord || lpad(r.sort_order::text, 4, '0'))::text,
+                     r.rel_id, r.revision_no,
+                     b.seen || c.product_code_id
               FROM bom b
               JOIN code_relationship r
                 ON r.mother_code_id = b.product_code_id AND r.approval_status = 'APPROVED'
-              JOIN product_code c ON c.product_code_id = r.child_code_id
+               AND r.tenant_id = %s
+              JOIN product_code c
+                ON c.product_code_id = r.child_code_id AND c.tenant_id = %s
               WHERE b.lvl < 10
+                AND NOT (c.product_code_id = ANY(b.seen))   -- 순환 가드 (where-used 와 동일 규약)
             )
             SELECT b.main_code, b.code_name, b.quantity, b.lvl, b.slots, b.path,
                    (SELECT p.price FROM cst_price p
@@ -1568,11 +1575,22 @@ def _expand_rows(cur, tid: int, root_code: str, slot_values: dict[str, str]) -> 
                       AND p.valid_from <= CURRENT_DATE
                       AND (p.valid_to IS NULL OR p.valid_to >= CURRENT_DATE)
                     ORDER BY array_position(%s::text[], p.price_source), p.valid_from DESC
-                    LIMIT 1) AS price
+                    LIMIT 1) AS price,
+                   b.rel_id, b.rel_rev
             FROM bom b WHERE b.lvl > 0 ORDER BY b.ord
             """,
-            (json.dumps(slot_values), tid, root_code, SOURCE_PRIORITY))
+            (json.dumps(slot_values), tid, root_code, tid, tid, SOURCE_PRIORITY))
     return cur.fetchall()
+
+
+def _rel_basis(rows: list[tuple]) -> dict[str, Any]:
+    """전개 근거 (#40) — 이 BOM 이 사용한 (관계 rel_id, Revision) 집합 + 체크섬.
+
+    같은 근거 = 같은 BOM 이므로, 근거 체크섬이 같으면 재실행 결과가 같음을 보증한다.
+    반대로 체크섬이 달라졌다면 무엇이 바뀌었는지 edges 비교로 정확히 짚을 수 있다."""
+    edges = sorted({(int(r[7]), int(r[8] or 1)) for r in rows if r[7] is not None})
+    payload = [{"relId": e[0], "revisionNo": e[1]} for e in edges]
+    return {"edges": payload, "checksum": _snapshot_checksum({"edges": payload})}
 
 
 def _resolved(main: str, slots: dict[str, str]) -> str:
@@ -3921,8 +3939,11 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
             "WHERE tenant_id=%s AND value_id=%s", (result, tid, row[1]))
     elif row[0] == "code_relationship":
         # F4 — Mother 코드의 관계 세트 전이 (Running Test 통과 승인, CODE-009)
+        # #40 — 승인 라운드마다 관계 Revision 증가: 과거 Run 은 자기 근거 Revision 을 그대로 보존하고,
+        # 근거가 움직였다는 사실은 bom-basis 대조에서 드러난다(BOM 자체는 Snapshot 이 불변 보존).
         cur.execute(
-            """UPDATE code_relationship SET approval_status=%s
+            f"""UPDATE code_relationship SET approval_status=%s
+                {', revision_no = revision_no + 1' if approve else ''}
                WHERE tenant_id=%s AND mother_code_id=%s""",
             (result, tid, row[1]))
     elif row[0] == "eco_change":
@@ -8476,7 +8497,8 @@ async def _advance(run_id: int, tid: int, selection_id: int,
             # 1. BOM
             t0 = begin(0)
             await asyncio.sleep(0.4)
-            m = rp.step_bom(cur, tid, _expand_rows, "KDCR 3-13", slot_values, selection_id, r)
+            m = rp.step_bom(cur, tid, _expand_rows, "KDCR 3-13", slot_values, selection_id, r,
+                            rel_basis=_rel_basis)
             finish(0, t0, m)
             log(f"BOM expand root=KDCR 3-13 … {len(r.items)} items → cpq_selection_item")
 
@@ -8529,10 +8551,12 @@ async def _advance(run_id: int, tid: int, selection_id: int,
             state["totalK"] = r.total_k
             cur.execute(
                 """UPDATE cpq_run SET status='SUCCESS', finished_at=now(),
-                   dimension_values=%s, bom_snapshot=%s WHERE run_id=%s""",
+                   dimension_values=%s, bom_snapshot=%s, rel_basis=%s WHERE run_id=%s""",
                 (json.dumps({"KDCR 3-13": r.dims}),
                  # 트리아지 #41 — BOM Snapshot: 전개 결과를 Run 에 고정 (같은 Snapshot = 같은 결과 재현)
-                 json.dumps(r.items), run_id))
+                 json.dumps(r.items),
+                 # #40 — 전개 근거(관계 Revision 집합) 고정: "같은 근거면 같은 BOM" 을 대조 가능하게
+                 json.dumps(r.rel_basis) if r.rel_basis else None, run_id))
         state["status"] = "SUCCESS"
         state["current"] = len(RUN_TASKS)
     except Exception as e:  # noqa: BLE001
@@ -10604,6 +10628,59 @@ def run_bom_snapshot(run_id: int) -> dict[str, Any]:
     return {"runId": run_id, "count": len(rows), "rows": rows}
 
 
+@router.get("/cpq/runs/{run_id}/bom-basis")
+def run_bom_basis(run_id: int) -> dict[str, Any]:
+    """BOM 전개 근거 대조 (#40) — Run 이 고정한 관계 Revision 집합 vs 지금 다시 폈을 때의 집합.
+
+    Snapshot(1.7)이 *결과*를 불변 보존한다면, 여기는 *근거*를 대조한다.
+    stable=true 면 지금 재실행해도 같은 BOM 이 나온다는 뜻이고, false 면 무엇이 달라졌는지
+    관계 단위(added/removed/revised)로 짚어준다. 근거가 바뀌어도 과거 BOM 은 바뀌지 않는다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT r.rel_basis, s.slot_values, r.status
+               FROM cpq_run r LEFT JOIN cpq_selection s ON s.selection_id=r.selection_id
+               WHERE r.tenant_id=%s AND r.run_id=%s""", (tid, run_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"run not found: {run_id}")
+        pinned = row[0]
+        if not pinned:
+            # #40 이전 Run — 근거가 기록되지 않았다. 없는 것을 있는 척하지 않는다.
+            return {"runId": run_id, "pinned": None, "stable": None,
+                    "reason": "이 Run 은 전개 근거 도입(#40) 이전에 실행되어 근거가 없습니다"}
+        cur_rows = _expand_rows(cur, tid, "KDCR 3-13", row[1] or {})
+        current = _rel_basis(cur_rows)
+        pin_map = {e["relId"]: e["revisionNo"] for e in pinned.get("edges", [])}
+        cur_map = {e["relId"]: e["revisionNo"] for e in current["edges"]}
+        # 관계 표시용 이름 (rel_id → 'Mother > Child')
+        ids = sorted(set(pin_map) | set(cur_map))
+        names: dict[int, str] = {}
+        if ids:
+            cur.execute(
+                """SELECT cr.rel_id, m.main_code || ' > ' || c.main_code
+                   FROM code_relationship cr
+                   JOIN product_code m ON m.product_code_id=cr.mother_code_id
+                   JOIN product_code c ON c.product_code_id=cr.child_code_id
+                   WHERE cr.tenant_id=%s AND cr.rel_id = ANY(%s)""", (tid, ids))
+            names = {r[0]: r[1] for r in cur.fetchall()}
+        diff = []
+        for rid in ids:
+            label = names.get(rid, f"#{rid}")
+            if rid not in cur_map:
+                diff.append({"relId": rid, "label": label, "change": "removed",
+                             "pinnedRevision": pin_map[rid], "currentRevision": None})
+            elif rid not in pin_map:
+                diff.append({"relId": rid, "label": label, "change": "added",
+                             "pinnedRevision": None, "currentRevision": cur_map[rid]})
+            elif pin_map[rid] != cur_map[rid]:
+                diff.append({"relId": rid, "label": label, "change": "revised",
+                             "pinnedRevision": pin_map[rid], "currentRevision": cur_map[rid]})
+        return {"runId": run_id, "pinned": pinned, "current": current,
+                "stable": pinned.get("checksum") == current["checksum"],
+                "edgeCount": len(pin_map), "diff": diff}
+
+
 # ── 1.7 Snapshot 레지스트리 (요구 #9) — 실행 결과 고정·재현·무결성 ──
 
 class SnapshotCreate(BaseModel):
@@ -10615,7 +10692,7 @@ def _run_state(cur, tid: int, run_id: int) -> dict[str, Any]:
     """Run 시점 상태 수집 — Snapshot payload 이자 재현(drift) 대조의 기준."""
     cur.execute(
         """SELECT r.status, r.run_type, COALESCE(r.is_test,false), r.bom_snapshot,
-                  s.selection_id, s.finished_goods_code,
+                  s.selection_id, s.finished_goods_code, r.rel_basis,
                   jsonb_build_object('slotValues', s.slot_values, 'specInput', s.spec_input,
                                      'arrangementId', s.arrangement_id,
                                      'isStandard', s.is_standard, 'status', s.status),
@@ -10639,8 +10716,9 @@ def _run_state(cur, tid: int, run_id: int) -> dict[str, Any]:
     return {
         "runId": run_id, "status": r[0], "runType": r[1], "isTest": r[2],
         "selectionId": r[4], "finishedGoodsCode": r[5],
-        "selections": r[6], "projectNo": r[7],
+        "selections": r[7], "projectNo": r[8],
         "bomRows": len(bom), "bom": bom, "costs": costs, "outputs": outputs,
+        "relBasis": r[6],   # #40 — 전개 근거도 Snapshot payload 에 동결
     }
 
 
@@ -10747,6 +10825,15 @@ def snapshot_verify(snapshot_id: int) -> dict[str, Any]:
         for key in ("status", "finishedGoodsCode", "projectNo", "bomRows"):
             if payload.get(key) != current.get(key):
                 drift.append({"field": key, "snapshot": payload.get(key), "current": current.get(key)})
+        # #40 — 행 수만 보던 BOM 대조를 내용 기준으로 강화 (행 수가 같아도 수량·코드가 바뀔 수 있다)
+        if _snapshot_checksum({"b": payload.get("bom", [])}) != _snapshot_checksum({"b": current.get("bom", [])}):
+            drift.append({"field": "bom", "snapshot": f"{len(payload.get('bom', []))}행",
+                          "current": f"{len(current.get('bom', []))}행 (내용 상이)"})
+        # #40 — 전개 근거(관계 Revision) 이동 여부
+        if (payload.get("relBasis") or {}).get("checksum") != (current.get("relBasis") or {}).get("checksum"):
+            drift.append({"field": "relBasis",
+                          "snapshot": (payload.get("relBasis") or {}).get("checksum"),
+                          "current": (current.get("relBasis") or {}).get("checksum")})
         if [c["total"] for c in payload.get("costs", [])] != [c["total"] for c in current.get("costs", [])]:
             drift.append({"field": "costs", "snapshot": payload.get("costs"), "current": current.get("costs")})
         if len(payload.get("outputs", [])) != len(current.get("outputs", [])):

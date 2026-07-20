@@ -76,3 +76,20 @@ export async function verifySnapshot(id: number): Promise<VerifyResult | null> {
     return await apiServer<VerifyResult>(`/snapshots/${id}/verify`)
   } catch { return null }
 }
+
+/** #40 — BOM 전개 근거(관계 Revision) 대조: 지금 재실행해도 같은 BOM 인가. */
+export interface BasisResult {
+  runId: number; stable: boolean | null; reason?: string
+  pinned: { checksum: string; edges: { relId: number; revisionNo: number }[] } | null
+  current?: { checksum: string }
+  edgeCount?: number
+  diff?: { relId: number; label: string; change: string; pinnedRevision: number | null; currentRevision: number | null }[]
+}
+
+export async function checkBomBasis(runId: number): Promise<BasisResult | { error: string }> {
+  try {
+    return await apiServer<BasisResult>(`/cpq/runs/${runId}/bom-basis`)
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '전개 근거 조회 실패' }
+  }
+}

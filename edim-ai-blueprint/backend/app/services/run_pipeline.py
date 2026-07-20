@@ -33,6 +33,7 @@ class PipelineResult:
     warn: list[str] = field(default_factory=list)
     files: list[tuple[str, str, str, bytes]] = field(default_factory=list)
     # (folder, file_name, file_type, data)
+    rel_basis: dict[str, Any] | None = None   # #40 — 전개 근거 (관계 Revision 집합 + 체크섬)
 
 
 def _resolved_code(main: str, slots: dict[str, str]) -> str:
@@ -41,8 +42,11 @@ def _resolved_code(main: str, slots: dict[str, str]) -> str:
 
 
 def step_bom(cur, tid: int, expand_rows, root: str, slot_values: dict[str, str],
-             selection_id: int, r: PipelineResult) -> str:
+             selection_id: int, r: PipelineResult, rel_basis=None) -> str:
     rows = expand_rows(cur, tid, root, slot_values)
+    # #40 — 결과(BOM)뿐 아니라 근거(어느 관계 Revision 으로 폈는지)를 Run 에 남긴다
+    if rel_basis is not None:
+        r.rel_basis = rel_basis(rows)
     # cpq_selection_item 영속 (재실행 시 교체)
     cur.execute("DELETE FROM cpq_selection_item WHERE selection_id=%s", (selection_id,))
     for row in rows:
@@ -60,7 +64,8 @@ def step_bom(cur, tid: int, expand_rows, root: str, slot_values: dict[str, str],
                VALUES (%s,%s,%s,%s,%s,%s)""",
             (selection_id, code, json.dumps(row[4] or {}), row[1], float(row[2]), row[3]))
     r.depth = max((i["level"] for i in r.items), default=0)
-    return f"{len(r.items)} 파트 · 깊이 {r.depth}"
+    basis = f" · 근거 {r.rel_basis['checksum'][:8]}" if r.rel_basis else ""
+    return f"{len(r.items)} 파트 · 깊이 {r.depth}{basis}"
 
 
 def _load_dims(cur, tid: int) -> list[tuple[str, str]]:

@@ -3564,6 +3564,23 @@ UI_TRANSLATIONS_V33: dict[str, tuple[str, str, str]] = {
     "subcode.approveHint": ('Approve pending values so they can be composed',
                             '未承認値を承認して組合せ対象にする', '审批未批准值以纳入组合'),
     "common.approve": ('Approve', '承認', '审批'),
+    # 2.7 #40 — BOM 전개 근거 대조
+    "basis.btn": ('Check BOM basis', '展開根拠の照合', '核对BOM依据'),
+    "basis.hint": ('Which relationship revisions this Run expanded on · whether re-running yields the same BOM',
+                   'この Run がどの関係 Revision で展開したか・再実行で同じ BOM か',
+                   '此 Run 基于哪些关系修订展开·重跑是否得到相同 BOM'),
+    "basis.title": ('BOM expansion basis', 'BOM 展開根拠', 'BOM 展开依据'),
+    "basis.stable": ('Basis unchanged — re-run yields the same BOM', '根拠同一 — 再実行でも同じ BOM', '依据一致 — 重跑得到相同 BOM'),
+    "basis.moved": ('Basis changed', '根拠が変更されました', '依据已变更'),
+    "basis.edges": ('Relationships', '関係', '关系'),
+    "basis.added": ('added', '追加', '新增'),
+    "basis.removed": ('removed', '削除', '移除'),
+    "basis.revised": ('Rev', 'Rev', 'Rev'),
+    "basis.sameHint": ('The pinned relationship revision set matches the current one',
+                       '固定された関係 Revision 集合が現在と同一です', '已固定的关系修订集合与当前一致'),
+    "basis.movedHint": ("Even if the basis moved this Run's BOM does not change — it means a re-run may differ",
+                        '根拠が動いてもこの Run の BOM は変わりません — 再実行で結果が変わり得るという意味です',
+                        '依据变动不会改变此 Run 的 BOM — 意味着重跑结果可能不同'),
 }
 
 UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
