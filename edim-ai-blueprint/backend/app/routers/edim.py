@@ -3413,6 +3413,11 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
     elif row[0] == "eco_change":
         # D5 — 설계변경 승인: 승인 시 Rev-up 자동 적용(DRAWING) + 변경 통지(ECN)
         _apply_eco(cur, tid, row[1], approve, actor_login, actor_id)
+    elif row[0] == "tbx_macro":
+        # 권한승인정의서 상태기계 #7 — 승인=APPROVED, 반려=DRAFT 복귀 (재작성 후 재요청)
+        cur.execute("UPDATE tbx_macro SET status=%s, updated_at=now() "
+                    "WHERE tenant_id=%s AND macro_id=%s",
+                    ("APPROVED" if approve else "DRAFT", tid, row[1]))
     cur.execute(
         """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
            VALUES (%s,%s,%s,%s,%s,%s)""",
@@ -4848,13 +4853,37 @@ def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
         actor_id = request.state.user_id
         target_id = body.targetId
         if body.targetCode.strip() and not target_id:
-            # F4 — 코드 문자열 → product_code_id (Code Relationship 승인 등)
-            cur.execute(
-                "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
-                (tid, body.targetCode.strip()))
-            hit = cur.fetchone()
-            if not hit:
-                raise HTTPException(404, detail=f"code not found: {body.targetCode}")
+            # 자산 인지형 targetCode 해석 (v34.58) — 기존엔 product_code 로만 해석해
+            # Macro Studio·UI Designer·Print Set-up 승인 요청이 404 로 침묵 고장 (11차 조사 발견)
+            code = body.targetCode.strip()
+            if tt == "tbx_macro":
+                cur.execute("SELECT macro_id FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s",
+                            (tid, code))
+                hit = cur.fetchone()
+                if not hit:
+                    raise HTTPException(404, detail=f"macro not found: {code}")
+            elif tt == "tbx_ui_form":
+                cur.execute("SELECT form_id FROM tbx_ui_form WHERE tenant_id=%s AND form_name=%s",
+                            (tid, code))
+                hit = cur.fetchone()
+                if not hit:
+                    raise HTTPException(404, detail=f"ui form not found: {code}")
+            elif tt == "doc_control":
+                cur.execute(
+                    """SELECT doc_control_id FROM doc_control
+                       WHERE tenant_id=%s AND (doc_no=%s OR title=%s)
+                       ORDER BY doc_control_id DESC LIMIT 1""", (tid, code, code))
+                hit = cur.fetchone()
+                if not hit:
+                    raise HTTPException(404, detail=f"document not found: {code}")
+            else:
+                # F4 — 코드 문자열 → product_code_id (Code Relationship·도면 승인 등)
+                cur.execute(
+                    "SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+                    (tid, code))
+                hit = cur.fetchone()
+                if not hit:
+                    raise HTTPException(404, detail=f"code not found: {code}")
             target_id = hit[0]
         # 권한승인정의서 승인상태기계 #7 — Macro 는 Test Run 통과(TESTED) 후에만 승인 요청 가능 (TBX-012)
         if tt == "tbx_macro" and target_id:
