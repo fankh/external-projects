@@ -3638,6 +3638,14 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "detail.bomPartPh": ('Part no (registered)', '部品番号 (台帳登録分)', '零件号 (已登记)'),
     "detail.bomNotePh": ('Assembly note', '組立備考', '装配备注'),
     "detail.bomDelHint": ('Delete BOM line', 'BOM 行を削除', '删除 BOM 行'),
+    "notif.title": ('Notifications', '通知', '通知'),
+    "notif.allRead": ('Mark all read', 'すべて既読', '全部已读'),
+    "notif.announceBtn": ('Announce', 'お知らせ', '公告'),
+    "notif.announceHint": ('Send announcement — in-app notification to all active users (ADMIN)', 'お知らせ送信 — 全ユーザーへアプリ内通知 (ADMIN)', '发送公告 — 向全体用户推送应用内通知 (ADMIN)'),
+    "notif.announceTitlePh": ('Announcement title', 'お知らせタイトル', '公告标题'),
+    "notif.announceLinkPh": ('Link (optional, /path)', 'リンク (任意, /パス)', '链接 (可选, /路径)'),
+    "notif.announceSend": ('Send', '送信', '发送'),
+    "notif.announceSent": ('Announcement sent ✓', 'お知らせ送信 ✓', '公告已发送 ✓'),
 }
 
 def seed_v32(cur, tid: int) -> None:

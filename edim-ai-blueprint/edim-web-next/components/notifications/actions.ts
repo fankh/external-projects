@@ -18,6 +18,19 @@ export async function notificationDigest(): Promise<NotificationDigest> {
   return apiServer<NotificationDigest>('/notifications/digest').catch(() => ({ unread: 0, byType: {}, overdue: 0, high: 0 }))
 }
 
+/** 공지 발송 (ADMIN) — 전 활성 사용자 인앱 알림 (type=ANNOUNCE). */
+export async function announce(title: string, link?: string): Promise<{ sent?: number; error?: string }> {
+  const { ApiError } = await import('@/lib/api')
+  try {
+    const r = await apiServer<{ sent: number }>('/notifications/announce', {
+      method: 'POST', body: JSON.stringify({ title, link: link ?? '' }),
+    })
+    return { sent: r.sent }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '공지 발송 실패' }
+  }
+}
+
 export async function markRead(id: number): Promise<void> {
   await apiServer(`/notifications/${id}/read`, { method: 'POST' }).catch(() => {})
 }

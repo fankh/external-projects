@@ -3352,7 +3352,8 @@ def decide_batch(request: Request, body: DecideBatchRequest) -> dict[str, Any]:
 
 # ── SVC-13 알림 ──
 TYPE_PRIORITY = {"ESCALATION": "HIGH", "DEADLINE_WARN": "HIGH",
-                 "APPROVAL_REQUEST": "MED", "APPROVAL_RESULT": "MED", "TASK_ASSIGNED": "MED"}
+                 "APPROVAL_REQUEST": "MED", "APPROVAL_RESULT": "MED", "TASK_ASSIGNED": "MED",
+                 "ANNOUNCE": "MED"}
 
 
 @router.get("/notifications")
@@ -3385,6 +3386,31 @@ def notifications(request: Request, limit: int = 20, type: str = "",
              "read": r[4], "at": r[5], "priority": TYPE_PRIORITY.get(r[1], "LOW")}
             for r in cur.fetchall()
         ]
+
+
+class AnnounceCreate(BaseModel):
+    title: str
+    link: str = ""
+
+
+@router.post("/notifications/announce", status_code=201, dependencies=[ADMIN])
+def notifications_announce(request: Request, body: AnnounceCreate) -> dict[str, Any]:
+    """공지 발송 (메뉴정의서 공통/알림 P2) — 전 활성 사용자 인앱 알림 (type=ANNOUNCE)."""
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(422, detail="공지 제목을 입력하십시오")
+    link = body.link.strip()
+    if link and not link.startswith("/"):
+        raise HTTPException(422, detail="링크는 내부 경로(/...)만 허용")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND status='ACTIVE'", (tid,))
+        uids = [r[0] for r in cur.fetchall()]
+        for uid in uids:
+            _notify(cur, tid, uid, "ANNOUNCE", title, link or None)
+        _audit(cur, tid, "sys_notification", 0, "ANNOUNCE", request.state.user_id,
+               {"title": title[:100], "recipients": len(uids)})
+    return {"sent": len(uids), "title": title}
 
 
 @router.get("/notifications/digest")
