@@ -47,6 +47,7 @@ py tests\live_all.py
 | `live_s5_run_pipeline.py` | Run 파이프라인 산출물 바이트 검증 (PDF/DXF/XLSX) | S5 |
 | `check_i18n_en.py` | EN 전환 한글 잔존 0 — 24화면+로그인 (`BASE` env 로 프리뷰/라이브 전환) | B9 |
 | `live_dev_requirements.py` | 개발서버 요구사항 접수 — devMode 게이트·CRUD·이미지 첨부(422/연쇄삭제)·RBAC 403·UI 모달 왕복 (자체 정리) | 운영 도구 |
+| `live_product_builder.py` | 제품 코드 조합 — 자유텍스트 422·미승인 값 422·승인 반영·파생 코드/해시·동일 조합 409·Rev drift·GENERAL 403 (자체 정리) | 2.2 (#28) |
 
 ## CI
 
@@ -67,4 +68,7 @@ py tests\live_all.py
 - 라이브 스위트는 만든 테스트 데이터를 **반드시 정리**한다 (스위트 내 원복 또는 psql).
 - honest-write: mock 모드에서 쓰기는 실패해야 정상 — 폴백 스위트는 "백엔드 연결 필요" 표기를 기대값으로 삼는다.
 - 새 기능(배치)은 라이브 스위트를 함께 커밋하고 `live_all.py` 의 `SUITES` 에 등록한다.
+- **좌측 트리 내비는 `_nav.py` 의 `tree_click`/`tree_node` 만 사용한다** — 2.0 이후 좌측 기본 패널이
+  업무 프로세스라, `.tn` 을 직접 찾으면 메뉴 라벨이 없어 타임아웃한다(2.3 에서 36종 일괄 복구).
+- **셸 기본값·공용 레이아웃을 바꾸는 배치는 신규 기능 검증만으로 수용하지 않는다** — `live_all.py` 완주가 수용 기준.
 - 시드 전제: edim/edim(ADMIN)·kim01/edim(GENERAL), KDCR 3-13 도메인 데이터 (시드 v1~v12).
