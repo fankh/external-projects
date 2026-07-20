@@ -9606,6 +9606,49 @@ def handoff_list(project: str = "") -> list[dict[str, Any]]:
                 for r in cur.fetchall()]
 
 
+@router.get("/tenant/export.zip", dependencies=[ADMIN])
+def tenant_export(request: Request) -> StreamingResponse:
+    """테넌트 오프보딩/백업 export (트리아지 #13) — 코어 테이블 JSON 덤프 ZIP (ADMIN, 감사 기록).
+
+    파일 원본(MinIO)은 기존 /files/zip 채널 — 본 export 는 구조화 데이터 반출."""
+    import zipfile
+    TABLES = [
+        ("projects", "SELECT * FROM prj_project WHERE tenant_id=%s"),
+        ("companies", "SELECT * FROM com_company WHERE tenant_id=%s"),
+        ("product_codes", "SELECT * FROM product_code WHERE tenant_id=%s"),
+        ("code_relationships", "SELECT * FROM code_relationship WHERE tenant_id=%s"),
+        ("drawings", "SELECT * FROM dwg_drawing WHERE tenant_id=%s"),
+        ("parts", "SELECT * FROM prt_part WHERE tenant_id=%s"),
+        ("warehouses", "SELECT * FROM erp_warehouse WHERE tenant_id=%s"),
+        ("quotations", "SELECT * FROM cst_quotation WHERE tenant_id=%s"),
+        ("documents", "SELECT * FROM doc_control WHERE tenant_id=%s"),
+        ("selections", "SELECT * FROM cpq_selection WHERE tenant_id=%s"),
+        ("runs", "SELECT run_id, selection_id, run_type, status, started_at, finished_at, is_test "
+                 "FROM cpq_run WHERE tenant_id=%s"),
+        ("handoffs", "SELECT * FROM erp_handoff WHERE tenant_id=%s"),
+        ("users", "SELECT user_id, login_id, user_name, department, email, user_level, status, created_at "
+                  "FROM sys_user WHERE tenant_id=%s"),   # 비밀번호 해시 등 민감 필드 제외
+    ]
+    buf = io.BytesIO()
+    manifest = ["EDIM 테넌트 데이터 export (오프보딩/백업)", "-" * 40]
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for name, sql in TABLES:
+                cur.execute(sql, (tid,))
+                cols = [d[0] for d in cur.description]
+                rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+                zf.writestr(f"{name}.json", json.dumps(rows, ensure_ascii=False, default=str, indent=1))
+                manifest.append(f"{name}: {len(rows)}건")
+            zf.writestr("manifest.txt", "\n".join(manifest))
+        _audit(cur, tid, "sys_tenant", tid, "TENANT_EXPORT", request.state.user_id,
+               {"tables": len(TABLES)})
+    from urllib.parse import quote as _q
+    return StreamingResponse(iter([buf.getvalue()]), media_type="application/zip",
+                             headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_q('tenant_export.zip')}",
+                                      "X-Table-Count": str(len(TABLES))})
+
+
 @router.get("/projects/{project_no}/output-packages")
 def project_output_packages(project_no: str) -> list[dict[str, Any]]:
     """Project Output Package 조회 (트리아지 #42) — SUCCESS Run 단위 산출물 묶음 뷰.

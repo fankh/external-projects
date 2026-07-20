@@ -29,7 +29,13 @@ export async function GET(req: NextRequest) {
   const id = sp.get('id') ?? ''
   let path: string
   let filename = id
-  if (LEDGERS[kind]) {
+  let ext = 'xlsx'
+  if (kind === 'tenant-export') {
+    // 트리아지 #13 — 테넌트 오프보딩 export (ADMIN, ZIP)
+    path = '/tenant/export.zip'
+    filename = 'tenant_export'
+    ext = 'zip'
+  } else if (LEDGERS[kind]) {
     path = LEDGERS[kind]
     filename = kind
   } else if (kind === 'audit') {
@@ -53,7 +59,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(buf, {
     headers: {
       'Content-Type': res.headers.get('content-type') ?? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}.xlsx"`,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}.${ext}"`,
     },
   })
 }

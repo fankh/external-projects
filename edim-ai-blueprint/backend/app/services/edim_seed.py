@@ -3667,6 +3667,8 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "subcode.dryRunHint": ('Diff review — preview add/update/reject without applying', 'Diff 検討 — 反映せず追加/更新/拒否をプレビュー', 'Diff 预览 — 不应用，仅查看新增/更新/拒绝'),
     "folder.pkgTitle": ('Output Package', 'Output Package', 'Output Package'),
     "folder.pkgOutputs": ('outputs', '成果物', '产出'),
+    "access.tenantExport": ('Tenant export', 'テナント export', '租户导出'),
+    "access.tenantExportHint": ('Tenant data export — core tables JSON ZIP (offboarding/backup, audited)', 'テナントデータ export — コアテーブル JSON ZIP (オフボーディング/バックアップ, 監査記録)', '租户数据导出 — 核心表 JSON ZIP (离场/备份, 记录审计)'),
 }
 
 def seed_v32(cur, tid: int) -> None:

@@ -1981,6 +1981,8 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'subcode.dryRunHint': 'Diff review — preview add/update/reject without applying',
     'folder.pkgTitle': 'Output Package',
     'folder.pkgOutputs': 'outputs',
+    'access.tenantExport': 'Tenant export',
+    'access.tenantExportHint': 'Tenant data export — core tables JSON ZIP (offboarding/backup, audited)',
   },
   ja: {
     'menu.plm-parts': '部品台帳 (M-4-7)',
@@ -3962,6 +3964,8 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'subcode.dryRunHint': 'Diff 検討 — 反映せず追加/更新/拒否をプレビュー',
     'folder.pkgTitle': 'Output Package',
     'folder.pkgOutputs': '成果物',
+    'access.tenantExport': 'テナント export',
+    'access.tenantExportHint': 'テナントデータ export — コアテーブル JSON ZIP (オフボーディング/バックアップ, 監査記録)',
   },
   zh: {
     'menu.plm-parts': '零件台账 (M-4-7)',
@@ -5943,5 +5947,7 @@ export const OFFLINE_BUNDLES: Record<string, Record<string, string>> = {
     'subcode.dryRunHint': 'Diff 预览 — 不应用，仅查看新增/更新/拒绝',
     'folder.pkgTitle': 'Output Package',
     'folder.pkgOutputs': '产出',
+    'access.tenantExport': '租户导出',
+    'access.tenantExportHint': '租户数据导出 — 核心表 JSON ZIP (离场/备份, 记录审计)',
   },
 }

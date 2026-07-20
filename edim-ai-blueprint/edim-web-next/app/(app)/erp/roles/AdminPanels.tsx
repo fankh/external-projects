@@ -100,6 +100,13 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
         <button className="b" data-user-invite disabled={pending || !sel}
           title={t('access.inviteHint', '초대 안내 — 메일 서버 미설정: 인앱 알림 발송')}
           onClick={() => sel && start(async () => setSt(await inviteUser(sel.login)))}>✉ {t('access.invite', '초대')}</button>
+        {/* 트리아지 #13 — 테넌트 오프보딩/백업 export (ADMIN, 코어 테이블 JSON ZIP) */}
+        {perm.isAdmin ? (
+          <button className="b" data-tenant-export
+            title={t('access.tenantExportHint', '테넌트 데이터 export — 코어 테이블 JSON ZIP (오프보딩/백업, 감사 기록)')}
+            onClick={() => window.open('/api/next/xlsx?kind=tenant-export', '_blank')}>
+            ⬇ {t('access.tenantExport', '테넌트 export')}</button>
+        ) : null}
         <select className="in" data-level-select style={{ width: 86 }} value={level} onChange={(e) => setLevel(e.target.value)}>
           {LEVELS.map((l) => <option key={l}>{l}</option>)}
         </select>
