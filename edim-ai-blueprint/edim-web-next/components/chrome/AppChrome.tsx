@@ -198,7 +198,7 @@ export function AppChrome(props: {
       // U34 — '#이름' 폴더 마커: 사용자/테넌트 정의 폴더로 재편 (마커 이후 리프가 해당 폴더 소속)
       if (custom.some((id) => id.startsWith('#'))) {
         const vis0 = (n: NavNode | undefined): n is NavNode =>
-          !!n?.href && (props.canReadAdmin || n.minLevel !== 'SETUP')
+          !!n?.href && (props.canReadAdmin || !n.minLevel)
         const out: TreeNode[] = []
         let bucket: TreeNode[] = out
         custom.forEach((entry, i) => {
@@ -216,7 +216,7 @@ export function AppChrome(props: {
       }
       // 폴더 보존 렌더: 그룹은 트리 순서 유지, 리프는 커스텀 포함 집합·순서 적용, 빈 그룹 생략
       const order = new Map(custom.map((id, i) => [id, i]))
-      const vis = (n: NavNode) => props.canReadAdmin || n.minLevel !== 'SETUP'
+      const vis = (n: NavNode) => props.canReadAdmin || !n.minLevel
       const walkC = (ns: NavNode[]): TreeNode[] => ns.filter(vis).flatMap((n): TreeNode[] => {
         if (n.href) {
           return order.has(n.id)
@@ -230,7 +230,7 @@ export function AppChrome(props: {
       return walkC(MENU_TREE[module].nodes)
     }
     const walk = (ns: NavNode[]): TreeNode[] => ns
-      .filter((n) => props.canReadAdmin || n.minLevel !== 'SETUP')
+      .filter((n) => props.canReadAdmin || !n.minLevel)
       .map((n) => ({
         id: n.id,
         href: n.href,

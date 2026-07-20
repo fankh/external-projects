@@ -17,7 +17,7 @@ export interface NavNode {
   label: string          // KO 폴백 (번역 키 menu.<id>)
   href?: string          // 리프만
   code?: string          // 화면 코드 (MDI 탭 표기)
-  minLevel?: 'SETUP'     // 미만 등급 숨김 (서버 RBAC 이 실 가드)
+  minLevel?: 'SETUP' | 'ADMIN'   // 미만 등급 숨김 (서버 RBAC 이 실 가드)
   children?: NavNode[]
 }
 
@@ -146,6 +146,7 @@ export const MENU_TREE: Record<ModuleKey, { title: string; nodes: NavNode[] }> =
           { id: 'erp-access', label: '사용자·권한 (M-14-6)', href: '/erp/roles', code: 'M-14-6', minLevel: 'SETUP' },
       { id: 'erp-tenant-menu', label: '테넌트 메뉴 관리 (M-14-6B)', href: '/erp/tenant-menus', code: 'M-14-6B', minLevel: 'SETUP' },
           { id: 'erp-audit', label: '감사 조회 (M-14-6A)', href: '/erp/audit', code: 'M-14-6A', minLevel: 'SETUP' },
+          { id: 'erp-tenants', label: '고객사 관리 (M-14-6C)', href: '/erp/tenants', code: 'M-14-6C', minLevel: 'ADMIN' },
         ],
       },
     ],

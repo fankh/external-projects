@@ -155,6 +155,28 @@ SETUP = Depends(min_level("SETUP"))
 ADMIN = Depends(min_level("ADMIN"))
 
 
+def _platform_guard(request: Request) -> None:
+    """1.3 — 플랫폼 계층 (요구 #5 2계층 권한 1단계).
+
+    고객사 프로비저닝은 EDIM 운영 테넌트(환경 기본)의 ADMIN 만 수행한다.
+    고객사 ADMIN 은 자기 테넌트 안에서만 관리자다.
+    """
+    lvl = getattr(request.state, "level", None)
+    if lvl is None:
+        raise HTTPException(401, detail="인증 필요")
+    if LEVEL_RANK[lvl] < LEVEL_RANK["ADMIN"]:
+        raise HTTPException(403, detail="권한 부족 — ADMIN 이상 필요")
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT tenant_code FROM sys_tenant WHERE tenant_id=%s",
+                    (getattr(request.state, "tenant_id", 0),))
+        row = cur.fetchone()
+    if not row or row[0] != TENANT:
+        raise HTTPException(403, detail="플랫폼 운영 권한 필요 — 고객사 관리자는 자사 범위만 관리합니다")
+
+
+PLATFORM = Depends(_platform_guard)
+
+
 def _notify(cur, tid: int, user_id: int, notify_type: str, title: str,
             link: str | None = None) -> None:
     cur.execute(
@@ -626,6 +648,12 @@ def login(body: LoginRequest) -> dict[str, Any]:
                     409, detail="여러 고객사에 동일 사번이 있습니다 — 테넌트 코드를 지정하십시오: "
                                 + ", ".join(o[1] for o in owners))
             tid = owners[0][0] if owners else _tenant_id(cur)
+        # 1.3 — 계약 게이트: 중지/해지 고객사는 로그인 차단
+        cur.execute("SELECT status, tenant_name FROM sys_tenant WHERE tenant_id=%s", (tid,))
+        trow0 = cur.fetchone()
+        if trow0 and (trow0[0] or "ACTIVE").upper() != "ACTIVE":
+            raise HTTPException(
+                403, detail=f"고객사 이용이 중지되었습니다 ({trow0[1]} — {trow0[0]}). 담당자에게 문의하십시오")
         cur.execute(
             """SELECT user_id, user_name, department, user_level, password_hash, status,
                       totp_secret, mfa_enabled
@@ -7585,6 +7613,111 @@ def tenant_branding_put(request: Request, body: BrandingPut) -> dict[str, Any]:
         _audit(cur, tid, "sys_tenant", tid, "BRANDING_SET", request.state.user_id,
                after={"logo": bool(data)})
     return {"saved": True}
+
+
+# ── 1.3 플랫폼 — 고객사(테넌트) 프로비저닝 (런치: 온보딩을 psql 없이 수행) ──
+
+class TenantCreate(BaseModel):
+    tenantCode: str
+    tenantName: str
+    plan: str = "SAAS"
+    adminLogin: str = "admin"
+    adminName: str = "관리자"
+    adminPassword: str = ""
+
+
+class TenantPatch(BaseModel):
+    tenantName: str | None = None
+    plan: str | None = None
+    status: str | None = None    # ACTIVE | SUSPENDED | TERMINATED
+
+
+# 신규 테넌트 최소 사용 가능 상태 — Hierarchy 루트 (주소 가드 0.9 전제)
+_TENANT_SEED_NODES = [
+    ("PRODUCT", "/C", "Code"), ("PRODUCT", "/M", "Macro"), ("PRODUCT", "/T", "Table"),
+]
+
+
+@router.get("/platform/tenants", dependencies=[PLATFORM])
+def platform_tenants() -> list[dict[str, Any]]:
+    """고객사 목록 (플랫폼 운영) — 사용자 수·주요 데이터량 병기."""
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """SELECT t.tenant_id, t.tenant_code, t.tenant_name, t.plan, t.status,
+                      to_char(t.created_at,'YYYY-MM-DD'),
+                      (SELECT count(*) FROM sys_user u WHERE u.tenant_id=t.tenant_id),
+                      (SELECT count(*) FROM product_code p WHERE p.tenant_id=t.tenant_id),
+                      (SELECT count(*) FROM prj_project j WHERE j.tenant_id=t.tenant_id)
+               FROM sys_tenant t ORDER BY t.tenant_id""")
+        return [{"tenantId": r[0], "tenantCode": r[1], "tenantName": r[2], "plan": r[3],
+                 "status": r[4], "createdAt": r[5], "users": r[6],
+                 "productCodes": r[7], "projects": r[8]} for r in cur.fetchall()]
+
+
+@router.post("/platform/tenants", status_code=201, dependencies=[PLATFORM])
+def platform_tenant_create(request: Request, body: TenantCreate) -> dict[str, Any]:
+    """고객사 생성 — 테넌트 + 초기 관리자 + Hierarchy 루트 시드까지 한 번에 (온보딩 1스텝)."""
+    code = body.tenantCode.strip()[:30]
+    name = body.tenantName.strip()[:100]
+    login_id = body.adminLogin.strip()[:50]
+    pw = body.adminPassword.strip()
+    if not code or not name or not login_id:
+        raise HTTPException(422, detail="필수 — 고객사 코드·이름·관리자 사번")
+    if len(pw) < 6:
+        raise HTTPException(422, detail="관리자 초기 비밀번호는 6자 이상이어야 합니다")
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM sys_tenant WHERE tenant_code=%s", (code,))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 고객사 코드 {code}")
+        cur.execute(
+            """INSERT INTO sys_tenant (tenant_code, tenant_name, plan, status, created_by)
+               VALUES (%s,%s,%s,'ACTIVE',%s) RETURNING tenant_id""",
+            (code, name, body.plan.strip()[:20] or "SAAS", str(request.state.user_id)))
+        new_tid = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_user (tenant_id, login_id, user_name, department, user_level,
+                                     password_hash, status)
+               VALUES (%s,%s,%s,'',%s,%s,'ACTIVE') RETURNING user_id""",
+            (new_tid, login_id, body.adminName.strip()[:50] or "관리자", "ADMIN",
+             hashlib.sha256(pw.encode()).hexdigest()))
+        admin_uid = cur.fetchone()[0]
+        for tree, addr, node in _TENANT_SEED_NODES:
+            cur.execute(
+                """INSERT INTO sys_hierarchy (tenant_id, parent_id, tree_type, node_name,
+                                              address, approval_status)
+                   VALUES (%s,NULL,%s,%s,%s,'APPROVED')""", (new_tid, tree, node, addr))
+        _audit(cur, _tenant_id(cur), "sys_tenant", new_tid, "TENANT_CREATE",
+               request.state.user_id, {"tenantCode": code, "admin": login_id})
+    return {"tenantId": new_tid, "tenantCode": code, "adminUserId": admin_uid,
+            "seededNodes": len(_TENANT_SEED_NODES)}
+
+
+@router.patch("/platform/tenants/{code}", dependencies=[PLATFORM])
+def platform_tenant_patch(code: str, request: Request, body: TenantPatch) -> dict[str, Any]:
+    """고객사 상태·플랜 변경 — SUSPENDED/TERMINATED 는 즉시 로그인 차단(계약 게이트)."""
+    st = (body.status or "").strip().upper()
+    if st and st not in ("ACTIVE", "SUSPENDED", "TERMINATED"):
+        raise HTTPException(422, detail="상태 오류 (ACTIVE/SUSPENDED/TERMINATED)")
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT tenant_id, tenant_code FROM sys_tenant WHERE tenant_code=%s", (code,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"고객사 없음: {code}")
+        if row[1] == TENANT and st in ("SUSPENDED", "TERMINATED"):
+            raise HTTPException(409, detail="플랫폼 운영 테넌트는 중지할 수 없습니다")
+        cur.execute(
+            """UPDATE sys_tenant SET
+               tenant_name=COALESCE(NULLIF(%s,''), tenant_name),
+               plan=COALESCE(NULLIF(%s,''), plan),
+               status=COALESCE(NULLIF(%s,''), status),
+               updated_by=%s, updated_at=now()
+               WHERE tenant_id=%s RETURNING tenant_name, plan, status""",
+            ((body.tenantName or "").strip(), (body.plan or "").strip(), st,
+             str(request.state.user_id), row[0]))
+        t = cur.fetchone()
+        _audit(cur, _tenant_id(cur), "sys_tenant", row[0], "TENANT_UPDATE",
+               request.state.user_id, {"status": t[2], "plan": t[1]})
+    return {"tenantCode": code, "tenantName": t[0], "plan": t[1], "status": t[2]}
 
 
 @router.get("/prefs/{key}")

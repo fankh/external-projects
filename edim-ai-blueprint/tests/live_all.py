@@ -98,6 +98,7 @@ SUITES = [
     "live_hardening.py",            # 재감사 완주 — Run is_test·패키지 워터마크·Table 낙관적 잠금
     "live_triage.py",               # 신규요구 트리아지 — Snapshot·Handoff 상태기계·Reset·dryRun·Package·export
     "live_multitenant.py",          # 멀티테넌시 격리 (1.2) — 세션 테넌트·데이터 격리·토큰 호환
+    "live_platform_tenant.py",      # 고객사 프로비저닝 (1.3) — 온보딩·계약 게이트·플랫폼 2계층
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]

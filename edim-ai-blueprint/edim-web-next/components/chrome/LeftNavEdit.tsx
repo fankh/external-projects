@@ -52,7 +52,7 @@ export function LeftNavEditModal(props: {
 
   // 추가 카탈로그 — 최상위 그룹 라벨 하위에 미포함 리프 (SETUP 필터, 하위 그룹은 평탄화)
   const inDraft = new Set(draft)
-  const vis = (n: NavNode) => props.canReadAdmin || n.minLevel !== 'SETUP'
+  const vis = (n: NavNode) => props.canReadAdmin || !n.minLevel
   const leavesOf = (ns: NavNode[]): NavNode[] => ns.filter(vis).flatMap((n) =>
     [...(n.href ? [n] : []), ...(n.children ? leavesOf(n.children) : [])])
   const catalog: { group: string; leaves: NavNode[] }[] = []
