@@ -2169,13 +2169,43 @@ def download_file(file_id: int) -> StreamingResponse:
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(row[1])}"})
 
 
+def _stamp_pdf_confidential(data: bytes) -> bytes:
+    """기존 PDF 에 CONFIDENTIAL 전면 대각 워터마크 오버레이 (B4 잔여 — 고객 전달 파일별 실적용, DOC-002)."""
+    import io as _io
+    from pypdf import PdfReader, PdfWriter
+    from reportlab.pdfgen import canvas as rl_canvas
+    from app.services.run_pipeline import _draw_watermark
+    reader = PdfReader(_io.BytesIO(data))
+    writer = PdfWriter()
+    overlays: dict[tuple[int, int], Any] = {}
+    for page in reader.pages:
+        w = float(page.mediabox.width)
+        h = float(page.mediabox.height)
+        key = (round(w), round(h))
+        if key not in overlays:
+            ob = _io.BytesIO()
+            c = rl_canvas.Canvas(ob, pagesize=(w, h))
+            _draw_watermark(c, w, h, "CONFIDENTIAL")
+            c.showPage()
+            c.save()
+            overlays[key] = PdfReader(_io.BytesIO(ob.getvalue())).pages[0]
+        page.merge_page(overlays[key])
+        writer.add_page(page)
+    out = _io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
 def _zip_files(rows: list[tuple], prefix_by_folder: bool = True,
-               extra: dict[str, bytes] | None = None) -> bytes:
-    """(file_path, file_name, folder[, ...]) 행 → ZIP 바이트. MinIO 객체 수집, arcname 중복 회피."""
+               extra: dict[str, bytes] | None = None,
+               stamp_pdf: bool = False) -> tuple[bytes, int]:
+    """(file_path, file_name, folder[, ...]) 행 → (ZIP 바이트, 워터마크 적용 수). MinIO 수집, arcname 중복 회피.
+    stamp_pdf=True 면 .pdf 파일에 CONFIDENTIAL 워터마크 적용 (실패 시 원본 유지)."""
     import io
     import zipfile
     buf = io.BytesIO()
     used: dict[str, int] = {}
+    stamped = 0
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in (extra or {}).items():
             zf.writestr(name, data)
@@ -2188,6 +2218,12 @@ def _zip_files(rows: list[tuple], prefix_by_folder: bool = True,
                 obj.release_conn()
             except Exception:
                 continue   # 누락 객체는 건너뜀 (부분 다운로드)
+            if stamp_pdf and name.lower().endswith(".pdf"):
+                try:
+                    data = _stamp_pdf_confidential(data)
+                    stamped += 1
+                except Exception:
+                    pass   # 손상 PDF 등 — 원본 그대로 포함 (부분 실패 허용)
             arc = f"{folder}/{name}" if prefix_by_folder else name
             n = used.get(arc, 0)
             used[arc] = n + 1
@@ -2195,7 +2231,7 @@ def _zip_files(rows: list[tuple], prefix_by_folder: bool = True,
                 base, dot, ext = name.rpartition(".")
                 arc = f"{folder}/{n}_{name}" if prefix_by_folder else f"{n}_{name}"
             zf.writestr(arc, data)
-    return buf.getvalue()
+    return buf.getvalue(), stamped
 
 
 @router.get("/files/zip")
@@ -2215,7 +2251,7 @@ def files_zip(project: str = "PS-61313-5", folder: str = "") -> StreamingRespons
         rows = cur.fetchall()
     if not rows:
         raise HTTPException(404, detail="다운로드할 파일이 없습니다")
-    blob = _zip_files(rows)
+    blob, _ = _zip_files(rows)
     from urllib.parse import quote
     zipname = f"{project}{('_' + folder.strip()) if folder.strip() else ''}.zip"
     return StreamingResponse(iter([blob]), media_type="application/zip",
@@ -2250,16 +2286,18 @@ def files_export_package(project: str = "PS-61313-5") -> StreamingResponse:
         f"프로젝트: {project}" + (f" — {pn[0]}" if pn else ""),
         f"파일 수: {len(rows)}건",
         "포함: 산출물(DWG/PRICE/DATA/BOM)  ·  제외: 내부 접수자료(RECEIVED)·S-1/S-2 등급 문서",
+        "PDF 산출물: CONFIDENTIAL 전면 워터마크 적용본 (DOC-002)",
         "-" * 56,
     ]
     manifest += [f"[{r[2]}] {r[1]}  ({r[3]})" for r in rows]
     extra = {"전달목록.txt": ("\n".join(manifest)).encode("utf-8")}
-    blob = _zip_files(rows, extra=extra)
+    blob, stamped = _zip_files(rows, extra=extra, stamp_pdf=True)
     from urllib.parse import quote
     zipname = f"{project}_고객전달.zip"
     return StreamingResponse(iter([blob]), media_type="application/zip",
                              headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(zipname)}",
-                                      "X-File-Count": str(len(rows))})
+                                      "X-File-Count": str(len(rows)),
+                                      "X-Watermarked": str(stamped)})
 
 
 @router.delete("/files/{file_id}", dependencies=[SETUP])
