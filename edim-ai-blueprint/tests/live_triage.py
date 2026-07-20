@@ -64,6 +64,8 @@ r0 = urllib.request.Request(f"{API}/auth/login",
 TOK = json.loads(urllib.request.urlopen(r0).read())["token"]
 
 psql("DELETE FROM sys_approval_request WHERE target_table='erp_handoff' AND comment LIKE '%TRIAGE-SUITE%'")
+psql("DELETE FROM code_group WHERE group_code='ZTRIG'")
+psql("DELETE FROM sys_hierarchy WHERE address LIKE 'ZTRI%'")
 
 rid = None
 try:
@@ -125,6 +127,27 @@ try:
     req("PATCH", f"/hierarchy/nodes/{nid}", {"locked": False, "remark": ""})
     n4 = next(x for x in req("GET", "/hierarchy?treeType=PRODUCT") if x["id"] == nid)
     ok("Hierarchy 속성 원복", n4["locked"] is False and n4["remark"] == "")
+
+    # 4d) 영향 분석·연결 유지 (#24/#25) — 참조 집계·삭제 409·이동 시 참조 주소 연쇄 갱신
+    n1 = req("POST", "/hierarchy/nodes", {"treeType": "PRODUCT", "name": "TRIAGE 임팩트",
+                                          "address": "ZTRI1", "symbol": "", "parentAddress": ""})
+    n2 = req("POST", "/hierarchy/nodes", {"treeType": "PRODUCT", "name": "TRIAGE 대상",
+                                          "address": "ZTRI2", "symbol": "", "parentAddress": ""})
+    req("POST", "/codes/groups", {"groupCode": "ZTRIG", "groupName": "TRIAGE-SUITE 임팩트",
+                                  "hierarchyAddress": "ZTRI1"})
+    imp = req("GET", f"/hierarchy/nodes/{n1['hierarchyId']}/impact")
+    ok("영향 분석 — 참조 집계 (#25)",
+       imp["referencingTotal"] >= 1 and any(x["table"] == "code_group" for x in imp["references"]))
+    try:
+        req("DELETE", f"/hierarchy/nodes/{n1['hierarchyId']}")
+        ok("참조 노드 삭제 409", False)
+    except urllib.error.HTTPError as e:
+        ok("참조 노드 삭제 409", e.code == 409)
+    mv = req("POST", f"/hierarchy/nodes/{n1['hierarchyId']}/move",
+             {"targetParentId": n2["hierarchyId"]})
+    ga = next(g for g in req("GET", "/codes/groups") if g["groupCode"] == "ZTRIG")
+    ok(f"이동 연쇄 갱신 (#24) relinked={mv.get('relinked')}",
+       mv.get("relinked", 0) >= 1 and ga["hierarchyAddress"] == mv["newAddress"])
 
     # 4c) 선택적 MFA (#10) — 프로브 사용자 수명주기 (TOTP 서버시간 기준)
     PU = "test.mfa.suite"
@@ -205,6 +228,8 @@ try:
 finally:
     psql("DELETE FROM sys_approval_request WHERE target_table='erp_handoff' AND comment LIKE '%ERP Handoff%'")
     psql("DELETE FROM erp_handoff")
+    psql("DELETE FROM code_group WHERE group_code='ZTRIG'")
+    psql("DELETE FROM sys_hierarchy WHERE address LIKE 'ZTRI%'")
     if rid:
         try:
             req("DELETE", f"/cpq/runs/{rid}")

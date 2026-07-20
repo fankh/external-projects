@@ -61,17 +61,30 @@ export async function deleteHierarchyNode(id: number): Promise<ActState> {
   return { ok: `#${id} 삭제` }
 }
 
-/** U18 — 노드 이동 (대상 부모 하위로, 하위 주소 연쇄 재계산). targetParentId null = 루트. */
+/** U18 — 노드 이동 (대상 부모 하위로, 하위 주소 연쇄 재계산 + 참조 자산 연쇄 갱신 #24). */
 export async function moveHierarchyNode(id: number, targetParentId: number | null): Promise<ActState> {
   try {
-    const r = await apiServer<{ newAddress: string; moved: number }>(`/hierarchy/nodes/${id}/move`, {
+    const r = await apiServer<{ newAddress: string; moved: number; relinked: number }>(`/hierarchy/nodes/${id}/move`, {
       method: 'POST', body: JSON.stringify({ targetParentId }),
     })
     revalidatePath('/code/groups')
-    return { ok: `이동 ✓ — 새 주소 ${r.newAddress} (${r.moved}노드)` }
+    return { ok: `이동 ✓ — 새 주소 ${r.newAddress} (${r.moved}노드${r.relinked ? ` · 참조 ${r.relinked}건 연결 유지` : ''})` }
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : '이동 실패' }
   }
+}
+
+export interface ImpactRef { table: string; label: string; count: number; samples: string[] }
+export interface NodeImpact {
+  nodeId: number; address: string; name: string; descendants: number
+  referencingTotal: number; references: ImpactRef[]
+}
+
+/** 트리아지 #25 — 이동·삭제 전 영향 분석 (하위 노드 + 주소 참조 자산 집계). */
+export async function getNodeImpact(id: number): Promise<NodeImpact | null> {
+  try {
+    return await apiServer<NodeImpact>(`/hierarchy/nodes/${id}/impact`)
+  } catch { return null }
 }
 
 export interface NodeInfo {

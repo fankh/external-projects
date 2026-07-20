@@ -7930,6 +7930,54 @@ class HierarchyMove(BaseModel):
     targetParentId: int | None = None   # None = 루트로 이동
 
 
+# 트리아지 #24/#25 — hierarchy_address 를 참조하는 자산 테이블 (영향 분석·이동 연쇄 갱신·삭제 가드)
+_H_REF_TABLES: list[tuple[str, str, str]] = [
+    ("code_group", "group_code", "코드 그룹"),
+    ("product_code", "main_code", "제품 코드"),
+    ("tbx_macro", "macro_name", "매크로"),
+    ("tbl_data_table", "table_name", "데이터 테이블"),
+    ("tbx_ui_form", "form_name", "UI 폼"),
+]
+
+
+def _hierarchy_refs(cur, tid: int, addr: str) -> list[dict[str, Any]]:
+    """주소(정확 일치 또는 하위 — '/'·'.' 구분자 모두)를 참조하는 자산 집계."""
+    out: list[dict[str, Any]] = []
+    for tbl, code_col, label in _H_REF_TABLES:
+        cur.execute(
+            f"""SELECT {code_col} FROM {tbl}
+                WHERE tenant_id=%s AND (hierarchy_address=%s
+                      OR hierarchy_address LIKE %s OR hierarchy_address LIKE %s)
+                ORDER BY {code_col}""",
+            (tid, addr, addr + "/%", addr + ".%"))
+        rows = [r[0] for r in cur.fetchall()]
+        if rows:
+            out.append({"table": tbl, "label": label, "count": len(rows), "samples": rows[:5]})
+    return out
+
+
+@router.get("/hierarchy/nodes/{node_id}/impact")
+def hierarchy_node_impact(node_id: int) -> dict[str, Any]:
+    """이동·삭제 전 영향 분석 (트리아지 #25) — 하위 노드 수 + 주소 참조 자산 5테이블 집계."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT address, node_name, tree_type FROM sys_hierarchy
+               WHERE tenant_id=%s AND hierarchy_id=%s""", (tid, node_id))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"노드 없음: #{node_id}")
+        addr, name, tree = r
+        cur.execute(
+            """SELECT count(*) FROM sys_hierarchy
+               WHERE tenant_id=%s AND tree_type=%s AND (address LIKE %s OR address LIKE %s)""",
+            (tid, tree, addr + "/%", addr + ".%"))
+        desc = int(cur.fetchone()[0])
+        refs = _hierarchy_refs(cur, tid, addr)
+    return {"nodeId": node_id, "address": addr, "name": name, "descendants": desc,
+            "referencingTotal": sum(x["count"] for x in refs), "references": refs}
+
+
 @router.get("/hierarchy/validate")
 def hierarchy_validate(tree: str = "PRODUCT") -> dict[str, Any]:
     """U22 — 저장 전 정합 점검 (슬라이드 57-⑧): 주소 중복·고아 노드·부모 주소 불일치·루트 형식."""
@@ -8049,9 +8097,19 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
         cur.execute(
             "UPDATE sys_hierarchy SET parent_id=%s WHERE tenant_id=%s AND hierarchy_id=%s",
             (body.targetParentId, tid, node_id))
+        # 트리아지 #24 — 주소 참조 자산 연쇄 갱신 (이동 후에도 연결 유지)
+        relinked = 0
+        for tbl, _code_col, _label in _H_REF_TABLES:
+            cur.execute(
+                f"""UPDATE {tbl}
+                    SET hierarchy_address = %s || substring(hierarchy_address from %s)
+                    WHERE tenant_id=%s AND (hierarchy_address=%s
+                          OR hierarchy_address LIKE %s OR hierarchy_address LIKE %s)""",
+                (new_addr, len(old_addr) + 1, tid, old_addr, old_addr + "/%", old_addr + ".%"))
+            relinked += cur.rowcount
         _audit(cur, tid, "sys_hierarchy", node_id, "NODE_MOVE", request.state.user_id,
-               after={"from": old_addr, "to": new_addr, "moved": moved})
-    return {"hierarchyId": node_id, "newAddress": new_addr, "moved": moved}
+               after={"from": old_addr, "to": new_addr, "moved": moved, "relinked": relinked})
+    return {"hierarchyId": node_id, "newAddress": new_addr, "moved": moved, "relinked": relinked}
 
 
 @router.delete("/hierarchy/nodes/{node_id}", dependencies=[SETUP])
@@ -8066,6 +8124,16 @@ def hierarchy_node_delete(node_id: int, request: Request) -> dict[str, Any]:
         cur.execute("SELECT 1 FROM sys_hierarchy WHERE parent_id=%s LIMIT 1", (node_id,))
         if cur.fetchone():
             raise HTTPException(409, detail="하위 노드가 있는 노드는 삭제 불가")
+        # 트리아지 #25 — 주소 참조 자산이 있으면 삭제 차단 (영향 분석 확인 유도)
+        cur.execute("SELECT address FROM sys_hierarchy WHERE tenant_id=%s AND hierarchy_id=%s",
+                    (tid, node_id))
+        arow = cur.fetchone()
+        if not arow:
+            raise HTTPException(404, detail=f"노드 없음: #{node_id}")
+        refs = _hierarchy_refs(cur, tid, arow[0])
+        if refs:
+            summary = " · ".join(f"{x['label']} {x['count']}건" for x in refs)
+            raise HTTPException(409, detail=f"참조 자산이 있는 노드는 삭제 불가 — {summary} (영향 분석으로 확인)")
         cur.execute(
             "DELETE FROM sys_hierarchy WHERE tenant_id=%s AND hierarchy_id=%s RETURNING address",
             (tid, node_id))

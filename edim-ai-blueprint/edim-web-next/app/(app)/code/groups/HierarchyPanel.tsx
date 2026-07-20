@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Chip, GroupBox } from '@/components/controls'
 import { ApprovalStrip } from '@/components/ApprovalStrip'
 import { useI18n } from '@/components/I18nProvider'
-import { addHierarchyNode, deleteHierarchyNode, getNodeInfo, moveHierarchyNode, renameHierarchyNode, updateHierarchyAttrs, validateHierarchy, type ActState, type NodeInfo, type ValidateResult } from './hierarchyActions'
+import { addHierarchyNode, deleteHierarchyNode, getNodeImpact, getNodeInfo, moveHierarchyNode, renameHierarchyNode, updateHierarchyAttrs, validateHierarchy, type ActState, type NodeImpact, type NodeInfo, type ValidateResult } from './hierarchyActions'
 
 export interface HierarchyNode {
   id: number; parentId: number | null; name: string
@@ -53,6 +53,9 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
     ? nodes.filter((n) => n.name.toLowerCase().includes(query.trim().toLowerCase()) || n.address.includes(query.trim()))
     : nodes
   const openInfo = (id: number) => start(async () => setInfo(await getNodeInfo(id)))
+  // 트리아지 #25 — 이동·삭제 전 영향 분석 (사용처)
+  const [impact, setImpact] = useState<NodeImpact | null>(null)
+  const openImpact = (id: number) => start(async () => setImpact(await getNodeImpact(id)))
   const pasteInto = (target: HierarchyNode | null) => {
     if (cutId == null) return
     start(async () => {
@@ -139,6 +142,7 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
             { label: '✂ 잘라내기 (이동)', act: () => { setCutId(ctx.node.id); setCtx(null) } },
             ...(cutId != null && cutId !== ctx.node.id ? [{ label: '📥 여기에 붙여넣기', act: () => { pasteInto(ctx.node); setCtx(null) } }] : []),
             { label: 'ℹ 속성·정보', act: () => { openInfo(ctx.node.id); setCtx(null) } },
+            { label: '🔎 영향 분석 (사용처)', act: () => { openImpact(ctx.node.id); setCtx(null) } },
             { label: '🎨 속성 편집 (비고·색·잠금)', act: () => { openAttrs(ctx.node); setCtx(null) } },
             { label: ctx.node.locked ? '🔓 잠금 해제' : '🔒 잠금', act: () => { setCtx(null); start(async () => setSt(await updateHierarchyAttrs(ctx.node.id, { locked: !ctx.node.locked }))) } },
             { label: '🗑 삭제', act: () => { setCtx(null); if (confirm(`${ctx.node.address} ${ctx.node.name} 을 삭제하시겠습니까?`)) start(async () => { setSt(await deleteHierarchyNode(ctx.node.id)); setSelId(null) }) } },
@@ -181,6 +185,39 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
                 {attrNode.locked ? '🔓 ' + t('hier.unlock', '해제+저장') : '🔒 ' + t('hier.lock', '잠금+저장')}</button>
               <button className="b run" data-h-attr-save disabled={pending} onClick={() => saveAttrs()}>{t('common.save', '저장')}</button>
               <button className="b" onClick={() => setAttrNode(null)}>{t('common.cancel', '취소')}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {/* 트리아지 #25 — 영향 분석 다이얼로그 (이동·삭제 전 사용처 확인) */}
+      {impact ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setImpact(null)}>
+          <div className="gb" data-h-impact style={{ width: 360, padding: 12, background: '#fff', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 6 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>
+              {t('hier.impactTitle', '영향 분석')} — {impact.address} {impact.name}
+            </div>
+            <div style={{ color: 'var(--txt-mute)' }}>
+              {t('hier.impactHint', '이동 시 참조 자산 주소는 자동 연결 유지, 참조가 있으면 삭제는 차단됩니다')}
+            </div>
+            <div>
+              {t('hier.descendants', '하위 노드')} <b>{impact.descendants}</b> ·{' '}
+              {t('hier.refTotal', '참조 자산')} <b style={{ color: impact.referencingTotal ? 'var(--err)' : 'var(--run)' }}>{impact.referencingTotal}</b>{t('detail.cases', '건')}
+            </div>
+            {impact.references.length ? (
+              <table className="g" style={{ width: '100%' }}><tbody>
+                {impact.references.map((r) => (
+                  <tr key={r.table}>
+                    <td style={{ width: 90, color: 'var(--txt-mute)' }}>{r.label}</td>
+                    <td style={{ width: 40, textAlign: 'right' }}>{r.count}</td>
+                    <td style={{ color: 'var(--txt-mute)' }}>{r.samples.join(', ')}{r.count > r.samples.length ? ' …' : ''}</td>
+                  </tr>
+                ))}
+              </tbody></table>
+            ) : <div style={{ color: 'var(--run)' }}>{t('hier.noRefs', '참조 자산 없음 — 안전하게 이동·삭제할 수 있습니다')}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="b" onClick={() => setImpact(null)}>{t('common.close', '닫기')}</button>
             </div>
           </div>
         </div>
