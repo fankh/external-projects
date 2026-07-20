@@ -5,6 +5,7 @@
 정리: 데이터 생성 없음 (탭 오픈·필터 토글만).
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 n = 0
@@ -58,21 +59,21 @@ with sync_playwright() as pw:
     # 2. Dashboard KPI 드릴다운
     page.locator(".titlebar .mod", has_text="ERP").first.click()
     page.wait_for_timeout(400)
-    page.locator(".tn", has_text="Dashboard (M-14-4)").first.click()
+    tree_click(page, "Dashboard (M-14-4)")
     page.wait_for_timeout(1200)
     page.locator("[data-kpi='승인 대기']").click()
     page.wait_for_timeout(800)
     ok("KPI '승인 대기' → 승인함 탭", "M-15-2" in page.locator(".mdi .t.on").inner_text())
     page.locator(".titlebar .mod", has_text="ERP").first.click()
     page.wait_for_timeout(400)
-    page.locator(".tn", has_text="Dashboard (M-14-4)").first.click()
+    tree_click(page, "Dashboard (M-14-4)")
     page.wait_for_timeout(800)
     page.locator("[data-kpi='이상 경고 (시간·자금)']").click()
     page.wait_for_timeout(800)
     ok("KPI '이상 경고' → 부서 업무함 탭", "M-15-3" in page.locator(".mdi .t.on").inner_text())
 
     # 3. 승인함 유형 필터 + 검색
-    page.locator(".tn", has_text="승인함 (M-15-2)").first.click()
+    tree_click(page, "승인함 (M-15-2)")
     page.wait_for_timeout(1200)
     # 빈 상태 표준행 [data-grid-state] 는 데이터 행이 아님
     grid_rows = lambda: page.locator("table.g:visible tbody tr:not([data-grid-state])").count()  # noqa: E731

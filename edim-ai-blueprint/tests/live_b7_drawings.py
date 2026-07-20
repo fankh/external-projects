@@ -7,6 +7,7 @@
 정리: 스위트 말미에 자체 수행 (approvals decide + DELETE /drawings/TEST-B7-001).
 """
 from playwright.sync_api import expect, sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 TNO = "TEST-B7-001"
@@ -99,7 +100,7 @@ with sync_playwright() as pw:
     sb = lambda: p.locator(".statusbar").inner_text()  # noqa: E731
 
     # 1. 도면 대장 화면 — 시드 데이터 (KDCR 3-13 Rev.B, 구형 3-12 대체됨)
-    p.locator(".tn", has_text="도면 대장 (M-4-1)").click()
+    tree_click(p, "도면 대장 (M-4-1)")
     p.locator("td", has_text="KDCR 3-13").first.wait_for(timeout=8000)
     ok("도면 대장 그리드 (dwg_drawing)", p.locator("tr", has_text="KDCR 3-13").count() >= 1)
     # 대체 칩 (Next 라벨 '대체') — supersedure 조회 완료 후 렌더, 대기 후 검증

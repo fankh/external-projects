@@ -6,6 +6,7 @@
 실행: PYTHONUTF8=1 py tests/live_g5_ui_overflow.py
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 n = 0
@@ -33,7 +34,7 @@ with sync_playwright() as pw:
 
     # 감사 조회 — 세로 스크롤 컨테이너 1개
     p.locator('.titlebar .mod', has_text='ERP').first.click(); p.wait_for_timeout(300)
-    p.locator('.tn', has_text='감사 조회').first.click()
+    tree_click(p, '감사 조회')
     p.wait_for_selector('table.g tbody tr', timeout=15000); p.wait_for_timeout(400)
     # 콘텐츠 영역(.workarea)만 검사 — 좌측 메뉴 트리(.tree2/.lnav) 스크롤은 제외
     scrolls = p.evaluate('''() => { const o=[]; const w=e=>{const cls=(e.className||'').toString();
@@ -44,7 +45,7 @@ with sync_playwright() as pw:
 
     # 부품 대장 — ⚙ 드롭다운 fixed·뷰포트 내
     p.locator('.titlebar .mod', has_text='PLM').first.click(); p.wait_for_timeout(400)
-    p.locator('.tn', has_text='부품 대장').first.click()
+    tree_click(p, '부품 대장')
     p.wait_for_timeout(2500)
     ok("⚙ 컬럼 메뉴 버튼 존재", p.locator('[data-col-menu]:visible').count() >= 1)
     p.locator('[data-col-menu]:visible').first.click(force=True); p.wait_for_timeout(300)

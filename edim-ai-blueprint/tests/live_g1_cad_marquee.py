@@ -6,6 +6,7 @@ API: 다중 op 배열(이동/삭제) 한 요청 처리 확인. 영속은 재-GET
 실행: PYTHONUTF8=1 py tests/live_g1_cad_marquee.py
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -58,7 +59,7 @@ with sync_playwright() as pw:
         p.get_by_label("비밀번호").fill("edim")
         p.get_by_role("button", name="로그인 (Enter)").click()
     p.wait_for_selector(".app .titlebar", timeout=10000)
-    p.locator(".tn", has_text="Project Folder·이력 (M-15-8/9)").click()
+    tree_click(p, "Project Folder·이력 (M-15-8/9)")
     p.locator("tr:visible", has_text="marquee_ui.dxf").first.wait_for(timeout=15000)
     p.locator("tr:visible", has_text="marquee_ui.dxf").first.dblclick()
     p.locator(".mdi .t.on", has_text="CAD").wait_for(timeout=6000)

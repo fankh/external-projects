@@ -6,6 +6,7 @@ Macro Studio 저장 → tbx_macro DRAFT 영속 확인.
 실행: PYTHONUTF8=1 py tests/live_b1_approval_flow.py
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 n_pass = 0
@@ -48,7 +49,7 @@ with sync_playwright() as pw:
                                     headers=_H, method="POST"))
 
     # 1. Design Editor 승인 요청 → 실등록
-    p.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
+    tree_click(p, "Design Editor (S-4-1-1)")
     p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)
     p.get_by_role("button", name="승인 요청").click()
     p.locator("text=승인 요청 등록 ✓").wait_for(timeout=8000)

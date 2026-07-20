@@ -5,6 +5,7 @@
 실행: PYTHONUTF8=1 py tests/live_b2_persistence.py
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 n = 0
@@ -50,7 +51,7 @@ with sync_playwright() as pw:
     sb = lambda: p.locator(".statusbar").inner_text()  # noqa: E731
 
     # 1. Design Editor — E 치수 변경 → F12 저장 → 서버 값 확인 → 원복
-    p.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
+    tree_click(p, "Design Editor (S-4-1-1)")
     p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)
     # DB 치수 로드 완료 대기 (mock 값 선편집 → 로드 덮어쓰기 레이스 방지, s3 과 동일)
     p.locator("td span:visible", has_text="320.0000").first.wait_for(timeout=10000)
@@ -79,7 +80,7 @@ with sync_playwright() as pw:
 
     # 2. Work Process — MAKE/BUY 버튼 토글 → data-wp-save → 새로고침 후 유지 → 원복
     # Next 열: [0]자재 [1]공급처 [2]MAKE/BUY(버튼) …
-    p.locator(".tn", has_text="Work Process (S-4-1-2)").click()
+    tree_click(p, "Work Process (S-4-1-2)")
     p.wait_for_timeout(1000)
     mb = lambda: p.locator("table.g:visible tbody tr").first.locator("td").nth(2)  # noqa: E731
     before = mb().inner_text().strip()
@@ -101,7 +102,7 @@ with sync_playwright() as pw:
     # 3. UI Designer — 위젯 추가 → 저장 → 새로고침 후 유지 (버전 증가)
     p.goto(f"{BASE}/toolbox", wait_until="networkidle")
     p.wait_for_timeout(400)
-    p.locator(".tn", has_text="UI Designer (S-2-1)").click()
+    tree_click(p, "UI Designer (S-2-1)")
     p.wait_for_timeout(1000)
     n_before = p.locator(".m2:visible").count()
     p.locator(".tn.l2:visible", has_text="Combo").first.click()
@@ -112,7 +113,7 @@ with sync_playwright() as pw:
     ok("레이아웃 저장 (tbx_ui_form)", True)
     p.reload(wait_until="networkidle")
     p.wait_for_timeout(1200)
-    p.locator(".tn", has_text="UI Designer (S-2-1)").click()
+    tree_click(p, "UI Designer (S-2-1)")
     p.wait_for_timeout(1000)
     n_after = p.locator(".m2:visible").count()
     ok(f"새로고침 후 위젯 유지 ({n_before}→{n_after})", n_after == n_before + 1)

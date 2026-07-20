@@ -5,6 +5,7 @@
 실행: PYTHONUTF8=1 py tests/live_g2_ctxmenu.py
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 n = 0
@@ -32,7 +33,7 @@ with sync_playwright() as pw:
     p = ctx.new_page()
     p.goto(f"{BASE}/erp", wait_until="domcontentloaded"); login(p)
     p.locator('.titlebar .mod', has_text='ERP').first.click(); p.wait_for_timeout(300)
-    p.locator('.tn', has_text='감사 조회').first.click()
+    tree_click(p, '감사 조회')
     p.wait_for_selector('table.g:visible tbody tr', timeout=15000); p.wait_for_timeout(400)
 
     # 대상 셀(수행자 열) 우클릭
@@ -60,7 +61,7 @@ with sync_playwright() as pw:
 
     # 부품 대장 rowActions(선택/삭제)
     p.locator('.titlebar .mod', has_text='PLM').first.click(); p.wait_for_timeout(300)
-    p.locator('.tn', has_text='부품 대장').first.click()
+    tree_click(p, '부품 대장')
     p.wait_for_selector('table.g:visible tbody tr', timeout=15000); p.wait_for_timeout(400)
     p.locator('table.g:visible tbody tr').first.locator('td').nth(0).click(button='right')
     p.wait_for_timeout(200)

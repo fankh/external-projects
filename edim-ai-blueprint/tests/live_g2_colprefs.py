@@ -5,6 +5,7 @@
 실행: PYTHONUTF8=1 py tests/live_g2_colprefs.py
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 n = 0
@@ -25,7 +26,7 @@ def open_audit(p):
         p.get_by_role('button', name='로그인 (Enter)').click()
     p.wait_for_selector('.app .titlebar', timeout=15000)
     p.locator('.titlebar .mod', has_text='ERP').first.click(); p.wait_for_timeout(300)
-    p.locator('.tn', has_text='감사 조회').first.click()
+    tree_click(p, '감사 조회')
     p.wait_for_selector('table.g:visible tbody tr', timeout=15000); p.wait_for_timeout(400)
 
 

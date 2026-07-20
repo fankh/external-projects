@@ -11,6 +11,7 @@ import urllib.error
 import urllib.request
 
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = BASE + "/api/v1"
@@ -140,7 +141,7 @@ with sync_playwright() as pw:
     p.locator("[data-pw-dialog] span", has_text="✕").first.click()
 
     # 사용자·권한 화면 — 레벨 변경 버튼 실배선 (jang.s GENERAL→SETUP→원복, API 검증)
-    p.locator(".tn", has_text="사용자·권한 (M-14-6)").click()
+    tree_click(p, "사용자·권한 (M-14-6)")
     p.wait_for_selector("td.code >> text=jang.s", timeout=8000)
     p.locator("tr", has_text="jang.s").first.click()
     p.locator("[data-level-select]").select_option("SETUP")

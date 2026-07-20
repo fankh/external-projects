@@ -11,6 +11,7 @@ import urllib.error
 import urllib.request
 
 from playwright.sync_api import expect, sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -103,7 +104,7 @@ with sync_playwright() as pw:
     p.wait_for_selector(".app .titlebar", timeout=8000)
 
     # Next — 도면 상세는 우측 섹션형(탭 없음): Variants(data-dwg-variants)·단계 승인·첨부(data-dwg-files)
-    p.locator(".tn", has_text="도면 대장 (M-4-1)").click()
+    tree_click(p, "도면 대장 (M-4-1)")
     p.locator("td", has_text="KDCR 3-13").first.wait_for(timeout=8000)
     p.locator("td", has_text="KDCR 3-13").first.click()
     expect(p.locator("[data-dwg-variants] tr", has_text="KDCR 3-12")) \
@@ -115,7 +116,7 @@ with sync_playwright() as pw:
     ok("UI 첨부 — 연결 DXF", True)
 
     # Design Editor — Sim 판넬 + 부품 관계 실데이터
-    p.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
+    tree_click(p, "Design Editor (S-4-1-1)")
     p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)
     expect(p.locator(".st", has_text="dwg_part_relation 3")).to_have_count(1, timeout=15000)
     ok("UI 부품 관계 — dwg_part_relation 3 칩", True)

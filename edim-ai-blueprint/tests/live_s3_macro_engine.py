@@ -36,6 +36,7 @@ print('PASS engine error surfaced:', r['error'])
 
 # UI
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 with sync_playwright() as pw:
     b = pw.chromium.launch()
     p = b.new_page(viewport={'width': 1440, 'height': 900})
@@ -46,7 +47,7 @@ with sync_playwright() as pw:
     p.wait_for_selector('.app .titlebar', timeout=8000)
 
     # Macro Studio (Next) — 식 입력 → ▶ Test Run 실평가 2685
-    p.locator('.tn', has_text='Macro Studio (S-2-2)').click()
+    tree_click(p, 'Macro Studio (S-2-2)')
     p.wait_for_timeout(1000)
     box = p.locator('textarea.in').first
     box.fill('IF(MC>500, Table12(E,560:800,Cos2)+Var(FES,15), 0)*PreC(1)')
@@ -68,7 +69,7 @@ with sync_playwright() as pw:
 
     # Design Editor — A=700 → B=756, D=Table12(B,710)=760, K=1134
     p.locator('.titlebar span.mod', has_text='PLM').click()   # v5.0: 모듈 링크가 헤더로 이동
-    p.locator('.tn', has_text='Design Editor (S-4-1-1)').click()
+    tree_click(p, 'Design Editor (S-4-1-1)')
     # DB 치수 로드(670.0000 포맷) 완료를 기다린 후 편집 — mock 값(670) 선편집 시 로드가 덮어씀 (레이스)
     p.locator('td span:visible', has_text='670.0000').wait_for(timeout=10000)
     p.locator('td span:visible', has_text='670.0000').dblclick()

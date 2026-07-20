@@ -13,6 +13,7 @@ import urllib.request
 from urllib.parse import quote
 
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -118,7 +119,7 @@ with sync_playwright() as pw:
     p.get_by_role("button", name="로그인 (Enter)").click()
     p.wait_for_selector(".app .titlebar", timeout=8000)
     # Next — 행 선택 시 4-Way 아티팩트 칩·역참조 칩, 기능 찾기는 ƒx 함수 마법사
-    p.locator(".tn", has_text="Macro Studio (S-2-2)").click()
+    tree_click(p, "Macro Studio (S-2-2)")
     p.locator("table.g:visible tbody tr", has_text="Shaft 길이 계산").first.wait_for(timeout=10000)
     p.locator("table.g:visible tbody tr", has_text="Shaft 길이 계산").first.click()
     p.locator(".st", has_text="flowchart_def").wait_for(timeout=10000)

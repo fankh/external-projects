@@ -8,6 +8,7 @@ UI(제품 선정 C-1 → CAD 모드, CadSvg):
 정리: 데이터 생성 없음 (뷰어 전용).
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 n = 0
@@ -33,7 +34,7 @@ with sync_playwright() as pw:
 
     page.locator(".titlebar .mod", has_text="CPQ").first.click()
     page.wait_for_timeout(400)
-    page.locator(".tn", has_text="제품 선정").first.click()
+    tree_click(page, "제품 선정")
     page.wait_for_timeout(1500)
 
     # CAD 모드 전환 → CadSvg 렌더 대기

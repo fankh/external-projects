@@ -6,6 +6,7 @@ UI: Report Center 화면 — 카탈로그 카드·PCR 그리드 렌더.
 실행: PYTHONUTF8=1 py tests/live_g3_report_center.py
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -53,8 +54,8 @@ with sync_playwright() as pw:
         p.get_by_role('button', name='로그인 (Enter)').click()
     p.wait_for_selector('.app .titlebar', timeout=15000)
     p.locator('.titlebar .mod', has_text='CPQ').first.click(); p.wait_for_timeout(400)
-    ok("메뉴 노드 존재", p.locator('.tn', has_text='Report Center').count() >= 1)
-    p.locator('.tn', has_text='Report Center').first.click(); p.wait_for_timeout(1200)
+    ok("메뉴 노드 존재", tree_node(p, 'Report Center').count() >= 1)
+    tree_click(p, 'Report Center'); p.wait_for_timeout(1200)
     ok("화면 렌더 — 카탈로그", p.get_by_text('리포트 카탈로그', exact=False).count() >= 1)
     ok("카테고리 카드 ≥4", p.get_by_text('PCR 수익성 보고서', exact=False).count() >= 1)
     b.close()

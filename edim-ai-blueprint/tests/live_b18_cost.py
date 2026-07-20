@@ -12,6 +12,7 @@ import urllib.error
 import urllib.request
 
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -96,7 +97,7 @@ with sync_playwright() as pw:
     p.get_by_role("button", name="로그인 (Enter)").click()
     p.wait_for_selector(".app .titlebar", timeout=8000)
     # Next — C-1 견적안 저장 → Run ▶ F9 → /cpq/run 파이프라인 → 원가 상세 (pw_sweep5 검증 흐름)
-    p.locator(".tn", has_text="제품 선정 (C-1)").click()
+    tree_click(p, "제품 선정 (C-1)")
     p.wait_for_timeout(1500)
     p.get_by_role("button", name="저장 F12").click()
     p.locator("text=견적안 저장 ✓").wait_for(timeout=12000)

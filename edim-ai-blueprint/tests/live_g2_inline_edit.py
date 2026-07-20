@@ -6,6 +6,7 @@
 실행: PYTHONUTF8=1 py tests/live_g2_inline_edit.py
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -48,7 +49,7 @@ with sync_playwright() as pw:
             p.get_by_role('button', name='로그인 (Enter)').click()
         p.wait_for_selector('.app .titlebar', timeout=15000)
         p.locator('.titlebar .mod', has_text='Code Set-up').first.click(); p.wait_for_timeout(300)
-        p.locator('.tn', has_text='제품 코드 마스터').first.click()
+        tree_click(p, '제품 코드 마스터')
         p.wait_for_selector('table.g:visible tbody tr', timeout=15000); p.wait_for_timeout(500)
 
         row = p.locator('table.g:visible tbody tr', has_text=CODE).first

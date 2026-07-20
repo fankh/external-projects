@@ -11,6 +11,7 @@ ADMIN(edim): 게이트가 과차단하지 않음 (등록 버튼 enabled).
 import subprocess
 
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -80,7 +81,7 @@ with sync_playwright() as pw:
     login(page, "kim01", "edim")
 
     ok("GENERAL — '사용자·권한' 메뉴 미표시 (SYS-005)",
-       page.locator(".tn", has_text="사용자·권한 (M-14-6)").count() == 0)
+       tree_node(page, "사용자·권한 (M-14-6)").count() == 0)
 
     # 직접 진입 시 403 안내 (프론트 숨김 ≠ 보안 — 서버 가드가 받친다)
     page.goto(f"{BASE}/erp/roles", wait_until="networkidle")
@@ -89,7 +90,7 @@ with sync_playwright() as pw:
     page.goto(f"{BASE}/erp", wait_until="networkidle")
     page.wait_for_timeout(600)
 
-    page.locator(".tn", has_text="단가 관리 (M-12-5)").first.click()
+    tree_click(page, "단가 관리 (M-12-5)")
     page.wait_for_timeout(1000)
     reg = page.get_by_role("button", name="＋ 단가 등록")
     ok("GENERAL — 단가 등록 disabled + 사유 툴팁",
@@ -97,14 +98,14 @@ with sync_playwright() as pw:
 
     page.locator(".titlebar .mod", has_text="PLM").first.click()
     page.wait_for_timeout(600)
-    page.locator(".tn", has_text="부품 대장 (M-4-7)").first.click()
+    tree_click(page, "부품 대장 (M-4-7)")
     page.wait_for_timeout(1000)
     ok("GENERAL — 부품 등록 disabled (Next — F2 단축 없음)",
        page.get_by_role("button", name="＋ 부품 등록").is_disabled())
 
     page.locator(".titlebar .mod", has_text="공통").first.click()
     page.wait_for_timeout(600)
-    page.locator(".tn", has_text="승인함 (M-15-2)").first.click()
+    tree_click(page, "승인함 (M-15-2)")
     page.wait_for_timeout(1200)
     page.locator("table.g:visible tbody tr").first.click()
     page.wait_for_timeout(400)
@@ -126,14 +127,14 @@ with sync_playwright() as pw:
     ctx2 = b.new_context(viewport={"width": 1600, "height": 900})
     page = ctx2.new_page()
     login(page, "f3.setup", "f3pass")
-    ok("SETUP — 사용자·권한 메뉴 표시", page.locator(".tn", has_text="사용자·권한 (M-14-6)").count() == 1)
-    page.locator(".tn", has_text="사용자·권한 (M-14-6)").first.click()
+    ok("SETUP — 사용자·권한 메뉴 표시", tree_node(page, "사용자·권한 (M-14-6)").count() == 1)
+    tree_click(page, "사용자·권한 (M-14-6)")
     page.wait_for_timeout(1200)
     ok("SETUP — 목록 로드 (읽기 허용)", page.locator("table.g:visible tbody tr").count() >= 5)
     addu = page.get_by_role("button", name="＋ 사용자 등록")
     ok("SETUP — 사용자 등록 disabled (ADMIN 전용)",
        addu.is_disabled() and "ADMIN" in (addu.get_attribute("title") or ""))
-    page.locator(".tn", has_text="단가 관리 (M-12-5)").first.click()
+    tree_click(page, "단가 관리 (M-12-5)")
     page.wait_for_timeout(1000)
     ok("SETUP — 단가 등록 enabled (과차단 없음)",
        page.get_by_role("button", name="＋ 단가 등록").is_enabled())
@@ -143,13 +144,13 @@ with sync_playwright() as pw:
     ctx3 = b.new_context(viewport={"width": 1600, "height": 900})
     page = ctx3.new_page()
     login(page, "edim", "edim")
-    page.locator(".tn", has_text="사용자·권한 (M-14-6)").first.click()
+    tree_click(page, "사용자·권한 (M-14-6)")
     page.wait_for_timeout(1200)
     ok("ADMIN — 사용자 등록 enabled",
        page.get_by_role("button", name="＋ 사용자 등록").is_enabled())
     page.locator(".titlebar .mod", has_text="공통").first.click()
     page.wait_for_timeout(600)
-    page.locator(".tn", has_text="승인함 (M-15-2)").first.click()
+    tree_click(page, "승인함 (M-15-2)")
     page.wait_for_timeout(1200)
     if page.locator("table.g:visible tbody tr").count():
         page.locator("table.g:visible tbody tr").first.click()

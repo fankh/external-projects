@@ -12,6 +12,7 @@ import subprocess
 
 from openpyxl import load_workbook
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -71,7 +72,7 @@ with sync_playwright() as pw:
     page.wait_for_timeout(1000)
 
     # 2. S-1-4 Code Relationship — EBOM Run → 승인 요청 실배선
-    page.locator(".tn", has_text="Code Relationship (S-1-4)").first.click()
+    tree_click(page, "Code Relationship (S-1-4)")
     page.wait_for_timeout(1500)
     page.get_by_role("button", name="EBOM Run ▶").click()
     page.wait_for_selector("text=Running Test 통과", timeout=10000)
@@ -93,14 +94,14 @@ with sync_playwright() as pw:
     ok("관계 세트 APPROVED 전이", cnt.isdigit() and int(cnt) >= 1)
 
     # 3. S-1-1 SubCode — 승인 요청 게이트 (중복검토 선행)
-    page.locator(".tn", has_text="Sub Code 등록 (S-1-1)").first.click()
+    tree_click(page, "Sub Code 등록 (S-1-1)")
     page.wait_for_timeout(1500)
     ok("중복검토 버튼 노출", page.get_by_role("button", name="중복검토").count() >= 1)
     ok("승인 요청 게이트 — 중복검토 전 disabled",
        page.get_by_role("button", name="승인 요청").first.is_disabled())
 
     # 4. M-3-7 데이터 Table — 행 클릭 편집 패널 + ⬇ Export
-    page.locator(".tn", has_text="데이터 Table 관리 (M-3-7)").first.click()
+    tree_click(page, "데이터 Table 관리 (M-3-7)")
     page.wait_for_timeout(1500)
     page.locator("table.g:visible tbody tr").first.click()
     page.wait_for_timeout(400)
@@ -115,7 +116,7 @@ with sync_playwright() as pw:
     # 5. S-3-4 Print Set-up — 자리표시자·PDF 실렌더·Office xlsx
     page.locator(".titlebar .mod", has_text="CPQ").first.click()
     page.wait_for_timeout(600)
-    page.locator(".tn", has_text="Print Set-up (S-3-4)").first.click()
+    tree_click(page, "Print Set-up (S-3-4)")
     page.wait_for_timeout(1200)
     ok("자리표시자 목록 렌더", page.get_by_text("자리표시자 목록", exact=False).count() >= 1)
     ok("용지 선택(data-ps-paper) 노출", page.locator("[data-ps-paper]").count() == 1)
@@ -139,7 +140,7 @@ with sync_playwright() as pw:
     # 7. 문서함 — 행 선택 → PDF 미리보기 실배선 (detail 화면 후 CPQ 모듈 복귀)
     page.locator(".titlebar .mod", has_text="CPQ").first.click()
     page.wait_for_timeout(500)
-    page.locator(".tn", has_text="문서함 (M-5-4)").first.click()
+    tree_click(page, "문서함 (M-5-4)")
     page.wait_for_timeout(1500)
     rows_cnt = page.locator("table.g:visible tbody tr").count()
     if rows_cnt:

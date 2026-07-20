@@ -9,6 +9,7 @@ UI: 대장 그리드 · F2 등록 다이얼로그 → 타이틀바 컨텍스트 
 import re
 
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -134,7 +135,7 @@ with sync_playwright() as pw:
         page.get_by_label("비밀번호").fill("edim")
         page.get_by_role("button", name="로그인 (Enter)").click()
     page.wait_for_selector(".app .titlebar", timeout=15000)
-    page.locator(".tn", has_text="Project 등록 (S-3-5)").first.click()
+    tree_click(page, "Project 등록 (S-3-5)")
     page.wait_for_timeout(1500)
     ok("UI 대장 행 >=3", page.locator("table.g:visible tbody tr").count() >= 3)
     ok("UI 타이틀바 프로젝트 컨텍스트", "(PS-" in page.locator(".titlebar").inner_text())

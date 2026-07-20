@@ -11,6 +11,7 @@ UI: ＋ 사용자 등록 다이얼로그 → 목록 반영 → 정보 수정 →
 import subprocess
 
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -128,12 +129,12 @@ with sync_playwright() as pw:
         page.get_by_label("비밀번호").fill("edim")
         page.get_by_role("button", name="로그인 (Enter)").click()
     page.wait_for_selector(".app .titlebar", timeout=15000)
-    page.locator(".tn", has_text="사용자·권한 (M-14-6)").first.click()
+    tree_click(page, "사용자·권한 (M-14-6)")
     # 부하 중 하이드레이션 전 클릭 무시 대비 — 버튼 출현 대기, 미출현 시 1회 재클릭 (캡스톤 #5 플레이크)
     try:
         page.get_by_role("button", name="＋ 사용자 등록").wait_for(timeout=8000)
     except Exception:  # noqa: BLE001
-        page.locator(".tn", has_text="사용자·권한 (M-14-6)").first.click()
+        tree_click(page, "사용자·권한 (M-14-6)")
         page.get_by_role("button", name="＋ 사용자 등록").wait_for(timeout=15000)
 
     # Next — RegisterModal(data-modal) name 속성 폼

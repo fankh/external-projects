@@ -7,6 +7,7 @@ Mobile App 미리보기(M-16, 공통)의 '입고 처리' → 실 재고 입고(i
 정리: FDV-480 @ WS1-C 재고/이동 psql 삭제(끝).
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -43,7 +44,7 @@ with sync_playwright() as pw:
     p.wait_for_selector(".app .titlebar", timeout=15000)
     p.locator(".titlebar .mod", has_text="공통").first.click()
     p.wait_for_timeout(400)
-    p.locator(".tn", has_text="Mobile App 미리보기").first.click()
+    tree_click(p, "Mobile App 미리보기")
     p.wait_for_selector("[data-mobile-qr]", timeout=15000)
     ok("Mobile 미리보기 — 자재 QR 영역", p.locator("[data-mobile-qr]").count() >= 1)
     ok("QR 영역에 대상 품목 표시", ITEM in p.locator("[data-mobile-qr]").first.inner_text())

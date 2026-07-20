@@ -7,6 +7,7 @@ Escape 가 화면 단축키로 전파되지 않는지(capture)도 확인.
 정리: 데이터 생성 없음 (다이얼로그 열고 닫기만).
 """
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 n = 0
@@ -39,25 +40,25 @@ with sync_playwright() as pw:
         ok(label, page.locator(sel).count() == 0)
 
     # 1. 단가 등록 다이얼로그 (RegisterModal — data-modal 표준 마커)
-    page.locator(".tn", has_text="단가 관리 (M-12-5)").first.click()
+    tree_click(page, "단가 관리 (M-12-5)")
     page.wait_for_timeout(1200)
     esc_closes(lambda: page.get_by_role("button", name="＋ 단가 등록").click(),
                "[data-modal]", "단가 등록 — Escape 닫힘")
 
     # 2. 공급처 수정 다이얼로그 (F5 이식 — data-com-edit)
-    page.locator(".tn", has_text="공급처·거래처 (M-14-2)").first.click()
+    tree_click(page, "공급처·거래처 (M-14-2)")
     page.wait_for_timeout(1200)
     esc_closes(lambda: page.locator("table.g:visible tbody tr").first.dblclick(),
                "[data-com-edit]", "공급처 수정 — Escape 닫힘")
 
     # 3. 발주 생성 다이얼로그
-    page.locator(".tn", has_text="발주 라이프사이클 (G-3)").first.click()
+    tree_click(page, "발주 라이프사이클 (G-3)")
     page.wait_for_timeout(1200)
     esc_closes(lambda: page.get_by_role("button", name="＋ 발주 생성").click(),
                "[data-modal]", "발주 생성 — Escape 닫힘")
 
     # 4. 프로젝트 등록
-    page.locator(".tn", has_text="Project 등록 (S-3-5)").first.click()
+    tree_click(page, "Project 등록 (S-3-5)")
     page.wait_for_timeout(1200)
     esc_closes(lambda: page.get_by_role("button", name="＋ 프로젝트 등록").click(),
                "[data-modal]", "프로젝트 등록 — Escape 닫힘")

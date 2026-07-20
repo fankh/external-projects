@@ -12,6 +12,7 @@ import urllib.request
 from urllib.parse import quote
 
 from playwright.sync_api import expect, sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -101,7 +102,7 @@ with sync_playwright() as pw:
     p.wait_for_selector(".app .titlebar", timeout=8000)
 
     # 부품 대장 — 시드 행 + TEST 부품 행 + 공급자 코드 패널
-    p.locator(".tn", has_text="부품 대장 (M-4-7)").click()
+    tree_click(p, "부품 대장 (M-4-7)")
     p.locator("td", has_text="PRT-IMP-900").first.wait_for(timeout=15000)
     ok("UI 부품 대장 그리드", True)
     p.locator("td", has_text=TP).first.click()
@@ -109,7 +110,7 @@ with sync_playwright() as pw:
     ok("UI 공급자 코드 매핑 패널", True)
 
     # Design Editor — 조립순서 ◆ dwg_bom 칩
-    p.locator(".tn", has_text="Design Editor (S-4-1-1)").click()
+    tree_click(p, "Design Editor (S-4-1-1)")
     p.locator("svg[data-cad-svg]").first.wait_for(timeout=10000)
     expect(p.locator(".st", has_text="dwg_bom")).to_have_count(1, timeout=8000)
     p.locator("[data-bom-live]", has_text="Impeller").wait_for(timeout=15000)

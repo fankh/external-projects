@@ -12,6 +12,7 @@ import urllib.request
 from urllib.parse import quote
 
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -107,14 +108,14 @@ with sync_playwright() as pw:
     p.get_by_role("button", name="로그인 (Enter)").click()
     p.wait_for_selector(".app .titlebar", timeout=8000)
 
-    p.locator(".tn", has_text="창고·저장위치 (M-8-4)").click()
+    tree_click(p, "창고·저장위치 (M-8-4)")
     p.locator("table.g:visible td", has_text="WH-A-HAZ").first.wait_for(timeout=8000)
     ok("UI 창고 트리 — 위험물 노드", True)
     p.locator("table.g:visible tr", has_text="위험물 보관소").locator(".st", has_text="위험").first.wait_for(timeout=5000)
     ok("UI 위험물 칩 표시", True)
 
     # Next 구매 — 품목 체크 → QCR 발행 → PO 발주 확정 (인라인 조건, 다이얼로그 없음)
-    p.locator(".tn", has_text="발주 PR·PO (M-8-2)").click()
+    tree_click(p, "발주 PR·PO (M-8-2)")
     p.locator("td", has_text="FDV-480").first.wait_for(timeout=8000)
     p.locator("table.g:visible tbody tr", has_text="FDV-480").first \
         .locator("input[type=checkbox]").check()

@@ -80,6 +80,7 @@ except urllib.error.HTTPError as e:
 
 # 5. UI — Run 산출물 미리보기 → 뷰어 SVG
 from playwright.sync_api import sync_playwright
+from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
 with sync_playwright() as pw:
     b = pw.chromium.launch()
     p = b.new_page(viewport={'width': 1440, 'height': 900})
@@ -88,7 +89,7 @@ with sync_playwright() as pw:
     p.get_by_label('비밀번호').fill('edim')
     p.get_by_role('button', name='로그인 (Enter)').click()
     p.wait_for_selector('.app .titlebar', timeout=8000)
-    p.locator('.tn', has_text='Project Folder·이력 (M-15-8/9)').click()
+    tree_click(p, 'Project Folder·이력 (M-15-8/9)')
     # Next FolderGrid — 최신순 정렬로 업로드가 1페이지 최상단
     p.locator('tr:visible', has_text='sample_import.dxf').first.wait_for(timeout=15000)
     p.locator('tr:visible', has_text='sample_import.dxf').first.dblclick()
