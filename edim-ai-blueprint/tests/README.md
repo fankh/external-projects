@@ -49,6 +49,7 @@ py tests\live_all.py
 | `live_dev_requirements.py` | 개발서버 요구사항 접수 — devMode 게이트·CRUD·이미지 첨부(422/연쇄삭제)·RBAC 403·UI 모달 왕복 (자체 정리) | 운영 도구 |
 | `live_product_builder.py` | 제품 코드 조합 — 자유텍스트 422·미승인 값 422·승인 반영·파생 코드/해시·동일 조합 409·Rev drift·GENERAL 403 (자체 정리) | 2.2 (#28) |
 | `live_bom_basis.py` | BOM 전개 근거 — 관계 Revision 고정·stable 판정·승인 후 이동 지목·Snapshot drift·순환/테넌트 가드 (자체 정리) | 2.7 (#40) |
+| `live_file_role.py` | 원본/산출물 이원화 — 역할 백필·동명 저장 격리(산출물 행 불변)·산출물 편집 409·원본 재저장 갱신·목록 역할 노출 (자체 정리) | 3.3 (#53) |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI

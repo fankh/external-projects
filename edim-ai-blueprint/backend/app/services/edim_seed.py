@@ -3578,6 +3578,11 @@ UI_TRANSLATIONS_V33: dict[str, tuple[str, str, str]] = {
     "basis.revised": ('Rev', 'Rev', 'Rev'),
     "basis.sameHint": ('The pinned relationship revision set matches the current one',
                        '固定された関係 Revision 集合が現在と同一です', '已固定的关系修订集合与当前一致'),
+    # 3.3 #53 — Project Folder 역할 칩
+    "kind.output": ('Deliverable', '成果物', '交付物'),
+    "kind.source": ('Source drawing', '作図原本', '作图原件'),
+    "folder.immutable": ('Run deliverable — cannot be edited or overwritten (immutable)',
+                         'Run 成果物 — 編集・上書き不可（不変）', 'Run 交付物 — 不可编辑或覆盖（不变）'),
     "basis.movedHint": ("Even if the basis moved this Run's BOM does not change — it means a re-run may differ",
                         '根拠が動いてもこの Run の BOM は変わりません — 再実行で結果が変わり得るという意味です',
                         '依据变动不会改变此 Run 的 BOM — 意味着重跑结果可能不同'),
