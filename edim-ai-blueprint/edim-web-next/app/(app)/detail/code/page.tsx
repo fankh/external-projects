@@ -11,6 +11,8 @@ interface PriceRow { code: string; name: string; supplier: string; price: number
 interface ReferencerRow { code: string; name: string; qty: number; status: string }
 interface SlotItemRow { pcItemId: number; slot: string; itemName: string; required: boolean; sortOrder: number }
 interface ApprovalHistRow { date: string; action: string; by: string; note: string }
+interface WhereUsedRow { code: string; name: string; qty: number; status: string; level: number; path: string }
+interface WhereUsedDeep { code: string; count: number; maxLevel: number; rows: WhereUsedRow[] }
 
 export default async function CodeDetailPage({ searchParams }: { searchParams: Promise<{ code?: string; name?: string }> }) {
   const locale = await getLocale()
@@ -26,14 +28,16 @@ export default async function CodeDetailPage({ searchParams }: { searchParams: P
   let referencers: ReferencerRow[] = []
   let slots: SlotItemRow[] = []
   let hist: ApprovalHistRow[] = []
+  let wu: WhereUsedDeep | null = null
   try {
-    const [pr, rf, sl, hs] = await Promise.all([
+    const [pr, rf, sl, hs, wd] = await Promise.all([
       apiServer<PriceRow[]>('/prices').catch(() => []),
       apiServer<ReferencerRow[]>(`/codes/${encodeURIComponent(base)}/referencers`).catch(() => []),
       apiServer<SlotItemRow[]>(`/codes/${encodeURIComponent(base)}/slot-items`).catch(() => []),
       apiServer<ApprovalHistRow[]>(`/codes/${encodeURIComponent(base)}/approval-history`).catch(() => []),
+      apiServer<WhereUsedDeep>(`/codes/${encodeURIComponent(base)}/where-used`).catch(() => null),
     ])
-    allPrices = pr; referencers = rf; slots = sl; hist = hs
+    allPrices = pr; referencers = rf; slots = sl; hist = hs; wu = wd
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
@@ -41,7 +45,7 @@ export default async function CodeDetailPage({ searchParams }: { searchParams: P
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`${t('detail.codeTitle', '코드 상세')} — ${code}${name ? ` (${name})` : ''}`} source="/prices · /codes/{c}/referencers · slot-items · approval-history" />
+      <ScreenHeader title={`${t('detail.codeTitle', '코드 상세')} — ${code}${name ? ` (${name})` : ''}`} source="/prices · /codes/{c}/referencers · where-used · slot-items · approval-history" />
       {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
         <div style={{ display: 'flex', gap: 6, flex: 1, minHeight: 0, padding: 6 }}>
           <div className="fill-col" style={{ gap: 6, flex: 1.2, overflow: 'auto' }}>
@@ -69,6 +73,21 @@ export default async function CodeDetailPage({ searchParams }: { searchParams: P
                   ))}</tbody></table>
               ) : <div style={{ padding: 10, fontSize: 11, color: 'var(--txt-mute)' }}>{t('detail.noRefs', '상위 참조 없음 — 최상위 또는 미연결 코드')}</div>}
             </div>
+            {wu && wu.maxLevel > 1 ? (
+              <div className="gb" data-where-used-deep>
+                <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>
+                  {t('detail.whereUsedDeep', '전체 역전개 (다단계 Where-Used)')} — {wu.count}{t('detail.cases', '건')} · L{wu.maxLevel}
+                </div>
+                <table className="g"><thead><tr><th>Lv</th><th>Mother</th><th>Desc.</th><th>Q'ty</th><th>{t('detail.category', '구분')}</th></tr></thead>
+                  <tbody>{wu.rows.map((r, i) => (
+                    <tr key={`${r.code}-${i}`} title={r.path}>
+                      <td className="c">{r.level}</td>
+                      <td className="code" style={{ paddingLeft: 6 + (r.level - 1) * 14 }}>{r.code}</td>
+                      <td>{r.name}</td><td className="num">{r.qty}</td><td className="c">{r.status}</td>
+                    </tr>
+                  ))}</tbody></table>
+              </div>
+            ) : null}
           </div>
           <div className="side-scroll" style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
             <div className="gb" style={{ padding: 8 }}>

@@ -4903,6 +4903,45 @@ def code_referencers(code: str) -> list[dict[str, Any]]:
         ]
 
 
+@router.get("/codes/{code}/where-used")
+def code_where_used(code: str, maxLevel: int = 10) -> dict[str, Any]:
+    """다단계 Where-Used 역전개 (트리아지 #34) — mother 체인 재귀 상승, 경로·레벨·순환 가드.
+
+    referencers(1단)의 일반화 — 이 코드가 궁극적으로 어느 상위 제품까지 쓰이는지 전 경로 표시.
+    """
+    lv = max(1, min(int(maxLevel), 20))
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM product_code WHERE tenant_id=%s AND main_code=%s", (tid, code))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"코드 없음: {code}")
+        cur.execute(
+            """WITH RECURSIVE up AS (
+                 SELECT r.mother_code_id, r.quantity, r.approval_status,
+                        1 AS level, ARRAY[cc.main_code, mc.main_code] AS path
+                 FROM code_relationship r
+                 JOIN product_code cc ON cc.product_code_id=r.child_code_id
+                 JOIN product_code mc ON mc.product_code_id=r.mother_code_id
+                 WHERE r.tenant_id=%s AND cc.main_code=%s
+                 UNION ALL
+                 SELECT r.mother_code_id, r.quantity, r.approval_status,
+                        up.level+1, up.path || mc.main_code
+                 FROM up
+                 JOIN code_relationship r ON r.tenant_id=%s AND r.child_code_id=up.mother_code_id
+                 JOIN product_code mc ON mc.product_code_id=r.mother_code_id
+                 WHERE up.level < %s AND NOT (mc.main_code = ANY(up.path))
+               )
+               SELECT mc.main_code, mc.code_name, up.quantity, up.approval_status,
+                      up.level, array_to_string(up.path, ' › ')
+               FROM up JOIN product_code mc ON mc.product_code_id=up.mother_code_id
+               ORDER BY up.level, mc.main_code""",
+            (tid, code, tid, lv))
+        rows = [{"code": r[0], "name": r[1], "qty": float(r[2]), "status": r[3],
+                 "level": int(r[4]), "path": r[5]} for r in cur.fetchall()]
+    return {"code": code, "count": len(rows),
+            "maxLevel": max((x["level"] for x in rows), default=0), "rows": rows}
+
+
 def _code_children(cur, tid: int, code: str) -> dict[str, dict[str, Any]] | None:
     """코드의 BOM 구성(child main_code → {name, qty}). 코드 미존재 시 None."""
     cur.execute("SELECT product_code_id FROM product_code WHERE tenant_id=%s AND main_code=%s",

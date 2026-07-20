@@ -3689,6 +3689,7 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "hier.descendants": ('Descendants', '下位ノード', '子节点'),
     "hier.refTotal": ('Referencing assets', '参照資産', '引用资产'),
     "hier.noRefs": ('No referencing assets — safe to move or delete', '参照資産なし — 安全に移動・削除できます', '无引用资产 — 可安全移动或删除'),
+    "detail.whereUsedDeep": ('Full where-used (multi-level)', '全遡及展開 (多段 Where-Used)', '完整反查 (多级 Where-Used)'),
     "cpq.arrHint": ('Select arrangement — layout blocks are replaced', 'Arrangement 選択 — 配置ブロックが入れ替わります', '选择 Arrangement — 布局块将被替换'),
     "cpq.arrLoaded": ('blocks', 'ブロック', '构成块'),
     "cpq.arrEmpty": ('No components — showing default blocks', '構成なし — 既定ブロック表示', '无组件 — 显示默认块'),

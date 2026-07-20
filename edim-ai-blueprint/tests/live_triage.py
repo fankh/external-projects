@@ -149,6 +149,21 @@ try:
     ok(f"이동 연쇄 갱신 (#24) relinked={mv.get('relinked')}",
        mv.get("relinked", 0) >= 1 and ga["hierarchyAddress"] == mv["newAddress"])
 
+    # 4e) 다단계 Where-Used 역전개 (#34) — 재귀 상승·경로·순환 가드 (읽기 전용)
+    deep_code = psql(
+        "WITH RECURSIVE up AS ("
+        " SELECT r.mother_code_id, r.child_code_id, 1 lvl FROM code_relationship r"
+        " UNION ALL SELECT r2.mother_code_id, up.child_code_id, up.lvl+1 FROM up"
+        " JOIN code_relationship r2 ON r2.child_code_id=up.mother_code_id WHERE up.lvl<6)"
+        " SELECT pc.main_code FROM up JOIN product_code pc ON pc.product_code_id=up.child_code_id"
+        " WHERE up.lvl=2 LIMIT 1")
+    if deep_code:
+        wu = req("GET", f"/codes/{deep_code}/where-used")
+        ok(f"다단계 역전개 {deep_code} (L{wu['maxLevel']}·{wu['count']}행)",
+           wu["maxLevel"] >= 2 and any("›" in x["path"] for x in wu["rows"] if x["level"] >= 2))
+    else:
+        ok("다단계 역전개 — 2단 체인 데이터 없음 (스킵)", True)
+
     # 4c) 선택적 MFA (#10) — 프로브 사용자 수명주기 (TOTP 서버시간 기준)
     PU = "test.mfa.suite"
 
@@ -224,6 +239,11 @@ try:
         p.goto(f"{BASE}/erp/sales-order", wait_until="networkidle")
         p.wait_for_timeout(800)
         ok("D-1 Handoff 패널 (FG 컬럼)", "FG Code" in p.locator("[data-handoff-panel]").inner_text())
+        # #34 — 코드 상세 다단계 역전개 섹션 (base 절단 규칙: 하이픈 2개 이상이면 스킵)
+        if deep_code and "-".join(deep_code.split("-")[:2]) == deep_code:
+            p.goto(f"{BASE}/detail/code?code={quote(deep_code)}", wait_until="networkidle")
+            p.wait_for_timeout(500)
+            ok("코드 상세 다단계 역전개 섹션 (#34)", p.locator("[data-where-used-deep]").count() == 1)
         b.close()
 finally:
     psql("DELETE FROM sys_approval_request WHERE target_table='erp_handoff' AND comment LIKE '%ERP Handoff%'")
