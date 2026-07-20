@@ -48,6 +48,7 @@ py tests\live_all.py
 | `check_i18n_en.py` | EN 전환 한글 잔존 0 — 24화면+로그인 (`BASE` env 로 프리뷰/라이브 전환) | B9 |
 | `live_dev_requirements.py` | 개발서버 요구사항 접수 — devMode 게이트·CRUD·이미지 첨부(422/연쇄삭제)·RBAC 403·UI 모달 왕복 (자체 정리) | 운영 도구 |
 | `live_product_builder.py` | 제품 코드 조합 — 자유텍스트 422·미승인 값 422·승인 반영·파생 코드/해시·동일 조합 409·Rev drift·GENERAL 403 (자체 정리) | 2.2 (#28) |
+| `live_bom_basis.py` | BOM 전개 근거 — 관계 Revision 고정·stable 판정·승인 후 이동 지목·Snapshot drift·순환/테넌트 가드 (자체 정리) | 2.7 (#40) |
 
 ## CI
 
