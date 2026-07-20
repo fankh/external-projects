@@ -1849,6 +1849,7 @@ def export_table_xlsx(name: str) -> Response:
 class TableRowRequest(BaseModel):
     key: str
     values: dict[str, float | int | None] = {}
+    baseValues: dict[str, float | int | None] | None = None   # D9 확대 — 편집 시작 시점 스냅샷 (불일치 409)
 
 
 @router.post("/tables/{name}/rows", status_code=201, dependencies=[SETUP])
@@ -1873,10 +1874,21 @@ def add_table_row(name: str, body: TableRowRequest) -> dict[str, Any]:
 
 @router.put("/tables/{name}/rows/{key}", dependencies=[SETUP])
 def update_table_row(name: str, key: str, body: TableRowRequest) -> dict[str, Any]:
+    """행 저장 — baseValues(편집 시작 스냅샷) 전달 시 낙관적 잠금: 타인 선수정이면 409 (D9 확대)."""
     values = {k: v for k, v in body.values.items() if v is not None}
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         table_id, _ = _table_id(cur, tid, name)
+        if body.baseValues is not None:
+            cur.execute("SELECT row_values FROM tbl_data_row WHERE table_id=%s AND row_key=%s",
+                        (table_id, key))
+            cur_row = cur.fetchone()
+            if not cur_row:
+                raise HTTPException(404, detail=f"row not found: {key}")
+            base = {k: v for k, v in body.baseValues.items() if v is not None}
+            current = {k: v for k, v in (cur_row[0] or {}).items() if v is not None}
+            if {k: float(v) for k, v in current.items()} != {k: float(v) for k, v in base.items()}:
+                raise HTTPException(409, detail="동시 수정 충돌 — 다른 사용자가 먼저 수정했습니다 (재조회 후 재시도)")
         cur.execute(
             """UPDATE tbl_data_row SET row_values=%s
                WHERE table_id=%s AND row_key=%s RETURNING row_id""",

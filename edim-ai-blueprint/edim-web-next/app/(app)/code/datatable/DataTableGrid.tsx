@@ -33,19 +33,33 @@ export function DataTableGrid({ name, columns, rows }: { name: string; columns: 
     })),
   ]
 
+  // D9 확대 — 편집 시작 시점 스냅샷 (낙관적 잠금: 저장 시 서버 현재값과 대조, 선수정 409)
+  const baseRef = useRef<Record<string, number | null>>({})
   const selectRow = (r: TableRow) => {
     setSelKey(r.key)
     setEdit(Object.fromEntries(columns.map((c) => [c, r.values[c] == null ? '' : String(r.values[c])])))
+    baseRef.current = Object.fromEntries(columns.map((c) => {
+      const v = r.values[c]
+      return [c, v == null || v === '' ? null : Number(v)]
+    }))
   }
   const editValues = (): Record<string, number | null> =>
     Object.fromEntries(columns.map((c) => [c, toNum(edit[c] ?? '')]))
+  const saveRow = () => {
+    if (!sel) return
+    start(async () => {
+      const r = await updateTableRow(name, sel.key, editValues(), baseRef.current)
+      setSt(r)
+      if (r.error?.includes('충돌')) { setSelKey(null); router.refresh() }
+    })
+  }
 
   // U25 — 그래프 마법사 (슬라이드 59): 열 매핑 → 라인/막대 SVG
   const [chartOpen, setChartOpen] = useState(false)
 
   // N6 — F-key 수신: F12 저장(선택 행) · F3 삭제
   useFKeys({
-    F12: () => { if (sel) start(async () => setSt(await updateTableRow(name, sel.key, editValues()))) },
+    F12: saveRow,
     F3: () => {
       if (sel && confirm(`행 ${sel.key} 를 삭제하시겠습니까?`))
         start(async () => { setSt(await deleteTableRow(name, sel.key)); setSelKey(null) })
@@ -85,7 +99,7 @@ export function DataTableGrid({ name, columns, rows }: { name: string; columns: 
                 onChange={(e) => setEdit((cur) => ({ ...cur, [c]: e.target.value }))} />
             </label>
           ))}
-          <button className="b run" disabled={pending} onClick={() => start(async () => setSt(await updateTableRow(name, sel.key, editValues())))}>{t('subcode.saveF12', '저장 (F12)')}</button>
+          <button className="b run" disabled={pending} onClick={saveRow}>{t('subcode.saveF12', '저장 (F12)')}</button>
           <button className="b" disabled={pending} onClick={() => {
             if (confirm(`행 ${sel.key} 를 삭제하시겠습니까?`))
               start(async () => { setSt(await deleteTableRow(name, sel.key)); setSelKey(null) })

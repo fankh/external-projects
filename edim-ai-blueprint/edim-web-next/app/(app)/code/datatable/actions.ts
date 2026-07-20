@@ -23,10 +23,14 @@ export async function addTableRow(name: string, key: string, values: Record<stri
   return { ok: `행 ${key} 추가` }
 }
 
-export async function updateTableRow(name: string, key: string, values: Record<string, number | null>): Promise<ActState> {
+export async function updateTableRow(
+  name: string, key: string, values: Record<string, number | null>,
+  baseValues?: Record<string, number | null>,
+): Promise<ActState> {
   try {
     await apiServer(`/tables/${encodeURIComponent(name)}/rows/${encodeURIComponent(key)}`, {
-      method: 'PUT', body: JSON.stringify({ key, values }),
+      // D9 확대 — 편집 시작 스냅샷 전달: 타인 선수정이면 409 (낙관적 잠금)
+      method: 'PUT', body: JSON.stringify({ key, values, ...(baseValues ? { baseValues } : {}) }),
     })
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : '저장 실패' }
