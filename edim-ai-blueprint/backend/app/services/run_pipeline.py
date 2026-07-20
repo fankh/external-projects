@@ -701,9 +701,10 @@ def persist_outputs(cur, tid: int, run_id: int, project_no: str, r: PipelineResu
         key = f"{project_no}/{folder}/run{run_id}_{fname}"
         storage.put_object(key, data, ctypes.get(ftype, "application/octet-stream"))
         cur.execute(
+            # #53 — Run 이 만든 것만 OUTPUT(납품물·불변). 편집·덮어쓰기 경로에서 차단된다.
             """INSERT INTO dwg_file (tenant_id, project_id, folder, drawing_id, file_name,
-               file_type, file_path, file_size)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING file_id""",
+               file_type, file_path, file_size, file_role)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'OUTPUT') RETURNING file_id""",
             (tid, prj[0] if prj else None, folder,
              dwg[0] if (dwg and ftype == "DXF") else None, fname, ftype, key, len(data)))
         fid = cur.fetchone()[0]

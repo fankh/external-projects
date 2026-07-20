@@ -11,6 +11,7 @@ import { uploadProjectFile, type ActState } from './actions'
 export interface FolderFile {
   name: string; fileType: string; kind: string; kindTone: 'ok' | 'warn' | 'info'
   run: string; date: string; folder: string; fileId?: number; registrant?: string
+  fileRole?: 'SOURCE' | 'OUTPUT' | 'RECEIVED'; immutable?: boolean
 }
 
 const FOLDERS = ['RECEIVED', 'DWG', 'BOM', 'PRICE', 'DOC']
@@ -24,6 +25,7 @@ export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: str
     '승인도': t('kind.dwgApproval', '승인도'), '견적/원가': t('kind.quoteCost', '견적/원가'),
     '기술자료': t('kind.techData', '기술자료'), '접수자료': t('kind.received', '접수자료'),
     '업로드': t('kind.upload', '업로드'),
+    '산출물': t('kind.output', '산출물'), '작도 원본': t('kind.source', '작도 원본'),
   }
 
   const cols: GridColumn<FolderFile>[] = [
@@ -31,6 +33,10 @@ export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: str
     { key: 'type', header: t('folder.typeCol', '유형'), width: 60, align: 'center', sortValue: (r) => r.fileType, render: (r) => r.fileType },
     { key: 'folder', header: t('run.folder', '폴더'), width: 100, align: 'center', sortValue: (r) => r.folder, render: (r) => r.folder },
     { key: 'kind', header: t('folder.kindCol', '종류'), width: 90, align: 'center', sortValue: (r) => r.kind, render: (r) => <Chip tone={r.kindTone}>{kindLabel[r.kind] ?? r.kind}</Chip> },
+    // #53 — 산출물(납품물)은 불변: 편집·덮어쓰기가 서버에서 409 로 막힌다는 사실을 화면에서 알린다
+    { key: 'lock', header: '', width: 26, align: 'center', render: (r) => r.immutable
+      ? <span data-file-immutable title={t('folder.immutable', 'Run 산출물 — 편집·덮어쓰기 불가 (납품물 불변)')}>🔒</span>
+      : <span style={{ color: 'var(--txt-mute)' }}>—</span> },
     { key: 'run', header: 'Run', width: 60, align: 'center', render: (r) => r.run || '—' },
     { key: 'reg', header: t('folder.registrant', '등록자'), width: 80, align: 'center', render: (r) => r.registrant || '—' },
     { key: 'date', header: t('folder.dateCol', '일자'), width: 96, align: 'center', render: (r) => r.date },

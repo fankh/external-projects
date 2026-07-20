@@ -2674,11 +2674,13 @@ async def upload_file(
         prj = cur.fetchone()
         cur.execute(
             """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
-               file_path, file_size, created_by)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING file_id""",
+               file_path, file_size, created_by, file_role)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING file_id""",
             (tid, prj[0] if prj else None, folder, fname,
              (fname.rsplit(".", 1)[-1] if "." in fname else "BIN").upper()[:10],
-             key, len(data), request.state.login))
+             key, len(data), request.state.login,
+             # #53 — 산출물(OUTPUT)은 Run 만 만든다. 업로드는 접수 자료 또는 작도 원본.
+             "RECEIVED" if folder == "RECEIVED" else "SOURCE"))
         file_id = cur.fetchone()[0]
     return {"fileId": file_id, "key": key, "size": len(data)}
 
@@ -2832,6 +2834,25 @@ def files_export_package(project: str = "PS-61313-5") -> StreamingResponse:
                              headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(zipname)}",
                                       "X-File-Count": str(len(rows)),
                                       "X-Watermarked": str(stamped)})
+
+
+# ── #53 PLM Code Drawing vs Project Output 이원화 (핵심 불변식) ──
+# dwg_file 은 ① SOURCE(작도 원본·엔진 편집 대상) ② OUTPUT(Run 산출물 = 납품물)
+# ③ RECEIVED(접수 자료) 를 함께 담는다. **OUTPUT 은 불변** — 바이트도 행도 갈아끼울 수 없다.
+# 이 가드가 없던 동안 같은 이름으로 저장하면 과거 Run 산출물 행이 새 파일로 바뀌었고,
+# CAD 편집은 산출물 객체를 제자리에서 덮어썼다(요구 #55 '과거 산출물 불변' 위반).
+def _assert_mutable(cur, tid: int, file_id: int, action: str) -> str:
+    """OUTPUT 파일이면 409. 반환값은 file_role."""
+    cur.execute("SELECT COALESCE(file_role,'OUTPUT'), file_name FROM dwg_file "
+                "WHERE tenant_id=%s AND file_id=%s", (tid, file_id))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"file not found: {file_id}")
+    if row[0] == "OUTPUT":
+        raise HTTPException(
+            409, detail=f"Run 산출물은 {action}할 수 없습니다 — {row[1]} (납품물 불변, #53). "
+                        "편집이 필요하면 사본으로 저장하십시오")
+    return row[0]
 
 
 @router.delete("/files/{file_id}", dependencies=[SETUP])
@@ -3120,6 +3141,9 @@ def cad_edit(file_id: int, request: Request, body: CadEditRequest) -> dict[str, 
         raise HTTPException(422, detail="편집 작업이 없습니다")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # #53 — 산출물(OUTPUT)은 제자리 편집 불가. 종전엔 어떤 file_id 든 MinIO 객체를
+        # 덮어써서, 납품된 Run 산출물의 바이트가 조용히 바뀔 수 있었다.
+        _assert_mutable(cur, tid, file_id, "편집")
         cur.execute(
             "SELECT file_path, file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
             (tid, file_id))
@@ -3537,8 +3561,8 @@ async def cad_import(
         prj = cur.fetchone()
         cur.execute(
             """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
-               file_path, file_size)
-               VALUES (%s,%s,'DWG',%s,%s,%s,%s) RETURNING file_id""",
+               file_path, file_size, file_role)
+               VALUES (%s,%s,'DWG',%s,%s,%s,%s,'SOURCE') RETURNING file_id""",
             (tid, prj[0] if prj else None, fname,
              fname.rsplit(".", 1)[-1].upper()[:10], key, len(data)))
         file_id = cur.fetchone()[0]
@@ -3596,9 +3620,13 @@ def cad_duct_layout_save(request: Request, body: DuctLayoutSaveRequest) -> dict[
         cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
                     (tid, body.project))
         prj = cur.fetchone()
+        # #53 — part-drawing/save 와 동일: 같은 프로젝트의 SOURCE 행만 갱신 대상
         cur.execute(
-            "SELECT file_id FROM dwg_file WHERE tenant_id=%s AND folder='DWG' AND file_name=%s",
-            (tid, fname))
+            """SELECT file_id FROM dwg_file
+               WHERE tenant_id=%s AND folder='DWG' AND file_name=%s
+                 AND COALESCE(file_role,'OUTPUT')='SOURCE'
+                 AND project_id IS NOT DISTINCT FROM %s""",
+            (tid, fname, prj[0] if prj else None))
         row = cur.fetchone()
         if row:
             file_id = row[0]
@@ -3607,7 +3635,8 @@ def cad_duct_layout_save(request: Request, body: DuctLayoutSaveRequest) -> dict[
         else:
             cur.execute(
                 """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
-                   file_path, file_size) VALUES (%s,%s,'DWG',%s,'DXF',%s,%s) RETURNING file_id""",
+                   file_path, file_size, file_role)
+                   VALUES (%s,%s,'DWG',%s,'DXF',%s,%s,'SOURCE') RETURNING file_id""",
                 (tid, prj[0] if prj else None, fname, key, len(data)))
             file_id = cur.fetchone()[0]
         _audit(cur, tid, "dwg_file", file_id, "DUCT_EDIT_MATERIALIZE", request.state.user_id,
@@ -3725,9 +3754,15 @@ def cad_part_drawing_save(request: Request, body: PartDrawingSaveRequest) -> dic
         cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
                     (tid, body.project))
         prj = cur.fetchone()
+        # #53 — 갱신 대상은 **같은 프로젝트의 SOURCE 행**으로 한정한다.
+        # 종전엔 테넌트 전체에서 file_name 만 맞으면 갱신해, 같은 이름의 Run 산출물 행이
+        # 새 파일로 갈아끼워졌다(납품물 무결성 파괴, 실증 확인). project_id 도 무시했다.
         cur.execute(
-            "SELECT file_id FROM dwg_file WHERE tenant_id=%s AND folder='DWG' AND file_name=%s",
-            (tid, fname))
+            """SELECT file_id FROM dwg_file
+               WHERE tenant_id=%s AND folder='DWG' AND file_name=%s
+                 AND COALESCE(file_role,'OUTPUT')='SOURCE'
+                 AND project_id IS NOT DISTINCT FROM %s""",
+            (tid, fname, prj[0] if prj else None))
         row = cur.fetchone()
         if row:
             file_id = row[0]
@@ -3736,7 +3771,8 @@ def cad_part_drawing_save(request: Request, body: PartDrawingSaveRequest) -> dic
         else:
             cur.execute(
                 """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
-                   file_path, file_size) VALUES (%s,%s,'DWG',%s,'DXF',%s,%s) RETURNING file_id""",
+                   file_path, file_size, file_role)
+                   VALUES (%s,%s,'DWG',%s,'DXF',%s,%s,'SOURCE') RETURNING file_id""",
                 (tid, prj[0] if prj else None, fname, key, len(data)))
             file_id = cur.fetchone()[0]
     return {"fileId": file_id, "document": _parse_cad_bytes(data, fname)}
@@ -8425,15 +8461,21 @@ def project_files(project: str = "PS-61313-5", allRuns: bool = False) -> list[di
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT f.file_id, f.file_name, f.file_type, f.folder,
-                      to_char(f.uploaded_date,'MM-DD'), f.created_by
+                      to_char(f.uploaded_date,'MM-DD'), f.created_by,
+                      COALESCE(f.file_role,'OUTPUT')
                FROM dwg_file f
                LEFT JOIN prj_project p ON p.project_id=f.project_id
                WHERE f.tenant_id=%s AND (p.project_no=%s OR f.project_id IS NULL)
                ORDER BY f.file_id DESC""", (tid, project))
+        # #53 — 역할을 그대로 노출: 산출물(불변)/작도 원본/접수 자료를 화면에서 구분한다
+        ROLE_KIND = {"OUTPUT": ("산출물", "ok"), "SOURCE": ("작도 원본", "info"),
+                     "RECEIVED": ("접수자료", "info")}
         uploads = [
             {"name": r[1], "fileType": r[2],
-             "kind": "접수자료" if r[3] == "RECEIVED" else "업로드", "kindTone": "info",
-             "run": "-", "date": r[4], "folder": r[3], "fileId": r[0], "registrant": r[5]}
+             "kind": ROLE_KIND.get(r[6], ("업로드", "info"))[0],
+             "kindTone": ROLE_KIND.get(r[6], ("업로드", "info"))[1],
+             "run": "-", "date": r[4], "folder": r[3], "fileId": r[0], "registrant": r[5],
+             "fileRole": r[6], "immutable": r[6] == "OUTPUT"}
             for r in cur.fetchall()
         ]
     return files + uploads
