@@ -7827,21 +7827,34 @@ def process_node_patch(node_id: int, request: Request, body: ProcessNodePatch) -
         tid = _tenant_id(cur)
         if body.parentId is not None and body.parentId == node_id:
             raise HTTPException(422, detail="자기 자신을 상위로 지정할 수 없습니다")
+        # 지정된 필드만 갱신 — NULL 파라미터 타입 추론 실패(500) 회피를 위해 동적 SET 절
+        sets: list[str] = []
+        params: list[Any] = []
+        if body.name is not None:
+            sets.append("name=%s")
+            params.append(body.name.strip()[:80])
+        if body.icon is not None:
+            sets.append("icon=NULLIF(%s,'')")
+            params.append(body.icon.strip()[:8])
+        if body.screenHref is not None:
+            sets.append("screen_href=NULLIF(%s,'')")
+            params.append(body.screenHref.strip()[:200])
+        if body.note is not None:
+            sets.append("note=NULLIF(%s,'')")
+            params.append(body.note.strip()[:200])
+        if body.parentId is not None:
+            sets.append("parent_id=%s")
+            params.append(body.parentId)
+        if body.stepNo is not None:
+            sets.append("step_no=%s")
+            params.append(body.stepNo)
+        if not sets:
+            raise HTTPException(422, detail="변경할 항목이 없습니다")
+        sets.append("updated_at=now()")
         cur.execute(
-            """UPDATE sys_process_node SET
-               name=COALESCE(%s, name),
-               icon=CASE WHEN %s IS NULL THEN icon ELSE NULLIF(%s,'') END,
-               screen_href=CASE WHEN %s IS NULL THEN screen_href ELSE NULLIF(%s,'') END,
-               note=CASE WHEN %s IS NULL THEN note ELSE NULLIF(%s,'') END,
-               parent_id=COALESCE(%s, parent_id),
-               step_no=COALESCE(%s, step_no),
-               updated_at=now()
-               WHERE tenant_id=%s AND node_id=%s RETURNING name, step_no""",
-            (body.name.strip()[:80] if body.name is not None else None,
-             body.icon, (body.icon or "").strip()[:8],
-             body.screenHref, (body.screenHref or "").strip()[:200],
-             body.note, (body.note or "").strip()[:200],
-             body.parentId, body.stepNo, tid, node_id))
+            f"""UPDATE sys_process_node SET {', '.join(sets)}
+                WHERE tenant_id=%s AND node_id=%s RETURNING name, step_no""",
+            (*params, tid, node_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"단계 없음: #{node_id}")
