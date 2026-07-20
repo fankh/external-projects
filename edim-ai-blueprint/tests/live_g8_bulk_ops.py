@@ -44,6 +44,11 @@ st, tb = req("POST", "/auth/login", {"userId": "edim", "password": "edim"})
 tok = tb.get("token") if tb else None
 ok("로그인", st == 200 and tok)
 
+# #28 — Slot(Sub Code) 이 정의된 그룹은 자유텍스트 생성이 막힌다(조합 생성 전용).
+# 이 스위트는 일괄 작업 검증이 목적이라 수기 등록이 가능한 Slot 미정의 그룹을 쓴다.
+_st, _groups = req("GET", "/codes/groups", tok=tok)
+GROUP = next(g["groupCode"] for g in _groups if g["slotCount"] == 0)
+
 SFX = "ZZE2EBULK"
 
 # ── 제품코드 일괄 작업 ──

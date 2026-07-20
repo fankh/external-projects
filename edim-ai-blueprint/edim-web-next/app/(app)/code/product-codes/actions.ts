@@ -22,6 +22,48 @@ export async function createProductCode(_prev: ActState, formData: FormData): Pr
   return { ok: `${mainCode} 등록 (DRAFT)` }
 }
 
+// ── #28 Product Code Builder — 승인된 Sub Code 조합으로만 생성 ──
+export interface BuilderSlot {
+  slot: string; itemId: number; label: string; pending: number; blocked: boolean
+  values: { valueId: number; valueCode: string; valueName: string; revisionNo: number }[]
+}
+export interface BuilderSpec { groupCode: string; groupName: string; slots: BuilderSlot[]; buildable: boolean }
+
+export async function loadBuilder(group: string): Promise<{ spec?: BuilderSpec; error?: string }> {
+  try {
+    return { spec: await apiServer<BuilderSpec>(`/codes/products/builder?group=${encodeURIComponent(group)}`) }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '조합 선택지 조회 실패' }
+  }
+}
+
+export async function buildProductCode(group: string, codeName: string, selections: Record<string, string>): Promise<ActState> {
+  try {
+    const r = await apiServer<{ mainCode: string; comboHash: string }>('/codes/products/build', {
+      method: 'POST', body: JSON.stringify({ groupCode: group, codeName, selections }),
+    })
+    revalidatePath(PATH)
+    return { ok: `${r.mainCode} 조합 생성 (DRAFT · ${r.comboHash.slice(0, 12)})` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '조합 생성 실패 (미승인 값 422·동일 조합 409 가능)' }
+  }
+}
+
+export interface Composition {
+  mainCode: string; groupCode: string; origin: string; comboHash: string | null; intact: boolean | null
+  slots: { slot: string; label: string; valueCode: string | null; valueName: string
+           boundRevision: number | null; currentRevision: number | null; currentStatus: string | null; revDrift: boolean }[]
+  drift: string[]
+}
+
+export async function loadComposition(id: number): Promise<{ comp?: Composition; error?: string }> {
+  try {
+    return { comp: await apiServer<Composition>(`/codes/products/${id}/composition`) }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '조합 조회 실패' }
+  }
+}
+
 export async function renameProductCode(id: number, codeName: string): Promise<ActState> {
   const name = codeName.trim()
   if (!name) return { error: '코드명은 비울 수 없습니다' }

@@ -31,7 +31,8 @@ with sync_playwright() as pw:
     def find(code):
         return next((p for p in products() if p["mainCode"] == code), None)
 
-    grp = req.get(f"{API}/codes/groups").json()[0]["groupCode"]
+    # #28 — 자유텍스트 등록은 Slot 미정의 그룹 전용 (Slot 그룹은 조합 생성만 허용)
+    grp = next(g["groupCode"] for g in req.get(f"{API}/codes/groups").json() if g["slotCount"] == 0)
     created = None
     try:
         # 생성 → DRAFT

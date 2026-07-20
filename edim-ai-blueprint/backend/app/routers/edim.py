@@ -966,10 +966,12 @@ _PC_REFS = [
     ("code_relationship", "mother_code_id"), ("code_relationship", "child_code_id"),
     ("cst_price", "product_code_id"), ("cpq_selection", "product_code_id"),
     ("cpq_selection_item", "child_code_id"), ("dwg_dimension", "product_code_id"),
-    ("erp_work_process", "product_code_id"), ("product_code_item", "product_code_id"),
+    ("erp_work_process", "product_code_id"),
     ("prt_part", "product_code_id"), ("prt_supplier_code_map", "product_code_id"),
     ("arrangement_component", "product_code_id"),
 ]
+# product_code_item(조합 구성) 은 소유 자식 행 — 외부 참조가 아니므로 삭제 시 함께 정리한다(#28).
+_PC_OWNED = ["product_code_item"]
 
 
 @router.get("/codes/products")
@@ -984,7 +986,7 @@ def list_products(status: str = "") -> list[dict[str, Any]]:
             params.append(status.strip())
         cur.execute(
             f"""SELECT pc.product_code_id, pc.main_code, pc.code_name, cg.group_code,
-                       pc.approval_status, to_char(pc.created_at,'YYYY-MM-DD'),
+                       pc.approval_status, to_char(pc.created_at,'YYYY-MM-DD'), pc.origin,
                        (SELECT count(*) FROM code_relationship cr
                           WHERE cr.mother_code_id=pc.product_code_id OR cr.child_code_id=pc.product_code_id)
                        + (SELECT count(*) FROM cst_price p WHERE p.product_code_id=pc.product_code_id)
@@ -992,7 +994,8 @@ def list_products(status: str = "") -> list[dict[str, Any]]:
                 FROM product_code pc JOIN code_group cg ON cg.group_id=pc.group_id
                 WHERE pc.tenant_id=%s{clause} ORDER BY pc.main_code""", tuple(params))
         return [{"productCodeId": r[0], "mainCode": r[1], "codeName": r[2], "groupCode": r[3],
-                 "status": r[4], "createdAt": r[5], "refs": int(r[6])} for r in cur.fetchall()]
+                 "status": r[4], "createdAt": r[5], "origin": r[6] or "MANUAL",
+                 "refs": int(r[7])} for r in cur.fetchall()]
 
 
 class ProductCreate(BaseModel):
@@ -1003,7 +1006,11 @@ class ProductCreate(BaseModel):
 
 @router.post("/codes/products", status_code=201, dependencies=[SETUP])
 def create_product(request: Request, body: ProductCreate) -> dict[str, Any]:
-    """제품 코드 수동 생성 — DRAFT (중복 main_code 409·그룹 없음 422)."""
+    """제품 코드 수동 생성 — DRAFT (중복 main_code 409·그룹 없음 422).
+
+    #28 불변식: Slot(code_item) 이 정의된 그룹은 자유텍스트 생성을 거부한다.
+    그런 그룹의 제품 코드는 승인된 Sub Code 조합(POST /codes/products/build)으로만 만들어진다.
+    Slot 이 없는 그룹(마스터성·임시 코드군)은 종전대로 수기 등록을 허용한다."""
     main = body.mainCode.strip()[:50]
     if not main or not body.codeName.strip():
         raise HTTPException(422, detail="필수 — 코드·코드명")
@@ -1014,6 +1021,12 @@ def create_product(request: Request, body: ProductCreate) -> dict[str, Any]:
         grp = cur.fetchone()
         if not grp:
             raise HTTPException(422, detail=f"그룹 없음: {body.groupCode}")
+        cur.execute("SELECT count(*) FROM code_item WHERE group_id=%s", (grp[0],))
+        if int(cur.fetchone()[0]) > 0:
+            raise HTTPException(
+                422,
+                detail=f"자유텍스트 등록 불가 — 그룹 {body.groupCode.strip()} 은 Sub Code Slot 이 정의되어 "
+                       "있습니다. 승인된 Sub Code 조합으로 생성하십시오 (제품 코드 조합 생성, #28)")
         cur.execute("SELECT 1 FROM product_code WHERE tenant_id=%s AND main_code=%s", (tid, main))
         if cur.fetchone():
             raise HTTPException(409, detail=f"중복 — 코드 {main}")
@@ -1025,6 +1038,188 @@ def create_product(request: Request, body: ProductCreate) -> dict[str, Any]:
         pid = cur.fetchone()[0]
         _audit(cur, tid, "product_code", pid, "CREATE", request.state.user_id, {"mainCode": main})
     return {"productCodeId": pid, "mainCode": main, "status": "DRAFT"}
+
+
+# ── #28 Product Code Builder — 승인된 Sub Code 조합으로만 생성 (핵심 불변식) ──
+def _combo_hash(group_code: str, pairs: list[tuple[str, str]]) -> str:
+    """조합 해시 — 그룹 + (slot, valueCode) 정렬쌍의 정규화 SHA-256.
+    Snapshot(_snapshot_checksum)과 같은 규약: 키 순서·공백 무관, 조합이 같으면 해시가 같다."""
+    return _snapshot_checksum({"group": group_code, "slots": sorted(pairs)})
+
+
+def _compose_main_code(group_code: str, pairs: list[tuple[str, str]]) -> str:
+    """조합 → 제품 코드 문자열. 현행 코드 관례(`KDP 1-21-13-15`)와 동일한 표기."""
+    return f"{group_code} {'-'.join(v for _, v in sorted(pairs))}"
+
+
+@router.get("/codes/products/builder")
+def product_builder(group: str) -> dict[str, Any]:
+    """조합 생성용 슬롯·선택지 — 그룹의 Slot 별 **승인된** Sub Code 값만 노출.
+
+    승인된 값이 하나도 없는 Slot 은 blocked 로 표시한다(그 그룹은 조합 생성 불가 — 정직한 사유 제공)."""
+    g = group.strip()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT group_id, group_name FROM code_group WHERE tenant_id=%s AND group_code=%s", (tid, g))
+        grp = cur.fetchone()
+        if not grp:
+            raise HTTPException(404, detail=f"그룹 없음: {g}")
+        cur.execute(
+            """SELECT ci.item_id, ci.item_slot, ci.item_name, civ.value_id, civ.value_code,
+                      COALESCE(civ.value_name,''), civ.revision_no, civ.approval_status
+               FROM code_item ci
+               LEFT JOIN code_item_value civ ON civ.item_id=ci.item_id
+               WHERE ci.group_id=%s ORDER BY ci.item_slot, civ.sort_order, civ.value_code""", (grp[0],))
+        slots: dict[str, dict[str, Any]] = {}
+        for item_id, slot, name, vid, vcode, vname, rev, status in cur.fetchall():
+            s = slots.setdefault(slot, {"slot": slot, "itemId": item_id, "label": name,
+                                        "values": [], "pending": 0})
+            if vid is None:
+                continue
+            if status == "APPROVED":
+                s["values"].append({"valueId": vid, "valueCode": vcode, "valueName": vname,
+                                    "revisionNo": int(rev or 1)})
+            else:
+                s["pending"] += 1
+        rows = [dict(v, blocked=not v["values"]) for v in slots.values()]
+        return {"groupCode": g, "groupName": grp[1], "slots": rows,
+                "buildable": bool(rows) and all(not r["blocked"] for r in rows)}
+
+
+class ProductBuild(BaseModel):
+    groupCode: str
+    codeName: str = ""
+    selections: dict[str, str]      # {slot: valueCode}
+
+
+@router.post("/codes/products/build", status_code=201, dependencies=[SETUP])
+def build_product(request: Request, body: ProductBuild) -> dict[str, Any]:
+    """승인된 Sub Code 조합으로 제품 코드 생성 (#28).
+
+    - 그룹의 모든 Slot 에 선택이 있어야 한다 (누락 Slot 명시 422)
+    - 선택된 값은 그 Slot 의 **APPROVED** 값이어야 한다 (미승인 값 명시 422)
+    - main_code 는 조합에서 파생 — 자유텍스트 없음
+    - 같은 조합은 재생성 불가 (409, 기존 코드 회신)"""
+    g = body.groupCode.strip()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT group_id, COALESCE(hierarchy_address,'') FROM code_group "
+                    "WHERE tenant_id=%s AND group_code=%s", (tid, g))
+        grp = cur.fetchone()
+        if not grp:
+            raise HTTPException(422, detail=f"그룹 없음: {g}")
+        cur.execute(
+            """SELECT ci.item_slot, ci.item_id, civ.value_id, civ.value_code, civ.revision_no,
+                      civ.approval_status
+               FROM code_item ci LEFT JOIN code_item_value civ ON civ.item_id=ci.item_id
+               WHERE ci.group_id=%s""", (grp[0],))
+        catalog: dict[str, dict[str, Any]] = {}
+        for slot, item_id, vid, vcode, rev, status in cur.fetchall():
+            c = catalog.setdefault(slot, {"itemId": item_id, "values": {}})
+            if vid is not None:
+                c["values"][vcode] = {"valueId": vid, "revisionNo": int(rev or 1), "status": status}
+        if not catalog:
+            raise HTTPException(422, detail=f"그룹 {g} 에 Sub Code Slot 이 없습니다 — S-1-1 에서 먼저 등록하십시오")
+
+        picked = {k.strip().upper(): str(v).strip() for k, v in body.selections.items() if str(v).strip()}
+        unknown = sorted(set(picked) - set(catalog))
+        if unknown:
+            raise HTTPException(422, detail=f"그룹 {g} 에 없는 Slot: {', '.join(unknown)}")
+        missing = sorted(set(catalog) - set(picked))
+        if missing:
+            raise HTTPException(422, detail=f"모든 Slot 을 선택해야 합니다 — 누락: {', '.join(missing)}")
+
+        pairs: list[tuple[str, str]] = []
+        items: list[dict[str, Any]] = []
+        for slot in sorted(catalog):
+            vcode = picked[slot]
+            v = catalog[slot]["values"].get(vcode)
+            if not v:
+                raise HTTPException(422, detail=f"Slot {slot} 에 없는 값: {vcode}")
+            if v["status"] != "APPROVED":
+                raise HTTPException(
+                    422, detail=f"승인되지 않은 Sub Code — {slot}={vcode} ({v['status']}). "
+                                "승인 후 조합할 수 있습니다 (#28)")
+            pairs.append((slot, vcode))
+            items.append({"slot": slot, "itemId": catalog[slot]["itemId"], "valueId": v["valueId"],
+                          "valueCode": vcode, "revisionNo": v["revisionNo"]})
+
+        chash = _combo_hash(g, pairs)
+        cur.execute("SELECT main_code FROM product_code WHERE tenant_id=%s AND combo_hash=%s", (tid, chash))
+        dup = cur.fetchone()
+        if dup:
+            raise HTTPException(409, detail=f"동일 조합의 제품 코드가 이미 있습니다: {dup[0]}")
+        main = _compose_main_code(g, pairs)
+        if len(main) > 50:
+            # 잘라내면 서로 다른 조합이 같은 코드가 된다 — 조용한 절단 대신 정직한 거부.
+            raise HTTPException(
+                422, detail=f"파생 코드가 50자를 초과합니다({len(main)}자): {main} — Slot 값 표기를 줄이십시오")
+        cur.execute("SELECT 1 FROM product_code WHERE tenant_id=%s AND main_code=%s", (tid, main))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 코드 {main}")
+
+        combo = {"group": g, "slots": [{"slot": s, "valueCode": vc,
+                                        "revisionNo": next(i["revisionNo"] for i in items if i["slot"] == s)}
+                                       for s, vc in sorted(pairs)]}
+        addr = (f"{grp[1]}/{main}" if grp[1] else f"/C/{g}/{main}")[:200]
+        cur.execute(
+            """INSERT INTO product_code (tenant_id, main_code, group_id, code_name, hierarchy_address,
+               approval_status, combo, combo_hash, origin, created_by)
+               VALUES (%s,%s,%s,%s,%s,'DRAFT',%s,%s,'COMPOSED',%s) RETURNING product_code_id""",
+            (tid, main, grp[0], (body.codeName.strip() or main)[:200], addr,
+             json.dumps(combo, ensure_ascii=False), chash, str(request.state.user_id)))
+        pid = cur.fetchone()[0]
+        for n, it in enumerate(items):
+            cur.execute(
+                """INSERT INTO product_code_item (product_code_id, item_slot, source_item_id,
+                   is_required, sort_order, value_id, value_code, revision_no)
+                   VALUES (%s,%s,%s,true,%s,%s,%s,%s)""",
+                (pid, it["slot"], it["itemId"], n, it["valueId"], it["valueCode"], it["revisionNo"]))
+        _audit(cur, tid, "product_code", pid, "COMPOSE", request.state.user_id,
+               {"mainCode": main, "group": g, "comboHash": chash[:12],
+                "slots": {s: vc for s, vc in pairs}})
+    return {"productCodeId": pid, "mainCode": main, "status": "DRAFT",
+            "comboHash": chash, "origin": "COMPOSED", "slots": items}
+
+
+@router.get("/codes/products/{product_code_id}/composition")
+def product_composition(product_code_id: int) -> dict[str, Any]:
+    """제품 코드 조합 상세 (#28) — 고정된 Slot·값·Revision + 해시 무결성/Revision drift.
+
+    조합 자체는 불변이다. 원본 Sub Code 값이 이후 개정되면 revDrift 로 드러날 뿐 조합은 바뀌지 않는다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT pc.main_code, pc.code_name, pc.approval_status, cg.group_code,
+                      pc.combo, pc.combo_hash, pc.origin
+               FROM product_code pc JOIN code_group cg ON cg.group_id=pc.group_id
+               WHERE pc.tenant_id=%s AND pc.product_code_id=%s""", (tid, product_code_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"코드 없음: {product_code_id}")
+        cur.execute(
+            """SELECT pci.item_slot, ci.item_name, pci.value_code, pci.revision_no,
+                      civ.revision_no, civ.approval_status, COALESCE(civ.value_name,'')
+               FROM product_code_item pci
+               JOIN code_item ci ON ci.item_id=pci.source_item_id
+               LEFT JOIN code_item_value civ ON civ.value_id=pci.value_id
+               WHERE pci.product_code_id=%s ORDER BY pci.sort_order, pci.item_slot""",
+            (product_code_id,))
+        slots = [
+            {"slot": r[0], "label": r[1], "valueCode": r[2], "valueName": r[6],
+             "boundRevision": r[3], "currentRevision": r[4], "currentStatus": r[5],
+             "revDrift": bool(r[3] and r[4] and int(r[3]) != int(r[4]))}
+            for r in cur.fetchall()
+        ]
+        chash = row[5]
+        intact = None
+        if chash and row[4]:
+            pairs = [(s["slot"], s["valueCode"]) for s in slots if s["valueCode"]]
+            intact = _combo_hash(row[3], pairs) == chash
+        return {"productCodeId": product_code_id, "mainCode": row[0], "codeName": row[1],
+                "status": row[2], "groupCode": row[3], "origin": row[6],
+                "comboHash": chash, "intact": intact, "slots": slots,
+                "drift": [s["slot"] for s in slots if s["revDrift"]]}
 
 
 class ProductPatch(BaseModel):
@@ -1069,6 +1264,8 @@ def delete_product(product_code_id: int, request: Request) -> dict[str, Any]:
             cur.execute(f"SELECT 1 FROM {table} WHERE {col}=%s LIMIT 1", (product_code_id,))
             if cur.fetchone():
                 raise HTTPException(409, detail=f"참조 있어 삭제 불가({table}) — 비활성(INACTIVE) 처리 권장")
+        for owned in _PC_OWNED:
+            cur.execute(f"DELETE FROM {owned} WHERE product_code_id=%s", (product_code_id,))
         cur.execute("DELETE FROM product_code WHERE tenant_id=%s AND product_code_id=%s RETURNING main_code",
                     (tid, product_code_id))
         row = cur.fetchone()
@@ -1117,6 +1314,8 @@ def batch_product(request: Request, body: ProductBatch) -> dict[str, Any]:
                         ref = table; break
                 if ref:
                     skipped.append({"id": str(pid), "code": main_code, "reason": f"참조({ref})"}); continue
+                for owned in _PC_OWNED:
+                    cur.execute(f"DELETE FROM {owned} WHERE product_code_id=%s", (pid,))
                 cur.execute("DELETE FROM product_code WHERE tenant_id=%s AND product_code_id=%s", (tid, pid))
                 _audit(cur, tid, "product_code", pid, "DELETE", request.state.user_id,
                        {"mainCode": main_code, "batch": True})
@@ -3709,6 +3908,17 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
         cur.execute(
             "UPDATE product_code SET approval_status=%s WHERE product_code_id=%s",
             (result, row[1]))
+    elif row[0] == "code_item":
+        # #28 — Sub Code 승인 결정이 값에 전혀 반영되지 않던 결함 수정.
+        # S-1-1 은 항목(code_item) 단위로 요청하므로 그 하위 값 전체를 전이한다.
+        # (Revision 은 값 내용이 바뀔 때 PATCH /codes/values 에서 올린다 — 승인은 상태만 전이)
+        cur.execute(
+            "UPDATE code_item_value SET approval_status=%s, updated_at=now() "
+            "WHERE tenant_id=%s AND item_id=%s", (result, tid, row[1]))
+    elif row[0] == "code_item_value":
+        cur.execute(
+            "UPDATE code_item_value SET approval_status=%s, updated_at=now() "
+            "WHERE tenant_id=%s AND value_id=%s", (result, tid, row[1]))
     elif row[0] == "code_relationship":
         # F4 — Mother 코드의 관계 세트 전이 (Running Test 통과 승인, CODE-009)
         cur.execute(
@@ -11846,8 +12056,11 @@ def patch_code_value(value_id: int, body: ValuePatch, request: Request) -> dict[
         if not row:
             raise HTTPException(404, detail=f"value not found: {value_id}")
         assign = ", ".join(f"{k}=%s" for k in sets)
+        # #28 — 내용이 바뀌면 Sub Code Revision 을 올린다. 이미 고정된 제품 코드 조합은
+        # 생성 시점 Revision 을 보존하므로, 조합 상세에서 revDrift 로 드러난다(조합 자체는 불변).
+        bump = ", revision_no=revision_no+1" if ("value_name" in sets or "description" in sets) else ""
         cur.execute(
-            f"UPDATE code_item_value SET {assign}, updated_by=%s, updated_at=now() WHERE value_id=%s",
+            f"UPDATE code_item_value SET {assign}{bump}, updated_by=%s, updated_at=now() WHERE value_id=%s",
             (*sets.values(), request.state.login, value_id))
         _audit(cur, tid, "code_item_value", value_id, "VALUE_UPDATE", request.state.user_id,
                after={k: str(v) for k, v in sets.items()},
