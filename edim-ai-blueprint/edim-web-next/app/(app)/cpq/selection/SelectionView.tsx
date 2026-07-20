@@ -196,8 +196,17 @@ export function SelectionView(props: {
   const save = () => start(async () => {
     const r = await saveSelection(props.projectNo, finished || 'KDCR 3-13-13-15', slotValues)
     if (r.error) { say(r.error, true); return }
-    setSavedSelId(r.selectionId!); say(`견적안 저장 ✓ — #${r.selectionId} ${finished} (cpq_selection · Run 대상)`)
+    setSavedSelId(r.selectionId!)
+    // 트리아지 #39 — 저장 = Configuration Snapshot 고정 (추적은 Snapshot ID)
+    say(`견적안 저장 ✓ — Config Snapshot #${r.selectionId} ${finished} (Run 대상)`)
   })
+  // 트리아지 #43 — CPQ Session Reset: 임시 선택 상태 원복 (결과물은 저장된 견적안·Run 산출물에만)
+  const resetSession = () => {
+    setSlotValues(props.initialSlots)
+    setSavedSelId(null)
+    reExpand(props.initialSlots)
+    say(t('cpq.sessionReset', '세션 초기화 ✓ — 임시 선택 상태 원복 (저장된 견적안·산출물은 유지)'))
+  }
   const startRun = () => router.push(savedSelId ? `/cpq/run?selectionId=${savedSelId}` : '/cpq/run')
   // 블록 다이어그램 DXF 다운로드 — /cad/from-blocks.dxf 엔진 (레거시 패리티)
   const blocksDxf = async () => {
@@ -246,6 +255,9 @@ export function SelectionView(props: {
           <option value="">{t('cpq.quoteLoad', '견적안 불러오기…')}</option>
           {props.selections.map((s) => <option key={s.selectionId} value={s.selectionId}>#{s.selectionId} {s.finishedGoodsCode}</option>)}
         </select>
+        <button className="b" data-cpq-reset disabled={pending}
+          title={t('cpq.sessionResetHint', 'CPQ Session Reset — 임시 선택 상태를 기본값으로 원복')}
+          onClick={resetSession}>{t('cpq.resetBtn', '세션 초기화')}</button>
         <button className="b" data-sel-del disabled={pending || !savedSelId}
           title={t('cpq.delSelHint', '선택한 견적안 삭제 — Run 이력이 있으면 409 보호')}
           onClick={() => savedSelId && start(async () => {

@@ -3651,6 +3651,18 @@ UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "di18n.importDone": ('Bulk import ✓', '一括インポート ✓', '批量导入 ✓'),
     "di18n.cellUnit": (' cells', 'セル', '单元格'),
     "di18n.rejected": ('rejected', '拒否', '拒绝'),
+    "cpq.sessionReset": ('Session reset ✓ — temporary selections restored (saved drafts/outputs kept)', 'セッション初期化 ✓ — 一時選択を復元 (保存済み案・成果物は維持)', '会话重置 ✓ — 临时选择已还原 (已保存方案/产出保留)'),
+    "cpq.sessionResetHint": ('CPQ Session Reset — restore temporary selections to defaults', 'CPQ Session Reset — 一時選択を既定値へ復元', 'CPQ 会话重置 — 临时选择还原为默认值'),
+    "cpq.resetBtn": ('Reset session', 'セッション初期化', '会话重置'),
+    "handoff.title": ('ERP Handoff — only approved packages are received', 'ERP Handoff — 承認済み Package のみ受信', 'ERP Handoff — 仅接收已批准的 Package'),
+    "handoff.createBtn": ('Create Handoff', 'Handoff 作成', '创建 Handoff'),
+    "handoff.createHint": ('Creates approval request after validation (BOM/cost/quotation) — re-creation makes a new version', '検証通過後に承認要求を作成 — 再作成は新 Version', '通过校验后创建审批请求 — 重新创建为新版本'),
+    "handoff.grade": ('Validation', '検証', '校验'),
+    "handoff.at": ('Created', '生成', '创建'),
+    "handoff.acceptBtn": ('Accept in ERP', 'ERP 受信', 'ERP 接收'),
+    "handoff.acceptHint": ('Accept into ERP — project work starts', 'ERP 受信 — プロジェクト業務開始', 'ERP 接收 — 项目业务开始'),
+    "handoff.waitApproval": ('Awaiting approval', '承認待ち', '待审批'),
+    "handoff.empty": ('No handoffs — create from a SUCCESS run', 'Handoff なし — SUCCESS Run から作成', '暂无 Handoff — 从 SUCCESS Run 创建'),
 }
 
 def seed_v32(cur, tid: int) -> None:

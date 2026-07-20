@@ -3418,6 +3418,11 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
         cur.execute("UPDATE tbx_macro SET status=%s, updated_at=now() "
                     "WHERE tenant_id=%s AND macro_id=%s",
                     ("APPROVED" if approve else "DRAFT", tid, row[1]))
+    elif row[0] == "erp_handoff":
+        # 트리아지 #46 — Handoff 상태기계: 승인=approved (수신 대기), 반려=rejected
+        cur.execute("UPDATE erp_handoff SET status=%s, decided_at=now() "
+                    "WHERE tenant_id=%s AND handoff_id=%s AND status='approval_requested'",
+                    ("approved" if approve else "rejected", tid, row[1]))
     cur.execute(
         """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
            VALUES (%s,%s,%s,%s,%s,%s)""",
@@ -7532,8 +7537,10 @@ async def _advance(run_id: int, tid: int, selection_id: int,
             state["totalK"] = r.total_k
             cur.execute(
                 """UPDATE cpq_run SET status='SUCCESS', finished_at=now(),
-                   dimension_values=%s WHERE run_id=%s""",
-                (json.dumps({"KDCR 3-13": r.dims}), run_id))
+                   dimension_values=%s, bom_snapshot=%s WHERE run_id=%s""",
+                (json.dumps({"KDCR 3-13": r.dims}),
+                 # 트리아지 #41 — BOM Snapshot: 전개 결과를 Run 에 고정 (같은 Snapshot = 같은 결과 재현)
+                 json.dumps(r.items), run_id))
         state["status"] = "SUCCESS"
         state["current"] = len(RUN_TASKS)
     except Exception as e:  # noqa: BLE001
@@ -9473,6 +9480,130 @@ def run_list() -> list[dict[str, Any]]:
                  "outputCount": x[5], "createdBy": x[6], "isTest": x[7],
                  "latest": x[0] == latest, "referenced": x[0] in refs,
                  "protected": x[0] == latest or x[0] in refs} for x in cur.fetchall()]
+
+
+@router.get("/cpq/runs/{run_id}/bom-snapshot")
+def run_bom_snapshot(run_id: int) -> dict[str, Any]:
+    """BOM Snapshot 조회 (트리아지 #41) — Run 완료 시 고정된 전개 결과."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT bom_snapshot FROM cpq_run WHERE tenant_id=%s AND run_id=%s", (tid, run_id))
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"run not found: {run_id}")
+    rows = row[0] or []
+    return {"runId": run_id, "count": len(rows), "rows": rows}
+
+
+class HandoffCreate(BaseModel):
+    runId: int
+
+
+@router.post("/erp/handoffs", status_code=201, dependencies=[SETUP])
+def handoff_create(request: Request, body: HandoffCreate) -> dict[str, Any]:
+    """ERP Handoff 생성 (트리아지 #44~47) — Validation(pass/warning/fail) 후 승인 요청.
+
+    ERP 는 승인된 Handoff 만 수신한다. 같은 프로젝트 재생성 = 새 Version, 이전 미수신 건은 superseded."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT r.status, r.bom_snapshot, p.project_no
+               FROM cpq_run r
+               JOIN cpq_selection s ON s.selection_id=r.selection_id
+               JOIN prj_project p ON p.project_id=s.project_id
+               WHERE r.tenant_id=%s AND r.run_id=%s""", (tid, body.runId))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"run not found: {body.runId}")
+        status, bom, project_no = row
+        # Guard — 임시/실패 Run·빈 BOM 차단 (fail 등급)
+        checks = []
+        if status != "SUCCESS":
+            checks.append({"check": "run", "grade": "fail", "detail": f"Run 상태 {status} — SUCCESS 만 Handoff 가능"})
+        bom_rows = len(bom or [])
+        checks.append({"check": "bom", "grade": "pass" if bom_rows > 0 else "fail",
+                       "detail": f"BOM Snapshot {bom_rows}행"})
+        cur.execute("SELECT count(*) FROM cst_calc WHERE tenant_id=%s AND run_id=%s", (tid, body.runId))
+        cost_n = cur.fetchone()[0]
+        checks.append({"check": "cost", "grade": "pass" if cost_n else "warning",
+                       "detail": f"원가 상세 {cost_n}건" if cost_n else "원가 상세 없음"})
+        cur.execute("SELECT count(*) FROM cpq_output WHERE run_id=%s AND output_type='QUOTATION'", (body.runId,))
+        q_n = cur.fetchone()[0]
+        checks.append({"check": "quotation", "grade": "pass" if q_n else "warning",
+                       "detail": "견적서 산출물" if q_n else "견적서 산출물 없음"})
+        if any(c["grade"] == "fail" for c in checks):
+            raise HTTPException(422, detail="Handoff Validation 실패 — " +
+                                "; ".join(c["detail"] for c in checks if c["grade"] == "fail"))
+        grade = "warning" if any(c["grade"] == "warning" for c in checks) else "pass"
+        # 새 Version — 이전 미수신(validated/approval_requested/approved) 건 supersede
+        cur.execute(
+            "SELECT COALESCE(max(version),0)+1 FROM erp_handoff WHERE tenant_id=%s AND project_no=%s",
+            (tid, project_no))
+        version = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO erp_handoff (tenant_id, project_no, run_id, version, status, validation, created_by)
+               VALUES (%s,%s,%s,%s,'validated',%s,%s) RETURNING handoff_id""",
+            (tid, project_no, body.runId, version,
+             json.dumps({"grade": grade, "checks": checks}), request.state.login))
+        hid = cur.fetchone()[0]
+        cur.execute(
+            """UPDATE erp_handoff SET status='superseded', superseded_by=%s
+               WHERE tenant_id=%s AND project_no=%s AND handoff_id<>%s
+                 AND status IN ('validated','approval_requested','approved')""",
+            (hid, tid, project_no, hid))
+        # 승인 요청 자동 생성 → 승인함 (승인 후에만 ERP 수신 가능)
+        cur.execute(
+            """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
+               request_type, step, requester_id, comment)
+               VALUES (%s,'erp_handoff',%s,'CREATE','승인',%s,%s)""",
+            (tid, hid, request.state.user_id, f"ERP Handoff — {project_no} v{version} (run #{body.runId}, {grade})"))
+        cur.execute("UPDATE erp_handoff SET status='approval_requested' WHERE handoff_id=%s", (hid,))
+        _audit(cur, tid, "erp_handoff", hid, "HANDOFF_CREATE", request.state.user_id,
+               {"projectNo": project_no, "runId": body.runId, "version": version, "grade": grade})
+    return {"handoffId": hid, "projectNo": project_no, "version": version,
+            "status": "approval_requested", "grade": grade, "checks": checks}
+
+
+@router.get("/erp/handoffs")
+def handoff_list(project: str = "") -> list[dict[str, Any]]:
+    """Handoff 목록 (트리아지 #49) — 수신 상태 표시."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        params: list[Any] = [tid]
+        clause = ""
+        if project.strip():
+            clause = " AND project_no=%s"
+            params.append(project.strip())
+        cur.execute(
+            f"""SELECT handoff_id, project_no, run_id, version, status, validation,
+                       to_char(created_at,'MM-DD HH24:MI'), COALESCE(created_by,''),
+                       to_char(accepted_at,'MM-DD HH24:MI')
+               FROM erp_handoff WHERE tenant_id=%s{clause}
+               ORDER BY handoff_id DESC LIMIT 50""", tuple(params))
+        return [{"handoffId": r[0], "projectNo": r[1], "runId": r[2], "version": r[3],
+                 "status": r[4], "grade": (r[5] or {}).get("grade"),
+                 "checks": (r[5] or {}).get("checks", []),
+                 "createdAt": r[6], "createdBy": r[7], "acceptedAt": r[8]}
+                for r in cur.fetchall()]
+
+
+@router.post("/erp/handoffs/{handoff_id}/accept", dependencies=[SETUP])
+def handoff_accept(handoff_id: int, request: Request) -> dict[str, Any]:
+    """ERP 수신 (트리아지 #46) — 승인된 Handoff 만 수신 가능."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT status, project_no FROM erp_handoff WHERE tenant_id=%s AND handoff_id=%s",
+                    (tid, handoff_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"handoff not found: {handoff_id}")
+        if row[0] != "approved":
+            raise HTTPException(409, detail=f"승인된 Handoff 만 수신 가능 (현재 {row[0]})")
+        cur.execute("UPDATE erp_handoff SET status='accepted', accepted_at=now() WHERE handoff_id=%s",
+                    (handoff_id,))
+        _audit(cur, tid, "erp_handoff", handoff_id, "HANDOFF_ACCEPT", request.state.user_id,
+               {"projectNo": row[1]})
+    return {"handoffId": handoff_id, "status": "accepted"}
 
 
 @router.get("/cpq/runs/{run_id}/outputs")
