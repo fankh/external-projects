@@ -140,11 +140,8 @@ for suite in SUITES:
             tail += " (retry)"
     results.append((suite, passed, tail))
 
-# check_tenant_scope — 정적 게이트 (서버 불요, CI 와 동일 검사)
-print(f"
-{'=' * 60}
-▶ check_tenant_scope.py (static)
-{'=' * 60}")
+# check_tenant_scope — 정적 게이트 (서버 불요, CI 잡 tenant-scope 와 동일 검사)
+print(f"\n{'=' * 60}\n▶ check_tenant_scope.py (static)\n{'=' * 60}")
 p = subprocess.run([sys.executable, os.path.join(HERE, "check_tenant_scope.py")],
                    env=env, capture_output=True, text=True, encoding="utf-8",
                    errors="replace", timeout=120)
