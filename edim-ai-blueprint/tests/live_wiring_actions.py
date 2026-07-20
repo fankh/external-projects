@@ -64,8 +64,16 @@ rel_cands = [p["mainCode"] for p in req("GET", "/codes/products")
              if p["mainCode"] != DWG and p["mainCode"] not in {c["code"] for c in children}
              and not p["mainCode"].startswith("KDW-BT")][:6]
 bom0 = req("GET", f"/drawings/{DWG}/bom")
-bom_cand = next(p["partNo"] for p in req("GET", "/parts")
-                if p["partNo"] not in {b["partNo"] for b in bom0})
+in_bom = {b["partNo"] for b in bom0}
+bom_cand = next((p["partNo"] for p in req("GET", "/parts") if p["partNo"] not in in_bom), None)
+bom_probe = False
+if bom_cand is None:
+    # 전 부품이 이미 BOM 에 있으면 프로브 부품 생성 (tail 에서 삭제)
+    bom_cand = "BOMT-PROBE-01"
+    req("POST", "/parts", {"partNo": bom_cand, "name": "BOM 배선 프로브", "specification": "",
+                            "materialCode": "", "supplier": "", "productCode": "", "unit": "EA",
+                            "weight": None, "isStandard": False})
+    bom_probe = True
 d0 = req("GET", "/notifications/digest")["unread"]
 
 from playwright.sync_api import sync_playwright  # noqa: E402
@@ -172,12 +180,20 @@ try:
         ok("BOM 중복 409 + 삭제 원복", all(x["partNo"] != bom_cand for x in bom2) and len(bom2) == len(bom0))
         b.close()
 finally:
-    # 정리 — 초대 알림 read·잔재 psql
+    # 정리 — 초대 알림 read·잔재 psql·BOM 라인/프로브 부품 회수
     for x in req("GET", "/notifications"):
         if "EDIM 초대" in x.get("title", "") and not x.get("read"):
             req("POST", f"/notifications/{x['id']}/read")
+    for b2 in req("GET", f"/drawings/{DWG}/bom"):
+        if b2["partNo"] == bom_cand:
+            req("DELETE", f"/drawings/{DWG}/bom/{b2['bomId']}")
+    if bom_probe:
+        try:
+            req("DELETE", f"/parts/{bom_cand}")
+        except Exception:  # noqa: BLE001
+            psql(f"DELETE FROM prt_part WHERE part_no='{bom_cand}'")
     psql("DELETE FROM com_company WHERE company_name LIKE 'BATCH-T%'")
     psql("DELETE FROM product_code WHERE main_code LIKE 'KDW-BT%'")
-    print("정리 — 알림 read·거래처/제품코드 psql", flush=True)
+    print("정리 — 알림 read·BOM 프로브·거래처/제품코드 psql", flush=True)
 
 print(f"\nlive_wiring_actions: {n}/{n} PASS")
