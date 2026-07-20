@@ -81,10 +81,13 @@ try:
        psql("SELECT count(*) FROM dwg_file WHERE folder='RECEIVED' AND file_role<>'RECEIVED'") == "0")
 
     # ── 2) 산출물 프로브 행 심기 (실제 납품물을 건드리지 않기 위해 자체 생성) ──
+    # project_no 는 테넌트마다 존재할 수 있다(PS-61313-5 는 실제로 2개 테넌트에 있음).
+    # edim 계정의 테넌트로 못 박지 않으면 프로브 행이 남의 테넌트에 생겨 404 가 난다.
     psql(f"INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type, file_path, "
          f"file_size, file_role) SELECT p.tenant_id, p.project_id, 'DWG', '{OUTNAME}', 'DXF', "
          f"'{PROJ}/DWG/run999_{OUTNAME}', 4242, 'OUTPUT' FROM prj_project p "
-         f"WHERE p.project_no='{PROJ}' LIMIT 1")
+         f"WHERE p.project_no='{PROJ}' "
+         f"AND p.tenant_id=(SELECT tenant_id FROM sys_user WHERE login_id='edim' LIMIT 1) LIMIT 1")
     out_id = psql(f"SELECT file_id FROM dwg_file WHERE file_name='{OUTNAME}'").splitlines()[0]
     before = psql(f"SELECT file_path||'|'||file_size FROM dwg_file WHERE file_id={out_id}")
     ok(f"프로브 산출물 행 생성 (#{out_id})", before.endswith("|4242"))
