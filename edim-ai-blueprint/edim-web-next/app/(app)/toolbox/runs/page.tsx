@@ -30,8 +30,13 @@ export default async function RunsPage() {
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
           <>
-            <RunGrid rows={rows} />
-            <SnapshotPanel rows={snaps} latestRunId={latestRunId} />
+            {/* RunGrid 루트가 height:100% 라 래퍼 없이는 형제(Snapshot 패널) 위를 덮어 클릭을 가로챈다 */}
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              <RunGrid rows={rows} />
+            </div>
+            <div style={{ flexShrink: 0 }}>
+              <SnapshotPanel rows={snaps} latestRunId={latestRunId} />
+            </div>
           </>
         )}
       </div>
