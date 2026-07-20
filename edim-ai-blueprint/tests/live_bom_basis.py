@@ -141,7 +141,14 @@ finally:
         psql(f"DELETE FROM sys_snapshot WHERE snapshot_id={snap_id}")
     if run_id:
         req("DELETE", f"/cpq/runs/{run_id}", TOK)
+        # cpq_output·cst_calc 가 run_id 를 참조해 cpq_run 단독 DELETE 는 FK 로 막힌다 —
+        # 자식부터 지워야 잔존 0 (테스트 데이터 정리 원칙)
+        psql(f"DELETE FROM cpq_output WHERE run_id={run_id}")
+        psql(f"DELETE FROM cst_calc WHERE run_id={run_id}")
         psql(f"DELETE FROM cpq_run WHERE run_id={run_id}")
-    print("정리 — 검증 Run·Snapshot 삭제 (관계 Revision 은 이력이라 보존)")
+        left = psql(f"SELECT count(*) FROM cpq_run WHERE run_id={run_id}")
+        print(f"정리 — 검증 Run {run_id} 잔존 {left} (관계 Revision 은 이력이라 보존)")
+    else:
+        print("정리 — 생성물 없음")
 
 print(f"\nlive_bom_basis: {n}/{n} PASS")
