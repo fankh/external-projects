@@ -8052,6 +8052,21 @@ def hierarchy_validate(tree: str = "PRODUCT") -> dict[str, Any]:
             if parent_id is None and len(_segs(addr)) > 1:
                 issues.append({"type": "ROOT_FORMAT", "nodeId": hid, "name": name, "address": addr,
                                "detail": "루트 노드 주소가 다중 세그먼트"})
+        # 0.8 — 고아 자산 주소: 어떤 트리 노드 프리픽스에도 안 걸리는 hierarchy_address
+        # (영향 분석·이동 연쇄 갱신 대상에서 누락되는 참조 — PRODUCT 점검 시 1회 보고)
+        if tree == "PRODUCT":
+            for tbl, code_col, label in _H_REF_TABLES:
+                cur.execute(
+                    f"""SELECT {code_col}, hierarchy_address FROM {tbl}
+                        WHERE tenant_id=%s AND COALESCE(hierarchy_address,'')<>''
+                          AND NOT EXISTS (SELECT 1 FROM sys_hierarchy h
+                                          WHERE h.tenant_id=%s AND (hierarchy_address=h.address
+                                                OR hierarchy_address LIKE h.address || '/%%'))
+                        ORDER BY {code_col}""", (tid, tid))
+                for code, addr in cur.fetchall():
+                    issues.append({"type": "ORPHAN_ASSET", "nodeId": 0, "name": f"{label} {code}",
+                                   "address": addr,
+                                   "detail": "자산 주소가 어떤 트리 노드에도 속하지 않음 — 영향 분석·이동 연쇄 갱신 누락"})
     return {"tree": tree, "nodes": len(rows), "ok": not issues, "issues": issues}
 
 
