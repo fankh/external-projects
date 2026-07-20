@@ -65,7 +65,7 @@ export function InfoAccessPanel({ data, temps }: { data: InfoAccessData; temps: 
           <tbody>
             {data.groups.map((g) => (
               <tr key={g.key}>
-                <td>{g.label}</td>
+                <td>{t(`info.group.${g.key}`, g.label)}</td>
                 {data.roles.map((role) => (
                   <td key={role} className="c">
                     <select className="in" data-info-cell={`${role}:${g.key}`} disabled={busy}
@@ -90,7 +90,7 @@ export function InfoAccessPanel({ data, temps }: { data: InfoAccessData; temps: 
           <input className="in" placeholder={t('info.loginPh', '사번')} style={{ width: 90 }}
             value={gLogin} onChange={(e) => setGLogin(e.target.value)} />
           <select className="in" style={{ width: 110 }} value={gGroup} onChange={(e) => setGGroup(e.target.value)}>
-            {data.groups.map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
+            {data.groups.map((g) => <option key={g.key} value={g.key}>{t(`info.group.${g.key}`, g.label)}</option>)}
           </select>
           <input className="in" type="number" min={1} max={720} style={{ width: 58 }}
             value={gHours} onChange={(e) => setGHours(e.target.value)} title={t('info.hours', '시간')} />

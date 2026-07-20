@@ -3554,6 +3554,16 @@ UI_TRANSLATIONS_V33: dict[str, tuple[str, str, str]] = {
     "process.node.공통": ('Common', '共通', '公共'),
     "process.node.승인함": ('Approval Inbox', '承認箱', '审批箱'),
     "process.node.Run 이력·Snapshot": ('Run History & Snapshot', 'Run 履歴・Snapshot', 'Run 历史·Snapshot'),
+    # 1.5 정보그룹 라벨 — 백엔드 INFO_GROUPS 가 원천이라 화면 하드코딩 키가 없던 구간
+    "info.group.cost": ('Cost (actual · PCR · breakdown)', '原価 (実績・PCR・明細)', '成本 (实绩·PCR·明细)'),
+    "info.group.price": ('Unit price (purchase · sales)', '単価 (購買・販売)', '单价 (采购·销售)'),
+    "info.group.quote": ('Quotation amount', '見積金額', '报价金额'),
+    "info.group.partner": ('Customer · supplier name', '取引先・仕入先名', '客户·供应商名称'),
+    # 2.2a S-1-1 Slot 값 승인 열
+    "subcode.approveCol": ('Approve', '承認', '审批'),
+    "subcode.approveHint": ('Approve pending values so they can be composed',
+                            '未承認値を承認して組合せ対象にする', '审批未批准值以纳入组合'),
+    "common.approve": ('Approve', '承認', '审批'),
 }
 
 UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
