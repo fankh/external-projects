@@ -9047,7 +9047,9 @@ def hierarchy_node_delete(node_id: int, request: Request) -> dict[str, Any]:
         lk = cur.fetchone()
         if lk and lk[0]:
             raise HTTPException(409, detail="잠금 노드는 삭제 불가 — 잠금 해제 후 진행 (🔒)")
-        cur.execute("SELECT 1 FROM sys_hierarchy WHERE parent_id=%s LIMIT 1", (node_id,))
+        # 테넌트 조건 없이 하위를 조회하면 남의 테넌트 트리 구조가 409 로 새어 나간다
+        cur.execute("SELECT 1 FROM sys_hierarchy WHERE tenant_id=%s AND parent_id=%s LIMIT 1",
+                    (tid, node_id))
         if cur.fetchone():
             raise HTTPException(409, detail="하위 노드가 있는 노드는 삭제 불가")
         # 트리아지 #25 — 주소 참조 자산이 있으면 삭제 차단 (영향 분석 확인 유도)
@@ -10501,7 +10503,9 @@ def delete_selection(selection_id: int, request: Request) -> dict[str, Any]:
     """견적안 삭제 (C1) — Run 참조 시 409 보호."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT 1 FROM cpq_run WHERE selection_id=%s LIMIT 1", (selection_id,))
+        # 테넌트 조건 없이 참조를 조회하면 남의 테넌트 Run 존재 여부가 409 로 새어 나간다
+        cur.execute("SELECT 1 FROM cpq_run WHERE tenant_id=%s AND selection_id=%s LIMIT 1",
+                    (tid, selection_id))
         if cur.fetchone():
             raise HTTPException(409, detail="Run 이력이 있는 견적안은 삭제 불가 (참조 보호)")
         cur.execute(
@@ -10552,11 +10556,21 @@ async def start_run(body: RunRequest) -> dict[str, Any]:
 
 @router.get("/cpq/runs/{run_id}")
 def run_status(run_id: int) -> dict[str, Any]:
+    # 테넌트 소유 확인 — 예전엔 이 검사가 없어 run_id 만 알면(연번이라 추측 가능)
+    # 다른 고객사의 Run 상태·산출물 파일명이 그대로 조회됐다(교차 테넌트 누출).
+    # 메모리 캐시(_runs) 경로도 같은 구멍이었으므로 두 경로 앞에서 함께 막는다.
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT status FROM cpq_run WHERE tenant_id=%s AND run_id=%s", (tid, run_id))
+        owned = cur.fetchone()
+        if not owned:
+            raise HTTPException(404, detail=f"run not found: {run_id}")
     state = _runs.get(run_id)
     if state is None:
         # 백엔드 재기동 후 — DB 에서 산출물 복원
         with _conn() as conn, conn.cursor() as cur:
-            cur.execute("SELECT status FROM cpq_run WHERE run_id=%s", (run_id,))
+            tid = _tenant_id(cur)
+            cur.execute("SELECT status FROM cpq_run WHERE tenant_id=%s AND run_id=%s", (tid, run_id))
             row = cur.fetchone()
             if not row:
                 raise HTTPException(404, detail=f"run not found: {run_id}")

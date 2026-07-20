@@ -98,6 +98,7 @@ SUITES = [
     "live_hardening.py",            # 재감사 완주 — Run is_test·패키지 워터마크·Table 낙관적 잠금
     "live_triage.py",               # 신규요구 트리아지 — Snapshot·Handoff 상태기계·Reset·dryRun·Package·export
     "live_multitenant.py",          # 멀티테넌시 격리 (1.2) — 세션 테넌트·데이터 격리·토큰 호환
+    "live_tenant_isolation.py",     # 교차 테넌트 실증 (2.9) — 남의 자원 ID 직접 접근 전량 차단
     "live_platform_tenant.py",      # 고객사 프로비저닝 (1.3) — 온보딩·계약 게이트·플랫폼 2계층
     "live_info_access.py",          # 정보 접근 권한·마스킹 (1.5) — 역할 규칙·다운로드 차단·임시 열람
     "live_snapshot.py",             # Snapshot 체계 (1.7) — 고정·재현 검증·drift·Handoff 연결
