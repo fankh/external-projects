@@ -10186,6 +10186,156 @@ def run_bom_snapshot(run_id: int) -> dict[str, Any]:
     return {"runId": run_id, "count": len(rows), "rows": rows}
 
 
+# ── 1.7 Snapshot 레지스트리 (요구 #9) — 실행 결과 고정·재현·무결성 ──
+
+class SnapshotCreate(BaseModel):
+    runId: int
+    note: str = ""
+
+
+def _run_state(cur, tid: int, run_id: int) -> dict[str, Any]:
+    """Run 시점 상태 수집 — Snapshot payload 이자 재현(drift) 대조의 기준."""
+    cur.execute(
+        """SELECT r.status, r.run_type, COALESCE(r.is_test,false), r.bom_snapshot,
+                  s.selection_id, s.finished_goods_code, s.selections, p.project_no
+           FROM cpq_run r
+           LEFT JOIN cpq_selection s ON s.selection_id=r.selection_id
+           LEFT JOIN prj_project p ON p.project_id=s.project_id
+           WHERE r.tenant_id=%s AND r.run_id=%s""", (tid, run_id))
+    r = cur.fetchone()
+    if not r:
+        raise HTTPException(404, detail=f"run not found: {run_id}")
+    cur.execute(
+        """SELECT calc_type, total_amount FROM cst_calc
+           WHERE tenant_id=%s AND run_id=%s ORDER BY calc_type""", (tid, run_id))
+    costs = [{"calcType": c[0], "total": float(c[1])} for c in cur.fetchall()]
+    cur.execute(
+        """SELECT output_type, data->>'file', data->>'fileType' FROM cpq_output
+           WHERE run_id=%s ORDER BY output_type, output_id""", (run_id,))
+    outputs = [{"type": o[0], "file": o[1], "fileType": o[2]} for o in cur.fetchall()]
+    bom = r[3] or []
+    return {
+        "runId": run_id, "status": r[0], "runType": r[1], "isTest": r[2],
+        "selectionId": r[4], "finishedGoodsCode": r[5],
+        "selections": r[6], "projectNo": r[7],
+        "bomRows": len(bom), "bom": bom, "costs": costs, "outputs": outputs,
+    }
+
+
+def _snapshot_checksum(payload: dict[str, Any]) -> str:
+    """정규화 직렬화 기준 SHA-256 — 키 순서·공백에 무관한 안정 해시."""
+    canon = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def _freeze_snapshot(cur, tid: int, run_id: int, actor_id: int, note: str = "") -> dict[str, Any]:
+    """Run 상태를 Snapshot 으로 동결 — 같은 Run 재고정은 version+1 (기존 건 불변 보존)."""
+    payload = _run_state(cur, tid, run_id)
+    checksum = _snapshot_checksum(payload)
+    cur.execute(
+        """SELECT COALESCE(max(version_no),0) FROM sys_snapshot
+           WHERE tenant_id=%s AND snapshot_type='CPQ_RUN' AND source_id=%s""", (tid, run_id))
+    ver = int(cur.fetchone()[0]) + 1
+    code = f"SNAP-R{run_id}-v{ver}"
+    cur.execute(
+        """INSERT INTO sys_snapshot (tenant_id, snapshot_code, snapshot_type, source_id,
+                                     version_no, payload, checksum, note, created_by)
+           VALUES (%s,%s,'CPQ_RUN',%s,%s,%s,%s,%s,%s)
+           RETURNING snapshot_id, to_char(created_at,'YYYY-MM-DD HH24:MI')""",
+        (tid, code, run_id, ver, json.dumps(payload), checksum, note[:300] or None, actor_id))
+    row = cur.fetchone()
+    _audit(cur, tid, "sys_snapshot", row[0], "SNAPSHOT_FREEZE", actor_id,
+           {"runId": run_id, "code": code, "checksum": checksum[:12]})
+    return {"snapshotId": row[0], "snapshotCode": code, "version": ver,
+            "checksum": checksum, "createdAt": row[1], "bomRows": payload["bomRows"]}
+
+
+@router.post("/snapshots", status_code=201, dependencies=[SETUP])
+def snapshot_create(request: Request, body: SnapshotCreate) -> dict[str, Any]:
+    """Run 결과 Snapshot 고정 (요구 #9) — 이후 원본이 바뀌어도 이 ID 로 근거가 재현된다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        return _freeze_snapshot(cur, tid, body.runId, request.state.user_id, body.note)
+
+
+@router.get("/snapshots")
+def snapshot_list(sourceId: int = 0) -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        sql = ("""SELECT s.snapshot_id, s.snapshot_code, s.snapshot_type, s.source_id,
+                         s.version_no, s.checksum, COALESCE(s.note,''),
+                         to_char(s.created_at,'MM-DD HH24:MI'),
+                         COALESCE((s.payload->>'bomRows')::int,0),
+                         COALESCE(s.payload->>'finishedGoodsCode',''),
+                         COALESCE(s.payload->>'projectNo',''),
+                         EXISTS (SELECT 1 FROM erp_handoff h WHERE h.snapshot_id=s.snapshot_id)
+                  FROM sys_snapshot s WHERE s.tenant_id=%s""")
+        params: list[Any] = [tid]
+        if sourceId:
+            sql += " AND s.source_id=%s"
+            params.append(sourceId)
+        cur.execute(sql + " ORDER BY s.snapshot_id DESC LIMIT 100", tuple(params))
+        return [{"snapshotId": r[0], "snapshotCode": r[1], "snapshotType": r[2],
+                 "sourceId": r[3], "version": r[4], "checksum": r[5][:12],
+                 "note": r[6], "createdAt": r[7], "bomRows": r[8],
+                 "finishedGoodsCode": r[9], "projectNo": r[10], "handedOff": r[11]}
+                for r in cur.fetchall()]
+
+
+@router.get("/snapshots/{snapshot_id}")
+def snapshot_get(snapshot_id: int) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT snapshot_code, snapshot_type, source_id, version_no, payload, checksum,
+                      COALESCE(note,''), to_char(created_at,'YYYY-MM-DD HH24:MI')
+               FROM sys_snapshot WHERE tenant_id=%s AND snapshot_id=%s""", (tid, snapshot_id))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"snapshot not found: {snapshot_id}")
+    return {"snapshotId": snapshot_id, "snapshotCode": r[0], "snapshotType": r[1],
+            "sourceId": r[2], "version": r[3], "payload": r[4], "checksum": r[5],
+            "note": r[6], "createdAt": r[7]}
+
+
+@router.get("/snapshots/{snapshot_id}/verify")
+def snapshot_verify(snapshot_id: int) -> dict[str, Any]:
+    """재현 검증 (요구 #9) — ① 저장 payload 무결성(checksum) ② 현재 원본과의 drift 비교.
+
+    drift 는 '원본이 바뀌었다'는 사실 보고이지 Snapshot 훼손이 아니다 (Snapshot 은 불변).
+    """
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT snapshot_code, source_id, payload, checksum
+               FROM sys_snapshot WHERE tenant_id=%s AND snapshot_id=%s""", (tid, snapshot_id))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"snapshot not found: {snapshot_id}")
+        code, run_id, payload, checksum = r
+        intact = _snapshot_checksum(payload) == checksum
+        try:
+            current = _run_state(cur, tid, run_id)
+            source_exists = True
+        except HTTPException:
+            current, source_exists = {}, False
+
+    drift: list[dict[str, Any]] = []
+    if source_exists:
+        for key in ("status", "finishedGoodsCode", "projectNo", "bomRows"):
+            if payload.get(key) != current.get(key):
+                drift.append({"field": key, "snapshot": payload.get(key), "current": current.get(key)})
+        if [c["total"] for c in payload.get("costs", [])] != [c["total"] for c in current.get("costs", [])]:
+            drift.append({"field": "costs", "snapshot": payload.get("costs"), "current": current.get("costs")})
+        if len(payload.get("outputs", [])) != len(current.get("outputs", [])):
+            drift.append({"field": "outputs",
+                          "snapshot": len(payload.get("outputs", [])),
+                          "current": len(current.get("outputs", []))})
+    return {"snapshotId": snapshot_id, "snapshotCode": code, "intact": intact,
+            "sourceExists": source_exists, "reproducible": intact,
+            "drift": drift, "driftCount": len(drift)}
+
+
 class HandoffCreate(BaseModel):
     runId: int
 
@@ -10237,6 +10387,10 @@ def handoff_create(request: Request, body: HandoffCreate) -> dict[str, Any]:
             (tid, project_no, body.runId, version,
              json.dumps({"grade": grade, "checks": checks}), request.state.login))
         hid = cur.fetchone()[0]
+        # 1.7 — Handoff 는 Snapshot 을 근거로 넘긴다 (요구 #9): 생성 시점 상태를 자동 고정·연결
+        snap = _freeze_snapshot(cur, tid, body.runId, request.state.user_id,
+                                f"ERP Handoff {project_no} v{version} 자동 고정")
+        cur.execute("UPDATE erp_handoff SET snapshot_id=%s WHERE handoff_id=%s", (snap["snapshotId"], hid))
         cur.execute(
             """UPDATE erp_handoff SET status='superseded', superseded_by=%s
                WHERE tenant_id=%s AND project_no=%s AND handoff_id<>%s
@@ -10252,7 +10406,8 @@ def handoff_create(request: Request, body: HandoffCreate) -> dict[str, Any]:
         _audit(cur, tid, "erp_handoff", hid, "HANDOFF_CREATE", request.state.user_id,
                {"projectNo": project_no, "runId": body.runId, "version": version, "grade": grade})
     return {"handoffId": hid, "projectNo": project_no, "version": version,
-            "status": "approval_requested", "grade": grade, "checks": checks}
+            "status": "approval_requested", "grade": grade, "checks": checks,
+            "snapshotId": snap["snapshotId"], "snapshotCode": snap["snapshotCode"]}
 
 
 @router.get("/erp/handoffs")
@@ -10269,8 +10424,10 @@ def handoff_list(project: str = "") -> list[dict[str, Any]]:
             f"""SELECT h.handoff_id, h.project_no, h.run_id, h.version, h.status, h.validation,
                        to_char(h.created_at,'MM-DD HH24:MI'), COALESCE(h.created_by,''),
                        to_char(h.accepted_at,'MM-DD HH24:MI'),
-                       s.finished_goods_code, s.selection_id
+                       s.finished_goods_code, s.selection_id,
+                       h.snapshot_id, sn.snapshot_code
                FROM erp_handoff h
+               LEFT JOIN sys_snapshot sn ON sn.snapshot_id=h.snapshot_id
                LEFT JOIN cpq_run r ON r.run_id=h.run_id
                LEFT JOIN cpq_selection s ON s.selection_id=r.selection_id
                WHERE h.tenant_id=%s{clause}
@@ -10279,7 +10436,8 @@ def handoff_list(project: str = "") -> list[dict[str, Any]]:
                  "status": r[4], "grade": (r[5] or {}).get("grade"),
                  "checks": (r[5] or {}).get("checks", []),
                  "createdAt": r[6], "createdBy": r[7], "acceptedAt": r[8],
-                 "finishedGoodsCode": r[9] or "", "configSnapshotId": r[10]}
+                 "finishedGoodsCode": r[9] or "", "configSnapshotId": r[10],
+                 "snapshotId": r[11], "snapshotCode": r[12] or ""}
                 for r in cur.fetchall()]
 
 

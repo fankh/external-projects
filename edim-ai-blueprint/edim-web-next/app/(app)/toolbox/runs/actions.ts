@@ -45,3 +45,34 @@ export async function gcStorage(apply: boolean): Promise<ActState> {
     return { error: e instanceof ApiError ? e.message : 'GC 실패' }
   }
 }
+
+/** 1.7 — Snapshot 고정·검증 (요구 #9). */
+export interface SnapshotRow {
+  snapshotId: number; snapshotCode: string; sourceId: number; version: number
+  checksum: string; note: string; createdAt: string; bomRows: number
+  finishedGoodsCode: string; projectNo: string; handedOff: boolean
+}
+
+export interface VerifyResult {
+  snapshotId: number; snapshotCode: string; intact: boolean; sourceExists: boolean
+  reproducible: boolean; driftCount: number
+  drift: { field: string; snapshot: unknown; current: unknown }[]
+}
+
+export async function freezeSnapshot(runId: number, note: string): Promise<ActState> {
+  try {
+    const r = await apiServer<{ snapshotCode: string; bomRows: number }>('/snapshots', {
+      method: 'POST', body: JSON.stringify({ runId, note }),
+    })
+    revalidatePath(PATH)
+    return { ok: `${r.snapshotCode} 고정 ✓ — BOM ${r.bomRows}행` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : 'Snapshot 고정 실패' }
+  }
+}
+
+export async function verifySnapshot(id: number): Promise<VerifyResult | null> {
+  try {
+    return await apiServer<VerifyResult>(`/snapshots/${id}/verify`)
+  } catch { return null }
+}
