@@ -11,3 +11,4 @@ alembic
 openpyxl
 minio
 reportlab
+pypdf
