@@ -140,6 +140,17 @@ for suite in SUITES:
             tail += " (retry)"
     results.append((suite, passed, tail))
 
+# check_tenant_scope — 정적 게이트 (서버 불요, CI 와 동일 검사)
+print(f"
+{'=' * 60}
+▶ check_tenant_scope.py (static)
+{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_tenant_scope.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=120)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_tenant_scope.py", p.returncode == 0, ""))
+
 # check_i18n_en — 라이브 대상 (BASE env 지원)
 print(f"\n{'=' * 60}\n▶ check_i18n_en.py (live)\n{'=' * 60}")
 p = subprocess.run([sys.executable, os.path.join(HERE, "check_i18n_en.py")],

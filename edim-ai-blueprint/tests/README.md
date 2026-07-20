@@ -45,6 +45,7 @@ py tests\live_all.py
 | `live_s3_macro_engine.py` | Macro 엔진 실평가 | ENG-01 |
 | `live_s4_rbac_notify.py` | RBAC·알림 흐름 | S4 |
 | `live_s5_run_pipeline.py` | Run 파이프라인 산출물 바이트 검증 (PDF/DXF/XLSX) | S5 |
+| `check_tenant_scope.py` | **정적 게이트** — 테넌트 테이블을 tenant 조건 없이 만지는 신규 SQL 차단(기준선 68항목 대조, 서버 불요) | 3.8 보안 |
 | `check_i18n_en.py` | EN 전환 한글 잔존 0 — 24화면+로그인 (`BASE` env 로 프리뷰/라이브 전환) | B9 |
 | `live_dev_requirements.py` | 개발서버 요구사항 접수 — devMode 게이트·CRUD·이미지 첨부(422/연쇄삭제)·RBAC 403·UI 모달 왕복 (자체 정리) | 운영 도구 |
 | `live_product_builder.py` | 제품 코드 조합 — 자유텍스트 422·미승인 값 422·승인 반영·파생 코드/해시·동일 조합 409·Rev drift·GENERAL 403 (자체 정리) | 2.2 (#28) |
@@ -56,7 +57,7 @@ py tests\live_all.py
 
 | 워크플로 | 트리거 | 내용 |
 |---|---|---|
-| `edim-ci.yml` | push (edim-ai-blueprint/**) | 빌드 + 폴백 52체크 |
+| `edim-ci.yml` | push (edim-ai-blueprint/**) | **테넌트 스코프 게이트** + 빌드 + 폴백 52체크 |
 | `edim-nightly.yml` | 매일 03:00 UTC (+수동) | 빌드 + 폴백 52체크 + EN 잔존 0 (프리뷰) |
 
 라이브 스위트는 서버 접근이 필요해 CI 러너에서는 실행하지 않는다 — 배치 완료 시 및 필요 시 로컬에서 `live_all.py` 를 실행한다.
@@ -74,7 +75,10 @@ py tests\live_all.py
 - **좌측 트리 내비는 `_nav.py` 의 `tree_click`/`tree_node` 만 사용한다** — 2.0 이후 좌측 기본 패널이
   업무 프로세스라, `.tn` 을 직접 찾으면 메뉴 라벨이 없어 타임아웃한다(2.3 에서 36종 일괄 복구).
 - **셸 기본값·공용 레이아웃을 바꾸는 배치는 신규 기능 검증만으로 수용하지 않는다** — `live_all.py` 완주가 수용 기준.
-- **새 SQL 은 테넌트 스코프 테이블을 만질 때 반드시 `tenant_id=%s` 를 건다.** 예외는 같은 함수에서
+- **새 SQL 은 테넌트 스코프 테이블을 만질 때 반드시 `tenant_id=%s` 를 건다.**
+  이 규칙은 `check_tenant_scope.py` 가 상시 강제한다(CI 잡 `tenant-scope` + live_all).
+  정당한 예외(같은 함수에서 tenant 스코프 조회로 404 검증)는 `--update` 로 기준선을 갱신하고
+  **커밋 메시지에 어디서 검증했는지** 남긴다. 예외는 같은 함수에서
   이미 tenant 스코프 조회로 404 검증된 ID 를 쓰는 경우뿐이며, 그 경우에도 검증 조회를 먼저 두어야 한다
   (2.9 에서 실누출 3건 — 특히 `_tenant_id` 를 호출조차 하지 않던 Run 조회).
   회귀 방지는 `live_tenant_isolation.py` 가 담당한다.
