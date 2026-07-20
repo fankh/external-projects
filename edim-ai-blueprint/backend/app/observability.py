@@ -106,10 +106,12 @@ def _auto_file_bug(trace_id: str, method: str, path: str, status: int) -> None:
             row = cur.fetchone()
             tid = row[0] if row else 1
             # 동일 경로 미해결 자동버그 중복 방지
+            # 중복 방지 조회도 테넌트 스코프 — 다른 테넌트의 동일 제목 자동버그에 걸려
+            # 접수가 조용히 누락되지 않도록 (2.9 규칙: 테넌트 테이블은 항상 tenant_id 조건)
             cur.execute(
                 """SELECT 1 FROM dev_requirement
-                   WHERE category='BUG' AND status='OPEN' AND title=%s LIMIT 1""",
-                (f"[auto] 5xx {method} {path}"[:200],))
+                   WHERE tenant_id=%s AND category='BUG' AND status='OPEN' AND title=%s LIMIT 1""",
+                (tid, f"[auto] 5xx {method} {path}"[:200],))
             if cur.fetchone():
                 return
             cur.execute(
