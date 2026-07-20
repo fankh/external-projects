@@ -754,6 +754,14 @@ def create_group(request: Request, body: GroupCreate) -> dict[str, Any]:
         if cur.fetchone():
             raise HTTPException(409, detail=f"중복 — 그룹 코드 {code}")
         addr = body.hierarchyAddress.strip() or f"/C/{code}"
+        # 0.9 — 고아 주소 쓰기 차단 (#25 계열): 트리 노드 주소이거나 그 하위(leaf 확장)여야 함.
+        # 0.8 감사에서 구세대 자유형 주소 8건 수리 — 재발을 쓰기 시점에 봉쇄.
+        cur.execute(
+            """SELECT 1 FROM sys_hierarchy WHERE tenant_id=%s
+               AND (%s = address OR %s LIKE address || '/%%') LIMIT 1""", (tid, addr, addr))
+        if not cur.fetchone():
+            raise HTTPException(
+                422, detail=f"Hierarchy 주소가 트리에 없음: {addr} — M-3-1 노드(또는 그 하위) 주소를 사용하십시오")
         cur.execute(
             """INSERT INTO code_group (tenant_id, group_code, group_name, group_type,
                hierarchy_address, approval_status, created_by)

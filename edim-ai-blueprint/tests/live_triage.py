@@ -135,6 +135,12 @@ try:
                                           "address": "ZTRI2", "symbol": "", "parentAddress": ""})
     req("POST", "/codes/groups", {"groupCode": "ZTRIG", "groupName": "TRIAGE-SUITE 임팩트",
                                   "hierarchyAddress": "ZTRI1"})
+    try:
+        req("POST", "/codes/groups", {"groupCode": "ZTRIX", "groupName": "고아 주소",
+                                      "hierarchyAddress": "/NOPE/X"})
+        ok("고아 주소 그룹 생성 422 (0.9)", False)
+    except urllib.error.HTTPError as e:
+        ok("고아 주소 그룹 생성 422 (0.9)", e.code == 422)
     imp = req("GET", f"/hierarchy/nodes/{n1['hierarchyId']}/impact")
     ok("영향 분석 — 참조 집계 (#25)",
        imp["referencingTotal"] >= 1 and any(x["table"] == "code_group" for x in imp["references"]))
