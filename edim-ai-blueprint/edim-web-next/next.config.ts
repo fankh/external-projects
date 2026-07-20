@@ -2,6 +2,8 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // 1.1 — 배포 스큐 감지용 빌드 ID (열린 탭이 구버전 Server Action 을 호출하면 실패하므로 새로고침 유도).
+  generateBuildId: async () => process.env.EDIM_BUILD_ID || `b${Date.now()}`,
   // P6 — 배포: 최소 런타임 번들(.next/standalone) 로 Docker 이미지 경량화.
   output: 'standalone',
   // 이관 기간 프록시(선택): 미이관 API 는 백엔드로 rewrite. 서버 fetch 는 lib/api 가 직접 호출.

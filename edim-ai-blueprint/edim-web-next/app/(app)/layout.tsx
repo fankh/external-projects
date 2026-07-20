@@ -10,6 +10,8 @@ import { LocaleSwitcher } from '@/components/LocaleSwitcher'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { notificationDigest } from '@/components/notifications/actions'
 import { AppChrome } from '@/components/chrome/AppChrome'
+import { DeploySkewWatch } from '@/components/chrome/DeploySkewWatch'
+import { buildId } from '@/lib/buildId'
 import { getHeadNav, getLeftNav, getTenantHeadNav, getTenantNav } from '@/components/chrome/shellActions'
 
 async function logout() {
@@ -51,6 +53,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         }>
         {children}
+        <DeploySkewWatch buildId={buildId()} />
       </AppChrome>
     </PermissionProvider>
     </I18nProvider>
