@@ -47,17 +47,18 @@ export function Chip(props: { tone: 'ok' | 'warn' | 'err' | 'info'; children: Re
   return <span className={`st ${props.tone}`}>{props.children}</span>
 }
 
-export function GroupBox(props: {
+export function GroupBox({ title, right, children, style, noPad, ...rest }: {
   title: ReactNode
   right?: ReactNode
   children: ReactNode
   style?: CSSProperties
   noPad?: boolean
-}) {
+} & Record<`data-${string}`, string | boolean | undefined>) {
+  // data-* 패스스루 — Btn 과 동일 (typed props 만 받으면 E2E 마커가 무음 드랍되는 함정, v34.20/43)
   return (
-    <div className="gb" style={props.style}>
-      <div className="gt">{props.title}<span className="sp" />{props.right}</div>
-      <div className={props.noPad ? 'gc p0' : 'gc'}>{props.children}</div>
+    <div className="gb" style={style} {...rest}>
+      <div className="gt">{title}<span className="sp" />{right}</div>
+      <div className={noPad ? 'gc p0' : 'gc'}>{children}</div>
     </div>
   )
 }

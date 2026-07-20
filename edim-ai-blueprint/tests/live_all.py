@@ -92,6 +92,8 @@ SUITES = [
     "live_f9_escape.py",            # 다이얼로그 Escape 표준 — 5종 닫힘·전파 차단
     "live_f10_ux.py",               # 탭 오버플로·KPI 드릴다운·승인함 필터
     "live_shell_mdi_login.py",      # MDI 파라미터 다중 인스턴스·로그인 부가 요소
+    "live_wiring_actions.py",       # 미배선 API 배선 (뮤테이션) — 삭제/회수/초대/batch/BOM 편집
+    "live_wiring_views.py",         # 미배선 API 배선 (조회 뷰) — 이동원장/요약/계산기/상세/영향도/해석/Δ
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]
