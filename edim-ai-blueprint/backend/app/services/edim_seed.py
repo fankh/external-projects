@@ -427,6 +427,7 @@ def run_seed() -> None:
             seed_v30(cur, row[0])
             seed_v32(cur, row[0])
             seed_v33(cur, row[0])
+            seed_v34(cur, row[0])
             _seed_invariants(cur, row[0])
             return
 
@@ -3528,6 +3529,33 @@ def seed_v30(cur, tid: int) -> None:
                        VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
 
 
+# 2.5 — 표준 업무 프로세스 단계명 (좌측 패널). 노드명은 테넌트가 자유롭게 바꿀 수 있으므로
+# 키를 시드 이름 자체로 두고, 개명된 노드는 저장된 이름 그대로 노출(폴백)한다.
+UI_TRANSLATIONS_V33: dict[str, tuple[str, str, str]] = {
+    "process.node.영업·견적": ('Sales & Quotation', '営業・見積', '销售·报价'),
+    "process.node.프로젝트 등록": ('Project Registration', 'プロジェクト登録', '项目登记'),
+    "process.node.사양 선택 (CPQ)": ('Configuration (CPQ)', '仕様選択 (CPQ)', '规格选择 (CPQ)'),
+    "process.node.견적 산출": ('Quotation Run', '見積算出', '报价计算'),
+    "process.node.견적서 발행": ('Quotation Issue', '見積書発行', '报价单发行'),
+    "process.node.설계·기술": ('Engineering', '設計・技術', '设计·技术'),
+    "process.node.Sub Code 관리": ('Sub Code Management', 'Sub Code 管理', 'Sub Code 管理'),
+    "process.node.제품 코드": ('Product Code', '製品コード', '产品编码'),
+    "process.node.BOM 관계": ('BOM Relationship', 'BOM 関係', 'BOM 关系'),
+    "process.node.도면 관리": ('Drawing Management', '図面管理', '图纸管理'),
+    "process.node.생산·구매": ('Production & Purchasing', '生産・購買', '生产·采购'),
+    "process.node.작업 지시": ('Work Order', '作業指示', '工作指令'),
+    "process.node.소요 계획": ('Requirement Planning', '所要計画', '需求计划'),
+    "process.node.발주": ('Purchase Order', '発注', '采购下单'),
+    "process.node.재고": ('Inventory', '在庫', '库存'),
+    "process.node.품질·출하": ('Quality & Shipping', '品質・出荷', '质量·出货'),
+    "process.node.검사": ('Inspection', '検査', '检验'),
+    "process.node.ERP Handoff": ('ERP Handoff', 'ERP Handoff', 'ERP Handoff'),
+    "process.node.산출물 패키지": ('Output Package', '成果物パッケージ', '产出物包'),
+    "process.node.공통": ('Common', '共通', '公共'),
+    "process.node.승인함": ('Approval Inbox', '承認箱', '审批箱'),
+    "process.node.Run 이력·Snapshot": ('Run History & Snapshot', 'Run 履歴・Snapshot', 'Run 历史·Snapshot'),
+}
+
 UI_TRANSLATIONS_V32: dict[str, tuple[str, str, str]] = {
     "common.cancel": ('Cancel', 'キャンセル', '取消'),
     "company.statusCol": ('Status', '状態', '状态'),
@@ -3807,6 +3835,20 @@ def seed_v33(cur, tid: int) -> None:
            hierarchy_address, approval_status)
            VALUES (%s,'GEN','일반 코드 (Slot 미정의)','PRODUCT',%s,'APPROVED')""", (tid, addr))
     logger.info("seed v33 — GEN 일반 코드 그룹 (수기 등록 창구, #28)")
+
+
+def seed_v34(cur, tid: int) -> None:
+    """2.5 — 표준 프로세스 단계명 번역 (2.0 좌측 패널 도입 후 EN/JA/ZH 미번역이던 구간)."""
+    for key, (en, ja, zh) in UI_TRANSLATIONS_V33.items():
+        for locale, text in (("en", en), ("ja", ja), ("zh", zh)):
+            cur.execute(
+                """UPDATE sys_translation SET text=%s
+                   WHERE tenant_id=%s AND entity_type='UI' AND locale=%s AND field=%s""",
+                (text, tid, locale, key))
+            if cur.rowcount == 0:
+                cur.execute(
+                    """INSERT INTO sys_translation (tenant_id, locale, entity_type, entity_id, field, text)
+                       VALUES (%s,%s,'UI',0,%s,%s)""", (tid, locale, key, text))
 
 
 def seed_v26(cur, tid: int) -> None:

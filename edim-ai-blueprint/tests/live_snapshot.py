@@ -46,7 +46,8 @@ psql("DELETE FROM sys_approval_request WHERE target_table='erp_handoff' AND comm
 rid = None
 
 try:
-    ok("alembic 0032 자동 적용", "0032_snapshot_registry" in psql("SELECT version_num FROM alembic_version"))
+    ok("alembic 0032 적용 (sys_snapshot 존재)",
+       psql("SELECT to_regclass('public.sys_snapshot') IS NOT NULL") == "t")
 
     run = req("POST", "/cpq/runs", {"runType": "ALL", "isTest": True})
     rid = run["runId"]

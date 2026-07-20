@@ -61,7 +61,8 @@ export function ProcessNav({
           onClick={() => { if (n.screenHref) router.push(n.screenHref) }}
           title={n.note || n.screenHref || undefined}>
           {n.icon ? <span style={{ flexShrink: 0 }}>{n.icon}</span> : <span className="ico">{depth ? '·' : '▣'}</span>}
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.name}</span>
+          {/* 2.5 — 표준 단계는 번역, 테넌트가 개명한 단계는 저장된 이름 그대로(폴백) */}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`process.node.${n.name}`, n.name)}</span>
           {!n.screenHref && !childrenOf(n.nodeId).length
             ? <span style={{ color: 'var(--txt-mute)', fontSize: 9 }}>({t('process.unbound', '미연결')})</span> : null}
           {edit ? (

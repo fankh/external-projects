@@ -40,7 +40,7 @@ with sync_playwright() as pw:
         page.locator(".titlebar .mod", has_text=mod_name).first.click()
         page.wait_for_timeout(400)
         for sc in screens:
-            page.locator(".tn", has_text=sc).first.click()
+            tree_click(page, sc)
             page.wait_for_timeout(350)
     tabs_n = page.locator(".mdi .t").count() - 1   # ▾ 오버플로 버튼 제외
     ok(f"탭 12종 오픈 (현재 {tabs_n})", tabs_n >= 11)

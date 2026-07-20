@@ -63,7 +63,8 @@ req("POST", "/users", adm, {"login": PU, "name": "정보접근 프로브", "init
 ptok = login(PU, PW)
 
 try:
-    ok("alembic 0031 자동 적용", "0031_info_access" in psql("SELECT version_num FROM alembic_version"))
+    ok("alembic 0031 적용 (sys_info_access 존재)",
+       psql("SELECT to_regclass('public.sys_info_access') IS NOT NULL") == "t")
 
     # 1) 기본값 full — 도입 무영향
     base_prices = req("GET", "/prices", ptok)
