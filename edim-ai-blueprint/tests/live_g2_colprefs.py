@@ -73,7 +73,8 @@ with sync_playwright() as pw:
     # ── 순서 변경 ── '작업'을 '일시' 앞으로
     before = data_headers(p)
     th(p, '작업').drag_to(th(p, '일시'))
-    p.wait_for_timeout(400)
+    # prefs 저장은 비동기 서버 액션 — 부하 상황에서 400ms 는 레이스 (캡스톤 #4 플레이크) → 여유 확보
+    p.wait_for_timeout(1000)
     after = data_headers(p)
     ok(f"순서 변경 — 작업이 앞으로 ({before[:2]}→{after[:2]})", after.index('작업') < after.index('일시'))
 
