@@ -60,7 +60,7 @@ def req(method, path, tok, body=None):
 
 
 def cleanup():
-    psql(f"DELETE FROM dwg_file WHERE file_name IN ('{OUTNAME}','{SRCNAME}')")
+    psql(f"DELETE FROM dwg_file WHERE file_name IN ('{OUTNAME}','{SRCNAME}','run999_ZZROLE_up.dxf')")
 
 
 TOK = login("edim", "edim")
@@ -127,14 +127,57 @@ try:
     ok("산출물은 immutable 표기", all(f["immutable"] is True for f in outs))
     ok("원본은 immutable 아님", all(f["immutable"] is False for f in srcs))
 
-    # ── 7) 정리 겸 삭제 가드 ──
+    # ── 7) 업로드 경로도 산출물 불변 (3.6) ──
+    # 종전엔 검사 없이 put_object 부터 해서, Run 산출물과 같은 키로 올리면 납품물 바이트가
+    # 덮어써졌다(행은 옛 크기 유지·다운로드 내용만 교체). 실증 후 차단.
+    import uuid as _uuid
+
+    def upload(name, content, folder="DWG"):
+        b = _uuid.uuid4().hex
+        body = (f"--{b}\r\nContent-Disposition: form-data; name=\"folder\"\r\n\r\n{folder}\r\n"
+                f"--{b}\r\nContent-Disposition: form-data; name=\"project\"\r\n\r\n{PROJ}\r\n"
+                f"--{b}\r\nContent-Disposition: form-data; name=\"uploadedFile\"; filename=\"{name}\"\r\n"
+                f"Content-Type: application/dxf\r\n\r\n").encode() + content + f"\r\n--{b}--\r\n".encode()
+        rq = urllib.request.Request(f"{API}/files/upload", data=body, method="POST",
+                                    headers={"Authorization": f"Bearer {TOK}",
+                                             "Content-Type": f"multipart/form-data; boundary={b}"})
+        try:
+            with urllib.request.urlopen(rq, timeout=60) as resp:
+                return resp.status, json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            try:
+                return e.code, json.loads(e.read() or b"null")
+            except Exception:  # noqa: BLE001
+                return e.code, None
+
+    UPNAME = "run999_ZZROLE_up.dxf"
+    psql(f"DELETE FROM dwg_file WHERE file_name='{UPNAME}'")
+    st, u1 = upload(UPNAME, b"AAAA-delivered-bytes")
+    ok(f"업로드 201 ({st})", st == 201)
+    psql(f"UPDATE dwg_file SET file_role='OUTPUT' WHERE file_id={u1['fileId']}")
+    st, b2 = upload(UPNAME, b"BBBB-would-overwrite-delivered-artifact")
+    ok(f"★ 산출물 키 재업로드 409 ({st})", st == 409 and "산출물" in (b2 or {}).get("detail", ""))
+    dl = urllib.request.Request(f"{API}/files/download/{u1['fileId']}",
+                                headers={"Authorization": f"Bearer {TOK}"})
+    ok("★ 납품물 바이트 불변", urllib.request.urlopen(dl).read() == b"AAAA-delivered-bytes")
+    ok("행이 늘지 않음(중복 행 없음)",
+       psql(f"SELECT count(*) FROM dwg_file WHERE file_name='{UPNAME}'") == "1")
+    # 원본(SOURCE) 재업로드는 같은 행 갱신
+    psql(f"UPDATE dwg_file SET file_role='SOURCE' WHERE file_id={u1['fileId']}")
+    st, u2 = upload(UPNAME, b"CCCC-source-update-longer-bytes")
+    ok(f"작도 원본 재업로드 = 같은 행 갱신 ({st})", st == 201 and u2["fileId"] == u1["fileId"])
+    ok("한 객체를 두 행이 가리키지 않음",
+       psql(f"SELECT count(*) FROM dwg_file WHERE file_name='{UPNAME}'") == "1")
+    psql(f"DELETE FROM dwg_file WHERE file_name='{UPNAME}'")
+
+    # ── 8) 정리 겸 삭제 가드 ──
     st, _ = req("DELETE", f"/files/{new_src}", TOK)
     ok(f"작도 원본 삭제 200 ({st})", st == 200)
     st, _ = req("DELETE", f"/files/{s1['fileId']}", TOK)
     ok(f"두 번째 원본 삭제 200 ({st})", st == 200)
 finally:
     cleanup()
-    left = psql(f"SELECT count(*) FROM dwg_file WHERE file_name IN ('{OUTNAME}','{SRCNAME}')")
+    left = psql(f"SELECT count(*) FROM dwg_file WHERE file_name IN ('{OUTNAME}','{SRCNAME}','run999_ZZROLE_up.dxf')")
     print(f"정리 — 프로브 파일 잔존 {left}")
 
 print(f"\nlive_file_role: {n}/{n} PASS")

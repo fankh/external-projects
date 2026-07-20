@@ -2663,12 +2663,38 @@ async def upload_file(
         raise HTTPException(413, detail="100MB 초과")
     fname = (uploadedFile.filename or "file").replace("/", "_")
     key = f"{project}/{folder}/{fname}"
+    # #53 — 업로드도 산출물 불변의 일부다. 종전엔 검사 없이 put_object 부터 해서,
+    # Run 산출물과 같은 키(`{project}/{folder}/run{id}_{name}`)로 올리면 **납품물 바이트가
+    # 그대로 덮어써졌다**(행은 옛 크기를 유지한 채 다운로드 내용만 바뀜 — 실증 확인).
+    # 또 같은 키에 행이 하나 더 생겨 한 객체를 두 행이 가리켰다.
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT file_id, COALESCE(file_role,'OUTPUT') FROM dwg_file
+               WHERE tenant_id=%s AND file_path=%s ORDER BY file_id""", (tid, key))
+        existing = cur.fetchall()
+    locked = [e for e in existing if e[1] == "OUTPUT"]
+    if locked:
+        raise HTTPException(
+            409, detail=f"Run 산출물과 같은 경로에는 업로드할 수 없습니다: {fname} "
+                        "(납품물 불변, #53) — 파일 이름을 바꾸십시오")
     try:
         storage.put_object(key, data, uploadedFile.content_type or "application/octet-stream")
     except RuntimeError:
         raise HTTPException(503, detail="storage unavailable")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        if existing:
+            # 같은 키 재업로드 = 같은 파일 갱신. 새 행을 만들면 한 객체를 여러 행이 가리켜
+            # 삭제·GC 판단이 어긋난다(종전 동작).
+            file_id = existing[0][0]
+            cur.execute(
+                "UPDATE dwg_file SET file_size=%s, uploaded_date=now(), updated_by=%s, "
+                "updated_at=now() WHERE tenant_id=%s AND file_id=%s",
+                (len(data), request.state.login, tid, file_id))
+            _audit(cur, tid, "dwg_file", file_id, "FILE_REPLACE", request.state.user_id,
+                   {"key": key, "size": len(data)})
+            return {"fileId": file_id, "key": key, "size": len(data), "replaced": True}
         cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
                     (tid, project))
         prj = cur.fetchone()
