@@ -62,6 +62,11 @@ from app.observability import METRICS, observability_middleware  # noqa: E402
 
 app.middleware("http")(observability_middleware)
 
+# 1.2 — 멀티테넌시: 토큰의 테넌트를 요청 문맥에 심는다 (동기 엔드포인트까지 전파)
+from app.routers.edim import TenantContextMiddleware  # noqa: E402
+
+app.add_middleware(TenantContextMiddleware)
+
 
 @app.get("/api/v1/metrics", tags=["health"])
 def metrics() -> dict:

@@ -13,6 +13,7 @@ import json
 import os
 import re
 import time
+from contextvars import ContextVar
 from datetime import date
 from typing import Any
 
@@ -38,11 +39,46 @@ TOKEN_TTL = 8 * 3600        # 발급 수명
 RENEW_WINDOW = 30 * 60      # 만료 30분 전부터 응답 헤더로 재발급 (B8 — 하드컷 제거)
 
 
-def _issue_token(login: str, ttl: int = TOKEN_TTL) -> str:
+# 1.2 — 멀티테넌시: 요청별 테넌트 컨텍스트 (미설정 시 환경 기본 테넌트로 폴백).
+# 세션 토큰이 테넌트를 담고, ASGI 미들웨어가 요청 문맥에 심는다 (동기 엔드포인트 스레드로 전파됨).
+_TENANT_CTX: ContextVar[int | None] = ContextVar("edim_tenant_id", default=None)
+
+
+def _issue_token(login: str, ttl: int = TOKEN_TTL, tenant_id: int | None = None) -> str:
+    """세션 토큰 — `login.exp.tenantId.sig` (구형 3세그먼트도 검증 호환)."""
     exp = int(time.time()) + ttl
-    payload = f"{login}.{exp}"
+    tid = tenant_id if tenant_id is not None else (_TENANT_CTX.get() or 0)
+    payload = f"{login}.{exp}.{tid}"
     sig = hmac.new(SECRET, payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}.{sig}"
+
+
+def _parse_token(token: str) -> tuple[str, int, int | None] | None:
+    """(login, exp, tenantId|None) — 서명·만료 검증 통과 시에만 반환.
+
+    신형 `login.exp.tenantId.sig` 를 먼저 시도하고, 실패하면 구형 `login.exp.sig` 로 재해석한다.
+    (login 에 '.' 이 포함될 수 있어 — park.f — 세그먼트 수만으로는 구분되지 않는다.)
+    """
+    def _try(n: int, with_tenant: bool) -> tuple[str, int, int | None] | None:
+        parts = token.rsplit(".", n)
+        if len(parts) != n + 1:
+            return None
+        if with_tenant:
+            login, exp, tid_s, sig = parts
+            if not tid_s.isdigit():
+                return None
+            payload, tid = f"{login}.{exp}.{tid_s}", int(tid_s)
+        else:
+            login, exp, sig = parts
+            payload, tid = f"{login}.{exp}", None
+        if not exp.isdigit() or int(exp) < time.time():
+            return None
+        expected = hmac.new(SECRET, payload.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            return None
+        return login, int(exp), (tid or None)
+
+    return _try(3, True) or _try(2, False)
 
 
 def require_auth(request: Request, response: Response) -> None:
@@ -53,18 +89,13 @@ def require_auth(request: Request, response: Response) -> None:
     auth = request.headers.get("authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(401, detail="인증 필요 — 로그인 토큰이 없습니다")
-    parts = auth[7:].rsplit(".", 2)   # login 에 '.' 포함 가능 (park.f)
-    if len(parts) != 3:
-        raise HTTPException(401, detail="토큰 형식 오류")
-    login, exp, sig = parts
-    expected = hmac.new(SECRET, f"{login}.{exp}".encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, sig):
-        raise HTTPException(401, detail="토큰 서명 불일치")
-    if not exp.isdigit() or int(exp) < time.time():
-        raise HTTPException(401, detail="토큰 만료 — 다시 로그인하십시오")
-    # 사용자 컨텍스트 (RBAC·알림 대상) — SYS-005
+    parsed = _parse_token(auth[7:])
+    if not parsed:
+        raise HTTPException(401, detail="토큰 무효 — 다시 로그인하십시오 (서명·형식·만료)")
+    login, exp, tok_tid = parsed
+    # 사용자 컨텍스트 (RBAC·알림 대상) — SYS-005. 테넌트는 토큰 기준 (1.2 멀티테넌시)
     with _conn() as conn, conn.cursor() as cur:
-        tid = _tenant_id(cur)
+        tid = tok_tid or _tenant_id(cur)
         cur.execute(
             """SELECT user_id, user_level FROM sys_user
                WHERE tenant_id=%s AND login_id=%s AND status='ACTIVE'""", (tid, login))
@@ -74,9 +105,38 @@ def require_auth(request: Request, response: Response) -> None:
     request.state.login = login
     request.state.user_id = row[0]
     request.state.level = row[1]
+    request.state.tenant_id = tid
     # 슬라이딩 갱신 — 잔여 30분 미만이면 새 토큰을 헤더로 전달 (프론트가 교체)
     if int(exp) - time.time() < RENEW_WINDOW:
-        response.headers["X-EDIM-Token"] = _issue_token(login)
+        response.headers["X-EDIM-Token"] = _issue_token(login, tenant_id=tid)
+
+
+class TenantContextMiddleware:
+    """1.2 — 토큰의 테넌트를 요청 문맥(ContextVar)에 심는 ASGI 미들웨어.
+
+    같은 태스크에서 downstream 을 호출하므로 동기 엔드포인트(스레드풀)까지 값이 전파된다.
+    서명·만료 검증을 통과한 토큰만 반영하며, 나머지는 환경 기본 테넌트로 폴백한다.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        tid = None
+        for k, v in scope.get("headers", []):
+            if k == b"authorization" and v.startswith(b"Bearer "):
+                parsed = _parse_token(v[7:].decode("latin-1"))
+                if parsed:
+                    tid = parsed[2]
+                break
+        token = _TENANT_CTX.set(tid)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            _TENANT_CTX.reset(token)
 
 
 def min_level(name: str):
@@ -128,6 +188,10 @@ def _conn():
 
 
 def _tenant_id(cur) -> int:
+    """현재 요청의 테넌트 — 세션 토큰 기준(1.2), 미인증/구형 토큰은 환경 기본 테넌트."""
+    ctx = _TENANT_CTX.get()
+    if ctx:
+        return ctx
     cur.execute("SELECT tenant_id FROM sys_tenant WHERE tenant_code=%s", (TENANT,))
     row = cur.fetchone()
     if not row:
@@ -516,6 +580,7 @@ class LoginRequest(BaseModel):
     password: str
     ttlSeconds: int | None = None   # 토큰 수명 단축 (갱신 검증용, 60s~8h 클램프)
     otp: str = ""                   # 트리아지 #10 — MFA 활성 사용자 2단계 코드
+    tenantCode: str = ""            # 1.2 — 동일 사번이 여러 고객사에 있을 때 소속 지정
 
 
 def _totp_code(secret_b32: str, at: float | None = None, step: int = 30) -> str:
@@ -542,7 +607,25 @@ def login(body: LoginRequest) -> dict[str, Any]:
     login_id = body.userId.strip()
     _login_rate_check(login_id or "-")   # C10 — 속도 제한 (429)
     with _conn() as conn, conn.cursor() as cur:
-        tid = _tenant_id(cur)
+        # 1.2 — 소속 테넌트 해석: tenantCode 지정 > 사번 유일 소속 > 다중 소속이면 지정 요구
+        tcode = (body.tenantCode or "").strip()
+        if tcode:
+            cur.execute("SELECT tenant_id FROM sys_tenant WHERE tenant_code=%s", (tcode,))
+            trow = cur.fetchone()
+            if not trow:
+                raise HTTPException(401, detail="사번 또는 비밀번호가 올바르지 않습니다")
+            tid = trow[0]
+        else:
+            cur.execute(
+                """SELECT u.tenant_id, t.tenant_code FROM sys_user u
+                   JOIN sys_tenant t ON t.tenant_id=u.tenant_id
+                   WHERE u.login_id=%s AND u.status='ACTIVE'""", (login_id,))
+            owners = cur.fetchall()
+            if len(owners) > 1:
+                raise HTTPException(
+                    409, detail="여러 고객사에 동일 사번이 있습니다 — 테넌트 코드를 지정하십시오: "
+                                + ", ".join(o[1] for o in owners))
+            tid = owners[0][0] if owners else _tenant_id(cur)
         cur.execute(
             """SELECT user_id, user_name, department, user_level, password_hash, status,
                       totp_secret, mfa_enabled
@@ -587,12 +670,14 @@ def login(body: LoginRequest) -> dict[str, Any]:
                 _audit(cur, tid, "sys_user", uid, "LOGIN_MFA_FAIL", uid, {"login": login_id})
                 raise HTTPException(401, detail="OTP 코드가 올바르지 않습니다 (인증 앱 확인)")
         _audit(cur, tid, "sys_user", uid, "LOGIN_OK", uid, {"login": login_id})
+        cur.execute("SELECT tenant_code, tenant_name FROM sys_tenant WHERE tenant_id=%s", (tid,))
+        trow = cur.fetchone() or (TENANT, TENANT)
     ttl = max(60, min(int(body.ttlSeconds or TOKEN_TTL), TOKEN_TTL))
     return {
-        "token": _issue_token(login_id, ttl),
+        "token": _issue_token(login_id, ttl, tenant_id=tid),
         "user": {
             "userId": login_id, "name": row[1], "department": row[2] or "",
-            "userLevel": row[3], "tenantId": TENANT,
+            "userLevel": row[3], "tenantId": trow[0], "tenantName": trow[1],
         },
     }
 
@@ -7781,8 +7866,11 @@ def auth_me(request: Request) -> dict[str, Any]:
                JOIN sys_role r ON r.role_id=ur.role_id
                WHERE ur.user_id=%s ORDER BY r.role_name""", (request.state.user_id,))
         roles = [x[0] for x in cur.fetchall()]
+        cur.execute("SELECT tenant_code, tenant_name FROM sys_tenant WHERE tenant_id=%s", (tid,))
+        trow = cur.fetchone() or ("", "")
     return {"login": row[0], "name": row[1], "department": row[2],
-            "userLevel": row[3], "status": row[4], "roles": roles}
+            "userLevel": row[3], "status": row[4], "roles": roles,
+            "tenantCode": trow[0], "tenantName": trow[1]}
 
 
 @router.get("/auth/permissions")

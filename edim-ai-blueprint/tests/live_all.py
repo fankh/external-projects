@@ -97,6 +97,7 @@ SUITES = [
     "live_menu_p2.py",              # 메뉴정의서 P2 — 공지 발송·번역 일괄 Export/Import
     "live_hardening.py",            # 재감사 완주 — Run is_test·패키지 워터마크·Table 낙관적 잠금
     "live_triage.py",               # 신규요구 트리아지 — Snapshot·Handoff 상태기계·Reset·dryRun·Package·export
+    "live_multitenant.py",          # 멀티테넌시 격리 (1.2) — 세션 테넌트·데이터 격리·토큰 호환
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
 ]
