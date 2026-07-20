@@ -4,9 +4,13 @@
 실행: PYTHONUTF8=1 py tests/live_triage.py
 정리: 테스트 Run isTest·handoff/승인 psql·알림 read·STEP 파일 삭제 내장.
 """
+import base64
+import hashlib
+import hmac
 import io
 import json
 import os
+import struct
 import subprocess
 import time
 import urllib.error
@@ -121,6 +125,49 @@ try:
     req("PATCH", f"/hierarchy/nodes/{nid}", {"locked": False, "remark": ""})
     n4 = next(x for x in req("GET", "/hierarchy?treeType=PRODUCT") if x["id"] == nid)
     ok("Hierarchy 속성 원복", n4["locked"] is False and n4["remark"] == "")
+
+    # 4c) 선택적 MFA (#10) — 프로브 사용자 수명주기 (TOTP 서버시간 기준)
+    PU = "test.mfa.suite"
+
+    def _purge_mfa():
+        for sql in (
+            f"DELETE FROM sys_notification WHERE user_id IN (SELECT user_id FROM sys_user WHERE login_id='{PU}')",
+            f"DELETE FROM sys_history WHERE actor_id IN (SELECT user_id FROM sys_user WHERE login_id='{PU}')",
+            f"DELETE FROM sys_user_role WHERE user_id IN (SELECT user_id FROM sys_user WHERE login_id='{PU}')",
+            f"DELETE FROM sys_user WHERE login_id='{PU}'",
+        ):
+            psql(sql)
+
+    def _totp(secret_b32, server_ts):
+        key = base64.b32decode(secret_b32)
+        h2 = hmac.new(key, struct.pack(">Q", int(server_ts // 30)), hashlib.sha1).digest()
+        o = h2[-1] & 0x0F
+        return f"{(int.from_bytes(h2[o:o + 4], 'big') & 0x7FFFFFFF) % 1_000_000:06d}"
+
+    _purge_mfa()
+    req("POST", "/users", {"login": PU, "name": "MFA 스위트", "initialPassword": "mfa1234",
+                            "department": "QA", "email": "", "level": "GENERAL"})
+    lg = urllib.request.Request(f"{API}/auth/login",
+        data=json.dumps({"userId": PU, "password": "mfa1234"}).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")
+    ptok = json.loads(urllib.request.urlopen(lg).read())["token"]
+    secret = req("POST", "/users/me/mfa/setup", tok=ptok)["secret"]
+    server_ts = int(psql("SELECT extract(epoch FROM now())::bigint"))
+    req("POST", "/users/me/mfa/enable", {"code": _totp(secret, server_ts)}, tok=ptok)
+    r1 = json.loads(urllib.request.urlopen(urllib.request.Request(
+        f"{API}/auth/login", data=json.dumps({"userId": PU, "password": "mfa1234"}).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")).read())
+    ok("MFA 활성 → mfaRequired", r1.get("mfaRequired") is True)
+    server_ts = int(psql("SELECT extract(epoch FROM now())::bigint"))
+    r2 = json.loads(urllib.request.urlopen(urllib.request.Request(
+        f"{API}/auth/login",
+        data=json.dumps({"userId": PU, "password": "mfa1234", "otp": _totp(secret, server_ts)}).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")).read())
+    ok("정 OTP 로그인", bool(r2.get("token")))
+    server_ts = int(psql("SELECT extract(epoch FROM now())::bigint"))
+    req("POST", "/users/me/mfa/disable", {"code": _totp(secret, server_ts)}, tok=ptok)
+    _purge_mfa()
+    ok("MFA 해제·프로브 정리", True)
 
     # 5) 테넌트 export (#13) — ADMIN ZIP + GENERAL 403
     blob, hdrs = req("GET", "/tenant/export.zip", raw=True)
