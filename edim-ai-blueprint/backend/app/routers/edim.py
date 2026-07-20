@@ -10814,9 +10814,25 @@ def snapshot_verify(snapshot_id: int) -> dict[str, Any]:
             raise HTTPException(404, detail=f"snapshot not found: {snapshot_id}")
         code, run_id, payload, checksum = r
         intact = _snapshot_checksum(payload) == checksum
+        live_bom: list[dict[str, Any]] | None = None
+        live_basis: dict[str, Any] | None = None
         try:
             current = _run_state(cur, tid, run_id)
             source_exists = True
+            # #40 — drift 는 '지금 다시 폈을 때' 와 비교해야 의미가 있다.
+            # cpq_run.bom_snapshot·rel_basis 는 Run 시점에 고정된 불변 값이라 자기 자신과 비교하면
+            # 영원히 차이가 없다(1.7 의 bomRows 비교가 사실상 무효였던 원인). 여기서 실제 재전개한다.
+            cur.execute("SELECT s.slot_values FROM cpq_run r LEFT JOIN cpq_selection s "
+                        "ON s.selection_id=r.selection_id WHERE r.tenant_id=%s AND r.run_id=%s",
+                        (tid, run_id))
+            sv = cur.fetchone()
+            rows = _expand_rows(cur, tid, "KDCR 3-13", (sv[0] if sv else None) or {})
+            live_basis = _rel_basis(rows)
+            live_bom = [{"level": r[3], "mainCode": r[0],
+                         "resolvedCode": _resolved(r[0], r[4] or {}),
+                         "name": r[1], "quantity": float(r[2]),
+                         "priceK": round(float(r[6]) / 1000) if r[6] is not None else None,
+                         "path": r[5]} for r in rows]
         except HTTPException:
             current, source_exists = {}, False
 
@@ -10825,15 +10841,15 @@ def snapshot_verify(snapshot_id: int) -> dict[str, Any]:
         for key in ("status", "finishedGoodsCode", "projectNo", "bomRows"):
             if payload.get(key) != current.get(key):
                 drift.append({"field": key, "snapshot": payload.get(key), "current": current.get(key)})
-        # #40 — 행 수만 보던 BOM 대조를 내용 기준으로 강화 (행 수가 같아도 수량·코드가 바뀔 수 있다)
-        if _snapshot_checksum({"b": payload.get("bom", [])}) != _snapshot_checksum({"b": current.get("bom", [])}):
-            drift.append({"field": "bom", "snapshot": f"{len(payload.get('bom', []))}행",
-                          "current": f"{len(current.get('bom', []))}행 (내용 상이)"})
+        # #40 — 고정 BOM vs 지금 다시 편 BOM: 행 수가 같아도 수량·코드가 바뀌었으면 잡는다
+        if live_bom is not None and \
+                _snapshot_checksum({"b": payload.get("bom", [])}) != _snapshot_checksum({"b": live_bom}):
+            drift.append({"field": "bom", "snapshot": f"{len(payload.get('bom', []))}행 (고정)",
+                          "current": f"{len(live_bom)}행 (재전개 — 내용 상이)"})
         # #40 — 전개 근거(관계 Revision) 이동 여부
-        if (payload.get("relBasis") or {}).get("checksum") != (current.get("relBasis") or {}).get("checksum"):
-            drift.append({"field": "relBasis",
-                          "snapshot": (payload.get("relBasis") or {}).get("checksum"),
-                          "current": (current.get("relBasis") or {}).get("checksum")})
+        pin_ck = (payload.get("relBasis") or {}).get("checksum")
+        if live_basis is not None and pin_ck and pin_ck != live_basis["checksum"]:
+            drift.append({"field": "relBasis", "snapshot": pin_ck, "current": live_basis["checksum"]})
         if [c["total"] for c in payload.get("costs", [])] != [c["total"] for c in current.get("costs", [])]:
             drift.append({"field": "costs", "snapshot": payload.get("costs"), "current": current.get("costs")})
         if len(payload.get("outputs", [])) != len(current.get("outputs", [])):
