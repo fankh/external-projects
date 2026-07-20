@@ -38,6 +38,19 @@ export async function deleteSelection(selectionId: number): Promise<{ ok?: true;
   }
 }
 
+/** Arrangement 구성 블록 (트리아지 #37) — 선택한 Arrangement 의 배치 컴포넌트 → 캔버스 블록. */
+export interface ArrOption { code: string; name: string; family: string; components: number }
+
+export async function arrangementBlocks(code: string): Promise<import('@/lib/cadTypes').CanvasBlock[] | null> {
+  interface Comp { position: string; code: string; name: string; quantity: number; componentId?: number; x?: number; y?: number; w?: number; h?: number }
+  try {
+    const comps = await apiServer<Comp[]>(`/arrangements/${encodeURIComponent(code)}/components`)
+    if (!comps.length) return null
+    return comps.map((c) => ({ id: String(c.componentId ?? c.code), name: c.code, sub: c.position || `×${c.quantity}`,
+      x: c.x ?? 20, y: c.y ?? 20, w: c.w ?? 130, h: c.h ?? 56 }))
+  } catch { return null }
+}
+
 /** 구성도 CAD 정본 (ezdxf 작도→파싱). */
 export async function arrangementCad(): Promise<CadDocument | null> {
   try {

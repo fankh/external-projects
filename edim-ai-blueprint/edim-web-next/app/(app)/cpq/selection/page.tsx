@@ -18,10 +18,12 @@ export default async function SelectionPage() {
   const locale = await getLocale()
   const bundle = bundleFor(locale)
   const t = (k: string, ko: string) => translate(bundle, k, ko)
-  const [expand, selections, comps] = await Promise.all([
+  interface ArrRow { code: string; name: string; family: string; components: number }
+  const [expand, selections, comps, arrangements] = await Promise.all([
     apiServer<ExpandResult>('/codes/products/expand', { method: 'POST', body: JSON.stringify({ rootCode: 'KDCR 3-13', slotValues: DEFAULT_SLOTS }) }).catch(() => null),
     apiServer<SelectionRow[]>(`/cpq/selections?projectNo=${encodeURIComponent(PROJECT)}`).catch(() => []),
     apiServer<ArrangementComponent[]>(`/arrangements/${ARR_CODE}/components`).catch(() => []),
+    apiServer<ArrRow[]>('/arrangements').catch(() => []),
   ])
   const bom: BomItem[] = expand?.items ?? []
   const finished = expand?.finishedGoodsCode ?? ''
@@ -33,7 +35,8 @@ export default async function SelectionPage() {
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <ScreenHeader title={`${t('menu.cpq-selection', '제품 선정 (C-1)')} — KDCR 3-13`} source="/codes/products/expand · /cpq/selections · /arrangements" />
       <div style={{ flex: 1, minHeight: 0 }}>
-        <SelectionView projectNo={PROJECT} initialFinished={finished} initialBom={bom} initialSlots={DEFAULT_SLOTS} selections={selections} arrBlocks={arrBlocks} />
+        <SelectionView projectNo={PROJECT} initialFinished={finished} initialBom={bom} initialSlots={DEFAULT_SLOTS}
+          selections={selections} arrBlocks={arrBlocks} arrangements={arrangements} initialArr={ARR_CODE} />
       </div>
     </div>
   )

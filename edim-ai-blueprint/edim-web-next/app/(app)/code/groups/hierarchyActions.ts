@@ -38,6 +38,19 @@ export async function renameHierarchyNode(id: number, name: string, symbol: stri
   return { ok: `#${id} → ${name}` }
 }
 
+/** 노드 속성 수정 (트리아지 #22) — Remark·Color·Lock (symbol/name 은 기존 개명 경로). */
+export async function updateHierarchyAttrs(
+  id: number, attrs: { remark?: string; color?: string; locked?: boolean },
+): Promise<ActState> {
+  try {
+    await apiServer(`/hierarchy/nodes/${id}`, { method: 'PATCH', body: JSON.stringify(attrs) })
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '속성 수정 실패 (잠금 409 가능)' }
+  }
+  revalidatePath(PATH)
+  return { ok: `#${id} 속성 저장 ✓` }
+}
+
 export async function deleteHierarchyNode(id: number): Promise<ActState> {
   try {
     await apiServer(`/hierarchy/nodes/${id}`, { method: 'DELETE' })

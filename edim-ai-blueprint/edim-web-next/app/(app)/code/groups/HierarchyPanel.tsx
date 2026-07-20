@@ -6,12 +6,15 @@ import { useRouter } from 'next/navigation'
 import { Chip, GroupBox } from '@/components/controls'
 import { ApprovalStrip } from '@/components/ApprovalStrip'
 import { useI18n } from '@/components/I18nProvider'
-import { addHierarchyNode, deleteHierarchyNode, getNodeInfo, moveHierarchyNode, renameHierarchyNode, validateHierarchy, type ActState, type NodeInfo, type ValidateResult } from './hierarchyActions'
+import { addHierarchyNode, deleteHierarchyNode, getNodeInfo, moveHierarchyNode, renameHierarchyNode, updateHierarchyAttrs, validateHierarchy, type ActState, type NodeInfo, type ValidateResult } from './hierarchyActions'
 
 export interface HierarchyNode {
   id: number; parentId: number | null; name: string
   symbol: string; address: string; status: string
+  remark?: string; color?: string; locked?: boolean
 }
+
+const NODE_COLORS = ['', '#C8552F', '#B4820B', '#3E9B57', '#2F6FB4', '#8058A5']
 
 export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; treeType: string }) {
   const { t } = useI18n()
@@ -32,6 +35,20 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
   // U22 — 정합 점검 (슬라이드 57-⑧)
   const [vres, setVres] = useState<ValidateResult | null>(null)
   const runValidate = () => start(async () => setVres(await validateHierarchy(treeType)))
+  // 트리아지 #22 — 노드 속성 다이얼로그 (Remark/Color/Lock)
+  const [attrNode, setAttrNode] = useState<HierarchyNode | null>(null)
+  const [attrRemark, setAttrRemark] = useState('')
+  const [attrColor, setAttrColor] = useState('')
+  const openAttrs = (node: HierarchyNode) => {
+    setAttrNode(node); setAttrRemark(node.remark ?? ''); setAttrColor(node.color ?? '')
+  }
+  const saveAttrs = (locked?: boolean) => attrNode && start(async () => {
+    setSt(await updateHierarchyAttrs(attrNode.id, {
+      remark: attrRemark, color: attrColor,
+      ...(locked === undefined ? {} : { locked }),
+    }))
+    setAttrNode(null)
+  })
   const shown = query.trim()
     ? nodes.filter((n) => n.name.toLowerCase().includes(query.trim().toLowerCase()) || n.address.includes(query.trim()))
     : nodes
@@ -103,10 +120,12 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
             style={{ paddingLeft: 6 + depth(n) * 14, opacity: n.id === cutId ? 0.5 : 1 }}
             onClick={() => setSelId(n.id)}
             onContextMenu={(e) => { e.preventDefault(); setSelId(n.id); setCtx({ x: e.clientX, y: e.clientY, node: n }) }}>
-            <span className="ico">▣</span>
+            <span className="ico" style={n.color ? { color: n.color } : undefined}>▣</span>
             <span className="code" style={{ minWidth: 56 }}>{n.address}</span>
-            {n.name}
+            <span style={n.color ? { color: n.color } : undefined} title={n.remark || undefined}>{n.name}</span>
             {n.symbol ? <span style={{ color: 'var(--txt-mute)' }}> ({n.symbol})</span> : null}
+            {n.locked ? <span title="잠금 — 수정·이동·삭제 보호" style={{ marginLeft: 3 }}>🔒</span> : null}
+            {n.remark ? <span style={{ color: 'var(--txt-mute)', fontSize: 9.5, marginLeft: 4 }}>✎ {n.remark.slice(0, 24)}{n.remark.length > 24 ? '…' : ''}</span> : null}
             {n.status !== 'ACTIVE' ? <Chip tone="warn">{n.status}</Chip> : null}
           </div>
         )) : <div style={{ padding: 12, fontSize: 11, color: 'var(--txt-mute)' }}>{query ? '검색 결과 없음' : '노드가 없습니다 — 루트 노드를 등록하십시오'}</div>}
@@ -120,6 +139,8 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
             { label: '✂ 잘라내기 (이동)', act: () => { setCutId(ctx.node.id); setCtx(null) } },
             ...(cutId != null && cutId !== ctx.node.id ? [{ label: '📥 여기에 붙여넣기', act: () => { pasteInto(ctx.node); setCtx(null) } }] : []),
             { label: 'ℹ 속성·정보', act: () => { openInfo(ctx.node.id); setCtx(null) } },
+            { label: '🎨 속성 편집 (비고·색·잠금)', act: () => { openAttrs(ctx.node); setCtx(null) } },
+            { label: ctx.node.locked ? '🔓 잠금 해제' : '🔒 잠금', act: () => { setCtx(null); start(async () => setSt(await updateHierarchyAttrs(ctx.node.id, { locked: !ctx.node.locked }))) } },
             { label: '🗑 삭제', act: () => { setCtx(null); if (confirm(`${ctx.node.address} ${ctx.node.name} 을 삭제하시겠습니까?`)) start(async () => { setSt(await deleteHierarchyNode(ctx.node.id)); setSelId(null) }) } },
           ].map((m) => (
             <div key={m.label} style={{ padding: '5px 12px', cursor: 'pointer' }}
@@ -127,6 +148,41 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
               onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
               onClick={m.act}>{m.label}</div>
           ))}
+        </div>
+      ) : null}
+      {/* 트리아지 #22 — 속성 편집 다이얼로그 (Remark·Color·Lock) */}
+      {attrNode ? (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setAttrNode(null)}>
+          <div className="gb" data-h-attrs style={{ width: 320, padding: 12, background: '#fff', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 8 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: 'var(--title-navy)' }}>
+              {t('hier.attrTitle', '속성 편집')} — {attrNode.address} {attrNode.name} {attrNode.locked ? '🔒' : ''}
+            </div>
+            <div className="frm c2" style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 6, alignItems: 'center' }}>
+              <label>{t('hier.remark', '비고')}</label>
+              <input className="in" aria-label="노드 비고" value={attrRemark} maxLength={200}
+                onChange={(e) => setAttrRemark(e.target.value)} autoFocus />
+              <label>{t('hier.color', '색상')}</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {NODE_COLORS.map((c) => (
+                  <span key={c || 'none'} onClick={() => setAttrColor(c)}
+                    title={c || t('hier.colorNone', '기본')}
+                    style={{ width: 18, height: 18, borderRadius: 3, cursor: 'pointer',
+                      background: c || '#fff', border: attrColor === c ? '2px solid var(--title-navy)' : '1px solid var(--line)',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9 }}>
+                    {c ? '' : '∅'}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+              <button className="b" data-h-attr-lock onClick={() => saveAttrs(!attrNode.locked)}
+                title={t('hier.lockHint', '잠금 노드는 수정·이동·삭제가 409 로 보호됩니다')}>
+                {attrNode.locked ? '🔓 ' + t('hier.unlock', '해제+저장') : '🔒 ' + t('hier.lock', '잠금+저장')}</button>
+              <button className="b run" data-h-attr-save disabled={pending} onClick={() => saveAttrs()}>{t('common.save', '저장')}</button>
+              <button className="b" onClick={() => setAttrNode(null)}>{t('common.cancel', '취소')}</button>
+            </div>
+          </div>
         </div>
       ) : null}
       {/* U18 — 속성/정보 다이얼로그 */}

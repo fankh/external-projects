@@ -9,7 +9,7 @@ import { Btn, Chip, GroupBox } from '@/components/controls'
 import { CommandLine, Cvs } from '@/components/Cvs'
 import { Modal } from '@/components/Modal'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
-import { expand, saveSelection, deleteSelection, arrangementCad, specImport, type BomItem, type SelectionRow } from './actions'
+import { arrangementBlocks, expand, saveSelection, deleteSelection, arrangementCad, specImport, type ArrOption, type BomItem, type SelectionRow } from './actions'
 
 const PRODUCT_SLOTS = [
   { slot: 'B', label: 'Size', values: ['13', '21', '32'] },
@@ -31,10 +31,26 @@ export function SelectionView(props: {
   initialSlots: Record<string, string>
   selections: SelectionRow[]
   arrBlocks: CanvasBlock[] | null
+  arrangements?: ArrOption[]
+  initialArr?: string
 }) {
   const router = useRouter()
   const { t } = useI18n()
   const [slotValues, setSlotValues] = useState<Record<string, string>>(props.initialSlots)
+  // 트리아지 #37 — Arrangement 선택 단계: 고정(ARR-DD2) → 콤보 선택, 구성 블록 실교체
+  const [arrCode, setArrCode] = useState(props.initialArr ?? '')
+  const [arrOverride, setArrOverride] = useState<CanvasBlock[] | null>(null)
+  const pickArrangement = (code: string) => {
+    setArrCode(code)
+    startArr(async () => {
+      const blocks2 = await arrangementBlocks(code)
+      setArrOverride(blocks2)
+      say(blocks2
+        ? `Arrangement ${code} — ${t('cpq.arrLoaded', '구성 블록')} ${blocks2.length}`
+        : t('cpq.arrEmpty', '구성 컴포넌트 없음 — 기본 블록 표시'))
+    })
+  }
+  const [, startArr] = useTransition()
   const [finished, setFinished] = useState(props.initialFinished)
   const [bom, setBom] = useState<BomItem[]>(props.initialBom)
   const [selBlock, setSelBlock] = useState<CanvasBlock | null>(null)
@@ -147,7 +163,7 @@ export function SelectionView(props: {
       return next
     })
   }
-  const baseBlocks = props.arrBlocks ?? AHU_BLOCKS
+  const baseBlocks = arrOverride ?? props.arrBlocks ?? AHU_BLOCKS
   const blocks = useMemo(() => {
     // ① 분할: 대상 블록을 좌/우 하프 모듈 ①·② 로
     let vis: CanvasBlock[] = baseBlocks.flatMap((b) => {
@@ -250,6 +266,19 @@ export function SelectionView(props: {
             </select>
           </span>
         ))}
+        {/* 트리아지 #37 — Arrangement 선택 (제품군 배치 구조) */}
+        {props.arrangements?.length ? (
+          <span style={{ fontSize: 11 }}>Arr.
+            <select className="in" data-arr-select value={arrCode}
+              onChange={(e) => pickArrangement(e.target.value)}
+              title={t('cpq.arrHint', 'Arrangement 선택 — 구성 블록·배치가 교체됩니다')}
+              style={{ height: 20, fontSize: 10, marginLeft: 2, maxWidth: 110 }}>
+              {props.arrangements.map((a) => (
+                <option key={a.code} value={a.code}>{a.code} ({a.components})</option>
+              ))}
+            </select>
+          </span>
+        ) : null}
         <span style={{ flex: 1 }} />
         <select className="in" value={savedSelId ?? ''} onChange={(e) => loadSel(e.target.value)} style={{ height: 22, fontSize: 11 }} aria-label={t('cpq.quote', '견적안')}>
           <option value="">{t('cpq.quoteLoad', '견적안 불러오기…')}</option>

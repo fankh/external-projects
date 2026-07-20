@@ -1771,12 +1771,14 @@ def hierarchy(treeType: str = "PRODUCT") -> list[dict[str, Any]]:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT hierarchy_id, parent_id, node_name, COALESCE(symbol,''),
-                      address, approval_status
+                      address, approval_status,
+                      COALESCE(remark,''), COALESCE(color,''), is_locked
                FROM sys_hierarchy WHERE tenant_id=%s AND tree_type=%s
                ORDER BY sort_order, hierarchy_id""", (tid, treeType.strip().upper()))
         return [
             {"id": r[0], "parentId": r[1], "name": r[2], "symbol": r[3],
-             "address": r[4], "status": r[5]}
+             "address": r[4], "status": r[5],
+             "remark": r[6], "color": r[7], "locked": r[8]}
             for r in cur.fetchall()
         ]
 
@@ -7790,25 +7792,43 @@ def hierarchy_node_create(request: Request, body: HierarchyNodeCreate) -> dict[s
 class HierarchyNodePatch(BaseModel):
     name: str = ""
     symbol: str = ""
+    remark: str | None = None      # 트리아지 #22 — None=유지, ''=삭제
+    color: str | None = None       # None=유지, ''=삭제
+    locked: bool | None = None     # None=유지
 
 
 @router.patch("/hierarchy/nodes/{node_id}", dependencies=[SETUP])
 def hierarchy_node_patch(node_id: int, request: Request, body: HierarchyNodePatch) -> dict[str, Any]:
+    """노드 속성 수정 (트리아지 #22) — 잠금 노드는 해제 요청 없이는 다른 필드 수정 409."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        cur.execute("SELECT is_locked FROM sys_hierarchy WHERE tenant_id=%s AND hierarchy_id=%s",
+                    (tid, node_id))
+        cur_row = cur.fetchone()
+        if not cur_row:
+            raise HTTPException(404, detail=f"노드 없음: #{node_id}")
+        if cur_row[0] and body.locked is not False and (
+                body.name.strip() or body.symbol.strip()
+                or body.remark is not None or body.color is not None):
+            raise HTTPException(409, detail="잠금 노드 — 잠금 해제 후 수정하십시오 (🔒)")
         cur.execute(
             """UPDATE sys_hierarchy SET
                node_name=CASE WHEN %s<>'' THEN %s ELSE node_name END,
                symbol=CASE WHEN %s<>'' THEN %s ELSE symbol END,
+               remark=CASE WHEN %s THEN NULLIF(%s,'') ELSE remark END,
+               color=CASE WHEN %s THEN NULLIF(%s,'') ELSE color END,
+               is_locked=COALESCE(%s, is_locked),
                updated_at=now()
                WHERE tenant_id=%s AND hierarchy_id=%s RETURNING address""",
             (body.name.strip(), body.name.strip()[:100],
-             body.symbol.strip(), body.symbol.strip()[:30], tid, node_id))
+             body.symbol.strip(), body.symbol.strip()[:30],
+             body.remark is not None, (body.remark or "").strip()[:200],
+             body.color is not None, (body.color or "").strip()[:16],
+             body.locked, tid, node_id))
         row = cur.fetchone()
-        if not row:
-            raise HTTPException(404, detail=f"노드 없음: #{node_id}")
         _audit(cur, tid, "sys_hierarchy", node_id, "UPDATE", request.state.user_id,
-               {"name": body.name, "symbol": body.symbol})
+               {"name": body.name, "symbol": body.symbol,
+                "remark": body.remark, "color": body.color, "locked": body.locked})
     return {"hierarchyId": node_id, "address": row[0]}
 
 
@@ -7888,13 +7908,15 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT address, tree_type, is_system FROM sys_hierarchy
+            """SELECT address, tree_type, is_system, is_locked FROM sys_hierarchy
                WHERE tenant_id=%s AND hierarchy_id=%s""", (tid, node_id))
         src = cur.fetchone()
         if not src:
             raise HTTPException(404, detail=f"노드 없음: #{node_id}")
         if src[2]:
             raise HTTPException(422, detail="시스템 제공 노드는 이동할 수 없습니다")
+        if src[3]:
+            raise HTTPException(409, detail="잠금 노드는 이동 불가 — 잠금 해제 후 진행 (🔒)")
         old_addr, tree = src[0], src[1]
         if body.targetParentId is not None:
             cur.execute(
@@ -7944,6 +7966,11 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
 def hierarchy_node_delete(node_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        cur.execute("SELECT is_locked FROM sys_hierarchy WHERE tenant_id=%s AND hierarchy_id=%s",
+                    (tid, node_id))
+        lk = cur.fetchone()
+        if lk and lk[0]:
+            raise HTTPException(409, detail="잠금 노드는 삭제 불가 — 잠금 해제 후 진행 (🔒)")
         cur.execute("SELECT 1 FROM sys_hierarchy WHERE parent_id=%s LIMIT 1", (node_id,))
         if cur.fetchone():
             raise HTTPException(409, detail="하위 노드가 있는 노드는 삭제 불가")
