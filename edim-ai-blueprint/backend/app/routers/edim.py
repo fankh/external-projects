@@ -10197,7 +10197,11 @@ def _run_state(cur, tid: int, run_id: int) -> dict[str, Any]:
     """Run 시점 상태 수집 — Snapshot payload 이자 재현(drift) 대조의 기준."""
     cur.execute(
         """SELECT r.status, r.run_type, COALESCE(r.is_test,false), r.bom_snapshot,
-                  s.selection_id, s.finished_goods_code, s.selections, p.project_no
+                  s.selection_id, s.finished_goods_code,
+                  jsonb_build_object('slotValues', s.slot_values, 'specInput', s.spec_input,
+                                     'arrangementId', s.arrangement_id,
+                                     'isStandard', s.is_standard, 'status', s.status),
+                  p.project_no
            FROM cpq_run r
            LEFT JOIN cpq_selection s ON s.selection_id=r.selection_id
            LEFT JOIN prj_project p ON p.project_id=s.project_id
