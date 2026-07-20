@@ -177,6 +177,81 @@ def _platform_guard(request: Request) -> None:
 PLATFORM = Depends(_platform_guard)
 
 
+# ── 1.5 정보 접근 권한·마스킹 (요구 #4/#6) — 작업 권한(RBAC)과 분리된 열람 통제 ──
+# 정보그룹: 원가·단가·견적금액·거래처(고객/공급자명). 모드: full/masked/summary/hidden/no_download.
+INFO_GROUPS = {
+    "cost": "원가 (실적·PCR·계산 상세)",
+    "price": "단가 (구매·판매)",
+    "quote": "견적 금액",
+    "partner": "거래처·공급자명",
+}
+INFO_MODES = ("full", "masked", "summary", "hidden", "no_download")
+MASK_TEXT = "••••"
+
+
+def _info_mode(cur, tid: int, request: Request, group: str) -> str:
+    """현재 사용자의 정보그룹 열람 모드 — 임시 접근(유효기간) > 역할 규칙 > full(기본).
+
+    미설정이면 full 이라 기존 동작이 보존된다(도입 시 무영향).
+    """
+    uid = getattr(request.state, "user_id", None)
+    if uid:
+        cur.execute(
+            """SELECT mode FROM sys_temp_access
+               WHERE tenant_id=%s AND user_id=%s AND info_group=%s AND NOT revoked
+                 AND valid_from <= now() AND valid_to > now()
+               ORDER BY temp_access_id DESC LIMIT 1""", (tid, uid, group))
+        t = cur.fetchone()
+        if t:
+            return t[0]
+    lvl = getattr(request.state, "level", None)
+    if not lvl:
+        return "full"
+    # 사용자 등급(암묵 역할) + 배정 역할 중 가장 제한적인 규칙 적용 (Deny 우선 — 요구 #5)
+    cur.execute(
+        """SELECT ia.mode FROM sys_info_access ia
+           WHERE ia.tenant_id=%s AND ia.info_group=%s
+             AND (ia.role_name=%s OR ia.role_name IN (
+                   SELECT r.role_name FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id
+                   WHERE ur.user_id=%s))""", (tid, group, lvl, uid))
+    modes = [r[0] for r in cur.fetchall()]
+    if not modes:
+        return "full"
+    order = {"hidden": 0, "summary": 1, "masked": 2, "no_download": 3, "full": 4}
+    return min(modes, key=lambda m: order.get(m, 4))
+
+
+def _mask_num(value: float | None, mode: str) -> Any:
+    """숫자 민감값 마스킹 — hidden/summary 는 값 제거, masked 는 자릿수만 노출."""
+    if value is None or mode in ("full", "no_download"):
+        return value
+    if mode in ("hidden", "summary"):
+        return None
+    # masked — 상위 1자리만 남기고 절사 (규모만 파악, 실값 비노출)
+    try:
+        n = int(abs(float(value)))
+    except (TypeError, ValueError):
+        return None
+    digits = len(str(n))
+    return f"{str(n)[0]}{'0' * (digits - 1)}~" if digits > 1 else "~"
+
+
+def _mask_text(value: str | None, mode: str) -> str | None:
+    if value is None or mode in ("full", "no_download"):
+        return value
+    if mode == "hidden":
+        return None
+    return (value[:1] + MASK_TEXT) if value else value
+
+
+def _assert_downloadable(cur, tid: int, request: Request, group: str) -> None:
+    """no_download/hidden/summary 모드는 내려받기 차단 (요구 #6 — 조회 가능 ≠ Export 가능)."""
+    mode = _info_mode(cur, tid, request, group)
+    if mode != "full":
+        raise HTTPException(
+            403, detail=f"다운로드 권한 없음 — {INFO_GROUPS.get(group, group)} 열람 모드: {mode}")
+
+
 def _notify(cur, tid: int, user_id: int, notify_type: str, title: str,
             link: str | None = None) -> None:
     cur.execute(
@@ -1106,10 +1181,11 @@ def _xlsx_response(sheet: str, headers: list[str], rows: list[list[Any]], filena
 
 
 @router.get("/prices/export.xlsx")
-def export_prices_xlsx() -> Response:
-    """단가 대장 XLSX (D8)."""
+def export_prices_xlsx(request: Request) -> Response:
+    """단가 대장 XLSX (D8). 1.5 — 단가 열람 제한 사용자는 다운로드 금지(403)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _assert_downloadable(cur, tid, request, "price")
         cur.execute(
             """SELECT pc.main_code, pc.code_name, COALESCE(cc.company_name,'-'),
                       p.price, p.price_source, p.valid_from, p.valid_to
@@ -4622,7 +4698,7 @@ PRICE_SORT = {"code": "pc.main_code", "price": "p.price", "from": "p.valid_from"
 
 
 @router.get("/prices")
-def prices(sort: str = "", dir: str = "asc") -> list[dict[str, Any]]:
+def prices(request: Request, sort: str = "", dir: str = "asc") -> list[dict[str, Any]]:
     # F8 — 대량 대장 서버 정렬 (화이트리스트 컬럼만; 기본 = 코드·적용일 역순)
     order = "pc.main_code, p.valid_from DESC"
     if sort in PRICE_SORT:
@@ -4639,11 +4715,20 @@ def prices(sort: str = "", dir: str = "asc") -> list[dict[str, Any]]:
                LEFT JOIN com_company cc ON cc.company_id=p.supplier_id
                WHERE p.tenant_id=%s AND pc.main_code IN ('FDV-480','KDC-1','EWT-3')
                ORDER BY {order}""", (tid,))
+        rows = cur.fetchall()
+        # 1.5 — 정보 접근 권한: 단가·거래처명 마스킹 (모드 미설정 시 full)
+        pm = _info_mode(cur, tid, request, "price")
+        qm = _info_mode(cur, tid, request, "partner")
+        if pm != "full" or qm != "full":
+            _audit(cur, tid, "cst_price", 0, "MASKED_READ", request.state.user_id,
+                   {"price": pm, "partner": qm})
         return [
-            {"code": r[0], "name": r[1], "supplier": r[2], "price": float(r[3]),
+            {"code": r[0], "name": r[1], "supplier": _mask_text(r[2], qm),
+             "price": _mask_num(float(r[3]), pm),
              "source": SOURCE_LABEL[r[4]], "from": r[5].isoformat(),
-             "to": r[6].isoformat() if r[6] else None, "active": bool(r[7]), "priceId": r[8]}
-            for r in cur.fetchall()
+             "to": r[6].isoformat() if r[6] else None, "active": bool(r[7]), "priceId": r[8],
+             "maskMode": pm}
+            for r in rows
         ]
 
 
@@ -7615,6 +7700,122 @@ def tenant_branding_put(request: Request, body: BrandingPut) -> dict[str, Any]:
     return {"saved": True}
 
 
+# ── 1.5 정보 접근 권한 관리 (요구 #4/#6) — 역할×정보그룹 매트릭스·임시 접근 ──
+
+class InfoAccessSet(BaseModel):
+    roleName: str
+    infoGroup: str
+    mode: str
+
+
+class TempAccessGrant(BaseModel):
+    login: str
+    infoGroup: str
+    mode: str = "full"
+    hours: int = 8
+    reason: str = ""
+
+
+@router.get("/access/info")
+def info_access_list(request: Request) -> dict[str, Any]:
+    """정보 접근 매트릭스 — 역할×정보그룹 모드(미설정=full) + 내 유효 모드."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT role_name, info_group, mode FROM sys_info_access WHERE tenant_id=%s", (tid,))
+        rules = [{"roleName": r[0], "infoGroup": r[1], "mode": r[2]} for r in cur.fetchall()]
+        cur.execute("SELECT role_name FROM sys_role WHERE tenant_id=%s ORDER BY role_id", (tid,))
+        roles = [r[0] for r in cur.fetchall()]
+        mine = {g: _info_mode(cur, tid, request, g) for g in INFO_GROUPS}
+    return {"groups": [{"key": k, "label": v} for k, v in INFO_GROUPS.items()],
+            "modes": list(INFO_MODES), "roles": roles, "rules": rules, "mine": mine}
+
+
+@router.put("/access/info", dependencies=[ADMIN])
+def info_access_set(request: Request, body: InfoAccessSet) -> dict[str, Any]:
+    """역할별 정보 열람 모드 설정 — full 지정 시 규칙 삭제(기본값 복귀)."""
+    if body.infoGroup not in INFO_GROUPS:
+        raise HTTPException(422, detail=f"정보그룹 오류 ({'/'.join(INFO_GROUPS)})")
+    if body.mode not in INFO_MODES:
+        raise HTTPException(422, detail=f"모드 오류 ({'/'.join(INFO_MODES)})")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        if body.mode == "full":
+            cur.execute(
+                "DELETE FROM sys_info_access WHERE tenant_id=%s AND role_name=%s AND info_group=%s",
+                (tid, body.roleName, body.infoGroup))
+        else:
+            cur.execute(
+                """INSERT INTO sys_info_access (tenant_id, role_name, info_group, mode, updated_by)
+                   VALUES (%s,%s,%s,%s,%s)
+                   ON CONFLICT (tenant_id, role_name, info_group)
+                   DO UPDATE SET mode=EXCLUDED.mode, updated_by=EXCLUDED.updated_by, updated_at=now()""",
+                (tid, body.roleName, body.infoGroup, body.mode, request.state.login))
+        _audit(cur, tid, "sys_info_access", 0, "INFO_ACCESS", request.state.user_id,
+               {"role": body.roleName, "group": body.infoGroup, "mode": body.mode})
+    return {"roleName": body.roleName, "infoGroup": body.infoGroup, "mode": body.mode}
+
+
+@router.get("/access/temp")
+def temp_access_list() -> list[dict[str, Any]]:
+    """임시 열람 부여 현황 (요구 #6 Temporary Access) — 유효/만료 구분."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT t.temp_access_id, u.login_id, t.info_group, t.mode, t.reason,
+                      to_char(t.valid_to,'MM-DD HH24:MI'), t.revoked,
+                      (NOT t.revoked AND t.valid_to > now())
+               FROM sys_temp_access t JOIN sys_user u ON u.user_id=t.user_id
+               WHERE t.tenant_id=%s ORDER BY t.temp_access_id DESC LIMIT 50""", (tid,))
+        return [{"id": r[0], "login": r[1], "infoGroup": r[2], "mode": r[3], "reason": r[4],
+                 "validTo": r[5], "revoked": r[6], "active": r[7]} for r in cur.fetchall()]
+
+
+@router.post("/access/temp", status_code=201, dependencies=[ADMIN])
+def temp_access_grant(request: Request, body: TempAccessGrant) -> dict[str, Any]:
+    """기간 한정 임시 열람 부여 — 사유·만료 필수, 자동 만료(별도 작업 불요)."""
+    if body.infoGroup not in INFO_GROUPS or body.mode not in INFO_MODES:
+        raise HTTPException(422, detail="정보그룹/모드 오류")
+    hours = max(1, min(int(body.hours or 8), 720))
+    if not body.reason.strip():
+        raise HTTPException(422, detail="접근 사유는 필수입니다 (감사 대상)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+                    (tid, body.login.strip()))
+        u = cur.fetchone()
+        if not u:
+            raise HTTPException(404, detail=f"사용자 없음: {body.login}")
+        cur.execute(
+            """INSERT INTO sys_temp_access (tenant_id, user_id, info_group, mode, reason,
+                                            granted_by, valid_to)
+               VALUES (%s,%s,%s,%s,%s,%s, now() + (%s || ' hours')::interval)
+               RETURNING temp_access_id, to_char(valid_to,'MM-DD HH24:MI')""",
+            (tid, u[0], body.infoGroup, body.mode, body.reason.strip()[:300],
+             request.state.user_id, str(hours)))
+        row = cur.fetchone()
+        _notify(cur, tid, u[0], "ACCESS",
+                f"임시 열람 부여 — {INFO_GROUPS[body.infoGroup]} ({body.mode}, {row[1]} 까지)")
+        _audit(cur, tid, "sys_temp_access", row[0], "TEMP_GRANT", request.state.user_id,
+               {"login": body.login, "group": body.infoGroup, "mode": body.mode, "hours": hours})
+    return {"id": row[0], "validTo": row[1]}
+
+
+@router.delete("/access/temp/{grant_id}", dependencies=[ADMIN])
+def temp_access_revoke(grant_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "UPDATE sys_temp_access SET revoked=true WHERE tenant_id=%s AND temp_access_id=%s "
+            "RETURNING info_group", (tid, grant_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"부여 없음: #{grant_id}")
+        _audit(cur, tid, "sys_temp_access", grant_id, "TEMP_REVOKE", request.state.user_id,
+               {"group": row[0]})
+    return {"id": grant_id, "revoked": True}
+
+
 # ── 1.3 플랫폼 — 고객사(테넌트) 프로비저닝 (런치: 온보딩을 psql 없이 수행) ──
 
 class TenantCreate(BaseModel):
@@ -9121,7 +9322,7 @@ def pcr_breakdown(pcr_id: int) -> dict[str, Any]:
 
 
 @router.get("/cost/pcr")
-def pcr_list() -> list[dict[str, Any]]:
+def pcr_list(request: Request) -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -9129,13 +9330,19 @@ def pcr_list() -> list[dict[str, Any]]:
                       p.contribution_margin, p.ebit, p.status, s.finished_goods_code
                FROM cst_pcr p JOIN cpq_selection s ON s.selection_id=p.selection_id
                WHERE p.tenant_id=%s ORDER BY p.pcr_id""", (tid,))
+        rows = cur.fetchall()
+        # 1.5 — 원가 열람 모드: summary 는 상세 sections 제거(요약만), masked/hidden 은 금액 마스킹
+        cm = _info_mode(cur, tid, request, "cost")
+        if cm != "full":
+            _audit(cur, tid, "cst_pcr", 0, "MASKED_READ", request.state.user_id, {"cost": cm})
         return [
-            {"pcrId": r[0], "businessType": r[1], "sections": r[2],
-             "directCostTotal": float(r[3]),
-             "contributionMargin": float(r[4]) if r[4] is not None else None,
-             "ebit": float(r[5]) if r[5] is not None else None,
-             "status": r[6], "code": r[7]}
-            for r in cur.fetchall()
+            {"pcrId": r[0], "businessType": r[1],
+             "sections": {} if cm in ("summary", "hidden", "masked") else r[2],
+             "directCostTotal": _mask_num(float(r[3]), cm),
+             "contributionMargin": _mask_num(float(r[4]) if r[4] is not None else None, cm),
+             "ebit": _mask_num(float(r[5]) if r[5] is not None else None, cm),
+             "status": r[6], "code": r[7], "maskMode": cm}
+            for r in rows
         ]
 
 

@@ -127,3 +127,36 @@ export async function saveRolePermissions(role: string, permissions: Record<stri
   revalidatePath(PATH)
   return { ok: `${role} 권한 저장` }
 }
+
+/** 1.5 — 정보 접근 권한 (요구 #4/#6): 역할별 열람 모드·임시 열람 부여/회수. */
+export async function setInfoAccess(roleName: string, infoGroup: string, mode: string): Promise<ActState> {
+  try {
+    await apiServer('/access/info', { method: 'PUT', body: JSON.stringify({ roleName, infoGroup, mode }) })
+    revalidatePath(PATH)
+    return { ok: `${roleName} · ${infoGroup} → ${mode}` }
+  } catch (e) {
+    return fail(e, '정보 접근 설정 실패')
+  }
+}
+
+export async function grantTempAccess(login: string, infoGroup: string, hours: number, reason: string): Promise<ActState> {
+  try {
+    const r = await apiServer<{ validTo: string }>('/access/temp', {
+      method: 'POST', body: JSON.stringify({ login, infoGroup, mode: 'full', hours, reason }),
+    })
+    revalidatePath(PATH)
+    return { ok: `${login} 임시 열람 ✓ — ${r.validTo} 까지` }
+  } catch (e) {
+    return fail(e, '임시 열람 부여 실패')
+  }
+}
+
+export async function revokeTempAccess(id: number): Promise<ActState> {
+  try {
+    await apiServer(`/access/temp/${id}`, { method: 'DELETE' })
+    revalidatePath(PATH)
+    return { ok: `#${id} 회수` }
+  } catch (e) {
+    return fail(e, '회수 실패')
+  }
+}

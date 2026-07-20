@@ -11,10 +11,13 @@ import { closePrice, createPrice, importPricesExcel, type ActState } from './act
 
 export interface PriceRow {
   priceId?: number; code: string; name: string; supplier: string
-  price: number; source: string; from: string; to: string | null; active: boolean
+  // 1.5 — 정보 접근 권한: 마스킹 시 숫자 대신 문자열(예: '1000~') 또는 null 이 온다
+  price: number | string | null; source: string; from: string; to: string | null; active: boolean
+  maskMode?: string
 }
 
-const won = (n: number) => `₩ ${Math.round(n).toLocaleString()}`
+const won = (n: number | string | null) =>
+  n === null || n === undefined ? '••••' : typeof n === 'string' ? n : `₩ ${Math.round(n).toLocaleString()}`
 
 export function PriceGrid({ rows }: { rows: PriceRow[] }) {
   const { t } = useI18n()
@@ -36,7 +39,7 @@ export function PriceGrid({ rows }: { rows: PriceRow[] }) {
     { key: 'code', header: t('price.code', '코드'), width: 120, code: true, render: (r) => r.code },
     { key: 'name', header: t('cpq.name', '품명'), render: (r) => r.name },
     { key: 'supplier', header: t('price.supplier', '공급처'), width: 110, render: (r) => r.supplier || '—' },
-    { key: 'price', header: t('price.priceLbl', '단가'), width: 110, align: 'right', sortValue: (r) => r.price, render: (r) => won(r.price) },
+    { key: 'price', header: t('price.priceLbl', '단가'), width: 110, align: 'right', sortValue: (r) => (typeof r.price === 'number' ? r.price : -1), render: (r) => won(r.price) },
     { key: 'source', header: t('dash.kind', '구분'), width: 78, align: 'center', sortValue: (r) => r.source, render: (r) => <Chip tone="info">{sourceLabel[r.source] ?? r.source}</Chip> },
     { key: 'from', header: t('price.validFrom', '유효 시작'), width: 96, align: 'center', render: (r) => r.from },
     { key: 'to', header: t('price.validTo', '유효 종료'), width: 96, align: 'center', render: (r) => r.to || '—' },

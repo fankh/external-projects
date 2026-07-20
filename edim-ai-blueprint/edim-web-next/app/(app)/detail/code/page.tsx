@@ -7,7 +7,7 @@ import { CodeBlockPreview } from './CodeBlockPreview'
 
 export const dynamic = 'force-dynamic'
 
-interface PriceRow { code: string; name: string; supplier: string; price: number; source: string; from: string; to: string | null; active: boolean }
+interface PriceRow { code: string; name: string; supplier: string; price: number | string | null; source: string; from: string; to: string | null; active: boolean; maskMode?: string }
 interface ReferencerRow { code: string; name: string; qty: number; status: string }
 interface SlotItemRow { pcItemId: number; slot: string; itemName: string; required: boolean; sortOrder: number }
 interface ApprovalHistRow { date: string; action: string; by: string; note: string }
@@ -58,7 +58,7 @@ export default async function CodeDetailPage({ searchParams }: { searchParams: P
               {prices.length ? (
                 <table className="g"><thead><tr><th>Supplier</th><th>Price</th><th>{t('detail.source', '소스')}</th><th>{t('detail.fromDate', '적용 시작')}</th><th>{t('detail.toDate', '종료')}</th><th>{t('detail.statusCol', '상태')}</th></tr></thead>
                   <tbody>{prices.map((p, i) => (
-                    <tr key={i}><td className="c">{p.supplier}</td><td className="num">{p.price.toLocaleString()}</td>
+                    <tr key={i}><td className="c">{p.supplier}</td><td className="num">{p.price === null || p.price === undefined ? '••••' : typeof p.price === 'string' ? p.price : p.price.toLocaleString()}</td>
                       <td className="c"><Chip tone="info">{p.source}</Chip></td><td className="c">{p.from}</td><td className="c">{p.to ?? '-'}</td>
                       <td className="c">{p.active ? <Chip tone="ok">{t('detail.active', '적용중')}</Chip> : <Chip tone="warn">{t('detail.expired', '만료')}</Chip>}</td></tr>
                   ))}</tbody></table>

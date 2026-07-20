@@ -5,6 +5,7 @@ import { ScreenHeader } from '@/components/ScreenHeader'
 import { AccessDenied } from '@/components/AccessDenied'
 import { hasLevel } from '@/lib/auth'
 import { RoleMatrix, UsersPanel, type RoleRow, type UserRow } from './AdminPanels'
+import { InfoAccessPanel, type InfoAccessData, type TempRow } from './InfoAccessPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,11 +15,15 @@ export default async function RolesPage() {
   const t = (k: string, ko: string) => translate(bundle, k, ko)
   let roles: RoleRow[] = []
   let users: UserRow[] = []
+  let info: InfoAccessData | null = null
+  let temps: TempRow[] = []
   let err: string | null = null
   try {
-    ;[roles, users] = await Promise.all([
+    ;[roles, users, info, temps] = await Promise.all([
       apiServer<RoleRow[]>('/roles'),
       apiServer<UserRow[]>('/users').catch(() => []),
+      apiServer<InfoAccessData>('/access/info').catch(() => null),
+      apiServer<TempRow[]>('/access/temp').catch(() => []),
     ])
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
@@ -31,6 +36,7 @@ export default async function RolesPage() {
           <UsersPanel rows={users} />
           {/* key = 역할 구성 — 역할 생성/삭제 시 로컬 매트릭스 상태 재초기화 */}
           <RoleMatrix key={roles.map((r) => r.name).join('|')} roles={roles} />
+          {info ? <InfoAccessPanel data={info} temps={temps} /> : null}
         </div>
       )}
     </div>
