@@ -3729,6 +3729,10 @@ def render_document(doc_no: str, request: Request) -> Any:
             raise HTTPException(
                 403, detail=f"열람 권한 부족 — {grade} 등급 문서는 {'/'.join(allowed)} 만 열람 가능 "
                             f"(현재 등급: {request.state.level})")
+        # 권한승인정의서 문서보안등급 — S-1 은 열람 성공도 감사 (워터마크+열람 로그)
+        if grade == "S-1":
+            _audit(cur, tid, "doc_control", doc_id, "DOC_READ", request.state.user_id,
+                   {"docNo": doc_no, "grade": grade})
     watermark = grade in ("S-1", "S-2")
     pdf = rp.build_doc_pdf(
         doc_no=doc_no, title=title, doc_type=dtype, status=STATUS_LABEL.get(status, status),
@@ -4852,6 +4856,14 @@ def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
             if not hit:
                 raise HTTPException(404, detail=f"code not found: {body.targetCode}")
             target_id = hit[0]
+        # 권한승인정의서 승인상태기계 #7 — Macro 는 Test Run 통과(TESTED) 후에만 승인 요청 가능 (TBX-012)
+        if tt == "tbx_macro" and target_id:
+            cur.execute("SELECT test_result FROM tbx_macro WHERE tenant_id=%s AND macro_id=%s",
+                        (tid, target_id))
+            tr = cur.fetchone()
+            tr_val = tr[0] if tr else None
+            if tr_val is None or (isinstance(tr_val, dict) and tr_val.get("ok") is False):
+                raise HTTPException(422, detail="Test Run 통과 후 승인 요청 가능 — Macro 는 TESTED 상태 필수 (TBX-012)")
         # uq_approval_pending — 동일 대상의 PENDING 이 이미 있으면 정직한 409
         cur.execute(
             """SELECT approval_id FROM sys_approval_request
