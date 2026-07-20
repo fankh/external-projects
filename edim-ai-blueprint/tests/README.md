@@ -49,6 +49,7 @@ py tests\live_all.py
 | `live_dev_requirements.py` | 개발서버 요구사항 접수 — devMode 게이트·CRUD·이미지 첨부(422/연쇄삭제)·RBAC 403·UI 모달 왕복 (자체 정리) | 운영 도구 |
 | `live_product_builder.py` | 제품 코드 조합 — 자유텍스트 422·미승인 값 422·승인 반영·파생 코드/해시·동일 조합 409·Rev drift·GENERAL 403 (자체 정리) | 2.2 (#28) |
 | `live_bom_basis.py` | BOM 전개 근거 — 관계 Revision 고정·stable 판정·승인 후 이동 지목·Snapshot drift·순환/테넌트 가드 (자체 정리) | 2.7 (#40) |
+| `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원 13종 직접 접근, 404/403 외(200·409 포함) 전부 실패 (자체 정리) | 2.9 보안 |
 
 ## CI
 
@@ -72,4 +73,8 @@ py tests\live_all.py
 - **좌측 트리 내비는 `_nav.py` 의 `tree_click`/`tree_node` 만 사용한다** — 2.0 이후 좌측 기본 패널이
   업무 프로세스라, `.tn` 을 직접 찾으면 메뉴 라벨이 없어 타임아웃한다(2.3 에서 36종 일괄 복구).
 - **셸 기본값·공용 레이아웃을 바꾸는 배치는 신규 기능 검증만으로 수용하지 않는다** — `live_all.py` 완주가 수용 기준.
+- **새 SQL 은 테넌트 스코프 테이블을 만질 때 반드시 `tenant_id=%s` 를 건다.** 예외는 같은 함수에서
+  이미 tenant 스코프 조회로 404 검증된 ID 를 쓰는 경우뿐이며, 그 경우에도 검증 조회를 먼저 두어야 한다
+  (2.9 에서 실누출 3건 — 특히 `_tenant_id` 를 호출조차 하지 않던 Run 조회).
+  회귀 방지는 `live_tenant_isolation.py` 가 담당한다.
 - 시드 전제: edim/edim(ADMIN)·kim01/edim(GENERAL), KDCR 3-13 도메인 데이터 (시드 v1~v12).
