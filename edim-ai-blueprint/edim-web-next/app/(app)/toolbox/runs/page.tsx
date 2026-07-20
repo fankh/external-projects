@@ -30,8 +30,9 @@ export default async function RunsPage() {
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
           <>
-            {/* RunGrid 루트가 height:100% 라 래퍼 없이는 형제(Snapshot 패널) 위를 덮어 클릭을 가로챈다 */}
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {/* RunGrid 는 내부 스크롤이 없어 행 수만큼 늘어난다(2,400px+). overflow 를 주지 않으면
+                래퍼 밖으로 넘쳐 형제(Snapshot 패널) 위를 덮고 클릭을 가로챈다. */}
+            <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
               <RunGrid rows={rows} />
             </div>
             <div style={{ flexShrink: 0 }}>
