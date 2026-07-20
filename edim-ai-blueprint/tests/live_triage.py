@@ -109,6 +109,19 @@ try:
     after = psql(f"SELECT count(*) FROM code_item ci JOIN code_group g ON g.group_id=ci.group_id WHERE g.group_code='{grp}'")
     ok("Import dryRun 미반영", r1.get("dryRun") is True and before == after)
 
+    # 4b) Hierarchy 속성 (#22) — 저장→잠금 409→해제 원복
+    nodes = req("GET", "/hierarchy?treeType=PRODUCT")
+    nid = nodes[-1]["id"]
+    req("PATCH", f"/hierarchy/nodes/{nid}", {"remark": "TRIAGE-SUITE 비고", "locked": True})
+    try:
+        req("PATCH", f"/hierarchy/nodes/{nid}", {"name": "잠금중"})
+        ok("잠금 노드 수정 409", False)
+    except urllib.error.HTTPError as e:
+        ok("잠금 노드 수정 409", e.code == 409)
+    req("PATCH", f"/hierarchy/nodes/{nid}", {"locked": False, "remark": ""})
+    n4 = next(x for x in req("GET", "/hierarchy?treeType=PRODUCT") if x["id"] == nid)
+    ok("Hierarchy 속성 원복", n4["locked"] is False and n4["remark"] == "")
+
     # 5) 테넌트 export (#13) — ADMIN ZIP + GENERAL 403
     blob, hdrs = req("GET", "/tenant/export.zip", raw=True)
     tbl_n = next((v for k, v in hdrs.items() if k.lower() == "x-table-count"), "?")
@@ -134,6 +147,7 @@ try:
         p.wait_for_url("**/erp/**", timeout=15000)
         p.goto(f"{BASE}/cpq/selection", wait_until="networkidle")
         p.wait_for_timeout(600)
+        ok("C-1 Arrangement 콤보 (#37)", p.locator("[data-arr-select]").count() == 1)
         p.locator("[data-cpq-reset]").click()
         p.locator("text=세션 초기화 ✓").wait_for(timeout=8000)
         ok("C-1 세션 초기화", True)
