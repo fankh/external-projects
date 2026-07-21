@@ -107,6 +107,7 @@ SUITES = [
     "live_accordion_host.py",       # 우측 Accordion Template Host (4.1) — 개별 접기·상태 보존
     "live_product_builder.py",      # Product Code Builder (2.2) — 승인 조합 전용·해시·Rev drift
     "live_bom_basis.py",            # BOM 전개 근거 (2.7) — 관계 Revision 고정·이동 감지·순환/테넌트 가드
+    "live_slot_map.py",             # 관계 슬롯 매핑 (4.6) — Mother→Child 전개 기준·XOR·전개 전파
     "live_file_role.py",            # 산출물/원본 이원화 (3.3) — OUTPUT 불변·동명 저장 격리·역할 노출
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달

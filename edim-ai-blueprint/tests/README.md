@@ -53,6 +53,7 @@ py tests\live_all.py
 | `live_file_role.py` | 원본/산출물 이원화 — 역할 백필·동명 저장 격리(산출물 행 불변)·산출물 편집 409·원본 재저장 갱신·목록 역할 노출 (자체 정리) | 3.3 (#53) |
 | `live_head_registry.py` | Head Registry — 권한 기반 표시(GENERAL 상위 Head 미표시)·상태기계 전이 규칙·center 없는 게시 409·게시본 잠금·System Head 가드 (자체 정리) | 4.0 (#14·#19·#21) |
 | `live_accordion_host.py` | 우측 Accordion Template Host — 섹션 렌더·헤더 중복 없음·개별 토글·모두 접기/펼치기·새로고침 보존 (조회 전용) | 4.1 (#16) |
+| `live_slot_map.py` | 관계 슬롯 매핑 — 선택지 조회·계승/고정 XOR 422·미실재 Slot 422·중복 409·전개 전파·Revision 상승 (자체 정리) | 4.6 (#29) |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI
