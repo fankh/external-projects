@@ -65,12 +65,15 @@ TOK = login("edim", "edim")
 clear_verbs()
 
 
-def make_pending():
-    """승인 대기 1건 생성 — 결정 가능 여부만 보고, 끝나면 반려로 정리한다."""
+def make_pending(target_id: int = 0):
+    """승인 대기 1건 생성 — 결정 가능 여부만 보고, 끝나면 반려로 정리한다.
+
+    같은 대상에 미결이 남아 있으면 409(중복 방지)이므로 대상 id 를 달리해 만든다."""
     st, ap = req("POST", "/approvals", TOK,
-                 {"targetTable": "sys_head", "targetId": 0, "requestType": "UPDATE",
+                 {"targetTable": "sys_head", "targetId": target_id, "requestType": "UPDATE",
                   "label": "ZZVERB 권한 동사 검증"})
-    return ap["approvalId"] if ap else None
+    assert st == 201 and ap and "approvalId" in ap, f"승인 요청 생성 실패({st}): {ap}"
+    return ap["approvalId"]
 
 
 try:
@@ -102,6 +105,35 @@ try:
     ok(f"★ APPROVE 부여 후 승인 통과 ({st})", st == 200)
     st, rows = req("GET", "/roles/ADMIN/verbs", TOK)
     ok("조회에 동사 반영", any(r["resourceKey"] == RES and "APPROVE" in r["verbs"] for r in rows))
+
+    # ── 8.5: 같은 승인 행위인데 경로마다 다르면 통제가 아니다 ──
+    # 단건만 막고 일괄·도면 경로가 열려 있으면, APPROVE 없는 역할이 그쪽으로 우회한다.
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": ["READ"]})
+    ok(f"APPROVE 회수 ({st})", st == 200)
+    a1, a2 = make_pending(901), make_pending(902)
+    st, b = req("POST", "/approvals/decide-batch", TOK,
+                {"approvalIds": [a1, a2], "approve": True, "comment": "일괄 우회 시도"})
+    ok(f"★ 일괄 승인도 APPROVE 없으면 403 ({st})",
+       st == 403 and "APPROVE" in (b or {}).get("detail", ""))
+    ok("일괄 거부 후 실제로 미결 상태 유지",
+       psql(f"SELECT count(*) FROM sys_approval_request WHERE approval_id IN ({a1},{a2}) "
+            "AND result IS NULL") == "2")
+
+    st, dl = req("GET", "/drawings", TOK)
+    dno = (dl[0]["drawingNo"] if isinstance(dl, list) and dl
+           else (dl or {}).get("rows", [{}])[0].get("drawingNo"))
+    st, b = req("POST", f"/drawings/{dno}/approvals", TOK,
+                {"step": "WRITE", "approve": True, "comment": "도면 우회 시도"})
+    ok(f"★ 도면 단계 결정도 APPROVE 없으면 403 ({st})",
+       st == 403 and "APPROVE" in (b or {}).get("detail", ""))
+
+    # APPROVE 를 주면 세 경로 모두 통과 (통제가 과잉이 아님)
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK,
+                {"resourceKey": RES, "verbs": ["READ", "APPROVE"]})
+    st, r = req("POST", "/approvals/decide-batch", TOK,
+                {"approvalIds": [a1, a2], "approve": True, "comment": "권한 부여 후 일괄"})
+    ok(f"★ APPROVE 부여 후 일괄 승인 통과 ({st}, 처리 {(r or {}).get('processed')})",
+       st == 200 and r["processed"] == 2)
 
     # ── 설정 제거 = 미설정 복귀 ──
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": []})

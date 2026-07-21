@@ -4196,6 +4196,11 @@ def decide_batch(request: Request, body: DecideBatchRequest) -> dict[str, Any]:
     done, skipped = [], []
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 8.5 — 단건 decide 는 APPROVE 동사를 요구하는데 일괄 경로에는 없었다.
+        # 그래서 APPROVE 가 없는 역할도 여기로는 한 번에 200건까지 승인할 수 있었다(#3 무력화).
+        if not _action_allowed(cur, tid, request.state.user_id,
+                               getattr(request.state, "level", "GENERAL"), "approval", "APPROVE"):
+            raise HTTPException(403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
         for aid in body.approvalIds:
             r = _apply_decision(cur, tid, aid, body.approve, body.comment,
                                 request.state.login, request.state.user_id)
@@ -14346,6 +14351,10 @@ def drawing_approval_decide(drawing_no: str, request: Request, body: DwgApproval
         raise HTTPException(422, detail="반려는 코멘트 필수")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 8.5 — 도면 단계 결정도 승인 행위다. 일반 승인함과 같은 APPROVE 동사를 요구한다 (#3).
+        if not _action_allowed(cur, tid, request.state.user_id,
+                               getattr(request.state, "level", "GENERAL"), "approval", "APPROVE"):
+            raise HTTPException(403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
         did = _drawing_id(cur, tid, drawing_no)
         cur.execute(
             """SELECT step FROM dwg_approval
@@ -14720,10 +14729,11 @@ def part_supplier_codes(part_no: str, request: Request) -> list[dict[str, Any]]:
                JOIN prt_part p ON p.part_id=m.part_id
                JOIN com_company c ON c.company_id=m.supplier_id
                WHERE m.tenant_id=%s AND p.part_no=%s ORDER BY m.map_id""", (tid, part_no))
+        rows = cur.fetchall()          # _info_mode 전에 거둔다 (같은 커서 재사용)
         qm = _info_mode(cur, tid, request, "partner")
         return [{"mapId": r[0], "supplier": _mask_text(r[1], qm), "supplierCode": r[2],
                  "supplierName": _mask_text(r[3], qm), "maskMode": qm}
-                for r in cur.fetchall()]
+                for r in rows]
 
 
 class SupplierCodeAdd(BaseModel):
@@ -14774,10 +14784,13 @@ def code_supplier_codes(code: str, request: Request) -> list[dict[str, Any]]:
                LEFT JOIN product_code pc
                  ON pc.product_code_id=COALESCE(m.product_code_id, p.product_code_id)
                WHERE m.tenant_id=%s AND pc.main_code=%s ORDER BY m.map_id""", (tid, code))
+        # 결과를 **먼저** 거둔다 — _info_mode 가 같은 커서로 질의하므로 그 전에 fetch 하지 않으면
+        # 결과셋이 갈려 빈 목록이 된다 (8.4a 에서 실제로 이렇게 깨뜨렸다)
+        rows = cur.fetchall()
         qm = _info_mode(cur, tid, request, "partner")
         return [{"mapId": r[0], "supplier": _mask_text(r[1], qm), "supplierCode": r[2],
                  "supplierName": _mask_text(r[3], qm), "maskMode": qm}
-                for r in cur.fetchall()]
+                for r in rows]
 
 
 @router.get("/codes/{code}/slot-items")
