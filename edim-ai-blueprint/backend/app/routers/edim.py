@@ -8205,6 +8205,46 @@ def _pkg_checksum(cur, package_id: int) -> str:
     return _snapshot_checksum({"items": [[r[0], r[1], r[2]] for r in cur.fetchall()]})
 
 
+def _sandbox_run(cur, tid: int, package_id: int) -> dict[str, Any]:
+    """격리 테스트 (#62) — 패키지에 고정된 snapshot 정의만으로 MACRO 를 실제 평가한다.
+
+    · 원본 tbx_macro 를 다시 읽지 않는다 — 패키지가 담고 있는 정의가 곧 테스트 대상
+    · Table 참조는 읽기 전용 resolver, 쓰기는 일절 없음(격리)
+    · MACRO 가 아닌 항목은 정의 존재 여부만 확인한다(실행 대상이 아님)
+    """
+    cur.execute(
+        """SELECT item_type, item_ref, snapshot FROM tbx_package_item
+           WHERE package_id=%s ORDER BY item_type, item_ref""", (package_id,))
+    rows = cur.fetchall()
+    resolver = _make_table_resolver(cur, tid)
+    results: list[dict[str, Any]] = []
+    for it, ref, snap in rows:
+        if it != "MACRO":
+            ok_flag = bool(snap)
+            results.append({"itemType": it, "itemRef": ref, "ok": ok_flag,
+                            "error": None if ok_flag else "정의 스냅샷 없음"})
+            continue
+        expr = (snap or {}).get("expr") or ""
+        if not expr:
+            results.append({"itemType": it, "itemRef": ref, "ok": False,
+                            "error": "수식이 비어 있음"})
+            continue
+        # 수식이 참조하는 변수는 1.0 으로 채워 '실행 가능한가' 를 본다(값 검증이 아니라 무결성 검사)
+        import re as _re
+        names = {m.group(0).upper() for m in _re.finditer(r"[A-Za-z_][A-Za-z0-9_]*", expr)}
+        ev = Evaluator({k: 1.0 for k in names}, resolver)
+        try:
+            val = ev.run(expr)
+            results.append({"itemType": it, "itemRef": ref, "ok": True, "value": val})
+        except MacroError as e:
+            results.append({"itemType": it, "itemRef": ref, "ok": False, "error": str(e)[:120]})
+        except Exception as e:  # noqa: BLE001
+            results.append({"itemType": it, "itemRef": ref, "ok": False,
+                            "error": f"{type(e).__name__}: {e}"[:120]})
+    failed = sum(1 for r in results if not r["ok"])
+    return {"ranItems": len(results), "failed": failed, "results": results}
+
+
 class PackageCreate(BaseModel):
     packageCode: str
     packageName: str
@@ -8402,9 +8442,19 @@ def package_transition(package_id: int, request: Request, body: PackageTransitio
             params.append(json.dumps({"checkedItems": len(items), "risk": risk,
                                       "note": body.note.strip()}, ensure_ascii=False))
         if to == "SANDBOX":
+            # #62 — 여기서 **실제로 돌린다**. 종전엔 상태만 바뀌어 '격리 테스트 통과' 가 빈 말이었다.
+            # 격리 규약: 패키지에 고정된 snapshot 정의만 사용하고(원본을 다시 읽지 않는다),
+            # Table 참조는 읽기 전용 resolver 로만 접근하며, 어떤 쓰기도 하지 않는다.
+            report = _sandbox_run(cur, tid, package_id)
+            if report["failed"]:
+                raise HTTPException(
+                    409, detail=f"Sandbox 테스트 실패 {report['failed']}건 — "
+                                + "; ".join(f"{r['itemRef']}: {r['error']}"
+                                            for r in report["results"] if not r["ok"])[:300]
+                                + " (통과 전에는 배포할 수 없습니다 · #62)")
+            report["note"] = body.note.strip()
             sets.append("sandbox_report=%s")
-            params.append(json.dumps({"ranItems": len(items), "note": body.note.strip()},
-                                     ensure_ascii=False))
+            params.append(json.dumps(report, ensure_ascii=False))
         if to == "PUBLISHED":
             sets.append("published_at=now()")
             # #63 — 게시 = 런타임 전환. 같은 코드의 다른 버전은 비활성으로 내리되
