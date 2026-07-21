@@ -8205,6 +8205,59 @@ def _pkg_checksum(cur, package_id: int) -> str:
     return _snapshot_checksum({"items": [[r[0], r[1], r[2]] for r in cur.fetchall()]})
 
 
+def _guard_run(cur, tid: int, package_id: int) -> dict[str, Any]:
+    """설계시 검사 (#61 Design-time Guard) — 실행하지 않고 정의만 본다.
+
+    SANDBOX(#62)가 '돌려 보는' 검사라면 여기는 '읽어 보는' 검사다. 이중 방어의 앞단.
+    ERROR 가 하나라도 있으면 GUARD 를 통과하지 못하고, 발견 내용에 따라 위험도를 자동으로 올린다
+    (CODING 매크로는 임의 코드라 최소 HIGH — 사람이 낮춰 잡아도 게이트가 되돌린다)."""
+    from app.services.macro_engine import Parser, tokenize
+
+    cur.execute(
+        """SELECT item_type, item_ref, snapshot FROM tbx_package_item
+           WHERE package_id=%s ORDER BY item_type, item_ref""", (package_id,))
+    findings: list[dict[str, Any]] = []
+    risk_floor = "LOW"
+
+    def bump(level: str) -> None:
+        nonlocal risk_floor
+        if _PKG_RISK.index(level) > _PKG_RISK.index(risk_floor):
+            risk_floor = level
+
+    for it, ref, snap in cur.fetchall():
+        snap = snap or {}
+        if it == "MACRO":
+            expr = (snap.get("expr") or "").strip()
+            code = (snap.get("code") or "").strip()
+            if not expr and not code:
+                findings.append({"item": ref, "level": "ERROR", "code": "EMPTY",
+                                 "message": "수식과 코드가 모두 비어 있음"})
+                continue
+            if expr:
+                try:
+                    Parser(tokenize(expr)).parse()
+                except Exception as e:  # noqa: BLE001
+                    findings.append({"item": ref, "level": "ERROR", "code": "PARSE",
+                                     "message": f"수식 파싱 실패: {str(e)[:80]}"})
+                if len(expr) > 500:
+                    findings.append({"item": ref, "level": "WARN", "code": "LONG_EXPR",
+                                     "message": f"수식이 매우 김 ({len(expr)}자)"})
+                    bump("MEDIUM")
+            if code:
+                # CODING 모드는 임의 코드 실행 경로 — 위험도 하한을 올린다
+                findings.append({"item": ref, "level": "WARN", "code": "CODING",
+                                 "message": "CODING 모드 — 임의 코드 포함(위험도 최소 HIGH)"})
+                bump("HIGH")
+        else:
+            body = snap.get("definition") if it == "TEMPLET" else snap.get("layout")
+            if not body:
+                findings.append({"item": ref, "level": "ERROR", "code": "NO_DEF",
+                                 "message": "정의가 비어 있음"})
+    errors = sum(1 for f in findings if f["level"] == "ERROR")
+    return {"checked": len(findings), "errors": errors, "riskFloor": risk_floor,
+            "findings": findings}
+
+
 def _sandbox_run(cur, tid: int, package_id: int) -> dict[str, Any]:
     """격리 테스트 (#62) — 패키지에 고정된 snapshot 정의만으로 MACRO 를 실제 평가한다.
 
@@ -8438,9 +8491,21 @@ def package_transition(package_id: int, request: Request, body: PackageTransitio
         sets = ["status=%s", "updated_by=%s", "updated_at=now()"]
         params: list[Any] = [to, request.state.login]
         if to == "GUARD":
+            # #61 — 여기서 **정의를 실제로 검사**한다. 종전엔 항목 수만 세고 통과시켰다.
+            rep = _guard_run(cur, tid, package_id)
+            if rep["errors"]:
+                raise HTTPException(
+                    409, detail=f"설계시 검사 실패 {rep['errors']}건 — "
+                                + "; ".join(f"{f['item']}: {f['message']}"
+                                            for f in rep["findings"] if f["level"] == "ERROR")[:300]
+                                + " (#61)")
+            rep["note"] = body.note.strip()
             sets.append("guard_report=%s")
-            params.append(json.dumps({"checkedItems": len(items), "risk": risk,
-                                      "note": body.note.strip()}, ensure_ascii=False))
+            params.append(json.dumps(rep, ensure_ascii=False))
+            # 검사 결과가 요구하는 하한보다 낮게 잡혀 있으면 위험도를 올린다(사람이 낮춰 잡아도 되돌림)
+            if _PKG_RISK.index(rep["riskFloor"]) > _PKG_RISK.index(risk):
+                sets.append("risk_level=%s")
+                params.append(rep["riskFloor"])
         if to == "SANDBOX":
             # #62 — 여기서 **실제로 돌린다**. 종전엔 상태만 바뀌어 '격리 테스트 통과' 가 빈 말이었다.
             # 격리 규약: 패키지에 고정된 snapshot 정의만 사용하고(원본을 다시 읽지 않는다),
@@ -8485,8 +8550,12 @@ def package_runtime() -> list[dict[str, Any]]:
                ORDER BY package_code""", (tid,))
         out = []
         for r in cur.fetchall():
+            # #61 Runtime Guard — 활성 패키지 내용이 게시 당시와 같은지 매번 확인한다.
+            # 다르면 변조/부분 수정이므로 런타임이 그대로 쓰면 안 된다는 신호를 함께 내려준다.
+            live_ck = _pkg_checksum(cur, r[0])
             out.append({"packageId": r[0], "packageCode": r[1], "packageName": r[2],
                         "version": r[3], "riskLevel": r[4], "checksum": r[5],
+                        "intact": (r[5] is None) or (live_ck == r[5]),
                         "activatedAt": r[6], "items": _pkg_items(cur, r[0])})
         return out
 
