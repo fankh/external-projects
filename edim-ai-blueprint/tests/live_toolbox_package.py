@@ -53,6 +53,7 @@ def req(method, path, tok, body=None):
 
 
 def cleanup():
+    psql("DELETE FROM tbx_macro WHERE macro_name='ZZBADMACRO'")
     psql("DELETE FROM tbx_package_item WHERE package_id IN "
          f"(SELECT package_id FROM tbx_package WHERE package_code LIKE 'ZZPKG%')")
     psql("DELETE FROM tbx_package WHERE package_code LIKE 'ZZPKG%'")
@@ -129,6 +130,31 @@ try:
         req("POST", f"/toolbox/packages/{cid}/transition", TOK, {"status": to})
     st, _ = req("POST", f"/toolbox/packages/{cid}/transition", TOK, {"status": "APPROVED"})
     ok(f"운영 테넌트는 CRITICAL 승인 가능 ({st})", st == 200)
+
+    # ── #62 Sandbox 격리 테스트 — 실패하면 배포로 못 간다 ──
+    st, badpkg = req("POST", "/toolbox/packages", TOK,
+                     {"packageCode": "ZZPKGF", "packageName": "실패 패키지"})
+    bad_id = badpkg["packageId"]
+    # 깨진 수식을 가진 Macro 를 만들어 패키지에 넣는다
+    psql("INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr, apply_type, status) "
+         "SELECT tenant_id, 'ZZBADMACRO', '1 / 0 +', 'MACRO', 'DRAFT' FROM sys_user "
+         "WHERE login_id='edim' LIMIT 1")
+    st, _ = req("POST", f"/toolbox/packages/{bad_id}/items", TOK,
+                {"itemType": "MACRO", "itemRef": "ZZBADMACRO"})
+    ok(f"깨진 Macro 항목 추가 ({st})", st == 201)
+    st, _ = req("POST", f"/toolbox/packages/{bad_id}/transition", TOK, {"status": "GUARD"})
+    ok("GUARD 는 통과 (설계시 검사)", st == 200)
+    st, b = req("POST", f"/toolbox/packages/{bad_id}/transition", TOK, {"status": "SANDBOX"})
+    ok(f"★ Sandbox 실패 시 전이 409 ({st})", st == 409 and "Sandbox" in (b or {}).get("detail", ""))
+    st, d_bad = req("GET", f"/toolbox/packages/{bad_id}", TOK)
+    ok("★ 실패 패키지는 GUARD 에 머문다 (배포 불가)", d_bad["status"] == "GUARD")
+    psql("DELETE FROM tbx_macro WHERE macro_name='ZZBADMACRO'")
+
+    # 정상 패키지는 sandbox_report 에 항목별 결과가 남는다
+    st, d_ok = req("GET", f"/toolbox/packages/{pid}", TOK)
+    rep = d_ok.get("sandboxReport") or {}
+    ok(f"★ Sandbox 보고서에 항목별 결과 (ran {rep.get('ranItems')}·fail {rep.get('failed')})",
+       rep.get("ranItems", 0) >= 1 and rep.get("failed") == 0 and rep.get("results"))
 
     # ── #63 Runtime 연결·Rollback ──
     st, rt = req("GET", "/toolbox/runtime", TOK)
