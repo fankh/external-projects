@@ -172,6 +172,26 @@ try:
     ok(f"★ APPROVE 부여 후 상태 변경 통과 ({st})", st == 200)
     # 원복은 finally 에서 한 번 더 보장한다
 
+    # ── 8.8: Head 도 같은 구멍 — REVIEW→APPROVED 직접 전이 ──
+    # 바로 아래 PUBLISHED 는 DEPLOY 동사를 요구하는데 APPROVED 만 무방비였다.
+    st, hd = req("POST", "/heads", TOK,
+                 {"headCode": "ZZVERBHD", "headName": "동사 검증 Head", "headType": "TENANT"})
+    ok(f"검증용 Head 생성 ({st})", st in (200, 201))
+    hid = hd.get("headId")
+    globals()["_head_id"] = hid
+    st, _ = req("PATCH", f"/heads/{hid}", TOK, {"status": "REVIEW"})
+    ok(f"DRAFT→REVIEW 는 승인 행위가 아니므로 허용 ({st})", st == 200)
+    st, b = req("PATCH", f"/heads/{hid}", TOK, {"status": "APPROVED"})
+    ok(f"★ APPROVE 없이 Head APPROVED 403 ({st})",
+       st == 403 and "APPROVE" in (b or {}).get("detail", ""))
+    ok("거부 후 REVIEW 유지",
+       psql(f"SELECT status FROM sys_head WHERE head_id={hid}") == "REVIEW")
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK,
+                {"resourceKey": RES, "verbs": ["READ", "APPROVE"]})
+    st, _ = req("PATCH", f"/heads/{hid}", TOK, {"status": "APPROVED"})
+    ok(f"★ APPROVE 부여 후 Head 승인 통과 ({st})", st == 200)
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": ["READ"]})
+
     # ── 설정 제거 = 미설정 복귀 ──
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": []})
     ok(f"동사 설정 제거 ({st})", st == 200)
@@ -184,6 +204,11 @@ try:
     st, _ = req("PUT", "/roles/ADMIN/verbs", gtok, {"resourceKey": RES, "verbs": ["READ"]})
     ok(f"GENERAL 동사 지정 403 ({st})", st == 403)
 finally:
+    _hid = globals().get("_head_id")
+    if _hid:
+        psql(f"DELETE FROM sys_head_binding WHERE head_id={_hid}")
+        psql(f"DELETE FROM sys_head WHERE head_id={_hid}")
+        print(f"정리 — 검증용 Head #{_hid} 삭제")
     # 검증용으로 상태를 바꾼 제품 코드는 반드시 되돌린다 (중간 실패로 DRAFT 가 남았던 적 있음)
     _pid, _to = globals().get("_restore_pid"), globals().get("_restore_to")
     if _pid and _to:

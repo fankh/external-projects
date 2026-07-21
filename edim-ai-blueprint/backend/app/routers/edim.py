@@ -10471,6 +10471,15 @@ def head_patch(head_id: int, request: Request, body: HeadPatch) -> dict[str, Any
                 raise HTTPException(
                     422, detail=f"허용되지 않는 전이: {row[1]} → {st} "
                                 f"(가능: {', '.join(sorted(allowed[row[1]]))})")
+            if st == "APPROVED":
+                # 8.8 — 바로 아래 PUBLISHED 가 DEPLOY 를 요구하듯, APPROVED 도 승인 행위다.
+                # 승인함(_apply_decision)이 만드는 결과를 여기서 그냥 찍을 수 있으면 절차가 무의미해진다
+                # (product_code 에서 같은 구멍을 8.7 로 막았다).
+                if not _action_allowed(cur, tid, request.state.user_id,
+                                       getattr(request.state, "level", "GENERAL"),
+                                       "approval", "APPROVE"):
+                    raise HTTPException(
+                        403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
             if st == "PUBLISHED":
                 # #3 — 게시(배포)는 수정과 다른 동사
                 if not _action_allowed(cur, tid, request.state.user_id,
