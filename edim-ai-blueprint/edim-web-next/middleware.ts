@@ -7,7 +7,9 @@ export function middleware(req: NextRequest) {
   const authed = Boolean(req.cookies.get(SESSION_COOKIE)?.value)
 
   if (pathname === '/login') {
-    if (authed) return NextResponse.redirect(new URL('/erp/eco-ledger', req.url))
+    // 로그인 후 랜딩 = 대시보드. 종전 기본값이 /erp/eco-ledger(변경 이력 대장) 라
+    // 신규 사용자의 첫 화면이 설계변경 대장이었다 — 업무 시작점이 아니다.
+    if (authed) return NextResponse.redirect(new URL('/erp/dashboard', req.url))
     return NextResponse.next()
   }
   if (!authed) {

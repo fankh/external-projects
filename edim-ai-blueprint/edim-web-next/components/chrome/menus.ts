@@ -147,6 +147,7 @@ export const MENU_TREE: Record<ModuleKey, { title: string; nodes: NavNode[] }> =
       { id: 'erp-tenant-menu', label: '테넌트 메뉴 관리 (M-14-6B)', href: '/erp/tenant-menus', code: 'M-14-6B', minLevel: 'SETUP' },
           { id: 'erp-audit', label: '감사 조회 (M-14-6A)', href: '/erp/audit', code: 'M-14-6A', minLevel: 'SETUP' },
           { id: 'erp-tenants', label: '고객사 관리 (M-14-6C)', href: '/erp/tenants', code: 'M-14-6C', minLevel: 'ADMIN' },
+          { id: 'erp-heads', label: 'Head 관리 (M-14-6E)', href: '/erp/heads', code: 'M-14-6E', minLevel: 'SETUP' },
         ],
       },
     ],

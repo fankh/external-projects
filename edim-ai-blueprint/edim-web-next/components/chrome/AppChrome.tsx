@@ -10,6 +10,7 @@ import { DevReqDialog } from './DevReqDialog'
 import { GlobalSearch } from './GlobalSearch'
 import { LeftNavEditModal } from './LeftNavEdit'
 import { ProcessNav } from './ProcessNav'
+import { HeadSelector } from './HeadSelector'
 import { LnavTree, type TreeNode } from './LnavTree'
 import { HREF_INFO, MDI_PARAMS, MENU_TREE, NODE_BY_ID, moduleOfPath, navDropdowns, type ModuleKey, type NavNode } from './menus'
 import { getProcessTree, type ProcessNode, changePassword, firstProject, getFavorites, mfaDisable, mfaEnable, mfaSetup, mfaStatus, saveBranding, saveFavorites, saveHeadNav, saveLeftNav, saveTenantHeadNav, saveTenantNav, shellCounts, type FavItem, type LeftNavPref, type MfaState, type ShellPanelData } from './shellActions'
@@ -575,6 +576,8 @@ export function AppChrome(props: {
         activeModule={module} onModule={(m: ModuleKey) => router.push(`/${m}`)} />
       <MenuBar menus={menus} extra={navMenus} right={
         <>
+          {/* #14 — Head 선택 (권한 기반 표시). Head 미정의 테넌트에서는 렌더되지 않는다 */}
+          <HeadSelector />
           {/* U21 — 헤더 메뉴 편집 (Head Item 추가/제거/재정렬, /prefs/headnav) */}
           <span className="b ic" data-hnav-edit
             title={t('shell.headEdit', '헤더 메뉴 편집 — Head Item 추가·제거·재정렬')}

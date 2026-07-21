@@ -6,7 +6,8 @@ import { LoginForm } from './LoginForm'
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const sp = await searchParams
-  const next = typeof sp.next === 'string' && sp.next.startsWith('/') ? sp.next : '/erp/eco-ledger'
+  // 기본 랜딩 = 대시보드 (종전 /erp/eco-ledger 는 변경 이력 대장이라 첫 화면으로 부적절)
+  const next = typeof sp.next === 'string' && sp.next.startsWith('/') ? sp.next : '/erp/dashboard'
   const locale = await getLocale()
   const bundle = bundleFor(locale)
   const t = (k: string, ko: string) => translate(bundle, k, ko)

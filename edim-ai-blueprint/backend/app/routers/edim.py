@@ -3988,6 +3988,12 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
         cur.execute(
             "UPDATE product_code SET approval_status=%s WHERE product_code_id=%s",
             (result, row[1]))
+    elif row[0] == "sys_head":
+        # #21 — Tenant Head 는 승인 경유: 승인=APPROVED(게시 가능), 반려=DRAFT 복귀.
+        # 게시(PUBLISHED)는 승인 이후 별도 조작이며 center 바인딩 게이트(#19)를 다시 통과해야 한다.
+        cur.execute("UPDATE sys_head SET status=%s, updated_at=now() "
+                    "WHERE tenant_id=%s AND head_id=%s AND status='REVIEW'",
+                    ("APPROVED" if approve else "DRAFT", tid, row[1]))
     elif row[0] == "code_item":
         # #28 — Sub Code 승인 결정이 값에 전혀 반영되지 않던 결함 수정.
         # S-1-1 은 항목(code_item) 단위로 요청하므로 그 하위 값 전체를 전이한다.
@@ -7991,6 +7997,314 @@ def tenant_branding_put(request: Request, body: BrandingPut) -> dict[str, Any]:
         _audit(cur, tid, "sys_tenant", tid, "BRANDING_SET", request.state.user_id,
                after={"logo": bool(data)})
     return {"saved": True}
+
+
+# ── 4.0 Head Registry (요구 #14·#19·#21) — 권한 기반 Head + 편집 상태기계 + 게시 게이트 ──
+# EP2 슬라이드 56: Head 는 개발자용/관리자용/사용자용으로 나뉜 다단계 구조이고,
+# Head 마다 좌/중/우 패널 바인딩이 따로 붙는다. 2.0 프로세스 패널(#17)은 한 Head 의 좌측에 해당한다.
+_HEAD_STATUS = ("DRAFT", "REVIEW", "APPROVED", "PUBLISHED", "RETIRED")
+_HEAD_SEED = [
+    # (code, name, type, min_level, sort, [(panel, kind, ref, label)])
+    ("OPS", "업무 (사용자)", "TENANT", "GENERAL", 1,
+     [("LEFT", "PROCESS", "*", "업무 프로세스"), ("CENTER", "SCREEN", "/erp/dashboard", "대시보드"),
+      ("RIGHT", "TEMPLATE", "todo", "To-Do·승인")]),
+    ("SETUP", "설정 (Set-up)", "TENANT", "SETUP", 2,
+     [("LEFT", "PROCESS", "*", "업무 프로세스"), ("CENTER", "SCREEN", "/code/subcode", "Sub Code 등록"),
+      ("RIGHT", "TEMPLATE", "todo", "To-Do·승인")]),
+    ("ADMIN", "관리 (기업 관리자)", "TENANT", "ADMIN", 3,
+     [("LEFT", "PROCESS", "*", "업무 프로세스"), ("CENTER", "SCREEN", "/erp/roles", "사용자·권한"),
+      ("RIGHT", "TEMPLATE", "todo", "To-Do·승인")]),
+    ("PLATFORM", "플랫폼 (EDIM)", "SYSTEM", "PLATFORM", 9,
+     [("LEFT", "PROCESS", "*", "업무 프로세스"), ("CENTER", "SCREEN", "/erp/tenants", "고객사 관리"),
+      ("RIGHT", "TEMPLATE", "todo", "To-Do·승인")]),
+]
+
+
+def _head_rows(cur, tid: int, level: str, editing: bool) -> list[dict[str, Any]]:
+    """Head 목록 — 일반 사용자는 **PUBLISHED + 자기 레벨 이하**만 본다(#14).
+    편집 권한자(SETUP+)는 편집을 위해 DRAFT/REVIEW/APPROVED 도 함께 본다."""
+    clause = "" if editing else " AND h.status='PUBLISHED'"
+    cur.execute(
+        f"""SELECT h.head_id, h.head_code, h.head_name, h.head_type, h.min_level, h.status,
+                   h.sort_order, COALESCE(h.note,''),
+                   (SELECT count(*) FROM sys_head_binding b WHERE b.head_id=h.head_id),
+                   (SELECT count(*) FROM sys_head_binding b
+                      WHERE b.head_id=h.head_id AND b.panel='CENTER')
+            FROM sys_head h
+            WHERE h.tenant_id=%s AND h.status<>'RETIRED'{clause}
+            ORDER BY h.sort_order, h.head_code""", (tid,))
+    rank = LEVEL_RANK.get(level, 0)
+    out = []
+    for r in cur.fetchall():
+        if not editing and LEVEL_RANK.get(r[4], 0) > rank:
+            continue      # 권한 기반 표시 — 내 레벨보다 높은 Head 는 목록에 없다
+        out.append({"headId": r[0], "headCode": r[1], "headName": r[2], "headType": r[3],
+                    "minLevel": r[4], "status": r[5], "sortOrder": r[6], "note": r[7],
+                    "bindings": r[8], "centerBindings": r[9],
+                    "publishable": r[9] > 0})
+    return out
+
+
+@router.get("/heads")
+def head_list(request: Request, editing: bool = False) -> list[dict[str, Any]]:
+    """Head 목록 (#14). editing=true 는 SETUP+ 만 — 미게시 Head 포함."""
+    lvl = getattr(request.state, "level", "GENERAL")
+    if editing and LEVEL_RANK.get(lvl, 0) < LEVEL_RANK["SETUP"]:
+        raise HTTPException(403, detail="권한 부족 — 편집 목록은 SETUP 이상")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        return _head_rows(cur, tid, lvl, editing)
+
+
+@router.get("/heads/{head_id}")
+def head_detail(head_id: int, request: Request) -> dict[str, Any]:
+    """Head 상세 + 패널 바인딩 (#17 을 Head 단위로)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT head_id, head_code, head_name, head_type, min_level, status,
+                      sort_order, COALESCE(note,'') FROM sys_head
+               WHERE tenant_id=%s AND head_id=%s""", (tid, head_id))
+        h = cur.fetchone()
+        if not h:
+            raise HTTPException(404, detail=f"Head 없음: {head_id}")
+        lvl = getattr(request.state, "level", "GENERAL")
+        if h[5] != "PUBLISHED" and LEVEL_RANK.get(lvl, 0) < LEVEL_RANK["SETUP"]:
+            raise HTTPException(404, detail=f"Head 없음: {head_id}")
+        cur.execute(
+            """SELECT binding_id, panel, target_kind, target_ref, COALESCE(label,''), sort_order
+               FROM sys_head_binding WHERE head_id=%s ORDER BY panel, sort_order, binding_id""",
+            (head_id,))
+        binds = [{"bindingId": b[0], "panel": b[1], "targetKind": b[2], "targetRef": b[3],
+                  "label": b[4], "sortOrder": b[5]} for b in cur.fetchall()]
+        return {"headId": h[0], "headCode": h[1], "headName": h[2], "headType": h[3],
+                "minLevel": h[4], "status": h[5], "sortOrder": h[6], "note": h[7],
+                "bindings": binds,
+                "publishable": any(b["panel"] == "CENTER" for b in binds)}
+
+
+class HeadCreate(BaseModel):
+    headCode: str
+    headName: str
+    headType: str = "TENANT"
+    minLevel: str = "GENERAL"
+    sortOrder: int = 0
+    note: str = ""
+
+
+def _assert_head_editable(cur, tid: int, request: Request, head_type: str) -> None:
+    """#21 — System Head 는 EDIM 운영 테넌트만 건드린다. Tenant Head 는 자사 SETUP+."""
+    if head_type != "SYSTEM":
+        return
+    cur.execute("SELECT tenant_code FROM sys_tenant WHERE tenant_id=%s", (tid,))
+    row = cur.fetchone()
+    if not row or row[0] != TENANT:
+        raise HTTPException(403, detail="System Head 는 EDIM 운영 테넌트만 편집할 수 있습니다 (#21)")
+
+
+@router.post("/heads", status_code=201, dependencies=[SETUP])
+def head_create(request: Request, body: HeadCreate) -> dict[str, Any]:
+    """Head 등록 — 항상 DRAFT 로 생성(#21)."""
+    code = body.headCode.strip().upper()[:30]
+    if not code or not body.headName.strip():
+        raise HTTPException(422, detail="필수 — Head 코드·이름")
+    ht = body.headType.strip().upper()
+    if ht not in ("SYSTEM", "TENANT"):
+        raise HTTPException(422, detail="headType 은 SYSTEM 또는 TENANT")
+    ml = body.minLevel.strip().upper()
+    if ml not in LEVEL_RANK:
+        raise HTTPException(422, detail="minLevel 은 GENERAL/SETUP/ADMIN/PLATFORM")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _assert_head_editable(cur, tid, request, ht)
+        cur.execute("SELECT 1 FROM sys_head WHERE tenant_id=%s AND head_code=%s", (tid, code))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — Head 코드 {code}")
+        cur.execute(
+            """INSERT INTO sys_head (tenant_id, head_code, head_name, head_type, min_level,
+               status, sort_order, note, created_by)
+               VALUES (%s,%s,%s,%s,%s,'DRAFT',%s,%s,%s) RETURNING head_id""",
+            (tid, code, body.headName.strip()[:100], ht, ml, body.sortOrder,
+             body.note.strip()[:300] or None, request.state.login))
+        hid = cur.fetchone()[0]
+        _audit(cur, tid, "sys_head", hid, "CREATE", request.state.user_id,
+               {"headCode": code, "headType": ht})
+    return {"headId": hid, "headCode": code, "status": "DRAFT"}
+
+
+class HeadPatch(BaseModel):
+    headName: str | None = None
+    minLevel: str | None = None
+    sortOrder: int | None = None
+    note: str | None = None
+    status: str | None = None
+
+
+@router.patch("/heads/{head_id}", dependencies=[SETUP])
+def head_patch(head_id: int, request: Request, body: HeadPatch) -> dict[str, Any]:
+    """Head 수정·상태 전이 (#21·#19).
+
+    상태 전이는 DRAFT→REVIEW→APPROVED→PUBLISHED 순서만 허용하고(되돌리기는 DRAFT 로),
+    **PUBLISHED 는 CENTER 바인딩이 있어야 한다**(#19 무결성 게이트)."""
+    sets: list[str] = []
+    params: list[Any] = []
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT head_type, status FROM sys_head WHERE tenant_id=%s AND head_id=%s",
+                    (tid, head_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"Head 없음: {head_id}")
+        _assert_head_editable(cur, tid, request, row[0])
+        if body.headName is not None and body.headName.strip():
+            sets.append("head_name=%s"); params.append(body.headName.strip()[:100])
+        if body.minLevel is not None:
+            ml = body.minLevel.strip().upper()
+            if ml not in LEVEL_RANK:
+                raise HTTPException(422, detail="minLevel 은 GENERAL/SETUP/ADMIN/PLATFORM")
+            sets.append("min_level=%s"); params.append(ml)
+        if body.sortOrder is not None:
+            sets.append("sort_order=%s"); params.append(int(body.sortOrder))
+        if body.note is not None:
+            sets.append("note=%s"); params.append(body.note.strip()[:300] or None)
+        if body.status is not None:
+            st = body.status.strip().upper()
+            if st not in _HEAD_STATUS:
+                raise HTTPException(422, detail=f"상태는 {'/'.join(_HEAD_STATUS)}")
+            allowed = {"DRAFT": {"REVIEW", "RETIRED"}, "REVIEW": {"APPROVED", "DRAFT"},
+                       "APPROVED": {"PUBLISHED", "DRAFT"}, "PUBLISHED": {"DRAFT", "RETIRED"},
+                       "RETIRED": {"DRAFT"}}
+            if st != row[1] and st not in allowed[row[1]]:
+                raise HTTPException(
+                    422, detail=f"허용되지 않는 전이: {row[1]} → {st} "
+                                f"(가능: {', '.join(sorted(allowed[row[1]]))})")
+            if st == "PUBLISHED":
+                cur.execute("SELECT count(*) FROM sys_head_binding "
+                            "WHERE head_id=%s AND panel='CENTER'", (head_id,))
+                if int(cur.fetchone()[0]) == 0:
+                    raise HTTPException(
+                        409, detail="center 패널 바인딩이 없는 Head 는 게시할 수 없습니다 (#19 무결성 게이트)")
+            sets.append("status=%s"); params.append(st)
+        if not sets:
+            raise HTTPException(422, detail="변경할 값이 없습니다")
+        params += [request.state.login, tid, head_id]
+        cur.execute(f"UPDATE sys_head SET {', '.join(sets)}, updated_by=%s, updated_at=now() "
+                    "WHERE tenant_id=%s AND head_id=%s RETURNING head_code, status",
+                    tuple(params))
+        r = cur.fetchone()
+        _audit(cur, tid, "sys_head", head_id, "UPDATE", request.state.user_id,
+               {"status": body.status, "name": body.headName})
+    return {"headId": head_id, "headCode": r[0], "status": r[1]}
+
+
+@router.delete("/heads/{head_id}", dependencies=[SETUP])
+def head_delete(head_id: int, request: Request) -> dict[str, Any]:
+    """Head 삭제 — 게시본은 회수(DRAFT) 후에만. 바인딩은 연쇄 삭제."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT head_type, status, head_code FROM sys_head "
+                    "WHERE tenant_id=%s AND head_id=%s", (tid, head_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"Head 없음: {head_id}")
+        _assert_head_editable(cur, tid, request, row[0])
+        if row[1] == "PUBLISHED":
+            raise HTTPException(409, detail="게시된 Head 는 삭제 불가 — 먼저 회수(DRAFT)하십시오")
+        cur.execute("DELETE FROM sys_head WHERE tenant_id=%s AND head_id=%s", (tid, head_id))
+        _audit(cur, tid, "sys_head", head_id, "DELETE", request.state.user_id,
+               {"headCode": row[2]})
+    return {"deleted": head_id, "headCode": row[2]}
+
+
+class HeadBind(BaseModel):
+    panel: str
+    targetKind: str = "SCREEN"
+    targetRef: str
+    label: str = ""
+    sortOrder: int = 0
+
+
+@router.post("/heads/{head_id}/bindings", status_code=201, dependencies=[SETUP])
+def head_bind(head_id: int, request: Request, body: HeadBind) -> dict[str, Any]:
+    """패널 바인딩 추가 (#17 확장) — 게시본은 직접 수정 불가(회수 후 편집)."""
+    panel = body.panel.strip().upper()
+    kind = body.targetKind.strip().upper()
+    if panel not in ("LEFT", "CENTER", "RIGHT"):
+        raise HTTPException(422, detail="panel 은 LEFT/CENTER/RIGHT")
+    if kind not in ("SCREEN", "PROCESS", "TEMPLATE"):
+        raise HTTPException(422, detail="targetKind 는 SCREEN/PROCESS/TEMPLATE")
+    if not body.targetRef.strip():
+        raise HTTPException(422, detail="targetRef 는 필수")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT head_type, status FROM sys_head WHERE tenant_id=%s AND head_id=%s",
+                    (tid, head_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"Head 없음: {head_id}")
+        _assert_head_editable(cur, tid, request, row[0])
+        if row[1] == "PUBLISHED":
+            raise HTTPException(409, detail="게시된 Head 는 바인딩을 바꿀 수 없습니다 — 회수(DRAFT) 후 편집")
+        cur.execute(
+            """INSERT INTO sys_head_binding (head_id, panel, target_kind, target_ref, label, sort_order)
+               VALUES (%s,%s,%s,%s,%s,%s) RETURNING binding_id""",
+            (head_id, panel, kind, body.targetRef.strip()[:200],
+             body.label.strip()[:100] or None, body.sortOrder))
+        bid = cur.fetchone()[0]
+        _audit(cur, tid, "sys_head", head_id, "BIND", request.state.user_id,
+               {"panel": panel, "ref": body.targetRef.strip()})
+    return {"bindingId": bid, "panel": panel}
+
+
+@router.delete("/heads/{head_id}/bindings/{binding_id}", dependencies=[SETUP])
+def head_unbind(head_id: int, binding_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT head_type, status FROM sys_head WHERE tenant_id=%s AND head_id=%s",
+                    (tid, head_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"Head 없음: {head_id}")
+        _assert_head_editable(cur, tid, request, row[0])
+        if row[1] == "PUBLISHED":
+            raise HTTPException(409, detail="게시된 Head 는 바인딩을 바꿀 수 없습니다 — 회수(DRAFT) 후 편집")
+        cur.execute("DELETE FROM sys_head_binding WHERE head_id=%s AND binding_id=%s RETURNING panel",
+                    (head_id, binding_id))
+        d = cur.fetchone()
+        if not d:
+            raise HTTPException(404, detail=f"바인딩 없음: {binding_id}")
+        _audit(cur, tid, "sys_head", head_id, "UNBIND", request.state.user_id, {"panel": d[0]})
+    return {"deleted": binding_id, "panel": d[0]}
+
+
+@router.post("/heads/seed", dependencies=[SETUP])
+def head_seed(request: Request) -> dict[str, Any]:
+    """표준 Head 시드 — 미정의 테넌트용(사용자/Set-up/관리자 + 플랫폼)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT count(*) FROM sys_head WHERE tenant_id=%s", (tid,))
+        if int(cur.fetchone()[0]) > 0:
+            raise HTTPException(409, detail="이미 Head 가 정의되어 있습니다")
+        cur.execute("SELECT tenant_code FROM sys_tenant WHERE tenant_id=%s", (tid,))
+        is_platform = (cur.fetchone() or [""])[0] == TENANT
+        n = 0
+        for code, name, ht, ml, order, binds in _HEAD_SEED:
+            if ht == "SYSTEM" and not is_platform:
+                continue     # 고객사에는 System Head 를 심지 않는다 (#21)
+            cur.execute(
+                """INSERT INTO sys_head (tenant_id, head_code, head_name, head_type, min_level,
+                   status, sort_order, created_by)
+                   VALUES (%s,%s,%s,%s,%s,'PUBLISHED',%s,%s) RETURNING head_id""",
+                (tid, code, name, ht, ml, order, request.state.login))
+            hid = cur.fetchone()[0]
+            for i, (panel, kind, ref, label) in enumerate(binds):
+                cur.execute(
+                    """INSERT INTO sys_head_binding (head_id, panel, target_kind, target_ref,
+                       label, sort_order) VALUES (%s,%s,%s,%s,%s,%s)""",
+                    (hid, panel, kind, ref, label, i))
+            n += 1
+        _audit(cur, tid, "sys_head", 0, "HEAD_SEED", request.state.user_id, {"heads": n})
+    return {"seeded": n}
 
 
 # ── 2.0 좌측 패널 = 업무 프로세스 (요구 #15/#17) — 고객사가 정의하는 프로세스 트리 ──
