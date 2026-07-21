@@ -64,3 +64,38 @@ export async function relationshipCad(): Promise<import('@/lib/cadTypes').CadDoc
     return r.document
   } catch { return null }
 }
+
+/** #29 — Mother 선택조건 → Child 전개 기준 (슬롯 매핑) CRUD.
+ *  종전엔 시드로만 존재해 사용자가 만든 관계는 Child 슬롯이 빈 채 전개됐다. */
+export interface SlotMapRow { slotMapId: number; childSlot: string; motherSlot: string | null; fixedValue: string | null }
+export interface SlotMapView {
+  relId: number; mother: string; child: string; status: string
+  maps: SlotMapRow[]; motherSlots: string[]; childSlots: string[]
+}
+
+export async function getSlotMap(relId: number): Promise<SlotMapView | null> {
+  try { return await apiServer<SlotMapView>(`/codes/relationships/${relId}/slot-map`) } catch { return null }
+}
+
+export async function addSlotMap(relId: number, childSlot: string, motherSlot: string,
+                                 fixedValue: string): Promise<{ ok?: string; error?: string }> {
+  try {
+    await apiServer(`/codes/relationships/${relId}/slot-map`, {
+      method: 'POST', body: JSON.stringify({ childSlot, motherSlot, fixedValue }),
+    })
+    revalidatePath('/code/relationship')
+    return { ok: `${childSlot} ← ${motherSlot || `"${fixedValue}"`} 매핑 추가` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '매핑 추가 실패' }
+  }
+}
+
+export async function delSlotMap(relId: number, slotMapId: number): Promise<{ ok?: string; error?: string }> {
+  try {
+    await apiServer(`/codes/relationships/${relId}/slot-map/${slotMapId}`, { method: 'DELETE' })
+    revalidatePath('/code/relationship')
+    return { ok: '매핑 삭제' }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '매핑 삭제 실패' }
+  }
+}

@@ -6007,18 +6007,124 @@ def relationship_children(mother: str) -> list[dict[str, Any]]:
             """SELECT c.main_code, c.code_name, r.quantity, COALESCE(r.remarks,''),
                       COALESCE(string_agg(sm.child_slot || '←' ||
                         COALESCE(sm.mother_slot, '"'||sm.fixed_value||'"'), ' · '
-                        ORDER BY sm.child_slot), '-')
+                        ORDER BY sm.child_slot), '-'),
+                      r.rel_id, count(sm.slot_map_id), COALESCE(r.revision_no,1)
                FROM code_relationship r
                JOIN product_code m ON m.product_code_id=r.mother_code_id
                JOIN product_code c ON c.product_code_id=r.child_code_id
                LEFT JOIN code_relationship_slot_map sm ON sm.rel_id=r.rel_id
                WHERE r.tenant_id=%s AND m.main_code=%s AND r.approval_status='APPROVED'
-               GROUP BY c.main_code, c.code_name, r.quantity, r.remarks, r.sort_order
+               GROUP BY c.main_code, c.code_name, r.quantity, r.remarks, r.sort_order, r.rel_id, r.revision_no
                ORDER BY r.sort_order""", (tid, mother))
+        # #29 — relId·매핑 수를 함께 내려 화면이 슬롯 매핑을 편집할 수 있게 한다
         return [
-            {"code": r[0], "desc": r[1], "qty": float(r[2]), "remarks": r[3], "slotMap": r[4]}
+            {"code": r[0], "desc": r[1], "qty": float(r[2]), "remarks": r[3], "slotMap": r[4],
+             "relId": r[5], "slotMapCount": int(r[6]), "revisionNo": int(r[7])}
             for r in cur.fetchall()
         ]
+
+
+# ── 4.6 Product Relationship 슬롯 매핑 (요구 #29) — "Mother 선택조건 → Child 전개 기준" ──
+# code_relationship_slot_map 은 BOM 전개(_expand_rows)가 Child 슬롯을 채우는 유일한 근거인데,
+# 종전엔 **시드로만 존재**하고 쓰기 경로가 없었다. 그래서 사용자가 만든 관계는 슬롯이 빈 채
+# 전개돼 Child 코드가 해석되지 않았다(요구 #29 "Mother 선택조건 → Child 전개 기준" 미충족).
+def _rel_of(cur, tid: int, rel_id: int) -> tuple[int, str, str, str]:
+    cur.execute(
+        """SELECT r.rel_id, m.main_code, c.main_code, r.approval_status
+           FROM code_relationship r
+           JOIN product_code m ON m.product_code_id=r.mother_code_id
+           JOIN product_code c ON c.product_code_id=r.child_code_id
+           WHERE r.tenant_id=%s AND r.rel_id=%s""", (tid, rel_id))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"관계 없음: #{rel_id}")
+    return row
+
+
+def _group_slots_of(cur, tid: int, main_code: str) -> set[str]:
+    """제품 코드가 속한 그룹의 Slot 집합 — 매핑 대상이 실재하는지 검증용."""
+    cur.execute(
+        """SELECT ci.item_slot FROM product_code pc
+           JOIN code_group cg ON cg.group_id=pc.group_id
+           JOIN code_item ci ON ci.group_id=cg.group_id
+           WHERE pc.tenant_id=%s AND pc.main_code=%s""", (tid, main_code))
+    return {r[0] for r in cur.fetchall()}
+
+
+@router.get("/codes/relationships/{rel_id}/slot-map")
+def slot_map_list(rel_id: int) -> dict[str, Any]:
+    """관계의 슬롯 매핑 + 선택 가능한 Slot 목록 (#29)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _, mother, child, status = _rel_of(cur, tid, rel_id)
+        cur.execute(
+            """SELECT slot_map_id, child_slot, mother_slot, fixed_value
+               FROM code_relationship_slot_map WHERE rel_id=%s ORDER BY child_slot""", (rel_id,))
+        rows = [{"slotMapId": r[0], "childSlot": r[1], "motherSlot": r[2], "fixedValue": r[3]}
+                for r in cur.fetchall()]
+        return {"relId": rel_id, "mother": mother, "child": child, "status": status,
+                "maps": rows,
+                "motherSlots": sorted(_group_slots_of(cur, tid, mother)),
+                "childSlots": sorted(_group_slots_of(cur, tid, child))}
+
+
+class SlotMapAdd(BaseModel):
+    childSlot: str
+    motherSlot: str = ""
+    fixedValue: str = ""
+
+
+@router.post("/codes/relationships/{rel_id}/slot-map", status_code=201, dependencies=[SETUP])
+def slot_map_add(rel_id: int, request: Request, body: SlotMapAdd) -> dict[str, Any]:
+    """슬롯 매핑 추가 (#29) — Child 슬롯 하나는 Mother 슬롯 계승 **또는** 고정값 중 하나로만 채운다."""
+    cs = body.childSlot.strip().upper()
+    ms = body.motherSlot.strip().upper()
+    fv = body.fixedValue.strip()
+    if not cs:
+        raise HTTPException(422, detail="childSlot 은 필수")
+    if bool(ms) == bool(fv):
+        # DB CHECK(ck_slot_source)와 같은 규칙을 앞단에서 사람이 읽을 수 있는 문구로
+        raise HTTPException(422, detail="Mother 슬롯 계승과 고정값 중 정확히 하나만 지정하십시오")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _, mother, child, status = _rel_of(cur, tid, rel_id)
+        if cs not in _group_slots_of(cur, tid, child):
+            raise HTTPException(422, detail=f"Child({child}) 그룹에 없는 Slot: {cs}")
+        if ms and ms not in _group_slots_of(cur, tid, mother):
+            raise HTTPException(422, detail=f"Mother({mother}) 그룹에 없는 Slot: {ms}")
+        cur.execute("SELECT 1 FROM code_relationship_slot_map WHERE rel_id=%s AND child_slot=%s",
+                    (rel_id, cs))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"이미 매핑된 Child Slot: {cs}")
+        cur.execute(
+            """INSERT INTO code_relationship_slot_map (rel_id, child_slot, mother_slot, fixed_value)
+               VALUES (%s,%s,%s,%s) RETURNING slot_map_id""",
+            (rel_id, cs, ms or None, fv or None))
+        smid = cur.fetchone()[0]
+        # #40 — 매핑 변경은 BOM 전개 근거의 변화다. Revision 을 올려 과거 Run 의 근거 대조에서 드러나게 한다.
+        cur.execute("UPDATE code_relationship SET revision_no=revision_no+1, updated_at=now() "
+                    "WHERE tenant_id=%s AND rel_id=%s", (tid, rel_id))
+        _audit(cur, tid, "code_relationship", rel_id, "SLOTMAP_ADD", request.state.user_id,
+               {"childSlot": cs, "motherSlot": ms or None, "fixedValue": fv or None})
+    return {"slotMapId": smid, "childSlot": cs, "relId": rel_id}
+
+
+@router.delete("/codes/relationships/{rel_id}/slot-map/{slot_map_id}", dependencies=[SETUP])
+def slot_map_delete(rel_id: int, slot_map_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _rel_of(cur, tid, rel_id)
+        cur.execute(
+            "DELETE FROM code_relationship_slot_map WHERE rel_id=%s AND slot_map_id=%s "
+            "RETURNING child_slot", (rel_id, slot_map_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"매핑 없음: #{slot_map_id}")
+        cur.execute("UPDATE code_relationship SET revision_no=revision_no+1, updated_at=now() "
+                    "WHERE tenant_id=%s AND rel_id=%s", (tid, rel_id))
+        _audit(cur, tid, "code_relationship", rel_id, "SLOTMAP_DEL", request.state.user_id,
+               {"childSlot": row[0]})
+    return {"deleted": slot_map_id, "childSlot": row[0]}
 
 
 class RunningTestRequest(BaseModel):

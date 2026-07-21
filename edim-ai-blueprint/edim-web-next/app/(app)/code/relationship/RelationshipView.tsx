@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
@@ -10,12 +10,95 @@ import { useRouter } from 'next/navigation'
 import { CadSvg } from '@/components/CadSvg'
 import { downloadCsv } from '@/lib/csv'
 import type { CadDocument } from '@/lib/cadTypes'
-import { relationshipCad, runningTest, addChild, deleteRelationship, requestApproval, type RunningTestRow } from './actions'
+import { relationshipCad, runningTest, addChild, deleteRelationship, requestApproval, type RunningTestRow, addSlotMap, delSlotMap, getSlotMap, type SlotMapView } from './actions'
 
-export interface ChildRow { code: string; desc: string; qty: number; remarks: string; slotMap?: string }
+export interface ChildRow { code: string; desc: string; qty: number; remarks: string; slotMap?: string
+  relId?: number; slotMapCount?: number; revisionNo?: number }
 interface Mother { code: string; desc: string; slots: { slot: string; label: string; values: string }[] }
 
 const SLOT_OPTS: Record<string, string[]> = { B: ['13', '21', '32'], C: ['32', '45'], E: ['15', '21'] }
+
+function SlotMapEditor({ children }: { children: ChildRow[] }) {
+  const { t } = useI18n()
+  const mapped = children.filter((c) => c.relId)
+  const [relId, setRelId] = useState<number>(mapped[0]?.relId ?? 0)
+  const [view, setView] = useState<SlotMapView | null>(null)
+  const [childSlot, setChildSlot] = useState('')
+  const [motherSlot, setMotherSlot] = useState('')
+  const [fixed, setFixed] = useState('')
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>({})
+  const [busy, run] = useTransition()
+
+  const load = (id: number) => run(async () => { setView(await getSlotMap(id)) })
+  useEffect(() => { if (relId) load(relId) }, [relId])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!mapped.length) return null
+  return (
+    <div className="gb" style={{ padding: 6 }} data-slotmap-editor>
+      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>
+        {t('codrel.slotMapTitle', 'Slot 매핑 — Mother 선택조건 → Child 전개 기준 (#29)')}
+      </div>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', fontSize: 10.5 }}>
+        <select className="in" data-sm-rel value={relId} onChange={(e) => setRelId(Number(e.target.value))}
+          style={{ height: 22, width: 190 }}>
+          {mapped.map((c) => (
+            <option key={c.relId} value={c.relId}>
+              {c.code} {c.slotMapCount ? `(${c.slotMapCount})` : '(0 — 미정의)'}
+            </option>
+          ))}
+        </select>
+        <select className="in" data-sm-child value={childSlot} onChange={(e) => setChildSlot(e.target.value)}
+          style={{ height: 22, width: 108 }}>
+          <option value="">{t('codrel.childSlot', 'Child Slot')}</option>
+          {(view?.childSlots ?? []).map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <span>←</span>
+        <select className="in" data-sm-mother value={motherSlot}
+          onChange={(e) => { setMotherSlot(e.target.value); if (e.target.value) setFixed('') }}
+          style={{ height: 22, width: 118 }}>
+          <option value="">{t('codrel.motherSlot', 'Mother Slot 계승')}</option>
+          {(view?.motherSlots ?? []).map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+        <span style={{ color: 'var(--txt-mute)' }}>{t('common.or', '또는')}</span>
+        <input className="in" data-sm-fixed value={fixed} placeholder={t('codrel.fixedValue', '고정값')}
+          onChange={(e) => { setFixed(e.target.value); if (e.target.value) setMotherSlot('') }}
+          style={{ height: 22, width: 92 }} />
+        <button className="b run" data-sm-add disabled={busy || !relId || !childSlot}
+          onClick={() => run(async () => {
+            const r = await addSlotMap(relId, childSlot, motherSlot, fixed)
+            setMsg(r); if (r.ok) { setChildSlot(''); setMotherSlot(''); setFixed(''); setView(await getSlotMap(relId)) }
+          })} style={{ height: 22 }}>{t('codrel.mapAdd', '＋ 매핑')}</button>
+        {msg.error ? <span style={{ color: 'var(--err)' }} data-sm-err>{msg.error}</span> : null}
+        {msg.ok ? <span style={{ color: 'var(--run)' }}>{msg.ok}</span> : null}
+      </div>
+      <table className="g" style={{ marginTop: 4 }}>
+        <thead><tr>
+          <th style={{ width: 96 }}>Child Slot</th><th>{t('codrel.source', '값 출처')}</th><th style={{ width: 36 }} />
+        </tr></thead>
+        <tbody>
+          {view?.maps.length ? view.maps.map((m) => (
+            <tr key={m.slotMapId} data-sm-row={m.childSlot}>
+              <td className="code">{m.childSlot}</td>
+              <td>{m.motherSlot
+                ? `${t('codrel.inherit', 'Mother')} ${m.motherSlot}`
+                : `${t('codrel.fixed', '고정')} "${m.fixedValue}"`}</td>
+              <td className="c">
+                <button className="b" data-sm-del disabled={busy} onClick={() => run(async () => {
+                  const r = await delSlotMap(relId, m.slotMapId)
+                  setMsg(r); setView(await getSlotMap(relId))
+                })}>✕</button>
+              </td>
+            </tr>
+          )) : (
+            <tr><td colSpan={3} style={{ padding: 8, color: 'var(--txt-mute)', fontSize: 10.5 }}>
+              {t('codrel.noMap', '매핑 없음 — Child 슬롯이 빈 채 전개됩니다')}
+            </td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 export function RelationshipView({ mother, children }: { mother: Mother; children: ChildRow[] }) {
   const { t } = useI18n()
@@ -122,6 +205,8 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
           </div>
           <div style={{ fontSize: 10, color: 'var(--txt-dim)', lineHeight: 1.7, padding: '3px 6px' }}>{t('codrel.slotMapHint', 'Slot 매핑(slot_map)으로 Mother 값이 Child 코드 자릿수에 전파 (CODE-008)')}</div>
         </div>
+        {/* #29 — Mother 선택조건 → Child 전개 기준. 이 매핑이 없으면 Child 슬롯이 빈 채 전개된다 */}
+        <SlotMapEditor children={children} />
         <div className="gb" style={{ padding: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Add Child</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
