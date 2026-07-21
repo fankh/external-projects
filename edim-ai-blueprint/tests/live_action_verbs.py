@@ -224,9 +224,11 @@ try:
     vid = psql("SELECT value_id FROM code_item_value WHERE approval_status<>'APPROVED' LIMIT 1")
     if not vid:
         vid = psql("SELECT value_id FROM code_item_value ORDER BY value_id LIMIT 1")
-        psql(f"UPDATE code_item_value SET approval_status='PENDING' WHERE value_id={vid}")
-        globals()["_val_id"] = vid
-    ok(f"검증 대상 값 확보 (#{vid})", bool(vid))
+    # 이 검증은 값을 APPROVED 로 바꾼다 — 실 Sub Code 데이터이므로 원래 상태를 기억해 두고
+    # finally 에서 반드시 되돌린다 (8.7a 에서 제품 코드로 같은 실수를 했다)
+    vstat = psql(f"SELECT approval_status FROM code_item_value WHERE value_id={vid}")
+    globals()["_val_id"], globals()["_val_status"] = vid, vstat
+    ok(f"검증 대상 값 확보 (#{vid} · {vstat})", bool(vid) and bool(vstat))
     st, b = req("PATCH", f"/codes/values/{vid}", TOK, {"approve": True})
     ok(f"★ APPROVE 없이 값 승인 403 ({st})",
        st == 403 and "APPROVE" in (b or {}).get("detail", ""))
@@ -246,6 +248,10 @@ try:
     st, _ = req("PUT", "/roles/ADMIN/verbs", gtok, {"resourceKey": RES, "verbs": ["READ"]})
     ok(f"GENERAL 동사 지정 403 ({st})", st == 403)
 finally:
+    _vid, _vst = globals().get("_val_id"), globals().get("_val_status")
+    if _vid and _vst:
+        psql(f"UPDATE code_item_value SET approval_status='{_vst}' WHERE value_id={_vid}")
+        print(f"정리 — Sub Code 값 #{_vid} 상태 {_vst} 로 원복")
     _wf = globals().get("_wf_id")
     if _wf:
         psql(f"DELETE FROM erp_workflow_template WHERE template_id={_wf}")
