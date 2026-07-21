@@ -60,6 +60,7 @@ py tests\live_all.py
 | `live_toolbox_package.py` | Toolbox Package — 상태기계 건너뛰기 422·게시본 구성 변경 409·새 버전 복사·CRITICAL 가드 + **설계시 파싱 409·위험도 자동 상향·Sandbox 실패 409·Runtime intact·활성 1개·Rollback 이력 보존** (자체 정리) | 5.6·5.8·6.0·6.2 (#56·#61·#62·#63) |
 | `live_templet_library.py` | Template Library — 원본 편집 409·복사 계보·잠금 상속·잠긴 필드 수정 409·원본 영향분석 (자체 정리) | 6.4 (#57) |
 | `live_binding_contract.py` | Binding Contract — SQL/테이블 직접 참조 409·미등록 Contract 422·등록분 통과·유사 문자열 오탐 없음·사용 중 삭제 409 (자체 정리) | 6.6 (#58) |
+| `live_command_binding.py` | Command Binding — 미등록 Command 버튼 422·선언 키 외 422·필수 누락 422·ID 아닌 값 뭉치 422·폐기 실행 409·사용 중 삭제 409 (자체 정리) | 6.8 (#59) |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI
