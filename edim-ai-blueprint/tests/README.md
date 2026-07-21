@@ -64,6 +64,7 @@ py tests\live_all.py
 | `live_macro_graph.py` | Macro 5-View Graph — 수식 정본 Graph 재생성·결정성·고친 뷰만 stale 지목·재정렬 해소·파싱/빈 수식 422 (자체 정리) | 7.0 (#60) |
 | `live_support_access.py` | Support 접근·이중 승인 — 사유/범위/기간 검증·승인 전 403·고객사만 결정·범위 밖 제외·열람 감사·회수/만료 즉시 차단·검증→승인 순서 409 (자체 정리) | 7.4 (#68·#69) |
 | `live_drawing_job.py` | Drawing Run Job — 바인딩 없는 Job 422·Snapshot 근거 실행·재실행 동일(결정성)·풀리지 않는 바인딩 422·수치 아닌 값 422 (자체 정리) | 7.6 (#54) |
+| `live_setup_lock.py` | Set-up↔Operation Lock — Set-up 게시·무변경 재게시 409·**변경 후 drift 감지**·이전본 SUPERSEDED / 자원 점유 409(보유자·만료 명시)·점유 중 남의 쓰기 차단·해제 후 통과·만료 자동 정리 (자체 정리) | 7.8 (#12) |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI

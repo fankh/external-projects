@@ -93,8 +93,10 @@ try:
        and after["active"]["checksum"] == v1["checksum"])
 
     # Set-up 을 실제로 바꾼다 → drift 가 살아나야 한다
+    st, groups = req("GET", "/codes/groups", TOK)
+    addr = next(g["hierarchyAddress"] for g in groups if g.get("hierarchyAddress"))
     st, _ = req("POST", "/codes/groups", TOK,
-                {"groupCode": GRP, "groupName": "락 검증 그룹", "hierarchyAddress": "9.9"})
+                {"groupCode": GRP, "groupName": "락 검증 그룹", "hierarchyAddress": addr})
     ok(f"Set-up 변경(그룹 신설) {st}", st in (200, 201))
     st, drifted = req("GET", "/setup/versions", TOK)
     ok("★ Set-up 변경 후 drift 감지", drifted["drift"] is True
