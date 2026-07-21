@@ -9525,6 +9525,11 @@ def erp_workflow_publish(template_id: int, request: Request) -> dict[str, Any]:
             raise HTTPException(404, detail=f"Workflow 없음: {template_id}")
         if t[1] == "PUBLISHED":
             raise HTTPException(409, detail=f"이미 게시됨 — {t[0]}")
+        # 8.9 — Head·Package 게시는 DEPLOY 동사를 요구하는데, 7.9 에서 만든 이 경로만 빠져 있었다.
+        # 게시된 Workflow 는 실행의 근거가 되므로 같은 기준을 적용한다 (#3).
+        if not _action_allowed(cur, tid, request.state.user_id,
+                               getattr(request.state, "level", "GENERAL"), "workflow", "DEPLOY"):
+            raise HTTPException(403, detail="배포 권한 없음 — 역할에 DEPLOY 동사가 필요합니다 (#3)")
         nodes, edges = _wf_graph(cur, tid, template_id)
         problems = _wf_problems(nodes, edges)
         if problems:
@@ -10132,6 +10137,14 @@ def package_transition(package_id: int, request: Request, body: PackageTransitio
         items = _pkg_items(cur, package_id)
         if to == "GUARD" and not items:
             raise HTTPException(409, detail="구성 항목이 없는 패키지는 검사할 수 없습니다 (#56)")
+        if to == "APPROVED":
+            # 8.9 — 패키지 승인도 승인 행위다. product_code(8.7)·sys_head(8.8) 와 같은 동사를
+            # 요구한다. 종전엔 CRITICAL 위험도만 걸러, 그 외에는 SETUP 만으로 승인이 됐다.
+            if not _action_allowed(cur, tid, request.state.user_id,
+                                   getattr(request.state, "level", "GENERAL"),
+                                   "approval", "APPROVE"):
+                raise HTTPException(
+                    403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
         if to == "APPROVED" and risk == "CRITICAL":
             cur.execute("SELECT tenant_code FROM sys_tenant WHERE tenant_id=%s", (tid,))
             t = cur.fetchone()

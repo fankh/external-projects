@@ -97,7 +97,19 @@ try:
     # ── 상태기계 ──
     st, b = req("POST", f"/toolbox/packages/{pid}/transition", TOK, {"status": "APPROVED"})
     ok(f"★ 단계 건너뛰기 422 (DRAFT→APPROVED) ({st})", st == 422 and "전이" in (b or {}).get("detail", ""))
-    for to in ("GUARD", "SANDBOX", "APPROVED", "PUBLISHED"):
+    # 8.9 — APPROVED 는 승인 행위다: APPROVE 동사가 없으면 막힌다(#3)
+    psql("INSERT INTO sys_role_permission (tenant_id, role_name, resource_key, action) "
+         "SELECT tenant_id, 'ADMIN', 'approval', 'READ' FROM sys_tenant WHERE tenant_code='EDIM' "
+         "ON CONFLICT DO NOTHING")
+    for to in ("GUARD", "SANDBOX"):
+        req("POST", f"/toolbox/packages/{pid}/transition", TOK, {"status": to})
+    st, b = req("POST", f"/toolbox/packages/{pid}/transition", TOK, {"status": "APPROVED"})
+    ok(f"★ APPROVE 동사 없으면 패키지 승인 403 ({st})",
+       st == 403 and "APPROVE" in (b or {}).get("detail", ""))
+    psql("DELETE FROM sys_role_permission WHERE resource_key='approval'")
+    st, _ = req("POST", f"/toolbox/packages/{pid}/transition", TOK, {"status": "APPROVED"})
+    ok(f"★ 동사 미설정이면 종전대로 승인 통과 ({st})", st == 200)
+    for to in ("PUBLISHED",):
         st, _ = req("POST", f"/toolbox/packages/{pid}/transition", TOK, {"status": to, "note": "검증"})
         ok(f"전이 → {to} ({st})", st == 200)
     st, d = req("GET", f"/toolbox/packages/{pid}", TOK)

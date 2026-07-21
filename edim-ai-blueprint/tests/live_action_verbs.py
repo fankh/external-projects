@@ -58,6 +58,7 @@ def req(method, path, tok, body=None):
 
 def clear_verbs():
     """검증용 동사 행 제거 — 남으면 실제 승인 흐름이 막히므로 반드시 원복."""
+    psql("DELETE FROM sys_role_permission WHERE resource_key IN ('workflow','package') ")
     psql("DELETE FROM sys_role_permission WHERE resource_key='%s' "
          "AND action IN ('READ','CREATE','UPDATE','EXECUTE','APPROVE','DEPLOY')" % RES)
 
@@ -195,6 +196,28 @@ try:
     ok(f"★ APPROVE 부여 후 Head 승인 통과 ({st})", st == 200)
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": ["READ"]})
 
+    # ── 8.9: Workflow 게시도 배포 행위 (Head·Package 는 이미 DEPLOY 를 요구) ──
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": "workflow", "verbs": ["READ"]})
+    ok(f"workflow 자원에 READ 만 부여 ({st})", st == 200)
+    st, wf = req("POST", "/erp/workflows", TOK,
+                 {"templateCode": "ZZVERBWF", "templateName": "동사 검증 흐름", "processCode": "OR",
+                  "nodes": [{"nodeCode": "S", "nodeType": "START"},
+                            {"nodeCode": "E", "nodeType": "END"}],
+                  "edges": [{"fromNode": "S", "toNode": "E"}]})
+    ok(f"검증용 Workflow 등록 ({st})", st == 201)
+    wid = wf["templateId"]
+    globals()["_wf_id"] = wid
+    st, b = req("POST", f"/erp/workflows/{wid}/publish", TOK)
+    ok(f"★ DEPLOY 없이 Workflow 게시 403 ({st})",
+       st == 403 and "DEPLOY" in (b or {}).get("detail", ""))
+    ok("거부 후 DRAFT 유지",
+       psql(f"SELECT status FROM erp_workflow_template WHERE template_id={wid}") == "DRAFT")
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK,
+                {"resourceKey": "workflow", "verbs": ["READ", "DEPLOY"]})
+    st, _ = req("POST", f"/erp/workflows/{wid}/publish", TOK)
+    ok(f"★ DEPLOY 부여 후 게시 통과 ({st})", st == 200)
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": "workflow", "verbs": []})
+
     # ── 설정 제거 = 미설정 복귀 ──
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": []})
     ok(f"동사 설정 제거 ({st})", st == 200)
@@ -207,6 +230,10 @@ try:
     st, _ = req("PUT", "/roles/ADMIN/verbs", gtok, {"resourceKey": RES, "verbs": ["READ"]})
     ok(f"GENERAL 동사 지정 403 ({st})", st == 403)
 finally:
+    _wf = globals().get("_wf_id")
+    if _wf:
+        psql(f"DELETE FROM erp_workflow_template WHERE template_id={_wf}")
+        print(f"정리 — 검증용 Workflow #{_wf} 삭제")
     _hid = globals().get("_head_id")
     if _hid:
         psql(f"DELETE FROM sys_head_binding WHERE head_id={_hid}")
