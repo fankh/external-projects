@@ -8226,12 +8226,13 @@ def package_list(status: str = "") -> list[dict[str, Any]]:
                        p.risk_level, COALESCE(p.note,''), p.checksum,
                        (SELECT count(*) FROM tbx_package_item i WHERE i.package_id=p.package_id),
                        to_char(p.created_at,'YYYY-MM-DD'),
-                       to_char(p.published_at,'YYYY-MM-DD')
+                       to_char(p.published_at,'YYYY-MM-DD'), p.is_active
                 FROM tbx_package p WHERE p.tenant_id=%s{clause}
                 ORDER BY p.package_code, p.version_no DESC""", tuple(params))
         return [{"packageId": r[0], "packageCode": r[1], "packageName": r[2], "version": r[3],
                  "status": r[4], "riskLevel": r[5], "note": r[6], "checksum": r[7],
-                 "items": int(r[8]), "createdAt": r[9], "publishedAt": r[10]}
+                 "items": int(r[8]), "createdAt": r[9], "publishedAt": r[10],
+                 "active": bool(r[11])}
                 for r in cur.fetchall()]
 
 
@@ -8243,9 +8244,11 @@ def package_detail(package_id: int) -> dict[str, Any]:
         cur.execute("SELECT guard_report, sandbox_report FROM tbx_package WHERE package_id=%s",
                     (package_id,))
         rep = cur.fetchone()
+        cur.execute("SELECT is_active FROM tbx_package WHERE package_id=%s", (package_id,))
+        active = bool((cur.fetchone() or [False])[0])
         return {"packageId": r[0], "packageCode": r[1], "packageName": r[2], "version": r[3],
                 "status": r[4], "riskLevel": r[5], "note": r[6], "checksum": r[7],
-                "items": _pkg_items(cur, package_id),
+                "items": _pkg_items(cur, package_id), "active": active,
                 "guardReport": rep[0], "sandboxReport": rep[1],
                 "nextStates": sorted(_PKG_FLOW[r[4]])}
 
@@ -8404,12 +8407,67 @@ def package_transition(package_id: int, request: Request, body: PackageTransitio
                                      ensure_ascii=False))
         if to == "PUBLISHED":
             sets.append("published_at=now()")
+            # #63 — 게시 = 런타임 전환. 같은 코드의 다른 버전은 비활성으로 내리되
+            # 상태(PUBLISHED)는 남겨 Rollback 대상으로 보존한다.
+            sets.append("is_active=true")
+            sets.append("activated_at=now()")
+            cur.execute("UPDATE tbx_package SET is_active=false WHERE tenant_id=%s "
+                        "AND package_code=%s AND package_id<>%s", (tid, r[1], package_id))
         params += [tid, package_id]
         cur.execute(f"UPDATE tbx_package SET {', '.join(sets)} WHERE tenant_id=%s AND package_id=%s",
                     tuple(params))
         _audit(cur, tid, "tbx_package", package_id, f"PKG_{to}", request.state.user_id,
                {"from": cur_status, "risk": risk})
     return {"packageId": package_id, "status": to, "from": cur_status}
+
+
+@router.get("/toolbox/runtime")
+def package_runtime() -> list[dict[str, Any]]:
+    """지금 동작 중인 Package (#63) — 코드당 활성 버전 하나와 그 구성.
+
+    Published Package 만 Runtime 에 연결된다는 계약을 조회로 드러낸다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT package_id, package_code, package_name, version_no, risk_level,
+                      checksum, to_char(activated_at,'YYYY-MM-DD')
+               FROM tbx_package WHERE tenant_id=%s AND is_active
+               ORDER BY package_code""", (tid,))
+        out = []
+        for r in cur.fetchall():
+            out.append({"packageId": r[0], "packageCode": r[1], "packageName": r[2],
+                        "version": r[3], "riskLevel": r[4], "checksum": r[5],
+                        "activatedAt": r[6], "items": _pkg_items(cur, r[0])})
+        return out
+
+
+@router.post("/toolbox/packages/{package_id}/rollback", dependencies=[SETUP])
+def package_rollback(package_id: int, request: Request) -> dict[str, Any]:
+    """과거 게시 버전으로 되돌린다 (#63) — 이력은 지우지 않고 활성 포인터만 옮긴다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        r = _pkg_row(cur, tid, package_id)
+        if r[4] != "PUBLISHED":
+            raise HTTPException(
+                409, detail=f"게시된 적 없는 버전으로는 되돌릴 수 없습니다 (현재 {r[4]}) — "
+                            "게시 이력이 있는 버전만 Rollback 대상입니다 (#63)")
+        if not _action_allowed(cur, tid, request.state.user_id,
+                               getattr(request.state, "level", "GENERAL"), "package", "DEPLOY"):
+            raise HTTPException(403, detail="배포 권한 없음 — 역할에 DEPLOY 동사가 필요합니다 (#3)")
+        cur.execute("SELECT version_no FROM tbx_package WHERE tenant_id=%s AND package_code=%s "
+                    "AND is_active", (tid, r[1]))
+        cur_active = cur.fetchone()
+        if cur_active and cur_active[0] == r[3]:
+            raise HTTPException(409, detail=f"이미 활성 버전입니다: v{r[3]}")
+        cur.execute("UPDATE tbx_package SET is_active=false WHERE tenant_id=%s AND package_code=%s",
+                    (tid, r[1]))
+        cur.execute("UPDATE tbx_package SET is_active=true, activated_at=now() WHERE package_id=%s",
+                    (package_id,))
+        _audit(cur, tid, "tbx_package", package_id, "ROLLBACK", request.state.user_id,
+               {"packageCode": r[1], "toVersion": r[3],
+                "fromVersion": cur_active[0] if cur_active else None})
+    return {"packageId": package_id, "packageCode": r[1], "activeVersion": r[3],
+            "previousVersion": cur_active[0] if cur_active else None}
 
 
 @router.post("/toolbox/packages/{package_id}/new-version", status_code=201, dependencies=[SETUP])
