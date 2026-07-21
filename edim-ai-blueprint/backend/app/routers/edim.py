@@ -5449,6 +5449,90 @@ def drawing_dimensions(drawing: str = "KDCR 3-13") -> list[dict[str, Any]]:
         ]
 
 
+# ── 7.0 Macro Builder 5-View 단일 Graph (요구 #60) ──
+# 5개 뷰(prompt/expr/flowchart/description/coding)가 서로 독립 컬럼이라 하나만 고쳐도
+# 나머지는 옛 내용으로 남았고, 무엇이 정본인지도 없었다. Graph 를 정본으로 두고
+# 각 뷰가 그것에 맞춰져 있는지(지문 일치)를 판정한다.
+def _macro_views(row: dict[str, Any]) -> dict[str, Any]:
+    return {"prompt": row.get("prompt_text"), "expr": row.get("macro_expr"),
+            "flowchart": row.get("flowchart_def"), "description": row.get("description_text"),
+            "coding": row.get("code_text")}
+
+
+def _macro_row(cur, tid: int, name: str) -> dict[str, Any]:
+    cur.execute(
+        """SELECT macro_id, macro_name, prompt_text, macro_expr, flowchart_def,
+                  description_text, code_text, graph_def, graph_checksum,
+                  COALESCE(view_fingerprints,'{}'::jsonb), to_char(graph_synced_at,'YYYY-MM-DD HH24:MI')
+           FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s""", (tid, name))
+    r = cur.fetchone()
+    if not r:
+        raise HTTPException(404, detail=f"Macro 없음: {name}")
+    return {"macro_id": r[0], "macro_name": r[1], "prompt_text": r[2], "macro_expr": r[3],
+            "flowchart_def": r[4], "description_text": r[5], "code_text": r[6],
+            "graph_def": r[7], "graph_checksum": r[8], "fingerprints": r[9] or {},
+            "synced_at": r[10]}
+
+
+@router.get("/macros/{name}/graph")
+def macro_graph(name: str) -> dict[str, Any]:
+    """Macro Command Graph + 5-View 동기 상태 (#60).
+
+    각 뷰는 마지막으로 Graph 와 맞춘 시점의 지문을 갖는다. 지금 내용의 지문과 다르면
+    그 뷰는 **Graph 와 어긋난 상태**(stale)로 지목된다 — 어느 뷰가 뒤처졌는지 알 수 있다."""
+    from app.services.macro_graph import VIEWS, view_fingerprint
+
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        row = _macro_row(cur, tid, name)
+    views = _macro_views(row)
+    fps = row["fingerprints"]
+    status = []
+    for v in VIEWS:
+        cur_fp = view_fingerprint(views.get(v))
+        saved = fps.get(v)
+        empty = not (views.get(v) or "")
+        status.append({"view": v, "empty": empty,
+                       "synced": (saved is not None and saved == cur_fp),
+                       "stale": (saved is not None and saved != cur_fp)})
+    return {"name": name, "graph": row["graph_def"], "checksum": row["graph_checksum"],
+            "syncedAt": row["synced_at"], "views": status,
+            "staleViews": [s["view"] for s in status if s["stale"]],
+            "hasGraph": row["graph_def"] is not None}
+
+
+@router.post("/macros/{name}/graph/rebuild", dependencies=[SETUP])
+def macro_graph_rebuild(name: str, request: Request) -> dict[str, Any]:
+    """수식에서 Graph 를 다시 만들고 5-View 지문을 현재 내용으로 맞춘다 (#60).
+
+    Graph 의 정본은 **수식**이다 — 수식이 파싱되지 않으면 Graph 를 만들 수 없으므로 422."""
+    from app.services.macro_graph import VIEWS, build_graph, graph_checksum, view_fingerprint
+
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        row = _macro_row(cur, tid, name)
+        expr = (row["macro_expr"] or "").strip()
+        if not expr:
+            raise HTTPException(422, detail=f"수식이 비어 있어 Graph 를 만들 수 없습니다: {name} (#60)")
+        try:
+            graph = build_graph(expr)
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(422, detail=f"수식 파싱 실패 — Graph 생성 불가: {str(e)[:100]}")
+        ck = graph_checksum(graph)
+        views = _macro_views(row)
+        fps = {v: view_fingerprint(views.get(v)) for v in VIEWS}
+        cur.execute(
+            """UPDATE tbx_macro SET graph_def=%s, graph_checksum=%s, view_fingerprints=%s,
+               graph_synced_at=now(), updated_at=now()
+               WHERE tenant_id=%s AND macro_name=%s""",
+            (json.dumps(graph, ensure_ascii=False), ck, json.dumps(fps), tid, name))
+        _audit(cur, tid, "tbx_macro", row["macro_id"], "GRAPH_REBUILD", request.state.user_id,
+               {"checksum": ck[:12], "nodes": len(graph["nodes"])})
+    return {"name": name, "checksum": ck, "nodes": len(graph["nodes"]),
+            "edges": len(graph["edges"]), "inputs": graph["inputs"],
+            "functions": graph["functions"], "syncedViews": sorted(fps)}
+
+
 @router.get("/macros")
 def macros_list() -> list[dict[str, Any]]:
     """Toolbox Macro 라이브러리 — tbx_macro 실데이터 (S-2-2 좌측 목록)."""
