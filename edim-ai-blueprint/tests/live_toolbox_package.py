@@ -53,7 +53,7 @@ def req(method, path, tok, body=None):
 
 
 def cleanup():
-    psql("DELETE FROM tbx_macro WHERE macro_name='ZZBADMACRO'")
+    psql("DELETE FROM tbx_macro WHERE macro_name IN ('ZZBADMACRO','ZZCODEMACRO','ZZPARSEBAD')")
     psql("DELETE FROM tbx_package_item WHERE package_id IN "
          f"(SELECT package_id FROM tbx_package WHERE package_code LIKE 'ZZPKG%')")
     psql("DELETE FROM tbx_package WHERE package_code LIKE 'ZZPKG%'")
@@ -131,13 +131,46 @@ try:
     st, _ = req("POST", f"/toolbox/packages/{cid}/transition", TOK, {"status": "APPROVED"})
     ok(f"운영 테넌트는 CRITICAL 승인 가능 ({st})", st == 200)
 
+    # ── #61 Design-time Guard — 정의를 실제로 검사, 위험도 자동 상향 ──
+    st, gpkg = req("POST", "/toolbox/packages", TOK,
+                   {"packageCode": "ZZPKGG", "packageName": "가드 검증", "riskLevel": "LOW"})
+    gid = gpkg["packageId"]
+    psql("INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr, code_text, apply_type, status) "
+         "SELECT tenant_id, 'ZZCODEMACRO', 'A + B', 'print(1)', 'CODING', 'DRAFT' FROM sys_user "
+         "WHERE login_id='edim' LIMIT 1")
+    req("POST", f"/toolbox/packages/{gid}/items", TOK,
+        {"itemType": "MACRO", "itemRef": "ZZCODEMACRO"})
+    st, _ = req("POST", f"/toolbox/packages/{gid}/transition", TOK, {"status": "GUARD"})
+    ok(f"CODING 포함 패키지 GUARD 통과 ({st})", st == 200)
+    st, dg = req("GET", f"/toolbox/packages/{gid}", TOK)
+    ok(f"★ 위험도 자동 상향 LOW → {dg['riskLevel']} (CODING)", dg["riskLevel"] == "HIGH")
+    rep = dg.get("guardReport") or {}
+    ok("가드 보고서에 발견 내용", rep.get("findings") and rep.get("riskFloor") == "HIGH")
+    psql("DELETE FROM tbx_macro WHERE macro_name='ZZCODEMACRO'")
+
+    # 깨진 정의는 GUARD 에서 막힌다
+    st, bp = req("POST", "/toolbox/packages", TOK,
+                 {"packageCode": "ZZPKGE", "packageName": "파싱 실패"})
+    bp_id = bp["packageId"]
+    psql("INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr, apply_type, status) "
+         "SELECT tenant_id, 'ZZPARSEBAD', '((A + ', 'MACRO', 'DRAFT' FROM sys_user "
+         "WHERE login_id='edim' LIMIT 1")
+    req("POST", f"/toolbox/packages/{bp_id}/items", TOK,
+        {"itemType": "MACRO", "itemRef": "ZZPARSEBAD"})
+    st, b = req("POST", f"/toolbox/packages/{bp_id}/transition", TOK, {"status": "GUARD"})
+    ok(f"★ 파싱 불가 정의는 GUARD 409 ({st})", st == 409 and "설계시" in (b or {}).get("detail", ""))
+    st, dbp = req("GET", f"/toolbox/packages/{bp_id}", TOK)
+    ok("★ 실패 패키지는 DRAFT 에 머문다", dbp["status"] == "DRAFT")
+    psql("DELETE FROM tbx_macro WHERE macro_name='ZZPARSEBAD'")
+
     # ── #62 Sandbox 격리 테스트 — 실패하면 배포로 못 간다 ──
     st, badpkg = req("POST", "/toolbox/packages", TOK,
                      {"packageCode": "ZZPKGF", "packageName": "실패 패키지"})
     bad_id = badpkg["packageId"]
-    # 깨진 수식을 가진 Macro 를 만들어 패키지에 넣는다
+    # 문법은 맞지만 **실행하면 실패**하는 수식 — 설계시 검사(#61)는 통과하고
+    # 격리 테스트(#62)에서 걸려야 한다(이중 방어의 뒷단)
     psql("INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr, apply_type, status) "
-         "SELECT tenant_id, 'ZZBADMACRO', '1 / 0 +', 'MACRO', 'DRAFT' FROM sys_user "
+         "SELECT tenant_id, 'ZZBADMACRO', 'SQRT(0 - 1)', 'MACRO', 'DRAFT' FROM sys_user "
          "WHERE login_id='edim' LIMIT 1")
     st, _ = req("POST", f"/toolbox/packages/{bad_id}/items", TOK,
                 {"itemType": "MACRO", "itemRef": "ZZBADMACRO"})
@@ -163,6 +196,7 @@ try:
     ok(f"★ 게시본이 Runtime 에 연결 (v{active[0]['version'] if active else '-'})",
        active and active[0]["version"] == 1)
     ok("Runtime 이 구성 항목까지 노출", active and active[0]["items"])
+    ok("★ Runtime 무결성 intact=true", active and active[0]["intact"] is True)
 
     # v2 를 게시하면 활성이 v2 로 넘어가고 v1 은 PUBLISHED 로 남는다
     v2id = v2["packageId"]
