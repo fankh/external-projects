@@ -65,6 +65,9 @@ def set_mode(tok, group, mode):
     return st
 
 
+MASKED_TEXT = "•"   # MASK_TEXT 의 점 문자
+
+
 def masked(v):
     """마스킹된 숫자는 None 이거나 '3000~' 형태의 문자열이다(실수 그대로면 미마스킹)."""
     return v is None or isinstance(v, str)
@@ -151,6 +154,61 @@ try:
     st, acts2 = req("GET", "/cost/actuals", GEN)
     ok(f"★ hidden 은 값 제거 ({acts2[0]['amount']!r})", acts2 and acts2[0]["amount"] is None)
 
+    # ── 8.4: price·partner 도 전 경로 일관 (같은 필드가 다른 경로로 새지 않는가) ──
+    set_mode(TOK, "cost", "masked")
+    set_mode(TOK, "price", "masked")
+    set_mode(TOK, "partner", "masked")
+    # no_download 는 '보이되 못 내려받는' 모드다 — 금액 마스킹 확인엔 masked 를 써야 한다
+    set_mode(TOK, "quote", "masked")
+    st, pl = req("GET", "/prices", GEN)
+    ok(f"단가 목록 200 ({len(pl)}건)", st == 200 and pl)
+    code0 = pl[0]["code"]
+    ok(f"★ /prices 단가·거래처 마스킹 ({pl[0]['price']!r}/{pl[0]['supplier']!r})",
+       masked(pl[0]["price"]) and MASKED_TEXT in str(pl[0]["supplier"]))
+    st, rp = req("GET", f"/prices/resolve?code={code0}", GEN)
+    if st == 200:
+        ok(f"★ /prices/resolve 도 동일 마스킹 (우회 차단) ({rp['price']!r}/{rp['supplier']!r})",
+           masked(rp["price"]) and MASKED_TEXT in str(rp["supplier"]))
+    st, rp2 = req("GET", f"/prices/resolve?code={code0}", TOK)
+    ok("ADMIN 은 resolve 실값 유지", st != 200 or isinstance(rp2["price"], (int, float)))
+
+    st, sev = req("GET", "/erp/suppliers/evals", TOK)
+    if not sev:
+        st, comps = req("GET", "/companies", TOK)
+        sid = (comps[0]["companyId"] if isinstance(comps, list) and comps
+               else (comps or {}).get("rows", [{}])[0].get("companyId"))
+        st, _ = req("POST", "/erp/suppliers/evals", TOK,
+                    {"supplierId": sid, "period": "2099-ZZ", "delivery": 90,
+                     "quality": 88, "price": 85, "note": "ZZMASK"})
+        ok(f"검증용 공급처 평가 생성 ({st})", st in (200, 201))
+    st, sev = req("GET", "/erp/suppliers/evals", GEN)
+    ok(f"공급처 평가 200 ({len(sev)}건)", st == 200 and sev)
+    ok(f"★ 공급처 평가 거래처명 마스킹 ({sev[0]['supplier']!r})",
+       MASKED_TEXT in str(sev[0]["supplier"]))
+    st, sm = req("GET", f"/erp/suppliers/{sev[0]['supplierId']}/metrics", GEN)
+    ok(f"★ 공급처 지표 거래처명 마스킹 ({sm.get('supplier')!r})",
+       st == 200 and MASKED_TEXT in str(sm["supplier"]))
+
+    # 잔여 원가 경로 4종
+    st, so = req("GET", "/cost/orders", GEN)
+    ok(f"★ 수주 잔고 금액 마스킹 ({so.get('totalAmount')!r})",
+       st == 200 and masked(so["totalAmount"]))
+    st, bd = req("GET", f"/cost/pcr/{pcr_id}/breakdown", GEN)
+    ok(f"★ PCR 비용 트리 마스킹 ({bd.get('contributionMargin')!r})",
+       st == 200 and masked(bd["contributionMargin"]))
+    st, pa = req("GET", f"/cost/pcr/{pcr_id}/actual", GEN)
+    ok(f"★ 실적 반영 PCR 마스킹 ({pa.get('actual', {}).get('margin')!r})",
+       st == 200 and masked(pa["actual"]["margin"]))
+    st, cv = req("GET", "/cost/variance", GEN)
+    ok(f"★ 원가 차이 분석 마스킹 ({cv.get('totalActual')!r})",
+       st == 200 and masked(cv["totalActual"]))
+
+    # ADMIN 은 전부 실값 (과잉 아님)
+    st, bd2 = req("GET", f"/cost/pcr/{pcr_id}/breakdown", TOK)
+    ok("ADMIN PCR 비용 트리 실값", isinstance(bd2["contributionMargin"], (int, float)))
+    set_mode(TOK, "price", "full")
+    set_mode(TOK, "partner", "full")
+
     # ── 되돌리면 즉시 실값 (규칙이 실제로 작동함을 반증) ──
     set_mode(TOK, "cost", "full")
     st, acts3 = req("GET", "/cost/actuals", GEN)
@@ -162,6 +220,7 @@ finally:
     for g in ("cost", "quote", "price", "partner"):
         set_mode(TOK, g, "full")
     psql("DELETE FROM cst_actual WHERE item_code='ZZMASK'")
+    psql("DELETE FROM com_supplier_eval WHERE period='2099-ZZ'")
     if created_quo:
         req("DELETE", f"/cost/quotations/{created_quo}", TOK)
     st, cur_rules = req("GET", "/access/info", TOK)

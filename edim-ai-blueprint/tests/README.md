@@ -69,7 +69,7 @@ py tests\live_all.py
 | `live_customer_logo.py` | 고객 로고 참조 모델 — 업로드는 PENDING·**승인 전 미표시**·미승인 최신본이 있어도 승인본 유지·승인 시 이전본 SUPERSEDED·반려·문서는 참조만(로고 교체가 문서 수정 없이 반영) (자체 정리) | 8.0 (#20) |
 | `check_governance.py` | 거버넌스 정의서 드리프트 게이트 — docs/EDIM_거버넌스정의서.xlsx 가 코드(권한 데코레이터·CHECK 상태·계층 규칙)와 어긋나면 실패. 재생성은 `py tools/gen_governance.py` (서버 불요·CI 잡 governance-docs) | 8.1 (#71) |
 | `live_event_complete.py` | 업무 이벤트 완료 — 담당자 아닌 GENERAL 403(담당자 명시)·담당자 본인 완료·SETUP 이상 대리 완료(onBehalf 구분)·담당자 미지정은 통과·완료자 감사 기록 (자체 정리) | 8.2 (ERP-030) |
-| `live_cost_masking.py` | 원가·견적 열람 통제 일관성 — cost=masked/hidden 시 Run 원가·실적·PCR **전 경로** 마스킹, quote=no_download 시 PCR/견적서 **PDF 403**, ADMIN 은 실값·다운로드 유지, full 복귀 시 실값 복원 (검증용 견적·실적 자체 생성/정리) | 8.3 (#5·#6) |
+| `live_cost_masking.py` | 정보 접근 통제 일관성 — cost/quote/price/partner 4개 그룹이 **모든 경로에서** 동일하게 적용되는지 (Run 원가·실적·PCR 3종·수주 잔고·단가 목록/해석·공급자 코드·공급처 평가/지표), no_download 시 PDF 2종 403, ADMIN 실값 유지, full 복귀 시 복원 (검증용 견적·실적·평가 자체 생성/정리) | 8.3·8.4 (#5·#6) |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI
