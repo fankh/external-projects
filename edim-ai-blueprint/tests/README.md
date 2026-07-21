@@ -57,7 +57,7 @@ py tests\live_all.py
 | `live_rccs_setup.py` | RCCS Set-up — 그룹 유형 4종 수용/3종 거부·Item Head 자동 부여(A→B→Z 회피)·Arrangement Family Scope 범위 조회 (자체 정리) | 4.8~5.0 (#26·#27·#31) |
 | `live_action_verbs.py` | 작업 권한 동사 — 어휘 422·미설정=허용(무영향)·READ 만이면 승인 403·APPROVE 부여 후 통과·제거 시 원복 (자체 정리) | 5.2 (#3) |
 | `live_std_tree.py` | 표준/고객 트리 분리 — 온보딩 루트가 표준 표시·이름변경/삭제 409·하위 확장 201·CUSTOM 자식은 편집 가능 (자체 정리) | 5.4 (#23) |
-| `live_toolbox_package.py` | Toolbox Package — 상태기계 건너뛰기 422·빈 패키지 GUARD 409·게시본 구성 변경 409·새 버전 항목 복사·CRITICAL 승인 가드 (자체 정리) | 5.6 (#56·#61) |
+| `live_toolbox_package.py` | Toolbox Package — 상태기계 건너뛰기 422·게시본 구성 변경 409·새 버전 복사·CRITICAL 가드 + **Runtime 활성 1개·Rollback 이력 보존** (자체 정리) | 5.6·5.8 (#56·#61·#63) |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI

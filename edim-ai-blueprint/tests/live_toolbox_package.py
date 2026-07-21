@@ -130,6 +130,44 @@ try:
     st, _ = req("POST", f"/toolbox/packages/{cid}/transition", TOK, {"status": "APPROVED"})
     ok(f"운영 테넌트는 CRITICAL 승인 가능 ({st})", st == 200)
 
+    # ── #63 Runtime 연결·Rollback ──
+    st, rt = req("GET", "/toolbox/runtime", TOK)
+    ok(f"Runtime 조회 200 ({len(rt)}개 활성)", st == 200)
+    active = [x for x in rt if x["packageCode"] == CODE]
+    ok(f"★ 게시본이 Runtime 에 연결 (v{active[0]['version'] if active else '-'})",
+       active and active[0]["version"] == 1)
+    ok("Runtime 이 구성 항목까지 노출", active and active[0]["items"])
+
+    # v2 를 게시하면 활성이 v2 로 넘어가고 v1 은 PUBLISHED 로 남는다
+    v2id = v2["packageId"]
+    req("POST", f"/toolbox/packages/{v2id}/items", TOK, {"itemType": "MACRO", "itemRef": mname})
+    for to in ("GUARD", "SANDBOX", "APPROVED", "PUBLISHED"):
+        req("POST", f"/toolbox/packages/{v2id}/transition", TOK, {"status": to})
+    st, rt2 = req("GET", "/toolbox/runtime", TOK)
+    act2 = [x for x in rt2 if x["packageCode"] == CODE]
+    ok(f"★ v2 게시 후 활성은 v2 ({act2[0]['version'] if act2 else '-'})",
+       act2 and act2[0]["version"] == 2)
+    ok("★ 코드당 활성은 하나뿐", len(act2) == 1)
+    st, d1 = req("GET", f"/toolbox/packages/{pid}", TOK)
+    ok("v1 은 PUBLISHED 로 남고 비활성", d1["status"] == "PUBLISHED" and d1["active"] is False)
+
+    # Rollback — 활성 포인터만 v1 로
+    st, rb = req("POST", f"/toolbox/packages/{pid}/rollback", TOK)
+    ok(f"★ Rollback 200 — v{rb.get('activeVersion')} (이전 v{rb.get('previousVersion')})",
+       st == 200 and rb["activeVersion"] == 1 and rb["previousVersion"] == 2)
+    st, rt3 = req("GET", "/toolbox/runtime", TOK)
+    act3 = [x for x in rt3 if x["packageCode"] == CODE]
+    ok("Rollback 후 Runtime 이 v1", act3 and act3[0]["version"] == 1)
+    st, d2b = req("GET", f"/toolbox/packages/{v2id}", TOK)
+    ok("되돌려도 v2 이력은 PUBLISHED 로 보존", d2b["status"] == "PUBLISHED")
+    st, b = req("POST", f"/toolbox/packages/{pid}/rollback", TOK)
+    ok(f"이미 활성이면 409 ({st})", st == 409)
+
+    st, draft = req("POST", "/toolbox/packages", TOK,
+                    {"packageCode": "ZZPKGD", "packageName": "드래프트"})
+    st, b = req("POST", f"/toolbox/packages/{draft['packageId']}/rollback", TOK)
+    ok(f"★ 게시 이력 없는 버전 Rollback 409 ({st})", st == 409)
+
     # ── 권한 ──
     gtok = login("kim01", "edim")
     st, _ = req("POST", "/toolbox/packages", gtok, {"packageCode": "ZZPKGX", "packageName": "x"})
