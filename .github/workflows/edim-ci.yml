@@ -28,6 +28,22 @@ jobs:
         working-directory: edim-ai-blueprint
         run: python tests/check_tenant_scope.py
 
+  governance-docs:
+    # 8.1 (#71) — 거버넌스 정의서 드리프트 게이트: 권한 Matrix·상태 흐름·경계 정의는
+    # 코드에서 생성되므로, 손으로 고치거나 코드만 바뀌면 실패한다 (소스만 보므로 서버 불요).
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install openpyxl
+        run: pip install openpyxl
+      - name: Governance docs gate
+        working-directory: edim-ai-blueprint
+        run: python tests/check_governance.py
+
   backend-unit:
     # C5 — 백엔드 순수 로직 단위 테스트 (macro_engine 등, DB 불요·라이브 서버 불요)
     runs-on: ubuntu-latest
