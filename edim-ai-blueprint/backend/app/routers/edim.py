@@ -6039,6 +6039,139 @@ def bind_options(table: str, column: str) -> dict[str, Any]:
     return {"table": table, "column": column, "values": values, "tables": _BIND_COLUMNS}
 
 
+# ── 6.6 Data Binding Contract (요구 #58) — UI 는 Contract 경유로만 데이터에 닿는다 ──
+# 종전 layout_def 는 위젯이 읽을 데이터를 자유 텍스트로 적을 수 있어, 테이블/컬럼을 직접
+# 가리키는 화면을 만들 수 있었다(구조 변경 영향 추적 불가·1.5 정보 접근 통제 우회 가능).
+# 직접 참조 판정은 **실제 테이블 이름**으로만 한다 — 접두사 패턴으로 넓게 잡으면
+# 'code_name' 같은 멀쩡한 라벨까지 막는다(오탐이 곧 저장 불가라 더 나쁘다).
+_DIRECT_TABLES = set("""arrangement_code arrangement_component cal_holiday code_group code_item
+code_item_value code_relationship code_relationship_slot_map com_company cpq_output cpq_run
+cpq_selection cpq_selection_item cst_actual cst_calc cst_pcr cst_price cst_quotation doc_control
+dwg_bom dwg_dimension dwg_document dwg_drawing dwg_file dwg_revision eco_change erp_handoff erp_po
+erp_warehouse erp_work_order inv_movement inv_stock mat_material prj_project product_code
+product_code_item prt_part qc_inspection sys_head sys_hierarchy sys_history sys_role sys_snapshot
+sys_user tbl_data_table tbx_macro tbx_package tbx_templet tbx_ui_form""".split())
+_DIRECT_REF = re.compile(
+    r"(?:select\s+|from\s+|join\s+)|(?:" + "|".join(sorted(_DIRECT_TABLES)) + r")",
+    re.I)
+
+
+def _contract_codes(cur, tid: int) -> set[str]:
+    cur.execute("SELECT contract_code FROM tbx_binding_contract WHERE tenant_id=%s AND status<>'RETIRED'",
+                (tid,))
+    return {r[0] for r in cur.fetchall()}
+
+
+def _check_bindings(cur, tid: int, layout: Any) -> None:
+    """레이아웃의 데이터 바인딩 검사 (#58).
+
+    · 위젯이 `binding` 을 쓰면 그 값은 **등록된 Contract 코드**여야 한다
+    · 어떤 필드에든 테이블명/SQL 로 보이는 직접 참조가 있으면 거부한다
+    바인딩이 아예 없는 순수 표시 위젯은 종전대로 자유롭다(도입 무영향)."""
+    codes = _contract_codes(cur, tid)
+    bad_direct: list[str] = []
+    bad_contract: list[str] = []
+
+    def walk(node: Any, path: str = "") -> None:
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == "binding" and isinstance(v, str) and v.strip():
+                    if v.strip() not in codes:
+                        bad_contract.append(f"{path or 'widget'}.binding={v.strip()}")
+                elif isinstance(v, str) and _DIRECT_REF.search(v):
+                    bad_direct.append(f"{path or 'widget'}.{k}={v[:40]}")
+                else:
+                    walk(v, f"{path}.{k}" if path else k)
+        elif isinstance(node, list):
+            for i, x in enumerate(node):
+                walk(x, f"{path}[{i}]")
+
+    walk(layout)
+    if bad_direct:
+        raise HTTPException(
+            409, detail="DB 직접 접근은 금지됩니다 — Binding Contract 를 경유하십시오 (#58): "
+                        + "; ".join(bad_direct[:3]))
+    if bad_contract:
+        raise HTTPException(
+            422, detail="등록되지 않은 Binding Contract: " + "; ".join(bad_contract[:3])
+                        + " (먼저 Contract 를 등록하십시오 · #58)")
+
+
+class ContractSave(BaseModel):
+    contractCode: str
+    contractName: str
+    sourceKind: str = "TABLE"
+    sourceRef: str
+    allowedFields: list[str] = []
+    note: str = ""
+
+
+@router.get("/toolbox/contracts")
+def contract_list() -> list[dict[str, Any]]:
+    """Binding Contract 목록 (#58) — UI 가 닿을 수 있는 데이터 창구."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT contract_code, contract_name, source_kind, source_ref,
+                      COALESCE(allowed_fields,'[]'::jsonb), status, COALESCE(note,'')
+               FROM tbx_binding_contract WHERE tenant_id=%s ORDER BY contract_code""", (tid,))
+        return [{"contractCode": r[0], "contractName": r[1], "sourceKind": r[2],
+                 "sourceRef": r[3], "allowedFields": r[4] or [], "status": r[5], "note": r[6]}
+                for r in cur.fetchall()]
+
+
+@router.put("/toolbox/contracts/{code}", dependencies=[SETUP])
+def contract_save(code: str, request: Request, body: ContractSave) -> dict[str, Any]:
+    """Contract 등록·수정 (#58) — 원천과 허용 필드를 선언한다."""
+    cc = code.strip().upper()[:40]
+    kind = body.sourceKind.strip().upper()
+    if kind not in ("TABLE", "MACRO", "API"):
+        raise HTTPException(422, detail="sourceKind 는 TABLE/MACRO/API")
+    if not cc or not body.contractName.strip() or not body.sourceRef.strip():
+        raise HTTPException(422, detail="필수 — 코드·이름·원천")
+    fields = [f.strip() for f in body.allowedFields if f.strip()]
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE tbx_binding_contract SET contract_name=%s, source_kind=%s, source_ref=%s,
+               allowed_fields=%s, note=%s, updated_by=%s, updated_at=now()
+               WHERE tenant_id=%s AND contract_code=%s RETURNING contract_id""",
+            (body.contractName.strip()[:150], kind, body.sourceRef.strip()[:150],
+             json.dumps(fields), body.note.strip()[:300] or None, request.state.login, tid, cc))
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                """INSERT INTO tbx_binding_contract (tenant_id, contract_code, contract_name,
+                   source_kind, source_ref, allowed_fields, note, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING contract_id""",
+                (tid, cc, body.contractName.strip()[:150], kind, body.sourceRef.strip()[:150],
+                 json.dumps(fields), body.note.strip()[:300] or None, request.state.login))
+            row = cur.fetchone()
+        _audit(cur, tid, "tbx_binding_contract", row[0], "SAVE", request.state.user_id,
+               {"code": cc, "source": body.sourceRef.strip()})
+    return {"contractId": row[0], "contractCode": cc, "allowedFields": fields}
+
+
+@router.delete("/toolbox/contracts/{code}", dependencies=[SETUP])
+def contract_delete(code: str, request: Request) -> dict[str, Any]:
+    """Contract 삭제 — 사용 중인 화면이 있으면 409 (영향 먼저 확인)."""
+    cc = code.strip().upper()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT form_name FROM tbx_ui_form WHERE tenant_id=%s "
+                    "AND layout_def::text LIKE %s", (tid, f'%"{cc}"%'))
+        used = [r[0] for r in cur.fetchall()]
+        if used:
+            raise HTTPException(
+                409, detail=f"사용 중인 Contract 입니다 — 화면: {', '.join(used[:3])} (#58)")
+        cur.execute("DELETE FROM tbx_binding_contract WHERE tenant_id=%s AND contract_code=%s "
+                    "RETURNING contract_id", (tid, cc))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"Contract 없음: {cc}")
+        _audit(cur, tid, "tbx_binding_contract", 0, "DELETE", request.state.user_id, {"code": cc})
+    return {"deleted": cc}
+
+
 @router.get("/toolbox/forms/{name}")
 def get_form(name: str) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
@@ -6054,9 +6187,12 @@ def get_form(name: str) -> dict[str, Any]:
 
 @router.put("/toolbox/forms/{name}", dependencies=[SETUP])
 def save_form(name: str, body: FormSave) -> dict[str, Any]:
-    """UI Designer 레이아웃 저장 — tbx_ui_form upsert (version+1)."""
+    """UI Designer 레이아웃 저장 — tbx_ui_form upsert (version+1).
+
+    #58 — 저장 전에 데이터 바인딩을 검사한다: DB 직접 참조 금지, binding 은 등록된 Contract 만."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _check_bindings(cur, tid, body.layout)
         cur.execute(
             """UPDATE tbx_ui_form SET layout_def=%s, version=version+1, updated_at=now()
                WHERE tenant_id=%s AND form_name=%s RETURNING form_id, version""",
