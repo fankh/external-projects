@@ -8602,6 +8602,279 @@ def tenant_branding_put(request: Request, body: BrandingPut) -> dict[str, Any]:
     return {"saved": True}
 
 
+# ── 7.4 Support 접근 통제 (요구 #68) · Support Package 이중 승인 (요구 #69) ──
+# 2.9 이후 교차 테넌트 접근은 전면 차단이라, EDIM 운영자가 고객을 지원할 정식 경로가 없었다
+# (통제도 기록도 없는 psql 직접 접근 말고는). 사유·범위·기간을 명시해 요청하고
+# **고객사가 승인**해야 열리며, 만료되면 자동으로 닫히고 열람은 전부 감사에 남는다.
+_SUPPORT_SCOPES = ("PROJECT", "DRAWING", "CODE", "COST", "RUN", "AUDIT")
+
+
+def _expire_support(cur) -> None:
+    """만료된 승인은 조회 시점에 닫는다 — 별도 배치 없이도 시간 제한이 실제로 동작하도록."""
+    cur.execute(
+        """UPDATE sys_support_request SET status='EXPIRED'
+           WHERE status='APPROVED' AND expires_at IS NOT NULL AND expires_at < now()""")
+
+
+def _active_support(cur, uid: int, target_tid: int) -> dict[str, Any] | None:
+    _expire_support(cur)
+    cur.execute(
+        """SELECT request_id, scope, expires_at FROM sys_support_request
+           WHERE target_tenant_id=%s AND requester_id=%s AND status='APPROVED'
+             AND expires_at > now() ORDER BY expires_at DESC LIMIT 1""", (target_tid, uid))
+    r = cur.fetchone()
+    return {"requestId": r[0], "scope": r[1] or [], "expiresAt": str(r[2])} if r else None
+
+
+class SupportRequest(BaseModel):
+    tenantCode: str
+    reason: str
+    scope: list[str] = []
+    hours: int = 4
+
+
+@router.post("/support/requests", status_code=201, dependencies=[PLATFORM])
+def support_request_create(request: Request, body: SupportRequest) -> dict[str, Any]:
+    """지원 접근 요청 (#68) — 사유·범위·기간 필수. 승인 전에는 아무것도 열리지 않는다."""
+    reason = body.reason.strip()
+    if len(reason) < 5:
+        raise HTTPException(422, detail="사유를 구체적으로 적으십시오 (5자 이상) — 감사 대상입니다")
+    scope = [s.strip().upper() for s in body.scope if s.strip()]
+    bad = [s for s in scope if s not in _SUPPORT_SCOPES]
+    if bad:
+        raise HTTPException(422, detail=f"알 수 없는 범위: {', '.join(bad)} "
+                                        f"(가능: {', '.join(_SUPPORT_SCOPES)})")
+    if not scope:
+        raise HTTPException(422, detail="범위를 최소 하나 지정하십시오 (전체 접근은 허용하지 않습니다)")
+    if not (1 <= body.hours <= 72):
+        raise HTTPException(422, detail="기간은 1~72시간")
+    with _conn() as conn, conn.cursor() as cur:
+        ptid = _tenant_id(cur)
+        cur.execute("SELECT tenant_id FROM sys_tenant WHERE tenant_code=%s", (body.tenantCode.strip(),))
+        t = cur.fetchone()
+        if not t:
+            raise HTTPException(404, detail=f"고객사 없음: {body.tenantCode}")
+        if t[0] == ptid:
+            raise HTTPException(422, detail="자사에 대한 지원 요청은 의미가 없습니다")
+        cur.execute(
+            """INSERT INTO sys_support_request (target_tenant_id, requester_tenant_id, requester_id,
+               reason, scope, hours) VALUES (%s,%s,%s,%s,%s,%s) RETURNING request_id""",
+            (t[0], ptid, request.state.user_id, reason[:300], json.dumps(scope), body.hours))
+        rid = cur.fetchone()[0]
+        _audit(cur, ptid, "sys_support_request", rid, "SUPPORT_REQUEST", request.state.user_id,
+               {"target": body.tenantCode.strip(), "scope": scope, "hours": body.hours})
+    return {"requestId": rid, "status": "REQUESTED", "scope": scope, "hours": body.hours}
+
+
+@router.get("/support/requests")
+def support_request_list(request: Request) -> list[dict[str, Any]]:
+    """지원 요청 목록 — 고객사는 **자사로 들어온 요청**, 운영자는 자신이 낸 요청."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _expire_support(cur)
+        cur.execute(
+            """SELECT r.request_id, t.tenant_code, u.login_id, r.reason, r.scope, r.hours,
+                      r.status, to_char(r.expires_at,'YYYY-MM-DD HH24:MI'),
+                      to_char(r.created_at,'YYYY-MM-DD HH24:MI'), COALESCE(r.comment,'')
+               FROM sys_support_request r
+               JOIN sys_tenant t ON t.tenant_id=r.target_tenant_id
+               LEFT JOIN sys_user u ON u.user_id=r.requester_id
+               WHERE r.target_tenant_id=%s OR r.requester_tenant_id=%s
+               ORDER BY r.request_id DESC LIMIT 100""", (tid, tid))
+        return [{"requestId": r[0], "tenantCode": r[1], "requester": r[2], "reason": r[3],
+                 "scope": r[4] or [], "hours": r[5], "status": r[6], "expiresAt": r[7],
+                 "createdAt": r[8], "comment": r[9]} for r in cur.fetchall()]
+
+
+class SupportDecide(BaseModel):
+    approve: bool
+    comment: str = ""
+
+
+@router.post("/support/requests/{request_id}/decide", dependencies=[ADMIN])
+def support_request_decide(request_id: int, request: Request, body: SupportDecide) -> dict[str, Any]:
+    """지원 요청 결정 (#68) — **자료의 주인인 고객사만** 승인/거절할 수 있다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT target_tenant_id, status, hours FROM sys_support_request
+               WHERE request_id=%s""", (request_id,))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"요청 없음: {request_id}")
+        if r[0] != tid:
+            raise HTTPException(403, detail="자사로 들어온 지원 요청만 결정할 수 있습니다 (#68)")
+        if r[1] != "REQUESTED":
+            raise HTTPException(409, detail=f"이미 처리된 요청입니다 (현재 {r[1]})")
+        if not body.approve and not body.comment.strip():
+            raise HTTPException(422, detail="거절은 사유 필수")
+        status = "APPROVED" if body.approve else "REJECTED"
+        cur.execute(
+            f"""UPDATE sys_support_request SET status=%s, decided_by=%s, decided_at=now(),
+                comment=NULLIF(%s,''),
+                expires_at = {"now() + (hours || ' hours')::interval" if body.approve else "NULL"}
+                WHERE request_id=%s RETURNING to_char(expires_at,'YYYY-MM-DD HH24:MI')""",
+            (status, request.state.user_id, body.comment.strip()[:300], request_id))
+        exp = cur.fetchone()[0]
+        _audit(cur, tid, "sys_support_request", request_id, f"SUPPORT_{status}",
+               request.state.user_id, {"comment": body.comment.strip()})
+    return {"requestId": request_id, "status": status, "expiresAt": exp}
+
+
+@router.post("/support/requests/{request_id}/revoke", dependencies=[ADMIN])
+def support_request_revoke(request_id: int, request: Request) -> dict[str, Any]:
+    """승인 회수 (#68) — 고객사가 언제든 즉시 닫을 수 있다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT target_tenant_id, status FROM sys_support_request WHERE request_id=%s",
+                    (request_id,))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"요청 없음: {request_id}")
+        if r[0] != tid:
+            raise HTTPException(403, detail="자사 지원 요청만 회수할 수 있습니다")
+        if r[1] != "APPROVED":
+            raise HTTPException(409, detail=f"승인 상태가 아닙니다 (현재 {r[1]})")
+        cur.execute("UPDATE sys_support_request SET status='REVOKED', expires_at=now() "
+                    "WHERE request_id=%s", (request_id,))
+        _audit(cur, tid, "sys_support_request", request_id, "SUPPORT_REVOKED",
+               request.state.user_id, {})
+    return {"requestId": request_id, "status": "REVOKED"}
+
+
+@router.get("/support/tenants/{code}/summary", dependencies=[PLATFORM])
+def support_tenant_summary(code: str, request: Request) -> dict[str, Any]:
+    """지원용 고객 자료 요약 (#68) — **승인된 범위만**, 열람 사실은 감사에 남는다.
+
+    승인 없이는 403. 범위에 없는 항목은 응답에서 제외한다(있는 척하지 않는다)."""
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT tenant_id FROM sys_tenant WHERE tenant_code=%s", (code.strip(),))
+        t = cur.fetchone()
+        if not t:
+            raise HTTPException(404, detail=f"고객사 없음: {code}")
+        grant = _active_support(cur, request.state.user_id, t[0])
+        if not grant:
+            raise HTTPException(
+                403, detail="지원 접근 승인이 없습니다 — 사유·범위·기간을 명시해 요청하고 "
+                            "고객사 승인을 받으십시오 (#68)")
+        scope = set(grant["scope"])
+        out: dict[str, Any] = {"tenantCode": code.strip(), "scope": sorted(scope),
+                               "expiresAt": grant["expiresAt"]}
+        if "PROJECT" in scope:
+            cur.execute("SELECT count(*) FROM prj_project WHERE tenant_id=%s", (t[0],))
+            out["projects"] = int(cur.fetchone()[0])
+        if "DRAWING" in scope:
+            cur.execute("SELECT count(*) FROM dwg_drawing WHERE tenant_id=%s", (t[0],))
+            out["drawings"] = int(cur.fetchone()[0])
+        if "CODE" in scope:
+            cur.execute("SELECT count(*) FROM product_code WHERE tenant_id=%s", (t[0],))
+            out["productCodes"] = int(cur.fetchone()[0])
+        if "RUN" in scope:
+            cur.execute("SELECT count(*) FROM cpq_run WHERE tenant_id=%s", (t[0],))
+            out["runs"] = int(cur.fetchone()[0])
+        # 열람 사실은 **고객사 감사**에 남긴다 — 누가 언제 무엇을 봤는지 고객이 확인할 수 있어야 한다
+        _audit(cur, t[0], "sys_support_request", grant["requestId"], "SUPPORT_READ",
+               request.state.user_id, {"scope": sorted(scope)})
+        return out
+
+
+# ── #69 Support Package 이중 승인 — EDIM 검증 + 고객 승인 후에만 게시 ──
+class SupportPackageCreate(BaseModel):
+    packageCode: str
+    tenantCode: str
+    note: str = ""
+
+
+@router.post("/support/packages", status_code=201, dependencies=[PLATFORM])
+def support_package_create(request: Request, body: SupportPackageCreate) -> dict[str, Any]:
+    """고객사에 배포할 Support Package 등록 (#69) — 활성 게시본만 대상."""
+    with _conn() as conn, conn.cursor() as cur:
+        ptid = _tenant_id(cur)
+        cur.execute(
+            """SELECT package_id, version_no FROM tbx_package
+               WHERE tenant_id=%s AND package_code=%s AND is_active AND status='PUBLISHED'""",
+            (ptid, body.packageCode.strip().upper()))
+        pkg = cur.fetchone()
+        if not pkg:
+            raise HTTPException(
+                422, detail=f"활성 게시본이 없습니다: {body.packageCode} — "
+                            "게시(PUBLISHED)된 활성 버전만 고객사에 배포할 수 있습니다 (#69)")
+        cur.execute("SELECT tenant_id FROM sys_tenant WHERE tenant_code=%s", (body.tenantCode.strip(),))
+        t = cur.fetchone()
+        if not t:
+            raise HTTPException(404, detail=f"고객사 없음: {body.tenantCode}")
+        cur.execute("SELECT 1 FROM sys_support_package WHERE package_id=%s AND target_tenant_id=%s",
+                    (pkg[0], t[0]))
+        if cur.fetchone():
+            raise HTTPException(409, detail="이미 등록된 배포 건입니다")
+        cur.execute(
+            """INSERT INTO sys_support_package (package_id, target_tenant_id, note)
+               VALUES (%s,%s,%s) RETURNING sp_id""",
+            (pkg[0], t[0], body.note.strip()[:300] or None))
+        sid = cur.fetchone()[0]
+        _audit(cur, ptid, "sys_support_package", sid, "SP_CREATE", request.state.user_id,
+               {"package": body.packageCode.strip().upper(), "target": body.tenantCode.strip()})
+    return {"supportPackageId": sid, "status": "DRAFT", "version": pkg[1]}
+
+
+@router.get("/support/packages")
+def support_package_list(request: Request) -> list[dict[str, Any]]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT sp.sp_id, p.package_code, p.version_no, t.tenant_code, sp.status,
+                      sp.edim_verified_at IS NOT NULL, sp.customer_approved_at IS NOT NULL,
+                      COALESCE(sp.note,'')
+               FROM sys_support_package sp
+               JOIN tbx_package p ON p.package_id=sp.package_id
+               JOIN sys_tenant t ON t.tenant_id=sp.target_tenant_id
+               WHERE sp.target_tenant_id=%s OR p.tenant_id=%s
+               ORDER BY sp.sp_id DESC LIMIT 100""", (tid, tid))
+        return [{"supportPackageId": r[0], "packageCode": r[1], "version": r[2],
+                 "tenantCode": r[3], "status": r[4], "edimVerified": r[5],
+                 "customerApproved": r[6], "note": r[7]} for r in cur.fetchall()]
+
+
+@router.post("/support/packages/{sp_id}/verify", dependencies=[PLATFORM])
+def support_package_verify(sp_id: int, request: Request) -> dict[str, Any]:
+    """EDIM 검증 (#69 1단계) — 운영자만."""
+    with _conn() as conn, conn.cursor() as cur:
+        ptid = _tenant_id(cur)
+        cur.execute("SELECT status FROM sys_support_package WHERE sp_id=%s", (sp_id,))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"배포 건 없음: {sp_id}")
+        if r[0] != "DRAFT":
+            raise HTTPException(409, detail=f"DRAFT 에서만 검증할 수 있습니다 (현재 {r[0]})")
+        cur.execute("UPDATE sys_support_package SET status='VERIFIED', edim_verified_by=%s, "
+                    "edim_verified_at=now() WHERE sp_id=%s", (request.state.user_id, sp_id))
+        _audit(cur, ptid, "sys_support_package", sp_id, "SP_VERIFY", request.state.user_id, {})
+    return {"supportPackageId": sp_id, "status": "VERIFIED"}
+
+
+@router.post("/support/packages/{sp_id}/approve", dependencies=[ADMIN])
+def support_package_approve(sp_id: int, request: Request) -> dict[str, Any]:
+    """고객 승인 (#69 2단계) — **대상 고객사만**. EDIM 검증이 없으면 게시로 못 간다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT target_tenant_id, status FROM sys_support_package WHERE sp_id=%s",
+                    (sp_id,))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"배포 건 없음: {sp_id}")
+        if r[0] != tid:
+            raise HTTPException(403, detail="자사로 온 배포 건만 승인할 수 있습니다 (#69)")
+        if r[1] == "DRAFT":
+            raise HTTPException(
+                409, detail="EDIM 검증 전에는 승인할 수 없습니다 — 이중 승인 순서입니다 (#69)")
+        if r[1] != "VERIFIED":
+            raise HTTPException(409, detail=f"검증 상태가 아닙니다 (현재 {r[1]})")
+        cur.execute("UPDATE sys_support_package SET status='PUBLISHED', customer_approved_by=%s, "
+                    "customer_approved_at=now() WHERE sp_id=%s", (request.state.user_id, sp_id))
+        _audit(cur, tid, "sys_support_package", sp_id, "SP_APPROVE", request.state.user_id, {})
+    return {"supportPackageId": sp_id, "status": "PUBLISHED"}
+
+
 # ── 5.6 Toolbox Program Package (요구 #56 · 위험도 #61 · Sandbox #62 전제) ──
 # 사용자 확장(Macro/UI Form/Templet)이 낱개로 승인·배포돼 "무엇을 함께 내보냈는가"가 없었고
 # 되돌릴 단위도 없었다. Package 로 묶어 DRAFT→GUARD→SANDBOX→APPROVED→PUBLISHED 를 태운다.
