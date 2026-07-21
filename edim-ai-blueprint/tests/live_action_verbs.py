@@ -13,6 +13,7 @@
 import json
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
 
 BASE = "https://edim.seekerslab.com"
@@ -122,7 +123,7 @@ try:
     st, dl = req("GET", "/drawings", TOK)
     dno = (dl[0]["drawingNo"] if isinstance(dl, list) and dl
            else (dl or {}).get("rows", [{}])[0].get("drawingNo"))
-    st, b = req("POST", f"/drawings/{dno}/approvals", TOK,
+    st, b = req("POST", f"/drawings/{urllib.parse.quote(dno)}/approvals", TOK,
                 {"step": "WRITE", "approve": True, "comment": "도면 우회 시도"})
     ok(f"★ 도면 단계 결정도 APPROVE 없으면 403 ({st})",
        st == 403 and "APPROVE" in (b or {}).get("detail", ""))
