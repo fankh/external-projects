@@ -6052,7 +6052,7 @@ erp_warehouse erp_work_order inv_movement inv_stock mat_material prj_project pro
 product_code_item prt_part qc_inspection sys_head sys_hierarchy sys_history sys_role sys_snapshot
 sys_user tbl_data_table tbx_macro tbx_package tbx_templet tbx_ui_form""".split())
 _DIRECT_REF = re.compile(
-    r"(?:select\s+|from\s+|join\s+)|(?:" + "|".join(sorted(_DIRECT_TABLES)) + r")",
+    r"\b(?:select\s+|from\s+|join\s+)|\b(?:" + "|".join(sorted(_DIRECT_TABLES)) + r")\b",
     re.I)
 
 
