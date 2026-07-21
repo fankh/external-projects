@@ -55,6 +55,7 @@ py tests\live_all.py
 | `live_accordion_host.py` | 우측 Accordion Template Host — 섹션 렌더·헤더 중복 없음·개별 토글·모두 접기/펼치기·새로고침 보존 (조회 전용) | 4.1 (#16) |
 | `live_slot_map.py` | 관계 슬롯 매핑 — 선택지 조회·계승/고정 XOR 422·미실재 Slot 422·중복 409·전개 전파·Revision 상승 (자체 정리) | 4.6 (#29) |
 | `live_rccs_setup.py` | RCCS Set-up — 그룹 유형 4종 수용/3종 거부·Item Head 자동 부여(A→B→Z 회피)·Arrangement Family Scope 범위 조회 (자체 정리) | 4.8~5.0 (#26·#27·#31) |
+| `live_action_verbs.py` | 작업 권한 동사 — 어휘 422·미설정=허용(무영향)·READ 만이면 승인 403·APPROVE 부여 후 통과·제거 시 원복 (자체 정리) | 5.2 (#3) |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI
