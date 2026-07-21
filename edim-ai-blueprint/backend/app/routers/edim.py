@@ -1685,21 +1685,39 @@ async def spec_import(uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
 # ── B13 — Arrangement Set-Up (M-4-2) · Templet 관리 (S-2-3) ──
 
 @router.get("/arrangements")
-def arrangements() -> list[dict[str, Any]]:
+def arrangements(forCode: str = "") -> list[dict[str, Any]]:
+    """Arrangement 목록 (#31).
+
+    forCode 를 주면 **그 제품 코드의 제품군(code_group)에 속한 Arrangement 만** 남긴다.
+    family_group_id 가 NULL 인 행은 '전 제품군 공통' 으로 보고 항상 포함한다.
+    종전엔 필터가 없어 C-1 이 무관한 제품군의 Arrangement 까지 전부 제시했다."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        target_group = None
+        if forCode.strip():
+            cur.execute("SELECT group_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
+                        (tid, forCode.strip()))
+            g = cur.fetchone()
+            target_group = g[0] if g else None
         cur.execute(
             """SELECT a.arrangement_code, a.arrangement_name, a.product_family,
                       COALESCE(a.direction_option,''), COALESCE(a.install_option,''),
                       a.approval_status,
                       (SELECT count(*) FROM arrangement_component c
-                        WHERE c.arrangement_id=a.arrangement_id)
-               FROM arrangement_code a WHERE a.tenant_id=%s ORDER BY a.arrangement_id""", (tid,))
-        return [
-            {"code": r[0], "name": r[1], "family": r[2], "direction": r[3],
-             "install": r[4], "status": r[5], "components": int(r[6])}
-            for r in cur.fetchall()
-        ]
+                        WHERE c.arrangement_id=a.arrangement_id),
+                      a.family_group_id, COALESCE(cg.group_code,'')
+               FROM arrangement_code a
+               LEFT JOIN code_group cg ON cg.group_id=a.family_group_id
+               WHERE a.tenant_id=%s ORDER BY a.arrangement_id""", (tid,))
+        rows = []
+        for r in cur.fetchall():
+            scoped = r[7]
+            if forCode.strip() and scoped is not None and scoped != target_group:
+                continue
+            rows.append({"code": r[0], "name": r[1], "family": r[2], "direction": r[3],
+                         "install": r[4], "status": r[5], "components": int(r[6]),
+                         "familyGroup": r[8] or None, "common": scoped is None})
+        return rows
 
 
 @router.get("/arrangements/{code}/components")
@@ -1770,12 +1788,24 @@ def create_arrangement(request: Request, body: ArrangementCreate) -> dict[str, A
             (tid, body.code.strip()))
         if cur.fetchone():
             raise HTTPException(409, detail=f"중복 — Arrangement {body.code} 이미 등록됨")
+        # #31 — 제품군을 실재하는 코드 그룹으로 묶는다. 비우면 '전 제품군 공통'.
+        fam_gid = None
+        fam = body.family.strip()
+        if fam:
+            cur.execute("SELECT group_id FROM code_group WHERE tenant_id=%s AND group_code=%s",
+                        (tid, fam))
+            g = cur.fetchone()
+            if not g:
+                raise HTTPException(
+                    422, detail=f"제품군 그룹 없음: {fam} — 코드 그룹으로 등록된 제품군을 지정하거나 "
+                                "비워서 전 제품군 공통으로 두십시오 (#31)")
+            fam_gid = g[0]
         cur.execute(
             """INSERT INTO arrangement_code (tenant_id, arrangement_code, arrangement_name,
-               product_family, direction_option, install_option)
-               VALUES (%s,%s,%s,%s,NULLIF(%s,''),NULLIF(%s,'')) RETURNING arrangement_id""",
+               product_family, direction_option, install_option, family_group_id)
+               VALUES (%s,%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''),%s) RETURNING arrangement_id""",
             (tid, body.code.strip(), body.name.strip(), body.family.strip()[:50],
-             body.direction.strip(), body.install.strip()))
+             body.direction.strip(), body.install.strip(), fam_gid))
         arr_id = cur.fetchone()[0]
         cur.execute(
             """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,

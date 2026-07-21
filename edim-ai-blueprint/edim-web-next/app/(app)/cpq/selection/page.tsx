@@ -13,17 +13,19 @@ interface ArrangementComponent { position: string; code: string; name: string; q
 const DEFAULT_SLOTS: Record<string, string> = { B: '13', C: '32', E: '15' }
 const PROJECT = 'PS-61313-5'
 const ARR_CODE = 'ARR-DD2'
+const ROOT = 'KDCR 3-13'
 
 export default async function SelectionPage() {
   const locale = await getLocale()
   const bundle = bundleFor(locale)
   const t = (k: string, ko: string) => translate(bundle, k, ko)
-  interface ArrRow { code: string; name: string; family: string; components: number }
+  interface ArrRow { code: string; name: string; family: string; components: number; common?: boolean; familyGroup?: string | null }
   const [expand, selections, comps, arrangements] = await Promise.all([
-    apiServer<ExpandResult>('/codes/products/expand', { method: 'POST', body: JSON.stringify({ rootCode: 'KDCR 3-13', slotValues: DEFAULT_SLOTS }) }).catch(() => null),
+    apiServer<ExpandResult>('/codes/products/expand', { method: 'POST', body: JSON.stringify({ rootCode: ROOT, slotValues: DEFAULT_SLOTS }) }).catch(() => null),
     apiServer<SelectionRow[]>(`/cpq/selections?projectNo=${encodeURIComponent(PROJECT)}`).catch(() => []),
     apiServer<ArrangementComponent[]>(`/arrangements/${ARR_CODE}/components`).catch(() => []),
-    apiServer<ArrRow[]>('/arrangements').catch(() => []),
+    // #31 — 현재 구성 중인 코드의 제품군으로 Arrangement 를 좁힌다(공통 Arrangement 는 항상 포함)
+    apiServer<ArrRow[]>(`/arrangements?forCode=${encodeURIComponent(ROOT)}`).catch(() => []),
   ])
   const bom: BomItem[] = expand?.items ?? []
   const finished = expand?.finishedGoodsCode ?? ''
