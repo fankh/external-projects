@@ -8957,6 +8957,275 @@ def lock_release(lock_id: int, request: Request) -> dict[str, Any]:
     return {"released": lock_id}
 
 
+# ── 7.9 ERP Domain/Process/Workflow 선반영 (요구 #50) ──
+# 근거 문서 §10.1 "업무 화면을 먼저 고정 개발하지 말고 Head/Template/Workflow/Permission
+# 구조를 먼저 만든다". 회사마다 업무 순서·승인 조건이 다르므로 ERP 를 고정 화면이 아니라
+# Workflow(Template→Node→Edge→Condition)로 둔다. 화면은 이후 점진적으로 붙인다.
+_WF_NODE_TYPES = ("START", "TASK", "APPROVAL", "END")
+
+
+def _wf_graph(cur, tid: int, template_id: int) -> tuple[list, list]:
+    cur.execute(
+        """SELECT node_code, node_name, node_type, COALESCE(actor_level,''),
+                  COALESCE(screen_key,''), sort_order
+           FROM erp_workflow_node WHERE tenant_id=%s AND template_id=%s
+           ORDER BY sort_order, node_code""", (tid, template_id))
+    nodes = cur.fetchall()
+    cur.execute(
+        """SELECT from_node, to_node, COALESCE(edge_label,'')
+           FROM erp_workflow_edge WHERE tenant_id=%s AND template_id=%s
+           ORDER BY from_node, to_node""", (tid, template_id))
+    return nodes, cur.fetchall()
+
+
+def _wf_problems(nodes: list, edges: list) -> list[str]:
+    """게시 가능한 그래프인지 판정 (#50) — 왜 안 되는지를 **이름을 들어** 돌려준다.
+
+    순환 자체는 막지 않는다. 재작업(RM)처럼 되돌아가는 흐름은 실제 업무에 존재하기 때문이다.
+    대신 **START 에서 닿지 않는 노드**와 **END 로 갈 수 없는 노드**(빠져나올 수 없는 덫)를
+    막는다 — 순환 금지보다 이쪽이 실제로 위험한 상태다."""
+    problems: list[str] = []
+    codes = {n[0] for n in nodes}
+    if not nodes:
+        return ["노드가 없습니다 — 최소 START·END 가 필요합니다"]
+
+    starts = [n[0] for n in nodes if n[2] == "START"]
+    ends = [n[0] for n in nodes if n[2] == "END"]
+    if len(starts) != 1:
+        problems.append(f"START 노드는 정확히 1개여야 합니다 (현재 {len(starts)}개: {', '.join(starts) or '없음'})")
+    if not ends:
+        problems.append("END 노드가 없습니다 — 끝나지 않는 흐름은 게시할 수 없습니다")
+
+    for f, t, _lb in edges:
+        if f not in codes:
+            problems.append(f"연결의 출발 노드가 없습니다: {f}")
+        if t not in codes:
+            problems.append(f"연결의 도착 노드가 없습니다: {t}")
+
+    for n in nodes:
+        if n[2] == "APPROVAL" and not n[3]:
+            problems.append(f"승인 노드에 결재 등급(actor_level)이 없습니다: {n[0]}")
+
+    if starts and ends:
+        fwd: dict[str, set[str]] = {c: set() for c in codes}
+        rev: dict[str, set[str]] = {c: set() for c in codes}
+        for f, t, _lb in edges:
+            if f in codes and t in codes:
+                fwd[f].add(t)
+                rev[t].add(f)
+
+        def walk(adj: dict[str, set[str]], seeds: list[str]) -> set[str]:
+            seen, stack = set(seeds), list(seeds)
+            while stack:
+                for nxt in adj[stack.pop()]:
+                    if nxt not in seen:
+                        seen.add(nxt)
+                        stack.append(nxt)
+            return seen
+
+        reachable = walk(fwd, starts[:1])
+        co_reachable = walk(rev, ends)
+        orphan = sorted(codes - reachable)
+        trapped = sorted(codes - co_reachable)
+        if orphan:
+            problems.append(f"START 에서 닿지 않는 노드: {', '.join(orphan[:6])}")
+        if trapped:
+            problems.append(f"END 로 갈 수 없는 노드: {', '.join(trapped[:6])}")
+    return problems
+
+
+def _wf_checksum(nodes: list, edges: list) -> str:
+    parts = [f"N|{n[0]}|{n[1]}|{n[2]}|{n[3]}|{n[4]}" for n in nodes]
+    parts += [f"E|{e[0]}|{e[1]}|{e[2]}" for e in edges]
+    return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+
+
+@router.get("/erp/domains")
+def erp_domain_list() -> list[dict[str, Any]]:
+    """ERP Domain 카탈로그 (#50) — 표준(전역) + 테넌트 확장."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT domain_code, domain_name, sort_order, is_standard
+               FROM erp_domain_catalog WHERE tenant_id IS NULL OR tenant_id=%s
+               ORDER BY sort_order, domain_code""", (tid,))
+        return [{"domainCode": r[0], "domainName": r[1], "sortOrder": r[2], "isStandard": r[3]}
+                for r in cur.fetchall()]
+
+
+@router.get("/erp/processes")
+def erp_process_list(domain: str = "") -> list[dict[str, Any]]:
+    """ERP Process 카탈로그 (#50) — 근거 문서 §6.2 의 초기 Process Code 후보."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        sql = """SELECT process_code, process_name, domain_code, sort_order,
+                        tenant_override_allowed, is_standard
+                 FROM erp_process_catalog WHERE (tenant_id IS NULL OR tenant_id=%s)"""
+        params: list[Any] = [tid]
+        if domain.strip():
+            sql += " AND domain_code=%s"
+            params.append(domain.strip().upper())
+        cur.execute(sql + " ORDER BY sort_order, process_code", params)
+        return [{"processCode": r[0], "processName": r[1], "domainCode": r[2], "sortOrder": r[3],
+                 "tenantOverrideAllowed": r[4], "isStandard": r[5]} for r in cur.fetchall()]
+
+
+class WorkflowNodeIn(BaseModel):
+    nodeCode: str
+    nodeName: str = ""
+    nodeType: str = "TASK"
+    actorLevel: str = ""
+    screenKey: str = ""
+
+
+class WorkflowEdgeIn(BaseModel):
+    fromNode: str
+    toNode: str
+    label: str = ""
+
+
+class WorkflowTemplateIn(BaseModel):
+    templateCode: str
+    templateName: str
+    processCode: str
+    nodes: list[WorkflowNodeIn] = []
+    edges: list[WorkflowEdgeIn] = []
+    note: str = ""
+
+
+@router.get("/erp/workflows")
+def erp_workflow_list() -> list[dict[str, Any]]:
+    """Workflow Template 목록 (#50)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT t.template_id, t.template_code, t.template_name, t.process_code,
+                      t.version_no, t.status, t.checksum,
+                      (SELECT count(*) FROM erp_workflow_node n WHERE n.template_id=t.template_id),
+                      (SELECT count(*) FROM erp_workflow_edge e WHERE e.template_id=t.template_id),
+                      to_char(t.published_at,'YYYY-MM-DD HH24:MI')
+               FROM erp_workflow_template t WHERE t.tenant_id=%s
+               ORDER BY t.template_code, t.version_no DESC""", (tid,))
+        return [{"templateId": r[0], "templateCode": r[1], "templateName": r[2],
+                 "processCode": r[3], "versionNo": r[4], "status": r[5], "checksum": r[6],
+                 "nodeCount": r[7], "edgeCount": r[8], "publishedAt": r[9]}
+                for r in cur.fetchall()]
+
+
+@router.get("/erp/workflows/{template_id}")
+def erp_workflow_get(template_id: int) -> dict[str, Any]:
+    """Workflow Template 상세 + **현재 그래프 문제점** (#50)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT template_code, template_name, process_code, version_no, status,
+                      COALESCE(checksum,''), COALESCE(note,'')
+               FROM erp_workflow_template WHERE tenant_id=%s AND template_id=%s""",
+            (tid, template_id))
+        t = cur.fetchone()
+        if not t:
+            raise HTTPException(404, detail=f"Workflow 없음: {template_id}")
+        nodes, edges = _wf_graph(cur, tid, template_id)
+    return {
+        "templateId": template_id, "templateCode": t[0], "templateName": t[1],
+        "processCode": t[2], "versionNo": t[3], "status": t[4], "checksum": t[5], "note": t[6],
+        "nodes": [{"nodeCode": n[0], "nodeName": n[1], "nodeType": n[2], "actorLevel": n[3],
+                   "screenKey": n[4], "sortOrder": n[5]} for n in nodes],
+        "edges": [{"fromNode": e[0], "toNode": e[1], "label": e[2]} for e in edges],
+        "problems": _wf_problems(nodes, edges),
+    }
+
+
+@router.post("/erp/workflows", status_code=201, dependencies=[SETUP])
+def erp_workflow_create(request: Request, body: WorkflowTemplateIn) -> dict[str, Any]:
+    """Workflow Template 등록 (#50) — DRAFT 로 만든다(불완전해도 저장은 허용).
+
+    등록 단계에서 그래프 완성을 요구하면 편집 자체가 불가능해진다. 완성 여부는 **게시**에서
+    따진다(선언 후 게시 시점 강제) — 3.x 이후 공통 규약."""
+    code = body.templateCode.strip().upper()[:40]
+    proc = body.processCode.strip().upper()[:20]
+    if not code or not body.templateName.strip():
+        raise HTTPException(422, detail="필수 — Template 코드·이름")
+    bad = [n.nodeType for n in body.nodes if n.nodeType.strip().upper() not in _WF_NODE_TYPES]
+    if bad:
+        raise HTTPException(422, detail=f"노드 유형 오류: {', '.join(bad[:4])} "
+                                        f"({'/'.join(_WF_NODE_TYPES)})")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("""SELECT 1 FROM erp_process_catalog
+                       WHERE (tenant_id IS NULL OR tenant_id=%s) AND process_code=%s""",
+                    (tid, proc))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"ERP Process 카탈로그에 없음: {proc} (#50)")
+        cur.execute("""SELECT COALESCE(MAX(version_no),0)+1 FROM erp_workflow_template
+                       WHERE tenant_id=%s AND template_code=%s""", (tid, code))
+        vno = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO erp_workflow_template (tenant_id, template_code, template_name,
+               process_code, version_no, note, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING template_id""",
+            (tid, code, body.templateName.strip()[:120], proc, vno,
+             body.note.strip()[:300] or None, request.state.login))
+        tpl = cur.fetchone()[0]
+        for i, n in enumerate(body.nodes):
+            cur.execute(
+                """INSERT INTO erp_workflow_node (tenant_id, template_id, node_code, node_name,
+                   node_type, actor_level, screen_key, sort_order)
+                   VALUES (%s,%s,%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''),%s)""",
+                (tid, tpl, n.nodeCode.strip().upper()[:40],
+                 (n.nodeName.strip() or n.nodeCode.strip())[:120],
+                 n.nodeType.strip().upper(), n.actorLevel.strip().upper()[:12],
+                 n.screenKey.strip()[:80], i))
+        for i, e in enumerate(body.edges):
+            cur.execute(
+                """INSERT INTO erp_workflow_edge (tenant_id, template_id, from_node, to_node,
+                   edge_label, sort_order) VALUES (%s,%s,%s,%s,NULLIF(%s,''),%s)
+                   ON CONFLICT DO NOTHING""",
+                (tid, tpl, e.fromNode.strip().upper()[:40], e.toNode.strip().upper()[:40],
+                 e.label.strip()[:60], i))
+        nodes, edges = _wf_graph(cur, tid, tpl)
+        _audit(cur, tid, "erp_workflow_template", tpl, "CREATE", request.state.user_id,
+               {"templateCode": code, "process": proc, "nodes": len(nodes), "edges": len(edges)})
+        problems = _wf_problems(nodes, edges)
+    return {"templateId": tpl, "templateCode": code, "versionNo": vno, "status": "DRAFT",
+            "problems": problems}
+
+
+@router.post("/erp/workflows/{template_id}/publish", dependencies=[SETUP])
+def erp_workflow_publish(template_id: int, request: Request) -> dict[str, Any]:
+    """Workflow 게시 (#50) — 그래프가 성립할 때만 통과한다.
+
+    끊긴 연결·닿지 않는 노드·빠져나올 수 없는 노드를 안고 게시되면, 나중에 실행
+    엔진(Phase D)이 도중에 멈춘다. 게시 시점에 **이름을 들어** 막는다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("""SELECT template_code, status FROM erp_workflow_template
+                       WHERE tenant_id=%s AND template_id=%s""", (tid, template_id))
+        t = cur.fetchone()
+        if not t:
+            raise HTTPException(404, detail=f"Workflow 없음: {template_id}")
+        if t[1] == "PUBLISHED":
+            raise HTTPException(409, detail=f"이미 게시됨 — {t[0]}")
+        nodes, edges = _wf_graph(cur, tid, template_id)
+        problems = _wf_problems(nodes, edges)
+        if problems:
+            raise HTTPException(
+                422, detail="게시할 수 없습니다 — " + " / ".join(problems[:4]) + " (#50)")
+        checksum = _wf_checksum(nodes, edges)
+        cur.execute("""UPDATE erp_workflow_template SET status='SUPERSEDED'
+                       WHERE tenant_id=%s AND template_code=%s AND status='PUBLISHED'""",
+                    (tid, t[0]))
+        cur.execute(
+            """UPDATE erp_workflow_template SET status='PUBLISHED', checksum=%s,
+               published_at=now() WHERE tenant_id=%s AND template_id=%s""",
+            (checksum, tid, template_id))
+        _audit(cur, tid, "erp_workflow_template", template_id, "PUBLISH", request.state.user_id,
+               {"templateCode": t[0], "checksum": checksum[:12],
+                "nodes": len(nodes), "edges": len(edges)})
+    return {"templateId": template_id, "templateCode": t[0], "status": "PUBLISHED",
+            "checksum": checksum, "nodeCount": len(nodes), "edgeCount": len(edges)}
+
+
 # ── 7.4 Support 접근 통제 (요구 #68) · Support Package 이중 승인 (요구 #69) ──
 # 2.9 이후 교차 테넌트 접근은 전면 차단이라, EDIM 운영자가 고객을 지원할 정식 경로가 없었다
 # (통제도 기록도 없는 psql 직접 접근 말고는). 사유·범위·기간을 명시해 요청하고
