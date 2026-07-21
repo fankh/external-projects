@@ -8602,6 +8602,139 @@ def tenant_branding_put(request: Request, body: BrandingPut) -> dict[str, Any]:
     return {"saved": True}
 
 
+# ── 7.6 Drawing Run Job · Parameter Binding (요구 #54) — Snapshot 기준 재생성 ──
+# Run 파이프라인은 실행 시점의 살아 있는 값으로 DXF 를 만든다. 그래서 "그때 그 도면을 다시"
+# 라는 요구에 답할 수 없었다(원본 치수가 이미 바뀌었을 수 있으므로).
+# Job 은 Snapshot payload 에서 파라미터를 꺼내 만든다 — 같은 Snapshot 이면 같은 산출물.
+def _dig(payload: Any, path: str) -> Any:
+    """'a.b[0].c' 형태 경로로 payload 를 파고든다. 없으면 None."""
+    cur_val = payload
+    for part in path.replace("]", "").split("."):
+        if not part:
+            continue
+        if "[" in part:
+            key, idx = part.split("[", 1)
+            if key:
+                cur_val = (cur_val or {}).get(key) if isinstance(cur_val, dict) else None
+            if not isinstance(cur_val, list):
+                return None
+            try:
+                cur_val = cur_val[int(idx)]
+            except (ValueError, IndexError):
+                return None
+        else:
+            cur_val = cur_val.get(part) if isinstance(cur_val, dict) else None
+        if cur_val is None:
+            return None
+    return cur_val
+
+
+def _resolve_params(payload: Any, bindings: dict[str, str]) -> tuple[dict[str, float], list[str]]:
+    """선언된 바인딩대로 Snapshot 에서 파라미터를 뽑는다. 못 찾은 항목은 그대로 보고한다."""
+    out: dict[str, float] = {}
+    missing: list[str] = []
+    for param, path in bindings.items():
+        raw = _dig(payload, str(path))
+        if raw is None:
+            missing.append(f"{param}←{path}")
+            continue
+        try:
+            out[param] = float(raw)
+        except (TypeError, ValueError):
+            missing.append(f"{param}←{path}(수치 아님: {str(raw)[:20]})")
+    return out, missing
+
+
+class DrawingJobCreate(BaseModel):
+    jobCode: str
+    snapshotId: int
+    drawingNo: str = ""
+    paramBindings: dict[str, str] = {}
+    note: str = ""
+
+
+@router.get("/drawings/jobs")
+def drawing_job_list() -> list[dict[str, Any]]:
+    """Drawing Job 목록 (#54)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT j.job_id, j.job_code, j.snapshot_id, s.snapshot_code, COALESCE(j.drawing_no,''),
+                      j.param_bindings, j.status, j.output_checksum, j.resolved_params,
+                      to_char(j.finished_at,'YYYY-MM-DD HH24:MI')
+               FROM dwg_run_job j LEFT JOIN sys_snapshot s ON s.snapshot_id=j.snapshot_id
+               WHERE j.tenant_id=%s ORDER BY j.job_id DESC""", (tid,))
+        return [{"jobId": r[0], "jobCode": r[1], "snapshotId": r[2], "snapshotCode": r[3],
+                 "drawingNo": r[4], "paramBindings": r[5] or {}, "status": r[6],
+                 "outputChecksum": r[7], "resolvedParams": r[8], "finishedAt": r[9]}
+                for r in cur.fetchall()]
+
+
+@router.post("/drawings/jobs", status_code=201, dependencies=[SETUP])
+def drawing_job_create(request: Request, body: DrawingJobCreate) -> dict[str, Any]:
+    """Job 등록 (#54) — 대상 Snapshot 과 파라미터 바인딩을 선언한다."""
+    code = body.jobCode.strip().upper()[:40]
+    if not code:
+        raise HTTPException(422, detail="Job 코드는 필수")
+    if not body.paramBindings:
+        raise HTTPException(
+            422, detail="파라미터 바인딩을 선언하십시오 — 무엇을 근거로 그리는지 명시해야 합니다 (#54)")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM sys_snapshot WHERE tenant_id=%s AND snapshot_id=%s",
+                    (tid, body.snapshotId))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"Snapshot 없음: {body.snapshotId}")
+        cur.execute("SELECT 1 FROM dwg_run_job WHERE tenant_id=%s AND job_code=%s", (tid, code))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — Job {code}")
+        cur.execute(
+            """INSERT INTO dwg_run_job (tenant_id, job_code, snapshot_id, drawing_no,
+               param_bindings, note, created_by)
+               VALUES (%s,%s,%s,NULLIF(%s,''),%s,%s,%s) RETURNING job_id""",
+            (tid, code, body.snapshotId, body.drawingNo.strip()[:50],
+             json.dumps(body.paramBindings), body.note.strip()[:300] or None, request.state.login))
+        jid = cur.fetchone()[0]
+        _audit(cur, tid, "dwg_run_job", jid, "CREATE", request.state.user_id,
+               {"jobCode": code, "snapshot": body.snapshotId})
+    return {"jobId": jid, "jobCode": code, "status": "DRAFT"}
+
+
+@router.post("/drawings/jobs/{job_id}/run", dependencies=[SETUP])
+def drawing_job_run(job_id: int, request: Request) -> dict[str, Any]:
+    """Job 실행 (#54) — **Snapshot payload 만** 근거로 도면을 만든다.
+
+    살아 있는 치수를 다시 읽지 않으므로, 같은 Snapshot 이면 몇 번을 돌려도 같은 산출물이 나온다.
+    바인딩이 payload 에서 풀리지 않으면 그대로 422 로 알린다(빈 값으로 그리지 않는다)."""
+    from app.services import run_pipeline as rp
+
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT j.job_code, j.snapshot_id, j.param_bindings, s.payload, s.snapshot_code
+               FROM dwg_run_job j JOIN sys_snapshot s ON s.snapshot_id=j.snapshot_id
+               WHERE j.tenant_id=%s AND j.job_id=%s""", (tid, job_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"Job 없음: {job_id}")
+        params, missing = _resolve_params(row[3], row[2] or {})
+        if missing:
+            cur.execute("UPDATE dwg_run_job SET status='FAILED' WHERE job_id=%s", (job_id,))
+            raise HTTPException(
+                422, detail=f"Snapshot 에서 파라미터를 풀 수 없습니다: {', '.join(missing[:4])} "
+                            f"(Snapshot {row[4]} · #54)")
+        data = rp.build_part_dxf(params)
+        checksum = hashlib.sha256(data).hexdigest()
+        cur.execute(
+            """UPDATE dwg_run_job SET status='DONE', resolved_params=%s, output_checksum=%s,
+               finished_at=now() WHERE tenant_id=%s AND job_id=%s""",
+            (json.dumps(params), checksum, tid, job_id))
+        _audit(cur, tid, "dwg_run_job", job_id, "JOB_RUN", request.state.user_id,
+               {"snapshot": row[4], "params": params, "checksum": checksum[:12]})
+    return {"jobId": job_id, "jobCode": row[0], "snapshotCode": row[4], "status": "DONE",
+            "resolvedParams": params, "outputChecksum": checksum, "bytes": len(data)}
+
+
 # ── 7.4 Support 접근 통제 (요구 #68) · Support Package 이중 승인 (요구 #69) ──
 # 2.9 이후 교차 테넌트 접근은 전면 차단이라, EDIM 운영자가 고객을 지원할 정식 경로가 없었다
 # (통제도 기록도 없는 psql 직접 접근 말고는). 사유·범위·기간을 명시해 요청하고
