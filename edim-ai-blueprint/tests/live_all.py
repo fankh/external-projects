@@ -110,6 +110,7 @@ SUITES = [
     "live_slot_map.py",             # 관계 슬롯 매핑 (4.6) — Mother→Child 전개 기준·XOR·전개 전파
     "live_rccs_setup.py",           # RCCS Set-up (4.8~5.0) — Item Head 자동·그룹 유형·Family Scope
     "live_action_verbs.py",         # 작업 권한 동사 (5.2) — 승인/배포 분리·미설정=허용 규약
+    "live_std_tree.py",             # 표준/고객 트리 분리 (5.4) — 표준 노드 편집 409·하위 확장 허용
     "live_file_role.py",            # 산출물/원본 이원화 (3.3) — OUTPUT 불변·동명 저장 격리·역할 노출
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
