@@ -3948,7 +3948,11 @@ def cad_export(body: CadExportRequest) -> StreamingResponse:
 
 # ── SVC-08 Cost ──
 @router.get("/prices/resolve")
-def resolve_price(code: str, at: str | None = None) -> dict[str, Any]:
+def resolve_price(request: Request, code: str, at: str | None = None) -> dict[str, Any]:
+    """단가 해석 — 8.4: /prices 와 **같은 필드**이므로 같은 마스킹을 적용한다.
+
+    종전에는 /prices 만 마스킹돼 있어, 단가 열람이 제한된 사용자도 이 경로로 코드 하나씩
+    조회하면 실단가와 거래처명을 그대로 받을 수 있었다."""
     ref = at or date.today().isoformat()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -3964,13 +3968,18 @@ def resolve_price(code: str, at: str | None = None) -> dict[str, Any]:
                ORDER BY array_position(%s::text[], p.price_source), p.valid_from DESC
                LIMIT 1""", (tid, code, ref, ref, SOURCE_PRIORITY))
         row = cur.fetchone()
-    if not row:
-        raise HTTPException(404, detail=f"단가 없음: {code} @ {ref}")
+        if not row:
+            raise HTTPException(404, detail=f"단가 없음: {code} @ {ref}")
+        pm = _info_mode(cur, tid, request, "price")
+        qm = _info_mode(cur, tid, request, "partner")
+        if pm != "full" or qm != "full":
+            _audit(cur, tid, "cst_price", 0, "MASKED_READ", request.state.user_id,
+                   {"price": pm, "partner": qm})
     return {
         "code": row[0], "name": row[1], "source": SOURCE_LABEL[row[2]],
-        "price": float(row[3]), "from": row[4].isoformat(),
+        "price": _mask_num(float(row[3]), pm), "from": row[4].isoformat(),
         "to": row[5].isoformat() if row[5] else None,
-        "supplier": row[6] or "-", "active": True,
+        "supplier": _mask_text(row[6] or "-", qm), "active": True, "maskMode": pm,
     }
 
 
@@ -7282,8 +7291,8 @@ def _supplier_grade(total: float) -> str:
 
 
 @router.get("/erp/suppliers/{company_id}/metrics")
-def supplier_metrics(company_id: int) -> dict[str, Any]:
-    """발주 이행 지표 — PO 건수·발주/입고 수량·이행률(납기 산출 힌트)."""
+def supplier_metrics(company_id: int, request: Request) -> dict[str, Any]:
+    """발주 이행 지표 — PO 건수·발주/입고 수량·이행률(납기 산출 힌트). 8.4: 거래처명 열람 모드 적용."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute("SELECT company_name FROM com_company WHERE tenant_id=%s AND company_id=%s",
@@ -7302,14 +7311,15 @@ def supplier_metrics(company_id: int) -> dict[str, Any]:
         ordered, received = cur.fetchone()
         ordered, received = float(ordered), float(received)
         fulfillment = round(received / ordered * 100, 1) if ordered > 0 else 0.0
+        name = _mask_text(name, _info_mode(cur, tid, request, "partner"))
     return {"companyId": company_id, "supplier": name, "poCount": po_count,
             "closedCount": closed, "orderedQty": ordered, "receivedQty": received,
             "fulfillmentPct": fulfillment, "suggestedDelivery": min(100.0, fulfillment)}
 
 
 @router.get("/erp/suppliers/evals")
-def supplier_evals(company_id: int = 0) -> list[dict[str, Any]]:
-    """공급처 평가 목록 (company_id 지정 시 해당 업체만)."""
+def supplier_evals(request: Request, company_id: int = 0) -> list[dict[str, Any]]:
+    """공급처 평가 목록 (company_id 지정 시 해당 업체만). 8.4: 거래처명·단가 점수 열람 모드 적용."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         params: list[Any] = [tid]
@@ -7324,10 +7334,14 @@ def supplier_evals(company_id: int = 0) -> list[dict[str, Any]]:
                 FROM com_supplier_eval e JOIN com_company c ON c.company_id=e.supplier_id
                 WHERE e.tenant_id=%s{clause}
                 ORDER BY e.period DESC, e.eval_id DESC""", tuple(params))
-        return [{"evalId": r[0], "supplierId": r[1], "supplier": r[2], "period": r[3],
+        rows = cur.fetchall()
+        qm = _info_mode(cur, tid, request, "partner")
+        return [{"evalId": r[0], "supplierId": r[1], "supplier": _mask_text(r[2], qm),
+                 "period": r[3],
                  "delivery": float(r[4]), "quality": float(r[5]), "price": float(r[6]),
-                 "total": float(r[7]), "grade": r[8], "note": r[9], "createdAt": r[10]}
-                for r in cur.fetchall()]
+                 "total": float(r[7]), "grade": r[8], "note": r[9], "createdAt": r[10],
+                 "maskMode": qm}
+                for r in rows]
 
 
 class SupplierEvalRequest(BaseModel):
@@ -8028,7 +8042,7 @@ def cost_actual_list(request: Request, project: str = "") -> list[dict[str, Any]
 
 
 @router.get("/cost/variance")
-def cost_variance(project: str = "") -> dict[str, Any]:
+def cost_variance(request: Request, project: str = "") -> dict[str, Any]:
     """견적(추정) vs 실적 차이 분석 (D6) — 분류별 추정/실적/차이·차이율 + 임계 경보.
 
     project 지정 시 추정(프로젝트 Run)·실적(프로젝트 귀속) 모두 프로젝트 스코프."""
@@ -8063,10 +8077,18 @@ def cost_variance(project: str = "") -> dict[str, Any]:
         ta = sum(x["actual"] for x in cats)
         tv = round(ta - te, 2)
         trate = (tv / te) if te else (1.0 if ta else 0.0)
+        _cm = _info_mode(cur, tid, request, "cost")
+        if _cm != "full":
+            for c in cats:
+                for k in ("estimate", "actual", "variance"):
+                    if k in c:
+                        c[k] = _mask_num(c[k], _cm)
         return {"runId": run_id, "estimateAvailable": run_id is not None, "projectNo": proj,
-                "categories": cats, "totalEstimate": te, "totalActual": ta,
-                "totalVariance": tv, "totalVarianceRate": round(trate, 4),
-                "alert": trate > VARIANCE_ALERT_RATE, "alertRate": VARIANCE_ALERT_RATE}
+                "categories": cats, "totalEstimate": _mask_num(te, _cm),
+                "totalActual": _mask_num(ta, _cm),
+                "totalVariance": _mask_num(tv, _cm), "totalVarianceRate": round(trate, 4),
+                "alert": trate > VARIANCE_ALERT_RATE, "alertRate": VARIANCE_ALERT_RATE,
+                "maskMode": _cm}
 
 
 # ── D7 프로젝트 일정·마일스톤 (prj_milestone) ──
@@ -12581,7 +12603,7 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
 # ── U19 PCR 세부 비용 체계 (슬라이드 74) — 비용 트리(조달/부제조/직접/판관 분해) ──
 
 @router.get("/cost/pcr/{pcr_id}/breakdown")
-def pcr_breakdown(pcr_id: int) -> dict[str, Any]:
+def pcr_breakdown(pcr_id: int, request: Request) -> dict[str, Any]:
     """PCR 비용 트리 (U19) — Run 원가 라인(재료/제조/직접) + 판관 분해(율 기반 근사, 합계=SGA 8%)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -12591,6 +12613,7 @@ def pcr_breakdown(pcr_id: int) -> dict[str, Any]:
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"PCR 없음: #{pcr_id}")
+        _cm = _info_mode(cur, tid, request, "cost")   # 8.4 — 원가 열람 모드
         sec = row[1] or {}
         run_id = sec.get("runId")
         lines_by_type: dict[str, list[dict[str, Any]]] = {}
@@ -12621,9 +12644,11 @@ def pcr_breakdown(pcr_id: int) -> dict[str, Any]:
     return {
         "pcrId": pcr_id, "businessType": row[0], "revenue": revenue,
         "sections": sections,
-        "directCostTotal": float(row[2]), "contributionMargin": float(row[3]),
+        "directCostTotal": _mask_num(float(row[2]), _cm),
+        "contributionMargin": _mask_num(float(row[3]), _cm), "maskMode": _cm,
         "sga": {"rows": sga_rows, "subtotal": sga_total, "basis": "율 기반 근사 — 합계 = SGA 8% (CST-005 상세율은 PCR 기준 관리 후속)"},
-        "fullCosts": float(row[2]) + sga_total, "ebit": float(row[4]),
+        "fullCosts": _mask_num(float(row[2]) + sga_total, _cm),
+        "ebit": _mask_num(float(row[4]), _cm),
     }
 
 
@@ -12653,7 +12678,7 @@ def pcr_list(request: Request) -> list[dict[str, Any]]:
 
 
 @router.get("/cost/pcr/{pcr_id}/actual")
-def pcr_actual(pcr_id: int) -> dict[str, Any]:
+def pcr_actual(pcr_id: int, request: Request) -> dict[str, Any]:
     """실적 반영 PCR 재계산 (D6) — 매출 고정, 직접비를 실적(cst_actual, 프로젝트 귀속)으로 치환 →
     기여마진·EBIT 재산출 + 추정 대비 차이. 실적 없으면 actualAvailable=false."""
     with _conn() as conn, conn.cursor() as cur:
@@ -12664,6 +12689,7 @@ def pcr_actual(pcr_id: int) -> dict[str, Any]:
         r = cur.fetchone()
         if not r:
             raise HTTPException(404, detail=f"PCR 없음: #{pcr_id}")
+        _cm = _info_mode(cur, tid, request, "cost")   # 8.4 — 원가 열람 모드
         sections, est_direct, est_margin, est_ebit, sel_id = r
         revenue = float(sections.get("revenue", 0))
         sga = float(sections.get("sga", 0))
@@ -12690,14 +12716,18 @@ def pcr_actual(pcr_id: int) -> dict[str, Any]:
     return {
         "pcrId": pcr_id, "projectNo": project_no, "revenue": revenue, "sga": sga,
         "actualAvailable": act_count > 0, "actualCount": act_count,
-        "estimate": {"directCost": est_direct, "margin": est_margin, "ebit": est_ebit,
-                     "marginPct": round(est_margin / revenue, 4) if revenue else 0},
-        "actual": {"directCost": act_direct, "margin": act_margin, "ebit": act_ebit,
-                   "marginPct": round(act_margin / revenue, 4) if revenue else 0},
-        "variance": {"directCost": round(act_direct - est_direct, 2),
-                     "margin": round(act_margin - est_margin, 2),
-                     "ebit": round(act_ebit - est_ebit, 2),
-                     "marginPctDelta": round((act_margin - est_margin) / revenue, 4) if revenue else 0},
+        "estimate": {"directCost": _mask_num(est_direct, _cm), "margin": _mask_num(est_margin, _cm),
+                     "ebit": _mask_num(est_ebit, _cm),
+                     "marginPct": round(est_margin / revenue, 4) if revenue and _cm == "full" else None},
+        "actual": {"directCost": _mask_num(act_direct, _cm), "margin": _mask_num(act_margin, _cm),
+                   "ebit": _mask_num(act_ebit, _cm),
+                   "marginPct": round(act_margin / revenue, 4) if revenue and _cm == "full" else None},
+        "variance": {"directCost": _mask_num(round(act_direct - est_direct, 2), _cm),
+                     "margin": _mask_num(round(act_margin - est_margin, 2), _cm),
+                     "ebit": _mask_num(round(act_ebit - est_ebit, 2), _cm),
+                     "marginPctDelta": (round((act_margin - est_margin) / revenue, 4)
+                                        if revenue and _cm == "full" else None)},
+        "maskMode": _cm,
     }
 
 
@@ -13197,8 +13227,10 @@ def mrp_plan(leadDays: int = 14) -> dict[str, Any]:
 
 
 @router.get("/cost/orders")
-def sales_orders() -> dict[str, Any]:
-    """수주 잔고 (D1) — ORDERED 견적(프로젝트별 수주액·납기·단계) + 수주율 지표."""
+def sales_orders(request: Request) -> dict[str, Any]:
+    """수주 잔고 (D1) — ORDERED 견적(프로젝트별 수주액·납기·단계) + 수주율 지표.
+
+    8.4 — 수주액은 견적 금액과 같은 값이므로 quote 열람 모드를 따른다."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -13222,9 +13254,15 @@ def sales_orders() -> dict[str, Any]:
                FROM cst_quotation WHERE tenant_id=%s""", (tid,))
         won, decided = cur.fetchone()
     total_amt = sum(o["contractAmount"] for o in orders)
+    with _conn() as conn2, conn2.cursor() as cur2:
+        qm = _info_mode(cur2, _tenant_id(cur2), request, "quote")
+    if qm != "full":
+        for o in orders:
+            o["contractAmount"] = _mask_num(o["contractAmount"], qm)
+        total_amt = _mask_num(total_amt, qm)
     return {"orders": orders, "orderCount": len(orders),
             "orderRate": round(won / decided, 3) if decided else 0.0,
-            "totalAmount": total_amt}
+            "totalAmount": total_amt, "maskMode": qm}
 
 
 @router.get("/cost/quotations/{quotation_id}/render.pdf")
@@ -14672,8 +14710,8 @@ def drawing_bom_delete(drawing_no: str, bom_id: int) -> dict[str, Any]:
 
 
 @router.get("/parts/{part_no}/supplier-codes")
-def part_supplier_codes(part_no: str) -> list[dict[str, Any]]:
-    """공급자 코드 매핑 (ERP-018) — 부품 기준."""
+def part_supplier_codes(part_no: str, request: Request) -> list[dict[str, Any]]:
+    """공급자 코드 매핑 (ERP-018) — 부품 기준. 8.4: 거래처 열람 모드 적용."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -14682,7 +14720,9 @@ def part_supplier_codes(part_no: str) -> list[dict[str, Any]]:
                JOIN prt_part p ON p.part_id=m.part_id
                JOIN com_company c ON c.company_id=m.supplier_id
                WHERE m.tenant_id=%s AND p.part_no=%s ORDER BY m.map_id""", (tid, part_no))
-        return [{"mapId": r[0], "supplier": r[1], "supplierCode": r[2], "supplierName": r[3]}
+        qm = _info_mode(cur, tid, request, "partner")
+        return [{"mapId": r[0], "supplier": _mask_text(r[1], qm), "supplierCode": r[2],
+                 "supplierName": _mask_text(r[3], qm), "maskMode": qm}
                 for r in cur.fetchall()]
 
 
@@ -14720,8 +14760,10 @@ def part_supplier_code_add(part_no: str, request: Request, body: SupplierCodeAdd
 
 
 @router.get("/codes/{code}/supplier-codes")
-def code_supplier_codes(code: str) -> list[dict[str, Any]]:
-    """공급자 코드 매핑 — 제품코드 기준 (발주 문서 표시용, 부품 경유 포함)."""
+def code_supplier_codes(code: str, request: Request) -> list[dict[str, Any]]:
+    """공급자 코드 매핑 — 제품코드 기준 (발주 문서 표시용, 부품 경유 포함).
+
+    8.4 — 거래처 열람 모드 적용. 종전엔 /prices 만 거래처명을 가려, 이 경로로 그대로 드러났다."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -14732,7 +14774,9 @@ def code_supplier_codes(code: str) -> list[dict[str, Any]]:
                LEFT JOIN product_code pc
                  ON pc.product_code_id=COALESCE(m.product_code_id, p.product_code_id)
                WHERE m.tenant_id=%s AND pc.main_code=%s ORDER BY m.map_id""", (tid, code))
-        return [{"mapId": r[0], "supplier": r[1], "supplierCode": r[2], "supplierName": r[3]}
+        qm = _info_mode(cur, tid, request, "partner")
+        return [{"mapId": r[0], "supplier": _mask_text(r[1], qm), "supplierCode": r[2],
+                 "supplierName": _mask_text(r[3], qm), "maskMode": qm}
                 for r in cur.fetchall()]
 
 
