@@ -98,15 +98,16 @@ try:
     st, b = req("POST", f"/toolbox/packages/{pid}/transition", TOK, {"status": "APPROVED"})
     ok(f"★ 단계 건너뛰기 422 (DRAFT→APPROVED) ({st})", st == 422 and "전이" in (b or {}).get("detail", ""))
     # 8.9 — APPROVED 는 승인 행위다: APPROVE 동사가 없으면 막힌다(#3)
-    psql("INSERT INTO sys_role_permission (tenant_id, role_name, resource_key, action) "
-         "SELECT tenant_id, 'ADMIN', 'approval', 'READ' FROM sys_tenant WHERE tenant_code='EDIM' "
-         "ON CONFLICT DO NOTHING")
+    # 동사 설정은 API 로 한다 — 손으로 쓴 SQL 은 스키마·테넌트 코드를 틀리기 쉽다(실제로 틀렸다)
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": "approval", "verbs": ["READ"]})
+    ok(f"approval 자원에 READ 만 부여 ({st})", st == 200)
     for to in ("GUARD", "SANDBOX"):
         req("POST", f"/toolbox/packages/{pid}/transition", TOK, {"status": to})
     st, b = req("POST", f"/toolbox/packages/{pid}/transition", TOK, {"status": "APPROVED"})
     ok(f"★ APPROVE 동사 없으면 패키지 승인 403 ({st})",
        st == 403 and "APPROVE" in (b or {}).get("detail", ""))
-    psql("DELETE FROM sys_role_permission WHERE resource_key='approval'")
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": "approval", "verbs": []})
+    ok(f"동사 설정 제거 ({st})", st == 200)
     st, _ = req("POST", f"/toolbox/packages/{pid}/transition", TOK, {"status": "APPROVED"})
     ok(f"★ 동사 미설정이면 종전대로 승인 통과 ({st})", st == 200)
     for to in ("PUBLISHED",):
