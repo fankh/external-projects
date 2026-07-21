@@ -34,6 +34,10 @@ def psql(sql: str) -> str:
 
 
 def purge_f3_users() -> None:
+    # sys_notification 도 user_id FK 를 갖는다 — 빠뜨리면 임시 계정이 지워지지 않고
+    # 다음 실행부터 계정 등록이 409 로 막힌다(8.12 에서 실제로 그렇게 막혔다).
+    psql("DELETE FROM sys_notification WHERE user_id IN "
+         "(SELECT user_id FROM sys_user WHERE login_id LIKE 'f3.%')")
     psql("DELETE FROM sys_history WHERE actor_id IN "
          "(SELECT user_id FROM sys_user WHERE login_id LIKE 'f3.%')")
     psql("DELETE FROM sys_user_role WHERE user_id IN "
