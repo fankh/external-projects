@@ -8988,9 +8988,11 @@ def platform_tenant_create(request: Request, body: TenantCreate) -> dict[str, An
         admin_uid = cur.fetchone()[0]
         for tree, addr, node in _TENANT_SEED_NODES:
             cur.execute(
+                # #23 — 온보딩 시 심는 루트는 **EDIM 표준 트리**다. 고객사는 하위만 확장할 수 있고
+                # 이름 변경·이동·삭제는 막힌다(_assert_tenant_tree).
                 """INSERT INTO sys_hierarchy (tenant_id, parent_id, tree_type, node_name,
-                                              address, approval_status)
-                   VALUES (%s,NULL,%s,%s,%s,'APPROVED')""", (new_tid, tree, node, addr))
+                                              address, approval_status, is_system)
+                   VALUES (%s,NULL,%s,%s,%s,'APPROVED',true)""", (new_tid, tree, node, addr))
         _audit(cur, _tenant_id(cur), "sys_tenant", new_tid, "TENANT_CREATE",
                request.state.user_id, {"tenantCode": code, "admin": login_id})
     return {"tenantId": new_tid, "tenantCode": code, "adminUserId": admin_uid,
@@ -9527,6 +9529,26 @@ class HierarchyNodeCreate(BaseModel):
     parentAddress: str = ""
 
 
+# ── 5.4 EDIM Standard vs Tenant Custom Tree 분리 (요구 #23) ──
+# sys_hierarchy.is_system 은 컬럼만 있고 **쓰기에서 한 번도 확인되지 않았다**(라이브 9노드 전부 false).
+# 표준 노드(EDIM 제공)는 고객사가 이름·위치를 바꾸거나 지울 수 없고, **하위 확장만** 허용한다.
+# 표준 노드 자체의 편집은 운영 테넌트(PLATFORM)만 가능하다.
+def _assert_tenant_tree(cur, tid: int, node_id: int, action: str) -> None:
+    cur.execute("SELECT is_system, node_name FROM sys_hierarchy WHERE tenant_id=%s AND hierarchy_id=%s",
+                (tid, node_id))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"노드 없음: #{node_id}")
+    if not row[0]:
+        return
+    cur.execute("SELECT tenant_code FROM sys_tenant WHERE tenant_id=%s", (tid,))
+    t = cur.fetchone()
+    if not t or t[0] != TENANT:
+        raise HTTPException(
+            409, detail=f"EDIM 표준 노드는 {action}할 수 없습니다 — {row[1]} "
+                        "(하위 노드 추가는 가능, 표준 트리 편집은 EDIM 운영자만 · #23)")
+
+
 @router.post("/hierarchy/nodes", status_code=201, dependencies=[SETUP])
 def hierarchy_node_create(request: Request, body: HierarchyNodeCreate) -> dict[str, Any]:
     """Hierarchy 노드 등록 — 주소 유일(409), 상위 주소 검증 (M-3-1 편집 개방)."""
@@ -9572,6 +9594,7 @@ def hierarchy_node_patch(node_id: int, request: Request, body: HierarchyNodePatc
     """노드 속성 수정 (트리아지 #22) — 잠금 노드는 해제 요청 없이는 다른 필드 수정 409."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _assert_tenant_tree(cur, tid, node_id, "이름을 바꿀 수")
         cur.execute("SELECT is_locked FROM sys_hierarchy WHERE tenant_id=%s AND hierarchy_id=%s",
                     (tid, node_id))
         cur_row = cur.fetchone()
@@ -9740,6 +9763,7 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
     """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _assert_tenant_tree(cur, tid, node_id, "옮길 수")
         cur.execute(
             """SELECT address, tree_type, is_system, is_locked FROM sys_hierarchy
                WHERE tenant_id=%s AND hierarchy_id=%s""", (tid, node_id))
@@ -9809,6 +9833,7 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
 def hierarchy_node_delete(node_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _assert_tenant_tree(cur, tid, node_id, "삭제할 수")
         cur.execute("SELECT is_locked FROM sys_hierarchy WHERE tenant_id=%s AND hierarchy_id=%s",
                     (tid, node_id))
         lk = cur.fetchone()
