@@ -2233,8 +2233,11 @@ def set_role_permissions(role_name: str, request: Request, body: RolePermissions
         n = 0
         for key, action in body.permissions.items():
             act = action.strip().upper()
+            # #3 — 동사 행(CREATE/UPDATE/EXECUTE/APPROVE/DEPLOY)은 별도 체계이므로 건드리지 않는다.
+            # 종전처럼 통째로 지우면 READ/WRITE 매트릭스 저장이 동사 설정을 조용히 날린다.
             cur.execute(
-                "DELETE FROM sys_role_permission WHERE role_id=%s AND resource_key=%s",
+                "DELETE FROM sys_role_permission WHERE role_id=%s AND resource_key=%s "
+                "AND action IN ('READ','WRITE')",
                 (role[0], key[:200]))
             if act in ("READ", "WRITE"):
                 cur.execute(
@@ -9361,7 +9364,7 @@ class RoleVerbs(BaseModel):
     verbs: list[str]
 
 
-@router.get("/roles/{role}/permissions")
+@router.get("/roles/{role}/verbs")
 def role_permissions(role: str) -> list[dict[str, Any]]:
     """역할의 자원별 허용 동사 (#3)."""
     with _conn() as conn, conn.cursor() as cur:
@@ -9378,7 +9381,7 @@ def role_permissions(role: str) -> list[dict[str, Any]]:
         return [{"resourceKey": x[0], "verbs": list(x[1])} for x in cur.fetchall()]
 
 
-@router.put("/roles/{role}/permissions", dependencies=[ADMIN])
+@router.put("/roles/{role}/verbs", dependencies=[ADMIN])
 def role_permissions_set(role: str, request: Request, body: RoleVerbs) -> dict[str, Any]:
     """역할×자원 허용 동사 지정 (#3) — 빈 목록이면 그 자원의 설정을 제거(=미설정 복귀)."""
     verbs = [v.strip().upper() for v in body.verbs if v.strip()]
