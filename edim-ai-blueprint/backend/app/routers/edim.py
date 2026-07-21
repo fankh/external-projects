@@ -4730,18 +4730,43 @@ class CompleteRequest(BaseModel):
 
 
 @router.post("/erp/events/{event_id}/complete")
-def complete_event(event_id: int, body: CompleteRequest) -> dict[str, Any]:
+def complete_event(event_id: int, request: Request, body: CompleteRequest) -> dict[str, Any]:
+    """업무 이벤트 완료 (ERP-030).
+
+    8.2 — 종전에는 **담당자 확인도 기록도 없었다**. 로그인한 사람이면 누구나 남의 업무를
+    완료 처리할 수 있었고, 끝난 뒤에도 누가 눌렀는지 남지 않았다(재배정·에스컬레이션은
+    이미 감사에 남는데 정작 업무를 닫는 행위만 비어 있었다).
+
+    담당자가 지정된 이벤트는 **담당자 본인이나 SETUP 이상**만 닫을 수 있다.
+    담당자가 없는 이벤트는 종전대로 통과시킨다(미설정 = 허용) — 기존 운영을 멈추지 않기 위해서."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT e.assignee_id, COALESCE(u.user_name, u.login_id, ''), e.status
+               FROM erp_process_event e LEFT JOIN sys_user u ON u.user_id=e.assignee_id
+               WHERE e.tenant_id=%s AND e.event_id=%s""", (tid, event_id))
+        ev = cur.fetchone()
+        if not ev:
+            raise HTTPException(404, detail=f"완료 처리 대상 아님: {event_id}")
+        uid = request.state.user_id
+        if (ev[0] and ev[0] != uid
+                and LEVEL_RANK.get(request.state.level, 0) < LEVEL_RANK["SETUP"]):
+            raise HTTPException(
+                403, detail=f"담당자({ev[1]}) 본인이나 SETUP 이상만 완료할 수 있습니다 (ERP-030)")
         cur.execute(
             """UPDATE erp_process_event SET status='DONE', done_at=now(),
                data=COALESCE(data,'{}'::jsonb) || %s::jsonb
                WHERE tenant_id=%s AND event_id=%s AND status<>'DONE'
                RETURNING event_id""",
-            (json.dumps({"comment": body.comment}), tid, event_id))
+            (json.dumps({"comment": body.comment, "completedBy": request.state.login}),
+             tid, event_id))
         if not cur.fetchone():
             raise HTTPException(404, detail=f"완료 처리 대상 아님: {event_id}")
-    return {"eventId": event_id, "status": "DONE"}
+        # 업무를 닫은 사람을 남긴다 — 재배정·에스컬레이션과 같은 수준의 기록
+        _audit(cur, tid, "erp_process_event", event_id, "EVENT_COMPLETE", uid,
+               {"comment": body.comment[:80], "assigneeId": ev[0],
+                "onBehalf": bool(ev[0] and ev[0] != uid)})
+    return {"eventId": event_id, "status": "DONE", "completedBy": request.state.login}
 
 
 # ── B6 — 이벤트 재배정·에스컬레이션 ──
