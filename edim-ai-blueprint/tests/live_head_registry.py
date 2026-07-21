@@ -52,6 +52,8 @@ def req(method, path, tok, body=None):
 
 
 def cleanup():
+    psql("DELETE FROM sys_head_design WHERE head_id IN "
+         "(SELECT head_id FROM sys_head WHERE head_code LIKE 'ZZHEAD%')")
     psql("DELETE FROM sys_head_binding WHERE head_id IN "
          f"(SELECT head_id FROM sys_head WHERE head_code LIKE 'ZZHEAD%')")
     psql("DELETE FROM sys_head WHERE head_code LIKE 'ZZHEAD%'")
@@ -146,6 +148,29 @@ try:
     st, sysmade = req("POST", "/heads", TOK,
                       {"headCode": "ZZHEADSYS", "headName": "시스템 Head", "headType": "SYSTEM"})
     ok(f"운영 테넌트는 System Head 생성 가능 ({st})", st == 201)
+
+    # ── 6b) #18 Head Design — 표시는 구조와 분리, 게시본도 변경 가능 ──
+    st, cat = req("GET", "/heads/kpi-catalog", TOK)
+    ok(f"KPI 카탈로그 ({len(cat)}종)", st == 200 and len(cat) >= 4)
+    pub_id = next(h["headId"] for h in req("GET", "/heads?editing=true", TOK)[1]
+                  if h["status"] == "PUBLISHED")
+    st, d = req("PUT", f"/heads/{pub_id}/design", TOK, {"pinned": True, "kpiKeys": ["runs", "todos"]})
+    ok(f"★ 게시본도 표시 설정 변경 가능 ({st})", st == 200 and d["pinned"] is True)
+    st, b = req("PUT", f"/heads/{pub_id}/design", TOK, {"kpiKeys": ["nope"]})
+    ok(f"알 수 없는 KPI 422 ({st})", st == 422)
+    lst = req("GET", "/heads", TOK)[1]
+    ok("Pin 이 목록 최상단으로", lst[0]["headId"] == pub_id and lst[0]["pinned"] is True)
+    ok("KPI 반영", set(lst[0]["kpiKeys"]) == {"runs", "todos"})
+
+    # 숨김은 사용자 목록에만 적용 — 편집 목록에는 남아야 관리가 된다
+    st, _ = req("PUT", f"/heads/{pub_id}/design", TOK, {"visible": False})
+    ok("숨김 후 사용자 목록에서 제외",
+       all(h["headId"] != pub_id for h in req("GET", "/heads", TOK)[1]))
+    ok("숨겨도 편집 목록에는 존재",
+       any(h["headId"] == pub_id for h in req("GET", "/heads?editing=true", TOK)[1]))
+    st, _ = req("DELETE", f"/heads/{pub_id}/design?scope=TENANT", TOK)
+    ok(f"표시 설정 초기화 200 ({st})", st == 200)
+    ok("초기화 후 다시 표시", any(h["headId"] == pub_id for h in req("GET", "/heads", TOK)[1]))
 
     # ── 7) 정리 ──
     st, _ = req("DELETE", f"/heads/{hid}", TOK)

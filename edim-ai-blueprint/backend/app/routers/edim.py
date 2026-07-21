@@ -8071,6 +8071,14 @@ def head_list(request: Request, editing: bool = False) -> list[dict[str, Any]]:
         return _head_rows(cur, tid, lvl, editing, request.state.user_id)
 
 
+# 주의: 이 정적 경로는 /heads/{head_id} **앞**에 있어야 한다 —
+# 뒤에 두면 경로 파라미터가 'kpi-catalog' 를 먼저 잡아 422 가 난다(라이브 스위트가 발각).
+@router.get("/heads/kpi-catalog")
+def head_kpi_catalog() -> list[dict[str, str]]:
+    """Head Design 에서 고를 수 있는 KPI 목록 (#18)."""
+    return [{"key": k, "label": v} for k, v in _KPI_CATALOG.items()]
+
+
 @router.get("/heads/{head_id}")
 def head_detail(head_id: int, request: Request) -> dict[str, Any]:
     """Head 상세 + 패널 바인딩 (#17 을 Head 단위로)."""
@@ -8326,12 +8334,6 @@ def _design_for(cur, tid: int, head_ids: list[int], user_id: int) -> dict[int, d
         out[hid] = {"visible": vis, "pinned": pin, "displayOrder": order,
                     "kpiKeys": kpi or [], "scope": scope}
     return out
-
-
-@router.get("/heads/kpi-catalog")
-def head_kpi_catalog() -> list[dict[str, str]]:
-    """Head Design 에서 고를 수 있는 KPI 목록 (#18)."""
-    return [{"key": k, "label": v} for k, v in _KPI_CATALOG.items()]
 
 
 @router.put("/heads/{head_id}/design", dependencies=[SETUP])
