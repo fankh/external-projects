@@ -62,6 +62,7 @@ py tests\live_all.py
 | `live_binding_contract.py` | Binding Contract — SQL/테이블 직접 참조 409·미등록 Contract 422·등록분 통과·유사 문자열 오탐 없음·사용 중 삭제 409 (자체 정리) | 6.6 (#58) |
 | `live_command_binding.py` | Command Binding — 미등록 Command 버튼 422·선언 키 외 422·필수 누락 422·ID 아닌 값 뭉치 422·폐기 실행 409·사용 중 삭제 409 (자체 정리) | 6.8 (#59) |
 | `live_macro_graph.py` | Macro 5-View Graph — 수식 정본 Graph 재생성·결정성·고친 뷰만 stale 지목·재정렬 해소·파싱/빈 수식 422 (자체 정리) | 7.0 (#60) |
+| `live_support_access.py` | Support 접근·이중 승인 — 사유/범위/기간 검증·승인 전 403·고객사만 결정·범위 밖 제외·열람 감사·회수/만료 즉시 차단·검증→승인 순서 409 (자체 정리) | 7.4 (#68·#69) |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI
