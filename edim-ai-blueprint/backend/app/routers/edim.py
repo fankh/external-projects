@@ -8957,6 +8957,250 @@ def lock_release(lock_id: int, request: Request) -> dict[str, Any]:
     return {"released": lock_id}
 
 
+# ── 8.0 고객 로고 참조 모델 (요구 #20) ──
+# 자사 로고는 sys_tenant.settings 에 한 장 있었을 뿐, 고객사 로고는 문서마다 이미지를 복사해
+# 넣는 수밖에 없었다 → 로고가 바뀌면 문서가 제각각이 되고, 검토 안 된 로고가 고객 문서에
+# 실릴 수 있었다. 문서는 customer_company_id 를 **참조**하고, 표시 경로는 **승인본만** 돌려준다.
+class CustomerIn(BaseModel):
+    companyCode: str
+    companyName: str
+    note: str = ""
+
+
+class LogoIn(BaseModel):
+    logoData: str
+
+
+class LogoReject(BaseModel):
+    reason: str = ""
+
+
+def _check_logo_data(data: str) -> str:
+    d = data.strip()
+    if not d.startswith("data:image/"):
+        raise HTTPException(422, detail="data:image/* 형식의 data URL 이어야 합니다")
+    if len(d) > 64 * 1024:
+        raise HTTPException(422, detail="로고는 64KB 이하로 축소하십시오")
+    return d
+
+
+@router.get("/customers")
+def customer_list() -> list[dict[str, Any]]:
+    """고객사 목록 (#20) — 승인된 로고 보유 여부를 함께 알린다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT c.customer_company_id, c.company_code, c.company_name, c.status,
+                      COALESCE(c.note,''),
+                      EXISTS (SELECT 1 FROM customer_logo_asset a
+                              WHERE a.customer_company_id=c.customer_company_id
+                                AND a.approval_status='APPROVED'),
+                      (SELECT count(*) FROM customer_logo_asset a
+                       WHERE a.customer_company_id=c.customer_company_id
+                         AND a.approval_status='PENDING')
+               FROM customer_company c WHERE c.tenant_id=%s ORDER BY c.company_code""", (tid,))
+        return [{"customerCompanyId": r[0], "companyCode": r[1], "companyName": r[2],
+                 "status": r[3], "note": r[4], "hasApprovedLogo": r[5], "pendingLogos": r[6]}
+                for r in cur.fetchall()]
+
+
+@router.post("/customers", status_code=201, dependencies=[SETUP])
+def customer_create(request: Request, body: CustomerIn) -> dict[str, Any]:
+    """고객사 등록 (#20)."""
+    code = body.companyCode.strip().upper()[:30]
+    if not code or not body.companyName.strip():
+        raise HTTPException(422, detail="필수 — 고객사 코드·이름")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM customer_company WHERE tenant_id=%s AND company_code=%s",
+                    (tid, code))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 고객사 {code}")
+        cur.execute(
+            """INSERT INTO customer_company (tenant_id, company_code, company_name, note, created_by)
+               VALUES (%s,%s,%s,%s,%s) RETURNING customer_company_id""",
+            (tid, code, body.companyName.strip()[:150], body.note.strip()[:300] or None,
+             request.state.login))
+        cid = cur.fetchone()[0]
+        _audit(cur, tid, "customer_company", cid, "CREATE", request.state.user_id,
+               {"companyCode": code})
+    return {"customerCompanyId": cid, "companyCode": code}
+
+
+@router.post("/customers/{customer_id}/logo", status_code=201, dependencies=[SETUP])
+def customer_logo_upload(customer_id: int, request: Request, body: LogoIn) -> dict[str, Any]:
+    """고객사 로고 등록 (#20) — 올리면 **PENDING**. 승인 전에는 어디에도 표시되지 않는다."""
+    data = _check_logo_data(body.logoData)
+    checksum = hashlib.sha256(data.encode("utf-8")).hexdigest()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT company_code FROM customer_company "
+                    "WHERE tenant_id=%s AND customer_company_id=%s", (tid, customer_id))
+        c = cur.fetchone()
+        if not c:
+            raise HTTPException(404, detail=f"고객사 없음: {customer_id}")
+        cur.execute("""SELECT COALESCE(MAX(version_no),0)+1 FROM customer_logo_asset
+                       WHERE customer_company_id=%s""", (customer_id,))
+        vno = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO customer_logo_asset (tenant_id, customer_company_id, version_no,
+               logo_data, checksum, requested_by) VALUES (%s,%s,%s,%s,%s,%s)
+               RETURNING logo_asset_id""",
+            (tid, customer_id, vno, data, checksum, request.state.login))
+        aid = cur.fetchone()[0]
+        _audit(cur, tid, "customer_logo_asset", aid, "LOGO_UPLOAD", request.state.user_id,
+               {"customer": c[0], "versionNo": vno, "checksum": checksum[:12]})
+    return {"logoAssetId": aid, "versionNo": vno, "approvalStatus": "PENDING"}
+
+
+@router.post("/customers/logos/{asset_id}/approve", dependencies=[ADMIN])
+def customer_logo_approve(asset_id: int, request: Request) -> dict[str, Any]:
+    """로고 승인 (#20) — 승인 즉시 이 버전이 표시본이 되고 이전 표시본은 SUPERSEDED."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT customer_company_id, version_no, approval_status FROM customer_logo_asset
+               WHERE tenant_id=%s AND logo_asset_id=%s""", (tid, asset_id))
+        a = cur.fetchone()
+        if not a:
+            raise HTTPException(404, detail=f"로고 없음: {asset_id}")
+        if a[2] != "PENDING":
+            raise HTTPException(409, detail=f"승인 대기 상태가 아닙니다 (현재 {a[2]})")
+        cur.execute(
+            """UPDATE customer_logo_asset SET approval_status='SUPERSEDED'
+               WHERE customer_company_id=%s AND approval_status='APPROVED'""", (a[0],))
+        cur.execute(
+            """UPDATE customer_logo_asset SET approval_status='APPROVED', approved_by=%s,
+               approved_at=now() WHERE tenant_id=%s AND logo_asset_id=%s""",
+            (request.state.login, tid, asset_id))
+        _audit(cur, tid, "customer_logo_asset", asset_id, "LOGO_APPROVE", request.state.user_id,
+               {"customerCompanyId": a[0], "versionNo": a[1]})
+    return {"logoAssetId": asset_id, "approvalStatus": "APPROVED", "versionNo": a[1]}
+
+
+@router.post("/customers/logos/{asset_id}/reject", dependencies=[ADMIN])
+def customer_logo_reject(asset_id: int, request: Request, body: LogoReject) -> dict[str, Any]:
+    """로고 반려 (#20)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("""SELECT approval_status FROM customer_logo_asset
+                       WHERE tenant_id=%s AND logo_asset_id=%s""", (tid, asset_id))
+        a = cur.fetchone()
+        if not a:
+            raise HTTPException(404, detail=f"로고 없음: {asset_id}")
+        if a[0] != "PENDING":
+            raise HTTPException(409, detail=f"승인 대기 상태가 아닙니다 (현재 {a[0]})")
+        cur.execute(
+            """UPDATE customer_logo_asset SET approval_status='REJECTED', reject_reason=%s
+               WHERE tenant_id=%s AND logo_asset_id=%s""",
+            (body.reason.strip()[:300] or None, tid, asset_id))
+        _audit(cur, tid, "customer_logo_asset", asset_id, "LOGO_REJECT", request.state.user_id,
+               {"reason": body.reason.strip()[:80]})
+    return {"logoAssetId": asset_id, "approvalStatus": "REJECTED"}
+
+
+@router.get("/customers/{customer_id}/logo")
+def customer_logo_get(customer_id: int) -> dict[str, Any]:
+    """표시용 로고 (#20) — **APPROVED 만** 돌려준다.
+
+    더 새 버전이 올라와 있어도 승인 전이면 내보내지 않는다. 승인본이 없으면 데이터를 주지 않고
+    그 사실을 밝힌다(빈 값 대신 상태를 알려, 화면이 조용히 옛 로고를 쓰지 않도록)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT company_code, company_name FROM customer_company "
+                    "WHERE tenant_id=%s AND customer_company_id=%s", (tid, customer_id))
+        c = cur.fetchone()
+        if not c:
+            raise HTTPException(404, detail=f"고객사 없음: {customer_id}")
+        cur.execute(
+            """SELECT logo_asset_id, version_no, logo_data, checksum
+               FROM customer_logo_asset
+               WHERE customer_company_id=%s AND approval_status='APPROVED'""", (customer_id,))
+        a = cur.fetchone()
+        cur.execute(
+            """SELECT count(*) FROM customer_logo_asset
+               WHERE customer_company_id=%s AND approval_status='PENDING'""", (customer_id,))
+        pending = cur.fetchone()[0]
+    if not a:
+        return {"customerCompanyId": customer_id, "companyCode": c[0], "companyName": c[1],
+                "logoData": None, "approved": False, "pendingLogos": pending,
+                "reason": "승인된 로고가 없습니다 — 승인 전 로고는 표시하지 않습니다 (#20)"}
+    return {"customerCompanyId": customer_id, "companyCode": c[0], "companyName": c[1],
+            "logoAssetId": a[0], "versionNo": a[1], "logoData": a[2], "checksum": a[3],
+            "approved": True, "pendingLogos": pending}
+
+
+@router.get("/customers/{customer_id}/logos", dependencies=[SETUP])
+def customer_logo_versions(customer_id: int) -> list[dict[str, Any]]:
+    """로고 이력 (#20) — 검토용. 데이터는 싣지 않고 상태만 보인다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT logo_asset_id, version_no, approval_status, checksum,
+                      COALESCE(requested_by,''), COALESCE(approved_by,''),
+                      COALESCE(reject_reason,''), to_char(requested_at,'YYYY-MM-DD HH24:MI')
+               FROM customer_logo_asset WHERE tenant_id=%s AND customer_company_id=%s
+               ORDER BY version_no DESC""", (tid, customer_id))
+        return [{"logoAssetId": r[0], "versionNo": r[1], "approvalStatus": r[2], "checksum": r[3],
+                 "requestedBy": r[4], "approvedBy": r[5], "rejectReason": r[6], "requestedAt": r[7]}
+                for r in cur.fetchall()]
+
+
+class DocCustomerIn(BaseModel):
+    customerCompanyId: int | None = None
+
+
+@router.put("/documents/{doc_no}/customer", dependencies=[SETUP])
+def document_set_customer(doc_no: str, request: Request, body: DocCustomerIn) -> dict[str, Any]:
+    """문서의 고객사 참조 설정 (#20) — 이미지를 복사하지 않고 **참조**를 건다.
+
+    로고가 교체·재승인되면 문서를 손대지 않아도 표시가 따라간다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT doc_control_id FROM doc_control WHERE tenant_id=%s AND doc_no=%s",
+                    (tid, doc_no))
+        d = cur.fetchone()
+        if not d:
+            raise HTTPException(404, detail=f"문서 없음: {doc_no}")
+        if body.customerCompanyId is not None:
+            cur.execute("SELECT 1 FROM customer_company "
+                        "WHERE tenant_id=%s AND customer_company_id=%s",
+                        (tid, body.customerCompanyId))
+            if not cur.fetchone():
+                raise HTTPException(404, detail=f"고객사 없음: {body.customerCompanyId}")
+        cur.execute("UPDATE doc_control SET customer_company_id=%s WHERE tenant_id=%s AND doc_no=%s",
+                    (body.customerCompanyId, tid, doc_no))
+        _audit(cur, tid, "doc_control", d[0], "DOC_CUSTOMER_SET", request.state.user_id,
+               {"docNo": doc_no, "customerCompanyId": body.customerCompanyId})
+    return {"docNo": doc_no, "customerCompanyId": body.customerCompanyId}
+
+
+@router.get("/documents/{doc_no}/branding")
+def document_branding(doc_no: str) -> dict[str, Any]:
+    """문서에 실릴 브랜딩 (#20) — 참조를 따라가 **승인본만** 해석한다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT d.customer_company_id, c.company_code, c.company_name
+               FROM doc_control d LEFT JOIN customer_company c
+                 ON c.customer_company_id=d.customer_company_id
+               WHERE d.tenant_id=%s AND d.doc_no=%s""", (tid, doc_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"문서 없음: {doc_no}")
+        if not row[0]:
+            return {"docNo": doc_no, "customerCompanyId": None, "logoData": None,
+                    "approved": False, "reason": "고객사 참조가 설정되지 않았습니다"}
+        cur.execute(
+            """SELECT version_no, logo_data FROM customer_logo_asset
+               WHERE customer_company_id=%s AND approval_status='APPROVED'""", (row[0],))
+        a = cur.fetchone()
+    return {"docNo": doc_no, "customerCompanyId": row[0], "companyCode": row[1],
+            "companyName": row[2], "versionNo": a[0] if a else None,
+            "logoData": a[1] if a else None, "approved": bool(a),
+            "reason": None if a else "승인된 로고가 없습니다 — 승인 전 로고는 문서에 싣지 않습니다 (#20)"}
+
+
 # ── 7.9 ERP Domain/Process/Workflow 선반영 (요구 #50) ──
 # 근거 문서 §10.1 "업무 화면을 먼저 고정 개발하지 말고 Head/Template/Workflow/Permission
 # 구조를 먼저 만든다". 회사마다 업무 순서·승인 조건이 다르므로 ERP 를 고정 화면이 아니라
