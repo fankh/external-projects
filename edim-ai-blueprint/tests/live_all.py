@@ -104,6 +104,7 @@ SUITES = [
     "live_snapshot.py",             # Snapshot 체계 (1.7) — 고정·재현 검증·drift·Handoff 연결
     "live_process_nav.py",          # 좌측 프로세스 패널 (2.0) — 시드·편집·순서·권한
     "live_head_registry.py",        # Head Registry (4.0) — 권한 표시·상태기계·게시 게이트·System 가드
+    "live_accordion_host.py",       # 우측 Accordion Template Host (4.1) — 개별 접기·상태 보존
     "live_product_builder.py",      # Product Code Builder (2.2) — 승인 조합 전용·해시·Rev drift
     "live_bom_basis.py",            # BOM 전개 근거 (2.7) — 관계 Revision 고정·이동 감지·순환/테넌트 가드
     "live_file_role.py",            # 산출물/원본 이원화 (3.3) — OUTPUT 불변·동명 저장 격리·역할 노출
