@@ -8164,6 +8164,280 @@ def tenant_branding_put(request: Request, body: BrandingPut) -> dict[str, Any]:
     return {"saved": True}
 
 
+# ── 5.6 Toolbox Program Package (요구 #56 · 위험도 #61 · Sandbox #62 전제) ──
+# 사용자 확장(Macro/UI Form/Templet)이 낱개로 승인·배포돼 "무엇을 함께 내보냈는가"가 없었고
+# 되돌릴 단위도 없었다. Package 로 묶어 DRAFT→GUARD→SANDBOX→APPROVED→PUBLISHED 를 태운다.
+_PKG_FLOW = {
+    "DRAFT": {"GUARD", "RETIRED"},
+    "GUARD": {"SANDBOX", "DRAFT"},
+    "SANDBOX": {"APPROVED", "DRAFT"},
+    "APPROVED": {"PUBLISHED", "DRAFT"},
+    "PUBLISHED": {"RETIRED"},          # 게시본은 내용 불변 — 바꾸려면 새 버전
+    "RETIRED": set(),
+}
+_PKG_RISK = ("LOW", "MEDIUM", "HIGH", "CRITICAL")
+
+
+def _pkg_row(cur, tid: int, package_id: int) -> tuple:
+    cur.execute(
+        """SELECT package_id, package_code, package_name, version_no, status, risk_level,
+                  COALESCE(note,''), checksum
+           FROM tbx_package WHERE tenant_id=%s AND package_id=%s""", (tid, package_id))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"패키지 없음: {package_id}")
+    return row
+
+
+def _pkg_items(cur, package_id: int) -> list[dict[str, Any]]:
+    cur.execute(
+        """SELECT item_id, item_type, item_ref, snapshot IS NOT NULL
+           FROM tbx_package_item WHERE package_id=%s ORDER BY item_type, item_ref""", (package_id,))
+    return [{"itemId": r[0], "itemType": r[1], "itemRef": r[2], "frozen": r[3]}
+            for r in cur.fetchall()]
+
+
+def _pkg_checksum(cur, package_id: int) -> str:
+    """패키지 내용 해시 — 항목 snapshot 의 정규화 SHA-256 (Snapshot 규약과 동일)."""
+    cur.execute(
+        """SELECT item_type, item_ref, COALESCE(snapshot,'null'::jsonb)
+           FROM tbx_package_item WHERE package_id=%s ORDER BY item_type, item_ref""", (package_id,))
+    return _snapshot_checksum({"items": [[r[0], r[1], r[2]] for r in cur.fetchall()]})
+
+
+class PackageCreate(BaseModel):
+    packageCode: str
+    packageName: str
+    riskLevel: str = "LOW"
+    note: str = ""
+
+
+@router.get("/toolbox/packages")
+def package_list(status: str = "") -> list[dict[str, Any]]:
+    """Package 목록 (#56) — 코드·버전별."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        clause, params = "", [tid]
+        if status.strip():
+            clause = " AND p.status=%s"
+            params.append(status.strip().upper())
+        cur.execute(
+            f"""SELECT p.package_id, p.package_code, p.package_name, p.version_no, p.status,
+                       p.risk_level, COALESCE(p.note,''), p.checksum,
+                       (SELECT count(*) FROM tbx_package_item i WHERE i.package_id=p.package_id),
+                       to_char(p.created_at,'YYYY-MM-DD'),
+                       to_char(p.published_at,'YYYY-MM-DD')
+                FROM tbx_package p WHERE p.tenant_id=%s{clause}
+                ORDER BY p.package_code, p.version_no DESC""", tuple(params))
+        return [{"packageId": r[0], "packageCode": r[1], "packageName": r[2], "version": r[3],
+                 "status": r[4], "riskLevel": r[5], "note": r[6], "checksum": r[7],
+                 "items": int(r[8]), "createdAt": r[9], "publishedAt": r[10]}
+                for r in cur.fetchall()]
+
+
+@router.get("/toolbox/packages/{package_id}")
+def package_detail(package_id: int) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        r = _pkg_row(cur, tid, package_id)
+        cur.execute("SELECT guard_report, sandbox_report FROM tbx_package WHERE package_id=%s",
+                    (package_id,))
+        rep = cur.fetchone()
+        return {"packageId": r[0], "packageCode": r[1], "packageName": r[2], "version": r[3],
+                "status": r[4], "riskLevel": r[5], "note": r[6], "checksum": r[7],
+                "items": _pkg_items(cur, package_id),
+                "guardReport": rep[0], "sandboxReport": rep[1],
+                "nextStates": sorted(_PKG_FLOW[r[4]])}
+
+
+@router.post("/toolbox/packages", status_code=201, dependencies=[SETUP])
+def package_create(request: Request, body: PackageCreate) -> dict[str, Any]:
+    """Package 등록 — 항상 DRAFT v1 (#56)."""
+    code = body.packageCode.strip().upper()[:40]
+    if not code or not body.packageName.strip():
+        raise HTTPException(422, detail="필수 — 패키지 코드·이름")
+    risk = body.riskLevel.strip().upper()
+    if risk not in _PKG_RISK:
+        raise HTTPException(422, detail=f"위험도는 {'/'.join(_PKG_RISK)}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM tbx_package WHERE tenant_id=%s AND package_code=%s AND version_no=1",
+                    (tid, code))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 패키지 {code} v1 이미 존재")
+        cur.execute(
+            """INSERT INTO tbx_package (tenant_id, package_code, package_name, risk_level,
+               note, created_by) VALUES (%s,%s,%s,%s,%s,%s) RETURNING package_id""",
+            (tid, code, body.packageName.strip()[:150], risk,
+             body.note.strip()[:300] or None, request.state.login))
+        pid = cur.fetchone()[0]
+        _audit(cur, tid, "tbx_package", pid, "CREATE", request.state.user_id,
+               {"packageCode": code, "risk": risk})
+    return {"packageId": pid, "packageCode": code, "version": 1, "status": "DRAFT"}
+
+
+class PackageItemAdd(BaseModel):
+    itemType: str
+    itemRef: str
+
+
+@router.post("/toolbox/packages/{package_id}/items", status_code=201, dependencies=[SETUP])
+def package_item_add(package_id: int, request: Request, body: PackageItemAdd) -> dict[str, Any]:
+    """구성 항목 추가 (#56) — 등록 시점 정의를 snapshot 으로 고정한다.
+
+    원본 Macro/Form/Templet 이 나중에 바뀌어도 **패키지 내용은 그대로**다(배포 단위의 불변성)."""
+    it = body.itemType.strip().upper()
+    ref = body.itemRef.strip()
+    if it not in ("MACRO", "FORM", "TEMPLET"):
+        raise HTTPException(422, detail="itemType 은 MACRO/FORM/TEMPLET")
+    if not ref:
+        raise HTTPException(422, detail="itemRef 는 필수")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        r = _pkg_row(cur, tid, package_id)
+        if r[4] != "DRAFT":
+            raise HTTPException(
+                409, detail=f"DRAFT 에서만 구성을 바꿀 수 있습니다 (현재 {r[4]}) — "
+                            "게시본은 새 버전으로 만드십시오 (#56)")
+        # 원본 정의 스냅샷
+        snap = None
+        if it == "MACRO":
+            cur.execute("SELECT macro_name, macro_expr, COALESCE(code_text,''), status "
+                        "FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s", (tid, ref))
+            m = cur.fetchone()
+            if not m:
+                raise HTTPException(422, detail=f"Macro 없음: {ref}")
+            snap = {"name": m[0], "expr": m[1], "code": m[2], "status": m[3]}
+        elif it == "TEMPLET":
+            cur.execute("SELECT templet_name, templet_type, definition FROM tbx_templet "
+                        "WHERE tenant_id=%s AND templet_name=%s", (tid, ref))
+            m = cur.fetchone()
+            if not m:
+                raise HTTPException(422, detail=f"Templet 없음: {ref}")
+            snap = {"name": m[0], "type": m[1], "definition": m[2]}
+        else:
+            cur.execute("SELECT form_name, form_type, layout_def, version FROM tbx_ui_form "
+                        "WHERE tenant_id=%s AND form_name=%s", (tid, ref))
+            m = cur.fetchone()
+            if not m:
+                raise HTTPException(422, detail=f"UI Form 없음: {ref}")
+            snap = {"name": m[0], "type": m[1], "layout": m[2], "version": m[3]}
+        cur.execute("SELECT 1 FROM tbx_package_item WHERE package_id=%s AND item_type=%s AND item_ref=%s",
+                    (package_id, it, ref))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"이미 포함된 항목: {it} {ref}")
+        cur.execute(
+            """INSERT INTO tbx_package_item (package_id, item_type, item_ref, snapshot)
+               VALUES (%s,%s,%s,%s) RETURNING item_id""",
+            (package_id, it, ref, json.dumps(snap, ensure_ascii=False, default=str)))
+        iid = cur.fetchone()[0]
+        cur.execute("UPDATE tbx_package SET checksum=%s, updated_at=now() WHERE package_id=%s",
+                    (_pkg_checksum(cur, package_id), package_id))
+        _audit(cur, tid, "tbx_package", package_id, "ITEM_ADD", request.state.user_id,
+               {"itemType": it, "itemRef": ref})
+    return {"itemId": iid, "itemType": it, "itemRef": ref}
+
+
+@router.delete("/toolbox/packages/{package_id}/items/{item_id}", dependencies=[SETUP])
+def package_item_del(package_id: int, item_id: int, request: Request) -> dict[str, Any]:
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        r = _pkg_row(cur, tid, package_id)
+        if r[4] != "DRAFT":
+            raise HTTPException(409, detail=f"DRAFT 에서만 구성을 바꿀 수 있습니다 (현재 {r[4]})")
+        cur.execute("DELETE FROM tbx_package_item WHERE package_id=%s AND item_id=%s RETURNING item_ref",
+                    (package_id, item_id))
+        d = cur.fetchone()
+        if not d:
+            raise HTTPException(404, detail=f"항목 없음: {item_id}")
+        cur.execute("UPDATE tbx_package SET checksum=%s, updated_at=now() WHERE package_id=%s",
+                    (_pkg_checksum(cur, package_id), package_id))
+        _audit(cur, tid, "tbx_package", package_id, "ITEM_DEL", request.state.user_id,
+               {"itemRef": d[0]})
+    return {"deleted": item_id}
+
+
+class PackageTransition(BaseModel):
+    status: str
+    note: str = ""
+
+
+@router.post("/toolbox/packages/{package_id}/transition", dependencies=[SETUP])
+def package_transition(package_id: int, request: Request, body: PackageTransition) -> dict[str, Any]:
+    """상태 전이 (#56) — 순서를 건너뛸 수 없다.
+
+    GUARD 는 설계시 검사(#61), SANDBOX 는 격리 테스트(#62) 통과를 뜻하며 각 단계에서 보고서를 남긴다.
+    CRITICAL 위험도는 EDIM 운영 테넌트만 승인할 수 있다(#61)."""
+    to = body.status.strip().upper()
+    if to not in _PKG_FLOW:
+        raise HTTPException(422, detail=f"상태는 {'/'.join(_PKG_FLOW)}")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        r = _pkg_row(cur, tid, package_id)
+        cur_status, risk = r[4], r[5]
+        if to not in _PKG_FLOW[cur_status]:
+            raise HTTPException(
+                422, detail=f"허용되지 않는 전이: {cur_status} → {to} "
+                            f"(가능: {', '.join(sorted(_PKG_FLOW[cur_status])) or '없음'})")
+        items = _pkg_items(cur, package_id)
+        if to == "GUARD" and not items:
+            raise HTTPException(409, detail="구성 항목이 없는 패키지는 검사할 수 없습니다 (#56)")
+        if to == "APPROVED" and risk == "CRITICAL":
+            cur.execute("SELECT tenant_code FROM sys_tenant WHERE tenant_id=%s", (tid,))
+            t = cur.fetchone()
+            if not t or t[0] != TENANT:
+                raise HTTPException(
+                    403, detail="CRITICAL 위험도 패키지는 EDIM 운영자 승인이 필요합니다 (#61)")
+        if to == "PUBLISHED":
+            if not _action_allowed(cur, tid, request.state.user_id,
+                                   getattr(request.state, "level", "GENERAL"), "package", "DEPLOY"):
+                raise HTTPException(403, detail="배포 권한 없음 — 역할에 DEPLOY 동사가 필요합니다 (#3)")
+        sets = ["status=%s", "updated_by=%s", "updated_at=now()"]
+        params: list[Any] = [to, request.state.login]
+        if to == "GUARD":
+            sets.append("guard_report=%s")
+            params.append(json.dumps({"checkedItems": len(items), "risk": risk,
+                                      "note": body.note.strip()}, ensure_ascii=False))
+        if to == "SANDBOX":
+            sets.append("sandbox_report=%s")
+            params.append(json.dumps({"ranItems": len(items), "note": body.note.strip()},
+                                     ensure_ascii=False))
+        if to == "PUBLISHED":
+            sets.append("published_at=now()")
+        params += [tid, package_id]
+        cur.execute(f"UPDATE tbx_package SET {', '.join(sets)} WHERE tenant_id=%s AND package_id=%s",
+                    tuple(params))
+        _audit(cur, tid, "tbx_package", package_id, f"PKG_{to}", request.state.user_id,
+               {"from": cur_status, "risk": risk})
+    return {"packageId": package_id, "status": to, "from": cur_status}
+
+
+@router.post("/toolbox/packages/{package_id}/new-version", status_code=201, dependencies=[SETUP])
+def package_new_version(package_id: int, request: Request) -> dict[str, Any]:
+    """게시본 수정 = 새 버전 (#56·#63 Rollback 전제) — 구성 항목을 복사한 DRAFT 를 만든다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        r = _pkg_row(cur, tid, package_id)
+        cur.execute("SELECT COALESCE(max(version_no),0) FROM tbx_package "
+                    "WHERE tenant_id=%s AND package_code=%s", (tid, r[1]))
+        nxt = int(cur.fetchone()[0]) + 1
+        cur.execute(
+            """INSERT INTO tbx_package (tenant_id, package_code, package_name, version_no,
+               risk_level, note, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING package_id""",
+            (tid, r[1], r[2], nxt, r[5], r[6] or None, request.state.login))
+        new_id = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO tbx_package_item (package_id, item_type, item_ref, snapshot)
+               SELECT %s, item_type, item_ref, snapshot FROM tbx_package_item WHERE package_id=%s""",
+            (new_id, package_id))
+        cur.execute("UPDATE tbx_package SET checksum=%s WHERE package_id=%s",
+                    (_pkg_checksum(cur, new_id), new_id))
+        _audit(cur, tid, "tbx_package", new_id, "NEW_VERSION", request.state.user_id,
+               {"from": package_id, "version": nxt})
+    return {"packageId": new_id, "packageCode": r[1], "version": nxt, "status": "DRAFT"}
+
+
 # ── 4.0 Head Registry (요구 #14·#19·#21) — 권한 기반 Head + 편집 상태기계 + 게시 게이트 ──
 # EP2 슬라이드 56: Head 는 개발자용/관리자용/사용자용으로 나뉜 다단계 구조이고,
 # Head 마다 좌/중/우 패널 바인딩이 따로 붙는다. 2.0 프로세스 패널(#17)은 한 Head 의 좌측에 해당한다.
