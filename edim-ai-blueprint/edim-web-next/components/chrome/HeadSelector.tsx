@@ -55,7 +55,8 @@ export function HeadSelector() {
         onChange={(e) => go(e.target.value)}
         style={{ height: 20, fontSize: 10.5, maxWidth: 150 }}>
         {heads.map((h) => (
-          <option key={h.headId} value={h.headCode}>{h.headName}</option>
+          // 표준 Head 는 번역, 테넌트가 개명한 Head 는 저장된 이름 그대로(폴백)
+          <option key={h.headId} value={h.headCode}>{t(`head.name.${h.headName}`, h.headName)}</option>
         ))}
       </select>
     </span>

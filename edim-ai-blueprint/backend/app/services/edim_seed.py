@@ -3599,6 +3599,12 @@ UI_TRANSLATIONS_V33: dict[str, tuple[str, str, str]] = {
     "head.publishedLocked": ('Published — withdraw to edit', '公開中 — 取り下げ後に編集', '已发布 — 撤回后编辑'),
     "head.empty": ('No Heads — start with standard Heads', 'Head なし — 標準 Head から開始', '暂无 Head — 从标准 Head 开始'),
     "head.clickSelect": ('Click a row to select', '行クリックで選択', '点击行选择'),
+    # 표준 Head 이름 — 프로세스 단계명(2.5)과 같은 규약: 키는 시드 이름 자체,
+    # 테넌트가 개명하면 저장된 이름 그대로 폴백된다
+    "head.name.업무 (사용자)": ('Operations (User)', '業務 (ユーザー)', '业务 (用户)'),
+    "head.name.설정 (Set-up)": ('Set-up', '設定 (Set-up)', '设置 (Set-up)'),
+    "head.name.관리 (기업 관리자)": ('Administration', '管理 (企業管理者)', '管理 (企业管理员)'),
+    "head.name.플랫폼 (EDIM)": ('Platform (EDIM)', 'プラットフォーム (EDIM)', '平台 (EDIM)'),
     "panel.templates": ('Template', 'Template', 'Template'),
     "panel.expandAll": ('Expand all', 'すべて展開', '全部展开'),
     "panel.collapseAll": ('Collapse all', 'すべて折りたたむ', '全部折叠'),
