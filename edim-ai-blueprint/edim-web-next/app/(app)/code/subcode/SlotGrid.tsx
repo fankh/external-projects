@@ -14,8 +14,9 @@ export interface SlotRow {
   count: number; status: string; approved: boolean
 }
 
-const GT_LABEL: Record<string, string> = {
-  SPECIFICATION: '사양', RAW_MATERIAL: '원자재', GPI: '구매품', PRODUCT: '제품',
+const GT_KEY: Record<string, [string, string]> = {
+  SPECIFICATION: ['subcode.gtShortSpec', '사양'], RAW_MATERIAL: ['subcode.gtShortRaw', '원자재'],
+  GPI: ['subcode.gtShortGpi', '구매품'], PRODUCT: ['subcode.gtShortProduct', '제품'],
 }
 export interface GroupRow { groupCode: string; groupType: string; slotCount: number }
 
@@ -86,7 +87,7 @@ export function SlotGrid({ rows, group, groups = [] }: {
         <select className="in" data-group-pick value={group} style={{ height: 22, fontSize: 11, width: 190 }}
           onChange={(e) => router.push(`/code/subcode?group=${encodeURIComponent(e.target.value)}`)}>
           {groups.length ? groups.map((g) => (
-            <option key={g.groupCode} value={g.groupCode}>{g.groupCode} — {GT_LABEL[g.groupType] ?? g.groupType} ({g.slotCount})</option>
+            <option key={g.groupCode} value={g.groupCode}>{g.groupCode} — {GT_KEY[g.groupType] ? t(GT_KEY[g.groupType][0], GT_KEY[g.groupType][1]) : g.groupType} ({g.slotCount})</option>
           )) : <option value={group}>{group}</option>}
         </select>
         <form action={grpAction} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>

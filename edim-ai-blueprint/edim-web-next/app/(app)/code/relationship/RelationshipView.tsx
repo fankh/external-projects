@@ -43,7 +43,7 @@ function SlotMapEditor({ children }: { children: ChildRow[] }) {
           style={{ height: 22, width: 190 }}>
           {mapped.map((c) => (
             <option key={c.relId} value={c.relId}>
-              {c.code} {c.slotMapCount ? `(${c.slotMapCount})` : '(0 — 미정의)'}
+              {c.code} {c.slotMapCount ? `(${c.slotMapCount})` : `(0 — ${t('codrel.undefined', '미정의')})`}
             </option>
           ))}
         </select>

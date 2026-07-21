@@ -3606,6 +3606,11 @@ UI_TRANSLATIONS_V33: dict[str, tuple[str, str, str]] = {
     "head.name.관리 (기업 관리자)": ('Administration', '管理 (企業管理者)', '管理 (企业管理员)'),
     "head.name.플랫폼 (EDIM)": ('Platform (EDIM)', 'プラットフォーム (EDIM)', '平台 (EDIM)'),
     # 4.6 #29 — Slot 매핑 편집기
+    "subcode.gtShortSpec": ('Spec', '仕様', '规格'),
+    "subcode.gtShortRaw": ('Raw', '原材料', '原材料'),
+    "subcode.gtShortGpi": ('Purchased', '購買品', '采购品'),
+    "subcode.gtShortProduct": ('Product', '製品', '产品'),
+    "codrel.undefined": ('undefined', '未定義', '未定义'),
     "subcode.gtSpec": ('Specification', '仕様 (Specification)', '规格 (Specification)'),
     "subcode.gtRaw": ('Raw Material', '原材料 (Raw Material)', '原材料 (Raw Material)'),
     "subcode.gtGpi": ('Purchased (GPI)', '購買品 (GPI)', '采购品 (GPI)'),
