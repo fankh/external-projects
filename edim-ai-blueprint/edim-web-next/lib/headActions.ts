@@ -8,6 +8,8 @@ export interface HeadRow {
   headId: number; headCode: string; headName: string; headType: 'SYSTEM' | 'TENANT'
   minLevel: string; status: string; sortOrder: number; note: string
   bindings: number; centerBindings: number; publishable: boolean
+  // #18 Head Design — 구조와 분리된 표시 설정
+  visible?: boolean; pinned?: boolean; kpiKeys?: string[]; designScope?: string | null
 }
 export interface HeadBinding {
   bindingId: number; panel: 'LEFT' | 'CENTER' | 'RIGHT'
@@ -114,4 +116,21 @@ export async function requestHeadApproval(id: number, label: string): Promise<Ac
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : '승인 요청 실패' }
   }
+}
+
+/** #18 Head Design — 표시(순서·가시성·Pin·KPI) 저장. 구조 승인과 무관하게 즉시 반영. */
+export async function saveHeadDesign(headId: number, patch: {
+  visible?: boolean; pinned?: boolean; displayOrder?: number; kpiKeys?: string[]; scope?: string
+}): Promise<ActState> {
+  try {
+    await apiServer(`/heads/${headId}/design`, { method: 'PUT', body: JSON.stringify(patch) })
+    revalidatePath('/erp/heads')
+    return { ok: '표시 설정 저장 ✓' }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '표시 설정 저장 실패' }
+  }
+}
+
+export async function kpiCatalog(): Promise<{ key: string; label: string }[]> {
+  try { return await apiServer('/heads/kpi-catalog') } catch { return [] }
 }

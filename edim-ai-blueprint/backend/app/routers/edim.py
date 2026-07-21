@@ -8020,7 +8020,7 @@ _HEAD_SEED = [
 ]
 
 
-def _head_rows(cur, tid: int, level: str, editing: bool) -> list[dict[str, Any]]:
+def _head_rows(cur, tid: int, level: str, editing: bool, user_id: int) -> list[dict[str, Any]]:
     """Head 목록 — 일반 사용자는 **PUBLISHED + 자기 레벨 이하**만 본다(#14).
     편집 권한자(SETUP+)는 편집을 위해 DRAFT/REVIEW/APPROVED 도 함께 본다."""
     clause = "" if editing else " AND h.status='PUBLISHED'"
@@ -8042,6 +8042,21 @@ def _head_rows(cur, tid: int, level: str, editing: bool) -> list[dict[str, Any]]
                     "minLevel": r[4], "status": r[5], "sortOrder": r[6], "note": r[7],
                     "bindings": r[8], "centerBindings": r[9],
                     "publishable": r[9] > 0})
+    # #18 — 표시(Design)는 구조와 분리 저장이므로 여기서 덧입힌다.
+    # 숨김은 사용자 목록에서만 적용한다(편집 화면에서는 숨긴 Head 도 보여야 관리가 된다).
+    design = _design_for(cur, tid, [h["headId"] for h in out], user_id)
+    for h in out:
+        d = design.get(h["headId"], {})
+        h["visible"] = bool(d.get("visible", True))
+        h["pinned"] = bool(d.get("pinned", False))
+        h["kpiKeys"] = d.get("kpiKeys", [])
+        h["designScope"] = d.get("scope")
+        if d.get("displayOrder"):
+            h["sortOrder"] = d["displayOrder"]
+    if not editing:
+        out = [h for h in out if h["visible"]]
+    # 고정(Pin) 우선 → 표시 순서 → 코드
+    out.sort(key=lambda h: (not h["pinned"], h["sortOrder"], h["headCode"]))
     return out
 
 
@@ -8053,7 +8068,7 @@ def head_list(request: Request, editing: bool = False) -> list[dict[str, Any]]:
         raise HTTPException(403, detail="권한 부족 — 편집 목록은 SETUP 이상")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        return _head_rows(cur, tid, lvl, editing)
+        return _head_rows(cur, tid, lvl, editing, request.state.user_id)
 
 
 @router.get("/heads/{head_id}")
@@ -8275,6 +8290,109 @@ def head_unbind(head_id: int, binding_id: int, request: Request) -> dict[str, An
             raise HTTPException(404, detail=f"바인딩 없음: {binding_id}")
         _audit(cur, tid, "sys_head", head_id, "UNBIND", request.state.user_id, {"panel": d[0]})
     return {"deleted": binding_id, "panel": d[0]}
+
+
+# ── 4.4 Head Design (요구 #18) — 표시(순서·가시성·Pin·KPI)를 구조와 분리 ──
+# 구조(sys_head/binding)는 승인·게시를 거치지만, 표시는 관리자가 즉시 바꾸거나 개인화한다.
+_KPI_CATALOG = {
+    "runs": "진행 중 Run", "approvals": "결재 대기", "todos": "내 To-Do",
+    "projects": "활성 프로젝트", "handoffs": "ERP 수신 대기", "anomalies": "이상 경고",
+}
+
+
+class HeadDesign(BaseModel):
+    visible: bool | None = None
+    pinned: bool | None = None
+    displayOrder: int | None = None
+    kpiKeys: list[str] | None = None
+    scope: str = "TENANT"      # TENANT(관리자 기본) | USER(개인)
+
+
+def _design_for(cur, tid: int, head_ids: list[int], user_id: int) -> dict[int, dict[str, Any]]:
+    """Head 별 유효 표시 설정 — USER 개인화가 있으면 그것이 TENANT 기본을 덮는다."""
+    if not head_ids:
+        return {}
+    cur.execute(
+        """SELECT head_id, scope, visible, pinned, display_order, kpi_keys
+           FROM sys_head_design
+           WHERE tenant_id=%s AND head_id = ANY(%s) AND (scope='TENANT' OR user_id=%s)
+           ORDER BY head_id, scope""", (tid, head_ids, user_id))
+    out: dict[int, dict[str, Any]] = {}
+    for hid, scope, vis, pin, order, kpi in cur.fetchall():
+        cur_row = out.get(hid)
+        # USER 가 TENANT 를 덮어쓴다 (ORDER BY scope: TENANT < USER 알파벳순이라 USER 가 뒤)
+        if cur_row and scope != "USER":
+            continue
+        out[hid] = {"visible": vis, "pinned": pin, "displayOrder": order,
+                    "kpiKeys": kpi or [], "scope": scope}
+    return out
+
+
+@router.get("/heads/kpi-catalog")
+def head_kpi_catalog() -> list[dict[str, str]]:
+    """Head Design 에서 고를 수 있는 KPI 목록 (#18)."""
+    return [{"key": k, "label": v} for k, v in _KPI_CATALOG.items()]
+
+
+@router.put("/heads/{head_id}/design", dependencies=[SETUP])
+def head_design_save(head_id: int, request: Request, body: HeadDesign) -> dict[str, Any]:
+    """Head 표시 설정 저장 (#18) — 구조 승인과 무관하게 즉시 반영.
+    게시본이어도 표시는 바꿀 수 있다(구조가 아니라 표현이므로)."""
+    scope = body.scope.strip().upper()
+    if scope not in ("TENANT", "USER"):
+        raise HTTPException(422, detail="scope 는 TENANT 또는 USER")
+    bad = [k for k in (body.kpiKeys or []) if k not in _KPI_CATALOG]
+    if bad:
+        raise HTTPException(422, detail=f"알 수 없는 KPI: {', '.join(bad)}")
+    uid = request.state.user_id if scope == "USER" else None
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM sys_head WHERE tenant_id=%s AND head_id=%s", (tid, head_id))
+        if not cur.fetchone():
+            raise HTTPException(404, detail=f"Head 없음: {head_id}")
+        cur.execute(
+            """SELECT design_id, visible, pinned, display_order, kpi_keys FROM sys_head_design
+               WHERE tenant_id=%s AND head_id=%s AND scope=%s
+                 AND user_id IS NOT DISTINCT FROM %s""", (tid, head_id, scope, uid))
+        row = cur.fetchone()
+        vis = body.visible if body.visible is not None else (row[1] if row else True)
+        pin = body.pinned if body.pinned is not None else (row[2] if row else False)
+        order = body.displayOrder if body.displayOrder is not None else (row[3] if row else 0)
+        kpi = body.kpiKeys if body.kpiKeys is not None else (row[4] if row else [])
+        if row:
+            cur.execute(
+                """UPDATE sys_head_design SET visible=%s, pinned=%s, display_order=%s,
+                   kpi_keys=%s, updated_by=%s, updated_at=now() WHERE design_id=%s""",
+                (vis, pin, order, json.dumps(kpi), request.state.login, row[0]))
+        else:
+            cur.execute(
+                """INSERT INTO sys_head_design (tenant_id, head_id, scope, user_id, visible,
+                   pinned, display_order, kpi_keys, updated_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (tid, head_id, scope, uid, vis, pin, order, json.dumps(kpi), request.state.login))
+        _audit(cur, tid, "sys_head", head_id, "DESIGN", request.state.user_id,
+               {"scope": scope, "visible": vis, "pinned": pin, "kpi": kpi})
+    return {"headId": head_id, "scope": scope, "visible": vis, "pinned": pin,
+            "displayOrder": order, "kpiKeys": kpi}
+
+
+@router.delete("/heads/{head_id}/design", dependencies=[SETUP])
+def head_design_reset(head_id: int, request: Request, scope: str = "USER") -> dict[str, Any]:
+    """표시 설정 초기화 — 개인 설정을 지우면 테넌트 기본으로 돌아간다 (#18)."""
+    sc = scope.strip().upper()
+    if sc not in ("TENANT", "USER"):
+        raise HTTPException(422, detail="scope 는 TENANT 또는 USER")
+    uid = request.state.user_id if sc == "USER" else None
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """DELETE FROM sys_head_design WHERE tenant_id=%s AND head_id=%s AND scope=%s
+               AND user_id IS NOT DISTINCT FROM %s RETURNING design_id""",
+            (tid, head_id, sc, uid))
+        if not cur.fetchone():
+            raise HTTPException(404, detail="설정 없음")
+        _audit(cur, tid, "sys_head", head_id, "DESIGN_RESET", request.state.user_id, {"scope": sc})
+    return {"headId": head_id, "scope": sc, "reset": True}
 
 
 @router.post("/heads/seed", dependencies=[SETUP])

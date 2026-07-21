@@ -11,14 +11,20 @@ import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { usePermission } from '@/components/PermissionProvider'
 import {
-  addBinding, createHead, deleteHead, removeBinding, requestHeadApproval, seedHeads,
-  setHeadStatus, type ActState, type HeadDetail, type HeadRow,
+  addBinding, createHead, deleteHead, removeBinding, requestHeadApproval, saveHeadDesign,
+  seedHeads, setHeadStatus, type ActState, type HeadDetail, type HeadRow,
 } from '@/lib/headActions'
 
 const TONE: Record<string, 'ok' | 'warn' | 'info'> = {
   PUBLISHED: 'ok', APPROVED: 'info', REVIEW: 'warn', DRAFT: 'info', RETIRED: 'warn',
 }
 const PANELS = ['LEFT', 'CENTER', 'RIGHT'] as const
+
+const KPI_KEYS = ['runs', 'approvals', 'todos', 'projects', 'handoffs', 'anomalies'] as const
+const KPI_LABEL: Record<string, string> = {
+  runs: '진행 중 Run', approvals: '결재 대기', todos: '내 To-Do',
+  projects: '활성 프로젝트', handoffs: 'ERP 수신 대기', anomalies: '이상 경고',
+}
 
 export function HeadAdmin({ rows, detail, selId }: {
   rows: HeadRow[]; detail: HeadDetail | null; selId: number
@@ -52,6 +58,22 @@ export function HeadAdmin({ rows, detail, selId }: {
         </span>
       ) },
     { key: 'ord', header: t('head.order', '순서'), width: 52, align: 'right', render: (r) => r.sortOrder },
+    // #18 — 표시(Design)는 구조와 분리: 여기서 바꾼 값은 승인 없이 즉시 반영된다
+    { key: 'design', header: t('head.design', '표시'), width: 96, align: 'center', render: (r) => (
+      <span data-head-design={r.headCode} style={{ display: 'inline-flex', gap: 3 }}>
+        <span data-design-visible title={t('head.visible', '사용자 목록 표시')}
+          style={{ cursor: 'pointer', opacity: r.visible === false ? 0.35 : 1 }}
+          onClick={(e) => { e.stopPropagation(); act(() => saveHeadDesign(r.headId, { visible: !(r.visible !== false) })) }}>
+          {r.visible === false ? '🚫' : '👁'}
+        </span>
+        <span data-design-pin title={t('head.pin', '상단 고정')}
+          style={{ cursor: 'pointer', opacity: r.pinned ? 1 : 0.35 }}
+          onClick={(e) => { e.stopPropagation(); act(() => saveHeadDesign(r.headId, { pinned: !r.pinned })) }}>
+          📌
+        </span>
+        {r.kpiKeys?.length ? <span title={`KPI ${r.kpiKeys.length}`}>📊{r.kpiKeys.length}</span> : null}
+      </span>
+    ) },
   ]
 
   const act = (fn: () => Promise<ActState>) => start(async () => { setSt(await fn()); router.refresh() })
@@ -147,6 +169,24 @@ export function HeadAdmin({ rows, detail, selId }: {
                 {t('head.noCenter', 'center 바인딩 없음 — 게시 불가 (#19)')}
               </span>
             ) : null}
+          </div>
+          {/* #18 — KPI 선택: 표시 설정이라 승인·게시와 무관하게 즉시 저장된다 */}
+          <div data-head-kpi style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0 6px 6px', flexWrap: 'wrap', fontSize: 10.5 }}>
+            <span style={{ color: 'var(--txt-dim)' }}>{t('head.kpi', 'KPI (표시)')}</span>
+            {KPI_KEYS.map((k) => {
+              const on = (sel?.kpiKeys ?? []).includes(k)
+              return (
+                <label key={k} style={{ display: 'inline-flex', gap: 3, alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="checkbox" data-kpi={k} checked={on} disabled={pending || !canWrite}
+                    onChange={() => {
+                      const cur = sel?.kpiKeys ?? []
+                      const next = on ? cur.filter((x) => x !== k) : [...cur, k]
+                      act(() => saveHeadDesign(detail.headId, { kpiKeys: next }))
+                    }} />
+                  {t(`head.kpi.${k}`, KPI_LABEL[k])}
+                </label>
+              )
+            })}
           </div>
           <table className="g">
             <thead><tr>
