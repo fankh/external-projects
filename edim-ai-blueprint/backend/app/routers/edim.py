@@ -8000,8 +8000,10 @@ def cost_actual_create(request: Request, body: CostActualCreate) -> dict[str, An
 
 
 @router.get("/cost/actuals")
-def cost_actual_list(project: str = "") -> list[dict[str, Any]]:
-    """실적 원가 목록 (D6). project 지정 시 해당 프로젝트 귀속분만."""
+def cost_actual_list(request: Request, project: str = "") -> list[dict[str, Any]]:
+    """실적 원가 목록 (D6). project 지정 시 해당 프로젝트 귀속분만.
+
+    8.3 — 원가 열람 모드 적용 (단가·금액)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         params: list[Any] = [tid]
@@ -8014,10 +8016,15 @@ def cost_actual_list(project: str = "") -> list[dict[str, Any]]:
                       COALESCE(po_no,''), qty, unit_price, amount,
                       to_char(recorded_at,'MM-DD HH24:MI'), COALESCE(project_no,'')
                FROM cst_actual WHERE tenant_id=%s{clause} ORDER BY actual_id DESC""", tuple(params))
+        rows = cur.fetchall()
+        cm = _info_mode(cur, tid, request, "cost")
+        if cm != "full":
+            _audit(cur, tid, "cst_actual", 0, "MASKED_READ", request.state.user_id, {"cost": cm})
         return [{"actualId": r[0], "category": r[1], "itemCode": r[2], "itemName": r[3],
-                 "poNo": r[4], "qty": float(r[5]), "unitPrice": float(r[6]),
-                 "amount": float(r[7]), "recordedAt": r[8], "projectNo": r[9]}
-                for r in cur.fetchall()]
+                 "poNo": r[4], "qty": float(r[5]), "unitPrice": _mask_num(float(r[6]), cm),
+                 "amount": _mask_num(float(r[7]), cm), "recordedAt": r[8], "projectNo": r[9],
+                 "maskMode": cm}
+                for r in rows]
 
 
 @router.get("/cost/variance")
@@ -11341,17 +11348,25 @@ def _write_cst_calc(cur, tid: int, run_id: int, r) -> None:
 
 
 @router.get("/cpq/runs/{run_id}/costs")
-def run_costs(run_id: int) -> list[dict[str, Any]]:
-    """Run 원가 상세 — cst_calc 3분류 (B18)."""
+def run_costs(run_id: int, request: Request) -> list[dict[str, Any]]:
+    """Run 원가 상세 — cst_calc 3분류 (B18).
+
+    8.3 — 원가 열람 모드를 따른다. 종전에는 /cost/pcr 만 마스킹돼 있어, 같은 금액을 이 경로로
+    그대로 받아 갈 수 있었다(통제가 일부 경로에만 걸려 있으면 통제가 아니다)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT calc_type, detail, total_amount FROM cst_calc
                WHERE tenant_id=%s AND run_id=%s ORDER BY calc_id""", (tid, run_id))
         rows = cur.fetchall()
-    if not rows:
-        raise HTTPException(404, detail=f"원가 상세 없음 — Run #{run_id} (v10.2 이후 실행분부터 적재)")
-    return [{"calcType": r[0], "lines": r[1].get("lines", []), "total": float(r[2])} for r in rows]
+        if not rows:
+            raise HTTPException(404, detail=f"원가 상세 없음 — Run #{run_id} (v10.2 이후 실행분부터 적재)")
+        cm = _info_mode(cur, tid, request, "cost")
+        if cm != "full":
+            _audit(cur, tid, "cst_calc", run_id, "MASKED_READ", request.state.user_id, {"cost": cm})
+    return [{"calcType": r[0],
+             "lines": [] if cm in ("summary", "hidden", "masked") else r[1].get("lines", []),
+             "total": _mask_num(float(r[2]), cm), "maskMode": cm} for r in rows]
 
 
 # ── B21 시스템·UX 마감 — auth/me·다중 역할·Hierarchy 편집·문서 채번/전이·초대/비활성 ──
@@ -12714,8 +12729,11 @@ def reports_catalog() -> list[dict[str, Any]]:
 
 
 @router.get("/reports/pcr/{pcr_id}.pdf")
-def pcr_report_pdf(pcr_id: int) -> StreamingResponse:
-    """PCR 수익성 보고서 PDF (RPT-07) — 기여마진·EBIT·원가 구성."""
+def pcr_report_pdf(pcr_id: int, request: Request) -> StreamingResponse:
+    """PCR 수익성 보고서 PDF (RPT-07) — 기여마진·EBIT·원가 구성.
+
+    8.3 — 원가 열람이 제한된 사용자도 이 PDF 로는 기여마진·EBIT 을 그대로 받아 갈 수 있었다.
+    요구 #6 "조회 가능 ≠ Export 가능" 이 정작 원가 보고서에 걸려 있지 않았다."""
     import io as _io
 
     from reportlab.lib.pagesizes import A4
@@ -12725,6 +12743,7 @@ def pcr_report_pdf(pcr_id: int) -> StreamingResponse:
 
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _assert_downloadable(cur, tid, request, "cost")
         cur.execute(
             """SELECT p.business_type, p.sections, p.direct_cost_total, p.contribution_margin,
                       p.ebit, p.status, s.finished_goods_code, COALESCE(pr.project_no,''),
@@ -12857,7 +12876,8 @@ def quotation_create(request: Request, body: QuotationCreate) -> dict[str, Any]:
 
 
 @router.get("/cost/quotations")
-def quotation_list() -> list[dict[str, Any]]:
+def quotation_list(request: Request) -> list[dict[str, Any]]:
+    """견적 목록 — 8.3: 견적 금액 열람 모드 적용(금액·세액·공급가액)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute("SELECT code, rate_pct FROM tax_code WHERE tenant_id=%s", (tid,))
@@ -12870,16 +12890,23 @@ def quotation_list() -> list[dict[str, Any]]:
                JOIN prj_project p ON p.project_id=q.project_id
                JOIN com_company c ON c.company_id=q.customer_id
                WHERE q.tenant_id=%s ORDER BY q.quotation_id DESC""", (tid,))
+        rows = cur.fetchall()
+        qm = _info_mode(cur, tid, request, "quote")
+        if qm != "full":
+            _audit(cur, tid, "cst_quotation", 0, "MASKED_READ", request.state.user_id,
+                   {"quote": qm})
         out = []
-        for r in cur.fetchall():
+        for r in rows:
             total = float(r[2])
             pct = tax_rates.get(r[11], 0.0)   # vat_mode = 세금코드
             subtotal = round(total / (1 + pct / 100), 2) if pct else total
-            out.append({"quotationId": r[0], "quotationNo": r[1], "total": total, "currency": r[3],
+            out.append({"quotationId": r[0], "quotationNo": r[1],
+                        "total": _mask_num(total, qm), "currency": r[3],
                         "status": r[4], "date": r[5], "project": r[6], "customer": r[7],
                         "validity": r[8], "delivery": r[9], "payment": r[10],
-                        "taxCode": r[11], "taxPct": pct, "subtotal": subtotal,
-                        "tax": round(total - subtotal, 2)})
+                        "taxCode": r[11], "taxPct": pct,
+                        "subtotal": _mask_num(subtotal, qm),
+                        "tax": _mask_num(round(total - subtotal, 2), qm), "maskMode": qm})
         return out
 
 
@@ -13201,11 +13228,14 @@ def sales_orders() -> dict[str, Any]:
 
 
 @router.get("/cost/quotations/{quotation_id}/render.pdf")
-def quotation_render(quotation_id: int) -> Any:
-    """견적서 PDF 렌더 (U19) — CLT 공식 양식 (슬라이드 74: 헤더 메타·품목표·합계·조건)."""
+def quotation_render(quotation_id: int, request: Request) -> Any:
+    """견적서 PDF 렌더 (U19) — CLT 공식 양식 (슬라이드 74: 헤더 메타·품목표·합계·조건).
+
+    8.3 — 견적 금액 열람이 제한돼도 이 PDF 로는 전 금액을 내려받을 수 있었다 (요구 #6)."""
     from fastapi.responses import Response
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _assert_downloadable(cur, tid, request, "quote")
         cur.execute(
             """SELECT q.quotation_no, q.line_items, q.total_amount, p.project_no, q.currency, q.vat_mode,
                       p.project_name, c.company_name, COALESCE(q.delivery_terms,''),
