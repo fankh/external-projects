@@ -218,6 +218,22 @@ try:
     ok(f"★ DEPLOY 부여 후 게시 통과 ({st})", st == 200)
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": "workflow", "verbs": []})
 
+    # ── 8.10: Sub Code 값 승인(approve=true)도 승인 행위 ──
+    # 8.8 수작업 점검이 놓친 지점 — SET 절을 dict 로 조립해 정규식에 안 걸렸다.
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": ["READ"]})
+    vid = psql("SELECT value_id FROM code_item_value WHERE approval_status<>'APPROVED' LIMIT 1")
+    if not vid:
+        vid = psql("SELECT value_id FROM code_item_value ORDER BY value_id LIMIT 1")
+        psql(f"UPDATE code_item_value SET approval_status='PENDING' WHERE value_id={vid}")
+        globals()["_val_id"] = vid
+    ok(f"검증 대상 값 확보 (#{vid})", bool(vid))
+    st, b = req("PATCH", f"/codes/values/{vid}", TOK, {"approve": True})
+    ok(f"★ APPROVE 없이 값 승인 403 ({st})",
+       st == 403 and "APPROVE" in (b or {}).get("detail", ""))
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": ["READ", "APPROVE"]})
+    st, _ = req("PATCH", f"/codes/values/{vid}", TOK, {"approve": True})
+    ok(f"★ APPROVE 부여 후 값 승인 통과 ({st})", st == 200)
+
     # ── 설정 제거 = 미설정 복귀 ──
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": []})
     ok(f"동사 설정 제거 ({st})", st == 200)

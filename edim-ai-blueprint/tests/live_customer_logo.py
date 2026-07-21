@@ -64,6 +64,7 @@ def cleanup():
          "(SELECT doc_control_id FROM doc_control WHERE doc_no LIKE 'ZZDOC%')")
     psql("DELETE FROM doc_control WHERE doc_no LIKE 'ZZDOC%'")
     psql("DELETE FROM customer_company WHERE company_code LIKE 'ZZCUST%'")
+    psql("DELETE FROM sys_role_permission WHERE resource_key='approval'")
 
 
 TOK = login("edim", "edim")          # ADMIN — 승인 가능
@@ -179,6 +180,17 @@ try:
     ok(f"GENERAL 승인 403 ({st})", st == 403)
     st, _ = req("GET", f"/customers/{cid}/logo", GEN)
     ok("GENERAL 표시 조회는 허용 (문서에 실려야 하므로)", st == 200)
+
+    # ── 8.10: 로고 승인도 승인 행위 — APPROVE 동사 필요 ──
+    st, a9 = req("POST", f"/customers/{cid}/logo", TOK, {"logoData": PNG2 + "CC"})
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": "approval", "verbs": ["READ"]})
+    ok(f"approval 자원에 READ 만 부여 ({st})", st == 200)
+    st, b = req("POST", f"/customers/logos/{a9['logoAssetId']}/approve", TOK)
+    ok(f"★ APPROVE 없이 로고 승인 403 ({st})",
+       st == 403 and "APPROVE" in (b or {}).get("detail", ""))
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": "approval", "verbs": []})
+    ok(f"동사 설정 제거 ({st})", st == 200)
+
 finally:
     cleanup()
     left = psql("SELECT count(*) FROM customer_company WHERE company_code LIKE 'ZZCUST%'")

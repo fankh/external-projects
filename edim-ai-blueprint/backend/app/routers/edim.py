@@ -9141,6 +9141,11 @@ def customer_logo_approve(asset_id: int, request: Request) -> dict[str, Any]:
             raise HTTPException(404, detail=f"로고 없음: {asset_id}")
         if a[2] != "PENDING":
             raise HTTPException(409, detail=f"승인 대기 상태가 아닙니다 (현재 {a[2]})")
+        # 8.10 — 고객 문서에 실릴 로고를 확정하는 승인 행위다. 다른 승인과 같은 동사를 요구한다.
+        if not _action_allowed(cur, tid, request.state.user_id,
+                               getattr(request.state, "level", "GENERAL"),
+                               "approval", "APPROVE"):
+            raise HTTPException(403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
         cur.execute(
             """UPDATE customer_logo_asset SET approval_status='SUPERSEDED'
                WHERE customer_company_id=%s AND approval_status='APPROVED'""", (a[0],))
@@ -15143,6 +15148,13 @@ def patch_code_value(value_id: int, body: ValuePatch, request: Request) -> dict[
         raise HTTPException(422, detail="수정할 필드가 없습니다")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 8.10 — approve=true 는 승인 행위다(미승인 값을 조합 대상으로 편입시킨다).
+        # 8.8 의 수작업 점검은 이 지점을 놓쳤다 — SET 절을 dict 로 조립해 정규식에 걸리지 않았다.
+        # 정적 게이트(check_verb_guard)가 잡아낸 실제 누락.
+        if body.approve and not _action_allowed(
+                cur, tid, request.state.user_id,
+                getattr(request.state, "level", "GENERAL"), "approval", "APPROVE"):
+            raise HTTPException(403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
         cur.execute(
             "SELECT value_code, approval_status FROM code_item_value WHERE tenant_id=%s AND value_id=%s",
             (tid, value_id))

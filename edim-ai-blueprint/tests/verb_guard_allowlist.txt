@@ -1,0 +1,23 @@
+# 승인·배포 동사 강제 게이트 (8.10) 예외 목록 — 항목마다 근거를 남긴다.
+# 형식: <핸들러>::<상태>::<테이블>
+#
+# [오탐] 'APPROVED' 를 **읽기 조건**으로 쓸 뿐, 승인 결과를 쓰지 않는다.
+#   build_product: 선택된 Sub Code 값이 APPROVED 인지 검사한다(미승인이면 422).
+#                  생성되는 제품 코드 자체는 DRAFT 다.
+build_product::APPROVED::product_code
+#   support_package_create: 'PUBLISHED 된 활성 버전만 배포 가능' 이라는 조회 조건이다.
+support_package_create::PUBLISHED::sys_support_package
+#
+# [정당한 예외] 표준 카탈로그 시드 — 테넌트가 만든 내용을 배포하는 행위가 아니라
+#   EDIM 표준 Head 를 최초 적재하는 부트스트랩이다(SETUP 전용, 멱등).
+head_seed::PUBLISHED::sys_head
+#
+# [정당한 예외] Support Package 이중 승인 (7.4·#69) — PLATFORM 생성 → PLATFORM 검증 →
+#   **고객사 ADMIN 승인** 순서가 강제되는 2자 통제다. 동사 하나보다 강한 통제가 이미 걸려 있어
+#   DEPLOY 를 덧붙이지 않는다(규칙을 만족시키려 코드를 왜곡하지 않는다).
+support_package_approve::PUBLISHED::sys_support_package
+#
+# [정당한 예외] Set-up 버전 게시 (7.8·#12) — 사용자에게 무언가를 배포하는 행위가 아니라
+#   그 시점 Set-up 내용의 **지문을 기록**하는 것이다(운영이 참조할 기준선). 되돌리기·drift 로만
+#   의미를 가지므로 배포 동사의 대상이 아니다.
+setup_version_publish::PUBLISHED::sys_setup_version

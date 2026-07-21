@@ -42,6 +42,20 @@ jobs:
         working-directory: edim-ai-blueprint
         run: python tests/check_cursor_reuse.py
 
+  verb-guard:
+    # 8.10 — 승인·배포 동사 강제 게이트: 승인 결과(APPROVED)나 게시(PUBLISHED)를 쓰면서
+    # APPROVE/DEPLOY 동사 검사를 빠뜨린 신규 엔드포인트를 차단(8.7~8.9 에서 3회 반복된 결함).
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verb guard gate
+        working-directory: edim-ai-blueprint
+        run: python tests/check_verb_guard.py
+
   governance-docs:
     # 8.1 (#71) — 거버넌스 정의서 드리프트 게이트: 권한 Matrix·상태 흐름·경계 정의는
     # 코드에서 생성되므로, 손으로 고치거나 코드만 바뀌면 실패한다 (소스만 보므로 서버 불요).
