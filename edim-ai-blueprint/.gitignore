@@ -19,3 +19,5 @@ docs/tools/_tmp_html/
 # Editor
 .vscode/
 .idea/
+# 8.11 — 라이브 잔재 검사 실행 시 생성되는 기준 지문(런타임 산출물)
+tests/.live_residue_snapshot.json

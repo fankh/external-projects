@@ -136,6 +136,13 @@ if os.getenv("SKIP_WAIT") != "1":
     print("배포-준비 확인 (/health db:true) …")
     wait_ready()
 
+# 8.11 — 실행 전 실 데이터 지문을 떠 둔다. 스위트가 자기 자원만 만들고 지웠다면
+# 끝난 뒤 지문이 같아야 한다(정리 문구가 아니라 DB 로 확인).
+print("실 데이터 기준 지문 저장 …")
+subprocess.run([sys.executable, os.path.join(HERE, "check_live_residue.py"), "--save"],
+               env=env, capture_output=True, text=True, encoding="utf-8",
+               errors="replace", timeout=300)
+
 
 def run_suite(suite: str) -> tuple[bool, str]:
     path = os.path.join(HERE, suite)
@@ -165,6 +172,14 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_tenant_scope.py")]
                    errors="replace", timeout=120)
 print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_tenant_scope.py", p.returncode == 0, ""))
+
+# check_live_residue — 실 데이터 잔재 (8.11): 스위트가 남긴 변화가 있으면 실패
+print(f"\n{'=' * 60}\n▶ check_live_residue.py (live)\n{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_live_residue.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=300)
+print(((p.stdout or "") + (p.stderr or ""))[-2000:])
+results.append(("check_live_residue.py", p.returncode == 0, ""))
 
 # check_verb_guard — 승인·배포 동사 강제 정적 게이트 (8.10, 서버 불요)
 print(f"\n{'=' * 60}\n▶ check_verb_guard.py (static)\n{'=' * 60}")

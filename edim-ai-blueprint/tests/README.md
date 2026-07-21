@@ -67,6 +67,7 @@ py tests\live_all.py
 | `live_setup_lock.py` | Set-up↔Operation Lock — Set-up 게시·무변경 재게시 409·**변경 후 drift 감지**·이전본 SUPERSEDED / 자원 점유 409(보유자·만료 명시)·점유 중 남의 쓰기 차단·해제 후 통과·만료 자동 정리 (자체 정리) | 7.8 (#12) |
 | `live_erp_workflow.py` | ERP Domain/Process/Workflow — 표준 카탈로그 시드(도메인 14·프로세스 30)·불완전 DRAFT 허용·**게시 시점 그래프 강제**(END 없음·끊긴 연결·미도달·덫·START 중복·승인 등급 누락)·재작업 순환 허용·버전 승계 (자체 정리) | 7.9 (#50) |
 | `live_customer_logo.py` | 고객 로고 참조 모델 — 업로드는 PENDING·**승인 전 미표시**·미승인 최신본이 있어도 승인본 유지·승인 시 이전본 SUPERSEDED·반려·문서는 참조만(로고 교체가 문서 수정 없이 반영) (자체 정리) | 8.0 (#20) |
+| `check_live_residue.py` | 실 데이터 잔재 검사 — 플릿 실행 전후로 주요 업무 테이블의 건수·상태 분포 지문을 비교해, 스위트가 실 데이터를 바꿔 놓고 갔으면 실패(8.7a·8.10b 에서 실제 발생). live_all 이 자동 호출 | 8.11 |
 | `check_verb_guard.py` | 승인·배포 동사 강제 게이트 — APPROVED 를 쓰면 APPROVE, PUBLISHED 를 쓰면 DEPLOY 검사를 요구. 예외는 근거와 함께 verb_guard_allowlist.txt 에 등재 (서버 불요·CI 잡 verb-guard) | 8.10 |
 | `check_cursor_reuse.py` | 커서 결과셋 무효화 게이트 — `cur.execute` 와 `cur.fetch*` 사이에 커서를 쓰는 헬퍼가 끼어 결과가 조용히 사라지는 지점을 차단(8.4a 실제 발생). 헬퍼 50종·함수 532 스캔, 뮤테이션 검증 완료 (서버 불요·CI 잡 cursor-reuse) | 8.6 |
 | `check_governance.py` | 거버넌스 정의서 드리프트 게이트 — docs/EDIM_거버넌스정의서.xlsx 가 코드(권한 데코레이터·CHECK 상태·계층 규칙)와 어긋나면 실패. 재생성은 `py tools/gen_governance.py` (서버 불요·CI 잡 governance-docs) | 8.1 (#71) |
