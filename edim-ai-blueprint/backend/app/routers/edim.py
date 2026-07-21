@@ -1855,13 +1855,77 @@ def templets() -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT templet_name, templet_type, definition, approval_status, is_system
-               FROM tbx_templet WHERE tenant_id=%s ORDER BY templet_id""", (tid,))
+            """SELECT t.templet_name, t.templet_type, t.definition, t.approval_status, t.is_system,
+                      o.templet_name, COALESCE(t.locked_fields,'[]'::jsonb),
+                      (SELECT count(*) FROM tbx_templet c WHERE c.origin_templet_id=t.templet_id)
+               FROM tbx_templet t
+               LEFT JOIN tbx_templet o ON o.templet_id=t.origin_templet_id
+               WHERE t.tenant_id=%s ORDER BY t.templet_id""", (tid,))
         return [
+            # #57 — 원본/사본 계보와 부분 Lock 을 함께 노출한다
             {"name": r[0], "templetType": r[1], "definition": r[2],
-             "status": r[3], "system": bool(r[4])}
+             "status": r[3], "system": bool(r[4]),
+             "origin": r[5], "lockedFields": r[6] or [], "clones": int(r[7])}
             for r in cur.fetchall()
         ]
+
+
+class TempletClone(BaseModel):
+    newName: str
+    lockedFields: list[str] = []
+
+
+@router.post("/toolbox/templets/{name}/clone", status_code=201, dependencies=[SETUP])
+def clone_templet(name: str, request: Request, body: TempletClone) -> dict[str, Any]:
+    """라이브러리 원본을 테넌트 사본으로 복사 (#57) — 계보(origin)를 남긴다."""
+    new_name = body.newName.strip()[:100]
+    if not new_name:
+        raise HTTPException(422, detail="새 이름은 필수입니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT templet_id, templet_type, definition, COALESCE(locked_fields,'[]'::jsonb)
+               FROM tbx_templet WHERE tenant_id=%s AND templet_name=%s""", (tid, name))
+        src = cur.fetchone()
+        if not src:
+            raise HTTPException(404, detail=f"Templet 없음: {name}")
+        cur.execute("SELECT 1 FROM tbx_templet WHERE tenant_id=%s AND templet_name=%s",
+                    (tid, new_name))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"이름 중복: {new_name}")
+        # 사본의 잠금 = 원본이 지정한 잠금 ∪ 복사 시 추가 지정
+        locked = sorted(set(src[3] or []) | {f.strip() for f in body.lockedFields if f.strip()})
+        cur.execute(
+            """INSERT INTO tbx_templet (tenant_id, templet_name, templet_type, definition,
+               is_system, approval_status, origin_templet_id, locked_fields, created_by)
+               VALUES (%s,%s,%s,%s,false,'DRAFT',%s,%s,%s) RETURNING templet_id""",
+            (tid, new_name, src[1], json.dumps(src[2]), src[0],
+             json.dumps(locked), request.state.login))
+        nid = cur.fetchone()[0]
+        _audit(cur, tid, "tbx_templet", nid, "CLONE", request.state.user_id,
+               {"from": name, "to": new_name, "locked": locked})
+    return {"templetId": nid, "name": new_name, "origin": name,
+            "lockedFields": locked, "status": "DRAFT"}
+
+
+@router.get("/toolbox/templets/{name}/impact")
+def templet_impact(name: str) -> dict[str, Any]:
+    """원본 영향분석 (#57) — 이 Templet 에서 파생된 사본 목록."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT templet_id, is_system FROM tbx_templet "
+                    "WHERE tenant_id=%s AND templet_name=%s", (tid, name))
+        src = cur.fetchone()
+        if not src:
+            raise HTTPException(404, detail=f"Templet 없음: {name}")
+        cur.execute(
+            """SELECT templet_name, approval_status, COALESCE(locked_fields,'[]'::jsonb)
+               FROM tbx_templet WHERE tenant_id=%s AND origin_templet_id=%s
+               ORDER BY templet_name""", (tid, src[0]))
+        clones = [{"name": r[0], "status": r[1], "lockedFields": r[2] or []}
+                  for r in cur.fetchall()]
+        return {"name": name, "isLibrary": bool(src[1]), "cloneCount": len(clones),
+                "clones": clones}
 
 
 class TempletSave(BaseModel):
@@ -1871,9 +1935,29 @@ class TempletSave(BaseModel):
 
 @router.put("/toolbox/templets/{name}", dependencies=[SETUP])
 def save_templet(name: str, body: TempletSave) -> dict[str, Any]:
-    """Templet upsert — 저장 시 DRAFT 로 회귀 (승인은 POST /approvals)."""
+    """Templet upsert — 저장 시 DRAFT 로 회귀 (승인은 POST /approvals).
+
+    #57 — 라이브러리 원본(is_system)은 **읽기 전용**이다. 고치려면 복사본을 만들어 쓴다.
+    복사본이라도 원본이 잠근 필드(locked_fields)는 바꿀 수 없다(부분 편집 Lock)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT is_system, COALESCE(locked_fields,'[]'::jsonb), definition
+               FROM tbx_templet WHERE tenant_id=%s AND templet_name=%s""", (tid, name))
+        cur_row = cur.fetchone()
+        if cur_row:
+            if cur_row[0]:
+                raise HTTPException(
+                    409, detail=f"라이브러리 원본은 편집할 수 없습니다: {name} — "
+                                "복사(clone) 후 사본을 수정하십시오 (#57)")
+            locked = set(cur_row[1] or [])
+            before = cur_row[2] or {}
+            changed = [k for k in set(before) | set(body.definition)
+                       if before.get(k) != body.definition.get(k)]
+            hit = sorted(locked & set(changed))
+            if hit:
+                raise HTTPException(
+                    409, detail=f"원본이 잠근 필드는 수정할 수 없습니다: {', '.join(hit)} (#57 부분 Lock)")
         cur.execute(
             """UPDATE tbx_templet SET definition=%s, templet_type=%s,
                approval_status='DRAFT', updated_at=now()
