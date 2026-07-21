@@ -121,6 +121,7 @@ SUITES = [
     "live_setup_lock.py",          # Set-up Lock·다중 사용자 세션 (7.8) — 게시/drift·자원 점유 409
     "live_erp_workflow.py",        # ERP Domain/Process/Workflow 선반영 (7.9) — 카탈로그·게시 그래프 강제
     "live_customer_logo.py",      # 고객 로고 참조 모델 (8.0) — 승인본만 표시·문서 참조
+    "live_event_complete.py",      # 업무 이벤트 완료 권한·기록 (8.2) — 담당자 확인·감사
     "live_file_role.py",            # 산출물/원본 이원화 (3.3) — OUTPUT 불변·동명 저장 격리·역할 노출
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달

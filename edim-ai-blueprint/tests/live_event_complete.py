@@ -58,10 +58,12 @@ def mk_event(assignee_login=None):
     """검증용 이벤트 직접 생성 — 기존 proc_def/project 를 재사용한다."""
     who = (f"(SELECT user_id FROM sys_user WHERE login_id='{assignee_login}' LIMIT 1)"
            if assignee_login else "NULL")
-    return psql(
+    # psql 은 RETURNING 값 뒤에 'INSERT 0 1' 태그도 찍는다 — 첫 줄만 취한다
+    out = psql(
         "INSERT INTO erp_process_event (tenant_id, proc_def_id, project_id, ref_type, ref_id, "
         f"status, assignee_id, data) SELECT tenant_id, proc_def_id, project_id, 'ZZEVT', 0, "
         f"'OPEN', {who}, '{{}}'::jsonb FROM erp_process_event LIMIT 1 RETURNING event_id")
+    return out.splitlines()[0].strip()
 
 
 def cleanup():
