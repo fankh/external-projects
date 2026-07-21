@@ -45,9 +45,25 @@ export function SlotGrid({ rows, group }: { rows: SlotRow[]; group: string }) {
       )) },
   ]
 
+  // #26 — Item No 를 비우면 서버가 Item Head 를 자동 부여(A→B→…)한다.
+  // 다음 글자를 미리 보여 주면 사용자가 직접 입력하다 충돌(409)할 일이 없다.
+  const nextSlot = (() => {
+    const used = new Set(rows.map((r) => r.slot))
+    for (let i = 0; i < 26; i++) {
+      const c = String.fromCharCode(65 + i)
+      if (!used.has(c)) return c
+    }
+    return 'AA'
+  })()
+
   const checkDup = () => {
     const slot = itemNo.trim().toUpperCase()
-    if (!slot) { setDupMsg({ text: 'Item No 를 입력하십시오', err: true }); return }
+    if (!slot) {
+      // 자동 부여 경로 — 중복이 있을 수 없으므로 그대로 통과시킨다
+      setDupOk(true)
+      setDupMsg({ text: `자동 부여 — Item ${nextSlot} 로 등록됩니다 (#26)` })
+      return
+    }
     const dup = rows.some((r) => r.slot === slot)
     setDupOk(!dup)
     setDupMsg(dup
@@ -87,7 +103,8 @@ export function SlotGrid({ rows, group }: { rows: SlotRow[]; group: string }) {
       </div>
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '0 6px', flexWrap: 'wrap', fontSize: 11 }}>
         <span style={{ fontWeight: 600 }}>{t('subcode.newItem', '신규 항목')}</span>
-        <input className="in req" style={{ width: 60 }} placeholder="Item No" value={itemNo}
+        <input className="in" data-item-no style={{ width: 74 }}
+          placeholder={t('subcode.autoSlot', `자동(${nextSlot})`)} title={t('subcode.autoSlotHint', '비우면 Item Head 자동 부여 (#26)')} value={itemNo}
           onChange={(e) => { setItemNo(e.target.value); setDupOk(false); setDupMsg(null) }} />
         <input className="in req" style={{ width: 130 }} placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} />
         <input className="in" style={{ width: 180 }} placeholder={t('subcode.valuesPh', '값 목록 (· 또는 , 구분)')} value={values} onChange={(e) => setValues(e.target.value)} />

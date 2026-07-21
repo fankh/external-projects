@@ -5950,17 +5950,34 @@ def save_form(name: str, body: FormSave) -> dict[str, Any]:
 
 
 # ── SVC-03 Sub Code 항목 등록 (S-1-1 write) ──
+def _next_slot(used: set[str]) -> str:
+    """다음 Item Head — A..Z, 이후 AA..AZ, BA.. (엑셀 열 규칙과 동일한 감각)."""
+    import string
+    for c in string.ascii_uppercase:
+        if c not in used:
+            return c
+    for a in string.ascii_uppercase:
+        for b in string.ascii_uppercase:
+            if a + b not in used:
+                return a + b
+    raise HTTPException(409, detail="Item Head 를 더 만들 수 없습니다 (A~ZZ 소진)")
+
+
 class NewItemRequest(BaseModel):
-    slot: str
+    slot: str = ""      # 비우면 자동 부여 (#26)
     name: str
     values: list[str] = []
 
 
 @router.post("/codes/groups/{group}/items", status_code=201, dependencies=[SETUP])
 def add_item(group: str, request: Request, body: NewItemRequest) -> dict[str, Any]:
+    """Sub Code 항목 등록 (#26).
+
+    slot 을 비우면 **Item Head 를 자동 부여**한다(A→B→…→Z→AA…) — EP2 슬라이드 33 의
+    'Item Head A/B/C 자동 생성'. 종전엔 사용자가 직접 글자를 입력해야 해서 충돌(409)이 잦았다."""
     slot = body.slot.strip().upper()
-    if not slot or not body.name.strip():
-        raise HTTPException(422, detail="필수(노란 셀) 미입력")
+    if not body.name.strip():
+        raise HTTPException(422, detail="필수(노란 셀) 미입력 — 항목 이름")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -5968,6 +5985,10 @@ def add_item(group: str, request: Request, body: NewItemRequest) -> dict[str, An
         g = cur.fetchone()
         if not g:
             raise HTTPException(404, detail=f"group not found: {group}")
+        if not slot:
+            cur.execute("SELECT item_slot FROM code_item WHERE group_id=%s", (g[0],))
+            used = {r[0] for r in cur.fetchall()}
+            slot = _next_slot(used)
         cur.execute(
             "SELECT 1 FROM code_item WHERE group_id=%s AND item_slot=%s", (g[0], slot))
         if cur.fetchone():

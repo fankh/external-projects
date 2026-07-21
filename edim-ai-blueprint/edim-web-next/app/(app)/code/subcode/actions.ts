@@ -28,16 +28,17 @@ export async function createGroup(_prev: ActState, formData: FormData): Promise<
 }
 
 export async function addItem(group: string, slot: string, name: string, values: string[]): Promise<ActState> {
-  if (!slot.trim() || !name.trim()) return { error: 'Item No·Description 은 필수입니다' }
+  // #26 — slot 을 비우면 서버가 Item Head 를 자동 부여한다(A→B→…). Description 만 필수.
+  if (!name.trim()) return { error: 'Description 은 필수입니다' }
   try {
-    await apiServer(`/codes/groups/${encodeURIComponent(group)}/items`, {
+    const r = await apiServer<{ slot: string }>(`/codes/groups/${encodeURIComponent(group)}/items`, {
       method: 'POST', body: JSON.stringify({ slot: slot.trim().toUpperCase(), name: name.trim(), values }),
     })
+    revalidatePath(PATH)
+    return { ok: `${r.slot} 등록 — 승인 요청 (PENDING)${slot.trim() ? '' : ' · 자동 부여'}` }
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : '항목 등록 실패' }
   }
-  revalidatePath(PATH)
-  return { ok: `${slot.toUpperCase()} 등록 — 승인 요청 (PENDING)` }
 }
 
 /** #28 — Slot 의 미승인 값 일괄 승인. 승인된 값만 제품 코드 조합에 쓸 수 있다. */
