@@ -8792,7 +8792,9 @@ def _setup_fingerprint(cur, tid: int) -> tuple[str, dict[str, int]]:
     parts += [f"V|{r[0]}|{r[1]}|{r[2]}|{r[3]}" for r in rows]
 
     cur.execute(
-        """SELECT m.full_code, c.full_code, COALESCE(r.approval_status,'')
+        """SELECT m.main_code || COALESCE(m.combo::text,''),
+                  c.main_code || COALESCE(c.combo::text,''),
+                  COALESCE(r.approval_status,'')
            FROM code_relationship r
                 JOIN product_code m ON m.product_code_id=r.mother_code_id
                 JOIN product_code c ON c.product_code_id=r.child_code_id

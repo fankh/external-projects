@@ -72,7 +72,8 @@ def cleanup():
 
 
 TOK = login("edim", "edim")          # ADMIN
-OTH = login("setup1", "edim")        # 같은 테넌트 다른 SETUP 사용자
+OTH = login("park.f", "edim")        # 같은 테넌트 다른 편집자(ADMIN) — 등급이 높아도 점유는 존중돼야 한다
+GEN = login("kim01", "edim")         # GENERAL — 해제 권한 검증용
 cleanup()
 
 try:
@@ -144,9 +145,9 @@ try:
     row = next((x for x in lst if x["resourceKey"] == GRP), None)
     ok(f"목록에 보유자 표시 ({row and row['holderName']})", row and row["holderName"])
 
-    # 해제 권한
-    st, _ = req("DELETE", f"/locks/{lid}", OTH)
-    ok(f"타인 해제 거부 403 ({st})", st == 403)
+    # 해제 권한 — 보유자 본인이나 ADMIN 이상만
+    st, _ = req("DELETE", f"/locks/{lid}", GEN)
+    ok(f"타인(GENERAL) 해제 거부 403 ({st})", st == 403)
     st, _ = req("DELETE", f"/locks/{lid}", TOK)
     ok("보유자 해제 200", st == 200)
     st, freed = req("POST", f"/codes/groups/{GRP}/items", OTH,
@@ -169,7 +170,7 @@ try:
     st, _ = req("DELETE", "/locks/99999999", TOK)
     ok(f"없는 점유 404 ({st})", st == 404)
 
-    gtok = login("kim01", "edim")
+    gtok = GEN
     st, _ = req("POST", "/setup/versions/publish", gtok, {"note": "ZZLOCK ng"})
     ok(f"GENERAL 게시 403 ({st})", st == 403)
     st, _ = req("GET", "/setup/versions", gtok)
