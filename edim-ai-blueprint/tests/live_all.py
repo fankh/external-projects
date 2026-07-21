@@ -117,6 +117,7 @@ SUITES = [
     "live_command_binding.py",     # Command Binding (6.8) — 버튼=Command·Context ID 강제
     "live_macro_graph.py",         # Macro 5-View Graph (7.0) — 정본 Graph·stale 뷰 지목
     "live_support_access.py",      # Support 접근·이중 승인 (7.4) — 범위/기간 제한·감사·순서 강제
+    "live_drawing_job.py",         # Drawing Run Job (7.6) — Snapshot 근거 재생성·결정성·바인딩 422
     "live_file_role.py",            # 산출물/원본 이원화 (3.3) — OUTPUT 불변·동명 저장 격리·역할 노출
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
