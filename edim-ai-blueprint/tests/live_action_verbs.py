@@ -143,14 +143,23 @@ try:
     ok(f"APPROVE 재회수 ({st})", st == 200)
     st, pl = req("GET", "/codes/products", TOK)
     rows = pl if isinstance(pl, list) else (pl or {}).get("rows", [])
-    target = next(r for r in rows if r.get("status") != "APPROVED")
+    ok(f"제품 코드 존재 ({len(rows)}건)", bool(rows))
+    # 전부 APPROVED 일 수 있으므로 대상 하나를 DRAFT 로 내려 두고 검증한다
+    # (조건에 맞는 행이 없다고 건너뛰면 검증한 척이 된다 — 끝에 원상 복구)
+    target = rows[0]
     pid = target["productCodeId"]
     before = target["status"]
+    globals()["_restore_pid"], globals()["_restore_to"] = pid, before
+    staged = before
+    if before == "APPROVED":
+        st, _ = req("PATCH", f"/codes/products/{pid}", TOK, {"status": "DRAFT"})
+        ok(f"검증 준비 — 대상을 DRAFT 로 (승인 부여가 아니므로 허용) ({st})", st == 200)
+        staged = "DRAFT"
     st, b = req("PATCH", f"/codes/products/{pid}", TOK, {"status": "APPROVED"})
     ok(f"★ APPROVE 없이 상태 직접 APPROVED 403 ({st})",
        st == 403 and "APPROVE" in (b or {}).get("detail", ""))
-    ok("거부 후 상태 그대로",
-       psql(f"SELECT approval_status FROM product_code WHERE product_code_id={pid}") == before)
+    ok(f"거부 후 상태 그대로 ({staged})",
+       psql(f"SELECT approval_status FROM product_code WHERE product_code_id={pid}") == staged)
     st, b = req("POST", "/codes/products/batch", TOK,
                 {"ids": [pid], "action": "STATUS", "status": "APPROVED"})
     ok(f"★ 일괄 APPROVED 도 403 ({st})", st == 403 and "APPROVE" in (b or {}).get("detail", ""))
@@ -161,7 +170,7 @@ try:
                 {"resourceKey": RES, "verbs": ["READ", "APPROVE"]})
     st, _ = req("PATCH", f"/codes/products/{pid}", TOK, {"status": "APPROVED"})
     ok(f"★ APPROVE 부여 후 상태 변경 통과 ({st})", st == 200)
-    req("PATCH", f"/codes/products/{pid}", TOK, {"status": before})   # 원복
+    # 원복은 finally 에서 한 번 더 보장한다
 
     # ── 설정 제거 = 미설정 복귀 ──
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": []})
@@ -175,6 +184,11 @@ try:
     st, _ = req("PUT", "/roles/ADMIN/verbs", gtok, {"resourceKey": RES, "verbs": ["READ"]})
     ok(f"GENERAL 동사 지정 403 ({st})", st == 403)
 finally:
+    # 검증용으로 상태를 바꾼 제품 코드는 반드시 되돌린다 (중간 실패로 DRAFT 가 남았던 적 있음)
+    _pid, _to = globals().get("_restore_pid"), globals().get("_restore_to")
+    if _pid and _to:
+        psql(f"UPDATE product_code SET approval_status='{_to}' WHERE product_code_id={_pid}")
+        print(f"정리 — 제품 코드 #{_pid} 상태 {_to} 로 원복")
     clear_verbs()
     psql("DELETE FROM sys_approval_request WHERE comment LIKE 'ZZVERB%'")
     left = psql(f"SELECT count(*) FROM sys_role_permission WHERE resource_key='{RES}'")
