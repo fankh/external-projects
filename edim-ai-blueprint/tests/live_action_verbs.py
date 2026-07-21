@@ -174,6 +174,9 @@ try:
 
     # ── 8.8: Head 도 같은 구멍 — REVIEW→APPROVED 직접 전이 ──
     # 바로 아래 PUBLISHED 는 DEPLOY 동사를 요구하는데 APPROVED 만 무방비였다.
+    # 앞 블록이 APPROVE 를 부여한 채 끝나므로 여기서 반드시 회수하고 시작한다
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": ["READ"]})
+    ok(f"Head 검증 전 APPROVE 회수 ({st})", st == 200)
     st, hd = req("POST", "/heads", TOK,
                  {"headCode": "ZZVERBHD", "headName": "동사 검증 Head", "headType": "TENANT"})
     ok(f"검증용 Head 생성 ({st})", st in (200, 201))
