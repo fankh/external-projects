@@ -28,6 +28,20 @@ jobs:
         working-directory: edim-ai-blueprint
         run: python tests/check_tenant_scope.py
 
+  cursor-reuse:
+    # 8.6 — 커서 결과셋 무효화 게이트: cur.execute 와 cur.fetch 사이에 커서를 쓰는 헬퍼가
+    # 끼면 결과가 조용히 사라진다(8.4a 에서 실제 발생). 소스만 보므로 DB·서버 불요.
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Cursor reuse gate
+        working-directory: edim-ai-blueprint
+        run: python tests/check_cursor_reuse.py
+
   governance-docs:
     # 8.1 (#71) — 거버넌스 정의서 드리프트 게이트: 권한 Matrix·상태 흐름·경계 정의는
     # 코드에서 생성되므로, 손으로 고치거나 코드만 바뀌면 실패한다 (소스만 보므로 서버 불요).

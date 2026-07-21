@@ -166,6 +166,14 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_tenant_scope.py")]
 print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_tenant_scope.py", p.returncode == 0, ""))
 
+# check_cursor_reuse — 커서 결과셋 무효화 정적 게이트 (8.6, 서버 불요)
+print(f"\n{'=' * 60}\n▶ check_cursor_reuse.py (static)\n{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_cursor_reuse.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=120)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_cursor_reuse.py", p.returncode == 0, ""))
+
 # check_governance — 거버넌스 정의서 드리프트 게이트 (#71, 서버 불요)
 print(f"\n{'=' * 60}\n▶ check_governance.py (static)\n{'=' * 60}")
 p = subprocess.run([sys.executable, os.path.join(HERE, "check_governance.py")],
