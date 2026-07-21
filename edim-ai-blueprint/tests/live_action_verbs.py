@@ -136,6 +136,33 @@ try:
     ok(f"★ APPROVE 부여 후 일괄 승인 통과 ({st}, 처리 {(r or {}).get('processed')})",
        st == 200 and r["processed"] == 2)
 
+    # ── 8.7: 승인 '결과'를 직접 쓰는 경로도 승인 행위다 ──
+    # product_code.approval_status='APPROVED' 는 승인함이 만들어 내는 결과인데,
+    # PATCH/일괄 상태변경으로 그냥 찍을 수 있으면 승인 절차 자체가 무의미해진다.
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": ["READ"]})
+    ok(f"APPROVE 재회수 ({st})", st == 200)
+    st, pl = req("GET", "/codes/products", TOK)
+    rows = pl if isinstance(pl, list) else (pl or {}).get("rows", [])
+    target = next(r for r in rows if r.get("status") != "APPROVED")
+    pid = target["productCodeId"]
+    before = target["status"]
+    st, b = req("PATCH", f"/codes/products/{pid}", TOK, {"status": "APPROVED"})
+    ok(f"★ APPROVE 없이 상태 직접 APPROVED 403 ({st})",
+       st == 403 and "APPROVE" in (b or {}).get("detail", ""))
+    ok("거부 후 상태 그대로",
+       psql(f"SELECT approval_status FROM product_code WHERE product_code_id={pid}") == before)
+    st, b = req("POST", "/codes/products/batch", TOK,
+                {"ids": [pid], "action": "STATUS", "status": "APPROVED"})
+    ok(f"★ 일괄 APPROVED 도 403 ({st})", st == 403 and "APPROVE" in (b or {}).get("detail", ""))
+    # 승인 부여가 아닌 전이(DRAFT)는 종전대로 허용 — 통제가 과잉이 아님
+    st, _ = req("PATCH", f"/codes/products/{pid}", TOK, {"status": "DRAFT"})
+    ok(f"DRAFT 로 되돌리기는 종전대로 허용 ({st})", st == 200)
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK,
+                {"resourceKey": RES, "verbs": ["READ", "APPROVE"]})
+    st, _ = req("PATCH", f"/codes/products/{pid}", TOK, {"status": "APPROVED"})
+    ok(f"★ APPROVE 부여 후 상태 변경 통과 ({st})", st == 200)
+    req("PATCH", f"/codes/products/{pid}", TOK, {"status": before})   # 원복
+
     # ── 설정 제거 = 미설정 복귀 ──
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": []})
     ok(f"동사 설정 제거 ({st})", st == 200)

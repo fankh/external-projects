@@ -1243,6 +1243,15 @@ def patch_product(product_code_id: int, request: Request, body: ProductPatch) ->
         raise HTTPException(422, detail="변경할 값이 없습니다")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 8.7 — APPROVED 는 승인 절차의 **결과**다. 그 결과를 직접 쓰는 것도 승인 행위이므로
+        # 승인함과 같은 APPROVE 동사를 요구한다(#3). 없으면 승인 워크플로를 우회할 수 있었다.
+        # DRAFT/INACTIVE 로 되돌리는 것은 승인 부여가 아니므로 종전대로 둔다.
+        if body.status is not None and body.status.strip().upper() == "APPROVED":
+            if not _action_allowed(cur, tid, request.state.user_id,
+                                   getattr(request.state, "level", "GENERAL"),
+                                   "approval", "APPROVE"):
+                raise HTTPException(
+                    403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
         params += [tid, product_code_id]
         cur.execute(
             f"UPDATE product_code SET {', '.join(sets)} WHERE tenant_id=%s AND product_code_id=%s "
@@ -1299,6 +1308,13 @@ def batch_product(request: Request, body: ProductBatch) -> dict[str, Any]:
     skipped: list[dict[str, str]] = []
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 8.7 — 일괄로 APPROVED 를 찍는 것도 승인 행위다 (그리드 다중 선택 = 최대 200건).
+        if action == "STATUS" and st == "APPROVED":
+            if not _action_allowed(cur, tid, request.state.user_id,
+                                   getattr(request.state, "level", "GENERAL"),
+                                   "approval", "APPROVE"):
+                raise HTTPException(
+                    403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
         for pid in ids:
             cur.execute("SELECT main_code FROM product_code WHERE tenant_id=%s AND product_code_id=%s",
                         (tid, pid))
