@@ -6461,6 +6461,8 @@ def add_item(group: str, request: Request, body: NewItemRequest) -> dict[str, An
         g = cur.fetchone()
         if not g:
             raise HTTPException(404, detail=f"group not found: {group}")
+        # 다른 사람이 이 그룹을 편집 중이면 조용히 덮지 않는다 (#12)
+        _assert_unlocked(cur, tid, request.state.user_id, "CODE_GROUP", group)
         if not slot:
             cur.execute("SELECT item_slot FROM code_item WHERE group_id=%s", (g[0],))
             used = {r[0] for r in cur.fetchall()}
@@ -8746,6 +8748,211 @@ def drawing_job_run(job_id: int, request: Request) -> dict[str, Any]:
                {"snapshot": row[4], "params": params, "checksum": checksum[:12]})
     return {"jobId": job_id, "jobCode": row[0], "snapshotCode": row[4], "status": "DONE",
             "resolvedParams": params, "outputChecksum": checksum, "bytes": len(data)}
+
+
+# ── 7.8 Set-up↔Operation Lock · 다중 사용자 세션 (요구 #12) ──
+# 두 가지가 비어 있었다.
+#  (1) 운영(Run·견적)은 그 시점의 Set-up 을 근거로 도는데, Set-up 은 언제든 바뀔 수 있어
+#      "이 운영이 어느 Set-up 을 근거로 했는가"를 답할 수 없었다.
+#  (2) 같은 코드 그룹을 두 사람이 동시에 편집하면 나중 저장이 앞 저장을 조용히 덮었다.
+# 게시 시점의 Set-up 을 체크섬으로 고정하고, 편집은 자원 단위 점유를 선언하게 한다.
+_LOCK_KINDS = ("CODE_GROUP", "HEAD", "PACKAGE", "TEMPLET", "PROCESS")
+
+
+def _setup_fingerprint(cur, tid: int) -> tuple[str, dict[str, int]]:
+    """Set-up 내용 지문 — 그룹·항목·값·관계를 결정적 순서로 직렬화해 해시한다.
+
+    id 나 시각은 넣지 않는다(재적재하면 달라지므로). **내용이 같으면 같은 지문**이어야
+    drift 판정이 의미를 갖는다 — Snapshot·Package 체크섬과 같은 규약."""
+    parts: list[str] = []
+    counts: dict[str, int] = {}
+
+    cur.execute(
+        """SELECT group_code, COALESCE(group_name,''), COALESCE(hierarchy_address,'')
+           FROM code_group WHERE tenant_id=%s ORDER BY group_code""", (tid,))
+    rows = cur.fetchall()
+    counts["groups"] = len(rows)
+    parts += [f"G|{r[0]}|{r[1]}|{r[2]}" for r in rows]
+
+    cur.execute(
+        """SELECT g.group_code, i.item_slot, COALESCE(i.item_name,'')
+           FROM code_item i JOIN code_group g ON g.group_id=i.group_id
+           WHERE i.tenant_id=%s ORDER BY g.group_code, i.item_slot""", (tid,))
+    rows = cur.fetchall()
+    counts["items"] = len(rows)
+    parts += [f"I|{r[0]}|{r[1]}|{r[2]}" for r in rows]
+
+    cur.execute(
+        """SELECT g.group_code, i.item_slot, v.value_code, COALESCE(v.approval_status,'')
+           FROM code_item_value v JOIN code_item i ON i.item_id=v.item_id
+                JOIN code_group g ON g.group_id=i.group_id
+           WHERE v.tenant_id=%s ORDER BY g.group_code, i.item_slot, v.value_code""", (tid,))
+    rows = cur.fetchall()
+    counts["values"] = len(rows)
+    parts += [f"V|{r[0]}|{r[1]}|{r[2]}|{r[3]}" for r in rows]
+
+    cur.execute(
+        """SELECT m.full_code, c.full_code, COALESCE(r.approval_status,'')
+           FROM code_relationship r
+                JOIN product_code m ON m.product_code_id=r.mother_code_id
+                JOIN product_code c ON c.product_code_id=r.child_code_id
+           WHERE r.tenant_id=%s ORDER BY 1,2""", (tid,))
+    rows = cur.fetchall()
+    counts["relations"] = len(rows)
+    parts += [f"R|{r[0]}|{r[1]}|{r[2]}" for r in rows]
+
+    return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest(), counts
+
+
+class SetupPublish(BaseModel):
+    note: str = ""
+
+
+@router.get("/setup/versions")
+def setup_version_list() -> dict[str, Any]:
+    """Set-up 버전 목록 + **현재 drift 여부** (#12).
+
+    게시본과 지금의 Set-up 을 다시 비교해 답한다 — 저장된 값끼리 비교하면 영원히 같다는
+    2.7a 의 교훈(무의미한 검증)을 되풀이하지 않기 위해서."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT setup_version_id, version_no, status, checksum, counts,
+                      COALESCE(note,''), COALESCE(published_by,''),
+                      to_char(published_at,'YYYY-MM-DD HH24:MI')
+               FROM sys_setup_version WHERE tenant_id=%s
+               ORDER BY version_no DESC""", (tid,))
+        vers = [{"setupVersionId": r[0], "versionNo": r[1], "status": r[2], "checksum": r[3],
+                 "counts": r[4] or {}, "note": r[5], "publishedBy": r[6], "publishedAt": r[7]}
+                for r in cur.fetchall()]
+        live, counts = _setup_fingerprint(cur, tid)
+        active = next((v for v in vers if v["status"] == "PUBLISHED"), None)
+    return {"versions": vers, "active": active, "liveChecksum": live, "liveCounts": counts,
+            "drift": bool(active) and active["checksum"] != live}
+
+
+@router.post("/setup/versions/publish", status_code=201, dependencies=[SETUP])
+def setup_version_publish(request: Request, body: SetupPublish) -> dict[str, Any]:
+    """현재 Set-up 을 버전으로 게시 (#12) — 이후 변경은 drift 로 드러난다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        checksum, counts = _setup_fingerprint(cur, tid)
+        cur.execute(
+            "SELECT version_no, checksum FROM sys_setup_version WHERE tenant_id=%s AND status='PUBLISHED'",
+            (tid,))
+        cur_row = cur.fetchone()
+        if cur_row and cur_row[1] == checksum:
+            raise HTTPException(
+                409, detail=f"변경 없음 — v{cur_row[0]} 게시본과 Set-up 내용이 동일합니다 (#12)")
+        cur.execute("UPDATE sys_setup_version SET status='SUPERSEDED' "
+                    "WHERE tenant_id=%s AND status='PUBLISHED'", (tid,))
+        cur.execute("SELECT COALESCE(MAX(version_no),0)+1 FROM sys_setup_version WHERE tenant_id=%s",
+                    (tid,))
+        vno = cur.fetchone()[0]
+        cur.execute(
+            """INSERT INTO sys_setup_version (tenant_id, version_no, checksum, counts, note,
+               published_by) VALUES (%s,%s,%s,%s,%s,%s) RETURNING setup_version_id""",
+            (tid, vno, checksum, json.dumps(counts), body.note.strip()[:300] or None,
+             request.state.login))
+        vid = cur.fetchone()[0]
+        _audit(cur, tid, "sys_setup_version", vid, "PUBLISH", request.state.user_id,
+               {"versionNo": vno, "checksum": checksum[:12], "counts": counts})
+    return {"setupVersionId": vid, "versionNo": vno, "checksum": checksum, "counts": counts}
+
+
+def _purge_locks(cur, tid: int) -> None:
+    """만료 점유는 조회·획득 시점에 정리한다 — 배치 없이도 시간 제한이 실제로 동작하도록.
+
+    만료분이라도 남의 테넌트 행은 지우지 않는다(자기 테넌트 범위로 한정)."""
+    cur.execute("DELETE FROM sys_work_lock WHERE tenant_id=%s AND expires_at < now()", (tid,))
+
+
+def _assert_unlocked(cur, tid: int, uid: int, kind: str, key: str) -> None:
+    """다른 사람이 점유 중이면 **누가 언제까지** 인지 밝혀 409 (#12).
+
+    점유가 없으면 통과한다 — 선언되지 않은 자원까지 막으면 기존 운영이 멈추므로
+    (미설정 = 허용, 3.x 이후 공통 규약)."""
+    _purge_locks(cur, tid)
+    cur.execute(
+        """SELECT l.holder_id, COALESCE(u.user_name, u.login_id, ''),
+                  to_char(l.expires_at,'YYYY-MM-DD HH24:MI')
+           FROM sys_work_lock l LEFT JOIN sys_user u ON u.user_id=l.holder_id
+           WHERE l.tenant_id=%s AND l.resource_kind=%s AND l.resource_key=%s""", (tid, kind, key))
+    row = cur.fetchone()
+    if row and row[0] != uid:
+        raise HTTPException(
+            409, detail=f"편집 중 — {kind} {key} 은(는) {row[1]} 님이 {row[2]} 까지 점유 중입니다 (#12)")
+
+
+class LockAcquire(BaseModel):
+    resourceKind: str
+    resourceKey: str
+    minutes: int = 30
+    note: str = ""
+
+
+@router.get("/locks")
+def lock_list() -> list[dict[str, Any]]:
+    """현재 유효한 편집 점유 (#12)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _purge_locks(cur, tid)
+        cur.execute(
+            """SELECT l.lock_id, l.resource_kind, l.resource_key, l.holder_id,
+                      COALESCE(u.user_name, u.login_id, ''), COALESCE(l.note,''),
+                      to_char(l.acquired_at,'YYYY-MM-DD HH24:MI'),
+                      to_char(l.expires_at,'YYYY-MM-DD HH24:MI')
+               FROM sys_work_lock l LEFT JOIN sys_user u ON u.user_id=l.holder_id
+               WHERE l.tenant_id=%s ORDER BY l.acquired_at DESC""", (tid,))
+        return [{"lockId": r[0], "resourceKind": r[1], "resourceKey": r[2], "holderId": r[3],
+                 "holderName": r[4], "note": r[5], "acquiredAt": r[6], "expiresAt": r[7]}
+                for r in cur.fetchall()]
+
+
+@router.post("/locks", status_code=201)
+def lock_acquire(request: Request, body: LockAcquire) -> dict[str, Any]:
+    """편집 점유 획득 (#12) — 이미 남이 잡고 있으면 409, 내가 잡고 있으면 연장."""
+    kind = body.resourceKind.strip().upper()[:20]
+    key = body.resourceKey.strip()[:150]
+    if kind not in _LOCK_KINDS:
+        raise HTTPException(422, detail=f"자원 종류는 {'/'.join(_LOCK_KINDS)} 중 하나여야 합니다")
+    if not key:
+        raise HTTPException(422, detail="자원 키는 필수")
+    mins = max(1, min(int(body.minutes or 30), 480))
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        uid = request.state.user_id
+        _assert_unlocked(cur, tid, uid, kind, key)
+        cur.execute(
+            """INSERT INTO sys_work_lock (tenant_id, resource_kind, resource_key, holder_id,
+                                          expires_at, note)
+               VALUES (%s,%s,%s,%s, now() + (%s || ' minutes')::interval, %s)
+               ON CONFLICT (tenant_id, resource_kind, resource_key) DO UPDATE
+                 SET expires_at = now() + (%s || ' minutes')::interval,
+                     acquired_at = now(), note = EXCLUDED.note
+               RETURNING lock_id, to_char(expires_at,'YYYY-MM-DD HH24:MI')""",
+            (tid, kind, key, uid, str(mins), body.note.strip()[:200] or None, str(mins)))
+        lid, exp = cur.fetchone()
+        _audit(cur, tid, "sys_work_lock", lid, "LOCK", uid, {"kind": kind, "key": key})
+    return {"lockId": lid, "resourceKind": kind, "resourceKey": key, "expiresAt": exp}
+
+
+@router.delete("/locks/{lock_id}")
+def lock_release(lock_id: int, request: Request) -> dict[str, Any]:
+    """점유 해제 (#12) — 보유자 본인이나 ADMIN 이상만."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT holder_id, resource_kind, resource_key FROM sys_work_lock "
+                    "WHERE tenant_id=%s AND lock_id=%s", (tid, lock_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"점유 없음: {lock_id}")
+        if row[0] != request.state.user_id and LEVEL_RANK.get(request.state.level, 0) < 2:
+            raise HTTPException(403, detail="보유자 본인이나 ADMIN 이상만 해제할 수 있습니다 (#12)")
+        cur.execute("DELETE FROM sys_work_lock WHERE tenant_id=%s AND lock_id=%s", (tid, lock_id))
+        _audit(cur, tid, "sys_work_lock", lock_id, "UNLOCK", request.state.user_id,
+               {"kind": row[1], "key": row[2]})
+    return {"released": lock_id}
 
 
 # ── 7.4 Support 접근 통제 (요구 #68) · Support Package 이중 승인 (요구 #69) ──
