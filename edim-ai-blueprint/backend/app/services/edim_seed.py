@@ -3606,6 +3606,13 @@ UI_TRANSLATIONS_V33: dict[str, tuple[str, str, str]] = {
     "head.name.관리 (기업 관리자)": ('Administration', '管理 (企業管理者)', '管理 (企业管理员)'),
     "head.name.플랫폼 (EDIM)": ('Platform (EDIM)', 'プラットフォーム (EDIM)', '平台 (EDIM)'),
     # 4.6 #29 — Slot 매핑 편집기
+    "subcode.gtSpec": ('Specification', '仕様 (Specification)', '规格 (Specification)'),
+    "subcode.gtRaw": ('Raw Material', '原材料 (Raw Material)', '原材料 (Raw Material)'),
+    "subcode.gtGpi": ('Purchased (GPI)', '購買品 (GPI)', '采购品 (GPI)'),
+    "subcode.gtProduct": ('Product', '製品 (Product)', '产品 (Product)'),
+    "subcode.autoSlot": ('auto', '自動', '自动'),
+    "subcode.autoSlotHint": ('Leave blank to auto-assign the Item Head (#26)',
+                             '空欄なら Item Head を自動採番 (#26)', '留空则自动分配 Item Head (#26)'),
     "codrel.slotMapTitle": ('Slot mapping — Mother condition → Child expansion basis (#29)',
                             'Slot マッピング — Mother 選択条件 → Child 展開基準 (#29)',
                             'Slot 映射 — Mother 选择条件 → Child 展开基准 (#29)'),

@@ -14,7 +14,14 @@ export interface SlotRow {
   count: number; status: string; approved: boolean
 }
 
-export function SlotGrid({ rows, group }: { rows: SlotRow[]; group: string }) {
+const GT_LABEL: Record<string, string> = {
+  SPECIFICATION: '사양', RAW_MATERIAL: '원자재', GPI: '구매품', PRODUCT: '제품',
+}
+export interface GroupRow { groupCode: string; groupType: string; slotCount: number }
+
+export function SlotGrid({ rows, group, groups = [] }: {
+  rows: SlotRow[]; group: string; groups?: GroupRow[]
+}) {
   const { t } = useI18n()
   const router = useRouter()
   const [grpSt, grpAction, grpPending] = useActionState(createGroup, {} as ActState)
@@ -75,13 +82,23 @@ export function SlotGrid({ rows, group }: { rows: SlotRow[]; group: string }) {
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '4px 6px 0', flexWrap: 'wrap' }}>
         <label style={{ fontSize: 11 }}>{t('subcode.group', '그룹')}</label>
-        <input className="in" defaultValue={group} style={{ height: 22, fontSize: 11, width: 70 }}
-          onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/code/subcode?group=${encodeURIComponent((e.target as HTMLInputElement).value)}`) }} />
+        {/* #27 — 그룹을 타입과 함께 목록에서 고른다(종전엔 코드를 직접 타이핑해야 했다) */}
+        <select className="in" data-group-pick value={group} style={{ height: 22, fontSize: 11, width: 190 }}
+          onChange={(e) => router.push(`/code/subcode?group=${encodeURIComponent(e.target.value)}`)}>
+          {groups.length ? groups.map((g) => (
+            <option key={g.groupCode} value={g.groupCode}>{g.groupCode} — {GT_LABEL[g.groupType] ?? g.groupType} ({g.slotCount})</option>
+          )) : <option value={group}>{group}</option>}
+        </select>
         <form action={grpAction} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <input className="in req" name="groupCode" placeholder={t('subcode.newGroupCodePh', '새 그룹 코드')} style={{ width: 90 }} />
           <input className="in req" name="groupName" placeholder={t('subcode.groupNamePh', '그룹 이름')} style={{ width: 110 }} />
-          <select className="in" name="groupType" defaultValue="PRODUCT" style={{ width: 90 }}>
-            {['PRODUCT', 'PART', 'MATERIAL', 'ETC'].map((t) => <option key={t}>{t}</option>)}
+          {/* #27 — API 가 받는 유형만 노출한다. 종전 목록(PART/MATERIAL/ETC)은 전부 422 로 거부됐고,
+              정작 원자재·구매품 Sub Code 유형(RAW_MATERIAL/GPI)은 고를 수도 없었다. */}
+          <select className="in" name="groupType" data-group-type defaultValue="SPECIFICATION" style={{ width: 132 }}>
+            <option value="SPECIFICATION">{t('subcode.gtSpec', '사양 (Specification)')}</option>
+            <option value="RAW_MATERIAL">{t('subcode.gtRaw', '원자재 (Raw Material)')}</option>
+            <option value="GPI">{t('subcode.gtGpi', '구매품 (GPI)')}</option>
+            <option value="PRODUCT">{t('subcode.gtProduct', '제품 (Product)')}</option>
           </select>
           <button className="b" type="submit" disabled={grpPending}>{t('subcode.groupReg', '그룹 등록')}</button>
         </form>
