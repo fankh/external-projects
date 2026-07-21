@@ -4070,6 +4070,11 @@ def decide(approval_id: int, request: Request, body: DecideRequest) -> dict[str,
         raise HTTPException(422, detail="반려는 코멘트 필수")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # #3 — 승인은 수정과 다른 동사다. 'approval' 자원에 동사 설정이 있으면 APPROVE 를 요구한다
+        # (설정이 없으면 종전대로 SETUP 레벨만으로 통과 — 도입 무영향).
+        if not _action_allowed(cur, tid, request.state.user_id,
+                               getattr(request.state, "level", "GENERAL"), "approval", "APPROVE"):
+            raise HTTPException(403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
         result = _apply_decision(cur, tid, approval_id, body.approve, body.comment,
                                  request.state.login, request.state.user_id)
         if result is None:
@@ -8359,6 +8364,10 @@ def head_patch(head_id: int, request: Request, body: HeadPatch) -> dict[str, Any
                     422, detail=f"허용되지 않는 전이: {row[1]} → {st} "
                                 f"(가능: {', '.join(sorted(allowed[row[1]]))})")
             if st == "PUBLISHED":
+                # #3 — 게시(배포)는 수정과 다른 동사
+                if not _action_allowed(cur, tid, request.state.user_id,
+                                       getattr(request.state, "level", "GENERAL"), "head", "DEPLOY"):
+                    raise HTTPException(403, detail="배포 권한 없음 — 역할에 DEPLOY 동사가 필요합니다 (#3)")
                 cur.execute("SELECT count(*) FROM sys_head_binding "
                             "WHERE head_id=%s AND panel='CENTER'", (head_id,))
                 if int(cur.fetchone()[0]) == 0:
@@ -9308,6 +9317,96 @@ def auth_me(request: Request) -> dict[str, Any]:
             "tenantCode": trow[0], "tenantName": trow[1]}
 
 
+# ── 5.2 작업 권한 동사 (요구 #3) — 생성·수정·실행·승인·배포를 READ/WRITE 에서 분리 ──
+# 종전 sys_role_permission.action 은 READ/WRITE 뿐이라 "승인할 수 있다"와 "수정할 수 있다"가
+# 구분되지 않았다. 동사를 늘리되 **명시 설정이 없는 자원은 종전대로 허용**한다(도입 무영향).
+_ACTION_VERBS = ("READ", "CREATE", "UPDATE", "EXECUTE", "APPROVE", "DEPLOY")
+# 레거시 WRITE 는 생성·수정을 포괄한다(과거 데이터 호환)
+_WRITE_IMPLIES = {"CREATE", "UPDATE"}
+
+
+def _user_role_ids(cur, tid: int, uid: int, level: str) -> list[int]:
+    cur.execute(
+        """SELECT role_id FROM sys_role
+           WHERE tenant_id=%s AND (role_name=%s OR role_id IN
+             (SELECT role_id FROM sys_user_role WHERE user_id=%s))""", (tid, level, uid))
+    return [r[0] for r in cur.fetchall()]
+
+
+def _action_allowed(cur, tid: int, uid: int, level: str, resource: str, verb: str) -> bool:
+    """자원×동사 허용 여부 (#3).
+
+    **미설정 = 허용** — 어떤 역할도 그 자원에 동사를 명시하지 않았다면 종전 동작(레벨 게이트)을 따른다.
+    한 역할이라도 명시했다면 그때부터는 명시된 동사만 허용한다(정보 접근 통제 1.5 와 같은 규약)."""
+    cur.execute(
+        """SELECT p.action FROM sys_role_permission p JOIN sys_role r ON r.role_id=p.role_id
+           WHERE r.tenant_id=%s AND p.resource_key=%s AND p.action = ANY(%s)""",
+        (tid, resource, list(_ACTION_VERBS)))
+    if not cur.fetchone():
+        return True                      # 이 자원에 동사 설정이 전혀 없음 → 종전대로
+    roles = _user_role_ids(cur, tid, uid, level)
+    if not roles:
+        return False
+    cur.execute(
+        """SELECT p.action FROM sys_role_permission p
+           WHERE p.role_id = ANY(%s) AND p.resource_key=%s""", (roles, resource))
+    mine = {r[0] for r in cur.fetchall()}
+    if verb in mine:
+        return True
+    return verb in _WRITE_IMPLIES and "WRITE" in mine
+
+
+class RoleVerbs(BaseModel):
+    resourceKey: str
+    verbs: list[str]
+
+
+@router.get("/roles/{role}/permissions")
+def role_permissions(role: str) -> list[dict[str, Any]]:
+    """역할의 자원별 허용 동사 (#3)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT role_id FROM sys_role WHERE tenant_id=%s AND role_name=%s",
+                    (tid, role.strip().upper()))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"역할 없음: {role}")
+        cur.execute(
+            """SELECT resource_key, array_agg(action ORDER BY action)
+               FROM sys_role_permission WHERE role_id=%s GROUP BY resource_key
+               ORDER BY resource_key""", (r[0],))
+        return [{"resourceKey": x[0], "verbs": list(x[1])} for x in cur.fetchall()]
+
+
+@router.put("/roles/{role}/permissions", dependencies=[ADMIN])
+def role_permissions_set(role: str, request: Request, body: RoleVerbs) -> dict[str, Any]:
+    """역할×자원 허용 동사 지정 (#3) — 빈 목록이면 그 자원의 설정을 제거(=미설정 복귀)."""
+    verbs = [v.strip().upper() for v in body.verbs if v.strip()]
+    bad = [v for v in verbs if v not in _ACTION_VERBS]
+    if bad:
+        raise HTTPException(422, detail=f"허용되지 않는 동사: {', '.join(bad)} "
+                                        f"(가능: {', '.join(_ACTION_VERBS)})")
+    key = body.resourceKey.strip()
+    if not key:
+        raise HTTPException(422, detail="resourceKey 는 필수")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT role_id FROM sys_role WHERE tenant_id=%s AND role_name=%s",
+                    (tid, role.strip().upper()))
+        r = cur.fetchone()
+        if not r:
+            raise HTTPException(404, detail=f"역할 없음: {role}")
+        cur.execute("DELETE FROM sys_role_permission WHERE role_id=%s AND resource_key=%s "
+                    "AND action = ANY(%s)", (r[0], key, list(_ACTION_VERBS)))
+        for v in dict.fromkeys(verbs):
+            cur.execute(
+                """INSERT INTO sys_role_permission (role_id, resource_type, resource_key, action)
+                   VALUES (%s,'SCREEN',%s,%s)""", (r[0], key, v))
+        _audit(cur, tid, "sys_role", r[0], "PERM_VERBS", request.state.user_id,
+               {"resource": key, "verbs": verbs})
+    return {"role": role.strip().upper(), "resourceKey": key, "verbs": verbs}
+
+
 @router.get("/auth/permissions")
 def auth_permissions(request: Request) -> dict[str, str]:
     """유효 권한 매트릭스 — user_level 암묵 역할 + sys_user_role 할당 역할의 합집합 (WRITE 우선)."""
@@ -9324,6 +9423,12 @@ def auth_permissions(request: Request) -> dict[str, str]:
             (tid, level, request.state.user_id))
         out: dict[str, str] = {}
         for key, action in cur.fetchall():
+            if action in _ACTION_VERBS and action != "READ":
+                # 동사 권한은 아래 actions 로 따로 내려준다. 기존 맵은 READ/WRITE 의미를 유지해
+                # 프런트의 canWrite 판정이 흔들리지 않게 한다.
+                if out.get(key) is None:
+                    out[key] = "WRITE"
+                continue
             if out.get(key) != "WRITE":   # WRITE ⊃ READ
                 out[key] = action
     return out
