@@ -8645,6 +8645,19 @@ def _resolve_params(payload: Any, bindings: dict[str, str]) -> tuple[dict[str, f
     return out, missing
 
 
+# DXF 는 생성할 때마다 GUID 2개와 생성기 타임스탬프 2줄이 달라진다(내용은 동일).
+# 원시 바이트를 그대로 해시하면 "같은 Snapshot = 같은 도면" 이 항상 거짓이 되므로,
+# **휘발 요소를 제거한 내용 기준**으로 해시한다.
+_DXF_GUID = re.compile(r"^\{[0-9A-Fa-f-]{36}\}$")
+_DXF_STAMP = re.compile(r"^\d+\.\d+\.\d+ @ \d{4}-\d{2}-\d{2}T")
+
+
+def _dxf_content_checksum(data: bytes) -> str:
+    kept = [ln for ln in data.decode("utf-8", "replace").splitlines()
+            if not _DXF_GUID.match(ln.strip()) and not _DXF_STAMP.match(ln.strip())]
+    return hashlib.sha256("\n".join(kept).encode("utf-8")).hexdigest()
+
+
 class DrawingJobCreate(BaseModel):
     jobCode: str
     snapshotId: int
@@ -8724,7 +8737,7 @@ def drawing_job_run(job_id: int, request: Request) -> dict[str, Any]:
                 422, detail=f"Snapshot 에서 파라미터를 풀 수 없습니다: {', '.join(missing[:4])} "
                             f"(Snapshot {row[4]} · #54)")
         data = rp.build_part_dxf(params)
-        checksum = hashlib.sha256(data).hexdigest()
+        checksum = _dxf_content_checksum(data)
         cur.execute(
             """UPDATE dwg_run_job SET status='DONE', resolved_params=%s, output_checksum=%s,
                finished_at=now() WHERE tenant_id=%s AND job_id=%s""",
