@@ -6069,8 +6069,10 @@ def _check_bindings(cur, tid: int, layout: Any) -> None:
     · 어떤 필드에든 테이블명/SQL 로 보이는 직접 참조가 있으면 거부한다
     바인딩이 아예 없는 순수 표시 위젯은 종전대로 자유롭다(도입 무영향)."""
     codes = _contract_codes(cur, tid)
+    cmds = _command_codes(cur, tid)
     bad_direct: list[str] = []
     bad_contract: list[str] = []
+    bad_command: list[str] = []
 
     def walk(node: Any, path: str = "") -> None:
         if isinstance(node, dict):
@@ -6078,6 +6080,10 @@ def _check_bindings(cur, tid: int, layout: Any) -> None:
                 if k == "binding" and isinstance(v, str) and v.strip():
                     if v.strip() not in codes:
                         bad_contract.append(f"{path or 'widget'}.binding={v.strip()}")
+                elif k == "command" and isinstance(v, str) and v.strip():
+                    # #59 — 버튼은 등록된 Command 만 참조할 수 있다
+                    if v.strip().upper() not in cmds:
+                        bad_command.append(f"{path or 'widget'}.command={v.strip()}")
                 elif isinstance(v, str) and _DIRECT_REF.search(v):
                     bad_direct.append(f"{path or 'widget'}.{k}={v[:40]}")
                 else:
@@ -6091,10 +6097,138 @@ def _check_bindings(cur, tid: int, layout: Any) -> None:
         raise HTTPException(
             409, detail="DB 직접 접근은 금지됩니다 — Binding Contract 를 경유하십시오 (#58): "
                         + "; ".join(bad_direct[:3]))
+    if bad_command:
+        raise HTTPException(
+            422, detail="등록되지 않은 Command: " + "; ".join(bad_command[:3])
+                        + " (먼저 Command 를 등록하십시오 · #59)")
     if bad_contract:
         raise HTTPException(
             422, detail="등록되지 않은 Binding Contract: " + "; ".join(bad_contract[:3])
                         + " (먼저 Contract 를 등록하십시오 · #58)")
+
+
+# ── 6.8 Command Button Binding (요구 #59) — Button = Command, Context 는 ID 기준 ──
+# 종전 버튼은 '무엇을 실행하는가'가 화면 정의 안 자유 텍스트라 감사·통제가 불가했고,
+# 화면이 임의 payload 를 실어 보낼 수 있었다(ID 대신 값 뭉치를 믿게 되는 구조).
+_CTX_ID = re.compile(r'^[A-Za-z0-9][A-Za-z0-9 ._/-]{0,80}$')
+
+
+def _command_codes(cur, tid: int) -> set:
+    cur.execute("SELECT command_code FROM tbx_command WHERE tenant_id=%s AND status<>'RETIRED'", (tid,))
+    return {r[0] for r in cur.fetchall()}
+
+
+class CommandSave(BaseModel):
+    commandCode: str
+    commandName: str
+    handlerKind: str = 'MACRO'
+    handlerRef: str
+    requiredContext: list[str] = []
+    note: str = ''
+
+
+@router.get('/toolbox/commands')
+def command_list() -> list[dict[str, Any]]:
+    """Command 목록 (#59) — 버튼이 참조할 수 있는 실행객체."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT command_code, command_name, handler_kind, handler_ref,
+                      COALESCE(required_context,'[]'::jsonb), status, COALESCE(note,'')
+               FROM tbx_command WHERE tenant_id=%s ORDER BY command_code""", (tid,))
+        return [{'commandCode': r[0], 'commandName': r[1], 'handlerKind': r[2],
+                 'handlerRef': r[3], 'requiredContext': r[4] or [], 'status': r[5], 'note': r[6]}
+                for r in cur.fetchall()]
+
+
+@router.put('/toolbox/commands/{code}', dependencies=[SETUP])
+def command_save(code: str, request: Request, body: CommandSave) -> dict[str, Any]:
+    """Command 등록·수정 (#59) — 실행 대상과 **필요한 컨텍스트 키**를 선언한다."""
+    cc = code.strip().upper()[:40]
+    kind = body.handlerKind.strip().upper()
+    if kind not in ('MACRO', 'SCREEN', 'API'):
+        raise HTTPException(422, detail='handlerKind 는 MACRO/SCREEN/API')
+    if not cc or not body.commandName.strip() or not body.handlerRef.strip():
+        raise HTTPException(422, detail='필수 — 코드·이름·실행 대상')
+    ctx = [c.strip() for c in body.requiredContext if c.strip()]
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """UPDATE tbx_command SET command_name=%s, handler_kind=%s, handler_ref=%s,
+               required_context=%s, note=%s, updated_by=%s, updated_at=now()
+               WHERE tenant_id=%s AND command_code=%s RETURNING command_id""",
+            (body.commandName.strip()[:150], kind, body.handlerRef.strip()[:150],
+             json.dumps(ctx), body.note.strip()[:300] or None, request.state.login, tid, cc))
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                """INSERT INTO tbx_command (tenant_id, command_code, command_name, handler_kind,
+                   handler_ref, required_context, note, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING command_id""",
+                (tid, cc, body.commandName.strip()[:150], kind, body.handlerRef.strip()[:150],
+                 json.dumps(ctx), body.note.strip()[:300] or None, request.state.login))
+            row = cur.fetchone()
+        _audit(cur, tid, 'tbx_command', row[0], 'SAVE', request.state.user_id,
+               {'code': cc, 'handler': body.handlerRef.strip()})
+    return {'commandId': row[0], 'commandCode': cc, 'requiredContext': ctx}
+
+
+@router.delete('/toolbox/commands/{code}', dependencies=[SETUP])
+def command_delete(code: str, request: Request) -> dict[str, Any]:
+    cc = code.strip().upper()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute('SELECT form_name FROM tbx_ui_form WHERE tenant_id=%s '
+                    'AND layout_def::text LIKE %s', (tid, '%"' + cc + '"%'))
+        used = [r[0] for r in cur.fetchall()]
+        if used:
+            raise HTTPException(409, detail='사용 중인 Command 입니다 — 화면: ' + ', '.join(used[:3]) + ' (#59)')
+        cur.execute('DELETE FROM tbx_command WHERE tenant_id=%s AND command_code=%s RETURNING command_id',
+                    (tid, cc))
+        if not cur.fetchone():
+            raise HTTPException(404, detail='Command 없음: ' + cc)
+        _audit(cur, tid, 'tbx_command', 0, 'DELETE', request.state.user_id, {'code': cc})
+    return {'deleted': cc}
+
+
+class CommandInvoke(BaseModel):
+    context: dict[str, str] = {}
+
+
+@router.post('/toolbox/commands/{code}/invoke', dependencies=[SETUP])
+def command_invoke(code: str, request: Request, body: CommandInvoke) -> dict[str, Any]:
+    """Command 실행 (#59) — 컨텍스트는 **선언된 키의 ID 값**만 받는다.
+
+    선언에 없는 키·ID 형태가 아닌 값(공백·특수문자 뭉치·긴 payload)은 거부한다.
+    화면이 값 뭉치를 실어 보내고 서버가 그것을 믿는 구조를 원천 차단한다."""
+    cc = code.strip().upper()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT handler_kind, handler_ref, COALESCE(required_context,'[]'::jsonb), status
+               FROM tbx_command WHERE tenant_id=%s AND command_code=%s""", (tid, cc))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail='Command 없음: ' + cc)
+        if row[3] == 'RETIRED':
+            raise HTTPException(409, detail='폐기된 Command 는 실행할 수 없습니다: ' + cc)
+        required = list(row[2] or [])
+        unknown = sorted(set(body.context) - set(required))
+        if unknown:
+            raise HTTPException(
+                422, detail='선언되지 않은 컨텍스트 키: ' + ', '.join(unknown)
+                            + ' (Command 선언에 없는 값은 받지 않습니다 · #59)')
+        missing = [k for k in required if not body.context.get(k, '').strip()]
+        if missing:
+            raise HTTPException(422, detail='필수 컨텍스트 누락: ' + ', '.join(missing))
+        bad = [k for k, v in body.context.items() if not _CTX_ID.match(v.strip())]
+        if bad:
+            raise HTTPException(
+                422, detail='컨텍스트는 ID 여야 합니다(값 뭉치 불가): ' + ', '.join(bad) + ' (#59)')
+        _audit(cur, tid, 'tbx_command', 0, 'INVOKE', request.state.user_id,
+               {'code': cc, 'context': body.context})
+    return {'commandCode': cc, 'handlerKind': row[0], 'handlerRef': row[1],
+            'context': body.context, 'accepted': True}
 
 
 class ContractSave(BaseModel):
