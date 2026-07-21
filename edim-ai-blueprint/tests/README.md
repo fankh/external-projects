@@ -58,6 +58,7 @@ py tests\live_all.py
 | `live_action_verbs.py` | 작업 권한 동사 — 어휘 422·미설정=허용(무영향)·READ 만이면 승인 403·APPROVE 부여 후 통과·제거 시 원복 (자체 정리) | 5.2 (#3) |
 | `live_std_tree.py` | 표준/고객 트리 분리 — 온보딩 루트가 표준 표시·이름변경/삭제 409·하위 확장 201·CUSTOM 자식은 편집 가능 (자체 정리) | 5.4 (#23) |
 | `live_toolbox_package.py` | Toolbox Package — 상태기계 건너뛰기 422·게시본 구성 변경 409·새 버전 복사·CRITICAL 가드 + **설계시 파싱 409·위험도 자동 상향·Sandbox 실패 409·Runtime intact·활성 1개·Rollback 이력 보존** (자체 정리) | 5.6·5.8·6.0·6.2 (#56·#61·#62·#63) |
+| `live_templet_library.py` | Template Library — 원본 편집 409·복사 계보·잠금 상속·잠긴 필드 수정 409·원본 영향분석 (자체 정리) | 6.4 (#57) |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI
