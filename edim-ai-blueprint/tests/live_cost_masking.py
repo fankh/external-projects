@@ -14,6 +14,7 @@
 정리: 걸었던 규칙을 full 로 되돌린다.
 """
 import json
+import subprocess
 import urllib.error
 import urllib.request
 
@@ -49,6 +50,15 @@ def req(method, path, tok, body=None, raw=False):
             return e.code, None
 
 
+def psql(sql):
+    """DELETE /cost/actuals 는 존재하지 않는다 — 실적 원가 정리는 psql 로 한다.
+    (API 로 지우는 줄 알고 두면 검증용 행이 실 원가 데이터에 남는다)"""
+    r = subprocess.run(["ssh", "edim-server",
+                        f"sudo docker exec edim-postgres psql -U edim -d edim -tAc \"{sql}\""],
+                       capture_output=True, text=True, timeout=60)
+    return (r.stdout or "").strip()
+
+
 def set_mode(tok, group, mode):
     st, _ = req("PUT", "/access/info", tok,
                 {"roleName": "GENERAL", "infoGroup": group, "mode": mode})
@@ -60,6 +70,8 @@ def masked(v):
     return v is None or isinstance(v, str)
 
 
+created_quo = None
+created_actual = None
 TOK = login("edim", "edim")      # ADMIN — full
 GEN = login("kim01", "edim")     # GENERAL — 규칙 대상
 
@@ -73,9 +85,24 @@ try:
     st, pcrs = req("GET", "/cost/pcr", TOK)
     pcr_id = pcrs[0]["pcrId"] if pcrs else None
     st, quos = req("GET", "/cost/quotations", TOK)
-    quo_id = quos[0]["quotationId"] if quos else None
+    if not quos:
+        # 라이브에 견적이 없으면 만들어 쓴다 — 조용히 건너뛰면 검증한 척이 된다
+        st, made = req("POST", "/cost/quotations", TOK, {"businessType": "PRE_SALES"})
+        ok(f"검증용 견적 생성 ({st})", st == 201)
+        created_quo = made["quotationId"]
+        st, quos = req("GET", "/cost/quotations", TOK)
+    quo_id = quos[0]["quotationId"]
     ok(f"검증 대상 확보 (PCR {pcr_id} · 견적 {quo_id})", pcr_id and quo_id)
     ok("ADMIN 견적 금액은 실수(마스킹 아님)", isinstance(quos[0]["total"], (int, float)))
+
+    # 실적 원가가 비어 있으면 검증용으로 하나 만든다 (없다고 건너뛰면 검증한 척이 된다)
+    st, pre = req("GET", "/cost/actuals", TOK)
+    if not pre:
+        st, ma = req("POST", "/cost/actuals", TOK,
+                     {"category": "MATERIAL", "itemCode": "ZZMASK", "itemName": "마스킹 검증",
+                      "qty": 3, "unitPrice": 71234})
+        ok(f"검증용 실적 원가 생성 ({st})", st == 201)
+        created_actual = ma.get("actualId")
 
     # ── 제한 부여 ──
     ok(f"cost=masked 설정 ({set_mode(TOK, 'cost', 'masked')})", True)
@@ -90,10 +117,9 @@ try:
         ok(f"Run 원가 상세 없음 — 건너뜀 ({st})", st == 404)
 
     st, acts = req("GET", "/cost/actuals", GEN)
-    ok(f"실적 원가 목록 200 ({len(acts)}건)", st == 200)
-    if acts:
-        ok(f"★ 실적 단가·금액 마스킹 ({acts[0]['unitPrice']!r}/{acts[0]['amount']!r})",
-           masked(acts[0]["unitPrice"]) and masked(acts[0]["amount"]))
+    ok(f"실적 원가 목록 200 ({len(acts)}건)", st == 200 and acts,)
+    ok(f"★ 실적 단가·금액 마스킹 ({acts[0]['unitPrice']!r}/{acts[0]['amount']!r})",
+       masked(acts[0]["unitPrice"]) and masked(acts[0]["amount"]))
 
     st, p = req("GET", "/cost/pcr", GEN)
     ok("★ PCR 목록 금액 마스킹(기존 통제 유지)",
@@ -123,22 +149,24 @@ try:
     # ── hidden 이면 값 자체가 사라진다 ──
     set_mode(TOK, "cost", "hidden")
     st, acts2 = req("GET", "/cost/actuals", GEN)
-    if acts2:
-        ok(f"★ hidden 은 값 제거 ({acts2[0]['amount']!r})", acts2[0]["amount"] is None)
+    ok(f"★ hidden 은 값 제거 ({acts2[0]['amount']!r})", acts2 and acts2[0]["amount"] is None)
 
     # ── 되돌리면 즉시 실값 (규칙이 실제로 작동함을 반증) ──
     set_mode(TOK, "cost", "full")
     st, acts3 = req("GET", "/cost/actuals", GEN)
-    if acts3:
-        ok("★ full 로 되돌리면 실값 복귀", isinstance(acts3[0]["amount"], (int, float)))
+    ok("★ full 로 되돌리면 실값 복귀", acts3 and isinstance(acts3[0]["amount"], (int, float)))
     set_mode(TOK, "quote", "full")
     st, _ = req("GET", f"/reports/pcr/{pcr_id}.pdf", GEN, raw=True)
     ok(f"★ 제한 해제 후 GENERAL 도 PDF 200 ({st})", st == 200)
 finally:
     for g in ("cost", "quote", "price", "partner"):
         set_mode(TOK, g, "full")
+    psql("DELETE FROM cst_actual WHERE item_code='ZZMASK'")
+    if created_quo:
+        req("DELETE", f"/cost/quotations/{created_quo}", TOK)
     st, cur_rules = req("GET", "/access/info", TOK)
     left = [r for r in (cur_rules or {}).get("rules", []) if r.get("roleName") == "GENERAL"]
-    print(f"정리 — GENERAL 정보접근 규칙 full 복원 (잔존 {len(left)})")
+    act_left = psql("SELECT count(*) FROM cst_actual WHERE item_code='ZZMASK'")
+    print(f"정리 — 정보접근 규칙 full 복원 (잔존 {len(left)}) · ZZMASK 실적 잔존 {act_left}")
 
 print(f"\nlive_cost_masking: {n}/{n} PASS")
