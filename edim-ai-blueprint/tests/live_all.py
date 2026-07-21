@@ -115,6 +115,7 @@ SUITES = [
     "live_templet_library.py",      # Template Library (6.4) — 원본 읽기전용·복사 계보·부분 Lock·영향분석
     "live_binding_contract.py",     # Binding Contract (6.6) — DB 직접 참조 409·미등록 422·오탐 없음
     "live_command_binding.py",     # Command Binding (6.8) — 버튼=Command·Context ID 강제
+    "live_macro_graph.py",         # Macro 5-View Graph (7.0) — 정본 Graph·stale 뷰 지목
     "live_file_role.py",            # 산출물/원본 이원화 (3.3) — OUTPUT 불변·동명 저장 격리·역할 노출
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
