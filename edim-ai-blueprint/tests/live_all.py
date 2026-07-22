@@ -174,6 +174,14 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_tenant_scope.py")]
 print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_tenant_scope.py", p.returncode == 0, ""))
 
+# check_fk_indexes — 인덱스 없는 FK 게이트 (9.1, 서버 대상)
+print(f"\n{'=' * 60}\n▶ check_fk_indexes.py (live)\n{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_fk_indexes.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=120)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_fk_indexes.py", p.returncode == 0, ""))
+
 # check_live_residue — 실 데이터 잔재 (8.11): 스위트가 남긴 변화가 있으면 실패
 print(f"\n{'=' * 60}\n▶ check_live_residue.py (live)\n{'=' * 60}")
 p = subprocess.run([sys.executable, os.path.join(HERE, "check_live_residue.py")],
