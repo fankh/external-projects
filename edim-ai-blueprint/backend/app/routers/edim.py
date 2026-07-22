@@ -9032,6 +9032,347 @@ def lock_release(lock_id: int, request: Request) -> dict[str, Any]:
     return {"released": lock_id}
 
 
+# ── 9.0 AI 학습·RCCS Data 정리 거버넌스 (요구 #66·#67) ──
+# 근거 문서의 최종 원칙: "AI 는 초안을 만든다 · EDIM 은 검증한다 · 사람이 승인한다 ·
+# Published 된 것만 운영된다." 실제 추출·생성은 크레딧 대기·2차라 제외하고, **불변식만** 세운다:
+#   (1) 고객 자료는 고객사별 분리 — 다른 고객이 못 본다 (교차 테넌트 차단)
+#   (2) 후보는 항상 Draft 로 시작, 사람 검증·승인 전에는 어디에도 반영되지 않는다
+#   (3) 역할 분리 — Tenant 는 요청·자료·조회, **EDIM 운영자만** 분석·검증·Package·반영
+_AI_OBJECT_TYPES = (
+    "sub_code_specification", "sub_code_material", "product_code", "product_sub_item",
+    "part_relationship", "arrangement_code", "arrangement_setup", "drawing_resource",
+    "table_resource", "work_process_data", "specification_tree_node",
+)
+
+
+def _is_operator(cur, tid: int) -> bool:
+    """호출자 테넌트가 EDIM 운영 테넌트인가 — AI 분석·검증·반영은 운영자 전용(#67 §2)."""
+    cur.execute("SELECT tenant_code FROM sys_tenant WHERE tenant_id=%s", (tid,))
+    r = cur.fetchone()
+    return bool(r and r[0] == TENANT)
+
+
+def _assert_operator(cur, tid: int) -> None:
+    if not _is_operator(cur, tid):
+        raise HTTPException(
+            403, detail="EDIM 운영자 전용 — 고객사 사용자는 자료 제공·요청·결과 조회만 "
+                        "할 수 있습니다 (AI 분석·검증·반영은 EDIM Developer 전용, #67)")
+
+
+def _ai_project(cur, project_id: int) -> tuple:
+    """운영자 시점에서 프로젝트를 집는다 — 운영자는 고객사 프로젝트에 접근한다(역할 근거).
+
+    단 프로젝트의 tenant_id 를 그대로 들고 다녀, 이후 자료·후보가 **그 고객 테넌트에만**
+    귀속되게 한다(다른 고객 자료가 섞이지 않도록)."""
+    cur.execute(
+        """SELECT project_id, tenant_id, project_code, status, cross_tenant_learning_allowed
+           FROM ai_prep_project WHERE project_id=%s""", (project_id,))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(404, detail=f"AI 정리 프로젝트 없음: {project_id}")
+    return row
+
+
+class AiPrepCreate(BaseModel):
+    projectCode: str
+    projectName: str
+    purpose: str = ""
+    sourceScope: str = ""
+    confidentiality: str = "NORMAL"
+    retentionPolicy: str = ""
+    aiTrainingAllowed: bool = False
+    crossTenantLearningAllowed: bool = False
+
+
+@router.post("/ai/prep/projects", status_code=201, dependencies=[ADMIN])
+def ai_prep_create(request: Request, body: AiPrepCreate) -> dict[str, Any]:
+    """자료 정리 요청 생성 (#67 §2) — **Tenant Admin** 이 자기 테넌트 안에서 연다.
+
+    ai_data_prep.request 에 해당. 고객이 '무엇을·어느 범위까지·얼마 동안' 쓸지 선언한다."""
+    code = body.projectCode.strip().upper()[:40]
+    conf = body.confidentiality.strip().upper()
+    if not code or not body.projectName.strip():
+        raise HTTPException(422, detail="필수 — 프로젝트 코드·이름")
+    if conf not in ("NORMAL", "SENSITIVE", "SECRET"):
+        raise HTTPException(422, detail="보안 등급은 NORMAL/SENSITIVE/SECRET")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT 1 FROM ai_prep_project WHERE tenant_id=%s AND project_code=%s",
+                    (tid, code))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"중복 — 프로젝트 {code}")
+        cur.execute(
+            """INSERT INTO ai_prep_project (tenant_id, project_code, project_name, purpose,
+               source_scope, confidentiality, retention_policy, ai_training_allowed,
+               cross_tenant_learning_allowed, requested_by)
+               VALUES (%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''),%s,NULLIF(%s,''),%s,%s,%s)
+               RETURNING project_id""",
+            (tid, code, body.projectName.strip()[:150], body.purpose.strip()[:300],
+             body.sourceScope.strip()[:300], conf, body.retentionPolicy.strip()[:60],
+             body.aiTrainingAllowed, body.crossTenantLearningAllowed, request.state.login))
+        pid = cur.fetchone()[0]
+        _audit(cur, tid, "ai_prep_project", pid, "AI_PREP_REQUEST", request.state.user_id,
+               {"projectCode": code, "confidentiality": conf})
+    return {"projectId": pid, "projectCode": code, "status": "REQUESTED"}
+
+
+@router.get("/ai/prep/projects")
+def ai_prep_list() -> list[dict[str, Any]]:
+    """정리 프로젝트 목록 — 고객사는 자기 것만, 운영자는 전 고객사.
+
+    교차 테넌트 차단의 핵심: 고객 A 의 조회에는 고객 B 의 프로젝트가 절대 나오지 않는다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        if _is_operator(cur, tid):
+            cur.execute(
+                """SELECT p.project_id, p.tenant_id, t.tenant_code, p.project_code, p.project_name,
+                          p.status, p.confidentiality, p.cross_tenant_learning_allowed,
+                          (SELECT count(*) FROM ai_mapping_candidate c WHERE c.project_id=p.project_id)
+                   FROM ai_prep_project p JOIN sys_tenant t ON t.tenant_id=p.tenant_id
+                   ORDER BY p.project_id DESC""")
+        else:
+            cur.execute(
+                """SELECT p.project_id, p.tenant_id, t.tenant_code, p.project_code, p.project_name,
+                          p.status, p.confidentiality, p.cross_tenant_learning_allowed,
+                          (SELECT count(*) FROM ai_mapping_candidate c WHERE c.project_id=p.project_id)
+                   FROM ai_prep_project p JOIN sys_tenant t ON t.tenant_id=p.tenant_id
+                   WHERE p.tenant_id=%s ORDER BY p.project_id DESC""", (tid,))
+        return [{"projectId": r[0], "tenantId": r[1], "tenantCode": r[2], "projectCode": r[3],
+                 "projectName": r[4], "status": r[5], "confidentiality": r[6],
+                 "crossTenantLearningAllowed": r[7], "candidateCount": r[8]}
+                for r in cur.fetchall()]
+
+
+class AiAssetAdd(BaseModel):
+    fileName: str
+    assetType: str = "DOCUMENT"
+    description: str = ""
+    fileId: int | None = None
+
+
+@router.post("/ai/prep/projects/{project_id}/assets", status_code=201, dependencies=[SETUP])
+def ai_prep_asset_add(project_id: int, request: Request, body: AiAssetAdd) -> dict[str, Any]:
+    """자료 등록 (#67 ai_data_prep.upload) — 고객이 **자기 프로젝트에만** 자료를 붙인다."""
+    if not body.fileName.strip():
+        raise HTTPException(422, detail="파일명은 필수")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute("SELECT status FROM ai_prep_project WHERE tenant_id=%s AND project_id=%s",
+                    (tid, project_id))
+        row = cur.fetchone()
+        if not row:
+            # 남의 테넌트 프로젝트면 여기서 404 — 존재조차 알리지 않는다
+            raise HTTPException(404, detail=f"AI 정리 프로젝트 없음: {project_id}")
+        cur.execute(
+            """INSERT INTO ai_source_asset (tenant_id, project_id, file_id, asset_type, file_name,
+               source_description) VALUES (%s,%s,%s,%s,%s,NULLIF(%s,'')) RETURNING asset_id""",
+            (tid, project_id, body.fileId, body.assetType.strip().upper()[:20],
+             body.fileName.strip()[:200], body.description.strip()[:300]))
+        aid = cur.fetchone()[0]
+        _audit(cur, tid, "ai_source_asset", aid, "AI_ASSET_ADD", request.state.user_id,
+               {"projectId": project_id, "fileName": body.fileName.strip()[:60]})
+    return {"assetId": aid, "projectId": project_id, "usagePermissionStatus": "PENDING"}
+
+
+@router.get("/ai/prep/projects/{project_id}")
+def ai_prep_detail(project_id: int) -> dict[str, Any]:
+    """프로젝트 상세 + 자료·후보 (#67 ai_data_prep.view_result).
+
+    고객은 자기 것만, 운영자는 전 고객사. 남의 것이면 404 로 존재를 숨긴다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        op = _is_operator(cur, tid)
+        cur.execute(
+            """SELECT project_id, tenant_id, project_code, project_name, COALESCE(purpose,''),
+                      COALESCE(source_scope,''), confidentiality, ai_training_allowed,
+                      cross_tenant_learning_allowed, status, requested_by,
+                      COALESCE(assigned_developer,'')
+               FROM ai_prep_project WHERE project_id=%s
+                 AND (%s OR tenant_id=%s)""", (project_id, op, tid))
+        p = cur.fetchone()
+        if not p:
+            raise HTTPException(404, detail=f"AI 정리 프로젝트 없음: {project_id}")
+        cur.execute(
+            """SELECT asset_id, asset_type, file_name, usage_permission_status
+               FROM ai_source_asset WHERE project_id=%s ORDER BY asset_id""", (project_id,))
+        assets = [{"assetId": r[0], "assetType": r[1], "fileName": r[2],
+                   "usagePermissionStatus": r[3]} for r in cur.fetchall()]
+        cur.execute(
+            """SELECT candidate_id, target_object_type, candidate_name, confidence_score,
+                      duplicate_risk_score, conflict_risk_score, status
+               FROM ai_mapping_candidate WHERE project_id=%s ORDER BY candidate_id""",
+            (project_id,))
+        cands = [{"candidateId": r[0], "targetObjectType": r[1], "candidateName": r[2],
+                  "confidenceScore": float(r[3]), "duplicateRiskScore": float(r[4]),
+                  "conflictRiskScore": float(r[5]), "status": r[6]} for r in cur.fetchall()]
+    return {"projectId": p[0], "tenantId": p[1], "projectCode": p[2], "projectName": p[3],
+            "purpose": p[4], "sourceScope": p[5], "confidentiality": p[6],
+            "aiTrainingAllowed": p[7], "crossTenantLearningAllowed": p[8], "status": p[9],
+            "requestedBy": p[10], "assignedDeveloper": p[11], "assets": assets,
+            "candidates": cands}
+
+
+class AiCandidateIn(BaseModel):
+    targetObjectType: str
+    candidateName: str
+    payload: dict[str, Any] = {}
+    confidence: float = 0.0
+    duplicateRisk: float = 0.0
+    conflictRisk: float = 0.0
+
+
+class AiRunIn(BaseModel):
+    candidates: list[AiCandidateIn] = []
+
+
+@router.post("/ai/prep/projects/{project_id}/run", dependencies=[SETUP])
+def ai_prep_run(project_id: int, request: Request, body: AiRunIn) -> dict[str, Any]:
+    """AI 분석 실행 (#67 ai_data_prep.run) — **EDIM 운영자 전용**.
+
+    실제 추출·생성 모델은 크레딧 대기·2차이므로, 이 단계는 후보의 **구조와 상태 규약**을
+    강제한다: 들어오는 모든 후보는 **DRAFT 로만** 저장된다(사람 검증 전에는 아무것도 아니다).
+    후보는 프로젝트의 고객 테넌트에 귀속돼, 다른 고객 자료와 섞이지 않는다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _assert_operator(cur, tid)
+        proj = _ai_project(cur, project_id)
+        ptid, status = proj[1], proj[3]
+        if status in ("APPLIED", "REJECTED"):
+            raise HTTPException(409, detail=f"이미 종료된 프로젝트입니다 (상태 {status})")
+        bad = [c.targetObjectType for c in body.candidates
+               if c.targetObjectType not in _AI_OBJECT_TYPES]
+        if bad:
+            raise HTTPException(422, detail=f"알 수 없는 대상 유형: {', '.join(bad[:4])}")
+        made = 0
+        for c in body.candidates:
+            cur.execute(
+                """INSERT INTO ai_mapping_candidate (tenant_id, project_id, target_object_type,
+                   candidate_name, candidate_payload, confidence_score, duplicate_risk_score,
+                   conflict_risk_score, status)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'DRAFT')""",
+                (ptid, project_id, c.targetObjectType, c.candidateName.strip()[:150],
+                 json.dumps(c.payload), min(max(c.confidence, 0), 1),
+                 min(max(c.duplicateRisk, 0), 1), min(max(c.conflictRisk, 0), 1)))
+            made += 1
+        cur.execute(
+            "UPDATE ai_prep_project SET status='REVIEW', assigned_developer=%s WHERE project_id=%s",
+            (request.state.login, project_id))
+        _audit(cur, ptid, "ai_prep_project", project_id, "AI_PREP_RUN", request.state.user_id,
+               {"candidates": made, "developer": request.state.login})
+    return {"projectId": project_id, "candidatesCreated": made, "status": "REVIEW",
+            "note": "모든 후보는 DRAFT — 사람 검증·승인 전에는 운영에 반영되지 않습니다 (#66 §10)"}
+
+
+class AiReviewIn(BaseModel):
+    decision: str          # APPROVED | REJECTED | CORRECTED
+    comment: str = ""
+
+
+@router.post("/ai/prep/candidates/{candidate_id}/review", dependencies=[SETUP])
+def ai_prep_review(candidate_id: int, request: Request, body: AiReviewIn) -> dict[str, Any]:
+    """후보 검증 (#67 ai_data_prep.review) — **EDIM 운영자 전용**."""
+    decision = body.decision.strip().upper()
+    if decision not in ("APPROVED", "REJECTED", "CORRECTED"):
+        raise HTTPException(422, detail="검토 결과는 APPROVED/REJECTED/CORRECTED")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _assert_operator(cur, tid)
+        cur.execute(
+            """SELECT c.tenant_id, c.project_id, c.status FROM ai_mapping_candidate c
+               WHERE c.candidate_id=%s""", (candidate_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"후보 없음: {candidate_id}")
+        ptid = row[0]
+        new_status = "REVIEWED" if decision in ("APPROVED", "CORRECTED") else "REJECTED"
+        cur.execute("UPDATE ai_mapping_candidate SET status=%s WHERE candidate_id=%s",
+                    (new_status, candidate_id))
+        cur.execute(
+            """INSERT INTO ai_developer_review (tenant_id, candidate_id, reviewer, review_status,
+               review_comment) VALUES (%s,%s,%s,%s,NULLIF(%s,''))""",
+            (ptid, candidate_id, request.state.login, decision, body.comment.strip()[:300]))
+        _audit(cur, ptid, "ai_mapping_candidate", candidate_id, "AI_REVIEW",
+               request.state.user_id, {"decision": decision})
+    return {"candidateId": candidate_id, "status": new_status, "decision": decision}
+
+
+class AiPackageIn(BaseModel):
+    packageName: str
+
+
+@router.post("/ai/prep/projects/{project_id}/package", status_code=201, dependencies=[SETUP])
+def ai_prep_package(project_id: int, request: Request, body: AiPackageIn) -> dict[str, Any]:
+    """Import Package 생성 (#67 ai_data_prep.create_import_package) — **EDIM 운영자 전용**.
+
+    아직 **검증되지 않은 후보(DRAFT)** 가 남아 있으면 만들 수 없다 — 검증 안 된 것을 묶어
+    반영 대상으로 올리는 걸 막는다. 검증된(REVIEWED) 후보가 하나도 없어도 만들 수 없다."""
+    if not body.packageName.strip():
+        raise HTTPException(422, detail="패키지 이름은 필수")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _assert_operator(cur, tid)
+        proj = _ai_project(cur, project_id)
+        ptid = proj[1]
+        cur.execute(
+            """SELECT count(*) FILTER (WHERE status='DRAFT'),
+                      count(*) FILTER (WHERE status='REVIEWED')
+               FROM ai_mapping_candidate WHERE project_id=%s""", (project_id,))
+        draft_n, reviewed_n = cur.fetchone()
+        if draft_n:
+            raise HTTPException(
+                409, detail=f"검증되지 않은 후보가 {draft_n}건 남아 있습니다 — 전부 검토한 뒤 "
+                            "Import Package 를 만드십시오 (#67)")
+        if not reviewed_n:
+            raise HTTPException(409, detail="반영할 검증 완료 후보가 없습니다 (#67)")
+        cur.execute(
+            """INSERT INTO ai_import_package (tenant_id, project_id, package_name,
+               included_candidate_count, validation_status, created_by)
+               VALUES (%s,%s,%s,%s,'VALIDATED',%s) RETURNING package_id""",
+            (ptid, project_id, body.packageName.strip()[:150], reviewed_n, request.state.login))
+        pkg_id = cur.fetchone()[0]
+        cur.execute("UPDATE ai_prep_project SET status='PACKAGED' WHERE project_id=%s",
+                    (project_id,))
+        _audit(cur, ptid, "ai_import_package", pkg_id, "AI_PACKAGE", request.state.user_id,
+               {"projectId": project_id, "candidates": reviewed_n})
+    return {"packageId": pkg_id, "includedCandidateCount": reviewed_n, "status": "DRAFT"}
+
+
+@router.post("/ai/prep/packages/{package_id}/apply", dependencies=[ADMIN])
+def ai_prep_apply(package_id: int, request: Request) -> dict[str, Any]:
+    """Import Package 반영 (#67 ai_data_prep.publish_to_rccs) — **EDIM 운영자 ADMIN 전용**.
+
+    최종 원칙: "AI 결과는 직접 Published 되지 않는다." 이 단계는 검증된 후보를 **RCCS Draft
+    후보로만** 편입 상태(IMPORTED)로 표시한다 — 실제 Published RCCS 쓰기는 사람이 별도 승인
+    흐름(#8·#28)에서 수행한다. 즉 이 파이프라인은 어떤 것도 스스로 APPROVED/PUBLISHED 로 만들지
+    않는다(그 불변식을 라이브에서 실증한다). 실제 Draft 객체 생성은 §10 후반·2차."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        _assert_operator(cur, tid)
+        cur.execute(
+            """SELECT p.tenant_id, p.project_id, p.status, pr.status
+               FROM ai_import_package p JOIN ai_prep_project pr ON pr.project_id=p.project_id
+               WHERE p.package_id=%s""", (package_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"Import Package 없음: {package_id}")
+        ptid, pjid, pkg_status = row[0], row[1], row[2]
+        if pkg_status == "APPLIED":
+            raise HTTPException(409, detail="이미 반영된 패키지입니다")
+        cur.execute(
+            """UPDATE ai_mapping_candidate SET status='IMPORTED'
+               WHERE project_id=%s AND status='REVIEWED'""", (pjid,))
+        imported = cur.rowcount
+        cur.execute(
+            "UPDATE ai_import_package SET status='APPLIED', applied_at=now() WHERE package_id=%s",
+            (package_id,))
+        cur.execute("UPDATE ai_prep_project SET status='APPLIED' WHERE project_id=%s", (pjid,))
+        _audit(cur, ptid, "ai_import_package", package_id, "AI_APPLY", request.state.user_id,
+               {"importedCandidates": imported})
+    return {"packageId": package_id, "importedCandidates": imported, "status": "APPLIED",
+            "note": "검증 후보를 RCCS Draft 편입 대상으로 표시 — Published 반영은 별도 승인 흐름 "
+                    "(#8)에서 사람이 수행합니다. 이 파이프라인은 스스로 Published 를 만들지 않습니다."}
+
+
 # ── 8.0 고객 로고 참조 모델 (요구 #20) ──
 # 자사 로고는 sys_tenant.settings 에 한 장 있었을 뿐, 고객사 로고는 문서마다 이미지를 복사해
 # 넣는 수밖에 없었다 → 로고가 바뀌면 문서가 제각각이 되고, 검토 안 된 로고가 고객 문서에
