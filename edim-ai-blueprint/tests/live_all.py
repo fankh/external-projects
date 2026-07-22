@@ -122,6 +122,7 @@ SUITES = [
     "live_erp_workflow.py",        # ERP Domain/Process/Workflow 선반영 (7.9) — 카탈로그·게시 그래프 강제
     "live_customer_logo.py",      # 고객 로고 참조 모델 (8.0) — 승인본만 표시·문서 참조
     "live_ai_prep.py",             # AI 학습·RCCS 정리 거버넌스 (9.0) — 교차 테넌트 차단·항상 Draft·역할 분리
+    "live_security_anomaly.py",    # 보안 이상 승격 (9.3) — 로그인 실패·자동 잠금 → sys_anomaly
     "live_event_complete.py",      # 업무 이벤트 완료 권한·기록 (8.2) — 담당자 확인·감사
     "live_cost_masking.py",        # 원가·견적 열람 통제 일관성 (8.3) — 전 경로 마스킹·PDF 다운로드 차단
     "live_file_role.py",            # 산출물/원본 이원화 (3.3) — OUTPUT 불변·동명 저장 격리·역할 노출

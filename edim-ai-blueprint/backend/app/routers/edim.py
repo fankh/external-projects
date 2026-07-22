@@ -7707,6 +7707,37 @@ def anomaly_scan(request: Request) -> dict[str, Any]:
             _raise_anomaly(cur, tid, "MILESTONE", "HIGH" if days > 14 else "MED",
                            f"마일스톤 지연 — {proj} {MILESTONE_LABEL.get(stage, stage)} ({days}일 초과, 계획 {planned})",
                            proj, f"MILESTONE:{proj}:{stage}", {"days": days, "planned": planned})
+        # 3) 보안 이상 (9.3) — 로그인 실패는 sys_history 에 이미 기록된다. 잠금은 이미 걸리지만
+        #    ops 가 **패턴을 볼** 통로가 없었다. 이미 기록된 사건을 이상으로 승격한다(스키마 무변경).
+        #    fetchall() 로 먼저 전량 materialize 한 뒤 _raise_anomaly 를 부른다(커서 재사용 없음).
+        cur.execute(
+            """SELECT h.target_id, u.login_id, COALESCE(u.user_name, u.login_id),
+                      to_char(h.acted_at,'YYYY-MM-DD HH24:MI'), h.history_id
+               FROM sys_history h JOIN sys_user u ON u.user_id=h.target_id
+               WHERE h.tenant_id=%s AND h.action='LOCK'
+                 AND h.acted_at > now() - interval '30 days'
+               ORDER BY h.history_id DESC LIMIT 200""", (tid,))
+        for uid_, login_id, uname, at, hid in cur.fetchall():
+            _raise_anomaly(cur, tid, "SECURITY", "HIGH",
+                           f"계정 자동 잠금 — {uname}({login_id}) 로그인 연속 실패로 잠김 ({at})",
+                           login_id, f"SECLOCK:{hid}",
+                           {"loginId": login_id, "at": at, "kind": "AUTO_LOCK"})
+        # 활성 계정의 진행 중 로그인 실패 누적(잠금 전) — 무차별 대입 신호
+        cur.execute(
+            """SELECT u.user_id, u.login_id, COALESCE(u.user_name, u.login_id),
+                 (SELECT count(*) FROM sys_history f
+                    WHERE f.tenant_id=%s AND f.target_table='sys_user' AND f.target_id=u.user_id
+                      AND f.action IN ('LOGIN_FAIL','LOGIN_MFA_FAIL')
+                      AND f.acted_at > COALESCE((SELECT max(acted_at) FROM sys_history s
+                        WHERE s.tenant_id=%s AND s.target_table='sys_user' AND s.target_id=u.user_id
+                          AND s.action IN ('LOGIN_OK','UNLOCK')), '-infinity'))
+               FROM sys_user u WHERE u.tenant_id=%s AND u.status='ACTIVE'""", (tid, tid, tid))
+        for uid_, login_id, uname, fails in cur.fetchall():
+            if fails and fails >= 3:
+                _raise_anomaly(cur, tid, "SECURITY", "MED",
+                               f"로그인 실패 누적 — {uname}({login_id}) 연속 {fails}회 (잠금 임계 {MAX_LOGIN_FAILS})",
+                               login_id, f"SECFAIL:{uid_}:{fails}",
+                               {"loginId": login_id, "fails": fails, "kind": "FAIL_BURST"})
         cur.execute("SELECT count(*) FROM sys_anomaly WHERE tenant_id=%s", (tid,))
         after = cur.fetchone()[0]
     return {"created": after - before, "total": after}

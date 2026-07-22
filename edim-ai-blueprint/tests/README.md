@@ -74,6 +74,7 @@ py tests\live_all.py
 | `live_event_complete.py` | 업무 이벤트 완료 — 담당자 아닌 GENERAL 403(담당자 명시)·담당자 본인 완료·SETUP 이상 대리 완료(onBehalf 구분)·담당자 미지정은 통과·완료자 감사 기록 (자체 정리) | 8.2 (ERP-030) |
 | `live_cost_masking.py` | 정보 접근 통제 일관성 — cost/quote/price/partner 4개 그룹이 **모든 경로에서** 동일하게 적용되는지 (Run 원가·실적·PCR 3종·수주 잔고·단가 목록/해석·공급자 코드·공급처 평가/지표), no_download 시 PDF 2종 403, ADMIN 실값 유지, full 복귀 시 복원 (검증용 견적·실적·평가 자체 생성/정리) | 8.3·8.4 (#5·#6) |
 | `live_ai_prep.py` | AI 학습·RCCS Data 정리 거버넌스 — 요청은 Tenant Admin·분석/검증/Package/반영은 **EDIM 운영자 전용**·후보는 **항상 DRAFT**·미검증 남으면 Package 409·교차 테넌트 차단(존재 숨김)·반영해도 IMPORTED 까지(스스로 Published 안 만듦) (자체 정리) | 9.0 (#66·#67) |
+| `live_security_anomaly.py` | 보안 이상 승격 — 5회 실패 자동 잠금→SECLOCK(HIGH)·3회 실패 누적→FAIL_BURST(MED)·재스캔 dedup·테넌트 스코프 (자체 정리) | 9.3 |
 | `live_tenant_isolation.py` | 교차 테넌트 실증 — 신규 테넌트 토큰으로 타 테넌트 자원에 접근. 쓰기 12종(2xx 금지) + **GET 경로 파라미터 자동 스윕 34종**, 판정은 차등(`남의 ID 응답 == 없는 ID 응답`) (자체 정리) | 2.9·3.1 보안 |
 
 ## CI
