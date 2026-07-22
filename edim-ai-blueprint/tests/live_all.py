@@ -135,6 +135,25 @@ SUITES = [
 env = {**os.environ, "PYTHONUTF8": "1", "BASE": "https://edim.seekerslab.com/"}
 results: list[tuple[str, bool, str]] = []
 
+# 9.11 — 플릿 동시 실행 방지 락. 세션 재개 시 이전 플릿이 자동 재실행되며 새 플릿과 겹쳐
+# 공유 서버·테스트 테넌트를 동시에 두드려 시드 데이터를 손상시킨 사고가 반복됐다(BOM 행·계정 유실).
+# 다른 플릿이 도는 중이면(락 40분 이내) 시작을 거부한다. FORCE_FLEET=1 로 우회.
+_LOCK = os.path.join(HERE, ".fleet_lock")
+if os.getenv("FORCE_FLEET") != "1" and os.path.exists(_LOCK):
+    age = time.time() - os.path.getmtime(_LOCK)
+    if age < 40 * 60:
+        try:
+            who = open(_LOCK, encoding="utf-8").read().strip()
+        except Exception:  # noqa: BLE001
+            who = "?"
+        print(f"ABORT — 다른 플릿이 실행 중 (락 {int(age)}s 전 · {who}). "
+              "동시 실행은 데이터 충돌을 유발한다. 끝난 뒤 재시도하거나 FORCE_FLEET=1 로 우회.")
+        raise SystemExit(2)
+import atexit  # noqa: E402
+with open(_LOCK, "w", encoding="utf-8") as _lf:
+    _lf.write(f"pid={os.getpid()} at={time.strftime('%H:%M:%S')}")
+atexit.register(lambda: os.path.exists(_LOCK) and os.remove(_LOCK))
+
 # C7 — 배포-준비 대기 (배포 창 충돌 방지). SKIP_WAIT=1 로 생략 가능.
 if os.getenv("SKIP_WAIT") != "1":
     print("배포-준비 확인 (/health db:true) …")
