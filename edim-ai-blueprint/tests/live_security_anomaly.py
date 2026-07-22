@@ -127,14 +127,11 @@ try:
     st, scan2 = req("POST", "/anomalies/scan", ADM)
     ok(f"★ 재스캔은 중복 안 만듦 (created {scan2.get('created')})", scan2["created"] == 0)
 
-    # ── 권한: GENERAL 은 스캔 불가 ──
-    gtok = login("zzsec_burst", "goodpass") if False else None
-    st, _ = req("POST", "/anomalies/scan", OP)   # 운영자 자기 테넌트 스캔은 허용(별개)
-    ok(f"운영자 자기 테넌트 스캔 200 ({st})", st == 200)
-    # 교차 테넌트: 운영자 스캔은 자기(nova) 테넌트만 — ZZSEC 이상은 안 보임
+    # ── 교차 테넌트: 운영자(nova) 조회에 ZZSEC 보안 이상이 안 보인다 ──
+    # (운영자 테넌트를 스캔해 실 데이터를 바꾸지 않고, 조회만으로 스코프를 확인한다)
     st, opsec = req("GET", "/anomalies?source=SECURITY", OP)
-    ok("운영자에겐 ZZSEC 보안 이상이 안 보임(테넌트 스코프)",
-       all("zzsec" not in json.dumps(a).lower() for a in opsec["rows"]))
+    ok(f"운영자 조회에 ZZSEC 보안 이상 없음(테넌트 스코프) ({st})",
+       st == 200 and all("zzsec" not in json.dumps(a).lower() for a in opsec["rows"]))
 finally:
     cleanup()
     left = psql(f"SELECT count(*) FROM sys_tenant WHERE tenant_code='{TC}'")
