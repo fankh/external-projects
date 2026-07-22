@@ -14,6 +14,7 @@ REQUIRED = {
     "x-content-type-options": "nosniff",
     "x-frame-options": "SAMEORIGIN",
     "referrer-policy": "strict-origin",
+    "content-security-policy": "frame-ancestors",
 }
 
 
