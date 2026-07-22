@@ -302,6 +302,39 @@ def health() -> dict[str, Any]:
     return {"status": "ok", "db": db_ok()}
 
 
+@router.get("/system/status", dependencies=[PLATFORM])
+def system_status() -> dict[str, Any]:
+    """운영 준비 상태 (9.6) — 배포 검증·ops 모니터링용, EDIM 운영자 전용.
+
+    적용된 마이그레이션 리비전을 노출해 '마이그레이션이 실제로 반영됐나'를 psql 없이 확인한다
+    (이번 세션에 배포마다 손으로 확인하던 것). 공개 /health 는 그대로 두고(로드밸런서 계약 유지)
+    민감 정보 노출을 피하려 여기는 PLATFORM 게이트로 둔다."""
+    info: dict[str, Any] = {"db": db_ok()}
+    try:
+        with _conn() as conn, conn.cursor() as cur:
+            cur.execute("SELECT version_num FROM alembic_version")
+            r = cur.fetchone()
+            info["migrationHead"] = r[0] if r else None
+            cur.execute("SELECT count(*) FROM information_schema.tables "
+                        "WHERE table_schema='public'")
+            info["tableCount"] = cur.fetchone()[0]
+            cur.execute("SELECT count(*) FROM sys_tenant")
+            info["tenantCount"] = cur.fetchone()[0]
+            cur.execute("SELECT to_char(now(),'YYYY-MM-DD HH24:MI:SS TZ')")
+            info["serverTime"] = cur.fetchone()[0]
+    except Exception as e:  # noqa: BLE001
+        info["dbError"] = str(e)[:120]
+    pool = get_pool()
+    if pool is not None:
+        try:
+            st = pool.get_stats()
+            info["pool"] = {"size": st.get("pool_size"), "available": st.get("pool_available"),
+                            "waiting": st.get("requests_waiting")}
+        except Exception:  # noqa: BLE001
+            pass
+    return info
+
+
 # ── 운영 설정 노출 — 개발서버 전용 기능 게이트 ──
 DEV_MODE = os.getenv("EDIM_DEV_MODE", "") == "1"
 
