@@ -162,6 +162,7 @@ Ubuntu 24.04 (16C/31GB) · `ssh edim-server` = seekers@115.90.24.205:**5022** ·
 
 | 일자 | 내용 |
 |---|---|
+| 2026-07-22 | **🚀 9.0 — AI 학습·RCCS Data 정리 거버넌스 구조 선반영 (요구 #66·#67)** — 두 요구는 한 파이프라인의 양면이다(Private AI 분리 + RCCS 학습 정리). 실제 추출·생성 모델과 Published RCCS 쓰기는 크레딧 대기·2차이므로 제외하고(#50 에서 Instance/Task 를 뺀 것과 같은 '구조 먼저'), 근거 문서의 **불변식**만 세웠다. alembic 0051 — ai_prep_project·ai_source_asset·ai_mapping_candidate·ai_developer_review·ai_import_package. 강제되는 것: (1) **교차 테넌트 차단** — 고객 A 의 조회에 고객 B 프로젝트가 안 나오고 직접 조회는 404 로 존재를 숨긴다(검증용 고객 테넌트 2개를 프로비저닝해 실증), (2) **항상 Draft** — AI 후보는 DRAFT 로만 생성되고 미검증 후보가 남으면 Import Package 를 만들 수 없다, (3) **역할 분리** — 요청은 Tenant Admin, 분석·검증·Package·반영은 **EDIM 운영자 전용**(고객은 자료 제공·결과 조회만), (4) **스스로 Published 를 만들지 않는다** — 반영해도 후보는 IMPORTED 까지이고 실제 RCCS 쓰기는 사람 승인 흐름(#8)에서 별도로 한다. 라이브 27/27 |
 | 2026-07-15 | **Next.js SSR 컷오버 완료** — 메인 웹 콘솔 = `edim-web-next`(컨테이너 :3000, nginx `/`→Next 프록시, 라이브 스모크 13/13). 레거시 React SPA 는 `/edim-static` 롤백 자산. 신 autodeploy(backend+web-next health-gate) 설치. 상세: MIGRATION_NEXTJS.md P6 |
 | 2026-07-15 | C3 완료(v16.0) — 월별 매출·기여마진 추이(`/erp/analytics` monthlyOrders + Next Dashboard 패널). PCR PDF 는 v15.3 기구현 확인. auto-next 프롬프트 Next 시대 갱신(신규 프론트 작업=edim-web-next) |
 | 2026-07-15 | C5 완료(v16.1) — CI `backend-db` 잡(postgres 서비스): 승인 전이·창고 계층 DB 테스트 8케이스 + 커버리지(33%). **CI 적색 복구**(edim-web 리네임 경로) + `web-next-build` 게이트 신설 |
