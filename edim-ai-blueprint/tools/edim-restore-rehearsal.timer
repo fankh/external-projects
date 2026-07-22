@@ -1,0 +1,10 @@
+[Unit]
+Description=EDIM restore rehearsal weekly (일 04:00) — 백업이 실제로 복원되는지 주기 검증
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00
+Persistent=true
+Unit=edim-restore-rehearsal.service
+
+[Install]
+WantedBy=timers.target

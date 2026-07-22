@@ -1,0 +1,8 @@
+[Unit]
+Description=EDIM backup restore rehearsal (C8) — 최신 덤프를 임시 DB 로 복원·스모크 검증
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/edim-restore-rehearsal.sh
+TimeoutStartSec=1200
