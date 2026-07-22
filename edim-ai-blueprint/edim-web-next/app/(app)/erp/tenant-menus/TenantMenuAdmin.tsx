@@ -145,7 +145,7 @@ export function TenantMenuAdmin({ initialLeft, initialHead, myLeft, myHead }: { 
           {catalog.map((n) => (
             <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', fontSize: 11, borderBottom: '1px solid var(--line)' }}>
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`menu.${n.id}`, n.label)}</span>
-              <button className="b" style={{ height: 17, fontSize: 9, padding: '0 5px' }} onClick={() => add(n.id)}>＋</button>
+              <button className="b" title={t('menu.addToTenant', '테넌트 메뉴에 추가')} aria-label={t('menu.addToTenant', '테넌트 메뉴에 추가')} style={{ height: 17, fontSize: 9, padding: '0 5px' }} onClick={() => add(n.id)}>＋</button>
             </div>
           ))}
           {!catalog.length ? <div style={{ padding: 10, fontSize: 10.5, color: 'var(--txt-mute)' }}>{t('tmenu.allAdded', '모든 항목 포함됨')}</div> : null}
