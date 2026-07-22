@@ -54,17 +54,50 @@ def req(method, path, tok, body=None):
             return e.code, None
 
 
+TC_A, TC_B = "ZZAIT-A", "ZZAIT-B"    # 검증용 고객 테넌트 2개 (교차 차단 실증)
+
+
 def cleanup():
     psql("DELETE FROM ai_prep_project WHERE project_code LIKE 'ZZAIP%'")
+    for tc in (TC_A, TC_B):
+        tid = psql(f"SELECT tenant_id FROM sys_tenant WHERE tenant_code='{tc}'")
+        if tid:
+            psql(f"DELETE FROM ai_prep_project WHERE tenant_id={tid}")
+            psql(f"DELETE FROM sys_notification WHERE user_id IN "
+                 f"(SELECT user_id FROM sys_user WHERE tenant_id={tid})")
+            # sys_history.actor_id 도 FK — 지우지 않으면 사용자 삭제가 막혀 계정이 잔존한다
+            psql(f"DELETE FROM sys_history WHERE actor_id IN "
+                 f"(SELECT user_id FROM sys_user WHERE tenant_id={tid})")
+            psql(f"DELETE FROM sys_history WHERE tenant_id={tid}")
+            psql(f"DELETE FROM sys_user_role WHERE user_id IN "
+                 f"(SELECT user_id FROM sys_user WHERE tenant_id={tid})")
+            psql(f"DELETE FROM sys_user WHERE tenant_id={tid}")
+            psql(f"DELETE FROM sys_tenant WHERE tenant_id={tid}")
 
 
 OP = login("edim", "edim")          # EDIM 운영자 (nova)
-CUST_A = login("admin", "edim")     # 고객사 A Admin (NOVA-DEMO)
-CUST_A_SETUP = login("setup1", "edim")  # 고객사 A SETUP
-CUST_A_GEN = None                   # (고객 GENERAL 은 nova 쪽만 있어 별도 확보)
 cleanup()
+# 검증용 고객 테넌트 2개를 직접 프로비저닝한다 — 시드 고객 계정 비밀번호에 기대지 않고,
+# 교차 테넌트 차단을 서로 다른 두 고객으로 실증한다.
+st, _ = req("POST", "/platform/tenants", OP,
+            {"tenantCode": TC_A, "tenantName": "AI 정리 고객 A", "plan": "TRIAL",
+             "adminLogin": "zzait_a_adm", "adminName": "고객 A 관리자", "adminPassword": "zzaipass"})
+assert st in (200, 201), f"테넌트 A 프로비저닝 실패 {st}"
+st, _ = req("POST", "/platform/tenants", OP,
+            {"tenantCode": TC_B, "tenantName": "AI 정리 고객 B", "plan": "TRIAL",
+             "adminLogin": "zzait_b_adm", "adminName": "고객 B 관리자", "adminPassword": "zzaipass"})
+assert st in (200, 201), f"테넌트 B 프로비저닝 실패 {st}"
+CUST_A = login("zzait_a_adm", "zzaipass")   # 고객 A Admin
+CUST_B = login("zzait_b_adm", "zzaipass")   # 고객 B Admin (다른 고객)
 
 try:
+    # 고객 A 안에 SETUP 사용자 하나 — '요청 생성은 Admin 만' 실증용
+    st, _ = req("POST", "/users", CUST_A,
+                {"login": "zzait_a_set", "name": "고객 A 설정자", "department": "기술",
+                 "level": "SETUP", "initialPassword": "zzaipass"})
+    ok(f"고객 A SETUP 계정 생성 ({st})", st == 201)
+    CUST_A_SETUP = login("zzait_a_set", "zzaipass")
+
     # ── 요청 생성: Tenant Admin 만 ──
     st, b = req("POST", "/ai/prep/projects", CUST_A_SETUP,
                 {"projectCode": "ZZAIP1", "projectName": "SETUP 시도"})
@@ -80,22 +113,20 @@ try:
     ok(f"중복 코드 409 ({st})", st == 409)
 
     # ── 자료 등록: 자기 프로젝트에 ──
-    st, a1 = req("POST", f"/ai/prep/projects/{pid}/assets", CUST_A_SETUP,
+    st, a1 = req("POST", f"/ai/prep/projects/{pid}/assets", CUST_A,
                  {"fileName": "KDCR-3-13.dxf", "assetType": "DRAWING"})
     ok(f"★ 자료 등록 201 (PENDING) ({st})",
        st == 201 and a1["usagePermissionStatus"] == "PENDING")
 
-    # ── 교차 테넌트 차단: 운영자가 아닌 다른 고객은 못 본다 ──
-    # (nova 테넌트의 고객 GENERAL 로 접근 시 자기 테넌트 것만 보여야 함)
-    novagen = login("kim01", "edim")     # nova 테넌트 GENERAL — 다른 고객사
-    st, lst = req("GET", "/ai/prep/projects", novagen)
-    ok("★ 다른 테넌트는 이 프로젝트를 못 봄",
+    # ── 교차 테넌트 차단: 다른 고객사(B)는 A 의 프로젝트를 못 본다 ──
+    st, lst = req("GET", "/ai/prep/projects", CUST_B)
+    ok("★ 다른 고객사는 이 프로젝트를 못 봄",
        st == 200 and all(x["projectId"] != pid for x in lst))
-    st, _ = req("GET", f"/ai/prep/projects/{pid}", novagen)
-    ok(f"★ 다른 테넌트 직접 조회 404 (존재 숨김) ({st})", st == 404)
-    st, _ = req("POST", f"/ai/prep/projects/{pid}/assets", novagen,
+    st, _ = req("GET", f"/ai/prep/projects/{pid}", CUST_B)
+    ok(f"★ 다른 고객사 직접 조회 404 (존재 숨김) ({st})", st == 404)
+    st, _ = req("POST", f"/ai/prep/projects/{pid}/assets", CUST_B,
                 {"fileName": "몰래.dxf"})
-    ok(f"★ 다른 테넌트 자료 주입 차단 ({st})", st in (403, 404))
+    ok(f"★ 다른 고객사 자료 주입 차단 ({st})", st in (403, 404))
 
     # ── 분석 실행: EDIM 운영자 전용 ──
     st, _ = req("POST", f"/ai/prep/projects/{pid}/run", CUST_A,
