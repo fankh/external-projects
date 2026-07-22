@@ -13956,7 +13956,8 @@ def run_list() -> list[dict[str, Any]]:
                       EXTRACT(EPOCH FROM (r.finished_at - r.started_at)),
                       (SELECT count(*) FROM cpq_output o WHERE o.run_id=r.run_id),
                       COALESCE(r.created_by,'system'), r.is_test
-               FROM cpq_run r WHERE r.tenant_id=%s ORDER BY r.run_id DESC""", (tid,))
+               FROM cpq_run r WHERE r.tenant_id=%s ORDER BY r.run_id DESC
+               LIMIT 1000""", (tid,))
         return [{"runId": x[0], "status": x[1], "runType": x[2], "startedAt": x[3],
                  "durationSec": round(float(x[4]), 1) if x[4] is not None else None,
                  "outputCount": x[5], "createdBy": x[6], "isTest": x[7],

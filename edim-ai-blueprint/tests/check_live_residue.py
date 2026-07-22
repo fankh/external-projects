@@ -38,6 +38,9 @@ QUERIES = {
     "cst_price": "SELECT 'n', count(*) FROM cst_price",
     "cst_actual": "SELECT 'n', count(*) FROM cst_actual",
     "dwg_drawing": "SELECT 'n', count(*) FROM dwg_drawing",
+    # 9.5 — 시드 BOM 행 손실 감지 (플릿 충돌로 KDCR 3-13 BOM 행 1건이 지워진 사고 이후 추가).
+    "dwg_bom": "SELECT 'n', count(*) FROM dwg_bom",
+    "prt_supplier_code_map": "SELECT 'n', count(*) FROM prt_supplier_code_map",
     "prj_project": "SELECT 'n', count(*) FROM prj_project",
     "sys_user": "SELECT 'n', count(*) FROM sys_user",
     "sys_role_permission": "SELECT 'n', count(*) FROM sys_role_permission",
