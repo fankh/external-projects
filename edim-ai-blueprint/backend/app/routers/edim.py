@@ -2661,7 +2661,7 @@ class AiChatRequest(BaseModel):
 
 
 @router.post("/ai/chat")
-def ai_chat(body: AiChatRequest) -> dict[str, Any]:
+def ai_chat(body: AiChatRequest, request: Request) -> dict[str, Any]:
     """U28 (s27 노트 'AI 질의 응답 — 내부 자료 검색·응답용') 1단계.
     항시: 키워드 기반 내부 자산 검색(코드·문서·Table·Macro·부품) → 근거 목록.
     live(키+크레딧): 검색 근거를 컨텍스트로 Claude 요약 답변. 폴백은 mode='search'."""
@@ -2713,7 +2713,12 @@ def ai_chat(body: AiChatRequest) -> dict[str, Any]:
                        "href": f"/detail/cad-viewer?fileId={fid}"}
                 if ref not in refs:
                     refs.append(ref)
-    refs = refs[:18]
+        refs = refs[:18]
+        # 9.14 — Guide AI 질의 감사 (요구 #64 '질문·답변 감사'). 누가 무엇을 묻고 어떤 내부 자산이
+        # 근거로 걸렸는지 남긴다. LLM 응답 자체는 이 근거의 요약이라 근거 목록으로 감사를 갈음한다.
+        _audit(cur, tid, "ai_chat", 0, "AI_QUERY", request.state.user_id,
+               {"question": q[:200], "refCount": len(refs),
+                "refs": [f"{r['kind']}:{r['code']}" for r in refs[:8]]})
 
     from app.services.ai_assist import _client
     client = _client()
