@@ -123,6 +123,7 @@ SUITES = [
     "live_customer_logo.py",      # 고객 로고 참조 모델 (8.0) — 승인본만 표시·문서 참조
     "live_ai_prep.py",             # AI 학습·RCCS 정리 거버넌스 (9.0) — 교차 테넌트 차단·항상 Draft·역할 분리
     "live_ai_audit.py",            # Guide AI 질의 감사 (9.14) — 요구 #64 질문·답변 감사
+    "live_ai_macro_draft.py",     # Macro AI Draft 무상태 (9.15) — 요구 #65 항상 Draft
     "live_security_anomaly.py",    # 보안 이상 승격 (9.3) — 로그인 실패·자동 잠금 → sys_anomaly
     "live_system_status.py",       # 운영 준비 상태 (9.6) — migrationHead·운영자 전용
     "live_security_headers.py",    # 보안 응답 헤더 (9.8) — HSTS·nosniff·X-Frame·Referrer·버전숨김
