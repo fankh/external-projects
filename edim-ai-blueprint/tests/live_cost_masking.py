@@ -75,6 +75,7 @@ def masked(v):
 
 created_quo = None
 created_actual = None
+created_po = None
 TOK = login("edim", "edim")      # ADMIN — full
 GEN = login("kim01", "edim")     # GENERAL — 규칙 대상
 
@@ -106,6 +107,13 @@ try:
                       "qty": 3, "unitPrice": 71234})
         ok(f"검증용 실적 원가 생성 ({st})", st == 201)
         created_actual = ma.get("actualId")
+
+    # 9.37 — PO 마스킹 검증용 발주 1건 (공급처·라인단가 실값 확보 → GEN 이 마스킹으로 봐야)
+    st, mpo = req("POST", "/erp/pos", TOK,
+                  {"supplier": "ZZMASK공급처", "note": "ZZMASK",
+                   "items": [{"itemName": "ZZMASK품목", "qty": 2, "unitPrice": 12345}]})
+    created_po = mpo.get("poNo") if st == 201 else None
+    ok(f"검증용 발주 생성 ({st} · {created_po})", st == 201 and created_po)
 
     # ── 제한 부여 ──
     ok(f"cost=masked 설정 ({set_mode(TOK, 'cost', 'masked')})", True)
@@ -203,9 +211,34 @@ try:
     ok(f"★ 원가 차이 분석 마스킹 ({cv.get('totalActual')!r})",
        st == 200 and masked(cv["totalActual"]))
 
+    # 9.37 — 발주·재고·구매요청 도 원가/거래처 마스킹 (우회 경로 차단)
+    def masked_txt(v):
+        return v in ("-", "", None) or MASKED_TEXT in str(v)
+    st, pos = req("GET", "/erp/pos", GEN)
+    ok(f"발주 대장 200 ({len(pos) if st == 200 else 0}건)", st == 200)
+    if pos:
+        ok(f"★ PO 대장 총액 마스킹 ({pos[0]['amount']!r})", masked(pos[0]["amount"]))
+        ok(f"★ PO 대장 공급처 마스킹 ({pos[0]['supplier']!r})", masked_txt(pos[0]["supplier"]))
+        st, pod = req("GET", f"/erp/pos/{pos[0]['poNo']}", GEN)
+        if st == 200 and pod.get("items"):
+            ok(f"★ PO 상세 라인단가 마스킹 ({pod['items'][0]['unitPrice']!r})",
+               masked(pod["items"][0]["unitPrice"]))
+    st, stk = req("GET", "/erp/stock", GEN)
+    if st == 200 and stk:
+        ok(f"★ 재고 단가·평가액 마스킹 ({stk[0]['unitPrice']!r}/{stk[0]['value']!r})",
+           masked(stk[0]["unitPrice"]) and masked(stk[0]["value"]))
+    st, pri = req("GET", "/erp/pr-items", GEN)
+    short = [x for x in pri if not x.get("stockOk")] if st == 200 else []
+    if short:
+        ok(f"★ 구매요청 단가·공급처 마스킹 ({short[0]['price']!r}/{short[0]['supplier']!r})",
+           masked(short[0]["price"]) and masked_txt(short[0]["supplier"]))
+
     # ADMIN 은 전부 실값 (과잉 아님)
     st, bd2 = req("GET", f"/cost/pcr/{pcr_id}/breakdown", TOK)
     ok("ADMIN PCR 비용 트리 실값", isinstance(bd2["contributionMargin"], (int, float)))
+    st, posA = req("GET", "/erp/pos", TOK)
+    if posA:
+        ok(f"ADMIN PO 총액 실값 ({posA[0]['amount']!r})", isinstance(posA[0]["amount"], (int, float)))
     set_mode(TOK, "price", "full")
     set_mode(TOK, "partner", "full")
 
@@ -221,6 +254,9 @@ finally:
         set_mode(TOK, g, "full")
     psql("DELETE FROM cst_actual WHERE item_code='ZZMASK'")
     psql("DELETE FROM com_supplier_eval WHERE period='2099-ZZ'")
+    psql("DELETE FROM erp_po_item WHERE po_id IN (SELECT po_id FROM erp_po WHERE note='ZZMASK')")
+    psql("DELETE FROM sys_history WHERE target_table='erp_po' AND target_id IN (SELECT po_id FROM erp_po WHERE note='ZZMASK')")
+    psql("DELETE FROM erp_po WHERE note='ZZMASK'")
     if created_quo:
         req("DELETE", f"/cost/quotations/{created_quo}", TOK)
     st, cur_rules = req("GET", "/access/info", TOK)
