@@ -6974,11 +6974,13 @@ PR_META = {
 
 
 @router.get("/erp/pr-items")
-def pr_items() -> list[dict[str, Any]]:
+def pr_items(request: Request) -> list[dict[str, Any]]:
     ref = date.today().isoformat()
     out: list[dict[str, Any]] = []
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        cm = _info_mode(cur, tid, request, "cost")       # 9.37 — 조달 단가·공급처 마스킹
+        pm = _info_mode(cur, tid, request, "partner")
         for code, meta in PR_META.items():
             cur.execute(
                 """SELECT pc.code_name, p.price, cc.company_name
@@ -7007,12 +7009,15 @@ def pr_items() -> list[dict[str, Any]]:
             out.append({
                 "code": code, "name": r[0],
                 "supplierCode": meta["supplierCode"],
-                "supplier": "-" if stock_ok else (r[2] or "-"),
+                "supplier": "-" if stock_ok else _mask_text(r[2] or "-", pm),
                 "qty": meta["qty"], "onHand": on_hand, "reserved": reserved, "available": available,
-                "price": None if stock_ok else (float(r[1]) if r[1] is not None else None),
+                "price": None if stock_ok else _mask_num(float(r[1]) if r[1] is not None else None, cm),
                 "requiredDate": meta["requiredDate"], "delivery": meta["delivery"],
                 "stockOk": stock_ok, "checked": not stock_ok,
             })
+        if cm != "full" or pm != "full":
+            _audit(cur, tid, "cst_price", 0, "MASKED_READ", request.state.user_id,
+                   {"cost": cm, "partner": pm})
     return out
 
 
@@ -7106,8 +7111,10 @@ def stock_inbound(request: Request, body: InboundRequest) -> dict[str, Any]:
 
 
 @router.get("/erp/stock")
-def stock_list() -> list[dict[str, Any]]:
-    """재고 조회 (D2) — 품목×창고 위치 현재 수량·단가(이동평균)·평가액."""
+def stock_list(request: Request) -> list[dict[str, Any]]:
+    """재고 조회 (D2) — 품목×창고 위치 현재 수량·단가(이동평균)·평가액.
+
+    9.37 — 단가(이동평균)·평가액은 cost 정보이므로 열람 모드에 따라 마스킹."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -7116,10 +7123,14 @@ def stock_list() -> list[dict[str, Any]]:
                FROM inv_stock s
                LEFT JOIN erp_warehouse w ON w.tenant_id=s.tenant_id AND w.location_code=s.location_code
                WHERE s.tenant_id=%s ORDER BY s.item_code, s.location_code""", (tid,))
+        raw = cur.fetchall()
+        cm = _info_mode(cur, tid, request, "cost")
+        if cm != "full":
+            _audit(cur, tid, "inv_stock", 0, "MASKED_READ", request.state.user_id, {"cost": cm})
         return [{"itemCode": r[0], "itemName": r[1] or "-", "locationCode": r[2],
                  "locationName": r[3] or r[2], "quantity": float(r[4]), "unit": r[5],
-                 "updatedAt": r[6], "unitPrice": float(r[7]),
-                 "value": round(float(r[4]) * float(r[7]), 2)} for r in cur.fetchall()]
+                 "updatedAt": r[6], "unitPrice": _mask_num(float(r[7]), cm),
+                 "value": _mask_num(round(float(r[4]) * float(r[7]), 2), cm)} for r in raw]
 
 
 @router.get("/erp/stock/movements")
@@ -13001,10 +13012,12 @@ def po_lc_create(request: Request, body: PoLifecycleCreate) -> dict[str, Any]:
 
 
 @router.get("/erp/pos")
-def po_lc_list(status: str = "", q: str = "", limit: int = 2000) -> list[dict[str, Any]]:
+def po_lc_list(request: Request, status: str = "", q: str = "", limit: int = 2000) -> list[dict[str, Any]]:
     """발주 목록 (G3) — 총액·입고 진척·3-way match 상태.
 
-    9.31 — 무한 성장 안전 상한(최신순) 신설 + q: 발주번호·공급처 부분일치."""
+    9.31 — 무한 성장 안전 상한(최신순) 신설 + q: 발주번호·공급처 부분일치.
+    9.37 — 정보 접근 마스킹: 발주 총액(cost)·공급처(partner) 를 열람 모드에 따라 가린다
+    (종전 무마스킹 — 원가/거래처 제한 사용자가 PO 대장으로 실매입가·공급처를 우회 열람했다)."""
     lim = max(1, min(limit, 10000))
     clause, params = "", []
     st = status.strip().upper()
@@ -13026,21 +13039,27 @@ def po_lc_list(status: str = "", q: str = "", limit: int = 2000) -> list[dict[st
                 FROM erp_po p LEFT JOIN erp_po_item i ON i.po_id=p.po_id
                 WHERE p.tenant_id=%s{clause}
                 GROUP BY p.po_id ORDER BY p.po_id DESC LIMIT %s""", (tid, *params, lim))
+        raw = cur.fetchall()
+        cm = _info_mode(cur, tid, request, "cost")
+        pm = _info_mode(cur, tid, request, "partner")
+        if cm != "full" or pm != "full":
+            _audit(cur, tid, "erp_po", 0, "MASKED_READ", request.state.user_id,
+                   {"cost": cm, "partner": pm})
         rows = []
-        for r in cur.fetchall():
+        for r in raw:
             oq, rq = float(r[7]), float(r[8])
-            rows.append({"poNo": r[0], "supplier": r[1], "status": r[2],
+            rows.append({"poNo": r[0], "supplier": _mask_text(r[1], pm), "status": r[2],
                          "statusLabel": PO_STATUS_LABEL.get(r[2], r[2]),
                          "orderDate": r[3], "expectedDate": r[4], "lines": r[5],
-                         "amount": float(r[6]), "orderQty": oq, "receivedQty": rq,
+                         "amount": _mask_num(float(r[6]), cm), "orderQty": oq, "receivedQty": rq,
                          "progress": round(rq / oq * 100) if oq else 0,
                          "matched": oq > 0 and rq == oq})
         return rows
 
 
 @router.get("/erp/pos/{po_no}")
-def po_lc_detail(po_no: str) -> dict[str, Any]:
-    """발주 상세 + 라인 (G3)."""
+def po_lc_detail(request: Request, po_no: str) -> dict[str, Any]:
+    """발주 상세 + 라인 (G3). 9.37 — 공급처(partner)·라인 단가(cost) 열람 모드 마스킹."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -13053,10 +13072,17 @@ def po_lc_detail(po_no: str) -> dict[str, Any]:
         cur.execute(
             """SELECT po_item_id, COALESCE(item_code,''), item_name, order_qty, unit_price, received_qty
                FROM erp_po_item WHERE po_id=%s ORDER BY sort_order, po_item_id""", (h[0],))
+        item_rows = cur.fetchall()
+        cm = _info_mode(cur, tid, request, "cost")
+        pm = _info_mode(cur, tid, request, "partner")
+        if cm != "full" or pm != "full":
+            _audit(cur, tid, "erp_po", 0, "MASKED_READ", request.state.user_id,
+                   {"cost": cm, "partner": pm, "poNo": po_no})
         items = [{"poItemId": r[0], "itemCode": r[1], "itemName": r[2], "orderQty": float(r[3]),
-                  "unitPrice": float(r[4]), "receivedQty": float(r[5]),
-                  "remaining": float(r[3]) - float(r[5])} for r in cur.fetchall()]
-        return {"poNo": h[1], "supplier": h[2], "status": h[3], "statusLabel": PO_STATUS_LABEL.get(h[3], h[3]),
+                  "unitPrice": _mask_num(float(r[4]), cm), "receivedQty": float(r[5]),
+                  "remaining": float(r[3]) - float(r[5])} for r in item_rows]
+        return {"poNo": h[1], "supplier": _mask_text(h[2], pm), "status": h[3],
+                "statusLabel": PO_STATUS_LABEL.get(h[3], h[3]),
                 "orderDate": h[4], "expectedDate": h[5], "note": h[6], "items": items}
 
 
