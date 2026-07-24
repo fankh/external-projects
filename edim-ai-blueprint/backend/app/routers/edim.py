@@ -4494,22 +4494,27 @@ def register_output(request: Request, body: RegisterOutput) -> dict[str, Any]:
         row = cur.fetchone()
         if row:
             return {"docNo": row[0], "status": row[1], "created": False}
-        cur.execute("SELECT count(*) FROM doc_control WHERE tenant_id=%s AND doc_type=%s", (tid, dt))
-        seq = cur.fetchone()[0] + 1
-        while True:
-            doc_no = f"{dt}-{seq:04d}"
-            cur.execute("SELECT 1 FROM doc_control WHERE tenant_id=%s AND doc_no=%s", (tid, doc_no))
-            if not cur.fetchone():
-                break
-            seq += 1
         cur.execute("SELECT user_name FROM sys_user WHERE user_id=%s", (request.state.user_id,))
         person = (cur.fetchone() or ["-"])[0]
-        cur.execute(
-            """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, ref_type,
-               released_status, version, person, management_grade)
-               VALUES (%s,%s,%s,%s,'RUN_OUTPUT','SET_UP','KD-0.1',%s,%s) RETURNING doc_control_id""",
-            (tid, doc_no, title, dt, person, grade))
-        doc_id = cur.fetchone()[0]
+        # 9.19 — 채번 경쟁 안전화 (9.18 과 동일 클래스). 유니크 = (tenant_id, doc_no, version).
+        doc_id, doc_no = None, ""
+        for _ in range(50):
+            cur.execute(r"""SELECT COALESCE(MAX((substring(doc_no FROM (%s||'-(\d+)$')))::int),0)+1
+                           FROM doc_control WHERE tenant_id=%s AND doc_type=%s
+                             AND doc_no ~ (%s||'-\d+$')""", (dt, tid, dt, dt))
+            doc_no = f"{dt}-{cur.fetchone()[0]:04d}"
+            cur.execute(
+                """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, ref_type,
+                   released_status, version, person, management_grade)
+                   VALUES (%s,%s,%s,%s,'RUN_OUTPUT','SET_UP','KD-0.1',%s,%s)
+                   ON CONFLICT (tenant_id, doc_no, version) DO NOTHING RETURNING doc_control_id""",
+                (tid, doc_no, title, dt, person, grade))
+            row = cur.fetchone()
+            if row:
+                doc_id = row[0]
+                break
+        if doc_id is None:
+            raise HTTPException(409, detail="산출물 채번 경쟁 — 잠시 후 다시 시도하십시오")
         _audit(cur, tid, "doc_control", doc_id, "CREATE", request.state.user_id,
                {"docNo": doc_no, "title": title, "source": "run-output"})
     return {"docNo": doc_no, "status": "SET_UP", "created": True}
@@ -7483,22 +7488,26 @@ def work_order_create(request: Request, body: WorkOrderCreate) -> dict[str, Any]
         raise HTTPException(422, detail="필수 — 작업지시 제목")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT count(*) FROM erp_work_order WHERE tenant_id=%s", (tid,))
-        seq = cur.fetchone()[0] + 1
-        while True:
-            wo_no = f"WO-{seq:04d}"
-            cur.execute("SELECT 1 FROM erp_work_order WHERE tenant_id=%s AND wo_no=%s", (tid, wo_no))
-            if not cur.fetchone():
+        # 9.19 — 채번 경쟁 안전화 (9.18 과 동일 클래스)
+        wo_id, wo_no = None, ""
+        for _ in range(50):
+            cur.execute(r"""SELECT COALESCE(MAX((substring(wo_no FROM '^WO-(\d+)$'))::int),0)+1
+                           FROM erp_work_order WHERE tenant_id=%s AND wo_no ~ '^WO-\d+$'""", (tid,))
+            wo_no = f"WO-{cur.fetchone()[0]:04d}"
+            cur.execute(
+                """INSERT INTO erp_work_order (tenant_id, wo_no, drawing_no, project_no, title,
+                   assembly_note, assignee, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (tenant_id, wo_no) DO NOTHING RETURNING wo_id""",
+                (tid, wo_no, body.drawingNo.strip()[:50] or None, body.projectNo.strip()[:30] or None,
+                 body.title.strip()[:200], body.assemblyNote.strip()[:500] or None,
+                 body.assignee.strip()[:50] or None, str(request.state.user_id)))
+            row = cur.fetchone()
+            if row:
+                wo_id = row[0]
                 break
-            seq += 1
-        cur.execute(
-            """INSERT INTO erp_work_order (tenant_id, wo_no, drawing_no, project_no, title,
-               assembly_note, assignee, created_by)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING wo_id""",
-            (tid, wo_no, body.drawingNo.strip()[:50] or None, body.projectNo.strip()[:30] or None,
-             body.title.strip()[:200], body.assemblyNote.strip()[:500] or None,
-             body.assignee.strip()[:50] or None, str(request.state.user_id)))
-        wo_id = cur.fetchone()[0]
+        if wo_id is None:
+            raise HTTPException(409, detail="작업지시 채번 경쟁 — 잠시 후 다시 시도하십시오")
         _audit(cur, tid, "erp_work_order", wo_id, "ISSUE", request.state.user_id,
                {"woNo": wo_no, "title": body.title})
     return {"woNo": wo_no, "status": "ISSUED"}
@@ -7582,23 +7591,27 @@ def qc_inspection_create(request: Request, body: QcInspectionCreate) -> dict[str
         raise HTTPException(422, detail=f"판정 오류 ({'/'.join(QC_RESULTS)})")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT count(*) FROM qc_inspection WHERE tenant_id=%s", (tid,))
-        seq = cur.fetchone()[0] + 1
-        while True:
-            insp_no = f"QC-{seq:04d}"
-            cur.execute("SELECT 1 FROM qc_inspection WHERE tenant_id=%s AND insp_no=%s", (tid, insp_no))
-            if not cur.fetchone():
+        # 9.19 — 채번 경쟁 안전화 (9.18 과 동일 클래스)
+        insp_id, insp_no = None, ""
+        for _ in range(50):
+            cur.execute(r"""SELECT COALESCE(MAX((substring(insp_no FROM '^QC-(\d+)$'))::int),0)+1
+                           FROM qc_inspection WHERE tenant_id=%s AND insp_no ~ '^QC-\d+$'""", (tid,))
+            insp_no = f"QC-{cur.fetchone()[0]:04d}"
+            cur.execute(
+                """INSERT INTO qc_inspection (tenant_id, insp_no, insp_type, ref_no, item_code,
+                   item_name, result, measured, inspector, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (tenant_id, insp_no) DO NOTHING RETURNING inspection_id""",
+                (tid, insp_no, itype, body.refNo.strip()[:50] or None,
+                 body.itemCode.strip()[:50] or None, body.itemName.strip()[:200] or None,
+                 result, body.measured.strip()[:500] or None, body.inspector.strip()[:50] or None,
+                 str(request.state.user_id)))
+            row = cur.fetchone()
+            if row:
+                insp_id = row[0]
                 break
-            seq += 1
-        cur.execute(
-            """INSERT INTO qc_inspection (tenant_id, insp_no, insp_type, ref_no, item_code,
-               item_name, result, measured, inspector, created_by)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING inspection_id""",
-            (tid, insp_no, itype, body.refNo.strip()[:50] or None,
-             body.itemCode.strip()[:50] or None, body.itemName.strip()[:200] or None,
-             result, body.measured.strip()[:500] or None, body.inspector.strip()[:50] or None,
-             str(request.state.user_id)))
-        insp_id = cur.fetchone()[0]
+        if insp_id is None:
+            raise HTTPException(409, detail="검사 채번 경쟁 — 잠시 후 다시 시도하십시오")
         if result in ("FAIL", "CONDITIONAL"):
             # 이상 고리 — 품질 관리자(ADMIN/PLATFORM) 알림 (불합격/조건부 통지)
             tag = "불합격" if result == "FAIL" else "조건부"
@@ -7949,21 +7962,25 @@ def eco_create(request: Request, body: EcoCreate) -> dict[str, Any]:
         if tt == "DRAWING" and body.newDrawingNo.strip():
             impact["supersededBy"] = body.newDrawingNo.strip()[:80]
             impact["mode"] = "SUPERSEDE"
-        cur.execute("SELECT count(*) FROM eco_change WHERE tenant_id=%s", (tid,))
-        seq = cur.fetchone()[0] + 1
-        while True:
-            eco_no = f"ECO-{seq:04d}"
-            cur.execute("SELECT 1 FROM eco_change WHERE tenant_id=%s AND eco_no=%s", (tid, eco_no))
-            if not cur.fetchone():
+        # 9.19 — 채번 경쟁 안전화 (9.18 과 동일 클래스): MAX 재계산 + ON CONFLICT 재시도.
+        eco_id, eco_no = None, ""
+        for _ in range(50):
+            cur.execute(r"""SELECT COALESCE(MAX((substring(eco_no FROM '^ECO-(\d+)$'))::int),0)+1
+                           FROM eco_change WHERE tenant_id=%s AND eco_no ~ '^ECO-\d+$'""", (tid,))
+            eco_no = f"ECO-{cur.fetchone()[0]:04d}"
+            cur.execute(
+                """INSERT INTO eco_change (tenant_id, eco_no, title, reason, target_type,
+                   target_no, impact_data, status, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,'SUBMITTED',%s)
+                   ON CONFLICT (tenant_id, eco_no) DO NOTHING RETURNING eco_id""",
+                (tid, eco_no, body.title.strip()[:200], body.reason.strip()[:1000] or None,
+                 tt, body.targetNo.strip()[:80], json.dumps(impact), str(request.state.user_id)))
+            row = cur.fetchone()
+            if row:
+                eco_id = row[0]
                 break
-            seq += 1
-        cur.execute(
-            """INSERT INTO eco_change (tenant_id, eco_no, title, reason, target_type,
-               target_no, impact_data, status, created_by)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,'SUBMITTED',%s) RETURNING eco_id""",
-            (tid, eco_no, body.title.strip()[:200], body.reason.strip()[:1000] or None,
-             tt, body.targetNo.strip()[:80], json.dumps(impact), str(request.state.user_id)))
-        eco_id = cur.fetchone()[0]
+        if eco_id is None:
+            raise HTTPException(409, detail="ECO 채번 경쟁 — 잠시 후 다시 시도하십시오")
         # 단계 승인 — 기존 승인함(sys_approval_request) 재사용
         cur.execute(
             """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
@@ -12830,21 +12847,25 @@ def po_lc_create(request: Request, body: PoLifecycleCreate) -> dict[str, Any]:
         raise HTTPException(422, detail="발주 라인아이템이 없습니다 (품명·수량>0)")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT count(*) FROM erp_po WHERE tenant_id=%s", (tid,))
-        seq = cur.fetchone()[0] + 1
-        while True:
-            po_no = f"PO-{seq:05d}"
-            cur.execute("SELECT 1 FROM erp_po WHERE tenant_id=%s AND po_no=%s", (tid, po_no))
-            if not cur.fetchone():
+        # 9.19 — 채번 경쟁 안전화 (9.18 과 동일 클래스)
+        po_id, po_no = None, ""
+        for _ in range(50):
+            cur.execute(r"""SELECT COALESCE(MAX((substring(po_no FROM '^PO-(\d+)$'))::int),0)+1
+                           FROM erp_po WHERE tenant_id=%s AND po_no ~ '^PO-\d+$'""", (tid,))
+            po_no = f"PO-{cur.fetchone()[0]:05d}"
+            cur.execute(
+                """INSERT INTO erp_po (tenant_id, po_no, supplier, expected_date, note, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (tenant_id, po_no) DO NOTHING RETURNING po_id""",
+                (tid, po_no, body.supplier.strip()[:200] or None,
+                 body.expectedDate.strip() or None, body.note.strip()[:500] or None,
+                 str(request.state.user_id)))
+            row = cur.fetchone()
+            if row:
+                po_id = row[0]
                 break
-            seq += 1
-        cur.execute(
-            """INSERT INTO erp_po (tenant_id, po_no, supplier, expected_date, note, created_by)
-               VALUES (%s,%s,%s,%s,%s,%s) RETURNING po_id""",
-            (tid, po_no, body.supplier.strip()[:200] or None,
-             body.expectedDate.strip() or None, body.note.strip()[:500] or None,
-             str(request.state.user_id)))
-        po_id = cur.fetchone()[0]
+        if po_id is None:
+            raise HTTPException(409, detail="발주 채번 경쟁 — 잠시 후 다시 시도하십시오")
         for n, it in enumerate(items):
             cur.execute(
                 """INSERT INTO erp_po_item (po_id, item_code, item_name, order_qty, unit_price, sort_order)
