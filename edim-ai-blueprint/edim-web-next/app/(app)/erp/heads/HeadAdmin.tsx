@@ -145,7 +145,7 @@ export function HeadAdmin({ rows, detail, selId }: {
       </div>
 
       {detail ? (
-        <GroupBox title={`${t('head.panelBind', '패널 바인딩')} — ${detail.headName}`} noPad data-head-bindings>
+        <GroupBox title={`${t('head.panelBind', '패널 바인딩')} — ${detail.headName}`} noPad data-head-bindings data-i18n-content>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: 6, flexWrap: 'wrap', fontSize: 11 }}>
             <select className="in" data-bind-panel value={panel} onChange={(e) => setPanel(e.target.value)} style={{ width: 88 }}>
               {PANELS.map((p) => <option key={p}>{p}</option>)}
