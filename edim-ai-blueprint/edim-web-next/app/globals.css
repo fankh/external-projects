@@ -22,7 +22,9 @@ body{font-family:'Malgun Gothic','Segoe UI',system-ui,sans-serif}
   --sel-yellow: #FFF3C2;      /* 선택 행 (레거시 옐로) */
   --req-yellow: #FFFDE0;      /* 필수 입력 셀 */
   --edit-cell: #EFF6FF;       /* 편집 중 셀 */
-  --txt: #1E222A; --txt-dim: #5A6270; --txt-mute: #8B93A1;
+  /* 9.38 — --txt-mute 를 #8B93A1(3.09:1, WCAG AA 미달)→#626A7A 로 어둡게: 흰색 5.44·회색패널
+     4.5+ 로 AA 충족하되 --txt-dim(6.15)보다 밝아 텍스트 계층(txt>dim>mute) 유지. */
+  --txt: #1E222A; --txt-dim: #5A6270; --txt-mute: #626A7A;
   --ok: #1E7A4E; --ok-bg: #E3F2E9;
   --warn: #B45309; --warn-bg: #FCF3DF;
   --err: #B3372F; --err-bg: #FAE6E4;
