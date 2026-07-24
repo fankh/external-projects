@@ -23,8 +23,11 @@ def get_pool() -> ConnectionPool | None:
         return None
     if _pool is None:
         try:
+            # 9.16 — launch 동시성 여유. 종전 min=1/max=4 는 PG max_connections=100 대비 지나치게
+            # 보수적이라(4%), 다중 사용자 지속 부하에서 큐잉/콜드스타트 병목이 될 수 있었다.
+            # min=2(웜 유지)·max=12(동시 12, PG 의 ~12%)로 상향 — 단일 인스턴스에 안전한 범위.
             _pool = ConnectionPool(
-                DATABASE_URL, min_size=1, max_size=4,
+                DATABASE_URL, min_size=2, max_size=12,
                 kwargs={"autocommit": True}, open=True, timeout=5,
             )
             with _pool.connection() as conn:
