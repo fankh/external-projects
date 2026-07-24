@@ -16,7 +16,7 @@ const STATUS_TONE: Record<EcoChange['status'], 'ok' | 'warn' | 'info' | 'err'> =
   DRAFT: 'info', SUBMITTED: 'warn', APPROVED: 'ok', REJECTED: 'err', APPLIED: 'ok',
 }
 
-export function EcoGrid({ rows }: { rows: EcoChange[] }) {
+export function EcoGrid({ rows, searchActive }: { rows: EcoChange[]; searchActive?: boolean }) {
   const { t } = useI18n()
   // ECO 상세 다이얼로그 (GET /eco/changes/{no}) — 더블클릭 = 영향 분석 포함 상세
   const [detail, setDetail] = useState<EcoDetail | null>(null)
@@ -41,7 +41,7 @@ export function EcoGrid({ rows }: { rows: EcoChange[] }) {
     <>
       {err ? <div style={{ padding: '2px 6px', fontSize: 11, color: 'var(--err)' }}>{err}</div> : null}
       <DenseGrid prefKey="next-eco-change" colFilter columns={cols} rows={rows} rowKey={(r) => r.ecoNo}
-        onRowDoubleClick={openDetail} emptyText={t('eco.gridEmpty', '변경 요청(ECR)이 없습니다')} />
+        onRowDoubleClick={openDetail} emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('eco.gridEmpty', '변경 요청(ECR)이 없습니다')} />
       {detail ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(20,26,40,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setDetail(null)}

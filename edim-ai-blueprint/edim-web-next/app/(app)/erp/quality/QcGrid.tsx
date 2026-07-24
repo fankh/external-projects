@@ -22,7 +22,7 @@ const cols: GridColumn<QcRow>[] = [
   { key: 'at', header: '검사일시', width: 116, align: 'center', render: (r) => r.inspectedAt },
 ]
 
-export function QcGrid({ rows }: { rows: QcRow[] }) {
+export function QcGrid({ rows, searchActive }: { rows: QcRow[]; searchActive?: boolean }) {
   const [st, action, pending] = useActionState(createInspection, {} as ActState)
   const [selNo, setSelNo] = useState<string | null>(null)
   const sel = rows.find((r) => r.inspNo === selNo) ?? null
@@ -52,7 +52,7 @@ export function QcGrid({ rows }: { rows: QcRow[] }) {
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-qc" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.inspNo} selectedKey={selNo ?? undefined}
-          onRowClick={(r) => setSelNo(r.inspNo)} emptyText="검사 기록이 없습니다" />
+          onRowClick={(r) => setSelNo(r.inspNo)} emptyText={searchActive ? '검색 결과가 없습니다 — 검색어를 확인하십시오' : '검사 기록이 없습니다'} />
       </div>
     </div>
   )

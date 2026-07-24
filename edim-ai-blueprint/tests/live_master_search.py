@@ -125,4 +125,19 @@ if pfull:
         ok("★ /codes/products 전 행이 부분일치",
            all(frag.lower() in (r["mainCode"] + " " + (r["codeName"] or "")).lower() for r in pres))
 
+# ── 트랜잭션 그리드 검색 (9.30) — 작업지시·검사·설계변경 ──
+for path, key in [("/erp/work-orders", "woNo"), ("/qc/inspections", "inspNo"), ("/eco/changes", "ecoNo")]:
+    tfull = get(path)
+    ok(f"{path} 전량 조회 ({len(tfull)}행)", isinstance(tfull, list))
+    ok(f"★ {path} 무매칭 검색 0행", get(f"{path}?q=ZZZNOMATCHXYZ") == [])
+    if tfull:
+        frag = (tfull[0][key] or "")[:3]
+        if frag:
+            tres = get(f"{path}?q=" + urllib.parse.quote(frag))
+            ok(f"★ {path} q='{frag}' 결과 존재·전량 이하 ({len(tres)}≤{len(tfull)})",
+               1 <= len(tres) <= len(tfull))
+    # % 는 리터럴(와일드카드 아님)
+    ok(f"★ {path} q='%' 와일드카드 아님",
+       len(tfull) < 2 or len(get(f"{path}?q=%25")) < len(tfull))
+
 print(f"\nlive_master_search: {n}/{n} PASS")

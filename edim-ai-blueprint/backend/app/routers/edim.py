@@ -7573,16 +7573,25 @@ def work_order_create(request: Request, body: WorkOrderCreate) -> dict[str, Any]
 
 
 @router.get("/erp/work-orders")
-def work_order_list(limit: int = 2000) -> list[dict[str, Any]]:
-    """작업지시 목록 (D3)."""
+def work_order_list(limit: int = 2000, q: str = "") -> list[dict[str, Any]]:
+    """작업지시 목록 (D3). 9.30 — q: 지시번호·제목·도면·프로젝트 부분일치."""
     lim = max(1, min(limit, 10000))   # 9.20 — 무한 성장 안전 상한(최신순)
+    kw = q.strip()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        clause, params = "", [tid]
+        if kw:
+            like = f"%{_like_esc(kw)}%"
+            clause = (" AND (wo_no ILIKE %s OR title ILIKE %s "
+                      "OR COALESCE(drawing_no,'') ILIKE %s OR COALESCE(project_no,'') ILIKE %s)")
+            params.extend([like, like, like, like])
+        params.append(lim)
         cur.execute(
-            """SELECT wo_no, title, drawing_no, project_no, status, COALESCE(assignee,''),
+            f"""SELECT wo_no, title, drawing_no, project_no, status, COALESCE(assignee,''),
                       to_char(issued_at,'MM-DD HH24:MI'), to_char(done_at,'MM-DD HH24:MI'),
                       COALESCE(assembly_note,'')
-               FROM erp_work_order WHERE tenant_id=%s ORDER BY wo_id DESC LIMIT %s""", (tid, lim))
+               FROM erp_work_order WHERE tenant_id=%s{clause} ORDER BY wo_id DESC LIMIT %s""",
+            tuple(params))
         return [{"woNo": r[0], "title": r[1], "drawingNo": r[2], "projectNo": r[3],
                  "status": r[4], "assignee": r[5], "issuedAt": r[6], "doneAt": r[7],
                  "assemblyNote": r[8]} for r in cur.fetchall()]
@@ -7692,8 +7701,8 @@ def qc_inspection_create(request: Request, body: QcInspectionCreate) -> dict[str
 
 
 @router.get("/qc/inspections")
-def qc_inspection_list(result: str = "", inspType: str = "", limit: int = 2000) -> list[dict[str, Any]]:
-    """검사 기록 목록 (D4) — 결과·유형 필터."""
+def qc_inspection_list(result: str = "", inspType: str = "", limit: int = 2000, q: str = "") -> list[dict[str, Any]]:
+    """검사 기록 목록 (D4) — 결과·유형 필터. 9.30 — q: 검사번호·참조·품목 부분일치."""
     clause, params = "", []
     r = result.strip().upper()
     if r in QC_RESULTS:
@@ -7703,6 +7712,12 @@ def qc_inspection_list(result: str = "", inspType: str = "", limit: int = 2000) 
     if it in QC_TYPES:
         clause += " AND insp_type=%s"
         params.append(it)
+    kw = q.strip()
+    if kw:
+        like = f"%{_like_esc(kw)}%"
+        clause += (" AND (insp_no ILIKE %s OR COALESCE(ref_no,'') ILIKE %s "
+                   "OR COALESCE(item_code,'') ILIKE %s OR COALESCE(item_name,'') ILIKE %s)")
+        params.extend([like, like, like, like])
     lim = max(1, min(limit, 10000))   # 9.20 — 무한 성장 안전 상한(최신순)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -8064,19 +8079,27 @@ def eco_create(request: Request, body: EcoCreate) -> dict[str, Any]:
 
 
 @router.get("/eco/changes")
-def eco_list(limit: int = 2000) -> list[dict[str, Any]]:
-    """설계변경 목록 (D5)."""
+def eco_list(limit: int = 2000, q: str = "") -> list[dict[str, Any]]:
+    """설계변경 목록 (D5). 9.30 — q: ECO번호·제목·대상 부분일치."""
     lim = max(1, min(limit, 10000))   # 9.20 — 무한 성장 안전 상한(최신순)
+    kw = q.strip()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        clause, params = "", [tid]
+        if kw:
+            like = f"%{_like_esc(kw)}%"
+            clause = " AND (eco_no ILIKE %s OR title ILIKE %s OR COALESCE(target_no,'') ILIKE %s)"
+            params.extend([like, like, like])
+        params.append(lim)
         cur.execute(
-            """SELECT eco_no, title, target_type, target_no, status,
+            f"""SELECT eco_no, title, target_type, target_no, status,
                       COALESCE(rev_from,''), COALESCE(rev_to,''),
                       COALESCE((impact_data->>'whereUsedCount')::int,
                                (impact_data->>'revCount')::int, 0),
                       to_char(created_at,'MM-DD HH24:MI'),
                       COALESCE(reason,'')
-               FROM eco_change WHERE tenant_id=%s ORDER BY eco_id DESC LIMIT %s""", (tid, lim))
+               FROM eco_change WHERE tenant_id=%s{clause} ORDER BY eco_id DESC LIMIT %s""",
+            tuple(params))
         return [{"ecoNo": r[0], "title": r[1], "targetType": r[2], "targetNo": r[3],
                  "status": r[4], "revFrom": r[5], "revTo": r[6], "impactCount": r[7],
                  "createdAt": r[8], "reason": r[9]} for r in cur.fetchall()]

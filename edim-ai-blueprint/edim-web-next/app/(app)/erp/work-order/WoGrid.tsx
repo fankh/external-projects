@@ -14,7 +14,7 @@ export interface WoRow {
   status: string; assignee: string; issuedAt: string; doneAt: string | null; assemblyNote: string
 }
 
-export function WoGrid({ rows }: { rows: WoRow[] }) {
+export function WoGrid({ rows, searchActive }: { rows: WoRow[]; searchActive?: boolean }) {
   const { t } = useI18n()
   const perm = usePermission()
   const [regSt, regAction, regPending] = useActionState(issueWorkOrder, {} as ActState)
@@ -66,7 +66,7 @@ export function WoGrid({ rows }: { rows: WoRow[] }) {
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-wo" colFilter columns={cols} rows={rows}
-          rowKey={(r) => r.woNo} emptyText={t('wo.empty', '작업지시가 없습니다')} />
+          rowKey={(r) => r.woNo} emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('wo.empty', '작업지시가 없습니다')} />
       </div>
     </div>
   )
