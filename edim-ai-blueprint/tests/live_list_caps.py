@@ -24,6 +24,8 @@ GRIDS = [
     ("/eco/changes", lambda d: d),
     ("/eco/ledger", lambda d: d["rows"]),
     ("/cost/actuals", lambda d: d),
+    ("/anomalies", lambda d: d["rows"]),          # 9.22
+    ("/erp/suppliers/evals", lambda d: d),        # 9.22
 ]
 
 

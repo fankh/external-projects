@@ -7423,8 +7423,9 @@ def supplier_metrics(company_id: int, request: Request) -> dict[str, Any]:
 
 
 @router.get("/erp/suppliers/evals")
-def supplier_evals(request: Request, company_id: int = 0) -> list[dict[str, Any]]:
+def supplier_evals(request: Request, company_id: int = 0, limit: int = 2000) -> list[dict[str, Any]]:
     """공급처 평가 목록 (company_id 지정 시 해당 업체만). 8.4: 거래처명·단가 점수 열람 모드 적용."""
+    lim = max(1, min(limit, 10000))   # 9.22 — 무한 성장 안전 상한(최신순)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         params: list[Any] = [tid]
@@ -7438,7 +7439,7 @@ def supplier_evals(request: Request, company_id: int = 0) -> list[dict[str, Any]
                        to_char(e.created_at,'YYYY-MM-DD')
                 FROM com_supplier_eval e JOIN com_company c ON c.company_id=e.supplier_id
                 WHERE e.tenant_id=%s{clause}
-                ORDER BY e.period DESC, e.eval_id DESC""", tuple(params))
+                ORDER BY e.period DESC, e.eval_id DESC LIMIT %s""", (*params, lim))
         rows = cur.fetchall()
         qm = _info_mode(cur, tid, request, "partner")
         return [{"evalId": r[0], "supplierId": r[1], "supplier": _mask_text(r[2], qm),
@@ -7838,8 +7839,11 @@ def anomaly_scan(request: Request) -> dict[str, Any]:
 
 
 @router.get("/anomalies")
-def anomaly_list(status: str = "", source: str = "") -> dict[str, Any]:
-    """이상 이벤트 목록 (통합) — 상태·출처 필터 + 요약."""
+def anomaly_list(status: str = "", source: str = "", limit: int = 2000) -> dict[str, Any]:
+    """이상 이벤트 목록 (통합) — 상태·출처 필터 + 요약.
+
+    행은 최신·중요도 우선 상한(9.22)이나 요약(open/openHigh)은 전체 기준이라 정확하다."""
+    lim = max(1, min(limit, 10000))   # 9.22 — 무한 성장 안전 상한
     clause, params = "", []
     st = status.strip().upper()
     if st in ("OPEN", "ACK", "RESOLVED"):
@@ -7857,7 +7861,7 @@ def anomaly_list(status: str = "", source: str = "") -> dict[str, Any]:
                 FROM sys_anomaly WHERE tenant_id=%s{clause}
                 ORDER BY (status='RESOLVED'),
                          CASE severity WHEN 'HIGH' THEN 0 WHEN 'MED' THEN 1 ELSE 2 END,
-                         anomaly_id DESC""", (tid, *params))
+                         anomaly_id DESC LIMIT %s""", (tid, *params, lim))
         rows = [{"anomalyId": r[0], "source": r[1], "severity": r[2], "title": r[3],
                  "refNo": r[4], "status": r[5], "createdAt": r[6], "resolvedAt": r[7]}
                 for r in cur.fetchall()]
