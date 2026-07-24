@@ -14,7 +14,7 @@ export interface MaterialRow {
   density: number | null; standard: string; hazard: string
 }
 
-export function MaterialGrid({ rows }: { rows: MaterialRow[] }) {
+export function MaterialGrid({ rows, searchActive }: { rows: MaterialRow[]; searchActive?: boolean }) {
   const { t } = useI18n()
   const perm = usePermission()
   const cols: GridColumn<MaterialRow>[] = [
@@ -81,7 +81,7 @@ export function MaterialGrid({ rows }: { rows: MaterialRow[] }) {
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-materials" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.code} selectedKey={selCode ?? undefined}
-          onRowClick={(r) => setSelCode(r.code)} emptyText={t('raw.empty', '재질이 없습니다')} />
+          onRowClick={(r) => setSelCode(r.code)} emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('raw.empty', '재질이 없습니다')} />
       </div>
     </div>
   )

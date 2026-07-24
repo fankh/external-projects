@@ -30,7 +30,7 @@ export default async function ProductCodesPage({ searchParams }: { searchParams:
       <ScreenHeader title={`${t('master.title', '제품 코드 마스터')} (M-3-8)`} count={err ? undefined : rows.length} source="/codes/products" />
       <div style={{ padding: '4px 6px 0' }}><SearchBox placeholder={t('products.searchPlaceholder', '제품코드·품명 검색')} /></div>
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
-        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <div style={{ flex: 1, minWidth: 0 }}><PcGrid rows={rows} composeGroups={composeGroups} manualGroups={manualGroups} /></div>}
+        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <div style={{ flex: 1, minWidth: 0 }}><PcGrid rows={rows} composeGroups={composeGroups} manualGroups={manualGroups} searchActive={!!q} /></div>}
         <SubWorkPlace />
       </div>
     </div>

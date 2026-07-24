@@ -43,7 +43,7 @@ export default async function PartsPage({ searchParams }: { searchParams: Promis
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div> : (
           <>
-            <div style={{ flex: 1, minWidth: 0 }}><PartGrid rows={rows} selectedNo={selNo} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><PartGrid rows={rows} selectedNo={selNo} searchActive={!!q} /></div>
             <div style={{ width: 330, overflow: 'auto' }}>
               {selNo
                 ? <><SupplierCodePanel partNo={selNo} rows={suppliers} /><SubstitutePanel partNo={selNo} rows={substitutes} /></>

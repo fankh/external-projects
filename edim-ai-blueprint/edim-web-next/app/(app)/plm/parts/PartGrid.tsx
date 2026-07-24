@@ -14,7 +14,7 @@ export interface PartRow {
   weight: number | null; isStandard: boolean; bomCount: number
 }
 
-export function PartGrid({ rows, selectedNo }: { rows: PartRow[]; selectedNo?: string | null }) {
+export function PartGrid({ rows, selectedNo, searchActive }: { rows: PartRow[]; selectedNo?: string | null; searchActive?: boolean }) {
   const { t } = useI18n()
   const perm = usePermission()
   const router = useRouter()
@@ -68,7 +68,7 @@ export function PartGrid({ rows, selectedNo }: { rows: PartRow[]; selectedNo?: s
               },
             },
           ]}
-          emptyText={t('parts.empty', '부품이 없습니다')} />
+          emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('parts.empty', '부품이 없습니다')} />
       </div>
       {/* F5 이식 — 부품 수정 다이얼로그 (부품명·사양·재질·공급처·단위·중량) */}
       {edit ? (

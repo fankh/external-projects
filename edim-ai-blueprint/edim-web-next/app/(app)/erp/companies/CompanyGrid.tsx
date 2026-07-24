@@ -14,7 +14,7 @@ export interface CompanyRow {
 
 const TONE: Record<string, 'ok' | 'warn' | 'info'> = { SUPPLIER: 'info', CUSTOMER: 'ok', PARTNER: 'warn', BANK: 'warn' }
 
-export function CompanyGrid({ rows, selectedId }: { rows: CompanyRow[]; selectedId?: number | null }) {
+export function CompanyGrid({ rows, selectedId, searchActive }: { rows: CompanyRow[]; selectedId?: number | null; searchActive?: boolean }) {
   const { t } = useI18n()
   const router = useRouter()
   const [pending, start] = useTransition()
@@ -83,7 +83,7 @@ export function CompanyGrid({ rows, selectedId }: { rows: CompanyRow[]; selected
           multiSelect selectedKeys={msel} onSelectionChange={setMsel}
           onRowClick={rowClick}
           onRowDoubleClick={rowDblClick}
-          emptyText={t('company.empty', '거래처가 없습니다')} />
+          emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('company.empty', '거래처가 없습니다')} />
       </div>
       {/* F5 이식 — 더블클릭 수정 다이얼로그 (평가등급·결제조건, 폼 액션) */}
       {edit ? (

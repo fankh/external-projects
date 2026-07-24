@@ -44,7 +44,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
           <>
-            <div style={{ flex: 1, minWidth: 0 }}><CompanyGrid rows={rows} selectedId={selId} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><CompanyGrid rows={rows} selectedId={selId} searchActive={!!q} /></div>
             <div style={{ width: 380, overflow: 'auto' }}><SupplierPanel metrics={metrics} evals={evals} /></div>
           </>
         )}

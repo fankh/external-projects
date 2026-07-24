@@ -18,8 +18,8 @@ export interface PcRow {
 
 const TONE: Record<string, 'ok' | 'warn' | 'info'> = { APPROVED: 'ok', DRAFT: 'info', INACTIVE: 'warn' }
 
-export function PcGrid({ rows, composeGroups = [], manualGroups = [] }: {
-  rows: PcRow[]; composeGroups?: string[]; manualGroups?: string[]
+export function PcGrid({ rows, composeGroups = [], manualGroups = [], searchActive }: {
+  rows: PcRow[]; composeGroups?: string[]; manualGroups?: string[]; searchActive?: boolean
 }) {
   const { t } = useI18n()
   const perm = usePermission()
@@ -139,7 +139,7 @@ export function PcGrid({ rows, composeGroups = [], manualGroups = [] }: {
             if (!v.trim() || v.trim() === r.codeName) return
             start(async () => setSt(await renameProductCode(r.productCodeId, v)))
           }}
-          emptyText={t('master.empty', '제품 코드가 없습니다')} />
+          emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('master.empty', '제품 코드가 없습니다')} />
       </div>
       {/* #28 — 조합 상세: 고정된 Slot·값·Revision. 조합은 불변이고, 원본 개정은 drift 로만 드러난다 */}
       {sel ? (

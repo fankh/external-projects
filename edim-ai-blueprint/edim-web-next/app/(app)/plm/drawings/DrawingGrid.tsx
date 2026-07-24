@@ -10,7 +10,7 @@ export interface DrawingRow {
   status: string; revCount: number; superseded: boolean
 }
 
-export function DrawingGrid({ rows, selectedNo }: { rows: DrawingRow[]; selectedNo?: string | null }) {
+export function DrawingGrid({ rows, selectedNo, searchActive }: { rows: DrawingRow[]; selectedNo?: string | null; searchActive?: boolean }) {
   const { t } = useI18n()
   const router = useRouter()
   const cols: GridColumn<DrawingRow>[] = [
@@ -26,5 +26,5 @@ export function DrawingGrid({ rows, selectedNo }: { rows: DrawingRow[]; selected
   return <DenseGrid prefKey="next-drawings" colFilter columns={cols} rows={rows}
     rowKey={(r) => r.drawingNo} selectedKey={selectedNo ?? undefined}
     onRowClick={(r) => router.push(`/plm/drawings?no=${encodeURIComponent(r.drawingNo)}`)}
-    emptyText={t('dwg.empty', '도면이 없습니다')} />
+    emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('dwg.empty', '도면이 없습니다')} />
 }

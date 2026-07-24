@@ -23,7 +23,7 @@ export default async function MaterialsPage({ searchParams }: { searchParams: Pr
       <ScreenHeader title={`${t('raw.title', 'Raw Material·GPI')} (M-3-2)`} count={err ? undefined : rows.length} source="/materials" />
       <div style={{ padding: '4px 6px 0' }}><SearchBox placeholder={t('materials.searchPlaceholder', '자재 코드·명 검색')} /></div>
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
-        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <MaterialGrid rows={rows} />}
+        {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <MaterialGrid rows={rows} searchActive={!!q} />}
       </div>
     </div>
   )
