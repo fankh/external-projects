@@ -11,7 +11,7 @@ export interface ActualRow {
 const CAT: Record<string, string> = { MATERIAL: '재료비', MANUFACTURING: '제조비', DIRECT: '직접경비' }
 const won = (n: number) => `₩${Math.round(n).toLocaleString()}`
 
-export function ActualGrid({ rows }: { rows: ActualRow[] }) {
+export function ActualGrid({ rows, searchActive }: { rows: ActualRow[]; searchActive?: boolean }) {
   const { t } = useI18n()
   const cols: GridColumn<ActualRow>[] = [
     { key: 'cat', header: t('act.cat', '분류'), width: 76, align: 'center', sortValue: (r) => r.category, render: (r) => CAT[r.category] ?? r.category },
@@ -24,5 +24,5 @@ export function ActualGrid({ rows }: { rows: ActualRow[] }) {
     { key: 'at', header: t('act.at', '적재'), width: 92, align: 'center', render: (r) => r.recordedAt },
   ]
   return <DenseGrid prefKey="next-actual" colFilter columns={cols} rows={rows}
-    rowKey={(r) => r.actualId} emptyText={t('costact.empty', '실적이 없습니다 — 상단 폼으로 적재')} />
+    rowKey={(r) => r.actualId} emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('costact.empty', '실적이 없습니다 — 상단 폼으로 적재')} />
 }

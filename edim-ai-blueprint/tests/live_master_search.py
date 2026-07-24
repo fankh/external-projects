@@ -126,7 +126,8 @@ if pfull:
            all(frag.lower() in (r["mainCode"] + " " + (r["codeName"] or "")).lower() for r in pres))
 
 # ── 트랜잭션 그리드 검색 (9.30) — 작업지시·검사·설계변경 ──
-for path, key in [("/erp/work-orders", "woNo"), ("/qc/inspections", "inspNo"), ("/eco/changes", "ecoNo")]:
+for path, key in [("/erp/work-orders", "woNo"), ("/qc/inspections", "inspNo"), ("/eco/changes", "ecoNo"),
+                  ("/erp/pos", "poNo"), ("/cost/actuals", "category")]:
     tfull = get(path)
     ok(f"{path} 전량 조회 ({len(tfull)}행)", isinstance(tfull, list))
     ok(f"★ {path} 무매칭 검색 0행", get(f"{path}?q=ZZZNOMATCHXYZ") == [])

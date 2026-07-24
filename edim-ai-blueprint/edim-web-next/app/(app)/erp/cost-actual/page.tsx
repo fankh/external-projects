@@ -1,6 +1,7 @@
 import { apiServer, ApiError } from '@/lib/api'
 import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
+import { SearchBox } from '@/components/SearchBox'
 import { ActualGrid, type ActualRow } from './ActualGrid'
 import { ActualForm } from './ActualForm'
 
@@ -12,15 +13,16 @@ const pct = (r: number) => `${r >= 0 ? '+' : ''}${(r * 100).toFixed(1)}%`
 
 export const dynamic = 'force-dynamic'
 
-export default async function CostActualPage() {
+export default async function CostActualPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const locale = await getLocale()
   const bundle = bundleFor(locale)
   const t = (k: string, ko: string) => translate(bundle, k, ko)
+  const q = ((await searchParams).q ?? '').trim()
   let rows: ActualRow[] = []
   let v: Variance | null = null
   let err: string | null = null
   try {
-    ;[rows, v] = await Promise.all([apiServer<ActualRow[]>('/cost/actuals'), apiServer<Variance>('/cost/variance')])
+    ;[rows, v] = await Promise.all([apiServer<ActualRow[]>(`/cost/actuals${q ? `?q=${encodeURIComponent(q)}` : ''}`), apiServer<Variance>('/cost/variance')])
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
@@ -34,7 +36,10 @@ export default async function CostActualPage() {
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /cost/actuals · /cost/variance</span>
       </div>
-      <ActualForm />
+      <div style={{ padding: '4px 6px 0', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <ActualForm />
+        <SearchBox placeholder={t('costact.searchPlaceholder', '분류·품목·발주 검색')} />
+      </div>
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : null}
         {v ? (
@@ -55,7 +60,7 @@ export default async function CostActualPage() {
             </table>
           </div>
         ) : null}
-        {!err ? <div style={{ flex: 1, minHeight: 0 }}><ActualGrid rows={rows} /></div> : null}
+        {!err ? <div style={{ flex: 1, minHeight: 0 }}><ActualGrid rows={rows} searchActive={!!q} /></div> : null}
       </div>
     </div>
   )

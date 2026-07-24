@@ -8223,10 +8223,10 @@ def cost_actual_create(request: Request, body: CostActualCreate) -> dict[str, An
 
 
 @router.get("/cost/actuals")
-def cost_actual_list(request: Request, project: str = "", limit: int = 2000) -> list[dict[str, Any]]:
+def cost_actual_list(request: Request, project: str = "", limit: int = 2000, q: str = "") -> list[dict[str, Any]]:
     """실적 원가 목록 (D6). project 지정 시 해당 프로젝트 귀속분만.
 
-    8.3 — 원가 열람 모드 적용 (단가·금액)."""
+    8.3 — 원가 열람 모드 적용 (단가·금액). 9.31 — q: 분류·품목·발주 부분일치."""
     lim = max(1, min(limit, 10000))   # 9.20 — 무한 성장 안전 상한(최신순)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -8235,6 +8235,12 @@ def cost_actual_list(request: Request, project: str = "", limit: int = 2000) -> 
         if project.strip():
             clause = " AND project_no=%s"
             params.append(project.strip())
+        kw = q.strip()
+        if kw:
+            like = f"%{_like_esc(kw)}%"
+            clause += (" AND (category ILIKE %s OR COALESCE(item_code,'') ILIKE %s "
+                       "OR COALESCE(item_name,'') ILIKE %s OR COALESCE(po_no,'') ILIKE %s)")
+            params.extend([like, like, like, like])
         cur.execute(
             f"""SELECT actual_id, category, COALESCE(item_code,''), COALESCE(item_name,''),
                       COALESCE(po_no,''), qty, unit_price, amount,
@@ -12970,13 +12976,21 @@ def po_lc_create(request: Request, body: PoLifecycleCreate) -> dict[str, Any]:
 
 
 @router.get("/erp/pos")
-def po_lc_list(status: str = "") -> list[dict[str, Any]]:
-    """발주 목록 (G3) — 총액·입고 진척·3-way match 상태."""
+def po_lc_list(status: str = "", q: str = "", limit: int = 2000) -> list[dict[str, Any]]:
+    """발주 목록 (G3) — 총액·입고 진척·3-way match 상태.
+
+    9.31 — 무한 성장 안전 상한(최신순) 신설 + q: 발주번호·공급처 부분일치."""
+    lim = max(1, min(limit, 10000))
     clause, params = "", []
     st = status.strip().upper()
     if st in PO_STATUS_LABEL:
         clause = " AND p.status=%s"
         params.append(st)
+    kw = q.strip()
+    if kw:
+        like = f"%{_like_esc(kw)}%"
+        clause += " AND (p.po_no ILIKE %s OR COALESCE(p.supplier,'') ILIKE %s)"
+        params.extend([like, like])
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -12986,7 +13000,7 @@ def po_lc_list(status: str = "") -> list[dict[str, Any]]:
                        COALESCE(sum(i.order_qty),0), COALESCE(sum(i.received_qty),0)
                 FROM erp_po p LEFT JOIN erp_po_item i ON i.po_id=p.po_id
                 WHERE p.tenant_id=%s{clause}
-                GROUP BY p.po_id ORDER BY p.po_id DESC""", (tid, *params))
+                GROUP BY p.po_id ORDER BY p.po_id DESC LIMIT %s""", (tid, *params, lim))
         rows = []
         for r in cur.fetchall():
             oq, rq = float(r[7]), float(r[8])

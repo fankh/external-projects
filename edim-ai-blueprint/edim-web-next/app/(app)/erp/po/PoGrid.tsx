@@ -13,7 +13,7 @@ export interface PoRow {
 
 const won = (n: number) => `₩ ${Math.round(n).toLocaleString()}`
 
-export function PoGrid({ rows, selectedNo }: { rows: PoRow[]; selectedNo?: string | null }) {
+export function PoGrid({ rows, selectedNo, searchActive }: { rows: PoRow[]; selectedNo?: string | null; searchActive?: boolean }) {
   const { t } = useI18n()
   const router = useRouter()
   const cols: GridColumn<PoRow>[] = [
@@ -29,5 +29,5 @@ export function PoGrid({ rows, selectedNo }: { rows: PoRow[]; selectedNo?: strin
   return <DenseGrid prefKey="next-po" colFilter columns={cols} rows={rows}
     rowKey={(r) => r.poNo} selectedKey={selectedNo ?? undefined}
     onRowClick={(r) => router.push(`/erp/po?no=${encodeURIComponent(r.poNo)}`)}
-    emptyText={t('po.emptyList', '발주가 없습니다')} />
+    emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('po.emptyList', '발주가 없습니다')} />
 }
