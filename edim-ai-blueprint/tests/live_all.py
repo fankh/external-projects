@@ -167,6 +167,14 @@ if os.getenv("SKIP_WAIT") != "1":
     print("배포-준비 확인 (/health db:true) …")
     wait_ready()
 
+# 9.36 — 시드 무결성 자기치유: 이전 중단 플릿이 훼손한 핵심 시드(dwg_bom)를 지문 저장 전에
+# 복원해, 항상 정상 시드에서 출발하고 기준 지문도 정상 상태로 뜬다(멱등 — 정상이면 0행).
+print("시드 무결성 확인 …")
+_heal = subprocess.run([sys.executable, os.path.join(HERE, "seed_heal.py")],
+                       env=env, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=120)
+print((_heal.stdout or "").strip() or "(seed_heal 무출력)", flush=True)
+
 # 8.11 — 실행 전 실 데이터 지문을 떠 둔다. 스위트가 자기 자원만 만들고 지웠다면
 # 끝난 뒤 지문이 같아야 한다(정리 문구가 아니라 DB 로 확인).
 print("실 데이터 기준 지문 저장 …")
