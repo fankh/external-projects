@@ -2733,7 +2733,7 @@ def ai_chat(body: AiChatRequest, request: Request) -> dict[str, Any]:
     if not q:
         raise HTTPException(422, detail="질문을 입력하십시오")
     terms = [t for t in re.split(r"\s+", q) if len(t) >= 2][:5] or [q]
-    like = [f"%{t}%" for t in terms]
+    like = [f"%{_like_esc(t)}%" for t in terms]
     refs: list[dict[str, Any]] = []
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -5461,7 +5461,7 @@ def global_search(q: str, request: Request) -> dict[str, list[dict[str, Any]]]:
         "warehouses": [], "macros": [], "projects": [], "users": []}
     if len(term) < 2:
         return empty
-    like = f"%{term}%"
+    like = f"%{_like_esc(term)}%"   # 9.29 — %·_ 리터럴화(와일드카드 오매칭 방지)
     out = dict(empty)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -5561,10 +5561,10 @@ def _audit_where(tid: int, fromDate: str, toDate: str, user: str,
         params.append(user.strip())
     if action.strip():
         clauses.append("h.action ILIKE %s")
-        params.append(f"%{action.strip()}%")
+        params.append(f"%{_like_esc(action.strip())}%")
     if target.strip():
         clauses.append("h.target_table ILIKE %s")
-        params.append(f"%{target.strip()}%")
+        params.append(f"%{_like_esc(target.strip())}%")
     return " AND ".join(clauses), params
 
 
@@ -12694,7 +12694,7 @@ def project_check_duplicate(name: str = "", no: str = "") -> dict[str, Any]:
             """SELECT project_no, project_name FROM prj_project
                WHERE tenant_id=%s AND (project_name ILIKE %s OR project_no ILIKE %s)
                LIMIT 10""",
-            (tid, f"%{name.strip() or chr(1)}%", f"%{no.strip() or chr(1)}%"))
+            (tid, f"%{_like_esc(name.strip()) or chr(1)}%", f"%{_like_esc(no.strip()) or chr(1)}%"))
         matches = [{"no": r[0], "name": r[1]} for r in cur.fetchall()]
     return {"duplicate": bool(matches), "matches": matches}
 
@@ -15398,7 +15398,7 @@ def code_approval_history(code: str) -> list[dict[str, Any]]:
                WHERE a.tenant_id=%s AND ((a.target_table='product_code' AND a.target_id=%s)
                      OR a.comment ILIKE %s)
                ORDER BY a.approval_id""",
-            (tid, pc[0] if pc else -1, f"%{code}%"))
+            (tid, pc[0] if pc else -1, f"%{_like_esc(code)}%"))
         rows: list[dict[str, Any]] = []
         for rt, result, comment, req_d, dec_d, req_by, app_by in cur.fetchall():
             rows.append({"date": req_d, "action": f"승인 요청 ({rt})", "by": req_by, "note": comment})
