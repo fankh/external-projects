@@ -54,6 +54,7 @@ SUITES = [
     "live_b20_macro.py",            # Macro 4-Way·CODING·역참조·함수 검색
     "live_b21_system.py",           # auth/me·다중 역할·Hierarchy 편집·문서 전이
     "live_f1_project.py",           # 프로젝트 대장·PS 채번·접수자료 실업로드·컨텍스트
+    "live_project_race.py",        # 프로젝트 PS 채번 경쟁 안전 (9.18) — 동시 생성 전량 성공·고유
     "live_f2_users.py",             # 사용자 등록·프로필 수정·삭제 보호 (ssh psql 정리)
     "live_f3_rbac_ui.py",           # 권한 기반 UI 게이팅 — 메뉴 숨김·403 안내·버튼 disabled
     "live_f4_noop.py",              # 무반응 일소 — 관계 승인·Export·PrintSetup 위젯·F8 표준
