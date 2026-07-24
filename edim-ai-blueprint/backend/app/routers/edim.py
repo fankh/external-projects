@@ -2117,13 +2117,19 @@ def add_code_value(request: Request, body: ValueAdd) -> dict[str, Any]:
 
 
 @router.get("/materials")
-def materials() -> list[dict[str, Any]]:
+def materials(q: str = "") -> list[dict[str, Any]]:
+    """자재 마스터. 9.23 — q: 서버측 검색(코드·명 부분일치, 추가형)."""
+    kw = q.strip()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        clause, params = "", [tid]
+        if kw:
+            clause = " AND (material_code ILIKE %s OR material_name ILIKE %s)"
+            params.extend([f"%{kw}%", f"%{kw}%"])
         cur.execute(
-            """SELECT material_code, material_name, material_type,
+            f"""SELECT material_code, material_name, material_type,
                       density, COALESCE(standard,''), COALESCE(hazard_class,'')
-               FROM mat_material WHERE tenant_id=%s ORDER BY material_id""", (tid,))
+               FROM mat_material WHERE tenant_id=%s{clause} ORDER BY material_id""", tuple(params))
         return [
             {"code": r[0], "name": r[1], "materialType": r[2],
              "density": float(r[3]) if r[3] is not None else None,
@@ -14620,14 +14626,20 @@ def _drawing_id(cur, tid: int, drawing_no: str) -> int:
 
 
 @router.get("/drawings")
-def drawings_list(code: str = "") -> list[dict[str, Any]]:
-    """도면 대장 — dwg_drawing + Rev 수·최신 DXF 연결. code 지정 시 해당 도면번호만."""
+def drawings_list(code: str = "", q: str = "") -> list[dict[str, Any]]:
+    """도면 대장 — dwg_drawing + Rev 수·최신 DXF 연결. code 지정 시 해당 도면번호만.
+
+    9.23 — q: 서버측 검색(도면번호·도면명 부분일치, 추가형)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         where, params = "d.tenant_id=%s", [tid]
         if code.strip():
             where += " AND d.drawing_no=%s"
             params.append(code.strip())
+        kw = q.strip()
+        if kw:
+            where += " AND (d.drawing_no ILIKE %s OR d.drawing_name ILIKE %s)"
+            params.extend([f"%{kw}%", f"%{kw}%"])
         cur.execute(
             f"""SELECT d.drawing_no, d.drawing_name, d.drawing_type, d.dwg_kind,
                        d.current_rev, d.status,

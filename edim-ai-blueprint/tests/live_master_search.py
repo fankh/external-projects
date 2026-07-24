@@ -76,4 +76,28 @@ if cfull:
 combo = get("/companies?active_only=true&q=" + urllib.parse.quote("a"))
 ok(f"/companies active_only+q 결합 정상 ({len(combo)}행)", isinstance(combo, list))
 
+# ── /materials (9.23 확장) ──
+mfull = get("/materials")
+ok(f"/materials 전량 조회 ({len(mfull)}행)", isinstance(mfull, list))
+ok("★ /materials 무매칭 검색 0행", get("/materials?q=ZZZNOMATCHXYZ") == [])
+if mfull:
+    frag = (mfull[0]["code"] or mfull[0]["name"] or "")[:2]
+    if frag:
+        mres = get("/materials?q=" + urllib.parse.quote(frag))
+        ok(f"★ /materials q='{frag}' 결과 존재·전량 이하 ({len(mres)}≤{len(mfull)})",
+           1 <= len(mres) <= len(mfull))
+        ok("★ /materials 전 행이 부분일치",
+           all(frag.lower() in (r["code"] + " " + (r["name"] or "")).lower() for r in mres))
+
+# ── /drawings (9.23 확장 — code 정확일치와 별개 q 퍼지) ──
+dfull = get("/drawings")
+ok(f"/drawings 전량 조회 ({len(dfull)}행)", isinstance(dfull, list))
+ok("★ /drawings 무매칭 검색 0행", get("/drawings?q=ZZZNOMATCHXYZ") == [])
+if dfull:
+    frag = (dfull[0]["drawingNo"] or "")[:3]
+    if frag:
+        dres = get("/drawings?q=" + urllib.parse.quote(frag))
+        ok(f"★ /drawings q='{frag}' 결과 존재·전량 이하 ({len(dres)}≤{len(dfull)})",
+           1 <= len(dres) <= len(dfull))
+
 print(f"\nlive_master_search: {n}/{n} PASS")
