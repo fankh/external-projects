@@ -24,7 +24,7 @@ export default async function WorkOrderPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`${t('wo.header', '작업지시')} (D-3)`} count={err ? undefined : rows.length} source="/erp/work-orders · production/schedule" />
+      <ScreenHeader title={`${t('wo.header', '작업지시')} (D-3)`} count={err ? undefined : rows.length} cap={2000} source="/erp/work-orders · production/schedule" />
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
           <>

@@ -19,7 +19,7 @@ export default async function TasksPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`${t('task.title', '업무함')} (M-15-3)`} count={err ? undefined : rows.length} source="/erp/events" />
+      <ScreenHeader title={`${t('task.title', '업무함')} (M-15-3)`} count={err ? undefined : rows.length} cap={2000} source="/erp/events" />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <TaskGrid rows={rows} />}
       </div>

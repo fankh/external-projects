@@ -21,7 +21,7 @@ export default async function EcoChangePage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={t('eco.screenTitle', '설계 변경 (ECR/ECO)')} count={err ? undefined : rows.length} source="/eco/changes" />
+      <ScreenHeader title={t('eco.screenTitle', '설계 변경 (ECR/ECO)')} count={err ? undefined : rows.length} cap={2000} source="/eco/changes" />
       <div style={{ padding: '4px 6px 0' }}><EcrForm /></div>
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div> : <EcoGrid rows={rows} />}

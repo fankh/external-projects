@@ -29,6 +29,7 @@ export default async function CostActualPage() {
       <div className="qband" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderBottom: '1px solid var(--line)' }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--title-navy)' }}>{t('costact.title', '원가 실적·차이분석')} (D-6)</span>
         {!err ? <span className="chip info">{rows.length}건</span> : null}
+        {!err && rows.length >= 2000 ? <span className="chip warn" title="최신 2000건만 표시됩니다 (성능 상한). 프로젝트로 좁히십시오.">상한</span> : null}
         {v ? <span className={`chip ${v.alert ? 'err' : 'ok'}`}>{t('costact.totalVar', '총 차이')} {won(v.totalVariance)} ({pct(v.totalVarianceRate)}){v.alert ? ` — ${t('costact.alert', '경보')}` : ''}</span> : null}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /cost/actuals · /cost/variance</span>

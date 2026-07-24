@@ -14,7 +14,7 @@ export default async function QualityPage() {
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title="검사·품질 (D-4)" count={err ? undefined : rows.length} source="/qc/inspections" />
+      <ScreenHeader title="검사·품질 (D-4)" count={err ? undefined : rows.length} cap={2000} source="/qc/inspections" />
       <div style={{ flex: 1, minHeight: 0, padding: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : <QcGrid rows={rows} />}
       </div>

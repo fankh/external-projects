@@ -37,7 +37,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`${t('prj.ledgerTitle', '프로젝트 대장')} (F-1)`} count={err ? undefined : rows.length} source="/projects" />
+      <ScreenHeader title={`${t('prj.ledgerTitle', '프로젝트 대장')} (F-1)`} count={err ? undefined : rows.length} cap={2000} source="/projects" />
       <div style={{ padding: '4px 6px 0' }}><ProjectRegForm /></div>
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
