@@ -76,6 +76,18 @@ if cfull:
 combo = get("/companies?active_only=true&q=" + urllib.parse.quote("a"))
 ok(f"/companies active_only+q 결합 정상 ({len(combo)}행)", isinstance(combo, list))
 
+# ── LIKE 메타문자 이스케이프 (9.29) — %·_ 는 리터럴이어야 함 ──
+# 미이스케이프면 % 가 와일드카드로 전량 매칭. 이스케이프 후엔 리터럴 '%' 포함 행만(대개 0).
+pct = get("/parts?q=" + urllib.parse.quote("%"))
+ok(f"★ /parts q='%' 는 와일드카드 아님 (전량 {len(full)} 아닌 {len(pct)})",
+   len(full) < 2 or len(pct) < len(full))
+und = get("/parts?q=" + urllib.parse.quote("_"))
+ok(f"★ /parts q='_' 는 와일드카드 아님 ({len(und)}행 ≠ 전량 {len(full)})",
+   len(full) < 2 or len(und) < len(full))
+cpct = get("/companies?q=" + urllib.parse.quote("%"))
+ok(f"★ /companies q='%' 는 와일드카드 아님 ({len(cpct)} vs 전량 {len(cfull)})",
+   len(cfull) < 2 or len(cpct) < len(cfull))
+
 # ── /materials (9.23 확장) ──
 mfull = get("/materials")
 ok(f"/materials 전량 조회 ({len(mfull)}행)", isinstance(mfull, list))

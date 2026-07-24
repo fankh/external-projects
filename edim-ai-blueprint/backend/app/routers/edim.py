@@ -296,6 +296,15 @@ def _tenant_id(cur) -> int:
     return row[0]
 
 
+def _like_esc(kw: str) -> str:
+    r"""LIKE/ILIKE 검색어의 메타문자(\ % _) 를 이스케이프해 리터럴로 취급(9.29).
+
+    미이스케이프 시 사용자가 입력한 %·_ 가 와일드카드로 작동해 오매칭('A_100' 이 'A1100'
+    매칭). PostgreSQL LIKE 기본 이스케이프 문자는 \ 이므로 \·%·_ 앞에 \ 를 붙인다.
+    (검색어는 항상 파라미터 바인딩 — 인젝션과는 무관, 매칭 정확도 이슈)."""
+    return kw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 # ── health ──
 @router.get("/health")
 def health() -> dict[str, Any]:
@@ -1031,7 +1040,7 @@ def list_products(status: str = "", q: str = "") -> list[dict[str, Any]]:
         kw = q.strip()
         if kw:
             clause += " AND (pc.main_code ILIKE %s OR pc.code_name ILIKE %s)"
-            params.extend([f"%{kw}%", f"%{kw}%"])
+            params.extend([f"%{_like_esc(kw)}%", f"%{_like_esc(kw)}%"])
         cur.execute(
             f"""SELECT pc.product_code_id, pc.main_code, pc.code_name, cg.group_code,
                        pc.approval_status, to_char(pc.created_at,'YYYY-MM-DD'), pc.origin,
@@ -2131,7 +2140,7 @@ def materials(q: str = "") -> list[dict[str, Any]]:
         clause, params = "", [tid]
         if kw:
             clause = " AND (material_code ILIKE %s OR material_name ILIKE %s)"
-            params.extend([f"%{kw}%", f"%{kw}%"])
+            params.extend([f"%{_like_esc(kw)}%", f"%{_like_esc(kw)}%"])
         cur.execute(
             f"""SELECT material_code, material_name, material_type,
                       density, COALESCE(standard,''), COALESCE(hazard_class,'')
@@ -2282,7 +2291,7 @@ def companies(active_only: bool = False, q: str = "") -> list[dict[str, Any]]:
         clause, params = "", [tid, active_only]
         if kw:
             clause = " AND (company_name ILIKE %s OR COALESCE(remarks,'') ILIKE %s)"
-            params.extend([f"%{kw}%", f"%{kw}%"])
+            params.extend([f"%{_like_esc(kw)}%", f"%{_like_esc(kw)}%"])
         cur.execute(
             f"""SELECT company_name, company_type, COALESCE(nation,''),
                       COALESCE(evaluation_grade,''), COALESCE(payment_terms,''),
@@ -14645,7 +14654,7 @@ def drawings_list(code: str = "", q: str = "") -> list[dict[str, Any]]:
         kw = q.strip()
         if kw:
             where += " AND (d.drawing_no ILIKE %s OR d.drawing_name ILIKE %s)"
-            params.extend([f"%{kw}%", f"%{kw}%"])
+            params.extend([f"%{_like_esc(kw)}%", f"%{_like_esc(kw)}%"])
         cur.execute(
             f"""SELECT d.drawing_no, d.drawing_name, d.drawing_type, d.dwg_kind,
                        d.current_rev, d.status,
@@ -14996,7 +15005,7 @@ def parts_list(q: str = "") -> list[dict[str, Any]]:
         if kw:
             clause = (" AND (p.part_no ILIKE %s OR p.part_name ILIKE %s "
                       "OR COALESCE(p.specification,'') ILIKE %s)")
-            params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+            params.extend([f"%{_like_esc(kw)}%", f"%{_like_esc(kw)}%", f"%{_like_esc(kw)}%"])
         cur.execute(
             f"""SELECT p.part_id, p.part_no, p.part_name, COALESCE(p.specification,''),
                       m.material_code, c.company_name, pc.main_code, p.unit,
