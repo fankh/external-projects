@@ -41,6 +41,8 @@ SCREENS = [
     "code-hierarchy", "code-raw", "code-variant",
     "plm-arr", "plm-quality", "plm-parts",
     "erp-warehouse", "erp-company-master", "tbx-templet",
+    # 9.34 — 검색(SearchBox) 추가 화면 커버리지 확장 (9.23~9.31a 도입, i18n 회귀 방지)
+    "code-master", "plm-eco", "erp-po", "erp-work-order", "erp-quality", "erp-cost-actual",
 ]
 
 # 크롬 텍스트 셀렉터 (데이터 셀 td 는 제외 — 단, 칩 .st 은 상태 enum 이므로 포함)

@@ -17,9 +17,9 @@ export function ActualForm() {
     <form ref={ref} action={action} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
       <label style={{ fontSize: 11 }}>{t('act.cat', '분류')}</label>
       <select name="category" className="in" defaultValue="MATERIAL" style={inp} disabled={!writable}>
-        <option value="MATERIAL">재료비</option>
-        <option value="MANUFACTURING">제조비</option>
-        <option value="DIRECT">직접경비</option>
+        <option value="MATERIAL">{t('cost.catMaterial', '재료비')}</option>
+        <option value="MANUFACTURING">{t('cost.catManufacturing', '제조비')}</option>
+        <option value="DIRECT">{t('cost.catDirect', '직접경비')}</option>
       </select>
       <label style={{ fontSize: 11 }}>{t('act.item', '품목')}</label>
       <input name="itemName" className="in" placeholder={t('costact.itemPh', '예: Casing')} style={{ ...inp, width: 120 }} disabled={!writable} />
