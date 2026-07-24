@@ -4442,20 +4442,28 @@ DOC_SORT = {"docNo": "d.doc_no", "title": "d.title", "date": "d.created_at",
 
 
 @router.get("/documents")
-def documents(sort: str = "", dir: str = "asc") -> list[dict[str, Any]]:
-    # F8 — 서버 정렬 (화이트리스트; 기본 = 등록순)
-    order = "d.doc_control_id"
+def documents(sort: str = "", dir: str = "asc", q: str = "", limit: int = 2000) -> list[dict[str, Any]]:
+    # F8 — 서버 정렬 (화이트리스트). 9.31 — 기본 최신순(상한이 최근 문서 유지)·q 검색·안전 상한.
+    lim = max(1, min(limit, 10000))
+    order = "d.doc_control_id DESC"
     if sort in DOC_SORT:
         order = f"{DOC_SORT[sort]} {'DESC' if dir == 'desc' else 'ASC'}"
+    kw = q.strip()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        clause, params = "", [tid]
+        if kw:
+            like = f"%{_like_esc(kw)}%"
+            clause = " AND (d.doc_no ILIKE %s OR d.title ILIKE %s)"
+            params.extend([like, like])
+        params.append(lim)
         cur.execute(
             f"""SELECT d.doc_no, d.title, d.person, to_char(d.created_at,'MM-DD'),
                       d.released_status, u.user_name,
                       to_char(d.approval_date,'MM-DD'), d.version, d.management_grade,
                       d.doc_type
                FROM doc_control d LEFT JOIN sys_user u ON u.user_id=d.approver_id
-               WHERE d.tenant_id=%s ORDER BY {order}""", (tid,))
+               WHERE d.tenant_id=%s{clause} ORDER BY {order} LIMIT %s""", tuple(params))
         return [
             {"docNo": r[0], "title": r[1], "person": r[2], "date": r[3],
              "status": STATUS_LABEL[r[4]], "approver": r[5] or "-",

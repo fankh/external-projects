@@ -17,7 +17,7 @@ export interface DocRow {
 
 const GRADES = ['GENERAL', 'S-2', 'S-1']
 
-export function DocGrid({ rows }: { rows: DocRow[] }) {
+export function DocGrid({ rows, searchActive }: { rows: DocRow[]; searchActive?: boolean }) {
   const router = useRouter()
   const { t } = useI18n()
   const perm = usePermission()
@@ -123,7 +123,7 @@ export function DocGrid({ rows }: { rows: DocRow[] }) {
           rowKey={(r) => r.docNo} selectedKey={selNo ?? undefined}
           onRowClick={(r) => setSelNo(r.docNo)}
           onRowDoubleClick={(r) => router.push(`/detail/output?file=${encodeURIComponent(r.title)}&folder=${encodeURIComponent(r.docType || 'DOC')}&fileType=PDF`)}
-          emptyText={t('docmgmt.noDocs', '문서가 없습니다')} />
+          emptyText={searchActive ? t('grid.noSearchResults', '검색 결과가 없습니다 — 검색어를 확인하십시오') : t('docmgmt.noDocs', '문서가 없습니다')} />
       </div>
     </div>
   )
