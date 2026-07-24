@@ -35,6 +35,7 @@
 | `docs/ANALYSIS.md` | 첨부 pptx 내용 분석 및 회신 시사점 |
 | `docs/REPLY_DRAFT.md` | 회신 이메일 초안 (비용·사례 항목은 확정 필요) |
 | `docs/ESTIMATE_BASIS.md` | 내부용 M/M·비용 산정 근거 (단가만 대체하면 §3 확정 가능) |
+| `docs/PM_INVESTIGATION.md` | PM 사전영업 조사: 규제 배경, 유사 사례, 기회 평가, 질문 리스트, 액션 플랜 |
 | `C:\repos\new-research\ai-fds\` | 사내 AI-FDS 연구 자료 (기술 심층 분석, 제안서 초안, 패턴 비교 등) |
 
 ## 다음 단계
