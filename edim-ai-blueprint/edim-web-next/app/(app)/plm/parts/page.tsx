@@ -5,22 +5,24 @@ import { ScreenHeader } from '@/components/ScreenHeader'
 import { XlsxButton } from '@/components/XlsxButton'
 import { PartGrid, type PartRow } from './PartGrid'
 import { PartImportForm, PartRegForm, SubstitutePanel, SupplierCodePanel, type SubstituteRow, type SupplierCodeRow } from './PartsPanel'
+import { SearchBox } from '@/components/SearchBox'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PartsPage({ searchParams }: { searchParams: Promise<{ no?: string }> }) {
+export default async function PartsPage({ searchParams }: { searchParams: Promise<{ no?: string; q?: string }> }) {
   const locale = await getLocale()
   const bundle = bundleFor(locale)
   const t = (k: string, ko: string) => translate(bundle, k, ko)
 
+  const sp = await searchParams
+  const q = (sp.q ?? '').trim()
   let rows: PartRow[] = []
   let err: string | null = null
   try {
-    rows = await apiServer<PartRow[]>('/parts')
+    rows = await apiServer<PartRow[]>(`/parts${q ? `?q=${encodeURIComponent(q)}` : ''}`)
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
-  const sp = await searchParams
   const selNo = sp.no && rows.some((r) => r.partNo === sp.no) ? sp.no : null
   let suppliers: SupplierCodeRow[] = []
   let substitutes: SubstituteRow[] = []
@@ -36,6 +38,7 @@ export default async function PartsPage({ searchParams }: { searchParams: Promis
       <div style={{ padding: '4px 6px 0', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <PartRegForm />
         <PartImportForm />
+        <SearchBox placeholder={t('parts.searchPlaceholder', '부품번호·품명·사양 검색')} />
       </div>
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>{t('common.backendError', '백엔드 오류')} — {err}</div> : (

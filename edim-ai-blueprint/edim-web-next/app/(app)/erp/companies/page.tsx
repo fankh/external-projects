@@ -6,21 +6,23 @@ import { XlsxButton } from '@/components/XlsxButton'
 import { CompanyGrid, type CompanyRow } from './CompanyGrid'
 import { CompanyForm } from './CompanyForm'
 import { SupplierPanel, type SupplierEval, type SupplierMetrics } from './SupplierPanel'
+import { SearchBox } from '@/components/SearchBox'
 
 export const dynamic = 'force-dynamic'
 
-export default async function CompaniesPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
+export default async function CompaniesPage({ searchParams }: { searchParams: Promise<{ sel?: string; q?: string }> }) {
   const locale = await getLocale()
   const bundle = bundleFor(locale)
   const t = (k: string, ko: string) => translate(bundle, k, ko)
+  const sp = await searchParams
+  const q = (sp.q ?? '').trim()
   let rows: CompanyRow[] = []
   let err: string | null = null
   try {
-    rows = await apiServer<CompanyRow[]>('/companies')
+    rows = await apiServer<CompanyRow[]>(`/companies${q ? `?q=${encodeURIComponent(q)}` : ''}`)
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
-  const sp = await searchParams
   const selId = sp.sel ? Number(sp.sel) : null
   const sel = selId != null ? rows.find((r) => r.companyId === selId) ?? null : null
   let metrics: SupplierMetrics | null = null
@@ -35,7 +37,10 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <ScreenHeader title={t('menu.erp-company-master', '거래처 대장 (M-14-2)')} count={err ? undefined : rows.length} source="/companies" right={<XlsxButton kind="companies" />} />
-      <CompanyForm />
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <CompanyForm />
+        <SearchBox placeholder={t('companies.searchPlaceholder', '업체명·비고 검색')} />
+      </div>
       <div style={{ flex: 1, minHeight: 0, padding: 6, display: 'flex', gap: 6 }}>
         {err ? <div style={{ padding: 12, fontSize: 11, color: 'var(--err)' }}>백엔드 오류 — {err}</div> : (
           <>

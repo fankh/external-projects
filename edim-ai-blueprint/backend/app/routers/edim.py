@@ -2259,17 +2259,25 @@ def verify_drawing(drawing_no: str, body: VerifyRunRequest) -> dict[str, Any]:
 # ── B14 — 마스터 데이터 (com_company) · RBAC 동적화 (sys_role) · Hierarchy ──
 
 @router.get("/companies")
-def companies(active_only: bool = False) -> list[dict[str, Any]]:
-    """거래처 목록. active_only=true 면 비활성 제외 (고객/공급처 선택 리스트용)."""
+def companies(active_only: bool = False, q: str = "") -> list[dict[str, Any]]:
+    """거래처 목록. active_only=true 면 비활성 제외 (고객/공급처 선택 리스트용).
+
+    9.23 — q: 서버측 검색(업체명·비고 부분일치). 대량 마스터에서 클라이언트 전량 렌더 대신
+    검색으로 좁혀 조회(추가형 파라미터 — 미지정 시 종전 동작 유지)."""
+    kw = q.strip()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        clause, params = "", [tid, active_only]
+        if kw:
+            clause = " AND (company_name ILIKE %s OR COALESCE(remarks,'') ILIKE %s)"
+            params.extend([f"%{kw}%", f"%{kw}%"])
         cur.execute(
-            """SELECT company_name, company_type, COALESCE(nation,''),
+            f"""SELECT company_name, company_type, COALESCE(nation,''),
                       COALESCE(evaluation_grade,''), COALESCE(payment_terms,''),
                       company_id, COALESCE(remarks,''), COALESCE(is_active, true)
                FROM com_company WHERE tenant_id=%s
-                 AND (%s = false OR COALESCE(is_active, true) = true)
-               ORDER BY company_id""", (tid, active_only))
+                 AND (%s = false OR COALESCE(is_active, true) = true){clause}
+               ORDER BY company_id""", tuple(params))
         return [
             {"name": r[0], "companyType": r[1], "nation": r[2], "grade": r[3], "terms": r[4],
              "companyId": r[5], "remarks": r[6], "isActive": r[7]}
@@ -14959,10 +14967,18 @@ def drawing_relations(drawing_no: str) -> list[dict[str, Any]]:
 # ── B17 부품 마스터 — prt_part·dwg_bom·prt_supplier_code_map·product_code_item ──
 
 @router.get("/parts")
-def parts_list() -> list[dict[str, Any]]:
-    """부품 대장 — 재질·공급처·제품코드 조인 (M-4-7)."""
+def parts_list(q: str = "") -> list[dict[str, Any]]:
+    """부품 대장 — 재질·공급처·제품코드 조인 (M-4-7).
+
+    9.23 — q: 서버측 검색(부품번호·품명·사양 부분일치, 추가형 — 미지정 시 종전 동작)."""
+    kw = q.strip()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        clause, params = "", [tid]
+        if kw:
+            clause = (" AND (p.part_no ILIKE %s OR p.part_name ILIKE %s "
+                      "OR COALESCE(p.specification,'') ILIKE %s)")
+            params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
         cur.execute(
             f"""SELECT p.part_id, p.part_no, p.part_name, COALESCE(p.specification,''),
                       m.material_code, c.company_name, pc.main_code, p.unit,
@@ -14973,7 +14989,7 @@ def parts_list() -> list[dict[str, Any]]:
                LEFT JOIN mat_material m ON m.material_id=p.material_id
                LEFT JOIN com_company c ON c.company_id=p.supplier_id
                LEFT JOIN product_code pc ON pc.product_code_id=p.product_code_id
-               WHERE p.tenant_id=%s ORDER BY p.part_no""", (tid,))
+               WHERE p.tenant_id=%s{clause} ORDER BY p.part_no""", tuple(params))
         return [
             {"partId": r[0], "partNo": r[1], "name": r[2], "spec": r[3],
              "material": r[4], "supplier": r[5], "productCode": r[6], "unit": r[7],
