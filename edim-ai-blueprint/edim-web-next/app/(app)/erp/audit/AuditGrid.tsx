@@ -85,7 +85,7 @@ export function AuditPanel({ initial }: { initial: AuditData }) {
           options={[{ value: '', label: t('enum.all', '전체') }, ...data.actions]} />
         <label>{t('audit.target', '대상')}</label>
         <input className="in" style={{ width: 110 }} value={target} aria-label="대상 테이블"
-          placeholder="예: cst_price" onChange={(e) => setTarget(e.target.value)} />
+          placeholder={t('audit.targetPh', '예: cst_price')} onChange={(e) => setTarget(e.target.value)} />
         <span style={{ flex: 1 }} />
         <Btn onClick={reset}>{t('audit.reset', '초기화')}</Btn>
         <Btn onClick={exportSelected} disabled={selKeys.size === 0}>⬇ {t('audit.selectedCsv', '선택 CSV')}{selKeys.size ? ` (${selKeys.size})` : ''}</Btn>
@@ -95,7 +95,7 @@ export function AuditPanel({ initial }: { initial: AuditData }) {
       </div>
       <GroupBox
         title={t('audit.title', '감사 로그 — sys_history (전 도메인 변경 이력)')}
-        right={<Chip tone={data.rows.length ? 'ok' : 'warn'}>{data.rows.length}건{data.rows.length >= 500 ? ` (${t('audit.top500', '상위 500')})` : ''}</Chip>}
+        right={<Chip tone={data.rows.length ? 'ok' : 'warn'}>{data.rows.length}{t('common.countSuffix', '건')}{data.rows.length >= 500 ? ` (${t('audit.top500', '상위 500')})` : ''}</Chip>}
         noPad style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-audit" colFilter columns={cols} rows={data.rows}
           rowKey={(r) => r.historyId} selectedKey={sel} onRowClick={(r) => setSel(r.historyId)}

@@ -39,7 +39,7 @@ export function FinanceGrids({ fx, tax }: { fx: FxRow[]; tax: TaxRow[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, height: '100%' }}>
       <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0 }}>
-        <GroupBox title={`${t('fin.fxTitle', '환율 마스터')} — ${fx.length}건`} noPad style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <GroupBox title={`${t('fin.fxTitle', '환율 마스터')} — ${fx.length}${t('common.countSuffix', '건')}`} noPad style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, minHeight: 0 }}>
             <DenseGrid prefKey="next-fx" columns={fxCols} rows={fx} rowKey={(r) => r.fxId} emptyText={t('fin.emptyFx', '환율이 없습니다')} />
           </div>
@@ -52,7 +52,7 @@ export function FinanceGrids({ fx, tax }: { fx: FxRow[]; tax: TaxRow[] }) {
             })}>{t('fin.addFx', '＋ 환율')}</button>
           </div>
         </GroupBox>
-        <GroupBox title={`${t('fin.taxTitle', '세금 코드')} — ${tax.length}건`} noPad style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <GroupBox title={`${t('fin.taxTitle', '세금 코드')} — ${tax.length}${t('common.countSuffix', '건')}`} noPad style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, minHeight: 0 }}>
             <DenseGrid prefKey="next-tax" columns={taxCols} rows={tax} rowKey={(r) => r.taxId} emptyText={t('fin.emptyTax', '세금 코드가 없습니다')} />
           </div>

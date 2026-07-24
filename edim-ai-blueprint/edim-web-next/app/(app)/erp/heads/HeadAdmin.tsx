@@ -89,7 +89,7 @@ export function HeadAdmin({ rows, detail, selId }: {
               <label>{t('head.code', '코드')}</label>
               <input className="in req" name="headCode" autoFocus placeholder="OPS" />
               <label>{t('head.name', 'Head 이름')}</label>
-              <input className="in req" name="headName" placeholder="업무 (사용자)" />
+              <input className="in req" name="headName" placeholder={t('head.namePh', '업무 (사용자)')} />
               <label>{t('head.type', '유형')}</label>
               <select className="in" name="headType" defaultValue="TENANT">
                 <option value="TENANT">TENANT</option>

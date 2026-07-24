@@ -32,7 +32,7 @@ export function MilestoneGrid({ rows }: { rows: Milestone[] }) {
     { key: 'stage', header: t('ms.stage', '단계'), width: 80, align: 'center', sortValue: (r) => r.stage, render: (r) => r.stageLabel || r.stage },
     { key: 'planned', header: t('ms.plannedCol', '계획일'), width: 100, align: 'center', render: (r) => r.plannedDate },
     { key: 'actual', header: t('ms.actualCol', '실적일'), width: 100, align: 'center', render: (r) => r.actualDate || '—' },
-    { key: 'delay', header: t('ms.delay', '상태'), width: 72, align: 'center', sortValue: (r) => r.delayStatus, render: (r) => <Chip tone={DTONE[r.delayStatus] ?? 'info'}>{DLABEL[r.delayStatus] ?? r.delayStatus}</Chip> },
+    { key: 'delay', header: t('ms.delay', '상태'), width: 72, align: 'center', sortValue: (r) => r.delayStatus, render: (r) => <Chip tone={DTONE[r.delayStatus] ?? 'info'}>{t('ms.d' + r.delayStatus, DLABEL[r.delayStatus] ?? r.delayStatus)}</Chip> },
     { key: 'wd', header: t('ms.workdaysLeft', '영업일 잔여'), width: 84, align: 'right', sortValue: (r) => r.workdaysLeft, render: (r) => r.status === 'DONE' ? '—' : r.workdaysLeft },
     { key: 'note', header: t('ms.note', '비고'), render: (r) => r.note || '—' },
   ]

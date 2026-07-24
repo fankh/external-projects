@@ -23,7 +23,7 @@ export function StockPanels({ atp, reservations, movements, lots }: {
 
   return (
     <div style={{ display: 'flex', gap: 6, minHeight: 0, flex: 1 }}>
-      <GroupBox title={`${t('inv.atpPanel', '가용재고 ATP')} — ${atp.length}종`} noPad style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <GroupBox title={`${t('inv.atpPanel', '가용재고 ATP')} — ${atp.length}${t('common.kinds', '종')}`} noPad style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <table className="g" style={{ width: '100%' }}>
           <thead><tr><th>{t('inv.item', '품목')}</th><th>{t('inv.onHand', '보유')}</th><th>{t('inv.reserved', '예약')}</th><th>{t('inv.available', '가용')}</th></tr></thead>
           <tbody>{atp.map((r) => (
@@ -32,7 +32,7 @@ export function StockPanels({ atp, reservations, movements, lots }: {
           ))}</tbody>
         </table>
       </GroupBox>
-      <GroupBox title={`${t('inv.resvPanel', '재고 예약')} — ${reservations.length}건 (ACTIVE)`} noPad style={{ flex: 1.2, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <GroupBox title={`${t('inv.resvPanel', '재고 예약')} — ${reservations.length}${t('common.countSuffix', '건')} (ACTIVE)`} noPad style={{ flex: 1.2, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           <table className="g" style={{ width: '100%' }}>
             <thead><tr><th>#</th><th>{t('inv.item', '품목')}</th><th>{t('inv.qty', '수량')}</th><th>{t('inv.refCol', '참조')}</th><th></th></tr></thead>
@@ -59,7 +59,7 @@ export function StockPanels({ atp, reservations, movements, lots }: {
         </div>
       </GroupBox>
       <LotExpiryPanel lots={lots} />
-      <GroupBox title={`${t('inv.movePanel', '입출고 이동원장')} — ${t('inv.recent', '최근')} ${movements.length}건`} noPad style={{ flex: 1.2, minHeight: 0, overflow: 'auto' }} data-move-ledger>
+      <GroupBox title={`${t('inv.movePanel', '입출고 이동원장')} — ${t('inv.recent', '최근')} ${movements.length}${t('common.countSuffix', '건')}`} noPad style={{ flex: 1.2, minHeight: 0, overflow: 'auto' }} data-move-ledger>
         <table className="g" style={{ width: '100%' }}>
           <thead><tr><th>{t('inv.item', '품목')}</th><th>{t('inv.type', '구분')}</th><th>{t('inv.qty', '수량')}</th><th>Lot</th><th>{t('inv.refCol', '참조')}</th><th>{t('inv.at', '일시')}</th></tr></thead>
           <tbody>{movements.length ? movements.map((m, i) => (
@@ -84,7 +84,7 @@ function LotExpiryPanel({ lots }: { lots: LotRow[] }) {
   const tone = (s: string) => s === 'EXPIRED' ? 'var(--err)' : s === 'EXPIRING' ? 'var(--warn, #B4820B)' : 'var(--run)'
   const withLot = lots.filter((r) => r.lotNo)
   return (
-    <GroupBox title={`${t('inv.lotPanel', 'Lot 유통기한')} — ${withLot.length}건`} noPad style={{ flex: 1.2, minHeight: 0, overflow: 'auto' }} data-lot-panel>
+    <GroupBox title={`${t('inv.lotPanel', 'Lot 유통기한')} — ${withLot.length}${t('common.countSuffix', '건')}`} noPad style={{ flex: 1.2, minHeight: 0, overflow: 'auto' }} data-lot-panel>
       <table className="g" style={{ width: '100%' }}>
         <thead><tr><th>{t('inv.item', '품목')}</th><th>Lot</th><th>{t('inv.balance', '잔량')}</th><th>{t('inv.expiry', '유통기한')}</th><th></th></tr></thead>
         <tbody>{withLot.length ? withLot.map((r) => (
