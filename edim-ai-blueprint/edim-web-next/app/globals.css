@@ -70,6 +70,12 @@ body {
 .g { width: 100%; border-collapse: collapse; font-size: 11.5px; background: #fff; }
 .g th { background: var(--grid-head); color: var(--grid-head-txt); font-weight: 700; font-size: 11px; padding: 0 6px; height: 24px; border: 1px solid var(--line); text-align: center; position: sticky; top: 0; z-index: 2; white-space: nowrap; box-shadow: 0 1px 0 var(--line); }
 .g:focus-visible { outline: 2px solid var(--title-navy); outline-offset: -2px; }
+/* 9.39 — 키보드 포커스 가시성 (WCAG 2.4.7 Focus Visible): 버튼·링크·탭·역할기반 인터랙티브에
+   앱 스타일(title-navy)과 일관된 아웃라인. :focus-visible 이라 마우스 클릭엔 안 뜨고 키보드
+   Tab 이동 시에만 표시 — 조밀한 UI 에서도 현재 포커스를 명확히 보이게 한다. (input/그리드는 기존 규칙) */
+.b:focus-visible, a:focus-visible, .tab:focus-visible, .mdi .t:focus-visible,
+[role="button"]:focus-visible, [role="tab"]:focus-visible, [role="menuitem"]:focus-visible,
+button:focus-visible:not(.b) { outline: 2px solid var(--title-navy); outline-offset: 1px; }
 .g th .flt { position: absolute; right: 3px; color: #7A87A0; font-size: 9px; }
 .g td { padding: 0 6px; height: 24px; border: 1px solid var(--line-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g tbody tr:nth-child(even) td { background: #F7F9FC; }
