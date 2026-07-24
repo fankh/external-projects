@@ -792,6 +792,22 @@ def seed_v5(cur, tid: int) -> None:
 
 UI_TRANSLATIONS: dict[str, tuple[str, str, str]] = {
     "common.query": ("Query", "照会", "查询"),
+    # 9.32 — 대장 검색 UI (SearchBox·플레이스홀더·빈 결과). en/ja/zh 파리티.
+    "common.search": ("Search", "検索", "搜索"),
+    "common.clear": ("Clear", "クリア", "清除"),
+    "grid.noSearchResults": ("No results — check your search term",
+                             "検索結果なし — 検索語を確認してください", "无搜索结果 — 请检查搜索词"),
+    "parts.searchPlaceholder": ("Search part no·name·spec", "部品番号・名称・仕様で検索", "按零件号·名称·规格搜索"),
+    "companies.searchPlaceholder": ("Search company·notes", "取引先名・備考で検索", "按公司名·备注搜索"),
+    "materials.searchPlaceholder": ("Search material code·name", "材料コード・名称で検索", "按材料代码·名称搜索"),
+    "drawings.searchPlaceholder": ("Search drawing no·name", "図面番号・名称で検索", "按图号·名称搜索"),
+    "products.searchPlaceholder": ("Search product code·name", "製品コード・名称で検索", "按产品代码·名称搜索"),
+    "doc.searchPlaceholder": ("Search doc no·title", "文書番号・タイトルで検索", "按文档号·标题搜索"),
+    "wo.searchPlaceholder": ("Search WO no·title·drawing·project", "指示番号・件名・図面・案件で検索", "按工单号·标题·图纸·项目搜索"),
+    "qc.searchPlaceholder": ("Search inspection no·ref·item", "検査番号・参照・品目で検索", "按检验号·参照·物料搜索"),
+    "eco.searchPlaceholder": ("Search ECO no·title·target", "ECO番号・件名・対象で検索", "按ECO号·标题·对象搜索"),
+    "po.searchPlaceholder": ("Search PO no·supplier", "発注番号・仕入先で検索", "按订单号·供应商搜索"),
+    "costact.searchPlaceholder": ("Search category·item·PO", "分類・品目・発注で検索", "按分类·物料·订单搜索"),
     "common.new": ("New", "新規", "新建"),
     "common.delete": ("Delete", "削除", "删除"),
     "common.save": ("Save", "保存", "保存"),
