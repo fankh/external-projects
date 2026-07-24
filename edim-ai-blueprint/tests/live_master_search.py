@@ -100,4 +100,17 @@ if dfull:
         ok(f"★ /drawings q='{frag}' 결과 존재·전량 이하 ({len(dres)}≤{len(dfull)})",
            1 <= len(dres) <= len(dfull))
 
+# ── /codes/products (9.25 확장 — status 필터와 별개 q) ──
+pfull = get("/codes/products")
+ok(f"/codes/products 전량 조회 ({len(pfull)}행)", isinstance(pfull, list))
+ok("★ /codes/products 무매칭 검색 0행", get("/codes/products?q=ZZZNOMATCHXYZ") == [])
+if pfull:
+    frag = (pfull[0]["mainCode"] or "")[:3]
+    if frag:
+        pres = get("/codes/products?q=" + urllib.parse.quote(frag))
+        ok(f"★ /codes/products q='{frag}' 결과 존재·전량 이하 ({len(pres)}≤{len(pfull)})",
+           1 <= len(pres) <= len(pfull))
+        ok("★ /codes/products 전 행이 부분일치",
+           all(frag.lower() in (r["mainCode"] + " " + (r["codeName"] or "")).lower() for r in pres))
+
 print(f"\nlive_master_search: {n}/{n} PASS")

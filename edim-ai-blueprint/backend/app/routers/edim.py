@@ -1017,8 +1017,10 @@ _PC_OWNED = ["product_code_item"]
 
 
 @router.get("/codes/products")
-def list_products(status: str = "") -> list[dict[str, Any]]:
-    """제품 코드 마스터 목록 — main_code·code_name·그룹·상태·참조 수."""
+def list_products(status: str = "", q: str = "") -> list[dict[str, Any]]:
+    """제품 코드 마스터 목록 — main_code·code_name·그룹·상태·참조 수.
+
+    9.25 — q: 서버측 검색(코드·품명 부분일치, 추가형)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         params: list[Any] = [tid]
@@ -1026,6 +1028,10 @@ def list_products(status: str = "") -> list[dict[str, Any]]:
         if status.strip() and status != "ALL":
             clause = " AND pc.approval_status=%s"
             params.append(status.strip())
+        kw = q.strip()
+        if kw:
+            clause += " AND (pc.main_code ILIKE %s OR pc.code_name ILIKE %s)"
+            params.extend([f"%{kw}%", f"%{kw}%"])
         cur.execute(
             f"""SELECT pc.product_code_id, pc.main_code, pc.code_name, cg.group_code,
                        pc.approval_status, to_char(pc.created_at,'YYYY-MM-DD'), pc.origin,
