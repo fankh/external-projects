@@ -305,6 +305,19 @@ def _like_esc(kw: str) -> str:
     return kw.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def _valid_date(s: str | None, label: str = "날짜") -> str | None:
+    """ISO(YYYY-MM-DD) 날짜 검증 (9.32) — 잘못된 형식을 %s::date 캐스트에 넘기면
+    PostgreSQL 오류로 500 이 난다. 사전 검증해 빈 값은 None, 오형식은 422 로 돌린다."""
+    if not s or not s.strip():
+        return None
+    v = s.strip()
+    try:
+        date.fromisoformat(v)
+    except ValueError:
+        raise HTTPException(422, detail=f"{label} 형식 오류 (YYYY-MM-DD 필요): {v[:20]}")
+    return v
+
+
 # ── health ──
 @router.get("/health")
 def health() -> dict[str, Any]:
@@ -4071,7 +4084,7 @@ def resolve_price(request: Request, code: str, at: str | None = None) -> dict[st
 
     종전에는 /prices 만 마스킹돼 있어, 단가 열람이 제한된 사용자도 이 경로로 코드 하나씩
     조회하면 실단가와 거래처명을 그대로 받을 수 있었다."""
-    ref = at or date.today().isoformat()
+    ref = _valid_date(at, "기준일") or date.today().isoformat()   # 9.32 — 오형식 422
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -5560,10 +5573,10 @@ def _audit_where(tid: int, fromDate: str, toDate: str, user: str,
     clauses, params = ["h.tenant_id=%s"], [tid]
     if fromDate.strip():
         clauses.append("h.acted_at >= %s::date")
-        params.append(fromDate.strip())
+        params.append(_valid_date(fromDate, "시작일"))
     if toDate.strip():
         clauses.append("h.acted_at < (%s::date + 1)")
-        params.append(toDate.strip())
+        params.append(_valid_date(toDate, "종료일"))
     if user.strip():
         clauses.append("u.login_id = %s")
         params.append(user.strip())
@@ -8408,7 +8421,7 @@ def milestone_done(milestone_id: int, request: Request, body: MilestoneDone) -> 
     """마일스톤 완료 (D7) — 실제 완료일 기록 + 진척 갱신."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        ad = body.actualDate.strip() or None
+        ad = _valid_date(body.actualDate, "완료일")   # 9.32 — 오형식 422
         cur.execute(
             """UPDATE prj_milestone
                SET status='DONE', actual_date=COALESCE(%s::date, CURRENT_DATE)
@@ -8489,16 +8502,17 @@ def holiday_create(request: Request, body: HolidayCreate) -> dict[str, Any]:
     """공휴일 등록 (중복 날짜 409)."""
     if not body.date.strip() or not body.name.strip():
         raise HTTPException(422, detail="필수 — 날짜·명칭")
+    d = _valid_date(body.date, "공휴일")   # 9.32 — 오형식 422
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute("SELECT 1 FROM cal_holiday WHERE tenant_id=%s AND holiday_date=%s::date",
-                    (tid, body.date.strip()))
+                    (tid, d))
         if cur.fetchone():
             raise HTTPException(409, detail=f"중복 — {body.date} 이미 등록됨")
         cur.execute(
             "INSERT INTO cal_holiday (tenant_id, holiday_date, name, created_by) "
             "VALUES (%s,%s::date,%s,%s) RETURNING holiday_id",
-            (tid, body.date.strip(), body.name.strip()[:100], str(request.state.user_id)))
+            (tid, d, body.name.strip()[:100], str(request.state.user_id)))
         hid = cur.fetchone()[0]
         _audit(cur, tid, "cal_holiday", hid, "CREATE", request.state.user_id,
                {"date": body.date, "name": body.name})
@@ -8596,7 +8610,7 @@ def fx_upsert(request: Request, body: FxCreate) -> dict[str, Any]:
         raise HTTPException(422, detail="필수 — 통화·환율(>0)")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        vf = body.validFrom.strip() or None
+        vf = _valid_date(body.validFrom, "적용일")   # 9.32 — 오형식 422
         cur.execute(
             """INSERT INTO fx_rate (tenant_id, currency, rate, valid_from, created_by)
                VALUES (%s,%s,%s,COALESCE(%s::date, CURRENT_DATE),%s)
@@ -12330,12 +12344,15 @@ def _hierarchy_refs(cur, tid: int, addr: str) -> list[dict[str, Any]]:
     """주소(정확 일치 또는 하위 — '/'·'.' 구분자 모두)를 참조하는 자산 집계."""
     out: list[dict[str, Any]] = []
     for tbl, code_col, label in _H_REF_TABLES:
+        # 9.32 — 하위 주소 LIKE 의 base(addr) 는 리터럴화(노드명에 _ 가 있으면 와일드카드
+        # 오매칭). 접미 '/%'·'.%' 만 의도적 와일드카드. 정확일치(=%s)는 그대로.
+        sub = _like_esc(addr)
         cur.execute(
             f"""SELECT {code_col} FROM {tbl}
                 WHERE tenant_id=%s AND (hierarchy_address=%s
                       OR hierarchy_address LIKE %s OR hierarchy_address LIKE %s)
                 ORDER BY {code_col}""",
-            (tid, addr, addr + "/%", addr + ".%"))
+            (tid, addr, sub + "/%", sub + ".%"))
         rows = [r[0] for r in cur.fetchall()]
         if rows:
             out.append({"table": tbl, "label": label, "count": len(rows), "samples": rows[:5]})
