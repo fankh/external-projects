@@ -1419,14 +1419,28 @@ def export_group_xlsx(group: str) -> Response:
 
 
 # ── D8 XLSX export 전면 — 주요 대장 그리드 Excel 내보내기 ──
+# 9.21 — 내보내기 행 상한. 공유 단일 백엔드에서 한 테넌트의 대용량 export 가 전 행을
+# 메모리로 끌어와 워크북을 만들면 OOM·지연으로 전 테넌트에 영향. 상위 N행만 포함하고
+# 초과 시 파일 말미에 절단 고지 + X-Truncated 헤더로 정직하게 알린다(무음 절단 금지).
+# 쿼리에도 LIMIT EXPORT_ROW_CAP+1 을 걸어 fetch 자체를 제한한다.
+EXPORT_ROW_CAP = 50000
+
+
 def _xlsx_response(sheet: str, headers: list[str], rows: list[list[Any]], filename: str) -> Response:
     from openpyxl import Workbook
+    truncated = len(rows) > EXPORT_ROW_CAP
+    if truncated:
+        rows = rows[:EXPORT_ROW_CAP]
     wb = Workbook()
     ws = wb.active
     ws.title = sheet[:31]
     ws.append(headers)
     for r in rows:
         ws.append(r)
+    if truncated:
+        ws.append([])
+        ws.append([f"※ 내보내기 상한 {EXPORT_ROW_CAP:,}행 초과 — 상위 {EXPORT_ROW_CAP:,}행만 포함되었습니다. "
+                   "필터로 범위를 좁혀 다시 내보내십시오."])
     buf = io.BytesIO()
     wb.save(buf)
     from urllib.parse import quote
@@ -1434,7 +1448,7 @@ def _xlsx_response(sheet: str, headers: list[str], rows: list[list[Any]], filena
         buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}.xlsx",
-                 "X-Row-Count": str(len(rows))})
+                 "X-Row-Count": str(len(rows)), "X-Truncated": "1" if truncated else "0"})
 
 
 @router.get("/prices/export.xlsx")
@@ -1448,7 +1462,8 @@ def export_prices_xlsx(request: Request) -> Response:
                       p.price, p.price_source, p.valid_from, p.valid_to
                FROM cst_price p JOIN product_code pc ON pc.product_code_id=p.product_code_id
                LEFT JOIN com_company cc ON cc.company_id=p.supplier_id
-               WHERE p.tenant_id=%s ORDER BY pc.main_code, p.valid_from DESC""", (tid,))
+               WHERE p.tenant_id=%s ORDER BY pc.main_code, p.valid_from DESC
+               LIMIT %s""", (tid, EXPORT_ROW_CAP + 1))
         rows = [[r[0], r[1], r[2], float(r[3]), SOURCE_LABEL.get(r[4], r[4]),
                  r[5].isoformat(), r[6].isoformat() if r[6] else ""] for r in cur.fetchall()]
     return _xlsx_response("단가", ["코드", "품명", "공급처", "단가", "출처", "적용일", "만료일"], rows, "prices")
@@ -1467,7 +1482,7 @@ def export_parts_xlsx() -> Response:
                LEFT JOIN mat_material m ON m.material_id=p.material_id
                LEFT JOIN com_company c ON c.company_id=p.supplier_id
                LEFT JOIN product_code pc ON pc.product_code_id=p.product_code_id
-               WHERE p.tenant_id=%s ORDER BY p.part_no""", (tid,))
+               WHERE p.tenant_id=%s ORDER BY p.part_no LIMIT %s""", (tid, EXPORT_ROW_CAP + 1))
         rows = [[r[0], r[1], r[2], r[3], r[4], r[5], r[6],
                  float(r[7]) if r[7] is not None else "", "표준" if r[8] else "사양"]
                 for r in cur.fetchall()]
@@ -1483,7 +1498,8 @@ def export_drawings_xlsx() -> Response:
             """SELECT d.drawing_no, d.drawing_name, d.drawing_type, d.dwg_kind,
                       d.current_rev, d.status,
                       (SELECT COUNT(*) FROM dwg_revision r WHERE r.drawing_id=d.drawing_id)
-               FROM dwg_drawing d WHERE d.tenant_id=%s ORDER BY d.drawing_no""", (tid,))
+               FROM dwg_drawing d WHERE d.tenant_id=%s ORDER BY d.drawing_no
+               LIMIT %s""", (tid, EXPORT_ROW_CAP + 1))
         rows = [[r[0], r[1], r[2], r[3], r[4], r[5], r[6]] for r in cur.fetchall()]
     return _xlsx_response("도면", ["도면번호", "도면명", "유형", "종류", "Rev", "상태", "개정수"], rows, "drawings")
 
@@ -1496,7 +1512,8 @@ def export_warehouses_xlsx() -> Response:
         cur.execute(
             """SELECT location_code, location_name, location_type,
                       COALESCE(hazard_allowed,''), COALESCE(inspection_cycle,''), COALESCE(remarks,'')
-               FROM erp_warehouse WHERE tenant_id=%s ORDER BY location_code""", (tid,))
+               FROM erp_warehouse WHERE tenant_id=%s ORDER BY location_code
+               LIMIT %s""", (tid, EXPORT_ROW_CAP + 1))
         rows = [[r[0], r[1], r[2], r[3], r[4], r[5]] for r in cur.fetchall()]
     return _xlsx_response("창고", ["위치코드", "위치명", "유형", "위험물", "점검주기", "비고"], rows, "warehouses")
 
@@ -1509,7 +1526,8 @@ def export_companies_xlsx() -> Response:
         cur.execute(
             """SELECT company_name, company_type, COALESCE(nation,''),
                       COALESCE(evaluation_grade,''), COALESCE(payment_terms,''), COALESCE(remarks,'')
-               FROM com_company WHERE tenant_id=%s ORDER BY company_id""", (tid,))
+               FROM com_company WHERE tenant_id=%s ORDER BY company_id
+               LIMIT %s""", (tid, EXPORT_ROW_CAP + 1))
         rows = [[r[0], r[1], r[2], r[3], r[4], r[5]] for r in cur.fetchall()]
     return _xlsx_response("거래처", ["업체명", "구분", "국가", "평가등급", "결제조건", "비고"], rows, "companies")
 
@@ -2526,21 +2544,29 @@ def export_table_xlsx(name: str) -> Response:
         table_id, columns = _table_id(cur, tid, name)
         cur.execute(
             """SELECT row_key, row_values FROM tbl_data_row
-               WHERE table_id=%s ORDER BY row_key_num NULLS LAST, row_key""", (table_id,))
+               WHERE table_id=%s ORDER BY row_key_num NULLS LAST, row_key
+               LIMIT %s""", (table_id, EXPORT_ROW_CAP + 1))
         rows = cur.fetchall()
+    truncated = len(rows) > EXPORT_ROW_CAP   # 9.21 — 내보내기 메모리 상한
+    if truncated:
+        rows = rows[:EXPORT_ROW_CAP]
     wb = Workbook()
     ws = wb.active
     ws.title = name[:31]
     ws.append(["Key", *columns])
     for key, values in rows:
         ws.append([key, *[values.get(c) for c in columns]])
+    if truncated:
+        ws.append([])
+        ws.append([f"※ 내보내기 상한 {EXPORT_ROW_CAP:,}행 초과 — 상위 {EXPORT_ROW_CAP:,}행만 포함되었습니다."])
     buf = io.BytesIO()
     wb.save(buf)
     from urllib.parse import quote
     return Response(
         buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}.xlsx"})
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}.xlsx",
+                 "X-Row-Count": str(len(rows)), "X-Truncated": "1" if truncated else "0"})
 
 
 class TableRowRequest(BaseModel):

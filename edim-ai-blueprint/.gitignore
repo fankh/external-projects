@@ -24,3 +24,4 @@ tests/.live_residue_snapshot.json
 
 # 9.11 — 플릿 동시 실행 방지 락 (런타임 산출물)
 tests/.fleet_lock
+tests/.fleet_run.log
