@@ -261,6 +261,14 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_i18n_en.py")],
 print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_i18n_en.py", p.returncode == 0, ""))
 
+# check_a11y_names — 인터랙티브 접근가능 이름 (9.40, Playwright 62화면)
+print(f"\n{'=' * 60}\n▶ check_a11y_names.py (live)\n{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_a11y_names.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=900)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_a11y_names.py", p.returncode == 0, ""))
+
 print(f"\n{'=' * 60}\n라이브 스위트 요약\n{'=' * 60}")
 failed = 0
 for name, passed, tail in results:

@@ -857,6 +857,9 @@ UI_TRANSLATIONS: dict[str, tuple[str, str, str]] = {
     "common.kinds": ("", "種", "种"),
     "head.namePh": ("Task (user)", "業務 (ユーザー)", "业务 (用户)"),
     "audit.targetPh": ("e.g. cst_price", "例: cst_price", "例: cst_price"),
+    # 9.40 — 아이콘 전용 버튼 접근가능 이름 (스크린리더)
+    "duct.decDiffuser": ("Decrease diffuser", "ディフューザー減", "减少扩散器"),
+    "doctpl.printBtn": ("Print", "印刷", "打印"),
     "common.new": ("New", "新規", "新建"),
     "common.delete": ("Delete", "削除", "删除"),
     "common.save": ("Save", "保存", "保存"),

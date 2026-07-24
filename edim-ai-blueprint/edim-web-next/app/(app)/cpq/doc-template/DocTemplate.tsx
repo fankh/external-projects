@@ -73,7 +73,7 @@ export function DocTemplate() {
           <GroupBox title="Document Code">
             <input className="in ro" style={{ width: '100%', fontFamily: 'Consolas, monospace' }} value="EU-3-2020-450-6-21-4-SR-7" readOnly aria-label="Document Code" />
           </GroupBox>
-          <GroupBox title={tr('doctpl.printPreview', 'Print 미리보기')} right={<Btn style={{ height: 18, fontSize: 10 }} onClick={print}>🖨</Btn>}>
+          <GroupBox title={tr('doctpl.printPreview', 'Print 미리보기')} right={<Btn title={tr('doctpl.printBtn', '인쇄')} style={{ height: 18, fontSize: 10 }} onClick={print}>🖨</Btn>}>
             <div className="cvs" style={{ height: 150 }}>
               <div style={{ position: 'absolute', inset: 8, border: '1px dashed var(--line)', fontSize: 9.5, color: 'var(--txt-mute)', padding: 6, lineHeight: 1.8 }}>
                 Technical Data Sheet<br />습공기 밀도 계산서<br />ρ = {rho ?? '—'} kg/m³<br />Print Form(S-3-4) 표준 Templet

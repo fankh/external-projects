@@ -83,7 +83,7 @@ function SlotMapEditor({ children }: { children: ChildRow[] }) {
                 ? `${t('codrel.inherit', 'Mother')} ${m.motherSlot}`
                 : `${t('codrel.fixed', '고정')} "${m.fixedValue}"`}</td>
               <td className="c">
-                <button className="b" data-sm-del disabled={busy} onClick={() => run(async () => {
+                <button className="b" data-sm-del aria-label={t('common.delete', '삭제')} disabled={busy} onClick={() => run(async () => {
                   const r = await delSlotMap(relId, m.slotMapId)
                   setMsg(r); setView(await getSlotMap(relId))
                 })}>✕</button>

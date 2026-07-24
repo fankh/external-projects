@@ -136,7 +136,7 @@ export function DuctCanvas({ doc, diffusers, floor }: { doc: CadDocument; diffus
           {FLOORS.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
         <span className="chip ok">Diffuser {diffusers}</span>
-        <button type="button" className="b" style={{ height: 18, fontSize: 10 }} onClick={() => nav({ diffusers: String(Math.max(1, diffusers - 1)) })}>−</button>
+        <button type="button" className="b" aria-label={t('duct.decDiffuser', 'Diffuser 감소')} style={{ height: 18, fontSize: 10 }} onClick={() => nav({ diffusers: String(Math.max(1, diffusers - 1)) })}>−</button>
         <button type="button" className="b" style={{ height: 18, fontSize: 10 }} onClick={() => nav({ diffusers: String(Math.min(12, diffusers + 1)) })}>＋ Diffuser</button>
         <button type="button" data-duct-edit className={`b ${edit ? 'pri' : ''}`} style={{ height: 18, fontSize: 10 }}
           title={t('duct.editHint', '수동 조정 — 자동 배치를 편집 대상화(dwg_file) 후 이동/삭제/트림 (U1/U2 편집 트랙)')}

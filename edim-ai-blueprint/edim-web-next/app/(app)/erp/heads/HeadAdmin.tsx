@@ -203,7 +203,7 @@ export function HeadAdmin({ rows, detail, selId }: {
                   <td className="code">{b.targetRef}</td>
                   <td>{b.label || '—'}</td>
                   <td className="c">
-                    <button className="b" data-bind-del disabled={pending || !canWrite || detail.status === 'PUBLISHED'}
+                    <button className="b" data-bind-del aria-label={t('common.delete', '삭제')} disabled={pending || !canWrite || detail.status === 'PUBLISHED'}
                       onClick={() => act(() => removeBinding(detail.headId, b.bindingId))}>✕</button>
                   </td>
                 </tr>
