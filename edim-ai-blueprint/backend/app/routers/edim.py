@@ -4785,7 +4785,9 @@ def delete_user(login: str, request: Request) -> dict[str, Any]:
 
 # ── SVC-09 ERP 이벤트 (업무함 M-15-3 · Dashboard 경고) ──
 @router.get("/erp/events")
-def erp_events() -> list[dict[str, Any]]:
+def erp_events(limit: int = 2000) -> list[dict[str, Any]]:
+    # 9.20 — 무한 성장 로그 안전 상한(회로차단): 최신 N 만 반환(기본 2000·최대 10000)
+    lim = max(1, min(limit, 10000))
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -4796,7 +4798,7 @@ def erp_events() -> list[dict[str, Any]]:
                JOIN erp_process_def d ON d.proc_def_id=e.proc_def_id
                JOIN prj_project p ON p.project_id=e.project_id
                LEFT JOIN sys_user u ON u.user_id=e.assignee_id
-               WHERE e.tenant_id=%s ORDER BY e.event_id""", (tid,))
+               WHERE e.tenant_id=%s ORDER BY e.event_id DESC LIMIT %s""", (tid, lim))
         return [
             {"eventId": r[0], "code": r[1], "procName": r[2], "project": r[3],
              "owner": r[4], "deadline": r[5] or "-",
@@ -5107,8 +5109,9 @@ def patch_project(project_no: str, request: Request, body: StagePatch) -> dict[s
 
 
 @router.get("/projects")
-def list_projects() -> list[dict[str, Any]]:
+def list_projects(limit: int = 2000) -> list[dict[str, Any]]:
     """프로젝트 목록 (F1) — S-3-5 대장·타이틀바 컨텍스트 공용."""
+    lim = max(1, min(limit, 10000))   # 9.20 — 무한 성장 안전 상한(최신순)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -5118,7 +5121,7 @@ def list_projects() -> list[dict[str, Any]]:
                       to_char(p.due_date,'YYYY-MM-DD')
                FROM prj_project p
                LEFT JOIN com_company c ON c.company_id=p.customer_id
-               WHERE p.tenant_id=%s ORDER BY p.project_id DESC""", (tid,))
+               WHERE p.tenant_id=%s ORDER BY p.project_id DESC LIMIT %s""", (tid, lim))
         rows = cur.fetchall()
     return [{"projectNo": r[0], "projectName": r[1], "projectType": r[2] or "Client",
              "stage": STAGE_LABEL.get(r[3], r[3]), "clientContact": r[4] or "",
@@ -7514,15 +7517,16 @@ def work_order_create(request: Request, body: WorkOrderCreate) -> dict[str, Any]
 
 
 @router.get("/erp/work-orders")
-def work_order_list() -> list[dict[str, Any]]:
+def work_order_list(limit: int = 2000) -> list[dict[str, Any]]:
     """작업지시 목록 (D3)."""
+    lim = max(1, min(limit, 10000))   # 9.20 — 무한 성장 안전 상한(최신순)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT wo_no, title, drawing_no, project_no, status, COALESCE(assignee,''),
                       to_char(issued_at,'MM-DD HH24:MI'), to_char(done_at,'MM-DD HH24:MI'),
                       COALESCE(assembly_note,'')
-               FROM erp_work_order WHERE tenant_id=%s ORDER BY wo_id DESC""", (tid,))
+               FROM erp_work_order WHERE tenant_id=%s ORDER BY wo_id DESC LIMIT %s""", (tid, lim))
         return [{"woNo": r[0], "title": r[1], "drawingNo": r[2], "projectNo": r[3],
                  "status": r[4], "assignee": r[5], "issuedAt": r[6], "doneAt": r[7],
                  "assemblyNote": r[8]} for r in cur.fetchall()]
@@ -7632,7 +7636,7 @@ def qc_inspection_create(request: Request, body: QcInspectionCreate) -> dict[str
 
 
 @router.get("/qc/inspections")
-def qc_inspection_list(result: str = "", inspType: str = "") -> list[dict[str, Any]]:
+def qc_inspection_list(result: str = "", inspType: str = "", limit: int = 2000) -> list[dict[str, Any]]:
     """검사 기록 목록 (D4) — 결과·유형 필터."""
     clause, params = "", []
     r = result.strip().upper()
@@ -7643,6 +7647,7 @@ def qc_inspection_list(result: str = "", inspType: str = "") -> list[dict[str, A
     if it in QC_TYPES:
         clause += " AND insp_type=%s"
         params.append(it)
+    lim = max(1, min(limit, 10000))   # 9.20 — 무한 성장 안전 상한(최신순)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -7650,7 +7655,7 @@ def qc_inspection_list(result: str = "", inspType: str = "") -> list[dict[str, A
                        COALESCE(item_name,''), result, COALESCE(measured,''),
                        COALESCE(inspector,''), to_char(inspected_at,'MM-DD HH24:MI')
                 FROM qc_inspection WHERE tenant_id=%s{clause}
-                ORDER BY inspection_id DESC""", (tid, *params))
+                ORDER BY inspection_id DESC LIMIT %s""", (tid, *params, lim))
         return [{"inspNo": x[0], "inspType": x[1], "refNo": x[2], "itemCode": x[3],
                  "itemName": x[4], "result": x[5], "measured": x[6], "inspector": x[7],
                  "inspectedAt": x[8]} for x in cur.fetchall()]
@@ -8000,8 +8005,9 @@ def eco_create(request: Request, body: EcoCreate) -> dict[str, Any]:
 
 
 @router.get("/eco/changes")
-def eco_list() -> list[dict[str, Any]]:
+def eco_list(limit: int = 2000) -> list[dict[str, Any]]:
     """설계변경 목록 (D5)."""
+    lim = max(1, min(limit, 10000))   # 9.20 — 무한 성장 안전 상한(최신순)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -8011,17 +8017,19 @@ def eco_list() -> list[dict[str, Any]]:
                                (impact_data->>'revCount')::int, 0),
                       to_char(created_at,'MM-DD HH24:MI'),
                       COALESCE(reason,'')
-               FROM eco_change WHERE tenant_id=%s ORDER BY eco_id DESC""", (tid,))
+               FROM eco_change WHERE tenant_id=%s ORDER BY eco_id DESC LIMIT %s""", (tid, lim))
         return [{"ecoNo": r[0], "title": r[1], "targetType": r[2], "targetNo": r[3],
                  "status": r[4], "revFrom": r[5], "revTo": r[6], "impactCount": r[7],
                  "createdAt": r[8], "reason": r[9]} for r in cur.fetchall()]
 
 
 @router.get("/eco/ledger")
-def eco_ledger(status: str = "", targetType: str = "") -> dict[str, Any]:
+def eco_ledger(status: str = "", targetType: str = "", limit: int = 2000) -> dict[str, Any]:
     """변경 이력 대장 전용 뷰 (D5) — 전체 설계변경 라이프사이클 대장 + 상태 집계.
 
-    변경유형 파생: APPLIED+rev_to=Rev-up · APPLIED+rev_null=대체(Supersede) · REJECTED=반려 · else 진행."""
+    변경유형 파생: APPLIED+rev_to=Rev-up · APPLIED+rev_null=대체(Supersede) · REJECTED=반려 · else 진행.
+    행은 최신 N 상한(9.20)이나 상태 집계(summary)는 전체 기준이라 총계는 정확하다."""
+    lim = max(1, min(limit, 10000))
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         conds = ["tenant_id=%s"]
@@ -8037,7 +8045,7 @@ def eco_ledger(status: str = "", targetType: str = "") -> dict[str, Any]:
                        created_by, to_char(created_at,'YYYY-MM-DD HH24:MI'),
                        to_char(applied_at,'YYYY-MM-DD HH24:MI'),
                        COALESCE(impact_data->>'newDrawingNo','')
-                FROM eco_change WHERE {where} ORDER BY eco_id DESC""", tuple(params))
+                FROM eco_change WHERE {where} ORDER BY eco_id DESC LIMIT %s""", (*params, lim))
         rows = []
         for r in cur.fetchall():
             st, rev_to, new_dwg = r[4], r[6], r[11]
@@ -8133,10 +8141,11 @@ def cost_actual_create(request: Request, body: CostActualCreate) -> dict[str, An
 
 
 @router.get("/cost/actuals")
-def cost_actual_list(request: Request, project: str = "") -> list[dict[str, Any]]:
+def cost_actual_list(request: Request, project: str = "", limit: int = 2000) -> list[dict[str, Any]]:
     """실적 원가 목록 (D6). project 지정 시 해당 프로젝트 귀속분만.
 
     8.3 — 원가 열람 모드 적용 (단가·금액)."""
+    lim = max(1, min(limit, 10000))   # 9.20 — 무한 성장 안전 상한(최신순)
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         params: list[Any] = [tid]
@@ -8148,7 +8157,8 @@ def cost_actual_list(request: Request, project: str = "") -> list[dict[str, Any]
             f"""SELECT actual_id, category, COALESCE(item_code,''), COALESCE(item_name,''),
                       COALESCE(po_no,''), qty, unit_price, amount,
                       to_char(recorded_at,'MM-DD HH24:MI'), COALESCE(project_no,'')
-               FROM cst_actual WHERE tenant_id=%s{clause} ORDER BY actual_id DESC""", tuple(params))
+               FROM cst_actual WHERE tenant_id=%s{clause} ORDER BY actual_id DESC LIMIT %s""",
+            (*params, lim))
         rows = cur.fetchall()
         cm = _info_mode(cur, tid, request, "cost")
         if cm != "full":

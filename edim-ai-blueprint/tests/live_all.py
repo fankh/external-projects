@@ -56,6 +56,7 @@ SUITES = [
     "live_f1_project.py",           # 프로젝트 대장·PS 채번·접수자료 실업로드·컨텍스트
     "live_project_race.py",        # 프로젝트 PS 채번 경쟁 안전 (9.18) — 동시 생성 전량 성공·고유
     "live_numbering_race.py",      # ECO 채번 경쟁 안전 (9.19) — 5종 채번기 동형 회귀 방지
+    "live_list_caps.py",           # 리스트 안전 상한 (9.20) — 트랜잭션 그리드 7종 회로차단
     "live_f2_users.py",             # 사용자 등록·프로필 수정·삭제 보호 (ssh psql 정리)
     "live_f3_rbac_ui.py",           # 권한 기반 UI 게이팅 — 메뉴 숨김·403 안내·버튼 disabled
     "live_f4_noop.py",              # 무반응 일소 — 관계 승인·Export·PrintSetup 위젯·F8 표준
