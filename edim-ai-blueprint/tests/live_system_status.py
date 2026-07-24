@@ -60,6 +60,9 @@ ok(f"★ migrationHead 노출 ({s.get('migrationHead')})",
    bool(s.get("migrationHead")) and s["migrationHead"][0].isdigit())
 ok(f"tableCount 노출 ({s.get('tableCount')})", isinstance(s.get("tableCount"), int) and s["tableCount"] >= 50)
 ok(f"serverTime 노출 ({s.get('serverTime')})", bool(s.get("serverTime")))
+ok(f"★ dbLoad 실시간 부하 신호 ({s.get('dbLoad')})",
+   isinstance(s.get("dbLoad"), dict) and "activeQueries" in s["dbLoad"]
+   and "longestQuerySec" in s["dbLoad"])
 
 # 공개 /health 는 그대로 (계약 유지)
 st, h = req("GET", "/health")

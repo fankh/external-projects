@@ -322,6 +322,15 @@ def system_status() -> dict[str, Any]:
             info["tenantCount"] = cur.fetchone()[0]
             cur.execute("SELECT to_char(now(),'YYYY-MM-DD HH24:MI:SS TZ')")
             info["serverTime"] = cur.fetchone()[0]
+            # 9.17 — 실시간 DB 부하 신호(ops 포화 감시용). pg_stat_activity 는 확장·재기동 불요.
+            # active 쿼리 수와 가장 오래 실행 중인 쿼리 나이 — 스턱 쿼리·부하 급증 조기 감지.
+            cur.execute(
+                """SELECT count(*) FILTER (WHERE state='active'),
+                          COALESCE(max(EXTRACT(EPOCH FROM (now()-query_start)))
+                                   FILTER (WHERE state='active'), 0)
+                   FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid()""")
+            aq, longest = cur.fetchone()
+            info["dbLoad"] = {"activeQueries": aq, "longestQuerySec": round(float(longest or 0), 1)}
     except Exception as e:  # noqa: BLE001
         info["dbError"] = str(e)[:120]
     pool = get_pool()
