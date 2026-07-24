@@ -5139,23 +5139,10 @@ def create_project(body: ProjectCreate, request: Request) -> dict[str, Any]:
         raise HTTPException(422, detail=f"알 수 없는 Type: {body.projectType}")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        # PS 자동 채번 — 'PS-<숫자>' 단일 세그먼트 최대치 + 1 (시드 PS-612 → PS-613 …)
-        cur.execute(
-            r"""SELECT COALESCE(MAX((substring(project_no FROM '^PS-(\d+)$'))::int), 600)
-               FROM prj_project WHERE tenant_id=%s AND project_no ~ '^PS-\d+$'""", (tid,))
-        seq = (cur.fetchone()[0] or 600) + 1
-        project_no = f"PS-{seq}"
-        for _ in range(50):
-            cur.execute("SELECT 1 FROM prj_project WHERE tenant_id=%s AND project_no=%s",
-                        (tid, project_no))
-            if not cur.fetchone():
-                break
-            seq += 1
-            project_no = f"PS-{seq}"
+        # 고객사 먼저 확정 (채번 재시도와 무관하게 1회만) — 없으면 CUSTOMER 로 생성
         customer_id = None
         client = body.client.strip()
         if client:
-            # 고객사 자동 연결 — 없으면 CUSTOMER 로 생성 (단가 공급처 패턴 재사용)
             cur.execute(
                 """SELECT company_id FROM com_company
                    WHERE tenant_id=%s AND company_name=%s""", (tid, client))
@@ -5167,13 +5154,29 @@ def create_project(body: ProjectCreate, request: Request) -> dict[str, Any]:
                     """INSERT INTO com_company (tenant_id, company_type, company_name)
                        VALUES (%s,'CUSTOMER',%s) RETURNING company_id""", (tid, client))
                 customer_id = cur.fetchone()[0]
-        cur.execute(
-            """INSERT INTO prj_project (tenant_id, project_no, project_name, project_type,
-               customer_id, client_contact, note, created_by)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING project_id""",
-            (tid, project_no, name, body.projectType, customer_id,
-             body.clientContact.strip(), body.item.strip(), request.state.login))
-        pid = cur.fetchone()[0]
+        # 9.18 — PS 채번 경쟁 안전화. 종전 'MAX+1 후 INSERT' 는 동시 생성 시 같은 번호를 계산해
+        # 유니크 제약 위반 500 이 났다(실측 동시 12건 중 7건 500). 매 시도마다 MAX 를 다시 읽고
+        # INSERT ... ON CONFLICT DO NOTHING 로 넣어, 충돌(행 미반환)이면 재계산 재시도한다.
+        pid = None
+        project_no = ""
+        for _ in range(50):
+            cur.execute(
+                r"""SELECT COALESCE(MAX((substring(project_no FROM '^PS-(\d+)$'))::int), 600)+1
+                   FROM prj_project WHERE tenant_id=%s AND project_no ~ '^PS-\d+$'""", (tid,))
+            project_no = f"PS-{cur.fetchone()[0]}"
+            cur.execute(
+                """INSERT INTO prj_project (tenant_id, project_no, project_name, project_type,
+                   customer_id, client_contact, note, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (tenant_id, project_no) DO NOTHING RETURNING project_id""",
+                (tid, project_no, name, body.projectType, customer_id,
+                 body.clientContact.strip(), body.item.strip(), request.state.login))
+            row = cur.fetchone()
+            if row:
+                pid = row[0]
+                break
+        if pid is None:
+            raise HTTPException(409, detail="프로젝트 채번 경쟁이 심합니다 — 잠시 후 다시 시도하십시오")
         cur.execute(
             """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
                VALUES (%s,'prj_project',%s,'PROJECT_CREATE',%s,%s)""",
