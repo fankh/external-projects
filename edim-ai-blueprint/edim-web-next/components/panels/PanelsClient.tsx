@@ -88,9 +88,14 @@ export function CodingPanel({ macros }: { macros: MacroInfo[] }) {
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, start] = useTransition()
   const cur = macros.find((m) => m.name === sel)
+  // U24 잔여 — 패널 내 식 편집(임시 평가). 승인 Macro 는 그대로 두고 **저장 없이** 평가만 한다.
+  // 영구 변경은 Studio(승인 경유)에서만 — 승인 무결성을 우회하지 않는다.
+  const [editing, setEditing] = useState(false)
+  const [draftExpr, setDraftExpr] = useState('')
+  const expr = editing ? draftExpr : (cur?.expr ?? '')
   const run = () => start(async () => {
-    const r = await evalPanelMacro(cur?.expr ?? '')
-    setResult(r.ok ? { ok: true, text: `= ${r.value}` } : { ok: false, text: r.error ?? '평가 실패' })
+    const r = await evalPanelMacro(expr)
+    setResult(r.ok ? { ok: true, text: `= ${r.value}${editing ? ' (임시)' : ''}` } : { ok: false, text: r.error ?? '평가 실패' })
   })
   return (
     <GroupBox title="Coding" noPad>
@@ -99,12 +104,26 @@ export function CodingPanel({ macros }: { macros: MacroInfo[] }) {
           <select className="in" data-panel-macro data-i18n-content value={sel} onChange={(e) => { setSel(e.target.value); setResult(null) }} style={{ height: 19, fontSize: 10, flex: 1 }}>
             {macros.map((m) => <option key={m.name} value={m.name}>{m.name} [{m.status}]</option>)}
           </select>
+          <button className="b" data-panel-edit style={{ height: 19, fontSize: 9.5 }}
+            title={editing ? '편집 취소 — 승인 식으로 복귀' : '식 임시 편집 — 저장 없이 평가만 (영구 변경은 Studio 승인 경유)'}
+            onClick={() => { setEditing((v) => { if (!v) setDraftExpr(cur?.expr ?? ''); return !v }); setResult(null) }}>{editing ? '↩' : '✎'}</button>
           <button className="b" style={{ height: 19, fontSize: 9.5 }} onClick={() => router.push('/toolbox/macros')}>Studio</button>
         </div>
-        <div className="code" style={{ fontSize: 9.5, background: 'var(--panel, #F4F6FA)', padding: '3px 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          title={cur?.expr ?? ''}>{cur?.expr || '—'}</div>
+        {editing ? (
+          <textarea className="in code" data-panel-expr-edit value={draftExpr} rows={2} spellCheck={false}
+            onChange={(e) => { setDraftExpr(e.target.value); setResult(null) }}
+            style={{ fontSize: 9.5, resize: 'vertical', lineHeight: 1.5 }} aria-label="Macro 식 임시 편집" />
+        ) : (
+          <div className="code" style={{ fontSize: 9.5, background: 'var(--panel, #F4F6FA)', padding: '3px 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            title={cur?.expr ?? ''}>{cur?.expr || '—'}</div>
+        )}
+        {editing ? (
+          <div data-panel-edit-note style={{ fontSize: 9, color: 'var(--txt-mute)' }}>
+            임시 편집 — 저장되지 않습니다. 영구 반영은 Studio(승인 경유).
+          </div>
+        ) : null}
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <button className="b run" data-panel-run disabled={!cur?.expr || pending} onClick={run} style={{ height: 19, fontSize: 10 }}>Run</button>
+          <button className="b run" data-panel-run disabled={!expr || pending} onClick={run} style={{ height: 19, fontSize: 10 }}>Run</button>
           {result ? <span data-panel-result style={{ fontSize: 10, fontWeight: 700, color: result.ok ? 'var(--run)' : 'var(--err)' }}>{result.text}</span> : null}
         </div>
       </div>
