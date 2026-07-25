@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.services.password import hash_password, verify_password
-from app.db import db_ok, get_pool
+from app.db import db_ok, get_pool, BUSINESS_TZ
 from app.services import storage
 from app.services.edim_seed import TENANT
 from app.services.macro_engine import Evaluator, MacroError
@@ -361,6 +361,16 @@ def system_status() -> dict[str, Any]:
             info["tenantCount"] = cur.fetchone()[0]
             cur.execute("SELECT to_char(now(),'YYYY-MM-DD HH24:MI:SS TZ')")
             info["serverTime"] = cur.fetchone()[0]
+            # 12.1 — '오늘' 의 기준. DB 세션과 파이썬이 어긋나면 단가 유효개시일·채번 연도가
+            # 조용히 하루 밀린다(00:00~09:00 KST 에만 재현돼 평소엔 드러나지 않는다).
+            # 진단으로 노출해 데이터를 만들지 않고도 확인·감시할 수 있게 한다.
+            cur.execute("SELECT CURRENT_DATE::text, current_setting('TimeZone')")
+            db_date, db_tz = cur.fetchone()
+            info["businessDate"] = {
+                "db": db_date, "dbTimeZone": db_tz,
+                "app": date.today().isoformat(), "appTimeZone": BUSINESS_TZ,
+                "aligned": db_date == date.today().isoformat(),
+            }
             # 9.17 — 실시간 DB 부하 신호(ops 포화 감시용). pg_stat_activity 는 확장·재기동 불요.
             # active 쿼리 수와 가장 오래 실행 중인 쿼리 나이 — 스턱 쿼리·부하 급증 조기 감지.
             cur.execute(
