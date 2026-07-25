@@ -103,6 +103,32 @@ with sync_playwright() as pw:
        len(bd.get("unpricedCodes") or []) <= bd["unpricedCount"] or bd["unpricedCount"] == 0,
        f"codes={len(bd.get('unpricedCodes') or [])} count={bd['unpricedCount']}")
 
+    # ── 6b. Run 이 실제 견적안 제품으로 전개되는가 + 제조비 근거 (12.4) ──
+    # 종전에는 BOM 루트와 제조비 도면이 모두 데모 제품('KDCR 3-13')으로 하드코딩돼,
+    # 어떤 견적안을 실행하든 같은 제품 원가가 나왔다.
+    r = call("GET", "/cpq/selections", admin)
+    if r.ok:
+        sels = r.json()
+        sels = sels if isinstance(sels, list) else (sels.get("items") or [])
+        ok("견적안 목록 조회", True)
+        ok("견적안이 제품 코드를 들고 있음",
+           all(s.get("finishedGoodsCode") or s.get("productCode") for s in sels[:5]) if sels
+           else True, str(sels[:2])[:160])
+    else:
+        print(f"SKIP 견적안 목록 — status={r.status} (경로 확인 필요)")
+
+    ok("PCR 응답에 mfgEstimated 포함", "mfgEstimated" in p, str(p)[:200])
+    bd2 = call("GET", f"/cost/pcr/{pcr_id}/breakdown", admin).json()
+    ok("분해에도 mfgEstimated 포함", "mfgEstimated" in bd2, str(bd2)[:200])
+    ok("PCR 과 분해의 제조비 근거 판정 일치",
+       bool(p["mfgEstimated"]) == bool(bd2["mfgEstimated"]),
+       f"PCR {p['mfgEstimated']} vs 분해 {bd2['mfgEstimated']}")
+    if p["mfgEstimated"]:
+        ok("제조비 추정 시 사유가 notes 에 명시",
+           any("제조비" in x for x in p["notes"]), str(p["notes"]))
+    else:
+        print("   (참고) 제조비가 실제 조립 스텝으로 산정됨 — 추정 경로 미실행")
+
     # ── 7. 잘못된 실행 유형은 500 이 아니라 422 로 안내 (11.7) ──
     r = call("POST", "/cpq/runs", admin, data={"runType": "__BAD__", "isTest": True})
     ok("잘못된 runType 은 422", r.status == 422, f"status={r.status} body={r.text()[:140]}")

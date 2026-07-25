@@ -12165,8 +12165,13 @@ def _out_row(folder: str, fname: str, ftype: str, file_id: int | None) -> dict[s
             "fileId": file_id}
 
 
+# 견적안에 제품 코드가 없을 때만 쓰는 폴백 — 종전에는 이 값이 **무조건** 루트였다.
+_DEMO_ROOT = "KDCR 3-13"
+
+
 async def _advance(run_id: int, tid: int, selection_id: int,
-                   slot_values: dict[str, str], project_no: str) -> None:
+                   slot_values: dict[str, str], project_no: str,
+                   root_code: str = _DEMO_ROOT) -> None:
     state = _runs[run_id]
     r = rp.PipelineResult()
 
@@ -12190,10 +12195,14 @@ async def _advance(run_id: int, tid: int, selection_id: int,
             # 1. BOM
             t0 = begin(0)
             await asyncio.sleep(0.4)
-            m = rp.step_bom(cur, tid, _expand_rows, "KDCR 3-13", slot_values, selection_id, r,
+            # 종전에는 루트가 "KDCR 3-13" 으로 하드코딩돼, **어떤 견적안을 실행하든 항상 같은
+            # 제품의 BOM** 으로 원가가 계산됐다(견적안에 product_code_id 가 있는데 읽지 않았다).
+            # 데모 테넌트는 제품이 하나라 드러나지 않지만, 제품이 둘 이상인 고객사에서는
+            # 모든 견적이 같은 제품 원가로 나간다.
+            m = rp.step_bom(cur, tid, _expand_rows, root_code, slot_values, selection_id, r,
                             rel_basis=_rel_basis)
             finish(0, t0, m)
-            log(f"BOM expand root=KDCR 3-13 … {len(r.items)} items → cpq_selection_item")
+            log(f"BOM expand root={root_code} … {len(r.items)} items → cpq_selection_item")
 
             # 2. 치수 Macro (엔진)
             t0 = begin(1)
@@ -12219,7 +12228,7 @@ async def _advance(run_id: int, tid: int, selection_id: int,
                 log(f"warn {w}", "warn")
             log(f"pricing total {r.total_k:,.0f}K · resolve {r.resolved}/{len(r.items)}")
             # 원가 상세 영속 (B18) — cst_calc 3분류 (재료비/제조비/직접경비)
-            _write_cst_calc(cur, tid, run_id, r)
+            _write_cst_calc(cur, tid, run_id, r, root_code)
             log("cst_calc — MATERIAL·MANUFACTURING·DIRECT 상세 적재")
 
             # 5. 견적서 PDF + BOM XLSX
@@ -12266,7 +12275,7 @@ async def _advance(run_id: int, tid: int, selection_id: int,
             pass
 
 
-def _write_cst_calc(cur, tid: int, run_id: int, r) -> None:
+def _write_cst_calc(cur, tid: int, run_id: int, r, root_code: str = "") -> None:
     """B18 — Run 원가 상세 3분류를 cst_calc 에 영속 (detail=JSONB 라인 내역).
 
     MATERIAL = BOM 단가 resolve 결과 · MANUFACTURING = 조립 공수(dwg_bom 노트×표준 임율)
@@ -12283,13 +12292,20 @@ def _write_cst_calc(cur, tid: int, run_id: int, r) -> None:
     unpriced = [{"code": i["resolvedCode"], "qty": i["quantity"]}
                 for i in r.items if i["priceK"] is None]
     # 제조비 — dwg_bom 조립 스텝 × 표준 2h × 임율 55,000/h (CST-003 입력 전 표준치)
+    # 도면번호는 제품 코드와 같은 규칙이다. 종전에는 여기도 'KDCR 3-13' 이 하드코딩돼 있어
+    # **모든 제품의 제조비가 데모 제품의 조립 스텝**으로 계산됐다.
     cur.execute(
         """SELECT COALESCE(b.assembly_note, p.part_name)
            FROM dwg_bom b JOIN prt_part p ON p.part_id=b.part_id
            JOIN dwg_drawing d ON d.drawing_id=b.drawing_id
-           WHERE d.tenant_id=%s AND d.drawing_no='KDCR 3-13'
-           ORDER BY COALESCE(b.assembly_seq, 999)""", (tid,))
-    steps = [row[0] for row in cur.fetchall()] or ["조립 (표준)"]
+           WHERE d.tenant_id=%s AND d.drawing_no=%s
+           ORDER BY COALESCE(b.assembly_seq, 999)""", (tid, root_code or _DEMO_ROOT))
+    steps = [row[0] for row in cur.fetchall()]
+    # 조립 스텝이 없으면 표준 1스텝으로 추정한다 — 추정이라는 사실을 남기지 않으면
+    # 실제 공수로 산정된 제조비와 구분되지 않는다(응답 정직성 규약).
+    mfg_estimated = not steps
+    if mfg_estimated:
+        steps = ["조립 (표준)"]
     rate = 55_000
     mfg_lines = [{"step": s, "hours": 2, "rate": rate, "amount": 2 * rate} for s in steps]
     mfg_total = sum(ln["amount"] for ln in mfg_lines)
@@ -12305,6 +12321,9 @@ def _write_cst_calc(cur, tid: int, run_id: int, r) -> None:
         ("DIRECT", direct_lines, direct_total),
     ):
         detail: dict[str, Any] = {"lines": lines}
+        if ctype == "MANUFACTURING":
+            detail["estimated"] = mfg_estimated
+            detail["basisDrawing"] = root_code or _DEMO_ROOT
         if ctype == "MATERIAL":
             detail["unpriced"] = unpriced
             detail["unpricedCount"] = len(unpriced)
@@ -13763,6 +13782,19 @@ def _cost_base_unpriced(cur, tid: int, run_id: int) -> list[dict[str, Any]]:
     return list(det.get("unpriced") or [])
 
 
+def _cost_base_mfg_estimated(cur, tid: int, run_id: int) -> bool:
+    """제조비가 실제 조립 스텝이 아니라 **표준 추정치**로 산정됐는지.
+
+    도면에 조립 스텝이 없으면 표준 1스텝(2h)으로 추정한다. 추정이라는 사실을 알리지 않으면
+    실제 공수로 산정된 제조비와 구분되지 않아, 근거 없는 수치가 수익성 판단에 쓰인다.
+    """
+    cur.execute(
+        """SELECT detail FROM cst_calc
+           WHERE tenant_id=%s AND run_id=%s AND calc_type='MANUFACTURING'""", (tid, run_id))
+    row = cur.fetchone()
+    return bool(((row[0] if row else {}) or {}).get("estimated"))
+
+
 class PcrCreate(BaseModel):
     businessType: str = "PRE_SALES"
     marginRate: float = 0.35     # 목표 마진율 — 매출 = 직접비 × (1+rate)
@@ -13785,6 +13817,7 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
         # 비율)와 매출(직접비×(1+마진))까지 함께 낮아진다. 근거 없이 낮은 수익성 보고서가
         # 나오지 않도록 사실을 함께 실어 보낸다.
         unpriced = _cost_base_unpriced(cur, tid, run_id)
+        mfg_estimated = _cost_base_mfg_estimated(cur, tid, run_id)
         direct_total = sum(totals.values())
         revenue = round(direct_total * (1 + body.marginRate))
         sga = round(revenue * 0.08)
@@ -13798,6 +13831,7 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
             "sga": sga, "marginRate": body.marginRate,
             "unpricedCount": len(unpriced),
             "unpricedCodes": [u.get("code") for u in unpriced][:20],
+            "mfgEstimated": mfg_estimated,
         }
         cur.execute(
             """UPDATE cst_pcr SET sections=%s, direct_cost_total=%s, contribution_margin=%s,
@@ -13819,11 +13853,14 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
             "unpricedCount": len(unpriced),
             "unpricedCodes": [u.get("code") for u in unpriced][:20],
             "basisComplete": not unpriced,
+            "mfgEstimated": mfg_estimated,
             "notes": ([] if not unpriced else
                       [f"단가 미해결 {len(unpriced)}건이 0 원으로 집계됐습니다 — "
                        f"원가·매출·EBIT 가 실제보다 낮습니다 "
                        f"({', '.join(str(u.get('code')) for u in unpriced[:3])}"
-                       f"{' 외' if len(unpriced) > 3 else ''})"])}
+                       f"{' 외' if len(unpriced) > 3 else ''})"])
+                     + ([] if not mfg_estimated else
+                        ["제조비가 도면 조립 스텝이 아니라 표준 추정치(1스텝)로 산정됐습니다"])}
 
 
 # ── U19 잔여 — 사업유형 다열 비교 (슬라이드 74 'Own acc./Biz.Type n' 열) ──
@@ -13943,6 +13980,7 @@ def pcr_breakdown(pcr_id: int, request: Request) -> dict[str, Any]:
         "unpricedCount": int(sec.get("unpricedCount") or 0),
         "unpricedCodes": list(sec.get("unpricedCodes") or []),
         "basisComplete": not int(sec.get("unpricedCount") or 0),
+        "mfgEstimated": bool(sec.get("mfgEstimated")),
     }
 
 
@@ -14825,13 +14863,15 @@ async def start_run(body: RunRequest) -> dict[str, Any]:
         tid = _tenant_id(cur)
         if body.selectionId:   # C1 — 지정 견적안
             cur.execute(
-                """SELECT s.selection_id, s.slot_values, p.project_no
+                """SELECT s.selection_id, s.slot_values, p.project_no, pc.main_code
                    FROM cpq_selection s JOIN prj_project p ON p.project_id=s.project_id
+                   LEFT JOIN product_code pc ON pc.product_code_id=s.product_code_id
                    WHERE s.tenant_id=%s AND s.selection_id=%s""", (tid, body.selectionId))
         else:                  # 미지정 — 최신 견적안
             cur.execute(
-                """SELECT s.selection_id, s.slot_values, p.project_no
+                """SELECT s.selection_id, s.slot_values, p.project_no, pc.main_code
                    FROM cpq_selection s JOIN prj_project p ON p.project_id=s.project_id
+                   LEFT JOIN product_code pc ON pc.product_code_id=s.product_code_id
                    WHERE s.tenant_id=%s ORDER BY s.selection_id DESC LIMIT 1""", (tid,))
         sel = cur.fetchone()
         if not sel:
@@ -14850,7 +14890,7 @@ async def start_run(body: RunRequest) -> dict[str, Any]:
         ],
     }
     asyncio.get_running_loop().create_task(
-        _advance(run_id, tid, sel[0], sel[1] or {}, sel[2]))
+        _advance(run_id, tid, sel[0], sel[1] or {}, sel[2], sel[3] or _DEMO_ROOT))
     return {"runId": run_id, "status": "RUNNING", "statusUrl": f"/api/v1/cpq/runs/{run_id}"}
 
 
