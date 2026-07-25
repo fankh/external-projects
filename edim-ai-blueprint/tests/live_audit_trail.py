@@ -86,7 +86,9 @@ with sync_playwright() as pw:
     # ── 2. BOM 관계 삭제 — 원가·소요량이 달라지는 변경 ──
     # (단가·거래처도 감사를 채웠지만 **삭제 경로가 없는 이력 자산**이라 라이브에서 만들면
     #  잔재가 남는다. 정리 가능한 관계 삭제로 같은 계열을 검증한다.)
-    GROUP, C1, C2 = "ZAUDG", "ZAUD-A", "ZAUD-B"
+    # 그룹은 **삭제 경로가 없다** — 검증용으로 새로 만들면 매 실행 잔재가 된다.
+    # GEN 은 수기 코드용 상설 그룹(Slot 미정의)이라 그대로 쓴다.
+    GROUP, C1, C2 = "GEN", "ZAUD-A", "ZAUD-B"
 
     def products():
         r = call("GET", "/codes/products", admin)
@@ -105,8 +107,6 @@ with sync_playwright() as pw:
             call("DELETE", f"/codes/products/{pr.get('productCodeId') or pr.get('id')}", admin)
 
     cleanup_codes()
-    call("POST", "/codes/groups", admin, data={
-        "groupCode": GROUP, "groupName": "감사검증그룹", "groupType": "SPECIFICATION"})
     for c in (C1, C2):
         call("POST", "/codes/products", admin,
              data={"mainCode": c, "codeName": f"감사검증 {c}", "groupCode": GROUP})
