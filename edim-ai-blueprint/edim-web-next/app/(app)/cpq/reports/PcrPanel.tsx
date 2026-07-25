@@ -5,7 +5,7 @@ import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { getPcrActual, getPcrBreakdown, type PcrActual, type PcrBreakdown } from './breakdownActions'
+import { getPcrActual, getPcrBreakdown, getPcrCompare, type PcrActual, type PcrBreakdown, type PcrCompare } from './breakdownActions'
 
 export interface PcrRow {
   pcrId: number; businessType: string; code: string; directCostTotal: number
@@ -20,9 +20,14 @@ export function PcrPanel({ rows }: { rows: PcrRow[] }) {
   const [bd, setBd] = useState<PcrBreakdown | null>(null)
   // D6 — 실적 반영 재계산 (추정 vs 실적 차이)
   const [act, setAct] = useState<PcrActual | null>(null)
+  // U19 잔여 — 사업유형 다열 비교 (슬라이드 74 'Own acc./Biz.Type n' 열)
+  const [cmp, setCmp] = useState<PcrCompare | null>(null)
   const [, start] = useTransition()
   const loadBd = (id: number) => start(async () => { setAct(null); setBd(await getPcrBreakdown(id)) })
   const loadAct = (id: number) => start(async () => setAct(await getPcrActual(id)))
+  const loadCmp = () => start(async () => { setCmp(cmp ? null : await getPcrCompare()) })
+  const cell = (v: number | string | null) =>
+    v == null ? '—' : typeof v === 'string' ? v : `₩ ${Math.round(v).toLocaleString()}`
   const wonB = (n: number) => `\u20a9 ${Math.round(n).toLocaleString()}`
   const cols: GridColumn<PcrRow>[] = [
     { key: 'id', header: 'PCR', width: 52, align: 'right', code: true, sortValue: (r) => r.pcrId, render: (r) => r.pcrId },
@@ -42,7 +47,49 @@ export function PcrPanel({ rows }: { rows: PcrRow[] }) {
   ]
   return (
     <div className="gb" style={{ display: 'flex', flexDirection: 'column', minHeight: 220 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>{t('rpt.pcrTitle', 'PCR 수익성 보고서 (RPT-07) — {n}건').replace('{n}', String(rows.length))}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span>{t('rpt.pcrTitle', 'PCR 수익성 보고서 (RPT-07) — {n}건').replace('{n}', String(rows.length))}</span>
+        <button className="b" data-pcr-compare style={{ height: 18, fontSize: 10, marginLeft: 'auto' }}
+          title={t('rpt.compareHint', '사업유형별 PCR 을 열로 나열해 비교 (슬라이드 74 양식)')}
+          onClick={loadCmp}>{cmp ? t('rpt.compareClose', '비교 닫기') : t('rpt.compare', '사업유형 비교')}</button>
+      </div>
+      {cmp ? (
+        <div data-pcr-compare-panel style={{ borderBottom: '1px solid var(--line)', padding: 6, fontSize: 10.5, overflow: 'auto' }}>
+          <div style={{ fontWeight: 700, color: 'var(--title-navy)', marginBottom: 4 }}>
+            {t('rpt.compareTitle', '사업유형 비교 (슬라이드 74)')}
+            <span style={{ color: 'var(--txt-mute)', fontWeight: 400, marginLeft: 6 }}>{cmp.note}</span>
+          </div>
+          {cmp.columns.length ? (
+            <table className="g" style={{ width: '100%' }}>
+              <thead><tr>
+                <th style={{ width: 120 }}>{t('rpt.metric', '지표')}</th>
+                {cmp.columns.map((c) => (
+                  <th key={c.pcrId} style={{ textAlign: 'right' }}>
+                    {c.businessType}
+                    <div style={{ fontWeight: 400, color: 'var(--txt-mute)', fontSize: 9.5 }}>
+                      #{c.pcrId}{c.marginRate != null ? ` · ${Math.round(c.marginRate * 100)}%` : ''}
+                    </div>
+                  </th>
+                ))}
+                {cmp.columns.length >= 2 ? <th style={{ width: 110, textAlign: 'right' }}>Δ</th> : null}
+              </tr></thead>
+              <tbody>
+                {cmp.metrics.map((m) => (
+                  <tr key={m.key} data-pcr-compare-row>
+                    <td style={{ fontWeight: 600 }}>{m.label}</td>
+                    {m.cells.map((v, i) => <td key={i} style={{ textAlign: 'right' }}>{cell(v)}</td>)}
+                    {cmp.columns.length >= 2 ? (
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: m.delta == null ? undefined : m.delta >= 0 ? 'var(--run)' : 'var(--err)' }}>
+                        {m.delta == null ? '—' : `${m.delta >= 0 ? '+' : ''}${cell(m.delta)}`}
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <div style={{ color: 'var(--txt-mute)' }}>{t('rpt.noPcr', 'PCR 이 없습니다 (Run 원가 확정 후 생성)')}</div>}
+        </div>
+      ) : null}
       <div style={{ flex: 1, minHeight: 0 }}>
         <DenseGrid prefKey="next-pcr" colFilter columns={cols} rows={rows}
           rowKey={(r) => r.pcrId} selectedKey={bd?.pcrId} onRowClick={(r) => loadBd(r.pcrId)}

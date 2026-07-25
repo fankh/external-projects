@@ -13266,6 +13266,63 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
             "directCostTotal": direct_total, "contributionMargin": margin, "ebit": ebit}
 
 
+# ── U19 잔여 — 사업유형 다열 비교 (슬라이드 74 'Own acc./Biz.Type n' 열) ──
+
+# 행 = 지표, 열 = 사업유형. 슬라이드 양식의 행 순서를 그대로 따른다.
+_PCR_COMPARE_ROWS: list[tuple[str, str, str]] = [
+    # (키, 한국어 라벨, 출처: sections 키 또는 컬럼)
+    ("revenue", "매출", "sections"),
+    ("material", "재료비", "sections"),
+    ("manufacturing", "제조비", "sections"),
+    ("direct", "직접경비", "sections"),
+    ("directCostTotal", "직접비 계", "column"),
+    ("contributionMargin", "기여마진", "column"),
+    ("sga", "판관비(SGA)", "sections"),
+    ("ebit", "EBIT", "column"),
+]
+
+
+@router.get("/cost/pcr/compare")
+def pcr_compare(request: Request) -> dict[str, Any]:
+    """U19 잔여 — 사업유형별 PCR 다열 비교표 (슬라이드 74 양식).
+
+    행=지표(매출·원가 3분류·직접비 계·기여마진·판관비·EBIT), 열=사업유형.
+    같은 사업유형이 여러 건이면 최신 PCR 1건을 대표로 삼는다(양식이 유형당 1열).
+    마진율은 열 메타로 병기. 1.5 정보 접근 권한(원가 열람 모드)을 그대로 따른다."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT DISTINCT ON (p.business_type)
+                      p.business_type, p.pcr_id, p.sections, p.direct_cost_total,
+                      p.contribution_margin, p.ebit, s.finished_goods_code
+               FROM cst_pcr p JOIN cpq_selection s ON s.selection_id=p.selection_id
+               WHERE p.tenant_id=%s
+               ORDER BY p.business_type, p.pcr_id DESC""", (tid,))
+        rows = cur.fetchall()
+        cm = _info_mode(cur, tid, request, "cost")
+        if cm != "full":
+            _audit(cur, tid, "cst_pcr", 0, "MASKED_READ", request.state.user_id, {"cost": cm})
+
+    columns = [{"businessType": r[0], "pcrId": r[1], "code": r[6],
+                "marginRate": (r[2] or {}).get("marginRate")} for r in rows]
+    metrics: list[dict[str, Any]] = []
+    for key, label, src in _PCR_COMPARE_ROWS:
+        cells: list[Any] = []
+        for r in rows:
+            sections = r[2] or {}
+            raw = sections.get(key) if src == "sections" else {
+                "directCostTotal": r[3], "contributionMargin": r[4], "ebit": r[5]}.get(key)
+            val = None if raw is None else float(raw)
+            cells.append(_mask_num(val, cm))
+        # 열이 2개 이상일 때만 차이(2열 - 1열)를 제공 — 비교표의 실사용 지점
+        delta = None
+        if len(cells) >= 2 and all(isinstance(c, (int, float)) for c in cells[:2]):
+            delta = cells[1] - cells[0]
+        metrics.append({"key": key, "label": label, "cells": cells, "delta": delta})
+    return {"columns": columns, "metrics": metrics, "maskMode": cm,
+            "note": "사업유형당 최신 PCR 1건" if columns else "PCR 없음 — Run 화면에서 PCR 생성"}
+
+
 # ── U19 PCR 세부 비용 체계 (슬라이드 74) — 비용 트리(조달/부제조/직접/판관 분해) ──
 
 @router.get("/cost/pcr/{pcr_id}/breakdown")

@@ -31,3 +31,16 @@ export async function getPcrActual(pcrId: number): Promise<PcrActual | null> {
     return await apiServer<PcrActual>(`/cost/pcr/${pcrId}/actual`)
   } catch { return null }
 }
+
+/** U19 잔여 — 사업유형 다열 비교 (슬라이드 74 'Own acc./Biz.Type n' 열). */
+export interface PcrCompare {
+  columns: { businessType: string; pcrId: number; code: string; marginRate: number | null }[]
+  metrics: { key: string; label: string; cells: (number | string | null)[]; delta: number | null }[]
+  maskMode: string; note: string
+}
+
+export async function getPcrCompare(): Promise<PcrCompare | null> {
+  try {
+    return await apiServer<PcrCompare>('/cost/pcr/compare')
+  } catch { return null }
+}
