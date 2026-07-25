@@ -81,6 +81,18 @@ export async function unlockUser(login: string): Promise<ActState> {
   return { ok: `${login} 잠금 해제` }
 }
 
+/** 비밀번호 재설정 (ADMIN) — 임시 비밀번호는 응답으로 1회만 오므로 호출부가 화면에 보여줘야 한다. */
+export async function resetUserPassword(login: string): Promise<ActState> {
+  let r: { temporaryPassword: string; unlocked: boolean }
+  try {
+    r = await apiServer(`/users/${encodeURIComponent(login)}/reset-password`, {
+      method: 'POST', body: '{}',
+    })
+  } catch (e) { return fail(e, '비밀번호 재설정 실패') }
+  revalidatePath(PATH)
+  return { ok: `${login} 임시 비밀번호: ${r.temporaryPassword}${r.unlocked ? ' (잠금도 해제됨)' : ''} — 본인에게 전달 후 변경하도록 안내하십시오` }
+}
+
 export async function changeUserLevel(login: string, level: string): Promise<ActState> {
   try {
     await apiServer(`/users/${encodeURIComponent(login)}/level`, {

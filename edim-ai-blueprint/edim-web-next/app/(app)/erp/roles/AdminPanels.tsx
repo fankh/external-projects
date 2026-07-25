@@ -9,7 +9,7 @@ import { useI18n } from '@/components/I18nProvider'
 import { usePermission } from '@/components/PermissionProvider'
 import {
   assignUserRoles, changeUserLevel, createRole, createUser, deleteRole, getUserRoles,
-  inviteUser, saveRolePermissions, setUserActive, unlockUser, updateUser, type ActState,
+  inviteUser, resetUserPassword, saveRolePermissions, setUserActive, unlockUser, updateUser, type ActState,
 } from './actions'
 
 export interface UserRow {
@@ -95,6 +95,10 @@ export function UsersPanel({ rows }: { rows: UserRow[] }) {
         <span style={{ color: 'var(--txt-dim)' }}>{sel ? `${t('access.selected', '선택')} ${sel.login} (${sel.status})` : t('access.clickSelect', '행 클릭=선택')}</span>
         <button className="b" disabled={pending || !sel || sel.status !== 'LOCKED'}
           onClick={() => sel && start(async () => setSt(await unlockUser(sel.login)))}>{t('access.unlock', '잠금 해제')}</button>
+        <button className="b" data-user-reset-pw disabled={pending || !sel}
+          title={t('access.resetPwHint', '임시 비밀번호 발급 — 잠긴 계정은 함께 해제됩니다. 발급값은 한 번만 표시됩니다')}
+          onClick={() => sel && confirm(`${sel.login} 의 비밀번호를 재설정하시겠습니까? 기존 비밀번호는 사용할 수 없게 됩니다.`)
+            && start(async () => setSt(await resetUserPassword(sel.login)))}>{t('access.resetPw', '비밀번호 재설정')}</button>
         <button className="b" data-user-edit-open disabled={!sel}
           onClick={() => setEditOpen(true)}>{t('access.editUser', '정보 수정')}</button>
         <button className="b" data-user-invite disabled={pending || !sel}

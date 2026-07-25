@@ -12,6 +12,7 @@ import io
 import json
 import os
 import re
+import secrets
 import time
 from contextvars import ContextVar
 from datetime import date
@@ -4751,6 +4752,57 @@ def unlock_user(login: str, request: Request) -> dict[str, Any]:
         _audit(cur, tid, "sys_user", row[0], "UNLOCK", request.state.user_id,
                {"login": login})   # 잠금 해제 = 실패 카운터 초기화 기준점 (B8)
     return {"login": login, "status": "ACTIVE"}
+
+
+class PasswordResetRequest(BaseModel):
+    newPassword: str = ""      # 미지정 시 서버가 임시 비밀번호를 생성한다
+
+
+@router.post("/users/{login}/reset-password", dependencies=[ADMIN])
+def reset_user_password(login: str, request: Request,
+                        body: PasswordResetRequest) -> dict[str, Any]:
+    """관리자 비밀번호 재설정.
+
+    종전에는 재설정 경로가 아예 없었다 — 비밀번호를 잊으면 본인 변경(현재 비밀번호 필요)도,
+    관리자 조치도 불가해 **DB 를 직접 건드리는 것 외에 복구 수단이 없었다**. 잠금 해제는
+    상태만 되돌릴 뿐 비밀번호를 모르는 문제를 풀지 못한다.
+
+    실패 잠금도 함께 해제한다 — 비밀번호를 잊은 사용자는 대개 5회 실패로 LOCKED 이고,
+    비밀번호만 바꿔 주면 여전히 로그인하지 못한다.
+    임시 비밀번호는 **응답으로 한 번만** 돌려준다(감사 로그에는 남기지 않는다).
+    """
+    pw = body.newPassword.strip()
+    if pw:
+        if len(pw) < 8:
+            raise HTTPException(422, detail="비밀번호는 8자 이상이어야 합니다")
+    else:
+        # 혼동하기 쉬운 문자(0/O, 1/l/I) 제외 — 구두 전달 사고 방지
+        alphabet = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
+        pw = "".join(secrets.choice(alphabet) for _ in range(12))
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            "SELECT user_id, status FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+            (tid, login))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        uid, before_status = row
+        if uid == request.state.user_id:
+            raise HTTPException(
+                409, detail="본인 비밀번호는 '비밀번호 변경' 으로 바꾸십시오 (현재 비밀번호 확인 필요)")
+        cur.execute(
+            """UPDATE sys_user SET password_hash=%s, status=CASE WHEN status='LOCKED'
+                   THEN 'ACTIVE' ELSE status END, updated_by=%s, updated_at=now()
+               WHERE tenant_id=%s AND user_id=%s""",
+            (hash_password(pw), request.state.login, tid, uid))
+        # UNLOCK 을 함께 기록해야 로그인 실패 카운터 기준점이 초기화된다 (B8)
+        if before_status == "LOCKED":
+            _audit(cur, tid, "sys_user", uid, "UNLOCK", request.state.user_id,
+                   {"login": login, "reason": "비밀번호 재설정"})
+        _audit(cur, tid, "sys_user", uid, "PW_RESET", request.state.user_id,
+               {"login": login, "generated": not body.newPassword.strip()})
+    return {"login": login, "temporaryPassword": pw, "unlocked": before_status == "LOCKED"}
 
 
 class LevelChangeRequest(BaseModel):
