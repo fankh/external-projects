@@ -4,24 +4,34 @@
 import { useState, useTransition } from 'react'
 import { GroupBox, Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
-import { saveDesignParams, type DesignParamRow } from './actions'
+import { runErrorCheck, saveDesignParams, type DesignParamRow, type ErrorCheckResult } from './actions'
 
 export function DesignPriorityPanel({ code, initial }: { code: string; initial: DesignParamRow[] }) {
   const { t } = useI18n()
   const [rows, setRows] = useState<DesignParamRow[]>(initial)
   const [dirty, setDirty] = useState(false)
   const [msg, setMsg] = useState<{ text: string; err?: boolean } | null>(null)
+  const [chk, setChk] = useState<ErrorCheckResult | null>(null)
   const [pending, start] = useTransition()
 
   const patch = (no: string, p: Partial<DesignParamRow>) => {
     setRows((rs) => rs.map((r) => (r.no === no ? { ...r, ...p } : r)))
     setDirty(true)
+    setChk(null)   // 편집하면 이전 점검 결과는 무효 — 재점검 유도
   }
   const save = () => start(async () => {
     const r = await saveDesignParams(code, rows)
     if (r.error) { setMsg({ text: r.error, err: true }); return }
     setDirty(false); setMsg({ text: `설계 파라미터 저장 ✓ — ${rows.length}행 (${code})` })
   })
+  // U17 잔여 — 오류조건 위반 판정 (저장된 식·현재 치수값 기준)
+  const check = () => start(async () => {
+    const r = await runErrorCheck(code)
+    if (r.error) { setMsg({ text: r.error, err: true }); return }
+    setMsg(null); setChk(r.result ?? null)
+  })
+  const violated = new Set((chk?.violations ?? []).map((v) => v.no))
+  const uneval = new Set((chk?.unevaluated ?? []).map((v) => v.no))
   const numIn = (r: DesignParamRow, key: 'designPriority' | 'dataPriority') => (
     <input className="in" type="number" value={r[key] ?? ''} style={{ width: 44, height: 17, fontSize: 10, textAlign: 'right' }}
       onChange={(e) => patch(r.no, { [key]: e.target.value === '' ? null : Number(e.target.value) } as Partial<DesignParamRow>)} />
@@ -34,7 +44,36 @@ export function DesignPriorityPanel({ code, initial }: { code: string; initial: 
   if (!rows.length) return null
   return (
     <GroupBox title={`${t('wp.designPriorityTitle', '설계우선순위 (슬라이드 44)')} — ${code}`} noPad
-      right={<button className="b run" data-dp-save disabled={!dirty || pending} style={{ height: 18, fontSize: 10 }} onClick={save}>{t('common.save', '저장')}</button>}>
+      right={
+        <span style={{ display: 'inline-flex', gap: 4 }}>
+          <button className="b" data-dp-check disabled={pending} style={{ height: 18, fontSize: 10 }} onClick={check}
+            title={t('wp.dpCheckTip', '저장된 오류조건 식을 현재 치수값으로 평가')}>
+            {t('wp.dpCheck', '오류조건 점검')}
+          </button>
+          <button className="b run" data-dp-save disabled={!dirty || pending} style={{ height: 18, fontSize: 10 }} onClick={save}>{t('common.save', '저장')}</button>
+        </span>
+      }>
+      {chk ? (
+        <div data-dp-check-result style={{ padding: '4px 6px', fontSize: 10, lineHeight: 1.6,
+          background: chk.violations.length ? 'var(--err-bg, #FDECEC)' : 'var(--panel, #F4F6FA)',
+          borderBottom: '1px solid var(--line)' }}>
+          {chk.violations.length ? (
+            <>
+              <b style={{ color: 'var(--err)' }}>⚠ {t('wp.dpViolation', '설계 오류조건 위반')} {chk.violations.length}건</b>
+              {chk.violations.map((v) => (
+                <div key={v.no} data-dp-violation>· <b>{v.no}</b> — {v.rule} ({v.detail})</div>
+              ))}
+            </>
+          ) : (
+            <span style={{ color: 'var(--run)' }}>✓ {t('wp.dpNoViolation', '오류조건 위반 없음')} — {t('wp.dpChecked', '점검')} {chk.checked}건</span>
+          )}
+          {chk.unevaluated.length ? (
+            <div style={{ color: 'var(--txt-mute)', marginTop: 2 }}>
+              {t('wp.dpUneval', '미평가')} {chk.unevaluated.length}건: {chk.unevaluated.map((u) => `${u.no}(${u.detail})`).join(' · ')}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div data-design-priority style={{ overflow: 'auto' }}>
         <table className="g" style={{ width: '100%', fontSize: 10 }}>
           <thead><tr>
@@ -43,8 +82,13 @@ export function DesignPriorityPanel({ code, initial }: { code: string; initial: 
             <th>{t('wp.dpBase', '설계 기준점 설정')}</th><th>{t('wp.dpError', '설계 오류 체크')}</th><th>{t('wp.remarksCol', '비고')}</th>
           </tr></thead>
           <tbody>{rows.map((r) => (
-            <tr key={r.no}>
-              <td className="c code">{r.no}</td>
+            <tr key={r.no} {...(violated.has(r.no) ? { 'data-dp-row-violation': true } : {})}
+              style={violated.has(r.no) ? { background: 'var(--err-bg, #FDECEC)' } : undefined}>
+              <td className="c code">
+                {violated.has(r.no) ? <span title={t('wp.dpViolation', '설계 오류조건 위반')} style={{ color: 'var(--err)' }}>⚠ </span>
+                  : uneval.has(r.no) ? <span title={t('wp.dpUneval', '미평가')} style={{ color: 'var(--txt-mute)' }}>· </span> : null}
+                {r.no}
+              </td>
               <td className="c"><Chip tone={r.kind === 'KEY' ? 'info' : 'ok'}>{r.kind}</Chip></td>
               <td className="c">{numIn(r, 'designPriority')}</td>
               <td className="c">{numIn(r, 'dataPriority')}</td>

@@ -13765,6 +13765,74 @@ def design_params(drawing: str = "KDCR 3-13") -> list[dict[str, Any]]:
                  "basePoint": r[4], "errorCheck": r[5], "remarks": r[6]} for r in cur.fetchall()]
 
 
+_ERR_OPS = {">": lambda a, b: a > b, ">=": lambda a, b: a >= b,
+            "<": lambda a, b: a < b, "<=": lambda a, b: a <= b,
+            "=": lambda a, b: a == b, "<>": lambda a, b: a != b}
+
+
+def _eval_error_check(expr: str, own: float | None,
+                      values: dict[str, float]) -> tuple[bool | None, str]:
+    """U17 오류조건 평가 — '> 300' (자기 값) · 'A > 300' · 'A > B' 형태.
+
+    반환: (위반 여부, 사유). 판정 불가(값 미정·구문 밖)는 (None, 사유) — 경고가 아니라 '미평가'.
+    조건식은 '정상 범위'가 아니라 **오류 조건**이다(설계자가 '④ > 300' 을 오류로 기입) —
+    식이 참이면 위반.
+    """
+    e = expr.strip()
+    if not e:
+        return None, "미설정"
+    m = re.match(r"^\s*([A-Za-z][\w.]*)?\s*(<=|>=|<>|<|>|=)\s*([A-Za-z][\w.]*|-?\d+(?:\.\d+)?)\s*$", e)
+    if not m:
+        return None, f"구문 해석 불가: {e}"
+    lhs_name, op, rhs_raw = m.group(1), m.group(2), m.group(3)
+    lhs = values.get(lhs_name) if lhs_name else own
+    if lhs is None:
+        return None, f"좌변 값 미정({lhs_name or '자기 값'})"
+    try:
+        rhs = float(rhs_raw)
+    except ValueError:
+        rhs = values.get(rhs_raw)
+        if rhs is None:
+            return None, f"우변 값 미정({rhs_raw})"
+    return _ERR_OPS[op](lhs, rhs), f"{lhs:g} {op} {rhs:g}"
+
+
+@router.get("/drawings/dimensions/error-check")
+def design_error_check(drawing: str = "KDCR 3-13") -> dict[str, Any]:
+    """U17 잔여 — 오류조건 위반 판정 (Design Editor·Run 경고 연동).
+
+    각 치수의 error_check 식을 현재 치수값(variant_value)으로 평가한다.
+    violations = 식이 참인 항목(설계자가 기입한 '오류 조건'에 걸린 것),
+    unevaluated = 값 미정·구문 해석 불가(경고가 아니라 미평가로 정직 구분)."""
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT d.dim_label, COALESCE(d.error_check,''), d.variant_value
+               FROM dwg_dimension d JOIN dwg_drawing w ON w.drawing_id=d.drawing_id
+               WHERE d.tenant_id=%s AND w.drawing_no=%s ORDER BY d.dim_label""",
+            (tid, drawing.strip()))
+        rows = cur.fetchall()
+    values = {r[0]: float(r[2]) for r in rows if r[2] is not None}
+    violations: list[dict[str, Any]] = []
+    unevaluated: list[dict[str, Any]] = []
+    checked = 0
+    for label, expr, val in rows:
+        if not expr.strip():
+            continue
+        checked += 1
+        own = float(val) if val is not None else None
+        hit, why = _eval_error_check(expr, own, values)
+        item = {"no": label, "rule": expr.strip(), "detail": why,
+                "value": own}
+        if hit is None:
+            unevaluated.append(item)
+        elif hit:
+            violations.append(item)
+    return {"drawing": drawing, "checked": checked,
+            "violations": violations, "unevaluated": unevaluated,
+            "ok": not violations}
+
+
 @router.put("/drawings/dimensions/design-params", dependencies=[SETUP])
 def design_params_save(request: Request, body: DesignParamsSave) -> dict[str, Any]:
     """설계 파라미터 일괄 저장 (U17) — dim_label 기준 갱신."""

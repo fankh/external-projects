@@ -23,6 +23,21 @@ export interface DesignParamRow {
   basePoint: string; errorCheck: string; remarks: string
 }
 
+/** U17 잔여 — 오류조건 판정 결과 (Design Editor·Run 경고 연동). */
+export interface ErrorCheckItem { no: string; rule: string; detail: string; value: number | null }
+export interface ErrorCheckResult {
+  drawing: string; checked: number; ok: boolean
+  violations: ErrorCheckItem[]; unevaluated: ErrorCheckItem[]
+}
+
+export async function runErrorCheck(code: string): Promise<{ result?: ErrorCheckResult; error?: string }> {
+  try {
+    return { result: await apiServer<ErrorCheckResult>(`/drawings/dimensions/error-check?drawing=${encodeURIComponent(code)}`) }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '오류조건 점검 실패' }
+  }
+}
+
 export async function saveDesignParams(code: string, items: DesignParamRow[]): Promise<{ ok?: true; error?: string }> {
   try {
     await apiServer('/drawings/dimensions/design-params', {
