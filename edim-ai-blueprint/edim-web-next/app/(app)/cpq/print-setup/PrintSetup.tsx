@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { Btn, Chip, GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
 import { downloadRenderedXlsx, openRenderedPdf, printRenderedPdf, type RenderOpts } from '@/lib/pdf'
-import { publishForm } from './actions'
+import { publishForm, loadFormLayout, saveFormLayout } from './actions'
 
 const FORMS = ['Technical Report', '견적서 (CLT)', '작업지시서', '검사성적서']
 interface FormBox { id: number; label: string; x: number; y: number; w: number; h: number; dashed?: boolean }
@@ -28,7 +28,18 @@ export function PrintSetup() {
   const [form, setForm] = useState(FORMS[0])
   const [watermark, setWatermark] = useState(true)
   const [status, setStatus] = useState<'DRAFT' | 'PENDING'>('DRAFT')
-  const [boxes] = useState<FormBox[]>(DEFAULT_BOXES)
+  // U6 잔여 — 자리표시자 배치 편집(드래그 이동) + 영속 (tbx_ui_form, form_type=PRINT_FORM)
+  const [boxes, setBoxes] = useState<FormBox[]>(DEFAULT_BOXES)
+  const [layoutVer, setLayoutVer] = useState<number | null>(null)
+  const [layoutDirty, setLayoutDirty] = useState(false)
+  const dragRef = useRef<{ id: number; dx: number; dy: number } | null>(null)
+  useEffect(() => {
+    let alive = true
+    void loadFormLayout().then((r) => {
+      if (alive && r) { setBoxes(r.layout); setLayoutVer(r.version) }
+    })
+    return () => { alive = false }
+  }, [])
   const [selBox, setSelBox] = useState<number | null>(2)
   const [msg, setMsg] = useState<{ text: string; err?: boolean } | null>(null)
   const [pending, start] = useTransition()
@@ -86,7 +97,24 @@ export function PrintSetup() {
           <GroupBox title={t('printsetup.canvasTitle', '양식 캔버스 — [Data]/[그래프]/[Table] 자리표시자')} noPad>
             <div className="cvs" style={{ flex: 1, minHeight: 340 }}>
               {boxes.map((b) => (
-                <div key={b.id} className={`m2 ${selBox === b.id ? 'sel' : ''}`} style={{ left: b.x, top: b.y, width: b.w, height: b.h, borderStyle: b.dashed ? 'dashed' : undefined, fontSize: 9.5 }} onClick={() => setSelBox(b.id)}>{b.label}</div>
+                <div key={b.id} data-ps-box className={`m2 ${selBox === b.id ? 'sel' : ''}`}
+                  style={{ left: b.x, top: b.y, width: b.w, height: b.h, borderStyle: b.dashed ? 'dashed' : undefined, fontSize: 9.5, cursor: 'move' }}
+                  onClick={() => setSelBox(b.id)}
+                  onPointerDown={(e) => {
+                    e.currentTarget.setPointerCapture(e.pointerId)
+                    dragRef.current = { id: b.id, dx: e.clientX - b.x, dy: e.clientY - b.y }
+                    setSelBox(b.id)
+                  }}
+                  onPointerMove={(e) => {
+                    const d = dragRef.current
+                    if (!d || d.id !== b.id) return
+                    const nx = Math.max(0, Math.round(e.clientX - d.dx))
+                    const ny = Math.max(0, Math.round(e.clientY - d.dy))
+                    setBoxes((bs) => bs.map((x) => (x.id === b.id ? { ...x, x: nx, y: ny } : x)))
+                    setLayoutDirty(true)
+                  }}
+                  onPointerUp={(e) => { e.currentTarget.releasePointerCapture(e.pointerId); dragRef.current = null }}
+                >{b.label}</div>
               ))}
               {watermark ? <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, color: 'rgba(200,40,40,.10)', fontWeight: 800, transform: 'rotate(-20deg)', pointerEvents: 'none' }}>CONFIDENTIAL</div> : null}
             </div>
@@ -95,7 +123,27 @@ export function PrintSetup() {
         </div>
         <div className="split-h" />
         <div className="side-scroll" style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <GroupBox title={t('printsetup.placeholderList', '자리표시자 목록')} noPad>
+          <GroupBox title={t('printsetup.placeholderList', '자리표시자 목록')} noPad
+            right={
+              <span style={{ display: 'inline-flex', gap: 3 }}>
+                <button className="b" data-ps-layout-reset style={{ height: 17, fontSize: 9.5 }}
+                  title={t('printsetup.layoutResetTip', '기본 배치로 되돌림 (저장해야 반영)')}
+                  onClick={() => { setBoxes(DEFAULT_BOXES); setLayoutDirty(true) }}>↺</button>
+                <button className="b run" data-ps-layout-save disabled={!layoutDirty || pending} style={{ height: 17, fontSize: 9.5 }}
+                  title={t('printsetup.layoutSaveTip', '자리표시자 배치를 저장 (드래그로 이동)')}
+                  onClick={() => start(async () => {
+                    const r = await saveFormLayout(boxes)
+                    if (r.error) { setMsg({ text: r.error, err: true }); return }
+                    setLayoutDirty(false); setLayoutVer(r.version ?? null)
+                    setMsg({ text: `${t('printsetup.layoutSaved', '자리표시자 배치 저장')} ✓ v${r.version}` })
+                  })}>{t('common.save', '저장')}</button>
+              </span>
+            }>
+            <div style={{ fontSize: 9.5, color: 'var(--txt-mute)', padding: '2px 5px' }}>
+              {t('printsetup.layoutHint', '캔버스에서 드래그해 위치 조정')}
+              {layoutVer != null ? ` · v${layoutVer}` : ` · ${t('printsetup.layoutDefault', '기본 배치')}`}
+              {layoutDirty ? ` · ${t('common.unsaved', '미저장')}` : ''}
+            </div>
             <table className="g"><thead><tr><th>ID</th><th>Placeholder</th></tr></thead>
               <tbody>{boxes.map((b) => (
                 <tr key={b.id} className={selBox === b.id ? 'sel' : undefined} onClick={() => setSelBox(b.id)}><td className="code">{b.id}</td><td style={{ fontSize: 10 }}>{b.label}</td></tr>
