@@ -122,11 +122,14 @@ def main():
     envs = [
         ("검수 환경", "URL", "(운영/검수 환경 확정 후 기입 — 개발: https://edim.seekerslab.com)"),
         ("검수 환경", "서버", "(기입) — 개발 서버: Ubuntu 24.04, Docker, PostgreSQL 16, MinIO, nginx/HTTPS"),
-        ("검수 환경", "DB", "PostgreSQL 16 — 스키마 53테이블 (ddl/edim_schema.sql)"),
+        ("검수 환경", "DB", "PostgreSQL 16 — base 53테이블 + alembic 증분 (2026-07-25 현재 108테이블, /system/status 로 확인)"),
         ("클라이언트", "브라우저", "Chrome/Edge 최신 (REQ-N-017)"),
         ("클라이언트", "모바일", "Android/iOS (P5 범위)"),
         ("계정", "확인용 계정", "PLATFORM/ADMIN/SETUP/GENERAL 각 1 (권한승인정의서 매트릭스 기준)"),
         ("데이터", "확인 데이터", "이행 데이터 또는 표준 샘플 (KDCR 3-13 코드 체계 — verify_runtime.sql 준용)"),
+        ("검수 근거", "자동 검증 자산", "라이브 스위트 115종(tests/live_all.py) · 유닛 63케이스(backend/tests, CI) · "
+         "시연 8단계(live_demo_scenario) · 성능 실측(load_baseline) — 항목별 수기 확인의 보조 근거로 첨부 가능"),
+        ("검수 근거", "재현 방법", "PYTHONUTF8=1 py tests/live_all.py (전 스위트) · 개별 스위트는 tests/README.md 매핑표 참조"),
     ]
     for row in envs:
         ws.append(list(row))
