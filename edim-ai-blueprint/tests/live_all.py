@@ -36,6 +36,23 @@ def wait_ready(stable=2, timeout=180):
     print("WARN — /health 준비 대기 타임아웃 (배포 중일 수 있음)")
     return False
 
+
+def quick_ready() -> None:
+    """9.48 — 스위트별 배포창 가드: 1회 프로브로 건강하면 통과(~0.1s),
+    아니면 wait_ready() 로 재기동 창이 닫힐 때까지 대기.
+
+    9.46 플릿 실측: 시작 시 1회 확인만으로는 플릿 중간에 autodeploy 가 겹치면
+    그 구간 스위트들이 503 으로 오탐(6종) — 재시도도 같은 창 안이라 무효였다.
+    """
+    try:
+        with urllib.request.urlopen(HEALTH, timeout=5) as r:
+            if b'"db":true' in r.read():
+                return
+    except Exception:  # noqa: BLE001
+        pass
+    print("배포창 감지 — /health 회복 대기 …")
+    wait_ready(timeout=300)
+
 SUITES = [
     "live_pw_sweep.py",         # PW 통합 스윕 — 전 화면 로드·상호작용·쓰기/결재 왕복·명령줄 (2026-07-19)
     "live_b15_regression.py",   # 인증·RBAC 먼저 (다른 스위트의 전제)
@@ -195,10 +212,12 @@ def run_suite(suite: str) -> tuple[bool, str]:
 
 for suite in SUITES:
     print(f"\n{'=' * 60}\n▶ {suite}\n{'=' * 60}")
+    quick_ready()   # 9.48 — 플릿 중간 배포창(재기동 503)과 스위트 충돌 방지
     passed, tail = run_suite(suite)
     # 순차 13개 브라우저 스위트 부하로 인한 산발 타임아웃 — 1회 재시도 (재시도 여부는 표기)
     if not passed:
         print(f"\n--- {suite} 재시도 (부하 플레이크 가능) ---")
+        quick_ready()   # 503 기인 실패라면 창이 닫힌 뒤 재시도해야 유효
         passed, tail = run_suite(suite)
         if passed:
             tail += " (retry)"
@@ -254,6 +273,7 @@ results.append(("check_governance.py", p.returncode == 0, ""))
 
 # check_i18n_en — 라이브 대상 (BASE env 지원)
 print(f"\n{'=' * 60}\n▶ check_i18n_en.py (live)\n{'=' * 60}")
+quick_ready()   # 9.48 — 라이브 브라우저 체크도 배포창 가드
 p = subprocess.run([sys.executable, os.path.join(HERE, "check_i18n_en.py")],
                    env={**env, "BASE": "https://edim.seekerslab.com/cpq"},
                    capture_output=True, text=True, encoding="utf-8", errors="replace",
@@ -263,6 +283,7 @@ results.append(("check_i18n_en.py", p.returncode == 0, ""))
 
 # check_a11y_names — 인터랙티브 접근가능 이름 (9.40, Playwright 62화면)
 print(f"\n{'=' * 60}\n▶ check_a11y_names.py (live)\n{'=' * 60}")
+quick_ready()   # 9.48 — 라이브 브라우저 체크도 배포창 가드
 p = subprocess.run([sys.executable, os.path.join(HERE, "check_a11y_names.py")],
                    env=env, capture_output=True, text=True, encoding="utf-8",
                    errors="replace", timeout=900)
