@@ -12699,6 +12699,109 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
     return {"hierarchyId": node_id, "newAddress": new_addr, "moved": moved, "relinked": relinked}
 
 
+class HierarchyCopyRequest(BaseModel):
+    targetAddress: str                  # 복제본 최상위 노드의 새 주소 (전체 경로)
+    newName: str = ""                   # 미지정 시 원본 이름 유지
+
+
+_HIERARCHY_COPY_CAP = 300
+
+
+@router.post("/hierarchy/nodes/{node_id}/copy", status_code=201, dependencies=[SETUP])
+def hierarchy_node_copy(node_id: int, request: Request,
+                        body: HierarchyCopyRequest) -> dict[str, Any]:
+    """노드 구조 복제 (U18) — 하위 트리를 통째로 새 주소에 복사한다.
+
+    유사 제품 구성을 기존 구조에서 시작하는 실무 흐름. 종전에는 노드를 하나씩
+    다시 등록하는 방법밖에 없었다.
+
+    복제되지 **않는** 것: 승인 상태(전부 DRAFT 로 시작 — 원본 승인을 물려받으면
+    검토 없이 승인된 구조가 생긴다), 잠금, 시스템 노드 표시.
+    상한(300 노드)을 넘으면 **일부만 복사하지 않고 거부**한다 — 절반만 복사된 구조는
+    복사된 줄 알고 쓰게 되어 조용한 누락보다 나쁘다.
+    """
+    target = body.targetAddress.strip()
+    if not target:
+        raise HTTPException(422, detail="대상 주소는 필수입니다")
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT address, node_name, tree_type FROM sys_hierarchy
+               WHERE tenant_id=%s AND hierarchy_id=%s""", (tid, node_id))
+        src = cur.fetchone()
+        if not src:
+            raise HTTPException(404, detail=f"노드 없음: {node_id}")
+        src_addr, src_name, tree_type = src
+
+        if target == src_addr:
+            raise HTTPException(409, detail="원본과 같은 주소로는 복사할 수 없습니다")
+        if target.startswith(src_addr + "/"):
+            raise HTTPException(
+                409, detail="자기 하위로는 복사할 수 없습니다 — 구조가 무한히 중첩됩니다")
+        cur.execute("SELECT 1 FROM sys_hierarchy WHERE tenant_id=%s AND address=%s",
+                    (tid, target))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"주소 중복: {target}")
+
+        # 새 상위 = 대상 주소의 부모 경로 (최상위면 None)
+        parent_addr = target.rsplit("/", 1)[0]
+        new_parent_id = None
+        if parent_addr:
+            cur.execute(
+                "SELECT hierarchy_id FROM sys_hierarchy WHERE tenant_id=%s AND address=%s",
+                (tid, parent_addr))
+            p = cur.fetchone()
+            if not p:
+                raise HTTPException(422, detail=f"상위 주소 없음: {parent_addr}")
+            new_parent_id = p[0]
+
+        # 원본 서브트리를 먼저 스냅샷한다 — 삽입하면서 읽으면 복사본을 다시 복사한다
+        cur.execute(
+            """SELECT hierarchy_id, parent_id, address, node_name, symbol, sort_order,
+                      remarks, remark, color
+               FROM sys_hierarchy
+               WHERE tenant_id=%s AND (hierarchy_id=%s OR address LIKE %s)
+               ORDER BY length(address), address""",
+            (tid, node_id, src_addr + "/%"))
+        rows = cur.fetchall()
+        if len(rows) > _HIERARCHY_COPY_CAP:
+            raise HTTPException(
+                409, detail=f"복제 대상이 {len(rows)}개로 상한({_HIERARCHY_COPY_CAP})을 넘습니다 — "
+                            f"하위 단계를 나눠 복사하십시오")
+
+        # 대상 주소가 이미 쓰이는 하위 주소와 충돌하는지 미리 확인 (부분 삽입 방지)
+        new_addrs = [target + r[2][len(src_addr):] for r in rows]
+        cur.execute(
+            "SELECT address FROM sys_hierarchy WHERE tenant_id=%s AND address = ANY(%s)",
+            (tid, new_addrs))
+        clash = [r[0] for r in cur.fetchall()]
+        if clash:
+            raise HTTPException(409, detail=f"주소 중복 {len(clash)}건: {clash[0]} 외")
+
+        id_map: dict[int, int] = {}
+        for old_id, old_parent, addr, name, symbol, sort_order, remarks, remark, color in rows:
+            new_addr = target + addr[len(src_addr):]
+            is_root = old_id == node_id
+            cur.execute(
+                """INSERT INTO sys_hierarchy
+                   (tenant_id, parent_id, tree_type, node_name, symbol, address, sort_order,
+                    remarks, remark, color, approval_status, is_system, is_locked, created_by)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'DRAFT',false,false,%s)
+                   RETURNING hierarchy_id""",
+                (tid, new_parent_id if is_root else id_map.get(old_parent),
+                 tree_type, (body.newName.strip()[:100] if (is_root and body.newName.strip())
+                             else name),
+                 symbol, new_addr[:500], sort_order, remarks, remark, color,
+                 request.state.login))
+            id_map[old_id] = cur.fetchone()[0]
+
+        root_id = id_map[node_id]
+        _audit(cur, tid, "sys_hierarchy", root_id, "COPY", request.state.user_id,
+               {"from": src_addr, "to": target, "nodes": len(rows)})
+    return {"hierarchyId": root_id, "address": target, "copied": len(rows),
+            "sourceAddress": src_addr, "sourceName": src_name}
+
+
 @router.delete("/hierarchy/nodes/{node_id}", dependencies=[SETUP])
 def hierarchy_node_delete(node_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:

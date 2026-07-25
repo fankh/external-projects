@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Chip, GroupBox } from '@/components/controls'
 import { ApprovalStrip } from '@/components/ApprovalStrip'
 import { useI18n } from '@/components/I18nProvider'
-import { addHierarchyNode, deleteHierarchyNode, getNodeImpact, getNodeInfo, moveHierarchyNode, renameHierarchyNode, updateHierarchyAttrs, validateHierarchy, type ActState, type NodeImpact, type NodeInfo, type ValidateResult } from './hierarchyActions'
+import { addHierarchyNode, deleteHierarchyNode, getNodeImpact, getNodeInfo, moveHierarchyNode, renameHierarchyNode, copyHierarchyNode, updateHierarchyAttrs, validateHierarchy, type ActState, type NodeImpact, type NodeInfo, type ValidateResult } from './hierarchyActions'
 
 export interface HierarchyNode {
   id: number; parentId: number | null; name: string
@@ -139,13 +139,14 @@ export function HierarchyPanel({ nodes, treeType }: { nodes: HierarchyNode[]; tr
           border: '1px solid var(--line-strong)', boxShadow: '0 4px 12px rgba(20,26,40,.25)', fontSize: 11, minWidth: 130 }}
           onClick={(e) => e.stopPropagation()}>
           {[
-            { label: '✂ 잘라내기 (이동)', act: () => { setCutId(ctx.node.id); setCtx(null) } },
-            ...(cutId != null && cutId !== ctx.node.id ? [{ label: '📥 여기에 붙여넣기', act: () => { pasteInto(ctx.node); setCtx(null) } }] : []),
-            { label: 'ℹ 속성·정보', act: () => { openInfo(ctx.node.id); setCtx(null) } },
-            { label: '🔎 영향 분석 (사용처)', act: () => { openImpact(ctx.node.id); setCtx(null) } },
-            { label: '🎨 속성 편집 (비고·색·잠금)', act: () => { openAttrs(ctx.node); setCtx(null) } },
-            { label: ctx.node.locked ? '🔓 잠금 해제' : '🔒 잠금', act: () => { setCtx(null); start(async () => setSt(await updateHierarchyAttrs(ctx.node.id, { locked: !ctx.node.locked }))) } },
-            { label: '🗑 삭제', act: () => { setCtx(null); if (confirm(`${ctx.node.address} ${ctx.node.name} 을 삭제하시겠습니까?`)) start(async () => { setSt(await deleteHierarchyNode(ctx.node.id)); setSelId(null) }) } },
+            { label: `✂ ${t('hier.ctxCut', '잘라내기 (이동)')}`, act: () => { setCutId(ctx.node.id); setCtx(null) } },
+            ...(cutId != null && cutId !== ctx.node.id ? [{ label: `📥 ${t('hier.ctxPaste', '여기에 붙여넣기')}`, act: () => { pasteInto(ctx.node); setCtx(null) } }] : []),
+            { label: `⧉ ${t('hier.ctxCopy', '구조 복제')}`, act: () => { const n = ctx.node; setCtx(null); const to = prompt(`${n.address} — ${t('hier.copyPrompt', '하위 구조를 복제합니다. 새 주소를 전체 경로로 입력하십시오 (상위 경로는 이미 있어야 합니다)')}`, `${n.address}-copy`); if (to && to.trim()) start(async () => setSt(await copyHierarchyNode(n.id, to, ''))) } },
+            { label: `ℹ ${t('hier.ctxInfo', '속성·정보')}`, act: () => { openInfo(ctx.node.id); setCtx(null) } },
+            { label: `🔎 ${t('hier.ctxImpact', '영향 분석 (사용처)')}`, act: () => { openImpact(ctx.node.id); setCtx(null) } },
+            { label: `🎨 ${t('hier.ctxAttrs', '속성 편집 (비고·색·잠금)')}`, act: () => { openAttrs(ctx.node); setCtx(null) } },
+            { label: ctx.node.locked ? `🔓 ${t('hier.ctxUnlock', '잠금 해제')}` : `🔒 ${t('hier.ctxLock', '잠금')}`, act: () => { setCtx(null); start(async () => setSt(await updateHierarchyAttrs(ctx.node.id, { locked: !ctx.node.locked }))) } },
+            { label: `🗑 ${t('common.delete', '삭제')}`, act: () => { setCtx(null); if (confirm(`${ctx.node.address} ${ctx.node.name} 을 삭제하시겠습니까?`)) start(async () => { setSt(await deleteHierarchyNode(ctx.node.id)); setSelId(null) }) } },
           ].map((m) => (
             <div key={m.label} style={{ padding: '5px 12px', cursor: 'pointer' }}
               onMouseEnter={(e) => { e.currentTarget.style.background = '#EDF2FA' }}

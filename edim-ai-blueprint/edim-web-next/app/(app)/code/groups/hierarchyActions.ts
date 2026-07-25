@@ -74,6 +74,20 @@ export async function moveHierarchyNode(id: number, targetParentId: number | nul
   }
 }
 
+/** U18 — 구조 복제. 대상 주소는 전체 경로이고, 상위 경로가 실재해야 한다(서버 422). */
+export async function copyHierarchyNode(id: number, targetAddress: string, newName: string): Promise<ActState> {
+  const addr = targetAddress.trim()
+  if (!addr.startsWith('/')) return { error: '대상 주소는 / 로 시작하는 전체 경로여야 합니다 (예: /M/ENG/새구성)' }
+  try {
+    const r = await apiServer<{ address: string; copied: number; sourceAddress: string }>(
+      `/hierarchy/nodes/${id}/copy`, { method: 'POST', body: JSON.stringify({ targetAddress: addr, newName: newName.trim() }) })
+    revalidatePath('/code/groups')
+    return { ok: `복제 ✓ — ${r.sourceAddress} → ${r.address} (${r.copied}노드, 전부 DRAFT 로 생성)` }
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : '복제 실패' }
+  }
+}
+
 export interface ImpactRef { table: string; label: string; count: number; samples: string[] }
 export interface NodeImpact {
   nodeId: number; address: string; name: string; descendants: number
