@@ -103,15 +103,23 @@ export async function delSlotMap(relId: number, slotMapId: number): Promise<{ ok
 /** U20 잔여 — child 코드별 연결 도면(DXF) 조회. 연결 없는 코드는 맵에서 제외(정직 표시). */
 export interface ChildDrawingFile { fileId: number; fileName: string; drawingName: string }
 
+const DRAWING_FILES_CHUNK = 50   // 서버 상한과 동일 — 초과분은 버리지 않고 나눠 조회한다
+
 export async function childDrawingFiles(codes: string[]): Promise<Record<string, ChildDrawingFile>> {
-  const uniq = [...new Set(codes.map((c) => c.trim()).filter(Boolean))].slice(0, 50)
+  const uniq = [...new Set(codes.map((c) => c.trim()).filter(Boolean))]
   if (!uniq.length) return {}
+  const out: Record<string, ChildDrawingFile> = {}
   try {
-    const r = await apiServer<{ files: Record<string, ChildDrawingFile> }>(
-      `/codes/drawing-files?codes=${encodeURIComponent(uniq.join(','))}`)
-    return r.files ?? {}
+    // child 가 상한을 넘어도 일부만 조회하고 나머지를 '도면 없음'으로 오표시하지 않도록 청크 분할
+    for (let i = 0; i < uniq.length; i += DRAWING_FILES_CHUNK) {
+      const chunk = uniq.slice(i, i + DRAWING_FILES_CHUNK)
+      const r = await apiServer<{ files: Record<string, ChildDrawingFile> }>(
+        `/codes/drawing-files?codes=${encodeURIComponent(chunk.join(','))}`)
+      Object.assign(out, r.files ?? {})
+    }
+    return out
   } catch (e) {
-    if (e instanceof ApiError) return {}
+    if (e instanceof ApiError) return out   // 일부라도 확보했으면 그만큼은 표시
     throw e
   }
 }

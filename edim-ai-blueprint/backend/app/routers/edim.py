@@ -5803,16 +5803,23 @@ def process_defs() -> dict[str, Any]:
     return {"defs": defs, "edges": edges}
 
 
+_DRAWING_FILES_CAP = 50   # 한 요청당 조회 코드 수 상한 (초과분은 truncated 로 고지)
+
+
 @router.get("/codes/drawing-files")
 def codes_drawing_files(codes: str = "") -> dict[str, Any]:
     """U20 잔여 — child 코드별 연결 도면(DXF) 조회 (Relationship child 도면 열기).
 
     코드(main_code)와 도면번호(drawing_no)가 같은 도면의 DXF 파일을 코드당 1건(최신) 매핑한다.
     연결이 없는 코드는 키 자체를 넣지 않는다 — 프런트가 '연결 도면 없음'을 정직하게 표시하도록.
-    `codes` 는 콤마 구분(최대 50개)."""
-    wanted = [c.strip() for c in codes.split(",") if c.strip()][:50]
+
+    `codes` 는 콤마 구분이며 한 번에 최대 `_DRAWING_FILES_CAP` 개를 조회한다. 초과분은 **조용히 버리지 않고**
+    `truncated` 로 개수를 돌려준다 — 그렇지 않으면 '조회하지 않음'이 '도면 없음'으로 오표시된다."""
+    asked = [c.strip() for c in codes.split(",") if c.strip()]
+    wanted = asked[:_DRAWING_FILES_CAP]
+    truncated = len(asked) - len(wanted)      # 조용한 절단 금지 — 초과분은 응답에 명시
     if not wanted:
-        return {"files": {}, "requested": 0}
+        return {"files": {}, "requested": 0, "truncated": 0}
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -5824,7 +5831,7 @@ def codes_drawing_files(codes: str = "") -> dict[str, Any]:
                ORDER BY w.drawing_no, f.file_id DESC""", (tid, wanted))
         files = {r[0]: {"fileId": r[1], "fileName": r[2], "drawingName": r[3]}
                  for r in cur.fetchall()}
-    return {"files": files, "requested": len(wanted)}
+    return {"files": files, "requested": len(wanted), "truncated": truncated}
 
 
 @router.get("/codes/{code}/referencers")

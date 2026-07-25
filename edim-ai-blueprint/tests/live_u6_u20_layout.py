@@ -61,6 +61,12 @@ else:
 
 ok("빈 요청 → 빈 맵", call("GET", "/codes/drawing-files?codes=", tok)["files"] == {})
 
+# 상한 초과분을 조용히 버리지 않고 고지하는지 (9.79) — '조회 안 함' 이 '도면 없음' 으로 오표시되면 안 된다
+many = ",".join(f"NOCODE-{i}" for i in range(60))
+r_cap = call("GET", f"/codes/drawing-files?codes={urllib.parse.quote(many)}", tok)
+ok("상한 초과 시 truncated 고지", r_cap.get("truncated") == 10)
+ok("상한 내 요청은 truncated 0", r_cap.get("requested") == 50)
+
 # ── U6 — 자리표시자 배치 영속 ──
 try:
     before = call("GET", f"/toolbox/forms/{FORM}", tok)
