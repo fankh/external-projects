@@ -4710,12 +4710,15 @@ def create_document(request: Request, body: DocCreate) -> dict[str, Any]:
             raise HTTPException(409, detail=f"중복 — DOC No {body.docNo} 이미 등록됨")
         cur.execute("SELECT user_name FROM sys_user WHERE user_id=%s", (request.state.user_id,))
         person = (cur.fetchone() or ["-"])[0]
+        # 헬퍼가 같은 커서로 조회하므로 **execute 인자 안에서 호출하지 않는다** —
+        # 결과셋이 갈리는 순서 의존이 생긴다(8.6 규약).
+        init_version = _doc_initial_version(cur)
         cur.execute(
             """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, released_status,
                version, person, management_grade)
                VALUES (%s,%s,%s,%s,'SET_UP',%s,%s,%s) RETURNING doc_control_id""",
             (tid, body.docNo.strip(), body.title.strip(), body.docType.strip()[:20],
-             _doc_initial_version(cur), person, body.grade.strip()[:10]))
+             init_version, person, body.grade.strip()[:10]))
         doc_id = cur.fetchone()[0]
         cur.execute(
             """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
@@ -4761,12 +4764,13 @@ def register_output(request: Request, body: RegisterOutput) -> dict[str, Any]:
                            FROM doc_control WHERE tenant_id=%s AND doc_type=%s
                              AND doc_no ~ (%s||'-\d+$')""", (dt, tid, dt, dt))
             doc_no = f"{dt}-{cur.fetchone()[0]:04d}"
+            init_version = _doc_initial_version(cur)   # 8.6 — execute 인자 안에서 호출 금지
             cur.execute(
                 """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, ref_type,
                    released_status, version, person, management_grade)
                    VALUES (%s,%s,%s,%s,'RUN_OUTPUT','SET_UP',%s,%s,%s)
                    ON CONFLICT (tenant_id, doc_no, version) DO NOTHING RETURNING doc_control_id""",
-                (tid, doc_no, title, dt, _doc_initial_version(cur), person, grade))
+                (tid, doc_no, title, dt, init_version, person, grade))
             row = cur.fetchone()
             if row:
                 doc_id = row[0]
