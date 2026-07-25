@@ -10,12 +10,18 @@
 실행: PYTHONUTF8=1 py tests/live_pw_sweep.py
 """
 import json
+import os
 import re
 import urllib.request
 
 from playwright.sync_api import sync_playwright
 
-BASE = "https://edimsol.com"
+# 이 스위트만 edimsol.com 을 본다 — **의도된 것**. nginx 가 3도메인(edim.seekerslab.com·
+# edimsol.com·www)을 같은 서버로 서비스하는데, 나머지 120여 스위트가 전부 seekerslab 을 보므로
+# 고객 대면 도메인(edimsol)의 인증서·리다이렉트·프록시 경로를 검증하는 곳이 여기뿐이다.
+# 도메인을 통일하지 말 것 — 통일하면 edimsol 경로가 무검증 상태가 된다.
+# 디버깅 시에만 BASE 로 덮어쓴다: BASE=https://edim.seekerslab.com py tests/live_pw_sweep.py
+BASE = os.getenv("BASE", "https://edimsol.com").rstrip("/")
 API = f"{BASE}/api/v1"
 n = 0
 
