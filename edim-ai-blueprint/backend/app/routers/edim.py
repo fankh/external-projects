@@ -4754,6 +4754,24 @@ def unlock_user(login: str, request: Request) -> dict[str, Any]:
     return {"login": login, "status": "ACTIVE"}
 
 
+def _assert_admin_remains(cur, tid: int, uid: int, *, action: str) -> None:
+    """대상 사용자를 제외해도 **로그인 가능한 관리자가 최소 1명 남는지** 확인한다.
+
+    남지 않으면 그 테넌트는 사용자·권한을 아무도 손댈 수 없는 상태가 된다 —
+    비밀번호 재설정도, 잠금 해제도, 레벨 복구도 전부 ADMIN 전용이므로
+    **제품 안에서는 되돌릴 방법이 없다**(DB 직접 수정 필요). 그래서 사전에 막는다.
+    본인 강등도 같은 사고를 만들 수 있어(본인 삭제·비활성만 막혀 있었다) 동일하게 검사한다.
+    """
+    cur.execute(
+        """SELECT count(*) FROM sys_user
+           WHERE tenant_id=%s AND user_id<>%s AND status='ACTIVE'
+             AND user_level IN ('ADMIN', 'PLATFORM')""", (tid, uid))
+    if (cur.fetchone() or (0,))[0] == 0:
+        raise HTTPException(
+            409, detail=f"마지막 관리자입니다 — {action} 하면 이 고객사의 사용자·권한을 "
+                        f"관리할 수 없게 됩니다. 다른 계정을 ADMIN 으로 지정한 뒤 진행하십시오")
+
+
 class PasswordResetRequest(BaseModel):
     newPassword: str = ""      # 미지정 시 서버가 임시 비밀번호를 생성한다
 
@@ -4825,6 +4843,8 @@ def change_user_level(login: str, request: Request, body: LevelChangeRequest) ->
             raise HTTPException(404, detail=f"사용자 없음: {login}")
         if row[1] == level:
             raise HTTPException(409, detail=f"{login} 은 이미 {level} 입니다")
+        if row[1] in ("ADMIN", "PLATFORM") and level not in ("ADMIN", "PLATFORM"):
+            _assert_admin_remains(cur, tid, row[0], action=f"{level} 로 강등")
         cur.execute(
             """UPDATE sys_user SET user_level=%s, updated_by=%s, updated_at=now()
                WHERE user_id=%s""", (level, request.state.login, row[0]))
@@ -4932,6 +4952,9 @@ def delete_user(login: str, request: Request) -> dict[str, Any]:
         uid = row[0]
         if uid == request.state.user_id:
             raise HTTPException(422, detail="본인 계정은 삭제할 수 없습니다")
+        cur.execute("SELECT user_level FROM sys_user WHERE user_id=%s", (uid,))
+        if (cur.fetchone() or ("",))[0] in ("ADMIN", "PLATFORM"):
+            _assert_admin_remains(cur, tid, uid, action="삭제")
         for tbl, col, label in (
             ("sys_history", "actor_id", "감사 이력"),
             ("sys_approval_request", "requester_id", "승인 요청"),
@@ -12343,6 +12366,15 @@ def user_active(login: str, request: Request, body: ActivePatch) -> dict[str, An
     new_status = "ACTIVE" if body.active else "DISABLED"
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        if not body.active:
+            cur.execute(
+                "SELECT user_id, user_level FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+                (tid, login))
+            tgt = cur.fetchone()
+            if not tgt:
+                raise HTTPException(404, detail=f"사용자 없음: {login}")
+            if tgt[1] in ("ADMIN", "PLATFORM"):
+                _assert_admin_remains(cur, tid, tgt[0], action="비활성화")
         cur.execute(
             """UPDATE sys_user SET status=%s, updated_at=now()
                WHERE tenant_id=%s AND login_id=%s RETURNING user_id""",

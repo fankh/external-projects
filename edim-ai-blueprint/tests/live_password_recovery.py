@@ -109,6 +109,46 @@ with sync_playwright() as pw:
             data={"currentPassword": "Chosen!2345", "newPassword": "Self!23456"}).ok)
     ok("변경된 비밀번호로 로그인", login(LOGIN, "Self!23456").ok)
 
+    # ── 7. 마지막 관리자 보호 (9.99) ──
+    # 관리자가 0명이 되면 비밀번호 재설정·잠금 해제·레벨 복구가 전부 ADMIN 전용이라
+    # 제품 안에서 되돌릴 방법이 사라진다. 강등·비활성·삭제 3경로 모두 막혀야 한다.
+    r = call("GET", "/users", admin)
+    ok("사용자 목록 조회", r.ok, f"status={r.status}")
+    users = r.json()
+    users = users if isinstance(users, list) else users.get("items", [])
+    admins = [u for u in users
+              if str(u.get("level") or u.get("userLevel") or "") in ("ADMIN", "PLATFORM")
+              and str(u.get("status") or "ACTIVE") == "ACTIVE"]
+    ok("활성 관리자 존재", len(admins) >= 1, f"{len(admins)}명")
+
+    # 가드가 **과잉 차단**하지 않는지 결정적으로 확인한다 — 임시 ADMIN 을 만들어
+    # 관리자가 2명 이상인 상태에서 강등·삭제가 정상 동작하는지 본다.
+    TMP = "adm_tmp01"
+    call("DELETE", f"/users/{TMP}", admin)          # 앞선 실행 잔재 정리
+    r = call("POST", "/users", admin, data={
+        "login": TMP, "name": "임시관리자", "department": "QA",
+        "level": "ADMIN", "initialPassword": "TmpAdm!2345"})
+    ok("임시 ADMIN 생성", r.status in (201, 409), f"status={r.status}")
+    ok("관리자 2명 이상일 때 강등 허용 — 가드 과잉 차단 없음",
+       call("PATCH", f"/users/{TMP}/level", admin, data={"level": "GENERAL"}).ok)
+    ok("임시 계정 삭제", call("DELETE", f"/users/{TMP}", admin).status in (200, 204, 404, 409))
+
+    if len(admins) == 1:
+        last = admins[0].get("login") or admins[0].get("loginId")
+        ok("마지막 관리자 강등 차단(409)",
+           call("PATCH", f"/users/{last}/level", admin,
+                data={"level": "GENERAL"}).status == 409)
+        ok("마지막 관리자 비활성 차단(409)",
+           call("PATCH", f"/users/{last}/active", admin,
+                data={"active": False}).status == 409)
+        ok("마지막 관리자 삭제 차단(409)",
+           call("DELETE", f"/users/{last}", admin).status == 409)
+    else:
+        # 관리자가 2명 이상이면 '마지막 1명' 조건이 성립하지 않는다 —
+        # 조용히 통과시키지 말고 무엇을 검사하지 못했는지 남긴다.
+        print(f"SKIP 마지막 관리자 차단 3종 — 활성 관리자 {len(admins)}명 "
+              f"(1명일 때만 성립하는 조건)")
+
     # 다음 실행을 위해 알려진 값으로 되돌린다
     call("POST", f"/users/{LOGIN}/reset-password", admin,
          data={"newPassword": "InitPw!2345"})
