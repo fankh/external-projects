@@ -12726,12 +12726,12 @@ def hierarchy_node_copy(node_id: int, request: Request,
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT address, node_name, tree_type FROM sys_hierarchy
+            """SELECT address, node_name FROM sys_hierarchy
                WHERE tenant_id=%s AND hierarchy_id=%s""", (tid, node_id))
         src = cur.fetchone()
         if not src:
             raise HTTPException(404, detail=f"노드 없음: {node_id}")
-        src_addr, src_name, tree_type = src
+        src_addr, src_name = src
 
         if target == src_addr:
             raise HTTPException(409, detail="원본과 같은 주소로는 복사할 수 없습니다")
@@ -12758,7 +12758,7 @@ def hierarchy_node_copy(node_id: int, request: Request,
         # 원본 서브트리를 먼저 스냅샷한다 — 삽입하면서 읽으면 복사본을 다시 복사한다
         cur.execute(
             """SELECT hierarchy_id, parent_id, address, node_name, symbol, sort_order,
-                      remarks, remark, color
+                      remarks, remark, color, tree_type
                FROM sys_hierarchy
                WHERE tenant_id=%s AND (hierarchy_id=%s OR address LIKE %s)
                ORDER BY length(address), address""",
@@ -12778,28 +12778,50 @@ def hierarchy_node_copy(node_id: int, request: Request,
         if clash:
             raise HTTPException(409, detail=f"주소 중복 {len(clash)}건: {clash[0]} 외")
 
+        # sys_hierarchy 는 UNIQUE(parent_id, node_name) — 같은 상위에 같은 이름이 둘일 수 없다.
+        # 이름을 지정하지 않으면 **대상 주소의 마지막 구간**을 이름으로 쓴다(주소와 이름이 어긋나지
+        # 않고, 같은 상위로 복사해도 충돌하지 않는다). 그래도 겹치면 500 이 아니라 409 로 알린다.
+        root_name = (body.newName.strip() or target.rsplit("/", 1)[-1] or src_name)[:100]
+        cur.execute(
+            """SELECT 1 FROM sys_hierarchy
+               WHERE tenant_id=%s AND parent_id IS NOT DISTINCT FROM %s AND node_name=%s""",
+            (tid, new_parent_id, root_name))
+        if cur.fetchone():
+            raise HTTPException(
+                409, detail=f"같은 상위에 '{root_name}' 이름이 이미 있습니다 — "
+                            f"newName 으로 다른 이름을 지정하십시오")
+
         id_map: dict[int, int] = {}
-        for old_id, old_parent, addr, name, symbol, sort_order, remarks, remark, color in rows:
+        for (old_id, old_parent, addr, name, symbol, sort_order,
+             remarks, remark, color, node_tree_type) in rows:
             new_addr = target + addr[len(src_addr):]
             is_root = old_id == node_id
-            cur.execute(
-                """INSERT INTO sys_hierarchy
-                   (tenant_id, parent_id, tree_type, node_name, symbol, address, sort_order,
-                    remarks, remark, color, approval_status, is_system, is_locked, created_by)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'DRAFT',false,false,%s)
-                   RETURNING hierarchy_id""",
-                (tid, new_parent_id if is_root else id_map.get(old_parent),
-                 tree_type, (body.newName.strip()[:100] if (is_root and body.newName.strip())
-                             else name),
-                 symbol, new_addr[:500], sort_order, remarks, remark, color,
-                 request.state.login))
-            id_map[old_id] = cur.fetchone()[0]
+            try:
+                cur.execute(
+                    """INSERT INTO sys_hierarchy
+                       (tenant_id, parent_id, tree_type, node_name, symbol, address, sort_order,
+                        remarks, remark, color, approval_status, is_system, is_locked, created_by)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'DRAFT',false,false,%s)
+                       RETURNING hierarchy_id""",
+                    (tid, new_parent_id if is_root else id_map.get(old_parent),
+                     node_tree_type, root_name if is_root else name,
+                     symbol, new_addr[:500], sort_order, remarks, remark, color,
+                     request.state.login))
+                id_map[old_id] = cur.fetchone()[0]
+            except HTTPException:
+                raise
+            except Exception:
+                # UNIQUE(parent_id, node_name) 등 — 사전 검사를 빠져나간 충돌은 500 이 아니라
+                # 무엇이 걸렸는지 알려 준다. 트랜잭션은 롤백되므로 부분 복사본은 남지 않는다.
+                raise HTTPException(
+                    409, detail=f"복제 중 이름·주소 제약 충돌: {new_addr} — "
+                                f"대상 위치를 바꾸거나 newName 으로 다른 이름을 지정하십시오")
 
         root_id = id_map[node_id]
         _audit(cur, tid, "sys_hierarchy", root_id, "COPY", request.state.user_id,
                {"from": src_addr, "to": target, "nodes": len(rows)})
-    return {"hierarchyId": root_id, "address": target, "copied": len(rows),
-            "sourceAddress": src_addr, "sourceName": src_name}
+    return {"hierarchyId": root_id, "address": target, "name": root_name,
+            "copied": len(rows), "sourceAddress": src_addr, "sourceName": src_name}
 
 
 @router.delete("/hierarchy/nodes/{node_id}", dependencies=[SETUP])
