@@ -53,6 +53,8 @@ def quick_ready() -> None:
     print("배포창 감지 — /health 회복 대기 …")
     wait_ready(timeout=300)
 
+RETRY_BACKOFF_SEC = 20   # 재시도 전 유휴 — 부하 구간을 벗어나기 위한 최소 간격
+
 SUITES = [
     "live_pw_sweep.py",         # PW 통합 스윕 — 전 화면 로드·상호작용·쓰기/결재 왕복·명령줄 (2026-07-19)
     "live_b15_regression.py",   # 인증·RBAC 먼저 (다른 스위트의 전제)
@@ -222,7 +224,12 @@ for suite in SUITES:
     passed, tail = run_suite(suite)
     # 순차 13개 브라우저 스위트 부하로 인한 산발 타임아웃 — 1회 재시도 (재시도 여부는 표기)
     if not passed:
-        print(f"\n--- {suite} 재시도 (부하 플레이크 가능) ---")
+        # 9.89 — 재시도 전에 서버가 한숨 돌리게 둔다.
+        # 종전엔 곧바로 재시도해서 **같은 부하 구간 안**에 다시 걸렸다(2026-07-25 pw_sweep 실증:
+        # 플릿 안 2회 연속 실패 → 단독 실행은 7/7 통과). quick_ready 는 배포창(503)만 보고
+        # 부하는 못 보므로, 짧은 유휴를 둬야 재시도가 실제로 다른 조건이 된다.
+        print(f"\n--- {suite} 재시도 (부하 플레이크 가능) — {RETRY_BACKOFF_SEC}s 후 ---")
+        time.sleep(RETRY_BACKOFF_SEC)
         quick_ready()   # 503 기인 실패라면 창이 닫힌 뒤 재시도해야 유효
         passed, tail = run_suite(suite)
         if passed:

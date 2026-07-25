@@ -72,18 +72,32 @@ with sync_playwright() as pw:
     pg.on("response", lambda r: bad_reqs.append(f"{r.status} {r.url[-60:]}")
           if r.status >= 400 and "/api/" in r.url and "edimsol" in r.url else None)
 
-    pg.goto(f"{BASE}/login", wait_until="networkidle")
+    pg.goto(f"{BASE}/login", wait_until="domcontentloaded")
     pg.fill("input[name=userId]", "edim")
     pg.fill("input[name=password]", "edim")
     pg.get_by_role("button", name="로그인 (Enter)").click()
     pg.wait_for_url("**/erp/**", timeout=15000)
 
+    def visit(href: str, settle: int = 400):
+        """화면 이동 — 부하에 둔감한 대기.
+
+        종전엔 networkidle(모든 요청이 멎을 때까지) 을 썼는데, 플릿에서 다른 스위트가
+        같은 서버를 두드리면 30s 안에 성립하지 않아 **제품이 멀쩡한데도 실패**했다
+        (2026-07-25 실증: 플릿 안 2회 실패 → 단독 7/7 통과).
+        셸 렌더(.app .titlebar)까지만 기다리고 나머지는 고정 대기로 흡수한다."""
+        r = pg.goto(BASE + href, wait_until="domcontentloaded", timeout=45000)
+        try:
+            pg.wait_for_selector(".app .titlebar", timeout=20000)
+        except Exception:      # noqa: BLE001 — 셸이 없는 화면도 있으므로 실패시키지 않는다
+            pass
+        pg.wait_for_timeout(settle)
+        return r
+
     # ── 1+2) 화면 로드 + 상호작용 ──
     bad_pages = []
     for href in menu_hrefs():
         console_errs.clear(); page_errs.clear(); bad_reqs.clear()
-        resp = pg.goto(BASE + href, wait_until="networkidle", timeout=30000)
-        pg.wait_for_timeout(400)
+        resp = visit(href)
         body = pg.locator("body").inner_text()[:3000]
         problems = []
         if not resp or resp.status != 200:
@@ -116,7 +130,7 @@ with sync_playwright() as pw:
     ok(f"화면+상호작용 스윕 ({len(menu_hrefs())}화면)", not bad_pages)
 
     # ── 3) 쓰기 왕복 — 캘린더 ──
-    pg.goto(f"{BASE}/erp/holidays", wait_until="networkidle"); pg.wait_for_timeout(500)
+    visit("/erp/holidays", 500)
     pg.get_by_role("button", name="＋ 등록").first.click(); pg.wait_for_timeout(300)
     pg.fill("input[name=date]", "2026-12-30")
     pg.fill("input[name=name]", "PW스윕휴일")
@@ -127,10 +141,10 @@ with sync_playwright() as pw:
     ok("쓰기 왕복 — 공휴일 삭제(정리)", pg.locator("table tbody tr").filter(has_text="PW스윕휴일").count() == 0)
 
     # ── 4) 결재 체인 ──
-    pg.goto(f"{BASE}/code/groups?tree=PRODUCT", wait_until="networkidle"); pg.wait_for_timeout(800)
+    visit("/code/groups?tree=PRODUCT", 800)
     pg.locator(".tn").filter(has=pg.locator("span.code")).first.click(); pg.wait_for_timeout(300)
     pg.locator("[data-approval-strip] [data-appr-request]").click(); pg.wait_for_timeout(1200)
-    pg.goto(f"{BASE}/common/approval", wait_until="networkidle"); pg.wait_for_timeout(800)
+    visit("/common/approval", 800)
     arow = pg.locator("table tbody tr").filter(has_text="Hierarchy 노드")
     ok("결재 체인 — 승인함 등록", arow.count() >= 1)
     arow.first.locator("input[type=checkbox]").check(); pg.wait_for_timeout(200)
@@ -139,7 +153,7 @@ with sync_playwright() as pw:
     ok("결재 체인 — 반려(정리)", pg.locator("table tbody tr").filter(has_text="Hierarchy 노드").count() == 0)
 
     # ── 5) 명령줄 ──
-    pg.goto(f"{BASE}/plm/design", wait_until="networkidle"); pg.wait_for_timeout(1200)
+    visit("/plm/design", 1200)
     pg.locator(".cmdline input").first.fill("RO"); pg.keyboard.press("Enter"); pg.wait_for_timeout(3000)
     ok("명령줄 — RO 실행", "CAD 편집: 회전 RO" in pg.locator("body").inner_text())
     pg.locator(".cmdline input").first.fill("ZZZ"); pg.keyboard.press("Enter"); pg.wait_for_timeout(500)
