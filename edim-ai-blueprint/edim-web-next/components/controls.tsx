@@ -1,7 +1,17 @@
 'use client'
 
 /** Dense 소형 컨트롤 — 22px 체계 (디자인시안 b02). */
-import { createContext, useContext, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useContext, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
+
+/** 9.41 — 키보드 조작(WCAG 2.1.1): 네이티브 아닌 클릭 요소(span/div 토글 등)에
+ *  role="button" tabIndex={0} onKeyDown={kbdClick} 를 붙이면 Enter/Space 로 기존 onClick 을
+ *  발화한다(.click() 위임 — 로직 중복 없음). 예: <span role="button" tabIndex={0} onKeyDown={kbdClick} onClick={...}> */
+export function kbdClick(e: KeyboardEvent<HTMLElement>): void {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    e.currentTarget.click()
+  }
+}
 
 /** 4.1 #16 — Accordion Template Host 가 주입하는 접기 컨텍스트.
  *  컨텍스트가 있으면 GroupBox 의 제목줄이 곧 아코디언 헤더가 된다

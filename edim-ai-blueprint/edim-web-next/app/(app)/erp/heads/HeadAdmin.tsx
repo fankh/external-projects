@@ -6,7 +6,7 @@
 import { useActionState, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
-import { Chip, GroupBox } from '@/components/controls'
+import { Chip, GroupBox, kbdClick } from '@/components/controls'
 import { RegisterModal } from '@/components/Modal'
 import { useI18n } from '@/components/I18nProvider'
 import { usePermission } from '@/components/PermissionProvider'
@@ -61,12 +61,14 @@ export function HeadAdmin({ rows, detail, selId }: {
     // #18 — 표시(Design)는 구조와 분리: 여기서 바꾼 값은 승인 없이 즉시 반영된다
     { key: 'design', header: t('head.design', '표시'), width: 96, align: 'center', render: (r) => (
       <span data-head-design={r.headCode} style={{ display: 'inline-flex', gap: 3 }}>
-        <span data-design-visible title={t('head.visible', '사용자 목록 표시')}
+        <span data-design-visible role="button" tabIndex={0} onKeyDown={kbdClick}
+          title={t('head.visible', '사용자 목록 표시')}
           style={{ cursor: 'pointer', opacity: r.visible === false ? 0.35 : 1 }}
           onClick={(e) => { e.stopPropagation(); act(() => saveHeadDesign(r.headId, { visible: !(r.visible !== false) })) }}>
           {r.visible === false ? '🚫' : '👁'}
         </span>
-        <span data-design-pin title={t('head.pin', '상단 고정')}
+        <span data-design-pin role="button" tabIndex={0} onKeyDown={kbdClick}
+          title={t('head.pin', '상단 고정')}
           style={{ cursor: 'pointer', opacity: r.pinned ? 1 : 0.35 }}
           onClick={(e) => { e.stopPropagation(); act(() => saveHeadDesign(r.headId, { pinned: !r.pinned })) }}>
           📌
