@@ -38,6 +38,35 @@
 | DB 콘솔 | `sudo docker exec edim-postgres psql -U edim -d edim` |
 | CI | push=빌드+폴백52 · nightly 03:00 UTC=+EN 잔존 0 · 라이브 스위트는 로컬 `py tests/live_all.py` |
 
+## 4-A. AI 기능 운영 (ANTHROPIC_API_KEY)
+
+AI 기능(Guide AI 질의응답·Macro 초안·UI 초안·도면 생성)은 **키가 없거나 크레딧이 없어도 제품이 멈추지 않도록** 설계돼 있습니다.
+검색 근거·샘플 초안은 그대로 제공되고, 합성(LLM 호출)만 사유와 함께 보류됩니다.
+
+| 상황 | 화면 표시 | 조치 |
+|---|---|---|
+| 키 미설정 | `sample` 배지 — 샘플 초안 제공 | `.env` 에 `ANTHROPIC_API_KEY` 추가 후 백엔드 재기동 |
+| 키 O · 크레딧 부족 | `error` 배지 + 사유 문구, Q&A 는 검색 근거 정상 제공 | 아래 진단 순서 |
+| 정상 | `live` 배지 — 합성 답변 | — |
+
+**키 교체**: `.env` 의 `ANTHROPIC_API_KEY` 수정 → `docker compose up -d --force-recreate backend`.
+`.env` 는 `.gitignore` 대상이라 커밋되지 않습니다(600 권한 유지).
+
+**크레딧 차단 진단 순서** (화면이 아니라 API 원인을 직접 확인):
+
+```bash
+KEY=$(sudo grep -oP '(?<=^ANTHROPIC_API_KEY=).*' backend/.env)
+curl -s -D - https://api.anthropic.com/v1/messages   -H "x-api-key: $KEY" -H "anthropic-version: 2023-06-01" -H "content-type: application/json"   -d '{"model":"claude-haiku-4-5","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}'
+```
+
+응답 헤더의 `anthropic-organization-id` 가 **콘솔에서 충전한 조직과 같은지** 먼저 대조하십시오(가장 흔한 원인).
+같다면 워크스페이스 spend limit → 결제 반영 여부 순으로 확인하고, 그래도 동일하면 응답의 `request-id` 를 Anthropic 지원에 전달합니다.
+
+**활성화 검증**: 크레딧이 유효해지면 `PYTHONUTF8=1 py tests/live_c9_ai_smoke.py` (13체크 — 3종 엔드포인트 live 분기·산출물 계약·대화 문맥·질의 감사).
+크레딧 유무와 무관한 상시 계약은 `tests/live_ai_degrade.py` 가 라이브 플릿에서 감시합니다.
+
+**감사**: 모든 AI 질의는 `sys_history` 에 `AI_QUERY` 로 기록됩니다(질문 요지·근거 자산·이력 턴 수). M-14-6 감사 조회에서 확인.
+
 ## 5. 요구사항 접수 운영 (dev_requirement — 개발서버 전용)
 
 1. 운영자 접수분 확인: 📝 목록 탭 또는 `GET /api/v1/dev/requirements?status=OPEN`.
