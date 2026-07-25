@@ -119,6 +119,21 @@ with sync_playwright() as pw:
     ok("루트 주소도 슬래시로 시작", r.json()["newAddress"] == "/inner", r.json()["newAddress"])
     ok("루트 이동 시에도 손자가 따라옴", "/inner/leaf" in addr_map())
 
+    # ── 4b. 형제 동명 — 제약 위반이 500 이 아니라 409 로 나와야 한다 (10.7) ──
+    # sys_hierarchy 에 UNIQUE(parent_id, node_name) 이 있는데 등록·개명이 주소만 검사했다.
+    ok("동명 하위 등록 거부(409)",
+       mk(f"{ROOT_A}/dupname", "box", ROOT_A).status == 409,
+       "ROOT_A 아래에 이미 'box' 가 있다")
+    ok("서로 다른 이름 하위 등록은 허용",
+       mk(f"{ROOT_A}/other", "other", ROOT_A).status == 201)
+    other = addr_map()[f"{ROOT_A}/other"]
+    ok("형제 이름으로 개명 거부(409)",
+       call("PATCH", f"/hierarchy/nodes/{nid(other)}", admin,
+            data={"name": "box"}).status == 409)
+    ok("다른 이름으로 개명은 허용",
+       call("PATCH", f"/hierarchy/nodes/{nid(other)}", admin,
+            data={"name": "other2"}).ok)
+
     # ── 5. 정리 ──
     purge(ROOT_A, ROOT_B, "/inner")
     left = [a for a in addr_map() if a.startswith((ROOT_A, ROOT_B, "/inner"))]

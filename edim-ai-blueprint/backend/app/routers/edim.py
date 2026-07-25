@@ -12437,6 +12437,15 @@ def hierarchy_node_create(request: Request, body: HierarchyNodeCreate) -> dict[s
             parent_id = p[0]
             if not addr.startswith(body.parentAddress.strip() + "/"):
                 raise HTTPException(422, detail="주소는 상위 주소로 시작해야 합니다 (예: /M/ENG/새노드)")
+        # UNIQUE(parent_id, node_name) — 주소만 검사하면 형제 동명이 500 으로 나간다
+        cur.execute(
+            """SELECT address FROM sys_hierarchy
+               WHERE tenant_id=%s AND parent_id IS NOT DISTINCT FROM %s AND node_name=%s""",
+            (tid, parent_id, name[:100]))
+        dup = cur.fetchone()
+        if dup:
+            raise HTTPException(
+                409, detail=f"같은 상위에 '{name}' 이름이 이미 있습니다 ({dup[0]})")
         cur.execute(
             """INSERT INTO sys_hierarchy (tenant_id, parent_id, tree_type, node_name, symbol,
                address, approval_status) VALUES (%s,%s,%s,%s,NULLIF(%s,''),%s,'DRAFT')
@@ -12471,6 +12480,18 @@ def hierarchy_node_patch(node_id: int, request: Request, body: HierarchyNodePatc
                 body.name.strip() or body.symbol.strip()
                 or body.remark is not None or body.color is not None):
             raise HTTPException(409, detail="잠금 노드 — 잠금 해제 후 수정하십시오 (🔒)")
+        # UNIQUE(parent_id, node_name) — 형제와 이름이 겹치면 DB 제약 위반이 500 으로 나간다.
+        # 사용자가 고칠 수 있는 문제이므로 어느 이름이 겹치는지 알려 준다.
+        if body.name.strip():
+            cur.execute(
+                """SELECT 1 FROM sys_hierarchy s
+                   WHERE s.tenant_id=%s AND s.node_name=%s AND s.hierarchy_id<>%s
+                     AND s.parent_id IS NOT DISTINCT FROM
+                         (SELECT parent_id FROM sys_hierarchy WHERE hierarchy_id=%s)""",
+                (tid, body.name.strip()[:100], node_id, node_id))
+            if cur.fetchone():
+                raise HTTPException(
+                    409, detail=f"같은 상위에 '{body.name.strip()}' 이름이 이미 있습니다")
         cur.execute(
             """UPDATE sys_hierarchy SET
                node_name=CASE WHEN %s<>'' THEN %s ELSE node_name END,
