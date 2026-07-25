@@ -36,7 +36,7 @@ export async function getPcrActual(pcrId: number): Promise<PcrActual | null> {
 export interface PcrCompare {
   columns: { businessType: string; pcrId: number; code: string; marginRate: number | null }[]
   metrics: { key: string; label: string; cells: (number | string | null)[]; delta: number | null }[]
-  maskMode: string; note: string
+  maskMode: string; note: string; noteCode?: 'latestPerType' | 'noPcr'
 }
 
 export async function getPcrCompare(): Promise<PcrCompare | null> {

@@ -17,10 +17,21 @@ export interface FormBoxDef { id: number; label: string; x: number; y: number; w
 
 const FORM_NAME = 'PRINT_FORM_LAYOUT'
 
+/** 저장본이 손상돼도 화면이 깨지지 않도록 좌표·크기가 유효한 박스만 통과시킨다. */
+function sane(b: unknown): b is FormBoxDef {
+  const o = b as Partial<FormBoxDef> | null
+  const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
+  return !!o && num(o.id) && num(o.x) && num(o.y) && num(o.w) && num(o.h)
+    && (o.w as number) > 0 && (o.h as number) > 0 && typeof o.label === 'string'
+}
+
 export async function loadFormLayout(): Promise<{ layout: FormBoxDef[]; version: number } | null> {
   try {
-    const r = await apiServer<{ version: number; layout: FormBoxDef[] }>(`/toolbox/forms/${FORM_NAME}`)
-    return Array.isArray(r.layout) && r.layout.length ? { layout: r.layout, version: r.version } : null
+    const r = await apiServer<{ version: number; layout: unknown }>(`/toolbox/forms/${FORM_NAME}`)
+    if (!Array.isArray(r.layout)) return null
+    const layout = r.layout.filter(sane)
+    // 전부 손상됐으면 기본 배치로 — 빈 캔버스보다 복구 가능한 상태가 낫다
+    return layout.length ? { layout, version: r.version } : null
   } catch { return null }   // 404 = 미저장(기본 배치 사용) — 정상 경로
 }
 

@@ -13350,7 +13350,9 @@ def pcr_compare(request: Request) -> dict[str, Any]:
         if len(cells) >= 2 and all(isinstance(c, (int, float)) for c in cells[:2]):
             delta = cells[1] - cells[0]
         metrics.append({"key": key, "label": label, "cells": cells, "delta": delta})
+    # 문구는 프런트가 로케일에 맞춰 표시하도록 코드로 돌려준다 (하드코딩 한국어가 EN/JA/ZH 화면에 새지 않도록)
     return {"columns": columns, "metrics": metrics, "maskMode": cm,
+            "noteCode": "latestPerType" if columns else "noPcr",
             "note": "사업유형당 최신 PCR 1건" if columns else "PCR 없음 — Run 화면에서 PCR 생성"}
 
 

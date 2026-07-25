@@ -45,6 +45,7 @@ ok("열 = 사업유형 (중복 없음)",
    len({col["businessType"] for col in c["columns"]}) == len(c["columns"]))
 ok("셀 수 = 열 수", all(len(m["cells"]) == len(c["columns"]) for m in c["metrics"]))
 ok("마스킹 모드 노출", "maskMode" in c)
+ok("안내 문구 코드화 (하드코딩 한국어 누출 방지)", c.get("noteCode") in ("latestPerType", "noPcr"))
 
 pcrs = get("/cost/pcr", tok)
 ok("PCR 목록 대비 열 수 정합 (유형당 1열)",

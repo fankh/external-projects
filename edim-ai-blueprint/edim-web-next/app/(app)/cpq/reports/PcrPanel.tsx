@@ -57,7 +57,11 @@ export function PcrPanel({ rows }: { rows: PcrRow[] }) {
         <div data-pcr-compare-panel style={{ borderBottom: '1px solid var(--line)', padding: 6, fontSize: 10.5, overflow: 'auto' }}>
           <div style={{ fontWeight: 700, color: 'var(--title-navy)', marginBottom: 4 }}>
             {t('rpt.compareTitle', '사업유형 비교 (슬라이드 74)')}
-            <span style={{ color: 'var(--txt-mute)', fontWeight: 400, marginLeft: 6 }}>{cmp.note}</span>
+            <span style={{ color: 'var(--txt-mute)', fontWeight: 400, marginLeft: 6 }}>
+              {cmp.noteCode === 'noPcr' ? t('rpt.cmpNoPcr', 'PCR 없음 — Run 화면에서 PCR 생성')
+                : cmp.noteCode === 'latestPerType' ? t('rpt.cmpLatest', '사업유형당 최신 PCR 1건')
+                : cmp.note}
+            </span>
           </div>
           {cmp.columns.length ? (
             <table className="g" style={{ width: '100%' }}>
@@ -76,7 +80,8 @@ export function PcrPanel({ rows }: { rows: PcrRow[] }) {
               <tbody>
                 {cmp.metrics.map((m) => (
                   <tr key={m.key} data-pcr-compare-row>
-                    <td style={{ fontWeight: 600 }}>{m.label}</td>
+                    {/* 라벨은 키로 번역 — 서버가 주는 한국어는 폴백 */}
+                    <td style={{ fontWeight: 600 }}>{t(`rpt.m.${m.key}`, m.label)}</td>
                     {m.cells.map((v, i) => <td key={i} style={{ textAlign: 'right' }}>{cell(v)}</td>)}
                     {cmp.columns.length >= 2 ? (
                       <td style={{ textAlign: 'right', fontWeight: 700, color: m.delta == null ? undefined : m.delta >= 0 ? 'var(--run)' : 'var(--err)' }}>
