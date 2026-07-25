@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { CadSvg } from '@/components/CadSvg'
 import { downloadCsv } from '@/lib/csv'
 import type { CadDocument } from '@/lib/cadTypes'
-import { relationshipCad, runningTest, addChild, deleteRelationship, requestApproval, type RunningTestRow, addSlotMap, delSlotMap, getSlotMap, type SlotMapView } from './actions'
+import { relationshipCad, runningTest, addChild, deleteRelationship, requestApproval, type RunningTestRow, addSlotMap, delSlotMap, getSlotMap, type SlotMapView, childDrawingFiles, type ChildDrawingFile } from './actions'
 
 export interface ChildRow { code: string; desc: string; qty: number; remarks: string; slotMap?: string
   relId?: number; slotMapCount?: number; revisionNo?: number }
@@ -115,6 +115,13 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
     }
   }
   const [checked, setChecked] = useState<Set<string>>(new Set(children.map((c) => c.code)))
+  // U20 잔여 — child 별 연결 도면(DXF). 없는 코드는 맵에 없으며 UI 에서 '연결 도면 없음'으로 표시.
+  const [childDwg, setChildDwg] = useState<Record<string, ChildDrawingFile>>({})
+  useEffect(() => {
+    let alive = true
+    void childDrawingFiles(children.map((c) => c.code)).then((m) => { if (alive) setChildDwg(m) })
+    return () => { alive = false }
+  }, [children])
   const [slots, setSlots] = useState<Record<string, string>>({ B: '13', C: '32', E: '15' })
   const [testRows, setTestRows] = useState<RunningTestRow[] | null>(null)
   const [tested, setTested] = useState(false)
@@ -174,6 +181,13 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
         <span data-child-links style={{ display: 'inline-flex', gap: 4 }}>
           <span title={t('codrel.openDetail', '코드 상세 (Tech·Variant·도면)')} style={{ cursor: 'pointer' }}
             onClick={(e) => { e.stopPropagation(); router.push(`/detail/code?code=${encodeURIComponent(r.code)}`) }}>📄</span>
+          {childDwg[r.code] ? (
+            <span data-child-dwg title={`${t('codrel.openDwg', '연결 도면 열기')} — ${childDwg[r.code].fileName}`} style={{ cursor: 'pointer' }}
+              onClick={(e) => { e.stopPropagation(); router.push(`/detail/cad-viewer?fileId=${childDwg[r.code].fileId}`) }}>🖼</span>
+          ) : (
+            <span data-child-dwg-none title={t('codrel.noDwg', '연결 도면 없음 — 도면 대장에서 이 코드와 같은 도번으로 등록 시 표시')}
+              style={{ opacity: .3 }}>🖼</span>
+          )}
         </span>
       ) },
   ]

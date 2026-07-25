@@ -5803,6 +5803,30 @@ def process_defs() -> dict[str, Any]:
     return {"defs": defs, "edges": edges}
 
 
+@router.get("/codes/drawing-files")
+def codes_drawing_files(codes: str = "") -> dict[str, Any]:
+    """U20 잔여 — child 코드별 연결 도면(DXF) 조회 (Relationship child 도면 열기).
+
+    코드(main_code)와 도면번호(drawing_no)가 같은 도면의 DXF 파일을 코드당 1건(최신) 매핑한다.
+    연결이 없는 코드는 키 자체를 넣지 않는다 — 프런트가 '연결 도면 없음'을 정직하게 표시하도록.
+    `codes` 는 콤마 구분(최대 50개)."""
+    wanted = [c.strip() for c in codes.split(",") if c.strip()][:50]
+    if not wanted:
+        return {"files": {}, "requested": 0}
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT DISTINCT ON (w.drawing_no)
+                      w.drawing_no, f.file_id, f.file_name, w.drawing_name
+               FROM dwg_drawing w JOIN dwg_file f ON f.drawing_id=w.drawing_id
+               WHERE w.tenant_id=%s AND w.drawing_no = ANY(%s)
+                 AND lower(f.file_name) LIKE '%%.dxf'
+               ORDER BY w.drawing_no, f.file_id DESC""", (tid, wanted))
+        files = {r[0]: {"fileId": r[1], "fileName": r[2], "drawingName": r[3]}
+                 for r in cur.fetchall()}
+    return {"files": files, "requested": len(wanted)}
+
+
 @router.get("/codes/{code}/referencers")
 def code_referencers(code: str) -> list[dict[str, Any]]:
     """Where-Used 역참조 — 이 코드를 child 로 갖는 mother (코드 상세 Referencers)."""

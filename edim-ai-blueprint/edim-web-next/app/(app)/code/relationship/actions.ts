@@ -99,3 +99,19 @@ export async function delSlotMap(relId: number, slotMapId: number): Promise<{ ok
     return { error: e instanceof ApiError ? e.message : '매핑 삭제 실패' }
   }
 }
+
+/** U20 잔여 — child 코드별 연결 도면(DXF) 조회. 연결 없는 코드는 맵에서 제외(정직 표시). */
+export interface ChildDrawingFile { fileId: number; fileName: string; drawingName: string }
+
+export async function childDrawingFiles(codes: string[]): Promise<Record<string, ChildDrawingFile>> {
+  const uniq = [...new Set(codes.map((c) => c.trim()).filter(Boolean))].slice(0, 50)
+  if (!uniq.length) return {}
+  try {
+    const r = await apiServer<{ files: Record<string, ChildDrawingFile> }>(
+      `/codes/drawing-files?codes=${encodeURIComponent(uniq.join(','))}`)
+    return r.files ?? {}
+  } catch (e) {
+    if (e instanceof ApiError) return {}
+    throw e
+  }
+}
