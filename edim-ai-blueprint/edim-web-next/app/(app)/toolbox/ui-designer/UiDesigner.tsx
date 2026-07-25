@@ -1,10 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Btn, Chip, GroupBox } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
 import { useEditHistory } from '@/hooks/useEditHistory'
-import { saveLayout, publishForm, aiSuggest, bindOptions, type Widget } from './actions'
+import { saveLayout, publishForm, aiSuggest, bindOptions, runWidgetMacro, type Widget } from './actions'
 
 const FORM_NAME = 'CPQ-Selection'
 // U16 — 액션 동작(슬라이드 27 Commend button set-up macro) · 바인딩 화이트리스트
@@ -33,6 +34,37 @@ export function UiDesigner({ initialWidgets, initialVersion }: { initialWidgets:
   const seq = useRef(initialWidgets.length + 5)
   const say = (text: string, err = false) => setStatus({ text, err })
   const sel = widgets.find((w) => w.id === selId) ?? null
+  // U16 잔여 — 미리보기 동작 실행: 하이퍼링크 실이동 · 매크로 실평가.
+  // 브라우저 샌드박스에서 불가능한 동작(프로그램/개체 실행)은 흉내내지 않고 사유를 밝힌다.
+  const router = useRouter()
+  const [, startAction] = useTransition()
+  const runAction = (w: Widget) => {
+    const a = w.action
+    if (!a || !a.op) { say(`동작 미설정 — Set-up 에서 연결 (${w.label})`, true); return }
+    const target = (a.target || '').trim()
+    if (a.op === '하이퍼링크') {
+      if (!target) { say('하이퍼링크 대상이 비어 있습니다 — Set-up 에서 URL·화면 경로 지정', true); return }
+      if (/^https?:\/\//i.test(target)) { window.open(target, '_blank', 'noopener'); say(`외부 링크 열기 — ${target}`); return }
+      const path = target.startsWith('/') ? target : `/${target}`
+      say(`화면 이동 — ${path}`); router.push(path); return
+    }
+    if (a.op === '매크로') {
+      const name = target || (a.data || '')
+      say(`매크로 실행 중 — ${name || '(미지정)'}…`)
+      startAction(async () => {
+        const r = await runWidgetMacro(name)
+        if (r.ok) say(`매크로 ${name} = ${r.value} (실 Table 참조 평가, TBX-011)`)
+        else say(`매크로 실행 실패 — ${r.error}`, true)
+      })
+      return
+    }
+    if (a.op === '프로그램 실행') {
+      say('프로그램·개체 실행은 브라우저 샌드박스에서 불가 — 데스크톱 런처 연동 시 지원 (P4 협의)', true)
+      return
+    }
+    // 저장·삭제·복사·등록·찾기 = 게시 Form 런타임(TBX-003) 소관 — 설계 미리보기에서는 대상만 확인
+    say(`동작 확인 — ${a.op} → ${target || a.data || '(대상 미지정)'} (게시 Form 런타임에서 실행)`)
+  }
   // U16 — 위젯 Set-up 다이얼로그 (동작·대상·Data + Combo 바인딩)
   const [setupOpen, setSetupOpen] = useState(false)
   const [dlg, setDlg] = useState({ op: '', target: '', data: '', table: '', column: '' })
@@ -117,8 +149,8 @@ export function UiDesigner({ initialWidgets, initialVersion }: { initialWidgets:
               {widgets.map((w) => (
                 <div key={w.id} style={{ position: 'absolute', left: w.x, top: w.y, width: w.w }}>
                   {w.kind === 'Button' || w.kind === 'Push' ? (
-                    <Btn style={{ width: '100%', justifyContent: 'center' }} title={w.action ? `${w.action.op} → ${w.action.target || w.action.data || '-'}` : undefined}
-                      onClick={() => say(w.action ? `동작 실행 — ${w.action.op} → ${w.action.target || w.action.data || '(대상 미지정)'} (TBX-003)` : `동작 미설정 — Set-up 에서 연결 (${w.label})`)}>{w.label}</Btn>)
+                    <Btn style={{ width: '100%', justifyContent: 'center' }} data-preview-action title={w.action ? `${w.action.op} → ${w.action.target || w.action.data || '-'}` : undefined}
+                      onClick={() => runAction(w)}>{w.label}</Btn>)
                     : w.kind === 'Combo' ? (
                       <select className="in" data-bound-combo={w.bind ? `${w.bind.table}.${w.bind.column}` : undefined} style={{ width: '100%', height: w.h }} aria-label={w.label}>
                         {(bindPreview[w.id] ?? [w.label]).map((o) => <option key={o}>{o}</option>)}

@@ -54,3 +54,26 @@ export async function bindOptions(table: string, column: string): Promise<string
     throw e
   }
 }
+
+/** U16 잔여 — 위젯 '매크로' 동작 실행: 저장된 Macro 식을 실 Table 참조로 평가 (TBX-011). */
+export interface MacroRunResult { ok: boolean; value?: number; error?: string }
+
+export async function runWidgetMacro(macroName: string): Promise<MacroRunResult> {
+  const name = macroName.trim()
+  if (!name) return { ok: false, error: '매크로명이 지정되지 않았습니다' }
+  try {
+    // 저장된 Macro 의 수식을 가져와 평가 — 이름만으로 실행 가능하게 한다 (단건 GET 부재 → 목록에서 해석)
+    const list = await apiServer<{ name: string; expr: string }[]>('/macros')
+    const hit = list.find((m) => m.name === name)
+    if (!hit) return { ok: false, error: `Macro 없음: ${name}` }
+    const expr = (hit.expr ?? '').trim()
+    if (!expr) return { ok: false, error: `Macro '${name}' 에 수식이 없습니다` }
+    const r = await apiServer<{ value?: number; error?: string }>('/macros/evaluate', {
+      method: 'POST', body: JSON.stringify({ formula: expr, variables: {} }),
+    })
+    if (r.error) return { ok: false, error: r.error }
+    return { ok: true, value: r.value }
+  } catch (e) {
+    return { ok: false, error: e instanceof ApiError ? e.message : '매크로 실행 실패' }
+  }
+}
