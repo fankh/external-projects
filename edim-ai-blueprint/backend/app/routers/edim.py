@@ -13866,9 +13866,19 @@ def design_error_check(drawing: str = "KDCR 3-13") -> dict[str, Any]:
 
     각 치수의 error_check 식을 현재 치수값(variant_value)으로 평가한다.
     violations = 식이 참인 항목(설계자가 기입한 '오류 조건'에 걸린 것),
-    unevaluated = 값 미정·구문 해석 불가(경고가 아니라 미평가로 정직 구분)."""
+    unevaluated = 값 미정·구문 해석 불가(경고가 아니라 미평가로 정직 구분).
+
+    응답의 `ok` 는 **실제로 점검해서 위반이 없었다**는 뜻으로만 참이다.
+    도면이 없거나(`found=false`) 오류조건이 하나도 설정되지 않았으면(`checked=0`) 거짓 —
+    '점검하지 않음' 이 '이상 없음' 으로 읽히면 안 되기 때문이다."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 도면 존재 여부를 먼저 확인한다 — 없는 도면을 '위반 0건'(정상)으로 답하면
+        # '점검하지 않음' 이 '이상 없음' 으로 오표시된다.
+        cur.execute(
+            "SELECT 1 FROM dwg_drawing WHERE tenant_id=%s AND drawing_no=%s",
+            (tid, drawing.strip()))
+        found = cur.fetchone() is not None
         cur.execute(
             """SELECT d.dim_label, COALESCE(d.error_check,''), d.variant_value
                FROM dwg_dimension d JOIN dwg_drawing w ON w.drawing_id=d.drawing_id
@@ -13891,9 +13901,10 @@ def design_error_check(drawing: str = "KDCR 3-13") -> dict[str, Any]:
             unevaluated.append(item)
         elif hit:
             violations.append(item)
-    return {"drawing": drawing, "checked": checked,
+    # ok 는 '실제로 점검해서 위반이 없었다' 일 때만 참 — 도면 부재·조건 미설정과 구분한다.
+    return {"drawing": drawing, "found": found, "checked": checked,
             "violations": violations, "unevaluated": unevaluated,
-            "ok": not violations}
+            "ok": found and checked > 0 and not violations}
 
 
 @router.put("/drawings/dimensions/design-params", dependencies=[SETUP])

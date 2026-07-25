@@ -95,6 +95,18 @@ try:
     r = check()
     ok("미정 참조 → unevaluated", any(u["no"] == a and "미정" in u["detail"] for u in r["unevaluated"]))
 
+    # ④-b 없는 도면 — '점검 안 함' 이 '이상 없음' 으로 보이면 안 된다 (9.81)
+    import urllib.parse as _up
+    nf = req("GET", f"/drawings/dimensions/error-check?drawing={_up.quote('없는도면-XYZ')}", tok)
+    ok("없는 도면 found=False", nf["found"] is False)
+    ok("없는 도면 ok=False (정상으로 오표시 안 함)", nf["ok"] is False)
+
+    # 오류조건이 하나도 없을 때도 ok=False (점검할 게 없었음을 구분)
+    save([{**vals[a], "errorCheck": ""}])
+    none_set = check()
+    ok("조건 미설정 시 ok=False", none_set["ok"] is False and none_set["checked"] == 0)
+    ok("조건 미설정도 found=True", none_set["found"] is True)
+
     # ⑤ UI — 점검 버튼 → 위반 배너·행 하이라이트
     save([{**vals[a], "errorCheck": "> 1"}])
     with sync_playwright() as pw:

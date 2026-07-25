@@ -26,7 +26,7 @@ export interface DesignParamRow {
 /** U17 잔여 — 오류조건 판정 결과 (Design Editor·Run 경고 연동). */
 export interface ErrorCheckItem { no: string; rule: string; detail: string; value: number | null }
 export interface ErrorCheckResult {
-  drawing: string; checked: number; ok: boolean
+  drawing: string; found: boolean; checked: number; ok: boolean
   violations: ErrorCheckItem[]; unevaluated: ErrorCheckItem[]
 }
 

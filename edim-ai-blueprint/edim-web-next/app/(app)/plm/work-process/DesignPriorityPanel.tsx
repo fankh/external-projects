@@ -64,6 +64,15 @@ export function DesignPriorityPanel({ code, initial }: { code: string; initial: 
                 <div key={v.no} data-dp-violation>· <b>{v.no}</b> — {v.rule} ({v.detail})</div>
               ))}
             </>
+          ) : !chk.found ? (
+            // '점검하지 않음' 을 '이상 없음' 으로 보이게 하지 않는다
+            <span data-dp-notfound style={{ color: 'var(--warn, #B4820B)' }}>
+              {t('wp.dpNotFound', '도면을 찾을 수 없어 점검하지 못했습니다')} — {chk.drawing}
+            </span>
+          ) : chk.checked === 0 ? (
+            <span data-dp-norule style={{ color: 'var(--txt-mute)' }}>
+              {t('wp.dpNoRule', '설정된 오류조건이 없습니다 — 오류 체크 열에 조건식을 입력하고 저장하십시오')}
+            </span>
           ) : (
             <span style={{ color: 'var(--run)' }}>✓ {t('wp.dpNoViolation', '오류조건 위반 없음')} — {t('wp.dpChecked', '점검')} {chk.checked}건</span>
           )}
