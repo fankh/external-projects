@@ -263,7 +263,9 @@ export function SelectionView(props: {
         {/* 규격 CPQ-001 — 제품 선택. 종전에는 화면이 데모 제품 하나로 고정돼
             다른 제품을 견적할 수 없었다(저장되는 견적안도 전부 그 제품). */}
         <span style={{ fontSize: 11 }}>{t('cpq.product', '제품')}
-          <select className="in" data-product-select value={props.root}
+          {/* data-i18n-content — 옵션 텍스트는 제품 마스터(코드·품명)라 UI 크롬이 아니다.
+              품명은 고객 데이터이므로 EN 화면에서도 원문 그대로 나온다(별도 번역 트랙). */}
+          <select className="in" data-product-select data-i18n-content value={props.root}
             onChange={(e) => router.push(`/cpq/selection?code=${encodeURIComponent(e.target.value)}`)}
             title={t('cpq.productHint', '승인된 제품만 선정할 수 있습니다 — 선택 시 전개·저장 대상이 바뀝니다')}
             style={{ height: 20, fontSize: 10, marginLeft: 2, maxWidth: 190 }}>
