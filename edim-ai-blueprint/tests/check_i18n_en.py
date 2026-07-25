@@ -59,6 +59,13 @@ CHROME_SELECTORS = [
 offenders: list[tuple[str, str, str]] = []
 
 
+# (경로, 여는 트리거 셀렉터, 라벨) — 클릭해야 나타나는 영역
+TOGGLE_AREAS = [
+    ("/cpq/reports", "[data-pcr-compare]", "RPT:사업유형비교"),
+    ("/plm/work-process", "[data-dp-check]", "S-4-1-2:오류조건점검"),
+]
+
+
 def scan(page, screen: str) -> None:
     found = page.evaluate(
         """(sels) => {
@@ -124,6 +131,23 @@ with sync_playwright() as pw:
         page.wait_for_timeout(700)   # 화면 로드·번들 적용
         scan(page, sid)
 
+    # 9.85 — 토글로만 열리는 영역 스캔 (초기 렌더에 없어 화면 순회로는 잡히지 않는 사각지대).
+    # 실제 누락 사례: PCR 사업유형 비교 표의 지표 라벨 8종이 서버 한국어로 노출됐는데
+    # 버튼을 눌러야 나타나므로 62화면 스캔을 통과했다 (9.83 에서 발견·수정).
+    for href, trigger, label in TOGGLE_AREAS:
+        try:
+            page.goto(ORIGIN + href, wait_until="load")
+            page.wait_for_selector(".app .titlebar", timeout=8000)
+            page.wait_for_timeout(600)
+            el = page.locator(trigger)
+            if not el.count():
+                continue          # 데이터 조건상 버튼이 없을 수 있음 — 실패로 보지 않는다
+            el.first.click()
+            page.wait_for_timeout(700)
+            scan(page, label)
+        except Exception as e:      # noqa: BLE001 — 토글 실패는 이 체커의 관심사가 아님
+            print(f"  (토글 스캔 건너뜀: {label} — {str(e)[:60]})")
+
     b.close()
 
 if offenders:
@@ -131,5 +155,5 @@ if offenders:
     for screen, sel, txt in offenders:
         print(f"  [{screen}] {sel}: {txt}")
 else:
-    print(f"PASS — {len(SCREENS)}화면 + 로그인 크롬 한글 잔존 0 (EN)")
+    print(f"PASS — {len(SCREENS)}화면 + 토글 {len(TOGGLE_AREAS)}영역 + 로그인 크롬 한글 잔존 0 (EN)")
 sys.exit(1 if offenders else 0)
