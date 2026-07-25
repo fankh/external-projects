@@ -4,7 +4,9 @@ import { apiServer, ApiError } from '@/lib/api'
 
 export interface RunCostRow { calcType: 'MATERIAL' | 'MANUFACTURING' | 'DIRECT'; lines: Record<string, unknown>[]; total: number }
 export interface PcrResult { pcrId: number; businessType: string; revenue: number; directCostTotal: number; contributionMargin: number; ebit: number }
-export interface QuotationRow { quotationId: number; quotationNo: string; total: number; currency: string; status: string; date: string; project: string; customer: string; taxCode?: string; taxPct?: number; subtotal?: number; tax?: number }
+export interface QuotationRow { quotationId: number; quotationNo: string; total: number; currency: string; status: string; date: string; project: string; customer: string; taxCode?: string; taxPct?: number; subtotal?: number; tax?: number
+  /** 발행 시점 원가 근거 — basisComplete=null 은 이 기능 도입 전 발행분(확인 불가). */
+  unpricedCount?: number; unpricedCodes?: string[]; basisComplete?: boolean | null; basisKnown?: boolean }
 export interface FxRow { fxId: number; currency: string; rate: number; validFrom: string }
 export interface TaxCodeRow { taxId: number; code: string; name: string; ratePct: number }
 
@@ -29,9 +31,12 @@ export async function createPcr(businessType: string, marginRate = 0.35): Promis
 }
 
 /** 견적 확정 (통화·세금코드 → 세액 자동적재, PCR 필요 시 409). */
-export async function createQuotation(businessType: string, currency = 'KRW', taxCode = ''): Promise<{ result?: { quotationNo: string; currency: string; subtotal: number; taxPct: number; tax: number; total: number }; quotes?: QuotationRow[]; error?: string }> {
+export interface QuoteResult { quotationNo: string; currency: string; subtotal: number; taxPct: number; tax: number; total: number
+  unpricedCount?: number; unpricedCodes?: string[]; basisComplete?: boolean; notes?: string[] }
+
+export async function createQuotation(businessType: string, currency = 'KRW', taxCode = ''): Promise<{ result?: QuoteResult; quotes?: QuotationRow[]; error?: string }> {
   try {
-    const result = await apiServer<{ quotationNo: string; currency: string; subtotal: number; taxPct: number; tax: number; total: number }>('/cost/quotations', { method: 'POST', body: JSON.stringify({ businessType, currency, taxCode }) })
+    const result = await apiServer<QuoteResult>('/cost/quotations', { method: 'POST', body: JSON.stringify({ businessType, currency, taxCode }) })
     const quotes = await apiServer<QuotationRow[]>('/cost/quotations').catch(() => [])
     return { result, quotes }
   } catch (e) {

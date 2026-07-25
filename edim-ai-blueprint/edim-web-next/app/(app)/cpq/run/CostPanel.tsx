@@ -35,7 +35,12 @@ export function CostPanel({ runId }: { runId: number }) {
     const r = await createQuotation(bt, cur, taxCode)
     if (r.error) { setMsg({ text: r.error, err: true }); return }
     if (r.quotes) setQuotes(r.quotes)
-    setMsg({ text: `견적 확정 ✓ — ${r.result!.quotationNo} · ${r.result!.currency} ${r.result!.subtotal.toLocaleString()} + 세액 ${r.result!.tax.toLocaleString()}(${r.result!.taxPct}%) = ${r.result!.total.toLocaleString()}` })
+    // 근거가 불완전하면 성공 문구로 뭉뚱그리지 않는다 — 확정은 됐지만 금액이 축소돼 있다.
+    const q = r.result!
+    const base = `견적 확정 ✓ — ${q.quotationNo} · ${q.currency} ${q.subtotal.toLocaleString()} + 세액 ${q.tax.toLocaleString()}(${q.taxPct}%) = ${q.total.toLocaleString()}`
+    setMsg(q.basisComplete === false
+      ? { text: `${base} · ⚠ ${t('run.quoteBasisIncomplete', '단가 미해결 {n}건이 0 원으로 집계된 원가 — 견적가가 실제보다 낮습니다').replace('{n}', String(q.unpricedCount ?? 0))}${q.unpricedCodes?.length ? ` (${q.unpricedCodes.slice(0, 3).join(', ')})` : ''}`, err: true }
+      : { text: base })
   })
 
   return (
@@ -71,7 +76,15 @@ export function CostPanel({ runId }: { runId: number }) {
           <table className="g"><thead><tr><th>No.</th><th>{t('run.quoteTotal', '금액')}</th><th>{t('run.quoteTax', '세액')}</th><th>{t('dwg.dateCol', '일자')}</th><th>PDF</th></tr></thead>
             <tbody>{quotes.slice(0, 4).map((q) => (
               <tr key={q.quotationId}>
-                <td className="c" style={{ fontFamily: 'Consolas, monospace' }}>{q.quotationNo}</td>
+                <td className="c" style={{ fontFamily: 'Consolas, monospace' }}>{q.quotationNo}
+                  {q.basisComplete === false ? (
+                    <span style={{ color: 'var(--err)', fontWeight: 700, marginLeft: 4 }}
+                      title={t('run.quoteBasisIncompleteHint', '발행 시점 원가에 단가 미해결이 있었습니다 — 금액이 실제보다 낮습니다')}>⚠{q.unpricedCount}</span>
+                  ) : q.basisKnown === false ? (
+                    <span style={{ color: 'var(--txt-mute)', marginLeft: 4 }}
+                      title={t('run.quoteBasisUnknown', '이 기능 도입 전 발행분 — 발행 시점 근거를 확인할 수 없습니다')}>?</span>
+                  ) : null}
+                </td>
                 <td className="num">{q.currency !== 'KRW' ? `${q.currency} ` : ''}{q.total.toLocaleString()}</td>
                 <td className="num">{q.tax ? q.tax.toLocaleString() : '-'}</td>
                 <td className="c">{q.date}</td>

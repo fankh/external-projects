@@ -65,6 +65,7 @@ SUITES = [
     "live_structure_integrity.py",  # 계층 정합 상시 감시 (11.3) — 실데이터 손상 조기 발견
     "live_approval_policy.py",  # 요청자 본인 결정 금지 정책 (11.4) — 켰다가 반드시 되돌림
     "live_cost_basis.py",       # 원가 근거 완전성 (11.6) — 단가 미해결이 전 경로에 고지되는지
+    "live_quote_basis.py",      # 견적 확정의 근거 스냅샷·정책 차단 (11.9)
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
     "live_s3_macro_engine.py",
     "live_s4_rbac_notify.py",

@@ -4358,7 +4358,10 @@ def _approval_policy(cur, tid: int) -> dict[str, bool]:
     st = (row[0] if row else {}) or {}
     pol = st.get("approvalPolicy") if isinstance(st, dict) else None
     pol = pol if isinstance(pol, dict) else {}
-    return {"selfApprovalBlocked": bool(pol.get("selfApprovalBlocked", False))}
+    return {"selfApprovalBlocked": bool(pol.get("selfApprovalBlocked", False)),
+            # 근거가 불완전한(단가 미해결 포함) 원가로 견적을 확정하는 것을 막을지.
+            # 기본 꺼짐 — 켜면 확정 시 409, acknowledgeIncompleteBasis 로만 강행 가능.
+            "quoteBlockIncompleteBasis": bool(pol.get("quoteBlockIncompleteBasis", False))}
 
 
 def _assert_not_self_approval(cur, tid: int, approval_id: int, actor_id: int) -> None:
@@ -13143,6 +13146,7 @@ def document_numbering_rule_put(request: Request, body: NumberingRulePut) -> dic
 
 class ApprovalPolicyPatch(BaseModel):
     selfApprovalBlocked: bool
+    quoteBlockIncompleteBasis: bool = False
 
 
 @router.get("/settings/approval-policy")
@@ -13166,11 +13170,16 @@ def set_approval_policy(request: Request, body: ApprovalPolicyPatch) -> dict[str
             """UPDATE sys_tenant
                SET settings = COALESCE(settings,'{}'::jsonb)
                    || jsonb_build_object('approvalPolicy',
-                        jsonb_build_object('selfApprovalBlocked', %s::boolean))
-               WHERE tenant_id=%s""", (body.selfApprovalBlocked, tid))
+                        jsonb_build_object('selfApprovalBlocked', %s::boolean,
+                                           'quoteBlockIncompleteBasis', %s::boolean))
+               WHERE tenant_id=%s""",
+            (body.selfApprovalBlocked, body.quoteBlockIncompleteBasis, tid))
         _audit(cur, tid, "sys_tenant", tid, "APPROVAL_POLICY_SET", request.state.user_id,
-               before=before, after={"selfApprovalBlocked": body.selfApprovalBlocked})
-    return {"selfApprovalBlocked": body.selfApprovalBlocked}
+               before=before,
+               after={"selfApprovalBlocked": body.selfApprovalBlocked,
+                      "quoteBlockIncompleteBasis": body.quoteBlockIncompleteBasis})
+    return {"selfApprovalBlocked": body.selfApprovalBlocked,
+            "quoteBlockIncompleteBasis": body.quoteBlockIncompleteBasis}
 
 
 DOC_TRANSITIONS = {"SET_UP": ("CHECK",), "CHECK": ("APPROVE", "SET_UP"),
@@ -14109,6 +14118,8 @@ def pcr_report_pdf(pcr_id: int, request: Request) -> StreamingResponse:
 
 class QuotationCreate(BaseModel):
     businessType: str = "PRE_SALES"
+    # 정책이 켜져 있을 때만 의미가 있다 — 근거가 불완전한 줄 알고도 확정한다는 의사표시.
+    acknowledgeIncompleteBasis: bool = False
     validityPeriod: str = "견적일로부터 30일"
     deliveryTerms: str = "FOB 부산"
     paymentTerms: str = "T/T 30일"
@@ -14139,6 +14150,17 @@ def quotation_create(request: Request, body: QuotationCreate) -> dict[str, Any]:
             (tid, run_id))
         mat = cur.fetchone()
         line_items = (mat[0].get("lines", []) if mat else [])
+        # 단가 미해결은 0 원 라인으로 그대로 견적서에 실린다 — PCR 에서만 표시하고 여기서
+        # 놓치면 통제가 아니다(경고를 본 사용자가 확정 버튼 한 번으로 우회한다).
+        unpriced = list((mat[0].get("unpriced") or []) if mat else [])
+        unpriced_codes = [str(u.get("code")) for u in unpriced][:20]
+        if unpriced and _approval_policy(cur, tid)["quoteBlockIncompleteBasis"]                 and not body.acknowledgeIncompleteBasis:
+            raise HTTPException(
+                409, detail=f"원가 근거가 불완전합니다 — 단가 미해결 {len(unpriced)}건이 0 원으로 "
+                            f"집계돼 견적가가 실제보다 낮습니다 "
+                            f"({', '.join(unpriced_codes[:3])}{' 외' if len(unpriced) > 3 else ''}). "
+                            f"단가 등재 후 Run 을 다시 실행하거나, 알고도 진행하려면 "
+                            f"acknowledgeIncompleteBasis 를 지정하십시오")
         revenue_krw = float(pcr[1].get("revenue", 0))   # PCR 매출(기준통화 KRW)
         # 다통화/세금엔진 — 통화 환산 + 세액 적재
         cur_c = body.currency.strip().upper()[:3] or "KRW"
@@ -14163,11 +14185,12 @@ def quotation_create(request: Request, body: QuotationCreate) -> dict[str, Any]:
         cur.execute(
             """INSERT INTO cst_quotation (tenant_id, quotation_no, pcr_id, project_id, customer_id,
                total_amount, currency, vat_mode, validity_period, delivery_terms, payment_terms,
-               line_items, created_by)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING quotation_id""",
+               line_items, unpriced_count, unpriced_codes, created_by)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING quotation_id""",
             (tid, qno, pcr[0], pcr[3], customer, total, cur_c, vat_mode,
              body.validityPeriod.strip()[:50], body.deliveryTerms.strip()[:200],
-             body.paymentTerms.strip()[:200], json.dumps(line_items), request.state.login))
+             body.paymentTerms.strip()[:200], json.dumps(line_items),
+             len(unpriced), json.dumps(unpriced_codes), request.state.login))
         qid = cur.fetchone()[0]
         cur.execute(
             """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
@@ -14175,7 +14198,13 @@ def quotation_create(request: Request, body: QuotationCreate) -> dict[str, Any]:
             (tid, qid, request.state.user_id,
              json.dumps({"quotationNo": qno, "currency": cur_c, "subtotal": subtotal, "tax": tax, "total": total})))
     return {"quotationId": qid, "quotationNo": qno, "currency": cur_c, "rate": rate,
-            "taxPct": pct, "subtotal": subtotal, "tax": tax, "total": total}
+            "taxPct": pct, "subtotal": subtotal, "tax": tax, "total": total,
+            "unpricedCount": len(unpriced), "unpricedCodes": unpriced_codes,
+            "basisComplete": not unpriced,
+            "acknowledged": bool(unpriced and body.acknowledgeIncompleteBasis),
+            "notes": ([] if not unpriced else
+                      [f"단가 미해결 {len(unpriced)}건이 0 원으로 집계된 원가로 확정됐습니다 — "
+                       f"견적가가 실제보다 낮습니다"])}
 
 
 @router.get("/cost/quotations")
@@ -14188,7 +14217,8 @@ def quotation_list(request: Request) -> list[dict[str, Any]]:
         cur.execute(
             """SELECT q.quotation_id, q.quotation_no, q.total_amount, q.currency, q.status,
                       to_char(q.created_at,'YYYY-MM-DD'), p.project_no, c.company_name,
-                      q.validity_period, q.delivery_terms, q.payment_terms, q.vat_mode
+                      q.validity_period, q.delivery_terms, q.payment_terms, q.vat_mode,
+                      q.unpriced_count, q.unpriced_codes
                FROM cst_quotation q
                JOIN prj_project p ON p.project_id=q.project_id
                JOIN com_company c ON c.company_id=q.customer_id
@@ -14209,7 +14239,14 @@ def quotation_list(request: Request) -> list[dict[str, Any]]:
                         "validity": r[8], "delivery": r[9], "payment": r[10],
                         "taxCode": r[11], "taxPct": pct,
                         "subtotal": _mask_num(subtotal, qm),
-                        "tax": _mask_num(round(total - subtotal, 2), qm), "maskMode": qm})
+                        "tax": _mask_num(round(total - subtotal, 2), qm), "maskMode": qm,
+                        # 근거 완전성은 금액이 아니므로 마스킹하지 않는다.
+                        # -1 = 이 기능 도입 전 발행분(발행 시점 근거를 알 수 없음) —
+                        # 0 으로 뭉뚱그리면 '근거 완전' 으로 오표시된다.
+                        "unpricedCount": int(r[12]),
+                        "unpricedCodes": list(r[13] or []),
+                        "basisComplete": (None if int(r[12]) < 0 else int(r[12]) == 0),
+                        "basisKnown": int(r[12]) >= 0})
         return out
 
 
