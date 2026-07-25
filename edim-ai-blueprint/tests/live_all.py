@@ -60,6 +60,7 @@ SUITES = [
     "live_b15_regression.py",   # 인증·RBAC 먼저 (다른 스위트의 전제)
     "live_password_recovery.py", # 해시 승격·비밀번호 복구 (9.96/9.97) — 인증 직후
     "live_u18_node_copy.py",    # Hierarchy 구조 복제 (10.0/10.1) — 트리 쓰기 연산
+    "live_u18_node_move.py",    # Hierarchy 노드 이동 (10.4) — 하위 주소 연쇄·순환 가드
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
     "live_s3_macro_engine.py",
     "live_s4_rbac_notify.py",

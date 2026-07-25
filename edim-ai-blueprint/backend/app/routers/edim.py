@@ -12635,7 +12635,7 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
         tid = _tenant_id(cur)
         _assert_tenant_tree(cur, tid, node_id, "옮길 수")
         cur.execute(
-            """SELECT address, tree_type, is_system, is_locked FROM sys_hierarchy
+            """SELECT address, tree_type, is_system, is_locked, node_name FROM sys_hierarchy
                WHERE tenant_id=%s AND hierarchy_id=%s""", (tid, node_id))
         src = cur.fetchone()
         if not src:
@@ -12644,7 +12644,7 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
             raise HTTPException(422, detail="시스템 제공 노드는 이동할 수 없습니다")
         if src[3]:
             raise HTTPException(409, detail="잠금 노드는 이동 불가 — 잠금 해제 후 진행 (🔒)")
-        old_addr, tree = src[0], src[1]
+        old_addr, tree, node_name = src[0], src[1], src[4]
         if body.targetParentId is not None:
             cur.execute(
                 """SELECT address, tree_type FROM sys_hierarchy
@@ -12659,27 +12659,38 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
             parent_addr = tgt[0]
         else:
             parent_addr = ""
-        # 새 주소 = 대상 부모 하위 다음 순번 (형제 마지막 세그먼트 최대+1 — 비수치 세그먼트는 무시)
-        if parent_addr:
-            cur.execute(
-                """SELECT address FROM sys_hierarchy
-                   WHERE tenant_id=%s AND tree_type=%s AND address LIKE %s AND address NOT LIKE %s""",
-                (tid, tree, parent_addr + ".%", parent_addr + ".%.%"))
-            segs = [a[0][len(parent_addr) + 1:] for a in cur.fetchall()]
-        else:
-            cur.execute(
-                "SELECT address FROM sys_hierarchy WHERE tenant_id=%s AND tree_type=%s AND address NOT LIKE '%%.%%'",
-                (tid, tree))
-            segs = [a[0] for a in cur.fetchall()]
-        next_seq = max((int(x) for x in segs if x.isdigit()), default=0) + 1
-        new_addr = f"{parent_addr}.{next_seq}" if parent_addr else str(next_seq)
-        # 본인 + 하위 연쇄 접두 치환
+
+        # 주소 규칙은 **슬래시 구분**이다(/M/ENG/FAN) — 노드 등록·복제·참조 갱신·where-used 가
+        # 모두 접두 관계에 의존한다. 종전 이 함수만 점(.) 구분을 가정해서, 실데이터(슬래시 213건·
+        # 점 0건)에서는 ①자기 하위 이동 가드가 발동하지 않아 순환이 생기고 ②형제 순번이 항상 1 이
+        # 되어 같은 부모로 두 번 옮기면 주소가 충돌하고 ③하위 노드 주소가 갱신되지 않아 부모만
+        # 옮겨지고 자식은 옛 경로에 남았다(moved=1 로 보고되어 드러나지도 않았다).
+        # 이름 세그먼트를 유지하는 방식으로 바로잡는다 — 등록·복제와 같은 규칙.
+        seg = old_addr.rsplit("/", 1)[-1] or node_name
+        new_addr = f"{parent_addr}/{seg}" if parent_addr else f"/{seg}"
+        if new_addr == old_addr:
+            raise HTTPException(409, detail=f"이미 해당 위치에 있습니다: {old_addr}")
+        # UNIQUE(parent_id, node_name) — 같은 부모에 같은 이름이 있으면 500 대신 안내
+        cur.execute(
+            """SELECT 1 FROM sys_hierarchy
+               WHERE tenant_id=%s AND parent_id IS NOT DISTINCT FROM %s AND node_name=%s
+                 AND hierarchy_id<>%s""",
+            (tid, body.targetParentId, node_name, node_id))
+        if cur.fetchone():
+            raise HTTPException(
+                409, detail=f"대상 위치에 '{node_name}' 이름이 이미 있습니다 — 개명 후 이동하십시오")
+        cur.execute("SELECT 1 FROM sys_hierarchy WHERE tenant_id=%s AND address=%s",
+                    (tid, new_addr))
+        if cur.fetchone():
+            raise HTTPException(409, detail=f"대상 주소가 이미 사용 중입니다: {new_addr}")
+
+        # 본인 + 하위 연쇄 접두 치환 (하위는 old_addr + '/' 접두)
         cur.execute(
             """UPDATE sys_hierarchy
                SET address = %s || substring(address from %s), updated_at = now()
                WHERE tenant_id=%s AND tree_type=%s
                  AND (address = %s OR address LIKE %s)""",
-            (new_addr, len(old_addr) + 1, tid, tree, old_addr, old_addr + ".%"))
+            (new_addr, len(old_addr) + 1, tid, tree, old_addr, old_addr + "/%"))
         moved = cur.rowcount
         cur.execute(
             "UPDATE sys_hierarchy SET parent_id=%s WHERE tenant_id=%s AND hierarchy_id=%s",
@@ -12796,6 +12807,13 @@ def hierarchy_node_copy(node_id: int, request: Request,
              remarks, remark, color, node_tree_type) in rows:
             new_addr = target + addr[len(src_addr):]
             is_root = old_id == node_id
+            if not is_root and old_parent not in id_map:
+                # 주소로는 하위인데 parent_id 가 서브트리 밖을 가리키는 경우(데이터 불일치).
+                # 그대로 두면 이 노드가 **루트로 붙은 다른 모양의 복사본**이 되는데,
+                # 사용자는 복사됐다고 믿는다 — 조용한 왜곡보다 거부가 낫다.
+                raise HTTPException(
+                    409, detail=f"원본 구조가 일관되지 않습니다 — {addr} 의 상위가 복제 범위 밖입니다. "
+                                f"Hierarchy 정합 점검(validate)으로 먼저 바로잡으십시오")
             try:
                 cur.execute(
                     """INSERT INTO sys_hierarchy
