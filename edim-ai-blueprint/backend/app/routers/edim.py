@@ -23,6 +23,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.config import settings
+from app.services.password import hash_password, verify_password
 from app.db import db_ok, get_pool
 from app.services import storage
 from app.services.edim_seed import TENANT
@@ -822,7 +823,8 @@ def login(body: LoginRequest) -> dict[str, Any]:
             raise HTTPException(403, detail="계정 잠금(LOCKED) — 관리자에게 잠금 해제를 요청하십시오")
         if status != "ACTIVE":
             raise HTTPException(401, detail="사번 또는 비밀번호가 올바르지 않습니다")
-        if hashlib.sha256(body.password.encode()).hexdigest() != row[4]:
+        pw_ok, pw_upgraded = verify_password(body.password, row[4])
+        if not pw_ok:
             _audit(cur, tid, "sys_user", uid, "LOGIN_FAIL", uid, {"login": login_id})
             # 마지막 성공/잠금해제 이후 연속 실패 수 — 도달 시 자동 잠금
             cur.execute(
@@ -851,6 +853,14 @@ def login(body: LoginRequest) -> dict[str, Any]:
             if not _totp_verify(row[6] or "", body.otp):
                 _audit(cur, tid, "sys_user", uid, "LOGIN_MFA_FAIL", uid, {"login": login_id})
                 raise HTTPException(401, detail="OTP 코드가 올바르지 않습니다 (인증 앱 확인)")
+        # 레거시 sha256 해시를 이 시점에만 새 형식으로 승격한다 — 평문을 아는 유일한 순간.
+        # 실패해도 로그인은 통과시킨다(보안 개선이 가용성을 깨지 않도록).
+        if pw_upgraded:
+            try:
+                cur.execute("UPDATE sys_user SET password_hash=%s WHERE user_id=%s",
+                            (pw_upgraded, uid))
+            except Exception:
+                pass
         _audit(cur, tid, "sys_user", uid, "LOGIN_OK", uid, {"login": login_id})
         cur.execute("SELECT tenant_code, tenant_name FROM sys_tenant WHERE tenant_id=%s", (tid,))
         trow = cur.fetchone() or (TENANT, TENANT)
@@ -946,14 +956,14 @@ def change_my_password(request: Request, body: PasswordChangeRequest) -> dict[st
         uid = request.state.user_id
         cur.execute("SELECT password_hash FROM sys_user WHERE user_id=%s", (uid,))
         row = cur.fetchone()
-        if hashlib.sha256(body.currentPassword.encode()).hexdigest() != row[0]:
+        if not verify_password(body.currentPassword, row[0])[0]:
             _audit(cur, tid, "sys_user", uid, "PW_CHANGE_FAIL", uid,
                    {"reason": "현재 비밀번호 불일치"})
             raise HTTPException(403, detail="현재 비밀번호가 올바르지 않습니다")
         cur.execute(
             """UPDATE sys_user SET password_hash=%s, updated_by=%s, updated_at=now()
                WHERE user_id=%s""",
-            (hashlib.sha256(new.encode()).hexdigest(), request.state.login, uid))
+            (hash_password(new), request.state.login, uid))
         _audit(cur, tid, "sys_user", uid, "PW_CHANGE", uid)   # 비밀번호 자체는 기록하지 않음
     return {"login": request.state.login, "changed": True}
 
@@ -4808,7 +4818,7 @@ def create_user(body: UserCreate, request: Request) -> dict[str, Any]:
                department, user_level, status, created_by)
                VALUES (%s,%s,%s,%s,%s,%s,%s,'ACTIVE',%s) RETURNING user_id""",
             (tid, login, body.name.strip(), body.email.strip() or None,
-             hashlib.sha256(body.initialPassword.encode()).hexdigest(),
+             hash_password(body.initialPassword),
              body.department.strip() or None, level, request.state.login))
         uid = cur.fetchone()[0]
         _audit(cur, tid, "sys_user", uid, "USER_CREATE", request.state.user_id,
@@ -11749,7 +11759,7 @@ def platform_tenant_create(request: Request, body: TenantCreate) -> dict[str, An
                                      password_hash, status)
                VALUES (%s,%s,%s,'',%s,%s,'ACTIVE') RETURNING user_id""",
             (new_tid, login_id, body.adminName.strip()[:50] or "관리자", "ADMIN",
-             hashlib.sha256(pw.encode()).hexdigest()))
+             hash_password(pw)))
         admin_uid = cur.fetchone()[0]
         for tree, addr, node in _TENANT_SEED_NODES:
             cur.execute(

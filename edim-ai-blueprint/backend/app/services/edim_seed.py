@@ -9,6 +9,7 @@ import json
 import logging
 
 from app.db import get_pool
+from app.services.password import hash_password
 
 logger = logging.getLogger("edim.seed")
 
@@ -436,7 +437,7 @@ def run_seed() -> None:
             (TENANT, "NOVA Solution"))
         tid = cur.fetchone()[0]
 
-        pw = hashlib.sha256(b"edim").hexdigest()
+        pw = hash_password("edim")
         cur.execute(
             """INSERT INTO sys_user (tenant_id, login_id, user_name, password_hash, department, user_level)
                VALUES (%s,'edim','YS.Gang',%s,'기술연구소','SETUP')""", (tid, pw))
@@ -606,7 +607,7 @@ def _seed_v2(cur, tid: int) -> None:
                department, user_level, status)
                VALUES (%s,%s,%s,%s,%s,%s,%s)
                ON CONFLICT (tenant_id, login_id) DO NOTHING""",
-            (tid, login, name, hashlib.sha256(b"edim").hexdigest(), dept, level, status))
+            (tid, login, name, hash_password("edim"), dept, level, status))
 
     for no, name in [("PS-612", "반도체 배기 개선"), ("PS-598", "물류센터 공조")]:
         cur.execute(
