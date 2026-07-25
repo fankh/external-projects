@@ -88,14 +88,14 @@ with sync_playwright() as pw:
         ok("selfBlocked 로 별도 보고", b.get("selfBlocked") == 1, str(b))
         ok("selfBlockedIds 에 해당 건", aid2 in (b.get("selfBlockedIds") or []), str(b))
 
-        # 요청이 실제로 미결 상태로 남았는지
-        r = call("GET", "/approvals?status=PENDING", admin)
-        if r.ok:
-            pend = r.json()
-            items = pend if isinstance(pend, list) else (pend.get("items") or [])
-            ok("차단된 요청은 미결로 남음",
-               any((x.get("approvalId") or x.get("id")) == aid2 for x in items),
-               f"{len(items)}건 조회")
+        # 요청이 실제로 미결 상태로 남았는지 — 승인함(미결 목록)에서 직접 확인한다.
+        # 조회에 실패하면 조용히 건너뛰지 않는다(그러면 '확인했다'와 구분되지 않는다).
+        r = call("GET", "/approvals/inbox", admin)
+        ok("승인함 조회", r.ok, f"status={r.status} body={r.text()[:120]}")
+        items = r.json()
+        ok("차단된 요청은 미결로 남음 (결정되지 않았다)",
+           any((x.get("approvalId") or x.get("id")) == aid2 for x in items),
+           f"미결 {len(items)}건 중 #{aid2} 없음")
 
         # ── 5. 되돌리면 원래대로 ──
         ok("정책 끄기", policy(False).ok)
