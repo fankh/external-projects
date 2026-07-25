@@ -31,7 +31,8 @@ export async function createPrice(_prev: ActState, formData: FormData): Promise<
   const body = {
     code, supplier, price,
     source: String(formData.get('source') ?? 'PURCHASE').trim(),
-    validFrom: String(formData.get('validFrom') ?? '').trim(),
+    // 변경관리대장 No.1 — 미입력 시 오늘 날짜 자동 채움 (백엔드도 동일 기본값)
+    validFrom: String(formData.get('validFrom') ?? '').trim() || new Date().toLocaleDateString('sv-SE'),
     validTo: String(formData.get('validTo') ?? '').trim() || null,
   }
   try {

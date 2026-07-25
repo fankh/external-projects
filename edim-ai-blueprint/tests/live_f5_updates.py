@@ -47,6 +47,8 @@ with sync_playwright() as pw:
 
     # 사전 정리 (이전 실패 런 잔존)
     psql("DELETE FROM cst_price WHERE valid_from='2030-01-01'")
+    psql("DELETE FROM cst_price WHERE supplier_id IN (SELECT company_id FROM com_company WHERE company_name='F5자동일자검증')")
+    psql("DELETE FROM com_company WHERE company_name='F5자동일자검증'")
     psql("DELETE FROM code_item_value WHERE value_code='F5T'")
     call(tok, "DELETE", "/documents/F5-DOC-01")
     call(tok, "DELETE", "/templets/TPL-F5")
@@ -152,6 +154,20 @@ with sync_playwright() as pw:
     ok("validTo 반영", got["to"] == "2030-03-31")
     psql("DELETE FROM cst_price WHERE valid_from='2030-01-01'")
     ok("시험 단가 정리", all(p["from"] != "2030-01-01"
+       for p in call(tok, "GET", "/prices").json()))
+
+    # 7b. 변경관리대장 No.1 — validFrom 미입력 → 오늘 날짜 자동 채움
+    #     (고유 공급처명이라 EXCLUDE 겹침 불가 — supplier 가 배타 키에 포함)
+    import datetime as _dt
+    r = call(tok, "POST", "/prices",
+             {"code": "EWT-3", "supplier": "F5자동일자검증", "price": 777, "source": "견적"})
+    ok("validFrom 생략 등록 201", r.status == 201)
+    pid = r.json()["priceId"]
+    got = next(p for p in call(tok, "GET", "/prices").json() if p["priceId"] == pid)
+    ok("오늘 날짜 자동 채움", got["from"] == _dt.date.today().isoformat())
+    psql(f"DELETE FROM cst_price WHERE price_id={pid}")
+    psql("DELETE FROM com_company WHERE company_name='F5자동일자검증'")
+    ok("자동일자 시험행 정리", all(p["priceId"] != pid
        for p in call(tok, "GET", "/prices").json()))
 
     # 8. 문서 메타 — 등록 → 메타 수정 → ACCEPTED 409 → 삭제

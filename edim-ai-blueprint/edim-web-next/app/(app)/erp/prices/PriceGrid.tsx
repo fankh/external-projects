@@ -64,7 +64,9 @@ export function PriceGrid({ rows }: { rows: PriceRow[] }) {
                 {['PURCHASE', 'ESTIMATE', 'CONTRACT', 'STOCK'].map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
               <label>{t('price.validFrom', '유효 시작')}</label>
-              <input className="in" name="validFrom" placeholder={t('price.validFromPh', '적용시작 YYYY-MM-DD')} />
+              {/* 변경관리대장 No.1 — 미입력 시 오늘 날짜 자동 적용 (기본값으로 미리 채움) */}
+              <input className="in" name="validFrom" defaultValue={new Date().toLocaleDateString('sv-SE')}
+                placeholder={t('price.validFromPh', '적용시작 YYYY-MM-DD')} />
               <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 6, alignItems: 'center' }}>
                 {regSt.error ? <span style={{ fontSize: 11, color: 'var(--err)', marginRight: 'auto' }}>{regSt.error}</span> : null}
                 <button className="b run" type="submit" disabled={regPending}>{t('common.register', '등록')}</button>

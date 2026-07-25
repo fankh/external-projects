@@ -5352,7 +5352,7 @@ class PriceCreate(BaseModel):
     supplier: str = "-"
     price: float
     source: str = "QUOTE"        # enum 또는 한글 라벨
-    validFrom: str               # YYYY-MM-DD
+    validFrom: str = ""          # YYYY-MM-DD — 미입력 시 오늘 (변경관리대장 No.1)
     validTo: str | None = None
 
 
@@ -5363,6 +5363,7 @@ def create_price(body: PriceCreate) -> dict[str, Any]:
         raise HTTPException(422, detail=f"단가 Table 구분 오류: {body.source}")
     if body.price <= 0:
         raise HTTPException(422, detail="단가는 0 보다 커야 합니다")
+    valid_from = body.validFrom.strip() or date.today().isoformat()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -5391,7 +5392,7 @@ def create_price(body: PriceCreate) -> dict[str, Any]:
                    price, price_source, valid_from, valid_to)
                    VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING price_id""",
                 (tid, pc[0], supplier_id, body.price, src,
-                 body.validFrom, body.validTo))
+                 valid_from, body.validTo))
         except Exception as e:  # EXCLUDE 기간 중복 (DB v0.5)
             if "exclusion" in str(e).lower() or "overlap" in str(e).lower():
                 raise HTTPException(409, detail="기간 중복 — 동일 Table·Code 의 유효기간이 겹칩니다 (EXCLUDE)") from e
