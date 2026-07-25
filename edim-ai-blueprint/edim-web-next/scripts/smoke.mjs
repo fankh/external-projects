@@ -69,7 +69,8 @@ async function assertRenders(path, markers, cookie) {
     const res = await rawGet(path, cookie)
     if (res.status !== 200) { bad(`SSR: ${path}`, `status ${res.status}`); return }
     const html = await res.text()
-    const missing = markers.filter((m) => !html.includes(m))
+    // 마커 항목이 배열이면 any-of (사용자 설정에 따라 갈리는 UI — 예: 좌측 프로세스/메뉴 모드)
+    const missing = markers.filter((m) => Array.isArray(m) ? !m.some((a) => html.includes(a)) : !html.includes(m))
     if (missing.length === 0) ok(`SSR: ${path} (마커 ${markers.length}개)`)
     else bad(`SSR: ${path}`, `HTML 에 없음: ${missing.map((m) => JSON.stringify(m)).join(', ')}`)
   } catch (e) { bad(`SSR: ${path}`, e.message) }
@@ -145,7 +146,7 @@ async function main() {
 
   // 4f) N4 관리자·Code Set-up 복구 — 사용자/매트릭스/코드 CRUD UI 렌더
   await assertRenders('/erp/roles', ['사용자 등록', '권한 매트릭스'], token)
-  await assertRenders('/code/product-codes', ['코드 등록'], token)
+  await assertRenders('/code/product-codes', ['수동 등록'], token)   // #28 — 조합 생성 도입으로 '코드 등록'→'수동 등록'
   await assertRenders('/code/variant', ['값 등록'], token)
   await assertRenders('/code/materials', ['재질 등록'], token)
 
@@ -173,7 +174,8 @@ async function main() {
   await assertRenders('/erp/mrp', ['MRP 자재 소요 계획', '리드타임'], token)
 
   // 4k) 네비 개편 — 헤더 카테고리 드롭다운(data-nav-cat) + 좌측 메뉴 편집(✎)
-  await assertRenders('/erp/projects', ['data-nav-cat="erp-purchasing"', 'data-nav-cat="erp-company"', 'data-lnav-edit'], token)
+  // 좌측 패널은 사용자 설정에 따라 프로세스(기본)/메뉴 모드 — 편집 affordance 는 any-of
+  await assertRenders('/erp/projects', ['data-nav-cat="erp-purchasing"', 'data-nav-cat="erp-company"', ['data-lnav-edit', 'data-process-to-menu']], token)
   await assertRenders('/cpq/selection', ['data-nav-cat="cpq-doc"'], token)
 
   // 4m) U16~U27 신규 기능 (v25~v28) — 위젯 Set-up·Hierarchy 검색/점검·Relationship 소품·헤더 편집·
@@ -185,7 +187,7 @@ async function main() {
   await assertRenders('/cpq/documents', ['채번 규칙', 'data-doc-rule'], token)
   await assertRenders('/toolbox/macros', ['data-fn-wizard'], token)
   await assertRenders('/code/datatable', ['data-chart-wizard'], token)
-  await assertRenders('/code/subcode', ['data-panel-mother', 'Child Component'], token)
+  await assertRenders('/code/subcode', ['Child Component'], token)   // mother 패널은 DB 템플릿 클라이언트 렌더 — SSR 마커 아님
   await assertRenders('/cpq/selection', ['분할', '통합'], token)
   await assertRenders('/plm/design', ['SYNC', 'data-blk-name'], token)
   await assertRenders('/plm/work-process', ['data-design-priority'], token)
