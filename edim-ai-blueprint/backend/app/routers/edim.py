@@ -13846,36 +13846,11 @@ def design_params(drawing: str = "KDCR 3-13") -> list[dict[str, Any]]:
                  "basePoint": r[4], "errorCheck": r[5], "remarks": r[6]} for r in cur.fetchall()]
 
 
-_ERR_OPS = {">": lambda a, b: a > b, ">=": lambda a, b: a >= b,
-            "<": lambda a, b: a < b, "<=": lambda a, b: a <= b,
-            "=": lambda a, b: a == b, "<>": lambda a, b: a != b}
-
-
 def _eval_error_check(expr: str, own: float | None,
                       values: dict[str, float]) -> tuple[bool | None, str]:
-    """U17 오류조건 평가 — '> 300' (자기 값) · 'A > 300' · 'A > B' 형태.
-
-    반환: (위반 여부, 사유). 판정 불가(값 미정·구문 밖)는 (None, 사유) — 경고가 아니라 '미평가'.
-    조건식은 '정상 범위'가 아니라 **오류 조건**이다(설계자가 '④ > 300' 을 오류로 기입) —
-    식이 참이면 위반.
-    """
-    e = expr.strip()
-    if not e:
-        return None, "미설정"
-    m = re.match(r"^\s*([A-Za-z][\w.]*)?\s*(<=|>=|<>|<|>|=)\s*([A-Za-z][\w.]*|-?\d+(?:\.\d+)?)\s*$", e)
-    if not m:
-        return None, f"구문 해석 불가: {e}"
-    lhs_name, op, rhs_raw = m.group(1), m.group(2), m.group(3)
-    lhs = values.get(lhs_name) if lhs_name else own
-    if lhs is None:
-        return None, f"좌변 값 미정({lhs_name or '자기 값'})"
-    try:
-        rhs = float(rhs_raw)
-    except ValueError:
-        rhs = values.get(rhs_raw)
-        if rhs is None:
-            return None, f"우변 값 미정({rhs_raw})"
-    return _ERR_OPS[op](lhs, rhs), f"{lhs:g} {op} {rhs:g}"
+    """U17 오류조건 평가 — 순수 로직은 services/design_rules 로 분리(단독 유닛 테스트 가능)."""
+    from app.services.design_rules import evaluate
+    return evaluate(expr, own, values)
 
 
 @router.get("/drawings/dimensions/error-check")
