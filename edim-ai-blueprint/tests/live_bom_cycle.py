@@ -108,6 +108,12 @@ with sync_playwright() as pw:
     ok("depthCapped 거짓", body["depthCapped"] is False)
     ok("passed 참", body["passed"] is True)
     ok("maxLevel 이 정수", isinstance(body["maxLevel"], int), str(body["maxLevel"]))
+    # DRAFT 관계만 있으므로 전개 대상은 0 — 그 사유가 응답에 있어야 한다
+    # (종전에는 "mother not found" 404 라 코드가 없는 것으로 오해했다)
+    ok("전개 대상 0 사유가 notes 에 명시",
+       any("승인된 하위 관계가 없" in x for x in body["notes"]), str(body["notes"]))
+    ok("없는 코드는 404", call("POST", "/codes/relationships/running-test", admin,
+                              data={"motherCode": "__NOSUCH__", "slotValues": {}}).status == 404)
 
     # ── 5. 정리 ──
     purge()

@@ -7062,8 +7062,11 @@ def running_test(body: RunningTestRequest) -> dict[str, Any]:
             "SELECT code_name FROM product_code WHERE tenant_id=%s AND main_code=%s",
             (tid, body.motherCode))
         mother = cur.fetchone()
-    if not rows:
-        raise HTTPException(404, detail=f"mother not found: {body.motherCode}")
+    # 코드가 없는 것과 **승인된 하위 관계가 없는 것**은 다르다. 종전에는 전개 결과가 비면
+    # 무조건 "mother not found" 를 돌려줘, 방금 만든 코드에 Running Test 를 돌린 사용자가
+    # 코드가 없다고 오해했다(관계가 DRAFT 라 전개 대상이 아니었을 뿐).
+    if not mother:
+        raise HTTPException(404, detail=f"코드 없음: {body.motherCode}")
     sv = body.slotValues
     out = [{
         "no": "Main",
@@ -7086,6 +7089,8 @@ def running_test(body: RunningTestRequest) -> dict[str, Any]:
         notes.append(f"순환 {len(cycles)}건 — 해당 경로는 전개에서 제외됨")
     if capped:
         notes.append(f"깊이 상한({_BOM_MAX_LVL}단계) 도달 — 그 아래는 전개되지 않음")
+    if not rows:
+        notes.append("승인된 하위 관계가 없습니다 — DRAFT 관계는 전개 대상이 아닙니다")
     return {"passed": not cycles and not capped,
             "cycleCheck": "CYCLE" if cycles else "OK",
             "cycles": cycles, "depthCapped": capped, "maxLevel": integrity["maxLevel"],
