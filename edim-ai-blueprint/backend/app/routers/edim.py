@@ -22,6 +22,7 @@ from fastapi import Depends, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from app.config import settings
 from app.db import db_ok, get_pool
 from app.services import storage
 from app.services.edim_seed import TENANT
@@ -2803,7 +2804,7 @@ def ai_chat(body: AiChatRequest, request: Request) -> dict[str, Any]:
         try:
             ctx = "\n".join(f"- [{r['kind']}] {r['code']} : {r['title']}" for r in refs) or "(일치 자료 없음)"
             msg = client.messages.create(
-                model=settings.anthropic_model_id, max_tokens=600,
+                model=settings.anthropic_model_id, max_tokens=2000,  # opus-5 thinking 합산 상한 여유
                 system=("EDIM(제조 CPQ/PLM/ERP 플랫폼) 내부 자료 안내 도우미. 아래 검색된 내부 자산 목록만 근거로 "
                         "한국어 2~4문장으로 답하고, 목록에 없는 내용은 추정하지 말 것.\n검색 결과:\n" + ctx),
                 messages=[{"role": "user", "content": q}],

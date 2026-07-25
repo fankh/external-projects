@@ -62,7 +62,7 @@ def generate_macro(prompt: str) -> dict[str, Any]:
     try:
         msg = client.messages.create(
             model=settings.anthropic_model_id,
-            max_tokens=800,
+            max_tokens=4000,   # opus-5: thinking 기본 활성 — max_tokens 는 thinking+응답 합산 상한
             system=(
                 "당신은 EDIM(제조 CPQ/PLM 플랫폼)의 Macro 작성 도우미다.\n"
                 + GRAMMAR
@@ -91,7 +91,7 @@ def suggest_ui(description: str) -> dict[str, Any]:
     try:
         msg = client.messages.create(
             model=settings.anthropic_model_id,
-            max_tokens=800,
+            max_tokens=4000,   # opus-5: thinking 기본 활성 — max_tokens 는 thinking+응답 합산 상한
             system=(
                 "제조 ERP 화면(UI Form) 설계 도우미. 사용자가 설명한 Application 에 필요한 "
                 "위젯 배치 초안을 제안한다. 위젯 kind 는 PushButton/ComboBox/LineEdit/TableView/"

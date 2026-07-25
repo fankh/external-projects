@@ -5,14 +5,24 @@ endpoint validates the requested model against it before calling the API.
 """
 
 # Default when the client does not request a specific model.
-DEFAULT_MODEL_ID = "claude-opus-4-8"
+DEFAULT_MODEL_ID = "claude-opus-5"
 
 # Selectable models, ordered most-capable first.
 AVAILABLE_MODELS = [
     {
+        "id": "claude-opus-5",
+        "label": "Claude Opus 5",
+        "description": "가장 강력한 모델 (기본값)",
+    },
+    {
+        "id": "claude-sonnet-5",
+        "label": "Claude Sonnet 5",
+        "description": "속도와 지능의 균형 (신형)",
+    },
+    {
         "id": "claude-opus-4-8",
         "label": "Claude Opus 4.8",
-        "description": "가장 강력한 모델 (기본값)",
+        "description": "이전 세대 Opus",
     },
     {
         "id": "claude-opus-4-7",
