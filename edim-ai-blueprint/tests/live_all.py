@@ -290,6 +290,14 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_cursor_reuse.py")]
 print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_cursor_reuse.py", p.returncode == 0, ""))
 
+# check_test_syntax — 검증 코드 문법 게이트 (14.2, 서버 불요)
+print(f"\n{'=' * 60}\n▶ check_test_syntax.py (static)\n{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_test_syntax.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=120)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_test_syntax.py", p.returncode == 0, ""))
+
 # check_audit_coverage — 감사 기록 커버리지 게이트 (13.8, 서버 불요)
 print(f"\n{'=' * 60}\n▶ check_audit_coverage.py (static)\n{'=' * 60}")
 p = subprocess.run([sys.executable, os.path.join(HERE, "check_audit_coverage.py")],
@@ -333,4 +341,13 @@ for name, passed, tail in results:
     if not passed:
         failed += 1
 print(f"\n{len(results) - failed}/{len(results)} suites green")
+# 등록 대비 실행 수를 함께 보고한다 — 러너가 중간에 죽거나 스위트를 건너뛰면
+# '실패 0건' 이 통과처럼 읽힌다(14.1 에서 실제로 그랬다). 결과가 없는 것은 통과가 아니다.
+expected = len(SUITES)
+executed = sum(1 for name, _, _ in results if name in SUITES)
+if executed != expected:
+    print(f"❌ 등록 {expected}개 중 {executed}개만 실행됨 — "
+          f"누락 {expected - executed}개: "
+          f"{[s for s in SUITES if s not in {n for n, _, _ in results}][:5]}")
+    sys.exit(1)
 sys.exit(1 if failed else 0)
