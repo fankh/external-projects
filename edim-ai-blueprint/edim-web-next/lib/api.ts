@@ -3,6 +3,9 @@ import 'server-only'
 import { getToken } from './session'
 
 const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
+// 9.44 — SSR fetch 타임아웃(회복탄력성): 백엔드가 느리거나 응답 없을 때 SSR 렌더가 무한 대기하지
+// 않도록 상한을 둔다. 초과·네트워크 실패는 504 ApiError 로 정규화 → 페이지가 즉시 오류 상태로 열화.
+const TIMEOUT_MS = Number(process.env.EDIM_API_TIMEOUT_MS ?? 8000)
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -13,15 +16,22 @@ export class ApiError extends Error {
 /** 서버측 fetch — 인증 헤더 자동. SSR 데이터 로드용(no-store: 항상 최신 ERP 데이터). */
 export async function apiServer<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getToken()
-  const res = await fetch(API_BASE + path, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-    cache: 'no-store',
-  })
+  let res: Response
+  try {
+    res = await fetch(API_BASE + path, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers ?? {}),
+      },
+      cache: 'no-store',
+      signal: init?.signal ?? AbortSignal.timeout(TIMEOUT_MS),
+    })
+  } catch (e) {
+    const timeout = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')
+    throw new ApiError(504, timeout ? '백엔드 응답 시간 초과' : '백엔드 연결 실패')
+  }
   if (!res.ok) {
     let detail = `HTTP ${res.status}`
     try {
@@ -35,12 +45,18 @@ export async function apiServer<T>(path: string, init?: RequestInit): Promise<T>
 
 /** 로그인(쿠키 미설정 상태에서 호출) — 토큰+유저 반환 */
 export async function apiLogin(userId: string, password: string, otp?: string): Promise<{ token?: string; mfaRequired?: boolean; user?: unknown }> {
-  const res = await fetch(API_BASE + '/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, password, ...(otp ? { otp } : {}) }),
-    cache: 'no-store',
-  })
+  let res: Response
+  try {
+    res = await fetch(API_BASE + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, password, ...(otp ? { otp } : {}) }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+  } catch {
+    throw new ApiError(504, '로그인 서버 응답이 없습니다 — 잠시 후 다시 시도하십시오')
+  }
   if (!res.ok) {
     let detail = '사번 또는 비밀번호가 올바르지 않습니다'
     try {

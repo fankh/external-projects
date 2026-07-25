@@ -860,6 +860,12 @@ UI_TRANSLATIONS: dict[str, tuple[str, str, str]] = {
     # 9.40 — 아이콘 전용 버튼 접근가능 이름 (스크린리더)
     "duct.decDiffuser": ("Decrease diffuser", "ディフューザー減", "减少扩散器"),
     "doctpl.printBtn": ("Print", "印刷", "打印"),
+    # 9.44 — 에러 바운더리(회복탄력성)
+    "error.title": ("Couldn't load this screen", "画面を読み込めませんでした", "无法加载此画面"),
+    "error.body": ("A temporary error occurred — the backend may be slow to respond. Retry, or try again shortly.",
+                   "一時的なエラーが発生しました。バックエンドの応答が遅延した可能性があります — 再試行するか、しばらくしてからアクセスしてください。",
+                   "发生临时错误——后端响应可能延迟。请重试，或稍后访问。"),
+    "error.retry": ("Retry", "再試行", "重试"),
     "common.new": ("New", "新規", "新建"),
     "common.delete": ("Delete", "削除", "删除"),
     "common.save": ("Save", "保存", "保存"),
