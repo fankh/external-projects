@@ -9,6 +9,8 @@ export interface PcrBreakdown {
   directCostTotal: number; contributionMargin: number
   sga: { rows: { name: string; amount: number }[]; subtotal: number; basis: string }
   fullCosts: number; ebit: number
+  /** 근거 완전성 — 단가 미해결 품목은 0 원으로 집계되므로 금액이 실제보다 낮다. */
+  unpricedCount?: number; unpricedCodes?: string[]; basisComplete?: boolean
 }
 
 export async function getPcrBreakdown(pcrId: number): Promise<PcrBreakdown | null> {
@@ -34,9 +36,11 @@ export async function getPcrActual(pcrId: number): Promise<PcrActual | null> {
 
 /** U19 잔여 — 사업유형 다열 비교 (슬라이드 74 'Own acc./Biz.Type n' 열). */
 export interface PcrCompare {
-  columns: { businessType: string; pcrId: number; code: string; marginRate: number | null }[]
+  columns: { businessType: string; pcrId: number; code: string; marginRate: number | null
+             unpricedCount?: number; basisComplete?: boolean }[]
   metrics: { key: string; label: string; cells: (number | string | null)[]; delta: number | null }[]
   maskMode: string; note: string; noteCode?: 'latestPerType' | 'noPcr'
+  basisComplete?: boolean; incompleteBasisTypes?: string[]
 }
 
 export async function getPcrCompare(): Promise<PcrCompare | null> {

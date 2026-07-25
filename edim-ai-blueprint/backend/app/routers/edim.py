@@ -12254,6 +12254,11 @@ def _write_cst_calc(cur, tid: int, run_id: int, r) -> None:
         for i in r.items
     ]
     material_total = round(r.total_k * 1000)
+    # 단가를 못 찾은 품목은 0 원으로 합계에 들어간다 — 그 사실을 **여기서 영속하지 않으면**
+    # Run 로그(휘발성)에만 남아, 이 원가로 만드는 PCR·견적은 축소된 금액을 근거 표시 없이 쓴다.
+    # 재료비가 낮게 잡히면 DIRECT(재료비 비율)와 매출(직접비×(1+마진))까지 함께 낮아진다.
+    unpriced = [{"code": i["resolvedCode"], "qty": i["quantity"]}
+                for i in r.items if i["priceK"] is None]
     # 제조비 — dwg_bom 조립 스텝 × 표준 2h × 임율 55,000/h (CST-003 입력 전 표준치)
     cur.execute(
         """SELECT COALESCE(b.assembly_note, p.part_name)
@@ -12276,10 +12281,14 @@ def _write_cst_calc(cur, tid: int, run_id: int, r) -> None:
         ("MANUFACTURING", mfg_lines, mfg_total),
         ("DIRECT", direct_lines, direct_total),
     ):
+        detail: dict[str, Any] = {"lines": lines}
+        if ctype == "MATERIAL":
+            detail["unpriced"] = unpriced
+            detail["unpricedCount"] = len(unpriced)
         cur.execute(
             """INSERT INTO cst_calc (tenant_id, run_id, calc_type, detail, total_amount)
                VALUES (%s,%s,%s,%s,%s)""",
-            (tid, run_id, ctype, json.dumps({"lines": lines}), total))
+            (tid, run_id, ctype, json.dumps(detail), total))
 
 
 @router.get("/cpq/runs/{run_id}/costs")
@@ -13678,7 +13687,7 @@ def _latest_cost_base(cur, tid: int, project_no: str = "") -> tuple[int, dict[st
     project_no 지정 시 해당 프로젝트(run→selection→project) 스코프의 최근 Run 만."""
     if project_no.strip():
         cur.execute(
-            """SELECT c.run_id, c.calc_type, c.total_amount
+            """SELECT c.run_id, c.calc_type, c.total_amount, c.detail
                FROM cst_calc c
                JOIN cpq_run r ON r.run_id=c.run_id AND r.status='SUCCESS'
                JOIN cpq_selection s ON s.selection_id=r.selection_id
@@ -13692,7 +13701,7 @@ def _latest_cost_base(cur, tid: int, project_no: str = "") -> tuple[int, dict[st
             (tid, project_no.strip(), tid, project_no.strip()))
     else:
         cur.execute(
-            """SELECT c.run_id, c.calc_type, c.total_amount
+            """SELECT c.run_id, c.calc_type, c.total_amount, c.detail
                FROM cst_calc c JOIN cpq_run r ON r.run_id=c.run_id AND r.status='SUCCESS'
                WHERE c.tenant_id=%s AND c.run_id=(
                  SELECT max(c2.run_id) FROM cst_calc c2
@@ -13703,8 +13712,26 @@ def _latest_cost_base(cur, tid: int, project_no: str = "") -> tuple[int, dict[st
         detail = (f"프로젝트 {project_no} 의 원가 상세 SUCCESS Run 이 없습니다"
                   if project_no.strip() else "원가 상세가 있는 SUCCESS Run 이 없습니다 — EDIM Run 먼저 실행")
         raise HTTPException(409, detail=detail)
-    totals = {r[1]: float(r[2]) for r in rows}
+    # 같은 calc_type 행이 둘 이상이면 **더해야** 한다 — dict 대입은 앞의 행을 조용히 버린다
+    # (docstring 의 '합계' 와도 어긋났다). 현재는 유형당 1행이지만 제약이 없어 잠재 함정이었다.
+    totals: dict[str, float] = {}
+    for _rid, ctype, amount, _detail in rows:
+        totals[ctype] = totals.get(ctype, 0.0) + float(amount)
     return rows[0][0], totals
+
+
+def _cost_base_unpriced(cur, tid: int, run_id: int) -> list[dict[str, Any]]:
+    """해당 Run 에서 단가를 찾지 못한 품목 — 0 원으로 합계에 들어간 항목들.
+
+    이 사실이 PCR·견적까지 따라가지 않으면, 축소된 원가로 산출한 매출·마진·EBIT 가
+    근거 표시 없이 의사결정에 쓰인다.
+    """
+    cur.execute(
+        """SELECT detail FROM cst_calc
+           WHERE tenant_id=%s AND run_id=%s AND calc_type='MATERIAL'""", (tid, run_id))
+    row = cur.fetchone()
+    det = (row[0] if row else {}) or {}
+    return list(det.get("unpriced") or [])
 
 
 class PcrCreate(BaseModel):
@@ -13725,6 +13752,10 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
         if not sel or not sel[0]:
             raise HTTPException(409, detail="cpq_selection 없음")
         run_id, totals = _latest_cost_base(cur, tid)
+        # 단가 미해결 품목은 0 원으로 합계에 들어가 있다 — 재료비가 낮아지면 직접경비(재료비
+        # 비율)와 매출(직접비×(1+마진))까지 함께 낮아진다. 근거 없이 낮은 수익성 보고서가
+        # 나오지 않도록 사실을 함께 실어 보낸다.
+        unpriced = _cost_base_unpriced(cur, tid, run_id)
         direct_total = sum(totals.values())
         revenue = round(direct_total * (1 + body.marginRate))
         sga = round(revenue * 0.08)
@@ -13736,6 +13767,8 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
             "manufacturing": totals.get("MANUFACTURING", 0),
             "direct": totals.get("DIRECT", 0),
             "sga": sga, "marginRate": body.marginRate,
+            "unpricedCount": len(unpriced),
+            "unpricedCodes": [u.get("code") for u in unpriced][:20],
         }
         cur.execute(
             """UPDATE cst_pcr SET sections=%s, direct_cost_total=%s, contribution_margin=%s,
@@ -13753,7 +13786,15 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
                  request.state.login))
             row = cur.fetchone()
     return {"pcrId": row[0], "businessType": bt, "revenue": revenue,
-            "directCostTotal": direct_total, "contributionMargin": margin, "ebit": ebit}
+            "directCostTotal": direct_total, "contributionMargin": margin, "ebit": ebit,
+            "unpricedCount": len(unpriced),
+            "unpricedCodes": [u.get("code") for u in unpriced][:20],
+            "basisComplete": not unpriced,
+            "notes": ([] if not unpriced else
+                      [f"단가 미해결 {len(unpriced)}건이 0 원으로 집계됐습니다 — "
+                       f"원가·매출·EBIT 가 실제보다 낮습니다 "
+                       f"({', '.join(str(u.get('code')) for u in unpriced[:3])}"
+                       f"{' 외' if len(unpriced) > 3 else ''})"])}
 
 
 # ── U19 잔여 — 사업유형 다열 비교 (슬라이드 74 'Own acc./Biz.Type n' 열) ──
@@ -13794,7 +13835,10 @@ def pcr_compare(request: Request) -> dict[str, Any]:
             _audit(cur, tid, "cst_pcr", 0, "MASKED_READ", request.state.user_id, {"cost": cm})
 
     columns = [{"businessType": r[0], "pcrId": r[1], "code": r[6],
-                "marginRate": (r[2] or {}).get("marginRate")} for r in rows]
+                "marginRate": (r[2] or {}).get("marginRate"),
+                "unpricedCount": int((r[2] or {}).get("unpricedCount") or 0),
+                "basisComplete": not int((r[2] or {}).get("unpricedCount") or 0)}
+               for r in rows]
     metrics: list[dict[str, Any]] = []
     for key, label, src in _PCR_COMPARE_ROWS:
         cells: list[Any] = []
@@ -13810,7 +13854,10 @@ def pcr_compare(request: Request) -> dict[str, Any]:
             delta = cells[1] - cells[0]
         metrics.append({"key": key, "label": label, "cells": cells, "delta": delta})
     # 문구는 프런트가 로케일에 맞춰 표시하도록 코드로 돌려준다 (하드코딩 한국어가 EN/JA/ZH 화면에 새지 않도록)
+    # 열 중 하나라도 근거가 불완전하면 비교 자체가 오도한다(축소된 열이 더 싸 보인다)
+    incomplete = [c["businessType"] for c in columns if not c["basisComplete"]]
     return {"columns": columns, "metrics": metrics, "maskMode": cm,
+            "basisComplete": not incomplete, "incompleteBasisTypes": incomplete,
             "noteCode": "latestPerType" if columns else "noPcr",
             "note": "사업유형당 최신 PCR 1건" if columns else "PCR 없음 — Run 화면에서 PCR 생성"}
 
@@ -13864,6 +13911,9 @@ def pcr_breakdown(pcr_id: int, request: Request) -> dict[str, Any]:
         "sga": {"rows": sga_rows, "subtotal": sga_total, "basis": "율 기반 근사 — 합계 = SGA 8% (CST-005 상세율은 PCR 기준 관리 후속)"},
         "fullCosts": _mask_num(float(row[2]) + sga_total, _cm),
         "ebit": _mask_num(float(row[4]), _cm),
+        "unpricedCount": int(sec.get("unpricedCount") or 0),
+        "unpricedCodes": list(sec.get("unpricedCodes") or []),
+        "basisComplete": not int(sec.get("unpricedCount") or 0),
     }
 
 
@@ -13887,7 +13937,11 @@ def pcr_list(request: Request) -> list[dict[str, Any]]:
              "directCostTotal": _mask_num(float(r[3]), cm),
              "contributionMargin": _mask_num(float(r[4]) if r[4] is not None else None, cm),
              "ebit": _mask_num(float(r[5]) if r[5] is not None else None, cm),
-             "status": r[6], "code": r[7], "maskMode": cm}
+             "status": r[6], "code": r[7], "maskMode": cm,
+             # 근거 완전성은 금액이 아니다 — 원가 마스킹 대상이 아니며, 오히려 마스킹된
+             # 화면일수록 "이 수치가 축소된 근거로 계산됐다" 는 사실이 필요하다.
+             "unpricedCount": int((r[2] or {}).get("unpricedCount") or 0),
+             "basisComplete": not int((r[2] or {}).get("unpricedCount") or 0)}
             for r in rows
         ]
 

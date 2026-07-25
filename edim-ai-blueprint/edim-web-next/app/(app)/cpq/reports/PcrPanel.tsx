@@ -10,6 +10,7 @@ import { getPcrActual, getPcrBreakdown, getPcrCompare, type PcrActual, type PcrB
 export interface PcrRow {
   pcrId: number; businessType: string; code: string; directCostTotal: number
   contributionMargin: number | null; ebit: number | null; status: string
+  unpricedCount?: number; basisComplete?: boolean
 }
 
 const won = (n: number | null) => (n == null ? '—' : `₩ ${Math.round(n).toLocaleString()}`)
@@ -72,6 +73,12 @@ export function PcrPanel({ rows }: { rows: PcrRow[] }) {
                     {c.businessType}
                     <div style={{ fontWeight: 400, color: 'var(--txt-mute)', fontSize: 9.5 }}>
                       #{c.pcrId}{c.marginRate != null ? ` · ${Math.round(c.marginRate * 100)}%` : ''}
+                      {c.basisComplete === false ? (
+                        <div style={{ color: 'var(--err)', fontWeight: 700 }}
+                          title={t('rpt.basisIncompleteHint', '단가 미해결 품목이 0 원으로 집계돼 이 열의 금액은 실제보다 낮습니다')}>
+                          ⚠ {t('rpt.basisIncomplete', '근거 불완전')} {c.unpricedCount}
+                        </div>
+                      ) : null}
                     </div>
                   </th>
                 ))}
@@ -135,6 +142,13 @@ export function PcrPanel({ rows }: { rows: PcrRow[] }) {
               {bd.sections.map((s2) => (
                 <SectionRows key={s2.title} title={s2.title} rows={s2.rows} subtotal={s2.subtotal} won={wonB} />
               ))}
+              {bd.basisComplete === false ? (
+                <tr><td colSpan={2} style={{ color: 'var(--err)', fontSize: 10.5, padding: '3px 0' }}>
+                  ⚠ {t('rpt.basisIncompleteDetail', '단가 미해결 {n}건이 0 원으로 집계됨 — 원가·매출·EBIT 가 실제보다 낮습니다')
+                       .replace('{n}', String(bd.unpricedCount ?? 0))}
+                  {bd.unpricedCodes?.length ? ` (${bd.unpricedCodes.slice(0, 3).join(', ')}${bd.unpricedCodes.length > 3 ? ' 외' : ''})` : ''}
+                </td></tr>
+              ) : null}
               <tr style={{ fontWeight: 700 }}><td>Direct costs total</td><td className="c" style={{ textAlign: 'right' }}>{wonB(bd.directCostTotal)}</td></tr>
               <tr style={{ fontWeight: 700, color: 'var(--run)' }}><td>Contribution margin</td><td style={{ textAlign: 'right' }}>{wonB(bd.contributionMargin)}</td></tr>
               <SectionRows title={`Sales & Adm. cost — ${bd.sga.basis}`} rows={bd.sga.rows} subtotal={bd.sga.subtotal} won={wonB} />
