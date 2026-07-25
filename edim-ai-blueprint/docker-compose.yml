@@ -16,6 +16,14 @@ services:
     env_file:
       - path: ./backend/.env
         required: false
+    # 9.45 — Docker 헬스체크: /health 가 db:true 일 때만 healthy. `docker ps` 가시성 +
+    # `docker compose up -d --wait` 로 배포가 준비완료까지 대기 가능(warmup 창 축소). python 은 이미지 내 존재.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if b'\"db\":true' in urllib.request.urlopen('http://localhost:8000/api/v1/health',timeout=4).read() else 1)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 40s
     networks:
       - default
       - infra   # edim-postgres (~/apps/infra) 접근 — DATABASE_URL 은 backend/.env
@@ -33,6 +41,14 @@ services:
     environment:
       EDIM_API_BASE: ${EDIM_API_BASE:-https://edim.seekerslab.com/api/v1}
       NODE_ENV: production
+    # 9.45 — Next SSR liveness: 3000 응답(로그인 리다이렉트 포함 비-5xx)이면 healthy. node 는 이미지 내 존재.
+    # Next standalone 은 HOSTNAME(도커=컨테이너ID) 로 바인드하므로 localhost 아닌 os.hostname() 로 접속.
+    healthcheck:
+      test: ["CMD", "node", "-e", "const h=require('os').hostname();require('http').get('http://'+h+':3000/login',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 40s
     networks:
       - default
 
