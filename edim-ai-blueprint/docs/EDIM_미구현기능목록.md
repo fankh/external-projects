@@ -218,6 +218,13 @@ dwg_drawing·dwg_revision·dwg_supersedure 개방 — 신규 화면 도면 대�
 ### 트랙 3 — 외부 의존 활성화 준비
 
 ### C9. AI 활성화 시나리오 — 🏁 **구현·검증 체계 완료 (9.50~9.51)** · 실합성만 크레딧 대기
+
+> **크레딧 차단 진단 이력 (2026-07-25)** — 코드·설정 문제가 아님이 배제됨. Anthropic 지원 문의 진행 중.
+> · 키: `sk-ant-api03-N...TQAA` (108자, 형식 정상) · 조직: `b993dc0b-2acc-473a-8ab5-b8a5a278d735` (콘솔과 일치 확인)
+> · 워크스페이스 spend limit: 정상 확인 · 백엔드 재기동 다수 (env 반영 확인)
+> · **백엔드를 거치지 않고 서버에서 Anthropic API 직접 호출해도 동일**: `invalid_request_error — credit balance is too low`
+> · 마지막 request-id: `req_011CdNX9cWerswzWjMswkGa9` (18:14 KST) — 지원 문의 시 전달
+> · 해제 시 즉시 실행: `PYTHONUTF8=1 py tests/live_c9_ai_smoke.py` (13체크). 제품은 그동안 정직 열화(live_ai_degrade 6체크 상설)
 - [x] 키 설정 시 스모크 스위트 ✅ (9.50) — `tests/live_c9_ai_smoke.py` 13체크: 3종 엔드포인트 mode='live' 분기·산출물 계약(수식/위젯 어휘/근거)·후속질의 문맥 유지·AI_QUERY 감사. **크레딧 미반영 시 exit 2 로 원인 명시**(플릿 오염 방지 위해 live_all 미편입). 상시 계약은 `live_ai_degrade`(크레딧 무관 6체크)가 상설 감시
 - [x] ai/chat 구현 ✅ (U28, v31.9~9.51) — `POST /ai/chat`: 내부 자산 6종 키워드 검색(코드·문서·Table·Macro·부품·도면) 근거 + 크레딧 시 Claude 합성. **대화 이력**(history 최근 6턴·감사 turns 기록)·Q&A 패널 스레드형(새 대화). 라이브: live_assistant_thread 7/7 · live_ai_degrade 6/6
 
