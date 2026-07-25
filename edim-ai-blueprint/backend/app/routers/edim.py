@@ -12654,7 +12654,7 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
                 raise HTTPException(404, detail=f"대상 노드 없음: #{body.targetParentId}")
             if tgt[1] != tree:
                 raise HTTPException(422, detail="다른 트리로는 이동할 수 없습니다")
-            if tgt[0] == old_addr or tgt[0].startswith(old_addr + "."):
+            if tgt[0] == old_addr or tgt[0].startswith(old_addr + "/"):
                 raise HTTPException(422, detail="자기 자신 또는 하위로는 이동할 수 없습니다")
             parent_addr = tgt[0]
         else:
