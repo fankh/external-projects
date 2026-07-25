@@ -55,6 +55,11 @@ def _extract_json(text: str) -> dict[str, Any]:
     return json.loads(m.group(0))
 
 
+def _text_of(msg: Any) -> str:
+    """응답에서 text 블록 추출 — opus-5 는 thinking 블록이 앞설 수 있어 content[0].text 금지."""
+    return next((b.text for b in msg.content if getattr(b, "type", "") == "text"), "")
+
+
 def generate_macro(prompt: str) -> dict[str, Any]:
     client = _client()
     if client is None:
@@ -72,7 +77,7 @@ def generate_macro(prompt: str) -> dict[str, Any]:
             ),
             messages=[{"role": "user", "content": prompt}],
         )
-        out = _extract_json(msg.content[0].text)
+        out = _extract_json(_text_of(msg))
         return {
             "mode": "live",
             "formula": str(out.get("formula", ""))[:500],
@@ -101,7 +106,7 @@ def suggest_ui(description: str) -> dict[str, Any]:
             ),
             messages=[{"role": "user", "content": description}],
         )
-        out = _extract_json(msg.content[0].text)
+        out = _extract_json(_text_of(msg))
         widgets = [
             {"kind": str(w.get("kind", "GroupBox"))[:20], "label": str(w.get("label", ""))[:40],
              "x": int(w.get("x", 30)), "y": int(w.get("y", 30)),

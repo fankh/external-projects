@@ -2734,15 +2734,21 @@ def ai_macro_generate(body: AiMacroRequest) -> dict[str, Any]:
     return generate_macro(body.prompt.strip())
 
 
+class AiChatTurn(BaseModel):
+    q: str
+    a: str
+
+
 class AiChatRequest(BaseModel):
     question: str
+    history: list[AiChatTurn] = []   # U28 잔여 — 대화 이력 (이전 Q/A, 최근 6턴만 반영)
 
 
 @router.post("/ai/chat")
 def ai_chat(body: AiChatRequest, request: Request) -> dict[str, Any]:
-    """U28 (s27 노트 'AI 질의 응답 — 내부 자료 검색·응답용') 1단계.
+    """U28 (s27 노트 'AI 질의 응답 — 내부 자료 검색·응답용') 1단계 + 대화 이력.
     항시: 키워드 기반 내부 자산 검색(코드·문서·Table·Macro·부품) → 근거 목록.
-    live(키+크레딧): 검색 근거를 컨텍스트로 Claude 요약 답변. 폴백은 mode='search'."""
+    live(키+크레딧): 검색 근거를 컨텍스트로 Claude 요약 답변(이전 턴 문맥 유지). 폴백은 mode='search'."""
     q = body.question.strip()
     if not q:
         raise HTTPException(422, detail="질문을 입력하십시오")
@@ -2795,7 +2801,7 @@ def ai_chat(body: AiChatRequest, request: Request) -> dict[str, Any]:
         # 9.14 — Guide AI 질의 감사 (요구 #64 '질문·답변 감사'). 누가 무엇을 묻고 어떤 내부 자산이
         # 근거로 걸렸는지 남긴다. LLM 응답 자체는 이 근거의 요약이라 근거 목록으로 감사를 갈음한다.
         _audit(cur, tid, "ai_chat", 0, "AI_QUERY", request.state.user_id,
-               {"question": q[:200], "refCount": len(refs),
+               {"question": q[:200], "refCount": len(refs), "turns": len(body.history),
                 "refs": [f"{r['kind']}:{r['code']}" for r in refs[:8]]})
 
     from app.services.ai_assist import _client
@@ -2803,13 +2809,23 @@ def ai_chat(body: AiChatRequest, request: Request) -> dict[str, Any]:
     if client is not None:
         try:
             ctx = "\n".join(f"- [{r['kind']}] {r['code']} : {r['title']}" for r in refs) or "(일치 자료 없음)"
+            # U28 대화 이력 — 최근 6턴만, 턴당 800자 절사 (컨텍스트 폭주 방지)
+            msgs: list[dict[str, str]] = []
+            for turn in body.history[-6:]:
+                if turn.q.strip() and turn.a.strip():
+                    msgs.append({"role": "user", "content": turn.q.strip()[:800]})
+                    msgs.append({"role": "assistant", "content": turn.a.strip()[:800]})
+            msgs.append({"role": "user", "content": q})
             msg = client.messages.create(
                 model=settings.anthropic_model_id, max_tokens=2000,  # opus-5 thinking 합산 상한 여유
                 system=("EDIM(제조 CPQ/PLM/ERP 플랫폼) 내부 자료 안내 도우미. 아래 검색된 내부 자산 목록만 근거로 "
-                        "한국어 2~4문장으로 답하고, 목록에 없는 내용은 추정하지 말 것.\n검색 결과:\n" + ctx),
-                messages=[{"role": "user", "content": q}],
+                        "한국어 2~4문장으로 답하고, 목록에 없는 내용은 추정하지 말 것. 이전 턴의 문맥(지시대명사 등)을 "
+                        "반영해 이어서 답할 것.\n검색 결과(현재 질문 기준):\n" + ctx),
+                messages=msgs,
             )
-            return {"mode": "live", "answer": msg.content[0].text[:1200], "refs": refs}
+            # 응답 첫 블록이 text 가 아닐 수 있음(thinking 등) — text 블록만 추출
+            answer = next((b.text for b in msg.content if getattr(b, "type", "") == "text"), "")
+            return {"mode": "live", "answer": answer[:1200], "refs": refs}
         except Exception as e:  # noqa: BLE001
             return {"mode": "error", "error": str(e)[:200],
                     "answer": f"검색 일치 {len(refs)}건 — 아래 근거를 확인하십시오. (AI 합성은 크레딧 준비 후)", "refs": refs}

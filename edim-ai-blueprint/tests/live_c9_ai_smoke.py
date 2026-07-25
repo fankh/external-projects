@@ -76,8 +76,15 @@ ok("근거(refs) 존재", len(r.get("refs", [])) >= 1)
 ok("합성 답변 비어있지 않음", bool(str(r.get("answer", "")).strip())
    and "크레딧" not in r.get("answer", "") and "키 설정" not in r.get("answer", ""))
 
-# 질의 감사 (9.14 — 요구 #64 '질문·답변 감사')
+# ── 4. U28 대화 이력 — 후속 질문이 이전 턴 문맥(지시대명사)을 이어받는지 ──
+r2 = call("/ai/chat", {"question": "그 중 첫 번째 항목을 한 문장으로 설명해줘",
+                       "history": [{"q": "KDCR 도면과 연결된 부품이 뭐야?",
+                                    "a": r.get("answer", "")}]}, tok)
+ok("이력 포함 후속 질의 mode=live", r2.get("mode") == "live")
+ok("후속 답변 비어있지 않음", bool(str(r2.get("answer", "")).strip()))
+
+# 질의 감사 (9.14 — 요구 #64 '질문·답변 감사') — 이력 턴 수(turns)도 기록
 hist = get("/history?limit=20", tok)
 ok("AI_QUERY 감사 행 기록", any(h.get("action") == "AI_QUERY" for h in hist))
 
-print(f"\nlive_c9_ai_smoke: {n}/{n} PASS — AI 3종 라이브 활성 확인")
+print(f"\nlive_c9_ai_smoke: {n}/{n} PASS — AI 3종 라이브 활성 + 대화 이력 확인")
