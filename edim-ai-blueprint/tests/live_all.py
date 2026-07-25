@@ -156,6 +156,7 @@ SUITES = [
     "live_security.py",
     "live_dev_requirements.py",   # 개발서버 전용 — 요구사항 접수 모달
     "live_assistant_thread.py",   # U28 대화 이력 UI (9.51) — 스레드 누적·후속 질의·새 대화
+    "live_u17_error_check.py",    # U17 잔여 (9.55) — 설계 오류조건 판정·경고 연동 (자체 원복)
 ]
 
 env = {**os.environ, "PYTHONUTF8": "1", "BASE": "https://edim.seekerslab.com/"}
