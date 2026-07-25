@@ -4,15 +4,9 @@ POST /arrangements
 POST /arrangements/{code}/components
 POST /cad/import
 POST /cad/part-drawing/save
-POST /codes/groups/{group}/items
-POST /codes/values
 POST /cost/pcr
 POST /cpq/runs
-POST /drawings/{drawing_no}/verifications
-POST /materials
 POST /parts/import-excel
-POST /parts/{part_no}/supplier-codes
 POST /projects/{project_no}/comments
-PUT /erp/work-process
 PUT /toolbox/forms/{name}
 PUT /toolbox/templets/{name}

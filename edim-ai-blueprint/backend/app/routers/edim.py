@@ -2260,6 +2260,11 @@ def add_code_value(request: Request, body: ValueAdd) -> dict[str, Any]:
                VALUES (%s,'code_item_value',%s,'CREATE','승인',%s,%s)""",
             (tid, vid, request.state.user_id,
              f"슬롯 값 등록 — {body.group}/{body.slot} {body.valueCode}"[:200]))
+        # Sub Code 값은 제품 코드 조합의 근거다 — 무엇이 언제 추가됐는지 남는다
+        _audit(cur, tid, "code_item_value", vid, "CREATE", request.state.user_id,
+               after={"group": body.group, "slot": body.slot,
+                      "valueCode": body.valueCode.strip()[:30],
+                      "valueName": body.valueName.strip()[:100]})
     return {"valueId": vid, "status": "PENDING"}
 
 
@@ -2295,7 +2300,7 @@ class MaterialCreate(BaseModel):
 
 
 @router.post("/materials", status_code=201, dependencies=[SETUP])
-def create_material(body: MaterialCreate) -> dict[str, Any]:
+def create_material(request: Request, body: MaterialCreate) -> dict[str, Any]:
     if not body.code.strip() or not body.name.strip():
         raise HTTPException(422, detail="필수(노란 셀) — 재질 코드·명")
     with _conn() as conn, conn.cursor() as cur:
@@ -2313,6 +2318,8 @@ def create_material(body: MaterialCreate) -> dict[str, Any]:
              body.materialType.strip()[:20], body.density,
              body.standard.strip()[:30], body.hazard.strip()[:30]))
         mid = cur.fetchone()[0]
+        _audit(cur, tid, "prt_material", mid, "CREATE", request.state.user_id,
+               after={"code": body.code.strip(), "name": body.name.strip()})
     return {"materialId": mid}
 
 
@@ -2343,7 +2350,8 @@ class VerificationAdd(BaseModel):
 
 
 @router.post("/drawings/{drawing_no}/verifications", status_code=201, dependencies=[SETUP])
-def add_drawing_verification(drawing_no: str, body: VerificationAdd) -> dict[str, Any]:
+def add_drawing_verification(drawing_no: str, request: Request,
+                             body: VerificationAdd) -> dict[str, Any]:
     if not body.ruleName.strip() or not body.warning.strip():
         raise HTTPException(422, detail="필수(노란 셀) — 규칙명·경고 문구")
     with _conn() as conn, conn.cursor() as cur:
@@ -2365,6 +2373,9 @@ def add_drawing_verification(drawing_no: str, body: VerificationAdd) -> dict[str
                warning_message) VALUES (%s,%s,%s,%s,%s) RETURNING verification_id""",
             (tid, d[0], body.ruleName.strip()[:100], m[0], body.warning.strip()[:500]))
         vid = cur.fetchone()[0]
+        _audit(cur, tid, "dwg_verification", vid, "CREATE", request.state.user_id,
+               after={"drawing": drawing_no, "rule": body.ruleName.strip(),
+                      "warning": body.warning.strip()[:120]})
     return {"verificationId": vid}
 
 
@@ -6697,7 +6708,7 @@ def get_work_process(code: str = "KDCR 3-13") -> list[dict[str, Any]]:
 
 
 @router.put("/erp/work-process", dependencies=[SETUP])
-def save_work_process(body: WorkProcessSave) -> dict[str, Any]:
+def save_work_process(request: Request, body: WorkProcessSave) -> dict[str, Any]:
     """Work Process MAKE/BUY 저장 — erp_work_process upsert (S-4-1-2 F12)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -6746,6 +6757,9 @@ def save_work_process(body: WorkProcessSave) -> dict[str, Any]:
                     (tid, pc[0], item, i, mob, workshop, warehouse, min_stock, person,
                      skill, work_time, remarks))
             n += 1
+        # 공정 정의(MAKE/BUY·창고·공수)는 제조 기준이자 제조비 산정 입력이다
+        _audit(cur, tid, "erp_work_process", pc[0], "SAVE", request.state.user_id,
+               after={"code": body.code, "rows": n})
     return {"saved": n}
 
 
@@ -7179,10 +7193,16 @@ def add_item(group: str, request: Request, body: NewItemRequest) -> dict[str, An
                request_type, step, requester_id, comment)
                VALUES (%s,'code_item',%s,'CREATE','승인',%s,%s)""",
             (tid, item_id, actor_id, f"{group} / {slot}: {body.name.strip()}"))
-        # 승인권자(SETUP+) 알림 — 요청자 제외 (SVC-13)
+        _audit(cur, tid, "code_item", item_id, "CREATE", actor_id,
+               after={"group": group, "slot": slot, "name": body.name.strip(),
+                      "values": [x.strip()[:30] for x in body.values if x.strip()]})
+        # 승인권자 알림 — 요청자 제외 (SVC-13).
+        # create_approval 과 같은 누락이 있었다: PLATFORM 이 빠져 있어 레벨이 더 높은
+        # 승인자가 알림을 못 받았다. ACTIVE 조건도 함께.
         cur.execute(
             """SELECT user_id FROM sys_user
-               WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN') AND user_id<>%s""",
+               WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN','PLATFORM')
+                 AND status='ACTIVE' AND user_id<>%s""",
             (tid, actor_id))
         for (uid,) in cur.fetchall():
             _notify(cur, tid, uid, "APPROVAL_REQUEST",
@@ -16424,7 +16444,11 @@ def part_supplier_code_add(part_no: str, request: Request, body: SupplierCodeAdd
                supplier_name, created_by) VALUES (%s,%s,%s,%s,NULLIF(%s,''),%s) RETURNING map_id""",
             (tid, p[0], sid, body.supplierCode.strip()[:50], body.supplierName.strip()[:200],
              request.state.login))
-        return {"mapId": cur.fetchone()[0]}
+        map_id = cur.fetchone()[0]
+        _audit(cur, tid, "prt_supplier_code_map", map_id, "CREATE", request.state.user_id,
+               after={"partNo": part_no, "supplier": body.supplier.strip(),
+                      "supplierCode": body.supplierCode.strip()})
+        return {"mapId": map_id}
 
 
 @router.get("/codes/{code}/supplier-codes")
