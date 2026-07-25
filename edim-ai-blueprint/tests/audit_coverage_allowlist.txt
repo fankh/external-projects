@@ -1,12 +1,13 @@
-DELETE /projects/comments/{comment_id}
+# 감사 기록이 없는 잔여 쓰기 — 위험 순으로 축소 중 (증가는 게이트가 차단).
+# 남은 항목의 성격: 배치·도형·UI 정의 저장으로, 금액·판단 근거에서 한 단계 떨어져 있다.
+# 프로젝트 댓글 등록은 sys_project_comment.author 로 작성자가 남는다(삭제는 14.7 에서 기록).
+
 PATCH /arrangements/{code}/components/{component_id}/geometry
 POST /arrangements
 POST /arrangements/{code}/components
 POST /cad/import
 POST /cad/part-drawing/save
 POST /cost/pcr
-POST /cpq/runs
-POST /parts/import-excel
 POST /projects/{project_no}/comments
 PUT /toolbox/forms/{name}
 PUT /toolbox/templets/{name}

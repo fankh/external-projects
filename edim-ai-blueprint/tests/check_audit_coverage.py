@@ -63,13 +63,23 @@ def _unaudited() -> list[str]:
 def main() -> int:
     current = _unaudited()
     if "--save" in sys.argv:
-        BASELINE.write_text("\n".join(current) + "\n", encoding="utf-8")
-        print(f"기준선 저장 — 감사 없는 쓰기 {len(current)}건")
+        # 기존 '#' 주석(왜 남아 있는지에 대한 설명)은 보존한다 — 갱신할 때마다 사라지면
+        # 다음 사람은 남은 항목이 방치인지 판단된 예외인지 알 수 없다.
+        head: list[str] = []
+        if BASELINE.exists():
+            for line in BASELINE.read_text(encoding="utf-8").splitlines():
+                if line.strip().startswith("#") or (not line.strip() and head):
+                    head.append(line)
+                elif line.strip():
+                    break
+        BASELINE.write_text("\n".join(head + current) + "\n", encoding="utf-8")
+        print(f"기준선 저장 — 감사 없는 쓰기 {len(current)}건 (주석 {len(head)}줄 보존)")
         return 0
     base = set()
     if BASELINE.exists():
+        # '#' 로 시작하는 줄은 주석 — 남은 항목이 왜 예외인지 기준선에 함께 적어 둔다
         base = {x.strip() for x in BASELINE.read_text(encoding="utf-8").splitlines()
-                if x.strip()}
+                if x.strip() and not x.strip().startswith("#")}
     added = sorted(set(current) - base)
     removed = sorted(base - set(current))
     if added:

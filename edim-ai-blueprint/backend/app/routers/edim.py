@@ -5533,7 +5533,13 @@ def project_comment_delete(comment_id: int, request: Request) -> dict[str, Any]:
             raise HTTPException(404, detail=f"코멘트 없음: {comment_id}")
         if row[0] != request.state.login and LEVEL_RANK.get(request.state.level, 0) < LEVEL_RANK.get("ADMIN", 99):
             raise HTTPException(403, detail="본인 또는 ADMIN 만 삭제할 수 있습니다")
+        cur.execute("SELECT body FROM sys_project_comment WHERE tenant_id=%s AND comment_id=%s",
+                    (tid, comment_id))
+        prev = cur.fetchone()
         cur.execute("DELETE FROM sys_project_comment WHERE tenant_id=%s AND comment_id=%s", (tid, comment_id))
+        # 삭제하면 원본이 사라진다 — ADMIN 이 남의 글을 지울 수 있으므로 누가·무엇을 지웠는지 남긴다
+        _audit(cur, tid, "sys_project_comment", comment_id, "DELETE", request.state.user_id,
+               before={"author": row[0], "body": (prev[0] if prev else "")[:200]})
     return {"deleted": True}
 
 
@@ -15086,7 +15092,7 @@ def delete_selection(selection_id: int, request: Request) -> dict[str, Any]:
 
 
 @router.post("/cpq/runs", status_code=202)
-async def start_run(body: RunRequest) -> dict[str, Any]:
+async def start_run(request: Request, body: RunRequest) -> dict[str, Any]:
     # 잘못된 runType 은 DB CHECK 위반으로 500 이 나갔다 — 사용자가 고칠 수 있는 입력이므로
     # 어떤 값이 허용되는지 알려 준다(응답 정직성 규약: 원인이 다른 실패를 뭉뚱그리지 않는다).
     if body.runType.strip().upper() not in RUN_TYPES:
@@ -15115,6 +15121,10 @@ async def start_run(body: RunRequest) -> dict[str, Any]:
                VALUES (%s,%s,%s,'RUNNING',%s) RETURNING run_id""",
             (tid, sel[0], body.runType, body.isTest))
         run_id = cur.fetchone()[0]
+        # cpq_run 에는 실행자 컬럼이 없다 — 감사에 남기지 않으면 **누가 돌렸는지 어디에도 없다**
+        # (Run 결과가 원가·견적의 근거가 되므로 실행 주체는 남아야 한다).
+        _audit(cur, tid, "cpq_run", run_id, "RUN_START", request.state.user_id,
+               after={"selectionId": sel[0], "runType": body.runType, "isTest": body.isTest})
     _runs[run_id] = {
         "status": "RUNNING", "current": -1, "outputs": [], "logs": [],
         "steps": [
@@ -16301,6 +16311,10 @@ async def import_parts_excel(request: Request, uploadedFile: UploadFile = File(.
                 (tid, no[:50], name[:200], cell("사양")[:300] or None, sid,
                  cell("단위")[:10] or "EA", weight, request.state.login))
             inserted += 1
+        # 대량 Import 3종(단가·거래처·데이터테이블)과 같은 기준 — 어느 파일이 언제 들어왔는지
+        _audit(cur, tid, "prt_part", 0, "IMPORT", request.state.user_id,
+               after={"file": uploadedFile.filename, "inserted": inserted,
+                      "rejected": len(rejected)})
     return {"inserted": inserted, "rejected": rejected, "rejectedCount": len(rejected)}
 
 
