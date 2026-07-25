@@ -126,6 +126,37 @@ with sync_playwright() as pw:
     ok("행위자가 기록됨", bool(hit[0].get("by") or hit[0].get("login")),
        str(hit[0])[:180])
 
+    # ── 2b. 데이터 테이블 수정 — before/after 대조 (14.3) ──
+    # 치수·원가 계산의 판단 근거라, 무엇이 어떻게 바뀌었는지 남지 않으면
+    # 금액 이의 제기 때 대조가 불가능하다.
+    r = call("GET", "/tables", admin)
+    tabs = r.json() if r.ok else []
+    tabs = tabs if isinstance(tabs, list) else (tabs.get("items") or [])
+    tname = next((str(t.get("name") or t.get("tableName")) for t in tabs
+                  if t.get("name") or t.get("tableName")), "")
+    ok("데이터 테이블 확보", bool(tname), str(tabs[:2])[:160])
+
+    KEY = "ZAUDROW"
+    call("DELETE", f"/tables/{tname}/rows/{KEY}", admin)
+    r = call("POST", f"/tables/{tname}/rows", admin,
+             data={"key": KEY, "values": {"A": 1}})
+    ok("행 추가", r.status in (200, 201), f"status={r.status} body={r.text()[:140]}")
+    r = call("PUT", f"/tables/{tname}/rows/{KEY}", admin, data={"values": {"A": 2}})
+    ok("행 수정", r.ok, f"status={r.status} body={r.text()[:140]}")
+
+    rows = history("tbl_data_row", action="ROW_SAVE") or []
+    hit = [x for x in rows if KEY in str(x.get("after") or "")]
+    ok("행 수정이 감사에 남음", bool(hit), f"ROW_SAVE 에 {KEY} 없음")
+    ok("변경 전 값이 함께 기록 (대조 가능)",
+       KEY in str(hit[0].get("before") or ""), str(hit[0].get("before"))[:160])
+
+    r = call("DELETE", f"/tables/{tname}/rows/{KEY}", admin)
+    ok("행 삭제", r.ok, f"status={r.status}")
+    rows = history("tbl_data_row", action="ROW_DELETE") or []
+    ok("행 삭제가 지운 값과 함께 기록",
+       any(KEY in str(x.get("before") or "") for x in rows),
+       "ROW_DELETE before 없음 — 복구 판단에 원본이 필요하다")
+
     # ── 3. 정리 ──
     call("POST", f"/approvals/{aid}/decide", admin,
          data={"approve": True, "comment": "감사 검증 정리"})

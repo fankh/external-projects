@@ -2489,7 +2489,8 @@ def _load_ws(data: bytes, required: list[str]) -> tuple[Any, dict[str, int]]:
 
 
 @router.post("/companies/import-excel", dependencies=[SETUP])
-async def import_companies_excel(uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+async def import_companies_excel(request: Request,
+                                 uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     """거래처 대량 등록 — 헤더: 업체명·유형·국가·결제조건 (중복명 거부). 유형 미지정=SUPPLIER."""
     ws, idx = _load_ws(await uploadedFile.read(), ["업체명"])
     inserted, rejected = 0, []
@@ -2514,6 +2515,9 @@ async def import_companies_excel(uploadedFile: UploadFile = File(...)) -> dict[s
                    VALUES (%s,%s,%s,NULLIF(%s,''),NULLIF(%s,''))""",
                 (tid, name[:200], ctype, cell("국가")[:50], cell("결제조건")[:200]))
             inserted += 1
+        _audit(cur, tid, "com_company", 0, "IMPORT", request.state.user_id,
+               after={"file": uploadedFile.filename, "inserted": inserted,
+                      "rejected": len(rejected)})
     return {"inserted": inserted, "rejected": rejected, "rejectedCount": len(rejected)}
 
 
@@ -2740,7 +2744,7 @@ class TableRowRequest(BaseModel):
 
 
 @router.post("/tables/{name}/rows", status_code=201, dependencies=[SETUP])
-def add_table_row(name: str, body: TableRowRequest) -> dict[str, Any]:
+def add_table_row(name: str, request: Request, body: TableRowRequest) -> dict[str, Any]:
     key = body.key.strip()
     if not key:
         raise HTTPException(422, detail="Key 필수")
@@ -2756,11 +2760,16 @@ def add_table_row(name: str, body: TableRowRequest) -> dict[str, Any]:
             """INSERT INTO tbl_data_row (table_id, row_key, row_key_num, row_values)
                VALUES (%s,%s,%s,%s)""",
             (table_id, key, num, json.dumps({k: v for k, v in body.values.items() if v is not None})))
+        # 데이터 테이블은 치수·원가 계산의 판단 근거다 — 값이 바뀌면 결과가 바뀐다
+        _audit(cur, tid, "tbl_data_row", table_id, "ROW_ADD", request.state.user_id,
+               after={"table": name, "key": key,
+                      "values": {k: v for k, v in body.values.items() if v is not None}})
     return {"key": key}
 
 
 @router.put("/tables/{name}/rows/{key}", dependencies=[SETUP])
-def update_table_row(name: str, key: str, body: TableRowRequest) -> dict[str, Any]:
+def update_table_row(name: str, key: str, request: Request,
+                     body: TableRowRequest) -> dict[str, Any]:
     """행 저장 — baseValues(편집 시작 스냅샷) 전달 시 낙관적 잠금: 타인 선수정이면 409 (D9 확대)."""
     values = {k: v for k, v in body.values.items() if v is not None}
     with _conn() as conn, conn.cursor() as cur:
@@ -2776,29 +2785,45 @@ def update_table_row(name: str, key: str, body: TableRowRequest) -> dict[str, An
             current = {k: v for k, v in (cur_row[0] or {}).items() if v is not None}
             if {k: float(v) for k, v in current.items()} != {k: float(v) for k, v in base.items()}:
                 raise HTTPException(409, detail="동시 수정 충돌 — 다른 사용자가 먼저 수정했습니다 (재조회 후 재시도)")
+        # 변경 전 값을 먼저 거둔다 — 감사에 before 가 없으면 '무엇이 어떻게 바뀌었는지' 를
+        # 알 수 없어 원가 이의 제기 때 대조가 불가능하다.
+        cur.execute("SELECT row_values FROM tbl_data_row WHERE table_id=%s AND row_key=%s",
+                    (table_id, key))
+        prev = cur.fetchone()
+        before_values = (prev[0] if prev else None) or {}
         cur.execute(
             """UPDATE tbl_data_row SET row_values=%s
                WHERE table_id=%s AND row_key=%s RETURNING row_id""",
             (json.dumps(values), table_id, key))
         if not cur.fetchone():
             raise HTTPException(404, detail=f"row not found: {key}")
+        _audit(cur, tid, "tbl_data_row", table_id, "ROW_SAVE", request.state.user_id,
+               before={"table": name, "key": key, "values": before_values},
+               after={"table": name, "key": key, "values": values})
     return {"key": key, "values": values}
 
 
 @router.delete("/tables/{name}/rows/{key}", dependencies=[SETUP])
-def delete_table_row(name: str, key: str) -> dict[str, Any]:
+def delete_table_row(name: str, key: str, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         table_id, _ = _table_id(cur, tid, name)
+        cur.execute("SELECT row_values FROM tbl_data_row WHERE table_id=%s AND row_key=%s",
+                    (table_id, key))
+        prev = cur.fetchone()
         cur.execute("DELETE FROM tbl_data_row WHERE table_id=%s AND row_key=%s RETURNING row_id",
                     (table_id, key))
         if not cur.fetchone():
             raise HTTPException(404, detail=f"row not found: {key}")
+        # 지운 값을 남긴다 — 삭제는 복구 판단에 원본이 필요하다
+        _audit(cur, tid, "tbl_data_row", table_id, "ROW_DELETE", request.state.user_id,
+               before={"table": name, "key": key, "values": (prev[0] if prev else None) or {}})
     return {"deleted": key}
 
 
 @router.post("/tables/{name}/import-excel", dependencies=[SETUP])
-async def import_excel(name: str, uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+async def import_excel(name: str, request: Request,
+                       uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     """정형 양식(1행 헤더 = Key + 열 이름) — Key 중복은 갱신, 수치 아닌 셀은 무시."""
     import openpyxl
     data = await uploadedFile.read()
@@ -2839,6 +2864,12 @@ async def import_excel(name: str, uploadedFile: UploadFile = File(...)) -> dict[
                 inserted += 1
             else:
                 updated += 1
+        # 대량 변경일수록 이력이 필요하다 — 한 번에 다수 행이 바뀌는데 흔적이 없으면
+        # 어느 파일이 언제 들어왔는지 되짚을 수 없다.
+        _audit(cur, tid, "tbl_data_row", table_id, "IMPORT", request.state.user_id,
+               after={"table": name, "file": uploadedFile.filename,
+                      "inserted": inserted, "updated": updated,
+                      "rejected": len(rejected)})
     return {"inserted": inserted, "updated": updated, "rejected": rejected}
 
 
@@ -4792,6 +4823,10 @@ def create_document(request: Request, body: DocCreate) -> dict[str, Any]:
                request_type, step, requester_id, comment)
                VALUES (%s,'doc_control',%s,'CREATE','승인',%s,%s)""",
             (tid, doc_id, request.state.user_id, f"문서 등록 — {body.docNo} {body.title}"[:200]))
+        _audit(cur, tid, "doc_control", doc_id, "CREATE", request.state.user_id,
+               after={"docNo": body.docNo.strip(), "title": body.title.strip(),
+                      "docType": body.docType.strip()[:20], "grade": body.grade.strip()[:10],
+                      "version": init_version})
     return {"docId": doc_id, "status": "Set-up"}
 
 
@@ -5818,7 +5853,8 @@ def create_price(request: Request, body: PriceCreate) -> dict[str, Any]:
 
 
 @router.post("/prices/import-excel", dependencies=[SETUP])
-async def import_prices_excel(uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
+async def import_prices_excel(request: Request,
+                              uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     """단가 Excel Import — 헤더: Code·공급처·단가·Table·적용시작·적용종료 (행 단위 등록)."""
     import openpyxl
     data = await uploadedFile.read()
@@ -5884,6 +5920,9 @@ async def import_prices_excel(uploadedFile: UploadFile = File(...)) -> dict[str,
                     raise ValueError(str(e)[:80]) from e
             except ValueError as e:
                 rejected.append(f"{r_i}행 {code}: {e}")
+        _audit(cur, tid, "cst_price", 0, "IMPORT", request.state.user_id,
+               after={"file": uploadedFile.filename, "inserted": inserted,
+                      "rejected": len(rejected)})
     return {"inserted": inserted, "rejected": rejected}
 
 
@@ -16323,7 +16362,7 @@ def drawing_bom_add(drawing_no: str, request: Request, body: BomAdd) -> dict[str
 
 
 @router.delete("/drawings/{drawing_no}/bom/{bom_id}", dependencies=[SETUP])
-def drawing_bom_delete(drawing_no: str, bom_id: int) -> dict[str, Any]:
+def drawing_bom_delete(drawing_no: str, bom_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         did = _drawing_id(cur, tid, drawing_no)
@@ -16331,6 +16370,9 @@ def drawing_bom_delete(drawing_no: str, bom_id: int) -> dict[str, Any]:
                     (did, bom_id))
         if not cur.fetchone():
             raise HTTPException(404, detail=f"BOM 행 없음: #{bom_id}")
+        # 도면 BOM 은 제조비 산정 근거(조립 스텝)로도 쓰인다 — 삭제도 이력이 남아야 한다
+        _audit(cur, tid, "dwg_bom", bom_id, "DELETE", request.state.user_id,
+               before={"drawing": drawing_no, "bomId": bom_id})
     return {"deleted": bom_id}
 
 
