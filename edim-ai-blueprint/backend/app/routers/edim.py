@@ -6022,14 +6022,16 @@ def code_referencers(code: str) -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT mc.main_code, mc.code_name, r.quantity, r.approval_status
+            """SELECT mc.main_code, mc.code_name, r.quantity, r.approval_status, r.rel_id
                FROM code_relationship r
                JOIN product_code cc ON cc.product_code_id=r.child_code_id
                JOIN product_code mc ON mc.product_code_id=r.mother_code_id
                WHERE r.tenant_id=%s AND cc.main_code=%s
                ORDER BY mc.main_code""", (tid, code))
+        # relId 포함 — 이 목록은 관계를 보여 주면서 식별자가 없어 아무 조치도 취할 수 없었다
+        # (DRAFT 관계를 잘못 걸었을 때 화면에서 회수할 방법이 없음). 추가 필드라 기존 사용 무영향.
         return [
-            {"code": r[0], "name": r[1], "qty": float(r[2]), "status": r[3]}
+            {"code": r[0], "name": r[1], "qty": float(r[2]), "status": r[3], "relId": r[4]}
             for r in cur.fetchall()
         ]
 

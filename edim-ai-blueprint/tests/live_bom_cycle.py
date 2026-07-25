@@ -52,10 +52,20 @@ with sync_playwright() as pw:
     rel_ids: list[int] = []
 
     def purge():
-        """관계를 먼저 지워야 코드가 지워진다(참조 보호)."""
+        """관계를 먼저 지워야 코드가 지워진다(참조 보호).
+
+        앞선 실행이 남긴 관계도 지워야 재실행이 409 로 막히지 않는다 —
+        in-memory rel_ids 는 프로세스마다 비므로 referencers 로 실제 목록을 읽는다.
+        """
         for rid in list(rel_ids):
             call("DELETE", f"/codes/relationships/{rid}", admin)
         rel_ids.clear()
+        for c in CODES:
+            r = call("GET", f"/codes/{c}/referencers", admin)
+            if r.ok:
+                for x in r.json():
+                    if x.get("relId"):
+                        call("DELETE", f"/codes/relationships/{x['relId']}", admin)
         for p in mine():
             call("DELETE", f"/codes/products/{p.get('productCodeId') or p.get('id')}", admin)
 
