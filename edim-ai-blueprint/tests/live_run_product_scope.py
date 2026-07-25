@@ -59,19 +59,33 @@ with sync_playwright() as pw:
         for lg in state.get("logs", []):
             m = str(lg.get("message", ""))
             if m.startswith("BOM expand root="):
-                return m.split("root=", 1)[1].split(" ", 1)[0].strip()
+                # 제품 코드에 공백이 들어간다("KDCR 3-13") — 공백으로 자르면 잘린 값이 된다.
+                # 로그 형식은 'BOM expand root={code} … {n} items → ...' 이므로 ' … ' 로 자른다.
+                return m.split("root=", 1)[1].split(" … ", 1)[0].strip()
         return ""
+
+    # 기준 Run 은 **명시한 견적안**으로 돌린다. selectionId 를 생략하면 '최신 견적안' 이
+    # 대상이 되는데, 앞선 실행의 잔재나 다른 스위트가 만든 견적안이 최신이 되면 기준 자체가
+    # 흔들린다(실제로 그렇게 오염돼 두 Run 이 같은 제품이 된 적이 있다).
+    r = call("GET", "/cpq/selections", admin)
+    sels = r.json() if r.ok else []
+    sels = sels if isinstance(sels, list) else (sels.get("items") or [])
+    base_sel = next((x for x in sels
+                     if str(x.get("finishedGoodsCode") or "").startswith("KDCR")), None)
+    ok("기준 견적안(데모 제품) 확보", base_sel is not None,
+       f"{[x.get('finishedGoodsCode') for x in sels[:5]]}")
+    base_id = base_sel.get("selectionId") or base_sel.get("id")
 
     created_selection: int | None = None
     created_runs: list[int] = []
     try:
-        # ── 1. 기본 견적안(데모 제품) Run ──
-        st0 = run_and_wait(None)
+        # ── 1. 기준 견적안(데모 제품) Run ──
+        st0 = run_and_wait(base_id)
         created_runs.append(st0["runId"])
-        ok("기본 견적안 Run 성공", st0["status"] == "SUCCESS", str(st0.get("status")))
+        ok("기준 견적안 Run 성공", st0["status"] == "SUCCESS", str(st0.get("status")))
         root0 = bom_root_of(st0)
         ok("BOM 루트가 로그에 남음", bool(root0), str(st0.get("logs"))[:160])
-        print(f"   (기준) 기본 견적안 루트 = {root0}")
+        print(f"   (기준) 기준 견적안 루트 = {root0}")
 
         # ── 2. 다른 제품 견적안을 만들어 Run ──
         pr = call("GET", "/projects", admin).json()
@@ -119,10 +133,19 @@ with sync_playwright() as pw:
         else:
             print(f"SKIP 근거 대조 — status={r.status} (경로 확인 필요)")
     finally:
-        # 검증용 견적안이 남으면 그것이 '최신' 이 되어 다른 스위트가 엉뚱한 제품으로 전개된다.
-        # 견적안은 Run 참조 보호(409)로 막히므로 **Run 을 먼저** 지운다.
+        # 정리 순서가 제품 규칙에 걸린다:
+        #  · 견적안은 Run 참조 보호(409) → Run 을 먼저 지워야 한다
+        #  · 그런데 **최신 SUCCESS Run 은 삭제 불가**(현재 원가·견적 기준이므로 타당한 규칙)
+        # 그래서 기본 견적안으로 한 번 더 실행해 '최신' 자리를 데모 제품 Run 에 넘긴 뒤 지운다.
+        # 이렇게 해야 검증용 견적안이 '최신 견적안' 으로 남아 다른 스위트를 오염시키지 않는다.
+        try:
+            tail = run_and_wait(base_id)
+            created_runs.append(tail["runId"])
+        except Exception as e:  # noqa: BLE001 — 정리 실패가 검증 결과를 덮지 않게 한다
+            print(f"   (정리) 마무리 Run 실패: {e}")
         for rid in created_runs:
-            call("DELETE", f"/cpq/runs/{rid}", admin)
+            if rid != created_runs[-1]:
+                call("DELETE", f"/cpq/runs/{rid}", admin)
         if created_selection:
             call("DELETE", f"/cpq/selections/{created_selection}", admin)
 
