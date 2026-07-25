@@ -103,6 +103,9 @@ sudo certbot --nginx -d <도메인>                     # TLS 발급 — 자동 
 ```bash
 # /usr/local/bin/edim-autodeploy.sh — fetch→pull→docker build→정적/docs rsync
 # edim-autodeploy.timer : 2분 주기 (git push 만으로 배포)
+# ⚠ edim-autodeploy.service 의 TimeoutStartSec 은 2400 (40분) 으로 설정할 것 —
+#   의존성 변경 시 npm ci 재다운로드로 빌드가 20분+ 소요되며, 기본 900(15분)이면
+#   systemd 가 배포를 로그 없이 중단해 "deploy done/FAILED 둘 다 없는" 무단 실패가 된다 (9.52 실측)
 # edim-backup.sh / edim-backup.timer : 매일 03:20 pg_dump + MinIO tar, 보존 7일
 sudo systemctl enable --now edim-autodeploy.timer edim-backup.timer
 journalctl -u edim-autodeploy | grep "deploy done"   # 첫 배포 확인
