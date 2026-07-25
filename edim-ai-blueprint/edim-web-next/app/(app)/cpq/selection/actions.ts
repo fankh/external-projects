@@ -8,23 +8,39 @@ export interface BomItem { level: number; mainCode: string; resolvedCode: string
 export interface ExpandResult { finishedGoodsCode: string; items: BomItem[] }
 export interface SelectionRow { selectionId: number; finishedGoodsCode: string; slotValues: Record<string, string>; status: string; createdAt: string; xCodeStatus: string | null }
 
-/** 제품 코드 재귀 전개 + slot_map (실 DB). */
-export async function expand(slotValues: Record<string, string>): Promise<{ result?: ExpandResult; error?: string }> {
+/** 제품 코드 재귀 전개 + slot_map (실 DB).
+ *
+ * rootCode 는 **선택한 제품**이어야 한다 — 종전에는 'KDCR 3-13' 이 하드코딩돼 있어
+ * 화면에서 어떤 제품을 보든 데모 제품이 전개·저장됐다(규격 CPQ-001 "Product Tree에서 제품 선택").
+ */
+export async function expand(slotValues: Record<string, string>, rootCode: string): Promise<{ result?: ExpandResult; error?: string }> {
+  if (!rootCode.trim()) return { error: '제품을 선택하십시오' }
   try {
-    return { result: await apiServer<ExpandResult>('/codes/products/expand', { method: 'POST', body: JSON.stringify({ rootCode: 'KDCR 3-13', slotValues }) }) }
+    return { result: await apiServer<ExpandResult>('/codes/products/expand', { method: 'POST', body: JSON.stringify({ rootCode: rootCode.trim(), slotValues }) }) }
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : 'BOM 전개 실패' }
   }
 }
 
 /** 견적안 저장 (cpq_selection · Run 대상). */
-export async function saveSelection(projectNo: string, finishedGoodsCode: string, slotValues: Record<string, string>): Promise<{ selectionId?: number; error?: string }> {
+export async function saveSelection(projectNo: string, finishedGoodsCode: string, slotValues: Record<string, string>, rootCode: string): Promise<{ selectionId?: number; error?: string }> {
+  if (!rootCode.trim()) return { error: '제품을 선택하십시오' }
   try {
-    const r = await apiServer<{ selectionId: number }>('/cpq/selections', { method: 'POST', body: JSON.stringify({ projectNo, rootCode: 'KDCR 3-13', finishedGoodsCode, slotValues }) })
+    const r = await apiServer<{ selectionId: number }>('/cpq/selections', { method: 'POST', body: JSON.stringify({ projectNo, rootCode: rootCode.trim(), finishedGoodsCode, slotValues }) })
     return { selectionId: r.selectionId }
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : '저장 실패' }
   }
+}
+
+/** 선정 가능한 제품 — 규격 CPQ-001 "승인된 코드만 표시". */
+export interface SelectableProduct { mainCode: string; codeName: string }
+
+export async function approvedProducts(): Promise<SelectableProduct[]> {
+  try {
+    const rows = await apiServer<{ mainCode: string; codeName: string }[]>('/codes/products?status=APPROVED')
+    return (rows ?? []).map((r) => ({ mainCode: r.mainCode, codeName: r.codeName }))
+  } catch { return [] }
 }
 
 /** 견적안 삭제 — Run 참조 시 409 보호. */

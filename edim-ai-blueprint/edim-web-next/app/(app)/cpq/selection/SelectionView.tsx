@@ -33,6 +33,8 @@ export function SelectionView(props: {
   arrBlocks: CanvasBlock[] | null
   arrangements?: ArrOption[]
   initialArr?: string
+  root: string
+  products: { mainCode: string; codeName: string }[]
 }) {
   const router = useRouter()
   const { t } = useI18n()
@@ -197,7 +199,7 @@ export function SelectionView(props: {
   const geomTyped: Record<string, { x?: number; y?: number; rot?: number; flip?: boolean }> = geom
 
   const reExpand = (sv: Record<string, string>) => start(async () => {
-    const r = await expand(sv)
+    const r = await expand(sv, props.root)
     if (r.error) { say(r.error, true); return }
     setFinished(r.result!.finishedGoodsCode); setBom(r.result!.items)
     say(`BOM 재전개 ${r.result!.items.length}항목 (${r.result!.finishedGoodsCode})`)
@@ -210,7 +212,7 @@ export function SelectionView(props: {
     }
   }
   const save = () => start(async () => {
-    const r = await saveSelection(props.projectNo, finished || 'KDCR 3-13-13-15', slotValues)
+    const r = await saveSelection(props.projectNo, finished || props.root, slotValues, props.root)
     if (r.error) { say(r.error, true); return }
     setSavedSelId(r.selectionId!)
     // 트리아지 #39 — 저장 = Configuration Snapshot 고정 (추적은 Snapshot ID)
@@ -258,6 +260,29 @@ export function SelectionView(props: {
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="qband" style={{ gap: 8 }}>
+        {/* 규격 CPQ-001 — 제품 선택. 종전에는 화면이 데모 제품 하나로 고정돼
+            다른 제품을 견적할 수 없었다(저장되는 견적안도 전부 그 제품). */}
+        <span style={{ fontSize: 11 }}>{t('cpq.product', '제품')}
+          <select className="in" data-product-select value={props.root}
+            onChange={(e) => router.push(`/cpq/selection?code=${encodeURIComponent(e.target.value)}`)}
+            title={t('cpq.productHint', '승인된 제품만 선정할 수 있습니다 — 선택 시 전개·저장 대상이 바뀝니다')}
+            style={{ height: 20, fontSize: 10, marginLeft: 2, maxWidth: 190 }}>
+            {(props.products.length
+              ? props.products
+              : [{ mainCode: props.root, codeName: '' }]
+             ).map((p) => (
+              <option key={p.mainCode} value={p.mainCode}>
+                {p.mainCode}{p.codeName ? ` — ${p.codeName}` : ''}
+              </option>
+            ))}
+          </select>
+        </span>
+        {props.products.length === 0 ? (
+          <span style={{ fontSize: 10.5, color: 'var(--err)' }}
+            title={t('cpq.noApprovedHint', '승인된 제품 코드가 없어 선정 대상을 제시할 수 없습니다 — 코드 승인 후 다시 시도하십시오')}>
+            ⚠ {t('cpq.noApproved', '승인된 제품 없음')}
+          </span>
+        ) : null}
         <span style={{ fontSize: 11 }}>{t('cpq.finishedCode', '완성품')} <b style={{ fontFamily: 'Consolas, monospace', color: 'var(--title-navy)' }}>{finished || '—'}</b></span>
         {PRODUCT_SLOTS.map((s) => (
           <span key={s.slot} style={{ fontSize: 11 }}>{s.slot}
@@ -316,7 +341,7 @@ export function SelectionView(props: {
           // N5b — 견적 미리보기 (Run 없이 현재 슬롯 즉석 렌더)
           void fetch('/api/next/quote-preview', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rootCode: 'KDCR 3-13', slotValues }),
+            body: JSON.stringify({ rootCode: props.root, slotValues }),
           }).then(async (res) => {
             if (!res.ok) { say(`견적 미리보기 실패 (HTTP ${res.status})`); return }
             const url = URL.createObjectURL(await res.blob())
