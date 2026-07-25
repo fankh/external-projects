@@ -4320,25 +4320,33 @@ def _apply_eco(cur, tid: int, eco_id: int, approve: bool,
 
 
 @router.get("/approvals/inbox")
-def approvals_inbox() -> list[dict[str, Any]]:
+def approvals_inbox(request: Request, assignedToMe: bool = False) -> list[dict[str, Any]]:
+    """승인함 — 미결 요청.
+
+    assignedToMe=true 면 **나에게 위임된 건**만 (ADM-003). 지정은 잠금이 아니므로
+    기본 목록은 종전대로 전원에게 전체 미결을 보여 준다.
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        mine = " AND a.assigned_to=%s" if assignedToMe else ""
+        params: list[Any] = [tid] + ([request.state.user_id] if assignedToMe else [])
         cur.execute(
-            """SELECT a.approval_id, a.target_table, a.request_type, a.step,
+            f"""SELECT a.approval_id, a.target_table, a.request_type, a.step,
                       u.user_name, to_char(a.requested_at,'MM-DD'), a.comment,
                       COALESCE(pc.main_code, dc.doc_no,
                                ec.eco_no||' '||ec.title, a.target_table||'#'||a.target_id),
-                      u.login_id
+                      u.login_id, au.login_id, au.user_name
                FROM sys_approval_request a
                JOIN sys_user u ON u.user_id=a.requester_id
+               LEFT JOIN sys_user au ON au.user_id=a.assigned_to
                LEFT JOIN product_code pc
                  ON a.target_table='product_code' AND pc.product_code_id=a.target_id
                LEFT JOIN doc_control dc
                  ON a.target_table='doc_control' AND dc.doc_control_id=a.target_id
                LEFT JOIN eco_change ec
                  ON a.target_table='eco_change' AND ec.eco_id=a.target_id
-               WHERE a.tenant_id=%s AND a.result IS NULL
-               ORDER BY a.approval_id""", (tid,))
+               WHERE a.tenant_id=%s AND a.result IS NULL{mine}
+               ORDER BY a.approval_id""", tuple(params))
         type_label = {"product_code": "Code", "doc_control": "문서",
                       "code_item": "Code", "tbx_macro": "Macro",
                       "code_relationship": "관계", "eco_change": "설계변경"}
@@ -4346,7 +4354,9 @@ def approvals_inbox() -> list[dict[str, Any]]:
             {"id": r[0], "assetType": type_label.get(r[1], r[1]),
              "target": r[6] or r[7], "reqKind": r[2], "requester": r[4],
              "reqDate": r[5], "stage": r[3], "tested": r[1] == "tbx_macro",
-             "requesterLogin": r[8]}   # F3 — '내 요청' 필터용
+             "requesterLogin": r[8],   # F3 — '내 요청' 필터용
+             # ADM-003 — 누구에게 위임됐는지. 없으면 전원 대상(잠금이 아니다).
+             "assignedLogin": r[9], "assignedName": r[10]}
             for r in cur.fetchall()
         ]
 
@@ -4393,12 +4403,14 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
     """단건 승인 결정 적용 — 상태 전이 + 요청자 알림 + 자산 전이 + 이력.
     처리 가능한 요청이 아니면 None (이미 결정됨/미존재). decide·decide_batch 공용."""
     result = "APPROVED" if approve else "REJECTED"
+    # approver_id 를 채운다 — 컬럼이 있는데 한 번도 쓰지 않아, 승인 테이블만 보고는
+    # **누가 승인했는지 알 수 없었다**(감사 로그를 따로 뒤져야 했다).
     cur.execute(
         """UPDATE sys_approval_request
-           SET result=%s, comment=NULLIF(%s,'') , decided_at=now()
+           SET result=%s, comment=NULLIF(%s,'') , decided_at=now(), approver_id=%s
            WHERE tenant_id=%s AND approval_id=%s AND result IS NULL
            RETURNING target_table, target_id, requester_id, comment""",
-        (result, comment.strip(), tid, approval_id))
+        (result, comment.strip(), actor_id, tid, approval_id))
     row = cur.fetchone()
     if not row:
         return None
@@ -4456,6 +4468,58 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
            VALUES (%s,%s,%s,%s,%s,%s)""",
         (tid, row[0], row[1], result, actor_id, json.dumps({"comment": comment})))
     return result
+
+
+class ApprovalDelegate(BaseModel):
+    login: str = ""      # 빈 값 = 지정 해제(전원 대상으로 되돌림)
+
+
+@router.post("/approvals/{approval_id}/delegate", dependencies=[SETUP])
+def approval_delegate(approval_id: int, request: Request,
+                      body: ApprovalDelegate) -> dict[str, Any]:
+    """승인 위임 (ADM-003) — 미결 요청을 특정 승인자에게 지정한다.
+
+    종전에는 승인함이 미결 요청을 전원에게 보여 줄 뿐 '누구에게 맡겨졌는지' 개념이 없어,
+    담당을 시스템 밖에서 관리해야 했다. 지정된 사람에게 알림이 가고, 지정 사실은 감사에 남는다.
+
+    지정은 **잠금이 아니다** — 다른 승인자도 여전히 결정할 수 있다(부재 시 업무가 멈추면
+    안 된다). 누가 볼 차례인지 드러내는 장치이며, 실제 결정자는 approver_id 에 기록된다.
+    """
+    login = body.login.strip()
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT approval_id, assigned_to, target_table, target_id
+               FROM sys_approval_request
+               WHERE tenant_id=%s AND approval_id=%s AND result IS NULL""", (tid, approval_id))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(
+                404, detail=f"미결 요청 없음: {approval_id} (이미 결정됐거나 존재하지 않습니다)")
+        target_uid = None
+        if login:
+            cur.execute(
+                """SELECT user_id, user_level FROM sys_user
+                   WHERE tenant_id=%s AND login_id=%s AND status='ACTIVE'""", (tid, login))
+            u = cur.fetchone()
+            if not u:
+                raise HTTPException(404, detail=f"활성 사용자 없음: {login}")
+            if LEVEL_RANK.get(u[1], 0) < LEVEL_RANK["SETUP"]:
+                raise HTTPException(
+                    422, detail=f"{login} 은 승인 권한 레벨이 아닙니다 (SETUP 이상 필요) — "
+                                f"지정해도 결정할 수 없습니다")
+            target_uid = u[0]
+        cur.execute(
+            "UPDATE sys_approval_request SET assigned_to=%s, updated_at=now() "
+            "WHERE tenant_id=%s AND approval_id=%s", (target_uid, tid, approval_id))
+        if target_uid:
+            _notify(cur, tid, target_uid, "APPROVAL_REQUEST",
+                    f"승인 위임 — {row[2]} #{row[3]} 건이 지정되었습니다", "/common")
+        _audit(cur, tid, "sys_approval_request", approval_id, "DELEGATE",
+               request.state.user_id,
+               before={"assignedTo": row[1]}, after={"assignedTo": target_uid, "login": login})
+    return {"approvalId": approval_id, "assignedLogin": login or None,
+            "assigned": bool(target_uid)}
 
 
 @router.post("/approvals/{approval_id}/decide", dependencies=[SETUP])
