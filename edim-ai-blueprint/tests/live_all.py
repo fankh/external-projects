@@ -160,6 +160,7 @@ SUITES = [
     "live_u19_pcr_compare.py",    # U19 잔여 (9.56) — PCR 사업유형 다열 비교 (조회 전용)
     "live_u6_u20_layout.py",      # U6·U20 잔여 (9.61~62) — 자리표시자 배치 영속·child 도면 연결 (자체 원복)
     "live_ai_degrade.py",         # AI 정직 열화 (9.67) — 크레딧 유무 무관: 화면 무손상·사유 병기
+    "live_demo_scenario.py",      # 시연 시나리오 8단계 (9.75) — 고객 데모 경로 상시 보증 (조회 전용)
 ]
 
 env = {**os.environ, "PYTHONUTF8": "1", "BASE": "https://edim.seekerslab.com/"}
