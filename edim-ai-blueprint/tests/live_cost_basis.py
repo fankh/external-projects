@@ -103,6 +103,11 @@ with sync_playwright() as pw:
        len(bd.get("unpricedCodes") or []) <= bd["unpricedCount"] or bd["unpricedCount"] == 0,
        f"codes={len(bd.get('unpricedCodes') or [])} count={bd['unpricedCount']}")
 
+    # ── 7. 잘못된 실행 유형은 500 이 아니라 422 로 안내 (11.7) ──
+    r = call("POST", "/cpq/runs", admin, data={"runType": "__BAD__", "isTest": True})
+    ok("잘못된 runType 은 422", r.status == 422, f"status={r.status} body={r.text()[:140]}")
+    ok("허용 값이 사유에 보임", "ALL" in r.text(), r.text()[:140])
+
     req.dispose()
 
 print(f"\nOK — 원가 근거 완전성 {n}개 검증 통과")

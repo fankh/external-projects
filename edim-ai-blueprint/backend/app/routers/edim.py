@@ -12124,6 +12124,10 @@ RUN_TASKS = [
 _runs: dict[int, dict[str, Any]] = {}  # 진행 상태 (산출물·완료는 DB 영속)
 
 
+# cpq_run.run_type 의 CHECK 제약과 같은 목록 — 어긋나면 DB 제약 위반이 500 으로 나간다
+RUN_TYPES = ("BOM", "DWG", "PRICING", "TECH", "ALL")
+
+
 class RunRequest(BaseModel):
     runType: str = "ALL"
     selectionId: int | None = None   # C1 — 지정 견적안 대상 실행 (미지정 시 최신)
@@ -14759,6 +14763,11 @@ def delete_selection(selection_id: int, request: Request) -> dict[str, Any]:
 
 @router.post("/cpq/runs", status_code=202)
 async def start_run(body: RunRequest) -> dict[str, Any]:
+    # 잘못된 runType 은 DB CHECK 위반으로 500 이 나갔다 — 사용자가 고칠 수 있는 입력이므로
+    # 어떤 값이 허용되는지 알려 준다(응답 정직성 규약: 원인이 다른 실패를 뭉뚱그리지 않는다).
+    if body.runType.strip().upper() not in RUN_TYPES:
+        raise HTTPException(
+            422, detail=f"실행 유형 오류: {body.runType} (허용: {'/'.join(RUN_TYPES)})")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         if body.selectionId:   # C1 — 지정 견적안
