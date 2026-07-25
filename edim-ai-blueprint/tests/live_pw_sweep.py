@@ -102,7 +102,12 @@ with sync_playwright() as pw:
             problems.append("JS:" + page_errs[0])
         if problems:
             bad_pages.append((href, problems))
-    ok(f"화면+상호작용 스윕 ({len(menu_hrefs())}화면)", not bad_pages), bad_pages and print(bad_pages)
+    # 실패 시 원인을 먼저 출력한다 — assert 가 먼저 터지면 bad_pages 를 못 봐서 진단이 불가능했다
+    if bad_pages:
+        print(f"문제 화면 {len(bad_pages)}건:")
+        for href, probs in bad_pages:
+            print(f"  {href} → {probs}")
+    ok(f"화면+상호작용 스윕 ({len(menu_hrefs())}화면)", not bad_pages)
 
     # ── 3) 쓰기 왕복 — 캘린더 ──
     pg.goto(f"{BASE}/erp/holidays", wait_until="networkidle"); pg.wait_for_timeout(500)
