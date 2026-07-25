@@ -119,6 +119,7 @@ journalctl -u edim-autodeploy | grep "deploy done"   # 첫 배포 확인
 
 | 변수 | 필수 | 내용 |
 |---|---|---|
+| `EDIM_SECRET` | ● | **세션 토큰 HMAC 서명 키**. `openssl rand -hex 32` 로 생성. 미설정이면 백엔드가 **기동을 거부**한다(개발은 `EDIM_DEV_MODE=1` 로 우회) — 기본 키는 소스에 공개되어 있어 그대로 두면 **토큰 위조로 인증 우회**가 가능하다 |
 | `DATABASE_URL` | ● | `postgresql://edim:<암호>@edim-postgres:5432/edim` (infra_default 네트워크 경유) |
 | `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | ● | 파일 스토리지 — 미설정 시 파일 업/다운로드 503 |
 | `ANTHROPIC_API_KEY` | ○ | AI 기능(도면 생성·Macro/UI 초안) 활성화 — 미설정 시 샘플 모드 |

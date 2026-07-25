@@ -28,7 +28,21 @@ from app.services import storage
 from app.services.edim_seed import TENANT
 from app.services.macro_engine import Evaluator, MacroError
 
-SECRET = os.getenv("EDIM_SECRET", "edim-dev-secret").encode()
+# 세션 토큰 HMAC 서명 키.
+# 기본값은 **소스에 공개된 문자열**이므로 그대로 두면 누구나 토큰을 위조할 수 있다(인증 우회).
+# 개발 편의를 위해 기본값 자체는 남기되, 개발 모드가 아닌 배포에서는 기동을 거부한다 —
+# 경고 로그는 넘겨보기 쉬워 보안 통제로 부족하다. (2026-07-25, 9.95)
+_DEV_SECRET = "edim-dev-secret"
+_SECRET_STR = os.getenv("EDIM_SECRET", "")
+if not _SECRET_STR:
+    if os.getenv("EDIM_DEV_MODE", "") == "1":
+        _SECRET_STR = _DEV_SECRET
+    else:
+        raise RuntimeError(
+            "EDIM_SECRET 미설정 — 세션 토큰 서명 키가 없습니다. "
+            "운영 배포에서는 반드시 설정하십시오: openssl rand -hex 32 로 생성해 backend/.env 에 "
+            "EDIM_SECRET=<값> 추가 후 백엔드 재기동. (개발 환경은 EDIM_DEV_MODE=1 로 기본 키 사용)")
+SECRET = _SECRET_STR.encode()
 
 # 공개 경로 — 그 외 전부 Bearer 토큰 필수 (P0-1)
 PUBLIC_SUFFIXES = ("/health", "/auth/login")
