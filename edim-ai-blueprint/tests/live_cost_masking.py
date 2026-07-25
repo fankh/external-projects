@@ -16,6 +16,7 @@
 import json
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
 
 BASE = "https://edim.seekerslab.com"
@@ -170,14 +171,18 @@ try:
     set_mode(TOK, "quote", "masked")
     st, pl = req("GET", "/prices", GEN)
     ok(f"단가 목록 200 ({len(pl)}건)", st == 200 and pl)
+    # 실제 제품 코드에는 공백이 들어간다(예: "ECC 55") — 인코딩 없이 URL 에 넣으면
+    # 요청 자체가 만들어지지 않는다. 종전에는 대장이 데모 코드 3종(공백 없음)으로
+    # 하드코딩돼 있어 드러나지 않았다(12.1 에서 필터 제거로 노출).
     code0 = pl[0]["code"]
+    code0_q = urllib.parse.quote(str(code0), safe="")
     ok(f"★ /prices 단가·거래처 마스킹 ({pl[0]['price']!r}/{pl[0]['supplier']!r})",
        masked(pl[0]["price"]) and MASKED_TEXT in str(pl[0]["supplier"]))
-    st, rp = req("GET", f"/prices/resolve?code={code0}", GEN)
+    st, rp = req("GET", f"/prices/resolve?code={code0_q}", GEN)
     if st == 200:
         ok(f"★ /prices/resolve 도 동일 마스킹 (우회 차단) ({rp['price']!r}/{rp['supplier']!r})",
            masked(rp["price"]) and MASKED_TEXT in str(rp["supplier"]))
-    st, rp2 = req("GET", f"/prices/resolve?code={code0}", TOK)
+    st, rp2 = req("GET", f"/prices/resolve?code={code0_q}", TOK)
     ok("ADMIN 은 resolve 실값 유지", st != 200 or isinstance(rp2["price"], (int, float)))
 
     st, sev = req("GET", "/erp/suppliers/evals", TOK)
