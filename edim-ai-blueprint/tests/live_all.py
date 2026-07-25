@@ -67,6 +67,7 @@ SUITES = [
     "live_cost_basis.py",       # 원가 근거 완전성 (11.6) — 단가 미해결이 전 경로에 고지되는지
     "live_quote_basis.py",      # 견적 확정의 근거 스냅샷·정책 차단 (11.9)
     "live_business_date.py",    # 업무 날짜 기준 일치 (12.1) — UTC/KST 하루 밀림 감시
+    "live_run_product_scope.py", # Run 이 견적안 제품을 따르는지 (12.6) — 제품 2종 검증
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
     "live_s3_macro_engine.py",
     "live_s4_rbac_notify.py",

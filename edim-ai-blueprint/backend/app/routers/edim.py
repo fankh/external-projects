@@ -12214,7 +12214,7 @@ async def _advance(run_id: int, tid: int, selection_id: int,
             # 3. 도면 (DXF)
             t0 = begin(2)
             await asyncio.sleep(0.4)
-            m = rp.step_drawing(r)
+            m = rp.step_drawing(r, root_code)
             finish(2, t0, m)
             log("drawing compose → DWG/ (ezdxf R2010)")
 
@@ -12234,8 +12234,8 @@ async def _advance(run_id: int, tid: int, selection_id: int,
             # 5. 견적서 PDF + BOM XLSX
             t0 = begin(4)
             await asyncio.sleep(0.4)
-            m1 = rp.step_quotation(r, project_no)
-            m2 = rp.step_bom_xlsx(r)
+            m1 = rp.step_quotation(r, project_no, root_code)
+            m2 = rp.step_bom_xlsx(r, root_code)
             finish(4, t0, f"{m1} · {m2}")
             log("quotation PDF (워터마크) + BOM XLSX 생성")
 
@@ -12254,7 +12254,9 @@ async def _advance(run_id: int, tid: int, selection_id: int,
             cur.execute(
                 """UPDATE cpq_run SET status='SUCCESS', finished_at=now(),
                    dimension_values=%s, bom_snapshot=%s, rel_basis=%s WHERE run_id=%s""",
-                (json.dumps({"KDCR 3-13": r.dims}),
+                # 치수값 키도 실제 루트 코드여야 한다 — 하드코딩하면 다른 제품 Run 의 치수가
+                # 데모 제품 이름으로 저장돼 조회 시 엉뚱한 제품 것으로 읽힌다.
+                (json.dumps({root_code: r.dims}),
                  # 트리아지 #41 — BOM Snapshot: 전개 결과를 Run 에 고정 (같은 Snapshot = 같은 결과 재현)
                  json.dumps(r.items),
                  # #40 — 전개 근거(관계 Revision 집합) 고정: "같은 근거면 같은 BOM" 을 대조 가능하게
@@ -14993,8 +14995,9 @@ def run_bom_basis(run_id: int) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT r.rel_basis, s.slot_values, r.status
+            """SELECT r.rel_basis, s.slot_values, r.status, pc.main_code
                FROM cpq_run r LEFT JOIN cpq_selection s ON s.selection_id=r.selection_id
+               LEFT JOIN product_code pc ON pc.product_code_id=s.product_code_id
                WHERE r.tenant_id=%s AND r.run_id=%s""", (tid, run_id))
         row = cur.fetchone()
         if not row:
@@ -15004,7 +15007,9 @@ def run_bom_basis(run_id: int) -> dict[str, Any]:
             # #40 이전 Run — 근거가 기록되지 않았다. 없는 것을 있는 척하지 않는다.
             return {"runId": run_id, "pinned": None, "stable": None,
                     "reason": "이 Run 은 전개 근거 도입(#40) 이전에 실행되어 근거가 없습니다"}
-        cur_rows = _expand_rows(cur, tid, "KDCR 3-13", row[1] or {})
+        # 근거 대조는 **같은 제품을 다시 폈을 때** 와 비교해야 의미가 있다. 종전에는 루트가
+        # 데모 제품으로 하드코딩돼, 다른 제품의 Run 은 남의 BOM 과 비교돼 drift 판정이 무의미했다.
+        cur_rows = _expand_rows(cur, tid, row[3] or _DEMO_ROOT, row[1] or {})
         current = _rel_basis(cur_rows)
         pin_map = {e["relId"]: e["revisionNo"] for e in pinned.get("edges", [])}
         cur_map = {e["relId"]: e["revisionNo"] for e in current["edges"]}
@@ -15177,11 +15182,15 @@ def snapshot_verify(snapshot_id: int) -> dict[str, Any]:
             # #40 — drift 는 '지금 다시 폈을 때' 와 비교해야 의미가 있다.
             # cpq_run.bom_snapshot·rel_basis 는 Run 시점에 고정된 불변 값이라 자기 자신과 비교하면
             # 영원히 차이가 없다(1.7 의 bomRows 비교가 사실상 무효였던 원인). 여기서 실제 재전개한다.
-            cur.execute("SELECT s.slot_values FROM cpq_run r LEFT JOIN cpq_selection s "
-                        "ON s.selection_id=r.selection_id WHERE r.tenant_id=%s AND r.run_id=%s",
-                        (tid, run_id))
+            cur.execute(
+                """SELECT s.slot_values, pc.main_code
+                   FROM cpq_run r LEFT JOIN cpq_selection s ON s.selection_id=r.selection_id
+                   LEFT JOIN product_code pc ON pc.product_code_id=s.product_code_id
+                   WHERE r.tenant_id=%s AND r.run_id=%s""", (tid, run_id))
             sv = cur.fetchone()
-            rows = _expand_rows(cur, tid, "KDCR 3-13", (sv[0] if sv else None) or {})
+            # 재전개도 그 Run 의 제품으로 — 하드코딩하면 다른 제품과 비교해 drift 가 늘 어긋난다
+            rows = _expand_rows(cur, tid, (sv[1] if sv else None) or _DEMO_ROOT,
+                                (sv[0] if sv else None) or {})
             live_basis = _rel_basis(rows)
             live_bom = [{"level": r[3], "mainCode": r[0],
                          "resolvedCode": _resolved(r[0], r[4] or {}),

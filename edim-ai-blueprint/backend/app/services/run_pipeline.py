@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import io
+import re
 import json
 from dataclasses import dataclass, field
 from datetime import date
@@ -165,9 +166,20 @@ def build_part_dxf(dims: dict[str, float]) -> bytes:
     return buf.getvalue().encode()
 
 
-def step_drawing(r: PipelineResult) -> str:
-    """제작도면 DXF — Design Editor 와 동일한 정본 작도 재사용 (ENG-03)."""
-    r.files.append(("DWG", "KDCR3-13_mfg_RevB.dxf", "DXF", build_part_dxf(r.dims)))
+def _fname_code(code: str) -> str:
+    """파일명에 쓸 수 있는 형태로 제품 코드를 다듬는다 (공백·경로문자 제거)."""
+    safe = re.sub(r"[^0-9A-Za-z가-힣._-]+", "", (code or "").replace(" ", ""))
+    return safe or "PRODUCT"
+
+
+def step_drawing(r: PipelineResult, root_code: str = "") -> str:
+    """제작도면 DXF — Design Editor 와 동일한 정본 작도 재사용 (ENG-03).
+
+    파일명이 데모 제품("KDCR3-13_mfg_RevB.dxf")으로 고정돼 있었다. 내용은 실제 치수를
+    따르는데 이름만 남의 제품이라, 다른 제품 Run 의 산출물이 데모 제품 도면으로 보관된다.
+    """
+    r.files.append((
+        "DWG", f"{_fname_code(root_code)}_mfg_RevB.dxf", "DXF", build_part_dxf(r.dims)))
     return "1 파일 (DXF R2010 · 치수 반영)"
 
 
@@ -593,7 +605,7 @@ def build_lines_pdf(*, title: str, subtitle: str = "", lines: list[str],
     return buf.getvalue()
 
 
-def step_quotation(r: PipelineResult, project_no: str) -> str:
+def step_quotation(r: PipelineResult, project_no: str, root_code: str = "") -> str:
     """견적서 PDF (P2-4) — reportlab, CJK CID 폰트 + CONFIDENTIAL 워터마크."""
     import os
 
@@ -664,11 +676,15 @@ def step_quotation(r: PipelineResult, project_no: str) -> str:
     c.drawString(50, 40, "EDIM Tool System — 승인 전 배포 금지 (Management Grade)")
     c.showPage()
     c.save()
-    r.files.append(("PRICE", "QR-61216-01_quotation.pdf", "PDF", buf.getvalue()))
+    # 파일명이 데모 문서번호로 고정돼 있었다 — 모든 Run 이 같은 이름을 내면
+    # 문서 시스템에서 서로 구분되지 않는다(프로젝트·제품 기준으로 짓는다).
+    r.files.append((
+        "PRICE", f"{_fname_code(project_no)}_{_fname_code(root_code)}_quotation.pdf",
+        "PDF", buf.getvalue()))
     return f"견적서 PDF · 합계 {r.total_k:,.0f}K"
 
 
-def step_bom_xlsx(r: PipelineResult) -> str:
+def step_bom_xlsx(r: PipelineResult, root_code: str = "") -> str:
     import openpyxl
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -681,7 +697,7 @@ def step_bom_xlsx(r: PipelineResult) -> str:
     ws.append(["", "", "합계", "", "", r.total_k, ""])
     buf = io.BytesIO()
     wb.save(buf)
-    r.files.append(("BOM", "BOM_BM21456.xlsx", "XLSX", buf.getvalue()))
+    r.files.append(("BOM", f"BOM_{_fname_code(root_code)}.xlsx", "XLSX", buf.getvalue()))
     return f"BOM {len(r.items)}행 XLSX"
 
 
