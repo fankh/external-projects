@@ -217,9 +217,9 @@ dwg_drawing·dwg_revision·dwg_supersedure 개방 — 신규 화면 도면 대�
 
 ### 트랙 3 — 외부 의존 활성화 준비
 
-### C9. AI 활성화 시나리오 (ANTHROPIC_API_KEY 입력 즉시)
-- [ ] 키 설정 시 스모크 스위트 — ai/macro-generate·ui-suggest live 검증 (샘플 모드와 분기)
-- [ ] ai/chat 구현 (스펙 후속 op) — Toolbox 우측 Q&A 패널 (사내 데이터 컨텍스트: 코드/Table 요약 주입)
+### C9. AI 활성화 시나리오 — 🏁 **구현·검증 체계 완료 (9.50~9.51)** · 실합성만 크레딧 대기
+- [x] 키 설정 시 스모크 스위트 ✅ (9.50) — `tests/live_c9_ai_smoke.py` 13체크: 3종 엔드포인트 mode='live' 분기·산출물 계약(수식/위젯 어휘/근거)·후속질의 문맥 유지·AI_QUERY 감사. **크레딧 미반영 시 exit 2 로 원인 명시**(플릿 오염 방지 위해 live_all 미편입). 상시 계약은 `live_ai_degrade`(크레딧 무관 6체크)가 상설 감시
+- [x] ai/chat 구현 ✅ (U28, v31.9~9.51) — `POST /ai/chat`: 내부 자산 6종 키워드 검색(코드·문서·Table·Macro·부품·도면) 근거 + 크레딧 시 Claude 합성. **대화 이력**(history 최근 6턴·감사 turns 기록)·Q&A 패널 스레드형(새 대화). 라이브: live_assistant_thread 7/7 · live_ai_degrade 6/6
 
 ### C10. 성능·보안 심화 — 🔶 **1차 완료 (v13.48~49)**
 - [x] 부하 기준선 — `tests/load_baseline.py`(BOM 전개 동시 5, 표준 라이브러리). **라이브 실측: 50/50 성공·47 req/s·avg 105ms·p95 125ms**(REQ-N BOM 30s 목표 대비 여유)
@@ -354,7 +354,7 @@ dwg_drawing·dwg_revision·dwg_supersedure 개방 — 신규 화면 도면 대�
 - [x] 오래된 Run 정리 — `DELETE /cpq/runs/{id}`(**견적(PCR) 참조·최신 SUCCESS Run 409 보호**, 자식 cst_calc·cpq_output 동반 정리) + `POST /cpq/runs/cleanup`(보관 정책: 최근 N건 유지, 미참조 일괄 정리). **E2E: 65 Run 목록·drilldown·최신 삭제 409·keep-all cleanup 0건·throwaway FAILED Run DELETE 200 + 자식 cascade 0/0/0 검증(원본 65건 무손실)**
 - [x] MinIO 객체 GC (v13.81) — `POST /files/gc`(ADMIN, dry-run 기본·apply 실삭제): dwg_file + dev_requirement_image 참조 집합 union 으로 미참조 orphan 판정(샘플 오브젝트 보호·prefix 한정 지원). Run 이력 화면 MinIO 정리 버튼(dry→확인→삭제). **E2E: 전체 198개 중 dev-req 정상 참조(orphan 3→1)·prefix 격리 업로드→orphan화→apply removed 1→0·GENERAL 403 라이브 검증**
 - [x] Folder 최신 Rev 기본 필터 (v13.89) — `/files` 기본 = 최신 SUCCESS Run 산출물만(이미 기본), `allRuns=true`=전체 Run. Project Folder 최신/전체 Rev 토글. **E2E: 최신 distinct run 1 · allRuns 65 라이브 검증**
-- [ ] 잔여: 테스트/업무 Run 구분 표기
+- [x] 테스트/업무 Run 구분 표기 ✅ (문서 미갱신분 — 2026-07-25 실동작 확인) — `cpq_run.is_test` 를 `/cpq/runs` 전건 노출 + Run 이력 화면 TEST 칩, `/erp/analytics` 는 `NOT is_test` 로 집계 제외. **라이브 실측: 643 Run 중 TEST 332건 구분·통계 제외 동작**
 
 ### E4. Dashboard 이벤트 진입성 (프로브: 부서별 Event 행 더블클릭 무반응 관측) — 🏁 **완료 (v13.70)**
 - [x] '부서별 Event 상황' 행 더블클릭 = 부서 업무함(M-15-3) 진입 (이상 경고 그리드 더블클릭과 **동선 통일**, 커서·타이틀 힌트). 부서 집계 행은 특정 이벤트가 아니므로 부서 업무함으로 드릴
