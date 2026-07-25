@@ -71,6 +71,7 @@ SUITES = [
     "live_cpq_product_pick.py", # C-1 제품 선택 (12.8, 규격 CPQ-001) — 화면 고정 해소
     "live_doc_revision.py",     # 문서 개정 버전 자동 증가 (13.1, 규격 DOC-001)
     "live_approval_delegate.py", # 승인 위임·결정자 기록 (13.5, 규격 ADM-003)
+    "live_audit_trail.py",      # 감사 추적·알림 도달 (13.8) — 쓰기가 이력에 남는지
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
     "live_s3_macro_engine.py",
     "live_s4_rbac_notify.py",
@@ -288,6 +289,17 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_cursor_reuse.py")]
                    errors="replace", timeout=120)
 print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_cursor_reuse.py", p.returncode == 0, ""))
+
+# check_audit_coverage — 감사 기록 커버리지 게이트 (13.8, 서버 불요)
+print(f"
+{'=' * 60}
+▶ check_audit_coverage.py (static)
+{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_audit_coverage.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=120)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_audit_coverage.py", p.returncode == 0, ""))
 
 # check_governance — 거버넌스 정의서 드리프트 게이트 (#71, 서버 불요)
 print(f"\n{'=' * 60}\n▶ check_governance.py (static)\n{'=' * 60}")

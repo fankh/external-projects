@@ -2447,7 +2447,7 @@ class CompanyCreate(BaseModel):
 
 
 @router.post("/companies", status_code=201, dependencies=[SETUP])
-def create_company(body: CompanyCreate) -> dict[str, Any]:
+def create_company(request: Request, body: CompanyCreate) -> dict[str, Any]:
     if not body.name.strip():
         raise HTTPException(422, detail="필수(노란 셀) — 업체명")
     ctype = body.companyType.strip().upper()
@@ -2467,6 +2467,9 @@ def create_company(body: CompanyCreate) -> dict[str, Any]:
             (tid, body.name.strip()[:200], ctype, body.nation.strip()[:50],
              body.grade.strip()[:10], body.terms.strip()[:200]))
         cid = cur.fetchone()[0]
+        _audit(cur, tid, "com_company", cid, "CREATE", request.state.user_id,
+               after={"name": body.name.strip()[:200], "type": ctype,
+                      "grade": body.grade.strip()[:10]})
     return {"companyId": cid}
 
 
@@ -5765,7 +5768,7 @@ class PriceCreate(BaseModel):
 
 
 @router.post("/prices", status_code=201, dependencies=[SETUP])
-def create_price(body: PriceCreate) -> dict[str, Any]:
+def create_price(request: Request, body: PriceCreate) -> dict[str, Any]:
     src = SOURCE_CODE.get(body.source.strip(), body.source.strip().upper())
     if src not in ("APPLIED", "PURCHASE", "STOCK", "QUOTE"):
         raise HTTPException(422, detail=f"단가 Table 구분 오류: {body.source}")
@@ -5806,6 +5809,11 @@ def create_price(body: PriceCreate) -> dict[str, Any]:
                 raise HTTPException(409, detail="기간 중복 — 동일 Table·Code 의 유효기간이 겹칩니다 (EXCLUDE)") from e
             raise
         price_id = cur.fetchone()[0]
+        # 단가는 견적가에 직결된다 — 누가 언제 넣었는지 남지 않으면 금액 이의 제기 때
+        # 근거를 댈 수 없다.
+        _audit(cur, tid, "cst_price", price_id, "CREATE", request.state.user_id,
+               after={"code": body.code, "supplier": body.supplier, "price": body.price,
+                      "source": src, "validFrom": str(valid_from), "validTo": body.validTo})
     return {"priceId": price_id, "source": src}
 
 
@@ -6402,14 +6410,21 @@ def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
             (tid, tt, target_id, body.requestType.strip()[:20] or "UPDATE",
              actor_id, body.label.strip()[:200]))
         approval_id = cur.fetchone()[0]
-        # 승인권자(SETUP+) 알림 — 요청자 제외 (SVC-13)
+        # 승인권자 알림 — 요청자 제외 (SVC-13).
+        # 종전 목록이 ('SETUP','ADMIN') 뿐이라 **PLATFORM 승인자가 빠졌다** — 레벨이 더 높은데
+        # 알림을 못 받아, 그 사람만 있는 조직에서는 요청이 온 줄 모른다. ACTIVE 도 함께 본다
+        # (비활성 계정에 쌓아 봐야 아무도 읽지 않는다).
         cur.execute(
             """SELECT user_id FROM sys_user
-               WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN') AND user_id<>%s""",
+               WHERE tenant_id=%s AND user_level IN ('SETUP','ADMIN','PLATFORM')
+                 AND status='ACTIVE' AND user_id<>%s""",
             (tid, actor_id))
         for (uid,) in cur.fetchall():
             _notify(cur, tid, uid, "APPROVAL_REQUEST",
                     f"승인 요청 — {body.label.strip()[:80] or tt}", "/common")
+        _audit(cur, tid, "sys_approval_request", approval_id, "REQUEST", actor_id,
+               after={"targetTable": tt, "targetId": target_id,
+                      "label": body.label.strip()[:200]})
     return {"approvalId": approval_id, "status": "PENDING"}
 
 
@@ -6451,7 +6466,7 @@ def _rebuild_macro_refs(cur, tid: int, macro_id: int, expr: str) -> int:
 
 
 @router.put("/macros/{name}", dependencies=[SETUP])
-def save_macro(name: str, body: MacroSave) -> dict[str, Any]:
+def save_macro(name: str, request: Request, body: MacroSave) -> dict[str, Any]:
     """Macro Studio 저장 — 4-Way Sync 전체 영속 (수식·코드·플로차트·설명 + Test 결과, B20).
 
     apply_type: MACRO=수식 실행 · CODING=코드 기반 (엔진 v1 미실행 — 등록·관리)."""
@@ -6500,6 +6515,10 @@ def save_macro(name: str, body: MacroSave) -> dict[str, Any]:
                  at or "MACRO"))
             row = cur.fetchone()
         refs = _rebuild_macro_refs(cur, tid, row[0], body.expr)
+        # 계산식 변경은 치수·원가 결과를 바꾼다 — 어떤 식으로 바뀌었는지 남긴다
+        _audit(cur, tid, "tbx_macro", row[0], "SAVE", request.state.user_id,
+               after={"name": name, "expr": body.expr.strip()[:200],
+                      "version": row[1], "applyType": at or "MACRO"})
     return {"macroId": row[0], "version": row[1], "status": "DRAFT", "refs": refs}
 
 
@@ -6581,7 +6600,7 @@ class DimsSave(BaseModel):
 
 
 @router.put("/drawings/dimensions", dependencies=[SETUP])
-def save_dimensions(body: DimsSave) -> dict[str, Any]:
+def save_dimensions(request: Request, body: DimsSave) -> dict[str, Any]:
     """Design Editor 임시저장 F12 — VARIANT 는 variant_value, =식은 바인딩된 tbx_macro 갱신."""
     n_var = n_macro = 0
     with _conn() as conn, conn.cursor() as cur:
@@ -6613,6 +6632,10 @@ def save_dimensions(body: DimsSave) -> dict[str, Any]:
                          AND w.drawing_no=%s AND dd.dim_label=%s AND dd.macro_id IS NULL""",
                     (num, tid, body.drawing, label))
                 n_var += cur.rowcount
+        # 설계 치수 변경은 도면·원가로 전파된다 — 몇 건이 어떻게 바뀌었는지 남긴다
+        _audit(cur, tid, "dwg_dimension", 0, "SAVE", request.state.user_id,
+               after={"drawing": getattr(body, "drawing", "") or "",
+                      "variantSaved": n_var, "macroSaved": n_macro})
     return {"variantSaved": n_var, "macroSaved": n_macro}
 
 
@@ -13458,6 +13481,9 @@ def relationship_delete(rel_id: int, request: Request) -> dict[str, Any]:
             (tid, rel_id))
         if not cur.fetchone():
             raise HTTPException(404, detail=f"DRAFT 관계 없음: #{rel_id}")
+        # BOM 구성 변경 — 원가·소요량이 달라지므로 삭제도 이력이 남아야 한다
+        _audit(cur, tid, "code_relationship", rel_id, "DELETE", request.state.user_id,
+               before={"relId": rel_id, "status": "DRAFT"})
     return {"deleted": rel_id}
 
 
