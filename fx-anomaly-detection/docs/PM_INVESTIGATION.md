@@ -27,6 +27,8 @@
 | 신한은행 | TBML 점검 플랫폼 + AI 기반 이상 외화송금 탐지 프로세스 | 2022.02~ | 이번 문의와 가장 유사한 선행 사례 |
 | 카카오뱅크 | FDS 에 ML·XAI 적용 (탐지 근거 설명) | 운영 중 | XAI 요구사항 벤치마크 |
 | 케이뱅크 | AI·빅데이터 이상거래 탐지 | 운영 중 | 사기이용계좌 최저 수준 성과 홍보 |
+| 한국조폐공사 | 지역사랑상품권(chak) 부정유통 AI 탐지 | 2022~ | 행안부 협업. 4개 지자체 4천만 건 분석, 부정유통 16개 시나리오 정립, 정상·이상 자동분류 탐지모델 — Rule→AI 전환의 공공 검증 사례 |
+| SWIFT | AI 이상탐지 서비스 + 연합학습 파일럿 | 2025.01 GA | BNY Mellon·Deutsche Bank·HSBC 등 파일럿. 연합학습(모델 로컬 학습·학습결과만 집계, Google Cloud 협력)으로 단일 기관 대비 탐지 효과 2배(합성 1천만 건 기준). 외환 송금 인프라의 AI 탐지 표준화 흐름 |
 
 전문 솔루션: 천명소프트 펠리컨(TBML), 엘론소프트 GreFIN_TBML, 포티투마루(AI AML) 등. 사내 경쟁 구도 상세는 `C:\repos\new-research\ai-fds\COMPETITORS.md` (Tier 1~5 분석) 참조.
 
@@ -88,3 +90,9 @@
 - [디지털데일리 — 더 난해해진 TBML, AI는 해결사가 될 수 있을까 (2025)](https://m.ddaily.co.kr/page/view/2025081013472234356)
 - [삼성SDS — 2025년 국내 은행 AI 활용 전망 (신한 AI 이상 외화송금 탐지, 카뱅 XAI 등)](https://www.samsungsds.com/kr/insights/ai-in-banking-in-2025.html)
 - [KDI — AI를 활용한 금융권의 이상거래탐지시스템 구축 (정책세미나)](https://eiec.kdi.re.kr/publish/archView.do?seq=525&dtl_seq=1)
+- [대한민국 정책브리핑 — 인공지능(AI)으로 지역사랑상품권 부정유통 잡는다 (행안부·조폐공사)](https://www.korea.kr/briefing/pressReleaseView.do?newsId=156510676)
+- [인공지능신문 — 인공지능으로 지역사랑상품권 부정유통 잡는다 (chak 탐지모델)](https://www.aitimes.kr/news/articleView.html?idxno=25234)
+- [SWIFT — Swift to launch AI-powered fraud defence (2025.01 GA)](https://www.swift.com/news-events/press-releases/swift-launch-ai-powered-fraud-defence-enhance-cross-border-payments)
+- [SWIFT — Swift and global banks launch AI pilots (BNY Mellon·Deutsche Bank·HSBC 등)](https://www.swift.com/news-events/press-releases/swift-and-global-banks-launch-ai-pilots-tackle-cross-border-payments-fraud)
+- [SWIFT — AI innovation blueprint for collaborative fraud defence (연합학습 실험 결과)](https://www.swift.com/news-events/press-releases/swift-ai-innovation-creates-blueprint-banks-stop-fraud-faster-through-cross-border-collaboration)
+- [Financial IT — Google Cloud and Swift pioneer federated learning to combat payments fraud](https://financialit.net/news/security/google-cloud-and-swift-pioneer-advanced-ai-and-federated-learning-tech-help-combat)
