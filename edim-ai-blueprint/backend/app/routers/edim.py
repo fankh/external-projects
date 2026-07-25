@@ -5555,6 +5555,12 @@ PRICE_SORT = {"code": "pc.main_code", "price": "p.price", "from": "p.valid_from"
 
 @router.get("/prices")
 def prices(request: Request, sort: str = "", dir: str = "asc") -> list[dict[str, Any]]:
+    """단가 대장 (B3/F8).
+
+    종전에는 WHERE 절에 데모 코드 3개(`FDV-480`/`KDC-1`/`EWT-3`)가 하드코딩돼 있어,
+    **고객이 자기 코드의 단가를 등록해도 대장에 나타나지 않았다** — 등록은 201, 해석도
+    정상인데 화면에서만 사라지므로 원인을 짚기 어렵다. 필터를 제거한다(12.1).
+    """
     # F8 — 대량 대장 서버 정렬 (화이트리스트 컬럼만; 기본 = 코드·적용일 역순)
     order = "pc.main_code, p.valid_from DESC"
     if sort in PRICE_SORT:
@@ -5569,7 +5575,7 @@ def prices(request: Request, sort: str = "", dir: str = "asc") -> list[dict[str,
                FROM cst_price p
                JOIN product_code pc ON pc.product_code_id=p.product_code_id
                LEFT JOIN com_company cc ON cc.company_id=p.supplier_id
-               WHERE p.tenant_id=%s AND pc.main_code IN ('FDV-480','KDC-1','EWT-3')
+               WHERE p.tenant_id=%s
                ORDER BY {order}""", (tid,))
         rows = cur.fetchall()
         # 1.5 — 정보 접근 권한: 단가·거래처명 마스킹 (모드 미설정 시 full)

@@ -119,6 +119,7 @@ journalctl -u edim-autodeploy | grep "deploy done"   # 첫 배포 확인
 
 | 변수 | 필수 | 내용 |
 |---|---|---|
+| `EDIM_TZ` | ○ | **업무 시간대** (기본 `Asia/Seoul`). 백엔드 컨테이너 TZ 와 DB 세션 시간대를 함께 맞춘다 — 설정하지 않고 컨테이너 기본(UTC)으로 두면 00:00~09:00 KST 사이에 `오늘`이 **하루 전**이 되어 단가 유효개시일·문서 채번 연도가 조용히 밀린다. 다른 시간대 고객사는 이 값만 바꾼다 |
 | `EDIM_SECRET` | ● | **세션 토큰 HMAC 서명 키**. `openssl rand -hex 32` 로 생성. 미설정이면 백엔드가 **기동을 거부**한다(개발은 `EDIM_DEV_MODE=1` 로 우회) — 기본 키는 소스에 공개되어 있어 그대로 두면 **토큰 위조로 인증 우회**가 가능하다 |
 | `DATABASE_URL` | ● | `postgresql://edim:<암호>@edim-postgres:5432/edim` (infra_default 네트워크 경유) |
 | `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | ● | 파일 스토리지 — 미설정 시 파일 업/다운로드 503 |
