@@ -4346,6 +4346,35 @@ class DecideRequest(BaseModel):
     comment: str = ""
 
 
+def _approval_policy(cur, tid: int) -> dict[str, bool]:
+    """승인 정책 (sys_tenant.settings.approvalPolicy) — 기본은 종전 동작.
+
+    `selfApprovalBlocked` 는 **기본 꺼짐**이다. 켜면 요청자 본인은 자기 요청을 결정할 수 없다
+    (감사에서 흔히 요구하는 4-eyes). 기본을 켜면 관리자 1인 운영 고객사가 아무것도 승인하지
+    못하게 되므로 도입 여부를 고객사가 정한다 — 대신 켜져 있는지 여부를 응답으로 알 수 있게 한다.
+    """
+    cur.execute("SELECT COALESCE(settings,'{}'::jsonb) FROM sys_tenant WHERE tenant_id=%s", (tid,))
+    row = cur.fetchone()
+    st = (row[0] if row else {}) or {}
+    pol = st.get("approvalPolicy") if isinstance(st, dict) else None
+    pol = pol if isinstance(pol, dict) else {}
+    return {"selfApprovalBlocked": bool(pol.get("selfApprovalBlocked", False))}
+
+
+def _assert_not_self_approval(cur, tid: int, approval_id: int, actor_id: int) -> None:
+    """정책이 켜져 있으면 요청자 본인의 결정을 막는다."""
+    if not _approval_policy(cur, tid)["selfApprovalBlocked"]:
+        return
+    cur.execute(
+        """SELECT requester_id FROM sys_approval_request
+           WHERE tenant_id=%s AND approval_id=%s AND result IS NULL""", (tid, approval_id))
+    row = cur.fetchone()
+    if row and row[0] == actor_id:
+        raise HTTPException(
+            403, detail="본인이 올린 요청은 승인·반려할 수 없습니다 "
+                        "(고객사 정책: 요청자 본인 결정 금지) — 다른 승인자에게 요청하십시오")
+
+
 def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str,
                     actor_login: str, actor_id: int) -> str | None:
     """단건 승인 결정 적용 — 상태 전이 + 요청자 알림 + 자산 전이 + 이력.
@@ -4427,6 +4456,7 @@ def decide(approval_id: int, request: Request, body: DecideRequest) -> dict[str,
         if not _action_allowed(cur, tid, request.state.user_id,
                                getattr(request.state, "level", "GENERAL"), "approval", "APPROVE"):
             raise HTTPException(403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
+        _assert_not_self_approval(cur, tid, approval_id, request.state.user_id)
         result = _apply_decision(cur, tid, approval_id, body.approve, body.comment,
                                  request.state.login, request.state.user_id)
         if result is None:
@@ -4457,13 +4487,27 @@ def decide_batch(request: Request, body: DecideBatchRequest) -> dict[str, Any]:
         if not _action_allowed(cur, tid, request.state.user_id,
                                getattr(request.state, "level", "GENERAL"), "approval", "APPROVE"):
             raise HTTPException(403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
+        block_self = _approval_policy(cur, tid)["selfApprovalBlocked"]
+        self_ids: list[int] = []
+        if block_self:
+            cur.execute(
+                """SELECT approval_id FROM sys_approval_request
+                   WHERE tenant_id=%s AND approval_id = ANY(%s) AND requester_id=%s
+                     AND result IS NULL""",
+                (tid, list(body.approvalIds), request.state.user_id))
+            self_ids = [r[0] for r in cur.fetchall()]
         for aid in body.approvalIds:
+            # 본인 요청은 건너뛰되 **건너뛴 사실을 따로 보고**한다 — skipped 에 섞으면
+            # '이미 결정됨' 과 구분되지 않아 정책이 작동한 줄 모른다.
+            if aid in self_ids:
+                continue
             r = _apply_decision(cur, tid, aid, body.approve, body.comment,
                                 request.state.login, request.state.user_id)
             (done if r is not None else skipped).append(aid)
     return {"result": "APPROVED" if body.approve else "REJECTED",
             "processed": len(done), "skipped": len(skipped),
-            "processedIds": done, "skippedIds": skipped}
+            "processedIds": done, "skippedIds": skipped,
+            "selfBlocked": len(self_ids), "selfBlockedIds": self_ids}
 
 
 # ── SVC-13 알림 ──
@@ -13082,6 +13126,38 @@ def document_numbering_rule_put(request: Request, body: NumberingRulePut) -> dic
                {"template": tpl[:80], "dept": dept})
     return {"template": tpl[:80], "dept": dept,
             "sample": _render_doc_no(tpl, dept=dept, doc_type="DOC", seq=1)}
+
+
+class ApprovalPolicyPatch(BaseModel):
+    selfApprovalBlocked: bool
+
+
+@router.get("/settings/approval-policy")
+def get_approval_policy(request: Request) -> dict[str, Any]:
+    """승인 정책 조회 — 정책이 켜져 있는지 화면·감사에서 확인 가능해야 한다."""
+    with _conn() as conn, conn.cursor() as cur:
+        return _approval_policy(cur, _tenant_id(cur))
+
+
+@router.put("/settings/approval-policy", dependencies=[ADMIN])
+def set_approval_policy(request: Request, body: ApprovalPolicyPatch) -> dict[str, Any]:
+    """승인 정책 변경 (ADMIN) — 요청자 본인 결정 금지(4-eyes) 도입 여부.
+
+    기본은 꺼짐이다. 관리자 1인으로 운영하는 고객사에서 기본으로 켜면 아무것도 승인하지
+    못하게 되므로 도입은 고객사가 정한다. 변경은 감사에 남긴다.
+    """
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        before = _approval_policy(cur, tid)
+        cur.execute(
+            """UPDATE sys_tenant
+               SET settings = COALESCE(settings,'{}'::jsonb)
+                   || jsonb_build_object('approvalPolicy',
+                        jsonb_build_object('selfApprovalBlocked', %s::boolean))
+               WHERE tenant_id=%s""", (body.selfApprovalBlocked, tid))
+        _audit(cur, tid, "sys_tenant", tid, "APPROVAL_POLICY_SET", request.state.user_id,
+               before=before, after={"selfApprovalBlocked": body.selfApprovalBlocked})
+    return {"selfApprovalBlocked": body.selfApprovalBlocked}
 
 
 DOC_TRANSITIONS = {"SET_UP": ("CHECK",), "CHECK": ("APPROVE", "SET_UP"),
