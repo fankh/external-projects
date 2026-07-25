@@ -149,8 +149,15 @@ export function RelationshipView({ mother, children }: { mother: Mother; childre
   const runTest = () => start(async () => {
     const r = await runningTest(mother.code, slots, [...checked])
     if (r.error) { setMsg({ text: r.error, err: true }); return }
-    setTestRows(r.rows ?? []); setTested(true)
-    setMsg({ text: `Running Test ✓ — ${(r.rows?.length ?? 1) - 1} Child 전개 (순환 참조 없음, CODE-009)` })
+    setTestRows(r.rows ?? [])
+    // 순환·깊이 초과가 있으면 전개 결과는 **일부**다. 그 상태를 '통과' 로 표시하고 승인까지
+    // 열어 주면 빠진 소요량으로 원가가 산정된다 — 통과 표시와 승인 진행을 함께 막는다.
+    const g = r.integrity
+    const clean = g ? g.passed : true
+    setTested(clean)
+    setMsg(clean
+      ? { text: `Running Test ✓ — ${(r.rows?.length ?? 1) - 1} Child 전개 · 순환 0 · 최대 ${g?.maxLevel ?? 0}단계 (CODE-009)` }
+      : { text: `Running Test 미통과 — ${(g?.notes ?? []).join(' / ')}${g?.cycles?.length ? ` · 예: ${g.cycles[0]}` : ''} · 전개 결과는 일부입니다`, err: true })
   })
   const doAdd = () => start(async () => {
     const r = await addChild(mother.code, addCode, Number(addQty) || 1)

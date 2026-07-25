@@ -1666,6 +1666,89 @@ class ExpandRequest(BaseModel):
     slotValues: dict[str, str]
 
 
+_BOM_MAX_LVL = 10   # 전개 깊이 상한 — 초과분은 버리되 반드시 고지한다
+
+
+def _bom_integrity(cur, tid: int, root_code: str) -> dict[str, Any]:
+    """BOM 전개의 무결성을 **실제로 계산**한다 — 순환 간선과 깊이 상한 도달 여부.
+
+    전개 쿼리는 순환 간선(`NOT (... = ANY(seen))`)과 10단계 초과를 **조용히 버린다**.
+    버리는 것 자체는 무한 재귀를 막기 위해 필요하지만, 그 사실을 알리지 않으면
+    '일부만 전개된 결과'가 '전량 전개 결과'로 보인다 — Running Test 는 종전에
+    계산 없이 cycleCheck:"OK" 를 고정 반환했다(응답 정직성 규약 위반).
+
+    반환: {"cycles": [끊긴 간선 경로...], "depthCapped": bool, "maxLevel": int}
+    """
+    cur.execute(
+        """
+        WITH RECURSIVE bom AS (
+          SELECT pc.product_code_id, pc.main_code::text AS path, 0 AS lvl,
+                 ARRAY[pc.product_code_id] AS seen
+          FROM product_code pc
+          WHERE pc.tenant_id=%s AND pc.main_code=%s
+          UNION ALL
+          SELECT c.product_code_id, (b.path || ' > ' || c.main_code)::text, b.lvl + 1,
+                 b.seen || c.product_code_id
+          FROM bom b
+          JOIN code_relationship r
+            ON r.mother_code_id = b.product_code_id AND r.tenant_id=%s
+           AND r.approval_status = 'APPROVED'
+          JOIN product_code c
+            ON c.product_code_id = r.child_code_id AND c.tenant_id=%s
+          WHERE b.lvl < %s AND NOT (c.product_code_id = ANY(b.seen))
+        )
+        SELECT
+          -- 순환으로 끊긴 간선: 전개된 노드에서 나가는 간선의 대상이 이미 경로에 있는 경우
+          COALESCE((SELECT array_agg(DISTINCT b2.path || ' > ' || c2.main_code)
+                    FROM bom b2
+                    JOIN code_relationship r2
+                      ON r2.mother_code_id = b2.product_code_id AND r2.tenant_id=%s
+                     AND r2.approval_status = 'APPROVED'
+                    JOIN product_code c2
+                      ON c2.product_code_id = r2.child_code_id AND c2.tenant_id=%s
+                    WHERE c2.product_code_id = ANY(b2.seen)), '{}'::text[]),
+          -- 깊이 상한에서 잘린 간선이 실제로 있었는지
+          EXISTS (SELECT 1 FROM bom b3
+                  JOIN code_relationship r3
+                    ON r3.mother_code_id = b3.product_code_id AND r3.tenant_id=%s
+                   AND r3.approval_status = 'APPROVED'
+                  WHERE b3.lvl >= %s),
+          COALESCE((SELECT max(lvl) FROM bom), 0)
+        """,
+        (tid, root_code, tid, tid, _BOM_MAX_LVL, tid, tid, tid, _BOM_MAX_LVL))
+    row = cur.fetchone() or ([], False, 0)
+    return {"cycles": list(row[0] or []), "depthCapped": bool(row[1]), "maxLevel": int(row[2] or 0)}
+
+
+def _bom_reaches(cur, tid: int, start_id: int, goal_id: int) -> str | None:
+    """start 에서 관계를 따라 내려가 goal 에 닿는 경로가 있으면 그 경로를 돌려준다.
+
+    승인 상태를 가리지 않는다 — DRAFT 관계도 승인되면 순환이 되므로, 만드는 시점에 막아야
+    한다(승인 시점에 막으면 이미 등록된 관계를 되돌려야 해서 운영이 꼬인다).
+    """
+    cur.execute(
+        """
+        WITH RECURSIVE down AS (
+          SELECT pc.product_code_id, pc.main_code::text AS path, 0 AS lvl,
+                 ARRAY[pc.product_code_id] AS seen
+          FROM product_code pc WHERE pc.tenant_id=%s AND pc.product_code_id=%s
+          UNION ALL
+          SELECT c.product_code_id, (d.path || ' > ' || c.main_code)::text, d.lvl + 1,
+                 d.seen || c.product_code_id
+          FROM down d
+          JOIN code_relationship r
+            ON r.mother_code_id = d.product_code_id AND r.tenant_id=%s
+          JOIN product_code c
+            ON c.product_code_id = r.child_code_id AND c.tenant_id=%s
+          WHERE d.lvl < %s AND NOT (c.product_code_id = ANY(d.seen))
+        )
+        SELECT path FROM down WHERE product_code_id=%s ORDER BY lvl LIMIT 1
+        """,
+        (tid, start_id, tid, tid, _BOM_MAX_LVL, goal_id))
+    r = cur.fetchone()
+    return r[0] if r else None
+
+
 def _expand_rows(cur, tid: int, root_code: str, slot_values: dict[str, str]) -> list[tuple]:
     cur.execute(
             """
@@ -1696,7 +1779,7 @@ def _expand_rows(cur, tid: int, root_code: str, slot_values: dict[str, str]) -> 
                AND r.tenant_id = %s
               JOIN product_code c
                 ON c.product_code_id = r.child_code_id AND c.tenant_id = %s
-              WHERE b.lvl < 10
+              WHERE b.lvl < %s
                 AND NOT (c.product_code_id = ANY(b.seen))   -- 순환 가드 (where-used 와 동일 규약)
             )
             SELECT b.main_code, b.code_name, b.quantity, b.lvl, b.slots, b.path,
@@ -1709,7 +1792,7 @@ def _expand_rows(cur, tid: int, root_code: str, slot_values: dict[str, str]) -> 
                    b.rel_id, b.rel_rev
             FROM bom b WHERE b.lvl > 0 ORDER BY b.ord
             """,
-            (json.dumps(slot_values), tid, root_code, tid, tid, SOURCE_PRIORITY))
+            (json.dumps(slot_values), tid, root_code, tid, tid, _BOM_MAX_LVL, SOURCE_PRIORITY))
     return cur.fetchall()
 
 
@@ -6974,6 +7057,7 @@ def running_test(body: RunningTestRequest) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         rows = _expand_rows(cur, tid, body.motherCode, body.slotValues)
+        integrity = _bom_integrity(cur, tid, body.motherCode)
         cur.execute(
             "SELECT code_name FROM product_code WHERE tenant_id=%s AND main_code=%s",
             (tid, body.motherCode))
@@ -6993,7 +7077,19 @@ def running_test(body: RunningTestRequest) -> dict[str, Any]:
             "desc": r[1], "qty": float(r[2]), "remarks": "", "mainCode": r[0],
             "level": r[3], "path": r[5],
         })
-    return {"passed": True, "cycleCheck": "OK", "rows": out}
+    # passed 는 '실제로 점검해서 문제가 없었다' 일 때만 참 (응답 정직성 규약).
+    # 종전에는 계산 없이 True/"OK" 고정이라, 순환이나 깊이 초과로 **일부만 전개된 결과**가
+    # 전량 전개로 보였다.
+    cycles, capped = integrity["cycles"], integrity["depthCapped"]
+    notes = []
+    if cycles:
+        notes.append(f"순환 {len(cycles)}건 — 해당 경로는 전개에서 제외됨")
+    if capped:
+        notes.append(f"깊이 상한({_BOM_MAX_LVL}단계) 도달 — 그 아래는 전개되지 않음")
+    return {"passed": not cycles and not capped,
+            "cycleCheck": "CYCLE" if cycles else "OK",
+            "cycles": cycles, "depthCapped": capped, "maxLevel": integrity["maxLevel"],
+            "notes": notes, "rows": out}
 
 
 # ── SVC-09 Dashboard 집계 (ERP-014) ──
@@ -13039,6 +13135,14 @@ def relationship_add(request: Request, body: RelationshipAdd) -> dict[str, Any]:
             ids[label] = r[0]
         if ids["mother"] == ids["child"]:
             raise HTTPException(422, detail="Mother 와 Child 가 같습니다")
+        # 간접 순환 차단 — child 를 따라 내려가 mother 에 닿으면 이 관계가 고리를 닫는다.
+        # 종전에는 직접 자기참조만 막아서 A→B 가 있는 상태에서 B→A 를 등록할 수 있었고,
+        # 전개 쿼리가 순환 간선을 조용히 버리는 탓에 **원가·소요량이 말없이 적게 집계**됐다.
+        loop = _bom_reaches(cur, tid, ids["child"], ids["mother"])
+        if loop:
+            raise HTTPException(
+                409, detail=f"순환이 됩니다 — {body.child} 하위에 이미 {body.mother} 가 있습니다 "
+                            f"({loop})")
         cur.execute(
             """SELECT 1 FROM code_relationship
                WHERE tenant_id=%s AND mother_code_id=%s AND child_code_id=%s""",

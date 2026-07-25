@@ -6,16 +6,22 @@ import { apiServer, ApiError } from '@/lib/api'
 export interface RunningTestRow { no: string; name: string; desc: string; qty: number; remarks: string }
 interface TestApiRow extends RunningTestRow { mainCode: string; level?: number; path?: string }
 
+/** 전개 무결성 — 서버가 **실제로 계산한** 값. 순환·깊이 초과가 있으면 전개 결과는 일부다. */
+export interface TestIntegrity {
+  passed: boolean; cycleCheck: string; cycles: string[]
+  depthCapped: boolean; maxLevel: number; notes: string[]
+}
+
 /** Running Test — Mother slot 조합으로 Child 전량 전개 (CODE-009). 체크 해제 직계는 서브트리 제외. */
-export async function runningTest(mother: string, slotValues: Record<string, string>, checked: string[]): Promise<{ rows?: RunningTestRow[]; error?: string }> {
+export async function runningTest(mother: string, slotValues: Record<string, string>, checked: string[]): Promise<{ rows?: RunningTestRow[]; integrity?: TestIntegrity; error?: string }> {
   try {
-    const r = await apiServer<{ rows: TestApiRow[] }>('/codes/relationships/running-test', {
+    const r = await apiServer<{ rows: TestApiRow[] } & TestIntegrity>('/codes/relationships/running-test', {
       method: 'POST', body: JSON.stringify({ motherCode: mother, slotValues }),
     })
     const checkedSet = new Set(checked)
     const unchecked = r.rows.filter((row) => row.level === 1 && !checkedSet.has(row.mainCode)).map((row) => row.mainCode)
     const rows = r.rows.filter((row) => row.no === 'Main' || !unchecked.some((c) => (row.path ?? '').includes(`> ${c}`)))
-    return { rows }
+    return { rows, integrity: { passed: r.passed, cycleCheck: r.cycleCheck, cycles: r.cycles ?? [], depthCapped: r.depthCapped, maxLevel: r.maxLevel, notes: r.notes ?? [] } }
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : 'Running Test 실패' }
   }
