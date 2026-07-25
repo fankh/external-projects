@@ -291,10 +291,7 @@ print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_cursor_reuse.py", p.returncode == 0, ""))
 
 # check_audit_coverage — 감사 기록 커버리지 게이트 (13.8, 서버 불요)
-print(f"
-{'=' * 60}
-▶ check_audit_coverage.py (static)
-{'=' * 60}")
+print(f"\n{'=' * 60}\n▶ check_audit_coverage.py (static)\n{'=' * 60}")
 p = subprocess.run([sys.executable, os.path.join(HERE, "check_audit_coverage.py")],
                    env=env, capture_output=True, text=True, encoding="utf-8",
                    errors="replace", timeout=120)
