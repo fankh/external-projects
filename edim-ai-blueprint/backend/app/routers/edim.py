@@ -4713,9 +4713,9 @@ def create_document(request: Request, body: DocCreate) -> dict[str, Any]:
         cur.execute(
             """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, released_status,
                version, person, management_grade)
-               VALUES (%s,%s,%s,%s,'SET_UP','KD-0.1',%s,%s) RETURNING doc_control_id""",
+               VALUES (%s,%s,%s,%s,'SET_UP',%s,%s,%s) RETURNING doc_control_id""",
             (tid, body.docNo.strip(), body.title.strip(), body.docType.strip()[:20],
-             person, body.grade.strip()[:10]))
+             _doc_initial_version(cur), person, body.grade.strip()[:10]))
         doc_id = cur.fetchone()[0]
         cur.execute(
             """INSERT INTO sys_approval_request (tenant_id, target_table, target_id,
@@ -4764,9 +4764,9 @@ def register_output(request: Request, body: RegisterOutput) -> dict[str, Any]:
             cur.execute(
                 """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, ref_type,
                    released_status, version, person, management_grade)
-                   VALUES (%s,%s,%s,%s,'RUN_OUTPUT','SET_UP','KD-0.1',%s,%s)
+                   VALUES (%s,%s,%s,%s,'RUN_OUTPUT','SET_UP',%s,%s,%s)
                    ON CONFLICT (tenant_id, doc_no, version) DO NOTHING RETURNING doc_control_id""",
-                (tid, doc_no, title, dt, person, grade))
+                (tid, doc_no, title, dt, _doc_initial_version(cur), person, grade))
             row = cur.fetchone()
             if row:
                 doc_id = row[0]
@@ -4780,6 +4780,83 @@ def register_output(request: Request, body: RegisterOutput) -> dict[str, Any]:
 
 # D9 — 문서 Grade 열람 통제: 미달 레벨은 열람 차단 (워터마크 위 단계 강제)
 DOC_GRADE_POLICY = {"S-1": ("ADMIN", "PLATFORM"), "S-2": ("SETUP", "ADMIN", "PLATFORM")}
+
+
+_DOC_VERSION_DEFAULT = "KD-0.1"
+_DOC_VERSION_RE = re.compile(r"^(?P<prefix>.*?)(?P<major>\d+)\.(?P<minor>\d+)$")
+
+
+def _next_doc_version(current: str) -> str:
+    """개정 버전 산출 (DOC-001 "개정 Version(KD-0.2 등) 자동 증가") — 소수부 +1.
+
+    형식을 못 읽으면 **임의로 만들어 내지 않는다** — 호출부가 422 로 현재 값을 보여 준다.
+    """
+    m = _DOC_VERSION_RE.match((current or "").strip())
+    if not m:
+        raise ValueError(current or "")
+    return f"{m.group('prefix')}{m.group('major')}.{int(m.group('minor')) + 1}"
+
+
+def _doc_initial_version(cur) -> str:
+    """신규 문서 초기 버전 — 테넌트 설정(docNumbering.initialVersion), 부재 시 기본.
+
+    채번 규칙은 이미 테넌트 설정인데 버전만 소스에 고정돼 있었다(고객사마다 표기가 다르다).
+    """
+    tid = _tenant_id(cur)
+    cur.execute("SELECT COALESCE(settings,'{}'::jsonb) FROM sys_tenant WHERE tenant_id=%s", (tid,))
+    st = (cur.fetchone() or [{}])[0] or {}
+    rule = st.get("docNumbering") if isinstance(st, dict) else None
+    rule = rule if isinstance(rule, dict) else {}
+    return str(rule.get("initialVersion") or _DOC_VERSION_DEFAULT)[:20]
+
+
+@router.post("/documents/{doc_no}/revise", status_code=201, dependencies=[SETUP])
+def document_revise(doc_no: str, request: Request) -> dict[str, Any]:
+    """문서 개정 (DOC-001) — 같은 DOC No 로 다음 버전 행을 만든다.
+
+    스키마는 UNIQUE(tenant_id, doc_no, version) 로 다중 버전을 전제하는데 **버전을 올리는
+    경로가 없어** 모든 문서가 최초 버전에 머물렀다. 이전 버전 행은 이력으로 남기고
+    새 행이 최신이 된다(단건 조회는 모두 최신 행 기준).
+
+    작성 중(SET_UP)인 문서는 개정 대상이 아니다 — 아직 발행되지 않았으므로 그 행을 고치면 된다.
+    """
+    with _conn() as conn, conn.cursor() as cur:
+        tid = _tenant_id(cur)
+        cur.execute(
+            """SELECT doc_control_id, title, doc_type, ref_type, version, released_status,
+                      management_grade
+               FROM doc_control WHERE tenant_id=%s AND doc_no=%s
+               ORDER BY doc_control_id DESC LIMIT 1""", (tid, doc_no))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, detail=f"문서 없음: {doc_no}")
+        if row[5] == "SET_UP":
+            raise HTTPException(
+                409, detail=f"작성 중(SET_UP) 문서는 개정 대상이 아닙니다 — 현재 행을 수정하십시오 "
+                            f"(버전 {row[4]})")
+        try:
+            nxt = _next_doc_version(row[4])
+        except ValueError:
+            raise HTTPException(
+                422, detail=f"버전 형식을 읽을 수 없습니다: {row[4]!r} — "
+                            f"'<접두>major.minor' 형식이어야 자동 증가할 수 있습니다")
+        cur.execute("SELECT user_name FROM sys_user WHERE user_id=%s", (request.state.user_id,))
+        person = (cur.fetchone() or ["-"])[0]
+        cur.execute(
+            """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, ref_type,
+               released_status, version, person, management_grade)
+               VALUES (%s,%s,%s,%s,%s,'SET_UP',%s,%s,%s)
+               ON CONFLICT (tenant_id, doc_no, version) DO NOTHING
+               RETURNING doc_control_id""",
+            (tid, doc_no, row[1], row[2], row[3], nxt, person, row[6]))
+        new = cur.fetchone()
+        if not new:
+            raise HTTPException(409, detail=f"이미 존재하는 버전입니다: {doc_no} {nxt}")
+        _audit(cur, tid, "doc_control", new[0], "REVISE", request.state.user_id,
+               before={"version": row[4], "status": row[5]},
+               after={"version": nxt, "status": "SET_UP"})
+    return {"docNo": doc_no, "fromVersion": row[4], "version": nxt,
+            "docControlId": new[0], "status": "SET_UP"}
 
 
 @router.get("/documents/{doc_no}/render.pdf")

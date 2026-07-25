@@ -69,6 +69,7 @@ SUITES = [
     "live_business_date.py",    # 업무 날짜 기준 일치 (12.1) — UTC/KST 하루 밀림 감시
     "live_run_product_scope.py", # Run 이 견적안 제품을 따르는지 (12.6) — 제품 2종 검증
     "live_cpq_product_pick.py", # C-1 제품 선택 (12.8, 규격 CPQ-001) — 화면 고정 해소
+    "live_doc_revision.py",     # 문서 개정 버전 자동 증가 (13.1, 규격 DOC-001)
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
     "live_s3_macro_engine.py",
     "live_s4_rbac_notify.py",
