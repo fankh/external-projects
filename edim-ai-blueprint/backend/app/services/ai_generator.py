@@ -121,7 +121,7 @@ def generate_drawing_from_prompt(
 
     api_response = anthropic_client.messages.create(
         model=resolved_model_id,
-        max_tokens=8192,
+        max_tokens=16000,   # opus-5: thinking 합산 상한 — 복잡한 도면 JSON 절단 방지
         system=GENERATION_SYSTEM_PROMPT + "\n\nJSON schema:\n" + schema_json,
         messages=[{"role": "user", "content": prompt_text}],
     )
