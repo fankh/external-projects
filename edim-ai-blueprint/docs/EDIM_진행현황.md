@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 |---|---|
-| 기준일 | 2026-07-11 |
+| 기준일 | 2026-07-26 |
 | 저장소 | https://github.com/fankh/external-projects (`edim-ai-blueprint/`, branch `master`) |
-| 단계 | **FE 구현 착수** — 분석·설계 산출물 + 개발 환경 + edim-web(CPQ·PLM 1차) |
+| 단계 | **Launch 하드닝** — 구현 완료 후 실결함 추적·규격 미구현 해소 단계. 라이브 플릿 131/131(스위트 121 + 게이트 10종)·유닛 174·alembic 57 리비전 |
 
 ---
 
