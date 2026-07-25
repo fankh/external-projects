@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { API_BASE } from '@/lib/apiBase'
 import { getToken } from '@/lib/session'
 
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
 /** XLSX 다운로드 프록시 (N4b) — 허용 목록 기반: ?kind=group&id=KOF | ?kind=table&id=Table12.
  *  (nginx 는 /api/next/ 프리픽스를 Next 로 라우팅 — 이후 핸들러 공용 프리픽스) */

@@ -126,6 +126,17 @@ journalctl -u edim-autodeploy | grep "deploy done"   # 첫 배포 확인
 | `ODA_FILE_CONVERTER_PATH` | ○ | DWG→DXF 변환기 경로 — 미설정 시 DWG 업로드 501 (DXF 무관) |
 | `EDIM_DEV_MODE` | ○ | `1` = 요구사항 접수(📝) 노출 — **운영 배포에서는 미설정** |
 
+**프런트 환경 변수** (`.env` 또는 compose 환경 — Next SSR 이 FastAPI 를 호출할 주소)
+
+| 변수 | 필수 | 내용 |
+|---|---|---|
+| `EDIM_API_BASE` | ○ | 기본값 `http://backend:8000/api/v1` — **같은 compose 안의 backend 직결**. 표준 단일 서버 배포에서는 설정 불요 |
+
+> ⚠ 종전 기본값이 개발 데모 도메인이라, 환경 변수를 빠뜨린 배포가 **조용히 남의 서버로 붙는** 사고가
+> 가능했다(2026-07-25 자기 배포 직결로 교정, 9.94). 백엔드가 다른 호스트에 있을 때만
+> `EDIM_API_BASE=https://<api-host>/api/v1` 로 명시하고, 적용 확인은
+> `docker exec edim-web-next printenv EDIM_API_BASE`.
+
 ## 5. 설치 검증 체크리스트
 
 | # | 확인 | 기대 |

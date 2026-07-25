@@ -1,6 +1,7 @@
 'use server'
 
 import { apiServer, ApiError } from '@/lib/api'
+import { API_BASE } from '@/lib/apiBase'
 import type { CadDocument } from '@/lib/cadTypes'
 
 export interface BomItem { level: number; mainCode: string; resolvedCode: string; name: string; quantity: number; priceK: number | null; path: string }
@@ -70,8 +71,7 @@ export async function specImport(formData: FormData): Promise<{ slotValues?: Rec
   const token = await getToken()
   const fd = new FormData()
   fd.append('uploadedFile', file)
-  const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
-  const res = await fetch(`${API_BASE}/cpq/spec-import`, {
+    const res = await fetch(`${API_BASE}/cpq/spec-import`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: fd, cache: 'no-store',

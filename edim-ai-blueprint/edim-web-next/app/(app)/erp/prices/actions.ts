@@ -2,11 +2,11 @@
 
 /** 단가 대장 뮤테이션 (N3b) — 등록·적용 종료 마감·Excel Import. */
 import { revalidatePath } from 'next/cache'
+import { API_BASE } from '@/lib/apiBase'
 import { apiServer, ApiError } from '@/lib/api'
 import { getToken } from '@/lib/session'
 
 const PATH = '/erp/prices'
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
 export interface ActState { error?: string; ok?: string }
 

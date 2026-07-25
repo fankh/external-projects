@@ -1,11 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { API_BASE } from '@/lib/apiBase'
 import { apiServer, ApiError } from '@/lib/api'
 import { getToken } from '@/lib/session'
 
 const PATH = '/erp/companies'
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 export interface FormState { error?: string; ok?: string }
 
 export async function addCompany(_prev: FormState, formData: FormData): Promise<FormState> {

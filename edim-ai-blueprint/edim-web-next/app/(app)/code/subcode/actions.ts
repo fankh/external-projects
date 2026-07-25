@@ -2,11 +2,11 @@
 
 /** Sub Code 등록 뮤테이션 (N4b) — 그룹 등록·항목 등록(+승인 PENDING)·Excel Import. */
 import { revalidatePath } from 'next/cache'
+import { API_BASE } from '@/lib/apiBase'
 import { apiServer, ApiError } from '@/lib/api'
 import { getToken } from '@/lib/session'
 
 const PATH = '/code/subcode'
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
 export interface ActState { error?: string; ok?: string }
 

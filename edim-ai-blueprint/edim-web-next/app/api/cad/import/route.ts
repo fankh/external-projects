@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { API_BASE } from '@/lib/apiBase'
 import { getToken } from '@/lib/session'
 
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
 /** DXF/DWG 업로드 프록시 — multipart FormData 를 백엔드 /cad/import 로 전달. */
 export async function POST(req: NextRequest) {

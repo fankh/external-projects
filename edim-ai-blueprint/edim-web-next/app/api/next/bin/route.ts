@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { API_BASE } from '@/lib/apiBase'
 import { getToken } from '@/lib/session'
 
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
 /** 바이너리 다운로드 프록시 (N5) — 허용 목록: 문서 PDF·PCR 보고서·파일·ZIP. */
 export async function GET(req: NextRequest) {

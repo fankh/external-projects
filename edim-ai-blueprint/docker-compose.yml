@@ -32,14 +32,16 @@ services:
     build:
       context: ./edim-web-next
       args:
-        # 서버 컴포넌트/액션이 이 도메인으로 FastAPI 호출 (컨테이너→호스트 nginx 경유 또는 backend 직결)
-        EDIM_API_BASE: ${EDIM_API_BASE:-https://edim.seekerslab.com/api/v1}
+        # 서버 컴포넌트/액션이 이 주소로 FastAPI 호출.
+        # 기본값은 **같은 compose 안의 backend 직결** — .env 를 빠뜨린 배포가 남의 서버(개발 데모)로
+        # 붙는 사고를 막는다. 외부 경유가 필요하면 .env 에 EDIM_API_BASE 를 명시한다.
+        EDIM_API_BASE: ${EDIM_API_BASE:-http://backend:8000/api/v1}
     container_name: edim-web-next
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      EDIM_API_BASE: ${EDIM_API_BASE:-https://edim.seekerslab.com/api/v1}
+      EDIM_API_BASE: ${EDIM_API_BASE:-http://backend:8000/api/v1}
       NODE_ENV: production
     # 9.45 — Next SSR liveness: 3000 응답(로그인 리다이렉트 포함 비-5xx)이면 healthy. node 는 이미지 내 존재.
     # Next standalone 은 HOSTNAME(도커=컨테이너ID) 로 바인드하므로 localhost 아닌 os.hostname() 로 접속.

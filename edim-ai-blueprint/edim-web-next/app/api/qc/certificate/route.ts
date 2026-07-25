@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { API_BASE } from '@/lib/apiBase'
 import { getToken } from '@/lib/session'
 
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
 /** QC 성적서 PDF 프록시 (N3b) — ?refNo=&item=&result= → /qc/certificate.pdf (쿠키 토큰 → Bearer). */
 export async function GET(req: NextRequest) {

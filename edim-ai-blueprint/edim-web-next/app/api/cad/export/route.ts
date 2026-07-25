@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { API_BASE } from '@/lib/apiBase'
 import { getToken } from '@/lib/session'
 
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
 /** DXF 내보내기 프록시 — 제작 DXF(기본) 또는 블록 다이어그램(?kind=blocks → /cad/from-blocks.dxf). */
 export async function POST(req: NextRequest) {

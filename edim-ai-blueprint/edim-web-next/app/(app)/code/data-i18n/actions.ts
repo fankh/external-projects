@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { API_BASE } from '@/lib/apiBase'
 import { apiServer, ApiError } from '@/lib/api'
 
 /** 번역 일괄 Import (XLSX — 헤더 ID·en/ja/zh, 빈 칸=변경 없음). */
@@ -9,8 +10,7 @@ export async function importTranslationsExcel(entity: string, formData: FormData
   const file = formData.get('uploadedFile')
   if (!(file instanceof File) || file.size === 0) return { error: '번역 XLSX 파일을 선택하십시오' }
   const token = await getToken()
-  const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
-  try {
+    try {
     const res = await fetch(`${API_BASE}/i18n/data/${encodeURIComponent(entity)}/import-excel`, {
       method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: formData,
     })

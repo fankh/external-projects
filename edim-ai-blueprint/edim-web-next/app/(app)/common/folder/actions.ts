@@ -2,9 +2,9 @@
 
 /** Project Folder 뮤테이션 (N5) — 파일 업로드 (MinIO + dwg_file 등록). */
 import { revalidatePath } from 'next/cache'
+import { API_BASE } from '@/lib/apiBase'
 import { getToken } from '@/lib/session'
 
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
 export interface ActState { error?: string; ok?: string }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { API_BASE } from '@/lib/apiBase'
 import { getToken } from '@/lib/session'
 
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 
 /** 범용 PDF 렌더 프록시 — {title, lines, subtitle, confidential} → PDF 바이너리. */
 export async function POST(req: NextRequest) {

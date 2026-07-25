@@ -2,6 +2,7 @@
 
 /** 부품 대장 뮤테이션 (N2) — 등록 + 공급자 코드 매핑(ERP-018). */
 import { revalidatePath } from 'next/cache'
+import { API_BASE } from '@/lib/apiBase'
 import { apiServer, ApiError } from '@/lib/api'
 
 const PATH = '/plm/parts'
@@ -62,8 +63,7 @@ export async function importPartsExcel(_prev: ActState, formData: FormData): Pro
   if (!(file instanceof File) || file.size === 0) return { error: 'Excel 파일을 선택하십시오' }
   const { getToken } = await import('@/lib/session')
   const token = await getToken()
-  const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
-  const fd = new FormData()
+    const fd = new FormData()
   fd.append('uploadedFile', file)
   const res = await fetch(`${API_BASE}/parts/import-excel`, {
     method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd, cache: 'no-store',

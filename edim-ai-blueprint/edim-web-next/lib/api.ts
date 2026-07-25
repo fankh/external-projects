@@ -1,8 +1,8 @@
 /** 서버 전용 API — 쿠키 토큰을 Bearer 로 FastAPI(/api/v1)에 전달. 서버 컴포넌트·액션 전용. */
 import 'server-only'
 import { getToken } from './session'
+import { API_BASE } from './apiBase'
 
-const API_BASE = process.env.EDIM_API_BASE ?? 'https://edim.seekerslab.com/api/v1'
 // 9.44 — SSR fetch 타임아웃(회복탄력성): 백엔드가 느리거나 응답 없을 때 SSR 렌더가 무한 대기하지
 // 않도록 상한을 둔다. 초과·네트워크 실패는 504 ApiError 로 정규화 → 페이지가 즉시 오류 상태로 열화.
 const TIMEOUT_MS = Number(process.env.EDIM_API_TIMEOUT_MS ?? 8000)
