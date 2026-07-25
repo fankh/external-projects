@@ -13,6 +13,10 @@
 2. **설계 자동화가 실제로 동작한다** — Macro 수식 평가, 파라메트릭 CAD 재작도, Run 파이프라인의 실산출물(DXF·PDF·XLSX)을 그 자리에서 내려받아 연다.
 3. **통제가 내장되어 있다** — Running Test 게이트, 승인 워크플로, 권한(RBAC), 이력.
 
+> **자동 검증**: 본 시나리오의 8단계 경로는 `tests/live_demo_scenario.py`(16체크)가 매 배포마다 자동 확인한다
+> (로그인·셸 → CPQ 선정 → PLM 설계 CAD → Run 산출물 → 코드 통제 게이트 → ERP·승인함 → Toolbox → EN 전환, JS 예외 0).
+> 시연 직전 `PYTHONUTF8=1 py tests/live_demo_scenario.py` 로 현장 점검 가능.
+
 ## 2. 사전 준비 체크리스트
 
 | # | 점검 | 방법 | 기대 |
