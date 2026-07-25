@@ -4840,7 +4840,8 @@ def document_revise(doc_no: str, request: Request) -> dict[str, Any]:
             raise HTTPException(
                 422, detail=f"버전 형식을 읽을 수 없습니다: {row[4]!r} — "
                             f"'<접두>major.minor' 형식이어야 자동 증가할 수 있습니다")
-        cur.execute("SELECT user_name FROM sys_user WHERE user_id=%s", (request.state.user_id,))
+        cur.execute("SELECT user_name FROM sys_user WHERE tenant_id=%s AND user_id=%s",
+                    (tid, request.state.user_id))
         person = (cur.fetchone() or ["-"])[0]
         cur.execute(
             """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, ref_type,

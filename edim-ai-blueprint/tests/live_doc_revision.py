@@ -48,11 +48,16 @@ with sync_playwright() as pw:
         return [x for x in rows if str(x.get("docNo")) == doc_no]
 
     def purge():
-        # 개정본(SET_UP)부터 최신 행 기준으로 반복 삭제
-        for _ in range(6):
+        """최신 행부터 반복 삭제. 삭제는 SET_UP 한정이므로, 진행된 상태면
+        SET_UP 으로 되돌린 뒤 지운다(CHECK→SET_UP 은 허용된 전이)."""
+        for _ in range(8):
             if not rows_of(DOC_NO):
                 return
-            if not call("DELETE", f"/documents/{DOC_NO}", admin).ok:
+            if call("DELETE", f"/documents/{DOC_NO}", admin).ok:
+                continue
+            back = call("PATCH", f"/documents/{DOC_NO}/status", admin,
+                        data={"status": "SET_UP"})
+            if not back.ok:
                 return
 
     purge()
