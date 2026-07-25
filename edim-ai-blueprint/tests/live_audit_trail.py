@@ -62,6 +62,19 @@ with sync_playwright() as pw:
     ok("감사 이력 조회", rows is not None, "GET /history 실패")
 
     # ── 1. 승인 요청 — 기록과 알림 ──
+    # 앞선 실행이 중단되면 미결 요청이 남아 재실행이 409 로 막힌다(같은 대상 PENDING 1건 제한).
+    # 스위트는 자기 잔재를 스스로 치운다.
+    for x in call("GET", "/approvals/inbox", admin).json():
+        if "감사 검증용" in str(x.get("target") or "") or str(x.get("id")) == "":
+            call("POST", f"/approvals/{x['id']}/decide", admin,
+                 data={"approve": True, "comment": "이전 실행 잔재 정리"})
+    r0 = call("GET", "/approvals/inbox", admin).json()
+    for x in r0:
+        # sys_hierarchy #1 대상은 이 스위트가 쓰는 자리 — 남아 있으면 정리한다
+        if str(x.get("target") or "").startswith("sys_hierarchy #1"):
+            call("POST", f"/approvals/{x['id']}/decide", admin,
+                 data={"approve": True, "comment": "이전 실행 잔재 정리"})
+
     r = call("POST", "/approvals", admin, data={
         "targetTable": "sys_hierarchy", "targetId": 1, "label": "감사 검증용 요청"})
     ok("승인 요청 생성", r.status in (200, 201), f"status={r.status} body={r.text()[:140]}")
@@ -141,7 +154,8 @@ with sync_playwright() as pw:
     r = call("POST", f"/tables/{tname}/rows", admin,
              data={"key": KEY, "values": {"A": 1}})
     ok("행 추가", r.status in (200, 201), f"status={r.status} body={r.text()[:140]}")
-    r = call("PUT", f"/tables/{tname}/rows/{KEY}", admin, data={"values": {"A": 2}})
+    r = call("PUT", f"/tables/{tname}/rows/{KEY}", admin,
+             data={"key": KEY, "values": {"A": 2}})
     ok("행 수정", r.ok, f"status={r.status} body={r.text()[:140]}")
 
     rows = history("tbl_data_row", action="ROW_SAVE") or []
