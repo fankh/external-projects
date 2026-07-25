@@ -4,9 +4,7 @@ ANTHROPIC_API_KEY 미설정 시 샘플 모드 (mode='sample') — 화면 흐름�
 """
 from __future__ import annotations
 
-import json
 import logging
-import re
 from typing import Any
 
 from app.config import settings
@@ -48,16 +46,9 @@ def _client():
         return None
 
 
-def _extract_json(text: str) -> dict[str, Any]:
-    m = re.search(r"\{.*\}", text, re.S)
-    if not m:
-        raise ValueError("JSON 없음")
-    return json.loads(m.group(0))
-
-
-def _text_of(msg: Any) -> str:
-    """응답에서 text 블록 추출 — opus-5 는 thinking 블록이 앞설 수 있어 content[0].text 금지."""
-    return next((b.text for b in msg.content if getattr(b, "type", "") == "text"), "")
+# 파싱 순수 로직은 services/llm_parse 로 분리 — 단독 유닛 테스트 대상(크레딧 없이도 검증).
+from app.services.llm_parse import extract_json as _extract_json  # noqa: E402
+from app.services.llm_parse import text_of as _text_of  # noqa: E402
 
 
 def generate_macro(prompt: str) -> dict[str, Any]:
