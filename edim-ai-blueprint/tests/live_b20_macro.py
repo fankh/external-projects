@@ -147,6 +147,22 @@ ok("낡은 버전으로 재저장 409 (선수정 덮어쓰기 차단)",
 ok("baseVersion 미전달이면 종전대로 저장 (도입 무영향)",
    req("PUT", f"/macros/{NAME}", {"expr": _cur["expr"]}, headers=A)["version"] == _v + 2)
 
+# ── 잠금 우회 차단 (16.7) ──
+# 설계 치수 저장도 '=' 식 매크로의 macro_expr 을 바꾼다. 그 경로가 version 을 올리지 않으면
+# Macro Studio 의 낡은 baseVersion 이 그대로 일치해 **409 없이 덮어쓴다**.
+# 잠금 토큰은 '내용이 바뀌면 반드시 변한다' 가 성립해야 의미가 있다.
+_dims = req("GET", "/drawings/dimensions?drawing=KDCR%203-13", headers=A)
+_eq = [d for d in _dims if str(d.get("value", "")).startswith("=")]
+ok("= 식 치수 존재 (잠금 우회 검증 전제)", bool(_eq))
+if _eq:
+    _before = {m["name"]: m["version"] for m in req("GET", "/macros", headers=A)}
+    req("PUT", "/drawings/dimensions",
+        {"drawing": "KDCR 3-13", "dims": [{"no": _eq[0]["no"], "value": _eq[0]["value"]}]},
+        headers=A)
+    _after = {m["name"]: m["version"] for m in req("GET", "/macros", headers=A)}
+    ok("치수 저장이 매크로 version 을 올린다 (다른 경로의 변경이 잠금에 보인다)",
+       any(_after[k] > _before.get(k, 0) for k in _after))
+
 restore_snapshot()
 restored = next(m for m in req("GET", "/macros", headers=A) if m["name"] == "Shaft 길이 계산")
 ok("원복 — 스냅샷 복원 (b20 흔적 제거)", "b20-roundtrip" not in restored["codeText"]
