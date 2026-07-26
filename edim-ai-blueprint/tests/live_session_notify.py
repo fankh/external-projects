@@ -16,6 +16,7 @@
 실행: PYTHONUTF8=1 py tests/live_session_notify.py
 """
 import os
+import time
 
 from playwright.sync_api import sync_playwright
 
@@ -89,6 +90,9 @@ with sync_playwright() as pw:
     # 비밀번호 재설정은 반영되지 않았다 — 옛 비밀번호 로그인은 401 인데 옛 토큰은 200 이었다
     # (운영 실측). 관리자가 비밀번호를 바꾸는 이유가 바로 그 세션을 끊기 위해서다.
     ok("재설정 전 토큰 유효", call("GET", "/notifications", tok2).ok)
+    # 판정은 초 단위다(토큰의 발급 시각이 초로 잘려 있다 — 18.52). 발급과 재설정이 같은 초에
+    # 몰리면 그 토큰은 유효로 남는다 — 의도한 성질이므로 **경계를 넘겨서** 확인한다.
+    time.sleep(1.2)
     r = call("POST", f"/users/{LOGIN}/reset-password", admin, data={"newPassword": PW + "9"})
     ok("관리자 비밀번호 재설정", r.ok, f"status={r.status}")
     r = call("GET", "/notifications", tok2)
@@ -100,6 +104,10 @@ with sync_playwright() as pw:
     tok2 = r.json()["token"]
     ok("재로그인 토큰은 정상 동작", call("GET", "/notifications", tok2).ok)
     # 본인 변경은 새 토큰을 함께 돌려준다 — 그 토큰이 바로 쓰이는가
+    # 판정은 **초 단위**다(토큰의 발급 시각이 초로 잘려 있다 — 18.52). 같은 초에 발급된
+    # 토큰은 유효로 두므로, '변경 전 토큰이 끊기는가' 를 보려면 **초 경계를 넘겨야** 한다.
+    # 붙여서 호출하면 구현이 보장하지 않는 것을 요구하게 되고, 그건 검증의 잘못이다.
+    time.sleep(1.2)
     r = call("PUT", "/users/me/password", tok2,
              data={"currentPassword": PW + "9", "newPassword": PW})
     ok("본인 비밀번호 변경", r.ok, f"status={r.status}")
