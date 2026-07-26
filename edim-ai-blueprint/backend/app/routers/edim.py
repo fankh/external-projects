@@ -14062,7 +14062,8 @@ def warehouse_delete(code: str, request: Request) -> dict[str, Any]:
     """위치 삭제 — 하위 위치 존재 시 409 보호."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT warehouse_id FROM erp_warehouse WHERE tenant_id=%s AND location_code=%s",
+        cur.execute("SELECT warehouse_id, location_name, location_type "
+                    "FROM erp_warehouse WHERE tenant_id=%s AND location_code=%s",
                     (tid, code))
         row = cur.fetchone()
         if not row:
@@ -14070,11 +14071,15 @@ def warehouse_delete(code: str, request: Request) -> dict[str, Any]:
         cur.execute("SELECT 1 FROM erp_warehouse WHERE parent_id=%s LIMIT 1", (row[0],))
         if cur.fetchone():
             raise HTTPException(409, detail=f"하위 위치가 있는 노드는 삭제 불가: {code}")
-        cur.execute("DELETE FROM erp_warehouse WHERE warehouse_id=%s", (row[0],))
+        cur.execute("DELETE FROM erp_warehouse WHERE tenant_id=%s AND warehouse_id=%s",
+                    (tid, row[0]))
         cur.execute(
-            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id,
+                                        before_data)
                VALUES (%s,'erp_warehouse',%s,'DELETE',%s,%s)""",
-            (tid, row[0], request.state.user_id, json.dumps({"code": code})))
+            # 18.25 — 위치 코드만 남기면 어떤 이름·유형의 보관 위치가 빠졌는지 알 수 없다.
+            (tid, row[0], request.state.user_id,
+             json.dumps({"code": code, "name": row[1], "locationType": row[2]})))
     return {"deleted": code}
 
 
@@ -15497,13 +15502,17 @@ def delete_selection(selection_id: int, request: Request) -> dict[str, Any]:
         if cur.fetchone():
             raise HTTPException(409, detail="Run 이력이 있는 견적안은 삭제 불가 (참조 보호)")
         cur.execute(
-            "DELETE FROM cpq_selection WHERE tenant_id=%s AND selection_id=%s RETURNING finished_goods_code",
+            """DELETE FROM cpq_selection WHERE tenant_id=%s AND selection_id=%s
+               RETURNING finished_goods_code, slot_values, project_id""",
             (tid, selection_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"견적안 없음: #{selection_id}")
+        # 18.25 — 완성품 코드만 남기면 **어떤 슬롯 선택으로 만든 안이었는지** 사라진다.
+        # 선택값이 곧 그 견적안의 내용이다(같은 코드라도 슬롯이 다르면 다른 제품이다).
         _audit(cur, tid, "cpq_selection", selection_id, "DELETE", request.state.user_id,
-               {"finishedGoodsCode": row[0]})
+               before={"finishedGoodsCode": row[0], "slotValues": row[1],
+                       "projectId": row[2]})
     return {"deleted": selection_id}
 
 
@@ -16797,12 +16806,23 @@ def part_delete(part_no: str, request: Request) -> dict[str, Any]:
         cur.execute("SELECT 1 FROM dwg_bom WHERE part_id=%s LIMIT 1", (pid,))
         if cur.fetchone():
             raise HTTPException(409, detail=f"BOM 이 참조하는 부품은 삭제 불가: {part_no}")
-        cur.execute("DELETE FROM prt_supplier_code_map WHERE part_id=%s", (pid,))
-        cur.execute("DELETE FROM prt_part WHERE part_id=%s", (pid,))
+        cur.execute("DELETE FROM prt_supplier_code_map WHERE tenant_id=%s AND part_id=%s",
+                    (tid, pid))
+        _maps_gone = cur.rowcount
+        cur.execute("DELETE FROM prt_part WHERE tenant_id=%s AND part_id=%s "
+                    "RETURNING part_name, COALESCE(specification,'')", (tid, pid))
+        _part_gone = cur.fetchone()
         cur.execute(
-            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id,
+                                        before_data)
                VALUES (%s,'prt_part',%s,'DELETE',%s,%s)""",
-            (tid, pid, request.state.user_id, json.dumps({"partNo": part_no})))
+            # 18.25 — 부품번호만 남기면 어떤 부품이었는지 알 수 없고, 함께 지운 공급자 코드
+            # 매핑(조달 경로)도 흔적이 없다.
+            (tid, pid, request.state.user_id,
+             json.dumps({"partNo": part_no,
+                         "partName": _part_gone[0] if _part_gone else None,
+                         "specification": _part_gone[1] if _part_gone else None,
+                         "supplierCodeMapsRemoved": _maps_gone})))
     return {"deleted": part_no}
 
 
@@ -17408,7 +17428,7 @@ def delete_templet(name: str, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            "SELECT templet_id, approval_status, is_system FROM tbx_templet "
+            "SELECT templet_id, approval_status, is_system, templet_type FROM tbx_templet "
             "WHERE tenant_id=%s AND templet_name=%s", (tid, name))
         row = cur.fetchone()
         if not row:
@@ -17417,9 +17437,11 @@ def delete_templet(name: str, request: Request) -> dict[str, Any]:
             raise HTTPException(409, detail="시스템 Templet 은 삭제 불가")
         if row[1] == "RELEASED":
             raise HTTPException(409, detail="게시(RELEASED) Templet 은 삭제 불가 — 개정 절차 사용")
-        cur.execute("DELETE FROM tbx_templet WHERE templet_id=%s", (row[0],))
+        cur.execute("DELETE FROM tbx_templet WHERE tenant_id=%s AND templet_id=%s",
+                    (tid, row[0]))
+        # 18.25 — 이름만 남기면 어떤 유형·승인 상태의 Templet 이 빠졌는지 알 수 없다.
         _audit(cur, tid, "tbx_templet", row[0], "TEMPLET_DELETE", request.state.user_id,
-               after={"name": name})
+               before={"name": name, "templetType": row[3], "approvalStatus": row[1]})
     return {"deleted": name}
 
 

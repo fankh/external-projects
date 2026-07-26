@@ -22,7 +22,6 @@ backend/app/routers/edim.py::delete_drawing::dwg_file
 backend/app/routers/edim.py::delete_drawing::dwg_part_relation
 backend/app/routers/edim.py::delete_drawing::dwg_supersedure
 backend/app/routers/edim.py::delete_file::cst_quotation
-backend/app/routers/edim.py::delete_templet::tbx_templet
 backend/app/routers/edim.py::delete_user::sys_user
 backend/app/routers/edim.py::document_status::doc_control
 backend/app/routers/edim.py::drawing_approval_decide::dwg_drawing
@@ -41,7 +40,6 @@ backend/app/routers/edim.py::log::cpq_run
 backend/app/routers/edim.py::login::sys_user
 backend/app/routers/edim.py::mfa_disable::sys_user
 backend/app/routers/edim.py::mfa_enable::sys_user
-backend/app/routers/edim.py::part_delete::prt_part,prt_supplier_code_map
 backend/app/routers/edim.py::part_detail::com_company,mat_material,prt_part
 backend/app/routers/edim.py::patch_code_value::code_item_value
 backend/app/routers/edim.py::patch_document_meta::doc_control

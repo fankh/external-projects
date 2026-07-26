@@ -152,6 +152,19 @@ try:
         ok(f"★ 삭제 이력에 수식이 남는다 (매크로) — {hb[:80]}",
            "A*2+7" in hb and "ZZDELMACRO" in hb)
 
+    # ── 창고 삭제: 이름·유형이 남는가 (18.25) ──
+    st, _ = req("POST", "/erp/warehouses", TOK,
+                {"parentCode": "P1-WH-A", "locationType": "STORAGE", "code": "ZZWH-DEL",
+                 "name": "삭제검증 위치", "hazard": "", "inspection": "", "remarks": ""})
+    ok(f"검증 위치 등록 ({st})", st in (200, 201, 409))
+    wid = psql("SELECT warehouse_id FROM erp_warehouse WHERE location_code='ZZWH-DEL'")
+    st, _ = req("DELETE", "/erp/warehouses/ZZWH-DEL", TOK)
+    ok(f"검증 위치 삭제 ({st})", st == 200)
+    if wid:
+        hb = before_of("erp_warehouse", wid)
+        ok(f"★ 삭제 이력에 이름·유형이 남는다 (창고) — {hb[:70]}",
+           "삭제검증 위치" in hb and "STORAGE" in hb)
+
     # ── 없는 것을 지우면 404 (없는데 지웠다고 답하지 않는다) ──
     st, _ = req("DELETE", "/finance/fx/99999999", TOK)
     ok(f"없는 환율 삭제 404 ({st})", st == 404)
@@ -164,6 +177,7 @@ finally:
         req("DELETE", f"/finance/tax-codes/{xid}", TOK)
     for hid in created["hol"]:
         req("DELETE", f"/calendar/holidays/{hid}", TOK)
+    psql("DELETE FROM erp_warehouse WHERE location_code='ZZWH-DEL'")
     psql("DELETE FROM tbx_macro_ref WHERE macro_id IN "
          "(SELECT macro_id FROM tbx_macro WHERE macro_name='ZZDELMACRO')")
     psql("DELETE FROM tbx_macro WHERE macro_name='ZZDELMACRO'")
