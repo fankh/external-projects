@@ -4533,9 +4533,14 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
             "/common")
     # 대상 자산 상태 전이 + 이력
     if row[0] == "product_code":
+        # 17.3 — 테넌트 조건이 빠져 있었다. 요청 행이 테넌트 범위라는 이유로 안전하다고
+        # 봤지만, 요청 생성이 target_id 의 소유를 검증하지 않아 **다른 테넌트의 제품 코드가
+        # 실제로 전이됐다**(실증). 통제는 경로가 아니라 데이터에 건다 — 생성에서 막고,
+        # 여기서도 조건을 건다(둘 중 하나가 뚫려도 남는다).
         cur.execute(
-            "UPDATE product_code SET approval_status=%s WHERE product_code_id=%s",
-            (result, row[1]))
+            "UPDATE product_code SET approval_status=%s "
+            "WHERE tenant_id=%s AND product_code_id=%s",
+            (result, tid, row[1]))
     elif row[0] == "sys_head":
         # #21 — Tenant Head 는 승인 경유: 승인=APPROVED(게시 가능), 반려=DRAFT 복귀.
         # 게시(PUBLISHED)는 승인 이후 별도 조작이며 center 바인딩 게이트(#19)를 다시 통과해야 한다.
@@ -6513,6 +6518,44 @@ class ApprovalCreate(BaseModel):
     targetCode: str = ""   # F4 — product code 문자열로 대상 지정 (code_relationship 등)
 
 
+# 승인 대상 테이블 → 기본키 컬럼. targetId 를 직접 받을 때 **그 행이 내 테넌트 것인지**
+# 확인하는 데 쓴다(17.3). 종전에는 targetCode 로 넘길 때만 테넌트 조건이 걸렸고, targetId 를
+# 그대로 넘기면 검증이 없어 다른 테넌트의 자산을 대상으로 승인 요청을 만들 수 있었다 —
+# 그 뒤 결정을 내리면 실제로 상대 테넌트의 상태가 전이됐다(실증 후 복구).
+_APPROVAL_TARGET_PK = {
+    "product_code": "product_code_id",
+    "code_item": "item_id",
+    "code_item_value": "value_id",
+    "sys_head": "head_id",
+    "tbx_macro": "macro_id",
+    "tbx_ui_form": "form_id",
+    "doc_control": "doc_control_id",
+    "eco_change": "eco_id",
+    "erp_handoff": "handoff_id",
+    "sys_hierarchy": "hierarchy_id",
+    "dwg_drawing": "drawing_id",
+    # code_relationship 요청의 target_id 는 mother_code_id(=product_code_id)다 — 관계 자체의
+    # 키가 아니므로 product_code 로 확인한다(_apply_decision 도 그 값으로 전이한다).
+    "code_relationship": ("product_code", "product_code_id"),
+}
+
+
+def _assert_target_owned(cur, tid: int, table: str, target_id: int) -> None:
+    """승인 대상이 이 테넌트의 것인지 확인한다. 매핑에 없는 테이블은 검증할 수 없으므로
+    **거절한다** — 모르는 대상을 통과시키면 이 검증은 우회 가능한 장식이 된다."""
+    if not target_id:
+        return
+    spec = _APPROVAL_TARGET_PK.get(table)
+    if spec is None:
+        raise HTTPException(
+            422, detail=f"승인 대상 테이블을 알 수 없습니다: {table} "
+                        "(대상 소유를 확인할 수 없으면 요청을 받지 않습니다)")
+    chk_table, pk = spec if isinstance(spec, tuple) else (table, spec)
+    cur.execute(f"SELECT 1 FROM {chk_table} WHERE tenant_id=%s AND {pk}=%s", (tid, target_id))
+    if not cur.fetchone():
+        raise HTTPException(404, detail=f"승인 대상을 찾을 수 없습니다: {table} #{target_id}")
+
+
 @router.post("/approvals", status_code=201, dependencies=[SETUP])
 def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
     """범용 승인 요청 — Design Editor·Macro Studio·Print Set-up·UI Designer 등."""
@@ -6554,6 +6597,10 @@ def create_approval(request: Request, body: ApprovalCreate) -> dict[str, Any]:
                 if not hit:
                     raise HTTPException(404, detail=f"code not found: {code}")
             target_id = hit[0]
+        else:
+            # targetId 를 그대로 받은 경로 — 여기에 검증이 없어 교차 테넌트 요청이 만들어졌다.
+            # (targetCode 경로는 위 조회가 이미 tenant_id 조건으로 해석한다)
+            _assert_target_owned(cur, tid, tt, target_id)
         # 권한승인정의서 승인상태기계 #7 — Macro 는 Test Run 통과(TESTED) 후에만 승인 요청 가능 (TBX-012)
         if tt == "tbx_macro" and target_id:
             cur.execute("SELECT test_result FROM tbx_macro WHERE tenant_id=%s AND macro_id=%s",
