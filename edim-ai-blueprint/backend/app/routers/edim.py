@@ -14419,16 +14419,18 @@ def po_lc_approve(po_no: str, request: Request) -> dict[str, Any]:
             raise HTTPException(404, detail=f"발주 없음: {po_no}")
         if row[1] != "DRAFT":
             raise HTTPException(409, detail=f"승인 불가 — 현재 {PO_STATUS_LABEL.get(row[1], row[1])}")
-        cur.execute("UPDATE erp_po SET status='APPROVED', approved_at=now() "
-                    "WHERE tenant_id=%s AND po_id=%s RETURNING total_amount, currency",
-                    (tid, row[0]))
-        _po = cur.fetchone()
         # 18.33 — 발주 승인은 금액을 확정하는 행위다. 발주번호만 남기면 "얼마짜리를 언제
-        # 누가 승인했나" 에 답할 수 없다(승인 시점의 금액이 이후 변경돼도 이력은 남아야 한다).
+        # 누가 승인했나" 에 답할 수 없다(라인아이템은 이후 바뀔 수 있으므로 **승인 시점의
+        # 합계**를 굳혀 둔다). erp_po 에는 금액 컬럼이 없어 라인아이템에서 집계한다.
+        cur.execute(
+            """SELECT COALESCE(SUM(order_qty * unit_price), 0), count(*)
+               FROM erp_po_item WHERE po_id=%s""", (row[0],))
+        _amt, _lines = cur.fetchone()
+        cur.execute("UPDATE erp_po SET status='APPROVED', approved_at=now() "
+                    "WHERE tenant_id=%s AND po_id=%s", (tid, row[0]))
         _audit(cur, tid, "erp_po", row[0], "PO_APPROVE", request.state.user_id,
                after={"poNo": po_no, "status": "APPROVED",
-                      "totalAmount": float(_po[0]) if _po and _po[0] is not None else None,
-                      "currency": _po[1] if _po else None},
+                      "totalAmount": float(_amt), "lineCount": _lines},
                before={"poNo": po_no, "status": row[1]})
     return {"poNo": po_no, "status": "APPROVED"}
 

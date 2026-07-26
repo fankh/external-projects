@@ -99,13 +99,21 @@ ok("공급자 코드 병기 (ERP-018)", "HS-IMP-900A" in r["terms"])
 docs = req("GET", "/documents", headers=A)
 ok("문서함에 PO 문서 등록", any(d.get("docNo") == po_no for d in docs))
 
-# 4b. PO 승인 — 금액 확정 행위이므로 이력에 금액이 남아야 한다 (18.33)
+# 4b. 구조화 발주(erp_po) 생성 → 승인 — 금액 확정 행위이므로 이력에 금액이 남아야 한다 (18.33)
 # 종전에는 발주번호만 남아 "얼마짜리를 누가 언제 승인했나" 에 답할 수 없었다.
-req("PATCH", f"/erp/pos/{po_no}/approve", None, A)
+# 주의: `POST /erp/po`(단수)는 구매조건 **문서**를 만들고, `POST /erp/pos`(복수)가
+# 발주 lifecycle 행(erp_po)을 만든다 — 이름이 한 글자 차이인 다른 기능이다.
+lc = req("POST", "/erp/pos", {"supplier": "ZZ발주검증", "expectedDate": "2033-06-01",
+                              "note": "18.33 검증",
+                              "items": [{"itemCode": "ZZI-1", "itemName": "검증품목",
+                                         "qty": 3, "unitPrice": 1500}]}, A)
+lc_no = lc["poNo"]
+ok(f"구조화 발주 생성 ({lc_no})", lc_no.startswith("PO-"))
+req("PATCH", f"/erp/pos/{lc_no}/approve", None, A)
 _pid = subprocess.run(
     ["ssh", "edim-server",
      "sudo docker exec edim-postgres psql -U edim -d edim -tAc "
-     f"\"SELECT po_id FROM erp_po WHERE po_no='{po_no}'\""],
+     f"\"SELECT po_id FROM erp_po WHERE po_no='{lc_no}'\""],
     capture_output=True, text=True, timeout=60).stdout.strip()
 _hist = subprocess.run(
     ["ssh", "edim-server",
@@ -116,6 +124,12 @@ _hist = subprocess.run(
     capture_output=True, text=True, timeout=60).stdout.strip()
 ok(f"★ 발주 승인 이력에 금액과 이전 상태가 남는다 — {_hist[-90:]}",
    "DRAFT" in _hist and "totalAmount" in _hist)
+subprocess.run(
+    ["ssh", "edim-server",
+     "sudo docker exec edim-postgres psql -U edim -d edim -tAc "
+     f"\"DELETE FROM erp_po_item WHERE po_id={_pid or 0}; "
+     f"DELETE FROM erp_po WHERE po_no='{lc_no}'\""],
+    capture_output=True, text=True, timeout=60)
 
 # 5. UI — 창고 화면 + 발주 QCR/PO 다이얼로그
 with sync_playwright() as pw:
