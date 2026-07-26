@@ -4989,19 +4989,25 @@ def document_delete(doc_no: str, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT doc_control_id, released_status FROM doc_control
-               WHERE tenant_id=%s AND doc_no=%s ORDER BY doc_control_id DESC LIMIT 1""",
+            """SELECT doc_control_id, released_status, title, version, management_grade
+               FROM doc_control WHERE tenant_id=%s AND doc_no=%s
+               ORDER BY doc_control_id DESC LIMIT 1""",
             (tid, doc_no))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"문서 없음: {doc_no}")
         if row[1] != "SET_UP":
             raise HTTPException(409, detail=f"SET_UP 문서만 삭제 가능 (현재 {row[1]})")
-        cur.execute("DELETE FROM doc_control WHERE doc_control_id=%s", (row[0],))
+        cur.execute("DELETE FROM doc_control WHERE tenant_id=%s AND doc_control_id=%s",
+                    (tid, row[0]))
+        # 18.21 — 문서번호만 남기면 어떤 제목·판·보안등급의 문서가 빠졌는지 알 수 없다.
         cur.execute(
-            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id,
+                                        before_data)
                VALUES (%s,'doc_control',%s,'DELETE',%s,%s)""",
-            (tid, row[0], request.state.user_id, json.dumps({"docNo": doc_no})))
+            (tid, row[0], request.state.user_id,
+             json.dumps({"docNo": doc_no, "title": row[2], "version": row[3],
+                         "grade": row[4], "status": row[1]})))
     return {"deleted": doc_no}
 
 
@@ -5979,11 +5985,20 @@ def delete_project(project_no: str, request: Request) -> dict[str, Any]:
             n = cur.fetchone()[0]
             if n:
                 raise HTTPException(409, detail=f"참조 존재 — {label} {n}건 (삭제 불가)")
-        cur.execute("DELETE FROM prj_project WHERE project_id=%s", (pid,))
         cur.execute(
-            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+            """DELETE FROM prj_project WHERE tenant_id=%s AND project_id=%s
+               RETURNING project_name, project_type, sales_stage, COALESCE(client_contact,'')""",
+            (tid, pid))
+        gone = cur.fetchone()
+        # 18.21 — 프로젝트 번호만 남기면 어떤 고객·단계의 안건이 사라졌는지 알 수 없다.
+        cur.execute(
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id,
+                                        before_data)
                VALUES (%s,'prj_project',%s,'PROJECT_DELETE',%s,%s)""",
-            (tid, pid, request.state.user_id, json.dumps({"projectNo": project_no})))
+            (tid, pid, request.state.user_id,
+             json.dumps({"projectNo": project_no, "projectName": gone[0],
+                         "projectType": gone[1], "salesStage": gone[2],
+                         "clientContact": gone[3]})))
     return {"deleted": project_no}
 
 
@@ -16275,20 +16290,35 @@ def delete_drawing(drawing_no: str, request: Request) -> dict[str, Any]:
         did, status = row
         if status == "RELEASED":
             raise HTTPException(409, detail=f"RELEASED 도면은 삭제 불가 (현재 {status})")
-        cur.execute(
-            "DELETE FROM dwg_supersedure WHERE old_drawing_id=%s OR new_drawing_id=%s",
-            (did, did))
+        # 18.21 — 도면 삭제는 자식 6곳까지 건드리는데 종전에는 응답도 감사도 도면번호 하나뿐이라
+        # **무엇이 함께 사라졌는지 아무도 알 수 없었다**(개정 이력이 몇 건이었는지, 승인 단계가
+        # 남아 있었는지, 어떤 파일이 도면에서 떨어져 나갔는지). 연쇄로 지울 때는 지운 범위를
+        # 함께 알린다 — 사용자에게는 응답으로, 나중을 위해서는 감사로.
+        # 테이블명을 변수로 돌리지 않는다 — f-string 으로 조립하면 정적 게이트
+        # (check_tenant_scope)가 그 문장을 **아예 보지 못한다**. 기준선에 예외로 남는 것보다
+        # 나쁘다(예외는 기록이라도 남지만, 안 보이면 없는 것으로 읽힌다).
+        cascade: dict[str, int] = {}
+        cur.execute("DELETE FROM dwg_supersedure WHERE old_drawing_id=%s OR new_drawing_id=%s",
+                    (did, did))
+        cascade["supersedures"] = cur.rowcount
         cur.execute("DELETE FROM dwg_approval WHERE drawing_id=%s", (did,))
+        cascade["approvals"] = cur.rowcount
         cur.execute("DELETE FROM dwg_document WHERE drawing_id=%s", (did,))
+        cascade["documents"] = cur.rowcount
         cur.execute("DELETE FROM dwg_part_relation WHERE drawing_id=%s", (did,))
-        cur.execute("UPDATE dwg_file SET drawing_id=NULL WHERE drawing_id=%s", (did,))
+        cascade["partRelations"] = cur.rowcount
         cur.execute("DELETE FROM dwg_revision WHERE drawing_id=%s", (did,))
-        cur.execute("DELETE FROM dwg_drawing WHERE drawing_id=%s", (did,))
+        cascade["revisions"] = cur.rowcount
+        cur.execute("UPDATE dwg_file SET drawing_id=NULL WHERE drawing_id=%s", (did,))
+        cascade["filesDetached"] = cur.rowcount   # 파일은 지우지 않고 연결만 끊는다
+        cur.execute("DELETE FROM dwg_drawing WHERE tenant_id=%s AND drawing_id=%s", (tid, did))
         cur.execute(
-            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id,
+                                        before_data)
                VALUES (%s,'dwg_drawing',%s,'DELETE',%s,%s)""",
-            (tid, did, request.state.user_id, json.dumps({"drawingNo": drawing_no})))
-    return {"deleted": drawing_no}
+            (tid, did, request.state.user_id,
+             json.dumps({"drawingNo": drawing_no, "status": status, "cascade": cascade})))
+    return {"deleted": drawing_no, "cascade": cascade}
 
 
 @router.get("/drawings/{drawing_no}/revisions")

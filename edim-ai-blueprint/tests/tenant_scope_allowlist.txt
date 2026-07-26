@@ -18,10 +18,8 @@ backend/app/routers/edim.py::create_document::sys_user
 backend/app/routers/edim.py::create_product::code_item
 backend/app/routers/edim.py::create_supersedure::dwg_supersedure
 backend/app/routers/edim.py::delete_drawing::dwg_document
-backend/app/routers/edim.py::delete_drawing::dwg_document,dwg_part_relation
-backend/app/routers/edim.py::delete_drawing::dwg_drawing
 backend/app/routers/edim.py::delete_drawing::dwg_file
-backend/app/routers/edim.py::delete_drawing::dwg_file,dwg_part_relation
+backend/app/routers/edim.py::delete_drawing::dwg_part_relation
 backend/app/routers/edim.py::delete_drawing::dwg_supersedure
 backend/app/routers/edim.py::delete_file::cst_quotation
 backend/app/routers/edim.py::delete_macro::tbx_macro

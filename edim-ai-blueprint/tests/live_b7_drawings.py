@@ -182,8 +182,15 @@ with sync_playwright() as pw:
     done = api(p, "POST", f"/approvals/{aid['approvalId']}/decide",
                {"approve": True, "comment": "B7 검증 자동 정리"}, status_only=True)
     ok("승인 요청 정리 (decide)", done == 200)
-    gone = api(p, "DELETE", f"/drawings/{TNO}", status_only=True)
-    ok("TEST 도면 정리 (DELETE /drawings — DRAFT 한정)", gone == 200)
+    # 18.21 — 도면 삭제는 개정·승인·부품관계·Supersedure 까지 함께 지우고 파일 연결을 끊는다.
+    # 종전에는 응답이 도면번호 하나뿐이라 **무엇이 함께 사라졌는지 알 수 없었다**.
+    res = api(p, "DELETE", f"/drawings/{TNO}")
+    ok("TEST 도면 정리 (DELETE /drawings — DRAFT 한정)", bool(res))
+    casc = (res or {}).get("cascade") or {}
+    ok(f"★ 연쇄 삭제 범위를 응답이 알린다 ({casc})",
+       isinstance(casc, dict) and {"revisions", "approvals", "filesDetached"} <= set(casc))
+    ok("이 도면은 Rev-up 을 거쳤으므로 개정 이력이 1건 이상 함께 지워졌다",
+       int(casc.get("revisions", 0)) >= 1)
 
     b.close()
     print(f"\nlive B7: {n}/{n} pass")
