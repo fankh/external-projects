@@ -6794,8 +6794,12 @@ def save_dimensions(request: Request, body: DimsSave) -> dict[str, Any]:
             if not label or not value:
                 continue
             if value.startswith("="):
+                # version 을 함께 올린다 — 이 경로도 수식을 바꾸므로, 올리지 않으면
+                # Macro Studio 의 낙관적 잠금(16.5)이 이쪽 변경을 못 보고 **덮어쓴다**.
+                # 잠금 토큰은 '내용이 바뀌면 반드시 변한다' 가 성립해야 의미가 있다.
                 cur.execute(
-                    """UPDATE tbx_macro m SET macro_expr=%s, updated_at=now()
+                    """UPDATE tbx_macro m SET macro_expr=%s, version=m.version+1,
+                              updated_at=now()
                        FROM dwg_dimension dd
                        JOIN dwg_drawing w ON w.drawing_id=dd.drawing_id
                        WHERE m.macro_id=dd.macro_id AND dd.tenant_id=%s
