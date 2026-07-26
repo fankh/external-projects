@@ -1490,11 +1490,16 @@ def export_group_xlsx(group: str) -> Response:
 EXPORT_ROW_CAP = 50000
 
 
-def _xlsx_response(sheet: str, headers: list[str], rows: list[list[Any]], filename: str) -> Response:
+def _xlsx_response(sheet: str, headers: list[str], rows: list[list[Any]], filename: str,
+                   cap: int | None = None) -> Response:
+    """XLSX 응답. cap 은 이 응답에 실제로 적용된 상한 — 호출부가 EXPORT_ROW_CAP 보다 낮은
+    상한(예: 감사 로그의 limit)을 쓰면 **반드시 넘겨야 한다**. 안 넘기면 잘라 놓고
+    `X-Truncated: 0` 을 돌려주게 된다 — 침묵보다 나쁘다(완전하다고 적극적으로 답하는 것)."""
     from openpyxl import Workbook
-    truncated = len(rows) > EXPORT_ROW_CAP
+    cap = EXPORT_ROW_CAP if cap is None else cap
+    truncated = len(rows) > cap
     if truncated:
-        rows = rows[:EXPORT_ROW_CAP]
+        rows = rows[:cap]
     wb = Workbook()
     ws = wb.active
     ws.title = sheet[:31]
@@ -1503,7 +1508,7 @@ def _xlsx_response(sheet: str, headers: list[str], rows: list[list[Any]], filena
         ws.append(r)
     if truncated:
         ws.append([])
-        ws.append([f"※ 내보내기 상한 {EXPORT_ROW_CAP:,}행 초과 — 상위 {EXPORT_ROW_CAP:,}행만 포함되었습니다. "
+        ws.append([f"※ 내보내기 상한 {cap:,}행 초과 — 상위 {cap:,}행만 포함되었습니다. "
                    "필터로 범위를 좁혀 다시 내보내십시오."])
     buf = io.BytesIO()
     wb.save(buf)
@@ -1512,7 +1517,8 @@ def _xlsx_response(sheet: str, headers: list[str], rows: list[list[Any]], filena
         buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}.xlsx",
-                 "X-Row-Count": str(len(rows)), "X-Truncated": "1" if truncated else "0"})
+                 "X-Row-Count": str(len(rows)), "X-Limit": str(cap),
+                 "X-Truncated": "1" if truncated else "0"})
 
 
 @router.get("/prices/export.xlsx")
@@ -1610,7 +1616,14 @@ def export_companies_xlsx(request: Request) -> Response:
 @router.get("/history/export.xlsx")
 def export_history_xlsx(limit: int = 1000, fromDate: str = "", toDate: str = "",
                         user: str = "", action: str = "", target: str = "") -> Response:
-    """감사 로그 XLSX (D8/D9) — 감사 조회와 동일 필터(기간/사용자/작업/대상) 적용."""
+    """감사 로그 XLSX (D8/D9) — 감사 조회와 동일 필터(기간/사용자/작업/대상) 적용.
+
+    17.10 — 종전에는 기본 1,000행(최대 10,000)에서 잘리면서 `X-Truncated: 0` 을 돌려줬다.
+    _xlsx_response 의 절단 판정 기준이 EXPORT_ROW_CAP(50,000)이라 이 상한에는 걸리지 않았기
+    때문이다. **잘라 놓고 완전하다고 답하는 형태**이고, 하필 감사 로그는 보관·제출용으로
+    내려받는 것이라 누락을 모르면 곤란하다. JSON 쪽 `/audit` 은 16.2 에서 이미 고쳤는데
+    XLSX 만 남아 있었다 — 같은 데이터, 다른 경로."""
+    cap = max(1, min(limit, 10000))
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         where, params = _audit_where(tid, fromDate, toDate, user, action, target)
@@ -1619,9 +1632,10 @@ def export_history_xlsx(limit: int = 1000, fromDate: str = "", toDate: str = "",
                        h.target_table||' #'||h.target_id, h.action, u.user_name, u.login_id
                 FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
                 WHERE {where} ORDER BY h.history_id DESC LIMIT %s""",
-            (*params, max(1, min(limit, 10000))))
+            (*params, cap + 1))   # +1 — 잘렸는지 알려면 한 줄 더 읽어야 한다
         rows = [[r[0], r[1], r[2], r[3], r[4]] for r in cur.fetchall()]
-    return _xlsx_response("감사로그", ["일시", "대상", "작업", "수행자", "사번"], rows, "audit")
+    return _xlsx_response("감사로그", ["일시", "대상", "작업", "수행자", "사번"], rows,
+                          "audit", cap=cap)
 
 
 @router.post("/codes/groups/{group}/import-excel", dependencies=[SETUP])
@@ -1867,8 +1881,13 @@ class QuotePreview(BaseModel):
 
 
 @router.post("/cpq/quote-preview.pdf", dependencies=[SETUP])
-def quote_preview(body: QuotePreview) -> Any:
-    """견적 미리보기 — 현재 슬롯 선택으로 BOM 전개+단가 후 견적서 PDF 즉석 렌더 (영속 없음)."""
+def quote_preview(request: Request, body: QuotePreview) -> Any:
+    """견적 미리보기 — 현재 슬롯 선택으로 BOM 전개+단가 후 견적서 PDF 즉석 렌더 (영속 없음).
+
+    17.10 — 이 PDF 에는 품목 단가와 견적 합계가 그대로 들어가는데 열람 통제가 없었다.
+    저장된 견적 PDF(`/cost/quotations/{id}/render.pdf`)는 quote, 단가 내보내기는 price 를
+    요구하는데 **미리보기만 무방비**였다 — 영속되지 않는다는 이유로 빠져 있었지만, 통제는
+    저장 여부가 아니라 **내보내는 데이터**에 건다. 두 종류가 다 담기므로 둘 다 확인한다."""
     from types import SimpleNamespace
 
     from fastapi.responses import Response
@@ -1876,6 +1895,8 @@ def quote_preview(body: QuotePreview) -> Any:
     from ..services import run_pipeline as rp
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _assert_downloadable(cur, tid, request, "price")
+        _assert_downloadable(cur, tid, request, "quote")
         rows = _expand_rows(cur, tid, body.rootCode, body.slotValues)
     if not rows:
         raise HTTPException(404, detail=f"root code not found: {body.rootCode}")

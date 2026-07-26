@@ -277,7 +277,24 @@ try:
     ok("제외 사유가 manifest 에 기재 (조용히 빼지 않는다)",
        any(l.startswith("quotations") and "제외" in l for l in man.splitlines()))
 
+    # ── ★ 견적 미리보기 PDF (17.10) — 저장 안 하면 통제 밖이라는 착각 ──
+    # 저장된 견적서 PDF 는 quote 를, 단가 내보내기는 price 를 요구하는데 **미리보기만**
+    # 무방비였다. 화면에는 품목 단가와 합계가 그대로 찍힌다 — 통제는 저장 여부가 아니라
+    # 내보내는 데이터에 건다. (SETUP 전용이라 ADMIN 역할에 제한을 걸어야 검증이 성립한다)
+    _preview = {"rootCode": "KDCR 3-13", "slotValues": {}}
+    st, _ = req("POST", "/cpq/quote-preview.pdf", TOK, _preview, raw=True)
+    ok(f"★ 견적 미리보기 PDF 도 quote 통제를 받는다 ({st})", st == 403,
+       "저장하지 않는 출력이라도 담긴 데이터가 같으면 같은 통제를 받아야 한다")
+
     set_mode(TOK, "quote", "full", role="ADMIN")
+    set_mode(TOK, "price", "no_download", role="ADMIN")
+    st, _ = req("POST", "/cpq/quote-preview.pdf", TOK, _preview, raw=True)
+    ok(f"★ 견적 미리보기 PDF 는 price 통제도 받는다 ({st}) — 단가가 함께 실린다", st == 403)
+    set_mode(TOK, "price", "full", role="ADMIN")
+    st, pv = req("POST", "/cpq/quote-preview.pdf", TOK, _preview, raw=True)
+    ok(f"full 로 되돌리면 미리보기 정상 ({st}) — 과잉 차단 아님",
+       st == 200 and pv[:4] == b"%PDF")
+
     st, body2 = req("GET", "/tenant/export.zip", TOK, raw=True)
     z2 = _zip.ZipFile(_io.BytesIO(body2))
     ok("full 로 되돌리면 금액 테이블 포함 (과잉 차단 아님)",

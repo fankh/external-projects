@@ -24,11 +24,12 @@ def ok(label, cond):
     print(f"PASS {label}")
 
 
-def req(method, path, body=None, with_headers=False):
+def req(method, path, body=None, with_headers=False, raw=False):
     data = json.dumps(body).encode() if body is not None else None
     r = urllib.request.Request(API + quote(path, safe="/?=&%"), data=data, headers=H, method=method)
     with urllib.request.urlopen(r) as resp:
-        payload = json.loads(resp.read() or b"null")
+        blob = resp.read()
+        payload = blob if raw else json.loads(blob or b"null")
         if with_headers:
             return payload, {k.lower(): v for k, v in resp.headers.items()}
         return payload
@@ -57,6 +58,27 @@ if truncated:
 else:
     ok(f"통계 제외 정합 (전체 {len(runs)} = 업무 {total_stat} + 테스트 {test_n})",
        len(runs) == total_stat + test_n)
+
+# 1b) 감사 로그 XLSX 도 잘렸으면 잘렸다고 해야 한다 (17.10)
+# 종전에는 기본 1,000행(최대 10,000)에서 자르면서 X-Truncated: 0 을 돌려줬다 —
+# _xlsx_response 의 판정 기준이 EXPORT_ROW_CAP(50,000)이라 이 상한에는 걸리지 않았다.
+# 침묵이 아니라 **완전하다고 적극적으로 답하는** 형태이고, 감사 로그는 보관·제출용이라
+# 누락을 모르면 곤란하다. JSON `/audit` 은 16.2 에서 이미 고쳤는데 XLSX 만 남아 있었다.
+# JSON 쪽 truncated=true 면 이력이 상한보다 많다는 뜻 — 같은 조건으로 XLSX 를 확인한다.
+_a = req("GET", "/audit?limit=1")
+_more = bool(_a.get("truncated")) if isinstance(_a, dict) else False
+ok("감사 JSON 은 절단을 알린다 (16.2)", "truncated" in _a)
+_, xh = req("GET", "/history/export.xlsx?limit=1", with_headers=True, raw=True)
+ok("감사 XLSX 가 적용 상한을 알린다 (X-Limit)", xh.get("x-limit") == "1", str(dict(xh))[:160])
+ok("감사 XLSX 절단 고지 필드 존재", "x-truncated" in xh)
+if _more:
+    ok(f"★ 같은 상한에서 JSON 은 절단인데 XLSX 는? ({xh.get('x-truncated')})",
+       xh.get("x-truncated") == "1",
+       "잘라 놓고 완전하다고 답하면 감사 자료의 누락을 알 수 없다 — 같은 데이터, 다른 경로")
+    ok(f"절단 시 행 수가 상한 이하 ({xh.get('x-row-count')})",
+       int(xh.get("x-row-count", "0")) <= 1)
+else:
+    print("   (참고) 이력이 1건 이하라 절단 판정을 밟지 못했다")
 
 # 2) 고객 전달 패키지 워터마크
 rq = urllib.request.Request(f"{API}/files/export-package?project=PS-61313-5",
