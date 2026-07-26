@@ -6604,6 +6604,9 @@ class MacroSave(BaseModel):
     applyType: str = ""                      # MACRO | CODING (빈 값 = 유지)
     testInput: dict[str, Any] | None = None  # B20 — 마지막 Test Run 영속
     testResult: dict[str, Any] | None = None
+    # D9 확대 — 편집 시작 시점의 version. 전달하면 낙관적 잠금(타인 선수정이면 409).
+    # 미전달이면 종전 동작(무검사) — 도입 무영향.
+    baseVersion: int | None = None
 
 
 # 엔진 내장 함수 — 이 외의 호출형 토큰은 Table 참조로 간주 (tbx_macro_ref 추출)
@@ -6646,6 +6649,19 @@ def save_macro(name: str, request: Request, body: MacroSave) -> dict[str, Any]:
         raise HTTPException(422, detail="CODING 모드는 코드가 필수입니다")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # D9 — 동시 편집 보호. version 컬럼은 저장마다 올라가는데 **잠금에 쓰이지 않아**,
+        # 두 사람이 같은 매크로를 열어 두면 뒤에 저장한 쪽이 앞사람 수식을 조용히 덮어썼다.
+        # 계산식은 치수·원가 결과를 바꾸므로 손실이 그대로 금액에 반영된다.
+        if body.baseVersion is not None:
+            cur.execute(
+                "SELECT version FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s",
+                (tid, name))
+            cur_ver = cur.fetchone()
+            if cur_ver and int(cur_ver[0]) != int(body.baseVersion):
+                raise HTTPException(
+                    409, detail=f"동시 수정 충돌 — 다른 사용자가 먼저 저장했습니다 "
+                                f"(내 기준 v{body.baseVersion} · 현재 v{cur_ver[0]}). "
+                                f"재조회 후 다시 시도하십시오")
         cur.execute(
             """UPDATE tbx_macro SET
                macro_expr=CASE WHEN %s<>'' THEN %s ELSE macro_expr END,
