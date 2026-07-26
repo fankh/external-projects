@@ -2565,6 +2565,57 @@ _IMPORT_MAX_BYTES = 20 * 1024 * 1024
 _UPLOAD_MAX_BYTES = 100 * 1024 * 1024
 
 
+# 재시도 안전(개발표준 §3) — 같은 Idempotency-Key 로 다시 오면 **다시 만들지 않는다**.
+# 보존 창은 짧게 둔다: 재시도는 즉시 일어나고, 오래된 키를 계속 들고 있으면 정상적인
+# 재사용(같은 키로 다른 내용)까지 막게 된다.
+_IDEM_TTL_MIN = 60
+
+
+def _idem_begin(cur, tid: int, request: Request, endpoint: str) -> dict[str, Any] | None:
+    """키를 **선점**한다. 이미 처리된 요청이면 저장된 응답을, 처리 중이면 409.
+
+    작업을 마친 뒤에 키를 저장하면 동시에 들어온 두 요청이 **둘 다 조회를 빗나가** 둘 다
+    실행된다(충돌은 그 뒤 키 저장에서야 드러난다 — 이미 늦었다). 그래서 먼저 잡는다.
+    키가 없으면 None 을 돌려주고 호출부는 평소대로 진행한다(헤더는 선택이다)."""
+    key = (request.headers.get("Idempotency-Key") or "").strip()[:120]
+    if not key:
+        return None
+    cur.execute(
+        """DELETE FROM sys_idempotency
+           WHERE tenant_id=%s AND idem_key=%s AND endpoint=%s
+             AND created_at < now() - (%s || ' minutes')::interval""",
+        (tid, key, endpoint, str(_IDEM_TTL_MIN)))
+    cur.execute(
+        """INSERT INTO sys_idempotency (tenant_id, idem_key, endpoint, actor_id)
+           VALUES (%s,%s,%s,%s)
+           ON CONFLICT (tenant_id, idem_key, endpoint) DO NOTHING
+           RETURNING idem_id""",
+        (tid, key, endpoint, request.state.user_id))
+    if cur.fetchone():
+        return None      # 선점 성공 — 호출부가 실제 작업을 한다
+    cur.execute(
+        """SELECT status, response FROM sys_idempotency
+           WHERE tenant_id=%s AND idem_key=%s AND endpoint=%s""", (tid, key, endpoint))
+    prev = cur.fetchone()
+    if prev and prev[0] == "DONE":
+        return dict(prev[1] or {}, idempotentReplay=True)
+    # 앞 요청이 아직 끝나지 않았다 — 같은 작업을 또 시작하면 중복이 생긴다
+    raise HTTPException(
+        409, detail="같은 Idempotency-Key 의 요청이 처리 중입니다 — 잠시 후 결과를 조회하십시오")
+
+
+def _idem_done(cur, tid: int, request: Request, endpoint: str,
+               response: dict[str, Any]) -> dict[str, Any]:
+    """작업 결과를 키에 기록한다. 키가 없으면 그대로 통과."""
+    key = (request.headers.get("Idempotency-Key") or "").strip()[:120]
+    if key:
+        cur.execute(
+            """UPDATE sys_idempotency SET status='DONE', response=%s
+               WHERE tenant_id=%s AND idem_key=%s AND endpoint=%s""",
+            (json.dumps(response, default=str), tid, key, endpoint))
+    return response
+
+
 def _row_error_reason(exc: Exception, row_no: int) -> str:
     """행 단위 Import 실패 사유 — **사용자가 고칠 수 있는 말**로 돌려준다 (18.27).
 
@@ -9272,6 +9323,11 @@ def cost_actual_create(request: Request, body: CostActualCreate) -> dict[str, An
     pno = body.projectNo.strip()[:30] or None
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.45 — 재시도·더블클릭이 그대로 **원가 이중 계상**이 된다(같은 요청 4회 → 4행,
+        # 운영 실측). 개발표준 §3 이 규정한 Idempotency-Key 를 여기부터 실제로 적용한다.
+        replay = _idem_begin(cur, tid, request, "POST /cost/actuals")
+        if replay is not None:
+            return replay
         if pno:
             cur.execute("SELECT 1 FROM prj_project WHERE tenant_id=%s AND project_no=%s", (tid, pno))
             if not cur.fetchone():
@@ -9286,7 +9342,9 @@ def cost_actual_create(request: Request, body: CostActualCreate) -> dict[str, An
         aid = cur.fetchone()[0]
         _audit(cur, tid, "cst_actual", aid, "ACTUAL", request.state.user_id,
                {"category": cat, "amount": amount, "poNo": body.poNo, "projectNo": pno})
-    return {"actualId": aid, "category": cat, "amount": amount, "projectNo": pno}
+        return _idem_done(cur, tid, request, "POST /cost/actuals",
+                          {"actualId": aid, "category": cat, "amount": amount,
+                           "projectNo": pno})
 
 
 @router.get("/cost/actuals")
@@ -12683,6 +12741,11 @@ def temp_access_grant(request: Request, body: TempAccessGrant) -> dict[str, Any]
         raise HTTPException(422, detail="접근 사유는 필수입니다 (감사 대상)")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.45 — 중복 부여는 **회수를 어렵게 만든다**(하나를 revoke 해도 나머지가 남아
+        # 열람이 계속된다). 보안 통제라 재시도 안전이 특히 중요하다.
+        replay = _idem_begin(cur, tid, request, "POST /access/temp")
+        if replay is not None:
+            return replay
         cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id=%s",
                     (tid, body.login.strip()))
         u = cur.fetchone()
@@ -12700,7 +12763,8 @@ def temp_access_grant(request: Request, body: TempAccessGrant) -> dict[str, Any]
                 f"임시 열람 부여 — {INFO_GROUPS[body.infoGroup]} ({body.mode}, {row[1]} 까지)")
         _audit(cur, tid, "sys_temp_access", row[0], "TEMP_GRANT", request.state.user_id,
                {"login": body.login, "group": body.infoGroup, "mode": body.mode, "hours": hours})
-    return {"id": row[0], "validTo": row[1]}
+        return _idem_done(cur, tid, request, "POST /access/temp",
+                          {"id": row[0], "validTo": row[1]})
 
 
 @router.delete("/access/temp/{grant_id}", dependencies=[ADMIN])
