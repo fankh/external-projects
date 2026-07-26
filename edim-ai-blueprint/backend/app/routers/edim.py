@@ -1521,6 +1521,8 @@ def export_prices_xlsx(request: Request) -> Response:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         _assert_downloadable(cur, tid, request, "price")
+        # 공급처명이 함께 나간다 — 거래처 통제도 적용 (price 만 보면 절반만 막힌다)
+        _assert_downloadable(cur, tid, request, "partner")
         cur.execute(
             """SELECT pc.main_code, pc.code_name, COALESCE(cc.company_name,'-'),
                       p.price, p.price_source, p.valid_from, p.valid_to
@@ -1534,10 +1536,12 @@ def export_prices_xlsx(request: Request) -> Response:
 
 
 @router.get("/parts/export.xlsx")
-def export_parts_xlsx() -> Response:
+def export_parts_xlsx(request: Request) -> Response:
     """부품 대장 XLSX (D8)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 공급처명이 포함된다 — 거래처 열람 통제를 따른다
+        _assert_downloadable(cur, tid, request, "partner")
         cur.execute(
             """SELECT p.part_no, p.part_name, COALESCE(p.specification,''),
                       COALESCE(m.material_code,''), COALESCE(c.company_name,''),
@@ -1583,10 +1587,14 @@ def export_warehouses_xlsx() -> Response:
 
 
 @router.get("/companies/export.xlsx")
-def export_companies_xlsx() -> Response:
-    """공급처·거래처 XLSX (D8)."""
+def export_companies_xlsx(request: Request) -> Response:
+    """공급처·거래처 XLSX (D8) — 거래처 열람 통제를 따른다.
+
+    목록 조회에는 마스킹이 걸려 있는데 반출에는 없었다(R-25: 같은 데이터에 닿는 경로를 세어 볼 것).
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _assert_downloadable(cur, tid, request, "partner")
         cur.execute(
             """SELECT company_name, company_type, COALESCE(nation,''),
                       COALESCE(evaluation_grade,''), COALESCE(payment_terms,''), COALESCE(remarks,'')
@@ -3287,10 +3295,16 @@ DELIVER_FOLDERS = ["DWG", "PRICE", "DATA", "BOM"]
 
 
 @router.get("/files/export-package")
-def files_export_package(project: str = "PS-61313-5") -> StreamingResponse:
-    """고객 전달용 내보내기 (E2) — 산출물 폴더만 ZIP + 전달 매니페스트. 내부 접수자료 제외."""
+def files_export_package(request: Request, project: str = "PS-61313-5") -> StreamingResponse:
+    """고객 전달용 내보내기 (E2) — 산출물 폴더만 ZIP + 전달 매니페스트. 내부 접수자료 제외.
+
+    묶음에 담기는 폴더(PRICE·BOM)는 개별 다운로드와 같은 통제를 따른다 — 한 건씩은 막히는데
+    ZIP 으로는 통째로 나가면 통제가 아니다(15.1/15.4 와 같은 계열).
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        for _folder, _grp in _FOLDER_INFO_GROUP.items():
+            _assert_downloadable(cur, tid, request, _grp)
         cur.execute(
             """SELECT f.file_path, f.file_name, f.folder, to_char(f.created_at,'YYYY-MM-DD')
                FROM dwg_file f
@@ -15632,7 +15646,7 @@ def tenant_export(request: Request) -> StreamingResponse:
     import zipfile
     TABLES = [
         ("projects", "SELECT * FROM prj_project WHERE tenant_id=%s"),
-        ("companies", "SELECT * FROM com_company WHERE tenant_id=%s"),
+        ("companies", "SELECT * FROM com_company WHERE tenant_id=%s", "partner"),
         ("product_codes", "SELECT * FROM product_code WHERE tenant_id=%s"),
         ("code_relationships", "SELECT * FROM code_relationship WHERE tenant_id=%s"),
         ("drawings", "SELECT * FROM dwg_drawing WHERE tenant_id=%s"),
