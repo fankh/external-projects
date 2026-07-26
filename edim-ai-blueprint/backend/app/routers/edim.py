@@ -8222,6 +8222,12 @@ def set_lot_expiry(request: Request, body: LotExpirySet) -> dict[str, Any]:
         raise HTTPException(422, detail="itemCode·lotNo 필요")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.43 — 유효기한은 출하 가능 여부를 가르는 값이다. 이전 기한이 남지 않으면
+        # "기한이 뒤로 밀렸나(연장)" 와 "처음 설정했나" 를 구분할 수 없다.
+        cur.execute(
+            """SELECT DISTINCT to_char(expiry_date,'YYYY-MM-DD') FROM inv_movement
+               WHERE tenant_id=%s AND item_code=%s AND lot_no=%s""", (tid, item, lot))
+        _prev = sorted({r[0] for r in cur.fetchall() if r[0]})
         cur.execute(
             """UPDATE inv_movement SET expiry_date=NULLIF(%s,'')::date
                WHERE tenant_id=%s AND item_code=%s AND lot_no=%s""",
@@ -8229,7 +8235,9 @@ def set_lot_expiry(request: Request, body: LotExpirySet) -> dict[str, Any]:
         if cur.rowcount == 0:
             raise HTTPException(404, detail=f"로트 없음: {item} / {lot}")
         _audit(cur, tid, "inv_movement", 0, "LOT_EXPIRY_SET", request.state.user_id,
-               after={"item": item, "lot": lot, "expiry": body.expiryDate.strip()[:10] or None})
+               after={"item": item, "lot": lot, "expiry": body.expiryDate.strip()[:10] or None,
+                      "rows": cur.rowcount},
+               before={"item": item, "lot": lot, "expiry": _prev or None})
     return {"updated": True}
 
 
@@ -13953,13 +13961,19 @@ def document_numbering_rule_put(request: Request, body: NumberingRulePut) -> dic
     dept = body.dept.strip().upper()[:10] or "HQ"
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.43 — 채번 규칙은 문서 번호 체계 그 자체다. 규칙이 바뀌면 이후 문서번호 형식이
+        # 달라지므로, 나중에 "이 번호는 어느 규칙으로 매겨졌나" 를 되짚으려면 이전 규칙이
+        # 남아 있어야 한다.
+        cur.execute("SELECT settings->'docNumbering' FROM sys_tenant WHERE tenant_id=%s", (tid,))
+        _pv = cur.fetchone()
         cur.execute(
             """UPDATE sys_tenant
                SET settings = COALESCE(settings,'{}'::jsonb)
                    || jsonb_build_object('docNumbering', jsonb_build_object('template', %s::text, 'dept', %s::text))
                WHERE tenant_id=%s""", (tpl[:80], dept, tid))
         _audit(cur, tid, "sys_tenant", tid, "DOC_NUMBERING_SET", request.state.user_id,
-               {"template": tpl[:80], "dept": dept})
+               after={"template": tpl[:80], "dept": dept},
+               before=(_pv[0] if _pv and _pv[0] else {"note": "규칙 없음(기본값)"}))
     return {"template": tpl[:80], "dept": dept,
             "sample": _render_doc_no(tpl, dept=dept, doc_type="DOC", seq=1)}
 
@@ -15350,17 +15364,41 @@ def design_params_save(request: Request, body: DesignParamsSave) -> dict[str, An
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"도면 없음: {body.drawing}")
+        # 18.43 — 설계 우선순위·기준점·오류조건은 도면 해석과 원가 계산의 입력이다.
+        # 종전에는 건수만 남겨 **어떤 치수의 무엇이 바뀌었는지** 알 수 없었다(치수 저장
+        # 18.29 와 같은 형태 — 같은 화면의 다른 저장 경로라 함께 맞춘다).
+        changed: list[dict[str, Any]] = []
         for it in body.items:
+            label = it.no.strip()[:10]
+            cur.execute(
+                """SELECT design_priority, data_priority, COALESCE(base_point,''),
+                          COALESCE(error_check,'')
+                     FROM dwg_dimension
+                    WHERE tenant_id=%s AND drawing_id=%s AND dim_label=%s""",
+                (tid, row[0], label))
+            _pv = cur.fetchone()
             cur.execute(
                 """UPDATE dwg_dimension SET design_priority=%s, data_priority=%s,
                        base_point=NULLIF(%s,''), error_check=NULLIF(%s,''), remarks=NULLIF(%s,'')
                    WHERE tenant_id=%s AND drawing_id=%s AND dim_label=%s""",
                 (it.designPriority, it.dataPriority, it.basePoint.strip()[:100],
                  it.errorCheck.strip()[:100], it.remarks.strip()[:300],
-                 tid, row[0], it.no.strip()[:10]))
-            n += cur.rowcount
+                 tid, row[0], label))
+            if cur.rowcount:
+                n += cur.rowcount
+                changed.append({
+                    "label": label,
+                    "from": ({"designPriority": _pv[0], "dataPriority": _pv[1],
+                              "basePoint": _pv[2], "errorCheck": _pv[3]} if _pv else None),
+                    "to": {"designPriority": it.designPriority,
+                           "dataPriority": it.dataPriority,
+                           "basePoint": it.basePoint.strip()[:100],
+                           "errorCheck": it.errorCheck.strip()[:100]}})
         _audit(cur, tid, "dwg_dimension", row[0], "DESIGN_PARAMS_SAVE", request.state.user_id,
-               after={"drawing": body.drawing, "rows": n})
+               after={"drawing": body.drawing, "rows": n, "changes": changed[:50]},
+               before={"drawing": body.drawing,
+                       "changes": [{"label": c["label"], "value": c["from"]}
+                                   for c in changed[:50]]})
     return {"updated": n}
 
 

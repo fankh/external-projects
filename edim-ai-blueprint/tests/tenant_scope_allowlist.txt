@@ -46,7 +46,6 @@ backend/app/routers/edim.py::patch_document_meta::doc_control
 backend/app/routers/edim.py::patch_user::sys_user
 backend/app/routers/edim.py::patch_warehouse::erp_warehouse
 backend/app/routers/edim.py::pcr_actual::cpq_selection,prj_project
-backend/app/routers/edim.py::po_lc_approve::erp_po
 backend/app/routers/edim.py::po_lc_receive::erp_po
 backend/app/routers/edim.py::product_builder::code_item,code_item_value
 backend/app/routers/edim.py::product_composition::code_item,code_item_value
