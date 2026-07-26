@@ -8169,10 +8169,16 @@ def part_substitute_add(part_no: str, request: Request, body: SubstituteAdd) -> 
 def part_substitute_delete(sub_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("DELETE FROM prt_part_substitute WHERE tenant_id=%s AND sub_id=%s", (tid, sub_id))
-        if cur.rowcount == 0:
+        cur.execute(
+            """DELETE FROM prt_part_substitute WHERE tenant_id=%s AND sub_id=%s
+               RETURNING part_id, substitute_part_id, COALESCE(note,'')""", (tid, sub_id))
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(404, detail=f"대체 관계 없음: {sub_id}")
-        _audit(cur, tid, "prt_part_substitute", sub_id, "PART_SUBSTITUTE_DEL", request.state.user_id)
+        # 어떤 부품의 대체가 풀렸는지 남지 않으면, 나중에 조달이 막혔을 때 원인을 못 찾는다
+        _audit(cur, tid, "prt_part_substitute", sub_id, "PART_SUBSTITUTE_DEL",
+               request.state.user_id,
+               before={"partId": row[0], "substitutePartId": row[1], "note": row[2]})
     return {"deleted": True}
 
 
@@ -9391,12 +9397,15 @@ def holiday_create(request: Request, body: HolidayCreate) -> dict[str, Any]:
 def holiday_delete(holiday_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("DELETE FROM cal_holiday WHERE tenant_id=%s AND holiday_id=%s RETURNING holiday_date",
-                    (tid, holiday_id))
+        cur.execute("DELETE FROM cal_holiday WHERE tenant_id=%s AND holiday_id=%s "
+                    "RETURNING holiday_date, name", (tid, holiday_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail="공휴일 없음")
-        _audit(cur, tid, "cal_holiday", holiday_id, "DELETE", request.state.user_id, {})
+        # 공휴일은 영업일·납기 계산의 근거다 — 어떤 날짜가 빠졌는지 남지 않으면
+        # 나중에 납기가 왜 달라졌는지 되짚을 수 없다.
+        _audit(cur, tid, "cal_holiday", holiday_id, "DELETE", request.state.user_id,
+               before={"date": str(row[0]), "name": row[1]})
     return {"deleted": holiday_id}
 
 
@@ -9494,10 +9503,17 @@ def fx_upsert(request: Request, body: FxCreate) -> dict[str, Any]:
 def fx_delete(fx_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("DELETE FROM fx_rate WHERE tenant_id=%s AND fx_id=%s RETURNING currency", (tid, fx_id))
-        if not cur.fetchone():
+        # 18.16 — 지운 값을 감사에 남긴다. 환율은 원가·견적 계산의 근거이므로 "누가 #12를
+        # 지웠다" 만으로는 나중에 금액 이의에 답할 수 없다(무엇이 얼마였는지가 필요하다).
+        # RETURNING 으로 이미 읽고 있던 값을 버리지 않고 그대로 쓴다.
+        cur.execute("DELETE FROM fx_rate WHERE tenant_id=%s AND fx_id=%s "
+                    "RETURNING currency, rate, valid_from", (tid, fx_id))
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(404, detail="환율 없음")
-        _audit(cur, tid, "fx_rate", fx_id, "DELETE", request.state.user_id, {})
+        _audit(cur, tid, "fx_rate", fx_id, "DELETE", request.state.user_id,
+               before={"currency": row[0], "rate": float(row[1]) if row[1] is not None else None,
+                       "validFrom": str(row[2]) if row[2] else None})
     return {"deleted": fx_id}
 
 
@@ -9540,10 +9556,14 @@ def tax_code_create(request: Request, body: TaxCreate) -> dict[str, Any]:
 def tax_code_delete(tax_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("DELETE FROM tax_code WHERE tenant_id=%s AND tax_id=%s RETURNING code", (tid, tax_id))
-        if not cur.fetchone():
+        cur.execute("DELETE FROM tax_code WHERE tenant_id=%s AND tax_id=%s "
+                    "RETURNING code, name, rate_pct", (tid, tax_id))
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(404, detail="세금코드 없음")
-        _audit(cur, tid, "tax_code", tax_id, "DELETE", request.state.user_id, {})
+        _audit(cur, tid, "tax_code", tax_id, "DELETE", request.state.user_id,
+               before={"code": row[0], "name": row[1],
+                       "ratePct": float(row[2]) if row[2] is not None else None})
     return {"deleted": tax_id}
 
 
@@ -13883,13 +13903,19 @@ def relationship_delete(rel_id: int, request: Request) -> dict[str, Any]:
         tid = _tenant_id(cur)
         cur.execute(
             """DELETE FROM code_relationship
-               WHERE tenant_id=%s AND rel_id=%s AND approval_status='DRAFT' RETURNING rel_id""",
+               WHERE tenant_id=%s AND rel_id=%s AND approval_status='DRAFT'
+               RETURNING mother_code_id, child_code_id, quantity, COALESCE(remarks,'')""",
             (tid, rel_id))
-        if not cur.fetchone():
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(404, detail=f"DRAFT 관계 없음: #{rel_id}")
-        # BOM 구성 변경 — 원가·소요량이 달라지므로 삭제도 이력이 남아야 한다
+        # BOM 구성 변경 — 원가·소요량이 달라지므로 삭제도 이력이 남아야 한다.
+        # 18.16 — 종전 before 는 `{relId, status}` 뿐이라 **주석이 말한 소요량이 정작 없었다**
+        # (무엇이 얼마짜리로 빠졌는지 모르면 BOM 차이를 되짚을 수 없다).
         _audit(cur, tid, "code_relationship", rel_id, "DELETE", request.state.user_id,
-               before={"relId": rel_id, "status": "DRAFT"})
+               before={"motherCodeId": row[0], "childCodeId": row[1],
+                       "quantity": float(row[2]) if row[2] is not None else None,
+                       "remarks": row[3], "status": "DRAFT"})
     return {"deleted": rel_id}
 
 
