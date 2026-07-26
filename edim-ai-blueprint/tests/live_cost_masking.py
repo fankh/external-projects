@@ -247,6 +247,20 @@ try:
     set_mode(TOK, "price", "full")
     set_mode(TOK, "partner", "full")
 
+    # ── ★ 산출물 파일 직접 다운로드도 같은 통제를 따라야 한다 (15.1) ──
+    # 렌더 경로(/cost/quotations/{id}/render.pdf)는 403 인데 **같은 금액이 담긴 Run 산출물 PDF**
+    # 를 /files/download 로 그대로 내려받을 수 있었다(실증 25KB). 일부 경로에만 걸린 통제는 통제가 아니다.
+    set_mode(TOK, "quote", "no_download")
+    price_fid = psql("SELECT file_id FROM dwg_file WHERE folder='PRICE' "
+                     "AND file_name LIKE '%quotation%' ORDER BY file_id DESC LIMIT 1")
+    if price_fid.isdigit():
+        st, _ = req("GET", f"/files/download/{price_fid}", GEN, raw=True)
+        ok(f"★ 견적 산출물 파일 다운로드도 차단 ({st})", st == 403)
+        st_a, _ = req("GET", f"/files/download/{price_fid}", TOK, raw=True)
+        ok(f"ADMIN(full)은 다운로드 가능 ({st_a})", st_a == 200)
+    else:
+        print(f"SKIP 산출물 파일 다운로드 — PRICE 견적 PDF 없음 (psql={price_fid!r})")
+
     # ── 되돌리면 즉시 실값 (규칙이 실제로 작동함을 반증) ──
     set_mode(TOK, "cost", "full")
     st, acts3 = req("GET", "/cost/actuals", GEN)

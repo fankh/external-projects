@@ -706,7 +706,7 @@ async def i18n_data_import(entity_type: str, request: Request,
     """데이터 번역 일괄 Import — 헤더 ID·en/ja/zh. 비어있지 않은 셀만 업서트 (빈 칸=변경 없음, 삭제는 화면에서)."""
     et = entity_type.strip().upper()
     table, id_col, _name_col, field = _data_i18n_src(et)
-    ws, idx = _load_ws(await uploadedFile.read(), ["ID"])
+    ws, idx = _load_ws(await _read_upload(uploadedFile), ["ID"])
     locs = [lc for lc in ("en", "ja", "zh") if lc in idx]
     if not locs:
         raise HTTPException(422, detail="로케일 컬럼(en/ja/zh)이 없습니다")
@@ -1620,7 +1620,7 @@ async def import_group_excel(group: str, request: Request,
     """code_item 일괄 Import (C2) — Slot·Item Name 헤더, 행 단위 거부 리포트 (Slot 중복=갱신).
     dryRun=true (트리아지 #32 Diff Review): 반영 없이 insert/update/거부 미리보기만 반환."""
     import openpyxl
-    data = await uploadedFile.read()
+    data = await _read_upload(uploadedFile)
     try:
         wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
     except Exception:  # noqa: BLE001
@@ -1884,7 +1884,7 @@ def quote_preview(body: QuotePreview) -> Any:
 async def spec_import(uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     """사양 Excel Import — 헤더 Slot·Value 2열 → slotValues (CPQ-002)."""
     import openpyxl
-    data = await uploadedFile.read()
+    data = await _read_upload(uploadedFile)
     try:
         wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
     except Exception:  # noqa: BLE001
@@ -2484,6 +2484,24 @@ def create_company(request: Request, body: CompanyCreate) -> dict[str, Any]:
     return {"companyId": cid}
 
 
+# Excel Import 안전 상한 — 파일 전체를 메모리로 읽어 openpyxl 에 넘기므로, 상한이 없으면
+# 큰 파일 하나로 프로세스 메모리가 고갈된다(9.16~9.22 자원고갈 하드닝에서 Import 만 빠져 있었다).
+# 업로드 저장 경로(/files/upload)와 같은 설정값을 쓴다.
+_IMPORT_MAX_BYTES = 20 * 1024 * 1024
+
+
+async def _read_upload(uploaded, max_bytes: int = _IMPORT_MAX_BYTES) -> bytes:
+    """업로드 본문을 상한과 함께 읽는다 — 초과 시 413 으로 **왜** 거부됐는지 알린다."""
+    data = await uploaded.read()
+    if len(data) > max_bytes:
+        raise HTTPException(
+            413, detail=f"파일이 너무 큽니다 — {len(data) / 1048576:.1f}MB "
+                        f"(상한 {max_bytes // 1048576}MB). 시트를 나눠 올리십시오")
+    if not data:
+        raise HTTPException(422, detail="빈 파일입니다")
+    return data
+
+
 def _load_ws(data: bytes, required: list[str]) -> tuple[Any, dict[str, int]]:
     """xlsx 로드 + 헤더 검증 → (worksheet, 열인덱스맵)."""
     import openpyxl
@@ -2503,7 +2521,7 @@ def _load_ws(data: bytes, required: list[str]) -> tuple[Any, dict[str, int]]:
 async def import_companies_excel(request: Request,
                                  uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     """거래처 대량 등록 — 헤더: 업체명·유형·국가·결제조건 (중복명 거부). 유형 미지정=SUPPLIER."""
-    ws, idx = _load_ws(await uploadedFile.read(), ["업체명"])
+    ws, idx = _load_ws(await _read_upload(uploadedFile), ["업체명"])
     inserted, rejected = 0, []
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -2837,7 +2855,7 @@ async def import_excel(name: str, request: Request,
                        uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     """정형 양식(1행 헤더 = Key + 열 이름) — Key 중복은 갱신, 수치 아닌 셀은 무시."""
     import openpyxl
-    data = await uploadedFile.read()
+    data = await _read_upload(uploadedFile)
     try:
         wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
     except Exception:  # noqa: BLE001
@@ -3139,14 +3157,29 @@ async def upload_file(
     return {"fileId": file_id, "key": key, "size": len(data)}
 
 
+# 산출물 폴더 → 정보그룹. 파일 내용이 어떤 통제 대상인지 정한다.
+# PRICE 산출물(견적서 PDF·BOM 금액)은 견적 금액 통제, 그 밖의 Run 산출물은 원가 통제를 따른다.
+_FOLDER_INFO_GROUP = {"PRICE": "quote", "BOM": "cost"}
+
+
 @router.get("/files/download/{file_id}")
-def download_file(file_id: int) -> StreamingResponse:
+def download_file(file_id: int, request: Request) -> StreamingResponse:
+    """산출물 다운로드 — 폴더에 대응하는 정보그룹의 Export 통제를 따른다.
+
+    종전에는 통제가 **렌더 경로에만** 걸려 있었다. `/cost/quotations/{id}/render.pdf` 는
+    no_download 로 403 인데, 같은 금액이 담긴 Run 산출물 PDF 는 이 경로로 그대로 내려받혔다
+    (실증 확인). 통제가 일부 경로에만 걸려 있으면 통제가 아니다 — 8.3 과 같은 계열.
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            "SELECT file_path, file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
+            "SELECT file_path, file_name, folder FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
             (tid, file_id))
         row = cur.fetchone()
+        if row:
+            group = _FOLDER_INFO_GROUP.get(str(row[2] or "").upper())
+            if group:
+                _assert_downloadable(cur, tid, request, group)
     if not row:
         raise HTTPException(404, detail=f"file not found: {file_id}")
     try:
@@ -5885,7 +5918,7 @@ async def import_prices_excel(request: Request,
                               uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     """단가 Excel Import — 헤더: Code·공급처·단가·Table·적용시작·적용종료 (행 단위 등록)."""
     import openpyxl
-    data = await uploadedFile.read()
+    data = await _read_upload(uploadedFile)
     try:
         wb = openpyxl.load_workbook(io.BytesIO(data), data_only=True)
     except Exception:  # noqa: BLE001
@@ -16280,7 +16313,7 @@ def part_create(request: Request, body: PartCreate) -> dict[str, Any]:
 @router.post("/parts/import-excel", dependencies=[SETUP])
 async def import_parts_excel(request: Request, uploadedFile: UploadFile = File(...)) -> dict[str, Any]:
     """부품 대량 등록 — 헤더: 부품번호·부품명·사양·단위·중량·공급처 (중복 부품번호 거부, 공급처 자동생성)."""
-    ws, idx = _load_ws(await uploadedFile.read(), ["부품번호", "부품명"])
+    ws, idx = _load_ws(await _read_upload(uploadedFile), ["부품번호", "부품명"])
     inserted, rejected = 0, []
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
