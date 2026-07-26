@@ -83,18 +83,25 @@ with sync_playwright() as pw:
         # ── 단가 Import 거부 사유가 사람이 읽을 말인가 (18.27) ──
         # 종전에는 DB 예외 문구를 그대로 실었다 — 제약명·테이블 같은 내부 구조가 나가고,
         # 정작 사용자는 무엇을 고쳐야 할지 알 수 없다(다른 Import 4종은 이미 사유를 쓴다).
-        # 없는 제품 코드로 넣어 거부를 유도한다(참조 대상 없음).
-        pr = xlsx(["Code", "단가", "Table", "적용시작", "공급처"],
-                  [["ZZNOCODE-9999", "1000", "Table11", "2026-01-01", ""]])
-        rr = up("/prices/import-excel", pr).json()
-        ok(f"단가 Import 거부 리포트 반환 ({rr.get('inserted')}건 등록)",
-           isinstance(rr.get("rejected"), list) and rr["rejected"])
+        # 같은 코드·같은 적용기간을 두 번 넣어 **DB 제약(EXCLUDE) 위반**을 실제로 유발한다 —
+        # 사전 검사에서 걸리는 오류(코드 없음·Table 구분)로는 이 경로를 밟지 못한다.
+        codes = req.get(f"{API}/codes/products?limit=5").json()
+        codes = codes if isinstance(codes, list) else codes.get("items", [])
+        pcode = codes[0]["mainCode"]
+        row = [pcode, "999", "QUOTE", "2033-05-01", ""]
+        hdr = ["Code", "단가", "Table", "적용시작", "공급처"]
+        first = up("/prices/import-excel", xlsx(hdr, [row])).json()
+        ok(f"단가 1건 등록 ({first.get('inserted')})", first.get("inserted") == 1)
+        rr = up("/prices/import-excel", xlsx(hdr, [row])).json()
+        ok(f"★ 같은 기간 재등록은 거부 ({rr.get('inserted')}건 등록)",
+           rr.get("inserted") == 0 and rr.get("rejected"))
         reason = " ".join(rr["rejected"])
         ok(f"★ 거부 사유가 사람이 읽을 말 — {reason[:60]}",
-           any(k in reason for k in ("없", "중복", "형식", "필수", "기간")))
+           any(k in reason for k in ("중복", "겹치", "기간")))
         ok("★ 내부 구조(제약명·SQL)가 노출되지 않는다",
            not any(k in reason.lower() for k in
-                   ("constraint", "psycopg", "relation", "select", "insert into")))
+                   ("constraint", "psycopg", "relation", "select", "insert into", "exclusion")))
+        psql("DELETE FROM cst_price WHERE valid_from='2033-05-01'")
     finally:
         for pn in ("ZZBULKP-1", "ZZBULKP-2"):
             psql(f"DELETE FROM prt_part WHERE part_no='{pn}'")
