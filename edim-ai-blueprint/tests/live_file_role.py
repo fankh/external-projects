@@ -170,6 +170,16 @@ try:
        psql(f"SELECT count(*) FROM dwg_file WHERE file_name='{UPNAME}'") == "1")
     psql(f"DELETE FROM dwg_file WHERE file_name='{UPNAME}'")
 
+    # ── 7b) 빈 파일은 받지 않는다 (17.12) ──
+    # Excel Import 는 빈 파일을 422 로 거부하는데 **첨부·CAD 업로드에는 그 검사가 없었다** —
+    # 0바이트 첨부가 그대로 등록되고, 나중에 내려받으면 빈 파일이 나온다(왜 빈지 알 수 없다).
+    # 같은 종류의 검사를 두 벌 두면 한쪽만 자라난다 → 두 경로를 같은 헬퍼로 합쳤다.
+    st, b = upload("ZZROLE_empty.dxf", b"")
+    ok(f"★ 빈 파일 업로드 422 ({st})", st == 422)
+    ok("거부 사유가 '빈 파일'", "빈 파일" in str((b or {}).get("detail", "")))
+    ok("빈 파일은 행이 생기지 않음",
+       psql("SELECT count(*) FROM dwg_file WHERE file_name='ZZROLE_empty.dxf'") == "0")
+
     # ── 8) 정리 겸 삭제 가드 ──
     st, _ = req("DELETE", f"/files/{new_src}", TOK)
     ok(f"작도 원본 삭제 200 ({st})", st == 200)

@@ -2520,15 +2520,26 @@ def create_company(request: Request, body: CompanyCreate) -> dict[str, Any]:
 # 큰 파일 하나로 프로세스 메모리가 고갈된다(9.16~9.22 자원고갈 하드닝에서 Import 만 빠져 있었다).
 # 업로드 저장 경로(/files/upload)와 같은 설정값을 쓴다.
 _IMPORT_MAX_BYTES = 20 * 1024 * 1024
+# 바이너리 첨부·도면은 시트보다 크다 — 상한을 따로 두되 **검사 자체는 같은 경로로** 한다.
+# 종전에는 파일 업로드·CAD Import 가 각자 `if len(data) > 100MB` 를 인라인으로 갖고 있어,
+# 빈 파일 검사가 빠지고(0바이트 첨부가 그대로 등록됐다) 413 문구도 실제 크기·상한을 알려
+# 주지 않았다. 같은 종류의 검사를 두 벌 두면 한쪽만 자라난다(17.12).
+_UPLOAD_MAX_BYTES = 100 * 1024 * 1024
 
 
-async def _read_upload(uploaded, max_bytes: int = _IMPORT_MAX_BYTES) -> bytes:
-    """업로드 본문을 상한과 함께 읽는다 — 초과 시 413 으로 **왜** 거부됐는지 알린다."""
+async def _read_upload(uploaded, max_bytes: int = _IMPORT_MAX_BYTES,
+                       hint: str = "") -> bytes:
+    """업로드 본문을 상한과 함께 읽는다 — 초과 시 413 으로 **왜** 거부됐는지 알린다.
+
+    hint 를 주지 않으면 시트 분할 안내가 붙는다(Excel Import 기본). 바이너리 첨부처럼
+    나눌 수 없는 파일에는 맞지 않으므로 호출부가 알맞은 안내를 넘긴다 — 틀린 안내는
+    없는 안내보다 나쁘다(사용자가 그대로 시도한다)."""
     data = await uploaded.read()
     if len(data) > max_bytes:
         raise HTTPException(
             413, detail=f"파일이 너무 큽니다 — {len(data) / 1048576:.1f}MB "
-                        f"(상한 {max_bytes // 1048576}MB). 시트를 나눠 올리십시오")
+                        f"(상한 {max_bytes // 1048576}MB). "
+                        + (hint or "시트를 나눠 올리십시오"))
     if not data:
         raise HTTPException(422, detail="빈 파일입니다")
     return data
@@ -3136,9 +3147,8 @@ async def upload_file(
     blocked = (".exe", ".bat", ".cmd", ".msi", ".scr", ".ps1", ".sh", ".dll", ".com")
     if (uploadedFile.filename or "").lower().endswith(blocked):
         raise HTTPException(422, detail=f"허용되지 않는 파일 형식: {uploadedFile.filename}")
-    data = await uploadedFile.read()
-    if len(data) > 100 * 1024 * 1024:
-        raise HTTPException(413, detail="100MB 초과")
+    data = await _read_upload(uploadedFile, max_bytes=_UPLOAD_MAX_BYTES,
+                              hint="파일을 압축하거나 분할해 올리십시오")
     fname = (uploadedFile.filename or "file").replace("/", "_")
     key = f"{project}/{folder}/{fname}"
     # #53 — 업로드도 산출물 불변의 일부다. 종전엔 검사 없이 put_object 부터 해서,
@@ -4076,9 +4086,8 @@ async def cad_import(
     uploadedFile: UploadFile = File(...),
     project: str = Form("PS-61313-5"),
 ) -> dict[str, Any]:
-    data = await uploadedFile.read()
-    if len(data) > 100 * 1024 * 1024:
-        raise HTTPException(413, detail="100MB 초과")
+    data = await _read_upload(uploadedFile, max_bytes=_UPLOAD_MAX_BYTES,
+                              hint="도면을 분할하거나 불필요한 레이어를 정리해 올리십시오")
     fname = (uploadedFile.filename or "drawing.dxf").replace("/", "_")
     document = _parse_cad_bytes(data, fname)   # 파싱 실패 시 저장하지 않음
     key = f"{project}/DWG/{fname}"
