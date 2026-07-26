@@ -56,6 +56,16 @@ def main() -> int:
         if sheet not in expected:
             problems.append(f"코드에 없는 시트: {sheet}")
 
+    # 새 테이블이 계층 분류 없이 들어오는 것을 막는다. '미분류' 는 재생성만으로는 사라지지
+    # 않으므로(문서와 코드가 똑같이 미분류가 되어 위 비교는 통과한다) 별도로 잡아야 한다.
+    # 실제로 base_schema 를 읽기 시작하자 21개가 한꺼번에 드러났다(17.1).
+    unclassified = [r[0] for r in expected.get("경계정의", [])[1:] if r[1] == "미분류"]
+    if unclassified:
+        problems.append(
+            f"경계정의 미분류 {len(unclassified)}건: {', '.join(unclassified[:8])}"
+            f"{' …' if len(unclassified) > 8 else ''}"
+            " → tools/gen_governance.py 의 LAYER_RULES 에 계층을 지정하십시오")
+
     if problems:
         print("FAIL — 거버넌스 정의서가 코드와 어긋납니다 (#71)")
         for p in problems[:12]:

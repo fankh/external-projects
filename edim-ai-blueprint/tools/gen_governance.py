@@ -22,6 +22,10 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ROUTER = ROOT / "backend" / "app" / "routers" / "edim.py"
 ALEMBIC = ROOT / "backend" / "alembic" / "versions"
+# 스키마는 두 곳에 있다 — 초기 54개 테이블은 base_schema.sql, 이후 증분은 alembic 리비전.
+# 종전 생성기는 alembic 만 읽어, **핵심 기준 테이블(product_code·code_item_value 등)이
+# 문서에서 통째로 빠져 있었다**. 한쪽만 읽으면 문서는 스키마의 절반만 설명한다(17.1).
+BASE_SQL = ROOT / "backend" / "alembic" / "base_schema.sql"
 OUT = ROOT / "docs" / "EDIM_거버넌스정의서.xlsx"
 
 LEVELS = ("PLATFORM", "ADMIN", "SETUP")
@@ -31,9 +35,15 @@ LAYER_RULES = [
     ("기준 Data", "승인되어 재사용되는 제품·업무 기준. 직접 변경하지 않고 승인·개정으로 다룬다.",
      ("code_group", "code_item", "code_item_value", "product_code", "code_relationship",
       "arrangement", "tbx_", "erp_domain_catalog", "erp_process_catalog",
-      "erp_workflow_", "sys_head", "sys_hierarchy", "sys_process_node", "customer_company")),
+      "erp_workflow_", "sys_head", "sys_hierarchy", "sys_process_node", "customer_company",
+      # base_schema 쪽 기준 테이블. `dwg_`·`tbl_` 를 접두사로 넣으면 뒤 계층의
+      # dwg_run_job(Snapshot)·dwg_text_index(분석)까지 삼키므로 이름을 그대로 적는다.
+      "mat_material", "tbl_data_table", "tbl_data_row",
+      "dwg_drawing", "dwg_revision", "dwg_document", "dwg_bom", "dwg_file",
+      "dwg_dimension", "dwg_part_relation", "dwg_supersedure")),
     ("Runtime Snapshot", "특정 Project 에서 사용된 고정 결과. 재실행해도 같은 값이어야 한다.",
-     ("sys_snapshot", "cpq_run", "dwg_run_job", "sys_setup_version")),
+     ("sys_snapshot", "cpq_run", "dwg_run_job", "sys_setup_version",
+      "cpq_selection", "cpq_selection_item", "cpq_output")),
     ("실행 Data", "ERP/MES/WMS/QMS 에서 실제 진행된 업무 결과.",
      ("erp_", "inv_", "qc_", "prj_", "eco_", "prt_", "com_", "doc_control", "work_order")),
     ("분석 Data", "실행 Data 를 집계한 상태. 기준 Data 를 바꾸지 않는다.",
@@ -41,9 +51,9 @@ LAYER_RULES = [
     ("기준 참조", "달력·환율·세율 등 업무 계산의 공통 참조값.",
      ("cal_", "fx_", "tax_")),
     ("통제·감사", "권한·승인·점유·감사 등 시스템 통제 자체의 기록.",
-     ("sys_", "customer_logo_asset")),
+     ("sys_", "customer_logo_asset", "dwg_approval", "dwg_verification")),
     ("개발 관리", "제품 자체의 개발·요구 관리 기록(운영 업무 데이터가 아님).",
-     ("dev_",)),
+     ("dev_", "ai_")),
 ]
 
 
@@ -72,6 +82,23 @@ def extract_routes() -> list[tuple[str, str, str, str]]:
     return sorted(rows, key=lambda r: (r[1], r[0]))
 
 
+def _schema_sources() -> list[tuple[str, list[tuple[str, str]]]]:
+    """(파일 전문, [(테이블명, 컬럼정의부)]) 목록 — base_schema.sql 과 alembic 리비전 양쪽.
+
+    두 곳의 CREATE TABLE 문법이 다르다(`IF NOT EXISTS` + 파이썬 삼중따옴표 종결 vs 평문 SQL
+    `);` 종결)므로 정규식을 나눠 쓴다. 어느 한쪽만 읽으면 문서가 스키마의 절반만 설명한다."""
+    out: list[tuple[str, list[tuple[str, str]]]] = []
+    if BASE_SQL.exists():
+        txt = BASE_SQL.read_text(encoding="utf-8")
+        out.append((txt, [(m.group(1), m.group(2)) for m in re.finditer(
+            r"CREATE TABLE (\w+)\s*\((.*?)\n\);", txt, re.S)]))
+    for f in sorted(ALEMBIC.glob("*.py")):
+        txt = f.read_text(encoding="utf-8")
+        out.append((txt, [(m.group(1), m.group(2)) for m in re.finditer(
+            r"CREATE TABLE IF NOT EXISTS (\w+)(.*?)\n\s*\)\"\"\"", txt, re.S)]))
+    return out
+
+
 def extract_states() -> list[tuple[str, str, str, str, str, str]]:
     """상태 흐름 — CHECK 로 선언된 집합, DEFAULT 초기값, UPDATE 로 일어나는 전이를 나눠 싣는다.
 
@@ -80,10 +107,8 @@ def extract_states() -> list[tuple[str, str, str, str, str, str]]:
     읽어서는 안 된다. 그렇게 단정하면 초기 상태(DEFAULT)까지 미사용으로 잘못 몰린다."""
     states: dict[tuple[str, str], set[str]] = {}
     defaults: dict[tuple[str, str], str] = {}
-    for f in sorted(ALEMBIC.glob("*.py")):
-        txt = f.read_text(encoding="utf-8")
-        for tm in re.finditer(r"CREATE TABLE IF NOT EXISTS (\w+)(.*?)\n\s*\)\"\"\"", txt, re.S):
-            table, body = tm.group(1), tm.group(2)
+    for txt, body_iter in _schema_sources():
+        for table, body in body_iter:
             for cm in re.finditer(r"CHECK\s*\(\s*(\w+)\s+IN\s*\(([^)]*)\)", body):
                 col = cm.group(1)
                 vals = {v.strip().strip("'") for v in cm.group(2).split(",") if v.strip()}
@@ -91,6 +116,14 @@ def extract_states() -> list[tuple[str, str, str, str, str, str]]:
             for dm in re.finditer(r"^\s*(\w+)\s+VARCHAR\([^)]*\)[^,\n]*DEFAULT\s+'(\w+)'",
                                   body, re.M):
                 defaults[(table, dm.group(1))] = dm.group(2)
+        # 나중에 ALTER 로 붙인 CHECK 도 읽는다. 이걸 빠뜨리면 CREATE TABLE 당시에 제약이
+        # 없던 컬럼 — 하필 승인 상태 같은 핵심 컬럼 — 이 문서에서 통째로 사라진다(17.1).
+        for am in re.finditer(
+                r"ALTER TABLE (\w+) ADD CONSTRAINT\s+\w+\s+CHECK\s*\(\s*(\w+)\s+IN\s*\(([^)]*)\)",
+                txt, re.S):
+            table, col = am.group(1), am.group(2)
+            vals = {v.strip().strip("'") for v in am.group(3).split(",") if v.strip()}
+            states.setdefault((table, col), set()).update(vals)
 
     src = ROUTER.read_text(encoding="utf-8")
     transitions: dict[str, set[str]] = {}
@@ -117,11 +150,10 @@ def extract_states() -> list[tuple[str, str, str, str, str, str]]:
 
 def extract_tables() -> list[str]:
     seen: list[str] = []
-    for f in sorted(ALEMBIC.glob("*.py")):
-        for tm in re.finditer(r"CREATE TABLE IF NOT EXISTS (\w+)",
-                              f.read_text(encoding="utf-8")):
-            if tm.group(1) not in seen:
-                seen.append(tm.group(1))
+    for _, bodies in _schema_sources():
+        for table, _body in bodies:
+            if table not in seen:
+                seen.append(table)
     return seen
 
 
