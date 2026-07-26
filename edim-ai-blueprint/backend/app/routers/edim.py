@@ -4295,14 +4295,30 @@ class BlockDocRequest(BaseModel):
     labels: list[CadLabel] = []
 
 
+_BLOCK_CAPS = (("blocks", 500), ("dims", 200), ("labels", 200))
+
+
 def _block_dxf_bytes(body: BlockDocRequest) -> bytes:
+    """블록 배치 → DXF.
+
+    18.39 — 종전에는 `body.blocks[:500]` 처럼 **조용히 잘랐다**. 목록이 잘리는 것과 달리
+    도면은 잘려도 **완성된 도면처럼 보인다** — 빠진 형상을 사용자가 알아챌 방법이 없고,
+    그 도면으로 제작이 진행되면 실물이 달라진다. 상한을 넘으면 그리지 않고 알린다.
+    """
     from app.services.run_pipeline import build_blocks_dxf
     if not body.blocks:
         raise HTTPException(422, detail="blocks 가 비어 있습니다")
+    for field, cap in _BLOCK_CAPS:
+        got = len(getattr(body, field))
+        if got > cap:
+            raise HTTPException(
+                422, detail=f"{field} 가 상한을 넘습니다 — {got}개 (상한 {cap}). "
+                            "잘라서 그리면 빠진 형상을 알 수 없으므로 그리지 않습니다. "
+                            "도면을 나눠 요청하십시오")
     return build_blocks_dxf(
-        [b.model_dump() for b in body.blocks[:500]],
-        [d.model_dump() for d in body.dims[:200]],
-        [lb.model_dump() for lb in body.labels[:200]],
+        [b.model_dump() for b in body.blocks],
+        [d.model_dump() for d in body.dims],
+        [lb.model_dump() for lb in body.labels],
         body.name.strip()[:80] or "Block Diagram")
 
 

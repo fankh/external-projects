@@ -76,6 +76,7 @@ SUITES = [
     "live_project_comments.py",  # 프로젝트 대화 등록·삭제 권한·상한 고지 (18.11)
     "live_delete_history.py",    # 삭제 이력이 '무엇을' 지웠는지 남기는가 (18.16)
     "live_design_verify.py",     # 설계 검증 규칙의 임계값이 실제로 적용되는가 (18.36)
+    "live_cad_blocks.py",        # 블록 배치 DXF — 조용한 절단 차단 (18.39)
     "live_audit_trail.py",      # 감사 추적·알림 도달 (13.8) — 쓰기가 이력에 남는지
     "live_session_notify.py",   # 세션 즉시 차단·알림 정직 보고 (15.3)
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
