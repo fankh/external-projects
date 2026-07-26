@@ -1,4 +1,3 @@
-backend/app/routers/edim.py::_apply_decision::product_code
 backend/app/routers/edim.py::_apply_eco::dwg_drawing
 backend/app/routers/edim.py::_apply_eco::dwg_supersedure
 backend/app/routers/edim.py::_apply_eco::eco_change
