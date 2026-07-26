@@ -49,13 +49,13 @@ with sync_playwright() as pw:
     items = items if isinstance(items, list) else items.get("items", [])
     ok("대상 제품 코드 존재", len(items) > 0)
     pc = items[0]
-    pid, before = int(pc["productCodeId"]), pc.get("approvalStatus")
+    pid, before = int(pc["productCodeId"]), pc.get("status")
     print(f"   대상 #{pid} {pc.get('mainCode')} — 현재 {before}")
 
     def status_now() -> str:
         got = call("GET", "/codes/products?limit=200", tok).json()
         got = got if isinstance(got, list) else got.get("items", [])
-        return next(x.get("approvalStatus") for x in got
+        return next(x.get("status") for x in got
                     if int(x["productCodeId"]) == pid)
 
     try:

@@ -1,26 +1,41 @@
 # -*- coding: utf-8 -*-
 """승인 요청 대상의 테넌트 소유 검증 (17.3).
 
-실증된 결함을 고정한다. 종전에는 `POST /approvals` 가 `targetId` 를 그대로 받으면서
-**그 행이 내 테넌트 것인지 확인하지 않았고**, `_apply_decision` 의 product_code 전이에도
-테넌트 조건이 없었다. 두 구멍이 겹쳐, 테넌트 A 의 승인권자가 **테넌트 B 의 제품 코드를
-REJECTED 로 바꿀 수 있었다**(실제로 재현 후 원상 복구했다).
+종전에는 `POST /approvals` 가 `targetId` 를 그대로 받으면서 **그 행이 내 테넌트 것인지
+확인하지 않았고**, `_apply_decision` 의 product_code 전이에도 테넌트 조건이 없었다.
+그 경로 어디에도 테넌트 필터가 없으므로, 남의 테넌트 product_code_id 를 적은 요청은
+그대로 접수되고 결정 시 그 행이 전이된다.
+
+**증거의 범위를 분명히 해 둔다**: 위 두 지점의 부재는 코드로 확인했다(정적). 다만 처음
+실행한 재현은 **같은 테넌트의 행을 대상으로 삼은 잘못된 시연**이어서, 교차 테넌트 쓰기를
+끝까지 실행해 보인 것은 아니다. 이 스위트가 밟는 것은 수정 후의 성질 — 실재하는 타 테넌트
+행을 대상으로 한 요청이 접수되지 않는다 — 이다.
 
 '요청 행이 테넌트 범위이므로 대상도 안전하다' 는 추론이 틀린 지점이다 — 요청에 적힌
 target_id 는 사용자가 보낸 값이지 시스템이 확인한 값이 아니었다. **통제는 경로가 아니라
 데이터에 건다.**
 
-여기서는 실제 교차 테넌트 ID 를 쓰되 **쓰기가 일어나면 안 되는 것**을 검증하므로 데이터를
-바꾸지 않는다. 만약 요청 생성이 통과해 버리면(=결함 재발) 그 요청은 결정하지 않고 지운다.
+대상은 **실재하는 타 테넌트 행**으로 잡는다. 내 목록에 없다는 것만으로 고르면 존재하지
+않는 ID 일 수 있고, 그러면 '없는 대상은 404' 만 증명하게 된다. 쓰기가 일어나면 안 되는
+것을 보는 검증이므로 데이터는 바꾸지 않는다.
 
 실행: PYTHONUTF8=1 py tests/live_approval_tenant.py
 """
 import os
+import subprocess
 
 from playwright.sync_api import sync_playwright
 
 BASE = os.getenv("EDIM_LIVE_BASE", "https://edim.seekerslab.com/api/v1")
+LOGIN = "edim"
 n = 0
+
+
+def psql(sql: str) -> str:
+    r = subprocess.run(["ssh", "edim-server",
+                        f"sudo docker exec edim-postgres psql -U edim -d edim -tAc \"{sql}\""],
+                       capture_output=True, text=True, timeout=60)
+    return (r.stdout or "").strip()
 
 
 def ok(label: str, cond: bool, detail: str = "") -> None:
@@ -39,7 +54,7 @@ with sync_playwright() as pw:
             h["Authorization"] = f"Bearer {token}"
         return req.fetch(f"{BASE}{path}", method=method, headers=h, **kw)
 
-    r = call("POST", "/auth/login", data={"userId": "edim", "password": "edim"})
+    r = call("POST", "/auth/login", data={"userId": LOGIN, "password": "edim"})
     assert r.ok, f"로그인 실패 {r.status}"
     tok = r.json()["token"]
 
@@ -51,10 +66,15 @@ with sync_playwright() as pw:
     ok("내 테넌트 제품 코드 존재", len(mine) > 0, "검증 대상이 없다")
     my_ids = {int(x["productCodeId"]) for x in mine if x.get("productCodeId")}
 
-    # ── 남의 테넌트 ID 찾기 — 내 목록에 없는 ID 는 남의 것이거나 없는 것이다.
-    #    둘 다 '요청이 만들어지면 안 되는' 값이므로 검증 목적에는 동일하다. ──
-    other = next((i for i in range(1, 400) if i not in my_ids), None)
-    ok("교차 테넌트 후보 ID 확보", other is not None)
+    # ── 남의 테넌트 ID 를 **실재하는 행**으로 잡는다. 내 목록에 없다는 것만으로 고르면
+    #    존재하지 않는 ID 일 수 있고, 그러면 이 검증은 '없는 대상은 404' 만 증명한다 —
+    #    정작 보려는 '남의 것은 못 건드린다' 는 증명되지 않는다. ──
+    other = int(psql(
+        "SELECT product_code_id FROM product_code "
+        f"WHERE tenant_id <> (SELECT tenant_id FROM sys_user WHERE login_id='{LOGIN}') "
+        "ORDER BY product_code_id LIMIT 1") or 0)
+    ok("실재하는 타 테넌트 제품 코드 확보", other > 0, "다른 테넌트에 제품 코드가 없다")
+    ok("그 ID 가 내 목록에는 없음", other not in my_ids, f"#{other}")
 
     r = call("POST", "/approvals", tok, data={
         "targetTable": "product_code", "targetId": other,
