@@ -79,6 +79,22 @@ with sync_playwright() as pw:
         ok("부품 대장에 반영", "ZZBULKP-1" in got and "ZZBULKP-2" in got)
         p1 = next(p for p in parts if p["partNo"] == "ZZBULKP-1")
         ok("부품 공급처 매핑", p1.get("supplier") == "ZZBULK사A" or "ZZBULK" in str(p1))
+
+        # ── 단가 Import 거부 사유가 사람이 읽을 말인가 (18.27) ──
+        # 종전에는 DB 예외 문구를 그대로 실었다 — 제약명·테이블 같은 내부 구조가 나가고,
+        # 정작 사용자는 무엇을 고쳐야 할지 알 수 없다(다른 Import 4종은 이미 사유를 쓴다).
+        # 없는 제품 코드로 넣어 거부를 유도한다(참조 대상 없음).
+        pr = xlsx(["Code", "단가", "Table", "적용시작", "공급처"],
+                  [["ZZNOCODE-9999", "1000", "Table11", "2026-01-01", ""]])
+        rr = up("/prices/import-excel", pr).json()
+        ok(f"단가 Import 거부 리포트 반환 ({rr.get('inserted')}건 등록)",
+           isinstance(rr.get("rejected"), list) and rr["rejected"])
+        reason = " ".join(rr["rejected"])
+        ok(f"★ 거부 사유가 사람이 읽을 말 — {reason[:60]}",
+           any(k in reason for k in ("없", "중복", "형식", "필수", "기간")))
+        ok("★ 내부 구조(제약명·SQL)가 노출되지 않는다",
+           not any(k in reason.lower() for k in
+                   ("constraint", "psycopg", "relation", "select", "insert into")))
     finally:
         for pn in ("ZZBULKP-1", "ZZBULKP-2"):
             psql(f"DELETE FROM prt_part WHERE part_no='{pn}'")

@@ -13,6 +13,7 @@ import json
 import os
 import re
 import secrets
+import sys
 import time
 from contextvars import ContextVar
 from datetime import date
@@ -2550,6 +2551,33 @@ _IMPORT_MAX_BYTES = 20 * 1024 * 1024
 # 빈 파일 검사가 빠지고(0바이트 첨부가 그대로 등록됐다) 413 문구도 실제 크기·상한을 알려
 # 주지 않았다. 같은 종류의 검사를 두 벌 두면 한쪽만 자라난다(17.12).
 _UPLOAD_MAX_BYTES = 100 * 1024 * 1024
+
+
+def _row_error_reason(exc: Exception, row_no: int) -> str:
+    """행 단위 Import 실패 사유 — **사용자가 고칠 수 있는 말**로 돌려준다 (18.27).
+
+    종전에는 단가 Import 만 `str(e)[:80]` 로 **DB 예외 문구를 그대로** 거부 리포트에 실었다.
+    두 가지가 잘못이다: (1) 제약명·테이블·컬럼 같은 내부 구조가 그대로 나가고,
+    (2) 정작 사용자는 `duplicate key value violates unique constraint "uq_..."` 를 보고
+    무엇을 고쳐야 할지 알 수 없다. 다른 Import 4종은 이미 사람이 읽을 사유를 쓰고 있었다.
+
+    원문은 버리지 않는다 — 서버 로그로 남겨 진단 경로를 유지한다(사용자 화면에서만 가린다).
+    """
+    text = str(exc)
+    low = text.lower()
+    print(json.dumps({"log": "import_row_error", "row": row_no, "detail": text[:300]},
+                     ensure_ascii=False), file=sys.stderr, flush=True)
+    if "exclusion" in low or "overlap" in low:
+        return "기간 중복 — 같은 대상에 겹치는 적용기간이 이미 있습니다"
+    if "duplicate key" in low or "unique constraint" in low:
+        return "중복 — 같은 값이 이미 등록되어 있습니다"
+    if "foreign key" in low:
+        return "참조 대상 없음 — 코드·공급처가 등록되어 있는지 확인하십시오"
+    if "not-null" in low or "null value" in low:
+        return "필수 값 누락"
+    if "invalid input syntax" in low or "out of range" in low:
+        return "값 형식 오류 — 숫자·날짜 형식을 확인하십시오"
+    return "저장 실패 (내부 오류) — 관리자에게 문의하십시오"
 
 
 async def _read_upload(uploaded, max_bytes: int = _IMPORT_MAX_BYTES,
@@ -6180,9 +6208,7 @@ async def import_prices_excel(request: Request,
                          cell("적용시작"), cell("적용종료") or None))
                     inserted += 1
                 except Exception as e:  # noqa: BLE001
-                    if "exclusion" in str(e).lower() or "overlap" in str(e).lower():
-                        raise ValueError("기간 중복 (EXCLUDE)") from e
-                    raise ValueError(str(e)[:80]) from e
+                    raise ValueError(_row_error_reason(e, r_i)) from e
             except ValueError as e:
                 rejected.append(f"{r_i}행 {code}: {e}")
         _audit(cur, tid, "cst_price", 0, "IMPORT", request.state.user_id,
