@@ -5923,6 +5923,15 @@ def patch_project(project_no: str, request: Request, body: StagePatch) -> dict[s
         if not sets:
             raise HTTPException(422, detail="수정할 항목이 없습니다")
 
+        # 18.41 — 바꾸기 전 값을 먼저 읽는다. 영업 단계 전이는 사업 진행 상태 그 자체이고,
+        # 납기일 변경은 일정 약속이 바뀐 것이다 — 새 값만 남기면 "언제 무엇에서 바뀌었나" 를
+        # 되짚을 수 없다. 바뀐 필드만 골라 담는다(안 바꾼 값까지 넣으면 대조가 흐려진다).
+        cur.execute(
+            """SELECT sales_stage, project_name, to_char(due_date,'YYYY-MM-DD'), customer_id
+               FROM prj_project WHERE tenant_id=%s AND project_no=%s""", (tid, project_no))
+        _pv = cur.fetchone() or (None, None, None, None)
+        _prev_map = {"sales_stage": _pv[0], "project_name": _pv[1],
+                     "due_date": _pv[2], "customer_id": _pv[3]}
         assign = ", ".join(f"{k}=%s" for k in sets)
         cur.execute(
             f"UPDATE prj_project SET {assign}, updated_by=%s, updated_at=now() "
@@ -5930,9 +5939,11 @@ def patch_project(project_no: str, request: Request, body: StagePatch) -> dict[s
             (*sets.values(), request.state.login, tid, project_no))
         action = "STAGE" if set(sets) == {"sales_stage"} else "PROJECT_UPDATE"
         cur.execute(
-            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
-               VALUES (%s,'prj_project',%s,%s,%s,%s)""",
-            (tid, row[0], action, request.state.user_id, json.dumps(after)))
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id,
+                                        after_data, before_data)
+               VALUES (%s,'prj_project',%s,%s,%s,%s,%s)""",
+            (tid, row[0], action, request.state.user_id, json.dumps(after),
+             json.dumps({k: _prev_map.get(k) for k in sets})))
     return {"projectNo": project_no, "stage": body.stage, "updated": sorted(after)}
 
 
@@ -7515,6 +7526,12 @@ def contract_save(code: str, request: Request, body: ContractSave) -> dict[str, 
     fields = [f.strip() for f in body.allowedFields if f.strip()]
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.41 — Contract 는 **어떤 원천의 어떤 필드를 쓸 수 있는지 선언**하는 통제다.
+        # 허용 필드가 늘어난 것을 나중에 확인하려면 이전 선언이 남아 있어야 한다.
+        cur.execute(
+            """SELECT source_kind, source_ref, allowed_fields FROM tbx_binding_contract
+               WHERE tenant_id=%s AND contract_code=%s""", (tid, cc))
+        _prev = cur.fetchone()
         cur.execute(
             """UPDATE tbx_binding_contract SET contract_name=%s, source_kind=%s, source_ref=%s,
                allowed_fields=%s, note=%s, updated_by=%s, updated_at=now()
@@ -7531,7 +7548,11 @@ def contract_save(code: str, request: Request, body: ContractSave) -> dict[str, 
                  json.dumps(fields), body.note.strip()[:300] or None, request.state.login))
             row = cur.fetchone()
         _audit(cur, tid, "tbx_binding_contract", row[0], "SAVE", request.state.user_id,
-               {"code": cc, "source": body.sourceRef.strip()})
+               after={"code": cc, "sourceKind": kind, "source": body.sourceRef.strip(),
+                      "allowedFields": fields},
+               before=({"sourceKind": _prev[0], "source": _prev[1],
+                        "allowedFields": _prev[2]} if _prev
+                       else {"note": "신규 등록"}))
     return {"contractId": row[0], "contractCode": cc, "allowedFields": fields}
 
 

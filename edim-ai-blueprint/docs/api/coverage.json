@@ -1,10 +1,10 @@
 {
  "note": "플릿 실행 창의 백엔드 요청 로그에서 실측한 API 표면 커버리지. 검증 소스의 경로 문자열이 아니라 실제 호출을 센다(18.9).",
  "since": "60m",
- "proc": "f8f19a51",
+ "proc": "a59b5990",
  "total": 446,
- "covered": 422,
- "percent": 94,
+ "covered": 425,
+ "percent": 95,
  "uncovered": [
   "GET /api/health",
   "GET /api/models",
@@ -26,9 +26,6 @@
   "GET /api/v1/users/me/mfa",
   "POST /api/drawings/export/dxf",
   "POST /api/drawings/generate",
-  "POST /api/drawings/upload",
-  "POST /api/v1/cad/from-blocks",
-  "POST /api/v1/cad/from-blocks.dxf",
-  "POST /api/v1/drawings/{drawing_no}/verify"
+  "POST /api/drawings/upload"
  ]
 }

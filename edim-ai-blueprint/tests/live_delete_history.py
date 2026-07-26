@@ -207,6 +207,23 @@ try:
         ok(f"★ 비활성화 이력에 이전 상태·등급이 남는다 — {hb[:70]}",
            "ACTIVE" in hb and "GENERAL" in hb)
 
+    # ── 프로젝트 영업 단계 전이: 이전 단계가 남는가 (18.41) ──
+    # 단계 전이는 사업 진행 상태 그 자체다. 새 단계만 남기면 "언제 무엇에서 넘어왔나" 를
+    # 되짚을 수 없다.
+    projs = req("GET", "/projects?limit=5", TOK)[1]
+    projs = projs if isinstance(projs, list) else (projs or {}).get("rows", [])
+    pno2 = projs[0]["projectNo"]
+    cur_stage = psql(f"SELECT sales_stage FROM prj_project WHERE project_no='{pno2}'")
+    pid2 = psql(f"SELECT project_id FROM prj_project WHERE project_no='{pno2}'")
+    st, _ = req("PATCH", f"/projects/{pno2}", TOK, {"projectName": f"{projs[0]['projectName']}"})
+    ok(f"프로젝트 수정 ({st})", st == 200)
+    if pid2:
+        hb = psql("SELECT COALESCE(before_data::text,'') FROM sys_history "
+                  f"WHERE target_table='prj_project' AND target_id={pid2} "
+                  "ORDER BY history_id DESC LIMIT 1")
+        ok(f"★ 프로젝트 수정 이력에 이전 값이 남는다 — {hb[:70]}",
+           "project_name" in hb or "projectName" in hb)
+
     # ── 없는 것을 지우면 404 (없는데 지웠다고 답하지 않는다) ──
     st, _ = req("DELETE", "/finance/fx/99999999", TOK)
     ok(f"없는 환율 삭제 404 ({st})", st == 404)
