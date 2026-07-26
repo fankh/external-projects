@@ -4510,11 +4510,54 @@ def _assert_not_self_approval(cur, tid: int, approval_id: int, actor_id: int) ->
                         "(고객사 정책: 요청자 본인 결정 금지) — 다른 승인자에게 요청하십시오")
 
 
+# 결정을 반영하기 전에 대상이 아직 그 결정을 받을 상태인지 확인한다 (17.6).
+# 종전에는 일부 분기의 UPDATE 에만 `AND status='REVIEW'` 같은 조건이 붙어 있었는데,
+# 조건에 안 맞으면 **UPDATE 가 0행이어도 요청은 APPROVED 로 기록되고 요청자에게는
+# '승인' 알림이 갔다** — 아무것도 하지 않고 했다고 답하는 형태다. 여기서 미리 확인해
+# 거절하면 부분 반영도 생기지 않는다.
+_DECIDABLE_STATE = {
+    # 대상 테이블: (상태 컬럼, PK 컬럼, 결정을 받을 수 있는 상태들, 안내)
+    "sys_head": ("status", "head_id", ("REVIEW",),
+                 "검토(REVIEW) 상태의 Head 만 결정할 수 있습니다"),
+    "erp_handoff": ("status", "handoff_id", ("approval_requested",),
+                    "승인 요청 상태의 Handoff 만 결정할 수 있습니다"),
+    # 비활성으로 내려둔 제품 코드를 묵은 요청 승인으로 되살리지 않는다.
+    "product_code": ("approval_status", "product_code_id",
+                     ("DRAFT", "PENDING", "APPROVED", "REJECTED"),
+                     "비활성(INACTIVE) 제품 코드는 결정을 반영할 수 없습니다 — "
+                     "먼저 활성으로 되돌린 뒤 재요청하십시오"),
+}
+
+
+def _assert_target_decidable(cur, tid: int, table: str, target_id: int) -> None:
+    spec = _DECIDABLE_STATE.get(table)
+    if spec is None or not target_id:
+        return   # 규칙이 없는 대상에 근거 없이 규칙을 만들지 않는다
+    col, pk, allowed, hint = spec
+    cur.execute(f"SELECT {col} FROM {table} WHERE tenant_id=%s AND {pk}=%s", (tid, target_id))
+    got = cur.fetchone()
+    if not got:
+        raise HTTPException(409, detail=f"승인 대상이 없습니다: {table} #{target_id} "
+                                        "(삭제되었을 수 있습니다 — 재요청하십시오)")
+    if got[0] not in allowed:
+        raise HTTPException(
+            409, detail=f"요청 이후 대상 상태가 바뀌어 결정을 반영할 수 없습니다 "
+                        f"(현재 {got[0]}) — {hint}")
+
+
 def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str,
                     actor_login: str, actor_id: int) -> str | None:
     """단건 승인 결정 적용 — 상태 전이 + 요청자 알림 + 자산 전이 + 이력.
     처리 가능한 요청이 아니면 None (이미 결정됨/미존재). decide·decide_batch 공용."""
     result = "APPROVED" if approve else "REJECTED"
+    cur.execute(
+        """SELECT target_table, target_id FROM sys_approval_request
+           WHERE tenant_id=%s AND approval_id=%s AND result IS NULL""", (tid, approval_id))
+    pre = cur.fetchone()
+    if pre and approve:
+        # 승인에만 건다. 반려는 요청을 닫는 행위이고 아무 권한도 부여하지 않으므로,
+        # 대상 상태를 이유로 막으면 **승인함에서 치울 방법이 없는 요청**이 남는다.
+        _assert_target_decidable(cur, tid, pre[0], pre[1])
     # approver_id 를 채운다 — 컬럼이 있는데 한 번도 쓰지 않아, 승인 테이블만 보고는
     # **누가 승인했는지 알 수 없었다**(감사 로그를 따로 뒤져야 했다).
     cur.execute(
@@ -4531,22 +4574,31 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
             f"{'승인' if approve else '반려'} — {row[0]} #{row[1]}"
             + (f" ({comment.strip()})" if comment.strip() else ""),
             "/common")
-    # 대상 자산 상태 전이 + 이력
+    # 대상 자산 상태 전이 + 이력.
+    # target_changed 는 '요청은 닫혔지만 자산은 안 움직였다' 를 이력에 남기기 위한 것이다 —
+    # 조건부 UPDATE 가 0행일 때 그 사실이 어디에도 안 남으면, 나중에 상태를 보고
+    # "승인/반려됐는데 왜 그대로지" 를 알 방법이 없다.
+    target_changed = True
     if row[0] == "product_code":
         # 17.3 — 테넌트 조건이 빠져 있었다. 요청 행이 테넌트 범위라는 이유로 안전하다고
         # 봤지만, 요청 생성이 target_id 의 소유를 검증하지 않아 **다른 테넌트의 제품 코드가
         # 실제로 전이됐다**(실증). 통제는 경로가 아니라 데이터에 건다 — 생성에서 막고,
         # 여기서도 조건을 건다(둘 중 하나가 뚫려도 남는다).
+        # 반려는 대상 상태와 무관하게 허용하지만(승인함을 막지 않기 위해), 그렇다고
+        # 비활성으로 내려둔 코드를 REJECTED 로 덮어써서는 안 된다 — 요청을 닫는 것과
+        # 자산을 건드리는 것은 다른 일이다. 전이 여부는 아래 이력에 그대로 남긴다.
         cur.execute(
             "UPDATE product_code SET approval_status=%s "
-            "WHERE tenant_id=%s AND product_code_id=%s",
+            "WHERE tenant_id=%s AND product_code_id=%s AND approval_status<>'INACTIVE'",
             (result, tid, row[1]))
+        target_changed = cur.rowcount > 0
     elif row[0] == "sys_head":
         # #21 — Tenant Head 는 승인 경유: 승인=APPROVED(게시 가능), 반려=DRAFT 복귀.
         # 게시(PUBLISHED)는 승인 이후 별도 조작이며 center 바인딩 게이트(#19)를 다시 통과해야 한다.
         cur.execute("UPDATE sys_head SET status=%s, updated_at=now() "
                     "WHERE tenant_id=%s AND head_id=%s AND status='REVIEW'",
                     ("APPROVED" if approve else "DRAFT", tid, row[1]))
+        target_changed = cur.rowcount > 0
     elif row[0] == "code_item":
         # #28 — Sub Code 승인 결정이 값에 전혀 반영되지 않던 결함 수정.
         # S-1-1 은 항목(code_item) 단위로 요청하므로 그 하위 값 전체를 전이한다.
@@ -4580,10 +4632,12 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
         cur.execute("UPDATE erp_handoff SET status=%s, decided_at=now() "
                     "WHERE tenant_id=%s AND handoff_id=%s AND status='approval_requested'",
                     ("approved" if approve else "rejected", tid, row[1]))
+        target_changed = cur.rowcount > 0
     cur.execute(
         """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
            VALUES (%s,%s,%s,%s,%s,%s)""",
-        (tid, row[0], row[1], result, actor_id, json.dumps({"comment": comment})))
+        (tid, row[0], row[1], result, actor_id,
+         json.dumps({"comment": comment, "targetChanged": target_changed})))
     return result
 
 
@@ -4674,6 +4728,7 @@ def decide_batch(request: Request, body: DecideBatchRequest) -> dict[str, Any]:
     if len(body.approvalIds) > 200:
         raise HTTPException(422, detail="한 번에 최대 200건")
     done, skipped = [], []
+    blocked: list[dict[str, Any]] = []
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         # 8.5 — 단건 decide 는 APPROVE 동사를 요구하는데 일괄 경로에는 없었다.
@@ -4695,13 +4750,23 @@ def decide_batch(request: Request, body: DecideBatchRequest) -> dict[str, Any]:
             # '이미 결정됨' 과 구분되지 않아 정책이 작동한 줄 모른다.
             if aid in self_ids:
                 continue
-            r = _apply_decision(cur, tid, aid, body.approve, body.comment,
-                                request.state.login, request.state.user_id)
+            try:
+                r = _apply_decision(cur, tid, aid, body.approve, body.comment,
+                                    request.state.login, request.state.user_id)
+            except HTTPException as e:
+                # 17.7 — 대상 상태가 어긋난 건 하나 때문에 **일괄 전체를 실패시키지 않는다**.
+                # 다만 조용히 건너뛰지도 않는다: 사유를 따로 돌려줘야 나머지가 처리됐다는
+                # 응답을 보고 '전부 됐다' 로 오해하지 않는다.
+                if e.status_code != 409:
+                    raise
+                blocked.append({"approvalId": aid, "reason": e.detail})
+                continue
             (done if r is not None else skipped).append(aid)
     return {"result": "APPROVED" if body.approve else "REJECTED",
             "processed": len(done), "skipped": len(skipped),
             "processedIds": done, "skippedIds": skipped,
-            "selfBlocked": len(self_ids), "selfBlockedIds": self_ids}
+            "selfBlocked": len(self_ids), "selfBlockedIds": self_ids,
+            "blocked": len(blocked), "blockedItems": blocked}
 
 
 # ── SVC-13 알림 ──

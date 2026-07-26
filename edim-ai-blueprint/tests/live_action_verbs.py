@@ -112,7 +112,21 @@ try:
     # 단건만 막고 일괄·도면 경로가 열려 있으면, APPROVE 없는 역할이 그쪽으로 우회한다.
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": ["READ"]})
     ok(f"APPROVE 회수 ({st})", st == 200)
-    a1, a2 = make_pending(901), make_pending(902)
+    # 17.7 — 종전에는 없는 head_id(901·902)를 대상으로 삼았다. 승인 요청이 대상의 실재·소유를
+    # 확인하지 않던 시절에나 통하던 픽스처다(17.3 에서 교차 테넌트 전이의 원인이기도 했다).
+    # 여기서 보려는 것은 '동사 없이 일괄 승인이 막히는가' 이므로, 대상은 실재하는 Head 여야
+    # 하고 결정 가능 상태(REVIEW)여야 한다 — 아니면 검증이 다른 이유로 통과·실패한다.
+    for code in ("ZZVERBB1", "ZZVERBB2"):
+        st, _hb = req("POST", "/heads", TOK,
+                      {"headCode": code, "headName": f"일괄 검증 {code}", "headType": "TENANT"})
+        assert st in (200, 201, 409), f"검증용 Head 생성 실패({st}): {_hb}"
+    batch_ids = [int(x) for x in psql(
+        "SELECT string_agg(head_id::text, ' ' ORDER BY head_id) FROM sys_head "
+        "WHERE head_code IN ('ZZVERBB1','ZZVERBB2')").split()]
+    assert len(batch_ids) == 2, f"검증용 Head 2건이 필요합니다: {batch_ids}"
+    for _bid in batch_ids:
+        psql(f"UPDATE sys_head SET status='REVIEW' WHERE head_id={_bid}")
+    a1, a2 = make_pending(batch_ids[0]), make_pending(batch_ids[1])
     st, b = req("POST", "/approvals/decide-batch", TOK,
                 {"approvalIds": [a1, a2], "approve": True, "comment": "일괄 우회 시도"})
     ok(f"★ 일괄 승인도 APPROVE 없으면 403 ({st})",
@@ -261,6 +275,13 @@ finally:
         psql(f"DELETE FROM sys_head_binding WHERE head_id={_hid}")
         psql(f"DELETE FROM sys_head WHERE head_id={_hid}")
         print(f"정리 — 검증용 Head #{_hid} 삭제")
+    # 일괄 검증용 Head — 승인 요청이 먼저 지워져야 FK/미결이 남지 않는다
+    psql("DELETE FROM sys_approval_request WHERE target_table='sys_head' AND target_id IN "
+         "(SELECT head_id FROM sys_head WHERE head_code IN ('ZZVERBB1','ZZVERBB2'))")
+    psql("DELETE FROM sys_head_binding WHERE head_id IN "
+         "(SELECT head_id FROM sys_head WHERE head_code IN ('ZZVERBB1','ZZVERBB2'))")
+    psql("DELETE FROM sys_head WHERE head_code IN ('ZZVERBB1','ZZVERBB2')")
+    print("정리 — 일괄 검증용 Head 삭제")
     # 검증용으로 상태를 바꾼 제품 코드는 반드시 되돌린다 (중간 실패로 DRAFT 가 남았던 적 있음)
     _pid, _to = globals().get("_restore_pid"), globals().get("_restore_to")
     if _pid and _to:
