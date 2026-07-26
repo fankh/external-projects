@@ -22,7 +22,6 @@ backend/app/routers/edim.py::delete_drawing::dwg_file
 backend/app/routers/edim.py::delete_drawing::dwg_part_relation
 backend/app/routers/edim.py::delete_drawing::dwg_supersedure
 backend/app/routers/edim.py::delete_file::cst_quotation
-backend/app/routers/edim.py::delete_macro::tbx_macro
 backend/app/routers/edim.py::delete_templet::tbx_templet
 backend/app/routers/edim.py::delete_user::sys_user
 backend/app/routers/edim.py::document_status::doc_control

@@ -3444,9 +3444,14 @@ def delete_file(file_id: int, request: Request) -> dict[str, Any]:
                     (tid, row[0]))
         key_shared = cur.fetchone() is not None
         cur.execute(
-            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id,
+                                        before_data)
                VALUES (%s,'dwg_file',%s,'DELETE',%s,%s)""",
-            (tid, file_id, request.state.user_id, json.dumps({"fileName": row[1]})))
+            # 18.23 — 파일 삭제는 스토리지 객체까지 지운다(같은 key 를 공유하는 행이 없을 때).
+            # 이름만 남기면 어떤 경로의 객체가 사라졌는지, 객체까지 지웠는지 알 수 없다.
+            (tid, file_id, request.state.user_id,
+             json.dumps({"fileName": row[1], "filePath": row[0],
+                         "objectRemoved": not key_shared})))
     if not key_shared:
         try:
             storage.remove_object(row[0])
@@ -12040,8 +12045,10 @@ def head_delete(head_id: int, request: Request) -> dict[str, Any]:
         if row[1] == "PUBLISHED":
             raise HTTPException(409, detail="게시된 Head 는 삭제 불가 — 먼저 회수(DRAFT)하십시오")
         cur.execute("DELETE FROM sys_head WHERE tenant_id=%s AND head_id=%s", (tid, head_id))
+        # 18.23 — Head 는 권한·구조의 축이다. 코드만 남기면 어떤 유형·상태의 Head 가
+        # 빠졌는지 알 수 없다(Head Type 은 권한 임계 필드다 — Launch 차단 #77 참조).
         _audit(cur, tid, "sys_head", head_id, "DELETE", request.state.user_id,
-               {"headCode": row[2]})
+               before={"headCode": row[2], "headType": row[0], "status": row[1]})
     return {"deleted": head_id, "headCode": row[2]}
 
 
@@ -17437,9 +17444,18 @@ def delete_macro(name: str, request: Request) -> dict[str, Any]:
             if c:
                 raise HTTPException(409, detail=f"참조 존재 — {label} {c}건 (삭제 불가)")
         cur.execute("DELETE FROM tbx_macro_ref WHERE macro_id=%s", (mid,))
-        cur.execute("DELETE FROM tbx_macro WHERE macro_id=%s", (mid,))
+        refs_gone = cur.rowcount
+        cur.execute(
+            """DELETE FROM tbx_macro WHERE tenant_id=%s AND macro_id=%s
+               RETURNING macro_expr, status, version""", (tid, mid))
+        gone = cur.fetchone()
+        # 18.23 — **수식이 곧 계산 규칙이다.** 이름만 남기면 그 매크로가 무엇을 계산했는지
+        # 사라진다(치수·검증·구성 join 이 이 식을 근거로 돌아간다). 삭제이므로 before 에 담는다.
         _audit(cur, tid, "tbx_macro", mid, "MACRO_DELETE", request.state.user_id,
-               after={"name": name})
+               before={"name": name, "expr": (gone[0] or "")[:500] if gone else "",
+                       "status": gone[1] if gone else None,
+                       "version": gone[2] if gone else None,
+                       "refsRemoved": refs_gone})
     return {"deleted": name}
 
 

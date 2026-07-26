@@ -138,6 +138,20 @@ try:
         ok(f"★ 삭제 이력에 권한 목록이 남는다 (역할) — {hb[:80]}",
            "ZZDELROLE" in hb and "approval" in hb)
 
+    # ── 매크로 삭제: 수식이 남는가 (18.23) ──
+    # 매크로 수식은 계산 규칙 그 자체다(치수·검증·구성 join 이 이 식을 근거로 돌아간다).
+    # 이름만 남기면 "그 매크로가 무엇을 계산했나" 에 답할 수 없다.
+    st, _ = req("PUT", "/macros/ZZDELMACRO", TOK,
+                {"expr": "=A*2+7", "applyType": "MACRO", "descriptionText": "삭제 검증"})
+    ok(f"검증 매크로 저장 ({st})", st in (200, 201))
+    mid = psql("SELECT macro_id FROM tbx_macro WHERE macro_name='ZZDELMACRO'")
+    st, _ = req("DELETE", "/macros/ZZDELMACRO", TOK)
+    ok(f"검증 매크로 삭제 ({st})", st == 200)
+    if mid:
+        hb = before_of("tbx_macro", mid)
+        ok(f"★ 삭제 이력에 수식이 남는다 (매크로) — {hb[:80]}",
+           "A*2+7" in hb and "ZZDELMACRO" in hb)
+
     # ── 없는 것을 지우면 404 (없는데 지웠다고 답하지 않는다) ──
     st, _ = req("DELETE", "/finance/fx/99999999", TOK)
     ok(f"없는 환율 삭제 404 ({st})", st == 404)
@@ -150,6 +164,9 @@ finally:
         req("DELETE", f"/finance/tax-codes/{xid}", TOK)
     for hid in created["hol"]:
         req("DELETE", f"/calendar/holidays/{hid}", TOK)
+    psql("DELETE FROM tbx_macro_ref WHERE macro_id IN "
+         "(SELECT macro_id FROM tbx_macro WHERE macro_name='ZZDELMACRO')")
+    psql("DELETE FROM tbx_macro WHERE macro_name='ZZDELMACRO'")
     psql("DELETE FROM sys_role_permission WHERE role_id IN "
          "(SELECT role_id FROM sys_role WHERE role_name='ZZDELROLE')")
     psql("DELETE FROM sys_role WHERE role_name='ZZDELROLE'")
@@ -160,7 +177,7 @@ finally:
                 "+(SELECT count(*) FROM tax_code WHERE code='ZZTAX')"
                 "+(SELECT count(*) FROM cal_holiday WHERE name LIKE 'ZZHOL%')"
                 "+(SELECT count(*) FROM sys_role WHERE role_name='ZZDELROLE')"
-                "+(SELECT count(*) FROM sys_user WHERE login_id='zzdel01')")
+                "+(SELECT count(*) FROM sys_user WHERE login_id='zzdel01')+(SELECT count(*) FROM tbx_macro WHERE macro_name='ZZDELMACRO')")
     print(f"정리 — 검증용 기준값·계정·역할 잔존 {left}")
 
 print(f"\nlive_delete_history: {n}/{n} PASS")
