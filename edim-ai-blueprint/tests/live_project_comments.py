@@ -64,6 +64,14 @@ def req(method, path, tok, body=None):
             return e.code, None
 
 
+def req_h(method, path, tok):
+    """헤더까지 필요한 조회 — 절단 고지(X-Truncated·X-Limit)를 보기 위한 것."""
+    r = urllib.request.Request(API + path, method=method,
+                               headers={"Authorization": f"Bearer {tok}"})
+    with urllib.request.urlopen(r, timeout=60) as resp:
+        return resp.status, {k.lower(): v for k, v in resp.headers.items()}
+
+
 def cleanup():
     psql(f"DELETE FROM sys_project_comment WHERE body LIKE '{MARK}%'")
 
@@ -110,6 +118,17 @@ try:
     st, lst = req("GET", f"/projects/{pno}/comments", ADMIN)
     got = next((x for x in lst if x["id"] == ce["id"]), None)
     ok("경계값 본문이 그대로 보존", got and len(got["body"]) == 1000)
+
+    # ── 목록 상한 고지 (18.14) ──
+    # 대화는 이력 기록이라 끊긴 줄 모르면 '이게 전부' 로 읽힌다. limit=1 로 강제로 잘라
+    # 헤더가 사실을 말하는지 본다(현재 대화가 2건 이상이어야 의미가 있다).
+    st, h1 = req_h("GET", f"/projects/{pno}/comments?limit=1", ADMIN)
+    ok(f"목록이 적용 상한을 알린다 (X-Limit={h1.get('x-limit')})", h1.get("x-limit") == "1")
+    ok(f"★ 상한에서 잘리면 알린다 (X-Truncated={h1.get('x-truncated')})",
+       h1.get("x-truncated") == "true")
+    st, hall = req_h("GET", f"/projects/{pno}/comments?limit=500", ADMIN)
+    ok(f"넉넉한 상한에서는 절단 아님 ({hall.get('x-truncated')})",
+       hall.get("x-truncated") == "false")
 
     # ── 삭제 권한 ──
     st, cg = req("POST", f"/projects/{pno}/comments", GEN, {"body": f"{MARK} 일반 사용자 메모"})

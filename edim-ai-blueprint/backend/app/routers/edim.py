@@ -1497,6 +1497,18 @@ def export_group_xlsx(group: str) -> Response:
 EXPORT_ROW_CAP = 50000
 
 
+def _mark_truncated(response: Response, fetched: list[Any], cap: int) -> list[Any]:
+    """목록형 응답의 절단을 헤더로 알리고 상한까지 잘라 돌려준다 (18.14).
+
+    쓰는 쪽은 `LIMIT cap + 1` 로 **한 줄 더** 읽어야 한다 — 그래야 '잘렸다' 를 알 수 있다.
+    같은 처리를 엔드포인트마다 인라인으로 두면 새로 만든 목록에는 빠진다(17.12 에서 업로드
+    크기 검사가 그랬다). 종전에 Run 목록·감사 로그를 각각 따로 고쳤으므로 세 번째부터는
+    헬퍼로 모은다."""
+    response.headers["X-Truncated"] = "true" if len(fetched) > cap else "false"
+    response.headers["X-Limit"] = str(cap)
+    return fetched[:cap]
+
+
 def _xlsx_response(sheet: str, headers: list[str], rows: list[list[Any]], filename: str,
                    cap: int | None = None) -> Response:
     """XLSX 응답. cap 은 이 응답에 실제로 적용된 상한 — 호출부가 EXPORT_ROW_CAP 보다 낮은
@@ -5679,14 +5691,21 @@ class CommentCreate(BaseModel):
 
 
 @router.get("/projects/{project_no}/comments")
-def project_comments(project_no: str) -> list[dict[str, Any]]:
+def project_comments(project_no: str, response: Response,
+                     limit: int = 100) -> list[dict[str, Any]]:
+    """프로젝트 대화 목록 — 최신순. 상한에서 잘리면 헤더로 알린다 (18.14).
+
+    대화는 이력 관리 기록이라 **끊긴 줄 모르면 '이게 전부' 로 읽힌다**. 종전에는 100건에서
+    말없이 잘렸다."""
+    cap = max(1, min(limit, 1000))
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT comment_id, author, body, to_char(created_at,'MM-DD HH24:MI')
                FROM sys_project_comment WHERE tenant_id=%s AND project_no=%s
-               ORDER BY comment_id DESC LIMIT 100""", (tid, project_no.strip()))
-        return [{"id": r[0], "author": r[1], "body": r[2], "at": r[3]} for r in cur.fetchall()]
+               ORDER BY comment_id DESC LIMIT %s""", (tid, project_no.strip(), cap + 1))
+        rows = _mark_truncated(response, cur.fetchall(), cap)
+        return [{"id": r[0], "author": r[1], "body": r[2], "at": r[3]} for r in rows]
 
 
 @router.post("/projects/{project_no}/comments", status_code=201)
@@ -12428,8 +12447,12 @@ def info_access_set(request: Request, body: InfoAccessSet) -> dict[str, Any]:
 
 
 @router.get("/access/temp")
-def temp_access_list() -> list[dict[str, Any]]:
-    """임시 열람 부여 현황 (요구 #6 Temporary Access) — 유효/만료 구분."""
+def temp_access_list(response: Response, limit: int = 50) -> list[dict[str, Any]]:
+    """임시 열람 부여 현황 (요구 #6 Temporary Access) — 유효/만료 구분.
+
+    18.14 — 50건에서 조용히 잘렸다. 이 목록은 **보안 검토에 쓰는 것**이라 일부만 보이면
+    '부여가 이만큼뿐' 으로 읽힌다. 잘리면 헤더로 알린다."""
+    cap = max(1, min(limit, 1000))
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
@@ -12437,9 +12460,10 @@ def temp_access_list() -> list[dict[str, Any]]:
                       to_char(t.valid_to,'MM-DD HH24:MI'), t.revoked,
                       (NOT t.revoked AND t.valid_to > now())
                FROM sys_temp_access t JOIN sys_user u ON u.user_id=t.user_id
-               WHERE t.tenant_id=%s ORDER BY t.temp_access_id DESC LIMIT 50""", (tid,))
+               WHERE t.tenant_id=%s ORDER BY t.temp_access_id DESC LIMIT %s""", (tid, cap + 1))
+        rows = _mark_truncated(response, cur.fetchall(), cap)
         return [{"id": r[0], "login": r[1], "infoGroup": r[2], "mode": r[3], "reason": r[4],
-                 "validTo": r[5], "revoked": r[6], "active": r[7]} for r in cur.fetchall()]
+                 "validTo": r[5], "revoked": r[6], "active": r[7]} for r in rows]
 
 
 @router.post("/access/temp", status_code=201, dependencies=[ADMIN])
@@ -15687,7 +15711,12 @@ def snapshot_create(request: Request, body: SnapshotCreate) -> dict[str, Any]:
 
 
 @router.get("/snapshots")
-def snapshot_list(sourceId: int = 0) -> list[dict[str, Any]]:
+def snapshot_list(response: Response, sourceId: int = 0,
+                  limit: int = 100) -> list[dict[str, Any]]:
+    """Snapshot 목록 — 최신순. 상한에서 잘리면 헤더로 알린다 (18.14).
+
+    Snapshot 은 재현의 근거다. 목록이 말없이 끊기면 과거 Snapshot 이 **없는 것처럼 보인다**."""
+    cap = max(1, min(limit, 1000))
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         sql = ("""SELECT s.snapshot_id, s.snapshot_code, s.snapshot_type, s.source_id,
@@ -15702,12 +15731,14 @@ def snapshot_list(sourceId: int = 0) -> list[dict[str, Any]]:
         if sourceId:
             sql += " AND s.source_id=%s"
             params.append(sourceId)
-        cur.execute(sql + " ORDER BY s.snapshot_id DESC LIMIT 100", tuple(params))
+        params.append(cap + 1)
+        cur.execute(sql + " ORDER BY s.snapshot_id DESC LIMIT %s", tuple(params))
+        rows = _mark_truncated(response, cur.fetchall(), cap)
         return [{"snapshotId": r[0], "snapshotCode": r[1], "snapshotType": r[2],
                  "sourceId": r[3], "version": r[4], "checksum": r[5][:12],
                  "note": r[6], "createdAt": r[7], "bomRows": r[8],
                  "finishedGoodsCode": r[9], "projectNo": r[10], "handedOff": r[11]}
-                for r in cur.fetchall()]
+                for r in rows]
 
 
 @router.get("/snapshots/{snapshot_id}")

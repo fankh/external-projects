@@ -80,6 +80,19 @@ if _more:
 else:
     print("   (참고) 이력이 1건 이하라 절단 판정을 밟지 못했다")
 
+# 1c) 완전성이 판단에 쓰이는 목록은 잘리면 알린다 (18.14)
+# 개별로 세 번 고친 뒤(Run 목록·감사 JSON·감사 XLSX) 공통 헬퍼로 모았고, 적용 대상은
+# **완전성이 판단에 쓰이는 것**으로 골랐다: 임시 열람 부여(보안 검토)·Snapshot(재현 근거).
+# 대화 목록은 live_project_comments 에서 본다.
+for path, label in (("/access/temp", "임시 열람 부여"), ("/snapshots", "Snapshot")):
+    _, h1 = req("GET", f"{path}?limit=1", with_headers=True)
+    ok(f"{label} 목록이 적용 상한을 알린다 (X-Limit={h1.get('x-limit')})",
+       h1.get("x-limit") == "1")
+    ok(f"{label} 목록 절단 고지 필드 존재", "x-truncated" in h1)
+    _, h2 = req("GET", f"{path}?limit=500", with_headers=True)
+    ok(f"{label} — 넉넉한 상한에서는 절단 아님 ({h2.get('x-truncated')})",
+       h2.get("x-truncated") == "false")
+
 # 2) 고객 전달 패키지 워터마크
 rq = urllib.request.Request(f"{API}/files/export-package?project=PS-61313-5",
                             headers={"Authorization": f"Bearer {TOK}"})
