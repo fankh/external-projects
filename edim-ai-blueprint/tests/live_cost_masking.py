@@ -60,9 +60,9 @@ def psql(sql):
     return (r.stdout or "").strip()
 
 
-def set_mode(tok, group, mode):
+def set_mode(tok, group, mode, role="GENERAL"):
     st, _ = req("PUT", "/access/info", tok,
-                {"roleName": "GENERAL", "infoGroup": group, "mode": mode})
+                {"roleName": role, "infoGroup": group, "mode": mode})
     return st
 
 
@@ -261,6 +261,28 @@ try:
     else:
         print(f"SKIP 산출물 파일 다운로드 — PRICE 견적 PDF 없음 (psql={price_fid!r})")
 
+    # ── ★ 테넌트 export(오프보딩)도 같은 통제를 따라야 한다 (15.4) ──
+    # ADMIN 전용 일괄 ZIP 으로 금액 테이블을 통째로 받아 가면 no_download 가 무의미해진다.
+    # 다만 오프보딩은 계약상 권리라 **전체 차단이 아니라 해당 테이블만 제외**하고 사유를 남긴다.
+    import io as _io, zipfile as _zip
+    # export 는 ADMIN 전용이라 **ADMIN 역할**에 제한을 걸어야 검증이 성립한다
+    # (GENERAL 에 걸면 호출 자체가 403 이라 통제 여부를 확인할 수 없다).
+    set_mode(TOK, "quote", "no_download", role="ADMIN")
+    st, body = req("GET", "/tenant/export.zip", TOK, raw=True)
+    ok(f"테넌트 export 는 계속 가능 ({st}) — 오프보딩은 막지 않는다", st == 200)
+    z = _zip.ZipFile(_io.BytesIO(body))
+    man = z.read("manifest.txt").decode("utf-8")
+    ok(f"★ 금액 테이블이 제외됨 ({len(z.namelist())}개 파일)",
+       "quotations.json" not in z.namelist())
+    ok("제외 사유가 manifest 에 기재 (조용히 빼지 않는다)",
+       any(l.startswith("quotations") and "제외" in l for l in man.splitlines()))
+
+    set_mode(TOK, "quote", "full", role="ADMIN")
+    st, body2 = req("GET", "/tenant/export.zip", TOK, raw=True)
+    z2 = _zip.ZipFile(_io.BytesIO(body2))
+    ok("full 로 되돌리면 금액 테이블 포함 (과잉 차단 아님)",
+       "quotations.json" in z2.namelist())
+
     # ── 되돌리면 즉시 실값 (규칙이 실제로 작동함을 반증) ──
     set_mode(TOK, "cost", "full")
     st, acts3 = req("GET", "/cost/actuals", GEN)
@@ -271,6 +293,7 @@ try:
 finally:
     for g in ("cost", "quote", "price", "partner"):
         set_mode(TOK, g, "full")
+        set_mode(TOK, g, "full", role="ADMIN")   # export 검증에서 건 제한도 되돌린다
     psql("DELETE FROM cst_actual WHERE item_code='ZZMASK'")
     psql("DELETE FROM com_supplier_eval WHERE period='2099-ZZ'")
     psql("DELETE FROM erp_po_item WHERE po_id IN (SELECT po_id FROM erp_po WHERE note='ZZMASK')")
