@@ -134,6 +134,19 @@ with sync_playwright() as pw:
     b.close()
 
 # 6. 원복 — 스냅샷으로 되돌림 (atexit 로도 보장되지만 명시 검증)
+# ── D9 확대 — 동시 편집 낙관적 잠금 (16.5) ──
+# version 컬럼은 있었지만 잠금에 쓰이지 않아, 두 사람이 같은 매크로를 열어 두면
+# 뒤에 저장한 쪽이 앞사람 수식을 조용히 덮어썼다(계산식 손실은 그대로 금액에 반영된다).
+_cur = next(m for m in req("GET", "/macros", headers=A) if m["name"] == "Shaft 길이 계산")
+_v = _cur["version"]
+_body = {"expr": _cur["expr"], "baseVersion": _v}
+_r = req("PUT", f"/macros/{NAME}", _body, headers=A)
+ok("현재 버전으로 저장 성공", _r["version"] == _v + 1)
+ok("낡은 버전으로 재저장 409 (선수정 덮어쓰기 차단)",
+   status_of("PUT", f"/macros/{NAME}", _body, headers=A) == 409)
+ok("baseVersion 미전달이면 종전대로 저장 (도입 무영향)",
+   req("PUT", f"/macros/{NAME}", {"expr": _cur["expr"]}, headers=A)["version"] == _v + 2)
+
 restore_snapshot()
 restored = next(m for m in req("GET", "/macros", headers=A) if m["name"] == "Shaft 길이 계산")
 ok("원복 — 스냅샷 복원 (b20 흔적 제거)", "b20-roundtrip" not in restored["codeText"]
