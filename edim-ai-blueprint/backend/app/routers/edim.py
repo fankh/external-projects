@@ -6022,72 +6022,95 @@ async def import_prices_excel(request: Request,
 # ── B5 — 통합 검색 (⌘K · M-15-x) ──
 
 @router.get("/search")
-def global_search(q: str, request: Request) -> dict[str, list[dict[str, Any]]]:
+def global_search(q: str, request: Request) -> dict[str, Any]:
     """통합 검색 (B5 + F6 확장) — 코드·문서·파일 + 부품·공급처·창고·매크로·프로젝트
     (+사용자는 SETUP 이상). 화면 검색은 프론트 레지스트리에서 병합."""
     term = q.strip()
-    empty: dict[str, list[dict[str, Any]]] = {
+    empty: dict[str, Any] = {
         "codes": [], "docs": [], "files": [], "parts": [], "companies": [],
-        "warehouses": [], "macros": [], "projects": [], "users": []}
+        "warehouses": [], "macros": [], "projects": [], "users": [], "hasMore": []}
     if len(term) < 2:
         return empty
+    _CAP = 8   # 그룹별 표시 상한 — 상한+1 을 읽어 '더 있음' 을 판별한다
     like = f"%{_like_esc(term)}%"   # 9.29 — %·_ 리터럴화(와일드카드 오매칭 방지)
     out = dict(empty)
+    more: dict[str, bool] = {}
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
             """SELECT main_code, code_name FROM product_code
                WHERE tenant_id=%s AND (main_code ILIKE %s OR code_name ILIKE %s)
-               ORDER BY main_code LIMIT 8""", (tid, like, like))
+               ORDER BY main_code LIMIT 9""", (tid, like, like))
         out["codes"] = [{"code": r[0], "name": r[1]} for r in cur.fetchall()]
+        more["codes"] = len(out["codes"]) > _CAP
+        out["codes"] = out["codes"][:_CAP]
         cur.execute(
             """SELECT DISTINCT doc_no, title, management_grade FROM doc_control
                WHERE tenant_id=%s AND (doc_no ILIKE %s OR title ILIKE %s)
-               ORDER BY doc_no LIMIT 8""", (tid, like, like))
+               ORDER BY doc_no LIMIT 9""", (tid, like, like))
         out["docs"] = [{"docNo": r[0], "title": r[1], "grade": r[2]} for r in cur.fetchall()]
+        more["docs"] = len(out["docs"]) > _CAP
+        out["docs"] = out["docs"][:_CAP]
         cur.execute(
             """SELECT file_id, file_name, file_type FROM dwg_file
                WHERE tenant_id=%s AND file_name ILIKE %s
-               ORDER BY file_id DESC LIMIT 8""", (tid, like))
+               ORDER BY file_id DESC LIMIT 9""", (tid, like))
         out["files"] = [{"fileId": r[0], "name": r[1], "type": r[2]} for r in cur.fetchall()]
+        more["files"] = len(out["files"]) > _CAP
+        out["files"] = out["files"][:_CAP]
         # ── F6 확장 그룹 ──
         cur.execute(
             """SELECT part_no, part_name FROM prt_part
                WHERE tenant_id=%s AND (part_no ILIKE %s OR part_name ILIKE %s)
-               ORDER BY part_no LIMIT 8""", (tid, like, like))
+               ORDER BY part_no LIMIT 9""", (tid, like, like))
         out["parts"] = [{"partNo": r[0], "name": r[1]} for r in cur.fetchall()]
+        more["parts"] = len(out["parts"]) > _CAP
+        out["parts"] = out["parts"][:_CAP]
         cur.execute(
             """SELECT company_id, company_name, company_type FROM com_company
                WHERE tenant_id=%s AND company_name ILIKE %s
-               ORDER BY company_name LIMIT 8""", (tid, like))
+               ORDER BY company_name LIMIT 9""", (tid, like))
         out["companies"] = [{"companyId": r[0], "name": r[1], "companyType": r[2]}
                             for r in cur.fetchall()]
+        more["companies"] = len(out["companies"]) > _CAP
+        out["companies"] = out["companies"][:_CAP]
         cur.execute(
             """SELECT location_code, location_name, location_type FROM erp_warehouse
                WHERE tenant_id=%s AND (location_code ILIKE %s OR location_name ILIKE %s)
-               ORDER BY location_code LIMIT 8""", (tid, like, like))
+               ORDER BY location_code LIMIT 9""", (tid, like, like))
         out["warehouses"] = [{"code": r[0], "name": r[1], "locationType": r[2]}
                              for r in cur.fetchall()]
+        more["warehouses"] = len(out["warehouses"]) > _CAP
+        out["warehouses"] = out["warehouses"][:_CAP]
         cur.execute(
             """SELECT DISTINCT ON (macro_name) macro_name, apply_type, status FROM tbx_macro
                WHERE tenant_id=%s AND macro_name ILIKE %s
-               ORDER BY macro_name, version DESC LIMIT 8""", (tid, like))
+               ORDER BY macro_name, version DESC LIMIT 9""", (tid, like))
         out["macros"] = [{"name": r[0], "applyType": r[1], "status": r[2]}
                          for r in cur.fetchall()]
+        more["macros"] = len(out["macros"]) > _CAP
+        out["macros"] = out["macros"][:_CAP]
         cur.execute(
             """SELECT project_no, project_name, sales_stage FROM prj_project
                WHERE tenant_id=%s AND (project_no ILIKE %s OR project_name ILIKE %s)
-               ORDER BY project_id DESC LIMIT 8""", (tid, like, like))
+               ORDER BY project_id DESC LIMIT 9""", (tid, like, like))
         out["projects"] = [{"projectNo": r[0], "name": r[1],
                             "stage": STAGE_LABEL.get(r[2], r[2])} for r in cur.fetchall()]
+        more["projects"] = len(out["projects"]) > _CAP
+        out["projects"] = out["projects"][:_CAP]
         # 사용자 — 읽기 자체가 SETUP 가드(M-14-6)이므로 동일 레벨에만 노출
         if LEVEL_RANK.get(getattr(request.state, "level", "GENERAL"), 0) >= LEVEL_RANK["SETUP"]:
             cur.execute(
                 """SELECT login_id, user_name, user_level FROM sys_user
                    WHERE tenant_id=%s AND (login_id ILIKE %s OR user_name ILIKE %s)
-                   ORDER BY login_id LIMIT 8""", (tid, like, like))
+                   ORDER BY login_id LIMIT 9""", (tid, like, like))
             out["users"] = [{"login": r[0], "name": r[1], "level": r[2]}
                             for r in cur.fetchall()]
+            more["users"] = len(out["users"]) > _CAP
+            out["users"] = out["users"][:_CAP]
+    # 그룹별 '더 있음' — 상위 8건만 보고 "없다" 고 판단하지 않도록 (응답 정직성 규약).
+    # 프런트는 명명된 필드를 읽으므로 형제 키 추가는 기존 렌더링에 영향이 없다.
+    out["hasMore"] = [k for k, v in more.items() if v]
     return out
 
 
@@ -6141,7 +6164,12 @@ def _audit_where(tid: int, fromDate: str, toDate: str, user: str,
 @router.get("/audit", dependencies=[ADMIN])
 def audit_query(fromDate: str = "", toDate: str = "", user: str = "",
                 action: str = "", target: str = "", limit: int = 200) -> dict[str, Any]:
-    """전용 감사 조회 (D9) — 기간/사용자/작업/대상 필터. ADMIN 전용."""
+    """전용 감사 조회 (D9) — 기간/사용자/작업/대상 필터. ADMIN 전용.
+
+    상한을 넘기면 `truncated: true` 와 상한값을 함께 돌려준다 — 규정 대응 조회에서
+    잘린 결과를 전부로 오해하면 "그런 기록은 없다" 는 잘못된 결론이 나온다.
+    """
+    cap = max(1, min(limit, 2000))
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         where, params = _audit_where(tid, fromDate, toDate, user, action, target)
@@ -6151,9 +6179,13 @@ def audit_query(fromDate: str = "", toDate: str = "", user: str = "",
                        h.history_id, h.before_data, h.after_data
                 FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
                 WHERE {where} ORDER BY h.history_id DESC LIMIT %s""",
-            (*params, max(1, min(limit, 2000))))
+            (*params, cap + 1))
+        fetched = cur.fetchall()
+        # 상한을 넘겼는지 알기 위해 한 건 더 읽고 잘라 낸다 — 감사 조회는 규정 대응에 쓰이므로
+        # **일부만 보고 전부로 오해**하면 안 된다(응답 정직성 규약). 종전에는 조용히 잘렸다.
+        truncated = len(fetched) > cap
         rows = [{"at": r[0], "target": r[1], "action": r[2], "by": r[3], "login": r[4],
-                 "historyId": r[5], "before": r[6], "after": r[7]} for r in cur.fetchall()]
+                 "historyId": r[5], "before": r[6], "after": r[7]} for r in fetched[:cap]]
         # 필터 드롭다운용 facet (전체 tenant 기준 distinct)
         cur.execute("SELECT DISTINCT action FROM sys_history WHERE tenant_id=%s ORDER BY action", (tid,))
         actions = [r[0] for r in cur.fetchall()]
@@ -6161,7 +6193,10 @@ def audit_query(fromDate: str = "", toDate: str = "", user: str = "",
             """SELECT DISTINCT u.login_id FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
                WHERE h.tenant_id=%s ORDER BY u.login_id""", (tid,))
         users = [r[0] for r in cur.fetchall()]
-    return {"rows": rows, "actions": actions, "users": users, "count": len(rows)}
+    return {"rows": rows, "actions": actions, "users": users, "count": len(rows),
+            "truncated": truncated, "limit": cap,
+            "note": (f"상한 {cap}건에서 잘렸습니다 — 기간·사용자·작업 필터를 좁히거나 "
+                     f"limit 를 올리십시오(최대 2000)") if truncated else ""}
 
 
 # ── 잔여 mock 실데이터화 (v4.0) — 치수 정의·Macro 목록·공정 정의·역참조 ──
