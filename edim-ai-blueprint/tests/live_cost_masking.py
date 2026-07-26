@@ -283,6 +283,27 @@ try:
     ok("full 로 되돌리면 금액 테이블 포함 (과잉 차단 아님)",
        "quotations.json" in z2.namelist())
 
+    # ── ★ 거래처(partner) 통제가 반출에도 걸리는가 (15.6) ──
+    # 정보그룹별 적용 지점을 세어 보니 partner 는 마스킹 9곳인데 **다운로드 통제 0곳**이었다.
+    # 목록에서는 가려지는데 xlsx·ZIP 으로는 그대로 나갔다.
+    PARTNER_EXPORTS = [
+        ("거래처 대장", "/companies/export.xlsx"),
+        ("부품 대장", "/parts/export.xlsx"),        # 공급처명 포함
+        ("단가 대장", "/prices/export.xlsx"),       # price 만 있었다 — 공급처명도 함께 나간다
+    ]
+    set_mode(TOK, "partner", "no_download", role="ADMIN")
+    for name, url in PARTNER_EXPORTS:
+        st, _ = req("GET", url, TOK, raw=True)
+        ok(f"★ {name} 반출 차단 ({st})", st == 403)
+    # 파일 묶음에는 거래처명이 없다 — 막히면 오히려 과잉 차단이다
+    st, _ = req("GET", "/files/export-package", TOK, raw=True)
+    ok(f"파일 묶음은 partner 와 무관하게 계속 가능 ({st})", st == 200)
+
+    set_mode(TOK, "partner", "full", role="ADMIN")
+    for name, url in PARTNER_EXPORTS:
+        st, _ = req("GET", url, TOK, raw=True)
+        ok(f"{name} 복구 ({st}) — 과잉 차단 아님", st == 200)
+
     # ── 되돌리면 즉시 실값 (규칙이 실제로 작동함을 반증) ──
     set_mode(TOK, "cost", "full")
     st, acts3 = req("GET", "/cost/actuals", GEN)
