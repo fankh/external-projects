@@ -84,6 +84,33 @@ with sync_playwright() as pw:
     tok2 = r.json()["token"]
     ok("재발급 토큰으로 조회 성공", call("GET", "/notifications", tok2).ok)
 
+    # ── 3b. 비밀번호 재설정이 이미 열린 세션을 끊는가 (18.51) ──
+    # 계정 비활성화는 즉시 반영되는데(위 2번), **같은 목적(계정 탈취 대응)의 다른 경로**인
+    # 비밀번호 재설정은 반영되지 않았다 — 옛 비밀번호 로그인은 401 인데 옛 토큰은 200 이었다
+    # (운영 실측). 관리자가 비밀번호를 바꾸는 이유가 바로 그 세션을 끊기 위해서다.
+    ok("재설정 전 토큰 유효", call("GET", "/notifications", tok2).ok)
+    r = call("POST", f"/users/{LOGIN}/reset-password", admin, data={"newPassword": PW + "9"})
+    ok("관리자 비밀번호 재설정", r.ok, f"status={r.status}")
+    r = call("GET", "/notifications", tok2)
+    ok("★ 재설정 후 옛 토큰 차단(401)", r.status == 401,
+       f"status={r.status} — 비밀번호를 바꿔도 열린 세션이 남으면 탈취 대응이 되지 않는다")
+    ok("차단 사유가 비밀번호 변경임을 밝힌다", "비밀번호" in r.text(), r.text()[:120])
+    r = call("POST", "/auth/login", data={"userId": LOGIN, "password": PW + "9"})
+    ok("새 비밀번호로 재로그인 가능", r.ok, f"status={r.status}")
+    tok2 = r.json()["token"]
+    ok("재로그인 토큰은 정상 동작", call("GET", "/notifications", tok2).ok)
+    # 본인 변경은 새 토큰을 함께 돌려준다 — 그 토큰이 바로 쓰이는가
+    r = call("PUT", "/users/me/password", tok2,
+             data={"currentPassword": PW + "9", "newPassword": PW})
+    ok("본인 비밀번호 변경", r.ok, f"status={r.status}")
+    fresh = r.json().get("token")
+    ok("★ 본인 변경은 새 토큰을 함께 돌려준다", bool(fresh))
+    ok("★ 그 토큰으로 바로 조회 가능 (다시 로그인 불필요)",
+       call("GET", "/notifications", fresh).ok)
+    ok("★ 변경 전 토큰은 끊긴다 (다른 기기 세션 정리)",
+       call("GET", "/notifications", tok2).status == 401)
+    tok2 = fresh
+
     # ── 4. 알림은 본인 것만 — 읽음 보고가 정직한가 ──
     r = call("GET", "/notifications", admin)
     ok("관리자 알림 조회", r.ok, f"status={r.status}")

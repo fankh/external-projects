@@ -115,11 +115,20 @@ def require_auth(request: Request, response: Response) -> None:
     with _conn() as conn, conn.cursor() as cur:
         tid = tok_tid or _tenant_id(cur)
         cur.execute(
-            """SELECT user_id, user_level FROM sys_user
+            """SELECT user_id, user_level, EXTRACT(EPOCH FROM pw_changed_at)
+               FROM sys_user
                WHERE tenant_id=%s AND login_id=%s AND status='ACTIVE'""", (tid, login))
         row = cur.fetchone()
     if not row:
         raise HTTPException(401, detail="비활성/미존재 사용자")
+    # 18.51 — 비밀번호가 바뀐 뒤 발급된 토큰만 인정한다. 종전에는 관리자가 재설정해도
+    # **기존 토큰이 최대 8시간 그대로 통했다**(옛 비밀번호 로그인은 막히는데 옛 세션은 살아
+    # 있었다) — 계정 탈취 대응이 이미 열린 세션을 끊지 못한 것이다. 비활성화는 매 요청
+    # 재확인으로 즉시 반영되는데(15.3) 같은 목적의 다른 경로만 빠져 있었다.
+    # 토큰은 발급 시각을 담지 않지만 모든 발급이 같은 TTL 을 쓰므로 exp - TTL 이 발급 시각이다.
+    if row[2] is not None and (int(exp) - TOKEN_TTL) < float(row[2]):
+        raise HTTPException(
+            401, detail="비밀번호가 변경되어 이 세션은 만료되었습니다 — 다시 로그인하십시오")
     request.state.login = login
     request.state.user_id = row[0]
     request.state.level = row[1]
@@ -984,12 +993,17 @@ def change_my_password(request: Request, body: PasswordChangeRequest) -> dict[st
             _audit(cur, tid, "sys_user", uid, "PW_CHANGE_FAIL", uid,
                    {"reason": "현재 비밀번호 불일치"})
             raise HTTPException(403, detail="현재 비밀번호가 올바르지 않습니다")
+        # 18.51 — 변경 시각을 남겨 **그 이전에 발급된 토큰을 무효화**한다(다른 기기의 세션이
+        # 계속 살아 있으면 비밀번호를 바꾼 의미가 없다). 지금 쓰는 세션까지 끊기므로
+        # 새 토큰을 함께 돌려준다 — 클라이언트가 이 값으로 갈아끼우면 다시 로그인할 필요가 없다.
         cur.execute(
-            """UPDATE sys_user SET password_hash=%s, updated_by=%s, updated_at=now()
+            """UPDATE sys_user SET password_hash=%s, pw_changed_at=now(),
+                   updated_by=%s, updated_at=now()
                WHERE user_id=%s""",
             (hash_password(new), request.state.login, uid))
         _audit(cur, tid, "sys_user", uid, "PW_CHANGE", uid)   # 비밀번호 자체는 기록하지 않음
-    return {"login": request.state.login, "changed": True}
+    return {"login": request.state.login, "changed": True,
+            "token": _issue_token(request.state.login, tenant_id=tid)}
 
 
 # ── SVC-03 Code ──
@@ -5470,7 +5484,11 @@ def reset_user_password(login: str, request: Request,
             raise HTTPException(
                 409, detail="본인 비밀번호는 '비밀번호 변경' 으로 바꾸십시오 (현재 비밀번호 확인 필요)")
         cur.execute(
-            """UPDATE sys_user SET password_hash=%s, status=CASE WHEN status='LOCKED'
+            # 18.51 — 관리자 재설정은 **계정 탈취에 대한 표준 대응**이다. 변경 시각을 남겨
+            # 이미 열려 있는 세션을 끊는다 — 종전에는 옛 비밀번호 로그인만 막히고 옛 토큰은
+            # 최대 8시간 그대로 통했다(운영 실측).
+            """UPDATE sys_user SET password_hash=%s, pw_changed_at=now(),
+                   status=CASE WHEN status='LOCKED'
                    THEN 'ACTIVE' ELSE status END, updated_by=%s, updated_at=now()
                WHERE tenant_id=%s AND user_id=%s""",
             (hash_password(pw), request.state.login, tid, uid))
