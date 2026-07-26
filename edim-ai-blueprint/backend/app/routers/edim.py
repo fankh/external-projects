@@ -12112,8 +12112,11 @@ def head_patch(head_id: int, request: Request, body: HeadPatch) -> dict[str, Any
                     "WHERE tenant_id=%s AND head_id=%s RETURNING head_code, status",
                     tuple(params))
         r = cur.fetchone()
+        # 18.33 — Head 상태 전이와 min_level 은 권한 임계 값이다(문서 간 불일치가 미결인
+        # 항목 #77). 새 값만 남기면 "언제 어떤 등급에서 풀렸나" 를 되짚을 수 없다.
         _audit(cur, tid, "sys_head", head_id, "UPDATE", request.state.user_id,
-               {"status": body.status, "name": body.headName})
+               after={"status": r[1], "name": body.headName, "minLevel": body.minLevel},
+               before={"status": row[1], "headType": row[0]})
     return {"headId": head_id, "headCode": r[0], "status": r[1]}
 
 
@@ -12751,7 +12754,8 @@ def platform_tenant_patch(code: str, request: Request, body: TenantPatch) -> dic
     if st and st not in ("ACTIVE", "SUSPENDED", "TERMINATED"):
         raise HTTPException(422, detail="상태 오류 (ACTIVE/SUSPENDED/TERMINATED)")
     with _conn() as conn, conn.cursor() as cur:
-        cur.execute("SELECT tenant_id, tenant_code FROM sys_tenant WHERE tenant_code=%s", (code,))
+        cur.execute("SELECT tenant_id, tenant_code, tenant_name, plan, status "
+                    "FROM sys_tenant WHERE tenant_code=%s", (code,))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"고객사 없음: {code}")
@@ -12767,8 +12771,12 @@ def platform_tenant_patch(code: str, request: Request, body: TenantPatch) -> dic
             ((body.tenantName or "").strip(), (body.plan or "").strip(), st,
              str(request.state.user_id), row[0]))
         t = cur.fetchone()
+        # 18.33 — 요금제·상태 변경은 계약 조건과 접근 차단에 직결된다. 새 값만 남기면
+        # "언제 중지됐나·언제 요금제가 바뀌었나" 를 이력만으로 답할 수 없다.
         _audit(cur, _tenant_id(cur), "sys_tenant", row[0], "TENANT_UPDATE",
-               request.state.user_id, {"status": t[2], "plan": t[1]})
+               request.state.user_id,
+               after={"tenantName": t[0], "plan": t[1], "status": t[2]},
+               before={"tenantName": row[2], "plan": row[3], "status": row[4]})
     return {"tenantCode": code, "tenantName": t[0], "plan": t[1], "status": t[2]}
 
 
@@ -14411,8 +14419,17 @@ def po_lc_approve(po_no: str, request: Request) -> dict[str, Any]:
             raise HTTPException(404, detail=f"발주 없음: {po_no}")
         if row[1] != "DRAFT":
             raise HTTPException(409, detail=f"승인 불가 — 현재 {PO_STATUS_LABEL.get(row[1], row[1])}")
-        cur.execute("UPDATE erp_po SET status='APPROVED', approved_at=now() WHERE po_id=%s", (row[0],))
-        _audit(cur, tid, "erp_po", row[0], "PO_APPROVE", request.state.user_id, {"poNo": po_no})
+        cur.execute("UPDATE erp_po SET status='APPROVED', approved_at=now() "
+                    "WHERE tenant_id=%s AND po_id=%s RETURNING total_amount, currency",
+                    (tid, row[0]))
+        _po = cur.fetchone()
+        # 18.33 — 발주 승인은 금액을 확정하는 행위다. 발주번호만 남기면 "얼마짜리를 언제
+        # 누가 승인했나" 에 답할 수 없다(승인 시점의 금액이 이후 변경돼도 이력은 남아야 한다).
+        _audit(cur, tid, "erp_po", row[0], "PO_APPROVE", request.state.user_id,
+               after={"poNo": po_no, "status": "APPROVED",
+                      "totalAmount": float(_po[0]) if _po and _po[0] is not None else None,
+                      "currency": _po[1] if _po else None},
+               before={"poNo": po_no, "status": row[1]})
     return {"poNo": po_no, "status": "APPROVED"}
 
 

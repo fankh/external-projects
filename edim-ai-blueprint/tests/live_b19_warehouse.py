@@ -7,6 +7,7 @@ UI: 창고 화면 트리·등록 · 발주 화면 QCR·PO 조건 다이얼로그
 정리: 스위트 자체 수행 (TEST 노드·PO 문서 정리는 doc_control 누적 허용 — 발주 이력 성격).
 """
 import json
+import subprocess
 import urllib.error
 import urllib.request
 from urllib.parse import quote
@@ -97,6 +98,24 @@ ok("조건 병기 (납품·운송·최소수량·인증서)", "FOB 부산" in r[
 ok("공급자 코드 병기 (ERP-018)", "HS-IMP-900A" in r["terms"])
 docs = req("GET", "/documents", headers=A)
 ok("문서함에 PO 문서 등록", any(d.get("docNo") == po_no for d in docs))
+
+# 4b. PO 승인 — 금액 확정 행위이므로 이력에 금액이 남아야 한다 (18.33)
+# 종전에는 발주번호만 남아 "얼마짜리를 누가 언제 승인했나" 에 답할 수 없었다.
+req("PATCH", f"/erp/pos/{po_no}/approve", None, A)
+_pid = subprocess.run(
+    ["ssh", "edim-server",
+     "sudo docker exec edim-postgres psql -U edim -d edim -tAc "
+     f"\"SELECT po_id FROM erp_po WHERE po_no='{po_no}'\""],
+    capture_output=True, text=True, timeout=60).stdout.strip()
+_hist = subprocess.run(
+    ["ssh", "edim-server",
+     "sudo docker exec edim-postgres psql -U edim -d edim -tAc "
+     f"\"SELECT COALESCE(before_data::text,'')||'|'||COALESCE(after_data::text,'') "
+     f"FROM sys_history WHERE target_table='erp_po' AND target_id={_pid} "
+     "AND action='PO_APPROVE' ORDER BY history_id DESC LIMIT 1\""],
+    capture_output=True, text=True, timeout=60).stdout.strip()
+ok(f"★ 발주 승인 이력에 금액과 이전 상태가 남는다 — {_hist[-90:]}",
+   "DRAFT" in _hist and "totalAmount" in _hist)
 
 # 5. UI — 창고 화면 + 발주 QCR/PO 다이얼로그
 with sync_playwright() as pw:
