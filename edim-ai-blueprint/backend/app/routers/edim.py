@@ -14326,6 +14326,11 @@ def qcr_issue(request: Request, body: QcrIssue) -> dict[str, Any]:
         raise HTTPException(422, detail="발행 대상 품목이 없습니다")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.48 — QCR 은 공급자에게 나가는 요청이다. 중복 발행이면 같은 견적 요청이 두 번
+        # 가고 회신도 두 벌이 되어 어느 쪽을 근거로 삼을지 알 수 없어진다.
+        replay = _idem_begin(cur, tid, request, "POST /erp/qcr")
+        if replay is not None:
+            return replay
         cur.execute("SELECT count(*)+1 FROM sys_history WHERE tenant_id=%s AND action='QCR_ISSUE'",
                     (tid,))
         qcr_no = f"QCR-{cur.fetchone()[0]:04d}"
@@ -14341,7 +14346,8 @@ def qcr_issue(request: Request, body: QcrIssue) -> dict[str, Any]:
         for (uid,) in cur.fetchall():
             _notify(cur, tid, uid, "QCR_ISSUE",
                     f"견적 요청 발행 — {qcr_no} ({len(codes)}품목, 공급자 회신 대기)", "/erp")
-    return {"qcrNo": qcr_no, "codes": len(codes)}
+        return _idem_done(cur, tid, request, "POST /erp/qcr",
+                          {"qcrNo": qcr_no, "codes": len(codes)})
 
 
 class PoCreate(BaseModel):
@@ -14423,6 +14429,11 @@ def po_lc_create(request: Request, body: PoLifecycleCreate) -> dict[str, Any]:
         raise HTTPException(422, detail="발주 라인아이템이 없습니다 (품명·수량>0)")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.48 — 중복 발주는 **실제 손해**다(같은 물량이 두 번 나간다). 채번 경쟁 안전화
+        # (9.19)는 번호 충돌만 막을 뿐, 같은 요청이 두 번 오면 발주가 두 건 생긴다.
+        replay = _idem_begin(cur, tid, request, "POST /erp/pos")
+        if replay is not None:
+            return replay
         # 9.19 — 채번 경쟁 안전화 (9.18 과 동일 클래스)
         po_id, po_no = None, ""
         for _ in range(50):
@@ -14450,7 +14461,8 @@ def po_lc_create(request: Request, body: PoLifecycleCreate) -> dict[str, Any]:
                  it.qty, it.unitPrice, n))
         _audit(cur, tid, "erp_po", po_id, "PO_LC_CREATE", request.state.user_id,
                {"poNo": po_no, "lines": len(items)})
-    return {"poNo": po_no, "status": "DRAFT", "lines": len(items)}
+        return _idem_done(cur, tid, request, "POST /erp/pos",
+                          {"poNo": po_no, "status": "DRAFT", "lines": len(items)})
 
 
 @router.get("/erp/pos")
@@ -16621,6 +16633,11 @@ def rev_up(drawing_no: str, request: Request, body: RevUpRequest) -> dict[str, A
     """Rev 올리기 — current_rev 증가 + dwg_revision 행 + 이력 (B→C)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.48 — 재시도가 Rev 를 **한 칸 더 올린다**(B→C 를 의도했는데 D 까지). Rev 번호는
+        # 도면 식별의 일부라 되돌리기 어렵고, 건너뛴 Rev 는 이후 대조에서 계속 걸린다.
+        replay = _idem_begin(cur, tid, request, "POST /drawings/{no}/revisions")
+        if replay is not None:
+            return replay
         cur.execute(
             """SELECT drawing_id, current_rev FROM dwg_drawing
                WHERE tenant_id=%s AND drawing_no=%s""", (tid, drawing_no.strip()))
@@ -16642,7 +16659,8 @@ def rev_up(drawing_no: str, request: Request, body: RevUpRequest) -> dict[str, A
                VALUES (%s,'dwg_drawing',%s,'REV_UP',%s,%s)""",
             (tid, did, request.state.user_id,
              json.dumps({"from": cur_rev, "to": new_rev, "reason": body.reason})))
-    return {"drawingNo": drawing_no, "rev": new_rev, "prevRev": cur_rev}
+        return _idem_done(cur, tid, request, "POST /drawings/{no}/revisions",
+                          {"drawingNo": drawing_no, "rev": new_rev, "prevRev": cur_rev})
 
 
 @router.get("/drawings/supersedures")

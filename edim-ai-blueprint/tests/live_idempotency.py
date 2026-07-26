@@ -101,6 +101,30 @@ try:
     st5, c1 = req("POST", "/cost/actuals", TOK, row, idem=f"zzidem-{uuid.uuid4().hex[:12]}")
     ok(f"다른 키는 새로 만든다 (#{c1['actualId']})", c1["actualId"] != b1["actualId"])
 
+    # ── Rev-up: 재시도가 Rev 를 한 칸 더 올리면 안 된다 (18.48) ──
+    # Rev 번호는 도면 식별의 일부라 되돌리기 어렵고, 건너뛴 Rev 는 이후 대조에서 계속 걸린다.
+    dl = req("GET", "/drawings", TOK)[1]
+    drows = dl if isinstance(dl, list) else (dl or {}).get("rows", [])
+    dno = drows[0]["drawingNo"]
+    before_rev = psql(f"SELECT current_rev FROM dwg_drawing WHERE drawing_no='{dno}'")
+    rkey = f"zzidem-{uuid.uuid4().hex[:12]}"
+    from urllib.parse import quote as _q
+    r1 = req("POST", f"/drawings/{_q(dno)}/revisions", TOK,
+             {"reason": "ZZIDEM 멱등 검증"}, idem=rkey)
+    r2 = req("POST", f"/drawings/{_q(dno)}/revisions", TOK,
+             {"reason": "ZZIDEM 멱등 검증"}, idem=rkey)
+    ok(f"Rev-up 2회 응답 ({r1[0]}/{r2[0]})", r1[0] in (200, 201) and r2[0] in (200, 201))
+    ok(f"★ 같은 키면 Rev 가 한 번만 올라간다 ({before_rev} → {r1[1].get('rev')})",
+       r1[1].get("rev") == r2[1].get("rev"))
+    now_rev = psql(f"SELECT current_rev FROM dwg_drawing WHERE drawing_no='{dno}'")
+    ok(f"★ 도면의 현재 Rev 도 한 칸만 (실측 {before_rev} → {now_rev})",
+       now_rev == r1[1].get("rev"))
+    # 원복 — 검증으로 올린 Rev 를 되돌린다(도면 식별의 일부라 남기지 않는다)
+    psql("DELETE FROM dwg_revision WHERE rev_reason LIKE 'ZZIDEM%'")
+    psql(f"UPDATE dwg_drawing SET current_rev='{before_rev}' WHERE drawing_no='{dno}'")
+    ok("Rev 원복", psql(f"SELECT current_rev FROM dwg_drawing WHERE drawing_no='{dno}'")
+       == before_rev)
+
     # ── 보안 통제(임시 열람 부여)도 같은 성질 ──
     gkey = f"zzidem-{uuid.uuid4().hex[:12]}"
     g1 = req("POST", "/access/temp", TOK,
