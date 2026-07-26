@@ -1521,8 +1521,10 @@ def export_prices_xlsx(request: Request) -> Response:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         _assert_downloadable(cur, tid, request, "price")
-        # 공급처명이 함께 나간다 — 거래처 통제도 적용 (price 만 보면 절반만 막힌다)
-        _assert_downloadable(cur, tid, request, "partner")
+        # 공급처명이 함께 나간다. 다만 **파일 전체를 막지는 않는다** — 단가 열람 권한이 있는
+        # 사용자에게서 정당한 반출을 빼앗게 되기 때문이다(임시 열람 부여 시 실제로 그랬다).
+        # 거래처 통제는 해당 **열만 마스킹**해 적용한다.
+        pm = _info_mode(cur, tid, request, "partner")
         cur.execute(
             """SELECT pc.main_code, pc.code_name, COALESCE(cc.company_name,'-'),
                       p.price, p.price_source, p.valid_from, p.valid_to
@@ -1530,7 +1532,7 @@ def export_prices_xlsx(request: Request) -> Response:
                LEFT JOIN com_company cc ON cc.company_id=p.supplier_id
                WHERE p.tenant_id=%s ORDER BY pc.main_code, p.valid_from DESC
                LIMIT %s""", (tid, EXPORT_ROW_CAP + 1))
-        rows = [[r[0], r[1], r[2], float(r[3]), SOURCE_LABEL.get(r[4], r[4]),
+        rows = [[r[0], r[1], _mask_text(r[2], pm), float(r[3]), SOURCE_LABEL.get(r[4], r[4]),
                  r[5].isoformat(), r[6].isoformat() if r[6] else ""] for r in cur.fetchall()]
     return _xlsx_response("단가", ["코드", "품명", "공급처", "단가", "출처", "적용일", "만료일"], rows, "prices")
 
@@ -1540,8 +1542,9 @@ def export_parts_xlsx(request: Request) -> Response:
     """부품 대장 XLSX (D8)."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        # 공급처명이 포함된다 — 거래처 열람 통제를 따른다
-        _assert_downloadable(cur, tid, request, "partner")
+        # 공급처명이 포함된다. 부품 정보 자체는 거래처 통제 대상이 아니므로 파일을 막지 않고
+        # **공급처 열만 마스킹**한다(전체 차단은 정당한 열람까지 빼앗는다).
+        pm = _info_mode(cur, tid, request, "partner")
         cur.execute(
             """SELECT p.part_no, p.part_name, COALESCE(p.specification,''),
                       COALESCE(m.material_code,''), COALESCE(c.company_name,''),
@@ -1551,7 +1554,7 @@ def export_parts_xlsx(request: Request) -> Response:
                LEFT JOIN com_company c ON c.company_id=p.supplier_id
                LEFT JOIN product_code pc ON pc.product_code_id=p.product_code_id
                WHERE p.tenant_id=%s ORDER BY p.part_no LIMIT %s""", (tid, EXPORT_ROW_CAP + 1))
-        rows = [[r[0], r[1], r[2], r[3], r[4], r[5], r[6],
+        rows = [[r[0], r[1], r[2], r[3], _mask_text(r[4], pm), r[5], r[6],
                  float(r[7]) if r[7] is not None else "", "표준" if r[8] else "사양"]
                 for r in cur.fetchall()]
     return _xlsx_response("부품", ["부품번호", "품명", "사양", "재질", "공급처", "제품코드", "단위", "중량", "구분"], rows, "parts")

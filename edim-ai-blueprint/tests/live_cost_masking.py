@@ -286,23 +286,24 @@ try:
     # ── ★ 거래처(partner) 통제가 반출에도 걸리는가 (15.6) ──
     # 정보그룹별 적용 지점을 세어 보니 partner 는 마스킹 9곳인데 **다운로드 통제 0곳**이었다.
     # 목록에서는 가려지는데 xlsx·ZIP 으로는 그대로 나갔다.
-    PARTNER_EXPORTS = [
-        ("거래처 대장", "/companies/export.xlsx"),
-        ("부품 대장", "/parts/export.xlsx"),        # 공급처명 포함
-        ("단가 대장", "/prices/export.xlsx"),       # price 만 있었다 — 공급처명도 함께 나간다
-    ]
+    # 통제 방식은 내용에 따라 다르다:
+    #  · 거래처 대장 = 내용 전부가 거래처 → 파일 차단(403)
+    #  · 단가·부품 대장 = 혼합(단가·부품 + 공급처명) → **파일은 열되 공급처 열만 마스킹**.
+    #    전체를 막으면 단가·부품 열람 권한이 있는 사용자의 정당한 반출까지 빼앗는다
+    #    (임시 열람 부여 사용자가 실제로 그렇게 막혔다 — 15.8).
     set_mode(TOK, "partner", "no_download", role="ADMIN")
-    for name, url in PARTNER_EXPORTS:
+    st, _ = req("GET", "/companies/export.xlsx", TOK, raw=True)
+    ok(f"★ 거래처 대장 반출 차단 ({st}) — 내용 전부가 통제 대상", st == 403)
+    for name, url in (("단가 대장", "/prices/export.xlsx"), ("부품 대장", "/parts/export.xlsx")):
         st, _ = req("GET", url, TOK, raw=True)
-        ok(f"★ {name} 반출 차단 ({st})", st == 403)
+        ok(f"{name}은 계속 반출 가능 ({st}) — 공급처 열만 가린다", st == 200)
     # 파일 묶음에는 거래처명이 없다 — 막히면 오히려 과잉 차단이다
     st, _ = req("GET", "/files/export-package", TOK, raw=True)
     ok(f"파일 묶음은 partner 와 무관하게 계속 가능 ({st})", st == 200)
 
     set_mode(TOK, "partner", "full", role="ADMIN")
-    for name, url in PARTNER_EXPORTS:
-        st, _ = req("GET", url, TOK, raw=True)
-        ok(f"{name} 복구 ({st}) — 과잉 차단 아님", st == 200)
+    st, _ = req("GET", "/companies/export.xlsx", TOK, raw=True)
+    ok(f"거래처 대장 복구 ({st}) — 과잉 차단 아님", st == 200)
 
     # ── 되돌리면 즉시 실값 (규칙이 실제로 작동함을 반증) ──
     set_mode(TOK, "cost", "full")
