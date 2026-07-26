@@ -73,7 +73,7 @@ GEN = login("kim01", "edim")
 cleanup()
 
 try:
-    st, projects = req("GET", "/erp/projects", ADMIN)
+    st, projects = req("GET", "/projects?limit=5", ADMIN)
     rows = projects if isinstance(projects, list) else (projects or {}).get("rows", [])
     ok(f"프로젝트 목록 조회 ({st})", st == 200 and rows)
     pno = rows[0].get("projectNo") or rows[0].get("project_no")
