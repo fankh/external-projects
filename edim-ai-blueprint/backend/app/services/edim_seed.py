@@ -2000,12 +2000,15 @@ def seed_v11(cur, tid: int) -> None:
         if d:
             # 판정 전용 매크로를 먼저 만든다(없을 때만) — 규칙이 이것을 가리킨다
             for mname, mexpr, mdesc in VERIFY_MACROS_V11:
+                # ON CONFLICT 를 쓰지 않는다 — tbx_macro 의 UNIQUE 는
+                # (tenant_id, macro_name, version) 이라 (tenant_id, macro_name) 추론이 없다.
                 cur.execute(
                     """INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr,
                        description_text, apply_type, status)
-                       VALUES (%s,%s,%s,%s,'MACRO','APPROVED')
-                       ON CONFLICT (tenant_id, macro_name) DO NOTHING""",
-                    (tid, mname, mexpr, mdesc))
+                       SELECT %s,%s,%s,%s,'MACRO','APPROVED'
+                        WHERE NOT EXISTS (SELECT 1 FROM tbx_macro
+                                           WHERE tenant_id=%s AND macro_name=%s)""",
+                    (tid, mname, mexpr, mdesc, tid, mname))
             n = 0
             for rule, macro_name, warning in VERIFICATIONS_V11:
                 cur.execute(

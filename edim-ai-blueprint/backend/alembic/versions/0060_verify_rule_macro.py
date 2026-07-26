@@ -39,14 +39,17 @@ _RULES = [
 
 def upgrade() -> None:
     for rule, mname, mexpr, mdesc in _RULES:
-        # 판정 매크로 생성(테넌트별) — 규칙이 존재하는 테넌트에만 만든다
+        # 판정 매크로 생성(테넌트별) — 규칙이 존재하는 테넌트에만 만든다.
+        # ON CONFLICT 를 쓰지 않는다: tbx_macro 의 UNIQUE 는 (tenant_id, macro_name, version)
+        # 이라 (tenant_id, macro_name) 추론이 맞지 않는다(첫 시도가 그래서 롤백됐다).
         op.execute(f"""
             INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr, description_text,
                                    apply_type, status)
             SELECT DISTINCT v.tenant_id, '{mname}', '{mexpr}', '{mdesc}', 'MACRO', 'APPROVED'
               FROM dwg_verification v
              WHERE v.rule_name = '{rule}'
-            ON CONFLICT (tenant_id, macro_name) DO NOTHING
+               AND NOT EXISTS (SELECT 1 FROM tbx_macro m
+                                WHERE m.tenant_id = v.tenant_id AND m.macro_name = '{mname}')
         """)
         # 규칙이 판정 매크로를 가리키게 한다
         op.execute(f"""

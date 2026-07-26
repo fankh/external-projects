@@ -346,7 +346,12 @@ _PROC_ID = secrets.token_hex(4)
 
 @router.get("/health")
 def health() -> dict[str, Any]:
-    return {"status": "ok", "db": db_ok(), "proc": _PROC_ID}
+    # 18.37 — schema 는 기동 시 마이그레이션 결과다. 실패해도 앱은 뜨지만(가용성)
+    # 그 사실을 여기서 드러내야 배포가 판단할 수 있다 — 종전에는 ok 만 돌려줘
+    # 마이그레이션이 롤백된 채로 배포가 성공으로 보였다.
+    from app.main import SCHEMA_STATE
+    return {"status": "ok", "db": db_ok(), "proc": _PROC_ID,
+            "schema": SCHEMA_STATE.get("state", "unknown")}
 
 
 @router.get("/system/status", dependencies=[PLATFORM])

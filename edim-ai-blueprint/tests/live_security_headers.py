@@ -47,6 +47,15 @@ for path, label in (("/login", "메인 앱(Next SSR)"), ("/api/v1/health", "API"
 # 토큰을 보내지 않으므로 앱 인증을 걸면 롤백 자산이 깨진다. 그래서 통제 방식은 그대로 두고
 # **그 통제가 살아 있다는 것을 불변식으로 고정**한다: location /api/ 에 auth_basic off 가
 # 들어가거나 라우터가 다른 곳으로 옮겨지면 이 검증이 실패한다.
+# 배포된 스키마가 코드와 맞는지 (18.37)
+# 마이그레이션이 실패해도 앱은 뜨므로(가용성) /health 의 schema 로 드러낸다 —
+# 종전에는 ok 만 돌려줘 롤백된 마이그레이션이 배포 성공으로 보였다(0060 이 실제로 그랬다).
+import json as _json
+with urllib.request.urlopen(f"{BASE}/api/v1/health", timeout=30) as _r:
+    _h = _json.loads(_r.read())
+ok(f"기동 마이그레이션 상태 노출 (schema={_h.get('schema')})", "schema" in _h)
+ok(f"★ 스키마가 코드와 일치 (schema={_h.get('schema')})", _h.get("schema") == "head")
+
 LEGACY = ["/api/health", "/api/models", "/api/drawings/upload",
           "/api/drawings/generate", "/api/drawings/export/dxf"]
 for path in LEGACY:

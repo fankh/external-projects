@@ -10,6 +10,10 @@ from app.services.edim_seed import run_seed
 
 logging.basicConfig(level=logging.INFO)
 
+# 18.37 — 기동 시 마이그레이션 결과. /health 로 드러내 배포가 판단할 수 있게 한다.
+# "unknown" 은 아직 시도 전(정상 기동 중)이고, "error" 는 스키마가 코드와 어긋난 상태다.
+SCHEMA_STATE: dict[str, str] = {"state": "unknown", "detail": ""}
+
 
 def _migrate() -> None:
     """C6 — alembic 마이그레이션 (자동 베이스라인).
@@ -46,7 +50,14 @@ def _migrate() -> None:
 async def lifespan(_app: FastAPI):
     try:
         _migrate()  # C6 — 스키마는 마이그레이션이 담당
-    except Exception:  # noqa: BLE001
+        SCHEMA_STATE["state"] = "head"
+    except Exception as e:  # noqa: BLE001
+        # 18.37 — 실패해도 앱은 띄운다(가용성). 다만 **조용히 넘기지 않는다**:
+        # 종전에는 예외를 로그에만 남겨 /health 가 그대로 ok 를 돌려줬고, 배포 게이트도
+        # 통과해 **코드와 스키마가 어긋난 채로 운영**됐다(0060 이 실제로 그렇게 넘어갔다).
+        # 상태를 드러내 배포 쪽이 판단하게 한다.
+        SCHEMA_STATE["state"] = "error"
+        SCHEMA_STATE["detail"] = str(e)[:200]
         logging.getLogger("edim").exception("migration failed (continuing)")
     try:
         run_seed()  # 멱등 — 데이터만 (nova tenant 있으면 skip)
