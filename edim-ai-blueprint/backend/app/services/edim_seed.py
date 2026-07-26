@@ -1952,9 +1952,20 @@ MATERIALS_V11 = [
     ('SPHC', '열간압연 강판', 'STEEL', 7.85, 'KS D 3501', None),
 ]
 
+# 18.36 — 검증 규칙의 매크로는 **판정식**이어야 한다(엔진 규약: 값이 0 이 아니면 통과).
+# 종전 시드는 치수 매크로(DIM B/DIM K)를 그대로 붙여, 값이 얼마든 0 만 아니면 통과했다 —
+# 경고 문구는 "900 초과" 를 말하는데 실제로는 5,056 도 합격이었다(실측). 치수 매크로는
+# 도면 치수를 계산하는 다른 역할이므로 건드리지 않고, 판정 전용 매크로를 따로 둔다.
+VERIFY_MACROS_V11 = [
+    ('CHK B 상한 (KDCR 3-13)', '=A+56<=900',
+     'B(H) 상한 판정 — 치수식 DIM B 와 같은 식을 임계값과 비교한다'),
+    ('CHK K 간섭 (KDCR 3-13)', '=A*1.62<=1500',
+     'K 전장 간섭 판정 — 치수식 DIM K 와 같은 식을 임계값과 비교한다'),
+]
+
 VERIFICATIONS_V11 = [
-    ('B 치수 상한 검증', 'DIM B (KDCR 3-13)', 'B(H) 가 900 을 초과하면 Casing 표준 강판 폭 초과 — 설계 재검토'),
-    ('K 전장 간섭 검증', 'DIM K (KDCR 3-13)', 'K 전장이 1,500 초과 시 표준 베이스 프레임 간섭 — Arrangement 확인'),
+    ('B 치수 상한 검증', 'CHK B 상한 (KDCR 3-13)', 'B(H) 가 900 을 초과하면 Casing 표준 강판 폭 초과 — 설계 재검토'),
+    ('K 전장 간섭 검증', 'CHK K 간섭 (KDCR 3-13)', 'K 전장이 1,500 초과 시 표준 베이스 프레임 간섭 — Arrangement 확인'),
 ]
 
 MENU_UPDATES_V11 = {
@@ -1987,6 +1998,14 @@ def seed_v11(cur, tid: int) -> None:
                WHERE tenant_id=%s AND drawing_no='KDCR 3-13' LIMIT 1""", (tid,))
         d = cur.fetchone()
         if d:
+            # 판정 전용 매크로를 먼저 만든다(없을 때만) — 규칙이 이것을 가리킨다
+            for mname, mexpr, mdesc in VERIFY_MACROS_V11:
+                cur.execute(
+                    """INSERT INTO tbx_macro (tenant_id, macro_name, macro_expr,
+                       description_text, apply_type, status)
+                       VALUES (%s,%s,%s,%s,'MACRO','APPROVED')
+                       ON CONFLICT (tenant_id, macro_name) DO NOTHING""",
+                    (tid, mname, mexpr, mdesc))
             n = 0
             for rule, macro_name, warning in VERIFICATIONS_V11:
                 cur.execute(
