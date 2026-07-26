@@ -165,6 +165,33 @@ try:
         ok(f"★ 삭제 이력에 이름·유형이 남는다 (창고) — {hb[:70]}",
            "삭제검증 위치" in hb and "STORAGE" in hb)
 
+    # ── 수정 이력도 '무엇에서 무엇으로' 를 담는가 (18.29) ──
+    # 삭제와 같은 문제가 수정에도 있었다: 새 값만 남기면 "왜 결과가 달라졌나" 를 되짚을 수
+    # 없다. 매크로 수식은 계산 규칙이고, 정보접근 모드는 열람 통제 그 자체다.
+    def after_of(table, tid_):
+        return psql(f"SELECT COALESCE(before_data::text,'')||'|'||COALESCE(after_data::text,'') "
+                    f"FROM sys_history WHERE target_table='{table}' AND target_id={tid_} "
+                    "ORDER BY history_id DESC LIMIT 1")
+
+    req("PUT", "/macros/ZZUPDMACRO", TOK, {"expr": "=A+1", "applyType": "MACRO"})
+    mid2 = psql("SELECT macro_id FROM tbx_macro WHERE macro_name='ZZUPDMACRO'")
+    st, _ = req("PUT", "/macros/ZZUPDMACRO", TOK, {"expr": "=A+2", "applyType": "MACRO"})
+    ok(f"매크로 수식 변경 ({st})", st in (200, 201))
+    if mid2:
+        both = after_of("tbx_macro", mid2)
+        ok(f"★ 수식 변경 이력이 이전·이후를 모두 담는다 — {both[:80]}",
+           "A+1" in both and "A+2" in both)
+
+    # 정보접근 모드 — 통제를 걸었다 푸는 흐름에서 이전 모드가 남는가
+    req("PUT", "/access/info", TOK, {"roleName": "GENERAL", "infoGroup": "cost",
+                                     "mode": "masked"})
+    st, _ = req("PUT", "/access/info", TOK, {"roleName": "GENERAL", "infoGroup": "cost",
+                                             "mode": "full"})
+    ok(f"정보접근 모드 복원 ({st})", st == 200)
+    hist = psql("SELECT COALESCE(before_data::text,'') FROM sys_history "
+                "WHERE target_table='sys_info_access' ORDER BY history_id DESC LIMIT 1")
+    ok(f"★ 열람 통제 변경 이력에 이전 모드가 남는다 — {hist[:70]}", "masked" in hist)
+
     # ── 없는 것을 지우면 404 (없는데 지웠다고 답하지 않는다) ──
     st, _ = req("DELETE", "/finance/fx/99999999", TOK)
     ok(f"없는 환율 삭제 404 ({st})", st == 404)
@@ -178,6 +205,10 @@ finally:
     for hid in created["hol"]:
         req("DELETE", f"/calendar/holidays/{hid}", TOK)
     psql("DELETE FROM erp_warehouse WHERE location_code='ZZWH-DEL'")
+    psql("DELETE FROM tbx_macro_ref WHERE macro_id IN "
+         "(SELECT macro_id FROM tbx_macro WHERE macro_name='ZZUPDMACRO')")
+    psql("DELETE FROM tbx_macro WHERE macro_name='ZZUPDMACRO'")
+    psql("DELETE FROM sys_info_access WHERE role_name='GENERAL' AND info_group='cost'")
     psql("DELETE FROM tbx_macro_ref WHERE macro_id IN "
          "(SELECT macro_id FROM tbx_macro WHERE macro_name='ZZDELMACRO')")
     psql("DELETE FROM tbx_macro WHERE macro_name='ZZDELMACRO'")

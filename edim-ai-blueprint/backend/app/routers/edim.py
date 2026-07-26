@@ -1366,6 +1366,12 @@ def patch_product(product_code_id: int, request: Request, body: ProductPatch) ->
                                    "approval", "APPROVE"):
                 raise HTTPException(
                     403, detail="승인 권한 없음 — 역할에 APPROVE 동사가 필요합니다 (#3)")
+        # 18.29 — 변경 **전** 값을 먼저 읽는다. 승인 상태 전이는 감사의 핵심인데
+        # 종전에는 새 값만 남아 "무엇에서 무엇으로" 를 알 수 없었다.
+        cur.execute(
+            "SELECT code_name, approval_status FROM product_code "
+            "WHERE tenant_id=%s AND product_code_id=%s", (tid, product_code_id))
+        _prev = cur.fetchone()
         params += [tid, product_code_id]
         cur.execute(
             f"UPDATE product_code SET {', '.join(sets)} WHERE tenant_id=%s AND product_code_id=%s "
@@ -1374,7 +1380,8 @@ def patch_product(product_code_id: int, request: Request, body: ProductPatch) ->
         if not row:
             raise HTTPException(404, detail="코드 없음")
         _audit(cur, tid, "product_code", product_code_id, "UPDATE", request.state.user_id,
-               {"codeName": body.codeName, "status": body.status})
+               after={"codeName": row[1], "status": row[2]},
+               before=({"codeName": _prev[0], "status": _prev[1]} if _prev else None))
     return {"mainCode": row[0], "codeName": row[1], "status": row[2]}
 
 
@@ -6892,11 +6899,16 @@ def save_macro(name: str, request: Request, body: MacroSave) -> dict[str, Any]:
         # D9 — 동시 편집 보호. version 컬럼은 저장마다 올라가는데 **잠금에 쓰이지 않아**,
         # 두 사람이 같은 매크로를 열어 두면 뒤에 저장한 쪽이 앞사람 수식을 조용히 덮어썼다.
         # 계산식은 치수·원가 결과를 바꾸므로 손실이 그대로 금액에 반영된다.
+        # 18.29 — 저장 **전** 식을 먼저 읽는다. 종전에는 새 식만 after 로 남겨
+        # "무엇에서 무엇으로 바뀌었는지" 를 알 수 없었다(주석은 '어떻게 바뀌었는지 남긴다'
+        # 고 적혀 있었지만 before 가 없었다). 이전 SAVE 의 after 로 거슬러 올라가는 방법도
+        # 있으나, 치수 저장 경로(16.7)처럼 다른 곳에서 수식이 바뀌면 그 사슬이 끊긴다.
+        cur.execute(
+            "SELECT version, macro_expr FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s",
+            (tid, name))
+        _prev = cur.fetchone()
         if body.baseVersion is not None:
-            cur.execute(
-                "SELECT version FROM tbx_macro WHERE tenant_id=%s AND macro_name=%s",
-                (tid, name))
-            cur_ver = cur.fetchone()
+            cur_ver = _prev
             if cur_ver and int(cur_ver[0]) != int(body.baseVersion):
                 raise HTTPException(
                     409, detail=f"동시 수정 충돌 — 다른 사용자가 먼저 저장했습니다 "
@@ -6938,10 +6950,12 @@ def save_macro(name: str, request: Request, body: MacroSave) -> dict[str, Any]:
                  at or "MACRO"))
             row = cur.fetchone()
         refs = _rebuild_macro_refs(cur, tid, row[0], body.expr)
-        # 계산식 변경은 치수·원가 결과를 바꾼다 — 어떤 식으로 바뀌었는지 남긴다
+        # 계산식 변경은 치수·원가 결과를 바꾼다 — **무엇에서 무엇으로** 바뀌었는지 남긴다
         _audit(cur, tid, "tbx_macro", row[0], "SAVE", request.state.user_id,
                after={"name": name, "expr": body.expr.strip()[:200],
-                      "version": row[1], "applyType": at or "MACRO"})
+                      "version": row[1], "applyType": at or "MACRO"},
+               before=({"expr": (_prev[1] or "")[:200], "version": _prev[0]}
+                       if _prev else {"expr": None, "version": None, "note": "신규 생성"}))
     return {"macroId": row[0], "version": row[1], "status": "DRAFT", "refs": refs}
 
 
@@ -7026,6 +7040,7 @@ class DimsSave(BaseModel):
 def save_dimensions(request: Request, body: DimsSave) -> dict[str, Any]:
     """Design Editor 임시저장 F12 — VARIANT 는 variant_value, =식은 바인딩된 tbx_macro 갱신."""
     n_var = n_macro = 0
+    changes: list[dict[str, Any]] = []   # 18.29 — 라벨별 변경 전/후
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         for d in body.dims:
@@ -7034,6 +7049,16 @@ def save_dimensions(request: Request, body: DimsSave) -> dict[str, Any]:
             if not label or not value:
                 continue
             if value.startswith("="):
+                # 18.29 — 바뀌기 **전** 식을 먼저 읽는다. 이 경로로 수식이 바뀌면
+                # Macro Studio 의 SAVE 이력 사슬이 끊기므로(그쪽 before 로 거슬러 올라갈 수
+                # 없다), 여기서 남기지 않으면 옛 식은 어디에도 없다.
+                cur.execute(
+                    """SELECT m.macro_expr FROM tbx_macro m
+                       JOIN dwg_dimension dd ON m.macro_id=dd.macro_id
+                       JOIN dwg_drawing w ON w.drawing_id=dd.drawing_id
+                       WHERE dd.tenant_id=%s AND w.drawing_no=%s AND dd.dim_label=%s""",
+                    (tid, body.drawing, label))
+                _pv = cur.fetchone()
                 # version 을 함께 올린다 — 이 경로도 수식을 바꾸므로, 올리지 않으면
                 # Macro Studio 의 낙관적 잠금(16.5)이 이쪽 변경을 못 보고 **덮어쓴다**.
                 # 잠금 토큰은 '내용이 바뀌면 반드시 변한다' 가 성립해야 의미가 있다.
@@ -7046,11 +7071,20 @@ def save_dimensions(request: Request, body: DimsSave) -> dict[str, Any]:
                          AND w.drawing_no=%s AND dd.dim_label=%s""",
                     (value, tid, body.drawing, label))
                 n_macro += cur.rowcount
+                if cur.rowcount:
+                    changes.append({"label": label, "kind": "MACRO",
+                                    "from": (_pv[0] if _pv else None), "to": value[:120]})
             else:
                 try:
                     num = float(value)
                 except ValueError:
                     continue
+                cur.execute(
+                    """SELECT dd.variant_value FROM dwg_dimension dd
+                       JOIN dwg_drawing w ON w.drawing_id=dd.drawing_id
+                       WHERE dd.tenant_id=%s AND w.drawing_no=%s AND dd.dim_label=%s
+                         AND dd.macro_id IS NULL""", (tid, body.drawing, label))
+                _pv = cur.fetchone()
                 # MACRO 바인딩 치수의 평가값은 파생값 — 덮어쓰지 않음 (ck_dim_binding)
                 cur.execute(
                     """UPDATE dwg_dimension dd SET variant_value=%s, updated_at=now()
@@ -7059,10 +7093,20 @@ def save_dimensions(request: Request, body: DimsSave) -> dict[str, Any]:
                          AND w.drawing_no=%s AND dd.dim_label=%s AND dd.macro_id IS NULL""",
                     (num, tid, body.drawing, label))
                 n_var += cur.rowcount
-        # 설계 치수 변경은 도면·원가로 전파된다 — 몇 건이 어떻게 바뀌었는지 남긴다
+                if cur.rowcount:
+                    changes.append({"label": label, "kind": "VARIANT",
+                                    "from": (float(_pv[0]) if _pv and _pv[0] is not None
+                                             else None),
+                                    "to": num})
+        # 설계 치수 변경은 도면·원가로 전파된다 — 몇 건이 **어떻게** 바뀌었는지 남긴다.
+        # 18.29 — 종전에는 주석과 달리 건수만 남겨, 어떤 치수가 어떤 값에서 어떤 값으로
+        # 바뀌었는지 알 수 없었다(치수는 도면·원가의 입력이라 그 대조가 핵심이다).
         _audit(cur, tid, "dwg_dimension", 0, "SAVE", request.state.user_id,
                after={"drawing": getattr(body, "drawing", "") or "",
-                      "variantSaved": n_var, "macroSaved": n_macro})
+                      "variantSaved": n_var, "macroSaved": n_macro,
+                      "changes": changes[:50]},
+               before={"changes": [{"label": c["label"], "value": c["from"]}
+                                   for c in changes[:50]]})
     return {"variantSaved": n_var, "macroSaved": n_macro}
 
 
@@ -12514,6 +12558,15 @@ def info_access_set(request: Request, body: InfoAccessSet) -> dict[str, Any]:
         raise HTTPException(422, detail=f"모드 오류 ({'/'.join(INFO_MODES)})")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.29 — 이것은 **열람 통제 그 자체를 바꾸는 조작**이다. 이전 모드가 남지 않으면
+        # "언제 무엇이 풀렸나" 를 사후 보안 검토에서 답할 수 없다(full 지정은 규칙 삭제이므로
+        # 더더욱 흔적이 필요하다 — 행이 사라진다).
+        cur.execute(
+            """SELECT mode FROM sys_info_access
+               WHERE tenant_id=%s AND role_name=%s AND info_group=%s""",
+            (tid, body.roleName, body.infoGroup))
+        _prev_row = cur.fetchone()
+        prev_mode = _prev_row[0] if _prev_row else "full"   # 규칙 없음 = 기본값 full
         if body.mode == "full":
             cur.execute(
                 "DELETE FROM sys_info_access WHERE tenant_id=%s AND role_name=%s AND info_group=%s",
@@ -12526,7 +12579,8 @@ def info_access_set(request: Request, body: InfoAccessSet) -> dict[str, Any]:
                    DO UPDATE SET mode=EXCLUDED.mode, updated_by=EXCLUDED.updated_by, updated_at=now()""",
                 (tid, body.roleName, body.infoGroup, body.mode, request.state.login))
         _audit(cur, tid, "sys_info_access", 0, "INFO_ACCESS", request.state.user_id,
-               {"role": body.roleName, "group": body.infoGroup, "mode": body.mode})
+               after={"role": body.roleName, "group": body.infoGroup, "mode": body.mode},
+               before={"role": body.roleName, "group": body.infoGroup, "mode": prev_mode})
     return {"roleName": body.roleName, "infoGroup": body.infoGroup, "mode": body.mode}
 
 
