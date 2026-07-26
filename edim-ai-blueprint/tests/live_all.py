@@ -317,6 +317,15 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_governance.py")],
 print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_governance.py", p.returncode == 0, ""))
 
+# check_db_dict — DB 정의서 드리프트 게이트 (18.2). 문서=생성기 산출물 검사는 정적이고,
+# 스냅샷=실 스키마 대조는 서버에 닿을 때만 한다(못 닿으면 그 사실을 출력에 남긴다).
+print(f"\n{'=' * 60}\n▶ check_db_dict.py (static+live)\n{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_db_dict.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=180)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_db_dict.py", p.returncode == 0, ""))
+
 # check_i18n_en — 라이브 대상 (BASE env 지원)
 print(f"\n{'=' * 60}\n▶ check_i18n_en.py (live)\n{'=' * 60}")
 quick_ready()   # 9.48 — 라이브 브라우저 체크도 배포창 가드
