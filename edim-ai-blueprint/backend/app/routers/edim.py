@@ -3995,6 +3995,7 @@ def cad_block_insert(file_id: int, request: Request, body: BlockInsertReq) -> di
 
 @router.post("/cad/import", status_code=201, dependencies=[SETUP])
 async def cad_import(
+    request: Request,
     uploadedFile: UploadFile = File(...),
     project: str = Form("PS-61313-5"),
 ) -> dict[str, Any]:
@@ -4020,6 +4021,9 @@ async def cad_import(
             (tid, prj[0] if prj else None, fname,
              fname.rsplit(".", 1)[-1].upper()[:10], key, len(data)))
         file_id = cur.fetchone()[0]
+        # 외부 도면 반입 — 도면은 설계·제조의 정본이라 출처를 되짚을 수 있어야 한다
+        _audit(cur, tid, "dwg_file", file_id, "CAD_IMPORT", request.state.user_id,
+               after={"file": fname, "project": project, "bytes": len(data)})
     return {"fileId": file_id, "document": document}
 
 
@@ -4218,6 +4222,7 @@ def cad_part_drawing_save(request: Request, body: PartDrawingSaveRequest) -> dic
                  AND project_id IS NOT DISTINCT FROM %s""",
             (tid, fname, prj[0] if prj else None))
         row = cur.fetchone()
+        overwrote = bool(row)
         if row:
             file_id = row[0]
             cur.execute("UPDATE dwg_file SET file_path=%s, file_size=%s WHERE file_id=%s",
@@ -4229,6 +4234,12 @@ def cad_part_drawing_save(request: Request, body: PartDrawingSaveRequest) -> dic
                    VALUES (%s,%s,'DWG',%s,'DXF',%s,%s,'SOURCE') RETURNING file_id""",
                 (tid, prj[0] if prj else None, fname, key, len(data)))
             file_id = cur.fetchone()[0]
+        # 같은 이름이면 **원본을 덮어쓴다** — 되돌릴 수 없는 연산이므로 신규/덮어쓰기를
+        # 구분해 남긴다(무엇을 갈아끼웠는지 모르면 납품물 대조가 불가능하다).
+        _audit(cur, tid, "dwg_file", file_id,
+               "CAD_OVERWRITE" if overwrote else "CAD_SAVE", request.state.user_id,
+               after={"file": fname, "project": body.project, "bytes": len(data),
+                      "overwrote": overwrote})
     return {"fileId": file_id, "document": _parse_cad_bytes(data, fname)}
 
 

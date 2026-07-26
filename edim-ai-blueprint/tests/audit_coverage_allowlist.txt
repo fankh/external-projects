@@ -5,8 +5,6 @@
 PATCH /arrangements/{code}/components/{component_id}/geometry
 POST /arrangements
 POST /arrangements/{code}/components
-POST /cad/import
-POST /cad/part-drawing/save
 POST /cost/pcr
 POST /projects/{project_no}/comments
 PUT /toolbox/forms/{name}

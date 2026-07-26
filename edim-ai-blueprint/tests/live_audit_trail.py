@@ -171,6 +171,25 @@ with sync_playwright() as pw:
        any(KEY in str(x.get("before") or "") for x in rows),
        "ROW_DELETE before 없음 — 복구 판단에 원본이 필요하다")
 
+    # ── 2c. CAD 부품도 저장 — 신규/덮어쓰기 구분 (14.9) ──
+    # 같은 이름이면 원본을 덮어쓰는 되돌릴 수 없는 연산이다. 무엇을 갈아끼웠는지 남지 않으면
+    # 납품물 대조가 불가능하다.
+    r = call("POST", "/cad/part-drawing/save", admin,
+             data={"project": "PS-61313-5", "dims": {"A": 1200, "B": 600}})
+    ok("부품도 저장(1회차)", r.ok, f"status={r.status} body={r.text()[:140]}")
+    r = call("POST", "/cad/part-drawing/save", admin,
+             data={"project": "PS-61313-5", "dims": {"A": 1210, "B": 600}})
+    ok("부품도 저장(2회차 — 같은 이름)", r.ok, f"status={r.status}")
+
+    rows = history("dwg_file") or []
+    saves = [x for x in rows if str(x.get("action")) in ("CAD_SAVE", "CAD_OVERWRITE")]
+    ok("CAD 저장이 감사에 남음", bool(saves), "CAD_SAVE/CAD_OVERWRITE 없음")
+    ok("덮어쓰기가 신규와 구분돼 기록",
+       any(str(x.get("action")) == "CAD_OVERWRITE" for x in saves),
+       f"{[x.get('action') for x in saves[:4]]} — 2회차는 덮어쓰기여야 한다")
+    ok("무엇을 덮어썼는지 기록",
+       any("file" in str(x.get("after") or "") for x in saves), str(saves[0])[:180])
+
     # ── 3. 정리 ──
     call("POST", f"/approvals/{aid}/decide", admin,
          data={"approve": True, "comment": "감사 검증 정리"})
