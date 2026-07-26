@@ -190,6 +190,34 @@ with sync_playwright() as pw:
     ok("무엇을 덮어썼는지 기록",
        any("file" in str(x.get("after") or "") for x in saves), str(saves[0])[:180])
 
+    # ── 2d. 감사 조회·검색이 조용히 잘리지 않는가 (16.2) ──
+    # 감사 조회는 규정 대응에 쓰인다 — 잘린 결과를 전부로 오해하면
+    # "그런 기록은 없다" 는 잘못된 결론이 나온다.
+    r = call("GET", "/audit?limit=5", admin)
+    ok("감사 조회(상한 5)", r.ok, f"status={r.status}")
+    a5 = r.json()
+    for key in ("truncated", "limit", "note", "count"):
+        ok(f"감사 응답에 {key} 포함", key in a5, str(a5)[:160])
+    ok("상한만큼만 반환", a5["count"] == 5, str(a5["count"]))
+    ok("잘렸음을 알림", a5["truncated"] is True, str(a5["truncated"]))
+    ok("안내 문구에 대처 방법", "필터" in a5["note"] or "limit" in a5["note"], a5["note"][:120])
+
+    r = call("GET", "/audit?limit=2000", admin)
+    big = r.json()
+    ok("truncated 가 실제 상한 도달 여부와 일치",
+       big["truncated"] == (big["count"] >= big["limit"]),
+       f"count={big['count']} limit={big['limit']} truncated={big['truncated']}")
+
+    # 통합 검색 — 그룹당 상한에서 잘리면 '더 있음' 을 알려야 한다
+    r = call("GET", "/search?q=KD", admin)
+    ok("통합 검색 호출", r.ok, f"status={r.status}")
+    sr = r.json()
+    ok("검색 응답에 hasMore 포함 (결과가 없어도 키는 있다)", "hasMore" in sr, str(sr)[:160])
+    ok("hasMore 는 목록형", isinstance(sr["hasMore"], list), str(sr.get("hasMore")))
+    over = [k for k, v in sr.items()
+            if isinstance(v, list) and k != "hasMore" and len(v) > 8]
+    ok("어떤 그룹도 상한(8)을 넘겨 반환하지 않음", not over, str(over))
+
     # ── 3. 정리 ──
     call("POST", f"/approvals/{aid}/decide", admin,
          data={"approve": True, "comment": "감사 검증 정리"})
