@@ -15325,8 +15325,15 @@ def _run_refs(cur, tid: int) -> tuple[set[int], int | None]:
 
 
 @router.get("/cpq/runs")
-def run_list() -> list[dict[str, Any]]:
-    """Run 이력 (E3) — 전체 Run 목록 + 산출물 수 + 참조/최신 보호 플래그."""
+def run_list(response: Response, limit: int = 1000) -> list[dict[str, Any]]:
+    """Run 이력 (E3) — Run 목록 + 산출물 수 + 참조/최신 보호 플래그.
+
+    상한(기본 1000·최대 5000)에서 잘리면 응답 헤더 `X-Truncated: true` 로 알린다 —
+    종전에는 조용히 잘려서, 전체를 세는 통계(`/erp/analytics`)와 대조하면 수치가 어긋났다
+    (Run 이 1000건을 넘긴 뒤 실제로 그 불일치가 드러났다). 목록형 응답이라 본문 형태는
+    바꾸지 않고 헤더로 알린다.
+    """
+    cap = max(1, min(limit, 5000))
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         refs, latest = _run_refs(cur, tid)
@@ -15336,12 +15343,15 @@ def run_list() -> list[dict[str, Any]]:
                       (SELECT count(*) FROM cpq_output o WHERE o.run_id=r.run_id),
                       COALESCE(r.created_by,'system'), r.is_test
                FROM cpq_run r WHERE r.tenant_id=%s ORDER BY r.run_id DESC
-               LIMIT 1000""", (tid,))
+               LIMIT %s""", (tid, cap + 1))
+        fetched = cur.fetchall()
+        response.headers["X-Truncated"] = "true" if len(fetched) > cap else "false"
+        response.headers["X-Limit"] = str(cap)
         return [{"runId": x[0], "status": x[1], "runType": x[2], "startedAt": x[3],
                  "durationSec": round(float(x[4]), 1) if x[4] is not None else None,
                  "outputCount": x[5], "createdBy": x[6], "isTest": x[7],
                  "latest": x[0] == latest, "referenced": x[0] in refs,
-                 "protected": x[0] == latest or x[0] in refs} for x in cur.fetchall()]
+                 "protected": x[0] == latest or x[0] in refs} for x in fetched[:cap]]
 
 
 @router.get("/cpq/runs/{run_id}/bom-snapshot")

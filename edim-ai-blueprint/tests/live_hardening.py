@@ -24,11 +24,14 @@ def ok(label, cond):
     print(f"PASS {label}")
 
 
-def req(method, path, body=None):
+def req(method, path, body=None, with_headers=False):
     data = json.dumps(body).encode() if body is not None else None
     r = urllib.request.Request(API + quote(path, safe="/?=&%"), data=data, headers=H, method=method)
     with urllib.request.urlopen(r) as resp:
-        return json.loads(resp.read() or b"null")
+        payload = json.loads(resp.read() or b"null")
+        if with_headers:
+            return payload, {k.lower(): v for k, v in resp.headers.items()}
+        return payload
 
 
 r0 = urllib.request.Request(f"{API}/auth/login",
@@ -38,12 +41,22 @@ TOK = json.loads(urllib.request.urlopen(r0).read())["token"]
 H = {"Authorization": f"Bearer {TOK}", "Content-Type": "application/json"}
 
 # 1) Run is_test — 목록 필드 노출 + 통계는 업무 Run 만 (테스트 Run 수 ≤ 전체-통계 차)
-runs = req("GET", "/cpq/runs")
+runs, run_hdr = req("GET", "/cpq/runs", with_headers=True)
 ok("Run 목록 isTest 필드", all("isTest" in r for r in runs[:5]))
 test_n = sum(1 for r in runs if r["isTest"])
 total_stat = req("GET", "/erp/analytics")["runStats"]["total"]
-ok(f"통계 제외 정합 (전체 {len(runs)} = 업무 {total_stat} + 테스트 {test_n})",
-   len(runs) == total_stat + test_n)
+truncated = run_hdr.get("x-truncated") == "true"
+ok("Run 목록이 절단 여부를 알린다 (16.9)", "x-truncated" in run_hdr)
+if truncated:
+    # 목록은 상한에서 잘렸고 통계는 전체를 센다 — 두 모집단이 다르므로 등식이 성립하지 않는다.
+    # 종전에는 등식으로 단정해, Run 이 상한을 넘기자 실패했다(제품이 아니라 검증의 문제였다).
+    ok(f"절단 시 부등식 성립 (목록 {len(runs)} · 통계 {total_stat} · 테스트 {test_n})",
+       test_n <= len(runs) and total_stat >= len(runs) - test_n)
+    print(f"   (참고) Run 목록이 상한 {run_hdr.get('x-limit')} 에서 잘렸다 — "
+          f"전체 통계와는 모집단이 다르다")
+else:
+    ok(f"통계 제외 정합 (전체 {len(runs)} = 업무 {total_stat} + 테스트 {test_n})",
+       len(runs) == total_stat + test_n)
 
 # 2) 고객 전달 패키지 워터마크
 rq = urllib.request.Request(f"{API}/files/export-package?project=PS-61313-5",
