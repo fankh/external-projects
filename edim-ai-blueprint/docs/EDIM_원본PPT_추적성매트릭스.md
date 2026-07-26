@@ -50,7 +50,11 @@
 |---|---|---|
 | API 키 | U7 (Toolbox AI 3종) · U10 (AI 도면 학습·건축도 판독) · U28 (내부 자료 질의응답) | ANTHROPIC_API_KEY 제공 (C9) |
 | 자료 | U1 6면 뷰 (3각법 도면 DB) · U29 다중 3D 모델 | 도면·모델 자료 등재 |
-| 협의 | U12 (Digital Twin·AR·MES) · Approval 결재 툴바 UI 표준 · Mobile App (M-16) · 인터넷 검색 Tool · next 업그레이드(moderate 2) | 범위 지정 |
+| 협의 | U12 (Digital Twin·AR·MES) · Approval 결재 툴바 UI 표준 · Mobile App (M-16) · 인터넷 검색 Tool | 범위 지정 |
+
+> `next 업그레이드(moderate 2)` 는 2026-07-26 확인 시 **이미 해소**되어 목록에서 뺐다
+> (`npm audit` 0건, next 15.5.22 · react 19.2.8 — 선언 범위 내 패치 갱신 후 build 통과).
+> major 상향(next 16 · TypeScript 7)은 Launch 범위 밖으로 둔다.
 
 ## 검증 방법론 (전 사이클 공통)
 
