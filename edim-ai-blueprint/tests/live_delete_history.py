@@ -111,6 +111,33 @@ try:
        "2031-12-24" in b and "ZZHOL" in b)
     created["hol"].remove(hid)
 
+    # ── 사용자 삭제: 신원이 남는가 (18.19) ──
+    # 계정이 사라지면 "누가 어떤 권한을 갖고 있었나" 를 어디에서도 알 수 없다.
+    # 사후 보안 검토에 필요한 값이므로 이름·등급·소속까지 남겨야 한다.
+    st, u = req("POST", "/users", TOK, {"login": "zzdel01", "name": "삭제검증",
+                                        "department": "QA", "level": "GENERAL",
+                                        "initialPassword": "ZzDel!2345"})
+    ok(f"검증 계정 생성 ({st})", st in (200, 201, 409))
+    uid = psql("SELECT user_id FROM sys_user WHERE login_id='zzdel01'")
+    st, b = req("DELETE", "/users/zzdel01", TOK)
+    ok(f"검증 계정 삭제 ({st})", st in (200, 204), )
+    if uid:
+        hb = before_of("sys_user", uid)
+        ok(f"★ 삭제 이력에 신원이 남는다 (사용자) — {hb[:70]}",
+           "zzdel01" in hb and "GENERAL" in hb and "삭제검증" in hb)
+
+    # ── 역할 삭제: 그 역할이 무엇을 할 수 있었는지 남는가 ──
+    st, r = req("POST", "/roles", TOK, {"name": "ZZDELROLE", "description": "삭제 검증"})
+    ok(f"검증 역할 생성 ({st})", st in (200, 201, 409))
+    req("PUT", "/roles/ZZDELROLE/verbs", TOK, {"resourceKey": "approval", "verbs": ["READ"]})
+    rid = psql("SELECT role_id FROM sys_role WHERE role_name='ZZDELROLE'")
+    st, _ = req("DELETE", "/roles/ZZDELROLE", TOK)
+    ok(f"검증 역할 삭제 ({st})", st == 200)
+    if rid:
+        hb = before_of("sys_role", rid)
+        ok(f"★ 삭제 이력에 권한 목록이 남는다 (역할) — {hb[:80]}",
+           "ZZDELROLE" in hb and "approval" in hb)
+
     # ── 없는 것을 지우면 404 (없는데 지웠다고 답하지 않는다) ──
     st, _ = req("DELETE", "/finance/fx/99999999", TOK)
     ok(f"없는 환율 삭제 404 ({st})", st == 404)
@@ -123,9 +150,17 @@ finally:
         req("DELETE", f"/finance/tax-codes/{xid}", TOK)
     for hid in created["hol"]:
         req("DELETE", f"/calendar/holidays/{hid}", TOK)
+    psql("DELETE FROM sys_role_permission WHERE role_id IN "
+         "(SELECT role_id FROM sys_role WHERE role_name='ZZDELROLE')")
+    psql("DELETE FROM sys_role WHERE role_name='ZZDELROLE'")
+    psql("DELETE FROM sys_user_role WHERE user_id IN "
+         "(SELECT user_id FROM sys_user WHERE login_id='zzdel01')")
+    psql("DELETE FROM sys_user WHERE login_id='zzdel01'")
     left = psql("SELECT (SELECT count(*) FROM fx_rate WHERE currency='ZZD')"
                 "+(SELECT count(*) FROM tax_code WHERE code='ZZTAX')"
-                "+(SELECT count(*) FROM cal_holiday WHERE name LIKE 'ZZHOL%')")
-    print(f"정리 — 검증용 기준값 잔존 {left}")
+                "+(SELECT count(*) FROM cal_holiday WHERE name LIKE 'ZZHOL%')"
+                "+(SELECT count(*) FROM sys_role WHERE role_name='ZZDELROLE')"
+                "+(SELECT count(*) FROM sys_user WHERE login_id='zzdel01')")
+    print(f"정리 — 검증용 기준값·계정·역할 잔존 {left}")
 
 print(f"\nlive_delete_history: {n}/{n} PASS")

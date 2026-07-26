@@ -1388,12 +1388,18 @@ def delete_product(product_code_id: int, request: Request) -> dict[str, Any]:
                 raise HTTPException(409, detail=f"참조 있어 삭제 불가({table}) — 비활성(INACTIVE) 처리 권장")
         for owned in _PC_OWNED:
             cur.execute(f"DELETE FROM {owned} WHERE product_code_id=%s", (product_code_id,))
-        cur.execute("DELETE FROM product_code WHERE tenant_id=%s AND product_code_id=%s RETURNING main_code",
-                    (tid, product_code_id))
+        cur.execute(
+            """DELETE FROM product_code WHERE tenant_id=%s AND product_code_id=%s
+               RETURNING main_code, code_name, hierarchy_address, approval_status""",
+            (tid, product_code_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail="코드 없음")
-        _audit(cur, tid, "product_code", product_code_id, "DELETE", request.state.user_id, {"mainCode": row[0]})
+        # 18.19 — 제품 코드는 BOM·견적·도면이 참조하는 축이다. 코드 문자열만 남기면
+        # 어떤 제품이 어느 계층에서 어떤 승인 상태로 빠졌는지 되짚을 수 없다.
+        _audit(cur, tid, "product_code", product_code_id, "DELETE", request.state.user_id,
+               before={"mainCode": row[0], "codeName": row[1],
+                       "hierarchyAddress": row[2], "approvalStatus": row[3]})
     return {"deleted": product_code_id, "mainCode": row[0]}
 
 
@@ -2716,9 +2722,15 @@ def delete_role(role_name: str, request: Request) -> dict[str, Any]:
         cur.execute("SELECT count(*) FROM sys_user_role WHERE role_id=%s", (rid,))
         if cur.fetchone()[0] > 0:
             raise HTTPException(409, detail="사용자에 배정된 역할 — 배정 해제 후 삭제")
-        cur.execute("DELETE FROM sys_role_permission WHERE role_id=%s", (rid,))
+        # 18.19 — 권한 행까지 함께 지우므로, 그 역할이 무엇을 할 수 있었는지도 사라진다.
+        # 사후에 "이 역할이 왜 그 작업을 했나" 를 되짚으려면 지운 권한 목록이 필요하다.
+        cur.execute(
+            """DELETE FROM sys_role_permission WHERE role_id=%s
+               RETURNING resource_key, action""", (rid,))
+        perms = [f"{r[0]}:{r[1]}" for r in cur.fetchall()]
         cur.execute("DELETE FROM sys_role WHERE tenant_id=%s AND role_id=%s", (tid, rid))
-        _audit(cur, tid, "sys_role", rid, "ROLE_DELETE", request.state.user_id, {"name": name})
+        _audit(cur, tid, "sys_role", rid, "ROLE_DELETE", request.state.user_id,
+               before={"name": name, "permissions": perms, "permissionCount": len(perms)})
     return {"deleted": name}
 
 
@@ -5474,16 +5486,21 @@ def delete_user(login: str, request: Request) -> dict[str, Any]:
     """사용자 삭제 (F2) — 업무 이력이 있으면 409 (비활성화 사용), 무참조만 하드 삭제."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT user_id FROM sys_user WHERE tenant_id=%s AND login_id=%s",
-                    (tid, login))
+        cur.execute(
+            """SELECT user_id, user_name, user_level, COALESCE(department,''), status
+               FROM sys_user WHERE tenant_id=%s AND login_id=%s""", (tid, login))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"사용자 없음: {login}")
         uid = row[0]
+        # 18.19 — 삭제되는 계정의 신원을 감사에 담는다. 종전에는 `after={"login": ...}` 뿐이라
+        # (a) 삭제인데 after 를 썼고 (b) 이름·등급·소속이 계정과 함께 사라졌다.
+        # 누가 어떤 권한을 가진 사람이었는지는 사후 보안 검토에서 반드시 필요하다.
+        gone = {"login": login, "name": row[1], "level": row[2],
+                "department": row[3], "status": row[4]}
         if uid == request.state.user_id:
             raise HTTPException(422, detail="본인 계정은 삭제할 수 없습니다")
-        cur.execute("SELECT user_level FROM sys_user WHERE user_id=%s", (uid,))
-        if (cur.fetchone() or ("",))[0] in ("ADMIN", "PLATFORM"):
+        if row[2] in ("ADMIN", "PLATFORM"):
             _assert_admin_remains(cur, tid, uid, action="삭제")
         for tbl, col, label in (
             ("sys_history", "actor_id", "감사 이력"),
@@ -5500,8 +5517,7 @@ def delete_user(login: str, request: Request) -> dict[str, Any]:
                     409, detail=f"참조 존재 — {label} {c}건 (삭제 대신 비활성화를 사용하십시오)")
         cur.execute("DELETE FROM sys_user_role WHERE user_id=%s", (uid,))
         cur.execute("DELETE FROM sys_user WHERE user_id=%s", (uid,))
-        _audit(cur, tid, "sys_user", uid, "USER_DELETE", request.state.user_id,
-               after={"login": login})
+        _audit(cur, tid, "sys_user", uid, "USER_DELETE", request.state.user_id, before=gone)
     return {"deleted": login}
 
 
@@ -14916,18 +14932,29 @@ def quotation_delete(quotation_id: int, request: Request) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            "SELECT status, quotation_no FROM cst_quotation WHERE tenant_id=%s AND quotation_id=%s",
+            """SELECT status, quotation_no, total_amount, currency, project_id
+               FROM cst_quotation WHERE tenant_id=%s AND quotation_id=%s""",
             (tid, quotation_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"견적 없음: #{quotation_id}")
         if row[0] != "DRAFT":
             raise HTTPException(409, detail=f"DRAFT 견적만 삭제 가능 (현재 {row[0]})")
-        cur.execute("DELETE FROM cst_quotation WHERE quotation_id=%s", (quotation_id,))
+        # 앞의 SELECT 가 tenant 범위로 404 를 검증하지만, 지우는 문장에도 조건을 건다 —
+        # 검증과 실행이 떨어져 있으면 한쪽만 바뀔 때 구멍이 생긴다(17.3 에서 겪었다).
+        cur.execute("DELETE FROM cst_quotation WHERE tenant_id=%s AND quotation_id=%s",
+                    (tid, quotation_id))
+        # 18.19 — 금액이 사라지면 "그 견적이 얼마였나" 에 답할 수 없다. 삭제 이력은
+        # before 에 담는다(종전에는 after_data 에 견적번호만 넣어, 삭제인데 after 를 쓰고
+        # 정작 금액은 남기지 않았다).
         cur.execute(
-            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
+            """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id,
+                                        before_data)
                VALUES (%s,'cst_quotation',%s,'DELETE',%s,%s)""",
-            (tid, quotation_id, request.state.user_id, json.dumps({"quotationNo": row[1]})))
+            (tid, quotation_id, request.state.user_id,
+             json.dumps({"quotationNo": row[1],
+                         "totalAmount": float(row[2]) if row[2] is not None else None,
+                         "currency": row[3], "projectId": row[4]})))
     return {"deleted": quotation_id}
 
 
