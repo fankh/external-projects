@@ -9786,9 +9786,36 @@ _DXF_GUID = re.compile(r"^\{[0-9A-Fa-f-]{36}\}$")
 _DXF_STAMP = re.compile(r"^\d+\.\d+\.\d+ @ \d{4}-\d{2}-\d{2}T")
 
 
+# DXF 헤더의 **벽시계·세션 의존 변수** — 도면 내용이 아니라 '언제 썼는지' 다.
+# 이것이 지문에 섞여 있어서, 같은 Snapshot 을 다시 돌려도 **초 경계를 넘으면 체크섬이
+# 달라졌다**(18.10). 같은 초 안에서는 같으므로 검증은 대개 운으로 통과했고, 부하가 있을 때만
+# 실패했다 — 플릿에서 그렇게 드러났다. $TD* 는 생성·수정 시각과 경과 타이머,
+# GUID 류는 파일 식별자, $HANDSEED 는 다음 핸들 값이다.
+_DXF_VOLATILE_VARS = frozenset({
+    "$TDCREATE", "$TDUPDATE", "$TDUCREATE", "$TDUUPDATE",
+    "$TDINDWG", "$TDUSRTIMER", "$VERSIONGUID", "$FINGERPRINTGUID", "$HANDSEED",
+})
+
+
 def _dxf_content_checksum(data: bytes) -> str:
-    kept = [ln for ln in data.decode("utf-8", "replace").splitlines()
-            if not _DXF_GUID.match(ln.strip()) and not _DXF_STAMP.match(ln.strip())]
+    """도면 '내용' 의 지문 — 같은 입력이면 언제 돌려도 같아야 한다.
+
+    헤더 변수는 `9 / $VAR / <그룹코드> / <값>` 4줄로 나온다. 휘발성 변수는 이름을 만난 뒤
+    그룹코드·값 2줄까지 함께 버린다(이름만 남기면 값이 그대로 들어와 의미가 없다)."""
+    lines = data.decode("utf-8", "replace").splitlines()
+    kept: list[str] = []
+    skip = 0
+    for ln in lines:
+        s = ln.strip()
+        if skip:
+            skip -= 1
+            continue
+        if s in _DXF_VOLATILE_VARS:
+            skip = 2
+            continue
+        if _DXF_GUID.match(s) or _DXF_STAMP.match(s):
+            continue
+        kept.append(s)
     return hashlib.sha256("\n".join(kept).encode("utf-8")).hexdigest()
 
 

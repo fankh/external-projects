@@ -8,6 +8,7 @@
 """
 import json
 import subprocess
+import time
 import urllib.error
 import urllib.request
 
@@ -92,8 +93,14 @@ try:
     ok("산출물 체크섬 64자", len(ck1) == 64)
 
     # ── 결정성: 같은 Snapshot 재실행 = 같은 산출물 ──
+    # 18.10 — 종전에는 두 호출을 붙여 보냈고, 그러면 **대개 같은 초 안에 떨어져 운으로
+    # 통과**했다. DXF 헤더의 벽시계 시각($TDCREATE·$TDUPDATE)이 지문에 섞여 있어서
+    # 초 경계를 넘을 때만 깨졌고, 부하가 걸린 플릿에서만 실패로 드러났다.
+    # 결정성을 보려면 **깨질 조건을 일부러 만들어야 한다** — 초를 반드시 넘긴다.
+    time.sleep(1.2)   # 초 경계를 확실히 넘긴다
     st, r2 = req("POST", f"/drawings/jobs/{jid}/run", TOK)
-    ok("★ 재실행 결과 동일 (같은 Snapshot = 같은 도면)", r2["outputChecksum"] == ck1)
+    ok("★ 재실행 결과 동일 — 초 경계를 넘겨도 (같은 Snapshot = 같은 도면)",
+       r2["outputChecksum"] == ck1)
 
     st, lst = req("GET", "/drawings/jobs", TOK)
     row = next(x for x in lst if x["jobId"] == jid)
