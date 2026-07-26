@@ -3554,7 +3554,7 @@ def _build_cad_plot_pdf(doc: dict[str, Any], scale: float, paper: str, orient: s
 
 
 @router.get("/cad/view/{file_id}/plot.pdf")
-def cad_plot(file_id: int, scale: float = 100, paper: str = "A4",
+def cad_plot(file_id: int, request: Request, scale: float = 100, paper: str = "A4",
              orient: str = "landscape") -> StreamingResponse:
     """축척 인쇄(plot to scale) — DXF 를 1:scale 벡터 PDF 로 출력."""
     import io as _io
@@ -3563,9 +3563,15 @@ def cad_plot(file_id: int, scale: float = 100, paper: str = "A4",
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            "SELECT file_path, file_name FROM dwg_file WHERE tenant_id=%s AND file_id=%s",
-            (tid, file_id))
+            "SELECT file_path, file_name, folder FROM dwg_file "
+            "WHERE tenant_id=%s AND file_id=%s", (tid, file_id))
         row = cur.fetchone()
+        if row:
+            # 인쇄도 파일 내용을 내보내는 경로다 — 다운로드와 같은 기준을 따른다
+            # (같은 데이터에 닿는 경로는 같은 통제, R-25).
+            _grp = _FOLDER_INFO_GROUP.get(str(row[2] or "").upper())
+            if _grp:
+                _assert_downloadable(cur, tid, request, _grp)
     if not row:
         raise HTTPException(404, detail=f"file not found: {file_id}")
     try:
