@@ -345,6 +345,14 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_db_dict.py")],
 print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_db_dict.py", p.returncode == 0, ""))
 
+# check_api_contract — API 계약 문서 드리프트 게이트 (18.6). 문서=생성기 + 스냅샷=배포 스펙.
+print(f"\n{'=' * 60}\n▶ check_api_contract.py (static+live)\n{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_api_contract.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=240)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_api_contract.py", p.returncode == 0, ""))
+
 # check_i18n_en — 라이브 대상 (BASE env 지원)
 print(f"\n{'=' * 60}\n▶ check_i18n_en.py (live)\n{'=' * 60}")
 quick_ready()   # 9.48 — 라이브 브라우저 체크도 배포창 가드

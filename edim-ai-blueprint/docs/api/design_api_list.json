@@ -1,0 +1,653 @@
+{
+ "note": "컴포넌트정의서 v0.1(2026-07-07) 설계 초안 API 목록 — 구현 경로와 다른 항목이 있다. 의도를 잃지 않기 위해 보존한다.",
+ "apis": [
+  {
+   "svc": "SVC-01 Auth",
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "desc": "로그인 — 토큰 발급"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "POST",
+   "path": "/api/v1/auth/refresh",
+   "desc": "토큰 갱신"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "GET",
+   "path": "/api/v1/auth/me",
+   "desc": "내 정보·권한 요약"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "PATCH",
+   "path": "/api/v1/auth/password",
+   "desc": "비밀번호 변경 (정책 검증)"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "GET",
+   "path": "/api/v1/i18n/{locale}",
+   "desc": "데이터 라벨 번역 번들 (ko/en/ja/zh, KO 폴백) — SYS-021"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "PUT",
+   "path": "/api/v1/i18n/translations",
+   "desc": "번역 등록·수정 (ADMIN, 일괄 Import 지원)"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "GET",
+   "path": "/api/v1/auth/permissions",
+   "desc": "리소스별 권한 조회"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "GET",
+   "path": "/api/v1/users",
+   "desc": "사용자 목록 (부서·상태 필터, ADMIN)"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "POST",
+   "path": "/api/v1/users",
+   "desc": "사용자 등록 (SYS-003)"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "PATCH",
+   "path": "/api/v1/users/{id}",
+   "desc": "사용자 수정·상태 변경 (ACTIVE/LOCKED/RETIRED)"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "POST",
+   "path": "/api/v1/roles",
+   "desc": "역할 생성·권한 부여 (SYS-004/005)"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "GET",
+   "path": "/api/v1/tenants",
+   "desc": "테넌트 목록·상태 (Platform 전용)"
+  },
+  {
+   "svc": "SVC-01 Auth",
+   "method": "POST",
+   "path": "/api/v1/tenants",
+   "desc": "테넌트 생성 — sys_tenant (ADM-001, Platform 전용)"
+  },
+  {
+   "svc": "SVC-02 Hierarchy",
+   "method": "GET",
+   "path": "/api/v1/hierarchy/trees",
+   "desc": "Tree 목록 (type 필터)"
+  },
+  {
+   "svc": "SVC-02 Hierarchy",
+   "method": "GET",
+   "path": "/api/v1/hierarchy/nodes/{id}/children",
+   "desc": "하위 노드 조회"
+  },
+  {
+   "svc": "SVC-02 Hierarchy",
+   "method": "POST",
+   "path": "/api/v1/hierarchy/nodes",
+   "desc": "노드 생성 (승인 대상)"
+  },
+  {
+   "svc": "SVC-02 Hierarchy",
+   "method": "PATCH",
+   "path": "/api/v1/hierarchy/nodes/{id}/move",
+   "desc": "노드 이동 — Address 추적"
+  },
+  {
+   "svc": "SVC-02 Hierarchy",
+   "method": "GET",
+   "path": "/api/v1/hierarchy/resolve",
+   "desc": "address→노드 해석"
+  },
+  {
+   "svc": "SVC-02 Hierarchy",
+   "method": "GET",
+   "path": "/api/v1/hierarchy/search",
+   "desc": "이름·비고·심볼 통합 검색 (M-15-6)"
+  },
+  {
+   "svc": "SVC-02 Hierarchy",
+   "method": "PATCH",
+   "path": "/api/v1/hierarchy/nodes/{id}",
+   "desc": "노드 개명·속성 수정 (승인 대상)"
+  },
+  {
+   "svc": "SVC-02 Hierarchy",
+   "method": "DELETE",
+   "path": "/api/v1/hierarchy/nodes/{id}",
+   "desc": "노드 삭제 — DB 상호관계 점검 후"
+  },
+  {
+   "svc": "SVC-03 Code",
+   "method": "POST",
+   "path": "/api/v1/codes/groups",
+   "desc": "코드 그룹 등록"
+  },
+  {
+   "svc": "SVC-03 Code",
+   "method": "POST",
+   "path": "/api/v1/codes/products",
+   "desc": "Product Code 등록"
+  },
+  {
+   "svc": "SVC-03 Code",
+   "method": "GET",
+   "path": "/api/v1/codes/products/{id}/check-duplicate",
+   "desc": "Main Code 중복검토"
+  },
+  {
+   "svc": "SVC-03 Code",
+   "method": "POST",
+   "path": "/api/v1/codes/relationships",
+   "desc": "Mother-Child 관계 등록"
+  },
+  {
+   "svc": "SVC-03 Code",
+   "method": "POST",
+   "path": "/api/v1/codes/products/{id}/expand",
+   "desc": "BOM 전개"
+  },
+  {
+   "svc": "SVC-03 Code",
+   "method": "POST",
+   "path": "/api/v1/codes/relationships/running-test",
+   "desc": "Part List Running Test"
+  },
+  {
+   "svc": "SVC-03 Code",
+   "method": "POST",
+   "path": "/api/v1/codes/arrangements",
+   "desc": "Arrangement 등록"
+  },
+  {
+   "svc": "SVC-03 Code",
+   "method": "POST",
+   "path": "/api/v1/codes/values/import-excel",
+   "desc": "코드 값 Excel Import (CODE-016)"
+  },
+  {
+   "svc": "SVC-03 Code",
+   "method": "GET",
+   "path": "/api/v1/codes/groups/{id}/export-excel",
+   "desc": "Registered Code Table Export (CODE-016)"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "POST",
+   "path": "/api/v1/drawings",
+   "desc": "도면 등록"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "GET",
+   "path": "/api/v1/drawings/{id}/document",
+   "desc": "DrawingDocument 조회 (block 파라미터)"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "PUT",
+   "path": "/api/v1/drawings/{id}/document",
+   "desc": "DrawingDocument 저장"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "POST",
+   "path": "/api/v1/drawings/{id}/revisions",
+   "desc": "개정 생성"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "POST",
+   "path": "/api/v1/drawings/{id}/dimensions",
+   "desc": "치수 등록 (Macro 바인딩)"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "POST",
+   "path": "/api/v1/drawings/{id}/relations",
+   "desc": "부품 관계 등록"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "POST",
+   "path": "/api/v1/drawings/import",
+   "desc": "DXF/DWG/PDF/STEP Import"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "POST",
+   "path": "/api/v1/drawings/{id}/export",
+   "desc": "DXF/PDF Export"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "GET",
+   "path": "/api/v1/drawings/{id}/referencers",
+   "desc": "Where-used 역참조 조회 (DWG-026)"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "GET",
+   "path": "/api/v1/drawings/{id}/variants",
+   "desc": "Variants 목록 (DWG-027)"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "POST",
+   "path": "/api/v1/drawings/{id}/supersede",
+   "desc": "대체 관계 등록 — old→new (DWG-027)"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "PATCH",
+   "path": "/api/v1/drawings/{id}/dimensions/{dimId}",
+   "desc": "치수 Macro/Variant 바인딩 수정 (XOR 검증)"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "GET",
+   "path": "/api/v1/parts",
+   "desc": "부품 마스터 목록·검색 (DWG-017)"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "POST",
+   "path": "/api/v1/parts",
+   "desc": "부품 등록"
+  },
+  {
+   "svc": "SVC-04 Drawing",
+   "method": "POST",
+   "path": "/api/v1/materials",
+   "desc": "재질 등록 — hazard_class 포함 (DWG-018)"
+  },
+  {
+   "svc": "SVC-05 Table",
+   "method": "POST",
+   "path": "/api/v1/tables",
+   "desc": "Table 정의 생성"
+  },
+  {
+   "svc": "SVC-05 Table",
+   "method": "POST",
+   "path": "/api/v1/tables/{id}/rows:bulk",
+   "desc": "행 일괄 입력"
+  },
+  {
+   "svc": "SVC-05 Table",
+   "method": "GET",
+   "path": "/api/v1/tables/{id}/query",
+   "desc": "범위 조회 (Macro 참조용)"
+  },
+  {
+   "svc": "SVC-05 Table",
+   "method": "POST",
+   "path": "/api/v1/tables/import-excel",
+   "desc": "Excel Import"
+  },
+  {
+   "svc": "SVC-06 Toolbox",
+   "method": "POST",
+   "path": "/api/v1/toolbox/forms",
+   "desc": "UI Form 저장"
+  },
+  {
+   "svc": "SVC-06 Toolbox",
+   "method": "GET",
+   "path": "/api/v1/toolbox/forms/{id}",
+   "desc": "Form 렌더 정의 조회"
+  },
+  {
+   "svc": "SVC-06 Toolbox",
+   "method": "POST",
+   "path": "/api/v1/toolbox/forms/{id}/publish",
+   "desc": "Form 게시 (승인 후)"
+  },
+  {
+   "svc": "SVC-06 Toolbox",
+   "method": "GET",
+   "path": "/api/v1/toolbox/templets",
+   "desc": "Templet 목록"
+  },
+  {
+   "svc": "SVC-06 Toolbox",
+   "method": "DELETE",
+   "path": "/api/v1/toolbox/forms/{id}",
+   "desc": "DRAFT Form 삭제 (게시본 불가)"
+  },
+  {
+   "svc": "SVC-07 CPQ",
+   "method": "GET",
+   "path": "/api/v1/cpq/selections",
+   "desc": "선정 세션 목록 (project·상태 필터)"
+  },
+  {
+   "svc": "SVC-07 CPQ",
+   "method": "POST",
+   "path": "/api/v1/cpq/selections",
+   "desc": "선정 세션 생성"
+  },
+  {
+   "svc": "SVC-07 CPQ",
+   "method": "PATCH",
+   "path": "/api/v1/cpq/selections/{id}/slots",
+   "desc": "Slot 값 선택"
+  },
+  {
+   "svc": "SVC-07 CPQ",
+   "method": "POST",
+   "path": "/api/v1/cpq/selections/{id}/finalize",
+   "desc": "완성품 Code 확정"
+  },
+  {
+   "svc": "SVC-07 CPQ",
+   "method": "POST",
+   "path": "/api/v1/cpq/selections/{id}/x-code-review",
+   "desc": "비규격 검토 요청"
+  },
+  {
+   "svc": "SVC-07 CPQ",
+   "method": "POST",
+   "path": "/api/v1/cpq/selections/{id}/runs",
+   "desc": "EDIM Run 실행 요청"
+  },
+  {
+   "svc": "SVC-07 CPQ",
+   "method": "GET",
+   "path": "/api/v1/cpq/runs/{runId}",
+   "desc": "Run 상태 조회"
+  },
+  {
+   "svc": "SVC-07 CPQ",
+   "method": "GET",
+   "path": "/api/v1/cpq/runs/{runId}/outputs",
+   "desc": "산출물 목록"
+  },
+  {
+   "svc": "SVC-07 CPQ",
+   "method": "GET",
+   "path": "/api/v1/cpq/runs/{runId}/bom/export",
+   "desc": "BOM Excel Export (RUN-010)"
+  },
+  {
+   "svc": "SVC-08 Cost",
+   "method": "POST",
+   "path": "/api/v1/cost/prices",
+   "desc": "단가 등록"
+  },
+  {
+   "svc": "SVC-08 Cost",
+   "method": "GET",
+   "path": "/api/v1/cost/prices/resolve",
+   "desc": "적용 단가 해석 (source 우선순위)"
+  },
+  {
+   "svc": "SVC-08 Cost",
+   "method": "POST",
+   "path": "/api/v1/cost/pcr",
+   "desc": "PCR 생성"
+  },
+  {
+   "svc": "SVC-08 Cost",
+   "method": "POST",
+   "path": "/api/v1/cost/quotations",
+   "desc": "견적서 생성"
+  },
+  {
+   "svc": "SVC-08 Cost",
+   "method": "POST",
+   "path": "/api/v1/cost/quotations/{id}/render",
+   "desc": "견적서 PDF 출력"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "POST",
+   "path": "/api/v1/projects",
+   "desc": "Project 등록 PS — 채번 (ERP-001)"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "GET",
+   "path": "/api/v1/projects",
+   "desc": "Project 목록 — 영업단계 필터"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "GET",
+   "path": "/api/v1/erp/processes",
+   "desc": "프로세스 정의 목록"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "POST",
+   "path": "/api/v1/erp/process-defs",
+   "desc": "프로세스 정의 생성 (W-14, ADMIN — 코드 신설은 Platform)"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "PATCH",
+   "path": "/api/v1/erp/process-defs/{id}",
+   "desc": "정의 수정 — 선행/후행(edge)·기한·Form"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "POST",
+   "path": "/api/v1/erp/events",
+   "desc": "프로세스 이벤트 생성"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "PATCH",
+   "path": "/api/v1/erp/events/{id}/status",
+   "desc": "이벤트 상태 전이"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "GET",
+   "path": "/api/v1/erp/events",
+   "desc": "업무함 (assignee/status 필터)"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "GET",
+   "path": "/api/v1/erp/dashboard",
+   "desc": "전사 Dashboard — 부서별 Event·이상 경고 (W-10)"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "GET",
+   "path": "/api/v1/erp/dashboard/project/{projectId}",
+   "desc": "프로젝트 Dashboard 집계"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "POST",
+   "path": "/api/v1/erp/work-processes",
+   "desc": "Work Process 공정 데이터 등록"
+  },
+  {
+   "svc": "SVC-09 ERP",
+   "method": "POST",
+   "path": "/api/v1/erp/supplier-code-maps",
+   "desc": "사용자↔공급자 코드 매핑 (ERP-018)"
+  },
+  {
+   "svc": "SVC-10 Approval",
+   "method": "POST",
+   "path": "/api/v1/approvals",
+   "desc": "승인 요청 생성"
+  },
+  {
+   "svc": "SVC-10 Approval",
+   "method": "GET",
+   "path": "/api/v1/approvals/inbox",
+   "desc": "승인함"
+  },
+  {
+   "svc": "SVC-10 Approval",
+   "method": "POST",
+   "path": "/api/v1/approvals/{id}/decide",
+   "desc": "승인/반려 결정"
+  },
+  {
+   "svc": "SVC-10 Approval",
+   "method": "GET",
+   "path": "/api/v1/approvals/history",
+   "desc": "승인 이력"
+  },
+  {
+   "svc": "SVC-11 Print",
+   "method": "POST",
+   "path": "/api/v1/documents/render",
+   "desc": "Print Form + 데이터 → PDF"
+  },
+  {
+   "svc": "SVC-11 Print",
+   "method": "POST",
+   "path": "/api/v1/documents/export-office",
+   "desc": "xlsx/docx 내보내기"
+  },
+  {
+   "svc": "SVC-11 Print",
+   "method": "GET",
+   "path": "/api/v1/doc-controls",
+   "desc": "문서함 목록 — Released Status·Grade 필터 (DOC-001)"
+  },
+  {
+   "svc": "SVC-11 Print",
+   "method": "PATCH",
+   "path": "/api/v1/doc-controls/{id}/status",
+   "desc": "Released Status 전이 — Set-up→Check→Approve→Accepted"
+  },
+  {
+   "svc": "SVC-11 Print",
+   "method": "POST",
+   "path": "/api/v1/doc-controls/allocate-code",
+   "desc": "Document Code 채번 (DOC-003)"
+  },
+  {
+   "svc": "SVC-12 File",
+   "method": "POST",
+   "path": "/api/v1/files/upload-url",
+   "desc": "업로드 서명 URL"
+  },
+  {
+   "svc": "SVC-12 File",
+   "method": "GET",
+   "path": "/api/v1/files/{id}/download-url",
+   "desc": "다운로드 서명 URL"
+  },
+  {
+   "svc": "SVC-12 File",
+   "method": "GET",
+   "path": "/api/v1/files",
+   "desc": "Project Folder 파일 목록"
+  },
+  {
+   "svc": "SVC-13 Notify",
+   "method": "GET",
+   "path": "/api/v1/notifications",
+   "desc": "알림 목록"
+  },
+  {
+   "svc": "SVC-13 Notify",
+   "method": "POST",
+   "path": "/api/v1/notifications/read",
+   "desc": "읽음 처리"
+  },
+  {
+   "svc": "SVC-13 Notify",
+   "method": "WS",
+   "path": "/ws/notifications",
+   "desc": "실시간 알림 채널"
+  },
+  {
+   "svc": "ENG-01 Macro",
+   "method": "GET",
+   "path": "/api/v1/macros",
+   "desc": "Macro 목록·검색 (v0.4 — CRUD 부재 결함 수정)"
+  },
+  {
+   "svc": "ENG-01 Macro",
+   "method": "POST",
+   "path": "/api/v1/macros",
+   "desc": "Macro 생성 — 4표현 저장, 참조 추출·DAG 검증"
+  },
+  {
+   "svc": "ENG-01 Macro",
+   "method": "GET",
+   "path": "/api/v1/macros/{id}",
+   "desc": "Macro 상세 (버전 포함)"
+  },
+  {
+   "svc": "ENG-01 Macro",
+   "method": "PATCH",
+   "path": "/api/v1/macros/{id}",
+   "desc": "Macro 수정 — 새 버전 생성"
+  },
+  {
+   "svc": "ENG-01 Macro",
+   "method": "DELETE",
+   "path": "/api/v1/macros/{id}",
+   "desc": "DRAFT Macro 삭제 (승인본 삭제 불가)"
+  },
+  {
+   "svc": "ENG-01 Macro",
+   "method": "POST",
+   "path": "/api/v1/macros/{id}/test-run",
+   "desc": "Macro Test Run (조건값→결과)"
+  },
+  {
+   "svc": "AI",
+   "method": "POST",
+   "path": "/api/v1/ai/macro/generate",
+   "desc": "Prompt→Macro 생성"
+  },
+  {
+   "svc": "AI",
+   "method": "POST",
+   "path": "/api/v1/ai/macro/convert",
+   "desc": "표현 간 변환 (from/to)"
+  },
+  {
+   "svc": "AI",
+   "method": "POST",
+   "path": "/api/v1/ai/ui/suggest",
+   "desc": "UI Form 초안 제안"
+  },
+  {
+   "svc": "AI",
+   "method": "POST",
+   "path": "/api/v1/ai/chat",
+   "desc": "사내 자료 챗봇"
+  },
+  {
+   "svc": "AI",
+   "method": "POST",
+   "path": "/api/v1/ai/learning/jobs",
+   "desc": "학습 잡 실행 (Platform 전용)"
+  },
+  {
+   "svc": "INT-05 QR",
+   "method": "POST",
+   "path": "/api/v1/qr/issue",
+   "desc": "도면·서류·Project·자산 QR 발급 (APP-001)"
+  },
+  {
+   "svc": "INT-05 QR",
+   "method": "GET",
+   "path": "/api/v1/qr/resolve",
+   "desc": "QR 해석 → 대상 링크·권한 검사"
+  }
+ ]
+}

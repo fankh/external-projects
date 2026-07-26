@@ -1,8 +1,18 @@
 openapi: 3.1.0
 info:
-  title: EDIM API
+  title: EDIM API (설계 초안 — 구현 계약이 아님)
   version: 0.1.0
   description: 'EDIM (Enterprise Digital Integration Management) REST API.
+
+
+    ⚠ 이 파일은 2026-07-07 **설계 초안**이며 구현과 다르다. 연동에 쓰지 말 것.
+
+    실제 배포 스펙(as-built)은 `docs/api/openapi_asbuilt.json` — 358 경로·446 오퍼레이션.
+
+    실측 대조(2026-07-26): 이 문서의 API 108건 중 구현됨 42 · 경로 상이 31 ·
+    메서드 상이 9 · 미구현 26. 항목별 상태는 컴포넌트정의서의 "설계-구현 대조" 시트 참조.
+
+    설계 의도를 남기기 위해 보존한다(`docs/api/design_api_list.json` 도 같은 목적).
 
 
     - 원천: 컴포넌트정의서 APIS 목록 (make_openapi.py 자동 생성)
