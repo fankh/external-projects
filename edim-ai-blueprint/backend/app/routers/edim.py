@@ -15638,7 +15638,7 @@ def tenant_export(request: Request) -> StreamingResponse:
         ("drawings", "SELECT * FROM dwg_drawing WHERE tenant_id=%s"),
         ("parts", "SELECT * FROM prt_part WHERE tenant_id=%s"),
         ("warehouses", "SELECT * FROM erp_warehouse WHERE tenant_id=%s"),
-        ("quotations", "SELECT * FROM cst_quotation WHERE tenant_id=%s"),
+        ("quotations", "SELECT * FROM cst_quotation WHERE tenant_id=%s", "quote"),
         ("documents", "SELECT * FROM doc_control WHERE tenant_id=%s"),
         ("selections", "SELECT * FROM cpq_selection WHERE tenant_id=%s"),
         ("runs", "SELECT run_id, selection_id, run_type, status, started_at, finished_at, is_test "
@@ -15651,20 +15651,38 @@ def tenant_export(request: Request) -> StreamingResponse:
     manifest = ["EDIM 테넌트 데이터 export (오프보딩/백업)", "-" * 40]
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 금액이 담긴 테이블은 해당 정보그룹의 Export 통제를 따른다 — no_download 는
+        # '조회 가능, 내려받기 불가' 이므로 일괄 ZIP 으로 우회되면 안 된다(R-25).
+        # 다만 오프보딩은 계약상 권리라 **전체를 막지 않고 해당 테이블만 제외**하고,
+        # 제외 사실을 manifest 에 적는다(조용히 빼면 받은 쪽은 데이터가 없는 줄 안다).
+        skipped: list[str] = []
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            for name, sql in TABLES:
+            for entry in TABLES:
+                name, sql = entry[0], entry[1]
+                group = entry[2] if len(entry) > 2 else None
+                if group:
+                    mode = _info_mode(cur, tid, request, group)
+                    if mode != "full":
+                        manifest.append(
+                            f"{name}: 제외됨 — {INFO_GROUPS.get(group, group)} 열람 모드 {mode}")
+                        skipped.append(name)
+                        continue
                 cur.execute(sql, (tid,))
                 cols = [d[0] for d in cur.description]
                 rows = [dict(zip(cols, r)) for r in cur.fetchall()]
                 zf.writestr(f"{name}.json", json.dumps(rows, ensure_ascii=False, default=str, indent=1))
                 manifest.append(f"{name}: {len(rows)}건")
+            if skipped:
+                manifest.append("-" * 40)
+                manifest.append(f"제외 {len(skipped)}종 — 열람 권한이 회복되면 다시 받으십시오")
             zf.writestr("manifest.txt", "\n".join(manifest))
         _audit(cur, tid, "sys_tenant", tid, "TENANT_EXPORT", request.state.user_id,
-               {"tables": len(TABLES)})
+               {"tables": len(TABLES) - len(skipped), "skipped": skipped})
     from urllib.parse import quote as _q
     return StreamingResponse(iter([buf.getvalue()]), media_type="application/zip",
                              headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_q('tenant_export.zip')}",
-                                      "X-Table-Count": str(len(TABLES))})
+                                      "X-Table-Count": str(len(TABLES) - len(skipped)),
+                                      "X-Skipped-Tables": str(len(skipped))})
 
 
 @router.get("/projects/{project_no}/output-packages")
