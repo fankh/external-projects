@@ -5671,6 +5671,9 @@ _VER_FMT = "YYYY-MM-DD HH24:MI:SS.US"
 
 # ── U9 Project 중심 대화 (SYS-018·M-15-5) — 코멘트 스레드 ──
 
+COMMENT_MAX = 1000
+
+
 class CommentCreate(BaseModel):
     body: str
 
@@ -5692,6 +5695,13 @@ def project_comment_add(project_no: str, request: Request, body: CommentCreate) 
     text = body.body.strip()
     if not text:
         raise HTTPException(422, detail="내용을 입력하십시오")
+    # 18.11 — 종전에는 `text[:1000]` 으로 **조용히 잘랐다**. 대화는 수정 불가(이력 관리)이므로
+    # 잘린 뒤에는 되돌릴 수도 없고, 사용자는 잃었다는 사실조차 모른다. 상한을 두면 알린다.
+    if len(text) > COMMENT_MAX:
+        raise HTTPException(
+            422, detail=f"내용이 너무 깁니다 — {len(text)}자 (상한 {COMMENT_MAX}자). "
+                        "대화는 등록 후 수정할 수 없으므로 잘라서 저장하지 않습니다. "
+                        "나눠 등록하십시오")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute("SELECT 1 FROM prj_project WHERE tenant_id=%s AND project_no=%s", (tid, project_no.strip()))
@@ -5700,7 +5710,7 @@ def project_comment_add(project_no: str, request: Request, body: CommentCreate) 
         cur.execute(
             """INSERT INTO sys_project_comment (tenant_id, project_no, author, body)
                VALUES (%s,%s,%s,%s) RETURNING comment_id""",
-            (tid, project_no.strip(), request.state.login, text[:1000]))
+            (tid, project_no.strip(), request.state.login, text))
         cid = cur.fetchone()[0]
     return {"id": cid}
 
