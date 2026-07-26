@@ -9846,6 +9846,94 @@
    "nullable": "YES"
   },
   {
+   "c": "idem_id",
+   "t": "sys_idempotency",
+   "np": 64,
+   "ns": 0,
+   "ty": "bigint",
+   "def": null,
+   "len": null,
+   "pos": 1,
+   "nullable": "NO"
+  },
+  {
+   "c": "tenant_id",
+   "t": "sys_idempotency",
+   "np": 64,
+   "ns": 0,
+   "ty": "bigint",
+   "def": null,
+   "len": null,
+   "pos": 2,
+   "nullable": "NO"
+  },
+  {
+   "c": "idem_key",
+   "t": "sys_idempotency",
+   "np": null,
+   "ns": null,
+   "ty": "character varying",
+   "def": null,
+   "len": 120,
+   "pos": 3,
+   "nullable": "NO"
+  },
+  {
+   "c": "endpoint",
+   "t": "sys_idempotency",
+   "np": null,
+   "ns": null,
+   "ty": "character varying",
+   "def": null,
+   "len": 120,
+   "pos": 4,
+   "nullable": "NO"
+  },
+  {
+   "c": "status",
+   "t": "sys_idempotency",
+   "np": null,
+   "ns": null,
+   "ty": "character varying",
+   "def": "'RUNNING'::character varying",
+   "len": 12,
+   "pos": 5,
+   "nullable": "NO"
+  },
+  {
+   "c": "response",
+   "t": "sys_idempotency",
+   "np": null,
+   "ns": null,
+   "ty": "jsonb",
+   "def": null,
+   "len": null,
+   "pos": 6,
+   "nullable": "YES"
+  },
+  {
+   "c": "actor_id",
+   "t": "sys_idempotency",
+   "np": 64,
+   "ns": 0,
+   "ty": "bigint",
+   "def": null,
+   "len": null,
+   "pos": 7,
+   "nullable": "YES"
+  },
+  {
+   "c": "created_at",
+   "t": "sys_idempotency",
+   "np": null,
+   "ns": null,
+   "ty": "timestamp with time zone",
+   "def": "now()",
+   "len": null,
+   "pos": 8,
+   "nullable": "NO"
+  },
+  {
    "c": "info_access_id",
    "t": "sys_info_access",
    "np": 64,
@@ -15224,6 +15312,30 @@
    "ref": null,
    "cols": "history_id",
    "name": "sys_history_pkey"
+  },
+  {
+   "t": "sys_idempotency",
+   "ty": "c",
+   "def": "CHECK (((status)::text = ANY ((ARRAY['RUNNING'::character varying, 'DONE'::character varying])::text[])))",
+   "ref": null,
+   "cols": "status",
+   "name": "ck_sys_idempotency_status"
+  },
+  {
+   "t": "sys_idempotency",
+   "ty": "p",
+   "def": "PRIMARY KEY (idem_id)",
+   "ref": null,
+   "cols": "idem_id",
+   "name": "sys_idempotency_pkey"
+  },
+  {
+   "t": "sys_idempotency",
+   "ty": "u",
+   "def": "UNIQUE (tenant_id, idem_key, endpoint)",
+   "ref": null,
+   "cols": "tenant_id,idem_key,endpoint",
+   "name": "sys_idempotency_tenant_id_idem_key_endpoint_key"
   },
   {
    "t": "sys_info_access",
