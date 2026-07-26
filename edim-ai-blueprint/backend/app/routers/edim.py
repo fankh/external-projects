@@ -115,7 +115,8 @@ def require_auth(request: Request, response: Response) -> None:
     with _conn() as conn, conn.cursor() as cur:
         tid = tok_tid or _tenant_id(cur)
         cur.execute(
-            """SELECT user_id, user_level, EXTRACT(EPOCH FROM pw_changed_at)
+            """SELECT user_id, user_level,
+                      EXTRACT(EPOCH FROM date_trunc('second', pw_changed_at))
                FROM sys_user
                WHERE tenant_id=%s AND login_id=%s AND status='ACTIVE'""", (tid, login))
         row = cur.fetchone()
@@ -126,7 +127,11 @@ def require_auth(request: Request, response: Response) -> None:
     # 있었다) — 계정 탈취 대응이 이미 열린 세션을 끊지 못한 것이다. 비활성화는 매 요청
     # 재확인으로 즉시 반영되는데(15.3) 같은 목적의 다른 경로만 빠져 있었다.
     # 토큰은 발급 시각을 담지 않지만 모든 발급이 같은 TTL 을 쓰므로 exp - TTL 이 발급 시각이다.
-    if row[2] is not None and (int(exp) - TOKEN_TTL) < float(row[2]):
+    # **초 단위로 비교한다**: 토큰의 발급 시각은 `int(time.time())` 로 초가 잘려 있는데
+    # pw_changed_at 은 소수점까지 있어, 그대로 비교하면 **변경 직후 발급한 토큰이 자기
+    # 변경 시각보다 이르다고 판정된다**(같은 초 안에서 12:00:00 < 12:00:00.437).
+    # 같은 초에 발급된 토큰은 유효로 본다 — 1초 미만의 창이라 탈취 대응에 영향이 없다.
+    if row[2] is not None and (int(exp) - TOKEN_TTL) < int(row[2]):
         raise HTTPException(
             401, detail="비밀번호가 변경되어 이 세션은 만료되었습니다 — 다시 로그인하십시오")
     request.state.login = login
