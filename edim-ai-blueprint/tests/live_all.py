@@ -209,6 +209,25 @@ if os.getenv("SKIP_WAIT") != "1":
     print("배포-준비 확인 (/health db:true) …")
     wait_ready()
 
+
+def _proc_id() -> str:
+    """현재 백엔드 프로세스 식별자(/health.proc). 재시작하면 바뀐다."""
+    try:
+        import json as _j
+        import urllib.request as _u
+        with _u.urlopen(HEALTH, timeout=10) as r:
+            return str(_j.loads(r.read() or b"{}").get("proc") or "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+# 18.4 — 실행 도중 배포가 있었는지 스스로 확인한다.
+# 두 번 연속으로 "게이트 하나가 실패 → 단독 실행하면 통과" 를 겪었고, 원인은 매번
+# **플릿이 도는 중에 배포가 나가 컨테이너가 재시작된 것**이었다. 그 상태에서 나온 결과는
+# 제품 상태가 아니라 실행 환경의 사고인데, 요약만 보면 결함처럼 읽힌다. 더 나쁜 쪽은
+# 반대 경우다 — 재시작 중에 우연히 통과하면 **실패했어야 할 실행이 초록으로 보인다**.
+_PROC_START = _proc_id()
+
 # 9.36 — 시드 무결성 자기치유: 이전 중단 플릿이 훼손한 핵심 시드(dwg_bom)를 지문 저장 전에
 # 복원해, 항상 정상 시드에서 출발하고 기준 지문도 정상 상태로 뜬다(멱등 — 정상이면 0행).
 print("시드 무결성 확인 …")
@@ -353,6 +372,18 @@ for name, passed, tail in results:
     if not passed:
         failed += 1
 print(f"\n{len(results) - failed}/{len(results)} suites green")
+
+_proc_end = _proc_id()
+restarted = bool(_PROC_START and _proc_end and _PROC_START != _proc_end)
+if restarted:
+    print(f"\n⚠ 실행 도중 백엔드가 재시작됐습니다 (proc {_PROC_START} → {_proc_end}) — "
+          "중간 배포가 있었을 때 나타납니다.\n"
+          "  이 실행 결과는 제품 상태의 근거로 쓸 수 없습니다(실패는 재시작 탓일 수 있고, "
+          "더 나쁘게는 실패했어야 할 실행이 통과로 보일 수 있습니다).\n"
+          "  배포가 끝난 뒤 다시 실행하십시오.")
+elif not (_PROC_START and _proc_end):
+    print("\n(참고) /health.proc 을 읽지 못해 중간 배포 여부를 확인하지 못했습니다 — "
+          "확인됨으로 읽지 마십시오.")
 # 등록 대비 실행 수를 함께 보고한다 — 러너가 중간에 죽거나 스위트를 건너뛰면
 # '실패 0건' 이 통과처럼 읽힌다(14.1 에서 실제로 그랬다). 결과가 없는 것은 통과가 아니다.
 expected = len(SUITES)
@@ -362,4 +393,5 @@ if executed != expected:
           f"누락 {expected - executed}개: "
           f"{[s for s in SUITES if s not in {n for n, _, _ in results}][:5]}")
     sys.exit(1)
-sys.exit(1 if failed else 0)
+# 재시작이 있었으면 초록이어도 통과로 보고하지 않는다 — '깨끗한 실행' 이 아니기 때문이다.
+sys.exit(1 if (failed or restarted) else 0)

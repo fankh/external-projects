@@ -336,9 +336,16 @@ def _valid_date(s: str | None, label: str = "날짜") -> str | None:
 
 
 # ── health ──
+# 프로세스 식별자 — 기동할 때 한 번 만들고 그대로 둔다. 재시작하면 값이 바뀐다.
+# 용도: 검증 플릿이 **실행 도중 배포가 있었는지** 스스로 알기 위한 것(18.4).
+# 시각이나 버전이 아니라 난수인 이유는, 공개 엔드포인트에서 가동 시간·배포 시점 같은
+# 운영 정보를 흘리지 않으면서 '바뀌었다' 만 알리면 충분하기 때문이다.
+_PROC_ID = secrets.token_hex(4)
+
+
 @router.get("/health")
 def health() -> dict[str, Any]:
-    return {"status": "ok", "db": db_ok()}
+    return {"status": "ok", "db": db_ok(), "proc": _PROC_ID}
 
 
 @router.get("/system/status", dependencies=[PLATFORM])
