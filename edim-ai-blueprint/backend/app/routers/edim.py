@@ -7145,6 +7145,16 @@ def save_work_process(request: Request, body: WorkProcessSave) -> dict[str, Any]
             except (TypeError, ValueError):
                 return None
 
+        # 18.31 — 저장 전 상태를 먼저 읽는다(제조비 산정 입력이라 전/후 대조가 핵심).
+        cur.execute(
+            """SELECT process_type, make_or_buy, workshop, person_count, work_time
+               FROM erp_work_process WHERE tenant_id=%s AND product_code_id=%s""",
+            (tid, pc[0]))
+        prev = {r[0]: {"makeOrBuy": r[1], "workshop": r[2],
+                       "personCount": r[3],
+                       "workTime": float(r[4]) if r[4] is not None else None}
+                for r in cur.fetchall()}
+        saved: dict[str, Any] = {}
         n = 0
         for i, it in enumerate(body.items):
             item = str(it.get("item", "")).strip()[:20]
@@ -7178,9 +7188,15 @@ def save_work_process(request: Request, body: WorkProcessSave) -> dict[str, Any]
                     (tid, pc[0], item, i, mob, workshop, warehouse, min_stock, person,
                      skill, work_time, remarks))
             n += 1
-        # 공정 정의(MAKE/BUY·창고·공수)는 제조 기준이자 제조비 산정 입력이다
+            saved[item] = {"makeOrBuy": mob, "workshop": workshop,
+                           "personCount": person, "workTime": work_time}
+        # 공정 정의(MAKE/BUY·창고·공수)는 제조 기준이자 제조비 산정 입력이다.
+        # 18.31 — 종전에는 **건수만** 남겨, 어떤 공정이 MAKE 에서 BUY 로 바뀌었는지
+        # (=제조비가 왜 달라졌는지) 되짚을 수 없었다. 공정별 전/후를 담는다.
         _audit(cur, tid, "erp_work_process", pc[0], "SAVE", request.state.user_id,
-               after={"code": body.code, "rows": n})
+               after={"code": body.code, "rows": n, "items": saved},
+               before={"code": body.code,
+                       "items": {k: v for k, v in prev.items() if k in saved}})
     return {"saved": n}
 
 
@@ -13279,15 +13295,17 @@ def user_active(login: str, request: Request, body: ActivePatch) -> dict[str, An
     new_status = "ACTIVE" if body.active else "DISABLED"
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        if not body.active:
-            cur.execute(
-                "SELECT user_id, user_level FROM sys_user WHERE tenant_id=%s AND login_id=%s",
-                (tid, login))
-            tgt = cur.fetchone()
-            if not tgt:
-                raise HTTPException(404, detail=f"사용자 없음: {login}")
-            if tgt[1] in ("ADMIN", "PLATFORM"):
-                _assert_admin_remains(cur, tid, tgt[0], action="비활성화")
+        # 18.31 — 활성/비활성 전환은 접근 권한을 껐다 켜는 조작이다. 종전에는 새 상태만
+        # 남아 **이전에 이미 그 상태였는지**(무의미한 조작인지)도, 그 계정이 어떤 등급이었는지도
+        # 알 수 없었다. 조회를 비활성화 분기 밖으로 꺼내 양쪽에서 쓴다.
+        cur.execute(
+            "SELECT user_id, user_level, status FROM sys_user WHERE tenant_id=%s AND login_id=%s",
+            (tid, login))
+        tgt = cur.fetchone()
+        if not tgt:
+            raise HTTPException(404, detail=f"사용자 없음: {login}")
+        if not body.active and tgt[1] in ("ADMIN", "PLATFORM"):
+            _assert_admin_remains(cur, tid, tgt[0], action="비활성화")
         cur.execute(
             """UPDATE sys_user SET status=%s, updated_at=now()
                WHERE tenant_id=%s AND login_id=%s RETURNING user_id""",
@@ -13297,7 +13315,9 @@ def user_active(login: str, request: Request, body: ActivePatch) -> dict[str, An
             raise HTTPException(404, detail=f"사용자 없음: {login}")
         _audit(cur, tid, "sys_user", row[0],
                "REACTIVATE" if body.active else "DEACTIVATE",
-               request.state.user_id, {"login": login, "status": new_status})
+               request.state.user_id,
+               after={"login": login, "status": new_status, "level": tgt[1]},
+               before={"login": login, "status": tgt[2], "level": tgt[1]})
     return {"login": login, "status": new_status}
 
 

@@ -192,6 +192,21 @@ try:
                 "WHERE target_table='sys_info_access' ORDER BY history_id DESC LIMIT 1")
     ok(f"★ 열람 통제 변경 이력에 이전 모드가 남는다 — {hist[:70]}", "masked" in hist)
 
+    # ── 계정 활성/비활성: 이전 상태·등급이 남는가 (18.31) ──
+    st, _ = req("POST", "/users", TOK, {"login": "zzact01", "name": "활성검증",
+                                        "department": "QA", "level": "GENERAL",
+                                        "initialPassword": "ZzAct!2345"})
+    ok(f"활성검증 계정 생성 ({st})", st in (200, 201, 409))
+    auid = psql("SELECT user_id FROM sys_user WHERE login_id='zzact01'")
+    st, _ = req("PATCH", "/users/zzact01/active", TOK, {"active": False})
+    ok(f"계정 비활성화 ({st})", st == 200)
+    if auid:
+        hb = psql("SELECT COALESCE(before_data::text,'') FROM sys_history "
+                  f"WHERE target_table='sys_user' AND target_id={auid} "
+                  "AND action='DEACTIVATE' ORDER BY history_id DESC LIMIT 1")
+        ok(f"★ 비활성화 이력에 이전 상태·등급이 남는다 — {hb[:70]}",
+           "ACTIVE" in hb and "GENERAL" in hb)
+
     # ── 없는 것을 지우면 404 (없는데 지웠다고 답하지 않는다) ──
     st, _ = req("DELETE", "/finance/fx/99999999", TOK)
     ok(f"없는 환율 삭제 404 ({st})", st == 404)
@@ -218,6 +233,9 @@ finally:
     psql("DELETE FROM sys_user_role WHERE user_id IN "
          "(SELECT user_id FROM sys_user WHERE login_id='zzdel01')")
     psql("DELETE FROM sys_user WHERE login_id='zzdel01'")
+    psql("DELETE FROM sys_user_role WHERE user_id IN "
+         "(SELECT user_id FROM sys_user WHERE login_id='zzact01')")
+    psql("DELETE FROM sys_user WHERE login_id='zzact01'")
     left = psql("SELECT (SELECT count(*) FROM fx_rate WHERE currency='ZZD')"
                 "+(SELECT count(*) FROM tax_code WHERE code='ZZTAX')"
                 "+(SELECT count(*) FROM cal_holiday WHERE name LIKE 'ZZHOL%')"
