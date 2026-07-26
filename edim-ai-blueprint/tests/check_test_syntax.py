@@ -20,6 +20,44 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 TARGETS = [ROOT / "tests", ROOT / "tools"]
 
 
+def _arity_problems(path: pathlib.Path, tree: ast.Module) -> list[str]:
+    """스위트가 자기 파일에 정의한 헬퍼를 **인자 수가 안 맞게** 부르는지 본다 (17.11).
+
+    문법은 맞으니 컴파일은 통과하고, 실행 순간에 TypeError 로 죽는다. 스위트마다 `ok()` 를
+    따로 정의하는데 어떤 파일은 `ok(label, cond)`, 어떤 파일은 `ok(label, cond, detail)` 이라
+    다른 파일에서 쓰던 형태를 그대로 옮기면 그 지점까지 실행한 뒤에야 드러난다 —
+    라이브 스위트는 그 전에 실 데이터를 이미 바꿔 놓았을 수 있다(정리 블록도 못 돈다).
+    """
+    funcs: dict[str, tuple[int, int, bool]] = {}   # 이름: (필수, 최대, *args 여부)
+    for node in tree.body:                          # 모듈 최상위 정의만 본다
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            a = node.args
+            pos = len(a.posonlyargs) + len(a.args)
+            req = pos - len(a.defaults)
+            funcs[node.name] = (req, pos, a.vararg is not None)
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+            continue
+        spec = funcs.get(node.func.id)
+        if spec is None:
+            continue
+        low, high, star = spec
+        if any(isinstance(x, ast.Starred) for x in node.args):
+            continue                                # 언팩은 셀 수 없다
+        given = len(node.args)
+        kw = {k.arg for k in node.keywords if k.arg}
+        if star or None in {k.arg for k in node.keywords}:
+            continue                                # **kwargs 전달은 셀 수 없다
+        if given > high:
+            out.append(f"{node.func.id}() 는 위치인자 {high}개인데 {given}개를 넘김 "
+                       f"(line {node.lineno})")
+        elif given + len(kw) < low:
+            out.append(f"{node.func.id}() 는 인자 {low}개 필요한데 {given + len(kw)}개 "
+                       f"(line {node.lineno})")
+    return out
+
+
 def main() -> int:
     bad: list[tuple[str, str]] = []
     n = 0
@@ -29,7 +67,9 @@ def main() -> int:
         for f in sorted(d.rglob("*.py")):
             n += 1
             try:
-                ast.parse(f.read_text(encoding="utf-8"), filename=str(f))
+                tree = ast.parse(f.read_text(encoding="utf-8"), filename=str(f))
+                for msg in _arity_problems(f, tree):
+                    bad.append((str(f.relative_to(ROOT)), msg))
             except SyntaxError as e:
                 bad.append((str(f.relative_to(ROOT)), f"{e.msg} (line {e.lineno})"))
             except Exception as e:  # noqa: BLE001 — 읽기 실패도 드러낸다

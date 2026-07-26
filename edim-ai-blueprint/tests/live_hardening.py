@@ -69,12 +69,12 @@ _a = req("GET", "/audit?limit=1")
 _more = bool(_a.get("truncated")) if isinstance(_a, dict) else False
 ok("감사 JSON 은 절단을 알린다 (16.2)", "truncated" in _a)
 _, xh = req("GET", "/history/export.xlsx?limit=1", with_headers=True, raw=True)
-ok("감사 XLSX 가 적용 상한을 알린다 (X-Limit)", xh.get("x-limit") == "1", str(dict(xh))[:160])
+ok(f"감사 XLSX 가 적용 상한을 알린다 (X-Limit={xh.get('x-limit')})", xh.get("x-limit") == "1")
 ok("감사 XLSX 절단 고지 필드 존재", "x-truncated" in xh)
 if _more:
-    ok(f"★ 같은 상한에서 JSON 은 절단인데 XLSX 는? ({xh.get('x-truncated')})",
-       xh.get("x-truncated") == "1",
-       "잘라 놓고 완전하다고 답하면 감사 자료의 누락을 알 수 없다 — 같은 데이터, 다른 경로")
+    # 잘라 놓고 완전하다고 답하면 감사 자료의 누락을 알 수 없다 — 같은 데이터, 다른 경로
+    ok(f"★ 같은 상한에서 JSON 이 절단이면 XLSX 도 절단 표시 ({xh.get('x-truncated')})",
+       xh.get("x-truncated") == "1")
     ok(f"절단 시 행 수가 상한 이하 ({xh.get('x-row-count')})",
        int(xh.get("x-row-count", "0")) <= 1)
 else:

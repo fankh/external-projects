@@ -282,9 +282,9 @@ try:
     # 무방비였다. 화면에는 품목 단가와 합계가 그대로 찍힌다 — 통제는 저장 여부가 아니라
     # 내보내는 데이터에 건다. (SETUP 전용이라 ADMIN 역할에 제한을 걸어야 검증이 성립한다)
     _preview = {"rootCode": "KDCR 3-13", "slotValues": {}}
+    # 저장하지 않는 출력이라도 담긴 데이터가 같으면 같은 통제를 받아야 한다
     st, _ = req("POST", "/cpq/quote-preview.pdf", TOK, _preview, raw=True)
-    ok(f"★ 견적 미리보기 PDF 도 quote 통제를 받는다 ({st})", st == 403,
-       "저장하지 않는 출력이라도 담긴 데이터가 같으면 같은 통제를 받아야 한다")
+    ok(f"★ 견적 미리보기 PDF 도 quote 통제를 받는다 ({st})", st == 403)
 
     set_mode(TOK, "quote", "full", role="ADMIN")
     set_mode(TOK, "price", "no_download", role="ADMIN")
