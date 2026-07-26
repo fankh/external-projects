@@ -1,17 +1,15 @@
 {
  "note": "플릿 실행 창의 백엔드 요청 로그에서 실측한 API 표면 커버리지. 검증 소스의 경로 문자열이 아니라 실제 호출을 센다(18.9).",
  "since": "60m",
- "proc": "e5b6254a",
+ "proc": "8b1df6a0",
  "total": 446,
- "covered": 419,
- "percent": 93,
+ "covered": 422,
+ "percent": 94,
  "uncovered": [
-  "DELETE /api/v1/projects/comments/{comment_id}",
   "GET /api/health",
   "GET /api/models",
   "GET /api/v1/codes/bom-compare",
   "GET /api/v1/codes/groups/{group}/export.xlsx",
-  "GET /api/v1/drawings/jobs",
   "GET /api/v1/drawings/supersedures",
   "GET /api/v1/erp/stock/trace",
   "GET /api/v1/erp/suppliers/{company_id}/metrics",
@@ -31,7 +29,6 @@
   "POST /api/drawings/upload",
   "POST /api/v1/cad/from-blocks",
   "POST /api/v1/cad/from-blocks.dxf",
-  "POST /api/v1/drawings/{drawing_no}/verify",
-  "POST /api/v1/projects/{project_no}/comments"
+  "POST /api/v1/drawings/{drawing_no}/verify"
  ]
 }
