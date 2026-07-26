@@ -4759,12 +4759,21 @@ def notifications_digest(request: Request) -> dict[str, Any]:
 
 @router.post("/notifications/{notification_id}/read")
 def read_notification(notification_id: int, request: Request) -> dict[str, Any]:
+    """알림 읽음 처리 — 본인 알림만.
+
+    종전에는 대상이 없어도(없는 알림·남의 알림) `read: true` 를 돌려줬다. 쓰기는 일어나지
+    않으므로 보안 문제는 아니지만, **아무것도 하지 않고 했다고 답하는 것**은 응답 정직성
+    규약 위반이다(클라이언트가 목록을 갱신했다가 그대로인 이유를 알 수 없다).
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
             """UPDATE sys_notification SET is_read=true
                WHERE tenant_id=%s AND user_id=%s AND notification_id=%s""",
             (tid, request.state.user_id, notification_id))
+        if cur.rowcount == 0:
+            raise HTTPException(
+                404, detail=f"내 알림이 아니거나 존재하지 않습니다: {notification_id}")
     return {"id": notification_id, "read": True}
 
 

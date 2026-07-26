@@ -72,6 +72,7 @@ SUITES = [
     "live_doc_revision.py",     # 문서 개정 버전 자동 증가 (13.1, 규격 DOC-001)
     "live_approval_delegate.py", # 승인 위임·결정자 기록 (13.5, 규격 ADM-003)
     "live_audit_trail.py",      # 감사 추적·알림 도달 (13.8) — 쓰기가 이력에 남는지
+    "live_session_notify.py",   # 세션 즉시 차단·알림 정직 보고 (15.3)
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
     "live_s3_macro_engine.py",
     "live_s4_rbac_notify.py",
