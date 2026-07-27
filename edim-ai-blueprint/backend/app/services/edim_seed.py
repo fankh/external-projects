@@ -3359,6 +3359,7 @@ UI_TRANSLATIONS_V30: dict[str, tuple[str, str, str]] = {
     "inv.resvPanel": ('Stock reservations', '在庫予約', '库存预留'),
     "inv.totalValue": ('Total value', '総評価額', '总估值'),
     "inv.type": ('Type', '区分', '区分'),
+    "folder.currentRun": ('Current', '現在', '当前'),
     "inv.unitPrice": ('Unit price', '単価', '单价'),
     "inv.unpriced": ('Not set', '未登録', '未登记'),
     "inv.unpricedCount": ('Unit price not set', '単価未登録', '单价未登记'),

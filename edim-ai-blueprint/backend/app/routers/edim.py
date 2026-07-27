@@ -13171,8 +13171,14 @@ OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
                "DATA": ("기술자료", "ok"), "BOM": ("BOM", "ok")}
 
 
+# 18.82 — Project Folder 한 번에 내려보내는 파일 행 상한. Run 마다 산출물이 쌓여 계속
+# 자라므로(운영 실측 5,156행) 상한 없이 두면 조회가 점점 무거워진다. 잘리면 헤더로 알린다.
+_FILES_CAP = 500
+
+
 @router.get("/files")
-def project_files(project: str = "PS-61313-5", allRuns: bool = False) -> list[dict[str, Any]]:
+def project_files(response: Response, project: str = "PS-61313-5",
+                  allRuns: bool = False) -> list[dict[str, Any]]:
     """Project Folder 파일 — 기본은 **그 프로젝트의** 최신 SUCCESS Run 산출물. allRuns=true=전체 Run.
 
     18.59 — 종전엔 Run 산출물 구간이 `project` 를 **아예 쓰지 않았다**. 인자를 받고 문서에도
@@ -13183,6 +13189,13 @@ def project_files(project: str = "PS-61313-5", allRuns: bool = False) -> list[di
 
     최신 Run 판정도 프로젝트 단위로 내려야 한다. 테넌트 전체의 최신 Run 으로 판정하면 그 Run 이
     다른 프로젝트 것일 때 이 프로젝트 폴더가 **빈 채로** 보인다(같은 어긋남의 반대 방향).
+
+    18.82 — 업로드 구간에 **상한이 없었다.** Run 마다 산출물이 쌓이므로 운영 데이터에서 한
+    프로젝트가 5,156행이었고, 그 전부를 매 조회마다 내려보냈다(계속 자란다). 이 저장소는 이미
+    같은 문제를 Run 목록·감사 로그에서 겪고 `_mark_truncated` 로 모아 뒀는데 이 목록만 빠져
+    있었다 — 상한을 두되 **잘렸다는 사실을 헤더로 알린다**(조용히 자르면 '전부' 로 읽힌다).
+    함께 각 산출물이 **어느 Run 것인지**와 그것이 현재 기준 Run 인지를 실어, 이력 산출물이
+    현재 납품물과 같은 얼굴로 섞이지 않게 한다(18.77 과 같은 구분을 목록에도 적용).
     """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -13219,13 +13232,22 @@ def project_files(project: str = "PS-61313-5", allRuns: bool = False) -> list[di
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
+            """SELECT max(r.run_id) FROM cpq_run r
+               JOIN cpq_selection s ON s.selection_id=r.selection_id
+               JOIN prj_project p ON p.project_id=s.project_id
+               WHERE r.tenant_id=%s AND p.project_no=%s AND r.status='SUCCESS'
+                 AND NOT r.is_test""", (tid, project))
+        basis_run = cur.fetchone()[0]
+        cur.execute(
             """SELECT f.file_id, f.file_name, f.file_type, f.folder,
                       to_char(f.uploaded_date,'MM-DD'), f.created_by,
-                      COALESCE(f.file_role,'OUTPUT')
+                      COALESCE(f.file_role,'OUTPUT'),
+                      (SELECT o.run_id FROM cpq_output o
+                        WHERE o.file_id=f.file_id ORDER BY o.output_id LIMIT 1)
                FROM dwg_file f
                LEFT JOIN prj_project p ON p.project_id=f.project_id
                WHERE f.tenant_id=%s AND p.project_no=%s
-               ORDER BY f.file_id DESC""", (tid, project))
+               ORDER BY f.file_id DESC LIMIT %s""", (tid, project, _FILES_CAP + 1))
         # 18.59 — 종전엔 `OR f.project_id IS NULL` 이 붙어 **프로젝트 미지정 파일이 모든
         # 프로젝트 폴더에 나왔다**. 18.58 로 미지정 업로드 자체를 막았고 운영 데이터에도
         # 0건이라, 남겨 두면 다시 새는 통로만 된다.
@@ -13236,10 +13258,16 @@ def project_files(project: str = "PS-61313-5", allRuns: bool = False) -> list[di
             {"name": r[1], "fileType": r[2],
              "kind": ROLE_KIND.get(r[6], ("업로드", "info"))[0],
              "kindTone": ROLE_KIND.get(r[6], ("업로드", "info"))[1],
-             "run": "-", "date": r[4], "folder": r[3], "fileId": r[0], "registrant": r[5],
+             "run": f"#{r[7]}" if r[7] else "-", "date": r[4], "folder": r[3],
+             "fileId": r[0], "registrant": r[5],
+             # 18.82 — 이 산출물이 **현재 기준 Run** 것인지 밝힌다. 지난 Run 의 산출물이
+             # 현재 납품물과 구분 없이 '산출물' 로만 보이면 어느 것이 지금 것인지 알 수 없다.
+             "currentRun": bool(r[7]) and r[7] == basis_run,
              "fileRole": r[6], "immutable": r[6] == "OUTPUT"}
             for r in cur.fetchall()
         ]
+    # 상한 초과는 **헤더로 알린다** — 목록형 응답이라 본문 형태는 바꾸지 않는다(18.14 패턴).
+    uploads = _mark_truncated(response, uploads, _FILES_CAP)
     return files + uploads
 
 

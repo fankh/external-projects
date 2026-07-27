@@ -29,7 +29,7 @@ export default async function FolderPage({ searchParams }: { searchParams: Promi
   }
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ScreenHeader title={`Project Folder — ${project}`} count={err ? undefined : rows.length} source="/files · output-packages" />
+      <ScreenHeader title={`Project Folder — ${project}`} count={err ? undefined : rows.length} cap={503} source="/files · output-packages" />
       {/* 트리아지 #42 — Project Output Package: Run 단위 산출물 묶음 (FG 표시 + Snapshot ID 추적) */}
       {packages.length ? (
         <div data-output-packages style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '3px 8px', fontSize: 10.5, flexWrap: 'wrap', borderBottom: '1px solid var(--line)' }}>

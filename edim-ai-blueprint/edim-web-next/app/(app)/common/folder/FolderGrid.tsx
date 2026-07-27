@@ -12,6 +12,7 @@ export interface FolderFile {
   name: string; fileType: string; kind: string; kindTone: 'ok' | 'warn' | 'info'
   run: string; date: string; folder: string; fileId?: number; registrant?: string
   fileRole?: 'SOURCE' | 'OUTPUT' | 'RECEIVED'; immutable?: boolean
+  currentRun?: boolean   // 18.82 — 현재 기준 Run 의 산출물인가(지난 Run 것과 구분)
 }
 
 const FOLDERS = ['RECEIVED', 'DWG', 'BOM', 'PRICE', 'DOC']
@@ -59,7 +60,11 @@ export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: str
     { key: 'lock', header: '', width: 26, align: 'center', render: (r) => r.immutable
       ? <span data-file-immutable title={t('folder.immutable', 'Run 산출물 — 편집·덮어쓰기 불가 (납품물 불변)')}>🔒</span>
       : <span style={{ color: 'var(--txt-mute)' }}>—</span> },
-    { key: 'run', header: 'Run', width: 60, align: 'center', render: (r) => r.run || '—' },
+    // 18.82 — 지난 Run 의 산출물이 현재 납품물과 같은 얼굴로 섞이지 않게 '현재' 를 표시한다.
+    { key: 'run', header: 'Run', width: 92, align: 'center', render: (r) => (
+      <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
+        {r.run || '—'}{r.currentRun ? <Chip tone="ok">{t('folder.currentRun', '현재')}</Chip> : null}
+      </span>) },
     { key: 'reg', header: t('folder.registrant', '등록자'), width: 80, align: 'center', render: (r) => r.registrant || '—' },
     { key: 'date', header: t('folder.dateCol', '일자'), width: 96, align: 'center', render: (r) => r.date },
     { key: 'dl', header: '⬇', width: 40, align: 'center', render: (r) => r.fileId != null ? (
