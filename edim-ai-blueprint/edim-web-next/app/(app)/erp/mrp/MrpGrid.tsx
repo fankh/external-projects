@@ -7,11 +7,16 @@ import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
 
+// 18.73 — 재고를 대조할 수 없는 코드는 onHand·shortage 가 null 로 온다(UNMATCHED).
+// '보유 0' 으로 찍으면 대조 실패가 '재고 없음' 이라는 사실로 둔갑한다.
 export interface MrpRow {
-  code: string; name: string; required: number; onHand: number; shortage: number
-  dueDate: string; orderBy: string; orders: string[]; status: 'OK' | 'SHORT'
+  code: string; name: string; required: number; onHand: number | null; shortage: number | null
+  stockMatched: boolean
+  dueDate: string; orderBy: string; orders: string[]; status: 'OK' | 'SHORT' | 'UNMATCHED'
 }
-export interface MrpData { rows: MrpRow[]; orderCount: number; shortCount: number; leadDays: number }
+export interface MrpData {
+  rows: MrpRow[]; orderCount: number; shortCount: number; unmatchedCount?: number; leadDays: number
+}
 
 export function MrpGrid({ data }: { data: MrpData }) {
   const { t } = useI18n()
@@ -22,14 +27,16 @@ export function MrpGrid({ data }: { data: MrpData }) {
     { key: 'code', header: t('mrp.code', '자재 코드'), width: 170, code: true, render: (r) => r.code },
     { key: 'name', header: t('mrp.name', '품명'), render: (r) => r.name || '—' },
     { key: 'required', header: t('mrp.required', '소요량'), width: 70, align: 'right', sortValue: (r) => r.required, render: (r) => r.required },
-    { key: 'onHand', header: t('mrp.onHand', '보유'), width: 64, align: 'right', sortValue: (r) => r.onHand, render: (r) => r.onHand },
-    { key: 'shortage', header: t('mrp.shortage', '부족'), width: 64, align: 'right', sortValue: (r) => r.shortage,
-      render: (r) => r.shortage > 0 ? <b style={{ color: 'var(--err)' }}>{r.shortage}</b> : 0 },
-    { key: 'status', header: t('common.status', '상태'), width: 62, align: 'center', sortValue: (r) => r.status,
-      render: (r) => <Chip tone={r.status === 'SHORT' ? 'err' : 'ok'}>{r.status}</Chip> },
+    { key: 'onHand', header: t('mrp.onHand', '보유'), width: 64, align: 'right', sortValue: (r) => r.onHand ?? -1,
+      render: (r) => r.stockMatched ? r.onHand : <span title={t('mrp.unmatchedHint', '재고 코드와 대조되지 않음')}>—</span> },
+    { key: 'shortage', header: t('mrp.shortage', '부족'), width: 64, align: 'right', sortValue: (r) => r.shortage ?? -1,
+      render: (r) => !r.stockMatched ? '—' : (r.shortage ?? 0) > 0 ? <b style={{ color: 'var(--err)' }}>{r.shortage}</b> : 0 },
+    { key: 'status', header: t('common.status', '상태'), width: 84, align: 'center', sortValue: (r) => r.status,
+      render: (r) => <Chip tone={r.status === 'SHORT' ? 'err' : r.status === 'UNMATCHED' ? 'warn' : 'ok'}>
+        {r.status === 'UNMATCHED' ? t('mrp.unmatched', '대조불가') : r.status}</Chip> },
     { key: 'dueDate', header: t('mrp.dueDate', '최단 납기'), width: 84, align: 'center', render: (r) => r.dueDate || '—' },
     { key: 'orderBy', header: t('mrp.orderBy', '발주 권장일'), width: 88, align: 'center',
-      render: (r) => r.shortage > 0 && r.orderBy ? <b>{r.orderBy}</b> : (r.orderBy || '—') },
+      render: (r) => (r.shortage ?? 0) > 0 && r.orderBy ? <b>{r.orderBy}</b> : (r.orderBy || '—') },
     { key: 'orders', header: t('mrp.orders', '관련 수주'), width: 120, noSort: true,
       render: (r) => <span style={{ fontSize: 9.5 }}>{r.orders.join(', ')}</span> },
   ]
@@ -39,6 +46,10 @@ export function MrpGrid({ data }: { data: MrpData }) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 11 }}>
         <Chip tone="info">{t('mrp.orderCount', '수주')} {data.orderCount}</Chip>
         <Chip tone={data.shortCount > 0 ? 'err' : 'ok'}>{t('mrp.shortCount', '부족 품목')} {data.shortCount}</Chip>
+        {/* 18.73 — 대조하지 못한 건수를 숨기지 않는다. 계획의 신뢰 범위를 화면에서 알 수 있어야 한다. */}
+        {data.unmatchedCount ? (
+          <Chip tone="warn">{t('mrp.unmatchedCount', '재고 대조불가')} {data.unmatchedCount}</Chip>
+        ) : null}
         <span style={{ flex: 1 }} />
         <label>{t('mrp.leadDays', '리드타임(일)')}</label>
         <input className="in" type="number" min={0} max={90} value={lead} style={{ width: 56, height: 20, fontSize: 10.5, textAlign: 'right' }}

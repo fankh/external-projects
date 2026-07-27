@@ -15782,10 +15782,29 @@ def mrp_plan(leadDays: int = 14) -> dict[str, Any]:
             "SELECT item_code, COALESCE(SUM(quantity),0) FROM inv_stock WHERE tenant_id=%s GROUP BY item_code",
             (tid,))
         on_hand = {r[0]: float(r[1]) for r in cur.fetchall()}
+        # 18.73 — **재고를 대조할 수 있는 코드인지** 먼저 확인한다. 수주 라인은 변형 코드
+        # (`ECC 55-32`)로 적히는데 마스터·재고는 기준 코드(`ECC 55`)라, 대조가 안 되면
+        # `on_hand.get(code, 0)` 이 조용히 0 을 돌려주고 **전 품목이 부족으로 보고된다**.
+        # 실측: 수요 8건 전부 보유 0 · 부족 8건인데, 창고에는 실제 재고가 있다.
+        # '재고 0' 과 '대조 불가' 는 다른 사실이다 — 뒤엣것을 앞엣것으로 보고하지 않는다.
+        # 어느 규칙으로 맞출지는 식별자 체계 결정(#81) 사안이므로 여기서 정하지 않고,
+        # 대조 가능 여부만 사실대로 드러낸다.
+        codes = list(req.keys())
+        known: set[str] = set(on_hand)
+        if codes:
+            cur.execute(
+                """SELECT main_code FROM product_code WHERE tenant_id=%s AND main_code = ANY(%s)
+                   UNION SELECT part_no FROM prt_part WHERE tenant_id=%s AND part_no = ANY(%s)""",
+                (tid, codes, tid, codes))
+            known.update(r[0] for r in cur.fetchall())
     rows = []
+    unmatched = 0
     for r in sorted(req.values(), key=lambda x: (x["dueDate"] or "9999", x["code"])):
+        matched = r["code"] in known
         oh = on_hand.get(r["code"], 0.0)
         shortage = max(0.0, r["required"] - oh)
+        if not matched:
+            unmatched += 1
         order_by = ""
         if r["dueDate"]:
             from datetime import datetime, timedelta
@@ -15793,10 +15812,15 @@ def mrp_plan(leadDays: int = 14) -> dict[str, Any]:
                 order_by = (datetime.strptime(r["dueDate"], "%Y-%m-%d") - timedelta(days=lead)).strftime("%Y-%m-%d")
             except ValueError:
                 order_by = ""
-        rows.append({**r, "onHand": oh, "shortage": shortage, "orderBy": order_by,
-                     "status": "SHORT" if shortage > 0 else "OK"})
+        rows.append({**r, "onHand": oh if matched else None,
+                     "shortage": shortage if matched else None,
+                     "stockMatched": matched, "orderBy": order_by,
+                     "status": ("SHORT" if shortage > 0 else "OK") if matched else "UNMATCHED"})
     return {"rows": rows, "orderCount": order_count,
-            "shortCount": sum(1 for x in rows if x["status"] == "SHORT"), "leadDays": lead}
+            "shortCount": sum(1 for x in rows if x["status"] == "SHORT"),
+            # 대조하지 못한 건수를 **드러낸다**. 부족으로 뭉뚱그리면 '전 품목 발주 필요' 라는
+            # 사실과 다른 계획이 나온다.
+            "unmatchedCount": unmatched, "leadDays": lead}
 
 
 @router.get("/cost/orders")
