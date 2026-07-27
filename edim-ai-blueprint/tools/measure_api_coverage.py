@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""API 표면 커버리지 실측 (18.9) — 검증이 실제로 두드린 엔드포인트를 센다.
+"""API 표면 실호출 측정 (18.9) — 그 시간 창에 **실제로 호출된** 엔드포인트를 센다.
+
+주의(18.85): 이것은 '검증이 두드린 표면' 이 아니라 **그 창에 들어온 모든 요청**이다 —
+플릿·화면 조회·수동 진단이 모두 섞인다. 조사하며 손으로 호출한 경로도 covered 로 잡히므로,
+수치를 '검증 커버리지' 로 읽으면 실제보다 높게 본다. 검증만 세려면 플릿 실행 전후로 창을
+좁히고 그 사이 수동 호출을 하지 않아야 한다.
 
 왜 필요한가: 검증 파일에서 경로 문자열을 세는 방식은 **동적으로 조립한 URL 을 놓치고**,
 반대로 주석·상수에 적힌 경로를 실행된 것으로 착각한다. 두 오차가 서로를 가려 수치가 그럴듯해
@@ -99,13 +104,15 @@ def main() -> int:
     un = sorted(f"{m} {p}" for m, p in allr - covered)
     pct = len(covered) * 100 // len(allr)
     print(f"as-built 오퍼레이션 {len(allr)} · 실제 호출 {len(covered)} ({pct}%) · 미호출 {len(un)}")
+    print("  (창 안의 모든 요청 기준 — 플릿 외 화면·수동 호출도 포함된다)")
     from collections import Counter
     area = Counter(p.split(" ", 1)[1].replace("/api/v1", "").strip("/").split("/")[0] for p in un)
     print("미호출 상위 영역:", dict(area.most_common(10)))
     if "--save" in sys.argv:
         OUT.write_text(json.dumps(
-            {"note": "플릿 실행 창의 백엔드 요청 로그에서 실측한 API 표면 커버리지. "
-                     "검증 소스의 경로 문자열이 아니라 실제 호출을 센다(18.9).",
+            {"note": "백엔드 요청 로그에서 실측한 API 표면 실호출. 검증 소스의 경로 문자열이 "
+                     "아니라 실제 호출을 센다(18.9). 다만 창 안의 **모든** 요청이 대상이라 "
+                     "플릿 외 화면·수동 호출도 포함된다 — '검증 커버리지' 로 읽지 말 것(18.85).",
              "since": since, "proc": start, "total": len(allr), "covered": len(covered),
              "percent": pct, "uncovered": un}, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"저장 — {OUT.relative_to(ROOT)}")
