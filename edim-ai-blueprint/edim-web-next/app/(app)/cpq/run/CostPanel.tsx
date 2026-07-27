@@ -35,7 +35,12 @@ export function CostPanel({ runId }: { runId: number }) {
     const r = await createPcr(bt)
     if (r.error) { setMsg({ text: r.error, err: true }); return }
     setPcr(r.pcr!)
-    setMsg({ text: `PCR ✓ — ${bt} 기여마진 ${k(r.pcr!.contributionMargin)} · EBIT ${k(r.pcr!.ebit)}` })
+    // 18.80 — 근거가 테스트 Run 이면 성공 문구로 뭉뚱그리지 않는다(견적 확정의 근거가 된다).
+    const pcr = r.pcr!
+    const base = `PCR ✓ — ${bt} 기여마진 ${k(pcr.contributionMargin)} · EBIT ${k(pcr.ebit)}`
+    setMsg(pcr.basisIsTest
+      ? { text: `${base} — ⚠ 원가 기준이 테스트 Run #${pcr.basisRunId} 입니다`, err: true }
+      : { text: base })
   })
   const makeQuote = () => start(async () => {
     const r = await createQuotation(bt, cur, taxCode)

@@ -6,7 +6,9 @@ export interface RunCostRow { calcType: 'MATERIAL' | 'MANUFACTURING' | 'DIRECT';
 import type { Money } from '@/lib/money'
 
 // 18.65 — 금액은 통제에 따라 숫자·자릿수 문자열·null 로 온다.
-export interface PcrResult { pcrId: number; businessType: string; revenue: Money; directCostTotal: Money; contributionMargin: Money; ebit: Money }
+export interface PcrResult { pcrId: number; businessType: string; revenue: Money; directCostTotal: Money; contributionMargin: Money; ebit: Money
+  // 18.80 — 원가 기준이 테스트로 표시된 Run 이면 그 사실을 화면에 남긴다.
+  basisRunId?: number; basisIsTest?: boolean; notes?: string[] }
 export interface QuotationRow { quotationId: number; quotationNo: string; total: Money; currency: string; status: string; date: string; project: string; customer: string; taxCode?: string; taxPct?: number; subtotal?: Money; tax?: Money
   /** 발행 시점 원가 근거 — basisComplete=null 은 이 기능 도입 전 발행분(확인 불가). */
   unpricedCount?: number; unpricedCodes?: string[]; basisComplete?: boolean | null; basisKnown?: boolean }

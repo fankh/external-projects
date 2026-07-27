@@ -3563,6 +3563,11 @@ DELIVER_FOLDERS = ["DWG", "PRICE", "DATA", "BOM"]
 def files_export_package(request: Request, project: str = "PS-61313-5") -> StreamingResponse:
     """고객 전달용 내보내기 (E2) — **최신 Run 산출물** + 작도 원본 ZIP + 전달 매니페스트.
 
+    18.80 — **테스트로 표시한 Run 의 산출물은 담지 않는다.** `cpq_run.is_test` 는 통계에서만
+    제외되고 있었는데, 최신 SUCCESS Run 이 테스트 Run 인 경우가 실제로 있다(운영 데이터에서
+    확인). 그러면 고객에게 **TEST 로 표시된 실행의 산출물이 납품**된다 — 정책 판단이 필요한
+    영역이 아니라 명백한 오류라 여기서 막는다.
+
     18.77 — 종전에는 프로젝트의 DELIVER_FOLDERS 파일을 **전부** 담았다. Run 마다 산출물이
     한 벌씩 쌓이므로 운영 데이터에서 DWG·PRICE 가 각각 1,654건이었고, 전달본에 같은 견적서와
     도면이 **Run 수만큼 중복**돼 들어갔다. 고객에게 보내는 것은 '지금 산출물' 이지 '실행
@@ -3590,10 +3595,12 @@ def files_export_package(request: Request, project: str = "PS-61313-5") -> Strea
                           JOIN cpq_selection s ON s.selection_id=r.selection_id
                                               AND s.tenant_id=r.tenant_id
                           WHERE s.project_id=p.project_id AND r.status='SUCCESS'
+                            AND NOT r.is_test
                             AND r.run_id = (SELECT max(r2.run_id) FROM cpq_run r2
                                             JOIN cpq_selection s2
                                               ON s2.selection_id=r2.selection_id
                                             WHERE r2.tenant_id=%s AND r2.status='SUCCESS'
+                                              AND NOT r2.is_test
                                               AND s2.project_id=p.project_id)))
                ORDER BY f.folder, f.file_id""",
             (tid, project, DELIVER_FOLDERS, tid, tid))
@@ -9646,7 +9653,10 @@ def cost_variance(request: Request, project: str = "") -> dict[str, Any]:
                 for k in ("estimate", "actual", "variance"):
                     if k in c:
                         c[k] = _mask_num(c[k], _cm)
-        return {"runId": run_id, "estimateAvailable": run_id is not None, "projectNo": proj,
+        # 18.80 — 추정치의 근거 Run 이 테스트 실행이면 그 사실을 함께 돌려준다.
+        basis_is_test = _cost_base_is_test(cur, tid, run_id) if run_id else False
+        return {"runId": run_id, "estimateAvailable": run_id is not None,
+                "basisIsTest": basis_is_test, "projectNo": proj,
                 "categories": cats, "totalEstimate": _mask_num(te, _cm),
                 "totalActual": _mask_num(ta, _cm),
                 "totalVariance": _mask_num(tv, _cm), "totalVarianceRate": round(trate, 4),
@@ -14943,6 +14953,23 @@ def _latest_cost_base(cur, tid: int, project_no: str = "") -> tuple[int, dict[st
     return rows[0][0], totals
 
 
+def _cost_base_is_test(cur, tid: int, run_id: int) -> bool:
+    """원가 기준으로 잡힌 Run 이 **테스트로 표시된 실행**인가 (18.80).
+
+    `cpq_run.is_test` 는 지금까지 통계 집계에서만 제외됐다(문서에 적힌 범위도 거기까지다).
+    그런데 `_latest_cost_base` 는 최신 SUCCESS Run 을 그대로 고르므로, 테스트 Run 이
+    **PCR·견적 확정·차이분석의 근거**가 될 수 있다(운영 데이터에서 최신 SUCCESS 가 테스트
+    Run 인 경우를 확인했다).
+
+    이것이 의도인지 아닌지는 요구사항이 답하지 않는다 — 그래서 **숫자를 임의로 바꾸지 않고
+    사실만 드러낸다.** 고객 전달본처럼 명백히 잘못인 자리는 따로 막았다(같은 18.80).
+    """
+    cur.execute("SELECT COALESCE(is_test,false) FROM cpq_run WHERE tenant_id=%s AND run_id=%s",
+                (tid, run_id))
+    r = cur.fetchone()
+    return bool(r and r[0])
+
+
 def _cost_base_unpriced(cur, tid: int, run_id: int) -> list[dict[str, Any]]:
     """해당 Run 에서 단가를 찾지 못한 품목 — 0 원으로 합계에 들어간 항목들.
 
@@ -14994,6 +15021,7 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
         # 나오지 않도록 사실을 함께 실어 보낸다.
         unpriced = _cost_base_unpriced(cur, tid, run_id)
         mfg_estimated = _cost_base_mfg_estimated(cur, tid, run_id)
+        basis_is_test = _cost_base_is_test(cur, tid, run_id)   # 18.80
         direct_total = sum(totals.values())
         revenue = round(direct_total * (1 + body.marginRate))
         sga = round(revenue * 0.08)
@@ -15033,7 +15061,11 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
             "unpricedCodes": [u.get("code") for u in unpriced][:20],
             "basisComplete": not unpriced,
             "mfgEstimated": mfg_estimated,
-            "notes": ([] if not unpriced else
+            "basisRunId": run_id, "basisIsTest": basis_is_test,
+            "notes": ([] if not basis_is_test else
+                      [f"원가 기준이 **테스트로 표시된 Run #{run_id}** 입니다 — "
+                       "업무 Run 으로 다시 실행한 뒤 확정하십시오"])
+                     + ([] if not unpriced else
                       [f"단가 미해결 {len(unpriced)}건이 0 원으로 집계됐습니다 — "
                        f"원가·매출·EBIT 가 실제보다 낮습니다 "
                        f"({', '.join(str(u.get('code')) for u in unpriced[:3])}"
