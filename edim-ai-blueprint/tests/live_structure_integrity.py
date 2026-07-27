@@ -104,9 +104,11 @@ with sync_playwright() as pw:
     ZZ = "ZZORPHAN"
     try:
         psql(f"DELETE FROM tbl_data_table WHERE table_name='{ZZ}'")
+        # psql 헬퍼가 SQL 을 큰따옴표로 감싸므로 **SQL 안에 큰따옴표를 쓰지 않는다**
+        # (JSON 리터럴을 그대로 넣었다가 인용이 깨져 INSERT 가 조용히 실패했다).
         psql("INSERT INTO tbl_data_table (tenant_id, table_name, table_type, column_def, "
              f"hierarchy_address) SELECT tenant_id, '{ZZ}', 'TECH', "
-             """'{"columns":[]}'::jsonb, '/ZZ-NOSUCH-NODE/x' """
+             "'{}'::jsonb, '/ZZ-NOSUCH-NODE/x' "
              "FROM sys_user WHERE login_id='edim'")
         planted = psql(f"SELECT count(*) FROM tbl_data_table WHERE table_name='{ZZ}'")
         ok(f"고아 자산 심음 ({planted})", planted == "1")
