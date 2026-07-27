@@ -5,6 +5,7 @@
 실행: PYTHONUTF8=1 py tests/live_all.py
 """
 import os
+import re
 import subprocess
 import sys
 import time
@@ -80,6 +81,7 @@ SUITES = [
     "live_idempotency.py",       # 재시도 안전 — Idempotency-Key (18.45)
     "live_storage_ns.py",        # 저장소 키 테넌트 이름 공간 (18.57)
     "live_filter_honesty.py",    # 필터 인자가 실제로 거르는가 (18.62)
+    "live_dashboard_masking.py", # 대시보드 경로의 정보그룹 통제 (18.66~18.67)
     "live_audit_trail.py",      # 감사 추적·알림 도달 (13.8) — 쓰기가 이력에 남는지
     "live_session_notify.py",   # 세션 즉시 차단·알림 정직 보고 (15.3)
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
@@ -196,16 +198,41 @@ results: list[tuple[str, bool, str]] = []
 # 공유 서버·테스트 테넌트를 동시에 두드려 시드 데이터를 손상시킨 사고가 반복됐다(BOM 행·계정 유실).
 # 다른 플릿이 도는 중이면(락 40분 이내) 시작을 거부한다. FORCE_FLEET=1 로 우회.
 _LOCK = os.path.join(HERE, ".fleet_lock")
+def _pid_alive(pid: int) -> bool:
+    """18.64 — 락에 적힌 프로세스가 아직 사는가.
+
+    플릿을 강제 종료하면 atexit 가 돌지 않아 락이 남고, 그 뒤 40분 동안 모든 실행이
+    '다른 플릿이 실행 중' 으로 거부된다. 실제로는 아무도 돌고 있지 않은데 **검증이 통째로
+    건너뛰어지는** 상태다. 죽은 pid 의 락은 회수한다.
+    """
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        r = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                           capture_output=True, text=True)
+        return str(pid) in (r.stdout or "")
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
 if os.getenv("FORCE_FLEET") != "1" and os.path.exists(_LOCK):
     age = time.time() - os.path.getmtime(_LOCK)
-    if age < 40 * 60:
-        try:
-            who = open(_LOCK, encoding="utf-8").read().strip()
-        except Exception:  # noqa: BLE001
-            who = "?"
+    try:
+        who = open(_LOCK, encoding="utf-8").read().strip()
+    except Exception:  # noqa: BLE001
+        who = "?"
+    m = re.search(r"pid=(\d+)", who)
+    holder = int(m.group(1)) if m else -1
+    if age < 40 * 60 and _pid_alive(holder):
         print(f"ABORT — 다른 플릿이 실행 중 (락 {int(age)}s 전 · {who}). "
               "동시 실행은 데이터 충돌을 유발한다. 끝난 뒤 재시도하거나 FORCE_FLEET=1 로 우회.")
         raise SystemExit(2)
+    if age < 40 * 60:
+        print(f"락 회수 — 기록된 프로세스가 없다 ({who}, {int(age)}s 전). "
+              "강제 종료로 남은 락이므로 이어서 실행한다.")
 import atexit  # noqa: E402
 with open(_LOCK, "w", encoding="utf-8") as _lf:
     _lf.write(f"pid={os.getpid()} at={time.strftime('%H:%M:%S')}")

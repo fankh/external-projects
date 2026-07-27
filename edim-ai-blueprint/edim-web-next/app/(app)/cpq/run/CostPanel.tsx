@@ -1,5 +1,6 @@
 'use client'
 
+import type { Money } from '@/lib/money'
 import { useEffect, useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
@@ -8,6 +9,9 @@ import { loadCostPanel, createPcr, createQuotation, type RunCostRow, type PcrRes
 const CALC_LABEL: Record<string, string> = { MATERIAL: '재료비', MANUFACTURING: '제조비', DIRECT: '직접경비' }
 
 /** B18 — 원가 상세(cst_calc) → PCR 수익성 → 견적 확정(cst_quotation). */
+// 18.65 — 가려진 금액을 1000 으로 나누면 NaN·0 이 된다. 나누지 말고 가려진 채로 보인다.
+const k = (v: Money) => (typeof v === 'number' ? `${(v / 1000).toLocaleString()}K` : v === null || v === undefined ? '••••' : String(v))
+
 export function CostPanel({ runId }: { runId: number }) {
   const { t } = useI18n()
   const [costs, setCosts] = useState<RunCostRow[] | null>(null)
@@ -29,7 +33,7 @@ export function CostPanel({ runId }: { runId: number }) {
     const r = await createPcr(bt)
     if (r.error) { setMsg({ text: r.error, err: true }); return }
     setPcr(r.pcr!)
-    setMsg({ text: `PCR ✓ — ${bt} 기여마진 ${(r.pcr!.contributionMargin / 1000).toLocaleString()}K · EBIT ${(r.pcr!.ebit / 1000).toLocaleString()}K` })
+    setMsg({ text: `PCR ✓ — ${bt} 기여마진 ${k(r.pcr!.contributionMargin)} · EBIT ${k(r.pcr!.ebit)}` })
   })
   const makeQuote = () => start(async () => {
     const r = await createQuotation(bt, cur, taxCode)
@@ -70,7 +74,7 @@ export function CostPanel({ runId }: { runId: number }) {
             {taxOpts.map((tt) => <option key={tt.code} value={tt.code}>{tt.code} {tt.ratePct}%</option>)}
           </select>
           <button className="b" disabled={pending} onClick={makeQuote} style={{ height: 22, fontSize: 11 }}>{t('run.quoteConfirm', '견적 확정')}</button>
-          {pcr ? <span style={{ fontSize: 10.5 }}>{t('run.pcrMargin', '기여마진')} <b>{(pcr.contributionMargin / 1000).toLocaleString()}K</b> · EBIT <b style={{ color: pcr.ebit >= 0 ? 'var(--ok)' : 'var(--err)' }}>{(pcr.ebit / 1000).toLocaleString()}K</b></span> : null}
+          {pcr ? <span style={{ fontSize: 10.5 }}>{t('run.pcrMargin', '기여마진')} <b>{k(pcr.contributionMargin)}</b> · EBIT <b style={{ color: typeof pcr.ebit === 'number' && pcr.ebit >= 0 ? 'var(--ok)' : 'var(--err)' }}>{k(pcr.ebit)}</b></span> : null}
         </div>
         {quotes.length ? (
           <table className="g"><thead><tr><th>No.</th><th>{t('run.quoteTotal', '금액')}</th><th>{t('run.quoteTax', '세액')}</th><th>{t('dwg.dateCol', '일자')}</th><th>PDF</th></tr></thead>

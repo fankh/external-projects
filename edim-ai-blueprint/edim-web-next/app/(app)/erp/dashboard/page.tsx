@@ -1,3 +1,4 @@
+import { won as wonFmt, sumMoney, type Money } from '@/lib/money'
 import Link from 'next/link'
 import { apiServer, ApiError } from '@/lib/api'
 import { getLocale } from '@/lib/session'
@@ -13,15 +14,16 @@ const KPI_DRILL: Record<string, string> = {
 }
 
 interface Dash { kpis: { label: string; value: string; err?: boolean }[]; deptEvents: { dept: string; waiting: number; running: number; doneWeek: number; delayed: number }[] }
-interface VarCat { category: string; label: string; estimate: number; actual: number; variance: number; varianceRate: number; alert: boolean }
+interface VarCat { category: string; label: string; estimate: Money; actual: Money; variance: Money; varianceRate: number; alert: boolean }
 interface Analytics {
   runStats: { total: number; success: number; failed: number; successRate: number; avgDurationSec: number }
-  costByType: Record<string, { total: number; runs: number }>
-  variance?: { categories: VarCat[]; totalEstimate: number; totalActual: number; totalVariance: number; totalVarianceRate: number; alert: boolean; hasActual: boolean }
-  monthlyOrders?: { month: string; revenue: number; margin: number | null; marginRate: number | null; orders: number }[]
+  costByType: Record<string, { total: Money; runs: number }>
+  variance?: { categories: VarCat[]; totalEstimate: Money; totalActual: Money; totalVariance: Money; totalVarianceRate: number; alert: boolean; hasActual: boolean }
+  monthlyOrders?: { month: string; revenue: Money; margin: Money; marginRate: number | null; orders: number }[]
 }
 
-const won = (n: number) => `₩ ${Math.round(n).toLocaleString()}`
+// 18.65 — 마스킹 값(null/문자열)을 숫자처럼 찍지 않는다. 공용 포맷터.
+const won = (v: Money) => wonFmt(v, true)
 const pct = (r: number) => `${r >= 0 ? '+' : ''}${(r * 100).toFixed(1)}%`
 
 export const dynamic = 'force-dynamic'
@@ -39,16 +41,18 @@ export default async function DashboardPage() {
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
+  // 18.65 — 가려진 값으로는 막대 길이를 만들 수 없다. 0 폭으로 두고 금액 칸이 '••••' 를 말한다.
+  const num = (v: Money) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
   const v = an?.variance
   const mo = an?.monthlyOrders ?? []
-  const maxRev = Math.max(1, ...mo.map((m) => m.revenue))
+  const maxRev = Math.max(1, ...mo.map((m) => num(m.revenue)))
   const cost = an?.costByType ?? {}
   const costRows = [
-    { k: t('dash.costMat', '재료비'), v: cost.MATERIAL?.total ?? 0, c: '#2F6FB0' },
-    { k: t('dash.costMfg', '제조비'), v: cost.MANUFACTURING?.total ?? 0, c: '#2F9463' },
-    { k: t('dash.costDir', '직접경비'), v: cost.DIRECT?.total ?? 0, c: '#B4820B' },
+    { k: t('dash.costMat', '재료비'), v: cost.MATERIAL?.total, c: '#2F6FB0' },
+    { k: t('dash.costMfg', '제조비'), v: cost.MANUFACTURING?.total, c: '#2F9463' },
+    { k: t('dash.costDir', '직접경비'), v: cost.DIRECT?.total, c: '#B4820B' },
   ]
-  const maxCost = Math.max(1, ...costRows.map((r) => r.v))
+  const maxCost = Math.max(1, ...costRows.map((r) => num(r.v)))
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -97,7 +101,7 @@ export default async function DashboardPage() {
                   <div key={r.k} style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '3px 0', fontSize: 11 }}>
                     <span style={{ width: 52, color: 'var(--txt-dim)' }}>{r.k}</span>
                     <div style={{ flex: 1, background: '#EEF1F5', height: 12 }}>
-                      <div style={{ width: `${(r.v / maxCost) * 100}%`, height: '100%', background: r.c }} />
+                      <div style={{ width: `${(num(r.v) / maxCost) * 100}%`, height: '100%', background: r.c }} />
                     </div>
                     <span style={{ width: 96, textAlign: 'right' }}>{won(r.v)}</span>
                   </div>
@@ -112,7 +116,7 @@ export default async function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
               <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--title-navy)' }}>{t('dash.monthlyTitle', '월별 매출·기여마진 추이 — 수주(ORDERED)')}</span>
               {mo.length ? (
-                <span className="chip info">{mo.reduce((s, m) => s + m.orders, 0)}건 · {won(mo.reduce((s, m) => s + m.revenue, 0))}</span>
+                <span className="chip info">{mo.reduce((s, m) => s + m.orders, 0)}건 · {won(sumMoney(mo.map((m) => m.revenue)))}</span>
               ) : (
                 <span className="chip info">{t('dash.noOrders', '수주 데이터 없음')}</span>
               )}
@@ -121,14 +125,14 @@ export default async function DashboardPage() {
               <div key={m.month} style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '3px 0', fontSize: 11 }}>
                 <span style={{ width: 56, color: 'var(--txt-dim)' }}>{m.month}</span>
                 <div style={{ flex: 1, background: '#EEF1F5', height: 12, position: 'relative' }}>
-                  <div style={{ width: `${(m.revenue / maxRev) * 100}%`, height: '100%', background: '#2F6FB0' }} />
-                  {m.margin !== null && m.margin >= 0 ? (
-                    <div style={{ position: 'absolute', left: 0, top: 0, width: `${(m.margin / maxRev) * 100}%`, height: '100%', background: '#2F9463', opacity: 0.85 }} />
+                  <div style={{ width: `${(num(m.revenue) / maxRev) * 100}%`, height: '100%', background: '#2F6FB0' }} />
+                  {typeof m.margin === 'number' && m.margin >= 0 ? (
+                    <div style={{ position: 'absolute', left: 0, top: 0, width: `${(num(m.margin) / maxRev) * 100}%`, height: '100%', background: '#2F9463', opacity: 0.85 }} />
                   ) : null}
                 </div>
                 <span style={{ width: 110, textAlign: 'right' }}>{won(m.revenue)}</span>
                 <span style={{ width: 120, textAlign: 'right', color: 'var(--txt-dim)' }}>
-                  {m.margin !== null ? `${t('dash.contribLabel', '기여')} ${won(m.margin)}` : `${t('dash.contribLabel', '기여')} —`}
+                  {m.margin !== null && m.margin !== undefined ? `${t('dash.contribLabel', '기여')} ${won(m.margin)}` : `${t('dash.contribLabel', '기여')} —`}
                   {m.marginRate !== null ? ` (${(m.marginRate * 100).toFixed(1)}%)` : ''}
                 </span>
                 <span style={{ width: 34, textAlign: 'right', color: 'var(--txt-mute)' }}>{m.orders}건</span>

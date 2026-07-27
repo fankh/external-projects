@@ -75,6 +75,13 @@ st, _ = get("/anomalies", {"status": NONSENSE})
 ok(f"/anomalies 모르는 상태 422 ({st})", st == 422)
 st, _ = get("/anomalies", {"source": NONSENSE})
 ok(f"/anomalies 모르는 출처 422 ({st})", st == 422)
+# 18.68 — 화이트리스트는 **DB CHECK 제약과 같은 목록**이어야 한다. 어긋나면 실제로 쓰이는
+# 값이 '모르는 값' 이 된다. `SECURITY` 가 빠져 있었고, 종전 구현은 모르는 값에 조건을 버려
+# `?source=SECURITY` 가 전체를 돌려줬다(검증은 결과가 비어 있을 때만 봐서 못 알아챘다).
+for src in ("QC", "COST", "MILESTONE", "MANUAL", "SECURITY"):
+    st, _ = get("/anomalies", {"source": src})
+    ok(f"/anomalies?source={src} 200 ({st})", st == 200)
+
 st, b = get("/anomalies", {"status": "open"})
 ok(f"/anomalies 아는 값은 통과 ({st})", st == 200)
 ok("소문자도 받는다", all(r["status"] == "OPEN" for r in (b or {}).get("rows", [])))

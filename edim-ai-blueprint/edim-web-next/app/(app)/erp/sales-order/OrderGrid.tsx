@@ -1,16 +1,18 @@
 'use client'
 
+import { won as wonFmt, sortMoney, type Money } from '@/lib/money'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
 
 export interface OrderRow {
-  quotationNo: string; contractAmount: number; quoteAmount: number
+  quotationNo: string; contractAmount: Money; quoteAmount: Money
   orderDate: string; expectedDelivery: string | null; project: string
   projectName: string; stage: string; customer: string
 }
 
-const won = (n: number) => `₩ ${Math.round(n).toLocaleString()}`
+// 18.65 — 마스킹 값(null/문자열)을 숫자처럼 찍지 않는다. 공용 포맷터.
+const won = (v: Money) => wonFmt(v, true)
 
 export function OrderGrid({ rows }: { rows: OrderRow[] }) {
   const { t } = useI18n()
@@ -18,8 +20,8 @@ export function OrderGrid({ rows }: { rows: OrderRow[] }) {
     { key: 'no', header: t('order.quoteNo', '견적번호'), width: 130, code: true, render: (r) => r.quotationNo },
     { key: 'proj', header: 'Project', width: 100, render: (r) => r.project },
     { key: 'cust', header: t('order.customer', '고객'), width: 100, render: (r) => r.customer || '—' },
-    { key: 'quote', header: t('so.quoteAmount', '견적액'), width: 110, align: 'right', sortValue: (r) => r.quoteAmount, render: (r) => won(r.quoteAmount) },
-    { key: 'contract', header: t('so.contractAmount', '계약액'), width: 110, align: 'right', code: true, sortValue: (r) => r.contractAmount, render: (r) => won(r.contractAmount) },
+    { key: 'quote', header: t('so.quoteAmount', '견적액'), width: 110, align: 'right', sortValue: (r) => sortMoney(r.quoteAmount), render: (r) => won(r.quoteAmount) },
+    { key: 'contract', header: t('so.contractAmount', '계약액'), width: 110, align: 'right', code: true, sortValue: (r) => sortMoney(r.contractAmount), render: (r) => won(r.contractAmount) },
     { key: 'order', header: t('order.orderDate', '수주일'), width: 96, align: 'center', render: (r) => r.orderDate || '—' },
     { key: 'exp', header: t('so.expDelivery', '예상납기'), width: 96, align: 'center', render: (r) => r.expectedDelivery || '—' },
     { key: 'stage', header: t('order.stage', '단계'), width: 76, align: 'center', sortValue: (r) => r.stage, render: (r) => <Chip tone="ok">{r.stage}</Chip> },

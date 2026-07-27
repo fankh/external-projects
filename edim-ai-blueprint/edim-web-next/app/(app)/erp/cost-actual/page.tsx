@@ -1,3 +1,4 @@
+import { won as wonFmt, type Money } from '@/lib/money'
 import { apiServer, ApiError } from '@/lib/api'
 import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
@@ -5,10 +6,11 @@ import { SearchBox } from '@/components/SearchBox'
 import { ActualGrid, type ActualRow } from './ActualGrid'
 import { ActualForm } from './ActualForm'
 
-interface VarCat { category: string; label: string; estimate: number; actual: number; variance: number; varianceRate: number; alert: boolean }
-interface Variance { estimateAvailable: boolean; categories: VarCat[]; totalEstimate: number; totalActual: number; totalVariance: number; totalVarianceRate: number; alert: boolean }
+interface VarCat { category: string; label: string; estimate: Money; actual: Money; variance: Money; varianceRate: number; alert: boolean }
+interface Variance { estimateAvailable: boolean; categories: VarCat[]; totalEstimate: Money; totalActual: Money; totalVariance: Money; totalVarianceRate: number; alert: boolean }
 
-const won = (n: number) => `₩ ${Math.round(n).toLocaleString()}`
+// 18.65 — 마스킹 값(null/문자열)을 숫자처럼 찍지 않는다. 공용 포맷터.
+const won = (v: Money) => wonFmt(v, true)
 const pct = (r: number) => `${r >= 0 ? '+' : ''}${(r * 100).toFixed(1)}%`
 
 export const dynamic = 'force-dynamic'
@@ -52,7 +54,7 @@ export default async function CostActualPage({ searchParams }: { searchParams: P
                     <td>{c.label}</td>
                     <td className="num">{won(c.estimate)}</td>
                     <td className="num">{won(c.actual)}</td>
-                    <td className="num" style={{ color: c.variance > 0 ? 'var(--err)' : 'var(--ok)' }}>{won(c.variance)}</td>
+                    <td className="num" style={{ color: typeof c.variance === 'number' && c.variance > 0 ? 'var(--err)' : 'var(--ok)' }}>{won(c.variance)}</td>
                     <td className="num" style={{ color: c.alert ? 'var(--err)' : undefined }}>{pct(c.varianceRate)}{c.alert ? ' ⚠' : ''}</td>
                   </tr>
                 ))}

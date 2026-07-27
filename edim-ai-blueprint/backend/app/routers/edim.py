@@ -8011,9 +8011,18 @@ def running_test(body: RunningTestRequest) -> dict[str, Any]:
 
 # ── SVC-09 Dashboard 집계 (ERP-014) ──
 @router.get("/erp/dashboard")
-def dashboard() -> dict[str, Any]:
+def dashboard(request: Request) -> dict[str, Any]:
+    """ERP 대시보드 KPI.
+
+    18.67 — '이번 달 수주' 가 **하드코딩된 `₩ 8.4억`** 이었다. 주석은 '견적/수주 모듈 구축
+    전 고정값' 이라 적혀 있었는데 그 모듈은 이미 있다(같은 파일의 `/erp/analytics` 가
+    `cst_quotation(ORDERED)` 로 월 매출을 실제로 집계한다). 화면 맨 위에서 **지어낸 숫자가
+    실적처럼** 보이던 자리다 — 0 을 보여주는 것보다 나쁘다. 실제 값으로 바꾸고, 견적 금액과
+    같은 성격이므로 `quote` 그룹 통제를 따른다.
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        qm = _info_mode(cur, tid, request, "quote")   # 8.6 — 질의 전에 확정
         cur.execute(
             "SELECT count(*) FROM prj_project WHERE tenant_id=%s AND status='IN_PROGRESS'", (tid,))
         projects = cur.fetchone()[0]
@@ -8039,11 +8048,25 @@ def dashboard() -> dict[str, Any]:
             {"dept": r[0], "waiting": r[1], "running": r[2], "doneWeek": r[3], "delayed": r[4]}
             for r in cur.fetchall()
         ]
+        cur.execute(
+            """SELECT COALESCE(sum(COALESCE(contract_amount, total_amount)),0), count(*)
+               FROM cst_quotation
+               WHERE tenant_id=%s AND status='ORDERED' AND order_date IS NOT NULL
+                 AND date_trunc('month', order_date) = date_trunc('month', CURRENT_DATE)""",
+            (tid,))
+        won_amt, won_cnt = cur.fetchone()
+    masked = _mask_num(float(won_amt), qm)
+    if masked is None:
+        won_label = "••••"           # hidden/summary — 가려졌다는 것을 그대로 보인다
+    elif isinstance(masked, str):
+        won_label = masked           # masked — 서버가 만든 자릿수 표기
+    else:
+        won_label = f"₩ {int(masked):,}"
     return {
         "kpis": [
             {"label": "진행 Project", "value": str(projects)},
             {"label": "승인 대기", "value": str(pending)},
-            {"label": "이번 달 수주", "value": "₩ 8.4억"},   # 견적/수주 모듈 구축 전 고정값
+            {"label": "이번 달 수주", "value": won_label, "note": f"{won_cnt}건"},
             {"label": "이상 경고 (시간·자금)", "value": str(alerts), "err": alerts > 0},
         ],
         "deptEvents": depts,
@@ -8051,10 +8074,21 @@ def dashboard() -> dict[str, Any]:
 
 
 @router.get("/erp/analytics")
-def analytics() -> dict[str, Any]:
-    """C3 분석 — Run 통계(cpq_run) + 원가 추이(cst_calc) 누적 집계."""
+def analytics(request: Request) -> dict[str, Any]:
+    """C3 분석 — Run 통계(cpq_run) + 원가 추이(cst_calc) 누적 집계.
+
+    18.66 — 이 경로만 **정보그룹 통제를 지나지 않았다.** 같은 수치를 `/cpq/runs/{id}/costs`·
+    `/cost/variance`·PCR 은 `cost` 그룹으로 마스킹하는데, ERP 대시보드가 부르는 여기서는
+    누적 원가·차이분석·월별 기여마진이 **그대로** 나갔다. `request` 인자가 없어 열람 모드를
+    물어볼 방법 자체가 없었던 것이 원인이다 — 통제를 우회한 게 아니라 통제에 닿지 못했다.
+    월 매출(수주 계약액)은 `quote` 그룹을 따른다(견적 금액과 같은 성격).
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 8.6 — 열람 모드 조회는 **질의 전에** 끝낸다. execute 와 fetch 사이에서 부르면 같은
+        # 커서로 다시 질의해 결과셋이 갈린다(정적 게이트가 이 실수를 배포 전에 잡았다).
+        cm = _info_mode(cur, tid, request, "cost")
+        qm = _info_mode(cur, tid, request, "quote")
         # E3 — 테스트성 Run 은 업무 통계에서 제외 (is_test)
         cur.execute(
             """SELECT count(*), count(*) FILTER (WHERE status='SUCCESS'),
@@ -8072,7 +8106,7 @@ def analytics() -> dict[str, Any]:
         cur.execute(
             """SELECT calc_type, COALESCE(sum(total_amount),0), count(DISTINCT run_id)
                FROM cst_calc WHERE tenant_id=%s GROUP BY calc_type""", (tid,))
-        cost = {x[0]: {"total": float(x[1]), "runs": x[2]} for x in cur.fetchall()}
+        cost = {x[0]: {"total": _mask_num(float(x[1]), cm), "runs": x[2]} for x in cur.fetchall()}
         # 최근 원가 있는 Run 별 3분류 (추이 — 최근 8건)
         cur.execute(
             """SELECT run_id,
@@ -8080,8 +8114,9 @@ def analytics() -> dict[str, Any]:
                       sum(total_amount) FILTER (WHERE calc_type='MANUFACTURING'),
                       sum(total_amount) FILTER (WHERE calc_type='DIRECT')
                FROM cst_calc WHERE tenant_id=%s GROUP BY run_id ORDER BY run_id DESC LIMIT 8""", (tid,))
-        trend = [{"runId": x[0], "material": float(x[1] or 0), "manufacturing": float(x[2] or 0),
-                  "direct": float(x[3] or 0)} for x in cur.fetchall()][::-1]
+        trend = [{"runId": x[0], "material": _mask_num(float(x[1] or 0), cm),
+                  "manufacturing": _mask_num(float(x[2] or 0), cm),
+                  "direct": _mask_num(float(x[3] or 0), cm)} for x in cur.fetchall()][::-1]
         # C3 — 견적(추정) vs 실적 차이 위젯 (추정=최근 Run cst_calc, 실적=cst_actual)
         try:
             _, est = _latest_cost_base(cur, tid)
@@ -8094,14 +8129,20 @@ def analytics() -> dict[str, Any]:
         for c in COST_CATEGORIES:
             e = float(est.get(c, 0)); a = act.get(c, 0.0)
             rate = ((a - e) / e) if e else (1.0 if a else 0.0)
-            vcats.append({"category": c, "label": COST_CAT_LABEL[c], "estimate": e, "actual": a,
-                          "variance": round(a - e, 2), "varianceRate": round(rate, 4),
+            vcats.append({"category": c, "label": COST_CAT_LABEL[c],
+                          "estimate": _mask_num(e, cm), "actual": _mask_num(a, cm),
+                          "variance": _mask_num(round(a - e, 2), cm),
+                          "varianceRate": round(rate, 4),
                           "alert": rate > VARIANCE_ALERT_RATE})
-        te = sum(x["estimate"] for x in vcats); ta = sum(x["actual"] for x in vcats)
+        # 비율·경보는 값이 아니라 판단이라 그대로 둔다(마스킹 대상은 금액이다).
+        te = sum(float(est.get(c, 0)) for c in COST_CATEGORIES)
+        ta = sum(act.get(c, 0.0) for c in COST_CATEGORIES)
         trate = ((ta - te) / te) if te else (1.0 if ta else 0.0)
-        variance = {"categories": vcats, "totalEstimate": te, "totalActual": ta,
-                    "totalVariance": round(ta - te, 2), "totalVarianceRate": round(trate, 4),
-                    "alert": trate > VARIANCE_ALERT_RATE, "hasActual": ta > 0}
+        variance = {"categories": vcats, "totalEstimate": _mask_num(te, cm),
+                    "totalActual": _mask_num(ta, cm),
+                    "totalVariance": _mask_num(round(ta - te, 2), cm),
+                    "totalVarianceRate": round(trate, 4),
+                    "alert": trate > VARIANCE_ALERT_RATE, "hasActual": ta > 0, "maskMode": cm}
         # C3 잔여 — 월별 매출/기여마진 추이 (D1 수주: ORDERED 견적 계약액 + PCR 기여마진)
         cur.execute(
             """SELECT to_char(q.order_date,'YYYY-MM'),
@@ -8114,7 +8155,8 @@ def analytics() -> dict[str, Any]:
         for ym, rev, margin, cnt in cur.fetchall()[::-1]:
             rev = float(rev)
             m = float(margin) if margin is not None else None
-            monthly.append({"month": ym, "revenue": rev, "margin": m,
+            monthly.append({"month": ym, "revenue": _mask_num(rev, qm),
+                            "margin": _mask_num(m, cm),
                             "marginRate": round(m / rev, 4) if (m is not None and rev) else None,
                             "orders": cnt})
     return {
@@ -9089,6 +9131,14 @@ def anomaly_scan(request: Request) -> dict[str, Any]:
     return {"created": after - before, "total": after}
 
 
+# sys_anomaly 의 CHECK 제약과 **같은 목록**이어야 한다 (18.68).
+# 어긋나면 조회 필터가 실제로 존재하는 값을 모르는 값으로 취급한다. 실제로 `SECURITY` 가
+# 빠져 있었고, 종전 구현은 모르는 값이면 조건을 버렸으므로 `?source=SECURITY` 가 **전체를**
+# 돌려줬다. 검증도 결과가 비어 있을 때만 확인해 이를 알아채지 못했다.
+ANOMALY_SOURCES = ("QC", "COST", "MILESTONE", "MANUAL", "SECURITY")
+ANOMALY_STATUSES = ("OPEN", "ACK", "RESOLVED")
+
+
 @router.get("/anomalies")
 def anomaly_list(status: str = "", source: str = "", limit: int = 2000) -> dict[str, Any]:
     """이상 이벤트 목록 (통합) — 상태·출처 필터 + 요약.
@@ -9101,14 +9151,14 @@ def anomaly_list(status: str = "", source: str = "", limit: int = 2000) -> dict[
     # '전부 이상' 처럼 보인다. 빈 값(=전체)과 모르는 값은 다르다 — 후자는 알린다.
     st = status.strip().upper()
     if st:
-        if st not in ("OPEN", "ACK", "RESOLVED"):
-            raise HTTPException(422, detail=f"상태 오류: {status} (OPEN/ACK/RESOLVED)")
+        if st not in ANOMALY_STATUSES:
+            raise HTTPException(422, detail=f"상태 오류: {status} ({'/'.join(ANOMALY_STATUSES)})")
         clause += " AND status=%s"
         params.append(st)
     sc = source.strip().upper()
     if sc:
-        if sc not in ("QC", "COST", "MILESTONE", "MANUAL"):
-            raise HTTPException(422, detail=f"출처 오류: {source} (QC/COST/MILESTONE/MANUAL)")
+        if sc not in ANOMALY_SOURCES:
+            raise HTTPException(422, detail=f"출처 오류: {source} ({'/'.join(ANOMALY_SOURCES)})")
         clause += " AND source=%s"
         params.append(sc)
     with _conn() as conn, conn.cursor() as cur:

@@ -1,4 +1,5 @@
 import { apiServer, ApiError } from '@/lib/api'
+import { won, sumMoney } from '@/lib/money'
 import { getLocale } from '@/lib/session'
 import { bundleFor, translate } from '@/lib/i18n'
 import { StockGrid, type StockRow } from './StockGrid'
@@ -29,14 +30,16 @@ export default async function InventoryPage() {
   } catch (e) {
     err = e instanceof ApiError ? e.message : '조회 실패'
   }
-  const totalValue = rows.reduce((s, r) => s + (r.value ?? 0), 0)
+  // 18.65 — 가려진 값이 섞이면 합계는 성립하지 않는다. 0 으로 치고 더하면 실제보다 작은
+  // 총액이 사실처럼 표시된다.
+  const totalValue = sumMoney(rows.map((r) => r.value))
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="qband" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderBottom: '1px solid var(--line)' }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--title-navy)' }}>{t('inv.pageTitle', '재고 관리')} (D-2)</span>
         {!err ? <span className="chip info">{rows.length}{t('common.kinds', '종')}</span> : null}
-        {!err ? <span className="chip ok">{t('inv.totalValue', '총 평가액')} ₩{Math.round(totalValue).toLocaleString()}</span> : null}
+        {!err ? <span className="chip ok">{t('inv.totalValue', '총 평가액')} {won(totalValue, true)}</span> : null}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /erp/stock · atp · reservations · movements</span>
       </div>
