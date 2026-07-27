@@ -6640,12 +6640,16 @@ def audit_query(fromDate: str = "", toDate: str = "", user: str = "",
         truncated = len(fetched) > cap
         rows = [{"at": r[0], "target": r[1], "action": r[2], "by": r[3], "login": r[4],
                  "historyId": r[5], "before": r[6], "after": r[7]} for r in fetched[:cap]]
-        # 필터 드롭다운용 facet (전체 tenant 기준 distinct)
+        # 필터 드롭다운용 facet — 18.87: 종전에는 둘 다 `sys_history` 를 **전수 스캔**했다.
+        # 운영 실측(105,639행): action 49.8ms · login_id 61.8ms 인데 **본 조회는 0.6ms** 였다.
+        # 목록보다 드롭다운이 100배 비쌌고, 감사 이력은 보존 정책이 없어 계속 자라므로(#83)
+        # 이 비용도 함께 자란다(100만 행이면 약 0.5초).
+        #  · 동작: 인덱스(0063 `tenant_id, action`)로 Index Only Scan 으로 내린다.
+        #  · 사용자: 이력을 훑지 않고 **사용자 대장에서** 얻는다. 이력에 없는 사용자로
+        #    걸러도 '해당 없음' 이 나오는 것이 맞는 답이고, 비용은 테넌트 사용자 수로 묶인다.
         cur.execute("SELECT DISTINCT action FROM sys_history WHERE tenant_id=%s ORDER BY action", (tid,))
         actions = [r[0] for r in cur.fetchall()]
-        cur.execute(
-            """SELECT DISTINCT u.login_id FROM sys_history h JOIN sys_user u ON u.user_id=h.actor_id
-               WHERE h.tenant_id=%s ORDER BY u.login_id""", (tid,))
+        cur.execute("SELECT login_id FROM sys_user WHERE tenant_id=%s ORDER BY login_id", (tid,))
         users = [r[0] for r in cur.fetchall()]
     return {"rows": rows, "actions": actions, "users": users, "count": len(rows),
             "truncated": truncated, "limit": cap,
