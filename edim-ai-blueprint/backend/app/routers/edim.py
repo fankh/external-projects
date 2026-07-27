@@ -817,6 +817,31 @@ def _totp_verify(secret_b32: str, code: str) -> bool:
     return len(c) == 6 and any(_totp_code(secret_b32, _time.time() + d * 30) == c for d in (-1, 0, 1))
 
 
+def _auth_fail_streak(cur, tid: int, uid: int) -> int:
+    """마지막 로그인 성공·잠금해제 이후의 **연속 인증 실패 수** (19.0).
+
+    비밀번호 실패(`LOGIN_FAIL`)와 2단계 실패(`LOGIN_MFA_FAIL`)를 **함께** 센다. 둘 다 인증
+    실패이고, 이상 탐지기(`/anomaly/scan`)는 이미 둘을 함께 세어 "잠금 임계 5" 라고 알리고
+    있었다 — 세는 곳마다 기준이 다르면 알림과 실제가 어긋난다.
+    """
+    cur.execute(
+        """SELECT count(*) FROM sys_history
+           WHERE tenant_id=%s AND target_table='sys_user' AND target_id=%s
+             AND action IN ('LOGIN_FAIL','LOGIN_MFA_FAIL')
+             AND acted_at > COALESCE(
+               (SELECT max(acted_at) FROM sys_history
+                WHERE tenant_id=%s AND target_table='sys_user' AND target_id=%s
+                  AND action IN ('LOGIN_OK','UNLOCK')), '-infinity')""",
+        (tid, uid, tid, uid))
+    return int(cur.fetchone()[0])
+
+
+def _lock_account(cur, tid: int, uid: int, fails: int) -> None:
+    cur.execute("UPDATE sys_user SET status='LOCKED', updated_at=now() WHERE user_id=%s", (uid,))
+    _audit(cur, tid, "sys_user", uid, "LOCK", uid,
+           {"reason": f"인증 {fails}회 연속 실패 자동 잠금"})
+
+
 @router.post("/auth/login")
 def login(body: LoginRequest) -> dict[str, Any]:
     login_id = body.userId.strip()
@@ -864,22 +889,9 @@ def login(body: LoginRequest) -> dict[str, Any]:
         pw_ok, pw_upgraded = verify_password(body.password, row[4])
         if not pw_ok:
             _audit(cur, tid, "sys_user", uid, "LOGIN_FAIL", uid, {"login": login_id})
-            # 마지막 성공/잠금해제 이후 연속 실패 수 — 도달 시 자동 잠금
-            cur.execute(
-                """SELECT count(*) FROM sys_history
-                   WHERE tenant_id=%s AND target_table='sys_user' AND target_id=%s
-                     AND action='LOGIN_FAIL'
-                     AND acted_at > COALESCE(
-                       (SELECT max(acted_at) FROM sys_history
-                        WHERE tenant_id=%s AND target_table='sys_user' AND target_id=%s
-                          AND action IN ('LOGIN_OK','UNLOCK')), '-infinity')""",
-                (tid, uid, tid, uid))
-            fails = cur.fetchone()[0]
+            fails = _auth_fail_streak(cur, tid, uid)
             if fails >= MAX_LOGIN_FAILS:
-                cur.execute(
-                    "UPDATE sys_user SET status='LOCKED', updated_at=now() WHERE user_id=%s", (uid,))
-                _audit(cur, tid, "sys_user", uid, "LOCK", uid,
-                       {"reason": f"로그인 {fails}회 연속 실패 자동 잠금"})
+                _lock_account(cur, tid, uid, fails)
                 raise HTTPException(
                     403, detail=f"로그인 {MAX_LOGIN_FAILS}회 실패 — 계정이 잠겼습니다 (관리자 잠금 해제 필요)")
             raise HTTPException(
@@ -890,7 +902,20 @@ def login(body: LoginRequest) -> dict[str, Any]:
                 return {"mfaRequired": True}
             if not _totp_verify(row[6] or "", body.otp):
                 _audit(cur, tid, "sys_user", uid, "LOGIN_MFA_FAIL", uid, {"login": login_id})
-                raise HTTPException(401, detail="OTP 코드가 올바르지 않습니다 (인증 앱 확인)")
+                # 19.0 — OTP 실패도 **인증 실패**다. 종전에는 잠금 카운터가 `LOGIN_FAIL` 만 세어
+                # 2단계는 아무리 틀려도 잠기지 않았다. 비밀번호를 이미 아는 공격자에게 남는 것은
+                # 분당 30회 속도 제한뿐이라, 2차 요소가 시간만 벌어 줄 뿐 막지는 못했다.
+                # 이상 탐지기는 두 실패를 **함께 세어** "연속 N회 (잠금 임계 5)" 라고 알리고
+                # 있었다 — 제품이 스스로 어긋난 말을 하고 있었던 셈이다.
+                fails = _auth_fail_streak(cur, tid, uid)
+                if fails >= MAX_LOGIN_FAILS:
+                    _lock_account(cur, tid, uid, fails)
+                    raise HTTPException(
+                        403, detail=f"인증 {MAX_LOGIN_FAILS}회 실패 — 계정이 잠겼습니다 "
+                                    "(관리자 잠금 해제 필요)")
+                raise HTTPException(
+                    401, detail=f"OTP 코드가 올바르지 않습니다 (인증 앱 확인 · 실패 "
+                                f"{fails}/{MAX_LOGIN_FAILS})")
         # 레거시 sha256 해시를 이 시점에만 새 형식으로 승격한다 — 평문을 아는 유일한 순간.
         # 실패해도 로그인은 통과시킨다(보안 개선이 가용성을 깨지 않도록).
         if pw_upgraded:

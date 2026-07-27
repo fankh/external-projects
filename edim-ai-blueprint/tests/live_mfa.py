@@ -117,6 +117,34 @@ try:
                  f"WHERE u.login_id='{PROBE}' AND h.action='LOGIN_MFA_FAIL'")
     ok(f"실패가 감사에 남는다 ({fails}건)", fails.isdigit() and int(fails) >= 1)
 
+    # ── 19.0: OTP 를 계속 틀리면 계정이 잠기는가 ──
+    # 종전에는 잠금 카운터가 `LOGIN_FAIL` 만 세어 **2단계는 아무리 틀려도 잠기지 않았다**.
+    # 비밀번호를 이미 아는 공격자에게 남는 방어가 분당 30회 속도 제한뿐이면, 2차 요소는
+    # 시간만 벌어 줄 뿐 막지는 못한다. 이상 탐지기는 두 실패를 함께 세어 "잠금 임계 5" 라고
+    # 알리고 있었으므로, 알림과 실제가 어긋난 상태이기도 했다.
+    # (앞서 1회 틀렸으므로 임계까지 남은 횟수만 더 시도한다 — 임계를 넘겨 두드리지 않는다)
+    streak = int(psql(
+        "SELECT count(*) FROM sys_history h JOIN sys_user u ON u.user_id=h.target_id "
+        f"WHERE u.login_id='{PROBE}' AND h.action IN ('LOGIN_FAIL','LOGIN_MFA_FAIL') "
+        "AND h.acted_at > COALESCE((SELECT max(acted_at) FROM sys_history s "
+        f"WHERE s.target_id=u.user_id AND s.action IN ('LOGIN_OK','UNLOCK')), '-infinity')"))
+    ok(f"현재 연속 실패 {streak}회 (임계 5)", streak >= 1)
+    last = None
+    for i in range(streak + 1, 6):
+        last, _ = req("POST", "/auth/login", None,
+                      {"userId": PROBE, "password": PW, "otp": "000000"})
+        ok(f"OTP 실패 누적 {i}/5 ({last})", last in (401, 403))
+    ok(f"★ OTP 연속 실패로 계정이 잠긴다 ({last})", last == 403)
+    ok("상태가 LOCKED",
+       psql(f"SELECT status FROM sys_user WHERE login_id='{PROBE}'") == "LOCKED")
+    # 잠긴 계정은 **맞는 OTP 로도** 들어오지 못해야 한다 (잠금이 인증보다 앞선다)
+    st, r = req("POST", "/auth/login", None,
+                {"userId": PROBE, "password": PW, "otp": totp(secret)})
+    ok(f"★ 잠긴 뒤에는 맞는 OTP 도 통하지 않는다 ({st})", st == 403 and not (r or {}).get("token"))
+
+    st, _ = req("POST", f"/users/{PROBE}/unlock", ADM)
+    ok(f"관리자 잠금 해제 ({st})", st == 200)
+
     st, r = req("POST", "/auth/login", None,
                 {"userId": PROBE, "password": PW, "otp": totp(secret)})
     ok(f"맞는 OTP 로 로그인 ({st})", st == 200 and r.get("token"))
