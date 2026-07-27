@@ -35,7 +35,10 @@ export default async function InventoryPage() {
   // 18.74 — 단가 미등록 재고는 평가액 합계에서 제외하고 **몇 종이 빠졌는지 밝힌다**.
   // 0 으로 더하면 '평가액 0원' 이라는 사실과 다른 총액이 표시된다.
   const unpriced = rows.filter((r) => r.priced === false).length
-  const totalValue = sumMoney(rows.filter((r) => r.priced !== false).map((r) => r.value))
+  const pricedRows = rows.filter((r) => r.priced !== false)
+  // 단가 있는 재고가 하나도 없으면 합계는 0 이 아니라 **산정 불가**다(빈 합계를 0원으로
+  // 표시하면 '재고 가치 0원' 이라는 사실과 다른 문장이 된다).
+  const totalValue = pricedRows.length ? sumMoney(pricedRows.map((r) => r.value)) : null
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
