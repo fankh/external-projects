@@ -11496,6 +11496,17 @@
    "nullable": "NO"
   },
   {
+   "c": "pw_changed_at",
+   "t": "sys_user",
+   "np": null,
+   "ns": null,
+   "ty": "timestamp with time zone",
+   "def": null,
+   "len": null,
+   "pos": 16,
+   "nullable": "YES"
+  },
+  {
    "c": "pref_id",
    "t": "sys_user_pref",
    "np": 64,

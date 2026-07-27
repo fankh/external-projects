@@ -998,17 +998,21 @@ def change_my_password(request: Request, body: PasswordChangeRequest) -> dict[st
             _audit(cur, tid, "sys_user", uid, "PW_CHANGE_FAIL", uid,
                    {"reason": "현재 비밀번호 불일치"})
             raise HTTPException(403, detail="현재 비밀번호가 올바르지 않습니다")
-        # 18.51 — 변경 시각을 남겨 **그 이전에 발급된 토큰을 무효화**한다(다른 기기의 세션이
-        # 계속 살아 있으면 비밀번호를 바꾼 의미가 없다). 지금 쓰는 세션까지 끊기므로
-        # 새 토큰을 함께 돌려준다 — 클라이언트가 이 값으로 갈아끼우면 다시 로그인할 필요가 없다.
+        # 18.54 — **본인 변경은 pw_changed_at 을 갱신하지 않는다.**
+        # 18.51 에서 갱신하도록 했다가 되돌렸다: 자기 세션까지 끊기므로 새 토큰을 함께
+        # 돌려줬는데, 기존 클라이언트·검증은 그 토큰을 쓰지 않고 원래 토큰으로 다음 호출을
+        # 한다 → 401. 실제로 `live_security` 의 '비밀번호 되돌리기' 가 그렇게 실패했고,
+        # 이어진 스위트들이 옛 비밀번호로 로그인을 반복해 **데모 계정이 잠겼다**(운영 사고).
+        # 세션 무효화의 목적은 **탈취 대응**이고 그것은 관리자 재설정 경로가 담당한다.
+        # 본인이 아는 비밀번호를 스스로 바꾸는 경우는 그 목적에 해당하지 않는다.
+        # (다른 기기 세션까지 끊으려면 클라이언트가 새 토큰을 받아 쓰도록 프런트 변경이
+        #  선행돼야 한다 — 그 전에 서버만 바꾸면 로그아웃 사고가 난다.)
         cur.execute(
-            """UPDATE sys_user SET password_hash=%s, pw_changed_at=now(),
-                   updated_by=%s, updated_at=now()
+            """UPDATE sys_user SET password_hash=%s, updated_by=%s, updated_at=now()
                WHERE user_id=%s""",
             (hash_password(new), request.state.login, uid))
         _audit(cur, tid, "sys_user", uid, "PW_CHANGE", uid)   # 비밀번호 자체는 기록하지 않음
-    return {"login": request.state.login, "changed": True,
-            "token": _issue_token(request.state.login, tenant_id=tid)}
+    return {"login": request.state.login, "changed": True}
 
 
 # ── SVC-03 Code ──

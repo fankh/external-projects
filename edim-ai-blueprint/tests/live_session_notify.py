@@ -103,21 +103,14 @@ with sync_playwright() as pw:
     ok("새 비밀번호로 재로그인 가능", r.ok, f"status={r.status}")
     tok2 = r.json()["token"]
     ok("재로그인 토큰은 정상 동작", call("GET", "/notifications", tok2).ok)
-    # 본인 변경은 새 토큰을 함께 돌려준다 — 그 토큰이 바로 쓰이는가
-    # 판정은 **초 단위**다(토큰의 발급 시각이 초로 잘려 있다 — 18.52). 같은 초에 발급된
-    # 토큰은 유효로 두므로, '변경 전 토큰이 끊기는가' 를 보려면 **초 경계를 넘겨야** 한다.
-    # 붙여서 호출하면 구현이 보장하지 않는 것을 요구하게 되고, 그건 검증의 잘못이다.
-    time.sleep(1.2)
+    # 본인 변경은 세션을 끊지 않는다 (18.54) — 탈취 대응은 관리자 재설정 경로가 담당한다.
+    # 18.51 에서 본인 변경도 끊게 했다가 되돌렸다: 기존 클라이언트가 새 토큰을 쓰지 않아
+    # 다음 호출이 401 이 되고, 그 여파로 데모 계정이 잠기는 사고가 났다.
     r = call("PUT", "/users/me/password", tok2,
              data={"currentPassword": PW + "9", "newPassword": PW})
     ok("본인 비밀번호 변경", r.ok, f"status={r.status}")
-    fresh = r.json().get("token")
-    ok("★ 본인 변경은 새 토큰을 함께 돌려준다", bool(fresh))
-    ok("★ 그 토큰으로 바로 조회 가능 (다시 로그인 불필요)",
-       call("GET", "/notifications", fresh).ok)
-    ok("★ 변경 전 토큰은 끊긴다 (다른 기기 세션 정리)",
-       call("GET", "/notifications", tok2).status == 401)
-    tok2 = fresh
+    ok("★ 본인 변경은 쓰던 세션을 끊지 않는다 (로그아웃 사고 방지)",
+       call("GET", "/notifications", tok2).ok)
 
     # ── 4. 알림은 본인 것만 — 읽음 보고가 정직한가 ──
     r = call("GET", "/notifications", admin)
