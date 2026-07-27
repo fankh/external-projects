@@ -1,11 +1,16 @@
 # 감사 기록이 없는 잔여 쓰기 — 위험 순으로 축소 중 (증가는 게이트가 차단).
 # 남은 항목의 성격: 배치·도형·UI 정의 저장으로, 금액·판단 근거에서 한 단계 떨어져 있다.
+#
+# 18.94 — 이 한 줄짜리 사유가 `POST /cost/pcr` 에는 맞지 않았다. PCR 은 견적 확정의 **근거
+# 금액**인데 이 목록에 섞여 있었고, 실제로 `cst_pcr` 이력 132건이 전부 MASKED_READ 였다 —
+# '누가 봤나' 만 남고 '누가 얼마로 바꿨나' 는 없었다. 감사를 추가하고 목록에서 뺐다.
+# 교훈: 예외 사유를 목록 전체에 한 줄로 뭉뚱그리면, 그 사유가 맞지 않는 항목이 섞여도
+# 드러나지 않는다. 새 항목을 넣을 때는 **그 항목이 왜 예외인지**를 따로 적는다.
 # 프로젝트 댓글 등록은 sys_project_comment.author 로 작성자가 남는다(삭제는 14.7 에서 기록).
 
 PATCH /arrangements/{code}/components/{component_id}/geometry
 POST /arrangements
 POST /arrangements/{code}/components
-POST /cost/pcr
 POST /projects/{project_no}/comments
 PUT /toolbox/forms/{name}
 PUT /toolbox/templets/{name}

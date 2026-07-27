@@ -15141,6 +15141,15 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
             "unpricedCodes": [u.get("code") for u in unpriced][:20],
             "mfgEstimated": mfg_estimated,
         }
+        # 18.94 — **바꾸기 전 값을 먼저 읽는다.** PCR 은 견적 확정의 근거 금액인데 생성·수정이
+        # 감사에 전혀 남지 않았다(`cst_pcr` 이력 132건이 전부 MASKED_READ 였다 — '누가 봤나' 만
+        # 남고 '누가 얼마로 바꿨나' 는 없었다). 감사 커버리지 예외 목록은 이 항목을 "금액·판단
+        # 근거에서 한 단계 떨어져 있다" 고 적어 두었는데, PCR 은 바로 그 근거다.
+        cur.execute(
+            """SELECT pcr_id, direct_cost_total, contribution_margin, ebit, status
+               FROM cst_pcr WHERE tenant_id=%s AND selection_id=%s AND business_type=%s""",
+            (tid, sel[0], bt))
+        prev = cur.fetchone()
         cur.execute(
             """UPDATE cst_pcr SET sections=%s, direct_cost_total=%s, contribution_margin=%s,
                ebit=%s, status='DRAFT', updated_by=%s, updated_at=now()
@@ -15156,6 +15165,19 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
                 (tid, sel[0], bt, json.dumps(sections), direct_total, margin, ebit,
                  request.state.login))
             row = cur.fetchone()
+        # 금액과 **그 금액의 근거**를 함께 남긴다 — 어느 Run 을 기준으로, 테스트 실행이었는지,
+        # 단가 미해결이 몇 건이었는지가 없으면 "왜 이 금액인가" 에 답할 수 없다(18.80·11.6 계열).
+        _audit(cur, tid, "cst_pcr", row[0], "UPDATE" if prev else "CREATE",
+               request.state.user_id,
+               before=({"directCostTotal": float(prev[1]) if prev[1] is not None else None,
+                        "contributionMargin": float(prev[2]) if prev[2] is not None else None,
+                        "ebit": float(prev[3]) if prev[3] is not None else None,
+                        "status": prev[4]} if prev else None),
+               after={"businessType": bt, "marginRate": body.marginRate,
+                      "directCostTotal": direct_total, "contributionMargin": margin,
+                      "ebit": ebit, "revenue": revenue,
+                      "basisRunId": run_id, "basisIsTest": basis_is_test,
+                      "unpricedCount": len(unpriced), "mfgEstimated": mfg_estimated})
     # 18.71 — 목록 조회(`GET /cost/pcr`)는 이 값들을 `cost` 그룹으로 가리는데 **생성 응답만**
     # 그대로 나가고 있었다. 같은 수치를 만든 직후에 보여 주는 경로가 통제 밖이면 통제가 아니다.
     return {"pcrId": row[0], "businessType": bt, "revenue": _mask_num(revenue, cm),
