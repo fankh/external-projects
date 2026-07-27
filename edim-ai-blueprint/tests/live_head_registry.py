@@ -124,6 +124,29 @@ try:
     st, b = req("PATCH", f"/heads/{hid}", TOK, {"status": "PUBLISHED"})
     ok(f"★ LEFT 만으로는 여전히 게시 409 ({st})", st == 409)
 
+    # ── 19.3: 등록부는 **아무 값이나 받으면 안 된다** (#17) ──
+    # 셸은 모르는 Template 참조를 조용히 무시하고, 우측 패널은 아는 것이 하나도 없으면
+    # 전체를 보여준다. 즉 오타 하나면 "Table 만" 이 "전부 공개" 가 되는데, 화면에는 등록한
+    # 대로 적혀 있어 확인할 방법이 없다. 등록 시점에 막지 않으면 등록부가 아니다.
+    st, b = req("POST", f"/heads/{hid}/bindings", TOK,
+                {"panel": "RIGHT", "targetKind": "TEMPLATE", "targetRef": "nosuch"})
+    ok(f"★ 알 수 없는 Template 등록 422 ({st})",
+       st == 422 and "가능" in (b or {}).get("detail", ""))
+    st, b = req("POST", f"/heads/{hid}/bindings", TOK,
+                {"panel": "CENTER", "targetKind": "SCREEN", "targetRef": "erp/dashboard"})
+    ok(f"★ '/' 없는 화면 경로 422 ({st})", st == 422)
+    st, b = req("POST", f"/heads/{hid}/bindings", TOK,
+                {"panel": "LEFT", "targetKind": "PROCESS", "targetRef": "전체"})
+    ok(f"★ 프로세스 참조 형식 위반 422 ({st})", st == 422)
+    st, tb = req("POST", f"/heads/{hid}/bindings", TOK,
+                 {"panel": "RIGHT", "targetKind": "TEMPLATE", "targetRef": "table",
+                  "label": "Table"})
+    ok(f"아는 Template 은 등록된다 ({st}) — 과잉 차단 아님", st == 201)
+    ok("등록 후 상세에 반영",
+       any(x["targetRef"] == "table" for x in req("GET", f"/heads/{hid}", TOK)[1]["bindings"]))
+    st, _ = req("DELETE", f"/heads/{hid}/bindings/{tb['bindingId']}", TOK)
+    ok(f"검증용 Template 바인딩 제거 ({st})", st == 200)
+
     st, bind = req("POST", f"/heads/{hid}/bindings", TOK,
                    {"panel": "CENTER", "targetKind": "SCREEN", "targetRef": "/erp/dashboard",
                     "label": "대시보드"})

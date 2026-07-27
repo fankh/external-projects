@@ -50,7 +50,11 @@ export function AccordionHost({ sections }: { sections: AccordionSection[] }) {
         .filter((b) => b.panel === 'RIGHT' && b.targetKind === 'TEMPLATE')
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((b) => b.targetRef)
-      // 'todo' 처럼 우측 패널 밖의 Template 참조는 무시하고, 실제 존재하는 것만 반영
+      // 'todo' 처럼 우측 패널 밖의 Template 참조는 무시하고, 실제 존재하는 것만 반영.
+      // 19.3 — 아는 것이 하나도 없으면 아래에서 전체를 보여준다. 이 폴백은 **등록부가 모르는
+      // 값을 거부할 때만** 안전하다(오타 하나로 '전체 공개' 가 되면 안 된다). 그래서 서버가
+      // targetRef 를 _PANEL_TEMPLATES 로 검증한다 — 여기서 걸러지는 것은 'todo' 처럼 우측
+      // 스택 밖에서 그려지는 정당한 대상뿐이다.
       const known = refs.filter((r) => sections.some((s) => s.id === r))
       if (live && known.length) setAllow(known)
     })()

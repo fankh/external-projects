@@ -12341,6 +12341,29 @@ _HEAD_SEED = [
 ]
 
 
+# 19.3 — 패널 바인딩이 가리킬 수 있는 대상 목록 (#17 Panel Binding Registry).
+#
+# 종전에는 `targetRef` 가 **비어 있지만 않으면** 무엇이든 등록됐다. 그런데 셸은 모르는 값을
+# 만나면 조용히 무시하고, 우측 패널은 아는 것이 하나도 없으면 **전체 Template 을 보여준다**.
+# 즉 관리자가 "이 Head 는 Table 만" 이라고 등록해도 오타 하나면 전부 보이는 상태가 되고,
+# 화면에는 등록한 대로 적혀 있어 확인할 방법이 없다 — 등록부가 등록만 받고 아무것도 보장하지
+# 않으면 '구조의 심장' 이 아니다. 실제로 운영 데이터의 RIGHT 바인딩 4건이 전부 아코디언이
+# 모르는 키였다(todo 는 우측 스택 밖에서 그려지는 정당한 대상이라 목록에 포함한다).
+_PANEL_TEMPLATES = ("todo", "upload", "table", "child", "coding")
+
+
+def _assert_binding_target(kind: str, ref: str) -> None:
+    if kind == "TEMPLATE" and ref not in _PANEL_TEMPLATES:
+        raise HTTPException(
+            422, detail=f"알 수 없는 Template: {ref} (가능: {', '.join(_PANEL_TEMPLATES)})")
+    if kind == "SCREEN" and not ref.startswith("/"):
+        raise HTTPException(
+            422, detail=f"SCREEN 은 '/' 로 시작하는 화면 경로여야 합니다: {ref}")
+    if kind == "PROCESS" and ref != "*" and not ref.lstrip("-").isdigit():
+        raise HTTPException(
+            422, detail=f"PROCESS 는 '*'(전체) 또는 프로세스 노드 id 여야 합니다: {ref}")
+
+
 def _head_rows(cur, tid: int, level: str, editing: bool, user_id: int) -> list[dict[str, Any]]:
     """Head 목록 — 일반 사용자는 **PUBLISHED + 자기 레벨 이하**만 본다(#14).
     편집 권한자(SETUP+)는 편집을 위해 DRAFT/REVIEW/APPROVED 도 함께 본다."""
@@ -12597,6 +12620,7 @@ def head_bind(head_id: int, request: Request, body: HeadBind) -> dict[str, Any]:
         raise HTTPException(422, detail="targetKind 는 SCREEN/PROCESS/TEMPLATE")
     if not body.targetRef.strip():
         raise HTTPException(422, detail="targetRef 는 필수")
+    _assert_binding_target(kind, body.targetRef.strip())
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute("SELECT head_type, status FROM sys_head WHERE tenant_id=%s AND head_id=%s",
