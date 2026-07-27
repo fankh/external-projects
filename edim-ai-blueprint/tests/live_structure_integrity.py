@@ -12,12 +12,20 @@
 실행: PYTHONUTF8=1 py tests/live_structure_integrity.py
 """
 import os
+import subprocess
 
 from playwright.sync_api import sync_playwright
 
 BASE = os.getenv("EDIM_LIVE_BASE", "https://edim.seekerslab.com/api/v1")
 TREES = ["PRODUCT", "GENERAL_DB", "CONFIG"]
 n = 0
+
+
+def psql(sql: str) -> str:
+    r = subprocess.run(["ssh", "edim-server",
+                        f"sudo docker exec edim-postgres psql -U edim -d edim -tAc \"{sql}\""],
+                       capture_output=True, text=True, timeout=60)
+    return (r.stdout or "").strip()
 
 
 def ok(label: str, cond: bool, detail: str = "") -> None:
@@ -88,6 +96,31 @@ with sync_playwright() as pw:
            f"nodes={v['nodes']}")
     else:
         ok("없는 트리 유형 거부", r.status in (400, 404, 422), f"status={r.status}")
+
+    # ── 4. 19.5: 탐지기가 실제로 울리는가 (한 번도 울리지 않는 감시는 감시가 아니다) ──
+    # 여기까지는 "이상 0건" 만 확인한다 — 탐지기가 고장 나 있어도 똑같이 초록이다
+    # (18.36 에서 '항상 합격하는 검증' 을 이미 겪었다). 고아 자산을 하나 심어 보고
+    # ORPHAN_ASSET 이 잡히는지 본 뒤 지운다.
+    ZZ = "ZZORPHAN"
+    try:
+        psql(f"DELETE FROM tbl_data_table WHERE table_name='{ZZ}'")
+        psql("INSERT INTO tbl_data_table (tenant_id, table_name, table_type, column_def, "
+             f"hierarchy_address) SELECT tenant_id, '{ZZ}', 'TECH', "
+             """'{"columns":[]}'::jsonb, '/ZZ-NOSUCH-NODE/x' """
+             "FROM sys_user WHERE login_id='edim'")
+        planted = psql(f"SELECT count(*) FROM tbl_data_table WHERE table_name='{ZZ}'")
+        ok(f"고아 자산 심음 ({planted})", planted == "1")
+        v = call("GET", "/hierarchy/validate?tree=PRODUCT", admin).json()
+        orphans = [i for i in v["issues"] if i["type"] == "ORPHAN_ASSET" and ZZ in i["name"]]
+        ok(f"★ 고아 자산을 실제로 탐지 ({len(orphans)}건)", len(orphans) == 1,
+           f"issues={[i['type'] for i in v['issues']][:5]}")
+        ok("탐지 시 ok=false 로 정직하게 보고", v["ok"] is False)
+    finally:
+        psql(f"DELETE FROM tbl_data_table WHERE table_name='{ZZ}'")
+        left = psql(f"SELECT count(*) FROM tbl_data_table WHERE table_name='{ZZ}'")
+        print(f"정리 — 고아 자산 제거 (잔존 {left})", flush=True)
+    v = call("GET", "/hierarchy/validate?tree=PRODUCT", admin).json()
+    ok(f"정리 후 다시 이상 0건 ({len(v['issues'])})", not v["issues"])
 
     req.dispose()
 

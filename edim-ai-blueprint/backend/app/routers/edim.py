@@ -14123,11 +14123,16 @@ def hierarchy_validate(tree: str = "PRODUCT") -> dict[str, Any]:
         if tree == "PRODUCT":
             for tbl, code_col, label in _H_REF_TABLES:
                 cur.execute(
+                    # 19.5 — 접두 비교를 LIKE 로 하면 노드 주소의 `_` 가 와일드카드가 되어
+                    # **엉뚱한 노드에 속한 것으로 쳐 주고 진짜 고아를 놓친다**(19.4 와 같은
+                    # 계열이지만 여기서는 패턴이 컬럼이라 이스케이프가 어렵다). 접두 비교는
+                    # left() 로 정확히 한다 — 와일드카드 해석 자체가 없어진다.
                     f"""SELECT {code_col}, hierarchy_address FROM {tbl}
                         WHERE tenant_id=%s AND COALESCE(hierarchy_address,'')<>''
                           AND NOT EXISTS (SELECT 1 FROM sys_hierarchy h
                                           WHERE h.tenant_id=%s AND (hierarchy_address=h.address
-                                                OR hierarchy_address LIKE h.address || '/%%'))
+                                                OR left(hierarchy_address,
+                                                        length(h.address) + 1) = h.address || '/'))
                         ORDER BY {code_col}""", (tid, tid))
                 for code, addr in cur.fetchall():
                     issues.append({"type": "ORPHAN_ASSET", "nodeId": 0, "name": f"{label} {code}",
