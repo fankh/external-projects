@@ -13239,15 +13239,38 @@ def project_files(response: Response, project: str = "PS-61313-5",
                  AND NOT r.is_test""", (tid, project))
         basis_run = cur.fetchone()[0]
         cur.execute(
-            """SELECT f.file_id, f.file_name, f.file_type, f.folder,
+            """SELECT count(*) FROM dwg_file f
+               JOIN prj_project p ON p.project_id=f.project_id
+               WHERE f.tenant_id=%s AND p.project_no=%s
+                 AND COALESCE(f.file_role,'OUTPUT')='OUTPUT'
+                 AND NOT EXISTS (SELECT 1 FROM cpq_output o2
+                                  WHERE o2.file_id=f.file_id AND o2.run_id=%s)""",
+            (tid, project, basis_run))
+        superseded = cur.fetchone()[0]
+        # 18.83 — **지난 Run 의 산출물은 기본으로 담지 않는다.** 최신순으로만 자르면 상한
+        # 500 이 전부 최근 Run 산출물로 채워져, 정작 접수자료·작도 원본처럼 오래됐지만
+        # 중요한 파일이 밀려난다(시드 접수자료가 실제로 잘려 나갔다). 상한을 올리는 것은
+        # 답이 아니다 — Run 마다 늘어나므로 언젠가 같은 일이 난다.
+        # 담는 기준: 접수자료·작도 원본은 전부 + 산출물은 **현재 기준 Run 것만**.
+        # `allRuns=true` 면 지난 산출물까지 포함한다(그때도 상한·절단 고지는 그대로).
+        sup_clause = ("" if allRuns else
+                      " AND (COALESCE(f.file_role,'OUTPUT') <> 'OUTPUT'"
+                      "      OR EXISTS (SELECT 1 FROM cpq_output o2"
+                      "                  WHERE o2.file_id=f.file_id AND o2.run_id=%s))")
+        uparams: list[Any] = [tid, project]
+        if not allRuns:
+            uparams.append(basis_run)
+        uparams.append(_FILES_CAP + 1)
+        cur.execute(
+            f"""SELECT f.file_id, f.file_name, f.file_type, f.folder,
                       to_char(f.uploaded_date,'MM-DD'), f.created_by,
                       COALESCE(f.file_role,'OUTPUT'),
                       (SELECT o.run_id FROM cpq_output o
                         WHERE o.file_id=f.file_id ORDER BY o.output_id LIMIT 1)
                FROM dwg_file f
                LEFT JOIN prj_project p ON p.project_id=f.project_id
-               WHERE f.tenant_id=%s AND p.project_no=%s
-               ORDER BY f.file_id DESC LIMIT %s""", (tid, project, _FILES_CAP + 1))
+               WHERE f.tenant_id=%s AND p.project_no=%s{sup_clause}
+               ORDER BY f.file_id DESC LIMIT %s""", tuple(uparams))
         # 18.59 — 종전엔 `OR f.project_id IS NULL` 이 붙어 **프로젝트 미지정 파일이 모든
         # 프로젝트 폴더에 나왔다**. 18.58 로 미지정 업로드 자체를 막았고 운영 데이터에도
         # 0건이라, 남겨 두면 다시 새는 통로만 된다.
@@ -13268,6 +13291,9 @@ def project_files(response: Response, project: str = "PS-61313-5",
         ]
     # 상한 초과는 **헤더로 알린다** — 목록형 응답이라 본문 형태는 바꾸지 않는다(18.14 패턴).
     uploads = _mark_truncated(response, uploads, _FILES_CAP)
+    # 18.83 — 기본 보기에서 **몇 건을 뺐는지** 드러낸다. 숨긴 사실을 알리지 않으면 목록이
+    # '이 프로젝트의 전부' 로 읽힌다. 지난 산출물은 `allRuns=true` 로 볼 수 있다.
+    response.headers["X-Superseded-Hidden"] = str(0 if allRuns else superseded)
     return files + uploads
 
 
