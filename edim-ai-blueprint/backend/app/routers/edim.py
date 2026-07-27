@@ -16754,9 +16754,30 @@ def tenant_export(request: Request) -> StreamingResponse:
         ("handoffs", "SELECT * FROM erp_handoff WHERE tenant_id=%s"),
         ("users", "SELECT user_id, login_id, user_name, department, email, user_level, status, created_at "
                   "FROM sys_user WHERE tenant_id=%s"),   # 비밀번호 해시 등 민감 필드 제외
+        # 18.91 — **제품 구성을 재현할 수 있어야 오프보딩이다.** 종전 목록에는 Code Set-up
+        # 마스터(code_group·code_item·code_item_value)가 통째로 빠져 있었다 — 제품 코드는
+        # 나가는데 **그 코드를 만드는 규칙**은 나가지 않으니, 받은 쪽은 코드 체계를 다시 세울
+        # 수 없다. BOM·단가·Macro·치수·Arrangement 도 같은 이유로 더한다.
+        ("code_groups", "SELECT * FROM code_group WHERE tenant_id=%s"),
+        ("code_items", "SELECT * FROM code_item WHERE tenant_id=%s"),
+        ("code_item_values", "SELECT * FROM code_item_value WHERE tenant_id=%s"),
+        ("arrangements", "SELECT * FROM arrangement_code WHERE tenant_id=%s"),
+        ("dimensions", "SELECT * FROM dwg_dimension WHERE tenant_id=%s"),
+        ("macros", "SELECT * FROM tbx_macro WHERE tenant_id=%s"),
+        # dwg_bom 에는 tenant_id 가 없다 — 도면을 거쳐 테넌트를 좁힌다.
+        ("boms", "SELECT b.* FROM dwg_bom b JOIN dwg_drawing d ON d.drawing_id=b.drawing_id "
+                 "WHERE d.tenant_id=%s"),
+        # 파일 **목록**(원본 바이트는 /files/zip 채널). 이것이 없으면 받은 파일이 어느
+        # 프로젝트·어느 역할의 것인지 알 수 없다.
+        ("files", "SELECT file_id, project_id, folder, file_name, file_type, file_path, "
+                  "file_size, file_role, created_at FROM dwg_file WHERE tenant_id=%s"),
+        ("prices", "SELECT * FROM cst_price WHERE tenant_id=%s", "cost"),
     ]
     buf = io.BytesIO()
-    manifest = ["EDIM 테넌트 데이터 export (오프보딩/백업)", "-" * 40]
+    manifest = ["EDIM 테넌트 데이터 export (오프보딩/백업)",
+                "파일 **원본 바이트**는 이 묶음에 없습니다 — 프로젝트별 /files/zip 으로 받으십시오",
+                "(files.json 이 어느 파일이 어느 프로젝트·역할인지의 대조표입니다)",
+                "-" * 40]
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         # 금액이 담긴 테이블은 해당 정보그룹의 Export 통제를 따른다 — no_download 는
