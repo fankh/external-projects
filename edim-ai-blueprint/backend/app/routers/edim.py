@@ -3608,6 +3608,16 @@ def files_export_package(request: Request, project: str = "PS-61313-5") -> Strea
         cur.execute("SELECT project_name FROM prj_project WHERE tenant_id=%s AND project_no=%s",
                     (tid, project))
         pn = cur.fetchone()
+        # 18.81 — **어느 Run 을 담았는지 서버가 밝힌다.** 종전에는 받는 쪽(사람도 검증도)이
+        # 선택 규칙을 되짚어 추측해야 했고, 실제로 검증이 그 규칙을 복제했다가 18.80 변경과
+        # 어긋나 잘못된 실패를 냈다. 근거를 응답에 실으면 추측할 일이 없다.
+        cur.execute(
+            """SELECT max(r.run_id) FROM cpq_run r
+               JOIN cpq_selection s ON s.selection_id=r.selection_id
+               JOIN prj_project p ON p.project_id=s.project_id
+               WHERE r.tenant_id=%s AND p.project_no=%s AND r.status='SUCCESS'
+                 AND NOT r.is_test""", (tid, project))
+        basis_run = cur.fetchone()[0]
     if not rows:
         raise HTTPException(404, detail="전달할 산출물이 없습니다 (DWG/PRICE/DATA/BOM)")
     # 18.76 — 고객 전달본도 같은 상한을 따른다. 잘린 전달본은 완성본으로 오인되고,
@@ -3620,6 +3630,7 @@ def files_export_package(request: Request, project: str = "PS-61313-5") -> Strea
         "EDIM 고객 전달 패키지 (Customer Delivery Package)",
         f"프로젝트: {project}" + (f" — {pn[0]}" if pn else ""),
         f"파일 수: {len(rows)}건",
+        f"기준 Run: #{basis_run}" if basis_run else "기준 Run: 없음 (업무 Run 미실행)",
         "포함: **최신 Run 산출물** + 작도 원본(DWG/PRICE/DATA/BOM)",
         "제외: 이전 Run 산출물 · 내부 접수자료(RECEIVED) · S-1/S-2 등급 문서",
         "PDF 산출물: CONFIDENTIAL 전면 워터마크 적용본 (DOC-002)",
@@ -3634,6 +3645,7 @@ def files_export_package(request: Request, project: str = "PS-61313-5") -> Strea
                              headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(zipname)}",
                                       "X-File-Count": str(len(rows) - len(missing)),
                                       "X-Missing": str(len(missing)),
+                                      "X-Basis-Run": str(basis_run or ""),
                                       "X-Watermarked": str(stamped)})
 
 
