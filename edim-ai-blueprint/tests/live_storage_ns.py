@@ -206,6 +206,28 @@ with sync_playwright() as pw:
            all(not f.get("currentRun") for f in uploads
                if f.get("run") not in ("-", f"#{basis}")))
 
+        # ── 뺀 사실이 화면까지 닿는가 (18.84) ──
+        # 헤더로만 알리면 사용자에게 도달하지 않는다(18.79 에서 같은 실수를 다운로드 경로에서
+        # 확인했다). 숨긴 건수와 전환 링크가 실제로 보이는지 브라우저로 본다.
+        br = pw.chromium.launch()
+        try:
+            pg = br.new_page()
+            pg.goto("https://edim.seekerslab.com/login", wait_until="domcontentloaded")
+            pg.fill("input[name='userId']", "edim"); pg.fill("input[name='password']", "edim")
+            pg.click("button[type='submit']"); pg.wait_for_load_state("networkidle")
+            pg.goto(f"https://edim.seekerslab.com/common/folder?project={PROJ}",
+                    wait_until="networkidle")
+            main = pg.query_selector("main").inner_text()
+            ok("숨긴 건수를 화면에 적는다", "지난 Run 산출물 숨김" in main)
+            ok("전체 Run 으로 전환할 수 있다", "전체 Run 보기" in main)
+            pg.goto(f"https://edim.seekerslab.com/common/folder?project={PROJ}&allRuns=1",
+                    wait_until="networkidle")
+            main2 = pg.query_selector("main").inner_text()
+            ok("전체 보기에서 절단을 알린다", "표시 상한 도달" in main2)
+            ok("현재 Run 으로 되돌아갈 수 있다", "현재 Run 만" in main2)
+        finally:
+            br.close()
+
         # ── GC 가 남의 테넌트 객체를 지우지 않는다 (18.63) ──
         # GC 는 테넌트 ADMIN 권한인데 버킷은 공유다. 수정 전 실측: `t9999/` 접두사 객체를
         # orphan 1건으로 잡아 apply=true 면 지웠다(다른 테넌트의 파일이 사라진다).
