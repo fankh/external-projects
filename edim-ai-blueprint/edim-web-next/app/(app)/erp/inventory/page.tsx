@@ -38,14 +38,17 @@ export default async function InventoryPage() {
   const pricedRows = rows.filter((r) => r.priced !== false)
   // 단가 있는 재고가 하나도 없으면 합계는 0 이 아니라 **산정 불가**다(빈 합계를 0원으로
   // 표시하면 '재고 가치 0원' 이라는 사실과 다른 문장이 된다).
-  const totalValue = pricedRows.length ? sumMoney(pricedRows.map((r) => r.value)) : null
+  const totalValue = sumMoney(pricedRows.map((r) => r.value))
+  // 표기를 세 가지로 가른다: 실값 · 통제로 가려짐(••••) · 산정 근거 없음(—).
+  // 셋을 하나로 뭉개면 앞서 고친 ₩0 과 같은 오해가 자리만 옮겨 다시 생긴다.
+  const totalLabel = pricedRows.length === 0 ? '—' : won(totalValue, true)
 
   return (
     <div className="fill-col" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="qband" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderBottom: '1px solid var(--line)' }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--title-navy)' }}>{t('inv.pageTitle', '재고 관리')} (D-2)</span>
         {!err ? <span className="chip info">{rows.length}{t('common.kinds', '종')}</span> : null}
-        {!err ? <span className="chip ok">{t('inv.totalValue', '총 평가액')} {won(totalValue, true)}</span> : null}
+        {!err ? <span className="chip ok">{t('inv.totalValue', '총 평가액')} {totalLabel}</span> : null}
         {!err && unpriced ? <span className="chip warn">{t('inv.unpricedCount', '단가 미등록')} {unpriced}{t('common.kinds', '종')}</span> : null}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: 'var(--txt-mute)' }}>SSR · /erp/stock · atp · reservations · movements</span>
