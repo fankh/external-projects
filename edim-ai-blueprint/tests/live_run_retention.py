@@ -14,7 +14,8 @@
 (18.83). 그 표식이 사라지면 '현재 산출물' 판정이 조용히 무너지므로 불변식으로 지킨다.
 
 밟는 것: 정리 응답이 보존되는 파일 수·용량과 사유를 밝히는가 · 최신 N건과 참조 Run 은
-보호되는가 · **모든 산출물 파일이 소속 Run 을 판별할 근거(링크 또는 경로 표식)를 갖는가**.
+보호되는가 · **모든 산출물 파일이 소속 Run 을 판별할 근거(링크 또는 경로 표식)를 갖는가** ·
+감사 조회의 드롭다운 비용이 이력 건수에 끌려다니지 않는가(18.87).
 
 정리: keepLatest 를 크게 잡아 기존 Run 을 지우지 않는다(정리는 되돌릴 수 없다).
 
@@ -104,5 +105,26 @@ orphan = int(psql("SELECT count(*) FROM dwg_file f WHERE f.tenant_id=%d "
                   "AND NOT EXISTS (SELECT 1 FROM cpq_output o WHERE o.file_id=f.file_id)" % tid))
 print(f"\n(참고) 링크가 끊긴 산출물 {orphan}건 — 정리가 cpq_output 을 지우기 때문이며, "
       "경로 표식으로 소속 Run 을 판별한다")
+
+# ── 감사 조회의 facet 비용이 이력 건수에 끌려다니지 않는가 (18.87) ──
+# 감사 화면을 열 때마다 드롭다운을 채우려고 sys_history 를 전수 스캔하고 있었다
+# (실측 105,639행: action 49.8ms · login_id 61.8ms — 본 조회 0.6ms 의 100배).
+# 보존 정책이 없어 이력은 계속 자라므로(#83) 그 비용도 같이 자란다.
+plan = psql("EXPLAIN (ANALYZE, TIMING OFF) WITH RECURSIVE t AS ("
+            f"(SELECT action FROM sys_history WHERE tenant_id={tid} ORDER BY action LIMIT 1) "
+            "UNION ALL SELECT (SELECT h.action FROM sys_history h "
+            f"WHERE h.tenant_id={tid} AND h.action > t.action ORDER BY h.action LIMIT 1) "
+            "FROM t WHERE t.action IS NOT NULL) "
+            "SELECT action FROM t WHERE action IS NOT NULL ORDER BY action")
+ok("동작 facet 이 Seq Scan 을 타지 않는다", "Seq Scan on sys_history" not in plan)
+ok("전용 인덱스를 쓴다 (0063)", "ix_sys_history_tenant_action" in plan)
+rows_total = int(psql(f"SELECT count(*) FROM sys_history WHERE tenant_id={tid}"))
+ok(f"이력 {rows_total:,}행에도 값 종류만큼만 읽는다", rows_total > 1000 and "loops=" in plan)
+
+st, a = req("GET", "/audit?limit=200", TOK)
+ok(f"감사 조회 200 ({st})", st == 200)
+users_all = int(psql(f"SELECT count(*) FROM sys_user WHERE tenant_id={tid}"))
+ok(f"사용자 목록이 사용자 대장 기준 ({len(a['users'])} = {users_all})",
+   len(a["users"]) == users_all)
 
 print(f"\nOK — Run 보관 정리 {n}개 검증 통과")
