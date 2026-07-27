@@ -96,6 +96,13 @@ po_no = r["poNo"]
 ok("PO 생성 (doc_control 채번)", po_no.startswith("PO-61313-"))
 ok("조건 병기 (납품·운송·최소수량·인증서)", "FOB 부산" in r["terms"] and "인증서:요구" in r["terms"])
 ok("공급자 코드 병기 (ERP-018)", "HS-IMP-900A" in r["terms"])
+# 18.69 — 금액은 **서버가 단가에서 집계한다**. 종전엔 화면이 계산해 보낸 값을 그대로 문서
+# 제목에 적어, 원가 열람이 가려진 사용자가 0K 짜리 발주서를 만들 수 있었다.
+# 위 요청은 totalK=1234 를 보냈지만 서버 집계값이 쓰여야 한다.
+ok(f"클라이언트 금액을 쓰지 않는다 (서버 집계 {r['totalK']}K)",
+   r.get("totalK") is not None and abs(r["totalK"] - 1234) > 0.5)
+ok("단가 미등록·수량가정 품목을 드러낸다",
+   isinstance(r.get("unpricedCodes"), list) and isinstance(r.get("assumedQtyCodes"), list))
 docs = req("GET", "/documents", headers=A)
 ok("문서함에 PO 문서 등록", any(d.get("docNo") == po_no for d in docs))
 

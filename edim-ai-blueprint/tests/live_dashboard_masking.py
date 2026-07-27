@@ -16,7 +16,8 @@
 이 스위트는 **모드를 켜서** 확인하고 끝나면 되돌린다. 켜지 않은 상태에서 '통제가 동작한다'
 고 말할 수는 없다.
 
-정리: 바꾼 역할 모드를 full 로 되돌린다(실패해도 finally 에서 복구).
+정리: 바꾼 역할 모드(GENERAL·ADMIN)를 full 로 되돌리고, 확인용으로 만든 견적을 회수한다
+(실패해도 finally 에서 복구).
 
 실행: PYTHONUTF8=1 py tests/live_dashboard_masking.py
 """
@@ -110,6 +111,26 @@ try:
     ok("수주 금액이 quote 통제를 따른다", kpi["value"].endswith("~") or kpi["value"] == "••••")
     ok(f"건수를 함께 밝힌다 ({kpi.get('note')})", "건" in (kpi.get("note") or ""))
 
+    # ── 쓰기 응답도 같은 통제를 따른다 (18.70~18.71) ──
+    # 조회에는 마스킹을 걸어 두고 **같은 값을 만들어 돌려주는 쓰기 응답**이 통제 밖이면
+    # 통제가 아니다. 여기서는 ADMIN 역할 모드를 바꿔 확인한다(쓰기 권한이 필요하다).
+    st, r = req("POST", "/cost/pcr", TOK, {"businessType": "MAIN", "marginRate": 0.35})
+    ok(f"PCR full — 숫자 ({st})", st == 200 and isinstance(r["contributionMargin"], (int, float)))
+    ok(f"PCR cost=masked 설정 ({set_mode(TOK, 'cost', 'masked', role='ADMIN')})", True)
+    st, r = req("POST", "/cost/pcr", TOK, {"businessType": "MAIN", "marginRate": 0.35})
+    ok(f"PCR 생성 응답이 가려진다 ({r.get('maskMode')})",
+       st == 200 and all(hidden_or_masked(r[k])
+                         for k in ("revenue", "directCostTotal", "contributionMargin", "ebit")))
+    ok(f"견적 quote=masked 설정 ({set_mode(TOK, 'quote', 'masked', role='ADMIN')})", True)
+    st, q = req("POST", "/cost/quotations", TOK,
+                {"businessType": "MAIN", "currency": "KRW", "acknowledgeIncompleteBasis": True})
+    ok(f"견적 확정 응답이 가려진다 ({st} · {(q or {}).get('maskMode')})",
+       st == 201 and all(hidden_or_masked(q[k]) for k in ("subtotal", "tax", "total")))
+    if q and q.get("quotationId"):     # 만든 견적은 회수한다
+        req("DELETE", f"/cost/quotations/{q['quotationId']}", TOK)
+    set_mode(TOK, "cost", "full", role="ADMIN")
+    set_mode(TOK, "quote", "full", role="ADMIN")
+
     # ── ADMIN(full)은 그대로 본다 — 통제가 역할 단위임을 확인 ──
     st, a2 = req("GET", "/erp/analytics", TOK)
     ok(f"ADMIN 은 원가를 그대로 본다 ({st})",
@@ -119,8 +140,9 @@ try:
     kpi2 = next(k for k in d2["kpis"] if "수주" in k["label"])
     ok(f"ADMIN 수주 KPI 는 실값 ({kpi2['value']})", kpi2["value"].startswith("₩"))
 finally:
-    set_mode(TOK, "cost", "full")
-    set_mode(TOK, "quote", "full")
-    print("정리 — GENERAL cost·quote 를 full 로 원복")
+    for role in ("GENERAL", "ADMIN"):
+        set_mode(TOK, "cost", "full", role=role)
+        set_mode(TOK, "quote", "full", role=role)
+    print("정리 — GENERAL·ADMIN cost·quote 를 full 로 원복")
 
 print(f"\nOK — 대시보드 정보그룹 통제 {n}개 검증 통과")
