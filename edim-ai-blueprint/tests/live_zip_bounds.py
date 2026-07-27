@@ -27,7 +27,8 @@ import zipfile
 
 from playwright.sync_api import sync_playwright
 
-API = "https://edim.seekerslab.com/api/v1"
+BASE = "https://edim.seekerslab.com"
+API = f"{BASE}/api/v1"
 PROJ = "PS-61313-5"
 n = 0
 
@@ -122,6 +123,28 @@ with sync_playwright() as pw:
                         f"ON s2.selection_id=r2.selection_id WHERE r2.tenant_id={tid} "
                         "AND r2.status='SUCCESS' AND s2.project_id=p.project_id))").split())
         ok(f"산출물은 한 Run 것만 ({runs or '없음'})", len(runs) <= 1)
+        # ── 화면까지 사유가 닿는가 (18.79) ──
+        # 프록시가 백엔드 detail 을 버리고 `HTTP 413` 만 남기면, '폴더로 나눠 받으라' 는
+        # 안내가 사용자에게 도달하지 않는다. 새 탭 원시 JSON 대신 화면에 적히는지 본다.
+        br = pw.chromium.launch()
+        try:
+            pg = br.new_page()
+            pg.goto(f"{BASE}/login", wait_until="domcontentloaded")
+            pg.fill("input[name='userId']", "edim"); pg.fill("input[name='password']", "edim")
+            pg.click("button[type='submit']"); pg.wait_for_load_state("networkidle")
+            pg.goto(f"{BASE}/common/folder?project={PROJ}", wait_until="networkidle")
+            pg.locator("[data-zip-all]").click()
+            pg.wait_for_selector("[data-dl-err]", timeout=60000)
+            msg = pg.locator("[data-dl-err]").inner_text()
+            ok(f"상한 사유가 화면에 표시된다 ({msg[:40]}…)",
+               "상한" in msg and "folder" in msg and "HTTP" not in msg)
+            pg.reload(wait_until="networkidle")
+            with pg.expect_download(timeout=120000) as dl:
+                pg.locator("[data-export-package]").click()
+            ok(f"전달 패키지는 정상 다운로드 ({dl.value.suggested_filename})",
+               dl.value.suggested_filename.endswith(".zip"))
+        finally:
+            br.close()
     finally:
         cleanup()
         print("정리 — ZZZIP 행 삭제", flush=True)
