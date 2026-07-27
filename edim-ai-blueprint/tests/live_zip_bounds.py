@@ -123,6 +123,18 @@ with sync_playwright() as pw:
                         f"ON s2.selection_id=r2.selection_id WHERE r2.tenant_id={tid} "
                         "AND r2.status='SUCCESS' AND s2.project_id=p.project_id))").split())
         ok(f"산출물은 한 Run 것만 ({runs or '없음'})", len(runs) <= 1)
+        # 18.80 — **테스트로 표시된 Run 의 산출물은 전달본에 담기지 않는다.** is_test 는
+        # 종전에 통계에서만 제외돼, 최신 SUCCESS 가 테스트 Run 이면 그 산출물이 고객에게
+        # 납품될 수 있었다(운영 데이터에서 그런 Run 이 실제로 있었다).
+        basis = psql("SELECT COALESCE(max(r.run_id)::text,'') FROM cpq_run r "
+                     "JOIN cpq_selection s ON s.selection_id=r.selection_id "
+                     "JOIN prj_project p ON p.project_id=s.project_id "
+                     f"WHERE r.tenant_id={tid} AND r.status='SUCCESS' AND NOT r.is_test "
+                     f"AND p.project_no='{PROJ}'")
+        ok(f"전달본 기준 Run 은 업무 Run (#{basis})", basis.isdigit())
+        if runs:
+            istest = psql(f"SELECT COALESCE(is_test,false) FROM cpq_run WHERE run_id={list(runs)[0]}")
+            ok(f"담긴 산출물의 Run 은 테스트가 아니다 (is_test={istest})", istest == "f")
         # ── 화면까지 사유가 닿는가 (18.79) ──
         # 프록시가 백엔드 detail 을 버리고 `HTTP 413` 만 남기면, '폴더로 나눠 받으라' 는
         # 안내가 사용자에게 도달하지 않는다. 새 탭 원시 JSON 대신 화면에 적히는지 본다.

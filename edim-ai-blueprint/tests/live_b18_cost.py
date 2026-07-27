@@ -69,6 +69,14 @@ ok("사업유형 오류 -> 422", status_of("POST", "/cost/pcr", {"businessType":
 p1 = req("POST", "/cost/pcr", {"businessType": "PRE_SALES", "marginRate": 0.35}, A)
 direct = sum(c["total"] for c in costs)
 ok("PCR 직접비 = 원가 합", abs(p1["directCostTotal"] - direct) < 1)
+# 18.80 — 이 스위트의 Run 은 isTest=True 다. `cpq_run.is_test` 는 종전에 **통계에서만**
+# 제외돼, 테스트 실행이 PCR·견적 확정·차이분석의 근거가 될 수 있었다(운영 데이터에서 최신
+# SUCCESS 가 테스트 Run 인 경우를 확인했다). 숫자를 임의로 바꾸지 않고 **사실을 드러내는**
+# 쪽을 택했으므로, 그 사실이 응답에 실제로 실리는지 여기서 확인한다.
+ok(f"원가 기준 Run 을 밝힌다 (#{p1.get('basisRunId')})", p1.get("basisRunId") == rid)
+ok("테스트 Run 기준임을 알린다", p1.get("basisIsTest") is True)
+ok("사유 문구에 테스트 Run 명시",
+   any("테스트" in x for x in (p1.get("notes") or [])))
 ok("기여마진 = 매출 - 직접비",
    abs(p1["contributionMargin"] - (p1["revenue"] - p1["directCostTotal"])) < 1)
 ok("EBIT = 마진 - SGA(8%)",
