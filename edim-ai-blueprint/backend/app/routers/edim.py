@@ -1133,6 +1133,15 @@ def create_group(request: Request, body: GroupCreate) -> dict[str, Any]:
 
 # ── G3 제품 코드 마스터 CRUD (수동 생성/수정/비활성) ──
 # product_code 참조 테이블 (삭제 가드) — (table, fk_column)
+# 19.7 — 관계의 **전개 근거 지문** (#35). 수량 + 슬롯 매핑 집합을 md5 로 요약한다.
+# 승인 시점 값을 `approved_basis_hash` 에 남기고, 지금 값과 다르면 '승인 이후 근거가 바뀌었다'.
+# Revision 카운터가 아니라 **내용**을 비교하므로, 추가했다 되돌리면 드리프트가 사라진다.
+# 마이그레이션 0064 의 backfill 과 **같은 식**이어야 한다(다르면 도입 즉시 전건 드리프트).
+_REL_BASIS_HASH_SQL = """md5(coalesce(r.quantity::text,'') || '|' || coalesce(
+    (SELECT string_agg(m.child_slot || '>' || coalesce(m.mother_slot,'') || '='
+                       || coalesce(m.fixed_value,''), ',' ORDER BY m.child_slot)
+       FROM code_relationship_slot_map m WHERE m.rel_id = r.rel_id), ''))"""
+
 _PC_REFS = [
     ("code_relationship", "mother_code_id"), ("code_relationship", "child_code_id"),
     ("cst_price", "product_code_id"), ("cpq_selection", "product_code_id"),
@@ -5006,10 +5015,13 @@ def _apply_decision(cur, tid: int, approval_id: int, approve: bool, comment: str
         # F4 — Mother 코드의 관계 세트 전이 (Running Test 통과 승인, CODE-009)
         # #40 — 승인 라운드마다 관계 Revision 증가: 과거 Run 은 자기 근거 Revision 을 그대로 보존하고,
         # 근거가 움직였다는 사실은 bom-basis 대조에서 드러난다(BOM 자체는 Snapshot 이 불변 보존).
+        # 19.7 — 승인 **당시의 근거 지문**도 함께 남긴다(#35). 승인 후 슬롯 매핑이 바뀌면
+        # 승인된 것과 지금 것이 다른데 화면은 APPROVED 만 보여 준다 — 대조할 값이 필요하다.
         cur.execute(
-            f"""UPDATE code_relationship SET approval_status=%s
-                {', revision_no = revision_no + 1' if approve else ''}
-               WHERE tenant_id=%s AND mother_code_id=%s""",
+            f"""UPDATE code_relationship r SET approval_status=%s
+                {', revision_no = revision_no + 1' if approve else ''},
+                approved_basis_hash = {_REL_BASIS_HASH_SQL if approve else 'r.approved_basis_hash'}
+               WHERE r.tenant_id=%s AND r.mother_code_id=%s""",
             (result, tid, row[1]))
     elif row[0] == "eco_change":
         # D5 — 설계변경 승인: 승인 시 Rev-up 자동 적용(DRAWING) + 변경 통지(ECN)
@@ -7994,22 +8006,28 @@ def relationship_children(mother: str) -> list[dict[str, Any]]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT c.main_code, c.code_name, r.quantity, COALESCE(r.remarks,''),
+            f"""SELECT c.main_code, c.code_name, r.quantity, COALESCE(r.remarks,''),
                       COALESCE(string_agg(sm.child_slot || '←' ||
                         COALESCE(sm.mother_slot, '"'||sm.fixed_value||'"'), ' · '
                         ORDER BY sm.child_slot), '-'),
-                      r.rel_id, count(sm.slot_map_id), COALESCE(r.revision_no,1)
+                      r.rel_id, count(sm.slot_map_id), COALESCE(r.revision_no,1),
+                      (r.approved_basis_hash IS NOT NULL
+                       AND r.approved_basis_hash <> ({_REL_BASIS_HASH_SQL}))
                FROM code_relationship r
                JOIN product_code m ON m.product_code_id=r.mother_code_id
                JOIN product_code c ON c.product_code_id=r.child_code_id
                LEFT JOIN code_relationship_slot_map sm ON sm.rel_id=r.rel_id
                WHERE r.tenant_id=%s AND m.main_code=%s AND r.approval_status='APPROVED'
-               GROUP BY c.main_code, c.code_name, r.quantity, r.remarks, r.sort_order, r.rel_id, r.revision_no
+               GROUP BY c.main_code, c.code_name, r.quantity, r.remarks, r.sort_order, r.rel_id,
+                        r.revision_no, r.approved_basis_hash
                ORDER BY r.sort_order""", (tid, mother))
         # #29 — relId·매핑 수를 함께 내려 화면이 슬롯 매핑을 편집할 수 있게 한다
         return [
+            # 19.7 — basisDrift: 승인 이후 전개 근거(수량·슬롯 매핑)가 바뀌었는가 (#35).
+            # APPROVED 라는 표시만으로는 "승인된 그 내용이 지금 돌아간다" 를 뜻하지 못한다.
             {"code": r[0], "desc": r[1], "qty": float(r[2]), "remarks": r[3], "slotMap": r[4],
-             "relId": r[5], "slotMapCount": int(r[6]), "revisionNo": int(r[7])}
+             "relId": r[5], "slotMapCount": int(r[6]), "revisionNo": int(r[7]),
+             "basisDrift": bool(r[8])}
             for r in cur.fetchall()
         ]
 

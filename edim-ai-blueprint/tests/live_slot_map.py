@@ -107,6 +107,16 @@ try:
         ok(f"★ 매핑 변경이 관계 Revision 을 올림 ({before_rev} → {after_rev}) — #40 근거 이동",
            after_rev == before_rev + 1)
 
+        # ── 19.7: 승인 이후 근거가 바뀌면 그 사실이 드러나야 한다 (#35) ──
+        # 승인된 관계는 삭제는 막히는데(DRAFT 한정) 매핑은 자유롭게 바뀐다. 그런데 화면에는
+        # APPROVED 만 보이므로 "승인된 그 내용이 지금 돌아간다" 고 읽힌다. Revision 은 올라도
+        # '승인 당시 값' 이 없어 대조할 수 없었다 — 승인 시점 지문을 남겨 비교한다.
+        st, ch2 = req("GET", f"/codes/relationships/{MOTHER}/children", TOK)
+        row2 = next((c for c in ch2 if c["relId"] == rel), None)
+        ok("자식 목록에 basisDrift 노출", row2 is not None and "basisDrift" in row2)
+        ok(f"★ 승인 이후 매핑 변경이 드리프트로 드러난다 ({row2['basisDrift']})",
+           row2["basisDrift"] is True)
+
         # 전개에 실제로 반영되는지 (해당 Child 의 resolvedCode 에 고정값이 들어간다)
         st, exp = req("POST", "/codes/products/expand", TOK,
                       {"rootCode": MOTHER, "slotValues": {"B": "13", "E": "15"}})
@@ -121,6 +131,13 @@ try:
         added.clear()
         st, view3 = req("GET", f"/codes/relationships/{rel}/slot-map", TOK)
         ok("삭제 반영", all(m["childSlot"] != cs or m["fixedValue"] != "ZTEST" for m in view3["maps"]))
+        # 19.7 — 드리프트는 **횟수가 아니라 내용**을 본다. 되돌리면 승인 당시와 같아지므로
+        # 사라져야 한다(Revision 은 계속 오르지만 그것은 이력이다). 카운터로 판정했다면
+        # 검증용 매핑을 지운 뒤에도 영영 '변경됨' 으로 남아 실데이터가 오염된다.
+        st, ch3 = req("GET", f"/codes/relationships/{MOTHER}/children", TOK)
+        row3 = next((c for c in ch3 if c["relId"] == rel), None)
+        ok(f"★ 되돌리면 드리프트가 사라진다 ({row3['basisDrift']}) — 내용 비교이지 횟수가 아니다",
+           row3 is not None and row3["basisDrift"] is False)
 
     # 권한 가드
     gtok = login("kim01", "edim")
