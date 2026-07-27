@@ -13643,14 +13643,16 @@ def _action_allowed(cur, tid: int, uid: int, level: str, resource: str, verb: st
 
     **미설정 = 허용** — 어떤 역할도 그 자원에 동사를 명시하지 않았다면 종전 동작(레벨 게이트)을 따른다.
     한 역할이라도 명시했다면 그때부터는 명시된 동사만 허용한다(정보 접근 통제 1.5 와 같은 규약)."""
-    # 18.99 — '설정 있음' 판정에서 **READ 는 뺀다**. READ 는 화면 매트릭스(NONE→READ→WRITE)가
-    # 쓰는 값이라 어느 역할이든 그 자원을 READ 로 두면 자원이 '동사 설정됨' 이 되고, 그 순간
-    # 명시 동사가 없는 **모든 사용자(ADMIN 포함)가 잠긴다**. 지금은 강제 자원과 화면 키가
-    # 겹치지 않아 드러나지 않을 뿐, 겹치는 이름을 쓰는 순간 승인·배포가 통째로 막힌다.
+    # 18.99 — READ 는 **두 곳에서** 들어온다. 동사 지정 API(`resource_type='SCREEN'`)의 READ 는
+    # "읽기만 준다" 는 의사 표시이므로 종전대로 '설정 있음' 이다(READ 만 주면 승인 불가).
+    # 화면 권한 매트릭스(`'MENU'`, NONE→READ→WRITE)의 READ 는 화면 접근 값일 뿐인데, 이것까지
+    # 세면 어느 역할이 화면을 READ 로 두는 순간 그 자원이 잠겨 **명시 동사가 없는 ADMIN 까지
+    # 막힌다**. 두 어휘가 같은 키를 쓰기 시작하면서(cpq-selection) 실제로 문제가 됐다.
     cur.execute(
         """SELECT p.action FROM sys_role_permission p JOIN sys_role r ON r.role_id=p.role_id
-           WHERE r.tenant_id=%s AND p.resource_key=%s AND p.action = ANY(%s)""",
-        (tid, resource, [v for v in _ACTION_VERBS if v != "READ"]))
+           WHERE r.tenant_id=%s AND p.resource_key=%s AND p.action = ANY(%s)
+             AND (p.action <> 'READ' OR p.resource_type = 'SCREEN')""",
+        (tid, resource, list(_ACTION_VERBS)))
     if not cur.fetchone():
         return True                      # 이 자원에 동사 설정이 전혀 없음 → 종전대로
     roles = _user_role_ids(cur, tid, uid, level)

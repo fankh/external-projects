@@ -265,20 +265,24 @@ try:
         "SELECT COALESCE(string_agg(p.action, ',' ORDER BY p.action),'') "
         "FROM sys_role_permission p JOIN sys_role r ON r.role_id=p.role_id "
         f"WHERE r.role_name='ADMIN' AND p.resource_key='{EXEC_RES}'")
-    ok(f"실행 자원의 기존 화면 권한 확보 ({globals()['_exec_seeded'] or '없음'})", True)
+    ok(f"실행 자원의 기존 화면 권한 확보 ({globals()['_exec_seeded'] or '없음'})",
+       "READ" in (globals()["_exec_seeded"] or ""))
 
-    st, _ = req("PUT", f"/roles/ADMIN/verbs", TOK, {"resourceKey": EXEC_RES, "verbs": ["READ"]})
-    ok(f"실행 자원에 READ 만 부여 ({st})", st == 200)
+    # (1) 화면 권한 매트릭스의 READ 는 **동사 설정이 아니다**. 설정으로 치면 시드가 ADMIN×
+    #     제품선정을 READ 로 두고 있으므로 EXECUTE 검사를 넣는 순간 **ADMIN 의 모든 Run 이
+    #     막힌다**(18.99 함정). 동사 행이 없는 지금 상태에서 실행이 되는지부터 본다.
+    verb_rows = psql("SELECT count(*) FROM sys_role_permission p JOIN sys_role r "
+                     f"ON r.role_id=p.role_id WHERE p.resource_key='{EXEC_RES}' "
+                     "AND p.resource_type='SCREEN'")
+    ok(f"동사 행은 없는 상태 ({verb_rows}건)", verb_rows == "0")
     st, r1 = req("POST", "/cpq/runs", TOK, {"runType": "BOM", "isTest": True})
-    # READ 는 화면 매트릭스(NONE→READ→WRITE)가 쓰는 값이라 '동사 설정' 으로 치지 않는다.
-    # 치면 어느 역할이 화면을 READ 로 두는 순간 ADMIN 까지 실행이 잠긴다(18.99 함정 수정).
-    ok(f"★ READ 만으로는 실행이 잠기지 않는다 ({st}) — 화면 권한은 동사 설정이 아니다",
+    ok(f"★ 화면 권한만 있으면 실행은 종전대로 허용 ({st}) — 화면 READ 는 동사 설정이 아니다",
        st in (200, 202) and (r1 or {}).get("runId"))
     globals()["_exec_runs"] = [r1["runId"]]
 
-    st, _ = req("PUT", f"/roles/ADMIN/verbs", TOK,
-                {"resourceKey": EXEC_RES, "verbs": ["READ", "APPROVE"]})
-    ok(f"실행 아닌 동사만 명시 ({st}) — 이제 이 자원은 '설정됨'", st == 200)
+    # (2) 동사 API 로 READ 만 주는 것은 "읽기만 준다" 는 의사 표시다 → 실행 불가.
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": EXEC_RES, "verbs": ["READ"]})
+    ok(f"동사 API 로 READ 만 부여 ({st})", st == 200)
     st, b = req("POST", "/cpq/runs", TOK, {"runType": "BOM", "isTest": True})
     ok(f"★ EXECUTE 없으면 Run 403 ({st})",
        st == 403 and "EXECUTE" in (b or {}).get("detail", ""))
