@@ -85,6 +85,13 @@ with sync_playwright() as pw:
        {"login": "F2!bad", "name": "x", "initialPassword": "xxxx"}).status == 422)
     ok("PLATFORM 레벨 -> 422", call(tok, "POST", "/users",
        {"login": "f2.plat", "name": "x", "level": "PLATFORM", "initialPassword": "xxxx"}).status == 422)
+    # 18.96 — 생성은 막는데 **변경 경로만** PLATFORM 을 받아들이던 불일치. 지금은 실질
+    # 권한 차이가 없지만(플랫폼 API 는 운영 테넌트 여부로 막힌다) 화면엔 최상위로 보이고,
+    # 나중에 user_level 을 권한 신호로 쓰면 그때 구멍이 된다 — 두 경로를 같게 맞췄다.
+    ok("PLATFORM 으로 레벨 변경 -> 422", call(tok, "PATCH", "/users/f2.probe/level",
+       {"level": "PLATFORM"}).status == 422)
+    ok("정상 레벨 변경은 된다 (대조군)", call(tok, "PATCH", "/users/f2.probe/level",
+       {"level": "GENERAL"}).status == 200)
     ok("짧은 비밀번호 -> 422", call(tok, "POST", "/users",
        {"login": "f2.pw", "name": "x", "initialPassword": "abc"}).status == 422)
 

@@ -5657,6 +5657,15 @@ class LevelChangeRequest(BaseModel):
 def change_user_level(login: str, request: Request, body: LevelChangeRequest) -> dict[str, Any]:
     """권한 레벨 변경 (B8 감사 확장) — before/after 를 sys_history 에 기록."""
     level = body.level.strip().upper()
+    # 18.96 — 생성 경로(`POST /users`)는 PLATFORM 을 거부하는데("PLATFORM 은 테넌트 관리
+    # 전용") **변경 경로만 열려 있었다.** 지금은 실질 권한 차이가 없다 — 플랫폼 API 는
+    # `_platform_guard` 가 **운영 테넌트 여부**로 막으므로 고객사에서 PLATFORM 을 달아도
+    # 아무것도 열리지 않는다(즉 권한 상승이 아니다). 그러나 화면에는 최상위 등급으로 보이고,
+    # 나중에 누군가 `user_level == 'PLATFORM'` 을 권한 신호로 쓰면 그때 진짜 구멍이 된다.
+    # 두 경로의 계약을 같게 맞춘다.
+    if level == "PLATFORM":
+        raise HTTPException(
+            422, detail="PLATFORM 은 테넌트 관리 전용 등급입니다 — 사용자 등급으로 지정할 수 없습니다")
     if level not in LEVEL_RANK:
         raise HTTPException(422, detail=f"레벨은 {'/'.join(LEVEL_RANK)} 중 하나여야 합니다")
     with _conn() as conn, conn.cursor() as cur:
