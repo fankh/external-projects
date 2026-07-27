@@ -13216,8 +13216,12 @@ def project_files(response: Response, project: str = "PS-61313-5",
                 JOIN prj_project p ON p.project_id=s.project_id
                                   AND p.tenant_id=r.tenant_id
                                   AND p.project_no=%s{run_clause}
-                ORDER BY o.run_id DESC, o.output_id""", params)
+                ORDER BY o.run_id DESC, o.output_id LIMIT {_FILES_CAP + 1}""", params)
         rows = cur.fetchall()
+        # 18.83 — Run 산출물 구간도 상한을 둔다. `allRuns=true` 면 이 구간이 전 Run 을
+        # 담으므로, 업로드 구간만 막아 두면 응답이 여전히 수천 행이 된다(실측 5,072행).
+        out_truncated = len(rows) > _FILES_CAP
+        rows = rows[:_FILES_CAP]
     files = [
         {
             "name": (r[1] or "output").replace(" ", "_")[:60],
@@ -13291,6 +13295,8 @@ def project_files(response: Response, project: str = "PS-61313-5",
         ]
     # 상한 초과는 **헤더로 알린다** — 목록형 응답이라 본문 형태는 바꾸지 않는다(18.14 패턴).
     uploads = _mark_truncated(response, uploads, _FILES_CAP)
+    if out_truncated:      # 두 구간 중 하나라도 잘렸으면 잘린 것이다
+        response.headers["X-Truncated"] = "true"
     # 18.83 — 기본 보기에서 **몇 건을 뺐는지** 드러낸다. 숨긴 사실을 알리지 않으면 목록이
     # '이 프로젝트의 전부' 로 읽힌다. 지난 산출물은 `allRuns=true` 로 볼 수 있다.
     response.headers["X-Superseded-Hidden"] = str(0 if allRuns else superseded)
