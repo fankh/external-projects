@@ -134,6 +134,27 @@ with sync_playwright() as pw:
        call("PATCH", f"/hierarchy/nodes/{nid(other)}", admin,
             data={"name": "other2"}).ok)
 
+    # ── 4c. 19.4: 이름에 `_` 가 있으면 이동이 **형제 가지까지 다시 썼다** ──
+    # 접두 매칭이 LIKE 인데 base 를 리터럴화하지 않아, `_` 가 '아무 한 글자' 로 읽혔다.
+    # 9.32 가 영향 분석에서 같은 문제를 고쳤는데 이동 연쇄 갱신에는 적용되지 않았다.
+    # 밑줄 노드와 그 자리에 다른 글자가 든 형제를 나란히 두고, 하나만 옮긴다.
+    ok("밑줄 노드 생성", mk(f"{ROOT_A}/a_b", "a_b", ROOT_A).status == 201)
+    ok("밑줄 노드 자식", mk(f"{ROOT_A}/a_b/kid", "kid", f"{ROOT_A}/a_b").status == 201)
+    ok("형제(같은 자리 다른 글자) 생성", mk(f"{ROOT_A}/aXb", "aXb", ROOT_A).status == 201)
+    ok("형제 자식", mk(f"{ROOT_A}/aXb/kid", "kid", f"{ROOT_A}/aXb").status == 201)
+    und = addr_map()[f"{ROOT_A}/a_b"]
+    r = call("POST", f"/hierarchy/nodes/{nid(und)}/move", admin,
+             data={"targetParentId": nid(addr_map()[ROOT_B])})
+    ok("밑줄 노드 이동 성공", r.ok, f"status={r.status} body={r.text()[:140]}")
+    ok(f"★ 본인+자식 2건만 갱신 (moved={r.json()['moved']}) — 형제 가지는 건드리지 않는다",
+       r.json()["moved"] == 2)
+    m3 = addr_map()
+    ok("★ 형제와 그 자식은 제자리", f"{ROOT_A}/aXb" in m3 and f"{ROOT_A}/aXb/kid" in m3,
+       f"실제: {[a for a in m3 if 'aXb' in a]}")
+    ok("옮긴 쪽은 자식까지 따라옴",
+       f"{ROOT_B}/a_b" in m3 and f"{ROOT_B}/a_b/kid" in m3,
+       f"실제: {[a for a in m3 if 'a_b' in a]}")
+
     # ── 5. 정리 ──
     purge(ROOT_A, ROOT_B, "/inner")
     left = [a for a in addr_map() if a.startswith((ROOT_A, ROOT_B, "/inner"))]

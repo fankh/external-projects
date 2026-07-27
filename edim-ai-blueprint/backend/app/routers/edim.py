@@ -14071,10 +14071,12 @@ def hierarchy_node_impact(node_id: int) -> dict[str, Any]:
         if not r:
             raise HTTPException(404, detail=f"노드 없음: #{node_id}")
         addr, name, tree = r
+        # 19.4 — 접두 base 리터럴화 (노드명의 `_` 가 와일드카드로 읽히면 하위 수를 과대 계상)
+        _a = _like_esc(addr)
         cur.execute(
             """SELECT count(*) FROM sys_hierarchy
                WHERE tenant_id=%s AND tree_type=%s AND (address LIKE %s OR address LIKE %s)""",
-            (tid, tree, addr + "/%", addr + ".%"))
+            (tid, tree, _a + "/%", _a + ".%"))
         desc = int(cur.fetchone()[0])
         refs = _hierarchy_refs(cur, tid, addr)
     return {"nodeId": node_id, "address": addr, "name": name, "descendants": desc,
@@ -14217,12 +14219,17 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
             raise HTTPException(409, detail=f"대상 주소가 이미 사용 중입니다: {new_addr}")
 
         # 본인 + 하위 연쇄 접두 치환 (하위는 old_addr + '/' 접두)
+        # 19.4 — 접두 base 는 **리터럴화**해야 한다. 9.32 가 영향 분석(_hierarchy_refs)에서
+        # 같은 문제를 고쳤는데 이동 연쇄 갱신은 그대로였다. 노드명에 `_` 가 들어가면 LIKE 가
+        # 그것을 '아무 한 글자' 로 읽어, 형제 노드(`/C/A_B` 이동 시 `/C/AXB`)의 하위 주소까지
+        # 통째로 다시 쓴다 — 이동한 적 없는 가지가 조용히 다른 경로로 옮겨 앉는다.
+        base = _like_esc(old_addr)
         cur.execute(
             """UPDATE sys_hierarchy
                SET address = %s || substring(address from %s), updated_at = now()
                WHERE tenant_id=%s AND tree_type=%s
                  AND (address = %s OR address LIKE %s)""",
-            (new_addr, len(old_addr) + 1, tid, tree, old_addr, old_addr + "/%"))
+            (new_addr, len(old_addr) + 1, tid, tree, old_addr, base + "/%"))
         moved = cur.rowcount
         cur.execute(
             "UPDATE sys_hierarchy SET parent_id=%s WHERE tenant_id=%s AND hierarchy_id=%s",
@@ -14235,7 +14242,7 @@ def hierarchy_node_move(node_id: int, request: Request, body: HierarchyMove) -> 
                     SET hierarchy_address = %s || substring(hierarchy_address from %s)
                     WHERE tenant_id=%s AND (hierarchy_address=%s
                           OR hierarchy_address LIKE %s OR hierarchy_address LIKE %s)""",
-                (new_addr, len(old_addr) + 1, tid, old_addr, old_addr + "/%", old_addr + ".%"))
+                (new_addr, len(old_addr) + 1, tid, old_addr, base + "/%", base + ".%"))
             relinked += cur.rowcount
         _audit(cur, tid, "sys_hierarchy", node_id, "NODE_MOVE", request.state.user_id,
                after={"from": old_addr, "to": new_addr, "moved": moved, "relinked": relinked})
@@ -14305,7 +14312,7 @@ def hierarchy_node_copy(node_id: int, request: Request,
                FROM sys_hierarchy
                WHERE tenant_id=%s AND (hierarchy_id=%s OR address LIKE %s)
                ORDER BY length(address), address""",
-            (tid, node_id, src_addr + "/%"))
+            (tid, node_id, _like_esc(src_addr) + "/%"))   # 19.4 — 접두 리터럴화
         rows = cur.fetchall()
         if len(rows) > _HIERARCHY_COPY_CAP:
             raise HTTPException(
