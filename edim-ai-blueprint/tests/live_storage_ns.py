@@ -179,6 +179,28 @@ with sync_playwright() as pw:
         st, _ = files_of("ZZ-없는프로젝트")
         ok(f"없는 프로젝트 목록 422 ({st})", st == 422)
 
+        # ── 목록 상한과 '현재 Run' 구분 (18.82) ──
+        # Run 마다 산출물이 쌓여 목록이 계속 자란다(운영 실측 5,156행). 상한 없이 내려보내면
+        # 조회가 점점 무거워지고, 지난 Run 산출물이 현재 납품물과 같은 얼굴로 섞인다.
+        rr = req.get(f"{API}/files", params={"project": PROJ})
+        ok(f"절단 여부를 헤더로 알린다 ({rr.headers.get('x-truncated')}/{rr.headers.get('x-limit')})",
+           rr.headers.get("x-truncated") in ("true", "false") and rr.headers.get("x-limit"))
+        cap = int(rr.headers.get("x-limit"))
+        lst = rr.json()
+        uploads = [f for f in lst if f.get("fileId") is not None]
+        ok(f"업로드 구간이 상한 이내 ({len(uploads)} ≤ {cap})", len(uploads) <= cap)
+        basis = psql("SELECT COALESCE(max(r.run_id)::text,'') FROM cpq_run r "
+                     "JOIN cpq_selection s ON s.selection_id=r.selection_id "
+                     "JOIN prj_project p ON p.project_id=s.project_id "
+                     f"WHERE r.tenant_id={tid} AND r.status='SUCCESS' AND NOT r.is_test "
+                     f"AND p.project_no='{PROJ}'")
+        cur_rows = [f for f in uploads if f.get("currentRun")]
+        ok(f"현재 Run 산출물이 표시된다 ({len(cur_rows)}건 · 기준 #{basis})",
+           all(f.get("run") == f"#{basis}" for f in cur_rows))
+        ok("지난 Run 산출물은 현재로 표시되지 않는다",
+           all(not f.get("currentRun") for f in uploads
+               if f.get("run") not in ("-", f"#{basis}")))
+
         # ── GC 가 남의 테넌트 객체를 지우지 않는다 (18.63) ──
         # GC 는 테넌트 ADMIN 권한인데 버킷은 공유다. 수정 전 실측: `t9999/` 접두사 객체를
         # orphan 1건으로 잡아 apply=true 면 지웠다(다른 테넌트의 파일이 사라진다).
