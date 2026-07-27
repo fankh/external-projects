@@ -16,6 +16,7 @@
 밟는 것: 새 키가 `t{tid}/` 로 시작하는가 · 올린 파일이 그대로 내려오는가 · 재업로드가
 행을 가르지 않는가 · **옛 경로 행은 경로를 유지**하는가(경로가 바뀌면 행이 갈라진다) ·
 옛 경로의 Run 산출물을 덮어쓰려는 업로드를 #53 가드가 여전히 막는가 ·
+GC 가 남의 테넌트 접두사 객체를 대상에서 빼는가(18.63 — 수정 전엔 orphan 으로 잡아 지웠다) ·
 없는 프로젝트 번호를 **조용한 고아 대신 422** 로 거부하는가(18.58 — 종전엔 project_id 를
 NULL 로 넣고 201 을 돌려줬다) · 그리고 DB 불변식: **어떤 file_path 도 두 테넌트에 걸쳐
 있지 않다 · project_id NULL 행이 없다**.
@@ -51,6 +52,14 @@ def psql(sql):
     return r.stdout.strip()
 
 
+def docker(code):
+    """백엔드 컨테이너 안에서 실행 — 다른 테넌트 접두사 객체는 API 로 만들 수 없다."""
+    r = subprocess.run(["ssh", "edim-server",
+                        f"sudo docker exec edim-backend python -c \"{code}\""],
+                       capture_output=True, text=True, timeout=60)
+    return r.stdout.strip()
+
+
 FOLDER = "RECEIVED"   # 업로드 폴더는 화이트리스트다 — 임의 폴더를 못 만든다
 LEGACY = f"{PROJ}/{FOLDER}/ZZNS_legacy.txt"
 LEGACY_OUT = f"{PROJ}/{FOLDER}/ZZNS_output.txt"
@@ -60,6 +69,9 @@ def cleanup():
     psql("DELETE FROM sys_history WHERE target_table='dwg_file' AND target_id IN "
          "(SELECT file_id FROM dwg_file WHERE file_name LIKE 'ZZNS%')")
     psql("DELETE FROM dwg_file WHERE file_name LIKE 'ZZNS%'")
+    docker("from app.services import storage; "
+           "storage.remove_object('t9999/zz_gc_probe.txt') "
+           "if 't9999/zz_gc_probe.txt' in storage.list_object_keys('t9999/') else None")
 
 
 with sync_playwright() as pw:
@@ -166,6 +178,21 @@ with sync_playwright() as pw:
                str(len(lst) - len(runs)) == uploaded)
         st, _ = files_of("ZZ-없는프로젝트")
         ok(f"없는 프로젝트 목록 422 ({st})", st == 422)
+
+        # ── GC 가 남의 테넌트 객체를 지우지 않는다 (18.63) ──
+        # GC 는 테넌트 ADMIN 권한인데 버킷은 공유다. 수정 전 실측: `t9999/` 접두사 객체를
+        # orphan 1건으로 잡아 apply=true 면 지웠다(다른 테넌트의 파일이 사라진다).
+        docker("from app.services import storage; "
+               "storage.put_object('t9999/zz_gc_probe.txt', b'probe', 'text/plain')")
+        g = req.post(f"{API}/files/gc", data={"apply": False, "prefix": "t9999/"})
+        ok(f"GC dry-run 200 ({g.status})", g.status == 200)
+        gj = g.json()
+        ok(f"남의 접두사는 대상 아님 (orphans {gj['orphans']})", gj["orphans"] == 0)
+        ok(f"건너뛴 건수를 드러낸다 (foreignSkipped {gj.get('foreignSkipped')})",
+           gj.get("foreignSkipped") == 1)
+        ok("목록에도 없다", not any(k.startswith("t9999/") for k in gj["sampleOrphans"]))
+        docker("from app.services import storage; "
+               "storage.remove_object('t9999/zz_gc_probe.txt')")
 
         # ── 불변식: 어떤 경로도 두 테넌트에 걸치지 않는다 ──
         shared = psql("SELECT count(*) FROM (SELECT file_path FROM dwg_file "

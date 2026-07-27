@@ -2014,7 +2014,11 @@ def arrangements(forCode: str = "") -> list[dict[str, Any]]:
             cur.execute("SELECT group_id FROM product_code WHERE tenant_id=%s AND main_code=%s",
                         (tid, forCode.strip()))
             g = cur.fetchone()
-            target_group = g[0] if g else None
+            # 18.62 — 없는 코드면 종전엔 target_group=None 이 되어 **'제품군 없음' 으로 스코프한
+            # 것과 같은 목록**(공통만)을 돌려줬다. 걸러 준 것처럼 보이지만 기준이 없는 결과다.
+            if not g:
+                raise HTTPException(422, detail=f"제품 코드를 찾을 수 없습니다: {forCode.strip()}")
+            target_group = g[0]
         cur.execute(
             """SELECT a.arrangement_code, a.arrangement_name, a.product_family,
                       COALESCE(a.direction_option,''), COALESCE(a.install_option,''),
@@ -3648,8 +3652,19 @@ def files_gc(request: Request, body: FileGcRequest) -> dict[str, Any]:
         referenced.update(r[0] for r in cur.fetchall())
         # 시스템 샘플/시드 오브젝트는 보호 (GC 대상 제외)
         PROTECTED_PREFIX = ("sample_data/", "sample_")
+        # 18.63 — GC 는 테넌트 ADMIN 권한인데 버킷은 공유다. 종전엔 **다른 테넌트의 미참조
+        # 객체까지 지울 수 있었다**. 18.57 이후 새 키는 `t{tid}/` 로 갈리므로, 남의 접두사에
+        # 있는 객체는 대상에서 뺀다. 접두사가 없는 옛 객체는 종전대로 둔다(그 시절 키에는
+        # 소유 테넌트를 판별할 단서가 없다 — 없는 근거로 지우거나 남기지 않는다).
+        def _other_tenant(k: str) -> bool:
+            head = k.split("/", 1)[0]
+            return (head.startswith("t") and head[1:].isdigit()
+                    and int(head[1:]) != tid)
+
+        foreign = [k for k in keys if _other_tenant(k)]
         orphans = [k for k in keys
-                   if k not in referenced and not k.startswith(PROTECTED_PREFIX)]
+                   if k not in referenced and not k.startswith(PROTECTED_PREFIX)
+                   and not _other_tenant(k)]
         removed: list[str] = []
         if body.apply:
             for k in orphans:
@@ -3661,9 +3676,10 @@ def files_gc(request: Request, body: FileGcRequest) -> dict[str, Any]:
             if removed:
                 _audit(cur, tid, "dwg_file", 0, "MINIO_GC", request.state.user_id,
                        {"removed": len(removed), "prefix": body.prefix})
+    # foreignSkipped — 몇 건을 대상에서 뺐는지 드러낸다. 조용히 줄이면 '전부 훑었다' 로 읽힌다.
     return {"totalObjects": len(keys), "referenced": len(keys) - len(orphans),
             "orphans": len(orphans), "removed": len(removed), "applied": body.apply,
-            "sampleOrphans": orphans[:20]}
+            "foreignSkipped": len(foreign), "sampleOrphans": orphans[:20]}
 
 
 # ── INT-04 CAD 호환 — DXF 뷰/Import/Export (DWG 는 ODA 플러그블) ──
@@ -9080,12 +9096,19 @@ def anomaly_list(status: str = "", source: str = "", limit: int = 2000) -> dict[
     행은 최신·중요도 우선 상한(9.22)이나 요약(open/openHigh)은 전체 기준이라 정확하다."""
     lim = max(1, min(limit, 10000))   # 9.22 — 무한 성장 안전 상한
     clause, params = "", []
+    # 18.62 — 모르는 값이면 **필터를 통째로 버리고 전체를 돌려주던** 자리다. 화면은 걸러진
+    # 목록이라고 표시하는데 실제로는 전부 나오므로, 오타나 새 상태값 하나에 '이상 없음' 대신
+    # '전부 이상' 처럼 보인다. 빈 값(=전체)과 모르는 값은 다르다 — 후자는 알린다.
     st = status.strip().upper()
-    if st in ("OPEN", "ACK", "RESOLVED"):
+    if st:
+        if st not in ("OPEN", "ACK", "RESOLVED"):
+            raise HTTPException(422, detail=f"상태 오류: {status} (OPEN/ACK/RESOLVED)")
         clause += " AND status=%s"
         params.append(st)
     sc = source.strip().upper()
-    if sc in ("QC", "COST", "MILESTONE", "MANUAL"):
+    if sc:
+        if sc not in ("QC", "COST", "MILESTONE", "MANUAL"):
+            raise HTTPException(422, detail=f"출처 오류: {source} (QC/COST/MILESTONE/MANUAL)")
         clause += " AND source=%s"
         params.append(sc)
     with _conn() as conn, conn.cursor() as cur:
@@ -9464,6 +9487,10 @@ def cost_variance(request: Request, project: str = "") -> dict[str, Any]:
     proj = project.strip()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.62 — 빈 값은 테넌트 전체 보기라 그대로 두되, **없는 프로젝트 번호**는 알린다.
+        # 종전엔 0 으로 채운 분석표를 돌려줘 '차이 없음' 처럼 읽혔다.
+        if proj:
+            _project_id_or_422(cur, tid, proj)
         # 추정 — 최근 SUCCESS Run 의 cst_calc 분류 합계 (없으면 0), 프로젝트 스코프
         try:
             run_id, est = _latest_cost_base(cur, tid, proj)
