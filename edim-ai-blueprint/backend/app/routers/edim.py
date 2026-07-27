@@ -8337,9 +8337,15 @@ def stock_list(request: Request) -> list[dict[str, Any]]:
         cm = _info_mode(cur, tid, request, "cost")
         if cm != "full":
             _audit(cur, tid, "inv_stock", 0, "MASKED_READ", request.state.user_id, {"cost": cm})
+        # 18.74 — **'단가 미등록' 과 '통제로 가려짐' 은 다른 사실이다.** 둘 다 화면에서
+        # ₩0 으로 보이면 재고가 실제로 0원인 것과도 구분되지 않는다. 입고 시 단가를 적지
+        # 않고 cst_price(STOCK) 도 없으면 단가가 0 으로 남는데(이동평균의 출발값이 없다),
+        # 그 상태의 평가액은 '0원' 이 아니라 '산정 근거 없음' 이다.
+        # 가려짐은 값이 null/문자열로, 미등록은 priced=false 로 나간다 — 화면이 둘을 갈라 쓴다.
         return [{"itemCode": r[0], "itemName": r[1] or "-", "locationCode": r[2],
                  "locationName": r[3] or r[2], "quantity": float(r[4]), "unit": r[5],
-                 "updatedAt": r[6], "unitPrice": _mask_num(float(r[7]), cm),
+                 "updatedAt": r[6], "priced": float(r[7]) > 0,
+                 "unitPrice": _mask_num(float(r[7]), cm),
                  "value": _mask_num(round(float(r[4]) * float(r[7]), 2), cm)} for r in raw]
 
 

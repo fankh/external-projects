@@ -7,6 +7,7 @@ import { won, type Money } from '@/lib/money'
 export interface StockRow {
   itemCode: string; itemName: string; locationCode: string; locationName: string
   quantity: number; unit: string; updatedAt: string; unitPrice?: Money; value?: Money
+  priced?: boolean   // 18.74 — false = 단가 미등록(가려짐과 다르다)
 }
 
 export function StockGrid({ rows }: { rows: StockRow[] }) {
@@ -16,8 +17,10 @@ export function StockGrid({ rows }: { rows: StockRow[] }) {
     { key: 'name', header: t('inv.name', '품명'), render: (r) => r.itemName || '—' },
     { key: 'loc', header: t('inv.location', '위치'), width: 110, render: (r) => r.locationName || r.locationCode },
     { key: 'qty', header: t('inv.qty', '수량'), width: 72, align: 'right', sortValue: (r) => r.quantity, render: (r) => `${r.quantity} ${r.unit}` },
-    { key: 'price', header: t('inv.unitPrice', '단가'), width: 84, align: 'right', sortValue: (r) => (typeof r.unitPrice === 'number' ? r.unitPrice : -1), render: (r) => won(r.unitPrice) },
-    { key: 'value', header: t('inv.value', '평가액'), width: 100, align: 'right', code: true, sortValue: (r) => (typeof r.value === 'number' ? r.value : -1), render: (r) => won(r.value) },
+    { key: 'price', header: t('inv.unitPrice', '단가'), width: 84, align: 'right', sortValue: (r) => (typeof r.unitPrice === 'number' ? r.unitPrice : -1),
+      render: (r) => r.priced === false ? <span style={{ color: 'var(--txt-mute)' }}>{t('inv.unpriced', '미등록')}</span> : won(r.unitPrice) },
+    { key: 'value', header: t('inv.value', '평가액'), width: 100, align: 'right', code: true, sortValue: (r) => (typeof r.value === 'number' ? r.value : -1),
+      render: (r) => r.priced === false ? <span style={{ color: 'var(--txt-mute)' }}>—</span> : won(r.value) },
     { key: 'upd', header: t('inv.updated', '갱신'), width: 116, align: 'center', render: (r) => r.updatedAt },
   ]
   return <DenseGrid prefKey="next-stock" colFilter columns={cols} rows={rows}
