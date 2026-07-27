@@ -2,7 +2,7 @@
 """정보 접근 권한·마스킹 라이브 (1.5) — 요구 #4/#6.
 
 검증: 기본 full(무영향) → 역할 규칙 설정 → 마스킹 반영(단가·원가·거래처) → 다운로드 403
-     → 임시 열람 부여로 즉시 해제 → 회수 후 복귀 → 규칙 원복.
+     → 임시 열람 부여로 즉시 해제 → 회수 후 복귀 → **시간 만료도 효력을 잃는지**(18.95) → 규칙 원복.
 정리: 프로브 사용자·규칙·임시부여 psql/API 삭제 내장.
 """
 import json
@@ -105,6 +105,26 @@ try:
     ok("임시 열람 중 XLSX 허용", req("GET", "/prices/export.xlsx", ptok, raw=True)[:2] == b"PK")
     req("DELETE", f"/access/temp/{g['id']}", adm)
     ok("회수 후 마스킹 복귀", isinstance(req("GET", "/prices", ptok)[0]["price"], str))
+
+    # 5b) 18.95 — **시간 만료**도 실제로 효력을 잃는가. 회수(revoked)와 만료(valid_to)는
+    # 서로 다른 조건이라 한쪽만 검증하면 다른 쪽이 열린 채 남을 수 있다. '임시' 열람이
+    # 시간으로 닫히지 않으면 사실상 영구 부여다. 몇 시간을 기다릴 수 없으므로 만료 시각을
+    # 과거로 둔 부여를 직접 넣어 확인한다(부여 API 는 최소 1시간이라 이 경로로만 만들 수 있다).
+    psql("INSERT INTO sys_temp_access (tenant_id, user_id, info_group, mode, reason, "
+         "granted_by, valid_from, valid_to) SELECT u.tenant_id, u.user_id, 'price', 'full', "
+         "'ZZ 만료 검증', u.user_id, now() - interval '3 hours', now() - interval '1 hour' "
+         f"FROM sys_user u WHERE u.login_id='{PU}'")
+    ok("만료된 부여는 효력이 없다",
+       isinstance(req("GET", "/prices", ptok)[0]["price"], str))
+    psql("DELETE FROM sys_temp_access WHERE reason='ZZ 만료 검증'")
+    # 대조군 — 유효한 창이면 다시 열려야 한다(위 결과가 '만료 때문' 임을 확인한다).
+    psql("INSERT INTO sys_temp_access (tenant_id, user_id, info_group, mode, reason, "
+         "granted_by, valid_from, valid_to) SELECT u.tenant_id, u.user_id, 'price', 'full', "
+         "'ZZ 유효 대조', u.user_id, now() - interval '1 hour', now() + interval '1 hour' "
+         f"FROM sys_user u WHERE u.login_id='{PU}'")
+    ok("유효한 창에서는 열린다 (대조군)",
+       isinstance(req("GET", "/prices", ptok)[0]["price"], (int, float)))
+    psql("DELETE FROM sys_temp_access WHERE reason='ZZ 유효 대조'")
 
     # 6) 사유 없는 임시 부여 422 · 일반 사용자 설정 403
     try:
