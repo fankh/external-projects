@@ -92,6 +92,8 @@ with sync_playwright() as pw:
        {"level": "PLATFORM"}).status == 422)
     ok("정상 레벨 변경은 된다 (대조군)", call(tok, "PATCH", "/users/f2.probe/level",
        {"level": "GENERAL"}).status == 200)
+    ok("대조군 원복 (뒤 검증이 SETUP 을 전제로 한다)",
+       call(tok, "PATCH", "/users/f2.probe/level", {"level": "SETUP"}).status == 200)
     ok("짧은 비밀번호 -> 422", call(tok, "POST", "/users",
        {"login": "f2.pw", "name": "x", "initialPassword": "abc"}).status == 422)
 
