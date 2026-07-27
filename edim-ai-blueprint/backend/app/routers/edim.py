@@ -115,13 +115,22 @@ def require_auth(request: Request, response: Response) -> None:
     with _conn() as conn, conn.cursor() as cur:
         tid = tok_tid or _tenant_id(cur)
         cur.execute(
-            """SELECT user_id, user_level,
-                      EXTRACT(EPOCH FROM date_trunc('second', pw_changed_at))
-               FROM sys_user
-               WHERE tenant_id=%s AND login_id=%s AND status='ACTIVE'""", (tid, login))
+            """SELECT u.user_id, u.user_level,
+                      EXTRACT(EPOCH FROM date_trunc('second', u.pw_changed_at)),
+                      COALESCE(t.status,'ACTIVE'), COALESCE(t.tenant_name, '')
+               FROM sys_user u LEFT JOIN sys_tenant t ON t.tenant_id=u.tenant_id
+               WHERE u.tenant_id=%s AND u.login_id=%s AND u.status='ACTIVE'""", (tid, login))
         row = cur.fetchone()
     if not row:
         raise HTTPException(401, detail="비활성/미존재 사용자")
+    # 19.1 — 계약 게이트는 **로그인에만** 걸려 있었다. `PATCH /platform/tenants/{code}` 는
+    # "SUSPENDED/TERMINATED 는 즉시 로그인 차단" 이라고 적어 두었지만, 중지 시점에 이미
+    # 발급된 토큰은 최대 8시간 그대로 통했다 — 중지된 고객사가 반나절 더 쓰는 셈이다.
+    # 계정 비활성화(15.3)·비밀번호 변경(18.51)은 매 요청 재확인으로 즉시 반영되는데, 같은
+    # 목적의 계약 축만 빠져 있었다. 세 번째 같은 계열이라 여기서 함께 닫는다.
+    if (row[3] or "ACTIVE").upper() != "ACTIVE":
+        raise HTTPException(
+            403, detail=f"고객사 이용이 중지되었습니다 ({row[4]} — {row[3]}). 담당자에게 문의하십시오")
     # 18.51 — 비밀번호가 바뀐 뒤 발급된 토큰만 인정한다. 종전에는 관리자가 재설정해도
     # **기존 토큰이 최대 8시간 그대로 통했다**(옛 비밀번호 로그인은 막히는데 옛 세션은 살아
     # 있었다) — 계정 탈취 대응이 이미 열린 세션을 끊지 못한 것이다. 비활성화는 매 요청
@@ -837,7 +846,8 @@ def _auth_fail_streak(cur, tid: int, uid: int) -> int:
 
 
 def _lock_account(cur, tid: int, uid: int, fails: int) -> None:
-    cur.execute("UPDATE sys_user SET status='LOCKED', updated_at=now() WHERE user_id=%s", (uid,))
+    cur.execute("UPDATE sys_user SET status='LOCKED', updated_at=now() "
+                "WHERE tenant_id=%s AND user_id=%s", (tid, uid))
     _audit(cur, tid, "sys_user", uid, "LOCK", uid,
            {"reason": f"인증 {fails}회 연속 실패 자동 잠금"})
 

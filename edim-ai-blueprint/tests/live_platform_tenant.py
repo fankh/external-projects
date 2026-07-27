@@ -85,14 +85,27 @@ try:
         ok("고객사 ADMIN 플랫폼 API 403", e.code == 403)
 
     # 4) 계약 게이트 — 중지 시 로그인 차단, 재개 시 복귀
+    # 19.1 — **이미 열려 있던 세션도 끊겨야 한다.** 종전에는 로그인 경로에만 걸려 있어,
+    # 중지 시점에 발급된 토큰이 최대 8시간 그대로 통했다(중지된 고객사가 반나절 더 쓰는 셈).
+    # 계정 비활성화(15.3)·비밀번호 변경(18.51)은 매 요청 재확인으로 즉시 반영되는데 계약
+    # 축만 빠져 있었다. 중지 **전에** 토큰을 받아 두고, 중지 후 그 토큰이 죽는지 본다.
+    live_tok = login(AL, AP)["token"]
+    ok("중지 전 세션 정상", isinstance(req("GET", "/users", live_tok), list))
     req("PATCH", f"/platform/tenants/{TC}", adm, {"status": "SUSPENDED"})
     try:
         login(AL, AP)
         ok("중지 고객사 로그인 차단 403", False)
     except urllib.error.HTTPError as e:
         ok("중지 고객사 로그인 차단 403", e.code == 403)
+    try:
+        req("GET", "/users", live_tok)
+        ok("★ 중지 시 기존 세션도 즉시 차단", False)
+    except urllib.error.HTTPError as e:
+        ok(f"★ 중지 시 기존 세션도 즉시 차단 ({e.code})", e.code == 403)
     req("PATCH", f"/platform/tenants/{TC}", adm, {"status": "ACTIVE"})
     ok("재개 후 로그인 복귀", bool(login(AL, AP).get("token")))
+    ok("재개 후 기존 토큰도 다시 통한다 (과잉 차단 아님)",
+       isinstance(req("GET", "/users", live_tok), list))
 
     # 5) 플랫폼 운영 테넌트 자기보호
     try:
