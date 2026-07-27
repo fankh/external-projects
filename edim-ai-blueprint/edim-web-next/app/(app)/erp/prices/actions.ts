@@ -1,6 +1,7 @@
 'use server'
 
 /** 단가 대장 뮤테이션 (N3b) — 등록·적용 종료 마감·Excel Import. */
+import type { Money } from '@/lib/money'
 import { revalidatePath } from 'next/cache'
 import { API_BASE } from '@/lib/apiBase'
 import { apiServer, ApiError } from '@/lib/api'
@@ -11,7 +12,8 @@ const PATH = '/erp/prices'
 export interface ActState { error?: string; ok?: string }
 
 /** 단가 해석 (GET /prices/resolve) — 코드·기준일의 유효 단가 1건 (소스 우선순위). */
-export interface ResolvedPrice { code: string; name: string; source: string; price: number; from: string; to: string | null; supplier: string }
+// 18.65 — 단가는 마스킹 대상이다(자릿수 문자열·null 로도 온다).
+export interface ResolvedPrice { code: string; name: string; source: string; price: Money; from: string; to: string | null; supplier: string }
 
 export async function resolvePrice(code: string, at?: string): Promise<{ result?: ResolvedPrice; error?: string }> {
   if (!code.trim()) return { error: '코드를 입력하십시오' }

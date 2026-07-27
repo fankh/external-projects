@@ -7,7 +7,7 @@ import type { Money } from '@/lib/money'
 
 // 18.65 — 금액은 통제에 따라 숫자·자릿수 문자열·null 로 온다.
 export interface PcrResult { pcrId: number; businessType: string; revenue: Money; directCostTotal: Money; contributionMargin: Money; ebit: Money }
-export interface QuotationRow { quotationId: number; quotationNo: string; total: number; currency: string; status: string; date: string; project: string; customer: string; taxCode?: string; taxPct?: number; subtotal?: number; tax?: number
+export interface QuotationRow { quotationId: number; quotationNo: string; total: Money; currency: string; status: string; date: string; project: string; customer: string; taxCode?: string; taxPct?: number; subtotal?: Money; tax?: Money
   /** 발행 시점 원가 근거 — basisComplete=null 은 이 기능 도입 전 발행분(확인 불가). */
   unpricedCount?: number; unpricedCodes?: string[]; basisComplete?: boolean | null; basisKnown?: boolean }
 export interface FxRow { fxId: number; currency: string; rate: number; validFrom: string }
@@ -34,7 +34,7 @@ export async function createPcr(businessType: string, marginRate = 0.35): Promis
 }
 
 /** 견적 확정 (통화·세금코드 → 세액 자동적재, PCR 필요 시 409). */
-export interface QuoteResult { quotationNo: string; currency: string; subtotal: number; taxPct: number; tax: number; total: number
+export interface QuoteResult { quotationNo: string; currency: string; subtotal: Money; taxPct: number; tax: Money; total: Money
   unpricedCount?: number; unpricedCodes?: string[]; basisComplete?: boolean; notes?: string[] }
 
 export async function createQuotation(businessType: string, currency = 'KRW', taxCode = ''): Promise<{ result?: QuoteResult; quotes?: QuotationRow[]; error?: string }> {

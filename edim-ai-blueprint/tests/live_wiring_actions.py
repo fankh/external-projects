@@ -66,17 +66,18 @@ children = req("GET", f"/codes/relationships/{DWG}/children")
 rel_cands = [p["mainCode"] for p in req("GET", "/codes/products")
              if p["mainCode"] != DWG and p["mainCode"] not in {c["code"] for c in children}
              and not p["mainCode"].startswith("KDW-BT")][:6]
+PROBE = "BOMT-PROBE-01"
 bom0 = req("GET", f"/drawings/{DWG}/bom")
 in_bom = {b["partNo"] for b in bom0}
-bom_cand = next((p["partNo"] for p in req("GET", "/parts") if p["partNo"] not in in_bom), None)
-bom_probe = False
-if bom_cand is None:
-    # 전 부품이 이미 BOM 에 있으면 프로브 부품 생성 (tail 에서 삭제)
-    bom_cand = "BOMT-PROBE-01"
+# 18.72 — **항상 전용 프로브 부품을 쓴다.** 종전엔 'BOM 에 없는 아무 부품' 을 골랐고,
+# 프로브를 만든 실행에서만 지웠다(`bom_probe`). 그래서 (1) 앞선 실행이 중단돼 프로브가
+# 남으면 다음 실행이 그것을 '기존 부품' 으로 골라 **영영 정리하지 않고**, (2) 시드 부품이
+# 뽑히면 검증이 시드 데이터를 건드린다. 자기 자원만 만들고 지운다는 규칙(8.11)에 맞춘다.
+bom_cand = PROBE
+if not any(p["partNo"] == PROBE for p in req("GET", "/parts")):
     req("POST", "/parts", {"partNo": bom_cand, "name": "BOM 배선 프로브", "specification": "",
                             "materialCode": "", "supplier": "", "productCode": "", "unit": "EA",
                             "weight": None, "isStandard": False})
-    bom_probe = True
 d0 = req("GET", "/notifications/digest")["unread"]
 
 from playwright.sync_api import sync_playwright  # noqa: E402
@@ -190,11 +191,11 @@ finally:
     for b2 in req("GET", f"/drawings/{DWG}/bom"):
         if b2["partNo"] == bom_cand:
             req("DELETE", f"/drawings/{DWG}/bom/{b2['bomId']}")
-    if bom_probe:
-        try:
-            req("DELETE", f"/parts/{bom_cand}")
-        except Exception:  # noqa: BLE001
-            psql(f"DELETE FROM prt_part WHERE part_no='{bom_cand}'")
+    # 프로브는 이 스위트 전용이므로 **항상** 회수한다(만든 실행인지 따지지 않는다).
+    try:
+        req("DELETE", f"/parts/{bom_cand}")
+    except Exception:  # noqa: BLE001
+        psql(f"DELETE FROM prt_part WHERE part_no='{bom_cand}'")
     psql("DELETE FROM com_company WHERE company_name LIKE 'BATCH-T%'")
     psql("DELETE FROM product_code WHERE main_code LIKE 'KDW-BT%'")
     print("정리 — 알림 read·BOM 프로브·거래처/제품코드 psql", flush=True)

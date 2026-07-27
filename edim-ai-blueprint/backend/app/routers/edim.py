@@ -8275,6 +8275,7 @@ def stock_inbound(request: Request, body: InboundRequest) -> dict[str, Any]:
     serial = body.serialNo.strip()[:80] or None
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        cm = _info_mode(cur, tid, request, "cost")   # 8.6 — 질의 전에 확정
         # 단가 결정 — 명시 지정 우선, 없으면 cst_price(STOCK) 자동 적재
         auto = body.unitPrice is None
         in_price = _stock_price(cur, tid, item) if auto else float(body.unitPrice)
@@ -8308,9 +8309,15 @@ def stock_inbound(request: Request, body: InboundRequest) -> dict[str, Any]:
         _audit(cur, tid, "inv_stock", 0, "INBOUND", request.state.user_id,
                {"item": item, "location": loc, "qty": body.quantity, "lot": lot, "serial": serial,
                 "unitPrice": in_price, "priceAuto": auto})
+    # 18.70 — 쓰기 응답도 같은 통제를 따른다. 평단가는 **이전 입고 원가에서 계산된 값**이고
+    # 자동 결정된 단가는 cst_price(STOCK) 에서 온 값이라, 원가 열람이 가려진 사용자에게
+    # 그대로 돌려주면 조회 경로에서 막은 것을 쓰기 경로로 흘리게 된다(같은 데이터, 다른 경로).
+    # 사용자가 직접 적어 넣은 단가는 자기가 준 값이므로 가리지 않는다.
     return {"itemCode": item, "locationCode": loc, "onHand": on_hand,
-            "lotNo": lot, "serialNo": serial, "unitPrice": in_price,
-            "avgPrice": new_price, "priceAuto": auto, "value": round(on_hand * new_price, 2)}
+            "lotNo": lot, "serialNo": serial,
+            "unitPrice": _mask_num(in_price, cm) if auto else in_price,
+            "avgPrice": _mask_num(new_price, cm), "priceAuto": auto,
+            "value": _mask_num(round(on_hand * new_price, 2), cm), "maskMode": cm}
 
 
 @router.get("/erp/stock")
@@ -14523,6 +14530,10 @@ def qcr_issue(request: Request, body: QcrIssue) -> dict[str, Any]:
 
 class PoCreate(BaseModel):
     codes: list[str]
+    # 18.69 — 종전엔 클라이언트가 계산한 금액을 그대로 문서 제목에 적었다. 원가 열람이
+    # 마스킹된 사용자는 화면에 가려진 값(0·자릿수 문자열)으로 합계를 내므로 **틀린 금액의
+    # 발주서**가 만들어진다. 금액은 서버가 단가에서 직접 집계한다 — 아래 값은 무시하고,
+    # 구형 클라이언트 호환을 위해 필드만 남긴다.
     totalK: float = 0
     deliveryTerms: str = "EXW 창원공장"      # ERP-017 납품조건
     transport: str = "육로 (트럭)"           # 운송수단
@@ -14536,8 +14547,32 @@ def po_create(request: Request, body: PoCreate) -> dict[str, Any]:
     codes = [c.strip() for c in body.codes if c.strip()]
     if not codes:
         raise HTTPException(422, detail="발주 품목이 없습니다")
+    ref = date.today().isoformat()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.69 — 금액은 서버가 유효 단가 × 소요수량으로 집계한다(클라이언트 값 무시).
+        total_won = 0.0
+        unpriced: list[str] = []
+        assumed_qty: list[str] = []   # 소요수량을 1로 가정한 코드
+        for c in codes:
+            cur.execute(
+                """SELECT p.price FROM product_code pc
+                   LEFT JOIN cst_price p ON p.product_code_id=pc.product_code_id
+                     AND p.valid_from <= %s::date
+                     AND (p.valid_to IS NULL OR p.valid_to >= %s::date)
+                   WHERE pc.tenant_id=%s AND pc.main_code=%s
+                   ORDER BY array_position(%s::text[], p.price_source), p.valid_from DESC
+                   LIMIT 1""", (ref, ref, tid, c, SOURCE_PRIORITY))
+            r = cur.fetchone()
+            if not r or r[0] is None:
+                unpriced.append(c)
+                continue
+            if c not in PR_META:
+                assumed_qty.append(c)
+            # 소요수량은 발주요청 목록(PR_META)에서 온다. 목록에 없는 코드는 1로 본다 —
+            # 근거 없는 수량을 지어내지 않되, 그 사실이 금액에 묻히지 않도록 응답에 남긴다.
+            total_won += float(r[0]) * float(PR_META.get(c, {}).get("qty", 1))
+        total_k = round(total_won / 1000, 0)
         cur.execute(
             "SELECT count(*)+1 FROM doc_control WHERE tenant_id=%s AND doc_type='PO'", (tid,))
         seq = cur.fetchone()[0]
@@ -14562,15 +14597,20 @@ def po_create(request: Request, body: PoCreate) -> dict[str, Any]:
             """INSERT INTO doc_control (tenant_id, doc_no, title, doc_type, released_status,
                version, person, management_grade, remarks, created_by)
                VALUES (%s,%s,%s,'PO','SET_UP','v1.0',%s,'S-3',%s,%s) RETURNING doc_control_id""",
-            (tid, po_no, f"발주서 {po_no} — {len(codes)}품목 {body.totalK:,.0f}K",
+            (tid, po_no, f"발주서 {po_no} — {len(codes)}품목 {total_k:,.0f}K"
+             + (f" (단가 미등록 {len(unpriced)}품목 제외)" if unpriced else ""),
              request.state.login, terms[:500], request.state.login))
         doc_id = cur.fetchone()[0]
         cur.execute(
             """INSERT INTO sys_history (tenant_id, target_table, target_id, action, actor_id, after_data)
                VALUES (%s,'doc_control',%s,'PO_CREATE',%s,%s)""",
             (tid, doc_id, request.state.user_id,
-             json.dumps({"poNo": po_no, "codes": codes, "terms": terms[:300]})))
-    return {"poNo": po_no, "docNo": po_no, "terms": terms}
+             json.dumps({"poNo": po_no, "codes": codes, "terms": terms[:300],
+                         "totalK": total_k, "unpriced": unpriced,
+                         "assumedQty": assumed_qty})))
+    # 단가가 없어 합계에서 빠진 품목은 **드러낸다** — 조용히 빼면 총액이 사실처럼 읽힌다.
+    return {"poNo": po_no, "docNo": po_no, "terms": terms,
+            "totalK": total_k, "unpricedCodes": unpriced, "assumedQtyCodes": assumed_qty}
 
 
 # ── G3 발주 라이프사이클 (erp_po) — 헤더+라인·승인·입고(GR)·3-way 수량 match ──
@@ -14883,6 +14923,7 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
         sel = cur.fetchone()
         if not sel or not sel[0]:
             raise HTTPException(409, detail="cpq_selection 없음")
+        cm = _info_mode(cur, tid, request, "cost")   # 8.6 — 질의 전에 확정 (18.71)
         run_id, totals = _latest_cost_base(cur, tid)
         # 단가 미해결 품목은 0 원으로 합계에 들어가 있다 — 재료비가 낮아지면 직접경비(재료비
         # 비율)와 매출(직접비×(1+마진))까지 함께 낮아진다. 근거 없이 낮은 수익성 보고서가
@@ -14919,9 +14960,12 @@ def pcr_upsert(request: Request, body: PcrCreate) -> dict[str, Any]:
                 (tid, sel[0], bt, json.dumps(sections), direct_total, margin, ebit,
                  request.state.login))
             row = cur.fetchone()
-    return {"pcrId": row[0], "businessType": bt, "revenue": revenue,
-            "directCostTotal": direct_total, "contributionMargin": margin, "ebit": ebit,
-            "unpricedCount": len(unpriced),
+    # 18.71 — 목록 조회(`GET /cost/pcr`)는 이 값들을 `cost` 그룹으로 가리는데 **생성 응답만**
+    # 그대로 나가고 있었다. 같은 수치를 만든 직후에 보여 주는 경로가 통제 밖이면 통제가 아니다.
+    return {"pcrId": row[0], "businessType": bt, "revenue": _mask_num(revenue, cm),
+            "directCostTotal": _mask_num(direct_total, cm),
+            "contributionMargin": _mask_num(margin, cm), "ebit": _mask_num(ebit, cm),
+            "maskMode": cm, "unpricedCount": len(unpriced),
             "unpricedCodes": [u.get("code") for u in unpriced][:20],
             "basisComplete": not unpriced,
             "mfgEstimated": mfg_estimated,
@@ -15258,6 +15302,7 @@ def quotation_create(request: Request, body: QuotationCreate) -> dict[str, Any]:
     bt = body.businessType.strip().upper()
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        qmode = _info_mode(cur, tid, request, "quote")   # 8.6 — 질의 전에 확정 (18.71)
         cur.execute(
             """SELECT p.pcr_id, p.sections, p.selection_id, s.project_id
                FROM cst_pcr p JOIN cpq_selection s ON s.selection_id=p.selection_id
@@ -15322,8 +15367,12 @@ def quotation_create(request: Request, body: QuotationCreate) -> dict[str, Any]:
                VALUES (%s,'cst_quotation',%s,'CREATE',%s,%s)""",
             (tid, qid, request.state.user_id,
              json.dumps({"quotationNo": qno, "currency": cur_c, "subtotal": subtotal, "tax": tax, "total": total})))
+    # 18.71 — 목록 조회(`GET /cost/quotations`)는 금액을 `quote` 그룹으로 가리는데 **확정
+    # 응답만** 그대로 나가고 있었다(8.3 에서 목록만 손봤다). 같은 값, 다른 경로.
     return {"quotationId": qid, "quotationNo": qno, "currency": cur_c, "rate": rate,
-            "taxPct": pct, "subtotal": subtotal, "tax": tax, "total": total,
+            "taxPct": pct, "subtotal": _mask_num(subtotal, qmode),
+            "tax": _mask_num(tax, qmode), "total": _mask_num(total, qmode),
+            "maskMode": qmode,
             "unpricedCount": len(unpriced), "unpricedCodes": unpriced_codes,
             "basisComplete": not unpriced,
             "acknowledged": bool(unpriced and body.acknowledgeIncompleteBasis),
@@ -17338,13 +17387,29 @@ def drawing_bom_delete(drawing_no: str, bom_id: int, request: Request) -> dict[s
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         did = _drawing_id(cur, tid, drawing_no)
+        # 18.72 — 지우기 **전에** 내용을 읽는다. 종전엔 `{bomId, drawing}` 만 남겨서, 시드
+        # BOM 행이 사라진 뒤 **어느 부품이 빠졌는지조차 이력으로 알 수 없었다**(플릿에서
+        # dwg_bom 4→3 이 잡혔을 때 원인 추적이 여기서 막혔다). 식별자만 남기는 삭제 이력은
+        # '지웠다' 는 사실만 알려주고 '무엇을 잃었나' 에는 답하지 못한다.
+        cur.execute(
+            """SELECT p.part_no, p.part_name, b.item_no, b.quantity, b.assembly_seq,
+                      COALESCE(b.assembly_note,'')
+               FROM dwg_bom b
+               LEFT JOIN prt_part p ON p.part_id=b.part_id AND p.tenant_id=%s
+               WHERE b.drawing_id=%s AND b.bom_id=%s""", (tid, did, bom_id))
+        prev = cur.fetchone()
+        if not prev:
+            raise HTTPException(404, detail=f"BOM 행 없음: #{bom_id}")
         cur.execute("DELETE FROM dwg_bom WHERE drawing_id=%s AND bom_id=%s RETURNING bom_id",
                     (did, bom_id))
         if not cur.fetchone():
             raise HTTPException(404, detail=f"BOM 행 없음: #{bom_id}")
         # 도면 BOM 은 제조비 산정 근거(조립 스텝)로도 쓰인다 — 삭제도 이력이 남아야 한다
         _audit(cur, tid, "dwg_bom", bom_id, "DELETE", request.state.user_id,
-               before={"drawing": drawing_no, "bomId": bom_id})
+               before={"drawing": drawing_no, "bomId": bom_id, "partNo": prev[0],
+                       "partName": prev[1], "itemNo": prev[2],
+                       "qty": float(prev[3]) if prev[3] is not None else None,
+                       "assemblySeq": prev[4], "assemblyNote": prev[5]})
     return {"deleted": bom_id}
 
 

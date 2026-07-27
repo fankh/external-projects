@@ -1,6 +1,7 @@
 'use client'
 
 /** 구매·발주 요청 — 다중선택 + QCR 발행 / PO 조건 발주 (N3b 복구). */
+import { won as wonFmt, sortMoney, type Money } from '@/lib/money'
 import { useState, useTransition } from 'react'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
@@ -10,10 +11,11 @@ import { createPo, issueQcr, type ActState } from './actions'
 export interface PrRow {
   code: string; name: string; supplierCode: string; supplier: string
   qty: number; onHand: number; reserved: number; available: number
-  price: number | null; requiredDate: string
+  price: Money; requiredDate: string
 }
 
-const won = (n: number | null) => (n == null ? '—' : `₩ ${Math.round(n).toLocaleString()}`)
+// 18.65 — 마스킹된 단가는 '100000~' 문자열로도 온다. 숫자로 가정하면 ₩NaN 이 찍힌다.
+const won = (v: Money) => wonFmt(v, true)
 
 export function PrGrid({ rows }: { rows: PrRow[] }) {
   const { t } = useI18n()
@@ -27,9 +29,6 @@ export function PrGrid({ rows }: { rows: PrRow[] }) {
   const [pending, start] = useTransition()
 
   const codes = () => [...selected].map(String)
-  const totalK = () => rows.filter((r) => selected.has(r.code))
-    .reduce((s, r) => s + ((r.price ?? 0) * r.qty), 0) / 1000
-
   const cols: GridColumn<PrRow>[] = [
     { key: 'code', header: t('purch.code', '코드'), width: 110, code: true, render: (r) => r.code },
     { key: 'name', header: t('cpq.name', '품명'), render: (r) => r.name },
@@ -37,7 +36,7 @@ export function PrGrid({ rows }: { rows: PrRow[] }) {
     { key: 'qty', header: t('purch.reqQty', '소요'), width: 56, align: 'right', sortValue: (r) => r.qty, render: (r) => r.qty },
     { key: 'onhand', header: t('purch.onHand', '보유'), width: 56, align: 'right', sortValue: (r) => r.onHand, render: (r) => r.onHand },
     { key: 'avail', header: t('purch.available', '가용'), width: 56, align: 'right', sortValue: (r) => r.available, render: (r) => <b style={{ color: r.available >= r.qty ? 'var(--ok)' : 'var(--err)' }}>{r.available}</b> },
-    { key: 'price', header: t('price.priceLbl', '단가'), width: 100, align: 'right', sortValue: (r) => r.price ?? 0, render: (r) => won(r.price) },
+    { key: 'price', header: t('price.priceLbl', '단가'), width: 100, align: 'right', sortValue: (r) => sortMoney(r.price), render: (r) => won(r.price) },
     { key: 'req', header: t('purch.reqDate', '소요일'), width: 72, align: 'center', render: (r) => r.requiredDate || '—' },
     { key: 'stock', header: t('purch.stockJudge', '재고판정'), width: 76, align: 'center', sortValue: (r) => (r.available >= r.qty ? 1 : 0), render: (r) => r.available >= r.qty ? <Chip tone="ok">{t('purch.stockOk', '충족')}</Chip> : <Chip tone="warn">{t('purch.flowOrder', '발주')}</Chip> },
   ]
@@ -62,7 +61,7 @@ export function PrGrid({ rows }: { rows: PrRow[] }) {
           <input type="checkbox" checked={cert} onChange={(e) => setCert(e.target.checked)} />{t('purch.cert', '성적서')}
         </label>
         <button className="b run" disabled={pending} onClick={() => start(async () => {
-          const r = await createPo(codes(), Math.round(totalK()), {
+          const r = await createPo(codes(), {
             deliveryTerms: terms, transport, minOrderQty: Math.max(1, Number(minQty) || 1), certRequired: cert,
           })
           setSt(r); if (r.ok) setSelected(new Set())

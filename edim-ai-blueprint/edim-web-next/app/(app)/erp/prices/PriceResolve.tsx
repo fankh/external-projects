@@ -1,6 +1,7 @@
 'use client'
 
 /** 단가 해석 위젯 (M-12-5) — GET /prices/resolve: 코드·기준일의 유효 단가 (소스 우선순위 엔진). */
+import { won } from '@/lib/money'
 import { useState, useTransition } from 'react'
 import { useI18n } from '@/components/I18nProvider'
 import { resolvePrice, type ResolvedPrice } from './actions'
@@ -29,7 +30,7 @@ export function PriceResolve() {
       {err ? <span style={{ color: 'var(--err)' }}>{err}</span> : null}
       {out ? (
         <span data-price-resolve-out style={{ color: 'var(--run)', fontWeight: 600 }}>
-          {out.code} = ₩{out.price.toLocaleString()} <span style={{ color: 'var(--txt-dim)', fontWeight: 400 }}>
+          {out.code} = {won(out.price, true)} <span style={{ color: 'var(--txt-dim)', fontWeight: 400 }}>
             ({out.source} · {out.supplier} · {out.from}{out.to ? `~${out.to}` : '~'})</span>
         </span>
       ) : null}

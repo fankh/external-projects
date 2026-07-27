@@ -10,6 +10,8 @@ const CALC_LABEL: Record<string, string> = { MATERIAL: '재료비', MANUFACTURIN
 
 /** B18 — 원가 상세(cst_calc) → PCR 수익성 → 견적 확정(cst_quotation). */
 // 18.65 — 가려진 금액을 1000 으로 나누면 NaN·0 이 된다. 나누지 말고 가려진 채로 보인다.
+// 통화 기호 없이 숫자만 쓰는 자리 — 가려진 값은 가려진 채로 보인다.
+const amt = (v: Money) => (typeof v === 'number' ? v.toLocaleString() : v === null || v === undefined ? '••••' : String(v))
 const k = (v: Money) => (typeof v === 'number' ? `${(v / 1000).toLocaleString()}K` : v === null || v === undefined ? '••••' : String(v))
 
 export function CostPanel({ runId }: { runId: number }) {
@@ -41,7 +43,7 @@ export function CostPanel({ runId }: { runId: number }) {
     if (r.quotes) setQuotes(r.quotes)
     // 근거가 불완전하면 성공 문구로 뭉뚱그리지 않는다 — 확정은 됐지만 금액이 축소돼 있다.
     const q = r.result!
-    const base = `견적 확정 ✓ — ${q.quotationNo} · ${q.currency} ${q.subtotal.toLocaleString()} + 세액 ${q.tax.toLocaleString()}(${q.taxPct}%) = ${q.total.toLocaleString()}`
+    const base = `견적 확정 ✓ — ${q.quotationNo} · ${q.currency} ${amt(q.subtotal)} + 세액 ${amt(q.tax)}(${q.taxPct}%) = ${amt(q.total)}`
     setMsg(q.basisComplete === false
       ? { text: `${base} · ⚠ ${t('run.quoteBasisIncomplete', '단가 미해결 {n}건이 0 원으로 집계된 원가 — 견적가가 실제보다 낮습니다').replace('{n}', String(q.unpricedCount ?? 0))}${q.unpricedCodes?.length ? ` (${q.unpricedCodes.slice(0, 3).join(', ')})` : ''}`, err: true }
       : { text: base })
@@ -89,7 +91,7 @@ export function CostPanel({ runId }: { runId: number }) {
                       title={t('run.quoteBasisUnknown', '이 기능 도입 전 발행분 — 발행 시점 근거를 확인할 수 없습니다')}>?</span>
                   ) : null}
                 </td>
-                <td className="num">{q.currency !== 'KRW' ? `${q.currency} ` : ''}{q.total.toLocaleString()}</td>
+                <td className="num">{q.currency !== 'KRW' ? `${q.currency} ` : ''}{amt(q.total)}</td>
                 <td className="num">{q.tax ? q.tax.toLocaleString() : '-'}</td>
                 <td className="c">{q.date}</td>
                 <td className="c"><a className="b" href={`/api/cost/quotation-pdf?id=${q.quotationId}`} target="_blank" rel="noreferrer" style={{ height: 18, fontSize: 10 }}>{t('common.preview', '미리보기')}</a></td>

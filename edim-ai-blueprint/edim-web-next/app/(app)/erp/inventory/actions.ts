@@ -1,5 +1,6 @@
 'use server'
 
+import { won, type Money } from '@/lib/money'
 import { revalidatePath } from 'next/cache'
 import { apiServer, ApiError } from '@/lib/api'
 
@@ -16,11 +17,11 @@ export async function inbound(_prev: FormState, formData: FormData): Promise<For
   const unitPrice = priceRaw ? Number(priceRaw.replace(/[^\d.]/g, '')) : undefined
   if (!itemCode || !locationCode || !(quantity > 0)) return { error: '품목·위치·수량(>0) 필요' }
   try {
-    const r = await apiServer<{ onHand: number; avgPrice: number; priceAuto: boolean; value: number }>(
+    const r = await apiServer<{ onHand: number; avgPrice: Money; priceAuto: boolean; value: Money }>(
       '/erp/stock/inbound',
       { method: 'POST', body: JSON.stringify({ itemCode, locationCode, quantity, refNo: 'MI-NEXT', lotNo, serialNo, unitPrice }) })
     revalidatePath(PATH)
-    return { ok: `${itemCode} +${quantity} @ ${locationCode} · 단가 ₩${Math.round(r.avgPrice).toLocaleString()}${r.priceAuto ? '(자동)' : ''}·평가 ₩${Math.round(r.value).toLocaleString()} (재고 ${r.onHand})` }
+    return { ok: `${itemCode} +${quantity} @ ${locationCode} · 단가 ${won(r.avgPrice, true)}${r.priceAuto ? '(자동)' : ''}·평가 ${won(r.value, true)} (재고 ${r.onHand})` }
   } catch (e) {
     return { error: e instanceof ApiError ? e.message : '입고 실패' }
   }

@@ -1,5 +1,6 @@
 'use client'
 
+import { won } from '@/lib/money'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/controls'
 import { useI18n } from '@/components/I18nProvider'
@@ -38,7 +39,7 @@ export function MobilePreview({ inbox, events }: { inbox: ApprovalReq[]; events:
   })
   const doInbound = () => start(async () => {
     const r = await inboundStock(item, Number(qty) || 0)
-    say(r.error ?? `입고 ✓ — ${item} ×${qty} · 재고 ${r.result?.onHand} · 평단가 ₩${r.result?.avgPrice?.toLocaleString()} (MI-002)`, !!r.error)
+    say(r.error ?? `입고 ✓ — ${item} ×${qty} · 재고 ${r.result?.onHand} · 평단가 ${won(r.result?.avgPrice, true)} (MI-002)`, !!r.error)
   })
 
   return (
