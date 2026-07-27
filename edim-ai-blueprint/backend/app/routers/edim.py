@@ -3462,16 +3462,31 @@ def _stamp_pdf_confidential(data: bytes) -> bytes:
     return out.getvalue()
 
 
+# 18.76 — 한 번에 묶을 수 있는 상한. 종전에는 상한이 없어 프로젝트 전체(운영 실측 4,990건
+# ·79MB)를 메모리에서 통째로 압축하고 객체 5천 개를 순차로 받아왔다. 느린 것보다 나쁜 것은
+# **부분 결과가 완성본처럼 보이는 것**이라, 상한을 넘으면 잘라 주지 않고 거부한다(18.39 와
+# 같은 판단 — 잘린 ZIP 은 열어 봐도 무엇이 빠졌는지 알 수 없다).
+_ZIP_MAX_FILES = 1000
+_ZIP_MAX_BYTES = 200 * 1024 * 1024
+
+
 def _zip_files(rows: list[tuple], prefix_by_folder: bool = True,
                extra: dict[str, bytes] | None = None,
-               stamp_pdf: bool = False) -> tuple[bytes, int]:
-    """(file_path, file_name, folder[, ...]) 행 → (ZIP 바이트, 워터마크 적용 수). MinIO 수집, arcname 중복 회피.
-    stamp_pdf=True 면 .pdf 파일에 CONFIDENTIAL 워터마크 적용 (실패 시 원본 유지)."""
+               stamp_pdf: bool = False) -> tuple[bytes, int, list[str]]:
+    """(file_path, file_name, folder[, ...]) 행 → (ZIP 바이트, 워터마크 적용 수, 누락 파일명).
+
+    stamp_pdf=True 면 .pdf 파일에 CONFIDENTIAL 워터마크 적용 (실패 시 원본 유지).
+
+    18.76 — 저장소에서 못 받은 객체는 종전에도 건너뛰었지만 **아무 데도 알리지 않았다**.
+    받는 사람은 파일이 빠진 줄 모르고 그 ZIP 을 납품·보관한다. 누락 목록을 돌려주고,
+    호출부가 헤더와 ZIP 안 메모에 함께 적는다.
+    """
     import io
     import zipfile
     buf = io.BytesIO()
     used: dict[str, int] = {}
     stamped = 0
+    missing: list[str] = []
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for name, data in (extra or {}).items():
             zf.writestr(name, data)
@@ -3483,7 +3498,8 @@ def _zip_files(rows: list[tuple], prefix_by_folder: bool = True,
                 obj.close()
                 obj.release_conn()
             except Exception:
-                continue   # 누락 객체는 건너뜀 (부분 다운로드)
+                missing.append(f"{folder}/{name}")   # 건너뛰되 **반드시 알린다** (18.76)
+                continue
             if stamp_pdf and name.lower().endswith(".pdf"):
                 try:
                     data = _stamp_pdf_confidential(data)
@@ -3497,7 +3513,11 @@ def _zip_files(rows: list[tuple], prefix_by_folder: bool = True,
                 base, dot, ext = name.rpartition(".")
                 arc = f"{folder}/{n}_{name}" if prefix_by_folder else f"{n}_{name}"
             zf.writestr(arc, data)
-    return buf.getvalue(), stamped
+        if missing:
+            note = ["이 묶음에서 빠진 파일 목록 — 저장소에서 객체를 읽지 못했습니다.",
+                    "묶음만 보고는 알 수 없으므로 함께 적습니다.", "-" * 56, *missing]
+            zf.writestr("_누락파일.txt", "\n".join(note).encode("utf-8"))
+    return buf.getvalue(), stamped, missing
 
 
 @router.get("/files/zip")
@@ -3505,7 +3525,7 @@ def files_zip(project: str = "PS-61313-5", folder: str = "") -> StreamingRespons
     """폴더 파일 일괄 ZIP 다운로드 (E2) — 선택 폴더(또는 전체)의 dwg_file 을 MinIO 에서 수집."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        q = ("""SELECT f.file_path, f.file_name, f.folder FROM dwg_file f
+        q = ("""SELECT f.file_path, f.file_name, f.folder, COALESCE(f.file_size,0) FROM dwg_file f
                 JOIN prj_project p ON p.project_id=f.project_id AND p.tenant_id=%s
                 WHERE p.project_no=%s""")
         params: list[Any] = [tid, project]
@@ -3517,12 +3537,22 @@ def files_zip(project: str = "PS-61313-5", folder: str = "") -> StreamingRespons
         rows = cur.fetchall()
     if not rows:
         raise HTTPException(404, detail="다운로드할 파일이 없습니다")
-    blob, _ = _zip_files(rows)
+    total_bytes = sum(int(r[3] or 0) for r in rows)
+    # 18.76 — 잘라서 주지 않는다. 잘린 ZIP 은 열어 봐도 무엇이 빠졌는지 알 수 없어
+    # 완성본으로 오인된다 — 어느 폴더를 받을지 좁히도록 사유와 함께 거부한다.
+    if len(rows) > _ZIP_MAX_FILES or total_bytes > _ZIP_MAX_BYTES:
+        raise HTTPException(
+            413, detail=(f"한 번에 묶을 수 있는 범위를 넘습니다 — {len(rows):,}건 "
+                         f"{total_bytes / 1048576:.0f}MB "
+                         f"(상한 {_ZIP_MAX_FILES:,}건 · {_ZIP_MAX_BYTES // 1048576}MB). "
+                         "folder 를 지정해 나눠 받으십시오."))
+    blob, _stamped, missing = _zip_files(rows)
     from urllib.parse import quote
     zipname = f"{project}{('_' + folder.strip()) if folder.strip() else ''}.zip"
     return StreamingResponse(iter([blob]), media_type="application/zip",
                              headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(zipname)}",
-                                      "X-File-Count": str(len(rows))})
+                                      "X-File-Count": str(len(rows) - len(missing)),
+                                      "X-Missing": str(len(missing))})
 
 
 # 고객 전달 제외 폴더 — 내부 접수자료(RECEIVED)는 산출물이 아니므로 미포함
@@ -3553,6 +3583,12 @@ def files_export_package(request: Request, project: str = "PS-61313-5") -> Strea
         pn = cur.fetchone()
     if not rows:
         raise HTTPException(404, detail="전달할 산출물이 없습니다 (DWG/PRICE/DATA/BOM)")
+    # 18.76 — 고객 전달본도 같은 상한을 따른다. 잘린 전달본은 완성본으로 오인되고,
+    # 그 오인의 대가가 가장 큰 자리다(납품).
+    if len(rows) > _ZIP_MAX_FILES:
+        raise HTTPException(
+            413, detail=(f"전달 대상이 한 번에 묶을 범위를 넘습니다 — {len(rows):,}건 "
+                         f"(상한 {_ZIP_MAX_FILES:,}건). 산출물을 정리하거나 나눠 전달하십시오."))
     manifest = [
         "EDIM 고객 전달 패키지 (Customer Delivery Package)",
         f"프로젝트: {project}" + (f" — {pn[0]}" if pn else ""),
@@ -3563,12 +3599,13 @@ def files_export_package(request: Request, project: str = "PS-61313-5") -> Strea
     ]
     manifest += [f"[{r[2]}] {r[1]}  ({r[3]})" for r in rows]
     extra = {"전달목록.txt": ("\n".join(manifest)).encode("utf-8")}
-    blob, stamped = _zip_files(rows, extra=extra, stamp_pdf=True)
+    blob, stamped, missing = _zip_files(rows, extra=extra, stamp_pdf=True)
     from urllib.parse import quote
     zipname = f"{project}_고객전달.zip"
     return StreamingResponse(iter([blob]), media_type="application/zip",
                              headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(zipname)}",
-                                      "X-File-Count": str(len(rows)),
+                                      "X-File-Count": str(len(rows) - len(missing)),
+                                      "X-Missing": str(len(missing)),
                                       "X-Watermarked": str(stamped)})
 
 
