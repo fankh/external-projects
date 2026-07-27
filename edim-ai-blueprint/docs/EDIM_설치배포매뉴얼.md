@@ -156,7 +156,7 @@ journalctl -u edim-autodeploy | grep "deploy done"   # 첫 배포 확인
 
 - **업그레이드**: `git push` → autodeploy 타이머가 2분 내 반영 (빌드 실패 시 기존 컨테이너 유지). 수동: `git pull && docker compose up -d --build` + 정적 rsync
 - **DB 변경**: 시드·마이그레이션은 멱등 — 기동 시 자동. 대규모 스키마 변경은 백업 선행 후 적용
-- **롤백**: `git checkout <직전 태그/커밋>` 후 재빌드 + 직전 백업 복원 (`pg_restore` / MinIO tar) — RPO 24h/RTO 4h 목표([보안관리계획서](EDIM_보안관리계획서.md) §3)
+- **롤백**: `git checkout <직전 태그/커밋>` 후 재빌드 + 직전 백업 복원 (`pg_restore` / MinIO tar) — RPO 24h/RTO 4h 목표([보안관리계획서](EDIM_보안관리계획서.md) §3 — 일 1회 전체 덤프로 충족. **PITR·파일 버전닝은 미구현**이라 임의 시점 복구는 불가하다)
 
 ## 7. 제거(언인스톨)
 
