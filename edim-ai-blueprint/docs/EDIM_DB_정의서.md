@@ -376,6 +376,8 @@ S-1-4. Mother의 Sub Code 조합 조건에 일치하는 Child를 수량과 함�
 | `remarks` | VARCHAR(300) | Y | | 예: `Reverse Bending R`, `With FF` |
 | `sort_order` | INT | N | | Part List 출력 순서 |
 | `approval_status` | VARCHAR(20) | N | | Running Test 검증 후 승인 (§5 개요서) |
+| `revision_no` | INT | N | | 전개 근거가 바뀔 때마다 증가 (승인 라운드·Slot 매핑 변경) |
+| `approved_basis_hash` | VARCHAR(64) | Y | | **승인 당시의 전개 근거 지문**(수량+Slot 매핑, 19.7·#35). 지금 지문과 다르면 `basisDrift` — 승인된 내용과 현재 내용이 다르다는 뜻 |
 | [공통] | | | | |
 
 인덱스: `ix_code_rel_mother (mother_code_id)`, `ix_code_rel_child (child_code_id)`

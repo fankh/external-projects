@@ -1453,6 +1453,17 @@
    "nullable": "NO"
   },
   {
+   "c": "approved_basis_hash",
+   "t": "code_relationship",
+   "np": null,
+   "ns": null,
+   "ty": "character varying",
+   "def": null,
+   "len": 64,
+   "pos": 14,
+   "nullable": "YES"
+  },
+  {
    "c": "slot_map_id",
    "t": "code_relationship_slot_map",
    "np": 64,
