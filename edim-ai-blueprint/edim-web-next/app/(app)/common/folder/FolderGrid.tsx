@@ -1,7 +1,7 @@
 'use client'
 
 /** Project Folder — 업로드·개별/ZIP 다운로드·DXF 드릴다운 (N5 복구). */
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { DenseGrid, type GridColumn } from '@/components/DenseGrid'
 import { Chip } from '@/components/controls'
@@ -20,6 +20,28 @@ export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: str
   const { t } = useI18n()
   const router = useRouter()
   const [upSt, upAction, upPending] = useActionState(uploadProjectFile, {} as ActState)
+  // 18.79 — ZIP 은 종전에 window.open 으로 새 탭을 열었다. 실패하면 사용자는 원시 JSON 이
+  // 뜬 빈 탭을 보게 되고, '무엇을 하라' 는 안내(폴더로 나눠 받으라)가 화면에 남지 않는다.
+  // 성공하면 그대로 내려받고, 실패하면 **사유를 이 화면에 적는다**.
+  const [dlErr, setDlErr] = useState('')
+  const [dlBusy, setDlBusy] = useState(false)
+  const download = async (url: string, fallbackName: string) => {
+    setDlErr(''); setDlBusy(true)
+    try {
+      const res = await fetch(url, { cache: 'no-store' })
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`
+        try { detail = (await res.json())?.detail ?? detail } catch { /* 비 JSON */ }
+        setDlErr(detail); return
+      }
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob); a.download = fallbackName
+      a.click(); URL.revokeObjectURL(a.href)
+    } catch (e) {
+      setDlErr(e instanceof Error ? e.message : '다운로드 실패')
+    } finally { setDlBusy(false) }
+  }
   // 백엔드 kind 값(한국어) → 로케일 표시 (값 자체는 서버 데이터라 클라이언트에서 매핑)
   const kindLabel: Record<string, string> = {
     '승인도': t('kind.dwgApproval', '승인도'), '견적/원가': t('kind.quoteCost', '견적/원가'),
@@ -60,9 +82,11 @@ export function FolderGrid({ rows, project }: { rows: FolderFile[]; project: str
           <input className="in" type="file" name="uploadedFile" style={{ width: 190, fontSize: 10 }} />
           <button className="b run" type="submit" disabled={upPending}>{t('folder.uploadBtn', '⬆ 업로드')}</button>
         </form>
-        <button className="b" onClick={() => window.open(`/api/next/bin?kind=zip&project=${encodeURIComponent(project)}`, '_blank')}>{t('folder.zipAll', '⬇ ZIP (전체)')}</button>
-        <button className="b" data-export-package title={t('folder.exportPkgHint', '고객 전달용 — 산출물 폴더만 ZIP + 전달 매니페스트 (내부 접수자료 제외, E2)')}
-          onClick={() => window.open(`/api/next/bin?kind=exportpkg&project=${encodeURIComponent(project)}`, '_blank')}>{t('folder.exportPkg', '⬇ 전달 패키지')}</button>
+        <button className="b" disabled={dlBusy} data-zip-all
+          onClick={() => void download(`/api/next/bin?kind=zip&project=${encodeURIComponent(project)}`, `${project}.zip`)}>{t('folder.zipAll', '⬇ ZIP (전체)')}</button>
+        <button className="b" data-export-package disabled={dlBusy} title={t('folder.exportPkgHint', '고객 전달용 — 최신 Run 산출물 + 작도 원본 ZIP + 전달 매니페스트 (내부 접수자료 제외, E2)')}
+          onClick={() => void download(`/api/next/bin?kind=exportpkg&project=${encodeURIComponent(project)}`, `${project}-export.zip`)}>{t('folder.exportPkg', '⬇ 전달 패키지')}</button>
+        {dlErr ? <span style={{ fontSize: 11, color: 'var(--err)' }} data-dl-err>{dlErr}</span> : null}
         {upSt.error ? <span style={{ fontSize: 11, color: 'var(--err)' }}>{upSt.error}</span> : null}
         {upSt.ok ? <span style={{ fontSize: 11, color: 'var(--run)' }}>{upSt.ok}</span> : null}
       </div>

@@ -41,7 +41,13 @@ export async function GET(req: NextRequest) {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     cache: 'no-store',
   })
-  if (!res.ok) return NextResponse.json({ detail: `HTTP ${res.status}` }, { status: res.status })
+  if (!res.ok) {
+    // 18.79 — 백엔드가 적어 보낸 **사유를 버리지 않는다**. 종전에는 `HTTP 413` 처럼 코드만
+    // 남겨, 상한 초과·Export 권한 거부 같은 '무엇을 하라' 는 안내가 사용자에게 닿지 않았다.
+    let detail = `HTTP ${res.status}`
+    try { detail = (await res.json())?.detail ?? detail } catch { /* 비 JSON 응답 */ }
+    return NextResponse.json({ detail }, { status: res.status })
+  }
   const buf = await res.arrayBuffer()
   const inline = kind === 'docpdf' || kind === 'pcr' || kind === 'cadplot' || kind === 'devreqimg'
   return new NextResponse(buf, {
