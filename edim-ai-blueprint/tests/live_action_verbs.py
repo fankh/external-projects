@@ -58,10 +58,13 @@ def req(method, path, tok, body=None):
 
 def clear_verbs():
     """검증용 동사 행 제거 — 남으면 실제 승인 흐름이 막히므로 반드시 원복."""
-    # 18.99 — cpq-selection 은 **화면 매트릭스와 같은 키**다. 동사 행만 지우고 READ/WRITE
-    # 행(시드가 만든 화면 권한)은 건드리지 않는다.
-    psql("DELETE FROM sys_role_permission WHERE resource_key='cpq-selection' "
-         "AND action IN ('CREATE','UPDATE','EXECUTE','APPROVE','DEPLOY')")
+    # 18.99 — cpq-selection 은 **화면 매트릭스와 같은 키**다. 지우는 기준은 동사 목록이 아니라
+    # **resource_type='SCREEN'**(동사 API 가 만든 행) 이어야 한다. 종전에는 동사 목록으로만
+    # 지워 **SCREEN/READ 한 행이 남았고**, 그 한 행이 자원을 '설정됨' 으로 만들어 함대의 Run
+    # 계열 6개 스위트가 전부 403 이 됐다(18.99 실측). 남긴 것이 값이 아니라 '설정의 존재'
+    # 였다는 점이 함정이다 — 되돌릴 때는 내가 만든 **행 자체**를 기준으로 삼는다.
+    psql("DELETE FROM sys_role_permission WHERE resource_key IN ('cpq-selection','tbx-macro') "
+         "AND resource_type='SCREEN'")
     psql("DELETE FROM sys_role_permission WHERE resource_key IN ('workflow','package') ")
     psql("DELETE FROM sys_role_permission WHERE resource_key='%s' "
          "AND action IN ('READ','CREATE','UPDATE','EXECUTE','APPROVE','DEPLOY')" % RES)
@@ -343,9 +346,7 @@ finally:
         psql(f"UPDATE product_code SET approval_status='{_to}' WHERE product_code_id={_pid}")
         print(f"정리 — 제품 코드 #{_pid} 상태 {_to} 로 원복")
     clear_verbs()
-    psql("DELETE FROM sys_role_permission WHERE resource_key='tbx-macro' "
-         "AND action IN ('CREATE','UPDATE','EXECUTE','APPROVE','DEPLOY')")
-    # 18.99 — 동사 API 의 DELETE 는 READ 도 지운다. 시드가 만든 화면 권한 행을 되돌린다.
+    # 18.99 — 동사 API 의 DELETE 는 READ 도 지운다. 시드가 만든 화면 권한 행(MENU)을 되돌린다.
     # (되돌리지 않으면 권한 매트릭스에서 ADMIN×제품선정 칸이 조용히 NONE 이 된다)
     _seeded = globals().get("_exec_seeded")
     if _seeded:
@@ -358,6 +359,12 @@ finally:
         print(f"정리 — 화면 권한 행 복원 (ADMIN×cpq-selection = {_seeded})")
     psql("DELETE FROM sys_approval_request WHERE comment LIKE 'ZZVERB%'")
     left = psql(f"SELECT count(*) FROM sys_role_permission WHERE resource_key='{RES}'")
-    print(f"정리 — 검증 동사 행 제거 (잔존 {left})")
+    # 실행 자원에 동사 행이 남으면 **모든 Run 이 403 이 된다** — 잔존을 세는 데서 그치지 않고
+    # 0이 아니면 실패로 알린다(조용히 남기면 다음 함대가 통째로 무너진다).
+    exec_left = psql("SELECT count(*) FROM sys_role_permission "
+                     "WHERE resource_key IN ('cpq-selection','tbx-macro') "
+                     "AND resource_type='SCREEN'")
+    print(f"정리 — 검증 동사 행 제거 (approval 잔존 {left} · 실행 자원 잔존 {exec_left})")
+    assert exec_left == "0", f"정리 실패 — 실행 자원 동사 행 {exec_left}건 잔존 (Run 이 막힌다)"
 
 print(f"\nlive_action_verbs: {n}/{n} PASS")
