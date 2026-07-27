@@ -3561,7 +3561,15 @@ DELIVER_FOLDERS = ["DWG", "PRICE", "DATA", "BOM"]
 
 @router.get("/files/export-package")
 def files_export_package(request: Request, project: str = "PS-61313-5") -> StreamingResponse:
-    """고객 전달용 내보내기 (E2) — 산출물 폴더만 ZIP + 전달 매니페스트. 내부 접수자료 제외.
+    """고객 전달용 내보내기 (E2) — **최신 Run 산출물** + 작도 원본 ZIP + 전달 매니페스트.
+
+    18.77 — 종전에는 프로젝트의 DELIVER_FOLDERS 파일을 **전부** 담았다. Run 마다 산출물이
+    한 벌씩 쌓이므로 운영 데이터에서 DWG·PRICE 가 각각 1,654건이었고, 전달본에 같은 견적서와
+    도면이 **Run 수만큼 중복**돼 들어갔다. 고객에게 보내는 것은 '지금 산출물' 이지 '실행
+    이력 전부' 가 아니다. OUTPUT 은 그 프로젝트의 최신 SUCCESS Run 것만 담고, 작도 원본
+    (SOURCE)은 그대로 담는다. 18.76 의 상한에 걸리던 것도 상한이 낮아서가 아니라 담는
+    내용이 틀렸기 때문이었다.
+    
 
     묶음에 담기는 폴더(PRICE·BOM)는 개별 다운로드와 같은 통제를 따른다 — 한 건씩은 막히는데
     ZIP 으로는 통째로 나가면 통제가 아니다(15.1/15.4 와 같은 계열).
@@ -3575,8 +3583,20 @@ def files_export_package(request: Request, project: str = "PS-61313-5") -> Strea
                FROM dwg_file f
                JOIN prj_project p ON p.project_id=f.project_id AND p.tenant_id=%s
                WHERE p.project_no=%s AND f.folder = ANY(%s)
+                 AND (COALESCE(f.file_role,'OUTPUT') <> 'OUTPUT'
+                      OR f.file_id IN (
+                          SELECT o.file_id FROM cpq_output o
+                          JOIN cpq_run r ON r.run_id=o.run_id AND r.tenant_id=%s
+                          JOIN cpq_selection s ON s.selection_id=r.selection_id
+                                              AND s.tenant_id=r.tenant_id
+                          WHERE s.project_id=p.project_id AND r.status='SUCCESS'
+                            AND r.run_id = (SELECT max(r2.run_id) FROM cpq_run r2
+                                            JOIN cpq_selection s2
+                                              ON s2.selection_id=r2.selection_id
+                                            WHERE r2.tenant_id=%s AND r2.status='SUCCESS'
+                                              AND s2.project_id=p.project_id)))
                ORDER BY f.folder, f.file_id""",
-            (tid, project, DELIVER_FOLDERS))
+            (tid, project, DELIVER_FOLDERS, tid, tid))
         rows = cur.fetchall()
         cur.execute("SELECT project_name FROM prj_project WHERE tenant_id=%s AND project_no=%s",
                     (tid, project))
@@ -3593,7 +3613,8 @@ def files_export_package(request: Request, project: str = "PS-61313-5") -> Strea
         "EDIM 고객 전달 패키지 (Customer Delivery Package)",
         f"프로젝트: {project}" + (f" — {pn[0]}" if pn else ""),
         f"파일 수: {len(rows)}건",
-        "포함: 산출물(DWG/PRICE/DATA/BOM)  ·  제외: 내부 접수자료(RECEIVED)·S-1/S-2 등급 문서",
+        "포함: **최신 Run 산출물** + 작도 원본(DWG/PRICE/DATA/BOM)",
+        "제외: 이전 Run 산출물 · 내부 접수자료(RECEIVED) · S-1/S-2 등급 문서",
         "PDF 산출물: CONFIDENTIAL 전면 워터마크 적용본 (DOC-002)",
         "-" * 56,
     ]
