@@ -261,6 +261,23 @@ try:
     else:
         print(f"SKIP 산출물 파일 다운로드 — PRICE 견적 PDF 없음 (psql={price_fid!r})")
 
+    # ── ★ 폴더 일괄 ZIP 도 같은 통제를 따라야 한다 (18.98) ──
+    # 한 건씩(/files/download)은 막고 전달 패키지(/files/export-package)도 막았는데,
+    # **`/files/zip?folder=PRICE`** 만 통제가 없었다 — Request 인자조차 없어 사용자를
+    # 볼 수 없는 상태였다. 실증에서 no_download 인데 견적서 83건 1.9MB 가 그대로 나왔다.
+    # GENERAL 은 이 시점에 quote=no_download·cost=masked 다. ADMIN 은 full 이므로 대조군이 된다.
+    _zp = "PS-598"
+    st, _ = req("GET", f"/files/zip?project={_zp}&folder=PRICE", GEN, raw=True)
+    ok(f"★ 폴더 일괄 ZIP(PRICE)도 차단 ({st})", st == 403)
+    st, _ = req("GET", f"/files/zip?project={_zp}", GEN, raw=True)
+    ok(f"★ 폴더 미지정(전체) ZIP 도 차단 ({st}) — 우회 경로가 남지 않는다", st == 403)
+    # 통제 대상이 아닌 폴더는 계속 받을 수 있어야 한다(과잉 차단 금지).
+    st_d, _ = req("GET", f"/files/zip?project={_zp}&folder=DWG", GEN, raw=True)
+    ok(f"도면 폴더는 계속 다운로드 가능 ({st_d}) — 금액 폴더만 막는다", st_d in (200, 404))
+    st, zb = req("GET", f"/files/zip?project={_zp}&folder=PRICE", TOK, raw=True)
+    ok(f"ADMIN(full)은 PRICE ZIP 정상 ({st}) — 과잉 차단 아님",
+       st == 200 and zb[:2] == b"PK")
+
     # ── ★ 테넌트 export(오프보딩)도 같은 통제를 따라야 한다 (15.4) ──
     # ADMIN 전용 일괄 ZIP 으로 금액 테이블을 통째로 받아 가면 no_download 가 무의미해진다.
     # 다만 오프보딩은 계약상 권리라 **전체 차단이 아니라 해당 테이블만 제외**하고 사유를 남긴다.

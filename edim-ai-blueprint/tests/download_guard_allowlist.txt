@@ -1,0 +1,30 @@
+# 반출 통제(_assert_downloadable) 밖에 있는 파일 응답 경로 — 각 항목마다 사유를 적는다.
+# 뭉뚱그린 한 줄 사유는 그 사유가 맞지 않는 항목을 숨긴다(18.94 PCR 이 그랬다).
+# 새 경로를 통제 없이 추가하면 게이트가 실패한다.
+
+# 코드 마스터(Slot·Item·Value) — 금액·거래처가 없는 코드 체계 정의.
+GET /codes/groups/{group}/export.xlsx
+# 도면 대장 — 도면번호·Rev·상태. 금액 열 없음.
+GET /drawings/export.xlsx
+# 창고·저장위치 — 위치코드·점검주기. 금액·거래처 없음.
+GET /erp/warehouses/export.xlsx
+# 감사 로그 — 일시·대상·작업·수행자만 나가고 before/after 본문은 포함하지 않는다.
+GET /history/export.xlsx
+# 다국어 번역 데이터 — 화면 문자열.
+GET /i18n/data/{entity_type}/export.xlsx
+# 사용자 정의 데이터 테이블 — 기술 데이터(풍량·정압·rpm 등). 단가 마스터는 별도(cst_price,
+# /prices/export.xlsx 에서 통제)이며 이 테이블에 금액을 두는 경로는 제품에 없다.
+GET /tables/{name}/export.xlsx
+# QC 성적서 — 검사 판정·측정값. 금액 없음.
+GET /qc/certificate.pdf
+# 문서 PDF — 금액이 아니라 **문서보안등급**(S-1/S-2) 축의 통제를 따른다(DOC_GRADE_POLICY,
+# 미달 등급은 403 + READ_DENY 감사). 정보그룹 통제와 별개 축이다.
+GET /documents/{doc_no}/render.pdf
+# 도형 반출(DXF) — 배치·블록 기하 정보. 금액·거래처 없음.
+GET /cad/arrangement.dxf
+POST /cad/export-dxf
+POST /cad/from-blocks.dxf
+# 화면 인쇄 — 요청 본문으로 받은 내용을 그대로 PDF/XLSX 로 만든다. 서버가 새로 꺼내 주는
+# 데이터가 없으므로(이미 화면에서 통제를 통과한 값), 여기서 다시 막을 대상이 없다.
+POST /render/pdf
+POST /render/xlsx

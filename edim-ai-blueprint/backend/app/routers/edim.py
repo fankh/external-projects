@@ -3521,10 +3521,25 @@ def _zip_files(rows: list[tuple], prefix_by_folder: bool = True,
 
 
 @router.get("/files/zip")
-def files_zip(project: str = "PS-61313-5", folder: str = "") -> StreamingResponse:
-    """폴더 파일 일괄 ZIP 다운로드 (E2) — 선택 폴더(또는 전체)의 dwg_file 을 MinIO 에서 수집."""
+def files_zip(request: Request, project: str = "PS-61313-5",
+              folder: str = "") -> StreamingResponse:
+    """폴더 파일 일괄 ZIP 다운로드 (E2) — 선택 폴더(또는 전체)의 dwg_file 을 MinIO 에서 수집.
+
+    18.98 — 이 경로에는 열람 통제가 **없었다**. 바로 옆 `/files/export-package` 는 같은 사유를
+    docstring 에 적어 두고 게이트를 걸었는데(‘한 건씩은 막히는데 ZIP 으로는 통째로 나가면
+    통제가 아니다’), 정작 이 경로는 `Request` 인자조차 없어 사용자를 볼 수 없었다. 실증에서
+    quote·cost 를 no_download 로 두자 전달 패키지는 403 인데 `?folder=PRICE` 는 견적서 83건
+    1.9MB 를 그대로 내줬다. 15.1/15.4/18.79 와 같은 계열 — 통제가 일부 경로에만 걸려 있으면
+    통제가 아니다.
+
+    폴더를 지정하면 그 폴더의 정보그룹만, 지정하지 않으면(전체) 통제 대상 폴더 전부를 본다.
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _f = folder.strip().upper()
+        for _folder, _grp in _FOLDER_INFO_GROUP.items():
+            if not _f or _f == _folder:
+                _assert_downloadable(cur, tid, request, _grp)
         q = ("""SELECT f.file_path, f.file_name, f.folder, COALESCE(f.file_size,0) FROM dwg_file f
                 JOIN prj_project p ON p.project_id=f.project_id AND p.tenant_id=%s
                 WHERE p.project_no=%s""")
