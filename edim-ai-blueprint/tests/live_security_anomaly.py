@@ -14,6 +14,8 @@ import subprocess
 import urllib.error
 import urllib.request
 
+from _tenant import purge_tenant
+
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
 TC = "ZZSEC-T"
@@ -66,15 +68,8 @@ def req(method, path, tok, body=None):
 
 
 def cleanup():
-    tid = psql(f"SELECT tenant_id FROM sys_tenant WHERE tenant_code='{TC}'")
-    if tid:
-        psql(f"DELETE FROM sys_anomaly WHERE tenant_id={tid}")
-        psql(f"DELETE FROM sys_notification WHERE user_id IN (SELECT user_id FROM sys_user WHERE tenant_id={tid})")
-        psql(f"DELETE FROM sys_history WHERE tenant_id={tid}")
-        psql(f"DELETE FROM sys_history WHERE actor_id IN (SELECT user_id FROM sys_user WHERE tenant_id={tid})")
-        psql(f"DELETE FROM sys_user_role WHERE user_id IN (SELECT user_id FROM sys_user WHERE tenant_id={tid})")
-        psql(f"DELETE FROM sys_user WHERE tenant_id={tid}")
-        psql(f"DELETE FROM sys_tenant WHERE tenant_id={tid}")
+    # 19.6 — 정리 목록은 공용 헬퍼 한 곳에만 둔다(여기서 sys_hierarchy 가 빠져 있었다).
+    purge_tenant(psql, TC)
 
 
 OP = login("edim", "edim")

@@ -50,6 +50,17 @@ QUERIES = {
     "tbx_package.status": "SELECT status, count(*) FROM tbx_package GROUP BY 1",
     "erp_workflow_template.status": "SELECT status, count(*) FROM erp_workflow_template GROUP BY 1",
     "sys_process_node": "SELECT 'n', count(*) FROM sys_process_node",
+    # 19.6 — **없어진 테넌트의 잔재**. 프로브 테넌트를 지우면서 sys_hierarchy 를 빼먹은
+    # 스위트 2종 때문에 온보딩 노드가 매 실행 3행씩 쌓였다(실측 30행). 테넌트 행이 없으니
+    # 화면에도 안 보이고 위의 전체 건수 지문에도 섞여 들어가 **아무도 모르는 채로** 늘었다.
+    # 전체 건수가 아니라 '주인 없는 행' 을 따로 센다 — 0 이 아니면 곧바로 드러난다.
+    "orphan_by_tenant": (
+        "SELECT 'sys_hierarchy', count(*) FROM sys_hierarchy "
+        "WHERE tenant_id NOT IN (SELECT tenant_id FROM sys_tenant) "
+        "UNION ALL SELECT 'sys_user', count(*) FROM sys_user "
+        "WHERE tenant_id NOT IN (SELECT tenant_id FROM sys_tenant) "
+        "UNION ALL SELECT 'sys_history', count(*) FROM sys_history "
+        "WHERE tenant_id NOT IN (SELECT tenant_id FROM sys_tenant)"),
 }
 
 

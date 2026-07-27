@@ -15,6 +15,8 @@ import subprocess
 import urllib.error
 import urllib.request
 
+from _tenant import purge_tenant
+
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
 n = 0
@@ -61,18 +63,11 @@ def cleanup():
     psql("DELETE FROM ai_prep_project WHERE project_code LIKE 'ZZAIP%'")
     for tc in (TC_A, TC_B):
         tid = psql(f"SELECT tenant_id FROM sys_tenant WHERE tenant_code='{tc}'")
-        if tid:
+        if tid.isdigit():
             psql(f"DELETE FROM ai_prep_project WHERE tenant_id={tid}")
-            psql(f"DELETE FROM sys_notification WHERE user_id IN "
-                 f"(SELECT user_id FROM sys_user WHERE tenant_id={tid})")
-            # sys_history.actor_id 도 FK — 지우지 않으면 사용자 삭제가 막혀 계정이 잔존한다
-            psql(f"DELETE FROM sys_history WHERE actor_id IN "
-                 f"(SELECT user_id FROM sys_user WHERE tenant_id={tid})")
-            psql(f"DELETE FROM sys_history WHERE tenant_id={tid}")
-            psql(f"DELETE FROM sys_user_role WHERE user_id IN "
-                 f"(SELECT user_id FROM sys_user WHERE tenant_id={tid})")
-            psql(f"DELETE FROM sys_user WHERE tenant_id={tid}")
-            psql(f"DELETE FROM sys_tenant WHERE tenant_id={tid}")
+        # 19.6 — 정리 목록은 공용 헬퍼 한 곳에만 둔다. 종전에는 여기서 sys_hierarchy 가
+        # 빠져 온보딩이 심은 노드 3개가 매 실행 남았다(실측 30행 누적).
+        purge_tenant(psql, tc)
 
 
 OP = login("edim", "edim")          # EDIM 운영자 (nova)
