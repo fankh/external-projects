@@ -2639,6 +2639,31 @@ def _idem_done(cur, tid: int, request: Request, endpoint: str,
     return response
 
 
+def _storage_key(tid: int, *parts: str) -> str:
+    """객체 저장소 키 — **테넌트로 이름 공간을 나눈다** (18.57).
+
+    종전 키는 `{project}/{folder}/{name}` 이라 테넌트 구분이 없었다. 프로젝트 번호는
+    테넌트별 유니크(UNIQUE (tenant_id, project_no))라 **두 테넌트가 같은 번호를 가질 수
+    있고**, 실제로 `PS-61313-5` 를 양쪽이 갖고 있다. 같은 파일명을 올리면 뒤에 올린 쪽이
+    앞의 객체를 덮어쓰고, 앞 테넌트의 행은 그대로 그 키를 가리켜 **남의 바이트를 내려받게**
+    된다. 업로드 가드(#53)는 `tenant_id` 조건으로 조회하므로 — 그 목적에는 맞지만 —
+    남의 테넌트 객체는 보지 못한다. 검사를 하나 더 얹는 대신 충돌 자체를 없앤다.
+
+    기존 행은 저장된 경로를 그대로 쓰므로(다운로드는 DB 의 file_path 를 읽는다) 깨지지 않는다.
+    """
+    tail = "/".join(p.strip("/").replace("..", "_") for p in parts if p)
+    return f"t{tid}/{tail}"
+
+
+def _tenant_now() -> int:
+    """커서 없이 현재 테넌트 — 키를 만드는 시점엔 아직 연결을 열지 않은 자리가 있다."""
+    ctx = _TENANT_CTX.get()
+    if ctx:
+        return ctx
+    with _conn() as conn, conn.cursor() as cur:
+        return _tenant_id(cur)
+
+
 def _row_error_reason(exc: Exception, row_no: int) -> str:
     """행 단위 Import 실패 사유 — **사용자가 고칠 수 있는 말**로 돌려준다 (18.27).
 
@@ -3295,7 +3320,11 @@ async def upload_file(
     data = await _read_upload(uploadedFile, max_bytes=_UPLOAD_MAX_BYTES,
                               hint="파일을 압축하거나 분할해 올리십시오")
     fname = (uploadedFile.filename or "file").replace("/", "_")
-    key = f"{project}/{folder}/{fname}"
+    key = _storage_key(_tenant_now(), project, folder, fname)
+    # 18.57 — 키에 테넌트가 붙기 전 올라간 파일은 옛 경로를 그대로 갖고 있다. 새 키로만
+    # 조회하면 (1) 재업로드가 매번 새 행을 만들고 (2) **옛 경로의 Run 산출물을 덮어쓰는
+    # 업로드를 #53 가드가 놓친다**. 두 후보를 함께 본다.
+    legacy = f"{project}/{folder}/{fname}"
     # #53 — 업로드도 산출물 불변의 일부다. 종전엔 검사 없이 put_object 부터 해서,
     # Run 산출물과 같은 키(`{project}/{folder}/run{id}_{name}`)로 올리면 **납품물 바이트가
     # 그대로 덮어써졌다**(행은 옛 크기를 유지한 채 다운로드 내용만 바뀜 — 실증 확인).
@@ -3303,9 +3332,14 @@ async def upload_file(
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT file_id, COALESCE(file_role,'OUTPUT') FROM dwg_file
-               WHERE tenant_id=%s AND file_path=%s ORDER BY file_id""", (tid, key))
+            """SELECT file_id, COALESCE(file_role,'OUTPUT'), file_path FROM dwg_file
+               WHERE tenant_id=%s AND file_path IN (%s,%s) ORDER BY file_id""",
+            (tid, key, legacy))
         existing = cur.fetchall()
+    if existing and existing[0][2] == legacy:
+        # 이미 이 테넌트가 소유한 객체 = 덮어써도 남의 것을 건드리지 않는다. 경로를 유지해
+        # 행이 갈라지지 않게 한다(새로 만드는 파일만 테넌트 이름 공간으로 간다).
+        key = legacy
     locked = [e for e in existing if e[1] == "OUTPUT"]
     if locked:
         raise HTTPException(
@@ -4240,7 +4274,7 @@ async def cad_import(
                               hint="도면을 분할하거나 불필요한 레이어를 정리해 올리십시오")
     fname = (uploadedFile.filename or "drawing.dxf").replace("/", "_")
     document = _parse_cad_bytes(data, fname)   # 파싱 실패 시 저장하지 않음
-    key = f"{project}/DWG/{fname}"
+    key = _storage_key(_tenant_now(), project, "DWG", fname)
     try:
         storage.put_object(key, data, uploadedFile.content_type or "application/dxf")
     except RuntimeError:
@@ -4304,7 +4338,7 @@ def cad_duct_layout_save(request: Request, body: DuctLayoutSaveRequest) -> dict[
     floor = body.floor.strip()[:10] or "3F"
     data = build_duct_layout_dxf(max(1, min(body.diffusers, 12)), floor)
     fname = f"duct_{floor}.dxf"
-    key = f"{body.project}/DWG/{fname}"
+    key = _storage_key(_tenant_now(), body.project, "DWG", fname)
     try:
         storage.put_object(key, data, "application/dxf")
     except RuntimeError:
@@ -4454,7 +4488,7 @@ def cad_part_drawing_save(request: Request, body: PartDrawingSaveRequest) -> dic
     fname = (body.name or "part_edit.dxf").replace("/", "_")
     if not fname.lower().endswith(".dxf"):
         fname += ".dxf"
-    key = f"{body.project}/DWG/{fname}"
+    key = _storage_key(_tenant_now(), body.project, "DWG", fname)
     try:
         storage.put_object(key, data, "application/dxf")
     except RuntimeError:

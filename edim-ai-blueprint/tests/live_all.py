@@ -78,6 +78,7 @@ SUITES = [
     "live_design_verify.py",     # 설계 검증 규칙의 임계값이 실제로 적용되는가 (18.36)
     "live_cad_blocks.py",        # 블록 배치 DXF — 조용한 절단 차단 (18.39)
     "live_idempotency.py",       # 재시도 안전 — Idempotency-Key (18.45)
+    "live_storage_ns.py",        # 저장소 키 테넌트 이름 공간 (18.57)
     "live_audit_trail.py",      # 감사 추적·알림 도달 (13.8) — 쓰기가 이력에 남는지
     "live_session_notify.py",   # 세션 즉시 차단·알림 정직 보고 (15.3)
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)

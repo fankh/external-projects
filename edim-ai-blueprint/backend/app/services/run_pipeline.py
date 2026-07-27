@@ -714,7 +714,10 @@ def persist_outputs(cur, tid: int, run_id: int, project_no: str, r: PipelineResu
     ctypes = {"PDF": "application/pdf", "DXF": "application/dxf",
               "XLSX": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
     for folder, fname, ftype, data in r.files:
-        key = f"{project_no}/{folder}/run{run_id}_{fname}"
+        # 18.57 — 테넌트별 이름 공간. 프로젝트 번호는 테넌트별 유니크라 두 테넌트가 같은
+        # 번호를 갖는다(실제로 PS-61313-5 가 양쪽에 있다). 키에 테넌트가 없으면 한쪽이
+        # 다른 쪽 객체를 덮어쓸 수 있다.
+        key = f"t{tid}/{project_no}/{folder}/run{run_id}_{fname}"
         storage.put_object(key, data, ctypes.get(ftype, "application/octet-stream"))
         cur.execute(
             # #53 — Run 이 만든 것만 OUTPUT(납품물·불변). 편집·덮어쓰기 경로에서 차단된다.
