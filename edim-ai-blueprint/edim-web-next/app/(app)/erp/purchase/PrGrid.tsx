@@ -36,7 +36,11 @@ export function PrGrid({ rows }: { rows: PrRow[] }) {
     { key: 'qty', header: t('purch.reqQty', '소요'), width: 56, align: 'right', sortValue: (r) => r.qty, render: (r) => r.qty },
     { key: 'onhand', header: t('purch.onHand', '보유'), width: 56, align: 'right', sortValue: (r) => r.onHand, render: (r) => r.onHand },
     { key: 'avail', header: t('purch.available', '가용'), width: 56, align: 'right', sortValue: (r) => r.available, render: (r) => <b style={{ color: r.available >= r.qty ? 'var(--ok)' : 'var(--err)' }}>{r.available}</b> },
-    { key: 'price', header: t('price.priceLbl', '단가'), width: 100, align: 'right', sortValue: (r) => sortMoney(r.price), render: (r) => won(r.price) },
+    // 18.75 — 이 화면의 `price: null` 은 **재고 충족이라 조달 단가를 조회하지 않았다**는 뜻이다.
+    // 18.65 에서 공용 포맷터를 넣으며 null 을 일괄 '가려짐(••••)' 으로 찍게 만든 것은 내 회귀다.
+    // 같은 null 이라도 자리마다 뜻이 다르므로, 뜻을 아는 필드(stockOk)로 갈라 쓴다.
+    { key: 'price', header: t('price.priceLbl', '단가'), width: 100, align: 'right', sortValue: (r) => sortMoney(r.price),
+      render: (r) => r.available >= r.qty ? <span style={{ color: 'var(--txt-mute)' }}>—</span> : won(r.price) },
     { key: 'req', header: t('purch.reqDate', '소요일'), width: 72, align: 'center', render: (r) => r.requiredDate || '—' },
     { key: 'stock', header: t('purch.stockJudge', '재고판정'), width: 76, align: 'center', sortValue: (r) => (r.available >= r.qty ? 1 : 0), render: (r) => r.available >= r.qty ? <Chip tone="ok">{t('purch.stockOk', '충족')}</Chip> : <Chip tone="warn">{t('purch.flowOrder', '발주')}</Chip> },
   ]

@@ -25,6 +25,19 @@ export function won(v: Money, space = false): string {
 }
 
 /**
+ * 열람 모드를 아는 자리에서의 금액 (18.75).
+ *
+ * `null` 은 자리마다 뜻이 다르다 — **통제로 가려짐**일 수도, **값이 아직 없음**일 수도 있다.
+ * 응답이 `maskMode` 를 함께 주면 둘을 가릴 수 있다: full 인데 null 이면 가려진 게 아니라
+ * 값이 없는 것이므로 `—` 로 적고, 그 밖에는 `••••` 로 적는다.
+ * (공용 포맷터를 도입하며 이 구분을 놓쳐 '해당 없음' 자리에 가려짐 기호가 찍힌 적이 있다.)
+ */
+export function wonBy(v: Money, maskMode?: string, space = false): string {
+  if ((v === null || v === undefined) && (!maskMode || maskMode === 'full')) return '—'
+  return won(v, space)
+}
+
+/**
  * 정렬 키 — 가려진 값끼리는 크기를 비교할 수 없다. 임의로 0 자리에 끼워 넣으면 실제 금액과
  * 섞여 잘못된 순서를 보여주므로, 한쪽 끝에 모아 둔다.
  */
