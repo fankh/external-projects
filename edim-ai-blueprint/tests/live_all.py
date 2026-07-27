@@ -83,6 +83,7 @@ SUITES = [
     "live_filter_honesty.py",    # 필터 인자가 실제로 거르는가 (18.62)
     "live_dashboard_masking.py", # 대시보드 경로의 정보그룹 통제 (18.66~18.67)
     "live_mrp_match.py",         # MRP 재고 대조 — 대조 불가 ≠ 보유 0 (18.73)
+    "live_zip_bounds.py",        # 파일 묶음 상한·누락 고지 (18.76)
     "live_audit_trail.py",      # 감사 추적·알림 도달 (13.8) — 쓰기가 이력에 남는지
     "live_session_notify.py",   # 세션 즉시 차단·알림 정직 보고 (15.3)
     "live_c10_authz_sweep.py",  # authz 전수 스윕 (라우터 write 89개 자동 도출·403/401)
