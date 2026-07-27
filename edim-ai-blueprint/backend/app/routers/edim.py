@@ -6647,7 +6647,19 @@ def audit_query(fromDate: str = "", toDate: str = "", user: str = "",
         #  · 동작: 인덱스(0063 `tenant_id, action`)로 Index Only Scan 으로 내린다.
         #  · 사용자: 이력을 훑지 않고 **사용자 대장에서** 얻는다. 이력에 없는 사용자로
         #    걸러도 '해당 없음' 이 나오는 것이 맞는 답이고, 비용은 테넌트 사용자 수로 묶인다.
-        cur.execute("SELECT DISTINCT action FROM sys_history WHERE tenant_id=%s ORDER BY action", (tid,))
+        # 18.87 — `DISTINCT action` 은 인덱스를 줘도 **전 항목을 훑는다**(105,639행 33.7ms).
+        # 감사 이력은 보존 정책이 없어 계속 자라므로(#83) 그 비용도 같이 자란다. 값의 종류가
+        # 적다는 성질을 쓰는 loose index scan 으로 바꾼다 — 다음 값으로 건너뛰며 읽으므로
+        # **행 수가 아니라 값의 종류 수**에 비례한다(실측 144종, 33.7ms → 1.7ms).
+        cur.execute(
+            """WITH RECURSIVE t AS (
+                   (SELECT action FROM sys_history WHERE tenant_id=%s ORDER BY action LIMIT 1)
+                 UNION ALL
+                   SELECT (SELECT h.action FROM sys_history h
+                            WHERE h.tenant_id=%s AND h.action > t.action
+                            ORDER BY h.action LIMIT 1)
+                   FROM t WHERE t.action IS NOT NULL)
+               SELECT action FROM t WHERE action IS NOT NULL ORDER BY action""", (tid, tid))
         actions = [r[0] for r in cur.fetchall()]
         cur.execute("SELECT login_id FROM sys_user WHERE tenant_id=%s ORDER BY login_id", (tid,))
         users = [r[0] for r in cur.fetchall()]
