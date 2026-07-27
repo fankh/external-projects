@@ -16868,7 +16868,11 @@ class RunCleanup(BaseModel):
 
 @router.post("/cpq/runs/cleanup", dependencies=[SETUP])
 def run_cleanup(request: Request, body: RunCleanup) -> dict[str, Any]:
-    """보관 정책 정리 (E3) — 최근 N건 유지, 그 외 미참조 Run 일괄 정리 (참조·최신 보호)."""
+    """보관 정책 정리 (E3) — 최근 N건 유지, 그 외 미참조 Run 일괄 정리 (참조·최신 보호).
+
+    **산출물 파일은 지우지 않는다** (`_delete_run` — 납품물 불변 #53). 응답의 `retainedFiles`·
+    `note` 로 그 사실을 함께 돌려준다 (18.85).
+    """
     keep = max(1, min(body.keepLatest, 100))
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
@@ -16880,17 +16884,35 @@ def run_cleanup(request: Request, body: RunCleanup) -> dict[str, Any]:
         if latest is not None:
             keep_ids.add(latest)
         deleted, skipped = [], []
-        for rid in all_ids[keep:]:
-            if rid in keep_ids or rid in refs:
-                skipped.append(rid)
-                continue
+        target = [rid for rid in all_ids[keep:] if rid not in keep_ids and rid not in refs]
+        skipped = [rid for rid in all_ids[keep:] if rid not in target]
+        # 18.85 — **지우지 않는 것을 먼저 센다.** 이 정리는 Run 메타만 지우고 산출물 파일은
+        # 남긴다(`_delete_run` — 납품물 불변 #53). 그런데 응답은 "1,445건 정리" 만 말해서,
+        # 실행한 사람은 저장 공간이 줄었다고 읽는다. 운영 실측: Run 1,545→100 인데 산출물
+        # 파일은 5,466건·85MB 그대로였다. 무엇이 남는지 말하지 않는 정리는 정리가 아니다.
+        retained_files, retained_bytes = 0, 0
+        if target:
+            cur.execute(
+                """SELECT count(*), COALESCE(sum(f.file_size),0) FROM dwg_file f
+                   WHERE f.tenant_id=%s AND f.file_id IN (
+                     SELECT o.file_id FROM cpq_output o WHERE o.run_id = ANY(%s))""",
+                (tid, target))
+            retained_files, retained_bytes = cur.fetchone()
+        for rid in target:
             _delete_run(cur, tid, rid)
             deleted.append(rid)
         if deleted:
             _audit(cur, tid, "cpq_run", 0, "RUN_CLEANUP", request.state.user_id,
-                   {"deleted": deleted, "keepLatest": keep})
+                   {"deleted": deleted, "keepLatest": keep,
+                    "retainedFiles": int(retained_files), "retainedBytes": int(retained_bytes)})
     return {"deleted": len(deleted), "skipped": len(skipped),
-            "keptLatest": keep, "deletedIds": deleted}
+            "keptLatest": keep, "deletedIds": deleted,
+            # 남는 것을 함께 알린다 — 파일 삭제 여부는 산출물 불변(#53)과 함께 결정할 사안이다.
+            "retainedFiles": int(retained_files), "retainedBytes": int(retained_bytes),
+            "note": (f"Run 이력 {len(deleted)}건을 정리했습니다. 산출물 파일 "
+                     f"{int(retained_files):,}건({int(retained_bytes) / 1048576:.0f}MB)은 "
+                     "납품물 불변 원칙(#53)에 따라 **보존**됩니다 — 저장 공간은 줄지 않습니다.")
+            if deleted else "정리 대상 Run 이 없습니다."}
 
 
 # ── B7 — PLM 도면 대장 (dwg_drawing·dwg_revision·dwg_supersedure 개방) ──
