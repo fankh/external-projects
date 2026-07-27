@@ -58,6 +58,10 @@ def req(method, path, tok, body=None):
 
 def clear_verbs():
     """검증용 동사 행 제거 — 남으면 실제 승인 흐름이 막히므로 반드시 원복."""
+    # 18.99 — cpq-selection 은 **화면 매트릭스와 같은 키**다. 동사 행만 지우고 READ/WRITE
+    # 행(시드가 만든 화면 권한)은 건드리지 않는다.
+    psql("DELETE FROM sys_role_permission WHERE resource_key='cpq-selection' "
+         "AND action IN ('CREATE','UPDATE','EXECUTE','APPROVE','DEPLOY')")
     psql("DELETE FROM sys_role_permission WHERE resource_key IN ('workflow','package') ")
     psql("DELETE FROM sys_role_permission WHERE resource_key='%s' "
          "AND action IN ('READ','CREATE','UPDATE','EXECUTE','APPROVE','DEPLOY')" % RES)
@@ -250,6 +254,53 @@ try:
     st, _ = req("PATCH", f"/codes/values/{vid}", TOK, {"approve": True})
     ok(f"★ APPROVE 부여 후 값 승인 통과 ({st})", st == 200)
 
+    # ── 18.99: '실행' 도 요구 #3 의 동사다 (생성·수정·실행·승인·배포) ──
+    # 다섯 중 실효는 APPROVE·DEPLOY 둘뿐이었다. BOM Run 은 결과가 원가·견적의 근거가 되는
+    # '실행' 인데 어떤 동사도 요구하지 않아, 화면 매트릭스를 읽기 전용으로 내려도 API 로는
+    # 그대로 돌릴 수 있었다. 자원 키는 화면 매트릭스와 같은 어휘(`cpq-selection`)를 쓴다.
+    EXEC_RES = "cpq-selection"
+    # 이 자원에는 **시드가 만든 화면 권한 행(MENU/READ)** 이 있고, 동사 API 의 DELETE 는
+    # READ 도 함께 지운다. 원래 행을 기억해 두고 finally 에서 되돌린다.
+    globals()["_exec_seeded"] = psql(
+        "SELECT COALESCE(string_agg(p.action, ',' ORDER BY p.action),'') "
+        "FROM sys_role_permission p JOIN sys_role r ON r.role_id=p.role_id "
+        f"WHERE r.role_name='ADMIN' AND p.resource_key='{EXEC_RES}'")
+    ok(f"실행 자원의 기존 화면 권한 확보 ({globals()['_exec_seeded'] or '없음'})", True)
+
+    st, _ = req("PUT", f"/roles/ADMIN/verbs", TOK, {"resourceKey": EXEC_RES, "verbs": ["READ"]})
+    ok(f"실행 자원에 READ 만 부여 ({st})", st == 200)
+    st, r1 = req("POST", "/cpq/runs", TOK, {"runType": "BOM", "isTest": True})
+    # READ 는 화면 매트릭스(NONE→READ→WRITE)가 쓰는 값이라 '동사 설정' 으로 치지 않는다.
+    # 치면 어느 역할이 화면을 READ 로 두는 순간 ADMIN 까지 실행이 잠긴다(18.99 함정 수정).
+    ok(f"★ READ 만으로는 실행이 잠기지 않는다 ({st}) — 화면 권한은 동사 설정이 아니다",
+       st in (200, 202) and (r1 or {}).get("runId"))
+    globals()["_exec_runs"] = [r1["runId"]]
+
+    st, _ = req("PUT", f"/roles/ADMIN/verbs", TOK,
+                {"resourceKey": EXEC_RES, "verbs": ["READ", "APPROVE"]})
+    ok(f"실행 아닌 동사만 명시 ({st}) — 이제 이 자원은 '설정됨'", st == 200)
+    st, b = req("POST", "/cpq/runs", TOK, {"runType": "BOM", "isTest": True})
+    ok(f"★ EXECUTE 없으면 Run 403 ({st})",
+       st == 403 and "EXECUTE" in (b or {}).get("detail", ""))
+    st, _ = req("PUT", f"/roles/ADMIN/verbs", TOK,
+                {"resourceKey": EXEC_RES, "verbs": ["READ", "EXECUTE"]})
+    st, r2 = req("POST", "/cpq/runs", TOK, {"runType": "BOM", "isTest": True})
+    ok(f"★ EXECUTE 부여 후 실행 통과 ({st}) — 과잉 차단 아님",
+       st in (200, 202) and (r2 or {}).get("runId"))
+    globals()["_exec_runs"].append(r2["runId"])
+
+    # 같은 규약이 Macro 실행에도 걸린다 (자원 키는 tbx-macro)
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK,
+                {"resourceKey": "tbx-macro", "verbs": ["APPROVE"]})
+    st, b = req("POST", "/macros/evaluate", TOK, {"formula": "1+1", "variables": {}})
+    ok(f"★ EXECUTE 없으면 Macro 평가 403 ({st})",
+       st == 403 and "EXECUTE" in (b or {}).get("detail", ""))
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK,
+                {"resourceKey": "tbx-macro", "verbs": ["EXECUTE"]})
+    st, b = req("POST", "/macros/evaluate", TOK, {"formula": "1+1", "variables": {}})
+    ok(f"★ EXECUTE 부여 후 Macro 평가 통과 ({st})", st == 200 and (b or {}).get("value") == 2)
+    st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": "tbx-macro", "verbs": []})
+
     # ── 설정 제거 = 미설정 복귀 ──
     st, _ = req("PUT", "/roles/ADMIN/verbs", TOK, {"resourceKey": RES, "verbs": []})
     ok(f"동사 설정 제거 ({st})", st == 200)
@@ -288,6 +339,19 @@ finally:
         psql(f"UPDATE product_code SET approval_status='{_to}' WHERE product_code_id={_pid}")
         print(f"정리 — 제품 코드 #{_pid} 상태 {_to} 로 원복")
     clear_verbs()
+    psql("DELETE FROM sys_role_permission WHERE resource_key='tbx-macro' "
+         "AND action IN ('CREATE','UPDATE','EXECUTE','APPROVE','DEPLOY')")
+    # 18.99 — 동사 API 의 DELETE 는 READ 도 지운다. 시드가 만든 화면 권한 행을 되돌린다.
+    # (되돌리지 않으면 권한 매트릭스에서 ADMIN×제품선정 칸이 조용히 NONE 이 된다)
+    _seeded = globals().get("_exec_seeded")
+    if _seeded:
+        for _act in {a for a in _seeded.split(",") if a}:
+            psql("INSERT INTO sys_role_permission (role_id, resource_type, resource_key, action) "
+                 "SELECT r.role_id,'MENU','cpq-selection','%s' FROM sys_role r "
+                 "WHERE r.role_name='ADMIN' AND NOT EXISTS (SELECT 1 FROM sys_role_permission p "
+                 "WHERE p.role_id=r.role_id AND p.resource_key='cpq-selection' "
+                 "AND p.action='%s')" % (_act, _act))
+        print(f"정리 — 화면 권한 행 복원 (ADMIN×cpq-selection = {_seeded})")
     psql("DELETE FROM sys_approval_request WHERE comment LIKE 'ZZVERB%'")
     left = psql(f"SELECT count(*) FROM sys_role_permission WHERE resource_key='{RES}'")
     print(f"정리 — 검증 동사 행 제거 (잔존 {left})")

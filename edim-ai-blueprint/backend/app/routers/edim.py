@@ -3314,10 +3314,17 @@ class EvaluateRequest(BaseModel):
 
 
 @router.post("/macros/evaluate")
-def evaluate_macro(body: EvaluateRequest) -> dict[str, Any]:
-    """Excel 호환 Macro 평가 — Table 참조는 실 tbl_data_row (TBX-011)."""
+def evaluate_macro(request: Request, body: EvaluateRequest) -> dict[str, Any]:
+    """Excel 호환 Macro 평가 — Table 참조는 실 tbl_data_row (TBX-011).
+
+    18.99 — 요구 #3 의 동사 다섯 중 **EXECUTE 만 어디에서도 검사되지 않았다**(APPROVE·DEPLOY 는
+    8.7~8.10 에서 강제). Macro 평가는 이름 그대로 '실행' 이고, 결과가 치수·산출에 반영된다.
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        if not _action_allowed(cur, tid, request.state.user_id,
+                               getattr(request.state, "level", "GENERAL"), "tbx-macro", "EXECUTE"):
+            raise HTTPException(403, detail="실행 권한 없음 — 역할에 EXECUTE 동사가 필요합니다 (#3)")
         ev = Evaluator(body.variables, _make_table_resolver(cur, tid))
         try:
             value = ev.run(body.formula)
@@ -8081,10 +8088,14 @@ class RunningTestRequest(BaseModel):
 
 
 @router.post("/codes/relationships/running-test")
-def running_test(body: RunningTestRequest) -> dict[str, Any]:
-    """CODE-009 — Mother slot 조합으로 전량 전개 검증 (expand 재사용)."""
+def running_test(request: Request, body: RunningTestRequest) -> dict[str, Any]:
+    """CODE-009 — Mother slot 조합으로 전량 전개 검증 (expand 재사용). 18.99 — EXECUTE 동사 적용."""
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        if not _action_allowed(cur, tid, request.state.user_id,
+                               getattr(request.state, "level", "GENERAL"),
+                               "plm-design", "EXECUTE"):
+            raise HTTPException(403, detail="실행 권한 없음 — 역할에 EXECUTE 동사가 필요합니다 (#3)")
         rows = _expand_rows(cur, tid, body.motherCode, body.slotValues)
         integrity = _bom_integrity(cur, tid, body.motherCode)
         cur.execute(
@@ -13632,10 +13643,14 @@ def _action_allowed(cur, tid: int, uid: int, level: str, resource: str, verb: st
 
     **미설정 = 허용** — 어떤 역할도 그 자원에 동사를 명시하지 않았다면 종전 동작(레벨 게이트)을 따른다.
     한 역할이라도 명시했다면 그때부터는 명시된 동사만 허용한다(정보 접근 통제 1.5 와 같은 규약)."""
+    # 18.99 — '설정 있음' 판정에서 **READ 는 뺀다**. READ 는 화면 매트릭스(NONE→READ→WRITE)가
+    # 쓰는 값이라 어느 역할이든 그 자원을 READ 로 두면 자원이 '동사 설정됨' 이 되고, 그 순간
+    # 명시 동사가 없는 **모든 사용자(ADMIN 포함)가 잠긴다**. 지금은 강제 자원과 화면 키가
+    # 겹치지 않아 드러나지 않을 뿐, 겹치는 이름을 쓰는 순간 승인·배포가 통째로 막힌다.
     cur.execute(
         """SELECT p.action FROM sys_role_permission p JOIN sys_role r ON r.role_id=p.role_id
            WHERE r.tenant_id=%s AND p.resource_key=%s AND p.action = ANY(%s)""",
-        (tid, resource, list(_ACTION_VERBS)))
+        (tid, resource, [v for v in _ACTION_VERBS if v != "READ"]))
     if not cur.fetchone():
         return True                      # 이 자원에 동사 설정이 전혀 없음 → 종전대로
     roles = _user_role_ids(cur, tid, uid, level)
@@ -16290,6 +16305,13 @@ async def start_run(request: Request, body: RunRequest) -> dict[str, Any]:
             422, detail=f"실행 유형 오류: {body.runType} (허용: {'/'.join(RUN_TYPES)})")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        # 18.99 — BOM Run 은 요구 #3 이 말하는 '실행' 그 자체다(결과가 원가·견적의 근거가 된다).
+        # 종전에는 EXECUTE 동사가 어휘에만 있고 검사하는 곳이 없어, 화면 매트릭스에서 읽기
+        # 전용으로 내려도 API 로는 그대로 돌릴 수 있었다. 미설정=허용이라 기존 테넌트 무영향.
+        if not _action_allowed(cur, tid, request.state.user_id,
+                               getattr(request.state, "level", "GENERAL"),
+                               "cpq-selection", "EXECUTE"):
+            raise HTTPException(403, detail="실행 권한 없음 — 역할에 EXECUTE 동사가 필요합니다 (#3)")
         if body.selectionId:   # C1 — 지정 견적안
             cur.execute(
                 """SELECT s.selection_id, s.slot_values, p.project_no, pc.main_code

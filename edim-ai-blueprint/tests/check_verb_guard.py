@@ -12,6 +12,7 @@
 규칙
   A) 승인 결과(APPROVED)를 쓰는 라우터 핸들러 → `_action_allowed(..., "approval", "APPROVE")` 필요
   B) 게시 상태(PUBLISHED)를 쓰는 라우터 핸들러 → `_action_allowed(..., <자원>, "DEPLOY")` 필요
+  C) 실행 이력(cpq_run)을 남기는 라우터 핸들러 → `_action_allowed(..., <자원>, "EXECUTE")` 필요 (18.99)
   · 승인함 공용 헬퍼(_apply_decision)는 호출하는 엔드포인트에서 이미 검사하므로 제외
   · 정당한 예외(시드 등)는 기준선 파일에 남긴다
 
@@ -38,11 +39,20 @@ STATE_TABLES = (
 )
 EXEMPT_FUNCS = {"_apply_decision"}   # 호출부(decide·decide_batch 등)에서 검사한다
 
+# 실행 이력을 남기는 테이블 — 여기에 INSERT 하는 핸들러는 EXECUTE 동사를 요구한다 (18.99)
+EXEC_TABLES = ("cpq_run",)
 
-def _router_handlers(tree: ast.Module) -> list[ast.FunctionDef]:
-    out = []
+
+def _router_handlers(tree: ast.Module) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
+    """라우터 핸들러 — **async 포함**.
+
+    18.99 — 종전에는 `ast.FunctionDef` 만 보았다. `async def` 는 별도 노드(`AsyncFunctionDef`)라
+    **핸들러 11개가 게이트에 한 번도 검사되지 않았다**(업로드·엑셀 임포트 계열과 `start_run`).
+    게이트가 통과했다는 사실이 그 경로를 봤다는 뜻이 아니었다 — 8.10 이래 줄곧 그랬다.
+    """
+    out: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         for dec in node.decorator_list:
             f = dec.func if isinstance(dec, ast.Call) else dec
@@ -54,8 +64,11 @@ def _router_handlers(tree: ast.Module) -> list[ast.FunctionDef]:
 
 
 def _verbs(body: str) -> set[str]:
+    # 자원 키에는 하이픈이 들어간다(`cpq-selection`·`tbx-macro` — 화면 매트릭스와 같은 어휘).
+    # 종전 `(\w+)` 는 하이픈에서 끊겨 **그 호출을 아예 못 봤다** — 검사를 넣어도 게이트는
+    # 없는 것으로 판정한다. 18.99 에서 EXECUTE 를 넣고 실패해서 드러났다.
     return {m[1] for m in re.findall(
-        r'_action_allowed\((?:[^()]|\([^()]*\))*?"(\w+)",\s*"(\w+)"\s*\)', body)}
+        r'_action_allowed\((?:[^()]|\([^()]*\))*?"([\w.-]+)",\s*"(\w+)"\s*\)', body)}
 
 
 def scan() -> list[str]:
@@ -77,6 +90,17 @@ def scan() -> list[str]:
         if "'PUBLISHED'" in body or '"PUBLISHED"' in body:
             if "DEPLOY" not in verbs:
                 findings.append(f"{fn.name}::PUBLISHED::{','.join(sorted(touches))}")
+    # C) 실행 기록을 남기는 핸들러 → EXECUTE (18.99)
+    # 요구 #3 은 "생성·수정·실행·승인·배포" 다섯 동사인데 실효는 APPROVE·DEPLOY 둘뿐이었다.
+    # 실행은 결과가 원가·견적의 근거가 되므로(Run) 같은 방식으로 고정한다.
+    for fn in _router_handlers(tree):
+        if fn.name in EXEMPT_FUNCS:
+            continue
+        body = ast.get_source_segment(src, fn) or ""
+        if not re.search(r"INSERT INTO\s+(" + "|".join(EXEC_TABLES) + r")\b", body):
+            continue
+        if "EXECUTE" not in _verbs(body):
+            findings.append(f"{fn.name}::EXECUTE::run")
     return sorted(set(findings))
 
 
@@ -93,15 +117,20 @@ def main() -> int:
     new = [f for f in found if f not in base]
     gone = [b for b in base if b not in set(found)]
     if new:
-        print("FAIL — 승인/배포 동사 검사가 없는 신규 지점 (8.10)")
+        print("FAIL — 승인·배포·실행 동사 검사가 없는 신규 지점 (8.10·18.99)")
         for f in new:
             fnname, state, tables = f.split("::")
+            if state == "EXECUTE":
+                print(f"  · {fnname}(): 실행 이력({','.join(EXEC_TABLES)})을 남기면서 "
+                      "EXECUTE 동사 검사 없음")
+                continue
             verb = "APPROVE" if state == "APPROVED" else "DEPLOY"
             print(f"  · {fnname}(): {state} 를 쓰면서 {verb} 동사 검사 없음 [{tables}]")
-        print("\n  _action_allowed(cur, tid, uid, level, <자원>, \"" "APPROVE|DEPLOY\") 를 추가하십시오.")
+        print("\n  _action_allowed(cur, tid, uid, level, <자원>, \"APPROVE|DEPLOY|EXECUTE\") "
+              "를 추가하십시오.")
         print("  정당한 예외라면 py tests/check_verb_guard.py --update 로 기준선 갱신.")
         return 1
-    print(f"PASS — 승인/배포 동사 누락 신규 0 (기준선 {len(base)}항목 · 현재 {len(found)}항목"
+    print(f"PASS — 승인·배포·실행 동사 누락 신규 0 (기준선 {len(base)}항목 · 현재 {len(found)}항목"
           + (f" · 해소 {len(gone)}" if gone else "") + ")")
     return 0
 
