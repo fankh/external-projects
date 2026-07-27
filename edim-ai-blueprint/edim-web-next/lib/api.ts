@@ -13,8 +13,25 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * 응답 **헤더까지** 필요한 SSR 로드 (18.84).
+ *
+ * 백엔드는 절단(`X-Truncated`)·숨김(`X-Superseded-Hidden`) 같은 사실을 헤더로 알린다.
+ * `apiServer` 는 본문만 돌려주므로 그 사실이 화면에 닿지 못한다 — 서버가 잘 적어도
+ * 중간 계층이 지우면 없는 것과 같다(18.79 에서 다운로드 프록시가 그랬다).
+ */
+export async function apiServerWith<T>(path: string, init?: RequestInit):
+    Promise<{ data: T; headers: Headers }> {
+  const res = await apiFetch(path, init)
+  return { data: (await res.json()) as T, headers: res.headers }
+}
+
 /** 서버측 fetch — 인증 헤더 자동. SSR 데이터 로드용(no-store: 항상 최신 ERP 데이터). */
 export async function apiServer<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await apiFetch(path, init)).json() as Promise<T>
+}
+
+async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const token = await getToken()
   let res: Response
   try {
@@ -40,7 +57,7 @@ export async function apiServer<T>(path: string, init?: RequestInit): Promise<T>
     } catch { /* non-json */ }
     throw new ApiError(res.status, detail)
   }
-  return (await res.json()) as T
+  return res
 }
 
 /** 로그인(쿠키 미설정 상태에서 호출) — 토큰+유저 반환 */
