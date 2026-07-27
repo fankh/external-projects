@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 # EDIM 백업 (0.4 신설 → 0.5 확장) — 매일 pg_dump 커스텀 포맷(-Fc) + MinIO 볼륨 tar + 7일 보존 회전.
+#
+# 18.89 — **두 번째 백업 파이프라인이다.** cron `/etc/cron.d/edim-db-backup`(매일 03:30)이
+# 부르며 `/home/seekers/backups` 에 남긴다. systemd `edim-backup.timer`(03:20, tools/edim-backup.sh)가
+# 같은 데이터를 `/var/backups/edim` 에 이미 남기므로 **하루 두 벌**이 쌓인다(각 7일 보존,
+# 실측 24MB + 27MB). 복구 리허설이 검증하는 것은 03:20 산출물뿐이다 — 이쪽은 검증되지 않는다.
+# 통합 여부는 운영 결정 사항이라 여기서 지우지 않는다(둘 있는 편이 없는 것보다 안전하다).
 # 배경: 운영 점검(2026-07-20)에서 백업 자동화 부재 발견 — 디스크 장애/오조작 시 전 데이터 유실 위험.
 # 설치: /etc/cron.d/edim-db-backup (매일 03:30, root).
 # 복원: DB = pg_restore -U edim -d edim <dump> · MinIO = tar -xzf <tar> -C <volume>/_data
