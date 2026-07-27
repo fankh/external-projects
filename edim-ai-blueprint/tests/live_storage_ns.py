@@ -156,13 +156,18 @@ with sync_playwright() as pw:
             r = req.get(f"{API}/files", params={"project": p})
             return r.status, (r.json() if r.status == 200 else [])
 
+        # 18.82 이후 업로드 행에도 `run` 이 실린다(그 파일이 어느 Run 산출물인지). 그래서
+        # 'Run 산출물 구간' 은 **fileId 가 없는 행**(cpq_output 유래)으로 가른다 — 종전처럼
+        # `run != '-'` 로 세면 업로드까지 섞여 판정이 어긋난다.
+        def run_section(lst):
+            return [f for f in lst if f.get("fileId") is None]
+
         st, own = files_of(PROJ)
         ok(f"자기 프로젝트 200 ({st})", st == 200)
-        ok(f"Run 산출물이 보인다 ({len([f for f in own if f['run'] != '-'])}건)",
-           any(f["run"] != "-" for f in own))
+        ok(f"Run 산출물이 보인다 ({len(run_section(own))}건)", run_section(own))
         for other in ("PS-612", "PS-598"):
             st, lst = files_of(other)
-            runs = [f for f in lst if f["run"] != "-"]
+            runs = run_section(lst)
             ok(f"{other} 200 ({st})", st == 200)
             # 이 프로젝트에 SUCCESS Run 이 없으면 산출물도 없어야 한다
             has_run = psql("SELECT count(*) FROM cpq_run r JOIN cpq_selection s "
