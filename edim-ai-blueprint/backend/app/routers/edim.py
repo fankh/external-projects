@@ -2655,13 +2655,32 @@ def _storage_key(tid: int, *parts: str) -> str:
     return f"t{tid}/{tail}"
 
 
-def _tenant_now() -> int:
-    """커서 없이 현재 테넌트 — 키를 만드는 시점엔 아직 연결을 열지 않은 자리가 있다."""
-    ctx = _TENANT_CTX.get()
-    if ctx:
-        return ctx
+def _project_id_or_422(cur, tid: int, project_no: str) -> int:   # noqa: D401
+    """업로드 대상 프로젝트 — 없으면 422 (18.58).
+
+    종전엔 `prj[0] if prj else None` 로 **없는 프로젝트 번호도 201 로 받아** project_id 를
+    NULL 로 남겼다. 올린 사람은 성공 응답을 받지만 파일은 어느 프로젝트 폴더에도 보이지
+    않는다 — 저장은 됐는데 찾을 수 없는, '동작하는 것처럼 보이는 상태'다. 오타 한 글자가
+    조용히 파일을 잃게 만든다. 운영 데이터에 project_id NULL 행은 0건이라 거부해도 잃는
+    동작이 없다.
+    """
+    cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
+                (tid, project_no))
+    row = cur.fetchone()
+    if not row:
+        raise HTTPException(422, detail=f"프로젝트를 찾을 수 없습니다: {project_no}")
+    return row[0]
+
+
+def _project_id_now(project_no: str) -> tuple[int, int]:
+    """(tenant_id, project_id) — 저장소에 쓰기 **전에** 거부하려면 연결이 먼저 필요하다.
+
+    put_object 뒤에 422 를 내면 참조 없는 객체가 스토리지에 남는다(GC 가 지우기 전까지
+    용량만 차지하고, 어디서 온 것인지 추적할 단서도 없다).
+    """
     with _conn() as conn, conn.cursor() as cur:
-        return _tenant_id(cur)
+        tid = _tenant_id(cur)
+        return tid, _project_id_or_422(cur, tid, project_no)
 
 
 def _row_error_reason(exc: Exception, row_no: int) -> str:
@@ -3320,7 +3339,9 @@ async def upload_file(
     data = await _read_upload(uploadedFile, max_bytes=_UPLOAD_MAX_BYTES,
                               hint="파일을 압축하거나 분할해 올리십시오")
     fname = (uploadedFile.filename or "file").replace("/", "_")
-    key = _storage_key(_tenant_now(), project, folder, fname)
+    # 18.58 — 저장하기 **전에** 프로젝트를 확인한다(뒤에서 거부하면 참조 없는 객체가 남는다).
+    tid_now, prj_id = _project_id_now(project)
+    key = _storage_key(tid_now, project, folder, fname)
     # 18.57 — 키에 테넌트가 붙기 전 올라간 파일은 옛 경로를 그대로 갖고 있다. 새 키로만
     # 조회하면 (1) 재업로드가 매번 새 행을 만들고 (2) **옛 경로의 Run 산출물을 덮어쓰는
     # 업로드를 #53 가드가 놓친다**. 두 후보를 함께 본다.
@@ -3362,14 +3383,11 @@ async def upload_file(
             _audit(cur, tid, "dwg_file", file_id, "FILE_REPLACE", request.state.user_id,
                    {"key": key, "size": len(data)})
             return {"fileId": file_id, "key": key, "size": len(data), "replaced": True}
-        cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
-                    (tid, project))
-        prj = cur.fetchone()
         cur.execute(
             """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
                file_path, file_size, created_by, file_role)
                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING file_id""",
-            (tid, prj[0] if prj else None, folder, fname,
+            (tid, prj_id, folder, fname,
              (fname.rsplit(".", 1)[-1] if "." in fname else "BIN").upper()[:10],
              key, len(data), request.state.login,
              # #53 — 산출물(OUTPUT)은 Run 만 만든다. 업로드는 접수 자료 또는 작도 원본.
@@ -4274,21 +4292,19 @@ async def cad_import(
                               hint="도면을 분할하거나 불필요한 레이어를 정리해 올리십시오")
     fname = (uploadedFile.filename or "drawing.dxf").replace("/", "_")
     document = _parse_cad_bytes(data, fname)   # 파싱 실패 시 저장하지 않음
-    key = _storage_key(_tenant_now(), project, "DWG", fname)
+    tid_now, prj_id = _project_id_now(project)   # 18.58 — 저장 전에 거부한다
+    key = _storage_key(tid_now, project, "DWG", fname)
     try:
         storage.put_object(key, data, uploadedFile.content_type or "application/dxf")
     except RuntimeError:
         raise HTTPException(503, detail="storage unavailable")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
-                    (tid, project))
-        prj = cur.fetchone()
         cur.execute(
             """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
                file_path, file_size, file_role)
                VALUES (%s,%s,'DWG',%s,%s,%s,%s,'SOURCE') RETURNING file_id""",
-            (tid, prj[0] if prj else None, fname,
+            (tid, prj_id, fname,
              fname.rsplit(".", 1)[-1].upper()[:10], key, len(data)))
         file_id = cur.fetchone()[0]
         # 외부 도면 반입 — 도면은 설계·제조의 정본이라 출처를 되짚을 수 있어야 한다
@@ -4338,23 +4354,21 @@ def cad_duct_layout_save(request: Request, body: DuctLayoutSaveRequest) -> dict[
     floor = body.floor.strip()[:10] or "3F"
     data = build_duct_layout_dxf(max(1, min(body.diffusers, 12)), floor)
     fname = f"duct_{floor}.dxf"
-    key = _storage_key(_tenant_now(), body.project, "DWG", fname)
+    tid_now, prj_id = _project_id_now(body.project)   # 18.58
+    key = _storage_key(tid_now, body.project, "DWG", fname)
     try:
         storage.put_object(key, data, "application/dxf")
     except RuntimeError:
         raise HTTPException(503, detail="storage unavailable")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
-                    (tid, body.project))
-        prj = cur.fetchone()
         # #53 — part-drawing/save 와 동일: 같은 프로젝트의 SOURCE 행만 갱신 대상
         cur.execute(
             """SELECT file_id FROM dwg_file
                WHERE tenant_id=%s AND folder='DWG' AND file_name=%s
                  AND COALESCE(file_role,'OUTPUT')='SOURCE'
                  AND project_id IS NOT DISTINCT FROM %s""",
-            (tid, fname, prj[0] if prj else None))
+            (tid, fname, prj_id))
         row = cur.fetchone()
         if row:
             file_id = row[0]
@@ -4365,7 +4379,7 @@ def cad_duct_layout_save(request: Request, body: DuctLayoutSaveRequest) -> dict[
                 """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
                    file_path, file_size, file_role)
                    VALUES (%s,%s,'DWG',%s,'DXF',%s,%s,'SOURCE') RETURNING file_id""",
-                (tid, prj[0] if prj else None, fname, key, len(data)))
+                (tid, prj_id, fname, key, len(data)))
             file_id = cur.fetchone()[0]
         _audit(cur, tid, "dwg_file", file_id, "DUCT_EDIT_MATERIALIZE", request.state.user_id,
                {"floor": floor, "diffusers": body.diffusers})
@@ -4488,16 +4502,14 @@ def cad_part_drawing_save(request: Request, body: PartDrawingSaveRequest) -> dic
     fname = (body.name or "part_edit.dxf").replace("/", "_")
     if not fname.lower().endswith(".dxf"):
         fname += ".dxf"
-    key = _storage_key(_tenant_now(), body.project, "DWG", fname)
+    tid_now, prj_id = _project_id_now(body.project)   # 18.58
+    key = _storage_key(tid_now, body.project, "DWG", fname)
     try:
         storage.put_object(key, data, "application/dxf")
     except RuntimeError:
         raise HTTPException(503, detail="storage unavailable")
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
-        cur.execute("SELECT project_id FROM prj_project WHERE tenant_id=%s AND project_no=%s",
-                    (tid, body.project))
-        prj = cur.fetchone()
         # #53 — 갱신 대상은 **같은 프로젝트의 SOURCE 행**으로 한정한다.
         # 종전엔 테넌트 전체에서 file_name 만 맞으면 갱신해, 같은 이름의 Run 산출물 행이
         # 새 파일로 갈아끼워졌다(납품물 무결성 파괴, 실증 확인). project_id 도 무시했다.
@@ -4506,7 +4518,7 @@ def cad_part_drawing_save(request: Request, body: PartDrawingSaveRequest) -> dic
                WHERE tenant_id=%s AND folder='DWG' AND file_name=%s
                  AND COALESCE(file_role,'OUTPUT')='SOURCE'
                  AND project_id IS NOT DISTINCT FROM %s""",
-            (tid, fname, prj[0] if prj else None))
+            (tid, fname, prj_id))
         row = cur.fetchone()
         overwrote = bool(row)
         if row:
@@ -4518,7 +4530,7 @@ def cad_part_drawing_save(request: Request, body: PartDrawingSaveRequest) -> dic
                 """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
                    file_path, file_size, file_role)
                    VALUES (%s,%s,'DWG',%s,'DXF',%s,%s,'SOURCE') RETURNING file_id""",
-                (tid, prj[0] if prj else None, fname, key, len(data)))
+                (tid, prj_id, fname, key, len(data)))
             file_id = cur.fetchone()[0]
         # 같은 이름이면 **원본을 덮어쓴다** — 되돌릴 수 없는 연산이므로 신규/덮어쓰기를
         # 구분해 남긴다(무엇을 갈아끼웠는지 모르면 납품물 대조가 불가능하다).
@@ -12991,18 +13003,36 @@ OUTPUT_KIND = {"DWG": ("승인도", "ok"), "PRICE": ("견적/원가", "info"),
 
 @router.get("/files")
 def project_files(project: str = "PS-61313-5", allRuns: bool = False) -> list[dict[str, Any]]:
-    """Project Folder 파일 — 기본은 최신 SUCCESS Run 산출물만(최신 Rev 필터). allRuns=true=전체 Run."""
+    """Project Folder 파일 — 기본은 **그 프로젝트의** 최신 SUCCESS Run 산출물. allRuns=true=전체 Run.
+
+    18.59 — 종전엔 Run 산출물 구간이 `project` 를 **아예 쓰지 않았다**. 인자를 받고 문서에도
+    "Project Folder 파일" 이라 적어 놓고, 실제로는 테넌트의 최신 Run 산출물을 **어느 프로젝트를
+    열든 똑같이** 내려줬다(없는 프로젝트 번호에도 내려줬다). 운영 실측 — PS-612·PS-598·존재하지
+    않는 번호까지 앞 3건이 동일했고, 그 파일 이름은 `PS-61313-5_..._quotation.pdf` 였다.
+    다른 프로젝트의 견적서가 남의 폴더에 산출물로 보이는 상태다.
+
+    최신 Run 판정도 프로젝트 단위로 내려야 한다. 테넌트 전체의 최신 Run 으로 판정하면 그 Run 이
+    다른 프로젝트 것일 때 이 프로젝트 폴더가 **빈 채로** 보인다(같은 어긋남의 반대 방향).
+    """
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
+        _project_id_or_422(cur, tid, project)   # 없는 프로젝트에 목록을 내주지 않는다
         run_clause = ("" if allRuns else
-                      " AND r.run_id = (SELECT max(run_id) FROM cpq_run "
-                      "WHERE tenant_id=%s AND status='SUCCESS')")
-        params = (tid,) if allRuns else (tid, tid)
+                      " AND r.run_id = (SELECT max(r2.run_id) FROM cpq_run r2"
+                      " JOIN cpq_selection s2 ON s2.selection_id=r2.selection_id"
+                      " WHERE r2.tenant_id=%s AND r2.status='SUCCESS'"
+                      " AND s2.project_id=p.project_id)")
+        params = (tid, project) if allRuns else (tid, project, tid)
         cur.execute(
             f"""SELECT o.output_type, o.data->>'file', o.data->>'fileType',
                        o.run_id, to_char(o.created_at,'MM-DD')
                 FROM cpq_output o
-                JOIN cpq_run r ON r.run_id=o.run_id AND r.tenant_id=%s{run_clause}
+                JOIN cpq_run r ON r.run_id=o.run_id AND r.tenant_id=%s
+                JOIN cpq_selection s ON s.selection_id=r.selection_id
+                                    AND s.tenant_id=r.tenant_id
+                JOIN prj_project p ON p.project_id=s.project_id
+                                  AND p.tenant_id=r.tenant_id
+                                  AND p.project_no=%s{run_clause}
                 ORDER BY o.run_id DESC, o.output_id""", params)
         rows = cur.fetchall()
     files = [
@@ -13024,8 +13054,11 @@ def project_files(project: str = "PS-61313-5", allRuns: bool = False) -> list[di
                       COALESCE(f.file_role,'OUTPUT')
                FROM dwg_file f
                LEFT JOIN prj_project p ON p.project_id=f.project_id
-               WHERE f.tenant_id=%s AND (p.project_no=%s OR f.project_id IS NULL)
+               WHERE f.tenant_id=%s AND p.project_no=%s
                ORDER BY f.file_id DESC""", (tid, project))
+        # 18.59 — 종전엔 `OR f.project_id IS NULL` 이 붙어 **프로젝트 미지정 파일이 모든
+        # 프로젝트 폴더에 나왔다**. 18.58 로 미지정 업로드 자체를 막았고 운영 데이터에도
+        # 0건이라, 남겨 두면 다시 새는 통로만 된다.
         # #53 — 역할을 그대로 노출: 산출물(불변)/작도 원본/접수 자료를 화면에서 구분한다
         ROLE_KIND = {"OUTPUT": ("산출물", "ok"), "SOURCE": ("작도 원본", "info"),
                      "RECEIVED": ("접수자료", "info")}

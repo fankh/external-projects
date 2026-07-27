@@ -318,6 +318,14 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_cursor_reuse.py")]
 print(((p.stdout or "") + (p.stderr or ""))[-1500:])
 results.append(("check_cursor_reuse.py", p.returncode == 0, ""))
 
+# check_unused_params — 선언만 하고 쓰지 않는 라우트 인자 (18.60, 서버 불요)
+print(f"\n{'=' * 60}\n▶ check_unused_params.py (static)\n{'=' * 60}")
+p = subprocess.run([sys.executable, os.path.join(HERE, "check_unused_params.py")],
+                   env=env, capture_output=True, text=True, encoding="utf-8",
+                   errors="replace", timeout=120)
+print(((p.stdout or "") + (p.stderr or ""))[-1500:])
+results.append(("check_unused_params.py", p.returncode == 0, ""))
+
 # check_test_syntax — 검증 코드 문법 게이트 (14.2, 서버 불요)
 print(f"\n{'=' * 60}\n▶ check_test_syntax.py (static)\n{'=' * 60}")
 p = subprocess.run([sys.executable, os.path.join(HERE, "check_test_syntax.py")],

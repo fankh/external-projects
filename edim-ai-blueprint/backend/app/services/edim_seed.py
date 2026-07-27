@@ -2307,14 +2307,18 @@ def seed_v18(cur, tid: int) -> None:
             ("현장 배치도.pdf", "PDF", pbuf.getvalue(), "application/pdf"),
         )
         # 스토리지 업로드 먼저 전부 성공해야 INSERT (부분 등재 방지)
+        # 18.61 — 키를 테넌트로 가른다. 종전 키에는 테넌트가 없어 **새 테넌트를 만들 때마다
+        # 같은 두 객체를 덮어썼다**(내용이 같아 눈에 띄지 않았을 뿐이다). 그 상태에서 한쪽이
+        # 파일을 지우면 삭제 가드가 `tenant_id` 로만 조회해 남의 행을 보지 못하고 객체를
+        # 지우므로, **다른 테넌트의 파일이 열리지 않게 된다.**
         for fname, _t, data, ctype in objects:
-            storage.put_object(f"PS-61313-5/RECEIVED/{fname}", data, ctype)
+            storage.put_object(f"t{tid}/PS-61313-5/RECEIVED/{fname}", data, ctype)
         for fname, ftype, data, _c in objects:
             cur.execute(
                 """INSERT INTO dwg_file (tenant_id, project_id, folder, file_name, file_type,
                    file_path, file_size, uploaded_date)
                    VALUES (%s,%s,'RECEIVED',%s,%s,%s,%s,'2026-07-07')""",
-                (tid, prj[0], fname, ftype, f"PS-61313-5/RECEIVED/{fname}", len(data)))
+                (tid, prj[0], fname, ftype, f"t{tid}/PS-61313-5/RECEIVED/{fname}", len(data)))
         logger.info("seed v18 — 접수 자료 2건 실데이터화 (RECEIVED, MinIO)")
     except Exception as e:  # noqa: BLE001 — storage 불가 시 다음 기동에서 재시도
         logger.warning("seed v18 skip: %s", e)
