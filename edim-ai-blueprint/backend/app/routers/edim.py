@@ -13247,9 +13247,14 @@ def project_files(response: Response, project: str = "PS-61313-5",
                JOIN prj_project p ON p.project_id=f.project_id
                WHERE f.tenant_id=%s AND p.project_no=%s
                  AND COALESCE(f.file_role,'OUTPUT')='OUTPUT'
-                 AND EXISTS (SELECT 1 FROM cpq_output o3 WHERE o3.file_id=f.file_id)
-                 AND NOT EXISTS (SELECT 1 FROM cpq_output o2
-                                  WHERE o2.file_id=f.file_id AND o2.run_id=%s)""",
+                 AND COALESCE((SELECT o.run_id FROM cpq_output o WHERE o.file_id=f.file_id
+                                ORDER BY o.output_id LIMIT 1),
+                              NULLIF(substring(f.file_path from 'run([0-9]+)_'),'')::bigint)
+                     IS DISTINCT FROM %s
+                 AND COALESCE((SELECT o.run_id FROM cpq_output o WHERE o.file_id=f.file_id
+                                ORDER BY o.output_id LIMIT 1),
+                              NULLIF(substring(f.file_path from 'run([0-9]+)_'),'')::bigint)
+                     IS NOT NULL""",
             (tid, project, basis_run))
         superseded = cur.fetchone()[0]
         # 18.83 — **지난 Run 의 산출물은 기본으로 담지 않는다.** 최신순으로만 자르면 상한
@@ -13258,25 +13263,27 @@ def project_files(response: Response, project: str = "PS-61313-5",
         # 답이 아니다 — Run 마다 늘어나므로 언젠가 같은 일이 난다.
         # 담는 기준: 접수자료·작도 원본은 전부 + 산출물은 **현재 기준 Run 것만**.
         # `allRuns=true` 면 지난 산출물까지 포함한다(그때도 상한·절단 고지는 그대로).
-        # **'지난 Run 것' 만 뺀다.** 어느 Run 에도 연결되지 않은 산출물까지 빼면, Run 이 없는
+        # **'지난 Run 것' 만 뺀다.** 어느 Run 것인지 알 수 없는 산출물까지 빼면 Run 이 없는
         # 프로젝트의 폴더가 통째로 비어 버린다(PS-598 216건이 실제로 그렇게 사라졌다).
-        # 근거 없이 숨기지 않는다 — 지난 Run 소속임이 확인된 것만 뺀다.
+        # 소속 Run 판별: `cpq_output` 링크가 있으면 그것, 없으면 **저장 경로에 제품이 직접
+        # 새겨 둔 `run{id}_`**. Run 정리(`run_cleanup`)가 `cpq_output` 만 지우고 파일은 남기므로
+        # 링크 없는 옛 산출물이 600건 넘게 생겨 있었다 — 경로 표식이 유일하게 남은 근거다.
+        # 둘 다 없으면 판별 불가이므로 **숨기지 않는다**(근거 없이 감추지 않는다).
+        run_of = ("COALESCE((SELECT o.run_id FROM cpq_output o WHERE o.file_id=f.file_id"
+                  "          ORDER BY o.output_id LIMIT 1),"
+                  " NULLIF(substring(f.file_path from 'run([0-9]+)_'),'')::bigint)")
         sup_clause = ("" if allRuns else
-                      " AND (COALESCE(f.file_role,'OUTPUT') <> 'OUTPUT'"
-                      "      OR NOT EXISTS (SELECT 1 FROM cpq_output o3"
-                      "                      WHERE o3.file_id=f.file_id)"
-                      "      OR EXISTS (SELECT 1 FROM cpq_output o2"
-                      "                  WHERE o2.file_id=f.file_id AND o2.run_id=%s))")
+                      f" AND (COALESCE(f.file_role,'OUTPUT') <> 'OUTPUT'"
+                      f"      OR {run_of} IS NULL OR {run_of} = %s)")
         uparams: list[Any] = [tid, project]
         if not allRuns:
-            uparams.append(basis_run)
+            uparams.extend([basis_run])
         uparams.append(_FILES_CAP + 1)
         cur.execute(
             f"""SELECT f.file_id, f.file_name, f.file_type, f.folder,
                       to_char(f.uploaded_date,'MM-DD'), f.created_by,
                       COALESCE(f.file_role,'OUTPUT'),
-                      (SELECT o.run_id FROM cpq_output o
-                        WHERE o.file_id=f.file_id ORDER BY o.output_id LIMIT 1)
+                      {run_of}
                FROM dwg_file f
                LEFT JOIN prj_project p ON p.project_id=f.project_id
                WHERE f.tenant_id=%s AND p.project_no=%s{sup_clause}
