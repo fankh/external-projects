@@ -31,10 +31,23 @@ def to_menu(page, wait: int = 350) -> None:
 
 
 def tree_click(page, label: str, wait: int = 0):
-    """메뉴 트리 노드 클릭 — 필요하면 메뉴 모드로 전환한 뒤 라벨로 찾는다."""
+    """메뉴 트리 노드 클릭 — 필요하면 메뉴 모드로 전환한 뒤 라벨로 찾는다.
+
+    19.2 — `to_menu()` 는 패널을 15초 안에 못 보면 **조용히 빠져나간다**(패널이 없는 화면도
+    있어서 그렇게 만들었다). 함대처럼 부하가 걸린 상태에서 SSR 이 늦으면 그 경로를 타고,
+    그 뒤 이 함수가 존재하지 않는 라벨을 기다리다 죽는다 — 실패 메시지는 '라벨을 못 찾음'
+    이라 원인(패널 미렌더)을 가리킨다. 실제로 함대 28 에서 live_f7_diff 가 이렇게 멈췄고
+    단독 실행은 통과했다. **한 번만 다시 기다렸다가 재시도**하고, 그래도 없으면 그대로
+    실패시킨다(조용히 넘기면 검증이 아니다)."""
     to_menu(page)
     node = page.locator(".tn", has_text=label).first
-    node.wait_for(state="visible", timeout=15000)
+    try:
+        node.wait_for(state="visible", timeout=15000)
+    except Exception:  # noqa: BLE001
+        page.wait_for_timeout(2000)
+        to_menu(page)
+        node = page.locator(".tn", has_text=label).first
+        node.wait_for(state="visible", timeout=20000)
     node.click()
     if wait:
         page.wait_for_timeout(wait)
