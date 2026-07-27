@@ -13272,11 +13272,14 @@ def project_files(response: Response, project: str = "PS-61313-5",
         run_of = ("COALESCE((SELECT o.run_id FROM cpq_output o WHERE o.file_id=f.file_id"
                   "          ORDER BY o.output_id LIMIT 1),"
                   " NULLIF(substring(f.file_path from 'run([0-9]+)_'),'')::bigint)")
-        sup_clause = ("" if allRuns else
+        # 기준 Run 이 없으면(업무 Run 미실행) **'지난 것' 이라는 개념 자체가 없다** —
+        # 그때 전부 숨기면 폴더가 통째로 빈다(PS-598 216건이 그렇게 사라졌다). 숨기지 않는다.
+        hide_superseded = (not allRuns) and basis_run is not None
+        sup_clause = ("" if not hide_superseded else
                       f" AND (COALESCE(f.file_role,'OUTPUT') <> 'OUTPUT'"
                       f"      OR {run_of} IS NULL OR {run_of} = %s)")
         uparams: list[Any] = [tid, project]
-        if not allRuns:
+        if hide_superseded:
             uparams.extend([basis_run])
         uparams.append(_FILES_CAP + 1)
         cur.execute(
@@ -13312,7 +13315,7 @@ def project_files(response: Response, project: str = "PS-61313-5",
         response.headers["X-Truncated"] = "true"
     # 18.83 — 기본 보기에서 **몇 건을 뺐는지** 드러낸다. 숨긴 사실을 알리지 않으면 목록이
     # '이 프로젝트의 전부' 로 읽힌다. 지난 산출물은 `allRuns=true` 로 볼 수 있다.
-    response.headers["X-Superseded-Hidden"] = str(0 if allRuns else superseded)
+    response.headers["X-Superseded-Hidden"] = str(superseded if hide_superseded else 0)
     return files + uploads
 
 
