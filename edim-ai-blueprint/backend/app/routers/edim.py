@@ -13247,6 +13247,7 @@ def project_files(response: Response, project: str = "PS-61313-5",
                JOIN prj_project p ON p.project_id=f.project_id
                WHERE f.tenant_id=%s AND p.project_no=%s
                  AND COALESCE(f.file_role,'OUTPUT')='OUTPUT'
+                 AND EXISTS (SELECT 1 FROM cpq_output o3 WHERE o3.file_id=f.file_id)
                  AND NOT EXISTS (SELECT 1 FROM cpq_output o2
                                   WHERE o2.file_id=f.file_id AND o2.run_id=%s)""",
             (tid, project, basis_run))
@@ -13257,8 +13258,13 @@ def project_files(response: Response, project: str = "PS-61313-5",
         # 답이 아니다 — Run 마다 늘어나므로 언젠가 같은 일이 난다.
         # 담는 기준: 접수자료·작도 원본은 전부 + 산출물은 **현재 기준 Run 것만**.
         # `allRuns=true` 면 지난 산출물까지 포함한다(그때도 상한·절단 고지는 그대로).
+        # **'지난 Run 것' 만 뺀다.** 어느 Run 에도 연결되지 않은 산출물까지 빼면, Run 이 없는
+        # 프로젝트의 폴더가 통째로 비어 버린다(PS-598 216건이 실제로 그렇게 사라졌다).
+        # 근거 없이 숨기지 않는다 — 지난 Run 소속임이 확인된 것만 뺀다.
         sup_clause = ("" if allRuns else
                       " AND (COALESCE(f.file_role,'OUTPUT') <> 'OUTPUT'"
+                      "      OR NOT EXISTS (SELECT 1 FROM cpq_output o3"
+                      "                      WHERE o3.file_id=f.file_id)"
                       "      OR EXISTS (SELECT 1 FROM cpq_output o2"
                       "                  WHERE o2.file_id=f.file_id AND o2.run_id=%s))")
         uparams: list[Any] = [tid, project]
