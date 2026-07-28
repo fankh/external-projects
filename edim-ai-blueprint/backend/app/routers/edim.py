@@ -3767,6 +3767,11 @@ def delete_file(file_id: int, request: Request) -> dict[str, Any]:
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"file not found: {file_id}")
+        # 19.17 — 종전에는 **참조 행이 살아 있을 때만** 막았다. 그런데 Run 보관 정리는
+        # `cpq_output` 을 지우고 파일은 남긴다(#53 납품물 불변) — 그 결과 운영 데이터의
+        # OUTPUT 6,693건 중 **6,369건이 링크 없는 상태**였고, 그 전부가 이 경로로 지워질 수
+        # 있었다. 불변식의 근거는 '참조가 있느냐' 가 아니라 **그 파일이 산출물이냐** 다.
+        _assert_mutable(cur, tid, file_id, "삭제")
         cur.execute("SELECT 1 FROM cpq_output WHERE file_id=%s LIMIT 1", (file_id,))
         if cur.fetchone():
             raise HTTPException(409, detail="Run 산출물이 참조하는 파일은 삭제 불가")

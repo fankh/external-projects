@@ -181,8 +181,25 @@ try:
        psql("SELECT count(*) FROM dwg_file WHERE file_name='ZZROLE_empty.dxf'") == "0")
 
     # ── 8) 정리 겸 삭제 가드 ──
+    # 19.17 — 산출물 삭제는 **참조 행이 있을 때만** 막혀 있었다. 그런데 Run 보관 정리는
+    # `cpq_output` 을 지우고 파일은 남기므로(#53), 운영 데이터의 OUTPUT 6,693건 중
+    # 6,369건이 링크 없는 상태였고 그 전부가 지워질 수 있었다. 불변식의 근거는 '참조가
+    # 있느냐' 가 아니라 **그 파일이 산출물이냐** 다 — 링크 없는 산출물로 확인한다.
+    _orphan = psql("SELECT f.file_id FROM dwg_file f WHERE f.tenant_id="
+                   "(SELECT tenant_id FROM sys_user WHERE login_id='edim' LIMIT 1) "
+                   "AND COALESCE(f.file_role,'OUTPUT')='OUTPUT' "
+                   "AND NOT EXISTS (SELECT 1 FROM cpq_output o WHERE o.file_id=f.file_id) "
+                   "ORDER BY f.file_id LIMIT 1")
+    if _orphan.isdigit():
+        st, b = req("DELETE", f"/files/{_orphan}", TOK)
+        ok(f"★ 링크 없는 산출물도 삭제 불가 ({st})",
+           st == 409 and "납품물 불변" in str((b or {}).get("detail", "")))
+        ok("거부 후 실제로 남아 있다",
+           psql(f"SELECT count(*) FROM dwg_file WHERE file_id={_orphan}") == "1")
+    else:
+        ok("링크 없는 산출물이 없어 건너뜀 (데이터 상태)", True)
     st, _ = req("DELETE", f"/files/{new_src}", TOK)
-    ok(f"작도 원본 삭제 200 ({st})", st == 200)
+    ok(f"작도 원본 삭제 200 ({st}) — 원본은 종전대로 삭제 가능", st == 200)
     st, _ = req("DELETE", f"/files/{s1['fileId']}", TOK)
     ok(f"두 번째 원본 삭제 200 ({st})", st == 200)
 finally:
