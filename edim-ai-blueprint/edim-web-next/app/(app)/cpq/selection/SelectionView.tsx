@@ -215,8 +215,10 @@ export function SelectionView(props: {
     const r = await saveSelection(props.projectNo, finished || props.root, slotValues, props.root)
     if (r.error) { say(r.error, true); return }
     setSavedSelId(r.selectionId!)
-    // 트리아지 #39 — 저장 = Configuration Snapshot 고정 (추적은 Snapshot ID)
-    say(`견적안 저장 ✓ — Config Snapshot #${r.selectionId} ${finished} (Run 대상)`)
+    // 19.11 — 저장으로 만들어지는 것은 **선택안**이다. Configuration Snapshot 은 Run 을
+    // 넘길 때(Handoff) 굳는 별개의 것이고 번호 체계도 다르다. 여기서 선택안 번호를
+    // 'Config Snapshot #' 이라고 부르면, 그 번호로 스냅샷을 찾는 사람이 헛짚는다.
+    say(`견적안 저장 ✓ — 선택안 #${r.selectionId} ${finished} (Run 대상)`)
   })
   // 트리아지 #43 — CPQ Session Reset: 임시 선택 상태 원복 (결과물은 저장된 견적안·Run 산출물에만)
   const resetSession = () => {
