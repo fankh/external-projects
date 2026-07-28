@@ -12,7 +12,7 @@
     --accent: #1a56db; --accent-deep: #123a94; --accent-tint: #eef3fc;
     --panel: #f6f7f9; --navy: #0c1424;
   }
-  @page { size: A4 landscape; margin: 0; }
+  @page { size: 338.67mm 190.5mm; margin: 0; }
   body {
     font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 10.5pt; line-height: 1.55; color: var(--ink);
@@ -20,8 +20,8 @@
     -webkit-font-smoothing: antialiased;
   }
   .slide {
-    width: 297mm; height: 210mm; overflow: hidden;
-    background: #fff; margin: 10px auto; padding: 13mm 18mm 12mm 18mm;
+    width: 338.67mm; height: 190.5mm; overflow: hidden;
+    background: #fff; margin: 10px auto; padding: 12mm 20mm 11mm 20mm;
     position: relative; box-shadow: 0 2px 12px rgba(0,0,0,0.12);
     page-break-after: always; break-after: page;
     display: flex; flex-direction: column;
@@ -100,6 +100,7 @@
   /* ---------- architecture layers ---------- */
   .figure { margin: 4px 0 0; }
   .figure svg { display: block; width: 100%; height: auto; }
+  .figure svg#d5 { max-width: 252mm; margin: 0 auto; }
   .figure svg text { font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', 'Segoe UI', sans-serif; }
   .fig-note { font-size: 7.5pt; color: var(--muted); margin-top: 7px; letter-spacing: 0.02em; }
 
@@ -115,7 +116,7 @@
 
   /* ---------- cover ---------- */
   .cover {
-    width: 297mm; height: 210mm; background: var(--navy); color: #fff;
+    width: 338.67mm; height: 190.5mm; background: var(--navy); color: #fff;
     padding: 16mm 20mm 14mm; position: relative;
     page-break-after: always; break-after: page;
     margin: 10px auto; box-shadow: 0 2px 12px rgba(0,0,0,0.12);
