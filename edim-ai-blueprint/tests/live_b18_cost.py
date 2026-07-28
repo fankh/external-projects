@@ -7,6 +7,7 @@ UI: Run 화면 원가 패널·PCR 생성·견적 확정 왕복.
 정리: 생성 견적 전부 DELETE (DRAFT), PCR 은 사업유형별 단일 upsert 라 누적 없음.
 """
 import json
+import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -96,6 +97,19 @@ pdf = req("GET", f"/cost/quotations/{mine['quotationId']}/render.pdf", headers=A
 ok("견적서 PDF 렌더 (%PDF)", pdf[:5] == b"%PDF-" and len(pdf) > 2000)
 
 # 4. UI — Run 화면 원가 패널 → PCR → 견적 확정
+def psql(sql: str) -> str:
+    r = subprocess.run(["ssh", "edim-server",
+                        f"sudo docker exec edim-postgres psql -U edim -d edim -tAc \"{sql}\""],
+                       capture_output=True, text=True, timeout=60)
+    return (r.stdout or "").strip()
+
+# 19.13 — UI 로 누른 Run 은 정식 Run 으로 남는다(사용자 경로와 같으므로 그래야 맞다).
+# 다만 그대로 두면 **검증이 만든 실행이 프로젝트의 '최신 SUCCESS Run'** 이 되어 고객
+# 전달 패키지 내용을 바꾼다(18.77·18.80 이 그 Run 을 기준으로 삼는다). 검증이 제품의
+# 납품 기준을 조용히 갈아치우면 안 되므로, **여기서 만든 것만** 되돌린다 —
+# 시간 범위 같은 무딘 기준을 쓰면 남의 Run 까지 건드린다(18.83 의 교훈).
+_run_hwm = int(psql("SELECT COALESCE(max(run_id),0) FROM cpq_run") or 0)
+
 with sync_playwright() as pw:
     b = pw.chromium.launch()
     p = b.new_page(viewport={"width": 1440, "height": 900})
@@ -121,6 +135,10 @@ with sync_playwright() as pw:
     p.locator("text=QT-").first.wait_for(timeout=15000)
     ok("UI 견적 확정 — 목록 반영", True)
     b.close()
+
+_marked = psql(f"UPDATE cpq_run SET is_test=true WHERE run_id > {_run_hwm} AND NOT is_test "
+               "RETURNING run_id")
+print(f"정리 — UI 실행 Run 테스트 표기 ({len([x for x in _marked.split() if x])}건)", flush=True)
 
 # 5. 정리 — 이 스위트가 만든 DRAFT 견적 전부 삭제 (UI 실행분 포함)
 ql = req("GET", "/cost/quotations", headers=A)
