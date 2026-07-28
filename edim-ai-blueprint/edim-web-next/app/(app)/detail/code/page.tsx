@@ -12,7 +12,8 @@ interface ReferencerRow { code: string; name: string; qty: number; status: strin
 interface SlotItemRow { pcItemId: number; slot: string; itemName: string; required: boolean; sortOrder: number }
 interface ApprovalHistRow { date: string; action: string; by: string; note: string }
 interface WhereUsedRow { code: string; name: string; qty: number; status: string; level: number; path: string }
-interface WhereUsedDeep { code: string; count: number; maxLevel: number; rows: WhereUsedRow[] }
+interface WhereUsedDeep { code: string; count: number; maxLevel: number; rows: WhereUsedRow[]
+  depthCapped?: boolean; depthLimit?: number }
 
 export default async function CodeDetailPage({ searchParams }: { searchParams: Promise<{ code?: string; name?: string }> }) {
   const locale = await getLocale()
@@ -77,6 +78,13 @@ export default async function CodeDetailPage({ searchParams }: { searchParams: P
               <div className="gb" data-where-used-deep>
                 <div style={{ fontSize: 11, fontWeight: 600, padding: '3px 6px' }}>
                   {t('detail.whereUsedDeep', '전체 역전개 (다단계 Where-Used)')} — {wu.count}{t('detail.cases', '건')} · L{wu.maxLevel}
+                  {/* 19.10 — 상한에서 끊긴 결과를 전량처럼 보여 주지 않는다. 영향 분석은
+                      '고치면 어디까지 번지나' 에 답하는 자리라 누락이 곧 오판이다. */}
+                  {wu.depthCapped ? (
+                    <span data-wu-capped style={{ marginLeft: 6, color: 'var(--warn, #b45309)' }}>
+                      {t('detail.whereUsedCapped', `※ ${wu.depthLimit}단계 상한에서 끊김 — 더 상위가 있습니다`)}
+                    </span>
+                  ) : null}
                 </div>
                 <table className="g"><thead><tr><th>Lv</th><th>Mother</th><th>Desc.</th><th>Q'ty</th><th>{t('detail.category', '구분')}</th></tr></thead>
                   <tbody>{wu.rows.map((r, i) => (

@@ -7025,8 +7025,21 @@ def code_where_used(code: str, maxLevel: int = 10) -> dict[str, Any]:
             (tid, code, tid, lv))
         rows = [{"code": r[0], "name": r[1], "qty": float(r[2]), "status": r[3],
                  "level": int(r[4]), "path": r[5]} for r in cur.fetchall()]
+        # 19.10 — 상한에서 멈춘 사실을 밝힌다. 재귀는 `up.level < %s` 로 **조용히** 끊기므로,
+        # 12단 체인을 10단으로 물으면 '10단에서 끝나는 구조' 와 구분되지 않는다. 하향 전개는
+        # 이미 같은 이유로 depthCapped 를 계산해 알린다(_bom_integrity) — 역전개만 빠져 있었다.
+        # 영향 분석은 "이 코드를 고치면 어디까지 번지나" 에 답하는 자리라 누락이 곧 오판이다.
+        capped = False
+        top = [x["code"] for x in rows if x["level"] == lv]
+        if top:
+            cur.execute(
+                """SELECT 1 FROM code_relationship r
+                   JOIN product_code cc ON cc.product_code_id=r.child_code_id
+                   WHERE r.tenant_id=%s AND cc.main_code = ANY(%s) LIMIT 1""", (tid, top))
+            capped = cur.fetchone() is not None
     return {"code": code, "count": len(rows),
-            "maxLevel": max((x["level"] for x in rows), default=0), "rows": rows}
+            "maxLevel": max((x["level"] for x in rows), default=0), "rows": rows,
+            "depthCapped": capped, "depthLimit": lv}
 
 
 def _code_children(cur, tid: int, code: str) -> dict[str, dict[str, Any]] | None:

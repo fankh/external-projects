@@ -191,6 +191,16 @@ try:
         wu = req("GET", f"/codes/{deep_code}/where-used")
         ok(f"다단계 역전개 {deep_code} (L{wu['maxLevel']}·{wu['count']}행)",
            wu["maxLevel"] >= 2 and any("›" in x["path"] for x in wu["rows"] if x["level"] >= 2))
+        # 19.10 — 상한에서 끊긴 결과를 전량처럼 돌려주지 않는가. 재귀는 level < maxLevel 로
+        # **조용히** 끊기므로, 2단 체인을 1단으로 물으면 '1단에서 끝나는 구조' 와 구분되지
+        # 않는다(하향 전개는 같은 이유로 이미 depthCapped 를 계산해 알린다). 영향 분석은
+        # "고치면 어디까지 번지나" 에 답하는 자리라 누락이 곧 오판이다.
+        wu1 = req("GET", f"/codes/{deep_code}/where-used?maxLevel=1")
+        ok(f"★ 상한에서 끊긴 사실을 밝힌다 (L1 요청 · capped={wu1.get('depthCapped')})",
+           wu1.get("depthCapped") is True and wu1.get("depthLimit") == 1)
+        wu20 = req("GET", f"/codes/{deep_code}/where-used?maxLevel=20")
+        ok(f"상한이 충분하면 끊기지 않는다 (대조군 · capped={wu20.get('depthCapped')})",
+           wu20.get("depthCapped") is False)
     else:
         ok("다단계 역전개 — 2단 체인 데이터 없음 (스킵)", True)
 
