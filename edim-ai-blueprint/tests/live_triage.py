@@ -104,12 +104,28 @@ try:
     # 돌려주고 화면이 "Config Snapshot #123" 으로 보여 줬다 — 그 번호로 스냅샷을 찾으면 전혀
     # 다른 것이 나온다(번호 체계가 다르다). 추적 화면에서 가리키는 번호가 가리키는 곳에
     # 없으면 추적이 아니다. 값이 있으면 실제 스냅샷으로 해석되는지 확인한다.
-    snaps = {s["snapshotId"] for s in req("GET", "/snapshots?limit=200")}
-    linked = [p for p in pkgs if p.get("configSnapshotId")]
-    ok(f"Config Snapshot id 가 실재 스냅샷을 가리킨다 ({len(linked)}/{len(pkgs)}건 고정)",
-       all(p["configSnapshotId"] in snaps for p in linked))
     ok("고정 안 된 Run 은 null 로 정직하게 (없는 번호를 만들지 않는다)",
-       all(p.get("configSnapshotId") is None for p in pkgs if p not in linked))
+       all(p.get("configSnapshotId") is None for p in pkgs
+           if not psql(f"SELECT 1 FROM sys_snapshot WHERE snapshot_type='CPQ_RUN' "
+                       f"AND source_id={p['packageId']} LIMIT 1")))
+    # 실제로 고정해 보고 그 번호가 따라오는지 본다 — 지금 운영 데이터에는 고정된 Run 이 없어
+    # "가리키는 곳에 있다" 를 빈 목록으로 통과시키면 **공허한 검증**이 된다(19.5 와 같은 함정).
+    _pkg = pkgs[0]["packageId"]
+    _snap = req("POST", "/snapshots", {"runId": _pkg, "note": "TRIAGE-SUITE 추적 검증"})
+    try:
+        pkgs2 = req("GET", "/projects/PS-61313-5/output-packages")
+        _row = next(p for p in pkgs2 if p["packageId"] == _pkg)
+        ok(f"★ 고정하면 그 스냅샷 번호가 패키지에 나온다 (#{_row.get('configSnapshotId')})",
+           _row.get("configSnapshotId") == _snap["snapshotId"])
+        ok("선택안 id 와 스냅샷 id 는 서로 다른 값 (혼동 방지)",
+           _row["selectionId"] != _row["configSnapshotId"])
+        _all = {s["snapshotId"] for s in req("GET", "/snapshots?limit=200")}
+        ok("그 번호로 스냅샷이 실제 조회된다", _row["configSnapshotId"] in _all)
+    finally:
+        psql(f"DELETE FROM sys_history WHERE target_table='sys_snapshot' "
+             f"AND target_id={_snap['snapshotId']}")
+        psql(f"DELETE FROM sys_snapshot WHERE snapshot_id={_snap['snapshotId']}")
+        print(f"정리 — 검증용 Snapshot #{_snap['snapshotId']} 삭제", flush=True)
 
     # 4) Import dryRun (#32) — 미반영 보장
     grp = req("GET", "/codes/groups")[0]["groupCode"]

@@ -3711,7 +3711,7 @@
      "edim"
     ],
     "summary": "Evaluate Macro",
-    "description": "Excel 호환 Macro 평가 — Table 참조는 실 tbl_data_row (TBX-011).",
+    "description": "Excel 호환 Macro 평가 — Table 참조는 실 tbl_data_row (TBX-011).\n\n18.99 — 요구 #3 의 동사 다섯 중 **EXECUTE 만 어디에서도 검사되지 않았다**(APPROVE·DEPLOY 는\n8.7~8.10 에서 강제). Macro 평가는 이름 그대로 '실행' 이고, 결과가 치수·산출에 반영된다.",
     "operationId": "evaluate_macro_api_v1_macros_evaluate_post",
     "requestBody": {
      "content": {
@@ -3839,7 +3839,7 @@
      "edim"
     ],
     "summary": "Files Zip",
-    "description": "폴더 파일 일괄 ZIP 다운로드 (E2) — 선택 폴더(또는 전체)의 dwg_file 을 MinIO 에서 수집.",
+    "description": "폴더 파일 일괄 ZIP 다운로드 (E2) — 선택 폴더(또는 전체)의 dwg_file 을 MinIO 에서 수집.\n\n18.98 — 이 경로에는 열람 통제가 **없었다**. 바로 옆 `/files/export-package` 는 같은 사유를\ndocstring 에 적어 두고 게이트를 걸었는데(‘한 건씩은 막히는데 ZIP 으로는 통째로 나가면\n통제가 아니다’), 정작 이 경로는 `Request` 인자조차 없어 사용자를 볼 수 없었다. 실증에서\nquote·cost 를 no_download 로 두자 전달 패키지는 403 인데 `?folder=PRICE` 는 견적서 83건\n1.9MB 를 그대로 내줬다. 15.1/15.4/18.79 와 같은 계열 — 통제가 일부 경로에만 걸려 있으면\n통제가 아니다.\n\n폴더를 지정하면 그 폴더의 정보그룹만, 지정하지 않으면(전체) 통제 대상 폴더 전부를 본다.",
     "operationId": "files_zip_api_v1_files_zip_get",
     "parameters": [
      {
@@ -3891,7 +3891,7 @@
      "edim"
     ],
     "summary": "Files Export Package",
-    "description": "고객 전달용 내보내기 (E2) — 산출물 폴더만 ZIP + 전달 매니페스트. 내부 접수자료 제외.\n\n묶음에 담기는 폴더(PRICE·BOM)는 개별 다운로드와 같은 통제를 따른다 — 한 건씩은 막히는데\nZIP 으로는 통째로 나가면 통제가 아니다(15.1/15.4 와 같은 계열).",
+    "description": "고객 전달용 내보내기 (E2) — **최신 Run 산출물** + 작도 원본 ZIP + 전달 매니페스트.\n\n18.80 — **테스트로 표시한 Run 의 산출물은 담지 않는다.** `cpq_run.is_test` 는 통계에서만\n제외되고 있었는데, 최신 SUCCESS Run 이 테스트 Run 인 경우가 실제로 있다(운영 데이터에서\n확인). 그러면 고객에게 **TEST 로 표시된 실행의 산출물이 납품**된다 — 정책 판단이 필요한\n영역이 아니라 명백한 오류라 여기서 막는다.\n\n18.77 — 종전에는 프로젝트의 DELIVER_FOLDERS 파일을 **전부** 담았다. Run 마다 산출물이\n한 벌씩 쌓이므로 운영 데이터에서 DWG·PRICE 가 각각 1,654건이었고, 전달본에 같은 견적서와\n도면이 **Run 수만큼 중복**돼 들어갔다. 고객에게 보내는 것은 '지금 산출물' 이지 '실행\n이력 전부' 가 아니다. OUTPUT 은 그 프로젝트의 최신 SUCCESS Run 것만 담고, 작도 원본\n(SOURCE)은 그대로 담는다. 18.76 의 상한에 걸리던 것도 상한이 낮아서가 아니라 담는\n내용이 틀렸기 때문이었다.\n\n\n묶음에 담기는 폴더(PRICE·BOM)는 개별 다운로드와 같은 통제를 따른다 — 한 건씩은 막히는데\nZIP 으로는 통째로 나가면 통제가 아니다(15.1/15.4 와 같은 계열).",
     "operationId": "files_export_package_api_v1_files_export_package_get",
     "parameters": [
      {
@@ -6263,6 +6263,7 @@
      "edim"
     ],
     "summary": "Project Comments",
+    "description": "프로젝트 대화 목록 — 최신순. 상한에서 잘리면 헤더로 알린다 (18.14).\n\n대화는 이력 관리 기록이라 **끊긴 줄 모르면 '이게 전부' 로 읽힌다**. 종전에는 100건에서\n말없이 잘렸다.",
     "operationId": "project_comments_api_v1_projects__project_no__comments_get",
     "parameters": [
      {
@@ -6272,6 +6273,16 @@
       "schema": {
        "type": "string",
        "title": "Project No"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 100,
+       "title": "Limit"
       }
      }
     ],
@@ -8608,7 +8619,7 @@
      "edim"
     ],
     "summary": "Running Test",
-    "description": "CODE-009 — Mother slot 조합으로 전량 전개 검증 (expand 재사용).",
+    "description": "CODE-009 — Mother slot 조합으로 전량 전개 검증 (expand 재사용). 18.99 — EXECUTE 동사 적용.",
     "operationId": "running_test_api_v1_codes_relationships_running_test_post",
     "requestBody": {
      "content": {
@@ -8652,6 +8663,7 @@
      "edim"
     ],
     "summary": "Dashboard",
+    "description": "ERP 대시보드 KPI.\n\n18.67 — '이번 달 수주' 가 **하드코딩된 `₩ 8.4억`** 이었다. 주석은 '견적/수주 모듈 구축\n전 고정값' 이라 적혀 있었는데 그 모듈은 이미 있다(같은 파일의 `/erp/analytics` 가\n`cst_quotation(ORDERED)` 로 월 매출을 실제로 집계한다). 화면 맨 위에서 **지어낸 숫자가\n실적처럼** 보이던 자리다 — 0 을 보여주는 것보다 나쁘다. 실제 값으로 바꾸고, 견적 금액과\n같은 성격이므로 `quote` 그룹 통제를 따른다.",
     "operationId": "dashboard_api_v1_erp_dashboard_get",
     "responses": {
      "200": {
@@ -8675,7 +8687,7 @@
      "edim"
     ],
     "summary": "Analytics",
-    "description": "C3 분석 — Run 통계(cpq_run) + 원가 추이(cst_calc) 누적 집계.",
+    "description": "C3 분석 — Run 통계(cpq_run) + 원가 추이(cst_calc) 누적 집계.\n\n18.66 — 이 경로만 **정보그룹 통제를 지나지 않았다.** 같은 수치를 `/cpq/runs/{id}/costs`·\n`/cost/variance`·PCR 은 `cost` 그룹으로 마스킹하는데, ERP 대시보드가 부르는 여기서는\n누적 원가·차이분석·월별 기여마진이 **그대로** 나갔다. `request` 인자가 없어 열람 모드를\n물어볼 방법 자체가 없었던 것이 원인이다 — 통제를 우회한 게 아니라 통제에 닿지 못했다.\n월 매출(수주 계약액)은 `quote` 그룹을 따른다(견적 금액과 같은 성격).",
     "operationId": "analytics_api_v1_erp_analytics_get",
     "responses": {
      "200": {
@@ -14412,20 +14424,42 @@
      "edim"
     ],
     "summary": "Temp Access List",
-    "description": "임시 열람 부여 현황 (요구 #6 Temporary Access) — 유효/만료 구분.",
+    "description": "임시 열람 부여 현황 (요구 #6 Temporary Access) — 유효/만료 구분.\n\n18.14 — 50건에서 조용히 잘렸다. 이 목록은 **보안 검토에 쓰는 것**이라 일부만 보이면\n'부여가 이만큼뿐' 으로 읽힌다. 잘리면 헤더로 알린다.",
     "operationId": "temp_access_list_api_v1_access_temp_get",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 50,
+       "title": "Limit"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "description": "Successful Response",
       "content": {
        "application/json": {
         "schema": {
-         "items": {
-          "additionalProperties": true,
-          "type": "object"
-         },
          "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": true
+         },
          "title": "Response Temp Access List Api V1 Access Temp Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
         }
        }
       }
@@ -14440,14 +14474,14 @@
     "description": "기간 한정 임시 열람 부여 — 사유·만료 필수, 자동 만료(별도 작업 불요).",
     "operationId": "temp_access_grant_api_v1_access_temp_post",
     "requestBody": {
+     "required": true,
      "content": {
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/TempAccessGrant"
        }
       }
-     },
-     "required": true
+     }
     },
     "responses": {
      "201": {
@@ -14455,8 +14489,8 @@
       "content": {
        "application/json": {
         "schema": {
-         "additionalProperties": true,
          "type": "object",
+         "additionalProperties": true,
          "title": "Response Temp Access Grant Api V1 Access Temp Post"
         }
        }
@@ -14747,7 +14781,7 @@
      "edim"
     ],
     "summary": "Project Files",
-    "description": "Project Folder 파일 — 기본은 최신 SUCCESS Run 산출물만(최신 Rev 필터). allRuns=true=전체 Run.",
+    "description": "Project Folder 파일 — 기본은 **그 프로젝트의** 최신 SUCCESS Run 산출물. allRuns=true=전체 Run.\n\n18.59 — 종전엔 Run 산출물 구간이 `project` 를 **아예 쓰지 않았다**. 인자를 받고 문서에도\n\"Project Folder 파일\" 이라 적어 놓고, 실제로는 테넌트의 최신 Run 산출물을 **어느 프로젝트를\n열든 똑같이** 내려줬다(없는 프로젝트 번호에도 내려줬다). 운영 실측 — PS-612·PS-598·존재하지\n않는 번호까지 앞 3건이 동일했고, 그 파일 이름은 `PS-61313-5_..._quotation.pdf` 였다.\n다른 프로젝트의 견적서가 남의 폴더에 산출물로 보이는 상태다.\n\n최신 Run 판정도 프로젝트 단위로 내려야 한다. 테넌트 전체의 최신 Run 으로 판정하면 그 Run 이\n다른 프로젝트 것일 때 이 프로젝트 폴더가 **빈 채로** 보인다(같은 어긋남의 반대 방향).\n\n18.82 — 업로드 구간에 **상한이 없었다.** Run 마다 산출물이 쌓이므로 운영 데이터에서 한\n프로젝트가 5,156행이었고, 그 전부를 매 조회마다 내려보냈다(계속 자란다). 이 저장소는 이미\n같은 문제를 Run 목록·감사 로그에서 겪고 `_mark_truncated` 로 모아 뒀는데 이 목록만 빠져\n있었다 — 상한을 두되 **잘렸다는 사실을 헤더로 알린다**(조용히 자르면 '전부' 로 읽힌다).\n함께 각 산출물이 **어느 Run 것인지**와 그것이 현재 기준 Run 인지를 실어, 이력 산출물이\n현재 납품물과 같은 얼굴로 섞이지 않게 한다(18.77 과 같은 구분을 목록에도 적용).",
     "operationId": "project_files_api_v1_files_get",
     "parameters": [
      {
@@ -17695,6 +17729,7 @@
      "edim"
     ],
     "summary": "Snapshot List",
+    "description": "Snapshot 목록 — 최신순. 상한에서 잘리면 헤더로 알린다 (18.14).\n\nSnapshot 은 재현의 근거다. 목록이 말없이 끊기면 과거 Snapshot 이 **없는 것처럼 보인다**.",
     "operationId": "snapshot_list_api_v1_snapshots_get",
     "parameters": [
      {
@@ -17705,6 +17740,16 @@
        "type": "integer",
        "default": 0,
        "title": "Sourceid"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 100,
+       "title": "Limit"
       }
      }
     ],
@@ -18084,7 +18129,7 @@
      "edim"
     ],
     "summary": "Run Cleanup",
-    "description": "보관 정책 정리 (E3) — 최근 N건 유지, 그 외 미참조 Run 일괄 정리 (참조·최신 보호).",
+    "description": "보관 정책 정리 (E3) — 최근 N건 유지, 그 외 미참조 Run 일괄 정리 (참조·최신 보호).\n\n**산출물 파일은 지우지 않는다** (`_delete_run` — 납품물 불변 #53). 응답의 `retainedFiles`·\n`note` 로 그 사실을 함께 돌려준다 (18.85).",
     "operationId": "run_cleanup_api_v1_cpq_runs_cleanup_post",
     "requestBody": {
      "content": {
