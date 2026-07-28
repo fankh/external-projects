@@ -147,8 +147,39 @@ try:
     st, b = req("POST", "/codes/products/build", TOK, {"groupCode": GRP, "selections": {"A": "X1", "B": "Y1"}})
     ok(f"동일 조합 재생성 409 ({st})", st == 409 and f"{GRP} X1-Y1" in (b or {}).get("detail", ""))
 
-    st, built2 = req("POST", "/codes/products/build", TOK, {"groupCode": GRP, "selections": {"A": "X2", "B": "Y1"}})
-    ok("다른 조합은 생성 201", st == 201 and built2["mainCode"] == f"{GRP} X2-Y1")
+    # ── 19.8: 같은 조합을 **동시에** 만들면 어떻게 되는가 (#28 핵심 불변식) ──
+    # 중복 검사는 SELECT 뒤 INSERT 라 그 사이에 창이 있다. 최종 방어는 부분 UNIQUE
+    # (`ux_product_code_combo`)가 하지만, 그때 응답이 500 이면 혼자 눌렀을 때(409)와
+    # 다른 얼굴이 된다 — 채번 경합 두 번(9.18·9.19)에서 세운 기준은 '제약이 최종 방어,
+    # 응답은 정직하게' 였다. 여기서는 **아직 없는 조합**을 여러 스레드가 동시에 만든다.
+    import threading
+    race_res: list[int] = []
+    _lock = threading.Lock()
+
+    def _fire():
+        s, _b = req("POST", "/codes/products/build", TOK,
+                    {"groupCode": GRP, "selections": {"A": "X2", "B": "Y1"}})
+        with _lock:
+            race_res.append(s)
+
+    _ths = [threading.Thread(target=_fire) for _ in range(5)]
+    for _t in _ths:
+        _t.start()
+    for _t in _ths:
+        _t.join()
+    ok(f"★ 동시 조합 생성에서 성공 정확히 1건 ({race_res})",
+       len([s for s in race_res if s == 201]) == 1)
+    ok(f"★ 나머지는 409 로 안내 — 500 이 아니다 ({sorted(set(s for s in race_res if s != 201))})",
+       all(s == 409 for s in race_res if s != 201))
+    ok("동시 생성 후에도 코드가 한 벌만 남는다",
+       psql(f"SELECT count(*) FROM product_code WHERE main_code='{GRP} X2-Y1'") == "1")
+
+    st, built2 = req("GET", "/codes/products", TOK)
+    built2 = next((c for c in built2 if c["mainCode"] == f"{GRP} X2-Y1"), None)
+    ok("다른 조합은 생성됨", built2 is not None)
+    st, built2 = req("GET", f"/codes/products/{built2['productCodeId']}/composition", TOK)
+    built2 = {"mainCode": built2["mainCode"], "comboHash": built2["comboHash"],
+              "productCodeId": built2["productCodeId"]}
     ok("조합이 다르면 해시도 다름", built2["comboHash"] != built["comboHash"])
     pid2 = built2["productCodeId"]
 

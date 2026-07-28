@@ -1348,12 +1348,25 @@ def build_product(request: Request, body: ProductBuild) -> dict[str, Any]:
                                         "revisionNo": next(i["revisionNo"] for i in items if i["slot"] == s)}
                                        for s, vc in sorted(pairs)]}
         addr = (f"{grp[1]}/{main}" if grp[1] else f"/C/{g}/{main}")[:200]
-        cur.execute(
-            """INSERT INTO product_code (tenant_id, main_code, group_id, code_name, hierarchy_address,
-               approval_status, combo, combo_hash, origin, created_by)
-               VALUES (%s,%s,%s,%s,%s,'DRAFT',%s,%s,'COMPOSED',%s) RETURNING product_code_id""",
-            (tid, main, grp[0], (body.codeName.strip() or main)[:200], addr,
-             json.dumps(combo, ensure_ascii=False), chash, str(request.state.user_id)))
+        # 19.8 — 위의 중복 검사(SELECT)와 이 INSERT 사이에는 창이 있다. 같은 조합을 동시에
+        # 만들면 둘 다 검사를 통과하고, 한쪽이 `ux_product_code_combo`(부분 UNIQUE)에 걸려
+        # **500** 이 된다 — 혼자 눌렀을 때는 409 로 안내하는 같은 상황이다. 이 저장소는 채번
+        # 경합을 두 번 겪었고(9.18·9.19), 그때 세운 기준은 '제약이 최종 방어, 응답은 정직하게'다.
+        try:
+            cur.execute(
+                """INSERT INTO product_code (tenant_id, main_code, group_id, code_name,
+                   hierarchy_address, approval_status, combo, combo_hash, origin, created_by)
+                   VALUES (%s,%s,%s,%s,%s,'DRAFT',%s,%s,'COMPOSED',%s) RETURNING product_code_id""",
+                (tid, main, grp[0], (body.codeName.strip() or main)[:200], addr,
+                 json.dumps(combo, ensure_ascii=False), chash, str(request.state.user_id)))
+        except HTTPException:
+            raise
+        except Exception as e:   # noqa: BLE001 — UniqueViolation(조합·코드) 만 여기로 온다
+            if "ux_product_code_combo" in str(e) or "main_code" in str(e):
+                raise HTTPException(
+                    409, detail=f"동일 조합의 제품 코드가 방금 생성되었습니다 — {main} "
+                                "(동시 생성 감지, #28)") from e
+            raise
         pid = cur.fetchone()[0]
         for n, it in enumerate(items):
             cur.execute(
