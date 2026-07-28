@@ -114,6 +114,30 @@ try:
     r1 = req("POST", f"/codes/groups/{grp}/import-excel?dryRun=true", data=body, ctype=ctype)
     after = psql(f"SELECT count(*) FROM code_item ci JOIN code_group g ON g.group_id=ci.group_id WHERE g.group_code='{grp}'")
     ok("Import dryRun 미반영", r1.get("dryRun") is True and before == after)
+    ok(f"작은 Import 는 잘리지 않는다 ({r1.get('diffTotal')}행)",
+       r1.get("diffTruncated") is False and r1.get("diffTotal") == 1)
+
+    # 19.9 — 미리보기 상한을 넘겼을 때 **잘린 사실을 말하는가** (#32 Diff Review).
+    # 검토 화면은 반영 여부를 판단하는 자리다. 종전에는 50행에서 조용히 잘려, 500행짜리
+    # Import 를 보는 사람이 50행을 전량으로 읽었다(무음 절단 금지 — 17.10·18.83 과 같은 계열).
+    wbi2 = openpyxl.Workbook()
+    wsi2 = wbi2.active
+    wsi2.append(["Slot", "Item Name"])
+    for _i in range(60):
+        wsi2.append([f"Z{_i:02d}", f"TRIAGE-SUITE bulk {_i}"])
+    buf2 = io.BytesIO()
+    wbi2.save(buf2)
+    body2, ctype2 = multipart({}, "bulk.xlsx", buf2.getvalue())
+    before2 = psql(f"SELECT count(*) FROM code_item ci JOIN code_group g ON g.group_id=ci.group_id "
+                   f"WHERE g.group_code='{grp}'")
+    r2 = req("POST", f"/codes/groups/{grp}/import-excel?dryRun=true", data=body2, ctype=ctype2)
+    after2 = psql(f"SELECT count(*) FROM code_item ci JOIN code_group g ON g.group_id=ci.group_id "
+                  f"WHERE g.group_code='{grp}'")
+    ok("대량 dryRun 도 미반영", before2 == after2)
+    ok(f"★ 잘린 사실을 밝힌다 (미리보기 {len(r2.get('diff', []))}/{r2.get('diffTotal')}행)",
+       r2.get("diffTruncated") is True and r2.get("diffTotal") == 60
+       and len(r2["diff"]) == r2.get("diffLimit") == 50)
+    ok(f"총 건수는 전량 보고 (추가 {r2.get('inserted')})", r2.get("inserted") == 60)
 
     # 4b) Hierarchy 속성 (#22) — 저장→잠금 409→해제 원복
     nodes = req("GET", "/hierarchy?treeType=PRODUCT")

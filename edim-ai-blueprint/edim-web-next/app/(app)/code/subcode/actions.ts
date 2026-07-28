@@ -80,11 +80,15 @@ export async function importGroupExcel(_prev: ActState, formData: FormData): Pro
   const r = await res.json() as {
     dryRun?: boolean; inserted: number; updated: number; rejected: string[]
     diff?: { row: number; slot: string; action: string; before?: string; after: string }[]
+    diffTotal?: number; diffTruncated?: boolean; diffLimit?: number
   }
   if (r.dryRun) {
     const head = (r.diff ?? []).slice(0, 5)
       .map((d) => `${d.slot}:${d.action === 'update' ? `${d.before}→${d.after}` : `+${d.after}`}`).join(', ')
-    return { ok: `검토(Diff) — 추가 ${r.inserted} · 갱신 ${r.updated} · 거부 ${r.rejected.length}${head ? ` | ${head}${(r.diff?.length ?? 0) > 5 ? ' …' : ''}` : ''} (미반영)` }
+    // 19.9 — 서버가 미리보기를 상한까지만 싣는다. 잘렸다면 **몇 행 중 몇 행인지** 밝힌다
+    // (검토 화면은 반영 여부를 판단하는 자리라, 일부를 전량으로 읽으면 곤란하다).
+    const cut = r.diffTruncated ? ` · 미리보기 ${r.diffLimit}/${r.diffTotal}행` : ''
+    return { ok: `검토(Diff) — 추가 ${r.inserted} · 갱신 ${r.updated} · 거부 ${r.rejected.length}${cut}${head ? ` | ${head}${(r.diff?.length ?? 0) > 5 ? ' …' : ''}` : ''} (미반영)` }
   }
   revalidatePath(PATH)
   return { ok: `Import — 추가 ${r.inserted} · 갱신 ${r.updated}${r.rejected?.length ? ` · 거부 ${r.rejected.length}` : ''}` }

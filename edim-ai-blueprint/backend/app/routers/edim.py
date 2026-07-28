@@ -1756,6 +1756,9 @@ def export_history_xlsx(limit: int = 1000, fromDate: str = "", toDate: str = "",
                           "audit", cap=cap)
 
 
+_DIFF_PREVIEW_CAP = 50   # Diff Review 미리보기 행 상한 (초과분은 잘림을 명시해 알린다)
+
+
 @router.post("/codes/groups/{group}/import-excel", dependencies=[SETUP])
 async def import_group_excel(group: str, request: Request,
                              uploadedFile: UploadFile = File(...),
@@ -1807,8 +1810,14 @@ async def import_group_excel(group: str, request: Request,
                            VALUES (%s,%s,%s,%s,%s)""", (tid, g[0], slot, nm, inserted + updated))
                 inserted += 1
         if dryRun:
+            # 19.9 — 미리보기는 50행까지만 싣는다. 종전에는 **자른 사실을 말하지 않아**
+            # 500행짜리 Import 를 검토하는 사람이 50행을 전량으로 읽었다(승인 판단의 근거가
+            # 되는 화면이다). 이 저장소의 규약은 무음 절단 금지다 — 17.10 XLSX·18.83 목록 상한
+            # 에서 같은 형태를 이미 고쳤다. 총 건수와 잘림 여부를 함께 돌려준다.
             return {"dryRun": True, "inserted": inserted, "updated": updated,
-                    "rejected": rejected, "diff": diff[:50]}
+                    "rejected": rejected, "diff": diff[:_DIFF_PREVIEW_CAP],
+                    "diffTotal": len(diff), "diffTruncated": len(diff) > _DIFF_PREVIEW_CAP,
+                    "diffLimit": _DIFF_PREVIEW_CAP}
         _audit(cur, tid, "code_group", g[0], "IMPORT", request.state.user_id,
                {"group": group, "inserted": inserted, "updated": updated, "rejected": len(rejected)})
     return {"inserted": inserted, "updated": updated, "rejected": rejected}
