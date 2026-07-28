@@ -278,6 +278,18 @@ print((_heal.stdout or "").strip() or "(seed_heal 무출력)", flush=True)
 
 # 8.11 — 실행 전 실 데이터 지문을 떠 둔다. 스위트가 자기 자원만 만들고 지웠다면
 # 끝난 뒤 지문이 같아야 한다(정리 문구가 아니라 DB 로 확인).
+# 19.15 — 함대가 **정식 Run** 을 남기면 그것이 프로젝트의 최신 SUCCESS Run 이 되어 고객
+# 전달 패키지 내용이 바뀐다(18.77·18.80). 잔재 지문으로는 잡을 수 없다 — 보존 정리
+# (`/cpq/runs/cleanup`, 상한 100)가 오래된 Run 을 지워 같은 숫자를 움직이기 때문이다.
+# 그래서 **이번 실행이 만든 것만** 본다: 시작 시점의 max(run_id) 이후에 생긴 비-테스트 Run.
+_hwm_out = subprocess.run(
+    ["ssh", "edim-server",
+     "sudo docker exec edim-postgres psql -U edim -d edim -tAc "
+     "\"SELECT COALESCE(max(run_id),0) FROM cpq_run\""],
+    capture_output=True, text=True, timeout=60).stdout.strip().splitlines()
+RUN_HWM = next((int(x) for x in _hwm_out if x.strip().isdigit()), 0)
+print(f"Run 고수위 기록 — #{RUN_HWM}")
+
 print("실 데이터 기준 지문 저장 …")
 subprocess.run([sys.executable, os.path.join(HERE, "check_live_residue.py"), "--save"],
                env=env, capture_output=True, text=True, encoding="utf-8",
@@ -335,6 +347,23 @@ p = subprocess.run([sys.executable, os.path.join(HERE, "check_live_residue.py")]
                    errors="replace", timeout=300)
 print(((p.stdout or "") + (p.stderr or ""))[-2000:])
 results.append(("check_live_residue.py", p.returncode == 0, ""))
+
+# 19.15 — 이번 실행이 만든 정식 Run 이 남았는가 (스위트가 되돌렸어야 한다 — tests/_runs.py)
+print(f"\n{'=' * 60}\n▶ 함대 생성 Run 정리 확인 (live)\n{'=' * 60}")
+_left = subprocess.run(
+    ["ssh", "edim-server",
+     "sudo docker exec edim-postgres psql -U edim -d edim -tAc "
+     f"\"SELECT string_agg(run_id::text, ' ' ORDER BY run_id) FROM cpq_run "
+     f"WHERE run_id > {RUN_HWM} AND NOT is_test\""],
+    capture_output=True, text=True, timeout=60).stdout
+_left_ids = [x for x in _left.split() if x.strip().isdigit()]
+if _left_ids and RUN_HWM:
+    print(f"FAIL — 함대가 만든 정식 Run {len(_left_ids)}건이 남았습니다: {' '.join(_left_ids)}\n"
+          "  화면 Run 을 누르는 스위트는 tests/_runs.py 의 run_hwm/mark_test_runs 로 되돌려야 합니다\n"
+          "  (남으면 프로젝트의 최신 SUCCESS Run 이 되어 고객 전달 패키지 내용이 바뀝니다 — 18.77·18.80)")
+else:
+    print(f"PASS — 함대 생성 정식 Run 잔재 없음 (기준 #{RUN_HWM})")
+results.append(("fleet_run_residue", not (_left_ids and RUN_HWM), ""))
 
 # check_verb_guard — 승인·배포 동사 강제 정적 게이트 (8.10, 서버 불요)
 print(f"\n{'=' * 60}\n▶ check_verb_guard.py (static)\n{'=' * 60}")

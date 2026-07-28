@@ -17122,7 +17122,12 @@ def run_cleanup(request: Request, body: RunCleanup) -> dict[str, Any]:
     **산출물 파일은 지우지 않는다** (`_delete_run` — 납품물 불변 #53). 응답의 `retainedFiles`·
     `note` 로 그 사실을 함께 돌려준다 (18.85).
     """
+    # 19.15 — 요청값은 **상한 100** 으로 낮춘다. 종전에는 낮춘 사실을 응답 어디에도 적지
+    # 않아, 500 을 요청한 호출자가 "500건 유지되겠지" 하고 부른 뒤 실제로는 100건만 남는
+    # 결과를 받았다(정리는 되돌릴 수 없다). 상한 자체는 자원 보호 목적이라 유지하되,
+    # **낮췄다는 사실을 말한다** — 이 저장소의 규약(무음 절단 금지, 17.10·19.9)과 같다.
     keep = max(1, min(body.keepLatest, 100))
+    capped = body.keepLatest > 100
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         refs, latest = _run_refs(cur, tid)
@@ -17158,10 +17163,13 @@ def run_cleanup(request: Request, body: RunCleanup) -> dict[str, Any]:
             "keptLatest": keep, "deletedIds": deleted,
             # 남는 것을 함께 알린다 — 파일 삭제 여부는 산출물 불변(#53)과 함께 결정할 사안이다.
             "retainedFiles": int(retained_files), "retainedBytes": int(retained_bytes),
-            "note": (f"Run 이력 {len(deleted)}건을 정리했습니다. 산출물 파일 "
-                     f"{int(retained_files):,}건({int(retained_bytes) / 1048576:.0f}MB)은 "
-                     "납품물 불변 원칙(#53)에 따라 **보존**됩니다 — 저장 공간은 줄지 않습니다.")
-            if deleted else "정리 대상 Run 이 없습니다."}
+            "keepLatestRequested": body.keepLatest, "keepLatestCapped": capped,
+            "note": ((f"요청한 보관 건수 {body.keepLatest:,}건은 상한 {keep}건으로 적용됩니다. "
+                      if capped else "")
+                     + (f"Run 이력 {len(deleted)}건을 정리했습니다. 산출물 파일 "
+                        f"{int(retained_files):,}건({int(retained_bytes) / 1048576:.0f}MB)은 "
+                        "납품물 불변 원칙(#53)에 따라 **보존**됩니다 — 저장 공간은 줄지 않습니다."
+                        if deleted else "정리 대상 Run 이 없습니다."))}
 
 
 # ── B7 — PLM 도면 대장 (dwg_drawing·dwg_revision·dwg_supersedure 개방) ──

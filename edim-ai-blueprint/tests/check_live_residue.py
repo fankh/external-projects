@@ -54,10 +54,6 @@ QUERIES = {
     # 스위트 2종 때문에 온보딩 노드가 매 실행 3행씩 쌓였다(실측 30행). 테넌트 행이 없으니
     # 화면에도 안 보이고 위의 전체 건수 지문에도 섞여 들어가 **아무도 모르는 채로** 늘었다.
     # 전체 건수가 아니라 '주인 없는 행' 을 따로 센다 — 0 이 아니면 곧바로 드러난다.
-    # 19.14 — **검증이 만든 정식 Run**. 화면의 Run ▶ 을 누르는 스위트는 사용자와 같은 경로라
-    # 정식 Run 을 만드는데, 남겨 두면 그것이 프로젝트의 '최신 SUCCESS Run' 이 되어 고객 전달
-    # 패키지 내용이 바뀐다(18.77·18.80). 스위트가 되돌리지 않으면 여기서 드러난다.
-    "cpq_run.nontest": "SELECT 'n', count(*) FROM cpq_run WHERE NOT is_test",
     "orphan_by_tenant": (
         "SELECT 'sys_hierarchy', count(*) FROM sys_hierarchy "
         "WHERE tenant_id NOT IN (SELECT tenant_id FROM sys_tenant) "

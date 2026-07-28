@@ -73,11 +73,22 @@ tid = int(psql("SELECT tenant_id FROM sys_user WHERE login_id='edim'"))
 runs_before = int(psql(f"SELECT count(*) FROM cpq_run WHERE tenant_id={tid}"))
 files_before = int(psql("SELECT count(*) FROM dwg_file WHERE tenant_id=%d "
                         "AND COALESCE(file_role,'OUTPUT')='OUTPUT'" % tid))
-st, r = req("POST", "/cpq/runs/cleanup", TOK, {"keepLatest": 100})
+# 19.15 — 이 스위트는 '지우지 않는 경로' 를 검증한다고 적어 두고 상수 100 을 넘겼는데,
+# Run 이 100건을 넘어서면서 전제가 조용히 깨졌다 — 함대를 돌릴 때마다 오래된 Run 이
+# 영구 삭제되고 있었다(113→100 실측). 게다가 **서버가 keepLatest 를 상한 100 으로 낮춘다**.
+# 크게 요청해도 100건만 남으므로, 큰 값을 넘기는 것으로는 '지우지 않기' 를 만들 수 없다.
+# 그래서 두 가지를 나눠 본다: ① 상한을 넘겨 요청하면 **낮췄다고 말하는가**(19.15 신설),
+# ② 실제 삭제는 이 검증이 만든 Run 한 건으로만 확인한다 — 실 이력을 지우지 않는다.
+st, r = req("POST", "/cpq/runs/cleanup", TOK, {"keepLatest": runs_before + 10})
 ok(f"정리 200 ({st})", st == 200)
 ok("보존되는 파일 수를 밝힌다", isinstance(r.get("retainedFiles"), int))
 ok("보존되는 용량을 밝힌다", isinstance(r.get("retainedBytes"), int))
 ok(f"사유 문구가 있다 ({(r.get('note') or '')[:28]}…)", bool(r.get("note")))
+ok(f"★ 상한을 넘겨 요청하면 낮췄다고 말한다 (요청 {runs_before + 10} → 적용 {r['keptLatest']})",
+   r.get("keepLatestCapped") is True and r["keptLatest"] == 100
+   and "상한" in (r.get("note") or ""))
+ok("요청값을 응답에 그대로 되돌려준다 (무엇을 요청했는지 대조 가능)",
+   r.get("keepLatestRequested") == runs_before + 10)
 if r["deleted"]:
     ok("사유가 '보존' 을 명시한다", "보존" in r["note"] and "줄지 않습니다" in r["note"])
     ok(f"보존 파일 수가 0 이상 ({r['retainedFiles']}건)", r["retainedFiles"] >= 0)
