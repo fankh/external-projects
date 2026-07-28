@@ -8,6 +8,8 @@ UI: Run 화면 원가 패널·PCR 생성·견적 확정 왕복.
 """
 import json
 import subprocess
+
+from _runs import mark_test_runs, run_hwm
 import time
 import urllib.error
 import urllib.request
@@ -108,7 +110,7 @@ def psql(sql: str) -> str:
 # 전달 패키지 내용을 바꾼다(18.77·18.80 이 그 Run 을 기준으로 삼는다). 검증이 제품의
 # 납품 기준을 조용히 갈아치우면 안 되므로, **여기서 만든 것만** 되돌린다 —
 # 시간 범위 같은 무딘 기준을 쓰면 남의 Run 까지 건드린다(18.83 의 교훈).
-_run_hwm = int(psql("SELECT COALESCE(max(run_id),0) FROM cpq_run") or 0)
+_run_hwm = run_hwm(psql)
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()
@@ -136,9 +138,7 @@ with sync_playwright() as pw:
     ok("UI 견적 확정 — 목록 반영", True)
     b.close()
 
-_marked = psql(f"UPDATE cpq_run SET is_test=true WHERE run_id > {_run_hwm} AND NOT is_test "
-               "RETURNING run_id")
-print(f"정리 — UI 실행 Run 테스트 표기 ({len([x for x in _marked.split() if x])}건)", flush=True)
+mark_test_runs(psql, _run_hwm)
 
 # 5. 정리 — 이 스위트가 만든 DRAFT 견적 전부 삭제 (UI 실행분 포함)
 ql = req("GET", "/cost/quotations", headers=A)

@@ -13,6 +13,7 @@ import subprocess
 from openpyxl import load_workbook
 from playwright.sync_api import sync_playwright
 from _nav import tree_click, tree_node  # 2.3 — 좌측 기본 패널이 프로세스라 메뉴 모드 전환 필요
+from _runs import mark_test_runs, run_hwm
 
 BASE = "https://edim.seekerslab.com"
 API = f"{BASE}/api/v1"
@@ -33,6 +34,10 @@ def psql(sql: str) -> str:
         capture_output=True, text=True, timeout=30)
     return (r.stdout or "").strip()
 
+
+# 19.14 — 이 스위트는 화면에서 EBOM Run 을 누른다(사용자 경로 그대로). 남겨 두면
+# 검증이 만든 실행이 프로젝트의 최신 SUCCESS Run 이 되어 전달 패키지 내용을 바꾼다.
+_run_hwm = run_hwm(psql)
 
 with sync_playwright() as pw:
     req = pw.request.new_context()
@@ -152,5 +157,7 @@ with sync_playwright() as pw:
         ok("문서함 빈 목록 — 미리보기 검사 생략", True)
 
     b.close()
+
+mark_test_runs(psql, _run_hwm)
 
 print(f"\nOK — live_f4_noop {n}/{n}")
