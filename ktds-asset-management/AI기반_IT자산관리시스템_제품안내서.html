@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 기반 IT 자산관리 시스템 — 기술 제품 안내서</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #14181f; --ink-2: #3d434d; --muted: #7d848f; --faint: #aab0ba;
+    --hairline: #e3e5e9; --rule: #14181f;
+    --accent: #1a56db; --accent-deep: #123a94; --accent-tint: #eef3fc;
+    --panel: #f6f7f9; --navy: #0c1424;
+  }
+  @page { size: A4 landscape; margin: 0; }
+  body {
+    font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 10.5pt; line-height: 1.55; color: var(--ink);
+    background: #e9eaec; margin: 0; padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .slide {
+    width: 297mm; height: 210mm; overflow: hidden;
+    background: #fff; margin: 10px auto; padding: 13mm 18mm 12mm 18mm;
+    position: relative; box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    page-break-after: always; break-after: page;
+    display: flex; flex-direction: column;
+  }
+  .slide-body { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
+  .slide-footer {
+    flex: 0 0 auto; margin-top: auto; padding-top: 8px;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 7pt; color: var(--muted); letter-spacing: 0.08em;
+    border-top: 1px solid var(--hairline);
+  }
+  .slide-footer .fo-brand { font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.14em; }
+  .slide-footer .fo-page { font-variant-numeric: tabular-nums; }
+
+  /* ---------- section header: kicker + title + rule ---------- */
+  .sec { margin-bottom: 18px; }
+  .sec-kicker { font-size: 8pt; font-weight: 700; color: var(--accent); letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 7px; }
+  .sec-title { font-size: 20pt; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); line-height: 1.2; }
+  .sec-title .sub { font-weight: 400; color: var(--muted); }
+  .sec::after { content: ''; display: block; height: 2.5px; background: var(--ink); margin-top: 12px; }
+
+  h3 { font-size: 10pt; font-weight: 800; color: var(--ink); margin: 16px 0 8px 0; letter-spacing: 0.01em; }
+  h3 .en { font-weight: 600; color: var(--muted); font-size: 8pt; letter-spacing: 0.12em; text-transform: uppercase; margin-left: 8px; }
+  h3:first-child { margin-top: 0; }
+  p { margin: 5px 0; font-size: 10pt; color: var(--ink-2); }
+  p.lede { font-size: 10.5pt; line-height: 1.65; max-width: 235mm; }
+  strong { color: var(--ink); font-weight: 700; }
+  ul, ol { padding-left: 17px; margin: 5px 0 8px 0; font-size: 9.5pt; color: var(--ink-2); }
+  li { margin-bottom: 4px; }
+  li::marker { color: var(--faint); }
+
+  /* ---------- tables: top rule + hairlines, no vertical lines ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 10px 0; font-size: 9.5pt; table-layout: fixed; word-wrap: break-word; }
+  table { border-top: 2px solid var(--rule); }
+  thead th {
+    color: var(--ink); padding: 8px 10px 7px 0; text-align: left;
+    font-weight: 800; font-size: 8.5pt; letter-spacing: 0.04em;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  tbody td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; color: var(--ink-2); line-height: 1.5; }
+  tbody td:first-child, thead th:first-child { padding-left: 2px; }
+  tbody td strong { color: var(--ink); }
+  td.k { color: var(--ink); font-weight: 700; }
+
+  /* ---------- callout ---------- */
+  .callout { background: var(--accent-tint); padding: 12px 18px; margin: 12px 0 0 0; font-size: 9.5pt; color: var(--ink-2); line-height: 1.6; }
+  .callout strong { color: var(--accent-deep); }
+
+  /* ---------- cards: tonal panel, no border ---------- */
+  .col-2 { display: flex; gap: 20px; margin: 6px 0; }
+  .col-2 > div { flex: 1; min-width: 0; }
+  .col-2.v-top { align-items: flex-start; }
+  .col-3 { display: flex; gap: 16px; margin: 6px 0; }
+  .col-3 > div { flex: 1; min-width: 0; }
+  .card { background: var(--panel); padding: 15px 18px 13px; }
+  .card .card-kicker { font-size: 7.5pt; font-weight: 700; color: var(--accent); letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 4px; }
+  .card h4 { font-size: 11pt; font-weight: 800; color: var(--ink); margin: 0 0 8px 0; padding-bottom: 7px; border-bottom: 1px solid #d6d9de; }
+  .card ul { margin: 0; padding-left: 15px; font-size: 9pt; }
+  .card li { margin-bottom: 4px; }
+
+  /* ---------- process steps ---------- */
+  .steps { display: flex; align-items: stretch; gap: 8px; margin: 10px 0; }
+  .step { flex: 1; min-width: 0; background: var(--panel); padding: 10px 12px 9px; position: relative; }
+  .step .st-num { font-size: 7pt; font-weight: 700; color: var(--muted); letter-spacing: 0.14em; margin-bottom: 3px; }
+  .step .st-title { font-weight: 800; color: var(--ink); font-size: 9.5pt; margin-bottom: 2px; letter-spacing: -0.01em; }
+  .step .st-desc { font-size: 8pt; color: var(--ink-2); line-height: 1.45; }
+  .step.hl { background: var(--navy); }
+  .step.hl .st-num { color: rgba(255,255,255,0.55); }
+  .step.hl .st-title { color: #fff; }
+  .step.hl .st-desc { color: rgba(255,255,255,0.75); }
+  .step:not(:last-child)::after {
+    content: '\2192'; position: absolute; right: -9.5px; top: 50%; transform: translateY(-52%);
+    color: var(--faint); font-size: 9.5pt; z-index: 2; font-weight: 400;
+  }
+
+  /* ---------- architecture layers ---------- */
+  .figure { margin: 4px 0 0; }
+  .figure svg { display: block; width: 100%; height: auto; }
+  .figure svg text { font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', 'Segoe UI', sans-serif; }
+  .fig-note { font-size: 7.5pt; color: var(--muted); margin-top: 7px; letter-spacing: 0.02em; }
+
+  /* ---------- chips / tags ---------- */
+  .chip { display: inline-block; background: #fff; border: 1px solid #cfd3d9; color: var(--ink-2); padding: 2px 10px; font-size: 8pt; font-weight: 600; margin: 2px 4px 2px 0; }
+  .chip.a { border-color: var(--accent); color: var(--accent-deep); background: var(--accent-tint); }
+
+  /* ---------- KPI: stat style, no boxes ---------- */
+  .stat-row { display: flex; gap: 26px; margin: 16px 0 4px; }
+  .stat { flex: 1; border-top: 2.5px solid var(--accent); padding-top: 9px; }
+  .stat .st-v { font-size: 25pt; font-weight: 800; color: var(--ink); line-height: 1.05; letter-spacing: -0.02em; }
+  .stat .st-l { font-size: 8pt; color: var(--muted); margin-top: 5px; font-weight: 600; letter-spacing: 0.03em; }
+
+  /* ---------- cover ---------- */
+  .cover {
+    width: 297mm; height: 210mm; background: var(--navy); color: #fff;
+    padding: 16mm 20mm 14mm; position: relative;
+    page-break-after: always; break-after: page;
+    margin: 10px auto; box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    display: flex; flex-direction: column;
+  }
+  .cover-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .cover-brand { font-size: 11pt; font-weight: 800; letter-spacing: 0.28em; }
+  .cover-brand .dom { display: block; font-size: 6.5pt; font-weight: 400; letter-spacing: 0.22em; opacity: 0.45; margin-top: 3px; }
+  .cover-cls { font-size: 7pt; font-weight: 700; letter-spacing: 0.26em; text-transform: uppercase; color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.28); padding: 5px 14px; }
+  .cover-mid { margin-top: auto; margin-bottom: auto; padding-bottom: 10mm; }
+  .cover-doc-type { font-size: 8.5pt; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: #6f9bff; margin-bottom: 16px; }
+  .cover h1 { font-size: 34pt; font-weight: 800; letter-spacing: -0.02em; line-height: 1.22; margin-bottom: 16px; }
+  .cover .cover-sub { font-size: 12pt; font-weight: 300; color: rgba(255,255,255,0.72); line-height: 1.7; max-width: 175mm; }
+  .cover-rule { width: 44px; height: 3px; background: var(--accent); margin: 22px 0 20px; }
+  .cover-scope { display: flex; gap: 10px; flex-wrap: wrap; }
+  .cover-scope span { font-size: 8.5pt; font-weight: 600; color: rgba(255,255,255,0.82); border: 1px solid rgba(255,255,255,0.22); padding: 5px 14px; letter-spacing: 0.02em; }
+  .cover-bottom { border-top: 1px solid rgba(255,255,255,0.16); padding-top: 14px; display: flex; gap: 0; }
+  .cover-meta { flex: 1; }
+  .cover-meta .cm-l { font-size: 6.5pt; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+  .cover-meta .cm-v { font-size: 9.5pt; font-weight: 600; color: rgba(255,255,255,0.88); }
+
+  /* ---------- TOC ---------- */
+  .toc-head { margin-bottom: 20px; }
+  .toc-grid { display: flex; gap: 34px; }
+  .toc-grid > div { flex: 1; }
+  .toc-item { display: flex; gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--hairline); align-items: baseline; }
+  .toc-item .tn { flex: 0 0 30px; font-size: 12pt; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+  .toc-item .tt { font-size: 11pt; font-weight: 800; color: var(--ink); }
+  .toc-item .td { display: block; font-size: 8.5pt; font-weight: 400; color: var(--muted); margin-top: 2px; }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; background: #fff; }
+    .slide, .cover { box-shadow: none; margin: 0; }
+    table, .steps, .callout, .arch, .card, .stat-row { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== 1 · COVER ====== -->
+<div class="cover">
+  <div class="cover-top">
+    <div class="cover-brand">SEEKERSLAB<span class="dom">SEEKERSLAB.COM</span></div>
+    <div class="cover-cls">Confidential</div>
+  </div>
+  <div class="cover-mid">
+    <div class="cover-doc-type">Technical Product Guide</div>
+    <h1>AI 기반 IT 자산관리 시스템</h1>
+    <p class="cover-sub">자산 수명주기 관리, Shadow IT Discovery, AI 자산 인텔리전스를 단일 플랫폼으로 통합한다.
+    관리 대장에 있는 자산을 관리하는 것을 넘어, 발견되지 않은 자산을 찾아 대장에 편입시키는 것까지를 관리 범위로 하는 차세대 ITAM 플랫폼 기술 안내서.</p>
+    <div class="cover-rule"></div>
+    <div class="cover-scope">
+      <span>자산 수명주기 관리</span>
+      <span>Shadow IT Discovery</span>
+      <span>CMDB 자동 대사</span>
+      <span>AI 자산 인텔리전스</span>
+      <span>전자결재 워크플로우</span>
+    </div>
+  </div>
+  <div class="cover-bottom">
+    <div class="cover-meta"><div class="cm-l">Version</div><div class="cm-v">1.0</div></div>
+    <div class="cover-meta"><div class="cm-l">Document Type</div><div class="cm-v">Product Guide</div></div>
+    <div class="cover-meta"><div class="cm-l">Platform</div><div class="cm-v">On-Premises · Web</div></div>
+    <div class="cover-meta"><div class="cm-l">Classification</div><div class="cm-v">Confidential</div></div>
+    <div class="cover-meta"><div class="cm-l">Date</div><div class="cm-v">2026. 07</div></div>
+  </div>
+</div>
+
+<!-- ====== 2 · TOC ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec toc-head">
+    <div class="sec-kicker">Contents</div>
+    <div class="sec-title">목차</div>
+  </div>
+  <div class="toc-grid">
+    <div>
+      <div class="toc-item"><span class="tn">01</span><span><span class="tt">시스템 개요</span><span class="td">AI 기반 자산관리 통합 플랫폼 · 메뉴 체계 (8대 업무 도메인)</span></span></div>
+      <div class="toc-item"><span class="tn">02</span><span><span class="tt">플랫폼 아키텍처</span><span class="td">4-Tier 시스템 구성 · 배치 구성도 · 권한·접근통제 모델</span></span></div>
+      <div class="toc-item"><span class="tn">03</span><span><span class="tt">자산관리 모듈</span><span class="td">자산 수명주기 관리 · 재고 / 계약 / 라이선스 관리</span></span></div>
+      <div class="toc-item"><span class="tn">04</span><span><span class="tt">Shadow IT Discovery 모듈</span><span class="td">탐지 채널(6종) · CMDB 대사 워크플로 · 외부 공격표면 탐지</span></span></div>
+    </div>
+    <div>
+      <div class="toc-item"><span class="tn">05</span><span><span class="tt">AI 인텔리전스 모듈</span><span class="td">AI 기능 구성(5대 기능) · AI 어시스턴트와 리포트 자동화</span></span></div>
+      <div class="toc-item"><span class="tn">06</span><span><span class="tt">연동 &amp; 공통 기반</span><span class="td">시스템 연동 아키텍처 — 발견 소스와 조치 채널</span></span></div>
+      <div class="toc-item"><span class="tn">07</span><span><span class="tt">기술 스택 &amp; 보안</span><span class="td">기술 스택 · 보안성 · 사양 요약</span></span></div>
+    </div>
+  </div>
+  <div class="callout">본 안내서는 검증된 전사 IT 관리 플랫폼 구축 사례를 기반으로 고객사 환경에 맞춘 <strong>기술 구성</strong>을 기술한다. 자산관리·Discovery·AI 전 모듈은 공통 <strong>전자결재</strong>와 <strong>메뉴·기능 권한관리</strong> 기반 위에서 동작하며, Shadow IT 발견부터 정식 자산 편입까지 단일 플랫폼에서 처리된다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">02</span></div>
+</div>
+
+<!-- ====== 3 · I. 시스템 개요 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">01 · Platform Overview</div>
+    <div class="sec-title">AI 기반 자산관리 통합 플랫폼</div>
+  </div>
+  <p class="lede">IT 자산의 도입·운영·폐기 전 수명주기와 미등록 자산(Shadow IT)의 자동 발견, AI 기반 분석을 <strong>단일 플랫폼</strong>에서 처리한다. 관리 대장에 있는 자산만 관리하는 기존 ITAM과 달리, <strong>"발견되지 않은 자산"을 찾아 대장에 편입시키는 것</strong>까지를 관리 범위로 한다.</p>
+  <div class="col-3" style="margin-top:12px;">
+    <div class="card"><div class="card-kicker">Module 1</div><h4>자산관리 (ITAM)</h4><ul><li>자산 대장 · 수명주기(도입~폐기)</li><li>재고 · 재물조사 · 이동/불출</li><li>계약 · 유지보수 · 만료 알림</li><li>SW 라이선스 컴플라이언스</li></ul></div>
+    <div class="card"><div class="card-kicker">Module 2</div><h4>Shadow IT Discovery</h4><ul><li>6종 탐지 채널 자동 수집</li><li>자산 지문 기반 중복 제거</li><li>CMDB 자동 대사(등록/미등록)</li><li>소유자 확인 → 편입/격리 워크플로</li></ul></div>
+    <div class="card"><div class="card-kicker">Module 3</div><h4>AI 인텔리전스</h4><ul><li>자산 자동분류 · 데이터 정규화</li><li>이상 자산 행위 탐지</li><li>수명주기 · 교체수요 예측</li><li>자연어 질의 AI 어시스턴트</li></ul></div>
+  </div>
+  <h3>운영 주체 <span class="en">Role Model</span></h3>
+  <table>
+    <thead><tr><th style="width:15%">권한그룹</th><th>역할 / 책임</th></tr></thead>
+    <tbody>
+      <tr><td class="k">사용자</td><td>본인 보유 자산 조회, 자산 신청·반납·이동 요청 및 결재 상신, 소유자 확인 요청 응답</td></tr>
+      <tr><td class="k">자산담당</td><td>자산 등록·이동·폐기 처리, 재물조사 수행, 발견 자산의 편입 처리</td></tr>
+      <tr><td class="k">보안담당</td><td>Shadow IT 판정·격리 요청, 미인가 SW·SaaS 정책 관리, 위험도 기준 관리</td></tr>
+      <tr><td class="k">Admin</td><td>사용자·권한·메뉴·공통코드·탐지 채널·AI 정책 등 시스템 전반 관리</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><strong>설계 원칙 — 발견에서 편입까지.</strong> 대장에 등록된 자산만 관리하면 사각지대가 생기기 쉽다. 스캔·로그·API로 자산을 상시 발견하고, 발견 자산이 소유자 확인과 결재를 거쳐 대장에 편입되거나 격리되도록 하는 폐쇄 루프를 제공한다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">03</span></div>
+</div>
+
+<!-- ====== 4 · I. 메뉴 체계 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">01 · Platform Overview</div>
+    <div class="sec-title">메뉴 체계 <span class="sub">— 8대 업무 도메인</span></div>
+  </div>
+  <table>
+    <thead><tr><th style="width:15%">대분류 (LV1)</th><th style="width:20%">중분류 (LV2)</th><th>주요 화면 (LV3)</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Main (Home)</td><td>대시보드 · 게시판</td><td>자산 현황 요약, 미등록 자산 신규 발견 현황, 만료 임박(계약·라이선스), My Work, 공지·QnA</td></tr>
+      <tr><td class="k" rowspan="2">자산관리</td><td>자산 대장</td><td>H/W(단말·서버·네트워크) · S/W · 가상자원 대장, 자산번호·구성정보·소유자·위치 이력</td></tr>
+      <tr><td>수명주기</td><td>도입(검수·등록) · 불출/이동 · 반납 · 유휴 · 폐기(결재·증적) 처리</td></tr>
+      <tr><td class="k" rowspan="2">재고·계약</td><td>재고 · 재물조사</td><td>보유 재고 현황, 재물조사 계획·수행(바코드/QR)·차이 조정</td></tr>
+      <tr><td>계약 · 라이선스</td><td>구매·유지보수 계약, SW 라이선스 보유/사용 대사, 만료·갱신 알림</td></tr>
+      <tr><td class="k" rowspan="2">Discovery</td><td>발견 자산</td><td>신규 발견 목록(채널별), 자산 지문·중복 병합, 위험도 분류</td></tr>
+      <tr><td>대사 · Shadow SaaS</td><td>CMDB 대사 리포트(등록/미등록/불일치), 미인가 SaaS 사용 현황(부서별)</td></tr>
+      <tr><td class="k" rowspan="2">AI 인텔리전스</td><td>AI 어시스턴트</td><td>자연어 자산 질의·리포트 생성, 발견 자산 AI 요약 브리핑</td></tr>
+      <tr><td>분석 · 예측</td><td>이상 자산 행위 탐지, 교체수요·수명 예측, 라이선스 최적화 제안</td></tr>
+      <tr><td class="k">워크플로</td><td>신청 · 결재</td><td>자산 신청/반납/이동/폐기 상신, 소유자 확인 요청, 격리 요청 결재</td></tr>
+      <tr><td class="k">환경설정</td><td>권한 · 코드 · 정책</td><td>사용자·그룹·결재선·메뉴권한, 공통코드, 탐지 채널·스캔 정책, SaaS 카탈로그, AI 정책</td></tr>
+      <tr><td class="k">기타 (기반)</td><td>연동 · 인프라</td><td>NAC·EDR·AD·CSP·프록시 연동, 이메일·문자 발송, SSO(SAML), 감사 로그</td></tr>
+    </tbody>
+  </table>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">04</span></div>
+</div>
+
+<!-- ====== 5 · II. 아키텍처 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">02 · Platform Architecture</div>
+    <div class="sec-title">4-Tier 시스템 구성</div>
+  </div>
+  <div class="figure">
+    <svg id="d1" viewBox="0 0 980 302" xmlns="http://www.w3.org/2000/svg">
+      <!-- Layer 1: Client -->
+      <rect x="0" y="0" width="980" height="62" fill="#f6f7f9"/>
+      <text x="18" y="24" font-size="9" font-weight="700" letter-spacing="1.6" fill="#1a56db">CLIENT</text>
+      <text x="18" y="43" font-size="14.5" font-weight="800" fill="#14181f">사용자 계층</text>
+      <g font-size="11" fill="#3d434d">
+        <rect x="200" y="18" width="96" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="248" y="35" text-anchor="middle">웹 브라우저</text>
+        <rect x="304" y="18" width="86" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="347" y="35" text-anchor="middle">SAML SSO</text>
+        <rect x="398" y="18" width="160" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="478" y="35" text-anchor="middle">메뉴·기능 권한 렌더링</text>
+        <rect x="566" y="18" width="146" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="639" y="35" text-anchor="middle">대시보드 · My Work</text>
+        <rect x="720" y="18" width="130" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="785" y="35" text-anchor="middle">AI 어시스턴트 UI</text>
+      </g>
+      <path d="M490 62 v10" stroke="#aab0ba" stroke-width="1.2"/><path d="M486 70 l4 5 l4 -5" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <!-- Layer 2: Application -->
+      <rect x="0" y="80" width="980" height="62" fill="#f6f7f9"/>
+      <text x="18" y="104" font-size="9" font-weight="700" letter-spacing="1.6" fill="#1a56db">APPLICATION</text>
+      <text x="18" y="123" font-size="14.5" font-weight="800" fill="#14181f">애플리케이션 계층</text>
+      <g font-size="11" fill="#3d434d">
+        <rect x="200" y="98" width="112" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="256" y="115" text-anchor="middle">자산관리 모듈</text>
+        <rect x="320" y="98" width="112" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="376" y="115" text-anchor="middle">Discovery 엔진</text>
+        <rect x="440" y="98" width="180" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="530" y="115" text-anchor="middle">AI 서비스 (분류·예측·질의)</text>
+        <rect x="628" y="98" width="106" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="681" y="115" text-anchor="middle">전자결재 엔진</text>
+        <rect x="742" y="98" width="150" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="817" y="115" text-anchor="middle">배치 스케줄러 · 알림</text>
+      </g>
+      <path d="M490 142 v10" stroke="#aab0ba" stroke-width="1.2"/><path d="M486 150 l4 5 l4 -5" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <!-- Layer 3: Collection (emphasis) -->
+      <rect x="0" y="160" width="980" height="62" fill="#eef3fc"/>
+      <text x="18" y="184" font-size="9" font-weight="700" letter-spacing="1.6" fill="#1a56db">COLLECTION &amp; INTEGRATION</text>
+      <text x="18" y="203" font-size="14.5" font-weight="800" fill="#14181f">수집·연동 계층</text>
+      <g font-size="11" font-weight="600" fill="#123a94">
+        <rect x="200" y="178" width="118" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="259" y="195" text-anchor="middle">네트워크 스캐너</text>
+        <rect x="326" y="178" width="112" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="382" y="195" text-anchor="middle">NAC · EDR API</text>
+        <rect x="446" y="178" width="146" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="519" y="195" text-anchor="middle">AD/Entra · SSO 로그</text>
+        <rect x="600" y="178" width="160" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="680" y="195" text-anchor="middle">프록시·방화벽·DNS 로그</text>
+        <rect x="768" y="178" width="76" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="806" y="195" text-anchor="middle">CSP API</text>
+        <rect x="852" y="178" width="118" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="911" y="195" text-anchor="middle">그룹웨어·인사</text>
+      </g>
+      <path d="M490 222 v10" stroke="#aab0ba" stroke-width="1.2"/><path d="M486 230 l4 5 l4 -5" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <!-- Layer 4: Data -->
+      <rect x="0" y="240" width="980" height="62" fill="#f6f7f9"/>
+      <text x="18" y="264" font-size="9" font-weight="700" letter-spacing="1.6" fill="#1a56db">DATA</text>
+      <text x="18" y="283" font-size="14.5" font-weight="800" fill="#14181f">데이터 계층</text>
+      <g font-size="11" fill="#3d434d">
+        <rect x="200" y="258" width="152" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="276" y="275" text-anchor="middle">자산 대장 DB (CMDB)</text>
+        <rect x="360" y="258" width="128" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="424" y="275" text-anchor="middle">발견 자산 저장소</text>
+        <rect x="496" y="258" width="128" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="560" y="275" text-anchor="middle">수집 로그 스토어</text>
+        <rect x="632" y="258" width="146" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="705" y="275" text-anchor="middle">AI 모델·벡터 인덱스</text>
+      </g>
+    </svg>
+    <div class="fig-note">그림 1 — AI 자산관리 플랫폼 4-Tier 아키텍처. 강조 표시된 수집·연동 계층이 기존 3-Tier ITAM에 추가된 구조다.</div>
+  </div>
+  <h3 style="margin-top:14px;">계층별 책임 <span class="en">Layer Responsibilities</span></h3>
+  <table>
+    <thead><tr><th style="width:18%">계층</th><th>구성 · 책임</th></tr></thead>
+    <tbody>
+      <tr><td class="k">사용자 계층</td><td>SSO 인증 후 부여된 메뉴·기능만 렌더링, 자산·발견 현황 대시보드와 AI 어시스턴트 제공</td></tr>
+      <tr><td class="k">애플리케이션 계층</td><td>자산·재고·계약 업무 모듈, Discovery 대사 엔진, AI 서비스, 공통 전자결재·알림</td></tr>
+      <tr><td class="k">수집·연동 계층</td><td>능동 스캔과 기존 보안·인프라 시스템 API/로그 수집 — 신규 에이전트 배포 없이 시작 가능</td></tr>
+      <tr><td class="k">데이터 계층</td><td>자산 대장(CMDB)과 발견 저장소 분리 — 검증된 자산만 대장 편입, 원천 로그는 증적 보존</td></tr>
+    </tbody>
+  </table>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">05</span></div>
+</div>
+
+<!-- ====== 6 · II. 배치 구성도 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">02 · Platform Architecture</div>
+    <div class="sec-title">배치 구성도 <span class="sub">— 온프레미스 기준</span></div>
+  </div>
+  <div class="figure">
+    <svg id="d5" viewBox="0 0 980 442" xmlns="http://www.w3.org/2000/svg">
+      <!-- Zone: Users -->
+      <rect x="0" y="20" width="204" height="168" fill="#fafbfc" stroke="#c6cad1"/>
+      <text x="14" y="42" font-size="9" font-weight="700" letter-spacing="1.4" fill="#7d848f">USERS — 사내망</text>
+      <rect x="14" y="56" width="176" height="52" fill="#ffffff" stroke="#d9dce1"/>
+      <text x="26" y="78" font-size="11" font-weight="800" fill="#14181f">사용자 PC</text>
+      <text x="26" y="95" font-size="8.5" fill="#3d434d">웹 브라우저 · SSO</text>
+      <rect x="14" y="120" width="176" height="52" fill="#ffffff" stroke="#d9dce1"/>
+      <text x="26" y="142" font-size="11" font-weight="800" fill="#14181f">관리자 콘솔</text>
+      <text x="26" y="159" font-size="8.5" fill="#3d434d">자산·보안담당 · Admin</text>
+      <!-- Zone: Platform -->
+      <rect x="256" y="20" width="452" height="402" fill="#f4f8fe" stroke="#b9cdf2"/>
+      <text x="272" y="42" font-size="9" font-weight="700" letter-spacing="1.4" fill="#1a56db">PLATFORM — 자산관리 서버 세그먼트</text>
+      <rect x="276" y="58" width="196" height="66" fill="#ffffff" stroke="#c9d6ec"/>
+      <text x="290" y="82" font-size="11" font-weight="800" fill="#14181f">Web / WAS</text>
+      <text x="290" y="99" font-size="8.5" fill="#3d434d">자산관리 웹 · 전자결재 · 알림</text>
+      <rect x="496" y="58" width="196" height="66" fill="#ffffff" stroke="#c9d6ec"/>
+      <text x="510" y="82" font-size="11" font-weight="800" fill="#14181f">AI 서버 (GPU)</text>
+      <text x="510" y="99" font-size="8.5" fill="#3d434d">온프레미스 LLM · ML 파이프라인</text>
+      <rect x="276" y="156" width="196" height="66" fill="#ffffff" stroke="#c9d6ec"/>
+      <text x="290" y="180" font-size="11" font-weight="800" fill="#14181f">Discovery 서버</text>
+      <text x="290" y="197" font-size="8.5" fill="#3d434d">스캐너 · 커넥터 · 대사 엔진</text>
+      <rect x="496" y="156" width="196" height="66" fill="#ffffff" stroke="#c9d6ec"/>
+      <text x="510" y="180" font-size="11" font-weight="800" fill="#14181f">배치 · 연동 서버</text>
+      <text x="510" y="197" font-size="8.5" fill="#3d434d">스케줄러 · 메일/문자 · SSO 연계</text>
+      <!-- Data sub-zone -->
+      <rect x="276" y="266" width="416" height="136" fill="#ffffff" stroke="#c9d6ec"/>
+      <text x="290" y="288" font-size="9" font-weight="700" letter-spacing="1.4" fill="#7d848f">DATA</text>
+      <rect x="290" y="300" width="180" height="52" fill="#f6f7f9"/>
+      <text x="302" y="322" font-size="10.5" font-weight="800" fill="#14181f">자산 대장 RDB</text>
+      <text x="302" y="338" font-size="8.5" fill="#3d434d">CMDB · 이력 · 결재</text>
+      <rect x="486" y="300" width="192" height="52" fill="#f6f7f9"/>
+      <text x="498" y="322" font-size="10.5" font-weight="800" fill="#14181f">로그 스토어 · 벡터 인덱스</text>
+      <text x="498" y="338" font-size="8.5" fill="#3d434d">수집 원천 · AI 검색</text>
+      <text x="290" y="382" font-size="8.5" fill="#7d848f">민감 컬럼 암호화 · 원천 로그 증적 보존</text>
+      <!-- internal arrows -->
+      <g stroke="#aab0ba" stroke-width="1.1" fill="none">
+        <path d="M374 124 V150"/><path d="M370 146 l4 6 l4 -6"/>
+        <path d="M374 222 V260"/><path d="M370 256 l4 6 l4 -6"/>
+        <path d="M594 124 V150"/><path d="M590 146 l4 6 l4 -6"/>
+        <path d="M594 222 V260"/><path d="M590 256 l4 6 l4 -6"/>
+      </g>
+      <!-- Zone: Targets -->
+      <rect x="760" y="20" width="220" height="212" fill="#fafbfc" stroke="#c6cad1"/>
+      <text x="774" y="42" font-size="9" font-weight="700" letter-spacing="1.4" fill="#7d848f">TARGETS — 전사 네트워크</text>
+      <rect x="774" y="56" width="192" height="46" fill="#ffffff" stroke="#d9dce1"/>
+      <text x="786" y="76" font-size="10.5" font-weight="800" fill="#14181f">업무망 단말</text>
+      <text x="786" y="92" font-size="8.5" fill="#3d434d">PC · 노트북 · 주변기기</text>
+      <rect x="774" y="112" width="192" height="46" fill="#ffffff" stroke="#d9dce1"/>
+      <text x="786" y="132" font-size="10.5" font-weight="800" fill="#14181f">서버망 · 가상자원</text>
+      <text x="786" y="148" font-size="8.5" fill="#3d434d">서버 · VM · 네트워크 장비</text>
+      <rect x="774" y="168" width="192" height="46" fill="#ffffff" stroke="#d9dce1"/>
+      <text x="786" y="188" font-size="10.5" font-weight="800" fill="#14181f">미등록 · IoT 장비</text>
+      <text x="786" y="204" font-size="8.5" fill="#3d434d">Shadow IT 후보</text>
+      <!-- Zone: Security systems -->
+      <rect x="760" y="252" width="220" height="122" fill="#fafbfc" stroke="#c6cad1"/>
+      <text x="774" y="274" font-size="9" font-weight="700" letter-spacing="1.4" fill="#7d848f">기존 보안 시스템</text>
+      <rect x="774" y="288" width="192" height="34" fill="#ffffff" stroke="#d9dce1"/>
+      <text x="786" y="310" font-size="10" font-weight="700" fill="#14181f">NAC · EDR/백신</text>
+      <rect x="774" y="330" width="192" height="34" fill="#ffffff" stroke="#d9dce1"/>
+      <text x="786" y="352" font-size="10" font-weight="700" fill="#14181f">프록시 · DNS · AD/Entra</text>
+      <!-- Zone: External cloud (dashed) -->
+      <rect x="0" y="252" width="204" height="122" fill="#ffffff" stroke="#aab0ba" stroke-dasharray="5 4"/>
+      <text x="14" y="274" font-size="9" font-weight="700" letter-spacing="1.4" fill="#7d848f">EXTERNAL — 클라우드</text>
+      <rect x="14" y="288" width="176" height="52" fill="#f6f7f9"/>
+      <text x="26" y="310" font-size="10.5" font-weight="800" fill="#14181f">CSP API</text>
+      <text x="26" y="326" font-size="8.5" fill="#3d434d">AWS · Azure 리소스 인벤토리</text>
+      <text x="14" y="364" font-size="8.5" fill="#7d848f">선택 구성 · TLS 아웃바운드 한정</text>
+      <!-- external connections -->
+      <g stroke="#aab0ba" stroke-width="1.1" fill="none">
+        <path d="M204 90 H250"/><path d="M246 86 l6 4 l-6 4"/>
+        <path d="M708 189 H754"/><path d="M750 185 l6 4 l-6 4"/>
+        <path d="M760 306 H734 V206 H714"/><path d="M720 202 l-6 4 l6 4"/>
+        <path d="M204 306 H236 V222"/><path d="M232 228 l4 -6 l4 6"/>
+      </g>
+      <text x="208" y="82" font-size="8.5" fill="#7d848f">HTTPS · SSO</text>
+      <text x="712" y="181" font-size="8.5" fill="#7d848f">스캔 · 수집</text>
+      <rect x="704" y="228" width="56" height="28" fill="#ffffff"/>
+      <text x="708" y="239" font-size="8.5" fill="#7d848f">API·로그</text>
+      <text x="708" y="252" font-size="8.5" fill="#7d848f">격리 요청</text>
+      <text x="208" y="250" font-size="8.5" fill="#7d848f">CSP API (TLS)</text>
+      <!-- watermark caption -->
+      <text x="482" y="436" font-size="8.5" fill="#aab0ba" text-anchor="middle">— 논리 구성도이며 서버 수량·세그먼트는 고객사 규모와 망 정책에 따라 통합·분리 —</text>
+    </svg>
+    <div class="fig-note">그림 2 — 온프레미스 배치 구성. 전 구성요소가 사내에 배치되며, 외부 구간은 선택 구성인 CSP API 아웃바운드 수집뿐이다.</div>
+  </div>
+  <div class="callout"><strong>망분리 환경 기본 대응.</strong> 웹/WAS · Discovery · AI(GPU) · DB 4개 역할 기준 구성으로, 소규모는 통합 배치, 대규모는 역할별 분리·이중화로 확장한다. AI 서버까지 온프레미스에 두면 자산·구성 정보가 외부로 나가는 구간이 없다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">06</span></div>
+</div>
+
+<!-- ====== 7 · II. 권한 모델 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">02 · Platform Architecture</div>
+    <div class="sec-title">권한 · 접근통제 모델</div>
+  </div>
+  <h3>메뉴 권한관리 체계 <span class="en">Permission Pipeline</span></h3>
+  <div class="steps">
+    <div class="step"><div class="st-num">STEP 1</div><div class="st-title">메뉴기능관리</div><div class="st-desc">화면 기능 정의 (조회·저장·삭제·엑셀)</div></div>
+    <div class="step"><div class="st-num">STEP 2</div><div class="st-title">메뉴관리</div><div class="st-desc">카테고리·화면번호·기능 부여</div></div>
+    <div class="step hl"><div class="st-num">STEP 3</div><div class="st-title">메뉴권한관리</div><div class="st-desc">메뉴권한별 메뉴·기능 및 사용자 매핑</div></div>
+    <div class="step"><div class="st-num">STEP 4</div><div class="st-title">사용자·그룹</div><div class="st-desc">사용자그룹·결재선 관리</div></div>
+  </div>
+  <div class="col-2 v-top" style="margin-top:10px;">
+    <div>
+      <h3>권한그룹별 기본 접근 범위</h3>
+      <table>
+        <thead><tr><th style="width:30%">권한그룹</th><th>접근 범위</th></tr></thead>
+        <tbody>
+          <tr><td class="k">사용자</td><td>본인 자산 조회·신청</td></tr>
+          <tr><td class="k">자산담당</td><td>자산 등록·이동·폐기·재물조사</td></tr>
+          <tr><td class="k">보안담당</td><td>Discovery 판정·격리·정책</td></tr>
+          <tr><td class="k">Admin</td><td>시스템·권한·코드·AI 정책 관리</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>기능(Action) 단위 통제</h3>
+      <p style="margin:8px 0 10px;"><span class="chip">조회</span><span class="chip">저장</span><span class="chip">삭제</span><span class="chip">엑셀</span><span class="chip a">편입</span><span class="chip a">격리요청</span><span class="chip a">결재</span></p>
+      <ul>
+        <li>권한은 <strong>메뉴(화면) × 기능(버튼)</strong> 단위로 부여</li>
+        <li>발견 자산의 <strong>편입·격리는 자산담당·보안담당</strong>에게만 노출</li>
+        <li>화면별 <strong>기본 결재선</strong>을 사전 정의 — 폐기·격리는 필수 결재</li>
+        <li>AI 어시스턴트 응답도 <strong>사용자 권한 범위 내 데이터만</strong> 조회</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><strong>화면·기능 단위 최소권한.</strong> 사용자에게는 매핑된 메뉴·기능만 노출되며, AI 질의를 포함한 모든 데이터 접근이 동일한 권한 모델을 통과한다. 조회는 가능하되 편입·격리·폐기·결재는 권한이 있는 역할에만 허용된다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">07</span></div>
+</div>
+
+<!-- ====== 7 · III. 자산 수명주기 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">03 · Asset Management</div>
+    <div class="sec-title">자산 수명주기 관리</div>
+  </div>
+  <div class="steps">
+    <div class="step"><div class="st-num">PHASE 1</div><div class="st-title">도입 · 검수</div><div class="st-desc">발주 연계 · 검수 등록</div></div>
+    <div class="step"><div class="st-num">PHASE 2</div><div class="st-title">등록</div><div class="st-desc">자산번호 · 구성정보</div></div>
+    <div class="step hl"><div class="st-num">PHASE 3</div><div class="st-title">운영 · 이동</div><div class="st-desc">불출 · 소유자 · 위치 이력</div></div>
+    <div class="step"><div class="st-num">PHASE 4</div><div class="st-title">반납 · 유휴</div><div class="st-desc">재배치 대기</div></div>
+    <div class="step"><div class="st-num">PHASE 5</div><div class="st-title">폐기</div><div class="st-desc">결재 · 데이터 소거 증적</div></div>
+  </div>
+  <h3 style="margin-top:14px;">화면 구성 <span class="en">Screens</span></h3>
+  <table>
+    <thead><tr><th style="width:16%">화면</th><th>기능</th></tr></thead>
+    <tbody>
+      <tr><td class="k">자산 대장</td><td>H/W(단말·서버·네트워크·주변기기) · S/W · 가상자원(VM·클라우드) 유형별 대장, 구성정보(CPU·메모리·OS·IP·MAC), 소유 부서·사용자, 위치</td></tr>
+      <tr><td class="k">도입·검수</td><td>구매 계약 연계 입고 등록, 검수 체크리스트, 자산번호 채번·라벨(바코드/QR) 발행</td></tr>
+      <tr><td class="k">불출·이동</td><td>사용자 신청 → 결재 → 불출 처리, 부서·위치·사용자 변경 이력 자동 축적</td></tr>
+      <tr><td class="k">반납·유휴</td><td>반납 접수·상태 점검, 유휴 자산 풀 관리(재배치 우선 원칙)</td></tr>
+      <tr><td class="k">폐기</td><td>폐기 대상 선정 → 결재 상신 → 데이터 소거·불용 처리 → 증적(사진·확인서) 보존</td></tr>
+      <tr><td class="k">변경 이력</td><td>자산별 전체 이력 타임라인 — 등록·이동·구성변경·점검·폐기까지 단일 화면 추적</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><strong>변경 이력 관리.</strong> 소유자·위치·구성의 변경은 신청·결재를 통해 반영되어 대장과 실물의 불일치를 줄이고, Discovery 대사 시 기준 데이터로 사용된다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">08</span></div>
+</div>
+
+<!-- ====== 8 · III. 재고·계약·라이선스 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">03 · Asset Management</div>
+    <div class="sec-title">재고 · 계약 · 라이선스 관리</div>
+  </div>
+  <div class="col-2 v-top">
+    <div>
+      <h3>재고 · 재물조사</h3>
+      <table>
+        <thead><tr><th style="width:32%">화면</th><th>기능</th></tr></thead>
+        <tbody>
+          <tr><td class="k">재고 현황</td><td>유형·부서·위치별 보유 현황, 유휴/가용 재고</td></tr>
+          <tr><td class="k">재물조사 계획</td><td>연간/수시 조사 계획, 대상·담당자 지정</td></tr>
+          <tr><td class="k">조사 수행</td><td>바코드/QR 스캔 실사, 모바일 웹 지원</td></tr>
+          <tr><td class="k">차이 조정</td><td>대장 대비 과부족 확인 → 조정 결재 → 반영</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>계약 · 유지보수</h3>
+      <table>
+        <thead><tr><th style="width:32%">화면</th><th>기능</th></tr></thead>
+        <tbody>
+          <tr><td class="k">구매 계약</td><td>계약–자산 연결, 부속서류·보증기간 관리</td></tr>
+          <tr><td class="k">유지보수 계약</td><td>대상 자산·범위·SLA, 비용 이력</td></tr>
+          <tr><td class="k">만료 알림</td><td>계약·보증·라이선스 만료 임박 자동 메일</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <h3 style="margin-top:12px;">SW 라이선스 컴플라이언스 <span class="en">License Compliance</span></h3>
+  <div class="steps">
+    <div class="step"><div class="st-num">STEP 1</div><div class="st-title">보유 등록</div><div class="st-desc">구매 라이선스 · 계약 연계</div></div>
+    <div class="step"><div class="st-num">STEP 2</div><div class="st-title">사용 수집</div><div class="st-desc">EDR·에이전트 설치 SW 인벤토리</div></div>
+    <div class="step hl"><div class="st-num">STEP 3</div><div class="st-title">보유–사용 대사</div><div class="st-desc">초과 사용 · 미사용 검출</div></div>
+    <div class="step"><div class="st-num">STEP 4</div><div class="st-title">조치</div><div class="st-desc">추가 구매 품의 · 회수</div></div>
+  </div>
+  <div class="callout"><strong>라이선스 리스크 양방향 관리.</strong> 초과 사용(감사 리스크)과 미사용 보유(비용 낭비)를 동시에 검출한다. 미인가 SW 설치는 Discovery 모듈의 정책 위반 항목으로 연계되어 보안담당에게 통보된다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">09</span></div>
+</div>
+
+<!-- ====== 9 · IV. Discovery 탐지 채널 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">04 · Shadow IT Discovery</div>
+    <div class="sec-title">탐지 채널 아키텍처 <span class="sub">— 6종 병렬 수집</span></div>
+  </div>
+  <p class="lede">단일 스캔 방식으로는 Shadow IT를 다 찾을 수 없다. <strong>서로 다른 사각지대를 커버하는 6종 채널</strong>을 병렬 수집하고, 결과를 자산 지문으로 통합한다.</p>
+  <table style="margin-top:10px;">
+    <thead><tr><th style="width:18%">채널</th><th style="width:25%">발견 대상</th><th style="width:32%">방식</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td class="k">01 네트워크 능동 스캔</td><td>미등록 단말·서버·IoT 장비</td><td>대역 스캔(포트·서비스·OS 핑거프린팅), SNMP</td><td>스캔 정책·시간대 협의 (운영망 영향 최소화)</td></tr>
+      <tr><td class="k">02 패시브 트래픽 분석</td><td>스캔이 닿지 않는 세그먼트의 활성 장비</td><td>DHCP·ARP 테이블 수집, NetFlow/미러링</td><td>무중단 — 능동 스캔 보완</td></tr>
+      <tr><td class="k">03 DNS·프록시·방화벽 로그</td><td>미인가 SaaS 사용 (Shadow SaaS)</td><td>아웃바운드 도메인 분석 → SaaS 카탈로그 매칭</td><td>CASB 경량 대체 접근</td></tr>
+      <tr><td class="k">04 EDR·엔드포인트 연계</td><td>설치 SW, USB, 로컬 가상머신</td><td>기존 EDR·백신 콘솔 API 연동</td><td>신규 에이전트 배포 없이 시작</td></tr>
+      <tr><td class="k">05 클라우드 API</td><td>미관리 클라우드 리소스·계정</td><td>CSP API (AWS Config · Azure Resource Graph 등)</td><td>부서·개인 계정 발견은 조직 정책 병행</td></tr>
+      <tr><td class="k">06 AD/IdP·SSO 로그</td><td>미인가 앱 OAuth 연동, 휴면 계정</td><td>AD/Entra ID 로그, SSO 앱 카탈로그 대조</td><td>계정 기반 Shadow IT</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><strong>기존 인프라 재활용 우선.</strong> NAC·EDR·프록시·AD 등 이미 보유한 시스템의 데이터를 커넥터로 수집하는 것을 기본으로 하여, 도입 초기부터 에이전트 추가 배포 없이 가시성을 확보한다. 능동 스캔은 정책 협의 후 단계적으로 확대한다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">10</span></div>
+</div>
+
+<!-- ====== 10 · IV. Discovery 대사·워크플로 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">04 · Shadow IT Discovery</div>
+    <div class="sec-title">CMDB 대사 · 처리 워크플로</div>
+  </div>
+  <h3>발견 → 편입 폐쇄 루프 <span class="en">Closed Loop</span></h3>
+  <div class="figure">
+    <svg id="d2" viewBox="0 0 980 226" xmlns="http://www.w3.org/2000/svg">
+      <!-- 6 channels -->
+      <text x="0" y="14" font-size="9" font-weight="700" letter-spacing="1.4" fill="#7d848f">SOURCES — 6 CHANNELS</text>
+      <g font-size="10.5" fill="#3d434d">
+        <rect x="0" y="22" width="150" height="27" fill="#f6f7f9"/><text x="10" y="40">01 네트워크 능동 스캔</text>
+        <rect x="0" y="55" width="150" height="27" fill="#f6f7f9"/><text x="10" y="73">02 패시브 트래픽 분석</text>
+        <rect x="0" y="88" width="150" height="27" fill="#f6f7f9"/><text x="10" y="106">03 DNS·프록시 로그</text>
+        <rect x="0" y="121" width="150" height="27" fill="#f6f7f9"/><text x="10" y="139">04 EDR·엔드포인트</text>
+        <rect x="0" y="154" width="150" height="27" fill="#f6f7f9"/><text x="10" y="172">05 클라우드 API</text>
+        <rect x="0" y="187" width="150" height="27" fill="#f6f7f9"/><text x="10" y="205">06 AD/IdP·SSO 로그</text>
+      </g>
+      <!-- converge lines -->
+      <g stroke="#c6cad1" stroke-width="1" fill="none">
+        <path d="M150 35 H176 L206 118"/><path d="M150 68 H180 L208 118"/><path d="M150 101 H184 L211 118"/>
+        <path d="M150 134 H184 L211 121"/><path d="M150 167 H180 L208 121"/><path d="M150 200 H176 L206 121"/>
+      </g>
+      <path d="M206 119 h14" stroke="#aab0ba" stroke-width="1.2"/><path d="M216 115 l5 4 l-5 4" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <!-- pipeline -->
+      <g>
+        <rect x="228" y="92" width="128" height="54" fill="#f6f7f9"/>
+        <text x="240" y="113" font-size="11.5" font-weight="800" fill="#14181f">정규화 · 병합</text>
+        <text x="240" y="131" font-size="9" fill="#3d434d">자산 지문 MAC·호스트명</text>
+        <rect x="372" y="92" width="128" height="54" fill="#0c1424"/>
+        <text x="384" y="113" font-size="11.5" font-weight="800" fill="#ffffff">CMDB 대사</text>
+        <text x="384" y="131" font-size="9" fill="rgba(255,255,255,0.72)">등록 / 미등록 / 불일치</text>
+        <rect x="516" y="92" width="128" height="54" fill="#f6f7f9"/>
+        <text x="528" y="113" font-size="11.5" font-weight="800" fill="#14181f">분류 · 위험도</text>
+        <text x="528" y="131" font-size="9" fill="#3d434d">유형·노출 서비스·등급</text>
+        <rect x="660" y="92" width="128" height="54" fill="#f6f7f9"/>
+        <text x="672" y="113" font-size="11.5" font-weight="800" fill="#14181f">소유자 확인</text>
+        <text x="672" y="131" font-size="9" fill="#3d434d">부서 확인 요청 메일</text>
+        <rect x="804" y="92" width="140" height="54" fill="#0c1424"/>
+        <text x="816" y="113" font-size="11.5" font-weight="800" fill="#ffffff">편입 / 격리</text>
+        <text x="816" y="131" font-size="9" fill="rgba(255,255,255,0.72)">결재 편입 · 격리 요청</text>
+      </g>
+      <g stroke="#aab0ba" stroke-width="1.2" fill="none">
+        <path d="M356 119 h10"/><path d="M362 115 l5 4 l-5 4"/>
+        <path d="M500 119 h10"/><path d="M506 115 l5 4 l-5 4"/>
+        <path d="M644 119 h10"/><path d="M650 115 l5 4 l-5 4"/>
+        <path d="M788 119 h10"/><path d="M794 115 l5 4 l-5 4"/>
+      </g>
+      <!-- CMDB ledger (top) -->
+      <rect x="592" y="14" width="196" height="30" fill="#ffffff" stroke="#1a56db" stroke-width="1.3"/>
+      <text x="690" y="34" font-size="11" font-weight="700" fill="#123a94" text-anchor="middle">자산 대장 (CMDB)</text>
+      <g stroke="#1a56db" stroke-width="1" fill="none" stroke-dasharray="4 3">
+        <path d="M436 92 V29 h150"/>
+        <path d="M874 92 V44"/>
+      </g>
+      <path d="M582 25 l6 4 l-6 4" fill="none" stroke="#1a56db" stroke-width="1"/>
+      <path d="M870 50 l4 -6 l4 6" fill="none" stroke="#1a56db" stroke-width="1"/>
+      <text x="446" y="24" font-size="8.5" fill="#1a56db">기준 데이터 조회</text>
+      <text x="884" y="66" font-size="8.5" fill="#1a56db">결재 후 대장 등록</text>
+      <!-- NAC isolation (bottom) -->
+      <rect x="782" y="188" width="184" height="30" fill="#eef3fc"/>
+      <text x="874" y="208" font-size="10.5" font-weight="700" fill="#123a94" text-anchor="middle">NAC 격리 요청 (미확인 자산)</text>
+      <path d="M874 146 V182" stroke="#7d848f" stroke-width="1" stroke-dasharray="4 3" fill="none"/>
+      <path d="M870 178 l4 6 l4 -6" fill="none" stroke="#7d848f" stroke-width="1"/>
+    </svg>
+    <div class="fig-note">그림 3 — Shadow IT 발견 → 편입 폐쇄 루프. 대사는 자산 대장을 기준 데이터로 참조하고, 편입 결과가 다시 대장으로 환류된다.</div>
+  </div>
+  <h3 style="margin-top:14px;">대사 결과별 처리 <span class="en">Reconciliation Outcomes</span></h3>
+  <table>
+    <thead><tr><th style="width:19%">대사 결과</th><th style="width:36%">의미</th><th>처리</th></tr></thead>
+    <tbody>
+      <tr><td class="k">등록 · 일치</td><td>대장에 있고 실측 정보 일치</td><td>최종 확인 일시 갱신 (생존 신호)</td></tr>
+      <tr><td class="k">등록 · 불일치</td><td>대장에 있으나 위치·소유자·구성 상이</td><td>차이 항목 표시 → 자산담당 확인 · 대장 보정</td></tr>
+      <tr><td class="k">미등록 (Shadow IT)</td><td>실측되나 대장에 없음</td><td>소유자 확인 요청 → 편입(결재) 또는 격리 요청</td></tr>
+      <tr><td class="k">미확인 (유령 자산)</td><td>대장에 있으나 일정 기간 실측 없음</td><td>유휴·분실 후보 → 재물조사 대상 자동 편성</td></tr>
+    </tbody>
+  </table>
+  <div class="col-2 v-top">
+    <div class="callout" style="margin-top:8px;"><strong>미확인 소유자 정책.</strong> 확인 요청에 기한 내 응답이 없는 발견 자산은 정책에 따라 보안담당 검토 → NAC 격리 요청으로 자동 에스컬레이션된다.</div>
+    <div class="callout" style="margin-top:8px;"><strong>편입도 결재로.</strong> 발견 자산의 대장 편입은 자산 등록 결재를 통과해야 하며, 편입 시 발견 이력(최초 발견 채널·일시)이 자산 이력에 승계된다.</div>
+  </div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">11</span></div>
+</div>
+
+<!-- ====== 12 · IV. 외부 공격표면 탐지 (1) ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">04 · Shadow IT Discovery</div>
+    <div class="sec-title">외부 공격표면 탐지 <span class="sub">— 조직 밖으로 노출된 미인지 자산</span></div>
+  </div>
+  <p class="lede">앞의 6종 채널이 사내망 자산을 찾는다면, 외부 공격표면 탐지는 <strong>조직 도메인에서 외부로 노출된 미인지 자산</strong>(잊힌 서브도메인, 방치된 서버, 노출된 관리 콘솔, 유출 계정 등)을 조직 외부의 관점에서 발견한다. 인터넷에 공개된 정보만으로 수집하는 <strong>수동(Passive)</strong> 방식과 대상에 직접 접속·질의하는 <strong>능동(Active)</strong> 방식을 조합한다.</p>
+  <div class="col-2 v-top" style="margin-top:12px;">
+    <div class="card">
+      <div class="card-kicker">Passive</div>
+      <h4>수동 — 대상 인프라에 접촉하지 않음</h4>
+      <ul>
+        <li>인증서 투명성(CT) 로그 · 웹 아카이브</li>
+        <li>검색엔진 도킹 · DNS 인텔리전스</li>
+        <li>위협 인텔리전스(OSINT·IOC) 상관</li>
+        <li>다크웹 크롤 · 유출/침해 데이터 수집</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-kicker">Active</div>
+      <h4>능동 — 대상에 직접 질의·접속</h4>
+      <ul>
+        <li>DNS 브루트포스 · 순열 · 레코드 질의 · 존 트랜스퍼</li>
+        <li>역DNS · CIDR 대역 스캔</li>
+        <li>포트·서비스·취약점(CVE) 스캔</li>
+        <li>기본·취약 크리덴셜 점검</li>
+      </ul>
+    </div>
+  </div>
+  <h3>수동 외부 수집 <span class="en">Passive Collection</span></h3>
+  <table>
+    <thead><tr><th style="width:20%">방법</th><th style="width:44%">기법</th><th>데이터 소스 · 산출</th></tr></thead>
+    <tbody>
+      <tr><td class="k">인증서 투명성 (CT)</td><td>공개 CT 로그에서 발급 인증서의 호스트명·메타데이터 수집(대상 무접촉). 와일드카드 제거·중복 제거·유효성 검증</td><td>서브도메인, 인증서 항목(발급 CA·유효기간). 유효기간으로 생존 여부 추정</td></tr>
+      <tr><td class="k">웹 아카이브</td><td>인터넷 아카이브에서 과거 관측된 호스트명·URL 조회(수집 연한 지정)</td><td>과거 노출 서브도메인(생존 확인 전까지 비활성 표기)</td></tr>
+      <tr><td class="k">검색엔진 도킹</td><td>검색엔진 결과에 도크 질의(site:·inurl: 등) 후 서브도메인 정규식 추출. User-Agent 로테이션·프록시·백오프 재시도</td><td>공개 색인된 서브도메인</td></tr>
+      <tr><td class="k">DNS 인텔리전스</td><td>외부 DNS 인텔리전스 서비스에서 알려진 서브도메인·레코드 조회</td><td>서브도메인·DNS 레코드</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><strong>수동 우선 원칙.</strong> 대상에 흔적을 남기지 않는 수동 수집으로 먼저 자산 후보를 넓게 확보한 뒤, 능동 탐지로 생존·서비스·취약점을 확인한다. 능동 스캔은 대상·강도·시간대 정책 협의 후 수행한다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">12</span></div>
+</div>
+
+<!-- ====== 13 · IV. 외부 공격표면 탐지 (2) ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">04 · Shadow IT Discovery</div>
+    <div class="sec-title">외부 공격표면 탐지 <span class="sub">— 능동 탐지 · 위협 인텔리전스</span></div>
+  </div>
+  <h3 style="margin-top:6px;">DNS 기반 능동 탐지 <span class="en">Active DNS</span></h3>
+  <p style="font-size:9.5pt; margin:4px 0;">다수의 공개 리졸버 풀을 라운드로빈하는 대량 병렬 질의로 가장 넓은 발견 표면을 만든다. 브루트포스 → 순열 생성 → 대량 브루트포스 → 존 트랜스퍼 → 레코드 분석을 파이프라인으로 연결한다.</p>
+  <table>
+    <thead><tr><th style="width:24%">방법</th><th>기법 · 산출</th></tr></thead>
+    <tbody>
+      <tr><td class="k">서브도메인 브루트포스</td><td>사전 기반 서브도메인 추정(사용자 사전 → 관리 사전 → 기본 사전). 대량 모드는 지역·기술·숫자·다단계 변형으로 최대 수만 건 확장</td></tr>
+      <tr><td class="k">순열 생성</td><td>알려진 서브도메인에 환경(dev/stg/prod)·접두·접미·숫자·구분자·키워드를 조합 후 실시간 해석</td></tr>
+      <tr><td class="k">역DNS · CIDR 스캔</td><td>IP의 PTR 호스트명 조회, IP 대역 전체 열거 후 알려진 도메인 교차 확인 및 동시 PTR 조회</td></tr>
+      <tr><td class="k">존 트랜스퍼 · 레코드 분석</td><td>네임서버 확인 후 AXFR 시도, 거부 시 A/AAAA/CNAME/MX/NS/TXT/SRV·SOA·CAA 질의로 대체. 레코드 값에 포함된 범위 내 호스트명 추출. 와일드카드 DNS 탐지로 오탐 억제</td></tr>
+    </tbody>
+  </table>
+  <div class="col-2 v-top" style="margin-top:4px;">
+    <div>
+      <h3>포트·서비스·취약점 스캔 <span class="en">Active</span></h3>
+      <ul>
+        <li><strong>2단계 스캔</strong> — 고속 오픈 포트 스윕 → 서비스·버전 정밀 분석</li>
+        <li>서비스·제품·버전 핑거프린트, 취약점 스크립트로 <strong>CVE·CVSS·심각도</strong> 추출(버전 휴리스틱 보완)</li>
+        <li>산출: 오픈 포트, 서비스/버전, CVE(심각도)</li>
+      </ul>
+      <h3>인증 취약점 점검 <span class="en">Active</span></h3>
+      <ul>
+        <li><strong>오픈 확인된 포트</strong>에 한해 기본·취약 크리덴셜 점검</li>
+        <li>SSH·DB(PostgreSQL·MySQL)·FTP·HTTP Basic·Redis·SMTP 등, 동시성 제한</li>
+        <li>산출: 취약·기본 크리덴셜 노출(서비스별)</li>
+      </ul>
+    </div>
+    <div>
+      <h3>위협 인텔리전스 <span class="en">Passive</span></h3>
+      <ul>
+        <li>OSINT 위협 인텔리전스 연계 — 위협 행위자 귀속, 표적 정보, 네트워크·호스트·해시 IOC 상관</li>
+        <li>신규 자산 발견보다 <strong>알려진 자산에 위협 맥락 부여</strong></li>
+      </ul>
+      <h3>다크웹 · 유출 수집 <span class="en">Passive CTI</span></h3>
+      <ul>
+        <li><strong>다크웹 크롤</strong> — Tor 기반 .onion 탐색, 랜섬웨어 유출 사이트 피해 목록, 페이스트 사이트 분류</li>
+        <li><strong>유출·침해 수집</strong> — 유출 계정·스틸러 로그, 코드 저장소 노출 시크릿, 침해 이메일</li>
+        <li>도메인 기준으로 고객 매칭 후 신뢰도 점수화·중복 제거</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><strong>발견 자산의 편입.</strong> 외부에서 발견된 노출 자산도 내부 6채널 결과와 동일하게 자산 지문으로 통합되고, CMDB 대사(그림 3)를 거쳐 소유자 확인·편입 또는 노출 차단·격리 조치로 이어진다. 재탐지는 도메인별 주기(스케줄러)로 자동 반복된다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">13</span></div>
+</div>
+
+<!-- ====== 14 · V. AI 기능 구성 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">05 · AI Intelligence</div>
+    <div class="sec-title">AI 기능 구성 <span class="sub">— 5대 기능</span></div>
+  </div>
+  <table>
+    <thead><tr><th style="width:19%">기능</th><th style="width:22%">적용 기술</th><th>동작</th></tr></thead>
+    <tbody>
+      <tr><td class="k">01 자산 자동분류·정규화</td><td>LLM 분류 · 규칙 하이브리드</td><td>스캔 배너·설치 SW 목록·모델명 문자열을 표준 자산 유형·제조사·모델로 자동 매핑 — 발견 자산의 수기 분류 작업 제거</td></tr>
+      <tr><td class="k">02 이상 자산 행위 탐지</td><td>비지도 이상탐지 (프로파일 기반)</td><td>자산별 평시 프로파일(트래픽·접속 시간대·설치 SW 변화) 대비 이탈 탐지 — 미인가 SW 설치, 휴면 자산의 갑작스런 활동, 서버의 비정상 외부 통신</td></tr>
+      <tr><td class="k">03 수명주기·교체수요 예측</td><td>생존 분석 · 회귀 모델</td><td>장애 이력·사용 연한·성능 데이터 기반 교체 시점 예측, 연간 교체수요·예산 추정 리포트</td></tr>
+      <tr><td class="k">04 취약점 노출 우선순위</td><td>스코어링 (자산 중요도 × 노출도)</td><td>발견된 노출 서비스·EOL OS·미패치 SW를 자산 중요도와 결합해 조치 우선순위 산출 — 취약점 스캐너 결과 연계 시 자산 컨텍스트 부여</td></tr>
+      <tr><td class="k">05 라이선스 최적화 제안</td><td>사용 패턴 분석</td><td>장기 미사용 라이선스 회수 후보, 중복 기능 SaaS 통합 후보, 갱신 협상 근거 데이터 제안</td></tr>
+    </tbody>
+  </table>
+  <div class="figure" style="margin-top:12px;">
+    <svg id="d3" viewBox="0 0 980 176" xmlns="http://www.w3.org/2000/svg">
+      <!-- data foundation -->
+      <rect x="0" y="18" width="192" height="112" fill="#f6f7f9"/>
+      <text x="16" y="42" font-size="9" font-weight="700" letter-spacing="1.4" fill="#1a56db">DATA</text>
+      <text x="16" y="62" font-size="12.5" font-weight="800" fill="#14181f">데이터 기반</text>
+      <text x="16" y="84" font-size="9.5" fill="#3d434d">자산 대장 · 발견 자산</text>
+      <text x="16" y="100" font-size="9.5" fill="#3d434d">수집 로그 · 변경 이력</text>
+      <text x="16" y="116" font-size="9.5" fill="#3d434d">계약 · 라이선스</text>
+      <path d="M192 74 h18" stroke="#aab0ba" stroke-width="1.2" fill="none"/><path d="M206 70 l5 4 l-5 4" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <!-- AI services -->
+      <rect x="222" y="18" width="386" height="112" fill="#eef3fc"/>
+      <text x="240" y="42" font-size="9" font-weight="700" letter-spacing="1.4" fill="#1a56db">AI SERVICES</text>
+      <text x="240" y="62" font-size="12.5" font-weight="800" fill="#14181f">AI 서비스 — 5대 기능</text>
+      <g font-size="9.5" font-weight="600" fill="#123a94">
+        <rect x="240" y="74" width="82" height="22" fill="#ffffff" stroke="#b9cdf2"/><text x="281" y="89" text-anchor="middle">자동분류</text>
+        <rect x="330" y="74" width="82" height="22" fill="#ffffff" stroke="#b9cdf2"/><text x="371" y="89" text-anchor="middle">이상탐지</text>
+        <rect x="420" y="74" width="82" height="22" fill="#ffffff" stroke="#b9cdf2"/><text x="461" y="89" text-anchor="middle">수명 예측</text>
+        <rect x="240" y="102" width="120" height="22" fill="#ffffff" stroke="#b9cdf2"/><text x="300" y="117" text-anchor="middle">취약점 우선순위</text>
+        <rect x="368" y="102" width="134" height="22" fill="#ffffff" stroke="#b9cdf2"/><text x="435" y="117" text-anchor="middle">라이선스 최적화</text>
+      </g>
+      <path d="M608 74 h18" stroke="#aab0ba" stroke-width="1.2" fill="none"/><path d="M622 70 l5 4 l-5 4" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <!-- human review -->
+      <rect x="638" y="18" width="164" height="112" fill="#f6f7f9"/>
+      <text x="654" y="42" font-size="9" font-weight="700" letter-spacing="1.4" fill="#1a56db">REVIEW</text>
+      <text x="654" y="62" font-size="12.5" font-weight="800" fill="#14181f">담당자 확인 · 결재</text>
+      <text x="654" y="84" font-size="9.5" fill="#3d434d">근거와 함께 제안 표시</text>
+      <text x="654" y="100" font-size="9.5" fill="#3d434d">승인 / 반려 판정</text>
+      <path d="M802 74 h18" stroke="#aab0ba" stroke-width="1.2" fill="none"/><path d="M816 70 l5 4 l-5 4" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <!-- action -->
+      <rect x="832" y="18" width="148" height="112" fill="#0c1424"/>
+      <text x="848" y="42" font-size="9" font-weight="700" letter-spacing="1.4" fill="rgba(255,255,255,0.55)">ACTION</text>
+      <text x="848" y="62" font-size="12.5" font-weight="800" fill="#ffffff">대장 반영 · 조치</text>
+      <text x="848" y="84" font-size="9.5" fill="rgba(255,255,255,0.72)">편입 · 격리 · 회수</text>
+      <text x="848" y="100" font-size="9.5" fill="rgba(255,255,255,0.72)">리포트 확정</text>
+      <!-- feedback loop -->
+      <path d="M720 130 V156 H415 V130" stroke="#1a56db" stroke-width="1.1" fill="none" stroke-dasharray="4 3"/>
+      <path d="M411 136 l4 -6 l4 6" fill="none" stroke="#1a56db" stroke-width="1.1"/>
+      <text x="567" y="150" font-size="9" fill="#1a56db" text-anchor="middle">판정 결과 환류 — 재학습 · 정확도 개선</text>
+    </svg>
+    <div class="fig-note">그림 4 — AI 제안·확인·환류 구조. AI 제안은 담당자 확인과 결재를 거쳐 반영되고, 승인·반려 결과는 재학습에 사용된다.</div>
+  </div>
+  <div class="callout"><strong>AI는 결정하지 않고 제안한다.</strong> 분류·이상 탐지·예측·우선순위 등 AI가 만든 결과는 판단 근거와 함께 담당자 화면에 제안 형태로 표시되고, 대장 반영이나 격리 같은 실제 조치는 담당자가 확인하고 결재해야 실행된다. 담당자의 승인·반려 결과는 다시 학습에 반영되어 시간이 지날수록 제안 정확도가 높아진다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">14</span></div>
+</div>
+
+<!-- ====== 12 · V. AI 어시스턴트 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">05 · AI Intelligence</div>
+    <div class="sec-title">AI 어시스턴트 · 리포트 자동화</div>
+  </div>
+  <div class="col-2 v-top">
+    <div>
+      <h3>자연어 자산 질의 <span class="en">RAG</span></h3>
+      <ul>
+        <li>자산 대장·발견 자산·계약·이력을 대상으로 <strong>자연어 질의</strong> — 결과는 화면 데이터와 동일한 권한 필터 적용</li>
+        <li>질의 예시:
+          <ul>
+            <li>"이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"</li>
+            <li>"내년 1분기 보증 만료되는 네트워크 장비 목록"</li>
+            <li>"A부서에서 쓰는 미인가 SaaS와 월 추정 사용자 수"</li>
+          </ul>
+        </li>
+        <li>응답에 <strong>근거 데이터 링크</strong>(해당 화면·레코드) 첨부 — 답변 검증 가능</li>
+      </ul>
+      <h3>리포트 자동 생성</h3>
+      <ul>
+        <li>주간 Shadow IT 발견 브리핑, 월간 자산 현황·라이선스 리포트 자동 작성(결재 첨부용 엑셀·문서)</li>
+        <li>재물조사 결과 요약, 감사 대응 자료 초안 생성</li>
+      </ul>
+    </div>
+    <div>
+      <h3>AI 실행 환경 옵션 <span class="en">Deployment</span></h3>
+      <table>
+        <thead><tr><th style="width:28%">옵션</th><th>구성</th></tr></thead>
+        <tbody>
+          <tr><td class="k">온프레미스 LLM</td><td>사내 GPU 서버에 오픈 모델 배치 — 자산 데이터 외부 반출 없음 (망분리 환경 기본안)</td></tr>
+          <tr><td class="k">외부 API 연계</td><td>비식별 처리 후 상용 LLM API 활용 — 보안성 검토 전제</td></tr>
+          <tr><td class="k">하이브리드</td><td>분류·질의는 온프레미스, 대량 배치 분석만 선별 외부 처리</td></tr>
+        </tbody>
+      </table>
+      <h3>AI 거버넌스</h3>
+      <ul>
+        <li>AI 제안·질의·응답 전체 <strong>감사 로그</strong> 보존</li>
+        <li>모델·프롬프트 버전 관리, 성능(분류 정확도) 정기 리포트</li>
+        <li>권한 밖 데이터는 질의 컨텍스트에서 원천 배제</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout"><strong>망분리 환경 기본 대응.</strong> AI 기능은 온프레미스 LLM 구성을 기본안으로 설계되어, 자산·구성 정보가 외부로 나가지 않는 조건에서 자연어 질의와 자동 분류를 제공한다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">15</span></div>
+</div>
+
+<!-- ====== 13 · VI. 연동 아키텍처 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">06 · Integration</div>
+    <div class="sec-title">시스템 연동 아키텍처</div>
+  </div>
+  <div class="figure">
+    <svg id="d4" viewBox="0 0 980 218" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="14" font-size="9" font-weight="700" letter-spacing="1.4" fill="#7d848f">COLLECT — API · LOG</text>
+      <!-- left sources -->
+      <g font-size="10.5" fill="#3d434d">
+        <rect x="0" y="24" width="188" height="30" fill="#f6f7f9"/><text x="12" y="44">NAC — 단말 인증 정보</text>
+        <rect x="0" y="60" width="188" height="30" fill="#f6f7f9"/><text x="12" y="80">EDR·백신 — SW 인벤토리</text>
+        <rect x="0" y="96" width="188" height="30" fill="#f6f7f9"/><text x="12" y="116">AD/Entra — 계정·OAuth 앱</text>
+        <rect x="0" y="132" width="188" height="30" fill="#f6f7f9"/><text x="12" y="152">프록시·방화벽·DNS 로그</text>
+        <rect x="0" y="168" width="188" height="30" fill="#f6f7f9"/><text x="12" y="188">CSP API — 클라우드 리소스</text>
+      </g>
+      <g stroke="#c6cad1" stroke-width="1" fill="none">
+        <path d="M188 39 H240 L330 96"/><path d="M188 75 H244 L332 102"/><path d="M188 111 H340"/>
+        <path d="M188 147 H244 L332 120"/><path d="M188 183 H240 L330 126"/>
+      </g>
+      <path d="M334 107 l6 4 l-6 4" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <!-- platform hub -->
+      <rect x="346" y="52" width="288" height="118" fill="#0c1424"/>
+      <text x="366" y="82" font-size="9" font-weight="700" letter-spacing="1.6" fill="rgba(255,255,255,0.55)">PLATFORM</text>
+      <text x="366" y="106" font-size="15" font-weight="800" fill="#ffffff">AI 자산관리 플랫폼</text>
+      <text x="366" y="128" font-size="9.5" fill="rgba(255,255,255,0.72)">Discovery 엔진 · CMDB 대사 · AI 서비스</text>
+      <text x="366" y="144" font-size="9.5" fill="rgba(255,255,255,0.72)">전자결재 워크플로 · 알림</text>
+      <!-- right actions -->
+      <text x="712" y="14" font-size="9" font-weight="700" letter-spacing="1.4" fill="#7d848f">ACT &amp; INTEGRATE</text>
+      <g stroke="#c6cad1" stroke-width="1" fill="none">
+        <path d="M634 84 L700 54 H744"/><path d="M634 111 H744"/><path d="M634 138 L700 168 H744"/>
+      </g>
+      <path d="M738 50 l6 4 l-6 4" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <path d="M738 107 l6 4 l-6 4" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <path d="M738 164 l6 4 l-6 4" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
+      <g font-size="10.5">
+        <rect x="748" y="39" width="232" height="30" fill="#eef3fc"/><text x="760" y="59" fill="#123a94" font-weight="700">NAC 격리 요청 — 미확인 자산 차단</text>
+        <rect x="748" y="96" width="232" height="30" fill="#f6f7f9"/><text x="760" y="116" fill="#3d434d">그룹웨어 — SSO · 결재 · 알림 메일</text>
+        <rect x="748" y="153" width="232" height="30" fill="#f6f7f9"/><text x="760" y="173" fill="#3d434d">ITSM·구매 — SR·발주 정보 연계</text>
+      </g>
+      <!-- bidirectional note -->
+      <path d="M94 198 V212 H862 V186" stroke="#1a56db" stroke-width="1" fill="none" stroke-dasharray="4 3" opacity="0.85"/>
+      <path d="M858 192 l4 -6 l4 6" fill="none" stroke="#1a56db" stroke-width="1"/>
+      <text x="478" y="209" font-size="9" fill="#1a56db" text-anchor="middle">NAC은 발견 소스이자 조치 채널 — 수집과 격리의 양방향 폐쇄 루프</text>
+    </svg>
+    <div class="fig-note">그림 5 — 시스템 연동 구성. 보안·인프라 시스템에서 수집(REST API · 로그 · DB)하고, 판정 결과를 조치 채널로 되돌려 보낸다.</div>
+  </div>
+  <table style="margin-top:10px;">
+    <thead><tr><th style="width:20%">연동 대상</th><th style="width:16%">방식</th><th>용도</th></tr></thead>
+    <tbody>
+      <tr><td class="k">NAC</td><td>REST API</td><td>단말 인증·미인증 목록 수집(발견 소스), 미확인 자산 격리 요청(조치 채널)</td></tr>
+      <tr><td class="k">EDR · 백신 콘솔</td><td>REST API</td><td>단말·설치 SW 인벤토리 수집 — 라이선스 대사·미인가 SW 검출 원천</td></tr>
+      <tr><td class="k">AD / Entra ID</td><td>API · 로그</td><td>계정-단말-부서 매핑, OAuth 앱·휴면 계정 발견, 소유자 확인 대상 판별</td></tr>
+      <tr><td class="k">프록시·방화벽·DNS</td><td>로그 수집</td><td>아웃바운드 도메인 → SaaS 카탈로그 매칭 (Shadow SaaS 발견)</td></tr>
+      <tr><td class="k">CSP (AWS·Azure 등)</td><td>CSP API</td><td>클라우드 리소스·계정 인벤토리 수집, 미관리 리소스 발견</td></tr>
+      <tr><td class="k">그룹웨어 · 인사</td><td>SAML · API</td><td>SSO 인증, 결재 연동, 조직·인사 정보 (소유자 확인 메일 발송 기준)</td></tr>
+      <tr><td class="k">ITSM · 구매</td><td>REST API</td><td>SR·발주 정보 연계 — 도입 예정 자산의 사전 등록</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><strong>발견과 조치의 양방향 연동.</strong> NAC에서 자산 정보를 수집하고, 판정 결과를 다시 NAC 격리로 되돌려 보내는 폐쇄 루프로 연동한다. 발견에 그치지 않고 수집한 정보를 실제 조치로 연결한다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">16</span></div>
+</div>
+
+<!-- ====== 14 · VII. 기술 스택 & 보안 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">07 · Technology &amp; Security</div>
+    <div class="sec-title">기술 스택 · 보안성 · 사양 요약</div>
+  </div>
+  <div class="col-2 v-top">
+    <div class="card">
+      <div class="card-kicker">Platform</div>
+      <h4>플랫폼 · 인프라</h4>
+      <ul>
+        <li><strong>배포</strong> — 사내 온프레미스 (웹 기반)</li>
+        <li><strong>DB</strong> — RDB (자산 대장) + 로그 스토어 (수집 데이터) 분리</li>
+        <li><strong>AI</strong> — 온프레미스 LLM · ML 파이프라인 (GPU 서버 옵션)</li>
+        <li><strong>수집</strong> — 커넥터 프레임워크 (REST · 로그 · DB · 스캐너)</li>
+        <li><strong>연동</strong> — SAML SSO · REST API</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-kicker">Security</div>
+      <h4>보안 · 컴플라이언스</h4>
+      <ul>
+        <li><strong>인증</strong> — SAML 기반 SSO</li>
+        <li><strong>접근통제</strong> — 메뉴·기능 권한관리 (AI 질의 포함)</li>
+        <li><strong>DB 암호화</strong> — 자격증명·민감 컬럼 암호화</li>
+        <li><strong>감사</strong> — 전자결재·자산 이력·AI 로그 추적성</li>
+        <li><strong>스캔 안전장치</strong> — 대역·시간대·강도 정책 통제</li>
+      </ul>
+    </div>
+  </div>
+  <div class="stat-row">
+    <div class="stat"><div class="st-v">8</div><div class="st-l">업무 도메인 (LV1)</div></div>
+    <div class="stat"><div class="st-v">6</div><div class="st-l">Discovery 탐지 채널</div></div>
+    <div class="stat"><div class="st-v">5</div><div class="st-l">AI 기능</div></div>
+    <div class="stat"><div class="st-v">4</div><div class="st-l">권한그룹</div></div>
+    <div class="stat"><div class="st-v">100%</div><div class="st-l">온프레미스 AI 옵션</div></div>
+  </div>
+  <div class="callout"><strong>대장 정합성과 변경 이력.</strong> 발견 → 소유자 확인 → 편입/격리 흐름과 수명주기 전 구간의 결재·이력을 통해, 대장과 실물의 차이를 줄이고 자산 변경을 추적할 수 있도록 돕는다. AI는 이렇게 쌓인 데이터를 활용해 분류·예측·질의를 자동화한다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">17</span></div>
+</div>
+
+</body>
+</html>
