@@ -147,6 +147,24 @@ try:
         st, _ = req("POST", f"/toolbox/packages/{pkg_id}/transition", A, {"status": to})
         assert st == 200, f"패키지 전이 실패 {to} -> {st}"
     active = {"packageCode": "ZSUPPKG"}
+    # ── 19.18: 게시 뒤 내용이 바뀐 패키지는 내보내지 못한다 (#61 이중 방어의 뒷단) ──
+    # 런타임 조회는 활성 패키지 체크섬을 매번 다시 계산해 intact:false 로 훼손을 알리는데,
+    # 정작 고객사로 내보내는 경로는 그 신호를 보지 않았다 — 경고만 하고 배포되면 경고가 아니다.
+    # 게시본은 API 로 못 바꾸므로(내용 불변) DB 에서 직접 흔들어 훼손 상태를 만든다.
+    _rt = [x for x in req("GET", "/toolbox/runtime", A)[1] if x["packageCode"] == "ZSUPPKG"]
+    ok(f"런타임에 활성 패키지 노출 ({len(_rt)})", len(_rt) == 1 and _rt[0]["intact"] is True)
+    psql(f"UPDATE tbx_package_item SET item_ref=item_ref||'_TAMPER' WHERE package_id={pkg_id}")
+    _rt2 = [x for x in req("GET", "/toolbox/runtime", A)[1] if x["packageCode"] == "ZSUPPKG"]
+    ok(f"★ 런타임이 훼손을 알린다 (intact={_rt2[0]['intact']})", _rt2[0]["intact"] is False)
+    st, b = req("POST", "/support/packages", A,
+                {"packageCode": "ZSUPPKG", "tenantCode": TC, "note": "훼손 상태 배포 시도"})
+    ok(f"★ 훼손된 패키지는 고객사로 배포 불가 ({st})",
+       st == 409 and "게시 당시와 다릅니다" in (b or {}).get("detail", ""))
+    psql(f"UPDATE tbx_package_item SET item_ref=replace(item_ref,'_TAMPER','') "
+         f"WHERE package_id={pkg_id}")
+    _rt3 = [x for x in req("GET", "/toolbox/runtime", A)[1] if x["packageCode"] == "ZSUPPKG"]
+    ok("원복 후 무결 (대조군)", _rt3[0]["intact"] is True)
+
     if True:
         st, sp = req("POST", "/support/packages", A,
                      {"packageCode": active["packageCode"], "tenantCode": TC, "note": "검증"})

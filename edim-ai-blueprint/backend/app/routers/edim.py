@@ -11843,6 +11843,17 @@ def support_package_create(request: Request, body: SupportPackageCreate) -> dict
             raise HTTPException(
                 422, detail=f"활성 게시본이 없습니다: {body.packageCode} — "
                             "게시(PUBLISHED)된 활성 버전만 고객사에 배포할 수 있습니다 (#69)")
+        # 19.18 — **게시 당시 내용과 같은지 확인하고 내보낸다.** 런타임 조회
+        # (`GET /toolbox/runtime`)는 활성 패키지의 체크섬을 매번 다시 계산해 `intact:false` 로
+        # 훼손을 알리는데, 정작 **고객사로 내보내는 경로는 그 신호를 보지 않았다** — 경고만
+        # 하고 배포는 그대로 되면 경고가 아니다(#61 이중 방어의 뒷단이 비어 있었다).
+        cur.execute("SELECT checksum FROM tbx_package WHERE package_id=%s", (pkg[0],))
+        _ck = (cur.fetchone() or [None])[0]
+        if _ck and _pkg_checksum(cur, pkg[0]) != _ck:
+            raise HTTPException(
+                409, detail=f"패키지 내용이 게시 당시와 다릅니다: {body.packageCode.strip().upper()} "
+                            f"v{pkg[1]} — 훼손·부분 수정 상태로는 배포할 수 없습니다 "
+                            "(새 버전으로 다시 게시하십시오 · #61/#69)")
         cur.execute("SELECT tenant_id FROM sys_tenant WHERE tenant_code=%s", (body.tenantCode.strip(),))
         t = cur.fetchone()
         if not t:
