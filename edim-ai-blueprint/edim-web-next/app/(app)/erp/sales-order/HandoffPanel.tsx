@@ -49,7 +49,7 @@ export function HandoffPanel({ rows, runs }: { rows: HandoffRow[]; runs: RunOpti
               <td className="c">{h.handoffId}</td>
               <td className="code">{h.projectNo}</td>
               {/* 트리아지 #38 — FG Code 는 표시용, 추적은 Snapshot ID (툴팁 병기) */}
-              <td className="code" title={`Config Snapshot #${h.configSnapshotId ?? '—'} · Run #${h.runId}`}>{h.finishedGoodsCode || '—'}</td>
+              <td className="code" title={`선택안 #${h.selectionId ?? '—'} · Run #${h.runId} · Snapshot ${h.snapshotCode || '미고정'}`}>{h.finishedGoodsCode || '—'}</td>
               <td className="c">#{h.runId}</td>
               <td className="c">v{h.version}</td>
               <td className="c">{h.grade ? <Chip tone={h.grade === 'pass' ? 'ok' : 'warn'}>{h.grade}</Chip> : '—'}</td>

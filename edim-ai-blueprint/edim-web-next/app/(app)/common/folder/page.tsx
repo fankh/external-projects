@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic'
 
 interface OutputPackage {
   packageId: number; at: string; outputCount: number; bomRows: number
-  finishedGoodsCode: string; configSnapshotId: number; handoffStatus: string | null
+  finishedGoodsCode: string; selectionId: number; configSnapshotId: number | null
+  handoffStatus: string | null
 }
 
 export default async function FolderPage({ searchParams }: { searchParams: Promise<{ project?: string; allRuns?: string }> }) {
@@ -61,7 +62,7 @@ export default async function FolderPage({ searchParams }: { searchParams: Promi
         <div data-output-packages style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '3px 8px', fontSize: 10.5, flexWrap: 'wrap', borderBottom: '1px solid var(--line)' }}>
           <b style={{ color: 'var(--title-navy)' }}>{tt('folder.pkgTitle', 'Output Package')}</b>
           {packages.slice(0, 5).map((p) => (
-            <span key={p.packageId} className="st" title={`Config Snapshot #${p.configSnapshotId} · BOM ${p.bomRows}행 · ${p.at}`}>
+            <span key={p.packageId} className="st" title={`${p.configSnapshotId ? `Config Snapshot #${p.configSnapshotId}` : 'Snapshot 미고정'} · 선택안 #${p.selectionId} · BOM ${p.bomRows}행 · ${p.at}`}>
               #{p.packageId} {p.finishedGoodsCode || '—'} · {tt('folder.pkgOutputs', '산출물')} {p.outputCount}
               {p.handoffStatus ? <b style={{ marginLeft: 3, color: p.handoffStatus === 'accepted' ? 'var(--run)' : 'var(--warn, #B4820B)' }}>{p.handoffStatus}</b> : null}
             </span>

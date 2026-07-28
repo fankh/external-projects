@@ -99,7 +99,17 @@ try:
 
     # 3) Output Package (#42)
     pkgs = req("GET", "/projects/PS-61313-5/output-packages")
-    ok(f"Output Package ({len(pkgs)}건)", len(pkgs) >= 1 and "configSnapshotId" in pkgs[0])
+    ok(f"Output Package ({len(pkgs)}건)", len(pkgs) >= 1 and "selectionId" in pkgs[0])
+    # 19.11 — `configSnapshotId` 는 **스냅샷 id 여야 한다**. 종전에는 이 이름으로 선택안 id 를
+    # 돌려주고 화면이 "Config Snapshot #123" 으로 보여 줬다 — 그 번호로 스냅샷을 찾으면 전혀
+    # 다른 것이 나온다(번호 체계가 다르다). 추적 화면에서 가리키는 번호가 가리키는 곳에
+    # 없으면 추적이 아니다. 값이 있으면 실제 스냅샷으로 해석되는지 확인한다.
+    snaps = {s["snapshotId"] for s in req("GET", "/snapshots?limit=200")}
+    linked = [p for p in pkgs if p.get("configSnapshotId")]
+    ok(f"Config Snapshot id 가 실재 스냅샷을 가리킨다 ({len(linked)}/{len(pkgs)}건 고정)",
+       all(p["configSnapshotId"] in snaps for p in linked))
+    ok("고정 안 된 Run 은 null 로 정직하게 (없는 번호를 만들지 않는다)",
+       all(p.get("configSnapshotId") is None for p in pkgs if p not in linked))
 
     # 4) Import dryRun (#32) — 미반영 보장
     grp = req("GET", "/codes/groups")[0]["groupCode"]

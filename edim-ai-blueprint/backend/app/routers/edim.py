@@ -16921,7 +16921,11 @@ def handoff_list(project: str = "") -> list[dict[str, Any]]:
                  "status": r[4], "grade": (r[5] or {}).get("grade"),
                  "checks": (r[5] or {}).get("checks", []),
                  "createdAt": r[6], "createdBy": r[7], "acceptedAt": r[8],
-                 "finishedGoodsCode": r[9] or "", "configSnapshotId": r[10],
+                 # 19.11 — 종전 이 자리는 `configSnapshotId` 라는 이름으로 **선택안 id**
+                 # (s.selection_id)를 돌려줬다. 화면은 그것을 "Config Snapshot #123" 으로
+                 # 보여 줬는데, 그 번호로 스냅샷을 찾으면 전혀 다른 것이 나온다(번호 체계가
+                 # 다르다). Handoff 의 진짜 동결 근거는 아래 snapshotId 다.
+                 "finishedGoodsCode": r[9] or "", "selectionId": r[10],
                  "snapshotId": r[11], "snapshotCode": r[12] or ""}
                 for r in cur.fetchall()]
 
@@ -17022,15 +17026,21 @@ def project_output_packages(project_no: str) -> list[dict[str, Any]]:
                       s.finished_goods_code, s.selection_id,
                       (SELECT h.status FROM erp_handoff h
                        WHERE h.tenant_id=r.tenant_id AND h.run_id=r.run_id
-                       ORDER BY h.handoff_id DESC LIMIT 1)
+                       ORDER BY h.handoff_id DESC LIMIT 1),
+                      -- 19.11 — 이 Run 의 **실제 동결 스냅샷**. 없으면 null 이고, 화면은
+                      -- '미고정' 으로 적는다. 없는 것을 있는 것처럼 번호로 보여 주지 않는다.
+                      (SELECT max(sn.snapshot_id) FROM sys_snapshot sn
+                       WHERE sn.tenant_id=r.tenant_id AND sn.snapshot_type='CPQ_RUN'
+                         AND sn.source_id=r.run_id)
                FROM cpq_run r
                JOIN cpq_selection s ON s.selection_id=r.selection_id
                JOIN prj_project p ON p.project_id=s.project_id
                WHERE r.tenant_id=%s AND p.project_no=%s AND r.status='SUCCESS' AND NOT r.is_test
                ORDER BY r.run_id DESC LIMIT 20""", (tid, project_no))
         return [{"packageId": r[0], "at": r[1], "outputCount": r[2], "bomRows": r[3],
-                 "finishedGoodsCode": r[4] or "", "configSnapshotId": r[5],
-                 "handoffStatus": r[6]} for r in cur.fetchall()]
+                 "finishedGoodsCode": r[4] or "", "selectionId": r[5],
+                 "handoffStatus": r[6], "configSnapshotId": r[7]}
+                for r in cur.fetchall()]
 
 
 @router.post("/erp/handoffs/{handoff_id}/accept", dependencies=[SETUP])

@@ -9,7 +9,9 @@ export interface HandoffRow {
   handoffId: number; projectNo: string; runId: number; version: number
   status: string; grade: string | null; checks: { check: string; grade: string; detail: string }[]
   createdAt: string; createdBy: string; acceptedAt: string | null
-  finishedGoodsCode: string; configSnapshotId: number | null
+  finishedGoodsCode: string; selectionId: number | null
+  // 19.11 — 동결 근거는 Snapshot 이다(선택안 id 가 아니라). 화면이 둘을 구분해 적는다.
+  snapshotId: number | null; snapshotCode: string
 }
 export interface RunOption { runId: number; startedAt: string }
 
