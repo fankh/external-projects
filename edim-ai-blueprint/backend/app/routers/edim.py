@@ -16833,7 +16833,7 @@ def handoff_create(request: Request, body: HandoffCreate) -> dict[str, Any]:
     with _conn() as conn, conn.cursor() as cur:
         tid = _tenant_id(cur)
         cur.execute(
-            """SELECT r.status, r.bom_snapshot, p.project_no
+            """SELECT r.status, r.bom_snapshot, p.project_no, COALESCE(r.is_test,false)
                FROM cpq_run r
                JOIN cpq_selection s ON s.selection_id=r.selection_id
                JOIN prj_project p ON p.project_id=s.project_id
@@ -16841,11 +16841,19 @@ def handoff_create(request: Request, body: HandoffCreate) -> dict[str, Any]:
         row = cur.fetchone()
         if not row:
             raise HTTPException(404, detail=f"run not found: {body.runId}")
-        status, bom, project_no = row
+        status, bom, project_no, is_test = row
         # Guard — 임시/실패 Run·빈 BOM 차단 (fail 등급)
         checks = []
         if status != "SUCCESS":
             checks.append({"check": "run", "grade": "fail", "detail": f"Run 상태 {status} — SUCCESS 만 Handoff 가능"})
+        # 19.13 — 이 주석은 처음부터 '임시 Run 차단' 이라고 적혀 있었지만 **is_test 를 읽지
+        # 않았다.** 테스트로 표시한 실행이 ERP 로 넘어가면 그쪽은 그것으로 작업지시·구매를
+        # 만든다 — 18.80 에서 같은 값을 근거로 '테스트 Run 산출물은 납품물에 담지 않는다' 고
+        # 정한 바로 그 자리다. 통계에서만 빼고 ERP 로는 넘기는 것은 앞뒤가 맞지 않는다.
+        if is_test:
+            checks.append({"check": "run", "grade": "fail",
+                           "detail": "테스트로 표시된 Run 입니다 — ERP 이관 대상이 아닙니다 "
+                                     "(정식 실행으로 다시 돌리십시오)"})
         bom_rows = len(bom or [])
         checks.append({"check": "bom", "grade": "pass" if bom_rows > 0 else "fail",
                        "detail": f"BOM Snapshot {bom_rows}행"})

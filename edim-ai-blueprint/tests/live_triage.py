@@ -82,6 +82,18 @@ try:
     ok(f"BOM Snapshot ({snap['count']}행)", snap["count"] > 0)
 
     # 2) Handoff 상태기계 (#44~47) — 생성→미승인 409→승인→수신, 재생성 v+1
+    # 19.13 — 먼저 **테스트 Run 은 ERP 로 넘어가지 않는지** 본다. 종전에는 이 스위트가
+    # 테스트 Run 으로 Handoff 를 만들고 그것을 정상으로 단언했다 — 제품의 가드가 없다는
+    # 사실을 검증이 굳히고 있었던 셈이다(18.80 은 같은 값을 근거로 납품물에서 제외한다).
+    try:
+        req("POST", "/erp/handoffs", {"runId": rid})
+        ok("★ 테스트 Run 은 Handoff 불가", False)
+    except urllib.error.HTTPError as e:
+        _msg = e.read().decode("utf-8", "replace")
+        ok(f"★ 테스트 Run 은 Handoff 불가 ({e.code})", e.code == 422 and "테스트" in _msg)
+    # 상태기계 자체는 정식 Run 으로 밟아야 의미가 있다 — 이 Run 을 실 실행으로 승격한다.
+    # (정리 단계에서 다시 테스트로 되돌려 통계·납품물에 섞이지 않게 한다)
+    psql(f"UPDATE cpq_run SET is_test=false WHERE run_id={rid}")
     h1 = req("POST", "/erp/handoffs", {"runId": rid})
     ok(f"Handoff 생성 v{h1['version']} ({h1['grade']})", h1["status"] == "approval_requested")
     try:
@@ -312,6 +324,10 @@ try:
             ok("코드 상세 다단계 역전개 섹션 (#34)", p.locator("[data-where-used-deep]").count() == 1)
         b.close()
 finally:
+    # 19.13 — 상태기계 검증을 위해 실 Run 으로 승격했던 것을 되돌린다. 되돌리지 않으면
+    # 이 Run 이 프로젝트의 '최신 SUCCESS Run' 이 되어 납품 패키지 내용이 바뀐다(18.77).
+    if rid:
+        psql(f"UPDATE cpq_run SET is_test=true WHERE run_id={rid}")
     psql("DELETE FROM sys_approval_request WHERE target_table='erp_handoff' AND comment LIKE '%ERP Handoff%'")
     psql("DELETE FROM erp_handoff")
     psql("DELETE FROM code_group WHERE group_code='ZTRIG'")

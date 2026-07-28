@@ -91,6 +91,9 @@ try:
        full2["payload"]["bomRows"] == s1["bomRows"] and full2["checksum"] == s1["checksum"])
 
     # 6) Handoff 자동 고정·연결 (요구: ERP 는 Snapshot 근거로 수신)
+    # 19.13 — 테스트 Run 은 ERP 이관 대상이 아니다. Snapshot 연결을 보려면 실 Run 이어야
+    # 하므로 승격 후 진행하고, 정리 단계에서 되돌린다.
+    psql(f"UPDATE cpq_run SET is_test=false WHERE run_id={rid}")
     h = req("POST", "/erp/handoffs", {"runId": rid})
     ok(f"Handoff 자동 Snapshot {h['snapshotCode']}", bool(h.get("snapshotId")))
     hl = next(x for x in req("GET", "/erp/handoffs") if x["handoffId"] == h["handoffId"])
@@ -105,6 +108,8 @@ try:
     except urllib.error.HTTPError as e:
         ok("미존재 Snapshot 404", e.code == 404)
 finally:
+    if rid:
+        psql(f"UPDATE cpq_run SET is_test=true WHERE run_id={rid}")
     psql("DELETE FROM sys_approval_request WHERE target_table='erp_handoff' AND comment LIKE '%ERP Handoff%'")
     psql("DELETE FROM erp_handoff")
     if rid:
