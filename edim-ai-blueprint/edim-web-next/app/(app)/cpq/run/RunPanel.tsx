@@ -7,7 +7,10 @@ import { useI18n } from '@/components/I18nProvider'
 import { startRun, pollRun, type RunResult, type RunStep, type RunOutput, type RunLogEntry } from './actions'
 import { CostPanel } from './CostPanel'
 
-export function RunPanel({ selectionId }: { selectionId?: number }) {
+interface LatestRun { runId: number; status: string; startedAt: string; isTest: boolean }
+
+export function RunPanel({ selectionId, autoStart = true, latest = null }:
+  { selectionId?: number; autoStart?: boolean; latest?: LatestRun | null }) {
   const { t } = useI18n()
   const STEP_CHIP: Record<RunStep['status'], { tone: 'ok' | 'warn' | 'info'; label: string } | null> = {
     PENDING: null, RUNNING: { tone: 'info', label: t('run.running', '실행 중') }, DONE: { tone: 'ok', label: t('enum.done', '완료') }, WARN: { tone: 'warn', label: 'warn 1' },
@@ -36,7 +39,10 @@ export function RunPanel({ selectionId }: { selectionId?: number }) {
     }
   }, [selectionId])
 
-  useEffect(() => { void start() }, [start])
+  // 19.16 — 'Run ▶' 으로 들어온 경우(selectionId 동반)에만 자동 시작한다. 메뉴로 화면을
+  // 열었을 뿐인데 파이프라인이 돌면, 원가·산출물이 생기고 프로젝트의 '최신 SUCCESS Run'
+  // 이 바뀌어 **고객 전달 패키지 내용까지 달라진다**(18.77·18.80).
+  useEffect(() => { if (autoStart) void start() }, [autoStart, start])
 
   const stepCols: GridColumn<RunStep>[] = [
     { key: 'no', header: t('run.step', '단계'), width: 30, align: 'center', render: (r) => r.no },
@@ -67,6 +73,17 @@ export function RunPanel({ selectionId }: { selectionId?: number }) {
 
   return (
     <div className="fill-col" style={{ padding: 6, gap: 6, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {!autoStart && !result ? (
+        <div className="gb" data-run-idle style={{ padding: 8, fontSize: 11, lineHeight: 1.8 }}>
+          {t('run.idleHint', '이 화면은 열기만 해서는 실행하지 않습니다 — 실행하면 산출물·원가가 생성되고 프로젝트의 최신 Run 이 바뀝니다.')}
+          {latest ? (
+            <div style={{ marginTop: 4, color: 'var(--txt-mute)' }}>
+              {t('run.latestRun', '최근 실행')} — Run #{latest.runId} · {latest.status} · {latest.startedAt}
+              {latest.isTest ? ' · TEST' : ''}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <b style={{ color: 'var(--title-navy)' }}>Run #{result?.runId ?? '—'} — AHU 5 (ALL)</b>
         {done ? <Chip tone="ok">SUCCESS</Chip> : result?.status === 'FAILED' ? <Chip tone="warn">FAILED</Chip> : <Chip tone="info">RUNNING</Chip>}
@@ -74,7 +91,7 @@ export function RunPanel({ selectionId }: { selectionId?: number }) {
           <div className="fill" style={{ width: `${pct}%` }} />
           <span className="pct">{pct}%</span>
         </div>
-        <button className="b" disabled={busy} onClick={() => void start()} style={{ height: 20, fontSize: 11 }}>{t('run.rerunF5', '재실행')}</button>
+        <button className="b run" disabled={busy} data-run-start onClick={() => void start()} style={{ height: 20, fontSize: 11 }}>{result ? t('run.rerunF5', '재실행') : t('run.startNow', '실행 ▶')}</button>
       </div>
       {err ? <div style={{ padding: 8, fontSize: 11, color: 'var(--err)' }}>실행 오류 — {err}</div> : null}
       <DenseGrid columns={stepCols} rows={result?.steps ?? []} rowKey={(r) => r.no} />
