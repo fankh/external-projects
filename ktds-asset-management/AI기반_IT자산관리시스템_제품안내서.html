@@ -21,14 +21,15 @@
   }
   .slide {
     width: 338.67mm; height: 190.5mm; overflow: hidden;
-    background: #fff; margin: 10px auto; padding: 12mm 20mm 11mm 20mm;
+    background: #fff; margin: 10px auto; padding: 0;
     position: relative; box-shadow: 0 2px 12px rgba(0,0,0,0.12);
     page-break-after: always; break-after: page;
-    display: flex; flex-direction: column;
   }
-  .slide-body { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-start; }
+  /* content region: fixed box, clips if overflowed — footer never entered */
+  .slide-body { position: absolute; top: 11mm; left: 20mm; right: 20mm; bottom: 12mm; overflow: hidden; }
+  /* footer: pinned to identical position on every slide */
   .slide-footer {
-    flex: 0 0 auto; margin-top: auto; padding-top: 8px;
+    position: absolute; left: 20mm; right: 20mm; bottom: 6.5mm; padding-top: 5px;
     display: flex; justify-content: space-between; align-items: baseline;
     font-size: 7pt; color: var(--muted); letter-spacing: 0.08em;
     border-top: 1px solid var(--hairline);
@@ -165,7 +166,7 @@
   <div class="cover-mid">
     <div class="cover-doc-type">Technical Product Guide</div>
     <h1>AI 기반 IT 자산관리 시스템</h1>
-    <p class="cover-sub">자산 수명주기 관리, Shadow IT Discovery, AI 자산 인텔리전스를 단일 플랫폼으로 통합한다.
+    <p class="cover-sub">자산 수명주기 관리, Shadow IT Discovery, AI 자산 인텔리전스를 단일 플랫폼으로 통합합니다.
     관리 대장에 있는 자산을 관리하는 것을 넘어, 발견되지 않은 자산을 찾아 대장에 편입시키는 것까지를 관리 범위로 하는 차세대 ITAM 플랫폼 기술 안내서.</p>
     <div class="cover-rule"></div>
     <div class="cover-scope">
@@ -205,7 +206,7 @@
       <div class="toc-item"><span class="tn">07</span><span><span class="tt">기술 스택 &amp; 보안</span><span class="td">기술 스택 · 보안성 · 사양 요약</span></span></div>
     </div>
   </div>
-  <div class="callout">본 안내서는 검증된 전사 IT 관리 플랫폼 구축 사례를 기반으로 고객사 환경에 맞춘 <strong>기술 구성</strong>을 기술한다. 자산관리·Discovery·AI 전 모듈은 공통 <strong>전자결재</strong>와 <strong>메뉴·기능 권한관리</strong> 기반 위에서 동작하며, Shadow IT 발견부터 정식 자산 편입까지 단일 플랫폼에서 처리된다.</div>
+  <div class="callout">본 안내서는 검증된 전사 IT 관리 플랫폼 구축 사례를 기반으로 고객사 환경에 맞춘 <strong>기술 구성</strong>을 기술합니다. 자산관리·Discovery·AI 전 모듈은 공통 <strong>전자결재</strong>와 <strong>메뉴·기능 권한관리</strong> 기반 위에서 동작하며, Shadow IT 발견부터 정식 자산 편입까지 단일 플랫폼에서 처리됩니다.</div>
  </div>
  <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">02</span></div>
 </div>
@@ -217,7 +218,7 @@
     <div class="sec-kicker">01 · Platform Overview</div>
     <div class="sec-title">AI 기반 자산관리 통합 플랫폼</div>
   </div>
-  <p class="lede">IT 자산의 도입·운영·폐기 전 수명주기와 미등록 자산(Shadow IT)의 자동 발견, AI 기반 분석을 <strong>단일 플랫폼</strong>에서 처리한다. 관리 대장에 있는 자산만 관리하는 기존 ITAM과 달리, <strong>"발견되지 않은 자산"을 찾아 대장에 편입시키는 것</strong>까지를 관리 범위로 한다.</p>
+  <p class="lede">IT 자산의 도입·운영·폐기 전 수명주기와 미등록 자산(Shadow IT)의 자동 발견, AI 기반 분석을 <strong>단일 플랫폼</strong>에서 처리합니다. 관리 대장에 있는 자산만 관리하는 기존 ITAM과 달리, <strong>"발견되지 않은 자산"을 찾아 대장에 편입시키는 것</strong>까지를 관리 범위로 합니다.</p>
   <div class="col-3" style="margin-top:12px;">
     <div class="card"><div class="card-kicker">Module 1</div><h4>자산관리 (ITAM)</h4><ul><li>자산 대장 · 수명주기(도입~폐기)</li><li>재고 · 재물조사 · 이동/불출</li><li>계약 · 유지보수 · 만료 알림</li><li>SW 라이선스 컴플라이언스</li></ul></div>
     <div class="card"><div class="card-kicker">Module 2</div><h4>Shadow IT Discovery</h4><ul><li>6종 탐지 채널 자동 수집</li><li>자산 지문 기반 중복 제거</li><li>CMDB 자동 대사(등록/미등록)</li><li>소유자 확인 → 편입/격리 워크플로</li></ul></div>
@@ -233,7 +234,7 @@
       <tr><td class="k">Admin</td><td>사용자·권한·메뉴·공통코드·탐지 채널·AI 정책 등 시스템 전반 관리</td></tr>
     </tbody>
   </table>
-  <div class="callout"><strong>설계 원칙 — 발견에서 편입까지.</strong> 대장에 등록된 자산만 관리하면 사각지대가 생기기 쉽다. 스캔·로그·API로 자산을 상시 발견하고, 발견 자산이 소유자 확인과 결재를 거쳐 대장에 편입되거나 격리되도록 하는 폐쇄 루프를 제공한다.</div>
+  <div class="callout"><strong>설계 원칙 — 발견에서 편입까지.</strong> 대장에 등록된 자산만 관리하면 사각지대가 생기기 쉽다. 스캔·로그·API로 자산을 상시 발견하고, 발견 자산이 소유자 확인과 결재를 거쳐 대장에 편입되거나 격리되도록 하는 폐쇄 루프를 제공합니다.</div>
  </div>
  <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">03</span></div>
 </div>
@@ -304,12 +305,10 @@
       <text x="18" y="184" font-size="9" font-weight="700" letter-spacing="1.6" fill="#1a56db">COLLECTION &amp; INTEGRATION</text>
       <text x="18" y="203" font-size="14.5" font-weight="800" fill="#14181f">수집·연동 계층</text>
       <g font-size="11" font-weight="600" fill="#123a94">
-        <rect x="200" y="178" width="118" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="259" y="195" text-anchor="middle">네트워크 스캐너</text>
-        <rect x="326" y="178" width="112" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="382" y="195" text-anchor="middle">NAC · EDR API</text>
-        <rect x="446" y="178" width="146" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="519" y="195" text-anchor="middle">AD/Entra · SSO 로그</text>
-        <rect x="600" y="178" width="160" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="680" y="195" text-anchor="middle">프록시·방화벽·DNS 로그</text>
-        <rect x="768" y="178" width="76" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="806" y="195" text-anchor="middle">CSP API</text>
-        <rect x="852" y="178" width="118" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="911" y="195" text-anchor="middle">그룹웨어·인사</text>
+        <rect x="200" y="178" width="176" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="288" y="195" text-anchor="middle">능동·패시브 스캐너</text>
+        <rect x="392" y="178" width="160" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="472" y="195" text-anchor="middle">보안 시스템 커넥터</text>
+        <rect x="568" y="178" width="176" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="656" y="195" text-anchor="middle">클라우드·IdP 커넥터</text>
+        <rect x="760" y="178" width="150" height="26" fill="#ffffff" stroke="#b9cdf2"/><text x="835" y="195" text-anchor="middle">사내 시스템 연동</text>
       </g>
       <path d="M490 222 v10" stroke="#aab0ba" stroke-width="1.2"/><path d="M486 230 l4 5 l4 -5" fill="none" stroke="#aab0ba" stroke-width="1.2"/>
       <!-- Layer 4: Data -->
@@ -323,9 +322,22 @@
         <rect x="632" y="258" width="146" height="26" fill="#ffffff" stroke="#d9dce1"/><text x="705" y="275" text-anchor="middle">AI 모델·벡터 인덱스</text>
       </g>
     </svg>
-    <div class="fig-note">그림 1 — AI 자산관리 플랫폼 4-Tier 아키텍처. 강조 표시된 수집·연동 계층이 기존 3-Tier ITAM에 추가된 구조다.</div>
+    <div class="fig-note">그림 1 — AI 자산관리 플랫폼 4-Tier 아키텍처. 강조 표시된 수집·연동 계층이 기존 3-Tier ITAM에 추가된 구조입니다. 개별 연동 대상 시스템은 「VI. 연동 아키텍처」에서 다룹니다.</div>
   </div>
-  <h3 style="margin-top:14px;">계층별 책임 <span class="en">Layer Responsibilities</span></h3>
+  <div class="callout"><strong>3-Tier에 수집 계층을 더한 구조.</strong> 일반적인 3-Tier(사용자·애플리케이션·데이터)에 수집·연동 계층을 추가해, 관리 대장 밖의 자산까지 상시 발견하는 것이 이 플랫폼의 구조적 특징입니다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">05</span></div>
+</div>
+
+<!-- ====== 5b · II. 계층별 책임 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">02 · Platform Architecture</div>
+    <div class="sec-title">4-Tier 시스템 구성 <span class="sub">— 계층별 책임</span></div>
+  </div>
+  <p class="lede">네 개 계층은 각자의 책임만 담당하도록 분리되어 있습니다. 특히 데이터 계층은 검증된 자산 대장(CMDB)과 발견 저장소를 나눠 관리합니다.</p>
+  <h3 style="margin-top:8px;">계층별 책임 <span class="en">Layer Responsibilities</span></h3>
   <table>
     <thead><tr><th style="width:18%">계층</th><th>구성 · 책임</th></tr></thead>
     <tbody>
@@ -335,8 +347,9 @@
       <tr><td class="k">데이터 계층</td><td>자산 대장(CMDB)과 발견 저장소 분리 — 검증된 자산만 대장 편입, 원천 로그는 증적 보존</td></tr>
     </tbody>
   </table>
+  <div class="callout"><strong>수집 계층 분리의 이점.</strong> 기존 보안·인프라 시스템의 API·로그만으로 자산을 발견하므로 신규 에이전트 배포 없이 도입을 시작할 수 있고, 검증된 자산만 대장에 편입되어 대장의 정확도를 지킬 수 있습니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">05</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">06</span></div>
 </div>
 
 <!-- ====== 6 · II. 배치 구성도 ====== -->
@@ -431,11 +444,11 @@
       <!-- watermark caption -->
       <text x="482" y="436" font-size="8.5" fill="#aab0ba" text-anchor="middle">— 논리 구성도이며 서버 수량·세그먼트는 고객사 규모와 망 정책에 따라 통합·분리 —</text>
     </svg>
-    <div class="fig-note">그림 2 — 온프레미스 배치 구성. 전 구성요소가 사내에 배치되며, 외부 구간은 선택 구성인 CSP API 아웃바운드 수집뿐이다.</div>
+    <div class="fig-note">그림 2 — 온프레미스 배치 구성. 전 구성요소가 사내에 배치되며, 외부 구간은 선택 구성인 CSP API 아웃바운드 수집뿐입니다.</div>
   </div>
-  <div class="callout"><strong>망분리 환경 기본 대응.</strong> 웹/WAS · Discovery · AI(GPU) · DB 4개 역할 기준 구성으로, 소규모는 통합 배치, 대규모는 역할별 분리·이중화로 확장한다. AI 서버까지 온프레미스에 두면 자산·구성 정보가 외부로 나가는 구간이 없다.</div>
+  <div class="callout"><strong>망분리 환경 기본 대응.</strong> 웹/WAS · Discovery · AI(GPU) · DB 4개 역할 기준 구성으로, 소규모는 통합 배치, 대규모는 역할별 분리·이중화로 확장합니다. AI 서버까지 온프레미스에 두면 자산·구성 정보가 외부로 나가는 구간이 없습니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">06</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">07</span></div>
 </div>
 
 <!-- ====== 7 · II. 권한 모델 ====== -->
@@ -476,9 +489,9 @@
       </ul>
     </div>
   </div>
-  <div class="callout"><strong>화면·기능 단위 최소권한.</strong> 사용자에게는 매핑된 메뉴·기능만 노출되며, AI 질의를 포함한 모든 데이터 접근이 동일한 권한 모델을 통과한다. 조회는 가능하되 편입·격리·폐기·결재는 권한이 있는 역할에만 허용된다.</div>
+  <div class="callout"><strong>화면·기능 단위 최소권한.</strong> 사용자에게는 매핑된 메뉴·기능만 노출되며, AI 질의를 포함한 모든 데이터 접근이 동일한 권한 모델을 통과합니다. 조회는 가능하되 편입·격리·폐기·결재는 권한이 있는 역할에만 허용됩니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">07</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">08</span></div>
 </div>
 
 <!-- ====== 7 · III. 자산 수명주기 ====== -->
@@ -507,9 +520,9 @@
       <tr><td class="k">변경 이력</td><td>자산별 전체 이력 타임라인 — 등록·이동·구성변경·점검·폐기까지 단일 화면 추적</td></tr>
     </tbody>
   </table>
-  <div class="callout"><strong>변경 이력 관리.</strong> 소유자·위치·구성의 변경은 신청·결재를 통해 반영되어 대장과 실물의 불일치를 줄이고, Discovery 대사 시 기준 데이터로 사용된다.</div>
+  <div class="callout"><strong>변경 이력 관리.</strong> 소유자·위치·구성의 변경은 신청·결재를 통해 반영되어 대장과 실물의 불일치를 줄이고, Discovery 대사 시 기준 데이터로 사용됩니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">08</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">09</span></div>
 </div>
 
 <!-- ====== 8 · III. 재고·계약·라이선스 ====== -->
@@ -551,9 +564,9 @@
     <div class="step hl"><div class="st-num">STEP 3</div><div class="st-title">보유–사용 대사</div><div class="st-desc">초과 사용 · 미사용 검출</div></div>
     <div class="step"><div class="st-num">STEP 4</div><div class="st-title">조치</div><div class="st-desc">추가 구매 품의 · 회수</div></div>
   </div>
-  <div class="callout"><strong>라이선스 리스크 양방향 관리.</strong> 초과 사용(감사 리스크)과 미사용 보유(비용 낭비)를 동시에 검출한다. 미인가 SW 설치는 Discovery 모듈의 정책 위반 항목으로 연계되어 보안담당에게 통보된다.</div>
+  <div class="callout"><strong>라이선스 리스크 양방향 관리.</strong> 초과 사용(감사 리스크)과 미사용 보유(비용 낭비)를 동시에 검출합니다. 미인가 SW 설치는 Discovery 모듈의 정책 위반 항목으로 연계되어 보안담당에게 통보됩니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">09</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">10</span></div>
 </div>
 
 <!-- ====== 9 · IV. Discovery 탐지 채널 ====== -->
@@ -563,7 +576,7 @@
     <div class="sec-kicker">04 · Shadow IT Discovery</div>
     <div class="sec-title">탐지 채널 아키텍처 <span class="sub">— 6종 병렬 수집</span></div>
   </div>
-  <p class="lede">단일 스캔 방식으로는 Shadow IT를 다 찾을 수 없다. <strong>서로 다른 사각지대를 커버하는 6종 채널</strong>을 병렬 수집하고, 결과를 자산 지문으로 통합한다.</p>
+  <p class="lede">단일 스캔 방식으로는 Shadow IT를 다 찾을 수 없습니다. <strong>서로 다른 사각지대를 커버하는 6종 채널</strong>을 병렬 수집하고, 결과를 자산 지문으로 통합합니다.</p>
   <table style="margin-top:10px;">
     <thead><tr><th style="width:18%">채널</th><th style="width:25%">발견 대상</th><th style="width:32%">방식</th><th>비고</th></tr></thead>
     <tbody>
@@ -575,9 +588,9 @@
       <tr><td class="k">06 AD/IdP·SSO 로그</td><td>미인가 앱 OAuth 연동, 휴면 계정</td><td>AD/Entra ID 로그, SSO 앱 카탈로그 대조</td><td>계정 기반 Shadow IT</td></tr>
     </tbody>
   </table>
-  <div class="callout"><strong>기존 인프라 재활용 우선.</strong> NAC·EDR·프록시·AD 등 이미 보유한 시스템의 데이터를 커넥터로 수집하는 것을 기본으로 하여, 도입 초기부터 에이전트 추가 배포 없이 가시성을 확보한다. 능동 스캔은 정책 협의 후 단계적으로 확대한다.</div>
+  <div class="callout"><strong>기존 인프라 재활용 우선.</strong> NAC·EDR·프록시·AD 등 이미 보유한 시스템의 데이터를 커넥터로 수집하는 것을 기본으로 하여, 도입 초기부터 에이전트 추가 배포 없이 가시성을 확보합니다. 능동 스캔은 정책 협의 후 단계적으로 확대합니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">10</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">11</span></div>
 </div>
 
 <!-- ====== 10 · IV. Discovery 대사·워크플로 ====== -->
@@ -585,10 +598,9 @@
  <div class="slide-body">
   <div class="sec">
     <div class="sec-kicker">04 · Shadow IT Discovery</div>
-    <div class="sec-title">CMDB 대사 · 처리 워크플로</div>
+    <div class="sec-title">CMDB 대사 · 처리 워크플로 <span class="sub">— 발견 → 편입 폐쇄 루프</span></div>
   </div>
-  <h3>발견 → 편입 폐쇄 루프 <span class="en">Closed Loop</span></h3>
-  <div class="figure">
+  <div class="figure" style="margin-top:6px;">
     <svg id="d2" viewBox="0 0 980 226" xmlns="http://www.w3.org/2000/svg">
       <!-- 6 channels -->
       <text x="0" y="14" font-size="9" font-weight="700" letter-spacing="1.4" fill="#7d848f">SOURCES — 6 CHANNELS</text>
@@ -647,9 +659,22 @@
       <path d="M874 146 V182" stroke="#7d848f" stroke-width="1" stroke-dasharray="4 3" fill="none"/>
       <path d="M870 178 l4 6 l4 -6" fill="none" stroke="#7d848f" stroke-width="1"/>
     </svg>
-    <div class="fig-note">그림 3 — Shadow IT 발견 → 편입 폐쇄 루프. 대사는 자산 대장을 기준 데이터로 참조하고, 편입 결과가 다시 대장으로 환류된다.</div>
+    <div class="fig-note">그림 3 — Shadow IT 발견 → 편입 폐쇄 루프. 대사는 자산 대장을 기준 데이터로 참조하고, 편입 결과가 다시 대장으로 환류됩니다.</div>
   </div>
-  <h3 style="margin-top:14px;">대사 결과별 처리 <span class="en">Reconciliation Outcomes</span></h3>
+  <div class="callout"><strong>대장을 기준으로 순환.</strong> 여섯 채널로 수집한 자산은 자산 지문으로 병합된 뒤 자산 대장과 대사되고, 소유자 확인·결재를 거친 편입 결과가 다시 대장으로 환류됩니다. 확인되지 않은 자산은 NAC 격리 요청으로 이어집니다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">12</span></div>
+</div>
+
+<!-- ====== 11b · IV. Discovery 대사 결과별 처리 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">04 · Shadow IT Discovery</div>
+    <div class="sec-title">CMDB 대사 · 처리 워크플로 <span class="sub">— 대사 결과별 처리</span></div>
+  </div>
+  <p class="lede">발견 자산을 자산 대장과 대사한 결과는 네 가지 상태로 나뉘며, 상태별로 후속 처리가 자동 연결됩니다.</p>
+  <h3 style="margin-top:8px;">대사 결과별 처리 <span class="en">Reconciliation Outcomes</span></h3>
   <table>
     <thead><tr><th style="width:19%">대사 결과</th><th style="width:36%">의미</th><th>처리</th></tr></thead>
     <tbody>
@@ -660,11 +685,11 @@
     </tbody>
   </table>
   <div class="col-2 v-top">
-    <div class="callout" style="margin-top:8px;"><strong>미확인 소유자 정책.</strong> 확인 요청에 기한 내 응답이 없는 발견 자산은 정책에 따라 보안담당 검토 → NAC 격리 요청으로 자동 에스컬레이션된다.</div>
-    <div class="callout" style="margin-top:8px;"><strong>편입도 결재로.</strong> 발견 자산의 대장 편입은 자산 등록 결재를 통과해야 하며, 편입 시 발견 이력(최초 발견 채널·일시)이 자산 이력에 승계된다.</div>
+    <div class="callout"><strong>미확인 소유자 정책.</strong> 확인 요청에 기한 내 응답이 없는 발견 자산은 정책에 따라 보안담당 검토 → NAC 격리 요청으로 자동 에스컬레이션됩니다.</div>
+    <div class="callout"><strong>편입도 결재로.</strong> 발견 자산의 대장 편입은 자산 등록 결재를 통과해야 하며, 편입 시 발견 이력(최초 발견 채널·일시)이 자산 이력에 승계됩니다.</div>
   </div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">11</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">13</span></div>
 </div>
 
 <!-- ====== 12 · IV. 외부 공격표면 탐지 (1) ====== -->
@@ -674,30 +699,12 @@
     <div class="sec-kicker">04 · Shadow IT Discovery</div>
     <div class="sec-title">외부 공격표면 탐지 <span class="sub">— 조직 밖으로 노출된 미인지 자산</span></div>
   </div>
-  <p class="lede">앞의 6종 채널이 사내망 자산을 찾는다면, 외부 공격표면 탐지는 <strong>조직 도메인에서 외부로 노출된 미인지 자산</strong>(잊힌 서브도메인, 방치된 서버, 노출된 관리 콘솔, 유출 계정 등)을 조직 외부의 관점에서 발견한다. 인터넷에 공개된 정보만으로 수집하는 <strong>수동(Passive)</strong> 방식과 대상에 직접 접속·질의하는 <strong>능동(Active)</strong> 방식을 조합한다.</p>
-  <div class="col-2 v-top" style="margin-top:12px;">
-    <div class="card">
-      <div class="card-kicker">Passive</div>
-      <h4>수동 — 대상 인프라에 접촉하지 않음</h4>
-      <ul>
-        <li>인증서 투명성(CT) 로그 · 웹 아카이브</li>
-        <li>검색엔진 도킹 · DNS 인텔리전스</li>
-        <li>위협 인텔리전스(OSINT·IOC) 상관</li>
-        <li>다크웹 크롤 · 유출/침해 데이터 수집</li>
-      </ul>
-    </div>
-    <div class="card">
-      <div class="card-kicker">Active</div>
-      <h4>능동 — 대상에 직접 질의·접속</h4>
-      <ul>
-        <li>DNS 브루트포스 · 순열 · 레코드 질의 · 존 트랜스퍼</li>
-        <li>역DNS · CIDR 대역 스캔</li>
-        <li>포트·서비스·취약점(CVE) 스캔</li>
-        <li>기본·취약 크리덴셜 점검</li>
-      </ul>
-    </div>
+  <p class="lede">앞의 6종 채널이 사내망 자산을 찾는다면, 외부 공격표면 탐지는 <strong>조직 도메인에서 외부로 노출된 미인지 자산</strong>(잊힌 서브도메인, 방치된 서버, 노출된 관리 콘솔, 유출 계정 등)을 조직 외부의 관점에서 발견합니다. 인터넷에 공개된 정보만으로 수집하는 <strong>수동(Passive)</strong> 방식과 대상에 직접 접속·질의하는 <strong>능동(Active)</strong> 방식을 조합합니다.</p>
+  <div class="col-2 v-top" style="margin-top:10px;">
+    <div><span class="chip a">Passive</span> 인터넷 공개 정보만 수집 — 대상 무접촉 (CT·아카이브·검색엔진·DNS 인텔리전스, 위협 인텔·다크웹·유출 수집)</div>
+    <div><span class="chip a">Active</span> 대상에 직접 질의·접속 (DNS 브루트포스·순열·존 트랜스퍼, 역DNS·CIDR, 포트·취약점 스캔, 크리덴셜 점검)</div>
   </div>
-  <h3>수동 외부 수집 <span class="en">Passive Collection</span></h3>
+  <h3 style="margin-top:12px;">수동 외부 수집 <span class="en">Passive Collection</span></h3>
   <table>
     <thead><tr><th style="width:20%">방법</th><th style="width:44%">기법</th><th>데이터 소스 · 산출</th></tr></thead>
     <tbody>
@@ -707,9 +714,9 @@
       <tr><td class="k">DNS 인텔리전스</td><td>외부 DNS 인텔리전스 서비스에서 알려진 서브도메인·레코드 조회</td><td>서브도메인·DNS 레코드</td></tr>
     </tbody>
   </table>
-  <div class="callout"><strong>수동 우선 원칙.</strong> 대상에 흔적을 남기지 않는 수동 수집으로 먼저 자산 후보를 넓게 확보한 뒤, 능동 탐지로 생존·서비스·취약점을 확인한다. 능동 스캔은 대상·강도·시간대 정책 협의 후 수행한다.</div>
+  <div class="callout"><strong>수동 우선.</strong> 대상에 흔적을 남기지 않는 수동 수집으로 자산 후보를 넓게 확보한 뒤, 다음 단계의 능동 탐지로 생존·서비스·취약점을 확인합니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">12</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">14</span></div>
 </div>
 
 <!-- ====== 13 · IV. 외부 공격표면 탐지 (2) ====== -->
@@ -717,10 +724,10 @@
  <div class="slide-body">
   <div class="sec">
     <div class="sec-kicker">04 · Shadow IT Discovery</div>
-    <div class="sec-title">외부 공격표면 탐지 <span class="sub">— 능동 탐지 · 위협 인텔리전스</span></div>
+    <div class="sec-title">외부 공격표면 탐지 <span class="sub">— DNS 기반 능동 탐지</span></div>
   </div>
   <h3 style="margin-top:6px;">DNS 기반 능동 탐지 <span class="en">Active DNS</span></h3>
-  <p style="font-size:9.5pt; margin:4px 0;">다수의 공개 리졸버 풀을 라운드로빈하는 대량 병렬 질의로 가장 넓은 발견 표면을 만든다. 브루트포스 → 순열 생성 → 대량 브루트포스 → 존 트랜스퍼 → 레코드 분석을 파이프라인으로 연결한다.</p>
+  <p style="font-size:9.5pt; margin:4px 0;">다수의 공개 리졸버 풀을 라운드로빈하는 대량 병렬 질의로 가장 넓은 발견 표면을 만듭니다. 브루트포스 → 순열 생성 → 대량 브루트포스 → 존 트랜스퍼 → 레코드 분석을 파이프라인으로 연결합니다.</p>
   <table>
     <thead><tr><th style="width:24%">방법</th><th>기법 · 산출</th></tr></thead>
     <tbody>
@@ -730,9 +737,21 @@
       <tr><td class="k">존 트랜스퍼 · 레코드 분석</td><td>네임서버 확인 후 AXFR 시도, 거부 시 A/AAAA/CNAME/MX/NS/TXT/SRV·SOA·CAA 질의로 대체. 레코드 값에 포함된 범위 내 호스트명 추출. 와일드카드 DNS 탐지로 오탐 억제</td></tr>
     </tbody>
   </table>
-  <div class="col-2 v-top" style="margin-top:4px;">
+  <div class="callout"><strong>수동 우선, 능동 확인.</strong> DNS 인텔리전스로 자산 후보를 넓게 확보한 뒤, 브루트포스·순열·존 트랜스퍼로 실제 생존 여부를 확인합니다. 능동 스캔은 대상·강도·시간대 정책 협의 후 수행합니다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">15</span></div>
+</div>
+
+<!-- ====== 14b · IV. 외부 공격표면 탐지 (3) ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">04 · Shadow IT Discovery</div>
+    <div class="sec-title">외부 공격표면 탐지 <span class="sub">— 능동 스캔 · 위협 인텔리전스</span></div>
+  </div>
+  <div class="col-2 v-top" style="margin-top:6px;">
     <div>
-      <h3>포트·서비스·취약점 스캔 <span class="en">Active</span></h3>
+      <h3 style="margin-top:0;">포트·서비스·취약점 스캔 <span class="en">Active</span></h3>
       <ul>
         <li><strong>2단계 스캔</strong> — 고속 오픈 포트 스윕 → 서비스·버전 정밀 분석</li>
         <li>서비스·제품·버전 핑거프린트, 취약점 스크립트로 <strong>CVE·CVSS·심각도</strong> 추출(버전 휴리스틱 보완)</li>
@@ -759,9 +778,9 @@
       </ul>
     </div>
   </div>
-  <div class="callout"><strong>발견 자산의 편입.</strong> 외부에서 발견된 노출 자산도 내부 6채널 결과와 동일하게 자산 지문으로 통합되고, CMDB 대사(그림 3)를 거쳐 소유자 확인·편입 또는 노출 차단·격리 조치로 이어진다. 재탐지는 도메인별 주기(스케줄러)로 자동 반복된다.</div>
+  <div class="callout"><strong>발견 자산의 편입.</strong> 외부에서 발견된 노출 자산도 내부 6채널 결과와 동일하게 자산 지문으로 통합되고, CMDB 대사(그림 3)를 거쳐 소유자 확인·편입 또는 노출 차단·격리 조치로 이어집니다. 재탐지는 도메인별 주기(스케줄러)로 자동 반복됩니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">13</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">16</span></div>
 </div>
 
 <!-- ====== 14 · V. AI 기능 구성 ====== -->
@@ -821,11 +840,10 @@
       <path d="M411 136 l4 -6 l4 6" fill="none" stroke="#1a56db" stroke-width="1.1"/>
       <text x="567" y="150" font-size="9" fill="#1a56db" text-anchor="middle">판정 결과 환류 — 재학습 · 정확도 개선</text>
     </svg>
-    <div class="fig-note">그림 4 — AI 제안·확인·환류 구조. AI 제안은 담당자 확인과 결재를 거쳐 반영되고, 승인·반려 결과는 재학습에 사용된다.</div>
+    <div class="fig-note">그림 4 — AI 제안·확인·환류 구조. 분류·이상 탐지·예측·우선순위 결과는 판단 근거와 함께 제안으로 표시되고, 담당자 확인·결재를 거쳐 반영되며, 승인·반려 결과는 재학습에 사용됩니다.</div>
   </div>
-  <div class="callout"><strong>AI는 결정하지 않고 제안한다.</strong> 분류·이상 탐지·예측·우선순위 등 AI가 만든 결과는 판단 근거와 함께 담당자 화면에 제안 형태로 표시되고, 대장 반영이나 격리 같은 실제 조치는 담당자가 확인하고 결재해야 실행된다. 담당자의 승인·반려 결과는 다시 학습에 반영되어 시간이 지날수록 제안 정확도가 높아진다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">14</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">17</span></div>
 </div>
 
 <!-- ====== 12 · V. AI 어시스턴트 ====== -->
@@ -873,9 +891,8 @@
       </ul>
     </div>
   </div>
-  <div class="callout"><strong>망분리 환경 기본 대응.</strong> AI 기능은 온프레미스 LLM 구성을 기본안으로 설계되어, 자산·구성 정보가 외부로 나가지 않는 조건에서 자연어 질의와 자동 분류를 제공한다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">15</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">18</span></div>
 </div>
 
 <!-- ====== 13 · VI. 연동 아키텍처 ====== -->
@@ -925,9 +942,22 @@
       <path d="M858 192 l4 -6 l4 6" fill="none" stroke="#1a56db" stroke-width="1"/>
       <text x="478" y="209" font-size="9" fill="#1a56db" text-anchor="middle">NAC은 발견 소스이자 조치 채널 — 수집과 격리의 양방향 폐쇄 루프</text>
     </svg>
-    <div class="fig-note">그림 5 — 시스템 연동 구성. 보안·인프라 시스템에서 수집(REST API · 로그 · DB)하고, 판정 결과를 조치 채널로 되돌려 보낸다.</div>
+    <div class="fig-note">그림 5 — 시스템 연동 구성. 보안·인프라 시스템에서 수집(REST API · 로그 · DB)하고, 판정 결과를 조치 채널로 되돌려 보냅니다.</div>
   </div>
-  <table style="margin-top:10px;">
+  <div class="callout"><strong>발견과 조치의 양방향 연동.</strong> NAC에서 자산 정보를 수집하고, 판정 결과를 다시 NAC 격리로 되돌려 보내는 폐쇄 루프로 연동합니다. 발견에 그치지 않고 수집한 정보를 실제 조치로 연결합니다.</div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">19</span></div>
+</div>
+
+<!-- ====== 16b · VI. 연동 대상 상세 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">06 · Integration</div>
+    <div class="sec-title">시스템 연동 아키텍처 <span class="sub">— 연동 대상 상세</span></div>
+  </div>
+  <p class="lede">각 연동 대상은 수집(발견 소스)과 조치(실행 채널) 양쪽 역할을 맡습니다. 표준 커넥터(REST API · 로그 · DB · SAML)로 연결됩니다.</p>
+  <table style="margin-top:8px;">
     <thead><tr><th style="width:20%">연동 대상</th><th style="width:16%">방식</th><th>용도</th></tr></thead>
     <tbody>
       <tr><td class="k">NAC</td><td>REST API</td><td>단말 인증·미인증 목록 수집(발견 소스), 미확인 자산 격리 요청(조치 채널)</td></tr>
@@ -939,9 +969,9 @@
       <tr><td class="k">ITSM · 구매</td><td>REST API</td><td>SR·발주 정보 연계 — 도입 예정 자산의 사전 등록</td></tr>
     </tbody>
   </table>
-  <div class="callout"><strong>발견과 조치의 양방향 연동.</strong> NAC에서 자산 정보를 수집하고, 판정 결과를 다시 NAC 격리로 되돌려 보내는 폐쇄 루프로 연동한다. 발견에 그치지 않고 수집한 정보를 실제 조치로 연결한다.</div>
+  <div class="callout"><strong>표준 커넥터 기반.</strong> 신규 에이전트 배포 없이 이미 보유한 시스템의 API·로그를 커넥터로 연결해, 도입 초기부터 발견과 조치를 함께 운영할 수 있습니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">16</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">20</span></div>
 </div>
 
 <!-- ====== 14 · VII. 기술 스택 & 보안 ====== -->
@@ -982,9 +1012,9 @@
     <div class="stat"><div class="st-v">4</div><div class="st-l">권한그룹</div></div>
     <div class="stat"><div class="st-v">100%</div><div class="st-l">온프레미스 AI 옵션</div></div>
   </div>
-  <div class="callout"><strong>대장 정합성과 변경 이력.</strong> 발견 → 소유자 확인 → 편입/격리 흐름과 수명주기 전 구간의 결재·이력을 통해, 대장과 실물의 차이를 줄이고 자산 변경을 추적할 수 있도록 돕는다. AI는 이렇게 쌓인 데이터를 활용해 분류·예측·질의를 자동화한다.</div>
+  <div class="callout"><strong>대장 정합성과 변경 이력.</strong> 발견 → 소유자 확인 → 편입/격리 흐름과 수명주기 전 구간의 결재·이력을 통해, 대장과 실물의 차이를 줄이고 자산 변경을 추적할 수 있도록 돕습니다.</div>
  </div>
- <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">17</span></div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — AI Asset Management Platform</span><span class="fo-page">21</span></div>
 </div>
 
 </body>
