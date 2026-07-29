@@ -137,3 +137,12 @@ docker run -d --name itam-web --restart unless-stopped -p 127.0.0.1:3390:3390 \
 
 DB 영속화(컨테이너 재시작 시 시드 상태로 초기화), 실제 스캐너·커넥터 연동(NAC·EDR·CSP API),
 SAML SSO 실연동, 전자결재 다단계 결재선 편집, 엑셀(.xlsx) 네이티브 출력(현재 CSV·Markdown).
+
+## 관련 문서
+
+| 문서 | 내용 |
+|---|---|
+| [`../docs/구축_요약.md`](../docs/구축_요약.md) | **구축 요약** — 구현 범위, 폐쇄 루프 7종 검증 결과, 설계 결정, 미완 항목 |
+| [`../docs/샘플_리포트_설명.md`](../docs/샘플_리포트_설명.md) | AI 리포트 샘플 5종(문서·CSV) — 실제 생성한 결재 첨부용 산출물 |
+| [`../docs/DISCOVERY_CONCEPT.md`](../docs/DISCOVERY_CONCEPT.md) | Shadow IT Discovery 초기 컨셉 (탐지 채널·파이프라인 설계) |
+| [`../AI기반_IT자산관리시스템_제품안내서.pdf`](../AI기반_IT자산관리시스템_제품안내서.pdf) | 구현 스코프의 원천 — 제품안내서 |
