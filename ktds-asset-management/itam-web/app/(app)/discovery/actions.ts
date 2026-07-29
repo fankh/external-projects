@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { TODAY } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { getStore, nextId } from '@/lib/store'
+import { getStore, nextApprovalId } from '@/lib/store'
 
 /** 발견 자산 편입 요청 — 소유자 확인 → 자산 등록 결재를 통과해야 대장에 편입 (편입도 결재로) */
 export async function requestOnboard(discoveredId: string) {
@@ -13,7 +13,7 @@ export async function requestOnboard(discoveredId: string) {
   if (!d || d.action) return
   d.action = '편입요청'
   s.approvals.unshift({
-    id: nextId('APR-2607'),
+    id: nextApprovalId(),
     kind: '자산 신청',
     title: `${d.id} (${d.hostname}) 대장 편입 — 발견 채널: ${d.channel}`,
     requester: session.name,
@@ -35,7 +35,7 @@ export async function requestQuarantine(discoveredId: string) {
   if (!d || d.action) return
   d.action = '격리요청'
   s.approvals.unshift({
-    id: nextId('APR-2607'),
+    id: nextApprovalId(),
     kind: '격리 요청',
     title: `${d.id} (${d.hostname}) NAC 격리 — ${d.note ?? '미확인 자산'}`,
     requester: session.name,

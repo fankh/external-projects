@@ -1,5 +1,6 @@
 /** 인메모리 데이터 스토어 — 데모용. globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
  *  실서비스에서는 자산 대장 RDB(CMDB) + 발견 저장소 분리 구조로 대체된다(제품안내서 §02). */
+import { TODAY } from './dates'
 import type {
   AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, CodeGroup, CodeValue, Contract,
   DisposalRecord, DiscoveredAsset, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
@@ -407,4 +408,10 @@ export function nextId(prefix: string): string {
   const s = getStore()
   s.seq += 1
   return `${prefix}-${s.seq}`
+}
+
+/** 결재 문서번호 — 접두사에 연·월(YYMM)이 들어가므로 기준일에서 파생시킨다.
+ *  상수로 박아두면 달이 바뀐 뒤 생성한 문서에 지난 달 번호가 찍힌다. */
+export function nextApprovalId(): string {
+  return nextId(`APR-${TODAY.slice(2, 4)}${TODAY.slice(5, 7)}`)
 }

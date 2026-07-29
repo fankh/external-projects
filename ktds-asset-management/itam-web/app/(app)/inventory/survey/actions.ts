@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { TODAY } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { getStore, nextId } from '@/lib/store'
+import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import type { SurveyDiffKind } from '@/lib/types'
 
 function stamp() {
@@ -85,7 +85,7 @@ export async function raiseAdjustment(roundId: string) {
   if (pending.length === 0) return
 
   const round = s.inventoryRounds.find((r) => r.id === roundId)
-  const aprId = nextId('APR-2607')
+  const aprId = nextApprovalId()
   s.approvals.unshift({
     id: aprId,
     kind: '차이 조정',

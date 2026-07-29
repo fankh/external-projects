@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { TODAY } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { getStore, nextId } from '@/lib/store'
+import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import type { WipeMethod } from '@/lib/types'
 
 /** 폐기 대상 선정 — 노후·보증만료 자산을 폐기 후보로 등록 */
@@ -25,7 +25,7 @@ export async function raiseDisposalApproval() {
   const s = getStore()
   const targets = s.disposals.filter((d) => d.status === '대상 선정')
   if (targets.length === 0) return
-  const aprId = nextId('APR-2607')
+  const aprId = nextApprovalId()
   s.approvals.unshift({
     id: aprId,
     kind: '폐기',
