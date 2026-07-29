@@ -43,12 +43,13 @@ Next.js 15 App Router + React 19 + TS (외부 UI 라이브러리 없음)
 ├─ app/globals.css            디자인 시스템 — 제품안내서 비주얼 랭귀지의 모던-덴스판
 │                             (다크 네이비 · 로열 블루 · 자간 넓은 키커 · KPI 스탯 블록)
 ├─ app/login                  SSO 목업 — 권한그룹별 계정 선택
-├─ app/(app)/layout.tsx       셸: 다크 사이드바(8대 도메인 내비) + 톱바 + 상태바
+├─ app/(app)/layout.tsx       셸(AppShell) — edim AppChrome 계승: 타이틀바 · 모듈 메뉴바(LV1)
+│                             · MDI 탭(방문 화면, localStorage 유지) · 모듈 좌측 내비(LV2) · 상태바
 ├─ app/(app)/<domain>/<screen>/
 │    page.tsx                 서버 컴포넌트 — 스토어 조회 + 권한 스코핑
 │    actions.ts               서버 액션 — 편입/격리/결재 등 상태 변경
 │    *View.tsx                클라이언트 컴포넌트 — 그리드·필터·상세 패널
-├─ components/chrome          Sidebar · Topbar · menus(권한 매핑)
+├─ components/chrome          AppShell(메뉴바·MDI 탭·모듈 내비) · menus(권한 매핑)
 ├─ components/ui.tsx          ScreenHeader · Card · Stat · Chip
 └─ lib/                       types(도메인 모델) · store(인메모리 시드) · session(쿠키)
 ```
