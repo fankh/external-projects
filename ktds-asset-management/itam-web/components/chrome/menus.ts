@@ -52,6 +52,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: '/ai/assistant', label: 'AI 어시스턴트', ico: '✦', roles: ALL },
       { href: '/ai/insights', label: '분석 · 예측', ico: '∿', roles: SEC },
+      { href: '/ai/reports', label: '리포트 자동 생성', ico: '▦', roles: SEC },
     ],
   },
   {

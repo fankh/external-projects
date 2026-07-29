@@ -2,8 +2,8 @@
  *  실서비스에서는 자산 대장 RDB(CMDB) + 발견 저장소 분리 구조로 대체된다(제품안내서 §02). */
 import type {
   AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, CodeGroup, CodeValue, Contract,
-  DiscoveredAsset, ExternalAsset, Integration, InventoryRound, LeakFinding, Notice,
-  SaasCatalogEntry, SaasUsage, ScanPolicy, SwLicense, UserAccount,
+  DiscoveredAsset, ExternalAsset, GeneratedReport, Integration, InventoryRound, LeakFinding,
+  Notice, SaasCatalogEntry, SaasUsage, ScanPolicy, SwLicense, UserAccount,
 } from './types'
 
 export interface Store {
@@ -19,6 +19,7 @@ export interface Store {
   aiPolicy: AiPolicy
   users: UserAccount[]
   approvalLines: ApprovalLine[]
+  reports: GeneratedReport[]
   contracts: Contract[]
   licenses: SwLicense[]
   approvals: Approval[]
@@ -222,6 +223,7 @@ function seed(): Store {
     },
     users: seedUsers(),
     approvalLines: seedApprovalLines(),
+    reports: [],
     contracts: [
       { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀' },
       { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: '2026-08-31', amount: 384_000_000, assetCount: 8, ownerDept: '인프라운영팀' },

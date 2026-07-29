@@ -36,6 +36,7 @@ const ROUTES = {
   '/platform/integrations': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/ai/assistant': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/ai/insights': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
+  '/ai/reports': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/workflow/approvals': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/settings/permissions': ['ADMIN'],
   '/settings/users': ['ADMIN'],
@@ -120,6 +121,8 @@ try {
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
   check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))
   check('외부 공격표면: 위협 인텔·유출 수집 렌더', extHtml.includes('스틸러 로그'))
+  const repHtml = await (await get('/ai/reports', 'ASSET_MGR')).text()
+  check('리포트: 5종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('결재 첨부용'))
   const scanHtml = await (await get('/settings/scan-policy', 'ADMIN')).text()
   check('탐지 채널 정책: 6채널·강도 통제 렌더', scanHtml.includes('네트워크 능동 스캔') && scanHtml.includes('스캔 안전장치') && scanHtml.includes('23:00 ~ 05:00'))
   const catHtml = await (await get('/settings/saas-catalog', 'ADMIN')).text()

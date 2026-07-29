@@ -295,6 +295,35 @@ export interface ApprovalLine {
   required: boolean
 }
 
+/** AI 리포트 자동 생성 (제품안내서 §05) — 결재 첨부용 문서 산출 */
+export type ReportKind =
+  | '주간 Shadow IT 브리핑'
+  | '월간 자산 현황'
+  | '라이선스 컴플라이언스'
+  | '재물조사 결과 요약'
+  | '감사 대응 자료'
+
+export interface ReportSection {
+  title: string
+  note?: string
+  columns?: string[]
+  rows?: string[][]
+  bullets?: string[]
+}
+
+export interface GeneratedReport {
+  id: string
+  kind: ReportKind
+  title: string
+  period: string
+  generatedAt: string
+  generatedBy: string
+  /** AI = LLM 서술 생성 · 규칙 = 데이터 기반 결정적 생성 (키 미설정 시) */
+  mode: 'AI' | '규칙'
+  headline: string
+  sections: ReportSection[]
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   text: string
