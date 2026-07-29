@@ -3,6 +3,10 @@ import { useMemo, useState } from 'react'
 import { Chip } from '@/components/ui'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
 
+/** 조회 필터의 유형 목록 — 공통코드 ASSET_CATEGORY 의 '사용' 여부와 무관하게 전부 노출한다.
+ *  미사용 처리는 **신규 입력**에서만 제외하는 규칙이고(환경설정 › 공통코드 안내 참조), 이미 그
+ *  유형으로 등록된 자산은 계속 조회돼야 하기 때문이다. 실사 위치 드롭다운처럼 값을 새로
+ *  기록하는 입력 항목은 반대로 활성 코드만 읽는다. */
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 반납대기: 'warn', 폐기예정: 'err', 폐기완료: 'neutral',

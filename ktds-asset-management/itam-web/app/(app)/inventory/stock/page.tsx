@@ -5,6 +5,8 @@ import type { AssetCategory } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
+/** 보유 현황 집계 대상 유형 — 실제 보유 자산이 있는 유형만 표시하되(아래 filter), 공통코드의
+ *  미사용 여부로 걸러내지는 않는다. 걸러내면 합계가 총 보유 수와 어긋나 대장이 틀려 보인다. */
 const CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 export default async function StockPage() {
