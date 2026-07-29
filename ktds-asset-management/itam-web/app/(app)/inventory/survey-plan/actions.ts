@@ -1,0 +1,103 @@
+'use server'
+import { revalidatePath } from 'next/cache'
+import { appendAudit } from '@/lib/audit'
+import { today } from '@/lib/dates'
+import { getSession } from '@/lib/session'
+import { getStore, nextId } from '@/lib/store'
+import type { Asset, RoundKind } from '@/lib/types'
+
+/** 조사 대상 모수 — 폐기 완료 자산은 실물이 없으므로 제외한다.
+ *  범위가 '전사'면 전량, 아니면 위치 문자열이 범위로 시작하는 자산(랙 단위 위치 포함). */
+function inScope(a: Asset, scope: string): boolean {
+  if (a.status === '폐기완료') return false
+  if (scope === '전사') return true
+  return a.location === scope || a.location.startsWith(`${scope} `)
+}
+
+/** 재물조사 계획 수립 — 연간/수시 회차를 만들고 대상 모수를 대장에서 산출한다.
+ *  (제품안내서 §03: 연간/수시 조사 계획, 대상·담당자 지정) */
+export async function planRound(input: {
+  name: string
+  kind: RoundKind
+  scope: string
+  assignee: string
+  dueDate: string
+}) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '조사 계획 수립 권한이 없습니다.' }
+  }
+
+  const name = input.name.trim()
+  if (!name) return { ok: false, message: '회차명을 입력해 주세요.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate)) return { ok: false, message: '기한을 선택해 주세요.' }
+  if (input.dueDate < today()) return { ok: false, message: '기한은 오늘 이후로 지정해 주세요.' }
+
+  const s = getStore()
+  if (s.inventoryRounds.some((r) => r.name === name)) {
+    return { ok: false, message: `같은 이름의 회차가 이미 있습니다 — ${name}` }
+  }
+
+  const planned = s.assets.filter((a) => inScope(a, input.scope)).length
+  if (planned === 0) return { ok: false, message: `대상 자산이 없는 범위입니다 — ${input.scope}` }
+
+  const id = nextId(`INV-${today().slice(0, 4)}`)
+  s.inventoryRounds.unshift({
+    id, name, kind: input.kind, scope: input.scope, planned,
+    scanned: 0, mismatched: 0, dueDate: input.dueDate, assignee: input.assignee, status: '계획',
+  })
+
+  appendAudit({ actor: session.name, action: `재물조사 계획 수립 (${input.kind} · 대상 ${planned}건)`, target: id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${name} 계획 등록 — 대상 ${planned.toLocaleString()}건, 담당 ${input.assignee}` }
+}
+
+/** 대사 '미확인'(유령 자산) 자동 편성 — 일정 기간 실측이 없는 자산을 수시 조사 회차로 묶는다.
+ *  (제품안내서 §04 대사 결과별 처리: 미확인 → 유휴·분실 후보 → 재물조사 대상 자동 편성) */
+export async function composeUnconfirmedRound() {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '조사 계획 수립 권한이 없습니다.' }
+  }
+
+  const s = getStore()
+  const ghosts = s.discovered.filter((d) => d.state === '미확인')
+  if (ghosts.length === 0) return { ok: false, message: '자동 편성할 미확인 자산이 없습니다.' }
+
+  const already = new Set(s.inventoryRounds.flatMap((r) => r.targets ?? []))
+  const fresh = ghosts.filter((g) => !already.has(g.id))
+  if (fresh.length === 0) return { ok: false, message: '미확인 자산이 모두 기존 회차에 편성되어 있습니다.' }
+
+  // 기한은 기준일 +14일 — 분실 판정을 미루지 않도록 수시 조사는 2주 내 마감한다
+  const due = new Date(new Date(today()).getTime() + 14 * 86_400_000).toISOString().slice(0, 10)
+  const id = nextId(`INV-${today().slice(0, 4)}-UNC`)
+  s.inventoryRounds.unshift({
+    id,
+    name: `미확인 자산 확인 조사 (${today()})`,
+    kind: '수시',
+    scope: '대사 미확인 — 유휴·분실 후보',
+    planned: fresh.length,
+    scanned: 0,
+    mismatched: 0,
+    dueDate: due,
+    assignee: session.name,
+    status: '계획',
+    targets: fresh.map((g) => g.id),
+  })
+
+  appendAudit({ actor: session.name, action: `미확인 자산 재물조사 자동 편성 (${fresh.length}건)`, target: id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `미확인 ${fresh.length}건을 수시 조사로 편성 — 기한 ${due}` }
+}
+
+/** 계획 → 진행중 전환. 실사 화면은 '완료'가 아닌 회차만 대상으로 하므로 즉시 스캔이 가능해진다. */
+export async function startRound(roundId: string) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return
+  const s = getStore()
+  const round = s.inventoryRounds.find((r) => r.id === roundId)
+  if (!round || round.status !== '계획') return
+  round.status = '진행중'
+  appendAudit({ actor: session.name, action: '재물조사 개시', target: roundId })
+  revalidatePath('/', 'layout')
+}

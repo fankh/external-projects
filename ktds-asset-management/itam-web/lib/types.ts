@@ -148,9 +148,13 @@ export interface AiInsight {
   status: '제안' | '승인' | '반려'
 }
 
+/** 조사 유형 — 연간 정기 조사와 수시(사유 발생 시) 조사 (제품안내서 §03 재물조사 계획) */
+export type RoundKind = '연간' | '수시'
+
 export interface InventoryRound {
   id: string
   name: string
+  kind: RoundKind
   scope: string
   planned: number
   scanned: number
@@ -158,6 +162,8 @@ export interface InventoryRound {
   dueDate: string
   assignee: string
   status: '계획' | '진행중' | '완료'
+  /** 대사 결과 '미확인'에서 자동 편성된 회차면 그 대상 자산번호 — 유령 자산 추적용 */
+  targets?: string[]
 }
 
 /** 재물조사 수행 — 바코드/QR 스캔 실사 (제품안내서 §03) */

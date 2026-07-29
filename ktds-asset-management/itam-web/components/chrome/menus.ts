@@ -41,6 +41,7 @@ export const NAV: NavGroup[] = [
     label: '재고 · 계약',
     items: [
       { href: '/inventory/stock', label: '재고 · 재물조사', ico: '▦', roles: MGRS },
+      { href: '/inventory/survey-plan', label: '재물조사 계획', ico: '⊟', roles: MGRS },
       { href: '/inventory/survey', label: '조사 수행 · 차이 조정', ico: '⊞', roles: MGRS },
       { href: '/inventory/contracts', label: '계약 · 라이선스', ico: '§', roles: MGRS },
     ],

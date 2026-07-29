@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
@@ -14,9 +15,11 @@ const OUTCOMES: { state: ReconcileState; meaning: string; handle: string; tone: 
 ]
 
 export default async function ReconcilePage() {
-  await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const count = (st: ReconcileState) => s.discovered.filter((d) => d.state === st).length
+  // 재물조사 계획은 자산담당 화면이므로, 보안담당에게는 링크를 노출하지 않는다 (권한 밖 이동 방지)
+  const canPlan = session.role === 'ASSET_MGR' || session.role === 'ADMIN'
 
   return (
     <>
@@ -53,7 +56,12 @@ export default async function ReconcilePage() {
                   <td><Chip tone={o.tone}>{o.state}</Chip></td>
                   <td className="num tnum" style={{ fontWeight: 700 }}>{count(o.state)}</td>
                   <td>{o.meaning}</td>
-                  <td className="dim">{o.handle}</td>
+                  <td className="dim">
+                    {o.handle}
+                    {o.state === '미확인' && canPlan && count('미확인') > 0 && (
+                      <> <Link className="btn sm ghost" href="/inventory/survey-plan">조사 편성</Link></>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

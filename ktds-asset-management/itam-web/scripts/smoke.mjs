@@ -34,6 +34,7 @@ const ROUTES = {
   '/inventory/stock': ['ASSET_MGR', 'ADMIN'],
   '/inventory/contracts': ['ASSET_MGR', 'ADMIN'],
   '/inventory/survey': ['ASSET_MGR', 'ADMIN'],
+  '/inventory/survey-plan': ['ASSET_MGR', 'ADMIN'],
   '/discovery/found': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/discovery/reconcile': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/discovery/saas': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
@@ -140,6 +141,18 @@ try {
   check('폐기: 후보·소거 방식·증적 렌더', dspHtml.includes('데이터 소거') && dspHtml.includes('증적') && dspHtml.includes('AST-2019-000218'))
   const svyHtml = await (await get('/inventory/survey', 'ASSET_MGR')).text()
   check('재물조사 수행: 스캔 실사·차이 항목 렌더', svyHtml.includes('스캔하거나 자산번호 입력') && svyHtml.includes('위치 불일치') && svyHtml.includes('조정 결재 상신'))
+  const planHtml = await (await get('/inventory/survey-plan', 'ASSET_MGR')).text()
+  check('재물조사 계획: 회차 목록·유형·담당자 렌더', planHtml.includes('2026 하반기 정기 재물조사') && planHtml.includes('연간') && planHtml.includes('수시') && planHtml.includes('계획 수립'))
+  // 범위 select 는 '계획 수립' 을 눌러야 펼쳐지므로 초기 HTML 에는 없다. 대신 클라이언트로
+  // 전달된 후보 목록을 검증한다 — 아래 값들은 공통코드 LOCATION 그룹에만 존재한다.
+  const scopeOnlyInCodes = ['IDC-A Rack 12', '본사 8F 통신실', '본사 3F 검수실']
+  check('재물조사 계획: 대상 범위 후보가 공통코드 LOCATION 에서 옴',
+    scopeOnlyInCodes.every((l) => planHtml.includes(l)), scopeOnlyInCodes.filter((l) => !planHtml.includes(l)).join(', '))
+  check('재물조사 계획: 미확인 자산 자동 편성 진입점', planHtml.includes('미확인(유령) 자산 자동 편성') && planHtml.includes('자동 편성'))
+  const recHtml2 = await (await get('/discovery/reconcile', 'ASSET_MGR')).text()
+  check('CMDB 대사: 미확인 → 조사 편성 연결', recHtml2.includes('/inventory/survey-plan'))
+  const recSec = await (await get('/discovery/reconcile', 'SEC_MGR')).text()
+  check('CMDB 대사: 보안담당에겐 계획 링크 미노출 (권한 밖 이동 방지)', !recSec.includes('/inventory/survey-plan'))
   // 실사 위치 드롭다운은 공통코드 LOCATION 그룹에서 오며, 대장의 랙 단위 위치를 모두 포함해야
   // 허위 위치 불일치(오탐)가 생기지 않는다
   const codeHtml2 = await (await get('/settings/codes', 'ADMIN')).text()
