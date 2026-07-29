@@ -1,5 +1,5 @@
 'use server'
-import { TODAY, daysUntil } from '@/lib/dates'
+import { today, daysUntil } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import type { ChatMessage } from '@/lib/types'
@@ -9,7 +9,7 @@ function buildContext(userName: string, isUser: boolean): string {
   const s = getStore()
   const assets = isUser ? s.assets.filter((a) => a.owner === userName) : s.assets
   const lines: string[] = [
-    `기준일: ${TODAY}`,
+    `기준일: ${today()}`,
     `[자산 대장] 총 ${assets.length}건`,
     ...assets.map((a) => `- ${a.assetNo} | ${a.category} | ${a.model} | ${a.status} | ${a.owner}/${a.dept} | ${a.location} | IP:${a.ip ?? '-'} | 보증만료:${a.warrantyEnd}`),
   ]

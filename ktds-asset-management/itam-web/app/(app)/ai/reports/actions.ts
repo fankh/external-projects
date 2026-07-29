@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { TODAY } from '@/lib/dates'
+import { today } from '@/lib/dates'
 import { buildSections, ruleHeadline } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -61,9 +61,9 @@ export async function generateReport(kind: ReportKind) {
   s.reports.unshift({
     id,
     kind,
-    title: `${kind} (${TODAY})`,
-    period: TODAY,
-    generatedAt: `${TODAY} ${hh}:${mm}`,
+    title: `${kind} (${today()})`,
+    period: today(),
+    generatedAt: `${today()} ${hh}:${mm}`,
     generatedBy: session.name,
     mode,
     headline,

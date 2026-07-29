@@ -1,14 +1,14 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { TODAY } from '@/lib/dates'
+import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import type { SurveyDiffKind } from '@/lib/types'
 
 function stamp() {
   const d = new Date()
-  return `${TODAY} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return `${today()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 /** 바코드/QR 스캔 실사 — 스캐너는 HID 키보드로 동작하므로 코드 입력 + Enter가 실제 조작과 동일하다.
@@ -92,7 +92,7 @@ export async function raiseAdjustment(roundId: string) {
     title: `${round?.name ?? roundId} 차이 ${pending.length}건 조정`,
     requester: session.name,
     dept: session.dept,
-    requestedAt: TODAY,
+    requestedAt: today(),
     status: '대기',
     currentStep: 'IT기획팀장 결재',
     refId: roundId,

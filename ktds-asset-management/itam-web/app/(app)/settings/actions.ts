@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAdminAudit } from '@/lib/audit'
-import { TODAY } from '@/lib/dates'
+import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import type { Channel, SaasCatalogEntry } from '@/lib/types'
@@ -46,7 +46,7 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
   const entry = s.saasCatalog.find((x) => x.id === id)
   if (!entry) return
   entry.status = status
-  entry.decidedAt = TODAY
+  entry.decidedAt = today()
   entry.decidedBy = session.name
 
   // 폐쇄 루프 — 카탈로그 판정을 Shadow SaaS 사용 현황에 반영

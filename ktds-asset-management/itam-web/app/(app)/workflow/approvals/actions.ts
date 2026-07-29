@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { TODAY } from '@/lib/dates'
+import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
@@ -19,7 +19,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
 
   a.status = verdict
   a.currentStep = '완료'
-  a.decidedAt = TODAY
+  a.decidedAt = today()
   a.decidedBy = session.name
 
   // 폐기 결재 — 승인 시 데이터 소거 대기로 전환 (소거·증적은 폐기 화면에서 처리)
@@ -40,15 +40,15 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
       if (d.kind === '위치 불일치' && asset) {
         d.resolution = '대장 보정'
         asset.location = d.actual
-        asset.history.push({ date: TODAY, kind: '점검', detail: `재물조사 차이 조정 — 위치 ${d.expected} → ${d.actual}`, actor: session.name })
+        asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 위치 ${d.expected} → ${d.actual}`, actor: session.name })
       } else if (d.kind === '상태 불일치' && asset) {
         d.resolution = '대장 보정'
         asset.status = '사용중'
-        asset.history.push({ date: TODAY, kind: '점검', detail: `재물조사 차이 조정 — 상태 ${d.expected} → 사용중`, actor: session.name })
+        asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 상태 ${d.expected} → 사용중`, actor: session.name })
       } else if (d.kind === '미확인 (실사 없음)' && asset) {
         d.resolution = '분실 처리'
         asset.status = '유휴'
-        asset.history.push({ date: TODAY, kind: '점검', detail: '재물조사 미확인 — 분실 후보로 유휴 편성', actor: session.name })
+        asset.history.push({ date: today(), kind: '점검', detail: '재물조사 미확인 — 분실 후보로 유휴 편성', actor: session.name })
       } else if (d.kind === '대장 미등록') {
         d.resolution = '신규 등록'
       }
@@ -79,7 +79,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
           warrantyEnd: '-',
           discoveredVia: d.channel,
           history: [
-            { date: TODAY, kind: '편입', detail: `${d.channel} 발견(${d.firstSeen}) → 소유자 확인 → 결재 편입`, actor: session.name },
+            { date: today(), kind: '편입', detail: `${d.channel} 발견(${d.firstSeen}) → 소유자 확인 → 결재 편입`, actor: session.name },
           ],
         })
       }
@@ -90,10 +90,10 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
     if (asset && verdict === '승인') {
       if (a.kind === '반납') {
         asset.status = '유휴'
-        asset.history.push({ date: TODAY, kind: '반납', detail: '반납 결재 승인 · 유휴 재고 편성', actor: session.name })
+        asset.history.push({ date: today(), kind: '반납', detail: '반납 결재 승인 · 유휴 재고 편성', actor: session.name })
       }
       if (a.kind === '폐기') {
-        asset.history.push({ date: TODAY, kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 대기', actor: session.name })
+        asset.history.push({ date: today(), kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 대기', actor: session.name })
       }
     }
   }

@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { TODAY } from '@/lib/dates'
+import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
 
@@ -18,7 +18,7 @@ export async function requestOnboard(discoveredId: string) {
     title: `${d.id} (${d.hostname}) 대장 편입 — 발견 채널: ${d.channel}`,
     requester: session.name,
     dept: d.ownerCandidate ?? session.dept,
-    requestedAt: TODAY,
+    requestedAt: today(),
     status: '대기',
     currentStep: '자산담당 검토',
     refId: d.id,
@@ -40,7 +40,7 @@ export async function requestQuarantine(discoveredId: string) {
     title: `${d.id} (${d.hostname}) NAC 격리 — ${d.note ?? '미확인 자산'}`,
     requester: session.name,
     dept: session.dept,
-    requestedAt: TODAY,
+    requestedAt: today(),
     status: '대기',
     currentStep: '보안담당 승인',
     refId: d.id,

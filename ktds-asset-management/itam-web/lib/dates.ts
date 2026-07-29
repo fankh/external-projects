@@ -1,38 +1,43 @@
-/** 플랫폼 기준일 — 만료 계산·신규 기록(스캔·리포트·감사 로그)의 '오늘'.
+/** 플랫폼 기준일·시각 — 만료 계산과 신규 기록(스캔·리포트·감사 로그)의 '지금'.
  *
- *  기본값은 **실제 현재 날짜**다. 상수로 고정하면 시간이 흐를수록 만료 잔여일이 어긋나고
- *  새로 만든 기록에 과거 날짜가 찍히므로, 데모가 조용히 낡는다.
- *  시드 데이터는 2026년 7월 말 기준으로 작성되어 있어, 실제 날짜와 함께 자연스럽게 흐른다
- *  (계약 만료 잔여일이 하루씩 줄고, 유령 자산의 무통신 기간이 길어진다).
+ *  두 가지를 반드시 지켜야 한다.
  *
- *  특정 날짜로 고정해 시연해야 하면 `ITAM_TODAY=YYYY-MM-DD` 환경변수로 덮어쓴다.
- *  이 모듈은 서버 전용(서버 컴포넌트·서버 액션에서만 import) — 클라이언트에서 쓰면
- *  하이드레이션 불일치가 생길 수 있다.
+ *  1. **호출 시점에 계산한다(함수, 상수 아님).** 모듈 로드 시 상수로 굳히면 컨테이너가 며칠간
+ *     떠 있는 동안 기동일이 영구히 '오늘'로 남는다.
+ *  2. **표준시를 명시한다(Asia/Seoul).** 컨테이너는 보통 UTC 로 동작하므로 KST 자정~09시
+ *     사이에는 날짜가 하루 뒤처진다 — 실제로 D-22 로 표시돼야 할 계약이 D-23 으로 보였다.
+ *
+ *  시연에서 특정 날짜를 재현하려면 `ITAM_TODAY=YYYY-MM-DD`, 표준시를 바꾸려면 `ITAM_TZ`.
+ *  서버 전용 모듈 — 클라이언트에서 쓰면 하이드레이션 불일치가 생긴다.
  */
-function resolveToday(): string {
+const TZ = process.env.ITAM_TZ || 'Asia/Seoul'
+
+const dateFmt = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+})
+const timeFmt = new Intl.DateTimeFormat('en-GB', {
+  timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+})
+
+/** 기준일 `YYYY-MM-DD` (기본 KST) */
+export function today(): string {
   const pinned = process.env.ITAM_TODAY
   if (pinned && /^\d{4}-\d{2}-\d{2}$/.test(pinned)) return pinned
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  return dateFmt.format(new Date())
 }
 
-export const TODAY = resolveToday()
+/** 감사 로그·이력용 타임스탬프 `YYYY-MM-DD HH:MM:SS` (기준일 + 현재 시각) */
+export function nowStamp(): string {
+  return `${today()} ${timeFmt.format(new Date())}`
+}
 
 /** 시드 데이터가 작성된 기준일 — 시드와 실제 날짜의 간격을 안내할 때 쓴다 */
 export const SEED_BASE_DATE = '2026-07-29'
 
-/** 감사 로그·이력용 타임스탬프 `YYYY-MM-DD HH:MM:SS` — 시각은 실제 시계, 날짜는 TODAY 기준 */
-export function nowStamp(): string {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${TODAY} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
 export function daysUntil(dateStr: string): number | null {
   if (!dateStr || dateStr === '-') return null
   const d = new Date(dateStr).getTime()
-  const t = new Date(TODAY).getTime()
+  const t = new Date(today()).getTime()
   if (Number.isNaN(d)) return null
   return Math.round((d - t) / 86_400_000)
 }

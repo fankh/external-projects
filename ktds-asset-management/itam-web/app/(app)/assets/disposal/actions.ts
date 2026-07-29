@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { TODAY } from '@/lib/dates'
+import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import type { WipeMethod } from '@/lib/types'
@@ -32,7 +32,7 @@ export async function raiseDisposalApproval() {
     title: `${targets[0].assetNo}${targets.length > 1 ? ` 외 ${targets.length - 1}건` : ''} 폐기 상신`,
     requester: session.name,
     dept: session.dept,
-    requestedAt: TODAY,
+    requestedAt: today(),
     status: '대기',
     currentStep: 'IT기획팀장 결재',
     refId: targets[0].assetNo,
@@ -52,9 +52,9 @@ export async function recordWipe(id: string, method: WipeMethod) {
 
   s.seq += 1
   d.wipeMethod = method
-  d.wipedAt = TODAY
+  d.wipedAt = today()
   d.wipedBy = session.name
-  d.certNo = `WIPE-${TODAY.replace(/-/g, '')}-${String(s.seq).padStart(3, '0')}`
+  d.certNo = `WIPE-${today().replace(/-/g, '')}-${String(s.seq).padStart(3, '0')}`
   d.evidence = `소거 확인서 ${d.certNo} · 처리 전후 사진 2매 첨부`
   d.status = '완료'
 
@@ -62,7 +62,7 @@ export async function recordWipe(id: string, method: WipeMethod) {
   if (asset) {
     asset.status = '폐기완료'
     asset.history.push({
-      date: TODAY, kind: '폐기',
+      date: today(), kind: '폐기',
       detail: `데이터 소거 완료 (${method}) · 증적 ${d.certNo} 보존`,
       actor: session.name,
     })

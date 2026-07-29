@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { TODAY } from '@/lib/dates'
+import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import type { Asset } from '@/lib/types'
@@ -31,7 +31,7 @@ export async function issueAssetNo(lotId: string) {
   if (lot.status !== '검수 완료') return { ok: false, message: '검수 체크리스트를 모두 완료해야 채번할 수 있습니다.' }
   if (lot.issued.length >= lot.qty) return { ok: false, message: '입고 수량만큼 채번이 완료되었습니다.' }
 
-  const year = TODAY.slice(0, 4)
+  const year = today().slice(0, 4)
   const seq = s.assets.filter((a) => a.assetNo.startsWith(`AST-${year}`)).length + lot.issued.length + 1
   const assetNo = `AST-${year}-${String(seq).padStart(6, '0')}`
 
@@ -45,10 +45,10 @@ export async function issueAssetNo(lotId: string) {
     dept: '자산관리팀',
     location: '본사 3F 검수실',
     purchaseDate: lot.arrivedAt,
-    warrantyEnd: `${Number(year) + 3}-${TODAY.slice(5)}`,
+    warrantyEnd: `${Number(year) + 3}-${today().slice(5)}`,
     contractId: lot.contractId,
     history: [
-      { date: TODAY, kind: '등록', detail: `${lot.contractId} 발주 연계 입고 · 검수 완료 후 채번 (${lot.id})`, actor: session.name },
+      { date: today(), kind: '등록', detail: `${lot.contractId} 발주 연계 입고 · 검수 완료 후 채번 (${lot.id})`, actor: session.name },
     ],
   }
   s.assets.push(asset)

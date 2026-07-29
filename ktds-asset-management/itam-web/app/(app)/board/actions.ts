@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { TODAY } from '@/lib/dates'
+import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { QnaCategory } from '@/lib/types'
@@ -20,7 +20,7 @@ export async function askQuestion(title: string, body: string, category: QnaCate
     body: body.trim(),
     author: session.name,
     dept: session.dept,
-    createdAt: TODAY,
+    createdAt: today(),
     views: 0,
     category,
   })
@@ -37,7 +37,7 @@ export async function answerQuestion(postId: string, body: string) {
   const s = getStore()
   const post = s.posts.find((p) => p.id === postId && p.kind === 'QnA')
   if (!post) return { ok: false, message: '질문을 찾을 수 없습니다.' }
-  post.answer = { body: body.trim(), by: session.name, at: TODAY }
+  post.answer = { body: body.trim(), by: session.name, at: today() }
 
   appendAudit({ actor: session.name, action: 'QnA 답변 등록', target: postId })
   revalidatePath('/', 'layout')
@@ -58,7 +58,7 @@ export async function postNotice(title: string, body: string, pinned: boolean) {
     body: body.trim(),
     author: session.name,
     dept: session.dept,
-    createdAt: TODAY,
+    createdAt: today(),
     views: 0,
     pinned,
   })

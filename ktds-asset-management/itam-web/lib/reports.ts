@@ -1,6 +1,6 @@
 /** 리포트 본문 생성 — 스토어 데이터에서 결정적으로 산출한다.
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
-import { TODAY, daysUntil, fmtAmount } from './dates'
+import { today, daysUntil, fmtAmount } from './dates'
 import { getStore } from './store'
 import type { ReportKind, ReportSection } from './types'
 
@@ -220,7 +220,7 @@ export function toCsv(title: string, sections: ReportSection[], headline: string
 
 /** 결재 첨부용 — 문서(Markdown) */
 export function toMarkdown(title: string, period: string, headline: string, sections: ReportSection[], meta: string): string {
-  const out: string[] = [`# ${title}`, '', `> ${period} · ${meta} · 생성일 ${TODAY}`, '', headline, '']
+  const out: string[] = [`# ${title}`, '', `> ${period} · ${meta} · 생성일 ${today()}`, '', headline, '']
   for (const sec of sections) {
     out.push(`## ${sec.title}`, '')
     if (sec.note) out.push(`_${sec.note}_`, '')
