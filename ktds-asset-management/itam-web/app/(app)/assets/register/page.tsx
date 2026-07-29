@@ -1,0 +1,30 @@
+import { Card, ScreenHeader } from '@/components/ui'
+import { getSession } from '@/lib/session'
+import { getStore } from '@/lib/store'
+import { RegisterView } from './RegisterView'
+
+export const dynamic = 'force-dynamic'
+
+export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const session = (await getSession())!
+  const { q } = await searchParams
+  const s = getStore()
+  // 화면·기능 단위 최소권한 — 사용자 권한그룹은 본인 보유 자산만 조회
+  const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
+
+  return (
+    <>
+      <ScreenHeader
+        kicker="자산관리 · Asset Register"
+        title="자산 대장"
+        desc="H/W(단말·서버·네트워크) · S/W · 가상자원 대장 — 자산번호 · 구성정보 · 소유자 · 위치 이력"
+      />
+      {session.role === 'USER' && (
+        <div className="callout"><b>사용자 권한 범위.</b> 본인 보유 자산만 표시됩니다. 자산 신청·반납·이동 요청은 워크플로 › 신청·결재에서 상신할 수 있습니다.</div>
+      )}
+      <Card pad={false}>
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} />
+      </Card>
+    </>
+  )
+}

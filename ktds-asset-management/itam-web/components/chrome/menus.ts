@@ -1,0 +1,68 @@
+import type { Role } from '@/lib/types'
+
+export interface NavItem {
+  href: string
+  label: string
+  ico: string
+  roles: Role[]
+  /** 사이드바 뱃지 키 (레이아웃에서 카운트 주입) */
+  badge?: 'approvals' | 'unregistered'
+}
+
+export interface NavGroup {
+  label: string
+  items: NavItem[]
+}
+
+const ALL: Role[] = ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']
+const MGRS: Role[] = ['ASSET_MGR', 'ADMIN']
+const SEC: Role[] = ['ASSET_MGR', 'SEC_MGR', 'ADMIN']
+
+/** 메뉴 체계 — 8대 업무 도메인 (제품안내서 §01) × 권한그룹 매핑 */
+export const NAV: NavGroup[] = [
+  {
+    label: 'Main',
+    items: [{ href: '/dashboard', label: '대시보드', ico: '◧', roles: ALL }],
+  },
+  {
+    label: '자산관리',
+    items: [
+      { href: '/assets/register', label: '자산 대장', ico: '▤', roles: ALL },
+      { href: '/assets/lifecycle', label: '수명주기', ico: '⟳', roles: MGRS },
+    ],
+  },
+  {
+    label: '재고 · 계약',
+    items: [
+      { href: '/inventory/stock', label: '재고 · 재물조사', ico: '▦', roles: MGRS },
+      { href: '/inventory/contracts', label: '계약 · 라이선스', ico: '§', roles: MGRS },
+    ],
+  },
+  {
+    label: 'Discovery',
+    items: [
+      { href: '/discovery/found', label: '발견 자산', ico: '◎', roles: SEC, badge: 'unregistered' },
+      { href: '/discovery/reconcile', label: 'CMDB 대사', ico: '⇄', roles: SEC },
+      { href: '/discovery/saas', label: 'Shadow SaaS', ico: '☁', roles: SEC },
+    ],
+  },
+  {
+    label: 'AI 인텔리전스',
+    items: [
+      { href: '/ai/assistant', label: 'AI 어시스턴트', ico: '✦', roles: ALL },
+      { href: '/ai/insights', label: '분석 · 예측', ico: '∿', roles: SEC },
+    ],
+  },
+  {
+    label: '워크플로',
+    items: [{ href: '/workflow/approvals', label: '신청 · 결재', ico: '✓', roles: ALL, badge: 'approvals' }],
+  },
+  {
+    label: '환경설정',
+    items: [{ href: '/settings/permissions', label: '권한 · 정책', ico: '⚙', roles: ['ADMIN'] }],
+  },
+]
+
+export const TITLE_BY_HREF: Record<string, { group: string; title: string }> = Object.fromEntries(
+  NAV.flatMap((g) => g.items.map((i) => [i.href, { group: g.label, title: i.label }])),
+)
