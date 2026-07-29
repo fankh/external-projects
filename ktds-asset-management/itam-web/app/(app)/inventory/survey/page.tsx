@@ -23,6 +23,12 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
     )
   }
 
+  // 실사 위치 목록의 원천은 공통코드 LOCATION 그룹 — 미사용 처리된 코드는 제외된다
+  const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
+    .filter((v) => v.active)
+    .sort((a, b) => a.sort - b.sort)
+    .map((v) => v.label)
+
   const scans = s.surveyScans.filter((x) => x.roundId === round.id)
   const diffs = s.surveyDiffs.filter((d) => d.roundId === round.id)
   const pendingDiffs = diffs.filter((d) => d.status === '미조치')
@@ -51,6 +57,7 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
         diffs={diffs}
         assignee={round.assignee}
         me={session.name}
+        locations={locations}
       />
     </>
   )

@@ -4,13 +4,6 @@ import { Card, Chip } from '@/components/ui'
 import type { SurveyDiff, SurveyScan } from '@/lib/types'
 import { raiseAdjustment, scanAsset } from './actions'
 
-/** 실사 대상 물리 위치 — 자산 대장의 위치 코드와 일치해야 오탐(허위 위치 불일치)이 없다.
- *  클라우드 리전(ap-northeast-2 등)은 물리 실사 대상이 아니므로 제외한다. */
-const LOCATIONS = [
-  '본사 8F', '본사 8F 통신실', '본사 3F 자산창고', '본사 3F 검수실', '본사 1F 로비',
-  'IDC-A Rack 12', 'IDC-A Rack 20', 'IDC-A vCluster1', 'IDC-B Rack 3', '판교 사무소',
-]
-
 const RESULT_TONE = { 일치: 'ok', 차이: 'warn', '대장 미등록': 'err' } as const
 const DIFF_TONE: Record<SurveyDiff['kind'], 'warn' | 'err' | 'neutral'> = {
   '위치 불일치': 'warn', '상태 불일치': 'warn', '미확인 (실사 없음)': 'neutral', '대장 미등록': 'err',
@@ -23,9 +16,11 @@ export function SurveyConsole(props: {
   diffs: SurveyDiff[]
   assignee: string
   me: string
+  /** 실사 위치 — 공통코드 LOCATION 그룹의 사용 중 코드 (환경설정 › 공통코드가 원천) */
+  locations: string[]
 }) {
   const [code, setCode] = useState('')
-  const [location, setLocation] = useState(LOCATIONS[0])
+  const [location, setLocation] = useState(props.locations[0] ?? '')
   const [feedback, setFeedback] = useState<{ ok: boolean; result?: string; message: string } | null>(null)
   const [pending, startTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -69,7 +64,7 @@ export function SurveyConsole(props: {
             <div className="kicker mute" style={{ marginBottom: 6 }}>실사 위치</div>
             <select className="select" style={{ width: '100%', height: 44 }} value={location} disabled={pending}
               onChange={(e) => setLocation(e.target.value)}>
-              {LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
+              {props.locations.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
           <button className="btn pri" style={{ height: 44, minWidth: 96 }} disabled={pending || !code.trim()} onClick={submit}>

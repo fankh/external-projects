@@ -155,7 +155,23 @@ function seedCodeGroups(): CodeGroup[] {
     { id: 'RECONCILE', name: '대사 결과', desc: 'CMDB 대사 4상태 — 상태별 후속 처리 자동 연결', values: v(['MATCH', '등록·일치'], ['MISMATCH', '등록·불일치'], ['UNREGISTERED', '미등록'], ['UNCONFIRMED', '미확인']) },
     { id: 'RISK', name: '위험도', desc: '발견 자산·SaaS·AI 제안 공통 등급', values: v(['HIGH', '높음'], ['MEDIUM', '중간'], ['LOW', '낮음']) },
     { id: 'DATA_GRADE', name: '데이터 등급', desc: 'SaaS 카탈로그·자산 중요도 산정 기준', values: v(['GENERAL', '일반'], ['SENSITIVE', '민감'], ['CONFIDENTIAL', '기밀']) },
-    { id: 'LOCATION', name: '위치', desc: '사업장·IDC 랙 단위 위치 코드', values: v(['HQ_8F', '본사 8F'], ['HQ_3F_WH', '본사 3F 자산창고'], ['IDC_A', 'IDC-A'], ['IDC_B', 'IDC-B'], ['PANGYO', '판교 사무소']) },
+    {
+      id: 'LOCATION',
+      name: '위치',
+      desc: '사업장·IDC 랙 단위 위치 코드 — 재물조사 실사 위치 목록의 원천. 클라우드 리전은 물리 실사 대상이 아니므로 제외한다.',
+      values: v(
+        ['HQ_8F', '본사 8F'],
+        ['HQ_8F_NET', '본사 8F 통신실'],
+        ['HQ_3F_WH', '본사 3F 자산창고'],
+        ['HQ_3F_INSP', '본사 3F 검수실'],
+        ['HQ_1F_LOBBY', '본사 1F 로비'],
+        ['IDC_A_R12', 'IDC-A Rack 12'],
+        ['IDC_A_R20', 'IDC-A Rack 20'],
+        ['IDC_A_VC1', 'IDC-A vCluster1'],
+        ['IDC_B_R3', 'IDC-B Rack 3'],
+        ['PANGYO', '판교 사무소'],
+      ),
+    },
   ]
 }
 

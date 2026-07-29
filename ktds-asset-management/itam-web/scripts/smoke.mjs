@@ -140,6 +140,13 @@ try {
   check('폐기: 후보·소거 방식·증적 렌더', dspHtml.includes('데이터 소거') && dspHtml.includes('증적') && dspHtml.includes('AST-2019-000218'))
   const svyHtml = await (await get('/inventory/survey', 'ASSET_MGR')).text()
   check('재물조사 수행: 스캔 실사·차이 항목 렌더', svyHtml.includes('스캔하거나 자산번호 입력') && svyHtml.includes('위치 불일치') && svyHtml.includes('조정 결재 상신'))
+  // 실사 위치 드롭다운은 공통코드 LOCATION 그룹에서 오며, 대장의 랙 단위 위치를 모두 포함해야
+  // 허위 위치 불일치(오탐)가 생기지 않는다
+  const codeHtml2 = await (await get('/settings/codes', 'ADMIN')).text()
+  const regHtml = await (await get('/assets/register', 'ASSET_MGR')).text()
+  const rackLocations = ['IDC-A Rack 12', 'IDC-A Rack 20', 'IDC-B Rack 3', '본사 8F 통신실', '본사 3F 검수실', 'IDC-A vCluster1']
+  check('공통코드: 위치 코드가 랙 단위까지 정의', rackLocations.every((l) => codeHtml2.includes(l)), rackLocations.filter((l) => !codeHtml2.includes(l)).join(', '))
+  check('재물조사: 실사 위치 목록이 대장 위치와 정합', rackLocations.filter((l) => regHtml.includes(l)).every((l) => svyHtml.includes(l)), rackLocations.filter((l) => regHtml.includes(l) && !svyHtml.includes(l)).join(', '))
   const repHtml = await (await get('/ai/reports', 'ASSET_MGR')).text()
   check('리포트: 5종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('결재 첨부용'))
   const scanHtml = await (await get('/settings/scan-policy', 'ADMIN')).text()
