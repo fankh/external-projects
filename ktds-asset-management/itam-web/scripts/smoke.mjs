@@ -160,6 +160,10 @@ try {
   check('AI 제안: 기능별 판정 현황 5종', ['자동분류', '이상탐지', '수명예측', '취약점 우선순위', '라이선스 최적화'].every((k) => insHtml.includes(k)))
   const fndHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 소유자 확인·에스컬레이션 진입점', fndHtml.includes('미확인 소유자 정책') && fndHtml.includes('미응답 에스컬레이션') && fndHtml.includes('응답 대기'))
+  // 지문 병합 — 화면이 '지문 병합 후'라고 주장하려면 원시 관측과 병합 근거가 있어야 한다
+  check('발견 자산: 원시 관측 대비 병합 결과 표시', fndHtml.includes('원시 관측') && fndHtml.includes('중복'))
+  check('발견 자산: 다채널 병합 표기', fndHtml.includes('채널 병합'))
+  check('발견 자산: 병합 후보 카드', fndHtml.includes('병합 후보') && fndHtml.includes('DSC-2607-0045') && fndHtml.includes('호스트명 동일'))
   const intHtml2 = await (await get('/platform/integrations', 'ADMIN')).text()
   check('연동: 알림 발송 이력 렌더', intHtml2.includes('알림 발송 이력') && intHtml2.includes('MSG-4001') && intHtml2.includes('만료 임박'))
   const ctHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()

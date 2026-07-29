@@ -1,23 +1,44 @@
 'use client'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
-import type { Channel, DiscoveredAsset, ReconcileState } from '@/lib/types'
+import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
-import { requestOnboard, requestOwnerConfirm, requestQuarantine } from '../actions'
+import { mergeDiscovered, requestOnboard, requestOwnerConfirm, requestQuarantine } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
 }
 
-export function FoundView({ items }: { items: DiscoveredAsset[] }) {
+export function FoundView({ items, observations, mergeCandidates }: {
+  items: DiscoveredAsset[]
+  observations: ChannelObservation[]
+  /** 지문이 갈렸지만 같은 장비로 의심되는 쌍 — 수동 병합 대상 */
+  mergeCandidates: { primary: DiscoveredAsset; duplicate: DiscoveredAsset; reason: string }[]
+}) {
   const [channel, setChannel] = useState<Channel | '전체'>('전체')
   const [selId, setSelId] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
+  // 채널별 관측을 발견 자산에 묶어 둔다 — 필터·상세 패널이 함께 쓴다
+  const obsBy = useMemo(() => {
+    const m = new Map<string, ChannelObservation[]>()
+    for (const o of observations) {
+      const list = m.get(o.discoveredId)
+      if (list) list.push(o)
+      else m.set(o.discoveredId, [o])
+    }
+    return m
+  }, [observations])
+
+  // 병합된 자산은 여러 채널이 봤으므로, 어느 채널로 필터해도 잡혀야 한다
   const rows = useMemo(
-    () => items.filter((d) => channel === '전체' || d.channel === channel),
-    [items, channel],
+    () => items.filter((d) => {
+      if (channel === '전체') return true
+      const obs = obsBy.get(d.id) ?? []
+      return d.channel === channel || obs.some((o) => o.channel === channel)
+    }),
+    [items, channel, obsBy],
   )
   const sel = items.find((d) => d.id === selId) ?? null
 
@@ -52,7 +73,12 @@ export function FoundView({ items }: { items: DiscoveredAsset[] }) {
                   <td className="strong">{d.hostname}</td>
                   <td>{d.type}</td>
                   <td className="tnum">{d.ip}</td>
-                  <td className="mute">{d.channel}</td>
+                  <td className="mute">
+                    {d.channel}
+                    {(obsBy.get(d.id)?.length ?? 0) > 1 && (
+                      <> <Chip tone="info" bare>{obsBy.get(d.id)!.length}채널 병합</Chip></>
+                    )}
+                  </td>
                   <td className="tnum">{d.lastSeen}</td>
                   <td className="c"><Chip tone={STATE_TONE[d.state]}>{d.state}</Chip></td>
                   <td className="c"><RiskChip risk={d.risk} /></td>
@@ -82,6 +108,26 @@ export function FoundView({ items }: { items: DiscoveredAsset[] }) {
             {sel.note && (
               <div className="callout warn" style={{ marginTop: 12, padding: '8px 11px' }}>{sel.note}</div>
             )}
+
+            <div className="kicker mute" style={{ marginTop: 16 }}>Fingerprint · Observations</div>
+            <div className="mono" style={{ fontSize: 11.5, marginTop: 3 }}>{sel.fingerprint ?? '-'}</div>
+            <div className="tbl-wrap" style={{ marginTop: 8 }}>
+              <table className="tbl">
+                <thead><tr><th>채널</th><th>관측 시각</th><th>내용</th></tr></thead>
+                <tbody>
+                  {(obsBy.get(sel.id) ?? []).map((o) => (
+                    <tr key={o.id}>
+                      <td className="mute" style={{ whiteSpace: 'nowrap' }}>{o.channel}</td>
+                      <td className="tnum" style={{ whiteSpace: 'nowrap' }}>{o.seenAt}</td>
+                      <td style={{ whiteSpace: 'normal', fontSize: 11.5 }}>{o.detail}</td>
+                    </tr>
+                  ))}
+                  {(obsBy.get(sel.id) ?? []).length === 0 && (
+                    <tr><td colSpan={3}><div className="empty">관측 이력이 없습니다</div></td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
             {sel.ownerAnswer && (
               <div className="callout" style={{ marginTop: 12, padding: '8px 11px' }}>
                 소유자 확인 응답 — <b>{sel.ownerAnswer}</b>
@@ -113,6 +159,45 @@ export function FoundView({ items }: { items: DiscoveredAsset[] }) {
           </aside>
         )}
       </div>
+
+      {mergeCandidates.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--line)', padding: 14 }}>
+          <div className="kicker mute">Merge Candidates</div>
+          <div style={{ fontWeight: 700, fontSize: 13, margin: '3px 0 8px' }}>
+            병합 후보 {mergeCandidates.length}건 — 지문이 갈렸지만 같은 장비로 의심됨
+          </div>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>대표 건</th><th>중복 후보</th><th>판단 근거</th><th className="c">병합</th></tr></thead>
+              <tbody>
+                {mergeCandidates.map((c) => (
+                  <tr key={`${c.primary.id}-${c.duplicate.id}`}>
+                    <td>
+                      <div className="strong">{c.primary.hostname}</div>
+                      <div className="dim" style={{ fontSize: 11 }}>{c.primary.id} · {c.primary.mac} · {c.primary.ip}</div>
+                    </td>
+                    <td>
+                      <div className="strong">{c.duplicate.hostname}</div>
+                      <div className="dim" style={{ fontSize: 11 }}>{c.duplicate.id} · {c.duplicate.mac} · {c.duplicate.ip}</div>
+                    </td>
+                    <td className="dim" style={{ whiteSpace: 'normal' }}>{c.reason}</td>
+                    <td className="c">
+                      <button className="btn sm" disabled={pending}
+                        onClick={() => startTransition(async () => setMsg((await mergeDiscovered(c.primary.id, c.duplicate.id)).message))}>
+                        병합
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 결과 메시지는 후보 카드 밖에 둔다 — 마지막 후보를 병합하면 카드가 사라지므로
+          안쪽에 두면 성공 메시지도 함께 사라진다 */}
+      {msg && !sel && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
     </div>
   )
 }

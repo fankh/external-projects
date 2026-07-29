@@ -84,6 +84,42 @@ export async function escalateUnanswered() {
   return { ok: true, message: `미응답 ${overdue.length}건을 격리 요청으로 에스컬레이션했습니다.` }
 }
 
+/** 수동 병합 — 자동 병합은 지문 일치에만 적용되므로, 지문이 갈렸지만 같은 장비로 판단되는
+ *  건(호스트명 동일·MAC 상이 등)은 담당자가 확인해 합친다. 관측은 보존하고 대표 건으로 승계한다.
+ *  (제품안내서 §04 정규화·병합 — 자산 지문 기반 중복 제거) */
+export async function mergeDiscovered(primaryId: string, duplicateId: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '병합 권한이 없습니다.' }
+  if (primaryId === duplicateId) return { ok: false, message: '같은 항목은 병합할 수 없습니다.' }
+
+  const s = getStore()
+  const primary = s.discovered.find((x) => x.id === primaryId)
+  const dup = s.discovered.find((x) => x.id === duplicateId)
+  if (!primary || !dup) return { ok: false, message: '대상을 찾을 수 없습니다.' }
+  if (dup.action) return { ok: false, message: `처리가 시작된 건은 병합할 수 없습니다 — ${dup.id} (${dup.action})` }
+
+  // 관측을 대표 건으로 옮기고, 관측 범위에 맞춰 최초·최종 발견일을 다시 계산한다
+  const moved = s.observations.filter((o) => o.discoveredId === dup.id)
+  for (const o of moved) o.discoveredId = primary.id
+
+  const all = s.observations.filter((o) => o.discoveredId === primary.id)
+  const days = all.map((o) => o.seenAt.slice(0, 10)).sort()
+  if (days.length > 0) {
+    primary.firstSeen = days[0] < primary.firstSeen ? days[0] : primary.firstSeen
+    primary.lastSeen = days[days.length - 1] > primary.lastSeen ? days[days.length - 1] : primary.lastSeen
+  }
+  // 위험도는 높은 쪽을 따른다 — 병합으로 위험이 낮아지면 안 된다
+  const rank = { 높음: 3, 중간: 2, 낮음: 1 } as const
+  if (rank[dup.risk] > rank[primary.risk]) primary.risk = dup.risk
+  primary.note = `${primary.note ? `${primary.note} · ` : ''}${dup.id} 수동 병합 (${dup.mac !== '-' ? dup.mac : dup.ip})`
+
+  s.discovered = s.discovered.filter((x) => x.id !== dup.id)
+
+  appendAudit({ actor: session.name, action: `발견 자산 수동 병합 — ${dup.id} → ${primary.id} (관측 ${moved.length}건 승계)`, target: primary.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${dup.id} → ${primary.id} 병합 완료 — 관측 ${moved.length}건 승계, 총 ${all.length}건` }
+}
+
 /** 발견 자산 편입 요청 — 소유자 확인 → 자산 등록 결재를 통과해야 대장에 편입 (편입도 결재로) */
 export async function requestOnboard(discoveredId: string) {
   const session = await getSession()

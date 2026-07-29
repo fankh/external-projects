@@ -1,8 +1,9 @@
 /** 인메모리 데이터 스토어 — 데모용. globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
  *  실서비스에서는 자산 대장 RDB(CMDB) + 발견 저장소 분리 구조로 대체된다(제품안내서 §02). */
 import { today } from './dates'
+import { fingerprintOf } from './types'
 import type {
-  AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, CodeGroup, CodeValue, Contract,
+  AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract,
   Dispatch, DisposalRecord, DiscoveredAsset, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
   SaasCatalogEntry, SaasUsage, ScanPolicy, SurveyDiff, SurveyScan, SwLicense, UserAccount,
 } from './types'
@@ -33,6 +34,7 @@ export interface Store {
   inventoryRounds: InventoryRound[]
   posts: BoardPost[]
   dispatches: Dispatch[]
+  observations: ChannelObservation[]
   seq: number
 }
 
@@ -87,8 +89,41 @@ function seedAssets(): Asset[] {
   ]
 }
 
-function seedDiscovered(): DiscoveredAsset[] {
+/** 채널별 원시 관측 — 같은 장비를 여러 채널이 본다. 발견 목록은 이것을 지문으로 병합한 결과다.
+ *  (단일 채널만 본 자산도 있으므로 관측 1건짜리 발견 자산이 정상이다) */
+function seedObservations(): ChannelObservation[] {
+  const o = (
+    id: string, discoveredId: string, channel: ChannelObservation['channel'],
+    hostname: string, ip: string, mac: string, seenAt: string, detail: string,
+  ): ChannelObservation => ({ id, discoveredId, channel, hostname, ip, mac, seenAt, detail })
   return [
+    // 3채널이 본 미등록 단말 — 능동 스캔·패시브·EDR 가 각각 다른 근거로 같은 MAC 을 관측
+    o('OBS-4101', 'DSC-2607-0041', '네트워크 능동 스캔', 'ip-10-20-31-88', '10.20.31.88', '00:1A:2B:77:F0:12', '2026-07-24 02:14', '포트 스윕 — 445/3389 오픈, OS 핑거프린트 Windows 10'),
+    o('OBS-4102', 'DSC-2607-0041', '패시브 트래픽', '-', '10.20.31.88', '00:1A:2B:77:F0:12', '2026-07-26 11:03', 'DHCP 리스 관측 — 스위치 3번 포트'),
+    o('OBS-4103', 'DSC-2607-0041', 'AD/IdP·SSO 로그', 'WS-KJM-02', '10.20.31.88', '-', '2026-07-28 09:41', 'AD 미가입 단말에서 SSO 로그인 시도'),
+    // 2채널
+    o('OBS-4201', 'DSC-2607-0042', '패시브 트래픽', 'nas-dev-team', '10.20.31.90', '28:C6:8E:31:44:AA', '2026-07-22 16:20', 'ARP·DHCP 리스 관측, SMB 트래픽 다량'),
+    o('OBS-4202', 'DSC-2607-0042', '네트워크 능동 스캔', 'nas-dev-team', '10.20.31.90', '28:C6:8E:31:44:AA', '2026-07-28 02:31', '445/5000 오픈 — Synology DSM 배너'),
+    o('OBS-3801', 'DSC-2607-0038', '패시브 트래픽', 'ESP-9F31A2', '10.20.60.41', '84:F3:EB:9F:31:A2', '2026-07-19 08:55', 'ESP32 OUI — 외부 MQTT(1883) 아웃바운드'),
+    o('OBS-3501', 'DSC-2607-0035', '클라우드 API', 'i-0f3a91c2d8', '10.30.2.91', '-', '2026-07-15 03:00', 'AWS Config — 태그 미부착 인스턴스, 개발 VPC'),
+    o('OBS-3502', 'DSC-2607-0035', '네트워크 능동 스캔', 'i-0f3a91c2d8', '10.30.2.91', '-', '2026-07-28 02:40', 'VPN 경유 스캔 — 22 오픈'),
+    o('OBS-2901', 'DSC-2607-0029', 'EDR·엔드포인트', 'DESKTOP-KJM45', '10.20.52.77', '5C:60:BA:12:88:31', '2026-07-28 07:12', 'EDR 콘솔 — 최근 로그온 위치 판교 사무소'),
+    o('OBS-2701', 'DSC-2607-0027', '네트워크 능동 스캔', 'was-prod-03', '10.10.20.33', '-', '2026-07-28 02:20', '대장 자산과 일치 — 생존 확인'),
+    o('OBS-1021', 'DSC-2606-0102', '네트워크 능동 스캔', 'printer-3f-old', '10.20.35.60', '00:80:92:44:1C:55', '2026-06-05 02:10', '마지막 응답 — 이후 40일 무응답'),
+    o('OBS-4401', 'DSC-2607-0044', 'AD/IdP·SSO 로그', 'oauth-app:notion-sync', '-', '-', '2026-07-26 14:02', 'OAuth 앱 승인 — Drive 전체 읽기 스코프'),
+    o('OBS-3101', 'DSC-2607-0031', '클라우드 API', 'ip-10-31-4-70', '10.31.4.70', '-', '2026-07-25 03:10', 'Azure Resource Graph — 개인 구독 태그'),
+    o('OBS-1801', 'DSC-2607-0018', 'DNS·프록시 로그', 'ubnt-ap-guest', '10.20.61.2', '78:8A:20:0B:CC:41', '2026-07-28 22:40', '미인가 아웃바운드 도메인 다수'),
+    o('OBS-1802', 'DSC-2607-0018', '네트워크 능동 스캔', 'ubnt-ap-guest', '10.20.61.2', '78:8A:20:0B:CC:41', '2026-07-27 02:05', '게스트 SSID 브로드캐스트 확인'),
+    // 병합되지 않은 중복 후보 — 같은 호스트명이지만 MAC 이 달라 지문이 갈렸다(NIC 교체 추정).
+    // 자동 병합은 지문 일치에만 적용되므로, 이런 건은 담당자가 확인해 수동 병합한다.
+    o('OBS-4501', 'DSC-2607-0045', '패시브 트래픽', 'nas-dev-team', '10.20.31.91', 'AA:BB:CC:00:11:22', '2026-07-27 09:15', '동일 호스트명·다른 MAC — NIC 교체 또는 별도 장비'),
+  ]
+}
+
+function seedDiscovered(): DiscoveredAsset[] {
+  // 지문은 관측에서 산출된다 — 시드도 같은 규칙(fingerprintOf)으로 채워 일관성을 유지한다
+  const fp = (d: Omit<DiscoveredAsset, 'fingerprint'>): DiscoveredAsset => ({ ...d, fingerprint: fingerprintOf(d) })
+  return ([
     // 확인 요청을 보낸 상태 — 대응하는 결재(APR-2607-114)와 발송 이력(MSG-4001)이 함께 있다
     { id: 'DSC-2607-0041', hostname: 'ip-10-20-31-88', ip: '10.20.31.88', mac: '00:1A:2B:77:F0:12', channel: '네트워크 능동 스캔', type: '단말 (Windows)', firstSeen: '2026-07-24', lastSeen: '2026-07-28', state: '미등록', risk: '높음', ownerCandidate: '플랫폼개발팀 추정 (스위치 포트 기준)', note: 'SMB·RDP 오픈, OS 핑거프린트 Windows 10', action: '확인요청', confirmRequestedAt: '2026-07-25' },
     { id: 'DSC-2607-0042', hostname: 'nas-dev-team', ip: '10.20.31.90', mac: '28:C6:8E:31:44:AA', channel: '패시브 트래픽', type: 'NAS', firstSeen: '2026-07-22', lastSeen: '2026-07-28', state: '미등록', risk: '높음', ownerCandidate: '플랫폼개발팀', note: 'DHCP 리스·ARP 관측, SMB 트래픽 다량' },
@@ -100,8 +135,9 @@ function seedDiscovered(): DiscoveredAsset[] {
     { id: 'DSC-2606-0102', hostname: 'printer-3f-old', ip: '10.20.35.60', mac: '00:80:92:44:1C:55', channel: '네트워크 능동 스캔', type: '주변기기 (프린터)', firstSeen: '2026-06-02', lastSeen: '2026-06-05', state: '미확인', risk: '낮음', note: '최근 40일 실측 없음 — 유휴·분실 후보, 재물조사 대상 편성' },
     { id: 'DSC-2607-0044', hostname: 'oauth-app:notion-sync', ip: '-', mac: '-', channel: 'AD/IdP·SSO 로그', type: 'OAuth 앱', firstSeen: '2026-07-26', lastSeen: '2026-07-28', state: '미등록', risk: '중간', ownerCandidate: '마케팅팀 (연동 계정 부서)', note: '미인가 OAuth 연동 — Drive 전체 읽기 권한 요청' },
     { id: 'DSC-2607-0031', hostname: 'ip-10-31-4-70', ip: '10.31.4.70', mac: '-', channel: '클라우드 API', type: 'Azure VM (B2s)', firstSeen: '2026-07-12', lastSeen: '2026-07-25', state: '미등록', risk: '낮음', ownerCandidate: '데이터플랫폼팀', note: '개인 구독으로 생성 — 조직 정책 위반 후보', action: '격리요청' },
+    { id: 'DSC-2607-0045', hostname: 'nas-dev-team', ip: '10.20.31.91', mac: 'AA:BB:CC:00:11:22', channel: '패시브 트래픽', type: 'NAS', firstSeen: '2026-07-27', lastSeen: '2026-07-27', state: '미등록', risk: '중간', ownerCandidate: '플랫폼개발팀', note: '동일 호스트명(nas-dev-team)·다른 MAC — 병합 후보' },
     { id: 'DSC-2607-0018', hostname: 'ubnt-ap-guest', ip: '10.20.61.2', mac: '78:8A:20:0B:CC:41', channel: 'DNS·프록시 로그', type: '네트워크 (AP)', firstSeen: '2026-07-03', lastSeen: '2026-07-28', state: '등록·불일치', risk: '높음', matchedAssetNo: 'AST-2022-000640', mismatch: '구성 상이 — 대장에 없는 게스트 SSID 브로드캐스트', note: '방화벽 로그에 미인가 아웃바운드 도메인 다수' },
-  ]
+  ] as Omit<DiscoveredAsset, 'fingerprint'>[]).map(fp)
 }
 
 /** 외부 공격표면 — 수동(무접촉) 수집으로 후보 확보 → 능동 탐지로 생존·서비스·취약점 확인 */
@@ -343,6 +379,7 @@ function seed(): Store {
       { id: 'INV-2026-H1', name: '2026 상반기 정기 재물조사', kind: '연간', scope: '전사', planned: 1_198, scanned: 1_198, mismatched: 14, dueDate: '2026-02-27', assignee: '박자산', status: '완료' },
       { id: 'INV-2026-SP1', name: '판교 사무소 수시 조사', kind: '수시', scope: '판교 사무소', planned: 86, scanned: 0, mismatched: 0, dueDate: '2026-08-08', assignee: '최지원', status: '계획' },
     ],
+    observations: seedObservations(),
     dispatches: [
       { id: 'MSG-4001', at: `${today()} 09:12`, channel: '이메일', to: '플랫폼개발팀 (부서장)', subject: 'DSC-2607-0041 소유자 확인 요청', kind: '소유자 확인', ref: 'APR-2607-114' },
       { id: 'MSG-4000', at: '2026-07-20 10:05', channel: '이메일', to: '전사 공지', subject: 'DSC-2607-0038 소유자 확인 요청', kind: '소유자 확인', ref: 'APR-2607-109' },

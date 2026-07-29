@@ -66,8 +66,32 @@ export type ReconcileState = '등록·일치' | '등록·불일치' | '미등록
 
 export type RiskLevel = '높음' | '중간' | '낮음'
 
+/** 채널별 원시 관측 — 6종 채널이 각자 본 것. 같은 장비를 여러 채널이 보므로
+ *  자산 지문으로 병합해야 발견 목록이 중복으로 부풀지 않는다 (제품안내서 §04 정규화·병합). */
+export interface ChannelObservation {
+  id: string
+  /** 병합된 발견 자산 */
+  discoveredId: string
+  channel: Channel
+  hostname: string
+  ip: string
+  mac: string
+  seenAt: string
+  detail: string
+}
+
+/** 자산 지문 — 병합 키. MAC 이 있으면 MAC 우선, 없으면 호스트명, 그것도 없으면 IP.
+ *  클라우드 리소스처럼 MAC 이 없는 자산이 있어 단일 키로는 병합이 되지 않는다. */
+export function fingerprintOf(o: { mac: string; hostname: string; ip: string }): string {
+  if (o.mac && o.mac !== '-') return `MAC:${o.mac.toUpperCase()}`
+  if (o.hostname && o.hostname !== '-') return `HOST:${o.hostname.toLowerCase()}`
+  return `IP:${o.ip}`
+}
+
 export interface DiscoveredAsset {
   id: string
+  /** 병합 키 — 같은 지문의 관측은 한 건으로 합쳐진다 */
+  fingerprint?: string
   hostname: string
   ip: string
   mac: string
