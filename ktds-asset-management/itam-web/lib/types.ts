@@ -93,6 +93,9 @@ export interface DiscoveredAsset {
  *  서버액션 모듈('use server')은 async 함수만 export 할 수 있어 정책 상수는 여기에 둔다. */
 export const CONFIRM_DEADLINE_DAYS = 7
 
+/** 만료 임박 알림 대상 기준(일) — 계약·보증·라이선스 공통 */
+export const EXPIRY_WINDOW_DAYS = 90
+
 /** 알림 발송 이력 — 소유자 확인 요청·만료 임박·격리 통보는 이메일·문자로 나가고 이력이 남는다
  *  (제품안내서 §06 연동: 그룹웨어 — SSO·결재·알림 메일) */
 export interface Dispatch {

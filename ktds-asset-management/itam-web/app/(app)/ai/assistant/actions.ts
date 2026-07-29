@@ -1,4 +1,5 @@
 'use server'
+import { appendAudit } from '@/lib/audit'
 import { today, daysUntil } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -87,13 +88,29 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
 }
 
+/** AI 질의 감사 기록 — AI 거버넌스는 "제안·질의·응답 전체를 감사 로그로 보존"을 요구한다
+ *  (제품안내서 §05). 질의 원문과 응답 경로를 남겨야 권한 밖 데이터 접근 여부를 사후 검증할 수 있다.
+ *  응답 전문은 길어 로그를 삼키므로 경로·길이만 남긴다. */
+function auditQuery(actor: string, question: string, route: string, chars: number) {
+  const q = question.trim().replace(/\s+/g, ' ')
+  appendAudit({
+    actor,
+    action: `AI 질의 (${route}) — "${q.length > 60 ? `${q.slice(0, 60)}…` : q}" → 응답 ${chars}자`,
+    target: 'AI 어시스턴트',
+  })
+}
+
 export async function askAssistant(question: string): Promise<ChatMessage> {
   const session = await getSession()
   if (!session) return { role: 'assistant', text: '세션이 만료되었습니다. 다시 로그인해 주세요.' }
   const isUser = session.role === 'USER'
 
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return stubAnswer(question, session.name, isUser)
+  if (!apiKey) {
+    const stub = stubAnswer(question, session.name, isUser)
+    auditQuery(session.name, question, '규칙 응답', stub.text.length)
+    return stub
+  }
 
   try {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
@@ -110,18 +127,21 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
       messages: [{ role: 'user', content: question }],
     })
     if (response.stop_reason === 'refusal') {
+      auditQuery(session.name, question, '정책 거부', 0)
       return { role: 'assistant', text: '해당 질의는 정책상 응답할 수 없습니다.' }
     }
     const text = response.content
       .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
       .map((b) => b.text)
       .join('')
+    auditQuery(session.name, question, 'LLM', text.length)
     return {
       role: 'assistant',
       text,
       evidence: [{ label: '자산 대장', href: '/assets/register' }, { label: '발견 자산', href: '/discovery/found' }],
     }
   } catch (err) {
+    auditQuery(session.name, question, 'LLM 호출 실패 → 규칙 응답', 0)
     return {
       role: 'assistant',
       text: `AI 서비스 호출에 실패했습니다 — ${err instanceof Error ? err.message : '알 수 없는 오류'}. 데모 응답으로 대체합니다.\n\n${stubAnswer(question, session.name, isUser).text}`,

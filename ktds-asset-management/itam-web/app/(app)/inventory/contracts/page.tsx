@@ -2,6 +2,8 @@ import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil, fmtAmount } from '@/lib/dates'
 import { getStore } from '@/lib/store'
+import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
+import { ExpiryNoticeButton, LicenseAction } from './LicenseActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +11,21 @@ export default async function ContractsPage() {
   await requireRole('ASSET_MGR', 'ADMIN')
   const s = getStore()
   const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
+
+  // 만료 임박 대상 — 계약·라이선스·보증(부서 단위 묶음)을 합친 발송 예정 건수
+  const within = (end: string) => {
+    const d = daysUntil(end)
+    return d !== null && d <= EXPIRY_WINDOW_DAYS
+  }
+  const warrantyDepts = new Set(
+    s.assets
+      .filter((a) => a.warrantyEnd !== '-' && !['폐기완료', '폐기예정'].includes(a.status) && within(a.warrantyEnd))
+      .map((a) => a.dept),
+  )
+  const dueCount =
+    contracts.filter((c) => within(c.end)).length +
+    s.licenses.filter((l) => l.expiry !== '-' && within(l.expiry)).length +
+    warrantyDepts.size
 
   return (
     <>
@@ -18,7 +35,8 @@ export default async function ContractsPage() {
         desc="구매·유지보수 계약, SW 라이선스 보유/사용 대사, 만료·갱신 알림"
       />
 
-      <Card kicker="Contracts" title="구매 · 유지보수 계약" pad={false}>
+      <Card kicker="Contracts" title="구매 · 유지보수 계약" pad={false}
+        actions={<ExpiryNoticeButton due={dueCount} />}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
@@ -60,7 +78,7 @@ export default async function ContractsPage() {
             <thead>
               <tr>
                 <th>라이선스</th><th>공급사</th><th className="num">보유</th><th className="num">사용</th>
-                <th style={{ width: 220 }}>보유–사용 대사</th><th>만료일</th><th className="c">판정</th>
+                <th style={{ width: 220 }}>보유–사용 대사</th><th>만료일</th><th className="c">판정</th><th className="c">조치</th>
               </tr>
             </thead>
             <tbody>
@@ -84,6 +102,12 @@ export default async function ContractsPage() {
                     <td className="c">
                       {over ? <Chip tone="err">초과 사용</Chip> : low ? <Chip tone="warn">미사용 보유</Chip> : <Chip tone="ok">적정</Chip>}
                     </td>
+                    <td className="c" style={{ minWidth: 120 }}>
+                      <LicenseAction row={{
+                        id: l.id, over, low, seats: Math.abs(l.used - l.purchased),
+                        pendingApproval: s.approvals.find((a) => a.status === '대기' && a.refId === l.id)?.id,
+                      }} />
+                    </td>
                   </tr>
                 )
               })}
@@ -91,7 +115,8 @@ export default async function ContractsPage() {
           </table>
         </div>
         <div className="callout" style={{ margin: 14 }}>
-          <b>라이선스 리스크 양방향 관리.</b> 초과 사용(감사 리스크)과 미사용 보유(비용 낭비)를 동시에 검출합니다.
+          <b>검출에서 조치까지.</b> 초과 사용(감사 리스크)은 추가 구매 품의로, 미사용 보유(비용 낭비)는 회수로
+          이어지며 두 조치 모두 결재를 거칩니다.
           사용 수집은 EDR·에이전트 설치 SW 인벤토리 기준이며, 미인가 SW 설치는 Discovery 모듈의 정책 위반 항목으로
           연계되어 보안담당에게 통보됩니다.
         </div>

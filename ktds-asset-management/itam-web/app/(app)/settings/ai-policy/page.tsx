@@ -9,7 +9,15 @@ export default async function AiPolicyPage() {
   await requireRole('ADMIN')
   const s = getStore()
   const p = s.aiPolicy
-  const aiLogs = s.auditLogs.filter((l) => l.actor === 'AI 서비스' || l.target === 'AI 정책')
+  // AI 거버넌스는 "제안·질의·응답 전체" 보존을 요구한다. 사용자가 던진 질의와 제안 판정도
+  // AI 활동이므로 함께 모은다 — actor 가 'AI 서비스'인 건만 보면 실제 질의가 빠진다.
+  const aiLogs = s.auditLogs.filter(
+    (l) =>
+      l.actor === 'AI 서비스' ||
+      l.target === 'AI 정책' ||
+      l.target === 'AI 어시스턴트' ||
+      l.action.startsWith('AI 제안'),
+  )
 
   return (
     <>
