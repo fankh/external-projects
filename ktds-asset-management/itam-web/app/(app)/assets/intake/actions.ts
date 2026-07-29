@@ -1,5 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { appendAudit } from '@/lib/audit'
 import { TODAY } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -53,11 +54,7 @@ export async function issueAssetNo(lotId: string) {
   s.assets.push(asset)
   lot.issued.push(assetNo)
 
-  s.seq += 1
-  s.auditLogs.unshift({
-    id: `AUD-${9000 + s.seq}`, at: `${TODAY} 10:00:00`, actor: session.name,
-    action: '자산번호 채번 · 대장 등록', target: assetNo, result: '성공', ip: '10.20.31.45',
-  })
+  appendAudit({ actor: session.name, action: '자산번호 채번 · 대장 등록', target: assetNo })
   revalidatePath('/', 'layout')
   return { ok: true, message: `채번 완료 — ${assetNo}`, assetNo }
 }

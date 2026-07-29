@@ -1,5 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { appendAudit } from '@/lib/audit'
 import { TODAY } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -38,11 +39,7 @@ export async function answerQuestion(postId: string, body: string) {
   if (!post) return { ok: false, message: '질문을 찾을 수 없습니다.' }
   post.answer = { body: body.trim(), by: session.name, at: TODAY }
 
-  s.seq += 1
-  s.auditLogs.unshift({
-    id: `AUD-${9000 + s.seq}`, at: `${TODAY} 12:00:00`, actor: session.name,
-    action: 'QnA 답변 등록', target: postId, result: '성공', ip: '10.20.31.45',
-  })
+  appendAudit({ actor: session.name, action: 'QnA 답변 등록', target: postId })
   revalidatePath('/', 'layout')
   return { ok: true, message: '답변이 등록되었습니다.' }
 }

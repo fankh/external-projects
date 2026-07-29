@@ -1,5 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { appendAudit } from '@/lib/audit'
 import { TODAY } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -98,15 +99,7 @@ export async function raiseAdjustment(roundId: string) {
   })
   for (const d of pending) d.status = '조정 상신'
 
-  s.auditLogs.unshift({
-    id: `AUD-${9000 + s.seq}`,
-    at: `${stamp()}:00`,
-    actor: session.name,
-    action: `재물조사 차이 조정 상신 (${pending.length}건)`,
-    target: roundId,
-    result: '성공',
-    ip: '10.20.31.45',
-  })
+  appendAudit({ actor: session.name, action: `재물조사 차이 조정 상신 (${pending.length}건)`, target: roundId })
   revalidatePath('/', 'layout')
 }
 

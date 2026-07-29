@@ -22,6 +22,13 @@ export const TODAY = resolveToday()
 /** 시드 데이터가 작성된 기준일 — 시드와 실제 날짜의 간격을 안내할 때 쓴다 */
 export const SEED_BASE_DATE = '2026-07-29'
 
+/** 감사 로그·이력용 타임스탬프 `YYYY-MM-DD HH:MM:SS` — 시각은 실제 시계, 날짜는 TODAY 기준 */
+export function nowStamp(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${TODAY} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
 export function daysUntil(dateStr: string): number | null {
   if (!dateStr || dateStr === '-') return null
   const d = new Date(dateStr).getTime()

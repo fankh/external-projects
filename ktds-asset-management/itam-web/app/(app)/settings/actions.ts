@@ -1,28 +1,13 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { appendAdminAudit } from '@/lib/audit'
 import { TODAY } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import type { Channel, SaasCatalogEntry } from '@/lib/types'
 
-/** 감사 로그 적재 — 정책 변경은 전량 추적 (§07 감사) */
-function audit(actor: string, action: string, target: string) {
-  const s = getStore()
-  s.seq += 1
-  const now = new Date()
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mm = String(now.getMinutes()).padStart(2, '0')
-  const ss = String(now.getSeconds()).padStart(2, '0')
-  s.auditLogs.unshift({
-    id: `AUD-${9000 + s.seq}`,
-    at: `${TODAY} ${hh}:${mm}:${ss}`,
-    actor,
-    action,
-    target,
-    result: '성공',
-    ip: '10.20.60.2',
-  })
-}
+/** 정책 변경은 전량 추적 (§07 감사) — 적재는 lib/audit 로 일원화 */
+const audit = appendAdminAudit
 
 async function requireAdmin() {
   const session = await getSession()

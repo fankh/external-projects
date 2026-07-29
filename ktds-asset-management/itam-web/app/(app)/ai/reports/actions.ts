@@ -1,5 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { appendAudit } from '@/lib/audit'
 import { TODAY } from '@/lib/dates'
 import { buildSections, ruleHeadline } from '@/lib/reports'
 import { getSession } from '@/lib/session'
@@ -68,15 +69,7 @@ export async function generateReport(kind: ReportKind) {
     headline,
     sections,
   })
-  s.auditLogs.unshift({
-    id: `AUD-${9000 + s.seq}`,
-    at: `${TODAY} ${hh}:${mm}:00`,
-    actor: session.name,
-    action: `AI 리포트 생성 (${mode})`,
-    target: kind,
-    result: '성공',
-    ip: '10.20.31.45',
-  })
+  appendAudit({ actor: session.name, action: `AI 리포트 생성 (${mode})`, target: kind })
   revalidatePath('/', 'layout')
 }
 
