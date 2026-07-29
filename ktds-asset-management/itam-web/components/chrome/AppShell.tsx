@@ -1,0 +1,142 @@
+'use client'
+/** 앱 셸 — edim-web-next AppChrome 계승: 타이틀바 · 모듈 메뉴바(LV1) · MDI 탭(최근 화면) ·
+ *  모듈 좌측 내비(LV2) · 상태바. 방문 화면을 탭 스트립으로 유지(localStorage), 클릭=이동. */
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState, type ReactNode } from 'react'
+import type { Role } from '@/lib/types'
+import { NAV, TITLE_BY_HREF } from './menus'
+
+const TABS_KEY = 'itam-tabs'
+const MAX_TABS = 10
+
+interface Tab { href: string; title: string }
+
+function loadTabs(): Tab[] {
+  try { return JSON.parse(localStorage.getItem(TABS_KEY) ?? '[]') as Tab[] } catch { return [] }
+}
+function saveTabs(tabs: Tab[]) {
+  try { localStorage.setItem(TABS_KEY, JSON.stringify(tabs)) } catch { /* quota */ }
+}
+
+export function AppShell(props: {
+  role: Role
+  badges: { approvals: number; unregistered: number }
+  userName: string
+  dept: string
+  roleLabel: string
+  logout: ReactNode
+  children: ReactNode
+}) {
+  const pathname = usePathname()
+  const router = useRouter()
+
+  const groups = NAV
+    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(props.role)) }))
+    .filter((g) => g.items.length > 0)
+  const activeGroup = groups.find((g) => g.items.some((i) => pathname.startsWith(i.href))) ?? groups[0]
+  const badgeOf = (badge?: 'approvals' | 'unregistered') => (badge ? props.badges[badge] : 0)
+
+  // MDI 탭 — 방문 시 upsert, 새로고침 간 유지 (edim MdiTabs 패턴)
+  const [tabs, setTabs] = useState<Tab[]>([])
+  useEffect(() => { setTabs(loadTabs()) }, [])
+  useEffect(() => {
+    const info = TITLE_BY_HREF[pathname]
+    if (!info) return
+    setTabs((cur) => {
+      if (cur.some((t) => t.href === pathname)) return cur
+      const next = [...cur, { href: pathname, title: info.title }].slice(-MAX_TABS)
+      saveTabs(next)
+      return next
+    })
+  }, [pathname])
+  const closeTab = (href: string) => {
+    setTabs((cur) => {
+      const next = cur.filter((t) => t.href !== href)
+      saveTabs(next)
+      if (href === pathname) router.push(next.length ? next[next.length - 1].href : '/dashboard')
+      return next
+    })
+  }
+
+  return (
+    <div className="shell">
+      <header className="titlebar">
+        <div>
+          <div className="wordmark">SEEKERSLAB</div>
+          <div className="sub">AI Asset Management</div>
+        </div>
+        <div className="sp" />
+        <input
+          className="search"
+          placeholder="자산번호 · 호스트명 · 소유자 검색"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const q = (e.target as HTMLInputElement).value.trim()
+              router.push(q ? `/assets/register?q=${encodeURIComponent(q)}` : '/assets/register')
+            }
+          }}
+        />
+        <div className="userchip">
+          <span className="avatar">{props.userName.slice(0, 1)}</span>
+          <span>
+            <div className="nm">{props.userName}</div>
+            <div className="rl">{props.dept} · {props.roleLabel}</div>
+          </span>
+        </div>
+        {props.logout}
+      </header>
+
+      <nav className="menubar">
+        {groups.map((g) => {
+          const n = g.items.reduce((s, i) => s + badgeOf(i.badge), 0)
+          return (
+            <button key={g.label} className={g === activeGroup ? 'on' : ''}
+              onClick={() => router.push(g.items[0].href)}>
+              {g.label}
+              {n > 0 && <span className="bdg">{n}</span>}
+            </button>
+          )
+        })}
+      </nav>
+
+      <div className="mdibar">
+        {tabs.map((t) => (
+          <span key={t.href} role="tab" className={`tab ${t.href === pathname ? 'on' : ''}`}
+            onClick={() => router.push(t.href)}>
+            {t.title}
+            <span className="x" role="button" aria-label={`${t.title} 탭 닫기`}
+              onClick={(e) => { e.stopPropagation(); closeTab(t.href) }}>×</span>
+          </span>
+        ))}
+      </div>
+
+      <div className="workrow">
+        <aside className="modnav">
+          <div className="hd kicker mute">{activeGroup.label}</div>
+          {activeGroup.items.map((i) => {
+            const n = badgeOf(i.badge)
+            return (
+              <Link key={i.href} href={i.href} className={pathname.startsWith(i.href) ? 'on' : ''}>
+                <span className="ico">{i.ico}</span>
+                {i.label}
+                {n > 0 && <span className="bdg">{n}</span>}
+              </Link>
+            )
+          })}
+        </aside>
+        <div className="main">
+          <main className="content">
+            <div className="content-inner">{props.children}</div>
+          </main>
+          <footer className="statusbar">
+            <span><span className="dot" />수집·연동 계층 정상 — 커넥터 6/6</span>
+            <span>마지막 스캔 2026-07-28 23:00 (야간 정책)</span>
+            <span className="grow" />
+            <span>SEEKERSLAB — AI ASSET MANAGEMENT PLATFORM · v1.0</span>
+          </footer>
+        </div>
+      </div>
+    </div>
+  )
+}
