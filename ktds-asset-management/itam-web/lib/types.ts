@@ -226,11 +226,21 @@ export interface DisposalRecord {
   evidence?: string
 }
 
-export interface Notice {
+/** 게시판 — 공지 · QnA (제품안내서 §01 Main) */
+export type QnaCategory = '자산 신청·반납' | '장애·수리' | '라이선스' | '보안·Discovery' | '기타'
+
+export interface BoardPost {
   id: string
+  kind: '공지' | 'QnA'
   title: string
-  date: string
+  body: string
+  author: string
+  dept: string
+  createdAt: string
+  views: number
   pinned?: boolean
+  category?: QnaCategory
+  answer?: { body: string; by: string; at: string }
 }
 
 /** 외부 공격표면 탐지 (제품안내서 §04) — 조직 밖으로 노출된 미인지 자산 */

@@ -135,16 +135,26 @@ export default async function DashboardPage() {
             </div>
           </Card>
 
-          <Card kicker="Notice" title="공지 · QnA">
+          <Card kicker="Notice" title="공지 · QnA"
+            actions={<Link className="btn sm ghost" href="/board/notices">전체</Link>}>
             <div className="vstack" style={{ gap: 8 }}>
-              {s.notices.map((n) => (
-                <div key={n.id} className="hstack" style={{ justifyContent: 'space-between', gap: 12 }}>
+              {s.posts.filter((p) => p.kind === '공지').slice(0, 3).map((n) => (
+                <Link key={n.id} href="/board/notices" className="hstack"
+                  style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {n.pinned && <Chip tone="err" bare>필독</Chip>} {n.title}
                   </span>
-                  <span className="mut tnum" style={{ flex: 'none' }}>{n.date.slice(5)}</span>
-                </div>
+                  <span className="mut tnum" style={{ flex: 'none' }}>{n.createdAt.slice(5)}</span>
+                </Link>
               ))}
+              {(() => {
+                const waiting = s.posts.filter((p) => p.kind === 'QnA' && !p.answer).length
+                return waiting > 0 ? (
+                  <Link href="/board/qna" className="hstack" style={{ justifyContent: 'space-between', gap: 12, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+                    <span>답변 대기 문의</span><span><b>{waiting}</b>건 →</span>
+                  </Link>
+                ) : null
+              })()}
             </div>
           </Card>
         </div>

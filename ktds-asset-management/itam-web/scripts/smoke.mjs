@@ -25,6 +25,8 @@ const cookie = (role) => `itam_session=${encodeURIComponent(JSON.stringify(ACCOU
 /** 라우트 × 권한 — components/chrome/menus.ts 및 페이지 가드와 동일해야 한다 */
 const ROUTES = {
   '/dashboard': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
+  '/board/notices': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
+  '/board/qna': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/assets/register': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/assets/lifecycle': ['ASSET_MGR', 'ADMIN'],
   '/assets/intake': ['ASSET_MGR', 'ADMIN'],
@@ -124,6 +126,13 @@ try {
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
   check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))
   check('외부 공격표면: 위협 인텔·유출 수집 렌더', extHtml.includes('스틸러 로그'))
+  const ntcHtml = await (await get('/board/notices', 'USER')).text()
+  check('공지사항: 목록·본문 렌더', ntcHtml.includes('2026 하반기 재물조사') && ntcHtml.includes('필독'))
+  check('공지사항: 사용자에게 등록 버튼 미노출', !ntcHtml.includes('공지 등록'))
+  const qnaHtml = await (await get('/board/qna', 'USER')).text()
+  check('QnA: 문의 목록·답변 상태 렌더', qnaHtml.includes('질문하기') && qnaHtml.includes('답변 대기') && qnaHtml.includes('답변 완료'))
+  const qnaMgr = await (await get('/board/qna', 'ASSET_MGR')).text()
+  check('QnA: 담당자에게 답변 입력 노출', qnaMgr.includes('답변 등록'))
   const inHtml = await (await get('/assets/intake', 'ASSET_MGR')).text()
   check('도입·검수: 체크리스트·라벨 렌더', inHtml.includes('검수 체크리스트') && inHtml.includes('전원·부팅 정상 동작') && inHtml.includes('<svg'))
   check('도입·검수: QR·바코드 SVG 발행', (inHtml.match(/<svg/g) ?? []).length >= 2 && inHtml.includes('AST-2025-000033'))

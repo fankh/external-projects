@@ -22,7 +22,11 @@ const SEC: Role[] = ['ASSET_MGR', 'SEC_MGR', 'ADMIN']
 export const NAV: NavGroup[] = [
   {
     label: 'Main',
-    items: [{ href: '/dashboard', label: '대시보드', ico: '◧', roles: ALL }],
+    items: [
+      { href: '/dashboard', label: '대시보드', ico: '◧', roles: ALL },
+      { href: '/board/notices', label: '공지사항', ico: '≡', roles: ALL },
+      { href: '/board/qna', label: 'QnA', ico: '?', roles: ALL },
+    ],
   },
   {
     label: '자산관리',

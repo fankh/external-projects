@@ -1,9 +1,9 @@
 /** 인메모리 데이터 스토어 — 데모용. globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
  *  실서비스에서는 자산 대장 RDB(CMDB) + 발견 저장소 분리 구조로 대체된다(제품안내서 §02). */
 import type {
-  AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, CodeGroup, CodeValue, Contract,
+  AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, CodeGroup, CodeValue, Contract,
   DisposalRecord, DiscoveredAsset, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
-  Notice, SaasCatalogEntry, SaasUsage, ScanPolicy, SurveyDiff, SurveyScan, SwLicense, UserAccount,
+  SaasCatalogEntry, SaasUsage, ScanPolicy, SurveyDiff, SurveyScan, SwLicense, UserAccount,
 } from './types'
 
 export interface Store {
@@ -30,7 +30,7 @@ export interface Store {
   saas: SaasUsage[]
   insights: AiInsight[]
   inventoryRounds: InventoryRound[]
-  notices: Notice[]
+  posts: BoardPost[]
   seq: number
 }
 
@@ -319,10 +319,62 @@ function seed(): Store {
       { id: 'INV-2026-H1', name: '2026 상반기 정기 재물조사', scope: '전사', planned: 1_198, scanned: 1_198, mismatched: 14, dueDate: '2026-02-27', assignee: '박자산', status: '완료' },
       { id: 'INV-2026-SP1', name: '판교 사무소 수시 조사', scope: '판교 사무소', planned: 86, scanned: 0, mismatched: 0, dueDate: '2026-08-08', assignee: '최지원', status: '계획' },
     ],
-    notices: [
-      { id: 'NTC-01', title: '[필독] 2026 하반기 재물조사 — 8/29까지 부서별 협조 요청', date: '2026-07-21', pinned: true },
-      { id: 'NTC-02', title: '미인가 SaaS(스토리지류) 차단 정책 8/1 시행 안내', date: '2026-07-18' },
-      { id: 'NTC-03', title: '노후 단말 일괄 교체 신청 접수 (영업조직 대상)', date: '2026-07-10' },
+    posts: [
+      {
+        id: 'NTC-01', kind: '공지', pinned: true, views: 412,
+        title: '[필독] 2026 하반기 재물조사 — 8/29까지 부서별 협조 요청',
+        body: '2026 하반기 정기 재물조사를 8월 29일까지 진행합니다. 조사 담당자가 부서를 방문해 자산 라벨의 바코드/QR을 스캔합니다.\n\n' +
+          '· 대상: 본사 전층 + IDC-A (총 1,240대)\n· 협조 사항: 방문 시 보유 단말·주변기기를 책상 위에 비치해 주세요.\n' +
+          '· 미확인 자산은 유휴·분실 후보로 분류되어 차이 조정 결재 대상이 됩니다.\n· 라벨이 훼손된 자산은 자산관리팀으로 재발행을 요청해 주세요.',
+        author: '박자산', dept: '자산관리팀', createdAt: '2026-07-21',
+      },
+      {
+        id: 'NTC-02', kind: '공지', views: 287,
+        title: '미인가 SaaS(스토리지류) 차단 정책 8/1 시행 안내',
+        body: '8월 1일부터 미인가 클라우드 스토리지 서비스에 대한 프록시 차단 정책이 시행됩니다.\n\n' +
+          '· 업무상 필요한 서비스는 SaaS 카탈로그 인가 요청을 통해 사전 등재해 주세요.\n' +
+          '· 기밀 등급 데이터를 취급하는 서비스는 데이터 반출 범위 확인 후 판정됩니다.\n· 문의: 보안운영팀',
+        author: '윤보안', dept: '보안운영팀', createdAt: '2026-07-18',
+      },
+      {
+        id: 'NTC-03', kind: '공지', views: 156,
+        title: '노후 단말 일괄 교체 신청 접수 (영업조직 대상)',
+        body: '보증 만료 3년 경과 단말을 대상으로 일괄 교체를 진행합니다. 대상자는 워크플로 › 신청·결재에서 자산 신청을 상신해 주세요.\n\n' +
+          '· 접수 기한: 8월 15일\n· 교체 모델: 2026 상반기 계약분 (CT-2026-009)\n· 기존 단말은 반납 후 데이터 소거를 거쳐 폐기됩니다.',
+        author: '박자산', dept: '자산관리팀', createdAt: '2026-07-10',
+      },
+      {
+        id: 'QNA-04', kind: 'QnA', views: 23, category: '자산 신청·반납',
+        title: '퇴사자 단말 반납은 어느 시점에 처리하나요?',
+        body: '팀원이 다음 주 퇴사 예정인데 노트북 반납 처리를 언제, 어떻게 진행해야 하는지 문의드립니다.',
+        author: '오세훈', dept: '인사팀', createdAt: '2026-07-27',
+        answer: {
+          body: '퇴사일 전일까지 워크플로 › 신청·결재에서 반납 상신을 부탁드립니다. 자산담당이 상태 점검 후 승인하면 대장에서 유휴로 전환되어 재배치 대상이 됩니다. 데이터가 남아 있는 경우 소거 후 유휴 편성됩니다.',
+          by: '박자산', at: '2026-07-27',
+        },
+      },
+      {
+        id: 'QNA-03', kind: 'QnA', views: 41, category: '라이선스',
+        title: 'JetBrains 라이선스 추가 발급이 가능한가요?',
+        body: '신규 입사자 2명에게 JetBrains 라이선스가 필요한데 발급 요청 절차가 궁금합니다.',
+        author: '김민준', dept: '플랫폼개발팀', createdAt: '2026-07-26',
+        answer: {
+          body: '현재 JetBrains는 보유 120석 대비 사용 131석으로 이미 초과 사용 상태라 즉시 발급이 어렵습니다. 추가 구매 품의를 진행 중이며, 그 전까지는 장기 미사용자 회수분으로 우선 배정할 예정입니다. 급한 경우 자산관리팀으로 개별 문의 주세요.',
+          by: '박자산', at: '2026-07-26',
+        },
+      },
+      {
+        id: 'QNA-02', kind: 'QnA', views: 12, category: '보안·Discovery',
+        title: '부서에서 쓰던 NAS가 미등록 자산으로 잡혔습니다',
+        body: '개발팀에서 테스트용으로 쓰던 NAS가 Discovery에서 미등록으로 표시되었다고 연락받았습니다. 어떻게 처리하면 되나요?',
+        author: '이서연', dept: '플랫폼개발팀', createdAt: '2026-07-24',
+      },
+      {
+        id: 'QNA-01', kind: 'QnA', views: 8, category: '장애·수리',
+        title: '모니터 불량 교체는 어디로 신청하나요?',
+        body: '지급받은 모니터에 화면 잔상이 있습니다. 보증 기간 내인 것 같은데 교체 절차를 알려주세요.',
+        author: '최지우', dept: '영업1팀', createdAt: '2026-07-22',
+      },
     ],
     seq: 200,
   }
