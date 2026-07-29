@@ -30,6 +30,8 @@ const ROUTES = {
   '/assets/register': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/assets/lifecycle': ['ASSET_MGR', 'ADMIN'],
   '/assets/intake': ['ASSET_MGR', 'ADMIN'],
+  '/assets/movement': ['ASSET_MGR', 'ADMIN'],
+  '/assets/returns': ['ASSET_MGR', 'ADMIN'],
   '/assets/disposal': ['ASSET_MGR', 'ADMIN'],
   '/inventory/stock': ['ASSET_MGR', 'ADMIN'],
   '/inventory/contracts': ['ASSET_MGR', 'ADMIN'],
@@ -137,6 +139,15 @@ try {
   const inHtml = await (await get('/assets/intake', 'ASSET_MGR')).text()
   check('도입·검수: 체크리스트·라벨 렌더', inHtml.includes('검수 체크리스트') && inHtml.includes('전원·부팅 정상 동작') && inHtml.includes('<svg'))
   check('도입·검수: QR·바코드 SVG 발행', (inHtml.match(/<svg/g) ?? []).length >= 2 && inHtml.includes('AST-2025-000033'))
+  const mvHtml = await (await get('/assets/movement', 'ASSET_MGR')).text()
+  check('불출·이동: 대기열·재배치 재고 렌더', mvHtml.includes('불출 대기') && mvHtml.includes('이동 대기') && mvHtml.includes('재배치 우선 원칙'))
+  // 승인만 되고 집행되지 않은 이동이 대기열에 보여야 한다 (승인 ≠ 집행)
+  check('불출·이동: 미집행 승인 이동이 대기열에 노출', mvHtml.includes('APR-2607-101') && mvHtml.includes('본사 9F'))
+  const rtHtml = await (await get('/assets/returns', 'ASSET_MGR')).text()
+  check('반납·유휴: 접수 대기·유휴 풀 렌더', rtHtml.includes('반납 접수 대기') && rtHtml.includes('유휴 자산 풀') && rtHtml.includes('상태 점검'))
+  check('반납·유휴: 반납대기 자산이 접수 대기에 노출', rtHtml.includes('AST-2025-000513'))
+  const apUser = await (await get('/workflow/approvals', 'USER')).text()
+  check('신청 상신: 사용자에게 신청 UI 노출', apUser.includes('신청 상신') && apUser.includes('신청하기'))
   const dspHtml = await (await get('/assets/disposal', 'ASSET_MGR')).text()
   check('폐기: 후보·소거 방식·증적 렌더', dspHtml.includes('데이터 소거') && dspHtml.includes('증적') && dspHtml.includes('AST-2019-000218'))
   const svyHtml = await (await get('/inventory/survey', 'ASSET_MGR')).text()

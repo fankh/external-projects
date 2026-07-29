@@ -122,7 +122,16 @@ export interface Approval {
   refId?: string
   decidedAt?: string
   decidedBy?: string
+  /** 신청 사유 — 상신 시 신청자가 입력 */
+  note?: string
+  /** 이동 신청의 목적지 — 이동 처리 시 대장 위치에 반영된다 */
+  targetLocation?: string
+  /** 승인 후 자산담당이 실제 불출·이동을 집행했는지. 결재 승인만으로는 실물이 움직이지 않는다 */
+  fulfilled?: boolean
 }
+
+/** 반납 접수 시 상태 점검 결과 — 재배치 가능 여부를 가른다 (제품안내서 §03 PHASE 4) */
+export type ReturnCondition = '정상' | '수리 필요' | '폐기 권고'
 
 export interface SaasUsage {
   id: string

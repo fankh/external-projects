@@ -163,6 +163,7 @@ function seedCodeGroups(): CodeGroup[] {
       values: v(
         ['HQ_8F', '본사 8F'],
         ['HQ_8F_NET', '본사 8F 통신실'],
+        ['HQ_9F', '본사 9F'],
         ['HQ_3F_WH', '본사 3F 자산창고'],
         ['HQ_3F_INSP', '본사 3F 검수실'],
         ['HQ_1F_LOBBY', '본사 1F 로비'],
@@ -312,7 +313,9 @@ function seed(): Store {
       { id: 'APR-2607-114', kind: '소유자 확인', title: 'DSC-2607-0041 (ip-10-20-31-88) 소유자 확인', requester: 'Discovery 엔진', dept: '플랫폼개발팀', requestedAt: '2026-07-25', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0041' },
       { id: 'APR-2607-112', kind: '격리 요청', title: 'DSC-2607-0031 (개인 구독 Azure VM) NAC 격리', requester: '윤보안', dept: '보안운영팀', requestedAt: '2026-07-24', status: '대기', currentStep: '보안담당 승인', refId: 'DSC-2607-0031' },
       { id: 'APR-2607-109', kind: '폐기', title: 'AST-2019-000218 외 11대 노후 단말 일괄 폐기', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-07-21', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'AST-2019-000218' },
-      { id: 'APR-2607-101', kind: '이동', title: 'AST-2023-000112 좌석 이동 (8F → 9F)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-15', status: '승인', currentStep: '완료', refId: 'AST-2023-000112', decidedAt: '2026-07-16', decidedBy: '박자산' },
+      // 승인은 났으나 아직 집행되지 않은 이동 — 불출·이동 처리 화면의 대기열에 잡힌다.
+      // targetLocation 은 공통코드 LOCATION 의 값이어야 대장에 그대로 반영할 수 있다.
+      { id: 'APR-2607-101', kind: '이동', title: 'AST-2023-000112 좌석 이동 (본사 8F → 본사 9F)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-15', status: '승인', currentStep: '완료', refId: 'AST-2023-000112', decidedAt: '2026-07-16', decidedBy: '박자산', targetLocation: '본사 9F', note: '팀 좌석 재배치' },
       { id: 'APR-2606-092', kind: '차이 조정', title: '2026 상반기 재물조사 차이 4건 조정', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-06-30', status: '승인', currentStep: '완료', decidedAt: '2026-07-02', decidedBy: '이기획' },
     ],
     saas: [

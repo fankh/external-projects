@@ -1,8 +1,80 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { getStore } from '@/lib/store'
+import { getStore, nextApprovalId } from '@/lib/store'
+import type { ApprovalKind } from '@/lib/types'
+
+/** 신청 상신 — 사용자가 직접 올리는 3종 (자산 신청 / 반납 / 이동).
+ *  결재선은 환경설정의 화면별 기본 결재선을 따르며, 다음 단계는 상신자 다음 스텝이 된다.
+ *  (제품안내서 §01 권한그룹: 사용자 — 자산 신청·반납·이동 요청 및 결재 상신) */
+export async function raiseRequest(input: {
+  kind: Extract<ApprovalKind, '자산 신청' | '반납' | '이동'>
+  assetNo?: string
+  targetLocation?: string
+  note: string
+}) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+
+  const note = input.note.trim()
+  if (!note) return { ok: false, message: '신청 사유를 입력해 주세요.' }
+
+  const s = getStore()
+  let title = ''
+
+  if (input.kind === '자산 신청') {
+    title = `자산 신규 지급 신청 — ${note.slice(0, 40)}`
+  } else {
+    // 반납·이동은 본인 명의 자산만 대상으로 한다 (권한 모델: 사용자는 본인 자산 범위)
+    const asset = s.assets.find((a) => a.assetNo === input.assetNo)
+    if (!asset) return { ok: false, message: '대상 자산을 선택해 주세요.' }
+    if (session.role === 'USER' && asset.owner !== session.name) {
+      return { ok: false, message: '본인 명의 자산만 신청할 수 있습니다.' }
+    }
+    if (['폐기예정', '폐기완료'].includes(asset.status)) {
+      return { ok: false, message: `폐기 절차 중인 자산입니다 — ${asset.assetNo}` }
+    }
+    const dup = s.approvals.find(
+      (a) => a.status === '대기' && a.refId === asset.assetNo && a.kind === input.kind,
+    )
+    if (dup) return { ok: false, message: `이미 결재 대기 중인 신청이 있습니다 — ${dup.id}` }
+
+    if (input.kind === '이동') {
+      if (!input.targetLocation) return { ok: false, message: '이동할 위치를 선택해 주세요.' }
+      if (input.targetLocation === asset.location) {
+        return { ok: false, message: '현재 위치와 동일합니다.' }
+      }
+      title = `${asset.model} 이동 신청 — ${asset.location} → ${input.targetLocation}`
+    } else {
+      title = `${asset.model} 반납 신청 (${asset.assetNo})`
+    }
+  }
+
+  // 결재선의 첫 단계는 신청자 본인이므로, 다음 결재 단계를 현재 스텝으로 잡는다
+  const line = s.approvalLines.find((l) => l.kind === input.kind)
+  const nextStep = line?.steps.find((st) => st !== '신청자') ?? '자산담당'
+
+  const id = nextApprovalId()
+  s.approvals.unshift({
+    id,
+    kind: input.kind,
+    title,
+    requester: session.name,
+    dept: session.dept,
+    requestedAt: today(),
+    status: '대기',
+    currentStep: `${nextStep} 결재`,
+    refId: input.assetNo,
+    note,
+    targetLocation: input.kind === '이동' ? input.targetLocation : undefined,
+  })
+
+  appendAudit({ actor: session.name, action: `${input.kind} 상신`, target: id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${id} 상신 완료 — ${nextStep} 결재 대기` }
+}
 
 /** 결재 처리 — 권한그룹별: 격리 요청은 보안담당, 그 외는 자산담당/Admin */
 export async function decide(approvalId: string, verdict: '승인' | '반려') {
@@ -88,9 +160,11 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
     if (d && verdict === '반려') d.action = undefined
     const asset = s.assets.find((x) => x.assetNo === a.refId)
     if (asset && verdict === '승인') {
+      // 반납 승인은 '반납대기'까지만 — 실물 회수와 상태 점검을 거쳐야 유휴 풀에 들어간다
+      // (제품안내서 §03 PHASE 4: 반납 접수 · 상태 점검 → 유휴 자산 풀)
       if (a.kind === '반납') {
-        asset.status = '유휴'
-        asset.history.push({ date: today(), kind: '반납', detail: '반납 결재 승인 · 유휴 재고 편성', actor: session.name })
+        asset.status = '반납대기'
+        asset.history.push({ date: today(), kind: '반납', detail: '반납 결재 승인 · 회수 접수 대기', actor: session.name })
       }
       if (a.kind === '폐기') {
         asset.history.push({ date: today(), kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 대기', actor: session.name })

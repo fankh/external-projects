@@ -2,6 +2,7 @@ import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ApprovalList } from './ApprovalList'
+import { RequestForm } from './RequestForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,17 @@ export default async function ApprovalsPage() {
   const session = (await getSession())!
   const s = getStore()
   const pending = s.approvals.filter((a) => a.status === '대기')
+
+  // 반납·이동 신청 대상 — 사용자는 본인 명의 자산만, 관리자는 운영 중인 자산 전체
+  const myAssets = s.assets
+    .filter((a) => !['폐기예정', '폐기완료'].includes(a.status))
+    .filter((a) => (session.role === 'USER' ? a.owner === session.name : true))
+    .map((a) => ({ assetNo: a.assetNo, model: a.model, location: a.location }))
+
+  const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
+    .filter((v) => v.active)
+    .sort((a, b) => a.sort - b.sort)
+    .map((v) => v.label)
 
   return (
     <>
@@ -24,6 +36,8 @@ export default async function ApprovalsPage() {
         <Stat value={pending.filter((a) => a.requester === session.name).length} label="내가 상신한 건" />
         <Stat value={s.approvals.filter((a) => a.status !== '대기').length} label="처리 완료 (누적)" tone="ok" />
       </div>
+
+      <RequestForm myAssets={myAssets} locations={locations} />
 
       <Card pad={false}>
         <ApprovalList approvals={s.approvals} role={session.role} />
