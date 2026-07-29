@@ -167,6 +167,60 @@ export interface Notice {
   pinned?: boolean
 }
 
+/** 외부 공격표면 탐지 (제품안내서 §04) — 조직 밖으로 노출된 미인지 자산 */
+export type EasmMode = 'Passive' | 'Active'
+
+export interface ExternalAsset {
+  id: string
+  host: string
+  ip?: string
+  method: string
+  mode: EasmMode
+  /** 생존 확인 여부 — 수동 수집 단계에서는 미확인 */
+  alive: boolean
+  services?: string
+  cve?: string
+  cvss?: number
+  risk: RiskLevel
+  firstSeen: string
+  note?: string
+  /** 내부 6채널 결과와 자산 지문 통합 → 대장 대사 결과 */
+  state: ReconcileState
+  action?: '편입요청' | '차단요청' | '편입완료' | '차단완료'
+}
+
+export interface LeakFinding {
+  id: string
+  kind: '유출 계정' | '스틸러 로그' | '코드 저장소 시크릿' | '랜섬웨어 유출 사이트'
+  detail: string
+  source: string
+  confidence: '높음' | '중간' | '낮음'
+  foundAt: string
+}
+
+/** 연동 대상 시스템 (제품안내서 §06) — 수집 소스이자 조치 채널 */
+export interface Integration {
+  id: string
+  system: string
+  method: 'REST API' | 'API · 로그' | '로그 수집' | 'CSP API' | 'SAML · API'
+  purpose: string
+  role: '수집' | '조치' | '수집 · 조치'
+  status: '정상' | '지연' | '오류' | '미연동'
+  lastSync: string
+  /** 최근 24시간 수집 건수 */
+  volume24h: number
+}
+
+export interface AuditLog {
+  id: string
+  at: string
+  actor: string
+  action: string
+  target: string
+  result: '성공' | '실패'
+  ip: string
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   text: string

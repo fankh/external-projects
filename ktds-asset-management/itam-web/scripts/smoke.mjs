@@ -32,6 +32,8 @@ const ROUTES = {
   '/discovery/found': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/discovery/reconcile': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/discovery/saas': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
+  '/discovery/external': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
+  '/platform/integrations': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/ai/assistant': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/ai/insights': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/workflow/approvals': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
@@ -109,6 +111,13 @@ try {
   check('결재함: 격리 요청 문서 렌더', aprHtml.includes('격리 요청') && aprHtml.includes('APR-2607-112'))
   const permHtml = await (await get('/settings/permissions', 'ADMIN')).text()
   check('권한 매트릭스: 파이프라인·매트릭스 렌더', permHtml.includes('메뉴권한관리') && permHtml.includes('최소권한'))
+  const extHtml = await (await get('/discovery/external', 'SEC_MGR')).text()
+  check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
+  check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))
+  check('외부 공격표면: 위협 인텔·유출 수집 렌더', extHtml.includes('스틸러 로그'))
+  const intHtml = await (await get('/platform/integrations', 'SEC_MGR')).text()
+  check('연동 · 인프라: 커넥터·감사 로그 렌더', intHtml.includes('EDR · 백신 콘솔') && intHtml.includes('감사 로그') && intHtml.includes('권한 밖 화면 접근 시도'))
+  check('연동 · 인프라: 양방향 조치 채널 렌더', intHtml.includes('양방향') && intHtml.includes('SAML'))
 } catch (err) {
   failed += 1
   console.error(`✗ 실행 오류: ${err instanceof Error ? err.message : err}`)

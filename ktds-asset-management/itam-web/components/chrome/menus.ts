@@ -44,6 +44,7 @@ export const NAV: NavGroup[] = [
       { href: '/discovery/found', label: '발견 자산', ico: '◎', roles: SEC, badge: 'unregistered' },
       { href: '/discovery/reconcile', label: 'CMDB 대사', ico: '⇄', roles: SEC },
       { href: '/discovery/saas', label: 'Shadow SaaS', ico: '☁', roles: SEC },
+      { href: '/discovery/external', label: '외부 공격표면', ico: '◈', roles: SEC },
     ],
   },
   {
@@ -60,6 +61,10 @@ export const NAV: NavGroup[] = [
   {
     label: '환경설정',
     items: [{ href: '/settings/permissions', label: '권한 · 정책', ico: '⚙', roles: ['ADMIN'] }],
+  },
+  {
+    label: '기타 (기반)',
+    items: [{ href: '/platform/integrations', label: '연동 · 인프라', ico: '⇌', roles: SEC }],
   },
 ]
 

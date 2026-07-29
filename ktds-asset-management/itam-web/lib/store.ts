@@ -1,13 +1,17 @@
 /** 인메모리 데이터 스토어 — 데모용. globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
  *  실서비스에서는 자산 대장 RDB(CMDB) + 발견 저장소 분리 구조로 대체된다(제품안내서 §02). */
 import type {
-  AiInsight, Approval, Asset, Contract, DiscoveredAsset,
-  InventoryRound, Notice, SaasUsage, SwLicense,
+  AiInsight, Approval, Asset, AuditLog, Contract, DiscoveredAsset, ExternalAsset,
+  Integration, InventoryRound, LeakFinding, Notice, SaasUsage, SwLicense,
 } from './types'
 
 export interface Store {
   assets: Asset[]
   discovered: DiscoveredAsset[]
+  external: ExternalAsset[]
+  leaks: LeakFinding[]
+  integrations: Integration[]
+  auditLogs: AuditLog[]
   contracts: Contract[]
   licenses: SwLicense[]
   approvals: Approval[]
@@ -84,10 +88,60 @@ function seedDiscovered(): DiscoveredAsset[] {
   ]
 }
 
+/** 외부 공격표면 — 수동(무접촉) 수집으로 후보 확보 → 능동 탐지로 생존·서비스·취약점 확인 */
+function seedExternal(): ExternalAsset[] {
+  return [
+    { id: 'EXT-2607-01', host: 'legacy-vpn.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', alive: true, services: 'HTTPS 443 (Fortinet SSL-VPN 6.0.4)', cve: 'CVE-2018-13379', cvss: 9.8, risk: '높음', firstSeen: '2026-07-22', state: '미등록', note: '만료 임박 인증서 · 대장에 없는 잊힌 VPN 게이트웨이' },
+    { id: 'EXT-2607-02', host: 'dev-api.seekerslab.co.kr', ip: '203.0.113.51', method: '서브도메인 브루트포스', mode: 'Active', alive: true, services: 'HTTP 8080 (Swagger UI 노출)', risk: '높음', firstSeen: '2026-07-24', state: '미등록', note: '개발 API 문서가 인증 없이 외부 공개' },
+    { id: 'EXT-2607-03', host: 'old-portal.seekerslab.co.kr', ip: '203.0.113.12', method: '웹 아카이브', mode: 'Passive', alive: false, risk: '낮음', firstSeen: '2026-07-19', state: '미확인', note: '과거 관측 호스트 — 생존 확인 전까지 비활성 표기' },
+    { id: 'EXT-2607-04', host: 'mail.seekerslab.co.kr', ip: '203.0.113.25', method: '역DNS · CIDR 스캔', mode: 'Active', alive: true, services: 'SMTP 25 · IMAPS 993', risk: '낮음', firstSeen: '2026-07-15', state: '등록·일치', note: '대장 등록 자산 — 정상 노출' },
+    { id: 'EXT-2607-05', host: 'stg.seekerslab.co.kr', ip: '203.0.113.77', method: '순열 생성 (환경 접두)', mode: 'Active', alive: true, services: 'HTTPS 443 (Basic 인증)', risk: '중간', firstSeen: '2026-07-25', state: '미등록', note: '기본 크리덴셜 점검 대상 — stg/dev/uat 순열에서 발견' },
+    { id: 'EXT-2607-06', host: 'db-backup.seekerslab.co.kr', ip: '203.0.113.90', method: '존 트랜스퍼 (AXFR)', mode: 'Active', alive: true, services: 'PostgreSQL 5432 (외부 노출)', cve: 'CVE-2024-10977', cvss: 8.1, risk: '높음', firstSeen: '2026-07-26', state: '미등록', note: 'DB 포트가 인터넷에 직접 노출 — 즉시 차단 필요', action: '차단요청' },
+    { id: 'EXT-2607-07', host: 'kiosk-cam.seekerslab.co.kr', ip: '203.0.113.101', method: '검색엔진 도킹', mode: 'Passive', alive: true, services: 'HTTP 80 (관리 콘솔)', risk: '중간', firstSeen: '2026-07-20', state: '미등록', note: '공개 색인된 관리 콘솔 — site: 도크로 발견' },
+    { id: 'EXT-2607-08', host: 'cdn-assets.seekerslab.co.kr', ip: '203.0.113.66', method: 'DNS 인텔리전스', mode: 'Passive', alive: true, services: 'HTTPS 443', risk: '낮음', firstSeen: '2026-07-11', state: '등록·일치' },
+  ]
+}
+
+function seedLeaks(): LeakFinding[] {
+  return [
+    { id: 'LEAK-01', kind: '유출 계정', detail: 'seekerslab.co.kr 도메인 계정 14건 — 외부 유출 데이터셋에서 매칭', source: '유출 자격증명 피드', confidence: '높음', foundAt: '2026-07-27' },
+    { id: 'LEAK-02', kind: '스틸러 로그', detail: '사내 포털 세션 쿠키 포함 스틸러 로그 2건 (감염 단말 추정)', source: '다크웹 마켓 모니터링', confidence: '중간', foundAt: '2026-07-25' },
+    { id: 'LEAK-03', kind: '코드 저장소 시크릿', detail: '공개 저장소 커밋에 AWS 액세스 키 형태 문자열 1건', source: '코드 저장소 스캔', confidence: '높음', foundAt: '2026-07-23' },
+    { id: 'LEAK-04', kind: '랜섬웨어 유출 사이트', detail: '협력사 명의 게시글에 당사 도메인 언급 — 직접 피해 여부 확인 중', source: 'Tor .onion 크롤', confidence: '낮음', foundAt: '2026-07-18' },
+  ]
+}
+
+function seedIntegrations(): Integration[] {
+  return [
+    { id: 'INT-NAC', system: 'NAC', method: 'REST API', purpose: '단말 인증·미인증 목록 수집, 미확인 자산 격리 요청', role: '수집 · 조치', status: '정상', lastSync: '2026-07-29 09:40', volume24h: 1_284 },
+    { id: 'INT-EDR', system: 'EDR · 백신 콘솔', method: 'REST API', purpose: '단말·설치 SW 인벤토리 — 라이선스 대사·미인가 SW 검출 원천', role: '수집', status: '정상', lastSync: '2026-07-29 09:35', volume24h: 3_910 },
+    { id: 'INT-AD', system: 'AD / Entra ID', method: 'API · 로그', purpose: '계정-단말-부서 매핑, OAuth 앱·휴면 계정 발견', role: '수집', status: '정상', lastSync: '2026-07-29 09:30', volume24h: 8_442 },
+    { id: 'INT-PRX', system: '프록시 · 방화벽 · DNS', method: '로그 수집', purpose: '아웃바운드 도메인 → SaaS 카탈로그 매칭 (Shadow SaaS)', role: '수집', status: '지연', lastSync: '2026-07-29 06:10', volume24h: 41_770 },
+    { id: 'INT-CSP', system: 'CSP (AWS · Azure)', method: 'CSP API', purpose: '클라우드 리소스·계정 인벤토리, 미관리 리소스 발견', role: '수집', status: '정상', lastSync: '2026-07-29 09:00', volume24h: 612 },
+    { id: 'INT-GW', system: '그룹웨어 · 인사', method: 'SAML · API', purpose: 'SSO 인증, 결재 연동, 조직·인사 정보 (소유자 확인 메일 기준)', role: '수집 · 조치', status: '정상', lastSync: '2026-07-29 09:45', volume24h: 226 },
+    { id: 'INT-ITSM', system: 'ITSM · 구매', method: 'REST API', purpose: 'SR·발주 정보 연계 — 도입 예정 자산 사전 등록', role: '수집', status: '미연동', lastSync: '-', volume24h: 0 },
+  ]
+}
+
+function seedAuditLogs(): AuditLog[] {
+  return [
+    { id: 'AUD-9001', at: '2026-07-29 09:42:11', actor: '박자산', action: '발견 자산 편입 요청', target: 'DSC-2607-0041', result: '성공', ip: '10.20.31.45' },
+    { id: 'AUD-9000', at: '2026-07-29 09:31:05', actor: '윤보안', action: 'NAC 격리 요청 결재', target: 'DSC-2607-0031', result: '성공', ip: '10.20.44.9' },
+    { id: 'AUD-8999', at: '2026-07-29 09:12:47', actor: 'AI 서비스', action: 'AI 질의 (권한 필터 적용)', target: '라이선스 초과 사용 현황', result: '성공', ip: '127.0.0.1' },
+    { id: 'AUD-8998', at: '2026-07-29 08:58:20', actor: '김민준', action: '권한 밖 화면 접근 시도', target: '/settings/permissions', result: '실패', ip: '10.20.31.45' },
+    { id: 'AUD-8997', at: '2026-07-29 08:40:03', actor: 'Discovery 엔진', action: '외부 공격표면 스캔 완료', target: 'seekerslab.co.kr', result: '성공', ip: '10.10.12.5' },
+    { id: 'AUD-8996', at: '2026-07-29 08:00:00', actor: '시스템관리자', action: '탐지 채널 정책 변경 (능동 스캔 시간대)', target: '01 네트워크 능동 스캔', result: '성공', ip: '10.20.60.2' },
+  ]
+}
+
 function seed(): Store {
   return {
     assets: seedAssets(),
     discovered: seedDiscovered(),
+    external: seedExternal(),
+    leaks: seedLeaks(),
+    integrations: seedIntegrations(),
+    auditLogs: seedAuditLogs(),
     contracts: [
       { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀' },
       { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: '2026-08-31', amount: 384_000_000, assetCount: 8, ownerDept: '인프라운영팀' },

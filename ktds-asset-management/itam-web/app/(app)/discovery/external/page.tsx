@@ -1,0 +1,154 @@
+import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
+import { requireRole } from '@/lib/authz'
+import { getStore } from '@/lib/store'
+import type { ReconcileState } from '@/lib/types'
+
+export const dynamic = 'force-dynamic'
+
+/** 수동 외부 수집 — 대상에 흔적을 남기지 않는 무접촉 방식 (제품안내서 §04) */
+const PASSIVE = [
+  { m: '인증서 투명성 (CT)', tech: '공개 CT 로그에서 발급 인증서의 호스트명·메타데이터 수집 (대상 무접촉). 와일드카드 제거·중복 제거·유효성 검증', out: '서브도메인, 인증서 항목(발급 CA·유효기간). 유효기간으로 생존 여부 추정' },
+  { m: '웹 아카이브', tech: '인터넷 아카이브에서 과거 관측된 호스트명·URL 조회 (수집 연한 지정)', out: '과거 노출 서브도메인 (생존 확인 전까지 비활성 표기)' },
+  { m: '검색엔진 도킹', tech: '검색엔진 결과에 도크 질의(site:·inurl: 등) 후 서브도메인 정규식 추출. User-Agent 로테이션·프록시·백오프 재시도', out: '공개 색인된 서브도메인' },
+  { m: 'DNS 인텔리전스', tech: '외부 DNS 인텔리전스 서비스에서 알려진 서브도메인·레코드 조회', out: '서브도메인 · DNS 레코드' },
+]
+
+/** DNS 기반 능동 탐지 — 다수 공개 리졸버 풀을 라운드로빈하는 대량 병렬 질의 */
+const ACTIVE = [
+  { m: '서브도메인 브루트포스', tech: '사전 기반 서브도메인 추정(사용자 사전 → 관리 사전 → 기본 사전). 대량 모드는 지역·기술·숫자·다단계 변형으로 최대 수만 건 확장' },
+  { m: '순열 생성', tech: '알려진 서브도메인에 환경(dev/stg/prod)·접두·접미·숫자·구분자·키워드를 조합 후 실시간 해석' },
+  { m: '역DNS · CIDR 스캔', tech: 'IP의 PTR 호스트명 조회, IP 대역 전체 열거 후 알려진 도메인 교차 확인 및 동시 PTR 조회' },
+  { m: '존 트랜스퍼 · 레코드 분석', tech: '네임서버 확인 후 AXFR 시도, 거부 시 A/AAAA/CNAME/MX/NS/TXT/SRV/SOA/CAA 질의로 대체. 레코드 값에 포함된 범위 내 호스트명 추출. 와일드카드 DNS 탐지로 오탐 억제' },
+]
+
+const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
+  '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
+}
+
+export default async function ExternalPage() {
+  await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const s = getStore()
+  const ext = s.external
+  const unreg = ext.filter((e) => e.state === '미등록')
+  const withCve = ext.filter((e) => e.cve)
+
+  return (
+    <>
+      <ScreenHeader
+        kicker="Discovery · External Attack Surface"
+        title="외부 공격표면 탐지"
+        desc="조직 밖으로 노출된 미인지 자산 — 잊힌 서브도메인 · 방치된 서버 · 노출된 관리 콘솔 · 유출 계정"
+      />
+
+      <div className="stat-row">
+        <Stat value={ext.length} label="외부 노출 자산 (지문 통합 후)" />
+        <Stat value={unreg.length} label="미등록 — 대장에 없음" tone="err" />
+        <Stat value={withCve.length} label="CVE 확인 자산" tone="warn" delta={{ text: `최고 CVSS ${Math.max(...withCve.map((e) => e.cvss ?? 0)).toFixed(1)}`, dir: 'up' }} />
+        <Stat value={s.leaks.length} label="유출 · 침해 수집 건" tone="warn" />
+      </div>
+
+      <div className="callout">
+        <b>수동 우선, 능동 확인.</b> 대상에 흔적을 남기지 않는 수동 수집으로 자산 후보를 넓게 확보한 뒤,
+        브루트포스·순열·존 트랜스퍼로 실제 생존 여부를 확인합니다. 능동 스캔은 대상·강도·시간대 정책 협의 후 수행합니다.
+      </div>
+
+      <div className="cols c2">
+        <Card kicker="Passive Collection" title="수동 외부 수집 — 대상 무접촉" pad={false}>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>방법</th><th>기법</th><th>데이터 소스 · 산출</th></tr></thead>
+              <tbody>
+                {PASSIVE.map((p) => (
+                  <tr key={p.m}>
+                    <td className="strong">{p.m}</td>
+                    <td className="dim" style={{ whiteSpace: 'normal', maxWidth: 300 }}>{p.tech}</td>
+                    <td className="mute" style={{ whiteSpace: 'normal', maxWidth: 220 }}>{p.out}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <Card kicker="Active DNS" title="DNS 기반 능동 탐지" pad={false}>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>방법</th><th>기법 · 산출</th></tr></thead>
+              <tbody>
+                {ACTIVE.map((a) => (
+                  <tr key={a.m}>
+                    <td className="strong">{a.m}</td>
+                    <td className="dim" style={{ whiteSpace: 'normal', maxWidth: 460 }}>{a.tech}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="callout" style={{ margin: 14 }}>
+            <b>2단계 스캔.</b> 고속 오픈 포트 스윕 → 서비스·버전 정밀 분석. 서비스·제품·버전 핑거프린트와
+            취약점 스크립트로 CVE·CVSS·심각도를 추출하고, 오픈 확인된 포트에 한해 기본·취약 크리덴셜을 점검합니다.
+          </div>
+        </Card>
+      </div>
+
+      <Card kicker="Exposed Assets" title="외부 노출 자산" pad={false}>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>ID</th><th>호스트</th><th>IP</th><th>발견 방법</th><th className="c">방식</th>
+                <th className="c">생존</th><th>노출 서비스</th><th>CVE</th><th className="c">대사</th><th className="c">위험도</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ext.map((e) => (
+                <tr key={e.id}>
+                  <td className="code">{e.id}</td>
+                  <td className="strong">{e.host}</td>
+                  <td className="tnum">{e.ip ?? '-'}</td>
+                  <td className="mute">{e.method}</td>
+                  <td className="c"><Chip tone={e.mode === 'Active' ? 'info' : 'neutral'} bare>{e.mode}</Chip></td>
+                  <td className="c">{e.alive ? <Chip tone="ok" bare>확인</Chip> : <span className="mut">미확인</span>}</td>
+                  <td style={{ whiteSpace: 'normal', maxWidth: 220 }}>{e.services ?? '-'}</td>
+                  <td>{e.cve ? <span className="code" style={{ color: 'var(--err)' }}>{e.cve} ({e.cvss})</span> : <span className="mut">-</span>}</td>
+                  <td className="c"><Chip tone={STATE_TONE[e.state]}>{e.state}</Chip></td>
+                  <td className="c"><RiskChip risk={e.risk} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="callout" style={{ margin: 14 }}>
+          <b>발견 자산의 편입.</b> 외부에서 발견된 노출 자산도 내부 6채널 결과와 동일하게 자산 지문으로 통합되고,
+          CMDB 대사를 거쳐 소유자 확인·편입 또는 노출 차단·격리 조치로 이어집니다. 재탐지는 도메인별 주기(스케줄러)로 자동 반복됩니다.
+        </div>
+      </Card>
+
+      <Card kicker="Threat Intel · Dark Web" title="위협 인텔리전스 · 유출 수집" pad={false}>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead><tr><th>구분</th><th>내용</th><th>소스</th><th className="c">신뢰도</th><th>수집일</th></tr></thead>
+            <tbody>
+              {s.leaks.map((l) => (
+                <tr key={l.id}>
+                  <td className="strong">{l.kind}</td>
+                  <td style={{ whiteSpace: 'normal', maxWidth: 520 }}>{l.detail}</td>
+                  <td className="mute">{l.source}</td>
+                  <td className="c">
+                    <Chip tone={l.confidence === '높음' ? 'err' : l.confidence === '중간' ? 'warn' : 'neutral'}>{l.confidence}</Chip>
+                  </td>
+                  <td className="tnum">{l.foundAt}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="callout" style={{ margin: 14 }}>
+          <b>알려진 자산에 위협 맥락 부여.</b> OSINT 위협 인텔리전스는 신규 자산 발견보다 이미 발견된 자산에
+          위협 행위자 귀속·표적 정보·IOC 상관을 더하는 데 사용하며, 유출 수집 결과는 도메인 기준으로 고객 매칭 후
+          신뢰도 점수화·중복 제거를 거칩니다.
+        </div>
+      </Card>
+    </>
+  )
+}
