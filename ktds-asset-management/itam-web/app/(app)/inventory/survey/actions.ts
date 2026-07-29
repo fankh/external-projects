@@ -1,15 +1,13 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { nowMinute, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import type { SurveyDiffKind } from '@/lib/types'
 
-function stamp() {
-  const d = new Date()
-  return `${today()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
+/** 스캔 시각 — 표준시 처리는 lib/dates 에 위임한다 (프로세스 TZ 에 의존하지 않도록) */
+const stamp = nowMinute
 
 /** 바코드/QR 스캔 실사 — 스캐너는 HID 키보드로 동작하므로 코드 입력 + Enter가 실제 조작과 동일하다.
  *  대장과 대조해 위치·상태 차이를 즉시 판정하고, 대장에 없는 코드는 미등록으로 기록한다. */

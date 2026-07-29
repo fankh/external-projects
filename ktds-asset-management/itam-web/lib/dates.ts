@@ -31,6 +31,13 @@ export function nowStamp(): string {
   return `${today()} ${timeFmt.format(new Date())}`
 }
 
+/** 목록 표시용 `YYYY-MM-DD HH:MM` (초 생략).
+ *  `new Date().getHours()` 로 조립하면 프로세스 표준시(컨테이너=UTC)를 따라가 날짜는 KST,
+ *  시각은 UTC 인 뒤섞인 값이 된다 — 반드시 이 함수를 쓴다. */
+export function nowMinute(): string {
+  return `${today()} ${timeFmt.format(new Date()).slice(0, 5)}`
+}
+
 /** 시드 데이터가 작성된 기준일 — 시드와 실제 날짜의 간격을 안내할 때 쓴다 */
 export const SEED_BASE_DATE = '2026-07-29'
 

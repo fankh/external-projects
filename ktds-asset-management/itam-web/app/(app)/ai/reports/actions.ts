@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { nowMinute, today } from '@/lib/dates'
 import { buildSections, ruleHeadline } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -54,16 +54,13 @@ export async function generateReport(kind: ReportKind) {
   }
 
   s.seq += 1
-  const now = new Date()
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mm = String(now.getMinutes()).padStart(2, '0')
   const id = `RPT-${s.seq}`
   s.reports.unshift({
     id,
     kind,
     title: `${kind} (${today()})`,
     period: today(),
-    generatedAt: `${today()} ${hh}:${mm}`,
+    generatedAt: nowMinute(),
     generatedBy: session.name,
     mode,
     headline,
