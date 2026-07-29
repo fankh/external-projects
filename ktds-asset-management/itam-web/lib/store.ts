@@ -1,8 +1,9 @@
 /** 인메모리 데이터 스토어 — 데모용. globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
  *  실서비스에서는 자산 대장 RDB(CMDB) + 발견 저장소 분리 구조로 대체된다(제품안내서 §02). */
 import type {
-  AiInsight, Approval, Asset, AuditLog, Contract, DiscoveredAsset, ExternalAsset,
-  Integration, InventoryRound, LeakFinding, Notice, SaasUsage, SwLicense,
+  AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, CodeGroup, CodeValue, Contract,
+  DiscoveredAsset, ExternalAsset, Integration, InventoryRound, LeakFinding, Notice,
+  SaasCatalogEntry, SaasUsage, ScanPolicy, SwLicense, UserAccount,
 } from './types'
 
 export interface Store {
@@ -12,6 +13,12 @@ export interface Store {
   leaks: LeakFinding[]
   integrations: Integration[]
   auditLogs: AuditLog[]
+  codeGroups: CodeGroup[]
+  scanPolicies: ScanPolicy[]
+  saasCatalog: SaasCatalogEntry[]
+  aiPolicy: AiPolicy
+  users: UserAccount[]
+  approvalLines: ApprovalLine[]
   contracts: Contract[]
   licenses: SwLicense[]
   approvals: Approval[]
@@ -134,6 +141,64 @@ function seedAuditLogs(): AuditLog[] {
   ]
 }
 
+function seedCodeGroups(): CodeGroup[] {
+  const v = (...items: [string, string][]): CodeValue[] =>
+    items.map(([code, label], i) => ({ code, label, sort: (i + 1) * 10, active: true }))
+  return [
+    { id: 'ASSET_CATEGORY', name: '자산 유형', desc: '자산 대장 대분류 — H/W · S/W · 가상자원', values: v(['HW_TERMINAL', '단말'], ['HW_SERVER', '서버'], ['HW_NETWORK', '네트워크'], ['HW_PERIPHERAL', '주변기기'], ['SW', 'SW'], ['VIRTUAL', '가상자원']) },
+    { id: 'ASSET_STATUS', name: '자산 상태', desc: '수명주기 5단계 연동 상태값', values: v(['INSPECT', '검수중'], ['IN_USE', '사용중'], ['IDLE', '유휴'], ['RETURN_WAIT', '반납대기'], ['DISPOSE_PLAN', '폐기예정'], ['DISPOSED', '폐기완료']) },
+    { id: 'RECONCILE', name: '대사 결과', desc: 'CMDB 대사 4상태 — 상태별 후속 처리 자동 연결', values: v(['MATCH', '등록·일치'], ['MISMATCH', '등록·불일치'], ['UNREGISTERED', '미등록'], ['UNCONFIRMED', '미확인']) },
+    { id: 'RISK', name: '위험도', desc: '발견 자산·SaaS·AI 제안 공통 등급', values: v(['HIGH', '높음'], ['MEDIUM', '중간'], ['LOW', '낮음']) },
+    { id: 'DATA_GRADE', name: '데이터 등급', desc: 'SaaS 카탈로그·자산 중요도 산정 기준', values: v(['GENERAL', '일반'], ['SENSITIVE', '민감'], ['CONFIDENTIAL', '기밀']) },
+    { id: 'LOCATION', name: '위치', desc: '사업장·IDC 랙 단위 위치 코드', values: v(['HQ_8F', '본사 8F'], ['HQ_3F_WH', '본사 3F 자산창고'], ['IDC_A', 'IDC-A'], ['IDC_B', 'IDC-B'], ['PANGYO', '판교 사무소']) },
+  ]
+}
+
+function seedScanPolicies(): ScanPolicy[] {
+  return [
+    { channel: '네트워크 능동 스캔', enabled: true, kind: '능동', targets: '10.20.0.0/16 · 10.10.0.0/16', window: '23:00 ~ 05:00', intensity: '보통', interval: '매일', note: '운영망 영향 최소화 — 시간대·강도 정책 협의 완료' },
+    { channel: '패시브 트래픽', enabled: true, kind: '패시브', targets: '코어 스위치 미러링 · NetFlow', window: '상시', intensity: '낮음', interval: '실시간', note: '무중단 — 능동 스캔 사각지대 보완' },
+    { channel: 'DNS·프록시 로그', enabled: true, kind: '로그 수집', targets: '프록시·방화벽·DNS 로그', window: '상시', intensity: '낮음', interval: '5분', note: 'Shadow SaaS 발견 원천' },
+    { channel: 'EDR·엔드포인트', enabled: true, kind: 'API 연동', targets: 'EDR 콘솔 API', window: '상시', intensity: '낮음', interval: '1시간', note: '신규 에이전트 배포 없이 수집' },
+    { channel: '클라우드 API', enabled: true, kind: 'API 연동', targets: 'AWS Config · Azure Resource Graph', window: '상시', intensity: '낮음', interval: '6시간', note: 'TLS 아웃바운드 한정 (선택 구성)' },
+    { channel: 'AD/IdP·SSO 로그', enabled: true, kind: '로그 수집', targets: 'AD · Entra ID 로그', window: '상시', intensity: '낮음', interval: '1시간', note: '계정 기반 Shadow IT — OAuth 앱·휴면 계정' },
+  ]
+}
+
+function seedSaasCatalog(): SaasCatalogEntry[] {
+  return [
+    { id: 'CAT-01', service: 'Notion', category: '협업', vendor: 'Notion Labs', status: '검토중', dataGrade: '민감', owner: '마케팅팀' },
+    { id: 'CAT-02', service: 'Figma', category: '디자인', vendor: 'Figma Inc.', status: '인가', dataGrade: '일반', owner: '디자인팀', decidedAt: '2026-03-11', decidedBy: '시스템관리자' },
+    { id: 'CAT-03', service: 'ChatGPT', category: 'AI', vendor: 'OpenAI', status: '검토중', dataGrade: '기밀', owner: '전사' },
+    { id: 'CAT-04', service: 'Miro', category: '협업', vendor: 'Miro', status: '검토중', dataGrade: '일반', owner: '플랫폼개발팀' },
+    { id: 'CAT-05', service: 'Dropbox', category: '스토리지', vendor: 'Dropbox', status: '차단', dataGrade: '기밀', owner: '영업1팀', decidedAt: '2026-07-18', decidedBy: '윤보안' },
+    { id: 'CAT-06', service: 'GitHub', category: '개발', vendor: 'GitHub', status: '인가', dataGrade: '민감', owner: '개발본부', decidedAt: '2025-11-02', decidedBy: '시스템관리자' },
+  ]
+}
+
+function seedUsers(): UserAccount[] {
+  return [
+    { login: 'mj.kim', name: '김민준', dept: '플랫폼개발팀', role: 'USER', group: '일반 사용자', lastLogin: '2026-07-29 08:58', mfa: false },
+    { login: 'js.park', name: '박자산', dept: '자산관리팀', role: 'ASSET_MGR', group: '자산 운영', lastLogin: '2026-07-29 09:42', mfa: true },
+    { login: 'ba.yoon', name: '윤보안', dept: '보안운영팀', role: 'SEC_MGR', group: '보안 운영', lastLogin: '2026-07-29 09:31', mfa: true },
+    { login: 'admin', name: '시스템관리자', dept: 'IT기획팀', role: 'ADMIN', group: '시스템 관리', lastLogin: '2026-07-29 08:00', mfa: true },
+    { login: 'jw.choi', name: '최지원', dept: '자산관리팀', role: 'ASSET_MGR', group: '자산 운영', lastLogin: '2026-07-28 17:22', mfa: true },
+    { login: 'sh.oh', name: '오세훈', dept: '인사팀', role: 'USER', group: '일반 사용자', lastLogin: '2026-07-27 14:05', mfa: false },
+  ]
+}
+
+function seedApprovalLines(): ApprovalLine[] {
+  return [
+    { id: 'AL-01', screen: '자산 대장 · 신청', kind: '자산 신청', steps: ['신청자', '부서장', '자산담당'], required: false },
+    { id: 'AL-02', screen: '수명주기 · 반납', kind: '반납', steps: ['신청자', '자산담당'], required: false },
+    { id: 'AL-03', screen: '수명주기 · 이동', kind: '이동', steps: ['신청자', '자산담당'], required: false },
+    { id: 'AL-04', screen: '수명주기 · 폐기', kind: '폐기', steps: ['자산담당', 'IT기획팀장'], required: true },
+    { id: 'AL-05', screen: 'Discovery · 편입', kind: '소유자 확인', steps: ['Discovery 엔진', '부서장', '자산담당'], required: true },
+    { id: 'AL-06', screen: 'Discovery · 격리', kind: '격리 요청', steps: ['보안담당', 'IT기획팀장'], required: true },
+    { id: 'AL-07', screen: '재물조사 · 차이 조정', kind: '차이 조정', steps: ['자산담당', 'IT기획팀장'], required: true },
+  ]
+}
+
 function seed(): Store {
   return {
     assets: seedAssets(),
@@ -142,6 +207,21 @@ function seed(): Store {
     leaks: seedLeaks(),
     integrations: seedIntegrations(),
     auditLogs: seedAuditLogs(),
+    codeGroups: seedCodeGroups(),
+    scanPolicies: seedScanPolicies(),
+    saasCatalog: seedSaasCatalog(),
+    aiPolicy: {
+      deployment: '온프레미스 LLM',
+      modelId: 'claude-opus-5',
+      promptVersion: 'v3.2 (2026-07-19)',
+      classifyAccuracy: 92.4,
+      auditRetentionDays: 365,
+      scopeFilter: true,
+      autoApprove: false,
+      feedbackLearning: true,
+    },
+    users: seedUsers(),
+    approvalLines: seedApprovalLines(),
     contracts: [
       { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀' },
       { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: '2026-08-31', amount: 384_000_000, assetCount: 8, ownerDept: '인프라운영팀' },

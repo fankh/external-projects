@@ -221,6 +221,80 @@ export interface AuditLog {
   ip: string
 }
 
+/** 환경설정 — 공통코드 (제품안내서 §01 환경설정 · 권한 · 코드 · 정책) */
+export interface CodeValue {
+  code: string
+  label: string
+  sort: number
+  active: boolean
+}
+
+export interface CodeGroup {
+  id: string
+  name: string
+  desc: string
+  values: CodeValue[]
+}
+
+/** 탐지 채널·스캔 정책 — 대역·시간대·강도 통제 (스캔 안전장치, §07) */
+export interface ScanPolicy {
+  channel: Channel
+  enabled: boolean
+  kind: '능동' | '패시브' | 'API 연동' | '로그 수집'
+  targets: string
+  window: string
+  intensity: '낮음' | '보통' | '높음'
+  interval: string
+  note: string
+}
+
+/** SaaS 카탈로그 — 인가/차단 판정이 Shadow SaaS 화면으로 환류 */
+export interface SaasCatalogEntry {
+  id: string
+  service: string
+  category: string
+  vendor: string
+  status: '인가' | '차단' | '검토중'
+  dataGrade: '일반' | '민감' | '기밀'
+  owner: string
+  decidedAt?: string
+  decidedBy?: string
+}
+
+/** AI 정책 — 실행 환경 · 거버넌스 (§05) */
+export interface AiPolicy {
+  deployment: '온프레미스 LLM' | '외부 API 연계' | '하이브리드'
+  modelId: string
+  promptVersion: string
+  classifyAccuracy: number
+  auditRetentionDays: number
+  /** 권한 밖 데이터 질의 컨텍스트 원천 배제 */
+  scopeFilter: boolean
+  /** AI 제안 자동 승인 (미사용 권장 — 담당자 확인·결재 원칙) */
+  autoApprove: boolean
+  /** 판정 결과 환류 재학습 */
+  feedbackLearning: boolean
+}
+
+export interface UserAccount {
+  login: string
+  name: string
+  dept: string
+  role: Role
+  group: string
+  lastLogin: string
+  mfa: boolean
+}
+
+/** 결재선 — 화면별 기본 결재선 사전 정의 (폐기·격리는 필수 결재) */
+export interface ApprovalLine {
+  id: string
+  screen: string
+  kind: ApprovalKind
+  steps: string[]
+  required: boolean
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   text: string

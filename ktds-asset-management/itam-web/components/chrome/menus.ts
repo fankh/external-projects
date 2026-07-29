@@ -60,7 +60,14 @@ export const NAV: NavGroup[] = [
   },
   {
     label: '환경설정',
-    items: [{ href: '/settings/permissions', label: '권한 · 정책', ico: '⚙', roles: ['ADMIN'] }],
+    items: [
+      { href: '/settings/permissions', label: '메뉴 권한', ico: '⚙', roles: ['ADMIN'] },
+      { href: '/settings/users', label: '사용자 · 결재선', ico: '☰', roles: ['ADMIN'] },
+      { href: '/settings/codes', label: '공통코드', ico: '#', roles: ['ADMIN'] },
+      { href: '/settings/scan-policy', label: '탐지 채널 · 정책', ico: '◉', roles: ['ADMIN'] },
+      { href: '/settings/saas-catalog', label: 'SaaS 카탈로그', ico: '▤', roles: ['ADMIN'] },
+      { href: '/settings/ai-policy', label: 'AI 정책', ico: '✦', roles: ['ADMIN'] },
+    ],
   },
   {
     label: '기타 (기반)',

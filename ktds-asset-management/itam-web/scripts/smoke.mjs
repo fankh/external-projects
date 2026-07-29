@@ -38,6 +38,11 @@ const ROUTES = {
   '/ai/insights': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/workflow/approvals': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/settings/permissions': ['ADMIN'],
+  '/settings/users': ['ADMIN'],
+  '/settings/codes': ['ADMIN'],
+  '/settings/scan-policy': ['ADMIN'],
+  '/settings/saas-catalog': ['ADMIN'],
+  '/settings/ai-policy': ['ADMIN'],
 }
 
 let passed = 0
@@ -115,6 +120,16 @@ try {
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
   check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))
   check('외부 공격표면: 위협 인텔·유출 수집 렌더', extHtml.includes('스틸러 로그'))
+  const scanHtml = await (await get('/settings/scan-policy', 'ADMIN')).text()
+  check('탐지 채널 정책: 6채널·강도 통제 렌더', scanHtml.includes('네트워크 능동 스캔') && scanHtml.includes('스캔 안전장치') && scanHtml.includes('23:00 ~ 05:00'))
+  const catHtml = await (await get('/settings/saas-catalog', 'ADMIN')).text()
+  check('SaaS 카탈로그: 판정 상태 렌더', catHtml.includes('Dropbox') && catHtml.includes('검토중'))
+  const codeHtml = await (await get('/settings/codes', 'ADMIN')).text()
+  check('공통코드: 그룹·값 렌더', codeHtml.includes('ASSET_CATEGORY') && codeHtml.includes('미사용 처리'))
+  const aiHtml = await (await get('/settings/ai-policy', 'ADMIN')).text()
+  check('AI 정책: 실행 환경·거버넌스 렌더', aiHtml.includes('온프레미스 LLM') && aiHtml.includes('권한 범위 필터'))
+  const usrHtml = await (await get('/settings/users', 'ADMIN')).text()
+  check('사용자 · 결재선: 결재선·필수 결재 렌더', usrHtml.includes('IT기획팀장') && usrHtml.includes('필수 결재'))
   const intHtml = await (await get('/platform/integrations', 'SEC_MGR')).text()
   check('연동 · 인프라: 커넥터·감사 로그 렌더', intHtml.includes('EDR · 백신 콘솔') && intHtml.includes('감사 로그') && intHtml.includes('권한 밖 화면 접근 시도'))
   check('연동 · 인프라: 양방향 조치 채널 렌더', intHtml.includes('양방향') && intHtml.includes('SAML'))

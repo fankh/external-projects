@@ -22,6 +22,7 @@ function saveTabs(tabs: Tab[]) {
 export function AppShell(props: {
   role: Role
   badges: { approvals: number; unregistered: number }
+  channels: { on: number; total: number }
   userName: string
   dept: string
   roleLabel: string
@@ -130,7 +131,10 @@ export function AppShell(props: {
             <div className="content-inner">{props.children}</div>
           </main>
           <footer className="statusbar">
-            <span><span className="dot" />수집·연동 계층 정상 — 커넥터 6/6</span>
+            <span>
+              <span className="dot" style={props.channels.on < props.channels.total ? { background: 'var(--warn)' } : undefined} />
+              수집·연동 계층 {props.channels.on === props.channels.total ? '정상' : '일부 중지'} — 탐지 채널 {props.channels.on}/{props.channels.total}
+            </span>
             <span>마지막 스캔 2026-07-28 23:00 (야간 정책)</span>
             <span className="grow" />
             <span>SEEKERSLAB — AI ASSET MANAGEMENT PLATFORM · v1.0</span>
