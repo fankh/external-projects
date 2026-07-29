@@ -3,7 +3,7 @@
 import type {
   AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, CodeGroup, CodeValue, Contract,
   DiscoveredAsset, ExternalAsset, GeneratedReport, Integration, InventoryRound, LeakFinding,
-  Notice, SaasCatalogEntry, SaasUsage, ScanPolicy, SwLicense, UserAccount,
+  Notice, SaasCatalogEntry, SaasUsage, ScanPolicy, SurveyDiff, SurveyScan, SwLicense, UserAccount,
 } from './types'
 
 export interface Store {
@@ -20,6 +20,8 @@ export interface Store {
   users: UserAccount[]
   approvalLines: ApprovalLine[]
   reports: GeneratedReport[]
+  surveyScans: SurveyScan[]
+  surveyDiffs: SurveyDiff[]
   contracts: Contract[]
   licenses: SwLicense[]
   approvals: Approval[]
@@ -224,6 +226,20 @@ function seed(): Store {
     users: seedUsers(),
     approvalLines: seedApprovalLines(),
     reports: [],
+    // 최근 스캔 이력 (누적 312건 중 최근 분) — 실사 위치가 대장과 다르면 차이로 기록된다
+    surveyScans: [
+      { id: 'SCN-0312', roundId: 'INV-2026-H2', code: 'AST-2023-000112', assetNo: 'AST-2023-000112', scannedAt: '2026-07-28 16:41', location: '본사 8F', by: '박자산', result: '일치' },
+      { id: 'SCN-0311', roundId: 'INV-2026-H2', code: 'AST-2025-000512', assetNo: 'AST-2025-000512', scannedAt: '2026-07-28 16:38', location: '판교 사무소', by: '박자산', result: '차이' },
+      { id: 'SCN-0310', roundId: 'INV-2026-H2', code: 'AST-2023-000113', assetNo: 'AST-2023-000113', scannedAt: '2026-07-28 16:35', location: '본사 8F', by: '박자산', result: '일치' },
+      { id: 'SCN-0309', roundId: 'INV-2026-H2', code: 'UNKNOWN-77213', scannedAt: '2026-07-28 16:30', location: '본사 3F 자산창고', by: '박자산', result: '대장 미등록' },
+      { id: 'SCN-0308', roundId: 'INV-2026-H2', code: 'AST-2022-000871', assetNo: 'AST-2022-000871', scannedAt: '2026-07-28 16:22', location: '본사 8F', by: '박자산', result: '일치' },
+    ],
+    surveyDiffs: [
+      { id: 'DIF-01', roundId: 'INV-2026-H2', kind: '위치 불일치', assetNo: 'AST-2025-000512', model: 'Galaxy Book4 Pro', expected: '본사 8F', actual: '판교 사무소', status: '미조치' },
+      { id: 'DIF-02', roundId: 'INV-2026-H2', kind: '대장 미등록', assetNo: 'UNKNOWN-77213', model: '미상 (라벨만 확인)', expected: '-', actual: '본사 3F 자산창고', status: '미조치' },
+      { id: 'DIF-03', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', expected: '본사 3F 자산창고', actual: '실사 미확인', status: '미조치' },
+      { id: 'DIF-04', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '미조치' },
+    ],
     contracts: [
       { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀' },
       { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: '2026-08-31', amount: 384_000_000, assetCount: 8, ownerDept: '인프라운영팀' },
@@ -265,7 +281,7 @@ function seed(): Store {
       { id: 'INS-2607-05', kind: '자동분류', severity: '낮음', title: '발견 자산 9건 자동분류 완료 — 확인 대기', detail: '스캔 배너·설치 SW 문자열을 표준 유형·제조사·모델로 매핑. 신뢰도 0.92 이상 9건.', evidence: 'LLM 분류 · 규칙 하이브리드', createdAt: '2026-07-19', status: '승인' },
     ],
     inventoryRounds: [
-      { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 9, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
+      { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 4, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
       { id: 'INV-2026-H1', name: '2026 상반기 정기 재물조사', scope: '전사', planned: 1_198, scanned: 1_198, mismatched: 14, dueDate: '2026-02-27', assignee: '박자산', status: '완료' },
       { id: 'INV-2026-SP1', name: '판교 사무소 수시 조사', scope: '판교 사무소', planned: 86, scanned: 0, mismatched: 0, dueDate: '2026-08-08', assignee: '최지원', status: '계획' },
     ],

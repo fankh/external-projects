@@ -160,6 +160,32 @@ export interface InventoryRound {
   status: '계획' | '진행중' | '완료'
 }
 
+/** 재물조사 수행 — 바코드/QR 스캔 실사 (제품안내서 §03) */
+export interface SurveyScan {
+  id: string
+  roundId: string
+  code: string
+  assetNo?: string
+  scannedAt: string
+  location: string
+  by: string
+  result: '일치' | '차이' | '대장 미등록'
+}
+
+export type SurveyDiffKind = '위치 불일치' | '미확인 (실사 없음)' | '대장 미등록' | '상태 불일치'
+
+export interface SurveyDiff {
+  id: string
+  roundId: string
+  kind: SurveyDiffKind
+  assetNo: string
+  model: string
+  expected: string
+  actual: string
+  status: '미조치' | '조정 상신' | '조정 완료'
+  resolution?: '대장 보정' | '유휴 편성' | '분실 처리' | '신규 등록'
+}
+
 export interface Notice {
   id: string
   title: string

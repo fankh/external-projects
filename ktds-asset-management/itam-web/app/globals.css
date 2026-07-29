@@ -360,6 +360,18 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .mx td.n { color: var(--line-strong); text-align: center; }
 .mx td.p { color: var(--warn); font-weight: 700; text-align: center; font-size: 11px; }
 
+/* 재물조사 스캔 — 모바일 웹 지원 (현장 실사) */
+.survey-scan { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+@media (max-width: 780px) {
+  .shell { grid-template-columns: 1fr; }
+  .modnav { display: none; }
+  .menubar { overflow-x: auto; }
+  .content { padding: 16px 12px 28px; }
+  .survey-scan > * { flex: 1 1 100% !important; }
+  .survey-scan button { width: 100%; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* 미니 유틸 */
 .mut { color: var(--mute); }
 .dim { color: var(--dim); }

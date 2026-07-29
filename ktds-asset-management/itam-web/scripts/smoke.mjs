@@ -29,6 +29,7 @@ const ROUTES = {
   '/assets/lifecycle': ['ASSET_MGR', 'ADMIN'],
   '/inventory/stock': ['ASSET_MGR', 'ADMIN'],
   '/inventory/contracts': ['ASSET_MGR', 'ADMIN'],
+  '/inventory/survey': ['ASSET_MGR', 'ADMIN'],
   '/discovery/found': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/discovery/reconcile': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/discovery/saas': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
@@ -121,6 +122,8 @@ try {
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
   check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))
   check('외부 공격표면: 위협 인텔·유출 수집 렌더', extHtml.includes('스틸러 로그'))
+  const svyHtml = await (await get('/inventory/survey', 'ASSET_MGR')).text()
+  check('재물조사 수행: 스캔 실사·차이 항목 렌더', svyHtml.includes('스캔하거나 자산번호 입력') && svyHtml.includes('위치 불일치') && svyHtml.includes('조정 결재 상신'))
   const repHtml = await (await get('/ai/reports', 'ASSET_MGR')).text()
   check('리포트: 5종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('결재 첨부용'))
   const scanHtml = await (await get('/settings/scan-policy', 'ADMIN')).text()

@@ -22,6 +22,33 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
   a.decidedAt = TODAY
   a.decidedBy = session.name
 
+  // 재물조사 차이 조정 — 승인 시 대장을 실사 결과로 보정한다
+  if (a.kind === '차이 조정' && a.refId) {
+    const diffs = s.surveyDiffs.filter((d) => d.roundId === a.refId && d.status === '조정 상신')
+    for (const d of diffs) {
+      if (verdict === '반려') { d.status = '미조치'; continue }
+      d.status = '조정 완료'
+      const asset = s.assets.find((x) => x.assetNo === d.assetNo)
+      if (d.kind === '위치 불일치' && asset) {
+        d.resolution = '대장 보정'
+        asset.location = d.actual
+        asset.history.push({ date: TODAY, kind: '점검', detail: `재물조사 차이 조정 — 위치 ${d.expected} → ${d.actual}`, actor: session.name })
+      } else if (d.kind === '상태 불일치' && asset) {
+        d.resolution = '대장 보정'
+        asset.status = '사용중'
+        asset.history.push({ date: TODAY, kind: '점검', detail: `재물조사 차이 조정 — 상태 ${d.expected} → 사용중`, actor: session.name })
+      } else if (d.kind === '미확인 (실사 없음)' && asset) {
+        d.resolution = '분실 처리'
+        asset.status = '유휴'
+        asset.history.push({ date: TODAY, kind: '점검', detail: '재물조사 미확인 — 분실 후보로 유휴 편성', actor: session.name })
+      } else if (d.kind === '대장 미등록') {
+        d.resolution = '신규 등록'
+      }
+    }
+    const round = s.inventoryRounds.find((r) => r.id === a.refId)
+    if (round && verdict === '승인') round.mismatched = s.surveyDiffs.filter((d) => d.roundId === round.id && d.status !== '조정 완료').length
+  }
+
   // 폐쇄 루프 — 결재 결과를 대장·발견 저장소로 환류
   if (a.refId) {
     const d = s.discovered.find((x) => x.id === a.refId)
