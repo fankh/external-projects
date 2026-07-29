@@ -1,7 +1,8 @@
-import { Card, Chip, RiskChip, ScreenHeader } from '@/components/ui'
+import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { InsightKind } from '@/lib/types'
+import { ProposalList } from './ProposalList'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,21 @@ const FUNCTIONS: { kind: InsightKind; tech: string; desc: string }[] = [
 export default async function InsightsPage() {
   await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
+
+  // 환류 지표 — 승인·반려 판정이 쌓여야 채택률이 의미를 갖는다. 미판정은 분모에서 제외한다.
+  const pendingN = s.insights.filter((i) => i.status === '제안').length
+  const approved = s.insights.filter((i) => i.status === '승인').length
+  const rejected = s.insights.filter((i) => i.status === '반려').length
+  const judged = approved + rejected
+  const adoption = judged ? Math.round((approved / judged) * 100) : null
+
+  const byKind = FUNCTIONS.map((f) => {
+    const rows = s.insights.filter((i) => i.kind === f.kind)
+    const ok = rows.filter((i) => i.status === '승인').length
+    const no = rows.filter((i) => i.status === '반려').length
+    return { kind: f.kind, total: rows.length, ok, no, rate: ok + no ? Math.round((ok / (ok + no)) * 100) : null }
+  })
+
   return (
     <>
       <ScreenHeader
@@ -24,6 +40,17 @@ export default async function InsightsPage() {
         title="분석 · 예측"
         desc="이상 자산 행위 탐지 · 교체수요·수명 예측 · 라이선스 최적화 제안 — 제안 → 담당자 확인·결재 → 대장 반영"
       />
+
+      <div className="stat-row">
+        <Stat value={pendingN} label="판정 대기 제안" tone={pendingN ? 'accent' : 'ok'} />
+        <Stat value={approved} label="승인 — 조치 연결" tone="ok" />
+        <Stat value={rejected} label="반려 — 오탐 신호" tone={rejected ? 'warn' : undefined} />
+        <Stat
+          value={adoption === null ? '-' : `${adoption}%`}
+          label={`채택률 — 판정 ${judged}건 기준`}
+          delta={{ text: '판정 결과가 재학습에 환류', dir: 'flat' }}
+        />
+      </div>
 
       <div className="cols c3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
         {FUNCTIONS.map((f, i) => (
@@ -40,27 +67,22 @@ export default async function InsightsPage() {
         담당자 확인·결재를 거쳐 반영되며, 승인·반려 결과는 재학습에 사용됩니다.
       </div>
 
-      <Card kicker="Proposals" title="AI 제안" pad={false}>
+      <ProposalList insights={s.insights} />
+
+      <Card kicker="Feedback Loop" title="기능별 판정 현황 — 재학습 신호" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>ID</th><th>기능</th><th className="c">심각도</th><th>제안</th><th>근거</th><th>일자</th><th className="c">상태</th></tr>
+              <tr><th>기능</th><th className="num">제안</th><th className="num">승인</th><th className="num">반려</th><th className="num">채택률</th></tr>
             </thead>
             <tbody>
-              {s.insights.map((i) => (
-                <tr key={i.id}>
-                  <td className="code">{i.id}</td>
-                  <td className="mute">{i.kind}</td>
-                  <td className="c"><RiskChip risk={i.severity} /></td>
-                  <td style={{ whiteSpace: 'normal', maxWidth: 480 }}>
-                    <div className="strong" style={{ whiteSpace: 'normal' }}>{i.title}</div>
-                    <div className="dim" style={{ fontSize: 11.5, whiteSpace: 'normal' }}>{i.detail}</div>
-                  </td>
-                  <td className="mute" style={{ fontSize: 11.5 }}>{i.evidence}</td>
-                  <td className="tnum">{i.createdAt.slice(5)}</td>
-                  <td className="c">
-                    <Chip tone={i.status === '승인' ? 'ok' : i.status === '반려' ? 'err' : 'info'}>{i.status}</Chip>
-                  </td>
+              {byKind.map((k) => (
+                <tr key={k.kind}>
+                  <td>{k.kind}</td>
+                  <td className="num tnum">{k.total}</td>
+                  <td className="num tnum">{k.ok}</td>
+                  <td className="num tnum">{k.no}</td>
+                  <td className="num tnum">{k.rate === null ? <span className="dim">판정 전</span> : `${k.rate}%`}</td>
                 </tr>
               ))}
             </tbody>

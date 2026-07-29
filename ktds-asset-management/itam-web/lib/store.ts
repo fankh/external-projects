@@ -3,7 +3,7 @@
 import { today } from './dates'
 import type {
   AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, CodeGroup, CodeValue, Contract,
-  DisposalRecord, DiscoveredAsset, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
+  Dispatch, DisposalRecord, DiscoveredAsset, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
   SaasCatalogEntry, SaasUsage, ScanPolicy, SurveyDiff, SurveyScan, SwLicense, UserAccount,
 } from './types'
 
@@ -32,6 +32,7 @@ export interface Store {
   insights: AiInsight[]
   inventoryRounds: InventoryRound[]
   posts: BoardPost[]
+  dispatches: Dispatch[]
   seq: number
 }
 
@@ -88,9 +89,11 @@ function seedAssets(): Asset[] {
 
 function seedDiscovered(): DiscoveredAsset[] {
   return [
-    { id: 'DSC-2607-0041', hostname: 'ip-10-20-31-88', ip: '10.20.31.88', mac: '00:1A:2B:77:F0:12', channel: '네트워크 능동 스캔', type: '단말 (Windows)', firstSeen: '2026-07-24', lastSeen: '2026-07-28', state: '미등록', risk: '높음', ownerCandidate: '플랫폼개발팀 추정 (스위치 포트 기준)', note: 'SMB·RDP 오픈, OS 핑거프린트 Windows 10' },
+    // 확인 요청을 보낸 상태 — 대응하는 결재(APR-2607-114)와 발송 이력(MSG-4001)이 함께 있다
+    { id: 'DSC-2607-0041', hostname: 'ip-10-20-31-88', ip: '10.20.31.88', mac: '00:1A:2B:77:F0:12', channel: '네트워크 능동 스캔', type: '단말 (Windows)', firstSeen: '2026-07-24', lastSeen: '2026-07-28', state: '미등록', risk: '높음', ownerCandidate: '플랫폼개발팀 추정 (스위치 포트 기준)', note: 'SMB·RDP 오픈, OS 핑거프린트 Windows 10', action: '확인요청', confirmRequestedAt: '2026-07-25' },
     { id: 'DSC-2607-0042', hostname: 'nas-dev-team', ip: '10.20.31.90', mac: '28:C6:8E:31:44:AA', channel: '패시브 트래픽', type: 'NAS', firstSeen: '2026-07-22', lastSeen: '2026-07-28', state: '미등록', risk: '높음', ownerCandidate: '플랫폼개발팀', note: 'DHCP 리스·ARP 관측, SMB 트래픽 다량' },
-    { id: 'DSC-2607-0038', hostname: 'ESP-9F31A2', ip: '10.20.60.41', mac: '84:F3:EB:9F:31:A2', channel: '패시브 트래픽', type: 'IoT 장비', firstSeen: '2026-07-19', lastSeen: '2026-07-27', state: '미등록', risk: '중간', note: 'ESP32 계열 — 사내망 IoT, 외부 MQTT 접속 시도' },
+    // 소유자 미상 IoT — 확인 요청을 전사 공지로 보냈으나 기한(7일)을 넘겨 무응답. 에스컬레이션 대상.
+    { id: 'DSC-2607-0038', hostname: 'ESP-9F31A2', ip: '10.20.60.41', mac: '84:F3:EB:9F:31:A2', channel: '패시브 트래픽', type: 'IoT 장비', firstSeen: '2026-07-19', lastSeen: '2026-07-27', state: '미등록', risk: '중간', note: 'ESP32 계열 — 사내망 IoT, 외부 MQTT 접속 시도', action: '확인요청', confirmRequestedAt: '2026-07-20' },
     { id: 'DSC-2607-0035', hostname: 'i-0f3a91c2d8', ip: '10.30.2.91', mac: '-', channel: '클라우드 API', type: 'AWS EC2 (t3.large)', firstSeen: '2026-07-15', lastSeen: '2026-07-28', state: '미등록', risk: '중간', ownerCandidate: '데이터플랫폼팀 (계정 태그)', note: '태그 미부착 인스턴스 · 개발 VPC' },
     { id: 'DSC-2607-0029', hostname: 'DESKTOP-KJM45', ip: '10.20.52.77', mac: '5C:60:BA:12:88:31', channel: 'EDR·엔드포인트', type: '단말 (Windows)', firstSeen: '2026-07-10', lastSeen: '2026-07-28', state: '등록·불일치', risk: '중간', matchedAssetNo: 'AST-2025-000512', mismatch: '위치 상이 — 대장 본사 8F / 실측 판교 사무소', note: 'EDR 콘솔 위치 정보와 대장 불일치' },
     { id: 'DSC-2607-0027', hostname: 'was-prod-03', ip: '10.10.20.33', mac: '-', channel: '네트워크 능동 스캔', type: '가상자원 (VM)', firstSeen: '2026-07-08', lastSeen: '2026-07-28', state: '등록·일치', risk: '낮음', matchedAssetNo: 'AST-2024-000618' },
@@ -311,6 +314,7 @@ function seed(): Store {
       { id: 'APR-2607-118', kind: '자산 신청', title: '노트북 신규 신청 (신입 온보딩 3명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-27', status: '대기', currentStep: '자산담당 검토' },
       { id: 'APR-2607-117', kind: '반납', title: 'AST-2025-000513 Galaxy Book4 Pro 반납', requester: '한도윤', dept: '영업1팀', requestedAt: '2026-07-18', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000513' },
       { id: 'APR-2607-114', kind: '소유자 확인', title: 'DSC-2607-0041 (ip-10-20-31-88) 소유자 확인', requester: 'Discovery 엔진', dept: '플랫폼개발팀', requestedAt: '2026-07-25', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0041' },
+      { id: 'APR-2607-109', kind: '소유자 확인', title: 'DSC-2607-0038 (ESP-9F31A2) 소유자 확인 — 전사 공지', requester: 'Discovery 엔진', dept: '미지정', requestedAt: '2026-07-20', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0038', note: '소유자 미상 IoT — 기한 내 무응답 시 격리 검토' },
       { id: 'APR-2607-112', kind: '격리 요청', title: 'DSC-2607-0031 (개인 구독 Azure VM) NAC 격리', requester: '윤보안', dept: '보안운영팀', requestedAt: '2026-07-24', status: '대기', currentStep: '보안담당 승인', refId: 'DSC-2607-0031' },
       { id: 'APR-2607-109', kind: '폐기', title: 'AST-2019-000218 외 11대 노후 단말 일괄 폐기', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-07-21', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'AST-2019-000218' },
       // 승인은 났으나 아직 집행되지 않은 이동 — 불출·이동 처리 화면의 대기열에 잡힌다.
@@ -332,12 +336,18 @@ function seed(): Store {
       { id: 'INS-2607-15', kind: '라이선스 최적화', severity: '중간', title: 'JetBrains 11석 초과 사용 — 감사 리스크', detail: '보유 120석 대비 사용 131석. EDR SW 인벤토리 기준. 추가 구매 품의 또는 미사용자 회수 필요.', evidence: 'SW 인벤토리 대사 07-25', createdAt: '2026-07-25', status: '제안' },
       { id: 'INS-2607-12', kind: '라이선스 최적화', severity: '낮음', title: 'Adobe CC 18석 장기 미사용 — 연 1,425만원 절감 가능', detail: '90일 이상 미실행 18석 회수 후보. 갱신 협상 근거 데이터 첨부.', evidence: '사용 패턴 분석 · 90일 윈도우', createdAt: '2026-07-24', status: '제안' },
       { id: 'INS-2607-08', kind: '수명예측', severity: '중간', title: '2027 1분기 단말 교체 수요 64대 예측', detail: '장애 이력·사용 연한·성능 데이터 기반 생존 분석. 예산 추정 1.6억. 연간 교체 계획 리포트 생성 가능.', evidence: '회귀 모델 v3 · 신뢰구간 90%', createdAt: '2026-07-20', status: '제안' },
-      { id: 'INS-2607-05', kind: '자동분류', severity: '낮음', title: '발견 자산 9건 자동분류 완료 — 확인 대기', detail: '스캔 배너·설치 SW 문자열을 표준 유형·제조사·모델로 매핑. 신뢰도 0.92 이상 9건.', evidence: 'LLM 분류 · 규칙 하이브리드', createdAt: '2026-07-19', status: '승인' },
+      { id: 'INS-2607-05', kind: '자동분류', severity: '낮음', title: '발견 자산 9건 자동분류 완료 — 확인 대기', detail: '스캔 배너·설치 SW 문자열을 표준 유형·제조사·모델로 매핑. 신뢰도 0.92 이상 9건.', evidence: 'LLM 분류 · 규칙 하이브리드', createdAt: '2026-07-19', status: '승인', decidedAt: '2026-07-19', decidedBy: '박자산', action: '분류 결과 대장 반영 — 9건' },
     ],
     inventoryRounds: [
       { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', kind: '연간', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 4, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
       { id: 'INV-2026-H1', name: '2026 상반기 정기 재물조사', kind: '연간', scope: '전사', planned: 1_198, scanned: 1_198, mismatched: 14, dueDate: '2026-02-27', assignee: '박자산', status: '완료' },
       { id: 'INV-2026-SP1', name: '판교 사무소 수시 조사', kind: '수시', scope: '판교 사무소', planned: 86, scanned: 0, mismatched: 0, dueDate: '2026-08-08', assignee: '최지원', status: '계획' },
+    ],
+    dispatches: [
+      { id: 'MSG-4001', at: `${today()} 09:12`, channel: '이메일', to: '플랫폼개발팀 (부서장)', subject: 'DSC-2607-0041 소유자 확인 요청', kind: '소유자 확인', ref: 'APR-2607-114' },
+      { id: 'MSG-4000', at: '2026-07-20 10:05', channel: '이메일', to: '전사 공지', subject: 'DSC-2607-0038 소유자 확인 요청', kind: '소유자 확인', ref: 'APR-2607-109' },
+      { id: 'MSG-4002', at: `${today()} 08:30`, channel: '이메일', to: '자산관리팀', subject: 'CT-2023-014 유지보수 계약 만료 임박 (D-21)', kind: '만료 임박', ref: 'CT-2023-014' },
+      { id: 'MSG-4003', at: `${today()} 08:30`, channel: '문자', to: '박자산', subject: 'JetBrains 라이선스 만료 임박 안내', kind: '만료 임박', ref: 'LIC-03' },
     ],
     posts: [
       {

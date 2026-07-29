@@ -96,9 +96,36 @@ export default async function IntegrationsPage() {
         </div>
       </Card>
 
+      <Card kicker="Notifications" title={`알림 발송 이력 ${s.dispatches.length}건`} pad={false}>
+        {s.dispatches.length === 0 ? (
+          <div className="empty">발송 이력이 없습니다.</div>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr><th>발송 ID</th><th className="c">채널</th><th className="c">종류</th><th>수신</th><th>제목</th><th>연결 문서</th><th>발송 시각</th></tr>
+              </thead>
+              <tbody>
+                {s.dispatches.map((m) => (
+                  <tr key={m.id}>
+                    <td className="code">{m.id}</td>
+                    <td className="c"><Chip tone={m.channel === '문자' ? 'warn' : 'info'}>{m.channel}</Chip></td>
+                    <td className="c mute">{m.kind}</td>
+                    <td>{m.to}</td>
+                    <td className="strong" style={{ maxWidth: 360 }}>{m.subject}</td>
+                    <td className="code">{m.ref ?? '-'}</td>
+                    <td className="tnum">{m.at}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
       <div className="cols c2">
         <div className="callout"><b>인증.</b> SAML 기반 SSO — 그룹웨어 IdP 어설션으로 로그인하며, 부여된 메뉴·기능만 렌더링됩니다.</div>
-        <div className="callout"><b>알림.</b> 소유자 확인 요청·만료 임박·격리 통보는 이메일·문자로 발송되며, 발송 이력은 감사 로그에 남습니다.</div>
+        <div className="callout"><b>알림.</b> 소유자 확인 요청·만료 임박·격리 통보는 이메일·문자로 발송되며, 발송 이력은 위 표와 감사 로그에 함께 남습니다.</div>
       </div>
     </>
   )

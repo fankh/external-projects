@@ -3,7 +3,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import type { Channel, DiscoveredAsset, ReconcileState } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
-import { requestOnboard, requestQuarantine } from '../actions'
+import { requestOnboard, requestOwnerConfirm, requestQuarantine } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
@@ -12,6 +12,7 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
 export function FoundView({ items }: { items: DiscoveredAsset[] }) {
   const [channel, setChannel] = useState<Channel | '전체'>('전체')
   const [selId, setSelId] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const rows = useMemo(
@@ -81,19 +82,34 @@ export function FoundView({ items }: { items: DiscoveredAsset[] }) {
             {sel.note && (
               <div className="callout warn" style={{ marginTop: 12, padding: '8px 11px' }}>{sel.note}</div>
             )}
+            {sel.ownerAnswer && (
+              <div className="callout" style={{ marginTop: 12, padding: '8px 11px' }}>
+                소유자 확인 응답 — <b>{sel.ownerAnswer}</b>
+              </div>
+            )}
             {!sel.action && sel.state !== '등록·일치' && (
-              <div className="hstack" style={{ marginTop: 14 }}>
-                <button className="btn pri" disabled={pending}
-                  onClick={() => startTransition(() => requestOnboard(sel.id))}>
-                  편입 요청 (결재)
-                </button>
-                <button className="btn danger" disabled={pending}
-                  onClick={() => startTransition(() => requestQuarantine(sel.id))}>
-                  NAC 격리 요청
-                </button>
+              <div className="vstack" style={{ marginTop: 14, gap: 8 }}>
+                {/* 확인 요청은 편입·격리 앞단의 단계 — 이미 응답을 받았으면 다시 물을 필요가 없다 */}
+                {!sel.ownerAnswer && (
+                  <button className="btn" disabled={pending}
+                    onClick={() => startTransition(async () => setMsg((await requestOwnerConfirm(sel.id)).message))}>
+                    소유자 확인 요청 (메일 발송)
+                  </button>
+                )}
+                <div className="hstack" style={{ gap: 8 }}>
+                  <button className="btn pri" disabled={pending}
+                    onClick={() => startTransition(() => requestOnboard(sel.id))}>
+                    편입 요청 (결재)
+                  </button>
+                  <button className="btn danger" disabled={pending}
+                    onClick={() => startTransition(() => requestQuarantine(sel.id))}>
+                    NAC 격리 요청
+                  </button>
+                </div>
               </div>
             )}
             {sel.action && <div className="callout" style={{ marginTop: 14 }}>처리 진행 중 — <b>{sel.action}</b>. 결재함에서 진행 상태를 확인하세요.</div>}
+            {msg && <div className="callout" style={{ marginTop: 10 }}>{msg}</div>}
           </aside>
         )}
       </div>

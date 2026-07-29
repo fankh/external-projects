@@ -40,7 +40,7 @@ export default async function ApprovalsPage() {
       <RequestForm myAssets={myAssets} locations={locations} />
 
       <Card pad={false}>
-        <ApprovalList approvals={s.approvals} role={session.role} />
+        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} />
       </Card>
 
       <div className="callout">

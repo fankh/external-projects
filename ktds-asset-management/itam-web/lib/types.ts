@@ -81,8 +81,28 @@ export interface DiscoveredAsset {
   mismatch?: string
   ownerCandidate?: string
   note?: string
-  /** 처리 상태 */
-  action?: '편입요청' | '격리요청' | '편입완료' | '격리완료'
+  /** 처리 상태 — 확인요청은 편입/격리 앞단의 소유자 확인 단계 (제품안내서 그림 3) */
+  action?: '확인요청' | '편입요청' | '격리요청' | '편입완료' | '격리완료'
+  /** 소유자 확인 요청 발송일 — 기한 내 무응답 시 격리 에스컬레이션의 기준 */
+  confirmRequestedAt?: string
+  /** 소유자 확인 결과 */
+  ownerAnswer?: '본인 자산' | '본인 자산 아님'
+}
+
+/** 소유자 확인 요청의 응답 기한(일). 경과 시 격리 요청으로 에스컬레이션한다.
+ *  서버액션 모듈('use server')은 async 함수만 export 할 수 있어 정책 상수는 여기에 둔다. */
+export const CONFIRM_DEADLINE_DAYS = 7
+
+/** 알림 발송 이력 — 소유자 확인 요청·만료 임박·격리 통보는 이메일·문자로 나가고 이력이 남는다
+ *  (제품안내서 §06 연동: 그룹웨어 — SSO·결재·알림 메일) */
+export interface Dispatch {
+  id: string
+  at: string
+  channel: '이메일' | '문자'
+  to: string
+  subject: string
+  kind: '소유자 확인' | '만료 임박' | '격리 통보' | '에스컬레이션'
+  ref?: string
 }
 
 export interface Contract {
@@ -155,6 +175,12 @@ export interface AiInsight {
   evidence: string
   createdAt: string
   status: '제안' | '승인' | '반려'
+  decidedAt?: string
+  decidedBy?: string
+  /** 반려 사유 — 오탐 유형을 남겨 재학습 신호로 쓴다 (제품안내서 §05 그림 4 환류) */
+  rejectReason?: string
+  /** 승인 시 연결된 후속 조치 — 제안이 실제 무엇을 바꿨는지 */
+  action?: string
 }
 
 /** 조사 유형 — 연간 정기 조사와 수시(사유 발생 시) 조사 (제품안내서 §03 재물조사 계획) */

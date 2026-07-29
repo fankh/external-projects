@@ -76,6 +76,49 @@ export async function raiseRequest(input: {
   return { ok: true, message: `${id} 상신 완료 — ${nextStep} 결재 대기` }
 }
 
+/** 소유자 확인 응답 — 확인 요청을 받은 부서가 직접 답한다.
+ *  '본인 자산'이면 편입 절차로, '아님'이면 미확인 상태로 남아 격리 검토 대상이 된다.
+ *  (제품안내서 §01 권한그룹: 사용자 — 소유자 확인 요청 응답) */
+export async function answerOwnerConfirm(approvalId: string, mine: boolean) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+
+  const s = getStore()
+  const a = s.approvals.find((x) => x.id === approvalId)
+  if (!a || a.kind !== '소유자 확인' || a.status !== '대기') {
+    return { ok: false, message: '응답 대상 확인 요청이 아닙니다.' }
+  }
+  // 확인 요청을 받은 부서 본인이 답한다. 자산담당·Admin 은 대리 응답 가능.
+  const canAnswer = ['ASSET_MGR', 'ADMIN'].includes(session.role) || session.dept === a.dept
+  if (!canAnswer) return { ok: false, message: '해당 부서 앞으로 온 확인 요청이 아닙니다.' }
+
+  a.status = mine ? '승인' : '반려'
+  a.currentStep = '완료'
+  a.decidedAt = today()
+  a.decidedBy = session.name
+
+  const d = s.discovered.find((x) => x.id === a.refId)
+  if (d) {
+    d.ownerAnswer = mine ? '본인 자산' : '본인 자산 아님'
+    // 확인만으로 대장에 들어가지는 않는다 — 편입은 별도 등록 결재를 거친다
+    d.action = undefined
+    if (mine && !d.ownerCandidate) d.ownerCandidate = a.dept
+  }
+
+  appendAudit({
+    actor: session.name,
+    action: `소유자 확인 응답 — ${mine ? '본인 자산' : '본인 자산 아님'}`,
+    target: a.refId ?? a.id,
+  })
+  revalidatePath('/', 'layout')
+  return {
+    ok: true,
+    message: mine
+      ? `${a.id} 확인 완료 — 편입 요청을 올릴 수 있습니다.`
+      : `${a.id} 미확인 처리 — 격리 검토 대상으로 남습니다.`,
+  }
+}
+
 /** 결재 처리 — 권한그룹별: 격리 요청은 보안담당, 그 외는 자산담당/Admin */
 export async function decide(approvalId: string, verdict: '승인' | '반려') {
   const session = await getSession()

@@ -116,7 +116,10 @@ try {
 
   console.log('\n[핵심 화면 콘텐츠]')
   const dashHtml = await (await get('/dashboard', 'ASSET_MGR')).text()
-  check('대시보드: KPI·발견 자산 렌더', dashHtml.includes('미등록 신규 발견') && dashHtml.includes('DSC-2607-0041'))
+  // 대시보드의 '미등록 신규 발견'은 아직 손대지 않은 건만 보여주는 처리 대기열이므로,
+  // 확인요청·격리요청이 걸린 자산(DSC-2607-0041 등)은 여기서 빠지는 것이 정상이다
+  check('대시보드: KPI·발견 자산 렌더', dashHtml.includes('미등록 신규 발견') && dashHtml.includes('DSC-2607-0042'))
+  check('대시보드: 처리 착수한 발견 자산은 대기열에서 제외', !dashHtml.includes('DSC-2607-0041'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 6채널·대사 상태 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치'))
   const contractsHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
@@ -148,6 +151,17 @@ try {
   check('반납·유휴: 반납대기 자산이 접수 대기에 노출', rtHtml.includes('AST-2025-000513'))
   const apUser = await (await get('/workflow/approvals', 'USER')).text()
   check('신청 상신: 사용자에게 신청 UI 노출', apUser.includes('신청 상신') && apUser.includes('신청하기'))
+  // 소유자 확인은 결재가 아니라 부서 응답 — 요청받은 부서(플랫폼개발팀=김민준)에게만 응답 버튼이 뜬다
+  check('소유자 확인: 해당 부서 사용자에게 응답 버튼', apUser.includes('APR-2607-114') && apUser.includes('본인 자산'))
+  const apSec = await (await get('/workflow/approvals', 'SEC_MGR')).text()
+  check('소유자 확인: 타 부서에는 응답 버튼 미노출', apSec.includes('APR-2607-114') && apSec.includes('부서 응답 대기'))
+  const insHtml = await (await get('/ai/insights', 'SEC_MGR')).text()
+  check('AI 제안: 판정 UI·환류 지표 렌더', insHtml.includes('판정 대기 제안') && insHtml.includes('채택률') && insHtml.includes('재학습 신호'))
+  check('AI 제안: 기능별 판정 현황 5종', ['자동분류', '이상탐지', '수명예측', '취약점 우선순위', '라이선스 최적화'].every((k) => insHtml.includes(k)))
+  const fndHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
+  check('발견 자산: 소유자 확인·에스컬레이션 진입점', fndHtml.includes('미확인 소유자 정책') && fndHtml.includes('미응답 에스컬레이션') && fndHtml.includes('응답 대기'))
+  const intHtml2 = await (await get('/platform/integrations', 'ADMIN')).text()
+  check('연동: 알림 발송 이력 렌더', intHtml2.includes('알림 발송 이력') && intHtml2.includes('MSG-4001') && intHtml2.includes('만료 임박'))
   const dspHtml = await (await get('/assets/disposal', 'ASSET_MGR')).text()
   check('폐기: 후보·소거 방식·증적 렌더', dspHtml.includes('데이터 소거') && dspHtml.includes('증적') && dspHtml.includes('AST-2019-000218'))
   const svyHtml = await (await get('/inventory/survey', 'ASSET_MGR')).text()

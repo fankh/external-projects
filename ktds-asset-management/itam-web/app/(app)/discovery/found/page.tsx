@@ -1,7 +1,9 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { CHANNELS } from '@/lib/types'
+import { CHANNELS, CONFIRM_DEADLINE_DAYS } from '@/lib/types'
+import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
 
 export const dynamic = 'force-dynamic'
@@ -11,6 +13,11 @@ export default async function FoundPage() {
   const s = getStore()
   const d = s.discovered
   const unreg = d.filter((x) => x.state === '미등록' && !x.action)
+
+  const awaiting = d.filter((x) => x.action === '확인요청')
+  const overdue = awaiting.filter(
+    (x) => x.confirmRequestedAt && -(daysUntil(x.confirmRequestedAt) ?? 0) >= CONFIRM_DEADLINE_DAYS,
+  )
 
   return (
     <>
@@ -31,6 +38,8 @@ export default async function FoundPage() {
         <b>발견에서 편입까지.</b> 여섯 채널로 수집한 자산은 자산 지문(MAC·호스트명)으로 병합된 뒤 자산 대장과 대사되고,
         소유자 확인·결재를 거친 편입 결과가 다시 대장으로 환류됩니다. 확인되지 않은 자산은 NAC 격리 요청으로 이어집니다.
       </div>
+
+      <EscalateBar waiting={awaiting.length} overdue={overdue.length} deadlineDays={CONFIRM_DEADLINE_DAYS} />
 
       <Card pad={false}>
         <FoundView items={d} />

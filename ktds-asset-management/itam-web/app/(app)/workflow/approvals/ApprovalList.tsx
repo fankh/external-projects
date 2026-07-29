@@ -2,15 +2,22 @@
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { Approval, Role } from '@/lib/types'
-import { decide } from './actions'
+import { answerOwnerConfirm, decide } from './actions'
 
-export function ApprovalList({ approvals, role }: { approvals: Approval[]; role: Role }) {
+export function ApprovalList({ approvals, role, dept }: { approvals: Approval[]; role: Role; dept: string }) {
   const [tab, setTab] = useState<'대기' | '전체'>('대기')
+  const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const rows = tab === '대기' ? approvals.filter((a) => a.status === '대기') : approvals
+
+  // 소유자 확인은 결재가 아니라 '응답'이다 — 요청받은 부서 본인이 답한다
+  const canAnswer = (a: Approval) =>
+    a.status === '대기' && a.kind === '소유자 확인' &&
+    (['ASSET_MGR', 'ADMIN'].includes(role) || dept === a.dept)
+
   const canDecide = (a: Approval) =>
-    a.status === '대기' &&
+    a.status === '대기' && a.kind !== '소유자 확인' &&
     (role === 'ADMIN' || (a.kind === '격리 요청' ? role === 'SEC_MGR' : role === 'ASSET_MGR'))
 
   return (
@@ -22,6 +29,7 @@ export function ApprovalList({ approvals, role }: { approvals: Approval[]; role:
         </div>
         <span className="cnt">{rows.length}건</span>
       </div>
+      {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
@@ -44,8 +52,15 @@ export function ApprovalList({ approvals, role }: { approvals: Approval[]; role:
                 <td className="c">
                   <Chip tone={a.status === '승인' ? 'ok' : a.status === '반려' ? 'err' : 'info'}>{a.status}</Chip>
                 </td>
-                <td className="c">
-                  {canDecide(a) ? (
+                <td className="c" style={{ whiteSpace: 'nowrap' }}>
+                  {canAnswer(a) ? (
+                    <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
+                      <button className="btn sm pri" disabled={pending}
+                        onClick={() => startTransition(async () => setMsg((await answerOwnerConfirm(a.id, true)).message))}>본인 자산</button>
+                      <button className="btn sm" disabled={pending}
+                        onClick={() => startTransition(async () => setMsg((await answerOwnerConfirm(a.id, false)).message))}>아님</button>
+                    </span>
+                  ) : canDecide(a) ? (
                     <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
                       <button className="btn sm pri" disabled={pending}
                         onClick={() => startTransition(() => decide(a.id, '승인'))}>승인</button>
@@ -53,7 +68,7 @@ export function ApprovalList({ approvals, role }: { approvals: Approval[]; role:
                         onClick={() => startTransition(() => decide(a.id, '반려'))}>반려</button>
                     </span>
                   ) : (
-                    <span className="mut">{a.status === '대기' ? '권한 없음' : a.decidedAt}</span>
+                    <span className="mut">{a.status === '대기' ? (a.kind === '소유자 확인' ? '부서 응답 대기' : '권한 없음') : a.decidedAt}</span>
                   )}
                 </td>
               </tr>
