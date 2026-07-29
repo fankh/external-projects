@@ -99,8 +99,9 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     const client = new Anthropic({ apiKey })
     const response = await client.messages.create({
+      // claude-opus-5는 thinking 기본 on — max_tokens가 thinking+응답 합산 상한이라 여유를 둔다
       model: process.env.ANTHROPIC_MODEL_ID || 'claude-opus-5',
-      max_tokens: 2048,
+      max_tokens: 8192,
       system:
         `당신은 SEEKERSLAB ITAM 플랫폼의 AI 자산 어시스턴트입니다. ` +
         `아래 자산 데이터(사용자 권한 범위 내)만 근거로 한국어로 간결히 답하세요. ` +
