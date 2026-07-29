@@ -27,6 +27,8 @@ const ROUTES = {
   '/dashboard': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/assets/register': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/assets/lifecycle': ['ASSET_MGR', 'ADMIN'],
+  '/assets/intake': ['ASSET_MGR', 'ADMIN'],
+  '/assets/disposal': ['ASSET_MGR', 'ADMIN'],
   '/inventory/stock': ['ASSET_MGR', 'ADMIN'],
   '/inventory/contracts': ['ASSET_MGR', 'ADMIN'],
   '/inventory/survey': ['ASSET_MGR', 'ADMIN'],
@@ -122,6 +124,11 @@ try {
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
   check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))
   check('외부 공격표면: 위협 인텔·유출 수집 렌더', extHtml.includes('스틸러 로그'))
+  const inHtml = await (await get('/assets/intake', 'ASSET_MGR')).text()
+  check('도입·검수: 체크리스트·라벨 렌더', inHtml.includes('검수 체크리스트') && inHtml.includes('전원·부팅 정상 동작') && inHtml.includes('<svg'))
+  check('도입·검수: QR·바코드 SVG 발행', (inHtml.match(/<svg/g) ?? []).length >= 2 && inHtml.includes('AST-2025-000033'))
+  const dspHtml = await (await get('/assets/disposal', 'ASSET_MGR')).text()
+  check('폐기: 후보·소거 방식·증적 렌더', dspHtml.includes('데이터 소거') && dspHtml.includes('증적') && dspHtml.includes('AST-2019-000218'))
   const svyHtml = await (await get('/inventory/survey', 'ASSET_MGR')).text()
   check('재물조사 수행: 스캔 실사·차이 항목 렌더', svyHtml.includes('스캔하거나 자산번호 입력') && svyHtml.includes('위치 불일치') && svyHtml.includes('조정 결재 상신'))
   const repHtml = await (await get('/ai/reports', 'ASSET_MGR')).text()

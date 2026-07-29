@@ -22,6 +22,14 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
   a.decidedAt = TODAY
   a.decidedBy = session.name
 
+  // 폐기 결재 — 승인 시 데이터 소거 대기로 전환 (소거·증적은 폐기 화면에서 처리)
+  if (a.kind === '폐기') {
+    for (const d of s.disposals.filter((x) => x.approvalId === a.id)) {
+      d.status = verdict === '승인' ? '소거 대기' : '대상 선정'
+      if (verdict === '반려') d.approvalId = undefined
+    }
+  }
+
   // 재물조사 차이 조정 — 승인 시 대장을 실사 결과로 보정한다
   if (a.kind === '차이 조정' && a.refId) {
     const diffs = s.surveyDiffs.filter((d) => d.roundId === a.refId && d.status === '조정 상신')
@@ -85,8 +93,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
         asset.history.push({ date: TODAY, kind: '반납', detail: '반납 결재 승인 · 유휴 재고 편성', actor: session.name })
       }
       if (a.kind === '폐기') {
-        asset.status = '폐기완료'
-        asset.history.push({ date: TODAY, kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 진행', actor: session.name })
+        asset.history.push({ date: TODAY, kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 대기', actor: session.name })
       }
     }
   }

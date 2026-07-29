@@ -360,6 +360,18 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .mx td.n { color: var(--line-strong); text-align: center; }
 .mx td.p { color: var(--warn); font-weight: 700; text-align: center; font-size: 11px; }
 
+/* 자산 라벨 (바코드 / QR) — 인쇄용 */
+.asset-label { display: flex; gap: 12px; align-items: center; border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; background: #fff; }
+.asset-label .qr { width: 88px; height: 88px; flex: none; }
+.asset-label .qr svg { width: 100%; height: 100%; display: block; }
+.asset-label .bc { margin-top: 5px; }
+.asset-label .bc svg { width: 100%; max-width: 220px; height: 34px; display: block; }
+@media print {
+  .titlebar, .menubar, .mdibar, .modnav, .statusbar, .screen-hd, .stat-row, .callout, .card-hd { display: none !important; }
+  .content, .content-inner, .card { padding: 0; border: none; box-shadow: none; }
+  .asset-label { page-break-inside: avoid; margin-bottom: 6px; }
+}
+
 /* 재물조사 스캔 — 모바일 웹 지원 (현장 실사) */
 .survey-scan { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 @media (max-width: 780px) {

@@ -186,6 +186,46 @@ export interface SurveyDiff {
   resolution?: '대장 보정' | '유휴 편성' | '분실 처리' | '신규 등록'
 }
 
+/** 도입·검수 — 발주 연계 입고 → 검수 체크리스트 → 자산번호 채번 → 라벨 발행 (제품안내서 §03) */
+export interface IntakeChecklistItem {
+  item: string
+  checked: boolean
+  note?: string
+}
+
+export interface IntakeLot {
+  id: string
+  contractId: string
+  model: string
+  category: AssetCategory
+  qty: number
+  arrivedAt: string
+  vendor: string
+  status: '입고 대기' | '검수 중' | '검수 완료'
+  checklist: IntakeChecklistItem[]
+  /** 채번 완료된 자산번호 */
+  issued: string[]
+  inspector?: string
+}
+
+/** 폐기 — 대상 선정 → 결재 → 데이터 소거 → 증적 보존 */
+export type WipeMethod = '디가우징' | '물리 파쇄' | '소프트웨어 3-pass'
+
+export interface DisposalRecord {
+  id: string
+  assetNo: string
+  model: string
+  reason: string
+  status: '대상 선정' | '결재 대기' | '소거 대기' | '완료'
+  approvalId?: string
+  wipeMethod?: WipeMethod
+  wipedAt?: string
+  wipedBy?: string
+  /** 증적 — 소거 확인서 번호 · 사진 */
+  certNo?: string
+  evidence?: string
+}
+
 export interface Notice {
   id: string
   title: string

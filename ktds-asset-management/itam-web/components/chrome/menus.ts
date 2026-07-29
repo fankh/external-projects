@@ -29,6 +29,8 @@ export const NAV: NavGroup[] = [
     items: [
       { href: '/assets/register', label: '자산 대장', ico: '▤', roles: ALL },
       { href: '/assets/lifecycle', label: '수명주기', ico: '⟳', roles: MGRS },
+      { href: '/assets/intake', label: '도입 · 검수', ico: '⊕', roles: MGRS },
+      { href: '/assets/disposal', label: '폐기 처리', ico: '⊘', roles: MGRS },
     ],
   },
   {

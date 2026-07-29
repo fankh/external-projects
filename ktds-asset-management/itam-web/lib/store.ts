@@ -2,7 +2,7 @@
  *  실서비스에서는 자산 대장 RDB(CMDB) + 발견 저장소 분리 구조로 대체된다(제품안내서 §02). */
 import type {
   AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, CodeGroup, CodeValue, Contract,
-  DiscoveredAsset, ExternalAsset, GeneratedReport, Integration, InventoryRound, LeakFinding,
+  DisposalRecord, DiscoveredAsset, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
   Notice, SaasCatalogEntry, SaasUsage, ScanPolicy, SurveyDiff, SurveyScan, SwLicense, UserAccount,
 } from './types'
 
@@ -22,6 +22,8 @@ export interface Store {
   reports: GeneratedReport[]
   surveyScans: SurveyScan[]
   surveyDiffs: SurveyDiff[]
+  intakeLots: IntakeLot[]
+  disposals: DisposalRecord[]
   contracts: Contract[]
   licenses: SwLicense[]
   approvals: Approval[]
@@ -233,6 +235,38 @@ function seed(): Store {
       { id: 'SCN-0310', roundId: 'INV-2026-H2', code: 'AST-2023-000113', assetNo: 'AST-2023-000113', scannedAt: '2026-07-28 16:35', location: '본사 8F', by: '박자산', result: '일치' },
       { id: 'SCN-0309', roundId: 'INV-2026-H2', code: 'UNKNOWN-77213', scannedAt: '2026-07-28 16:30', location: '본사 3F 자산창고', by: '박자산', result: '대장 미등록' },
       { id: 'SCN-0308', roundId: 'INV-2026-H2', code: 'AST-2022-000871', assetNo: 'AST-2022-000871', scannedAt: '2026-07-28 16:22', location: '본사 8F', by: '박자산', result: '일치' },
+    ],
+    intakeLots: [
+      {
+        id: 'IN-2607-01', contractId: 'CT-2026-009', model: 'ThinkPad X1 Carbon G12', category: '단말',
+        qty: 40, arrivedAt: '2026-07-21', vendor: '(주)한빛INT', status: '검수 중', inspector: '박자산',
+        checklist: [
+          { item: '외관 손상·스크래치 확인', checked: true },
+          { item: '발주 사양 일치 (CPU·메모리·SSD)', checked: true },
+          { item: '전원·부팅 정상 동작', checked: true },
+          { item: '부속품 구성 (어댑터·케이블·매뉴얼)', checked: false },
+          { item: 'OS·보안 SW 설치 상태', checked: false },
+          { item: '자산 라벨 부착 위치 확인', checked: false },
+        ],
+        issued: ['AST-2025-000033'],
+      },
+      {
+        id: 'IN-2607-02', contractId: 'CT-2023-021', model: 'PowerEdge R760', category: '서버',
+        qty: 2, arrivedAt: '2026-07-27', vendor: '델테크놀로지스', status: '입고 대기',
+        checklist: [
+          { item: '외관 손상·랙 마운트 부속 확인', checked: false },
+          { item: '발주 사양 일치 (CPU·메모리·디스크)', checked: false },
+          { item: '전원 이중화·팬 정상 동작', checked: false },
+          { item: 'iDRAC·펌웨어 버전 확인', checked: false },
+          { item: 'OS·보안 SW 설치 상태', checked: false },
+          { item: '자산 라벨 부착 위치 확인', checked: false },
+        ],
+        issued: [],
+      },
+    ],
+    disposals: [
+      { id: 'DSP-01', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', reason: '사용 연한 초과 (7년) · 보증 만료', status: '결재 대기', approvalId: 'APR-2607-109' },
+      { id: 'DSP-02', assetNo: 'AST-2021-000432', model: 'LG gram 17', reason: '보증 만료 · 성능 저하', status: '대상 선정' },
     ],
     surveyDiffs: [
       { id: 'DIF-01', roundId: 'INV-2026-H2', kind: '위치 불일치', assetNo: 'AST-2025-000512', model: 'Galaxy Book4 Pro', expected: '본사 8F', actual: '판교 사무소', status: '미조치' },
