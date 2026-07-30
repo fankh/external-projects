@@ -5,7 +5,7 @@ import { fingerprintOf } from './types'
 import type {
   AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract,
   Dispatch, DisposalRecord, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
-  SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UnseenExternal, UserAccount,
+  ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
 
 export interface Store {
@@ -37,6 +37,7 @@ export interface Store {
   observations: ChannelObservation[]
   scanRuns: ScanRun[]
   menuPermissions: MenuPermission[]
+  reportSchedules: ReportSchedule[]
   easmTargets: EasmTarget[]
   easmRuns: EasmRun[]
   /** 아직 외부에서 관측되지 않은 노출 자산 — 재탐지로 드러난다 */
@@ -103,6 +104,16 @@ function seedAssets(): Asset[] {
 /** 재탐지 대상 도메인 — 능동 탐지는 사전 협의된 도메인에서만 돈다 */
 /** 권한 매트릭스 초기값 — 화면 하드코딩이던 것을 스토어로 옮겨 편집·강제 가능하게 했다.
  *  순서는 PERM_ACTIONS(조회·저장·삭제·엑셀·편입·격리요청·결재)와 일치해야 한다. */
+/** 리포트 스케줄 — 주간은 월요일 08:00, 월간은 1일 08:00 기준 */
+function seedReportSchedules(): ReportSchedule[] {
+  return [
+    // 스케줄러가 한 주 밀린 상태 — '기한 도래'가 화면에서 드러나야 밀린 사실을 알 수 있다
+    { kind: '주간 Shadow IT 브리핑', period: '주간', enabled: true, dayOfWeek: 1, hour: 8, recipients: ['보안운영팀', 'IT기획팀'], lastRunAt: '2026-07-20' },
+    { kind: '월간 자산 현황', period: '월간', enabled: true, dayOfMonth: 1, hour: 8, recipients: ['IT기획팀', '자산관리팀'], lastRunAt: '2026-07-01' },
+    { kind: '라이선스 컴플라이언스', period: '월간', enabled: false, dayOfMonth: 1, hour: 8, recipients: ['IT기획팀'], lastRunAt: '2026-06-01' },
+  ]
+}
+
 function seedMenuPermissions(): MenuPermission[] {
   return [
     { menu: '대시보드', cells: { USER: ['y','n','n','n','n','n','n'], ASSET_MGR: ['y','n','n','y','n','n','n'], SEC_MGR: ['y','n','n','y','n','n','n'], ADMIN: ['y','y','y','y','y','y','y'] } },
@@ -451,6 +462,7 @@ function seed(): Store {
     observations: seedObservations(),
     scanRuns: seedScanRuns(),
     menuPermissions: seedMenuPermissions(),
+    reportSchedules: seedReportSchedules(),
     easmTargets: seedEasmTargets(),
     easmRuns: seedEasmRuns(),
     unseenExternal: seedUnseenExternal(),

@@ -2,7 +2,7 @@
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
 import { today, daysUntil, fmtAmount } from './dates'
 import { getStore } from './store'
-import type { ReportKind, ReportSection } from './types'
+import type { ReportKind, ReportSchedule, ReportSection } from './types'
 
 export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
   { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 처리 현황 · 미인가 SaaS 변동' },
@@ -11,6 +11,17 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행 증빙 초안' },
 ]
+
+/** 다음 실행 예정일 — 마지막 실행 + 주기. 스케줄이 밀렸는지 화면에서 드러나야 한다.
+ *  ('use server' 모듈은 async 함수만 export 할 수 있어 순수 계산은 여기에 둔다) */
+export function nextRunOf(sc: ReportSchedule): string | null {
+  if (!sc.lastRunAt) return null
+  const last = new Date(sc.lastRunAt)
+  if (sc.period === '주간') return new Date(last.getTime() + 7 * 86_400_000).toISOString().slice(0, 10)
+  const d = new Date(last)
+  d.setMonth(d.getMonth() + 1)
+  return d.toISOString().slice(0, 10)
+}
 
 export function buildSections(kind: ReportKind): ReportSection[] {
   const s = getStore()

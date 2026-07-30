@@ -1,6 +1,8 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
-import { REPORT_KINDS } from '@/lib/reports'
+import { nextRunOf, REPORT_KINDS } from '@/lib/reports'
+import { today } from '@/lib/dates'
+import { ScheduleCard } from './ScheduleCard'
 import { getStore } from '@/lib/store'
 import { ReportsView } from './ReportsView'
 
@@ -10,6 +12,20 @@ export default async function ReportsPage() {
   await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const live = Boolean(process.env.ANTHROPIC_API_KEY)
+  const t = today()
+  const DAY = ['', '월', '화', '수', '목', '금', '토', '일']
+  const schedules = s.reportSchedules.map((sc) => {
+    const nextRun = nextRunOf(sc)
+    return {
+      kind: sc.kind, period: sc.period, enabled: sc.enabled, hour: sc.hour,
+      dayLabel: sc.period === '주간' ? `매주 ${DAY[sc.dayOfWeek ?? 1]}요일` : `매월 ${sc.dayOfMonth ?? 1}일`,
+      recipients: sc.recipients, lastRunAt: sc.lastRunAt, nextRun,
+      overdue: nextRun === null || nextRun <= t,
+    }
+  })
+  // 스케줄이 없는 '수시' 리포트도 함께 보여줘야 5종 전체가 한눈에 들어온다
+  const scheduled = new Set(s.reportSchedules.map((x) => x.kind))
+  const adhoc = REPORT_KINDS.filter((k) => !scheduled.has(k.kind)).map((k) => ({ kind: k.kind, desc: k.desc }))
 
   return (
     <>
@@ -23,11 +39,13 @@ export default async function ReportsPage() {
       />
 
       <div className="stat-row">
-        <Stat value={REPORT_KINDS.length} label="리포트 유형" />
+        <Stat value={REPORT_KINDS.length} label="리포트 유형" delta={{ text: `자동 ${s.reportSchedules.filter((x) => x.enabled).length} · 수시 ${adhoc.length}`, dir: 'flat' }} />
         <Stat value={s.reports.length} label="생성된 리포트" tone="accent" />
         <Stat value={s.reports.filter((r) => r.mode === 'AI').length} label="AI 서술 생성" tone={live ? 'ok' : 'warn'} />
         <Stat value={s.aiPolicy.auditRetentionDays} label="리포트·AI 로그 보존 (일)" />
       </div>
+
+      <ScheduleCard rows={schedules} adhoc={adhoc} />
 
       <div className="callout">
         <b>수치는 데이터, 서술은 AI.</b> 표 항목은 자산 대장·발견 저장소·계약에서 결정적으로 산출하므로 화면

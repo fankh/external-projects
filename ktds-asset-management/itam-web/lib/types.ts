@@ -128,7 +128,7 @@ export interface Dispatch {
   channel: '이메일' | '문자'
   to: string
   subject: string
-  kind: '소유자 확인' | '만료 임박' | '격리 통보' | '에스컬레이션'
+  kind: '소유자 확인' | '만료 임박' | '격리 통보' | '에스컬레이션' | '리포트 배포'
   ref?: string
 }
 
@@ -544,6 +544,22 @@ export interface ReportSection {
   columns?: string[]
   rows?: string[][]
   bullets?: string[]
+}
+
+/** 리포트 자동 생성 스케줄 — 주간/월간 리포트는 스케줄러가 돌려 결재 첨부용으로 배포한다.
+ *  '수시' 리포트(재물조사·감사 대응)는 사유가 있을 때만 만들므로 스케줄을 두지 않는다.
+ *  (제품안내서 §05: 주간 Shadow IT 브리핑 · 월간 자산 현황·라이선스 리포트 자동 작성) */
+export interface ReportSchedule {
+  kind: ReportKind
+  period: '주간' | '월간'
+  enabled: boolean
+  /** 주간 = 요일(1 월 … 7 일) */
+  dayOfWeek?: number
+  /** 월간 = 일자 */
+  dayOfMonth?: number
+  hour: number
+  recipients: string[]
+  lastRunAt?: string
 }
 
 export interface GeneratedReport {
