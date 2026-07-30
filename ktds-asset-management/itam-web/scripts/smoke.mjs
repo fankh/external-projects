@@ -1,7 +1,7 @@
 /** 스모크 테스트 — 프로덕션 서버를 띄우고 권한 매트릭스·데이터 스코핑·리다이렉트를 검증한다.
  *  사용: npm run build && npm run smoke  (edim-web-next scripts/smoke.mjs 패턴) */
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -260,6 +260,47 @@ try {
   const intHtml = await (await get('/platform/integrations', 'SEC_MGR')).text()
   check('연동 · 인프라: 커넥터·감사 로그 렌더', intHtml.includes('EDR · 백신 콘솔') && intHtml.includes('감사 로그') && intHtml.includes('권한 밖 화면 접근 시도'))
   check('연동 · 인프라: 양방향 조치 채널 렌더', intHtml.includes('양방향') && intHtml.includes('SAML'))
+
+  // ── 문서 정합성 ─────────────────────────────────────────────────────
+  // 문서의 수치는 기능을 추가할 때마다 손으로 고쳐 왔고, 그 과정에서 세 번 낡았다
+  // (화면 25→28, 스모크 131→165, 폐쇄 루프 15→18). 사람이 기억할 일이 아니라 테스트가 잡을 일이다.
+  console.log('\n[문서 정합성 — 문서가 주장하는 수치 vs 실제]')
+  const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
+  const summary = readFileSync(path.join(ROOT, '..', 'docs', '구축_요약.md'), 'utf8')
+
+  // 실제 화면 수 — app/(app) 하위의 page.tsx
+  const countPages = (dir) => readdirSync(dir, { withFileTypes: true }).reduce((n, e) => {
+    const full = path.join(dir, e.name)
+    if (e.isDirectory()) return n + countPages(full)
+    return n + (e.name === 'page.tsx' ? 1 : 0)
+  }, 0)
+  const screens = countPages(path.join(ROOT, 'app', '(app)'))
+  const routes = Object.keys(ROUTES).length
+
+  // 문서가 주장하는 값 (같은 수치를 여러 곳에서 반복하므로 전부 모아 비교한다)
+  const claims = (text, re) => [...text.matchAll(re)].map((m) => Number(m[1]))
+  const allSame = (nums, actual) => nums.length > 0 && nums.every((n) => n === actual)
+
+  const screenClaims = [...claims(readme, /명시 화면 (\d+)종/g), ...claims(readme, /매핑 \((\d+)종\)/g),
+                        ...claims(summary, /명시 화면 (\d+)종/g), ...claims(summary, /도메인 (\d+)화면/g)]
+  check(`문서: 화면 수 ${screens}종 일치`, allSame(screenClaims, screens), `주장=${screenClaims.join(',')} 실제=${screens}`)
+
+  const routeClaims = [...claims(readme, /\((\d+) 라우트 × 4/g), ...claims(summary, /(\d+) 라우트 × 4/g)]
+  check(`문서: 라우트 수 ${routes}개 일치`, allSame(routeClaims, routes), `주장=${routeClaims.join(',')} 실제=${routes}`)
+
+  // 폐쇄 루프 — README 의 번호 매긴 항목 수가 기준
+  // 다음 '## ' 제목 전까지만 — 끝까지 자르면 '데모 시나리오'의 번호 목록까지 세어 버린다
+  const loopStart = readme.indexOf('## 동작하는 폐쇄 루프')
+  const loopEnd = readme.indexOf('\n## ', loopStart + 1)
+  const loopSection = readme.slice(loopStart, loopEnd === -1 ? undefined : loopEnd)
+  const loops = [...loopSection.matchAll(/^(\d+)\. \*\*/gm)].length
+  const loopClaims = [...claims(readme, /폐쇄 루프 (\d+)종/g), ...claims(summary, /폐쇄 루프 (\d+)종/g)]
+  check(`문서: 폐쇄 루프 ${loops}종 일치`, allSame(loopClaims, loops), `주장=${loopClaims.join(',')} 실제=${loops}`)
+
+  // 스모크 건수는 자기참조 — 이 블록까지 포함한 최종 합계와 비교한다
+  const smokeClaims = [...claims(readme, /→ (\d+)개 검증/g), ...claims(summary, /스모크 (\d+)건/g)]
+  const finalTotal = passed + failed + 1   // +1 = 지금 실행할 이 검사
+  check(`문서: 스모크 ${finalTotal}건 일치`, allSame(smokeClaims, finalTotal), `주장=${smokeClaims.join(',')} 실제=${finalTotal}`)
 } catch (err) {
   failed += 1
   console.error(`✗ 실행 오류: ${err instanceof Error ? err.message : err}`)
