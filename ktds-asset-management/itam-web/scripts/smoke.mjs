@@ -7,9 +7,14 @@ import process from 'node:process'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const PORT = 3378
-const BASE = `http://localhost:${PORT}`
+/** SMOKE_BASE 를 주면 이미 떠 있는 서버(=배포본)를 그대로 검증한다.
+ *  로컬에서 통과해도 배포본에서만 틀리는 결함이 실재한다 — 컨테이너 TZ 가 UTC 라
+ *  KST 00~09시에 날짜가 하루 뒤처지던 건이 그랬다. 배포 후 같은 스위트를 한 번 더 돌린다.
+ *  예: SMOKE_BASE=http://localhost:3390 node scripts/smoke.mjs */
+const BASE = process.env.SMOKE_BASE || `http://localhost:${PORT}`
+const REMOTE = Boolean(process.env.SMOKE_BASE)
 
-if (!existsSync(path.join(ROOT, '.next'))) {
+if (!REMOTE && !existsSync(path.join(ROOT, '.next'))) {
   console.error('✗ .next 빌드가 없습니다 — 먼저 `npm run build`를 실행하세요.')
   process.exit(1)
 }
@@ -71,7 +76,7 @@ const text = (html) => html.replace(/<!--[\s\S]*?-->/g, '')
 
 async function waitReady(proc) {
   for (let i = 0; i < 60; i += 1) {
-    if (proc.exitCode !== null) throw new Error(`서버 조기 종료 (exit ${proc.exitCode})`)
+    if (proc && proc.exitCode !== null) throw new Error(`서버 조기 종료 (exit ${proc.exitCode})`)
     try {
       const r = await fetch(`${BASE}/login`)
       if (r.status === 200) return
@@ -81,14 +86,16 @@ async function waitReady(proc) {
   throw new Error('서버 기동 시간 초과')
 }
 
+// 원격 대상일 때는 서버를 띄우지 않는다 — 쓰지도 않을 프로세스가 3378 을 점유하면
+// 나중에 도는 로컬 스모크가 그 서버(= 다른 빌드)에 붙어 엉뚱한 결과를 낸다.
 const nextBin = path.join(ROOT, 'node_modules', 'next', 'dist', 'bin', 'next')
-const server = spawn(process.execPath, [nextBin, 'start', '-p', String(PORT)], {
+const server = REMOTE ? null : spawn(process.execPath, [nextBin, 'start', '-p', String(PORT)], {
   cwd: ROOT, stdio: 'ignore',
 })
 
 try {
   await waitReady(server)
-  console.log(`서버 기동 완료 — ${BASE}\n`)
+  console.log(`${REMOTE ? '원격 대상 검증' : '서버 기동 완료'} — ${BASE}\n`)
 
   console.log('[인증 리다이렉트]')
   const root = await get('/')
@@ -182,7 +189,11 @@ try {
   const aiAsst = await (await get('/ai/assistant', 'USER')).text()
   const claimsLive = (h) => h.includes('AI 서술 생성 — 최근 성공') || h.includes('온프레미스 LLM 연결됨')
   check('AI 상태: 키 미설정 시 가동을 주장하지 않음', !claimsLive(aiRep) && !claimsLive(aiAsst))
-  check('AI 상태: 미설정 사유를 명시', aiRep.includes('API 키 미설정') && aiAsst.includes('API 키 미설정'))
+  // 상태 문구는 환경에 따라 달라진다(키 유무·호출 성공 여부). 특정 환경을 가정하지 말고
+  // '알려진 4상태 중 하나를 근거와 함께 표시하는가'를 본다 — 로컬·배포본 양쪽에서 유효해야 한다.
+  const AI_STATES = ['API 키 미설정', '아직 호출 전(미검증)', 'AI 서술 생성 — 최근 성공', 'AI 호출 실패', '온프레미스 LLM 연결됨']
+  const showsState = (h) => AI_STATES.some((x) => h.includes(x))
+  check('AI 상태: 알려진 상태를 근거와 함께 표시', showsState(aiRep) && showsState(aiAsst))
   const scanHtml2 = await (await get('/discovery/scan', 'SEC_MGR')).text()
   check('스캔 실행: 채널별 수집 현황·이력 렌더', scanHtml2.includes('채널별 수집 현황') && scanHtml2.includes('스캔 이력') && scanHtml2.includes('SCN-RUN-2607-28'))
   check('스캔 실행: 안전장치 문구·실행 UI', scanHtml2.includes('스캔 안전장치') && scanHtml2.includes('스캔 실행') && scanHtml2.includes('허용 시간대'))
@@ -271,6 +282,11 @@ try {
   // ── 문서 정합성 ─────────────────────────────────────────────────────
   // 문서의 수치는 기능을 추가할 때마다 손으로 고쳐 왔고, 그 과정에서 세 번 낡았다
   // (화면 25→28, 스모크 131→165, 폐쇄 루프 15→18). 사람이 기억할 일이 아니라 테스트가 잡을 일이다.
+  // 원격(배포본) 검증에서는 건너뛴다 — 로컬 소스 파일을 기준으로 하는 검사라
+  // 배포본과 소스가 다른 커밋일 수 있는 상황에서는 의미가 없다.
+  if (REMOTE) {
+    console.log('\n[문서 정합성] 원격 대상 — 건너뜀 (로컬 소스 기준 검사)')
+  } else {
   console.log('\n[문서 정합성 — 문서가 주장하는 수치 vs 실제]')
   const readme = readFileSync(path.join(ROOT, 'README.md'), 'utf8')
   const summary = readFileSync(path.join(ROOT, '..', 'docs', '구축_요약.md'), 'utf8')
@@ -308,11 +324,12 @@ try {
   const smokeClaims = [...claims(readme, /→ (\d+)개 검증/g), ...claims(summary, /스모크 (\d+)건/g)]
   const finalTotal = passed + failed + 1   // +1 = 지금 실행할 이 검사
   check(`문서: 스모크 ${finalTotal}건 일치`, allSame(smokeClaims, finalTotal), `주장=${smokeClaims.join(',')} 실제=${finalTotal}`)
+  }
 } catch (err) {
   failed += 1
   console.error(`✗ 실행 오류: ${err instanceof Error ? err.message : err}`)
 } finally {
-  server.kill()
+  server?.kill()
 }
 
 console.log(`\n결과: ${passed} passed / ${failed} failed`)
