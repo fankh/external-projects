@@ -435,6 +435,19 @@ export interface ScanPolicy {
   note: string
 }
 
+/** 권한 매트릭스 — 메뉴(화면) × 기능(버튼) 단위. 환경설정에서 편집하며 서버가 이를 강제한다.
+ *  'y'=허용 · 'n'=불가 · 'p'=부분(본인 범위 한정) */
+export type PermCell = 'y' | 'n' | 'p'
+export type PermAction = '조회' | '저장' | '삭제' | '엑셀' | '편입' | '격리요청' | '결재'
+export type PermMenu =
+  | '대시보드' | '자산 대장' | '수명주기' | '재고 · 재물조사' | '계약 · 라이선스'
+  | '발견 자산 · CMDB 대사' | 'Shadow SaaS' | 'AI 어시스턴트' | '신청 · 결재' | '권한 · 정책'
+
+export interface MenuPermission {
+  menu: PermMenu
+  cells: Record<Role, PermCell[]>
+}
+
 /** 스캔 실행 회차 — 수집 계층이 실제로 돈 기록. 정책(대역·시간대·강도)이 실행을 통제한다.
  *  (제품안내서 §04 6종 병렬 수집 · §07 스캔 안전장치) */
 export interface ScanRun {

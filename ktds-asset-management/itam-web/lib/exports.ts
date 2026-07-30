@@ -1,6 +1,7 @@
 import { daysUntil } from './dates'
+import { can } from './perm'
 import { getStore } from './store'
-import type { Role } from './types'
+import type { PermMenu, Role } from './types'
 import type { Sheet } from './xlsx'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
@@ -8,16 +9,18 @@ import type { Sheet } from './xlsx'
 export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals'] as const
 export type ExportKind = (typeof EXPORT_KINDS)[number]
 
-export const EXPORT_META: Record<ExportKind, { label: string; file: string; roles: Role[] }> = {
-  assets: { label: '자산 대장', file: '자산대장', roles: ['ASSET_MGR', 'SEC_MGR', 'ADMIN'] },
-  stock: { label: '재고 현황', file: '재고현황', roles: ['ASSET_MGR', 'ADMIN'] },
-  discovered: { label: '발견 자산', file: '발견자산', roles: ['ASSET_MGR', 'SEC_MGR', 'ADMIN'] },
-  contracts: { label: '계약 · 라이선스', file: '계약라이선스', roles: ['ASSET_MGR', 'SEC_MGR', 'ADMIN'] },
-  approvals: { label: '결재 이력', file: '결재이력', roles: ['ASSET_MGR', 'SEC_MGR', 'ADMIN'] },
+/** 내보내기 대상 ↔ 권한 매트릭스의 메뉴. 허용 여부는 매트릭스의 '엑셀' 칸이 정한다 —
+ *  역할 목록을 여기 따로 두면 화면에서 권한을 바꿔도 반영되지 않는다. */
+export const EXPORT_META: Record<ExportKind, { label: string; file: string; menu: PermMenu }> = {
+  assets: { label: '자산 대장', file: '자산대장', menu: '자산 대장' },
+  stock: { label: '재고 현황', file: '재고현황', menu: '재고 · 재물조사' },
+  discovered: { label: '발견 자산', file: '발견자산', menu: '발견 자산 · CMDB 대사' },
+  contracts: { label: '계약 · 라이선스', file: '계약라이선스', menu: '계약 · 라이선스' },
+  approvals: { label: '결재 이력', file: '결재이력', menu: '신청 · 결재' },
 }
 
 export function canExport(kind: ExportKind, role: Role): boolean {
-  return EXPORT_META[kind].roles.includes(role)
+  return can(EXPORT_META[kind].menu, '엑셀', role)
 }
 
 /** 내보내기 데이터 — 화면에 보이는 것과 같은 권한 필터를 통과시킨다.

@@ -4,7 +4,7 @@ import { today } from './dates'
 import { fingerprintOf } from './types'
 import type {
   AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract,
-  Dispatch, DisposalRecord, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
+  Dispatch, DisposalRecord, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
   SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
 
@@ -36,6 +36,7 @@ export interface Store {
   dispatches: Dispatch[]
   observations: ChannelObservation[]
   scanRuns: ScanRun[]
+  menuPermissions: MenuPermission[]
   easmTargets: EasmTarget[]
   easmRuns: EasmRun[]
   /** 아직 외부에서 관측되지 않은 노출 자산 — 재탐지로 드러난다 */
@@ -100,6 +101,23 @@ function seedAssets(): Asset[] {
  *  (단일 채널만 본 자산도 있으므로 관측 1건짜리 발견 자산이 정상이다) */
 /** 최근 스캔 이력 — 야간 정책 창(23:00~05:00) 안에서 도는 정기 수집 */
 /** 재탐지 대상 도메인 — 능동 탐지는 사전 협의된 도메인에서만 돈다 */
+/** 권한 매트릭스 초기값 — 화면 하드코딩이던 것을 스토어로 옮겨 편집·강제 가능하게 했다.
+ *  순서는 PERM_ACTIONS(조회·저장·삭제·엑셀·편입·격리요청·결재)와 일치해야 한다. */
+function seedMenuPermissions(): MenuPermission[] {
+  return [
+    { menu: '대시보드', cells: { USER: ['y','n','n','n','n','n','n'], ASSET_MGR: ['y','n','n','y','n','n','n'], SEC_MGR: ['y','n','n','y','n','n','n'], ADMIN: ['y','y','y','y','y','y','y'] } },
+    { menu: '자산 대장', cells: { USER: ['p','n','n','n','n','n','n'], ASSET_MGR: ['y','y','y','y','y','n','y'], SEC_MGR: ['y','n','n','y','n','y','n'], ADMIN: ['y','y','y','y','y','y','y'] } },
+    { menu: '수명주기', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['y','y','y','y','n','n','y'], SEC_MGR: ['n','n','n','n','n','n','n'], ADMIN: ['y','y','y','y','y','y','y'] } },
+    { menu: '재고 · 재물조사', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['y','y','y','y','n','n','y'], SEC_MGR: ['n','n','n','n','n','n','n'], ADMIN: ['y','y','y','y','y','y','y'] } },
+    { menu: '계약 · 라이선스', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['y','y','y','y','n','n','y'], SEC_MGR: ['y','n','n','y','n','n','n'], ADMIN: ['y','y','y','y','y','y','y'] } },
+    { menu: '발견 자산 · CMDB 대사', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['y','y','n','y','y','y','y'], SEC_MGR: ['y','y','n','y','y','y','y'], ADMIN: ['y','y','y','y','y','y','y'] } },
+    { menu: 'Shadow SaaS', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['y','n','n','y','n','n','n'], SEC_MGR: ['y','y','n','y','n','y','y'], ADMIN: ['y','y','y','y','y','y','y'] } },
+    { menu: 'AI 어시스턴트', cells: { USER: ['p','n','n','n','n','n','n'], ASSET_MGR: ['y','n','n','y','n','n','n'], SEC_MGR: ['y','n','n','y','n','n','n'], ADMIN: ['y','y','n','y','n','n','n'] } },
+    { menu: '신청 · 결재', cells: { USER: ['p','y','n','n','n','n','n'], ASSET_MGR: ['y','y','n','y','n','n','y'], SEC_MGR: ['y','y','n','y','n','y','y'], ADMIN: ['y','y','y','y','y','y','y'] } },
+    { menu: '권한 · 정책', cells: { USER: ['n','n','n','n','n','n','n'], ASSET_MGR: ['n','n','n','n','n','n','n'], SEC_MGR: ['n','n','n','n','n','n','n'], ADMIN: ['y','y','y','y','y','y','y'] } },
+  ]
+}
+
 function seedEasmTargets(): EasmTarget[] {
   return [
     { domain: 'seekerslab.co.kr', intervalDays: 7, lastRunAt: '2026-07-26', activeApproved: true, note: '주력 도메인 — 능동 탐지 협의 완료' },
@@ -432,6 +450,7 @@ function seed(): Store {
     ],
     observations: seedObservations(),
     scanRuns: seedScanRuns(),
+    menuPermissions: seedMenuPermissions(),
     easmTargets: seedEasmTargets(),
     easmRuns: seedEasmRuns(),
     unseenExternal: seedUnseenExternal(),

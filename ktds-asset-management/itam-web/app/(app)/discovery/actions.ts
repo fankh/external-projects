@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { daysUntil, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
+import { can } from '@/lib/perm'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
 import { CONFIRM_DEADLINE_DAYS } from '@/lib/types'
@@ -123,7 +124,8 @@ export async function mergeDiscovered(primaryId: string, duplicateId: string) {
 /** 발견 자산 편입 요청 — 소유자 확인 → 자산 등록 결재를 통과해야 대장에 편입 (편입도 결재로) */
 export async function requestOnboard(discoveredId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return
+  // 매트릭스의 '발견 자산 · CMDB 대사 × 편입' 이 필요조건 — 화면에서 회수하면 실제로 막힌다
+  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   if (!d || d.action) return
@@ -145,7 +147,7 @@ export async function requestOnboard(discoveredId: string) {
 /** NAC 격리 요청 — 미확인·미인가 자산 차단 (발견과 조치의 양방향 폐쇄 루프) */
 export async function requestQuarantine(discoveredId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return
+  if (!session || !can('발견 자산 · CMDB 대사', '격리요청', session.role)) return
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
   if (!d || d.action) return

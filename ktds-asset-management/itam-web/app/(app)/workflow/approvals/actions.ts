@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
+import { can } from '@/lib/perm'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
 import type { ApprovalKind } from '@/lib/types'
@@ -127,10 +128,12 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
   const a = s.approvals.find((x) => x.id === approvalId)
   if (!a || a.status !== '대기') return
 
-  const canDecide =
+  // 매트릭스는 필요조건일 뿐 — 켜준다고 결재 종류별 규칙(격리는 보안담당, 그 외는 자산담당)을
+  // 넘지 못한다. 편집으로 권한이 상승하는 경로를 만들지 않기 위한 제약이다.
+  const byKind =
     session.role === 'ADMIN' ||
     (a.kind === '격리 요청' ? session.role === 'SEC_MGR' : session.role === 'ASSET_MGR')
-  if (!canDecide) return
+  if (!byKind || !can('신청 · 결재', '결재', session.role)) return
 
   a.status = verdict
   a.currentStep = '완료'
