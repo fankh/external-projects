@@ -333,6 +333,49 @@ export interface ExternalAsset {
   action?: '편입요청' | '차단요청' | '편입완료' | '차단완료'
 }
 
+/** 외부 공격표면 재탐지 대상 도메인 — 도메인별 주기로 스케줄러가 반복한다 (제품안내서 §04) */
+export interface EasmTarget {
+  domain: string
+  /** 재탐지 주기(일) */
+  intervalDays: number
+  lastRunAt?: string
+  /** 능동 탐지 사전 협의 여부 — 협의 없이 능동 탐지를 돌리면 안 된다 */
+  activeApproved: boolean
+  note?: string
+}
+
+/** 외부 공격표면 재탐지 회차 */
+export interface EasmRun {
+  id: string
+  startedAt: string
+  finishedAt?: string
+  domains: string[]
+  mode: EasmMode | 'Passive+Active'
+  status: '실행 중' | '완료'
+  /** 수동 수집으로 확보한 후보 */
+  candidates: number
+  /** 능동 확인으로 생존 판정한 수 */
+  confirmed: number
+  /** 새로 드러난 노출 자산 */
+  newFound: number
+  by: string
+  note?: string
+}
+
+/** 아직 외부에서 관측되지 않은 노출 자산 — 재탐지가 돌면 드러난다 */
+export interface UnseenExternal {
+  host: string
+  ip?: string
+  method: string
+  mode: EasmMode
+  domain: string
+  services?: string
+  cve?: string
+  cvss?: number
+  risk: RiskLevel
+  note: string
+}
+
 export interface LeakFinding {
   id: string
   kind: '유출 계정' | '스틸러 로그' | '코드 저장소 시크릿' | '랜섬웨어 유출 사이트'

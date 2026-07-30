@@ -65,6 +65,10 @@ function check(name, ok, detail = '') {
 const get = (p, role) =>
   fetch(BASE + p, { redirect: 'manual', headers: role ? { cookie: cookie(role) } : {} })
 
+/** React SSR 은 인접한 표현식 사이에 <!-- --> 를 넣는다 (`{n}일` → `7<!-- -->일`).
+ *  텍스트를 그대로 검사하려면 주석을 걷어내야 한다. */
+const text = (html) => html.replace(/<!--[\s\S]*?-->/g, '')
+
 async function waitReady(proc) {
   for (let i = 0; i < 60; i += 1) {
     if (proc.exitCode !== null) throw new Error(`서버 조기 종료 (exit ${proc.exitCode})`)
@@ -176,6 +180,11 @@ try {
   check('스캔 실행: 관측 저장소가 채널별 집계의 원천', scanHtml2.includes('누적 관측'))
   // 상태바의 마지막 스캔은 하드코딩이 아니라 스캔 이력에서 와야 한다
   check('상태바: 마지막 스캔이 이력에서 파생', scanHtml2.includes('마지막 스캔 2026-07-28 23:00') && scanHtml2.includes('스케줄러 (야간 정책)'))
+
+  check('외부 공격표면: 재탐지 실행·스케줄 렌더', extHtml.includes('재탐지 실행') && extHtml.includes('능동 협의') && extHtml.includes('재탐지 이력'))
+  check('외부 공격표면: 능동 미협의 도메인 표기', extHtml.includes('skl-dev.io') && extHtml.includes('미협의'))
+  const extText = text(extHtml)
+  check('외부 공격표면: 도메인별 주기·기한 표시', extText.includes('7일') && extText.includes('30일') && extText.includes('D-'))
 
   console.log('\n[엑셀 내보내기 — 기능 단위 권한]')
   const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

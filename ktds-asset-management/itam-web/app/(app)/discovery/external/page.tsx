@@ -1,5 +1,7 @@
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { daysUntil } from '@/lib/dates'
+import { RescanConsole } from './RescanConsole'
 import { getStore } from '@/lib/store'
 import type { ReconcileState } from '@/lib/types'
 
@@ -28,6 +30,12 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
 export default async function ExternalPage() {
   await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
+  // 다음 재탐지 기한 — 마지막 실행 + 주기. 지나면 기한 경과로 표시해 스케줄러 지연을 드러낸다
+  const targets = s.easmTargets.map((t) => {
+    if (!t.lastRunAt) return { ...t, dueIn: null }
+    const due = new Date(new Date(t.lastRunAt).getTime() + t.intervalDays * 86_400_000).toISOString().slice(0, 10)
+    return { ...t, dueIn: daysUntil(due) }
+  })
   const ext = s.external
   const unreg = ext.filter((e) => e.state === '미등록')
   const withCve = ext.filter((e) => e.cve)
@@ -46,6 +54,34 @@ export default async function ExternalPage() {
         <Stat value={withCve.length} label="CVE 확인 자산" tone="warn" delta={{ text: `최고 CVSS ${Math.max(...withCve.map((e) => e.cvss ?? 0)).toFixed(1)}`, dir: 'up' }} />
         <Stat value={s.leaks.length} label="유출 · 침해 수집 건" tone="warn" />
       </div>
+
+      <RescanConsole targets={targets} />
+
+      <Card kicker="Re-discovery History" title={`재탐지 이력 ${s.easmRuns.length}회차`} pad={false}>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead>
+              <tr><th>회차</th><th>시작</th><th>종료</th><th>도메인</th><th className="c">방식</th><th className="num">후보</th><th className="num">생존 확인</th><th className="num">신규 노출</th><th>실행</th></tr>
+            </thead>
+            <tbody>
+              {s.easmRuns.map((r) => (
+                <tr key={r.id}>
+                  <td className="code">{r.id}</td>
+                  <td className="tnum">{r.startedAt}</td>
+                  <td className="tnum">{r.finishedAt ?? <span className="dim">진행 중</span>}</td>
+                  <td>{r.domains.join(', ')}</td>
+                  <td className="c"><Chip tone={r.mode === 'Passive' ? 'neutral' : 'info'}>{r.mode}</Chip></td>
+                  <td className="num tnum">{r.candidates}</td>
+                  <td className="num tnum">{r.confirmed}</td>
+                  <td className="num tnum" style={r.newFound ? { color: 'var(--err)', fontWeight: 700 } : undefined}>{r.newFound}</td>
+                  <td>{r.by}{r.note && <div className="dim" style={{ fontSize: 11 }}>{r.note}</div>}</td>
+                </tr>
+              ))}
+              {s.easmRuns.length === 0 && <tr><td colSpan={9}><div className="empty">재탐지 이력이 없습니다</div></td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       <div className="callout">
         <b>수동 우선, 능동 확인.</b> 대상에 흔적을 남기지 않는 수동 수집으로 자산 후보를 넓게 확보한 뒤,

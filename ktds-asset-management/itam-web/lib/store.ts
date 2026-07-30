@@ -4,8 +4,8 @@ import { today } from './dates'
 import { fingerprintOf } from './types'
 import type {
   AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract,
-  Dispatch, DisposalRecord, DiscoveredAsset, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
-  SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UserAccount,
+  Dispatch, DisposalRecord, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
+  SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
 
 export interface Store {
@@ -36,6 +36,10 @@ export interface Store {
   dispatches: Dispatch[]
   observations: ChannelObservation[]
   scanRuns: ScanRun[]
+  easmTargets: EasmTarget[]
+  easmRuns: EasmRun[]
+  /** 아직 외부에서 관측되지 않은 노출 자산 — 재탐지로 드러난다 */
+  unseenExternal: UnseenExternal[]
   /** 아직 발견되지 않은 장비 — 스캔이 돌면 여기서 발견 저장소로 옮겨간다 */
   undiscovered: UndiscoveredDevice[]
   seq: number
@@ -95,6 +99,31 @@ function seedAssets(): Asset[] {
 /** 채널별 원시 관측 — 같은 장비를 여러 채널이 본다. 발견 목록은 이것을 지문으로 병합한 결과다.
  *  (단일 채널만 본 자산도 있으므로 관측 1건짜리 발견 자산이 정상이다) */
 /** 최근 스캔 이력 — 야간 정책 창(23:00~05:00) 안에서 도는 정기 수집 */
+/** 재탐지 대상 도메인 — 능동 탐지는 사전 협의된 도메인에서만 돈다 */
+function seedEasmTargets(): EasmTarget[] {
+  return [
+    { domain: 'seekerslab.co.kr', intervalDays: 7, lastRunAt: '2026-07-26', activeApproved: true, note: '주력 도메인 — 능동 탐지 협의 완료' },
+    { domain: 'seekerslab.com', intervalDays: 14, lastRunAt: '2026-07-19', activeApproved: true },
+    { domain: 'skl-dev.io', intervalDays: 30, lastRunAt: '2026-07-02', activeApproved: false, note: '개발용 도메인 — 능동 탐지 미협의 (수동 수집만)' },
+  ]
+}
+
+function seedEasmRuns(): EasmRun[] {
+  return [
+    { id: 'EASM-2607-26', startedAt: '2026-07-26 02:00', finishedAt: '2026-07-26 02:47', domains: ['seekerslab.co.kr'], mode: 'Passive+Active', status: '완료', candidates: 34, confirmed: 6, newFound: 1, by: '스케줄러 (주간)' },
+    { id: 'EASM-2607-19', startedAt: '2026-07-19 02:00', finishedAt: '2026-07-19 02:31', domains: ['seekerslab.com'], mode: 'Passive', status: '완료', candidates: 12, confirmed: 0, newFound: 0, by: '스케줄러 (격주)' },
+  ]
+}
+
+/** 재탐지가 돌면 드러날 외부 노출 자산 — 수동 수집으로 후보가 잡히고 능동으로 생존이 확인된다 */
+function seedUnseenExternal(): UnseenExternal[] {
+  return [
+    { host: 'staging-api.seekerslab.co.kr', ip: '203.0.113.44', method: '인증서 투명성 (CT)', mode: 'Passive', domain: 'seekerslab.co.kr', risk: '중간', note: 'CT 로그 신규 발급 인증서 — 스테이징 API 외부 노출 후보' },
+    { host: 'grafana.seekerslab.co.kr', ip: '203.0.113.51', method: '서브도메인 브루트포스', mode: 'Active', domain: 'seekerslab.co.kr', services: '3000/http (Grafana 9.3)', cve: 'CVE-2022-39307', cvss: 5.3, risk: '높음', note: '인증 없이 노출된 대시보드 — 기본 크리덴셜 점검 필요' },
+    { host: 'old-jenkins.skl-dev.io', ip: '198.51.100.7', method: '웹 아카이브', mode: 'Passive', domain: 'skl-dev.io', risk: '중간', note: '과거 관측 호스트 — 생존 확인 전까지 비활성 표기' },
+  ]
+}
+
 function seedScanRuns(): ScanRun[] {
   return [
     { id: 'SCN-RUN-2607-28', startedAt: '2026-07-28 23:00', finishedAt: '2026-07-28 23:41', channels: ['네트워크 능동 스캔', '패시브 트래픽', 'EDR·엔드포인트', 'DNS·프록시 로그', '클라우드 API', 'AD/IdP·SSO 로그'], scope: '10.20.0.0/16 · 10.10.0.0/16', intensity: '보통', status: '완료', observed: 16, reobserved: 14, newFound: 2, by: '스케줄러 (야간 정책)' },
@@ -403,6 +432,9 @@ function seed(): Store {
     ],
     observations: seedObservations(),
     scanRuns: seedScanRuns(),
+    easmTargets: seedEasmTargets(),
+    easmRuns: seedEasmRuns(),
+    unseenExternal: seedUnseenExternal(),
     undiscovered: seedUndiscovered(),
     dispatches: [
       { id: 'MSG-4001', at: `${today()} 09:12`, channel: '이메일', to: '플랫폼개발팀 (부서장)', subject: 'DSC-2607-0041 소유자 확인 요청', kind: '소유자 확인', ref: 'APR-2607-114' },
