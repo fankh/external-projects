@@ -170,11 +170,11 @@ button { font-family: inherit; }
   border: 1px solid var(--line); overflow: hidden;
 }
 .stat {
-  background: var(--panel); padding: 8px 13px;
-  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  background: var(--panel); padding: 6px 12px;
+  display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
 }
 .stat .v {
-  font-size: 20px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2;
+  font-size: 18px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2;
   font-variant-numeric: tabular-nums; color: var(--ink);
 }
 .stat .v small { font-size: 12px; font-weight: 600; color: var(--dim); margin-left: 2px; }
@@ -182,7 +182,10 @@ button { font-family: inherit; }
 /* 정상(ok)은 강조하지 않는다 — 주의가 필요한 값만 색을 갖는다 */
 .stat.warn .v { color: var(--warn); }
 .stat.err .v { color: var(--err); }
-.stat .d { flex-basis: 100%; font-size: 10.5px; margin-top: 2px; font-weight: 600; }
+/* 보조 문구는 같은 줄에 이어 붙인다. 줄을 바꾸면 그 셀만 커지는 게 아니라
+   그리드 행 전체가 늘어나 나머지 칸이 빈 공간을 떠안는다. */
+.stat .d { font-size: 10.5px; font-weight: 600; }
+.stat .d::before { content: '·'; margin-right: 5px; color: var(--line-strong); font-weight: 400; }
 .stat .d.up { color: var(--err); }
 .stat .d.down { color: var(--ok); }
 .stat .d.flat { color: var(--mute); }
