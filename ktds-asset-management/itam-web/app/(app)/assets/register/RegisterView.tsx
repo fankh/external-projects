@@ -43,7 +43,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       </div>
 
       <div className={sel ? 'cols main-side' : ''} style={sel ? { gap: 0 } : undefined}>
-        <div className="tbl-wrap" style={{ maxHeight: 520 }}>
+        <div className="tbl-wrap fill">
           <table className="tbl">
             <thead>
               <tr>
@@ -72,7 +72,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
         </div>
 
         {sel && (
-          <aside style={{ borderLeft: '1px solid var(--line)', padding: 16, maxHeight: 520, overflowY: 'auto' }}>
+          <aside className="side-fill">
             <div className="kicker mute">Asset Detail</div>
             <div style={{ fontSize: 15, fontWeight: 800, margin: '4px 0 2px' }}>{sel.model}</div>
             <div className="mono" style={{ color: 'var(--accent-deep)', fontSize: 12 }}>{sel.assetNo}</div>

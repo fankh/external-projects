@@ -57,7 +57,7 @@ export function FoundView({ items, observations, mergeCandidates }: {
       </div>
 
       <div className={sel ? 'cols main-side' : ''} style={sel ? { gap: 0 } : undefined}>
-        <div className="tbl-wrap" style={{ maxHeight: 480 }}>
+        <div className="tbl-wrap fill">
           <table className="tbl">
             <thead>
               <tr>
@@ -90,7 +90,7 @@ export function FoundView({ items, observations, mergeCandidates }: {
         </div>
 
         {sel && (
-          <aside style={{ borderLeft: '1px solid var(--line)', padding: 16, maxHeight: 480, overflowY: 'auto' }}>
+          <aside className="side-fill">
             <div className="kicker mute">Discovered Asset</div>
             <div style={{ fontSize: 15, fontWeight: 800, margin: '4px 0 2px' }}>{sel.hostname}</div>
             <div className="mono" style={{ color: 'var(--accent-deep)', fontSize: 12 }}>{sel.id}</div>

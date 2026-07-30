@@ -132,7 +132,7 @@ button { font-family: inherit; }
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 .content { flex: 1; overflow-y: auto; padding: 24px 28px 40px; min-height: 0; }
-.content-inner { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.content-inner { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 11px; }
 
 .statusbar {
   flex: none; display: flex; align-items: center; gap: 16px;
@@ -149,39 +149,60 @@ button { font-family: inherit; }
 .screen-hd .sp { flex: 1; }
 
 /* ═══ 카드 · 패널 ═══ */
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-1); display: flex; flex-direction: column; min-width: 0; }
-.card-hd { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+/* 업무 화면은 카드가 떠 있을 이유가 없다 — 둥근 모서리·그림자는 정보 밀도를 낮추고
+   화면을 대시보드 템플릿처럼 보이게 한다. 경계는 1px 선으로 충분하다. */
+.card { background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+.card-hd { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
 .card-hd .tt { font-size: 13.5px; font-weight: 700; }
 .card-hd .sp { flex: 1; }
-.card-bd { padding: 14px 16px; }
+.card-bd { padding: 11px 14px; }
 .card-bd.p0 { padding: 0; }
 
 /* ═══ KPI 스탯 (제품안내서 p.21) ═══ */
-.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px 12px; position: relative; overflow: hidden; box-shadow: var(--shadow-1); }
-.stat::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); }
-.stat.warn::before { background: var(--warn); }
-.stat.err::before { background: var(--err); }
-.stat.ok::before { background: var(--ok); }
-.stat .v { font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; }
-.stat .v small { font-size: 13px; font-weight: 600; color: var(--dim); margin-left: 2px; }
-.stat .l { font-size: 11px; color: var(--dim); margin-top: 3px; }
-.stat .d { font-size: 10.5px; margin-top: 5px; font-weight: 600; }
+/* ═══ KPI 스트립 ═══
+   지표마다 박스·그림자·색상 바를 두면 화면이 대시보드 템플릿처럼 보이고, 정작 이상값이
+   눈에 띄지 않는다(전부 강조하면 아무것도 강조되지 않는다). 카드 나열 대신 하나의 띠로 묶고
+   구분선만 남긴다. 색은 이상값(warn/err)의 숫자에만 쓴다.
+   gap:1px + 배경색 트릭으로 줄바꿈이 일어나도 구분선이 어긋나지 않는다. */
+.stat-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1px; background: var(--line);
+  border: 1px solid var(--line); overflow: hidden;
+}
+.stat {
+  background: var(--panel); padding: 8px 13px;
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.stat .v {
+  font-size: 20px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.stat .v small { font-size: 12px; font-weight: 600; color: var(--dim); margin-left: 2px; }
+.stat .l { font-size: 11.5px; color: var(--dim); }
+/* 정상(ok)은 강조하지 않는다 — 주의가 필요한 값만 색을 갖는다 */
+.stat.warn .v { color: var(--warn); }
+.stat.err .v { color: var(--err); }
+.stat .d { flex-basis: 100%; font-size: 10.5px; margin-top: 2px; font-weight: 600; }
 .stat .d.up { color: var(--err); }
 .stat .d.down { color: var(--ok); }
 .stat .d.flat { color: var(--mute); }
 
 /* ═══ 그리드 (모던 덴스 테이블) ═══ */
 .tbl-wrap { overflow: auto; min-height: 0; }
+/* 목록+상세 화면의 주 표 — 고정 px 상한을 두면 큰 화면에서 아래가 남고 작은 화면에선
+   더 잘린다. 크롬(타이틀바·메뉴바·탭·화면헤더·필터바·상태바) 높이를 뺀 만큼 쓴다.
+   상세 패널도 같은 높이를 써야 표와 아래 선이 맞는다. */
+.tbl-wrap.fill, .side-fill { max-height: calc(100vh - 296px); min-height: 220px; }
+.side-fill { overflow-y: auto; border-left: 1px solid var(--line); padding: 14px; }
 table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .tbl th {
   position: sticky; top: 0; z-index: 2;
   background: #f8fafc; color: var(--dim);
   font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-  text-align: left; padding: 0 12px; height: 34px; white-space: nowrap;
+  text-align: left; padding: 0 11px; height: 29px; white-space: nowrap;
   border-bottom: 1px solid var(--line-strong);
 }
-.tbl td { padding: 0 12px; height: 34px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px; }
+.tbl td { padding: 0 11px; height: 30px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px; }
 .tbl tbody tr { cursor: default; }
 .tbl tbody tr:hover td { background: #f6f8fc; }
 .tbl tbody tr.sel td { background: var(--accent-soft); }
@@ -250,10 +271,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .seg button.on { background: #fff; color: var(--accent-deep); box-shadow: var(--shadow-1); }
 
 /* ═══ 파이프라인 스텝 (수명주기 · 결재선 · 컴플라이언스) ═══ */
-.pipe { display: flex; gap: 8px; align-items: stretch; overflow-x: auto; }
+.pipe { display: flex; gap: 6px; align-items: stretch; overflow-x: auto; }
 .pipe .step {
-  flex: 1; min-width: 128px; border: 1px solid var(--line); border-radius: 8px;
-  background: #f8fafc; padding: 10px 13px; position: relative; cursor: default;
+  flex: 1; min-width: 128px; border: 1px solid var(--line);
+  background: #f8fafc; padding: 9px 12px; position: relative; cursor: default;
 }
 .pipe .step .k { font-size: 9.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--mute); }
 .pipe .step .t { font-size: 13px; font-weight: 700; margin-top: 2px; }
@@ -268,7 +289,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 
 /* ═══ 콜아웃 (제품안내서 인포 밴드) ═══ */
 .callout {
-  background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: 8px;
+  background: var(--accent-soft); border: 1px solid var(--accent-line);
   padding: 11px 14px; font-size: 12.5px; color: var(--ink-2); line-height: 1.6;
 }
 .callout b { color: var(--accent-deep); }
@@ -292,8 +313,8 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 
 /* 사용량 바 (라이선스 대사) */
 .meter { display: flex; flex-direction: column; gap: 4px; }
-.meter .bar { height: 8px; border-radius: 5px; background: #edf0f5; overflow: hidden; position: relative; }
-.meter .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 5px; background: var(--accent); }
+.meter .bar { height: 7px; border-radius: 2px; background: #edf0f5; overflow: hidden; position: relative; }
+.meter .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--accent); }
 .meter .bar i.over { background: var(--err); }
 .meter .bar i.low { background: var(--warn); }
 .meter .lbl { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
