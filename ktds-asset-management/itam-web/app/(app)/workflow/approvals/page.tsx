@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -39,7 +40,7 @@ export default async function ApprovalsPage() {
 
       <RequestForm myAssets={myAssets} locations={locations} />
 
-      <Card pad={false}>
+      <Card pad={false} actions={<ExportButton kind="approvals" role={session.role} label="결재 이력 엑셀" />}>
         <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} />
       </Card>
 

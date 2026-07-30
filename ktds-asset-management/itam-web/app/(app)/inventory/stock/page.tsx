@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic'
 const CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 export default async function StockPage() {
-  await requireRole('ASSET_MGR', 'ADMIN')
+  const session = await requireRole('ASSET_MGR', 'ADMIN')
   const s = getStore()
   const byCat = CATS.map((c) => {
     const list = s.assets.filter((a) => a.category === c)
@@ -41,7 +42,8 @@ export default async function StockPage() {
       </div>
 
       <div className="cols c2">
-        <Card kicker="Stock" title="유형별 보유 현황" pad={false}>
+        <Card kicker="Stock" title="유형별 보유 현황" pad={false}
+          actions={<ExportButton kind="stock" role={session.role} label="재고 엑셀" />}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>

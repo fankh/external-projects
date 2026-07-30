@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
@@ -9,7 +10,7 @@ import { FoundView } from './FoundView'
 export const dynamic = 'force-dynamic'
 
 export default async function FoundPage() {
-  await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const d = s.discovered
   const unreg = d.filter((x) => x.state === '미등록' && !x.action)
@@ -70,7 +71,7 @@ export default async function FoundPage() {
 
       <EscalateBar waiting={awaiting.length} overdue={overdue.length} deadlineDays={CONFIRM_DEADLINE_DAYS} />
 
-      <Card pad={false}>
+      <Card pad={false} actions={<ExportButton kind="discovered" role={session.role} label="발견 자산 엑셀" />}>
         <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} />
       </Card>
     </>

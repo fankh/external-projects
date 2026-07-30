@@ -169,6 +169,33 @@ try {
   const ctHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약: 만료 임박 알림 발송 진입점', ctHtml.includes('만료 임박 알림 발송'))
   check('계약: 라이선스 조치(4단계) 진입점', ctHtml.includes('추가 구매') && ctHtml.includes('회수') && ctHtml.includes('검출에서 조치까지'))
+  console.log('\n[엑셀 내보내기 — 기능 단위 권한]')
+  const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  for (const kind of ['assets', 'stock', 'discovered', 'contracts', 'approvals']) {
+    const r = await get(`/api/export/${kind}`, 'ADMIN')
+    const buf = Buffer.from(await r.arrayBuffer())
+    // PK\x03\x04 = ZIP 시그니처. 엑셀이 열 수 있는 형식인지 최소한 확인한다.
+    check(`엑셀 ${kind}: 200 · xlsx MIME · ZIP 시그니처`,
+      r.status === 200 && (r.headers.get('content-type') ?? '').includes(XLSX_MIME)
+      && buf.subarray(0, 4).toString('binary') === 'PK\x03\x04' && buf.length > 500,
+      `status=${r.status} len=${buf.length}`)
+    // 중앙 디렉터리 끝 시그니처가 있어야 온전한 zip 이다
+    check(`엑셀 ${kind}: EOCD 존재 (온전한 ZIP)`, buf.includes(Buffer.from('PK\x05\x06', 'binary')))
+  }
+  // 권한 매트릭스에 '엑셀'이 없는 사용자 권한그룹은 URL 직접 호출도 차단되어야 한다
+  for (const kind of ['assets', 'stock', 'discovered', 'contracts', 'approvals']) {
+    const r = await get(`/api/export/${kind}`, 'USER')
+    check(`엑셀 ${kind}: USER 차단 (403)`, r.status === 403, `status=${r.status}`)
+  }
+  check('엑셀: 미로그인 차단 (401)', (await get('/api/export/assets')).status === 401)
+  check('엑셀: 알 수 없는 종류 404', (await get('/api/export/nope', 'ADMIN')).status === 404)
+  const stockXlsx = await get('/api/export/stock', 'SEC_MGR')
+  check('엑셀 stock: 보안담당은 권한 밖 (403)', stockXlsx.status === 403, `status=${stockXlsx.status}`)
+  const regHtml2 = await (await get('/assets/register', 'ASSET_MGR')).text()
+  check('자산 대장: 엑셀 버튼 노출 (자산담당)', regHtml2.includes('/api/export/assets'))
+  const regUser2 = await (await get('/assets/register', 'USER')).text()
+  check('자산 대장: 사용자에겐 엑셀 버튼 미노출', !regUser2.includes('/api/export/assets'))
+
   const aiPol = await (await get('/settings/ai-policy', 'ADMIN')).text()
   check('AI 거버넌스: 감사 로그가 질의·판정까지 포괄', aiPol.includes('AI 관련 감사 로그') && aiPol.includes('AI 정책'))
   const dspHtml = await (await get('/assets/disposal', 'ASSET_MGR')).text()

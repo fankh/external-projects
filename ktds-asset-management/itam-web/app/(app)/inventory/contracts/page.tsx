@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil, fmtAmount } from '@/lib/dates'
@@ -8,7 +9,7 @@ import { ExpiryNoticeButton, LicenseAction } from './LicenseActions'
 export const dynamic = 'force-dynamic'
 
 export default async function ContractsPage() {
-  await requireRole('ASSET_MGR', 'ADMIN')
+  const session = await requireRole('ASSET_MGR', 'ADMIN')
   const s = getStore()
   const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
 
@@ -36,7 +37,10 @@ export default async function ContractsPage() {
       />
 
       <Card kicker="Contracts" title="구매 · 유지보수 계약" pad={false}
-        actions={<ExpiryNoticeButton due={dueCount} />}>
+        actions={<span className="hstack" style={{ gap: 8 }}>
+          <ExportButton kind="contracts" role={session.role} label="계약·라이선스 엑셀" />
+          <ExpiryNoticeButton due={dueCount} />
+        </span>}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>

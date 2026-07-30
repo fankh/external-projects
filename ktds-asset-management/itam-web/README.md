@@ -23,7 +23,7 @@ npm run dev        # http://localhost:3000
 
 ```powershell
 npm run build
-npm run smoke      # 프로덕션 서버 기동 → 168개 검증 → 종료
+npm run smoke      # 프로덕션 서버 기동 → 188개 검증 → 종료
 ```
 
 `scripts/smoke.mjs`가 인증 리다이렉트, 라우트 × 권한그룹 접근 매트릭스(28 라우트 × 4 권한),
@@ -55,10 +55,12 @@ Next.js 15 App Router + React 19 + TS (UI 라이브러리 없음, qrcode 만 사
 │    actions.ts               서버 액션 — 편입·격리·결재·스캔·정책 변경 등 상태 변경
 │    *View.tsx                클라이언트 컴포넌트 — 그리드·필터·상세 패널
 ├─ app/api/reports/[id]       결재 첨부용 리포트 다운로드 (CSV · Markdown, 권한 가드 포함)
+├─ app/api/export/[kind]      엑셀(.xlsx) 내보내기 — 권한 매트릭스의 '엑셀' 기능 단위 통제
 ├─ components/chrome          AppShell(메뉴바·MDI 탭·모듈 내비) · menus(권한 매핑)
 ├─ components/ui.tsx          ScreenHeader · Card · Stat · Chip
 └─ lib/                       types(도메인 모델) · store(인메모리 시드) · session(쿠키)
                               authz(화면 권한 가드) · reports(리포트 산출) · label(QR·Code128)
+                              xlsx(무의존 .xlsx 작성) · exports(내보내기 데이터셋·권한)
 ```
 
 데이터는 `globalThis` 싱글턴 인메모리 스토어(시드 데이터)로, 아래 폐쇄 루프가 실제로 동작한다.
@@ -129,6 +131,23 @@ Next.js 15 App Router + React 19 + TS (UI 라이브러리 없음, qrcode 만 사
 
 라벨(QR·Code128)로 발행한 코드는 재물조사 스캔 실사에서 그대로 인식되어 3↔4가 연결된다.
 
+## 엑셀 내보내기
+
+권한 매트릭스의 **엑셀** 기능이 있는 화면에서 `.xlsx`로 내려받는다 (`/api/export/<kind>`).
+
+| 대상 | 시트 | 허용 권한그룹 |
+|---|---|---|
+| `assets` 자산 대장 | 자산 대장 (18열) | 자산담당 · 보안담당 · Admin |
+| `stock` 재고 현황 | 유형별 · 부서별 · 위치별 | 자산담당 · Admin |
+| `discovered` 발견 자산 | 발견 자산 · 채널별 관측 | 자산담당 · 보안담당 · Admin |
+| `contracts` 계약·라이선스 | 계약 · SW 라이선스 | 자산담당 · 보안담당 · Admin |
+| `approvals` 결재 이력 | 결재 이력 | 자산담당 · 보안담당 · Admin |
+
+버튼 숨김은 UI 정리일 뿐이며, **서버 라우트가 같은 규칙으로 403을 반환**한다.
+내보내기 데이터는 화면과 동일한 권한 필터를 통과하고, 반출 사실은 감사 로그에 남는다.
+`.xlsx` 는 의존성 없이 `lib/xlsx.ts`가 직접 생성한다(ZIP 저장 + OOXML 4파트) — CSV 로 열 때
+생기는 선행 0 손실·MAC 주소의 날짜 변환·지수 표기를 피하기 위해 식별자는 문자열 셀로 넣는다.
+
 ## 데모 시나리오
 
 1. **자산담당(박자산)** — Discovery › 발견 자산에서 미등록 자산 **편입 요청** →
@@ -158,7 +177,7 @@ docker run -d --name itam-web --restart unless-stopped -p 127.0.0.1:3390:3390 \
 ## v1 범위 제외
 
 DB 영속화(컨테이너 재시작 시 시드 상태로 초기화), 실제 스캐너·커넥터 연동(NAC·EDR·CSP API),
-SAML SSO 실연동, 전자결재 다단계 결재선 편집, 엑셀(.xlsx) 네이티브 출력(현재 CSV·Markdown).
+SAML SSO 실연동, 전자결재 다단계 결재선 편집, 메뉴권한 매트릭스 편집(현재 코드 정의·읽기 전용).
 
 ## 관련 문서
 
