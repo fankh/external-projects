@@ -392,6 +392,41 @@ export interface ScanPolicy {
   note: string
 }
 
+/** 스캔 실행 회차 — 수집 계층이 실제로 돈 기록. 정책(대역·시간대·강도)이 실행을 통제한다.
+ *  (제품안내서 §04 6종 병렬 수집 · §07 스캔 안전장치) */
+export interface ScanRun {
+  id: string
+  startedAt: string
+  finishedAt?: string
+  channels: Channel[]
+  scope: string
+  intensity: ScanPolicy['intensity']
+  status: '실행 중' | '완료' | '중단'
+  /** 이번 회차가 수집한 관측 건수 */
+  observed: number
+  /** 그중 기존 지문에 병합된 재관측 */
+  reobserved: number
+  /** 새 지문 = 신규 발견 */
+  newFound: number
+  by: string
+  /** 정책 시간대 밖 실행 사유 — 안전장치를 우회했다면 근거가 남아야 한다 */
+  override?: string
+}
+
+/** 아직 대장에도 발견 저장소에도 없는 장비 — 스캔이 돌면서 드러난다.
+ *  실제로는 네트워크에 존재하는 실물이며, 여기서는 스캔의 결과를 재현하기 위한 대기 풀이다. */
+export interface UndiscoveredDevice {
+  hostname: string
+  ip: string
+  mac: string
+  type: string
+  /** 이 장비를 처음 잡아낼 수 있는 채널 — 채널마다 사각지대가 다르다 */
+  by: Channel[]
+  risk: RiskLevel
+  note: string
+  ownerCandidate?: string
+}
+
 /** SaaS 카탈로그 — 인가/차단 판정이 Shadow SaaS 화면으로 환류 */
 export interface SaasCatalogEntry {
   id: string

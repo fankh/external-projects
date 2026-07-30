@@ -27,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       role={session.role}
       badges={badges}
       channels={{ on: s.scanPolicies.filter((p) => p.enabled).length, total: s.scanPolicies.length }}
+      lastScan={s.scanRuns[0] ? { at: s.scanRuns[0].startedAt, by: s.scanRuns[0].by } : undefined}
       userName={session.name}
       dept={session.dept}
       roleLabel={ROLE_LABEL[session.role]}

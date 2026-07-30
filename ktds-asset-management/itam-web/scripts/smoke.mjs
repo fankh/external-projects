@@ -37,6 +37,7 @@ const ROUTES = {
   '/inventory/contracts': ['ASSET_MGR', 'ADMIN'],
   '/inventory/survey': ['ASSET_MGR', 'ADMIN'],
   '/inventory/survey-plan': ['ASSET_MGR', 'ADMIN'],
+  '/discovery/scan': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/discovery/found': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/discovery/reconcile': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/discovery/saas': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
@@ -169,6 +170,13 @@ try {
   const ctHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약: 만료 임박 알림 발송 진입점', ctHtml.includes('만료 임박 알림 발송'))
   check('계약: 라이선스 조치(4단계) 진입점', ctHtml.includes('추가 구매') && ctHtml.includes('회수') && ctHtml.includes('검출에서 조치까지'))
+  const scanHtml2 = await (await get('/discovery/scan', 'SEC_MGR')).text()
+  check('스캔 실행: 채널별 수집 현황·이력 렌더', scanHtml2.includes('채널별 수집 현황') && scanHtml2.includes('스캔 이력') && scanHtml2.includes('SCN-RUN-2607-28'))
+  check('스캔 실행: 안전장치 문구·실행 UI', scanHtml2.includes('스캔 안전장치') && scanHtml2.includes('스캔 실행') && scanHtml2.includes('허용 시간대'))
+  check('스캔 실행: 관측 저장소가 채널별 집계의 원천', scanHtml2.includes('누적 관측'))
+  // 상태바의 마지막 스캔은 하드코딩이 아니라 스캔 이력에서 와야 한다
+  check('상태바: 마지막 스캔이 이력에서 파생', scanHtml2.includes('마지막 스캔 2026-07-28 23:00') && scanHtml2.includes('스케줄러 (야간 정책)'))
+
   console.log('\n[엑셀 내보내기 — 기능 단위 권한]')
   const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   for (const kind of ['assets', 'stock', 'discovered', 'contracts', 'approvals']) {

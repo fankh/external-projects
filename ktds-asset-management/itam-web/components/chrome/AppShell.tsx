@@ -23,6 +23,8 @@ export function AppShell(props: {
   role: Role
   badges: { approvals: number; unregistered: number }
   channels: { on: number; total: number }
+  /** 상태바의 마지막 스캔 — 실제 스캔 이력에서 온다 (하드코딩 금지) */
+  lastScan?: { at: string; by: string }
   userName: string
   dept: string
   roleLabel: string
@@ -135,7 +137,7 @@ export function AppShell(props: {
               <span className="dot" style={props.channels.on < props.channels.total ? { background: 'var(--warn)' } : undefined} />
               수집·연동 계층 {props.channels.on === props.channels.total ? '정상' : '일부 중지'} — 탐지 채널 {props.channels.on}/{props.channels.total}
             </span>
-            <span>마지막 스캔 2026-07-28 23:00 (야간 정책)</span>
+            <span>{props.lastScan ? `마지막 스캔 ${props.lastScan.at} (${props.lastScan.by})` : '스캔 이력 없음'}</span>
             <span className="grow" />
             <span>SEEKERSLAB — AI ASSET MANAGEMENT PLATFORM · v1.0</span>
           </footer>

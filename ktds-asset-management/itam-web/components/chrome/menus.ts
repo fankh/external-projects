@@ -51,6 +51,7 @@ export const NAV: NavGroup[] = [
   {
     label: 'Discovery',
     items: [
+      { href: '/discovery/scan', label: '스캔 실행 · 수집', ico: '◍', roles: SEC },
       { href: '/discovery/found', label: '발견 자산', ico: '◎', roles: SEC, badge: 'unregistered' },
       { href: '/discovery/reconcile', label: 'CMDB 대사', ico: '⇄', roles: SEC },
       { href: '/discovery/saas', label: 'Shadow SaaS', ico: '☁', roles: SEC },

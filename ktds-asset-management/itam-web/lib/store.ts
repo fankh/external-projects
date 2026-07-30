@@ -5,7 +5,7 @@ import { fingerprintOf } from './types'
 import type {
   AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract,
   Dispatch, DisposalRecord, DiscoveredAsset, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding,
-  SaasCatalogEntry, SaasUsage, ScanPolicy, SurveyDiff, SurveyScan, SwLicense, UserAccount,
+  SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UserAccount,
 } from './types'
 
 export interface Store {
@@ -35,6 +35,9 @@ export interface Store {
   posts: BoardPost[]
   dispatches: Dispatch[]
   observations: ChannelObservation[]
+  scanRuns: ScanRun[]
+  /** 아직 발견되지 않은 장비 — 스캔이 돌면 여기서 발견 저장소로 옮겨간다 */
+  undiscovered: UndiscoveredDevice[]
   seq: number
 }
 
@@ -91,6 +94,25 @@ function seedAssets(): Asset[] {
 
 /** 채널별 원시 관측 — 같은 장비를 여러 채널이 본다. 발견 목록은 이것을 지문으로 병합한 결과다.
  *  (단일 채널만 본 자산도 있으므로 관측 1건짜리 발견 자산이 정상이다) */
+/** 최근 스캔 이력 — 야간 정책 창(23:00~05:00) 안에서 도는 정기 수집 */
+function seedScanRuns(): ScanRun[] {
+  return [
+    { id: 'SCN-RUN-2607-28', startedAt: '2026-07-28 23:00', finishedAt: '2026-07-28 23:41', channels: ['네트워크 능동 스캔', '패시브 트래픽', 'EDR·엔드포인트', 'DNS·프록시 로그', '클라우드 API', 'AD/IdP·SSO 로그'], scope: '10.20.0.0/16 · 10.10.0.0/16', intensity: '보통', status: '완료', observed: 16, reobserved: 14, newFound: 2, by: '스케줄러 (야간 정책)' },
+    { id: 'SCN-RUN-2607-27', startedAt: '2026-07-27 23:00', finishedAt: '2026-07-27 23:38', channels: ['네트워크 능동 스캔', '패시브 트래픽', 'EDR·엔드포인트', 'DNS·프록시 로그', '클라우드 API', 'AD/IdP·SSO 로그'], scope: '10.20.0.0/16 · 10.10.0.0/16', intensity: '보통', status: '완료', observed: 14, reobserved: 13, newFound: 1, by: '스케줄러 (야간 정책)' },
+    { id: 'SCN-RUN-2607-26', startedAt: '2026-07-26 23:00', finishedAt: '2026-07-26 23:12', channels: ['네트워크 능동 스캔'], scope: '10.20.60.0/24 (IoT 세그먼트)', intensity: '낮음', status: '중단', observed: 3, reobserved: 3, newFound: 0, by: '윤보안', override: '민원 대응 — 세그먼트 한정 확인' },
+  ]
+}
+
+/** 스캔이 돌면 드러날 장비들 — 채널별 사각지대를 보여주기 위해 발견 채널을 다르게 뒀다 */
+function seedUndiscovered(): UndiscoveredDevice[] {
+  return [
+    { hostname: 'rpi-lab-01', ip: '10.20.33.114', mac: 'DC:A6:32:41:9B:07', type: '단말 (Raspberry Pi)', by: ['네트워크 능동 스캔', '패시브 트래픽'], risk: '중간', note: '사내망 개인 장비 추정 — SSH 오픈', ownerCandidate: '연구개발팀 추정 (스위치 포트 기준)' },
+    { hostname: 'sw-lab-tplink', ip: '10.20.33.2', mac: 'B0:BE:76:22:10:55', type: '네트워크 (미인가 스위치)', by: ['네트워크 능동 스캔'], risk: '높음', note: '미신고 스위치 — 세그먼트 확장 흔적' },
+    { hostname: 'i-0b77e2aa41', ip: '10.30.5.18', mac: '-', type: 'AWS EC2 (t3.micro)', by: ['클라우드 API'], risk: '중간', note: '태그 미부착 인스턴스 — 개인 액세스키로 생성', ownerCandidate: '데이터플랫폼팀 (계정 태그)' },
+    { hostname: 'oauth-app:zapier', ip: '-', mac: '-', type: 'OAuth 앱', by: ['AD/IdP·SSO 로그'], risk: '중간', note: '미인가 OAuth 연동 — 메일·드라이브 스코프', ownerCandidate: '영업1팀 (연동 계정 부서)' },
+  ]
+}
+
 function seedObservations(): ChannelObservation[] {
   const o = (
     id: string, discoveredId: string, channel: ChannelObservation['channel'],
@@ -380,6 +402,8 @@ function seed(): Store {
       { id: 'INV-2026-SP1', name: '판교 사무소 수시 조사', kind: '수시', scope: '판교 사무소', planned: 86, scanned: 0, mismatched: 0, dueDate: '2026-08-08', assignee: '최지원', status: '계획' },
     ],
     observations: seedObservations(),
+    scanRuns: seedScanRuns(),
+    undiscovered: seedUndiscovered(),
     dispatches: [
       { id: 'MSG-4001', at: `${today()} 09:12`, channel: '이메일', to: '플랫폼개발팀 (부서장)', subject: 'DSC-2607-0041 소유자 확인 요청', kind: '소유자 확인', ref: 'APR-2607-114' },
       { id: 'MSG-4000', at: '2026-07-20 10:05', channel: '이메일', to: '전사 공지', subject: 'DSC-2607-0038 소유자 확인 요청', kind: '소유자 확인', ref: 'APR-2607-109' },
