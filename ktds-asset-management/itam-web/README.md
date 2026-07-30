@@ -23,7 +23,7 @@ npm run dev        # http://localhost:3000
 
 ```powershell
 npm run build
-npm run smoke      # 프로덕션 서버 기동 → 209개 검증 → 종료
+npm run smoke      # 프로덕션 서버 기동 → 211개 검증 → 종료
 ```
 
 `scripts/smoke.mjs`가 인증 리다이렉트, 라우트 × 권한그룹 접근 매트릭스(29 라우트 × 4 권한),

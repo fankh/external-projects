@@ -3,7 +3,7 @@
 import { today } from './dates'
 import { fingerprintOf } from './types'
 import type {
-  AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract,
+  AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract,
   Dispatch, DisposalRecord, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
   ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
@@ -38,6 +38,8 @@ export interface Store {
   scanRuns: ScanRun[]
   menuPermissions: MenuPermission[]
   reportSchedules: ReportSchedule[]
+  /** 마지막 AI 호출 결과 — 미호출이면 undefined */
+  aiLastCall?: AiCallRecord
   easmTargets: EasmTarget[]
   easmRuns: EasmRun[]
   /** 아직 외부에서 관측되지 않은 노출 자산 — 재탐지로 드러난다 */

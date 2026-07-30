@@ -1,4 +1,5 @@
 'use server'
+import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
 import { today, daysUntil } from '@/lib/dates'
 import { getSession } from '@/lib/session'
@@ -134,6 +135,7 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
       .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
       .map((b) => b.text)
       .join('')
+    recordAiCall(true)
     auditQuery(session.name, question, 'LLM', text.length)
     return {
       role: 'assistant',
@@ -141,6 +143,7 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
       evidence: [{ label: '자산 대장', href: '/assets/register' }, { label: '발견 자산', href: '/discovery/found' }],
     }
   } catch (err) {
+    recordAiCall(false, err instanceof Error ? err.message.slice(0, 80) : '알 수 없는 오류')
     auditQuery(session.name, question, 'LLM 호출 실패 → 규칙 응답', 0)
     return {
       role: 'assistant',

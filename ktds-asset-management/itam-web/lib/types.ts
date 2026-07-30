@@ -562,6 +562,19 @@ export interface ReportSchedule {
   lastRunAt?: string
 }
 
+/** AI 호출의 실제 결과 — 키 존재 여부가 아니라 '동작하는가' 를 화면에 표시하기 위한 것 */
+export interface AiCallRecord {
+  at: string
+  ok: boolean
+  detail?: string
+}
+
+export interface AiCallStatus {
+  state: '키 미설정' | '미검증' | '가동' | '폴백'
+  label: string
+  tone: 'ok' | 'warn' | 'info' | 'neutral'
+}
+
 export interface GeneratedReport {
   id: string
   kind: ReportKind

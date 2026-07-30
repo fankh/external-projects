@@ -1,5 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
 import { nowMinute, today } from '@/lib/dates'
 import { buildSections, nextRunOf, ruleHeadline } from '@/lib/reports'
@@ -47,8 +48,11 @@ async function createReport(kind: ReportKind, by: string): Promise<string> {
           .map((b) => b.text).join('').trim()
         if (text) { headline = text; mode = 'AI' }
       }
-    } catch {
-      // 라이브 생성 실패 시 규칙 기반 서술 유지 — 리포트 생성 자체는 성공시킨다
+      recordAiCall(mode === 'AI', mode === 'AI' ? undefined : '응답에 텍스트 없음')
+    } catch (err) {
+      // 라이브 생성 실패 시 규칙 기반 서술 유지 — 리포트 생성 자체는 성공시킨다.
+      // 다만 실패 사실은 남긴다. 조용히 폴백하면 화면이 계속 'AI 가동'이라 주장하게 된다.
+      recordAiCall(false, err instanceof Error ? err.message.slice(0, 80) : '알 수 없는 오류')
     }
   }
 

@@ -176,6 +176,13 @@ try {
   const ctHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약: 만료 임박 알림 발송 진입점', ctHtml.includes('만료 임박 알림 발송'))
   check('계약: 라이선스 조치(4단계) 진입점', ctHtml.includes('추가 구매') && ctHtml.includes('회수') && ctHtml.includes('검출에서 조치까지'))
+  // AI 가동 표시 — 키 존재가 아니라 실제 호출 결과를 말해야 한다.
+  // 스모크는 키 없이 도므로 '키 미설정' 이 정확한 상태이며, 근거 없이 '가동' 이라 주장하면 안 된다.
+  const aiRep = await (await get('/ai/reports', 'ASSET_MGR')).text()
+  const aiAsst = await (await get('/ai/assistant', 'USER')).text()
+  const claimsLive = (h) => h.includes('AI 서술 생성 — 최근 성공') || h.includes('온프레미스 LLM 연결됨')
+  check('AI 상태: 키 미설정 시 가동을 주장하지 않음', !claimsLive(aiRep) && !claimsLive(aiAsst))
+  check('AI 상태: 미설정 사유를 명시', aiRep.includes('API 키 미설정') && aiAsst.includes('API 키 미설정'))
   const scanHtml2 = await (await get('/discovery/scan', 'SEC_MGR')).text()
   check('스캔 실행: 채널별 수집 현황·이력 렌더', scanHtml2.includes('채널별 수집 현황') && scanHtml2.includes('스캔 이력') && scanHtml2.includes('SCN-RUN-2607-28'))
   check('스캔 실행: 안전장치 문구·실행 UI', scanHtml2.includes('스캔 안전장치') && scanHtml2.includes('스캔 실행') && scanHtml2.includes('허용 시간대'))

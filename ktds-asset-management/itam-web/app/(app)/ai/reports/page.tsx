@@ -1,4 +1,5 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { aiStatus } from '@/lib/ai-status'
 import { requireRole } from '@/lib/authz'
 import { nextRunOf, REPORT_KINDS } from '@/lib/reports'
 import { today } from '@/lib/dates'
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export default async function ReportsPage() {
   await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
-  const live = Boolean(process.env.ANTHROPIC_API_KEY)
+  const ai = aiStatus()
   const t = today()
   const DAY = ['', '월', '화', '수', '목', '금', '토', '일']
   const schedules = s.reportSchedules.map((sc) => {
@@ -33,15 +34,13 @@ export default async function ReportsPage() {
         kicker="AI Intelligence · Reports"
         title="리포트 자동 생성"
         desc="주간 Shadow IT 브리핑 · 월간 자산·라이선스 리포트 · 재물조사 요약 · 감사 대응 자료 — 결재 첨부용 문서 산출"
-        right={live
-          ? <Chip tone="ok">AI 서술 생성</Chip>
-          : <Chip tone="neutral">규칙 기반 생성 — API 키 미설정</Chip>}
+        right={<Chip tone={ai.tone}>{ai.label}</Chip>}
       />
 
       <div className="stat-row">
         <Stat value={REPORT_KINDS.length} label="리포트 유형" delta={{ text: `자동 ${s.reportSchedules.length}(가동 ${s.reportSchedules.filter((x) => x.enabled).length}) · 수시 ${adhoc.length}`, dir: 'flat' }} />
         <Stat value={s.reports.length} label="생성된 리포트" tone="accent" />
-        <Stat value={s.reports.filter((r) => r.mode === 'AI').length} label="AI 서술 생성" tone={live ? 'ok' : 'warn'} />
+        <Stat value={s.reports.filter((r) => r.mode === 'AI').length} label="AI 서술 생성" tone={ai.state === '가동' ? 'ok' : 'warn'} />
         <Stat value={s.aiPolicy.auditRetentionDays} label="리포트·AI 로그 보존 (일)" />
       </div>
 
