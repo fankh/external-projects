@@ -39,7 +39,7 @@ export default async function ReportsPage() {
       />
 
       <div className="stat-row">
-        <Stat value={REPORT_KINDS.length} label="리포트 유형" delta={{ text: `자동 ${s.reportSchedules.filter((x) => x.enabled).length} · 수시 ${adhoc.length}`, dir: 'flat' }} />
+        <Stat value={REPORT_KINDS.length} label="리포트 유형" delta={{ text: `자동 ${s.reportSchedules.length}(가동 ${s.reportSchedules.filter((x) => x.enabled).length}) · 수시 ${adhoc.length}`, dir: 'flat' }} />
         <Stat value={s.reports.length} label="생성된 리포트" tone="accent" />
         <Stat value={s.reports.filter((r) => r.mode === 'AI').length} label="AI 서술 생성" tone={live ? 'ok' : 'warn'} />
         <Stat value={s.aiPolicy.auditRetentionDays} label="리포트·AI 로그 보존 (일)" />
