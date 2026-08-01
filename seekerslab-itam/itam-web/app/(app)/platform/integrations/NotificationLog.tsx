@@ -5,7 +5,7 @@ import type { Dispatch } from '@/lib/types'
 
 /** 알림 발송 이력 — 발송이 쌓이므로 그대로 나열하면 스캔이 불가능하다.
  *  수신·제목·연결문서 검색 + 종류·채널 필터로 발송 증적 추적을 실사용 가능하게 한다. */
-export function NotificationLog({ dispatches }: { dispatches: Dispatch[] }) {
+export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatch[]; canExport?: boolean }) {
   const [q, setQ] = useState('')
   const [channel, setChannel] = useState<'전체' | '이메일' | '문자'>('전체')
   const [kind, setKind] = useState('전체')
@@ -21,8 +21,15 @@ export function NotificationLog({ dispatches }: { dispatches: Dispatch[] }) {
     })
   }, [dispatches, q, channel, kind])
 
+  // 내보내기는 지금 화면에 보이는 필터를 그대로 반영한다 (v1.49 감사 로그 반출과 동일)
+  const exportHref = `/api/dispatch-export?${new URLSearchParams({ q: q.trim(), channel, kind }).toString()}`
+  const filtered = q.trim() !== '' || channel !== '전체' || kind !== '전체'
+
   return (
-    <Card kicker="Notifications" title={`알림 발송 이력 ${dispatches.length}건`} pad={false}>
+    <Card kicker="Notifications" title={`알림 발송 이력 ${dispatches.length}건`} pad={false}
+      actions={canExport && dispatches.length > 0
+        ? <a className="btn sm" href={exportHref} download>발송 이력 엑셀{filtered ? ` (${rows.length}건)` : ''}</a>
+        : undefined}>
       {dispatches.length === 0 ? (
         <div className="empty">발송 이력이 없습니다.</div>
       ) : (

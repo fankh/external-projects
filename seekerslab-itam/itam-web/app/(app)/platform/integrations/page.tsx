@@ -55,7 +55,7 @@ export default async function IntegrationsPage() {
 
       <AuditLog logs={s.auditLogs} canExport={canManage} />
 
-      <NotificationLog dispatches={s.dispatches} />
+      <NotificationLog dispatches={s.dispatches} canExport={canManage} />
 
       <div className="cols c2">
         <div className="callout"><b>인증.</b> SAML 기반 SSO — 그룹웨어 IdP 어설션으로 로그인하며, 부여된 메뉴·기능만 렌더링됩니다.</div>
