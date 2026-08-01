@@ -19,6 +19,7 @@ export default async function ReportsPage() {
     const nextRun = nextRunOf(sc)
     return {
       kind: sc.kind, period: sc.period, enabled: sc.enabled, hour: sc.hour,
+      dayOfWeek: sc.dayOfWeek, dayOfMonth: sc.dayOfMonth,
       dayLabel: sc.period === '주간' ? `매주 ${DAY[sc.dayOfWeek ?? 1]}요일` : `매월 ${sc.dayOfMonth ?? 1}일`,
       recipients: sc.recipients, lastRunAt: sc.lastRunAt, nextRun,
       overdue: nextRun === null || nextRun <= t,

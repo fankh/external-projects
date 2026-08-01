@@ -29,6 +29,38 @@ export async function toggleSchedule(kind: ReportKind) {
 
 /** 예약 실행 — 기한이 지난 스케줄을 돌려 리포트를 만들고 수신자에게 배포한다.
  *  중지된 스케줄과 기한 전 스케줄은 건너뛴다 (실행 이력이 곧 배포 증적이 된다). */
+/** 스케줄 수정 — 수신자·실행 시각·요일/일자를 갱신한다 (가동/중지 외 설정이 고정이던 공백).
+ *  주기(주간/월간)는 리포트 성격에 고정이므로 바꾸지 않는다. 비사용자만. */
+export async function editSchedule(
+  kind: ReportKind,
+  input: { recipients: string[]; hour: number; dayOfWeek?: number; dayOfMonth?: number },
+) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '스케줄 변경 권한이 없습니다.' }
+  const s = getStore()
+  const sc = s.reportSchedules.find((x) => x.kind === kind)
+  if (!sc) return { ok: false, message: '스케줄을 찾을 수 없습니다.' }
+
+  const recipients = input.recipients.map((r) => r.trim()).filter(Boolean)
+  if (recipients.length === 0) return { ok: false, message: '수신자를 1명 이상 입력하세요.' }
+  if (!Number.isInteger(input.hour) || input.hour < 0 || input.hour > 23) {
+    return { ok: false, message: '실행 시각은 0~23시로 입력하세요.' }
+  }
+  if (sc.period === '주간') {
+    if (!input.dayOfWeek || input.dayOfWeek < 1 || input.dayOfWeek > 7) return { ok: false, message: '요일을 선택하세요.' }
+    sc.dayOfWeek = input.dayOfWeek
+  } else {
+    if (!input.dayOfMonth || input.dayOfMonth < 1 || input.dayOfMonth > 31) return { ok: false, message: '일자를 1~31로 입력하세요.' }
+    sc.dayOfMonth = input.dayOfMonth
+  }
+  sc.hour = input.hour
+  sc.recipients = recipients
+
+  appendAudit({ actor: session.name, action: `리포트 스케줄 수정 — ${kind} (수신 ${recipients.length}명)`, target: '리포트 스케줄' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${kind} 스케줄이 수정되었습니다.` }
+}
+
 export async function runDueSchedules() {
   const session = await getSession()
   if (!session || session.role === 'USER') return { ok: false, message: '스케줄 실행 권한이 없습니다.' }

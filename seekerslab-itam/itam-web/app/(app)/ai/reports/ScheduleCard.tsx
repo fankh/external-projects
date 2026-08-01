@@ -2,18 +2,42 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { ReportKind } from '@/lib/types'
-import { runDueSchedules, toggleSchedule } from './actions'
+import { editSchedule, runDueSchedules, toggleSchedule } from './actions'
+
+const DAYS = ['월', '화', '수', '목', '금', '토', '일']
 
 type Row = {
   kind: ReportKind; period: '주간' | '월간'; enabled: boolean
-  hour: number; dayLabel: string; recipients: string[]
+  hour: number; dayOfWeek?: number; dayOfMonth?: number; dayLabel: string; recipients: string[]
   lastRunAt?: string; nextRun: string | null; overdue: boolean
 }
 
 export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: ReportKind; desc: string }[] }) {
   const [msg, setMsg] = useState<string | null>(null)
+  const [editing, setEditing] = useState<ReportKind | null>(null)
+  const [er, setEr] = useState('')
+  const [eh, setEh] = useState(9)
+  const [ed, setEd] = useState(1)
   const [pending, startTransition] = useTransition()
   const dueCount = rows.filter((r) => r.enabled && r.overdue).length
+  const editRow = rows.find((r) => r.kind === editing) ?? null
+
+  const openEdit = (r: Row) => {
+    setEditing(r.kind); setMsg(null)
+    setEr(r.recipients.join(', ')); setEh(r.hour)
+    setEd(r.period === '주간' ? (r.dayOfWeek ?? 1) : (r.dayOfMonth ?? 1))
+  }
+  const saveEdit = () => startTransition(async () => {
+    if (!editRow) return
+    const input = {
+      recipients: er.split(',').map((x) => x.trim()).filter(Boolean),
+      hour: eh,
+      ...(editRow.period === '주간' ? { dayOfWeek: ed } : { dayOfMonth: ed }),
+    }
+    const r = await editSchedule(editRow.kind, input)
+    setMsg(r.message)
+    if (r.ok) setEditing(null)
+  })
 
   return (
     <Card
@@ -46,7 +70,8 @@ export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: Repo
                 </td>
                 <td className="dim">{r.recipients.join(' · ')}</td>
                 <td className="c">{r.enabled ? <Chip tone="ok">가동</Chip> : <Chip tone="err">중지</Chip>}</td>
-                <td className="c">
+                <td className="c" style={{ whiteSpace: 'nowrap' }}>
+                  <button className="btn sm" disabled={pending} onClick={() => openEdit(r)}>수정</button>{' '}
                   <button className="btn sm" disabled={pending}
                     onClick={() => startTransition(async () => setMsg((await toggleSchedule(r.kind)).message))}>
                     {r.enabled ? '중지' : '가동'}
@@ -65,6 +90,36 @@ export function ScheduleCard({ rows, adhoc }: { rows: Row[]; adhoc: { kind: Repo
           </tbody>
         </table>
       </div>
+      {editRow && (
+        <div className="vstack" style={{ gap: 8, padding: 14, borderTop: '1px solid var(--line)', background: 'var(--canvas)' }}>
+          <div className="kicker mute">스케줄 수정 — {editRow.kind} ({editRow.period})</div>
+          <label className="vstack" style={{ gap: 4 }}>
+            <span className="dim" style={{ fontSize: 11.5 }}>수신자 (쉼표로 구분)</span>
+            <input className="input" value={er} onChange={(e) => setEr(e.target.value)} placeholder="예: it-team, security-team" />
+          </label>
+          <div className="hstack" style={{ gap: 12, flexWrap: 'wrap' }}>
+            <label className="hstack" style={{ gap: 6, fontSize: 12.5 }}>
+              {editRow.period === '주간' ? '요일' : '일자'}
+              {editRow.period === '주간' ? (
+                <select className="input" value={ed} onChange={(e) => setEd(Number(e.target.value))} style={{ width: 90 }}>
+                  {DAYS.map((d, i) => <option key={d} value={i + 1}>{d}요일</option>)}
+                </select>
+              ) : (
+                <input className="input" type="number" min={1} max={31} value={ed}
+                  onChange={(e) => setEd(Number(e.target.value))} style={{ width: 80 }} />
+              )}
+            </label>
+            <label className="hstack" style={{ gap: 6, fontSize: 12.5 }}>
+              시각
+              <input className="input" type="number" min={0} max={23} value={eh}
+                onChange={(e) => setEh(Number(e.target.value))} style={{ width: 70 }} /> 시
+            </label>
+            <span className="right" />
+            <button className="btn" disabled={pending} onClick={() => setEditing(null)}>취소</button>
+            <button className="btn pri" disabled={pending || !er.trim()} onClick={saveEdit}>저장</button>
+          </div>
+        </div>
+      )}
       <div className="callout" style={{ margin: 14 }}>
         <b>예약 실행은 기한이 도래한 가동 스케줄만 돌립니다.</b> 생성된 리포트는 수신자에게 배포되고
         발송 이력이 남아, 배포 사실 자체가 증적이 됩니다. 중지된 스케줄은 기한이 지나도 실행되지 않습니다.
