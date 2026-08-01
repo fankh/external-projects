@@ -1,14 +1,14 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
+import { ConnectorTable } from './ConnectorTable'
 
 export const dynamic = 'force-dynamic'
 
-const STATUS_TONE = { 정상: 'ok', 지연: 'warn', 오류: 'err', 미연동: 'neutral' } as const
-
 export default async function IntegrationsPage() {
-  await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
+  const canManage = ['SEC_MGR', 'ADMIN'].includes(session.role)
   const live = s.integrations.filter((i) => i.status !== '미연동')
   const total24h = s.integrations.reduce((n, i) => n + i.volume24h, 0)
 
@@ -48,31 +48,7 @@ export default async function IntegrationsPage() {
       </div>
 
       <Card kicker="Connectors" title="연동 대상 상세" pad={false}>
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr><th>연동 대상</th><th>방식</th><th>용도</th><th className="c">역할</th><th className="c">상태</th><th>최근 수집</th><th className="num">24h 건수</th></tr>
-            </thead>
-            <tbody>
-              {s.integrations.map((i) => (
-                <tr key={i.id}>
-                  <td className="strong">{i.system}</td>
-                  <td className="mute">{i.method}</td>
-                  <td style={{ whiteSpace: 'normal', maxWidth: 420 }}>{i.purpose}</td>
-                  <td className="c"><Chip tone={i.role === '수집' ? 'neutral' : 'info'} bare>{i.role}</Chip></td>
-                  <td className="c"><Chip tone={STATUS_TONE[i.status]}>{i.status}</Chip></td>
-                  <td className="tnum mute">{i.lastSync}</td>
-                  <td className="num tnum">{i.volume24h.toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="callout" style={{ margin: 14 }}>
-          <b>발견과 조치의 양방향 연동.</b> NAC에서 자산 정보를 수집하고, 판정 결과를 다시 NAC 격리로 되돌려
-          보내는 폐쇄 루프로 연동합니다. 신규 에이전트 배포 없이 이미 보유한 시스템의 API·로그를 커넥터로 연결해
-          도입 초기부터 발견과 조치를 함께 운영할 수 있습니다.
-        </div>
+        <ConnectorTable integrations={s.integrations} canManage={canManage} />
       </Card>
 
       <Card kicker="Audit" title="감사 로그" pad={false}
