@@ -2,10 +2,10 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
-import { can } from '@/lib/perm'
+import { canDecideApproval } from '@/lib/approval'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
-import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
+import { approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { ApprovalKind } from '@/lib/types'
 
 /** 신청 상신 — 사용자가 직접 올리는 3종 (자산 신청 / 반납 / 이동).
@@ -144,13 +144,10 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
   let idx = route.indexOf(curLabel)
   const mapped = idx >= 0
   if (!mapped) idx = route.length - 1
-  const stepRole = mapped ? APPROVAL_STEP_ROLE[route[idx]] : undefined
 
-  // 역할 게이트 — ADMIN 오버라이드, 매핑되면 그 단계 역할, 아니면 레거시(격리=보안담당·그 외=자산담당).
+  // 역할 게이트 — 대시보드 '내 결재 대기' 큐와 동일한 판정(canDecideApproval)을 쓴다.
   // 매트릭스는 필요조건일 뿐 — 켜준다고 결재 종류별 규칙을 넘지 못한다.
-  const legacyByKind = a.kind === '격리 요청' ? session.role === 'SEC_MGR' : session.role === 'ASSET_MGR'
-  const roleOk = session.role === 'ADMIN' || (stepRole ? session.role === stepRole : legacyByKind)
-  if (!roleOk || !can('신청 · 결재', '결재', session.role)) {
+  if (!canDecideApproval(session.role, a)) {
     return { ok: false, message: `현재 단계(${a.currentStep})를 결재할 권한이 없습니다.` }
   }
 

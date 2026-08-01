@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
+import { canDecideApproval } from '@/lib/approval'
 import { daysUntil } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -15,6 +16,8 @@ export default async function DashboardPage() {
   const newFound = s.discovered.filter((d) => d.state === '미등록' && !d.action)
   const pendingApr = s.approvals.filter((a) => a.status === '대기')
   const myApr = s.approvals.filter((a) => a.requester === session.name && a.status === '대기')
+  // 내 결재 차례 — 지금 이 사람이 결재할 수 있는 대기 건 (본인 상신분 제외). decide()와 동일 게이트를 쓴다.
+  const myQueue = s.approvals.filter((a) => a.requester !== session.name && canDecideApproval(session.role, a))
   const myAssets = s.assets.filter((a) => a.owner === session.name)
 
   const expiring = [
@@ -40,7 +43,8 @@ export default async function DashboardPage() {
         <Stat value={newFound.length} label="미등록 신규 발견 (Shadow IT)" tone="err" delta={{ text: '소유자 확인·편입 필요', dir: 'up' }} />
         <Stat value={expiring.length} label="만료 임박 (계약·라이선스 90일)" tone="warn"
           delta={{ text: expiring.some((x) => (x.d ?? 0) < 0) ? `만료 ${expiring.filter((x) => (x.d ?? 0) < 0).length}건 포함` : `최단 ${expiring[0]?.d ?? '-'}일`, dir: 'flat' }} />
-        <Stat value={pendingApr.length} label="결재 대기" tone="accent" delta={{ text: `내 신청 ${myApr.length}건`, dir: 'flat' }} />
+        <Stat value={pendingApr.length} label="결재 대기" tone="accent"
+          delta={{ text: myQueue.length > 0 ? `내 결재 차례 ${myQueue.length}건` : `내 신청 ${myApr.length}건`, dir: myQueue.length > 0 ? 'up' : 'flat' }} />
         {round && (
           <Stat
             value={<>{Math.round((round.scanned / round.planned) * 100)}<small>%</small></>}
@@ -105,14 +109,31 @@ export default async function DashboardPage() {
         </div>
 
         <div className="vstack">
-          <Card kicker="My Work" title="내 작업">
+          <Card kicker="My Work" title="내 작업"
+            actions={myQueue.length > 0 ? <Link className="btn sm pri" href="/workflow/approvals">결재함 {myQueue.length} →</Link> : undefined}>
             <div className="vstack" style={{ gap: 10 }}>
-              {myApr.length > 0 ? myApr.map((a) => (
-                <div key={a.id} className="hstack" style={{ justifyContent: 'space-between' }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
-                  <Chip tone="info">{a.currentStep}</Chip>
+              {myQueue.length > 0 && (
+                <div className="vstack" style={{ gap: 8 }}>
+                  <span className="kicker mute">내 결재 차례 — 지금 처리 대기</span>
+                  {myQueue.slice(0, 5).map((a) => (
+                    <Link key={a.id} href="/workflow/approvals" className="hstack"
+                      style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
+                      <Chip tone="warn">{a.currentStep}</Chip>
+                    </Link>
+                  ))}
+                  {myQueue.length > 5 && <span className="mut" style={{ fontSize: 12 }}>외 {myQueue.length - 5}건 — 결재함에서 전체 처리</span>}
                 </div>
-              )) : <div className="mut">진행 중인 신청이 없습니다.</div>}
+              )}
+              <div className="vstack" style={{ gap: 8, borderTop: myQueue.length > 0 ? '1px solid var(--line)' : undefined, paddingTop: myQueue.length > 0 ? 10 : 0 }}>
+                <span className="kicker mute">내 신청 — 진행 현황</span>
+                {myApr.length > 0 ? myApr.map((a) => (
+                  <div key={a.id} className="hstack" style={{ justifyContent: 'space-between' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
+                    <Chip tone="info">{a.currentStep}</Chip>
+                  </div>
+                )) : <div className="mut">진행 중인 신청이 없습니다.</div>}
+              </div>
               <div className="hstack" style={{ justifyContent: 'space-between' }}>
                 <span className="dim">내 보유 자산</span>
                 <Link href="/assets/register">{myAssets.length}대 조회 →</Link>
