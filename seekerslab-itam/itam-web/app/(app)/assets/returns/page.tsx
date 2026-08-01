@@ -20,11 +20,11 @@ export default async function ReturnsPage() {
       }
     })
 
-  // 유휴 경과일 — 마지막 반납·점검 이력 기준. 오래 묵을수록 재배치나 폐기 검토 대상이다
+  // 유휴 경과일 — 마지막 반납·점검·수리 이력 기준. 오래 묵을수록 재배치나 폐기 검토 대상이다
   const idle = s.assets
     .filter((a) => a.status === '유휴')
     .map((a) => {
-      const last = [...a.history].reverse().find((h) => h.kind === '반납' || h.kind === '점검')
+      const last = [...a.history].reverse().find((h) => h.kind === '반납' || h.kind === '점검' || h.kind === '수리')
       const d = last ? daysUntil(last.date) : null
       return {
         assetNo: a.assetNo, model: a.model, category: a.category, location: a.location,
@@ -32,6 +32,14 @@ export default async function ReturnsPage() {
       }
     })
     .sort((a, b) => (b.idleDays ?? -1) - (a.idleDays ?? -1))
+
+  // 수리중 자산 — 반납 점검에서 '수리 필요'로 판정돼 수리를 기다리는 자산
+  const repairing = s.assets
+    .filter((a) => a.status === '수리중')
+    .map((a) => {
+      const last = [...a.history].reverse().find((h) => h.kind === '반납' || h.kind === '수리')
+      return { assetNo: a.assetNo, model: a.model, category: a.category, location: a.location, note: last?.detail ?? '' }
+    })
 
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
     .filter((v) => v.active)
@@ -54,12 +62,13 @@ export default async function ReturnsPage() {
 
       <div className="stat-row">
         <Stat value={pending.length} label="반납 접수 대기" tone={pending.length ? 'accent' : 'ok'} />
+        <Stat value={repairing.length} label="수리중" tone={repairing.length ? 'warn' : 'ok'} />
         <Stat value={idle.length} label="유휴 자산 풀" />
         <Stat value={longIdle} label="90일 이상 장기 유휴" tone={longIdle ? 'warn' : 'ok'} delta={{ text: '재배치·폐기 검토', dir: 'flat' }} />
         <Stat value={openRequests} label="배정 대기 자산 신청" tone={openRequests ? 'accent' : 'ok'} />
       </div>
 
-      <ReturnsView pending={pending} idle={idle} locations={locations} openRequests={openRequests} />
+      <ReturnsView pending={pending} idle={idle} repairing={repairing} locations={locations} openRequests={openRequests} />
     </>
   )
 }

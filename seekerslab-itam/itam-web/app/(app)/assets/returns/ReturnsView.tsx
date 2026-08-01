@@ -3,19 +3,18 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { ReturnCondition } from '@/lib/types'
-import { receiveReturn } from './actions'
+import { completeRepair, receiveReturn } from './actions'
 
 const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고']
-const COND_TONE: Record<ReturnCondition, 'ok' | 'warn' | 'err'> = {
-  정상: 'ok', '수리 필요': 'warn', '폐기 권고': 'err',
-}
 
 type Pending = { assetNo: string; model: string; owner: string; dept: string; location: string; since: string }
 type Idle = { assetNo: string; model: string; category: string; location: string; idleDays: number | null }
+type Repairing = { assetNo: string; model: string; category: string; location: string; note: string }
 
 export function ReturnsView(props: {
   pending: Pending[]
   idle: Idle[]
+  repairing: Repairing[]
   locations: string[]
   /** 배정 대기 중인 자산 신청 수 — 재배치 우선 원칙의 근거 */
   openRequests: number
@@ -23,6 +22,7 @@ export function ReturnsView(props: {
   const [cond, setCond] = useState<Record<string, ReturnCondition>>({})
   const [loc, setLoc] = useState<Record<string, string>>({})
   const [note, setNote] = useState<Record<string, string>>({})
+  const [rnote, setRnote] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -89,6 +89,45 @@ export function ReturnsView(props: {
         )}
       </Card>
 
+      {props.repairing.length > 0 && (
+        <Card kicker="Maintenance" title={`수리 대기 ${props.repairing.length}건`} pad={false}>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr><th>자산번호</th><th>모델</th><th className="c">유형</th><th>보관 위치</th><th>점검 메모</th><th>수리 메모</th><th className="c">처리</th></tr>
+              </thead>
+              <tbody>
+                {props.repairing.map((a) => (
+                  <tr key={a.assetNo}>
+                    <td className="tnum">{a.assetNo}</td>
+                    <td>{a.model}</td>
+                    <td className="c dim">{a.category}</td>
+                    <td className="dim">{a.location}</td>
+                    <td className="dim" style={{ fontSize: 11, maxWidth: 260, whiteSpace: 'normal' }}>{a.note}</td>
+                    <td>
+                      <input className="input" style={{ minWidth: 140 }} placeholder="예: 메인보드 교체"
+                        value={rnote[a.assetNo] ?? ''} onChange={(e) => setRnote((m) => ({ ...m, [a.assetNo]: e.target.value }))} />
+                    </td>
+                    <td className="c">
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                        <button className="btn sm pri" disabled={pending}
+                          onClick={() => startTransition(async () => setMsg((await completeRepair(a.assetNo, '수리 완료', rnote[a.assetNo] ?? '')).message))}>수리 완료</button>
+                        <button className="btn sm danger" disabled={pending}
+                          onClick={() => startTransition(async () => setMsg((await completeRepair(a.assetNo, '수리 불가', rnote[a.assetNo] ?? '')).message))}>수리 불가</button>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="callout" style={{ margin: 14 }}>
+            <b>고장 자산은 수리를 마쳐야 재배치됩니다.</b> 수리 완료는 유휴 풀로, 수리 불가는 폐기예정으로 전환됩니다.
+            수리중 자산은 유휴 풀·불출 대상에서 제외되어 고장난 채 재불출되지 않습니다.
+          </div>
+        </Card>
+      )}
+
       <Card
         kicker="Idle Pool"
         title={`유휴 자산 풀 ${props.idle.length}건`}
@@ -133,8 +172,8 @@ export function ReturnsView(props: {
           불출 처리 화면에서 이 풀의 자산을 바로 배정할 수 있습니다.
         </div>
         <div className="callout">
-          <b>점검 결과가 경로를 가릅니다.</b> 정상·수리 필요는 유휴 풀로, 폐기 권고는 유휴를 거치지 않고
-          폐기예정으로 전환되어 폐기 결재·데이터 소거 절차로 넘어갑니다.
+          <b>점검 결과가 경로를 가릅니다.</b> 정상은 유휴 풀로, <b>수리 필요는 수리중을 거쳐</b> 수리 완료 후에야
+          유휴 풀에 들어갑니다. 폐기 권고는 유휴를 거치지 않고 폐기예정으로 전환되어 폐기 결재·소거 절차로 넘어갑니다.
         </div>
       </div>
     </>

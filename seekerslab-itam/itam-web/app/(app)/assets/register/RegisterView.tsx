@@ -11,7 +11,7 @@ import { extendWarranty, recordConfigChange, type ConfigField } from './actions'
  *  기록하는 입력 항목은 반대로 활성 코드만 읽는다. */
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
-  검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 반납대기: 'warn', 폐기예정: 'err', 폐기완료: 'neutral',
+  검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 반납대기: 'warn', 수리중: 'warn', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
 export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; initialSel?: string }) {
