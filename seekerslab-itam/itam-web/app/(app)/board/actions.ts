@@ -44,6 +44,28 @@ export async function answerQuestion(postId: string, body: string) {
   return { ok: true, message: '답변이 등록되었습니다.' }
 }
 
+/** QnA 문의 수정 — 작성자 본인 또는 Admin. 답변 전에만 가능(답변된 문의는 맥락이 고정된다). */
+export async function editQuestion(postId: string, title: string, body: string, category: QnaCategory) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '세션이 만료되었습니다.' }
+  if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
+
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId && p.kind === 'QnA')
+  if (!post) return { ok: false, message: '문의를 찾을 수 없습니다.' }
+  if (post.answer) return { ok: false, message: '이미 답변된 문의는 수정할 수 없습니다.' }
+  if (post.author !== session.name && session.role !== 'ADMIN') {
+    return { ok: false, message: '본인 문의 또는 관리자만 수정할 수 있습니다.' }
+  }
+  post.title = title.trim()
+  post.body = body.trim()
+  post.category = category
+
+  appendAudit({ actor: session.name, action: `QnA 문의 수정 — ${post.title}`, target: postId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: '문의가 수정되었습니다.' }
+}
+
 /** QnA 문의 삭제 — 작성자 본인 또는 Admin(중재). 잘못 올렸거나 해결된 문의를 정리한다. */
 export async function deleteQuestion(postId: string) {
   const session = await getSession()

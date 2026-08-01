@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost, QnaCategory } from '@/lib/types'
-import { answerQuestion, askQuestion, deleteQuestion } from '../actions'
+import { answerQuestion, askQuestion, deleteQuestion, editQuestion } from '../actions'
 
 const CATEGORIES: QnaCategory[] = ['자산 신청·반납', '장애·수리', '라이선스', '보안·Discovery', '기타']
 
@@ -14,10 +14,17 @@ export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPo
   const [category, setCategory] = useState<QnaCategory>(CATEGORIES[0])
   const [answer, setAnswer] = useState('')
   const [editingAnswer, setEditingAnswer] = useState(false)
+  const [editingQ, setEditingQ] = useState(false)
+  const [eqTitle, setEqTitle] = useState('')
+  const [eqBody, setEqBody] = useState('')
+  const [eqCat, setEqCat] = useState<QnaCategory>(CATEGORIES[0])
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const open = posts.find((p) => p.id === openId) ?? null
-  const select = (id: string) => { setEditingAnswer(false); setAnswer(''); setOpenId(id === openId ? null : id) }
+  const select = (id: string) => { setEditingAnswer(false); setAnswer(''); setEditingQ(false); setOpenId(id === openId ? null : id) }
+  // 본인 또는 Admin, 답변 전 문의만 수정 가능
+  const canEditQ = !!open && (open.author === me || canModerate) && !open.answer
+  const openEditQ = () => { if (!open) return; setEditingQ(true); setEqTitle(open.title); setEqBody(open.body); setEqCat((open.category ?? '기타') as QnaCategory); setMsg(null) }
 
   return (
     <>
@@ -68,16 +75,43 @@ export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPo
       </Card>
 
       {open && (
-        <Card kicker={`${open.category ?? '기타'} · ${open.createdAt} · ${open.author} (${open.dept})`} title={open.title}
-          actions={(open.author === me || canModerate) ? (
-            <button className="btn sm danger" disabled={pending}
-              onClick={() => startTransition(async () => {
-                const r = await deleteQuestion(open.id)
-                setMsg(r.message)
-                if (r.ok) setOpenId(null)
-              })}>삭제</button>
+        <Card kicker={`${open.category ?? '기타'} · ${open.createdAt} · ${open.author} (${open.dept})`} title={editingQ ? '문의 수정' : open.title}
+          actions={(open.author === me || canModerate) && !editingQ ? (
+            <div className="hstack" style={{ gap: 6 }}>
+              {canEditQ && <button className="btn sm" disabled={pending} onClick={openEditQ}>문의 수정</button>}
+              <button className="btn sm danger" disabled={pending}
+                onClick={() => startTransition(async () => {
+                  const r = await deleteQuestion(open.id)
+                  setMsg(r.message)
+                  if (r.ok) setOpenId(null)
+                })}>삭제</button>
+            </div>
           ) : undefined}>
-          <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, color: 'var(--ink-2)' }}>{open.body}</div>
+          {editingQ ? (
+            <div className="vstack" style={{ gap: 8 }}>
+              <div className="hstack" style={{ gap: 8 }}>
+                <select className="select" value={eqCat} onChange={(e) => setEqCat(e.target.value as QnaCategory)}>
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <input className="input" style={{ flex: 1 }} placeholder="문의 제목" value={eqTitle} onChange={(e) => setEqTitle(e.target.value)} />
+              </div>
+              <textarea className="input" style={{ height: 110, padding: '8px 10px', resize: 'vertical', lineHeight: 1.6 }}
+                placeholder="문의 내용" value={eqBody} onChange={(e) => setEqBody(e.target.value)} />
+              <div className="hstack">
+                <span className="right" />
+                <button className="btn" disabled={pending} onClick={() => setEditingQ(false)}>취소</button>
+                <button className="btn pri" disabled={pending || !eqTitle.trim() || !eqBody.trim()}
+                  onClick={() => startTransition(async () => {
+                    const r = await editQuestion(open.id, eqTitle, eqBody, eqCat)
+                    setMsg(r.message)
+                    if (r.ok) setEditingQ(false)
+                  })}>저장</button>
+              </div>
+              {msg && <div className="dim" style={{ fontSize: 11.5 }}>{msg}</div>}
+            </div>
+          ) : (
+            <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, color: 'var(--ink-2)' }}>{open.body}</div>
+          )}
 
           {open.answer ? (
             <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--accent-soft)', border: '1px solid var(--accent-line)', borderRadius: 8 }}>
