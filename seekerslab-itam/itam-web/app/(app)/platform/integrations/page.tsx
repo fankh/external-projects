@@ -52,7 +52,10 @@ export default async function IntegrationsPage() {
       </Card>
 
       <Card kicker="Audit" title="감사 로그" pad={false}
-        actions={<span className="chip neutral bare">전자결재 · 자산 이력 · AI 로그 추적성</span>}>
+        actions={<span className="hstack" style={{ gap: 8 }}>
+          {canManage && <a className="btn sm" href="/api/audit-export" download>감사 로그 엑셀</a>}
+          <span className="chip neutral bare">전자결재 · 자산 이력 · AI 로그 추적성</span>
+        </span>}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>일시</th><th>수행자</th><th>동작</th><th>대상</th><th>접근 IP</th><th className="c">결과</th></tr></thead>
