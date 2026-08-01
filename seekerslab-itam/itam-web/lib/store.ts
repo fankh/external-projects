@@ -1,5 +1,9 @@
-/** 인메모리 데이터 스토어 — 데모용. globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
+/** 데이터 스토어 — globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
+ *  ITAM_DATA_FILE 이 설정되면 파일 기반으로 영속화되어 컨테이너 재시작·재생성 후에도 유지된다.
+ *  미설정(로컬 개발·스모크)이면 순수 인메모리라 매 기동 시 시드로 초기화된다.
  *  실서비스에서는 자산 대장 RDB(CMDB) + 발견 저장소 분리 구조로 대체된다(제품안내서 §02). */
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { today } from './dates'
 import { fingerprintOf } from './types'
 import type {
@@ -555,10 +559,60 @@ function seed(): Store {
   }
 }
 
-const g = globalThis as unknown as { __itamStore?: Store }
+const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: ReturnType<typeof setInterval> }
+
+// ── 파일 기반 영속화 ──────────────────────────────────────────────────
+// ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
+const DATA_FILE = process.env.ITAM_DATA_FILE || ''
+const SCHEMA_VERSION = 1
+
+function loadStore(): Store | null {
+  if (!DATA_FILE || !existsSync(DATA_FILE)) return null
+  try {
+    const parsed = JSON.parse(readFileSync(DATA_FILE, 'utf8'))
+    if (parsed.__v !== SCHEMA_VERSION) return null
+    const { __v: _v, ...store } = parsed
+    // 최소 정합성 검사 — 깨진 파일이면 시드로 폴백
+    if (!Array.isArray(store.assets) || !Array.isArray(store.approvals) || typeof store.seq !== 'number') return null
+    return store as Store
+  } catch {
+    return null
+  }
+}
+
+let lastSaved = ''
+function saveStore(): void {
+  if (!DATA_FILE || !g.__itamStore) return
+  try {
+    const json = JSON.stringify({ __v: SCHEMA_VERSION, ...g.__itamStore })
+    if (json === lastSaved) return // 변경 없으면 쓰지 않는다
+    mkdirSync(dirname(DATA_FILE), { recursive: true })
+    const tmp = `${DATA_FILE}.tmp`
+    writeFileSync(tmp, json) // 원자적 쓰기 — 임시 파일 → rename
+    renameSync(tmp, DATA_FILE)
+    lastSaved = json
+  } catch {
+    // 저장 실패해도 인메모리로 계속 동작한다 (영속화는 부가 기능)
+  }
+}
+
+function startAutosave(): void {
+  if (!DATA_FILE || g.__itamSaveTimer) return
+  // 2초 주기 dirty-비교 저장. SIGKILL(예: docker rm -f)로 죽어도 최대 2초분만 유실된다.
+  const timer = setInterval(saveStore, 2000)
+  ;(timer as { unref?: () => void }).unref?.() // 인터벌이 프로세스 종료를 막지 않게
+  g.__itamSaveTimer = timer
+  // 정상 종료(SIGTERM·SIGINT) 시 마지막 상태를 동기 저장
+  process.once('SIGTERM', saveStore)
+  process.once('SIGINT', saveStore)
+  process.once('beforeExit', saveStore)
+}
 
 export function getStore(): Store {
-  if (!g.__itamStore) g.__itamStore = seed()
+  if (!g.__itamStore) {
+    g.__itamStore = loadStore() ?? seed()
+    startAutosave()
+  }
   return g.__itamStore
 }
 

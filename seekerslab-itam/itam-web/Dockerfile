@@ -13,5 +13,13 @@ COPY . .
 RUN npm run build
 
 ENV NODE_ENV=production
+
+# 파일 기반 영속화 — 스토어를 /data/store.json 에 저장한다. 재시작·재생성 후에도 상태를
+# 유지하려면 /data 를 도커 볼륨으로 마운트한다: docker run -v itam-data:/data ...
+# 볼륨을 마운트하지 않으면 컨테이너 쓰기 레이어에 저장돼 재생성 시 사라진다(= 종전 동작).
+RUN mkdir -p /data
+ENV ITAM_DATA_FILE=/data/store.json
+VOLUME ["/data"]
+
 EXPOSE 3390
 CMD ["npm", "start", "--", "-p", "3390"]

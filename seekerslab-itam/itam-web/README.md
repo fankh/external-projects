@@ -219,17 +219,23 @@ Next.js 15 App Router + React 19 + TS (UI 라이브러리 없음, qrcode 만 사
 ```powershell
 docker build -t itam-web .
 docker run -d --name itam-web --restart unless-stopped -p 127.0.0.1:3390:3390 \
-  --env-file ~/.itam.env itam-web:latest
+  -v itam-data:/data --env-file ~/.itam.env itam-web:latest
 ```
 
 로컬호스트 바인딩이므로 접속은 SSH 터널을 사용한다 (`ssh -L 3390:localhost:3390 <host>`).
 `--env-file`은 컨테이너 재생성 시에만 다시 읽히므로, 키를 바꾸면 `docker restart`가 아니라
 `docker rm -f` 후 `docker run`으로 재기동해야 한다.
 
+**데이터 영속화** — Dockerfile 이 `ITAM_DATA_FILE=/data/store.json` 을 설정하므로 스토어가
+파일로 저장된다. `-v itam-data:/data` 명명 볼륨을 마운트하면 **재시작·재생성 후에도 상태가 유지**된다
+(볼륨 없이 실행하면 컨테이너 쓰기 레이어에 저장돼 재생성 시 초기화된다). 저장은 2초 주기 dirty-비교 +
+종료 시 flush, 원자적 쓰기(임시 파일 → rename). 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다.
+로컬 개발·스모크는 `ITAM_DATA_FILE` 미설정이라 종전대로 인메모리(매 기동 시 시드)로 동작해 결정성이 유지된다.
+
 ## v1 범위 제외
 
-DB 영속화(컨테이너 재시작 시 시드 상태로 초기화), 실제 스캐너·커넥터 연동(NAC·EDR·CSP API),
-SAML SSO 실연동, 전자결재 다단계 결재선 편집, 라우트(화면) 단위 권한의 화면 편집(기능 단위는 편집 가능).
+실제 스캐너·커넥터 연동(NAC·EDR·CSP API), SAML SSO 실연동, 전자결재 다단계 결재선 편집,
+라우트(화면) 단위 권한의 화면 편집(기능 단위는 편집 가능). RDB/CMDB 영속화(현재는 파일 기반 스냅샷).
 
 ## 관련 문서
 
