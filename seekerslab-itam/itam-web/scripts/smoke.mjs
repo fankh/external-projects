@@ -134,7 +134,7 @@ try {
   check('대시보드: KPI·발견 자산·내 결재 차례·운영 대기 렌더', dashHtml.includes('미등록 신규 발견') && dashHtml.includes('DSC-2607-0042') && dashHtml.includes('내 결재 차례') && dashHtml.includes('운영 대기'))
   check('대시보드: 처리 착수한 발견 자산은 대기열에서 제외', !dashHtml.includes('DSC-2607-0041'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
-  check('발견 자산: 6채널·대사 상태 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치'))
+  check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
   const contractsHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약·라이선스: 보유–사용 대사·등록(계약·라이선스) 렌더', contractsHtml.includes('JetBrains') && contractsHtml.includes('초과 사용') && contractsHtml.includes('라이선스 등록') && contractsHtml.includes('계약 등록'))
   const aprHtml = await (await get('/workflow/approvals', 'SEC_MGR')).text()

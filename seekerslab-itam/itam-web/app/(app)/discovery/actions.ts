@@ -8,6 +8,37 @@ import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
 import { CONFIRM_DEADLINE_DAYS } from '@/lib/types'
 
+/** 대장 편입 일괄 요청 — 스캔이 다수 자산을 올리면 한 건씩 누르지 않고 배치로 편입 결재를 상신한다.
+ *  각 건은 여전히 자산담당 결재를 거치므로(대량 상신이라도 검토는 개별) 안전하다.
+ *  이미 처리 중이거나 대사 완료(등록·일치)인 건은 건너뛴다. */
+export async function requestOnboardMany(ids: string[]) {
+  const session = await getSession()
+  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return { ok: false, message: '편입 요청 권한이 없습니다.' }
+  const s = getStore()
+  let n = 0
+  for (const id of ids) {
+    const d = s.discovered.find((x) => x.id === id)
+    if (!d || d.action || d.state === '등록·일치') continue
+    d.action = '편입요청'
+    s.approvals.unshift({
+      id: nextApprovalId(),
+      kind: '자산 신청',
+      title: `${d.id} (${d.hostname}) 대장 편입 — 발견 채널: ${d.channel}`,
+      requester: session.name,
+      dept: d.ownerCandidate ?? session.dept,
+      requestedAt: today(),
+      status: '대기',
+      currentStep: '자산담당 검토',
+      refId: d.id,
+    })
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: '편입 요청할 대상이 없습니다 (이미 처리 중이거나 대사 완료).' }
+  appendAudit({ actor: session.name, action: `대장 편입 일괄 요청 (${n}건)`, target: 'Discovery' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${n}건 편입 요청 상신 완료 — 자산담당 결재 대기` }
+}
+
 /** 소유자 확인 요청 — 편입·격리 앞단의 필수 단계. 부서에 확인 메일을 보내고 응답을 기다린다.
  *  (제품안내서 그림 3: 소유자 확인 → 편입/격리, AL-05 는 필수 결재) */
 export async function requestOwnerConfirm(discoveredId: string) {

@@ -3,7 +3,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
-import { mergeDiscovered, requestOnboard, requestOwnerConfirm, requestQuarantine } from '../actions'
+import { mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestQuarantine } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
@@ -17,8 +17,22 @@ export function FoundView({ items, observations, mergeCandidates }: {
 }) {
   const [channel, setChannel] = useState<Channel | '전체'>('전체')
   const [selId, setSelId] = useState<string | null>(null)
+  const [checked, setChecked] = useState<Set<string>>(new Set())
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+
+  // 편입 요청 가능한 건만 일괄 대상 — 미처리·대사 미완
+  const onboardable = (d: DiscoveredAsset) => !d.action && d.state !== '등록·일치'
+  const toggleCheck = (id: string) => setChecked((prev) => {
+    const n = new Set(prev)
+    n.has(id) ? n.delete(id) : n.add(id)
+    return n
+  })
+  const bulkOnboard = () => startTransition(async () => {
+    const r = await requestOnboardMany([...checked])
+    setMsg(r.message)
+    if (r.ok) setChecked(new Set())
+  })
 
   // 채널별 관측을 발견 자산에 묶어 둔다 — 필터·상세 패널이 함께 쓴다
   const obsBy = useMemo(() => {
@@ -54,13 +68,18 @@ export function FoundView({ items, observations, mergeCandidates }: {
           ))}
         </div>
         <span className="cnt">{rows.length}건</span>
+        <button className="btn sm pri" style={{ marginLeft: 'auto' }} disabled={pending || checked.size === 0} onClick={bulkOnboard}>
+          선택 일괄 편입 요청 ({checked.size})
+        </button>
       </div>
+      {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
 
       <div className={sel ? 'cols main-side' : ''} style={sel ? { gap: 0 } : undefined}>
         <div className="tbl-wrap fill">
           <table className="tbl">
             <thead>
               <tr>
+                <th className="c" style={{ width: 30 }} />
                 <th>발견 ID</th><th>호스트명</th><th>유형</th><th>IP</th><th>채널</th>
                 <th>최근 실측</th><th className="c">대사 상태</th><th className="c">위험도</th><th className="c">처리</th>
               </tr>
@@ -69,6 +88,11 @@ export function FoundView({ items, observations, mergeCandidates }: {
               {rows.map((d) => (
                 <tr key={d.id} className={`clickable ${selId === d.id ? 'sel' : ''}`}
                   onClick={() => setSelId(selId === d.id ? null : d.id)}>
+                  <td className="c" onClick={(e) => e.stopPropagation()}>
+                    {onboardable(d)
+                      ? <input type="checkbox" checked={checked.has(d.id)} onChange={() => toggleCheck(d.id)} aria-label={`${d.id} 편입 선택`} />
+                      : null}
+                  </td>
                   <td className="code">{d.id}</td>
                   <td className="strong">{d.hostname}</td>
                   <td>{d.type}</td>
