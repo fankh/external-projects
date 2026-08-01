@@ -2,9 +2,34 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
+import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { Asset, AssetCategory } from '@/lib/types'
+
+/** 입고 검수 반려 — 불량·사양 불일치 로트를 반려하고 공급사 앞 반품/교체를 통보한다.
+ *  (그동안 검수는 합격(채번)만 있고 불합격 처리가 없었다.) 채번 전 로트만 대상. 자산담당·Admin. */
+export async function rejectIntakeLot(lotId: string, reason: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '검수 반려 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const lot = s.intakeLots.find((l) => l.id === lotId)
+  if (!lot) return { ok: false, message: '입고 로트를 찾을 수 없습니다.' }
+  if (lot.status === '검수 완료' || lot.issued.length > 0) {
+    return { ok: false, message: '이미 채번된 로트는 반려할 수 없습니다.' }
+  }
+  if (lot.status === '검수 반려') return { ok: false, message: '이미 반려된 로트입니다.' }
+  const r = reason.trim()
+  if (!r) return { ok: false, message: '반려 사유(불량 내용)를 입력해 주세요.' }
+
+  lot.status = '검수 반려'
+  lot.inspector = session.name
+  dispatch({ channel: '이메일', to: lot.vendor, subject: `${lot.id} ${lot.model} ${lot.qty}대 입고 검수 반려 — 반품·교체 요청 (${r})`, kind: '입고 반려', ref: lot.id })
+  appendAudit({ actor: session.name, action: `입고 검수 반려 — ${lot.model} · ${r}`, target: lot.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${lot.id} 검수 반려 — 공급사(${lot.vendor}) 앞 반품 통보 발송` }
+}
 
 /** 신규 입고 건의 기본 검수 체크리스트 — 발주 사양·외관·전원·부속·SW·라벨 */
 const DEFAULT_CHECKLIST = [

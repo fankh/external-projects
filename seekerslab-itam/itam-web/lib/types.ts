@@ -128,7 +128,7 @@ export interface Dispatch {
   channel: '이메일' | '문자'
   to: string
   subject: string
-  kind: '소유자 확인' | '만료 임박' | '격리 통보' | '에스컬레이션' | '리포트 배포' | '위협 대응'
+  kind: '소유자 확인' | '만료 임박' | '격리 통보' | '에스컬레이션' | '리포트 배포' | '위협 대응' | '입고 반려'
   ref?: string
 }
 
@@ -298,7 +298,7 @@ export interface IntakeLot {
   qty: number
   arrivedAt: string
   vendor: string
-  status: '입고 대기' | '검수 중' | '검수 완료'
+  status: '입고 대기' | '검수 중' | '검수 완료' | '검수 반려'
   checklist: IntakeChecklistItem[]
   /** 채번 완료된 자산번호 */
   issued: string[]

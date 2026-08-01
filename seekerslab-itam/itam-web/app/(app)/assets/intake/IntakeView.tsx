@@ -2,12 +2,12 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { AssetCategory, IntakeLot } from '@/lib/types'
-import { issueAssetNo, registerIntakeLot, toggleCheck } from './actions'
+import { issueAssetNo, registerIntakeLot, rejectIntakeLot, toggleCheck } from './actions'
 
 interface Label { assetNo: string; model: string; qr: string; barcode: string }
 interface PC { id: string; name: string; vendor: string }
 
-const STATUS_TONE = { '입고 대기': 'neutral', '검수 중': 'warn', '검수 완료': 'ok' } as const
+const STATUS_TONE = { '입고 대기': 'neutral', '검수 중': 'warn', '검수 완료': 'ok', '검수 반려': 'err' } as const
 const CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[] }) {
@@ -20,6 +20,8 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
   const [rmodel, setRmodel] = useState('')
   const [rcat, setRcat] = useState<AssetCategory>('단말')
   const [rqty, setRqty] = useState('1')
+  const [rejecting, setRejecting] = useState(false)
+  const [rjReason, setRjReason] = useState('')
   const registerLot = () => {
     startTransition(async () => {
       const r = await registerIntakeLot(rc, rmodel, rcat, Number(rqty))
@@ -102,7 +104,7 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
                 </button>
               ))}
             </div>
-            <div className="hstack" style={{ marginTop: 14, gap: 8 }}>
+            <div className="hstack" style={{ marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
               <button className="btn pri" disabled={pending || sel.status !== '검수 완료' || sel.issued.length >= sel.qty}
                 onClick={() => startTransition(async () => {
                   const r = await issueAssetNo(sel.id)
@@ -110,8 +112,25 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
                 })}>
                 자산번호 채번 · 대장 등록
               </button>
+              {['입고 대기', '검수 중'].includes(sel.status) && sel.issued.length === 0 && (
+                rejecting ? (
+                  <span className="hstack" style={{ gap: 6 }}>
+                    <input className="input" style={{ width: 180, height: 28 }} autoFocus
+                      placeholder="반려 사유 (불량 내용)" value={rjReason} onChange={(e) => setRjReason(e.target.value)} />
+                    <button className="btn sm danger" disabled={pending || !rjReason.trim()}
+                      onClick={() => startTransition(async () => {
+                        const r = await rejectIntakeLot(sel.id, rjReason)
+                        setMsg({ ok: r.ok, text: r.message })
+                        if (r.ok) { setRejecting(false); setRjReason('') }
+                      })}>반려 확정</button>
+                    <button className="btn sm ghost" disabled={pending} onClick={() => { setRejecting(false); setRjReason('') }}>취소</button>
+                  </span>
+                ) : (
+                  <button className="btn sm danger" disabled={pending} onClick={() => setRejecting(true)}>검수 반려</button>
+                )
+              )}
               <span className="dim" style={{ fontSize: 11.5 }}>
-                {sel.status === '검수 완료' ? `채번 ${sel.issued.length}/${sel.qty}` : '체크리스트 완료 후 채번 가능'}
+                {sel.status === '검수 완료' ? `채번 ${sel.issued.length}/${sel.qty}` : sel.status === '검수 반려' ? '반려됨 — 공급사 반품 통보 발송' : '체크리스트 완료 후 채번 · 불량 시 반려'}
               </span>
             </div>
           </Card>
