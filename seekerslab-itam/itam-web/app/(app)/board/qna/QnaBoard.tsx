@@ -2,11 +2,11 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost, QnaCategory } from '@/lib/types'
-import { answerQuestion, askQuestion } from '../actions'
+import { answerQuestion, askQuestion, deleteQuestion } from '../actions'
 
 const CATEGORIES: QnaCategory[] = ['자산 신청·반납', '장애·수리', '라이선스', '보안·Discovery', '기타']
 
-export function QnaBoard({ posts, canAnswer, me }: { posts: BoardPost[]; canAnswer: boolean; me: string }) {
+export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPost[]; canAnswer: boolean; canModerate: boolean; me: string }) {
   const [openId, setOpenId] = useState<string | null>(posts.find((p) => !p.answer)?.id ?? posts[0]?.id ?? null)
   const [asking, setAsking] = useState(false)
   const [title, setTitle] = useState('')
@@ -66,7 +66,15 @@ export function QnaBoard({ posts, canAnswer, me }: { posts: BoardPost[]; canAnsw
       </Card>
 
       {open && (
-        <Card kicker={`${open.category ?? '기타'} · ${open.createdAt} · ${open.author} (${open.dept})`} title={open.title}>
+        <Card kicker={`${open.category ?? '기타'} · ${open.createdAt} · ${open.author} (${open.dept})`} title={open.title}
+          actions={(open.author === me || canModerate) ? (
+            <button className="btn sm danger" disabled={pending}
+              onClick={() => startTransition(async () => {
+                const r = await deleteQuestion(open.id)
+                setMsg(r.message)
+                if (r.ok) setOpenId(null)
+              })}>삭제</button>
+          ) : undefined}>
           <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, color: 'var(--ink-2)' }}>{open.body}</div>
 
           {open.answer ? (

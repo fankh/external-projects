@@ -26,7 +26,7 @@ export default async function QnaPage() {
         <Stat value={qna.filter((p) => p.author === session.name).length} label="내 문의" tone="accent" />
       </div>
 
-      <QnaBoard posts={qna} canAnswer={session.role !== 'USER'} me={session.name} />
+      <QnaBoard posts={qna} canAnswer={session.role !== 'USER'} canModerate={session.role === 'ADMIN'} me={session.name} />
     </>
   )
 }

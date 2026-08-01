@@ -44,6 +44,22 @@ export async function answerQuestion(postId: string, body: string) {
   return { ok: true, message: '답변이 등록되었습니다.' }
 }
 
+/** QnA 문의 삭제 — 작성자 본인 또는 Admin(중재). 잘못 올렸거나 해결된 문의를 정리한다. */
+export async function deleteQuestion(postId: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '세션이 만료되었습니다.' }
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId && p.kind === 'QnA')
+  if (!post) return { ok: false, message: '문의를 찾을 수 없습니다.' }
+  if (post.author !== session.name && session.role !== 'ADMIN') {
+    return { ok: false, message: '본인 문의 또는 관리자만 삭제할 수 있습니다.' }
+  }
+  s.posts = s.posts.filter((p) => p.id !== postId)
+  appendAudit({ actor: session.name, action: `QnA 문의 삭제 — ${post.title}`, target: postId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: '문의가 삭제되었습니다.' }
+}
+
 /** 공지 등록 — Admin */
 export async function postNotice(title: string, body: string, pinned: boolean) {
   const session = await getSession()

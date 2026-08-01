@@ -169,6 +169,8 @@ try {
   check('QnA: 문의 목록·답변 상태 렌더', qnaHtml.includes('질문하기') && qnaHtml.includes('답변 대기') && qnaHtml.includes('답변 완료'))
   const qnaMgr = await (await get('/board/qna', 'ASSET_MGR')).text()
   check('QnA: 담당자에게 답변 입력 노출', qnaMgr.includes('답변 등록'))
+  const qnaAdmin = await (await get('/board/qna', 'ADMIN')).text()
+  check('QnA: Admin 문의 삭제(중재) 컨트롤 노출', qnaAdmin.includes('삭제'))
   const inHtml = await (await get('/assets/intake', 'ASSET_MGR')).text()
   check('도입·검수: 체크리스트·라벨 렌더', inHtml.includes('검수 체크리스트') && inHtml.includes('전원·부팅 정상 동작') && inHtml.includes('<svg'))
   check('도입·검수: 발주 연계 입고 등록 진입점', inHtml.includes('입고 등록'))
