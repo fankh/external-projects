@@ -2,7 +2,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { SurveyDiff, SurveyScan } from '@/lib/types'
-import { raiseAdjustment, scanAsset } from './actions'
+import { completeRound, raiseAdjustment, scanAsset } from './actions'
 
 const RESULT_TONE = { 일치: 'ok', 차이: 'warn', '대장 미등록': 'err' } as const
 const DIFF_TONE: Record<SurveyDiff['kind'], 'warn' | 'err' | 'neutral'> = {
@@ -12,6 +12,7 @@ const DIFF_TONE: Record<SurveyDiff['kind'], 'warn' | 'err' | 'neutral'> = {
 export function SurveyConsole(props: {
   roundId: string
   roundName: string
+  roundStatus: '계획' | '진행중' | '완료'
   scans: SurveyScan[]
   diffs: SurveyDiff[]
   assignee: string
@@ -37,11 +38,24 @@ export function SurveyConsole(props: {
   }
 
   const pendingDiffs = props.diffs.filter((d) => d.status === '미조치')
+  // 미해결 차이(미조치·조정 상신)가 하나도 없어야 회차를 완료할 수 있다
+  const allResolved = props.diffs.every((d) => d.status === '조정 완료')
 
   return (
     <>
       <Card kicker="Scan" title="스캔 실사"
-        actions={<span className="dim" style={{ fontSize: 11.5 }}>담당 {props.assignee} · 수행자 {props.me}</span>}>
+        actions={<span className="hstack" style={{ gap: 10 }}>
+          <span className="dim" style={{ fontSize: 11.5 }}>담당 {props.assignee} · 수행자 {props.me}</span>
+          {props.roundStatus === '진행중' && (
+            <button className="btn sm pri" disabled={pending || !allResolved}
+              title={allResolved ? '실사·차이 조정을 마치고 회차를 마감합니다' : '미해결 차이가 남아 있어 완료할 수 없습니다'}
+              onClick={() => startTransition(async () => {
+                const r = await completeRound(props.roundId)
+                setFeedback({ ok: r.ok, result: r.ok ? '조사 완료' : undefined, message: r.message })
+              })}>조사 완료</button>
+          )}
+          {props.roundStatus === '완료' && <Chip tone="ok">완료</Chip>}
+        </span>}>
         <div className="survey-scan">
           <div style={{ flex: '1 1 320px', minWidth: 260 }}>
             <div className="kicker mute" style={{ marginBottom: 6 }}>자산번호 · 바코드 / QR</div>

@@ -269,6 +269,7 @@ try {
   check('폐기: 후보·소거 방식·증적 렌더', dspHtml.includes('데이터 소거') && dspHtml.includes('증적') && dspHtml.includes('AST-2019-000218'))
   const svyHtml = await (await get('/inventory/survey', 'ASSET_MGR')).text()
   check('재물조사 수행: 스캔 실사·차이 항목 렌더', svyHtml.includes('스캔하거나 자산번호 입력') && svyHtml.includes('위치 불일치') && svyHtml.includes('조정 결재 상신'))
+  check('재물조사 수행: 진행중 회차에 조사 완료(마감) 컨트롤 노출', svyHtml.includes('조사 완료'))
   const planHtml = await (await get('/inventory/survey-plan', 'ASSET_MGR')).text()
   check('재물조사 계획: 회차 목록·유형·담당자 렌더', planHtml.includes('2026 하반기 정기 재물조사') && planHtml.includes('연간') && planHtml.includes('수시') && planHtml.includes('계획 수립'))
   // 범위 select 는 '계획 수립' 을 눌러야 펼쳐지므로 초기 HTML 에는 없다. 대신 클라이언트로

@@ -53,6 +53,7 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
       <SurveyConsole
         roundId={round.id}
         roundName={round.name}
+        roundStatus={round.status}
         scans={scans}
         diffs={diffs}
         assignee={round.assignee}

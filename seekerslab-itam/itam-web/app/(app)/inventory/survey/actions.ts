@@ -101,14 +101,25 @@ export async function raiseAdjustment(roundId: string) {
   revalidatePath('/', 'layout')
 }
 
-/** 조사 회차 완료 처리 */
+/** 조사 회차 완료 처리 — 미해결 차이(미조치·조정 상신)가 남아 있으면 마감할 수 없다.
+ *  실사와 차이 조정이 모두 끝나야 회차를 닫는다(제품안내서 §03 재물조사 마감). */
 export async function completeRound(roundId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '조사 완료 권한이 없습니다 (자산담당·Admin).' }
+  }
   const s = getStore()
   const round = s.inventoryRounds.find((r) => r.id === roundId)
-  if (!round) return
-  if (s.surveyDiffs.some((d) => d.roundId === roundId && d.status !== '조정 완료')) return
+  if (!round) return { ok: false, message: '조사 회차를 찾을 수 없습니다.' }
+  if (round.status !== '진행중') return { ok: false, message: `진행 중인 회차가 아닙니다 (${round.status}).` }
+
+  const open = s.surveyDiffs.filter((d) => d.roundId === roundId && d.status !== '조정 완료')
+  if (open.length > 0) {
+    return { ok: false, message: `미해결 차이 ${open.length}건이 남아 있어 완료할 수 없습니다 — 조정 결재까지 마쳐야 합니다.` }
+  }
+
   round.status = '완료'
+  appendAudit({ actor: session.name, action: `재물조사 완료 (스캔 ${round.scanned}/${round.planned})`, target: roundId })
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${round.name} 완료 — 스캔 ${round.scanned}/${round.planned}건, 차이 전건 조정 완료` }
 }
