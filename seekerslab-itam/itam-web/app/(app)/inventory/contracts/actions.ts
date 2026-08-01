@@ -75,6 +75,31 @@ export async function sendExpiryNotices() {
   return { ok: true, message: `만료 임박 알림 ${n}건 발송 — 연동 · 인프라의 발송 이력에서 확인할 수 있습니다.` }
 }
 
+/** 계약 갱신 — 만료 임박·경과 계약의 계약 기간을 연장한다.
+ *  (제품안내서 §03: 계약·유지보수 만료·갱신 — 알림만 있고 갱신 처리가 없던 공백)
+ *  만료일을 연장하면 만료 임박 집계에서 빠진다(폐쇄 루프). 기존 만료일이 지났으면 오늘을 기준으로 연장한다. */
+export async function renewContract(id: string, termYears: number) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '계약 갱신 권한이 없습니다 (자산담당·Admin).' }
+  if (![1, 2, 3].includes(termYears)) return { ok: false, message: '갱신 기간은 1·2·3년만 가능합니다.' }
+
+  const s = getStore()
+  const c = s.contracts.find((x) => x.id === id)
+  if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
+
+  // 기준일: 만료 전이면 만료일 기준(주기 승계), 이미 지났으면 오늘 기준. 문자열 비교로 TZ 문제를 피한다.
+  const base = c.end >= today() ? c.end : today()
+  const [y, m, d] = base.split('-')
+  const newEnd = `${Number(y) + termYears}-${m}-${d}`
+  const oldEnd = c.end
+  c.end = newEnd
+
+  appendAudit({ actor: session.name, action: `계약 갱신 (${termYears}년) — ${c.name}: ${oldEnd} → ${newEnd}`, target: c.id })
+  dispatch({ channel: '이메일', to: c.ownerDept, subject: `${c.id} ${c.name} 계약 갱신 완료 — 만료일 ${newEnd} (${termYears}년 연장)`, kind: '만료 임박', ref: c.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${c.id} ${c.name} 갱신 완료 — 만료일 ${oldEnd} → ${newEnd} (${termYears}년)` }
+}
+
 /** 라이선스 조치 — 컴플라이언스 4단계의 마지막.
  *  초과 사용은 추가 구매 품의(결재), 미사용 보유는 회수 대상 지정으로 이어진다.
  *  (제품안내서 §03 STEP 4: 조치 — 추가 구매 품의 · 회수) */

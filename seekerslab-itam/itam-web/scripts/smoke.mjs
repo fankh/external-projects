@@ -189,6 +189,7 @@ try {
   const ctHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약: 만료 임박 알림 발송 진입점', ctHtml.includes('만료 임박 알림 발송'))
   check('계약: 라이선스 조치(4단계) 진입점', ctHtml.includes('추가 구매') && ctHtml.includes('회수') && ctHtml.includes('검출에서 조치까지'))
+  check('계약: 계약 갱신 컨트롤 렌더 (자산담당)', ctHtml.includes('>갱신<'))
   // AI 가동 표시 — 키 존재가 아니라 실제 호출 결과를 말해야 한다.
   // 스모크는 키 없이 도므로 '키 미설정' 이 정확한 상태이며, 근거 없이 '가동' 이라 주장하면 안 된다.
   const aiRep = await (await get('/ai/reports', 'ASSET_MGR')).text()

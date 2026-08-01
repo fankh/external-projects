@@ -1,9 +1,10 @@
 import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
-import { daysUntil, fmtAmount } from '@/lib/dates'
+import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
+import { ContractsTable } from './ContractsTable'
 import { ExpiryNoticeButton, LicenseAction } from './LicenseActions'
 
 export const dynamic = 'force-dynamic'
@@ -41,39 +42,7 @@ export default async function ContractsPage() {
           <ExportButton kind="contracts" role={session.role} label="계약·라이선스 엑셀" />
           <ExpiryNoticeButton due={dueCount} />
         </span>}>
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>계약번호</th><th>구분</th><th>계약명</th><th>공급사</th><th>주관부서</th>
-                <th className="num">금액</th><th className="num">자산</th><th>만료일</th><th className="c">상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contracts.map((c) => {
-                const d = daysUntil(c.end)
-                return (
-                  <tr key={c.id}>
-                    <td className="code">{c.id}</td>
-                    <td>{c.kind}</td>
-                    <td className="strong">{c.name}</td>
-                    <td>{c.vendor}</td>
-                    <td className="mute">{c.ownerDept}</td>
-                    <td className="num tnum">{fmtAmount(c.amount)}원</td>
-                    <td className="num tnum">{c.assetCount}</td>
-                    <td className="tnum">{c.end}</td>
-                    <td className="c">
-                      {d !== null && d < 0 ? <Chip tone="err">만료됨</Chip>
-                        : d !== null && d <= 35 ? <Chip tone="err">D-{d}</Chip>
-                        : d !== null && d <= 90 ? <Chip tone="warn">D-{d}</Chip>
-                        : <Chip tone="ok">정상</Chip>}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ContractsTable rows={contracts.map((c) => ({ ...c, d: daysUntil(c.end) }))} />
       </Card>
 
       <Card kicker="License Compliance" title="SW 라이선스 보유 – 사용 대사" pad={false}>
