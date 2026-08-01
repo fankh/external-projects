@@ -15,14 +15,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
   const k = kind as ExportKind
   if (!canExport(k, session.role)) return new Response('Forbidden', { status: 403 })
 
-  const sheets = buildSheets(k, session.role, session.name)
+  // 자산 대장은 화면 필터(검색·유형)를 쿼리로 받아 반영한다 (다른 종류는 무시)
+  const sp = new URL(req.url).searchParams
+  const q = (sp.get('q') ?? '').trim()
+  const cat = sp.get('cat') ?? '전체'
+  const filtered = k === 'assets' && (q !== '' || cat !== '전체')
+  const sheets = buildSheets(k, session.role, session.name, { q, cat })
   const buf = buildXlsx(sheets)
   const rows = sheets.reduce((n, s) => n + s.rows.length, 0)
 
   // 내보내기는 데이터 반출이므로 감사 대상이다 — 누가 무엇을 몇 건 받았는지 남긴다
+  const scope = filtered ? ` · 필터: ${[cat !== '전체' && `유형=${cat}`, q && `검색='${q}'`].filter(Boolean).join(', ')}` : ''
   appendAudit({
     actor: session.name,
-    action: `엑셀 내보내기 — ${EXPORT_META[k].label} (${rows}건)`,
+    action: `엑셀 내보내기 — ${EXPORT_META[k].label} (${rows}건)${scope}`,
     target: EXPORT_META[k].label,
   })
 

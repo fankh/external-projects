@@ -14,7 +14,7 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 반납대기: 'warn', 수리중: 'warn', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; initialSel?: string }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string }) {
   const [q, setQ] = useState(props.initialQuery)
   const [cat, setCat] = useState<AssetCategory | '전체'>('전체')
   const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
@@ -49,6 +49,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
           ))}
         </div>
         <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
+        {props.canExport && (
+          <a className="btn sm" style={{ marginLeft: 'auto' }} download
+            href={`/api/export/assets?${new URLSearchParams({ q: q.trim(), cat }).toString()}`}>
+            ⤓ 자산 대장 엑셀{q.trim() !== '' || cat !== '전체' ? ` (${rows.length})` : ''}
+          </a>
+        )}
       </div>
 
       <div className={sel ? 'cols main-side' : ''} style={sel ? { gap: 0 } : undefined}>

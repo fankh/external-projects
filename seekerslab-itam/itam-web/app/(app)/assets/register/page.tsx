@@ -1,5 +1,5 @@
-import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader } from '@/components/ui'
+import { canExport } from '@/lib/exports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { RegisterView } from './RegisterView'
@@ -21,13 +21,12 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
         kicker="자산관리 · Asset Register"
         title="자산 대장"
         desc="H/W(단말·서버·네트워크) · S/W · 가상자원 대장 — 자산번호 · 구성정보 · 소유자 · 위치 이력"
-        right={<ExportButton kind="assets" role={session.role} label="자산 대장 엑셀" />}
       />
       {session.role === 'USER' && (
         <div className="callout"><b>사용자 권한 범위.</b> 본인 보유 자산만 표시됩니다. 자산 신청·반납·이동 요청은 워크플로 › 신청·결재에서 상신할 수 있습니다.</div>
       )}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} initialSel={initialSel} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} />
       </Card>
     </>
   )
