@@ -1,77 +1,12 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
-import { nowMinute, today } from '@/lib/dates'
-import { buildSections, nextRunOf, ruleHeadline } from '@/lib/reports'
+import { today } from '@/lib/dates'
+import { createReport, nextRunOf } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { dispatch } from '@/lib/notify'
 import { getStore } from '@/lib/store'
-import type { ReportKind, ReportSchedule, ReportSection } from '@/lib/types'
-
-/** 섹션 표를 LLM 입력용 텍스트로 압축 — 수치는 섹션에서만 오고 AI는 서술만 담당 */
-function sectionsAsText(sections: ReportSection[]): string {
-  return sections
-    .map((s) => {
-      const head = `## ${s.title}${s.note ? ` (${s.note})` : ''}`
-      const table = s.columns ? [s.columns.join(' | '), ...(s.rows ?? []).map((r) => r.join(' | '))].join('\n') : ''
-      const bullets = (s.bullets ?? []).map((b) => `- ${b}`).join('\n')
-      return [head, table, bullets].filter(Boolean).join('\n')
-    })
-    .join('\n\n')
-}
-
-/** 리포트 1건 생성 — 수동 생성과 스케줄 실행이 같은 경로를 쓴다 */
-async function createReport(kind: ReportKind, by: string): Promise<string> {
-  const s = getStore()
-  const sections = buildSections(kind)
-  let headline = ruleHeadline(kind, sections)
-  let mode: 'AI' | '규칙' = '규칙'
-
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (apiKey) {
-    try {
-      const { default: Anthropic } = await import('@anthropic-ai/sdk')
-      const client = new Anthropic({ apiKey })
-      const response = await client.messages.create({
-        model: process.env.ANTHROPIC_MODEL_ID || 'claude-opus-5',
-        max_tokens: 4096,
-        system:
-          'IT 자산관리 리포트의 요약 서술을 작성합니다. 아래 표 데이터에 있는 수치만 사용하고 ' +
-          '없는 사실을 추가하지 마세요. 3~5문장의 한국어 평서문으로, 담당자가 조치를 판단할 수 있게 ' +
-          '위험·이상 항목을 우선 언급하세요. 제목이나 머리말 없이 본문만 출력하세요.',
-        messages: [{ role: 'user', content: `리포트: ${kind}\n\n${sectionsAsText(sections)}` }],
-      })
-      if (response.stop_reason !== 'refusal') {
-        const text = response.content
-          .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
-          .map((b) => b.text).join('').trim()
-        if (text) { headline = text; mode = 'AI' }
-      }
-      recordAiCall(mode === 'AI', mode === 'AI' ? undefined : '응답에 텍스트 없음')
-    } catch (err) {
-      // 라이브 생성 실패 시 규칙 기반 서술 유지 — 리포트 생성 자체는 성공시킨다.
-      // 다만 실패 사실은 남긴다. 조용히 폴백하면 화면이 계속 'AI 가동'이라 주장하게 된다.
-      recordAiCall(false, err instanceof Error ? err.message.slice(0, 80) : '알 수 없는 오류')
-    }
-  }
-
-  s.seq += 1
-  const id = `RPT-${s.seq}`
-  s.reports.unshift({
-    id,
-    kind,
-    title: `${kind} (${today()})`,
-    period: today(),
-    generatedAt: nowMinute(),
-    generatedBy: by,
-    mode,
-    headline,
-    sections,
-  })
-  appendAudit({ actor: by, action: `AI 리포트 생성 (${mode})`, target: kind })
-  return id
-}
+import type { ReportKind } from '@/lib/types'
 
 export async function generateReport(kind: ReportKind) {
   const session = await getSession()

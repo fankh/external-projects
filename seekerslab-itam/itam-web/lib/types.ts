@@ -597,6 +597,7 @@ export type ReportKind =
   | '라이선스 컴플라이언스'
   | '재물조사 결과 요약'
   | '감사 대응 자료'
+  | '연간 교체 계획'
 
 export interface ReportSection {
   title: string

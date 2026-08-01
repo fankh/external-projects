@@ -300,7 +300,7 @@ try {
   check('공통코드: 위치 코드가 랙 단위까지 정의', rackLocations.every((l) => codeHtml2.includes(l)), rackLocations.filter((l) => !codeHtml2.includes(l)).join(', '))
   check('재물조사: 실사 위치 목록이 대장 위치와 정합', rackLocations.filter((l) => regHtml.includes(l)).every((l) => svyHtml.includes(l)), rackLocations.filter((l) => regHtml.includes(l) && !svyHtml.includes(l)).join(', '))
   const repHtml = await (await get('/ai/reports', 'ASSET_MGR')).text()
-  check('리포트: 5종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('결재 첨부용'))
+  check('리포트: 6종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('연간 교체 계획') && repHtml.includes('결재 첨부용'))
   const repText = text(repHtml)
   check('리포트: 자동 생성 스케줄 렌더', repText.includes('자동 생성 스케줄') && repText.includes('예약 실행') && repText.includes('매주 월요일'))
   check('리포트: 밀린 스케줄이 기한 도래로 표시', repText.includes('기한 도래'))

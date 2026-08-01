@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { raiseLicenseApproval } from '@/lib/license'
+import { createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
 
@@ -35,11 +36,15 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
     return { ok: true, message: `${ins.id} 반려 — 오탐 사유가 재학습 신호로 기록되었습니다.` }
   }
 
-  // 승인은 판정에 그치지 않고 조치로 이어져야 한다. 이상탐지는 대상 자산이 발견 저장소에
-  // 있으면 격리 요청 결재를 자동 상신하고, 라이선스 최적화는 대상 라이선스의 추가 구매·회수
-  // 결재를 상신한다 (필수 결재 — 담당 판단을 건너뛰지 않는다).
+  // 승인은 판정에 그치지 않고 조치로 이어져야 한다. 이상탐지는 격리 요청 결재를,
+  // 라이선스 최적화는 대상 라이선스의 추가 구매·회수 결재를 자동 상신하고,
+  // 수명예측은 교체 대상·예산을 담은 연간 교체 계획 리포트를 생성한다.
   let action = '판정 기록 — 담당 조치 대상으로 등록'
-  if (ins.kind === '라이선스 최적화' && ins.refId) {
+  if (ins.kind === '수명예측') {
+    // 교체 수요 예측 승인 → 근거 데이터(교체 대상·유형별 예산)를 담은 리포트 산출
+    const id = await createReport('연간 교체 계획', session.name)
+    action = `연간 교체 계획 리포트 생성 — ${id}`
+  } else if (ins.kind === '라이선스 최적화' && ins.refId) {
     const l = s.licenses.find((x) => x.id === ins.refId)
     if (l) {
       // 초과 사용(사용>보유)은 추가 구매, 미사용 여유(사용<보유)는 회수

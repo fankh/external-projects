@@ -1,6 +1,8 @@
 /** 리포트 본문 생성 — 스토어 데이터에서 결정적으로 산출한다.
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
-import { today, daysUntil, fmtAmount } from './dates'
+import { recordAiCall } from './ai-status'
+import { appendAudit } from './audit'
+import { nowMinute, today, daysUntil, fmtAmount } from './dates'
 import { getStore } from './store'
 import type { ReportKind, ReportSchedule, ReportSection } from './types'
 
@@ -10,7 +12,31 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행 증빙 초안' },
+  { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과 기준 교체 대상·유형별 예산 추정' },
 ]
+
+/** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
+ *  AI 수명예측 제안 승인 시 이 근거로 연간 교체 계획 리포트가 생성된다. */
+const REPLACEMENT_COST: Record<string, number> = {
+  단말: 1_500_000, 서버: 8_000_000, 네트워크: 3_000_000, 주변기기: 400_000, SW: 0, 가상자원: 0,
+}
+function replacementCandidates() {
+  const s = getStore()
+  const t = today()
+  // 도입 5년 초과 기준일 — 문자열 비교로 TZ 문제를 피한다 (예: 2026-08-01 → 2021-08-01)
+  const cutoff = `${Number(t.slice(0, 4)) - 5}${t.slice(4)}`
+  const active = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status))
+  const cands = active
+    .map((a) => {
+      const warr = a.warrantyEnd !== '-' && a.warrantyEnd < t
+      const aged = a.purchaseDate < cutoff
+      const why = warr && aged ? '보증 경과·내용연수 초과' : warr ? '보증 경과' : aged ? '내용연수 초과' : ''
+      return { a, why }
+    })
+    .filter((x) => x.why)
+  const budget = cands.reduce((n, x) => n + (REPLACEMENT_COST[x.a.category] ?? 0), 0)
+  return { cands, budget }
+}
 
 /** 다음 실행 예정일 — 마지막 실행 + 주기. 스케줄이 밀렸는지 화면에서 드러나야 한다.
  *  ('use server' 모듈은 async 함수만 export 할 수 있어 순수 계산은 여기에 둔다) */
@@ -156,6 +182,39 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '연간 교체 계획') {
+    const { cands, budget } = replacementCandidates()
+    const cats = [...new Set(cands.map((x) => x.a.category))]
+    const warrN = cands.filter((x) => x.why.includes('보증')).length
+    const agedN = cands.filter((x) => x.why.includes('내용연수')).length
+    return [
+      {
+        title: '교체 대상 자산',
+        note: `총 ${cands.length}대 — 보증 경과 ${warrN} · 내용연수 초과 ${agedN}`,
+        columns: ['자산번호', '유형', '모델', '도입일', '보증만료', '상태', '교체 사유'],
+        rows: cands.map((x) => [x.a.assetNo, x.a.category, x.a.model, x.a.purchaseDate, x.a.warrantyEnd, x.a.status, x.why]),
+      },
+      {
+        title: '유형별 교체 수요 · 예산 추정',
+        note: `총 추정 예산 ${fmtAmount(budget)}원 (내용연수 5년 · 유형별 표준 단가 기준)`,
+        columns: ['유형', '대상 대수', '대당 추정 단가', '소계'],
+        rows: cats.map((c) => {
+          const cnt = cands.filter((x) => x.a.category === c).length
+          const unit = REPLACEMENT_COST[c] ?? 0
+          return [c, `${cnt}대`, `${fmtAmount(unit)}원`, `${fmtAmount(cnt * unit)}원`]
+        }),
+      },
+      {
+        title: '우선순위 · 집행 계획',
+        bullets: [
+          `보증 경과 ${warrN}대는 장애 시 무상 수리가 불가 — 우선 교체 대상`,
+          `수리중 자산 ${s.assets.filter((a) => a.status === '수리중').length}대는 수리 불가 판정 시 교체 대상에 편입`,
+          '예산 확정 후 노후·장애 이력 순으로 분기별 집행 계획 수립',
+        ],
+      },
+    ]
+  }
+
   // 감사 대응 자료
   return [
     {
@@ -210,6 +269,13 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
         + `현재까지 차이 항목 ${cur.mismatched}건이 확인되어 조정 결재 대상이며, 기한은 ${cur.dueDate}입니다.`
       : '진행 중인 재물조사가 없습니다.'
   }
+  if (kind === '연간 교체 계획') {
+    const { cands, budget } = replacementCandidates()
+    const warrN = cands.filter((x) => x.why.includes('보증')).length
+    return `내용연수·보증 경과 기준 교체 대상은 ${cands.length}대이며 추정 예산은 ${fmtAmount(budget)}원입니다. `
+      + `이 중 보증이 경과한 ${warrN}대는 장애 시 무상 수리가 불가해 우선 교체 대상입니다. `
+      + '예산 확정 후 노후·장애 이력 순으로 분기별 집행 계획을 수립할 것을 권고합니다.'
+  }
   return `사용자 ${s.users.length}명에 대해 화면·기능 단위 최소권한이 적용되어 있으며 MFA 적용률은 ${Math.round((s.users.filter((u) => u.mfa).length / s.users.length) * 100)}%입니다. `
     + `필수 결재 지정 화면은 ${s.approvalLines.filter((l) => l.required).length}개이며, 탐지 채널 ${s.scanPolicies.filter((p) => p.enabled).length}/${s.scanPolicies.length}이 정책에 따라 운영 중입니다.`
 }
@@ -245,4 +311,69 @@ export function toMarkdown(title: string, period: string, headline: string, sect
     if (sec.bullets?.length) out.push('')
   }
   return out.join('\n')
+}
+
+/** 섹션 표를 LLM 입력용 텍스트로 압축 — 수치는 섹션에서만 오고 AI는 서술만 담당 */
+function sectionsAsText(sections: ReportSection[]): string {
+  return sections
+    .map((s) => {
+      const head = `## ${s.title}${s.note ? ` (${s.note})` : ''}`
+      const table = s.columns ? [s.columns.join(' | '), ...(s.rows ?? []).map((r) => r.join(' | '))].join('\n') : ''
+      const bullets = (s.bullets ?? []).map((b) => `- ${b}`).join('\n')
+      return [head, table, bullets].filter(Boolean).join('\n')
+    })
+    .join('\n\n')
+}
+
+/** 리포트 1건 생성 — 수동 생성·스케줄 실행·AI 제안 승인이 모두 같은 경로를 쓴다.
+ *  수치는 buildSections 가 스토어에서 결정적으로 산출하고, AI 는 서술(headline)만 덧붙인다. */
+export async function createReport(kind: ReportKind, by: string): Promise<string> {
+  const s = getStore()
+  const sections = buildSections(kind)
+  let headline = ruleHeadline(kind, sections)
+  let mode: 'AI' | '규칙' = '규칙'
+
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (apiKey) {
+    try {
+      const { default: Anthropic } = await import('@anthropic-ai/sdk')
+      const client = new Anthropic({ apiKey })
+      const response = await client.messages.create({
+        model: process.env.ANTHROPIC_MODEL_ID || 'claude-opus-5',
+        max_tokens: 4096,
+        system:
+          'IT 자산관리 리포트의 요약 서술을 작성합니다. 아래 표 데이터에 있는 수치만 사용하고 ' +
+          '없는 사실을 추가하지 마세요. 3~5문장의 한국어 평서문으로, 담당자가 조치를 판단할 수 있게 ' +
+          '위험·이상 항목을 우선 언급하세요. 제목이나 머리말 없이 본문만 출력하세요.',
+        messages: [{ role: 'user', content: `리포트: ${kind}\n\n${sectionsAsText(sections)}` }],
+      })
+      if (response.stop_reason !== 'refusal') {
+        const text = response.content
+          .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
+          .map((b) => b.text).join('').trim()
+        if (text) { headline = text; mode = 'AI' }
+      }
+      recordAiCall(mode === 'AI', mode === 'AI' ? undefined : '응답에 텍스트 없음')
+    } catch (err) {
+      // 라이브 생성 실패 시 규칙 기반 서술 유지 — 리포트 생성 자체는 성공시킨다.
+      // 다만 실패 사실은 남긴다. 조용히 폴백하면 화면이 계속 'AI 가동'이라 주장하게 된다.
+      recordAiCall(false, err instanceof Error ? err.message.slice(0, 80) : '알 수 없는 오류')
+    }
+  }
+
+  s.seq += 1
+  const id = `RPT-${s.seq}`
+  s.reports.unshift({
+    id,
+    kind,
+    title: `${kind} (${today()})`,
+    period: today(),
+    generatedAt: nowMinute(),
+    generatedBy: by,
+    mode,
+    headline,
+    sections,
+  })
+  appendAudit({ actor: by, action: `AI 리포트 생성 (${mode})`, target: kind })
+  return id
 }
