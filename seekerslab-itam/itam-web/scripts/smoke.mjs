@@ -164,7 +164,7 @@ try {
   check('공지사항: 목록·본문 렌더', ntcHtml.includes('2026 하반기 재물조사') && ntcHtml.includes('필독'))
   check('공지사항: 사용자에게 등록·관리 버튼 미노출', !ntcHtml.includes('공지 등록') && !ntcHtml.includes('삭제'))
   const ntcAdmin = await (await get('/board/notices', 'ADMIN')).text()
-  check('공지사항: Admin 관리 컨트롤 노출 (등록·고정 토글·삭제)', ntcAdmin.includes('공지 등록') && ntcAdmin.includes('삭제') && (ntcAdmin.includes('고정 해제') || ntcAdmin.includes('상단 고정')))
+  check('공지사항: Admin 관리 컨트롤 노출 (등록·수정·고정 토글·삭제)', ntcAdmin.includes('공지 등록') && ntcAdmin.includes('수정') && ntcAdmin.includes('삭제') && (ntcAdmin.includes('고정 해제') || ntcAdmin.includes('상단 고정')))
   const qnaHtml = await (await get('/board/qna', 'USER')).text()
   check('QnA: 문의 목록·답변 상태 렌더', qnaHtml.includes('질문하기') && qnaHtml.includes('답변 대기') && qnaHtml.includes('답변 완료'))
   const qnaMgr = await (await get('/board/qna', 'ASSET_MGR')).text()

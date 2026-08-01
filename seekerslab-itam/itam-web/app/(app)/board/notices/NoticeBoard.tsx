@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost } from '@/lib/types'
-import { deleteNotice, postNotice, toggleNoticePin } from '../actions'
+import { deleteNotice, editNotice, postNotice, toggleNoticePin } from '../actions'
 
 export function NoticeBoard({ posts, canWrite }: { posts: BoardPost[]; canWrite: boolean }) {
   const [openId, setOpenId] = useState<string | null>(posts[0]?.id ?? null)
@@ -10,9 +10,15 @@ export function NoticeBoard({ posts, canWrite }: { posts: BoardPost[]; canWrite:
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [pinned, setPinned] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [et, setEt] = useState('')
+  const [eb, setEb] = useState('')
+  const [ep, setEp] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const open = posts.find((p) => p.id === openId) ?? null
+  // 다른 공지로 넘어가면 편집 모드 해제
+  const select = (id: string) => { setEditing(null); setOpenId(id === openId ? null : id) }
 
   return (
     <>
@@ -45,7 +51,7 @@ export function NoticeBoard({ posts, canWrite }: { posts: BoardPost[]; canWrite:
             <tbody>
               {posts.map((p) => (
                 <tr key={p.id} className={`clickable ${p.id === openId ? 'sel' : ''}`}
-                  onClick={() => setOpenId(p.id === openId ? null : p.id)}>
+                  onClick={() => select(p.id)}>
                   <td className="c">{p.pinned ? <Chip tone="err" bare>필독</Chip> : <span className="mut">공지</span>}</td>
                   <td className="strong">{p.title}</td>
                   <td>{p.author}<span className="mut"> · {p.dept}</span></td>
@@ -59,9 +65,11 @@ export function NoticeBoard({ posts, canWrite }: { posts: BoardPost[]; canWrite:
       </Card>
 
       {open && (
-        <Card kicker={`${open.createdAt} · ${open.author} (${open.dept})`} title={open.title}
-          actions={canWrite ? (
+        <Card kicker={`${open.createdAt} · ${open.author} (${open.dept})`} title={editing === open.id ? '공지 수정' : open.title}
+          actions={canWrite && editing !== open.id ? (
             <div className="hstack" style={{ gap: 6 }}>
+              <button className="btn sm" disabled={pending}
+                onClick={() => { setEditing(open.id); setEt(open.title); setEb(open.body); setEp(Boolean(open.pinned)); setMsg(null) }}>수정</button>
               <button className="btn sm" disabled={pending}
                 onClick={() => startTransition(async () => setMsg((await toggleNoticePin(open.id)).message))}>
                 {open.pinned ? '고정 해제' : '상단 고정'}
@@ -74,8 +82,33 @@ export function NoticeBoard({ posts, canWrite }: { posts: BoardPost[]; canWrite:
                 })}>삭제</button>
             </div>
           ) : undefined}>
-          <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, color: 'var(--ink-2)' }}>{open.body}</div>
-          {canWrite && msg && <div className="dim" style={{ fontSize: 11.5, marginTop: 10 }}>{msg}</div>}
+          {editing === open.id ? (
+            <div className="vstack" style={{ gap: 8 }}>
+              <input className="input" placeholder="공지 제목" value={et} onChange={(e) => setEt(e.target.value)} />
+              <textarea className="input" style={{ height: 140, padding: '8px 10px', resize: 'vertical', lineHeight: 1.6 }}
+                placeholder="공지 내용" value={eb} onChange={(e) => setEb(e.target.value)} />
+              <div className="hstack">
+                <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={ep} onChange={(e) => setEp(e.target.checked)} />
+                  상단 고정 (필독)
+                </label>
+                <span className="right" />
+                <button className="btn" disabled={pending} onClick={() => setEditing(null)}>취소</button>
+                <button className="btn pri" disabled={pending || !et.trim() || !eb.trim()}
+                  onClick={() => startTransition(async () => {
+                    const r = await editNotice(open.id, et, eb, ep)
+                    setMsg(r.message)
+                    if (r.ok) setEditing(null)
+                  })}>저장</button>
+              </div>
+              {msg && <div className="dim" style={{ fontSize: 11.5 }}>{msg}</div>}
+            </div>
+          ) : (
+            <>
+              <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, color: 'var(--ink-2)' }}>{open.body}</div>
+              {canWrite && msg && <div className="dim" style={{ fontSize: 11.5, marginTop: 10 }}>{msg}</div>}
+            </>
+          )}
         </Card>
       )}
     </>
