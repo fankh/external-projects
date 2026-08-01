@@ -161,6 +161,26 @@ export type ApprovalStatus = '대기' | '승인' | '반려'
  *  결재선 화면에서 '선택'으로 내릴 수 없도록 고정한다(§03·§04 통제 우회 방지). */
 export const MANDATORY_APPROVAL_KINDS: ApprovalKind[] = ['폐기', '격리 요청', '소유자 확인', '차이 조정']
 
+/** 결재선 단계 → 결재 권한그룹 매핑. 다단계 결재선 집행에 쓴다.
+ *  부서장 = 요청자 부서장 → 4-역할 모델에선 ADMIN 으로 근사(제품 결정). IT기획팀장도 ADMIN. */
+export const APPROVAL_STEP_ROLE: Record<string, Role> = {
+  '부서장': 'ADMIN',
+  '자산담당': 'ASSET_MGR',
+  'IT기획팀장': 'ADMIN',
+  '보안담당': 'SEC_MGR',
+}
+
+/** currentStep 표기(예: '자산담당 검토'·'보안담당 승인'·'IT기획팀장 결재'·'부서 확인')에서 단계 라벨을 뽑는다. */
+export function approvalStepLabel(currentStep: string): string {
+  const s = currentStep.replace(/\s*(검토|승인|결재|확인)\s*$/, '').trim()
+  return s === '부서' ? '부서장' : s
+}
+
+/** 결재선 steps 에서 사람 승인 단계만 남긴 라우트 (신청자·자동 단계 제외). */
+export function approvalRoute(steps: string[]): string[] {
+  return steps.filter((st) => st !== '신청자' && st !== 'Discovery 엔진')
+}
+
 export interface Approval {
   id: string
   kind: ApprovalKind

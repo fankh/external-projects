@@ -1,6 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
+import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { Approval, Role } from '@/lib/types'
 import { answerOwnerConfirm, decide } from './actions'
 
@@ -19,9 +20,20 @@ export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds
     a.status === '대기' && a.kind === '소유자 확인' &&
     (['ASSET_MGR', 'ADMIN'].includes(role) || dept === a.dept)
 
-  const canDecide = (a: Approval) =>
-    a.status === '대기' && a.kind !== '소유자 확인' &&
-    (role === 'ADMIN' || (a.kind === '격리 요청' ? role === 'SEC_MGR' : role === 'ASSET_MGR'))
+  // 현재 단계의 결재 역할 — 다단계 결재선에서 지금 처리할 수 있는 권한그룹
+  const stepRoleOf = (a: Approval): Role | undefined => {
+    const route = approvalRoute(linesByKind[a.kind] ?? [])
+    const idx = route.indexOf(approvalStepLabel(a.currentStep))
+    return idx >= 0 ? APPROVAL_STEP_ROLE[route[idx]] : undefined
+  }
+
+  const canDecide = (a: Approval) => {
+    if (a.status !== '대기' || a.kind === '소유자 확인') return false
+    if (role === 'ADMIN') return true
+    const sr = stepRoleOf(a)
+    // 매핑되면 현재 단계 역할만, 아니면 레거시(격리=보안담당·그 외=자산담당)
+    return sr ? role === sr : a.kind === '격리 요청' ? role === 'SEC_MGR' : role === 'ASSET_MGR'
+  }
 
   return (
     <div>
@@ -87,12 +99,14 @@ export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds
                   ) : canDecide(a) ? (
                     <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
                       <button className="btn sm pri" disabled={pending}
-                        onClick={() => startTransition(() => decide(a.id, '승인'))}>승인</button>
+                        onClick={() => startTransition(async () => setMsg((await decide(a.id, '승인')).message))}>승인</button>
                       <button className="btn sm danger" disabled={pending}
-                        onClick={() => startTransition(() => decide(a.id, '반려'))}>반려</button>
+                        onClick={() => startTransition(async () => setMsg((await decide(a.id, '반려')).message))}>반려</button>
                     </span>
                   ) : (
-                    <span className="mut">{a.status === '대기' ? (a.kind === '소유자 확인' ? '부서 응답 대기' : '권한 없음') : a.decidedAt}</span>
+                    <span className="mut">{a.status === '대기'
+                      ? (a.kind === '소유자 확인' ? '부서 응답 대기' : `${a.currentStep} 대기`)
+                      : a.decidedAt}</span>
                   )}
                 </td>
               </tr>

@@ -5,6 +5,7 @@ import { today } from '@/lib/dates'
 import { can } from '@/lib/perm'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
+import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { ApprovalKind } from '@/lib/types'
 
 /** 신청 상신 — 사용자가 직접 올리는 3종 (자산 신청 / 반납 / 이동).
@@ -120,21 +121,45 @@ export async function answerOwnerConfirm(approvalId: string, mine: boolean) {
   }
 }
 
-/** 결재 처리 — 권한그룹별: 격리 요청은 보안담당, 그 외는 자산담당/Admin */
+/** 결재 처리 — 다단계 결재선 집행.
+ *  각 결재는 화면별 기본 결재선(store.approvalLines)의 남은 단계를 순서대로 밟는다.
+ *  현재 단계의 역할(APPROVAL_STEP_ROLE)에 해당하는 사람만 처리할 수 있고, ADMIN 은 오버라이드.
+ *  중간 단계 승인은 다음 단계로 넘기고, 마지막 단계 승인에서만 효과가 적용된다. 반려는 전체 반려. */
 export async function decide(approvalId: string, verdict: '승인' | '반려') {
   const session = await getSession()
-  if (!session) return
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
   const s = getStore()
   const a = s.approvals.find((x) => x.id === approvalId)
-  if (!a || a.status !== '대기') return
+  if (!a || a.status !== '대기') return { ok: false, message: '처리할 결재 건이 아닙니다.' }
 
-  // 매트릭스는 필요조건일 뿐 — 켜준다고 결재 종류별 규칙(격리는 보안담당, 그 외는 자산담당)을
-  // 넘지 못한다. 편집으로 권한이 상승하는 경로를 만들지 않기 위한 제약이다.
-  const byKind =
-    session.role === 'ADMIN' ||
-    (a.kind === '격리 요청' ? session.role === 'SEC_MGR' : session.role === 'ASSET_MGR')
-  if (!byKind || !can('신청 · 결재', '결재', session.role)) return
+  // 현재 위치를 결재선에서 찾는다. 매핑되지 않으면(예: 라이선스 품의) 단일 단계로 취급(레거시 안전).
+  const line = s.approvalLines.find((l) => l.kind === a.kind)
+  const route = approvalRoute(line?.steps ?? [])
+  const curLabel = approvalStepLabel(a.currentStep)
+  let idx = route.indexOf(curLabel)
+  const mapped = idx >= 0
+  if (!mapped) idx = route.length - 1
+  const stepRole = mapped ? APPROVAL_STEP_ROLE[route[idx]] : undefined
 
+  // 역할 게이트 — ADMIN 오버라이드, 매핑되면 그 단계 역할, 아니면 레거시(격리=보안담당·그 외=자산담당).
+  // 매트릭스는 필요조건일 뿐 — 켜준다고 결재 종류별 규칙을 넘지 못한다.
+  const legacyByKind = a.kind === '격리 요청' ? session.role === 'SEC_MGR' : session.role === 'ASSET_MGR'
+  const roleOk = session.role === 'ADMIN' || (stepRole ? session.role === stepRole : legacyByKind)
+  if (!roleOk || !can('신청 · 결재', '결재', session.role)) {
+    return { ok: false, message: `현재 단계(${a.currentStep})를 결재할 권한이 없습니다.` }
+  }
+
+  // 중간 단계 승인 — 다음 단계로 진행하고 효과는 아직 적용하지 않는다.
+  if (verdict === '승인' && mapped && idx < route.length - 1) {
+    const from = route[idx]
+    const to = route[idx + 1]
+    a.currentStep = `${to} 결재`
+    appendAudit({ actor: session.name, action: `결재 단계 승인 — ${from} → ${to} (${idx + 2}/${route.length})`, target: a.id })
+    revalidatePath('/', 'layout')
+    return { ok: true, message: `${a.id} — ${from} 승인 완료, 다음 단계 ‘${to}’ 결재 대기` }
+  }
+
+  // 마지막 단계 승인 또는 반려 — 확정하고 효과를 적용한다.
   a.status = verdict
   a.currentStep = '완료'
   a.decidedAt = today()
@@ -218,4 +243,5 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
     }
   }
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${a.id} ${verdict} 처리 완료 (${session.name})` }
 }
