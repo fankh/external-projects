@@ -23,6 +23,11 @@ export default async function ApprovalsPage() {
     .sort((a, b) => a.sort - b.sort)
     .map((v) => v.label)
 
+  // 결재 종류별 기본 결재선(단계 순서) — 결재함에서 각 건의 라우팅을 보여준다.
+  // 설정: 환경설정 › 사용자·결재선. 폐기·격리·편입·차이 조정은 필수 결재.
+  const linesByKind = Object.fromEntries(s.approvalLines.map((l) => [l.kind, l.steps])) as Record<string, string[]>
+  const requiredKinds = new Set(s.approvalLines.filter((l) => l.required).map((l) => l.kind))
+
   return (
     <>
       <ScreenHeader
@@ -41,7 +46,7 @@ export default async function ApprovalsPage() {
       <RequestForm myAssets={myAssets} locations={locations} />
 
       <Card pad={false} actions={<ExportButton kind="approvals" role={session.role} label="결재 이력 엑셀" />}>
-        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} />
+        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} />
       </Card>
 
       <div className="callout">

@@ -139,6 +139,7 @@ try {
   check('계약·라이선스: 보유–사용 대사 렌더', contractsHtml.includes('JetBrains') && contractsHtml.includes('초과 사용'))
   const aprHtml = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('결재함: 격리 요청 문서 렌더', aprHtml.includes('격리 요청') && aprHtml.includes('APR-2607-112'))
+  check('결재함: 결재선 라우팅 표시 (단계 + 필수)', aprHtml.includes('결재선') && aprHtml.includes('IT기획팀장') && aprHtml.includes('보안담당'))
   const permHtml = await (await get('/settings/permissions', 'ADMIN')).text()
   check('권한 매트릭스: 파이프라인·매트릭스 렌더', permHtml.includes('메뉴권한관리') && permHtml.includes('클릭해 변경'))
   check('권한 매트릭스: 잠금 칸 표시 (Admin 자기 잠금 방지)', permHtml.includes('🔒'))

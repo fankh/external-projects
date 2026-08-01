@@ -4,7 +4,10 @@ import { Chip } from '@/components/ui'
 import type { Approval, Role } from '@/lib/types'
 import { answerOwnerConfirm, decide } from './actions'
 
-export function ApprovalList({ approvals, role, dept }: { approvals: Approval[]; role: Role; dept: string }) {
+export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds }: {
+  approvals: Approval[]; role: Role; dept: string
+  linesByKind: Record<string, string[]>; requiredKinds: string[]
+}) {
   const [tab, setTab] = useState<'대기' | '전체'>('대기')
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -35,7 +38,7 @@ export function ApprovalList({ approvals, role, dept }: { approvals: Approval[];
           <thead>
             <tr>
               <th>문서번호</th><th>구분</th><th>제목</th><th>기안자</th><th>기안일</th>
-              <th>현재 단계</th><th className="c">상태</th><th className="c">처리</th>
+              <th>결재선</th><th className="c">상태</th><th className="c">처리</th>
             </tr>
           </thead>
           <tbody>
@@ -48,7 +51,28 @@ export function ApprovalList({ approvals, role, dept }: { approvals: Approval[];
                 <td className="strong" style={{ maxWidth: 380 }}>{a.title}</td>
                 <td>{a.requester}<span className="mut"> · {a.dept}</span></td>
                 <td className="tnum">{a.requestedAt}</td>
-                <td className="mute">{a.currentStep}{a.decidedBy ? ` (${a.decidedBy})` : ''}</td>
+                <td style={{ minWidth: 210 }}>
+                  {(() => {
+                    const steps = linesByKind[a.kind] ?? []
+                    const cur = a.currentStep.replace(/ 결재$/, '')
+                    return steps.length > 0 ? (
+                      <span className="flow">
+                        {steps.map((st, i) => (
+                          <span key={st} style={{ display: 'contents' }}>
+                            {i > 0 && <span className="ar">→</span>}
+                            <span className="fs" style={a.status === '대기' && st === cur
+                              ? { background: 'var(--accent-soft)', color: 'var(--accent-deep)', fontWeight: 700 }
+                              : undefined}>{st}</span>
+                          </span>
+                        ))}
+                        {requiredKinds.includes(a.kind) && <Chip tone="err" bare>필수</Chip>}
+                      </span>
+                    ) : <span className="mute">{a.currentStep}</span>
+                  })()}
+                  <div className="mut" style={{ fontSize: 10.5, marginTop: 3 }}>
+                    {a.status === '대기' ? `현재: ${a.currentStep}` : `${a.status} · ${a.decidedBy ?? ''} ${a.decidedAt ?? ''}`}
+                  </div>
+                </td>
                 <td className="c">
                   <Chip tone={a.status === '승인' ? 'ok' : a.status === '반려' ? 'err' : 'info'}>{a.status}</Chip>
                 </td>
