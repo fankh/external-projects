@@ -199,6 +199,8 @@ export interface Approval {
   targetLocation?: string
   /** 승인 후 자산담당이 실제 불출·이동을 집행했는지. 결재 승인만으로는 실물이 움직이지 않는다 */
   fulfilled?: boolean
+  /** 반려 사유 — 반려 시 필수 입력. 신청자 재상신 근거이자 감사 기록 (AI 제안 반려와 동일 원칙) */
+  rejectReason?: string
 }
 
 /** 반납 접수 시 상태 점검 결과 — 재배치 가능 여부를 가른다 (제품안내서 §03 PHASE 4) */

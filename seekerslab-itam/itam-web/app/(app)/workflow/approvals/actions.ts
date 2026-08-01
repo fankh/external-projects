@@ -125,12 +125,17 @@ export async function answerOwnerConfirm(approvalId: string, mine: boolean) {
  *  각 결재는 화면별 기본 결재선(store.approvalLines)의 남은 단계를 순서대로 밟는다.
  *  현재 단계의 역할(APPROVAL_STEP_ROLE)에 해당하는 사람만 처리할 수 있고, ADMIN 은 오버라이드.
  *  중간 단계 승인은 다음 단계로 넘기고, 마지막 단계 승인에서만 효과가 적용된다. 반려는 전체 반려. */
-export async function decide(approvalId: string, verdict: '승인' | '반려') {
+export async function decide(approvalId: string, verdict: '승인' | '반려', reason = '') {
   const session = await getSession()
   if (!session) return { ok: false, message: '로그인이 필요합니다.' }
   const s = getStore()
   const a = s.approvals.find((x) => x.id === approvalId)
   if (!a || a.status !== '대기') return { ok: false, message: '처리할 결재 건이 아닙니다.' }
+
+  // 반려는 사유가 필수 — 신청자 재상신 근거이자 감사 기록 (AI 제안 반려와 같은 원칙)
+  if (verdict === '반려' && !reason.trim()) {
+    return { ok: false, message: '반려 사유를 입력해 주세요 — 신청자에게 전달되고 감사 로그에 남습니다.' }
+  }
 
   // 현재 위치를 결재선에서 찾는다. 매핑되지 않으면(예: 라이선스 품의) 단일 단계로 취급(레거시 안전).
   const line = s.approvalLines.find((l) => l.kind === a.kind)
@@ -164,6 +169,12 @@ export async function decide(approvalId: string, verdict: '승인' | '반려') {
   a.currentStep = '완료'
   a.decidedAt = today()
   a.decidedBy = session.name
+  if (verdict === '반려') a.rejectReason = reason.trim()
+  appendAudit({
+    actor: session.name,
+    action: `${a.kind} ${verdict}${verdict === '반려' ? ` — ${reason.trim()}` : ''}`,
+    target: a.id,
+  })
 
   // 폐기 결재 — 승인 시 데이터 소거 대기로 전환 (소거·증적은 폐기 화면에서 처리)
   if (a.kind === '폐기') {

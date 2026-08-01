@@ -11,7 +11,17 @@ export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds
 }) {
   const [tab, setTab] = useState<'대기' | '전체'>('대기')
   const [msg, setMsg] = useState<string | null>(null)
+  const [rejecting, setRejecting] = useState<string | null>(null)
+  const [reason, setReason] = useState('')
   const [pending, startTransition] = useTransition()
+
+  const reject = (id: string) => {
+    startTransition(async () => {
+      const r = await decide(id, '반려', reason)
+      setMsg(r.message)
+      if (r.ok) { setRejecting(null); setReason('') }
+    })
+  }
 
   const rows = tab === '대기' ? approvals.filter((a) => a.status === '대기') : approvals
 
@@ -83,6 +93,9 @@ export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds
                   })()}
                   <div className="mut" style={{ fontSize: 10.5, marginTop: 3 }}>
                     {a.status === '대기' ? `현재: ${a.currentStep}` : `${a.status} · ${a.decidedBy ?? ''} ${a.decidedAt ?? ''}`}
+                    {a.status === '반려' && a.rejectReason && (
+                      <span style={{ color: 'var(--err)' }}> · 사유: {a.rejectReason}</span>
+                    )}
                   </div>
                 </td>
                 <td className="c">
@@ -97,12 +110,23 @@ export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds
                         onClick={() => startTransition(async () => setMsg((await answerOwnerConfirm(a.id, false)).message))}>아님</button>
                     </span>
                   ) : canDecide(a) ? (
-                    <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
-                      <button className="btn sm pri" disabled={pending}
-                        onClick={() => startTransition(async () => setMsg((await decide(a.id, '승인')).message))}>승인</button>
-                      <button className="btn sm danger" disabled={pending}
-                        onClick={() => startTransition(async () => setMsg((await decide(a.id, '반려')).message))}>반려</button>
-                    </span>
+                    rejecting === a.id ? (
+                      <span className="hstack" style={{ justifyContent: 'center', gap: 4 }}>
+                        <input className="input" style={{ width: 150, height: 26 }} autoFocus
+                          placeholder="반려 사유" value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && reason.trim()) reject(a.id) }} />
+                        <button className="btn sm danger" disabled={pending || !reason.trim()} onClick={() => reject(a.id)}>반려 확정</button>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => { setRejecting(null); setReason('') }}>취소</button>
+                      </span>
+                    ) : (
+                      <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
+                        <button className="btn sm pri" disabled={pending}
+                          onClick={() => startTransition(async () => setMsg((await decide(a.id, '승인')).message))}>승인</button>
+                        <button className="btn sm danger" disabled={pending}
+                          onClick={() => { setRejecting(a.id); setReason(''); setMsg(null) }}>반려</button>
+                      </span>
+                    )
                   ) : (
                     <span className="mut">{a.status === '대기'
                       ? (a.kind === '소유자 확인' ? '부서 응답 대기' : `${a.currentStep} 대기`)
