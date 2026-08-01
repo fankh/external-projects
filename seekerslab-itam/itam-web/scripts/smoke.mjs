@@ -353,7 +353,7 @@ try {
   const aiHtml = await (await get('/settings/ai-policy', 'ADMIN')).text()
   check('AI 정책: 실행 환경·거버넌스 렌더', aiHtml.includes('온프레미스 LLM') && aiHtml.includes('권한 범위 필터'))
   const usrHtml = await (await get('/settings/users', 'ADMIN')).text()
-  check('사용자 · 결재선: 결재선·필수 결재 렌더', usrHtml.includes('IT기획팀장') && usrHtml.includes('필수 결재'))
+  check('사용자 · 결재선: 결재선·필수 결재·단계 편집 렌더', usrHtml.includes('IT기획팀장') && usrHtml.includes('필수 결재') && usrHtml.includes('편집'))
   check('사용자 · 결재선: STEP 4 권한그룹 배정 컨트롤 렌더', usrHtml.includes('사용자 · 권한그룹 배정') && usrHtml.includes('select'))
   check('사용자 · 결재선: 필수 결재선 잠금 표시(🔒)', usrHtml.includes('🔒') && usrHtml.includes('해제할 수 없'))
   check('사용자 · 결재선: 선택 결재선 토글 버튼 렌더', /class="[^"]*btn[^"]*sm/.test(usrHtml))

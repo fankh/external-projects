@@ -40,6 +40,29 @@ export async function setUserRole(login: string, role: Role): Promise<Res> {
   return { ok: true, message: `${user.name} → ${ROLE_LABEL[role]}` }
 }
 
+/** 결재선 결재자 단계 편집 — 화면별 기본 결재선(STEP 4). Admin 전용.
+ *  역할에 매핑되는 결재자 단계만 허용해 결재 라우팅이 항상 유효하도록 한다(부서장·자산담당·보안담당·IT기획팀장).
+ *  신청자는 첫 단계로 고정, 결재자 단계는 최소 1개. 시스템 결재선(Discovery 엔진 등)은 편집 대상 아님. */
+export async function setApprovalLineSteps(id: string, approvers: string[]): Promise<Res> {
+  const session = await getSession()
+  if (!session || session.role !== 'ADMIN') return { ok: false, message: '결재선 변경은 Admin 만 가능합니다.' }
+  const VALID = ['부서장', '자산담당', '보안담당', 'IT기획팀장']
+
+  const s = getStore()
+  const line = s.approvalLines.find((l) => l.id === id)
+  if (!line) return { ok: false, message: '결재선을 찾을 수 없습니다.' }
+  if (line.steps.some((st) => st !== '신청자' && !VALID.includes(st))) {
+    return { ok: false, message: '시스템 결재선은 편집할 수 없습니다.' }
+  }
+  const picked = VALID.filter((st) => approvers.includes(st))
+  if (picked.length === 0) return { ok: false, message: '결재자 단계를 1개 이상 지정하세요.' }
+
+  line.steps = ['신청자', ...picked]
+  appendAdminAudit(session.name, `결재선 단계 변경 — ${line.screen}(${line.kind}): ${line.steps.join(' → ')}`, '결재선')
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${line.screen} 결재선 변경 — ${picked.join(' → ')}` }
+}
+
 /** 결재선 필수 여부 토글 — 화면별 기본 결재선(STEP 4). Admin 전용.
  *  폐기·격리·편입·차이 조정은 필수 결재로 고정되어 해제할 수 없다(통제 우회 방지). */
 export async function toggleApprovalRequired(id: string): Promise<Res> {

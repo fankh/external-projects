@@ -3,9 +3,10 @@ import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { MANDATORY_APPROVAL_KINDS, ROLE_LABEL } from '@/lib/types'
 import type { ApprovalLine, Role, UserAccount } from '@/lib/types'
-import { setUserRole, toggleApprovalRequired } from './actions'
+import { setApprovalLineSteps, setUserRole, toggleApprovalRequired } from './actions'
 
 const ROLES: Role[] = ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']
+const APPROVER_STEPS = ['부서장', '자산담당', '보안담당', 'IT기획팀장']
 const ROLE_TONE: Record<Role, 'neutral' | 'info' | 'warn' | 'err'> = {
   USER: 'neutral', ASSET_MGR: 'info', SEC_MGR: 'warn', ADMIN: 'err',
 }
@@ -28,6 +29,16 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
       setMsg(r.message || null)
     })
   }
+  const [editLine, setEditLine] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string[]>([])
+  const editable = (l: ApprovalLine) => l.steps.every((st) => st === '신청자' || APPROVER_STEPS.includes(st))
+  const openLineEdit = (l: ApprovalLine) => { setEditLine(l.id); setPicked(l.steps.filter((st) => st !== '신청자')); setMsg(null) }
+  const togglePick = (st: string) => setPicked((p) => (p.includes(st) ? p.filter((x) => x !== st) : [...p, st]))
+  const saveLine = (id: string) => startTransition(async () => {
+    const r = await setApprovalLineSteps(id, picked)
+    setMsg(r.message || null)
+    if (r.ok) setEditLine(null)
+  })
 
   return (
     <>
@@ -88,14 +99,30 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
                     <td className="strong">{l.screen}</td>
                     <td className="mute">{l.kind}</td>
                     <td>
-                      <span className="flow">
-                        {l.steps.map((st, i) => (
-                          <span key={st} style={{ display: 'contents' }}>
-                            {i > 0 && <span className="ar">→</span>}
-                            <span className="fs">{st}</span>
+                      {editLine === l.id ? (
+                        <div className="hstack" style={{ gap: 8, flexWrap: 'wrap' }}>
+                          <span className="fs">신청자</span>
+                          {APPROVER_STEPS.map((st) => (
+                            <label key={st} className="hstack" style={{ gap: 3, fontSize: 11.5, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={picked.includes(st)} onChange={() => togglePick(st)} /> {st}
+                            </label>
+                          ))}
+                          <button className="btn sm pri" disabled={pending || picked.length === 0} onClick={() => saveLine(l.id)}>저장</button>
+                          <button className="btn sm ghost" disabled={pending} onClick={() => setEditLine(null)}>취소</button>
+                        </div>
+                      ) : (
+                        <span className="hstack" style={{ gap: 8 }}>
+                          <span className="flow">
+                            {l.steps.map((st, i) => (
+                              <span key={st} style={{ display: 'contents' }}>
+                                {i > 0 && <span className="ar">→</span>}
+                                <span className="fs">{st}</span>
+                              </span>
+                            ))}
                           </span>
-                        ))}
-                      </span>
+                          {editable(l) && <button className="btn sm ghost" disabled={pending} onClick={() => openLineEdit(l)}>편집</button>}
+                        </span>
+                      )}
                     </td>
                     <td className="c">
                       {locked ? (
