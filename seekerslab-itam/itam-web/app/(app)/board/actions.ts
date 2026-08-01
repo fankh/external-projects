@@ -62,6 +62,37 @@ export async function postNotice(title: string, body: string, pinned: boolean) {
     views: 0,
     pinned,
   })
+  appendAudit({ actor: session.name, action: `공지 등록${pinned ? ' (필독 고정)' : ''} — ${title.trim()}`, target: '공지' })
   revalidatePath('/', 'layout')
   return { ok: true, message: '공지가 등록되었습니다.' }
+}
+
+/** 공지 삭제 — Admin. 등록만 있고 정리 수단이 없어 낡은 공지가 계속 남던 공백을 메운다. */
+export async function deleteNotice(postId: string) {
+  const session = await getSession()
+  if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 삭제 권한이 없습니다.' }
+
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
+  if (!post) return { ok: false, message: '공지를 찾을 수 없습니다.' }
+  s.posts = s.posts.filter((p) => p.id !== postId)
+
+  appendAudit({ actor: session.name, action: `공지 삭제 — ${post.title}`, target: postId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: '공지가 삭제되었습니다.' }
+}
+
+/** 공지 상단 고정 토글 — Admin. 필독 지정·해제로 목록 상단 노출을 관리한다. */
+export async function toggleNoticePin(postId: string) {
+  const session = await getSession()
+  if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 고정 권한이 없습니다.' }
+
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
+  if (!post) return { ok: false, message: '공지를 찾을 수 없습니다.' }
+  post.pinned = !post.pinned
+
+  appendAudit({ actor: session.name, action: `공지 ${post.pinned ? '상단 고정' : '고정 해제'} — ${post.title}`, target: postId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `공지를 ${post.pinned ? '상단 고정' : '고정 해제'}했습니다.` }
 }

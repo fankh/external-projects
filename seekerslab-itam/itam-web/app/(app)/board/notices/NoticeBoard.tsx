@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost } from '@/lib/types'
-import { postNotice } from '../actions'
+import { deleteNotice, postNotice, toggleNoticePin } from '../actions'
 
 export function NoticeBoard({ posts, canWrite }: { posts: BoardPost[]; canWrite: boolean }) {
   const [openId, setOpenId] = useState<string | null>(posts[0]?.id ?? null)
@@ -59,8 +59,23 @@ export function NoticeBoard({ posts, canWrite }: { posts: BoardPost[]; canWrite:
       </Card>
 
       {open && (
-        <Card kicker={`${open.createdAt} · ${open.author} (${open.dept})`} title={open.title}>
+        <Card kicker={`${open.createdAt} · ${open.author} (${open.dept})`} title={open.title}
+          actions={canWrite ? (
+            <div className="hstack" style={{ gap: 6 }}>
+              <button className="btn sm" disabled={pending}
+                onClick={() => startTransition(async () => setMsg((await toggleNoticePin(open.id)).message))}>
+                {open.pinned ? '고정 해제' : '상단 고정'}
+              </button>
+              <button className="btn sm danger" disabled={pending}
+                onClick={() => startTransition(async () => {
+                  const r = await deleteNotice(open.id)
+                  setMsg(r.message)
+                  if (r.ok) setOpenId(null)
+                })}>삭제</button>
+            </div>
+          ) : undefined}>
           <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, color: 'var(--ink-2)' }}>{open.body}</div>
+          {canWrite && msg && <div className="dim" style={{ fontSize: 11.5, marginTop: 10 }}>{msg}</div>}
         </Card>
       )}
     </>

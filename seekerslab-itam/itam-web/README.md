@@ -23,7 +23,7 @@ npm run dev        # http://localhost:3000
 
 ```powershell
 npm run build
-npm run smoke      # 프로덕션 서버 기동 → 258개 검증 → 종료
+npm run smoke      # 프로덕션 서버 기동 → 259개 검증 → 종료
 ```
 
 배포 후에는 **같은 스위트를 배포본에 한 번 더** 돌린다 — 로컬에서 통과해도 배포본에서만
