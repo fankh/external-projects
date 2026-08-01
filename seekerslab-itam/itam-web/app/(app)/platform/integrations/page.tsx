@@ -1,8 +1,9 @@
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { AuditLog } from './AuditLog'
 import { ConnectorTable } from './ConnectorTable'
+import { NotificationLog } from './NotificationLog'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,32 +55,7 @@ export default async function IntegrationsPage() {
 
       <AuditLog logs={s.auditLogs} exportHref={canManage ? '/api/audit-export' : undefined} />
 
-      <Card kicker="Notifications" title={`알림 발송 이력 ${s.dispatches.length}건`} pad={false}>
-        {s.dispatches.length === 0 ? (
-          <div className="empty">발송 이력이 없습니다.</div>
-        ) : (
-          <div className="tbl-wrap">
-            <table className="tbl">
-              <thead>
-                <tr><th>발송 ID</th><th className="c">채널</th><th className="c">종류</th><th>수신</th><th>제목</th><th>연결 문서</th><th>발송 시각</th></tr>
-              </thead>
-              <tbody>
-                {s.dispatches.map((m) => (
-                  <tr key={m.id}>
-                    <td className="code">{m.id}</td>
-                    <td className="c"><Chip tone={m.channel === '문자' ? 'warn' : 'info'}>{m.channel}</Chip></td>
-                    <td className="c mute">{m.kind}</td>
-                    <td>{m.to}</td>
-                    <td className="strong" style={{ maxWidth: 360 }}>{m.subject}</td>
-                    <td className="code">{m.ref ?? '-'}</td>
-                    <td className="tnum">{m.at}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      <NotificationLog dispatches={s.dispatches} />
 
       <div className="cols c2">
         <div className="callout"><b>인증.</b> SAML 기반 SSO — 그룹웨어 IdP 어설션으로 로그인하며, 부여된 메뉴·기능만 렌더링됩니다.</div>
