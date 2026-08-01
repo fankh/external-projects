@@ -68,6 +68,8 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                       <span>
                         <b>{d.wipeMethod}</b> · {d.wipedAt} {d.wipedBy}
                         <div className="mono" style={{ fontSize: 11, color: 'var(--ok)' }}>{d.evidence}</div>
+                        <a className="btn sm ghost" style={{ marginTop: 4 }}
+                          href={`/api/wipe-cert/${d.id}`} download>소거 확인서 다운로드</a>
                       </span>
                     ) : <span className="mut">-</span>}
                   </td>
