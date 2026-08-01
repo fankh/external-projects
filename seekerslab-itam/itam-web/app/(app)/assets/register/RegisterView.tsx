@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
-import { recordConfigChange, type ConfigField } from './actions'
+import { extendWarranty, recordConfigChange, type ConfigField } from './actions'
 
 /** 조회 필터의 유형 목록 — 공통코드 ASSET_CATEGORY 의 '사용' 여부와 무관하게 전부 노출한다.
  *  미사용 처리는 **신규 입력**에서만 제외하는 규칙이고(환경설정 › 공통코드 안내 참조), 이미 그
@@ -23,6 +23,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [cfgValue, setCfgValue] = useState('')
   const [cfgNote, setCfgNote] = useState('')
   const [cfgMsg, setCfgMsg] = useState<string | null>(null)
+  const [wtyOpen, setWtyOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const rows = useMemo(() => {
@@ -166,6 +167,29 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                         <button className="btn sm pri" disabled={pending} onClick={submit}>기록</button>
                         <button className="btn sm ghost" disabled={pending} onClick={() => { setCfgOpen(false); setCfgMsg(null) }}>취소</button>
                       </div>
+                    </div>
+                  )}
+                  {sel.warrantyEnd !== '-' && (
+                    <div style={{ marginTop: 10 }}>
+                      {!wtyOpen ? (
+                        <button className="btn sm" disabled={pending}
+                          onClick={() => { setWtyOpen(true); setCfgMsg(null); setCfgOpen(false) }}
+                          title="보증 만료일 연장 (1·2·3년)">보증 연장</button>
+                      ) : (
+                        <div className="vstack" style={{ gap: 8 }}>
+                          <div className="kicker mute">보증 연장 · 현재 만료 {sel.warrantyEnd}</div>
+                          <div className="hstack">
+                            {[1, 2, 3].map((y) => (
+                              <button key={y} className="btn sm pri" disabled={pending}
+                                onClick={() => startTransition(async () => {
+                                  const r = await extendWarranty(sel.assetNo, y)
+                                  setCfgMsg(r.message); setWtyOpen(false)
+                                })}>{y}년</button>
+                            ))}
+                            <button className="btn sm ghost" disabled={pending} onClick={() => setWtyOpen(false)}>취소</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

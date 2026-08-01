@@ -16,7 +16,7 @@ export type AssetStatus = '검수중' | '사용중' | '유휴' | '반납대기' 
 
 export interface AssetHistoryItem {
   date: string
-  kind: '등록' | '불출' | '이동' | '구성변경' | '점검' | '반납' | '폐기' | '편입'
+  kind: '등록' | '불출' | '이동' | '구성변경' | '점검' | '반납' | '폐기' | '편입' | '보증연장'
   detail: string
   actor: string
 }

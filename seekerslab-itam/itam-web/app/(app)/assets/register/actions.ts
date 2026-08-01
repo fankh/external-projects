@@ -46,3 +46,30 @@ export async function recordConfigChange(assetNo: string, field: ConfigField, ra
   revalidatePath('/', 'layout')
   return { ok: true, message: `${asset.assetNo} 구성변경 기록 — ${detail}` }
 }
+
+/** 보증 연장 — 자산의 보증 만료일을 연장한다(연장 보증 계약 등).
+ *  (제품안내서 §03 보증기간 관리 — 보증 만료 알림은 "연장·교체 검토 요청"이라 하는데 연장 처리가 없었다)
+ *  만료 전이면 만료일 기준, 지났으면 오늘 기준으로 연장. 타임라인에 보증연장 이벤트를 남기고
+ *  만료일이 미래로 바뀌면 만료 임박 집계에서 빠진다(폐쇄 루프). */
+export async function extendWarranty(assetNo: string, termYears: number) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '보증 연장 권한이 없습니다 (자산담당·Admin).' }
+  if (![1, 2, 3].includes(termYears)) return { ok: false, message: '연장 기간은 1·2·3년만 가능합니다.' }
+
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.warrantyEnd === '-') return { ok: false, message: '보증 정보가 없는 자산입니다 (SW·가상자원 등).' }
+
+  const base = asset.warrantyEnd >= today() ? asset.warrantyEnd : today()
+  const [y, m, d] = base.split('-')
+  const newEnd = `${Number(y) + termYears}-${m}-${d}`
+  const oldEnd = asset.warrantyEnd
+  asset.warrantyEnd = newEnd
+
+  const detail = `보증 만료 ${oldEnd} → ${newEnd} (${termYears}년 연장)`
+  asset.history.push({ date: today(), kind: '보증연장', detail, actor: session.name })
+  appendAudit({ actor: session.name, action: `보증 연장 — ${detail}`, target: asset.assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${asset.assetNo} 보증 연장 — ${oldEnd} → ${newEnd}` }
+}
