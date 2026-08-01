@@ -25,6 +25,10 @@ function buildContext(userName: string, isUser: boolean): string {
       ...s.licenses.map((l) => `- ${l.name} | 보유:${l.purchased} 사용:${l.used} | 만료:${l.expiry}`),
       `[Shadow SaaS]`,
       ...s.saas.map((x) => `- ${x.service} | ${x.dept} | 사용자:${x.users} | ${x.sanctioned ? '인가' : '미인가'} | 위험도:${x.risk}`),
+      `[재물조사] ${s.inventoryRounds.length}회차`,
+      ...s.inventoryRounds.map((r) => `- ${r.name} | ${r.status} | ${r.scanned}/${r.planned} 스캔 | 차이:${r.mismatched} | 기한:${r.dueDate}`),
+      `[결재 대기] ${s.approvals.filter((a) => a.status === '대기').length}건`,
+      ...s.approvals.filter((a) => a.status === '대기').map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.currentStep}`),
     )
   }
   return lines.join('\n')
@@ -35,6 +39,31 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   const s = getStore()
   const q = question.toLowerCase()
 
+  if (!isUser && (q.includes('재물조사') || q.includes('실사') || q.includes('재고조사'))) {
+    const cur = s.inventoryRounds.find((r) => r.status === '진행중')
+    const rounds = s.inventoryRounds
+    return {
+      role: 'assistant',
+      text: cur
+        ? `진행 중인 재물조사는 '${cur.name}'이며 진행률 ${Math.round((cur.scanned / cur.planned) * 100)}% (${cur.scanned.toLocaleString()}/${cur.planned.toLocaleString()} 스캔)입니다. 차이 항목 ${cur.mismatched}건이 조정 결재 대상이며 기한은 ${cur.dueDate}입니다.\n\n전체 회차 ${rounds.length}개 — ${rounds.map((r) => `${r.name}(${r.status})`).join(', ')}.`
+        : `현재 진행 중인 재물조사가 없습니다. 전체 회차 ${rounds.length}개: ${rounds.map((r) => `${r.name}(${r.status})`).join(', ')}.`,
+      evidence: [
+        { label: '재물조사 수행', href: '/inventory/survey' },
+        { label: '재물조사 계획', href: '/inventory/survey-plan' },
+      ],
+    }
+  }
+  if (!isUser && (q.includes('결재') || q.includes('승인 대기') || q.includes('상신'))) {
+    const pend = s.approvals.filter((a) => a.status === '대기')
+    const byKind = [...new Set(pend.map((a) => a.kind))].map((k) => `${k} ${pend.filter((a) => a.kind === k).length}건`)
+    return {
+      role: 'assistant',
+      text: `현재 결재 대기 ${pend.length}건입니다.${pend.length
+        ? `\n\n종류별: ${byKind.join(', ')}.\n\n${pend.slice(0, 6).map((a) => `· ${a.id} — ${a.title} (현재 단계: ${a.currentStep})`).join('\n')}`
+        : ''}`,
+      evidence: [{ label: '결재함', href: '/workflow/approvals' }],
+    }
+  }
   if (!isUser && (q.includes('미인가') || q.includes('saas') || q.includes('새스') || q.includes('섀도'))) {
     const shadow = s.saas.filter((x) => !x.sanctioned)
     // "A부서에서 쓰는 …" — 질문에 언급된 부서가 있으면 그 부서로 좁힌다
@@ -102,7 +131,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "내 보유 자산"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "내 보유 자산"`,
   }
 }
 
