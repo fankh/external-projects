@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { Approval, Role } from '@/lib/types'
-import { answerOwnerConfirm, decide, withdrawRequest } from './actions'
+import { answerOwnerConfirm, decide, resubmitRequest, withdrawRequest } from './actions'
 
 const WITHDRAWABLE = ['자산 신청', '반납', '이동']
 
@@ -15,7 +15,16 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
   const [msg, setMsg] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<string | null>(null)
   const [reason, setReason] = useState('')
+  const [resubmitting, setResubmitting] = useState<string | null>(null)
+  const [renote, setRenote] = useState('')
   const [pending, startTransition] = useTransition()
+
+  const canResubmit = (a: Approval) => a.status === '반려' && a.requester === viewer && WITHDRAWABLE.includes(a.kind)
+  const resubmit = (id: string) => startTransition(async () => {
+    const r = await resubmitRequest(id, renote)
+    setMsg(r.message)
+    if (r.ok) { setResubmitting(null); setRenote('') }
+  })
 
   const reject = (id: string) => {
     startTransition(async () => {
@@ -140,6 +149,22 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
                       <span className="mut" style={{ fontSize: 11 }}>{a.currentStep} 대기</span>
                       <button className="btn sm ghost" disabled={pending} onClick={() => withdraw(a.id)}>상신 취소</button>
                     </span>
+                  ) : canResubmit(a) ? (
+                    resubmitting === a.id ? (
+                      <span className="hstack" style={{ justifyContent: 'center', gap: 4 }}>
+                        <input className="input" style={{ width: 160, height: 26 }} autoFocus
+                          placeholder="재상신 사유 (반려 반영)" value={renote}
+                          onChange={(e) => setRenote(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && renote.trim()) resubmit(a.id) }} />
+                        <button className="btn sm pri" disabled={pending || !renote.trim()} onClick={() => resubmit(a.id)}>재상신</button>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => { setResubmitting(null); setRenote('') }}>취소</button>
+                      </span>
+                    ) : (
+                      <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
+                        <span className="mut" style={{ fontSize: 11 }}>{a.decidedAt}</span>
+                        <button className="btn sm" disabled={pending} onClick={() => { setResubmitting(a.id); setRenote(''); setMsg(null) }}>재상신</button>
+                      </span>
+                    )
                   ) : (
                     <span className="mut">{a.status === '대기'
                       ? (a.kind === '소유자 확인' ? '부서 응답 대기' : `${a.currentStep} 대기`)

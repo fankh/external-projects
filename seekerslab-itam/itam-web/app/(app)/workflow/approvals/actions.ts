@@ -78,6 +78,44 @@ export async function raiseRequest(input: {
   return { ok: true, message: `${id} 상신 완료 — ${nextStep} 결재 대기` }
 }
 
+/** 재상신 — 반려된 본인 신청을 사유를 보완해 다시 올린다 (반려 → 수정 → 재상신 폐쇄).
+ *  원 신청의 종류·대상·제목을 승계하고, 재상신 사유는 필수로 받아 반려 지적을 반영하게 한다. */
+export async function resubmitRequest(approvalId: string, note: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+
+  const s = getStore()
+  const orig = s.approvals.find((a) => a.id === approvalId)
+  if (!orig) return { ok: false, message: '원 신청을 찾을 수 없습니다.' }
+  if (orig.status !== '반려') return { ok: false, message: '반려된 신청만 재상신할 수 있습니다.' }
+  if (orig.requester !== session.name) return { ok: false, message: '본인 신청만 재상신할 수 있습니다.' }
+  if (!['자산 신청', '반납', '이동'].includes(orig.kind)) {
+    return { ok: false, message: `재상신 대상이 아닌 결재입니다 — ${orig.kind}` }
+  }
+  const trimmed = note.trim()
+  if (!trimmed) return { ok: false, message: '재상신 사유를 입력해 주세요 (반려 지적 반영).' }
+
+  const line = s.approvalLines.find((l) => l.kind === orig.kind)
+  const nextStep = line?.steps.find((st) => st !== '신청자') ?? '자산담당'
+  const id = nextApprovalId()
+  s.approvals.unshift({
+    id,
+    kind: orig.kind,
+    title: orig.title,
+    requester: session.name,
+    dept: session.dept,
+    requestedAt: today(),
+    status: '대기',
+    currentStep: `${nextStep} 결재`,
+    refId: orig.refId,
+    note: trimmed,
+    targetLocation: orig.targetLocation,
+  })
+  appendAudit({ actor: session.name, action: `${orig.kind} 재상신 (원 ${orig.id} 반려)`, target: id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${id} 재상신 완료 — ${nextStep} 결재 대기` }
+}
+
 /** 상신 취소 — 신청자가 본인의 대기 중인 신청을 회수한다 (전자결재 상신 취소).
  *  자산 신청·반납·이동은 상신 시점에 대장을 바꾸지 않으므로(효과는 결재 확정 단계에서만) 되돌릴 상태가 없다.
  *  결재 확정 전에만 가능하며, 취소 이력은 감사 로그에 남는다. */

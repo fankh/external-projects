@@ -470,6 +470,7 @@ function seed(): Store {
       // 다단계 결재선 진행 중 — 부서장(ADMIN) 결재 대기. 승인하면 자산담당 단계로 넘어간다.
       { id: 'APR-2607-120', kind: '자산 신청', title: '개발 워크스테이션 신규 신청 (AI팀 증원 2명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-28', status: '대기', currentStep: '부서장 결재', note: 'AI팀 증원 2명 — GPU 워크스테이션 지급 요청' },
       { id: 'APR-2607-121', kind: '자산 신청', title: '개발용 모니터 추가 신청 (듀얼 구성)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-28', status: '대기', currentStep: '부서장 결재', note: '재택·사무 듀얼 모니터 구성 요청' },
+      { id: 'APR-2607-096', kind: '자산 신청', title: '휴대용 모니터 신청 (재택 근무)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-26', status: '반려', currentStep: '완료', decidedAt: '2026-07-27', decidedBy: '박자산', rejectReason: '재택 지원 품목은 부서 예산 승인 후 재신청 바랍니다.', note: '재택 근무용 휴대 모니터' },
       // 반려 사유가 남은 건 — 신청자 재상신 근거이자 감사 기록
       { id: 'APR-2607-095', kind: '자산 신청', title: '개인용 태블릿 신규 신청', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-19', status: '반려', currentStep: '완료', decidedAt: '2026-07-21', decidedBy: '박자산', note: '외근 시 개인 용도', rejectReason: '개인 용도로 판단 — 업무 필요성 소명 후 재상신 요망' },
       { id: 'APR-2607-118', kind: '자산 신청', title: '노트북 신규 신청 (신입 온보딩 3명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-27', status: '대기', currentStep: '자산담당 검토' },
@@ -585,7 +586,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
