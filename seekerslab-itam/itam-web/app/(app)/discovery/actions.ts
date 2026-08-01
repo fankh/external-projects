@@ -141,6 +141,7 @@ export async function requestOnboard(discoveredId: string) {
     currentStep: '자산담당 검토',
     refId: d.id,
   })
+  appendAudit({ actor: session.name, action: `대장 편입 요청 상신 — ${d.hostname} (${d.channel})`, target: d.id })
   revalidatePath('/', 'layout')
 }
 
@@ -163,5 +164,6 @@ export async function requestQuarantine(discoveredId: string) {
     currentStep: '보안담당 승인',
     refId: d.id,
   })
+  appendAudit({ actor: session.name, action: `NAC 격리 요청 상신 — ${d.hostname}`, target: d.id })
   revalidatePath('/', 'layout')
 }

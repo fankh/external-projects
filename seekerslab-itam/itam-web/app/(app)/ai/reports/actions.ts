@@ -61,6 +61,9 @@ export async function deleteReport(id: string) {
   const session = await getSession()
   if (!session || session.role === 'USER') return
   const s = getStore()
+  const report = s.reports.find((r) => r.id === id)
+  if (!report) return
   s.reports = s.reports.filter((r) => r.id !== id)
+  appendAudit({ actor: session.name, action: `AI 리포트 삭제 — ${report.kind}`, target: id })
   revalidatePath('/', 'layout')
 }

@@ -15,6 +15,7 @@ export async function selectForDisposal(assetNo: string, reason: string) {
   if (!asset || s.disposals.some((d) => d.assetNo === assetNo)) return
   s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason, status: '대상 선정' })
   asset.status = '폐기예정'
+  appendAudit({ actor: session.name, action: `폐기 대상 선정 — ${reason}`, target: assetNo })
   revalidatePath('/', 'layout')
 }
 
@@ -38,6 +39,7 @@ export async function raiseDisposalApproval() {
     refId: targets[0].assetNo,
   })
   for (const d of targets) { d.status = '결재 대기'; d.approvalId = aprId }
+  appendAudit({ actor: session.name, action: `폐기 상신 (${targets.length}건)`, target: aprId })
   revalidatePath('/', 'layout')
 }
 
