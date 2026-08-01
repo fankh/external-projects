@@ -1,24 +1,58 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
-import type { IntakeLot } from '@/lib/types'
-import { issueAssetNo, toggleCheck } from './actions'
+import type { AssetCategory, IntakeLot } from '@/lib/types'
+import { issueAssetNo, registerIntakeLot, toggleCheck } from './actions'
 
 interface Label { assetNo: string; model: string; qr: string; barcode: string }
+interface PC { id: string; name: string; vendor: string }
 
 const STATUS_TONE = { '입고 대기': 'neutral', '검수 중': 'warn', '검수 완료': 'ok' } as const
+const CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
-export function IntakeView({ lots, labels }: { lots: IntakeLot[]; labels: Label[] }) {
+export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[] }) {
   const [selId, setSelId] = useState(lots[0]?.id ?? '')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, startTransition] = useTransition()
+  // 입고 등록 폼
+  const [regOpen, setRegOpen] = useState(false)
+  const [rc, setRc] = useState(contracts[0]?.id ?? '')
+  const [rmodel, setRmodel] = useState('')
+  const [rcat, setRcat] = useState<AssetCategory>('단말')
+  const [rqty, setRqty] = useState('1')
+  const registerLot = () => {
+    startTransition(async () => {
+      const r = await registerIntakeLot(rc, rmodel, rcat, Number(rqty))
+      setMsg({ ok: r.ok, text: r.message })
+      if (r.ok) { setRegOpen(false); setRmodel(''); setRqty('1') }
+    })
+  }
   const sel = lots.find((l) => l.id === selId) ?? lots[0]
   const selLabels = labels.filter((l) => sel?.issued.includes(l.assetNo))
   const done = sel ? sel.checklist.filter((c) => c.checked).length : 0
 
   return (
     <>
-      <Card kicker="Arrivals" title="입고 목록" pad={false}>
+      {msg?.text && <div className={`callout ${msg.ok ? '' : 'warn'}`}>{msg.text}</div>}
+      <Card kicker="Arrivals" title="입고 목록" pad={false}
+        actions={contracts.length > 0
+          ? <button className="btn sm pri" disabled={pending} onClick={() => { setRegOpen((o) => !o); setMsg(null) }}>{regOpen ? '취소' : '입고 등록'}</button>
+          : undefined}>
+        {regOpen && (
+          <div className="addrow" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: 14, borderBottom: '1px solid var(--line)' }}>
+            <span className="dim" style={{ fontSize: 11.5, fontWeight: 600 }}>발주 연계 입고 등록</span>
+            <select className="select" value={rc} disabled={pending} onChange={(e) => setRc(e.target.value)}>
+              {contracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.name} ({c.vendor})</option>)}
+            </select>
+            <input className="input" style={{ width: 190 }} placeholder="모델 (예: ThinkPad T14 Gen4)" value={rmodel} disabled={pending} onChange={(e) => setRmodel(e.target.value)} />
+            <select className="select" value={rcat} disabled={pending} onChange={(e) => setRcat(e.target.value as AssetCategory)}>
+              {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input className="input" type="number" min={1} max={1000} style={{ width: 80 }} value={rqty} disabled={pending} onChange={(e) => setRqty(e.target.value)} />
+            <button className="btn sm pri" disabled={pending || !rmodel.trim() || !rc} onClick={registerLot}>등록</button>
+            <span className="mut" style={{ fontSize: 11 }}>등록 즉시 ‘입고 대기’로 검수 대기열에 편성됩니다.</span>
+          </div>
+        )}
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
@@ -80,7 +114,6 @@ export function IntakeView({ lots, labels }: { lots: IntakeLot[]; labels: Label[
                 {sel.status === '검수 완료' ? `채번 ${sel.issued.length}/${sel.qty}` : '체크리스트 완료 후 채번 가능'}
               </span>
             </div>
-            {msg?.text && <div className={`callout ${msg.ok ? '' : 'warn'}`} style={{ marginTop: 12 }}>{msg.text}</div>}
           </Card>
 
           <Card kicker="Labels" title="라벨 발행 (바코드 / QR)"

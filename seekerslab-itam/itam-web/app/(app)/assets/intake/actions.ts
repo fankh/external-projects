@@ -3,8 +3,55 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { getStore } from '@/lib/store'
-import type { Asset } from '@/lib/types'
+import { getStore, nextId } from '@/lib/store'
+import type { Asset, AssetCategory } from '@/lib/types'
+
+/** 신규 입고 건의 기본 검수 체크리스트 — 발주 사양·외관·전원·부속·SW·라벨 */
+const DEFAULT_CHECKLIST = [
+  '발주 사양 일치 (CPU·메모리·디스크)',
+  '외관 손상·스크래치 확인',
+  '전원·부팅 정상 동작',
+  '부속품 구성 (어댑터·케이블·매뉴얼)',
+  'OS·보안 SW 설치 상태',
+  '자산 라벨 부착 위치 확인',
+]
+
+/** 발주 연계 입고 등록 — 구매 계약에 묶어 새 입고 건을 등록한다(도입·검수 파이프라인 진입점).
+ *  (제품안내서 §03: 발주 연계 입고 → 검수 체크리스트 → 채번 → 라벨) */
+export async function registerIntakeLot(contractId: string, model: string, category: AssetCategory, qty: number) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '입고 등록 권한이 없습니다 (자산담당·Admin).' }
+  }
+
+  const s = getStore()
+  const contract = s.contracts.find((c) => c.id === contractId && c.kind === '구매')
+  if (!contract) return { ok: false, message: '연계할 구매 계약을 선택하세요.' }
+  const m = model.trim()
+  if (!m) return { ok: false, message: '모델명을 입력하세요.' }
+  if (!Number.isInteger(qty) || qty < 1 || qty > 1000) {
+    return { ok: false, message: '수량은 1~1000 사이여야 합니다.' }
+  }
+
+  const id = nextId('LOT')
+  s.intakeLots.unshift({
+    id,
+    contractId,
+    model: m,
+    category,
+    qty,
+    arrivedAt: today(),
+    vendor: contract.vendor,
+    status: '입고 대기',
+    checklist: DEFAULT_CHECKLIST.map((item) => ({ item, checked: false })),
+    issued: [],
+    inspector: session.name,
+  })
+
+  appendAudit({ actor: session.name, action: `입고 등록 — ${m} ${qty}대 (${contract.id})`, target: id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${id} 입고 등록 — ${m} ${qty}대 · 검수 대기열 편성` }
+}
 
 export async function toggleCheck(lotId: string, item: string) {
   const session = await getSession()

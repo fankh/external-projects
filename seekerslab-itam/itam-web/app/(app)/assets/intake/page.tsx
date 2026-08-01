@@ -10,6 +10,10 @@ export default async function IntakePage() {
   await requireRole('ASSET_MGR', 'ADMIN')
   const s = getStore()
   const lots = s.intakeLots
+  // 입고 등록 시 연계할 구매 계약 — 발주 계약에 입고를 묶는다
+  const purchaseContracts = s.contracts
+    .filter((c) => c.kind === '구매')
+    .map((c) => ({ id: c.id, name: c.name, vendor: c.vendor }))
 
   // 채번된 자산의 라벨(QR·바코드)을 서버에서 SVG로 미리 생성
   const issued = lots.flatMap((l) => l.issued)
@@ -46,7 +50,7 @@ export default async function IntakePage() {
         그대로 사용됩니다.
       </div>
 
-      <IntakeView lots={lots} labels={labels} />
+      <IntakeView lots={lots} labels={labels} contracts={purchaseContracts} />
     </>
   )
 }

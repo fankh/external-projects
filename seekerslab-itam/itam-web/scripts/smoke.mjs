@@ -163,6 +163,7 @@ try {
   check('QnA: 담당자에게 답변 입력 노출', qnaMgr.includes('답변 등록'))
   const inHtml = await (await get('/assets/intake', 'ASSET_MGR')).text()
   check('도입·검수: 체크리스트·라벨 렌더', inHtml.includes('검수 체크리스트') && inHtml.includes('전원·부팅 정상 동작') && inHtml.includes('<svg'))
+  check('도입·검수: 발주 연계 입고 등록 진입점', inHtml.includes('입고 등록'))
   check('도입·검수: QR·바코드 SVG 발행', (inHtml.match(/<svg/g) ?? []).length >= 2 && inHtml.includes('AST-2025-000033'))
   const mvHtml = await (await get('/assets/movement', 'ASSET_MGR')).text()
   check('불출·이동: 대기열·재배치 재고 렌더', mvHtml.includes('불출 대기') && mvHtml.includes('이동 대기') && mvHtml.includes('재배치 우선 원칙'))
