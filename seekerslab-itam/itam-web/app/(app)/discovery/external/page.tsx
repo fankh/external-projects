@@ -1,10 +1,10 @@
-import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
+import { ExposedTable } from './ExposedTable'
 import { LeakTable } from './LeakTable'
 import { RescanConsole } from './RescanConsole'
 import { getStore } from '@/lib/store'
-import type { ReconcileState } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,10 +23,6 @@ const ACTIVE = [
   { m: '역DNS · CIDR 스캔', tech: 'IP의 PTR 호스트명 조회, IP 대역 전체 열거 후 알려진 도메인 교차 확인 및 동시 PTR 조회' },
   { m: '존 트랜스퍼 · 레코드 분석', tech: '네임서버 확인 후 AXFR 시도, 거부 시 A/AAAA/CNAME/MX/NS/TXT/SRV/SOA/CAA 질의로 대체. 레코드 값에 포함된 범위 내 호스트명 추출. 와일드카드 DNS 탐지로 오탐 억제' },
 ]
-
-const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
-  '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
-}
 
 export default async function ExternalPage() {
   const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
@@ -131,36 +127,7 @@ export default async function ExternalPage() {
       </div>
 
       <Card kicker="Exposed Assets" title="외부 노출 자산" pad={false}>
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>ID</th><th>호스트</th><th>IP</th><th>발견 방법</th><th className="c">방식</th>
-                <th className="c">생존</th><th>노출 서비스</th><th>CVE</th><th className="c">대사</th><th className="c">위험도</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ext.map((e) => (
-                <tr key={e.id}>
-                  <td className="code">{e.id}</td>
-                  <td className="strong">{e.host}</td>
-                  <td className="tnum">{e.ip ?? '-'}</td>
-                  <td className="mute">{e.method}</td>
-                  <td className="c"><Chip tone={e.mode === 'Active' ? 'info' : 'neutral'} bare>{e.mode}</Chip></td>
-                  <td className="c">{e.alive ? <Chip tone="ok" bare>확인</Chip> : <span className="mut">미확인</span>}</td>
-                  <td style={{ whiteSpace: 'normal', maxWidth: 220 }}>{e.services ?? '-'}</td>
-                  <td>{e.cve ? <span className="code" style={{ color: 'var(--err)' }}>{e.cve} ({e.cvss})</span> : <span className="mut">-</span>}</td>
-                  <td className="c"><Chip tone={STATE_TONE[e.state]}>{e.state}</Chip></td>
-                  <td className="c"><RiskChip risk={e.risk} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="callout" style={{ margin: 14 }}>
-          <b>발견 자산의 편입.</b> 외부에서 발견된 노출 자산도 내부 6채널 결과와 동일하게 자산 지문으로 통합되고,
-          CMDB 대사를 거쳐 소유자 확인·편입 또는 노출 차단·격리 조치로 이어집니다. 재탐지는 도메인별 주기(스케줄러)로 자동 반복됩니다.
-        </div>
+        <ExposedTable externals={ext} canAct={canRespond} />
       </Card>
 
       <Card kicker="Threat Intel · Dark Web" title="위협 인텔리전스 · 유출 수집" pad={false}>

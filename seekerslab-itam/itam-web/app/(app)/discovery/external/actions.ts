@@ -33,6 +33,31 @@ export async function respondToLeak(leakId: string, note: string) {
   return { ok: true, message: `${leak.kind} 대응 완료 — 보안운영팀 통지·감사 기록 적재` }
 }
 
+/** 외부 노출 자산 조치 — 검출에서 끝내지 않고 편입(우리 자산이면 대장으로) 또는 차단(노출 차단·NAC 격리)까지 이어간다.
+ *  외부 노출은 보안 의사결정이므로 보안담당·Admin 만. 요청 사실은 담당팀 통지 + 감사 로그에 남는다. */
+export async function requestExternalAction(externalId: string, kind: '편입' | '차단') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '외부 노출 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const e = s.external.find((x) => x.id === externalId)
+  if (!e) return { ok: false, message: '노출 자산을 찾을 수 없습니다.' }
+  if (e.action) return { ok: false, message: `이미 ${e.action} 처리된 건입니다.` }
+
+  if (kind === '편입') {
+    e.action = '편입요청'
+    dispatch({ channel: '이메일', to: '자산관리팀', subject: `외부 노출 자산 편입 검토 — ${e.host} (${e.services ?? '-'})`, kind: '소유자 확인', ref: e.id })
+    appendAudit({ actor: session.name, action: `외부 노출 자산 편입 요청 — ${e.host}`, target: e.id })
+  } else {
+    e.action = '차단요청'
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `외부 노출 차단·격리 요청 — ${e.host} ${e.cve ? `(${e.cve})` : ''}`, kind: '격리 통보', ref: e.id })
+    appendAudit({ actor: session.name, action: `외부 노출 차단 요청 — ${e.host}`, target: e.id })
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${e.host} ${kind} 요청 — ${kind === '편입' ? '자산관리팀' : '보안운영팀'} 통지·감사 적재` }
+}
+
 /** 외부 공격표면 재탐지 — 수동(무접촉) 수집으로 후보를 넓히고, 능동으로 생존·서비스·취약점을 확인한다.
  *  능동 탐지는 대상에 직접 접속하므로 사전 협의된 도메인에서만 허용한다 (제품안내서 §04 '수동 우선, 능동 확인'). */
 export async function runEasmScan(input: { domains: string[]; mode: 'Passive' | 'Passive+Active'; note?: string }) {
