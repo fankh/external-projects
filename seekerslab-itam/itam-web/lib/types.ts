@@ -128,7 +128,7 @@ export interface Dispatch {
   channel: '이메일' | '문자'
   to: string
   subject: string
-  kind: '소유자 확인' | '만료 임박' | '격리 통보' | '에스컬레이션' | '리포트 배포'
+  kind: '소유자 확인' | '만료 임박' | '격리 통보' | '에스컬레이션' | '리포트 배포' | '위협 대응'
   ref?: string
 }
 
@@ -409,6 +409,20 @@ export interface LeakFinding {
   source: string
   confidence: '높음' | '중간' | '낮음'
   foundAt: string
+  /** 대응 상태 — 검출에서 끝내지 않고 보안 대응까지 이어간다 (§04 다크웹 유출 감시) */
+  status?: '미조치' | '조치 완료'
+  /** 취한 대응 조치 내용 */
+  response?: string
+  respondedBy?: string
+  respondedAt?: string
+}
+
+/** 유출 유형별 표준 대응 조치 — 대응 폼의 기본값으로 제시하고, 담당자가 수정해 확정한다. */
+export const LEAK_RESPONSE: Record<LeakFinding['kind'], string> = {
+  '유출 계정': '해당 계정 비밀번호 강제 재설정 및 전 세션 로그아웃',
+  '스틸러 로그': '감염 단말 격리·포렌식, 저장 크리덴셜 전량 로테이션',
+  '코드 저장소 시크릿': '노출 시크릿 즉시 폐기·로테이션, 커밋 이력 정리',
+  '랜섬웨어 유출 사이트': '침해 대응 개시·법무/CISO 통보, 유출 범위 조사',
 }
 
 /** 연동 대상 시스템 (제품안내서 §06) — 수집 소스이자 조치 채널 */

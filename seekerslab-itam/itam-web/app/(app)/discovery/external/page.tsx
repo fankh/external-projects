@@ -1,6 +1,7 @@
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
+import { LeakTable } from './LeakTable'
 import { RescanConsole } from './RescanConsole'
 import { getStore } from '@/lib/store'
 import type { ReconcileState } from '@/lib/types'
@@ -28,8 +29,10 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
 }
 
 export default async function ExternalPage() {
-  await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
+  // 유출 대응은 보안 업무 — 보안담당·Admin 만 조치 가능
+  const canRespond = ['SEC_MGR', 'ADMIN'].includes(session.role)
   // 다음 재탐지 기한 — 마지막 실행 + 주기. 지나면 기한 경과로 표시해 스케줄러 지연을 드러낸다
   const targets = s.easmTargets.map((t) => {
     if (!t.lastRunAt) return { ...t, dueIn: null }
@@ -161,29 +164,7 @@ export default async function ExternalPage() {
       </Card>
 
       <Card kicker="Threat Intel · Dark Web" title="위협 인텔리전스 · 유출 수집" pad={false}>
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead><tr><th>구분</th><th>내용</th><th>소스</th><th className="c">신뢰도</th><th>수집일</th></tr></thead>
-            <tbody>
-              {s.leaks.map((l) => (
-                <tr key={l.id}>
-                  <td className="strong">{l.kind}</td>
-                  <td style={{ whiteSpace: 'normal', maxWidth: 520 }}>{l.detail}</td>
-                  <td className="mute">{l.source}</td>
-                  <td className="c">
-                    <Chip tone={l.confidence === '높음' ? 'err' : l.confidence === '중간' ? 'warn' : 'neutral'}>{l.confidence}</Chip>
-                  </td>
-                  <td className="tnum">{l.foundAt}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="callout" style={{ margin: 14 }}>
-          <b>알려진 자산에 위협 맥락 부여.</b> OSINT 위협 인텔리전스는 신규 자산 발견보다 이미 발견된 자산에
-          위협 행위자 귀속·표적 정보·IOC 상관을 더하는 데 사용하며, 유출 수집 결과는 도메인 기준으로 고객 매칭 후
-          신뢰도 점수화·중복 제거를 거칩니다.
-        </div>
+        <LeakTable leaks={s.leaks} canRespond={canRespond} />
       </Card>
     </>
   )

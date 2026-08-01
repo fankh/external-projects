@@ -2,9 +2,36 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { nowMinute, today } from '@/lib/dates'
+import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { EasmRun } from '@/lib/types'
+
+/** 유출 대응 조치 — 다크웹 유출 검출에서 끝내지 않고 보안 대응까지 이어간다.
+ *  대응은 보안 업무이므로 보안담당·Admin 만. 조치 사실은 보안팀 앞 통지 + 감사 로그에 남는다. */
+export async function respondToLeak(leakId: string, note: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '유출 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const action = note.trim()
+  if (!action) return { ok: false, message: '대응 조치 내용을 입력하세요.' }
+
+  const s = getStore()
+  const leak = s.leaks.find((l) => l.id === leakId)
+  if (!leak) return { ok: false, message: '유출 건을 찾을 수 없습니다.' }
+  if (leak.status === '조치 완료') return { ok: false, message: '이미 조치 완료된 건입니다.' }
+
+  leak.status = '조치 완료'
+  leak.response = action
+  leak.respondedBy = session.name
+  leak.respondedAt = today()
+
+  dispatch({ channel: '이메일', to: '보안운영팀', subject: `유출 대응 조치 — ${leak.kind}: ${action}`, kind: '위협 대응', ref: leak.id })
+  appendAudit({ actor: session.name, action: `유출 대응 (${leak.kind}) — ${action}`, target: leak.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${leak.kind} 대응 완료 — 보안운영팀 통지·감사 기록 적재` }
+}
 
 /** 외부 공격표면 재탐지 — 수동(무접촉) 수집으로 후보를 넓히고, 능동으로 생존·서비스·취약점을 확인한다.
  *  능동 탐지는 대상에 직접 접속하므로 사전 협의된 도메인에서만 허용한다 (제품안내서 §04 '수동 우선, 능동 확인'). */
