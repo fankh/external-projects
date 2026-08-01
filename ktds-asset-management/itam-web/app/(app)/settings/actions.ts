@@ -90,3 +90,52 @@ export async function toggleCodeValue(groupId: string, code: string) {
   audit(session.name, `공통코드 ${v.active ? '사용' : '미사용'} — ${v.label}`, `${g.id}.${code}`)
   revalidatePath('/', 'layout')
 }
+
+type CodeRes = { ok: boolean; message: string }
+
+/** 공통코드 값 신규 등록 — 코드 체계에 값을 추가한다.
+ *  추가 즉시 전 화면 드롭다운(위치·자산유형 등)에 선택지로 나타난다(폐쇄 루프).
+ *  삭제는 없다 — 무결성 원칙상 미사용 전환만 허용한다. */
+export async function addCodeValue(groupId: string, rawCode: string, rawLabel: string): Promise<CodeRes> {
+  const session = await requireAdmin()
+  if (!session) return { ok: false, message: '코드 등록은 Admin 만 가능합니다.' }
+  const s = getStore()
+  const g = s.codeGroups.find((x) => x.id === groupId)
+  if (!g) return { ok: false, message: '코드 그룹을 찾을 수 없습니다.' }
+
+  const code = rawCode.trim().toUpperCase()
+  const label = rawLabel.trim()
+  if (!code || !label) return { ok: false, message: '코드와 명칭을 모두 입력하세요.' }
+  if (!/^[A-Z0-9][A-Z0-9_-]*$/.test(code)) {
+    return { ok: false, message: '코드는 영문 대문자·숫자·(-,_)만 쓸 수 있고 문자/숫자로 시작해야 합니다.' }
+  }
+  if (g.values.some((v) => v.code === code)) {
+    return { ok: false, message: `이미 존재하는 코드입니다 — ${code}` }
+  }
+
+  const sort = g.values.reduce((m, v) => Math.max(m, v.sort), 0) + 1
+  g.values.push({ code, label, sort, active: true })
+  audit(session.name, `공통코드 등록 — ${label}`, `${g.id}.${code}`)
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `등록됨 — ${g.name} · ${code} ${label}` }
+}
+
+/** 공통코드 명칭 수정 — 코드 자체는 참조 무결성 때문에 바꾸지 않고 표시 명칭만 고친다. */
+export async function renameCodeValue(groupId: string, code: string, rawLabel: string): Promise<CodeRes> {
+  const session = await requireAdmin()
+  if (!session) return { ok: false, message: '코드 수정은 Admin 만 가능합니다.' }
+  const s = getStore()
+  const g = s.codeGroups.find((x) => x.id === groupId)
+  const v = g?.values.find((x) => x.code === code)
+  if (!g || !v) return { ok: false, message: '코드를 찾을 수 없습니다.' }
+
+  const label = rawLabel.trim()
+  if (!label) return { ok: false, message: '명칭을 입력하세요.' }
+  if (label === v.label) return { ok: true, message: '' }
+
+  const before = v.label
+  v.label = label
+  audit(session.name, `공통코드 명칭 수정 — ${before} → ${label}`, `${g.id}.${code}`)
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `수정됨 — ${code} ${label}` }
+}
