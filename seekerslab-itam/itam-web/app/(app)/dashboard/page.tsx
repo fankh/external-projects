@@ -20,6 +20,23 @@ export default async function DashboardPage() {
   const myQueue = s.approvals.filter((a) => a.requester !== session.name && canDecideApproval(session.role, a))
   const myAssets = s.assets.filter((a) => a.owner === session.name)
 
+  // 운영 대기 — 화면마다 흩어진 담당 처리 대기열을 역할에 맞게 한 곳에 모은다
+  const opsQueues: { label: string; count: number; href: string; tone: 'err' | 'warn' }[] = []
+  if (['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    opsQueues.push(
+      { label: '입고 검수 대기', count: s.intakeLots.filter((l) => l.status !== '검수 완료').length, href: '/assets/intake', tone: 'warn' },
+      { label: '수리 진행 · 완료 확인', count: s.assets.filter((a) => a.status === '수리중').length, href: '/assets/returns', tone: 'warn' },
+      { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal', tone: 'err' },
+    )
+  }
+  if (['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    opsQueues.push(
+      { label: '유출 · 침해 미조치', count: s.leaks.filter((l) => l.status === '미조치').length, href: '/discovery/external', tone: 'err' },
+      { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external', tone: 'err' },
+    )
+  }
+  const opsActive = opsQueues.filter((q) => q.count > 0)
+
   const expiring = [
     ...s.contracts.map((c) => ({ id: c.id, name: c.name, kind: c.kind === '유지보수' ? '유지보수 계약' : '구매 계약', end: c.end, d: daysUntil(c.end) })),
     ...s.licenses.map((l) => ({ id: l.id, name: l.name, kind: 'SW 라이선스', end: l.expiry, d: daysUntil(l.expiry) })),
@@ -140,6 +157,20 @@ export default async function DashboardPage() {
               </div>
             </div>
           </Card>
+
+          {session.role !== 'USER' && (
+            <Card kicker="Operations" title="운영 대기">
+              <div className="vstack" style={{ gap: 8 }}>
+                {opsActive.length > 0 ? opsActive.map((q) => (
+                  <Link key={q.label} href={q.href} className="hstack"
+                    style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                    <span>{q.label}</span>
+                    <span className="hstack" style={{ gap: 6 }}><Chip tone={q.tone}>{q.count}</Chip><span className="mut">→</span></span>
+                  </Link>
+                )) : <div className="mut">처리 대기 중인 운영 작업이 없습니다.</div>}
+              </div>
+            </Card>
+          )}
 
           <Card kicker="AI Intelligence" title="AI 제안 Top 3"
             actions={<Link className="btn sm ghost" href="/ai/insights">전체</Link>}>
