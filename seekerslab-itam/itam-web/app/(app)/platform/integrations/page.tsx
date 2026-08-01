@@ -1,6 +1,7 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
+import { AuditLog } from './AuditLog'
 import { ConnectorTable } from './ConnectorTable'
 
 export const dynamic = 'force-dynamic'
@@ -51,29 +52,7 @@ export default async function IntegrationsPage() {
         <ConnectorTable integrations={s.integrations} canManage={canManage} />
       </Card>
 
-      <Card kicker="Audit" title="감사 로그" pad={false}
-        actions={<span className="hstack" style={{ gap: 8 }}>
-          {canManage && <a className="btn sm" href="/api/audit-export" download>감사 로그 엑셀</a>}
-          <span className="chip neutral bare">전자결재 · 자산 이력 · AI 로그 추적성</span>
-        </span>}>
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead><tr><th>일시</th><th>수행자</th><th>동작</th><th>대상</th><th>접근 IP</th><th className="c">결과</th></tr></thead>
-            <tbody>
-              {s.auditLogs.map((l) => (
-                <tr key={l.id}>
-                  <td className="tnum">{l.at}</td>
-                  <td className="strong">{l.actor}</td>
-                  <td>{l.action}</td>
-                  <td className="code">{l.target}</td>
-                  <td className="tnum mute">{l.ip}</td>
-                  <td className="c"><Chip tone={l.result === '성공' ? 'ok' : 'err'}>{l.result}</Chip></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <AuditLog logs={s.auditLogs} exportHref={canManage ? '/api/audit-export' : undefined} />
 
       <Card kicker="Notifications" title={`알림 발송 이력 ${s.dispatches.length}건`} pad={false}>
         {s.dispatches.length === 0 ? (
