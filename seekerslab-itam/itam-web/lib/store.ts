@@ -102,6 +102,20 @@ function seedAssets(): Asset[] {
       history: [
         { date: '2026-04-02', kind: '편입', detail: '네트워크 능동 스캔 발견(2026-03-28) → 소유자 확인 → 결재 편입', actor: '박자산' },
       ] }),
+    // 반납 점검에서 '수리 필요' 판정 → 수리중 (반납·유휴 화면의 수리 대기 카드에 표시)
+    mk({ assetNo: 'AST-2025-000377', category: '단말', model: 'ThinkPad X1 Carbon G12', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', purchaseDate: '2025-01-20', warrantyEnd: '2028-01-19',
+      history: [
+        { date: '2025-01-20', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
+        { date: '2025-01-24', kind: '불출', detail: '영업1팀 불출', actor: '박자산' },
+        { date: '2026-07-28', kind: '반납', detail: '반납 접수 · 상태 점검 수리 필요 — 디스플레이 힌지 파손·좌측 USB-C 불량 (반납자 오세훈)', actor: '박자산' },
+      ] }),
+    // 폐기 완료 + 데이터 소거 증적 (폐기 처리 화면의 소거 확인서 다운로드에 표시)
+    mk({ assetNo: 'AST-2018-000090', category: '단말', model: 'Dell Latitude 5290', status: '폐기완료', owner: '미지정', dept: '자산관리팀', location: '폐기 처리 완료', purchaseDate: '2018-05-02', warrantyEnd: '2021-05-01',
+      history: [
+        { date: '2018-05-02', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
+        { date: '2026-07-20', kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 대기', actor: '박자산' },
+        { date: '2026-07-22', kind: '폐기', detail: '데이터 소거 완료 (디가우징) · 증적 WIPE-20260722-050 보존', actor: '박자산' },
+      ] }),
   ]
 }
 
@@ -426,8 +440,10 @@ function seed(): Store {
       },
     ],
     disposals: [
-      { id: 'DSP-01', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', reason: '사용 연한 초과 (7년) · 보증 만료', status: '결재 대기', approvalId: 'APR-2607-109' },
+      { id: 'DSP-01', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', reason: '사용 연한 초과 (7년) · 보증 만료', status: '결재 대기', approvalId: 'APR-2607-119' },
       { id: 'DSP-02', assetNo: 'AST-2021-000432', model: 'LG gram 17', reason: '보증 만료 · 성능 저하', status: '대상 선정' },
+      // 폐기 완료 — 데이터 소거·증적 보존 완료. 소거 확인서 다운로드 대상.
+      { id: 'DSP-00', assetNo: 'AST-2018-000090', model: 'Dell Latitude 5290', reason: '사용 연한 초과 (8년) · 보증 만료', status: '완료', approvalId: 'APR-2606-088', wipeMethod: '디가우징', wipedAt: '2026-07-22', wipedBy: '박자산', certNo: 'WIPE-20260722-050', evidence: '소거 확인서 WIPE-20260722-050 · 처리 전후 사진 2매 첨부' },
     ],
     surveyDiffs: [
       { id: 'DIF-01', roundId: 'INV-2026-H2', kind: '위치 불일치', assetNo: 'AST-2025-000512', model: 'Galaxy Book4 Pro', expected: '본사 8F', actual: '판교 사무소', status: '미조치' },
@@ -451,12 +467,16 @@ function seed(): Store {
       { id: 'LIC-005', name: 'Slack Business+', vendor: 'Salesforce', purchased: 500, used: 488, expiry: '2026-09-30', unitCost: 162_000 },
     ],
     approvals: [
+      // 다단계 결재선 진행 중 — 부서장(ADMIN) 결재 대기. 승인하면 자산담당 단계로 넘어간다.
+      { id: 'APR-2607-120', kind: '자산 신청', title: '개발 워크스테이션 신규 신청 (AI팀 증원 2명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-28', status: '대기', currentStep: '부서장 결재', note: 'AI팀 증원 2명 — GPU 워크스테이션 지급 요청' },
+      // 반려 사유가 남은 건 — 신청자 재상신 근거이자 감사 기록
+      { id: 'APR-2607-095', kind: '자산 신청', title: '개인용 태블릿 신규 신청', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-19', status: '반려', currentStep: '완료', decidedAt: '2026-07-21', decidedBy: '박자산', note: '외근 시 개인 용도', rejectReason: '개인 용도로 판단 — 업무 필요성 소명 후 재상신 요망' },
       { id: 'APR-2607-118', kind: '자산 신청', title: '노트북 신규 신청 (신입 온보딩 3명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-27', status: '대기', currentStep: '자산담당 검토' },
       { id: 'APR-2607-117', kind: '반납', title: 'AST-2025-000513 Galaxy Book4 Pro 반납', requester: '한도윤', dept: '영업1팀', requestedAt: '2026-07-18', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000513' },
       { id: 'APR-2607-114', kind: '소유자 확인', title: 'DSC-2607-0041 (ip-10-20-31-88) 소유자 확인', requester: 'Discovery 엔진', dept: '플랫폼개발팀', requestedAt: '2026-07-25', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0041' },
       { id: 'APR-2607-109', kind: '소유자 확인', title: 'DSC-2607-0038 (ESP-9F31A2) 소유자 확인 — 전사 공지', requester: 'Discovery 엔진', dept: '미지정', requestedAt: '2026-07-20', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0038', note: '소유자 미상 IoT — 기한 내 무응답 시 격리 검토' },
       { id: 'APR-2607-112', kind: '격리 요청', title: 'DSC-2607-0031 (개인 구독 Azure VM) NAC 격리', requester: '윤보안', dept: '보안운영팀', requestedAt: '2026-07-24', status: '대기', currentStep: '보안담당 승인', refId: 'DSC-2607-0031' },
-      { id: 'APR-2607-109', kind: '폐기', title: 'AST-2019-000218 외 11대 노후 단말 일괄 폐기', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-07-21', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'AST-2019-000218' },
+      { id: 'APR-2607-119', kind: '폐기', title: 'AST-2019-000218 외 11대 노후 단말 일괄 폐기', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-07-21', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'AST-2019-000218' },
       // 승인은 났으나 아직 집행되지 않은 이동 — 불출·이동 처리 화면의 대기열에 잡힌다.
       // targetLocation 은 공통코드 LOCATION 의 값이어야 대장에 그대로 반영할 수 있다.
       { id: 'APR-2607-101', kind: '이동', title: 'AST-2023-000112 좌석 이동 (본사 8F → 본사 9F)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-15', status: '승인', currentStep: '완료', refId: 'AST-2023-000112', decidedAt: '2026-07-16', decidedBy: '박자산', targetLocation: '본사 9F', note: '팀 좌석 재배치' },
