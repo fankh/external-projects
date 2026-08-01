@@ -8,6 +8,33 @@ import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
 
+/** 계약 등록 — 신규 구매·유지보수 계약을 대장에 편입한다 (갱신·알림만 있고 등록 경로 부재).
+ *  등록 즉시 만료 임박 집계·알림 대상이 된다. 자산담당·Admin. */
+export async function addContract(input: {
+  kind: '구매' | '유지보수'; name: string; vendor: string; start: string; end: string; amount: number; ownerDept: string
+}) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '계약 등록 권한이 없습니다 (자산담당·Admin).' }
+
+  const name = input.name.trim()
+  const vendor = input.vendor.trim()
+  const ownerDept = input.ownerDept.trim()
+  if (!name || !vendor || !ownerDept) return { ok: false, message: '계약명·공급사·주관부서를 입력하세요.' }
+  if (!['구매', '유지보수'].includes(input.kind)) return { ok: false, message: '계약 구분이 올바르지 않습니다.' }
+  const dateOk = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d)
+  if (!dateOk(input.start) || !dateOk(input.end)) return { ok: false, message: '시작일·만료일을 YYYY-MM-DD 로 입력하세요.' }
+  if (input.end < input.start) return { ok: false, message: '만료일이 시작일보다 빠릅니다.' }
+  if (!Number.isFinite(input.amount) || input.amount < 0) return { ok: false, message: '계약 금액을 0 이상으로 입력하세요.' }
+
+  const s = getStore()
+  const id = nextId('CT')
+  s.contracts.push({ id, kind: input.kind, name, vendor, start: input.start, end: input.end, amount: Math.round(input.amount), assetCount: 0, ownerDept })
+
+  appendAudit({ actor: session.name, action: `계약 등록 (${input.kind}) — ${name}`, target: id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${name} 계약 등록 완료 (${input.kind})` }
+}
+
 /** SW 라이선스 등록 — 신규 구매 라이선스를 대사 대상에 편입한다 (그동안 시드만 있고 등록 경로 부재).
  *  사용(used)은 0에서 시작하고, 이후 SW 인벤토리 대사로 채워진다. 자산담당·Admin. */
 export async function addLicense(input: { name: string; vendor: string; purchased: number; expiry: string; unitCost: number }) {

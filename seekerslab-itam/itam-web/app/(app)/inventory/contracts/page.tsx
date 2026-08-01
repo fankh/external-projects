@@ -4,7 +4,7 @@ import { requireRole } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
-import { ContractsTable } from './ContractsTable'
+import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ExpiryNoticeButton, LicenseAction } from './LicenseActions'
 
 export const dynamic = 'force-dynamic'
@@ -42,6 +42,7 @@ export default async function ContractsPage() {
           <ExportButton kind="contracts" role={session.role} label="계약·라이선스 엑셀" />
           <ExpiryNoticeButton due={dueCount} />
         </span>}>
+        <AddContract />
         <ContractsTable rows={contracts.map((c) => ({ ...c, d: daysUntil(c.end) }))} />
       </Card>
 

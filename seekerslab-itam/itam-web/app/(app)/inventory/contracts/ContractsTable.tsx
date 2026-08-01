@@ -3,9 +3,57 @@ import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { fmtAmount } from '@/lib/dates'
 import type { Contract } from '@/lib/types'
-import { renewContract } from './actions'
+import { addContract, renewContract } from './actions'
 
 type Row = Contract & { d: number | null }
+
+export function AddContract() {
+  const [open, setOpen] = useState(false)
+  const [kind, setKind] = useState<'구매' | '유지보수'>('구매')
+  const [name, setName] = useState('')
+  const [vendor, setVendor] = useState('')
+  const [ownerDept, setOwnerDept] = useState('')
+  const [start, setStart] = useState('')
+  const [end, setEnd] = useState('')
+  const [amount, setAmount] = useState(0)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  const submit = () => startTransition(async () => {
+    const r = await addContract({ kind, name, vendor, ownerDept, start, end, amount })
+    setMsg(r.message)
+    if (r.ok) { setName(''); setVendor(''); setOwnerDept(''); setStart(''); setEnd(''); setAmount(0); setOpen(false) }
+  })
+
+  return (
+    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)', background: 'var(--canvas)' }}>
+      <div className="hstack" style={{ gap: 8 }}>
+        <button className="btn sm pri" onClick={() => { setOpen((o) => !o); setMsg(null) }}>{open ? '취소' : '＋ 계약 등록'}</button>
+        {msg && <span className="dim" style={{ fontSize: 11.5 }}>{msg}</span>}
+      </div>
+      {open && (
+        <div className="hstack" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <select className="input" value={kind} onChange={(e) => setKind(e.target.value as '구매' | '유지보수')}>
+            <option value="구매">구매</option><option value="유지보수">유지보수</option>
+          </select>
+          <input className="input" style={{ width: 190 }} placeholder="계약명" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="input" style={{ width: 130 }} placeholder="공급사" value={vendor} onChange={(e) => setVendor(e.target.value)} />
+          <input className="input" style={{ width: 110 }} placeholder="주관부서" value={ownerDept} onChange={(e) => setOwnerDept(e.target.value)} />
+          <label className="hstack" style={{ gap: 4, fontSize: 12 }}>시작
+            <input className="input" style={{ width: 120 }} placeholder="YYYY-MM-DD" value={start} onChange={(e) => setStart(e.target.value)} />
+          </label>
+          <label className="hstack" style={{ gap: 4, fontSize: 12 }}>만료
+            <input className="input" style={{ width: 120 }} placeholder="YYYY-MM-DD" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </label>
+          <label className="hstack" style={{ gap: 4, fontSize: 12 }}>금액
+            <input className="input" type="number" min={0} style={{ width: 120 }} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />원
+          </label>
+          <button className="btn pri" disabled={pending || !name.trim() || !vendor.trim() || !ownerDept.trim()} onClick={submit}>등록</button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function StatusChip({ d }: { d: number | null }) {
   if (d === null) return <Chip tone="ok">정상</Chip>
