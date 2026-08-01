@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { DisposalRecord, WipeMethod } from '@/lib/types'
-import { raiseDisposalApproval, recordWipe, selectForDisposal } from './actions'
+import { raiseDisposalApproval, recordWipe, selectForDisposal, selectForDisposalMany } from './actions'
 
 const METHODS: WipeMethod[] = ['소프트웨어 3-pass', '디가우징', '물리 파쇄']
 const TONE = { '대상 선정': 'neutral', '결재 대기': 'info', '소거 대기': 'err', 완료: 'ok' } as const
@@ -15,17 +15,42 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [method, setMethod] = useState<Record<string, WipeMethod>>({})
+  const [sel, setSel] = useState<Set<string>>(new Set())
   const selected = records.filter((d) => d.status === '대상 선정')
+
+  const toggle = (no: string) => setSel((prev) => {
+    const n = new Set(prev)
+    n.has(no) ? n.delete(no) : n.add(no)
+    return n
+  })
+  const allChecked = candidates.length > 0 && sel.size === candidates.length
+  const toggleAll = () => setSel(allChecked ? new Set() : new Set(candidates.map((c) => c.assetNo)))
+  const bulkSelect = () => startTransition(async () => {
+    const items = candidates.filter((c) => sel.has(c.assetNo)).map((c) => ({ assetNo: c.assetNo, reason: c.reason }))
+    const r = await selectForDisposalMany(items)
+    setMsg({ ok: r.ok, text: r.message })
+    if (r.ok) setSel(new Set())
+  })
 
   return (
     <>
-      <Card kicker="Candidates" title="폐기 후보 — 보증 만료 경과" pad={false}>
+      <Card kicker="Candidates" title="폐기 후보 — 보증 만료 경과" pad={false}
+        actions={<button className="btn sm pri" disabled={pending || sel.size === 0} onClick={bulkSelect}>
+          선택 일괄 대상 선정 ({sel.size})
+        </button>}>
+        {msg && <div className={`callout${msg.ok ? '' : ' warn'}`} style={{ margin: 14 }}>{msg.text}</div>}
         <div className="tbl-wrap" style={{ maxHeight: 260 }}>
           <table className="tbl">
-            <thead><tr><th>자산번호</th><th>모델</th><th className="c">현재 상태</th><th>보증 만료</th><th className="num">경과</th><th className="c">선정</th></tr></thead>
+            <thead><tr>
+              <th className="c" style={{ width: 34 }}>
+                <input type="checkbox" checked={allChecked} onChange={toggleAll} aria-label="전체 선택" disabled={candidates.length === 0} />
+              </th>
+              <th>자산번호</th><th>모델</th><th className="c">현재 상태</th><th>보증 만료</th><th className="num">경과</th><th className="c">선정</th>
+            </tr></thead>
             <tbody>
               {candidates.map((c) => (
-                <tr key={c.assetNo}>
+                <tr key={c.assetNo} className={sel.has(c.assetNo) ? 'sel' : undefined}>
+                  <td className="c"><input type="checkbox" checked={sel.has(c.assetNo)} onChange={() => toggle(c.assetNo)} aria-label={`${c.assetNo} 선택`} /></td>
                   <td className="code">{c.assetNo}</td>
                   <td className="strong">{c.model}</td>
                   <td className="c"><Chip tone="neutral" bare>{c.status}</Chip></td>
@@ -37,7 +62,7 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                   </td>
                 </tr>
               ))}
-              {candidates.length === 0 && <tr><td colSpan={6}><div className="empty">보증 만료 경과 자산이 없습니다</div></td></tr>}
+              {candidates.length === 0 && <tr><td colSpan={7}><div className="empty">보증 만료 경과 자산이 없습니다</div></td></tr>}
             </tbody>
           </table>
         </div>

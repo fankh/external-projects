@@ -19,6 +19,26 @@ export async function selectForDisposal(assetNo: string, reason: string) {
   revalidatePath('/', 'layout')
 }
 
+/** 폐기 대상 일괄 선정 — 노후·EOL 배치를 한 번에 선정한다 (교체 계획 수십 대를 한 건씩 누르지 않도록).
+ *  이미 선정됐거나 없는 자산은 건너뛰고, 실제 선정된 수만 감사에 남긴다. */
+export async function selectForDisposalMany(items: { assetNo: string; reason: string }[]) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
+  const s = getStore()
+  let n = 0
+  for (const it of items) {
+    const asset = s.assets.find((a) => a.assetNo === it.assetNo)
+    if (!asset || s.disposals.some((d) => d.assetNo === it.assetNo)) continue
+    s.disposals.push({ id: nextId('DSP'), assetNo: it.assetNo, model: asset.model, reason: it.reason, status: '대상 선정' })
+    asset.status = '폐기예정'
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: '새로 선정된 자산이 없습니다 (이미 선정되었거나 대상 아님).' }
+  appendAudit({ actor: session.name, action: `폐기 대상 일괄 선정 (${n}건)`, target: '폐기' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${n}건을 폐기 대상으로 선정했습니다.` }
+}
+
 /** 폐기 결재 상신 — 필수 결재 (자산담당 → IT기획팀장) */
 export async function raiseDisposalApproval() {
   const session = await getSession()
