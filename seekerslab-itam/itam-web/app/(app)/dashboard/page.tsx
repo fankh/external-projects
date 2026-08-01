@@ -23,8 +23,12 @@ export default async function DashboardPage() {
   // 운영 대기 — 화면마다 흩어진 담당 처리 대기열을 역할에 맞게 한 곳에 모은다
   const opsQueues: { label: string; count: number; href: string; tone: 'err' | 'warn' }[] = []
   if (['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    const issueDue = s.approvals.filter((a) => a.kind === '자산 신청' && a.status === '승인' && !a.fulfilled && !a.refId?.startsWith('DSC-')).length
+    const moveDue = s.approvals.filter((a) => a.kind === '이동' && a.status === '승인' && !a.fulfilled).length
     opsQueues.push(
-      { label: '입고 검수 대기', count: s.intakeLots.filter((l) => l.status !== '검수 완료').length, href: '/assets/intake', tone: 'warn' },
+      { label: '입고 검수 대기', count: s.intakeLots.filter((l) => l.status === '입고 대기' || l.status === '검수 중').length, href: '/assets/intake', tone: 'warn' },
+      { label: '불출 · 이동 집행 대기', count: issueDue + moveDue, href: '/assets/movement', tone: 'warn' },
+      { label: '반납 접수 대기', count: s.assets.filter((a) => a.status === '반납대기').length, href: '/assets/returns', tone: 'warn' },
       { label: '수리 진행 · 완료 확인', count: s.assets.filter((a) => a.status === '수리중').length, href: '/assets/returns', tone: 'warn' },
       { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal', tone: 'err' },
     )
