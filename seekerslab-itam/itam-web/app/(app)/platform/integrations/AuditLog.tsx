@@ -5,7 +5,7 @@ import type { AuditLog as AuditLogEntry } from '@/lib/types'
 
 /** 감사 로그 — 액션마다 쌓이므로 그대로 나열하면 스캔이 불가능하다.
  *  수행자·동작·대상 검색 + 수행자·결과 필터로 컴플라이언스 추적을 실사용 가능하게 한다. */
-export function AuditLog({ logs, exportHref }: { logs: AuditLogEntry[]; exportHref?: string }) {
+export function AuditLog({ logs, canExport }: { logs: AuditLogEntry[]; canExport?: boolean }) {
   const [q, setQ] = useState('')
   const [result, setResult] = useState<'전체' | '성공' | '실패'>('전체')
   const [actor, setActor] = useState('전체')
@@ -21,10 +21,14 @@ export function AuditLog({ logs, exportHref }: { logs: AuditLogEntry[]; exportHr
     })
   }, [logs, q, result, actor])
 
+  // 내보내기는 지금 화면에 보이는 필터를 그대로 반영한다 (필터로 좁힌 그 집합을 반출)
+  const exportHref = `/api/audit-export?${new URLSearchParams({ q: q.trim(), actor, result }).toString()}`
+  const filtered = q.trim() !== '' || actor !== '전체' || result !== '전체'
+
   return (
     <Card kicker="Audit" title="감사 로그" pad={false}
       actions={<span className="hstack" style={{ gap: 8 }}>
-        {exportHref && <a className="btn sm" href={exportHref} download>감사 로그 엑셀</a>}
+        {canExport && <a className="btn sm" href={exportHref} download>감사 로그 엑셀{filtered ? ` (${rows.length}건)` : ''}</a>}
         <span className="chip neutral bare">전자결재 · 자산 이력 · AI 로그 추적성</span>
       </span>}>
       <div className="hstack" style={{ gap: 8, padding: '12px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>

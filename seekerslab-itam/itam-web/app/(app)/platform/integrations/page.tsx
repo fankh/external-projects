@@ -53,7 +53,7 @@ export default async function IntegrationsPage() {
         <ConnectorTable integrations={s.integrations} canManage={canManage} />
       </Card>
 
-      <AuditLog logs={s.auditLogs} exportHref={canManage ? '/api/audit-export' : undefined} />
+      <AuditLog logs={s.auditLogs} canExport={canManage} />
 
       <NotificationLog dispatches={s.dispatches} />
 
