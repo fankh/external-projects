@@ -9,15 +9,21 @@ export const dynamic = 'force-dynamic'
 
 /** 실제로 서버가 강제하는 (메뉴 × 기능) — 나머지 칸은 선언된 정책이며 화면 가드가 구현한다.
  *  화면에서 이 구분을 보여줘야 '켰는데 왜 안 되지'를 만들지 않는다. */
-const ENFORCED = [
-  '자산 대장|엑셀', '재고 · 재물조사|엑셀', '계약 · 라이선스|엑셀',
-  '발견 자산 · CMDB 대사|엑셀', '발견 자산 · CMDB 대사|편입', '발견 자산 · CMDB 대사|격리요청',
-  '신청 · 결재|엑셀', '신청 · 결재|결재',
-]
+
 
 export default async function PermissionsPage() {
   await requireRole('ADMIN')
-  const rows = getStore().menuPermissions
+  const store = getStore()
+  const rows = store.menuPermissions
+  // STEP 2(메뉴 정의)에서 파생 — 화면에 하드코딩하면 정의와 매트릭스가 갈라진다
+  const defs = store.menuDefs
+  const ENFORCED = defs.flatMap((d) => d.enforced.map((a) => `${d.menu}|${a}`))
+  // 그 화면이 아예 제공하지 않는 기능 — 권한을 켜도 누를 버튼이 없다
+  const NA = rows.flatMap((r) => {
+    const def = defs.find((d) => d.menu === r.menu)
+    if (!def) return []
+    return PERM_ACTIONS.filter((a) => !def.actions.includes(a)).map((a) => `${r.menu}|${a}`)
+  })
   const roles: Role[] = ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']
   const locked = rows.flatMap((r) =>
     roles.flatMap((role) => PERM_ACTIONS.filter((a) => isLocked(r.menu, a, role)).map((a) => `${r.menu}|${a}|${role}`)),
@@ -49,7 +55,7 @@ export default async function PermissionsPage() {
       </div>
 
       <Card kicker="Permission Matrix" title="권한그룹 × 메뉴 · 기능 매트릭스" pad={false}>
-        <MatrixEditor rows={rows} actions={PERM_ACTIONS} enforced={ENFORCED} locked={locked} />
+        <MatrixEditor rows={rows} actions={PERM_ACTIONS} enforced={ENFORCED} locked={locked} na={NA} />
         <div className="callout" style={{ margin: 14 }}>
           <b>칸을 클릭해 변경합니다</b> (허용 → 본인 → 불가). <u>밑줄</u> 친 칸은 서버가 직접 강제하는 권한이며,
           회수하면 버튼이 사라질 뿐 아니라 API 직접 호출도 막힙니다. 나머지 칸은 선언된 정책으로 화면 가드가 구현합니다.

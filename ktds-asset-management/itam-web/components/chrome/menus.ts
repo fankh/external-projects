@@ -73,6 +73,7 @@ export const NAV: NavGroup[] = [
   {
     label: '환경설정',
     items: [
+      { href: '/settings/menus', label: '메뉴 · 기능 관리', ico: '▤', roles: ['ADMIN'] },
       { href: '/settings/permissions', label: '메뉴 권한', ico: '⚙', roles: ['ADMIN'] },
       { href: '/settings/users', label: '사용자 · 결재선', ico: '☰', roles: ['ADMIN'] },
       { href: '/settings/codes', label: '공통코드', ico: '#', roles: ['ADMIN'] },

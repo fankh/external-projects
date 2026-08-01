@@ -52,6 +52,7 @@ const ROUTES = {
   '/ai/insights': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/ai/reports': ['ASSET_MGR', 'SEC_MGR', 'ADMIN'],
   '/workflow/approvals': ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN'],
+  '/settings/menus': ['ADMIN'],
   '/settings/permissions': ['ADMIN'],
   '/settings/users': ['ADMIN'],
   '/settings/codes': ['ADMIN'],
@@ -141,6 +142,11 @@ try {
   const permHtml = await (await get('/settings/permissions', 'ADMIN')).text()
   check('권한 매트릭스: 파이프라인·매트릭스 렌더', permHtml.includes('메뉴권한관리') && permHtml.includes('클릭해 변경'))
   check('권한 매트릭스: 잠금 칸 표시 (Admin 자기 잠금 방지)', permHtml.includes('🔒'))
+  const menuHtml = await (await get('/settings/menus', 'ADMIN')).text()
+  check('메뉴 관리: STEP 1 기능 사전 렌더', menuHtml.includes('기능 정의') && menuHtml.includes('/api/export/[kind]'))
+  check('메뉴 관리: STEP 2 메뉴 레지스트리 렌더', menuHtml.includes('화면번호') && menuHtml.includes('DSC-010') && menuHtml.includes('/discovery/found'))
+  // 매트릭스의 '강제' 표시는 이제 메뉴 정의에서 파생된다 — 두 화면이 어긋나면 안 된다
+  check('메뉴 관리 ↔ 매트릭스 정합', menuHtml.includes('발견 자산 · CMDB 대사') && permHtml.includes('서버가 직접 강제하는 권한'))
   check('권한 매트릭스: 강제 구분 안내', permHtml.includes('서버가 직접 강제하는 권한') && permHtml.includes('필요조건'))
   const extHtml = await (await get('/discovery/external', 'SEC_MGR')).text()
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))

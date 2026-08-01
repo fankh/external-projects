@@ -443,6 +443,23 @@ export type PermMenu =
   | '대시보드' | '자산 대장' | '수명주기' | '재고 · 재물조사' | '계약 · 라이선스'
   | '발견 자산 · CMDB 대사' | 'Shadow SaaS' | 'AI 어시스턴트' | '신청 · 결재' | '권한 · 정책'
 
+/** 메뉴 정의 — 권한 파이프라인 STEP 1·2 (메뉴기능관리 → 메뉴관리).
+ *  화면마다 카테고리·화면번호를 부여하고, 그 화면이 제공하는 기능(버튼)을 정의한다.
+ *  매트릭스(STEP 3)는 이 정의 위에서만 권한을 부여할 수 있다 — 화면에 없는 기능에
+ *  권한을 주는 칸은 애초에 의미가 없다. (제품안내서 §02) */
+export interface MenuDef {
+  /** 화면번호 — 카테고리 약어 + 일련번호 */
+  code: string
+  category: string
+  menu: PermMenu
+  /** 대표 라우트 (여러 화면을 묶은 메뉴는 대표 1개) */
+  path: string
+  /** 이 화면이 제공하는 기능 */
+  actions: PermAction[]
+  /** 그중 서버가 직접 강제하는 기능 — 나머지는 화면 가드가 구현 */
+  enforced: PermAction[]
+}
+
 export interface MenuPermission {
   menu: PermMenu
   cells: Record<Role, PermCell[]>

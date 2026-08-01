@@ -15,6 +15,8 @@ export function MatrixEditor(props: {
   /** 실제로 서버가 강제하는 (메뉴 × 기능) 조합 — 나머지는 화면 가드가 담당한다 */
   enforced: string[]
   locked: string[]
+  /** 해당 화면이 제공하지 않는 기능 — 권한 부여가 무의미하므로 흐리게 표시 */
+  na: string[]
 }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -57,15 +59,19 @@ export function MatrixEditor(props: {
                   const key = `${row.menu}|${action}|${r}`
                   const locked = props.locked.includes(key)
                   const enforced = props.enforced.includes(`${row.menu}|${action}`)
+                  const na = props.na.includes(`${row.menu}|${action}`)
                   return (
                     <td
                       key={`${r}-${i}`}
                       className={c}
-                      title={locked ? '잠금 — 회수 불가' : enforced ? `${row.menu} × ${action} — 서버가 강제하는 권한` : '클릭하여 변경 (허용 → 본인 → 불가)'}
+                      title={locked ? '잠금 — 회수 불가'
+                        : na ? `${row.menu} 화면에 '${action}' 기능이 없다 (메뉴 관리에서 부여 필요)`
+                        : enforced ? `${row.menu} × ${action} — 서버가 강제하는 권한`
+                        : '클릭하여 변경 (허용 → 본인 → 불가)'}
                       style={{
                         ...(i === 0 ? { borderLeft: '1px solid var(--line-strong)' } : {}),
                         cursor: locked || pending ? 'default' : 'pointer',
-                        opacity: pending ? 0.55 : 1,
+                        opacity: pending ? 0.55 : na ? 0.28 : 1,
                         ...(enforced ? { textDecoration: 'underline', textUnderlineOffset: 3 } : {}),
                       }}
                       onClick={() => !pending && click(row.menu, action, r, c)}
