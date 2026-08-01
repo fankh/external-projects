@@ -1,7 +1,9 @@
 'use client'
-import { useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
+import { recordConfigChange, type ConfigField } from './actions'
 
 /** 조회 필터의 유형 목록 — 공통코드 ASSET_CATEGORY 의 '사용' 여부와 무관하게 전부 노출한다.
  *  미사용 처리는 **신규 입력**에서만 제외하는 규칙이고(환경설정 › 공통코드 안내 참조), 이미 그
@@ -12,10 +14,16 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 반납대기: 'warn', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; initialSel?: string }) {
   const [q, setQ] = useState(props.initialQuery)
   const [cat, setCat] = useState<AssetCategory | '전체'>('전체')
-  const [selNo, setSelNo] = useState<string | null>(null)
+  const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
+  const [cfgOpen, setCfgOpen] = useState(false)
+  const [cfgField, setCfgField] = useState<ConfigField>('memory')
+  const [cfgValue, setCfgValue] = useState('')
+  const [cfgNote, setCfgNote] = useState('')
+  const [cfgMsg, setCfgMsg] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -108,11 +116,61 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
 
             {props.canEdit && (
               <div className="hstack" style={{ marginTop: 16 }}>
-                <button className="btn sm">라벨 발행 (QR)</button>
-                <button className="btn sm">이동 처리</button>
-                <button className="btn sm danger">폐기 상신</button>
+                <Link className="btn sm" href="/assets/intake">라벨 · 검수</Link>
+                <Link className="btn sm" href="/assets/movement">이동 처리</Link>
+                <Link className="btn sm danger" href="/assets/disposal">폐기 처리</Link>
               </div>
             )}
+
+            {props.canConfig && (() => {
+              const fields: { key: ConfigField; label: string; cur?: string }[] = [
+                ...(sel.os !== undefined ? [{ key: 'os' as ConfigField, label: 'OS', cur: sel.os }] : []),
+                ...(sel.cpu !== undefined ? [{ key: 'cpu' as ConfigField, label: 'CPU', cur: sel.cpu }] : []),
+                ...(sel.memory !== undefined ? [{ key: 'memory' as ConfigField, label: '메모리', cur: sel.memory }] : []),
+                { key: '기타', label: '기타', cur: undefined },
+              ]
+              const openForm = () => {
+                const first = fields[0]
+                setCfgField(first.key); setCfgValue(first.cur ?? ''); setCfgNote(''); setCfgMsg(null); setCfgOpen(true)
+              }
+              const pickField = (k: ConfigField) => {
+                setCfgField(k); setCfgValue(fields.find((f) => f.key === k)?.cur ?? '')
+              }
+              const submit = () => {
+                startTransition(async () => {
+                  const r = await recordConfigChange(sel.assetNo, cfgField, cfgValue, cfgNote)
+                  setCfgMsg(r.message)
+                  if (r.ok) { setCfgOpen(false); setCfgNote('') }
+                })
+              }
+              return (
+                <div style={{ marginTop: 14, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                  {cfgMsg && <div className="callout" style={{ marginBottom: 10 }}>{cfgMsg}</div>}
+                  {!cfgOpen ? (
+                    <button className="btn sm" disabled={pending} onClick={openForm}>구성변경 기록</button>
+                  ) : (
+                    <div className="vstack" style={{ gap: 8 }}>
+                      <div className="kicker mute">구성변경 기록</div>
+                      <select className="select" value={cfgField} disabled={pending}
+                        onChange={(e) => pickField(e.target.value as ConfigField)}>
+                        {fields.map((f) => <option key={f.key} value={f.key}>{f.label}{f.cur !== undefined ? ` · 현재 ${f.cur}` : ''}</option>)}
+                      </select>
+                      {cfgField !== '기타' && (
+                        <input className="input" placeholder="새 값 (예: 64GB)" value={cfgValue} disabled={pending}
+                          onChange={(e) => setCfgValue(e.target.value)} />
+                      )}
+                      <input className="input" placeholder={cfgField === '기타' ? '변경 내용 (예: SSD 512GB→1TB 교체)' : '사유 (선택)'}
+                        value={cfgNote} disabled={pending} onChange={(e) => setCfgNote(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') submit() }} />
+                      <div className="hstack">
+                        <button className="btn sm pri" disabled={pending} onClick={submit}>기록</button>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => { setCfgOpen(false); setCfgMsg(null) }}>취소</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </aside>
         )}
       </div>
