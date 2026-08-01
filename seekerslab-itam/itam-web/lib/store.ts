@@ -493,8 +493,8 @@ function seed(): Store {
     insights: [
       { id: 'INS-2607-21', kind: '이상탐지', severity: '높음', title: '휴면 자산의 갑작스런 외부 통신 — printer-3f-old', detail: '40일간 무통신이던 장비가 07-27 22:14 외부 IP(불가리아)로 아웃바운드 시도. 평시 프로파일 이탈.', evidence: '프록시 로그 07-27 22:14~22:31 · 47건', createdAt: '2026-07-28', status: '제안' },
       { id: 'INS-2607-19', kind: '취약점 우선순위', severity: '높음', title: 'EOL OS 서버 1대 — CVE-2024-6387 노출', detail: 'AST-2020-000883 (CentOS 7.9, EOL) 이 외부 연동 세그먼트에 위치. 자산 중요도 상·노출도 상 → 조치 1순위.', evidence: '취약점 스캐너 연계 · CVSS 8.1', createdAt: '2026-07-26', status: '제안' },
-      { id: 'INS-2607-15', kind: '라이선스 최적화', severity: '중간', title: 'JetBrains 11석 초과 사용 — 감사 리스크', detail: '보유 120석 대비 사용 131석. EDR SW 인벤토리 기준. 추가 구매 품의 또는 미사용자 회수 필요.', evidence: 'SW 인벤토리 대사 07-25', createdAt: '2026-07-25', status: '제안' },
-      { id: 'INS-2607-12', kind: '라이선스 최적화', severity: '낮음', title: 'Adobe CC 18석 장기 미사용 — 연 1,425만원 절감 가능', detail: '90일 이상 미실행 18석 회수 후보. 갱신 협상 근거 데이터 첨부.', evidence: '사용 패턴 분석 · 90일 윈도우', createdAt: '2026-07-24', status: '제안' },
+      { id: 'INS-2607-15', kind: '라이선스 최적화', severity: '중간', title: 'JetBrains 11석 초과 사용 — 감사 리스크', detail: '보유 120석 대비 사용 131석. EDR SW 인벤토리 기준. 추가 구매 품의 또는 미사용자 회수 필요.', evidence: 'SW 인벤토리 대사 07-25', createdAt: '2026-07-25', status: '제안', refId: 'LIC-002' },
+      { id: 'INS-2607-12', kind: '라이선스 최적화', severity: '낮음', title: 'Adobe CC 18석 장기 미사용 — 연 1,425만원 절감 가능', detail: '90일 이상 미실행 18석 회수 후보. 갱신 협상 근거 데이터 첨부.', evidence: '사용 패턴 분석 · 90일 윈도우', createdAt: '2026-07-24', status: '제안', refId: 'LIC-003' },
       { id: 'INS-2607-08', kind: '수명예측', severity: '중간', title: '2027 1분기 단말 교체 수요 64대 예측', detail: '장애 이력·사용 연한·성능 데이터 기반 생존 분석. 예산 추정 1.6억. 연간 교체 계획 리포트 생성 가능.', evidence: '회귀 모델 v3 · 신뢰구간 90%', createdAt: '2026-07-20', status: '제안' },
       { id: 'INS-2607-05', kind: '자동분류', severity: '낮음', title: '발견 자산 9건 자동분류 완료 — 확인 대기', detail: '스캔 배너·설치 SW 문자열을 표준 유형·제조사·모델로 매핑. 신뢰도 0.92 이상 9건.', evidence: 'LLM 분류 · 규칙 하이브리드', createdAt: '2026-07-19', status: '승인', decidedAt: '2026-07-19', decidedBy: '박자산', action: '분류 결과 대장 반영 — 9건' },
     ],
@@ -584,7 +584,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

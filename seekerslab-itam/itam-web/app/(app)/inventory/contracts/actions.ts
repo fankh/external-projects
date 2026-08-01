@@ -3,8 +3,9 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { daysUntil, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
+import { raiseLicenseApproval } from '@/lib/license'
 import { getSession } from '@/lib/session'
-import { getStore, nextApprovalId } from '@/lib/store'
+import { getStore } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
 
 async function guard() {
@@ -107,37 +108,7 @@ export async function actOnLicense(licenseId: string, kind: '추가 구매' | '�
   const session = await guard()
   if (!session) return { ok: false, message: '라이선스 조치 권한이 없습니다.' }
 
-  const s = getStore()
-  const l = s.licenses.find((x) => x.id === licenseId)
-  if (!l) return { ok: false, message: '라이선스를 찾을 수 없습니다.' }
-
-  const gap = l.used - l.purchased
-  if (kind === '추가 구매' && gap <= 0) return { ok: false, message: `초과 사용 상태가 아닙니다 — ${l.name}` }
-  if (kind === '회수' && gap >= 0) return { ok: false, message: `회수할 여유 석이 없습니다 — ${l.name}` }
-
-  const dup = s.approvals.find((a) => a.status === '대기' && a.refId === l.id)
-  if (dup) return { ok: false, message: `이미 결재 대기 중인 조치가 있습니다 — ${dup.id}` }
-
-  const seats = Math.abs(gap)
-  const cost = seats * l.unitCost
-  const id = nextApprovalId()
-  s.approvals.unshift({
-    id,
-    kind: '자산 신청',
-    title:
-      kind === '추가 구매'
-        ? `${l.name} 라이선스 ${seats}석 추가 구매 품의 — 초과 사용 해소 (약 ${cost.toLocaleString()}원)`
-        : `${l.name} 라이선스 ${seats}석 회수 — 장기 미사용 (연 약 ${cost.toLocaleString()}원 절감)`,
-    requester: session.name,
-    dept: 'IT기획팀',
-    requestedAt: today(),
-    status: '대기',
-    currentStep: 'IT기획팀장 결재',
-    refId: l.id,
-    note: `보유 ${l.purchased} / 사용 ${l.used} · 단가 ${l.unitCost.toLocaleString()}원`,
-  })
-
-  appendAudit({ actor: session.name, action: `라이선스 ${kind} 상신 (${seats}석)`, target: l.id })
-  revalidatePath('/', 'layout')
-  return { ok: true, message: `${id} 상신 — ${l.name} ${seats}석 ${kind}` }
+  const r = raiseLicenseApproval(session, licenseId, kind)
+  if (r.ok) revalidatePath('/', 'layout')
+  return { ok: r.ok, message: r.message }
 }
