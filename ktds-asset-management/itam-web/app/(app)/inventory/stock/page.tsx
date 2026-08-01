@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
@@ -74,7 +75,7 @@ export default async function StockPage() {
         </Card>
 
         <Card kicker="Physical Inventory" title="재물조사 계획 · 수행" pad={false}
-          actions={<button className="btn sm pri">조사 계획 등록</button>}>
+          actions={<Link className="btn sm pri" href="/inventory/survey-plan">조사 계획 등록</Link>}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>

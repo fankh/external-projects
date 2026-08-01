@@ -1,14 +1,16 @@
-import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
+import { ShadowSaasTable } from './ShadowSaasTable'
 
 export const dynamic = 'force-dynamic'
 
 export default async function SaasPage() {
-  await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const rows = [...s.saas].sort((a, b) => b.monthlyVisits - a.monthlyVisits)
   const shadow = rows.filter((x) => !x.sanctioned)
+  const canDecide = ['SEC_MGR', 'ADMIN'].includes(session.role)
 
   return (
     <>
@@ -26,34 +28,13 @@ export default async function SaasPage() {
       </div>
 
       <Card kicker="By Department" title="부서별 SaaS 사용" pad={false}>
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>서비스</th><th>분류</th><th>주 사용 부서</th><th className="num">추정 사용자</th>
-                <th className="num">월 접속</th><th className="c">인가 여부</th><th className="c">위험도</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((x) => (
-                <tr key={x.id}>
-                  <td className="strong">{x.service}</td>
-                  <td className="mute">{x.category}</td>
-                  <td>{x.dept}</td>
-                  <td className="num tnum">{x.users.toLocaleString()}</td>
-                  <td className="num tnum">{x.monthlyVisits.toLocaleString()}</td>
-                  <td className="c">{x.sanctioned ? <Chip tone="ok">인가</Chip> : <Chip tone="err">미인가</Chip>}</td>
-                  <td className="c"><RiskChip risk={x.risk} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ShadowSaasTable rows={rows} canDecide={canDecide} />
       </Card>
 
       <div className="callout warn">
         <b>정책 연계.</b> 미인가 스토리지류(Dropbox 등)는 8/1부터 프록시 차단 정책이 시행됩니다. 미인가 AI 서비스는
         사용 부서 확인 후 인가 카탈로그 등재 또는 차단 대상으로 분류하세요 — 판정·격리 요청은 보안담당 권한입니다.
+        {canDecide && ' 아래 표의 판정 버튼으로 바로 처리할 수 있으며, 판정은 SaaS 카탈로그에도 반영됩니다.'}
       </div>
     </>
   )
