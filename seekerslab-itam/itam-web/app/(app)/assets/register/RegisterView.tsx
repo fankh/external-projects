@@ -117,6 +117,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
 
             {props.canEdit && (
               <div className="hstack" style={{ marginTop: 16 }}>
+                <a className="btn sm" href={`/api/label/${sel.assetNo}`} target="_blank" rel="noopener">라벨 인쇄</a>
                 <Link className="btn sm" href="/assets/intake">라벨 · 검수</Link>
                 <Link className="btn sm" href="/assets/movement">이동 처리</Link>
                 <Link className="btn sm danger" href="/assets/disposal">폐기 처리</Link>
