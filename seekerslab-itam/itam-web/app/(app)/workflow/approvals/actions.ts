@@ -78,6 +78,31 @@ export async function raiseRequest(input: {
   return { ok: true, message: `${id} 상신 완료 — ${nextStep} 결재 대기` }
 }
 
+/** 상신 취소 — 신청자가 본인의 대기 중인 신청을 회수한다 (전자결재 상신 취소).
+ *  자산 신청·반납·이동은 상신 시점에 대장을 바꾸지 않으므로(효과는 결재 확정 단계에서만) 되돌릴 상태가 없다.
+ *  결재 확정 전에만 가능하며, 취소 이력은 감사 로그에 남는다. */
+export async function withdrawRequest(approvalId: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+
+  const s = getStore()
+  const a = s.approvals.find((x) => x.id === approvalId)
+  if (!a) return { ok: false, message: '신청 건을 찾을 수 없습니다.' }
+  if (a.status !== '대기') return { ok: false, message: `이미 처리된 건입니다 — ${a.id} (${a.status})` }
+  if (a.requester !== session.name) return { ok: false, message: '본인이 상신한 건만 취소할 수 있습니다.' }
+  if (!['자산 신청', '반납', '이동'].includes(a.kind)) {
+    return { ok: false, message: `상신 취소 대상이 아닌 결재입니다 — ${a.kind}` }
+  }
+
+  a.status = '취소'
+  a.currentStep = '취소'
+  a.decidedAt = today()
+  a.decidedBy = session.name
+  appendAudit({ actor: session.name, action: `상신 취소 (${a.kind})`, target: a.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${a.id} 상신을 취소했습니다.` }
+}
+
 /** 소유자 확인 응답 — 확인 요청을 받은 부서가 직접 답한다.
  *  '본인 자산'이면 편입 절차로, '아님'이면 미확인 상태로 남아 격리 검토 대상이 된다.
  *  (제품안내서 §01 권한그룹: 사용자 — 소유자 확인 요청 응답) */

@@ -46,7 +46,7 @@ export default async function ApprovalsPage() {
       <RequestForm myAssets={myAssets} locations={locations} />
 
       <Card pad={false} actions={<ExportButton kind="approvals" role={session.role} label="결재 이력 엑셀" />}>
-        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} />
+        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} />
       </Card>
 
       <div className="callout">

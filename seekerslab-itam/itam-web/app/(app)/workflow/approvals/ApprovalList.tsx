@@ -3,10 +3,12 @@ import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { Approval, Role } from '@/lib/types'
-import { answerOwnerConfirm, decide } from './actions'
+import { answerOwnerConfirm, decide, withdrawRequest } from './actions'
 
-export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds }: {
-  approvals: Approval[]; role: Role; dept: string
+const WITHDRAWABLE = ['자산 신청', '반납', '이동']
+
+export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds }: {
+  approvals: Approval[]; role: Role; dept: string; viewer: string
   linesByKind: Record<string, string[]>; requiredKinds: string[]
 }) {
   const [tab, setTab] = useState<'대기' | '전체'>('대기')
@@ -44,6 +46,12 @@ export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds
     // 매핑되면 현재 단계 역할만, 아니면 레거시(격리=보안담당·그 외=자산담당)
     return sr ? role === sr : a.kind === '격리 요청' ? role === 'SEC_MGR' : role === 'ASSET_MGR'
   }
+
+  // 상신 취소 — 본인이 올린 대기 중인 신청(자산 신청·반납·이동)만. 상신 시점엔 대장을 바꾸지 않아 되돌릴 상태가 없다
+  const canWithdraw = (a: Approval) => a.status === '대기' && a.requester === viewer && WITHDRAWABLE.includes(a.kind)
+
+  const withdraw = (id: string) =>
+    startTransition(async () => setMsg((await withdrawRequest(id)).message))
 
   return (
     <div>
@@ -99,7 +107,7 @@ export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds
                   </div>
                 </td>
                 <td className="c">
-                  <Chip tone={a.status === '승인' ? 'ok' : a.status === '반려' ? 'err' : 'info'}>{a.status}</Chip>
+                  <Chip tone={a.status === '승인' ? 'ok' : a.status === '반려' ? 'err' : a.status === '취소' ? 'neutral' : 'info'}>{a.status}</Chip>
                 </td>
                 <td className="c" style={{ whiteSpace: 'nowrap' }}>
                   {canAnswer(a) ? (
@@ -127,6 +135,11 @@ export function ApprovalList({ approvals, role, dept, linesByKind, requiredKinds
                           onClick={() => { setRejecting(a.id); setReason(''); setMsg(null) }}>반려</button>
                       </span>
                     )
+                  ) : canWithdraw(a) ? (
+                    <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
+                      <span className="mut" style={{ fontSize: 11 }}>{a.currentStep} 대기</span>
+                      <button className="btn sm ghost" disabled={pending} onClick={() => withdraw(a.id)}>상신 취소</button>
+                    </span>
                   ) : (
                     <span className="mut">{a.status === '대기'
                       ? (a.kind === '소유자 확인' ? '부서 응답 대기' : `${a.currentStep} 대기`)

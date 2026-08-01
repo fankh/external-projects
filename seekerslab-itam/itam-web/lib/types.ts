@@ -155,7 +155,7 @@ export interface SwLicense {
 }
 
 export type ApprovalKind = '자산 신청' | '반납' | '이동' | '폐기' | '소유자 확인' | '격리 요청' | '차이 조정'
-export type ApprovalStatus = '대기' | '승인' | '반려'
+export type ApprovalStatus = '대기' | '승인' | '반려' | '취소'
 
 /** 제품안내서가 필수 결재로 규정한 종류 — 폐기·격리·편입(소유자 확인)·차이 조정.
  *  결재선 화면에서 '선택'으로 내릴 수 없도록 고정한다(§03·§04 통제 우회 방지). */
