@@ -5,8 +5,33 @@ import { daysUntil, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { raiseLicenseApproval } from '@/lib/license'
 import { getSession } from '@/lib/session'
-import { getStore } from '@/lib/store'
+import { getStore, nextId } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
+
+/** SW 라이선스 등록 — 신규 구매 라이선스를 대사 대상에 편입한다 (그동안 시드만 있고 등록 경로 부재).
+ *  사용(used)은 0에서 시작하고, 이후 SW 인벤토리 대사로 채워진다. 자산담당·Admin. */
+export async function addLicense(input: { name: string; vendor: string; purchased: number; expiry: string; unitCost: number }) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '라이선스 등록 권한이 없습니다 (자산담당·Admin).' }
+
+  const name = input.name.trim()
+  const vendor = input.vendor.trim()
+  if (!name || !vendor) return { ok: false, message: '라이선스명과 공급사를 입력하세요.' }
+  if (!Number.isInteger(input.purchased) || input.purchased <= 0) return { ok: false, message: '보유 좌석 수를 1 이상 입력하세요.' }
+  if (input.expiry !== '-' && !/^\d{4}-\d{2}-\d{2}$/.test(input.expiry)) return { ok: false, message: '만료일을 YYYY-MM-DD 또는 -(영구)로 입력하세요.' }
+  if (!Number.isFinite(input.unitCost) || input.unitCost < 0) return { ok: false, message: '단가를 0 이상으로 입력하세요.' }
+
+  const s = getStore()
+  if (s.licenses.some((l) => l.name.toLowerCase() === name.toLowerCase())) {
+    return { ok: false, message: `이미 등록된 라이선스입니다 — ${name}` }
+  }
+  const id = nextId('LIC')
+  s.licenses.push({ id, name, vendor, purchased: input.purchased, used: 0, expiry: input.expiry, unitCost: Math.round(input.unitCost) })
+
+  appendAudit({ actor: session.name, action: `SW 라이선스 등록 — ${name} (보유 ${input.purchased}석)`, target: id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${name} 라이선스 등록 완료 (보유 ${input.purchased}석)` }
+}
 
 async function guard() {
   const session = await getSession()

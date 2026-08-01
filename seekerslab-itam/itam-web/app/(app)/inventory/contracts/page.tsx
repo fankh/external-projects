@@ -5,7 +5,7 @@ import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
 import { ContractsTable } from './ContractsTable'
-import { ExpiryNoticeButton, LicenseAction } from './LicenseActions'
+import { AddLicense, ExpiryNoticeButton, LicenseAction } from './LicenseActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +46,7 @@ export default async function ContractsPage() {
       </Card>
 
       <Card kicker="License Compliance" title="SW 라이선스 보유 – 사용 대사" pad={false}>
+        <AddLicense />
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
