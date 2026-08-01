@@ -35,6 +35,23 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   const s = getStore()
   const q = question.toLowerCase()
 
+  if (!isUser && (q.includes('미인가') || q.includes('saas') || q.includes('새스') || q.includes('섀도'))) {
+    const shadow = s.saas.filter((x) => !x.sanctioned)
+    // "A부서에서 쓰는 …" — 질문에 언급된 부서가 있으면 그 부서로 좁힌다
+    const dept = [...new Set(s.saas.map((x) => x.dept))].find((d) => question.includes(d))
+    const items = dept ? shadow.filter((x) => x.dept === dept) : shadow
+    const users = items.reduce((n, x) => n + x.users, 0)
+    return {
+      role: 'assistant',
+      text: `${dept ? `${dept}의 ` : ''}미인가(Shadow) SaaS는 ${items.length}종이며 추정 사용자는 총 ${users}명입니다.\n\n${items
+        .map((x) => `· ${x.service} — ${x.dept} · 추정 사용자 ${x.users}명 (분류 ${x.category}, 위험도 ${x.risk})`)
+        .join('\n')}\n\n인가·차단 판정은 Discovery › Shadow SaaS 또는 환경설정 › SaaS 카탈로그에서 처리합니다.`,
+      evidence: [
+        { label: 'Shadow SaaS', href: '/discovery/saas' },
+        { label: 'SaaS 카탈로그', href: '/settings/saas-catalog' },
+      ],
+    }
+  }
   if (!isUser && (q.includes('미등록') || q.includes('발견') || q.includes('shadow'))) {
     const items = s.discovered.filter((d) => d.state === '미등록' && !d.action)
     return {
@@ -85,7 +102,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "내 보유 자산"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "내 보유 자산"`,
   }
 }
 
