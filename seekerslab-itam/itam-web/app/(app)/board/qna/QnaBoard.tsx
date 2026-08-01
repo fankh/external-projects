@@ -13,9 +13,11 @@ export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPo
   const [body, setBody] = useState('')
   const [category, setCategory] = useState<QnaCategory>(CATEGORIES[0])
   const [answer, setAnswer] = useState('')
+  const [editingAnswer, setEditingAnswer] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const open = posts.find((p) => p.id === openId) ?? null
+  const select = (id: string) => { setEditingAnswer(false); setAnswer(''); setOpenId(id === openId ? null : id) }
 
   return (
     <>
@@ -50,7 +52,7 @@ export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPo
             <tbody>
               {posts.map((p) => (
                 <tr key={p.id} className={`clickable ${p.id === openId ? 'sel' : ''}`}
-                  onClick={() => setOpenId(p.id === openId ? null : p.id)}>
+                  onClick={() => select(p.id)}>
                   <td className="mute">{p.category ?? '기타'}</td>
                   <td className="strong">{p.title}</td>
                   <td>{p.author}{p.author === me && <span className="mut"> (나)</span>}</td>
@@ -79,8 +81,31 @@ export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPo
 
           {open.answer ? (
             <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--accent-soft)', border: '1px solid var(--accent-line)', borderRadius: 8 }}>
-              <div className="kicker">답변 · {open.answer.by} · {open.answer.at}</div>
-              <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, marginTop: 6 }}>{open.answer.body}</div>
+              <div className="hstack" style={{ justifyContent: 'space-between', gap: 8 }}>
+                <div className="kicker">답변 · {open.answer.by} · {open.answer.at}</div>
+                {canAnswer && !editingAnswer && (
+                  <button className="btn sm ghost" disabled={pending}
+                    onClick={() => { setEditingAnswer(true); setAnswer(open.answer?.body ?? ''); setMsg(null) }}>답변 수정</button>
+                )}
+              </div>
+              {editingAnswer ? (
+                <div className="vstack" style={{ gap: 8, marginTop: 8 }}>
+                  <textarea className="input" style={{ height: 96, padding: '8px 10px', resize: 'vertical', lineHeight: 1.6 }}
+                    value={answer} onChange={(e) => setAnswer(e.target.value)} />
+                  <div className="hstack">
+                    <span className="right" />
+                    <button className="btn" disabled={pending} onClick={() => { setEditingAnswer(false); setAnswer('') }}>취소</button>
+                    <button className="btn pri" disabled={pending || !answer.trim()}
+                      onClick={() => startTransition(async () => {
+                        const r = await answerQuestion(open.id, answer)
+                        setMsg(r.message)
+                        if (r.ok) { setEditingAnswer(false); setAnswer('') }
+                      })}>저장</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, marginTop: 6 }}>{open.answer.body}</div>
+              )}
             </div>
           ) : canAnswer ? (
             <div className="vstack" style={{ gap: 8, marginTop: 16 }}>
