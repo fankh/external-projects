@@ -1,7 +1,7 @@
 'use server'
 import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
-import { today, daysUntil } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, isStaleVerify, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import type { ChatMessage } from '@/lib/types'
@@ -32,6 +32,10 @@ function buildContext(userName: string, isUser: boolean): string {
       ...s.inventoryRounds.map((r) => `- ${r.name} | ${r.status} | ${r.scanned}/${r.planned} 스캔 | 차이:${r.mismatched} | 기한:${r.dueDate}`),
       `[결재 대기] ${s.approvals.filter((a) => a.status === '대기').length}건`,
       ...s.approvals.filter((a) => a.status === '대기').map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.currentStep}`),
+      `[운영 리스크] 분실·도난 ${s.assets.filter((a) => a.status === '분실').length} · 장기미실측 ${s.assets.filter(isStaleVerify).length} · 대여연체 ${s.assets.filter(isLoanOverdue).length}`,
+      ...s.assets
+        .filter((a) => a.status === '분실' || isStaleVerify(a) || isLoanOverdue(a))
+        .map((a) => `- ${a.assetNo} | ${a.model} | ${a.status === '분실' ? '분실·도난' : isLoanOverdue(a) ? `대여연체(${a.owner}, 기한 ${a.loanDueDate})` : `장기미실측(최근 실측 ${a.lastVerifiedAt ?? '없음'})`}`),
     )
   }
   return lines.join('\n')
@@ -136,6 +140,26 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
       evidence: [{ label: '라이선스 컴플라이언스', href: '/inventory/contracts' }],
     }
   }
+  // 운영 리스크 자산 — 분실·도난, 장기 미실측(유령 후보), 대여 반환 연체를 한 번에 훑는다 (자산팀 조치 대상)
+  if (!isUser && (q.includes('분실') || q.includes('도난') || q.includes('미실측') || q.includes('유령') || q.includes('연체') || q.includes('대여') || q.includes('반출') || q.includes('운영 리스크') || q.includes('리스크 자산'))) {
+    const lost = s.assets.filter((a) => a.status === '분실')
+    const stale = s.assets.filter(isStaleVerify)
+    const overdue = s.assets.filter(isLoanOverdue)
+    const sec = (label: string, arr: typeof lost, fmt: (a: (typeof lost)[number]) => string) =>
+      `· ${label}: ${arr.length}건${arr.length ? `\n${arr.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}`
+    return {
+      role: 'assistant',
+      text: `운영 리스크 자산 현황입니다 (자산팀 조치 대상).\n\n${[
+        sec('분실·도난 신고', lost, (a) => `${a.assetNo} — ${a.model} (${a.dept})`),
+        sec('장기 미실측(유령 후보)', stale, (a) => `${a.assetNo} — ${a.model} · 최근 실측 ${a.lastVerifiedAt ?? '없음'}`),
+        sec('대여 반환 연체', overdue, (a) => `${a.assetNo} — ${a.model} · ${a.owner} (기한 ${a.loanDueDate})`),
+      ].join('\n\n')}\n\n분실은 회수·폐기 확정, 장기 미실측은 수시 재물조사 편성, 대여 연체는 반환 독촉으로 처리합니다.`,
+      evidence: [
+        { label: '자산 대장 (장기 미실측 필터)', href: '/assets/register' },
+        { label: '재물조사 계획', href: '/inventory/survey-plan' },
+      ],
+    }
+  }
   const mine = s.assets.filter((a) => a.owner === userName)
   if (q.includes('내') || q.includes('보유') || isUser) {
     return {
@@ -150,7 +174,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
   }
 }
 
