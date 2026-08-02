@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { getStore } from '@/lib/store'
+import { getStore, nextId } from '@/lib/store'
 import type { ReturnCondition } from '@/lib/types'
 
 /** 반납 접수 · 상태 점검 — 회수한 실물을 점검해 유휴 풀에 넣을지, 수리·폐기로 뺄지 가른다.
@@ -29,6 +29,11 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
   //  - 정상 → 유휴 (바로 재배치 가능)
   if (condition === '폐기 권고') {
     asset.status = '폐기예정'
+    // 폐기 권고는 폐기 절차로 바로 편입한다 — 폐기 대상 레코드를 만들어야 결재·소거로 이어진다
+    // (그동안 상태만 폐기예정으로 바뀌고 폐기 대장에 오르지 않아 소거로 진행할 수 없었다)
+    if (!s.disposals.some((d) => d.assetNo === assetNo)) {
+      s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `반납 점검 폐기 권고${note.trim() ? ` — ${note.trim()}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
+    }
   } else if (condition === '수리 필요') {
     asset.status = '수리중'
     asset.owner = '미지정'
