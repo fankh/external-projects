@@ -1,13 +1,14 @@
 import { ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil, isLoanDueSoon, isLoanOverdue, today } from '@/lib/dates'
+import { canExport } from '@/lib/exports'
 import { getStore } from '@/lib/store'
 import { ReturnsView } from './ReturnsView'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ReturnsPage() {
-  await requireRole('ASSET_MGR', 'ADMIN')
+  const session = await requireRole('ASSET_MGR', 'ADMIN')
   const s = getStore()
 
   const pending = s.assets
@@ -86,7 +87,7 @@ export default async function ReturnsPage() {
         <Stat value={openRequests} label="배정 대기 자산 신청" tone={openRequests ? 'accent' : 'ok'} />
       </div>
 
-      <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} today={todayStr} locations={locations} openRequests={openRequests} />
+      <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} />
     </>
   )
 }

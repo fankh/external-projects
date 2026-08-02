@@ -6,7 +6,7 @@ import type { Sheet } from './xlsx'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
  *  (제품안내서 §02: 권한은 메뉴(화면) × 기능(버튼) 단위로 부여) */
-export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals'] as const
+export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals', 'loans'] as const
 export type ExportKind = (typeof EXPORT_KINDS)[number]
 
 /** 내보내기 대상 ↔ 권한 매트릭스의 메뉴. 허용 여부는 매트릭스의 '엑셀' 칸이 정한다 —
@@ -18,6 +18,7 @@ export const EXPORT_META: Record<ExportKind, { label: string; file: string; menu
   contracts: { label: '계약 · 라이선스', file: '계약라이선스', menu: '계약 · 라이선스' },
   approvals: { label: '결재 이력', file: '결재이력', menu: '신청 · 결재' },
   disposals: { label: '폐기 증적 대장', file: '폐기증적대장', menu: '수명주기' },
+  loans: { label: '대여 대장', file: '대여대장', menu: '수명주기' },
 }
 
 export function canExport(kind: ExportKind, role: Role): boolean {
@@ -127,6 +128,25 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         d.id, d.assetNo, d.model, d.reason, d.status,
         d.wipeMethod ?? '', d.wipedAt ?? '', d.wipedBy ?? '', d.certNo ?? '', d.evidence ?? '',
       ]),
+    }]
+  }
+
+  if (kind === 'loans') {
+    // 대여(반출) 대장 — 감사 대응용. 반출 중인 자산이 누구에게·언제까지 나가 있는지, 연체 여부를 한 장에 남긴다.
+    const rows = s.assets
+      .filter((a) => a.status === '대여중')
+      .map((a) => {
+        const loanEv = [...a.history].reverse().find((h) => h.kind === '대여' && h.detail.includes('대여 —'))
+          ?? [...a.history].reverse().find((h) => h.kind === '대여')
+        const d = a.loanDueDate ? daysUntil(a.loanDueDate) : null
+        const state = d === null ? '기한 없음' : d < 0 ? `연체 ${-d}일` : d <= 7 ? `반환 임박 D-${d}` : '정상'
+        return [a.assetNo, a.category, a.model, a.owner, a.dept, a.location, loanEv?.date ?? '', a.loanDueDate ?? '', d ?? '', state]
+      })
+      .sort((x, y) => (typeof x[8] === 'number' ? x[8] : 99_999) - (typeof y[8] === 'number' ? y[8] : 99_999))
+    return [{
+      name: '대여 대장',
+      header: ['자산번호', '유형', '모델', '대여자', '부서', '위치', '대여일', '반환 기한', '잔여일', '상태'],
+      rows,
     }]
   }
 

@@ -213,6 +213,7 @@ try {
   check('반납·유휴: 대여 현황 패널 + 대여중 자산·반환 접수 노출', rtHtml.includes('대여 현황') && rtHtml.includes('AST-2024-000230') && rtHtml.includes('반환 접수'))
   check('반납·유휴: 대여 연체 자산이 연체로 표기 (AST-2023-000450, 기한 경과)', rtHtml.includes('AST-2023-000450') && rtHtml.includes('연체'))
   check('반납·유휴: 연체·임박 대여에 반환 독촉 발송 버튼 노출', rtHtml.includes('반환 독촉 발송'))
+  check('반납·유휴: 대여 대장 엑셀 반출 버튼 노출 (감사 대응)', rtHtml.includes('/api/export/loans') && rtHtml.includes('대여 대장 엑셀'))
   const apUser = await (await get('/workflow/approvals', 'USER')).text()
   check('신청 상신: 사용자에게 신청 UI 노출', apUser.includes('신청 상신') && apUser.includes('신청하기'))
   check('상신 취소: 본인 대기 신청에 취소 버튼 노출', apUser.includes('상신 취소') && apUser.includes('APR-2607-121'))
@@ -269,7 +270,7 @@ try {
 
   console.log('\n[엑셀 내보내기 — 기능 단위 권한]')
   const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  for (const kind of ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals']) {
+  for (const kind of ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals', 'loans']) {
     const r = await get(`/api/export/${kind}`, 'ADMIN')
     const buf = Buffer.from(await r.arrayBuffer())
     // PK\x03\x04 = ZIP 시그니처. 엑셀이 열 수 있는 형식인지 최소한 확인한다.
@@ -281,7 +282,7 @@ try {
     check(`엑셀 ${kind}: EOCD 존재 (온전한 ZIP)`, buf.includes(Buffer.from('PK\x05\x06', 'binary')))
   }
   // 권한 매트릭스에 '엑셀'이 없는 사용자 권한그룹은 URL 직접 호출도 차단되어야 한다
-  for (const kind of ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals']) {
+  for (const kind of ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals', 'loans']) {
     const r = await get(`/api/export/${kind}`, 'USER')
     check(`엑셀 ${kind}: USER 차단 (403)`, r.status === 403, `status=${r.status}`)
   }

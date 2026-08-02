@@ -20,6 +20,8 @@ export function ReturnsView(props: {
   loans: Loan[]
   /** 독촉 대상(연체 + 반환 임박 D-7) 건수 — 대여자 반환 요청 발송 대상 */
   remindable: number
+  /** 대여 대장 엑셀 반출 권한(권한 매트릭스의 '엑셀' 기능) */
+  canExportLoans: boolean
   /** 기준일 YYYY-MM-DD — 연장 date input 의 최소값(과거·현재 기한 이전으로는 연장 불가) */
   today: string
   locations: string[]
@@ -141,9 +143,14 @@ export function ReturnsView(props: {
         title={`대여 현황 ${props.loans.length}건 — 반출·반환 기한 관리`}
         pad={false}
         actions={
-          props.remindable > 0
-            ? <button className="btn sm pri" disabled={pending}
-                onClick={() => startTransition(async () => setMsg((await remindLoans()).message))}>반환 독촉 발송 {props.remindable}건</button>
+          (props.loans.length > 0 && props.canExportLoans) || props.remindable > 0
+            ? <span className="hstack" style={{ gap: 6 }}>
+                {props.loans.length > 0 && props.canExportLoans &&
+                  <a className="btn sm" href="/api/export/loans" download>⤓ 대여 대장 엑셀</a>}
+                {props.remindable > 0 &&
+                  <button className="btn sm pri" disabled={pending}
+                    onClick={() => startTransition(async () => setMsg((await remindLoans()).message))}>반환 독촉 발송 {props.remindable}건</button>}
+              </span>
             : undefined
         }
       >
