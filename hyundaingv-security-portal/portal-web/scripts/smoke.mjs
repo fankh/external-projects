@@ -63,6 +63,7 @@ const ROUTES = {
   '/settings/permissions': ADM,
   '/settings/codes': ADM,
   '/settings/forms': ADM,
+  '/settings/audit': ADM,
   '/platform/integrations': ADM,
 }
 
@@ -203,6 +204,8 @@ async function main() {
     ['/settings/menus', 'ADMIN', ['LV1 도메인', '메뉴 체계', '/sr/new', '구현']],
     ['/settings/permissions', 'ADMIN', ['권한 매트릭스', '최소권한 모델', '개인별현황']],
     ['/settings/forms', 'ADMIN', ['장애보고 취합 양식', '새 버전 업로드', 'XT-01']],
+    // 감사 이력 — append-only 통제 기록
+    ['/settings/audit', 'ADMIN', ['감사 이력', 'AP-2026-0701', '결재 승인', '추적성']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)

@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { CHANNELS } from '@/portal.config'
-import type { Approval, ApprovalLine, Attachment, BatchJob, BatchRun, ChangeWork, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -46,6 +46,8 @@ export interface Store {
   excelTemplates: ExcelTemplate[]
   /** 공통 첨부 — refId(업무 문서 번호)로 전 모듈이 공유 */
   attachments: Attachment[]
+  /** 감사 이력 — 통제 행위 append-only */
+  auditLogs: AuditLog[]
   /** 연동 채널 활성 상태 (channelId → on/off) — 정의는 portal.config.ts, 상태는 런타임 */
   channelStates: Record<string, boolean>
   sendLog: SendLogEntry[]
@@ -218,6 +220,9 @@ function seed(): Store {
       { id: 'IF-02', name: '인사 기본정보 수신', from: '인사·근태 시스템', to: '포털', method: '파일', status: '정상' },
       { id: 'IF-03', name: '자산정보 조회', from: '포털', to: '자산관리시스템', method: 'REST API', status: '정상' },
       { id: 'IF-04', name: '출력물 자료 수신', from: '보안·출력물 시스템', to: '포털', method: 'DB 연계', status: '오류' },
+    ],
+    auditLogs: [
+      { at: '2026-07-25 10:12', actor: '시스템관리자', action: '결재 승인', detail: 'AP-2026-0701 변경계획 상신 — WAS 보안패치 적용 계획' },
     ],
     attachments: [
       { id: 'AT-2026-0001', refId: 'CT-2026-01', name: 'ERP리포트모듈_계약서.pdf', sizeKb: 842, uploadedBy: '김현우', at: '2026-06-30' },

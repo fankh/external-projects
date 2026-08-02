@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { audit } from '@/lib/audit'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
@@ -19,13 +20,14 @@ function unsignedOf(s: ReturnType<typeof getStore>) {
 /** 양식 개정 — 개정일자 이전 서약이 무효가 되어 전원 재서약 대상으로 재산출된다 (요구사항: 개정일 기준 안내) */
 async function reviseForm(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const kind = String(formData.get('kind') ?? '') as PledgeKind
   const revisedAt = String(formData.get('revisedAt') ?? '')
   const s = getStore()
   const form = s.pledgeForms.find((f) => f.kind === kind)
   // 미래 개정일자는 그날까지 유효 서약이 불가능해지는 구멍이 된다 — 당일 이전만 허용
   if (!form || !/^\d{4}-\d{2}-\d{2}$/.test(revisedAt) || revisedAt <= form.revisedAt || revisedAt > today()) return
+  audit(me.name, '서약양식 개정', `${kind} 보안서약서: ${form.revisedAt} → ${revisedAt}`)
   form.revisedAt = revisedAt
 
   if (kind === '일반') {

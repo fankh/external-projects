@@ -109,6 +109,7 @@ export const NAV: NavGroup[] = [
       { href: '/settings/permissions', label: '메뉴권한', ico: '⚙', roles: ADM },
       { href: '/settings/codes', label: '공통코드 · 객체', ico: '#', roles: ADM },
       { href: '/settings/forms', label: '엑셀양식 관리', ico: '▦', roles: ADM },
+      { href: '/settings/audit', label: '감사 이력', ico: '☲', roles: ADM },
     ],
   },
   {

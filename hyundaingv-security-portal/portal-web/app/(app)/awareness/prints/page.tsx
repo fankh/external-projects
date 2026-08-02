@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { nowStamp, today } from '@/lib/dates'
 import { secdataAdapter } from '@/lib/integrations/registry'
@@ -10,7 +11,7 @@ import { getStore, nextNo } from '@/lib/store'
 /** 전일자 이관 — 보안·출력물 시스템(DB 연계) 자료를 일배치로 가져온다 (요구사항: 일배치 이관) */
 async function importDaily() {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const s = getStore()
   const adapter = secdataAdapter()
   if (!adapter) {
@@ -30,6 +31,7 @@ async function importDaily() {
     added += 1
   }
   s.batchRuns.unshift({ job: `출력물 자료 일배치 이관 (수동, ${added}건)`, ranAt: nowStamp(), result: '성공' })
+  audit(me.name, '일배치 이관', `출력물 자료 ${added}건 (보안·출력물 시스템)`)
   revalidatePath('/', 'layout')
 }
 

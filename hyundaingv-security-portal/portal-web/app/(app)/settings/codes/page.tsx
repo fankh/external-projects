@@ -1,17 +1,20 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 
 async function toggleCode(formData: FormData) {
   'use server'
-  await requireRole('ADMIN')
+  const me = await requireRole('ADMIN')
   const groupId = String(formData.get('groupId') ?? '')
   const code = String(formData.get('code') ?? '')
   const s = getStore()
-  const value = s.codeGroups.find((g) => g.id === groupId)?.values.find((v) => v.code === code)
-  if (!value) return
+  const group = s.codeGroups.find((g) => g.id === groupId)
+  const value = group?.values.find((v) => v.code === code)
+  if (!group || !value) return
   value.enabled = !value.enabled
+  audit(me.name, '공통코드 변경', `${group.name}(${groupId}) ${code}: ${value.enabled ? '사용' : '중지'}`)
   revalidatePath('/', 'layout')
 }
 

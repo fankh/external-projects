@@ -1,12 +1,13 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 
 async function runBatch(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const job = s.batchJobs.find((b) => b.id === id)
@@ -15,6 +16,7 @@ async function runBatch(formData: FormData) {
   job.lastResult = '성공'
   // 폐쇄 루프 — 수동 실행이 배치 이력으로 남아 상태바 '마지막 배치'가 갱신된다
   s.batchRuns.unshift({ job: `${job.name} (수동 재실행)`, ranAt: job.lastRun, result: '성공' })
+  audit(me.name, '배치 수동 실행', `${job.id} ${job.name}`)
   revalidatePath('/', 'layout')
 }
 

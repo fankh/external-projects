@@ -1,5 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
@@ -15,6 +16,7 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
 
   ap.status = verdict
   ap.decidedAt = today()
+  audit(me.name, verdict === '승인' ? '결재 승인' : '결재 반려', `${ap.id} ${ap.docType} — ${ap.title}`)
 
   // 폐쇄 루프 1 — SR 신청 결재가 SR 진행 상태로 전파된다 (승인 → CI배정, 반려 → 반려)
   if (ap.docType === 'SR 신청' && ap.ref) {

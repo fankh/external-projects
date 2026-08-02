@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -11,14 +12,15 @@ const ROLE_CHIP: Record<string, 'neutral' | 'info' | 'warn' | 'err'> = {
 
 async function updateLine(formData: FormData) {
   'use server'
-  await requireRole('ADMIN')
+  const me = await requireRole('ADMIN')
   const docType = String(formData.get('docType') ?? '')
   const approver = String(formData.get('approver') ?? '')
   const s = getStore()
   const line = s.approvalLines.find((l) => l.docType === docType)
   // 결재자는 담당 권한 이상만 지정 가능 — 목업 계정 중 비사용자
   const valid = ACCOUNTS.some((a) => a.name === approver && a.role !== 'USER')
-  if (!line || !valid) return
+  if (!line || !valid || line.approver === approver) return
+  audit(me.name, '결재선 변경', `${docType}: ${line.approver} → ${approver}`)
   line.approver = approver
   revalidatePath('/', 'layout')
 }

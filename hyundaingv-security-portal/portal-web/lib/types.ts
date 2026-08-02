@@ -331,6 +331,14 @@ export interface Attachment {
   at: string
 }
 
+/** 감사 이력 — 통제 행위 append-only 기록 */
+export interface AuditLog {
+  at: string
+  actor: string
+  action: string
+  detail: string
+}
+
 /** 공통코드 — 장애등급·SR유형·주기 등 업무 코드의 단일 원천 (사용여부 토글) */
 export interface CodeGroup {
   id: string
