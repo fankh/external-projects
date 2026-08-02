@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
+import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
@@ -46,9 +47,11 @@ export async function issueAsset(approvalId: string, assetNo: string, location: 
   ap.fulfilled = true
   ap.refId = asset.assetNo
 
-  appendAudit({ actor: session.name, action: `자산 불출 처리 (${ap.id})`, target: asset.assetNo })
+  // 신청자에게 실물 지급 완료를 알린다 — 결재 승인(결재 결과)과 별개로, 실제 배정·수령 위치를 통보한다.
+  dispatch({ channel: '이메일', to: ap.requester, subject: `자산 불출 완료 — ${asset.assetNo} ${asset.model} 배정 · ${location}에서 수령하세요 (${ap.id})`, kind: '자산 불출', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `자산 불출 처리 (${ap.id}) · 신청자 통보`, target: asset.assetNo })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${asset.assetNo} 불출 완료 — ${ap.requester} / ${location}` }
+  return { ok: true, message: `${asset.assetNo} 불출 완료 — ${ap.requester} / ${location} · 신청자에게 수령 안내 발송` }
 }
 
 /** 이동 처리 — 승인된 '이동' 신청의 목적지를 대장에 반영한다.
