@@ -120,11 +120,11 @@ function seedAssets(): Asset[] {
         { date: '2026-07-20', kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 대기', actor: '박자산' },
         { date: '2026-07-22', kind: '폐기', detail: '데이터 소거 완료 (디가우징) · 증적 WIPE-20260722-050 보존', actor: '박자산' },
       ] }),
-    // 대여(반출) 자산 ① — 기한 내 대여 중 (출장용 대여 노트북)
-    mk({ assetNo: 'AST-2024-000230', category: '단말', model: 'ThinkPad L14 (대여용)', status: '대여중', owner: '최지우', dept: '영업1팀', location: '판교 사무소', os: 'Windows 11 Pro', purchaseDate: '2024-06-10', warrantyEnd: '2027-06-09', loanDueDate: '2026-08-20',
+    // 대여(반출) 자산 ① — 기한 내 대여 중 (출장용 대여 노트북) · 대여자=목업 사용자(김민준) → 대시보드 My Work 에 반환 기한 노출
+    mk({ assetNo: 'AST-2024-000230', category: '단말', model: 'ThinkPad L14 (대여용)', status: '대여중', owner: '김민준', dept: '플랫폼개발팀', location: '판교 사무소', os: 'Windows 11 Pro', purchaseDate: '2024-06-10', warrantyEnd: '2027-06-09', loanDueDate: '2026-08-20',
       history: [
         { date: '2024-06-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
-        { date: '2026-07-28', kind: '대여', detail: '영업1팀 최지우 출장 대여 — 반환 기한 2026-08-20', actor: '박자산' },
+        { date: '2026-07-28', kind: '대여', detail: '플랫폼개발팀 김민준 출장 대여 — 반환 기한 2026-08-20', actor: '박자산' },
       ] }),
     // 대여(반출) 자산 ② — 반환 기한 경과(연체) — 행사용 프로젝터 미반납
     mk({ assetNo: 'AST-2023-000450', category: '주변기기', model: 'Epson EB-2250U 프로젝터 (대여용)', status: '대여중', owner: '한지민', dept: '총무팀', location: '본사 2F 대회의실', purchaseDate: '2023-04-18', warrantyEnd: '2026-04-17', loanDueDate: '2026-07-15',
@@ -602,7 +602,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 7
+const SCHEMA_VERSION = 8
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

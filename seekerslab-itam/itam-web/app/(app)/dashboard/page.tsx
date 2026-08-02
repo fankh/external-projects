@@ -19,6 +19,12 @@ export default async function DashboardPage() {
   // 내 결재 차례 — 지금 이 사람이 결재할 수 있는 대기 건 (본인 상신분 제외). decide()와 동일 게이트를 쓴다.
   const myQueue = s.approvals.filter((a) => a.requester !== session.name && canDecideApproval(session.role, a))
   const myAssets = s.assets.filter((a) => a.owner === session.name)
+  // 내 대여 자산 — 본인이 빌린(대여중·소유자=본인) 자산의 반환 기한. 대여자 관점의 반환 마감 알림.
+  // 담당자에게는 대여 현황(반납·유휴)·연체 큐가, 대여자에게는 여기 My Work 가 반환을 상기시킨다(v1.102 독촉 통지의 수신자 측).
+  const myLoans = s.assets
+    .filter((a) => a.status === '대여중' && a.owner === session.name)
+    .map((a) => ({ assetNo: a.assetNo, model: a.model, dueDate: a.loanDueDate ?? '-', dday: a.loanDueDate ? daysUntil(a.loanDueDate) : null }))
+    .sort((x, y) => (x.dday ?? 99_999) - (y.dday ?? 99_999))
 
   // 운영 대기 — 화면마다 흩어진 담당 처리 대기열을 역할에 맞게 한 곳에 모은다
   const opsQueues: { label: string; count: number; href: string; tone: 'err' | 'warn' }[] = []
@@ -160,6 +166,24 @@ export default async function DashboardPage() {
                   </div>
                 )) : <div className="mut">진행 중인 신청이 없습니다.</div>}
               </div>
+              {myLoans.length > 0 && (
+                <div className="vstack" style={{ gap: 8, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+                  <span className="kicker mute">내 대여 자산 — 반환 기한</span>
+                  {myLoans.map((l) => {
+                    const dd = l.dday
+                    const overdue = dd !== null && dd < 0
+                    const tone = overdue ? 'err' : dd !== null && dd <= 7 ? 'warn' : 'neutral'
+                    const label = dd === null ? '기한 없음' : overdue ? `연체 ${-dd}일` : dd === 0 ? '오늘 만기' : `D-${dd}`
+                    return (
+                      <Link key={l.assetNo} href={`/assets/register?q=${encodeURIComponent(l.assetNo)}`} className="hstack"
+                        style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.model} <span className="dim" style={{ fontSize: 11 }}>· {l.dueDate}까지</span></span>
+                        <Chip tone={tone}>{label}</Chip>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
               <div className="hstack" style={{ justifyContent: 'space-between' }}>
                 <span className="dim">내 보유 자산</span>
                 <Link href="/assets/register">{myAssets.length}대 조회 →</Link>
