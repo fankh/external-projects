@@ -1,4 +1,4 @@
-import { daysUntil } from './dates'
+import { daysUntil, isStaleVerify } from './dates'
 import { can } from './perm'
 import { getStore } from './store'
 import type { PermMenu, Role } from './types'
@@ -27,21 +27,28 @@ export function canExport(kind: ExportKind, role: Role): boolean {
 
 /** 내보내기 데이터 — 화면에 보이는 것과 같은 권한 필터를 통과시킨다.
  *  화면에서 못 보는 자산이 엑셀로 새어 나가면 권한 모델이 무의미해진다. */
-export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: { q?: string; cat?: string; nos?: string[] }): Sheet[] {
+export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: { q?: string; cat?: string; nos?: string[]; status?: string; stale?: boolean; warranty?: boolean }): Sheet[] {
   const s = getStore()
 
   if (kind === 'assets') {
-    // 화면(자산 대장)의 검색·유형 필터를 그대로 반영 — 좁혀 본 그 집합을 반출한다.
+    // 화면(자산 대장)의 검색·유형·상태·장기 미실측·보증 임박 필터를 그대로 반영 — 좁혀 본 그 집합을 반출한다.
     // nos(선택 자산번호)가 주어지면 그 선택분만 반출한다(다중 선택 → 선택 내보내기).
     const q = (filter?.q ?? '').trim().toLowerCase()
     const cat = filter?.cat ?? '전체'
+    const status = filter?.status ?? '전체'
     const nos = filter?.nos && filter.nos.length ? new Set(filter.nos) : null
+    // 보증 임박 — 운영 중 자산 중 보증 90일 이내(경과 포함). 대장 화면의 warrantySet 과 같은 기준.
+    const warrantySoon = (a: (typeof s.assets)[number]) =>
+      !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90
     const rows = (role === 'USER' ? s.assets.filter((a) => a.owner === userName) : s.assets)
       .filter((a) => {
         if (nos) return nos.has(a.assetNo)
         if (cat !== '전체' && a.category !== cat) return false
+        if (status !== '전체' && a.status !== status) return false
+        if (filter?.stale && !isStaleVerify(a)) return false
+        if (filter?.warranty && !warrantySoon(a)) return false
         if (!q) return true
-        return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location].some((f) => f?.toLowerCase().includes(q))
+        return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId].some((f) => f?.toLowerCase().includes(q))
       })
       .map((a) => [
         a.assetNo, a.category, a.model, a.serial, a.status, a.owner, a.dept, a.location,

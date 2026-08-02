@@ -21,15 +21,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ kind: st
   const cat = sp.get('cat') ?? '전체'
   // nos=자산번호 CSV — 대장 다중 선택 반출(선택 내보내기). 있으면 검색·유형 필터에 우선한다.
   const nos = (sp.get('nos') ?? '').split(',').map((v) => v.trim()).filter(Boolean)
+  const status = sp.get('status') ?? '전체'
+  const stale = sp.get('stale') === '1'
+  const warranty = sp.get('warranty') === '1'
   const selExport = k === 'assets' && nos.length > 0
-  const filtered = k === 'assets' && !selExport && (q !== '' || cat !== '전체')
-  const sheets = buildSheets(k, session.role, session.name, { q, cat, nos })
+  const filtered = k === 'assets' && !selExport && (q !== '' || cat !== '전체' || status !== '전체' || stale || warranty)
+  const sheets = buildSheets(k, session.role, session.name, { q, cat, nos, status, stale, warranty })
   const buf = buildXlsx(sheets)
   const rows = sheets.reduce((n, s) => n + s.rows.length, 0)
 
   // 내보내기는 데이터 반출이므로 감사 대상이다 — 누가 무엇을 몇 건 받았는지 남긴다
   const scope = selExport ? ` · 선택 ${nos.length}건`
-    : filtered ? ` · 필터: ${[cat !== '전체' && `유형=${cat}`, q && `검색='${q}'`].filter(Boolean).join(', ')}` : ''
+    : filtered ? ` · 필터: ${[cat !== '전체' && `유형=${cat}`, status !== '전체' && `상태=${status}`, stale && '장기미실측', warranty && '보증임박', q && `검색='${q}'`].filter(Boolean).join(', ')}` : ''
   appendAudit({
     actor: session.name,
     action: `엑셀 내보내기 — ${EXPORT_META[k].label} (${rows}건)${scope}`,

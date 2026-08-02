@@ -147,8 +147,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
         <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
         {props.canExport && (
           <a className="btn sm" style={{ marginLeft: 'auto' }} download
-            href={`/api/export/assets?${new URLSearchParams({ q: q.trim(), cat }).toString()}`}>
-            ⤓ 자산 대장 엑셀{q.trim() !== '' || cat !== '전체' ? ` (${rows.length})` : ''}
+            href={`/api/export/assets?${new URLSearchParams({ q: q.trim(), cat, status, ...(staleOnly ? { stale: '1' } : {}), ...(warrantyOnly ? { warranty: '1' } : {}) }).toString()}`}>
+            ⤓ 자산 대장 엑셀{filterActive ? ` (${rows.length})` : ''}
           </a>
         )}
       </div>
