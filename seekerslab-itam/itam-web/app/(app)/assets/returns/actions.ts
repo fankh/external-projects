@@ -84,6 +84,11 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
     detail: `수리 처리 ${outcome}${note ? ` — ${note}` : ''}`,
     actor: session.name,
   })
+  // 수리 불가는 폐기 절차로 이어져야 한다 — 폐기 대상 레코드를 만들어 결재·소거로 진행하게 한다
+  // (그동안 상태만 폐기예정으로 바뀌고 폐기 대장에 안 올라 소거로 갈 수 없었다 — v1.68 반납 건과 동일)
+  if (outcome === '수리 불가' && !s.disposals.some((d) => d.assetNo === assetNo)) {
+    s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `수리 불가 폐기${note.trim() ? ` — ${note.trim()}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
+  }
   appendAudit({ actor: session.name, action: `수리 처리 (${outcome})`, target: assetNo })
   revalidatePath('/', 'layout')
 
