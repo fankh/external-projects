@@ -51,15 +51,18 @@ export default async function StockPage() {
                 <tr><th>유형</th><th className="num">보유</th><th className="num">사용중</th><th className="num">유휴·반납</th><th className="num">기타</th></tr>
               </thead>
               <tbody>
-                {byCat.map((r) => (
-                  <tr key={r.cat}>
-                    <td className="strong">{r.cat}</td>
-                    <td className="num">{r.total}</td>
-                    <td className="num">{r.inUse}</td>
-                    <td className="num">{r.idle}</td>
-                    <td className="num mute">{r.etc}</td>
-                  </tr>
-                ))}
+                {byCat.map((r) => {
+                  const drill = (status?: string) => `/assets/register?cat=${encodeURIComponent(r.cat)}${status ? `&status=${encodeURIComponent(status)}` : ''}`
+                  return (
+                    <tr key={r.cat}>
+                      <td className="strong"><Link href={drill()} title={`${r.cat} 자산 대장에서 보기`}>{r.cat}</Link></td>
+                      <td className="num"><Link href={drill()}>{r.total}</Link></td>
+                      <td className="num">{r.inUse > 0 ? <Link href={drill('사용중')}>{r.inUse}</Link> : r.inUse}</td>
+                      <td className="num">{r.idle > 0 ? <Link href={drill('유휴')}>{r.idle}</Link> : r.idle}</td>
+                      <td className="num mute">{r.etc > 0 ? <Link href={drill()}>{r.etc}</Link> : r.etc}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
               <tfoot>
                 <tr>
