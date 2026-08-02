@@ -3,7 +3,7 @@ import { Fragment, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { fmtAmount } from '@/lib/dates'
 import { CONTRACT_DOC_TYPES, type Contract, type ContractDocType } from '@/lib/types'
-import { addContract, addContractDoc, removeContractDoc, renewContract, terminateContract } from './actions'
+import { addContract, addContractCost, addContractDoc, removeContractCost, removeContractDoc, renewContract, setContractSla, terminateContract } from './actions'
 
 type Row = Contract & { d: number | null }
 
@@ -71,6 +71,10 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
   const [docId, setDocId] = useState<string | null>(null)
   const [docName, setDocName] = useState('')
   const [docType, setDocType] = useState<ContractDocType>(CONTRACT_DOC_TYPES[0])
+  const [slaText, setSlaText] = useState<string | null>(null)  // null = 편집 안 함
+  const [costDate, setCostDate] = useState('')
+  const [costItem, setCostItem] = useState('')
+  const [costAmount, setCostAmount] = useState(0)
   const [pending, startTransition] = useTransition()
 
   const addDoc = (id: string) => startTransition(async () => {
@@ -80,6 +84,19 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
   })
   const removeDoc = (id: string, dId: string) => startTransition(async () => {
     setMsg((await removeContractDoc(id, dId)).message)
+  })
+  const saveSla = (id: string) => startTransition(async () => {
+    const r = await setContractSla(id, slaText ?? '')
+    setMsg(r.message)
+    if (r.ok) setSlaText(null)
+  })
+  const addCost = (id: string) => startTransition(async () => {
+    const r = await addContractCost(id, costDate, costItem, costAmount)
+    setMsg(r.message)
+    if (r.ok) { setCostItem(''); setCostAmount(0) }
+  })
+  const removeCost = (id: string, cId: string) => startTransition(async () => {
+    setMsg((await removeContractCost(id, cId)).message)
   })
 
   const renew = (id: string, term: number) => {
@@ -125,8 +142,8 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
                 <td className="c">{c.status === '해지' ? <Chip tone="neutral">해지</Chip> : <StatusChip d={c.d} />}</td>
                 <td className="c">
                   <button className={`btn sm ${docId === c.id ? 'pri' : ''}`} disabled={pending}
-                    onClick={() => { setDocId(docId === c.id ? null : c.id); setDocName(''); setMsg(null) }}
-                    title="계약서·견적서·세금계산서·보증서 등 근거 문서 관리">
+                    onClick={() => { setDocId(docId === c.id ? null : c.id); setDocName(''); setSlaText(null); setCostDate(''); setCostItem(''); setCostAmount(0); setMsg(null) }}
+                    title={c.kind === '유지보수' ? '부속서류 · SLA · 비용 이력 관리' : '계약서·견적서·세금계산서·보증서 등 근거 문서 관리'}>
                     📎 {(c.documents?.length ?? 0) > 0 ? `${c.documents!.length}` : '문서'}
                   </button>
                 </td>
@@ -163,6 +180,54 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
               {docId === c.id && (
                 <tr className="sub">
                   <td colSpan={11} style={{ background: 'var(--canvas)', padding: '12px 16px' }}>
+                    {c.kind === '유지보수' && (
+                      <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: '1px dashed var(--line)' }}>
+                        {/* SLA */}
+                        <div className="hstack" style={{ gap: 10, marginBottom: 10, alignItems: 'flex-start' }}>
+                          <span className="kicker mute" style={{ paddingTop: 4, minWidth: 40 }}>SLA</span>
+                          {slaText !== null ? (
+                            <span className="hstack" style={{ gap: 6, flex: 1 }}>
+                              <input className="input" style={{ flex: 1 }} placeholder="예: 장애 접수 후 4시간 내 온사이트, 월 가동률 99.9%"
+                                value={slaText} disabled={pending} onChange={(e) => setSlaText(e.target.value)} />
+                              <button className="btn sm pri" disabled={pending} onClick={() => saveSla(c.id)}>저장</button>
+                              <button className="btn sm ghost" disabled={pending} onClick={() => setSlaText(null)}>취소</button>
+                            </span>
+                          ) : (
+                            <span className="hstack" style={{ gap: 8, flex: 1 }}>
+                              <span style={{ flex: 1, fontSize: 12.5 }}>{c.sla ? c.sla : <span className="dim">미설정 — 장애 대응 시간·가동률 등 서비스 수준을 기록하세요.</span>}</span>
+                              {canEdit && <button className="btn sm" disabled={pending} onClick={() => { setSlaText(c.sla ?? ''); setMsg(null) }}>{c.sla ? 'SLA 수정' : 'SLA 설정'}</button>}
+                            </span>
+                          )}
+                        </div>
+                        {/* 비용 이력 */}
+                        <div className="kicker mute" style={{ marginBottom: 6 }}>비용 이력 {(c.costs?.length ?? 0) > 0 && <span className="mut">· 누계 {fmtAmount(c.costs!.reduce((n, x) => n + x.amount, 0))}원</span>}</div>
+                        {(c.costs?.length ?? 0) === 0 ? (
+                          <div className="dim" style={{ fontSize: 12, marginBottom: canEdit ? 8 : 0 }}>등록된 비용 이력이 없습니다 — 정기 유지보수료·부품 교체·긴급 출동 등을 기록하세요.</div>
+                        ) : (
+                          <div className="vstack" style={{ gap: 4, marginBottom: canEdit ? 10 : 0 }}>
+                            {[...c.costs!].sort((a, b) => b.date.localeCompare(a.date)).map((ct) => (
+                              <div key={ct.id} className="hstack" style={{ gap: 10, fontSize: 12.5 }}>
+                                <span className="tnum mut" style={{ minWidth: 82 }}>{ct.date}</span>
+                                <span className="strong" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ct.item}</span>
+                                <span className="tnum" style={{ minWidth: 90, textAlign: 'right' }}>{ct.amount.toLocaleString()}원</span>
+                                <span className="mut" style={{ fontSize: 11 }}>{ct.addedBy}</span>
+                                {canEdit && <button className="btn sm ghost" disabled={pending} onClick={() => removeCost(c.id, ct.id)} title="비용 항목 삭제">삭제</button>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {canEdit && (
+                          <div className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                            <input className="input" type="date" style={{ width: 150 }} value={costDate} disabled={pending} onChange={(e) => setCostDate(e.target.value)} />
+                            <input className="input" style={{ width: 220 }} placeholder="비용 항목 (예: 정기 유지보수료 3Q)" value={costItem} disabled={pending} onChange={(e) => setCostItem(e.target.value)} />
+                            <label className="hstack" style={{ gap: 4, fontSize: 12 }}>
+                              <input className="input" type="number" min={0} style={{ width: 120 }} value={costAmount} disabled={pending} onChange={(e) => setCostAmount(Number(e.target.value))} />원
+                            </label>
+                            <button className="btn sm pri" disabled={pending || !costDate || !costItem.trim()} onClick={() => addCost(c.id)}>＋ 비용 등록</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="kicker mute" style={{ marginBottom: 8 }}>부속서류 — {c.id} {c.name}</div>
                     {(c.documents?.length ?? 0) === 0 ? (
                       <div className="dim" style={{ fontSize: 12, marginBottom: canEdit ? 10 : 0 }}>등록된 부속서류가 없습니다 — 계약서·견적서·세금계산서·보증서 등을 등록하세요.</div>

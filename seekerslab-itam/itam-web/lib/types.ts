@@ -157,6 +157,19 @@ export interface Contract {
   terminatedAt?: string
   /** 부속서류 — 계약서·견적서·세금계산서·보증서 등 근거 문서 목록 (제품안내서 §03 구매 계약: 부속서류 관리) */
   documents?: ContractDoc[]
+  /** SLA — 유지보수 계약의 서비스 수준 협약(장애 대응 시간·가동률 등). 제품안내서 §03 유지보수 계약: SLA 관리 */
+  sla?: string
+  /** 비용 이력 — 유지보수 계약의 정기·수시 지출 기록. 제품안내서 §03 유지보수 계약: 비용 이력 */
+  costs?: ContractCost[]
+}
+
+export interface ContractCost {
+  id: string
+  date: string
+  /** 항목 — 예: 정기 유지보수료 3Q, 부품 교체(HDD), 긴급 출동 */
+  item: string
+  amount: number
+  addedBy: string
 }
 
 /** 계약 부속서류 유형 — 실제 파일 저장은 범위 밖이므로 문서 메타데이터(이름·유형·등록자·등록일)만 관리한다 */

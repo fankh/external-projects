@@ -217,6 +217,60 @@ export async function removeContractDoc(contractId: string, docId: string) {
   return { ok: true, message: `${c.id} 부속서류 삭제 — ${doc.name}` }
 }
 
+/** 유지보수 SLA 설정 — 유지보수 계약의 서비스 수준 협약(장애 대응·가동률 등)을 기록한다.
+ *  (제품안내서 §03 유지보수 계약: 대상 자산·범위·SLA 관리) 유지보수 계약만 대상. 자산담당·Admin. */
+export async function setContractSla(contractId: string, rawSla: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: 'SLA 설정 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const c = s.contracts.find((x) => x.id === contractId)
+  if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
+  if (c.kind !== '유지보수') return { ok: false, message: 'SLA 는 유지보수 계약에만 설정할 수 있습니다.' }
+  c.sla = rawSla.trim() || undefined
+  appendAudit({ actor: session.name, action: `유지보수 SLA ${c.sla ? '설정' : '삭제'}${c.sla ? ` — ${c.sla}` : ''}`, target: c.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${c.id} SLA ${c.sla ? '저장' : '삭제'} 완료` }
+}
+
+/** 유지보수 비용 등록 — 정기·수시 유지보수 지출을 계약 비용 이력에 추가한다.
+ *  (제품안내서 §03 유지보수 계약: 비용 이력) 유지보수 계약만 대상. 자산담당·Admin. */
+export async function addContractCost(contractId: string, date: string, rawItem: string, amount: number) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '비용 등록 권한이 없습니다 (자산담당·Admin).' }
+
+  const item = rawItem.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, message: '지출일을 YYYY-MM-DD 로 입력하세요.' }
+  if (!item) return { ok: false, message: '비용 항목을 입력하세요.' }
+  if (!Number.isFinite(amount) || amount < 0) return { ok: false, message: '금액을 0 이상으로 입력하세요.' }
+
+  const s = getStore()
+  const c = s.contracts.find((x) => x.id === contractId)
+  if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
+  if (c.kind !== '유지보수') return { ok: false, message: '비용 이력은 유지보수 계약에만 등록할 수 있습니다.' }
+  if (!c.costs) c.costs = []
+  c.costs.push({ id: nextId('CST'), date, item, amount, addedBy: session.name })
+  appendAudit({ actor: session.name, action: `유지보수 비용 등록 — ${date} ${item} ${amount.toLocaleString()}원`, target: c.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${c.id} 비용 등록 — ${item} ${amount.toLocaleString()}원` }
+}
+
+/** 유지보수 비용 삭제 — 잘못 등록한 비용 항목을 제거한다. 감사 로그에 남긴다. 자산담당·Admin. */
+export async function removeContractCost(contractId: string, costId: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '비용 삭제 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const c = s.contracts.find((x) => x.id === contractId)
+  if (!c || !c.costs) return { ok: false, message: '계약 또는 비용 항목을 찾을 수 없습니다.' }
+  const cost = c.costs.find((x) => x.id === costId)
+  if (!cost) return { ok: false, message: '비용 항목을 찾을 수 없습니다.' }
+  c.costs = c.costs.filter((x) => x.id !== costId)
+  appendAudit({ actor: session.name, action: `유지보수 비용 삭제 — ${cost.date} ${cost.item}`, target: c.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${c.id} 비용 삭제 — ${cost.item}` }
+}
+
 /** 라이선스 조치 — 컴플라이언스 4단계의 마지막.
  *  초과 사용은 추가 구매 품의(결재), 미사용 보유는 회수 대상 지정으로 이어진다.
  *  (제품안내서 §03 STEP 4: 조치 — 추가 구매 품의 · 회수) */

@@ -475,7 +475,13 @@ function seed(): Store {
           { id: 'DOC-0003', name: '세금계산서_2023-03.pdf', docType: '세금계산서', addedAt: '2023-03-31', addedBy: '이경리' },
         ] },
       { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: '2026-08-31', amount: 384_000_000, assetCount: 8, ownerDept: '인프라운영팀' },
-      { id: 'CT-2022-007', kind: '유지보수', name: '네트워크 장비 통합 유지보수', vendor: '세종네트웍스', start: '2026-01-01', end: '2026-08-31', amount: 48_000_000, assetCount: 34, ownerDept: '네트워크팀' },
+      { id: 'CT-2022-007', kind: '유지보수', name: '네트워크 장비 통합 유지보수', vendor: '세종네트웍스', start: '2026-01-01', end: '2026-08-31', amount: 48_000_000, assetCount: 34, ownerDept: '네트워크팀',
+        sla: '장애 접수 후 4시간 내 온사이트 대응, 월 가동률 99.9% 보장, 24×7 헬프데스크',
+        costs: [
+          { id: 'CST-0001', date: '2026-01-15', item: '정기 유지보수료 1Q', amount: 12_000_000, addedBy: '박자산' },
+          { id: 'CST-0002', date: '2026-04-15', item: '정기 유지보수료 2Q', amount: 12_000_000, addedBy: '박자산' },
+          { id: 'CST-0003', date: '2026-05-22', item: '긴급 출동 — 8F 스위치 SFP 교체', amount: 1_800_000, addedBy: '박자산' },
+        ] },
       { id: 'CT-2023-002', kind: '구매', name: 'Microsoft 365 E3 800석', vendor: '한국MS 파트너', start: '2026-01-01', end: '2026-12-31', amount: 268_000_000, assetCount: 800, ownerDept: 'IT기획팀' },
       { id: 'CT-2026-009', kind: '구매', name: '2026 상반기 노트북 교체분', vendor: '(주)한빛INT', start: '2026-07-01', end: '2029-07-20', amount: 96_000_000, assetCount: 40, ownerDept: '자산관리팀' },
       { id: 'CT-2024-011', kind: '유지보수', name: '스토리지·백업 유지보수', vendor: '효성인포', start: '2025-09-01', end: '2026-08-20', amount: 36_000_000, assetCount: 6, ownerDept: '인프라운영팀' },
@@ -607,7 +613,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 9
+const SCHEMA_VERSION = 10
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
