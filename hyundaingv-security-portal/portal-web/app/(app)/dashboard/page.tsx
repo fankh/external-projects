@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 
 const SR_CHIP: Record<string, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
@@ -10,12 +11,32 @@ const SR_CHIP: Record<string, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
 export default async function DashboardPage() {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
+  const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
+  const period = today().slice(0, 7)
 
   const myTodos = s.todos.filter((t) => t.owner === me.name && !t.done)
   const myApprovals = s.approvals.filter((a) => a.approver === me.name && a.status === '대기')
   const mySr = s.srRequests.filter((r) => r.requester === me.name && r.status !== '완료' && r.status !== '반려')
   const pledgeTodo = myTodos.some((t) => t.kind === '보안서약서')
   const notices = [...s.notices].sort((a, b) => Number(b.pinned ?? false) - Number(a.pinned ?? false))
+
+  // 관리대상 현황 — 의식제고·컴플라이언스·계획수립 (요구사항 개인별현황 포틀릿)
+  const remoteDone = s.remoteChecks.some((r) => r.name === me.name && r.period === period)
+  const eduDone = s.educationCourses.filter((c) => c.status === '완료')
+  const myEduMissing = eduDone.filter((c) => !s.educationRecords.some((r) => r.courseId === c.id && r.name === me.name)).length
+  const myViolations = s.violations.filter((v) => v.name === me.name && v.status === '징구중').length
+  const myPlansDraft = s.investPlans.filter((p) => p.owner === me.name && p.status === '작성중').length
+
+  // 전사 운영 스냅샷 (업무담당·Admin)
+  const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
+  const signedNames = new Set(s.pledges.filter((p) => p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  const ops = {
+    incidents: s.incidents.filter((i) => i.status === '조치중').length,
+    delayedSr: s.srRequests.filter((r) => r.dueDate && r.dueDate < today() && !['완료', '반려', '작성중', '결재중'].includes(r.status)).length,
+    openIssues: s.projectIssues.filter((i) => i.status === '오픈').length,
+    unsigned: s.people.filter((p) => !signedNames.has(p.name)).length,
+    inspections: s.inspectionPlans.filter((p) => p.status === '결과미등록' || (p.month < period && p.status === '계획')).length,
+  }
 
   return (
     <>
@@ -28,6 +49,26 @@ export default async function DashboardPage() {
         <Stat value={mySr.length} label="진행중 SR" note="완료·반려 제외" />
         <Stat value={pledgeTodo ? '미제출' : '완료'} label="보안서약서" tone={pledgeTodo ? 'err' : undefined} note="2026년 일반 서약" />
       </div>
+
+      {/* 관리대상 현황 — 의식제고 · 컴플라이언스 · 계획수립 */}
+      <div className="stat-row">
+        <Stat value={remoteDone ? '제출' : '미제출'} label="재택 체크리스트" tone={remoteDone ? undefined : 'warn'} note={period} />
+        <Stat value={myEduMissing} label="보안교육 미이수" tone={myEduMissing > 0 ? 'err' : undefined} note="완료 과정 기준" />
+        <Stat value={myViolations} label="보안위반 확인서 대상" tone={myViolations > 0 ? 'err' : undefined} />
+        <Stat value={myPlansDraft} label="계획수립 작성중" note="투자·비용 과제" />
+      </div>
+
+      {canManage && (
+        <Card title="전사 운영 스냅샷" kicker="Operations" pad={false}>
+          <div className="stat-row" style={{ border: 'none' }}>
+            <Stat value={ops.incidents} label="조치중 장애" tone={ops.incidents > 0 ? 'err' : undefined} />
+            <Stat value={ops.delayedSr} label="지연 SR" tone={ops.delayedSr > 0 ? 'warn' : undefined} />
+            <Stat value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />
+            <Stat value={ops.unsigned} label="미서약 인원" tone={ops.unsigned > 0 ? 'warn' : undefined} />
+            <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />
+          </div>
+        </Card>
+      )}
 
       <div className="cols c2">
         <Card title="나의 할일" kicker="My Work"

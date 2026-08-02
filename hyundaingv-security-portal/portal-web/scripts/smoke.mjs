@@ -134,7 +134,8 @@ async function main() {
     ['/work/approvals', 'USER', ['월별 정산 데이터 추출 요청']], // 김현우 상신함
     ['/work/todo', 'USER', ['보안서약서', '서약서 제출', '상반기 정보보호 교육 이수']],
     ['/work/todo', 'BIZ_MGR', ['SR-2026-0146 CI 배정', '결재함 이동']],
-    ['/dashboard', 'USER', ['개인별현황', '2026년 일반 보안서약서 제출']],
+    ['/dashboard', 'USER', ['개인별현황', '2026년 일반 보안서약서 제출', '재택 체크리스트', '보안교육 미이수', '계획수립 작성중']],
+    ['/dashboard', 'BIZ_MGR', ['전사 운영 스냅샷', '조치중 장애', '미서약 인원']],
     // SR 루프 — 데이터 스코핑: USER 는 본인 건만 (SR-2026-0132 는 박정호 건이라 보이면 안 된다)
     ['/sr/requests', 'USER', ['SR-2026-0141', 'SR-2026-0145', '본인 신청 건']],
     ['/sr/requests', 'DEPT_MGR', ['SR-2026-0146', '경영지원팀 신청 건']],
@@ -235,6 +236,12 @@ async function main() {
     const r = await get('/board/notices', 'USER')
     const html = await r.text()
     check(!html.includes('공지 등록'), 'USER /board/notices 에 등록 폼 미노출')
+  }
+  {
+    // 전사 운영 스냅샷은 담당·Admin 전용
+    const r = await get('/dashboard', 'USER')
+    const html = await r.text()
+    check(!html.includes('전사 운영 스냅샷'), 'USER /dashboard 에 운영 스냅샷 미노출')
   }
   {
     // 특별서약 카드는 보안담당자에게만 — 김현우(USER)는 미노출
