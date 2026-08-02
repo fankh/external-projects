@@ -7,13 +7,16 @@ import { getStore } from '@/lib/store'
 import { mockAsset, mockHr, mockMail, mockSecdata, mockSms } from './mock'
 import type { AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SendResult } from './types'
 
-/** adapterId → 구현. 고객사 어댑터를 추가하면 여기에 등록한다. */
+/** adapterId → 구현. 고객사 어댑터를 추가하면 여기에 등록한다.
+ *  hanbit-*·erp-* 는 제조업 예시 프로필용 — 데모에서는 목업에 매핑되고,
+ *  실배포에서 고객사 구현으로 교체한다. */
 const MESSAGING: Record<string, MessagingAdapter> = {
   'mock-mail': mockMail,
   'mock-sms': mockSms,
+  'hanbit-gw-mail': mockMail,
 }
-const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr }
-const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset }
+const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr, 'hanbit-hr': mockHr }
+const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'erp-asset': mockAsset }
 const SECDATA: Record<string, SecdataAdapter> = { 'mock-secdata': mockSecdata }
 
 export function channelOf(id: string): ChannelBinding | undefined {

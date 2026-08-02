@@ -64,6 +64,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v0.36 | 정산품의 반려 재상신(투자·비용 공통 액션, 기안자 본인·중복 상신 가드) — 전 문서 유형 재상신 경로 정합 완성 |
 | v0.37 | E2E 스위트 저장소 편입(scripts/e2e_suite.py, 9시나리오 · 시나리오별 독립 서버) — 상설 게이트 3종 완성(npm run smoke/health/e2e) |
 | v0.38 | QnA 담당자 지정(요구사항 소항목 잔여분) + 문서 정합(데모 시나리오에 상세·반려/재상신·검색·스케줄러 반영, 구축 요약 36화면) |
+| v0.39 | 런타임 프로필 스위칭 — PORTAL_PROFILE 환경변수로 고객사 전환(빌드 불변), 제조업 예시 프로필 실동작화 + e2e 자동 검증(10번째 시나리오) |
 
 ## 배포 (Docker)
 
@@ -86,8 +87,15 @@ nginx 리버스 프록시를 포함한 구성은 `deploy/docker-compose.yml` 을
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-고객사 배포 시 커스터마이징 예시는 `profiles/sample-manufacturer.config.ts` 참고 —
-이 파일 내용으로 `portal.config.ts` 를 교체하고 고객사 어댑터를 등록하면 끝이다.
+고객사 전환은 **빌드 없이 환경변수로** 한다 — 한 이미지가 여러 고객사 프로필을 담는다:
+
+```powershell
+$env:PORTAL_PROFILE = "manufacturer"; npm run start   # 제조업 예시 프로필로 기동
+```
+
+새 고객사는 `profiles/` 에 구성 파일을 추가하고 `portal.config.ts` 선택지에 올린 뒤,
+adapterId 가 가리키는 고객사 어댑터를 `lib/integrations/` 에 등록한다.
+프로필 스위칭은 e2e 스위트의 `profile` 시나리오가 자동 검증한다.
 
 미구현 화면은 캐치올 스텁(`app/(app)/[...stub]/page.tsx`)이 `lib/screens.ts`
 카탈로그로 렌더 — 실제 구현 시 해당 경로에 page.tsx 를 만들면 정적 라우트가

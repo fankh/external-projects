@@ -231,6 +231,22 @@ def sc_runtime(pg, base, check):
     check(pg.evaluate('window.__marker') is None, '청크 오류 → 자동 새로고침')
 
 
+def sc_profile(pg, base, check):
+    """프로필 스위칭 — PORTAL_PROFILE=manufacturer 로 브랜딩·채널 구성 전환"""
+    pg.goto(f'{base}/login', wait_until='networkidle')
+    check('HANBIT IT PORTAL' in pg.content(), '로그인 브랜딩 전환')
+    login(pg, base, '시스템관리자')
+    check('한빛제조' in pg.locator('.statusbar').inner_text(), '상태바 고객사 전환')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    body = pg.content()
+    check('한빛제조' in body and '그룹웨어 메일·문자' in body, '채널 구성 전환')
+    check('문자(SMS) 발송' not in body, 'SMS 채널 제거(6채널)')
+    check('erp-asset' in body, 'ERP 자산 어댑터 바인딩')
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
+    check('SN-NB-88121' in pg.content(), 'erp-asset 어댑터 실동작(자산 조회)')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
@@ -241,6 +257,7 @@ SCENARIOS = [
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),
+    ('profile', '고객사 프로필 스위칭 (manufacturer)', sc_profile, {'PORTAL_PROFILE': 'manufacturer'}),
 ]
 
 
@@ -262,7 +279,8 @@ def run_scenario(idx, key, title, fn, extra_env, browser):
         for _ in range(60):
             try:
                 body = urllib.request.urlopen(f'{base}/login', timeout=2).read().decode('utf-8')
-                assert 'GOVERNANCE PORTAL' in body, f'포트 {port} 를 다른 앱이 점유'
+                # 프로필과 무관한 로그인 카드 문구로 우리 앱임을 확인 (타 세션 서버 오인 방지)
+                assert '계정을 선택하세요' in body, f'포트 {port} 를 다른 앱이 점유'
                 break
             except AssertionError:
                 raise

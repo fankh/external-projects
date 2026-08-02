@@ -1,21 +1,22 @@
 /** 고객사 프로필 예시 — 제조업 고객사 배포 구성 (재사용 프레임워크 커스터마이징 데모).
- *  적용: 이 파일 내용으로 루트의 portal.config.ts 를 교체하고, adapterId 가 가리키는
- *  고객사 어댑터 구현을 lib/integrations/ 에 추가한다. 포털 본체 코드는 변경 없음.
+ *  적용: PORTAL_PROFILE=manufacturer 환경변수로 실행하면 이 구성이 그대로 뜬다.
+ *  실배포에서는 adapterId 가 가리키는 고객사 어댑터 구현(REST API·DB 연계)을
+ *  lib/integrations/ 에 추가한다 — 데모에서는 목업 구현에 매핑되어 있다.
  *
  *  기본 프로필과의 차이:
- *   - 브랜딩: 고객사명·제품명 표기 변경 (전 화면 타이틀바·상태바에 반영)
+ *   - 브랜딩: 고객사명·제품명 표기 변경 (전 화면 타이틀바·상태바·로그인에 반영)
  *   - 그룹웨어가 SMS 발송까지 겸함 → 홈페이지 서버 SMS 채널 제거 (6채널 구성)
  *   - 자산관리는 고객사 ERP 내장 모듈 → erp-asset 어댑터로 바인딩
  *   - 보안·출력물 DB 연계가 계약 범위 밖 → 기본 비활성 유지
  */
-import type { ChannelBinding } from '@/lib/integrations/types'
+import type { ChannelBinding, PortalBrand } from '@/lib/integrations/types'
 
-export const PORTAL = {
+export const PORTAL: PortalBrand = {
   customer: '한빛제조 (예시)',
   productName: 'HANBIT IT PORTAL',
   productSub: 'IT · Security Governance',
   version: 'v1.0',
-} as const
+}
 
 export const CHANNELS: ChannelBinding[] = [
   { id: 'groupware-mail', kind: 'mail', name: '그룹웨어 메일·문자', transport: 'REST API', usage: '안내메일·문자 발송 (그룹웨어 통합 발송)', adapterId: 'hanbit-gw-mail', enabledByDefault: true },

@@ -5,6 +5,14 @@ import type { Person } from '@/lib/types'
 
 export type ChannelKind = 'mail' | 'sms' | 'approval' | 'sso' | 'hr' | 'asset' | 'secdata'
 
+/** 고객사 브랜딩 — 프로필이 공급하고 셸(타이틀바·상태바)·로그인 화면이 소비한다 */
+export interface PortalBrand {
+  customer: string
+  productName: string
+  productSub: string
+  version: string
+}
+
 /** portal.config.ts 의 채널 바인딩 — 고객사 프로필이 채널을 어댑터에 연결한다 */
 export interface ChannelBinding {
   id: string

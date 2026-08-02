@@ -2,6 +2,11 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ACCOUNTS, SESSION_COOKIE, signSession } from '@/lib/session'
 import { ROLE_LABEL } from '@/lib/types'
+import { PORTAL } from '@/portal.config'
+
+/** 브랜딩이 런타임 프로필(PORTAL_PROFILE)을 따르도록 정적 프리렌더를 끈다 —
+ *  빌드 시점 고정이면 한 이미지로 고객사 전환이 불가능해진다 */
+export const dynamic = 'force-dynamic'
 
 async function loginAs(formData: FormData) {
   'use server'
@@ -21,8 +26,8 @@ export default function LoginPage() {
       <aside className="login-hero">
         <div>
           <div>
-            <div className="wordmark">GOVERNANCE PORTAL</div>
-            <div className="sub">Enterprise IT · Security</div>
+            <div className="wordmark">{PORTAL.productName}</div>
+            <div className="sub">{PORTAL.productSub}</div>
           </div>
           <h1>전사 IT·보안 업무를,<br />하나의 통제 평면에서.</h1>
           <p>
