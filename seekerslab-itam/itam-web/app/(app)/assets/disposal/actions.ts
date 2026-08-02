@@ -13,10 +13,29 @@ export async function selectForDisposal(assetNo: string, reason: string) {
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset || s.disposals.some((d) => d.assetNo === assetNo)) return
-  s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason, status: '대상 선정' })
+  s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason, status: '대상 선정', prevStatus: asset.status })
   asset.status = '폐기예정'
   appendAudit({ actor: session.name, action: `폐기 대상 선정 — ${reason}`, target: assetNo })
   revalidatePath('/', 'layout')
+}
+
+/** 폐기 대상 선정 취소 — 결재 전(대상 선정) 건을 해제하고 자산을 원 상태로 복원한다.
+ *  잘못 선정하거나 일괄/AI 선정을 되돌릴 때. 결재 상신·소거 진행 건은 취소 불가. 자산담당·Admin. */
+export async function cancelDisposalCandidate(disposalId: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '폐기 대상 취소 권한이 없습니다.' }
+  const s = getStore()
+  const d = s.disposals.find((x) => x.id === disposalId)
+  if (!d) return { ok: false, message: '폐기 대상을 찾을 수 없습니다.' }
+  if (d.status !== '대상 선정') return { ok: false, message: `결재·소거가 진행 중이라 취소할 수 없습니다 — ${d.id} (${d.status})` }
+
+  const asset = s.assets.find((a) => a.assetNo === d.assetNo)
+  if (asset) asset.status = d.prevStatus ?? '유휴'
+  s.disposals = s.disposals.filter((x) => x.id !== disposalId)
+
+  appendAudit({ actor: session.name, action: `폐기 대상 선정 취소 — ${d.assetNo} (→ ${asset?.status ?? '유휴'})`, target: d.assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${d.assetNo} 폐기 대상 선정을 취소했습니다 (${asset?.status ?? '유휴'} 복원).` }
 }
 
 /** 폐기 대상 일괄 선정 — 노후·EOL 배치를 한 번에 선정한다 (교체 계획 수십 대를 한 건씩 누르지 않도록).
@@ -29,7 +48,7 @@ export async function selectForDisposalMany(items: { assetNo: string; reason: st
   for (const it of items) {
     const asset = s.assets.find((a) => a.assetNo === it.assetNo)
     if (!asset || s.disposals.some((d) => d.assetNo === it.assetNo)) continue
-    s.disposals.push({ id: nextId('DSP'), assetNo: it.assetNo, model: asset.model, reason: it.reason, status: '대상 선정' })
+    s.disposals.push({ id: nextId('DSP'), assetNo: it.assetNo, model: asset.model, reason: it.reason, status: '대상 선정', prevStatus: asset.status })
     asset.status = '폐기예정'
     n += 1
   }

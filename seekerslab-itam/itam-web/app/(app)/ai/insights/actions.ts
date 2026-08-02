@@ -76,7 +76,7 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
     // EOL·고위험 취약점 자산 → 교체 위해 폐기 대상으로 선정(폐기 결재 게이트를 거친다)
     const asset = s.assets.find((a) => a.assetNo === ins.refId)
     if (asset && !['폐기예정', '폐기완료'].includes(asset.status) && !s.disposals.some((d) => d.assetNo === asset.assetNo)) {
-      s.disposals.push({ id: nextId('DSP'), assetNo: asset.assetNo, model: asset.model, reason: `EOL·취약점 조치 1순위 — ${ins.title}`, status: '대상 선정' })
+      s.disposals.push({ id: nextId('DSP'), assetNo: asset.assetNo, model: asset.model, reason: `EOL·취약점 조치 1순위 — ${ins.title}`, status: '대상 선정', prevStatus: asset.status })
       asset.status = '폐기예정'
       action = `폐기(교체) 대상 선정 — ${asset.assetNo}`
     } else if (asset) {

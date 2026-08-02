@@ -314,6 +314,8 @@ export interface DisposalRecord {
   model: string
   reason: string
   status: '대상 선정' | '결재 대기' | '소거 대기' | '완료'
+  /** 선정 취소 시 되돌릴 원 상태 — 잘못 선정한 자산을 원위치로 복원한다 */
+  prevStatus?: AssetStatus
   approvalId?: string
   wipeMethod?: WipeMethod
   wipedAt?: string

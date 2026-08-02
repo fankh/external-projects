@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { DisposalRecord, WipeMethod } from '@/lib/types'
-import { raiseDisposalApproval, recordWipe, selectForDisposal, selectForDisposalMany } from './actions'
+import { cancelDisposalCandidate, raiseDisposalApproval, recordWipe, selectForDisposal, selectForDisposalMany } from './actions'
 
 const METHODS: WipeMethod[] = ['소프트웨어 3-pass', '디가우징', '물리 파쇄']
 const TONE = { '대상 선정': 'neutral', '결재 대기': 'info', '소거 대기': 'err', 완료: 'ok' } as const
@@ -112,8 +112,17 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                             setMsg({ ok: r.ok, text: r.message })
                           })}>소거 · 증적 등록</button>
                       </span>
+                    ) : d.status === '대상 선정' ? (
+                      <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
+                        <span className="mut" style={{ fontSize: 11 }}>상신 대기</span>
+                        <button className="btn sm ghost" disabled={pending}
+                          onClick={() => startTransition(async () => {
+                            const r = await cancelDisposalCandidate(d.id)
+                            setMsg({ ok: r.ok, text: r.message })
+                          })}>선정 취소</button>
+                      </span>
                     ) : (
-                      <span className="mut">{d.status === '결재 대기' ? '결재 진행 중' : d.status === '완료' ? '완료' : '상신 대기'}</span>
+                      <span className="mut">{d.status === '결재 대기' ? '결재 진행 중' : '완료'}</span>
                     )}
                   </td>
                 </tr>
