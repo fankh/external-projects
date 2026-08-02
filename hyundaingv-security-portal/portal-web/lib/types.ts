@@ -40,7 +40,31 @@ export const SR_FLOW: SrStatus[] = ['작성중', '결재중', 'CI배정', '개�
 
 export type ApprovalStatus = '대기' | '승인' | '반려'
 
-export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '변경결과 상신' | '서약 현황 상신' | '장애보고 상신'
+export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '변경결과 상신' | '서약 현황 상신' | '장애보고 상신' | '점검결과 상신'
+
+/** 보안점검 (ISMS) — 기준(Template) → 연간 점검계획 → 결과 등록·결재 → 완료 (요구사항 결재 시트 3번) */
+export type InspectionCycle = '월' | '분기' | '반기' | '년'
+
+export interface InspectionItem {
+  id: string
+  /** ISMS 항목 코드 관리 — 대분류 · 통제항목 */
+  category: string
+  control: string
+  cycle: InspectionCycle
+  source: 'ISMS' | '외부기관'
+}
+
+export type InspectionStatus = '계획' | '결과미등록' | '결재중' | '완료'
+
+export interface InspectionPlan {
+  id: string
+  itemId: string
+  /** 점검 예정월 (YYYY-MM) — 경과 시 지연으로 드러난다 */
+  month: string
+  inspector: string
+  status: InspectionStatus
+  result?: string
+}
 
 /** 장애 관리 — 등록·조치 → 주기별 통계 결재상신 → 향후대책 결과 등록 (요구사항 결재 시트 8번) */
 export type IncidentGrade = '1등급' | '2등급' | '3등급'

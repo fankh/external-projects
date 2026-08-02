@@ -59,6 +59,12 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
     }
   }
 
+  // 폐쇄 루프 1-5 — 점검결과 결재가 점검 진행내역 현황판(계획·미등록·완료 집계)으로 전파된다
+  if (ap.docType === '점검결과 상신' && ap.ref) {
+    const plan = s.inspectionPlans.find((x) => x.id === ap.ref)
+    if (plan && plan.status === '결재중') plan.status = verdict === '승인' ? '완료' : '결과미등록'
+  }
+
   // 폐쇄 루프 2 — 내 할일 목록의 해당 결재 건이 자동으로 닫힌다
   const todo = s.todos.find((t) => t.owner === me.name && t.kind === '결재' && t.title.includes(id) && !t.done)
   if (todo) todo.done = true

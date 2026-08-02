@@ -2,9 +2,11 @@
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
 import { CHANNELS } from '@/portal.config'
-import type { Approval, BatchRun, ChangeWork, Incident, InvestContract, InvestPlan, Notice, Person, PledgeSign, SendLogEntry, Settlement, SrRequest, TodoItem } from './types'
+import type { Approval, BatchRun, ChangeWork, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, SendLogEntry, Settlement, SrRequest, TodoItem } from './types'
 
 export interface Store {
+  inspectionItems: InspectionItem[]
+  inspectionPlans: InspectionPlan[]
   investPlans: InvestPlan[]
   investContracts: InvestContract[]
   settlements: Settlement[]
@@ -37,6 +39,19 @@ function seed(): Store {
     ],
     settlements: [
       { id: 'ST-2026-01', contractId: 'CT-2026-01', item: '착수금', amount: 2100, status: '지급완료', requestedBy: '김현우', requestedAt: '2026-07-05' },
+    ],
+    inspectionItems: [
+      { id: 'CK-01', category: '접근통제', control: '중요 시스템 계정·권한 정기 검토', cycle: '분기', source: 'ISMS' },
+      { id: 'CK-02', category: '접근통제', control: '퇴직·전보자 계정 회수 점검', cycle: '월', source: 'ISMS' },
+      { id: 'CK-03', category: '운영보안', control: '보안패치 적용 현황 점검', cycle: '분기', source: 'ISMS' },
+      { id: 'CK-04', category: '개인정보', control: '개인정보 취급 화면 접근이력 점검', cycle: '반기', source: 'ISMS' },
+      { id: 'CK-05', category: '물리보안', control: '전산실 출입기록 대사', cycle: '분기', source: '외부기관' },
+    ],
+    inspectionPlans: [
+      { id: 'IS-2026-21', itemId: 'CK-01', month: '2026-07', inspector: '박정호', status: '완료', result: '전 시스템 계정 검토 완료, 미사용 계정 3건 회수' },
+      { id: 'IS-2026-22', itemId: 'CK-02', month: '2026-07', inspector: '박정호', status: '결과미등록' },
+      { id: 'IS-2026-23', itemId: 'CK-03', month: '2026-08', inspector: '박정호', status: '계획' },
+      { id: 'IS-2026-24', itemId: 'CK-04', month: '2026-08', inspector: '한지원', status: '계획' },
     ],
     incidents: [
       { id: 'FL-2026-11', system: 'ERP', title: 'DB 커넥션 풀 고갈로 응답 지연', grade: '2등급', occurredAt: '2026-07-18', status: '조치완료', action: '커넥션 풀 확대 및 누수 쿼리 수정', countermeasure: '커넥션 사용량 임계 알림 구축', reportStatus: '미상신' },

@@ -98,14 +98,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '게시이력', detail: '교육 자료 게시 이력' },
     ],
   },
-  '/compliance/inspection': {
-    desc: '보안점검 (ISMS) — 기준관리·점검계획·진행내역을 다룬다.',
-    features: [
-      { name: '기준관리', detail: 'ISMS 통제 항목·점검 기준 관리' },
-      { name: '점검계획', detail: '연간 점검 계획 수립·결재' },
-      { name: '진행내역', detail: '점검 수행·결함 조치 추적' },
-    ],
-  },
   '/settings/users': {
     desc: '사용자·그룹·결재선 — 계정과 권한그룹, 결재선을 관리한다.',
     features: [

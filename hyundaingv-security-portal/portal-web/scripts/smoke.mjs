@@ -162,6 +162,8 @@ async function main() {
     ['/infra/incidents', 'BIZ_MGR', ['FL-2026-11', 'DB 커넥션 풀 고갈로 응답 지연', '장애보고 상신', '향후대책', '커넥션 사용량 임계 알림 구축', 'FL-2026-13']],
     // 변경 루프 — 2단 상신, SR 적용요청 편입
     ['/infra/changes', 'BIZ_MGR', ['CW-2026-05', 'WAS 보안패치 적용', '결과 상신', 'SR-2026-0132', '변경 작업 편입']],
+    // 보안점검(ISMS) — 현황판·기준관리·결과 결재상신
+    ['/compliance/inspection', 'BIZ_MGR', ['IS-2026-22', '퇴직·전보자 계정 회수 점검', '결과 결재상신', '기준관리', 'CK-05', '결과미등록']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
