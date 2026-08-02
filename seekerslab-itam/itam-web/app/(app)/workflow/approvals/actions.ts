@@ -6,7 +6,7 @@ import { dispatch } from '@/lib/notify'
 import { canDecideApproval } from '@/lib/approval'
 import { classifyDiscoveredType } from '@/lib/classify'
 import { getSession } from '@/lib/session'
-import { getStore, nextApprovalId } from '@/lib/store'
+import { getStore, nextApprovalId, nextAssetNo } from '@/lib/store'
 import { approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { ApprovalKind } from '@/lib/types'
 
@@ -325,7 +325,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         d.action = '편입완료'
         // 편입 시 발견 이력(채널·일시)이 자산 이력에 승계된다
         s.assets.push({
-          assetNo: `AST-2026-${String(700 + s.assets.length)}`,
+          assetNo: nextAssetNo(),
           // 자동분류 — 발견 유형 문자열을 표준 유형으로 매핑(§05). 발견 화면 제안값과 동일 함수라 화면·대장이 일치한다.
           category: classifyDiscoveredType(d.type),
           model: d.type,

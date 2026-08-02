@@ -684,6 +684,21 @@ export function nextId(prefix: string): string {
   return `${prefix}-${s.seq}`
 }
 
+/** 다음 자산번호 — 올해 채번분 번호의 **최댓값+1**을 6자리로 채운다(AST-YYYY-NNNNNN).
+ *  자산번호는 대장 기본키라 중복이 치명적인데, 기존 3경로(입고 채번·CSV 일괄·발견 편입)가
+ *  count(개수) 기반이라 시드(AST-2026-000108)·상호간 충돌·번호 건너뜀이 있었다. max 기반 단일 채번으로
+ *  충돌·포맷 불일치를 원천 차단한다. 호출 후 push 하면 다음 호출이 새 max 를 본다(순차 채번 안전). */
+export function nextAssetNo(): string {
+  const s = getStore()
+  const year = today().slice(0, 4)
+  const re = new RegExp(`^AST-${year}-(\\d+)$`)
+  const max = s.assets.reduce((m, a) => {
+    const mt = a.assetNo.match(re)
+    return mt ? Math.max(m, parseInt(mt[1], 10)) : m
+  }, 0)
+  return `AST-${year}-${String(max + 1).padStart(6, '0')}`
+}
+
 /** 계약에 연계된 대장 자산 수 — 실측 파생값. Contract.assetCount 는 등록 시 0 으로 시작하고 이후
  *  갱신되지 않아 대장 실체와 어긋난다(시드도 계약 수량으로 박혀 있어 드릴다운 결과와 불일치). 표·카드·엑셀이
  *  모두 이 함수를 써서 '표시 수 = 드릴다운(?q=) 결과' 불변식을 지킨다. */

@@ -4,7 +4,7 @@ import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
-import { getStore, nextId } from '@/lib/store'
+import { getStore, nextAssetNo, nextId } from '@/lib/store'
 import type { Asset, AssetCategory } from '@/lib/types'
 
 /** 입고 재검수 — 반려된 로트를 다시 검수 대기열에 올린다 (공급사 교체품 도착·반려 정정 시).
@@ -176,8 +176,7 @@ export async function issueAssetNo(lotId: string) {
   if (lot.issued.length >= lot.qty) return { ok: false, message: '입고 수량만큼 채번이 완료되었습니다.' }
 
   const year = today().slice(0, 4)
-  const seq = s.assets.filter((a) => a.assetNo.startsWith(`AST-${year}`)).length + lot.issued.length + 1
-  const assetNo = `AST-${year}-${String(seq).padStart(6, '0')}`
+  const assetNo = nextAssetNo()
 
   const asset: Asset = {
     assetNo,

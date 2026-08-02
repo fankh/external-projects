@@ -4,7 +4,7 @@ import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
-import { getStore } from '@/lib/store'
+import { getStore, nextAssetNo } from '@/lib/store'
 import type { Asset, AssetCategory } from '@/lib/types'
 
 const IMPORT_CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
@@ -258,8 +258,6 @@ export async function bulkRegisterAssets(rows: { category: string; model: string
   if (rows.length > 500) return { ok: false, message: '한 번에 최대 500행까지 등록할 수 있습니다.', created: 0, skipped: [] }
 
   const s = getStore()
-  const year = today().slice(0, 4)
-  let seq = s.assets.filter((a) => a.assetNo.startsWith(`AST-${year}`)).length
   const existingSerials = new Set(s.assets.map((a) => a.serial).filter(Boolean))
   const batchSerials = new Set<string>()
 
@@ -275,8 +273,7 @@ export async function bulkRegisterAssets(rows: { category: string; model: string
     if (!model) { skipped.push({ line, reason: '모델 누락' }); return }
     if (serial && (existingSerials.has(serial) || batchSerials.has(serial))) { skipped.push({ line, reason: `시리얼 중복 '${serial}'` }); return }
 
-    seq += 1
-    const assetNo = `AST-${year}-${String(seq).padStart(6, '0')}`
+    const assetNo = nextAssetNo()
     const sn = serial || `SN-${assetNo.slice(-6)}`
     const asset: Asset = {
       assetNo,
