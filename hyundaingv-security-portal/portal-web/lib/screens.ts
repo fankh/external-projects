@@ -81,14 +81,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '사실확인서', detail: '보안위반 사실확인서 작성·결재' },
     ],
   },
-  '/compliance/education': {
-    desc: '보안교육 — 연간계획·결과·이수현황을 관리한다.',
-    features: [
-      { name: '연간계획·결과', detail: '교육 계획 수립·실시 결과 등록' },
-      { name: '이수현황', detail: '개인·부서 이수율 집계' },
-      { name: '게시이력', detail: '교육 자료 게시 이력' },
-    ],
-  },
   '/settings/users': {
     desc: '사용자·그룹·결재선 — 계정과 권한그룹, 결재선을 관리한다.',
     features: [

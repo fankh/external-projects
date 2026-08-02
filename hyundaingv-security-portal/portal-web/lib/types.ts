@@ -200,6 +200,23 @@ export interface Settlement {
   requestedAt: string
 }
 
+/** 보안교육 — 연간계획 → 과정별 결과·명단 등록 → 이수현황 집계 */
+export interface EducationCourse {
+  id: string
+  year: string
+  title: string
+  target: '전임직원' | '개발자' | '보안담당자'
+  plannedMonth: string
+  status: '계획' | '완료'
+}
+
+export interface EducationRecord {
+  courseId: string
+  name: string
+  dept: string
+  completedAt: string
+}
+
 /** 발송 이력 — 어댑터 경유 메일·문자 발송 기록 (연동·인프라 화면에서 추적) */
 export interface SendLogEntry {
   channelId: string

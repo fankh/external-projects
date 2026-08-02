@@ -2,11 +2,13 @@
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
 import { CHANNELS } from '@/portal.config'
-import type { Approval, BatchRun, ChangeWork, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, SendLogEntry, Settlement, SrRequest, TodoItem } from './types'
+import type { Approval, BatchRun, ChangeWork, EducationCourse, EducationRecord, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, SendLogEntry, Settlement, SrRequest, TodoItem } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
   inspectionPlans: InspectionPlan[]
+  educationCourses: EducationCourse[]
+  educationRecords: EducationRecord[]
   investPlans: InvestPlan[]
   investContracts: InvestContract[]
   settlements: Settlement[]
@@ -49,6 +51,20 @@ function seed(): Store {
       { id: 'EF-2026-31', month: '2026-07', vendor: '씨클라우드', planId: 'IP-2026-04', expected: 2000 },
       { id: 'EF-2026-32', month: '2026-08', vendor: '씨클라우드', planId: 'IP-2026-04', expected: 2000 },
       { id: 'EF-2026-33', month: '2026-08', vendor: '유지보수파트너', planId: 'IP-2026-05', expected: 750 },
+    ],
+    educationCourses: [
+      { id: 'ED-2026-01', year: '2026', title: '상반기 정보보호 교육', target: '전임직원', plannedMonth: '2026-06', status: '완료' },
+      { id: 'ED-2026-02', year: '2026', title: '개인정보보호 실무 교육', target: '전임직원', plannedMonth: '2026-09', status: '계획' },
+      { id: 'ED-2026-03', year: '2026', title: '시큐어코딩 교육', target: '개발자', plannedMonth: '2026-10', status: '계획' },
+    ],
+    educationRecords: [
+      { courseId: 'ED-2026-01', name: '최은영', dept: '개발1팀', completedAt: '2026-06-19' },
+      { courseId: 'ED-2026-01', name: '이수진', dept: '경영지원팀', completedAt: '2026-06-19' },
+      { courseId: 'ED-2026-01', name: '정민서', dept: '경영지원팀', completedAt: '2026-06-20' },
+      { courseId: 'ED-2026-01', name: '박정호', dept: 'IT운영팀', completedAt: '2026-06-19' },
+      { courseId: 'ED-2026-01', name: '한지원', dept: 'IT운영팀', completedAt: '2026-06-20' },
+      { courseId: 'ED-2026-01', name: '시스템관리자', dept: '정보기획팀', completedAt: '2026-06-19' },
+      { courseId: 'ED-2026-01', name: '강도윤', dept: '정보기획팀', completedAt: '2026-06-20' },
     ],
     inspectionItems: [
       { id: 'CK-01', category: '접근통제', control: '중요 시스템 계정·권한 정기 검토', cycle: '분기', source: 'ISMS' },

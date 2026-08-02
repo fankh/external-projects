@@ -167,6 +167,9 @@ async function main() {
     // 비용 루프 — 속보 기준금액(정산>계약>계획), 투자·비용 분리
     ['/finance/expense', 'DEPT_MGR', ['클라우드 인프라 이용료', '씨클라우드', '속보', '기준금액', 'ST-2026-02', '월정산']],
     ['/finance/expense', 'USER', ['속보 등록']],
+    // 보안교육 — 연간계획·명단 등록(담당)·내 이수현황(사용자)
+    ['/compliance/education', 'BIZ_MGR', ['상반기 정보보호 교육', '명단 등록', '이수현황 — 전 임직원', '김현우', '미이수']],
+    ['/compliance/education', 'USER', ['내 이수현황', '미이수', 'ED-2026-01']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
