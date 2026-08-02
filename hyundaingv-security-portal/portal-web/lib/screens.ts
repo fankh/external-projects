@@ -33,13 +33,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '정산품의·실적', detail: '정산 결재, 계획 대비 실적 조회·엑셀' },
     ],
   },
-  '/finance/asset-reg': {
-    desc: '자산등록 — 자산관리시스템 API 연계로 자산정보를 조회하고 신규 등록한다.',
-    features: [
-      { name: '자산정보 조회', detail: '자산관리시스템 API로 보유 자산 조회' },
-      { name: '신규 자산등록', detail: '신규 자산등록번호 취득·등록 연계' },
-    ],
-  },
   '/infra/systems': {
     desc: '시스템·서버 현황 — 랙·H/W·서버·시스템(애플리케이션) 구성 현황.',
     features: [

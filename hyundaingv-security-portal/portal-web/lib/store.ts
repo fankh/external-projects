@@ -15,6 +15,8 @@ export interface Store {
   channelStates: Record<string, boolean>
   sendLog: SendLogEntry[]
   batchRuns: BatchRun[]
+  /** 자산등록번호 취득 이력 — 자산관리시스템 API 연계 결과 */
+  assetAcquisitions: { serial: string; model: string; assetNo: string; by: string; at: string }[]
 }
 
 function seed(): Store {
@@ -63,6 +65,7 @@ function seed(): Store {
     ],
     channelStates: Object.fromEntries(CHANNELS.map((c) => [c.id, c.enabledByDefault])),
     sendLog: [],
+    assetAcquisitions: [],
     batchRuns: [
       { job: '인사정보 동기화', ranAt: '2026-08-02 05:00', result: '성공' },
       { job: '미서약자 안내메일 발송', ranAt: '2026-08-01 08:00', result: '성공' },

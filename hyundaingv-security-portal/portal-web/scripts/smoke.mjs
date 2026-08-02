@@ -153,6 +153,8 @@ async function main() {
     ['/board/notices', 'ADMIN', ['공지 등록']],
     // 연동 프레임워크 — 채널 레지스트리·어댑터 바인딩·상태 제어
     ['/platform/integrations', 'ADMIN', ['연동 채널', '그룹웨어 메일', '자산관리시스템', 'mock-asset', '인사정보 즉시 동기화', 'portal.config.ts']],
+    // 자산등록 — 자산관리 어댑터 조회·미등록 식별
+    ['/finance/asset-reg', 'BIZ_MGR', ['SN-NB-88121', 'AST-2025-0112', '미등록', '등록번호 취득']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
