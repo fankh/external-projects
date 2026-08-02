@@ -6,8 +6,13 @@ import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 import type { IncidentGrade } from '@/lib/types'
 
-const GRADES: IncidentGrade[] = ['1등급', '2등급', '3등급']
 const GRADE_TONE: Record<IncidentGrade, 'err' | 'warn' | 'neutral'> = { '1등급': 'err', '2등급': 'warn', '3등급': 'neutral' }
+
+/** 장애등급은 공통코드(FAULT_GRADE)가 단일 원천 — 사용중지된 코드는 등록 화면에서 사라진다 */
+function enabledGrades(s: ReturnType<typeof getStore>): IncidentGrade[] {
+  const group = s.codeGroups.find((g) => g.id === 'FAULT_GRADE')
+  return (group?.values.filter((v) => v.enabled).map((v) => v.code) ?? []) as IncidentGrade[]
+}
 
 async function addIncident(formData: FormData) {
   'use server'
@@ -15,8 +20,8 @@ async function addIncident(formData: FormData) {
   const system = String(formData.get('system') ?? '').trim().slice(0, 60)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const grade = String(formData.get('grade') ?? '') as IncidentGrade
-  if (!system || !title || !GRADES.includes(grade)) return
   const s = getStore()
+  if (!system || !title || !enabledGrades(s).includes(grade)) return
   s.incidents.unshift({
     id: nextNo('FL', today().slice(0, 4), s.incidents.map((i) => i.id)),
     system, title, grade, occurredAt: today(), status: '조치중', reportStatus: '미상신',
@@ -98,7 +103,7 @@ export default async function IncidentsPage() {
           <input className="input" name="system" required maxLength={60} placeholder="대상 시스템" style={{ width: 160 }} />
           <input className="input" name="title" required maxLength={120} placeholder="장애 내용" style={{ flex: 1 }} />
           <select className="select" name="grade">
-            {GRADES.map((g) => <option key={g}>{g}</option>)}
+            {enabledGrades(s).map((g) => <option key={g}>{g}</option>)}
           </select>
           <button type="submit" className="btn pri">등록</button>
         </form>

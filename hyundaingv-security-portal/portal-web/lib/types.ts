@@ -307,6 +307,22 @@ export interface PledgeForm {
   revisedAt: string
 }
 
+/** 공통코드 — 장애등급·SR유형·주기 등 업무 코드의 단일 원천 (사용여부 토글) */
+export interface CodeGroup {
+  id: string
+  name: string
+  values: { code: string; enabled: boolean }[]
+}
+
+/** 엑셀양식 — 결재 자동첨부·출력에 쓰는 양식 (버전 관리) */
+export interface ExcelTemplate {
+  id: string
+  name: string
+  docType: ApprovalDocType | '공통'
+  version: number
+  uploadedAt: string
+}
+
 /** QnA — 질문 등록·담당 답변 */
 export interface QnaPost {
   id: string

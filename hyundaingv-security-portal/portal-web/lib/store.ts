@@ -2,7 +2,7 @@
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
 import { CHANNELS } from '@/portal.config'
-import type { Approval, ApprovalLine, BatchJob, BatchRun, ChangeWork, Deliverable, EducationCourse, EducationRecord, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, BatchJob, BatchRun, ChangeWork, CodeGroup, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -38,6 +38,8 @@ export interface Store {
   batchJobs: BatchJob[]
   interfaces: InterfaceDef[]
   qna: QnaPost[]
+  codeGroups: CodeGroup[]
+  excelTemplates: ExcelTemplate[]
   /** 연동 채널 활성 상태 (channelId → on/off) — 정의는 portal.config.ts, 상태는 런타임 */
   channelStates: Record<string, boolean>
   sendLog: SendLogEntry[]
@@ -206,6 +208,20 @@ function seed(): Store {
       { id: 'IF-02', name: '인사 기본정보 수신', from: '인사·근태 시스템', to: '포털', method: '파일', status: '정상' },
       { id: 'IF-03', name: '자산정보 조회', from: '포털', to: '자산관리시스템', method: 'REST API', status: '정상' },
       { id: 'IF-04', name: '출력물 자료 수신', from: '보안·출력물 시스템', to: '포털', method: 'DB 연계', status: '오류' },
+    ],
+    codeGroups: [
+      { id: 'FAULT_GRADE', name: '장애등급', values: [{ code: '1등급', enabled: true }, { code: '2등급', enabled: true }, { code: '3등급', enabled: true }] },
+      { id: 'SR_KIND', name: 'SR 유형', values: [{ code: '시스템개발', enabled: true }, { code: '데이터', enabled: true }, { code: '계정/권한', enabled: true }] },
+      { id: 'INSPECT_CYCLE', name: '점검 주기', values: [{ code: '월', enabled: true }, { code: '분기', enabled: true }, { code: '반기', enabled: true }, { code: '년', enabled: true }] },
+      { id: 'VIOLATION_TYPE', name: '보안위반 유형', values: [{ code: '출력물 방치', enabled: true }, { code: '화면 미잠금', enabled: true }, { code: '인가되지 않은 USB 사용', enabled: true }] },
+      { id: 'DISCARD_METHOD', name: '출력물 폐기방법', values: [{ code: '세단', enabled: true }, { code: '소각', enabled: true }] },
+      { id: 'SETTLE_ITEM', name: '정산 지급항목', values: [{ code: '착수금', enabled: true }, { code: '중도금', enabled: true }, { code: '잔금', enabled: true }, { code: '월정산', enabled: true }] },
+    ],
+    excelTemplates: [
+      { id: 'XT-01', name: '장애보고 취합 양식', docType: '장애보고 상신', version: 3, uploadedAt: '2026-06-10' },
+      { id: 'XT-02', name: '인프라변경 작업계획 양식', docType: '변경계획 상신', version: 2, uploadedAt: '2026-05-22' },
+      { id: 'XT-03', name: '비용계획 수립 양식', docType: '비용 정산품의', version: 1, uploadedAt: '2026-01-15' },
+      { id: 'XT-04', name: '보안성검토 체크리스트', docType: '공통', version: 1, uploadedAt: '2026-02-01' },
     ],
     qna: [
       { id: 'QA-2026-11', title: 'SR 적용요청 후 반영 일정이 궁금합니다', domain: 'IT Request', author: '김현우', dept: '개발1팀', askedAt: '2026-07-30', answer: '적용요청 결재완료 건은 변경관리 편입 후 매주 수요일 반영됩니다.', answeredBy: '박정호', answeredAt: '2026-07-31' },
