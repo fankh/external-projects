@@ -367,6 +367,20 @@ export interface DisposalRecord {
   /** 증적 — 소거 확인서 번호 · 사진 */
   certNo?: string
   evidence?: string
+  /** 증적 사진 — 처리 전·후·폐기물 인계 등 실제 촬영 증적 기록 (제품안내서 §03 폐기: 증적(사진·확인서) 보존) */
+  photos?: DisposalPhoto[]
+}
+
+/** 폐기 증적 사진 유형 — 파일 저장은 범위 밖이므로 사진 메타데이터(구분·설명·등록자·등록일)만 관리한다 */
+export const DISPOSAL_PHOTO_LABELS = ['처리 전', '처리 후', '라벨·시리얼', '폐기물 인계', '기타'] as const
+export type DisposalPhotoLabel = (typeof DISPOSAL_PHOTO_LABELS)[number]
+
+export interface DisposalPhoto {
+  id: string
+  label: DisposalPhotoLabel
+  note?: string
+  addedAt: string
+  addedBy: string
 }
 
 /** 게시판 — 공지 · QnA (제품안내서 §01 Main) */

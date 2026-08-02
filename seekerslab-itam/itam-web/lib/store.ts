@@ -459,7 +459,11 @@ function seed(): Store {
       { id: 'DSP-01', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', reason: '사용 연한 초과 (7년) · 보증 만료', status: '결재 대기', approvalId: 'APR-2607-119' },
       { id: 'DSP-02', assetNo: 'AST-2021-000432', model: 'LG gram 17', reason: '보증 만료 · 성능 저하', status: '대상 선정' },
       // 폐기 완료 — 데이터 소거·증적 보존 완료. 소거 확인서 다운로드 대상.
-      { id: 'DSP-00', assetNo: 'AST-2018-000090', model: 'Dell Latitude 5290', reason: '사용 연한 초과 (8년) · 보증 만료', status: '완료', approvalId: 'APR-2606-088', wipeMethod: '디가우징', wipedAt: '2026-07-22', wipedBy: '박자산', certNo: 'WIPE-20260722-050', evidence: '소거 확인서 WIPE-20260722-050 · 처리 전후 사진 2매 첨부' },
+      { id: 'DSP-00', assetNo: 'AST-2018-000090', model: 'Dell Latitude 5290', reason: '사용 연한 초과 (8년) · 보증 만료', status: '완료', approvalId: 'APR-2606-088', wipeMethod: '디가우징', wipedAt: '2026-07-22', wipedBy: '박자산', certNo: 'WIPE-20260722-050', evidence: '소거 확인서 WIPE-20260722-050',
+        photos: [
+          { id: 'PHO-0001', label: '처리 전', note: '디가우징 전 자산 라벨·시리얼 근접 촬영', addedAt: '2026-07-22', addedBy: '박자산' },
+          { id: 'PHO-0002', label: '처리 후', note: '디가우징 완료 후 저장매체 상태', addedAt: '2026-07-22', addedBy: '박자산' },
+        ] },
     ],
     surveyDiffs: [
       { id: 'DIF-01', roundId: 'INV-2026-H2', kind: '위치 불일치', assetNo: 'AST-2025-000512', model: 'Galaxy Book4 Pro', expected: '본사 8F', actual: '판교 사무소', status: '미조치' },
@@ -613,7 +617,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 10
+const SCHEMA_VERSION = 11
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

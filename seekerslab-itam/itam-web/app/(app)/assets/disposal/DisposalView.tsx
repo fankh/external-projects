@@ -1,8 +1,8 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
-import type { DisposalRecord, WipeMethod } from '@/lib/types'
-import { cancelDisposalCandidate, raiseDisposalApproval, recordWipe, selectForDisposal, selectForDisposalMany } from './actions'
+import { DISPOSAL_PHOTO_LABELS, type DisposalPhotoLabel, type DisposalRecord, type WipeMethod } from '@/lib/types'
+import { addDisposalPhoto, cancelDisposalCandidate, raiseDisposalApproval, recordWipe, removeDisposalPhoto, selectForDisposal, selectForDisposalMany } from './actions'
 
 const METHODS: WipeMethod[] = ['소프트웨어 3-pass', '디가우징', '물리 파쇄']
 const TONE = { '대상 선정': 'neutral', '결재 대기': 'info', '소거 대기': 'err', 완료: 'ok' } as const
@@ -16,7 +16,20 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [method, setMethod] = useState<Record<string, WipeMethod>>({})
   const [sel, setSel] = useState<Set<string>>(new Set())
+  const [photoOpen, setPhotoOpen] = useState<string | null>(null)
+  const [photoLabel, setPhotoLabel] = useState<DisposalPhotoLabel>(DISPOSAL_PHOTO_LABELS[0])
+  const [photoNote, setPhotoNote] = useState('')
   const selected = records.filter((d) => d.status === '대상 선정')
+
+  const addPhoto = (id: string) => startTransition(async () => {
+    const r = await addDisposalPhoto(id, photoLabel, photoNote)
+    setMsg({ ok: r.ok, text: r.message })
+    if (r.ok) setPhotoNote('')
+  })
+  const removePhoto = (id: string, pId: string) => startTransition(async () => {
+    const r = await removeDisposalPhoto(id, pId)
+    setMsg({ ok: r.ok, text: r.message })
+  })
 
   const toggle = (no: string) => setSel((prev) => {
     const n = new Set(prev)
@@ -82,7 +95,8 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
             </thead>
             <tbody>
               {records.map((d) => (
-                <tr key={d.id}>
+                <Fragment key={d.id}>
+                <tr>
                   <td className="code">{d.id}</td>
                   <td className="code">{d.assetNo}</td>
                   <td className="strong">{d.model}</td>
@@ -93,8 +107,14 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                       <span>
                         <b>{d.wipeMethod}</b> · {d.wipedAt} {d.wipedBy}
                         <div className="mono" style={{ fontSize: 11, color: 'var(--ok)' }}>{d.evidence}</div>
-                        <a className="btn sm ghost" style={{ marginTop: 4 }}
-                          href={`/api/wipe-cert/${d.id}`} download>소거 확인서 다운로드</a>
+                        <span className="hstack" style={{ gap: 5, marginTop: 4 }}>
+                          <a className="btn sm ghost" href={`/api/wipe-cert/${d.id}`} download>소거 확인서 다운로드</a>
+                          <button className={`btn sm ${photoOpen === d.id ? 'pri' : 'ghost'}`}
+                            onClick={() => { setPhotoOpen(photoOpen === d.id ? null : d.id); setPhotoNote(''); setMsg(null) }}
+                            title="처리 전·후·폐기물 인계 등 증적 사진 관리">
+                            🖼 증적 사진 {(d.photos?.length ?? 0) > 0 ? d.photos!.length : ''}
+                          </button>
+                        </span>
                       </span>
                     ) : <span className="mut">-</span>}
                   </td>
@@ -126,6 +146,37 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                     )}
                   </td>
                 </tr>
+                {photoOpen === d.id && d.status === '완료' && (
+                  <tr className="sub">
+                    <td colSpan={7} style={{ background: 'var(--canvas)', padding: '12px 16px' }}>
+                      <div className="kicker mute" style={{ marginBottom: 8 }}>증적 사진 — {d.id} · {d.assetNo} ({d.model})</div>
+                      {(d.photos?.length ?? 0) === 0 ? (
+                        <div className="dim" style={{ fontSize: 12, marginBottom: 10 }}>등록된 증적 사진이 없습니다 — 처리 전·후·폐기물 인계 등 촬영 증적을 등록하세요.</div>
+                      ) : (
+                        <div className="vstack" style={{ gap: 5, marginBottom: 12 }}>
+                          {d.photos!.map((p) => (
+                            <div key={p.id} className="hstack" style={{ gap: 10, fontSize: 12.5 }}>
+                              <Chip tone="info">{p.label}</Chip>
+                              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.note ?? <span className="dim">설명 없음</span>}</span>
+                              <span className="mut tnum" style={{ fontSize: 11 }}>{p.addedBy} · {p.addedAt}</span>
+                              <button className="btn sm ghost" disabled={pending} onClick={() => removePhoto(d.id, p.id)} title="증적 사진 삭제">삭제</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                        <select className="select" value={photoLabel} disabled={pending} onChange={(e) => setPhotoLabel(e.target.value as DisposalPhotoLabel)}>
+                          {DISPOSAL_PHOTO_LABELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                        <input className="input" style={{ width: 260 }} placeholder="설명 (예: 저장매체 라벨·시리얼 근접 촬영)"
+                          value={photoNote} disabled={pending} onChange={(e) => setPhotoNote(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') addPhoto(d.id) }} />
+                        <button className="btn sm pri" disabled={pending} onClick={() => addPhoto(d.id)}>＋ 증적 사진 등록</button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
               {records.length === 0 && <tr><td colSpan={7}><div className="empty">폐기 처리 건이 없습니다</div></td></tr>}
             </tbody>

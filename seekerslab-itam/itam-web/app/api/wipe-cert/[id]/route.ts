@@ -42,6 +42,11 @@ export async function GET(
     `본 자산의 저장 매체에 대한 데이터 소거를 위 방식으로 완료하였으며, 복구가 불가능함을 확인합니다.`,
     d.evidence ? `증적: ${d.evidence}` : '',
     '',
+    '## 증적 사진',
+    ...(d.photos && d.photos.length > 0
+      ? d.photos.map((p) => `- [${p.label}] ${p.note ?? ''} (${p.addedBy} · ${p.addedAt})`)
+      : ['- 등록된 증적 사진 없음']),
+    '',
     '_본 확인서는 SEEKERSLAB ITAM 폐기 절차에서 자동 생성되었습니다._',
     '',
   ].filter((l) => l !== '').join('\n')

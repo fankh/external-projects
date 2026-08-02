@@ -4,7 +4,7 @@ import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
-import type { WipeMethod } from '@/lib/types'
+import { DISPOSAL_PHOTO_LABELS, type DisposalPhotoLabel, type WipeMethod } from '@/lib/types'
 
 /** 폐기 대상 선정 — 노후·보증만료 자산을 폐기 후보로 등록 */
 export async function selectForDisposal(assetNo: string, reason: string) {
@@ -96,7 +96,8 @@ export async function recordWipe(id: string, method: WipeMethod) {
   d.wipedAt = today()
   d.wipedBy = session.name
   d.certNo = `WIPE-${today().replace(/-/g, '')}-${String(s.seq).padStart(3, '0')}`
-  d.evidence = `소거 확인서 ${d.certNo} · 처리 전후 사진 2매 첨부`
+  // 증적 사진은 실제 등록된 기록으로 관리한다 — 여기서 지어내지 않는다(감사 무결성).
+  d.evidence = `소거 확인서 ${d.certNo}`
   d.status = '완료'
 
   const asset = s.assets.find((a) => a.assetNo === d.assetNo)
@@ -111,4 +112,39 @@ export async function recordWipe(id: string, method: WipeMethod) {
   appendAudit({ actor: session.name, action: `폐기 데이터 소거 (${method})`, target: d.assetNo })
   revalidatePath('/', 'layout')
   return { ok: true, message: `소거 완료 — 증적 ${d.certNo}` }
+}
+
+/** 폐기 증적 사진 등록 — 처리 전·후·폐기물 인계 등 실제 촬영 증적을 소거 완료 건에 남긴다.
+ *  파일 저장은 범위 밖이므로 사진 메타데이터(구분·설명·등록자·등록일)만 관리한다 —
+ *  "증적 사진이 존재한다"는 감사 주장을 실제 기록으로 뒷받침한다(제품안내서 §03 폐기: 증적(사진·확인서)). 자산담당·Admin. */
+export async function addDisposalPhoto(id: string, label: DisposalPhotoLabel, rawNote: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '증적 사진 등록 권한이 없습니다 (자산담당·Admin).' }
+  if (!DISPOSAL_PHOTO_LABELS.includes(label)) return { ok: false, message: '사진 구분이 올바르지 않습니다.' }
+
+  const s = getStore()
+  const d = s.disposals.find((x) => x.id === id)
+  if (!d) return { ok: false, message: '폐기 건을 찾을 수 없습니다.' }
+  if (d.status !== '완료') return { ok: false, message: '소거 완료 건에만 증적 사진을 등록할 수 있습니다.' }
+  if (!d.photos) d.photos = []
+  d.photos.push({ id: nextId('PHO'), label, note: rawNote.trim() || undefined, addedAt: today(), addedBy: session.name })
+  appendAudit({ actor: session.name, action: `폐기 증적 사진 등록 — ${label}${rawNote.trim() ? ` (${rawNote.trim()})` : ''}`, target: d.assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${d.id} 증적 사진 등록 — ${label}` }
+}
+
+/** 폐기 증적 사진 삭제 — 잘못 등록한 증적 항목을 제거한다. 감사 로그에 남긴다. 자산담당·Admin. */
+export async function removeDisposalPhoto(id: string, photoId: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '증적 사진 삭제 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const d = s.disposals.find((x) => x.id === id)
+  if (!d || !d.photos) return { ok: false, message: '폐기 건 또는 증적 사진을 찾을 수 없습니다.' }
+  const photo = d.photos.find((p) => p.id === photoId)
+  if (!photo) return { ok: false, message: '증적 사진을 찾을 수 없습니다.' }
+  d.photos = d.photos.filter((p) => p.id !== photoId)
+  appendAudit({ actor: session.name, action: `폐기 증적 사진 삭제 — ${photo.label}`, target: d.assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${d.id} 증적 사진 삭제 — ${photo.label}` }
 }

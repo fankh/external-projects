@@ -123,10 +123,10 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     // 폐기 증적 대장 — 감사 대응용. 대상 선정~완료 전 단계와 소거 방식·확인서 번호를 한 장에 남긴다.
     return [{
       name: '폐기 증적 대장',
-      header: ['폐기번호', '자산번호', '모델', '폐기 사유', '상태', '소거 방식', '소거일', '처리자', '확인서 번호', '증적'],
+      header: ['폐기번호', '자산번호', '모델', '폐기 사유', '상태', '소거 방식', '소거일', '처리자', '확인서 번호', '증적', '증적 사진 수'],
       rows: s.disposals.map((d) => [
         d.id, d.assetNo, d.model, d.reason, d.status,
-        d.wipeMethod ?? '', d.wipedAt ?? '', d.wipedBy ?? '', d.certNo ?? '', d.evidence ?? '',
+        d.wipeMethod ?? '', d.wipedAt ?? '', d.wipedBy ?? '', d.certNo ?? '', d.evidence ?? '', d.photos?.length ?? 0,
       ]),
     }]
   }
