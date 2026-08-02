@@ -13,6 +13,7 @@ IT 투자/비용 · 인프라 운영 · 프로젝트 · 보안 컴플라이언�
 | `전사_IT보안_거버넌스포털_제품안내서.html` | 기술 제품 안내서 (고정 레이아웃 슬라이드) | HTML (A4 landscape) |
 | `전사_IT보안_거버넌스포털_제품안내서.pdf` | 배포용 PDF (16p) | PDF (A4 landscape) |
 | `sample.xlsx` | 요구사항 원본 (메뉴체계·첨부·결재) | Excel |
+| `portal-web/` | 제품안내서를 구현 스코프로 한 웹 포털 (Next.js) — 상세는 `portal-web/README.md` | Web app |
 
 ## 구성
 
