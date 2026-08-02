@@ -2,9 +2,9 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost } from '@/lib/types'
-import { deleteNotice, editNotice, postNotice, toggleNoticePin } from '../actions'
+import { acknowledgeNotice, deleteNotice, editNotice, postNotice, toggleNoticePin } from '../actions'
 
-export function NoticeBoard({ posts, canWrite }: { posts: BoardPost[]; canWrite: boolean }) {
+export function NoticeBoard({ posts, canWrite, me, totalUsers }: { posts: BoardPost[]; canWrite: boolean; me: string; totalUsers: number }) {
   const [openId, setOpenId] = useState<string | null>(posts[0]?.id ?? null)
   const [writing, setWriting] = useState(false)
   const [title, setTitle] = useState('')
@@ -106,7 +106,30 @@ export function NoticeBoard({ posts, canWrite }: { posts: BoardPost[]; canWrite:
           ) : (
             <>
               <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, color: 'var(--ink-2)' }}>{open.body}</div>
-              {canWrite && msg && <div className="dim" style={{ fontSize: 11.5, marginTop: 10 }}>{msg}</div>}
+              {open.pinned && (() => {
+                const acks = open.acks ?? []
+                const mine = acks.find((a) => a.by === me)
+                return (
+                  <div className="hstack" style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Chip tone="err" bare>필독</Chip>
+                    {mine ? (
+                      <span className="hstack" style={{ gap: 6, fontSize: 12.5, color: 'var(--ok)', fontWeight: 600 }}>
+                        ✓ 읽음 확인함 · {mine.at}
+                      </span>
+                    ) : (
+                      <button className="btn sm pri" disabled={pending}
+                        onClick={() => startTransition(async () => setMsg((await acknowledgeNotice(open.id)).message))}>
+                        읽음 확인
+                      </button>
+                    )}
+                    <span className="right" />
+                    <span className="mut" style={{ fontSize: 11.5 }} title="필독 확인 커버리지">
+                      필독 확인 {acks.length}/{totalUsers}명
+                    </span>
+                  </div>
+                )
+              })()}
+              {msg && <div className="dim" style={{ fontSize: 11.5, marginTop: 10 }}>{msg}</div>}
             </>
           )}
         </Card>

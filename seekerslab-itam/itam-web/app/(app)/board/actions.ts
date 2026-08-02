@@ -152,3 +152,26 @@ export async function toggleNoticePin(postId: string) {
   revalidatePath('/', 'layout')
   return { ok: true, message: `공지를 ${post.pinned ? '상단 고정' : '고정 해제'}했습니다.` }
 }
+
+/** 필독 공지 읽음 확인 — 전 권한그룹이 자기 명의로 확인한다(QnA 등록과 함께 사용자의 쓰기 접점).
+ *  그동안 '필독'은 상단 고정이라는 표시뿐이고 실제로 누가 읽었는지 추적이 없었다. 상단 고정(필독) 공지만
+ *  대상이며, 확인 이력이 컴플라이언스 커버리지(확인 N/전체 M)로 집계된다. 재확인은 무시(멱등). */
+export async function acknowledgeNotice(postId: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '세션이 만료되었습니다.' }
+
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
+  if (!post) return { ok: false, message: '공지를 찾을 수 없습니다.' }
+  if (!post.pinned) return { ok: false, message: '필독(상단 고정) 공지만 읽음 확인 대상입니다.' }
+
+  post.acks ??= []
+  if (post.acks.some((a) => a.by === session.name)) {
+    return { ok: true, message: '이미 읽음 확인한 공지입니다.' }
+  }
+  post.acks.push({ by: session.name, at: today() })
+
+  appendAudit({ actor: session.name, action: `공지 필독 확인 — ${post.title}`, target: postId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `읽음 확인 완료 — ${post.title}` }
+}

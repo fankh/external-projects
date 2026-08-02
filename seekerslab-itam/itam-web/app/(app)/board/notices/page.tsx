@@ -21,7 +21,7 @@ export default async function NoticesPage() {
       />
       {notices.length === 0
         ? <Card><div className="empty">등록된 공지가 없습니다</div></Card>
-        : <NoticeBoard posts={notices} canWrite={session?.role === 'ADMIN'} />}
+        : <NoticeBoard posts={notices} canWrite={session?.role === 'ADMIN'} me={session?.name ?? ''} totalUsers={s.users.length} />}
     </>
   )
 }

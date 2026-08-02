@@ -163,6 +163,8 @@ try {
   const ntcHtml = await (await get('/board/notices', 'USER')).text()
   check('공지사항: 목록·본문 렌더', ntcHtml.includes('2026 하반기 재물조사') && ntcHtml.includes('필독'))
   check('공지사항: 사용자에게 등록·관리 버튼 미노출', !ntcHtml.includes('공지 등록') && !ntcHtml.includes('삭제'))
+  // 필독 공지 읽음 확인 — 상단 고정 공지가 기본 선택돼 사용자에게 읽음 확인 UI·커버리지 집계가 보인다
+  check('공지사항: 필독 공지 읽음 확인 UI·커버리지 렌더 (사용자)', ntcHtml.includes('읽음 확인') && ntcHtml.includes('필독 확인') && ntcHtml.includes('명'))
   const ntcAdmin = await (await get('/board/notices', 'ADMIN')).text()
   check('공지사항: Admin 관리 컨트롤 노출 (등록·수정·고정 토글·삭제)', ntcAdmin.includes('공지 등록') && ntcAdmin.includes('수정') && ntcAdmin.includes('삭제') && (ntcAdmin.includes('고정 해제') || ntcAdmin.includes('상단 고정')))
   const qnaHtml = await (await get('/board/qna', 'USER')).text()
