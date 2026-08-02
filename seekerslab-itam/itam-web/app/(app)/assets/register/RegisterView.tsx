@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
-import { extendWarranty, recordConfigChange, type ConfigField } from './actions'
+import { extendWarranty, recordConfigChange, recoverAsset, reportLostStolen, type ConfigField } from './actions'
 
 /** 조회 필터의 유형 목록 — 공통코드 ASSET_CATEGORY 의 '사용' 여부와 무관하게 전부 노출한다.
  *  미사용 처리는 **신규 입력**에서만 제외하는 규칙이고(환경설정 › 공통코드 안내 참조), 이미 그
@@ -11,7 +11,7 @@ import { extendWarranty, recordConfigChange, type ConfigField } from './actions'
  *  기록하는 입력 항목은 반대로 활성 코드만 읽는다. */
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
-  검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 반납대기: 'warn', 수리중: 'warn', 폐기예정: 'err', 폐기완료: 'neutral',
+  검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
 export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string }) {
@@ -24,6 +24,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [cfgNote, setCfgNote] = useState('')
   const [cfgMsg, setCfgMsg] = useState<string | null>(null)
   const [wtyOpen, setWtyOpen] = useState(false)
+  const [lostOpen, setLostOpen] = useState(false)
+  const [lostType, setLostType] = useState<'분실' | '도난'>('분실')
+  const [lostNote, setLostNote] = useState('')
+  const [lostMsg, setLostMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const rows = useMemo(() => {
@@ -127,6 +131,53 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 <Link className="btn sm" href="/assets/intake">라벨 · 검수</Link>
                 <Link className="btn sm" href="/assets/movement">이동 처리</Link>
                 <Link className="btn sm danger" href="/assets/disposal">폐기 처리</Link>
+              </div>
+            )}
+
+            {props.canEdit && sel.status === '분실' && (
+              <div style={{ marginTop: 12 }}>
+                {lostMsg && <div className="callout" style={{ marginBottom: 10 }}>{lostMsg}</div>}
+                <div className="callout warn" style={{ marginBottom: 10, padding: '8px 11px' }}>
+                  분실·도난 신고된 자산입니다 — 회수 시 유휴 풀로 복귀, 미회수 확정 시 <Link href="/assets/disposal">폐기 처리</Link>로 넘깁니다.
+                </div>
+                <button className="btn sm pri" disabled={pending}
+                  onClick={() => startTransition(async () => {
+                    const r = await recoverAsset(sel.assetNo, '')
+                    setLostMsg(r.message)
+                  })}>회수 (실물 확보)</button>
+              </div>
+            )}
+
+            {props.canEdit && sel.status !== '분실' && sel.status !== '폐기예정' && sel.status !== '폐기완료' && (
+              <div style={{ marginTop: 12 }}>
+                {lostMsg && <div className="callout" style={{ marginBottom: 10 }}>{lostMsg}</div>}
+                {!lostOpen ? (
+                  <button className="btn sm danger" disabled={pending}
+                    onClick={() => { setLostOpen(true); setLostType('분실'); setLostNote(''); setLostMsg(null) }}
+                    title="실물이 사라진 자산을 분실·도난으로 신고">분실 · 도난 신고</button>
+                ) : (
+                  <div className="vstack" style={{ gap: 8 }}>
+                    <div className="kicker mute">분실 · 도난 신고</div>
+                    <select className="select" value={lostType} disabled={pending}
+                      onChange={(e) => setLostType(e.target.value as '분실' | '도난')}>
+                      <option value="분실">분실 (소재 불명)</option>
+                      <option value="도난">도난 (탈취 — 데이터 유출 위험)</option>
+                    </select>
+                    <input className="input" placeholder="정황 (마지막 확인 위치·경위)" value={lostNote} disabled={pending}
+                      onChange={(e) => setLostNote(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && lostNote.trim()) { e.currentTarget.blur() } }} />
+                    <div className="hstack">
+                      <button className="btn sm danger" disabled={pending || !lostNote.trim()}
+                        onClick={() => startTransition(async () => {
+                          const r = await reportLostStolen(sel.assetNo, lostType, lostNote)
+                          setLostMsg(r.message)
+                          if (r.ok) { setLostOpen(false); setLostNote('') }
+                        })}>신고 확정</button>
+                      <button className="btn sm ghost" disabled={pending} onClick={() => { setLostOpen(false); setLostMsg(null) }}>취소</button>
+                    </div>
+                    {lostType === '도난' && <span className="mut" style={{ fontSize: 11 }}>도난 신고 시 보안운영팀에 데이터 유출 위험 점검이 통보됩니다.</span>}
+                  </div>
+                )}
               </div>
             )}
 

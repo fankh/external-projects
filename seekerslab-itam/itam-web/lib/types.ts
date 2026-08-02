@@ -12,11 +12,11 @@ export const ROLE_LABEL: Record<Role, string> = {
 export type AssetCategory = '단말' | '서버' | '네트워크' | '주변기기' | 'SW' | '가상자원'
 
 /** 수명주기 5단계 (도입·검수 → 등록 → 운영·이동 → 반납·유휴 → 폐기) */
-export type AssetStatus = '검수중' | '사용중' | '유휴' | '반납대기' | '수리중' | '폐기예정' | '폐기완료'
+export type AssetStatus = '검수중' | '사용중' | '유휴' | '반납대기' | '수리중' | '분실' | '폐기예정' | '폐기완료'
 
 export interface AssetHistoryItem {
   date: string
-  kind: '등록' | '불출' | '이동' | '구성변경' | '점검' | '반납' | '폐기' | '편입' | '보증연장' | '수리'
+  kind: '등록' | '불출' | '이동' | '구성변경' | '점검' | '반납' | '폐기' | '편입' | '보증연장' | '수리' | '분실'
   detail: string
   actor: string
 }
