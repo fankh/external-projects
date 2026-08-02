@@ -357,7 +357,7 @@ export interface ExcelTemplate {
   uploadedAt: string
 }
 
-/** QnA — 질문 등록·담당 답변 */
+/** QnA — 질문 등록·담당 지정·답변 (요구사항: 담당자 지정, 답변완료 상태 추적) */
 export interface QnaPost {
   id: string
   title: string
@@ -365,6 +365,8 @@ export interface QnaPost {
   author: string
   dept: string
   askedAt: string
+  /** 답변 담당자 — 지정 후 답변완료까지 추적된다 */
+  assignee?: string
   answer?: string
   answeredBy?: string
   answeredAt?: string

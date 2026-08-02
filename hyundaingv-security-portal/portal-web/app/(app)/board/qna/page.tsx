@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { NAV } from '@/components/chrome/menus'
+import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 
 const DOMAINS = NAV.map((g) => g.label).filter((l) => l !== 'Main' && l !== 'My Work')
@@ -18,6 +19,18 @@ async function ask(formData: FormData) {
     id: nextNo('QA', today().slice(0, 4), s.qna.map((q) => q.id)),
     title, domain, author: me.name, dept: me.dept, askedAt: today(),
   })
+  revalidatePath('/board/qna')
+}
+
+async function assign(formData: FormData) {
+  'use server'
+  await requireRole('BIZ_MGR', 'ADMIN')
+  const id = String(formData.get('id') ?? '')
+  const assignee = String(formData.get('assignee') ?? '')
+  const s = getStore()
+  const q = s.qna.find((x) => x.id === id && !x.answer)
+  if (!q || !ACCOUNTS.some((a) => a.name === assignee && a.role !== 'USER')) return
+  q.assignee = assignee
   revalidatePath('/board/qna')
 }
 
@@ -66,7 +79,7 @@ export default async function QnaPage() {
       <Card title="문의 목록" kicker="Questions" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>번호</th><th>도메인</th><th>문의</th><th>작성자</th><th>등록일</th><th style={{ maxWidth: 420 }}>답변</th></tr></thead>
+            <thead><tr><th>번호</th><th>도메인</th><th>문의</th><th>작성자</th><th>담당</th><th>등록일</th><th style={{ maxWidth: 420 }}>답변</th></tr></thead>
             <tbody>
               {s.qna.map((q) => (
                 <tr key={q.id}>
@@ -74,6 +87,21 @@ export default async function QnaPage() {
                   <td><Chip tone="neutral" bare>{q.domain}</Chip></td>
                   <td className="strong" style={{ maxWidth: 320 }}>{q.title}</td>
                   <td>{q.author} <span className="mut">· {q.dept}</span></td>
+                  <td>
+                    {q.assignee ? (
+                      <Chip tone="info" bare>{q.assignee}</Chip>
+                    ) : canAnswer && !q.answer ? (
+                      <form action={assign} className="hstack" style={{ gap: 4, padding: '3px 0' }}>
+                        <input type="hidden" name="id" value={q.id} />
+                        <select className="select" name="assignee" style={{ height: 25, fontSize: 11.5 }}>
+                          {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
+                        </select>
+                        <button type="submit" className="btn sm">담당 지정</button>
+                      </form>
+                    ) : (
+                      <span className="mut">-</span>
+                    )}
+                  </td>
                   <td className="tnum">{q.askedAt}</td>
                   <td style={{ maxWidth: 420 }}>
                     {q.answer ? (

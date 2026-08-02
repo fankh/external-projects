@@ -8,7 +8,7 @@ export const PORTAL = {
   customer: '데모 고객사',
   productName: 'GOVERNANCE PORTAL',
   productSub: 'Enterprise IT · Security',
-  version: 'v0.37',
+  version: 'v0.38',
 } as const
 
 /** 연동 채널 바인딩 — 제품안내서 §V 시스템 연동 아키텍처 5종.

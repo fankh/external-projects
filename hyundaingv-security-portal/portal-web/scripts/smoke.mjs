@@ -235,7 +235,7 @@ async function main() {
     ['/pledge/my', 'BIZ_MGR', ['특별서약서 — 보안담당자']],
     // QnA — 질문·답변
     ['/board/qna', 'USER', ['QA-2026-12', '재택근무 체크리스트 제출 주기', '답변 대기', '질문 등록']],
-    ['/board/qna', 'BIZ_MGR', ['답변 내용']],
+    ['/board/qna', 'BIZ_MGR', ['답변 내용', '담당 지정']],
     // 공통 첨부 — SR·계약 시드 첨부 뱃지
     ['/sr/requests', 'USER', ['📎']],
     ['/finance/invest', 'USER', ['📎']],
@@ -285,6 +285,11 @@ async function main() {
     const r = await get('/board/notices', 'USER')
     const html = await r.text()
     check(!html.includes('공지 등록'), 'USER /board/notices 에 등록 폼 미노출')
+  }
+  {
+    const r = await get('/board/qna', 'USER')
+    const html = await r.text()
+    check(!html.includes('담당 지정'), 'USER /board/qna 에 담당 지정 폼 미노출')
   }
   {
     // 검색도 화면 스코핑을 따른다 — USER 에게 장애·타인 SR 미노출
