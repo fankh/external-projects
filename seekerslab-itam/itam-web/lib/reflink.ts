@@ -4,8 +4,8 @@
 export function entityHref(ref?: string): { href: string; external?: boolean } | null {
   if (!ref) return null
   if (ref.startsWith('AST-')) return { href: `/assets/register?sel=${encodeURIComponent(ref)}` }
-  if (ref.startsWith('APR-')) return { href: '/workflow/approvals' }
-  if (ref.startsWith('CT-') || ref.startsWith('LIC-')) return { href: '/inventory/contracts' }
+  if (ref.startsWith('APR-')) return { href: `/workflow/approvals?sel=${encodeURIComponent(ref)}` }
+  if (ref.startsWith('CT-') || ref.startsWith('LIC-')) return { href: `/inventory/contracts?sel=${encodeURIComponent(ref)}` }
   if (ref.startsWith('RPT-')) return { href: `/api/reports/${encodeURIComponent(ref)}?format=md`, external: true }
   if (ref.startsWith('NTC-')) return { href: `/board/notices?sel=${encodeURIComponent(ref)}` }
   if (ref.startsWith('QNA-')) return { href: `/board/qna?sel=${encodeURIComponent(ref)}` }

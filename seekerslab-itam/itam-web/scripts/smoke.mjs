@@ -311,6 +311,8 @@ try {
   check('연동: 알림 발송 이력(검색·필터) 렌더', intHtml2.includes('알림 발송 이력') && intHtml2.includes('MSG-4001') && intHtml2.includes('만료 임박') && intHtml2.includes('수신·제목·연결 문서 검색'))
   // 연결 문서(ref) 딥링크 — 시드 발송 이력의 계약·결재 ref 가 대상 화면 링크로 렌더된다
   check('연동: 발송 이력 연결 문서 딥링크 렌더', intHtml2.includes('연결 문서 열기') && intHtml2.includes('/inventory/contracts'))
+  // 정밀 딥링크(?sel=) — 결재·계약·라이선스 ref 가 목록이 아니라 해당 항목으로 정착한다(시드 APR-2607-114·CT-2023-014·LIC-03)
+  check('연동: 발송 이력 딥링크가 특정 항목(?sel=)으로 정착', intHtml2.includes(`/workflow/approvals?sel=${encodeURIComponent('APR-2607-114')}`) && intHtml2.includes(`/inventory/contracts?sel=${encodeURIComponent('CT-2023-014')}`) && intHtml2.includes(`/inventory/contracts?sel=${encodeURIComponent('LIC-002')}`))
   const ctHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약: 만료 임박 알림 발송 진입점', ctHtml.includes('만료 임박 알림 발송'))
   check('계약: 라이선스 조치(4단계) 진입점', ctHtml.includes('추가 구매') && ctHtml.includes('회수') && ctHtml.includes('검출에서 조치까지'))

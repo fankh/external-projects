@@ -7,12 +7,16 @@ import { answerOwnerConfirm, decide, resubmitRequest, withdrawRequest } from './
 
 const WITHDRAWABLE = ['자산 신청', '반납', '이동', '대여']
 
-export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds, canExport }: {
+export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds, canExport, initialSel }: {
   approvals: Approval[]; role: Role; dept: string; viewer: string
   linesByKind: Record<string, string[]>; requiredKinds: string[]; canExport: boolean
+  /** 알림 로그·감사 로그에서 특정 결재(APR-…)로 진입할 때 강조 대상 (?sel=) */
+  initialSel?: string
 }) {
   // 결재함 필터 — 상태·구분·검색·내 상신만 (감사 로그·QnA 와 동일 패턴). 결재 이력이 쌓이므로 필수.
-  const [fstatus, setFstatus] = useState<'대기' | '승인' | '반려' | '전체'>('대기')
+  // 딥링크(?sel=)로 진입하면 대상 결재가 이미 처리됐을 수 있으므로 기본 필터를 '전체'로 열어 강조 대상이 목록에 남게 한다.
+  const selExists = Boolean(initialSel && approvals.some((a) => a.id === initialSel))
+  const [fstatus, setFstatus] = useState<'대기' | '승인' | '반려' | '전체'>(selExists ? '전체' : '대기')
   const [fkind, setFkind] = useState('전체')
   const [fq, setFq] = useState('')
   const [fmine, setFmine] = useState(false)
@@ -110,7 +114,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
           </thead>
           <tbody>
             {rows.map((a) => (
-              <tr key={a.id}>
+              <tr key={a.id} className={a.id === initialSel ? 'sel' : ''}>
                 <td className="code">{a.id}</td>
                 <td>
                   <Chip tone={a.kind === '격리 요청' ? 'err' : a.kind === '폐기' ? 'warn' : 'neutral'} bare>{a.kind}</Chip>

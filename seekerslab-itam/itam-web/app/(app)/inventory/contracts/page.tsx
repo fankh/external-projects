@@ -63,7 +63,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                 const over = l.used > l.purchased
                 const low = !over && l.used / l.purchased < 0.6
                 return (
-                  <tr key={l.id}>
+                  <tr key={l.id} className={l.id === sel ? 'sel' : ''}>
                     <td className="strong">{l.name}</td>
                     <td className="mute">{l.vendor}</td>
                     <td className="num tnum">{l.purchased.toLocaleString()}</td>

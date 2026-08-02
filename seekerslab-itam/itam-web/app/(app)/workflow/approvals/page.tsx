@@ -7,8 +7,9 @@ import { RequestForm } from './RequestForm'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ApprovalsPage() {
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
   const session = (await getSession())!
+  const { sel } = await searchParams
   const s = getStore()
   const pending = s.approvals.filter((a) => a.status === '대기')
 
@@ -51,7 +52,7 @@ export default async function ApprovalsPage() {
       <RequestForm myAssets={myAssets} locations={locations} loanable={loanable} />
 
       <Card pad={false}>
-        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} />
+        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} initialSel={sel} />
       </Card>
 
       <div className="callout">

@@ -558,7 +558,7 @@ function seed(): Store {
       { id: 'MSG-4001', at: `${today()} 09:12`, channel: '이메일', to: '플랫폼개발팀 (부서장)', subject: 'DSC-2607-0041 소유자 확인 요청', kind: '소유자 확인', ref: 'APR-2607-114' },
       { id: 'MSG-4000', at: '2026-07-20 10:05', channel: '이메일', to: '전사 공지', subject: 'DSC-2607-0038 소유자 확인 요청', kind: '소유자 확인', ref: 'APR-2607-109' },
       { id: 'MSG-4002', at: `${today()} 08:30`, channel: '이메일', to: '자산관리팀', subject: 'CT-2023-014 유지보수 계약 만료 임박 (D-21)', kind: '만료 임박', ref: 'CT-2023-014' },
-      { id: 'MSG-4003', at: `${today()} 08:30`, channel: '문자', to: '박자산', subject: 'JetBrains 라이선스 만료 임박 안내', kind: '만료 임박', ref: 'LIC-03' },
+      { id: 'MSG-4003', at: `${today()} 08:30`, channel: '문자', to: '박자산', subject: 'JetBrains 라이선스 만료 임박 안내', kind: '만료 임박', ref: 'LIC-002' },
     ],
     posts: [
       {
@@ -626,7 +626,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 13
+const SCHEMA_VERSION = 14
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
