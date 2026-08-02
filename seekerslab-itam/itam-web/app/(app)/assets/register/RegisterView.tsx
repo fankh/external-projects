@@ -3,7 +3,12 @@ import Link from 'next/link'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
-import { extendWarranty, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField } from './actions'
+import { extendLoan, extendWarranty, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField } from './actions'
+
+/** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
+function daysBetween(today: string, dueDate: string): number {
+  return Math.round((new Date(dueDate).getTime() - new Date(today).getTime()) / 86_400_000)
+}
 
 /** 조회 필터의 유형 목록 — 공통코드 ASSET_CATEGORY 의 '사용' 여부와 무관하게 전부 노출한다.
  *  미사용 처리는 **신규 입력**에서만 제외하는 규칙이고(환경설정 › 공통코드 안내 참조), 이미 그
@@ -35,6 +40,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [loanDept, setLoanDept] = useState('')
   const [loanDue, setLoanDue] = useState('')
   const [loanMsg, setLoanMsg] = useState<string | null>(null)
+  const [extendOpen, setExtendOpen] = useState(false)
+  const [extendDate, setExtendDate] = useState('')
   const [pending, startTransition] = useTransition()
 
   const rows = useMemo(() => {
@@ -129,7 +136,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <dt>반환 기한</dt>
                   <dd className="hstack" style={{ gap: 6 }}>
                     <span className="tnum">{sel.loanDueDate ?? '-'}</span>
-                    {props.today && sel.loanDueDate && sel.loanDueDate < props.today && <Chip tone="err" bare>연체</Chip>}
+                    {props.today && sel.loanDueDate && (
+                      sel.loanDueDate < props.today
+                        ? <Chip tone="err" bare>연체</Chip>
+                        : daysBetween(props.today, sel.loanDueDate) <= 7
+                          ? <Chip tone="warn" bare>반환 임박 D-{daysBetween(props.today, sel.loanDueDate)}</Chip>
+                          : null
+                    )}
                   </dd>
                 </>
               )}
@@ -241,11 +254,30 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             {props.canEdit && sel.status === '대여중' && (
               <div style={{ marginTop: 12 }}>
                 {loanMsg && <div className="callout" style={{ marginBottom: 10 }}>{loanMsg}</div>}
-                <button className="btn sm pri" disabled={pending}
-                  onClick={() => startTransition(async () => {
-                    const r = await returnLoan(sel.assetNo)
-                    setLoanMsg(r.message)
-                  })}>대여 반환 접수</button>
+                <div className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  <button className="btn sm pri" disabled={pending}
+                    onClick={() => startTransition(async () => {
+                      const r = await returnLoan(sel.assetNo)
+                      setLoanMsg(r.message)
+                    })}>대여 반환 접수</button>
+                  {!extendOpen ? (
+                    <button className="btn sm" disabled={pending}
+                      onClick={() => { setExtendOpen(true); setExtendDate(''); setLoanMsg(null) }}
+                      title="반납 없이 반환 기한만 연장">반환 기한 연장</button>
+                  ) : (
+                    <span className="hstack" style={{ gap: 6 }}>
+                      <input className="input" type="date" style={{ height: 28 }} value={extendDate}
+                        min={sel.loanDueDate ?? props.today} disabled={pending} onChange={(e) => setExtendDate(e.target.value)} />
+                      <button className="btn sm pri" disabled={pending || !extendDate}
+                        onClick={() => startTransition(async () => {
+                          const r = await extendLoan(sel.assetNo, extendDate)
+                          setLoanMsg(r.message)
+                          if (r.ok) setExtendOpen(false)
+                        })}>연장 확정</button>
+                      <button className="btn sm ghost" disabled={pending} onClick={() => { setExtendOpen(false); setLoanMsg(null) }}>취소</button>
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 

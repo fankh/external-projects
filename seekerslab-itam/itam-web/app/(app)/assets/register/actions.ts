@@ -102,6 +102,28 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   return { ok: true, message: `${assetNo} 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}` }
 }
 
+/** 대여 반환 기한 연장 — 반납·재대여 없이 대여 기간을 늘린다(대여자가 더 오래 써야 할 때·연체 유예).
+ *  현재 기한 이후로만 연장 가능(단축 불가). 이력·감사에 남긴다. 대여중 자산만 대상. 자산담당·Admin. */
+export async function extendLoan(assetNo: string, newDueDate: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '대여 연장 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '대여중') return { ok: false, message: '대여 중인 자산만 반환 기한을 연장할 수 있습니다.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDueDate)) return { ok: false, message: '새 반환 기한을 선택해 주세요.' }
+  if (newDueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
+  const cur = asset.loanDueDate ?? ''
+  if (cur && newDueDate <= cur) return { ok: false, message: `현재 기한(${cur}) 이후로만 연장할 수 있습니다.` }
+
+  asset.loanDueDate = newDueDate
+  asset.history.push({ date: today(), kind: '대여', detail: `대여 반환 기한 연장 ${cur || '-'} → ${newDueDate}`, actor: session.name })
+  appendAudit({ actor: session.name, action: `대여 반환 기한 연장 — ${cur || '-'} → ${newDueDate}`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 반환 기한 연장 — ${cur || '-'} → ${newDueDate}` }
+}
+
 /** 대여 반환 접수 — 대여 자산을 회수해 유휴 풀로 되돌린다(연체 여부와 무관하게 반환 처리).
  *  소유자를 비우고 검수실로 편성해 재확인 후 재배치한다. 대여중 자산만 대상. 자산담당·Admin. */
 export async function returnLoan(assetNo: string) {
