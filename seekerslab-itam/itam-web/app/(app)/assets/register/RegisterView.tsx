@@ -237,6 +237,36 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {sel.contractId && <><dt>연계 계약</dt><dd className="code"><a href={`/inventory/contracts?sel=${encodeURIComponent(sel.contractId)}`} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a></dd></>}
             </dl>
 
+            {(() => {
+              // 연관 자산 — 같은 계약·위치·소유자·모델을 공유하는 다른 자산 수(영향도 분석용). 스코프된 대장 기준.
+              const others = props.assets.filter((a) => a.assetNo !== sel.assetNo)
+              const links: { label: string; count: number; q: string }[] = [
+                sel.contractId ? { label: '같은 계약', count: others.filter((a) => a.contractId === sel.contractId).length, q: sel.contractId } : null,
+                { label: '같은 위치', count: others.filter((a) => a.location === sel.location).length, q: sel.location },
+                { label: '같은 소유자', count: others.filter((a) => a.owner === sel.owner).length, q: sel.owner },
+                { label: '같은 모델', count: others.filter((a) => a.model === sel.model).length, q: sel.model },
+              ].filter((x): x is { label: string; count: number; q: string } => x !== null && x.count > 0)
+              if (links.length === 0) return null
+              return (
+                <>
+                  <div className="kicker mute" style={{ margin: '18px 0 8px' }}>연관 자산 <span className="mut" style={{ textTransform: 'none', letterSpacing: 0 }}>· 영향도</span></div>
+                  <div className="vstack" style={{ gap: 5 }}>
+                    {links.map((l) => (
+                      <a key={l.label} href={`/assets/register?q=${encodeURIComponent(l.q)}`} className="hstack"
+                        style={{ justifyContent: 'space-between', gap: 10, color: 'inherit', textDecoration: 'none', fontSize: 12.5 }}
+                        title={`${l.q} — ${l.label} 자산 보기`}>
+                        <span className="mute">{l.label}</span>
+                        <span className="hstack" style={{ gap: 5 }}>
+                          <span className="tnum strong" style={{ color: 'var(--accent-deep)' }}>{l.count}대</span>
+                          <span className="mut">→</span>
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                </>
+              )
+            })()}
+
             <div className="kicker mute" style={{ margin: '18px 0 10px' }}>변경 이력 타임라인</div>
             <div className="tl">
               {[...sel.history].reverse().map((h, i) => (
