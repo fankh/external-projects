@@ -3,7 +3,7 @@
  *  실행 버튼으로 트리거하고, 실서비스에서는 스케줄러(일배치)에 연결한다. */
 import { nowStamp, today } from './dates'
 import { sendVia } from './integrations/registry'
-import { getStore } from './store'
+import { getStore, recordBatch } from './store'
 
 export interface NotifyResult {
   kind: string
@@ -46,10 +46,6 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
 
   const total = results.reduce((sum, r) => sum + r.targets, 0)
   const allOk = results.every((r) => r.ok)
-  s.batchRuns.unshift({
-    job: `일일 알림 배치 (${results.length}종 · ${total}명)`,
-    ranAt: nowStamp(),
-    result: results.length === 0 || allOk ? '성공' : '실패',
-  })
+  recordBatch(`일일 알림 배치 (${results.length}종 · ${total}명)`, nowStamp(), results.length === 0 || allOk ? '성공' : '실패')
   return results
 }

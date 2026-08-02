@@ -3,7 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
-import { getStore } from '@/lib/store'
+import { getStore, recordBatch } from '@/lib/store'
 
 const YEAR = '2026'
 
@@ -21,7 +21,7 @@ async function remindUnsigned(formData: FormData) {
 
   // 폐쇄 루프 — 그룹웨어 메일 어댑터 경유 발송. 채널이 중지 상태면 실패가 배치 이력으로 드러난다.
   const r = await sendVia('groupware-mail', targets.map((t) => t.name), `[보안서약서] ${YEAR}년 미서약 안내`)
-  s.batchRuns.unshift({ job: `미서약 안내메일 발송 (${dept} ${targets.length}명)`, ranAt: nowStamp(), result: r.ok ? '성공' : '실패' })
+  recordBatch(`미서약 안내메일 발송 (${dept} ${targets.length}명)`, nowStamp(), r.ok ? '성공' : '실패')
   revalidatePath('/', 'layout')
 }
 

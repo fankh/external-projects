@@ -301,6 +301,13 @@ export function getStore(): Store {
   return g.__ngvPortalStore
 }
 
+/** 배치 실행 기록 — 상태바 '마지막 배치'의 원천. 이력 상한으로 영속 파일 비대를 막는다. */
+export function recordBatch(job: string, ranAt: string, result: '성공' | '실패'): void {
+  const s = getStore()
+  s.batchRuns.unshift({ job, ranAt, result })
+  if (s.batchRuns.length > 200) s.batchRuns.length = 200
+}
+
 /** 채번 — 'PREFIX-YYYY-NNNN' 형식에서 연도 내 최대 시퀀스 + 1 */
 export function nextNo(prefix: string, year: string, existing: string[]): string {
   const head = `${prefix}-${year}-`

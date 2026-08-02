@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { channelSummary, hrAdapter, isEnabled } from '@/lib/integrations/registry'
 import { runDailyNotify } from '@/lib/notify'
-import { getStore } from '@/lib/store'
+import { getStore, recordBatch } from '@/lib/store'
 import { CHANNELS, PORTAL } from '@/portal.config'
 
 async function toggleChannel(formData: FormData) {
@@ -36,11 +36,11 @@ async function syncHr() {
   const s = getStore()
   const adapter = hrAdapter()
   if (!adapter || !isEnabled('hr-sync')) {
-    s.batchRuns.unshift({ job: '인사정보 동기화 (수동)', ranAt: nowStamp(), result: '실패' })
+    recordBatch('인사정보 동기화 (수동)', nowStamp(), '실패')
   } else {
     // 폐쇄 루프 — 인사 어댑터가 디렉터리의 단일 원천. 동기화가 서약 대상·부서 현황 집계 기준을 갱신한다.
     s.people = await adapter.fetchPeople()
-    s.batchRuns.unshift({ job: `인사정보 동기화 (수동, ${s.people.length}명)`, ranAt: nowStamp(), result: '성공' })
+    recordBatch(`인사정보 동기화 (수동, ${s.people.length}명)`, nowStamp(), '성공')
     audit(me.name, '인사정보 동기화', `${s.people.length}명 (수동)`)
   }
   revalidatePath('/', 'layout')

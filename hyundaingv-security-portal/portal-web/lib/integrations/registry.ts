@@ -43,6 +43,7 @@ export async function sendVia(channelId: string, to: string[], subject: string):
     result = await adapter.send(to, subject)
   }
   s.sendLog.unshift({ channelId, to: to.length, subject, ok: result.ok, detail: result.detail, at: nowStamp() })
+  if (s.sendLog.length > 200) s.sendLog.length = 200
   return result
 }
 
