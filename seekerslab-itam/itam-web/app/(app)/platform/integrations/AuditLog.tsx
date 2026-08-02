@@ -1,6 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { Card, Chip } from '@/components/ui'
+import { entityHref } from '@/lib/reflink'
 import type { AuditLog as AuditLogEntry } from '@/lib/types'
 
 /** 감사 로그 — 액션마다 쌓이므로 그대로 나열하면 스캔이 불가능하다.
@@ -53,7 +54,16 @@ export function AuditLog({ logs, canExport }: { logs: AuditLogEntry[]; canExport
                 <td className="tnum">{l.at}</td>
                 <td className="strong">{l.actor}</td>
                 <td>{l.action}</td>
-                <td className="code">{l.target}</td>
+                <td className="code">
+                  {(() => {
+                    const link = entityHref(l.target)
+                    if (!link) return l.target
+                    return (
+                      <a href={link.href} title="대상으로 이동" style={{ color: 'var(--accent-deep)' }}
+                        {...(link.external ? { target: '_blank', rel: 'noopener' } : {})}>{l.target}</a>
+                    )
+                  })()}
+                </td>
                 <td className="tnum mute">{l.ip}</td>
                 <td className="c"><Chip tone={l.result === '성공' ? 'ok' : 'err'}>{l.result}</Chip></td>
               </tr>

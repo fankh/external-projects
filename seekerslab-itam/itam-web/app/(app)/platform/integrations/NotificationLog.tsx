@@ -1,22 +1,8 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { Card, Chip } from '@/components/ui'
+import { entityHref } from '@/lib/reflink'
 import type { Dispatch } from '@/lib/types'
-
-/** 발송 이력의 '연결 문서'(ref) → 대상 화면 링크. 발송 이력에서 근거 문서로 바로 이동할 수 있게 한다.
- *  ID 접두어로 대상을 판별한다(매핑되지 않는 부서명·WRT- 등은 링크 없이 텍스트로 남긴다). */
-function refHref(ref?: string): { href: string; external?: boolean } | null {
-  if (!ref) return null
-  if (ref.startsWith('AST-')) return { href: `/assets/register?sel=${encodeURIComponent(ref)}` }
-  if (ref.startsWith('APR-')) return { href: '/workflow/approvals' }
-  if (ref.startsWith('CT-') || ref.startsWith('LIC-')) return { href: '/inventory/contracts' }
-  if (ref.startsWith('RPT-')) return { href: `/api/reports/${encodeURIComponent(ref)}?format=md`, external: true }
-  if (ref.startsWith('NTC-')) return { href: '/board/notices' }
-  if (ref.startsWith('SAS-')) return { href: '/settings/saas-catalog' }
-  if (ref.startsWith('LOT-') || ref.startsWith('IN-')) return { href: '/assets/intake' }
-  if (ref.startsWith('DSC-')) return { href: '/discovery/found' }
-  return null
-}
 
 /** 알림 발송 이력 — 발송이 쌓이므로 그대로 나열하면 스캔이 불가능하다.
  *  수신·제목·연결문서 검색 + 종류·채널 필터로 발송 증적 추적을 실사용 가능하게 한다. */
@@ -75,7 +61,7 @@ export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatc
                     <td className="strong" style={{ maxWidth: 360 }}>{m.subject}</td>
                     <td className="code">
                       {(() => {
-                        const link = refHref(m.ref)
+                        const link = entityHref(m.ref)
                         if (!link) return m.ref ?? '-'
                         return (
                           <a href={link.href} title="연결 문서 열기" style={{ color: 'var(--accent-deep)' }}
