@@ -128,7 +128,7 @@ export interface Dispatch {
   channel: '이메일' | '문자'
   to: string
   subject: string
-  kind: '소유자 확인' | '만료 임박' | '격리 통보' | '에스컬레이션' | '리포트 배포' | '위협 대응' | '입고 반려'
+  kind: '소유자 확인' | '만료 임박' | '격리 통보' | '에스컬레이션' | '리포트 배포' | '위협 대응' | '입고 반려' | '계약 해지'
   ref?: string
 }
 
@@ -142,6 +142,10 @@ export interface Contract {
   amount: number
   assetCount: number
   ownerDept: string
+  /** 계약 상태 — 미설정/유효는 진행 중, 해지는 조기 종료(만료 임박 집계·알림에서 제외) */
+  status?: '유효' | '해지'
+  /** 해지 확정일 */
+  terminatedAt?: string
 }
 
 export interface SwLicense {

@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { fmtAmount } from '@/lib/dates'
 import type { Contract } from '@/lib/types'
-import { addContract, renewContract } from './actions'
+import { addContract, renewContract, terminateContract } from './actions'
 
 type Row = Contract & { d: number | null }
 
@@ -66,6 +66,8 @@ function StatusChip({ d }: { d: number | null }) {
 export function ContractsTable({ rows }: { rows: Row[] }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+  const [termId, setTermId] = useState<string | null>(null)
+  const [reason, setReason] = useState('')
   const [pending, startTransition] = useTransition()
 
   const renew = (id: string, term: number) => {
@@ -73,6 +75,13 @@ export function ContractsTable({ rows }: { rows: Row[] }) {
       const r = await renewContract(id, term)
       setMsg(r.message)
       setOpenId(null)
+    })
+  }
+  const terminate = (id: string) => {
+    startTransition(async () => {
+      const r = await terminateContract(id, reason)
+      setMsg(r.message)
+      if (r.ok) { setTermId(null); setReason('') }
     })
   }
 
@@ -84,7 +93,7 @@ export function ContractsTable({ rows }: { rows: Row[] }) {
           <thead>
             <tr>
               <th>계약번호</th><th>구분</th><th>계약명</th><th>공급사</th><th>주관부서</th>
-              <th className="num">금액</th><th className="num">자산</th><th>만료일</th><th className="c">상태</th><th className="c">갱신</th>
+              <th className="num">금액</th><th className="num">자산</th><th>만료일</th><th className="c">상태</th><th className="c">관리</th>
             </tr>
           </thead>
           <tbody>
@@ -98,19 +107,34 @@ export function ContractsTable({ rows }: { rows: Row[] }) {
                 <td className="num tnum">{fmtAmount(c.amount)}원</td>
                 <td className="num tnum">{c.assetCount}</td>
                 <td className="tnum">{c.end}</td>
-                <td className="c"><StatusChip d={c.d} /></td>
+                <td className="c">{c.status === '해지' ? <Chip tone="neutral">해지</Chip> : <StatusChip d={c.d} />}</td>
                 <td className="c">
-                  {openId === c.id ? (
+                  {c.status === '해지' ? (
+                    <span className="mut" title={`${c.terminatedAt ?? ''} 해지`}>—</span>
+                  ) : openId === c.id ? (
                     <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
                       {[1, 2, 3].map((y) => (
                         <button key={y} className="btn sm pri" disabled={pending} onClick={() => renew(c.id, y)}>{y}년</button>
                       ))}
                       <button className="btn sm ghost" disabled={pending} onClick={() => setOpenId(null)}>취소</button>
                     </span>
+                  ) : termId === c.id ? (
+                    <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                      <input className="input" style={{ width: 130, height: 26 }} autoFocus placeholder="해지 사유"
+                        value={reason} disabled={pending} onChange={(e) => setReason(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && reason.trim()) terminate(c.id) }} />
+                      <button className="btn sm danger" disabled={pending || !reason.trim()} onClick={() => terminate(c.id)}>해지</button>
+                      <button className="btn sm ghost" disabled={pending} onClick={() => { setTermId(null); setReason('') }}>취소</button>
+                    </span>
                   ) : (
-                    <button className="btn sm" disabled={pending}
-                      onClick={() => { setOpenId(c.id); setMsg(null) }}
-                      title="계약 기간 연장 (1·2·3년)">갱신</button>
+                    <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                      <button className="btn sm" disabled={pending}
+                        onClick={() => { setOpenId(c.id); setTermId(null); setMsg(null) }}
+                        title="계약 기간 연장 (1·2·3년)">갱신</button>
+                      <button className="btn sm danger" disabled={pending}
+                        onClick={() => { setTermId(c.id); setReason(''); setOpenId(null); setMsg(null) }}
+                        title="계약 조기 해지">해지</button>
+                    </span>
                   )}
                 </td>
               </tr>

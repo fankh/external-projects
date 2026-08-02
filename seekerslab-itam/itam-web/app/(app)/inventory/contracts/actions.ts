@@ -85,7 +85,7 @@ export async function sendExpiryNotices() {
 
   let n = 0
   for (const c of s.contracts) {
-    if (!due(c.end) || sentToday.has(c.id)) continue
+    if (c.status === '해지' || !due(c.end) || sentToday.has(c.id)) continue
     const d = daysUntil(c.end)!
     dispatch({
       channel: '이메일',
@@ -139,6 +139,7 @@ export async function renewContract(id: string, termYears: number) {
   const s = getStore()
   const c = s.contracts.find((x) => x.id === id)
   if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
+  if (c.status === '해지') return { ok: false, message: '해지된 계약은 갱신할 수 없습니다.' }
 
   // 기준일: 만료 전이면 만료일 기준(주기 승계), 이미 지났으면 오늘 기준. 문자열 비교로 TZ 문제를 피한다.
   const base = c.end >= today() ? c.end : today()
@@ -151,6 +152,29 @@ export async function renewContract(id: string, termYears: number) {
   dispatch({ channel: '이메일', to: c.ownerDept, subject: `${c.id} ${c.name} 계약 갱신 완료 — 만료일 ${newEnd} (${termYears}년 연장)`, kind: '만료 임박', ref: c.id })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${c.id} ${c.name} 갱신 완료 — 만료일 ${oldEnd} → ${newEnd} (${termYears}년)` }
+}
+
+/** 계약 해지 — 공급사 교체·서비스 중단 등으로 만료 전에 계약을 조기 종료한다.
+ *  (그동안 계약은 등록·갱신·만료뿐이고 조기 종료 경로가 없어, 해지된 계약도 만료 임박 알림을 계속 울렸다.)
+ *  해지하면 만료 임박 집계·알림에서 빠지고 갱신도 막힌다. 주관부서·공급사에 해지 통보를 남긴다. 자산담당·Admin. */
+export async function terminateContract(id: string, rawReason: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '계약 해지 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const c = s.contracts.find((x) => x.id === id)
+  if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
+  if (c.status === '해지') return { ok: false, message: '이미 해지된 계약입니다.' }
+  const reason = rawReason.trim()
+  if (!reason) return { ok: false, message: '해지 사유를 입력해 주세요.' }
+
+  c.status = '해지'
+  c.terminatedAt = today()
+
+  dispatch({ channel: '이메일', to: c.ownerDept, subject: `${c.id} ${c.name} 계약 해지 — ${reason} (공급사 ${c.vendor})`, kind: '계약 해지', ref: c.id })
+  appendAudit({ actor: session.name, action: `계약 해지 — ${c.name} · ${reason}`, target: c.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${c.id} ${c.name} 해지 완료 — 만료 임박 집계·알림에서 제외` }
 }
 
 /** 라이선스 조치 — 컴플라이언스 4단계의 마지막.

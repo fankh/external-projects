@@ -25,7 +25,7 @@ export default async function ContractsPage() {
       .map((a) => a.dept),
   )
   const dueCount =
-    contracts.filter((c) => within(c.end)).length +
+    contracts.filter((c) => c.status !== '해지' && within(c.end)).length +
     s.licenses.filter((l) => l.expiry !== '-' && within(l.expiry)).length +
     warrantyDepts.size
 
