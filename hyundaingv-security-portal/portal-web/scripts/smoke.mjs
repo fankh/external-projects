@@ -143,6 +143,14 @@ async function main() {
     ['/sr/ci', 'BIZ_MGR', ['SR-2026-0146', '배정 · 착수', 'BA 반려']],
     ['/sr/manage', 'BIZ_MGR', ['전사 SR 목록', 'SR-2026-0141', '진행 처리']],
     ['/sr/delayed', 'BIZ_MGR', ['SR-2026-0132', '완료일 변경']],
+    // 서약 루프 — 김현우 미제출 / 박정호 제출 완료, 부서담당은 소속 부서만
+    ['/pledge/my', 'USER', ['미제출', '서약서 제출', '온라인 동의']],
+    ['/pledge/my', 'BIZ_MGR', ['제출 완료', '2026-07-10']],
+    ['/pledge/dept', 'DEPT_MGR', ['경영지원팀', '정민서', '전원 완료']],
+    ['/pledge/dept', 'BIZ_MGR', ['개발1팀', '미서약 안내메일', '서약률']],
+    // 공지 — 등록 폼은 업무담당·Admin 에게만
+    ['/board/notices', 'USER', ['8월 정기 서버 점검 안내']],
+    ['/board/notices', 'ADMIN', ['공지 등록']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
@@ -158,6 +166,16 @@ async function main() {
     const html = await r.text()
     check(!html.includes('SR-2026-0132'), 'USER /sr/requests 에 타인 건(SR-2026-0132) 미노출')
     check(!html.includes('SR-2026-0146'), 'USER /sr/requests 에 타부서 건(SR-2026-0146) 미노출')
+  }
+  {
+    const r = await get('/pledge/dept', 'DEPT_MGR')
+    const html = await r.text()
+    check(!html.includes('개발1팀'), 'DEPT_MGR /pledge/dept 에 타부서(개발1팀) 미노출')
+  }
+  {
+    const r = await get('/board/notices', 'USER')
+    const html = await r.text()
+    check(!html.includes('공지 등록'), 'USER /board/notices 에 등록 폼 미노출')
   }
 
   // 4) 미정의 경로 — 404

@@ -1,13 +1,15 @@
 /** 데이터 스토어 — globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
-import type { Approval, BatchRun, Integration, Notice, SrRequest, TodoItem } from './types'
+import type { Approval, BatchRun, Integration, Notice, Person, PledgeSign, SrRequest, TodoItem } from './types'
 
 export interface Store {
   srRequests: SrRequest[]
   approvals: Approval[]
   todos: TodoItem[]
   notices: Notice[]
+  people: Person[]
+  pledges: PledgeSign[]
   integrations: Integration[]
   batchRuns: BatchRun[]
 }
@@ -37,6 +39,24 @@ function seed(): Store {
       { id: 'NT-30', title: '2026년 보안서약서 전 임직원 제출 안내', category: '보안', author: '박정호', postedAt: '2026-07-28', pinned: true },
       { id: 'NT-29', title: '상반기 정보보호 교육 이수 마감 안내', category: '보안', author: '박정호', postedAt: '2026-07-24' },
       { id: 'NT-28', title: '그룹웨어 결재 연동 개선 배포 안내', category: '공지', author: '시스템관리자', postedAt: '2026-07-18' },
+    ],
+    people: [
+      { name: '김현우', dept: '개발1팀' },
+      { name: '최은영', dept: '개발1팀' },
+      { name: '이수진', dept: '경영지원팀' },
+      { name: '정민서', dept: '경영지원팀' },
+      { name: '박정호', dept: 'IT운영팀' },
+      { name: '한지원', dept: 'IT운영팀' },
+      { name: '시스템관리자', dept: '정보기획팀' },
+      { name: '강도윤', dept: '정보기획팀' },
+    ],
+    pledges: [
+      { name: '이수진', dept: '경영지원팀', year: '2026', kind: '일반', signedAt: '2026-07-12', method: '온라인' },
+      { name: '정민서', dept: '경영지원팀', year: '2026', kind: '일반', signedAt: '2026-07-15', method: '온라인' },
+      { name: '박정호', dept: 'IT운영팀', year: '2026', kind: '일반', signedAt: '2026-07-10', method: '온라인' },
+      { name: '한지원', dept: 'IT운영팀', year: '2026', kind: '일반', signedAt: '2026-07-21', method: '서면(스캔)' },
+      { name: '시스템관리자', dept: '정보기획팀', year: '2026', kind: '일반', signedAt: '2026-07-09', method: '온라인' },
+      { name: '박정호', dept: 'IT운영팀', year: '2026', kind: '관리책임자', signedAt: '2026-07-10', method: '온라인' },
     ],
     integrations: [
       { name: '사내 메일 릴레이', kind: '이메일', enabled: true },

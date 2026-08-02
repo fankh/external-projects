@@ -72,6 +72,24 @@ export interface Notice {
   pinned?: boolean
 }
 
+/** 임직원 디렉터리 — 인사정보 연동 목업 (부서 현황 집계 기준) */
+export interface Person {
+  name: string
+  dept: string
+}
+
+export type PledgeKind = '일반' | '관리책임자' | '재택근무' | '특별'
+
+/** 보안서약 제출 기록 — 연도·양식 개정일자 기준 */
+export interface PledgeSign {
+  name: string
+  dept: string
+  year: string
+  kind: PledgeKind
+  signedAt: string
+  method: '온라인' | '서면(스캔)'
+}
+
 /** 연동 채널 (이메일·문자·인사정보·SSO 등) — 상태바 표시용 */
 export interface Integration {
   name: string

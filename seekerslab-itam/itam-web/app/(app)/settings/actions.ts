@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAdminAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
+import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import type { Channel, SaasCatalogEntry } from '@/lib/types'
@@ -45,6 +46,7 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
   const s = getStore()
   const entry = s.saasCatalog.find((x) => x.id === id)
   if (!entry) return
+  const prev = entry.status
   entry.status = status
   entry.decidedAt = today()
   entry.decidedBy = session.name
@@ -53,7 +55,14 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
   const usage = s.saas.find((u) => u.service === entry.service)
   if (usage) usage.sanctioned = status === '인가'
 
-  audit(session.name, `SaaS 카탈로그 판정 → ${status}`, entry.service)
+  // 차단 판정은 정책 표시로 끝나지 않고 보안운영팀에 프록시·DNS 차단 집행을 요청한다
+  // (검출→조치 — 외부 노출 차단(로29)과 대칭. 그동안 차단은 카탈로그 상태만 바꿨다.)
+  const newlyBlocked = status === '차단' && prev !== '차단'
+  if (newlyBlocked) {
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `${entry.service} 차단 판정 — 프록시·DNS 차단 집행 요청 (데이터 등급 ${entry.dataGrade})`, kind: '격리 통보', ref: entry.id })
+  }
+
+  audit(session.name, `SaaS 카탈로그 판정 → ${status}${newlyBlocked ? ' · 보안운영팀 차단 집행 요청' : ''}`, entry.service)
   revalidatePath('/', 'layout')
 }
 

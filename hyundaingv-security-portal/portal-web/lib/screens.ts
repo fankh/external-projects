@@ -8,14 +8,6 @@ export interface StubScreen {
 }
 
 export const SCREENS: Record<string, StubScreen> = {
-  '/board/notices': {
-    desc: '전사 공지 게시판 — 공지 등록·조회와 필독 확인을 다룬다.',
-    features: [
-      { name: '공지 목록·조회', detail: '카테고리(공지·보안·시스템)·고정 공지, 첨부파일' },
-      { name: '필독 확인', detail: '필독 공지 읽음 확인 및 커버리지 집계' },
-      { name: '등록·수정', detail: '업무담당·Admin 등록, 게시 기간 관리' },
-    ],
-  },
   '/board/qna': {
     desc: '포털 업무 문의 게시판 — 질문 등록과 담당자 답변을 다룬다.',
     features: [
@@ -97,21 +89,6 @@ export const SCREENS: Record<string, StubScreen> = {
     features: [
       { name: '회의록', detail: '회의록 등록·조회 (첨부)' },
       { name: '주간보고', detail: '프로젝트 주간보고 작성·조회 (첨부)' },
-    ],
-  },
-  '/pledge/my': {
-    desc: '보안서약서 제출 — 본인 서약서를 확인하고 온라인 동의한다.',
-    features: [
-      { name: '서약 동의', detail: '일반·관리책임자·재택근무·특별 서약서 온라인 동의' },
-      { name: '연도별 양식', detail: '개정일자 기준 최신 양식으로 서약' },
-      { name: '제출 이력', detail: '본인 서약 이력·상태 조회' },
-    ],
-  },
-  '/pledge/dept': {
-    desc: '부서 서약 현황 — 부서 단위 진행현황을 취합하고 미서약자를 관리한다.',
-    features: [
-      { name: '부서 진행현황', detail: '부서원 서약 상태 집계' },
-      { name: '미서약 안내', detail: '입사·복직·개정 기준 미서약자 안내메일' },
     ],
   },
   '/pledge/manage': {

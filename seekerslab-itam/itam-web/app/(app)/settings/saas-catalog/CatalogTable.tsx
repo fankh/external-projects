@@ -11,6 +11,7 @@ export function CatalogTable({ entries }: { entries: SaasCatalogEntry[] }) {
   const [pending, startTransition] = useTransition()
 
   return (
+    <>
     <div className="tbl-wrap">
       <table className="tbl">
         <thead>
@@ -42,5 +43,10 @@ export function CatalogTable({ entries }: { entries: SaasCatalogEntry[] }) {
         </tbody>
       </table>
     </div>
+    <div className="callout" style={{ margin: 14 }}>
+      <b>차단은 집행으로 이어집니다.</b> 서비스를 <b>차단</b>으로 판정하면 Shadow SaaS 미인가 집계에 반영되는 동시에
+      보안운영팀에 <b>프록시·DNS 차단 집행 요청</b>이 통보되고(발송 이력 적재), 정책 변경은 감사 로그에 남습니다.
+    </div>
+    </>
   )
 }
