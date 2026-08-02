@@ -54,13 +54,21 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
     actor: session.name,
   })
 
-  appendAudit({ actor: session.name, action: `반납 접수 (점검 ${condition})`, target: assetNo })
-  revalidatePath('/', 'layout')
-
   const next = condition === '폐기 권고' ? '폐기 절차 대상으로 전환'
     : condition === '수리 필요' ? `수리중 편성 — 수리 완료 후 유휴 풀로 (${location})`
     : `유휴 풀 편성 — ${location}`
-  return { ok: true, message: `${assetNo} 반납 접수 완료 · 점검 ${condition} → ${next}` }
+
+  // 반납자에게 회수·점검 결과를 통보한다 — 결재 승인(반납 접수 예정)과 별개로, 실물이 실제로 회수·점검됐고
+  // 점검 결과(정상·수리 필요·폐기 권고)가 무엇인지 알려 반납자 루프를 닫는다. 특히 파손(수리·폐기)은 반납자에게 중요.
+  let notified = false
+  if (prevOwner && prevOwner !== '미지정') {
+    dispatch({ channel: '이메일', to: prevOwner, subject: `반납 접수 완료 — ${asset.assetNo} ${asset.model} · 점검 결과 ${condition}${note.trim() ? ` (${note.trim()})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
+    notified = true
+  }
+  appendAudit({ actor: session.name, action: `반납 접수 (점검 ${condition})${notified ? ' · 반납자 통보' : ''}`, target: assetNo })
+  revalidatePath('/', 'layout')
+
+  return { ok: true, message: `${assetNo} 반납 접수 완료 · 점검 ${condition} → ${next}${notified ? ` · 반납자(${prevOwner})에게 결과 통보` : ''}` }
 }
 
 /** 대여 반환 독촉 발송 — 반환 기한이 지났거나(연체) 임박(D-7)한 대여 자산의 대여자에게 반환 요청 통지를 보낸다.
