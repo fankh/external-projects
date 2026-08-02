@@ -332,6 +332,12 @@ try {
   const label = await get('/api/label/AST-2023-000112', 'ASSET_MGR')
   const labelBody = await label.text()
   check('라벨 인쇄: 자산담당 발급 (200·QR·바코드)', label.status === 200 && labelBody.includes('AST-2023-000112') && labelBody.includes('SEEKERSLAB') && labelBody.includes('<svg'))
+  // 라벨 일괄 인쇄 — 다중 선택 자산 라벨을 한 장에 (선택 내보내기와 같은 nos 방식)
+  check('라벨 일괄: 사용자 차단 (403)', (await get('/api/labels?nos=AST-2023-000112', 'USER')).status === 403)
+  check('라벨 일괄: 빈 선택 400', (await get('/api/labels', 'ASSET_MGR')).status === 400)
+  const labels = await get('/api/labels?nos=' + encodeURIComponent('AST-2023-000112,AST-2023-000113'), 'ASSET_MGR')
+  const labelsBody = await labels.text()
+  check('라벨 일괄: 선택 2건 라벨 발급 (200·둘 다·QR/바코드)', labels.status === 200 && labelsBody.includes('AST-2023-000112') && labelsBody.includes('AST-2023-000113') && (labelsBody.match(/<svg/g) ?? []).length >= 4)
   // 전역 통합 검색 — 자산·계약·발견·사용자·결재 교차 검색, 화면 권한대로 스코핑
   check('통합 검색: 미로그인 차단 (401)', (await get('/api/search?q=CT-2023')).status === 401)
   check('통합 검색: 2자 미만은 빈 결과', (await (await get('/api/search?q=C', 'ADMIN')).json()).groups.length === 0)

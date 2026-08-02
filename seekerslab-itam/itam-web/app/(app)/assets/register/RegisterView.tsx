@@ -202,6 +202,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 ))}
               </span>
               {props.canExport && <a className="btn sm" href={exportHref} download>⤓ 선택 {checked.size}건 내보내기</a>}
+              <a className="btn sm" href={`/api/labels?nos=${encodeURIComponent([...checked].join(','))}`} target="_blank" rel="noopener">🏷 선택 라벨 인쇄</a>
               <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
             </>
           ) : null}
