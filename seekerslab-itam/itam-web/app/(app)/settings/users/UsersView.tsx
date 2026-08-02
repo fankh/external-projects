@@ -11,7 +11,7 @@ const ROLE_TONE: Record<Role, 'neutral' | 'info' | 'warn' | 'err'> = {
   USER: 'neutral', ASSET_MGR: 'info', SEC_MGR: 'warn', ADMIN: 'err',
 }
 
-export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; me: string }) {
+export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; me: string; owned: Record<string, number> }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -48,7 +48,7 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>계정</th><th>이름</th><th>부서</th><th>사용자그룹</th><th className="c">권한그룹</th><th className="c">MFA</th><th>최근 로그인</th></tr>
+              <tr><th>계정</th><th>이름</th><th>부서</th><th>사용자그룹</th><th className="c">권한그룹</th><th className="num">보유 자산</th><th className="c">MFA</th><th>최근 로그인</th></tr>
             </thead>
             <tbody>
               {props.users.map((u) => {
@@ -73,6 +73,9 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
                         ))}
                       </select>
                     </td>
+                    <td className="num tnum">{props.owned[u.name] > 0
+                      ? <a href={`/assets/register?q=${encodeURIComponent(u.name)}`} title={`${u.name} 보유 자산 보기`} style={{ color: 'var(--accent-deep)' }}>{props.owned[u.name]}</a>
+                      : <span className="mut">0</span>}</td>
                     <td className="c">{u.mfa ? <Chip tone="ok">적용</Chip> : <Chip tone="warn">미적용</Chip>}</td>
                     <td className="tnum mute">{u.lastLogin}</td>
                   </tr>

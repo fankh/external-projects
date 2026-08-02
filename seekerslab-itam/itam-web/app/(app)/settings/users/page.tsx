@@ -8,6 +8,12 @@ export const dynamic = 'force-dynamic'
 export default async function UsersPage() {
   const session = await requireRole('ADMIN')
   const s = getStore()
+  // 사용자별 보유 자산 수 — 운영 중 자산만(폐기 제외) 집계. 계정 관리 시 자산 부담·재배치 판단에 쓴다.
+  const owned: Record<string, number> = {}
+  for (const a of s.assets) {
+    if (['폐기완료', '폐기예정'].includes(a.status)) continue
+    owned[a.owner] = (owned[a.owner] ?? 0) + 1
+  }
 
   return (
     <>
@@ -24,7 +30,7 @@ export default async function UsersPage() {
         <Stat value={s.approvalLines.filter((l) => l.required).length} label="필수 결재 화면" tone="warn" />
       </div>
 
-      <UsersView users={s.users} lines={s.approvalLines} me={session.login} />
+      <UsersView users={s.users} lines={s.approvalLines} me={session.login} owned={owned} />
     </>
   )
 }
