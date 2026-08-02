@@ -27,6 +27,8 @@ export function AppShell(props: {
   badges: { todos: number; approvals: number }
   channels: { on: number; total: number }
   lastBatch?: { job: string; at: string }
+  /** 브랜딩 — 고객사 프로필(portal.config.ts)에서 주입, 셸에 하드코딩하지 않는다 */
+  brand: { name: string; sub: string; version: string; customer: string }
   userName: string
   dept: string
   roleLabel: string
@@ -68,8 +70,8 @@ export function AppShell(props: {
     <div className="shell">
       <header className="titlebar">
         <div className="brand">
-          <div className="wordmark">GOVERNANCE PORTAL</div>
-          <div className="sub">Enterprise IT · Security</div>
+          <div className="wordmark">{props.brand.name}</div>
+          <div className="sub">{props.brand.sub}</div>
         </div>
         <div className="sp" />
         <input
@@ -142,7 +144,7 @@ export function AppShell(props: {
             </span>
             <span>{props.lastBatch ? `마지막 배치 ${props.lastBatch.at} (${props.lastBatch.job})` : '배치 이력 없음'}</span>
             <span className="grow" />
-            <span>ENTERPRISE IT · SECURITY GOVERNANCE PORTAL · v0.1</span>
+            <span>{props.brand.customer} · {props.brand.name} · {props.brand.version}</span>
           </footer>
         </div>
       </div>

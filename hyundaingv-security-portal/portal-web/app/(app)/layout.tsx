@@ -5,6 +5,7 @@ import { channelSummary } from '@/lib/integrations/registry'
 import { getSession, SESSION_COOKIE } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ROLE_LABEL } from '@/lib/types'
+import { PORTAL } from '@/portal.config'
 
 async function logout() {
   'use server'
@@ -30,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       badges={badges}
       channels={channels}
       lastBatch={s.batchRuns[0] ? { job: s.batchRuns[0].job, at: s.batchRuns[0].ranAt } : undefined}
+      brand={{ name: PORTAL.productName, sub: PORTAL.productSub, version: PORTAL.version, customer: PORTAL.customer }}
       userName={session.name}
       dept={session.dept}
       roleLabel={ROLE_LABEL[session.role]}
