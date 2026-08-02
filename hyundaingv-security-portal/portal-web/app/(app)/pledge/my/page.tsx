@@ -5,7 +5,6 @@ import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 
 const YEAR = '2026'
-const REVISION = '2026-01-02' // 양식 개정일자 — 양식관리 화면 구현 전 기본값
 
 const CLAUSES = [
   '회사의 정보자산(시스템·데이터·문서)을 업무 목적 외로 사용하거나 외부에 유출하지 않는다.',
@@ -14,12 +13,18 @@ const CLAUSES = [
   '보안 규정 위반 시 관련 법령 및 사규에 따른 책임을 진다.',
 ]
 
+/** 개정일자 이후 서약만 유효 — 양식이 개정되면 기존 서약은 무효가 되어 재서약 대상이 된다 */
+function validSign(s: ReturnType<typeof getStore>, name: string) {
+  const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
+  return s.pledges.find((p) => p.name === name && p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt)
+}
+
 async function sign(formData: FormData) {
   'use server'
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   if (formData.get('agree') !== 'on') return
   const s = getStore()
-  if (s.pledges.some((p) => p.name === me.name && p.year === YEAR && p.kind === '일반')) return
+  if (validSign(s, me.name)) return
 
   s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '일반', signedAt: today(), method: '온라인' })
 
@@ -33,8 +38,9 @@ async function sign(formData: FormData) {
 export default async function MyPledgePage() {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
+  const REVISION = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '-'
   const mine = s.pledges.filter((p) => p.name === me.name)
-  const signed = mine.find((p) => p.year === YEAR && p.kind === '일반')
+  const signed = validSign(s, me.name)
 
   return (
     <>

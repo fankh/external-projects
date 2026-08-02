@@ -14,7 +14,8 @@ async function remindUnsigned(formData: FormData) {
   if (me.role === 'DEPT_MGR' && dept !== me.dept) return
 
   const s = getStore()
-  const signedNames = new Set(s.pledges.filter((p) => p.year === YEAR && p.kind === '일반').map((p) => p.name))
+  const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
+  const signedNames = new Set(s.pledges.filter((p) => p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
   const targets = s.people.filter((p) => p.dept === dept && !signedNames.has(p.name))
   if (targets.length === 0) return
 
@@ -28,8 +29,9 @@ export default async function DeptPledgePage() {
   const me = await requireRole('DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
 
+  const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
   const signedBy = new Map(
-    s.pledges.filter((p) => p.year === YEAR && p.kind === '일반').map((p) => [p.name, p]),
+    s.pledges.filter((p) => p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => [p.name, p]),
   )
   // 부서담당은 소속 부서만, 업무담당·Admin 은 전사
   const depts = [...new Set(s.people.map((p) => p.dept))]

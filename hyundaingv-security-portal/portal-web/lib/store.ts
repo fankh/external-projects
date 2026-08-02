@@ -2,7 +2,7 @@
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
 import { CHANNELS } from '@/portal.config'
-import type { Approval, ApprovalLine, BatchRun, ChangeWork, Deliverable, EducationCourse, EducationRecord, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, RemoteCheck, SendLogEntry, Settlement, SrRequest, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, BatchJob, BatchRun, ChangeWork, Deliverable, EducationCourse, EducationRecord, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -30,6 +30,14 @@ export interface Store {
   notices: Notice[]
   people: Person[]
   pledges: PledgeSign[]
+  pledgeForms: PledgeForm[]
+  /** 부서별 보안담당자 — 특별서약 대상 */
+  securityOfficers: string[]
+  servers: ServerInfo[]
+  systems: SystemInfo[]
+  batchJobs: BatchJob[]
+  interfaces: InterfaceDef[]
+  qna: QnaPost[]
   /** 연동 채널 활성 상태 (channelId → on/off) — 정의는 portal.config.ts, 상태는 런타임 */
   channelStates: Record<string, boolean>
   sendLog: SendLogEntry[]
@@ -167,6 +175,41 @@ function seed(): Store {
       { name: '한지원', dept: 'IT운영팀' },
       { name: '시스템관리자', dept: '정보기획팀' },
       { name: '강도윤', dept: '정보기획팀' },
+    ],
+    pledgeForms: [
+      { kind: '일반', revisedAt: '2026-01-02' },
+      { kind: '관리책임자', revisedAt: '2026-01-02' },
+      { kind: '재택근무', revisedAt: '2026-03-02' },
+      { kind: '특별', revisedAt: '2026-01-02' },
+    ],
+    securityOfficers: ['박정호'],
+    servers: [
+      { id: 'SV-01', hostname: 'ngv-web-01', ip: '10.10.1.11', purpose: 'Web', os: 'Windows Server 2022', rack: 'A-01', diskUsedPct: 42 },
+      { id: 'SV-02', hostname: 'ngv-was-01', ip: '10.10.1.21', purpose: 'WAS', os: 'Windows Server 2022', rack: 'A-01', diskUsedPct: 63 },
+      { id: 'SV-03', hostname: 'ngv-db-01', ip: '10.10.1.31', purpose: 'DB', os: 'Windows Server 2022 · MS-SQL', rack: 'A-02', diskUsedPct: 91 },
+      { id: 'SV-04', hostname: 'ngv-bat-01', ip: '10.10.1.41', purpose: '배치', os: 'Windows Server 2019', rack: 'B-01', diskUsedPct: 55 },
+    ],
+    systems: [
+      { id: 'SYS-01', name: 'ERP', url: 'https://erp.internal', env: '운영계', serverIds: ['SV-02', 'SV-03'], owner: '박정호' },
+      { id: 'SYS-02', name: '그룹웨어', url: 'https://gw.internal', env: '운영계', serverIds: ['SV-01'], owner: '한지원' },
+      { id: 'SYS-03', name: '영업정보시스템', url: 'https://sales.internal', env: '운영계', serverIds: ['SV-02', 'SV-04'], owner: '박정호' },
+      { id: 'SYS-04', name: 'ERP (개발계)', url: 'https://erp-dev.internal', env: '개발계', serverIds: ['SV-04'], owner: '김현우' },
+    ],
+    batchJobs: [
+      { id: 'BJ-01', name: '인사정보 동기화', system: '그룹웨어', schedule: '일', lastRun: '2026-08-02 05:00', lastResult: '성공' },
+      { id: 'BJ-02', name: '출력물 자료 이관', system: '보안·출력물 시스템', schedule: '일', lastRun: '2026-08-01 23:30', lastResult: '성공' },
+      { id: 'BJ-03', name: '영업 실적 집계', system: '영업정보시스템', schedule: '일', lastRun: '2026-08-01 23:00', lastResult: '실패' },
+      { id: 'BJ-04', name: '월 비용 속보 마감', system: 'ERP', schedule: '월', lastRun: '2026-07-31 18:00', lastResult: '성공' },
+    ],
+    interfaces: [
+      { id: 'IF-01', name: '그룹웨어 결재 연계', from: '포털', to: '그룹웨어', method: 'REST API', status: '정상' },
+      { id: 'IF-02', name: '인사 기본정보 수신', from: '인사·근태 시스템', to: '포털', method: '파일', status: '정상' },
+      { id: 'IF-03', name: '자산정보 조회', from: '포털', to: '자산관리시스템', method: 'REST API', status: '정상' },
+      { id: 'IF-04', name: '출력물 자료 수신', from: '보안·출력물 시스템', to: '포털', method: 'DB 연계', status: '오류' },
+    ],
+    qna: [
+      { id: 'QA-2026-11', title: 'SR 적용요청 후 반영 일정이 궁금합니다', domain: 'IT Request', author: '김현우', dept: '개발1팀', askedAt: '2026-07-30', answer: '적용요청 결재완료 건은 변경관리 편입 후 매주 수요일 반영됩니다.', answeredBy: '박정호', answeredAt: '2026-07-31' },
+      { id: 'QA-2026-12', title: '재택근무 체크리스트 제출 주기가 어떻게 되나요?', domain: '임직원 의식제고', author: '정민서', dept: '경영지원팀', askedAt: '2026-08-01' },
     ],
     pledges: [
       { name: '이수진', dept: '경영지원팀', year: '2026', kind: '일반', signedAt: '2026-07-12', method: '온라인' },

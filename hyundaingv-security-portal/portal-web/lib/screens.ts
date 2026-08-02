@@ -8,37 +8,6 @@ export interface StubScreen {
 }
 
 export const SCREENS: Record<string, StubScreen> = {
-  '/board/qna': {
-    desc: '포털 업무 문의 게시판 — 질문 등록과 담당자 답변을 다룬다.',
-    features: [
-      { name: '질문 등록', detail: '업무 도메인 분류 선택, 첨부파일' },
-      { name: '답변·상태', detail: '담당자 지정, 답변완료 상태 추적' },
-    ],
-  },
-  '/infra/systems': {
-    desc: '시스템·서버 현황 — 랙·H/W·서버·시스템(애플리케이션) 구성 현황.',
-    features: [
-      { name: '시스템별 현황', detail: '접속 URL·개발계/운영계·서버 매핑 — 애플리케이션 현황' },
-      { name: '랙 · H/W · 서버', detail: '물리 구성·사양·위치 관리' },
-    ],
-  },
-  '/infra/operations': {
-    desc: '운영 관리 — 배치·인터페이스·디스크 사용 현황을 관리한다.',
-    features: [
-      { name: '배치관리', detail: '배치 잡 등록·실행 이력' },
-      { name: '인터페이스관리', detail: '대내외 인터페이스 목록·연계 상태' },
-      { name: '디스크현황', detail: '서버별 디스크 사용률 추적' },
-    ],
-  },
-  '/pledge/manage': {
-    desc: '전사 현황·양식관리 — 전사 서약 현황과 양식·업로드를 관리한다.',
-    features: [
-      { name: '전사 현황', detail: '부서·전사 진행현황, 협력업체 서약 포함' },
-      { name: '보안담당자 관리', detail: '부서별 보안담당자 지정' },
-      { name: '스캔본 업로드', detail: '서면 서약 스캔본 등록' },
-      { name: '양식관리', detail: '서약서 양식(HTML·개정일자) 버전 관리' },
-    ],
-  },
   '/settings/menus': {
     desc: '메뉴·기능 관리 — 포털 메뉴 체계와 화면 내 기능 단위를 관리한다.',
     features: [

@@ -262,6 +262,64 @@ export interface EducationRecord {
   completedAt: string
 }
 
+/** 인프라 — 랙·서버·시스템(애플리케이션)·배치·인터페이스 현황 (제품안내서 §03) */
+export interface ServerInfo {
+  id: string
+  hostname: string
+  ip: string
+  purpose: 'Web' | 'WAS' | 'DB' | '배치'
+  os: string
+  rack: string
+  /** 디스크 사용률(%) — 85% 초과는 경고로 드러난다 */
+  diskUsedPct: number
+}
+
+export interface SystemInfo {
+  id: string
+  name: string
+  url: string
+  env: '운영계' | '개발계'
+  serverIds: string[]
+  owner: string
+}
+
+export interface BatchJob {
+  id: string
+  name: string
+  system: string
+  schedule: '일' | '주' | '월'
+  lastRun?: string
+  lastResult?: '성공' | '실패'
+}
+
+export interface InterfaceDef {
+  id: string
+  name: string
+  from: string
+  to: string
+  method: 'REST API' | 'DB 연계' | '파일'
+  status: '정상' | '오류'
+}
+
+/** 서약서 양식 — 개정일자 기준. 개정 이전 서약은 무효가 되어 재서약 대상이 된다. */
+export interface PledgeForm {
+  kind: PledgeKind
+  revisedAt: string
+}
+
+/** QnA — 질문 등록·담당 답변 */
+export interface QnaPost {
+  id: string
+  title: string
+  domain: string
+  author: string
+  dept: string
+  askedAt: string
+  answer?: string
+  answeredBy?: string
+  answeredAt?: string
+}
+
 /** 프로젝트 — 계약정보 연동, 진행현황·인력·일정/산출물·이슈·회의록·주간보고 (제품안내서 §03) */
 export interface Project {
   id: string

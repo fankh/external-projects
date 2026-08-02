@@ -184,6 +184,14 @@ async function main() {
     ['/projects/status', 'BIZ_MGR', ['PJ-2026-01', 'ERP 리포트 모듈 구축', '에이원정보', '프로젝트 등록', '평균 진척']],
     ['/projects/schedule', 'BIZ_MGR', ['통합테스트 결과서', '레거시 리포트 데이터 정합성 오류', '해결 처리', '완료 처리']],
     ['/projects/reports', 'BIZ_MGR', ['킥오프 회의', '7월 4주차', '주간보고']],
+    // 인프라 현황 — 시스템·서버·장애 연계, 배치·인터페이스·디스크
+    ['/infra/systems', 'BIZ_MGR', ['ngv-db-01', 'ERP', '운영계', '디스크 경고', '장애 이력']],
+    ['/infra/operations', 'BIZ_MGR', ['인사정보 동기화', '영업 실적 집계', '즉시 실행', '출력물 자료 수신', '오류']],
+    // 서약 관리 — 양식 개정·스캔본·보안담당자
+    ['/pledge/manage', 'BIZ_MGR', ['양식관리', '개정일자', '스캔본 업로드', '보안담당자 관리', '서약률']],
+    // QnA — 질문·답변
+    ['/board/qna', 'USER', ['QA-2026-12', '재택근무 체크리스트 제출 주기', '답변 대기', '질문 등록']],
+    ['/board/qna', 'BIZ_MGR', ['답변 내용']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
