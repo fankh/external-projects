@@ -273,6 +273,11 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
 
   // 폐쇄 루프 — 결재 결과를 대장·발견 저장소로 환류
   if (a.refId) {
+    // 라이선스 조치 품의 승인 — 초과는 추가 구매로 보유↑, 미사용은 회수로 보유↓ → 보유=사용(대사 적정)
+    if (a.kind === '자산 신청' && a.refId.startsWith('LIC-') && verdict === '승인') {
+      const lic = s.licenses.find((l) => l.id === a.refId)
+      if (lic) lic.purchased = lic.used
+    }
     const d = s.discovered.find((x) => x.id === a.refId)
     if (d && verdict === '승인') {
       if (a.kind === '자산 신청' && d.action === '편입요청') {
