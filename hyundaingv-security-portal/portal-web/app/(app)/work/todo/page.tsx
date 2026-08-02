@@ -14,6 +14,7 @@ const KIND_HREF: Record<TodoItem['kind'], { href: string; label: string }> = {
   '출력물 폐기확인': { href: '/awareness/prints', label: '폐기현황 상신' },
   'SR 처리': { href: '/sr/ci', label: 'SR 처리' },
   결재: { href: '/work/approvals', label: '결재함 이동' },
+  재상신: { href: '/sr/requests', label: '재상신하기' },
 }
 
 export default async function TodoPage() {

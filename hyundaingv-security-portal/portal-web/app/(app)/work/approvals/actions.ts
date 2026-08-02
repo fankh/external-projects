@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { getStore } from '@/lib/store'
+import { getStore, nextNo } from '@/lib/store'
 
 /** 결재 처리 — 승인·반려는 참조 업무(ref)의 상태로 전파되고, 내 '결재' 할일을 닫는다.
  *  결재자 본인 여부를 서버에서 재검증한다(화면 숨김과 별개의 가드). */
@@ -26,7 +26,17 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
   // 폐쇄 루프 1 — SR 신청 결재가 SR 진행 상태로 전파된다 (승인 → CI배정, 반려 → 반려)
   if (ap.docType === 'SR 신청' && ap.ref) {
     const sr = s.srRequests.find((r) => r.srNo === ap.ref)
-    if (sr && sr.status === '결재중') sr.status = verdict === '승인' ? 'CI배정' : '반려'
+    if (sr && sr.status === '결재중') {
+      sr.status = verdict === '승인' ? 'CI배정' : '반려'
+      // 반려는 기안자에게 '재상신' 할일로 되돌아간다 — 사유를 보고 보완해 재상신하는 폐쇄 루프
+      if (verdict === '반려') {
+        s.todos.unshift({
+          id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
+          owner: ap.drafter, kind: '재상신', title: `${ap.ref} 반려 — 보완 후 재상신 (사유: ${reason})`,
+          dueDate: today(), done: false,
+        })
+      }
+    }
   }
 
   // 폐쇄 루프 1-2 — 정산품의(투자·비용) 결재가 지급 상태로 전파되어 실적·속보 기준금액에 반영된다

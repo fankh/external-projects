@@ -1,9 +1,29 @@
 import Link from 'next/link'
+import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { attachCount } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../chips'
+
+/** 반려 SR 재상신 — 기안자 본인만. 반려 사유를 보완했다는 전제로 새 결재가 상신된다. */
+async function resubmitSr(formData: FormData) {
+  'use server'
+  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const srNo = String(formData.get('srNo') ?? '')
+  const s = getStore()
+  const sr = s.srRequests.find((r) => r.srNo === srNo && r.requester === me.name && r.status === '반려')
+  if (!sr || s.approvals.some((a) => a.ref === srNo && a.status === '대기')) return
+
+  sr.status = '결재중'
+  draftApproval({ docType: 'SR 신청', title: `[재상신] ${sr.title}`, ref: srNo, drafter: me })
+
+  // 폐쇄 루프 — 재상신과 함께 '재상신' 할일이 닫힌다
+  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '재상신' && t.title.includes(srNo) && !t.done)
+  if (todo) todo.done = true
+  revalidatePath('/', 'layout')
+}
 
 export default async function SrRequestsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
@@ -54,7 +74,15 @@ export default async function SrRequestsPage({ searchParams }: { searchParams: P
                     <td className="strong">{r.title}<Clip count={attachCount(r.srNo)} title="본문 첨부" /></td>
                     <td>{r.system}</td>
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
-                    <td><Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip></td>
+                    <td>
+                      <Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip>
+                      {r.status === '반려' && r.requester === me.name && (
+                        <form action={resubmitSr} style={{ display: 'inline', marginLeft: 6 }}>
+                          <input type="hidden" name="srNo" value={r.srNo} />
+                          <button type="submit" className="btn sm">재상신</button>
+                        </form>
+                      )}
+                    </td>
                     <td>{r.ci ?? <span className="mut">미배정</span>}</td>
                     <td className="tnum">{r.requestedAt}</td>
                     <td className="tnum">{r.dueDate ?? '-'}</td>
