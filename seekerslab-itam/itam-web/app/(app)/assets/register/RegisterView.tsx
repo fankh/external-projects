@@ -248,7 +248,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
 
         {sel && (
           <aside className="side-fill">
-            <div className="kicker mute">Asset Detail</div>
+            <div className="hstack" style={{ justifyContent: 'space-between', gap: 8 }}>
+              <div className="kicker mute">Asset Detail</div>
+              <a className="btn sm" href={`/api/asset-card/${sel.assetNo}`} target="_blank" rel="noopener" title="자산 전체 정보·이력 인쇄용 카드(dossier)">🖨 자산 카드</a>
+            </div>
             <div style={{ fontSize: 15, fontWeight: 800, margin: '4px 0 2px' }}>{sel.model}</div>
             <div className="mono" style={{ color: 'var(--accent-deep)', fontSize: 12 }}>{sel.assetNo}</div>
             {sel.discoveredVia && (
