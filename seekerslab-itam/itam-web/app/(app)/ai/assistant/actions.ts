@@ -1,10 +1,30 @@
 'use server'
+import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
 import { daysUntil, isLoanOverdue, isStaleVerify, today } from '@/lib/dates'
+import { REPORT_KINDS, createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
-import type { ChatMessage } from '@/lib/types'
+import type { ChatMessage, ReportKind } from '@/lib/types'
+
+/** 리포트 생성 인텐트 — 어시스턴트가 실제로 리포트를 만든다 (제품안내서 §05 리포트 자동화:
+ *  "자연어 자산 질의·리포트 생성"). 생성 동사 + (리포트 언급 또는 리포트 종류 매칭)일 때만 발동한다.
+ *  반환: null=일반 질의 / {kind}=해당 종류 생성 / {}=종류 미지정(되물음). */
+function detectReportIntent(q: string): { kind?: ReportKind } | null {
+  if (!/(생성|만들|만드|작성|뽑아|뽑|출력|발행|산출)/.test(q)) return null
+  const kindMatchers: [RegExp, ReportKind][] = [
+    [/월간|자산\s*현황/, '월간 자산 현황'],
+    [/라이선스|컴플라이언스|license/i, '라이선스 컴플라이언스'],
+    [/재물조사|실사|재고조사/, '재물조사 결과 요약'],
+    [/감사\s*대응|감사\s*자료|감사/, '감사 대응 자료'],
+    [/교체|수명|내용연수|노후/, '연간 교체 계획'],
+    [/shadow|섀도|쉐도|발견|브리핑|주간/i, '주간 Shadow IT 브리핑'],
+  ]
+  const kind = kindMatchers.find(([re]) => re.test(q))?.[1]
+  if (!kind && !/(리포트|보고서)/.test(q)) return null
+  return { kind }
+}
 
 /** 권한 범위 내 자산 데이터를 질의 컨텍스트로 요약 (RAG 대체 — 데모 스코프) */
 function buildContext(userName: string, isUser: boolean): string {
@@ -258,6 +278,27 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
   const session = await getSession()
   if (!session) return { role: 'assistant', text: '세션이 만료되었습니다. 다시 로그인해 주세요.' }
   const isUser = session.role === 'USER'
+
+  // 리포트 생성 인텐트 — LLM/규칙 응답 이전에 결정적으로 처리한다(실제 리포트를 만드는 액션이므로 키 유무와 무관).
+  const reportIntent = detectReportIntent(question)
+  if (reportIntent) {
+    if (isUser) {
+      auditQuery(session.name, question, '리포트 생성 거부(권한)', 0)
+      return { role: 'assistant', text: '리포트 생성은 자산담당·보안담당·관리자 권한에서 가능합니다. 담당자에게 요청하거나, 자산 현황을 질의로 물어봐 주세요.' }
+    }
+    if (!reportIntent.kind) {
+      auditQuery(session.name, question, '리포트 종류 되물음', 0)
+      return { role: 'assistant', text: `어떤 리포트를 생성할까요? 가능한 종류:\n${REPORT_KINDS.map((k) => `· ${k.kind} — ${k.desc}`).join('\n')}` }
+    }
+    const id = await createReport(reportIntent.kind, session.name)
+    auditQuery(session.name, question, `리포트 생성 (${reportIntent.kind})`, 0)
+    revalidatePath('/', 'layout')
+    return {
+      role: 'assistant',
+      text: `‘${reportIntent.kind}’ 리포트를 생성했습니다 — ${id}. 아래 링크에서 열람하거나 리포트 화면에서 결재 첨부·배포할 수 있습니다.`,
+      evidence: [{ label: `${id} 열기`, href: `/api/reports/${encodeURIComponent(id)}?format=md` }, { label: '리포트 화면', href: '/ai/reports' }],
+    }
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {

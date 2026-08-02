@@ -12,8 +12,11 @@ const SUGGESTIONS = [
   '분실·대여 연체·장기 미실측 자산 현황',
   '내 보유 자산',
 ]
+// 리포트 생성 프리셋 — 담당자·관리자 전용(생성은 권한 게이트). 클릭 시 실제 리포트가 만들어진다.
+const REPORT_SUGGESTIONS = ['월간 자산 현황 리포트 생성', '주간 Shadow IT 브리핑 생성']
 
-export function ChatView() {
+export function ChatView({ canReport }: { canReport?: boolean }) {
+  const suggestions = canReport ? [...REPORT_SUGGESTIONS, ...SUGGESTIONS] : SUGGESTIONS
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -62,7 +65,7 @@ export function ChatView() {
         )}
       </div>
       <div className="suggest">
-        {SUGGESTIONS.map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}
+        {suggestions.map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}
       </div>
       <div className="chat-in">
         <input
