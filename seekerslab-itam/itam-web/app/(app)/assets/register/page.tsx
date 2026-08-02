@@ -3,6 +3,7 @@ import { daysUntil, isStaleVerify, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { BulkImport } from './BulkImport'
 import { RegisterView } from './RegisterView'
 
 export const dynamic = 'force-dynamic'
@@ -32,6 +33,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       {session.role === 'USER' && (
         <div className="callout"><b>사용자 권한 범위.</b> 본인 보유 자산만 표시됩니다. 자산 신청·반납·이동 요청은 워크플로 › 신청·결재에서 상신할 수 있습니다.</div>
       )}
+      {session.role !== 'USER' && <BulkImport />}
       <Card pad={false}>
         <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} today={today()} initialCat={cat} initialStatus={status} />
       </Card>

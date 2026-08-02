@@ -5,6 +5,9 @@ import { today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import type { Asset, AssetCategory } from '@/lib/types'
+
+const IMPORT_CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 async function guard() {
   const session = await getSession()
@@ -235,4 +238,59 @@ export async function recoverAsset(assetNo: string, rawNote: string) {
   appendAudit({ actor: session.name, action: `분실 자산 회수 — ${asset.model}`, target: assetNo })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${assetNo} 회수 — 유휴 풀 편성 (검수실 재확인 후 재배치)` }
+}
+
+/** CSV 일괄 자산 등록 — 기존 자산을 대장으로 마이그레이션(데이터 온보딩)한다.
+ *  한 행 = 자산 하나. 필드: 유형,모델,시리얼,소유자,부서,위치 (유형·모델 필수, 나머지 선택).
+ *  유형이 유효하지 않거나 모델이 비었거나 시리얼이 기존/입력분과 중복이면 건너뛴다(사유 반환).
+ *  생성 자산은 상태 '검수중'으로 대장에 오르고 등록 이력·감사가 남는다. 자산담당·Admin. */
+export async function bulkRegisterAssets(rows: { category: string; model: string; serial?: string; owner?: string; dept?: string; location?: string }[]) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '일괄 등록 권한이 없습니다 (자산담당·Admin).', created: 0, skipped: [] as { line: number; reason: string }[] }
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, message: '등록할 행이 없습니다.', created: 0, skipped: [] }
+  if (rows.length > 500) return { ok: false, message: '한 번에 최대 500행까지 등록할 수 있습니다.', created: 0, skipped: [] }
+
+  const s = getStore()
+  const year = today().slice(0, 4)
+  let seq = s.assets.filter((a) => a.assetNo.startsWith(`AST-${year}`)).length
+  const existingSerials = new Set(s.assets.map((a) => a.serial).filter(Boolean))
+  const batchSerials = new Set<string>()
+
+  const created: string[] = []
+  const skipped: { line: number; reason: string }[] = []
+
+  rows.forEach((r, i) => {
+    const line = i + 1
+    const category = (r.category ?? '').trim()
+    const model = (r.model ?? '').trim()
+    const serial = (r.serial ?? '').trim()
+    if (!IMPORT_CATS.includes(category as AssetCategory)) { skipped.push({ line, reason: `유형 오류 '${category || '-'}'` }); return }
+    if (!model) { skipped.push({ line, reason: '모델 누락' }); return }
+    if (serial && (existingSerials.has(serial) || batchSerials.has(serial))) { skipped.push({ line, reason: `시리얼 중복 '${serial}'` }); return }
+
+    seq += 1
+    const assetNo = `AST-${year}-${String(seq).padStart(6, '0')}`
+    const sn = serial || `SN-${assetNo.slice(-6)}`
+    const asset: Asset = {
+      assetNo,
+      category: category as AssetCategory,
+      model,
+      serial: sn,
+      status: '검수중',
+      owner: (r.owner ?? '').trim() || '-',
+      dept: (r.dept ?? '').trim() || '자산관리팀',
+      location: (r.location ?? '').trim() || '본사 3F 검수실',
+      purchaseDate: today(),
+      warrantyEnd: '-',
+      history: [{ date: today(), kind: '등록', detail: `CSV 일괄 등록 — 데이터 온보딩 (검수중)`, actor: session.name }],
+    }
+    s.assets.push(asset)
+    batchSerials.add(sn)
+    created.push(assetNo)
+  })
+
+  if (created.length === 0) return { ok: false, message: `등록된 자산이 없습니다 (전체 ${rows.length}행 건너뜀).`, created: 0, skipped }
+  appendAudit({ actor: session.name, action: `CSV 일괄 자산 등록 (${created.length}건${skipped.length ? ` · 건너뜀 ${skipped.length}` : ''})`, target: '자산 대장' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `일괄 등록 완료 — ${created.length}건 대장 편입(검수중)${skipped.length ? `, ${skipped.length}행 건너뜀` : ''}`, created: created.length, skipped }
 }

@@ -136,6 +136,9 @@ try {
   check('자산 대장: 보증 임박 필터 렌더', mgrHtml.includes('보증 임박'))
   // 다중 선택(보증 일괄 연장·선택 내보내기 공용) — 자산담당에 전체 선택 체크박스 노출, 사용자엔 미노출(canEdit)
   check('자산 대장: 다중 선택 전체 선택 체크박스(자산담당)', mgrHtml.includes('현재 필터의 자산 전체 선택'))
+  // CSV 일괄 등록 — 자산담당·Admin 에 온보딩 패널, 사용자엔 미노출
+  check('자산 대장: CSV 일괄 등록 패널(자산담당)', mgrHtml.includes('일괄 등록 (CSV)') && mgrHtml.includes('기존 자산 대장 온보딩'))
+  check('자산 대장: 사용자에겐 CSV 일괄 등록 미노출', !userHtml.includes('일괄 등록 (CSV)'))
   check('자산 대장: 사용자에겐 다중 선택 미노출(조회 전용)', !userHtml.includes('현재 필터의 자산 전체 선택'))
   // 자산 → 계약 딥링크 — 계약 연계 자산을 선택하면 상세의 연계 계약이 계약 화면 링크로 렌더
   const regContractDetail = await (await get('/assets/register?sel=AST-2023-000112', 'ASSET_MGR')).text()
