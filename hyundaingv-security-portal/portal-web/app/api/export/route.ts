@@ -69,5 +69,12 @@ export async function GET(req: Request) {
     return csvResponse('재택근무_체크리스트_현황', rows)
   }
 
+  if (type === 'audit') {
+    if (role !== 'ADMIN') return new Response('forbidden', { status: 403 })
+    const rows: (string | number)[][] = [['일시', '행위자', '행위', '상세']]
+    for (const l of s.auditLogs) rows.push([l.at, l.actor, l.action, l.detail])
+    return csvResponse('감사_이력', rows)
+  }
+
   return new Response('unknown type', { status: 400 })
 }

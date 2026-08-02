@@ -3,11 +3,14 @@ smoke(SSR HTML)가 못 잡는 클라이언트 크래시를 검사한다 (itam-we
 
 사용:  npm run build  후  python scripts/client_health.py
 """
+import base64
+import hashlib
+import hmac
 import json
+import os
 import subprocess
 import sys
 import time
-import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -42,10 +45,20 @@ ADMIN = {'login': 'admin', 'name': '시스템관리자', 'dept': '정보기획�
 USER = {'login': 'hw.kim', 'name': '김현우', 'dept': '개발1팀', 'role': 'USER'}
 
 
+SECRET = os.environ.get('SESSION_SECRET', 'ngv-portal-dev-secret').encode()
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b'=').decode()
+
+
 def cookie_for(acct):
+    # 세션은 HMAC 서명 쿠키 — lib/session.ts 와 같은 방식으로 서명한다
+    payload = _b64url(json.dumps(acct, ensure_ascii=False, separators=(',', ':')).encode())
+    sig = _b64url(hmac.new(SECRET, payload.encode(), hashlib.sha256).digest())
     return {
         'name': 'ngv_portal_session',
-        'value': urllib.parse.quote(json.dumps(acct, ensure_ascii=False)),
+        'value': f'{payload}.{sig}',
         'domain': 'localhost',
         'path': '/',
     }

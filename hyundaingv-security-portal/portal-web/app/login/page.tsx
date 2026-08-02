@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { ACCOUNTS, SESSION_COOKIE } from '@/lib/session'
+import { ACCOUNTS, SESSION_COOKIE, signSession } from '@/lib/session'
 import { ROLE_LABEL } from '@/lib/types'
 
 async function loginAs(formData: FormData) {
@@ -9,7 +9,7 @@ async function loginAs(formData: FormData) {
   const acct = ACCOUNTS.find((a) => a.login === login)
   if (!acct) return
   const jar = await cookies()
-  jar.set(SESSION_COOKIE, JSON.stringify(acct), { httpOnly: true, sameSite: 'lax', path: '/' })
+  jar.set(SESSION_COOKIE, signSession(acct), { httpOnly: true, sameSite: 'lax', path: '/' })
   redirect('/dashboard')
 }
 

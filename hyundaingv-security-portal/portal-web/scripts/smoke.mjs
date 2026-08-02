@@ -1,6 +1,7 @@
 /** 스모크 테스트 — 프로덕션 서버를 띄우고 권한 매트릭스·리다이렉트를 검증한다.
  *  사용: npm run build && npm run smoke  (itam-web scripts/smoke.mjs 패턴) */
 import { execSync, spawn } from 'node:child_process'
+import { createHmac } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -21,7 +22,14 @@ const ACCOUNTS = {
   BIZ_MGR: { login: 'jh.park', name: '박정호', dept: 'IT운영팀', role: 'BIZ_MGR' },
   ADMIN: { login: 'admin', name: '시스템관리자', dept: '정보기획팀', role: 'ADMIN' },
 }
-const cookie = (role) => `ngv_portal_session=${encodeURIComponent(JSON.stringify(ACCOUNTS[role]))}`
+// 세션은 HMAC 서명 쿠키다 — lib/session.ts 와 같은 방식·같은 기본 키로 서명한다
+const SECRET = process.env.SESSION_SECRET ?? 'ngv-portal-dev-secret'
+const signSession = (acct) => {
+  const payload = Buffer.from(JSON.stringify(acct), 'utf8').toString('base64url')
+  const sig = createHmac('sha256', SECRET).update(payload).digest('base64url')
+  return `${payload}.${sig}`
+}
+const cookie = (role) => `ngv_portal_session=${signSession(ACCOUNTS[role])}`
 
 const ALL = ['USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN']
 const DEPT = ['DEPT_MGR', 'BIZ_MGR', 'ADMIN']
@@ -128,6 +136,24 @@ async function main() {
         check(r.status === 307 && (r.headers.get('location') ?? '').includes('/dashboard'), `${role} ${route} → /dashboard 차단`)
       }
     }
+  }
+
+  // 2-1) 세션 서명 — 평문(구버전)·변조 쿠키는 로그아웃 처리된다
+  {
+    const plain = await fetch(`${BASE}/dashboard`, {
+      redirect: 'manual',
+      headers: { cookie: `ngv_portal_session=${encodeURIComponent(JSON.stringify(ACCOUNTS.ADMIN))}` },
+    })
+    check(plain.status === 307 && (plain.headers.get('location') ?? '').includes('/login'), '세션: 서명 없는 평문 쿠키 거부')
+
+    // USER 로 서명된 페이로드를 ADMIN 으로 바꿔치기 — 권한 상승 시도 거부
+    const forgedPayload = Buffer.from(JSON.stringify({ ...ACCOUNTS.USER, role: 'ADMIN' }), 'utf8').toString('base64url')
+    const userSig = signSession(ACCOUNTS.USER).split('.')[1]
+    const forged = await fetch(`${BASE}/settings/users`, {
+      redirect: 'manual',
+      headers: { cookie: `ngv_portal_session=${forgedPayload}.${userSig}` },
+    })
+    check(forged.status === 307 && (forged.headers.get('location') ?? '').includes('/login'), '세션: 페이로드 변조(권한 상승) 거부')
   }
 
   // 3) 구현 화면 — SSR 본문 내용 검증
@@ -277,6 +303,10 @@ async function main() {
     check(denied.status === 403, 'export: USER 이수현황 차단(403)')
     const anon = await fetch(`${BASE}/api/export?type=invest-actual`, { redirect: 'manual' })
     check(anon.status === 401, 'export: 미로그인 차단(401)')
+    const auditCsv = await get('/api/export?type=audit', 'ADMIN')
+    check(auditCsv.status === 200 && (await auditCsv.text()).includes('행위자'), 'export: 감사 이력 CSV (ADMIN)')
+    const auditDenied = await get('/api/export?type=audit', 'BIZ_MGR')
+    check(auditDenied.status === 403, 'export: 감사 이력 비Admin 차단(403)')
   }
   {
     // 위반자 본인 건만 — 김현우(USER)에게 강도윤 위반 미노출, 등록 폼 미노출
