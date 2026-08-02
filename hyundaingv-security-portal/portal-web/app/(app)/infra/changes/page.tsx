@@ -1,24 +1,13 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 import type { ChangeStatus } from '@/lib/types'
 
 const ST_CHIP: Record<ChangeStatus, 'neutral' | 'info' | 'warn' | 'ok'> = {
   작업등록: 'neutral', 계획결재중: 'info', 작업등록승인: 'warn', 작업완료결재중: 'info', 최종완료: 'ok',
-}
-
-async function draftApproval(kind: '변경계획 상신' | '변경결과 상신', title: string, ref: string, me: { name: string; dept: string }) {
-  const s = getStore()
-  const year = today().slice(0, 4)
-  const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
-  const adm = ACCOUNTS.find((a) => a.role === 'ADMIN')!
-  const approver = me.name === biz.name ? adm.name : biz.name
-  const apId = nextNo('AP', year, s.approvals.map((a) => a.id))
-  s.approvals.unshift({ id: apId, docType: kind, title, drafter: me.name, dept: me.dept, approver, status: '대기', draftedAt: today(), ref })
-  s.todos.unshift({ id: nextNo('TD', year, s.todos.map((t) => t.id)), owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false })
 }
 
 async function addInfraChange(formData: FormData) {
@@ -59,7 +48,7 @@ async function submitPlan(formData: FormData) {
   const cw = s.changes.find((c) => c.id === id && c.status === '작업등록')
   if (!cw) return
   cw.status = '계획결재중'
-  await draftApproval('변경계획 상신', `[${cw.kind}변경] ${cw.title} — 작업계획`, cw.id, me)
+  draftApproval({ docType: '변경계획 상신', title: `[${cw.kind}변경] ${cw.title} — 작업계획`, ref: cw.id, drafter: me })
   revalidatePath('/', 'layout')
 }
 
@@ -74,7 +63,7 @@ async function submitResult(formData: FormData) {
   if (!cw) return
   cw.result = result
   cw.status = '작업완료결재중'
-  await draftApproval('변경결과 상신', `[${cw.kind}변경] ${cw.title} — 작업결과`, cw.id, me)
+  draftApproval({ docType: '변경결과 상신', title: `[${cw.kind}변경] ${cw.title} — 작업결과`, ref: cw.id, drafter: me })
   revalidatePath('/', 'layout')
 }
 

@@ -1,9 +1,9 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
-import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 import type { ViolationType } from '@/lib/types'
 
@@ -42,16 +42,7 @@ async function submitStatement(formData: FormData) {
   v.statement = statement
   v.status = '결재중'
 
-  const year = today().slice(0, 4)
-  const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
-  const adm = ACCOUNTS.find((a) => a.role === 'ADMIN')!
-  const approver = me.name === biz.name ? adm.name : biz.name
-  const apId = nextNo('AP', year, s.approvals.map((a) => a.id))
-  s.approvals.unshift({
-    id: apId, docType: '보안위반 확인서', title: `[보안위반사실확인서] ${v.type} — ${me.name}`,
-    drafter: me.name, dept: me.dept, approver, status: '대기', draftedAt: today(), ref: v.id,
-  })
-  s.todos.unshift({ id: nextNo('TD', year, s.todos.map((t) => t.id)), owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false })
+  draftApproval({ docType: '보안위반 확인서', title: `[보안위반사실확인서] ${v.type} — ${me.name}`, ref: v.id, drafter: me })
   revalidatePath('/', 'layout')
 }
 

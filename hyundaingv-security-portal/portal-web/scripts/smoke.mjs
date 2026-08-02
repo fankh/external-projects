@@ -178,6 +178,8 @@ async function main() {
     // 보안위반 — 담당 등록·위반자 본인 확인서
     ['/awareness/violations', 'BIZ_MGR', ['VL-2026-07', '강도윤', '출력물 방치', '등록 · 안내메일 발송', '위반자 본인 작성 대기']],
     ['/awareness/violations', 'USER', ['내 위반 내역']],
+    // 환경설정 — 사용자·결재선 관리
+    ['/settings/users', 'ADMIN', ['사용자 목록', '결재선 관리', 'SR 신청', '자기 결재 방지', '인사정보 연동']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)

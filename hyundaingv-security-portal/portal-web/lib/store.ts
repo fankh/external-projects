@@ -2,7 +2,7 @@
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
 import { CHANNELS } from '@/portal.config'
-import type { Approval, BatchRun, ChangeWork, EducationCourse, EducationRecord, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, PrintoutRecord, RemoteCheck, SendLogEntry, Settlement, SrRequest, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, BatchRun, ChangeWork, EducationCourse, EducationRecord, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, PrintoutRecord, RemoteCheck, SendLogEntry, Settlement, SrRequest, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -20,6 +20,8 @@ export interface Store {
   changes: ChangeWork[]
   srRequests: SrRequest[]
   approvals: Approval[]
+  /** 문서 유형별 기본 결재선 — 환경설정 > 결재선 관리 */
+  approvalLines: ApprovalLine[]
   todos: TodoItem[]
   notices: Notice[]
   people: Person[]
@@ -103,6 +105,18 @@ function seed(): Store {
       { srNo: 'SR-2026-0145', kind: '데이터', title: '월별 정산 데이터 추출 요청', system: 'ERP', requester: '김현우', dept: '개발1팀', status: '결재중', requestedAt: '2026-07-29' },
       { srNo: 'SR-2026-0146', kind: '계정/권한', title: '신규 입사자 그룹웨어 권한 부여', system: '그룹웨어', requester: '이수진', dept: '경영지원팀', status: 'CI배정', requestedAt: '2026-07-30' },
       { srNo: 'SR-2026-0132', kind: '시스템개발', title: '구매 발주 승인 프로세스 변경', system: '구매시스템', requester: '박정호', dept: 'IT운영팀', status: '적용요청', requestedAt: '2026-07-08', ci: '박정호', dueDate: '2026-07-31' },
+    ],
+    approvalLines: [
+      { docType: 'SR 신청', approver: '박정호' },
+      { docType: '투자 정산품의', approver: '박정호' },
+      { docType: '비용 정산품의', approver: '박정호' },
+      { docType: '변경계획 상신', approver: '시스템관리자' },
+      { docType: '변경결과 상신', approver: '시스템관리자' },
+      { docType: '장애보고 상신', approver: '시스템관리자' },
+      { docType: '점검결과 상신', approver: '시스템관리자' },
+      { docType: '출력물폐기 상신', approver: '박정호' },
+      { docType: '보안위반 확인서', approver: '박정호' },
+      { docType: '서약 현황 상신', approver: '박정호' },
     ],
     approvals: [
       { id: 'AP-2026-0712', docType: 'SR 신청', title: '월별 정산 데이터 추출 요청', drafter: '김현우', dept: '개발1팀', approver: '박정호', status: '대기', draftedAt: '2026-07-29', ref: 'SR-2026-0145' },

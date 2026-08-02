@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { requireRole } from '@/lib/authz'
 import { nowStamp, today } from '@/lib/dates'
 import { secdataAdapter } from '@/lib/integrations/registry'
-import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 
 /** 전일자 이관 — 보안·출력물 시스템(DB 연계) 자료를 일배치로 가져온다 (요구사항: 일배치 이관) */
@@ -63,15 +63,7 @@ async function submitDiscards() {
     row.approvalRef = ref
     row.status = '결재중'
   }
-  const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
-  const adm = ACCOUNTS.find((a) => a.role === 'ADMIN')!
-  const approver = me.name === biz.name ? adm.name : biz.name
-  const apId = nextNo('AP', year, s.approvals.map((a) => a.id))
-  s.approvals.unshift({
-    id: apId, docType: '출력물폐기 상신', title: `[출력물폐기] ${me.name} ${targets.length}건 (${today()})`,
-    drafter: me.name, dept: me.dept, approver, status: '대기', draftedAt: today(), ref,
-  })
-  s.todos.unshift({ id: nextNo('TD', year, s.todos.map((t) => t.id)), owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false })
+  draftApproval({ docType: '출력물폐기 상신', title: `[출력물폐기] ${me.name} ${targets.length}건 (${today()})`, ref, drafter: me })
 
   // 폐쇄 루프 — 상신과 함께 내 '출력물 폐기확인' 할일이 닫힌다
   const todo = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && !t.done)

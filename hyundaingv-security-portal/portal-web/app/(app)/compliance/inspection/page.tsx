@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
@@ -37,18 +38,9 @@ async function registerResult(formData: FormData) {
   plan.result = result
   plan.status = '결재중'
 
-  // 폐쇄 루프 — 점검 결과·증적이 부서장 결재로 흐르고, 승인되면 현황판 완료로 집계된다 (결재 시트 3번)
+  // 폐쇄 루프 — 점검 결과·증적이 기본 결재선으로 흐르고, 승인되면 현황판 완료로 집계된다 (결재 시트 3번)
   const item = s.inspectionItems.find((i) => i.id === plan.itemId)
-  const year = today().slice(0, 4)
-  const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
-  const adm = ACCOUNTS.find((a) => a.role === 'ADMIN')!
-  const approver = me.name === biz.name ? adm.name : biz.name
-  const apId = nextNo('AP', year, s.approvals.map((a) => a.id))
-  s.approvals.unshift({
-    id: apId, docType: '점검결과 상신', title: `[보안점검결과-점검항목] ${item?.control ?? plan.itemId} (${plan.month})`,
-    drafter: me.name, dept: me.dept, approver, status: '대기', draftedAt: today(), ref: plan.id,
-  })
-  s.todos.unshift({ id: nextNo('TD', year, s.todos.map((t) => t.id)), owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false })
+  draftApproval({ docType: '점검결과 상신', title: `[보안점검결과-점검항목] ${item?.control ?? plan.itemId} (${plan.month})`, ref: plan.id, drafter: me })
   revalidatePath('/', 'layout')
 }
 

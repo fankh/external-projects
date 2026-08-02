@@ -1,8 +1,8 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 import type { IncidentGrade } from '@/lib/types'
 
@@ -56,16 +56,8 @@ async function submitReport(formData: FormData) {
     inc.reportStatus = '결재중'
   }
 
-  // 폐쇄 루프 — 장애통계 상신이 결재함으로 흐르고, 승인되면 묶인 장애 건이 결재완료로 전파된다
-  const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
-  const adm = ACCOUNTS.find((a) => a.role === 'ADMIN')!
-  const approver = me.name === biz.name ? adm.name : biz.name
-  const apId = nextNo('AP', year, s.approvals.map((a) => a.id))
-  s.approvals.unshift({
-    id: apId, docType: '장애보고 상신', title: `[장애보고] ${targets.length}건 (${today()} 취합, 엑셀양식 자동첨부)`,
-    drafter: me.name, dept: me.dept, approver, status: '대기', draftedAt: today(), ref,
-  })
-  s.todos.unshift({ id: nextNo('TD', year, s.todos.map((t) => t.id)), owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false })
+  // 폐쇄 루프 — 장애통계 상신이 기본 결재선으로 흐르고, 승인되면 묶인 장애 건이 결재완료로 전파된다
+  draftApproval({ docType: '장애보고 상신', title: `[장애보고] ${targets.length}건 (${today()} 취합, 엑셀양식 자동첨부)`, ref, drafter: me })
   revalidatePath('/', 'layout')
 }
 

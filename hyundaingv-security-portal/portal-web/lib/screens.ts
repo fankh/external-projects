@@ -60,13 +60,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '양식관리', detail: '서약서 양식(HTML·개정일자) 버전 관리' },
     ],
   },
-  '/settings/users': {
-    desc: '사용자·그룹·결재선 — 계정과 권한그룹, 결재선을 관리한다.',
-    features: [
-      { name: '사용자 관리', detail: '인사정보 연동 계정, 권한그룹 지정' },
-      { name: '결재선 관리', detail: '업무별 기본 결재선 구성' },
-    ],
-  },
   '/settings/menus': {
     desc: '메뉴·기능 관리 — 포털 메뉴 체계와 화면 내 기능 단위를 관리한다.',
     features: [

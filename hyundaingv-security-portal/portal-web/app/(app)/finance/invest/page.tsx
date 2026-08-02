@@ -1,8 +1,8 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 import type { SettlementItem } from '@/lib/types'
 
@@ -65,16 +65,8 @@ async function requestSettlement(formData: FormData) {
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
   s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: '결재중', requestedBy: me.name, requestedAt: today() })
 
-  // 폐쇄 루프 — 정산품의 상신이 결재함으로 흐르고, 승인되면 지급완료로 실적에 반영된다
-  const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
-  const adm = ACCOUNTS.find((a) => a.role === 'ADMIN')!
-  const approver = me.name === biz.name ? adm.name : biz.name
-  const apId = nextNo('AP', year, s.approvals.map((a) => a.id))
-  s.approvals.unshift({
-    id: apId, docType: '투자 정산품의', title: `[정산품의-투자] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`,
-    drafter: me.name, dept: me.dept, approver, status: '대기', draftedAt: today(), ref: stId,
-  })
-  s.todos.unshift({ id: nextNo('TD', year, s.todos.map((t) => t.id)), owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false })
+  // 폐쇄 루프 — 정산품의 상신이 기본 결재선으로 흐르고, 승인되면 지급완료로 실적에 반영된다
+  draftApproval({ docType: '투자 정산품의', title: `[정산품의-투자] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`, ref: stId, drafter: me })
 
   revalidatePath('/', 'layout')
 }

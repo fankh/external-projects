@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { Card, ScreenHeader } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
 import type { SrKind } from '@/lib/types'
 
@@ -26,17 +26,10 @@ async function createSr(formData: FormData) {
   const year = today().slice(0, 4)
   const srNo = nextNo('SR', year, s.srRequests.map((r) => r.srNo))
 
-  // 결재선 — 업무담당이 기본 결재자, 업무담당 본인 기안은 Admin 이 결재 (설정 화면 구현 전 기본선)
-  const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
-  const adm = ACCOUNTS.find((a) => a.role === 'ADMIN')!
-  const approver = me.name === biz.name ? adm.name : biz.name
-
   s.srRequests.unshift({ srNo, kind, title, system, requester: me.name, dept: me.dept, status: '결재중', requestedAt: today(), content })
 
-  // 폐쇄 루프 — 신청과 동시에 결재 문서가 상신되고, 결재자에게 '결재' 할일이 생긴다
-  const apId = nextNo('AP', year, s.approvals.map((a) => a.id))
-  s.approvals.unshift({ id: apId, docType: 'SR 신청', title, drafter: me.name, dept: me.dept, approver, status: '대기', draftedAt: today(), ref: srNo })
-  s.todos.unshift({ id: nextNo('TD', year, s.todos.map((t) => t.id)), owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false })
+  // 폐쇄 루프 — 신청과 동시에 기본 결재선(환경설정)으로 상신되고, 결재자에게 '결재' 할일이 생긴다
+  draftApproval({ docType: 'SR 신청', title, ref: srNo, drafter: me })
 
   revalidatePath('/', 'layout')
   redirect(`/sr/requests?q=${encodeURIComponent(srNo)}`)

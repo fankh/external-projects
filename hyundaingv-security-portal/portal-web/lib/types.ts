@@ -40,6 +40,12 @@ export const SR_FLOW: SrStatus[] = ['작성중', '결재중', 'CI배정', '개�
 
 export type ApprovalStatus = '대기' | '승인' | '반려'
 
+/** 기본 결재선 — 문서 유형별 결재자 (환경설정 > 결재선 관리에서 유지보수) */
+export interface ApprovalLine {
+  docType: ApprovalDocType
+  approver: string
+}
+
 export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '변경결과 상신' | '서약 현황 상신' | '장애보고 상신' | '점검결과 상신' | '출력물폐기 상신' | '보안위반 확인서'
 
 /** 출력물 개인정보관리 — 보안·출력물 시스템(DB 연계)에서 전일자 일배치 이관 → 본인 폐기 등록 → 결재 (결재 시트 13번) */
