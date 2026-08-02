@@ -1,6 +1,6 @@
 /** 스모크 테스트 — 프로덕션 서버를 띄우고 권한 매트릭스·리다이렉트를 검증한다.
  *  사용: npm run build && npm run smoke  (itam-web scripts/smoke.mjs 패턴) */
-import { spawn } from 'node:child_process'
+import { execSync, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -94,6 +94,14 @@ async function get(pathname, role) {
 
 async function main() {
   if (!REMOTE) {
+    // 이전 실행의 고아 서버가 포트를 잡고 있으면 구버전을 검증하게 된다 — 기동 전에 확인한다
+    try {
+      await fetch(`${BASE}/login`)
+      throw new Error(`포트 ${PORT} 에 이미 서버가 떠 있습니다 — 이전 스모크의 고아 프로세스를 종료하세요.`)
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('이미 서버가')) throw e
+      // 연결 실패 = 포트 비어 있음 (정상)
+    }
     server = spawn('npx', ['next', 'start', '-p', String(PORT)], {
       cwd: ROOT, shell: true, stdio: 'ignore',
     })
@@ -120,11 +128,27 @@ async function main() {
     }
   }
 
-  // 3) 미정의 경로 — 404
+  // 3) 구현 화면 — SSR 본문 내용 검증
+  const CONTENT = [
+    ['/work/approvals', 'BIZ_MGR', ['수신함 — 결재 대기', 'AP-2026-0712', '상신함']],
+    ['/work/approvals', 'USER', ['월별 정산 데이터 추출 요청']], // 김현우 상신함
+    ['/work/todo', 'USER', ['보안서약서', '서약서 제출', '상반기 정보보호 교육 이수']],
+    ['/work/todo', 'BIZ_MGR', ['SR-2026-0146 CI 배정', '결재함 이동']],
+    ['/dashboard', 'USER', ['개인별현황', '2026년 일반 보안서약서 제출']],
+  ]
+  for (const [route, role, needles] of CONTENT) {
+    const r = await get(route, role)
+    const html = await r.text()
+    for (const needle of needles) {
+      check(r.status === 200 && html.includes(needle), `${role} ${route} 본문에 "${needle}"`)
+    }
+  }
+
+  // 4) 미정의 경로 — 404
   const nf = await get('/no-such-screen', 'ADMIN')
   check(nf.status === 404, `미정의 경로 → 404 (got ${nf.status})`)
 
-  // 4) 루트 — 세션 유무에 따라 분기
+  // 5) 루트 — 세션 유무에 따라 분기
   const rootAnon = await get('/')
   check(rootAnon.status === 307 && (rootAnon.headers.get('location') ?? '').includes('/login'), '루트(미로그인) → /login')
   const rootUser = await get('/', 'USER')
@@ -136,4 +160,12 @@ async function main() {
 
 main()
   .catch((e) => { console.error(e); process.exitCode = 1 })
-  .finally(() => { if (server) server.kill() })
+  .finally(() => {
+    if (!server) return
+    // Windows 에서 shell:true 로 띄운 자식은 kill() 이 cmd 만 죽이고 서버가 고아로 남는다 — 트리째 종료한다
+    if (process.platform === 'win32') {
+      try { execSync(`taskkill /pid ${server.pid} /T /F`, { stdio: 'ignore' }) } catch { /* 이미 종료 */ }
+    } else {
+      server.kill()
+    }
+  })

@@ -196,20 +196,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '진행내역', detail: '점검 수행·결함 조치 추적' },
     ],
   },
-  '/work/todo': {
-    desc: '나의 할일 — 서약·교육·체크리스트·SR·결재 등 개인 할일을 모아 본다.',
-    features: [
-      { name: '할일 목록', detail: '기한·유형별 개인 할일 집계' },
-      { name: '바로가기', detail: '해당 업무 화면으로 이동해 처리' },
-    ],
-  },
-  '/work/approvals': {
-    desc: '결재함 — 상신함·수신함과 결재 처리를 다룬다.',
-    features: [
-      { name: '상신함', detail: '상신일자·결재상태 조회' },
-      { name: '수신함', detail: '내가 결재자인 대기 건 승인·반려' },
-    ],
-  },
   '/settings/users': {
     desc: '사용자·그룹·결재선 — 계정과 권한그룹, 결재선을 관리한다.',
     features: [

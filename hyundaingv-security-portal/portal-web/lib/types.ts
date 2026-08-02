@@ -41,6 +41,9 @@ export interface Approval {
   approver: string
   status: ApprovalStatus
   draftedAt: string
+  /** 결재 대상 업무 문서 참조 (SR번호 등) — 승인·반려가 해당 업무 상태로 전파된다 */
+  ref?: string
+  decidedAt?: string
 }
 
 export interface TodoItem {
