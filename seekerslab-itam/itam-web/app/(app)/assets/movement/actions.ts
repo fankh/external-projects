@@ -82,7 +82,10 @@ export async function moveAsset(approvalId: string) {
   })
   ap.fulfilled = true
 
-  appendAudit({ actor: session.name, action: `자산 이동 처리 (${ap.id})`, target: asset.assetNo })
+  // 신청자에게 이동 집행 완료를 알린다 — 결재 승인(신청 접수)과 별개로, 실제 위치 변경이 반영됐음을 통보한다.
+  // (불출 통보 v1.137 과 대칭 — 이동도 승인만으로는 실물이 안 움직이므로 집행 시점에 요청자 루프를 닫는다.)
+  dispatch({ channel: '이메일', to: ap.requester, subject: `자산 이동 완료 — ${asset.assetNo} ${asset.model} · ${from} → ${to} (${ap.id})`, kind: '자산 이동', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `자산 이동 처리 (${ap.id}) · 신청자 통보`, target: asset.assetNo })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${asset.assetNo} 이동 완료 — ${from} → ${to}` }
+  return { ok: true, message: `${asset.assetNo} 이동 완료 — ${from} → ${to} · 신청자에게 통보 발송` }
 }
