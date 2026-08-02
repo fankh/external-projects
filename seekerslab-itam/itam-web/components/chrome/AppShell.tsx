@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState, type ReactNode } from 'react'
 import type { Role } from '@/lib/types'
+import { GlobalSearch } from './GlobalSearch'
 import { NAV, TITLE_BY_HREF } from './menus'
 
 const TABS_KEY = 'itam-tabs'
@@ -70,16 +71,7 @@ export function AppShell(props: {
           <div className="sub">AI Asset Management</div>
         </div>
         <div className="sp" />
-        <input
-          className="search"
-          placeholder="자산번호 · 호스트명 · 소유자 검색"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              const q = (e.target as HTMLInputElement).value.trim()
-              router.push(q ? `/assets/register?q=${encodeURIComponent(q)}` : '/assets/register')
-            }
-          }}
-        />
+        <GlobalSearch />
         <div className="userchip">
           <span className="avatar">{props.userName.slice(0, 1)}</span>
           <span>

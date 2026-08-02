@@ -77,6 +77,23 @@ button { font-family: inherit; }
 }
 .titlebar .search::placeholder { color: #6b7a95; }
 .titlebar .search:focus { outline: none; border-color: var(--accent); background: rgba(255, 255, 255, .1); }
+/* 전역 통합 검색 드롭다운 — edim 다크·덴스 팝오버 */
+.titlebar .gsearch { display: inline-flex; }
+.gsearch-pop {
+  position: absolute; top: 36px; right: 0; width: 380px; max-height: 60vh; overflow-y: auto; z-index: 60;
+  background: #0e1626; border: 1px solid #2c3d5c; border-radius: 10px; padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+}
+.gsearch-empty { padding: 14px; font-size: 12px; color: #6b7a95; text-align: center; }
+.gsearch-group + .gsearch-group { margin-top: 4px; border-top: 1px solid #1c2740; padding-top: 4px; }
+.gsearch-kind { font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: #6b7a95; padding: 5px 8px 3px; font-weight: 700; }
+.gsearch-item {
+  display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left;
+  padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; font-family: inherit;
+}
+.gsearch-item.on { background: rgba(56, 106, 189, .22); }
+.gsearch-label { font-size: 12px; color: #e8edf5; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gsearch-sub { font-size: 10.5px; color: #8494ac; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .titlebar .btn { background: rgba(255, 255, 255, .07); border-color: #2c3d5c; color: #c6d2e6; }
 .titlebar .btn:hover { background: rgba(255, 255, 255, .12); border-color: #3d5178; }
 .userchip { display: flex; align-items: center; gap: 9px; }
