@@ -1,0 +1,66 @@
+/** 목업 어댑터 — 데모 환경에서 고객사 시스템을 대체한다.
+ *  실서비스 커스터마이징: 이 파일을 고객사 어댑터(REST API·DB 연계 구현)로 교체하고
+ *  portal.config.ts 의 adapterId 만 바꾼다. 포털 본체 코드는 변경 없음. */
+import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter } from './types'
+import type { Person } from '@/lib/types'
+
+export const mockMail: MessagingAdapter = {
+  async send(to, subject) {
+    return { ok: true, detail: `메일 ${to.length}건 발송 — ${subject}` }
+  },
+}
+
+export const mockSms: MessagingAdapter = {
+  async send(to, subject) {
+    return { ok: true, detail: `문자 ${to.length}건 발송 — ${subject}` }
+  },
+}
+
+/** 인사·근태 목업 — 실서비스에서는 HR 시스템 인터페이스(일배치)로 대체 */
+const PEOPLE: Person[] = [
+  { name: '김현우', dept: '개발1팀' },
+  { name: '최은영', dept: '개발1팀' },
+  { name: '이수진', dept: '경영지원팀' },
+  { name: '정민서', dept: '경영지원팀' },
+  { name: '박정호', dept: 'IT운영팀' },
+  { name: '한지원', dept: 'IT운영팀' },
+  { name: '시스템관리자', dept: '정보기획팀' },
+  { name: '강도윤', dept: '정보기획팀' },
+]
+
+export const mockHr: HrAdapter = {
+  async fetchPeople() {
+    return PEOPLE
+  },
+}
+
+/** 자산관리시스템 목업 — 고객사 보유 자산 데이터셋과 등록번호 채번기 */
+const EXTERNAL_ASSETS: ExternalAsset[] = [
+  { serial: 'SN-NB-88121', model: 'ThinkPad T14 Gen5', category: '노트북', holder: '김현우', assetNo: 'AST-2025-0112' },
+  { serial: 'SN-NB-88342', model: 'ThinkPad T14 Gen5', category: '노트북', holder: '최은영', assetNo: 'AST-2025-0113' },
+  { serial: 'SN-MN-71011', model: 'Dell U2723QE', category: '모니터', holder: '이수진', assetNo: 'AST-2024-0871' },
+  { serial: 'SN-NB-91205', model: 'Galaxy Book4 Pro', category: '노트북', holder: '정민서' },
+  { serial: 'SN-SV-30018', model: 'PowerEdge R760', category: '서버', holder: 'IT운영팀' },
+  { serial: 'SN-PR-55290', model: 'Sindoh D420', category: '복합기', holder: '경영지원팀' },
+]
+
+let assetSeq = 230
+
+export const mockAsset: AssetAdapter = {
+  async searchAssets(query) {
+    const q = query.trim()
+    if (!q) return EXTERNAL_ASSETS
+    return EXTERNAL_ASSETS.filter(
+      (a) => a.serial.includes(q) || a.model.includes(q) || a.holder.includes(q) || (a.assetNo ?? '').includes(q),
+    )
+  },
+  async acquireAssetNo(serial) {
+    const asset = EXTERNAL_ASSETS.find((a) => a.serial === serial)
+    if (!asset) throw new Error(`미확인 시리얼: ${serial}`)
+    if (!asset.assetNo) {
+      assetSeq += 1
+      asset.assetNo = `AST-2026-${String(assetSeq).padStart(4, '0')}`
+    }
+    return { assetNo: asset.assetNo }
+  },
+}

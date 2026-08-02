@@ -151,6 +151,8 @@ async function main() {
     // 공지 — 등록 폼은 업무담당·Admin 에게만
     ['/board/notices', 'USER', ['8월 정기 서버 점검 안내']],
     ['/board/notices', 'ADMIN', ['공지 등록']],
+    // 연동 프레임워크 — 채널 레지스트리·어댑터 바인딩·상태 제어
+    ['/platform/integrations', 'ADMIN', ['연동 채널', '그룹웨어 메일', '자산관리시스템', 'mock-asset', '인사정보 즉시 동기화', 'portal.config.ts']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)

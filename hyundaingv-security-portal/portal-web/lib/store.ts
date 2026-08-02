@@ -1,7 +1,8 @@
 /** 데이터 스토어 — globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
-import type { Approval, BatchRun, Integration, Notice, Person, PledgeSign, SrRequest, TodoItem } from './types'
+import { CHANNELS } from '@/portal.config'
+import type { Approval, BatchRun, Notice, Person, PledgeSign, SendLogEntry, SrRequest, TodoItem } from './types'
 
 export interface Store {
   srRequests: SrRequest[]
@@ -10,7 +11,9 @@ export interface Store {
   notices: Notice[]
   people: Person[]
   pledges: PledgeSign[]
-  integrations: Integration[]
+  /** 연동 채널 활성 상태 (channelId → on/off) — 정의는 portal.config.ts, 상태는 런타임 */
+  channelStates: Record<string, boolean>
+  sendLog: SendLogEntry[]
   batchRuns: BatchRun[]
 }
 
@@ -58,14 +61,8 @@ function seed(): Store {
       { name: '시스템관리자', dept: '정보기획팀', year: '2026', kind: '일반', signedAt: '2026-07-09', method: '온라인' },
       { name: '박정호', dept: 'IT운영팀', year: '2026', kind: '관리책임자', signedAt: '2026-07-10', method: '온라인' },
     ],
-    integrations: [
-      { name: '사내 메일 릴레이', kind: '이메일', enabled: true },
-      { name: '문자 발송 게이트웨이', kind: '문자', enabled: true },
-      { name: '인사정보 일배치', kind: '인사정보', enabled: true },
-      { name: 'SSO (SAML IdP)', kind: 'SSO(SAML)', enabled: true },
-      { name: '자산관리시스템 API', kind: '자산관리 API', enabled: false },
-      { name: '그룹웨어 결재 연계', kind: '그룹웨어', enabled: true },
-    ],
+    channelStates: Object.fromEntries(CHANNELS.map((c) => [c.id, c.enabledByDefault])),
+    sendLog: [],
     batchRuns: [
       { job: '인사정보 동기화', ranAt: '2026-08-02 05:00', result: '성공' },
       { job: '미서약자 안내메일 발송', ranAt: '2026-08-01 08:00', result: '성공' },

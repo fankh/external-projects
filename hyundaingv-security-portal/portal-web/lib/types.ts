@@ -90,11 +90,14 @@ export interface PledgeSign {
   method: '온라인' | '서면(스캔)'
 }
 
-/** 연동 채널 (이메일·문자·인사정보·SSO 등) — 상태바 표시용 */
-export interface Integration {
-  name: string
-  kind: '이메일' | '문자' | '인사정보' | 'SSO(SAML)' | '자산관리 API' | '그룹웨어'
-  enabled: boolean
+/** 발송 이력 — 어댑터 경유 메일·문자 발송 기록 (연동·인프라 화면에서 추적) */
+export interface SendLogEntry {
+  channelId: string
+  to: number
+  subject: string
+  ok: boolean
+  detail: string
+  at: string
 }
 
 export interface BatchRun {

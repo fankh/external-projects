@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
+import { sendVia } from '@/lib/integrations/registry'
 import { getStore } from '@/lib/store'
 
 const YEAR = '2026'
@@ -17,8 +18,9 @@ async function remindUnsigned(formData: FormData) {
   const targets = s.people.filter((p) => p.dept === dept && !signedNames.has(p.name))
   if (targets.length === 0) return
 
-  // 폐쇄 루프 — 발송이 배치 이력으로 남아 상태바 '마지막 배치'가 갱신된다
-  s.batchRuns.unshift({ job: `미서약 안내메일 발송 (${dept} ${targets.length}명)`, ranAt: nowStamp(), result: '성공' })
+  // 폐쇄 루프 — 그룹웨어 메일 어댑터 경유 발송. 채널이 중지 상태면 실패가 배치 이력으로 드러난다.
+  const r = await sendVia('groupware-mail', targets.map((t) => t.name), `[보안서약서] ${YEAR}년 미서약 안내`)
+  s.batchRuns.unshift({ job: `미서약 안내메일 발송 (${dept} ${targets.length}명)`, ranAt: nowStamp(), result: r.ok ? '성공' : '실패' })
   revalidatePath('/', 'layout')
 }
 

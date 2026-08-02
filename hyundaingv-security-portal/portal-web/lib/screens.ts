@@ -172,14 +172,4 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '자동첨부 매핑', detail: '결재 문서 유형별 양식 연결' },
     ],
   },
-  '/platform/integrations': {
-    desc: '연동·인프라 — 사내 시스템 연동 채널과 기반 설정을 관리한다.',
-    features: [
-      { name: '이메일·문자 연동', detail: '안내메일·문자 발송 게이트웨이' },
-      { name: '인사정보 연동', detail: '조직·인사 일배치 동기화' },
-      { name: 'SSO (SAML)', detail: 'IdP 연동·인증 설정' },
-      { name: '자산관리 API · 그룹웨어', detail: '자산정보 조회·결재 연계' },
-      { name: '서버세팅·보안성 검토', detail: 'WAS·DB암호화·시큐어코딩 점검 항목' },
-    ],
-  },
 }

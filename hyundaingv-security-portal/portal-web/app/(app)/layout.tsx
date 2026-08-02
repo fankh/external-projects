@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/chrome/AppShell'
+import { channelSummary } from '@/lib/integrations/registry'
 import { getSession, SESSION_COOKIE } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ROLE_LABEL } from '@/lib/types'
@@ -21,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     todos: s.todos.filter((t) => t.owner === session.name && !t.done).length,
     approvals: s.approvals.filter((a) => a.approver === session.name && a.status === '대기').length,
   }
-  const channels = { on: s.integrations.filter((i) => i.enabled).length, total: s.integrations.length }
+  const channels = channelSummary()
 
   return (
     <AppShell

@@ -1,0 +1,56 @@
+/** 연동 어댑터 계약 — 제품안내서 §V 시스템 연동 아키텍처의 추상화.
+ *  포털 본체는 이 인터페이스만 알고, 고객사별 구현(그룹웨어·인사·자산·보안 시스템)은
+ *  어댑터로 캡슐화한다. 목업 어댑터(mock.ts)를 고객사 어댑터로 교체하는 것이 커스터마이징이다. */
+import type { Person } from '@/lib/types'
+
+export type ChannelKind = 'mail' | 'sms' | 'approval' | 'sso' | 'hr' | 'asset' | 'secdata'
+
+/** portal.config.ts 의 채널 바인딩 — 고객사 프로필이 채널을 어댑터에 연결한다 */
+export interface ChannelBinding {
+  id: string
+  kind: ChannelKind
+  name: string
+  transport: 'REST API' | 'SAML' | 'DB 연계' | '인터페이스'
+  usage: string
+  adapterId: string
+  enabledByDefault: boolean
+}
+
+export interface SendResult {
+  ok: boolean
+  detail: string
+}
+
+/** 메일·문자 발송 (그룹웨어 메일 · 홈페이지 서버 SMS) */
+export interface MessagingAdapter {
+  send(to: string[], subject: string): Promise<SendResult>
+}
+
+/** 인사·근태 — 사용자 기본정보 동기화 (서약 대상·권한 판별 기준) */
+export interface HrAdapter {
+  fetchPeople(): Promise<Person[]>
+}
+
+/** 자산관리시스템 — 자산 조회·신규 자산등록번호 취득 (REST API) */
+export interface ExternalAsset {
+  serial: string
+  model: string
+  category: string
+  holder: string
+  /** 자산관리시스템에 이미 등록된 자산이면 등록번호 보유 */
+  assetNo?: string
+}
+
+export interface AssetAdapter {
+  searchAssets(query: string): Promise<ExternalAsset[]>
+  /** 신규 자산 자료를 전송하고 자산등록번호를 취득한다 (IT포털 → 자산관리시스템) */
+  acquireAssetNo(serial: string): Promise<{ assetNo: string }>
+}
+
+/** 어댑터 묶음 — registry 가 adapterId 로 해석한다 */
+export interface AdapterSet {
+  mail?: MessagingAdapter
+  sms?: MessagingAdapter
+  hr?: HrAdapter
+  asset?: AssetAdapter
+}
