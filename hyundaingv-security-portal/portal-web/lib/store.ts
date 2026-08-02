@@ -1,8 +1,11 @@
 /** 데이터 스토어 — globalThis 싱글턴으로 HMR·서버액션 간 상태 유지.
- *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
+ *  PORTAL_DATA_FILE 이 설정되면 파일 기반으로 영속화되어 서버 재시작 후에도 유지된다
+ *  (itam-web DATA_FILE 패턴). 미설정(로컬 개발·스모크)이면 순수 인메모리라 매 기동 시 시드로 초기화된다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { CHANNELS } from '@/portal.config'
-import type { Approval, ApprovalLine, BatchJob, BatchRun, ChangeWork, CodeGroup, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, BatchJob, BatchRun, ChangeWork, CodeGroup, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -40,6 +43,8 @@ export interface Store {
   qna: QnaPost[]
   codeGroups: CodeGroup[]
   excelTemplates: ExcelTemplate[]
+  /** 공통 첨부 — refId(업무 문서 번호)로 전 모듈이 공유 */
+  attachments: Attachment[]
   /** 연동 채널 활성 상태 (channelId → on/off) — 정의는 portal.config.ts, 상태는 런타임 */
   channelStates: Record<string, boolean>
   sendLog: SendLogEntry[]
@@ -209,6 +214,11 @@ function seed(): Store {
       { id: 'IF-03', name: '자산정보 조회', from: '포털', to: '자산관리시스템', method: 'REST API', status: '정상' },
       { id: 'IF-04', name: '출력물 자료 수신', from: '보안·출력물 시스템', to: '포털', method: 'DB 연계', status: '오류' },
     ],
+    attachments: [
+      { id: 'AT-2026-0001', refId: 'CT-2026-01', name: 'ERP리포트모듈_계약서.pdf', sizeKb: 842, uploadedBy: '김현우', at: '2026-06-30' },
+      { id: 'AT-2026-0002', refId: 'CT-2026-01', name: '보안관리약정서.pdf', sizeKb: 310, uploadedBy: '김현우', at: '2026-06-30' },
+      { id: 'AT-2026-0003', refId: 'SR-2026-0141', name: '리포트_개선_요구사항.xlsx', sizeKb: 96, uploadedBy: '김현우', at: '2026-07-21' },
+    ],
     codeGroups: [
       { id: 'FAULT_GRADE', name: '장애등급', values: [{ code: '1등급', enabled: true }, { code: '2등급', enabled: true }, { code: '3등급', enabled: true }] },
       { id: 'SR_KIND', name: 'SR 유형', values: [{ code: '시스템개발', enabled: true }, { code: '데이터', enabled: true }, { code: '계정/권한', enabled: true }] },
@@ -245,10 +255,39 @@ function seed(): Store {
   }
 }
 
-const g = globalThis as typeof globalThis & { __ngvPortalStore?: Store }
+const g = globalThis as typeof globalThis & { __ngvPortalStore?: Store; __ngvPortalSaveTimer?: NodeJS.Timeout }
+
+const DATA_FILE = process.env.PORTAL_DATA_FILE
+
+function loadFromFile(): Store | null {
+  if (!DATA_FILE || !existsSync(DATA_FILE)) return null
+  try {
+    const raw = JSON.parse(readFileSync(DATA_FILE, 'utf8')) as Partial<Store>
+    // 구버전 파일에 새 컬렉션이 없어도 죽지 않도록 시드 위에 얹는다
+    return { ...seed(), ...raw }
+  } catch {
+    return null
+  }
+}
+
+/** 디바운스 저장 — 모든 뮤테이션은 getStore() 를 거치므로, 호출 시마다 저장을 예약하면
+ *  액션 직후 상태가 파일에 반영된다. 임시 파일 → rename 으로 부분 쓰기를 막는다. */
+function scheduleSave(s: Store) {
+  if (!DATA_FILE) return
+  clearTimeout(g.__ngvPortalSaveTimer)
+  g.__ngvPortalSaveTimer = setTimeout(() => {
+    try {
+      mkdirSync(dirname(DATA_FILE), { recursive: true })
+      const tmp = `${DATA_FILE}.tmp`
+      writeFileSync(tmp, JSON.stringify(s), 'utf8')
+      renameSync(tmp, DATA_FILE)
+    } catch { /* 디스크 오류는 데모 흐름을 막지 않는다 */ }
+  }, 300)
+}
 
 export function getStore(): Store {
-  if (!g.__ngvPortalStore) g.__ngvPortalStore = seed()
+  if (!g.__ngvPortalStore) g.__ngvPortalStore = loadFromFile() ?? seed()
+  scheduleSave(g.__ngvPortalStore)
   return g.__ngvPortalStore
 }
 

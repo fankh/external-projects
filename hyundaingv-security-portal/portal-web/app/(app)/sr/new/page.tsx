@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { Card, ScreenHeader } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -27,6 +28,9 @@ async function createSr(formData: FormData) {
   const srNo = nextNo('SR', year, s.srRequests.map((r) => r.srNo))
 
   s.srRequests.unshift({ srNo, kind, title, system, requester: me.name, dept: me.dept, status: '결재중', requestedAt: today(), content })
+
+  // 첨부 — 본문에 올린 파일이 결재 문서에 그대로 첨부된다 (요구사항: SR신청 추가첨부 없음, 등록 파일 그대로)
+  registerUpload(srNo, formData.get('file'), me.name)
 
   // 폐쇄 루프 — 신청과 동시에 기본 결재선(환경설정)으로 상신되고, 결재자에게 '결재' 할일이 생긴다
   draftApproval({ docType: 'SR 신청', title, ref: srNo, drafter: me })
@@ -63,6 +67,13 @@ export default async function SrNewPage() {
             <label className="dim" style={{ width: 80, fontSize: 11.5, fontWeight: 600, paddingTop: 6 }}>요청 내용</label>
             <textarea className="input" name="content" maxLength={2000} rows={5} placeholder="배경 · 요구사항 · 기대 결과"
               style={{ flex: 1, height: 'auto', padding: '8px 10px', resize: 'vertical', fontFamily: 'inherit' }} />
+          </div>
+          <div className="hstack">
+            <label className="dim" style={{ width: 80, fontSize: 11.5, fontWeight: 600 }}>첨부파일</label>
+            <input className="input" type="file" name="file" style={{ flex: 1, paddingTop: 4 }} />
+          </div>
+          <div className="dim" style={{ fontSize: 11.5, paddingLeft: 88 }}>
+            본문 첨부는 결재 문서에 그대로 첨부된다 (추가 첨부 없음 · 최대 10MB).
           </div>
           <div className="hstack" style={{ justifyContent: 'flex-end' }}>
             <button type="submit" className="btn pri">결재 상신</button>

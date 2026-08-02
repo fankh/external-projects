@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -34,7 +35,7 @@ async function confirmPlan(formData: FormData) {
 
 async function addContract(formData: FormData) {
   'use server'
-  await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
@@ -42,12 +43,14 @@ async function addContract(formData: FormData) {
   if (!vendor || !title || !Number.isFinite(amount) || amount <= 0) return
   const s = getStore()
   const year = today().slice(0, 4)
+  const id = nextNo('CT', year, s.investContracts.map((c) => c.id))
   s.investContracts.unshift({
-    id: nextNo('CT', year, s.investContracts.map((c) => c.id)),
-    kind: '투자',
+    id, kind: '투자',
     planId: s.investPlans.some((p) => p.id === planId && p.kind === '투자') ? planId : undefined,
     vendor, title, amount: Math.round(amount), signedAt: today(),
   })
+  // 계약별 부속서류 (계약서·보안관리약정서 등) — 공통 첨부로 묶인다
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/finance/invest')
 }
 
@@ -152,7 +155,7 @@ export default async function InvestPage() {
                 {kindContracts.map((c) => (
                   <tr key={c.id}>
                     <td className="code">{c.id}</td>
-                    <td className="strong">{c.title}</td>
+                    <td className="strong">{c.title}<Clip count={attachCount(c.id)} title="계약서·부속서류" /></td>
                     <td>{c.vendor}</td>
                     <td className="num">{fmt(c.amount)}</td>
                     <td>{c.planId ? <span className="mono">{c.planId}</span> : <Chip tone="warn" bare>계획외</Chip>}</td>
@@ -173,6 +176,7 @@ export default async function InvestPage() {
               <div className="hstack">
                 <input className="input" name="title" required maxLength={120} placeholder="계약명" style={{ flex: 1 }} />
                 <input className="input" name="amount" required type="number" min={1} placeholder="계약액" style={{ width: 110 }} />
+                <input className="input" type="file" name="file" style={{ width: 180, paddingTop: 4 }} title="계약서·부속서류" />
                 <button type="submit" className="btn">계약 등록</button>
               </div>
             </form>

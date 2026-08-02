@@ -46,3 +46,9 @@ export function Stat(props: { value: ReactNode; label: string; tone?: 'warn' | '
 export function Chip(props: { tone: 'ok' | 'warn' | 'err' | 'info' | 'neutral'; children: ReactNode; bare?: boolean }) {
   return <span className={`chip ${props.tone} ${props.bare ? 'bare' : ''}`}>{props.children}</span>
 }
+
+/** 첨부 표시 — 공통 첨부(refId 기준) 건수. 0이면 렌더하지 않는다. */
+export function Clip({ count, title }: { count: number; title?: string }) {
+  if (count <= 0) return null
+  return <span className="clip" title={title}>📎{count}</span>
+}

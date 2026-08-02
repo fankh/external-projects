@@ -192,6 +192,9 @@ async function main() {
     // QnA — 질문·답변
     ['/board/qna', 'USER', ['QA-2026-12', '재택근무 체크리스트 제출 주기', '답변 대기', '질문 등록']],
     ['/board/qna', 'BIZ_MGR', ['답변 내용']],
+    // 공통 첨부 — SR·계약 시드 첨부 뱃지
+    ['/sr/requests', 'USER', ['📎']],
+    ['/finance/invest', 'USER', ['📎']],
     // 환경설정 잔여 4종 — 공통코드·메뉴·권한 매트릭스·엑셀양식
     ['/settings/codes', 'ADMIN', ['FAULT_GRADE', '장애등급', '코드 중심 운영', '2등급']],
     ['/settings/menus', 'ADMIN', ['LV1 도메인', '메뉴 체계', '/sr/new', '구현']],

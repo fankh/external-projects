@@ -307,6 +307,18 @@ export interface PledgeForm {
   revisedAt: string
 }
 
+/** 공통 첨부파일 — 결재·게시·SR·계약·장애·변경·서약·교육 등 전 모듈 공통 (제품안내서 §V).
+ *  refId(업무 문서 번호) 하나로 묶이며, 결재 상신 시 결재 문서에서도 같은 참조로 조회된다.
+ *  데모에서는 메타데이터만 저장하고, 실서비스에서는 파일 저장소 연동으로 대체된다. */
+export interface Attachment {
+  id: string
+  refId: string
+  name: string
+  sizeKb: number
+  uploadedBy: string
+  at: string
+}
+
 /** 공통코드 — 장애등급·SR유형·주기 등 업무 코드의 단일 원천 (사용여부 토글) */
 export interface CodeGroup {
   id: string

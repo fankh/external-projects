@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -16,16 +17,15 @@ function enabledGrades(s: ReturnType<typeof getStore>): IncidentGrade[] {
 
 async function addIncident(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const system = String(formData.get('system') ?? '').trim().slice(0, 60)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const grade = String(formData.get('grade') ?? '') as IncidentGrade
   const s = getStore()
   if (!system || !title || !enabledGrades(s).includes(grade)) return
-  s.incidents.unshift({
-    id: nextNo('FL', today().slice(0, 4), s.incidents.map((i) => i.id)),
-    system, title, grade, occurredAt: today(), status: '조치중', reportStatus: '미상신',
-  })
+  const id = nextNo('FL', today().slice(0, 4), s.incidents.map((i) => i.id))
+  s.incidents.unshift({ id, system, title, grade, occurredAt: today(), status: '조치중', reportStatus: '미상신' })
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/infra/incidents')
 }
 
@@ -105,6 +105,7 @@ export default async function IncidentsPage() {
           <select className="select" name="grade">
             {enabledGrades(s).map((g) => <option key={g}>{g}</option>)}
           </select>
+          <input className="input" type="file" name="file" style={{ width: 220, paddingTop: 4 }} title="장애 증적 첨부" />
           <button type="submit" className="btn pri">등록</button>
         </form>
       </Card>
@@ -126,7 +127,7 @@ export default async function IncidentsPage() {
                     </td>
                     <td className="code">{i.id}</td>
                     <td>{i.system}</td>
-                    <td className="strong">{i.title}</td>
+                    <td className="strong">{i.title}<Clip count={attachCount(i.id)} title="증적 첨부" /></td>
                     <td><Chip tone={GRADE_TONE[i.grade]} bare>{i.grade}</Chip></td>
                     <td className="tnum">{i.occurredAt}</td>
                     <td>

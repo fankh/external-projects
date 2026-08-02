@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { SR_CHIP } from '../chips'
@@ -50,7 +51,7 @@ export default async function SrRequestsPage({ searchParams }: { searchParams: P
                   <tr key={r.srNo}>
                     <td className="code">{r.srNo}</td>
                     <td><Chip tone="neutral" bare>{r.kind}</Chip></td>
-                    <td className="strong">{r.title}</td>
+                    <td className="strong">{r.title}<Clip count={attachCount(r.srNo)} title="본문 첨부" /></td>
                     <td>{r.system}</td>
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
                     <td><Chip tone={SR_CHIP[r.status]}>{r.status}</Chip></td>

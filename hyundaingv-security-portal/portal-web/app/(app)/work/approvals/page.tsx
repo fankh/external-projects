@@ -1,4 +1,5 @@
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { ApprovalStatus } from '@/lib/types'
@@ -38,7 +39,7 @@ export default async function ApprovalsPage() {
                   <tr key={a.id}>
                     <td className="code">{a.id}</td>
                     <td><Chip tone="info" bare>{a.docType}</Chip></td>
-                    <td className="strong">{a.title}{a.ref && <span className="mut"> · {a.ref}</span>}</td>
+                    <td className="strong">{a.title}{a.ref && <span className="mut"> · {a.ref}</span>}<Clip count={attachCount(a.ref)} title="업무 문서 첨부" /></td>
                     <td>{a.drafter} <span className="mut">· {a.dept}</span></td>
                     <td className="tnum">{a.draftedAt}</td>
                     <td className="c">
