@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
 import { extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField } from './actions'
@@ -14,6 +14,8 @@ function daysBetween(today: string, dueDate: string): number {
  *  미사용 처리는 **신규 입력**에서만 제외하는 규칙이고(환경설정 › 공통코드 안내 참조), 이미 그
  *  유형으로 등록된 자산은 계속 조회돼야 하기 때문이다. 실사 위치 드롭다운처럼 값을 새로
  *  기록하는 입력 항목은 반대로 활성 코드만 읽는다. */
+const VIEWS_KEY = 'itam-register-views'
+type SavedView = { name: string; q: string; cat: string; status: string; staleOnly: boolean; warrantyOnly: boolean }
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 const STATUSES: (AssetStatus | '전체')[] = ['전체', '검수중', '사용중', '유휴', '대여중', '반납대기', '수리중', '분실', '폐기예정', '폐기완료']
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
@@ -27,6 +29,30 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [status, setStatus] = useState<AssetStatus | '전체'>(STATUSES.includes(props.initialStatus as AssetStatus | '전체') ? (props.initialStatus as AssetStatus) : '전체')
   const [staleOnly, setStaleOnly] = useState(false)
   const [warrantyOnly, setWarrantyOnly] = useState(Boolean(props.initialWarranty))
+  // 저장된 뷰 — 자주 쓰는 필터 조합을 이름 붙여 localStorage 에 보관(MDI 탭과 같은 방식). 개인화·반복 워크플로.
+  const [views, setViews] = useState<SavedView[]>([])
+  const [naming, setNaming] = useState(false)
+  const [viewName, setViewName] = useState('')
+  useEffect(() => {
+    try { const raw = localStorage.getItem(VIEWS_KEY); if (raw) setViews(JSON.parse(raw)) } catch { /* 무시 */ }
+  }, [])
+  const persistViews = (next: SavedView[]) => {
+    setViews(next)
+    try { localStorage.setItem(VIEWS_KEY, JSON.stringify(next)) } catch { /* quota */ }
+  }
+  const applyView = (v: SavedView) => {
+    setQ(v.q); setCat(v.cat as AssetCategory | '전체'); setStatus(v.status as AssetStatus | '전체')
+    setStaleOnly(v.staleOnly); setWarrantyOnly(v.warrantyOnly)
+  }
+  const saveCurrentView = () => {
+    const name = viewName.trim()
+    if (!name) return
+    const v: SavedView = { name, q, cat, status, staleOnly, warrantyOnly }
+    persistViews([...views.filter((x) => x.name !== name), v])
+    setNaming(false); setViewName('')
+  }
+  const removeView = (name: string) => persistViews(views.filter((x) => x.name !== name))
+  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const warrantySet = useMemo(() => new Set(props.warrantyNos ?? []), [props.warrantyNos])
   const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
@@ -126,6 +152,33 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
           </a>
         )}
       </div>
+
+      {(views.length > 0 || filterActive) && (
+        <div className="hstack" style={{ gap: 6, padding: '8px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="kicker mute" style={{ marginRight: 2 }}>저장된 뷰</span>
+          {views.length === 0 && <span className="mut" style={{ fontSize: 12 }}>없음</span>}
+          {views.map((v) => (
+            <span key={v.name} className="chip-view hstack" style={{ gap: 4, padding: '2px 4px 2px 9px', border: '1px solid var(--line-strong)', borderRadius: 14, fontSize: 12 }}>
+              <button style={{ border: 0, background: 'transparent', cursor: 'pointer', font: 'inherit', color: 'var(--accent-deep)', padding: 0 }}
+                onClick={() => applyView(v)} title="이 뷰의 필터 적용">{v.name}</button>
+              <button aria-label={`${v.name} 뷰 삭제`} title="뷰 삭제"
+                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--mut)', fontSize: 13, lineHeight: 1, padding: '0 2px' }}
+                onClick={() => removeView(v.name)}>×</button>
+            </span>
+          ))}
+          {naming ? (
+            <span className="hstack" style={{ gap: 4 }}>
+              <input className="input" style={{ width: 150, height: 26 }} autoFocus placeholder="뷰 이름 (예: 보증 임박 서버)"
+                value={viewName} onChange={(e) => setViewName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && viewName.trim()) saveCurrentView(); if (e.key === 'Escape') { setNaming(false); setViewName('') } }} />
+              <button className="btn sm pri" disabled={!viewName.trim()} onClick={saveCurrentView}>저장</button>
+              <button className="btn sm ghost" onClick={() => { setNaming(false); setViewName('') }}>취소</button>
+            </span>
+          ) : (
+            filterActive && <button className="btn sm" onClick={() => setNaming(true)} title="현재 필터 조합을 이름 붙여 저장">＋ 현재 필터 저장</button>
+          )}
+        </div>
+      )}
 
       <div className="hstack" style={{ gap: 6, padding: '8px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>
         <span className="kicker mute" style={{ marginRight: 2 }}>상태 요약</span>
