@@ -1,0 +1,55 @@
+/** 일일 알림 배치 — 기한 경과·미이행 항목을 스캔해 대상자별 안내메일을 보낸다.
+ *  요구사항의 "주기적 안내메일 / 경과 항목 알림 - 메일"을 담당한다. 데모에서는 수동
+ *  실행 버튼으로 트리거하고, 실서비스에서는 스케줄러(일배치)에 연결한다. */
+import { nowStamp, today } from './dates'
+import { sendVia } from './integrations/registry'
+import { getStore } from './store'
+
+export interface NotifyResult {
+  kind: string
+  targets: number
+  ok: boolean
+}
+
+export async function runDailyNotify(): Promise<NotifyResult[]> {
+  const s = getStore()
+  const t = today()
+  const month = t.slice(0, 7)
+  const results: NotifyResult[] = []
+
+  const send = async (kind: string, names: string[], subject: string) => {
+    if (names.length === 0) return
+    const r = await sendVia('groupware-mail', [...new Set(names)], subject)
+    results.push({ kind, targets: new Set(names).size, ok: r.ok })
+  }
+
+  // 1) 미서약자 — 양식 개정일자 기준 유효 서약 없는 인원
+  const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
+  const signed = new Set(s.pledges.filter((p) => p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  await send('미서약', s.people.filter((p) => !signed.has(p.name)).map((p) => p.name), '[보안서약서] 미서약 안내')
+
+  // 2) 보안점검 경과 — 예정월이 지났는데 완료·결재중이 아닌 항목의 점검자
+  await send('점검 경과',
+    s.inspectionPlans.filter((p) => p.month < month && (p.status === '계획' || p.status === '결과미등록')).map((p) => p.inspector),
+    '[보안점검] 기한 경과 항목 안내')
+
+  // 3) SR 지연 — 완료 예정일 경과 진행 건의 담당 CI
+  await send('SR 지연',
+    s.srRequests.filter((r) => r.dueDate && r.dueDate < t && !['완료', '반려', '작성중', '결재중'].includes(r.status))
+      .map((r) => r.ci ?? r.requester),
+    '[SR] 완료 예정일 경과 안내')
+
+  // 4) 재택 체크리스트 미제출 — 당월 미제출 인원
+  const submitted = new Set(s.remoteChecks.filter((r) => r.period === month).map((r) => r.name))
+  await send('재택 미제출', s.people.filter((p) => !submitted.has(p.name)).map((p) => p.name),
+    `[재택근무] ${month} 체크리스트 제출 안내`)
+
+  const total = results.reduce((sum, r) => sum + r.targets, 0)
+  const allOk = results.every((r) => r.ok)
+  s.batchRuns.unshift({
+    job: `일일 알림 배치 (${results.length}종 · ${total}명)`,
+    ranAt: nowStamp(),
+    result: results.length === 0 || allOk ? '성공' : '실패',
+  })
+  return results
+}

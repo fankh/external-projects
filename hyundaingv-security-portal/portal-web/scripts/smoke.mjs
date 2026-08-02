@@ -206,6 +206,9 @@ async function main() {
     ['/settings/forms', 'ADMIN', ['장애보고 취합 양식', '새 버전 업로드', 'XT-01']],
     // 감사 이력 — append-only 통제 기록
     ['/settings/audit', 'ADMIN', ['감사 이력', 'AP-2026-0701', '결재 승인', '추적성']],
+    // 알림 배치 버튼 (Admin) · 결재 문서 상세 (참조 스냅샷·첨부 목록)
+    ['/platform/integrations', 'ADMIN', ['알림 배치 실행']],
+    ['/work/approvals?sel=AP-2026-0712', 'BIZ_MGR', ['문서 상세 — AP-2026-0712', 'SR 유형', '월별 정산 데이터 추출', '요청 내용']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)

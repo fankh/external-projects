@@ -4,6 +4,7 @@ import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { channelSummary, hrAdapter, isEnabled } from '@/lib/integrations/registry'
+import { runDailyNotify } from '@/lib/notify'
 import { getStore } from '@/lib/store'
 import { CHANNELS, PORTAL } from '@/portal.config'
 
@@ -17,6 +18,15 @@ async function toggleChannel(formData: FormData) {
   const next = !(s.channelStates[id] ?? false)
   s.channelStates[id] = next
   audit(me.name, '연동 채널 변경', `${ch.name}: ${next ? '가동' : '중지'}`)
+  revalidatePath('/', 'layout')
+}
+
+async function notifyBatch() {
+  'use server'
+  const me = await requireRole('ADMIN')
+  // 폐쇄 루프 — 미서약·점검 경과·SR 지연·재택 미제출을 스캔해 대상자별 안내메일 발송
+  const results = await runDailyNotify()
+  audit(me.name, '알림 배치 실행', results.map((r) => `${r.kind} ${r.targets}명${r.ok ? '' : '(실패)'}`).join(', ') || '대상 없음')
   revalidatePath('/', 'layout')
 }
 
@@ -61,9 +71,14 @@ export default async function IntegrationsPage() {
 
       <Card title="연동 채널" kicker="Channels"
         actions={
-          <form action={syncHr}>
-            <button type="submit" className="btn sm">인사정보 즉시 동기화</button>
-          </form>
+          <span className="hstack">
+            <form action={notifyBatch}>
+              <button type="submit" className="btn sm">알림 배치 실행</button>
+            </form>
+            <form action={syncHr}>
+              <button type="submit" className="btn sm">인사정보 즉시 동기화</button>
+            </form>
+          </span>
         } pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">

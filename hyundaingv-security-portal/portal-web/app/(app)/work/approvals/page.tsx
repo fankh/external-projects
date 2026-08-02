@@ -1,19 +1,71 @@
+import Link from 'next/link'
+import { Fragment } from 'react'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
-import { getStore } from '@/lib/store'
-import type { ApprovalStatus } from '@/lib/types'
+import { getStore, type Store } from '@/lib/store'
+import type { Approval, ApprovalStatus } from '@/lib/types'
 import { approve, reject } from './actions'
 
 const ST_CHIP: Record<ApprovalStatus, 'warn' | 'ok' | 'err'> = { 대기: 'warn', 승인: 'ok', 반려: 'err' }
 
-export default async function ApprovalsPage() {
+/** 결재 문서 상세 — 참조 업무(ref)의 스냅샷을 문서 유형별로 요약한다 (상세페이지 확인 후 처리 요구) */
+function refSummary(s: Store, ap: Approval): [string, string][] {
+  const ref = ap.ref
+  if (!ref) return []
+  switch (ap.docType) {
+    case 'SR 신청': {
+      const sr = s.srRequests.find((r) => r.srNo === ref)
+      return sr ? [['SR 유형', sr.kind], ['대상 시스템', sr.system], ['현재 상태', sr.status], ['요청 내용', sr.content || '-']] : []
+    }
+    case '투자 정산품의':
+    case '비용 정산품의': {
+      const st = s.settlements.find((x) => x.id === ref)
+      const ct = st && s.investContracts.find((c) => c.id === st.contractId)
+      return st ? [['계약', ct ? `${ct.title} (${ct.vendor})` : st.contractId], ['지급 항목', st.item], ['금액', `${st.amount.toLocaleString('ko-KR')}만원`], ['지급 상태', st.status]] : []
+    }
+    case '장애보고 상신': {
+      const list = s.incidents.filter((i) => i.reportRef === ref)
+      return [['묶인 장애', `${list.length}건`], ...list.map((i): [string, string] => [i.id, `[${i.grade}] ${i.system} — ${i.title}`])]
+    }
+    case '변경계획 상신':
+    case '변경결과 상신': {
+      const cw = s.changes.find((c) => c.id === ref)
+      return cw ? [['구분', `${cw.kind}변경`], ['작업', cw.title], ['작업계획', cw.plan ?? '-'], ['작업결과', cw.result ?? '-'], ['현재 상태', cw.status]] : []
+    }
+    case '점검결과 상신': {
+      const plan = s.inspectionPlans.find((p) => p.id === ref)
+      const item = plan && s.inspectionItems.find((i) => i.id === plan.itemId)
+      return plan ? [['점검 항목', item?.control ?? plan.itemId], ['예정월', plan.month], ['점검자', plan.inspector], ['점검 결과', plan.result ?? '-']] : []
+    }
+    case '출력물폐기 상신': {
+      const rows = s.printouts.filter((p) => p.approvalRef === ref)
+      return [['묶인 출력물', `${rows.length}건`], ...rows.map((p): [string, string] => [p.id, `${p.document} (${p.method ?? '-'} · ${p.discardedAt ?? '-'})`])]
+    }
+    case '보안위반 확인서': {
+      const v = s.violations.find((x) => x.id === ref)
+      return v ? [['위반 유형', v.type], ['위반 내용', v.detail], ['사실확인서', v.statement ?? '-']] : []
+    }
+    case '서약 현황 상신': {
+      const rows = s.companyPledges.filter((c) => c.approvalRef === ref)
+      return [['묶인 징구', `${rows.length}건`], ...rows.map((c): [string, string] => [c.id, `${c.company} — ${c.personName}`])]
+    }
+    default:
+      return []
+  }
+}
+
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const { sel } = await searchParams
   const s = getStore()
 
   const inbox = s.approvals.filter((a) => a.approver === me.name)
   const inboxWaiting = inbox.filter((a) => a.status === '대기')
   const outbox = s.approvals.filter((a) => a.drafter === me.name)
+  // 상세는 내가 결재자이거나 기안자인 문서만 — 타인 결재 문서 열람 차단
+  const selected = sel ? s.approvals.find((a) => a.id === sel && (a.approver === me.name || a.drafter === me.name)) : undefined
+  const selectedFiles = selected?.ref ? s.attachments.filter((x) => x.refId === selected.ref) : []
 
   return (
     <>
@@ -27,6 +79,50 @@ export default async function ApprovalsPage() {
         <Stat value={outbox.filter((a) => a.status === '반려').length} label="상신 반려" />
       </div>
 
+      {selected && (
+        <Card title={`문서 상세 — ${selected.id}`} kicker={selected.docType}
+          actions={
+            <span className="hstack">
+              {selected.status === '대기' && selected.approver === me.name && (
+                <>
+                  <form action={approve}>
+                    <input type="hidden" name="id" value={selected.id} />
+                    <button type="submit" className="btn sm pri">승인</button>
+                  </form>
+                  <form action={reject}>
+                    <input type="hidden" name="id" value={selected.id} />
+                    <button type="submit" className="btn sm danger">반려</button>
+                  </form>
+                </>
+              )}
+              <Link className="btn sm" href="/work/approvals">닫기</Link>
+            </span>
+          }>
+          <div className="cols c2">
+            <dl className="kv">
+              <dt>제목</dt><dd>{selected.title}</dd>
+              <dt>기안자</dt><dd>{selected.drafter} · {selected.dept}</dd>
+              <dt>결재자</dt><dd>{selected.approver}</dd>
+              <dt>상신일</dt><dd>{selected.draftedAt}{selected.decidedAt ? ` (처리 ${selected.decidedAt})` : ''}</dd>
+              <dt>상태</dt><dd><Chip tone={ST_CHIP[selected.status]}>{selected.status}</Chip></dd>
+              <dt>첨부</dt>
+              <dd>
+                {selectedFiles.length === 0 ? '-' : selectedFiles.map((f) => (
+                  <div key={f.id} className="mono" style={{ fontSize: 11.5 }}>📎 {f.name} <span className="mut">({f.sizeKb.toLocaleString('ko-KR')}KB · {f.uploadedBy})</span></div>
+                ))}
+              </dd>
+            </dl>
+            <dl className="kv">
+              {refSummary(s, selected).map(([k, v], i) => (
+                <Fragment key={`${k}-${i}`}>
+                  <dt>{k}</dt><dd>{v}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          </div>
+        </Card>
+      )}
+
       <Card title="수신함 — 결재 대기" kicker="Inbox" pad={false}>
         {inboxWaiting.length === 0 ? (
           <div className="empty">대기 중인 결재가 없습니다.</div>
@@ -39,7 +135,10 @@ export default async function ApprovalsPage() {
                   <tr key={a.id}>
                     <td className="code">{a.id}</td>
                     <td><Chip tone="info" bare>{a.docType}</Chip></td>
-                    <td className="strong">{a.title}{a.ref && <span className="mut"> · {a.ref}</span>}<Clip count={attachCount(a.ref)} title="업무 문서 첨부" /></td>
+                    <td className="strong">
+                      <Link href={`/work/approvals?sel=${a.id}`}>{a.title}</Link>
+                      {a.ref && <span className="mut"> · {a.ref}</span>}<Clip count={attachCount(a.ref)} title="업무 문서 첨부" />
+                    </td>
                     <td>{a.drafter} <span className="mut">· {a.dept}</span></td>
                     <td className="tnum">{a.draftedAt}</td>
                     <td className="c">
@@ -74,7 +173,7 @@ export default async function ApprovalsPage() {
                   {inbox.filter((a) => a.status !== '대기').map((a) => (
                     <tr key={a.id}>
                       <td><Chip tone="neutral" bare>{a.docType}</Chip></td>
-                      <td>{a.title}</td>
+                      <td><Link href={`/work/approvals?sel=${a.id}`}>{a.title}</Link></td>
                       <td><Chip tone={ST_CHIP[a.status]}>{a.status}</Chip></td>
                       <td className="tnum">{a.decidedAt ?? '-'}</td>
                     </tr>
@@ -96,7 +195,7 @@ export default async function ApprovalsPage() {
                   {outbox.map((a) => (
                     <tr key={a.id}>
                       <td><Chip tone="neutral" bare>{a.docType}</Chip></td>
-                      <td className="strong">{a.title}</td>
+                      <td className="strong"><Link href={`/work/approvals?sel=${a.id}`}>{a.title}</Link></td>
                       <td>{a.approver}</td>
                       <td><Chip tone={ST_CHIP[a.status]}>{a.status}</Chip></td>
                       <td className="tnum">{a.draftedAt}</td>
