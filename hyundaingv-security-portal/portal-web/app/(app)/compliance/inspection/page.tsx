@@ -122,15 +122,18 @@ export default async function InspectionPage() {
 
       <div className="cols c2">
         <Card title="점검계획 수립" kicker="Plan">
-          <form action={addPlan} className="hstack">
-            <select className="select" name="itemId" required style={{ flex: 1 }}>
+          {/* 컨트롤 4개를 한 줄에 두면 c2 그리드 반폭에서 카드를 넘쳐 옆 카드 sticky 헤더에 가려진다 — 2행으로 나눈다 */}
+          <form action={addPlan} className="vstack" style={{ gap: 7 }}>
+            <select className="select" name="itemId" required style={{ width: '100%' }}>
               {s.inspectionItems.map((i) => <option key={i.id} value={i.id}>[{i.category}] {i.control}</option>)}
             </select>
-            <input className="input" name="month" required type="month" defaultValue={thisMonth} />
-            <select className="select" name="inspector">
-              {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
-            </select>
-            <button type="submit" className="btn">계획 등록</button>
+            <div className="hstack">
+              <input className="input" name="month" required type="month" defaultValue={thisMonth} style={{ flex: 1 }} />
+              <select className="select" name="inspector" style={{ flex: 1 }}>
+                {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
+              </select>
+              <button type="submit" className="btn">계획 등록</button>
+            </div>
           </form>
           <div className="dim" style={{ fontSize: 11.5, marginTop: 8 }}>
             항목·주기는 기준관리(Template)에서 온다 — 전년 자료 복사·엑셀 업로드는 이후 버전.
