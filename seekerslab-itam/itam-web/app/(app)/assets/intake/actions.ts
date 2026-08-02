@@ -98,6 +98,58 @@ export async function registerIntakeLot(contractId: string, model: string, categ
   return { ok: true, message: `${id} 입고 등록 — ${m} ${qty}대 · 검수 대기열 편성` }
 }
 
+/** ITSM SR·발주 연계 도입 예정 사전 등록 — 아직 도착하지 않은(발주된) 자산을 미리 등록한다.
+ *  (제품안내서 §06 ITSM·구매 연동: SR·발주 정보 연계 — 도입 예정 자산 사전 등록)
+ *  물리 입고 전 단계이므로 검수 체크리스트·채번은 아직 없다. 도착(markLotArrived) 시 입고 대기로 전환된다. 자산담당·Admin. */
+export async function preRegisterLot(input: { contractId: string; srNo: string; model: string; category: AssetCategory; qty: number; expectedDate: string }) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '도입 예정 등록 권한이 없습니다 (자산담당·Admin).' }
+  }
+
+  const s = getStore()
+  const contract = s.contracts.find((c) => c.id === input.contractId && c.kind === '구매')
+  if (!contract) return { ok: false, message: '연계할 구매 계약을 선택하세요.' }
+  const srNo = input.srNo.trim()
+  const m = input.model.trim()
+  if (!srNo) return { ok: false, message: 'SR·발주 번호를 입력하세요.' }
+  if (!m) return { ok: false, message: '모델명을 입력하세요.' }
+  if (!Number.isInteger(input.qty) || input.qty < 1 || input.qty > 1000) return { ok: false, message: '수량은 1~1000 사이여야 합니다.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.expectedDate)) return { ok: false, message: '도착 예정일을 YYYY-MM-DD 로 입력하세요.' }
+
+  const id = nextId('LOT')
+  s.intakeLots.unshift({
+    id, contractId: input.contractId, model: m, category: input.category, qty: input.qty,
+    arrivedAt: '', vendor: contract.vendor, status: '도입 예정',
+    checklist: [], issued: [], srNo, expectedDate: input.expectedDate,
+  })
+  appendAudit({ actor: session.name, action: `도입 예정 사전 등록 — ${m} ${input.qty}대 (SR ${srNo})`, target: id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${id} 도입 예정 등록 — ${m} ${input.qty}대 · SR ${srNo} · 도착 예정 ${input.expectedDate}` }
+}
+
+/** 도입 예정 → 입고(도착) 처리 — 발주 자산이 실제 도착하면 검수 파이프라인에 편입한다.
+ *  입고 대기로 전환하며 기본 검수 체크리스트를 부여한다(이후 검수→채번→대장). 자산담당·Admin. */
+export async function markLotArrived(lotId: string) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '입고 처리 권한이 없습니다 (자산담당·Admin).' }
+  }
+
+  const s = getStore()
+  const lot = s.intakeLots.find((l) => l.id === lotId)
+  if (!lot) return { ok: false, message: '입고 건을 찾을 수 없습니다.' }
+  if (lot.status !== '도입 예정') return { ok: false, message: '도입 예정 건만 입고 처리할 수 있습니다.' }
+
+  lot.status = '입고 대기'
+  lot.arrivedAt = today()
+  lot.checklist = DEFAULT_CHECKLIST.map((item) => ({ item, checked: false }))
+  lot.inspector = session.name
+  appendAudit({ actor: session.name, action: `도입 예정 입고 처리 — ${lot.model} ${lot.qty}대 (SR ${lot.srNo ?? '-'})`, target: lot.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${lot.id} 입고 처리 — ${lot.model} ${lot.qty}대 · 검수 대기열 편성` }
+}
+
 export async function toggleCheck(lotId: string, item: string) {
   const session = await getSession()
   if (!session || session.role === 'USER') return

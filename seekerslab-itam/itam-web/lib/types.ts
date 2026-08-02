@@ -342,11 +342,15 @@ export interface IntakeLot {
   qty: number
   arrivedAt: string
   vendor: string
-  status: '입고 대기' | '검수 중' | '검수 완료' | '검수 반려'
+  status: '도입 예정' | '입고 대기' | '검수 중' | '검수 완료' | '검수 반려'
   checklist: IntakeChecklistItem[]
   /** 채번 완료된 자산번호 */
   issued: string[]
   inspector?: string
+  /** ITSM SR·발주 번호 — 도입 예정(사전 등록) 건의 연계 근거 (제품안내서 §06 ITSM·구매 연동) */
+  srNo?: string
+  /** 도입 예정 도착 예정일 — 아직 물리 입고 전(도입 예정) 단계에서만 의미 */
+  expectedDate?: string
 }
 
 /** 폐기 — 대상 선정 → 결재 → 데이터 소거 → 증적 보존 */

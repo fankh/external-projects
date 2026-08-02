@@ -38,7 +38,8 @@ export default async function IntakePage() {
       />
 
       <div className="stat-row">
-        <Stat value={lots.length} label="입고 건" />
+        <Stat value={lots.filter((l) => l.status === '도입 예정').length} label="도입 예정 (ITSM 발주)" tone={lots.some((l) => l.status === '도입 예정') ? 'accent' : 'ok'} />
+        <Stat value={lots.filter((l) => l.status === '입고 대기').length} label="입고 대기 (검수 전)" />
         <Stat value={lots.filter((l) => l.status === '검수 중').length} label="검수 진행" tone="warn" />
         <Stat value={lots.filter((l) => l.status === '검수 완료').length} label="검수 완료 — 채번 가능" tone="ok" />
         <Stat value={issued.length} label="채번·라벨 발행" tone="accent" />

@@ -454,6 +454,12 @@ function seed(): Store {
         ],
         issued: [],
       },
+      {
+        // 도입 예정 — ITSM SR·발주로 사전 등록된, 아직 도착 전 자산 (제품안내서 §06 ITSM·구매 연동)
+        id: 'IN-2607-03', contractId: 'CT-2026-009', model: 'ThinkPad X1 Carbon G12', category: '단말',
+        qty: 15, arrivedAt: '', vendor: '(주)한빛INT', status: '도입 예정', srNo: 'SR-2607-041', expectedDate: '2026-08-14',
+        checklist: [], issued: [],
+      },
     ],
     disposals: [
       { id: 'DSP-01', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', reason: '사용 연한 초과 (7년) · 보증 만료', status: '결재 대기', approvalId: 'APR-2607-119' },
@@ -617,7 +623,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 11
+const SCHEMA_VERSION = 12
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

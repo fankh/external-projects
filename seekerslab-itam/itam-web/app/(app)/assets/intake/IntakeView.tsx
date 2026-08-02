@@ -2,16 +2,19 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { AssetCategory, IntakeLot } from '@/lib/types'
-import { issueAssetNo, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, toggleCheck } from './actions'
+import { issueAssetNo, markLotArrived, preRegisterLot, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, toggleCheck } from './actions'
 
 interface Label { assetNo: string; model: string; qr: string; barcode: string }
 interface PC { id: string; name: string; vendor: string }
 
-const STATUS_TONE = { '입고 대기': 'neutral', '검수 중': 'warn', '검수 완료': 'ok', '검수 반려': 'err' } as const
+const STATUS_TONE = { '도입 예정': 'info', '입고 대기': 'neutral', '검수 중': 'warn', '검수 완료': 'ok', '검수 반려': 'err' } as const
 const CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[] }) {
-  const [selId, setSelId] = useState(lots[0]?.id ?? '')
+  // 도입 예정(사전 등록) 건과 실제 입고 건을 분리한다 — 도입 예정은 아직 검수 대상이 아니다
+  const plannedLots = lots.filter((l) => l.status === '도입 예정')
+  const arrivedLots = lots.filter((l) => l.status !== '도입 예정')
+  const [selId, setSelId] = useState(arrivedLots[0]?.id ?? '')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, startTransition] = useTransition()
   // 입고 등록 폼
@@ -22,6 +25,14 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
   const [rqty, setRqty] = useState('1')
   const [rejecting, setRejecting] = useState(false)
   const [rjReason, setRjReason] = useState('')
+  // 도입 예정 사전 등록 폼 (ITSM SR·발주)
+  const [preOpen, setPreOpen] = useState(false)
+  const [pc, setPc] = useState(contracts[0]?.id ?? '')
+  const [psr, setPsr] = useState('')
+  const [pmodel, setPmodel] = useState('')
+  const [pcat, setPcat] = useState<AssetCategory>('단말')
+  const [pqty, setPqty] = useState('1')
+  const [pdate, setPdate] = useState('')
   const registerLot = () => {
     startTransition(async () => {
       const r = await registerIntakeLot(rc, rmodel, rcat, Number(rqty))
@@ -29,13 +40,79 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
       if (r.ok) { setRegOpen(false); setRmodel(''); setRqty('1') }
     })
   }
-  const sel = lots.find((l) => l.id === selId) ?? lots[0]
+  const preRegister = () => startTransition(async () => {
+    const r = await preRegisterLot({ contractId: pc, srNo: psr, model: pmodel, category: pcat, qty: Number(pqty), expectedDate: pdate })
+    setMsg({ ok: r.ok, text: r.message })
+    if (r.ok) { setPreOpen(false); setPsr(''); setPmodel(''); setPqty('1'); setPdate('') }
+  })
+  const markArrived = (id: string) => startTransition(async () => {
+    const r = await markLotArrived(id)
+    setMsg({ ok: r.ok, text: r.message })
+  })
+  const sel = arrivedLots.find((l) => l.id === selId) ?? arrivedLots[0]
   const selLabels = labels.filter((l) => sel?.issued.includes(l.assetNo))
   const done = sel ? sel.checklist.filter((c) => c.checked).length : 0
 
   return (
     <>
       {msg?.text && <div className={`callout ${msg.ok ? '' : 'warn'}`}>{msg.text}</div>}
+
+      <Card kicker="ITSM · Procurement" title={`도입 예정 — ITSM SR·발주 연계 ${plannedLots.length > 0 ? `(${plannedLots.length})` : ''}`} pad={false}
+        actions={contracts.length > 0
+          ? <button className="btn sm pri" disabled={pending} onClick={() => { setPreOpen((o) => !o); setMsg(null) }}>{preOpen ? '취소' : '＋ 도입 예정 등록'}</button>
+          : undefined}>
+        {preOpen && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: 14, borderBottom: '1px solid var(--line)', background: 'var(--canvas)' }}>
+            <span className="dim" style={{ fontSize: 11.5, fontWeight: 600 }}>SR·발주 사전 등록</span>
+            <input className="input" style={{ width: 150 }} placeholder="SR·발주번호 (예: SR-2607-018)" value={psr} disabled={pending} onChange={(e) => setPsr(e.target.value)} />
+            <select className="select" value={pc} disabled={pending} onChange={(e) => setPc(e.target.value)}>
+              {contracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.name} ({c.vendor})</option>)}
+            </select>
+            <input className="input" style={{ width: 180 }} placeholder="모델" value={pmodel} disabled={pending} onChange={(e) => setPmodel(e.target.value)} />
+            <select className="select" value={pcat} disabled={pending} onChange={(e) => setPcat(e.target.value as AssetCategory)}>
+              {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input className="input" type="number" min={1} max={1000} style={{ width: 76 }} value={pqty} disabled={pending} onChange={(e) => setPqty(e.target.value)} />
+            <label className="hstack" style={{ gap: 4, fontSize: 12 }}>도착 예정
+              <input className="input" type="date" style={{ width: 150 }} value={pdate} disabled={pending} onChange={(e) => setPdate(e.target.value)} />
+            </label>
+            <button className="btn sm pri" disabled={pending || !psr.trim() || !pmodel.trim() || !pdate} onClick={preRegister}>등록</button>
+          </div>
+        )}
+        {plannedLots.length === 0 ? (
+          <div className="empty">도입 예정 자산이 없습니다 — ITSM SR·발주 정보로 도착 전 자산을 사전 등록하면 여기에 표시됩니다.</div>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr><th>입고번호</th><th>SR·발주</th><th>계약</th><th>모델</th><th>공급사</th><th className="num">수량</th><th>도착 예정</th><th className="c">처리</th></tr>
+              </thead>
+              <tbody>
+                {plannedLots.map((l) => (
+                  <tr key={l.id}>
+                    <td className="code">{l.id}</td>
+                    <td className="code">{l.srNo}</td>
+                    <td className="code">{l.contractId}</td>
+                    <td className="strong">{l.model}</td>
+                    <td className="mute">{l.vendor}</td>
+                    <td className="num">{l.qty}</td>
+                    <td className="tnum">{l.expectedDate}</td>
+                    <td className="c">
+                      <button className="btn sm pri" disabled={pending} onClick={() => markArrived(l.id)}
+                        title="실제 도착 처리 — 입고 대기로 전환해 검수 대기열에 편성">입고 등록 (도착)</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="callout" style={{ margin: 14 }}>
+          <b>ITSM·구매 연계 사전 등록.</b> SR·발주 정보로 <b>도착 전</b> 자산을 미리 등록해 두면, 실제 도착 시 <b>입고 등록(도착)</b> 한 번으로
+          검수 대기열에 편입됩니다(이후 검수 → 채번 → 대장). 도입 예정 단계에서는 아직 검수·채번 대상이 아닙니다.
+        </div>
+      </Card>
+
       <Card kicker="Arrivals" title="입고 목록" pad={false}
         actions={contracts.length > 0
           ? <button className="btn sm pri" disabled={pending} onClick={() => { setRegOpen((o) => !o); setMsg(null) }}>{regOpen ? '취소' : '입고 등록'}</button>
@@ -61,7 +138,7 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
               <tr><th>입고번호</th><th>계약</th><th>모델</th><th>공급사</th><th className="num">수량</th><th className="num">채번</th><th>입고일</th><th className="c">상태</th><th className="c">선택</th></tr>
             </thead>
             <tbody>
-              {lots.map((l) => (
+              {arrivedLots.map((l) => (
                 <tr key={l.id} className={`clickable ${l.id === sel?.id ? 'sel' : ''}`} onClick={() => setSelId(l.id)}>
                   <td className="code">{l.id}</td>
                   <td className="code">{l.contractId}</td>
