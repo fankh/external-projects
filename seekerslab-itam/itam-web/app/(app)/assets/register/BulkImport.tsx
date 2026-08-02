@@ -46,7 +46,21 @@ export function BulkImport() {
       </div>
       {open && (
         <div className="vstack" style={{ gap: 8, padding: '0 14px 14px' }}>
-          <div className="mut" style={{ fontSize: 11.5 }}>형식: <span className="mono">유형,모델,시리얼,소유자,부서,위치</span> (유형·모델 필수, 나머지 선택 · 헤더 행 자동 무시 · 시리얼 비우면 자동 채번). 유형: {CATS.join(' · ')}</div>
+          <div className="hstack" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="mut" style={{ fontSize: 11.5, flex: 1, minWidth: 180 }}>형식: <span className="mono">유형,모델,시리얼,소유자,부서,위치</span> (유형·모델 필수 · 헤더 자동 무시 · 시리얼 비우면 자동 채번). 유형: {CATS.join(' · ')}</span>
+            <a className="btn sm ghost" href="/api/asset-template.csv" download title="작성용 CSV 템플릿 내려받기">⤓ 샘플 CSV</a>
+            <label className="btn sm" title="CSV 파일 불러오기" style={{ cursor: 'pointer' }}>
+              📁 CSV 파일
+              <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} disabled={pending}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]; if (!f) return
+                  const rd = new FileReader()
+                  rd.onload = () => { setText(String(rd.result ?? '').replace(/^﻿/, '')); setPreview(false); setMsg(null) }
+                  rd.readAsText(f, 'utf-8')
+                  e.target.value = ''
+                }} />
+            </label>
+          </div>
           <textarea className="input" style={{ height: 110, padding: '8px 10px', resize: 'vertical', lineHeight: 1.6, fontFamily: 'var(--mono, monospace)', fontSize: 12 }}
             placeholder={'단말,ThinkPad T14 Gen4,SN-IMP001,김민준,플랫폼개발팀,본사 8F\n서버,PowerEdge R760,,인프라운영팀,인프라운영팀,IDC-A Rack 20'}
             value={text} disabled={pending} onChange={(e) => { setText(e.target.value); setPreview(false); setMsg(null) }} />

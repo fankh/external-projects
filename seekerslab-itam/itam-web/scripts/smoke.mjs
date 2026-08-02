@@ -375,6 +375,12 @@ try {
   // 데이터 스코핑 — USER 는 본인 자산 카드만
   check('자산 카드: USER 본인 자산은 발급 (200)', (await get('/api/asset-card/AST-2023-000112', 'USER')).status === 200)
   check('자산 카드: USER 타인 자산은 차단 (403)', (await get('/api/asset-card/AST-2023-000561', 'USER')).status === 403)
+  // CSV 일괄 등록 템플릿 — 형식 안내용 다운로드
+  check('CSV 템플릿: 미로그인 차단 (401)', (await get('/api/asset-template.csv')).status === 401)
+  check('CSV 템플릿: 사용자 차단 (403)', (await get('/api/asset-template.csv', 'USER')).status === 403)
+  const tmpl = await get('/api/asset-template.csv', 'ASSET_MGR')
+  const tmplBody = await tmpl.text()
+  check('CSV 템플릿: 자산담당 발급 (200·CSV·헤더·예시)', tmpl.status === 200 && (tmpl.headers.get('content-type') ?? '').includes('text/csv') && tmplBody.includes('유형,모델,시리얼') && tmplBody.includes('ThinkPad'))
   // 전역 통합 검색 — 자산·계약·발견·사용자·결재 교차 검색, 화면 권한대로 스코핑
   check('통합 검색: 미로그인 차단 (401)', (await get('/api/search?q=CT-2023')).status === 401)
   check('통합 검색: 2자 미만은 빈 결과', (await (await get('/api/search?q=C', 'ADMIN')).json()).groups.length === 0)
