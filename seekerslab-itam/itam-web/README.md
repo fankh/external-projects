@@ -23,8 +23,12 @@ npm run dev        # http://localhost:3000
 
 ```powershell
 npm run build
-npm run smoke      # 프로덕션 서버 기동 → 267개 검증 → 종료
+npm run smoke      # 프로덕션 서버 기동 → 267개 검증(SSR HTML) → 종료
+npm run health     # 실제 브라우저로 30개 화면 로드 → 클라이언트 크래시·하이드레이션 오류 검사
 ```
+
+`smoke` 는 서버 렌더 HTML만 보므로 클라이언트 하이드레이션 크래시를 못 잡는다. `health`(Playwright)가
+로그인 상태로 전 화면을 실제 브라우저에서 열어 `pageerror`·클라이언트 예외를 잡는다(원격: `HEALTH_BASE`).
 
 배포 후에는 **같은 스위트를 배포본에 한 번 더** 돌린다 — 로컬에서 통과해도 배포본에서만
 틀리는 결함이 실재한다(컨테이너 TZ 가 UTC 라 KST 00~09시에 날짜가 하루 뒤처지던 건).
