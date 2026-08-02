@@ -7,8 +7,8 @@ export function entityHref(ref?: string): { href: string; external?: boolean } |
   if (ref.startsWith('APR-')) return { href: '/workflow/approvals' }
   if (ref.startsWith('CT-') || ref.startsWith('LIC-')) return { href: '/inventory/contracts' }
   if (ref.startsWith('RPT-')) return { href: `/api/reports/${encodeURIComponent(ref)}?format=md`, external: true }
-  if (ref.startsWith('NTC-')) return { href: '/board/notices' }
-  if (ref.startsWith('QNA-')) return { href: '/board/qna' }
+  if (ref.startsWith('NTC-')) return { href: `/board/notices?sel=${encodeURIComponent(ref)}` }
+  if (ref.startsWith('QNA-')) return { href: `/board/qna?sel=${encodeURIComponent(ref)}` }
   if (ref.startsWith('SAS-')) return { href: '/settings/saas-catalog' }
   if (ref.startsWith('DSP-')) return { href: '/assets/disposal' }
   if (ref.startsWith('LOT-') || ref.startsWith('IN-')) return { href: '/assets/intake' }

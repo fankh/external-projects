@@ -6,8 +6,11 @@ import { answerQuestion, askQuestion, deleteQuestion, editQuestion } from '../ac
 
 const CATEGORIES: QnaCategory[] = ['자산 신청·반납', '장애·수리', '라이선스', '보안·Discovery', '기타']
 
-export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPost[]; canAnswer: boolean; canModerate: boolean; me: string }) {
-  const [openId, setOpenId] = useState<string | null>(posts.find((p) => !p.answer)?.id ?? posts[0]?.id ?? null)
+export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel }: { posts: BoardPost[]; canAnswer: boolean; canModerate: boolean; me: string; initialSel?: string }) {
+  // 딥링크(?sel=QNA-…) — 알림 로그(‘QnA 답변’ 통지)·대시보드에서 특정 문의로 진입. 없으면 첫 미답변→최신 폴백.
+  const [openId, setOpenId] = useState<string | null>(
+    (initialSel && posts.some((p) => p.id === initialSel) ? initialSel : posts.find((p) => !p.answer)?.id ?? posts[0]?.id) ?? null,
+  )
   const [asking, setAsking] = useState(false)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')

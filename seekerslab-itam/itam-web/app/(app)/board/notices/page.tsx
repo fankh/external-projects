@@ -6,8 +6,9 @@ import { NoticeBoard } from './NoticeBoard'
 
 export const dynamic = 'force-dynamic'
 
-export default async function NoticesPage() {
+export default async function NoticesPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
   const session = await getSession()
+  const { sel } = await searchParams
   const s = getStore()
   const t = today()
   const isAdmin = session?.role === 'ADMIN'
@@ -25,7 +26,7 @@ export default async function NoticesPage() {
       />
       {notices.length === 0
         ? <Card><div className="empty">등록된 공지가 없습니다</div></Card>
-        : <NoticeBoard posts={notices} canWrite={isAdmin} me={session?.name ?? ''} totalUsers={s.users.length} today={t} />}
+        : <NoticeBoard posts={notices} canWrite={isAdmin} me={session?.name ?? ''} totalUsers={s.users.length} today={t} initialSel={sel} />}
     </>
   )
 }

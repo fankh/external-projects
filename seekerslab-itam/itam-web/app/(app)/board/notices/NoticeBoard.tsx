@@ -4,8 +4,11 @@ import { Card, Chip } from '@/components/ui'
 import type { BoardPost } from '@/lib/types'
 import { acknowledgeNotice, deleteNotice, editNotice, postNotice, remindNoticeUnacked, toggleNoticePin } from '../actions'
 
-export function NoticeBoard({ posts, canWrite, me, totalUsers, today }: { posts: BoardPost[]; canWrite: boolean; me: string; totalUsers: number; today: string }) {
-  const [openId, setOpenId] = useState<string | null>(posts[0]?.id ?? null)
+export function NoticeBoard({ posts, canWrite, me, totalUsers, today, initialSel }: { posts: BoardPost[]; canWrite: boolean; me: string; totalUsers: number; today: string; initialSel?: string }) {
+  // 딥링크(?sel=NTC-…) — 알림 로그·대시보드에서 특정 공지로 진입. 목록에 없으면(비공개·예약) 최신 공지로 폴백.
+  const [openId, setOpenId] = useState<string | null>(
+    (initialSel && posts.some((p) => p.id === initialSel) ? initialSel : posts[0]?.id) ?? null,
+  )
   const [writing, setWriting] = useState(false)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')

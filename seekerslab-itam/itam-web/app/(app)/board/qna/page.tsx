@@ -5,8 +5,9 @@ import { QnaBoard } from './QnaBoard'
 
 export const dynamic = 'force-dynamic'
 
-export default async function QnaPage() {
+export default async function QnaPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
   const session = (await getSession())!
+  const { sel } = await searchParams
   const s = getStore()
   const qna = s.posts.filter((p) => p.kind === 'QnA').sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const waiting = qna.filter((p) => !p.answer)
@@ -26,7 +27,7 @@ export default async function QnaPage() {
         <Stat value={qna.filter((p) => p.author === session.name).length} label="내 문의" tone="accent" />
       </div>
 
-      <QnaBoard posts={qna} canAnswer={session.role !== 'USER'} canModerate={session.role === 'ADMIN'} me={session.name} />
+      <QnaBoard posts={qna} canAnswer={session.role !== 'USER'} canModerate={session.role === 'ADMIN'} me={session.name} initialSel={sel} />
     </>
   )
 }
