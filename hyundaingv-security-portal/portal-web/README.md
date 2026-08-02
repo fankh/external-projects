@@ -64,8 +64,12 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 ```powershell
 cd portal-web
 docker build -t ngv-portal .
-docker run -d --name ngv-portal -v portal-data:/data -p 3400:3400 ngv-portal
+docker run -d --name ngv-portal -v portal-data:/data -p 3400:3400 `
+  -e SESSION_SECRET="교체-필수-랜덤-키" ngv-portal
 ```
+
+`SESSION_SECRET` 는 세션 쿠키 HMAC 서명 키다 — 미설정 시 개발용 기본 키로 동작하므로
+실배포에서는 반드시 랜덤 키로 교체한다.
 
 컨테이너는 KST 시간대로 동작하고, 스토어는 `/data/portal-data.json`(볼륨)에
 영속화되어 재시작·재생성 후에도 유지된다.
