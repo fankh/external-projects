@@ -1,6 +1,6 @@
-import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { CHANNELS, CONFIRM_DEADLINE_DAYS } from '@/lib/types'
@@ -71,8 +71,8 @@ export default async function FoundPage() {
 
       <EscalateBar waiting={awaiting.length} overdue={overdue.length} deadlineDays={CONFIRM_DEADLINE_DAYS} />
 
-      <Card pad={false} actions={<ExportButton kind="discovered" role={session.role} label="발견 자산 엑셀" />}>
-        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} />
+      <Card pad={false}>
+        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} />
       </Card>
     </>
   )

@@ -27,7 +27,7 @@ export function canExport(kind: ExportKind, role: Role): boolean {
 
 /** 내보내기 데이터 — 화면에 보이는 것과 같은 권한 필터를 통과시킨다.
  *  화면에서 못 보는 자산이 엑셀로 새어 나가면 권한 모델이 무의미해진다. */
-export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: { q?: string; cat?: string; nos?: string[]; status?: string; stale?: boolean; warranty?: boolean }): Sheet[] {
+export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: { q?: string; cat?: string; nos?: string[]; status?: string; stale?: boolean; warranty?: boolean; channel?: string; state?: string; risk?: string }): Sheet[] {
   const s = getStore()
 
   if (kind === 'assets') {
@@ -88,14 +88,35 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
   }
 
   if (kind === 'discovered') {
-    const obsBy = new Map<string, number>()
-    for (const o of s.observations) obsBy.set(o.discoveredId, (obsBy.get(o.discoveredId) ?? 0) + 1)
+    // 발견 자산 화면(FoundView)의 채널·대사상태·위험도·검색 필터를 그대로 반영한다.
+    const obsCountBy = new Map<string, number>()
+    const obsByAsset = new Map<string, typeof s.observations>()
+    for (const o of s.observations) {
+      obsCountBy.set(o.discoveredId, (obsCountBy.get(o.discoveredId) ?? 0) + 1)
+      const arr = obsByAsset.get(o.discoveredId) ?? []
+      arr.push(o); obsByAsset.set(o.discoveredId, arr)
+    }
+    const dq = (filter?.q ?? '').trim().toLowerCase()
+    const dchan = filter?.channel ?? '전체'
+    const dstate = filter?.state ?? '전체'
+    const drisk = filter?.risk ?? '전체'
+    const disc = s.discovered.filter((d) => {
+      if (dchan !== '전체') {
+        const obs = obsByAsset.get(d.id) ?? []
+        if (!(d.channel === dchan || obs.some((o) => o.channel === dchan))) return false
+      }
+      if (dstate !== '전체' && d.state !== dstate) return false
+      if (drisk !== '전체' && d.risk !== drisk) return false
+      if (!dq) return true
+      return [d.id, d.hostname, d.ip, d.mac, d.type].some((f) => f?.toLowerCase().includes(dq))
+    })
+    const discIds = new Set(disc.map((d) => d.id))
     return [
       {
         name: '발견 자산',
         header: ['발견ID', '지문', '호스트명', '유형', 'IP', 'MAC', '최초발견채널', '관측건수', '최초발견', '최근실측', '대사상태', '위험도', '대사자산', '소유자후보', '처리', '비고'],
-        rows: s.discovered.map((d) => [
-          d.id, d.fingerprint ?? '', d.hostname, d.type, d.ip, d.mac, d.channel, obsBy.get(d.id) ?? 0,
+        rows: disc.map((d) => [
+          d.id, d.fingerprint ?? '', d.hostname, d.type, d.ip, d.mac, d.channel, obsCountBy.get(d.id) ?? 0,
           d.firstSeen, d.lastSeen, d.state, d.risk, d.matchedAssetNo ?? '', d.ownerCandidate ?? '',
           d.action ?? '', d.note ?? '',
         ]),
@@ -103,7 +124,8 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       {
         name: '채널별 관측',
         header: ['관측ID', '발견ID', '채널', '호스트명', 'IP', 'MAC', '관측시각', '내용'],
-        rows: s.observations.map((o) => [o.id, o.discoveredId, o.channel, o.hostname, o.ip, o.mac, o.seenAt, o.detail]),
+        // 필터된 발견 자산의 관측만 (반출이 화면과 일치)
+        rows: s.observations.filter((o) => discIds.has(o.discoveredId)).map((o) => [o.id, o.discoveredId, o.channel, o.hostname, o.ip, o.mac, o.seenAt, o.detail]),
       },
     ]
   }

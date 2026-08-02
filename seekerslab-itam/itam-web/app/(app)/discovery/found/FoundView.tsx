@@ -11,11 +11,12 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
 const STATES: ReconcileState[] = ['등록·일치', '등록·불일치', '미등록', '미확인']
 const RISKS: RiskLevel[] = ['높음', '중간', '낮음']
 
-export function FoundView({ items, observations, mergeCandidates }: {
+export function FoundView({ items, observations, mergeCandidates, canExport }: {
   items: DiscoveredAsset[]
   observations: ChannelObservation[]
   /** 지문이 갈렸지만 같은 장비로 의심되는 쌍 — 수동 병합 대상 */
   mergeCandidates: { primary: DiscoveredAsset; duplicate: DiscoveredAsset; reason: string }[]
+  canExport: boolean
 }) {
   const [channel, setChannel] = useState<Channel | '전체'>('전체')
   const [fstate, setFstate] = useState<ReconcileState | '전체'>('전체')
@@ -97,6 +98,12 @@ export function FoundView({ items, observations, mergeCandidates }: {
           <button className="btn sm ghost" onClick={() => { setFstate('전체'); setFrisk('전체'); setFq('') }}>필터 해제</button>
         )}
         <span className="cnt">{rows.length}건 / 전체 {items.length}건</span>
+        {canExport && (
+          <a className="btn sm" style={{ marginLeft: 'auto' }} download
+            href={`/api/export/discovered?${new URLSearchParams({ q: fq.trim(), channel, state: fstate, risk: frisk }).toString()}`}>
+            ⤓ 발견 자산 엑셀{(fstate !== '전체' || frisk !== '전체' || fq.trim() !== '' || channel !== '전체') ? ` (${rows.length})` : ''}
+          </a>
+        )}
       </div>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
 
