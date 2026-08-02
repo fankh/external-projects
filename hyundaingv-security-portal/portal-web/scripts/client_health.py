@@ -14,7 +14,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
-PORT = 3453
+# 병렬 세션(itam-web 등)의 테스트 서버가 3370~3470 대역을 쓴다 — 충돌을 피해 3500대 사용
+PORT = 3503
 BASE = f'http://localhost:{PORT}'
 
 # 전 화면 — components/chrome/menus.ts 와 동기 유지
