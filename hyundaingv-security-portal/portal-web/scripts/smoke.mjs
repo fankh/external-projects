@@ -164,6 +164,9 @@ async function main() {
     ['/infra/changes', 'BIZ_MGR', ['CW-2026-05', 'WAS 보안패치 적용', '결과 상신', 'SR-2026-0132', '변경 작업 편입']],
     // 보안점검(ISMS) — 현황판·기준관리·결과 결재상신
     ['/compliance/inspection', 'BIZ_MGR', ['IS-2026-22', '퇴직·전보자 계정 회수 점검', '결과 결재상신', '기준관리', 'CK-05', '결과미등록']],
+    // 비용 루프 — 속보 기준금액(정산>계약>계획), 투자·비용 분리
+    ['/finance/expense', 'DEPT_MGR', ['클라우드 인프라 이용료', '씨클라우드', '속보', '기준금액', 'ST-2026-02', '월정산']],
+    ['/finance/expense', 'USER', ['속보 등록']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
@@ -186,6 +189,7 @@ async function main() {
     const r = await get('/finance/invest', 'USER')
     const html = await r.text()
     check(!html.includes('계획 확정'), 'USER /finance/invest 에 확정 버튼 미노출')
+    check(!html.includes('CT-2026-03'), '투자 화면에 비용 계약(CT-2026-03) 미노출')
   }
   {
     const r = await get('/pledge/dept', 'DEPT_MGR')

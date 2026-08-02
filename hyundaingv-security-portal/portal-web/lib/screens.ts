@@ -15,15 +15,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '답변·상태', detail: '담당자 지정, 답변완료 상태 추적' },
     ],
   },
-  '/finance/expense': {
-    desc: 'IT 비용 관리 — 경영계획·시행·속보·정산까지 비용 집행 전 주기.',
-    features: [
-      { name: '경영계획', detail: '연간 비용 계획 수립·결재 상신' },
-      { name: '시행·계약내역', detail: '시행품의, 계약 내역 등록·첨부' },
-      { name: '속보', detail: '월 마감 전 비용 집행 속보 집계' },
-      { name: '정산품의·실적', detail: '정산 결재, 계획 대비 실적 조회·엑셀' },
-    ],
-  },
   '/infra/systems': {
     desc: '시스템·서버 현황 — 랙·H/W·서버·시스템(애플리케이션) 구성 현황.',
     features: [

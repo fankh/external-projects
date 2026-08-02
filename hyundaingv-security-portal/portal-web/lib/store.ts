@@ -2,7 +2,7 @@
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
 import { CHANNELS } from '@/portal.config'
-import type { Approval, BatchRun, ChangeWork, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, SendLogEntry, Settlement, SrRequest, TodoItem } from './types'
+import type { Approval, BatchRun, ChangeWork, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, SendLogEntry, Settlement, SrRequest, TodoItem } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -10,6 +10,7 @@ export interface Store {
   investPlans: InvestPlan[]
   investContracts: InvestContract[]
   settlements: Settlement[]
+  expenseFlashes: ExpenseFlash[]
   incidents: Incident[]
   changes: ChangeWork[]
   srRequests: SrRequest[]
@@ -29,16 +30,25 @@ export interface Store {
 function seed(): Store {
   return {
     investPlans: [
-      { id: 'IP-2026-01', year: '2026', title: 'ERP 리포트 모듈 고도화', owner: '김현우', dept: '개발1팀', amount: 12000, status: '확정' },
-      { id: 'IP-2026-02', year: '2026', title: '보안관제 시스템 증설', owner: '박정호', dept: 'IT운영팀', amount: 8000, status: '확정' },
-      { id: 'IP-2026-03', year: '2026', title: '테스트 자동화 도입', owner: '김현우', dept: '개발1팀', amount: 3000, status: '작성중' },
+      { id: 'IP-2026-01', kind: '투자', year: '2026', title: 'ERP 리포트 모듈 고도화', owner: '김현우', dept: '개발1팀', amount: 12000, status: '확정' },
+      { id: 'IP-2026-02', kind: '투자', year: '2026', title: '보안관제 시스템 증설', owner: '박정호', dept: 'IT운영팀', amount: 8000, status: '확정' },
+      { id: 'IP-2026-03', kind: '투자', year: '2026', title: '테스트 자동화 도입', owner: '김현우', dept: '개발1팀', amount: 3000, status: '작성중' },
+      { id: 'IP-2026-04', kind: '비용', year: '2026', title: '클라우드 인프라 이용료', owner: '이수진', dept: '경영지원팀', amount: 24000, status: '확정' },
+      { id: 'IP-2026-05', kind: '비용', year: '2026', title: 'SW 유지보수료', owner: '박정호', dept: 'IT운영팀', amount: 9000, status: '확정' },
     ],
     investContracts: [
-      { id: 'CT-2026-01', planId: 'IP-2026-01', vendor: '에이원정보', title: 'ERP 리포트 모듈 구축 계약', amount: 7000, signedAt: '2026-06-30' },
-      { id: 'CT-2026-02', planId: 'IP-2026-02', vendor: '비솔루션', title: '보안관제 증설 1차 계약', amount: 5000, signedAt: '2026-07-14' },
+      { id: 'CT-2026-01', kind: '투자', planId: 'IP-2026-01', vendor: '에이원정보', title: 'ERP 리포트 모듈 구축 계약', amount: 7000, signedAt: '2026-06-30' },
+      { id: 'CT-2026-02', kind: '투자', planId: 'IP-2026-02', vendor: '비솔루션', title: '보안관제 증설 1차 계약', amount: 5000, signedAt: '2026-07-14' },
+      { id: 'CT-2026-03', kind: '비용', planId: 'IP-2026-04', vendor: '씨클라우드', title: '클라우드 연간 이용 계약', amount: 24000, signedAt: '2026-01-05' },
     ],
     settlements: [
       { id: 'ST-2026-01', contractId: 'CT-2026-01', item: '착수금', amount: 2100, status: '지급완료', requestedBy: '김현우', requestedAt: '2026-07-05' },
+      { id: 'ST-2026-02', contractId: 'CT-2026-03', item: '월정산', amount: 2000, status: '지급완료', requestedBy: '이수진', requestedAt: '2026-07-31' },
+    ],
+    expenseFlashes: [
+      { id: 'EF-2026-31', month: '2026-07', vendor: '씨클라우드', planId: 'IP-2026-04', expected: 2000 },
+      { id: 'EF-2026-32', month: '2026-08', vendor: '씨클라우드', planId: 'IP-2026-04', expected: 2000 },
+      { id: 'EF-2026-33', month: '2026-08', vendor: '유지보수파트너', planId: 'IP-2026-05', expected: 750 },
     ],
     inspectionItems: [
       { id: 'CK-01', category: '접근통제', control: '중요 시스템 계정·권한 정기 검토', cycle: '분기', source: 'ISMS' },

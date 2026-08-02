@@ -18,18 +18,18 @@ async function addPlan(formData: FormData) {
   const year = today().slice(0, 4)
   s.investPlans.unshift({
     id: nextNo('IP', year, s.investPlans.map((p) => p.id)),
-    kind: '투자', year, title, owner: me.name, dept: me.dept, amount: Math.round(amount), status: '작성중',
+    kind: '비용', year, title, owner: me.name, dept: me.dept, amount: Math.round(amount), status: '작성중',
   })
-  revalidatePath('/finance/invest')
+  revalidatePath('/finance/expense')
 }
 
 async function confirmPlan(formData: FormData) {
   'use server'
   await requireRole('BIZ_MGR', 'ADMIN')
   const s = getStore()
-  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? ''))
+  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? '') && x.kind === '비용')
   if (p && p.status === '작성중') p.status = '확정'
-  revalidatePath('/finance/invest')
+  revalidatePath('/finance/expense')
 }
 
 async function addContract(formData: FormData) {
@@ -44,11 +44,28 @@ async function addContract(formData: FormData) {
   const year = today().slice(0, 4)
   s.investContracts.unshift({
     id: nextNo('CT', year, s.investContracts.map((c) => c.id)),
-    kind: '투자',
-    planId: s.investPlans.some((p) => p.id === planId && p.kind === '투자') ? planId : undefined,
+    kind: '비용',
+    planId: s.investPlans.some((p) => p.id === planId && p.kind === '비용') ? planId : undefined,
     vendor, title, amount: Math.round(amount), signedAt: today(),
   })
-  revalidatePath('/finance/invest')
+  revalidatePath('/finance/expense')
+}
+
+async function addFlash(formData: FormData) {
+  'use server'
+  await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const month = String(formData.get('month') ?? '')
+  const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
+  const expected = Number(formData.get('expected'))
+  const planId = String(formData.get('planId') ?? '')
+  if (!/^\d{4}-\d{2}$/.test(month) || !vendor || !Number.isFinite(expected) || expected <= 0) return
+  const s = getStore()
+  s.expenseFlashes.unshift({
+    id: nextNo('EF', today().slice(0, 4), s.expenseFlashes.map((f) => f.id)),
+    month, vendor, expected: Math.round(expected),
+    planId: s.investPlans.some((p) => p.id === planId && p.kind === '비용') ? planId : undefined,
+  })
+  revalidatePath('/finance/expense')
 }
 
 async function requestSettlement(formData: FormData) {
@@ -58,67 +75,72 @@ async function requestSettlement(formData: FormData) {
   const item = String(formData.get('item') ?? '') as SettlementItem
   const amount = Number(formData.get('amount'))
   const s = getStore()
-  const contract = s.investContracts.find((c) => c.id === contractId && c.kind === '투자')
-  if (!contract || !['착수금', '중도금', '잔금'].includes(item) || !Number.isFinite(amount) || amount <= 0) return
+  const contract = s.investContracts.find((c) => c.id === contractId && c.kind === '비용')
+  if (!contract || !['월정산', '착수금', '중도금', '잔금'].includes(item) || !Number.isFinite(amount) || amount <= 0) return
 
   const year = today().slice(0, 4)
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
   s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: '결재중', requestedBy: me.name, requestedAt: today() })
 
-  // 폐쇄 루프 — 정산품의 상신이 결재함으로 흐르고, 승인되면 지급완료로 실적에 반영된다
+  // 폐쇄 루프 — 속보 불러오기 기반 정산품의가 결재로 흐르고, 승인되면 속보 기준금액이 '정산'으로 바뀐다
   const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
   const adm = ACCOUNTS.find((a) => a.role === 'ADMIN')!
   const approver = me.name === biz.name ? adm.name : biz.name
   const apId = nextNo('AP', year, s.approvals.map((a) => a.id))
   s.approvals.unshift({
-    id: apId, docType: '투자 정산품의', title: `[정산품의-투자] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`,
+    id: apId, docType: '비용 정산품의', title: `[정산품의-비용] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`,
     drafter: me.name, dept: me.dept, approver, status: '대기', draftedAt: today(), ref: stId,
   })
   s.todos.unshift({ id: nextNo('TD', year, s.todos.map((t) => t.id)), owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false })
-
   revalidatePath('/', 'layout')
 }
 
-export default async function InvestPage() {
+export default async function ExpensePage() {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
   const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
 
-  const kindPlans = s.investPlans.filter((p) => p.kind === '투자')
-  const kindContracts = s.investContracts.filter((c) => c.kind === '투자')
+  const kindPlans = s.investPlans.filter((p) => p.kind === '비용')
+  const kindContracts = s.investContracts.filter((c) => c.kind === '비용')
   const kindSettlements = s.settlements.filter((x) => kindContracts.some((c) => c.id === x.contractId))
 
-  // 데이터 스코핑 — 경영계획은 개인별 작성: 사용자=본인, 부서담당=부서, 업무담당·Admin=전사
   const plans = kindPlans.filter((p) =>
     me.role === 'USER' ? p.owner === me.name :
     me.role === 'DEPT_MGR' ? p.dept === me.dept : true,
   )
   const confirmed = kindPlans.filter((p) => p.status === '확정')
 
-  const paidOf = (contractId: string) =>
-    s.settlements.filter((x) => x.contractId === contractId && x.status === '지급완료').reduce((sum, x) => sum + x.amount, 0)
-  const contractsOf = (planId: string) => kindContracts.filter((c) => c.planId === planId)
-
   const planTotal = confirmed.reduce((sum, p) => sum + p.amount, 0)
   const contractTotal = kindContracts.reduce((sum, c) => sum + c.amount, 0)
   const paidTotal = kindSettlements.filter((x) => x.status === '지급완료').reduce((sum, x) => sum + x.amount, 0)
 
+  /** 속보 기준금액 — 정산 > 계약 > 계획 우선순위 (요구사항) */
+  const basisOf = (f: { month: string; vendor: string; planId?: string; expected: number }) => {
+    const paid = kindSettlements
+      .filter((x) => x.status === '지급완료' && x.requestedAt.slice(0, 7) === f.month &&
+        kindContracts.find((c) => c.id === x.contractId)?.vendor === f.vendor)
+      .reduce((sum, x) => sum + x.amount, 0)
+    if (paid > 0) return { basis: '정산' as const, amount: paid }
+    if (kindContracts.some((c) => c.vendor === f.vendor)) return { basis: '계약' as const, amount: f.expected }
+    return { basis: '계획' as const, amount: f.expected }
+  }
+
   return (
     <>
-      <ScreenHeader kicker="IT 투자/비용" title="투자 관리"
-        desc="경영계획(투자과제) → 시행·계약 → 정산품의(결재) → 계획대비실적 — 집행 전 주기를 다룬다." />
+      <ScreenHeader kicker="IT 투자/비용" title="비용 관리"
+        desc="경영계획 → 시행·계약 → 속보(월별 지불 예상) → 정산품의(결재) — 기준금액은 정산 > 계약 > 계획 우선순위로 표시한다." />
 
       <div className="stat-row">
-        <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`과제 ${confirmed.length}건`} />
-        <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${s.investContracts.length}건`} />
+        <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`항목 ${confirmed.length}건`} />
+        <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
         <Stat value={<>{fmt(paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
         <Stat value={`${planTotal ? Math.round((paidTotal / planTotal) * 100) : 0}%`} label="계획 대비 집행률" />
       </div>
 
-      <Card title="경영계획 — 투자과제" kicker="Plan" pad={false}>
+      <Card title="경영계획 — 비용 항목" kicker="Plan" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>과제번호</th><th>과제명</th><th>담당</th><th className="num">계획액 (만원)</th><th>상태</th>{canManage && <th className="c">확정</th>}</tr></thead>
+            <thead><tr><th>항목번호</th><th>항목명</th><th>담당</th><th className="num">계획액 (만원)</th><th>상태</th>{canManage && <th className="c">확정</th>}</tr></thead>
             <tbody>
               {plans.map((p) => (
                 <tr key={p.id}>
@@ -144,9 +166,44 @@ export default async function InvestPage() {
         </div>
         <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
           <form action={addPlan} className="hstack">
-            <input className="input" name="title" required maxLength={120} placeholder="투자과제명" style={{ flex: 1 }} />
+            <input className="input" name="title" required maxLength={120} placeholder="비용 항목명" style={{ flex: 1 }} />
             <input className="input" name="amount" required type="number" min={1} placeholder="계획액 (만원)" style={{ width: 140 }} />
-            <button type="submit" className="btn">과제 등록</button>
+            <button type="submit" className="btn">항목 등록</button>
+          </form>
+        </div>
+      </Card>
+
+      <Card title="속보 — 월별 거래처별 지불 예상" kicker="Flash" pad={false}>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead><tr><th>월</th><th>거래처</th><th>연결 항목</th><th className="num">예상액</th><th>기준</th><th className="num">기준금액</th></tr></thead>
+            <tbody>
+              {[...s.expenseFlashes].sort((a, b) => b.month.localeCompare(a.month)).map((f) => {
+                const b = basisOf(f)
+                return (
+                  <tr key={f.id}>
+                    <td className="tnum">{f.month}</td>
+                    <td className="strong">{f.vendor}</td>
+                    <td>{f.planId ? <span className="mono">{f.planId}</span> : <span className="mut">-</span>}</td>
+                    <td className="num">{fmt(f.expected)}</td>
+                    <td><Chip tone={b.basis === '정산' ? 'ok' : b.basis === '계약' ? 'info' : 'neutral'} bare>{b.basis}</Chip></td>
+                    <td className="num strong">{fmt(b.amount)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
+          <form action={addFlash} className="hstack">
+            <input className="input" name="month" required type="month" defaultValue={today().slice(0, 7)} />
+            <input className="input" name="vendor" required maxLength={60} placeholder="거래처" style={{ flex: 1 }} />
+            <select className="select" name="planId">
+              <option value="">항목 연결 안 함</option>
+              {confirmed.map((p) => <option key={p.id} value={p.id}>{p.id} · {p.title}</option>)}
+            </select>
+            <input className="input" name="expected" required type="number" min={1} placeholder="예상액" style={{ width: 110 }} />
+            <button type="submit" className="btn">속보 등록</button>
           </form>
         </div>
       </Card>
@@ -155,7 +212,7 @@ export default async function InvestPage() {
         <Card title="시행 · 계약내역" kicker="Contracts" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>계약번호</th><th>계약명</th><th>업체</th><th className="num">계약액</th><th>과제</th></tr></thead>
+              <thead><tr><th>계약번호</th><th>계약명</th><th>업체</th><th className="num">계약액</th><th>항목</th></tr></thead>
               <tbody>
                 {kindContracts.map((c) => (
                   <tr key={c.id}>
@@ -173,7 +230,7 @@ export default async function InvestPage() {
             <form action={addContract} className="vstack" style={{ gap: 7 }}>
               <div className="hstack">
                 <select className="select" name="planId" style={{ flex: 1 }}>
-                  <option value="">과제 연결 안 함 (계획외)</option>
+                  <option value="">항목 연결 안 함 (계획외)</option>
                   {confirmed.map((p) => <option key={p.id} value={p.id}>{p.id} · {p.title}</option>)}
                 </select>
                 <input className="input" name="vendor" required maxLength={60} placeholder="업체" style={{ width: 120 }} />
@@ -195,7 +252,7 @@ export default async function InvestPage() {
                 {kindSettlements.map((x) => (
                   <tr key={x.id}>
                     <td className="code">{x.id}</td>
-                    <td>{s.investContracts.find((c) => c.id === x.contractId)?.title ?? x.contractId}</td>
+                    <td>{kindContracts.find((c) => c.id === x.contractId)?.title ?? x.contractId}</td>
                     <td><Chip tone="neutral" bare>{x.item}</Chip></td>
                     <td className="num">{fmt(x.amount)}</td>
                     <td>
@@ -213,7 +270,7 @@ export default async function InvestPage() {
                 {kindContracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.title}</option>)}
               </select>
               <select className="select" name="item">
-                <option>착수금</option><option>중도금</option><option>잔금</option>
+                <option>월정산</option><option>착수금</option><option>중도금</option><option>잔금</option>
               </select>
               <input className="input" name="amount" required type="number" min={1} placeholder="금액" style={{ width: 100 }} />
               <button type="submit" className="btn pri">정산품의 상신</button>
@@ -221,33 +278,6 @@ export default async function InvestPage() {
           </div>
         </Card>
       </div>
-
-      <Card title="계획대비실적" kicker="Plan vs Actual" pad={false}>
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr><th>과제</th><th className="num">계획액</th><th className="num">계약액</th><th className="num">집행액</th><th className="num">집행률</th></tr>
-            </thead>
-            <tbody>
-              {confirmed.map((p) => {
-                const cts = contractsOf(p.id)
-                const contracted = cts.reduce((sum, c) => sum + c.amount, 0)
-                const paid = cts.reduce((sum, c) => sum + paidOf(c.id), 0)
-                const rate = p.amount ? Math.round((paid / p.amount) * 100) : 0
-                return (
-                  <tr key={p.id}>
-                    <td className="strong">{p.title} <span className="mut mono">{p.id}</span></td>
-                    <td className="num">{fmt(p.amount)}</td>
-                    <td className="num">{fmt(contracted)}</td>
-                    <td className="num">{fmt(paid)}</td>
-                    <td className="num"><Chip tone={rate >= 90 ? 'warn' : 'neutral'} bare>{rate}%</Chip></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </>
   )
 }

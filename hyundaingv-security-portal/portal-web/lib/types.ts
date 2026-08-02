@@ -152,9 +152,13 @@ export interface PledgeSign {
   method: '온라인' | '서면(스캔)'
 }
 
-/** IT 투자 — 경영계획(투자과제) → 시행(계약) → 정산품의 → 계획대비실적 (제품안내서 §03) */
+/** IT 투자/비용 — 경영계획 → 시행(계약) → 정산품의 → 계획대비실적 (제품안내서 §03).
+ *  투자·비용은 같은 골격을 쓰고, 계약내역은 요구사항대로 "전체 투자/비용 계약 리스트"를 공유한다. */
+export type FinKind = '투자' | '비용'
+
 export interface InvestPlan {
   id: string
+  kind: FinKind
   year: string
   title: string
   owner: string
@@ -166,6 +170,7 @@ export interface InvestPlan {
 
 export interface InvestContract {
   id: string
+  kind: FinKind
   /** 경영계획 과제 참조 — 계획외 건은 미지정 (요구사항: 계획 미반영건 추가 가능) */
   planId?: string
   vendor: string
@@ -174,7 +179,16 @@ export interface InvestContract {
   signedAt: string
 }
 
-export type SettlementItem = '착수금' | '중도금' | '잔금'
+export type SettlementItem = '착수금' | '중도금' | '잔금' | '월정산'
+
+/** 비용 속보 — 경영계획 기초 월별 거래처별 지불 예상액. 표시 기준금액은 정산>계약>계획 우선순위. */
+export interface ExpenseFlash {
+  id: string
+  month: string
+  vendor: string
+  planId?: string
+  expected: number
+}
 
 export interface Settlement {
   id: string

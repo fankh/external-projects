@@ -22,8 +22,8 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
     if (sr && sr.status === '결재중') sr.status = verdict === '승인' ? 'CI배정' : '반려'
   }
 
-  // 폐쇄 루프 1-2 — 정산품의 결재가 지급 상태로 전파되어 계획대비실적 집행액에 반영된다
-  if (ap.docType === '투자 정산품의' && ap.ref) {
+  // 폐쇄 루프 1-2 — 정산품의(투자·비용) 결재가 지급 상태로 전파되어 실적·속보 기준금액에 반영된다
+  if ((ap.docType === '투자 정산품의' || ap.docType === '비용 정산품의') && ap.ref) {
     const st = s.settlements.find((x) => x.id === ap.ref)
     if (st && st.status === '결재중') st.status = verdict === '승인' ? '지급완료' : '반려'
   }
