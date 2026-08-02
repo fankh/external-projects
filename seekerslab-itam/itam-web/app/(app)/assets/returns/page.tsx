@@ -1,6 +1,6 @@
 import { ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
-import { daysUntil } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { ReturnsView } from './ReturnsView'
 
@@ -41,6 +41,21 @@ export default async function ReturnsPage() {
       return { assetNo: a.assetNo, model: a.model, category: a.category, location: a.location, note: last?.detail ?? '' }
     })
 
+  // 대여 현황 — 반출(대여중) 자산을 한 곳에 모아 반환 기한·연체를 관리한다. 그동안 대여 반환·연장은
+  // 자산 대장 상세에 자산별로 흩어져 있어, 담당자가 "무엇이 언제까지 나가 있는지"를 한눈에 볼 곳이 없었다.
+  // 반환이 임박·경과한 순으로 정렬한다(기한 없는 건은 뒤로).
+  const loans = s.assets
+    .filter((a) => a.status === '대여중')
+    .map((a) => ({
+      assetNo: a.assetNo, model: a.model, owner: a.owner, dept: a.dept,
+      dueDate: a.loanDueDate ?? '-',
+      dday: a.loanDueDate ? daysUntil(a.loanDueDate) : null,
+      overdue: isLoanOverdue(a),
+    }))
+    .sort((x, y) => (x.dday ?? 99_999) - (y.dday ?? 99_999))
+  const overdueLoans = loans.filter((l) => l.overdue).length
+  const todayStr = today()
+
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
     .filter((v) => v.active)
     .sort((a, b) => a.sort - b.sort)
@@ -63,12 +78,13 @@ export default async function ReturnsPage() {
       <div className="stat-row">
         <Stat value={pending.length} label="반납 접수 대기" tone={pending.length ? 'accent' : 'ok'} />
         <Stat value={repairing.length} label="수리중" tone={repairing.length ? 'warn' : 'ok'} />
+        <Stat value={loans.length} label="대여중" tone={loans.length ? 'accent' : 'ok'} delta={overdueLoans ? { text: `연체 ${overdueLoans}건`, dir: 'up' } : undefined} />
         <Stat value={idle.length} label="유휴 자산 풀" />
         <Stat value={longIdle} label="90일 이상 장기 유휴" tone={longIdle ? 'warn' : 'ok'} delta={{ text: '재배치·폐기 검토', dir: 'flat' }} />
         <Stat value={openRequests} label="배정 대기 자산 신청" tone={openRequests ? 'accent' : 'ok'} />
       </div>
 
-      <ReturnsView pending={pending} idle={idle} repairing={repairing} locations={locations} openRequests={openRequests} />
+      <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} today={todayStr} locations={locations} openRequests={openRequests} />
     </>
   )
 }

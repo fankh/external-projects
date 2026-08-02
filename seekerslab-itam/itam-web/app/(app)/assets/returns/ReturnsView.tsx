@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
+import { extendLoan, returnLoan } from '@/app/(app)/assets/register/actions'
 import { Card, Chip } from '@/components/ui'
 import type { ReturnCondition } from '@/lib/types'
 import { completeRepair, receiveReturn } from './actions'
@@ -10,11 +11,15 @@ const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고
 type Pending = { assetNo: string; model: string; owner: string; dept: string; location: string; since: string }
 type Idle = { assetNo: string; model: string; category: string; location: string; idleDays: number | null }
 type Repairing = { assetNo: string; model: string; category: string; location: string; note: string }
+type Loan = { assetNo: string; model: string; owner: string; dept: string; dueDate: string; dday: number | null; overdue: boolean }
 
 export function ReturnsView(props: {
   pending: Pending[]
   idle: Idle[]
   repairing: Repairing[]
+  loans: Loan[]
+  /** 기준일 YYYY-MM-DD — 연장 date input 의 최소값(과거·현재 기한 이전으로는 연장 불가) */
+  today: string
   locations: string[]
   /** 배정 대기 중인 자산 신청 수 — 재배치 우선 원칙의 근거 */
   openRequests: number
@@ -23,6 +28,7 @@ export function ReturnsView(props: {
   const [loc, setLoc] = useState<Record<string, string>>({})
   const [note, setNote] = useState<Record<string, string>>({})
   const [rnote, setRnote] = useState<Record<string, string>>({})
+  const [ext, setExt] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -127,6 +133,56 @@ export function ReturnsView(props: {
           </div>
         </Card>
       )}
+
+      <Card kicker="On Loan" title={`대여 현황 ${props.loans.length}건 — 반출·반환 기한 관리`} pad={false}>
+        {props.loans.length === 0 ? (
+          <div className="empty">대여 중인 자산이 없습니다. 자산 대장·대여 신청 결재에서 유휴 자산을 반환 기한과 함께 대여하면 여기에 표시됩니다.</div>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr><th>자산</th><th>대여자</th><th className="c">반환 기한</th><th className="c">D-day</th><th>기한 연장</th><th className="c">반환</th></tr>
+              </thead>
+              <tbody>
+                {props.loans.map((l) => {
+                  const dd = l.dday
+                  const tone = l.overdue ? 'err' : dd !== null && dd <= 7 ? 'warn' : 'neutral'
+                  const label = dd === null ? '기한 없음' : l.overdue ? `연체 ${-dd}일` : dd === 0 ? '오늘 만기' : `D-${dd}`
+                  return (
+                    <tr key={l.assetNo}>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{l.model}</div>
+                        <div className="dim" style={{ fontSize: 11 }}>{l.assetNo}</div>
+                      </td>
+                      <td>{l.owner}<div className="dim" style={{ fontSize: 11 }}>{l.dept}</div></td>
+                      <td className="c tnum">{l.dueDate}</td>
+                      <td className="c"><Chip tone={tone}>{label}</Chip></td>
+                      <td>
+                        <span className="hstack" style={{ gap: 4 }}>
+                          <input className="input" type="date" min={props.today} style={{ width: 150 }}
+                            value={ext[l.assetNo] ?? ''} onChange={(e) => setExt((m) => ({ ...m, [l.assetNo]: e.target.value }))} />
+                          <button className="btn sm" disabled={pending || !ext[l.assetNo]}
+                            onClick={() => startTransition(async () => setMsg((await extendLoan(l.assetNo, ext[l.assetNo] ?? '')).message))}>연장</button>
+                        </span>
+                      </td>
+                      <td className="c">
+                        <button className="btn sm pri" disabled={pending}
+                          onClick={() => startTransition(async () => setMsg((await returnLoan(l.assetNo)).message))}>반환 접수</button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {props.loans.length > 0 && (
+          <div className="callout" style={{ margin: 14 }}>
+            <b>대여는 기한부 반출입니다.</b> 반환 기한이 지나면 <Chip tone="err" bare>연체</Chip> 로 드러나 대시보드 운영 큐에도 노출됩니다.
+            반납 없이 <b>기한만 연장</b>할 수 있고, <b>반환 접수</b> 시 유휴 풀로 편성돼 검수실 재확인 후 재배치됩니다.
+          </div>
+        )}
+      </Card>
 
       <Card
         kicker="Idle Pool"
