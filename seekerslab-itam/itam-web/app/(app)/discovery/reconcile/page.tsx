@@ -58,6 +58,12 @@ export default async function ReconcilePage() {
                   <td>{o.meaning}</td>
                   <td className="dim">
                     {o.handle}
+                    {o.state === '미등록' && count('미등록') > 0 && (
+                      <> <Link className="btn sm ghost" href={`/discovery/found?state=${encodeURIComponent('미등록')}`} title="발견 자산 처리 화면 — 소유자 확인·편입·격리">발견 처리</Link></>
+                    )}
+                    {o.state === '등록·불일치' && count('등록·불일치') > 0 && (
+                      <> <Link className="btn sm ghost" href={`/discovery/found?state=${encodeURIComponent('등록·불일치')}`} title="불일치 발견 자산 목록 — 차이 확인·대장 보정">불일치 확인</Link></>
+                    )}
                     {o.state === '미확인' && canPlan && count('미확인') > 0 && (
                       <> <Link className="btn sm ghost" href="/inventory/survey-plan">조사 편성</Link></>
                     )}

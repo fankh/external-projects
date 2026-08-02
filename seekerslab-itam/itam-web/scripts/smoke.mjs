@@ -491,6 +491,8 @@ try {
   check('재물조사 계획: 장기 미실측 자산 자동 편성 진입점', planHtml.includes('장기 미실측') && planHtml.includes('실사 기반 유령'))
   const recHtml2 = await (await get('/discovery/reconcile', 'ASSET_MGR')).text()
   check('CMDB 대사: 미확인 → 조사 편성 연결', recHtml2.includes('/inventory/survey-plan'))
+  // 대사 결과별 처리 드릴다운 — 미등록·불일치 카운트가 발견 처리 화면(상태 필터)로 연결 (report → act)
+  check('CMDB 대사: 미등록·불일치 → 발견 처리 상태 드릴다운', recHtml2.includes(`/discovery/found?state=${encodeURIComponent('미등록')}`) && recHtml2.includes(`/discovery/found?state=${encodeURIComponent('등록·불일치')}`))
   const recSec = await (await get('/discovery/reconcile', 'SEC_MGR')).text()
   check('CMDB 대사: 보안담당에겐 계획 링크 미노출 (권한 밖 이동 방지)', !recSec.includes('/inventory/survey-plan'))
   // 실사 위치 드롭다운은 공통코드 LOCATION 그룹에서 오며, 대장의 랙 단위 위치를 모두 포함해야

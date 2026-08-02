@@ -3,14 +3,17 @@ import { requireRole } from '@/lib/authz'
 import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { CHANNELS, CONFIRM_DEADLINE_DAYS } from '@/lib/types'
+import { CHANNELS, CONFIRM_DEADLINE_DAYS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
 import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function FoundPage() {
+export default async function FoundPage({ searchParams }: { searchParams: Promise<{ state?: string }> }) {
   const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
+  const { state } = await searchParams
+  // CMDB 대사 화면에서 상태별 드릴다운(?state=)으로 진입 — 유효한 대사 상태만 초기 필터로 반영
+  const initialState = RECONCILE_STATES.includes(state as ReconcileState) ? (state as ReconcileState) : undefined
   const s = getStore()
   const d = s.discovered
   const unreg = d.filter((x) => x.state === '미등록' && !x.action)
@@ -72,7 +75,7 @@ export default async function FoundPage() {
       <EscalateBar waiting={awaiting.length} overdue={overdue.length} deadlineDays={CONFIRM_DEADLINE_DAYS} />
 
       <Card pad={false}>
-        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} />
+        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} initialState={initialState} />
       </Card>
     </>
   )

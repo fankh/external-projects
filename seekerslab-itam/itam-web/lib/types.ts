@@ -72,6 +72,7 @@ export const CHANNELS: Channel[] = [
 
 /** CMDB 대사 결과 4상태 */
 export type ReconcileState = '등록·일치' | '등록·불일치' | '미등록' | '미확인'
+export const RECONCILE_STATES: ReconcileState[] = ['등록·일치', '등록·불일치', '미등록', '미확인']
 
 export type RiskLevel = '높음' | '중간' | '낮음'
 

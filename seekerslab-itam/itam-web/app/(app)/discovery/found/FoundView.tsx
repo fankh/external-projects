@@ -11,15 +11,17 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
 const STATES: ReconcileState[] = ['등록·일치', '등록·불일치', '미등록', '미확인']
 const RISKS: RiskLevel[] = ['높음', '중간', '낮음']
 
-export function FoundView({ items, observations, mergeCandidates, canExport }: {
+export function FoundView({ items, observations, mergeCandidates, canExport, initialState }: {
   items: DiscoveredAsset[]
   observations: ChannelObservation[]
   /** 지문이 갈렸지만 같은 장비로 의심되는 쌍 — 수동 병합 대상 */
   mergeCandidates: { primary: DiscoveredAsset; duplicate: DiscoveredAsset; reason: string }[]
   canExport: boolean
+  /** CMDB 대사 화면에서 상태별 드릴다운으로 진입할 때 초기 상태 필터 (?state=) */
+  initialState?: ReconcileState
 }) {
   const [channel, setChannel] = useState<Channel | '전체'>('전체')
-  const [fstate, setFstate] = useState<ReconcileState | '전체'>('전체')
+  const [fstate, setFstate] = useState<ReconcileState | '전체'>(initialState && STATES.includes(initialState) ? initialState : '전체')
   const [frisk, setFrisk] = useState<RiskLevel | '전체'>('전체')
   const [fq, setFq] = useState('')
   const [selId, setSelId] = useState<string | null>(null)
