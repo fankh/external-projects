@@ -1,7 +1,8 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, today } from '@/lib/dates'
+import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { ReturnCondition } from '@/lib/types'
@@ -60,6 +61,44 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
     : condition === '수리 필요' ? `수리중 편성 — 수리 완료 후 유휴 풀로 (${location})`
     : `유휴 풀 편성 — ${location}`
   return { ok: true, message: `${assetNo} 반납 접수 완료 · 점검 ${condition} → ${next}` }
+}
+
+/** 대여 반환 독촉 발송 — 반환 기한이 지났거나(연체) 임박(D-7)한 대여 자산의 대여자에게 반환 요청 통지를 보낸다.
+ *  그동안 연체 대여는 대시보드·대여 현황에 드러나기만 하고 대여자에게 통보할 수단이 없었다(계약 만료 알림 loop 13·
+ *  필독 미확인 안내 loop 39 와 같은 컴플라이언스 독촉의 대여판). 당일 중복 발송은 차단한다. 자산담당·Admin. */
+export async function remindLoans() {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '대여 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
+  }
+
+  const s = getStore()
+  const t = today()
+  // 당일 이미 독촉한 자산은 건너뛴다 — ref = 자산번호
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === '대여 독촉' && m.at.startsWith(t)).map((m) => m.ref),
+  )
+
+  let n = 0
+  for (const a of s.assets) {
+    const overdue = isLoanOverdue(a)
+    if (!overdue && !isLoanDueSoon(a)) continue
+    if (sentToday.has(a.assetNo)) continue
+    const d = daysUntil(a.loanDueDate ?? '') ?? 0
+    dispatch({
+      channel: '이메일',
+      to: a.owner,
+      subject: `${a.assetNo} ${a.model} 반환 ${overdue ? `기한 경과 (${-d}일 연체)` : d === 0 ? '기한 오늘 만기' : `기한 임박 (D-${d})`} — ${a.loanDueDate}까지 반환 요청`,
+      kind: '대여 독촉',
+      ref: a.assetNo,
+    })
+    n += 1
+  }
+
+  if (n === 0) return { ok: false, message: '독촉 대상 대여가 없습니다 (연체·반환 임박 없음, 오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `대여 반환 독촉 발송 (${n}건)`, target: '대여 자산' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `대여 반환 독촉 ${n}건 발송 — 대여자에게 반환 요청 통지 (발송 이력 적재)` }
 }
 
 /** 수리 완료 처리 — 수리중 자산을 유휴 풀로 되돌리거나(수리 완료), 수리 불가면 폐기 절차로 보낸다.

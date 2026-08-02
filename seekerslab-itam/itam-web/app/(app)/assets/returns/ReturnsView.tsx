@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { extendLoan, returnLoan } from '@/app/(app)/assets/register/actions'
 import { Card, Chip } from '@/components/ui'
 import type { ReturnCondition } from '@/lib/types'
-import { completeRepair, receiveReturn } from './actions'
+import { completeRepair, receiveReturn, remindLoans } from './actions'
 
 const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고']
 
@@ -18,6 +18,8 @@ export function ReturnsView(props: {
   idle: Idle[]
   repairing: Repairing[]
   loans: Loan[]
+  /** 독촉 대상(연체 + 반환 임박 D-7) 건수 — 대여자 반환 요청 발송 대상 */
+  remindable: number
   /** 기준일 YYYY-MM-DD — 연장 date input 의 최소값(과거·현재 기한 이전으로는 연장 불가) */
   today: string
   locations: string[]
@@ -134,7 +136,17 @@ export function ReturnsView(props: {
         </Card>
       )}
 
-      <Card kicker="On Loan" title={`대여 현황 ${props.loans.length}건 — 반출·반환 기한 관리`} pad={false}>
+      <Card
+        kicker="On Loan"
+        title={`대여 현황 ${props.loans.length}건 — 반출·반환 기한 관리`}
+        pad={false}
+        actions={
+          props.remindable > 0
+            ? <button className="btn sm pri" disabled={pending}
+                onClick={() => startTransition(async () => setMsg((await remindLoans()).message))}>반환 독촉 발송 {props.remindable}건</button>
+            : undefined
+        }
+      >
         {props.loans.length === 0 ? (
           <div className="empty">대여 중인 자산이 없습니다. 자산 대장·대여 신청 결재에서 유휴 자산을 반환 기한과 함께 대여하면 여기에 표시됩니다.</div>
         ) : (
