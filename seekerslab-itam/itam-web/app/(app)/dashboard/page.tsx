@@ -61,6 +61,8 @@ export default async function DashboardPage() {
 
   const round = s.inventoryRounds.find((r) => r.status === '진행중')
   const topInsights = s.insights.filter((i) => i.status === '제안').slice(0, 3)
+  // 최근 활동 — 감사 로그 최신 6건(관리자·담당자 한정, 감사 로그 접근 권한과 동일). 랜딩에서 변경 상황 훑기.
+  const recentAudit = [...s.auditLogs].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 6)
 
   return (
     <>
@@ -201,6 +203,23 @@ export default async function DashboardPage() {
                     <span className="hstack" style={{ gap: 6 }}><Chip tone={q.tone}>{q.count}</Chip><span className="mut">→</span></span>
                   </Link>
                 )) : <div className="mut">처리 대기 중인 운영 작업이 없습니다.</div>}
+              </div>
+            </Card>
+          )}
+
+          {session.role !== 'USER' && (
+            <Card kicker="Activity" title="최근 활동"
+              actions={<Link className="btn sm ghost" href="/platform/integrations">감사 로그</Link>}>
+              <div className="vstack" style={{ gap: 7 }}>
+                {recentAudit.length > 0 ? recentAudit.map((a) => (
+                  <Link key={a.id} href="/platform/integrations" className="hstack"
+                    style={{ justifyContent: 'space-between', gap: 10, color: 'inherit', textDecoration: 'none', alignItems: 'baseline' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                      <span className="mut tnum" style={{ fontSize: 11 }}>{a.at.slice(5, 16)}</span> <b style={{ fontSize: 12 }}>{a.actor}</b> <span style={{ fontSize: 12 }}>{a.action}</span>
+                    </span>
+                    {a.result === '실패' && <Chip tone="err" bare>실패</Chip>}
+                  </Link>
+                )) : <div className="mut">최근 활동이 없습니다.</div>}
               </div>
             </Card>
           )}
