@@ -1,5 +1,5 @@
 import { Card, ScreenHeader } from '@/components/ui'
-import { isStaleVerify, today } from '@/lib/dates'
+import { daysUntil, isStaleVerify, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -7,9 +7,9 @@ import { RegisterView } from './RegisterView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string }> }) {
+export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string }> }) {
   const session = (await getSession())!
-  const { q, sel, cat, status } = await searchParams
+  const { q, sel, cat, status, warranty } = await searchParams
   const s = getStore()
   // 화면·기능 단위 최소권한 — 사용자 권한그룹은 본인 보유 자산만 조회
   const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
@@ -17,6 +17,10 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const initialSel = sel && scoped.some((a) => a.assetNo === sel) ? sel : undefined
   // 장기 미실측(유령 자산 후보) — 대장 필터·재물조사 편성이 공유하는 lib/dates 의 isStaleVerify 기준
   const staleNos = scoped.filter(isStaleVerify).map((a) => a.assetNo)
+  // 보증 만료 임박·경과 — 운영 중 자산 중 보증 90일 이내(경과 포함). 보증 없는 자산(SW·가상자원)은 제외.
+  const warrantyNos = scoped
+    .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90)
+    .map((a) => a.assetNo)
 
   return (
     <>
@@ -29,7 +33,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
         <div className="callout"><b>사용자 권한 범위.</b> 본인 보유 자산만 표시됩니다. 자산 신청·반납·이동 요청은 워크플로 › 신청·결재에서 상신할 수 있습니다.</div>
       )}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} today={today()} initialCat={cat} initialStatus={status} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} today={today()} initialCat={cat} initialStatus={status} />
       </Card>
     </>
   )

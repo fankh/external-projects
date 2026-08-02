@@ -20,13 +20,15 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; today?: string; initialCat?: string; initialStatus?: string }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; today?: string; initialCat?: string; initialStatus?: string }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
   const [status, setStatus] = useState<AssetStatus | '전체'>(STATUSES.includes(props.initialStatus as AssetStatus | '전체') ? (props.initialStatus as AssetStatus) : '전체')
   const [staleOnly, setStaleOnly] = useState(false)
+  const [warrantyOnly, setWarrantyOnly] = useState(Boolean(props.initialWarranty))
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
+  const warrantySet = useMemo(() => new Set(props.warrantyNos ?? []), [props.warrantyNos])
   const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
   const [cfgOpen, setCfgOpen] = useState(false)
   const [cfgField, setCfgField] = useState<ConfigField>('memory')
@@ -53,11 +55,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       if (cat !== '전체' && a.category !== cat) return false
       if (status !== '전체' && a.status !== status) return false
       if (staleOnly && !staleSet.has(a.assetNo)) return false
+      if (warrantyOnly && !warrantySet.has(a.assetNo)) return false
       if (!needle) return true
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat, status, staleOnly, staleSet])
+  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
 
@@ -92,6 +95,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
           <button className={`btn sm ${staleOnly ? 'danger' : ''}`} onClick={() => setStaleOnly((v) => !v)}
             title={`최근 실측이 ${'없거나 오래된'} 자산 — 유령 자산 후보`}>
             {staleOnly ? '✓ ' : ''}장기 미실측 {staleSet.size}
+          </button>
+        )}
+        {warrantySet.size > 0 && (
+          <button className={`btn sm ${warrantyOnly ? 'warn' : ''}`} onClick={() => setWarrantyOnly((v) => !v)}
+            title="보증이 90일 이내 만료·경과한 자산 — 보증 연장·교체 검토 대상">
+            {warrantyOnly ? '✓ ' : ''}보증 임박 {warrantySet.size}
           </button>
         )}
         <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
