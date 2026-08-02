@@ -262,6 +262,46 @@ export interface EducationRecord {
   completedAt: string
 }
 
+/** 프로젝트 — 계약정보 연동, 진행현황·인력·일정/산출물·이슈·회의록·주간보고 (제품안내서 §03) */
+export interface Project {
+  id: string
+  title: string
+  /** 투자 계약 연동 — 계약내역에서 업체·계약액을 가져온다 */
+  contractId?: string
+  manager: string
+  headcount: number
+  start: string
+  end: string
+  progress: number
+  status: '진행중' | '완료'
+}
+
+export interface Deliverable {
+  id: string
+  projectId: string
+  name: string
+  due: string
+  done: boolean
+}
+
+export interface ProjectIssue {
+  id: string
+  projectId: string
+  title: string
+  risk: '높음' | '중간' | '낮음'
+  status: '오픈' | '해결'
+  raisedAt: string
+}
+
+export interface ProjectNote {
+  id: string
+  projectId: string
+  kind: '회의록' | '주간보고'
+  title: string
+  author: string
+  writtenAt: string
+}
+
 /** 발송 이력 — 어댑터 경유 메일·문자 발송 기록 (연동·인프라 화면에서 추적) */
 export interface SendLogEntry {
   channelId: string

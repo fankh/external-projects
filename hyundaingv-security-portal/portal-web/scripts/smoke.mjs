@@ -180,6 +180,10 @@ async function main() {
     ['/awareness/violations', 'USER', ['내 위반 내역']],
     // 환경설정 — 사용자·결재선 관리
     ['/settings/users', 'ADMIN', ['사용자 목록', '결재선 관리', 'SR 신청', '자기 결재 방지', '인사정보 연동']],
+    // 프로젝트 — 계약 연동·진척·산출물·이슈·주간보고
+    ['/projects/status', 'BIZ_MGR', ['PJ-2026-01', 'ERP 리포트 모듈 구축', '에이원정보', '프로젝트 등록', '평균 진척']],
+    ['/projects/schedule', 'BIZ_MGR', ['통합테스트 결과서', '레거시 리포트 데이터 정합성 오류', '해결 처리', '완료 처리']],
+    ['/projects/reports', 'BIZ_MGR', ['킥오프 회의', '7월 4주차', '주간보고']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)

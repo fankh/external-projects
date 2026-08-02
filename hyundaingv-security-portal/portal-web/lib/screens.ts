@@ -30,27 +30,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '디스크현황', detail: '서버별 디스크 사용률 추적' },
     ],
   },
-  '/projects/status': {
-    desc: '프로젝트 진행현황 — 진척과 인력투입을 관리한다.',
-    features: [
-      { name: '진행현황', detail: '진행률·예상/실제 완료일·공수·담당자' },
-      { name: '인력투입', detail: '투입 인력 계획 등록·첨부 관리' },
-    ],
-  },
-  '/projects/schedule': {
-    desc: '일정·산출물·이슈 — 계획 대비 진척과 산출물·리스크 관리.',
-    features: [
-      { name: '일정/산출물', detail: '계획 일정 대비 진척, 필요 산출물 등록·점검 (첨부)' },
-      { name: '이슈·리스크', detail: '프로젝트 이슈·리스크 등록·추적 (첨부)' },
-    ],
-  },
-  '/projects/reports': {
-    desc: '회의록·주간보고 — 프로젝트 커뮤니케이션 기록.',
-    features: [
-      { name: '회의록', detail: '회의록 등록·조회 (첨부)' },
-      { name: '주간보고', detail: '프로젝트 주간보고 작성·조회 (첨부)' },
-    ],
-  },
   '/pledge/manage': {
     desc: '전사 현황·양식관리 — 전사 서약 현황과 양식·업로드를 관리한다.',
     features: [

@@ -2,7 +2,7 @@
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
 import { CHANNELS } from '@/portal.config'
-import type { Approval, ApprovalLine, BatchRun, ChangeWork, EducationCourse, EducationRecord, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, PrintoutRecord, RemoteCheck, SendLogEntry, Settlement, SrRequest, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, BatchRun, ChangeWork, Deliverable, EducationCourse, EducationRecord, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InvestContract, InvestPlan, Notice, Person, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, RemoteCheck, SendLogEntry, Settlement, SrRequest, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -12,6 +12,10 @@ export interface Store {
   printouts: PrintoutRecord[]
   remoteChecks: RemoteCheck[]
   violations: Violation[]
+  projects: Project[]
+  deliverables: Deliverable[]
+  projectIssues: ProjectIssue[]
+  projectNotes: ProjectNote[]
   investPlans: InvestPlan[]
   investContracts: InvestContract[]
   settlements: Settlement[]
@@ -56,6 +60,24 @@ function seed(): Store {
       { id: 'EF-2026-31', month: '2026-07', vendor: '씨클라우드', planId: 'IP-2026-04', expected: 2000 },
       { id: 'EF-2026-32', month: '2026-08', vendor: '씨클라우드', planId: 'IP-2026-04', expected: 2000 },
       { id: 'EF-2026-33', month: '2026-08', vendor: '유지보수파트너', planId: 'IP-2026-05', expected: 750 },
+    ],
+    projects: [
+      { id: 'PJ-2026-01', title: 'ERP 리포트 모듈 구축', contractId: 'CT-2026-01', manager: '박정호', headcount: 4, start: '2026-07-01', end: '2026-10-31', progress: 35, status: '진행중' },
+      { id: 'PJ-2026-02', title: '보안관제 증설 구축', contractId: 'CT-2026-02', manager: '한지원', headcount: 2, start: '2026-07-20', end: '2026-09-30', progress: 15, status: '진행중' },
+    ],
+    deliverables: [
+      { id: 'DL-01', projectId: 'PJ-2026-01', name: '요구사항정의서', due: '2026-07-11', done: true },
+      { id: 'DL-02', projectId: 'PJ-2026-01', name: '화면 설계서', due: '2026-07-31', done: true },
+      { id: 'DL-03', projectId: 'PJ-2026-01', name: '개발 산출물 (소스·단위테스트)', due: '2026-09-30', done: false },
+      { id: 'DL-04', projectId: 'PJ-2026-01', name: '통합테스트 결과서', due: '2026-10-20', done: false },
+      { id: 'DL-05', projectId: 'PJ-2026-02', name: '증설 구성도', due: '2026-08-08', done: false },
+    ],
+    projectIssues: [
+      { id: 'PI-2026-01', projectId: 'PJ-2026-01', title: '레거시 리포트 데이터 정합성 오류', risk: '높음', status: '오픈', raisedAt: '2026-07-28' },
+    ],
+    projectNotes: [
+      { id: 'PN-2026-01', projectId: 'PJ-2026-01', kind: '회의록', title: '킥오프 회의 — 범위·일정 확정', author: '박정호', writtenAt: '2026-07-02' },
+      { id: 'PN-2026-02', projectId: 'PJ-2026-01', kind: '주간보고', title: '7월 4주차 — 설계 완료, 개발 착수', author: '박정호', writtenAt: '2026-07-25' },
     ],
     printouts: [],
     remoteChecks: [
