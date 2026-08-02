@@ -83,10 +83,13 @@ export async function deleteQuestion(postId: string) {
 }
 
 /** 공지 등록 — Admin */
-export async function postNotice(title: string, body: string, pinned: boolean) {
+export async function postNotice(title: string, body: string, pinned: boolean, publishAt?: string) {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 등록 권한이 없습니다.' }
   if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
+  const pub = publishAt?.trim() || undefined
+  // 형식만 검증한다. 과거·오늘 날짜는 즉시 발행으로 처리(publishAt 미설정), 미래 날짜만 예약으로 남긴다.
+  if (pub && !/^\d{4}-\d{2}-\d{2}$/.test(pub)) return { ok: false, message: '예약 발행일을 선택해 주세요.' }
 
   const s = getStore()
   s.posts.unshift({
@@ -99,10 +102,12 @@ export async function postNotice(title: string, body: string, pinned: boolean) {
     createdAt: today(),
     views: 0,
     pinned,
+    publishAt: pub && pub > today() ? pub : undefined,
   })
-  appendAudit({ actor: session.name, action: `공지 등록${pinned ? ' (필독 고정)' : ''} — ${title.trim()}`, target: '공지' })
+  const scheduled = pub && pub > today()
+  appendAudit({ actor: session.name, action: `공지 ${scheduled ? `예약 등록 (발행 ${pub})` : '등록'}${pinned ? ' · 필독 고정' : ''} — ${title.trim()}`, target: '공지' })
   revalidatePath('/', 'layout')
-  return { ok: true, message: '공지가 등록되었습니다.' }
+  return { ok: true, message: scheduled ? `공지가 예약되었습니다 — ${pub} 발행 예정.` : '공지가 등록되었습니다.' }
 }
 
 /** 공지 삭제 — Admin. 등록만 있고 정리 수단이 없어 낡은 공지가 계속 남던 공백을 메운다. */

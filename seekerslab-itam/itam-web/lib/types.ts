@@ -355,6 +355,9 @@ export interface BoardPost {
   answer?: { body: string; by: string; at: string }
   /** 필독(상단 고정) 공지의 읽음 확인 이력 — 사용자별 확인 여부·일시. 컴플라이언스 커버리지 집계용 */
   acks?: { by: string; at: string }[]
+  /** 공지 예약 발행일 — 미설정이면 즉시 발행. 발행일이 미래면 관리자에게만 '예약'으로 보이고
+   *  발행일이 도래하면(≤ 기준일) 전사에 공개된다. */
+  publishAt?: string
 }
 
 /** 외부 공격표면 탐지 (제품안내서 §04) — 조직 밖으로 노출된 미인지 자산 */

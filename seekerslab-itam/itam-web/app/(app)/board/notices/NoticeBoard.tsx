@@ -4,12 +4,13 @@ import { Card, Chip } from '@/components/ui'
 import type { BoardPost } from '@/lib/types'
 import { acknowledgeNotice, deleteNotice, editNotice, postNotice, toggleNoticePin } from '../actions'
 
-export function NoticeBoard({ posts, canWrite, me, totalUsers }: { posts: BoardPost[]; canWrite: boolean; me: string; totalUsers: number }) {
+export function NoticeBoard({ posts, canWrite, me, totalUsers, today }: { posts: BoardPost[]; canWrite: boolean; me: string; totalUsers: number; today: string }) {
   const [openId, setOpenId] = useState<string | null>(posts[0]?.id ?? null)
   const [writing, setWriting] = useState(false)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [pinned, setPinned] = useState(false)
+  const [pubAt, setPubAt] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
   const [et, setEt] = useState('')
   const [eb, setEb] = useState('')
@@ -29,18 +30,22 @@ export function NoticeBoard({ posts, canWrite, me, totalUsers }: { posts: BoardP
             <input className="input" placeholder="공지 제목" value={title} onChange={(e) => setTitle(e.target.value)} />
             <textarea className="input" style={{ height: 110, padding: '8px 10px', resize: 'vertical', lineHeight: 1.6 }}
               placeholder="공지 내용" value={body} onChange={(e) => setBody(e.target.value)} />
-            <div className="hstack">
+            <div className="hstack" style={{ flexWrap: 'wrap', gap: 10 }}>
               <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
                 <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
                 상단 고정 (필독)
               </label>
+              <label className="hstack" style={{ gap: 6, fontSize: 12.5 }} title="미설정 시 즉시 발행. 미래 날짜 지정 시 그날 전사 공개(예약 발행)">
+                예약 발행일
+                <input className="input" type="date" style={{ height: 28 }} min={today} value={pubAt} onChange={(e) => setPubAt(e.target.value)} />
+              </label>
               <span className="right" />
               <button className="btn pri" disabled={pending || !title.trim() || !body.trim()}
                 onClick={() => startTransition(async () => {
-                  const r = await postNotice(title, body, pinned)
+                  const r = await postNotice(title, body, pinned, pubAt || undefined)
                   setMsg(r.message)
-                  if (r.ok) { setTitle(''); setBody(''); setPinned(false); setWriting(false) }
-                })}>등록</button>
+                  if (r.ok) { setTitle(''); setBody(''); setPinned(false); setPubAt(''); setWriting(false) }
+                })}>{pubAt && pubAt > today ? '예약 등록' : '등록'}</button>
             </div>
             {msg && <div className="dim" style={{ fontSize: 11.5 }}>{msg}</div>}
           </div>
@@ -52,8 +57,8 @@ export function NoticeBoard({ posts, canWrite, me, totalUsers }: { posts: BoardP
               {posts.map((p) => (
                 <tr key={p.id} className={`clickable ${p.id === openId ? 'sel' : ''}`}
                   onClick={() => select(p.id)}>
-                  <td className="c">{p.pinned ? <Chip tone="err" bare>필독</Chip> : <span className="mut">공지</span>}</td>
-                  <td className="strong">{p.title}</td>
+                  <td className="c">{p.publishAt && p.publishAt > today ? <Chip tone="info" bare>예약</Chip> : p.pinned ? <Chip tone="err" bare>필독</Chip> : <span className="mut">공지</span>}</td>
+                  <td className="strong">{p.title}{p.publishAt && p.publishAt > today && <span className="mut" style={{ fontSize: 11 }}> · {p.publishAt} 발행 예정</span>}</td>
                   <td>{p.author}<span className="mut"> · {p.dept}</span></td>
                   <td className="tnum">{p.createdAt}</td>
                   <td className="num tnum mute">{p.views}</td>
