@@ -160,7 +160,7 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
           <thead>
             <tr>
               <th>계약번호</th><th>구분</th><th>계약명</th><th>공급사</th><th>주관부서</th>
-              <th className="num">금액</th><th className="num">자산</th><th>만료일</th><th className="c">상태</th><th className="c">부속서류</th><th className="c">관리</th>
+              <th className="num">금액</th><th className="num">연계 자산</th><th>만료일</th><th className="c">상태</th><th className="c">부속서류</th><th className="c">관리</th>
             </tr>
           </thead>
           <tbody>
@@ -174,7 +174,7 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
                 <td className="mute">{c.ownerDept}</td>
                 <td className="num tnum">{fmtAmount(c.amount)}원</td>
                 <td className="num tnum">{c.assetCount > 0
-                  ? <a href={`/assets/register?q=${encodeURIComponent(c.id)}`} title="이 계약의 자산 대장 보기" style={{ color: 'var(--accent-deep)' }}>{c.assetCount}</a>
+                  ? <a href={`/assets/register?q=${encodeURIComponent(c.id)}`} title="이 계약에 연계된 대장 자산 보기 (실측)" style={{ color: 'var(--accent-deep)' }}>{c.assetCount}</a>
                   : c.assetCount}</td>
                 <td className="tnum">{c.end}</td>
                 <td className="c">{c.status === '해지' ? <Chip tone="neutral">해지</Chip> : <StatusChip d={c.d} />}</td>

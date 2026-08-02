@@ -2,7 +2,7 @@ import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
-import { getStore } from '@/lib/store'
+import { contractAssetCount, getStore } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
 import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ExpiryNoticeButton, LicenseAction } from './LicenseActions'
@@ -44,7 +44,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <ExpiryNoticeButton due={dueCount} />
         </span>}>
         <AddContract />
-        <ContractsTable rows={contracts.map((c) => ({ ...c, d: daysUntil(c.end) }))} sel={sel} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} />
+        <ContractsTable rows={contracts.map((c) => ({ ...c, assetCount: contractAssetCount(c.id), d: daysUntil(c.end) }))} sel={sel} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} />
       </Card>
 
       <Card kicker="License Compliance" title="SW 라이선스 보유 – 사용 대사" pad={false}>

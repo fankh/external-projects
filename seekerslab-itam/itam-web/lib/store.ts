@@ -684,6 +684,13 @@ export function nextId(prefix: string): string {
   return `${prefix}-${s.seq}`
 }
 
+/** 계약에 연계된 대장 자산 수 — 실측 파생값. Contract.assetCount 는 등록 시 0 으로 시작하고 이후
+ *  갱신되지 않아 대장 실체와 어긋난다(시드도 계약 수량으로 박혀 있어 드릴다운 결과와 불일치). 표·카드·엑셀이
+ *  모두 이 함수를 써서 '표시 수 = 드릴다운(?q=) 결과' 불변식을 지킨다. */
+export function contractAssetCount(contractId: string): number {
+  return getStore().assets.filter((a) => a.contractId === contractId).length
+}
+
 /** 결재 문서번호 — 접두사에 연·월(YYMM)이 들어가므로 기준일에서 파생시킨다.
  *  상수로 박아두면 달이 바뀐 뒤 생성한 문서에 지난 달 번호가 찍힌다. */
 export function nextApprovalId(): string {

@@ -134,8 +134,8 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     return [
       {
         name: '계약',
-        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '자산수', '시작일', '만료일', '잔여일'],
-        rows: s.contracts.map((c) => [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, c.assetCount, c.start, c.end, daysUntil(c.end) ?? '']),
+        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '연계 자산 수', '시작일', '만료일', '잔여일'],
+        rows: s.contracts.map((c) => [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, s.assets.filter((a) => a.contractId === c.id).length, c.start, c.end, daysUntil(c.end) ?? '']),
       },
       {
         name: 'SW 라이선스',

@@ -184,6 +184,8 @@ try {
   check('계약: 목록 필터(구분·상태·검색) 렌더', contractsHtml.includes('상태 — 전체') && contractsHtml.includes('계약번호·계약명·공급사·부서 검색') && contractsHtml.includes('유지보수'))
   // 부속서류 — 계약 근거 문서(계약서·견적서·세금계산서) 관리 (제품안내서 §03 구매 계약). 문서 상세는 토글 확장이라 SSR엔 컬럼·📎버튼만
   check('계약: 부속서류 컬럼 + 문서 토글 버튼 렌더', contractsHtml.includes('부속서류') && contractsHtml.includes('📎'))
+  // 연계 자산 수는 저장값(계약 수량)이 아니라 대장 실측 파생 — 표시 수 = 드릴다운(?q=) 결과 불변식 (스테일 assetCount 제거)
+  check('계약: 연계 자산 컬럼(대장 실측 파생) 렌더', contractsHtml.includes('연계 자산') && contractsHtml.includes('이 계약에 연계된 대장 자산 보기 (실측)'))
   // 유지보수 계약 — SLA·비용 이력 관리 (제품안내서 §03 유지보수 계약). 상세는 토글 확장이라 SSR엔 버튼 title 만
   check('계약: 유지보수 계약에 SLA·비용 이력 관리 토글 노출', contractsHtml.includes('SLA · 비용 이력'))
   // 계약 카드(dossier) — 요약·부속서류·SLA·비용·연계 자산 인쇄용
@@ -309,7 +311,7 @@ try {
   check('계약: 라이선스 조치(4단계) 진입점', ctHtml.includes('추가 구매') && ctHtml.includes('회수') && ctHtml.includes('검출에서 조치까지'))
   check('계약: 계약 갱신 컨트롤 렌더 (자산담당)', ctHtml.includes('>갱신<'))
   // 계약 → 자산 드릴다운 — 계약의 자산 수가 그 계약의 자산 대장(?q=계약번호)으로 연결
-  check('계약: 자산 수가 계약 연계 자산 대장으로 드릴다운', ctHtml.includes('/assets/register?q=CT') && ctHtml.includes('이 계약의 자산 대장 보기'))
+  check('계약: 자산 수가 계약 연계 자산 대장으로 드릴다운', ctHtml.includes('/assets/register?q=CT') && ctHtml.includes('이 계약에 연계된 대장 자산 보기 (실측)'))
   // AI 가동 표시 — 키 존재가 아니라 실제 호출 결과를 말해야 한다.
   // 스모크는 키 없이 도므로 '키 미설정' 이 정확한 상태이며, 근거 없이 '가동' 이라 주장하면 안 된다.
   const aiRep = await (await get('/ai/reports', 'ASSET_MGR')).text()

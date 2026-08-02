@@ -79,7 +79,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     </div>
     <div class="kv">
       ${row('공급사', c.vendor)}${row('주관부서', c.ownerDept)}
-      ${row('계약 금액', `${fmtAmount(c.amount)}원`)}${row('연계 자산', `${c.assetCount}건`)}
+      ${row('계약 금액', `${fmtAmount(c.amount)}원`)}${row('연계 자산', `${linked.length}건`)}
       ${row('시작일', c.start)}${row('만료일', c.end)}
     </div>
     <h2>부속서류 (${(c.documents ?? []).length}건)</h2>${docsHtml}
