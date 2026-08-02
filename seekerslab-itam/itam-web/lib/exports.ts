@@ -27,15 +27,18 @@ export function canExport(kind: ExportKind, role: Role): boolean {
 
 /** 내보내기 데이터 — 화면에 보이는 것과 같은 권한 필터를 통과시킨다.
  *  화면에서 못 보는 자산이 엑셀로 새어 나가면 권한 모델이 무의미해진다. */
-export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: { q?: string; cat?: string }): Sheet[] {
+export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: { q?: string; cat?: string; nos?: string[] }): Sheet[] {
   const s = getStore()
 
   if (kind === 'assets') {
-    // 화면(자산 대장)의 검색·유형 필터를 그대로 반영 — 좁혀 본 그 집합을 반출한다
+    // 화면(자산 대장)의 검색·유형 필터를 그대로 반영 — 좁혀 본 그 집합을 반출한다.
+    // nos(선택 자산번호)가 주어지면 그 선택분만 반출한다(다중 선택 → 선택 내보내기).
     const q = (filter?.q ?? '').trim().toLowerCase()
     const cat = filter?.cat ?? '전체'
+    const nos = filter?.nos && filter.nos.length ? new Set(filter.nos) : null
     const rows = (role === 'USER' ? s.assets.filter((a) => a.owner === userName) : s.assets)
       .filter((a) => {
+        if (nos) return nos.has(a.assetNo)
         if (cat !== '전체' && a.category !== cat) return false
         if (!q) return true
         return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location].some((f) => f?.toLowerCase().includes(q))

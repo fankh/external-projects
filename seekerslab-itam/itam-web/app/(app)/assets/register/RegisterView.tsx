@@ -67,17 +67,17 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
 
-  // 보증 일괄 연장 대상 — 보증 있는 운영 자산만(SW·가상자원·폐기 자산 제외)
-  const warrantyEligible = (a: Asset) => a.warrantyEnd !== '-' && !['폐기완료', '폐기예정'].includes(a.status)
-  const eligibleRows = rows.filter(warrantyEligible)
-  const allChecked = eligibleRows.length > 0 && eligibleRows.every((a) => checked.has(a.assetNo))
+  // 다중 선택 — 보증 일괄 연장·선택 내보내기 공용. 현재 필터의 모든 행을 선택할 수 있다
+  // (보증 연장은 보증 없는 SW·가상자원·폐기 자산을 서버에서 건너뛴다).
+  const allChecked = rows.length > 0 && rows.every((a) => checked.has(a.assetNo))
   const toggleOne = (no: string) => setChecked((p) => { const n = new Set(p); n.has(no) ? n.delete(no) : n.add(no); return n })
-  const toggleAll = () => setChecked(allChecked ? new Set() : new Set(eligibleRows.map((a) => a.assetNo)))
+  const toggleAll = () => setChecked(allChecked ? new Set() : new Set(rows.map((a) => a.assetNo)))
   const bulkExtend = (yrs: number) => startTransition(async () => {
     const r = await extendWarrantyMany([...checked], yrs)
     setBulkMsg(r.message)
     if (r.ok) setChecked(new Set())
   })
+  const exportHref = `/api/export/assets?nos=${encodeURIComponent([...checked].join(','))}`
 
   // 상태별 보유 대수 — 대장 구성을 한눈에 보고 클릭으로 해당 상태만 필터한다
   const statusCounts = useMemo(() => {
@@ -147,8 +147,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 {[1, 2, 3].map((y) => (
                   <button key={y} className="btn sm pri" disabled={pending} onClick={() => bulkExtend(y)}>{y}년</button>
                 ))}
-                <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
               </span>
+              {props.canExport && <a className="btn sm" href={exportHref} download>⤓ 선택 {checked.size}건 내보내기</a>}
+              <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
             </>
           ) : null}
           {bulkMsg && <span className="mut" style={{ fontSize: 12 }}>{bulkMsg}</span>}
@@ -161,8 +162,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             <thead>
               <tr>
                 {props.canEdit && <th className="c" style={{ width: 32 }}>
-                  <input type="checkbox" checked={allChecked} disabled={eligibleRows.length === 0}
-                    onChange={toggleAll} title="현재 필터의 보증 대상 자산 전체 선택" aria-label="전체 선택" />
+                  <input type="checkbox" checked={allChecked} disabled={rows.length === 0}
+                    onChange={toggleAll} title="현재 필터의 자산 전체 선택 (보증 연장·선택 내보내기)" aria-label="전체 선택" />
                 </th>}
                 <th>자산번호</th><th>유형</th><th>모델</th><th>소유자</th><th>부서</th>
                 <th>위치</th><th>IP</th><th className="c">상태</th><th>보증 만료</th>
@@ -173,9 +174,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 <tr key={a.assetNo} className={`clickable ${selNo === a.assetNo ? 'sel' : ''}`}
                   onClick={() => setSelNo(selNo === a.assetNo ? null : a.assetNo)}>
                   {props.canEdit && <td className="c" onClick={(e) => e.stopPropagation()}>
-                    {warrantyEligible(a)
-                      ? <input type="checkbox" checked={checked.has(a.assetNo)} onChange={() => toggleOne(a.assetNo)} aria-label={`${a.assetNo} 선택`} />
-                      : <span className="mut" style={{ fontSize: 10 }}>—</span>}
+                    <input type="checkbox" checked={checked.has(a.assetNo)} onChange={() => toggleOne(a.assetNo)} aria-label={`${a.assetNo} 선택`} />
                   </td>}
                   <td className="code">{a.assetNo}</td>
                   <td>{a.category}</td>
