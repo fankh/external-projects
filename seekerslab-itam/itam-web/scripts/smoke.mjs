@@ -173,6 +173,8 @@ try {
   check('공지사항: Admin 관리 컨트롤 노출 (등록·수정·고정 토글·삭제)', ntcAdmin.includes('공지 등록') && ntcAdmin.includes('수정') && ntcAdmin.includes('삭제') && (ntcAdmin.includes('고정 해제') || ntcAdmin.includes('상단 고정')))
   const qnaHtml = await (await get('/board/qna', 'USER')).text()
   check('QnA: 문의 목록·답변 상태 렌더', qnaHtml.includes('질문하기') && qnaHtml.includes('답변 대기') && qnaHtml.includes('답변 완료'))
+  // 목록 필터 — 검색·분류·답변 상태·내 문의 (다른 목록 화면과 동일한 필터 패턴)
+  check('QnA: 목록 필터(검색·내 문의) 렌더', qnaHtml.includes('제목·내용·작성자 검색') && qnaHtml.includes('내 문의만'))
   const qnaMgr = await (await get('/board/qna', 'ASSET_MGR')).text()
   check('QnA: 담당자에게 답변 입력 노출', qnaMgr.includes('답변 등록'))
   const qnaAdmin = await (await get('/board/qna', 'ADMIN')).text()

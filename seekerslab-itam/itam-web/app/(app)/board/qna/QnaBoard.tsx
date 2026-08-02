@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost, QnaCategory } from '@/lib/types'
 import { answerQuestion, askQuestion, deleteQuestion, editQuestion } from '../actions'
@@ -19,7 +19,23 @@ export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPo
   const [eqBody, setEqBody] = useState('')
   const [eqCat, setEqCat] = useState<QnaCategory>(CATEGORIES[0])
   const [msg, setMsg] = useState<string | null>(null)
+  // 목록 필터 — 검색·분류·답변 상태·내 문의 (감사·발송 이력 필터와 동일 패턴)
+  const [fq, setFq] = useState('')
+  const [fcat, setFcat] = useState<QnaCategory | '전체'>('전체')
+  const [fstatus, setFstatus] = useState<'전체' | '대기' | '완료'>('전체')
+  const [fmine, setFmine] = useState(false)
   const [pending, startTransition] = useTransition()
+  const rows = useMemo(() => {
+    const needle = fq.trim().toLowerCase()
+    return posts.filter((p) => {
+      if (fcat !== '전체' && (p.category ?? '기타') !== fcat) return false
+      if (fstatus === '대기' && p.answer) return false
+      if (fstatus === '완료' && !p.answer) return false
+      if (fmine && p.author !== me) return false
+      if (needle && ![p.title, p.body, p.author].some((f) => f?.toLowerCase().includes(needle))) return false
+      return true
+    })
+  }, [posts, fq, fcat, fstatus, fmine, me])
   const open = posts.find((p) => p.id === openId) ?? null
   const select = (id: string) => { setEditingAnswer(false); setAnswer(''); setEditingQ(false); setOpenId(id === openId ? null : id) }
   // 본인 또는 Admin, 답변 전 문의만 수정 가능
@@ -53,11 +69,29 @@ export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPo
           </div>
         )}
         {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+        <div className="qbar" style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+          <input className="input" style={{ width: 200 }} placeholder="제목·내용·작성자 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
+          <select className="select" value={fcat} onChange={(e) => setFcat(e.target.value as QnaCategory | '전체')}>
+            <option value="전체">분류 — 전체</option>
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <div className="seg">
+            {(['전체', '대기', '완료'] as const).map((st) => (
+              <button key={st} className={fstatus === st ? 'on' : ''} onClick={() => setFstatus(st)}>
+                {st === '전체' ? '전체' : st === '대기' ? '답변 대기' : '답변 완료'}
+              </button>
+            ))}
+          </div>
+          <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
+            <input type="checkbox" checked={fmine} onChange={(e) => setFmine(e.target.checked)} /> 내 문의만
+          </label>
+          <span className="cnt">{rows.length}건 / 전체 {posts.length}건</span>
+        </div>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>분류</th><th>제목</th><th>작성자</th><th>등록일</th><th className="num">조회</th><th className="c">상태</th></tr></thead>
             <tbody>
-              {posts.map((p) => (
+              {rows.map((p) => (
                 <tr key={p.id} className={`clickable ${p.id === openId ? 'sel' : ''}`}
                   onClick={() => select(p.id)}>
                   <td className="mute">{p.category ?? '기타'}</td>
@@ -68,7 +102,7 @@ export function QnaBoard({ posts, canAnswer, canModerate, me }: { posts: BoardPo
                   <td className="c">{p.answer ? <Chip tone="ok">답변 완료</Chip> : <Chip tone="warn">답변 대기</Chip>}</td>
                 </tr>
               ))}
-              {posts.length === 0 && <tr><td colSpan={6}><div className="empty">등록된 문의가 없습니다</div></td></tr>}
+              {rows.length === 0 && <tr><td colSpan={6}><div className="empty">{posts.length === 0 ? '등록된 문의가 없습니다' : '조건에 맞는 문의가 없습니다'}</div></td></tr>}
             </tbody>
           </table>
         </div>

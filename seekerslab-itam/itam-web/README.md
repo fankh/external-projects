@@ -23,7 +23,7 @@ npm run dev        # http://localhost:3000
 
 ```powershell
 npm run build
-npm run smoke      # 프로덕션 서버 기동 → 273개 검증(SSR HTML) → 종료
+npm run smoke      # 프로덕션 서버 기동 → 274개 검증(SSR HTML) → 종료
 npm run health     # 실제 브라우저로 30개 화면 로드 → 클라이언트 크래시·하이드레이션 오류 검사
 ```
 
