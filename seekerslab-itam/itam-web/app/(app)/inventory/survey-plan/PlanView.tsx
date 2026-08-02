@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { InventoryRound, RoundKind } from '@/lib/types'
-import { cancelRound, composeUnconfirmedRound, planRound, startRound } from './actions'
+import { cancelRound, composeStaleVerifyRound, composeUnconfirmedRound, planRound, startRound } from './actions'
 
 const STATUS_TONE: Record<InventoryRound['status'], 'ok' | 'info' | 'neutral'> = {
   완료: 'ok', 진행중: 'info', 계획: 'neutral',
@@ -19,6 +19,10 @@ export function PlanView(props: {
   unconfirmed: number
   /** 그중 아직 어떤 조사 회차에도 편성되지 않은 건수 — 자동 편성의 실제 대상 */
   pendingCompose: number
+  /** 실사 기반 장기 미실측(유령 후보) 전체 건수 */
+  staleVerify: number
+  /** 그중 개시 전·진행 중 회차에 편성되지 않은 건수 — 자동 편성의 실제 대상 */
+  pendingStaleCompose: number
   today: string
 }) {
   const [open, setOpen] = useState(false)
@@ -159,6 +163,30 @@ export function PlanView(props: {
           <button className="btn pri" disabled={pending || props.pendingCompose === 0}
             onClick={() => startTransition(async () => {
               const r = await composeUnconfirmedRound()
+              setMsg({ ok: r.ok, text: r.message })
+            })}>자동 편성</button>
+        </div>
+      </Card>
+
+      <Card kicker="Physical Verification Follow-up" title="장기 미실측(실사 기반 유령) 자산 자동 편성">
+        <div className="hstack" style={{ gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <p className="dim" style={{ margin: 0, lineHeight: 1.7 }}>
+              대장의 <b>최근 실측일</b>이 없거나 오래된(180일 초과) 자산은 실물 소재가 불확실한 유령 후보입니다.
+              대사 미확인(위 카드)이 발견 저장소를 원천으로 한다면, 이 편성은 <b>대장 실사 데이터</b>를 원천으로 합니다.
+              수시 조사로 묶어 실물 확인을 마치면 대장 최근 실측일이 갱신되어 목록에서 빠집니다.
+            </p>
+            <div className="hstack" style={{ gap: 6, marginTop: 8 }}>
+              <Chip tone={props.staleVerify ? 'warn' : 'ok'}>장기 미실측 {props.staleVerify}건</Chip>
+              <Chip tone={props.pendingStaleCompose ? 'warn' : 'ok'}>
+                {props.pendingStaleCompose ? `편성 대기 ${props.pendingStaleCompose}건` : '편성 완료'}
+              </Chip>
+              <Link className="btn sm ghost" href="/assets/register">대장에서 보기</Link>
+            </div>
+          </div>
+          <button className="btn pri" disabled={pending || props.pendingStaleCompose === 0}
+            onClick={() => startTransition(async () => {
+              const r = await composeStaleVerifyRound()
               setMsg({ ok: r.ok, text: r.message })
             })}>자동 편성</button>
         </div>

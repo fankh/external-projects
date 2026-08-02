@@ -10,6 +10,8 @@
  *  시연에서 특정 날짜를 재현하려면 `ITAM_TODAY=YYYY-MM-DD`, 표준시를 바꾸려면 `ITAM_TZ`.
  *  서버 전용 모듈 — 클라이언트에서 쓰면 하이드레이션 불일치가 생긴다.
  */
+import { STALE_VERIFY_DAYS, type Asset } from '@/lib/types'
+
 const TZ = process.env.ITAM_TZ || 'Asia/Seoul'
 
 const dateFmt = new Intl.DateTimeFormat('en-CA', {
@@ -53,4 +55,13 @@ export function fmtAmount(n: number): string {
   if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}억`
   if (n >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`
   return n.toLocaleString()
+}
+
+/** 장기 미실측(유령 자산 후보) 판정 — 폐기 경로 자산은 제외하고, 최근 실측이 없거나
+ *  STALE_VERIFY_DAYS 를 넘은 자산이면 참. 대장 필터·재물조사 편성이 같은 기준을 쓰도록 한 곳에 둔다.
+ *  서버 전용(daysUntil→today 의존). 클라이언트는 서버가 계산한 목록을 받아 쓴다. */
+export function isStaleVerify(a: Asset): boolean {
+  if (a.status === '폐기완료' || a.status === '폐기예정') return false
+  if (!a.lastVerifiedAt) return true
+  return -(daysUntil(a.lastVerifiedAt) ?? 0) > STALE_VERIFY_DAYS
 }

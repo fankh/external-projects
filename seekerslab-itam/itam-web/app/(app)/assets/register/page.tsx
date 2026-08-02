@@ -1,9 +1,8 @@
 import { Card, ScreenHeader } from '@/components/ui'
-import { daysUntil } from '@/lib/dates'
+import { isStaleVerify } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
-import { STALE_VERIFY_DAYS } from '@/lib/types'
 import { RegisterView } from './RegisterView'
 
 export const dynamic = 'force-dynamic'
@@ -16,10 +15,8 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
   // ?sel= 로 특정 자산을 바로 선택 — 상세·구성변경 딥링크. 스코프 밖 자산번호는 무시된다.
   const initialSel = sel && scoped.some((a) => a.assetNo === sel) ? sel : undefined
-  // 장기 미실측(유령 자산 후보) — 폐기 경로 자산 제외, 최근 실측이 없거나 STALE_VERIFY_DAYS 초과
-  const staleNos = scoped
-    .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && (!a.lastVerifiedAt || -(daysUntil(a.lastVerifiedAt) ?? 0) > STALE_VERIFY_DAYS))
-    .map((a) => a.assetNo)
+  // 장기 미실측(유령 자산 후보) — 대장 필터·재물조사 편성이 공유하는 lib/dates 의 isStaleVerify 기준
+  const staleNos = scoped.filter(isStaleVerify).map((a) => a.assetNo)
 
   return (
     <>

@@ -322,6 +322,8 @@ try {
   check('재물조사 계획: 대상 범위 후보가 공통코드 LOCATION 에서 옴',
     scopeOnlyInCodes.every((l) => planHtml.includes(l)), scopeOnlyInCodes.filter((l) => !planHtml.includes(l)).join(', '))
   check('재물조사 계획: 미확인 자산 자동 편성 진입점', planHtml.includes('미확인(유령) 자산 자동 편성') && planHtml.includes('자동 편성'))
+  // 장기 미실측(실사 기반) 자동 편성 — 대장 최근 실측일에 근거한 유령 후보를 수시 조사로 편성
+  check('재물조사 계획: 장기 미실측 자산 자동 편성 진입점', planHtml.includes('장기 미실측') && planHtml.includes('실사 기반 유령'))
   const recHtml2 = await (await get('/discovery/reconcile', 'ASSET_MGR')).text()
   check('CMDB 대사: 미확인 → 조사 편성 연결', recHtml2.includes('/inventory/survey-plan'))
   const recSec = await (await get('/discovery/reconcile', 'SEC_MGR')).text()

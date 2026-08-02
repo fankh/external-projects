@@ -1,6 +1,6 @@
 import { ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
-import { today } from '@/lib/dates'
+import { isStaleVerify, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { PlanView } from './PlanView'
 
@@ -26,6 +26,14 @@ export default async function SurveyPlanPage() {
   const unconfirmed = ghosts.length
   const pendingCompose = ghosts.filter((g) => !composed.has(g.id)).length
 
+  // 실사 데이터 기반 장기 미실측(유령) — 개시 전·진행 중 회차에 편성되지 않은 건이 자동 편성 대상
+  const pendingRoundTargets = new Set(
+    s.inventoryRounds.filter((r) => r.status !== '완료').flatMap((r) => r.targets ?? []),
+  )
+  const staleAssets = s.assets.filter(isStaleVerify)
+  const staleVerify = staleAssets.length
+  const pendingStaleCompose = staleAssets.filter((a) => !pendingRoundTargets.has(a.assetNo)).length
+
   const rounds = s.inventoryRounds
   const active = rounds.filter((r) => r.status === '진행중')
   const planned = rounds.filter((r) => r.status === '계획')
@@ -49,6 +57,12 @@ export default async function SurveyPlanPage() {
           tone={pendingCompose ? 'warn' : 'ok'}
           delta={{ text: '유휴·분실 후보', dir: 'flat' }}
         />
+        <Stat
+          value={pendingStaleCompose}
+          label={`장기 미실측 편성 대기 — 전체 ${staleVerify}건`}
+          tone={pendingStaleCompose ? 'warn' : 'ok'}
+          delta={{ text: '실사 기반 유령 후보', dir: 'flat' }}
+        />
       </div>
 
       <PlanView
@@ -57,6 +71,8 @@ export default async function SurveyPlanPage() {
         assignees={assignees}
         unconfirmed={unconfirmed}
         pendingCompose={pendingCompose}
+        staleVerify={staleVerify}
+        pendingStaleCompose={pendingStaleCompose}
         today={t}
       />
     </>

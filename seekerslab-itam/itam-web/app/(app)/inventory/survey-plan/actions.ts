@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { isStaleVerify, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { Asset, RoundKind } from '@/lib/types'
@@ -88,6 +88,47 @@ export async function composeUnconfirmedRound() {
   appendAudit({ actor: session.name, action: `미확인 자산 재물조사 자동 편성 (${fresh.length}건)`, target: id })
   revalidatePath('/', 'layout')
   return { ok: true, message: `미확인 ${fresh.length}건을 수시 조사로 편성 — 기한 ${due}` }
+}
+
+/** 장기 미실측(유령 자산) 자동 편성 — 실사 데이터(대장 최근 실측일)에 근거해 오래 실측되지 않은 자산을
+ *  수시 조사 회차로 묶는다. 대사 미확인(discovered 시드) 편성과 달리 대장의 실측 이력을 원천으로 한다.
+ *  이미 편성 중(계획·진행중)인 회차에 잡힌 자산은 중복 편성하지 않는다. 자산담당·Admin. */
+export async function composeStaleVerifyRound() {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '조사 계획 수립 권한이 없습니다.' }
+  }
+
+  const s = getStore()
+  const stale = s.assets.filter(isStaleVerify)
+  if (stale.length === 0) return { ok: false, message: '장기 미실측 자산이 없습니다.' }
+
+  // 개시 전(계획)·진행 중 회차가 이미 대상으로 잡은 자산은 제외 — 완료 회차는 실측을 갱신했을 것이므로 무관
+  const pending = new Set(
+    s.inventoryRounds.filter((r) => r.status !== '완료').flatMap((r) => r.targets ?? []),
+  )
+  const fresh = stale.filter((a) => !pending.has(a.assetNo))
+  if (fresh.length === 0) return { ok: false, message: '장기 미실측 자산이 모두 진행 중 회차에 편성되어 있습니다.' }
+
+  const due = new Date(new Date(today()).getTime() + 14 * 86_400_000).toISOString().slice(0, 10)
+  const id = nextId(`INV-${today().slice(0, 4)}-STV`)
+  s.inventoryRounds.unshift({
+    id,
+    name: `장기 미실측 자산 확인 조사 (${today()})`,
+    kind: '수시',
+    scope: '장기 미실측 — 최근 실측 없음·경과',
+    planned: fresh.length,
+    scanned: 0,
+    mismatched: 0,
+    dueDate: due,
+    assignee: session.name,
+    status: '계획',
+    targets: fresh.map((a) => a.assetNo),
+  })
+
+  appendAudit({ actor: session.name, action: `장기 미실측 자산 재물조사 자동 편성 (${fresh.length}건)`, target: id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `장기 미실측 ${fresh.length}건을 수시 조사로 편성 — 기한 ${due}` }
 }
 
 /** 계획 → 진행중 전환. 실사 화면은 '완료'가 아닌 회차만 대상으로 하므로 즉시 스캔이 가능해진다. */
