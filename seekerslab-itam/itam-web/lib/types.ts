@@ -214,6 +214,8 @@ export interface Approval {
   fulfilled?: boolean
   /** 반려 사유 — 반려 시 필수 입력. 신청자 재상신 근거이자 감사 기록 (AI 제안 반려와 동일 원칙) */
   rejectReason?: string
+  /** 결재 첨부 리포트 — 근거 문서로 첨부한 생성 리포트(GeneratedReport) ID. 결재자가 결재함에서 열람한다. */
+  reportRefs?: string[]
 }
 
 /** 반납 접수 시 상태 점검 결과 — 재배치 가능 여부를 가른다 (제품안내서 §03 PHASE 4) */

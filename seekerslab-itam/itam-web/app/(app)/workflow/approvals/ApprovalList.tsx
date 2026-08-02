@@ -114,6 +114,13 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
                       <span style={{ color: 'var(--err)' }}> · 사유: {a.rejectReason}</span>
                     )}
                   </div>
+                  {a.reportRefs && a.reportRefs.length > 0 && (
+                    <div className="mut" style={{ fontSize: 10.5, marginTop: 3 }}>
+                      📎 근거 리포트: {a.reportRefs.map((id) => (
+                        <a key={id} href={`/api/reports/${id}?format=md`} target="_blank" rel="noopener" style={{ marginRight: 6, color: 'var(--accent-deep)' }}>{id}</a>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td className="c">
                   <Chip tone={a.status === '승인' ? 'ok' : a.status === '반려' ? 'err' : a.status === '취소' ? 'neutral' : 'info'}>{a.status}</Chip>

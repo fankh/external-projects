@@ -53,7 +53,8 @@ export default async function ReportsPage() {
         대체되어 리포트 생성 자체는 동일하게 동작합니다. 산출물은 결재 첨부용 엑셀(CSV)·문서로 내려받을 수 있습니다.
       </div>
 
-      <ReportsView kinds={REPORT_KINDS} reports={s.reports} />
+      <ReportsView kinds={REPORT_KINDS} reports={s.reports}
+        approvals={s.approvals.map((a) => ({ id: a.id, kind: a.kind, title: a.title, status: a.status, reportRefs: a.reportRefs ?? [] }))} />
     </>
   )
 }

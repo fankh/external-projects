@@ -15,6 +15,41 @@ export async function generateReport(kind: ReportKind) {
   revalidatePath('/', 'layout')
 }
 
+/** 결재 첨부 — 생성 리포트를 대기 중 결재의 근거 문서로 첨부한다(제품안내서 §05 "결재 첨부용 문서 산출"의
+ *  실제 연결 — 그동안 리포트는 내려받기만 되고 결재에 붙지 않았다). 결재자는 결재함에서 첨부 리포트를 연다.
+ *  대기 결재·존재하는 리포트만 대상, 중복 첨부는 무시(멱등). 비사용자만. */
+export async function attachReportToApproval(approvalId: string, reportId: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '결재 첨부 권한이 없습니다.' }
+  const s = getStore()
+  const ap = s.approvals.find((a) => a.id === approvalId)
+  if (!ap) return { ok: false, message: '결재 건을 찾을 수 없습니다.' }
+  if (ap.status !== '대기') return { ok: false, message: '대기 중인 결재에만 리포트를 첨부할 수 있습니다.' }
+  const rep = s.reports.find((r) => r.id === reportId)
+  if (!rep) return { ok: false, message: '리포트를 찾을 수 없습니다.' }
+
+  ap.reportRefs ??= []
+  if (ap.reportRefs.includes(reportId)) return { ok: true, message: '이미 첨부된 리포트입니다.' }
+  ap.reportRefs.push(reportId)
+  appendAudit({ actor: session.name, action: `결재 리포트 첨부 — ${reportId} (${rep.kind}) → ${approvalId}`, target: approvalId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${rep.kind} 리포트를 ${ap.id} 결재에 첨부했습니다.` }
+}
+
+/** 결재 첨부 리포트 해제 — 잘못 붙인 근거 문서를 뗀다. 대기 결재만, 비사용자. */
+export async function detachReportFromApproval(approvalId: string, reportId: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '권한이 없습니다.' }
+  const s = getStore()
+  const ap = s.approvals.find((a) => a.id === approvalId)
+  if (!ap || !ap.reportRefs) return { ok: false, message: '첨부 내역을 찾을 수 없습니다.' }
+  if (ap.status !== '대기') return { ok: false, message: '대기 중인 결재만 첨부를 변경할 수 있습니다.' }
+  ap.reportRefs = ap.reportRefs.filter((id) => id !== reportId)
+  appendAudit({ actor: session.name, action: `결재 리포트 첨부 해제 — ${reportId} ↔ ${approvalId}`, target: approvalId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${reportId} 첨부를 해제했습니다.` }
+}
+
 export async function toggleSchedule(kind: ReportKind) {
   const session = await getSession()
   if (!session || session.role === 'USER') return { ok: false, message: '스케줄 변경 권한이 없습니다.' }
