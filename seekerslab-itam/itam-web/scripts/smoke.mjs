@@ -193,6 +193,15 @@ try {
   check('계약 카드: 자산담당 발급 (200·요약·부속서류·연계 자산)', ctCard.status === 200 && ctCardBody.includes('CT-2023-014') && ctCardBody.includes('CONTRACT DOSSIER') && ctCardBody.includes('부속서류') && ctCardBody.includes('연계 자산') && ctCardBody.includes('계약서'))
   const maintCard = await (await get('/api/contract-card/CT-2022-007', 'ASSET_MGR')).text()
   check('계약 카드: 유지보수 계약에 SLA·비용 이력 포함', maintCard.includes('SLA') && maintCard.includes('비용 이력') && maintCard.includes('정기 유지보수료'))
+  // 라이선스 컴플라이언스 카드(SAM 감사용) — 보유·사용 대사·판정·비용 노출
+  check('계약: 라이선스 표에 컴플라이언스 카드 링크', contractsHtml.includes('/api/license-card/'))
+  check('라이선스 카드: 미로그인 차단 (401)', (await get('/api/license-card/LIC-002')).status === 401)
+  check('라이선스 카드: 사용자 차단 (403)', (await get('/api/license-card/LIC-002', 'USER')).status === 403)
+  check('라이선스 카드: 없는 라이선스 404', (await get('/api/license-card/NOPE', 'ADMIN')).status === 404)
+  const licOver = await (await get('/api/license-card/LIC-002', 'ASSET_MGR')).text()  // JetBrains 120/131 초과
+  check('라이선스 카드: 초과 사용 판정·비용 노출·SAM', licOver.includes('LIC-002') && licOver.includes('LICENSE COMPLIANCE') && licOver.includes('초과 사용') && licOver.includes('노출액'))
+  const licLow = await (await get('/api/license-card/LIC-003', 'ASSET_MGR')).text()  // Adobe 40/22 미사용
+  check('라이선스 카드: 미사용 보유 판정·회수 절감액', licLow.includes('미사용 보유') && licLow.includes('회수 가능') && licLow.includes('절감액'))
   const aprHtml = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('결재함: 격리 요청 문서 렌더', aprHtml.includes('격리 요청') && aprHtml.includes('APR-2607-112'))
   check('결재함: 결재선 라우팅 표시 (단계 + 필수)', aprHtml.includes('결재선') && aprHtml.includes('IT기획팀장') && aprHtml.includes('보안담당'))

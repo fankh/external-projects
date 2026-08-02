@@ -79,10 +79,13 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                       {over ? <Chip tone="err">초과 사용</Chip> : low ? <Chip tone="warn">미사용 보유</Chip> : <Chip tone="ok">적정</Chip>}
                     </td>
                     <td className="c" style={{ minWidth: 120 }}>
-                      <LicenseAction row={{
-                        id: l.id, over, low, seats: Math.abs(l.used - l.purchased),
-                        pendingApproval: s.approvals.find((a) => a.status === '대기' && a.refId === l.id)?.id,
-                      }} />
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                        <LicenseAction row={{
+                          id: l.id, over, low, seats: Math.abs(l.used - l.purchased),
+                          pendingApproval: s.approvals.find((a) => a.status === '대기' && a.refId === l.id)?.id,
+                        }} />
+                        <a className="btn sm ghost" href={`/api/license-card/${l.id}`} target="_blank" rel="noopener" title="라이선스 컴플라이언스 카드(SAM 감사용) 인쇄">🖨</a>
+                      </span>
                     </td>
                   </tr>
                 )
