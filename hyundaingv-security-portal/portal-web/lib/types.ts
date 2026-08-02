@@ -40,7 +40,43 @@ export const SR_FLOW: SrStatus[] = ['작성중', '결재중', 'CI배정', '개�
 
 export type ApprovalStatus = '대기' | '승인' | '반려'
 
-export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '서약 현황 상신' | '장애보고 상신'
+export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '변경결과 상신' | '서약 현황 상신' | '장애보고 상신'
+
+/** 장애 관리 — 등록·조치 → 주기별 통계 결재상신 → 향후대책 결과 등록 (요구사항 결재 시트 8번) */
+export type IncidentGrade = '1등급' | '2등급' | '3등급'
+
+export interface Incident {
+  id: string
+  system: string
+  title: string
+  /** 장애등급 — 공통코드화 대상 (요구사항: 장애항목·등급·조치기준) */
+  grade: IncidentGrade
+  occurredAt: string
+  status: '조치중' | '조치완료'
+  action?: string
+  /** 향후대책 — 등록돼 있으면 결과(cmResult) 등록 전까지 '대책 미완료'로 추적된다 */
+  countermeasure?: string
+  cmResult?: string
+  /** 장애보고 결재 참조·상태 (approved_status) — 결재진행·완료 건은 재상신 불가 */
+  reportRef?: string
+  reportStatus: '미상신' | '결재중' | '결재완료'
+}
+
+/** 변경 관리 — 계획 상신과 결과 상신을 각 1회씩 거친다 (요구사항 결재 시트 9·10번).
+ *  시스템개발 변경은 SR 적용요청 결재완료 건과 매칭되고, 최종완료 시 SR이 완료로 전파된다. */
+export type ChangeStatus = '작업등록' | '계획결재중' | '작업등록승인' | '작업완료결재중' | '최종완료'
+
+export interface ChangeWork {
+  id: string
+  kind: '인프라' | '시스템개발'
+  title: string
+  /** 시스템개발 변경 — 매칭된 SR (적용요청 상태에서 편입) */
+  srNo?: string
+  status: ChangeStatus
+  registeredAt: string
+  plan?: string
+  result?: string
+}
 
 export interface Approval {
   id: string

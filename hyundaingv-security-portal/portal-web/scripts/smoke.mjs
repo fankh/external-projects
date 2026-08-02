@@ -158,6 +158,10 @@ async function main() {
     // 투자 루프 — 계획 스코핑(USER=본인), 실적 집계, 확정 버튼(담당만)
     ['/finance/invest', 'USER', ['ERP 리포트 모듈 고도화', 'IP-2026-03', '계획대비실적', '정산품의 상신']],
     ['/finance/invest', 'BIZ_MGR', ['보안관제 시스템 증설', '계획 확정']],
+    // 장애 루프 — 등록·조치·통계 상신·향후대책
+    ['/infra/incidents', 'BIZ_MGR', ['FL-2026-11', 'DB 커넥션 풀 고갈로 응답 지연', '장애보고 상신', '향후대책', '커넥션 사용량 임계 알림 구축', 'FL-2026-13']],
+    // 변경 루프 — 2단 상신, SR 적용요청 편입
+    ['/infra/changes', 'BIZ_MGR', ['CW-2026-05', 'WAS 보안패치 적용', '결과 상신', 'SR-2026-0132', '변경 작업 편입']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)

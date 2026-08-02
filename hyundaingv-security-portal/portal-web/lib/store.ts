@@ -2,12 +2,14 @@
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
 import { CHANNELS } from '@/portal.config'
-import type { Approval, BatchRun, InvestContract, InvestPlan, Notice, Person, PledgeSign, SendLogEntry, Settlement, SrRequest, TodoItem } from './types'
+import type { Approval, BatchRun, ChangeWork, Incident, InvestContract, InvestPlan, Notice, Person, PledgeSign, SendLogEntry, Settlement, SrRequest, TodoItem } from './types'
 
 export interface Store {
   investPlans: InvestPlan[]
   investContracts: InvestContract[]
   settlements: Settlement[]
+  incidents: Incident[]
+  changes: ChangeWork[]
   srRequests: SrRequest[]
   approvals: Approval[]
   todos: TodoItem[]
@@ -35,6 +37,14 @@ function seed(): Store {
     ],
     settlements: [
       { id: 'ST-2026-01', contractId: 'CT-2026-01', item: '착수금', amount: 2100, status: '지급완료', requestedBy: '김현우', requestedAt: '2026-07-05' },
+    ],
+    incidents: [
+      { id: 'FL-2026-11', system: 'ERP', title: 'DB 커넥션 풀 고갈로 응답 지연', grade: '2등급', occurredAt: '2026-07-18', status: '조치완료', action: '커넥션 풀 확대 및 누수 쿼리 수정', countermeasure: '커넥션 사용량 임계 알림 구축', reportStatus: '미상신' },
+      { id: 'FL-2026-12', system: '그룹웨어', title: '대용량 첨부 업로드 실패', grade: '3등급', occurredAt: '2026-07-25', status: '조치완료', action: '스토리지 용량 증설', reportStatus: '미상신' },
+      { id: 'FL-2026-13', system: '영업정보시스템', title: '야간 집계 배치 지연', grade: '3등급', occurredAt: '2026-08-01', status: '조치중', reportStatus: '미상신' },
+    ],
+    changes: [
+      { id: 'CW-2026-05', kind: '인프라', title: 'WAS 보안패치 적용', status: '작업등록승인', registeredAt: '2026-07-24', plan: '패치 적용 후 재기동, 실패 시 스냅샷 원복' },
     ],
     srRequests: [
       { srNo: 'SR-2026-0141', kind: '시스템개발', title: '판매 실적 리포트 화면 개선', system: '영업정보시스템', requester: '김현우', dept: '개발1팀', status: '개발중', requestedAt: '2026-07-21', ci: '박정호', dueDate: '2026-08-14' },

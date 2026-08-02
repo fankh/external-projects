@@ -39,21 +39,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '디스크현황', detail: '서버별 디스크 사용률 추적' },
     ],
   },
-  '/infra/incidents': {
-    desc: '장애관리 — 장애 등록·조치와 주기별 통계·대책 보고.',
-    features: [
-      { name: '장애 등록·조치', detail: '항목·등급·조치기준 공통코드화, 조치내역' },
-      { name: '통계현황 보고', detail: '주기별 장애현황 취합·결재상신' },
-      { name: '향후대책', detail: '대책 결과 등록·추적' },
-    ],
-  },
-  '/infra/changes': {
-    desc: '변경관리 — 인프라·시스템개발 변경의 계획/결과 상신.',
-    features: [
-      { name: '인프라변경관리', detail: '변경작업 등록·계획 상신·결과 등록' },
-      { name: '시스템개발변경관리', detail: 'SR 적용요청 결재완료 건 연계' },
-    ],
-  },
   '/projects/status': {
     desc: '프로젝트 진행현황 — 진척과 인력투입을 관리한다.',
     features: [
