@@ -49,6 +49,8 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v0.21 | 엑셀 다운로드 4종(BOM CSV — 계획대비실적·이수현황·서약 현황·재택 현황, 권한·부서 스코핑) + 특별서약서(보안담당자) + 협력업체서약서(징구·첨부→선택 상신→승인 완료) |
 | v0.22 | SR 유형별 단계 분기(데이터·계정/권한은 처리→완료 직행, '처리중' 표기) + 변경·점검 증적 첨부 + Dockerfile |
 | v0.23 | 개인별현황 포틀릿 완성(관리대상 현황 2행 + 전사 운영 스냅샷) + 제품안내서 부록 슬라이드(실화면 4컷, PDF 17p) |
+| v0.24 | 감사 이력 — 결재 처리·결재선/채널/코드 변경·양식 개정·배치 실행 기록(append-only) + 환경설정 조회 화면 (35번째 화면) |
+| v0.25 | client-health 스크립트(전 화면 브라우저 크래시 검사) + docker-compose/nginx 배포 예시 + 고객사 프로필 예시(profiles/) |
 
 ## 배포 (Docker)
 
@@ -60,6 +62,15 @@ docker run -d --name ngv-portal -v portal-data:/data -p 3400:3400 ngv-portal
 
 컨테이너는 KST 시간대로 동작하고, 스토어는 `/data/portal-data.json`(볼륨)에
 영속화되어 재시작·재생성 후에도 유지된다.
+
+nginx 리버스 프록시를 포함한 구성은 `deploy/docker-compose.yml` 을 쓴다:
+
+```powershell
+docker compose -f deploy/docker-compose.yml up -d --build
+```
+
+고객사 배포 시 커스터마이징 예시는 `profiles/sample-manufacturer.config.ts` 참고 —
+이 파일 내용으로 `portal.config.ts` 를 교체하고 고객사 어댑터를 등록하면 끝이다.
 
 미구현 화면은 캐치올 스텁(`app/(app)/[...stub]/page.tsx`)이 `lib/screens.ts`
 카탈로그로 렌더 — 실제 구현 시 해당 경로에 page.tsx 를 만들면 정적 라우트가
@@ -89,8 +100,11 @@ $env:PORTAL_DATA_FILE = "C:\data\portal-data.json"; npm run start
 
 ```powershell
 npm run build
-npm run smoke      # 프로덕션 서버 기동 → 권한 매트릭스·리다이렉트 검증 → 종료
+npm run smoke                    # 프로덕션 서버 기동 → 권한 매트릭스·SSR 본문 검증 → 종료
+python scripts/client_health.py  # 실제 브라우저로 전 화면 로드 → 콘솔 오류·하이드레이션 크래시 검사
 ```
+
+`smoke` 는 서버 렌더 HTML만 보므로 클라이언트 크래시를 못 잡는다 — 배포 전 둘 다 돌린다.
 
 ## 구조
 
