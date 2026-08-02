@@ -61,6 +61,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v0.33 | 세션 만료(12시간 exp 서명 포함, 만료 쿠키 거부) + 보안 응답 헤더(X-Frame-Options·nosniff·Referrer-Policy) |
 | v0.34 | 결재 반려 사유 필수(기안자 상신함·상세 표시, 감사 기록 포함) + 알림 배치 자동 스케줄러(instrumentation, PORTAL_NOTIFY_INTERVAL_MS — Docker 기본 24h) |
 | v0.35 | 반려→재상신 폐쇄 루프 — SR 반려 시 기안자 '재상신' 할일 자동 생성(사유 포함), 신청내역 재상신 버튼([재상신] 재결재, 할일 마감) |
+| v0.36 | 정산품의 반려 재상신(투자·비용 공통 액션, 기안자 본인·중복 상신 가드) — 전 문서 유형 재상신 경로 정합 완성 |
 
 ## 배포 (Docker)
 

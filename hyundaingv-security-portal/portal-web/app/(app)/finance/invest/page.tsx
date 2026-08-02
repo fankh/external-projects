@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { resubmitSettlement } from '../actions'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
@@ -197,6 +198,12 @@ export default async function InvestPage() {
                     <td>
                       {x.status === '지급완료' ? <Chip tone="ok">지급완료</Chip> :
                        x.status === '결재중' ? <Chip tone="info">결재중</Chip> : <Chip tone="err">반려</Chip>}
+                      {x.status === '반려' && x.requestedBy === me.name && (
+                        <form action={resubmitSettlement} style={{ display: 'inline', marginLeft: 6 }}>
+                          <input type="hidden" name="id" value={x.id} />
+                          <button type="submit" className="btn sm">재상신</button>
+                        </form>
+                      )}
                     </td>
                   </tr>
                 ))}
