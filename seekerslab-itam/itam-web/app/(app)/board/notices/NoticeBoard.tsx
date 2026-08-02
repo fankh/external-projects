@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost } from '@/lib/types'
 import { acknowledgeNotice, deleteNotice, editNotice, postNotice, remindNoticeUnacked, toggleNoticePin } from '../actions'
@@ -16,8 +16,21 @@ export function NoticeBoard({ posts, canWrite, me, totalUsers, today }: { posts:
   const [eb, setEb] = useState('')
   const [ep, setEp] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  // 목록 필터 — 검색·필독만·예약만 (QnA·감사 로그와 동일 패턴). 공지가 쌓이면 필수.
+  const [fq, setFq] = useState('')
+  const [fpinned, setFpinned] = useState(false)
+  const [fscheduled, setFscheduled] = useState(false)
   const [pending, startTransition] = useTransition()
   const open = posts.find((p) => p.id === openId) ?? null
+  const rows = useMemo(() => {
+    const needle = fq.trim().toLowerCase()
+    return posts.filter((p) => {
+      if (fpinned && !p.pinned) return false
+      if (fscheduled && !(p.publishAt && p.publishAt > today)) return false
+      if (needle && ![p.title, p.body, p.author].some((f) => f?.toLowerCase().includes(needle))) return false
+      return true
+    })
+  }, [posts, fq, fpinned, fscheduled, today])
   // 다른 공지로 넘어가면 편집 모드 해제
   const select = (id: string) => { setEditing(null); setOpenId(id === openId ? null : id) }
 
@@ -50,11 +63,23 @@ export function NoticeBoard({ posts, canWrite, me, totalUsers, today }: { posts:
             {msg && <div className="dim" style={{ fontSize: 11.5 }}>{msg}</div>}
           </div>
         )}
+        <div className="qbar" style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
+          <input className="input" style={{ width: 200 }} placeholder="제목·내용·작성자 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
+          <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
+            <input type="checkbox" checked={fpinned} onChange={(e) => setFpinned(e.target.checked)} /> 필독만
+          </label>
+          {canWrite && (
+            <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }} title="발행일이 미래인 예약 공지만">
+              <input type="checkbox" checked={fscheduled} onChange={(e) => setFscheduled(e.target.checked)} /> 예약만
+            </label>
+          )}
+          <span className="cnt">{rows.length}건 / 전체 {posts.length}건</span>
+        </div>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th className="c" style={{ width: 70 }}>구분</th><th>제목</th><th>작성자</th><th>등록일</th><th className="num">조회</th></tr></thead>
             <tbody>
-              {posts.map((p) => (
+              {rows.map((p) => (
                 <tr key={p.id} className={`clickable ${p.id === openId ? 'sel' : ''}`}
                   onClick={() => select(p.id)}>
                   <td className="c">{p.publishAt && p.publishAt > today ? <Chip tone="info" bare>예약</Chip> : p.pinned ? <Chip tone="err" bare>필독</Chip> : <span className="mut">공지</span>}</td>
@@ -64,6 +89,7 @@ export function NoticeBoard({ posts, canWrite, me, totalUsers, today }: { posts:
                   <td className="num tnum mute">{p.views}</td>
                 </tr>
               ))}
+              {rows.length === 0 && <tr><td colSpan={5}><div className="empty">{posts.length === 0 ? '등록된 공지가 없습니다' : '조건에 맞는 공지가 없습니다'}</div></td></tr>}
             </tbody>
           </table>
         </div>
