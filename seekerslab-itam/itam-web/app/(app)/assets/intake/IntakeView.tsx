@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { AssetCategory, IntakeLot } from '@/lib/types'
-import { issueAssetNo, registerIntakeLot, rejectIntakeLot, toggleCheck } from './actions'
+import { issueAssetNo, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, toggleCheck } from './actions'
 
 interface Label { assetNo: string; model: string; qr: string; barcode: string }
 interface PC { id: string; name: string; vendor: string }
@@ -129,8 +129,15 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
                   <button className="btn sm danger" disabled={pending} onClick={() => setRejecting(true)}>검수 반려</button>
                 )
               )}
+              {sel.status === '검수 반려' && (
+                <button className="btn sm pri" disabled={pending}
+                  onClick={() => startTransition(async () => {
+                    const r = await reinspectIntakeLot(sel.id)
+                    setMsg({ ok: r.ok, text: r.message })
+                  })}>재검수 (교체품 도착)</button>
+              )}
               <span className="dim" style={{ fontSize: 11.5 }}>
-                {sel.status === '검수 완료' ? `채번 ${sel.issued.length}/${sel.qty}` : sel.status === '검수 반려' ? '반려됨 — 공급사 반품 통보 발송' : '체크리스트 완료 후 채번 · 불량 시 반려'}
+                {sel.status === '검수 완료' ? `채번 ${sel.issued.length}/${sel.qty}` : sel.status === '검수 반려' ? '반려됨 — 교체품 도착 시 재검수' : '체크리스트 완료 후 채번 · 불량 시 반려'}
               </span>
             </div>
           </Card>

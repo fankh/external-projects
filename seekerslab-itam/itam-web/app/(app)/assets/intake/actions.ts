@@ -7,6 +7,26 @@ import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { Asset, AssetCategory } from '@/lib/types'
 
+/** 입고 재검수 — 반려된 로트를 다시 검수 대기열에 올린다 (공급사 교체품 도착·반려 정정 시).
+ *  체크리스트를 초기화(전 항목 미체크)해 처음부터 재검수한다. 검수 반려 로트만 대상. 자산담당·Admin. */
+export async function reinspectIntakeLot(lotId: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '재검수 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const lot = s.intakeLots.find((l) => l.id === lotId)
+  if (!lot) return { ok: false, message: '입고 로트를 찾을 수 없습니다.' }
+  if (lot.status !== '검수 반려') return { ok: false, message: '검수 반려된 로트만 재검수할 수 있습니다.' }
+
+  lot.status = '입고 대기'
+  lot.checklist = lot.checklist.map((c) => ({ ...c, checked: false }))
+  lot.inspector = undefined
+
+  appendAudit({ actor: session.name, action: `입고 재검수 착수 — ${lot.model}`, target: lot.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${lot.id} 재검수 — 입고 대기로 되돌려 검수 대기열에 편성했습니다.` }
+}
+
 /** 입고 검수 반려 — 불량·사양 불일치 로트를 반려하고 공급사 앞 반품/교체를 통보한다.
  *  (그동안 검수는 합격(채번)만 있고 불합격 처리가 없었다.) 채번 전 로트만 대상. 자산담당·Admin. */
 export async function rejectIntakeLot(lotId: string, reason: string) {
