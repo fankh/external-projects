@@ -53,8 +53,9 @@ def _b64url(data: bytes) -> str:
 
 
 def cookie_for(acct):
-    # 세션은 HMAC 서명 쿠키 — lib/session.ts 와 같은 방식으로 서명한다
-    payload = _b64url(json.dumps(acct, ensure_ascii=False, separators=(',', ':')).encode())
+    # 세션은 HMAC 서명 + 만료(exp) 쿠키 — lib/session.ts 와 같은 방식으로 서명한다
+    body = {**acct, 'exp': int(time.time() * 1000) + 60 * 60 * 1000}
+    payload = _b64url(json.dumps(body, ensure_ascii=False, separators=(',', ':')).encode())
     sig = _b64url(hmac.new(SECRET, payload.encode(), hashlib.sha256).digest())
     return {
         'name': 'ngv_portal_session',

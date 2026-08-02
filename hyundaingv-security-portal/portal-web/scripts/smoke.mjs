@@ -22,10 +22,10 @@ const ACCOUNTS = {
   BIZ_MGR: { login: 'jh.park', name: '박정호', dept: 'IT운영팀', role: 'BIZ_MGR' },
   ADMIN: { login: 'admin', name: '시스템관리자', dept: '정보기획팀', role: 'ADMIN' },
 }
-// 세션은 HMAC 서명 쿠키다 — lib/session.ts 와 같은 방식·같은 기본 키로 서명한다
+// 세션은 HMAC 서명 + 만료(exp) 쿠키다 — lib/session.ts 와 같은 방식·같은 기본 키로 서명한다
 const SECRET = process.env.SESSION_SECRET ?? 'ngv-portal-dev-secret'
-const signSession = (acct) => {
-  const payload = Buffer.from(JSON.stringify(acct), 'utf8').toString('base64url')
+const signSession = (acct, expMs = Date.now() + 60 * 60 * 1000) => {
+  const payload = Buffer.from(JSON.stringify({ ...acct, exp: expMs }), 'utf8').toString('base64url')
   const sig = createHmac('sha256', SECRET).update(payload).digest('base64url')
   return `${payload}.${sig}`
 }
@@ -154,6 +154,19 @@ async function main() {
       headers: { cookie: `ngv_portal_session=${forgedPayload}.${userSig}` },
     })
     check(forged.status === 307 && (forged.headers.get('location') ?? '').includes('/login'), '세션: 페이로드 변조(권한 상승) 거부')
+
+    // 만료된 세션(정상 서명) — 재로그인 유도
+    const expired = await fetch(`${BASE}/dashboard`, {
+      redirect: 'manual',
+      headers: { cookie: `ngv_portal_session=${signSession(ACCOUNTS.ADMIN, Date.now() - 1000)}` },
+    })
+    check(expired.status === 307 && (expired.headers.get('location') ?? '').includes('/login'), '세션: 만료 쿠키 거부')
+
+    // 보안 응답 헤더 — 클릭재킹·스니핑·레퍼러 방어
+    const hdr = await fetch(`${BASE}/login`, { redirect: 'manual' })
+    check(hdr.headers.get('x-frame-options') === 'DENY', '헤더: X-Frame-Options DENY')
+    check(hdr.headers.get('x-content-type-options') === 'nosniff', '헤더: X-Content-Type-Options nosniff')
+    check(hdr.headers.get('referrer-policy') === 'same-origin', '헤더: Referrer-Policy same-origin')
   }
 
   // 3) 구현 화면 — SSR 본문 내용 검증

@@ -12,9 +12,12 @@ function hmac(payload: string): string {
   return createHmac('sha256', SECRET).update(payload).digest('base64url')
 }
 
-/** 로그인 시 세션을 서명해 직렬화한다: base64url(JSON) + '.' + HMAC */
+/** 세션 유효기간 — 탈취된 쿠키가 무기한 유효하지 않도록 만료를 서명에 포함한다 */
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000
+
+/** 로그인 시 세션을 서명해 직렬화한다: base64url(JSON + exp) + '.' + HMAC */
 export function signSession(s: Session): string {
-  const payload = Buffer.from(JSON.stringify(s), 'utf8').toString('base64url')
+  const payload = Buffer.from(JSON.stringify({ ...s, exp: Date.now() + SESSION_TTL_MS }), 'utf8').toString('base64url')
   return `${payload}.${hmac(payload)}`
 }
 
@@ -45,8 +48,12 @@ export async function getSession(): Promise<Session | null> {
     const expected = Buffer.from(hmac(payload))
     const actual = Buffer.from(sig)
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null
-    const s = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Session
-    return s && typeof s.login === 'string' ? s : null
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Session & { exp?: number }
+    if (!parsed || typeof parsed.login !== 'string') return null
+    // 만료 검증 — exp 가 없거나 지난 세션은 무효 (재로그인 유도)
+    if (typeof parsed.exp !== 'number' || parsed.exp < Date.now()) return null
+    const { exp: _exp, ...s } = parsed
+    return s
   } catch {
     return null
   }
