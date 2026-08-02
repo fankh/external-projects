@@ -14,6 +14,7 @@ export function GlobalSearch() {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // 평탄화된 결과 — 키보드 이동·Enter 점프에 쓴다
   const flat = groups.flatMap((g) => g.items)
@@ -39,6 +40,22 @@ export function GlobalSearch() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
+  // 키보드 단축키 — '/' 또는 Ctrl/Cmd+K 로 통합 검색에 포커스(다른 입력창에 타이핑 중이면 무시)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const el = document.activeElement
+      const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el as HTMLElement)?.isContentEditable
+      const cmdK = (e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)
+      if (cmdK || (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey)) {
+        e.preventDefault()
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   const go = (href: string) => { setOpen(false); setQ(''); setGroups([]); router.push(href) }
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -53,8 +70,9 @@ export function GlobalSearch() {
   return (
     <div className="gsearch" ref={boxRef} style={{ position: 'relative' }}>
       <input
+        ref={inputRef}
         className="search"
-        placeholder="통합 검색 — 자산·계약·발견·사용자·결재 (ID·이름)"
+        placeholder="통합 검색 (＇/＇ 또는 Ctrl+K) — 자산·계약·발견·사용자·결재"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onFocus={() => { if (flat.length) setOpen(true) }}
