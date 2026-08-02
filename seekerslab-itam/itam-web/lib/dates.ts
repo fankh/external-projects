@@ -71,3 +71,10 @@ export function isLoanOverdue(a: Asset): boolean {
   if (a.status !== '대여중' || !a.loanDueDate) return false
   return (daysUntil(a.loanDueDate) ?? 0) < 0
 }
+
+/** 대여 반환 임박 — '대여중'이고 반환 기한이 오늘~7일 이내(아직 연체는 아님). 연체 전 사전 독촉 대상. 서버 전용. */
+export function isLoanDueSoon(a: Asset): boolean {
+  if (a.status !== '대여중' || !a.loanDueDate) return false
+  const d = daysUntil(a.loanDueDate)
+  return d !== null && d >= 0 && d <= 7
+}
