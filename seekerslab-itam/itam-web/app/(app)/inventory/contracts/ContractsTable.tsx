@@ -1,9 +1,9 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { fmtAmount } from '@/lib/dates'
-import type { Contract } from '@/lib/types'
-import { addContract, renewContract, terminateContract } from './actions'
+import { CONTRACT_DOC_TYPES, type Contract, type ContractDocType } from '@/lib/types'
+import { addContract, addContractDoc, removeContractDoc, renewContract, terminateContract } from './actions'
 
 type Row = Contract & { d: number | null }
 
@@ -63,12 +63,24 @@ function StatusChip({ d }: { d: number | null }) {
   return <Chip tone="ok">정상</Chip>
 }
 
-export function ContractsTable({ rows, sel }: { rows: Row[]; sel?: string }) {
+export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: string; canEdit: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [termId, setTermId] = useState<string | null>(null)
   const [reason, setReason] = useState('')
+  const [docId, setDocId] = useState<string | null>(null)
+  const [docName, setDocName] = useState('')
+  const [docType, setDocType] = useState<ContractDocType>(CONTRACT_DOC_TYPES[0])
   const [pending, startTransition] = useTransition()
+
+  const addDoc = (id: string) => startTransition(async () => {
+    const r = await addContractDoc(id, docName, docType)
+    setMsg(r.message)
+    if (r.ok) { setDocName('') }
+  })
+  const removeDoc = (id: string, dId: string) => startTransition(async () => {
+    setMsg((await removeContractDoc(id, dId)).message)
+  })
 
   const renew = (id: string, term: number) => {
     startTransition(async () => {
@@ -93,12 +105,13 @@ export function ContractsTable({ rows, sel }: { rows: Row[]; sel?: string }) {
           <thead>
             <tr>
               <th>계약번호</th><th>구분</th><th>계약명</th><th>공급사</th><th>주관부서</th>
-              <th className="num">금액</th><th className="num">자산</th><th>만료일</th><th className="c">상태</th><th className="c">관리</th>
+              <th className="num">금액</th><th className="num">자산</th><th>만료일</th><th className="c">상태</th><th className="c">부속서류</th><th className="c">관리</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((c) => (
-              <tr key={c.id} className={c.id === sel ? 'sel' : ''}>
+              <Fragment key={c.id}>
+              <tr className={c.id === sel ? 'sel' : ''}>
                 <td className="code">{c.id}</td>
                 <td>{c.kind}</td>
                 <td className="strong">{c.name}</td>
@@ -110,6 +123,13 @@ export function ContractsTable({ rows, sel }: { rows: Row[]; sel?: string }) {
                   : c.assetCount}</td>
                 <td className="tnum">{c.end}</td>
                 <td className="c">{c.status === '해지' ? <Chip tone="neutral">해지</Chip> : <StatusChip d={c.d} />}</td>
+                <td className="c">
+                  <button className={`btn sm ${docId === c.id ? 'pri' : ''}`} disabled={pending}
+                    onClick={() => { setDocId(docId === c.id ? null : c.id); setDocName(''); setMsg(null) }}
+                    title="계약서·견적서·세금계산서·보증서 등 근거 문서 관리">
+                    📎 {(c.documents?.length ?? 0) > 0 ? `${c.documents!.length}` : '문서'}
+                  </button>
+                </td>
                 <td className="c">
                   {c.status === '해지' ? (
                     <span className="mut" title={`${c.terminatedAt ?? ''} 해지`}>—</span>
@@ -140,6 +160,39 @@ export function ContractsTable({ rows, sel }: { rows: Row[]; sel?: string }) {
                   )}
                 </td>
               </tr>
+              {docId === c.id && (
+                <tr className="sub">
+                  <td colSpan={11} style={{ background: 'var(--canvas)', padding: '12px 16px' }}>
+                    <div className="kicker mute" style={{ marginBottom: 8 }}>부속서류 — {c.id} {c.name}</div>
+                    {(c.documents?.length ?? 0) === 0 ? (
+                      <div className="dim" style={{ fontSize: 12, marginBottom: canEdit ? 10 : 0 }}>등록된 부속서류가 없습니다 — 계약서·견적서·세금계산서·보증서 등을 등록하세요.</div>
+                    ) : (
+                      <div className="vstack" style={{ gap: 6, marginBottom: canEdit ? 12 : 0 }}>
+                        {c.documents!.map((d) => (
+                          <div key={d.id} className="hstack" style={{ gap: 10, fontSize: 12.5 }}>
+                            <Chip tone="info">{d.docType}</Chip>
+                            <span className="strong" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                            <span className="mut tnum" style={{ fontSize: 11 }}>{d.addedBy} · {d.addedAt}</span>
+                            {canEdit && <button className="btn sm ghost" disabled={pending} onClick={() => removeDoc(c.id, d.id)} title="문서 항목 삭제">삭제</button>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {canEdit && (
+                      <div className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                        <select className="select" value={docType} disabled={pending} onChange={(e) => setDocType(e.target.value as ContractDocType)}>
+                          {CONTRACT_DOC_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <input className="input" style={{ width: 240 }} placeholder="문서명 (예: 2023 노트북 구매계약서_v2.pdf)"
+                          value={docName} disabled={pending} onChange={(e) => setDocName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && docName.trim()) addDoc(c.id) }} />
+                        <button className="btn sm pri" disabled={pending || !docName.trim()} onClick={() => addDoc(c.id)}>＋ 부속서류 등록</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

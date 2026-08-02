@@ -155,6 +155,20 @@ export interface Contract {
   status?: '유효' | '해지'
   /** 해지 확정일 */
   terminatedAt?: string
+  /** 부속서류 — 계약서·견적서·세금계산서·보증서 등 근거 문서 목록 (제품안내서 §03 구매 계약: 부속서류 관리) */
+  documents?: ContractDoc[]
+}
+
+/** 계약 부속서류 유형 — 실제 파일 저장은 범위 밖이므로 문서 메타데이터(이름·유형·등록자·등록일)만 관리한다 */
+export const CONTRACT_DOC_TYPES = ['계약서', '견적서', '발주서', '세금계산서', '보증서', '부속합의서', '기타'] as const
+export type ContractDocType = (typeof CONTRACT_DOC_TYPES)[number]
+
+export interface ContractDoc {
+  id: string
+  name: string
+  docType: ContractDocType
+  addedAt: string
+  addedBy: string
 }
 
 export interface SwLicense {

@@ -6,7 +6,7 @@ import { dispatch } from '@/lib/notify'
 import { raiseLicenseApproval } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
-import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
+import { CONTRACT_DOC_TYPES, EXPIRY_WINDOW_DAYS, type ContractDocType } from '@/lib/types'
 
 /** 계약 등록 — 신규 구매·유지보수 계약을 대장에 편입한다 (갱신·알림만 있고 등록 경로 부재).
  *  등록 즉시 만료 임박 집계·알림 대상이 된다. 자산담당·Admin. */
@@ -175,6 +175,46 @@ export async function terminateContract(id: string, rawReason: string) {
   appendAudit({ actor: session.name, action: `계약 해지 — ${c.name} · ${reason}`, target: c.id })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${c.id} ${c.name} 해지 완료 — 만료 임박 집계·알림에서 제외` }
+}
+
+/** 계약 부속서류 등록 — 계약서·견적서·세금계산서·보증서 등 근거 문서를 계약에 연결한다.
+ *  실제 파일 저장은 범위 밖이므로 문서 메타데이터(이름·유형·등록자·등록일)만 남긴다 —
+ *  "어떤 근거 문서가 존재하는가"의 추적이 목적(제품안내서 §03 구매 계약: 부속서류 관리). 자산담당·Admin. */
+export async function addContractDoc(contractId: string, rawName: string, docType: ContractDocType) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '부속서류 등록 권한이 없습니다 (자산담당·Admin).' }
+
+  const name = rawName.trim()
+  if (!name) return { ok: false, message: '문서명을 입력하세요.' }
+  if (!CONTRACT_DOC_TYPES.includes(docType)) return { ok: false, message: '문서 유형이 올바르지 않습니다.' }
+
+  const s = getStore()
+  const c = s.contracts.find((x) => x.id === contractId)
+  if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
+  if (!c.documents) c.documents = []
+  if (c.documents.some((d) => d.name === name && d.docType === docType)) {
+    return { ok: false, message: `이미 등록된 문서입니다 — ${docType} · ${name}` }
+  }
+  c.documents.push({ id: nextId('DOC'), name, docType, addedAt: today(), addedBy: session.name })
+  appendAudit({ actor: session.name, action: `계약 부속서류 등록 — ${docType} · ${name}`, target: c.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${c.id} 부속서류 등록 — ${docType} · ${name}` }
+}
+
+/** 계약 부속서류 삭제 — 잘못 등록한 문서 항목을 제거한다. 감사 로그에 남긴다. 자산담당·Admin. */
+export async function removeContractDoc(contractId: string, docId: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '부속서류 삭제 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const c = s.contracts.find((x) => x.id === contractId)
+  if (!c || !c.documents) return { ok: false, message: '계약 또는 문서를 찾을 수 없습니다.' }
+  const doc = c.documents.find((d) => d.id === docId)
+  if (!doc) return { ok: false, message: '문서를 찾을 수 없습니다.' }
+  c.documents = c.documents.filter((d) => d.id !== docId)
+  appendAudit({ actor: session.name, action: `계약 부속서류 삭제 — ${doc.docType} · ${doc.name}`, target: c.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${c.id} 부속서류 삭제 — ${doc.name}` }
 }
 
 /** 라이선스 조치 — 컴플라이언스 4단계의 마지막.

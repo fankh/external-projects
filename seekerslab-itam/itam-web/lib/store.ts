@@ -468,7 +468,12 @@ function seed(): Store {
       { id: 'DIF-04', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '미조치' },
     ],
     contracts: [
-      { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀' },
+      { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀',
+        documents: [
+          { id: 'DOC-0001', name: '2023 노트북 구매계약서_체결본.pdf', docType: '계약서', addedAt: '2023-03-02', addedBy: '박자산' },
+          { id: 'DOC-0002', name: '한빛INT 견적서_60대.pdf', docType: '견적서', addedAt: '2023-02-20', addedBy: '박자산' },
+          { id: 'DOC-0003', name: '세금계산서_2023-03.pdf', docType: '세금계산서', addedAt: '2023-03-31', addedBy: '이경리' },
+        ] },
       { id: 'CT-2023-021', kind: '구매', name: 'IDC-A 서버 증설 (R760 8식)', vendor: '델테크놀로지스', start: '2023-09-01', end: '2026-08-31', amount: 384_000_000, assetCount: 8, ownerDept: '인프라운영팀' },
       { id: 'CT-2022-007', kind: '유지보수', name: '네트워크 장비 통합 유지보수', vendor: '세종네트웍스', start: '2026-01-01', end: '2026-08-31', amount: 48_000_000, assetCount: 34, ownerDept: '네트워크팀' },
       { id: 'CT-2023-002', kind: '구매', name: 'Microsoft 365 E3 800석', vendor: '한국MS 파트너', start: '2026-01-01', end: '2026-12-31', amount: 268_000_000, assetCount: 800, ownerDept: 'IT기획팀' },
@@ -602,7 +607,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 8
+const SCHEMA_VERSION = 9
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
