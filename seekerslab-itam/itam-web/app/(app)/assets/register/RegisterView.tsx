@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
+import { ASSET_CATEGORIES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
 import { extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField } from './actions'
 
@@ -451,6 +452,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
 
             {props.canConfig && (() => {
               const fields: { key: ConfigField; label: string; cur?: string }[] = [
+                { key: '유형' as ConfigField, label: '유형(재분류)', cur: sel.category },
                 ...(sel.os !== undefined ? [{ key: 'os' as ConfigField, label: 'OS', cur: sel.os }] : []),
                 ...(sel.cpu !== undefined ? [{ key: 'cpu' as ConfigField, label: 'CPU', cur: sel.cpu }] : []),
                 ...(sel.memory !== undefined ? [{ key: 'memory' as ConfigField, label: '메모리', cur: sel.memory }] : []),
@@ -482,10 +484,15 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                         onChange={(e) => pickField(e.target.value as ConfigField)}>
                         {fields.map((f) => <option key={f.key} value={f.key}>{f.label}{f.cur !== undefined ? ` · 현재 ${f.cur}` : ''}</option>)}
                       </select>
-                      {cfgField !== '기타' && (
+                      {cfgField === '유형' ? (
+                        <select className="select" value={cfgValue} disabled={pending} onChange={(e) => setCfgValue(e.target.value)}
+                          title="AI 자동분류 정정·용도 변경 — 유효 유형만 선택">
+                          {ASSET_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      ) : cfgField !== '기타' ? (
                         <input className="input" placeholder="새 값 (예: 64GB)" value={cfgValue} disabled={pending}
                           onChange={(e) => setCfgValue(e.target.value)} />
-                      )}
+                      ) : null}
                       <input className="input" placeholder={cfgField === '기타' ? '변경 내용 (예: SSD 512GB→1TB 교체)' : '사유 (선택)'}
                         value={cfgNote} disabled={pending} onChange={(e) => setCfgNote(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') submit() }} />

@@ -10,6 +10,7 @@ export const ROLE_LABEL: Record<Role, string> = {
 }
 
 export type AssetCategory = '단말' | '서버' | '네트워크' | '주변기기' | 'SW' | '가상자원'
+export const ASSET_CATEGORIES: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 /** 수명주기 5단계 (도입·검수 → 등록 → 운영·이동 → 반납·유휴 → 폐기) */
 export type AssetStatus = '검수중' | '사용중' | '유휴' | '대여중' | '반납대기' | '수리중' | '분실' | '폐기예정' | '폐기완료'

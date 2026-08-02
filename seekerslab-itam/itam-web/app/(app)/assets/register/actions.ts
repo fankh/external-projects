@@ -15,9 +15,9 @@ async function guard() {
   return session
 }
 
-/** 구성변경 대상 — 대장이 보유한 사양 필드 + 사양 외 기타 변경. */
-export type ConfigField = 'os' | 'cpu' | 'memory' | '기타'
-const FIELD_LABEL: Record<ConfigField, string> = { os: 'OS', cpu: 'CPU', memory: '메모리', 기타: '기타' }
+/** 구성변경 대상 — 자산 유형(재분류) + 대장이 보유한 사양 필드 + 사양 외 기타 변경. */
+export type ConfigField = '유형' | 'os' | 'cpu' | 'memory' | '기타'
+const FIELD_LABEL: Record<ConfigField, string> = { 유형: '유형', os: 'OS', cpu: 'CPU', memory: '메모리', 기타: '기타' }
 
 /** 구성변경 기록 — 자산의 사양 변경(메모리 증설·OS 재설치 등)을 대장에 반영하고
  *  변경 이력 타임라인에 '구성변경' 이벤트로 남긴다. (제품안내서 §03 — 등록·이동·구성변경·점검·폐기 단일 화면 추적)
@@ -34,7 +34,14 @@ export async function recordConfigChange(assetNo: string, field: ConfigField, ra
   const note = rawNote.trim()
   let detail: string
 
-  if (field === '기타') {
+  if (field === '유형') {
+    // 유형 재분류 — AI 자동분류 오분류 정정·용도 변경(제안→담당자 확인·정정, §05 제안 환류). 유효 유형만 허용.
+    if (!IMPORT_CATS.includes(value as AssetCategory)) return { ok: false, message: '올바른 자산 유형을 선택하세요.' }
+    const before = asset.category
+    if (before === value && !note) return { ok: false, message: '변경 내용이 이전과 같습니다.' }
+    asset.category = value as AssetCategory
+    detail = `유형 ${before} → ${value}${note ? ` (${note})` : ''}`
+  } else if (field === '기타') {
     if (!note) return { ok: false, message: '기타 구성변경은 변경 내용을 입력하세요.' }
     detail = note
   } else {
