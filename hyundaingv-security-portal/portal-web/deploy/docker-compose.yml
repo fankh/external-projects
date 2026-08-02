@@ -8,6 +8,8 @@ services:
     environment:
       # 세션 쿠키 서명 키 — 실배포에서는 반드시 랜덤 키로 교체한다
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET 를 설정하세요}
+      # 고객사 프로필 — 미설정 시 기본(데모), 예: manufacturer (한 이미지 다중 고객사)
+      PORTAL_PROFILE: ${PORTAL_PROFILE:-}
     volumes:
       - portal-data:/data
     # 내부 포트 3400 — 외부 노출은 nginx 만 담당한다

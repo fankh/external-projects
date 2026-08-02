@@ -6,7 +6,7 @@ export const PORTAL: PortalBrand = {
   customer: '데모 고객사',
   productName: 'GOVERNANCE PORTAL',
   productSub: 'Enterprise IT · Security',
-  version: 'v0.39',
+  version: 'v1.0',
 }
 
 export const CHANNELS: ChannelBinding[] = [
