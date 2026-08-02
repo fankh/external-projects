@@ -56,6 +56,13 @@ export async function scanAsset(roundId: string, rawCode: string, location: stri
   })
   round.scanned += 1
 
+  // 라벨을 스캔했다는 것은 실물을 확인했다는 것 — 위치 불일치(차이)여도 최근 실측일을 갱신하고
+  // 대장 이력에 실측 확인을 남긴다. 이로써 '장기 미실측'(유령 자산) 판정이 실사 데이터에 근거하게 된다.
+  if (asset) {
+    asset.lastVerifiedAt = today()
+    asset.history.push({ date: today(), kind: '점검', detail: `재물조사 실측 확인 — ${round.name} (${result})`, actor: session.name })
+  }
+
   if (diffKind) {
     s.surveyDiffs.push({
       id: nextId('DIF'),

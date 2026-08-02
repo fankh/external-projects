@@ -14,9 +14,11 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[] }) {
   const [q, setQ] = useState(props.initialQuery)
   const [cat, setCat] = useState<AssetCategory | '전체'>('전체')
+  const [staleOnly, setStaleOnly] = useState(false)
+  const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
   const [cfgOpen, setCfgOpen] = useState(false)
   const [cfgField, setCfgField] = useState<ConfigField>('memory')
@@ -34,11 +36,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     const needle = q.trim().toLowerCase()
     return props.assets.filter((a) => {
       if (cat !== '전체' && a.category !== cat) return false
+      if (staleOnly && !staleSet.has(a.assetNo)) return false
       if (!needle) return true
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat])
+  }, [props.assets, q, cat, staleOnly, staleSet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
 
@@ -52,6 +55,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c}</button>
           ))}
         </div>
+        {staleSet.size > 0 && (
+          <button className={`btn sm ${staleOnly ? 'danger' : ''}`} onClick={() => setStaleOnly((v) => !v)}
+            title={`최근 실측이 ${'없거나 오래된'} 자산 — 유령 자산 후보`}>
+            {staleOnly ? '✓ ' : ''}장기 미실측 {staleSet.size}
+          </button>
+        )}
         <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
         {props.canExport && (
           <a className="btn sm" style={{ marginLeft: 'auto' }} download
@@ -110,6 +119,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {sel.memory && <><dt>메모리</dt><dd>{sel.memory}</dd></>}
               {sel.ip && <><dt>IP / MAC</dt><dd className="code">{sel.ip}{sel.mac ? ` · ${sel.mac}` : ''}</dd></>}
               <dt>도입일</dt><dd className="tnum">{sel.purchaseDate}</dd>
+              <dt>최근 실측</dt>
+              <dd className="hstack" style={{ gap: 6 }}>
+                <span className="tnum">{sel.lastVerifiedAt ?? '미실측'}</span>
+                {staleSet.has(sel.assetNo) && <Chip tone="err" bare>장기 미실측</Chip>}
+              </dd>
               <dt>보증 만료</dt><dd className="tnum">{sel.warrantyEnd}</dd>
               {sel.contractId && <><dt>연계 계약</dt><dd className="code">{sel.contractId}</dd></>}
             </dl>

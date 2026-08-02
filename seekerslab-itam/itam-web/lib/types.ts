@@ -40,8 +40,15 @@ export interface Asset {
   contractId?: string
   /** Discovery 편입 자산이면 최초 발견 채널 */
   discoveredVia?: string
+  /** 최근 실측 확인일 — 재물조사 실사 스캔으로 실물이 확인된 마지막 날. 미설정이면 실측 이력 없음.
+   *  STALE_VERIFY_DAYS 초과·미설정이면 '장기 미실측'(유령 자산 후보)으로 드러난다. */
+  lastVerifiedAt?: string
   history: AssetHistoryItem[]
 }
+
+/** 최근 실측 확인이 이 일수를 넘거나 아예 없으면 '장기 미실측'(유령 자산 후보)으로 본다.
+ *  재물조사 주기(반기)를 고려한 값 — 반기 조사를 한 번 거르면 드러난다. */
+export const STALE_VERIFY_DAYS = 180
 
 /** Discovery 6종 탐지 채널 */
 export type Channel =
