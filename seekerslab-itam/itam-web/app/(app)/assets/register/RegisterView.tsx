@@ -15,6 +15,7 @@ function daysBetween(today: string, dueDate: string): number {
  *  유형으로 등록된 자산은 계속 조회돼야 하기 때문이다. 실사 위치 드롭다운처럼 값을 새로
  *  기록하는 입력 항목은 반대로 활성 코드만 읽는다. */
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
+const STATUSES: (AssetStatus | '전체')[] = ['전체', '검수중', '사용중', '유휴', '대여중', '반납대기', '수리중', '분실', '폐기예정', '폐기완료']
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
@@ -22,6 +23,7 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
 export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; today?: string }) {
   const [q, setQ] = useState(props.initialQuery)
   const [cat, setCat] = useState<AssetCategory | '전체'>('전체')
+  const [status, setStatus] = useState<AssetStatus | '전체'>('전체')
   const [staleOnly, setStaleOnly] = useState(false)
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
@@ -48,12 +50,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     const needle = q.trim().toLowerCase()
     return props.assets.filter((a) => {
       if (cat !== '전체' && a.category !== cat) return false
+      if (status !== '전체' && a.status !== status) return false
       if (staleOnly && !staleSet.has(a.assetNo)) return false
       if (!needle) return true
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat, staleOnly, staleSet])
+  }, [props.assets, q, cat, status, staleOnly, staleSet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
 
@@ -67,6 +70,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c}</button>
           ))}
         </div>
+        <select className="select" value={status} onChange={(e) => setStatus(e.target.value as AssetStatus | '전체')}
+          title="자산 상태로 필터">
+          {STATUSES.map((st) => <option key={st} value={st}>{st === '전체' ? '상태 — 전체' : st}</option>)}
+        </select>
         {staleSet.size > 0 && (
           <button className={`btn sm ${staleOnly ? 'danger' : ''}`} onClick={() => setStaleOnly((v) => !v)}
             title={`최근 실측이 ${'없거나 오래된'} 자산 — 유령 자산 후보`}>
