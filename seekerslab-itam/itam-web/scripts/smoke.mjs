@@ -181,6 +181,16 @@ try {
   check('계약: 부속서류 컬럼 + 문서 토글 버튼 렌더', contractsHtml.includes('부속서류') && contractsHtml.includes('📎'))
   // 유지보수 계약 — SLA·비용 이력 관리 (제품안내서 §03 유지보수 계약). 상세는 토글 확장이라 SSR엔 버튼 title 만
   check('계약: 유지보수 계약에 SLA·비용 이력 관리 토글 노출', contractsHtml.includes('SLA · 비용 이력'))
+  // 계약 카드(dossier) — 요약·부속서류·SLA·비용·연계 자산 인쇄용
+  check('계약: 목록에 계약 카드 인쇄 링크', contractsHtml.includes('/api/contract-card/'))
+  check('계약 카드: 미로그인 차단 (401)', (await get('/api/contract-card/CT-2023-014')).status === 401)
+  check('계약 카드: 사용자 차단 (403)', (await get('/api/contract-card/CT-2023-014', 'USER')).status === 403)
+  check('계약 카드: 없는 계약 404', (await get('/api/contract-card/NOPE', 'ADMIN')).status === 404)
+  const ctCard = await get('/api/contract-card/CT-2023-014', 'ASSET_MGR')
+  const ctCardBody = await ctCard.text()
+  check('계약 카드: 자산담당 발급 (200·요약·부속서류·연계 자산)', ctCard.status === 200 && ctCardBody.includes('CT-2023-014') && ctCardBody.includes('CONTRACT DOSSIER') && ctCardBody.includes('부속서류') && ctCardBody.includes('연계 자산') && ctCardBody.includes('계약서'))
+  const maintCard = await (await get('/api/contract-card/CT-2022-007', 'ASSET_MGR')).text()
+  check('계약 카드: 유지보수 계약에 SLA·비용 이력 포함', maintCard.includes('SLA') && maintCard.includes('비용 이력') && maintCard.includes('정기 유지보수료'))
   const aprHtml = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('결재함: 격리 요청 문서 렌더', aprHtml.includes('격리 요청') && aprHtml.includes('APR-2607-112'))
   check('결재함: 결재선 라우팅 표시 (단계 + 필수)', aprHtml.includes('결재선') && aprHtml.includes('IT기획팀장') && aprHtml.includes('보안담당'))

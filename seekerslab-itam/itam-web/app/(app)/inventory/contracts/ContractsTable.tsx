@@ -179,11 +179,14 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
                 <td className="tnum">{c.end}</td>
                 <td className="c">{c.status === '해지' ? <Chip tone="neutral">해지</Chip> : <StatusChip d={c.d} />}</td>
                 <td className="c">
-                  <button className={`btn sm ${docId === c.id ? 'pri' : ''}`} disabled={pending}
-                    onClick={() => { setDocId(docId === c.id ? null : c.id); setDocName(''); setSlaText(null); setCostDate(''); setCostItem(''); setCostAmount(0); setMsg(null) }}
-                    title={c.kind === '유지보수' ? '부속서류 · SLA · 비용 이력 관리' : '계약서·견적서·세금계산서·보증서 등 근거 문서 관리'}>
-                    📎 {(c.documents?.length ?? 0) > 0 ? `${c.documents!.length}` : '문서'}
-                  </button>
+                  <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                    <button className={`btn sm ${docId === c.id ? 'pri' : ''}`} disabled={pending}
+                      onClick={() => { setDocId(docId === c.id ? null : c.id); setDocName(''); setSlaText(null); setCostDate(''); setCostItem(''); setCostAmount(0); setMsg(null) }}
+                      title={c.kind === '유지보수' ? '부속서류 · SLA · 비용 이력 관리' : '계약서·견적서·세금계산서·보증서 등 근거 문서 관리'}>
+                      📎 {(c.documents?.length ?? 0) > 0 ? `${c.documents!.length}` : '문서'}
+                    </button>
+                    <a className="btn sm ghost" href={`/api/contract-card/${c.id}`} target="_blank" rel="noopener" title="계약 요약·부속서류·연계 자산 인쇄용 카드(dossier)">🖨</a>
+                  </span>
                 </td>
                 <td className="c">
                   {c.status === '해지' ? (
