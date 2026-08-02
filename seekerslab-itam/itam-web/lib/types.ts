@@ -167,7 +167,7 @@ export interface SwLicense {
   unitCost: number
 }
 
-export type ApprovalKind = '자산 신청' | '반납' | '이동' | '폐기' | '소유자 확인' | '격리 요청' | '차이 조정'
+export type ApprovalKind = '자산 신청' | '반납' | '이동' | '대여' | '폐기' | '소유자 확인' | '격리 요청' | '차이 조정'
 export type ApprovalStatus = '대기' | '승인' | '반려' | '취소'
 
 /** 제품안내서가 필수 결재로 규정한 종류 — 폐기·격리·편입(소유자 확인)·차이 조정.
@@ -216,6 +216,8 @@ export interface Approval {
   rejectReason?: string
   /** 결재 첨부 리포트 — 근거 문서로 첨부한 생성 리포트(GeneratedReport) ID. 결재자가 결재함에서 열람한다. */
   reportRefs?: string[]
+  /** 대여 신청의 희망 반환 기한 — 승인 시 이 기한으로 대여 처리된다. */
+  loanDueDate?: string
 }
 
 /** 반납 접수 시 상태 점검 결과 — 재배치 가능 여부를 가른다 (제품안내서 §03 PHASE 4) */

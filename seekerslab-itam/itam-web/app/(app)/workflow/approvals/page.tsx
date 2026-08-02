@@ -18,6 +18,11 @@ export default async function ApprovalsPage() {
     .filter((a) => (session.role === 'USER' ? a.owner === session.name : true))
     .map((a) => ({ assetNo: a.assetNo, model: a.model, location: a.location }))
 
+  // 대여 신청 대상 — 대여 가능한 유휴 재고 (전 권한그룹이 임시 반출을 신청할 수 있다)
+  const loanable = s.assets
+    .filter((a) => a.status === '유휴')
+    .map((a) => ({ assetNo: a.assetNo, model: a.model, location: a.location }))
+
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
     .filter((v) => v.active)
     .sort((a, b) => a.sort - b.sort)
@@ -43,7 +48,7 @@ export default async function ApprovalsPage() {
         <Stat value={s.approvals.filter((a) => a.status !== '대기').length} label="처리 완료 (누적)" tone="ok" />
       </div>
 
-      <RequestForm myAssets={myAssets} locations={locations} />
+      <RequestForm myAssets={myAssets} locations={locations} loanable={loanable} />
 
       <Card pad={false} actions={<ExportButton kind="approvals" role={session.role} label="결재 이력 엑셀" />}>
         <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} />

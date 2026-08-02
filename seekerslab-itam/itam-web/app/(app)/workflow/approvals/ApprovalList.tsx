@@ -5,7 +5,7 @@ import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/type
 import type { Approval, Role } from '@/lib/types'
 import { answerOwnerConfirm, decide, resubmitRequest, withdrawRequest } from './actions'
 
-const WITHDRAWABLE = ['자산 신청', '반납', '이동']
+const WITHDRAWABLE = ['자산 신청', '반납', '이동', '대여']
 
 export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds }: {
   approvals: Approval[]; role: Role; dept: string; viewer: string

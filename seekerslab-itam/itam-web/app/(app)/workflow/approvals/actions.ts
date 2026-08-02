@@ -12,9 +12,10 @@ import type { ApprovalKind } from '@/lib/types'
  *  결재선은 환경설정의 화면별 기본 결재선을 따르며, 다음 단계는 상신자 다음 스텝이 된다.
  *  (제품안내서 §01 권한그룹: 사용자 — 자산 신청·반납·이동 요청 및 결재 상신) */
 export async function raiseRequest(input: {
-  kind: Extract<ApprovalKind, '자산 신청' | '반납' | '이동'>
+  kind: Extract<ApprovalKind, '자산 신청' | '반납' | '이동' | '대여'>
   assetNo?: string
   targetLocation?: string
+  loanDueDate?: string
   note: string
 }) {
   const session = await getSession()
@@ -28,6 +29,17 @@ export async function raiseRequest(input: {
 
   if (input.kind === '자산 신청') {
     title = `자산 신규 지급 신청 — ${note.slice(0, 40)}`
+  } else if (input.kind === '대여') {
+    // 대여는 유휴 재고를 대상으로 한다(본인 소유 무관 — 임시 반출 신청). 승인 시 자동 대여 처리된다.
+    const asset = s.assets.find((a) => a.assetNo === input.assetNo)
+    if (!asset) return { ok: false, message: '대여할 자산을 선택해 주세요.' }
+    if (asset.status !== '유휴') return { ok: false, message: `대여 가능한 상태가 아닙니다 — ${asset.assetNo} (${asset.status}). 유휴 재고만 대여 신청할 수 있습니다.` }
+    if (!input.loanDueDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.loanDueDate) || input.loanDueDate < today()) {
+      return { ok: false, message: '반환 기한을 오늘 이후로 지정해 주세요.' }
+    }
+    const dup = s.approvals.find((a) => a.status === '대기' && a.refId === asset.assetNo && a.kind === '대여')
+    if (dup) return { ok: false, message: `이미 대여 신청이 결재 대기 중입니다 — ${dup.id}` }
+    title = `${asset.model} 대여 신청 (${asset.assetNo}) — 반환 기한 ${input.loanDueDate}`
   } else {
     // 반납·이동은 본인 명의 자산만 대상으로 한다 (권한 모델: 사용자는 본인 자산 범위)
     const asset = s.assets.find((a) => a.assetNo === input.assetNo)
@@ -71,6 +83,7 @@ export async function raiseRequest(input: {
     refId: input.assetNo,
     note,
     targetLocation: input.kind === '이동' ? input.targetLocation : undefined,
+    loanDueDate: input.kind === '대여' ? input.loanDueDate : undefined,
   })
 
   appendAudit({ actor: session.name, action: `${input.kind} 상신`, target: id })
@@ -89,7 +102,7 @@ export async function resubmitRequest(approvalId: string, note: string) {
   if (!orig) return { ok: false, message: '원 신청을 찾을 수 없습니다.' }
   if (orig.status !== '반려') return { ok: false, message: '반려된 신청만 재상신할 수 있습니다.' }
   if (orig.requester !== session.name) return { ok: false, message: '본인 신청만 재상신할 수 있습니다.' }
-  if (!['자산 신청', '반납', '이동'].includes(orig.kind)) {
+  if (!['자산 신청', '반납', '이동', '대여'].includes(orig.kind)) {
     return { ok: false, message: `재상신 대상이 아닌 결재입니다 — ${orig.kind}` }
   }
   const trimmed = note.trim()
@@ -128,7 +141,7 @@ export async function withdrawRequest(approvalId: string) {
   if (!a) return { ok: false, message: '신청 건을 찾을 수 없습니다.' }
   if (a.status !== '대기') return { ok: false, message: `이미 처리된 건입니다 — ${a.id} (${a.status})` }
   if (a.requester !== session.name) return { ok: false, message: '본인이 상신한 건만 취소할 수 있습니다.' }
-  if (!['자산 신청', '반납', '이동'].includes(a.kind)) {
+  if (!['자산 신청', '반납', '이동', '대여'].includes(a.kind)) {
     return { ok: false, message: `상신 취소 대상이 아닌 결재입니다 — ${a.kind}` }
   }
 
@@ -235,6 +248,20 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     action: `${a.kind} ${verdict}${verdict === '반려' ? ` — ${reason.trim()}` : ''}`,
     target: a.id,
   })
+
+  // 대여 신청 — 승인 시 지정 유휴 자산을 신청자에게 반환 기한과 함께 대여 처리한다(자동 집행).
+  //  요청~승인 사이 자산이 빠졌으면(유휴 아님) 집행하지 않고 미집행으로 남긴다.
+  if (a.kind === '대여' && a.refId && verdict === '승인') {
+    const asset = s.assets.find((x) => x.assetNo === a.refId)
+    if (asset && asset.status === '유휴') {
+      asset.status = '대여중'
+      asset.owner = a.requester
+      asset.dept = a.dept
+      asset.loanDueDate = a.loanDueDate
+      asset.history.push({ date: today(), kind: '대여', detail: `대여 신청 승인 — ${a.requester}(${a.dept}) 대여 · 반환 기한 ${a.loanDueDate ?? '-'} (${a.id})`, actor: session.name })
+      a.fulfilled = true
+    }
+  }
 
   // 폐기 결재 — 승인 시 데이터 소거 대기로 전환 (소거·증적은 폐기 화면에서 처리)
   if (a.kind === '폐기') {
