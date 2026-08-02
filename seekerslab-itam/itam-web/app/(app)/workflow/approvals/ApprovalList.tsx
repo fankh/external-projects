@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { Approval, Role } from '@/lib/types'
@@ -11,7 +11,11 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
   approvals: Approval[]; role: Role; dept: string; viewer: string
   linesByKind: Record<string, string[]>; requiredKinds: string[]
 }) {
-  const [tab, setTab] = useState<'대기' | '전체'>('대기')
+  // 결재함 필터 — 상태·구분·검색·내 상신만 (감사 로그·QnA 와 동일 패턴). 결재 이력이 쌓이므로 필수.
+  const [fstatus, setFstatus] = useState<'대기' | '승인' | '반려' | '전체'>('대기')
+  const [fkind, setFkind] = useState('전체')
+  const [fq, setFq] = useState('')
+  const [fmine, setFmine] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<string | null>(null)
   const [reason, setReason] = useState('')
@@ -34,7 +38,17 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
     })
   }
 
-  const rows = tab === '대기' ? approvals.filter((a) => a.status === '대기') : approvals
+  const kinds = useMemo(() => ['전체', ...[...new Set(approvals.map((a) => a.kind))]], [approvals])
+  const rows = useMemo(() => {
+    const needle = fq.trim().toLowerCase()
+    return approvals.filter((a) => {
+      if (fstatus !== '전체' && a.status !== fstatus) return false
+      if (fkind !== '전체' && a.kind !== fkind) return false
+      if (fmine && a.requester !== viewer) return false
+      if (needle && ![a.id, a.title, a.requester].some((f) => f?.toLowerCase().includes(needle))) return false
+      return true
+    })
+  }, [approvals, fstatus, fkind, fmine, fq, viewer])
 
   // 소유자 확인은 결재가 아니라 '응답'이다 — 요청받은 부서 본인이 답한다
   const canAnswer = (a: Approval) =>
@@ -64,12 +78,20 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
 
   return (
     <div>
-      <div className="qbar" style={{ padding: '12px 16px', borderBottom: '1px solid var(--line)' }}>
+      <div className="qbar" style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
         <div className="seg">
-          <button className={tab === '대기' ? 'on' : ''} onClick={() => setTab('대기')}>대기</button>
-          <button className={tab === '전체' ? 'on' : ''} onClick={() => setTab('전체')}>전체</button>
+          {(['대기', '승인', '반려', '전체'] as const).map((st) => (
+            <button key={st} className={fstatus === st ? 'on' : ''} onClick={() => setFstatus(st)}>{st}</button>
+          ))}
         </div>
-        <span className="cnt">{rows.length}건</span>
+        <select className="select" value={fkind} onChange={(e) => setFkind(e.target.value)} style={{ maxWidth: 150 }}>
+          {kinds.map((k) => <option key={k} value={k}>{k === '전체' ? '구분 — 전체' : k}</option>)}
+        </select>
+        <input className="input" style={{ width: 190 }} placeholder="문서번호·제목·기안자 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
+        <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
+          <input type="checkbox" checked={fmine} onChange={(e) => setFmine(e.target.checked)} /> 내 상신만
+        </label>
+        <span className="cnt">{rows.length}건 / 전체 {approvals.length}건</span>
       </div>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
       <div className="tbl-wrap">
@@ -180,7 +202,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={8}><div className="empty">결재 대기 건이 없습니다</div></td></tr>}
+            {rows.length === 0 && <tr><td colSpan={8}><div className="empty">{approvals.length === 0 ? '결재 문서가 없습니다' : '조건에 맞는 결재 문서가 없습니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>
