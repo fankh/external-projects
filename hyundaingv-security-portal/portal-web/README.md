@@ -59,6 +59,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v0.31 | 런타임 견고성 — 브랜디드 404·오류 바운더리(화면/전역) + ChunkReload(재배포 청크 크래시 자동 복구, itam 검증 패턴) |
 | v0.32 | 세션 쿠키 HMAC 서명(SESSION_SECRET, 평문·변조·권한 상승 거부 — 스모크 부정 검증) + 감사 이력 CSV |
 | v0.33 | 세션 만료(12시간 exp 서명 포함, 만료 쿠키 거부) + 보안 응답 헤더(X-Frame-Options·nosniff·Referrer-Policy) |
+| v0.34 | 결재 반려 사유 필수(기안자 상신함·상세 표시, 감사 기록 포함) + 알림 배치 자동 스케줄러(instrumentation, PORTAL_NOTIFY_INTERVAL_MS — Docker 기본 24h) |
 
 ## 배포 (Docker)
 

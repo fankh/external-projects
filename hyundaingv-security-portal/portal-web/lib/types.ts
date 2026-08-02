@@ -159,6 +159,8 @@ export interface Approval {
   /** 결재 대상 업무 문서 참조 (SR번호 등) — 승인·반려가 해당 업무 상태로 전파된다 */
   ref?: string
   decidedAt?: string
+  /** 반려 시 필수 — 기안자가 보완·재상신할 수 있도록 사유를 남긴다 */
+  rejectReason?: string
 }
 
 export interface TodoItem {

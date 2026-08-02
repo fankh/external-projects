@@ -18,6 +18,8 @@ ENV NODE_ENV=production
 # 상태를 유지하려면 /data 를 도커 볼륨으로 마운트한다: docker run -v portal-data:/data ...
 RUN mkdir -p /data
 ENV PORTAL_DATA_FILE=/data/portal-data.json
+# 일일 알림 배치 — 24시간 주기 자동 실행 (미서약·점검 경과·SR 지연·재택 미제출 안내메일)
+ENV PORTAL_NOTIFY_INTERVAL_MS=86400000
 VOLUME ["/data"]
 
 EXPOSE 3400

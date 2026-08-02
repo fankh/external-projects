@@ -89,8 +89,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                     <input type="hidden" name="id" value={selected.id} />
                     <button type="submit" className="btn sm pri">승인</button>
                   </form>
-                  <form action={reject}>
+                  <form action={reject} className="hstack" style={{ gap: 4 }}>
                     <input type="hidden" name="id" value={selected.id} />
+                    <input className="input" name="reason" required maxLength={300} placeholder="반려 사유" style={{ height: 25, fontSize: 11.5, width: 150 }} />
                     <button type="submit" className="btn sm danger">반려</button>
                   </form>
                 </>
@@ -104,7 +105,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
               <dt>기안자</dt><dd>{selected.drafter} · {selected.dept}</dd>
               <dt>결재자</dt><dd>{selected.approver}</dd>
               <dt>상신일</dt><dd>{selected.draftedAt}{selected.decidedAt ? ` (처리 ${selected.decidedAt})` : ''}</dd>
-              <dt>상태</dt><dd><Chip tone={ST_CHIP[selected.status]}>{selected.status}</Chip></dd>
+              <dt>상태</dt>
+              <dd>
+                <Chip tone={ST_CHIP[selected.status]}>{selected.status}</Chip>
+                {selected.rejectReason && <span className="dim" style={{ marginLeft: 7 }}>사유: {selected.rejectReason}</span>}
+              </dd>
               <dt>첨부</dt>
               <dd>
                 {selectedFiles.length === 0 ? '-' : selectedFiles.map((f) => (
@@ -147,8 +152,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                           <input type="hidden" name="id" value={a.id} />
                           <button type="submit" className="btn sm pri">승인</button>
                         </form>
-                        <form action={reject}>
+                        <form action={reject} className="hstack" style={{ gap: 4 }}>
                           <input type="hidden" name="id" value={a.id} />
+                          <input className="input" name="reason" required maxLength={300} placeholder="반려 사유" style={{ height: 25, fontSize: 11.5, width: 130 }} />
                           <button type="submit" className="btn sm danger">반려</button>
                         </form>
                       </span>
@@ -197,7 +203,10 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                       <td><Chip tone="neutral" bare>{a.docType}</Chip></td>
                       <td className="strong"><Link href={`/work/approvals?sel=${a.id}`}>{a.title}</Link></td>
                       <td>{a.approver}</td>
-                      <td><Chip tone={ST_CHIP[a.status]}>{a.status}</Chip></td>
+                      <td>
+                        <Chip tone={ST_CHIP[a.status]}>{a.status}</Chip>
+                        {a.rejectReason && <span className="dim" style={{ marginLeft: 6, fontSize: 11 }} title={a.rejectReason}>사유: {a.rejectReason}</span>}
+                      </td>
                       <td className="tnum">{a.draftedAt}</td>
                     </tr>
                   ))}

@@ -10,13 +10,18 @@ import { getStore } from '@/lib/store'
 async function decide(formData: FormData, verdict: '승인' | '반려') {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
+  const reason = String(formData.get('reason') ?? '').trim().slice(0, 300)
+  // 반려는 사유 필수 — 기안자가 보완·재상신할 근거가 된다
+  if (verdict === '반려' && !reason) return
   const s = getStore()
   const ap = s.approvals.find((a) => a.id === id)
   if (!ap || ap.approver !== me.name || ap.status !== '대기') return
 
   ap.status = verdict
   ap.decidedAt = today()
-  audit(me.name, verdict === '승인' ? '결재 승인' : '결재 반려', `${ap.id} ${ap.docType} — ${ap.title}`)
+  if (verdict === '반려') ap.rejectReason = reason
+  audit(me.name, verdict === '승인' ? '결재 승인' : '결재 반려',
+    `${ap.id} ${ap.docType} — ${ap.title}${verdict === '반려' ? ` (사유: ${reason})` : ''}`)
 
   // 폐쇄 루프 1 — SR 신청 결재가 SR 진행 상태로 전파된다 (승인 → CI배정, 반려 → 반려)
   if (ap.docType === 'SR 신청' && ap.ref) {
