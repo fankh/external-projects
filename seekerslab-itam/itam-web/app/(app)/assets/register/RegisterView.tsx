@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
-import { extendLoan, extendWarranty, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField } from './actions'
+import { extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -47,6 +47,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [loanMsg, setLoanMsg] = useState<string | null>(null)
   const [extendOpen, setExtendOpen] = useState(false)
   const [extendDate, setExtendDate] = useState('')
+  // 보증 일괄 연장 — 필터로 좁힌 자산 다수 선택 (보증 있는 운영 자산만 대상)
+  const [checked, setChecked] = useState<Set<string>>(new Set())
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const rows = useMemo(() => {
@@ -63,6 +66,18 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
+
+  // 보증 일괄 연장 대상 — 보증 있는 운영 자산만(SW·가상자원·폐기 자산 제외)
+  const warrantyEligible = (a: Asset) => a.warrantyEnd !== '-' && !['폐기완료', '폐기예정'].includes(a.status)
+  const eligibleRows = rows.filter(warrantyEligible)
+  const allChecked = eligibleRows.length > 0 && eligibleRows.every((a) => checked.has(a.assetNo))
+  const toggleOne = (no: string) => setChecked((p) => { const n = new Set(p); n.has(no) ? n.delete(no) : n.add(no); return n })
+  const toggleAll = () => setChecked(allChecked ? new Set() : new Set(eligibleRows.map((a) => a.assetNo)))
+  const bulkExtend = (yrs: number) => startTransition(async () => {
+    const r = await extendWarrantyMany([...checked], yrs)
+    setBulkMsg(r.message)
+    if (r.ok) setChecked(new Set())
+  })
 
   // 상태별 보유 대수 — 대장 구성을 한눈에 보고 클릭으로 해당 상태만 필터한다
   const statusCounts = useMemo(() => {
@@ -122,11 +137,33 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
         ))}
       </div>
 
+      {props.canEdit && (bulkMsg || checked.size > 0) && (
+        <div className="callout" style={{ margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {checked.size > 0 ? (
+            <>
+              <b>선택 {checked.size}건</b>
+              <span className="hstack" style={{ gap: 6 }}>
+                <span className="mut" style={{ fontSize: 12 }}>보증 일괄 연장</span>
+                {[1, 2, 3].map((y) => (
+                  <button key={y} className="btn sm pri" disabled={pending} onClick={() => bulkExtend(y)}>{y}년</button>
+                ))}
+                <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
+              </span>
+            </>
+          ) : null}
+          {bulkMsg && <span className="mut" style={{ fontSize: 12 }}>{bulkMsg}</span>}
+        </div>
+      )}
+
       <div className={sel ? 'cols main-side' : ''} style={sel ? { gap: 0 } : undefined}>
         <div className="tbl-wrap fill">
           <table className="tbl">
             <thead>
               <tr>
+                {props.canEdit && <th className="c" style={{ width: 32 }}>
+                  <input type="checkbox" checked={allChecked} disabled={eligibleRows.length === 0}
+                    onChange={toggleAll} title="현재 필터의 보증 대상 자산 전체 선택" aria-label="전체 선택" />
+                </th>}
                 <th>자산번호</th><th>유형</th><th>모델</th><th>소유자</th><th>부서</th>
                 <th>위치</th><th>IP</th><th className="c">상태</th><th>보증 만료</th>
               </tr>
@@ -135,6 +172,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {rows.map((a) => (
                 <tr key={a.assetNo} className={`clickable ${selNo === a.assetNo ? 'sel' : ''}`}
                   onClick={() => setSelNo(selNo === a.assetNo ? null : a.assetNo)}>
+                  {props.canEdit && <td className="c" onClick={(e) => e.stopPropagation()}>
+                    {warrantyEligible(a)
+                      ? <input type="checkbox" checked={checked.has(a.assetNo)} onChange={() => toggleOne(a.assetNo)} aria-label={`${a.assetNo} 선택`} />
+                      : <span className="mut" style={{ fontSize: 10 }}>—</span>}
+                  </td>}
                   <td className="code">{a.assetNo}</td>
                   <td>{a.category}</td>
                   <td className="strong">{a.model}</td>
@@ -146,7 +188,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <td className="tnum">{a.warrantyEnd}</td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={9}><div className="empty">조건에 맞는 자산이 없습니다</div></td></tr>}
+              {rows.length === 0 && <tr><td colSpan={props.canEdit ? 10 : 9}><div className="empty">조건에 맞는 자산이 없습니다</div></td></tr>}
             </tbody>
           </table>
         </div>

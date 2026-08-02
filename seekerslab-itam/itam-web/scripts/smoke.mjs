@@ -134,6 +134,9 @@ try {
   check('자산 대장: 상태 요약(구성) 스트립 렌더', mgrHtml.includes('상태 요약'))
   // 보증 임박 필터 — 보증 90일 이내 만료·경과 자산(시드에 다수)이 있어 토글이 렌더된다
   check('자산 대장: 보증 임박 필터 렌더', mgrHtml.includes('보증 임박'))
+  // 보증 일괄 연장 — 자산담당에게 다중 선택(전체 선택 체크박스) 노출, 사용자에겐 미노출(canEdit)
+  check('자산 대장: 보증 일괄 연장 다중 선택(자산담당)', mgrHtml.includes('보증 대상 자산 전체 선택'))
+  check('자산 대장: 사용자에겐 다중 선택 미노출(조회 전용)', !userHtml.includes('보증 대상 자산 전체 선택'))
   // 자산 → 계약 딥링크 — 계약 연계 자산을 선택하면 상세의 연계 계약이 계약 화면 링크로 렌더
   const regContractDetail = await (await get('/assets/register?sel=AST-2023-000112', 'ASSET_MGR')).text()
   check('자산 대장: 상세 연계 계약이 계약 화면 딥링크', regContractDetail.includes('/inventory/contracts?sel=') && regContractDetail.includes('계약 상세로 이동'))

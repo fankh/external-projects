@@ -75,6 +75,35 @@ export async function extendWarranty(assetNo: string, termYears: number) {
   return { ok: true, message: `${asset.assetNo} 보증 연장 — ${oldEnd} → ${newEnd}` }
 }
 
+/** 보증 일괄 연장 — 필터로 좁힌 자산 다수의 보증을 한 번에 연장한다(보증 만료 임박 대량 갱신).
+ *  보증 없는 자산(SW·가상자원)·폐기 경로 자산은 건너뛴다. 각 건은 개별 이력·감사에 남는다. 자산담당·Admin. */
+export async function extendWarrantyMany(assetNos: string[], termYears: number) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '보증 연장 권한이 없습니다 (자산담당·Admin).' }
+  if (![1, 2, 3].includes(termYears)) return { ok: false, message: '연장 기간은 1·2·3년만 가능합니다.' }
+  if (!Array.isArray(assetNos) || assetNos.length === 0) return { ok: false, message: '연장할 자산을 선택하세요.' }
+
+  const s = getStore()
+  const t = today()
+  let done = 0
+  let skipped = 0
+  for (const no of assetNos) {
+    const asset = s.assets.find((a) => a.assetNo === no)
+    if (!asset || asset.warrantyEnd === '-' || ['폐기완료', '폐기예정'].includes(asset.status)) { skipped += 1; continue }
+    const base = asset.warrantyEnd >= t ? asset.warrantyEnd : t
+    const [y, m, d] = base.split('-')
+    const newEnd = `${Number(y) + termYears}-${m}-${d}`
+    const oldEnd = asset.warrantyEnd
+    asset.warrantyEnd = newEnd
+    asset.history.push({ date: t, kind: '보증연장', detail: `보증 만료 ${oldEnd} → ${newEnd} (${termYears}년 연장 · 일괄)`, actor: session.name })
+    done += 1
+  }
+  if (done === 0) return { ok: false, message: '연장 대상이 없습니다 (보증 없는 자산·폐기 자산 제외).' }
+  appendAudit({ actor: session.name, action: `보증 일괄 연장 (${done}건 · ${termYears}년)${skipped ? ` · 제외 ${skipped}` : ''}`, target: '자산 대장' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `보증 일괄 연장 — ${done}건 ${termYears}년 연장${skipped ? ` (보증 없음·폐기 ${skipped}건 제외)` : ''}` }
+}
+
 /** 자산 대여(반출) 처리 — 유휴 재고를 반환 기한과 함께 대여자에게 내준다(불출이 영구 배정이라면 대여는 기한부).
  *  (제품안내서 §03 운영 — 출장·행사·임시 업무용 대여. 반환 기한이 지나면 연체로 드러난다.)
  *  유휴 자산만 대여 가능. 대여 중에는 불출 대상에서 빠져 영구 배정되지 않는다. 자산담당·Admin. */
