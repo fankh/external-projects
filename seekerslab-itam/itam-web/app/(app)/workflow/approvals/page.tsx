@@ -1,5 +1,5 @@
-import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
+import { canExport } from '@/lib/exports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ApprovalList } from './ApprovalList'
@@ -50,8 +50,8 @@ export default async function ApprovalsPage() {
 
       <RequestForm myAssets={myAssets} locations={locations} loanable={loanable} />
 
-      <Card pad={false} actions={<ExportButton kind="approvals" role={session.role} label="결재 이력 엑셀" />}>
-        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} />
+      <Card pad={false}>
+        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} />
       </Card>
 
       <div className="callout">

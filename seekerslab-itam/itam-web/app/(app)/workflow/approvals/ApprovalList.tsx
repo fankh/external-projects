@@ -7,9 +7,9 @@ import { answerOwnerConfirm, decide, resubmitRequest, withdrawRequest } from './
 
 const WITHDRAWABLE = ['자산 신청', '반납', '이동', '대여']
 
-export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds }: {
+export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds, canExport }: {
   approvals: Approval[]; role: Role; dept: string; viewer: string
-  linesByKind: Record<string, string[]>; requiredKinds: string[]
+  linesByKind: Record<string, string[]>; requiredKinds: string[]; canExport: boolean
 }) {
   // 결재함 필터 — 상태·구분·검색·내 상신만 (감사 로그·QnA 와 동일 패턴). 결재 이력이 쌓이므로 필수.
   const [fstatus, setFstatus] = useState<'대기' | '승인' | '반려' | '전체'>('대기')
@@ -92,6 +92,12 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
           <input type="checkbox" checked={fmine} onChange={(e) => setFmine(e.target.checked)} /> 내 상신만
         </label>
         <span className="cnt">{rows.length}건 / 전체 {approvals.length}건</span>
+        {canExport && (
+          <a className="btn sm" style={{ marginLeft: 'auto' }} download
+            href={`/api/export/approvals?${new URLSearchParams({ q: fq.trim(), status: fstatus, akind: fkind, ...(fmine ? { mine: '1' } : {}) }).toString()}`}>
+            ⤓ 결재 이력 엑셀{(fstatus !== '대기' || fkind !== '전체' || fq.trim() !== '' || fmine) ? ` (${rows.length})` : ''}
+          </a>
+        )}
       </div>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
       <div className="tbl-wrap">

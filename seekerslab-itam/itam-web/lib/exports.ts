@@ -27,7 +27,7 @@ export function canExport(kind: ExportKind, role: Role): boolean {
 
 /** 내보내기 데이터 — 화면에 보이는 것과 같은 권한 필터를 통과시킨다.
  *  화면에서 못 보는 자산이 엑셀로 새어 나가면 권한 모델이 무의미해진다. */
-export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: { q?: string; cat?: string; nos?: string[]; status?: string; stale?: boolean; warranty?: boolean; channel?: string; state?: string; risk?: string }): Sheet[] {
+export function buildSheets(kind: ExportKind, role: Role, userName: string, filter?: { q?: string; cat?: string; nos?: string[]; status?: string; stale?: boolean; warranty?: boolean; channel?: string; state?: string; risk?: string; akind?: string; mine?: boolean }): Sheet[] {
   const s = getStore()
 
   if (kind === 'assets') {
@@ -182,13 +182,25 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     }]
   }
 
-  // approvals
+  // approvals — 결재함(ApprovalList)의 상태·구분·검색·내 상신만 필터를 그대로 반영
+  const aq = (filter?.q ?? '').trim().toLowerCase()
+  const astatus = filter?.status ?? '전체'
+  const akind = filter?.akind ?? '전체'
+  const amine = Boolean(filter?.mine)
   return [{
     name: '결재 이력',
     header: ['문서번호', '구분', '제목', '기안자', '부서', '기안일', '상태', '현재단계', '결재자', '결재일', '연결', '집행'],
-    rows: s.approvals.map((a) => [
-      a.id, a.kind, a.title, a.requester, a.dept, a.requestedAt, a.status, a.currentStep,
-      a.decidedBy ?? '', a.decidedAt ?? '', a.refId ?? '', a.fulfilled ? '집행완료' : '',
-    ]),
+    rows: s.approvals
+      .filter((a) => {
+        if (astatus !== '전체' && a.status !== astatus) return false
+        if (akind !== '전체' && a.kind !== akind) return false
+        if (amine && a.requester !== userName) return false
+        if (!aq) return true
+        return [a.id, a.title, a.requester].some((f) => f?.toLowerCase().includes(aq))
+      })
+      .map((a) => [
+        a.id, a.kind, a.title, a.requester, a.dept, a.requestedAt, a.status, a.currentStep,
+        a.decidedBy ?? '', a.decidedAt ?? '', a.refId ?? '', a.fulfilled ? '집행완료' : '',
+      ]),
   }]
 }

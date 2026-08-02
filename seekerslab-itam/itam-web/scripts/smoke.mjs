@@ -180,6 +180,13 @@ try {
   check('결재함: 결재선 라우팅 표시 (단계 + 필수)', aprHtml.includes('결재선') && aprHtml.includes('IT기획팀장') && aprHtml.includes('보안담당'))
   // 결재함 필터 — 상태(대기·승인·반려·전체)·구분·검색·내 상신만 (결재 이력 추적)
   check('결재함: 상태·구분·검색·내 상신만 필터 렌더', aprHtml.includes('내 상신만') && aprHtml.includes('문서번호·제목·기안자 검색') && aprHtml.includes('구분 — 전체'))
+  // 결재 이력 엑셀이 결재함 필터를 반영 — 버튼이 ApprovalList 안으로 이동, 반출이 상태 필터 반영
+  const aprAdmin = await (await get('/workflow/approvals', 'ADMIN')).text()
+  check('결재함: 결재 이력 엑셀 버튼(ApprovalList 내부·필터 반영)', aprAdmin.includes('/api/export/approvals') && aprAdmin.includes('결재 이력 엑셀'))
+  const aprAll = Buffer.from(await (await get('/api/export/approvals?status=' + encodeURIComponent('전체'), 'ADMIN')).arrayBuffer()).toString('utf8')
+  const aprRej = Buffer.from(await (await get('/api/export/approvals?status=' + encodeURIComponent('반려'), 'ADMIN')).arrayBuffer()).toString('utf8')
+  const aprCount = (t) => new Set([...t.matchAll(/APR-\d{4}-\d{3}/g)].map((m) => m[0])).size
+  check('결재 이력 엑셀: 상태=반려 반출이 전체보다 작음(필터 반영)', aprCount(aprRej) < aprCount(aprAll) && aprCount(aprAll) >= 3, `전체=${aprCount(aprAll)} 반려=${aprCount(aprRej)}`)
   check('결재함: 다단계 결재선 — 자산 신청에 부서장 단계 노출', aprHtml.includes('부서장'))
   const permHtml = await (await get('/settings/permissions', 'ADMIN')).text()
   check('권한 매트릭스: 파이프라인·매트릭스 렌더', permHtml.includes('메뉴권한관리') && permHtml.includes('클릭해 변경'))
