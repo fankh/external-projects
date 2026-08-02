@@ -47,6 +47,18 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v0.19 | 환경설정 완성 — 공통코드(장애등급 셀렉트가 코드그룹을 직접 소비)·메뉴/기능·권한 매트릭스·엑셀양식(버전 관리). 34개 화면 전부 구현 |
 | v0.20 | 파일 기반 영속화(PORTAL_DATA_FILE) + 공통 첨부 기반(실파일 업로드 메타, SR·장애·계약 장착, 결재함 첨부 표시) |
 | v0.21 | 엑셀 다운로드 4종(BOM CSV — 계획대비실적·이수현황·서약 현황·재택 현황, 권한·부서 스코핑) + 특별서약서(보안담당자) + 협력업체서약서(징구·첨부→선택 상신→승인 완료) |
+| v0.22 | SR 유형별 단계 분기(데이터·계정/권한은 처리→완료 직행, '처리중' 표기) + 변경·점검 증적 첨부 + Dockerfile |
+
+## 배포 (Docker)
+
+```powershell
+cd portal-web
+docker build -t ngv-portal .
+docker run -d --name ngv-portal -v portal-data:/data -p 3400:3400 ngv-portal
+```
+
+컨테이너는 KST 시간대로 동작하고, 스토어는 `/data/portal-data.json`(볼륨)에
+영속화되어 재시작·재생성 후에도 유지된다.
 
 미구현 화면은 캐치올 스텁(`app/(app)/[...stub]/page.tsx`)이 `lib/screens.ts`
 카탈로그로 렌더 — 실제 구현 시 해당 경로에 page.tsx 를 만들면 정적 라우트가
