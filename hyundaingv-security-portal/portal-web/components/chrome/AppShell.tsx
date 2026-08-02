@@ -76,11 +76,11 @@ export function AppShell(props: {
         <div className="sp" />
         <input
           className="search"
-          placeholder="SR번호 · 제목 검색"
+          placeholder="통합 검색 — 번호 · 제목 · 시스템"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               const q = (e.target as HTMLInputElement).value.trim()
-              router.push(q ? `/sr/requests?q=${encodeURIComponent(q)}` : '/sr/requests')
+              router.push(q ? `/search?q=${encodeURIComponent(q)}` : '/search')
             }
           }}
         />

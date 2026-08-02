@@ -65,6 +65,7 @@ const ROUTES = {
   '/settings/forms': ADM,
   '/settings/audit': ADM,
   '/platform/integrations': ADM,
+  '/search': ALL,
 }
 
 let server = null
@@ -209,6 +210,9 @@ async function main() {
     // 알림 배치 버튼 (Admin) · 결재 문서 상세 (참조 스냅샷·첨부 목록)
     ['/platform/integrations', 'ADMIN', ['알림 배치 실행']],
     ['/work/approvals?sel=AP-2026-0712', 'BIZ_MGR', ['문서 상세 — AP-2026-0712', 'SR 유형', '월별 정산 데이터 추출', '요청 내용']],
+    // 통합 검색 — 도메인 그룹·권한 스코핑
+    ['/search?q=ERP', 'BIZ_MGR', ['통합 검색', 'IT Request', '인프라 운영', 'SR-2026-0145', 'ERP 리포트 모듈 구축 계약', 'FL-2026-11']],
+    ['/search?q=ERP', 'USER', ['SR-2026-0145']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
@@ -242,6 +246,14 @@ async function main() {
     const r = await get('/board/notices', 'USER')
     const html = await r.text()
     check(!html.includes('공지 등록'), 'USER /board/notices 에 등록 폼 미노출')
+  }
+  {
+    // 검색도 화면 스코핑을 따른다 — USER 에게 장애·타인 SR 미노출
+    // ('인프라 운영' 문자열은 공통 meta description 에도 있어 결과 고유 표기로 검증한다)
+    const r = await get('/search?q=ERP', 'USER')
+    const html = await r.text()
+    check(!html.includes('장애 ·'), 'USER /search 에 장애 결과 미노출')
+    check(!html.includes('FL-2026-11'), 'USER /search 에 장애 건 미노출')
   }
   {
     // 전사 운영 스냅샷은 담당·Admin 전용
