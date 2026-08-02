@@ -2,6 +2,8 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { nowMinute, today } from '@/lib/dates'
+import { dispatch } from '@/lib/notify'
+import { createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import type { SurveyDiffKind } from '@/lib/types'
@@ -126,7 +128,13 @@ export async function completeRound(roundId: string) {
   }
 
   round.status = '완료'
-  appendAudit({ actor: session.name, action: `재물조사 완료 (스캔 ${round.scanned}/${round.planned})`, target: roundId })
+
+  // 완료 즉시 '재물조사 결과 요약' 리포트를 산출해 담당·주관 부서에 배포한다 —
+  // 실사 종료가 종결 표시로 끝나지 않고 결과 보고서(증적)로 남는다. (그동안 리포트는 스케줄·수동 생성뿐이었다.)
+  const reportId = await createReport('재물조사 결과 요약', session.name)
+  dispatch({ channel: '이메일', to: `${round.assignee} · IT기획팀`, subject: `${round.name} 완료 — 재물조사 결과 요약 리포트 배포 (${reportId})`, kind: '리포트 배포', ref: reportId })
+
+  appendAudit({ actor: session.name, action: `재물조사 완료 (스캔 ${round.scanned}/${round.planned}) · 결과 요약 리포트 ${reportId} 배포`, target: roundId })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${round.name} 완료 — 스캔 ${round.scanned}/${round.planned}건, 차이 전건 조정 완료` }
+  return { ok: true, message: `${round.name} 완료 — 스캔 ${round.scanned}/${round.planned}건, 차이 전건 조정 완료 · 결과 요약 리포트 ${reportId} 자동 배포` }
 }
