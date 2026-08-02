@@ -9,8 +9,9 @@ import { AddLicense, ExpiryNoticeButton, LicenseAction } from './LicenseActions'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ContractsPage() {
+export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
   const session = await requireRole('ASSET_MGR', 'ADMIN')
+  const { sel } = await searchParams
   const s = getStore()
   const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
 
@@ -43,7 +44,7 @@ export default async function ContractsPage() {
           <ExpiryNoticeButton due={dueCount} />
         </span>}>
         <AddContract />
-        <ContractsTable rows={contracts.map((c) => ({ ...c, d: daysUntil(c.end) }))} />
+        <ContractsTable rows={contracts.map((c) => ({ ...c, d: daysUntil(c.end) }))} sel={sel} />
       </Card>
 
       <Card kicker="License Compliance" title="SW 라이선스 보유 – 사용 대사" pad={false}>

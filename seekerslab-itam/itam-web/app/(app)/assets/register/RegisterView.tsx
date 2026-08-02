@@ -54,7 +54,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       if (status !== '전체' && a.status !== status) return false
       if (staleOnly && !staleSet.has(a.assetNo)) return false
       if (!needle) return true
-      return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location]
+      return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId]
         .some((f) => f?.toLowerCase().includes(needle))
     })
   }, [props.assets, q, cat, status, staleOnly, staleSet])
@@ -160,7 +160,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 {staleSet.has(sel.assetNo) && <Chip tone="err" bare>장기 미실측</Chip>}
               </dd>
               <dt>보증 만료</dt><dd className="tnum">{sel.warrantyEnd}</dd>
-              {sel.contractId && <><dt>연계 계약</dt><dd className="code">{sel.contractId}</dd></>}
+              {sel.contractId && <><dt>연계 계약</dt><dd className="code"><a href={`/inventory/contracts?sel=${encodeURIComponent(sel.contractId)}`} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a></dd></>}
             </dl>
 
             <div className="kicker mute" style={{ margin: '18px 0 10px' }}>변경 이력 타임라인</div>

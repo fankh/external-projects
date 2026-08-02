@@ -63,7 +63,7 @@ function StatusChip({ d }: { d: number | null }) {
   return <Chip tone="ok">정상</Chip>
 }
 
-export function ContractsTable({ rows }: { rows: Row[] }) {
+export function ContractsTable({ rows, sel }: { rows: Row[]; sel?: string }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [termId, setTermId] = useState<string | null>(null)
@@ -98,14 +98,16 @@ export function ContractsTable({ rows }: { rows: Row[] }) {
           </thead>
           <tbody>
             {rows.map((c) => (
-              <tr key={c.id}>
+              <tr key={c.id} className={c.id === sel ? 'sel' : ''}>
                 <td className="code">{c.id}</td>
                 <td>{c.kind}</td>
                 <td className="strong">{c.name}</td>
                 <td>{c.vendor}</td>
                 <td className="mute">{c.ownerDept}</td>
                 <td className="num tnum">{fmtAmount(c.amount)}원</td>
-                <td className="num tnum">{c.assetCount}</td>
+                <td className="num tnum">{c.assetCount > 0
+                  ? <a href={`/assets/register?q=${encodeURIComponent(c.id)}`} title="이 계약의 자산 대장 보기" style={{ color: 'var(--accent-deep)' }}>{c.assetCount}</a>
+                  : c.assetCount}</td>
                 <td className="tnum">{c.end}</td>
                 <td className="c">{c.status === '해지' ? <Chip tone="neutral">해지</Chip> : <StatusChip d={c.d} />}</td>
                 <td className="c">
