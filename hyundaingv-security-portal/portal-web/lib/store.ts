@@ -15,10 +15,10 @@ export interface Store {
 function seed(): Store {
   return {
     srRequests: [
-      { srNo: 'SR-2026-0141', kind: '시스템개발', title: '판매 실적 리포트 화면 개선', system: '영업정보시스템', requester: '김현우', dept: '개발1팀', status: '개발중', requestedAt: '2026-07-21', dueDate: '2026-08-14' },
+      { srNo: 'SR-2026-0141', kind: '시스템개발', title: '판매 실적 리포트 화면 개선', system: '영업정보시스템', requester: '김현우', dept: '개발1팀', status: '개발중', requestedAt: '2026-07-21', ci: '박정호', dueDate: '2026-08-14' },
       { srNo: 'SR-2026-0145', kind: '데이터', title: '월별 정산 데이터 추출 요청', system: 'ERP', requester: '김현우', dept: '개발1팀', status: '결재중', requestedAt: '2026-07-29' },
       { srNo: 'SR-2026-0146', kind: '계정/권한', title: '신규 입사자 그룹웨어 권한 부여', system: '그룹웨어', requester: '이수진', dept: '경영지원팀', status: 'CI배정', requestedAt: '2026-07-30' },
-      { srNo: 'SR-2026-0132', kind: '시스템개발', title: '구매 발주 승인 프로세스 변경', system: '구매시스템', requester: '박정호', dept: 'IT운영팀', status: '적용요청', requestedAt: '2026-07-08', dueDate: '2026-07-31' },
+      { srNo: 'SR-2026-0132', kind: '시스템개발', title: '구매 발주 승인 프로세스 변경', system: '구매시스템', requester: '박정호', dept: 'IT운영팀', status: '적용요청', requestedAt: '2026-07-08', ci: '박정호', dueDate: '2026-07-31' },
     ],
     approvals: [
       { id: 'AP-2026-0712', docType: 'SR 신청', title: '월별 정산 데이터 추출 요청', drafter: '김현우', dept: '개발1팀', approver: '박정호', status: '대기', draftedAt: '2026-07-29', ref: 'SR-2026-0145' },
@@ -58,4 +58,13 @@ const g = globalThis as typeof globalThis & { __ngvPortalStore?: Store }
 export function getStore(): Store {
   if (!g.__ngvPortalStore) g.__ngvPortalStore = seed()
   return g.__ngvPortalStore
+}
+
+/** 채번 — 'PREFIX-YYYY-NNNN' 형식에서 연도 내 최대 시퀀스 + 1 */
+export function nextNo(prefix: string, year: string, existing: string[]): string {
+  const head = `${prefix}-${year}-`
+  const max = existing
+    .filter((n) => n.startsWith(head))
+    .reduce((m, n) => Math.max(m, Number(n.slice(head.length)) || 0), 0)
+  return `${head}${String(max + 1).padStart(4, '0')}`
 }

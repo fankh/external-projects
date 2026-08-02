@@ -135,6 +135,14 @@ async function main() {
     ['/work/todo', 'USER', ['보안서약서', '서약서 제출', '상반기 정보보호 교육 이수']],
     ['/work/todo', 'BIZ_MGR', ['SR-2026-0146 CI 배정', '결재함 이동']],
     ['/dashboard', 'USER', ['개인별현황', '2026년 일반 보안서약서 제출']],
+    // SR 루프 — 데이터 스코핑: USER 는 본인 건만 (SR-2026-0132 는 박정호 건이라 보이면 안 된다)
+    ['/sr/requests', 'USER', ['SR-2026-0141', 'SR-2026-0145', '본인 신청 건']],
+    ['/sr/requests', 'DEPT_MGR', ['SR-2026-0146', '경영지원팀 신청 건']],
+    ['/sr/requests', 'BIZ_MGR', ['SR-2026-0132', '전사 신청 건']],
+    ['/sr/new', 'USER', ['신청서 작성', '결재 상신']],
+    ['/sr/ci', 'BIZ_MGR', ['SR-2026-0146', '배정 · 착수', 'BA 반려']],
+    ['/sr/manage', 'BIZ_MGR', ['전사 SR 목록', 'SR-2026-0141', '진행 처리']],
+    ['/sr/delayed', 'BIZ_MGR', ['SR-2026-0132', '완료일 변경']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
@@ -142,6 +150,14 @@ async function main() {
     for (const needle of needles) {
       check(r.status === 200 && html.includes(needle), `${role} ${route} 본문에 "${needle}"`)
     }
+  }
+
+  // 3-1) 데이터 스코핑 부정 검증 — 남의 건이 보이면 안 된다
+  {
+    const r = await get('/sr/requests', 'USER')
+    const html = await r.text()
+    check(!html.includes('SR-2026-0132'), 'USER /sr/requests 에 타인 건(SR-2026-0132) 미노출')
+    check(!html.includes('SR-2026-0146'), 'USER /sr/requests 에 타부서 건(SR-2026-0146) 미노출')
   }
 
   // 4) 미정의 경로 — 404

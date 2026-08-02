@@ -48,42 +48,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '신규 자산등록', detail: '신규 자산등록번호 취득·등록 연계' },
     ],
   },
-  '/sr/new': {
-    desc: 'SR 신청 — 시스템개발·데이터·계정/권한 3종 요청을 작성하고 결재 상신한다.',
-    features: [
-      { name: '시스템개발 SR', detail: '등록→심의·결재→CI 배정→개발→테스트→적용요청→반영→완료' },
-      { name: '데이터 SR', detail: '데이터 추출·정정 요청, 등록→결재→CI 배정→처리→완료' },
-      { name: '계정/권한 SR', detail: '권한 부여·삭제, 계정 초기화·잠금해제' },
-    ],
-  },
-  '/sr/requests': {
-    desc: '신청내역 — 본인·부서의 SR 신청 건과 진행 상태를 추적한다.',
-    features: [
-      { name: '신청 목록', detail: 'SR번호·유형·시스템·상태·요청일 조회' },
-      { name: '진행 추적', detail: '결재·CI 배정·개발·적용 단계별 상태' },
-    ],
-  },
-  '/sr/ci': {
-    desc: 'CI SR 관리 — BA 승인/반려와 CI 배정·착수를 처리한다.',
-    features: [
-      { name: 'BA 승인/반려', detail: '결재 완료 SR의 업무분석가 검토' },
-      { name: 'CI 배정·착수', detail: '담당 CI 지정, 착수·예상 완료일 등록' },
-    ],
-  },
-  '/sr/manage': {
-    desc: 'SR 관리 — 접수·처리 이력과 전체 SR 파이프라인을 관리한다.',
-    features: [
-      { name: '접수·처리 이력', detail: '결재 없는 SR 접수·처리 이력 관리' },
-      { name: '파이프라인', detail: '등록→결재→배정→개발→테스트→적용→완료 현황' },
-    ],
-  },
-  '/sr/delayed': {
-    desc: '지연내역 — 결재완료 SR 중 예정일을 넘긴 지연 건을 드러낸다.',
-    features: [
-      { name: '지연 목록', detail: '예상 완료일 경과 건, 지연일수·담당 CI' },
-      { name: '조치', detail: '사유 등록, 완료일 재계획' },
-    ],
-  },
   '/infra/systems': {
     desc: '시스템·서버 현황 — 랙·H/W·서버·시스템(애플리케이션) 구성 현황.',
     features: [
