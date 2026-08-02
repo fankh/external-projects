@@ -1,13 +1,15 @@
 'use client'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
-import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState } from '@/lib/types'
+import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState, RiskLevel } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
 import { mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestQuarantine } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
 }
+const STATES: ReconcileState[] = ['등록·일치', '등록·불일치', '미등록', '미확인']
+const RISKS: RiskLevel[] = ['높음', '중간', '낮음']
 
 export function FoundView({ items, observations, mergeCandidates }: {
   items: DiscoveredAsset[]
@@ -16,6 +18,9 @@ export function FoundView({ items, observations, mergeCandidates }: {
   mergeCandidates: { primary: DiscoveredAsset; duplicate: DiscoveredAsset; reason: string }[]
 }) {
   const [channel, setChannel] = useState<Channel | '전체'>('전체')
+  const [fstate, setFstate] = useState<ReconcileState | '전체'>('전체')
+  const [frisk, setFrisk] = useState<RiskLevel | '전체'>('전체')
+  const [fq, setFq] = useState('')
   const [selId, setSelId] = useState<string | null>(null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [msg, setMsg] = useState<string | null>(null)
@@ -48,11 +53,17 @@ export function FoundView({ items, observations, mergeCandidates }: {
   // 병합된 자산은 여러 채널이 봤으므로, 어느 채널로 필터해도 잡혀야 한다
   const rows = useMemo(
     () => items.filter((d) => {
-      if (channel === '전체') return true
-      const obs = obsBy.get(d.id) ?? []
-      return d.channel === channel || obs.some((o) => o.channel === channel)
+      if (channel !== '전체') {
+        const obs = obsBy.get(d.id) ?? []
+        if (!(d.channel === channel || obs.some((o) => o.channel === channel))) return false
+      }
+      if (fstate !== '전체' && d.state !== fstate) return false
+      if (frisk !== '전체' && d.risk !== frisk) return false
+      const needle = fq.trim().toLowerCase()
+      if (needle && ![d.id, d.hostname, d.ip, d.mac, d.type].some((f) => f?.toLowerCase().includes(needle))) return false
+      return true
     }),
-    [items, channel, obsBy],
+    [items, channel, fstate, frisk, fq, obsBy],
   )
   const sel = items.find((d) => d.id === selId) ?? null
 
@@ -71,6 +82,21 @@ export function FoundView({ items, observations, mergeCandidates }: {
         <button className="btn sm pri" style={{ marginLeft: 'auto' }} disabled={pending || checked.size === 0} onClick={bulkOnboard}>
           선택 일괄 편입 요청 ({checked.size})
         </button>
+      </div>
+      <div className="qbar" style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
+        <select className="select" value={fstate} onChange={(e) => setFstate(e.target.value as ReconcileState | '전체')} style={{ maxWidth: 150 }}>
+          <option value="전체">대사 상태 — 전체</option>
+          {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select className="select" value={frisk} onChange={(e) => setFrisk(e.target.value as RiskLevel | '전체')} style={{ maxWidth: 130 }}>
+          <option value="전체">위험도 — 전체</option>
+          {RISKS.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <input className="input" style={{ width: 200 }} placeholder="호스트명·IP·MAC·발견ID 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
+        {(fstate !== '전체' || frisk !== '전체' || fq.trim() !== '') && (
+          <button className="btn sm ghost" onClick={() => { setFstate('전체'); setFrisk('전체'); setFq('') }}>필터 해제</button>
+        )}
+        <span className="cnt">{rows.length}건 / 전체 {items.length}건</span>
       </div>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
 
@@ -109,6 +135,7 @@ export function FoundView({ items, observations, mergeCandidates }: {
                   <td className="c">{d.action ? <Chip tone="info" bare>{d.action}</Chip> : <span className="mut">—</span>}</td>
                 </tr>
               ))}
+              {rows.length === 0 && <tr><td colSpan={10}><div className="empty">조건에 맞는 발견 자산이 없습니다</div></td></tr>}
             </tbody>
           </table>
         </div>
