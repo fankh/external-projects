@@ -171,6 +171,8 @@ try {
   check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
   // 서버·IDC망(10.10.x)에 나타난 미등록 단말 — 서버 VLAN 침입 의심 (어시스턴트 발견 인텐트가 세그먼트로 식별)
   check('발견 자산: 서버 대역 미등록 단말(DESKTOP-UNK09) 노출', foundHtml.includes('DESKTOP-UNK09') && foundHtml.includes('10.10.8.77'))
+  // AI 자동분류 — 관측 유형을 표준 자산 유형으로 매핑하는 컬럼(§05 수기 분류 제거). 'OAuth 앱'→SW 는 관측 유형·노트 어디에도 'SW'가 없어 분류가 실제 동작함을 증명한다(기존 로직은 SW 미지원으로 단말로 오분류).
+  check('발견 자산: AI 자동분류 컬럼 + OAuth 앱→SW 매핑 렌더', foundHtml.includes('자동분류') && foundHtml.includes('OAuth 앱') && foundHtml.includes('SW'))
   // 발견 자산 트리아지 필터 — 대사 상태·위험도·검색(채널 필터에 더해)
   check('발견 자산: 대사 상태·위험도·검색 필터 렌더', foundHtml.includes('대사 상태 — 전체') && foundHtml.includes('위험도 — 전체') && foundHtml.includes('호스트명·IP·MAC·발견ID 검색'))
   // 발견 자산 반출이 화면 필터(대사상태·위험도)를 반영 — 필터 없이는 전체, 미등록+높음이면 rogue 포함·등록불일치 제외

@@ -1,6 +1,7 @@
 'use client'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
+import { classifyDiscoveredType } from '@/lib/classify'
 import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState, RiskLevel } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
 import { mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestQuarantine } from '../actions'
@@ -115,7 +116,7 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
             <thead>
               <tr>
                 <th className="c" style={{ width: 30 }} />
-                <th>발견 ID</th><th>호스트명</th><th>유형</th><th>IP</th><th>채널</th>
+                <th>발견 ID</th><th>호스트명</th><th>유형(관측)</th><th className="c" title="AI 자동분류 — 관측 유형을 표준 자산 유형으로 매핑(편입 시 대장 유형으로 사용)">자동분류</th><th>IP</th><th>채널</th>
                 <th>최근 실측</th><th className="c">대사 상태</th><th className="c">위험도</th><th className="c">처리</th>
               </tr>
             </thead>
@@ -131,6 +132,7 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                   <td className="code">{d.id}</td>
                   <td className="strong">{d.hostname}</td>
                   <td>{d.type}</td>
+                  <td className="c"><Chip tone="neutral" bare>{classifyDiscoveredType(d.type)}</Chip></td>
                   <td className="tnum">{d.ip}</td>
                   <td className="mute">
                     {d.channel}
@@ -144,7 +146,7 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                   <td className="c">{d.action ? <Chip tone="info" bare>{d.action}</Chip> : <span className="mut">—</span>}</td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={10}><div className="empty">조건에 맞는 발견 자산이 없습니다</div></td></tr>}
+              {rows.length === 0 && <tr><td colSpan={11}><div className="empty">조건에 맞는 발견 자산이 없습니다</div></td></tr>}
             </tbody>
           </table>
         </div>
