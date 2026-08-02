@@ -4,6 +4,7 @@ import type { ChatMessage } from '@/lib/types'
 import { askAssistant } from './actions'
 
 const SUGGESTIONS = [
+  '발견 자산 요약 브리핑',
   '이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?',
   '만료 임박한 계약 목록',
   '라이선스 초과 사용 현황',

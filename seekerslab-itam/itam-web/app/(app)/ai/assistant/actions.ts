@@ -104,6 +104,39 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
       ],
     }
   }
+  // 발견 자산 AI 요약 브리핑 (제품안내서 §05) — 목록 나열이 아니라 Discovery 전반의 상태를 한눈에 요약.
+  // 문구 특정 키워드로 일반 '발견'/'미등록' 인텐트보다 먼저 매칭한다.
+  if (!isUser && (q.includes('브리핑') || q.includes('발견 자산 요약') || q.includes('발견 현황') || q.includes('디스커버리 요약') || q.includes('discovery 요약'))) {
+    const disc = s.discovered
+    const byState = (st: string) => disc.filter((d) => d.state === st).length
+    const byRisk = (r: string) => disc.filter((d) => d.risk === r).length
+    const chan = [...new Set(disc.map((d) => d.channel))]
+      .map((c) => `${c} ${disc.filter((d) => d.channel === c).length}`).join(' · ')
+    const untriaged = disc.filter((d) => d.state === '미등록' && !d.action).length
+    const confirming = disc.filter((d) => d.action === '확인요청').length
+    const extOpen = s.external.filter((e) => !e.action && e.state !== '등록·일치').length
+    const leakOpen = s.leaks.filter((l) => l.status === '미조치').length
+    return {
+      role: 'assistant',
+      text: [
+        `【발견 자산 요약 브리핑】 총 ${disc.length}건이 지문 병합 기준으로 관측되었습니다.`,
+        ``,
+        `· 대사 상태: 등록·일치 ${byState('등록·일치')} · 등록·불일치 ${byState('등록·불일치')} · 미등록 ${byState('미등록')} · 미확인 ${byState('미확인')}`,
+        `· 위험도: 높음 ${byRisk('높음')} · 중간 ${byRisk('중간')} · 낮음 ${byRisk('낮음')}`,
+        `· 채널별 관측: ${chan}`,
+        ``,
+        `▶ 조치 필요: 미처리 미등록 ${untriaged}건(소유자 확인·편입·격리 판정 대기), 확인요청 진행 ${confirming}건, 외부 노출 미조치 ${extOpen}건, 다크웹 유출·침해 미조치 ${leakOpen}건.`,
+        untriaged + extOpen + leakOpen > 0
+          ? `우선순위: 다크웹 유출·외부 노출(외부 위협) → 미등록 고위험 순으로 처리하고, 확인 기한 경과 건은 격리 요청으로 에스컬레이션하십시오.`
+          : `현재 즉시 조치가 필요한 미처리 건은 없습니다. 정기 재탐지 주기를 유지하십시오.`,
+      ].join('\n'),
+      evidence: [
+        { label: '발견 자산 목록', href: '/discovery/found' },
+        { label: 'CMDB 대사', href: '/discovery/reconcile' },
+        { label: '외부 공격표면', href: '/discovery/external' },
+      ],
+    }
+  }
   if (!isUser && (q.includes('미등록') || q.includes('발견') || q.includes('shadow'))) {
     const items = s.discovered.filter((d) => d.state === '미등록' && !d.action)
     return {
