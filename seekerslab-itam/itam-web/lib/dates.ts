@@ -65,3 +65,9 @@ export function isStaleVerify(a: Asset): boolean {
   if (!a.lastVerifiedAt) return true
   return -(daysUntil(a.lastVerifiedAt) ?? 0) > STALE_VERIFY_DAYS
 }
+
+/** 대여 연체 — '대여중' 상태이고 반환 기한이 지난 자산. 대장 필터·대시보드 큐가 같은 기준을 쓴다. 서버 전용. */
+export function isLoanOverdue(a: Asset): boolean {
+  if (a.status !== '대여중' || !a.loanDueDate) return false
+  return (daysUntil(a.loanDueDate) ?? 0) < 0
+}

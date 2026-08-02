@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil } from '@/lib/dates'
+import { daysUntil, isLoanOverdue } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
@@ -32,6 +32,7 @@ export default async function DashboardPage() {
       { label: '수리 진행 · 완료 확인', count: s.assets.filter((a) => a.status === '수리중').length, href: '/assets/returns', tone: 'warn' },
       { label: '데이터 소거 대기', count: s.disposals.filter((d) => d.status === '소거 대기').length, href: '/assets/disposal', tone: 'err' },
       { label: '분실 · 도난 자산 (회수·폐기 확정)', count: s.assets.filter((a) => a.status === '분실').length, href: '/assets/register', tone: 'err' },
+      { label: '대여 반환 연체 (반환 독촉)', count: s.assets.filter(isLoanOverdue).length, href: '/assets/register', tone: 'err' },
     )
   }
   if (['SEC_MGR', 'ADMIN'].includes(session.role)) {

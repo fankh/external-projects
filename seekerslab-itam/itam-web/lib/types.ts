@@ -12,11 +12,11 @@ export const ROLE_LABEL: Record<Role, string> = {
 export type AssetCategory = '단말' | '서버' | '네트워크' | '주변기기' | 'SW' | '가상자원'
 
 /** 수명주기 5단계 (도입·검수 → 등록 → 운영·이동 → 반납·유휴 → 폐기) */
-export type AssetStatus = '검수중' | '사용중' | '유휴' | '반납대기' | '수리중' | '분실' | '폐기예정' | '폐기완료'
+export type AssetStatus = '검수중' | '사용중' | '유휴' | '대여중' | '반납대기' | '수리중' | '분실' | '폐기예정' | '폐기완료'
 
 export interface AssetHistoryItem {
   date: string
-  kind: '등록' | '불출' | '이동' | '구성변경' | '점검' | '반납' | '폐기' | '편입' | '보증연장' | '수리' | '분실'
+  kind: '등록' | '불출' | '이동' | '구성변경' | '점검' | '반납' | '폐기' | '편입' | '보증연장' | '수리' | '분실' | '대여'
   detail: string
   actor: string
 }
@@ -43,6 +43,8 @@ export interface Asset {
   /** 최근 실측 확인일 — 재물조사 실사 스캔으로 실물이 확인된 마지막 날. 미설정이면 실측 이력 없음.
    *  STALE_VERIFY_DAYS 초과·미설정이면 '장기 미실측'(유령 자산 후보)으로 드러난다. */
   lastVerifiedAt?: string
+  /** 대여(반출) 자산의 반환 기한 — 상태가 '대여중'일 때만 유효. 기한 경과 시 연체로 드러난다. */
+  loanDueDate?: string
   history: AssetHistoryItem[]
 }
 

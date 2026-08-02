@@ -1,5 +1,5 @@
 import { Card, ScreenHeader } from '@/components/ui'
-import { isStaleVerify } from '@/lib/dates'
+import { isStaleVerify, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -29,7 +29,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
         <div className="callout"><b>사용자 권한 범위.</b> 본인 보유 자산만 표시됩니다. 자산 신청·반납·이동 요청은 워크플로 › 신청·결재에서 상신할 수 있습니다.</div>
       )}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} today={today()} />
       </Card>
     </>
   )

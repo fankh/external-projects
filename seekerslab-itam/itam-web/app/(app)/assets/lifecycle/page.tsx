@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 const PHASES: { key: string; title: string; sub: string; statuses: AssetStatus[] }[] = [
   { key: 'PHASE 1', title: '도입 · 검수', sub: '발주 연계 · 검수 등록', statuses: ['검수중'] },
   { key: 'PHASE 2', title: '등록', sub: '자산번호 · 구성정보', statuses: [] },
-  { key: 'PHASE 3', title: '운영 · 이동', sub: '불출 · 소유자 · 위치 이력', statuses: ['사용중'] },
+  { key: 'PHASE 3', title: '운영 · 이동', sub: '불출 · 대여 · 소유자 · 위치 이력', statuses: ['사용중', '대여중'] },
   { key: 'PHASE 4', title: '반납 · 유휴', sub: '재배치 대기', statuses: ['유휴', '반납대기'] },
   { key: 'PHASE 5', title: '폐기', sub: '결재 · 데이터 소거 증적', statuses: ['폐기예정', '폐기완료'] },
 ]

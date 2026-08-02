@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
-import { extendWarranty, recordConfigChange, recoverAsset, reportLostStolen, type ConfigField } from './actions'
+import { extendWarranty, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField } from './actions'
 
 /** 조회 필터의 유형 목록 — 공통코드 ASSET_CATEGORY 의 '사용' 여부와 무관하게 전부 노출한다.
  *  미사용 처리는 **신규 입력**에서만 제외하는 규칙이고(환경설정 › 공통코드 안내 참조), 이미 그
@@ -11,10 +11,10 @@ import { extendWarranty, recordConfigChange, recoverAsset, reportLostStolen, typ
  *  기록하는 입력 항목은 반대로 활성 코드만 읽는다. */
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
-  검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
+  검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[] }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; today?: string }) {
   const [q, setQ] = useState(props.initialQuery)
   const [cat, setCat] = useState<AssetCategory | '전체'>('전체')
   const [staleOnly, setStaleOnly] = useState(false)
@@ -30,6 +30,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [lostType, setLostType] = useState<'분실' | '도난'>('분실')
   const [lostNote, setLostNote] = useState('')
   const [lostMsg, setLostMsg] = useState<string | null>(null)
+  const [loanOpen, setLoanOpen] = useState(false)
+  const [loanTo, setLoanTo] = useState('')
+  const [loanDept, setLoanDept] = useState('')
+  const [loanDue, setLoanDue] = useState('')
+  const [loanMsg, setLoanMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const rows = useMemo(() => {
@@ -119,6 +124,15 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {sel.memory && <><dt>메모리</dt><dd>{sel.memory}</dd></>}
               {sel.ip && <><dt>IP / MAC</dt><dd className="code">{sel.ip}{sel.mac ? ` · ${sel.mac}` : ''}</dd></>}
               <dt>도입일</dt><dd className="tnum">{sel.purchaseDate}</dd>
+              {sel.status === '대여중' && (
+                <>
+                  <dt>반환 기한</dt>
+                  <dd className="hstack" style={{ gap: 6 }}>
+                    <span className="tnum">{sel.loanDueDate ?? '-'}</span>
+                    {props.today && sel.loanDueDate && sel.loanDueDate < props.today && <Chip tone="err" bare>연체</Chip>}
+                  </dd>
+                </>
+              )}
               <dt>최근 실측</dt>
               <dd className="hstack" style={{ gap: 6 }}>
                 <span className="tnum">{sel.lastVerifiedAt ?? '미실측'}</span>
@@ -192,6 +206,46 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                     {lostType === '도난' && <span className="mut" style={{ fontSize: 11 }}>도난 신고 시 보안운영팀에 데이터 유출 위험 점검이 통보됩니다.</span>}
                   </div>
                 )}
+              </div>
+            )}
+
+            {props.canEdit && sel.status === '유휴' && (
+              <div style={{ marginTop: 12 }}>
+                {loanMsg && <div className="callout" style={{ marginBottom: 10 }}>{loanMsg}</div>}
+                {!loanOpen ? (
+                  <button className="btn sm" disabled={pending}
+                    onClick={() => { setLoanOpen(true); setLoanTo(''); setLoanDept(''); setLoanDue(''); setLoanMsg(null) }}
+                    title="유휴 재고를 반환 기한과 함께 임시 대여(반출)">대여 처리 (반출)</button>
+                ) : (
+                  <div className="vstack" style={{ gap: 8 }}>
+                    <div className="kicker mute">대여 처리 (반출)</div>
+                    <input className="input" placeholder="대여자 (성명)" value={loanTo} disabled={pending} onChange={(e) => setLoanTo(e.target.value)} />
+                    <input className="input" placeholder="부서" value={loanDept} disabled={pending} onChange={(e) => setLoanDept(e.target.value)} />
+                    <label className="hstack" style={{ gap: 6, fontSize: 12 }}>반환 기한
+                      <input className="input" type="date" value={loanDue} disabled={pending} onChange={(e) => setLoanDue(e.target.value)} />
+                    </label>
+                    <div className="hstack">
+                      <button className="btn sm pri" disabled={pending || !loanTo.trim() || !loanDept.trim() || !loanDue}
+                        onClick={() => startTransition(async () => {
+                          const r = await loanAsset(sel.assetNo, loanTo, loanDept, loanDue)
+                          setLoanMsg(r.message)
+                          if (r.ok) setLoanOpen(false)
+                        })}>대여 확정</button>
+                      <button className="btn sm ghost" disabled={pending} onClick={() => { setLoanOpen(false); setLoanMsg(null) }}>취소</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {props.canEdit && sel.status === '대여중' && (
+              <div style={{ marginTop: 12 }}>
+                {loanMsg && <div className="callout" style={{ marginBottom: 10 }}>{loanMsg}</div>}
+                <button className="btn sm pri" disabled={pending}
+                  onClick={() => startTransition(async () => {
+                    const r = await returnLoan(sel.assetNo)
+                    setLoanMsg(r.message)
+                  })}>대여 반환 접수</button>
               </div>
             )}
 

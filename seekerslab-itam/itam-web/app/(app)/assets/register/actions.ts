@@ -75,6 +75,57 @@ export async function extendWarranty(assetNo: string, termYears: number) {
   return { ok: true, message: `${asset.assetNo} 보증 연장 — ${oldEnd} → ${newEnd}` }
 }
 
+/** 자산 대여(반출) 처리 — 유휴 재고를 반환 기한과 함께 대여자에게 내준다(불출이 영구 배정이라면 대여는 기한부).
+ *  (제품안내서 §03 운영 — 출장·행사·임시 업무용 대여. 반환 기한이 지나면 연체로 드러난다.)
+ *  유휴 자산만 대여 가능. 대여 중에는 불출 대상에서 빠져 영구 배정되지 않는다. 자산담당·Admin. */
+export async function loanAsset(assetNo: string, rawTo: string, rawDept: string, dueDate: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '대여 처리 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '유휴') return { ok: false, message: `대여 가능한 상태가 아닙니다 — ${assetNo} (${asset.status}). 유휴 재고만 대여할 수 있습니다.` }
+  const to = rawTo.trim()
+  const dept = rawDept.trim()
+  if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return { ok: false, message: '반환 기한을 선택해 주세요.' }
+  if (dueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
+
+  asset.status = '대여중'
+  asset.owner = to
+  asset.dept = dept
+  asset.loanDueDate = dueDate
+  asset.history.push({ date: today(), kind: '대여', detail: `${dept} ${to} 대여 — 반환 기한 ${dueDate}`, actor: session.name })
+  appendAudit({ actor: session.name, action: `자산 대여 — ${to}(${dept}) · 기한 ${dueDate}`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}` }
+}
+
+/** 대여 반환 접수 — 대여 자산을 회수해 유휴 풀로 되돌린다(연체 여부와 무관하게 반환 처리).
+ *  소유자를 비우고 검수실로 편성해 재확인 후 재배치한다. 대여중 자산만 대상. 자산담당·Admin. */
+export async function returnLoan(assetNo: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '대여 반환 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '대여중') return { ok: false, message: '대여 중인 자산만 반환할 수 있습니다.' }
+
+  const borrower = asset.owner
+  const overdue = asset.loanDueDate ? asset.loanDueDate < today() : false
+  asset.status = '유휴'
+  asset.owner = '미지정'
+  asset.dept = '자산관리팀'
+  asset.location = '본사 3F 검수실'
+  asset.loanDueDate = undefined
+  asset.history.push({ date: today(), kind: '반납', detail: `대여 반환 접수 — 유휴 풀 편성 (대여자 ${borrower}${overdue ? ' · 연체 반환' : ''})`, actor: session.name })
+  appendAudit({ actor: session.name, action: `대여 반환 접수 — ${borrower}`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 대여 반환 — 유휴 풀 편성 (검수실 재확인 후 재배치)` }
+}
+
 /** 분실·도난 신고 — 실물이 사라진 자산을 대장에서 '분실' 상태로 전환한다.
  *  (제품안내서 §03 자산 실물 관리 — 재물조사 대사는 '미확인→유휴·분실 후보'만 수동적으로 잡고,
  *   사용자·자산팀이 직접 아는 분실·도난을 신고할 경로가 없었다.)
