@@ -139,11 +139,24 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   if (!isUser && (q.includes('미등록') || q.includes('발견') || q.includes('shadow'))) {
     const items = s.discovered.filter((d) => d.state === '미등록' && !d.action)
+    // 네트워크 세그먼트 — 서버·IDC망 10.10.x / 사무·업무망 10.20.x / 클라우드망 10.30~31.x.
+    // (시드 기준: 서버는 10.10.x IDC 대역, 10.20.31.x 는 플랫폼개발팀 사무망 — 서버 대역이 아니다)
+    const seg = (ip: string) => ip.startsWith('10.10.') ? '서버·IDC망'
+      : ip.startsWith('10.20.') ? '사무·업무망'
+        : /^10\.3[01]\./.test(ip) ? '클라우드망' : '기타'
+    const inServer = items.filter((d) => seg(d.ip) === '서버·IDC망')
+    // 서버망에 있는 미등록 '단말' = 서버 VLAN 침입 의심(높은 우선순위)
+    const rogueTermInServer = inServer.filter((d) => d.type.includes('단말'))
     return {
       role: 'assistant',
-      text: `이번 달 새로 발견된 미등록 자산은 ${items.length}건입니다.\n\n${items
-        .map((d) => `· ${d.id} — ${d.hostname} (${d.type}, ${d.channel}, 위험도 ${d.risk})`)
-        .join('\n')}\n\n이 중 서버 대역(10.20.31.x)에 있는 것은 ${items.filter((d) => d.ip.startsWith('10.20.31')).length}건입니다. 소유자 확인 요청 후 편입 또는 격리 처리를 권장합니다.`,
+      text: [
+        `이번 달 새로 발견된 미등록 자산은 ${items.length}건입니다.`,
+        ``,
+        ...items.map((d) => `· ${d.id} — ${d.hostname} (${d.type}, ${d.channel}, ${d.ip} · ${seg(d.ip)}, 위험도 ${d.risk})`),
+        ``,
+        `서버·IDC망(10.10.x)에 있는 미등록 자산은 ${inServer.length}건${rogueTermInServer.length > 0 ? `이며, 그중 단말 ${rogueTermInServer.length}건은 서버 VLAN 침입 의심으로 최우선 격리 대상입니다` : '입니다'}.`,
+        `소유자 확인 요청 후 편입 또는 격리 처리를 권장합니다.`,
+      ].join('\n'),
       evidence: [
         { label: '발견 자산 목록', href: '/discovery/found' },
         { label: 'CMDB 대사', href: '/discovery/reconcile' },

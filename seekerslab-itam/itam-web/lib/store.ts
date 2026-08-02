@@ -237,6 +237,7 @@ function seedObservations(): ChannelObservation[] {
     o('OBS-4103', 'DSC-2607-0041', 'AD/IdP·SSO 로그', 'WS-KJM-02', '10.20.31.88', '-', '2026-07-28 09:41', 'AD 미가입 단말에서 SSO 로그인 시도'),
     // 2채널
     o('OBS-4201', 'DSC-2607-0042', '패시브 트래픽', 'nas-dev-team', '10.20.31.90', '28:C6:8E:31:44:AA', '2026-07-22 16:20', 'ARP·DHCP 리스 관측, SMB 트래픽 다량'),
+    o('OBS-4601', 'DSC-2607-0046', '네트워크 능동 스캔', 'DESKTOP-UNK09', '10.10.8.77', '9C:2A:70:55:AB:19', '2026-07-28 02:22', 'IDC 서버 대역 포트 스윕 — 445/3389 오픈, Windows 핑거프린트'),
     o('OBS-4202', 'DSC-2607-0042', '네트워크 능동 스캔', 'nas-dev-team', '10.20.31.90', '28:C6:8E:31:44:AA', '2026-07-28 02:31', '445/5000 오픈 — Synology DSM 배너'),
     o('OBS-3801', 'DSC-2607-0038', '패시브 트래픽', 'ESP-9F31A2', '10.20.60.41', '84:F3:EB:9F:31:A2', '2026-07-19 08:55', 'ESP32 OUI — 외부 MQTT(1883) 아웃바운드'),
     o('OBS-3501', 'DSC-2607-0035', '클라우드 API', 'i-0f3a91c2d8', '10.30.2.91', '-', '2026-07-15 03:00', 'AWS Config — 태그 미부착 인스턴스, 개발 VPC'),
@@ -261,6 +262,8 @@ function seedDiscovered(): DiscoveredAsset[] {
     // 확인 요청을 보낸 상태 — 대응하는 결재(APR-2607-114)와 발송 이력(MSG-4001)이 함께 있다
     { id: 'DSC-2607-0041', hostname: 'ip-10-20-31-88', ip: '10.20.31.88', mac: '00:1A:2B:77:F0:12', channel: '네트워크 능동 스캔', type: '단말 (Windows)', firstSeen: '2026-07-24', lastSeen: '2026-07-28', state: '미등록', risk: '높음', ownerCandidate: '플랫폼개발팀 추정 (스위치 포트 기준)', note: 'SMB·RDP 오픈, OS 핑거프린트 Windows 10', action: '확인요청', confirmRequestedAt: '2026-07-25' },
     { id: 'DSC-2607-0042', hostname: 'nas-dev-team', ip: '10.20.31.90', mac: '28:C6:8E:31:44:AA', channel: '패시브 트래픽', type: 'NAS', firstSeen: '2026-07-22', lastSeen: '2026-07-28', state: '미등록', risk: '높음', ownerCandidate: '플랫폼개발팀', note: 'DHCP 리스·ARP 관측, SMB 트래픽 다량' },
+    // 서버·IDC망(10.10.x)에 나타난 미등록 단말 — 서버 VLAN 침입 의심(최우선 격리 대상)
+    { id: 'DSC-2607-0046', hostname: 'DESKTOP-UNK09', ip: '10.10.8.77', mac: '9C:2A:70:55:AB:19', channel: '네트워크 능동 스캔', type: '단말 (Windows)', firstSeen: '2026-07-28', lastSeen: '2026-07-29', state: '미등록', risk: '높음', note: 'IDC 서버 대역에서 관측된 미인가 Windows 단말 — 445/3389 오픈, AD 미가입' },
     // 소유자 미상 IoT — 확인 요청을 전사 공지로 보냈으나 기한(7일)을 넘겨 무응답. 에스컬레이션 대상.
     { id: 'DSC-2607-0038', hostname: 'ESP-9F31A2', ip: '10.20.60.41', mac: '84:F3:EB:9F:31:A2', channel: '패시브 트래픽', type: 'IoT 장비', firstSeen: '2026-07-19', lastSeen: '2026-07-27', state: '미등록', risk: '중간', note: 'ESP32 계열 — 사내망 IoT, 외부 MQTT 접속 시도', action: '확인요청', confirmRequestedAt: '2026-07-20' },
     { id: 'DSC-2607-0035', hostname: 'i-0f3a91c2d8', ip: '10.30.2.91', mac: '-', channel: '클라우드 API', type: 'AWS EC2 (t3.large)', firstSeen: '2026-07-15', lastSeen: '2026-07-28', state: '미등록', risk: '중간', ownerCandidate: '데이터플랫폼팀 (계정 태그)', note: '태그 미부착 인스턴스 · 개발 VPC' },
@@ -623,7 +626,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 12
+const SCHEMA_VERSION = 13
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
