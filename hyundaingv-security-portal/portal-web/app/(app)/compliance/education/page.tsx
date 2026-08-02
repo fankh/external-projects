@@ -155,7 +155,8 @@ export default async function EducationPage() {
           </Card>
         )}
 
-        <Card title={canManage ? '이수현황 — 전 임직원' : '이수율 안내'} kicker="Completion" pad={false}>
+        <Card title={canManage ? '이수현황 — 전 임직원' : '이수율 안내'} kicker="Completion" pad={false}
+          actions={canManage ? <a className="btn sm" href="/api/export?type=education-records">엑셀 다운로드</a> : undefined}>
           {canManage ? (
             <div className="tbl-wrap">
               <table className="tbl">

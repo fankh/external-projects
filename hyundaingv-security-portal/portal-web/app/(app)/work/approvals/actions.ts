@@ -71,6 +71,18 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
     }
   }
 
+  // 폐쇄 루프 1-8 — 협력업체 서약 상신 결재가 묶인 징구 건 전체로 전파된다
+  if (ap.docType === '서약 현황 상신' && ap.ref) {
+    for (const c of s.companyPledges.filter((x) => x.approvalRef === ap.ref && x.status === '결재중')) {
+      if (verdict === '승인') {
+        c.status = '완료'
+      } else {
+        c.status = '등록'
+        c.approvalRef = undefined
+      }
+    }
+  }
+
   // 폐쇄 루프 1-7 — 보안위반 확인서 결재가 위반 건 상태로 전파된다 (승인 → 완료, 반려 → 징구중)
   if (ap.docType === '보안위반 확인서' && ap.ref) {
     const v = s.violations.find((x) => x.id === ap.ref)

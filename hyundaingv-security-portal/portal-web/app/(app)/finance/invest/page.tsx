@@ -218,7 +218,8 @@ export default async function InvestPage() {
         </Card>
       </div>
 
-      <Card title="계획대비실적" kicker="Plan vs Actual" pad={false}>
+      <Card title="계획대비실적" kicker="Plan vs Actual" pad={false}
+        actions={<a className="btn sm" href="/api/export?type=invest-actual">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>

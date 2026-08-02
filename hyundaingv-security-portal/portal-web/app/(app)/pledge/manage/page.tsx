@@ -1,5 +1,7 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
@@ -55,6 +57,38 @@ async function uploadScan(formData: FormData) {
   s.pledges.push({ name: person.name, dept: person.dept, year: YEAR, kind: '일반', signedAt: today(), method: '서면(스캔)' })
   const todo = s.todos.find((t) => t.owner === name && t.kind === '보안서약서' && !t.done)
   if (todo) todo.done = true
+  revalidatePath('/', 'layout')
+}
+
+/** 협력업체 서약 — 담당자가 징구·첨부해 등록하고, 선택 건을 결재 상신한다 (결재 시트 12번) */
+async function addCompanyPledge(formData: FormData) {
+  'use server'
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const company = String(formData.get('company') ?? '').trim().slice(0, 60)
+  const personName = String(formData.get('personName') ?? '').trim().slice(0, 40)
+  if (!company || !personName) return
+  const s = getStore()
+  const id = nextNo('CP', today().slice(0, 4), s.companyPledges.map((c) => c.id))
+  s.companyPledges.unshift({ id, company, personName, registeredAt: today(), status: '등록' })
+  registerUpload(id, formData.get('file'), me.name)
+  revalidatePath('/pledge/manage')
+}
+
+async function submitCompanyPledges(formData: FormData) {
+  'use server'
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const ids = formData.getAll('ids').map(String)
+  const s = getStore()
+  const targets = s.companyPledges.filter((c) => ids.includes(c.id) && c.status === '등록')
+  if (targets.length === 0) return
+  const year = today().slice(0, 4)
+  const ref = nextNo('CPB', year, s.companyPledges.map((c) => c.approvalRef).filter((x): x is string => Boolean(x)))
+  for (const c of targets) {
+    c.approvalRef = ref
+    c.status = '결재중'
+  }
+  // 첨부는 결재 문서 본문에 목록으로 노출 (자동첨부 안 함 — 결재 시트 12번)
+  draftApproval({ docType: '서약 현황 상신', title: `[보안서약서-협력업체] ${targets.length}건 (${targets.map((c) => c.company).join('·')})`, ref, drafter: me })
   revalidatePath('/', 'layout')
 }
 
@@ -142,6 +176,45 @@ export default async function ManagePledgePage() {
           )}
         </Card>
       </div>
+
+      <Card title="협력업체 서약서 — 징구·상신" kicker="Company Pledges" pad={false}>
+        <form action={submitCompanyPledges}>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th className="c">선택</th><th>번호</th><th>업체</th><th>대상자</th><th>등록일</th><th>상태</th></tr></thead>
+              <tbody>
+                {s.companyPledges.map((c) => (
+                  <tr key={c.id}>
+                    <td className="c">
+                      {c.status === '등록' ? <input type="checkbox" name="ids" value={c.id} /> : <span className="mut">-</span>}
+                    </td>
+                    <td className="code">{c.id}</td>
+                    <td className="strong">{c.company}<Clip count={attachCount(c.id)} title="서약서 첨부" /></td>
+                    <td>{c.personName}</td>
+                    <td className="tnum">{c.registeredAt}</td>
+                    <td>
+                      {c.status === '완료' ? <Chip tone="ok">완료</Chip> :
+                       c.status === '결재중' ? <Chip tone="info">결재중</Chip> : <Chip tone="neutral">등록</Chip>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="hstack" style={{ borderTop: '1px solid var(--line)', padding: '9px 14px', justifyContent: 'space-between' }}>
+            <span className="dim" style={{ fontSize: 11.5 }}>결재진행·완료 건은 선택할 수 없다 — 첨부는 결재 본문에 목록으로 노출.</span>
+            <button type="submit" className="btn pri" disabled={!s.companyPledges.some((c) => c.status === '등록')}>선택 건 결재상신</button>
+          </div>
+        </form>
+        <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
+          <form action={addCompanyPledge} className="hstack">
+            <input className="input" name="company" required maxLength={60} placeholder="협력업체명" style={{ width: 160 }} />
+            <input className="input" name="personName" required maxLength={40} placeholder="대상자 성명" style={{ width: 120 }} />
+            <input className="input" type="file" name="file" style={{ flex: 1, paddingTop: 4 }} title="서약서·준법신청서약서 첨부" />
+            <button type="submit" className="btn">징구 등록</button>
+          </form>
+        </div>
+      </Card>
 
       <Card title="보안담당자 관리" kicker="Officers" pad={false}>
         <div className="tbl-wrap">

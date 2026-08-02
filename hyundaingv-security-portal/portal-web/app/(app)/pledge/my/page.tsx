@@ -35,6 +35,20 @@ async function sign(formData: FormData) {
   revalidatePath('/', 'layout')
 }
 
+/** 특별서약(보안담당자) — 일반서약 동의 후 대상. 담당업무·세부업무내용을 추가 입력한다. */
+async function signSpecial(formData: FormData) {
+  'use server'
+  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const duty = String(formData.get('duty') ?? '').trim().slice(0, 200)
+  if (formData.get('agree') !== 'on' || !duty) return
+  const s = getStore()
+  if (!s.securityOfficers.includes(me.name) || !validSign(s, me.name)) return
+  const revisedAt = s.pledgeForms.find((f) => f.kind === '특별')?.revisedAt ?? '0000-00-00'
+  if (s.pledges.some((p) => p.name === me.name && p.year === YEAR && p.kind === '특별' && p.signedAt >= revisedAt)) return
+  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '특별', signedAt: today(), method: '온라인', duty })
+  revalidatePath('/', 'layout')
+}
+
 export default async function MyPledgePage() {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
@@ -75,6 +89,34 @@ export default async function MyPledgePage() {
           </form>
         </Card>
       )}
+
+      {s.securityOfficers.includes(me.name) && signed && (() => {
+        const spRevised = s.pledgeForms.find((f) => f.kind === '특별')?.revisedAt ?? '0000-00-00'
+        const special = s.pledges.find((p) => p.name === me.name && p.year === YEAR && p.kind === '특별' && p.signedAt >= spRevised)
+        return (
+          <Card title="특별서약서 — 보안담당자" kicker={`양식 개정일자 ${spRevised}`}>
+            {special ? (
+              <div className="hstack">
+                <Chip tone="ok">제출 완료 · {special.signedAt}</Chip>
+                <span className="dim">담당업무: {special.duty}</span>
+              </div>
+            ) : (
+              <>
+                <p className="dim" style={{ marginBottom: 8 }}>
+                  보안담당자로 지정되어 특별서약 대상입니다 — 본문 서약 외 담당업무·세부업무내용을 추가 입력합니다.
+                </p>
+                <form action={signSpecial} className="hstack">
+                  <input className="input" name="duty" required maxLength={200} placeholder="담당업무 · 세부업무내용" style={{ flex: 1 }} />
+                  <label className="hstack" style={{ gap: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" name="agree" required /> 동의
+                  </label>
+                  <button type="submit" className="btn pri">특별서약 제출</button>
+                </form>
+              </>
+            )}
+          </Card>
+        )
+      })()}
 
       <Card title="내 서약 이력" kicker="History" pad={false}>
         {mine.length === 0 ? (

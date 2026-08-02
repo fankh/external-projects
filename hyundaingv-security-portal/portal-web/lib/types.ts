@@ -195,6 +195,18 @@ export interface PledgeSign {
   kind: PledgeKind
   signedAt: string
   method: '온라인' | '서면(스캔)'
+  /** 특별서약(보안담당자) 전용 — 담당업무·세부업무내용 (요구사항: 본문 외 추가입력) */
+  duty?: string
+}
+
+/** 협력업체 서약 — 담당자가 징구·첨부해 결재 상신, 업체별 진행현황 관리 (결재 시트 12번) */
+export interface CompanyPledge {
+  id: string
+  company: string
+  personName: string
+  registeredAt: string
+  status: '등록' | '결재중' | '완료'
+  approvalRef?: string
 }
 
 /** IT 투자/비용 — 경영계획 → 시행(계약) → 정산품의 → 계획대비실적 (제품안내서 §03).

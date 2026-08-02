@@ -75,7 +75,12 @@ export default async function RemotePage() {
 
       {canManage && (
         <Card title={me.role === 'DEPT_MGR' ? `${me.dept} 제출 현황` : '전사 제출 현황'} kicker="Status" pad={false}
-          actions={missing.length > 0 ? <Chip tone="warn" bare>미제출 {missing.length}명</Chip> : <Chip tone="ok" bare>전원 제출</Chip>}>
+          actions={
+            <span className="hstack">
+              {missing.length > 0 ? <Chip tone="warn" bare>미제출 {missing.length}명</Chip> : <Chip tone="ok" bare>전원 제출</Chip>}
+              <a className="btn sm" href="/api/export?type=remote-status">엑셀 다운로드</a>
+            </span>
+          }>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>이름</th><th>부서</th><th>상태</th><th>제출일</th></tr></thead>

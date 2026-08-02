@@ -187,8 +187,10 @@ async function main() {
     // 인프라 현황 — 시스템·서버·장애 연계, 배치·인터페이스·디스크
     ['/infra/systems', 'BIZ_MGR', ['ngv-db-01', 'ERP', '운영계', '디스크 경고', '장애 이력']],
     ['/infra/operations', 'BIZ_MGR', ['인사정보 동기화', '영업 실적 집계', '즉시 실행', '출력물 자료 수신', '오류']],
-    // 서약 관리 — 양식 개정·스캔본·보안담당자
-    ['/pledge/manage', 'BIZ_MGR', ['양식관리', '개정일자', '스캔본 업로드', '보안담당자 관리', '서약률']],
+    // 서약 관리 — 양식 개정·스캔본·보안담당자·협력업체
+    ['/pledge/manage', 'BIZ_MGR', ['양식관리', '개정일자', '스캔본 업로드', '보안담당자 관리', '서약률', 'CP-2026-02', '비솔루션', '선택 건 결재상신']],
+    // 특별서약 — 보안담당자(박정호)에게만 카드 노출
+    ['/pledge/my', 'BIZ_MGR', ['특별서약서 — 보안담당자']],
     // QnA — 질문·답변
     ['/board/qna', 'USER', ['QA-2026-12', '재택근무 체크리스트 제출 주기', '답변 대기', '질문 등록']],
     ['/board/qna', 'BIZ_MGR', ['답변 내용']],
@@ -233,6 +235,23 @@ async function main() {
     const r = await get('/board/notices', 'USER')
     const html = await r.text()
     check(!html.includes('공지 등록'), 'USER /board/notices 에 등록 폼 미노출')
+  }
+  {
+    // 특별서약 카드는 보안담당자에게만 — 김현우(USER)는 미노출
+    const r = await get('/pledge/my', 'USER')
+    const html = await r.text()
+    check(!html.includes('특별서약서 — 보안담당자'), 'USER /pledge/my 에 특별서약 카드 미노출')
+  }
+  {
+    // 엑셀 다운로드 — CSV(BOM) 응답과 권한 가드
+    const r = await get('/api/export?type=invest-actual', 'USER')
+    const text = await r.text()
+    check(r.status === 200 && text.includes('계획대비') === false && text.includes('과제번호'), 'export: invest-actual CSV 헤더')
+    check((r.headers.get('content-type') ?? '').includes('text/csv'), 'export: CSV 콘텐츠 타입')
+    const denied = await get('/api/export?type=education-records', 'USER')
+    check(denied.status === 403, 'export: USER 이수현황 차단(403)')
+    const anon = await fetch(`${BASE}/api/export?type=invest-actual`, { redirect: 'manual' })
+    check(anon.status === 401, 'export: 미로그인 차단(401)')
   }
   {
     // 위반자 본인 건만 — 김현우(USER)에게 강도윤 위반 미노출, 등록 폼 미노출

@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { CHANNELS } from '@/portal.config'
-import type { Approval, ApprovalLine, Attachment, BatchJob, BatchRun, ChangeWork, CodeGroup, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, BatchJob, BatchRun, ChangeWork, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -36,6 +36,7 @@ export interface Store {
   pledgeForms: PledgeForm[]
   /** 부서별 보안담당자 — 특별서약 대상 */
   securityOfficers: string[]
+  companyPledges: CompanyPledge[]
   servers: ServerInfo[]
   systems: SystemInfo[]
   batchJobs: BatchJob[]
@@ -190,6 +191,10 @@ function seed(): Store {
       { kind: '특별', revisedAt: '2026-01-02' },
     ],
     securityOfficers: ['박정호'],
+    companyPledges: [
+      { id: 'CP-2026-01', company: '에이원정보', personName: '오세훈', registeredAt: '2026-07-03', status: '완료' },
+      { id: 'CP-2026-02', company: '비솔루션', personName: '임가람', registeredAt: '2026-07-28', status: '등록' },
+    ],
     servers: [
       { id: 'SV-01', hostname: 'ngv-web-01', ip: '10.10.1.11', purpose: 'Web', os: 'Windows Server 2022', rack: 'A-01', diskUsedPct: 42 },
       { id: 'SV-02', hostname: 'ngv-was-01', ip: '10.10.1.21', purpose: 'WAS', os: 'Windows Server 2022', rack: 'A-01', diskUsedPct: 63 },

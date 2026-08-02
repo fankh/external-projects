@@ -43,7 +43,8 @@ export default async function DeptPledgePage() {
   return (
     <>
       <ScreenHeader kicker="임직원 의식제고" title="부서 서약 현황"
-        desc={`${YEAR}년 일반 보안서약서 ${me.role === 'DEPT_MGR' ? `— ${me.dept} 진행현황` : '— 전사 부서별 진행현황'}`} />
+        desc={`${YEAR}년 일반 보안서약서 ${me.role === 'DEPT_MGR' ? `— ${me.dept} 진행현황` : '— 전사 부서별 진행현황'}`}
+        right={<a className="btn sm" href="/api/export?type=pledge-status">엑셀 다운로드</a>} />
 
       <div className="stat-row">
         <Stat value={total.length} label="대상 인원" />
