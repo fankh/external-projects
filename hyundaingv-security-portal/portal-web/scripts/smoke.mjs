@@ -286,9 +286,11 @@ async function main() {
     check(!html.includes('위반 등록'), 'USER /awareness/violations 에 등록 폼 미노출')
   }
 
-  // 4) 미정의 경로 — 404
+  // 4) 미정의 경로 — 404 (브랜디드 화면)
   const nf = await get('/no-such-screen', 'ADMIN')
   check(nf.status === 404, `미정의 경로 → 404 (got ${nf.status})`)
+  const nfHtml = await nf.text()
+  check(nfHtml.includes('화면을 찾을 수 없습니다'), '404 브랜디드 화면 렌더')
 
   // 5) 루트 — 세션 유무에 따라 분기
   const rootAnon = await get('/')
