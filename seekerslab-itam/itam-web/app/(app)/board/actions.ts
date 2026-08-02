@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
+import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { QnaCategory } from '@/lib/types'
@@ -179,4 +180,28 @@ export async function acknowledgeNotice(postId: string) {
   appendAudit({ actor: session.name, action: `공지 필독 확인 — ${post.title}`, target: postId })
   revalidatePath('/', 'layout')
   return { ok: true, message: `읽음 확인 완료 — ${post.title}` }
+}
+
+/** 필독 공지 미확인자 안내 발송 — 읽음 확인(acknowledgeNotice) 커버리지가 100%가 아닐 때 아직 확인하지
+ *  않은 사용자에게 필독 확인 요청을 통보한다(발송 이력 적재). 그동안 커버리지는 표시만 되고 독촉 수단이 없었다.
+ *  상단 고정(필독) 공지만 대상. Admin. (소유자 확인 미응답 에스컬레이션과 같은 컴플라이언스 독촉 패턴) */
+export async function remindNoticeUnacked(postId: string) {
+  const session = await getSession()
+  if (!session || session.role !== 'ADMIN') return { ok: false, message: '미확인자 안내 발송 권한이 없습니다.' }
+
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
+  if (!post) return { ok: false, message: '공지를 찾을 수 없습니다.' }
+  if (!post.pinned) return { ok: false, message: '필독(상단 고정) 공지만 미확인자 안내 대상입니다.' }
+
+  const acked = new Set((post.acks ?? []).map((a) => a.by))
+  const unacked = s.users.filter((u) => !acked.has(u.name))
+  if (unacked.length === 0) return { ok: false, message: '전원이 이미 읽음 확인했습니다.' }
+
+  for (const u of unacked) {
+    dispatch({ channel: '이메일', to: `${u.name} (${u.dept})`, subject: `[필독 확인 요청] ${post.title} — 미확인 안내`, kind: '공지 독촉', ref: post.id })
+  }
+  appendAudit({ actor: session.name, action: `공지 미확인자 안내 발송 (${unacked.length}명) — ${post.title}`, target: postId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `미확인 ${unacked.length}명에게 필독 확인 안내를 발송했습니다 (발송 이력에서 확인).` }
 }

@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost } from '@/lib/types'
-import { acknowledgeNotice, deleteNotice, editNotice, postNotice, toggleNoticePin } from '../actions'
+import { acknowledgeNotice, deleteNotice, editNotice, postNotice, remindNoticeUnacked, toggleNoticePin } from '../actions'
 
 export function NoticeBoard({ posts, canWrite, me, totalUsers, today }: { posts: BoardPost[]; canWrite: boolean; me: string; totalUsers: number; today: string }) {
   const [openId, setOpenId] = useState<string | null>(posts[0]?.id ?? null)
@@ -128,6 +128,13 @@ export function NoticeBoard({ posts, canWrite, me, totalUsers, today }: { posts:
                       </button>
                     )}
                     <span className="right" />
+                    {canWrite && acks.length < totalUsers && (
+                      <button className="btn sm" disabled={pending}
+                        title="아직 읽음 확인하지 않은 사용자에게 필독 확인 요청 통보"
+                        onClick={() => startTransition(async () => setMsg((await remindNoticeUnacked(open.id)).message))}>
+                        미확인자 {totalUsers - acks.length}명 안내 발송
+                      </button>
+                    )}
                     <span className="mut" style={{ fontSize: 11.5 }} title="필독 확인 커버리지">
                       필독 확인 {acks.length}/{totalUsers}명
                     </span>
