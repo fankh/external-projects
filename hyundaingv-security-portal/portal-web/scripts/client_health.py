@@ -35,6 +35,8 @@ ROUTES = [
 ]
 # 권한별 렌더 분기 커버 — 관리자 전 화면 + 사용자 대표 화면
 USER_ROUTES = ['/dashboard', '/pledge/my', '/awareness/violations', '/compliance/education', '/finance/invest']
+# 모바일 뷰포트 검사 대상 — 셀프서비스(제출·조회) 화면. 가로 오버플로가 있으면 실패한다.
+MOBILE_ROUTES = ['/dashboard', '/pledge/my', '/awareness/remote', '/work/todo', '/board/notices', '/sr/new']
 
 ADMIN = {'login': 'admin', 'name': '시스템관리자', 'dept': '정보기획팀', 'role': 'ADMIN'}
 USER = {'login': 'hw.kim', 'name': '김현우', 'dept': '개발1팀', 'role': 'USER'}
@@ -68,8 +70,13 @@ def main() -> int:
 
         with sync_playwright() as p:
             browser = p.chromium.launch()
-            for acct, routes in ((ADMIN, ROUTES), (USER, USER_ROUTES)):
-                ctx = browser.new_context(viewport={'width': 1440, 'height': 900})
+            passes = (
+                (ADMIN, ROUTES, {'width': 1440, 'height': 900}, False),
+                (USER, USER_ROUTES, {'width': 1440, 'height': 900}, False),
+                (USER, MOBILE_ROUTES, {'width': 390, 'height': 844}, True),
+            )
+            for acct, routes, viewport, mobile in passes:
+                ctx = browser.new_context(viewport=viewport)
                 ctx.add_cookies([cookie_for(acct)])
                 page = ctx.new_page()
                 errors: list[str] = []
@@ -80,8 +87,14 @@ def main() -> int:
                     page.goto(BASE + route, wait_until='networkidle')
                     page.wait_for_timeout(150)
                     loaded += 1
+                    if mobile:
+                        # 본문(body) 가로 오버플로 — 표는 .tbl-wrap 내부 스크롤이어야 하고 페이지가 옆으로 밀리면 안 된다
+                        over = page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')
+                        if over > 4:
+                            errors.append(f'가로 오버플로 {over}px')
                     if errors:
-                        failures.append(f'{acct["role"]} {route}: ' + ' | '.join(errors[:3]))
+                        tag = 'MOBILE ' if mobile else ''
+                        failures.append(f'{tag}{acct["role"]} {route}: ' + ' | '.join(errors[:3]))
                 ctx.close()
             browser.close()
     finally:
