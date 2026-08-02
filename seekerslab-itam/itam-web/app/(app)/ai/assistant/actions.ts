@@ -10,10 +10,13 @@ import type { ChatMessage } from '@/lib/types'
 function buildContext(userName: string, isUser: boolean): string {
   const s = getStore()
   const assets = isUser ? s.assets.filter((a) => a.owner === userName) : s.assets
+  const mine = s.approvals.filter((a) => a.requester === userName)
   const lines: string[] = [
     `기준일: ${today()}`,
     `[자산 대장] 총 ${assets.length}건`,
     ...assets.map((a) => `- ${a.assetNo} | ${a.category} | ${a.model} | ${a.status} | ${a.owner}/${a.dept} | ${a.location} | IP:${a.ip ?? '-'} | 보증만료:${a.warrantyEnd}`),
+    `[내 신청] ${mine.length}건`,
+    ...mine.map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.status}${a.status === '대기' ? ` (${a.currentStep})` : ''}`),
   ]
   if (!isUser) {
     lines.push(
@@ -38,6 +41,22 @@ function buildContext(userName: string, isUser: boolean): string {
 function stubAnswer(question: string, userName: string, isUser: boolean): ChatMessage {
   const s = getStore()
   const q = question.toLowerCase()
+
+  // 내 신청 상태 — 본인이 상신한 결재 (전 권한그룹, 본인 범위). 조직 결재 큐(비사용자)와 구분해 '내 신청'으로 잡는다.
+  if (q.includes('내 신청') || q.includes('신청 상태') || q.includes('내 요청')) {
+    const mine = s.approvals.filter((a) => a.requester === userName)
+    const cnt = (st: string) => mine.filter((a) => a.status === st).length
+    return {
+      role: 'assistant',
+      text: mine.length
+        ? `${userName}님이 상신한 신청은 총 ${mine.length}건입니다 (대기 ${cnt('대기')} · 승인 ${cnt('승인')} · 반려 ${cnt('반려')} · 취소 ${cnt('취소')}).\n\n${mine
+            .slice(0, 8)
+            .map((a) => `· ${a.id} — ${a.title} [${a.status}${a.status === '대기' ? ` · ${a.currentStep}` : a.status === '반려' && a.rejectReason ? ` · 사유: ${a.rejectReason}` : ''}]`)
+            .join('\n')}`
+        : `${userName}님이 상신한 신청 내역이 없습니다. 자산 신청·반납·이동은 워크플로 › 신청·결재에서 상신할 수 있습니다.`,
+      evidence: [{ label: '결재함', href: '/workflow/approvals' }],
+    }
+  }
 
   if (!isUser && (q.includes('재물조사') || q.includes('실사') || q.includes('재고조사'))) {
     const cur = s.inventoryRounds.find((r) => r.status === '진행중')
@@ -131,7 +150,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "내 보유 자산"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
   }
 }
 
