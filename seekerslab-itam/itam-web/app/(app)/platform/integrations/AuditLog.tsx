@@ -10,6 +10,9 @@ export function AuditLog({ logs, canExport }: { logs: AuditLogEntry[]; canExport
   const [q, setQ] = useState('')
   const [result, setResult] = useState<'전체' | '성공' | '실패'>('전체')
   const [actor, setActor] = useState('전체')
+  // 기간(감사 대응) — 로그 일시(YYYY-MM-DD HH:MM:SS)의 날짜 부분으로 from~to 범위 필터
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
 
   const actors = useMemo(() => ['전체', ...[...new Set(logs.map((l) => l.actor))].sort()], [logs])
   const rows = useMemo(() => {
@@ -17,14 +20,17 @@ export function AuditLog({ logs, canExport }: { logs: AuditLogEntry[]; canExport
     return logs.filter((l) => {
       if (result !== '전체' && l.result !== result) return false
       if (actor !== '전체' && l.actor !== actor) return false
+      const d = l.at.slice(0, 10)
+      if (from && d < from) return false
+      if (to && d > to) return false
       if (!needle) return true
       return [l.actor, l.action, l.target].some((f) => f.toLowerCase().includes(needle))
     })
-  }, [logs, q, result, actor])
+  }, [logs, q, result, actor, from, to])
 
   // 내보내기는 지금 화면에 보이는 필터를 그대로 반영한다 (필터로 좁힌 그 집합을 반출)
-  const exportHref = `/api/audit-export?${new URLSearchParams({ q: q.trim(), actor, result }).toString()}`
-  const filtered = q.trim() !== '' || actor !== '전체' || result !== '전체'
+  const exportHref = `/api/audit-export?${new URLSearchParams({ q: q.trim(), actor, result, from, to }).toString()}`
+  const filtered = q.trim() !== '' || actor !== '전체' || result !== '전체' || from !== '' || to !== ''
 
   return (
     <Card kicker="Audit" title="감사 로그" pad={false}
@@ -43,6 +49,12 @@ export function AuditLog({ logs, canExport }: { logs: AuditLogEntry[]; canExport
             <button key={r} className={`btn sm ${result === r ? 'pri' : 'ghost'}`} onClick={() => setResult(r)}>{r}</button>
           ))}
         </div>
+        <label className="hstack" style={{ gap: 4, fontSize: 12 }} title="감사 대응 기간 시작일">기간
+          <input className="input" type="date" style={{ width: 140, height: 28 }} value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <span className="mut">~</span>
+        <input className="input" type="date" style={{ width: 140, height: 28 }} value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="감사 대응 기간 종료일" />
+        {(from || to) && <button className="btn sm ghost" onClick={() => { setFrom(''); setTo('') }}>기간 해제</button>}
         <span className="mut" style={{ fontSize: 12 }}>{rows.length} / {logs.length}건</span>
       </div>
       <div className="tbl-wrap">

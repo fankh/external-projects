@@ -359,6 +359,10 @@ try {
   const auditFiltered = await get('/api/audit-export?result=' + encodeURIComponent('실패'), 'SEC_MGR')
   const filtLen = Number(auditFiltered.headers.get('content-length') ?? 0)
   check('감사 로그 엑셀: 화면 필터 반영 반출 (결과=실패는 전체보다 작음)', auditFiltered.status === 200 && filtLen > 0 && filtLen < fullLen, `full=${fullLen} filtered=${filtLen}`)
+  // 기간(감사 대응) 필터 — 범위 밖(미래) 기간은 0건이라 전체보다 작다
+  const auditDated = await get('/api/audit-export?from=2099-01-01', 'SEC_MGR')
+  const datedLen = Number(auditDated.headers.get('content-length') ?? 0)
+  check('감사 로그 엑셀: 기간(from/to) 필터 반영 반출', auditDated.status === 200 && datedLen > 0 && datedLen < fullLen, `full=${fullLen} dated=${datedLen}`)
   // 알림 발송 이력 엑셀 — 발송 증적 반출 (보안담당·Admin, 화면 필터 반영)
   check('발송 이력 엑셀: 미로그인 차단 (401)', (await get('/api/dispatch-export')).status === 401)
   check('발송 이력 엑셀: 사용자 차단 (403)', (await get('/api/dispatch-export', 'USER')).status === 403)
@@ -462,6 +466,7 @@ try {
   check('연동 · 인프라: 양방향 조치 채널 렌더', intHtml.includes('양방향') && intHtml.includes('SAML'))
   check('연동 · 인프라: 보안담당에 커넥터 연결 테스트 노출', intHtml.includes('연결 테스트') && intHtml.includes('연동'))
   check('연동 · 인프라: 보안담당에 감사 로그 엑셀 링크 노출', intHtml.includes('/api/audit-export'))
+  check('연동 · 인프라: 감사 로그 기간(from/to) 필터 렌더', intHtml.includes('감사 대응 기간 시작일') && intHtml.includes('감사 대응 기간 종료일'))
   const intAsset = await (await get('/platform/integrations', 'ASSET_MGR')).text()
   check('연동 · 인프라: 자산담당은 커넥터 관리 미노출 (조회만)', !intAsset.includes('연결 테스트'))
   check('연동 · 인프라: 자산담당엔 감사 로그 엑셀 링크 없음', !intAsset.includes('/api/audit-export'))
