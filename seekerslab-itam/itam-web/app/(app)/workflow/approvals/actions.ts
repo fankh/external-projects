@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
+import { dispatch } from '@/lib/notify'
 import { canDecideApproval } from '@/lib/approval'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
@@ -248,6 +249,18 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     action: `${a.kind} ${verdict}${verdict === '반려' ? ` — ${reason.trim()}` : ''}`,
     target: a.id,
   })
+
+  // 결재 결과를 신청자에게 통보한다 — 사용자 상신 종류(자산 신청·반납·이동·대여)만. 그동안 신청자는
+  // 결재함을 직접 확인해야 결과를 알 수 있었다(요청자 루프 미폐쇄). 승인/반려 모두 통보하고 발송 이력에 남긴다.
+  if (['자산 신청', '반납', '이동', '대여'].includes(a.kind)) {
+    dispatch({
+      channel: '이메일',
+      to: `${a.requester} (${a.dept})`,
+      subject: `[결재 결과] ${a.kind} ${verdict} — ${a.title}${verdict === '반려' && a.rejectReason ? ` (사유: ${a.rejectReason})` : ''}`,
+      kind: '결재 결과',
+      ref: a.id,
+    })
+  }
 
   // 대여 신청 — 승인 시 지정 유휴 자산을 신청자에게 반환 기한과 함께 대여 처리한다(자동 집행).
   //  요청~승인 사이 자산이 빠졌으면(유휴 아님) 집행하지 않고 미집행으로 남긴다.
