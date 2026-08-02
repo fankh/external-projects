@@ -62,6 +62,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v0.34 | 결재 반려 사유 필수(기안자 상신함·상세 표시, 감사 기록 포함) + 알림 배치 자동 스케줄러(instrumentation, PORTAL_NOTIFY_INTERVAL_MS — Docker 기본 24h) |
 | v0.35 | 반려→재상신 폐쇄 루프 — SR 반려 시 기안자 '재상신' 할일 자동 생성(사유 포함), 신청내역 재상신 버튼([재상신] 재결재, 할일 마감) |
 | v0.36 | 정산품의 반려 재상신(투자·비용 공통 액션, 기안자 본인·중복 상신 가드) — 전 문서 유형 재상신 경로 정합 완성 |
+| v0.37 | E2E 스위트 저장소 편입(scripts/e2e_suite.py, 9시나리오 · 시나리오별 독립 서버) — 상설 게이트 3종 완성(npm run smoke/health/e2e) |
 
 ## 배포 (Docker)
 
@@ -115,11 +116,13 @@ $env:PORTAL_DATA_FILE = "C:\data\portal-data.json"; npm run start
 
 ```powershell
 npm run build
-npm run smoke                    # 프로덕션 서버 기동 → 권한 매트릭스·SSR 본문 검증 → 종료
-python scripts/client_health.py  # 실제 브라우저로 전 화면 로드 → 콘솔 오류·하이드레이션 크래시 검사
+npm run smoke    # 프로덕션 서버 기동 → 권한 매트릭스·세션 보안·SSR 본문 검증 → 종료
+npm run health   # 실제 브라우저로 46화면(데스크톱+모바일) 로드 → 크래시·가로 오버플로 검사
+npm run e2e      # 핵심 폐쇄 루프 9시나리오 — 결재 전파·어댑터·재상신·스케줄러·런타임 복구
 ```
 
-`smoke` 는 서버 렌더 HTML만 보므로 클라이언트 크래시를 못 잡는다 — 배포 전 둘 다 돌린다.
+`smoke` 는 서버 렌더 HTML만, `health` 는 로드만 본다 — 동작(전파·업로드·자동 발화)은
+`e2e` 가 검증한다. 배포 전 셋 다 돌린다. (health·e2e 는 Python + playwright 필요)
 
 ## 구조
 

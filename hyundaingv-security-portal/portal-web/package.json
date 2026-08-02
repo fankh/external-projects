@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "e2e": "python scripts/e2e_suite.py",
+    "health": "python scripts/client_health.py"
   },
   "dependencies": {
     "next": "^15.1.6",
