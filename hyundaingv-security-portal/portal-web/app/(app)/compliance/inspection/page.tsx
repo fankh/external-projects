@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
@@ -37,6 +38,8 @@ async function registerResult(formData: FormData) {
   if (!plan) return
   plan.result = result
   plan.status = '결재중'
+  // 증적자료 첨부 — 결재 문서(ref=계획번호)에서 함께 조회된다
+  registerUpload(plan.id, formData.get('file'), me.name)
 
   // 폐쇄 루프 — 점검 결과·증적이 기본 결재선으로 흐르고, 승인되면 현황판 완료로 집계된다 (결재 시트 3번)
   const item = s.inspectionItems.find((i) => i.id === plan.itemId)
@@ -95,13 +98,14 @@ export default async function InspectionPage() {
                       {(p.status === '계획' || p.status === '결과미등록') ? (
                         <form action={registerResult} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="id" value={p.id} />
-                          <input className="input" name="result" required maxLength={500} placeholder="점검 결과 · 증적" style={{ height: 25, fontSize: 11.5, width: 200 }} />
+                          <input className="input" name="result" required maxLength={500} placeholder="점검 결과" style={{ height: 25, fontSize: 11.5, width: 160 }} />
+                          <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 150, paddingTop: 2 }} title="증적자료 첨부" />
                           <button type="submit" className="btn sm pri">결과 결재상신</button>
                         </form>
                       ) : p.status === '결재중' ? (
-                        <span className="mut">부서장 결재 대기</span>
+                        <span className="mut">부서장 결재 대기<Clip count={attachCount(p.id)} title="증적자료" /></span>
                       ) : (
-                        <span title={p.result} className="dim">{p.result}</span>
+                        <span title={p.result} className="dim">{p.result}<Clip count={attachCount(p.id)} title="증적자료" /></span>
                       )}
                     </td>
                   </tr>

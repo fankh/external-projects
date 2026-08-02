@@ -3,11 +3,18 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { SR_FLOW, type SrStatus } from '@/lib/types'
-import { SR_CHIP } from '../chips'
+import { SR_FLOW, type SrRequest, type SrStatus } from '@/lib/types'
+import { SR_CHIP, srStatusLabel } from '../chips'
 
-/** 진행 단계 전이 — 개발중 → 테스트 → 적용요청 → 완료 (한 단계씩만 이동) */
-const NEXT: Partial<Record<SrStatus, SrStatus>> = { 개발중: '테스트', 테스트: '적용요청', 적용요청: '완료' }
+/** 진행 단계 전이 — 유형별로 다르다 (요구사항 결재 시트 4~7번).
+ *  시스템개발: 개발 → 테스트 → 적용요청 (반영·완료는 변경관리 최종완료로 전파)
+ *  데이터·계정/권한: 배정 후 처리 → 완료 직행 (테스트·적용요청 단계 없음) */
+function nextOf(sr: SrRequest): SrStatus | undefined {
+  if (sr.kind === '시스템개발') {
+    return ({ 개발중: '테스트', 테스트: '적용요청', 적용요청: '완료' } as Partial<Record<SrStatus, SrStatus>>)[sr.status]
+  }
+  return sr.status === '개발중' ? '완료' : undefined
+}
 
 async function advance(formData: FormData) {
   'use server'
@@ -15,7 +22,7 @@ async function advance(formData: FormData) {
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo)
-  const next = sr && NEXT[sr.status]
+  const next = sr && nextOf(sr)
   if (!sr || !next) return
   sr.status = next
   if (next === '완료') sr.completedAt = today()
@@ -49,7 +56,7 @@ export default async function SrManagePage() {
             </thead>
             <tbody>
               {rows.map((r) => {
-                const next = NEXT[r.status]
+                const next = nextOf(r)
                 return (
                   <tr key={r.srNo}>
                     <td className="code">{r.srNo}</td>
@@ -57,7 +64,7 @@ export default async function SrManagePage() {
                     <td className="strong">{r.title}</td>
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
                     <td>{r.ci ?? <span className="mut">미배정</span>}</td>
-                    <td><Chip tone={SR_CHIP[r.status]}>{r.status}</Chip></td>
+                    <td><Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip></td>
                     <td className="tnum">{r.status === '완료' ? (r.completedAt ?? '-') : (r.dueDate ?? '-')}</td>
                     <td className="c">
                       {next ? (

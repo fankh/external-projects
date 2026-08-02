@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
-import { SR_CHIP } from '../chips'
+import { SR_CHIP, srStatusLabel } from '../chips'
 
 export default async function SrRequestsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
@@ -54,7 +54,7 @@ export default async function SrRequestsPage({ searchParams }: { searchParams: P
                     <td className="strong">{r.title}<Clip count={attachCount(r.srNo)} title="본문 첨부" /></td>
                     <td>{r.system}</td>
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
-                    <td><Chip tone={SR_CHIP[r.status]}>{r.status}</Chip></td>
+                    <td><Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip></td>
                     <td>{r.ci ?? <span className="mut">미배정</span>}</td>
                     <td className="tnum">{r.requestedAt}</td>
                     <td className="tnum">{r.dueDate ?? '-'}</td>

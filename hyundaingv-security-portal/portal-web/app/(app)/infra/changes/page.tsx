@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -63,6 +64,8 @@ async function submitResult(formData: FormData) {
   if (!cw) return
   cw.result = result
   cw.status = '작업완료결재중'
+  // 작업결과 증적 — 공통 첨부(cw.id)로 묶여 결재함에서도 보인다 (첨부 시트: modifications)
+  registerUpload(cw.id, formData.get('file'), me.name)
   draftApproval({ docType: '변경결과 상신', title: `[${cw.kind}변경] ${cw.title} — 작업결과`, ref: cw.id, drafter: me })
   revalidatePath('/', 'layout')
 }
@@ -97,7 +100,7 @@ export default async function ChangesPage() {
                 <tr key={c.id}>
                   <td className="code">{c.id}</td>
                   <td><Chip tone={c.kind === '인프라' ? 'info' : 'neutral'} bare>{c.kind}</Chip></td>
-                  <td className="strong">{c.title}</td>
+                  <td className="strong">{c.title}<Clip count={attachCount(c.id)} title="작업 증적" /></td>
                   <td>{c.srNo ? <span className="mono">{c.srNo}</span> : <span className="mut">-</span>}</td>
                   <td><Chip tone={ST_CHIP[c.status]}>{c.status}</Chip></td>
                   <td className="tnum">{c.registeredAt}</td>
@@ -111,7 +114,8 @@ export default async function ChangesPage() {
                     {c.status === '작업등록승인' && (
                       <form action={submitResult} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                         <input type="hidden" name="id" value={c.id} />
-                        <input className="input" name="result" required maxLength={500} placeholder="작업 결과" style={{ height: 25, fontSize: 11.5, width: 200 }} />
+                        <input className="input" name="result" required maxLength={500} placeholder="작업 결과" style={{ height: 25, fontSize: 11.5, width: 170 }} />
+                        <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 150, paddingTop: 2 }} title="결과 증적 첨부" />
                         <button type="submit" className="btn sm pri">결과 상신</button>
                       </form>
                     )}
