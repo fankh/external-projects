@@ -61,6 +61,19 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
 
+  // 상태별 보유 대수 — 대장 구성을 한눈에 보고 클릭으로 해당 상태만 필터한다
+  const statusCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const a of props.assets) m.set(a.status, (m.get(a.status) ?? 0) + 1)
+    return m
+  }, [props.assets])
+  const pill = (active: boolean) => ({
+    fontFamily: 'inherit' as const, fontSize: 11.5, padding: '3px 9px', borderRadius: 999, cursor: 'pointer',
+    border: `1px solid ${active ? 'var(--accent-deep)' : 'var(--line)'}`,
+    background: active ? 'var(--accent-soft)' : '#fff',
+    color: active ? 'var(--accent-deep)' : 'var(--ink-2)', fontWeight: active ? 700 : 500,
+  })
+
   return (
     <div>
       <div className="qbar" style={{ padding: '12px 16px', borderBottom: '1px solid var(--line)' }}>
@@ -88,6 +101,16 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             ⤓ 자산 대장 엑셀{q.trim() !== '' || cat !== '전체' ? ` (${rows.length})` : ''}
           </a>
         )}
+      </div>
+
+      <div className="hstack" style={{ gap: 6, padding: '8px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>
+        <span className="kicker mute" style={{ marginRight: 2 }}>상태 요약</span>
+        <button style={pill(status === '전체')} onClick={() => setStatus('전체')}>전체 {props.assets.length}</button>
+        {STATUSES.filter((st) => st !== '전체' && (statusCounts.get(st) ?? 0) > 0).map((st) => (
+          <button key={st} style={pill(status === st)} onClick={() => setStatus(status === st ? '전체' : st)}>
+            {st} {statusCounts.get(st)}
+          </button>
+        ))}
       </div>
 
       <div className={sel ? 'cols main-side' : ''} style={sel ? { gap: 0 } : undefined}>
