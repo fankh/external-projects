@@ -1,5 +1,5 @@
 'use client'
-import { Fragment, useState, useTransition } from 'react'
+import { Fragment, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { fmtAmount } from '@/lib/dates'
 import { CONTRACT_DOC_TYPES, type Contract, type ContractDocType } from '@/lib/types'
@@ -75,7 +75,26 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
   const [costDate, setCostDate] = useState('')
   const [costItem, setCostItem] = useState('')
   const [costAmount, setCostAmount] = useState(0)
+  // 계약 목록 필터 — 구분·상태·만료 임박·검색 (계약이 쌓이면 필수)
+  const [fkind, setFkind] = useState<'전체' | '구매' | '유지보수'>('전체')
+  const [fstatus, setFstatus] = useState<'전체' | '유효' | '해지'>('전체')
+  const [fexpiring, setFexpiring] = useState(false)
+  const [fq, setFq] = useState('')
   const [pending, startTransition] = useTransition()
+
+  const filteredRows = useMemo(() => {
+    const needle = fq.trim().toLowerCase()
+    return rows.filter((c) => {
+      if (fkind !== '전체' && c.kind !== fkind) return false
+      if (fstatus === '해지' && c.status !== '해지') return false
+      if (fstatus === '유효' && c.status === '해지') return false
+      if (fexpiring && !(c.status !== '해지' && c.d !== null && c.d <= 90)) return false
+      if (!needle) return true
+      return [c.id, c.name, c.vendor, c.ownerDept].some((f) => f?.toLowerCase().includes(needle))
+    })
+  }, [rows, fkind, fstatus, fexpiring, fq])
+  const filterActive = fkind !== '전체' || fstatus !== '전체' || fexpiring || fq.trim() !== ''
+  const expiringCount = rows.filter((c) => c.status !== '해지' && c.d !== null && c.d <= 90).length
 
   const addDoc = (id: string) => startTransition(async () => {
     const r = await addContractDoc(id, docName, docType)
@@ -117,6 +136,25 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      <div className="qbar" style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
+        <div className="seg">
+          {(['전체', '구매', '유지보수'] as const).map((k) => (
+            <button key={k} className={fkind === k ? 'on' : ''} onClick={() => setFkind(k)}>{k}</button>
+          ))}
+        </div>
+        <select className="select" value={fstatus} onChange={(e) => setFstatus(e.target.value as '전체' | '유효' | '해지')} style={{ maxWidth: 130 }}>
+          <option value="전체">상태 — 전체</option>
+          <option value="유효">유효(진행 중)</option>
+          <option value="해지">해지</option>
+        </select>
+        {expiringCount > 0 && (
+          <button className={`btn sm ${fexpiring ? 'warn' : ''}`} onClick={() => setFexpiring((v) => !v)}
+            title="만료 90일 이내(경과 포함)·해지 제외">{fexpiring ? '✓ ' : ''}만료 임박 {expiringCount}</button>
+        )}
+        <input className="input" style={{ width: 190 }} placeholder="계약번호·계약명·공급사·부서 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
+        {filterActive && <button className="btn sm ghost" onClick={() => { setFkind('전체'); setFstatus('전체'); setFexpiring(false); setFq('') }}>필터 해제</button>}
+        <span className="cnt">{filteredRows.length}건 / 전체 {rows.length}건</span>
+      </div>
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
@@ -126,7 +164,7 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
             </tr>
           </thead>
           <tbody>
-            {rows.map((c) => (
+            {filteredRows.map((c) => (
               <Fragment key={c.id}>
               <tr className={c.id === sel ? 'sel' : ''}>
                 <td className="code">{c.id}</td>
@@ -259,6 +297,7 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
               )}
               </Fragment>
             ))}
+            {filteredRows.length === 0 && <tr><td colSpan={11}><div className="empty">{rows.length === 0 ? '등록된 계약이 없습니다' : '조건에 맞는 계약이 없습니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>
