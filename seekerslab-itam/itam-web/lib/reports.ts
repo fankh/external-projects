@@ -2,7 +2,7 @@
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
 import { recordAiCall } from './ai-status'
 import { appendAudit } from './audit'
-import { nowMinute, today, daysUntil, fmtAmount } from './dates'
+import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon } from './dates'
 import { getStore } from './store'
 import type { ReportKind, ReportSchedule, ReportSection } from './types'
 
@@ -115,6 +115,20 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           .filter((c) => { const d = daysUntil(c.end); return d !== null && d <= 90 })
           .sort((a, b) => a.end.localeCompare(b.end))
           .map((c) => [c.id, c.name, c.vendor, c.end, (daysUntil(c.end) ?? 0) < 0 ? '경과' : `${daysUntil(c.end)}일`]),
+      },
+      {
+        // 대여(반출) 현황 — 반환 기한부 반출 자산과 연체·임박(loops 41/42). 월간 운영 보고에 반영.
+        title: '대여(반출) 현황',
+        note: `대여중 ${s.assets.filter((a) => a.status === '대여중').length}건 · 연체 ${s.assets.filter(isLoanOverdue).length}건`,
+        columns: ['자산번호', '모델', '대여자', '부서', '반환 기한', '상태'],
+        rows: s.assets
+          .filter((a) => a.status === '대여중')
+          .sort((a, b) => (a.loanDueDate ?? '').localeCompare(b.loanDueDate ?? ''))
+          .map((a) => {
+            const d = a.loanDueDate ? daysUntil(a.loanDueDate) : null
+            const st = isLoanOverdue(a) ? `연체 ${d !== null ? -d : ''}일` : isLoanDueSoon(a) ? `반환 임박 D-${d}` : '정상'
+            return [a.assetNo, a.model, a.owner, a.dept, a.loanDueDate ?? '-', st]
+          }),
       },
       {
         title: 'Discovery 편입 실적',
