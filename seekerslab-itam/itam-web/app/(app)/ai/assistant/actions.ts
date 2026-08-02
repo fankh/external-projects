@@ -140,6 +140,24 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
       evidence: [{ label: '라이선스 컴플라이언스', href: '/inventory/contracts' }],
     }
   }
+  // 자산 현황·분포 — 총 보유·상태별 분포·대여 현황을 한 번에 답한다 (조직 집계, 비사용자).
+  //  '대여 현황'·'대여 중'은 여기서(전체 대여), '대여 연체'는 아래 운영 리스크 인텐트에서 처리한다.
+  if (!isUser && (q.includes('상태별') || q.includes('분포') || q.includes('보유 현황') || q.includes('보유 대수') || q.includes('몇 대') || q.includes('자산 현황') || q.includes('재고 규모') || q.includes('대여 현황') || q.includes('대여 중'))) {
+    const STATS = ['사용중', '유휴', '대여중', '수리중', '반납대기', '검수중', '분실', '폐기예정', '폐기완료'] as const
+    const byStatus = (st: string) => s.assets.filter((a) => a.status === st).length
+    const dist = STATS.filter((st) => byStatus(st) > 0).map((st) => `${st} ${byStatus(st)}`)
+    const loans = s.assets.filter((a) => a.status === '대여중')
+    const overdueN = s.assets.filter(isLoanOverdue).length
+    return {
+      role: 'assistant',
+      text: `자산 대장 현황입니다.\n\n· 총 보유 ${s.assets.length}대 (운영 ${s.assets.length - byStatus('폐기완료')} · 폐기완료 ${byStatus('폐기완료')})\n· 상태별 분포: ${dist.join(' · ')}\n· 대여 현황: ${loans.length}건 대여 중${overdueN ? ` (반환 연체 ${overdueN}건)` : ''}${loans.length ? `\n${loans.slice(0, 8).map((a) => `   - ${a.assetNo} ${a.model} · ${a.owner} (반환 ${a.loanDueDate ?? '-'}${isLoanOverdue(a) ? ' · 연체' : ''})`).join('\n')}` : ''}`,
+      evidence: [
+        { label: '자산 대장', href: '/assets/register' },
+        { label: '재고 현황', href: '/inventory/stock' },
+      ],
+    }
+  }
+
   // 운영 리스크 자산 — 분실·도난, 장기 미실측(유령 후보), 대여 반환 연체를 한 번에 훑는다 (자산팀 조치 대상)
   if (!isUser && (q.includes('분실') || q.includes('도난') || q.includes('미실측') || q.includes('유령') || q.includes('연체') || q.includes('대여') || q.includes('반출') || q.includes('운영 리스크') || q.includes('리스크 자산'))) {
     const lost = s.assets.filter((a) => a.status === '분실')
@@ -174,7 +192,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "자산 상태 분포와 대여 현황"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
   }
 }
 
