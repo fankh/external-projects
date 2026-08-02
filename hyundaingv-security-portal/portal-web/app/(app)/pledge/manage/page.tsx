@@ -22,7 +22,8 @@ async function reviseForm(formData: FormData) {
   const revisedAt = String(formData.get('revisedAt') ?? '')
   const s = getStore()
   const form = s.pledgeForms.find((f) => f.kind === kind)
-  if (!form || !/^\d{4}-\d{2}-\d{2}$/.test(revisedAt) || revisedAt <= form.revisedAt) return
+  // 미래 개정일자는 그날까지 유효 서약이 불가능해지는 구멍이 된다 — 당일 이전만 허용
+  if (!form || !/^\d{4}-\d{2}-\d{2}$/.test(revisedAt) || revisedAt <= form.revisedAt || revisedAt > today()) return
   form.revisedAt = revisedAt
 
   if (kind === '일반') {
