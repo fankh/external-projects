@@ -15,15 +15,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '답변·상태', detail: '담당자 지정, 답변완료 상태 추적' },
     ],
   },
-  '/finance/invest': {
-    desc: 'IT 투자 관리 — 경영계획부터 정산·실적까지 투자 집행 전 주기.',
-    features: [
-      { name: '경영계획', detail: '연간 투자 계획 수립·결재 상신' },
-      { name: '시행·계약내역', detail: '시행품의, 계약 내역 등록·첨부' },
-      { name: '정산품의', detail: '집행 건 정산 결재 (엑셀양식 자동첨부)' },
-      { name: '계획대비실적', detail: '계획 대비 집행 실적 조회·엑셀 다운로드' },
-    ],
-  },
   '/finance/expense': {
     desc: 'IT 비용 관리 — 경영계획·시행·속보·정산까지 비용 집행 전 주기.',
     features: [

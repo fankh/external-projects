@@ -2,9 +2,12 @@
  *  스텁 단계에서는 대시보드·뱃지·상태바를 채우는 최소 시드만 갖는다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
 import { CHANNELS } from '@/portal.config'
-import type { Approval, BatchRun, Notice, Person, PledgeSign, SendLogEntry, SrRequest, TodoItem } from './types'
+import type { Approval, BatchRun, InvestContract, InvestPlan, Notice, Person, PledgeSign, SendLogEntry, Settlement, SrRequest, TodoItem } from './types'
 
 export interface Store {
+  investPlans: InvestPlan[]
+  investContracts: InvestContract[]
+  settlements: Settlement[]
   srRequests: SrRequest[]
   approvals: Approval[]
   todos: TodoItem[]
@@ -21,6 +24,18 @@ export interface Store {
 
 function seed(): Store {
   return {
+    investPlans: [
+      { id: 'IP-2026-01', year: '2026', title: 'ERP 리포트 모듈 고도화', owner: '김현우', dept: '개발1팀', amount: 12000, status: '확정' },
+      { id: 'IP-2026-02', year: '2026', title: '보안관제 시스템 증설', owner: '박정호', dept: 'IT운영팀', amount: 8000, status: '확정' },
+      { id: 'IP-2026-03', year: '2026', title: '테스트 자동화 도입', owner: '김현우', dept: '개발1팀', amount: 3000, status: '작성중' },
+    ],
+    investContracts: [
+      { id: 'CT-2026-01', planId: 'IP-2026-01', vendor: '에이원정보', title: 'ERP 리포트 모듈 구축 계약', amount: 7000, signedAt: '2026-06-30' },
+      { id: 'CT-2026-02', planId: 'IP-2026-02', vendor: '비솔루션', title: '보안관제 증설 1차 계약', amount: 5000, signedAt: '2026-07-14' },
+    ],
+    settlements: [
+      { id: 'ST-2026-01', contractId: 'CT-2026-01', item: '착수금', amount: 2100, status: '지급완료', requestedBy: '김현우', requestedAt: '2026-07-05' },
+    ],
     srRequests: [
       { srNo: 'SR-2026-0141', kind: '시스템개발', title: '판매 실적 리포트 화면 개선', system: '영업정보시스템', requester: '김현우', dept: '개발1팀', status: '개발중', requestedAt: '2026-07-21', ci: '박정호', dueDate: '2026-08-14' },
       { srNo: 'SR-2026-0145', kind: '데이터', title: '월별 정산 데이터 추출 요청', system: 'ERP', requester: '김현우', dept: '개발1팀', status: '결재중', requestedAt: '2026-07-29' },

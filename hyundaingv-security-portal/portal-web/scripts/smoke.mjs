@@ -155,6 +155,9 @@ async function main() {
     ['/platform/integrations', 'ADMIN', ['연동 채널', '그룹웨어 메일', '자산관리시스템', 'mock-asset', '인사정보 즉시 동기화', 'portal.config.ts']],
     // 자산등록 — 자산관리 어댑터 조회·미등록 식별
     ['/finance/asset-reg', 'BIZ_MGR', ['SN-NB-88121', 'AST-2025-0112', '미등록', '등록번호 취득']],
+    // 투자 루프 — 계획 스코핑(USER=본인), 실적 집계, 확정 버튼(담당만)
+    ['/finance/invest', 'USER', ['ERP 리포트 모듈 고도화', 'IP-2026-03', '계획대비실적', '정산품의 상신']],
+    ['/finance/invest', 'BIZ_MGR', ['보안관제 시스템 증설', '계획 확정']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
@@ -170,6 +173,13 @@ async function main() {
     const html = await r.text()
     check(!html.includes('SR-2026-0132'), 'USER /sr/requests 에 타인 건(SR-2026-0132) 미노출')
     check(!html.includes('SR-2026-0146'), 'USER /sr/requests 에 타부서 건(SR-2026-0146) 미노출')
+  }
+  {
+    // 경영계획 카드는 개인 스코핑, 계획대비실적·계약내역은 전사 조회(요구사항 조회 ●) —
+    // 사용자에게 숨겨야 하는 것은 '계획 확정' 관리 기능뿐이다
+    const r = await get('/finance/invest', 'USER')
+    const html = await r.text()
+    check(!html.includes('계획 확정'), 'USER /finance/invest 에 확정 버튼 미노출')
   }
   {
     const r = await get('/pledge/dept', 'DEPT_MGR')

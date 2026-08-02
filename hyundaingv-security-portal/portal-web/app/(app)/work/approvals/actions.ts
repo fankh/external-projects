@@ -22,6 +22,12 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
     if (sr && sr.status === '결재중') sr.status = verdict === '승인' ? 'CI배정' : '반려'
   }
 
+  // 폐쇄 루프 1-2 — 정산품의 결재가 지급 상태로 전파되어 계획대비실적 집행액에 반영된다
+  if (ap.docType === '투자 정산품의' && ap.ref) {
+    const st = s.settlements.find((x) => x.id === ap.ref)
+    if (st && st.status === '결재중') st.status = verdict === '승인' ? '지급완료' : '반려'
+  }
+
   // 폐쇄 루프 2 — 내 할일 목록의 해당 결재 건이 자동으로 닫힌다
   const todo = s.todos.find((t) => t.owner === me.name && t.kind === '결재' && t.title.includes(id) && !t.done)
   if (todo) todo.done = true

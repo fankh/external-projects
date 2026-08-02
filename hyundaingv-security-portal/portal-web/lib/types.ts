@@ -40,9 +40,11 @@ export const SR_FLOW: SrStatus[] = ['작성중', '결재중', 'CI배정', '개�
 
 export type ApprovalStatus = '대기' | '승인' | '반려'
 
+export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '서약 현황 상신' | '장애보고 상신'
+
 export interface Approval {
   id: string
-  docType: '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '서약 현황 상신' | '장애보고 상신'
+  docType: ApprovalDocType
   title: string
   drafter: string
   dept: string
@@ -88,6 +90,40 @@ export interface PledgeSign {
   kind: PledgeKind
   signedAt: string
   method: '온라인' | '서면(스캔)'
+}
+
+/** IT 투자 — 경영계획(투자과제) → 시행(계약) → 정산품의 → 계획대비실적 (제품안내서 §03) */
+export interface InvestPlan {
+  id: string
+  year: string
+  title: string
+  owner: string
+  dept: string
+  /** 계획 금액 (만원) */
+  amount: number
+  status: '작성중' | '확정'
+}
+
+export interface InvestContract {
+  id: string
+  /** 경영계획 과제 참조 — 계획외 건은 미지정 (요구사항: 계획 미반영건 추가 가능) */
+  planId?: string
+  vendor: string
+  title: string
+  amount: number
+  signedAt: string
+}
+
+export type SettlementItem = '착수금' | '중도금' | '잔금'
+
+export interface Settlement {
+  id: string
+  contractId: string
+  item: SettlementItem
+  amount: number
+  status: '결재중' | '지급완료' | '반려'
+  requestedBy: string
+  requestedAt: string
 }
 
 /** 발송 이력 — 어댑터 경유 메일·문자 발송 기록 (연동·인프라 화면에서 추적) */
