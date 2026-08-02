@@ -101,3 +101,19 @@ export async function startRound(roundId: string) {
   appendAudit({ actor: session.name, action: '재물조사 개시', target: roundId })
   revalidatePath('/', 'layout')
 }
+
+/** 재물조사 계획 취소 — 아직 개시하지 않은 계획 회차를 폐기한다 (잘못 만든/연기된 회차 정리).
+ *  대상 편성은 참조일 뿐이라 취소해도 자산 상태는 그대로다. 취소하면 미확인 자산은 다시 편성 대상이 된다.
+ *  진행중·완료 회차는 취소할 수 없다. 자산담당·Admin. */
+export async function cancelRound(roundId: string) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '재물조사 계획 취소 권한이 없습니다.' }
+  const s = getStore()
+  const round = s.inventoryRounds.find((r) => r.id === roundId)
+  if (!round) return { ok: false, message: '조사 회차를 찾을 수 없습니다.' }
+  if (round.status !== '계획') return { ok: false, message: `개시·완료된 조사는 취소할 수 없습니다 — ${round.name} (${round.status})` }
+  s.inventoryRounds = s.inventoryRounds.filter((r) => r.id !== roundId)
+  appendAudit({ actor: session.name, action: `재물조사 계획 취소 — ${round.name}`, target: roundId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${round.name} 계획을 취소했습니다.` }
+}

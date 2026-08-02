@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { InventoryRound, RoundKind } from '@/lib/types'
-import { composeUnconfirmedRound, planRound, startRound } from './actions'
+import { cancelRound, composeUnconfirmedRound, planRound, startRound } from './actions'
 
 const STATUS_TONE: Record<InventoryRound['status'], 'ok' | 'info' | 'neutral'> = {
   완료: 'ok', 진행중: 'info', 계획: 'neutral',
@@ -119,8 +119,15 @@ export function PlanView(props: {
                     <td className="c"><Chip tone={STATUS_TONE[r.status]}>{r.status}</Chip></td>
                     <td className="c">
                       {r.status === '계획' && (
-                        <button className="btn sm" disabled={pending}
-                          onClick={() => startTransition(() => startRound(r.id))}>조사 개시</button>
+                        <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
+                          <button className="btn sm" disabled={pending}
+                            onClick={() => startTransition(() => startRound(r.id))}>조사 개시</button>
+                          <button className="btn sm ghost" disabled={pending}
+                            onClick={() => startTransition(async () => {
+                              const res = await cancelRound(r.id)
+                              setMsg({ ok: res.ok, text: res.message })
+                            })}>계획 취소</button>
+                        </span>
                       )}
                       {r.status === '진행중' && (
                         <Link className="btn sm" href={`/inventory/survey?round=${r.id}`}>실사 화면</Link>
