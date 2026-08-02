@@ -38,11 +38,17 @@ export async function answerQuestion(postId: string, body: string) {
   const s = getStore()
   const post = s.posts.find((p) => p.id === postId && p.kind === 'QnA')
   if (!post) return { ok: false, message: '질문을 찾을 수 없습니다.' }
+  const wasAnswered = Boolean(post.answer)
   post.answer = { body: body.trim(), by: session.name, at: today() }
 
-  appendAudit({ actor: session.name, action: 'QnA 답변 등록', target: postId })
+  // 최초 답변 시 문의 작성자에게 알림 발송(발송 이력 적재) — QnA 폼이 "답변 등록 시 알림을 받습니다"라고 약속한다.
+  // 답변 수정(재저장)은 중복 발송하지 않는다.
+  if (!wasAnswered) {
+    dispatch({ channel: '이메일', to: post.author, subject: `[QnA] '${post.title}' 문의에 답변이 등록되었습니다 — ${session.name}`, kind: 'QnA 답변', ref: post.id })
+  }
+  appendAudit({ actor: session.name, action: `QnA 답변 등록${wasAnswered ? ' (수정)' : ' · 작성자 통보'}`, target: postId })
   revalidatePath('/', 'layout')
-  return { ok: true, message: '답변이 등록되었습니다.' }
+  return { ok: true, message: `답변이 등록되었습니다${wasAnswered ? '' : ` — 작성자(${post.author})에게 알림 발송`}.` }
 }
 
 /** QnA 문의 수정 — 작성자 본인 또는 Admin. 답변 전에만 가능(답변된 문의는 맥락이 고정된다). */
