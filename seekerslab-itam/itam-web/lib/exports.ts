@@ -6,7 +6,7 @@ import type { Sheet } from './xlsx'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
  *  (제품안내서 §02: 권한은 메뉴(화면) × 기능(버튼) 단위로 부여) */
-export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals'] as const
+export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals'] as const
 export type ExportKind = (typeof EXPORT_KINDS)[number]
 
 /** 내보내기 대상 ↔ 권한 매트릭스의 메뉴. 허용 여부는 매트릭스의 '엑셀' 칸이 정한다 —
@@ -17,6 +17,7 @@ export const EXPORT_META: Record<ExportKind, { label: string; file: string; menu
   discovered: { label: '발견 자산', file: '발견자산', menu: '발견 자산 · CMDB 대사' },
   contracts: { label: '계약 · 라이선스', file: '계약라이선스', menu: '계약 · 라이선스' },
   approvals: { label: '결재 이력', file: '결재이력', menu: '신청 · 결재' },
+  disposals: { label: '폐기 증적 대장', file: '폐기증적대장', menu: '수명주기' },
 }
 
 export function canExport(kind: ExportKind, role: Role): boolean {
@@ -115,6 +116,18 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         }),
       },
     ]
+  }
+
+  if (kind === 'disposals') {
+    // 폐기 증적 대장 — 감사 대응용. 대상 선정~완료 전 단계와 소거 방식·확인서 번호를 한 장에 남긴다.
+    return [{
+      name: '폐기 증적 대장',
+      header: ['폐기번호', '자산번호', '모델', '폐기 사유', '상태', '소거 방식', '소거일', '처리자', '확인서 번호', '증적'],
+      rows: s.disposals.map((d) => [
+        d.id, d.assetNo, d.model, d.reason, d.status,
+        d.wipeMethod ?? '', d.wipedAt ?? '', d.wipedBy ?? '', d.certNo ?? '', d.evidence ?? '',
+      ]),
+    }]
   }
 
   // approvals

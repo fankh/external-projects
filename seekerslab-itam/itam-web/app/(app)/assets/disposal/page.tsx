@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
@@ -7,7 +8,7 @@ import { DisposalView } from './DisposalView'
 export const dynamic = 'force-dynamic'
 
 export default async function DisposalPage() {
-  await requireRole('ASSET_MGR', 'ADMIN')
+  const session = await requireRole('ASSET_MGR', 'ADMIN')
   const s = getStore()
 
   // 폐기 후보 — 보증 만료 경과 + 현재 폐기 절차에 없는 자산
@@ -32,6 +33,7 @@ export default async function DisposalPage() {
         kicker="자산관리 · Disposal"
         title="폐기 처리"
         desc="폐기 대상 선정 → 결재 상신 → 데이터 소거 · 불용 처리 → 증적(확인서 · 사진) 보존"
+        right={<ExportButton kind="disposals" role={session.role} label="폐기 증적 대장 엑셀" />}
       />
 
       <div className="stat-row">
