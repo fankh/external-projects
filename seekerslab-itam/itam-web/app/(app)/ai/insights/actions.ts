@@ -5,7 +5,7 @@ import { today } from '@/lib/dates'
 import { raiseLicenseApproval } from '@/lib/license'
 import { createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
-import { getStore, nextApprovalId } from '@/lib/store'
+import { getStore, nextApprovalId, nextId } from '@/lib/store'
 
 /** AI 제안 판정 — 담당자 확인·결재를 거쳐야 제안이 조치로 이어진다.
  *  승인·반려 결과는 그대로 남아 재학습 신호(채택률·오탐 유형)로 집계된다.
@@ -71,6 +71,16 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
       })
       d.action = '격리요청'
       action = `격리 요청 상신 — ${id}`
+    }
+  } else if (ins.kind === '취약점 우선순위' && ins.refId) {
+    // EOL·고위험 취약점 자산 → 교체 위해 폐기 대상으로 선정(폐기 결재 게이트를 거친다)
+    const asset = s.assets.find((a) => a.assetNo === ins.refId)
+    if (asset && !['폐기예정', '폐기완료'].includes(asset.status) && !s.disposals.some((d) => d.assetNo === asset.assetNo)) {
+      s.disposals.push({ id: nextId('DSP'), assetNo: asset.assetNo, model: asset.model, reason: `EOL·취약점 조치 1순위 — ${ins.title}`, status: '대상 선정' })
+      asset.status = '폐기예정'
+      action = `폐기(교체) 대상 선정 — ${asset.assetNo}`
+    } else if (asset) {
+      action = `이미 폐기 절차 대상 — ${asset.assetNo}`
     }
   }
 
