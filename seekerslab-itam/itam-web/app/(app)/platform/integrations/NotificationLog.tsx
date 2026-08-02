@@ -10,6 +10,9 @@ export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatc
   const [q, setQ] = useState('')
   const [channel, setChannel] = useState<'전체' | '이메일' | '문자'>('전체')
   const [kind, setKind] = useState('전체')
+  // 기간(발송 증적 감사) — 발송 시각(YYYY-MM-DD HH:MM)의 날짜 부분으로 from~to 범위 필터
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
 
   const kinds = useMemo(() => ['전체', ...[...new Set(dispatches.map((m) => m.kind))]], [dispatches])
   const rows = useMemo(() => {
@@ -17,14 +20,17 @@ export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatc
     return dispatches.filter((m) => {
       if (channel !== '전체' && m.channel !== channel) return false
       if (kind !== '전체' && m.kind !== kind) return false
+      const d = m.at.slice(0, 10)
+      if (from && d < from) return false
+      if (to && d > to) return false
       if (!needle) return true
       return [m.to, m.subject, m.ref ?? ''].some((f) => f.toLowerCase().includes(needle))
     })
-  }, [dispatches, q, channel, kind])
+  }, [dispatches, q, channel, kind, from, to])
 
   // 내보내기는 지금 화면에 보이는 필터를 그대로 반영한다 (v1.49 감사 로그 반출과 동일)
-  const exportHref = `/api/dispatch-export?${new URLSearchParams({ q: q.trim(), channel, kind }).toString()}`
-  const filtered = q.trim() !== '' || channel !== '전체' || kind !== '전체'
+  const exportHref = `/api/dispatch-export?${new URLSearchParams({ q: q.trim(), channel, kind, from, to }).toString()}`
+  const filtered = q.trim() !== '' || channel !== '전체' || kind !== '전체' || from !== '' || to !== ''
 
   return (
     <Card kicker="Notifications" title={`알림 발송 이력 ${dispatches.length}건`} pad={false}
@@ -46,6 +52,12 @@ export function NotificationLog({ dispatches, canExport }: { dispatches: Dispatc
                 <button key={c} className={`btn sm ${channel === c ? 'pri' : 'ghost'}`} onClick={() => setChannel(c)}>{c}</button>
               ))}
             </div>
+            <label className="hstack" style={{ gap: 4, fontSize: 12 }} title="발송 증적 기간 시작일">기간
+              <input className="input" type="date" style={{ width: 140, height: 28 }} value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+            </label>
+            <span className="mut">~</span>
+            <input className="input" type="date" style={{ width: 140, height: 28 }} value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} aria-label="발송 증적 기간 종료일" />
+            {(from || to) && <button className="btn sm ghost" onClick={() => { setFrom(''); setTo('') }}>기간 해제</button>}
             <span className="mut" style={{ fontSize: 12 }}>{rows.length} / {dispatches.length}건</span>
           </div>
           <div className="tbl-wrap">

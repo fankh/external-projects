@@ -378,6 +378,10 @@ try {
   const dispFiltered = await get('/api/dispatch-export?channel=' + encodeURIComponent('문자'), 'SEC_MGR')
   const dFilt = Number(dispFiltered.headers.get('content-length') ?? 0)
   check('발송 이력 엑셀: 화면 필터 반영 반출 (채널=문자는 전체보다 작음)', dispFiltered.status === 200 && dFilt > 0 && dFilt < dFull, `full=${dFull} filtered=${dFilt}`)
+  // 기간(발송 증적) 필터 — 범위 밖(미래) 기간은 0건이라 전체보다 작다
+  const dispDated = await get('/api/dispatch-export?from=2099-01-01', 'SEC_MGR')
+  const dDated = Number(dispDated.headers.get('content-length') ?? 0)
+  check('발송 이력 엑셀: 기간(from/to) 필터 반영 반출', dispDated.status === 200 && dDated > 0 && dDated < dFull, `full=${dFull} dated=${dDated}`)
   const stockXlsx = await get('/api/export/stock', 'SEC_MGR')
   check('엑셀 stock: 보안담당은 권한 밖 (403)', stockXlsx.status === 403, `status=${stockXlsx.status}`)
   const regHtml2 = await (await get('/assets/register', 'ASSET_MGR')).text()
@@ -473,6 +477,7 @@ try {
   check('연동 · 인프라: 보안담당에 커넥터 연결 테스트 노출', intHtml.includes('연결 테스트') && intHtml.includes('연동'))
   check('연동 · 인프라: 보안담당에 감사 로그 엑셀 링크 노출', intHtml.includes('/api/audit-export'))
   check('연동 · 인프라: 감사 로그 기간(from/to) 필터 렌더', intHtml.includes('감사 대응 기간 시작일') && intHtml.includes('감사 대응 기간 종료일'))
+  check('연동 · 인프라: 알림 발송 이력 기간(from/to) 필터 렌더', intHtml.includes('발송 증적 기간 시작일') && intHtml.includes('발송 증적 기간 종료일'))
   const intAsset = await (await get('/platform/integrations', 'ASSET_MGR')).text()
   check('연동 · 인프라: 자산담당은 커넥터 관리 미노출 (조회만)', !intAsset.includes('연결 테스트'))
   check('연동 · 인프라: 자산담당엔 감사 로그 엑셀 링크 없음', !intAsset.includes('/api/audit-export'))

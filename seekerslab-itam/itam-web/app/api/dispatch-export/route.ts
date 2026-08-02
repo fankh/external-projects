@@ -16,11 +16,16 @@ export async function GET(req: Request) {
   const q = (sp.get('q') ?? '').trim().toLowerCase()
   const channel = sp.get('channel') ?? '전체'
   const kind = sp.get('kind') ?? '전체'
-  const filtered = q !== '' || channel !== '전체' || kind !== '전체'
+  const from = sp.get('from') ?? ''
+  const to = sp.get('to') ?? ''
+  const filtered = q !== '' || channel !== '전체' || kind !== '전체' || from !== '' || to !== ''
 
   const rows = getStore().dispatches.filter((m) => {
     if (channel !== '전체' && m.channel !== channel) return false
     if (kind !== '전체' && m.kind !== kind) return false
+    const d = m.at.slice(0, 10)
+    if (from && d < from) return false
+    if (to && d > to) return false
     if (!q) return true
     return [m.to, m.subject, m.ref ?? ''].some((f) => f.toLowerCase().includes(q))
   })
@@ -32,7 +37,7 @@ export async function GET(req: Request) {
   const buf = buildXlsx([sheet])
 
   const scope = filtered
-    ? `필터: ${[channel !== '전체' && `채널=${channel}`, kind !== '전체' && `종류=${kind}`, q && `검색='${q}'`].filter(Boolean).join(', ')}`
+    ? `필터: ${[channel !== '전체' && `채널=${channel}`, kind !== '전체' && `종류=${kind}`, (from || to) && `기간=${from || '~'}~${to || '~'}`, q && `검색='${q}'`].filter(Boolean).join(', ')}`
     : '전체'
   appendAudit({ actor: session.name, action: `알림 발송 이력 내보내기 (${rows.length}건 · ${scope})`, target: '알림 발송 이력' })
 
