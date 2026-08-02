@@ -1,9 +1,11 @@
-import { Card, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { ShadowSaasTable } from './ShadowSaasTable'
 
 export const dynamic = 'force-dynamic'
+
+const RISK_RANK: Record<string, number> = { 높음: 3, 중간: 2, 낮음: 1 }
 
 export default async function SaasPage() {
   const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
@@ -11,6 +13,18 @@ export default async function SaasPage() {
   const rows = [...s.saas].sort((a, b) => b.monthlyVisits - a.monthlyVisits)
   const shadow = rows.filter((x) => !x.sanctioned)
   const canDecide = ['SEC_MGR', 'ADMIN'].includes(session.role)
+
+  // 부서별 미인가 SaaS 노출 요약 — 어느 부서가 Shadow SaaS 위험이 큰지 우선순위화(제품안내서: 미인가 SaaS 사용 현황 부서별).
+  // 미인가 추정 사용자 합이 큰 부서 순. 보안담당이 정책·통보 대상 부서를 바로 고른다.
+  const deptRollup = Object.values(
+    shadow.reduce<Record<string, { dept: string; count: number; users: number; risk: string }>>((acc, x) => {
+      const r = (acc[x.dept] ??= { dept: x.dept, count: 0, users: 0, risk: '낮음' })
+      r.count += 1
+      r.users += x.users
+      if (RISK_RANK[x.risk] > RISK_RANK[r.risk]) r.risk = x.risk
+      return acc
+    }, {}),
+  ).sort((a, b) => b.users - a.users)
 
   return (
     <>
@@ -27,8 +41,32 @@ export default async function SaasPage() {
         <Stat value={rows.filter((x) => x.sanctioned).length} label="인가 카탈로그 등재" tone="ok" />
       </div>
 
-      <Card kicker="By Department" title="부서별 SaaS 사용" pad={false}>
-        <ShadowSaasTable rows={rows} canDecide={canDecide} />
+      <Card kicker="By Department" title="부서별 미인가 SaaS 노출" pad={false}>
+        {deptRollup.length === 0 ? (
+          <div className="empty">미인가 SaaS 노출이 없습니다.</div>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr><th>부서</th><th className="num">미인가 서비스</th><th className="num">추정 사용자</th><th className="c">최고 위험도</th></tr>
+              </thead>
+              <tbody>
+                {deptRollup.map((r) => (
+                  <tr key={r.dept}>
+                    <td className="strong">{r.dept}</td>
+                    <td className="num tnum"><Chip tone="err" bare>{r.count}</Chip></td>
+                    <td className="num tnum">{r.users.toLocaleString()}</td>
+                    <td className="c"><RiskChip risk={r.risk as '높음' | '중간' | '낮음'} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Card kicker="Services" title="SaaS 서비스별 사용·판정" pad={false}>
+        <ShadowSaasTable rows={rows} canDecide={canDecide} depts={[...new Set(rows.map((x) => x.dept))].sort()} />
       </Card>
 
       <div className="callout warn">
