@@ -1,29 +1,34 @@
 import Link from 'next/link'
-import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { canExport } from '@/lib/exports'
 import { getStore } from '@/lib/store'
-import type { AssetCategory } from '@/lib/types'
+import type { Asset } from '@/lib/types'
+import { StockBreakdown, type StockRow } from './StockBreakdown'
 
 export const dynamic = 'force-dynamic'
-
-/** 보유 현황 집계 대상 유형 — 실제 보유 자산이 있는 유형만 표시하되(아래 filter), 공통코드의
- *  미사용 여부로 걸러내지는 않는다. 걸러내면 합계가 총 보유 수와 어긋나 대장이 틀려 보인다. */
-const CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 export default async function StockPage() {
   const session = await requireRole('ASSET_MGR', 'ADMIN')
   const s = getStore()
-  const byCat = CATS.map((c) => {
-    const list = s.assets.filter((a) => a.category === c)
-    return {
-      cat: c,
-      total: list.length,
-      inUse: list.filter((a) => a.status === '사용중').length,
-      idle: list.filter((a) => a.status === '유휴' || a.status === '반납대기').length,
-      etc: list.filter((a) => !['사용중', '유휴', '반납대기'].includes(a.status)).length,
+  // 유형·부서·위치별 보유 현황 (제품안내서 §03). 세 기준 모두 같은 집계 함수로 산출한다.
+  // 유형은 미사용 공통코드로 걸러내지 않는다 — 걸러내면 합계가 총 보유 수와 어긋나 대장이 틀려 보인다.
+  const aggBy = (key: (a: Asset) => string): StockRow[] => {
+    const m = new Map<string, StockRow>()
+    for (const a of s.assets) {
+      const k = key(a) || '-'
+      const cur = m.get(k) ?? { key: k, total: 0, inUse: 0, idle: 0, etc: 0 }
+      cur.total += 1
+      if (a.status === '사용중') cur.inUse += 1
+      else if (a.status === '유휴' || a.status === '반납대기') cur.idle += 1
+      else cur.etc += 1
+      m.set(k, cur)
     }
-  }).filter((r) => r.total > 0)
+    return [...m.values()].sort((x, y) => y.total - x.total)
+  }
+  const byCat = aggBy((a) => a.category)
+  const byDept = aggBy((a) => a.dept)
+  const byLoc = aggBy((a) => a.location)
 
   const idleTotal = s.assets.filter((a) => a.status === '유휴').length
 
@@ -43,39 +48,7 @@ export default async function StockPage() {
       </div>
 
       <div className="cols c2">
-        <Card kicker="Stock" title="유형별 보유 현황" pad={false}
-          actions={<ExportButton kind="stock" role={session.role} label="재고 엑셀" />}>
-          <div className="tbl-wrap">
-            <table className="tbl">
-              <thead>
-                <tr><th>유형</th><th className="num">보유</th><th className="num">사용중</th><th className="num">유휴·반납</th><th className="num">기타</th></tr>
-              </thead>
-              <tbody>
-                {byCat.map((r) => {
-                  const drill = (status?: string) => `/assets/register?cat=${encodeURIComponent(r.cat)}${status ? `&status=${encodeURIComponent(status)}` : ''}`
-                  return (
-                    <tr key={r.cat}>
-                      <td className="strong"><Link href={drill()} title={`${r.cat} 자산 대장에서 보기`}>{r.cat}</Link></td>
-                      <td className="num"><Link href={drill()}>{r.total}</Link></td>
-                      <td className="num">{r.inUse > 0 ? <Link href={drill('사용중')}>{r.inUse}</Link> : r.inUse}</td>
-                      <td className="num">{r.idle > 0 ? <Link href={drill('유휴')}>{r.idle}</Link> : r.idle}</td>
-                      <td className="num mute">{r.etc > 0 ? <Link href={drill()}>{r.etc}</Link> : r.etc}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>합계</td>
-                  <td className="num">{s.assets.length}</td>
-                  <td className="num">{byCat.reduce((n, r) => n + r.inUse, 0)}</td>
-                  <td className="num">{byCat.reduce((n, r) => n + r.idle, 0)}</td>
-                  <td className="num">{byCat.reduce((n, r) => n + r.etc, 0)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </Card>
+        <StockBreakdown byCat={byCat} byDept={byDept} byLoc={byLoc} total={s.assets.length} canExportStock={canExport('stock', session.role)} />
 
         <Card kicker="Physical Inventory" title="재물조사 계획 · 수행" pad={false}
           actions={<Link className="btn sm pri" href="/inventory/survey-plan">조사 계획 등록</Link>}>
