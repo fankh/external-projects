@@ -40,7 +40,46 @@ export const SR_FLOW: SrStatus[] = ['작성중', '결재중', 'CI배정', '개�
 
 export type ApprovalStatus = '대기' | '승인' | '반려'
 
-export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '변경결과 상신' | '서약 현황 상신' | '장애보고 상신' | '점검결과 상신'
+export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '변경결과 상신' | '서약 현황 상신' | '장애보고 상신' | '점검결과 상신' | '출력물폐기 상신' | '보안위반 확인서'
+
+/** 출력물 개인정보관리 — 보안·출력물 시스템(DB 연계)에서 전일자 일배치 이관 → 본인 폐기 등록 → 결재 (결재 시트 13번) */
+export interface PrintoutRecord {
+  id: string
+  printedAt: string
+  name: string
+  dept: string
+  document: string
+  pages: number
+  personalInfo: boolean
+  method?: '세단' | '소각'
+  discardedAt?: string
+  /** approval_code — 미등록(이관 직후) → 등록(폐기 정보 입력) → 결재중 → 폐기확정 */
+  status: '미등록' | '등록' | '결재중' | '폐기확정'
+  approvalRef?: string
+}
+
+/** 재택근무 체크리스트 — 주기(월) 단위 자가점검 제출 */
+export interface RemoteCheck {
+  name: string
+  dept: string
+  period: string
+  submittedAt: string
+}
+
+/** 보안위반 — 업무담당 등록·확인서 요청(메일) → 위반자 본인 확인서 작성·결재 (결재 시트 14번) */
+export type ViolationType = '출력물 방치' | '화면 미잠금' | '인가되지 않은 USB 사용'
+
+export interface Violation {
+  id: string
+  name: string
+  dept: string
+  type: ViolationType
+  detail: string
+  occurredAt: string
+  /** EA130001 징구중 → 결재중 → 완료 */
+  status: '징구중' | '결재중' | '완료'
+  statement?: string
+}
 
 /** 보안점검 (ISMS) — 기준(Template) → 연간 점검계획 → 결과 등록·결재 → 완료 (요구사항 결재 시트 3번) */
 export type InspectionCycle = '월' | '분기' | '반기' | '년'

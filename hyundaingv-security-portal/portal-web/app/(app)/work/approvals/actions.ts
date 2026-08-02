@@ -59,6 +59,24 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
     }
   }
 
+  // 폐쇄 루프 1-6 — 출력물폐기 결재가 상신 묶음 전체의 폐기확정으로 전파된다
+  if (ap.docType === '출력물폐기 상신' && ap.ref) {
+    for (const row of s.printouts.filter((p) => p.approvalRef === ap.ref && p.status === '결재중')) {
+      if (verdict === '승인') {
+        row.status = '폐기확정'
+      } else {
+        row.status = '등록'
+        row.approvalRef = undefined
+      }
+    }
+  }
+
+  // 폐쇄 루프 1-7 — 보안위반 확인서 결재가 위반 건 상태로 전파된다 (승인 → 완료, 반려 → 징구중)
+  if (ap.docType === '보안위반 확인서' && ap.ref) {
+    const v = s.violations.find((x) => x.id === ap.ref)
+    if (v && v.status === '결재중') v.status = verdict === '승인' ? '완료' : '징구중'
+  }
+
   // 폐쇄 루프 1-5 — 점검결과 결재가 점검 진행내역 현황판(계획·미등록·완료 집계)으로 전파된다
   if (ap.docType === '점검결과 상신' && ap.ref) {
     const plan = s.inspectionPlans.find((x) => x.id === ap.ref)

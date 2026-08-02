@@ -4,8 +4,8 @@
 import { CHANNELS } from '@/portal.config'
 import { nowStamp } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { mockAsset, mockHr, mockMail, mockSms } from './mock'
-import type { AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SendResult } from './types'
+import { mockAsset, mockHr, mockMail, mockSecdata, mockSms } from './mock'
+import type { AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SendResult } from './types'
 
 /** adapterId → 구현. 고객사 어댑터를 추가하면 여기에 등록한다. */
 const MESSAGING: Record<string, MessagingAdapter> = {
@@ -14,6 +14,7 @@ const MESSAGING: Record<string, MessagingAdapter> = {
 }
 const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr }
 const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset }
+const SECDATA: Record<string, SecdataAdapter> = { 'mock-secdata': mockSecdata }
 
 export function channelOf(id: string): ChannelBinding | undefined {
   return CHANNELS.find((c) => c.id === id)
@@ -54,4 +55,10 @@ export function assetAdapter(): AssetAdapter | null {
   const ch = channelOf('asset-api')
   if (!ch || !isEnabled('asset-api')) return null
   return ASSET[ch.adapterId] ?? null
+}
+
+export function secdataAdapter(): SecdataAdapter | null {
+  const ch = channelOf('security-db')
+  if (!ch || !isEnabled('security-db')) return null
+  return SECDATA[ch.adapterId] ?? null
 }

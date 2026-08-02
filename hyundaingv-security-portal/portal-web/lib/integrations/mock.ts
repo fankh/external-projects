@@ -1,7 +1,7 @@
 /** 목업 어댑터 — 데모 환경에서 고객사 시스템을 대체한다.
  *  실서비스 커스터마이징: 이 파일을 고객사 어댑터(REST API·DB 연계 구현)로 교체하고
  *  portal.config.ts 의 adapterId 만 바꾼다. 포털 본체 코드는 변경 없음. */
-import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter } from './types'
+import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter } from './types'
 import type { Person } from '@/lib/types'
 
 export const mockMail: MessagingAdapter = {
@@ -43,6 +43,21 @@ const EXTERNAL_ASSETS: ExternalAsset[] = [
   { serial: 'SN-SV-30018', model: 'PowerEdge R760', category: '서버', holder: 'IT운영팀' },
   { serial: 'SN-PR-55290', model: 'Sindoh D420', category: '복합기', holder: '경영지원팀' },
 ]
+
+/** 보안·출력물 시스템 목업 — 전일자 출력물 자료 (실서비스: PRINTERCHASER류 DB 연계) */
+const PRINTOUT_ROWS: PrintoutSourceRow[] = [
+  { printedAt: '2026-08-01 09:12', name: '김현우', dept: '개발1팀', document: '고객사 정산 내역서.xlsx', pages: 4, personalInfo: true },
+  { printedAt: '2026-08-01 10:41', name: '김현우', dept: '개발1팀', document: '판매 실적 보고서.pptx', pages: 12, personalInfo: false },
+  { printedAt: '2026-08-01 11:02', name: '이수진', dept: '경영지원팀', document: '급여 이체 명세.xlsx', pages: 2, personalInfo: true },
+  { printedAt: '2026-08-01 14:27', name: '이수진', dept: '경영지원팀', document: '사무용품 구매 품의.docx', pages: 1, personalInfo: false },
+  { printedAt: '2026-08-01 16:05', name: '박정호', dept: 'IT운영팀', document: '서버 접근권한 신청서.pdf', pages: 3, personalInfo: true },
+]
+
+export const mockSecdata: SecdataAdapter = {
+  async fetchPrintouts() {
+    return PRINTOUT_ROWS
+  },
+}
 
 let assetSeq = 230
 

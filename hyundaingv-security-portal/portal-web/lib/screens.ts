@@ -60,27 +60,6 @@ export const SCREENS: Record<string, StubScreen> = {
       { name: '양식관리', detail: '서약서 양식(HTML·개정일자) 버전 관리' },
     ],
   },
-  '/awareness/remote': {
-    desc: '재택근무 체크리스트 — 재택근무 보안 점검 항목을 제출·취합한다.',
-    features: [
-      { name: '체크리스트 제출', detail: '재택근무자 보안 점검 항목 자가점검' },
-      { name: '현황 취합', detail: '부서·전사 제출 현황 집계' },
-    ],
-  },
-  '/awareness/prints': {
-    desc: '출력물 개인정보관리 — 출력물 폐기현황을 상신·집계한다.',
-    features: [
-      { name: '폐기현황 상신', detail: '목록 체크 상신, 엑셀양식 자동첨부' },
-      { name: '부서 취합', detail: '상신일자·결재상태, 부서 단위 취합' },
-    ],
-  },
-  '/awareness/violations': {
-    desc: '보안위반 관리 — 위반 사실 등록과 사실확인서를 다룬다.',
-    features: [
-      { name: '위반 등록', detail: '위반 유형·조치 등록' },
-      { name: '사실확인서', detail: '보안위반 사실확인서 작성·결재' },
-    ],
-  },
   '/settings/users': {
     desc: '사용자·그룹·결재선 — 계정과 권한그룹, 결재선을 관리한다.',
     features: [

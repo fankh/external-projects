@@ -80,7 +80,8 @@ export const NAV: NavGroup[] = [
       { href: '/pledge/manage', label: '전사 현황 · 양식관리', ico: '▥', roles: BIZ },
       { href: '/awareness/remote', label: '재택근무 체크리스트', ico: '⌂', roles: ALL },
       { href: '/awareness/prints', label: '출력물 개인정보관리', ico: '⎙', roles: ALL },
-      { href: '/awareness/violations', label: '보안위반 관리', ico: '⊘', roles: BIZ },
+      /** 위반자 본인이 사실확인서를 작성해야 하므로 전 권한 접근 — 화면 안에서 본인 건만 노출 */
+      { href: '/awareness/violations', label: '보안위반 관리', ico: '⊘', roles: ALL },
     ],
   },
   {

@@ -53,7 +53,7 @@ const ROUTES = {
   '/pledge/manage': BIZ,
   '/awareness/remote': ALL,
   '/awareness/prints': ALL,
-  '/awareness/violations': BIZ,
+  '/awareness/violations': ALL,
   '/compliance/education': ALL,
   '/compliance/inspection': BIZ,
   '/work/todo': ALL,
@@ -170,6 +170,14 @@ async function main() {
     // 보안교육 — 연간계획·명단 등록(담당)·내 이수현황(사용자)
     ['/compliance/education', 'BIZ_MGR', ['상반기 정보보호 교육', '명단 등록', '이수현황 — 전 임직원', '김현우', '미이수']],
     ['/compliance/education', 'USER', ['내 이수현황', '미이수', 'ED-2026-01']],
+    // 출력물 — secdata 채널 기본 중지 → 이관 불가 안내, 담당에게 이관 버튼
+    ['/awareness/prints', 'BIZ_MGR', ['보안·출력물 시스템 채널이 중지 상태', '전일자 이관 실행', '이관된 출력물 자료가 없습니다']],
+    // 재택 체크리스트 — 제출 폼(사용자)·현황(담당)
+    ['/awareness/remote', 'USER', ['자가점검 제출', '동의하고 제출', 'VPN']],
+    ['/awareness/remote', 'BIZ_MGR', ['전사 제출 현황', '한지원', '미제출']],
+    // 보안위반 — 담당 등록·위반자 본인 확인서
+    ['/awareness/violations', 'BIZ_MGR', ['VL-2026-07', '강도윤', '출력물 방치', '등록 · 안내메일 발송', '위반자 본인 작성 대기']],
+    ['/awareness/violations', 'USER', ['내 위반 내역']],
   ]
   for (const [route, role, needles] of CONTENT) {
     const r = await get(route, role)
@@ -203,6 +211,13 @@ async function main() {
     const r = await get('/board/notices', 'USER')
     const html = await r.text()
     check(!html.includes('공지 등록'), 'USER /board/notices 에 등록 폼 미노출')
+  }
+  {
+    // 위반자 본인 건만 — 김현우(USER)에게 강도윤 위반 미노출, 등록 폼 미노출
+    const r = await get('/awareness/violations', 'USER')
+    const html = await r.text()
+    check(!html.includes('VL-2026-07'), 'USER /awareness/violations 에 타인 위반 미노출')
+    check(!html.includes('위반 등록'), 'USER /awareness/violations 에 등록 폼 미노출')
   }
 
   // 4) 미정의 경로 — 404

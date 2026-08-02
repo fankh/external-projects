@@ -47,10 +47,26 @@ export interface AssetAdapter {
   acquireAssetNo(serial: string): Promise<{ assetNo: string }>
 }
 
+/** 보안·출력물 시스템 — DB 연계 자료 조회 (출력물 개인정보관리 일배치 이관 원천) */
+export interface PrintoutSourceRow {
+  printedAt: string
+  name: string
+  dept: string
+  document: string
+  pages: number
+  personalInfo: boolean
+}
+
+export interface SecdataAdapter {
+  /** 전일자 출력물 자료 조회 — 결재 등 조건 적용된 이관 대상 (요구사항: 일배치 이관) */
+  fetchPrintouts(): Promise<PrintoutSourceRow[]>
+}
+
 /** 어댑터 묶음 — registry 가 adapterId 로 해석한다 */
 export interface AdapterSet {
   mail?: MessagingAdapter
   sms?: MessagingAdapter
   hr?: HrAdapter
   asset?: AssetAdapter
+  secdata?: SecdataAdapter
 }
