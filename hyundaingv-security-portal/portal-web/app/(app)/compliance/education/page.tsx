@@ -41,7 +41,8 @@ async function registerAttendees(formData: FormData) {
     const todo = s.todos.find((t) => t.owner === name && t.kind === '보안교육' && !t.done)
     if (todo) todo.done = true
   }
-  course.status = '완료'
+  // 유효 이수자가 한 명도 없는 과정은 완료로 확정하지 않는다 — 빈 완료 과정은 이수율 집계를 왜곡한다
+  if (s.educationRecords.some((r) => r.courseId === courseId)) course.status = '완료'
   revalidatePath('/', 'layout')
 }
 
