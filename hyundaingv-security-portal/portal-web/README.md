@@ -93,6 +93,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v1.0.17 | chore: e2e 임시 파일(scripts/.e2e-*) gitignore — 스위트 중단 시 잔류물의 오커밋 방지 |
 | v1.0.18 | 데이터 파일 일일 백업 로테이션 — 스케줄러 틱이 일자별 스냅샷(.bak, 보존 7개)을 남겨 논리적 손상의 복구 지점 확보 (배치 이력 기록, e2e persist 검증) |
 | v1.0.19 | docs: 백업 복구 절차 — 스냅샷을 원본 자리에 복사 후 재기동하는 볼륨 조작 예시 (README 배포 절) |
+| v1.0.20 | 의존성 보안 — npm audit high 3건(next 전이 postcss·sharp)을 overrides 로 패치 강제, 취약점 0건 (게이트 3종 + Docker 빌드·기동 재검증) |
 
 ## 배포 (Docker)
 
