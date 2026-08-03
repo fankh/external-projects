@@ -334,6 +334,13 @@ async function main() {
     check(auditCsv.status === 200 && (await auditCsv.text()).includes('행위자'), 'export: 감사 이력 CSV (ADMIN)')
     const auditDenied = await get('/api/export?type=audit', 'BIZ_MGR')
     check(auditDenied.status === 403, 'export: 감사 이력 비Admin 차단(403)')
+    // 부서담당 CSV 는 화면과 동일하게 소속 부서만 담는다
+    const pledgeCsv = await get('/api/export?type=pledge-status', 'DEPT_MGR')
+    const pledgeText = await pledgeCsv.text()
+    check(pledgeCsv.status === 200 && pledgeText.includes('이수진'), 'export: 부서담당 서약 현황 CSV (본인 부서)')
+    check(!pledgeText.includes('김현우'), 'export: 부서담당 서약 CSV 에 타부서 인원 미포함')
+    const remoteDenied = await get('/api/export?type=remote-status', 'USER')
+    check(remoteDenied.status === 403, 'export: USER 재택 현황 차단(403)')
   }
   {
     // 위반자 본인 건만 — 김현우(USER)에게 강도윤 위반 미노출, 등록 폼 미노출
