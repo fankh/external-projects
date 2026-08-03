@@ -166,6 +166,10 @@ try {
   check('대시보드(사용자): 내 대여 자산 반환 기한 노출', dashUser.includes('내 대여 자산') && dashUser.includes('AST-2024-000230') && dashUser.includes('까지'))
   // 미확인 필독 공지 넛지 — 사용자가 로그인 시 미확인 필독 공지를 스스로 챙기게 한다(관리자 독촉·명단의 사용자 측 짝). NTC-01(필독, 0 acks)로 검증.
   check('대시보드(사용자): 미확인 필독 공지 넛지 + 특정 공지 딥링크', dashUser.includes('미확인 필독 공지') && dashUser.includes('2026 하반기 재물조사') && dashUser.includes('/board/notices?sel=NTC-01'))
+  // 우리 부서 소유자 확인 요청 넛지 — 김민준(플랫폼개발팀) 앞으로 온 APR-2607-114 응답 대기. 결재 딥링크(v1.143)
+  check('대시보드(사용자): 우리 부서 소유자 확인 요청 넛지 + 결재 딥링크', dashUser.includes('소유자 확인 요청 — 응답 필요') && dashUser.includes('DSC-2607-0041') && dashUser.includes('/workflow/approvals?sel=APR-2607-114'))
+  // 다른 부서(자산관리팀=박자산)에는 해당 요청 넛지가 뜨지 않는다 (부서 스코프)
+  check('대시보드: 타 부서엔 소유자 확인 넛지 미노출 (부서 스코프)', !dashHtml.includes('소유자 확인 요청 — 응답 필요'))
   // 최근 활동 위젯 — 감사 로그 접근 권한(비사용자)에만 노출
   check('대시보드: 최근 활동 위젯(자산담당) + 감사 로그 링크', dashHtml.includes('최근 활동') && dashHtml.includes('/platform/integrations'))
   check('대시보드: 사용자에겐 최근 활동 위젯 미노출', !dashUser.includes('최근 활동'))
