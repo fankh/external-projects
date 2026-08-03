@@ -27,7 +27,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 36개 화면(34개 요구 화면 + 감사 이력 + 통합 검색) 전부 구현, 요구사항 3개 시트
 (메뉴체계 84행 · 결재 14건 · 첨부 지점) 소진. 결재는 상신 → 상세 확인 → 승인/사유
 반려 → 보완 재상신의 전체 생명주기를 갖추고, 고객사 전환은 `PORTAL_PROFILE`
-환경변수 한 개로 검증된다. 게이트 3종(smoke 463 · health 46화면 · e2e 12시나리오)
+환경변수 한 개로 검증된다. 게이트 3종(smoke 464 · health 46화면 · e2e 12시나리오)
 전부 통과한 상태를 v1.0 으로 선언하고, 이후 v1.0.x 로 결함 수정·폐쇄 루프 보강을 이어간다.
 
 ### 버전 이력
@@ -97,6 +97,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v1.0.21 | docs(roadmap): 운영 수칙에 주기적 npm audit 점검 편입 (overrides 우선·의존성 변경 시 게이트+Docker 재검증) |
 | v1.0.22 | Content-Security-Policy 헤더 — self 한정·object/frame/base/form-action 봉쇄 (인라인 스크립트는 Next 하이드레이션 제약으로 허용, dev 만 unsafe-eval) + 스모크 CSP 검증 2건 (463체크) |
 | v1.0.23 | docs: 구축 요약 게이트 수치·보안 헤더 4종 현행화 (CSP 반영) |
+| v1.0.24 | Permissions-Policy 헤더 — 미사용 브라우저 기능(카메라·마이크·위치·결제) 명시 봉쇄, 보안 헤더 5종 체계 (스모크 464체크) |
 
 ## 배포 (Docker)
 

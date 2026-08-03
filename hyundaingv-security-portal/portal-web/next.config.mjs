@@ -28,6 +28,8 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'same-origin' },
           { key: 'Content-Security-Policy', value: CSP },
+          // 포털이 쓰지 않는 브라우저 기능은 명시적으로 봉쇄한다
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
         ],
       },
     ]
