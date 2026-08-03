@@ -5,7 +5,7 @@ import { daysUntil } from '@/lib/dates'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
 import { AddContract, ContractsTable } from './ContractsTable'
-import { AddLicense, ExpiryNoticeButton, LicenseAction } from './LicenseActions'
+import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew } from './LicenseActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,7 +74,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                         <div className="lbl"><span>{Math.round((l.used / l.purchased) * 100)}%</span><span>{over ? `${l.used - l.purchased}석 초과` : `${l.purchased - l.used}석 여유`}</span></div>
                       </div>
                     </td>
-                    <td className="tnum">{l.expiry}</td>
+                    <td><LicenseRenew id={l.id} expiry={l.expiry} renewals={l.renewals?.length ?? 0} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} /></td>
                     <td className="c">
                       {over ? <Chip tone="err">초과 사용</Chip> : low ? <Chip tone="warn">미사용 보유</Chip> : <Chip tone="ok">적정</Chip>}
                     </td>

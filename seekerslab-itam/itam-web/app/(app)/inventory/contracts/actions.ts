@@ -156,6 +156,31 @@ export async function renewContract(id: string, termYears: number) {
   return { ok: true, message: `${c.id} ${c.name} 갱신 완료 — 만료일 ${oldEnd} → ${newEnd} (${termYears}년)` }
 }
 
+/** 라이선스 갱신 — 구독 라이선스의 만료일을 연장한다(계약 갱신과 동형). 영구(-) 라이선스는 대상 아님.
+ *  갱신 이력을 라이선스에 남겨 구독 기간 변천을 추적한다. 자산담당·Admin. */
+export async function renewLicense(id: string, termYears: number) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '라이선스 갱신 권한이 없습니다 (자산담당·Admin).' }
+  if (![1, 2, 3].includes(termYears)) return { ok: false, message: '갱신 기간은 1·2·3년만 가능합니다.' }
+
+  const s = getStore()
+  const l = s.licenses.find((x) => x.id === id)
+  if (!l) return { ok: false, message: '라이선스를 찾을 수 없습니다.' }
+  if (l.expiry === '-') return { ok: false, message: '영구 라이선스는 갱신 대상이 아닙니다.' }
+
+  const base = l.expiry >= today() ? l.expiry : today()
+  const [y, m, d] = base.split('-')
+  const newExpiry = `${Number(y) + termYears}-${m}-${d}`
+  const oldExpiry = l.expiry
+  l.expiry = newExpiry
+  ;(l.renewals ??= []).push({ date: today(), from: oldExpiry, to: newExpiry, termYears, by: session.name })
+
+  appendAudit({ actor: session.name, action: `라이선스 갱신 (${termYears}년) — ${l.name}: ${oldExpiry} → ${newExpiry}`, target: l.id })
+  dispatch({ channel: '이메일', to: 'IT기획팀', subject: `${l.name} 라이선스 갱신 완료 — 만료일 ${newExpiry} (${termYears}년 연장)`, kind: '만료 임박', ref: l.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${l.name} 갱신 완료 — 만료일 ${oldExpiry} → ${newExpiry} (${termYears}년)` }
+}
+
 /** 계약 해지 — 공급사 교체·서비스 중단 등으로 만료 전에 계약을 조기 종료한다.
  *  (그동안 계약은 등록·갱신·만료뿐이고 조기 종료 경로가 없어, 해지된 계약도 만료 임박 알림을 계속 울렸다.)
  *  해지하면 만료 임박 집계·알림에서 빠지고 갱신도 막힌다. 주관부서·공급사에 해지 통보를 남긴다. 자산담당·Admin. */

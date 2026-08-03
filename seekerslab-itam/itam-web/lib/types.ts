@@ -164,10 +164,10 @@ export interface Contract {
   /** 비용 이력 — 유지보수 계약의 정기·수시 지출 기록. 제품안내서 §03 유지보수 계약: 비용 이력 */
   costs?: ContractCost[]
   /** 갱신 이력 — 계약 기간 연장 기록(이전 만료일→새 만료일). 계약 카드·상세에서 계약 생애주기(등록→갱신×N→만료/해지) 추적 */
-  renewals?: ContractRenewal[]
+  renewals?: Renewal[]
 }
 
-export interface ContractRenewal {
+export interface Renewal {
   date: string
   from: string
   to: string
@@ -204,6 +204,8 @@ export interface SwLicense {
   used: number
   expiry: string
   unitCost: number
+  /** 갱신 이력 — 라이선스 만료일 연장 기록(계약 갱신과 동형). 라이선스 카드에서 구독 기간 변천 추적 */
+  renewals?: Renewal[]
 }
 
 export type ApprovalKind = '자산 신청' | '반납' | '이동' | '대여' | '폐기' | '소유자 확인' | '격리 요청' | '차이 조정' | 'SaaS 인가'

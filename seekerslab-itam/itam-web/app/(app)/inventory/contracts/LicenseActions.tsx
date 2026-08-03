@@ -1,9 +1,32 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { actOnLicense, addLicense, sendExpiryNotices } from './actions'
+import { actOnLicense, addLicense, renewLicense, sendExpiryNotices } from './actions'
 
 type Row = { id: string; over: boolean; low: boolean; seats: number; pendingApproval?: string }
+
+/** 라이선스 갱신 — 만료일 옆에서 구독 기간을 연장한다(계약 갱신과 동형). 영구(-) 라이선스는 갱신 컨트롤을 숨긴다. */
+export function LicenseRenew({ id, expiry, renewals, canEdit }: { id: string; expiry: string; renewals: number; canEdit: boolean }) {
+  const [open, setOpen] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+  const renew = (y: number) => startTransition(async () => { const r = await renewLicense(id, y); setMsg(r.message); if (r.ok) setOpen(false) })
+  return (
+    <span className="hstack" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <span className="tnum">{expiry}</span>
+      {renewals > 0 && <span title="갱신 이력"><Chip tone="ok" bare>갱신 {renewals}회</Chip></span>}
+      {canEdit && expiry !== '-' && (open ? (
+        <span className="hstack" style={{ gap: 4 }}>
+          {[1, 2, 3].map((y) => <button key={y} className="btn sm pri" disabled={pending} onClick={() => renew(y)}>{y}년</button>)}
+          <button className="btn sm ghost" disabled={pending} onClick={() => setOpen(false)}>취소</button>
+        </span>
+      ) : (
+        <button className="btn sm" disabled={pending} title="구독 기간 연장 (1·2·3년)" onClick={() => { setOpen(true); setMsg(null) }}>갱신</button>
+      ))}
+      {msg && <span className="dim" style={{ fontSize: 11, flexBasis: '100%', textAlign: 'right' }}>{msg}</span>}
+    </span>
+  )
+}
 
 export function AddLicense() {
   const [open, setOpen] = useState(false)

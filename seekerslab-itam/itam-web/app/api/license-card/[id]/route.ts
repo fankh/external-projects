@@ -72,6 +72,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     </div>
     <h2>비용 노출 · 조치</h2>
     <div class="exp">${esc(exposure)}</div>
+    ${(l.renewals ?? []).length ? `<h2>갱신 이력 (${l.renewals!.length}회)</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #c3c8d0;color:#5b6470">갱신일</th>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #c3c8d0;color:#5b6470">기간</th>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #c3c8d0;color:#5b6470">만료일 변경</th>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #c3c8d0;color:#5b6470">처리자</th>
+    </tr></thead><tbody>${[...l.renewals!].reverse().map((rn) => `<tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #eef1f5;color:#5b6470">${esc(rn.date)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eef1f5;font-weight:600">${rn.termYears}년</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eef1f5">${esc(rn.from)} → ${esc(rn.to)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eef1f5;color:#5b6470">${esc(rn.by)}</td>
+    </tr>`).join('')}</tbody></table>` : ''}
     <div class="foot">발급: SEEKERSLAB ITAM — AI 자산관리 플랫폼 · 발급자 ${esc(session.name)} · 컴플라이언스 STEP 3(보유–사용 대사)</div>
   </div>
 </body></html>`
