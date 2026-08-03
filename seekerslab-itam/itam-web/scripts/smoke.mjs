@@ -334,6 +334,8 @@ try {
   check('도입·검수: 체크리스트·라벨 렌더', inHtml.includes('검수 체크리스트') && inHtml.includes('전원·부팅 정상 동작') && inHtml.includes('<svg'))
   // 유형별 검수 체크리스트 — 기본 선택된 단말 로트(IN-2607-01)에 단말 고유 항목(디스크 암호화)이 렌더된다
   check('도입·검수: 유형별 체크리스트(단말 — 디스크 암호화)', inHtml.includes('디스크 암호화(BitLocker/FileVault) 활성화'))
+  // 발주 단가 — 로트 단가가 채번 자산 취득가로 반영됨을 안내(IN-2607-01 단가 1,650,000)
+  check('도입·검수: 발주 단가 → 채번 취득가 반영 안내', inHtml.includes('발주 단가') && inHtml.includes('1,650,000') && inHtml.includes('취득가로 반영'))
   check('도입·검수: 발주 연계 입고 등록 진입점', inHtml.includes('입고 등록'))
   check('도입·검수: QR·바코드 SVG 발행', (inHtml.match(/<svg/g) ?? []).length >= 2 && inHtml.includes('AST-2025-000033'))
   // 도입 예정 — ITSM SR·발주 사전 등록 → 도착 전 자산 (제품안내서 §06 ITSM·구매 연동)

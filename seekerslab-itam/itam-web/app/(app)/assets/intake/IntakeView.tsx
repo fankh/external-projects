@@ -23,6 +23,7 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
   const [rmodel, setRmodel] = useState('')
   const [rcat, setRcat] = useState<AssetCategory>('단말')
   const [rqty, setRqty] = useState('1')
+  const [runit, setRunit] = useState('')
   const [rejecting, setRejecting] = useState(false)
   const [rjReason, setRjReason] = useState('')
   // 도입 예정 사전 등록 폼 (ITSM SR·발주)
@@ -32,16 +33,17 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
   const [pmodel, setPmodel] = useState('')
   const [pcat, setPcat] = useState<AssetCategory>('단말')
   const [pqty, setPqty] = useState('1')
+  const [punit, setPunit] = useState('')
   const [pdate, setPdate] = useState('')
   const registerLot = () => {
     startTransition(async () => {
-      const r = await registerIntakeLot(rc, rmodel, rcat, Number(rqty))
+      const r = await registerIntakeLot(rc, rmodel, rcat, Number(rqty), Number(runit || 0))
       setMsg({ ok: r.ok, text: r.message })
       if (r.ok) { setRegOpen(false); setRmodel(''); setRqty('1') }
     })
   }
   const preRegister = () => startTransition(async () => {
-    const r = await preRegisterLot({ contractId: pc, srNo: psr, model: pmodel, category: pcat, qty: Number(pqty), expectedDate: pdate })
+    const r = await preRegisterLot({ contractId: pc, srNo: psr, model: pmodel, category: pcat, qty: Number(pqty), expectedDate: pdate, unitCost: Number(punit || 0) })
     setMsg({ ok: r.ok, text: r.message })
     if (r.ok) { setPreOpen(false); setPsr(''); setPmodel(''); setPqty('1'); setPdate('') }
   })
@@ -73,6 +75,7 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
               {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <input className="input" type="number" min={1} max={1000} style={{ width: 76 }} value={pqty} disabled={pending} onChange={(e) => setPqty(e.target.value)} />
+            <input className="input" type="number" min={0} style={{ width: 110 }} placeholder="발주 단가(원)" value={punit} disabled={pending} onChange={(e) => setPunit(e.target.value)} />
             <label className="hstack" style={{ gap: 4, fontSize: 12 }}>도착 예정
               <input className="input" type="date" style={{ width: 150 }} value={pdate} disabled={pending} onChange={(e) => setPdate(e.target.value)} />
             </label>
@@ -128,6 +131,7 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
               {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <input className="input" type="number" min={1} max={1000} style={{ width: 80 }} value={rqty} disabled={pending} onChange={(e) => setRqty(e.target.value)} />
+            <input className="input" type="number" min={0} style={{ width: 110 }} placeholder="발주 단가(원)" value={runit} disabled={pending} onChange={(e) => setRunit(e.target.value)} />
             <button className="btn sm pri" disabled={pending || !rmodel.trim() || !rc} onClick={registerLot}>등록</button>
             <span className="mut" style={{ fontSize: 11 }}>등록 즉시 ‘입고 대기’로 검수 대기열에 편성됩니다.</span>
           </div>
@@ -181,6 +185,9 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
                 </button>
               ))}
             </div>
+            {sel.unitCost ? (
+              <div className="dim" style={{ marginTop: 12, fontSize: 12 }}>발주 단가 <b>{sel.unitCost.toLocaleString()}원</b> — 채번 시 각 자산의 취득가로 반영됩니다.</div>
+            ) : null}
             <div className="hstack" style={{ marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
               <button className="btn pri" disabled={pending || sel.status !== '검수 완료' || sel.issued.length >= sel.qty}
                 onClick={() => startTransition(async () => {

@@ -56,7 +56,7 @@ export async function rejectIntakeLot(lotId: string, reason: string) {
 
 /** 발주 연계 입고 등록 — 구매 계약에 묶어 새 입고 건을 등록한다(도입·검수 파이프라인 진입점).
  *  (제품안내서 §03: 발주 연계 입고 → 검수 체크리스트 → 채번 → 라벨) */
-export async function registerIntakeLot(contractId: string, model: string, category: AssetCategory, qty: number) {
+export async function registerIntakeLot(contractId: string, model: string, category: AssetCategory, qty: number, unitCost = 0) {
   const session = await getSession()
   if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '입고 등록 권한이 없습니다 (자산담당·Admin).' }
@@ -84,6 +84,7 @@ export async function registerIntakeLot(contractId: string, model: string, categ
     checklist: checklistFor(category).map((item) => ({ item, checked: false })),
     issued: [],
     inspector: session.name,
+    unitCost: unitCost > 0 ? Math.round(unitCost) : undefined,
   })
 
   appendAudit({ actor: session.name, action: `입고 등록 — ${m} ${qty}대 (${contract.id})`, target: id })
@@ -94,7 +95,7 @@ export async function registerIntakeLot(contractId: string, model: string, categ
 /** ITSM SR·발주 연계 도입 예정 사전 등록 — 아직 도착하지 않은(발주된) 자산을 미리 등록한다.
  *  (제품안내서 §06 ITSM·구매 연동: SR·발주 정보 연계 — 도입 예정 자산 사전 등록)
  *  물리 입고 전 단계이므로 검수 체크리스트·채번은 아직 없다. 도착(markLotArrived) 시 입고 대기로 전환된다. 자산담당·Admin. */
-export async function preRegisterLot(input: { contractId: string; srNo: string; model: string; category: AssetCategory; qty: number; expectedDate: string }) {
+export async function preRegisterLot(input: { contractId: string; srNo: string; model: string; category: AssetCategory; qty: number; expectedDate: string; unitCost?: number }) {
   const session = await getSession()
   if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '도입 예정 등록 권한이 없습니다 (자산담당·Admin).' }
@@ -115,6 +116,7 @@ export async function preRegisterLot(input: { contractId: string; srNo: string; 
     id, contractId: input.contractId, model: m, category: input.category, qty: input.qty,
     arrivedAt: '', vendor: contract.vendor, status: '도입 예정',
     checklist: [], issued: [], srNo, expectedDate: input.expectedDate,
+    unitCost: input.unitCost && input.unitCost > 0 ? Math.round(input.unitCost) : undefined,
   })
   appendAudit({ actor: session.name, action: `도입 예정 사전 등록 — ${m} ${input.qty}대 (SR ${srNo})`, target: id })
   revalidatePath('/', 'layout')
@@ -183,6 +185,8 @@ export async function issueAssetNo(lotId: string) {
     purchaseDate: lot.arrivedAt,
     warrantyEnd: `${Number(year) + 3}-${today().slice(5)}`,
     contractId: lot.contractId,
+    // 발주 단가가 입력됐으면 실제 취득 원가로 반영(없으면 유형 표준 단가 폴백 — lib/cost)
+    acquisitionCost: lot.unitCost && lot.unitCost > 0 ? lot.unitCost : undefined,
     history: [
       { date: today(), kind: '등록', detail: `${lot.contractId} 발주 연계 입고 · 검수 완료 후 채번 (${lot.id})`, actor: session.name },
     ],

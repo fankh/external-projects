@@ -463,14 +463,14 @@ function seed(): Store {
     intakeLots: [
       {
         id: 'IN-2607-01', contractId: 'CT-2026-009', model: 'ThinkPad X1 Carbon G12', category: '단말',
-        qty: 40, arrivedAt: '2026-07-21', vendor: '(주)한빛INT', status: '검수 중', inspector: '박자산',
+        qty: 40, arrivedAt: '2026-07-21', vendor: '(주)한빛INT', status: '검수 중', inspector: '박자산', unitCost: 1_650_000,
         // 단말 유형별 검수 체크리스트 — 앞 3항목 검수 완료(진행 중 시연). 코드 경로(checklistFor)와 동일 항목.
         checklist: checklistFor('단말').map((item, i) => ({ item, checked: i < 3 })),
         issued: ['AST-2025-000033'],
       },
       {
         id: 'IN-2607-02', contractId: 'CT-2023-021', model: 'PowerEdge R760', category: '서버',
-        qty: 2, arrivedAt: '2026-07-27', vendor: '델테크놀로지스', status: '입고 대기',
+        qty: 2, arrivedAt: '2026-07-27', vendor: '델테크놀로지스', status: '입고 대기', unitCost: 12_800_000,
         // 서버 유형별 검수 체크리스트 — 전원 이중화·RAID·관리포트 등 서버 고유 항목 포함(checklistFor 와 동일).
         checklist: checklistFor('서버').map((item) => ({ item, checked: false })),
         issued: [],
@@ -478,7 +478,7 @@ function seed(): Store {
       {
         // 도입 예정 — ITSM SR·발주로 사전 등록된, 아직 도착 전 자산 (제품안내서 §06 ITSM·구매 연동)
         id: 'IN-2607-03', contractId: 'CT-2026-009', model: 'ThinkPad X1 Carbon G12', category: '단말',
-        qty: 15, arrivedAt: '', vendor: '(주)한빛INT', status: '도입 예정', srNo: 'SR-2607-041', expectedDate: '2026-08-14',
+        qty: 15, arrivedAt: '', vendor: '(주)한빛INT', status: '도입 예정', srNo: 'SR-2607-041', expectedDate: '2026-08-14', unitCost: 1_650_000,
         checklist: [], issued: [],
       },
     ],
@@ -649,7 +649,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 22
+const SCHEMA_VERSION = 23
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

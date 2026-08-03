@@ -393,6 +393,8 @@ export interface IntakeLot {
   srNo?: string
   /** 도입 예정 도착 예정일 — 아직 물리 입고 전(도입 예정) 단계에서만 의미 */
   expectedDate?: string
+  /** 발주 단가(원) — 입고 시 입력. 채번 자산의 취득가로 반영돼 유형 표준 단가 대신 실제 취득 원가를 쓴다. */
+  unitCost?: number
 }
 
 /** 폐기 — 대상 선정 → 결재 → 데이터 소거 → 증적 보존 */
