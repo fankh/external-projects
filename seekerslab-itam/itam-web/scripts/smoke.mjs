@@ -139,6 +139,13 @@ try {
   // 정합성 미흡 상세 배너 — AST-2022-000512(사용중·소유자/위치 미지정)에 누락 필드가 표시된다
   const regDq = await (await get('/assets/register?sel=AST-2022-000512', 'ASSET_MGR')).text()
   check('자산 대장: 정합성 미흡 상세 배너(소유자·위치 누락)', regDq.includes('대장 정합성 미흡') && regDq.includes('소유자 미지정') && regDq.includes('위치 누락'))
+  // 정합성 보정 — 누락 필드 인라인 정정 컨트롤(자산담당). USER 는 조회 전용이라 미노출
+  check('자산 대장: 정합성 보정 인라인 컨트롤(자산담당)', regDq.includes('보정할 소유자') && regDq.includes('보정할 위치'))
+  const regDqUser = await (await get('/assets/register?sel=AST-2022-000512', 'USER')).text()
+  check('자산 대장(사용자): 정합성 보정 컨트롤 미노출 (조회 전용)', !regDqUser.includes('보정할 소유자'))
+  // SW 자산은 물리 위치·시리얼이 없어 정합성 이슈가 아니다 — 오탐 방지(AST-2023-000720 · Microsoft 365, 위치 '-')
+  const regSw = await (await get('/assets/register?sel=AST-2023-000720', 'ASSET_MGR')).text()
+  check('자산 대장: SW 자산 위치 누락은 정합성 이슈 아님 (오탐 방지)', !regSw.includes('대장 정합성 미흡'))
   // 다중 선택(보증 일괄 연장·선택 내보내기 공용) — 자산담당에 전체 선택 체크박스 노출, 사용자엔 미노출(canEdit)
   check('자산 대장: 다중 선택 전체 선택 체크박스(자산담당)', mgrHtml.includes('현재 필터의 자산 전체 선택'))
   // CSV 일괄 등록 — 자산담당·Admin 에 온보딩 패널, 사용자엔 미노출

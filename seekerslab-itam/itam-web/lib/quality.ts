@@ -1,4 +1,7 @@
-import type { Asset } from './types'
+import type { Asset, AssetCategory } from './types'
+
+/** 물리 실물이 있는 유형 — 시리얼·위치는 이들에만 요구한다. SW·가상자원은 물리 시리얼·위치가 없다. */
+const PHYSICAL: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기']
 
 /** 대장 정합성 점검 — 운영 중 자산의 핵심 필드 누락·불일치를 찾아낸다.
  *  CMDB 의 신뢰도는 대장과 실물의 일치에서 나온다(제품안내서 §03: 대장과 실물의 불일치를 줄인다).
@@ -6,12 +9,12 @@ import type { Asset } from './types'
 export function assetDataIssues(a: Asset): string[] {
   const issues: string[] = []
   const blank = (v?: string) => !v || v.trim() === '' || v.trim() === '-'
+  const physical = PHYSICAL.includes(a.category)
   // 사용중·대여중인데 소유자가 없다 — 실물을 쥔 사람이 대장에 없다(회수·재배정 누락)
   if ((a.status === '사용중' || a.status === '대여중') && blank(a.owner)) issues.push('소유자 미지정')
-  // 시리얼 누락 — 실물 대조·보증 청구의 기준값이 없다
-  if (blank(a.serial)) issues.push('시리얼 누락')
-  // 위치 누락 — 재물조사·회수 시 찾을 수 없다
-  if (blank(a.location)) issues.push('위치 누락')
+  // 시리얼·위치는 실물 자산(H/W)만 — SW·가상자원은 물리 시리얼·위치가 없어 오탐이 된다
+  if (physical && blank(a.serial)) issues.push('시리얼 누락')
+  if (physical && blank(a.location)) issues.push('위치 누락')
   return issues
 }
 

@@ -5,7 +5,7 @@ import { Chip } from '@/components/ui'
 import { ASSET_CATEGORIES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
-import { extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField } from './actions'
+import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -65,6 +65,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [cfgValue, setCfgValue] = useState('')
   const [cfgNote, setCfgNote] = useState('')
   const [cfgMsg, setCfgMsg] = useState<string | null>(null)
+  const [fixVal, setFixVal] = useState<Record<string, string>>({})
+  const [fixMsg, setFixMsg] = useState<string | null>(null)
   const [wtyOpen, setWtyOpen] = useState(false)
   const [lostOpen, setLostOpen] = useState(false)
   const [lostType, setLostType] = useState<'분실' | '도난'>('분실')
@@ -272,14 +274,41 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             )}
             {(() => {
               const issues = assetDataIssues(sel)
-              return issues.length > 0 ? (
+              if (issues.length === 0) return null
+              // 이슈 라벨 → 보정 필드 매핑
+              const fieldOf: Record<string, StewardField> = { '소유자 미지정': '소유자', '시리얼 누락': '시리얼', '위치 누락': '위치' }
+              return (
                 <div className="callout warn" style={{ margin: '10px 0 0', padding: '8px 11px' }}>
-                  <b>대장 정합성 미흡</b> — 핵심 필드 보정 필요:{' '}
-                  <span className="hstack" style={{ gap: 4, flexWrap: 'wrap', display: 'inline-flex', verticalAlign: 'middle' }}>
+                  <div className="hstack" style={{ gap: 4, flexWrap: 'wrap' }}>
+                    <b>대장 정합성 미흡</b> — 핵심 필드 보정 필요:
                     {issues.map((it) => <Chip key={it} tone="warn" bare>{it}</Chip>)}
-                  </span>
+                  </div>
+                  {props.canEdit && (
+                    <div className="vstack" style={{ gap: 6, marginTop: 8 }}>
+                      {issues.map((it) => {
+                        const field = fieldOf[it]
+                        if (!field) return null
+                        const k = `${sel.assetNo}:${field}`
+                        return (
+                          <div key={it} className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                            <span className="mut" style={{ fontSize: 12, minWidth: 64 }}>{field}</span>
+                            <input className="input" style={{ flex: 1, minWidth: 120 }} disabled={pending}
+                              placeholder={field === '소유자' ? '보정할 소유자(성명)' : field === '위치' ? '보정할 위치' : '보정할 시리얼(S/N)'}
+                              value={fixVal[k] ?? ''} onChange={(e) => setFixVal((m) => ({ ...m, [k]: e.target.value }))} />
+                            <button className="btn sm pri" disabled={pending || !(fixVal[k] ?? '').trim()}
+                              onClick={() => startTransition(async () => {
+                                const r = await correctField(sel.assetNo, field, fixVal[k] ?? '', '정합성 점검')
+                                setFixMsg(r.message)
+                                if (r.ok) setFixVal((m) => ({ ...m, [k]: '' }))
+                              })}>보정</button>
+                          </div>
+                        )
+                      })}
+                      {fixMsg && <div className="mut" style={{ fontSize: 11.5 }}>{fixMsg}</div>}
+                    </div>
+                  )}
                 </div>
-              ) : null
+              )
             })()}
             <dl className="kv" style={{ marginTop: 14 }}>
               <dt>상태</dt><dd><Chip tone={STATUS_TONE[sel.status]}>{sel.status}</Chip></dd>

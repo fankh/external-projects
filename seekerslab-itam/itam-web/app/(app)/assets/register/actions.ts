@@ -58,6 +58,39 @@ export async function recordConfigChange(assetNo: string, field: ConfigField, ra
   return { ok: true, message: `${asset.assetNo} 구성변경 기록 — ${detail}` }
 }
 
+/** 정합성 보정 대상 — 대장 정합성 점검(lib/quality)이 잡는 누락 핵심 필드. */
+export type StewardField = '소유자' | '위치' | '시리얼'
+const STEWARD_KEY: Record<StewardField, 'owner' | 'location' | 'serial'> = { 소유자: 'owner', 위치: 'location', 시리얼: 'serial' }
+
+/** 정합성 보정 — 누락(공백/'-')된 핵심 필드를 채워 대장-실물 일치를 회복한다(제품안내서 §03 CMDB 정합성).
+ *  **누락 필드 채움만** 허용 — 기존 값 변경(실물 이동·소유자 재배정)은 이동·불출 결재를 거쳐야 하므로 여기서 막는다(거버넌스).
+ *  데이터 정정 이벤트라 '점검' 이력으로 남기고 감사한다. 자산담당·Admin. */
+export async function correctField(assetNo: string, field: StewardField, rawValue: string, rawNote: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '정합성 보정 권한이 없습니다 (자산담당·Admin).' }
+  const key = STEWARD_KEY[field]
+  if (!key) return { ok: false, message: '보정할 필드가 올바르지 않습니다.' }
+
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+
+  const value = rawValue.trim()
+  const note = rawNote.trim()
+  if (!value || value === '-') return { ok: false, message: `${field} 의 값을 입력하세요.` }
+
+  const before = (asset[key] ?? '').trim()
+  // 이미 값이 있으면 정정이 아니라 변경 — 거버넌스 대상이라 이동·불출 절차로 유도한다.
+  if (before && before !== '-') return { ok: false, message: `${field} 은 이미 값이 있습니다 — 실물 변경은 이동·불출 결재로 처리하세요.` }
+
+  asset[key] = value
+  const detail = `정합성 보정 — ${field} 항목 입력 → ${value}${note ? ` (${note})` : ''}`
+  asset.history.push({ date: today(), kind: '점검', detail, actor: session.name })
+  appendAudit({ actor: session.name, action: detail, target: asset.assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${asset.assetNo} ${detail}` }
+}
+
 /** 보증 연장 — 자산의 보증 만료일을 연장한다(연장 보증 계약 등).
  *  (제품안내서 §03 보증기간 관리 — 보증 만료 알림은 "연장·교체 검토 요청"이라 하는데 연장 처리가 없었다)
  *  만료 전이면 만료일 기준, 지났으면 오늘 기준으로 연장. 타임라인에 보증연장 이벤트를 남기고
