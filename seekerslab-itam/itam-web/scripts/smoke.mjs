@@ -305,6 +305,8 @@ try {
   check('반납·유휴: 반납대기 자산이 접수 대기에 노출', rtHtml.includes('AST-2025-000513'))
   check('반납·유휴: 수리중 지표·수리 워크플로 노출', rtHtml.includes('수리중') && rtHtml.includes('수리 필요는 수리중을 거쳐'))
   check('반납·유휴: 수리 대기 카드에 수리중 자산 노출 (시드 시나리오)', rtHtml.includes('수리 대기') && rtHtml.includes('AST-2025-000377'))
+  // 수리 의뢰 추적 — 업체·예상반환·견적·실비 (제품안내서 §03 유지보수). 그동안 수리는 상태 플립뿐이었다.
+  check('반납·유휴: 수리 의뢰(업체·예상반환·견적) 컬럼 + 실비 입력 렌더', rtHtml.includes('수리 의뢰 (업체·예상반환·견적)') && rtHtml.includes('수리 업체') && rtHtml.includes('실 수리비'))
   check('반납·유휴: 대여 현황 패널 + 대여중 자산·반환 접수 노출', rtHtml.includes('대여 현황') && rtHtml.includes('AST-2024-000230') && rtHtml.includes('반환 접수'))
   // 반납 접수 시 반납자에게 점검 결과 자동 통보 안내 (요청자 루프 폐쇄 · dispatch 반납 접수)
   check('반납·유휴: 반납 접수 시 반납자 통보 안내 노출', rtHtml.includes('반납 접수 시 반납자에게 점검 결과가 자동 통보됩니다'))

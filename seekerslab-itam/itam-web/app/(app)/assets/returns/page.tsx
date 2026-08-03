@@ -39,7 +39,7 @@ export default async function ReturnsPage() {
     .filter((a) => a.status === '수리중')
     .map((a) => {
       const last = [...a.history].reverse().find((h) => h.kind === '반납' || h.kind === '수리')
-      return { assetNo: a.assetNo, model: a.model, category: a.category, location: a.location, note: last?.detail ?? '' }
+      return { assetNo: a.assetNo, model: a.model, category: a.category, location: a.location, note: last?.detail ?? '', repair: a.repair }
     })
 
   // 대여 현황 — 반출(대여중) 자산을 한 곳에 모아 반환 기한·연체를 관리한다. 그동안 대여 반환·연장은

@@ -4,13 +4,13 @@ import { useState, useTransition } from 'react'
 import { extendLoan, returnLoan } from '@/app/(app)/assets/register/actions'
 import { Card, Chip } from '@/components/ui'
 import type { ReturnCondition } from '@/lib/types'
-import { completeRepair, receiveReturn, remindLoans } from './actions'
+import { completeRepair, receiveReturn, remindLoans, sendToRepair } from './actions'
 
 const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고']
 
 type Pending = { assetNo: string; model: string; owner: string; dept: string; location: string; since: string }
 type Idle = { assetNo: string; model: string; category: string; location: string; idleDays: number | null }
-type Repairing = { assetNo: string; model: string; category: string; location: string; note: string }
+type Repairing = { assetNo: string; model: string; category: string; location: string; note: string; repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number } }
 type Loan = { assetNo: string; model: string; owner: string; dept: string; dueDate: string; dday: number | null; overdue: boolean }
 
 export function ReturnsView(props: {
@@ -32,6 +32,10 @@ export function ReturnsView(props: {
   const [loc, setLoc] = useState<Record<string, string>>({})
   const [note, setNote] = useState<Record<string, string>>({})
   const [rnote, setRnote] = useState<Record<string, string>>({})
+  const [rcost, setRcost] = useState<Record<string, string>>({}) // 실 수리비(수리 완료 시)
+  const [rvendor, setRvendor] = useState<Record<string, string>>({})
+  const [reta, setReta] = useState<Record<string, string>>({})
+  const [rest, setRest] = useState<Record<string, string>>({}) // 견적
   const [ext, setExt] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -104,26 +108,43 @@ export function ReturnsView(props: {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th>자산번호</th><th>모델</th><th className="c">유형</th><th>보관 위치</th><th>점검 메모</th><th>수리 메모</th><th className="c">처리</th></tr>
+                <tr><th>자산번호</th><th>모델</th><th>수리 의뢰 (업체·예상반환·견적)</th><th>수리 메모</th><th className="c">처리</th></tr>
               </thead>
               <tbody>
                 {props.repairing.map((a) => (
                   <tr key={a.assetNo}>
-                    <td className="tnum">{a.assetNo}</td>
-                    <td>{a.model}</td>
-                    <td className="c dim">{a.category}</td>
-                    <td className="dim">{a.location}</td>
-                    <td className="dim" style={{ fontSize: 11, maxWidth: 260, whiteSpace: 'normal' }}>{a.note}</td>
+                    <td className="tnum">{a.assetNo}<div className="dim" style={{ fontSize: 11 }}>{a.category} · {a.location}</div></td>
+                    <td>{a.model}<div className="dim" style={{ fontSize: 11, maxWidth: 220, whiteSpace: 'normal' }}>{a.note}</div></td>
                     <td>
-                      <input className="input" style={{ minWidth: 140 }} placeholder="예: 메인보드 교체"
+                      {a.repair ? (
+                        <span className="vstack" style={{ gap: 2, fontSize: 12 }}>
+                          <span className="strong">{a.repair.vendor}</span>
+                          <span className="dim" style={{ fontSize: 11 }}>
+                            의뢰 {a.repair.sentAt}{a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}{a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="hstack" style={{ gap: 4, flexWrap: 'wrap' }}>
+                          <input className="input" style={{ width: 120 }} placeholder="수리 업체" value={rvendor[a.assetNo] ?? ''} onChange={(e) => setRvendor((m) => ({ ...m, [a.assetNo]: e.target.value }))} />
+                          <input className="input" type="date" style={{ width: 130 }} title="예상 반환일" value={reta[a.assetNo] ?? ''} onChange={(e) => setReta((m) => ({ ...m, [a.assetNo]: e.target.value }))} />
+                          <input className="input" type="number" min={0} style={{ width: 90 }} placeholder="견적" value={rest[a.assetNo] ?? ''} onChange={(e) => setRest((m) => ({ ...m, [a.assetNo]: e.target.value }))} />
+                          <button className="btn sm" disabled={pending || !(rvendor[a.assetNo] ?? '').trim()}
+                            onClick={() => startTransition(async () => setMsg((await sendToRepair(a.assetNo, rvendor[a.assetNo] ?? '', reta[a.assetNo] ?? '', Number(rest[a.assetNo] ?? 0))).message))}>의뢰</button>
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <input className="input" style={{ minWidth: 120 }} placeholder="예: 메인보드 교체"
                         value={rnote[a.assetNo] ?? ''} onChange={(e) => setRnote((m) => ({ ...m, [a.assetNo]: e.target.value }))} />
                     </td>
                     <td className="c">
-                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <input className="input" type="number" min={0} style={{ width: 90 }} placeholder="실 수리비" title="실 수리비(수리 완료 시)"
+                          value={rcost[a.assetNo] ?? ''} onChange={(e) => setRcost((m) => ({ ...m, [a.assetNo]: e.target.value }))} />
                         <button className="btn sm pri" disabled={pending}
-                          onClick={() => startTransition(async () => setMsg((await completeRepair(a.assetNo, '수리 완료', rnote[a.assetNo] ?? '')).message))}>수리 완료</button>
+                          onClick={() => startTransition(async () => setMsg((await completeRepair(a.assetNo, '수리 완료', rnote[a.assetNo] ?? '', Number(rcost[a.assetNo] ?? 0))).message))}>수리 완료</button>
                         <button className="btn sm danger" disabled={pending}
-                          onClick={() => startTransition(async () => setMsg((await completeRepair(a.assetNo, '수리 불가', rnote[a.assetNo] ?? '')).message))}>수리 불가</button>
+                          onClick={() => startTransition(async () => setMsg((await completeRepair(a.assetNo, '수리 불가', rnote[a.assetNo] ?? '', Number(rcost[a.assetNo] ?? 0))).message))}>수리 불가</button>
                       </span>
                     </td>
                   </tr>

@@ -46,6 +46,8 @@ export interface Asset {
   lastVerifiedAt?: string
   /** 대여(반출) 자산의 반환 기한 — 상태가 '대여중'일 때만 유효. 기한 경과 시 연체로 드러난다. */
   loanDueDate?: string
+  /** 수리 의뢰 정보 — 상태가 '수리중'이고 외부 수리 의뢰가 접수됐을 때. 수리 완료·불가 시 이력에 실비를 남기고 해제한다. (제품안내서 §03 유지보수) */
+  repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number }
   history: AssetHistoryItem[]
 }
 

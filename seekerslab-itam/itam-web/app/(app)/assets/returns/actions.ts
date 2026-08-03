@@ -111,7 +111,29 @@ export async function remindLoans() {
 
 /** 수리 완료 처리 — 수리중 자산을 유휴 풀로 되돌리거나(수리 완료), 수리 불가면 폐기 절차로 보낸다.
  *  (제품안내서 §03 유지보수 — 고장 자산은 수리를 마쳐야 재배치 가능 재고가 된다) */
-export async function completeRepair(assetNo: string, outcome: '수리 완료' | '수리 불가', note: string) {
+/** 수리 의뢰 접수 — 수리중 자산의 외부 수리 업체·예상 반환일·견적을 기록한다. 그동안 수리중은 상태 플립뿐이라
+ *  누구에게 언제까지 얼마에 맡겼는지 추적할 수 없었다(제품안내서 §03 유지보수). 자산담당·Admin. */
+export async function sendToRepair(assetNo: string, rawVendor: string, eta: string, estCost: number) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '수리 의뢰 권한이 없습니다 (자산담당·Admin).' }
+  }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '수리중') return { ok: false, message: `수리중 자산이 아닙니다 — ${assetNo} (${asset.status})` }
+  const vendor = rawVendor.trim()
+  if (!vendor) return { ok: false, message: '수리 업체를 입력해 주세요.' }
+  if (eta && (!/^\d{4}-\d{2}-\d{2}$/.test(eta) || eta < today())) return { ok: false, message: '예상 반환일을 오늘 이후로 지정해 주세요.' }
+
+  asset.repair = { vendor, sentAt: today(), eta: eta || undefined, estCost: estCost > 0 ? Math.round(estCost) : undefined }
+  asset.history.push({ date: today(), kind: '수리', detail: `수리 의뢰 — ${vendor}${eta ? ` · 예상 반환 ${eta}` : ''}${estCost > 0 ? ` · 견적 ${estCost.toLocaleString()}원` : ''}`, actor: session.name })
+  appendAudit({ actor: session.name, action: `수리 의뢰 (${vendor})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 수리 의뢰 접수 — ${vendor}${eta ? ` · 예상 반환 ${eta}` : ''}` }
+}
+
+export async function completeRepair(assetNo: string, outcome: '수리 완료' | '수리 불가', note: string, actualCost = 0) {
   const session = await getSession()
   if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
     return { ok: false, message: '수리 처리 권한이 없습니다 (자산담당·Admin).' }
@@ -125,12 +147,14 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   }
 
   asset.status = outcome === '수리 완료' ? '유휴' : '폐기예정'
+  const cost = Math.max(0, Math.round(actualCost))
   asset.history.push({
     date: today(),
     kind: '수리',
-    detail: `수리 처리 ${outcome}${note ? ` — ${note}` : ''}`,
+    detail: `수리 처리 ${outcome}${asset.repair ? ` · ${asset.repair.vendor}` : ''}${cost > 0 ? ` · 실비 ${cost.toLocaleString()}원` : ''}${note ? ` — ${note}` : ''}`,
     actor: session.name,
   })
+  asset.repair = undefined // 수리 완료·불가로 의뢰 종료
   // 수리 불가는 폐기 절차로 이어져야 한다 — 폐기 대상 레코드를 만들어 결재·소거로 진행하게 한다
   // (그동안 상태만 폐기예정으로 바뀌고 폐기 대장에 안 올라 소거로 갈 수 없었다 — v1.68 반납 건과 동일)
   if (outcome === '수리 불가' && !s.disposals.some((d) => d.assetNo === assetNo)) {
