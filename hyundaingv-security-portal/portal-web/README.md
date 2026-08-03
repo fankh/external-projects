@@ -27,7 +27,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 36개 화면(34개 요구 화면 + 감사 이력 + 통합 검색) 전부 구현, 요구사항 3개 시트
 (메뉴체계 84행 · 결재 14건 · 첨부 지점) 소진. 결재는 상신 → 상세 확인 → 승인/사유
 반려 → 보완 재상신의 전체 생명주기를 갖추고, 고객사 전환은 `PORTAL_PROFILE`
-환경변수 한 개로 검증된다. 게이트 3종(smoke 461 · health 46화면 · e2e 12시나리오)
+환경변수 한 개로 검증된다. 게이트 3종(smoke 463 · health 46화면 · e2e 12시나리오)
 전부 통과한 상태를 v1.0 으로 선언하고, 이후 v1.0.x 로 결함 수정·폐쇄 루프 보강을 이어간다.
 
 ### 버전 이력
@@ -95,6 +95,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v1.0.19 | docs: 백업 복구 절차 — 스냅샷을 원본 자리에 복사 후 재기동하는 볼륨 조작 예시 (README 배포 절) |
 | v1.0.20 | 의존성 보안 — npm audit high 3건(next 전이 postcss·sharp)을 overrides 로 패치 강제, 취약점 0건 (게이트 3종 + Docker 빌드·기동 재검증) |
 | v1.0.21 | docs(roadmap): 운영 수칙에 주기적 npm audit 점검 편입 (overrides 우선·의존성 변경 시 게이트+Docker 재검증) |
+| v1.0.22 | Content-Security-Policy 헤더 — self 한정·object/frame/base/form-action 봉쇄 (인라인 스크립트는 Next 하이드레이션 제약으로 허용, dev 만 unsafe-eval) + 스모크 CSP 검증 2건 (463체크) |
 
 ## 배포 (Docker)
 

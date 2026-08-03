@@ -167,6 +167,10 @@ async function main() {
     check(hdr.headers.get('x-frame-options') === 'DENY', '헤더: X-Frame-Options DENY')
     check(hdr.headers.get('x-content-type-options') === 'nosniff', '헤더: X-Content-Type-Options nosniff')
     check(hdr.headers.get('referrer-policy') === 'same-origin', '헤더: Referrer-Policy same-origin')
+    const csp = hdr.headers.get('content-security-policy') ?? ''
+    check(csp.includes("default-src 'self'") && csp.includes("object-src 'none'") && csp.includes("frame-ancestors 'none'"),
+      '헤더: Content-Security-Policy (self 한정·object/frame 봉쇄)')
+    check(!csp.includes('unsafe-eval'), '헤더: 프로덕션 CSP 에 unsafe-eval 없음')
   }
 
   // 3) 구현 화면 — SSR 본문 내용 검증
