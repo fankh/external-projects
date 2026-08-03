@@ -27,6 +27,10 @@ export default async function DashboardPage() {
   // 우리 부서 소유자 확인 요청 — 발견 자산이 우리 부서 자산인지 묻는 대기 건. 응답자(해당 부서)가 로그인 시 챙기게 한다
   // (Discovery 소유자 확인 루프(로12)의 응답자 측 — 결재함까지 가지 않아도 대시보드에서 드러난다). 미지정 부서 요청은 전사 공지·격리 경로라 제외.
   const myOwnerConfirms = s.approvals.filter((a) => a.kind === '소유자 확인' && a.status === '대기' && a.dept === session.dept)
+  // 반려된 내 신청 — 아직 재상신하지 않은 반려 건. 사용자가 로그인 시 사유를 보고 재상신할지 스스로 판단하게 한다(결재함까지 안 가도 드러남).
+  const myRejected = s.approvals.filter(
+    (a) => a.requester === session.name && a.status === '반려' && !a.resubmitted && ['자산 신청', '반납', '이동', '대여', 'SaaS 인가'].includes(a.kind),
+  )
   // 내 대여 자산 — 본인이 빌린(대여중·소유자=본인) 자산의 반환 기한. 대여자 관점의 반환 마감 알림.
   // 담당자에게는 대여 현황(반납·유휴)·연체 큐가, 대여자에게는 여기 My Work 가 반환을 상기시킨다(v1.102 독촉 통지의 수신자 측).
   const myLoans = s.assets
@@ -181,8 +185,27 @@ export default async function DashboardPage() {
                   ))}
                 </div>
               )}
-              {myQueue.length > 0 && (
-                <div className="vstack" style={{ gap: 8, borderTop: (unackedNotices.length > 0 || myOwnerConfirms.length > 0) ? '1px solid var(--line)' : undefined, paddingTop: (unackedNotices.length > 0 || myOwnerConfirms.length > 0) ? 10 : 0 }}>
+              {myRejected.length > 0 && (() => {
+                const above = unackedNotices.length > 0 || myOwnerConfirms.length > 0
+                return (
+                  <div className="vstack" style={{ gap: 6, borderTop: above ? '1px solid var(--line)' : undefined, paddingTop: above ? 10 : 0 }}>
+                    <span className="kicker mute">반려된 내 신청 — 재상신 검토</span>
+                    {myRejected.map((a) => (
+                      <Link key={a.id} href={`/workflow/approvals?sel=${encodeURIComponent(a.id)}`} className="hstack"
+                        style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {a.title}{a.rejectReason ? <span className="dim" style={{ fontSize: 11 }}> · {a.rejectReason}</span> : ''}
+                        </span>
+                        <Chip tone="err">재상신</Chip>
+                      </Link>
+                    ))}
+                  </div>
+                )
+              })()}
+              {myQueue.length > 0 && (() => {
+                const above = unackedNotices.length > 0 || myOwnerConfirms.length > 0 || myRejected.length > 0
+                return (
+                <div className="vstack" style={{ gap: 8, borderTop: above ? '1px solid var(--line)' : undefined, paddingTop: above ? 10 : 0 }}>
                   <span className="kicker mute">내 결재 차례 — 지금 처리 대기</span>
                   {myQueue.slice(0, 5).map((a) => (
                     <Link key={a.id} href="/workflow/approvals" className="hstack"
@@ -193,7 +216,8 @@ export default async function DashboardPage() {
                   ))}
                   {myQueue.length > 5 && <span className="mut" style={{ fontSize: 12 }}>외 {myQueue.length - 5}건 — 결재함에서 전체 처리</span>}
                 </div>
-              )}
+                )
+              })()}
               <div className="vstack" style={{ gap: 8, borderTop: myQueue.length > 0 ? '1px solid var(--line)' : undefined, paddingTop: myQueue.length > 0 ? 10 : 0 }}>
                 <span className="kicker mute">내 신청 — 진행 현황</span>
                 {myApr.length > 0 ? myApr.map((a) => (

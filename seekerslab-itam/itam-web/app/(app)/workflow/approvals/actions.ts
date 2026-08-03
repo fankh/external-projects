@@ -140,6 +140,7 @@ export async function resubmitRequest(approvalId: string, note: string) {
     note: trimmed,
     targetLocation: orig.targetLocation,
   })
+  orig.resubmitted = true // 원 반려 건은 재상신 완료 표시 — 대시보드 재상신 검토 넛지에서 제외
   appendAudit({ actor: session.name, action: `${orig.kind} 재상신 (원 ${orig.id} 반려)`, target: id })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${id} 재상신 완료 — ${nextStep} 결재 대기` }
