@@ -88,6 +88,12 @@ function seedAssets(): Asset[] {
         { date: '2025-06-11', kind: '반납', detail: '퇴사자 반납 접수 · 상태 점검 완료', actor: '박자산' },
       ] }),
     mk({ assetNo: 'AST-2019-000218', category: '단말', model: 'Dell Latitude 5400', status: '폐기예정', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 10 Pro', purchaseDate: '2019-04-22', warrantyEnd: '2022-04-21' }),
+    // 유휴 주변기기 — 불출 배정 시 유형 다양성(단말 신청에 대한 유형 불일치 시연·재배치 우선 원칙)
+    mk({ assetNo: 'AST-2023-000704', category: '주변기기', model: 'Dell UltraSharp U2723QE 27"', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', purchaseDate: '2023-06-15', warrantyEnd: '2026-06-14',
+      history: [
+        { date: '2023-06-15', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
+        { date: '2026-05-02', kind: '반납', detail: '조직 개편 회수 · 상태 점검 완료', actor: '박자산' },
+      ] }),
     mk({ assetNo: 'AST-2023-000561', category: '서버', model: 'PowerEdge R760', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 12', os: 'RHEL 9.3', cpu: 'Xeon Gold 6430 ×2', memory: '512GB', ip: '10.10.8.21', mac: 'B8:CA:3A:55:01:11', contractId: 'CT-2023-021' }),
     mk({ assetNo: 'AST-2023-000562', category: '서버', model: 'PowerEdge R760', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 12', os: 'RHEL 9.3', cpu: 'Xeon Gold 6430 ×2', memory: '512GB', ip: '10.10.8.22', mac: 'B8:CA:3A:55:01:12', contractId: 'CT-2023-021' }),
     // 장기 미실측 후보 ② — 보조 IDC(IDC-B) 노후 서버, 최근 실측 9개월 경과
@@ -524,12 +530,14 @@ function seed(): Store {
     ],
     approvals: [
       // 다단계 결재선 진행 중 — 부서장(ADMIN) 결재 대기. 승인하면 자산담당 단계로 넘어간다.
-      { id: 'APR-2607-120', kind: '자산 신청', title: '개발 워크스테이션 신규 신청 (AI팀 증원 2명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-28', status: '대기', currentStep: '부서장 결재', note: 'AI팀 증원 2명 — GPU 워크스테이션 지급 요청' },
-      { id: 'APR-2607-121', kind: '자산 신청', title: '개발용 모니터 추가 신청 (듀얼 구성)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-28', status: '대기', currentStep: '부서장 결재', note: '재택·사무 듀얼 모니터 구성 요청' },
+      { id: 'APR-2607-120', kind: '자산 신청', title: '개발 워크스테이션 신규 신청 (AI팀 증원 2명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-28', status: '대기', currentStep: '부서장 결재', note: 'AI팀 증원 2명 — GPU 워크스테이션 지급 요청', desiredCategory: '단말' },
+      { id: 'APR-2607-121', kind: '자산 신청', title: '개발용 모니터 추가 신청 (듀얼 구성)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-28', status: '대기', currentStep: '부서장 결재', note: '재택·사무 듀얼 모니터 구성 요청', desiredCategory: '주변기기' },
+      // 불출 대기 시연 — 승인됐으나 미집행(재배치 우선 원칙: 희망 유형 단말에 맞는 유휴 재고 우선 추천)
+      { id: 'APR-2607-116', kind: '자산 신청', title: '노트북 지급 신청 (경력 입사자)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-22', status: '승인', currentStep: '완료', decidedAt: '2026-07-24', decidedBy: '박자산', note: '9월 경력 입사자 온보딩 단말', desiredCategory: '단말' },
       { id: 'APR-2607-096', kind: '자산 신청', title: '휴대용 모니터 신청 (재택 근무)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-26', status: '반려', currentStep: '완료', decidedAt: '2026-07-27', decidedBy: '박자산', rejectReason: '재택 지원 품목은 부서 예산 승인 후 재신청 바랍니다.', note: '재택 근무용 휴대 모니터' },
       // 반려 사유가 남은 건 — 신청자 재상신 근거이자 감사 기록
       { id: 'APR-2607-095', kind: '자산 신청', title: '개인용 태블릿 신규 신청', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-19', status: '반려', currentStep: '완료', decidedAt: '2026-07-21', decidedBy: '박자산', note: '외근 시 개인 용도', rejectReason: '개인 용도로 판단 — 업무 필요성 소명 후 재상신 요망' },
-      { id: 'APR-2607-118', kind: '자산 신청', title: '노트북 신규 신청 (신입 온보딩 3명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-27', status: '대기', currentStep: '자산담당 검토' },
+      { id: 'APR-2607-118', kind: '자산 신청', title: '노트북 신규 신청 (신입 온보딩 3명)', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-27', status: '대기', currentStep: '자산담당 검토', desiredCategory: '단말' },
       { id: 'APR-2607-117', kind: '반납', title: 'AST-2025-000513 Galaxy Book4 Pro 반납', requester: '한도윤', dept: '영업1팀', requestedAt: '2026-07-18', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000513' },
       { id: 'APR-2607-114', kind: '소유자 확인', title: 'DSC-2607-0041 (ip-10-20-31-88) 소유자 확인', requester: 'Discovery 엔진', dept: '플랫폼개발팀', requestedAt: '2026-07-25', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0041' },
       { id: 'APR-2607-109', kind: '소유자 확인', title: 'DSC-2607-0038 (ESP-9F31A2) 소유자 확인 — 전사 공지', requester: 'Discovery 엔진', dept: '미지정', requestedAt: '2026-07-20', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0038', note: '소유자 미상 IoT — 기한 내 무응답 시 격리 검토' },
@@ -643,7 +651,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 17
+const SCHEMA_VERSION = 18
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

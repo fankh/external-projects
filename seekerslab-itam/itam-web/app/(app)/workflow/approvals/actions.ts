@@ -8,7 +8,7 @@ import { classifyDiscoveredType } from '@/lib/classify'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextAssetNo, nextId } from '@/lib/store'
 import { approvalRoute, approvalStepLabel } from '@/lib/types'
-import type { ApprovalKind } from '@/lib/types'
+import type { ApprovalKind, AssetCategory } from '@/lib/types'
 
 /** 신청 상신 — 사용자가 직접 올리는 3종 (자산 신청 / 반납 / 이동).
  *  결재선은 환경설정의 화면별 기본 결재선을 따르며, 다음 단계는 상신자 다음 스텝이 된다.
@@ -19,6 +19,7 @@ export async function raiseRequest(input: {
   targetLocation?: string
   loanDueDate?: string
   service?: string
+  category?: AssetCategory
   note: string
 }) {
   const session = await getSession()
@@ -99,6 +100,7 @@ export async function raiseRequest(input: {
     note,
     targetLocation: input.kind === '이동' ? input.targetLocation : undefined,
     loanDueDate: input.kind === '대여' ? input.loanDueDate : undefined,
+    desiredCategory: input.kind === '자산 신청' ? input.category : undefined,
     saasService,
   })
 

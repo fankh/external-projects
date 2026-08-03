@@ -1,7 +1,8 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Card } from '@/components/ui'
-import type { ApprovalKind } from '@/lib/types'
+import type { ApprovalKind, AssetCategory } from '@/lib/types'
+import { ASSET_CATEGORIES } from '@/lib/types'
 import { raiseRequest } from './actions'
 
 type Kind = Extract<ApprovalKind, '자산 신청' | '반납' | '이동' | '대여' | 'SaaS 인가'>
@@ -26,6 +27,7 @@ export function RequestForm(props: {
   const [loanAssetNo, setLoanAssetNo] = useState(props.loanable[0]?.assetNo ?? '')
   const [loanDue, setLoanDue] = useState('')
   const [target, setTarget] = useState(props.locations[0] ?? '')
+  const [wantCat, setWantCat] = useState<AssetCategory>('단말')
   const [service, setService] = useState('')
   const [note, setNote] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
@@ -45,6 +47,7 @@ export function RequestForm(props: {
         targetLocation: kind === '이동' ? target : undefined,
         loanDueDate: kind === '대여' ? loanDue : undefined,
         service: kind === 'SaaS 인가' ? service : undefined,
+        category: kind === '자산 신청' ? wantCat : undefined,
         note,
       })
       setMsg(r.message)
@@ -97,6 +100,12 @@ export function RequestForm(props: {
                         {a.assetNo} · {a.model} ({a.location})
                       </option>
                     ))}
+              </select>
+            )}
+            {kind === '자산 신청' && (
+              <select className="select" value={wantCat} onChange={(e) => setWantCat(e.target.value as AssetCategory)}
+                title="희망 자산 유형 — 불출 시 같은 유형의 유휴 재고를 우선 추천합니다 (재배치 우선 원칙)">
+                {ASSET_CATEGORIES.map((c) => <option key={c} value={c}>희망 유형 — {c}</option>)}
               </select>
             )}
             {kind === '이동' && (

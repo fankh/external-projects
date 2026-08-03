@@ -282,6 +282,9 @@ export interface Approval {
   reportRefs?: string[]
   /** 대여 신청의 희망 반환 기한 — 승인 시 이 기한으로 대여 처리된다. */
   loanDueDate?: string
+  /** 자산 신청의 희망 자산 유형 — 불출 처리 시 재배치 우선 원칙에 따라 같은 유형의 유휴 재고를 우선 추천한다.
+   *  (제품안내서 §03 PHASE 4: 유휴 자산 풀 관리 · 재배치 우선 원칙) */
+  desiredCategory?: AssetCategory
 }
 
 /** 반납 접수 시 상태 점검 결과 — 재배치 가능 여부를 가른다 (제품안내서 §03 PHASE 4) */

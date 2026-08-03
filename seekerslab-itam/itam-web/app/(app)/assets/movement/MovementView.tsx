@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { issueAsset, moveAsset } from './actions'
 
-type Issue = { id: string; title: string; requester: string; dept: string; requestedAt: string; note?: string }
+type Issue = { id: string; title: string; requester: string; dept: string; requestedAt: string; note?: string; desiredCategory?: string }
 type Move = {
   id: string; title: string; requester: string; requestedAt: string
   assetNo?: string; model: string; from: string; to?: string
@@ -38,26 +38,40 @@ export function MovementView(props: {
                 <tr><th>결재</th><th>신청자</th><th className="c">승인일</th><th>배정 자산 (유휴 재고)</th><th>불출 위치</th><th /></tr>
               </thead>
               <tbody>
-                {props.issues.map((a) => (
+                {props.issues.map((a) => {
+                  // 재배치 우선 원칙 — 희망 유형과 같은 유휴 재고를 우선 추천한다. 일치 재고를 앞에 두고 기본 선택으로 삼되,
+                  // 담당자가 다른 유형을 고를 수도 있어(예: 대체 지급) 제한이 아닌 경고로 안내한다.
+                  const want = a.desiredCategory
+                  const matched = want ? props.pool.filter((p) => p.category === want) : []
+                  const ordered = want ? [...matched, ...props.pool.filter((p) => p.category !== want)] : props.pool
+                  const defaultSel = matched[0]?.assetNo ?? props.pool[0]?.assetNo ?? ''
+                  const curSel = sel[a.id] ?? defaultSel
+                  const curCat = props.pool.find((p) => p.assetNo === curSel)?.category
+                  const mismatch = Boolean(want && curCat && curCat !== want)
+                  const noMatch = Boolean(want && matched.length === 0 && !poolEmpty)
+                  return (
                   <tr key={a.id}>
                     <td>
                       <div style={{ fontWeight: 600 }}>{a.title}</div>
                       <div className="dim" style={{ fontSize: 11 }}>{a.id}{a.note ? ` · ${a.note}` : ''}</div>
+                      {want && <Chip tone="info" bare>희망 유형 {want}</Chip>}
                     </td>
                     <td>{a.requester}<div className="dim" style={{ fontSize: 11 }}>{a.dept}</div></td>
                     <td className="c tnum">{a.requestedAt}</td>
                     <td>
                       <select className="select" style={{ minWidth: 240 }} disabled={poolEmpty}
-                        value={sel[a.id] ?? props.pool[0]?.assetNo ?? ''}
+                        value={curSel}
                         onChange={(e) => setSel((m) => ({ ...m, [a.id]: e.target.value }))}>
                         {poolEmpty
                           ? <option>배정 가능한 유휴 재고 없음</option>
-                          : props.pool.map((p) => (
+                          : ordered.map((p) => (
                               <option key={p.assetNo} value={p.assetNo}>
-                                {p.assetNo} · {p.model} ({p.status})
+                                {`${want && p.category === want ? '✓ ' : ''}${p.assetNo} · ${p.model} · ${p.category} (${p.status})`}
                               </option>
                             ))}
                       </select>
+                      {mismatch && <div style={{ marginTop: 3 }}><Chip tone="warn" bare>유형 불일치 — 신청 {want} / 배정 {curCat}</Chip></div>}
+                      {noMatch && <div style={{ marginTop: 3 }}><Chip tone="warn" bare>일치 유형({want}) 유휴 재고 없음 — 신규 구매 검토</Chip></div>}
                     </td>
                     <td>
                       <select className="select" value={loc[a.id] ?? props.locations[0] ?? ''}
@@ -68,16 +82,13 @@ export function MovementView(props: {
                     <td className="c">
                       <button className="btn sm pri" disabled={pending || poolEmpty}
                         onClick={() => startTransition(async () => {
-                          const r = await issueAsset(
-                            a.id,
-                            sel[a.id] ?? props.pool[0].assetNo,
-                            loc[a.id] ?? props.locations[0],
-                          )
+                          const r = await issueAsset(a.id, curSel, loc[a.id] ?? props.locations[0])
                           setMsg(r.message)
                         })}>불출 처리</button>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
