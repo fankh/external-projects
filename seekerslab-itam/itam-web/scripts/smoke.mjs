@@ -187,6 +187,10 @@ try {
   // 최근 활동 위젯 — 감사 로그 접근 권한(비사용자)에만 노출
   check('대시보드: 최근 활동 위젯(자산담당) + 감사 로그 링크', dashHtml.includes('최근 활동') && dashHtml.includes('/platform/integrations'))
   check('대시보드: 사용자에겐 최근 활동 위젯 미노출', !dashUser.includes('최근 활동'))
+  // 수집 커넥터 지연·오류 운영 큐 — 시드 프록시 커넥터(지연)로 보안담당 대시보드에 Discovery 저하 신호가 뜬다
+  const dashSec = await (await get('/dashboard', 'SEC_MGR')).text()
+  check('대시보드(보안담당): 수집 커넥터 지연·오류 운영 큐 노출', dashSec.includes('수집 커넥터 지연·오류') && dashSec.includes('Discovery 저하'))
+  check('대시보드(자산담당): 수집 커넥터 큐 미노출 (보안 운영 큐)', !dashHtml.includes('수집 커넥터 지연·오류'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
   // 서버·IDC망(10.10.x)에 나타난 미등록 단말 — 서버 VLAN 침입 의심 (어시스턴트 발견 인텐트가 세그먼트로 식별)

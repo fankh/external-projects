@@ -60,9 +60,12 @@ export default async function DashboardPage() {
     )
   }
   if (['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    // 수집 커넥터 지연·오류는 Discovery 수집 사각지대 — 해당 채널이 멎으면 미등록 자산·Shadow SaaS 가 안 잡힌다. 재연동 필요.
+    const degradedConn = s.integrations.filter((i) => i.status === '지연' || i.status === '오류')
     opsQueues.push(
       { label: '유출 · 침해 미조치', count: s.leaks.filter((l) => l.status === '미조치').length, href: '/discovery/external', tone: 'err' },
       { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external', tone: 'err' },
+      { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
     )
   }
   const opsActive = opsQueues.filter((q) => q.count > 0)
