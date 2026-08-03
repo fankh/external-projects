@@ -652,6 +652,12 @@ try {
   check('재고 현황: 유형별 집계가 필터된 자산 대장으로 드릴다운', stockHtml.includes('/assets/register?cat='))
   // 유형·부서·위치별 세그먼트 (제품안내서 §03 "유형·부서·위치별 보유 현황")
   check('재고 현황: 유형·부서·위치별 세그먼트 렌더', stockHtml.includes('보유 현황 — 유형·부서·위치별') && stockHtml.includes('부서별') && stockHtml.includes('위치별'))
+  // 자산 가치 현황 — 유형별 취득가·잔존가치(정액법 감가상각) + 장부가 총액 KPI
+  check('재고 현황: 유형별 자산 가치(취득가·잔존가치·감가상각률)', stockHtml.includes('유형별 자산 가치') && stockHtml.includes('총 취득가') && stockHtml.includes('총 잔존가치(장부가)') && stockHtml.includes('감가상각률'))
+  check('재고 현황: 자산 잔존가치(장부가 총액) KPI', stockHtml.includes('자산 잔존가치 (장부가 총액)'))
+  // 재고 엑셀에 유형별 가치 시트 반출 — 취득가·잔존가치 컬럼
+  const stockBuf = Buffer.from(await (await get('/api/export/stock', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
+  check('재고 엑셀: 유형별 가치 시트(취득가·잔존가치) 반출', stockBuf.includes('총 취득가') && stockBuf.includes('총 잔존가치') && stockBuf.includes('감가상각률'))
   // 필터 딥링크가 자산 대장에서 실제로 유효 (cat 파라미터 수용)
   const drillHtml = await (await get('/assets/register?cat=%EC%84%9C%EB%B2%84', 'ASSET_MGR')).text()
   check('자산 대장: ?cat= 딥링크 진입 정상 렌더', drillHtml.includes('상태 — 전체') && drillHtml.includes('AST-2023-000561'))

@@ -85,10 +85,20 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         .map(([k, v]) => [k, v.total, v.inUse, v.idle, v.total ? Math.round((v.idle / v.total) * 100) : 0])
     }
     const header = ['구분', '보유', '사용중', '유휴·반납대기', '유휴율(%)']
+    // 유형별 자산 가치 — 취득가·잔존가치(정액법 감가상각). SW·가상자원은 자산 단위 취득가 없어 제외.
+    const t = today()
+    const valued = live.filter((a) => acquisitionCostOf(a) > 0)
+    const valueRows = [...new Set(valued.map((a) => a.category))].map((cat) => {
+      const list = valued.filter((a) => a.category === cat)
+      const acq = list.reduce((n, a) => n + acquisitionCostOf(a), 0)
+      const book = list.reduce((n, a) => n + bookValueOf(a, t), 0)
+      return [cat, list.length, acq, book, acq > 0 ? Math.round((1 - book / acq) * 100) : 0]
+    })
     return [
       { name: '유형별', header, rows: agg((a) => a.category) },
       { name: '부서별', header, rows: agg((a) => a.dept) },
       { name: '위치별', header, rows: agg((a) => a.location) },
+      { name: '유형별 가치', header: ['유형', '대수', '총 취득가', '총 잔존가치', '감가상각률(%)'], rows: valueRows },
     ]
   }
 
