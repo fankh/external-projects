@@ -31,6 +31,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       ? `<table><thead><tr><th>일자</th><th>항목</th><th class="r">금액</th></tr></thead><tbody>${[...c.costs!].sort((x, y) => y.date.localeCompare(x.date)).map((ct) => `<tr><td class="d">${esc(ct.date)}</td><td>${esc(ct.item)}</td><td class="r">${ct.amount.toLocaleString()}원</td></tr>`).join('')}</tbody></table>`
       : '<div class="empty">등록된 비용 이력이 없습니다.</div>'}` : ''
 
+  const renewalsHtml = (c.renewals ?? []).length
+    ? `<h2>갱신 이력 (${c.renewals!.length}회)</h2><table><thead><tr><th>갱신일</th><th>기간</th><th>만료일 변경</th><th>처리자</th></tr></thead><tbody>${[...c.renewals!].reverse().map((rn) => `<tr><td class="d">${esc(rn.date)}</td><td class="k">${rn.termYears}년</td><td>${esc(rn.from)} → ${esc(rn.to)}</td><td class="d">${esc(rn.by)}</td></tr>`).join('')}</tbody></table>`
+    : ''
+
   const assetsHtml = linked.length
     ? `<table><thead><tr><th>자산번호</th><th>모델</th><th>상태</th><th>소유/부서</th></tr></thead><tbody>${linked.slice(0, 200).map((a) => `<tr><td class="k">${esc(a.assetNo)}</td><td>${esc(a.model)}</td><td>${esc(a.status)}</td><td class="d">${esc(a.owner)} · ${esc(a.dept)}</td></tr>`).join('')}</tbody></table>${linked.length > 200 ? `<div class="empty">외 ${linked.length - 200}건</div>` : ''}`
     : '<div class="empty">연계된 자산이 없습니다.</div>'
@@ -84,6 +88,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     </div>
     <h2>부속서류 (${(c.documents ?? []).length}건)</h2>${docsHtml}
     ${maintHtml}
+    ${renewalsHtml}
     <h2>연계 자산 (${linked.length}건)</h2>${assetsHtml}
     <div class="foot">발급: SEEKERSLAB ITAM — AI 자산관리 플랫폼 · 발급자 ${esc(session.name)}</div>
   </div>

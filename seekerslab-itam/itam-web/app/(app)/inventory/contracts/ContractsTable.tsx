@@ -269,6 +269,20 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
                         )}
                       </div>
                     )}
+                    {(c.renewals?.length ?? 0) > 0 && (
+                      <div style={{ marginBottom: 14 }}>
+                        <div className="kicker mute" style={{ marginBottom: 6 }}>갱신 이력 · {c.renewals!.length}회</div>
+                        <div className="vstack" style={{ gap: 4 }}>
+                          {[...c.renewals!].reverse().map((rn, i) => (
+                            <div key={i} className="hstack" style={{ gap: 10, fontSize: 12.5 }}>
+                              <Chip tone="ok" bare>{rn.termYears}년</Chip>
+                              <span className="tnum">{rn.from} → <span className="strong">{rn.to}</span></span>
+                              <span className="mut tnum" style={{ marginLeft: 'auto', fontSize: 11 }}>{rn.by} · {rn.date}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="kicker mute" style={{ marginBottom: 8 }}>부속서류 — {c.id} {c.name}</div>
                     {(c.documents?.length ?? 0) === 0 ? (
                       <div className="dim" style={{ fontSize: 12, marginBottom: canEdit ? 10 : 0 }}>등록된 부속서류가 없습니다 — 계약서·견적서·세금계산서·보증서 등을 등록하세요.</div>

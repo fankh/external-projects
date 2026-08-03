@@ -147,6 +147,8 @@ export async function renewContract(id: string, termYears: number) {
   const newEnd = `${Number(y) + termYears}-${m}-${d}`
   const oldEnd = c.end
   c.end = newEnd
+  // 갱신 이력을 계약에 남긴다 — 전역 감사 로그만으론 계약별 기간 변천을 추적하기 어렵다(등록→갱신×N→만료/해지)
+  ;(c.renewals ??= []).push({ date: today(), from: oldEnd, to: newEnd, termYears, by: session.name })
 
   appendAudit({ actor: session.name, action: `계약 갱신 (${termYears}년) — ${c.name}: ${oldEnd} → ${newEnd}`, target: c.id })
   dispatch({ channel: '이메일', to: c.ownerDept, subject: `${c.id} ${c.name} 계약 갱신 완료 — 만료일 ${newEnd} (${termYears}년 연장)`, kind: '만료 임박', ref: c.id })

@@ -163,6 +163,16 @@ export interface Contract {
   sla?: string
   /** 비용 이력 — 유지보수 계약의 정기·수시 지출 기록. 제품안내서 §03 유지보수 계약: 비용 이력 */
   costs?: ContractCost[]
+  /** 갱신 이력 — 계약 기간 연장 기록(이전 만료일→새 만료일). 계약 카드·상세에서 계약 생애주기(등록→갱신×N→만료/해지) 추적 */
+  renewals?: ContractRenewal[]
+}
+
+export interface ContractRenewal {
+  date: string
+  from: string
+  to: string
+  termYears: number
+  by: string
 }
 
 export interface ContractCost {
