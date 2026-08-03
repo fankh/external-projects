@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { resubmitSettlement } from '../actions'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
@@ -35,7 +36,7 @@ async function confirmPlan(formData: FormData) {
 
 async function addContract(formData: FormData) {
   'use server'
-  await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
@@ -43,12 +44,14 @@ async function addContract(formData: FormData) {
   if (!vendor || !title || !Number.isFinite(amount) || amount <= 0) return
   const s = getStore()
   const year = today().slice(0, 4)
+  const id = nextNo('CT', year, s.investContracts.map((c) => c.id))
   s.investContracts.unshift({
-    id: nextNo('CT', year, s.investContracts.map((c) => c.id)),
-    kind: '비용',
+    id, kind: '비용',
     planId: s.investPlans.some((p) => p.id === planId && p.kind === '비용') ? planId : undefined,
     vendor, title, amount: Math.round(amount), signedAt: today(),
   })
+  // 계약별 부속서류(계약서·보안관리약정서 등) — 공통 첨부 (첨부 시트: 시행·계약입력)
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/finance/expense')
 }
 
@@ -82,6 +85,8 @@ async function requestSettlement(formData: FormData) {
   const year = today().slice(0, 4)
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
   s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: '결재중', requestedBy: me.name, requestedAt: today() })
+  // 정산 증빙(세금계산서·검수서 등) — 결재함 상세에서 같은 첨부를 본다 (첨부 시트: 정산품의)
+  registerUpload(stId, formData.get('file'), me.name)
 
   // 폐쇄 루프 — 정산품의가 기본 결재선으로 흐르고, 승인되면 속보 기준금액이 '정산'으로 바뀐다
   draftApproval({ docType: '비용 정산품의', title: `[정산품의-비용] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`, ref: stId, drafter: me })
@@ -210,7 +215,7 @@ export default async function ExpensePage() {
                 {kindContracts.map((c) => (
                   <tr key={c.id}>
                     <td className="code">{c.id}</td>
-                    <td className="strong">{c.title}</td>
+                    <td className="strong">{c.title}<Clip count={attachCount(c.id)} title="계약 부속서류" /></td>
                     <td>{c.vendor}</td>
                     <td className="num">{fmt(c.amount)}</td>
                     <td>{c.planId ? <span className="mono">{c.planId}</span> : <Chip tone="warn" bare>계획외</Chip>}</td>
@@ -231,6 +236,7 @@ export default async function ExpensePage() {
               <div className="hstack">
                 <input className="input" name="title" required maxLength={120} placeholder="계약명" style={{ flex: 1 }} />
                 <input className="input" name="amount" required type="number" min={1} placeholder="계약액" style={{ width: 110 }} />
+                <input className="input" type="file" name="file" style={{ width: 170, paddingTop: 4 }} title="계약서·보안관리약정서 첨부" />
                 <button type="submit" className="btn">계약 등록</button>
               </div>
             </form>
@@ -272,6 +278,7 @@ export default async function ExpensePage() {
                 <option>월정산</option><option>착수금</option><option>중도금</option><option>잔금</option>
               </select>
               <input className="input" name="amount" required type="number" min={1} placeholder="금액" style={{ width: 100 }} />
+              <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="정산 증빙 첨부" />
               <button type="submit" className="btn pri">정산품의 상신</button>
             </form>
           </div>

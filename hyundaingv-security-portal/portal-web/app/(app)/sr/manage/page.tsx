@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
@@ -18,7 +19,7 @@ function nextOf(sr: SrRequest): SrStatus | undefined {
 
 async function advance(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo)
@@ -26,6 +27,8 @@ async function advance(formData: FormData) {
   if (!sr || !next) return
   sr.status = next
   if (next === '완료') sr.completedAt = today()
+  // 처리 결과 증적 — SR 번호(pk) 하나로 신청·BA·결과 첨부를 공유한다 (첨부 시트: SR관리 결과등록)
+  registerUpload(srNo, formData.get('file'), me.name)
   revalidatePath('/', 'layout')
 }
 
@@ -61,15 +64,16 @@ export default async function SrManagePage() {
                   <tr key={r.srNo}>
                     <td className="code">{r.srNo}</td>
                     <td><Chip tone="neutral" bare>{r.kind}</Chip></td>
-                    <td className="strong">{r.title}</td>
+                    <td className="strong">{r.title}<Clip count={attachCount(r.srNo)} title="SR 첨부 (신청·BA·결과)" /></td>
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
                     <td>{r.ci ?? <span className="mut">미배정</span>}</td>
                     <td><Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip></td>
                     <td className="tnum">{r.status === '완료' ? (r.completedAt ?? '-') : (r.dueDate ?? '-')}</td>
                     <td className="c">
                       {next ? (
-                        <form action={advance} style={{ display: 'inline' }}>
+                        <form action={advance} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="srNo" value={r.srNo} />
+                          <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 130, paddingTop: 2 }} title="처리 결과 증적 첨부" />
                           <button type="submit" className="btn sm">{next} 처리 →</button>
                         </form>
                       ) : (

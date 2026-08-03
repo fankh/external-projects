@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
@@ -20,6 +21,8 @@ async function assignCi(formData: FormData) {
   sr.ci = ci
   sr.dueDate = dueDate
   sr.status = '개발중'
+  // BA 검토 증적 — SR 번호(pk) 하나로 신청·BA·결과 첨부를 공유한다 (첨부 시트: SR신청내역 BA승인)
+  registerUpload(srNo, formData.get('file'), me.name)
 
   // 폐쇄 루프 — 'SR 처리' 할일이 배정과 함께 닫힌다
   const todo = s.todos.find((t) => t.owner === me.name && t.kind === 'SR 처리' && t.title.includes(srNo) && !t.done)
@@ -70,7 +73,7 @@ export default async function SrCiPage() {
                   <tr key={r.srNo}>
                     <td className="code">{r.srNo}</td>
                     <td><Chip tone="neutral" bare>{r.kind}</Chip></td>
-                    <td className="strong">{r.title}</td>
+                    <td className="strong">{r.title}<Clip count={attachCount(r.srNo)} title="SR 첨부" /></td>
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
                     <td colSpan={3}>
                       <form action={assignCi} className="hstack" style={{ padding: '3px 0' }}>
@@ -79,6 +82,7 @@ export default async function SrCiPage() {
                           {ciCandidates.map((c) => <option key={c.login} value={c.name}>{c.name} ({c.dept})</option>)}
                         </select>
                         <input className="input" type="date" name="dueDate" required defaultValue={today()} style={{ height: 25, fontSize: 11.5 }} />
+                        <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 140, paddingTop: 2 }} title="BA 검토 증적 첨부" />
                         <button type="submit" className="btn sm pri">배정 · 착수</button>
                         <button type="submit" className="btn sm danger" formAction={baReject}>BA 반려</button>
                       </form>

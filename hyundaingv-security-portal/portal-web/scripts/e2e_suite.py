@@ -105,6 +105,14 @@ def sc_sr(pg, base, check):
     pg.goto(f'{base}/sr/ci', wait_until='networkidle')
     check('E2E 데이터 추출' in pg.content(), '재상신 승인 → CI배정')
 
+    # BA 배정 시 검토 증적 첨부 — SR 번호(pk) 하나로 신청·BA 첨부가 합쳐진다 (첨부 시트)
+    row = pg.locator('tr', has_text='E2E 데이터 추출')
+    row.locator('input[type=file]').set_input_files(str(UPLOAD))
+    row.locator('button:has-text("배정 · 착수")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/sr/manage', wait_until='networkidle')
+    check('📎2' in pg.locator('tr', has_text='E2E 데이터 추출').inner_text(), 'BA 첨부 → SR pk 공유 뱃지(📎2)')
+
 
 def sc_settle(pg, base, check):
     """정산품의 반려 → 재상신 → 승인 → 지급완료"""
@@ -113,13 +121,14 @@ def sc_settle(pg, base, check):
     card = pg.locator('.card', has_text='정산품의')
     card.locator('select[name=contractId]').select_option('CT-2026-03')
     card.locator('input[name=amount]').fill('2000')
+    card.locator('input[type=file]').set_input_files(str(UPLOAD))
     card.locator('button:has-text("정산품의 상신")').click()
     pg.wait_for_selector('text=ST-2026-0003', timeout=10000)
 
     login(pg, base, '박정호')
-    row = pg.locator('tr', has_text='정산품의-비용').first
     pg.goto(f'{base}/work/approvals', wait_until='networkidle')
     row = pg.locator('tr', has_text='정산품의-비용').first
+    check('📎1' in row.inner_text(), '정산 증빙 첨부 → 결재함 뱃지')
     row.locator('input[name=reason]').fill('증빙 누락')
     row.locator('button:has-text("반려")').click()
     pg.wait_for_load_state('networkidle')

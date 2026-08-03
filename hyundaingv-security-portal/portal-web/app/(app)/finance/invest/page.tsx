@@ -68,6 +68,8 @@ async function requestSettlement(formData: FormData) {
   const year = today().slice(0, 4)
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
   s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: '결재중', requestedBy: me.name, requestedAt: today() })
+  // 정산 증빙 — 결재함 상세에서 같은 첨부를 본다 (첨부 시트: 정산품의)
+  registerUpload(stId, formData.get('file'), me.name)
 
   // 폐쇄 루프 — 정산품의 상신이 기본 결재선으로 흐르고, 승인되면 지급완료로 실적에 반영된다
   draftApproval({ docType: '투자 정산품의', title: `[정산품의-투자] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`, ref: stId, drafter: me })
@@ -219,6 +221,7 @@ export default async function InvestPage() {
                 <option>착수금</option><option>중도금</option><option>잔금</option>
               </select>
               <input className="input" name="amount" required type="number" min={1} placeholder="금액" style={{ width: 100 }} />
+              <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="정산 증빙 첨부" />
               <button type="submit" className="btn pri">정산품의 상신</button>
             </form>
           </div>
