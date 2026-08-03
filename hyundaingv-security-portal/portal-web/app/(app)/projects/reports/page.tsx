@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -12,10 +13,10 @@ async function addNote(formData: FormData) {
   const title = String(formData.get('title') ?? '').trim().slice(0, 160)
   const s = getStore()
   if (!s.projects.some((p) => p.id === projectId) || !['회의록', '주간보고'].includes(kind) || !title) return
-  s.projectNotes.unshift({
-    id: nextNo('PN', today().slice(0, 4), s.projectNotes.map((n) => n.id)),
-    projectId, kind, title, author: me.name, writtenAt: today(),
-  })
+  const id = nextNo('PN', today().slice(0, 4), s.projectNotes.map((n) => n.id))
+  s.projectNotes.unshift({ id, projectId, kind, title, author: me.name, writtenAt: today() })
+  // 회의록·주간보고 원본 파일 — 공통 첨부 (첨부 시트: 프로젝트 회의록·주간보고)
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/projects/reports')
 }
 
@@ -28,7 +29,7 @@ export default async function ReportsPage() {
   return (
     <>
       <ScreenHeader kicker="프로젝트" title="회의록 · 주간보고"
-        desc="프로젝트 커뮤니케이션 기록 — 회의록과 주간보고를 작성·조회한다 (첨부는 이후 버전)." />
+        desc="프로젝트 커뮤니케이션 기록 — 회의록과 주간보고를 원본 파일 첨부와 함께 작성·조회한다." />
 
       <div className="stat-row">
         <Stat value={s.projectNotes.length} label="전체 기록" />
@@ -45,6 +46,7 @@ export default async function ReportsPage() {
             <option>주간보고</option><option>회의록</option>
           </select>
           <input className="input" name="title" required maxLength={160} placeholder="제목 (예: 8월 1주차 — 개발 진행, 정합성 이슈 대응)" style={{ flex: 1 }} />
+          <input className="input" type="file" name="file" style={{ width: 170, paddingTop: 4 }} title="회의록·주간보고 원본 첨부" />
           <button type="submit" className="btn pri">등록</button>
         </form>
       </Card>
@@ -62,7 +64,7 @@ export default async function ReportsPage() {
                     <td className="code">{n.id}</td>
                     <td><Chip tone={n.kind === '주간보고' ? 'info' : 'neutral'} bare>{n.kind}</Chip></td>
                     <td className="mono" style={{ fontSize: 11.5 }}>{projectOf(n.projectId)?.id}</td>
-                    <td className="strong">{n.title}</td>
+                    <td className="strong">{n.title}<Clip count={attachCount(n.id)} title="원본 파일" /></td>
                     <td>{n.author}</td>
                     <td className="tnum">{n.writtenAt}</td>
                   </tr>

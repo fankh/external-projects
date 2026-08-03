@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -15,11 +16,13 @@ async function addProject(formData: FormData) {
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
   if (!title || !Number.isFinite(headcount) || headcount < 1 || !dateRe.test(start) || !dateRe.test(end) || end < start) return
   const s = getStore()
+  const id = nextNo('PJ', today().slice(0, 4), s.projects.map((p) => p.id))
   s.projects.unshift({
-    id: nextNo('PJ', today().slice(0, 4), s.projects.map((p) => p.id)),
-    title, contractId: s.investContracts.some((c) => c.id === contractId) ? contractId : undefined,
+    id, title, contractId: s.investContracts.some((c) => c.id === contractId) ? contractId : undefined,
     manager: me.name, headcount: Math.round(headcount), start, end, progress: 0, status: '진행중',
   })
+  // 인력투입계획서 등 프로젝트 문서 — 공통 첨부 (첨부 시트: 프로젝트 인력투입계획)
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/projects/status')
 }
 
@@ -72,7 +75,7 @@ export default async function ProjectStatusPage() {
                 return (
                   <tr key={p.id}>
                     <td className="code">{p.id}</td>
-                    <td className="strong">{p.title}</td>
+                    <td className="strong">{p.title}<Clip count={attachCount(p.id)} title="프로젝트 문서 (인력투입계획 등)" /></td>
                     <td>{ct ? <span>{ct.vendor} <span className="mut mono">{ct.id}</span></span> : <span className="mut">-</span>}</td>
                     <td>{p.manager}</td>
                     <td className="num">{p.headcount}명</td>
@@ -111,6 +114,7 @@ export default async function ProjectStatusPage() {
             <input className="input" name="headcount" required type="number" min={1} placeholder="인력" style={{ width: 70 }} />
             <input className="input" name="start" required type="date" />
             <input className="input" name="end" required type="date" />
+            <input className="input" type="file" name="file" style={{ width: 170, paddingTop: 4 }} title="인력투입계획서 등 첨부" />
             <button type="submit" className="btn pri">프로젝트 등록</button>
           </form>
         </div>

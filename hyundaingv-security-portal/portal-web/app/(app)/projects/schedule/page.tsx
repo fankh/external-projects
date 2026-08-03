@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -8,14 +9,17 @@ const RISK_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
 
 async function addDeliverable(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const projectId = String(formData.get('projectId') ?? '')
   const name = String(formData.get('name') ?? '').trim().slice(0, 120)
   const due = String(formData.get('due') ?? '')
   const s = getStore()
   if (!s.projects.some((p) => p.id === projectId) || !name || !/^\d{4}-\d{2}-\d{2}$/.test(due)) return
   const max = s.deliverables.reduce((m, d) => Math.max(m, Number(d.id.replace('DL-', '')) || 0), 0)
-  s.deliverables.push({ id: `DL-${String(max + 1).padStart(2, '0')}`, projectId, name, due, done: false })
+  const id = `DL-${String(max + 1).padStart(2, '0')}`
+  s.deliverables.push({ id, projectId, name, due, done: false })
+  // 산출물 파일 — 공통 첨부 (첨부 시트: 프로젝트 일정/산출물관리)
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/projects/schedule')
 }
 
@@ -30,16 +34,16 @@ async function toggleDeliverable(formData: FormData) {
 
 async function addIssue(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const projectId = String(formData.get('projectId') ?? '')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const risk = String(formData.get('risk') ?? '') as '높음' | '중간' | '낮음'
   const s = getStore()
   if (!s.projects.some((p) => p.id === projectId) || !title || !['높음', '중간', '낮음'].includes(risk)) return
-  s.projectIssues.unshift({
-    id: nextNo('PI', today().slice(0, 4), s.projectIssues.map((i) => i.id)),
-    projectId, title, risk, status: '오픈', raisedAt: today(),
-  })
+  const id = nextNo('PI', today().slice(0, 4), s.projectIssues.map((i) => i.id))
+  s.projectIssues.unshift({ id, projectId, title, risk, status: '오픈', raisedAt: today() })
+  // 이슈 근거 자료 — 공통 첨부 (첨부 시트: 프로젝트 이슈&리스트)
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/', 'layout')
 }
 
@@ -83,7 +87,7 @@ export default async function SchedulePage() {
                 {s.deliverables.map((d) => (
                   <tr key={d.id}>
                     <td className="mono" style={{ fontSize: 11.5 }}>{projectOf(d.projectId)?.id}</td>
-                    <td className="strong">{d.name}</td>
+                    <td className="strong">{d.name}<Clip count={attachCount(d.id)} title="산출물 파일" /></td>
                     <td className="tnum">{d.due} {!d.done && d.due < t && <Chip tone="err" bare>경과</Chip>}</td>
                     <td>{d.done ? <Chip tone="ok" bare>완료</Chip> : <Chip tone="neutral" bare>미완</Chip>}</td>
                     <td className="c">
@@ -104,6 +108,7 @@ export default async function SchedulePage() {
               </select>
               <input className="input" name="name" required maxLength={120} placeholder="산출물명" style={{ flex: 1 }} />
               <input className="input" name="due" required type="date" />
+              <input className="input" type="file" name="file" style={{ width: 140, paddingTop: 4 }} title="산출물 파일 첨부" />
               <button type="submit" className="btn">등록</button>
             </form>
           </div>
@@ -117,7 +122,7 @@ export default async function SchedulePage() {
                 {s.projectIssues.map((i) => (
                   <tr key={i.id}>
                     <td className="mono" style={{ fontSize: 11.5 }}>{projectOf(i.projectId)?.id}</td>
-                    <td className="strong">{i.title}</td>
+                    <td className="strong">{i.title}<Clip count={attachCount(i.id)} title="이슈 근거 자료" /></td>
                     <td><Chip tone={RISK_TONE[i.risk]} bare>{i.risk}</Chip></td>
                     <td className="tnum">{i.raisedAt}</td>
                     <td>{i.status === '해결' ? <Chip tone="ok" bare>해결</Chip> : <Chip tone="warn" bare>오픈</Chip>}</td>
@@ -143,6 +148,7 @@ export default async function SchedulePage() {
               <select className="select" name="risk">
                 <option>높음</option><option>중간</option><option>낮음</option>
               </select>
+              <input className="input" type="file" name="file" style={{ width: 140, paddingTop: 4 }} title="근거 자료 첨부" />
               <button type="submit" className="btn">등록</button>
             </form>
           </div>
