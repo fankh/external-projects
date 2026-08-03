@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
+import { APPROVAL_SLA_DAYS, daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
 import { hasDataIssue } from '@/lib/quality'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -16,6 +16,8 @@ export default async function DashboardPage() {
   const idle = s.assets.filter((a) => a.status === '유휴' || a.status === '반납대기').length
   const newFound = s.discovered.filter((d) => d.state === '미등록' && !d.action)
   const pendingApr = s.approvals.filter((a) => a.status === '대기')
+  // 결재 지연 — SLA(3일) 초과한 대기 결재(정체). 상신 후 오래 방치된 결재를 드러낸다.
+  const overdueApr = pendingApr.filter((a) => isApprovalOverdue(a, today())).length
   const myApr = s.approvals.filter((a) => a.requester === session.name && a.status === '대기')
   // 내 결재 차례 — 지금 이 사람이 결재할 수 있는 대기 건 (본인 상신분 제외). decide()와 동일 게이트를 쓴다.
   const myQueue = s.approvals.filter((a) => a.requester !== session.name && canDecideApproval(session.role, a))
@@ -98,8 +100,8 @@ export default async function DashboardPage() {
         <Stat value={newFound.length} label="미등록 신규 발견 (Shadow IT)" tone="err" delta={{ text: '소유자 확인·편입 필요', dir: 'up' }} />
         <Stat value={expiring.length} label="만료 임박 (계약·라이선스 90일)" tone="warn"
           delta={{ text: expiring.some((x) => (x.d ?? 0) < 0) ? `만료 ${expiring.filter((x) => (x.d ?? 0) < 0).length}건 포함` : `최단 ${expiring[0]?.d ?? '-'}일`, dir: 'flat' }} />
-        <Stat value={pendingApr.length} label="결재 대기" tone="accent"
-          delta={{ text: myQueue.length > 0 ? `내 결재 차례 ${myQueue.length}건` : `내 신청 ${myApr.length}건`, dir: myQueue.length > 0 ? 'up' : 'flat' }} />
+        <Stat value={pendingApr.length} label="결재 대기" tone={overdueApr > 0 ? 'err' : 'accent'}
+          delta={{ text: overdueApr > 0 ? `지연 ${overdueApr}건 (SLA ${APPROVAL_SLA_DAYS}일 초과)` : myQueue.length > 0 ? `내 결재 차례 ${myQueue.length}건` : `내 신청 ${myApr.length}건`, dir: overdueApr > 0 ? 'up' : 'flat' }} />
         {round && (
           <Stat
             value={<>{Math.round((round.scanned / round.planned) * 100)}<small>%</small></>}
@@ -219,7 +221,10 @@ export default async function DashboardPage() {
                     <Link key={a.id} href="/workflow/approvals" className="hstack"
                       style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
-                      <Chip tone="warn">{a.currentStep}</Chip>
+                      <span className="hstack" style={{ gap: 4, flex: 'none' }}>
+                        {isApprovalOverdue(a, today()) && <Chip tone="err" bare>지연</Chip>}
+                        <Chip tone="warn">{a.currentStep}</Chip>
+                      </span>
                     </Link>
                   ))}
                   {myQueue.length > 5 && <span className="mut" style={{ fontSize: 12 }}>외 {myQueue.length - 5}건 — 결재함에서 전체 처리</span>}

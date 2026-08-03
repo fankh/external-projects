@@ -84,3 +84,16 @@ export function isRepairOverdue(a: Asset): boolean {
   if (a.status !== '수리중' || !a.repair?.eta) return false
   return (daysUntil(a.repair.eta) ?? 0) < 0
 }
+
+/** 결재 대기 SLA — 상신 후 이 일수를 넘겨 대기 중이면 '지연'(결재 정체). */
+export const APPROVAL_SLA_DAYS = 3
+
+/** 상신 후 경과일 — 서버가 준 today(YYYY-MM-DD) 인자로만 계산해 서버·클라이언트 모두 하이드레이션 안전하게 쓴다. */
+export function approvalAgeDays(requestedAt: string, today: string): number {
+  return Math.max(0, Math.round((Date.parse(today) - Date.parse(requestedAt)) / 86_400_000))
+}
+
+/** 결재 지연 — '대기' 상태로 SLA(3일)를 초과했다. Approval 타입 의존을 피해 구조적 타입으로 받는다. */
+export function isApprovalOverdue(a: { status: string; requestedAt: string }, today: string): boolean {
+  return a.status === '대기' && approvalAgeDays(a.requestedAt, today) > APPROVAL_SLA_DAYS
+}

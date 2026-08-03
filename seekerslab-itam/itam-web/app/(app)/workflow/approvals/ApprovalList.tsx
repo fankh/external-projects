@@ -3,15 +3,18 @@ import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { Approval, Role } from '@/lib/types'
+import { approvalAgeDays, isApprovalOverdue } from '@/lib/dates'
 import { answerOwnerConfirm, decide, decideMany, resubmitRequest, withdrawRequest } from './actions'
 
 const WITHDRAWABLE = ['자산 신청', '반납', '이동', '대여']
 
-export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds, canExport, initialSel }: {
+export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requiredKinds, canExport, initialSel, today }: {
   approvals: Approval[]; role: Role; dept: string; viewer: string
   linesByKind: Record<string, string[]>; requiredKinds: string[]; canExport: boolean
   /** 알림 로그·감사 로그에서 특정 결재(APR-…)로 진입할 때 강조 대상 (?sel=) */
   initialSel?: string
+  /** 서버 기준일 — 결재 지연(SLA) 계산에 쓴다(하이드레이션 안전) */
+  today: string
 }) {
   // 결재함 필터 — 상태·구분·검색·내 상신만 (감사 로그·QnA 와 동일 패턴). 결재 이력이 쌓이므로 필수.
   // 딥링크(?sel=)로 진입하면 대상 결재가 이미 처리됐을 수 있으므로 기본 필터를 '전체'로 열어 강조 대상이 목록에 남게 한다.
@@ -150,7 +153,10 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
                 </td>
                 <td className="strong" style={{ maxWidth: 380 }}>{a.title}</td>
                 <td>{a.requester}<span className="mut"> · {a.dept}</span></td>
-                <td className="tnum">{a.requestedAt}</td>
+                <td className="tnum">
+                  {a.requestedAt}
+                  {isApprovalOverdue(a, today) && <div><Chip tone="err" bare>{`지연 ${approvalAgeDays(a.requestedAt, today)}일`}</Chip></div>}
+                </td>
                 <td style={{ minWidth: 210 }}>
                   {(() => {
                     const steps = linesByKind[a.kind] ?? []

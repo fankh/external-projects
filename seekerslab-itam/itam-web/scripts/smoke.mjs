@@ -192,6 +192,8 @@ try {
   check('대시보드: 라이선스 초과 사용 감사 노출 큐 (자산담당)', dashHtml.includes('라이선스 초과 사용') && dashHtml.includes('감사 노출') && dashHtml.includes('/inventory/contracts'))
   // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다
   check('대시보드: 대장 정합성 미흡 운영 큐 (자산담당) + dq 드릴', dashHtml.includes('대장 정합성 미흡') && dashHtml.includes('dq=1'))
+  // 결재 지연 — SLA 초과 대기 결재가 결재 대기 KPI 델타에 노출된다(정체 신호)
+  check('대시보드: 결재 지연(SLA 초과) KPI 신호', dashHtml.includes('SLA') && dashHtml.includes('초과'))
   // 대여자 관점 — 목업 사용자(김민준)가 대여 중인 자산(AST-2024-000230)의 반환 기한이 My Work 에 노출된다
   const dashUser = await (await get('/dashboard', 'USER')).text()
   check('대시보드(사용자): 내 대여 자산 반환 기한 노출', dashUser.includes('내 대여 자산') && dashUser.includes('AST-2024-000230') && dashUser.includes('까지'))
@@ -281,6 +283,8 @@ try {
   check('결재함: 결재 이력 엑셀 버튼(ApprovalList 내부·필터 반영)', aprAdmin.includes('/api/export/approvals') && aprAdmin.includes('결재 이력 엑셀'))
   // 일괄 승인 — 내 결재 차례가 2건 이상이면 선택 일괄 승인 바가 노출된다(ADMIN 은 다수 대기 결재 가능)
   check('결재함: 일괄 승인 바 렌더 (내 결재 차례 2건+ · ADMIN)', aprAdmin.includes('선택 일괄 승인') && aprAdmin.includes('내 결재 차례'))
+  // 결재 지연(SLA 3일 초과) — 시드 대기 결재는 2주 전 상신이라 지연으로 표시된다
+  check('결재함: 지연(SLA 초과) 대기 결재 표시', aprAdmin.includes('지연 '))
   const aprUser = await (await get('/workflow/approvals', 'USER')).text()
   check('결재함(사용자): 일괄 승인 바 미노출 (결재 권한 없음)', !aprUser.includes('선택 일괄 승인'))
   const aprAll = Buffer.from(await (await get('/api/export/approvals?status=' + encodeURIComponent('전체'), 'ADMIN')).arrayBuffer()).toString('utf8')
