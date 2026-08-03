@@ -8,7 +8,8 @@
     "start": "next start",
     "smoke": "node scripts/smoke.mjs",
     "e2e": "python scripts/e2e_suite.py",
-    "health": "python scripts/client_health.py"
+    "health": "python scripts/client_health.py",
+    "gates": "npm run build && npm run smoke && npm run health && npm run e2e"
   },
   "dependencies": {
     "next": "^15.1.6",
