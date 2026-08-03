@@ -6,6 +6,7 @@ import { daysUntil, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from 
 import { REPORT_KINDS, createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { ASSET_CATEGORIES } from '@/lib/types'
 import type { ChatMessage, ReportKind } from '@/lib/types'
 
 /** 리포트 생성 인텐트 — 어시스턴트가 실제로 리포트를 만든다 (제품안내서 §05 리포트 자동화:
@@ -183,6 +184,26 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
       ],
     }
   }
+  // 자산 보증 만료 (유형 스코프) — 안내서 §05 예시 질의 "보증 만료되는 네트워크 장비 목록".
+  //  '보증' + 자산 맥락(유형/장비/자산)일 때 계약 만료가 아니라 대장 보증을 만료 임박순으로 답한다. 유형 언급 시 스코프.
+  if (!isUser && q.includes('보증') && (ASSET_CATEGORIES.some((c) => q.includes(c.toLowerCase())) || q.includes('장비') || q.includes('자산') || q.includes('노트북') || q.includes('pc'))) {
+    const cat = ASSET_CATEGORIES.find((c) => q.includes(c.toLowerCase()))
+    const scoped = s.assets
+      .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (!cat || a.category === cat))
+      .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
+    const soonN = scoped.filter((a) => (daysUntil(a.warrantyEnd) ?? 999) <= 90).length
+    const list = scoped.slice(0, 12)
+    return {
+      role: 'assistant',
+      text: [
+        `${cat ? `${cat} ` : ''}자산 보증 만료 현황 — 대상 ${scoped.length}건 (만료 임박순${soonN ? ` · 90일 내 ${soonN}건` : ''}).`,
+        ``,
+        ...list.map((a) => `· ${a.assetNo} — ${a.model} (${a.category}, 보증 만료 ${a.warrantyEnd} · D-${daysUntil(a.warrantyEnd)})`),
+        scoped.length > list.length ? `\n… 외 ${scoped.length - list.length}건은 대장 보증 임박 필터에서 확인하세요.` : ``,
+      ].filter(Boolean).join('\n'),
+      evidence: [{ label: '자산 대장 (보증 임박)', href: '/assets/register?warranty=soon' }],
+    }
+  }
   if (!isUser && (q.includes('만료') || q.includes('보증') || q.includes('계약'))) {
     const soon = s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= 90 })
     return {
@@ -262,7 +283,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "라이선스 초과 사용 현황"\n· "자산 상태 분포와 대여 현황"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "보증 만료되는 네트워크 장비 목록"\n· "라이선스 초과 사용 현황"\n· "자산 상태 분포와 대여 현황"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
   }
 }
 
