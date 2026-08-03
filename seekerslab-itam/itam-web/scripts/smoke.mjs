@@ -571,6 +571,8 @@ try {
   check('재물조사: 실사 위치 목록이 대장 위치와 정합', rackLocations.filter((l) => regHtml.includes(l)).every((l) => svyHtml.includes(l)), rackLocations.filter((l) => regHtml.includes(l) && !svyHtml.includes(l)).join(', '))
   const repHtml = await (await get('/ai/reports', 'ASSET_MGR')).text()
   check('리포트: 6종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('연간 교체 계획') && repHtml.includes('결재 첨부용'))
+  // 월간 자산 현황 리포트에 유지보수(수리) 비용 현황이 포함됨을 유형 설명에서 확인(생성 시 buildSections 가 TCO 섹션 산출)
+  check('리포트: 월간 자산 현황에 유지보수(수리) 비용 반영', repHtml.includes('유지보수(수리) 비용'))
   const repText = text(repHtml)
   check('리포트: 자동 생성 스케줄 렌더 (수정·예약 실행)', repText.includes('자동 생성 스케줄') && repText.includes('예약 실행') && repText.includes('매주 월요일') && repText.includes('수정'))
   check('리포트: 밀린 스케줄이 기한 도래로 표시', repText.includes('기한 도래'))
