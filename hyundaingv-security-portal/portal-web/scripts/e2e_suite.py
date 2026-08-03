@@ -231,6 +231,44 @@ def sc_runtime(pg, base, check):
     check(pg.evaluate('window.__marker') is None, '청크 오류 → 자동 새로고침')
 
 
+def sc_batchref(pg, base, check):
+    """상신 묶음 번호 — 반려 후 재상신이 새 번호를 받고, 과거 반려 문서가 새 묶음을 가리키지 않는다"""
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    for box in pg.locator('input[name=ids]').all():
+        box.check()
+    pg.click('button:has-text("선택 건 장애보고 상신")')
+    pg.wait_for_load_state('networkidle')
+
+    # 결재선(장애보고 → 시스템관리자)에서 사유 반려
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    row = pg.locator('tr', has_text='[장애보고]').first
+    check('IR-2026-0001' in row.inner_text(), '1차 상신 묶음 IR-0001')
+    row.locator('input[name=reason]').fill('취합 기간 오류')
+    row.locator('button:has-text("반려")').click()
+    pg.wait_for_load_state('networkidle')
+
+    # 재상신 — 새 묶음 번호여야 한다 (반려로 행 ref 가 초기화되어도 재사용 금지)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    for box in pg.locator('input[name=ids]').all():
+        box.check()
+    pg.click('button:has-text("선택 건 장애보고 상신")')
+    pg.wait_for_load_state('networkidle')
+
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    waiting = pg.locator('.card', has_text='수신함 — 결재 대기')
+    check('IR-2026-0002' in waiting.inner_text(), '재상신 묶음 IR-0002 (번호 재사용 금지)')
+    # 반려된 1차 문서 상세 — 새 묶음(0002)의 장애를 보여주면 안 된다
+    pg.locator('.card', has_text='수신함 — 처리 완료').locator('a', has_text='[장애보고]').first.click()
+    pg.wait_for_selector('text=문서 상세', timeout=10000)
+    detail = pg.locator('.card', has_text='문서 상세')
+    check('IR-2026-0001' in detail.inner_text(), '반려 문서는 1차 묶음 참조 유지')
+    check('0건' in detail.inner_text(), '반려 문서 상세가 새 묶음을 가리키지 않음(0건)')
+
+
 def sc_profile(pg, base, check):
     """프로필 스위칭 — PORTAL_PROFILE=manufacturer 로 브랜딩·채널 구성 전환"""
     pg.goto(f'{base}/login', wait_until='networkidle')
@@ -258,6 +296,7 @@ SCENARIOS = [
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),
     ('profile', '고객사 프로필 스위칭 (manufacturer)', sc_profile, {'PORTAL_PROFILE': 'manufacturer'}),
+    ('batchref', '상신 묶음 번호 재사용 금지 (반려 후 재상신)', sc_batchref, {}),
 ]
 
 

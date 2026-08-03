@@ -55,7 +55,9 @@ async function submitReport(formData: FormData) {
   if (targets.length === 0) return
 
   const year = today().slice(0, 4)
-  const ref = nextNo('IR', year, s.incidents.map((i) => i.reportRef).filter((x): x is string => Boolean(x)))
+  // 묶음 번호는 불변 원장인 결재 이력에서 채번한다 — 행의 reportRef 는 반려 시 초기화되어
+  // 번호가 재사용되고, 반려된 과거 결재 문서 상세가 새 묶음을 가리키게 된다
+  const ref = nextNo('IR', year, s.approvals.filter((a) => a.docType === '장애보고 상신' && a.ref).map((a) => a.ref!))
   for (const inc of targets) {
     inc.reportRef = ref
     inc.reportStatus = '결재중'

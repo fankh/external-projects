@@ -60,7 +60,8 @@ async function submitDiscards() {
   if (targets.length === 0) return
 
   const year = today().slice(0, 4)
-  const ref = nextNo('PD', year, s.printouts.map((p) => p.approvalRef).filter((x): x is string => Boolean(x)))
+  // 묶음 번호는 결재 이력에서 채번 — 행 approvalRef 는 반려 시 초기화되어 재사용 위험
+  const ref = nextNo('PD', year, s.approvals.filter((a) => a.docType === '출력물폐기 상신' && a.ref).map((a) => a.ref!))
   for (const row of targets) {
     row.approvalRef = ref
     row.status = '결재중'

@@ -84,7 +84,8 @@ async function submitCompanyPledges(formData: FormData) {
   const targets = s.companyPledges.filter((c) => ids.includes(c.id) && c.status === '등록')
   if (targets.length === 0) return
   const year = today().slice(0, 4)
-  const ref = nextNo('CPB', year, s.companyPledges.map((c) => c.approvalRef).filter((x): x is string => Boolean(x)))
+  // 묶음 번호는 결재 이력에서 채번 — 행 approvalRef 는 반려 시 초기화되어 재사용 위험
+  const ref = nextNo('CPB', year, s.approvals.filter((a) => a.docType === '서약 현황 상신' && a.ref).map((a) => a.ref!))
   for (const c of targets) {
     c.approvalRef = ref
     c.status = '결재중'
