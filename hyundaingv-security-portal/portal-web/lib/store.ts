@@ -157,6 +157,7 @@ function seed(): Store {
       { docType: '출력물폐기 상신', approver: '박정호' },
       { docType: '보안위반 확인서', approver: '박정호' },
       { docType: '서약 현황 상신', approver: '박정호' },
+      { docType: '부서서약 현황 상신', approver: '박정호' },
     ],
     approvals: [
       { id: 'AP-2026-0712', docType: 'SR 신청', title: '월별 정산 데이터 추출 요청', drafter: '김현우', dept: '개발1팀', approver: '박정호', status: '대기', draftedAt: '2026-07-29', ref: 'SR-2026-0145' },

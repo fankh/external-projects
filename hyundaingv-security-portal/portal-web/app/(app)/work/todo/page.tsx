@@ -29,6 +29,7 @@ const RESUBMIT_HREF: [string, string][] = [
   ['출력물폐기 상신', '/awareness/prints'],
   ['보안위반 확인서', '/awareness/violations'],
   ['서약 현황 상신', '/pledge/manage'],
+  ['부서서약 현황 상신', '/pledge/dept'],
 ]
 
 function todoLink(x: TodoItem): { href: string; label: string } {

@@ -50,6 +50,20 @@ def sc_pledge(pg, base, check):
     check('완료' in pg.locator('.stat', has_text='보안서약서').inner_text(), '제출 → 서약 스탯 완료')
     check('2026년 일반 보안서약서 제출' not in pg.locator('.card', has_text='나의 할일').inner_text(), '할일 자동 마감')
 
+    # 결재 시트 11번 — 부서담당이 부서 서약 현황 전체를 결재상신하고 결재선(박정호)이 승인한다
+    login(pg, base, '이수진')
+    pg.goto(f'{base}/pledge/dept', wait_until='networkidle')
+    pg.click('button:has-text("현황 결재상신")')
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    check('[보안서약서] 경영지원팀' in pg.locator('.card', has_text='상신함').inner_text(), '부서 서약 현황 상신 (DPS 묶음)')
+    login(pg, base, '박정호')
+    approve_first(pg, base, '[보안서약서] 경영지원팀')
+    login(pg, base, '이수진')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    row = pg.locator('.card', has_text='상신함').locator('tr', has_text='[보안서약서] 경영지원팀')
+    check('승인' in row.inner_text(), '부서 서약 현황 결재 승인')
+
 
 def sc_sr(pg, base, check):
     """SR 신청(첨부) → 승인 → CI 배정 → 반려 재상신 생명주기"""

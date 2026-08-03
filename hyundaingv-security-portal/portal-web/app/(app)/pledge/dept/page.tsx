@@ -1,9 +1,10 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { requireRole } from '@/lib/authz'
-import { nowStamp } from '@/lib/dates'
+import { nowStamp, today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
-import { getStore, recordBatch } from '@/lib/store'
+import { getStore, nextNo, recordBatch } from '@/lib/store'
 
 const YEAR = '2026'
 
@@ -22,6 +23,33 @@ async function remindUnsigned(formData: FormData) {
   // 폐쇄 루프 — 그룹웨어 메일 어댑터 경유 발송. 채널이 중지 상태면 실패가 배치 이력으로 드러난다.
   const r = await sendVia('groupware-mail', targets.map((t) => t.name), `[보안서약서] ${YEAR}년 미서약 안내`)
   recordBatch(`미서약 안내메일 발송 (${dept} ${targets.length}명)`, nowStamp(), r.ok ? '성공' : '실패')
+  revalidatePath('/', 'layout')
+}
+
+/** 부서 서약 현황 결재상신 (결재 시트 11번) — 조회된 부서 목록 전체를 상신한다.
+ *  업무 상태 전파는 없고(요구: 진행상태 반영 없음), 묶음 번호는 결재 이력에서 채번한다. */
+async function submitDeptStatus(formData: FormData) {
+  'use server'
+  const me = await requireRole('DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const dept = String(formData.get('dept') ?? '')
+  if (me.role === 'DEPT_MGR' && dept !== me.dept) return
+  const s = getStore()
+  if (!s.people.some((p) => p.dept === dept)) return
+  // 같은 부서의 상신이 결재 대기 중이면 중복 상신을 막는다
+  if (s.approvals.some((a) => a.docType === '부서서약 현황 상신' && a.status === '대기' && a.title.startsWith(`[보안서약서] ${dept} `))) return
+
+  const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
+  const signed = new Set(s.pledges.filter((p) => p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  const members = s.people.filter((p) => p.dept === dept)
+  const done = members.filter((p) => signed.has(p.name)).length
+
+  const year = today().slice(0, 4)
+  const ref = nextNo('DPS', year, s.approvals.filter((a) => a.docType === '부서서약 현황 상신' && a.ref).map((a) => a.ref!))
+  draftApproval({
+    docType: '부서서약 현황 상신',
+    title: `[보안서약서] ${dept} 서약 현황 ${members.length}명 (완료 ${done} · 미서약 ${members.length - done}) ${today()}`,
+    ref, drafter: me,
+  })
   revalidatePath('/', 'layout')
 }
 
@@ -59,14 +87,20 @@ export default async function DeptPledgePage() {
         return (
           <Card key={dept} title={dept} kicker="Department"
             actions={
-              unsigned.length > 0 ? (
-                <form action={remindUnsigned}>
+              <span className="hstack">
+                {unsigned.length > 0 ? (
+                  <form action={remindUnsigned}>
+                    <input type="hidden" name="dept" value={dept} />
+                    <button type="submit" className="btn sm">미서약 안내메일 ({unsigned.length}명)</button>
+                  </form>
+                ) : (
+                  <Chip tone="ok" bare>전원 완료</Chip>
+                )}
+                <form action={submitDeptStatus}>
                   <input type="hidden" name="dept" value={dept} />
-                  <button type="submit" className="btn sm">미서약 안내메일 ({unsigned.length}명)</button>
+                  <button type="submit" className="btn sm pri">현황 결재상신</button>
                 </form>
-              ) : (
-                <Chip tone="ok" bare>전원 완료</Chip>
-              )
+              </span>
             } pad={false}>
             <div className="tbl-wrap">
               <table className="tbl">

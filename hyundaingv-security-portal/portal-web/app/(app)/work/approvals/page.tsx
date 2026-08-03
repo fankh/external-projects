@@ -50,6 +50,18 @@ function refSummary(s: Store, ap: Approval): [string, string][] {
       const rows = s.companyPledges.filter((c) => c.approvalRef === ref)
       return [['묶인 징구', `${rows.length}건`], ...rows.map((c): [string, string] => [c.id, `${c.company} — ${c.personName}`])]
     }
+    case '부서서약 현황 상신': {
+      // 상신 시점 부서는 제목에 있고, 현황은 현재 데이터로 산출해 보여준다
+      const dept = /^\[보안서약서\] (.+?) 서약 현황/.exec(ap.title)?.[1]
+      if (!dept) return []
+      const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
+      const signed = new Set(s.pledges.filter((p) => p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+      const members = s.people.filter((p) => p.dept === dept)
+      return [
+        ['부서', dept], ['대상', `${members.length}명`], ['서약 완료', `${members.filter((p) => signed.has(p.name)).length}명`],
+        ...members.filter((p) => !signed.has(p.name)).map((p): [string, string] => [p.name, '미서약']),
+      ]
+    }
     default:
       return []
   }
