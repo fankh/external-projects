@@ -5,7 +5,7 @@ import { Chip } from '@/components/ui'
 import { ASSET_CATEGORIES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
-import { acquisitionCostOf, assetTco } from '@/lib/cost'
+import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
@@ -329,6 +329,18 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   </dd>
                   <dt>TCO(취득+수리)</dt>
                   <dd className="tnum strong">{assetTco(sel).toLocaleString()}원</dd>
+                  {props.today && (() => {
+                    const pct = depreciationPct(sel, props.today!)
+                    return (
+                      <>
+                        <dt>잔존가치(장부가)</dt>
+                        <dd className="hstack" style={{ gap: 6 }}>
+                          <span className="tnum">{bookValueOf(sel, props.today!).toLocaleString()}원</span>
+                          {pct >= 100 ? <Chip tone="neutral" bare>상각 완료</Chip> : <span className="mut" style={{ fontSize: 11 }}>정액법 · 상각 {pct}%</span>}
+                        </dd>
+                      </>
+                    )
+                  })()}
                 </>
               )}
               {sel.status === '대여중' && (

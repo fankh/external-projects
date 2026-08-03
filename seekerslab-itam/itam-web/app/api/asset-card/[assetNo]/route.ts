@@ -1,4 +1,5 @@
-import { acquisitionCostOf, assetTco } from '@/lib/cost'
+import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
+import { today } from '@/lib/dates'
 import { qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -30,6 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('누적 수리비', (a.repairCosts?.length ?? 0) > 0 ? `${a.repairCosts!.reduce((n, c) => n + c.amount, 0).toLocaleString()}원 (${a.repairCosts!.length}건)` : undefined),
     row('취득가', acquisitionCostOf(a) > 0 ? `${acquisitionCostOf(a).toLocaleString()}원${a.acquisitionCost === undefined ? ' (표준 단가)' : ''}` : undefined),
     row('TCO(취득+수리)', acquisitionCostOf(a) > 0 ? `${assetTco(a).toLocaleString()}원` : undefined),
+    row('잔존가치(장부가)', acquisitionCostOf(a) > 0 ? `${bookValueOf(a, today()).toLocaleString()}원 · 정액법 상각 ${depreciationPct(a, today())}%` : undefined),
   ].filter(Boolean).join('')
   const timeline = [...a.history].reverse().map((h) =>
     `<tr><td class="d">${esc(h.date)}</td><td class="k">${esc(h.kind)}</td><td>${esc(h.detail)}</td><td class="ac">${esc(h.actor)}</td></tr>`,

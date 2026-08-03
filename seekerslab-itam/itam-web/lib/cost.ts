@@ -20,3 +20,25 @@ export function repairTotalOf(a: Asset): number {
 export function assetTco(a: Asset): number {
   return acquisitionCostOf(a) + repairTotalOf(a)
 }
+
+/** 내용연수(년) — 정액법 감가상각 기준. 연간 교체 계획(reports)의 도입 5년 초과 기준과 일치. */
+export const USEFUL_LIFE_YEARS = 5
+
+/** 도입 후 경과 연수 — 서버가 준 today(YYYY-MM-DD) 기준으로만 계산해 하이드레이션 불일치를 피한다. */
+function elapsedYears(purchaseDate: string, today: string): number {
+  const ms = Date.parse(today) - Date.parse(purchaseDate)
+  return ms > 0 ? ms / (365.25 * 24 * 3600 * 1000) : 0
+}
+
+/** 감가상각 진행률(%) — 정액법. 내용연수 초과 시 100%(상각 완료). */
+export function depreciationPct(a: Asset, today: string): number {
+  return Math.min(100, Math.round((elapsedYears(a.purchaseDate, today) / USEFUL_LIFE_YEARS) * 100))
+}
+
+/** 잔존가치(장부가) — 취득가에서 정액법 감가상각을 적용한 현재 가치. 내용연수 초과분은 0으로 상각 완료. */
+export function bookValueOf(a: Asset, today: string): number {
+  const acq = acquisitionCostOf(a)
+  if (acq <= 0) return 0
+  const remaining = Math.max(0, USEFUL_LIFE_YEARS - elapsedYears(a.purchaseDate, today)) / USEFUL_LIFE_YEARS
+  return Math.round(acq * remaining)
+}
