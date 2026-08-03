@@ -25,6 +25,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('도입일', a.purchaseDate), row('보증 만료', a.warrantyEnd),
     row('연계 계약', a.contractId), row('최초 발견 채널', a.discoveredVia),
     row('최근 실측', a.lastVerifiedAt), row('반환 기한', a.loanDueDate),
+    row('수리 의뢰', a.repair ? `${a.repair.vendor}${a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}${a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}` : undefined),
   ].filter(Boolean).join('')
   const timeline = [...a.history].reverse().map((h) =>
     `<tr><td class="d">${esc(h.date)}</td><td class="k">${esc(h.kind)}</td><td>${esc(h.detail)}</td><td class="ac">${esc(h.actor)}</td></tr>`,

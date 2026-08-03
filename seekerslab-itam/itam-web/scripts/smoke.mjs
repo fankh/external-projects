@@ -441,6 +441,9 @@ try {
   // 데이터 스코핑 — USER 는 본인 자산 카드만
   check('자산 카드: USER 본인 자산은 발급 (200)', (await get('/api/asset-card/AST-2023-000112', 'USER')).status === 200)
   check('자산 카드: USER 타인 자산은 차단 (403)', (await get('/api/asset-card/AST-2023-000561', 'USER')).status === 403)
+  // 수리중 자산 카드에 수리 의뢰(업체·예상반환) 행 — 상세·엑셀과 일관. 시드 AST-2024-000512(중부IT서비스)로 검증
+  const cardRepair = await (await get('/api/asset-card/AST-2024-000512', 'ASSET_MGR')).text()
+  check('자산 카드: 수리중 자산에 수리 의뢰 행(업체·예상반환)', cardRepair.includes('수리 의뢰') && cardRepair.includes('중부IT서비스') && cardRepair.includes('예상반환 2026-07-28'))
   // CSV 일괄 등록 템플릿 — 형식 안내용 다운로드
   check('CSV 템플릿: 미로그인 차단 (401)', (await get('/api/asset-template.csv')).status === 401)
   check('CSV 템플릿: 사용자 차단 (403)', (await get('/api/asset-template.csv', 'USER')).status === 403)
