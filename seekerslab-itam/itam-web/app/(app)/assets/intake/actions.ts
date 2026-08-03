@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
+import { checklistFor } from '@/lib/intake'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo, nextId } from '@/lib/store'
@@ -52,14 +53,6 @@ export async function rejectIntakeLot(lotId: string, reason: string) {
 }
 
 /** 신규 입고 건의 기본 검수 체크리스트 — 발주 사양·외관·전원·부속·SW·라벨 */
-const DEFAULT_CHECKLIST = [
-  '발주 사양 일치 (CPU·메모리·디스크)',
-  '외관 손상·스크래치 확인',
-  '전원·부팅 정상 동작',
-  '부속품 구성 (어댑터·케이블·매뉴얼)',
-  'OS·보안 SW 설치 상태',
-  '자산 라벨 부착 위치 확인',
-]
 
 /** 발주 연계 입고 등록 — 구매 계약에 묶어 새 입고 건을 등록한다(도입·검수 파이프라인 진입점).
  *  (제품안내서 §03: 발주 연계 입고 → 검수 체크리스트 → 채번 → 라벨) */
@@ -88,7 +81,7 @@ export async function registerIntakeLot(contractId: string, model: string, categ
     arrivedAt: today(),
     vendor: contract.vendor,
     status: '입고 대기',
-    checklist: DEFAULT_CHECKLIST.map((item) => ({ item, checked: false })),
+    checklist: checklistFor(category).map((item) => ({ item, checked: false })),
     issued: [],
     inspector: session.name,
   })
@@ -143,7 +136,7 @@ export async function markLotArrived(lotId: string) {
 
   lot.status = '입고 대기'
   lot.arrivedAt = today()
-  lot.checklist = DEFAULT_CHECKLIST.map((item) => ({ item, checked: false }))
+  lot.checklist = checklistFor(lot.category).map((item) => ({ item, checked: false }))
   lot.inspector = session.name
   appendAudit({ actor: session.name, action: `도입 예정 입고 처리 — ${lot.model} ${lot.qty}대 (SR ${lot.srNo ?? '-'})`, target: lot.id })
   revalidatePath('/', 'layout')

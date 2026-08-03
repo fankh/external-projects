@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { today } from './dates'
+import { checklistFor } from './intake'
 import { fingerprintOf } from './types'
 import type {
   AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract,
@@ -463,27 +464,15 @@ function seed(): Store {
       {
         id: 'IN-2607-01', contractId: 'CT-2026-009', model: 'ThinkPad X1 Carbon G12', category: '단말',
         qty: 40, arrivedAt: '2026-07-21', vendor: '(주)한빛INT', status: '검수 중', inspector: '박자산',
-        checklist: [
-          { item: '외관 손상·스크래치 확인', checked: true },
-          { item: '발주 사양 일치 (CPU·메모리·SSD)', checked: true },
-          { item: '전원·부팅 정상 동작', checked: true },
-          { item: '부속품 구성 (어댑터·케이블·매뉴얼)', checked: false },
-          { item: 'OS·보안 SW 설치 상태', checked: false },
-          { item: '자산 라벨 부착 위치 확인', checked: false },
-        ],
+        // 단말 유형별 검수 체크리스트 — 앞 3항목 검수 완료(진행 중 시연). 코드 경로(checklistFor)와 동일 항목.
+        checklist: checklistFor('단말').map((item, i) => ({ item, checked: i < 3 })),
         issued: ['AST-2025-000033'],
       },
       {
         id: 'IN-2607-02', contractId: 'CT-2023-021', model: 'PowerEdge R760', category: '서버',
         qty: 2, arrivedAt: '2026-07-27', vendor: '델테크놀로지스', status: '입고 대기',
-        checklist: [
-          { item: '외관 손상·랙 마운트 부속 확인', checked: false },
-          { item: '발주 사양 일치 (CPU·메모리·디스크)', checked: false },
-          { item: '전원 이중화·팬 정상 동작', checked: false },
-          { item: 'iDRAC·펌웨어 버전 확인', checked: false },
-          { item: 'OS·보안 SW 설치 상태', checked: false },
-          { item: '자산 라벨 부착 위치 확인', checked: false },
-        ],
+        // 서버 유형별 검수 체크리스트 — 전원 이중화·RAID·관리포트 등 서버 고유 항목 포함(checklistFor 와 동일).
+        checklist: checklistFor('서버').map((item) => ({ item, checked: false })),
         issued: [],
       },
       {
@@ -660,7 +649,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 21
+const SCHEMA_VERSION = 22
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
