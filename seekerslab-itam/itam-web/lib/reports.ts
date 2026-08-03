@@ -3,6 +3,7 @@
 import { recordAiCall } from './ai-status'
 import { appendAudit } from './audit'
 import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon } from './dates'
+import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
 import type { ReportKind, ReportSchedule, ReportSection } from './types'
 
@@ -11,7 +12,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용' },
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
-  { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행 증빙 초안' },
+  { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도) 증빙 초안' },
   { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과 기준 교체 대상·유형별 예산 추정' },
 ]
 
@@ -245,6 +246,17 @@ export function buildSections(kind: ReportKind): ReportSection[] {
   }
 
   // 감사 대응 자료
+  const live = s.assets.filter((a) => a.status !== '폐기완료')
+  const flagged = live.filter(hasDataIssue)
+  const accuracy = live.length ? Math.round(((live.length - flagged.length) / live.length) * 100) : 100
+  const dqSection: ReportSection = flagged.length === 0
+    ? { title: '대장 정합성 (CMDB 정확도)', note: `운영 자산 ${live.length}건 · 정확도 ${accuracy}% — 핵심 필드 누락·불일치 없음`, bullets: ['소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산이 없습니다.'] }
+    : {
+        title: '대장 정합성 (CMDB 정확도)',
+        note: `운영 자산 ${live.length}건 중 정합성 미흡 ${flagged.length}건 · 정확도 ${accuracy}%`,
+        columns: ['자산번호', '유형', '상태', '미흡 항목'],
+        rows: flagged.map((a) => [a.assetNo, a.category, a.status, assetDataIssues(a).join(', ')]),
+      }
   return [
     {
       title: '권한 통제 현황',
@@ -252,6 +264,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       columns: ['계정', '이름', '부서', '권한그룹', 'MFA'],
       rows: s.users.map((u) => [u.login, u.name, u.dept, u.role, u.mfa ? '적용' : '미적용']),
     },
+    dqSection,
     {
       title: '필수 결재 지정 화면',
       columns: ['화면', '결재 구분', '결재선'],
@@ -307,8 +320,12 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
       + `이 중 보증이 경과한 ${warrN}대는 장애 시 무상 수리가 불가해 우선 교체 대상입니다. `
       + '예산 확정 후 노후·장애 이력 순으로 분기별 집행 계획을 수립할 것을 권고합니다.'
   }
+  const liveA = s.assets.filter((a) => a.status !== '폐기완료')
+  const flaggedA = liveA.filter(hasDataIssue).length
+  const accuracyA = liveA.length ? Math.round(((liveA.length - flaggedA) / liveA.length) * 100) : 100
   return `사용자 ${s.users.length}명에 대해 화면·기능 단위 최소권한이 적용되어 있으며 MFA 적용률은 ${Math.round((s.users.filter((u) => u.mfa).length / s.users.length) * 100)}%입니다. `
-    + `필수 결재 지정 화면은 ${s.approvalLines.filter((l) => l.required).length}개이며, 탐지 채널 ${s.scanPolicies.filter((p) => p.enabled).length}/${s.scanPolicies.length}이 정책에 따라 운영 중입니다.`
+    + `필수 결재 지정 화면은 ${s.approvalLines.filter((l) => l.required).length}개이며, 탐지 채널 ${s.scanPolicies.filter((p) => p.enabled).length}/${s.scanPolicies.length}이 정책에 따라 운영 중입니다. `
+    + `대장 정합성(CMDB 정확도)은 ${accuracyA}%로, 핵심 필드 누락·불일치 ${flaggedA}건은 정합성 보정 대상입니다.`
 }
 
 /** 결재 첨부용 — 엑셀 호환 CSV (UTF-8 BOM) */
