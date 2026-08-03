@@ -96,6 +96,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v1.0.20 | 의존성 보안 — npm audit high 3건(next 전이 postcss·sharp)을 overrides 로 패치 강제, 취약점 0건 (게이트 3종 + Docker 빌드·기동 재검증) |
 | v1.0.21 | docs(roadmap): 운영 수칙에 주기적 npm audit 점검 편입 (overrides 우선·의존성 변경 시 게이트+Docker 재검증) |
 | v1.0.22 | Content-Security-Policy 헤더 — self 한정·object/frame/base/form-action 봉쇄 (인라인 스크립트는 Next 하이드레이션 제약으로 허용, dev 만 unsafe-eval) + 스모크 CSP 검증 2건 (463체크) |
+| v1.0.23 | docs: 구축 요약 게이트 수치·보안 헤더 4종 현행화 (CSP 반영) |
 
 ## 배포 (Docker)
 
