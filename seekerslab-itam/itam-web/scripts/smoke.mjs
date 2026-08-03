@@ -527,6 +527,8 @@ try {
   check('재물조사 계획: 미확인 자산 자동 편성 진입점', planHtml.includes('미확인(유령) 자산 자동 편성') && planHtml.includes('자동 편성'))
   // 장기 미실측(실사 기반) 자동 편성 — 대장 최근 실측일에 근거한 유령 후보를 수시 조사로 편성
   check('재물조사 계획: 장기 미실측 자산 자동 편성 진입점', planHtml.includes('장기 미실측') && planHtml.includes('실사 기반 유령'))
+  // 완료 회차 이력 — 지난 재물조사 실적(대상·실사·차이)이 감사 추적용으로 보존된다. 그동안 완료 회차는 어디에도 안 보였다.
+  check('재물조사 계획: 완료 회차 이력 렌더 (감사 추적)', planHtml.includes('완료 회차 이력') && planHtml.includes('INV-2026-H1') && planHtml.includes('2026 상반기 정기 재물조사'))
   const recHtml2 = await (await get('/discovery/reconcile', 'ASSET_MGR')).text()
   check('CMDB 대사: 미확인 → 조사 편성 연결', recHtml2.includes('/inventory/survey-plan'))
   // 대사 결과별 처리 드릴다운 — 미등록·불일치 카운트가 발견 처리 화면(상태 필터)로 연결 (report → act)

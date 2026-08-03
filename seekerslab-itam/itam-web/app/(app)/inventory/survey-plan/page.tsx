@@ -1,4 +1,4 @@
-import { ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { isStaleVerify, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
@@ -38,6 +38,8 @@ export default async function SurveyPlanPage() {
   const active = rounds.filter((r) => r.status === '진행중')
   const planned = rounds.filter((r) => r.status === '계획')
   const overdue = rounds.filter((r) => r.status !== '완료' && r.dueDate < t)
+  // 완료 회차 이력 — 지난 재물조사의 실적(대상·실사·차이)을 남겨 감사 추적에 쓴다. 그동안 완료 회차는 조사 화면·계획 화면 어디에도 안 보였다.
+  const completed = rounds.filter((r) => r.status === '완료').sort((a, b) => b.dueDate.localeCompare(a.dueDate))
 
   return (
     <>
@@ -66,7 +68,7 @@ export default async function SurveyPlanPage() {
       </div>
 
       <PlanView
-        rounds={rounds}
+        rounds={rounds.filter((r) => r.status !== '완료')}
         scopes={scopes}
         assignees={assignees}
         unconfirmed={unconfirmed}
@@ -75,6 +77,38 @@ export default async function SurveyPlanPage() {
         pendingStaleCompose={pendingStaleCompose}
         today={t}
       />
+
+      <Card kicker="History" title={`완료 회차 이력 · ${completed.length}건`} pad={false}>
+        {completed.length === 0 ? (
+          <div className="empty">완료된 재물조사 회차가 없습니다.</div>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr><th>회차</th><th className="c">구분</th><th>대상 범위</th><th className="num">대상</th><th className="num">실사</th><th className="num">차이</th><th>담당자</th><th>기준일</th></tr>
+              </thead>
+              <tbody>
+                {completed.map((r) => (
+                  <tr key={r.id}>
+                    <td className="strong">{r.name}<div className="dim" style={{ fontSize: 11 }}>{r.id}</div></td>
+                    <td className="c"><Chip tone="neutral" bare>{r.kind}</Chip></td>
+                    <td className="dim">{r.scope}</td>
+                    <td className="num tnum">{r.planned.toLocaleString()}</td>
+                    <td className="num tnum">{r.scanned.toLocaleString()}</td>
+                    <td className="num tnum">{r.mismatched > 0 ? <Chip tone="warn" bare>{r.mismatched}</Chip> : 0}</td>
+                    <td>{r.assignee}</td>
+                    <td className="tnum">{r.dueDate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="callout" style={{ margin: 14 }}>
+          <b>재물조사 감사 추적.</b> 완료된 회차의 대상·실사·차이 실적을 보존합니다. 회차 완료 시 결과 요약 리포트가 자동 생성되어
+          담당·IT기획팀에 배포됩니다(로36). 차이는 조정 결재를 거쳐 대장에 반영된 뒤 완료됩니다.
+        </div>
+      </Card>
     </>
   )
 }
