@@ -8,12 +8,17 @@ export async function register() {
 
   const { runDailyNotify } = await import('./lib/notify')
   const { audit } = await import('./lib/audit')
+  const { backupDataFile, recordBatch } = await import('./lib/store')
+  const { nowStamp } = await import('./lib/dates')
 
   const tick = async () => {
     try {
       const results = await runDailyNotify()
       audit('스케줄러', '알림 배치 실행',
         results.map((r) => `${r.kind} ${r.targets}명${r.ok ? '' : '(실패)'}`).join(', ') || '대상 없음')
+      // 영속화 파일 일일 스냅샷 — PORTAL_DATA_FILE 미설정(인메모리)이면 조용히 건너뛴다
+      const bak = backupDataFile()
+      if (bak) recordBatch('데이터 파일 일일 백업 (보존 7개)', nowStamp(), '성공')
     } catch {
       // 스케줄 실패가 서버를 죽이면 안 된다 — 다음 주기에 재시도
     }

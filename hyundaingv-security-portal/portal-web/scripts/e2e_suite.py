@@ -348,6 +348,13 @@ def sc_persist(pg, base, check):
     chan.locator('tr', has_text='그룹웨어 메일').locator('button:has-text("가동")').wait_for(timeout=10000)
     check('중지' in chan.locator('tr', has_text='그룹웨어 메일').inner_text(), '누락 키 채널 첫 토글 정상 (가동→중지)')
 
+    # 일일 백업 — 스케줄러 틱이 데이터 파일의 일자별 스냅샷(.bak)을 남긴다
+    for _ in range(30):
+        if list(DATA.parent.glob(DATA.name + '.*.bak')):
+            break
+        time.sleep(0.5)
+    check(bool(list(DATA.parent.glob(DATA.name + '.*.bak'))), '데이터 파일 일일 백업 생성')
+
 
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
@@ -361,7 +368,8 @@ SCENARIOS = [
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),
     ('profile', '고객사 프로필 스위칭 (manufacturer)', sc_profile, {'PORTAL_PROFILE': 'manufacturer'}),
     ('batchref', '상신 묶음 번호 재사용 금지 (반려 후 재상신)', sc_batchref, {}),
-    ('persist', '데이터 파일 영속화 · 시드 머지 (구버전 호환)', sc_persist, {'PORTAL_DATA_FILE': str(DATA)}),
+    ('persist', '데이터 파일 영속화 · 시드 머지 (구버전 호환)', sc_persist,
+     {'PORTAL_DATA_FILE': str(DATA), 'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
 ]
 
 
@@ -430,6 +438,8 @@ def main() -> int:
         browser.close()
     UPLOAD.unlink(missing_ok=True)
     DATA.unlink(missing_ok=True)
+    for bak in DATA.parent.glob(DATA.name + '.*.bak'):
+        bak.unlink(missing_ok=True)
     total = len(targets)
     print(f'\n{"✓" if passed == total else "✗"} e2e: {passed}/{total} 시나리오 통과')
     return 0 if passed == total else 1

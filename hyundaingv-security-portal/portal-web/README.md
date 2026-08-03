@@ -91,6 +91,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v1.0.15 | Dockerfile 하드닝 — 비루트(node) 실행(쓰기 경로 /data·.next 만 소유 이전) + HEALTHCHECK(로그인 화면 프로브) — 실컨테이너 기동·헬시 검증 |
 | v1.0.16 | npm run gates — 빌드+게이트 3종 통합 러너 (커밋 전 기본 명령, 운영 수칙·테스트 절 갱신) |
 | v1.0.17 | chore: e2e 임시 파일(scripts/.e2e-*) gitignore — 스위트 중단 시 잔류물의 오커밋 방지 |
+| v1.0.18 | 데이터 파일 일일 백업 로테이션 — 스케줄러 틱이 일자별 스냅샷(.bak, 보존 7개)을 남겨 논리적 손상의 복구 지점 확보 (배치 이력 기록, e2e persist 검증) |
 
 ## 배포 (Docker)
 
@@ -106,7 +107,8 @@ docker run -d --name ngv-portal -v portal-data:/data -p 3400:3400 `
 `PORTAL_COOKIE_SECURE=1` 을 함께 설정해 세션 쿠키에 Secure 속성을 붙인다.
 
 컨테이너는 KST 시간대로 동작하고, 스토어는 `/data/portal-data.json`(볼륨)에
-영속화되어 재시작·재생성 후에도 유지된다.
+영속화되어 재시작·재생성 후에도 유지된다. 알림 스케줄러 틱마다 일자별 백업
+(`portal-data.json.YYYY-MM-DD.bak`, 보존 7개)이 같은 볼륨에 남는다.
 
 nginx 리버스 프록시를 포함한 구성은 `deploy/docker-compose.yml` 을 쓴다:
 

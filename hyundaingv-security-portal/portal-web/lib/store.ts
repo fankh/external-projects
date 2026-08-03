@@ -2,8 +2,8 @@
  *  PORTAL_DATA_FILE 이 설정되면 파일 기반으로 영속화되어 서버 재시작 후에도 유지된다
  *  (itam-web DATA_FILE 패턴). 미설정(로컬 개발·스모크)이면 순수 인메모리라 매 기동 시 시드로 초기화된다.
  *  실서비스에서는 MS-SQL 업무 데이터베이스로 대체된다(제품안내서 §02). */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
@@ -316,6 +316,25 @@ export function getStore(): Store {
   if (!g.__ngvPortalStore) g.__ngvPortalStore = loadFromFile() ?? seed()
   scheduleSave(g.__ngvPortalStore)
   return g.__ngvPortalStore
+}
+
+/** 일일 백업 로테이션 — tmp→rename 은 부분 쓰기만 막는다. 논리적 손상(잘못된 상태가
+ *  그대로 저장된 경우)의 복구 지점으로 일자별 스냅샷을 남기고 오래된 것부터 지운다.
+ *  같은 날 반복 호출은 같은 파일을 덮어써 멱등이다. 스케줄러 틱에서 호출된다. */
+export function backupDataFile(keep = 7): string | null {
+  if (!DATA_FILE || !existsSync(DATA_FILE)) return null
+  try {
+    const stamp = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10) // KST 일자
+    const dst = `${DATA_FILE}.${stamp}.bak`
+    copyFileSync(DATA_FILE, dst)
+    const dir = dirname(DATA_FILE)
+    const prefix = `${basename(DATA_FILE)}.`
+    const baks = readdirSync(dir).filter((f) => f.startsWith(prefix) && f.endsWith('.bak')).sort()
+    for (const old of baks.slice(0, Math.max(0, baks.length - keep))) unlinkSync(join(dir, old))
+    return dst
+  } catch {
+    return null // 디스크 오류는 데모 흐름을 막지 않는다
+  }
 }
 
 /** 배치 실행 기록 — 상태바 '마지막 배치'의 원천. 이력 상한으로 영속 파일 비대를 막는다. */
