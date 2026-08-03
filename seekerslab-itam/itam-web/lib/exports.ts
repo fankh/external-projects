@@ -1,6 +1,6 @@
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf } from './cost'
-import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today } from './dates'
+import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState } from './dates'
 import { can } from './perm'
 import { getStore } from './store'
 import type { PermMenu, Role } from './types'
@@ -55,7 +55,9 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       .map((a) => [
         a.assetNo, a.category, a.model, a.serial, a.status, a.owner, a.dept, a.location,
         a.os ?? '', a.cpu ?? '', a.memory ?? '', a.ip ?? '', a.mac ?? '',
-        a.purchaseDate, a.warrantyEnd, a.lastVerifiedAt ?? '', a.contractId ?? '', a.discoveredVia ?? '',
+        a.purchaseDate, a.warrantyEnd,
+        ({ covered: '보증 내', soon: '만료 임박', expired: '보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())],
+        a.lastVerifiedAt ?? '', a.contractId ?? '', a.discoveredVia ?? '',
         a.repair ? `${a.repair.vendor}${a.repair.eta ? ` (예상반환 ${a.repair.eta})` : ''}` : '',
         (a.repairCosts?.length ?? 0) > 0 ? a.repairCosts!.reduce((n, c) => n + c.amount, 0) : '',
         acquisitionCostOf(a) > 0 ? acquisitionCostOf(a) : '', acquisitionCostOf(a) > 0 ? assetTco(a) : '',
@@ -63,7 +65,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       ])
     return [{
       name: '자산 대장',
-      header: ['자산번호', '유형', '모델', 'S/N', '상태', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '최근 실측', '계약', '발견채널', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
+      header: ['자산번호', '유형', '모델', 'S/N', '상태', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '보증상태', '최근 실측', '계약', '발견채널', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
       rows,
     }]
   }

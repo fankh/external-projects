@@ -598,6 +598,8 @@ try {
   // 취득가·TCO 컬럼 반출 — AST-2023-000112 취득가 1680000 · TCO 1923000 이 숫자셀 평문으로 들어간다
   check('자산 대장 엑셀: 취득가·TCO 컬럼 반출', asBuf.includes('취득가') && asBuf.includes('TCO') && asBuf.includes('1680000') && asBuf.includes('1923000'))
   check('자산 대장 엑셀: 잔존가치 컬럼 반출', asBuf.includes('잔존가치'))
+  // 보증상태 컬럼 반출 — 보증 내/임박/만료 상태를 감사 반출에 반영(v1.194 스윕)
+  check('자산 대장 엑셀: 보증상태 컬럼 반출', asBuf.includes('보증상태') && asBuf.includes('보증 내'))
   // 누적 수리비 컬럼 — 자산 TCO 반출. 시드 AST-2023-000112 누계 243000 이 평문으로 들어간다.
   check('자산 대장 엑셀: 누적 수리비 컬럼 반출(자산 TCO)', asBuf.includes('누적 수리비') && asBuf.includes('243000'))
   // ?sel= 딥링크로 상세 패널을 서버 렌더 → 상세 패널의 구성변경 컨트롤을 검증한다
