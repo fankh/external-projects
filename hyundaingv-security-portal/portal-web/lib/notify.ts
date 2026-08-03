@@ -44,6 +44,11 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('재택 미제출', s.people.filter((p) => !submitted.has(p.name)).map((p) => p.name),
     `[재택근무] ${month} 체크리스트 제출 안내`)
 
+  // 5) 반려 방치 — 반려 후 재상신하지 않은 기안자 (열린 '재상신' 할일 소유자, 재상신하면 할일이 닫혀 제외)
+  await send('반려 방치',
+    s.todos.filter((x) => x.kind === '재상신' && !x.done).map((x) => x.owner),
+    '[결재] 반려 문서 재상신 안내')
+
   const total = results.reduce((sum, r) => sum + r.targets, 0)
   const allOk = results.every((r) => r.ok)
   recordBatch(`일일 알림 배치 (${results.length}종 · ${total}명)`, nowStamp(), results.length === 0 || allOk ? '성공' : '실패')

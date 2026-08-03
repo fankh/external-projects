@@ -256,7 +256,16 @@ def sc_batchref(pg, base, check):
     check('[장애보고 상신]' in open_card.inner_text(), '반려 → 재상신 할일 생성 (사유 포함)')
     check('취합 기간 오류' in open_card.inner_text(), '재상신 할일에 반려 사유 표시')
 
+    # 반려 방치 건은 일일 알림 배치(5번째 유형)로 기안자에게 안내메일이 나간다
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.click('button:has-text("알림 배치 실행")')
+    # 서버 액션 재렌더를 기다린다 — networkidle 은 POST 전에 통과할 수 있다
+    pg.wait_for_selector('text=반려 문서 재상신 안내', timeout=10000)
+    check('반려 문서 재상신 안내' in pg.locator('.card', has_text='발송 이력').inner_text(), '반려 방치 → 안내메일 발송')
+
     # 재상신 — 새 묶음 번호여야 한다 (반려로 행 ref 가 초기화되어도 재사용 금지)
+    login(pg, base, '박정호')
     pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
     for box in pg.locator('input[name=ids]').all():
         box.check()
