@@ -391,3 +391,24 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
   revalidatePath('/', 'layout')
   return { ok: true, message: `${a.id} ${verdict} 처리 완료 (${session.name})` }
 }
+
+/** 결재 일괄 승인 — '내 결재 차례'의 다건을 한 번에 승인 처리한다(반려는 개별 사유가 필요해 제외).
+ *  각 건은 decide() 를 그대로 거쳐 역할 게이트·다단계 진행·효과 적용이 개별 검증된다 — 일괄이라고 규칙을 우회하지 않는다.
+ *  자산 일괄 폐기 선정(v1.54)·발견 일괄 편입(v1.60)과 같은 배치 처리 패턴. 승인 권한이 없는 건은 건너뛴다. */
+export async function decideMany(ids: string[]) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+  if (!Array.isArray(ids) || ids.length === 0) return { ok: false, message: '선택된 결재 건이 없습니다.' }
+  const s = getStore()
+  let done = 0
+  let skipped = 0
+  for (const id of ids) {
+    // 소유자 확인은 결재가 아니라 응답(answerOwnerConfirm)이라 일괄 승인 대상에서 제외한다(방어적)
+    const a = s.approvals.find((x) => x.id === id)
+    if (!a || a.kind === '소유자 확인') { skipped++; continue }
+    const r = await decide(id, '승인')
+    if (r.ok) done++
+    else skipped++
+  }
+  return { ok: done > 0, message: `${done}건 결재 처리 완료${skipped > 0 ? ` · ${skipped}건 건너뜀 (권한·상태)` : ''}` }
+}

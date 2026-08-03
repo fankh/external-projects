@@ -3,7 +3,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { Approval, Role } from '@/lib/types'
-import { answerOwnerConfirm, decide, resubmitRequest, withdrawRequest } from './actions'
+import { answerOwnerConfirm, decide, decideMany, resubmitRequest, withdrawRequest } from './actions'
 
 const WITHDRAWABLE = ['자산 신청', '반납', '이동', '대여']
 
@@ -25,6 +25,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
   const [reason, setReason] = useState('')
   const [resubmitting, setResubmitting] = useState<string | null>(null)
   const [renote, setRenote] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
 
   const canResubmit = (a: Approval) => a.status === '반려' && a.requester === viewer && WITHDRAWABLE.includes(a.kind)
@@ -80,6 +81,16 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
   const withdraw = (id: string) =>
     startTransition(async () => setMsg((await withdrawRequest(id)).message))
 
+  // 일괄 승인 — 현재 목록에서 내가 결재할 수 있는 대기 건들. 반려는 개별 사유가 필요해 제외(승인만).
+  const decidableRows = useMemo(() => rows.filter(canDecide), [rows]) // eslint-disable-line react-hooks/exhaustive-deps
+  const selectedDecidable = useMemo(() => decidableRows.filter((a) => selected.has(a.id)).map((a) => a.id), [decidableRows, selected])
+  const toggleSel = (id: string) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const bulkApprove = () => startTransition(async () => {
+    const r = await decideMany(selectedDecidable)
+    setMsg(r.message)
+    if (r.ok) setSelected(new Set())
+  })
+
   return (
     <div>
       <div className="qbar" style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
@@ -104,10 +115,22 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
         )}
       </div>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      {decidableRows.length >= 2 && (
+        <div className="hstack" style={{ padding: '8px 16px', gap: 10, background: 'var(--panel)', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+          <span className="strong" style={{ fontSize: 12.5 }}>내 결재 차례 {decidableRows.length}건</span>
+          <button className="btn sm" disabled={pending} onClick={() => setSelected(new Set(decidableRows.map((a) => a.id)))}>결재 가능 전체 선택</button>
+          <button className="btn sm pri" disabled={pending || selectedDecidable.length === 0}
+            onClick={bulkApprove} title="선택한 결재 건을 일괄 승인합니다 (반려는 개별 사유가 필요해 제외)">
+            선택 일괄 승인 ({selectedDecidable.length})
+          </button>
+          {selected.size > 0 && <button className="btn sm ghost" disabled={pending} onClick={() => setSelected(new Set())}>선택 해제</button>}
+        </div>
+      )}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
             <tr>
+              <th className="c" style={{ width: 30 }}></th>
               <th>문서번호</th><th>구분</th><th>제목</th><th>기안자</th><th>기안일</th>
               <th>결재선</th><th className="c">상태</th><th className="c">처리</th>
             </tr>
@@ -115,6 +138,12 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
           <tbody>
             {rows.map((a) => (
               <tr key={a.id} className={a.id === initialSel ? 'sel' : ''}>
+                <td className="c">
+                  {canDecide(a) && (
+                    <input type="checkbox" checked={selected.has(a.id)} disabled={pending}
+                      onChange={() => toggleSel(a.id)} aria-label={`${a.id} 일괄 승인 선택`} />
+                  )}
+                </td>
                 <td className="code">{a.id}</td>
                 <td>
                   <Chip tone={a.kind === '격리 요청' ? 'err' : a.kind === '폐기' ? 'warn' : 'neutral'} bare>{a.kind}</Chip>
@@ -212,7 +241,7 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={8}><div className="empty">{approvals.length === 0 ? '결재 문서가 없습니다' : '조건에 맞는 결재 문서가 없습니다'}</div></td></tr>}
+            {rows.length === 0 && <tr><td colSpan={9}><div className="empty">{approvals.length === 0 ? '결재 문서가 없습니다' : '조건에 맞는 결재 문서가 없습니다'}</div></td></tr>}
           </tbody>
         </table>
       </div>
