@@ -10,7 +10,7 @@ const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고
 
 type Pending = { assetNo: string; model: string; owner: string; dept: string; location: string; since: string }
 type Idle = { assetNo: string; model: string; category: string; location: string; idleDays: number | null }
-type Repairing = { assetNo: string; model: string; category: string; location: string; note: string; repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number } }
+type Repairing = { assetNo: string; model: string; category: string; location: string; note: string; warranty?: boolean; repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number } }
 type Loan = { assetNo: string; model: string; owner: string; dept: string; dueDate: string; dday: number | null; overdue: boolean }
 
 export function ReturnsView(props: {
@@ -113,7 +113,8 @@ export function ReturnsView(props: {
               <tbody>
                 {props.repairing.map((a) => (
                   <tr key={a.assetNo}>
-                    <td className="tnum">{a.assetNo}<div className="dim" style={{ fontSize: 11 }}>{a.category} · {a.location}</div></td>
+                    <td className="tnum">{a.assetNo}<div className="dim" style={{ fontSize: 11 }}>{a.category} · {a.location}</div>
+                      {a.warranty && <Chip tone="ok" bare>보증 수리 (무상)</Chip>}</td>
                     <td>{a.model}<div className="dim" style={{ fontSize: 11, maxWidth: 220, whiteSpace: 'normal' }}>{a.note}</div></td>
                     <td>
                       {a.repair ? (
@@ -125,6 +126,7 @@ export function ReturnsView(props: {
                           <span className="dim" style={{ fontSize: 11 }}>
                             의뢰 {a.repair.sentAt}{a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}{a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}
                           </span>
+                          {a.warranty && a.repair.estCost ? <span className="hstack"><Chip tone="warn" bare>보증 내 · 견적 대신 무상 보증 청구 권장</Chip></span> : null}
                         </span>
                       ) : (
                         <span className="hstack" style={{ gap: 4, flexWrap: 'wrap' }}>
