@@ -134,6 +134,11 @@ try {
   check('자산 대장: 상태 요약(구성) 스트립 렌더', mgrHtml.includes('상태 요약'))
   // 보증 임박 필터 — 보증 90일 이내 만료·경과 자산(시드에 다수)이 있어 토글이 렌더된다
   check('자산 대장: 보증 임박 필터 렌더', mgrHtml.includes('보증 임박'))
+  // 정합성 미흡 필터 — 소유자·시리얼·위치 누락 자산(시드 2건)이 있어 토글이 렌더된다 (CMDB 스튜어드십)
+  check('자산 대장: 정합성 미흡 필터 렌더', mgrHtml.includes('정합성 미흡'))
+  // 정합성 미흡 상세 배너 — AST-2022-000512(사용중·소유자/위치 미지정)에 누락 필드가 표시된다
+  const regDq = await (await get('/assets/register?sel=AST-2022-000512', 'ASSET_MGR')).text()
+  check('자산 대장: 정합성 미흡 상세 배너(소유자·위치 누락)', regDq.includes('대장 정합성 미흡') && regDq.includes('소유자 미지정') && regDq.includes('위치 누락'))
   // 다중 선택(보증 일괄 연장·선택 내보내기 공용) — 자산담당에 전체 선택 체크박스 노출, 사용자엔 미노출(canEdit)
   check('자산 대장: 다중 선택 전체 선택 체크박스(자산담당)', mgrHtml.includes('현재 필터의 자산 전체 선택'))
   // CSV 일괄 등록 — 자산담당·Admin 에 온보딩 패널, 사용자엔 미노출
@@ -171,6 +176,8 @@ try {
   check('대시보드: 보증 만료 임박 자산 큐 + 드릴 링크', dashHtml.includes('보증 만료 임박 자산') && dashHtml.includes('warranty=soon'))
   // 라이선스 초과 사용(SAM 감사 최우선 노출) — 시드 LIC-002(JetBrains 120보유/131사용, 11석 초과)로 자산담당 운영 큐에 노출·계약 화면 드릴
   check('대시보드: 라이선스 초과 사용 감사 노출 큐 (자산담당)', dashHtml.includes('라이선스 초과 사용') && dashHtml.includes('감사 노출') && dashHtml.includes('/inventory/contracts'))
+  // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다
+  check('대시보드: 대장 정합성 미흡 운영 큐 (자산담당) + dq 드릴', dashHtml.includes('대장 정합성 미흡') && dashHtml.includes('dq=1'))
   // 대여자 관점 — 목업 사용자(김민준)가 대여 중인 자산(AST-2024-000230)의 반환 기한이 My Work 에 노출된다
   const dashUser = await (await get('/dashboard', 'USER')).text()
   check('대시보드(사용자): 내 대여 자산 반환 기한 노출', dashUser.includes('내 대여 자산') && dashUser.includes('AST-2024-000230') && dashUser.includes('까지'))

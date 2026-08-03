@@ -80,6 +80,10 @@ function seedAssets(): Asset[] {
         { date: '2025-09-05', kind: '수리', detail: '수리 처리 수리 완료 · 중부IT서비스 · 실비 148,000원 — 배터리 교체', actor: '박자산' },
       ] }),
     mk({ assetNo: 'AST-2023-000113', category: '단말', model: 'ThinkPad T14 Gen4', status: '사용중', owner: '이서연', dept: '플랫폼개발팀', os: 'Windows 11 Pro', cpu: 'i7-1355U', memory: '16GB', ip: '10.20.31.46', mac: 'A4:BB:6D:11:22:34', contractId: 'CT-2023-014' }),
+    // 정합성 미흡 시연 ① — 사용중인데 소유자·위치 미지정(전임자 퇴사 후 회수·재배정 누락). CMDB 스튜어드십 대상.
+    mk({ assetNo: 'AST-2022-000512', category: '단말', model: 'Dell Latitude 7430', status: '사용중', owner: '-', dept: '영업1팀', location: '-', os: 'Windows 11 Pro', cpu: 'i5-1245U', memory: '16GB', ip: '10.20.52.61', mac: '54:BF:64:2A:9C:10', purchaseDate: '2022-05-18', warrantyEnd: '2025-05-17' }),
+    // 정합성 미흡 시연 ② — 초기 등록 시 시리얼 미입력(실물 대조 기준값 부재).
+    mk({ assetNo: 'AST-2023-000221', category: '서버', model: 'PowerEdge R660', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 15', serial: '-', os: 'RHEL 9.3', cpu: 'Xeon Gold 6438', memory: '256GB', ip: '10.10.8.31', mac: 'B8:CA:3A:55:02:21', contractId: 'CT-2023-021' }),
     // 장기 미실측 후보 ① — 실측 이력 없음(원격 근무자 단말, 재물조사 방문 시 부재 반복)
     mk({ assetNo: 'AST-2022-000871', category: '단말', model: 'MacBook Pro 14 M2', status: '사용중', owner: '정하윤', dept: '디자인팀', os: 'macOS 14', cpu: 'M2 Pro', memory: '32GB', ip: '10.20.44.12', mac: 'F0:2F:4B:9A:31:07', purchaseDate: '2022-08-01', warrantyEnd: '2025-07-31', lastVerifiedAt: undefined }),
     mk({ assetNo: 'AST-2021-000432', category: '단말', model: 'LG gram 17', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 10 Pro', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09',
@@ -651,7 +655,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 18
+const SCHEMA_VERSION = 19
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

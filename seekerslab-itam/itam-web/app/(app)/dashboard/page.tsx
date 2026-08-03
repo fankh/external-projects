@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
 import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
+import { hasDataIssue } from '@/lib/quality'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
@@ -57,6 +58,8 @@ export default async function DashboardPage() {
       { label: '보증 만료 임박 자산 (연장·교체 검토)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90).length, href: '/assets/register?warranty=soon', tone: 'warn' },
       // SW 라이선스 초과 사용(보유<사용)은 SAM 감사 최우선 노출 리스크 — 계약·라이선스 화면에만 있던 것을 담당자 일과 시작점(대시보드)으로 끌어올린다
       { label: '라이선스 초과 사용 (감사 노출)', count: s.licenses.filter((l) => l.status !== '해지' && l.used > l.purchased).length, href: '/inventory/contracts', tone: 'err' },
+      // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.
+      { label: '대장 정합성 미흡 (필드 누락·불일치)', count: s.assets.filter(hasDataIssue).length, href: '/assets/register?dq=1', tone: 'warn' },
     )
   }
   if (['SEC_MGR', 'ADMIN'].includes(session.role)) {

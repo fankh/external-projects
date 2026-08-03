@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { ASSET_CATEGORIES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
+import { assetDataIssues } from '@/lib/quality'
 import { extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
@@ -16,20 +17,21 @@ function daysBetween(today: string, dueDate: string): number {
  *  유형으로 등록된 자산은 계속 조회돼야 하기 때문이다. 실사 위치 드롭다운처럼 값을 새로
  *  기록하는 입력 항목은 반대로 활성 코드만 읽는다. */
 const VIEWS_KEY = 'itam-register-views'
-type SavedView = { name: string; q: string; cat: string; status: string; staleOnly: boolean; warrantyOnly: boolean }
+type SavedView = { name: string; q: string; cat: string; status: string; staleOnly: boolean; warrantyOnly: boolean; dqOnly?: boolean }
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 const STATUSES: (AssetStatus | '전체')[] = ['전체', '검수중', '사용중', '유휴', '대여중', '반납대기', '수리중', '분실', '폐기예정', '폐기완료']
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; today?: string; initialCat?: string; initialStatus?: string }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; today?: string; initialCat?: string; initialStatus?: string }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
   const [status, setStatus] = useState<AssetStatus | '전체'>(STATUSES.includes(props.initialStatus as AssetStatus | '전체') ? (props.initialStatus as AssetStatus) : '전체')
   const [staleOnly, setStaleOnly] = useState(false)
   const [warrantyOnly, setWarrantyOnly] = useState(Boolean(props.initialWarranty))
+  const [dqOnly, setDqOnly] = useState(Boolean(props.initialDq))
   // 저장된 뷰 — 자주 쓰는 필터 조합을 이름 붙여 localStorage 에 보관(MDI 탭과 같은 방식). 개인화·반복 워크플로.
   const [views, setViews] = useState<SavedView[]>([])
   const [naming, setNaming] = useState(false)
@@ -43,19 +45,20 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   }
   const applyView = (v: SavedView) => {
     setQ(v.q); setCat(v.cat as AssetCategory | '전체'); setStatus(v.status as AssetStatus | '전체')
-    setStaleOnly(v.staleOnly); setWarrantyOnly(v.warrantyOnly)
+    setStaleOnly(v.staleOnly); setWarrantyOnly(v.warrantyOnly); setDqOnly(Boolean(v.dqOnly))
   }
   const saveCurrentView = () => {
     const name = viewName.trim()
     if (!name) return
-    const v: SavedView = { name, q, cat, status, staleOnly, warrantyOnly }
+    const v: SavedView = { name, q, cat, status, staleOnly, warrantyOnly, dqOnly }
     persistViews([...views.filter((x) => x.name !== name), v])
     setNaming(false); setViewName('')
   }
   const removeView = (name: string) => persistViews(views.filter((x) => x.name !== name))
-  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly
+  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const warrantySet = useMemo(() => new Set(props.warrantyNos ?? []), [props.warrantyNos])
+  const dqSet = useMemo(() => new Set(props.dqNos ?? []), [props.dqNos])
   const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
   const [cfgOpen, setCfgOpen] = useState(false)
   const [cfgField, setCfgField] = useState<ConfigField>('memory')
@@ -86,11 +89,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       if (status !== '전체' && a.status !== status) return false
       if (staleOnly && !staleSet.has(a.assetNo)) return false
       if (warrantyOnly && !warrantySet.has(a.assetNo)) return false
+      if (dqOnly && !dqSet.has(a.assetNo)) return false
       if (!needle) return true
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet])
+  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
 
@@ -143,6 +147,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
           <button className={`btn sm ${warrantyOnly ? 'warn' : ''}`} onClick={() => setWarrantyOnly((v) => !v)}
             title="보증이 90일 이내 만료·경과한 자산 — 보증 연장·교체 검토 대상">
             {warrantyOnly ? '✓ ' : ''}보증 임박 {warrantySet.size}
+          </button>
+        )}
+        {dqSet.size > 0 && (
+          <button className={`btn sm ${dqOnly ? 'warn' : ''}`} onClick={() => setDqOnly((v) => !v)}
+            title="소유자·시리얼·위치 등 핵심 필드가 누락·불일치한 자산 — 대장 정합성 보정 대상">
+            {dqOnly ? '✓ ' : ''}정합성 미흡 {dqSet.size}
           </button>
         )}
         <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
@@ -260,6 +270,17 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 Discovery 편입 자산 — 최초 발견 채널: <b>{sel.discoveredVia}</b>
               </div>
             )}
+            {(() => {
+              const issues = assetDataIssues(sel)
+              return issues.length > 0 ? (
+                <div className="callout warn" style={{ margin: '10px 0 0', padding: '8px 11px' }}>
+                  <b>대장 정합성 미흡</b> — 핵심 필드 보정 필요:{' '}
+                  <span className="hstack" style={{ gap: 4, flexWrap: 'wrap', display: 'inline-flex', verticalAlign: 'middle' }}>
+                    {issues.map((it) => <Chip key={it} tone="warn" bare>{it}</Chip>)}
+                  </span>
+                </div>
+              ) : null
+            })()}
             <dl className="kv" style={{ marginTop: 14 }}>
               <dt>상태</dt><dd><Chip tone={STATUS_TONE[sel.status]}>{sel.status}</Chip></dd>
               <dt>소유자</dt><dd>{sel.owner} · {sel.dept}</dd>
