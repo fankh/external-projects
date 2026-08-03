@@ -285,6 +285,21 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   </dd>
                 </>
               )}
+              {sel.status === '수리중' && (
+                <>
+                  <dt>수리 의뢰</dt>
+                  <dd className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                    {sel.repair ? (
+                      <>
+                        <span className="strong">{sel.repair.vendor}</span>
+                        {sel.repair.eta && <span className="tnum dim">예상반환 {sel.repair.eta}</span>}
+                        {props.today && sel.repair.eta && sel.repair.eta < props.today && <Chip tone="err" bare>반환 지연</Chip>}
+                        {sel.repair.estCost ? <span className="dim">· 견적 {sel.repair.estCost.toLocaleString()}원</span> : null}
+                      </>
+                    ) : <Chip tone="warn" bare>수리 의뢰 전</Chip>}
+                  </dd>
+                </>
+              )}
               <dt>최근 실측</dt>
               <dd className="hstack" style={{ gap: 6 }}>
                 <span className="tnum">{sel.lastVerifiedAt ?? '미실측'}</span>

@@ -146,6 +146,9 @@ try {
   // 연관 자산(영향도) — 같은 계약·위치·소유자·모델 공유 자산 수 + 드릴 링크
   check('자산 대장: 상세에 연관 자산(영향도) 섹션 + 드릴 링크', regContractDetail.includes('연관 자산') && regContractDetail.includes('같은 모델'))
   check('자산 대장: 상세에 자산 카드(dossier) 인쇄 링크', regContractDetail.includes('/api/asset-card/') && regContractDetail.includes('자산 카드'))
+  // 수리중 자산 상세 — 수리 의뢰(업체·예상반환·반환 지연) 블록. 대여 블록과 대칭. 시드 AST-2024-000512(중부IT서비스, 예상반환 경과)로 검증
+  const regRepairDetail = await (await get('/assets/register?sel=AST-2024-000512', 'ASSET_MGR')).text()
+  check('자산 대장: 수리중 상세에 수리 의뢰(업체·반환 지연) 블록', regRepairDetail.includes('수리 의뢰') && regRepairDetail.includes('중부IT서비스') && regRepairDetail.includes('반환 지연'))
 
   console.log('\n[핵심 화면 콘텐츠]')
   const dashHtml = await (await get('/dashboard', 'ASSET_MGR')).text()
