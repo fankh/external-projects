@@ -1,3 +1,4 @@
+import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf } from './cost'
 import { daysUntil, isStaleVerify, today } from './dates'
 import { can } from './perm'
@@ -149,16 +150,19 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     return [
       {
         name: '계약',
-        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '연계 자산 수', '시작일', '만료일', '잔여일', '상태'],
-        rows: s.contracts.map((c) => [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, s.assets.filter((a) => a.contractId === c.id).length, c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효']),
+        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '연계 자산 수', '시작일', '만료일', '잔여일', '상태', '부속서류 미비'],
+        rows: s.contracts.map((c) => {
+          const miss = missingContractDocs(c)
+          return [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, s.assets.filter((a) => a.contractId === c.id).length, c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효', miss.length > 0 ? miss.join('·') : '완비']
+        }),
       },
       {
         name: 'SW 라이선스',
-        header: ['ID', '라이선스', '공급사', '보유', '사용', '차이', '단가', '만료일', '판정'],
+        header: ['ID', '라이선스', '공급사', '근거 계약', '보유', '사용', '차이', '단가', '만료일', '판정'],
         rows: s.licenses.map((l) => {
           const gap = l.used - l.purchased
           return [
-            l.id, l.name, l.vendor, l.purchased, l.used, gap, l.unitCost, l.expiry,
+            l.id, l.name, l.vendor, l.contractId ?? '미연계', l.purchased, l.used, gap, l.unitCost, l.expiry,
             l.status === '해지' ? '해지' : gap > 0 ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정',
           ]
         }),
