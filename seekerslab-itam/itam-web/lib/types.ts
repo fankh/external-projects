@@ -206,6 +206,9 @@ export interface SwLicense {
   unitCost: number
   /** 갱신 이력 — 라이선스 만료일 연장 기록(계약 갱신과 동형). 라이선스 카드에서 구독 기간 변천 추적 */
   renewals?: Renewal[]
+  /** 상태 — '해지'(구독 중단·도구 이관)면 만료 임박 집계·알림·컴플라이언스 판정에서 제외. undefined=유효 */
+  status?: '유효' | '해지'
+  terminatedAt?: string
 }
 
 export type ApprovalKind = '자산 신청' | '반납' | '이동' | '대여' | '폐기' | '소유자 확인' | '격리 요청' | '차이 조정' | 'SaaS 인가'

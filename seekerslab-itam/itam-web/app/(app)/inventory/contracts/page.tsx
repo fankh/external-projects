@@ -5,7 +5,7 @@ import { daysUntil } from '@/lib/dates'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
 import { AddContract, ContractsTable } from './ContractsTable'
-import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew } from './LicenseActions'
+import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew, LicenseRetire } from './LicenseActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +27,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   )
   const dueCount =
     contracts.filter((c) => c.status !== '해지' && within(c.end)).length +
-    s.licenses.filter((l) => l.expiry !== '-' && within(l.expiry)).length +
+    s.licenses.filter((l) => l.status !== '해지' && l.expiry !== '-' && within(l.expiry)).length +
     warrantyDepts.size
 
   return (
@@ -60,10 +60,12 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
             <tbody>
               {s.licenses.map((l) => {
                 const ratio = Math.min((l.used / l.purchased) * 100, 100)
-                const over = l.used > l.purchased
-                const low = !over && l.used / l.purchased < 0.6
+                const retired = l.status === '해지'
+                const over = !retired && l.used > l.purchased
+                const low = !retired && !over && l.used / l.purchased < 0.6
+                const canEditLic = ['ASSET_MGR', 'ADMIN'].includes(session.role)
                 return (
-                  <tr key={l.id} className={l.id === sel ? 'sel' : ''}>
+                  <tr key={l.id} className={`${l.id === sel ? 'sel' : ''}`} style={retired ? { opacity: 0.6 } : undefined}>
                     <td className="strong">{l.name}</td>
                     <td className="mute">{l.vendor}</td>
                     <td className="num tnum">{l.purchased.toLocaleString()}</td>
@@ -74,16 +76,23 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                         <div className="lbl"><span>{Math.round((l.used / l.purchased) * 100)}%</span><span>{over ? `${l.used - l.purchased}석 초과` : `${l.purchased - l.used}석 여유`}</span></div>
                       </div>
                     </td>
-                    <td><LicenseRenew id={l.id} expiry={l.expiry} renewals={l.renewals?.length ?? 0} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} /></td>
+                    <td><LicenseRenew id={l.id} expiry={l.expiry} renewals={l.renewals?.length ?? 0} canEdit={!retired && canEditLic} /></td>
                     <td className="c">
-                      {over ? <Chip tone="err">초과 사용</Chip> : low ? <Chip tone="warn">미사용 보유</Chip> : <Chip tone="ok">적정</Chip>}
+                      {retired ? <Chip tone="neutral">해지</Chip> : over ? <Chip tone="err">초과 사용</Chip> : low ? <Chip tone="warn">미사용 보유</Chip> : <Chip tone="ok">적정</Chip>}
                     </td>
                     <td className="c" style={{ minWidth: 120 }}>
-                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
-                        <LicenseAction row={{
-                          id: l.id, over, low, seats: Math.abs(l.used - l.purchased),
-                          pendingApproval: s.approvals.find((a) => a.status === '대기' && a.refId === l.id)?.id,
-                        }} />
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        {retired ? (
+                          <span className="mut" style={{ fontSize: 11 }} title={`${l.terminatedAt ?? ''} 해지`}>해지됨</span>
+                        ) : (
+                          <>
+                            <LicenseAction row={{
+                              id: l.id, over, low, seats: Math.abs(l.used - l.purchased),
+                              pendingApproval: s.approvals.find((a) => a.status === '대기' && a.refId === l.id)?.id,
+                            }} />
+                            {canEditLic && <LicenseRetire id={l.id} />}
+                          </>
+                        )}
                         <a className="btn sm ghost" href={`/api/license-card/${l.id}`} target="_blank" rel="noopener" title="라이선스 컴플라이언스 카드(SAM 감사용) 인쇄">🖨</a>
                       </span>
                     </td>

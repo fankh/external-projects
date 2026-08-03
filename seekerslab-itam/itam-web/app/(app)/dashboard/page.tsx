@@ -54,7 +54,7 @@ export default async function DashboardPage() {
 
   const expiring = [
     ...s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind === '유지보수' ? '유지보수 계약' : '구매 계약', end: c.end, d: daysUntil(c.end) })),
-    ...s.licenses.map((l) => ({ id: l.id, name: l.name, kind: 'SW 라이선스', end: l.expiry, d: daysUntil(l.expiry) })),
+    ...s.licenses.filter((l) => l.status !== '해지').map((l) => ({ id: l.id, name: l.name, kind: 'SW 라이선스', end: l.expiry, d: daysUntil(l.expiry) })),
   ]
     .filter((x) => x.d !== null && x.d <= 90)
     .sort((a, b) => (a.d ?? 0) - (b.d ?? 0))

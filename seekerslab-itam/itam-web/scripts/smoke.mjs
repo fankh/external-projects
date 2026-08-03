@@ -191,6 +191,9 @@ try {
   // 라이선스 갱신 — 구독 라이선스 만료일 연장(계약 갱신과 동형). '구독 기간 연장'은 라이선스 갱신 버튼 고유 title
   check('라이선스: 갱신(구독 기간 연장) 컨트롤 렌더 (자산담당)', contractsHtml.includes('구독 기간 연장'))
   check('라이선스: SEC_MGR 에겐 갱신 컨트롤 미노출 (조회)', !(await (await get('/inventory/contracts', 'SEC_MGR')).text()).includes('구독 기간 연장'))
+  // 라이선스 해지 — 구독 중단·도구 이관 시 컴플라이언스에서 내린다(계약 해지와 동형). 해지 버튼 고유 title.
+  check('라이선스: 해지 컨트롤 렌더 (자산담당)', contractsHtml.includes('라이선스 해지 (구독 중단·도구 이관)'))
+  check('라이선스: SEC_MGR 에겐 해지 컨트롤 미노출', !(await (await get('/inventory/contracts', 'SEC_MGR')).text()).includes('라이선스 해지 (구독 중단·도구 이관)'))
   // 유지보수 계약 — SLA·비용 이력 관리 (제품안내서 §03 유지보수 계약). 상세는 토글 확장이라 SSR엔 버튼 title 만
   check('계약: 유지보수 계약에 SLA·비용 이력 관리 토글 노출', contractsHtml.includes('SLA · 비용 이력'))
   // 계약 카드(dossier) — 요약·부속서류·SLA·비용·연계 자산 인쇄용

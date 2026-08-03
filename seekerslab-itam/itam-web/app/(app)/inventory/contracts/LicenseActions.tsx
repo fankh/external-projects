@@ -1,7 +1,28 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { actOnLicense, addLicense, renewLicense, sendExpiryNotices } from './actions'
+import { actOnLicense, addLicense, renewLicense, retireLicense, sendExpiryNotices } from './actions'
+
+/** 라이선스 해지 — 도구 이관·구독 중단 시 컴플라이언스에서 내린다(계약 해지와 동형). 자산담당·Admin. */
+export function LicenseRetire({ id }: { id: string }) {
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [msg, setMsg] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+  const go = () => startTransition(async () => { const r = await retireLicense(id, reason); setMsg(r.message); if (r.ok) setOpen(false) })
+  return open ? (
+    <span className="hstack" style={{ gap: 4 }}>
+      <input className="input" style={{ width: 120, height: 26 }} autoFocus placeholder="해지 사유" value={reason}
+        disabled={pending} onChange={(e) => setReason(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && reason.trim()) go() }} />
+      <button className="btn sm danger" disabled={pending || !reason.trim()} onClick={go}>해지 확정</button>
+      <button className="btn sm ghost" disabled={pending} onClick={() => { setOpen(false); setReason('') }}>취소</button>
+      {msg && <span className="dim" style={{ fontSize: 11 }}>{msg}</span>}
+    </span>
+  ) : (
+    <button className="btn sm danger" disabled={pending} title="라이선스 해지 (구독 중단·도구 이관)" onClick={() => { setOpen(true); setMsg(null) }}>해지</button>
+  )
+}
 
 type Row = { id: string; over: boolean; low: boolean; seats: number; pendingApproval?: string }
 

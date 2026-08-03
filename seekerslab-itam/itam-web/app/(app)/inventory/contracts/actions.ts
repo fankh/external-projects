@@ -97,7 +97,7 @@ export async function sendExpiryNotices() {
     n += 1
   }
   for (const l of s.licenses) {
-    if (l.expiry === '-' || !due(l.expiry) || sentToday.has(l.id)) continue
+    if (l.status === '해지' || l.expiry === '-' || !due(l.expiry) || sentToday.has(l.id)) continue
     const d = daysUntil(l.expiry)!
     dispatch({
       channel: '이메일',
@@ -166,6 +166,7 @@ export async function renewLicense(id: string, termYears: number) {
   const s = getStore()
   const l = s.licenses.find((x) => x.id === id)
   if (!l) return { ok: false, message: '라이선스를 찾을 수 없습니다.' }
+  if (l.status === '해지') return { ok: false, message: '해지된 라이선스는 갱신할 수 없습니다.' }
   if (l.expiry === '-') return { ok: false, message: '영구 라이선스는 갱신 대상이 아닙니다.' }
 
   const base = l.expiry >= today() ? l.expiry : today()
@@ -179,6 +180,28 @@ export async function renewLicense(id: string, termYears: number) {
   dispatch({ channel: '이메일', to: 'IT기획팀', subject: `${l.name} 라이선스 갱신 완료 — 만료일 ${newExpiry} (${termYears}년 연장)`, kind: '만료 임박', ref: l.id })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${l.name} 갱신 완료 — 만료일 ${oldExpiry} → ${newExpiry} (${termYears}년)` }
+}
+
+/** 라이선스 해지 — 도구 이관·구독 중단으로 더 이상 쓰지 않는 SW 라이선스를 컴플라이언스에서 내린다(계약 해지와 동형).
+ *  해지하면 만료 임박 집계·알림·판정에서 빠지고 갱신·조치도 막힌다. IT기획팀에 통보한다. 자산담당·Admin. */
+export async function retireLicense(id: string, rawReason: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '라이선스 해지 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const l = s.licenses.find((x) => x.id === id)
+  if (!l) return { ok: false, message: '라이선스를 찾을 수 없습니다.' }
+  if (l.status === '해지') return { ok: false, message: '이미 해지된 라이선스입니다.' }
+  const reason = rawReason.trim()
+  if (!reason) return { ok: false, message: '해지 사유를 입력해 주세요.' }
+
+  l.status = '해지'
+  l.terminatedAt = today()
+
+  dispatch({ channel: '이메일', to: 'IT기획팀', subject: `${l.name} 라이선스 해지 — ${reason} (공급사 ${l.vendor})`, kind: '계약 해지', ref: l.id })
+  appendAudit({ actor: session.name, action: `라이선스 해지 — ${l.name} · ${reason}`, target: l.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${l.name} 해지 완료 — 만료 임박 집계·알림·판정에서 제외` }
 }
 
 /** 계약 해지 — 공급사 교체·서비스 중단 등으로 만료 전에 계약을 조기 종료한다.
@@ -304,6 +327,7 @@ export async function removeContractCost(contractId: string, costId: string) {
 export async function actOnLicense(licenseId: string, kind: '추가 구매' | '회수') {
   const session = await guard()
   if (!session) return { ok: false, message: '라이선스 조치 권한이 없습니다.' }
+  if (getStore().licenses.find((l) => l.id === licenseId)?.status === '해지') return { ok: false, message: '해지된 라이선스는 조치할 수 없습니다.' }
 
   const r = raiseLicenseApproval(session, licenseId, kind)
   if (r.ok) revalidatePath('/', 'layout')
