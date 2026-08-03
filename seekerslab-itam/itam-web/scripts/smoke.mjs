@@ -159,6 +159,7 @@ try {
   check('대시보드: 대여 반환 연체 운영 큐 노출 (자산담당)', dashHtml.includes('대여 반환 연체'))
   // 장기 미실측 — 시드 유령 후보 2건이 있어 자산담당 운영 큐에 재물조사 편성 대상으로 노출된다
   check('대시보드: 장기 미실측 운영 큐 노출 (자산담당)', dashHtml.includes('장기 미실측'))
+  check('대시보드: 수리 예상 반환 경과 운영 큐 노출 (자산담당)', dashHtml.includes('수리 예상 반환 경과'))
   // 보증 만료 임박 자산 — 개별 자산 보증 만료를 대시보드 운영 큐에 surфacing (?warranty=soon 드릴)
   check('대시보드: 보증 만료 임박 자산 큐 + 드릴 링크', dashHtml.includes('보증 만료 임박 자산') && dashHtml.includes('warranty=soon'))
   // 대여자 관점 — 목업 사용자(김민준)가 대여 중인 자산(AST-2024-000230)의 반환 기한이 My Work 에 노출된다
@@ -307,6 +308,8 @@ try {
   check('반납·유휴: 수리 대기 카드에 수리중 자산 노출 (시드 시나리오)', rtHtml.includes('수리 대기') && rtHtml.includes('AST-2025-000377'))
   // 수리 의뢰 추적 — 업체·예상반환·견적·실비 (제품안내서 §03 유지보수). 그동안 수리는 상태 플립뿐이었다.
   check('반납·유휴: 수리 의뢰(업체·예상반환·견적) 컬럼 + 실비 입력 렌더', rtHtml.includes('수리 의뢰 (업체·예상반환·견적)') && rtHtml.includes('수리 업체') && rtHtml.includes('실 수리비'))
+  // 수리 예상 반환 경과 — 시드 의뢰건(AST-2024-000512, 예상반환 경과)이 '반환 지연' 으로 표시된다(업체 독촉 신호)
+  check('반납·유휴: 수리 예상 반환 경과(업체 지연) 표시', rtHtml.includes('중부IT서비스') && rtHtml.includes('반환 지연'))
   check('반납·유휴: 대여 현황 패널 + 대여중 자산·반환 접수 노출', rtHtml.includes('대여 현황') && rtHtml.includes('AST-2024-000230') && rtHtml.includes('반환 접수'))
   // 반납 접수 시 반납자에게 점검 결과 자동 통보 안내 (요청자 루프 폐쇄 · dispatch 반납 접수)
   check('반납·유휴: 반납 접수 시 반납자 통보 안내 노출', rtHtml.includes('반납 접수 시 반납자에게 점검 결과가 자동 통보됩니다'))

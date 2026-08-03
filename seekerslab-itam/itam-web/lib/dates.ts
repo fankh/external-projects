@@ -78,3 +78,9 @@ export function isLoanDueSoon(a: Asset): boolean {
   const d = daysUntil(a.loanDueDate)
   return d !== null && d >= 0 && d <= 7
 }
+
+/** 수리 예상 반환 경과 — '수리중'이고 수리 의뢰의 예상 반환일이 지났는데 아직 완료되지 않았다(업체 지연). 담당자가 업체를 독촉할 대상. 서버 전용. */
+export function isRepairOverdue(a: Asset): boolean {
+  if (a.status !== '수리중' || !a.repair?.eta) return false
+  return (daysUntil(a.repair.eta) ?? 0) < 0
+}

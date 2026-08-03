@@ -118,7 +118,10 @@ export function ReturnsView(props: {
                     <td>
                       {a.repair ? (
                         <span className="vstack" style={{ gap: 2, fontSize: 12 }}>
-                          <span className="strong">{a.repair.vendor}</span>
+                          <span className="hstack" style={{ gap: 6 }}>
+                            <span className="strong">{a.repair.vendor}</span>
+                            {a.repair.eta && props.today && a.repair.eta < props.today && <Chip tone="err">반환 지연</Chip>}
+                          </span>
                           <span className="dim" style={{ fontSize: 11 }}>
                             의뢰 {a.repair.sentAt}{a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}{a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}
                           </span>

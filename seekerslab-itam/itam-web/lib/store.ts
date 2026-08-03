@@ -113,6 +113,14 @@ function seedAssets(): Asset[] {
         { date: '2025-01-24', kind: '불출', detail: '영업1팀 불출', actor: '박자산' },
         { date: '2026-07-28', kind: '반납', detail: '반납 접수 · 상태 점검 수리 필요 — 디스플레이 힌지 파손·좌측 USB-C 불량 (반납자 오세훈)', actor: '박자산' },
       ] }),
+    // 수리 의뢰 접수됐으나 예상 반환일 경과(업체 지연) — 수리 예상 반환 경과 신호 시연
+    mk({ assetNo: 'AST-2024-000512', category: '단말', model: 'Galaxy Book3 Ultra', status: '수리중', owner: '미지정', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 11 Pro', cpu: 'i9-13900H', memory: '32GB', purchaseDate: '2024-05-10', warrantyEnd: '2027-05-09',
+      repair: { vendor: '중부IT서비스', sentAt: '2026-07-18', eta: '2026-07-28', estCost: 420_000 },
+      history: [
+        { date: '2024-05-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
+        { date: '2026-07-15', kind: '반납', detail: '반납 접수 · 상태 점검 수리 필요 — GPU 발열 셧다운 (반납자 김민준)', actor: '박자산' },
+        { date: '2026-07-18', kind: '수리', detail: '수리 의뢰 — 중부IT서비스 · 예상 반환 2026-07-28 · 견적 420,000원', actor: '박자산' },
+      ] }),
     // 폐기 완료 + 데이터 소거 증적 (폐기 처리 화면의 소거 확인서 다운로드에 표시)
     mk({ assetNo: 'AST-2018-000090', category: '단말', model: 'Dell Latitude 5290', status: '폐기완료', owner: '미지정', dept: '자산관리팀', location: '폐기 처리 완료', purchaseDate: '2018-05-02', warrantyEnd: '2021-05-01',
       history: [
@@ -628,7 +636,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 15
+const SCHEMA_VERSION = 16
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
