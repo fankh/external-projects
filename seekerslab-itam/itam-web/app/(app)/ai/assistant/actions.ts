@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
+import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
 import { daysUntil, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
 import { REPORT_KINDS, createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
@@ -228,6 +229,38 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
       evidence: [{ label: '라이선스 컴플라이언스', href: '/inventory/contracts' }],
     }
   }
+  // 자산 가치·감가상각 질의 — 취득가·잔존가치(장부가)·TCO 를 조직 집계로 답한다(v1.180~186 원가 체인). 비사용자만(가치 집계는 권한 스코프).
+  if (!isUser && (q.includes('자산 가치') || q.includes('자산가치') || q.includes('취득가') || q.includes('감가상각') || q.includes('잔존가치') || q.includes('장부가') || q.includes('총소유비용') || q.includes('tco') || q.includes('자산 가액'))) {
+    const t = today()
+    const valued = s.assets.filter((a) => a.status !== '폐기완료' && acquisitionCostOf(a) > 0)
+    const totalAcq = valued.reduce((n, a) => n + acquisitionCostOf(a), 0)
+    const totalBook = valued.reduce((n, a) => n + bookValueOf(a, t), 0)
+    const totalRepair = valued.reduce((n, a) => n + (assetTco(a) - acquisitionCostOf(a)), 0)
+    const dep = totalAcq ? Math.round((1 - totalBook / totalAcq) * 100) : 0
+    const byCat = [...new Set(valued.map((a) => a.category))]
+      .map((c) => {
+        const list = valued.filter((a) => a.category === c)
+        return { c, acq: list.reduce((n, a) => n + acquisitionCostOf(a), 0), book: list.reduce((n, a) => n + bookValueOf(a, t), 0), n: list.length }
+      })
+      .sort((a, b) => b.acq - a.acq)
+    return {
+      role: 'assistant',
+      text: [
+        `운영 자산 ${valued.length}대의 자산 가치입니다(정액법 감가상각 · 내용연수 5년, SW·가상자원 제외).`,
+        ``,
+        `· 총 취득가 ${totalAcq.toLocaleString()}원`,
+        `· 총 잔존가치(장부가) ${totalBook.toLocaleString()}원 — 감가상각률 ${dep}%`,
+        `· 누적 유지보수(수리) 비용 ${totalRepair.toLocaleString()}원`,
+        ``,
+        `유형별(취득가순):`,
+        ...byCat.map((x) => `   - ${x.c} ${x.n}대 · 취득가 ${x.acq.toLocaleString()}원 / 장부가 ${x.book.toLocaleString()}원`),
+      ].join('\n'),
+      evidence: [
+        { label: '자산 가치 현황(재고)', href: '/inventory/stock' },
+        { label: '자산 대장', href: '/assets/register' },
+      ],
+    }
+  }
   // 자산 현황·분포 — 총 보유·상태별 분포·대여 현황을 한 번에 답한다 (조직 집계, 비사용자).
   //  '대여 현황'·'대여 중'은 여기서(전체 대여), '대여 연체'는 아래 운영 리스크 인텐트에서 처리한다.
   if (!isUser && (q.includes('상태별') || q.includes('분포') || q.includes('보유 현황') || q.includes('보유 대수') || q.includes('몇 대') || q.includes('자산 현황') || q.includes('재고 규모') || q.includes('대여 현황') || q.includes('대여 중'))) {
@@ -283,7 +316,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "보증 만료되는 네트워크 장비 목록"\n· "라이선스 초과 사용 현황"\n· "자산 상태 분포와 대여 현황"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "보증 만료되는 네트워크 장비 목록"\n· "라이선스 초과 사용 현황"\n· "자산 상태 분포와 대여 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
   }
 }
 
