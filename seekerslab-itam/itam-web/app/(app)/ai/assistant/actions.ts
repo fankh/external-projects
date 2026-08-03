@@ -43,7 +43,7 @@ function buildContext(userName: string, isUser: boolean): string {
       `[발견 자산] ${s.discovered.length}건`,
       ...s.discovered.map((d) => `- ${d.id} | ${d.hostname} | ${d.type} | ${d.channel} | ${d.state} | 위험도:${d.risk} | 최근:${d.lastSeen}${d.note ? ` | ${d.note}` : ''}`),
       `[계약] ${s.contracts.length}건`,
-      ...s.contracts.map((c) => `- ${c.id} | ${c.name} | ${c.vendor} | 만료:${c.end} (D-${daysUntil(c.end)})`),
+      ...s.contracts.map((c) => `- ${c.id} | ${c.name} | ${c.vendor} | 만료:${c.end} (D-${daysUntil(c.end)})${c.status === '해지' ? ' | 해지' : ''}`),
       `[라이선스]`,
       ...s.licenses.map((l) => `- ${l.name} | 보유:${l.purchased} 사용:${l.used} | 만료:${l.expiry}${l.status === '해지' ? ' | 해지' : ''}`),
       `[Shadow SaaS]`,
@@ -184,7 +184,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     }
   }
   if (!isUser && (q.includes('만료') || q.includes('보증') || q.includes('계약'))) {
-    const soon = s.contracts.filter((c) => { const d = daysUntil(c.end); return d !== null && d <= 90 })
+    const soon = s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= 90 })
     return {
       role: 'assistant',
       text: `90일 내 만료 예정 계약은 ${soon.length}건입니다.\n\n${soon

@@ -112,7 +112,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: '만료 임박 계약 (90일 이내)',
         columns: ['계약번호', '계약명', '공급사', '만료일', '잔여'],
         rows: s.contracts
-          .filter((c) => { const d = daysUntil(c.end); return d !== null && d <= 90 })
+          .filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= 90 })
           .sort((a, b) => a.end.localeCompare(b.end))
           .map((c) => [c.id, c.name, c.vendor, c.end, (daysUntil(c.end) ?? 0) < 0 ? '경과' : `${daysUntil(c.end)}일`]),
       },

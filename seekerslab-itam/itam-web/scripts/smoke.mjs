@@ -194,6 +194,9 @@ try {
   // 라이선스 해지 — 구독 중단·도구 이관 시 컴플라이언스에서 내린다(계약 해지와 동형). 해지 버튼 고유 title.
   check('라이선스: 해지 컨트롤 렌더 (자산담당)', contractsHtml.includes('라이선스 해지 (구독 중단·도구 이관)'))
   check('라이선스: SEC_MGR 에겐 해지 컨트롤 미노출', !(await (await get('/inventory/contracts', 'SEC_MGR')).text()).includes('라이선스 해지 (구독 중단·도구 이관)'))
+  // 계약 엑셀에 상태(유효/해지) 컬럼 — 해지 계약이 반출본에서 활성으로 오인되지 않도록(감사 반출 정합)
+  const ctXlsx = Buffer.from(await (await get('/api/export/contracts', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
+  check('계약 엑셀: 상태 컬럼(유효/해지) 반출', ctXlsx.includes('상태') && ctXlsx.includes('유효'))
   // 유지보수 계약 — SLA·비용 이력 관리 (제품안내서 §03 유지보수 계약). 상세는 토글 확장이라 SSR엔 버튼 title 만
   check('계약: 유지보수 계약에 SLA·비용 이력 관리 토글 노출', contractsHtml.includes('SLA · 비용 이력'))
   // 계약 카드(dossier) — 요약·부속서류·SLA·비용·연계 자산 인쇄용

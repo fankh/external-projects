@@ -134,8 +134,8 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     return [
       {
         name: '계약',
-        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '연계 자산 수', '시작일', '만료일', '잔여일'],
-        rows: s.contracts.map((c) => [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, s.assets.filter((a) => a.contractId === c.id).length, c.start, c.end, daysUntil(c.end) ?? '']),
+        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '연계 자산 수', '시작일', '만료일', '잔여일', '상태'],
+        rows: s.contracts.map((c) => [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, s.assets.filter((a) => a.contractId === c.id).length, c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효']),
       },
       {
         name: 'SW 라이선스',
@@ -144,7 +144,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
           const gap = l.used - l.purchased
           return [
             l.id, l.name, l.vendor, l.purchased, l.used, gap, l.unitCost, l.expiry,
-            gap > 0 ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정',
+            l.status === '해지' ? '해지' : gap > 0 ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정',
           ]
         }),
       },
