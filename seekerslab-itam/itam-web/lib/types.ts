@@ -196,7 +196,7 @@ export interface SwLicense {
   unitCost: number
 }
 
-export type ApprovalKind = '자산 신청' | '반납' | '이동' | '대여' | '폐기' | '소유자 확인' | '격리 요청' | '차이 조정'
+export type ApprovalKind = '자산 신청' | '반납' | '이동' | '대여' | '폐기' | '소유자 확인' | '격리 요청' | '차이 조정' | 'SaaS 인가'
 export type ApprovalStatus = '대기' | '승인' | '반려' | '취소'
 
 /** 제품안내서가 필수 결재로 규정한 종류 — 폐기·격리·편입(소유자 확인)·차이 조정.
@@ -239,6 +239,8 @@ export interface Approval {
   note?: string
   /** 이동 신청의 목적지 — 이동 처리 시 대장 위치에 반영된다 */
   targetLocation?: string
+  /** SaaS 인가 요청의 대상 서비스명 — 승인 시 카탈로그 인가(sanctioned) 반영·미등재면 사전 등재 */
+  saasService?: string
   /** 승인 후 자산담당이 실제 불출·이동을 집행했는지. 결재 승인만으로는 실물이 움직이지 않는다 */
   fulfilled?: boolean
   /** 반려 사유 — 반려 시 필수 입력. 신청자 재상신 근거이자 감사 기록 (AI 제안 반려와 동일 원칙) */

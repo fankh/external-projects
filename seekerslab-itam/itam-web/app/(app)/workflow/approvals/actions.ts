@@ -6,7 +6,7 @@ import { dispatch } from '@/lib/notify'
 import { canDecideApproval } from '@/lib/approval'
 import { classifyDiscoveredType } from '@/lib/classify'
 import { getSession } from '@/lib/session'
-import { getStore, nextApprovalId, nextAssetNo } from '@/lib/store'
+import { getStore, nextApprovalId, nextAssetNo, nextId } from '@/lib/store'
 import { approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { ApprovalKind } from '@/lib/types'
 
@@ -14,10 +14,11 @@ import type { ApprovalKind } from '@/lib/types'
  *  결재선은 환경설정의 화면별 기본 결재선을 따르며, 다음 단계는 상신자 다음 스텝이 된다.
  *  (제품안내서 §01 권한그룹: 사용자 — 자산 신청·반납·이동 요청 및 결재 상신) */
 export async function raiseRequest(input: {
-  kind: Extract<ApprovalKind, '자산 신청' | '반납' | '이동' | '대여'>
+  kind: Extract<ApprovalKind, '자산 신청' | '반납' | '이동' | '대여' | 'SaaS 인가'>
   assetNo?: string
   targetLocation?: string
   loanDueDate?: string
+  service?: string
   note: string
 }) {
   const session = await getSession()
@@ -28,9 +29,21 @@ export async function raiseRequest(input: {
 
   const s = getStore()
   let title = ''
+  let saasService: string | undefined
 
   if (input.kind === '자산 신청') {
     title = `자산 신규 지급 신청 — ${note.slice(0, 40)}`
+  } else if (input.kind === 'SaaS 인가') {
+    // SaaS 인가 요청 — 업무상 필요한 서비스를 카탈로그에 인가·사전 등재 요청한다(공지 NTC-02: 인가 요청을 통해 사전 등재).
+    // 전 권한그룹이 상신 가능(대여와 동일). 결재선은 보안담당(SaaS 판정 권한).
+    const svc = (input.service ?? '').trim()
+    if (!svc) return { ok: false, message: '인가 요청할 SaaS 서비스명을 입력해 주세요.' }
+    const existing = s.saas.find((x) => x.service.toLowerCase() === svc.toLowerCase())
+    if (existing?.sanctioned) return { ok: false, message: `이미 인가된 서비스입니다 — ${existing.service}` }
+    const dup = s.approvals.find((a) => a.status === '대기' && a.kind === 'SaaS 인가' && (a.saasService ?? '').toLowerCase() === svc.toLowerCase())
+    if (dup) return { ok: false, message: `이미 인가 요청이 결재 대기 중입니다 — ${dup.id}` }
+    saasService = existing?.service ?? svc
+    title = `SaaS 인가 요청 — ${saasService}`
   } else if (input.kind === '대여') {
     // 대여는 유휴 재고를 대상으로 한다(본인 소유 무관 — 임시 반출 신청). 승인 시 자동 대여 처리된다.
     const asset = s.assets.find((a) => a.assetNo === input.assetNo)
@@ -86,6 +99,7 @@ export async function raiseRequest(input: {
     note,
     targetLocation: input.kind === '이동' ? input.targetLocation : undefined,
     loanDueDate: input.kind === '대여' ? input.loanDueDate : undefined,
+    saasService,
   })
 
   appendAudit({ actor: session.name, action: `${input.kind} 상신`, target: id })
@@ -104,7 +118,7 @@ export async function resubmitRequest(approvalId: string, note: string) {
   if (!orig) return { ok: false, message: '원 신청을 찾을 수 없습니다.' }
   if (orig.status !== '반려') return { ok: false, message: '반려된 신청만 재상신할 수 있습니다.' }
   if (orig.requester !== session.name) return { ok: false, message: '본인 신청만 재상신할 수 있습니다.' }
-  if (!['자산 신청', '반납', '이동', '대여'].includes(orig.kind)) {
+  if (!['자산 신청', '반납', '이동', '대여', 'SaaS 인가'].includes(orig.kind)) {
     return { ok: false, message: `재상신 대상이 아닌 결재입니다 — ${orig.kind}` }
   }
   const trimmed = note.trim()
@@ -143,7 +157,7 @@ export async function withdrawRequest(approvalId: string) {
   if (!a) return { ok: false, message: '신청 건을 찾을 수 없습니다.' }
   if (a.status !== '대기') return { ok: false, message: `이미 처리된 건입니다 — ${a.id} (${a.status})` }
   if (a.requester !== session.name) return { ok: false, message: '본인이 상신한 건만 취소할 수 있습니다.' }
-  if (!['자산 신청', '반납', '이동', '대여'].includes(a.kind)) {
+  if (!['자산 신청', '반납', '이동', '대여', 'SaaS 인가'].includes(a.kind)) {
     return { ok: false, message: `상신 취소 대상이 아닌 결재입니다 — ${a.kind}` }
   }
 
@@ -253,7 +267,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
 
   // 결재 결과를 신청자에게 통보한다 — 사용자 상신 종류(자산 신청·반납·이동·대여)만. 그동안 신청자는
   // 결재함을 직접 확인해야 결과를 알 수 있었다(요청자 루프 미폐쇄). 승인/반려 모두 통보하고 발송 이력에 남긴다.
-  if (['자산 신청', '반납', '이동', '대여'].includes(a.kind)) {
+  if (['자산 신청', '반납', '이동', '대여', 'SaaS 인가'].includes(a.kind)) {
     dispatch({
       channel: '이메일',
       to: `${a.requester} (${a.dept})`,
@@ -275,6 +289,19 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       asset.history.push({ date: today(), kind: '대여', detail: `대여 신청 승인 — ${a.requester}(${a.dept}) 대여 · 반환 기한 ${a.loanDueDate ?? '-'} (${a.id})`, actor: session.name })
       a.fulfilled = true
     }
+  }
+
+  // SaaS 인가 요청 — 승인 시 카탈로그에 인가 반영. 이미 있으면 sanctioned=true, 없으면 신청 부서로 사전 등재(신규 인가 항목).
+  //  (공지 NTC-02: 업무상 필요한 서비스는 인가 요청을 통해 사전 등재.) 반려는 미인가 유지.
+  if (a.kind === 'SaaS 인가' && a.saasService && verdict === '승인') {
+    const svc = a.saasService
+    const existing = s.saas.find((x) => x.service.toLowerCase() === svc.toLowerCase())
+    if (existing) {
+      existing.sanctioned = true
+    } else {
+      s.saas.push({ id: nextId('SAS'), service: svc, category: '기타', dept: a.dept, users: 1, sanctioned: true, monthlyVisits: 0, risk: '낮음' })
+    }
+    a.fulfilled = true
   }
 
   // 폐기 결재 — 승인 시 데이터 소거 대기로 전환 (소거·증적은 폐기 화면에서 처리)

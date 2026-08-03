@@ -211,6 +211,8 @@ try {
   check('라이선스 카드: 미사용 보유 판정·회수 절감액', licLow.includes('미사용 보유') && licLow.includes('회수 가능') && licLow.includes('절감액'))
   const aprHtml = await (await get('/workflow/approvals', 'SEC_MGR')).text()
   check('결재함: 격리 요청 문서 렌더', aprHtml.includes('격리 요청') && aprHtml.includes('APR-2607-112'))
+  // SaaS 인가 요청 — 공지 NTC-02 가 약속한 인가 요청 루프. 시드 대기 건이 결재함에 노출되고 보안담당이 결재한다.
+  check('결재함: SaaS 인가 요청 문서 렌더 (보안담당 결재선)', aprHtml.includes('SaaS 인가') && aprHtml.includes('Linear'))
   check('결재함: 결재선 라우팅 표시 (단계 + 필수)', aprHtml.includes('결재선') && aprHtml.includes('IT기획팀장') && aprHtml.includes('보안담당'))
   // 결재함 필터 — 상태(대기·승인·반려·전체)·구분·검색·내 상신만 (결재 이력 추적)
   check('결재함: 상태·구분·검색·내 상신만 필터 렌더', aprHtml.includes('내 상신만') && aprHtml.includes('문서번호·제목·기안자 검색') && aprHtml.includes('구분 — 전체'))

@@ -4,12 +4,13 @@ import { Card } from '@/components/ui'
 import type { ApprovalKind } from '@/lib/types'
 import { raiseRequest } from './actions'
 
-type Kind = Extract<ApprovalKind, '자산 신청' | '반납' | '이동' | '대여'>
+type Kind = Extract<ApprovalKind, '자산 신청' | '반납' | '이동' | '대여' | 'SaaS 인가'>
 const KINDS: { k: Kind; label: string; hint: string }[] = [
   { k: '자산 신청', label: '자산 신청 (신규 지급)', hint: '필요 사유와 용도를 적어 주세요 — 부서장 결재 후 자산담당이 불출합니다.' },
   { k: '대여', label: '대여 (임시 반출)', hint: '대여할 유휴 자산과 반환 기한을 선택하세요 — 승인 즉시 반환 기한과 함께 대여 처리됩니다.' },
   { k: '반납', label: '반납', hint: '반납 승인 후 자산담당이 회수·상태 점검을 거쳐 유휴 재고로 편성합니다.' },
   { k: '이동', label: '이동 (위치 변경)', hint: '이동 승인 후 자산담당이 처리하면 대장 위치와 이력이 갱신됩니다.' },
+  { k: 'SaaS 인가', label: 'SaaS 인가 요청 (사전 등재)', hint: '업무상 필요한 SaaS 서비스명을 적어 주세요 — 보안담당 승인 시 인가 카탈로그에 등재됩니다 (공지 참고).' },
 ]
 
 export function RequestForm(props: {
@@ -25,6 +26,7 @@ export function RequestForm(props: {
   const [loanAssetNo, setLoanAssetNo] = useState(props.loanable[0]?.assetNo ?? '')
   const [loanDue, setLoanDue] = useState('')
   const [target, setTarget] = useState(props.locations[0] ?? '')
+  const [service, setService] = useState('')
   const [note, setNote] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -33,7 +35,7 @@ export function RequestForm(props: {
   const needsMyAsset = kind === '반납' || kind === '이동'
   const noMyAssets = needsMyAsset && props.myAssets.length === 0
   const noLoanable = kind === '대여' && props.loanable.length === 0
-  const disabled = pending || !note.trim() || noMyAssets || noLoanable || (kind === '대여' && (!loanAssetNo || !loanDue))
+  const disabled = pending || !note.trim() || noMyAssets || noLoanable || (kind === '대여' && (!loanAssetNo || !loanDue)) || (kind === 'SaaS 인가' && !service.trim())
 
   const submit = () => {
     startTransition(async () => {
@@ -42,10 +44,11 @@ export function RequestForm(props: {
         assetNo: needsMyAsset ? assetNo : kind === '대여' ? loanAssetNo : undefined,
         targetLocation: kind === '이동' ? target : undefined,
         loanDueDate: kind === '대여' ? loanDue : undefined,
+        service: kind === 'SaaS 인가' ? service : undefined,
         note,
       })
       setMsg(r.message)
-      if (r.ok) { setNote(''); setLoanDue(''); setOpen(false) }
+      if (r.ok) { setNote(''); setLoanDue(''); setService(''); setOpen(false) }
     })
   }
 
@@ -105,6 +108,10 @@ export function RequestForm(props: {
               <label className="hstack" style={{ gap: 6, fontSize: 12.5, whiteSpace: 'nowrap' }}>반환 기한
                 <input className="input" type="date" value={loanDue} disabled={noLoanable} onChange={(e) => setLoanDue(e.target.value)} />
               </label>
+            )}
+            {kind === 'SaaS 인가' && (
+              <input className="input" style={{ flex: 1 }} placeholder="SaaS 서비스명 (예: Figma, Slack)"
+                value={service} onChange={(e) => setService(e.target.value)} />
             )}
           </div>
           <textarea className="input" style={{ height: 78, padding: '8px 10px', resize: 'vertical', lineHeight: 1.6 }}
