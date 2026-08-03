@@ -1,6 +1,6 @@
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf } from './cost'
-import { daysUntil, isStaleVerify, today } from './dates'
+import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today } from './dates'
 import { can } from './perm'
 import { getStore } from './store'
 import type { PermMenu, Role } from './types'
@@ -202,13 +202,14 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
   }
 
   // approvals — 결재함(ApprovalList)의 상태·구분·검색·내 상신만 필터를 그대로 반영
+  const t = today()
   const aq = (filter?.q ?? '').trim().toLowerCase()
   const astatus = filter?.status ?? '전체'
   const akind = filter?.akind ?? '전체'
   const amine = Boolean(filter?.mine)
   return [{
     name: '결재 이력',
-    header: ['문서번호', '구분', '제목', '기안자', '부서', '기안일', '상태', '현재단계', '결재자', '결재일', '연결', '집행'],
+    header: ['문서번호', '구분', '제목', '기안자', '부서', '기안일', '상태', '현재단계', '대기 경과일', '결재자', '결재일', '연결', '집행'],
     rows: s.approvals
       .filter((a) => {
         if (astatus !== '전체' && a.status !== astatus) return false
@@ -219,6 +220,8 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       })
       .map((a) => [
         a.id, a.kind, a.title, a.requester, a.dept, a.requestedAt, a.status, a.currentStep,
+        // 대기 경과일 — 대기 결재의 상신 후 경과일. SLA(3일) 초과면 '지연' 표기로 정체 결재를 감사 반출에 드러낸다.
+        a.status === '대기' ? `${approvalAgeDays(a.requestedAt, t)}일${isApprovalOverdue(a, t) ? ' · 지연' : ''}` : '',
         a.decidedBy ?? '', a.decidedAt ?? '', a.refId ?? '', a.fulfilled ? '집행완료' : '',
       ]),
   }]
