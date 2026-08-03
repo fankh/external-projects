@@ -23,20 +23,21 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
   audit(me.name, verdict === '승인' ? '결재 승인' : '결재 반려',
     `${ap.id} ${ap.docType} — ${ap.title}${verdict === '반려' ? ` (사유: ${reason})` : ''}`)
 
+  // 폐쇄 루프 3 — 반려는 기안자에게 '재상신' 할일로 되돌아간다 (전 문서 유형 공통).
+  // 문서 유형 태그를 제목에 남겨 할일 바로가기·재상신 시 자동 마감의 매칭 키로 쓴다.
+  if (verdict === '반려') {
+    s.todos.unshift({
+      id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
+      owner: ap.drafter, kind: '재상신',
+      title: `[${ap.docType}] ${ap.ref ?? ap.id} 반려 — 보완 후 재상신 (사유: ${reason})`,
+      dueDate: today(), done: false,
+    })
+  }
+
   // 폐쇄 루프 1 — SR 신청 결재가 SR 진행 상태로 전파된다 (승인 → CI배정, 반려 → 반려)
   if (ap.docType === 'SR 신청' && ap.ref) {
     const sr = s.srRequests.find((r) => r.srNo === ap.ref)
-    if (sr && sr.status === '결재중') {
-      sr.status = verdict === '승인' ? 'CI배정' : '반려'
-      // 반려는 기안자에게 '재상신' 할일로 되돌아간다 — 사유를 보고 보완해 재상신하는 폐쇄 루프
-      if (verdict === '반려') {
-        s.todos.unshift({
-          id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
-          owner: ap.drafter, kind: '재상신', title: `${ap.ref} 반려 — 보완 후 재상신 (사유: ${reason})`,
-          dueDate: today(), done: false,
-        })
-      }
-    }
+    if (sr && sr.status === '결재중') sr.status = verdict === '승인' ? 'CI배정' : '반려'
   }
 
   // 폐쇄 루프 1-2 — 정산품의(투자·비용) 결재가 지급 상태로 전파되어 실적·속보 기준금액에 반영된다

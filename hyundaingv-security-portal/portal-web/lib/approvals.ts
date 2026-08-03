@@ -30,5 +30,13 @@ export function draftApproval(opts: {
     id: nextNo('TD', year, s.todos.map((t) => t.id)),
     owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false,
   })
+
+  // 폐쇄 루프 — 반려로 생긴 기안자의 '재상신' 할일은 재상신과 함께 닫힌다.
+  // 묶음 문서(장애·출력물·서약)는 재상신마다 새 묶음 번호를 받아 참조가 회전하므로 문서 유형 태그로 매칭한다.
+  const ROTATING: ApprovalDocType[] = ['장애보고 상신', '출력물폐기 상신', '서약 현황 상신']
+  for (const t of s.todos) {
+    if (t.done || t.kind !== '재상신' || t.owner !== opts.drafter.name) continue
+    if (t.title.includes(opts.ref) || (ROTATING.includes(opts.docType) && t.title.startsWith(`[${opts.docType}]`))) t.done = true
+  }
   return apId
 }

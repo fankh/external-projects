@@ -17,6 +17,28 @@ const KIND_HREF: Record<TodoItem['kind'], { href: string; label: string }> = {
   재상신: { href: '/sr/requests', label: '재상신하기' },
 }
 
+/** 반려 재상신 할일은 제목의 문서 유형 태그로 해당 업무 화면을 찾는다 (태그 없는 과거 할일은 SR 기본) */
+const RESUBMIT_HREF: [string, string][] = [
+  ['SR 신청', '/sr/requests'],
+  ['투자 정산품의', '/finance/invest'],
+  ['비용 정산품의', '/finance/expense'],
+  ['장애보고 상신', '/infra/incidents'],
+  ['변경계획 상신', '/infra/changes'],
+  ['변경결과 상신', '/infra/changes'],
+  ['점검결과 상신', '/compliance/inspection'],
+  ['출력물폐기 상신', '/awareness/prints'],
+  ['보안위반 확인서', '/awareness/violations'],
+  ['서약 현황 상신', '/pledge/manage'],
+]
+
+function todoLink(x: TodoItem): { href: string; label: string } {
+  if (x.kind === '재상신') {
+    const hit = RESUBMIT_HREF.find(([tag]) => x.title.startsWith(`[${tag}]`))
+    if (hit) return { href: hit[1], label: '재상신하기' }
+  }
+  return KIND_HREF[x.kind]
+}
+
 export default async function TodoPage() {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
@@ -55,7 +77,7 @@ export default async function TodoPage() {
                       {x.dueDate < t && <Chip tone="err" bare>기한 경과</Chip>}
                     </td>
                     <td className="c">
-                      <Link className="btn sm" href={KIND_HREF[x.kind].href}>{KIND_HREF[x.kind].label}</Link>
+                      <Link className="btn sm" href={todoLink(x).href}>{todoLink(x).label}</Link>
                     </td>
                   </tr>
                 ))}

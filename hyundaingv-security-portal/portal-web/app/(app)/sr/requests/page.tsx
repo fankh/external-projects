@@ -17,11 +17,8 @@ async function resubmitSr(formData: FormData) {
   if (!sr || s.approvals.some((a) => a.ref === srNo && a.status === '대기')) return
 
   sr.status = '결재중'
+  // '재상신' 할일 마감은 draftApproval 이 참조 번호로 공통 처리한다
   draftApproval({ docType: 'SR 신청', title: `[재상신] ${sr.title}`, ref: srNo, drafter: me })
-
-  // 폐쇄 루프 — 재상신과 함께 '재상신' 할일이 닫힌다
-  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '재상신' && t.title.includes(srNo) && !t.done)
-  if (todo) todo.done = true
   revalidatePath('/', 'layout')
 }
 

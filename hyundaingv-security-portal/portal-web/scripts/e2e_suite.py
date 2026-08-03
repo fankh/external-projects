@@ -249,13 +249,23 @@ def sc_batchref(pg, base, check):
     row.locator('button:has-text("반려")').click()
     pg.wait_for_load_state('networkidle')
 
-    # 재상신 — 새 묶음 번호여야 한다 (반려로 행 ref 가 초기화되어도 재사용 금지)
+    # 반려는 기안자의 '재상신' 할일로 되돌아온다 (전 문서 유형 공통 폐쇄 루프)
     login(pg, base, '박정호')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    open_card = pg.locator('.card', has_text='미처리 할일')
+    check('[장애보고 상신]' in open_card.inner_text(), '반려 → 재상신 할일 생성 (사유 포함)')
+    check('취합 기간 오류' in open_card.inner_text(), '재상신 할일에 반려 사유 표시')
+
+    # 재상신 — 새 묶음 번호여야 한다 (반려로 행 ref 가 초기화되어도 재사용 금지)
     pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
     for box in pg.locator('input[name=ids]').all():
         box.check()
     pg.click('button:has-text("선택 건 장애보고 상신")')
     pg.wait_for_load_state('networkidle')
+
+    # 재상신과 함께 '재상신' 할일이 자동 마감된다 (묶음 문서는 유형 태그 매칭)
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('[장애보고 상신]' not in pg.locator('.card', has_text='미처리 할일').inner_text(), '재상신 → 할일 자동 마감')
 
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/work/approvals', wait_until='networkidle')
