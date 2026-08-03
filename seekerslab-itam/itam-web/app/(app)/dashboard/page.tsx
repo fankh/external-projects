@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, isStaleVerify } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, isStaleVerify, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
@@ -19,6 +19,11 @@ export default async function DashboardPage() {
   // 내 결재 차례 — 지금 이 사람이 결재할 수 있는 대기 건 (본인 상신분 제외). decide()와 동일 게이트를 쓴다.
   const myQueue = s.approvals.filter((a) => a.requester !== session.name && canDecideApproval(session.role, a))
   const myAssets = s.assets.filter((a) => a.owner === session.name)
+  // 내 미확인 필독 공지 — 상단 고정(필독) 공지 중 내가 아직 읽음 확인하지 않은 것. 사용자가 로그인 시 스스로 챙기게 하는 컴플라이언스 넛지
+  // (관리자 측 독촉(로39)·미확인자 명단(v1.150)의 사용자 측 짝). 발행 예정(publishAt 미래) 공지는 아직 안 보이므로 제외.
+  const unackedNotices = s.posts.filter(
+    (p) => p.kind === '공지' && p.pinned && (!p.publishAt || p.publishAt <= today()) && !(p.acks ?? []).some((a) => a.by === session.name),
+  )
   // 내 대여 자산 — 본인이 빌린(대여중·소유자=본인) 자산의 반환 기한. 대여자 관점의 반환 마감 알림.
   // 담당자에게는 대여 현황(반납·유휴)·연체 큐가, 대여자에게는 여기 My Work 가 반환을 상기시킨다(v1.102 독촉 통지의 수신자 측).
   const myLoans = s.assets
@@ -146,8 +151,22 @@ export default async function DashboardPage() {
           <Card kicker="My Work" title="내 작업"
             actions={myQueue.length > 0 ? <Link className="btn sm pri" href="/workflow/approvals">결재함 {myQueue.length} →</Link> : undefined}>
             <div className="vstack" style={{ gap: 10 }}>
+              {unackedNotices.length > 0 && (
+                <div className="vstack" style={{ gap: 6 }}>
+                  <span className="kicker mute">미확인 필독 공지 — 확인 필요</span>
+                  {unackedNotices.map((n) => (
+                    <Link key={n.id} href={`/board/notices?sel=${encodeURIComponent(n.id)}`} className="hstack"
+                      style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <Chip tone="err" bare>필독</Chip> {n.title}
+                      </span>
+                      <Chip tone="err">확인</Chip>
+                    </Link>
+                  ))}
+                </div>
+              )}
               {myQueue.length > 0 && (
-                <div className="vstack" style={{ gap: 8 }}>
+                <div className="vstack" style={{ gap: 8, borderTop: unackedNotices.length > 0 ? '1px solid var(--line)' : undefined, paddingTop: unackedNotices.length > 0 ? 10 : 0 }}>
                   <span className="kicker mute">내 결재 차례 — 지금 처리 대기</span>
                   {myQueue.slice(0, 5).map((a) => (
                     <Link key={a.id} href="/workflow/approvals" className="hstack"

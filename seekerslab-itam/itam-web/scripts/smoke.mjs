@@ -164,6 +164,8 @@ try {
   // 대여자 관점 — 목업 사용자(김민준)가 대여 중인 자산(AST-2024-000230)의 반환 기한이 My Work 에 노출된다
   const dashUser = await (await get('/dashboard', 'USER')).text()
   check('대시보드(사용자): 내 대여 자산 반환 기한 노출', dashUser.includes('내 대여 자산') && dashUser.includes('AST-2024-000230') && dashUser.includes('까지'))
+  // 미확인 필독 공지 넛지 — 사용자가 로그인 시 미확인 필독 공지를 스스로 챙기게 한다(관리자 독촉·명단의 사용자 측 짝). NTC-01(필독, 0 acks)로 검증.
+  check('대시보드(사용자): 미확인 필독 공지 넛지 + 특정 공지 딥링크', dashUser.includes('미확인 필독 공지') && dashUser.includes('2026 하반기 재물조사') && dashUser.includes('/board/notices?sel=NTC-01'))
   // 최근 활동 위젯 — 감사 로그 접근 권한(비사용자)에만 노출
   check('대시보드: 최근 활동 위젯(자산담당) + 감사 로그 링크', dashHtml.includes('최근 활동') && dashHtml.includes('/platform/integrations'))
   check('대시보드: 사용자에겐 최근 활동 위젯 미노출', !dashUser.includes('최근 활동'))
