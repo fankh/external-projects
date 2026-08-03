@@ -149,6 +149,10 @@ try {
   // 수리중 자산 상세 — 수리 의뢰(업체·예상반환·반환 지연) 블록. 대여 블록과 대칭. 시드 AST-2024-000512(중부IT서비스, 예상반환 경과)로 검증
   const regRepairDetail = await (await get('/assets/register?sel=AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 대장: 수리중 상세에 수리 의뢰(업체·반환 지연) 블록', regRepairDetail.includes('수리 의뢰') && regRepairDetail.includes('중부IT서비스') && regRepairDetail.includes('반환 지연'))
+  // 자산 단위 수리 비용 이력(누계) — 시드 AST-2023-000112(키보드 95,000 + 배터리 148,000 = 누계 243,000원)로 검증. 계약 비용 이력과 대칭
+  const regRepairCost = await (await get('/assets/register?sel=AST-2023-000112', 'ASSET_MGR')).text()
+  // 누계 243,000원 = 키보드 95,000 + 배터리 148,000. React SSR 이 정적텍스트↔{식} 사이에 주석마커를 넣어 '누계 243,000원'이 연속 문자열이 아니므로 금액만 검사
+  check('자산 대장: 상세에 수리 비용 이력·누계(자산 TCO)', regRepairCost.includes('수리 비용 이력') && regRepairCost.includes('243,000') && regRepairCost.includes('배터리 교체'))
 
   console.log('\n[핵심 화면 콘텐츠]')
   const dashHtml = await (await get('/dashboard', 'ASSET_MGR')).text()
@@ -448,6 +452,9 @@ try {
   // 수리중 자산 카드에 수리 의뢰(업체·예상반환) 행 — 상세·엑셀과 일관. 시드 AST-2024-000512(중부IT서비스)로 검증
   const cardRepair = await (await get('/api/asset-card/AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 카드: 수리중 자산에 수리 의뢰 행(업체·예상반환)', cardRepair.includes('수리 의뢰') && cardRepair.includes('중부IT서비스') && cardRepair.includes('예상반환 2026-07-28'))
+  // 자산 카드 누적 수리비 행 — 수리 비용 이력이 있는 자산(AST-2023-000112, 누계 243,000원 2건)에 노출
+  const cardCost = await (await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')).text()
+  check('자산 카드: 수리 이력 자산에 누적 수리비 행(TCO)', cardCost.includes('누적 수리비') && cardCost.includes('243,000원') && cardCost.includes('(2건)'))
   // CSV 일괄 등록 템플릿 — 형식 안내용 다운로드
   check('CSV 템플릿: 미로그인 차단 (401)', (await get('/api/asset-template.csv')).status === 401)
   check('CSV 템플릿: 사용자 차단 (403)', (await get('/api/asset-template.csv', 'USER')).status === 403)
@@ -517,6 +524,8 @@ try {
   // 감사 완결 컬럼 — 최근 실측(장기 미실측 근거일)·수리 의뢰(업체·예상반환). 시드 수리중 자산의 업체명이 반출본에 평문으로 들어간다.
   const asBuf = Buffer.from(await (await get('/api/export/assets', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
   check('자산 대장 엑셀: 최근 실측·수리 의뢰 컬럼 반출(감사 완결)', asBuf.includes('최근 실측') && asBuf.includes('수리 의뢰') && asBuf.includes('중부IT서비스'))
+  // 누적 수리비 컬럼 — 자산 TCO 반출. 시드 AST-2023-000112 누계 243000 이 평문으로 들어간다.
+  check('자산 대장 엑셀: 누적 수리비 컬럼 반출(자산 TCO)', asBuf.includes('누적 수리비') && asBuf.includes('243000'))
   // ?sel= 딥링크로 상세 패널을 서버 렌더 → 상세 패널의 구성변경 컨트롤을 검증한다
   const regSel = await (await get('/assets/register?sel=AST-2023-000112', 'ASSET_MGR')).text()
   check('자산 대장: ?sel 딥링크로 상세 패널 서버 렌더', regSel.includes('변경 이력 타임라인') && regSel.includes('AST-2023-000112'))

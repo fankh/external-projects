@@ -307,6 +307,24 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </dd>
               <dt>보증 만료</dt><dd className="tnum">{sel.warrantyEnd}</dd>
               {sel.contractId && <><dt>연계 계약</dt><dd className="code"><a href={`/inventory/contracts?sel=${encodeURIComponent(sel.contractId)}`} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a></dd></>}
+              {(sel.repairCosts?.length ?? 0) > 0 && (
+                <>
+                  <dt>수리 비용 이력</dt>
+                  <dd className="vstack" style={{ gap: 3, alignItems: 'stretch' }}>
+                    <div className="hstack" style={{ gap: 6 }}>
+                      <span className="strong tnum">누계 {sel.repairCosts!.reduce((n, c) => n + c.amount, 0).toLocaleString()}원</span>
+                      <span className="mut" style={{ fontSize: 11 }}>· {sel.repairCosts!.length}건</span>
+                    </div>
+                    {[...sel.repairCosts!].sort((a, b) => b.date.localeCompare(a.date)).map((c) => (
+                      <div key={c.id} className="hstack" style={{ gap: 8, fontSize: 12 }}>
+                        <span className="tnum mut" style={{ minWidth: 76 }}>{c.date}</span>
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.item}</span>
+                        <span className="tnum" style={{ minWidth: 78, textAlign: 'right' }}>{c.amount.toLocaleString()}원</span>
+                      </div>
+                    ))}
+                  </dd>
+                </>
+              )}
             </dl>
 
             {(() => {

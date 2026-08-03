@@ -148,12 +148,17 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
 
   asset.status = outcome === '수리 완료' ? '유휴' : '폐기예정'
   const cost = Math.max(0, Math.round(actualCost))
+  const repairVendor = asset.repair?.vendor ?? '-' // asset.repair 는 아래에서 해제되므로 먼저 캡처
   asset.history.push({
     date: today(),
     kind: '수리',
     detail: `수리 처리 ${outcome}${asset.repair ? ` · ${asset.repair.vendor}` : ''}${cost > 0 ? ` · 실비 ${cost.toLocaleString()}원` : ''}${note ? ` — ${note}` : ''}`,
     actor: session.name,
   })
+  // 실비를 구조적 비용 이력에 누적한다 — 자유 이력 텍스트만으로는 자산 TCO 를 집계할 수 없다(계약 ContractCost 와 대칭)
+  if (cost > 0) {
+    asset.repairCosts = [...(asset.repairCosts ?? []), { id: nextId('ARC'), date: today(), vendor: repairVendor, item: note.trim() || outcome, amount: cost, by: session.name }]
+  }
   asset.repair = undefined // 수리 완료·불가로 의뢰 종료
   // 수리 불가는 폐기 절차로 이어져야 한다 — 폐기 대상 레코드를 만들어 결재·소거로 진행하게 한다
   // (그동안 상태만 폐기예정으로 바뀌고 폐기 대장에 안 올라 소거로 갈 수 없었다 — v1.68 반납 건과 동일)

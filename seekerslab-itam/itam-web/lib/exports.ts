@@ -54,11 +54,12 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         a.assetNo, a.category, a.model, a.serial, a.status, a.owner, a.dept, a.location,
         a.os ?? '', a.cpu ?? '', a.memory ?? '', a.ip ?? '', a.mac ?? '',
         a.purchaseDate, a.warrantyEnd, a.lastVerifiedAt ?? '', a.contractId ?? '', a.discoveredVia ?? '',
-        a.repair ? `${a.repair.vendor}${a.repair.eta ? ` (예상반환 ${a.repair.eta})` : ''}` : '', a.history.length,
+        a.repair ? `${a.repair.vendor}${a.repair.eta ? ` (예상반환 ${a.repair.eta})` : ''}` : '',
+        (a.repairCosts?.length ?? 0) > 0 ? a.repairCosts!.reduce((n, c) => n + c.amount, 0) : '', a.history.length,
       ])
     return [{
       name: '자산 대장',
-      header: ['자산번호', '유형', '모델', 'S/N', '상태', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '최근 실측', '계약', '발견채널', '수리 의뢰', '이력건수'],
+      header: ['자산번호', '유형', '모델', 'S/N', '상태', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '최근 실측', '계약', '발견채널', '수리 의뢰', '누적 수리비', '이력건수'],
       rows,
     }]
   }

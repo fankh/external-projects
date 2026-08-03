@@ -67,10 +67,17 @@ function seedAssets(): Asset[] {
   })
   return [
     mk({ assetNo: 'AST-2023-000112', category: '단말', model: 'ThinkPad T14 Gen4', status: '사용중', owner: '김민준', dept: '플랫폼개발팀', os: 'Windows 11 Pro', cpu: 'i7-1355U', memory: '32GB', ip: '10.20.31.45', mac: 'A4:BB:6D:11:22:33', contractId: 'CT-2023-014',
+      // 과거 두 차례 수리 이력 — 자산 단위 수리 비용 누계(TCO) 시연용
+      repairCosts: [
+        { id: 'ARC-0001', date: '2024-06-18', vendor: '중부IT서비스', item: '키보드 교체', amount: 95_000, by: '박자산' },
+        { id: 'ARC-0002', date: '2025-09-05', vendor: '중부IT서비스', item: '배터리 교체', amount: 148_000, by: '박자산' },
+      ],
       history: [
         { date: '2023-03-15', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
         { date: '2023-03-20', kind: '불출', detail: '플랫폼개발팀 김민준 불출', actor: '박자산' },
+        { date: '2024-06-18', kind: '수리', detail: '수리 처리 수리 완료 · 중부IT서비스 · 실비 95,000원 — 키보드 교체', actor: '박자산' },
         { date: '2024-11-02', kind: '구성변경', detail: '메모리 16GB → 32GB 증설', actor: '박자산' },
+        { date: '2025-09-05', kind: '수리', detail: '수리 처리 수리 완료 · 중부IT서비스 · 실비 148,000원 — 배터리 교체', actor: '박자산' },
       ] }),
     mk({ assetNo: 'AST-2023-000113', category: '단말', model: 'ThinkPad T14 Gen4', status: '사용중', owner: '이서연', dept: '플랫폼개발팀', os: 'Windows 11 Pro', cpu: 'i7-1355U', memory: '16GB', ip: '10.20.31.46', mac: 'A4:BB:6D:11:22:34', contractId: 'CT-2023-014' }),
     // 장기 미실측 후보 ① — 실측 이력 없음(원격 근무자 단말, 재물조사 방문 시 부재 반복)
@@ -636,7 +643,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 16
+const SCHEMA_VERSION = 17
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

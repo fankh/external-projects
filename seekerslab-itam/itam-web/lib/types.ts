@@ -48,7 +48,21 @@ export interface Asset {
   loanDueDate?: string
   /** 수리 의뢰 정보 — 상태가 '수리중'이고 외부 수리 의뢰가 접수됐을 때. 수리 완료·불가 시 이력에 실비를 남기고 해제한다. (제품안내서 §03 유지보수) */
   repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number }
+  /** 수리·유지보수 비용 이력 — 외부 수리 완료 시 실비를 구조적으로 누적한다(자유 이력 텍스트와 달리 자산 TCO 집계·현황에 쓰인다).
+   *  계약의 ContractCost(계약 단위 비용 이력)와 대칭인 자산 단위 비용 이력. (제품안내서 §03 유지보수: 비용 이력) */
+  repairCosts?: AssetRepairCost[]
   history: AssetHistoryItem[]
+}
+
+/** 자산 단위 수리 비용 이력 항목 — 외부 수리 완료 시 실비를 남긴다. */
+export interface AssetRepairCost {
+  id: string
+  date: string
+  vendor: string
+  /** 수리 내용 — 예: 메인보드 교체, 액정 교체, 긴급 출동 */
+  item: string
+  amount: number
+  by: string
 }
 
 /** 최근 실측 확인이 이 일수를 넘거나 아예 없으면 '장기 미실측'(유령 자산 후보)으로 본다.
