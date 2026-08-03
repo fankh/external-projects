@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
-import { daysUntil, isLoanOverdue, isStaleVerify, today } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
 import { REPORT_KINDS, createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -52,10 +52,10 @@ function buildContext(userName: string, isUser: boolean): string {
       ...s.inventoryRounds.map((r) => `- ${r.name} | ${r.status} | ${r.scanned}/${r.planned} 스캔 | 차이:${r.mismatched} | 기한:${r.dueDate}`),
       `[결재 대기] ${s.approvals.filter((a) => a.status === '대기').length}건`,
       ...s.approvals.filter((a) => a.status === '대기').map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.currentStep}`),
-      `[운영 리스크] 분실·도난 ${s.assets.filter((a) => a.status === '분실').length} · 장기미실측 ${s.assets.filter(isStaleVerify).length} · 대여연체 ${s.assets.filter(isLoanOverdue).length}`,
+      `[운영 리스크] 분실·도난 ${s.assets.filter((a) => a.status === '분실').length} · 장기미실측 ${s.assets.filter(isStaleVerify).length} · 대여연체 ${s.assets.filter(isLoanOverdue).length} · 수리중 ${s.assets.filter((a) => a.status === '수리중').length}(예상반환경과 ${s.assets.filter(isRepairOverdue).length})`,
       ...s.assets
-        .filter((a) => a.status === '분실' || isStaleVerify(a) || isLoanOverdue(a))
-        .map((a) => `- ${a.assetNo} | ${a.model} | ${a.status === '분실' ? '분실·도난' : isLoanOverdue(a) ? `대여연체(${a.owner}, 기한 ${a.loanDueDate})` : `장기미실측(최근 실측 ${a.lastVerifiedAt ?? '없음'})`}`),
+        .filter((a) => a.status === '분실' || isStaleVerify(a) || isLoanOverdue(a) || a.status === '수리중')
+        .map((a) => `- ${a.assetNo} | ${a.model} | ${a.status === '분실' ? '분실·도난' : a.status === '수리중' ? `수리중(${a.repair?.vendor ?? '의뢰 전'}${isRepairOverdue(a) ? ' · 예상반환경과' : ''})` : isLoanOverdue(a) ? `대여연체(${a.owner}, 기한 ${a.loanDueDate})` : `장기미실측(최근 실측 ${a.lastVerifiedAt ?? '없음'})`}`),
     )
   }
   return lines.join('\n')
@@ -225,11 +225,13 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     }
   }
 
-  // 운영 리스크 자산 — 분실·도난, 장기 미실측(유령 후보), 대여 반환 연체를 한 번에 훑는다 (자산팀 조치 대상)
-  if (!isUser && (q.includes('분실') || q.includes('도난') || q.includes('미실측') || q.includes('유령') || q.includes('연체') || q.includes('대여') || q.includes('반출') || q.includes('운영 리스크') || q.includes('리스크 자산'))) {
+  // 운영 리스크 자산 — 분실·도난, 장기 미실측(유령 후보), 대여 반환 연체, 수리(지연)를 한 번에 훑는다 (자산팀 조치 대상)
+  if (!isUser && (q.includes('분실') || q.includes('도난') || q.includes('미실측') || q.includes('유령') || q.includes('연체') || q.includes('대여') || q.includes('반출') || q.includes('수리') || q.includes('운영 리스크') || q.includes('리스크 자산'))) {
     const lost = s.assets.filter((a) => a.status === '분실')
     const stale = s.assets.filter(isStaleVerify)
     const overdue = s.assets.filter(isLoanOverdue)
+    const repairing = s.assets.filter((a) => a.status === '수리중')
+    const repairLate = s.assets.filter(isRepairOverdue)
     const sec = (label: string, arr: typeof lost, fmt: (a: (typeof lost)[number]) => string) =>
       `· ${label}: ${arr.length}건${arr.length ? `\n${arr.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}`
     return {
@@ -238,7 +240,8 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
         sec('분실·도난 신고', lost, (a) => `${a.assetNo} — ${a.model} (${a.dept})`),
         sec('장기 미실측(유령 후보)', stale, (a) => `${a.assetNo} — ${a.model} · 최근 실측 ${a.lastVerifiedAt ?? '없음'}`),
         sec('대여 반환 연체', overdue, (a) => `${a.assetNo} — ${a.model} · ${a.owner} (기한 ${a.loanDueDate})`),
-      ].join('\n\n')}\n\n분실은 회수·폐기 확정, 장기 미실측은 수시 재물조사 편성, 대여 연체는 반환 독촉으로 처리합니다.`,
+        sec(`수리중 (예상 반환 경과 ${repairLate.length}건)`, repairing, (a) => `${a.assetNo} — ${a.model}${a.repair ? ` · ${a.repair.vendor}${a.repair.eta ? ` (예상반환 ${a.repair.eta}${isRepairOverdue(a) ? ' · 지연' : ''})` : ''}` : ' · 의뢰 전'}`),
+      ].join('\n\n')}\n\n분실은 회수·폐기 확정, 장기 미실측은 수시 재물조사 편성, 대여 연체는 반환 독촉, 수리 지연은 업체 독촉으로 처리합니다.`,
       evidence: [
         { label: '자산 대장 (장기 미실측 필터)', href: '/assets/register' },
         { label: '재물조사 계획', href: '/inventory/survey-plan' },
