@@ -631,6 +631,8 @@ try {
   check('리포트: 월간 자산 현황에 자산 처분 실적 반영', repHtml.includes('자산 처분 실적'))
   // 감사 대응 자료 리포트에 대장 정합성(CMDB 정확도) 반영 — 생성 시 buildSections 가 정합성 섹션 산출
   check('리포트: 감사 대응 자료에 대장 정합성(CMDB 정확도) 반영', repHtml.includes('대장 정합성(CMDB 정확도)'))
+  // 연간 교체 계획에 잔존가치(장부가) 반영 — 유형 설명·생성 리포트에 반영
+  check('리포트: 연간 교체 계획에 잔존가치 반영', repHtml.includes('내용연수·보증 경과 기준 교체 대상·잔존가치'))
   const repText = text(repHtml)
   check('리포트: 자동 생성 스케줄 렌더 (수정·예약 실행)', repText.includes('자동 생성 스케줄') && repText.includes('예약 실행') && repText.includes('매주 월요일') && repText.includes('수정'))
   check('리포트: 밀린 스케줄이 기한 도래로 표시', repText.includes('기한 도래'))

@@ -3,6 +3,7 @@
 import { recordAiCall } from './ai-status'
 import { appendAudit } from './audit'
 import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon } from './dates'
+import { ACQ_COST, bookValueOf } from './cost'
 import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
 import type { ReportKind, ReportSchedule, ReportSection } from './types'
@@ -13,14 +14,12 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도) 증빙 초안' },
-  { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과 기준 교체 대상·유형별 예산 추정' },
+  { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과 기준 교체 대상·잔존가치·유형별 예산 추정' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
- *  AI 수명예측 제안 승인 시 이 근거로 연간 교체 계획 리포트가 생성된다. */
-const REPLACEMENT_COST: Record<string, number> = {
-  단말: 1_500_000, 서버: 8_000_000, 네트워크: 3_000_000, 주변기기: 400_000, SW: 0, 가상자원: 0,
-}
+ *  AI 수명예측 제안 승인 시 이 근거로 연간 교체 계획 리포트가 생성된다.
+ *  교체 예산 단가는 lib/cost 의 유형 표준 단가(ACQ_COST)를 재사용(대장 취득가·재고 가치와 동일 기준). */
 function replacementCandidates() {
   const s = getStore()
   const t = today()
@@ -32,11 +31,13 @@ function replacementCandidates() {
       const warr = a.warrantyEnd !== '-' && a.warrantyEnd < t
       const aged = a.purchaseDate < cutoff
       const why = warr && aged ? '보증 경과·내용연수 초과' : warr ? '보증 경과' : aged ? '내용연수 초과' : ''
-      return { a, why }
+      return { a, why, book: bookValueOf(a, t) }
     })
     .filter((x) => x.why)
-  const budget = cands.reduce((n, x) => n + (REPLACEMENT_COST[x.a.category] ?? 0), 0)
-  return { cands, budget }
+  const budget = cands.reduce((n, x) => n + (ACQ_COST[x.a.category] ?? 0), 0)
+  // 잔여 장부가 — 교체 시 상각 전 남아있는 장부가치(대부분 내용연수 초과라 0에 수렴). 회계상 폐기손실 규모.
+  const residualBook = cands.reduce((n, x) => n + x.book, 0)
+  return { cands, budget, residualBook }
 }
 
 /** 다음 실행 예정일 — 마지막 실행 + 주기. 스케줄이 밀렸는지 화면에서 드러나야 한다.
@@ -225,16 +226,16 @@ export function buildSections(kind: ReportKind): ReportSection[] {
   }
 
   if (kind === '연간 교체 계획') {
-    const { cands, budget } = replacementCandidates()
+    const { cands, budget, residualBook } = replacementCandidates()
     const cats = [...new Set(cands.map((x) => x.a.category))]
     const warrN = cands.filter((x) => x.why.includes('보증')).length
     const agedN = cands.filter((x) => x.why.includes('내용연수')).length
     return [
       {
         title: '교체 대상 자산',
-        note: `총 ${cands.length}대 — 보증 경과 ${warrN} · 내용연수 초과 ${agedN}`,
-        columns: ['자산번호', '유형', '모델', '도입일', '보증만료', '상태', '교체 사유'],
-        rows: cands.map((x) => [x.a.assetNo, x.a.category, x.a.model, x.a.purchaseDate, x.a.warrantyEnd, x.a.status, x.why]),
+        note: `총 ${cands.length}대 — 보증 경과 ${warrN} · 내용연수 초과 ${agedN} · 잔여 장부가 ${fmtAmount(residualBook)}원`,
+        columns: ['자산번호', '유형', '모델', '도입일', '보증만료', '잔존가치', '교체 사유'],
+        rows: cands.map((x) => [x.a.assetNo, x.a.category, x.a.model, x.a.purchaseDate, x.a.warrantyEnd, `${x.book.toLocaleString()}원`, x.why]),
       },
       {
         title: '유형별 교체 수요 · 예산 추정',
@@ -242,7 +243,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         columns: ['유형', '대상 대수', '대당 추정 단가', '소계'],
         rows: cats.map((c) => {
           const cnt = cands.filter((x) => x.a.category === c).length
-          const unit = REPLACEMENT_COST[c] ?? 0
+          const unit = ACQ_COST[c as keyof typeof ACQ_COST] ?? 0
           return [c, `${cnt}대`, `${fmtAmount(unit)}원`, `${fmtAmount(cnt * unit)}원`]
         }),
       },
@@ -327,10 +328,10 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
       : '진행 중인 재물조사가 없습니다.'
   }
   if (kind === '연간 교체 계획') {
-    const { cands, budget } = replacementCandidates()
+    const { cands, budget, residualBook } = replacementCandidates()
     const warrN = cands.filter((x) => x.why.includes('보증')).length
     return `내용연수·보증 경과 기준 교체 대상은 ${cands.length}대이며 추정 예산은 ${fmtAmount(budget)}원입니다. `
-      + `이 중 보증이 경과한 ${warrN}대는 장애 시 무상 수리가 불가해 우선 교체 대상입니다. `
+      + `이 중 보증이 경과한 ${warrN}대는 장애 시 무상 수리가 불가해 우선 교체 대상이며, 잔여 장부가는 ${fmtAmount(residualBook)}원입니다. `
       + '예산 확정 후 노후·장애 이력 순으로 분기별 집행 계획을 수립할 것을 권고합니다.'
   }
   const liveA = s.assets.filter((a) => a.status !== '폐기완료')
