@@ -2,8 +2,10 @@ import logging
 import pathlib
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from psycopg.errors import UniqueViolation
 
 from app.routers import edim, export, generate, health, models, upload
 from app.services.edim_seed import run_seed
@@ -77,6 +79,27 @@ app.middleware("http")(observability_middleware)
 from app.routers.edim import TenantContextMiddleware  # noqa: E402
 
 app.add_middleware(TenantContextMiddleware)
+
+
+# 19.19 — **고유 제약 위반은 500 이 아니라 409 다.**
+#
+# 중복 생성은 거의 모든 등록 화면이 사전 검사(SELECT → 409)로 막지만, 검사와 INSERT 사이에는
+# 창이 있다. 동시 요청은 서로의 미커밋 행을 볼 수 없으므로 **사전 검사로는 닫을 수 없는 창**
+# 이고, 최종 방어는 DB 제약이다. 문제는 그때 나가는 응답이었다 — 혼자 눌렀을 때는 409 로
+# 안내하고 동시에 눌렸을 때만 500 이 나가면, 같은 행위가 상황에 따라 다른 얼굴을 보인다.
+#
+# 19.8 에서 제품 코드 조합 한 곳을 고쳤는데, 전수로 세어 보니 '중복 409 + INSERT' 핸들러
+# **34개 중 31개가 무보호**였다. 31곳에 같은 try/except 를 흩뿌리면 언젠가 갈라지므로
+# (19.6·19.14 에서 이미 겪었다) **한 곳에서** 변환한다.
+@app.exception_handler(UniqueViolation)
+async def _unique_violation(request: Request, exc: UniqueViolation) -> JSONResponse:
+    diag = getattr(exc, "diag", None)
+    where = getattr(diag, "constraint_name", None) or getattr(diag, "table_name", None) or ""
+    logging.getLogger("edim").warning("unique violation → 409 (%s) %s", where, request.url.path)
+    return JSONResponse(
+        status_code=409,
+        content={"detail": "이미 같은 값이 등록되어 있습니다 — 동시에 만들어졌을 수 있습니다"
+                           + (f" (제약: {where})" if where else "")})
 
 
 @app.get("/api/v1/metrics", tags=["health"])

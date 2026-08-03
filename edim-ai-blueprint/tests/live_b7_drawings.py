@@ -129,6 +129,33 @@ with sync_playwright() as pw:
               status_only=True)
     ok("중복 등록 409", dup == 409)
 
+    # ── 19.19: **동시에** 같은 번호를 등록하면? (#52) ──
+    # 사전 검사(SELECT→409)와 INSERT 사이에는 창이 있고, 동시 요청은 서로의 미커밋 행을 볼 수
+    # 없어 사전 검사로는 닫히지 않는다. 최종 방어는 UNIQUE 제약인데, 그때 500 이 나가면
+    # 혼자 눌렀을 때(409)와 다른 얼굴이 된다. 34개 등록 경로 중 31개가 그 상태였다 —
+    # 개별 try/except 를 흩뿌리는 대신 앱 차원에서 한 번에 409 로 바꿨다.
+    import threading as _th
+    _race_no = f"{TNO}-RACE"
+    _res: list[int] = []
+    _lk = _th.Lock()
+
+    def _fire():
+        s = api(p, "POST", "/drawings",
+                {"drawingNo": _race_no, "name": "동시 등록 검증", "drawingType": "PART",
+                 "kind": "STANDARD"}, status_only=True)
+        with _lk:
+            _res.append(s)
+
+    _ths = [_th.Thread(target=_fire) for _ in range(5)]
+    for _t0 in _ths:
+        _t0.start()
+    for _t0 in _ths:
+        _t0.join()
+    ok(f"★ 동시 등록에서 성공 정확히 1건 ({_res})", len([s for s in _res if s in (200, 201)]) == 1)
+    ok(f"★ 나머지는 409 — 500 이 아니다 ({sorted(set(s for s in _res if s not in (200, 201)))})",
+       all(s == 409 for s in _res if s not in (200, 201)))
+    api(p, "DELETE", f"/drawings/{_race_no}", status_only=True)
+
     # 3. Rev 올리기 A→B (Next — 상세 패널, RSC 전환 정착 대기 후 실행·API 폴링 검증)
     import time as _t
     from urllib.parse import quote as _q2
