@@ -543,6 +543,11 @@ try {
   check('통합 검색: 사용자에겐 계약 그룹 미노출(권한 스코핑)', !srchUser.groups.some((g) => g.kind === '계약·라이선스'))
   const srchAsset = await (await get('/api/search?q=AST-2023-000112', 'ASSET_MGR')).json()
   check('통합 검색: 자산 매칭이 sel 딥링크로 점프', srchAsset.groups.some((g) => g.kind === '자산' && g.items.some((i) => i.href.includes('sel=AST-2023-000112'))))
+  // 폐기·입고 교차 검색 — 입고 SR 번호(SR-2607-041)·폐기 자산으로 찾는다
+  const srchLot = await (await get('/api/search?q=' + encodeURIComponent('SR-2607-041'), 'ASSET_MGR')).json()
+  check('통합 검색: 입고 로트를 SR·발주 번호로 검색', srchLot.groups.some((g) => g.kind === '폐기·입고' && g.items.some((i) => i.href.includes('/assets/intake'))))
+  const srchUserLot = await (await get('/api/search?q=' + encodeURIComponent('SR-2607-041'), 'USER')).json()
+  check('통합 검색: 사용자에겐 폐기·입고 그룹 미노출(권한 스코핑)', !srchUserLot.groups.some((g) => g.kind === '폐기·입고'))
   // 게시판 교차 검색 — 공지·QnA 도 검색되어 해당 게시글로 딥링크(?sel=). '프록시'는 NTC-02 본문에만 있어 게시판 매칭을 명확히 검증
   const srchBoard = await (await get('/api/search?q=' + encodeURIComponent('프록시'), 'USER')).json()
   check('통합 검색: 게시판(공지·QnA) 교차 검색 + sel 딥링크', srchBoard.groups.some((g) => g.kind === '게시판' && g.items.some((i) => i.href.includes('/board/notices?sel=NTC-02'))))

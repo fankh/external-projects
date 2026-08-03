@@ -72,7 +72,7 @@ export function GlobalSearch() {
       <input
         ref={inputRef}
         className="search"
-        placeholder="통합 검색 (＇/＇ 또는 Ctrl+K) — 자산·계약·발견·사용자·결재·게시판"
+        placeholder="통합 검색 (＇/＇ 또는 Ctrl+K) — 자산·계약·발견·사용자·결재·게시판·폐기·입고"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onFocus={() => { if (flat.length) setOpen(true) }}

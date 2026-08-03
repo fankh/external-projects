@@ -2,7 +2,7 @@ import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
-/** 전역 통합 검색 — 자산·계약·발견·사용자·결재·게시판을 한 번에 훑어 해당 화면으로 점프한다.
+/** 전역 통합 검색 — 자산·계약·발견·사용자·결재·게시판·폐기·입고를 한 번에 훑어 해당 화면으로 점프한다.
  *  권한 스코핑은 각 화면 가드와 동일하게 적용한다: 사용자(USER)는 본인 자산·본인 결재만,
  *  계약·발견·사용자 목록은 그 화면 접근 권한이 있는 역할에게만 노출된다(제품안내서 §02 최소권한). */
 export async function GET(req: Request) {
@@ -50,6 +50,16 @@ export async function GET(req: Request) {
     const users = s.users.filter((u) => hit(u.login, u.name, u.dept, u.group)).slice(0, LIMIT)
       .map((u) => ({ label: `${u.name} (${u.login})`, sub: `${u.dept} · ${u.group}`, href: `/settings/users` }))
     if (users.length) groups.push({ kind: '사용자', items: users })
+  }
+
+  // 폐기·입고 — 자산관리 처리 권한(자산담당·Admin). 폐기는 자산·사유·확인서번호, 입고는 SR·발주·모델로 찾는다.
+  if (can(['ASSET_MGR', 'ADMIN'])) {
+    const disp = s.disposals.filter((d) => hit(d.id, d.assetNo, d.model, d.reason, d.certNo)).slice(0, LIMIT)
+      .map((d) => ({ label: `${d.id} · ${d.assetNo}`, sub: `${d.model} · ${d.status}`, href: '/assets/disposal' }))
+    const lots = s.intakeLots.filter((l) => hit(l.id, l.model, l.srNo, l.contractId, l.vendor)).slice(0, LIMIT)
+      .map((l) => ({ label: `${l.id} · ${l.model}`, sub: `${l.vendor} · ${l.status}${l.srNo ? ` · SR ${l.srNo}` : ''}`, href: '/assets/intake' }))
+    const merged = [...disp, ...lots].slice(0, LIMIT)
+    if (merged.length) groups.push({ kind: '폐기·입고', items: merged })
   }
 
   // 결재 — 사용자는 본인 기안분만
