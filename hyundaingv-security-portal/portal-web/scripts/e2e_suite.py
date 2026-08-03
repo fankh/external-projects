@@ -76,8 +76,16 @@ def sc_sr(pg, base, check):
     pg.locator('tr', has_text='E2E 데이터 추출').locator('button:has-text("재상신")').click()
     pg.wait_for_load_state('networkidle')
 
+    # 재상신 문서 상세 — 이전 회차(반려) 이력과 사유가 함께 보이고, 상세에서 승인한다
     login(pg, base, '박정호')
-    approve_first(pg, base, '[재상신] E2E 데이터 추출')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    pg.locator('a', has_text='[재상신] E2E 데이터 추출').first.click()
+    pg.wait_for_selector('text=문서 상세', timeout=10000)
+    detail = pg.locator('.card', has_text='문서 상세')
+    check('이전 회차 결재' in detail.inner_text(), '재상신 상세에 이전 회차 이력')
+    check('근거 보완 필요' in detail.inner_text(), '이전 회차 반려 사유 표시')
+    detail.locator('button:has-text("승인")').click()
+    pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/sr/ci', wait_until='networkidle')
     check('E2E 데이터 추출' in pg.content(), '재상신 승인 → CI배정')
 
