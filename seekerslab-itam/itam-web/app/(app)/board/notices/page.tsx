@@ -26,7 +26,7 @@ export default async function NoticesPage({ searchParams }: { searchParams: Prom
       />
       {notices.length === 0
         ? <Card><div className="empty">등록된 공지가 없습니다</div></Card>
-        : <NoticeBoard posts={notices} canWrite={isAdmin} me={session?.name ?? ''} totalUsers={s.users.length} today={t} initialSel={sel} />}
+        : <NoticeBoard posts={notices} canWrite={isAdmin} me={session?.name ?? ''} allUsers={s.users.map((u) => u.name)} today={t} initialSel={sel} />}
     </>
   )
 }

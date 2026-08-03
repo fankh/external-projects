@@ -4,7 +4,8 @@ import { Card, Chip } from '@/components/ui'
 import type { BoardPost } from '@/lib/types'
 import { acknowledgeNotice, deleteNotice, editNotice, postNotice, remindNoticeUnacked, toggleNoticePin } from '../actions'
 
-export function NoticeBoard({ posts, canWrite, me, totalUsers, today, initialSel }: { posts: BoardPost[]; canWrite: boolean; me: string; totalUsers: number; today: string; initialSel?: string }) {
+export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }: { posts: BoardPost[]; canWrite: boolean; me: string; allUsers: string[]; today: string; initialSel?: string }) {
+  const totalUsers = allUsers.length
   // 딥링크(?sel=NTC-…) — 알림 로그·대시보드에서 특정 공지로 진입. 목록에 없으면(비공개·예약) 최신 공지로 폴백.
   const [openId, setOpenId] = useState<string | null>(
     (initialSel && posts.some((p) => p.id === initialSel) ? initialSel : posts[0]?.id) ?? null,
@@ -167,6 +168,23 @@ export function NoticeBoard({ posts, canWrite, me, totalUsers, today, initialSel
                     <span className="mut" style={{ fontSize: 11.5 }} title="필독 확인 커버리지">
                       필독 확인 {acks.length}/{totalUsers}명
                     </span>
+                    {/* 미확인자 명단 — Admin 이 개별 후속(대면 독려·확인)을 할 수 있게 실제 이름을 노출한다. 커버리지 숫자만으론 누구를 챙길지 알 수 없다. */}
+                    {canWrite && (() => {
+                      const ackedBy = new Set(acks.map((a) => a.by))
+                      const unacked = allUsers.filter((u) => !ackedBy.has(u))
+                      return unacked.length > 0 ? (
+                        <div style={{ flexBasis: '100%', marginTop: 4 }}>
+                          <span className="mut" style={{ fontSize: 11.5 }}>미확인자 {unacked.length}명: </span>
+                          <span className="hstack" style={{ gap: 4, flexWrap: 'wrap', display: 'inline-flex' }}>
+                            {unacked.map((u) => <Chip key={u} tone="warn" bare>{u}</Chip>)}
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ flexBasis: '100%', marginTop: 4 }}>
+                          <span className="mut" style={{ fontSize: 11.5, color: 'var(--ok)' }}>전원 확인 완료</span>
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })()}
