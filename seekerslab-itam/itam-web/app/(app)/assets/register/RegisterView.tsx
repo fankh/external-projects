@@ -5,6 +5,7 @@ import { Chip } from '@/components/ui'
 import { ASSET_CATEGORIES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
+import { acquisitionCostOf, assetTco } from '@/lib/cost'
 import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
@@ -320,6 +321,16 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {sel.memory && <><dt>메모리</dt><dd>{sel.memory}</dd></>}
               {sel.ip && <><dt>IP / MAC</dt><dd className="code">{sel.ip}{sel.mac ? ` · ${sel.mac}` : ''}</dd></>}
               <dt>도입일</dt><dd className="tnum">{sel.purchaseDate}</dd>
+              {acquisitionCostOf(sel) > 0 && (
+                <>
+                  <dt>취득가</dt>
+                  <dd className="tnum">
+                    {acquisitionCostOf(sel).toLocaleString()}원{sel.acquisitionCost === undefined && <span className="mut" style={{ fontSize: 11 }}> · 표준 단가</span>}
+                  </dd>
+                  <dt>TCO(취득+수리)</dt>
+                  <dd className="tnum strong">{assetTco(sel).toLocaleString()}원</dd>
+                </>
+              )}
               {sel.status === '대여중' && (
                 <>
                   <dt>반환 기한</dt>

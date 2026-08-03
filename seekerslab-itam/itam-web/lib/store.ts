@@ -60,13 +60,14 @@ function seedAssets(): Asset[] {
     location: '본사 8F',
     purchaseDate: '2023-03-15',
     warrantyEnd: '2026-03-14',
+
     // 대부분 상반기 정기 재물조사(INV-2026-H1, 2026-02 완료)에서 실측된 상태. 일부는 아래에서 장기 미실측으로 덮어쓴다.
     lastVerifiedAt: '2026-05-20',
     history: [{ date: a.purchaseDate ?? '2023-03-15', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' }],
     ...a,
   })
   return [
-    mk({ assetNo: 'AST-2023-000112', category: '단말', model: 'ThinkPad T14 Gen4', status: '사용중', owner: '김민준', dept: '플랫폼개발팀', os: 'Windows 11 Pro', cpu: 'i7-1355U', memory: '32GB', ip: '10.20.31.45', mac: 'A4:BB:6D:11:22:33', contractId: 'CT-2023-014',
+    mk({ assetNo: 'AST-2023-000112', category: '단말', model: 'ThinkPad T14 Gen4', status: '사용중', owner: '김민준', dept: '플랫폼개발팀', os: 'Windows 11 Pro', cpu: 'i7-1355U', memory: '32GB', ip: '10.20.31.45', mac: 'A4:BB:6D:11:22:33', contractId: 'CT-2023-014', acquisitionCost: 1_680_000,
       // 과거 두 차례 수리 이력 — 자산 단위 수리 비용 누계(TCO) 시연용
       repairCosts: [
         { id: 'ARC-0001', date: '2024-06-18', vendor: '중부IT서비스', item: '키보드 교체', amount: 95_000, by: '박자산' },
@@ -100,7 +101,7 @@ function seedAssets(): Asset[] {
         { date: '2023-06-15', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
         { date: '2026-05-02', kind: '반납', detail: '조직 개편 회수 · 상태 점검 완료', actor: '박자산' },
       ] }),
-    mk({ assetNo: 'AST-2023-000561', category: '서버', model: 'PowerEdge R760', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 12', os: 'RHEL 9.3', cpu: 'Xeon Gold 6430 ×2', memory: '512GB', ip: '10.10.8.21', mac: 'B8:CA:3A:55:01:11', contractId: 'CT-2023-021' }),
+    mk({ assetNo: 'AST-2023-000561', category: '서버', model: 'PowerEdge R760', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 12', os: 'RHEL 9.3', cpu: 'Xeon Gold 6430 ×2', memory: '512GB', ip: '10.10.8.21', mac: 'B8:CA:3A:55:01:11', contractId: 'CT-2023-021', acquisitionCost: 9_200_000 }),
     mk({ assetNo: 'AST-2023-000562', category: '서버', model: 'PowerEdge R760', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 12', os: 'RHEL 9.3', cpu: 'Xeon Gold 6430 ×2', memory: '512GB', ip: '10.10.8.22', mac: 'B8:CA:3A:55:01:12', contractId: 'CT-2023-021' }),
     // 장기 미실측 후보 ② — 보조 IDC(IDC-B) 노후 서버, 최근 실측 9개월 경과
     mk({ assetNo: 'AST-2020-000883', category: '서버', model: 'HPE DL380 Gen10', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-B Rack 3', os: 'CentOS 7.9', cpu: 'Xeon Silver 4210', memory: '128GB', ip: '10.10.9.14', mac: 'D0:67:E5:21:44:90', purchaseDate: '2020-02-14', warrantyEnd: '2025-02-13', lastVerifiedAt: '2025-10-15' }),
@@ -659,7 +660,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 20
+const SCHEMA_VERSION = 21
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

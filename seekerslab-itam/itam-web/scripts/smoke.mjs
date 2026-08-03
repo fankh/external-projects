@@ -165,6 +165,8 @@ try {
   const regRepairCost = await (await get('/assets/register?sel=AST-2023-000112', 'ASSET_MGR')).text()
   // 누계 243,000원 = 키보드 95,000 + 배터리 148,000. React SSR 이 정적텍스트↔{식} 사이에 주석마커를 넣어 '누계 243,000원'이 연속 문자열이 아니므로 금액만 검사
   check('자산 대장: 상세에 수리 비용 이력·누계(자산 TCO)', regRepairCost.includes('수리 비용 이력') && regRepairCost.includes('243,000') && regRepairCost.includes('배터리 교체'))
+  // 취득가 + TCO(취득+수리) — AST-2023-000112 취득가 1,680,000 + 수리 243,000 = TCO 1,923,000
+  check('자산 대장: 상세에 취득가·TCO 표시', regRepairCost.includes('취득가') && regRepairCost.includes('1,680,000') && regRepairCost.includes('TCO(취득+수리)') && regRepairCost.includes('1,923,000'))
 
   console.log('\n[핵심 화면 콘텐츠]')
   const dashHtml = await (await get('/dashboard', 'ASSET_MGR')).text()
@@ -493,6 +495,7 @@ try {
   // 자산 카드 누적 수리비 행 — 수리 비용 이력이 있는 자산(AST-2023-000112, 누계 243,000원 2건)에 노출
   const cardCost = await (await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')).text()
   check('자산 카드: 수리 이력 자산에 누적 수리비 행(TCO)', cardCost.includes('누적 수리비') && cardCost.includes('243,000원') && cardCost.includes('(2건)'))
+  check('자산 카드: 취득가·TCO 행(취득 1,680,000 + 수리 = 1,923,000)', cardCost.includes('취득가') && cardCost.includes('1,680,000원') && cardCost.includes('TCO(취득+수리)') && cardCost.includes('1,923,000원'))
   // CSV 일괄 등록 템플릿 — 형식 안내용 다운로드
   check('CSV 템플릿: 미로그인 차단 (401)', (await get('/api/asset-template.csv')).status === 401)
   check('CSV 템플릿: 사용자 차단 (403)', (await get('/api/asset-template.csv', 'USER')).status === 403)
@@ -562,6 +565,8 @@ try {
   // 감사 완결 컬럼 — 최근 실측(장기 미실측 근거일)·수리 의뢰(업체·예상반환). 시드 수리중 자산의 업체명이 반출본에 평문으로 들어간다.
   const asBuf = Buffer.from(await (await get('/api/export/assets', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
   check('자산 대장 엑셀: 최근 실측·수리 의뢰 컬럼 반출(감사 완결)', asBuf.includes('최근 실측') && asBuf.includes('수리 의뢰') && asBuf.includes('중부IT서비스'))
+  // 취득가·TCO 컬럼 반출 — AST-2023-000112 취득가 1680000 · TCO 1923000 이 숫자셀 평문으로 들어간다
+  check('자산 대장 엑셀: 취득가·TCO 컬럼 반출', asBuf.includes('취득가') && asBuf.includes('TCO') && asBuf.includes('1680000') && asBuf.includes('1923000'))
   // 누적 수리비 컬럼 — 자산 TCO 반출. 시드 AST-2023-000112 누계 243000 이 평문으로 들어간다.
   check('자산 대장 엑셀: 누적 수리비 컬럼 반출(자산 TCO)', asBuf.includes('누적 수리비') && asBuf.includes('243000'))
   // ?sel= 딥링크로 상세 패널을 서버 렌더 → 상세 패널의 구성변경 컨트롤을 검증한다

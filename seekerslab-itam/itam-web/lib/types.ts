@@ -38,6 +38,8 @@ export interface Asset {
   mac?: string
   purchaseDate: string
   warrantyEnd: string
+  /** 취득가(원) — 자산 단위 취득 원가. 미입력 시 유형 표준 단가(lib/cost)로 대체. TCO·감가상각의 기준. */
+  acquisitionCost?: number
   contractId?: string
   /** Discovery 편입 자산이면 최초 발견 채널 */
   discoveredVia?: string
