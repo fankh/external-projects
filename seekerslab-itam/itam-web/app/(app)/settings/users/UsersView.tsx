@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { MANDATORY_APPROVAL_KINDS, ROLE_LABEL } from '@/lib/types'
 import type { ApprovalLine, Role, UserAccount } from '@/lib/types'
-import { setApprovalLineSteps, setUserRole, toggleApprovalRequired } from './actions'
+import { requireMfa, setApprovalLineSteps, setUserRole, toggleApprovalRequired } from './actions'
 
 const ROLES: Role[] = ['USER', 'ASSET_MGR', 'SEC_MGR', 'ADMIN']
 const APPROVER_STEPS = ['부서장', '자산담당', '보안담당', 'IT기획팀장']
@@ -16,6 +16,8 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
   const [pending, startTransition] = useTransition()
 
   const adminCount = props.users.filter((u) => u.role === 'ADMIN').length
+  const mfaMissing = props.users.filter((u) => !u.mfa).length
+  const reqMfa = (login?: string) => startTransition(async () => setMsg((await requireMfa(login)).message || null))
 
   const changeRole = (login: string, role: Role) => {
     startTransition(async () => {
@@ -44,7 +46,13 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
     <>
       {msg && <div className="callout" style={{ margin: '0 0 12px' }}>{msg}</div>}
 
-      <Card kicker="Users · Groups" title="사용자 · 권한그룹 배정" pad={false}>
+      <Card kicker="Users · Groups" title="사용자 · 권한그룹 배정" pad={false}
+        actions={mfaMissing > 0
+          ? <button className="btn sm" disabled={pending} onClick={() => reqMfa()}
+              title="MFA 미적용 사용자 전원에게 등록 요구 통지를 발송합니다 (보안 정책 집행 · 발송 이력·감사 기록)">
+              🔐 MFA 미등록자 등록 요구 ({mfaMissing}명)
+            </button>
+          : <Chip tone="ok">MFA 전원 적용</Chip>}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
@@ -76,7 +84,15 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
                     <td className="num tnum">{props.owned[u.name] > 0
                       ? <a href={`/assets/register?q=${encodeURIComponent(u.name)}`} title={`${u.name} 보유 자산 보기`} style={{ color: 'var(--accent-deep)' }}>{props.owned[u.name]}</a>
                       : <span className="mut">0</span>}</td>
-                    <td className="c">{u.mfa ? <Chip tone="ok">적용</Chip> : <Chip tone="warn">미적용</Chip>}</td>
+                    <td className="c">
+                      {u.mfa ? <Chip tone="ok">적용</Chip> : (
+                        <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                          <Chip tone="warn">미적용</Chip>
+                          <button className="btn sm ghost" disabled={pending} onClick={() => reqMfa(u.login)}
+                            title={`${u.name}에게 MFA 등록 요구 통지 발송`}>요구</button>
+                        </span>
+                      )}
+                    </td>
                     <td className="tnum mute">{u.lastLogin}</td>
                   </tr>
                 )

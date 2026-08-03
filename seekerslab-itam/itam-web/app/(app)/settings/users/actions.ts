@@ -1,12 +1,31 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAdminAudit } from '@/lib/audit'
+import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { MANDATORY_APPROVAL_KINDS, ROLE_LABEL } from '@/lib/types'
 import type { Role } from '@/lib/types'
 
 type Res = { ok: boolean; message: string }
+
+/** MFA 등록 요구 — MFA 미적용 사용자에게 등록 요구 통지를 발송한다(보안 정책 집행). Admin 전용.
+ *  MFA 활성화는 사용자가 IdP(그룹웨어·SSO)에서 직접 등록해야 하므로 여기서 상태를 지어내 바꾸지 않고,
+ *  등록 요구를 발송·감사한다 — 감사 리포트의 MFA 적용률(보안 통제 지표)을 끌어올리는 컴플라이언스 조치.
+ *  login 지정 시 해당 사용자만, 미지정 시 미적용 전원(공지 미확인 독촉과 같은 일괄/개별 패턴). */
+export async function requireMfa(login?: string): Promise<Res> {
+  const session = await getSession()
+  if (!session || session.role !== 'ADMIN') return { ok: false, message: 'MFA 등록 요구 권한이 없습니다 (Admin).' }
+  const s = getStore()
+  const targets = s.users.filter((u) => !u.mfa && (!login || u.login === login))
+  if (targets.length === 0) return { ok: false, message: login ? '해당 사용자는 이미 MFA 적용 상태입니다.' : 'MFA 미적용 사용자가 없습니다.' }
+  for (const u of targets) {
+    dispatch({ channel: '이메일', to: `${u.name} (${u.dept})`, subject: 'MFA(다단계 인증) 등록 요구 — 보안 정책 미이행', kind: 'MFA 등록 요구', ref: u.login })
+  }
+  appendAdminAudit(session.name, `MFA 등록 요구 발송 (${targets.length}명${login ? ` · ${login}` : ''})`, '사용자·그룹')
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `MFA 등록 요구를 ${targets.length}명에게 발송했습니다. (발송 이력·감사 로그 기록)` }
+}
 
 /** 사용자 → 권한그룹(Role) 배정 — 사용자·그룹(STEP 4). Admin 전용.
  *
