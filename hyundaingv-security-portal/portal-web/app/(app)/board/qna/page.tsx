@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { NAV } from '@/components/chrome/menus'
@@ -15,10 +16,10 @@ async function ask(formData: FormData) {
   const domain = String(formData.get('domain') ?? '')
   if (!title || !DOMAINS.includes(domain)) return
   const s = getStore()
-  s.qna.unshift({
-    id: nextNo('QA', today().slice(0, 4), s.qna.map((q) => q.id)),
-    title, domain, author: me.name, dept: me.dept, askedAt: today(),
-  })
+  const id = nextNo('QA', today().slice(0, 4), s.qna.map((q) => q.id))
+  s.qna.unshift({ id, title, domain, author: me.name, dept: me.dept, askedAt: today() })
+  // 문의 첨부 (첨부 시트: 공지사항 및 QnA — boards)
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/board/qna')
 }
 
@@ -72,6 +73,7 @@ export default async function QnaPage() {
             {DOMAINS.map((d) => <option key={d}>{d}</option>)}
           </select>
           <input className="input" name="title" required maxLength={160} placeholder="문의 내용" style={{ flex: 1 }} />
+          <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="문의 첨부" />
           <button type="submit" className="btn pri">등록</button>
         </form>
       </Card>
@@ -85,7 +87,7 @@ export default async function QnaPage() {
                 <tr key={q.id}>
                   <td className="code">{q.id}</td>
                   <td><Chip tone="neutral" bare>{q.domain}</Chip></td>
-                  <td className="strong" style={{ maxWidth: 320 }}>{q.title}</td>
+                  <td className="strong" style={{ maxWidth: 320 }}>{q.title}<Clip count={attachCount(q.id)} title="문의 첨부" /></td>
                   <td>{q.author} <span className="mut">· {q.dept}</span></td>
                   <td>
                     {q.assignee ? (

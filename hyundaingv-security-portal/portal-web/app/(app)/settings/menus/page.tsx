@@ -1,13 +1,30 @@
+import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { NAV } from '@/components/chrome/menus'
+import { registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { SCREENS } from '@/lib/screens'
+import { getStore } from '@/lib/store'
 import { ROLE_LABEL } from '@/lib/types'
+
+/** 화면 정의서 업로드 — 화면(pages)당 1개 첨부, 재업로드 시 교체된다 (첨부 시트: 메뉴관리) */
+async function uploadSpec(formData: FormData) {
+  'use server'
+  const me = await requireRole('ADMIN')
+  const href = String(formData.get('href') ?? '')
+  if (!NAV.some((g) => g.items.some((i) => i.href === href))) return
+  const s = getStore()
+  s.attachments = s.attachments.filter((a) => a.refId !== href)
+  registerUpload(href, formData.get('file'), me.name)
+  revalidatePath('/settings/menus')
+}
 
 export default async function MenusPage() {
   await requireRole('ADMIN')
+  const s = getStore()
   const items = NAV.flatMap((g) => g.items.map((i) => ({ group: g.label, hue: g.hue, ...i })))
   const stubs = new Set(Object.keys(SCREENS))
+  const specOf = (href: string) => s.attachments.find((a) => a.refId === href)
 
   return (
     <>
@@ -25,18 +42,29 @@ export default async function MenusPage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>도메인 (LV1)</th><th>메뉴 (LV2)</th><th>화면번호</th><th>권한그룹</th><th>상태</th></tr>
+              <tr><th>도메인 (LV1)</th><th>메뉴 (LV2)</th><th>화면번호</th><th>권한그룹</th><th>상태</th><th style={{ minWidth: 230 }}>화면 정의서 (1첨부)</th></tr>
             </thead>
             <tbody>
-              {items.map((i) => (
-                <tr key={i.href}>
-                  <td><span className="kicker" style={{ color: i.hue }}>{i.group}</span></td>
-                  <td className="strong">{i.ico} {i.label}</td>
-                  <td className="mono" style={{ fontSize: 11.5 }}>{i.href}</td>
-                  <td>{i.roles.map((r) => ROLE_LABEL[r]).join(' · ')}</td>
-                  <td>{stubs.has(i.href) ? <Chip tone="warn" bare>스텁</Chip> : <Chip tone="ok" bare>구현</Chip>}</td>
-                </tr>
-              ))}
+              {items.map((i) => {
+                const spec = specOf(i.href)
+                return (
+                  <tr key={i.href}>
+                    <td><span className="kicker" style={{ color: i.hue }}>{i.group}</span></td>
+                    <td className="strong">{i.ico} {i.label}</td>
+                    <td className="mono" style={{ fontSize: 11.5 }}>{i.href}</td>
+                    <td>{i.roles.map((r) => ROLE_LABEL[r]).join(' · ')}</td>
+                    <td>{stubs.has(i.href) ? <Chip tone="warn" bare>스텁</Chip> : <Chip tone="ok" bare>구현</Chip>}</td>
+                    <td>
+                      <form action={uploadSpec} className="hstack" style={{ padding: '2px 0' }}>
+                        <input type="hidden" name="href" value={i.href} />
+                        {spec && <span className="mono dim" style={{ fontSize: 11 }} title={`${spec.name} · ${spec.uploadedBy}`}>📎 {spec.name.slice(0, 16)}</span>}
+                        <input className="input" type="file" name="file" required style={{ height: 24, fontSize: 11, width: 120, paddingTop: 2 }} title="화면 정의서 업로드 (교체)" />
+                        <button type="submit" className="btn sm">{spec ? '교체' : '업로드'}</button>
+                      </form>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
