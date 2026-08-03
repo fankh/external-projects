@@ -14,7 +14,10 @@ async function loginAs(formData: FormData) {
   const acct = ACCOUNTS.find((a) => a.login === login)
   if (!acct) return
   const jar = await cookies()
-  jar.set(SESSION_COOKIE, signSession(acct), { httpOnly: true, sameSite: 'lax', path: '/' })
+  // Secure 는 HTTPS 종단 배포에서 PORTAL_COOKIE_SECURE=1 로 켠다 — http 데모·게이트 실행이 있어 기본은 끔
+  jar.set(SESSION_COOKIE, signSession(acct), {
+    httpOnly: true, sameSite: 'lax', path: '/', secure: process.env.PORTAL_COOKIE_SECURE === '1',
+  })
   redirect('/dashboard')
 }
 

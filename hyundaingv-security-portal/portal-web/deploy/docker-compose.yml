@@ -10,6 +10,8 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET 를 설정하세요}
       # 고객사 프로필 — 미설정 시 기본(데모), 예: manufacturer (한 이미지 다중 고객사)
       PORTAL_PROFILE: ${PORTAL_PROFILE:-}
+      # HTTPS 종단(nginx TLS) 배포에서는 1 로 설정해 세션 쿠키에 Secure 를 붙인다
+      PORTAL_COOKIE_SECURE: ${PORTAL_COOKIE_SECURE:-0}
     volumes:
       - portal-data:/data
     # 내부 포트 3400 — 외부 노출은 nginx 만 담당한다

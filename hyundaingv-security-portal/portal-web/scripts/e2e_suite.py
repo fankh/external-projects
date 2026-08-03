@@ -229,8 +229,13 @@ def sc_scheduler(pg, base, check):
 
 
 def sc_runtime(pg, base, check):
-    """브랜디드 404 + ChunkReload 자동 복구"""
+    """브랜디드 404 + ChunkReload 자동 복구 + 세션 쿠키 속성·로그아웃 무효화"""
     login(pg, base, '김현우')
+
+    # 세션 쿠키 속성 — HttpOnly · SameSite=Lax (XSS 탈취·크로스사이트 전송 방어)
+    sess = next((c for c in pg.context.cookies() if c['name'] == 'ngv_portal_session'), None)
+    check(bool(sess) and sess['httpOnly'] and sess['sameSite'] == 'Lax', '세션 쿠키 HttpOnly·SameSite=Lax')
+
     pg.goto(f'{base}/no-such-screen', wait_until='networkidle')
     check('화면을 찾을 수 없습니다' in pg.content(), '브랜디드 404')
     pg.goto(f'{base}/dashboard', wait_until='networkidle')
@@ -239,6 +244,12 @@ def sc_runtime(pg, base, check):
     pg.wait_for_load_state('networkidle')
     pg.wait_for_timeout(800)
     check(pg.evaluate('window.__marker') is None, '청크 오류 → 자동 새로고침')
+
+    # 로그아웃 — 쿠키 삭제로 보호 화면 접근이 로그인으로 되돌아간다
+    pg.click('button:has-text("로그아웃")')
+    pg.wait_for_url('**/login**')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check('계정을 선택하세요' in pg.content(), '로그아웃 후 보호 화면 차단')
 
 
 def sc_batchref(pg, base, check):

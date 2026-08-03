@@ -83,6 +83,7 @@ seekerslab-itam/itam-web 의 셸 패턴(도메인 메뉴바 + MDI 탭 + 좌측 �
 | v1.0.7 | 스모크 부정 검증 보강 — 무관한 계정의 결재 문서 상세(sel=) 직접 접근 차단 2건 (스모크 458체크) |
 | v1.0.8 | fix(integrations): 채널 토글을 화면 표시(isEnabled)와 같은 기준으로 반전 — 구버전 데이터 파일에 키가 없는 기본 가동 채널의 첫 '중지' 클릭 무동작 해소 + e2e 12번째 시나리오(persist — 부분 파일 시드 머지·채널 기본값 폴백) |
 | v1.0.9 | 스모크 CSV 부정 검증 보강 — 부서담당 서약 CSV 타부서 인원 미포함·USER 재택 현황 403 (스모크 461체크) |
+| v1.0.10 | 세션 쿠키 Secure 옵션(PORTAL_COOKIE_SECURE=1, HTTPS 종단 배포용) + e2e 세션 검증(쿠키 HttpOnly·SameSite=Lax, 로그아웃 후 보호 화면 차단) |
 
 ## 배포 (Docker)
 
@@ -94,7 +95,8 @@ docker run -d --name ngv-portal -v portal-data:/data -p 3400:3400 `
 ```
 
 `SESSION_SECRET` 는 세션 쿠키 HMAC 서명 키다 — 미설정 시 개발용 기본 키로 동작하므로
-실배포에서는 반드시 랜덤 키로 교체한다.
+실배포에서는 반드시 랜덤 키로 교체한다. HTTPS 로 서비스하는 배포에서는
+`PORTAL_COOKIE_SECURE=1` 을 함께 설정해 세션 쿠키에 Secure 속성을 붙인다.
 
 컨테이너는 KST 시간대로 동작하고, 스토어는 `/data/portal-data.json`(볼륨)에
 영속화되어 재시작·재생성 후에도 유지된다.
