@@ -2,3 +2,5 @@ node_modules/
 .next/
 next-env.d.ts
 tsconfig.tsbuildinfo
+# e2e 스위트 임시 파일 — 정상 종료 시 삭제되지만 중단 시 잔류할 수 있다
+scripts/.e2e-*
