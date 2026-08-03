@@ -165,9 +165,13 @@ try {
   check('대시보드: 수리 예상 반환 경과 운영 큐 노출 (자산담당)', dashHtml.includes('수리 예상 반환 경과'))
   // 보증 만료 임박 자산 — 개별 자산 보증 만료를 대시보드 운영 큐에 surфacing (?warranty=soon 드릴)
   check('대시보드: 보증 만료 임박 자산 큐 + 드릴 링크', dashHtml.includes('보증 만료 임박 자산') && dashHtml.includes('warranty=soon'))
+  // 라이선스 초과 사용(SAM 감사 최우선 노출) — 시드 LIC-002(JetBrains 120보유/131사용, 11석 초과)로 자산담당 운영 큐에 노출·계약 화면 드릴
+  check('대시보드: 라이선스 초과 사용 감사 노출 큐 (자산담당)', dashHtml.includes('라이선스 초과 사용') && dashHtml.includes('감사 노출') && dashHtml.includes('/inventory/contracts'))
   // 대여자 관점 — 목업 사용자(김민준)가 대여 중인 자산(AST-2024-000230)의 반환 기한이 My Work 에 노출된다
   const dashUser = await (await get('/dashboard', 'USER')).text()
   check('대시보드(사용자): 내 대여 자산 반환 기한 노출', dashUser.includes('내 대여 자산') && dashUser.includes('AST-2024-000230') && dashUser.includes('까지'))
+  // 운영 큐(라이선스 초과 사용 등)는 담당자 전용 — 사용자에겐 미노출
+  check('대시보드(사용자): 라이선스 초과 사용 큐 미노출 (운영 큐 담당자 전용)', !dashUser.includes('라이선스 초과 사용'))
   // 미확인 필독 공지 넛지 — 사용자가 로그인 시 미확인 필독 공지를 스스로 챙기게 한다(관리자 독촉·명단의 사용자 측 짝). NTC-01(필독, 0 acks)로 검증.
   check('대시보드(사용자): 미확인 필독 공지 넛지 + 특정 공지 딥링크', dashUser.includes('미확인 필독 공지') && dashUser.includes('2026 하반기 재물조사') && dashUser.includes('/board/notices?sel=NTC-01'))
   // 우리 부서 소유자 확인 요청 넛지 — 김민준(플랫폼개발팀) 앞으로 온 APR-2607-114 응답 대기. 결재 딥링크(v1.143)

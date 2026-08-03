@@ -55,6 +55,8 @@ export default async function DashboardPage() {
       { label: '대여 반환 임박 (D-7 · 사전 안내)', count: s.assets.filter(isLoanDueSoon).length, href: '/assets/register', tone: 'warn' },
       { label: '장기 미실측 (재물조사 편성)', count: s.assets.filter(isStaleVerify).length, href: '/inventory/survey-plan', tone: 'warn' },
       { label: '보증 만료 임박 자산 (연장·교체 검토)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90).length, href: '/assets/register?warranty=soon', tone: 'warn' },
+      // SW 라이선스 초과 사용(보유<사용)은 SAM 감사 최우선 노출 리스크 — 계약·라이선스 화면에만 있던 것을 담당자 일과 시작점(대시보드)으로 끌어올린다
+      { label: '라이선스 초과 사용 (감사 노출)', count: s.licenses.filter((l) => l.status !== '해지' && l.used > l.purchased).length, href: '/inventory/contracts', tone: 'err' },
     )
   }
   if (['SEC_MGR', 'ADMIN'].includes(session.role)) {
