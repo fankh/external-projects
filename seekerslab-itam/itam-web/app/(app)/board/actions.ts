@@ -14,8 +14,9 @@ export async function askQuestion(title: string, body: string, category: QnaCate
   if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
 
   const s = getStore()
+  const id = nextId('QNA')
   s.posts.unshift({
-    id: nextId('QNA'),
+    id,
     kind: 'QnA',
     title: title.trim(),
     body: body.trim(),
@@ -25,8 +26,13 @@ export async function askQuestion(title: string, body: string, category: QnaCate
     views: 0,
     category,
   })
+  // 분류별 담당 팀에 새 문의 접수를 통보한다 — 그동안 담당자는 게시판을 직접 봐야 답변 대기 문의를 알 수 있었다
+  // (작성자 답변 통보(v1.136)의 반대 방향 — 질문 접수 측 루프 폐쇄). 알림 참조는 문의 id 라 발송 이력에서 바로 문의로 딥링크된다.
+  const team = category === '보안·Discovery' ? '보안운영팀' : category === '라이선스' ? 'IT기획팀' : '자산관리팀'
+  dispatch({ channel: '이메일', to: team, subject: `[QnA 접수] ${category} — '${title.trim()}' (${session.name})`, kind: 'QnA 접수', ref: id })
+  appendAudit({ actor: session.name, action: `QnA 문의 등록 (${category}) · ${team} 통보`, target: id })
   revalidatePath('/', 'layout')
-  return { ok: true, message: '질문이 등록되었습니다. 담당자 답변 후 알림을 받습니다.' }
+  return { ok: true, message: `질문이 등록되었습니다 — ${team}에 접수 통보. 담당자 답변 후 알림을 받습니다.` }
 }
 
 /** QnA 답변 — 자산담당·보안담당·Admin */
