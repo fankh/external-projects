@@ -4,7 +4,7 @@ import { nowStamp } from './dates'
 import { getStore } from './store'
 
 export type AuditAction =
-  | '결재 승인' | '결재 반려'
+  | '결재 상신' | '결재 승인' | '결재 반려'
   | '결재선 변경' | '연동 채널 변경' | '공통코드 변경' | '서약양식 개정'
   | '인사정보 동기화' | '배치 수동 실행' | '일배치 이관' | '알림 배치 실행'
 

@@ -2,6 +2,7 @@
  *  기안자 본인이 결재자면 시스템관리자(그마저 본인이면 업무담당)로 대체해 자기 결재를 막는다.
  *  상신과 동시에 결재자에게 '결재' 할일이 생긴다 — 전 도메인 공통 폐쇄 루프. */
 import { ACCOUNTS } from './session'
+import { audit } from './audit'
 import { today } from './dates'
 import { getStore, nextNo } from './store'
 import type { ApprovalDocType } from './types'
@@ -30,6 +31,8 @@ export function draftApproval(opts: {
     id: nextNo('TD', year, s.todos.map((t) => t.id)),
     owner: approver, kind: '결재', title: `${apId} 결재 처리`, dueDate: today(), done: false,
   })
+  // 승인·반려만 남던 감사 이력에 상신을 더해 결재 생명주기 전체를 추적한다
+  audit(opts.drafter.name, '결재 상신', `${apId} ${opts.docType} — ${opts.title} (결재자 ${approver})`)
 
   // 폐쇄 루프 — 반려로 생긴 기안자의 '재상신' 할일은 재상신과 함께 닫힌다.
   // 묶음 문서(장애·출력물·서약)는 재상신마다 새 묶음 번호를 받아 참조가 회전하므로 문서 유형 태그로 매칭한다.

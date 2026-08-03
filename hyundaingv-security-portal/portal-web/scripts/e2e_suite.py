@@ -272,6 +272,12 @@ def sc_batchref(pg, base, check):
     pg.wait_for_selector('text=반려 문서 재상신 안내', timeout=10000)
     check('반려 문서 재상신 안내' in pg.locator('.card', has_text='발송 이력').inner_text(), '반려 방치 → 안내메일 발송')
 
+    # 감사 이력 — 상신·반려가 모두 기록되어 결재 생명주기가 추적된다
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    body = pg.content()
+    check('결재 상신' in body and '[장애보고]' in body, '감사 이력에 결재 상신 기록')
+    check('결재 반려' in body, '감사 이력에 결재 반려 기록')
+
     # 재상신 — 새 묶음 번호여야 한다 (반려로 행 ref 가 초기화되어도 재사용 금지)
     login(pg, base, '박정호')
     pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
