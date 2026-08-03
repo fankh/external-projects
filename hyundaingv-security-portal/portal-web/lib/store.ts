@@ -265,7 +265,11 @@ function seed(): Store {
   }
 }
 
-const g = globalThis as typeof globalThis & { __ngvPortalStore?: Store; __ngvPortalSaveTimer?: NodeJS.Timeout }
+const g = globalThis as typeof globalThis & {
+  __ngvPortalStore?: Store
+  __ngvPortalSaveTimer?: NodeJS.Timeout
+  __ngvPortalExitHook?: boolean
+}
 
 const DATA_FILE = process.env.PORTAL_DATA_FILE
 
@@ -280,19 +284,32 @@ function loadFromFile(): Store | null {
   }
 }
 
+function saveNow(s: Store) {
+  if (!DATA_FILE) return
+  try {
+    mkdirSync(dirname(DATA_FILE), { recursive: true })
+    const tmp = `${DATA_FILE}.tmp`
+    writeFileSync(tmp, JSON.stringify(s), 'utf8')
+    renameSync(tmp, DATA_FILE)
+  } catch { /* 디스크 오류는 데모 흐름을 막지 않는다 */ }
+}
+
 /** 디바운스 저장 — 모든 뮤테이션은 getStore() 를 거치므로, 호출 시마다 저장을 예약하면
- *  액션 직후 상태가 파일에 반영된다. 임시 파일 → rename 으로 부분 쓰기를 막는다. */
+ *  액션 직후 상태가 파일에 반영된다. 임시 파일 → rename 으로 부분 쓰기를 막는다.
+ *  종료 훅이 디바운스 창(300ms) 안의 마지막 뮤테이션을 동기 플러시로 보전한다. */
 function scheduleSave(s: Store) {
   if (!DATA_FILE) return
   clearTimeout(g.__ngvPortalSaveTimer)
-  g.__ngvPortalSaveTimer = setTimeout(() => {
-    try {
-      mkdirSync(dirname(DATA_FILE), { recursive: true })
-      const tmp = `${DATA_FILE}.tmp`
-      writeFileSync(tmp, JSON.stringify(s), 'utf8')
-      renameSync(tmp, DATA_FILE)
-    } catch { /* 디스크 오류는 데모 흐름을 막지 않는다 */ }
-  }, 300)
+  g.__ngvPortalSaveTimer = setTimeout(() => saveNow(s), 300)
+  if (!g.__ngvPortalExitHook) {
+    g.__ngvPortalExitHook = true
+    // 'exit' 는 정상 종료·process.exit() 에서 발화한다 (SIGTERM 은 Next 의 graceful shutdown 이
+    // process.exit 로 이어진다). 핸들러는 동기만 허용되므로 saveNow 를 그대로 쓴다.
+    process.on('exit', () => {
+      clearTimeout(g.__ngvPortalSaveTimer)
+      if (g.__ngvPortalStore) saveNow(g.__ngvPortalStore)
+    })
+  }
 }
 
 export function getStore(): Store {

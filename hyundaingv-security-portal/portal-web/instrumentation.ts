@@ -18,6 +18,9 @@ export async function register() {
       // 스케줄 실패가 서버를 죽이면 안 된다 — 다음 주기에 재시도
     }
   }
-  setInterval(tick, intervalMs)
+  // dev/HMR 재등록으로 인터벌이 중첩되면 같은 안내메일이 중복 발송된다 — 기존 타이머를 교체한다
+  const g = globalThis as typeof globalThis & { __ngvNotifyTimer?: NodeJS.Timeout }
+  if (g.__ngvNotifyTimer) clearInterval(g.__ngvNotifyTimer)
+  g.__ngvNotifyTimer = setInterval(tick, intervalMs)
   console.log(`[portal] 알림 배치 스케줄러 가동 — ${intervalMs}ms 주기`)
 }
