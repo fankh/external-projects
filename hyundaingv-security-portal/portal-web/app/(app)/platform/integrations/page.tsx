@@ -15,7 +15,9 @@ async function toggleChannel(formData: FormData) {
   const ch = CHANNELS.find((c) => c.id === id)
   if (!ch) return
   const s = getStore()
-  const next = !(s.channelStates[id] ?? false)
+  // 화면 표시(isEnabled)와 같은 기준으로 반전 — 구버전 데이터 파일에 키가 없는
+  // 기본 가동 채널에서 첫 '중지' 클릭이 무동작이 되던 비대칭을 막는다
+  const next = !isEnabled(id)
   s.channelStates[id] = next
   audit(me.name, '연동 채널 변경', `${ch.name}: ${next ? '가동' : '중지'}`)
   revalidatePath('/', 'layout')

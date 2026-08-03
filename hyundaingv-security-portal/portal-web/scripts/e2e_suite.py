@@ -5,6 +5,7 @@ smoke(SSR)·client_health(크래시)가 못 보는 '동작'을 본다: 결재 �
 각 시나리오는 독립 서버(시드 초기화)에서 돌아 순서 간섭이 없다.
 사용:  npm run build  후  python scripts/e2e_suite.py  (특정만: python scripts/e2e_suite.py sr settle)
 """
+import json
 import os
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 BASE_PORT = 3520
 UPLOAD = ROOT / 'scripts' / '.e2e-upload.txt'
+DATA = ROOT / 'scripts' / '.e2e-data.json'
 
 
 def login(pg, base, name):
@@ -318,6 +320,24 @@ def sc_profile(pg, base, check):
     check('SN-NB-88121' in pg.content(), 'erp-asset 어댑터 실동작(자산 조회)')
 
 
+def sc_persist(pg, base, check):
+    """PORTAL_DATA_FILE 영속화 — 구버전 부분 파일 로드 시 시드 머지·채널 기본값 폴백"""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/board/notices', wait_until='networkidle')
+    check('영속화 파일 공지' in pg.content(), '데이터 파일 컬렉션 로드')
+
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    chan = pg.locator('.card', has_text='연동 채널')
+    check('중지' in chan.locator('tr', has_text='문자(SMS) 발송').inner_text(), '파일의 채널 상태 유지 (SMS 중지)')
+    mail_row = chan.locator('tr', has_text='그룹웨어 메일')
+    check('가동중' in mail_row.inner_text(), '파일에 없는 채널 키는 기본값 폴백 (메일 가동)')
+
+    # 키 없는 채널의 첫 토글이 화면 표시 기준대로 동작한다 (가동중 → 중지 클릭 → 중지)
+    mail_row.locator('button:has-text("중지")').click()
+    chan.locator('tr', has_text='그룹웨어 메일').locator('button:has-text("가동")').wait_for(timeout=10000)
+    check('중지' in chan.locator('tr', has_text='그룹웨어 메일').inner_text(), '누락 키 채널 첫 토글 정상 (가동→중지)')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
@@ -330,6 +350,7 @@ SCENARIOS = [
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),
     ('profile', '고객사 프로필 스위칭 (manufacturer)', sc_profile, {'PORTAL_PROFILE': 'manufacturer'}),
     ('batchref', '상신 묶음 번호 재사용 금지 (반려 후 재상신)', sc_batchref, {}),
+    ('persist', '데이터 파일 영속화 · 시드 머지 (구버전 호환)', sc_persist, {'PORTAL_DATA_FILE': str(DATA)}),
 ]
 
 
@@ -337,7 +358,8 @@ def run_scenario(idx, key, title, fn, extra_env, browser):
     port = BASE_PORT + idx
     base = f'http://localhost:{port}'
     env = {**os.environ, **extra_env}
-    env.pop('PORTAL_DATA_FILE', None)  # 항상 시드 초기화
+    if 'PORTAL_DATA_FILE' not in extra_env:
+        env.pop('PORTAL_DATA_FILE', None)  # 항상 시드 초기화 (persist 시나리오만 파일 지정)
     server = subprocess.Popen(
         ['npx.cmd' if sys.platform == 'win32' else 'npx', 'next', 'start', '-p', str(port)],
         cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -382,6 +404,12 @@ def main() -> int:
     only = set(sys.argv[1:])
     targets = [(i, s) for i, s in enumerate(SCENARIOS) if not only or s[0] in only]
     UPLOAD.write_text('e2e upload payload ' * 30, encoding='utf-8')
+    # persist 시나리오용 '구버전' 부분 데이터 파일 — 일부 컬렉션·채널 키만 담는다
+    DATA.write_text(json.dumps({
+        'notices': [{'id': 'NT-90', 'title': '영속화 파일 공지', 'category': '공지',
+                     'author': '시스템관리자', 'postedAt': '2026-08-01', 'pinned': True}],
+        'channelStates': {'sms-gateway': False},
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -390,6 +418,7 @@ def main() -> int:
                 passed += 1
         browser.close()
     UPLOAD.unlink(missing_ok=True)
+    DATA.unlink(missing_ok=True)
     total = len(targets)
     print(f'\n{"✓" if passed == total else "✗"} e2e: {passed}/{total} 시나리오 통과')
     return 0 if passed == total else 1
