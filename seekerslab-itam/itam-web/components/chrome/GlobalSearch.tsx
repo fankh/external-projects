@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 type Item = { label: string; sub: string; href: string }
 type Group = { kind: string; items: Item[] }
 
-/** 전역 통합 검색 — 타이틀바에서 자산·계약·발견·사용자·결재를 한 번에 찾아 해당 화면으로 점프.
+/** 전역 통합 검색 — 타이틀바에서 자산·계약·발견·사용자·결재·게시판을 한 번에 찾아 해당 화면으로 점프.
  *  기존 검색은 무엇을 입력하든 자산 대장으로만 보냈다. 이제 ID 접두어·키워드로 교차 엔티티를 찾는다. */
 export function GlobalSearch() {
   const router = useRouter()
@@ -72,7 +72,7 @@ export function GlobalSearch() {
       <input
         ref={inputRef}
         className="search"
-        placeholder="통합 검색 (＇/＇ 또는 Ctrl+K) — 자산·계약·발견·사용자·결재"
+        placeholder="통합 검색 (＇/＇ 또는 Ctrl+K) — 자산·계약·발견·사용자·결재·게시판"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onFocus={() => { if (flat.length) setOpen(true) }}

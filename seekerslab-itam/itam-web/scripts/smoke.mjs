@@ -453,6 +453,9 @@ try {
   check('통합 검색: 사용자에겐 계약 그룹 미노출(권한 스코핑)', !srchUser.groups.some((g) => g.kind === '계약·라이선스'))
   const srchAsset = await (await get('/api/search?q=AST-2023-000112', 'ASSET_MGR')).json()
   check('통합 검색: 자산 매칭이 sel 딥링크로 점프', srchAsset.groups.some((g) => g.kind === '자산' && g.items.some((i) => i.href.includes('sel=AST-2023-000112'))))
+  // 게시판 교차 검색 — 공지·QnA 도 검색되어 해당 게시글로 딥링크(?sel=). '프록시'는 NTC-02 본문에만 있어 게시판 매칭을 명확히 검증
+  const srchBoard = await (await get('/api/search?q=' + encodeURIComponent('프록시'), 'USER')).json()
+  check('통합 검색: 게시판(공지·QnA) 교차 검색 + sel 딥링크', srchBoard.groups.some((g) => g.kind === '게시판' && g.items.some((i) => i.href.includes('/board/notices?sel=NTC-02'))))
   // 선택 내보내기 — nos= 자산번호로 선택분만 반출(무압축 inlineStr라 버퍼에 평문)
   const selXlsx = await get('/api/export/assets?nos=' + encodeURIComponent('AST-2023-000112,AST-2023-000113'), 'ASSET_MGR')
   const selBuf = Buffer.from(await selXlsx.arrayBuffer())

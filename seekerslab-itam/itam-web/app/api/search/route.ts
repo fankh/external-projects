@@ -1,7 +1,8 @@
+import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
-/** 전역 통합 검색 — 자산·계약·발견·사용자·결재를 한 번에 훑어 해당 화면으로 점프한다.
+/** 전역 통합 검색 — 자산·계약·발견·사용자·결재·게시판을 한 번에 훑어 해당 화면으로 점프한다.
  *  권한 스코핑은 각 화면 가드와 동일하게 적용한다: 사용자(USER)는 본인 자산·본인 결재만,
  *  계약·발견·사용자 목록은 그 화면 접근 권한이 있는 역할에게만 노출된다(제품안내서 §02 최소권한). */
 export async function GET(req: Request) {
@@ -56,6 +57,19 @@ export async function GET(req: Request) {
     .filter((a) => hit(a.id, a.title, a.requester, a.kind)).slice(0, LIMIT)
     .map((a) => ({ label: `${a.id} · ${a.title}`, sub: `${a.kind} · ${a.requester} · ${a.status}`, href: '/workflow/approvals' }))
   if (aprs.length) groups.push({ kind: '결재', items: aprs })
+
+  // 게시판 — 공지·QnA (전 권한그룹 열람). 공지는 발행 도래분만(관리자는 예약분 포함), QnA 전체. 특정 게시글로 딥링크(?sel=).
+  const t = today()
+  const posts = s.posts
+    .filter((p) => p.kind === 'QnA' || role === 'ADMIN' || !p.publishAt || p.publishAt <= t)
+    .filter((p) => hit(p.id, p.title, p.body, p.author, p.category))
+    .slice(0, LIMIT)
+    .map((p) => ({
+      label: `${p.kind === '공지' ? '[공지]' : '[QnA]'} ${p.title}`,
+      sub: `${p.category ? `${p.category} · ` : ''}${p.author} · ${p.createdAt}`,
+      href: `${p.kind === '공지' ? '/board/notices' : '/board/qna'}?sel=${encodeURIComponent(p.id)}`,
+    }))
+  if (posts.length) groups.push({ kind: '게시판', items: posts })
 
   return Response.json({ groups })
 }
