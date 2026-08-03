@@ -1,6 +1,7 @@
 'use client'
 import { Fragment, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
+import { missingContractDocs } from '@/lib/contract'
 import { fmtAmount } from '@/lib/dates'
 import { CONTRACT_DOC_TYPES, type Contract, type ContractDocType } from '@/lib/types'
 import { addContract, addContractCost, addContractDoc, removeContractCost, removeContractDoc, renewContract, setContractSla, terminateContract } from './actions'
@@ -185,6 +186,11 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
                       title={c.kind === '유지보수' ? '부속서류 · SLA · 비용 이력 관리' : '계약서·견적서·세금계산서·보증서 등 근거 문서 관리'}>
                       📎 {(c.documents?.length ?? 0) > 0 ? `${c.documents!.length}` : '문서'}
                     </button>
+                    {missingContractDocs(c).length > 0 && (
+                      <span title={`필수 부속서류 미비: ${missingContractDocs(c).join('·')}`}>
+                        <Chip tone="warn" bare>{`미비 ${missingContractDocs(c).join('·')}`}</Chip>
+                      </span>
+                    )}
                     <a className="btn sm ghost" href={`/api/contract-card/${c.id}`} target="_blank" rel="noopener" title="계약 요약·부속서류·연계 자산 인쇄용 카드(dossier)">🖨</a>
                   </span>
                 </td>

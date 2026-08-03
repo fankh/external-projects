@@ -231,6 +231,8 @@ try {
   check('계약: 목록 필터(구분·상태·검색) 렌더', contractsHtml.includes('상태 — 전체') && contractsHtml.includes('계약번호·계약명·공급사·부서 검색') && contractsHtml.includes('유지보수'))
   // 부속서류 — 계약 근거 문서(계약서·견적서·세금계산서) 관리 (제품안내서 §03 구매 계약). 문서 상세는 토글 확장이라 SSR엔 컬럼·📎버튼만
   check('계약: 부속서류 컬럼 + 문서 토글 버튼 렌더', contractsHtml.includes('부속서류') && contractsHtml.includes('📎'))
+  // 부속서류 미비 점검 — 계약서·세금계산서 없는 진행 중 계약(시드 다수)에 미비 표시 + 헤더 집계
+  check('계약: 부속서류 미비 경고(행 미비칩 + 헤더 집계)', contractsHtml.includes('부속서류 미비') && contractsHtml.includes('미비 계약서'))
   // 연계 자산 수는 저장값(계약 수량)이 아니라 대장 실측 파생 — 표시 수 = 드릴다운(?q=) 결과 불변식 (스테일 assetCount 제거)
   check('계약: 연계 자산 컬럼(대장 실측 파생) 렌더', contractsHtml.includes('연계 자산') && contractsHtml.includes('이 계약에 연계된 대장 자산 보기 (실측)'))
   // 라이선스 갱신 — 구독 라이선스 만료일 연장(계약 갱신과 동형). '구독 기간 연장'은 라이선스 갱신 버튼 고유 title

@@ -1,6 +1,7 @@
 import { ExportButton } from '@/components/ExportButton'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { missingContractDocs } from '@/lib/contract'
 import { daysUntil } from '@/lib/dates'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
@@ -29,6 +30,8 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
     contracts.filter((c) => c.status !== '해지' && within(c.end)).length +
     s.licenses.filter((l) => l.status !== '해지' && l.expiry !== '-' && within(l.expiry)).length +
     warrantyDepts.size
+  // 필수 부속서류(계약서·세금계산서 등) 미비 진행 중 계약 — 감사 리스크
+  const docGap = contracts.filter((c) => missingContractDocs(c).length > 0).length
 
   return (
     <>
@@ -40,6 +43,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
 
       <Card kicker="Contracts" title="구매 · 유지보수 계약" pad={false}
         actions={<span className="hstack" style={{ gap: 8 }}>
+          {docGap > 0 && <Chip tone="warn">📎 부속서류 미비 {docGap}건</Chip>}
           <ExportButton kind="contracts" role={session.role} label="계약·라이선스 엑셀" />
           <ExpiryNoticeButton due={dueCount} />
         </span>}>
