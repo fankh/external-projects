@@ -85,6 +85,15 @@ export function isRepairOverdue(a: Asset): boolean {
   return (daysUntil(a.repair.eta) ?? 0) < 0
 }
 
+/** 보증 상태 — 자산의 보증 만료일 대비 현재 상태. 상세·카드에서 한눈에 보증 여부를 드러낸다(수리 무상 판단·교체 시점).
+ *  none=보증 정보 없음(SW 등) / expired=만료 / soon=90일 내 만료 임박 / covered=보증 내. today 인자로 하이드레이션 안전. */
+export function warrantyState(warrantyEnd: string, today: string): 'none' | 'expired' | 'soon' | 'covered' {
+  if (!warrantyEnd || warrantyEnd === '-') return 'none'
+  if (warrantyEnd < today) return 'expired'
+  const d = Math.round((Date.parse(warrantyEnd) - Date.parse(today)) / 86_400_000)
+  return d <= 90 ? 'soon' : 'covered'
+}
+
 /** 결재 대기 SLA — 상신 후 이 일수를 넘겨 대기 중이면 '지연'(결재 정체). */
 export const APPROVAL_SLA_DAYS = 3
 

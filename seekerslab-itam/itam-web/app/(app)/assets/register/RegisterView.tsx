@@ -6,6 +6,7 @@ import { ASSET_CATEGORIES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
+import { warrantyState } from '@/lib/dates'
 import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
@@ -378,7 +379,16 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 <span className="tnum">{sel.lastVerifiedAt ?? '미실측'}</span>
                 {staleSet.has(sel.assetNo) && <Chip tone="err" bare>장기 미실측</Chip>}
               </dd>
-              <dt>보증 만료</dt><dd className="tnum">{sel.warrantyEnd}</dd>
+              <dt>보증 만료</dt>
+              <dd className="hstack" style={{ gap: 6 }}>
+                <span className="tnum">{sel.warrantyEnd}</span>
+                {props.today && (() => {
+                  const w = warrantyState(sel.warrantyEnd, props.today!)
+                  return w === 'covered' ? <Chip tone="ok" bare>보증 내</Chip>
+                    : w === 'soon' ? <Chip tone="warn" bare>만료 임박</Chip>
+                      : w === 'expired' ? <Chip tone="err" bare>보증 만료</Chip> : null
+                })()}
+              </dd>
               {sel.contractId && <><dt>연계 계약</dt><dd className="code"><a href={`/inventory/contracts?sel=${encodeURIComponent(sel.contractId)}`} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a></dd></>}
               {(sel.repairCosts?.length ?? 0) > 0 && (
                 <>

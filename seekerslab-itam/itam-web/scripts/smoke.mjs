@@ -161,6 +161,8 @@ try {
   // 수리중 자산 상세 — 수리 의뢰(업체·예상반환·반환 지연) 블록. 대여 블록과 대칭. 시드 AST-2024-000512(중부IT서비스, 예상반환 경과)로 검증
   const regRepairDetail = await (await get('/assets/register?sel=AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 대장: 수리중 상세에 수리 의뢰(업체·반환 지연) 블록', regRepairDetail.includes('수리 의뢰') && regRepairDetail.includes('중부IT서비스') && regRepairDetail.includes('반환 지연'))
+  // 보증 상태 칩 — 보증 만료 행에 보증 내/임박/만료 상태를 한눈에. AST-2024-000512(보증 2027)는 '보증 내'
+  check('자산 대장: 상세 보증 만료 행에 보증 상태 칩(보증 내)', regRepairDetail.includes('보증 내'))
   // 자산 단위 수리 비용 이력(누계) — 시드 AST-2023-000112(키보드 95,000 + 배터리 148,000 = 누계 243,000원)로 검증. 계약 비용 이력과 대칭
   const regRepairCost = await (await get('/assets/register?sel=AST-2023-000112', 'ASSET_MGR')).text()
   // 누계 243,000원 = 키보드 95,000 + 배터리 148,000. React SSR 이 정적텍스트↔{식} 사이에 주석마커를 넣어 '누계 243,000원'이 연속 문자열이 아니므로 금액만 검사
@@ -522,6 +524,8 @@ try {
   check('자산 카드: 수리 이력 자산에 누적 수리비 행(TCO)', cardCost.includes('누적 수리비') && cardCost.includes('243,000원') && cardCost.includes('(2건)'))
   check('자산 카드: 취득가·TCO 행(취득 1,680,000 + 수리 = 1,923,000)', cardCost.includes('취득가') && cardCost.includes('1,680,000원') && cardCost.includes('TCO(취득+수리)') && cardCost.includes('1,923,000원'))
   check('자산 카드: 잔존가치(장부가·정액법) 행', cardCost.includes('잔존가치(장부가)') && cardCost.includes('정액법 상각'))
+  // 보증 상태 — AST-2023-000112(보증 2026-03 경과)는 카드 보증 만료 행에 '· 보증 만료' 표기
+  check('자산 카드: 보증 만료 행에 보증 상태(만료)', cardCost.includes('· 보증 만료'))
   // CSV 일괄 등록 템플릿 — 형식 안내용 다운로드
   check('CSV 템플릿: 미로그인 차단 (401)', (await get('/api/asset-template.csv')).status === 401)
   check('CSV 템플릿: 사용자 차단 (403)', (await get('/api/asset-template.csv', 'USER')).status === 403)

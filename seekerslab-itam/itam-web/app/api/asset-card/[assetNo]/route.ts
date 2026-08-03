@@ -1,5 +1,5 @@
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
-import { today } from '@/lib/dates'
+import { today, warrantyState } from '@/lib/dates'
 import { qrSvg } from '@/lib/label'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -24,7 +24,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('소유자', a.owner), row('부서', a.dept), row('위치', a.location),
     row('OS', a.os), row('CPU', a.cpu), row('메모리', a.memory),
     row('IP', a.ip), row('MAC', a.mac),
-    row('도입일', a.purchaseDate), row('보증 만료', a.warrantyEnd),
+    row('도입일', a.purchaseDate),
+    row('보증 만료', a.warrantyEnd === '-' ? undefined : `${a.warrantyEnd}${({ covered: ' · 보증 내', soon: ' · 만료 임박', expired: ' · 보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())]}`),
     row('연계 계약', a.contractId), row('최초 발견 채널', a.discoveredVia),
     row('최근 실측', a.lastVerifiedAt), row('반환 기한', a.loanDueDate),
     row('수리 의뢰', a.repair ? `${a.repair.vendor}${a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}${a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}` : undefined),
