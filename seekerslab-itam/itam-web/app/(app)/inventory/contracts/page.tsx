@@ -57,7 +57,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <table className="tbl">
             <thead>
               <tr>
-                <th>라이선스</th><th>공급사</th><th className="num">보유</th><th className="num">사용</th>
+                <th>라이선스</th><th>공급사</th><th>근거 계약</th><th className="num">보유</th><th className="num">사용</th>
                 <th style={{ width: 220 }}>보유–사용 대사</th><th>만료일</th><th className="c">판정</th><th className="c">조치</th>
               </tr>
             </thead>
@@ -72,6 +72,9 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <tr key={l.id} className={`${l.id === sel ? 'sel' : ''}`} style={retired ? { opacity: 0.6 } : undefined}>
                     <td className="strong">{l.name}</td>
                     <td className="mute">{l.vendor}</td>
+                    <td className="code">{l.contractId
+                      ? <a href={`/inventory/contracts?sel=${l.contractId}`} style={{ color: 'var(--accent-deep)' }} title="근거 계약으로 이동">{l.contractId}</a>
+                      : <Chip tone="warn" bare>미연계</Chip>}</td>
                     <td className="num tnum">{l.purchased.toLocaleString()}</td>
                     <td className="num tnum" style={over ? { color: 'var(--err)', fontWeight: 700 } : undefined}>{l.used.toLocaleString()}</td>
                     <td>

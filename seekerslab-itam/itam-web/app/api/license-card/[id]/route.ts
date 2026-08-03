@@ -69,7 +69,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       <div><span class="verdict ${verdictClass}">${esc(verdict)}</span></div>
     </div>
     <div class="kv">
-      ${row('공급사', l.vendor)}${row('만료일', `${l.expiry} (${dLabel})`)}
+      ${row('공급사', l.vendor)}${row('근거 계약', l.contractId ?? '미연계')}${row('만료일', `${l.expiry} (${dLabel})`)}
       ${row('보유(구매)', `${l.purchased}석`)}${row('사용', `${l.used}석`)}
       ${row('차이(사용−보유)', `${gap > 0 ? '+' : ''}${gap}석`)}${row('단가', `${fmtAmount(l.unitCost)}원`)}
     </div>

@@ -233,6 +233,8 @@ try {
   check('계약: 부속서류 컬럼 + 문서 토글 버튼 렌더', contractsHtml.includes('부속서류') && contractsHtml.includes('📎'))
   // 부속서류 미비 점검 — 계약서·세금계산서 없는 진행 중 계약(시드 다수)에 미비 표시 + 헤더 집계
   check('계약: 부속서류 미비 경고(행 미비칩 + 헤더 집계)', contractsHtml.includes('부속서류 미비') && contractsHtml.includes('미비 계약서'))
+  // 라이선스 ↔ 근거 계약 연계 — LIC-001(Microsoft 365) 이 CT-2023-002 로 연결, 미연계 라이선스는 '미연계'
+  check('라이선스: 근거 계약 컬럼 + 연계/미연계 표시', contractsHtml.includes('근거 계약') && contractsHtml.includes('/inventory/contracts?sel=CT-2023-002') && contractsHtml.includes('미연계'))
   // 연계 자산 수는 저장값(계약 수량)이 아니라 대장 실측 파생 — 표시 수 = 드릴다운(?q=) 결과 불변식 (스테일 assetCount 제거)
   check('계약: 연계 자산 컬럼(대장 실측 파생) 렌더', contractsHtml.includes('연계 자산') && contractsHtml.includes('이 계약에 연계된 대장 자산 보기 (실측)'))
   // 라이선스 갱신 — 구독 라이선스 만료일 연장(계약 갱신과 동형). '구독 기간 연장'은 라이선스 갱신 버튼 고유 title
