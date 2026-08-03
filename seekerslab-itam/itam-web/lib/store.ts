@@ -92,6 +92,8 @@ function seedAssets(): Asset[] {
         { date: '2025-06-11', kind: '반납', detail: '퇴사자 반납 접수 · 상태 점검 완료', actor: '박자산' },
       ] }),
     mk({ assetNo: 'AST-2019-000218', category: '단말', model: 'Dell Latitude 5400', status: '폐기예정', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 10 Pro', purchaseDate: '2019-04-22', warrantyEnd: '2022-04-21' }),
+    // 폐기 결재 승인 완료 → 소거 대기(DSP-03). 데이터 소거·물리 처분 등록 시연 대상.
+    mk({ assetNo: 'AST-2020-000771', category: '단말', model: 'ThinkPad X1 Carbon G8', status: '폐기예정', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 10 Pro', purchaseDate: '2020-03-10', warrantyEnd: '2023-03-09' }),
     // 유휴 주변기기 — 불출 배정 시 유형 다양성(단말 신청에 대한 유형 불일치 시연·재배치 우선 원칙)
     mk({ assetNo: 'AST-2023-000704', category: '주변기기', model: 'Dell UltraSharp U2723QE 27"', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', purchaseDate: '2023-06-15', warrantyEnd: '2026-06-14',
       history: [
@@ -493,8 +495,10 @@ function seed(): Store {
     disposals: [
       { id: 'DSP-01', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', reason: '사용 연한 초과 (7년) · 보증 만료', status: '결재 대기', approvalId: 'APR-2607-119' },
       { id: 'DSP-02', assetNo: 'AST-2021-000432', model: 'LG gram 17', reason: '보증 만료 · 성능 저하', status: '대상 선정' },
-      // 폐기 완료 — 데이터 소거·증적 보존 완료. 소거 확인서 다운로드 대상.
-      { id: 'DSP-00', assetNo: 'AST-2018-000090', model: 'Dell Latitude 5290', reason: '사용 연한 초과 (8년) · 보증 만료', status: '완료', approvalId: 'APR-2606-088', wipeMethod: '디가우징', wipedAt: '2026-07-22', wipedBy: '박자산', certNo: 'WIPE-20260722-050', evidence: '소거 확인서 WIPE-20260722-050',
+      // 소거 대기 — 폐기 결재 승인 완료, 데이터 소거·물리 처분 대기(소거·처분 등록 대상 시연)
+      { id: 'DSP-03', assetNo: 'AST-2020-000771', model: 'ThinkPad X1 Carbon G8', reason: '사용 연한 초과 (6년) · 배터리 팽창', status: '소거 대기', approvalId: 'APR-2606-090' },
+      // 폐기 완료 — 데이터 소거·물리 처분(매각)·증적 보존 완료. 소거 확인서 다운로드 대상.
+      { id: 'DSP-00', assetNo: 'AST-2018-000090', model: 'Dell Latitude 5290', reason: '사용 연한 초과 (8년) · 보증 만료', status: '완료', approvalId: 'APR-2606-088', wipeMethod: '디가우징', disposition: '매각', proceeds: 85_000, wipedAt: '2026-07-22', wipedBy: '박자산', certNo: 'WIPE-20260722-050', evidence: '소거 확인서 WIPE-20260722-050',
         photos: [
           { id: 'PHO-0001', label: '처리 전', note: '디가우징 전 자산 라벨·시리얼 근접 촬영', addedAt: '2026-07-22', addedBy: '박자산' },
           { id: 'PHO-0002', label: '처리 후', note: '디가우징 완료 후 저장매체 상태', addedAt: '2026-07-22', addedBy: '박자산' },
@@ -655,7 +659,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 19
+const SCHEMA_VERSION = 20
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

@@ -1,7 +1,7 @@
 'use client'
 import { Fragment, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
-import { DISPOSAL_PHOTO_LABELS, type DisposalPhotoLabel, type DisposalRecord, type WipeMethod } from '@/lib/types'
+import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, type Disposition, type DisposalPhotoLabel, type DisposalRecord, type WipeMethod } from '@/lib/types'
 import { addDisposalPhoto, cancelDisposalCandidate, raiseDisposalApproval, recordWipe, removeDisposalPhoto, selectForDisposal, selectForDisposalMany } from './actions'
 
 const METHODS: WipeMethod[] = ['소프트웨어 3-pass', '디가우징', '물리 파쇄']
@@ -15,6 +15,8 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [method, setMethod] = useState<Record<string, WipeMethod>>({})
+  const [disp, setDisp] = useState<Record<string, Disposition>>({})
+  const [proceeds, setProceeds] = useState<Record<string, string>>({})
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [photoOpen, setPhotoOpen] = useState<string | null>(null)
   const [photoLabel, setPhotoLabel] = useState<DisposalPhotoLabel>(DISPOSAL_PHOTO_LABELS[0])
@@ -106,6 +108,7 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                     {d.status === '완료' ? (
                       <span>
                         <b>{d.wipeMethod}</b> · {d.wipedAt} {d.wipedBy}
+                        {d.disposition && <div style={{ fontSize: 11.5 }}>처분: <b>{d.disposition}</b>{d.proceeds ? ` · 대금 ${d.proceeds.toLocaleString()}원` : ''}</div>}
                         <div className="mono" style={{ fontSize: 11, color: 'var(--ok)' }}>{d.evidence}</div>
                         <span className="hstack" style={{ gap: 5, marginTop: 4 }}>
                           <a className="btn sm ghost" href={`/api/wipe-cert/${d.id}`} download>소거 확인서 다운로드</a>
@@ -120,17 +123,26 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                   </td>
                   <td className="c">
                     {d.status === '소거 대기' ? (
-                      <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
-                        <select className="select" style={{ height: 25, fontSize: 11 }}
+                      <span className="hstack" style={{ justifyContent: 'center', gap: 5, flexWrap: 'wrap' }}>
+                        <select className="select" style={{ height: 25, fontSize: 11 }} title="데이터 소거 방식"
                           value={method[d.id] ?? METHODS[0]}
                           onChange={(e) => setMethod((m) => ({ ...m, [d.id]: e.target.value as WipeMethod }))}>
                           {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
+                        <select className="select" style={{ height: 25, fontSize: 11 }} title="물리 처분(불용 처리) 방식"
+                          value={disp[d.id] ?? DISPOSITIONS[0]}
+                          onChange={(e) => setDisp((m) => ({ ...m, [d.id]: e.target.value as Disposition }))}>
+                          {DISPOSITIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+                        </select>
+                        {(disp[d.id] ?? DISPOSITIONS[0]) === '매각' && (
+                          <input className="input" type="number" min={0} style={{ width: 90, height: 25, fontSize: 11 }} placeholder="매각 대금"
+                            value={proceeds[d.id] ?? ''} onChange={(e) => setProceeds((m) => ({ ...m, [d.id]: e.target.value }))} />
+                        )}
                         <button className="btn sm danger" disabled={pending}
                           onClick={() => startTransition(async () => {
-                            const r = await recordWipe(d.id, method[d.id] ?? METHODS[0])
+                            const r = await recordWipe(d.id, method[d.id] ?? METHODS[0], disp[d.id] ?? DISPOSITIONS[0], Number(proceeds[d.id] ?? 0))
                             setMsg({ ok: r.ok, text: r.message })
-                          })}>소거 · 증적 등록</button>
+                          })}>소거 · 처분 등록</button>
                       </span>
                     ) : d.status === '대상 선정' ? (
                       <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>

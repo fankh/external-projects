@@ -453,6 +453,11 @@ try {
   check('소거 확인서: 완료 폐기 건 발급 (200·문서·확인서번호)', wipeCert.status === 200 && wipeCertBody.includes('데이터 소거 확인서') && wipeCertBody.includes('WIPE-20260722-050'))
   // 증적 사진 — 확인서가 실제 등록된 사진 기록을 나열한다(지어낸 문자열 아님, 감사 무결성)
   check('소거 확인서: 증적 사진 기록 나열 (처리 전·후)', wipeCertBody.includes('증적 사진') && wipeCertBody.includes('처리 전') && wipeCertBody.includes('처리 후'))
+  // 폐기 물리 처분 방식 — 완료 건(DSP-00 매각·대금) 표시 + 소거 대기 건(DSP-03) 처분 선택 렌더 + 확인서 기재
+  const dispHtml = await (await get('/assets/disposal', 'ASSET_MGR')).text()
+  check('폐기: 완료 건에 물리 처분(매각·대금) 표시', dispHtml.includes('매각') && dispHtml.includes('85,000'))
+  check('폐기: 소거 대기 건에 처분 방식 선택(기증·반납 옵션)', dispHtml.includes('물리 처분(불용 처리) 방식') && dispHtml.includes('기증') && dispHtml.includes('반납(리스)'))
+  check('소거 확인서: 물리 처분(매각·대금) 기재', wipeCertBody.includes('물리 처분') && wipeCertBody.includes('매각') && wipeCertBody.includes('85,000'))
   // 폐기 증적 대장 엑셀 반출 — 감사 대응용 전체 폐기 레코드 (개별 확인서와 별개)
   const dispPage = await (await get('/assets/disposal', 'ASSET_MGR')).text()
   check('폐기 처리: 폐기 증적 대장 엑셀 버튼 노출', dispPage.includes('/api/export/disposals'))

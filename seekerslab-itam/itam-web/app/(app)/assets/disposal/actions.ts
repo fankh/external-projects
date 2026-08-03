@@ -4,7 +4,7 @@ import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
-import { DISPOSAL_PHOTO_LABELS, type DisposalPhotoLabel, type WipeMethod } from '@/lib/types'
+import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, type Disposition, type DisposalPhotoLabel, type WipeMethod } from '@/lib/types'
 
 /** 폐기 대상 선정 — 노후·보증만료 자산을 폐기 후보로 등록 */
 export async function selectForDisposal(assetNo: string, reason: string) {
@@ -82,17 +82,22 @@ export async function raiseDisposalApproval() {
   revalidatePath('/', 'layout')
 }
 
-/** 데이터 소거 처리 + 증적 보존 — 승인된 건만 가능 */
-export async function recordWipe(id: string, method: WipeMethod) {
+/** 데이터 소거 처리 + 물리 처분 + 증적 보존 — 승인된 건만 가능 */
+export async function recordWipe(id: string, method: WipeMethod, disposition: Disposition = '폐기(파쇄)', rawProceeds = 0) {
   const session = await getSession()
   if (!session || session.role === 'USER') return { ok: false, message: '권한이 없습니다.' }
+  if (!DISPOSITIONS.includes(disposition)) return { ok: false, message: '처분 방식이 올바르지 않습니다.' }
   const s = getStore()
   const d = s.disposals.find((x) => x.id === id)
   if (!d) return { ok: false, message: '폐기 건을 찾을 수 없습니다.' }
   if (d.status !== '소거 대기') return { ok: false, message: '폐기 결재 승인 후 소거할 수 있습니다.' }
 
+  const proceeds = disposition === '매각' ? Math.max(0, Math.round(rawProceeds)) : 0
+
   s.seq += 1
   d.wipeMethod = method
+  d.disposition = disposition
+  if (proceeds > 0) d.proceeds = proceeds
   d.wipedAt = today()
   d.wipedBy = session.name
   d.certNo = `WIPE-${today().replace(/-/g, '')}-${String(s.seq).padStart(3, '0')}`
@@ -100,18 +105,19 @@ export async function recordWipe(id: string, method: WipeMethod) {
   d.evidence = `소거 확인서 ${d.certNo}`
   d.status = '완료'
 
+  const dispLabel = `${disposition}${proceeds > 0 ? ` · 대금 ${proceeds.toLocaleString()}원` : ''}`
   const asset = s.assets.find((a) => a.assetNo === d.assetNo)
   if (asset) {
     asset.status = '폐기완료'
     asset.history.push({
       date: today(), kind: '폐기',
-      detail: `데이터 소거 완료 (${method}) · 증적 ${d.certNo} 보존`,
+      detail: `데이터 소거 완료 (${method}) · 처분 ${dispLabel} · 증적 ${d.certNo} 보존`,
       actor: session.name,
     })
   }
-  appendAudit({ actor: session.name, action: `폐기 데이터 소거 (${method})`, target: d.assetNo })
+  appendAudit({ actor: session.name, action: `폐기 데이터 소거 (${method}) · 처분 ${dispLabel}`, target: d.assetNo })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `소거 완료 — 증적 ${d.certNo}` }
+  return { ok: true, message: `소거·처분 완료 (${dispLabel}) — 증적 ${d.certNo}` }
 }
 
 /** 폐기 증적 사진 등록 — 처리 전·후·폐기물 인계 등 실제 촬영 증적을 소거 완료 건에 남긴다.

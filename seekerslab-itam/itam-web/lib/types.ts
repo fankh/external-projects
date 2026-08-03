@@ -396,6 +396,11 @@ export interface IntakeLot {
 /** 폐기 — 대상 선정 → 결재 → 데이터 소거 → 증적 보존 */
 export type WipeMethod = '디가우징' | '물리 파쇄' | '소프트웨어 3-pass'
 
+/** 물리 처분(불용 처리) 방식 — 데이터 소거 후 실물을 어떻게 처분하는가.
+ *  매각은 대금 회수, 기증·반납은 인계처가 있어 폐기(파쇄)와 회계·ESG·감사 상 구분된다. (제품안내서 §03 폐기: 소거·불용 처리) */
+export const DISPOSITIONS = ['폐기(파쇄)', '매각', '기증', '반납(리스)'] as const
+export type Disposition = (typeof DISPOSITIONS)[number]
+
 export interface DisposalRecord {
   id: string
   assetNo: string
@@ -406,6 +411,10 @@ export interface DisposalRecord {
   prevStatus?: AssetStatus
   approvalId?: string
   wipeMethod?: WipeMethod
+  /** 물리 처분 방식 — 소거 완료 시 함께 기록. 매각이면 proceeds(대금) 동반. */
+  disposition?: Disposition
+  /** 매각 대금(원) — disposition 이 매각일 때 회수 금액 */
+  proceeds?: number
   wipedAt?: string
   wipedBy?: string
   /** 증적 — 소거 확인서 번호 · 사진 */

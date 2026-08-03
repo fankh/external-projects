@@ -37,6 +37,7 @@ export async function GET(
     `- 소거 방식: **${d.wipeMethod}**`,
     `- 소거 일시: ${d.wipedAt}`,
     `- 처리자: ${d.wipedBy}`,
+    d.disposition ? `- 물리 처분: **${d.disposition}**${d.proceeds ? ` (매각 대금 ${d.proceeds.toLocaleString()}원)` : ''}` : '',
     '',
     '## 확인',
     `본 자산의 저장 매체에 대한 데이터 소거를 위 방식으로 완료하였으며, 복구가 불가능함을 확인합니다.`,
