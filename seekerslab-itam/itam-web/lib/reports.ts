@@ -141,18 +141,20 @@ export function buildSections(kind: ReportKind): ReportSection[] {
   }
 
   if (kind === '라이선스 컴플라이언스') {
-    const over = s.licenses.filter((l) => l.used > l.purchased)
-    const under = s.licenses.filter((l) => l.used / l.purchased < 0.6)
+    // 해지 라이선스는 컴플라이언스 판정(초과·미사용) 대상에서 제외한다 — 구독 중단분은 감사 리스크·비용 절감 대상이 아니다.
+    const active = s.licenses.filter((l) => l.status !== '해지')
+    const over = active.filter((l) => l.used > l.purchased)
+    const under = active.filter((l) => l.used / l.purchased < 0.6)
     const saving = under.reduce((n, l) => n + (l.purchased - l.used) * l.unitCost, 0)
     return [
       {
         title: '보유–사용 대사',
-        note: `초과 사용 ${over.length}건 · 미사용 보유 ${under.length}건`,
+        note: `초과 사용 ${over.length}건 · 미사용 보유 ${under.length}건 (해지 제외)`,
         columns: ['라이선스', '공급사', '보유', '사용', '사용률', '만료일', '판정'],
         rows: s.licenses.map((l) => [
           l.name, l.vendor, String(l.purchased), String(l.used),
           `${Math.round((l.used / l.purchased) * 100)}%`, l.expiry,
-          l.used > l.purchased ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정',
+          l.status === '해지' ? '해지' : l.used > l.purchased ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정',
         ]),
       },
       {

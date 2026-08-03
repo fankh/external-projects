@@ -14,16 +14,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!l) return new Response('Not Found', { status: 404 })
 
   const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
+  const retired = l.status === '해지'
   const gap = l.used - l.purchased
-  const over = gap > 0
-  const low = l.used / l.purchased < 0.6
-  const verdict = over ? '초과 사용 (감사 리스크)' : low ? '미사용 보유 (비용 낭비)' : '적정'
-  const verdictClass = over ? 'err' : low ? 'warn' : 'ok'
-  const exposure = over
-    ? `추가 구매 필요 ${gap}석 · 노출액 ${fmtAmount(gap * l.unitCost)}원`
-    : low
-      ? `회수 가능 ${l.purchased - l.used}석 · 절감액 ${fmtAmount((l.purchased - l.used) * l.unitCost)}원`
-      : '조치 불필요'
+  const over = !retired && gap > 0
+  const low = !retired && l.used / l.purchased < 0.6
+  const verdict = retired ? `해지 (${l.terminatedAt ?? '-'})` : over ? '초과 사용 (감사 리스크)' : low ? '미사용 보유 (비용 낭비)' : '적정'
+  const verdictClass = retired ? 'neutral' : over ? 'err' : low ? 'warn' : 'ok'
+  const exposure = retired
+    ? '해지된 라이선스 — 컴플라이언스 판정 대상 아님'
+    : over
+      ? `추가 구매 필요 ${gap}석 · 노출액 ${fmtAmount(gap * l.unitCost)}원`
+      : low
+        ? `회수 가능 ${l.purchased - l.used}석 · 절감액 ${fmtAmount((l.purchased - l.used) * l.unitCost)}원`
+        : '조치 불필요'
   const d = daysUntil(l.expiry)
   const dLabel = l.expiry === '-' ? '-' : d === null ? '-' : d < 0 ? `만료 경과 ${-d}일` : `D-${d}`
   const row = (k: string, v: string) => `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>`
@@ -43,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   .no { font-family: ui-monospace, Consolas, monospace; font-size: 18px; font-weight: 800; color: #0b3d91; margin: 3px 0; }
   .nm { font-size: 16px; font-weight: 600; }
   .verdict { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 12px; }
-  .verdict.err { background: #fdecec; color: #b42318; } .verdict.warn { background: #fef6e7; color: #92610a; } .verdict.ok { background: #e9f6ec; color: #1a7f37; }
+  .verdict.err { background: #fdecec; color: #b42318; } .verdict.warn { background: #fef6e7; color: #92610a; } .verdict.ok { background: #e9f6ec; color: #1a7f37; } .verdict.neutral { background: #eef1f5; color: #5b6470; }
   .kv { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 24px; margin: 16px 0 8px; }
   .f { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #eef1f5; font-size: 13px; }
   .f dt { color: #5b6470; margin: 0; } .f dd { margin: 0; font-weight: 600; text-align: right; }

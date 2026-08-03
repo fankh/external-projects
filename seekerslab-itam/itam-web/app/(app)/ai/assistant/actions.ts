@@ -45,7 +45,7 @@ function buildContext(userName: string, isUser: boolean): string {
       `[계약] ${s.contracts.length}건`,
       ...s.contracts.map((c) => `- ${c.id} | ${c.name} | ${c.vendor} | 만료:${c.end} (D-${daysUntil(c.end)})`),
       `[라이선스]`,
-      ...s.licenses.map((l) => `- ${l.name} | 보유:${l.purchased} 사용:${l.used} | 만료:${l.expiry}`),
+      ...s.licenses.map((l) => `- ${l.name} | 보유:${l.purchased} 사용:${l.used} | 만료:${l.expiry}${l.status === '해지' ? ' | 해지' : ''}`),
       `[Shadow SaaS]`,
       ...s.saas.map((x) => `- ${x.service} | ${x.dept} | 사용자:${x.users} | ${x.sanctioned ? '인가' : '미인가'} | 위험도:${x.risk}`),
       `[재물조사] ${s.inventoryRounds.length}회차`,
@@ -194,8 +194,9 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     }
   }
   if (!isUser && (q.includes('라이선스') || q.includes('license'))) {
-    const over = s.licenses.filter((l) => l.used > l.purchased)
-    const low = s.licenses.filter((l) => l.used / l.purchased < 0.6)
+    const active = s.licenses.filter((l) => l.status !== '해지')
+    const over = active.filter((l) => l.used > l.purchased)
+    const low = active.filter((l) => l.used / l.purchased < 0.6)
     return {
       role: 'assistant',
       text: `라이선스 대사 결과 초과 사용 ${over.length}건, 장기 미사용 보유 ${low.length}건이 검출되었습니다.\n\n${over
