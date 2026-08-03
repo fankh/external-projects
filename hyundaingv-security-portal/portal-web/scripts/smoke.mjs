@@ -292,6 +292,15 @@ async function main() {
     check(!html.includes('담당 지정'), 'USER /board/qna 에 담당 지정 폼 미노출')
   }
   {
+    // 결재 문서 상세는 결재자·기안자 본인만 — 무관한 계정의 sel= 직접 접근 차단
+    const r = await get('/work/approvals?sel=AP-2026-0709', 'USER')
+    const html = await r.text()
+    check(!html.includes('문서 상세 —'), 'USER 무관 결재 문서(AP-2026-0709) 상세 차단')
+    const r2 = await get('/work/approvals?sel=AP-2026-0712', 'DEPT_MGR')
+    const html2 = await r2.text()
+    check(!html2.includes('문서 상세 —'), 'DEPT_MGR 무관 결재 문서(AP-2026-0712) 상세 차단')
+  }
+  {
     // 검색도 화면 스코핑을 따른다 — USER 에게 장애·타인 SR 미노출
     // ('인프라 운영' 문자열은 공통 meta description 에도 있어 결과 고유 표기로 검증한다)
     const r = await get('/search?q=ERP', 'USER')
