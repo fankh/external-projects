@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
@@ -12,7 +13,7 @@ const ST_CHIP = { 징구중: 'warn', 결재중: 'info', 완료: 'ok' } as const
 
 async function addViolation(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '')
   const type = String(formData.get('type') ?? '') as ViolationType
   const detail = String(formData.get('detail') ?? '').trim().slice(0, 300)
@@ -20,10 +21,12 @@ async function addViolation(formData: FormData) {
   const person = s.people.find((p) => p.name === name)
   if (!person || !TYPES.includes(type) || !detail) return
 
+  const id = nextNo('VL', today().slice(0, 4), s.violations.map((v) => v.id))
   s.violations.unshift({
-    id: nextNo('VL', today().slice(0, 4), s.violations.map((v) => v.id)),
-    name: person.name, dept: person.dept, type, detail, occurredAt: today(), status: '징구중',
+    id, name: person.name, dept: person.dept, type, detail, occurredAt: today(), status: '징구중',
   })
+  // 결재제외자 확인서 스캔 등 증빙 업로드 (첨부 시트: 보안위반관리)
+  registerUpload(id, formData.get('file'), me.name)
   // 폐쇄 루프 — 등록과 동시에 위반자에게 확인서 제출 안내메일 (그룹웨어 메일 어댑터 경유)
   await sendVia('groupware-mail', [person.name], `[보안위반] 사실확인서 제출 안내 — ${type}`)
   revalidatePath('/', 'layout')
@@ -78,6 +81,7 @@ export default async function ViolationsPage() {
               {TYPES.map((t) => <option key={t}>{t}</option>)}
             </select>
             <input className="input" name="detail" required maxLength={300} placeholder="위반 내용" style={{ flex: 1 }} />
+            <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="확인서 스캔 등 증빙 첨부" />
             <button type="submit" className="btn pri">등록 · 안내메일 발송</button>
           </form>
         </Card>
@@ -98,7 +102,7 @@ export default async function ViolationsPage() {
                     <td className="code">{v.id}</td>
                     <td>{v.name} <span className="mut">· {v.dept}</span></td>
                     <td><Chip tone="err" bare>{v.type}</Chip></td>
-                    <td className="strong" style={{ maxWidth: 280 }}>{v.detail}</td>
+                    <td className="strong" style={{ maxWidth: 280 }}>{v.detail}<Clip count={attachCount(v.id)} title="증빙" /></td>
                     <td className="tnum">{v.occurredAt}</td>
                     <td><Chip tone={ST_CHIP[v.status]}>{v.status}</Chip></td>
                     <td className="c" style={{ maxWidth: 380 }}>

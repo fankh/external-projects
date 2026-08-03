@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader } from '@/components/ui'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
@@ -16,7 +17,10 @@ async function addNotice(formData: FormData) {
 
   const s = getStore()
   const max = s.notices.reduce((m, n) => Math.max(m, Number(n.id.replace('NT-', '')) || 0), 0)
-  s.notices.unshift({ id: `NT-${max + 1}`, title, category, author: me.name, postedAt: today(), pinned: formData.get('pinned') === 'on' })
+  const id = `NT-${max + 1}`
+  s.notices.unshift({ id, title, category, author: me.name, postedAt: today(), pinned: formData.get('pinned') === 'on' })
+  // 공지 첨부 — 게시/공지 이력의 원본 문서를 함께 남긴다 (첨부 시트: 공지사항·게시/공지이력관리)
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/', 'layout')
 }
 
@@ -42,6 +46,7 @@ export default async function NoticesPage() {
             <label className="hstack" style={{ gap: 5, fontSize: 11.5, color: 'var(--dim)', cursor: 'pointer' }}>
               <input type="checkbox" name="pinned" /> 고정
             </label>
+            <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="공지 첨부" />
             <button type="submit" className="btn pri">등록</button>
           </form>
         </Card>
@@ -55,7 +60,7 @@ export default async function NoticesPage() {
               {rows.map((n) => (
                 <tr key={n.id}>
                   <td><Chip tone={n.category === '보안' ? 'err' : n.category === '시스템' ? 'info' : 'neutral'} bare>{n.category}</Chip></td>
-                  <td className={n.pinned ? 'strong' : ''}>{n.pinned ? '📌 ' : ''}{n.title}</td>
+                  <td className={n.pinned ? 'strong' : ''}>{n.pinned ? '📌 ' : ''}{n.title}<Clip count={attachCount(n.id)} title="공지 첨부" /></td>
                   <td>{n.author}</td>
                   <td className="tnum">{n.postedAt}</td>
                 </tr>

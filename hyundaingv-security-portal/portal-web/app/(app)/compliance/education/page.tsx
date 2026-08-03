@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -9,28 +10,30 @@ const TARGETS: EducationCourse['target'][] = ['전임직원', '개발자', '보�
 
 async function addCourse(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const target = String(formData.get('target') ?? '') as EducationCourse['target']
   const plannedMonth = String(formData.get('plannedMonth') ?? '')
   if (!title || !TARGETS.includes(target) || !/^\d{4}-\d{2}$/.test(plannedMonth)) return
   const s = getStore()
   const year = today().slice(0, 4)
-  s.educationCourses.unshift({
-    id: nextNo('ED', year, s.educationCourses.map((c) => c.id)),
-    year, title, target, plannedMonth, status: '계획',
-  })
+  const id = nextNo('ED', year, s.educationCourses.map((c) => c.id))
+  s.educationCourses.unshift({ id, year, title, target, plannedMonth, status: '계획' })
+  // 결재완료된 연간계획 문서 업로드 — 과정번호(pk)로 계획·결과 첨부를 공유 (첨부 시트: 교육연간계획·개별계획)
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/compliance/education')
 }
 
 async function registerAttendees(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const courseId = String(formData.get('courseId') ?? '')
   const names = formData.getAll('names').map(String)
   const s = getStore()
   const course = s.educationCourses.find((c) => c.id === courseId)
   if (!course || names.length === 0) return
+  // 교육 결과·명단 증빙 — 같은 과정번호(pk)에 합산 (첨부 시트: 교육결과관리)
+  registerUpload(courseId, formData.get('file'), me.name)
 
   for (const name of names) {
     const person = s.people.find((p) => p.name === name)
@@ -77,7 +80,7 @@ export default async function EducationPage() {
               {s.educationCourses.map((c) => (
                 <tr key={c.id}>
                   <td className="code">{c.id}</td>
-                  <td className="strong">{c.title}</td>
+                  <td className="strong">{c.title}<Clip count={attachCount(c.id)} title="계획·결과 문서" /></td>
                   <td><Chip tone="neutral" bare>{c.target}</Chip></td>
                   <td className="tnum">{c.plannedMonth}</td>
                   <td>{c.status === '완료' ? <Chip tone="ok">완료</Chip> : <Chip tone="neutral">계획</Chip>}</td>
@@ -95,6 +98,7 @@ export default async function EducationPage() {
                 {TARGETS.map((t) => <option key={t}>{t}</option>)}
               </select>
               <input className="input" name="plannedMonth" required type="month" defaultValue={today().slice(0, 7)} />
+              <input className="input" type="file" name="file" style={{ width: 160, paddingTop: 4 }} title="결재완료 연간계획 문서 첨부" />
               <button type="submit" className="btn">과정 등록</button>
             </form>
           </div>
@@ -121,6 +125,7 @@ export default async function EducationPage() {
                         <input type="checkbox" name="names" value={p.name} /> {p.name}
                       </label>
                     ))}
+                    <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 140, paddingTop: 2 }} title="결과·명단 증빙 첨부" />
                     <button type="submit" className="btn sm pri right">명단 등록</button>
                   </div>
                 </form>

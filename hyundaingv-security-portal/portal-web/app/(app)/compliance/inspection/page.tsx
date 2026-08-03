@@ -14,16 +14,16 @@ const ST_CHIP: Record<InspectionStatus, 'neutral' | 'warn' | 'info' | 'ok'> = {
 
 async function addPlan(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
   const itemId = String(formData.get('itemId') ?? '')
   const month = String(formData.get('month') ?? '')
   const inspector = String(formData.get('inspector') ?? '')
   const s = getStore()
   if (!s.inspectionItems.some((i) => i.id === itemId) || !/^\d{4}-\d{2}$/.test(month) || !inspector) return
-  s.inspectionPlans.unshift({
-    id: nextNo('IS', today().slice(0, 4), s.inspectionPlans.map((p) => p.id)),
-    itemId, month, inspector, status: '계획',
-  })
+  const id = nextNo('IS', today().slice(0, 4), s.inspectionPlans.map((p) => p.id))
+  s.inspectionPlans.unshift({ id, itemId, month, inspector, status: '계획' })
+  // 상세점검계획표 등 계획 문서 — 계획번호(pk)로 계획·증적 첨부를 공유 (첨부 시트: 연간계획수립)
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/compliance/inspection')
 }
 
@@ -128,6 +128,7 @@ export default async function InspectionPage() {
               <select className="select" name="inspector" style={{ flex: 1 }}>
                 {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
               </select>
+              <input className="input" type="file" name="file" style={{ width: 140, paddingTop: 4 }} title="상세점검계획표 첨부" />
               <button type="submit" className="btn">계획 등록</button>
             </div>
           </form>
