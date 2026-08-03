@@ -9,7 +9,7 @@ import type { ReportKind, ReportSchedule, ReportSection } from './types'
 
 export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
   { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 처리 현황 · 미인가 SaaS 변동' },
-  { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용' },
+  { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용, 자산 처분 실적' },
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도) 증빙 초안' },
@@ -101,6 +101,17 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           columns: ['자산번호', '모델', '수리 건수', '누적 수리비'],
           rows: repaired.map((a) => [a.assetNo, a.model, String(a.repairCosts!.length), `${sumRepair(a).toLocaleString()}원`]),
         }
+    // 자산 처분 실적 — 완료 폐기의 물리 처분 방식·매각 대금 회수(수리 비용의 반대편 = 가치 회수). 회계·ESG 보고.
+    const disposed = s.disposals.filter((d) => d.status === '완료' && d.disposition)
+    const totalProceeds = disposed.reduce((n, d) => n + (d.proceeds ?? 0), 0)
+    const disposalSection: ReportSection = disposed.length === 0
+      ? { title: '자산 처분 실적 (불용 처리)', bullets: ['완료된 자산 처분 실적이 없습니다.'] }
+      : {
+          title: '자산 처분 실적 (불용 처리)',
+          note: `완료 처분 ${disposed.length}건 · 매각 대금 회수 총 ${totalProceeds.toLocaleString()}원`,
+          columns: ['폐기번호', '자산번호', '모델', '처분 방식', '매각 대금'],
+          rows: disposed.map((d) => [d.id, d.assetNo, d.model, d.disposition ?? '', d.proceeds ? `${d.proceeds.toLocaleString()}원` : '-']),
+        }
     return [
       {
         title: '유형별 보유 현황',
@@ -122,6 +133,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         rows: s.assets.filter((a) => a.status !== '사용중').map((a) => [a.assetNo, a.model, a.status, a.location]),
       },
       repairSection,
+      disposalSection,
       {
         title: '만료 임박 계약 (90일 이내)',
         columns: ['계약번호', '계약명', '공급사', '만료일', '잔여'],
@@ -296,9 +308,10 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   }
   if (kind === '월간 자산 현황') {
     const totalRepair = s.assets.reduce((t, a) => t + (a.repairCosts ?? []).reduce((n, c) => n + c.amount, 0), 0)
+    const proceeds = s.disposals.filter((d) => d.status === '완료').reduce((t, d) => t + (d.proceeds ?? 0), 0)
     return `총 등록 자산은 ${s.assets.length}대이며 사용중 ${s.assets.filter((a) => a.status === '사용중').length}대, 유휴·반납 ${s.assets.filter((a) => ['유휴', '반납대기'].includes(a.status)).length}대입니다. `
       + `90일 내 만료 계약이 ${n('만료 임박')}건 있어 갱신 검토가 필요하며, Discovery를 통해 대장에 편입된 자산은 ${s.assets.filter((a) => a.discoveredVia).length}대입니다. `
-      + `당월까지 누적 유지보수(수리) 비용은 총 ${fmtAmount(totalRepair)}원입니다.`
+      + `당월까지 누적 유지보수(수리) 비용은 총 ${fmtAmount(totalRepair)}원이며, 자산 처분(매각) 대금 회수는 ${fmtAmount(proceeds)}원입니다.`
   }
   if (kind === '라이선스 컴플라이언스') {
     const over = s.licenses.filter((l) => l.used > l.purchased)
