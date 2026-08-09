@@ -50,8 +50,9 @@ async function submitReport(formData: FormData) {
   const me = await requireRole('BIZ_MGR', 'ADMIN')
   const ids = formData.getAll('ids').map(String)
   const s = getStore()
-  // 결재진행(완료) 건은 선택 못한다 — 미상신 건만 상신 대상 (요구사항 결재 시트 8번)
-  const targets = s.incidents.filter((i) => ids.includes(i.id) && i.reportStatus === '미상신')
+  // 결재진행(완료) 건은 선택 못한다 — 미상신 건만 상신 대상 (요구사항 결재 시트 8번).
+  // 조치완료 조건은 UI 체크박스뿐 아니라 서버에서도 재검증한다 — 조작 요청으로 조치중 건이 묶이는 것 차단
+  const targets = s.incidents.filter((i) => ids.includes(i.id) && i.reportStatus === '미상신' && i.status === '조치완료')
   if (targets.length === 0) return
 
   const year = today().slice(0, 4)

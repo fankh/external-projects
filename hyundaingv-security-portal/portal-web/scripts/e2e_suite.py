@@ -330,6 +330,14 @@ def sc_batchref(pg, base, check):
     pg.goto(f'{base}/work/approvals', wait_until='networkidle')
     waiting = pg.locator('.card', has_text='수신함 — 결재 대기')
     check('IR-2026-0002' in waiting.inner_text(), '재상신 묶음 IR-0002 (번호 재사용 금지)')
+    # 재상신 묶음 상세 — 참조가 회전해도 이전 회차(IR-0001) 반려 이력이 문서유형·기안자로 이어진다
+    waiting.locator('a', has_text='[장애보고]').first.click()
+    pg.wait_for_selector('text=문서 상세', timeout=10000)
+    detail = pg.locator('.card', has_text='문서 상세')
+    check('이전 회차 결재' in detail.inner_text(), '재상신 묶음 상세에 이전 회차 이력(회전 참조)')
+    check('IR-2026-0001' in detail.inner_text() and '취합 기간 오류' in detail.inner_text(), '이전 묶음 참조·반려 사유 표시')
+    # 상세를 닫고 목록으로 — 아래 단계는 '문서 상세' 부재를 전제로 wait_for_selector 한다
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
     # 반려된 1차 문서 상세 — 새 묶음(0002)의 장애를 보여주면 안 된다
     pg.locator('.card', has_text='수신함 — 처리 완료').locator('a', has_text='[장애보고]').first.click()
     pg.wait_for_selector('text=문서 상세', timeout=10000)

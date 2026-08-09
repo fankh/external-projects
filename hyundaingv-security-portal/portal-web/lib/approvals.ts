@@ -7,6 +7,10 @@ import { today } from './dates'
 import { getStore, nextNo } from './store'
 import type { ApprovalDocType } from './types'
 
+/** 묶음(회전 참조) 문서 — 재상신마다 새 묶음 번호를 받아 참조가 회전하는 유형.
+ *  참조 번호 대신 문서 유형·기안자로 회차를 잇는다 (재상신 할일 닫기 · 이전 회차 이력). */
+export const ROTATING_DOC_TYPES: ApprovalDocType[] = ['장애보고 상신', '출력물폐기 상신', '서약 현황 상신', '부서서약 현황 상신']
+
 export function draftApproval(opts: {
   docType: ApprovalDocType
   title: string
@@ -36,10 +40,9 @@ export function draftApproval(opts: {
 
   // 폐쇄 루프 — 반려로 생긴 기안자의 '재상신' 할일은 재상신과 함께 닫힌다.
   // 묶음 문서(장애·출력물·서약)는 재상신마다 새 묶음 번호를 받아 참조가 회전하므로 문서 유형 태그로 매칭한다.
-  const ROTATING: ApprovalDocType[] = ['장애보고 상신', '출력물폐기 상신', '서약 현황 상신', '부서서약 현황 상신']
   for (const t of s.todos) {
     if (t.done || t.kind !== '재상신' || t.owner !== opts.drafter.name) continue
-    if (t.title.includes(opts.ref) || (ROTATING.includes(opts.docType) && t.title.startsWith(`[${opts.docType}]`))) t.done = true
+    if (t.title.includes(opts.ref) || (ROTATING_DOC_TYPES.includes(opts.docType) && t.title.startsWith(`[${opts.docType}]`))) t.done = true
   }
   return apId
 }

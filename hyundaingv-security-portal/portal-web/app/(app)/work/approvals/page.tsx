@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Fragment } from 'react'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { ROTATING_DOC_TYPES } from '@/lib/approvals'
 import { attachCount } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { getStore, type Store } from '@/lib/store'
@@ -78,8 +79,14 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   // 상세는 내가 결재자이거나 기안자인 문서만 — 타인 결재 문서 열람 차단
   const selected = sel ? s.approvals.find((a) => a.id === sel && (a.approver === me.name || a.drafter === me.name)) : undefined
   const selectedFiles = selected?.ref ? s.attachments.filter((x) => x.refId === selected.ref) : []
-  // 같은 참조의 이전 회차 결재 — 재상신 문서를 심사할 때 이전 반려 사유를 함께 본다
-  const history = selected?.ref ? s.approvals.filter((a) => a.id !== selected.id && a.ref === selected.ref) : []
+  // 같은 참조의 이전 회차 결재 — 재상신 문서를 심사할 때 이전 반려 사유를 함께 본다.
+  // 묶음 문서는 재상신마다 참조가 회전해 같은 참조가 다시 오지 않으므로, 문서 유형·기안자의 이전 상신으로 잇는다.
+  const rotating = selected ? ROTATING_DOC_TYPES.includes(selected.docType) : false
+  const history = selected?.ref
+    ? s.approvals.filter((a) => a.id !== selected.id && (rotating
+        ? a.docType === selected.docType && a.drafter === selected.drafter && a.id < selected.id
+        : a.ref === selected.ref))
+    : []
 
   return (
     <>
@@ -143,14 +150,17 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           {history.length > 0 && (
             <>
               <div className="dim" style={{ margin: '12px 0 5px', fontSize: 11.5 }}>
-                이전 회차 결재 — 같은 참조({selected.ref})로 상신된 문서. 반려 사유를 확인하고 보완 내용을 심사한다.
+                {rotating
+                  ? <>이전 회차 결재 — {selected.drafter} 기안 {selected.docType} 이전 묶음(회차별 참조 상이). 반려 사유를 확인하고 보완 내용을 심사한다.</>
+                  : <>이전 회차 결재 — 같은 참조({selected.ref})로 상신된 문서. 반려 사유를 확인하고 보완 내용을 심사한다.</>}
               </div>
               <table className="tbl">
-                <thead><tr><th>결재번호</th><th>제목</th><th>상태</th><th>처리일</th><th>반려 사유</th></tr></thead>
+                <thead><tr><th>결재번호</th><th>참조</th><th>제목</th><th>상태</th><th>처리일</th><th>반려 사유</th></tr></thead>
                 <tbody>
                   {history.map((h) => (
                     <tr key={h.id}>
                       <td className="code">{h.id}</td>
+                      <td className="code">{h.ref ?? '-'}</td>
                       <td>{h.title}</td>
                       <td><Chip tone={ST_CHIP[h.status]} bare>{h.status}</Chip></td>
                       <td className="tnum">{h.decidedAt ?? '-'}</td>
