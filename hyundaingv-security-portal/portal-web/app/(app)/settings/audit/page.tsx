@@ -3,15 +3,16 @@ import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 
 const ACTION_TONE: Record<string, 'ok' | 'err' | 'info' | 'neutral' | 'warn'> = {
-  '결재 승인': 'ok', '결재 반려': 'err',
+  '결재 상신': 'info', '결재 승인': 'ok', '결재 반려': 'err',
   '결재선 변경': 'warn', '연동 채널 변경': 'warn', '공통코드 변경': 'warn', '서약양식 개정': 'warn',
-  '인사정보 동기화': 'info', '배치 수동 실행': 'info', '일배치 이관': 'info',
+  '인사정보 동기화': 'info', '배치 수동 실행': 'info', '일배치 이관': 'info', '알림 배치 실행': 'info',
 }
 
 export default async function AuditPage() {
   await requireRole('ADMIN')
   const s = getStore()
-  const decisions = s.auditLogs.filter((l) => l.action.startsWith('결재 ')).length
+  // '결재 상신'(v1.0.6)까지 startsWith 로 세면 상신마다 처리 건수가 부풀므로 승인·반려만 센다
+  const decisions = s.auditLogs.filter((l) => l.action === '결재 승인' || l.action === '결재 반려').length
   const configs = s.auditLogs.filter((l) => l.action.includes('변경') || l.action.includes('개정')).length
 
   return (
@@ -49,8 +50,8 @@ export default async function AuditPage() {
       </Card>
 
       <div className="callout">
-        <b>추적성</b> — 결재 승인·반려, 결재선·연동 채널·공통코드 변경, 서약양식 개정, 배치·이관 실행이
-        기록된다 (제품안내서 §VI). 실서비스에서는 DB 감사 테이블·보존 정책으로 대체된다.
+        <b>추적성</b> — 결재 상신·승인·반려, 결재선·연동 채널·공통코드 변경, 서약양식 개정, 배치(수동·알림)·이관
+        실행이 기록된다 (제품안내서 §VI). 실서비스에서는 DB 감사 테이블·보존 정책으로 대체된다.
       </div>
     </>
   )

@@ -49,6 +49,11 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
     s.todos.filter((x) => x.kind === '재상신' && !x.done).map((x) => x.owner),
     '[결재] 반려 문서 재상신 안내')
 
+  // 6) 확인서 미제출 — 보안위반 사실확인서 징구중 방치 인원 (제출하면 결재중으로 넘어가 자동 제외)
+  await send('확인서 미제출',
+    s.violations.filter((v) => v.status === '징구중').map((v) => v.name),
+    '[보안위반] 사실확인서 제출 안내')
+
   const total = results.reduce((sum, r) => sum + r.targets, 0)
   const allOk = results.every((r) => r.ok)
   recordBatch(`일일 알림 배치 (${results.length}종 · ${total}명)`, nowStamp(), results.length === 0 || allOk ? '성공' : '실패')

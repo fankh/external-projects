@@ -307,6 +307,8 @@ def sc_batchref(pg, base, check):
     # 서버 액션 재렌더를 기다린다 — networkidle 은 POST 전에 통과할 수 있다
     pg.wait_for_selector('text=반려 문서 재상신 안내', timeout=10000)
     check('반려 문서 재상신 안내' in pg.locator('.card', has_text='발송 이력').inner_text(), '반려 방치 → 안내메일 발송')
+    # 확인서 미제출(6번째 유형) — 시드 VL-2026-07(강도윤, 징구중)이 대상. 제출하면 결재중으로 넘어가 자동 제외
+    check('사실확인서 제출 안내' in pg.locator('.card', has_text='발송 이력').inner_text(), '확인서 미제출 → 안내메일 발송')
 
     # 감사 이력 — 상신·반려가 모두 기록되어 결재 생명주기가 추적된다
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
