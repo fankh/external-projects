@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>KYRA AI Guardrail 네트워크 구성도 — BNK금융그룹</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Malgun Gothic', 'Segoe UI', sans-serif;
+    color: #333;
+    background: #fff;
+  }
+  .page {
+    width: 1122px;
+    height: 793px;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    background: #fff;
+  }
+  .page:last-child { page-break-after: auto; }
+  .topbar {
+    height: 10px;
+    background: linear-gradient(90deg, #1a1a40 0%, #2e8b57 100%);
+  }
+  .content { padding: 26px 45px 0 45px; }
+  .section-band {
+    background: #1a1a40;
+    color: #fff;
+    padding: 12px 22px;
+    font-size: 21px;
+    font-weight: 700;
+    border-radius: 3px;
+    margin-bottom: 6px;
+  }
+  .section-band .num { color: #7fc8a2; font-weight: 400; margin-right: 12px; font-size: 17px; }
+  .doc-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #888;
+    margin: 7px 2px 10px 2px;
+  }
+  .footer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 34px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 45px;
+    font-size: 11px;
+    color: #999;
+    background: #fff;
+  }
+  .footer .brand { display: flex; align-items: center; gap: 7px; font-weight: 600; color: #555; }
+  .footer .brand img { height: 14px; }
+  h3.block-title {
+    font-size: 15px;
+    color: #1a1a40;
+    font-weight: 700;
+    margin: 10px 0 5px 0;
+  }
+  h3.block-title .sub { font-weight: 400; color: #888; font-size: 12.5px; margin-left: 8px; }
+
+  /* ============ 표지 ============ */
+  .cover {
+    background: linear-gradient(150deg, #0b0b24 0%, #14143a 40%, #1a1a40 65%, #17503a 100%);
+    color: #fff;
+  }
+  .cover-art { position: absolute; inset: 0; }
+  .cover-logo { position: absolute; top: 44px; left: 52px; height: 34px; }
+  .cover-eyebrow-right {
+    position: absolute; top: 48px; right: 52px;
+    text-align: right;
+    font-size: 11px;
+    letter-spacing: 3.5px;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.9;
+    font-weight: 600;
+  }
+  .cover-label {
+    position: absolute; top: 402px; left: 52px;
+    font-size: 13px;
+    letter-spacing: 4.5px;
+    color: #7fd4a4;
+    font-weight: 700;
+  }
+  .cover-title {
+    position: absolute; top: 432px; left: 50px;
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -1px;
+    color: #fff;
+  }
+  .cover-rule {
+    position: absolute; top: 596px; left: 52px;
+    width: 62px; height: 4px;
+    background: #2e8b57;
+  }
+  .cover-desc {
+    position: absolute; top: 622px; left: 52px;
+    width: 750px;
+    font-size: 17.5px;
+    line-height: 1.65;
+    color: rgba(255,255,255,0.85);
+    word-break: keep-all;
+  }
+  .cover-chips { position: absolute; top: 700px; left: 52px; display: flex; gap: 10px; }
+  .cover-chip {
+    border: 1px solid rgba(255,255,255,0.45);
+    border-radius: 3px;
+    padding: 6px 13px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.06);
+  }
+  .cover-credit {
+    position: absolute; right: 52px; bottom: 40px;
+    text-align: right;
+    font-size: 11.5px;
+    line-height: 1.8;
+  }
+  .cover-credit .l1 { color: rgba(255,255,255,0.85); font-weight: 700; }
+  .cover-credit .l1 span { color: rgba(255,255,255,0.55); font-weight: 400; }
+  .cover-credit .l2 { color: rgba(255,255,255,0.5); }
+
+  /* ============ 다이어그램 페이지 ============ */
+  svg text { font-family: 'Malgun Gothic', 'Segoe UI', sans-serif; }
+  .principle {
+    background: #e6f2ec;
+    border-radius: 5px;
+    padding: 9px 16px;
+    margin-top: 6px;
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: #234;
+    word-break: keep-all;
+  }
+  .principle b { color: #1e6b43; }
+
+  /* ============ 아키텍처 (소개서 발췌) ============ */
+  .arch-outer {
+    border: 1.5px solid #c9cede;
+    border-radius: 6px;
+    padding: 12px 16px 8px 16px;
+    background: #fbfbfd;
+  }
+  .arch-layer {
+    border: 1.5px solid;
+    border-radius: 4px;
+    padding: 6px 14px;
+    text-align: center;
+  }
+  .arch-layer .t { font-size: 13.5px; font-weight: 800; letter-spacing: 0.5px; }
+  .arch-chips { display: flex; justify-content: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+  .chip {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: #444;
+  }
+  .al-navy { border-color: #1a1a40; background: #ededf4; }
+  .al-navy .t { color: #1a1a40; }
+  .al-green { border-color: #2e8b57; background: #e6f2ec; }
+  .al-green .t { color: #1e6b43; }
+  .arch-down { text-align: center; color: #1a1a40; font-size: 11px; line-height: 1; padding: 1px 0; }
+  .arch-caption { text-align: center; font-size: 10.5px; color: #888; margin-top: 6px; }
+
+  .lifecycle { display: flex; align-items: center; gap: 5px; margin-top: 10px; justify-content: center; }
+  .lc-chip {
+    border: 1.5px solid #b9bfd0;
+    background: #fff;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #1a1a40;
+    white-space: nowrap;
+  }
+  .lc-chip.red { border-color: #a03535; color: #a03535; }
+  .lc-chip.green { border-color: #2e8b57; color: #1e6b43; }
+  .lc-arrow { color: #888; font-size: 12px; }
+  .lc-caption { text-align: center; font-size: 10.5px; color: #888; margin-top: 7px; }
+
+  .kpi-row { display: flex; gap: 14px; margin-top: 10px; }
+  .kpi-card {
+    flex: 1;
+    text-align: center;
+    background: #f7f8fa;
+    border: 1.5px solid #dde1ea;
+    border-bottom: 3px solid #2e8b57;
+    border-radius: 5px;
+    padding: 8px 6px 6px 6px;
+  }
+  .kpi-value { font-size: 22px; font-weight: 800; color: #1a1a40; }
+  .kpi-label { font-size: 10.5px; color: #777; font-weight: 600; margin-top: 2px; letter-spacing: 0.5px; }
+
+  /* ============ 표 ============ */
+  table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  th {
+    background: #1a1a40; color: #fff;
+    padding: 5px 10px; font-size: 11.5px; text-align: left; font-weight: 600;
+  }
+  td {
+    padding: 4px 10px; border: 1px solid #ddd;
+    font-size: 11px; line-height: 1.45; color: #444; vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f9fafb; }
+  td.k { font-weight: 700; color: #1a1a40; width: 150px; background: #f3f4f8 !important; }
+  td.bad { color: #8a3030; }
+  td.good { color: #1e6b43; font-weight: 700; background: #f4faf7 !important; }
+  th.inline-h { background: #5a6379; }
+  th.kyra-h { background: #2e8b57; }
+  .note {
+    background: #f3f4f8;
+    border-radius: 5px;
+    padding: 8px 14px;
+    margin-top: 8px;
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: #555;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= PAGE 1 : 표지 ================= -->
+<div class="page cover">
+  <svg class="cover-art" viewBox="0 0 1122 793" fill="none">
+    <!-- 배경 회로 라인 아트 -->
+    <g stroke="rgba(126,200,164,0.20)" stroke-width="1.5">
+      <polyline points="0,150 180,150 220,190 350,190"/>
+      <polyline points="0,240 120,240 160,280 300,280"/>
+      <polyline points="60,793 60,660 110,610 110,520"/>
+      <polyline points="200,793 200,700 260,640 260,560"/>
+      <polyline points="1122,300 1000,300 960,340 900,340"/>
+      <polyline points="1122,520 1020,520 980,480 920,480"/>
+      <polyline points="820,793 820,720 870,670 870,600"/>
+      <polyline points="980,793 980,700 1030,650"/>
+      <polyline points="350,60 470,60 510,100"/>
+      <polyline points="700,40 780,40 820,80 900,80"/>
+    </g>
+    <g fill="rgba(126,200,164,0.30)">
+      <circle cx="350" cy="190" r="3.5"/><circle cx="300" cy="280" r="3.5"/>
+      <circle cx="110" cy="520" r="3.5"/><circle cx="260" cy="560" r="3.5"/>
+      <circle cx="900" cy="340" r="3.5"/><circle cx="920" cy="480" r="3.5"/>
+      <circle cx="870" cy="600" r="3.5"/><circle cx="1030" cy="650" r="3.5"/>
+      <circle cx="510" cy="100" r="3.5"/><circle cx="900" cy="80" r="3.5"/>
+    </g>
+    <!-- 기하 파셋 -->
+    <g fill="rgba(255,255,255,0.025)">
+      <polygon points="560,40 760,140 560,240 360,140"/>
+      <polygon points="760,140 960,240 760,340 560,240"/>
+      <polygon points="360,140 560,240 360,340 160,240"/>
+      <polygon points="560,240 760,340 560,440 360,340"/>
+    </g>
+    <!-- 중앙 실드 + 회로 코어 -->
+    <g transform="translate(620,90)">
+      <path d="M0 0 L175 62 V212 C175 330 100 405 0 448 C-100 405 -175 330 -175 212 V62 Z"
+            stroke="rgba(126,200,164,0.35)" stroke-width="2" fill="rgba(126,200,164,0.04)"/>
+      <circle cx="0" cy="220" r="92" stroke="rgba(126,200,164,0.22)" stroke-width="1.5"/>
+      <circle cx="0" cy="220" r="60" stroke="rgba(126,200,164,0.30)" stroke-width="1.5"/>
+      <circle cx="0" cy="220" r="28" stroke="rgba(126,200,164,0.40)" stroke-width="2" fill="rgba(126,200,164,0.07)"/>
+      <g stroke="rgba(126,200,164,0.30)" stroke-width="1.5">
+        <line x1="0" y1="128" x2="0" y2="96"/>
+        <line x1="0" y1="312" x2="0" y2="344"/>
+        <line x1="-92" y1="220" x2="-124" y2="220"/>
+        <line x1="92" y1="220" x2="124" y2="220"/>
+        <line x1="-65" y1="155" x2="-88" y2="132"/>
+        <line x1="65" y1="155" x2="88" y2="132"/>
+        <line x1="-65" y1="285" x2="-88" y2="308"/>
+        <line x1="65" y1="285" x2="88" y2="308"/>
+      </g>
+      <g stroke="rgba(126,200,164,0.35)" stroke-width="1.5" fill="rgba(20,30,50,0.3)">
+        <rect x="-10" y="86" width="20" height="14" rx="2"/>
+        <rect x="-10" y="340" width="20" height="14" rx="2"/>
+        <rect x="-138" y="213" width="20" height="14" rx="2"/>
+        <rect x="118" y="213" width="20" height="14" rx="2"/>
+      </g>
+    </g>
+    <!-- 우상단 아크 + 체크 실드 -->
+    <circle cx="1075" cy="70" r="150" stroke="rgba(126,200,164,0.20)" stroke-width="1.5"/>
+    <circle cx="1075" cy="70" r="190" stroke="rgba(126,200,164,0.12)" stroke-width="1.5"/>
+    <g transform="translate(1010,140)">
+      <path d="M0 0 L34 12 V40 C34 62 20 76 0 84 C-20 76 -34 62 -34 40 V12 Z"
+            stroke="rgba(126,200,164,0.45)" stroke-width="2" fill="rgba(126,200,164,0.06)"/>
+      <polyline points="-13,40 -3,50 15,28" stroke="rgba(126,212,164,0.75)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </svg>
+
+  <img class="cover-logo" src="logo_white.png" alt="Seekers">
+  <div class="cover-eyebrow-right">NETWORK ARCHITECTURE<br>BNK FINANCIAL GROUP · 2026</div>
+
+  <div class="cover-label">ENTERPRISE AI SECURITY &amp; GOVERNANCE</div>
+  <div class="cover-title">KYRA<br>AI Guardrail</div>
+  <div class="cover-rule"></div>
+  <div class="cover-desc">
+    금융권 망분리 환경에서 외부 LLM으로 향하는 모든 AI 트래픽을 단일 지점에서
+    검사·마스킹·기록합니다. 기존 망 구성 변경 없이 아웃바운드 HTTPS 정책 하나로 도입됩니다.
+  </div>
+  <div class="cover-chips">
+    <span class="cover-chip">망분리 구성</span>
+    <span class="cover-chip">아웃바운드 전용</span>
+    <span class="cover-chip">WHITE-LIST 통제</span>
+    <span class="cover-chip">DLP 마스킹</span>
+  </div>
+  <div class="cover-credit">
+    <div class="l1">Seekers Inc. <span>· seekerslab.com</span></div>
+    <div class="l2">KYRA AI Guardrail 네트워크 구성도 v1.1 · 2026.08</div>
+  </div>
+</div>
+
+<!-- ================= PAGE 2 : 네트워크 구성도 ================= -->
+<div class="page">
+  <div class="topbar"></div>
+  <div class="content">
+    <div class="section-band"><span class="num">01</span>네트워크 구성도 — 망분리 환경 (내부 업무망 · 인터넷망 분리)</div>
+
+    <svg viewBox="0 0 1032 580" width="1032" height="580" style="margin-top:6px;">
+      <defs>
+        <marker id="arrR" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+          <path d="M0,0 L8,4.5 L0,9 Z" fill="#c0392b"/>
+        </marker>
+        <marker id="arrG" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+          <path d="M0,0 L8,4.5 L0,9 Z" fill="#888"/>
+        </marker>
+        <symbol id="ic-pc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2.5" y="3.5" width="19" height="12.5" rx="1.5"/>
+          <line x1="12" y1="16" x2="12" y2="19.5"/><line x1="7.5" y1="20.5" x2="16.5" y2="20.5"/>
+        </symbol>
+        <symbol id="ic-admin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2.5" y="3.5" width="19" height="12.5" rx="1.5"/>
+          <circle cx="12" cy="8" r="2"/><path d="M8.8 13.5 C8.8 11.6 10.2 10.9 12 10.9 C13.8 10.9 15.2 11.6 15.2 13.5"/>
+          <line x1="12" y1="16" x2="12" y2="19.5"/><line x1="7.5" y1="20.5" x2="16.5" y2="20.5"/>
+        </symbol>
+        <symbol id="ic-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3.5" width="18" height="7" rx="1.5"/><rect x="3" y="13.5" width="18" height="7" rx="1.5"/>
+          <circle cx="7" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="7" cy="17" r="1" fill="currentColor" stroke="none"/>
+          <line x1="13" y1="7" x2="18" y2="7"/><line x1="13" y1="17" x2="18" y2="17"/>
+        </symbol>
+        <symbol id="ic-siem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2.5" y="3.5" width="19" height="12.5" rx="1.5"/>
+          <polyline points="5.5,10 8.5,10 10.5,6.5 13,13 15,10 18.5,10"/>
+          <line x1="12" y1="16" x2="12" y2="19.5"/><line x1="7.5" y1="20.5" x2="16.5" y2="20.5"/>
+        </symbol>
+        <symbol id="ic-switch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="10" rx="2"/>
+          <line x1="6" y1="10.3" x2="13" y2="10.3"/><polyline points="11.2,8.6 13,10.3 11.2,12"/>
+          <line x1="18" y1="13.7" x2="11" y2="13.7"/><polyline points="12.8,12 11,13.7 12.8,15.4"/>
+        </symbol>
+        <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.5 L19.5 5.2 V11 C19.5 16.2 16.4 19.7 12 21.5 C7.6 19.7 4.5 16.2 4.5 11 V5.2 Z"/>
+          <polyline points="8.7,11.5 11.2,14 15.3,9"/>
+        </symbol>
+        <symbol id="ic-fw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2.5" y="5" width="19" height="14"/>
+          <line x1="2.5" y1="9.7" x2="21.5" y2="9.7"/><line x1="2.5" y1="14.4" x2="21.5" y2="14.4"/>
+          <line x1="9" y1="5" x2="9" y2="9.7"/><line x1="15" y1="5" x2="15" y2="9.7"/>
+          <line x1="6" y1="9.7" x2="6" y2="14.4"/><line x1="12" y1="9.7" x2="12" y2="14.4"/><line x1="18" y1="9.7" x2="18" y2="14.4"/>
+          <line x1="9" y1="14.4" x2="9" y2="19"/><line x1="15" y1="14.4" x2="15" y2="19"/>
+        </symbol>
+        <symbol id="ic-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/>
+        </symbol>
+        <symbol id="ic-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2.5 H14.5 L19 7 V21.5 H6 Z"/><polyline points="14.5,2.5 14.5,7 19,7"/>
+          <line x1="9" y1="12" x2="16" y2="12"/><line x1="9" y1="16" x2="16" y2="16"/>
+        </symbol>
+        <symbol id="ic-db" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5.5" rx="8" ry="3"/>
+          <path d="M4 5.5 V18.5 C4 20.2 7.6 21.5 12 21.5 C16.4 21.5 20 20.2 20 18.5 V5.5"/>
+          <path d="M4 12 C4 13.7 7.6 15 12 15 C16.4 15 20 13.7 20 12"/>
+        </symbol>
+        <symbol id="ic-proxy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="9" x2="16" y2="9"/><polyline points="14,6.8 16.5,9 14,11.2"/>
+          <line x1="20" y1="15" x2="8" y2="15"/><polyline points="10,12.8 7.5,15 10,17.2"/>
+        </symbol>
+        <symbol id="ic-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 18.5 A4.5 4.5 0 0 1 7.2 9.6 A5.8 5.8 0 0 1 18.3 11.2 A3.8 3.8 0 0 1 17.5 18.5 Z"/>
+        </symbol>
+        <symbol id="ic-funnel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3.5 4.5 H20.5 L14.5 12 V19 L9.5 21.5 V12 Z"/>
+        </symbol>
+      </defs>
+
+      <!-- ===== 연결선 ===== -->
+      <!-- 사용자 → 백본 (녹색 실선) -->
+      <g stroke="#2e8b57" stroke-width="2" fill="none">
+        <line x1="240" y1="101" x2="272" y2="101"/>
+        <line x1="240" y1="175" x2="272" y2="175"/>
+        <line x1="240" y1="249" x2="272" y2="249"/>
+        <line x1="272" y1="101" x2="272" y2="284"/>
+        <line x1="272" y1="204" x2="300" y2="204"/>
+        <line x1="272" y1="284" x2="300" y2="284"/>
+        <line x1="428" y1="204" x2="486" y2="204"/>
+        <polyline points="428,284 444,284 444,232 486,232"/>
+      </g>
+      <!-- 스위치 이중화 링 (네이비) -->
+      <g stroke="#1a1a40" stroke-width="2">
+        <line x1="340" y1="228" x2="340" y2="260"/>
+        <line x1="388" y1="228" x2="388" y2="260"/>
+      </g>
+      <!-- SSO·LDAP (청색 점선) -->
+      <polyline points="240,359 456,359 456,166 486,166" stroke="#1f4e79" stroke-width="1.8" stroke-dasharray="2,3.5" fill="none"/>
+      <!-- Syslog (회색 파선, KYRA→SIEM) -->
+      <polyline points="486,133 468,133 468,433 246,433" stroke="#888" stroke-width="1.8" stroke-dasharray="7,4" fill="none" marker-end="url(#arrG)"/>
+      <!-- 아웃바운드 (적색 실선) -->
+      <g stroke="#c0392b" stroke-width="2.2" fill="none">
+        <line x1="650" y1="278" x2="650" y2="296"/>
+        <line x1="650" y1="326" x2="650" y2="372" marker-end="url(#arrR)"/>
+        <line x1="650" y1="438" x2="650" y2="452" marker-end="url(#arrR)"/>
+        <line x1="716" y1="487" x2="784" y2="487" marker-end="url(#arrR)"/>
+      </g>
+      <text x="662" y="352" font-size="9.5" fill="#c0392b" font-weight="700">HTTPS 443</text>
+
+      <!-- ===== 내부 업무망 영역 ===== -->
+      <rect x="4" y="14" width="252" height="560" rx="8" fill="#eef5f0" stroke="#bcd9c8" stroke-width="1.5"/>
+      <text x="130" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="#1e6b43">내부 업무망</text>
+      <text x="130" y="57" text-anchor="middle" font-size="9.5" fill="#777">기존 업무 환경 · 변경 없음</text>
+
+      <g>
+        <rect x="20" y="72" width="220" height="58" rx="5" fill="#fff" stroke="#2e8b57" stroke-width="1.4"/>
+        <use href="#ic-pc" x="30" y="89" width="24" height="24" color="#2e8b57"/>
+        <text x="140" y="97" text-anchor="middle" font-size="12" font-weight="700" fill="#1e6b43">본점 업무망 PC</text>
+        <text x="140" y="115" text-anchor="middle" font-size="9.5" fill="#666">부서별 사용자 · 웹 브라우저 접속</text>
+
+        <rect x="20" y="146" width="220" height="58" rx="5" fill="#fff" stroke="#2e8b57" stroke-width="1.4"/>
+        <use href="#ic-pc" x="30" y="163" width="24" height="24" color="#2e8b57"/>
+        <text x="140" y="171" text-anchor="middle" font-size="12" font-weight="700" fill="#1e6b43">영업점 업무망 PC</text>
+        <text x="140" y="189" text-anchor="middle" font-size="9.5" fill="#666">내부 WAN 경유 접속</text>
+
+        <rect x="20" y="220" width="220" height="58" rx="5" fill="#fff" stroke="#2e8b57" stroke-width="1.4"/>
+        <use href="#ic-admin" x="30" y="237" width="24" height="24" color="#2e8b57"/>
+        <text x="140" y="245" text-anchor="middle" font-size="12" font-weight="700" fill="#1e6b43">정보보호부 관리자 PC</text>
+        <text x="140" y="263" text-anchor="middle" font-size="9.5" fill="#666">KYRA 관리 콘솔 접속</text>
+
+        <rect x="20" y="330" width="220" height="58" rx="5" fill="#fff" stroke="#b9bfd0" stroke-width="1.2"/>
+        <use href="#ic-server" x="30" y="347" width="24" height="24" color="#5a6379"/>
+        <text x="140" y="355" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a40">AD / SSO 서버</text>
+        <text x="140" y="373" text-anchor="middle" font-size="9.5" fill="#666">SAML · OIDC · LDAP 연동</text>
+
+        <rect x="20" y="404" width="220" height="58" rx="5" fill="#fff" stroke="#b9bfd0" stroke-width="1.2"/>
+        <use href="#ic-siem" x="30" y="421" width="24" height="24" color="#5a6379"/>
+        <text x="140" y="429" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a40">SIEM · 통합보안관제</text>
+        <text x="140" y="447" text-anchor="middle" font-size="9.5" fill="#666">감사로그 Syslog 실시간 수신</text>
+      </g>
+
+      <!-- ===== 백본 스위치 · 내부 방화벽 ===== -->
+      <rect x="300" y="180" width="128" height="48" rx="5" fill="#eceef7" stroke="#1a1a40" stroke-width="1.4"/>
+      <use href="#ic-switch" x="306" y="194" width="19" height="19" color="#1a1a40"/>
+      <text x="374" y="200" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1a1a40">백본 스위치 #1</text>
+      <text x="374" y="216" text-anchor="middle" font-size="9" fill="#666">L3 · 이중화</text>
+      <rect x="300" y="260" width="128" height="48" rx="5" fill="#eceef7" stroke="#1a1a40" stroke-width="1.4"/>
+      <use href="#ic-switch" x="306" y="274" width="19" height="19" color="#1a1a40"/>
+      <text x="374" y="280" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1a1a40">백본 스위치 #2</text>
+      <text x="374" y="296" text-anchor="middle" font-size="9" fill="#666">L3 · 이중화</text>
+
+      <!-- ===== 범례 ===== -->
+      <rect x="292" y="452" width="176" height="122" rx="5" fill="#fff" stroke="#b9bfd0" stroke-width="1.2"/>
+      <text x="306" y="473" font-size="11" font-weight="700" fill="#1a1a40">범례</text>
+      <line x1="306" y1="489" x2="336" y2="489" stroke="#2e8b57" stroke-width="2"/>
+      <text x="342" y="493" font-size="9.5" fill="#444">내부망 HTTPS(443)</text>
+      <line x1="306" y1="507" x2="336" y2="507" stroke="#c0392b" stroke-width="2.2"/>
+      <text x="342" y="511" font-size="9.5" fill="#444">아웃바운드 HTTPS(443)</text>
+      <line x1="306" y1="525" x2="336" y2="525" stroke="#888" stroke-width="1.8" stroke-dasharray="7,4"/>
+      <text x="342" y="529" font-size="9.5" fill="#444">Syslog 감사로그</text>
+      <line x1="306" y1="543" x2="336" y2="543" stroke="#1f4e79" stroke-width="1.8" stroke-dasharray="2,3.5"/>
+      <text x="342" y="547" font-size="9.5" fill="#444">SSO · LDAP 연동</text>
+      <line x1="306" y1="561" x2="336" y2="561" stroke="#a03535" stroke-width="1.8" stroke-dasharray="5,4"/>
+      <text x="342" y="565" font-size="9.5" fill="#444">망분리 경계</text>
+
+      <!-- ===== 내부망 서버팜 영역 ===== -->
+      <rect x="470" y="14" width="548" height="280" rx="8" fill="#eceef7" stroke="#c3c8e3" stroke-width="1.5"/>
+      <text x="744" y="38" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1a40">내부망 서버팜</text>
+      <rect x="486" y="50" width="516" height="228" rx="6" fill="#fff" stroke="#1a1a40" stroke-width="2"/>
+      <use href="#ic-shield" x="602" y="56" width="22" height="22" color="#2e8b57"/>
+      <text x="752" y="74" text-anchor="middle" font-size="13.5" font-weight="800" fill="#1a1a40">KYRA AI Guardrail 어플라이언스</text>
+      <text x="744" y="91" text-anchor="middle" font-size="9.5" fill="#777">2U 랙마운트 · 33개 컨테이너 · 폐쇄망 설치 지원</text>
+
+      <rect x="502" y="102" width="234" height="76" rx="4" fill="#eceef7"/>
+      <use href="#ic-globe" x="708" y="108" width="18" height="18" color="#1a1a40"/>
+      <text x="619" y="124" text-anchor="middle" font-size="11.2" font-weight="700" fill="#1a1a40">API Gateway · WAF</text>
+      <text x="619" y="142" text-anchor="middle" font-size="9.5" fill="#555">REST · WebSocket · SSE</text>
+      <text x="619" y="158" text-anchor="middle" font-size="9.5" fill="#555">Rate Limit · JWT 검증</text>
+
+      <rect x="748" y="102" width="234" height="76" rx="4" fill="#e6f2ec"/>
+      <use href="#ic-shield" x="954" y="108" width="18" height="18" color="#1e6b43"/>
+      <text x="865" y="124" text-anchor="middle" font-size="11.2" font-weight="700" fill="#1e6b43">AI Security Engine</text>
+      <text x="865" y="142" text-anchor="middle" font-size="9.5" fill="#555">프롬프트 인젝션 3단계 방어</text>
+      <text x="865" y="158" text-anchor="middle" font-size="9.5" fill="#555">DLP · PII 마스킹 · UBA</text>
+
+      <rect x="502" y="190" width="234" height="76" rx="4" fill="#eef4fb"/>
+      <use href="#ic-doc" x="708" y="196" width="18" height="18" color="#1f4e79"/>
+      <text x="619" y="212" text-anchor="middle" font-size="11.2" font-weight="700" fill="#1f4e79">정책 · 감사</text>
+      <text x="619" y="230" text-anchor="middle" font-size="9.5" fill="#555">OPA 정책엔진 (RBAC · ABAC)</text>
+      <text x="619" y="246" text-anchor="middle" font-size="9.5" fill="#555">감사로그 SHA-256 체인</text>
+
+      <rect x="748" y="190" width="234" height="76" rx="4" fill="#fdf6e8"/>
+      <use href="#ic-db" x="954" y="196" width="18" height="18" color="#8a6d1f"/>
+      <text x="865" y="212" text-anchor="middle" font-size="11.2" font-weight="700" fill="#8a6d1f">Data &amp; RAG</text>
+      <text x="865" y="230" text-anchor="middle" font-size="9.5" fill="#555">PostgreSQL · Milvus · Redis · MinIO</text>
+      <text x="865" y="246" text-anchor="middle" font-size="9.5" fill="#555">원문 · 로그 전량 내부 보관</text>
+
+      <!-- 내부 방화벽 -->
+      <rect x="595" y="296" width="110" height="30" rx="4" fill="#a03535"/>
+      <use href="#ic-fw" x="604" y="304" width="15" height="15" color="#fff"/>
+      <text x="658" y="315" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">내부 방화벽</text>
+
+      <!-- ===== DMZ 영역 ===== -->
+      <rect x="470" y="340" width="262" height="234" rx="8" fill="#fdf6e8" stroke="#e8d5a8" stroke-width="1.5"/>
+      <text x="486" y="362" font-size="12.5" font-weight="700" fill="#8a6d1f">DMZ · 대외 연계 구간</text>
+      <rect x="486" y="376" width="230" height="62" rx="5" fill="#fff" stroke="#b9bfd0" stroke-width="1.2"/>
+      <use href="#ic-proxy" x="494" y="382" width="16" height="16" color="#5a6379"/>
+      <text x="601" y="399" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a40">Forward Proxy</text>
+      <text x="601" y="417" text-anchor="middle" font-size="9.5" fill="#666">아웃바운드 전용 중계 · 목적지 White-list</text>
+      <rect x="486" y="452" width="230" height="62" rx="5" fill="#fff" stroke="#b9bfd0" stroke-width="1.2"/>
+      <use href="#ic-fw" x="494" y="458" width="16" height="16" color="#5a6379"/>
+      <text x="601" y="475" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a40">외부 방화벽 · IPS</text>
+      <text x="601" y="493" text-anchor="middle" font-size="9.5" fill="#666">승인 목적지 외 차단 · 인바운드 없음</text>
+      <text x="486" y="556" font-size="9.5" fill="#8a6d1f">인터넷망에서 내부로 유입되는 오픈 포트 없음</text>
+
+      <!-- 망분리 경계 -->
+      <line x1="752" y1="340" x2="752" y2="574" stroke="#a03535" stroke-width="1.8" stroke-dasharray="5,4"/>
+      <text x="752" y="332" text-anchor="middle" font-size="9.5" font-weight="700" fill="#a03535">망분리 경계</text>
+
+      <!-- ===== 인터넷망 영역 ===== -->
+      <rect x="772" y="340" width="246" height="234" rx="8" fill="#fceeee" stroke="#e5bcbc" stroke-width="1.5"/>
+      <text x="788" y="362" font-size="12.5" font-weight="700" fill="#a03535">인터넷망 (외부)</text>
+      <rect x="788" y="376" width="214" height="60" rx="5" fill="#fff" stroke="#b9bfd0" stroke-width="1.2"/>
+      <use href="#ic-funnel" x="796" y="382" width="16" height="16" color="#a03535"/>
+      <text x="895" y="398" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1a1a40">전송 데이터 통제</text>
+      <text x="895" y="416" text-anchor="middle" font-size="9.5" fill="#666">DLP 마스킹 완료 요청만 외부 전송</text>
+      <rect x="788" y="452" width="214" height="70" rx="5" fill="#fff" stroke="#a03535" stroke-width="1.4"/>
+      <use href="#ic-cloud" x="796" y="458" width="18" height="18" color="#a03535"/>
+      <text x="895" y="474" text-anchor="middle" font-size="12" font-weight="700" fill="#a03535">외부 LLM API</text>
+      <text x="895" y="492" text-anchor="middle" font-size="9.5" fill="#666">OpenAI · Azure OpenAI · Anthropic</text>
+      <text x="895" y="508" text-anchor="middle" font-size="9.5" fill="#666">승인 도메인 White-list 허용</text>
+    </svg>
+
+    <div class="principle">
+      <b>구성 원칙</b> — 외부 LLM으로 향하는 유일한 경로는 KYRA를 경유하는 아웃바운드 HTTPS(443) 단방향 세션이며, 목적지는 승인된 LLM API 도메인으로 White-list 제한됩니다.
+      대화 원문·감사로그·벡터DB는 전량 내부망에 보관되고, 기존 네트워크 인라인 장비와 달리 트래픽 경로 변경이나 SSL 복호화 구간 추가 없이 도입할 수 있습니다.
+    </div>
+  </div>
+  <div class="footer">
+    <span class="brand"><img src="logo_colored.png" alt="Seekers"> KYRA AI Guardrail</span>
+    <span>Seekers Inc.</span>
+    <span>Confidential</span>
+    <span>2 / 5</span>
+  </div>
+</div>
+
+<!-- ================= PAGE 3 : 시스템 아키텍처 ================= -->
+<div class="page">
+  <div class="topbar"></div>
+  <div class="content">
+    <div class="section-band"><span class="num">02</span>KYRA 시스템 아키텍처</div>
+    <div class="doc-meta">
+      <span>5-Layer System Architecture · Request Lifecycle</span>
+      <span>2026. 08. &nbsp;|&nbsp; (주)씨커스</span>
+    </div>
+
+    <div class="arch-outer">
+      <div class="arch-layer al-navy">
+        <div class="t">API GATEWAY LAYER</div>
+        <div class="arch-chips"><span class="chip">REST API</span><span class="chip">WebSocket</span><span class="chip">SSE Streaming</span><span class="chip">Rate Limiting</span></div>
+      </div>
+      <div class="arch-down">▼</div>
+      <div class="arch-layer al-green">
+        <div class="t">AUTH &amp; SECURITY LAYER</div>
+        <div class="arch-chips"><span class="chip">JWT/OAuth 2.0</span><span class="chip">RBAC+ABAC</span><span class="chip">SSO (SAML/OIDC)</span><span class="chip">MFA</span></div>
+      </div>
+      <div class="arch-down">▼</div>
+      <div class="arch-layer al-navy">
+        <div class="t">AI SECURITY ENGINE</div>
+        <div class="arch-chips"><span class="chip">Prompt Injection Defense</span><span class="chip">DLP Scanner</span><span class="chip">UBA Engine</span><span class="chip">Risk Scoring</span></div>
+      </div>
+      <div class="arch-down">▼</div>
+      <div class="arch-layer al-green">
+        <div class="t">CHAT &amp; RAG LAYER</div>
+        <div class="arch-chips"><span class="chip">Multi-Persona Chat</span><span class="chip">RAG Pipeline</span><span class="chip">Hybrid Search</span><span class="chip">Reranking</span></div>
+      </div>
+      <div class="arch-down">▼</div>
+      <div class="arch-layer al-navy">
+        <div class="t">COMPLIANCE &amp; OBSERVABILITY</div>
+        <div class="arch-chips"><span class="chip">Audit Trail</span><span class="chip">SOC 2 Checks</span><span class="chip">GDPR DSR</span><span class="chip">Prometheus/Grafana</span></div>
+      </div>
+      <div class="arch-caption">그림 1. KYRA AI Guardrail 5-Layer System Architecture</div>
+    </div>
+
+    <h3 class="block-title">Request Lifecycle <span class="sub">모든 요청·응답이 보안 검사와 품질 검증을 거쳐 처리됩니다</span></h3>
+    <div class="lifecycle">
+      <span class="lc-chip">User</span><span class="lc-arrow">→</span>
+      <span class="lc-chip">Gateway</span><span class="lc-arrow">→</span>
+      <span class="lc-chip">Auth</span><span class="lc-arrow">→</span>
+      <span class="lc-chip red">Security Check</span><span class="lc-arrow">→</span>
+      <span class="lc-chip">LLM</span><span class="lc-arrow">→</span>
+      <span class="lc-chip green">Quality Check</span><span class="lc-arrow">→</span>
+      <span class="lc-chip red">DLP Scan</span><span class="lc-arrow">→</span>
+      <span class="lc-chip">Response</span>
+    </div>
+    <div class="lc-caption">User → Gateway → Auth → Security Check (Prompt Injection/UBA) → LLM → Quality Check (Hallucination/Sentiment) → DLP Scan → Response</div>
+
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="kpi-value">&gt; 99.5%</div><div class="kpi-label">INJECTION BLOCK RATE</div></div>
+      <div class="kpi-card"><div class="kpi-value">&lt; 0.1%</div><div class="kpi-label">FALSE POSITIVE RATE</div></div>
+      <div class="kpi-card"><div class="kpi-value">&lt; 200ms</div><div class="kpi-label">PROCESSING LATENCY</div></div>
+      <div class="kpi-card"><div class="kpi-value">100%</div><div class="kpi-label">AUDIT COVERAGE</div></div>
+    </div>
+  </div>
+  <div class="footer">
+    <span class="brand"><img src="logo_colored.png" alt="Seekers"> KYRA AI Guardrail</span>
+    <span>Seekers Inc.</span>
+    <span>Confidential</span>
+    <span>3 / 5</span>
+  </div>
+</div>
+
+<!-- ================= PAGE 4 : 도입 방식 비교 ================= -->
+<div class="page">
+  <div class="topbar"></div>
+  <div class="content">
+    <div class="section-band"><span class="num">03</span>도입 방식 비교 — 네트워크 인라인 vs API 게이트웨이</div>
+    <div class="doc-meta">
+      <span>비교 검토 제품군 대비 통제 방식 차이</span>
+      <span>2026. 08. &nbsp;|&nbsp; (주)씨커스</span>
+    </div>
+
+    <h3 class="block-title">비교 검토 제품군 분류 <span class="sub">세 제품 모두 네트워크 구간에서 트래픽을 가로채는 인라인 계열입니다</span></h3>
+    <table>
+      <tr><th style="width:150px;">제조사</th><th style="width:220px;">대표 제품군</th><th>통제 방식</th></tr>
+      <tr><td>수산아이앤티</td><td>eWalker SWG 계열</td><td>웹 프록시 · SSL 복호화 기반 인라인 통제</td></tr>
+      <tr><td>소만사</td><td>WebKeeper · Mail-i 계열</td><td>네트워크 DLP · 패킷 검사 (인라인/미러링)</td></tr>
+      <tr><td>윈스테크넷</td><td>SNIPER 계열</td><td>IPS · 네트워크 트래픽 분석 (인라인)</td></tr>
+    </table>
+
+    <h3 class="block-title">통제 방식 비교</h3>
+    <table>
+      <tr><th style="width:140px;">항목</th><th class="inline-h">네트워크 인라인 방식 (프록시 · 패킷 기반)</th><th class="kyra-h">KYRA AI Guardrail (API · 챗봇 기반)</th></tr>
+      <tr><td class="k">통제 지점</td><td class="bad">네트워크 구간에서 패킷을 가로채어 분석</td><td class="good">애플리케이션 계층 — 전용 챗봇 화면 · API</td></tr>
+      <tr><td class="k">SSL 복호화</td><td class="bad">필수 — 전 단말 인증서 배포, 성능 저하</td><td class="good">불필요 — 복호화 구간 없음</td></tr>
+      <tr><td class="k">대화 문맥 인식</td><td class="bad">불가 — 패턴 · 키워드 매칭 수준</td><td class="good">프롬프트 문맥 분석 (Pattern + ML + Behavioral)</td></tr>
+      <tr><td class="k">AI API 정책</td><td class="bad">도메인 허용/차단 수준의 제한적 정책 — 전면 차단 또는 전면 허용의 양자택일</td><td class="good">사용자 · 부서 · 문서등급별 프롬프트 단위 정책 (RBAC/ABAC)</td></tr>
+      <tr><td class="k">민감정보 처리</td><td class="bad">탐지 시 세션 차단 위주 — 업무 중단</td><td class="good">마스킹 후 전달 — 업무 연속성 유지</td></tr>
+      <tr><td class="k">오탐 영향</td><td class="bad">오탐 시 업무 차단 · 우회 접속 유발</td><td class="good">오탐율 &lt; 0.1% (문맥 기반 판단)</td></tr>
+      <tr><td class="k">장애 영향</td><td class="bad">인라인 장비 장애 시 인터넷 구간 전체 영향</td><td class="good">기존 망과 독립 — 장애 시 기존 망 영향 없음</td></tr>
+      <tr><td class="k">감사로그</td><td class="bad">패킷 · URL 수준 기록</td><td class="good">프롬프트 · 응답 단위 100% 감사 (SHA-256 체인)</td></tr>
+      <tr><td class="k">망 구성 영향</td><td class="bad">트래픽 경로 변경 · 인라인 구간 삽입 필요</td><td class="good">아웃바운드 HTTPS 정책 1건 추가로 완료</td></tr>
+    </table>
+
+    <div class="principle">
+      <b>AI API 통제의 구조적 차이</b> — LLM API 트래픽은 암호화된 JSON·SSE 스트리밍 형태여서, 패킷 기반 인라인 장비는 내용을 문맥 단위로 해석하지 못하고
+      도메인 수준의 허용/차단 정책에 머무르게 됩니다. KYRA는 애플리케이션 계층에서 프롬프트 자체를 이해하고 통제하므로, 차단이 아닌 마스킹 후 활용이 가능하며
+      임직원의 생성형 AI 업무 활용과 정보 보호를 동시에 달성합니다.
+    </div>
+  </div>
+  <div class="footer">
+    <span class="brand"><img src="logo_colored.png" alt="Seekers"> KYRA AI Guardrail</span>
+    <span>Seekers Inc.</span>
+    <span>Confidential</span>
+    <span>4 / 5</span>
+  </div>
+</div>
+
+<!-- ================= PAGE 5 : PoC 구성안 ================= -->
+<div class="page">
+  <div class="topbar"></div>
+  <div class="content">
+    <div class="section-band"><span class="num">04</span>PoC 구성 및 사전 준비사항</div>
+    <div class="doc-meta">
+      <span>BNK금융그룹 PoC — 외부망 LLM · 200~300 사용자 · 1개월 기준</span>
+      <span>2026. 08. &nbsp;|&nbsp; (주)씨커스</span>
+    </div>
+
+    <h3 class="block-title">PoC 구성</h3>
+    <table>
+      <tr><td class="k">배포 형태</td><td>단일 노드 어플라이언스 (2U 랙마운트, 33개 컨테이너 턴키 배포) — 200~300 사용자 수용</td></tr>
+      <tr><td class="k">설치 위치</td><td>내부망 서버팜 1식 (랙 2U 공간 · 전원 · 내부 IP 1개)</td></tr>
+      <tr><td class="k">대상 사용자</td><td>200~300명 — 업무망 PC 웹 브라우저 접속, 사용자 단말 에이전트 설치 불필요</td></tr>
+      <tr><td class="k">대상 LLM</td><td>외부망 상용 LLM API (OpenAI · Azure OpenAI · Anthropic 등, 사내 구축 LLM 없음 기준)</td></tr>
+      <tr><td class="k">기간 (1개월)</td><td>설치·기동 1~2일 → 정책 튜닝(금융정보 PII 규칙·부서별 권한) 1~2주 → 사용자 평가 및 결과 보고</td></tr>
+      <tr><td class="k">평가 항목</td><td>프롬프트 인젝션 차단율 · DLP 탐지 정확도(오탐율) · 응답 지연 · 감사로그 완전성 · 사용자 편의성</td></tr>
+    </table>
+
+    <h3 class="block-title">방화벽 · 회선 요청 사항 <span class="sub">PoC 착수 전 협의가 필요한 네트워크 정책입니다</span></h3>
+    <table>
+      <tr><th>구간</th><th>방향</th><th>포트</th><th>용도</th></tr>
+      <tr><td>사용자 PC → KYRA</td><td>내부망</td><td>TCP 443</td><td>챗봇 화면 · 관리 콘솔 접속 (HTTPS)</td></tr>
+      <tr><td>KYRA → 외부 LLM API</td><td>아웃바운드 전용</td><td>TCP 443</td><td>승인 도메인 White-list 한정, 검사 완료 요청만 전송</td></tr>
+      <tr><td>KYRA → SIEM</td><td>내부망</td><td>Syslog (협의)</td><td>감사로그 실시간 연동 (옵션)</td></tr>
+      <tr><td>KYRA → AD/SSO</td><td>내부망</td><td>TCP 443/636</td><td>SAML · OIDC · LDAP 계정 연동 (옵션)</td></tr>
+      <tr><td>인터넷 → 내부</td><td>인바운드</td><td>없음</td><td>외부에서 내부로 접속하는 경로 없음</td></tr>
+    </table>
+
+    <h3 class="block-title">사전 준비 체크리스트</h3>
+    <table>
+      <tr><th style="width:170px;">항목</th><th>내용</th><th style="width:110px;">담당</th></tr>
+      <tr><td>랙 공간 · 전원</td><td>서버팜 2U 랙 공간, 이중화 전원</td><td>BNK</td></tr>
+      <tr><td>네트워크</td><td>내부 IP 1개 할당, 위 표의 방화벽 정책 오픈</td><td>BNK</td></tr>
+      <tr><td>LLM API 키</td><td>PoC용 외부 LLM API 계정 (당사 제공 가능, 협의)</td><td>협의</td></tr>
+      <tr><td>평가 시나리오 · 계정</td><td>참여 부서 · 사용자 목록, 금융정보 탐지 규칙 요건</td><td>공동</td></tr>
+      <tr><td>장비 반입 · 설치</td><td>어플라이언스 반입 절차 협조, 설치·기동·튜닝 수행</td><td>씨커스</td></tr>
+    </table>
+
+    <div class="note">
+      PoC 장비와 라이선스는 당사가 무상 제공하며, 평가 종료 후 장비를 회수하고 저장 데이터는 완전 삭제 후 확인서를 제출합니다.
+      본 구성은 표준안이며, 착수 미팅에서 BNK금융그룹 망 정책에 맞춰 세부 조정이 가능합니다.
+    </div>
+  </div>
+  <div class="footer">
+    <span class="brand"><img src="logo_colored.png" alt="Seekers"> KYRA AI Guardrail</span>
+    <span>Seekers Inc.</span>
+    <span>Confidential</span>
+    <span>5 / 5</span>
+  </div>
+</div>
+
+</body>
+</html>
