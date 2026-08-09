@@ -5,7 +5,8 @@ import { today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
-import type { QnaCategory } from '@/lib/types'
+import { NOTICE_CATEGORIES } from '@/lib/types'
+import type { NoticeCategory, QnaCategory } from '@/lib/types'
 
 /** QnA 질문 등록 — 전 권한그룹이 사용 가능 (사용자의 유일한 쓰기 접점) */
 export async function askQuestion(title: string, body: string, category: QnaCategory) {
@@ -96,13 +97,14 @@ export async function deleteQuestion(postId: string) {
 }
 
 /** 공지 등록 — Admin */
-export async function postNotice(title: string, body: string, pinned: boolean, publishAt?: string) {
+export async function postNotice(title: string, body: string, pinned: boolean, publishAt?: string, category?: NoticeCategory) {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 등록 권한이 없습니다.' }
   if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
   const pub = publishAt?.trim() || undefined
   // 형식만 검증한다. 과거·오늘 날짜는 즉시 발행으로 처리(publishAt 미설정), 미래 날짜만 예약으로 남긴다.
   if (pub && !/^\d{4}-\d{2}-\d{2}$/.test(pub)) return { ok: false, message: '예약 발행일을 선택해 주세요.' }
+  const cat: NoticeCategory = NOTICE_CATEGORIES.includes(category as NoticeCategory) ? (category as NoticeCategory) : '일반'
 
   const s = getStore()
   s.posts.unshift({
@@ -115,6 +117,7 @@ export async function postNotice(title: string, body: string, pinned: boolean, p
     createdAt: today(),
     views: 0,
     pinned,
+    category: cat,
     publishAt: pub && pub > today() ? pub : undefined,
   })
   const scheduled = pub && pub > today()
@@ -139,7 +142,7 @@ export async function deleteNotice(postId: string) {
 }
 
 /** 공지 수정 — Admin. 제목·내용·고정 상태를 갱신한다 (오타·정보 갱신 시 삭제·재등록 없이). */
-export async function editNotice(postId: string, title: string, body: string, pinned: boolean) {
+export async function editNotice(postId: string, title: string, body: string, pinned: boolean, category?: NoticeCategory) {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 수정 권한이 없습니다.' }
   if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
@@ -150,6 +153,7 @@ export async function editNotice(postId: string, title: string, body: string, pi
   post.title = title.trim()
   post.body = body.trim()
   post.pinned = pinned
+  if (NOTICE_CATEGORIES.includes(category as NoticeCategory)) post.category = category as NoticeCategory
 
   appendAudit({ actor: session.name, action: `공지 수정 — ${post.title}`, target: postId })
   revalidatePath('/', 'layout')

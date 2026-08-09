@@ -445,6 +445,10 @@ export interface DisposalPhoto {
 /** 게시판 — 공지 · QnA (제품안내서 §01 Main) */
 export type QnaCategory = '자산 신청·반납' | '장애·수리' | '라이선스' | '보안·Discovery' | '기타'
 
+/** 공지 분류 — 게시판 공지의 유형(QnaCategory 와 별개). 목록 필터·조직화용. */
+export const NOTICE_CATEGORIES = ['정책·규정', '시스템 점검', '교육·안내', '일반'] as const
+export type NoticeCategory = (typeof NOTICE_CATEGORIES)[number]
+
 export interface BoardPost {
   id: string
   kind: '공지' | 'QnA'
@@ -455,7 +459,7 @@ export interface BoardPost {
   createdAt: string
   views: number
   pinned?: boolean
-  category?: QnaCategory
+  category?: QnaCategory | NoticeCategory
   answer?: { body: string; by: string; at: string }
   /** 필독(상단 고정) 공지의 읽음 확인 이력 — 사용자별 확인 여부·일시. 컴플라이언스 커버리지 집계용 */
   acks?: { by: string; at: string }[]

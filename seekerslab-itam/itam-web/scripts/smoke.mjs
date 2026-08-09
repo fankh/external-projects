@@ -323,11 +323,15 @@ try {
   // 공지 목록 필터 — 검색·필독만(전 권한그룹), 예약만(Admin 전용)
   check('공지사항: 목록 검색·필독만 필터 렌더', ntcHtml.includes('제목·내용·작성자 검색') && ntcHtml.includes('필독만'))
   check('공지사항: 예약만 필터는 사용자에게 미노출', !ntcHtml.includes('예약만'))
+  // 공지 분류 — 목록 컬럼·필터(전 권한그룹). 시드 3건이 일반·정책·규정·교육·안내로 분산
+  check('공지사항: 분류 컬럼·필터 렌더', ntcHtml.includes('분류 — 전체') && ntcHtml.includes('정책·규정') && ntcHtml.includes('교육·안내'))
   // 딥링크 — 상세 카드 kicker 'author (dept)' 는 열린 공지에만 렌더된다(목록 행은 이 포맷 미사용). NTC-02 는 유일한 보안운영팀 공지.
   // 기본 진입은 상단 고정(NTC-01)만 열리므로 NTC-02 상세는 없고, ?sel=NTC-02 면 NTC-02 상세가 열린다(알림 로그·대시보드 딥링크 정착지).
   check('공지사항: 기본 진입 시 비고정 공지(NTC-02) 상세 미노출', !ntcHtml.includes('윤보안 (보안운영팀)'))
   const ntcSel = await (await get('/board/notices?sel=NTC-02', 'USER')).text()
   check('공지사항: ?sel=NTC-02 딥링크로 해당 공지 상세 진입', ntcSel.includes('윤보안 (보안운영팀)') && ntcSel.includes('프록시 차단 정책이 시행됩니다'))
+  // 상세 kicker 에 분류 노출 — NTC-02 는 정책·규정
+  check('공지사항: 상세 kicker 에 분류 표기 (NTC-02 정책·규정)', ntcSel.includes('정책·규정 · 2026-07-18'))
   const ntcAdmin = await (await get('/board/notices', 'ADMIN')).text()
   check('공지사항: Admin 관리 컨트롤 노출 (등록·수정·고정 토글·삭제)', ntcAdmin.includes('공지 등록') && ntcAdmin.includes('수정') && ntcAdmin.includes('삭제') && (ntcAdmin.includes('고정 해제') || ntcAdmin.includes('상단 고정')))
   // 필독 미확인자 안내 발송 — 커버리지 미달 필독 공지에 Admin 독촉 버튼 노출 (기본 선택 필독 공지가 0/N 확인 상태)

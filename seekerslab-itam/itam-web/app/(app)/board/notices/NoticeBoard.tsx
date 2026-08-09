@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
-import type { BoardPost } from '@/lib/types'
+import { NOTICE_CATEGORIES, type BoardPost, type NoticeCategory } from '@/lib/types'
 import { acknowledgeNotice, deleteNotice, editNotice, postNotice, remindNoticeUnacked, toggleNoticePin } from '../actions'
 
 export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }: { posts: BoardPost[]; canWrite: boolean; me: string; allUsers: string[]; today: string; initialSel?: string }) {
@@ -14,16 +14,19 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [pinned, setPinned] = useState(false)
+  const [cat, setCat] = useState<NoticeCategory>('일반')
   const [pubAt, setPubAt] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
   const [et, setEt] = useState('')
   const [eb, setEb] = useState('')
   const [ep, setEp] = useState(false)
+  const [ec, setEc] = useState<NoticeCategory>('일반')
   const [msg, setMsg] = useState<string | null>(null)
   // 목록 필터 — 검색·필독만·예약만 (QnA·감사 로그와 동일 패턴). 공지가 쌓이면 필수.
   const [fq, setFq] = useState('')
   const [fpinned, setFpinned] = useState(false)
   const [fscheduled, setFscheduled] = useState(false)
+  const [fcat, setFcat] = useState('전체')
   const [pending, startTransition] = useTransition()
   const open = posts.find((p) => p.id === openId) ?? null
   const rows = useMemo(() => {
@@ -31,10 +34,11 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
     return posts.filter((p) => {
       if (fpinned && !p.pinned) return false
       if (fscheduled && !(p.publishAt && p.publishAt > today)) return false
+      if (fcat !== '전체' && (p.category ?? '일반') !== fcat) return false
       if (needle && ![p.title, p.body, p.author].some((f) => f?.toLowerCase().includes(needle))) return false
       return true
     })
-  }, [posts, fq, fpinned, fscheduled, today])
+  }, [posts, fq, fpinned, fscheduled, fcat, today])
   // 다른 공지로 넘어가면 편집 모드 해제
   const select = (id: string) => { setEditing(null); setOpenId(id === openId ? null : id) }
 
@@ -48,6 +52,9 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
             <textarea className="input" style={{ height: 110, padding: '8px 10px', resize: 'vertical', lineHeight: 1.6 }}
               placeholder="공지 내용" value={body} onChange={(e) => setBody(e.target.value)} />
             <div className="hstack" style={{ flexWrap: 'wrap', gap: 10 }}>
+              <select className="select" value={cat} onChange={(e) => setCat(e.target.value as NoticeCategory)} title="공지 분류">
+                {NOTICE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
               <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
                 <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
                 상단 고정 (필독)
@@ -59,9 +66,9 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
               <span className="right" />
               <button className="btn pri" disabled={pending || !title.trim() || !body.trim()}
                 onClick={() => startTransition(async () => {
-                  const r = await postNotice(title, body, pinned, pubAt || undefined)
+                  const r = await postNotice(title, body, pinned, pubAt || undefined, cat)
                   setMsg(r.message)
-                  if (r.ok) { setTitle(''); setBody(''); setPinned(false); setPubAt(''); setWriting(false) }
+                  if (r.ok) { setTitle(''); setBody(''); setPinned(false); setPubAt(''); setCat('일반'); setWriting(false) }
                 })}>{pubAt && pubAt > today ? '예약 등록' : '등록'}</button>
             </div>
             {msg && <div className="dim" style={{ fontSize: 11.5 }}>{msg}</div>}
@@ -69,6 +76,10 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
         )}
         <div className="qbar" style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
           <input className="input" style={{ width: 200 }} placeholder="제목·내용·작성자 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
+          <select className="select" style={{ maxWidth: 150 }} value={fcat} onChange={(e) => setFcat(e.target.value)}>
+            <option value="전체">분류 — 전체</option>
+            {NOTICE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
           <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
             <input type="checkbox" checked={fpinned} onChange={(e) => setFpinned(e.target.checked)} /> 필독만
           </label>
@@ -81,30 +92,31 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
         </div>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th className="c" style={{ width: 70 }}>구분</th><th>제목</th><th>작성자</th><th>등록일</th><th className="num">조회</th></tr></thead>
+            <thead><tr><th className="c" style={{ width: 70 }}>구분</th><th className="c">분류</th><th>제목</th><th>작성자</th><th>등록일</th><th className="num">조회</th></tr></thead>
             <tbody>
               {rows.map((p) => (
                 <tr key={p.id} className={`clickable ${p.id === openId ? 'sel' : ''}`}
                   onClick={() => select(p.id)}>
                   <td className="c">{p.publishAt && p.publishAt > today ? <Chip tone="info" bare>예약</Chip> : p.pinned ? <Chip tone="err" bare>필독</Chip> : <span className="mut">공지</span>}</td>
+                  <td className="c"><span className="mut" style={{ fontSize: 11 }}>{p.category ?? '일반'}</span></td>
                   <td className="strong">{p.title}{p.publishAt && p.publishAt > today && <span className="mut" style={{ fontSize: 11 }}> · {p.publishAt} 발행 예정</span>}</td>
                   <td>{p.author}<span className="mut"> · {p.dept}</span></td>
                   <td className="tnum">{p.createdAt}</td>
                   <td className="num tnum mute">{p.views}</td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={5}><div className="empty">{posts.length === 0 ? '등록된 공지가 없습니다' : '조건에 맞는 공지가 없습니다'}</div></td></tr>}
+              {rows.length === 0 && <tr><td colSpan={6}><div className="empty">{posts.length === 0 ? '등록된 공지가 없습니다' : '조건에 맞는 공지가 없습니다'}</div></td></tr>}
             </tbody>
           </table>
         </div>
       </Card>
 
       {open && (
-        <Card kicker={`${open.createdAt} · ${open.author} (${open.dept})`} title={editing === open.id ? '공지 수정' : open.title}
+        <Card kicker={`${open.category ?? '일반'} · ${open.createdAt} · ${open.author} (${open.dept})`} title={editing === open.id ? '공지 수정' : open.title}
           actions={canWrite && editing !== open.id ? (
             <div className="hstack" style={{ gap: 6 }}>
               <button className="btn sm" disabled={pending}
-                onClick={() => { setEditing(open.id); setEt(open.title); setEb(open.body); setEp(Boolean(open.pinned)); setMsg(null) }}>수정</button>
+                onClick={() => { setEditing(open.id); setEt(open.title); setEb(open.body); setEp(Boolean(open.pinned)); setEc(NOTICE_CATEGORIES.includes(open.category as NoticeCategory) ? (open.category as NoticeCategory) : '일반'); setMsg(null) }}>수정</button>
               <button className="btn sm" disabled={pending}
                 onClick={() => startTransition(async () => setMsg((await toggleNoticePin(open.id)).message))}>
                 {open.pinned ? '고정 해제' : '상단 고정'}
@@ -123,6 +135,9 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
               <textarea className="input" style={{ height: 140, padding: '8px 10px', resize: 'vertical', lineHeight: 1.6 }}
                 placeholder="공지 내용" value={eb} onChange={(e) => setEb(e.target.value)} />
               <div className="hstack">
+                <select className="select" value={ec} onChange={(e) => setEc(e.target.value as NoticeCategory)} title="공지 분류">
+                  {NOTICE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
                 <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
                   <input type="checkbox" checked={ep} onChange={(e) => setEp(e.target.checked)} />
                   상단 고정 (필독)
@@ -131,7 +146,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
                 <button className="btn" disabled={pending} onClick={() => setEditing(null)}>취소</button>
                 <button className="btn pri" disabled={pending || !et.trim() || !eb.trim()}
                   onClick={() => startTransition(async () => {
-                    const r = await editNotice(open.id, et, eb, ep)
+                    const r = await editNotice(open.id, et, eb, ep, ec)
                     setMsg(r.message)
                     if (r.ok) setEditing(null)
                   })}>저장</button>
