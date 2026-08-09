@@ -10,9 +10,10 @@
 
 ## 소스 (`src/`)
 
-- `bnk_network_diagram.html` — 네트워크 구성도 PDF 원본 (HTML/CSS/SVG)
+- `bnk_network_diagram.html` — 네트워크 구성도 PDF 원본 (현행 16:9 템플릿, HTML/CSS/SVG)
 - `render_pdf.js` — 구성도 HTML → PDF 렌더링 스크립트
-- `render_intro_bnk.js` — 제품소개서 BNK판 생성 스크립트 (kita-ax 원본 HTML 치환 + 렌더링)
+- `kyra_intro_bnk.html` — 제품소개서 26p 원본 (현행 16:9 템플릿)
+- `render_intro_bnk.js` — 제품소개서 렌더링 스크립트 (kita-ax 콘솔 스크린샷 base64 임베드)
 
 ## 재생성 방법
 
