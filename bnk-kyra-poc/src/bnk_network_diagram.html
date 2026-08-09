@@ -2,328 +2,189 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>KYRA AI Guardrail 네트워크 구성도 — BNK금융그룹</title>
+<title>KYRA AI Guardrail — 네트워크 구성 안내서 (BNK금융그룹)</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #14181f; --ink-2: #3d434d; --muted: #7d848f; --faint: #aab0ba;
+    --hairline: #e3e5e9; --rule: #14181f;
+    --accent: #2e8b57; --accent-deep: #1e6b43; --accent-tint: #e9f4ee;
+    --panel: #f6f7f9; --navy: #0c1424;
+    --warn: #a03535;
+  }
+  @page { size: 338.67mm 190.5mm; margin: 0; }
   body {
-    font-family: 'Malgun Gothic', 'Segoe UI', sans-serif;
-    color: #333;
-    background: #fff;
+    font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 10.5pt; line-height: 1.55; color: var(--ink);
+    background: #fff; margin: 0; padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .page {
-    width: 1122px;
-    height: 793px;
+  .slide {
+    width: 338.67mm; height: 190.5mm; overflow: hidden;
+    background: #fff; margin: 0; padding: 0;
     position: relative;
-    overflow: hidden;
-    page-break-after: always;
-    background: #fff;
+    page-break-after: always; break-after: page;
   }
-  .page:last-child { page-break-after: auto; }
-  .topbar {
-    height: 10px;
-    background: linear-gradient(90deg, #1a1a40 0%, #2e8b57 100%);
+  .slide:last-child { page-break-after: auto; }
+  .slide-body { position: absolute; top: 11mm; left: 20mm; right: 20mm; bottom: 12mm; overflow: hidden; }
+  .slide-footer {
+    position: absolute; left: 20mm; right: 20mm; bottom: 6.5mm; padding-top: 5px;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 7pt; color: var(--muted); letter-spacing: 0.08em;
+    border-top: 1px solid var(--hairline);
   }
-  .content { padding: 26px 45px 0 45px; }
-  .section-band {
-    background: #1a1a40;
-    color: #fff;
-    padding: 12px 22px;
-    font-size: 21px;
-    font-weight: 700;
-    border-radius: 3px;
-    margin-bottom: 6px;
-  }
-  .section-band .num { color: #7fc8a2; font-weight: 400; margin-right: 12px; font-size: 17px; }
-  .doc-meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: #888;
-    margin: 7px 2px 10px 2px;
-  }
-  .footer {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 34px;
-    border-top: 1px solid #e0e0e0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 45px;
-    font-size: 11px;
-    color: #999;
-    background: #fff;
-  }
-  .footer .brand { display: flex; align-items: center; gap: 7px; font-weight: 600; color: #555; }
-  .footer .brand img { height: 14px; }
-  h3.block-title {
-    font-size: 15px;
-    color: #1a1a40;
-    font-weight: 700;
-    margin: 10px 0 5px 0;
-  }
-  h3.block-title .sub { font-weight: 400; color: #888; font-size: 12.5px; margin-left: 8px; }
+  .slide-footer .fo-brand { font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.14em; }
+  .slide-footer .fo-page { font-variant-numeric: tabular-nums; }
 
-  /* ============ 표지 ============ */
-  .cover {
-    background: linear-gradient(150deg, #0b0b24 0%, #14143a 40%, #1a1a40 65%, #17503a 100%);
-    color: #fff;
-  }
-  .cover-art { position: absolute; inset: 0; }
-  .cover-logo { position: absolute; top: 44px; left: 52px; height: 34px; }
-  .cover-eyebrow-right {
-    position: absolute; top: 48px; right: 52px;
-    text-align: right;
-    font-size: 11px;
-    letter-spacing: 3.5px;
-    color: rgba(255,255,255,0.55);
-    line-height: 1.9;
-    font-weight: 600;
-  }
-  .cover-label {
-    position: absolute; top: 402px; left: 52px;
-    font-size: 13px;
-    letter-spacing: 4.5px;
-    color: #7fd4a4;
-    font-weight: 700;
-  }
-  .cover-title {
-    position: absolute; top: 432px; left: 50px;
-    font-size: 64px;
-    font-weight: 800;
-    line-height: 1.08;
-    letter-spacing: -1px;
-    color: #fff;
-  }
-  .cover-rule {
-    position: absolute; top: 596px; left: 52px;
-    width: 62px; height: 4px;
-    background: #2e8b57;
-  }
-  .cover-desc {
-    position: absolute; top: 622px; left: 52px;
-    width: 750px;
-    font-size: 17.5px;
-    line-height: 1.65;
-    color: rgba(255,255,255,0.85);
-    word-break: keep-all;
-  }
-  .cover-chips { position: absolute; top: 700px; left: 52px; display: flex; gap: 10px; }
-  .cover-chip {
-    border: 1px solid rgba(255,255,255,0.45);
-    border-radius: 3px;
-    padding: 6px 13px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: rgba(255,255,255,0.9);
-    background: rgba(255,255,255,0.06);
-  }
-  .cover-credit {
-    position: absolute; right: 52px; bottom: 40px;
-    text-align: right;
-    font-size: 11.5px;
-    line-height: 1.8;
-  }
-  .cover-credit .l1 { color: rgba(255,255,255,0.85); font-weight: 700; }
-  .cover-credit .l1 span { color: rgba(255,255,255,0.55); font-weight: 400; }
-  .cover-credit .l2 { color: rgba(255,255,255,0.5); }
+  /* ---------- section header ---------- */
+  .sec { margin-bottom: 14px; }
+  .sec-kicker { font-size: 8pt; font-weight: 700; color: var(--accent); letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 6px; }
+  .sec-title { font-size: 20pt; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); line-height: 1.2; }
+  .sec-title .sub { font-weight: 400; color: var(--muted); }
+  .sec::after { content: ''; display: block; height: 2.5px; background: var(--ink); margin-top: 10px; }
 
-  /* ============ 다이어그램 페이지 ============ */
-  svg text { font-family: 'Malgun Gothic', 'Segoe UI', sans-serif; }
-  .principle {
-    background: #e6f2ec;
-    border-radius: 5px;
-    padding: 9px 16px;
-    margin-top: 6px;
-    font-size: 11.5px;
-    line-height: 1.65;
-    color: #234;
-    word-break: keep-all;
-  }
-  .principle b { color: #1e6b43; }
+  h3 { font-size: 10pt; font-weight: 800; color: var(--ink); margin: 10px 0 6px 0; letter-spacing: 0.01em; }
+  h3 .en { font-weight: 600; color: var(--muted); font-size: 8pt; letter-spacing: 0.12em; text-transform: uppercase; margin-left: 8px; }
+  h3:first-child { margin-top: 0; }
+  p { margin: 5px 0; font-size: 10pt; color: var(--ink-2); }
+  strong { color: var(--ink); font-weight: 700; }
 
-  /* ============ 아키텍처 (소개서 발췌) ============ */
-  .arch-outer {
-    border: 1.5px solid #c9cede;
-    border-radius: 6px;
-    padding: 12px 16px 8px 16px;
-    background: #fbfbfd;
+  /* ---------- tables ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 4px 0 8px 0; font-size: 9.5pt; table-layout: fixed; word-wrap: break-word; }
+  table { border-top: 2px solid var(--rule); }
+  thead th {
+    color: var(--ink); padding: 7px 10px 6px 0; text-align: left;
+    font-weight: 800; font-size: 8.5pt; letter-spacing: 0.04em;
+    border-bottom: 1.5px solid var(--ink);
   }
-  .arch-layer {
-    border: 1.5px solid;
-    border-radius: 4px;
-    padding: 6px 14px;
-    text-align: center;
-  }
-  .arch-layer .t { font-size: 13.5px; font-weight: 800; letter-spacing: 0.5px; }
-  .arch-chips { display: flex; justify-content: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
-  .chip {
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    padding: 3px 10px;
-    font-size: 11px;
-    color: #444;
-  }
-  .al-navy { border-color: #1a1a40; background: #ededf4; }
-  .al-navy .t { color: #1a1a40; }
-  .al-green { border-color: #2e8b57; background: #e6f2ec; }
-  .al-green .t { color: #1e6b43; }
-  .arch-down { text-align: center; color: #1a1a40; font-size: 11px; line-height: 1; padding: 1px 0; }
-  .arch-caption { text-align: center; font-size: 10.5px; color: #888; margin-top: 6px; }
-
-  .lifecycle { display: flex; align-items: center; gap: 5px; margin-top: 10px; justify-content: center; }
-  .lc-chip {
-    border: 1.5px solid #b9bfd0;
-    background: #fff;
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #1a1a40;
-    white-space: nowrap;
-  }
-  .lc-chip.red { border-color: #a03535; color: #a03535; }
-  .lc-chip.green { border-color: #2e8b57; color: #1e6b43; }
-  .lc-arrow { color: #888; font-size: 12px; }
-  .lc-caption { text-align: center; font-size: 10.5px; color: #888; margin-top: 7px; }
-
-  .kpi-row { display: flex; gap: 14px; margin-top: 10px; }
-  .kpi-card {
-    flex: 1;
-    text-align: center;
-    background: #f7f8fa;
-    border: 1.5px solid #dde1ea;
-    border-bottom: 3px solid #2e8b57;
-    border-radius: 5px;
-    padding: 8px 6px 6px 6px;
-  }
-  .kpi-value { font-size: 22px; font-weight: 800; color: #1a1a40; }
-  .kpi-label { font-size: 10.5px; color: #777; font-weight: 600; margin-top: 2px; letter-spacing: 0.5px; }
-
-  /* ============ 표 ============ */
-  table { border-collapse: collapse; width: 100%; margin-top: 6px; }
-  th {
-    background: #1a1a40; color: #fff;
-    padding: 5px 10px; font-size: 11.5px; text-align: left; font-weight: 600;
-  }
-  td {
-    padding: 4px 10px; border: 1px solid #ddd;
-    font-size: 11px; line-height: 1.45; color: #444; vertical-align: top;
-  }
-  tr:nth-child(even) td { background: #f9fafb; }
-  td.k { font-weight: 700; color: #1a1a40; width: 150px; background: #f3f4f8 !important; }
+  tbody td { padding: 6px 10px 6px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; color: var(--ink-2); line-height: 1.5; }
+  tbody td:first-child, thead th:first-child { padding-left: 2px; }
+  td.k { color: var(--ink); font-weight: 700; }
   td.bad { color: #8a3030; }
-  td.good { color: #1e6b43; font-weight: 700; background: #f4faf7 !important; }
-  th.inline-h { background: #5a6379; }
-  th.kyra-h { background: #2e8b57; }
-  .note {
-    background: #f3f4f8;
-    border-radius: 5px;
-    padding: 8px 14px;
-    margin-top: 8px;
-    font-size: 10.5px;
-    line-height: 1.6;
-    color: #555;
+  td.good { color: var(--accent-deep); font-weight: 700; }
+  th.h-inline { color: var(--muted); }
+  th.h-kyra { color: var(--accent-deep); }
+  table.dense { font-size: 8.8pt; }
+  table.dense thead th { padding: 5px 8px 4px 0; font-size: 8pt; }
+  table.dense tbody td { padding: 3.5px 8px 3.5px 0; }
+
+  /* ---------- tight variant (dense slides) ---------- */
+  .tight .sec { margin-bottom: 8px; }
+  .tight .sec::after { margin-top: 8px; }
+  .tight h3 { margin: 7px 0 4px 0; }
+  .tight table { margin: 2px 0 5px 0; }
+  .tight table.dense tbody td { padding: 2.5px 8px 2.5px 0; }
+  .tight .callout { padding: 7px 16px; font-size: 9pt; margin-top: 6px; }
+
+  /* ---------- callout ---------- */
+  .callout { background: var(--accent-tint); padding: 9px 18px; margin: 8px 0 0 0; font-size: 9.5pt; color: var(--ink-2); line-height: 1.6; word-break: keep-all; }
+  .callout strong { color: var(--accent-deep); }
+  .callout.neutral { background: var(--panel); }
+
+  /* ---------- figure ---------- */
+  .figure { margin: 4px 0 0; text-align: center; }
+  .figure svg { display: inline-block; }
+  .figure svg text { font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', 'Segoe UI', sans-serif; }
+
+  /* ---------- architecture layers ---------- */
+  .archx { margin-top: 4px; }
+  .archx-layer { padding: 7px 14px 8px; text-align: center; }
+  .archx-layer.p { background: var(--panel); }
+  .archx-layer.t { background: var(--accent-tint); }
+  .archx-layer .al-t { font-size: 10.5pt; font-weight: 800; letter-spacing: 0.05em; color: var(--ink); }
+  .archx-layer.t .al-t { color: var(--accent-deep); }
+  .archx-chips { margin-top: 3px; }
+  .archx-down { text-align: center; font-size: 7.5pt; color: var(--faint); line-height: 1.5; }
+  .chip { display: inline-block; background: #fff; border: 1px solid #cfd3d9; color: var(--ink-2); padding: 1px 10px; font-size: 8pt; font-weight: 600; margin: 1px 3px; }
+
+  /* ---------- process steps ---------- */
+  .steps { display: flex; align-items: stretch; gap: 8px; margin: 8px 0 0; }
+  .step { flex: 1; min-width: 0; background: var(--panel); padding: 8px 10px 7px; position: relative; text-align: center; }
+  .step .st-title { font-weight: 800; color: var(--ink); font-size: 9pt; letter-spacing: -0.01em; }
+  .step .st-desc { font-size: 7pt; color: var(--muted); line-height: 1.4; margin-top: 1px; }
+  .step.hl { background: var(--navy); }
+  .step.hl .st-title { color: #fff; }
+  .step.hl .st-desc { color: rgba(255,255,255,0.65); }
+  .step.ac { background: var(--accent-tint); }
+  .step.ac .st-title { color: var(--accent-deep); }
+  .step:not(:last-child)::after {
+    content: '\2192'; position: absolute; right: -9.5px; top: 50%; transform: translateY(-52%);
+    color: var(--faint); font-size: 9.5pt; z-index: 2; font-weight: 400;
   }
+  .fig-note { font-size: 7.5pt; color: var(--muted); margin-top: 6px; letter-spacing: 0.02em; text-align: center; }
+
+  /* ---------- KPI stats ---------- */
+  .stat-row { display: flex; gap: 26px; margin: 14px 0 0; }
+  .stat { flex: 1; border-top: 2.5px solid var(--accent); padding-top: 8px; }
+  .stat .st-v { font-size: 22pt; font-weight: 800; color: var(--ink); line-height: 1.05; letter-spacing: -0.02em; }
+  .stat .st-l { font-size: 8pt; color: var(--muted); margin-top: 4px; font-weight: 600; letter-spacing: 0.03em; }
+
+  /* ---------- cover ---------- */
+  .cover {
+    width: 338.67mm; height: 190.5mm; background: var(--navy); color: #fff;
+    padding: 16mm 20mm 14mm; position: relative;
+    page-break-after: always; break-after: page;
+    margin: 0; display: flex; flex-direction: column;
+  }
+  .cover-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .cover-brand { font-size: 11pt; font-weight: 800; letter-spacing: 0.28em; }
+  .cover-brand .dom { display: block; font-size: 6.5pt; font-weight: 400; letter-spacing: 0.22em; opacity: 0.45; margin-top: 3px; }
+  .cover-cls { font-size: 7pt; font-weight: 700; letter-spacing: 0.26em; text-transform: uppercase; color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.28); padding: 5px 14px; }
+  .cover-mid { margin-top: auto; margin-bottom: auto; padding-bottom: 10mm; }
+  .cover-doc-type { font-size: 8.5pt; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; color: #7fd4a4; margin-bottom: 16px; }
+  .cover h1 { font-size: 34pt; font-weight: 800; letter-spacing: -0.02em; line-height: 1.22; margin-bottom: 16px; }
+  .cover .cover-sub { font-size: 12pt; font-weight: 300; color: rgba(255,255,255,0.72); line-height: 1.7; max-width: 175mm; word-break: keep-all; }
+  .cover-rule { width: 44px; height: 3px; background: var(--accent); margin: 22px 0 20px; }
+  .cover-scope { display: flex; gap: 10px; flex-wrap: wrap; }
+  .cover-scope span { font-size: 8.5pt; font-weight: 600; color: rgba(255,255,255,0.82); border: 1px solid rgba(255,255,255,0.22); padding: 5px 14px; letter-spacing: 0.02em; }
+  .cover-bottom { border-top: 1px solid rgba(255,255,255,0.16); padding-top: 14px; display: flex; gap: 0; }
+  .cover-meta { flex: 1; }
+  .cover-meta .cm-l { font-size: 6.5pt; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+  .cover-meta .cm-v { font-size: 9.5pt; font-weight: 600; color: rgba(255,255,255,0.88); }
 </style>
 </head>
 <body>
 
-<!-- ================= PAGE 1 : 표지 ================= -->
-<div class="page cover">
-  <svg class="cover-art" viewBox="0 0 1122 793" fill="none">
-    <!-- 배경 회로 라인 아트 -->
-    <g stroke="rgba(126,200,164,0.20)" stroke-width="1.5">
-      <polyline points="0,150 180,150 220,190 350,190"/>
-      <polyline points="0,240 120,240 160,280 300,280"/>
-      <polyline points="60,793 60,660 110,610 110,520"/>
-      <polyline points="200,793 200,700 260,640 260,560"/>
-      <polyline points="1122,300 1000,300 960,340 900,340"/>
-      <polyline points="1122,520 1020,520 980,480 920,480"/>
-      <polyline points="820,793 820,720 870,670 870,600"/>
-      <polyline points="980,793 980,700 1030,650"/>
-      <polyline points="350,60 470,60 510,100"/>
-      <polyline points="700,40 780,40 820,80 900,80"/>
-    </g>
-    <g fill="rgba(126,200,164,0.30)">
-      <circle cx="350" cy="190" r="3.5"/><circle cx="300" cy="280" r="3.5"/>
-      <circle cx="110" cy="520" r="3.5"/><circle cx="260" cy="560" r="3.5"/>
-      <circle cx="900" cy="340" r="3.5"/><circle cx="920" cy="480" r="3.5"/>
-      <circle cx="870" cy="600" r="3.5"/><circle cx="1030" cy="650" r="3.5"/>
-      <circle cx="510" cy="100" r="3.5"/><circle cx="900" cy="80" r="3.5"/>
-    </g>
-    <!-- 기하 파셋 -->
-    <g fill="rgba(255,255,255,0.025)">
-      <polygon points="560,40 760,140 560,240 360,140"/>
-      <polygon points="760,140 960,240 760,340 560,240"/>
-      <polygon points="360,140 560,240 360,340 160,240"/>
-      <polygon points="560,240 760,340 560,440 360,340"/>
-    </g>
-    <!-- 중앙 실드 + 회로 코어 -->
-    <g transform="translate(620,90)">
-      <path d="M0 0 L175 62 V212 C175 330 100 405 0 448 C-100 405 -175 330 -175 212 V62 Z"
-            stroke="rgba(126,200,164,0.35)" stroke-width="2" fill="rgba(126,200,164,0.04)"/>
-      <circle cx="0" cy="220" r="92" stroke="rgba(126,200,164,0.22)" stroke-width="1.5"/>
-      <circle cx="0" cy="220" r="60" stroke="rgba(126,200,164,0.30)" stroke-width="1.5"/>
-      <circle cx="0" cy="220" r="28" stroke="rgba(126,200,164,0.40)" stroke-width="2" fill="rgba(126,200,164,0.07)"/>
-      <g stroke="rgba(126,200,164,0.30)" stroke-width="1.5">
-        <line x1="0" y1="128" x2="0" y2="96"/>
-        <line x1="0" y1="312" x2="0" y2="344"/>
-        <line x1="-92" y1="220" x2="-124" y2="220"/>
-        <line x1="92" y1="220" x2="124" y2="220"/>
-        <line x1="-65" y1="155" x2="-88" y2="132"/>
-        <line x1="65" y1="155" x2="88" y2="132"/>
-        <line x1="-65" y1="285" x2="-88" y2="308"/>
-        <line x1="65" y1="285" x2="88" y2="308"/>
-      </g>
-      <g stroke="rgba(126,200,164,0.35)" stroke-width="1.5" fill="rgba(20,30,50,0.3)">
-        <rect x="-10" y="86" width="20" height="14" rx="2"/>
-        <rect x="-10" y="340" width="20" height="14" rx="2"/>
-        <rect x="-138" y="213" width="20" height="14" rx="2"/>
-        <rect x="118" y="213" width="20" height="14" rx="2"/>
-      </g>
-    </g>
-    <!-- 우상단 아크 + 체크 실드 -->
-    <circle cx="1075" cy="70" r="150" stroke="rgba(126,200,164,0.20)" stroke-width="1.5"/>
-    <circle cx="1075" cy="70" r="190" stroke="rgba(126,200,164,0.12)" stroke-width="1.5"/>
-    <g transform="translate(1010,140)">
-      <path d="M0 0 L34 12 V40 C34 62 20 76 0 84 C-20 76 -34 62 -34 40 V12 Z"
-            stroke="rgba(126,200,164,0.45)" stroke-width="2" fill="rgba(126,200,164,0.06)"/>
-      <polyline points="-13,40 -3,50 15,28" stroke="rgba(126,212,164,0.75)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-  </svg>
-
-  <img class="cover-logo" src="logo_white.png" alt="Seekers">
-  <div class="cover-eyebrow-right">NETWORK ARCHITECTURE<br>BNK FINANCIAL GROUP · 2026</div>
-
-  <div class="cover-label">ENTERPRISE AI SECURITY &amp; GOVERNANCE</div>
-  <div class="cover-title">KYRA<br>AI Guardrail</div>
-  <div class="cover-rule"></div>
-  <div class="cover-desc">
-    금융권 망분리 환경에서 외부 LLM으로 향하는 모든 AI 트래픽을 단일 지점에서
-    검사·마스킹·기록합니다. 기존 망 구성 변경 없이 아웃바운드 HTTPS 정책 하나로 도입됩니다.
+<!-- ====== 1 · COVER ====== -->
+<div class="cover">
+  <div class="cover-top">
+    <div class="cover-brand">SEEKERSLAB<span class="dom">SEEKERSLAB.COM</span></div>
+    <div class="cover-cls">Confidential</div>
   </div>
-  <div class="cover-chips">
-    <span class="cover-chip">망분리 구성</span>
-    <span class="cover-chip">아웃바운드 전용</span>
-    <span class="cover-chip">WHITE-LIST 통제</span>
-    <span class="cover-chip">DLP 마스킹</span>
+  <div class="cover-mid">
+    <div class="cover-doc-type">Network Architecture Guide</div>
+    <h1>KYRA AI Guardrail 네트워크 구성</h1>
+    <p class="cover-sub">금융권 망분리 환경에서 외부 LLM으로 향하는 모든 AI 트래픽을 단일 지점에서 검사·마스킹·기록합니다.
+    기존 망 구성 변경 없이 아웃바운드 HTTPS 정책 하나로 도입되는 BNK금융그룹 대상 네트워크 구성 안내서.</p>
+    <div class="cover-rule"></div>
+    <div class="cover-scope">
+      <span>망분리 구성</span>
+      <span>아웃바운드 전용</span>
+      <span>White-list 통제</span>
+      <span>DLP 마스킹</span>
+      <span>PoC 구성</span>
+    </div>
   </div>
-  <div class="cover-credit">
-    <div class="l1">Seekers Inc. <span>· seekerslab.com</span></div>
-    <div class="l2">KYRA AI Guardrail 네트워크 구성도 v1.1 · 2026.08</div>
+  <div class="cover-bottom">
+    <div class="cover-meta"><div class="cm-l">Version</div><div class="cm-v">1.2</div></div>
+    <div class="cover-meta"><div class="cm-l">Document Type</div><div class="cm-v">Network Architecture</div></div>
+    <div class="cover-meta"><div class="cm-l">Platform</div><div class="cm-v">On-Premises Appliance</div></div>
+    <div class="cover-meta"><div class="cm-l">Classification</div><div class="cm-v">Confidential</div></div>
+    <div class="cover-meta"><div class="cm-l">Date</div><div class="cm-v">2026. 08</div></div>
   </div>
 </div>
 
-<!-- ================= PAGE 2 : 네트워크 구성도 ================= -->
-<div class="page">
-  <div class="topbar"></div>
-  <div class="content">
-    <div class="section-band"><span class="num">01</span>네트워크 구성도 — 망분리 환경 (내부 업무망 · 인터넷망 분리)</div>
+<!-- ====== 2 · 네트워크 구성도 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">01 · Network Architecture</div>
+    <div class="sec-title">망분리 네트워크 구성 <span class="sub">— 내부 업무망 · 인터넷망 분리</span></div>
+  </div>
 
-    <svg viewBox="0 0 1032 580" width="1032" height="580" style="margin-top:6px;">
+  <div class="figure">
+    <svg viewBox="0 0 1032 580" width="830" height="467">
       <defs>
         <marker id="arrR" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
           <path d="M0,0 L8,4.5 L0,9 Z" fill="#c0392b"/>
@@ -391,7 +252,6 @@
       </defs>
 
       <!-- ===== 연결선 ===== -->
-      <!-- 사용자 → 백본 (녹색 실선) -->
       <g stroke="#2e8b57" stroke-width="2" fill="none">
         <line x1="240" y1="101" x2="272" y2="101"/>
         <line x1="240" y1="175" x2="272" y2="175"/>
@@ -402,16 +262,12 @@
         <line x1="428" y1="204" x2="486" y2="204"/>
         <polyline points="428,284 444,284 444,232 486,232"/>
       </g>
-      <!-- 스위치 이중화 링 (네이비) -->
       <g stroke="#1a1a40" stroke-width="2">
         <line x1="340" y1="228" x2="340" y2="260"/>
         <line x1="388" y1="228" x2="388" y2="260"/>
       </g>
-      <!-- SSO·LDAP (청색 점선) -->
       <polyline points="240,359 456,359 456,166 486,166" stroke="#1f4e79" stroke-width="1.8" stroke-dasharray="2,3.5" fill="none"/>
-      <!-- Syslog (회색 파선, KYRA→SIEM) -->
       <polyline points="486,133 468,133 468,433 246,433" stroke="#888" stroke-width="1.8" stroke-dasharray="7,4" fill="none" marker-end="url(#arrG)"/>
-      <!-- 아웃바운드 (적색 실선) -->
       <g stroke="#c0392b" stroke-width="2.2" fill="none">
         <line x1="650" y1="278" x2="650" y2="296"/>
         <line x1="650" y1="326" x2="650" y2="372" marker-end="url(#arrR)"/>
@@ -452,7 +308,7 @@
         <text x="140" y="447" text-anchor="middle" font-size="9.5" fill="#666">감사로그 Syslog 실시간 수신</text>
       </g>
 
-      <!-- ===== 백본 스위치 · 내부 방화벽 ===== -->
+      <!-- ===== 백본 스위치 ===== -->
       <rect x="300" y="180" width="128" height="48" rx="5" fill="#eceef7" stroke="#1a1a40" stroke-width="1.4"/>
       <use href="#ic-switch" x="306" y="194" width="19" height="19" color="#1a1a40"/>
       <text x="374" y="200" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1a1a40">백본 스위치 #1</text>
@@ -543,107 +399,99 @@
       <text x="895" y="492" text-anchor="middle" font-size="9.5" fill="#666">OpenAI · Azure OpenAI · Anthropic</text>
       <text x="895" y="508" text-anchor="middle" font-size="9.5" fill="#666">승인 도메인 White-list 허용</text>
     </svg>
+  </div>
 
-    <div class="principle">
-      <b>구성 원칙</b> — 외부 LLM으로 향하는 유일한 경로는 KYRA를 경유하는 아웃바운드 HTTPS(443) 단방향 세션이며, 목적지는 승인된 LLM API 도메인으로 White-list 제한됩니다.
-      대화 원문·감사로그·벡터DB는 전량 내부망에 보관되고, 기존 네트워크 인라인 장비와 달리 트래픽 경로 변경이나 SSL 복호화 구간 추가 없이 도입할 수 있습니다.
-    </div>
+  <div class="callout">
+    <strong>구성 원칙</strong> — 외부 LLM으로 향하는 유일한 경로는 KYRA를 경유하는 아웃바운드 HTTPS(443) 단방향 세션이며, 목적지는 White-list로 제한됩니다.
+    대화 원문·감사로그는 전량 내부망에 보관되고, 트래픽 경로 변경이나 SSL 복호화 구간 추가 없이 도입됩니다.
   </div>
-  <div class="footer">
-    <span class="brand"><img src="logo_colored.png" alt="Seekers"> KYRA AI Guardrail</span>
-    <span>Seekers Inc.</span>
-    <span>Confidential</span>
-    <span>2 / 5</span>
-  </div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — KYRA AI Guardrail</span><span class="fo-page">02</span></div>
 </div>
 
-<!-- ================= PAGE 3 : 시스템 아키텍처 ================= -->
-<div class="page">
-  <div class="topbar"></div>
-  <div class="content">
-    <div class="section-band"><span class="num">02</span>KYRA 시스템 아키텍처</div>
-    <div class="doc-meta">
-      <span>5-Layer System Architecture · Request Lifecycle</span>
-      <span>2026. 08. &nbsp;|&nbsp; (주)씨커스</span>
-    </div>
+<!-- ====== 3 · 시스템 아키텍처 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">02 · System Architecture</div>
+    <div class="sec-title">시스템 아키텍처 <span class="sub">— 5-Layer 구조와 요청 처리 흐름</span></div>
+  </div>
 
-    <div class="arch-outer">
-      <div class="arch-layer al-navy">
-        <div class="t">API GATEWAY LAYER</div>
-        <div class="arch-chips"><span class="chip">REST API</span><span class="chip">WebSocket</span><span class="chip">SSE Streaming</span><span class="chip">Rate Limiting</span></div>
-      </div>
-      <div class="arch-down">▼</div>
-      <div class="arch-layer al-green">
-        <div class="t">AUTH &amp; SECURITY LAYER</div>
-        <div class="arch-chips"><span class="chip">JWT/OAuth 2.0</span><span class="chip">RBAC+ABAC</span><span class="chip">SSO (SAML/OIDC)</span><span class="chip">MFA</span></div>
-      </div>
-      <div class="arch-down">▼</div>
-      <div class="arch-layer al-navy">
-        <div class="t">AI SECURITY ENGINE</div>
-        <div class="arch-chips"><span class="chip">Prompt Injection Defense</span><span class="chip">DLP Scanner</span><span class="chip">UBA Engine</span><span class="chip">Risk Scoring</span></div>
-      </div>
-      <div class="arch-down">▼</div>
-      <div class="arch-layer al-green">
-        <div class="t">CHAT &amp; RAG LAYER</div>
-        <div class="arch-chips"><span class="chip">Multi-Persona Chat</span><span class="chip">RAG Pipeline</span><span class="chip">Hybrid Search</span><span class="chip">Reranking</span></div>
-      </div>
-      <div class="arch-down">▼</div>
-      <div class="arch-layer al-navy">
-        <div class="t">COMPLIANCE &amp; OBSERVABILITY</div>
-        <div class="arch-chips"><span class="chip">Audit Trail</span><span class="chip">SOC 2 Checks</span><span class="chip">GDPR DSR</span><span class="chip">Prometheus/Grafana</span></div>
-      </div>
-      <div class="arch-caption">그림 1. KYRA AI Guardrail 5-Layer System Architecture</div>
+  <div class="archx">
+    <div class="archx-layer p">
+      <span class="al-t">API GATEWAY LAYER</span>
+      <span class="archx-chips"><span class="chip">REST API</span><span class="chip">WebSocket</span><span class="chip">SSE Streaming</span><span class="chip">Rate Limiting</span></span>
     </div>
-
-    <h3 class="block-title">Request Lifecycle <span class="sub">모든 요청·응답이 보안 검사와 품질 검증을 거쳐 처리됩니다</span></h3>
-    <div class="lifecycle">
-      <span class="lc-chip">User</span><span class="lc-arrow">→</span>
-      <span class="lc-chip">Gateway</span><span class="lc-arrow">→</span>
-      <span class="lc-chip">Auth</span><span class="lc-arrow">→</span>
-      <span class="lc-chip red">Security Check</span><span class="lc-arrow">→</span>
-      <span class="lc-chip">LLM</span><span class="lc-arrow">→</span>
-      <span class="lc-chip green">Quality Check</span><span class="lc-arrow">→</span>
-      <span class="lc-chip red">DLP Scan</span><span class="lc-arrow">→</span>
-      <span class="lc-chip">Response</span>
+    <div class="archx-down">▼</div>
+    <div class="archx-layer t">
+      <span class="al-t">AUTH &amp; SECURITY LAYER</span>
+      <span class="archx-chips"><span class="chip">JWT/OAuth 2.0</span><span class="chip">RBAC+ABAC</span><span class="chip">SSO (SAML/OIDC)</span><span class="chip">MFA</span></span>
     </div>
-    <div class="lc-caption">User → Gateway → Auth → Security Check (Prompt Injection/UBA) → LLM → Quality Check (Hallucination/Sentiment) → DLP Scan → Response</div>
-
-    <div class="kpi-row">
-      <div class="kpi-card"><div class="kpi-value">&gt; 99.5%</div><div class="kpi-label">INJECTION BLOCK RATE</div></div>
-      <div class="kpi-card"><div class="kpi-value">&lt; 0.1%</div><div class="kpi-label">FALSE POSITIVE RATE</div></div>
-      <div class="kpi-card"><div class="kpi-value">&lt; 200ms</div><div class="kpi-label">PROCESSING LATENCY</div></div>
-      <div class="kpi-card"><div class="kpi-value">100%</div><div class="kpi-label">AUDIT COVERAGE</div></div>
+    <div class="archx-down">▼</div>
+    <div class="archx-layer p">
+      <span class="al-t">AI SECURITY ENGINE</span>
+      <span class="archx-chips"><span class="chip">Prompt Injection Defense</span><span class="chip">DLP Scanner</span><span class="chip">UBA Engine</span><span class="chip">Risk Scoring</span></span>
+    </div>
+    <div class="archx-down">▼</div>
+    <div class="archx-layer t">
+      <span class="al-t">CHAT &amp; RAG LAYER</span>
+      <span class="archx-chips"><span class="chip">Multi-Persona Chat</span><span class="chip">RAG Pipeline</span><span class="chip">Hybrid Search</span><span class="chip">Reranking</span></span>
+    </div>
+    <div class="archx-down">▼</div>
+    <div class="archx-layer p">
+      <span class="al-t">COMPLIANCE &amp; OBSERVABILITY</span>
+      <span class="archx-chips"><span class="chip">Audit Trail</span><span class="chip">SOC 2 Checks</span><span class="chip">GDPR DSR</span><span class="chip">Prometheus/Grafana</span></span>
     </div>
   </div>
-  <div class="footer">
-    <span class="brand"><img src="logo_colored.png" alt="Seekers"> KYRA AI Guardrail</span>
-    <span>Seekers Inc.</span>
-    <span>Confidential</span>
-    <span>3 / 5</span>
+
+  <h3>Request Lifecycle <span class="en">모든 요청·응답이 보안 검사와 품질 검증을 거쳐 처리됩니다</span></h3>
+  <div class="steps">
+    <div class="step"><div class="st-title">User</div><div class="st-desc">챗봇 화면 질의</div></div>
+    <div class="step"><div class="st-title">Gateway</div><div class="st-desc">API 수신</div></div>
+    <div class="step"><div class="st-title">Auth</div><div class="st-desc">SSO · 권한 평가</div></div>
+    <div class="step hl"><div class="st-title">Security Check</div><div class="st-desc">인젝션 · UBA</div></div>
+    <div class="step"><div class="st-title">LLM</div><div class="st-desc">외부 API 호출</div></div>
+    <div class="step ac"><div class="st-title">Quality Check</div><div class="st-desc">환각 · 감성 검증</div></div>
+    <div class="step hl"><div class="st-title">DLP Scan</div><div class="st-desc">응답 재검사</div></div>
+    <div class="step"><div class="st-title">Response</div><div class="st-desc">사용자 전달</div></div>
   </div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="st-v">&gt; 99.5%</div><div class="st-l">INJECTION BLOCK RATE</div></div>
+    <div class="stat"><div class="st-v">&lt; 0.1%</div><div class="st-l">FALSE POSITIVE RATE</div></div>
+    <div class="stat"><div class="st-v">&lt; 200ms</div><div class="st-l">PROCESSING LATENCY</div></div>
+    <div class="stat"><div class="st-v">100%</div><div class="st-l">AUDIT COVERAGE</div></div>
+  </div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — KYRA AI Guardrail</span><span class="fo-page">03</span></div>
 </div>
 
-<!-- ================= PAGE 4 : 도입 방식 비교 ================= -->
-<div class="page">
-  <div class="topbar"></div>
-  <div class="content">
-    <div class="section-band"><span class="num">03</span>도입 방식 비교 — 네트워크 인라인 vs API 게이트웨이</div>
-    <div class="doc-meta">
-      <span>비교 검토 제품군 대비 통제 방식 차이</span>
-      <span>2026. 08. &nbsp;|&nbsp; (주)씨커스</span>
-    </div>
+<!-- ====== 4 · 도입 방식 비교 ====== -->
+<div class="slide">
+ <div class="slide-body">
+  <div class="sec">
+    <div class="sec-kicker">03 · Solution Comparison</div>
+    <div class="sec-title">도입 방식 비교 <span class="sub">— 네트워크 인라인 vs API 게이트웨이</span></div>
+  </div>
 
-    <h3 class="block-title">비교 검토 제품군 분류 <span class="sub">세 제품 모두 네트워크 구간에서 트래픽을 가로채는 인라인 계열입니다</span></h3>
-    <table>
-      <tr><th style="width:150px;">제조사</th><th style="width:220px;">대표 제품군</th><th>통제 방식</th></tr>
-      <tr><td>수산아이앤티</td><td>eWalker SWG 계열</td><td>웹 프록시 · SSL 복호화 기반 인라인 통제</td></tr>
-      <tr><td>소만사</td><td>WebKeeper · Mail-i 계열</td><td>네트워크 DLP · 패킷 검사 (인라인/미러링)</td></tr>
-      <tr><td>윈스테크넷</td><td>SNIPER 계열</td><td>IPS · 네트워크 트래픽 분석 (인라인)</td></tr>
-    </table>
+  <h3>비교 검토 제품군 분류 <span class="en">세 제품 모두 네트워크 구간에서 트래픽을 가로채는 인라인 계열</span></h3>
+  <table class="dense">
+    <thead><tr><th style="width:16%;">제조사</th><th style="width:26%;">대표 제품군</th><th>통제 방식</th></tr></thead>
+    <tbody>
+      <tr><td class="k">수산아이앤티</td><td>eWalker SWG 계열</td><td>웹 프록시 · SSL 복호화 기반 인라인 통제</td></tr>
+      <tr><td class="k">소만사</td><td>WebKeeper · Mail-i 계열</td><td>네트워크 DLP · 패킷 검사 (인라인/미러링)</td></tr>
+      <tr><td class="k">윈스테크넷</td><td>SNIPER 계열</td><td>IPS · 네트워크 트래픽 분석 (인라인)</td></tr>
+    </tbody>
+  </table>
 
-    <h3 class="block-title">통제 방식 비교</h3>
-    <table>
-      <tr><th style="width:140px;">항목</th><th class="inline-h">네트워크 인라인 방식 (프록시 · 패킷 기반)</th><th class="kyra-h">KYRA AI Guardrail (API · 챗봇 기반)</th></tr>
+  <h3>통제 방식 비교</h3>
+  <table class="dense">
+    <thead><tr>
+      <th style="width:13%;">항목</th>
+      <th class="h-inline">네트워크 인라인 방식 (프록시 · 패킷 기반)</th>
+      <th class="h-kyra">KYRA AI Guardrail (API · 챗봇 기반)</th>
+    </tr></thead>
+    <tbody>
       <tr><td class="k">통제 지점</td><td class="bad">네트워크 구간에서 패킷을 가로채어 분석</td><td class="good">애플리케이션 계층 — 전용 챗봇 화면 · API</td></tr>
       <tr><td class="k">SSL 복호화</td><td class="bad">필수 — 전 단말 인증서 배포, 성능 저하</td><td class="good">불필요 — 복호화 구간 없음</td></tr>
       <tr><td class="k">대화 문맥 인식</td><td class="bad">불가 — 패턴 · 키워드 매칭 수준</td><td class="good">프롬프트 문맥 분석 (Pattern + ML + Behavioral)</td></tr>
@@ -653,73 +501,67 @@
       <tr><td class="k">장애 영향</td><td class="bad">인라인 장비 장애 시 인터넷 구간 전체 영향</td><td class="good">기존 망과 독립 — 장애 시 기존 망 영향 없음</td></tr>
       <tr><td class="k">감사로그</td><td class="bad">패킷 · URL 수준 기록</td><td class="good">프롬프트 · 응답 단위 100% 감사 (SHA-256 체인)</td></tr>
       <tr><td class="k">망 구성 영향</td><td class="bad">트래픽 경로 변경 · 인라인 구간 삽입 필요</td><td class="good">아웃바운드 HTTPS 정책 1건 추가로 완료</td></tr>
-    </table>
+    </tbody>
+  </table>
 
-    <div class="principle">
-      <b>AI API 통제의 구조적 차이</b> — LLM API 트래픽은 암호화된 JSON·SSE 스트리밍 형태여서, 패킷 기반 인라인 장비는 내용을 문맥 단위로 해석하지 못하고
-      도메인 수준의 허용/차단 정책에 머무르게 됩니다. KYRA는 애플리케이션 계층에서 프롬프트 자체를 이해하고 통제하므로, 차단이 아닌 마스킹 후 활용이 가능하며
-      임직원의 생성형 AI 업무 활용과 정보 보호를 동시에 달성합니다.
-    </div>
+  <div class="callout">
+    <strong>AI API 통제의 구조적 차이</strong> — LLM API 트래픽은 암호화된 JSON·SSE 스트리밍 형태여서, 패킷 기반 인라인 장비는 내용을 문맥 단위로 해석하지 못하고
+    도메인 수준의 허용/차단 정책에 머무르게 됩니다. KYRA는 애플리케이션 계층에서 프롬프트 자체를 이해하고 통제하므로, 차단이 아닌 마스킹 후 활용이 가능하며
+    임직원의 생성형 AI 업무 활용과 정보 보호를 동시에 달성합니다.
   </div>
-  <div class="footer">
-    <span class="brand"><img src="logo_colored.png" alt="Seekers"> KYRA AI Guardrail</span>
-    <span>Seekers Inc.</span>
-    <span>Confidential</span>
-    <span>4 / 5</span>
-  </div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — KYRA AI Guardrail</span><span class="fo-page">04</span></div>
 </div>
 
-<!-- ================= PAGE 5 : PoC 구성안 ================= -->
-<div class="page">
-  <div class="topbar"></div>
-  <div class="content">
-    <div class="section-band"><span class="num">04</span>PoC 구성 및 사전 준비사항</div>
-    <div class="doc-meta">
-      <span>BNK금융그룹 PoC — 외부망 LLM · 200~300 사용자 · 1개월 기준</span>
-      <span>2026. 08. &nbsp;|&nbsp; (주)씨커스</span>
-    </div>
+<!-- ====== 5 · PoC 구성 ====== -->
+<div class="slide">
+ <div class="slide-body tight">
+  <div class="sec">
+    <div class="sec-kicker">04 · PoC Plan</div>
+    <div class="sec-title">PoC 구성 및 사전 준비사항 <span class="sub">— 외부망 LLM · 200~300 사용자 · 1개월</span></div>
+  </div>
 
-    <h3 class="block-title">PoC 구성</h3>
-    <table>
-      <tr><td class="k">배포 형태</td><td>단일 노드 어플라이언스 (2U 랙마운트, 33개 컨테이너 턴키 배포) — 200~300 사용자 수용</td></tr>
+  <h3>PoC 구성</h3>
+  <table class="dense">
+    <tbody>
+      <tr><td class="k" style="width:14%;">배포 형태</td><td>단일 노드 어플라이언스 (2U 랙마운트, 33개 컨테이너 턴키 배포) — 200~300 사용자 수용</td></tr>
       <tr><td class="k">설치 위치</td><td>내부망 서버팜 1식 (랙 2U 공간 · 전원 · 내부 IP 1개)</td></tr>
       <tr><td class="k">대상 사용자</td><td>200~300명 — 업무망 PC 웹 브라우저 접속, 사용자 단말 에이전트 설치 불필요</td></tr>
       <tr><td class="k">대상 LLM</td><td>외부망 상용 LLM API (OpenAI · Azure OpenAI · Anthropic 등, 사내 구축 LLM 없음 기준)</td></tr>
       <tr><td class="k">기간 (1개월)</td><td>설치·기동 1~2일 → 정책 튜닝(금융정보 PII 규칙·부서별 권한) 1~2주 → 사용자 평가 및 결과 보고</td></tr>
       <tr><td class="k">평가 항목</td><td>프롬프트 인젝션 차단율 · DLP 탐지 정확도(오탐율) · 응답 지연 · 감사로그 완전성 · 사용자 편의성</td></tr>
-    </table>
+    </tbody>
+  </table>
 
-    <h3 class="block-title">방화벽 · 회선 요청 사항 <span class="sub">PoC 착수 전 협의가 필요한 네트워크 정책입니다</span></h3>
-    <table>
-      <tr><th>구간</th><th>방향</th><th>포트</th><th>용도</th></tr>
-      <tr><td>사용자 PC → KYRA</td><td>내부망</td><td>TCP 443</td><td>챗봇 화면 · 관리 콘솔 접속 (HTTPS)</td></tr>
-      <tr><td>KYRA → 외부 LLM API</td><td>아웃바운드 전용</td><td>TCP 443</td><td>승인 도메인 White-list 한정, 검사 완료 요청만 전송</td></tr>
-      <tr><td>KYRA → SIEM</td><td>내부망</td><td>Syslog (협의)</td><td>감사로그 실시간 연동 (옵션)</td></tr>
-      <tr><td>KYRA → AD/SSO</td><td>내부망</td><td>TCP 443/636</td><td>SAML · OIDC · LDAP 계정 연동 (옵션)</td></tr>
-      <tr><td>인터넷 → 내부</td><td>인바운드</td><td>없음</td><td>외부에서 내부로 접속하는 경로 없음</td></tr>
-    </table>
+  <h3>방화벽 · 회선 요청 사항 <span class="en">PoC 착수 전 협의가 필요한 네트워크 정책</span></h3>
+  <table class="dense">
+    <thead><tr><th style="width:20%;">구간</th><th style="width:15%;">방향</th><th style="width:14%;">포트</th><th>용도</th></tr></thead>
+    <tbody>
+      <tr><td class="k">사용자 PC → KYRA</td><td>내부망</td><td>TCP 443</td><td>챗봇 화면 · 관리 콘솔 접속 (HTTPS)</td></tr>
+      <tr><td class="k">KYRA → 외부 LLM API</td><td>아웃바운드 전용</td><td>TCP 443</td><td>승인 도메인 White-list 한정, 검사 완료 요청만 전송</td></tr>
+      <tr><td class="k">KYRA → SIEM</td><td>내부망</td><td>Syslog (협의)</td><td>감사로그 실시간 연동 (옵션)</td></tr>
+      <tr><td class="k">KYRA → AD/SSO</td><td>내부망</td><td>TCP 443/636</td><td>SAML · OIDC · LDAP 계정 연동 (옵션)</td></tr>
+      <tr><td class="k">인터넷 → 내부</td><td>인바운드</td><td>없음</td><td>외부에서 내부로 접속하는 경로 없음</td></tr>
+    </tbody>
+  </table>
 
-    <h3 class="block-title">사전 준비 체크리스트</h3>
-    <table>
-      <tr><th style="width:170px;">항목</th><th>내용</th><th style="width:110px;">담당</th></tr>
-      <tr><td>랙 공간 · 전원</td><td>서버팜 2U 랙 공간, 이중화 전원</td><td>BNK</td></tr>
-      <tr><td>네트워크</td><td>내부 IP 1개 할당, 위 표의 방화벽 정책 오픈</td><td>BNK</td></tr>
-      <tr><td>LLM API 키</td><td>PoC용 외부 LLM API 계정 (당사 제공 가능, 협의)</td><td>협의</td></tr>
-      <tr><td>평가 시나리오 · 계정</td><td>참여 부서 · 사용자 목록, 금융정보 탐지 규칙 요건</td><td>공동</td></tr>
-      <tr><td>장비 반입 · 설치</td><td>어플라이언스 반입 절차 협조, 설치·기동·튜닝 수행</td><td>씨커스</td></tr>
-    </table>
+  <h3>사전 준비 체크리스트</h3>
+  <table class="dense">
+    <thead><tr><th style="width:20%;">항목</th><th>내용</th><th style="width:10%;">담당</th></tr></thead>
+    <tbody>
+      <tr><td class="k">랙 공간 · 전원</td><td>서버팜 2U 랙 공간, 이중화 전원</td><td>BNK</td></tr>
+      <tr><td class="k">네트워크</td><td>내부 IP 1개 할당, 위 표의 방화벽 정책 오픈</td><td>BNK</td></tr>
+      <tr><td class="k">LLM API 키</td><td>PoC용 외부 LLM API 계정 (당사 제공 가능, 협의)</td><td>협의</td></tr>
+      <tr><td class="k">평가 시나리오 · 계정</td><td>참여 부서 · 사용자 목록, 금융정보 탐지 규칙 요건</td><td>공동</td></tr>
+      <tr><td class="k">장비 반입 · 설치</td><td>어플라이언스 반입 절차 협조, 설치·기동·튜닝 수행</td><td>씨커스</td></tr>
+    </tbody>
+  </table>
 
-    <div class="note">
-      PoC 장비와 라이선스는 당사가 무상 제공하며, 평가 종료 후 장비를 회수하고 저장 데이터는 완전 삭제 후 확인서를 제출합니다.
-      본 구성은 표준안이며, 착수 미팅에서 BNK금융그룹 망 정책에 맞춰 세부 조정이 가능합니다.
-    </div>
+  <div class="callout neutral">
+    PoC 장비·라이선스는 당사가 무상 제공하며, 평가 종료 후 장비 회수와 저장 데이터 완전 삭제 확인서를 제출합니다. 세부 구성은 착수 미팅에서 조정합니다.
   </div>
-  <div class="footer">
-    <span class="brand"><img src="logo_colored.png" alt="Seekers"> KYRA AI Guardrail</span>
-    <span>Seekers Inc.</span>
-    <span>Confidential</span>
-    <span>5 / 5</span>
-  </div>
+ </div>
+ <div class="slide-footer"><span class="fo-brand">SeekersLab — KYRA AI Guardrail</span><span class="fo-page">05</span></div>
 </div>
 
 </body>

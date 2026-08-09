@@ -22,8 +22,8 @@ const OUT = path.join(OUT_DIR, 'KYRA 네트워크 구성도_BNK금융그룹.pdf'
   await page.setContent(html, { waitUntil: 'networkidle' });
   await page.pdf({
     path: OUT,
-    width: '1122px',
-    height: '793px',
+    width: '338.67mm',
+    height: '190.5mm',
     printBackground: true,
     margin: { top: 0, right: 0, bottom: 0, left: 0 },
   });
