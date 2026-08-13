@@ -303,6 +303,13 @@ try {
     }
     ok('불변식: 취약점 우선순위 점수 내림차순·티어 임계 정합', checked > 0 && mono && tierOk)
   }
+  // 자동분류(lib/classify) 분기 — 관측 유형에 카테고리 단어가 없어 '분류로만' 나오는 강한 케이스로 매핑 검증
+  {
+    await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+    const clsRow = async (typeText, cat) => ((await p3.locator('tr', { hasText: typeText }).first().textContent()) || '').includes(cat)
+    ok('불변식: 자동분류 AWS EC2 → 가상자원', await clsRow('AWS EC2', '가상자원'))
+    ok('불변식: 자동분류 NAS → 서버', await clsRow('NAS', '서버'))
+  }
 
   // 운영 정책(임계값) 편집 — 소유자 확인 기한을 5일로 바꾸면 발견 처리 화면 에스컬레이션 기한에 반영된다(스토어 단일 출처).
   //  전역 opsPolicy 를 바꾸므로 마지막 컨텍스트의 맨 끝에서 수행한다(다른 검증에 영향 없음).
