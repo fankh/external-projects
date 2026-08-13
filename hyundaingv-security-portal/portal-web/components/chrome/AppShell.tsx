@@ -70,6 +70,8 @@ export function AppShell(props: {
 
   return (
     <div className="shell">
+      {/* 본문 바로가기 — 키보드 사용자가 메뉴바·내비를 건너뛰고 본문으로 (WCAG 2.4.1 Bypass Blocks) */}
+      <a href="#main" className="skip">본문 바로가기</a>
       <header className="titlebar">
         <div className="brand">
           <div className="wordmark">{props.brand.name}</div>
@@ -137,7 +139,7 @@ export function AppShell(props: {
           })}
         </aside>
         <div className="main">
-          <main className="content">
+          <main className="content" id="main">
             <div className="content-inner">{props.children}</div>
           </main>
           <footer className="statusbar">

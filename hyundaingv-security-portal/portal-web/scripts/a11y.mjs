@@ -68,6 +68,13 @@ function auditControls(route, html) {
   for (const m of html.matchAll(/<img\b([^>]*)>/gi)) {
     check(attr(m[0], 'alt') !== null, `${route}: <img> alt 속성 없음`)
   }
+  // 제목 계층 — 화면마다 정확히 하나의 h1 (WCAG 1.3.1 · 2.4.6)
+  const h1n = (html.match(/<h1\b/gi) ?? []).length
+  check(h1n === 1, `${route}: h1 개수 ${h1n} (정확히 1개여야)`)
+  // 본문 바로가기 — 앱 셸 화면만 (로그인은 우회할 내비가 없어 제외, WCAG 2.4.1)
+  if (route !== '/login') {
+    check(/class="skip"/.test(html) && /id="main"/.test(html), `${route}: 본문 바로가기 링크·대상(#main) 없음`)
+  }
 }
 
 async function waitReady() {

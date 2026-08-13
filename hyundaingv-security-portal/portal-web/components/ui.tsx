@@ -6,7 +6,7 @@ export function ScreenHeader(props: { kicker: string; title: string; desc?: stri
     <div className="screen-hd">
       <div>
         <div className="kicker">{props.kicker}</div>
-        <div className="tt">{props.title}</div>
+        <h1 className="tt">{props.title}</h1>
         {props.desc && <div className="desc">{props.desc}</div>}
       </div>
       <div className="sp" />
@@ -22,7 +22,7 @@ export function Card(props: { title?: string; kicker?: string; actions?: ReactNo
         <div className="card-hd">
           <div>
             {props.kicker && <div className="kicker mute">{props.kicker}</div>}
-            {props.title && <div className="tt">{props.title}</div>}
+            {props.title && <h2 className="tt">{props.title}</h2>}
           </div>
           <div className="sp" />
           {props.actions}

@@ -135,14 +135,14 @@ button { font-family: inherit; }
 
 /* ═══ 화면 헤더 ═══ */
 .screen-hd { display: flex; align-items: flex-end; gap: 14px; }
-.screen-hd .tt { font-size: 20px; font-weight: 800; letter-spacing: -.01em; margin-top: 3px; }
+.screen-hd .tt { font-size: 20px; font-weight: 800; letter-spacing: -.01em; margin: 3px 0 0; }
 .screen-hd .desc { font-size: 12.5px; color: var(--dim); margin-top: 2px; }
 .screen-hd .sp { flex: 1; }
 
 /* ═══ 카드 · 패널 — 1px 룰, 그림자·라운드 최소 ═══ */
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; display: flex; flex-direction: column; min-width: 0; }
 .card-hd { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line); }
-.card-hd .tt { font-size: 13.5px; font-weight: 700; }
+.card-hd .tt { font-size: 13.5px; font-weight: 700; margin: 0; }
 .card-hd .sp { flex: 1; }
 .card-bd { padding: 11px 14px; }
 .card-bd.p0 { padding: 0; }
@@ -310,3 +310,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   .titlebar .search { width: auto; flex: 1; min-width: 0; }
   .userchip > span:not(.avatar) { display: none; }
 }
+
+/* 본문 바로가기 링크 — 평소 화면 밖, 키보드 포커스 시에만 노출 (WCAG 2.4.1) */
+.skip { position: absolute; left: 8px; top: -48px; z-index: 100; padding: 8px 14px;
+  background: var(--ink); color: #fff; border-radius: 6px; font-size: 12.5px; font-weight: 700;
+  transition: top .12s ease; }
+.skip:hover { text-decoration: none; }
+.skip:focus { top: 8px; outline: 2px solid var(--dm, var(--ink)); outline-offset: 2px; }
