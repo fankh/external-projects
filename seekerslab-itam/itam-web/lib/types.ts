@@ -556,6 +556,40 @@ export const LEAK_RESPONSE: Record<LeakFinding['kind'], string> = {
   '랜섬웨어 유출 사이트': '침해 대응 개시·법무/CISO 통보, 유출 범위 조사',
 }
 
+/** 인증 취약점 점검 결과 — 오픈 확인된 포트에 한해 기본·취약 크리덴셜을 점검한 서비스별 노출.
+ *  (제품안내서 §04 외부 공격표면 탐지: "인증 취약점 점검 — SSH·DB·FTP·HTTP Basic·Redis·SMTP 등,
+ *   산출: 취약·기본 크리덴셜 노출(서비스별)"). 검출에서 끝내지 않고 보안담당 대응으로 이어간다. */
+export interface CredentialFinding {
+  id: string
+  /** 점검 대상 서비스 — 오픈 확인된 포트에 한해서만 점검한다 */
+  service: 'SSH' | 'PostgreSQL' | 'MySQL' | 'FTP' | 'HTTP Basic' | 'Redis' | 'SMTP'
+  host: string
+  port: number
+  /** 점검 판정 — 기본 크리덴셜 / 약한 암호 / 인증 없음 */
+  issue: '기본 크리덴셜' | '약한 암호' | '인증 없음'
+  severity: RiskLevel
+  foundAt: string
+  /** 연계된 외부 노출 자산 ID — 같은 호스트의 노출 서비스에서 점검됐으면 잇는다 */
+  extId?: string
+  note?: string
+  /** 대응 상태 — 검출에서 끝내지 않고 보안 대응까지 이어간다 */
+  status?: '미조치' | '조치 완료'
+  response?: string
+  respondedBy?: string
+  respondedAt?: string
+}
+
+/** 서비스별 표준 대응 조치 — 대응 폼의 기본값으로 제시하고, 담당자가 수정해 확정한다. */
+export const CRED_RESPONSE: Record<CredentialFinding['service'], string> = {
+  SSH: '기본·공용 계정 비활성화, 키 기반 인증 전환·비밀번호 로그인 차단',
+  PostgreSQL: 'DB 계정 비밀번호 재설정, 외부 접근 차단·pg_hba 화이트리스트 적용',
+  MySQL: 'root 원격 접속 차단, 계정 비밀번호 재설정·바인드 주소 제한',
+  FTP: '익명·기본 계정 폐지, SFTP 전환·평문 인증 중단',
+  'HTTP Basic': '기본 크리덴셜 교체, 관리 콘솔 접근 IP 제한·MFA 적용',
+  Redis: 'requirepass 설정·보호 모드 활성화, 외부 바인드 차단',
+  SMTP: '메일 릴레이 인증 강제, 열린 릴레이 차단·전송 제한',
+}
+
 /** 연동 대상 시스템 (제품안내서 §06) — 수집 소스이자 조치 채널 */
 export interface Integration {
   id: string

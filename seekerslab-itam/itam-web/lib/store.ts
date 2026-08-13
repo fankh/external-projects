@@ -8,7 +8,7 @@ import { today } from './dates'
 import { checklistFor } from './intake'
 import { fingerprintOf } from './types'
 import type {
-  AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract,
+  AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
   ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
@@ -18,6 +18,7 @@ export interface Store {
   discovered: DiscoveredAsset[]
   external: ExternalAsset[]
   leaks: LeakFinding[]
+  credentials: CredentialFinding[]
   integrations: Integration[]
   auditLogs: AuditLog[]
   codeGroups: CodeGroup[]
@@ -329,6 +330,17 @@ function seedLeaks(): LeakFinding[] {
   ]
 }
 
+/** 인증 취약점 점검 — 오픈 확인된 포트에 한해 기본·취약 크리덴셜을 점검한 서비스별 노출 (제품안내서 §04).
+ *  외부 노출 자산(seedExternal)의 서비스에서 이어지는 후속 점검이라 extId 로 잇는다. */
+function seedCredentials(): CredentialFinding[] {
+  return [
+    { id: 'CRED-2607-01', service: 'PostgreSQL', host: 'db-backup.seekerslab.co.kr', port: 5432, issue: '기본 크리덴셜', severity: '높음', foundAt: '2026-07-26', extId: 'EXT-2607-06', note: 'postgres/postgres 기본 계정 접속 성공 — 외부 노출 DB' },
+    { id: 'CRED-2607-02', service: 'HTTP Basic', host: 'stg.seekerslab.co.kr', port: 443, issue: '약한 암호', severity: '중간', foundAt: '2026-07-25', extId: 'EXT-2607-05', note: 'admin/admin1234 사전 공격 성공 — 스테이징 관리 화면' },
+    { id: 'CRED-2607-03', service: 'Redis', host: 'cache-ext.seekerslab.co.kr', port: 6379, issue: '인증 없음', severity: '높음', foundAt: '2026-07-24', note: 'requirepass 미설정 — 인증 없이 외부에서 접속 가능' },
+    { id: 'CRED-2607-04', service: 'SSH', host: 'dev-api.seekerslab.co.kr', port: 22, issue: '기본 크리덴셜', severity: '중간', foundAt: '2026-07-24', extId: 'EXT-2607-02', note: 'ubuntu/ubuntu 기본 계정 — 비밀번호 로그인 허용' },
+  ]
+}
+
 function seedIntegrations(): Integration[] {
   return [
     { id: 'INT-NAC', system: 'NAC', method: 'REST API', purpose: '단말 인증·미인증 목록 수집, 미확인 자산 격리 요청', role: '수집 · 조치', status: '정상', lastSync: '2026-07-29 09:40', volume24h: 1_284 },
@@ -434,6 +446,7 @@ function seed(): Store {
     discovered: seedDiscovered(),
     external: seedExternal(),
     leaks: seedLeaks(),
+    credentials: seedCredentials(),
     integrations: seedIntegrations(),
     auditLogs: seedAuditLogs(),
     codeGroups: seedCodeGroups(),
@@ -649,7 +662,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 24
+const SCHEMA_VERSION = 25
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
