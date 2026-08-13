@@ -86,7 +86,9 @@ async function addPlan(formData: FormData) {
   const month = String(formData.get('month') ?? '')
   const inspector = String(formData.get('inspector') ?? '')
   const s = getStore()
-  if (!s.inspectionItems.some((i) => i.id === itemId) || !/^\d{4}-\d{2}$/.test(month) || !inspector) return
+  // 점검자는 셀렉트(비-USER 계정)와 동일 집합으로 검증 — 임의 POST 로 미등록·과대 문자열 저장 차단
+  if (!s.inspectionItems.some((i) => i.id === itemId) || !/^\d{4}-\d{2}$/.test(month) ||
+      !ACCOUNTS.some((a) => a.role !== 'USER' && a.name === inspector)) return
   const id = nextNo('IS', today().slice(0, 4), s.inspectionPlans.map((p) => p.id))
   s.inspectionPlans.unshift({ id, itemId, target: target || undefined, month, inspector, status: '계획' })
   // 상세점검계획표 등 계획 문서 — 계획번호(pk)로 계획·증적 첨부를 공유 (첨부 시트: 연간계획수립)

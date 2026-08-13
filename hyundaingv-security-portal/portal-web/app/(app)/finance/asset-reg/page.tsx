@@ -9,10 +9,11 @@ import { getStore } from '@/lib/store'
 async function acquire(formData: FormData) {
   'use server'
   const me = await requireMenuRole('/finance/asset-reg', 'BIZ_MGR', 'ADMIN')
-  const serial = String(formData.get('serial') ?? '')
-  const model = String(formData.get('model') ?? '')
+  // 어댑터 검색 결과에서 채우는 히든 필드지만, 임의 POST 대비 길이 상한(코드·명칭 관례)
+  const serial = String(formData.get('serial') ?? '').trim().slice(0, 60)
+  const model = String(formData.get('model') ?? '').trim().slice(0, 80)
   const adapter = assetAdapter()
-  if (!adapter) return
+  if (!adapter || !serial) return
 
   // 폐쇄 루프 — IT포털 → 자산관리시스템 API → 자산등록번호 취득, 이력으로 남는다
   const { assetNo } = await adapter.acquireAssetNo(serial)
