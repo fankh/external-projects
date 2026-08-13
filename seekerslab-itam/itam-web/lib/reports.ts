@@ -9,7 +9,32 @@ import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
 import { buildVulnPriority } from './vuln-priority'
 import type { Sheet } from './xlsx'
-import type { ReportKind, ReportSchedule, ReportSection } from './types'
+import type { ReportKind, ReportSchedule, ReportSection, SaasUsage } from './types'
+
+/** 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 대상
+ *  (제품안내서 §05 라이선스 최적화: 중복 기능 SaaS 통합 후보). Shadow SaaS 화면과 라이선스 컴플라이언스
+ *  리포트가 같은 산출을 쓰도록 한 곳에 둔다. */
+export function saasConsolidationCandidates(): { category: string; services: SaasUsage[]; users: number; shadowN: number; sanctioned?: SaasUsage }[] {
+  const s = getStore()
+  return Object.values(
+    s.saas.reduce<Record<string, { category: string; services: SaasUsage[] }>>((acc, x) => {
+      ;(acc[x.category] ??= { category: x.category, services: [] }).services.push(x)
+      return acc
+    }, {}),
+  )
+    .filter((g) => new Set(g.services.map((x) => x.service)).size >= 2)
+    .map((g) => {
+      const services = [...g.services].sort((a, b) => b.users - a.users)
+      return {
+        category: g.category,
+        services,
+        users: services.reduce((n, x) => n + x.users, 0),
+        shadowN: services.filter((x) => !x.sanctioned).length,
+        sanctioned: services.find((x) => x.sanctioned),
+      }
+    })
+    .sort((a, b) => b.services.length - a.services.length || b.users - a.users)
+}
 
 export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
   { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 외부 노출 · 미인가 SaaS · 인증·계정·엔드포인트 정책 위반 · 처리 현황' },
@@ -212,6 +237,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const over = active.filter((l) => l.used > l.purchased)
     const under = active.filter((l) => l.used / l.purchased < 0.6)
     const saving = under.reduce((n, l) => n + (l.purchased - l.used) * l.unitCost, 0)
+    const saasCons = saasConsolidationCandidates()
     return [
       {
         title: '보유–사용 대사',
@@ -234,6 +260,19 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         note: `연간 최대 ${fmtAmount(saving)}원 절감 가능`,
         columns: ['라이선스', '회수 후보', '연간 절감액'],
         rows: under.map((l) => [l.name, `${l.purchased - l.used}석`, `${fmtAmount((l.purchased - l.used) * l.unitCost)}원`]),
+      },
+      {
+        // 중복 기능 SaaS 통합 후보 — 라이선스 최적화(§05)의 SaaS 축. Shadow SaaS 화면(v1.250)과 같은 산출을 결재 첨부 리포트에도 담는다.
+        title: '비용 최적화 — 중복 기능 SaaS 통합 후보',
+        note: saasCons.length ? `같은 기능 분류에 2종 이상 서비스 — ${saasCons.length}개 분류 통합 검토` : '중복 기능 SaaS 통합 후보가 없습니다.',
+        columns: ['기능 분류', '중복 서비스', '서비스 수', '사용자 합', '통합 권고'],
+        rows: saasCons.map((r) => [
+          r.category,
+          r.services.map((x) => `${x.service}(${x.sanctioned ? '인가' : '미인가'})`).join(' · '),
+          String(r.services.length),
+          String(r.users),
+          r.sanctioned ? `인가 ${r.sanctioned.service} 기준 통합 — 미인가 ${r.shadowN}종 정리` : `미인가 ${r.shadowN}종 중복 — 카탈로그 등재 후 1종 통합`,
+        ]),
       },
     ]
   }

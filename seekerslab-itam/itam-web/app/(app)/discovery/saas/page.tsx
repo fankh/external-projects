@@ -1,7 +1,7 @@
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { saasConsolidationCandidates } from '@/lib/reports'
 import { getStore } from '@/lib/store'
-import type { SaasUsage } from '@/lib/types'
 import { ShadowSaasTable } from './ShadowSaasTable'
 
 export const dynamic = 'force-dynamic'
@@ -27,27 +27,9 @@ export default async function SaasPage() {
     }, {}),
   ).sort((a, b) => b.users - a.users)
 
-  // 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상 관측되면 통합 검토 대상
-  // (제품안내서 §07 AI 라이선스 최적화 → 중복 기능 SaaS 통합 후보). 인가·미인가를 함께 보여, 인가 1종으로
-  // 수렴하거나 미인가 다종을 카탈로그로 정리할 근거를 준다. 부서별 노출(위험 관점)과 짝이 되는 비용·통합 관점.
-  const consolidation = Object.values(
-    rows.reduce<Record<string, { category: string; services: SaasUsage[] }>>((acc, x) => {
-      ;(acc[x.category] ??= { category: x.category, services: [] }).services.push(x)
-      return acc
-    }, {}),
-  )
-    .filter((g) => new Set(g.services.map((x) => x.service)).size >= 2)
-    .map((g) => {
-      const services = [...g.services].sort((a, b) => b.users - a.users)
-      return {
-        category: g.category,
-        services,
-        users: services.reduce((n, x) => n + x.users, 0),
-        shadowN: services.filter((x) => !x.sanctioned).length,
-        sanctioned: services.find((x) => x.sanctioned),
-      }
-    })
-    .sort((a, b) => b.services.length - a.services.length || b.users - a.users)
+  // 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상이면 통합 검토 대상. 부서별 노출(위험 관점)과
+  // 짝이 되는 비용·통합 관점. 라이선스 컴플라이언스 리포트와 같은 산출(lib/reports)을 써 화면·리포트가 어긋나지 않게 한다.
+  const consolidation = saasConsolidationCandidates()
 
   return (
     <>
