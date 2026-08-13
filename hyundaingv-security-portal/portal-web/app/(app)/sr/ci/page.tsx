@@ -13,8 +13,9 @@ async function assignCi(formData: FormData) {
   const srNo = String(formData.get('srNo') ?? '')
   const ci = String(formData.get('ci') ?? '').trim().slice(0, 40)
   const dueDate = String(formData.get('dueDate') ?? '')
-  // 담당 CI 는 실존 담당자만 — 임의 문자열 배정은 'SR 처리' 할일 루프를 끊는다
-  if (!ACCOUNTS.some((a) => a.name === ci && a.role !== 'USER') || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return
+  // 담당 CI 는 실존 업무담당(BIZ_MGR·ADMIN)만 — 셀렉트 후보(ciCandidates)와 동일 집합으로 검증한다.
+  // (role !== 'USER' 는 DEPT_MGR 도 통과시켜, 임의 POST 로 /sr/manage 못 여는 담당이 배정될 수 있었음)
+  if (!ACCOUNTS.some((a) => a.name === ci && (a.role === 'BIZ_MGR' || a.role === 'ADMIN')) || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return
 
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo && r.status === 'CI배정')
