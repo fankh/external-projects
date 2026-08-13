@@ -330,7 +330,8 @@ function loadFromFile(): Store | null {
       const expected = base[k]
       if (Array.isArray(expected)) { if (Array.isArray(v)) mergedRec[k] = v }
       else if (expected && typeof expected === 'object') { if (v && typeof v === 'object' && !Array.isArray(v)) mergedRec[k] = v }
-      else mergedRec[k] = v
+      // 스칼라 필드(현재 Store 엔 없음, 향후 추가 대비) — 시드와 원시 타입이 같을 때만 수용
+      else if (typeof v === typeof expected) mergedRec[k] = v
     }
     // 파일 변조·손상 방어 — menuOverrides 는 형태 검증을 통과한 엔트리만 보존한다
     // (설계상 축소 전용이라 권한 상승은 불가하지만, 비배열 값은 가드에서 500 을 유발한다)
