@@ -366,6 +366,12 @@ try {
   const menuHtml = await (await get('/settings/menus', 'ADMIN')).text()
   check('메뉴 관리: STEP 1 기능 사전 렌더', menuHtml.includes('기능 정의') && menuHtml.includes('/api/export/[kind]'))
   check('메뉴 관리: STEP 2 메뉴 레지스트리 렌더', menuHtml.includes('화면번호') && menuHtml.includes('DSC-010') && menuHtml.includes('/discovery/found'))
+  // STEP 1 이 정의한 '엑셀' 기능을 이 화면 자체가 제공한다 — 메뉴·기능 정의(STEP 1·2)를 엑셀로 반출(감사·거버넌스 문서)
+  check('메뉴 관리: 엑셀 내보내기 버튼 노출 (STEP 1 엑셀 기능 자기제공)', menuHtml.includes('/api/export/menus') && menuHtml.includes('엑셀 내보내기'))
+  const menuXlsx = Buffer.from(await (await get('/api/export/menus', 'ADMIN')).arrayBuffer()).toString('utf8')
+  check('메뉴·기능 정의 엑셀: STEP1·STEP2 시트 + 정의 반영', menuXlsx.includes('STEP1 기능정의') && menuXlsx.includes('STEP2 메뉴정의') && menuXlsx.includes('DSC-010') && menuXlsx.includes('/api/export/[kind]'))
+  // 반출은 권한 매트릭스의 '권한·정책 × 엑셀'로 통제 — Admin 전용(직접 URL 호출도 서버가 차단)
+  check('메뉴·기능 정의 엑셀: 비Admin 403 (권한·정책 엑셀은 Admin 전용)', (await get('/api/export/menus', 'SEC_MGR')).status === 403)
   // 매트릭스의 '강제' 표시는 이제 메뉴 정의에서 파생된다 — 두 화면이 어긋나면 안 된다
   check('메뉴 관리 ↔ 매트릭스 정합', menuHtml.includes('발견 자산 · CMDB 대사') && permHtml.includes('서버가 직접 강제하는 권한'))
   check('권한 매트릭스: 강제 구분 안내', permHtml.includes('서버가 직접 강제하는 권한') && permHtml.includes('필요조건'))

@@ -1,14 +1,14 @@
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf } from './cost'
 import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState } from './dates'
-import { can } from './perm'
+import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { getStore } from './store'
 import type { PermMenu, Role } from './types'
 import type { Sheet } from './xlsx'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
  *  (제품안내서 §02: 권한은 메뉴(화면) × 기능(버튼) 단위로 부여) */
-export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals', 'loans'] as const
+export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals', 'loans', 'menus'] as const
 export type ExportKind = (typeof EXPORT_KINDS)[number]
 
 /** 내보내기 대상 ↔ 권한 매트릭스의 메뉴. 허용 여부는 매트릭스의 '엑셀' 칸이 정한다 —
@@ -21,6 +21,7 @@ export const EXPORT_META: Record<ExportKind, { label: string; file: string; menu
   approvals: { label: '결재 이력', file: '결재이력', menu: '신청 · 결재' },
   disposals: { label: '폐기 증적 대장', file: '폐기증적대장', menu: '수명주기' },
   loans: { label: '대여 대장', file: '대여대장', menu: '수명주기' },
+  menus: { label: '메뉴 · 기능 정의', file: '메뉴기능정의', menu: '권한 · 정책' },
 }
 
 export function canExport(kind: ExportKind, role: Role): boolean {
@@ -201,6 +202,24 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       header: ['자산번호', '유형', '모델', '대여자', '부서', '위치', '대여일', '반환 기한', '잔여일', '상태'],
       rows,
     }]
+  }
+
+  if (kind === 'menus') {
+    // 메뉴·기능 정의(권한 파이프라인 STEP 1·2) 반출 — 화면이 제공하는 기능과 그 강제 지점, 화면별 부여 기능을
+    // 감사·거버넌스 문서로 남긴다. 화면 표시(settings/menus)와 같은 정의(ACTION_DEF·menuDefs)를 쓴다.
+    const defs = s.menuDefs
+    return [
+      {
+        name: 'STEP1 기능정의',
+        header: ['기능', '의미', '강제 지점', '사용 화면 수'],
+        rows: PERM_ACTIONS.map((a) => [a, ACTION_DEF[a].desc, ACTION_DEF[a].enforcedBy, defs.filter((d) => d.actions.includes(a)).length]),
+      },
+      {
+        name: 'STEP2 메뉴정의',
+        header: ['화면번호', '카테고리', '메뉴', '경로', '부여된 기능', '서버 강제 기능', '기능 수'],
+        rows: defs.map((d) => [d.code, d.category, d.menu, d.path, d.actions.join('·'), d.enforced.join('·') || '-', d.actions.length]),
+      },
+    ]
   }
 
   // approvals — 결재함(ApprovalList)의 상태·구분·검색·내 상신만 필터를 그대로 반영

@@ -18,6 +18,18 @@ export function can(menu: PermMenu, action: PermAction, role: Role): boolean {
 
 export const PERM_ACTIONS = ['조회', '저장', '삭제', '엑셀', '편입', '격리요청', '결재'] as const
 
+/** 기능(Action) 사전 — STEP 1 메뉴기능관리. 화면이 제공하는 버튼의 의미와 강제 지점을 정의한다.
+ *  메뉴·기능 관리 화면 표시와 엑셀 반출이 같은 정의를 쓰도록 한 곳에 둔다. (제품안내서 §02) */
+export const ACTION_DEF: Record<PermAction, { desc: string; enforcedBy: string }> = {
+  조회: { desc: '화면 진입과 목록·상세 조회', enforcedBy: '화면 가드 (lib/authz requireRole)' },
+  저장: { desc: '신규 등록·수정 저장', enforcedBy: '화면 가드' },
+  삭제: { desc: '레코드 삭제·비활성화', enforcedBy: '화면 가드' },
+  엑셀: { desc: '그리드 데이터 .xlsx 내보내기', enforcedBy: '서버 — /api/export/[kind]' },
+  편입: { desc: '발견 자산을 대장으로 편입 요청', enforcedBy: '서버 — requestOnboard' },
+  격리요청: { desc: 'NAC 격리 요청 상신', enforcedBy: '서버 — requestQuarantine' },
+  결재: { desc: '상신 건 승인·반려', enforcedBy: '서버 — decide' },
+}
+
 export const PERM_MENUS = [
   '대시보드', '자산 대장', '수명주기', '재고 · 재물조사', '계약 · 라이선스',
   '발견 자산 · CMDB 대사', 'Shadow SaaS', 'AI 어시스턴트', '신청 · 결재', '권한 · 정책',

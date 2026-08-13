@@ -1,24 +1,13 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
-import { PERM_ACTIONS } from '@/lib/perm'
+import { canExport } from '@/lib/exports'
+import { ACTION_DEF, PERM_ACTIONS } from '@/lib/perm'
 import { getStore } from '@/lib/store'
 
 export const dynamic = 'force-dynamic'
 
-/** 기능(Action) 사전 — STEP 1 메뉴기능관리.
- *  화면이 제공할 수 있는 버튼의 종류와 그 의미를 정의한다. (제품안내서 §02) */
-const ACTION_DEF: Record<string, { desc: string; enforcedBy: string }> = {
-  조회: { desc: '화면 진입과 목록·상세 조회', enforcedBy: '화면 가드 (lib/authz requireRole)' },
-  저장: { desc: '신규 등록·수정 저장', enforcedBy: '화면 가드' },
-  삭제: { desc: '레코드 삭제·비활성화', enforcedBy: '화면 가드' },
-  엑셀: { desc: '그리드 데이터 .xlsx 내보내기', enforcedBy: '서버 — /api/export/[kind]' },
-  편입: { desc: '발견 자산을 대장으로 편입 요청', enforcedBy: '서버 — requestOnboard' },
-  격리요청: { desc: 'NAC 격리 요청 상신', enforcedBy: '서버 — requestQuarantine' },
-  결재: { desc: '상신 건 승인·반려', enforcedBy: '서버 — decide' },
-}
-
 export default async function MenusPage() {
-  await requireRole('ADMIN')
+  const session = await requireRole('ADMIN')
   const defs = getStore().menuDefs
 
   const totalCells = defs.reduce((n, d) => n + d.actions.length, 0)
@@ -31,6 +20,9 @@ export default async function MenusPage() {
         kicker="환경설정 · Menu & Function"
         title="메뉴 · 기능 관리"
         desc="STEP 1 메뉴기능관리(기능 정의) → STEP 2 메뉴관리(카테고리·화면번호·기능 부여) — 매트릭스는 이 정의 위에서만 권한을 부여한다"
+        right={canExport('menus', session.role)
+          ? <a className="btn sm ghost" href={`/api/export/menus`} download title="메뉴·기능 정의(STEP 1·2)를 엑셀로 반출 — 권한 매트릭스의 '엑셀' 기능">⤓ 엑셀 내보내기</a>
+          : undefined}
       />
 
       <div className="stat-row">
