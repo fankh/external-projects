@@ -1,5 +1,5 @@
-/* 보안 findings 대응 루프 e2e — SSR 스모크가 못 잡는 클릭·상태 전환·역할 게이트를 실제 브라우저로 검증한다.
- * 대상: 크리덴셜 노출(45)·휴면 계정(46)·미인가 SW(47)·USB(48)·로컬 VM(49)·IOC 상관(50) 대응 루프.
+/* 보안 findings 대응 + AI 제안 판정 인터랙티브 e2e — SSR 스모크가 못 잡는 클릭·상태 전환·역할 게이트를 실제 브라우저로 검증한다.
+ * 대상: 크리덴셜 노출(45)·휴면 계정(46)·미인가 SW(47)·USB(48)·로컬 VM(49)·IOC 상관(50) 대응 + AI 제안 판정(11, 승인→조치·반려 사유 필수).
  * 실행: npm run e2e   (원격 배포본: E2E_BASE=http://localhost:3390 npm run e2e)
  * 신선한 인메모리 시드에서 시작(ITAM_DATA_FILE 미설정)하므로 결정적. */
 import { spawn } from 'node:child_process'
@@ -56,6 +56,42 @@ async function twoChoice(page, { name, navTo, cardText, rowText, btnRe }) {
   ok(`${name}: 조치 클릭 → 상태 전환(버튼 소거·칩 노출)`, after === 0)
 }
 
+/** AI 제안 판정(로11) — 승인은 조치로 연결, 반려는 사유 입력 전 확정이 막힌다(사유 필수).
+ *  '전체' 필터로 전환해 판정해도 행이 사라지지 않게 한 뒤, 판정 컬럼의 '승인' 버튼 수(대기 프록시)로 상태 전환을 검증한다. */
+async function aiInsightDecide(page) {
+  await page.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  const card = page.locator('.card', { hasText: 'AI 제안 — 판정 대기' })
+  ok('AI 제안(11): 판정 대기 목록 렌더', (await card.count()) > 0)
+  await card.locator('.seg button', { hasText: /^전체$/ }).click()
+  await page.waitForTimeout(300)
+  // tbody 로 한정 — 필터 세그먼트의 '승인'/'반려' 버튼과 판정 컬럼 버튼이 섞이지 않게 한다
+  const approveBtns = () => card.locator('tbody button', { hasText: /^승인$/ })
+  const rejectBtns = () => card.locator('tbody button', { hasText: /^반려$/ })
+  const before = await approveBtns().count()
+  ok('AI 제안(11): 처리 대기 제안 존재', before > 0)
+
+  // 승인 — 판정 컬럼의 첫 '승인' 클릭 → 그 행이 조치 연결로 바뀌어 승인 버튼 1개 감소
+  await approveBtns().first().click()
+  await page.waitForTimeout(900)
+  ok('AI 제안(11): 승인 → 판정(승인 버튼) 감소', (await approveBtns().count()) === before - 1)
+  ok('AI 제안(11): 승인 제안에 조치 연결(조치 —) 표기', (await card.locator('text=조치 —').count()) > 0)
+
+  // 반려 — 사유 필수: 첫 '반려' 클릭 → 사유 입력 전 '반려 확정' 비활성
+  if ((await rejectBtns().count()) > 0) {
+    await rejectBtns().first().click()
+    await page.waitForTimeout(300)
+    const confirm = card.locator('button', { hasText: '반려 확정' }).first()
+    ok('AI 제안(11): 반려 사유 입력 전 확정 비활성(사유 필수)', await confirm.isDisabled())
+    await card.locator('input[placeholder*="반려 사유"]').first().fill('오탐 — 정상 업무 트래픽으로 확인')
+    await page.waitForTimeout(200)
+    ok('AI 제안(11): 사유 입력 후 반려 확정 활성', !(await confirm.isDisabled()))
+    const beforeR = await approveBtns().count()
+    await confirm.click()
+    await page.waitForTimeout(900)
+    ok('AI 제안(11): 반려 확정 → 판정(승인 버튼) 감소', (await approveBtns().count()) === beforeR - 1)
+  }
+}
+
 /** 2-단계 대응(크리덴셜·유출) — '대응' → 입력 프리필 → '대응 확정' → '조치 완료' 칩. */
 async function twoStep(page, { name, navTo, cardText, rowText }) {
   await page.goto(`${BASE}${navTo}`, { waitUntil: 'networkidle' })
@@ -96,6 +132,9 @@ try {
   await page.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const audit = await page.textContent('body')
   ok('감사 로그: findings 대응 6종 적재', ['휴면 계정 비활성화', '미인가 SW 제거', 'USB 저장매체 차단', '로컬 VM 회수', 'IOC 차단', '크리덴셜 노출 대응'].every((s) => audit.includes(s)))
+
+  // AI 제안 판정 루프(11) — 승인→조치·반려 사유 필수
+  await aiInsightDecide(page)
   await ctx.close()
 
   // ── 자산담당: 역할 게이트(조치 버튼 미노출) ────────────────────
