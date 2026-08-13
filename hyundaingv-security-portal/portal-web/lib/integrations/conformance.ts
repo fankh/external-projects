@@ -5,9 +5,7 @@
  *   2) 계약 적합성 — 해석된 어댑터를 실제로 호출해 반환 형태·불변식을 확인한다
  *      (고객사 어댑터를 스테이징 투입 전에 이 진단으로 통과시키면 계약 위반을 조기 발견).
  *  포털 본체가 아니라 연동 계약 자체를 검증하므로, 새 고객사 어댑터의 착수 조건 도구다. */
-import * as defaultProfile from '@/profiles/default.config'
-import * as manufacturerProfile from '@/profiles/sample-manufacturer.config'
-import * as publicProfile from '@/profiles/sample-public.config'
+import { ALL_PROFILES } from '@/profiles/registry'
 import { resolveAdapter } from './registry'
 import type { ChannelBinding, ChannelKind, PortalBrand } from './types'
 
@@ -20,11 +18,10 @@ export interface ConformanceCheck {
   detail: string
 }
 
-const PROFILES: { name: string; brand: PortalBrand; channels: ChannelBinding[] }[] = [
-  { name: 'default', brand: defaultProfile.PORTAL, channels: defaultProfile.CHANNELS },
-  { name: 'manufacturer', brand: manufacturerProfile.PORTAL, channels: manufacturerProfile.CHANNELS },
-  { name: 'public', brand: publicProfile.PORTAL, channels: publicProfile.CHANNELS },
-]
+// 전 프로필을 registry(단일 원천)에서 파생 — 새 고객사 프로필을 registry 에 올리면
+// 런타임 선택과 자가진단이 함께 반영된다(진단 목록을 따로 관리하지 않는다).
+const PROFILES: { name: string; brand: PortalBrand; channels: ChannelBinding[] }[] =
+  Object.entries(ALL_PROFILES).map(([name, p]) => ({ name, brand: p.PORTAL, channels: p.CHANNELS }))
 
 const KINDS = new Set<ChannelKind>(['mail', 'sms', 'approval', 'sso', 'hr', 'asset', 'secdata'])
 const TRANSPORTS = new Set(['REST API', 'SAML', 'DB 연계', '인터페이스'])

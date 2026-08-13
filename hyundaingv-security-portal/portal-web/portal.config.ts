@@ -3,17 +3,11 @@
  *    (미설정)              → profiles/default.config       (데모 고객사)
  *    PORTAL_PROFILE=manufacturer → profiles/sample-manufacturer.config (제조업 예시)
  *    PORTAL_PROFILE=public       → profiles/sample-public.config       (공공기관 예시)
- *  새 고객사는 profiles/ 에 구성 파일을 추가하고 여기 선택지에 올린다.
+ *  새 고객사는 profiles/ 에 구성 파일을 추가하고 profiles/registry.ts 에 올린다(단일 원천).
  *  어댑터 구현은 lib/integrations/ 에 있고, adapterId 가 실제 구현을 가리킨다. */
-import * as defaultProfile from './profiles/default.config'
-import * as publicProfile from './profiles/sample-public.config'
-import * as manufacturerProfile from './profiles/sample-manufacturer.config'
+import { ALL_PROFILES } from './profiles/registry'
 
-const PROFILES: Record<string, typeof defaultProfile> = {
-  manufacturer: manufacturerProfile,
-  public: publicProfile,
-}
-const profile = PROFILES[process.env.PORTAL_PROFILE ?? ''] ?? defaultProfile
+const profile = ALL_PROFILES[process.env.PORTAL_PROFILE ?? ''] ?? ALL_PROFILES.default
 
 export const PORTAL = profile.PORTAL
 export const CHANNELS = profile.CHANNELS
