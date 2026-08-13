@@ -22,6 +22,7 @@ function detectReportIntent(q: string): { kind?: ReportKind } | null {
     [/감사\s*대응|감사\s*자료|감사/, '감사 대응 자료'],
     [/교체|수명|내용연수|노후/, '연간 교체 계획'],
     [/취약점|우선순위|vuln|cve/i, '취약점 조치 우선순위'],
+    [/ai\s*거버넌스|거버넌스|정확도|채택률|프롬프트|모델\s*버전|ai\s*성능/i, 'AI 거버넌스·성능'],
     [/shadow|섀도|쉐도|발견|브리핑|주간/i, '주간 Shadow IT 브리핑'],
   ]
   const kind = kindMatchers.find(([re]) => re.test(q))?.[1]

@@ -878,6 +878,7 @@ export type ReportKind =
   | '감사 대응 자료'
   | '연간 교체 계획'
   | '취약점 조치 우선순위'
+  | 'AI 거버넌스·성능'
 
 export interface ReportSection {
   title: string

@@ -18,6 +18,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도)·위협 대응 현황 증빙 초안' },
   { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과·OS 지원 종료(EOL) 기준 교체 대상·잔존가치·유형별 예산 추정' },
   { kind: '취약점 조치 우선순위', period: '수시', desc: '자산 중요도 × 노출도 스코어링 — 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 P1/P2/P3로 순위화' },
+  { kind: 'AI 거버넌스·성능', period: '월간', desc: '모델·프롬프트 버전·분류 정확도 · AI 기능별 제안 채택률(재학습 신호) · 감사·권한 필터 거버넌스 준수' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -323,6 +324,47 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === 'AI 거버넌스·성능') {
+    const p = s.aiPolicy
+    const INSIGHT_KINDS = ['자동분류', '이상탐지', '수명예측', '취약점 우선순위', '라이선스 최적화'] as const
+    const approved = s.insights.filter((i) => i.status === '승인').length
+    const rejected = s.insights.filter((i) => i.status === '반려').length
+    const pending = s.insights.filter((i) => i.status === '제안').length
+    const adoption = approved + rejected ? Math.round((approved / (approved + rejected)) * 100) : null
+    return [
+      {
+        title: '모델 · 프롬프트 · 실행 환경',
+        columns: ['항목', '값'],
+        rows: [
+          ['실행 환경', p.deployment],
+          ['모델', p.modelId],
+          ['프롬프트 버전', p.promptVersion],
+          ['분류 정확도', `${p.classifyAccuracy}%`],
+        ],
+      },
+      {
+        title: 'AI 기능별 제안 채택률 (재학습 신호)',
+        note: `판정 대기 ${pending} · 누적 판정 ${approved + rejected}건 · 전체 채택률 ${adoption === null ? '판정 전' : `${adoption}%`}`,
+        columns: ['기능', '제안', '승인', '반려', '채택률'],
+        rows: INSIGHT_KINDS.map((k) => {
+          const rows = s.insights.filter((i) => i.kind === k)
+          const ok = rows.filter((i) => i.status === '승인').length
+          const no = rows.filter((i) => i.status === '반려').length
+          return [k, String(rows.length), String(ok), String(no), ok + no ? `${Math.round((ok / (ok + no)) * 100)}%` : '판정 전']
+        }),
+      },
+      {
+        title: 'AI 거버넌스 준수',
+        bullets: [
+          `AI 제안·질의·응답 감사 로그 보존 ${p.auditRetentionDays}일`,
+          `권한 범위 필터 ${p.scopeFilter ? '적용 — 권한 밖 데이터는 질의 컨텍스트에서 원천 배제' : '미적용'}`,
+          `AI 제안 자동승인 ${p.autoApprove ? '허용' : '차단 — 담당자 확인·결재 원칙'}`,
+          `판정 결과 재학습 환류 ${p.feedbackLearning ? '적용 — 승인·반려가 정확도 개선에 반영' : '미적용'}`,
+        ],
+      },
+    ]
+  }
+
   // 감사 대응 자료
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
@@ -427,6 +469,15 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     return `미조치 취약점 ${items.length}건에 대해 자산 중요도 × 노출도로 조치 우선순위를 산출했습니다. `
       + `즉시 조치가 필요한 P1 은 ${p1}건, 우선 조치 P2 는 ${p2}건입니다. `
       + '외부 노출 CVE·EOL OS·미인가 SW·크리덴셜 노출을 통합해, 인터넷 노출·서버/네트워크·IDC·핵심 지정 자산일수록 상위에 배치했습니다. P1 부터 순차 조치를 권고합니다.'
+  }
+  if (kind === 'AI 거버넌스·성능') {
+    const p = s.aiPolicy
+    const approved = s.insights.filter((i) => i.status === '승인').length
+    const rejected = s.insights.filter((i) => i.status === '반려').length
+    const adoption = approved + rejected ? Math.round((approved / (approved + rejected)) * 100) : null
+    return `AI 실행 환경은 ${p.deployment}(${p.modelId}, 프롬프트 ${p.promptVersion})이며 분류 정확도는 ${p.classifyAccuracy}%입니다. `
+      + `AI 기능 제안의 누적 채택률은 ${adoption === null ? '판정 전' : `${adoption}%`}로, 승인·반려 결과가 재학습에 환류됩니다. `
+      + `AI 제안·질의·응답은 ${p.auditRetentionDays}일 감사 보존되며, 권한 범위 필터가 ${p.scopeFilter ? '적용' : '미적용'}되고 제안 자동승인은 ${p.autoApprove ? '허용' : '차단(담당자 확인·결재 원칙)'}으로 운영됩니다.`
   }
   const liveA = s.assets.filter((a) => a.status !== '폐기완료')
   const flaggedA = liveA.filter(hasDataIssue).length

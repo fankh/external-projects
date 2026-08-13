@@ -717,9 +717,11 @@ try {
   check('공통코드: 위치 코드가 랙 단위까지 정의', rackLocations.every((l) => codeHtml2.includes(l)), rackLocations.filter((l) => !codeHtml2.includes(l)).join(', '))
   check('재물조사: 실사 위치 목록이 대장 위치와 정합', rackLocations.filter((l) => regHtml.includes(l)).every((l) => svyHtml.includes(l)), rackLocations.filter((l) => regHtml.includes(l) && !svyHtml.includes(l)).join(', '))
   const repHtml = await (await get('/ai/reports', 'ASSET_MGR')).text()
-  check('리포트: 7종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('연간 교체 계획') && repHtml.includes('취약점 조치 우선순위') && repHtml.includes('결재 첨부용'))
+  check('리포트: 8종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('연간 교체 계획') && repHtml.includes('취약점 조치 우선순위') && repHtml.includes('AI 거버넌스·성능') && repHtml.includes('결재 첨부용'))
   // 취약점 조치 우선순위 리포트(§05 스코어링) — 자산 중요도 × 노출도로 P1/P2/P3 순위화, 결재 첨부·감사 증적
   check('리포트: 취약점 조치 우선순위 리포트 유형 렌더', repHtml.includes('취약점 조치 우선순위') && repHtml.includes('자산 중요도 × 노출도'))
+  // AI 거버넌스·성능 리포트(§05 AI 거버넌스: 모델·프롬프트 버전·분류 정확도·채택률) — 성능 정기 리포트
+  check('리포트: AI 거버넌스·성능 리포트 유형 렌더', repHtml.includes('AI 거버넌스·성능') && repHtml.includes('제안 채택률'))
   // 월간 자산 현황 리포트에 유지보수(수리) 비용 현황이 포함됨을 유형 설명에서 확인(생성 시 buildSections 가 TCO 섹션 산출)
   check('리포트: 월간 자산 현황에 유지보수(수리) 비용 반영', repHtml.includes('유지보수(수리) 비용'))
   // 월간 자산 현황에 자산 처분 실적(매각 대금 회수) 반영 — 생성 시 buildSections 가 처분 실적 섹션 산출
