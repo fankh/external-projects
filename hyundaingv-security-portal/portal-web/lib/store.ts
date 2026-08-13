@@ -6,7 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { today } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, Rack, RemoteCheck, RemoteTarget, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, Rack, RemoteCheck, RemoteTarget, Role, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -53,6 +53,9 @@ export interface Store {
   attachments: Attachment[]
   /** 감사 이력 — 통제 행위 append-only */
   auditLogs: AuditLog[]
+  /** 메뉴권한 런타임 제한 (href → 허용 권한그룹 부분집합) — menus.ts 기본 권한의 축소만 가능,
+   *  권한 상승 불가·ADMIN 제한 불가 (요구사항 72행 메뉴권한 할당) */
+  menuOverrides: Record<string, Role[]>
   /** 연동 채널 활성 상태 (channelId → on/off) — 정의는 portal.config.ts, 상태는 런타임 */
   channelStates: Record<string, boolean>
   sendLog: SendLogEntry[]
@@ -289,6 +292,7 @@ function seed(): Store {
       { name: '시스템관리자', dept: '정보기획팀', year: '2026', kind: '일반', signedAt: '2026-07-09', method: '온라인' },
       { name: '박정호', dept: 'IT운영팀', year: '2026', kind: '관리책임자', signedAt: '2026-07-10', method: '온라인' },
     ],
+    menuOverrides: {},
     channelStates: Object.fromEntries(CHANNELS.map((c) => [c.id, c.enabledByDefault])),
     sendLog: [],
     assetAcquisitions: [],

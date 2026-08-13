@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import type { Notice } from '@/lib/types'
@@ -40,7 +40,7 @@ async function deleteNotice(formData: FormData) {
 }
 
 export default async function NoticesPage() {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/board/notices')
   const canPost = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
   const s = getStore()
   const rows = [...s.notices].sort((a, b) =>

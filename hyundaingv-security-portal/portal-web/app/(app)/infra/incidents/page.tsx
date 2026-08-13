@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerGenerated, registerUpload } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, isCodeActive, nextNo } from '@/lib/store'
 import type { IncidentGrade } from '@/lib/types'
@@ -84,7 +84,7 @@ async function addCmResult(formData: FormData) {
 }
 
 export default async function IncidentsPage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/infra/incidents')
   const s = getStore()
 
   const open = s.incidents.filter((i) => i.status === '조치중')

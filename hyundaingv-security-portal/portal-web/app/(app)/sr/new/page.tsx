@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, ScreenHeader } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { registerUpload } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 import type { SrKind } from '@/lib/types'
@@ -40,7 +40,7 @@ async function createSr(formData: FormData) {
 }
 
 export default async function SrNewPage() {
-  await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  await requireMenu('/sr/new')
 
   return (
     <>

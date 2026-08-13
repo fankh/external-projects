@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import type { ApprovalDocType } from '@/lib/types'
@@ -34,7 +34,7 @@ async function reupload(formData: FormData) {
 }
 
 export default async function FormsPage() {
-  await requireRole('ADMIN')
+  await requireMenu('/settings/forms')
   const s = getStore()
 
   return (

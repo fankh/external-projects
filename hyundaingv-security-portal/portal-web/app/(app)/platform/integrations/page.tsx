@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { channelSummary, hrAdapter, isEnabled } from '@/lib/integrations/registry'
 import { runDailyNotify } from '@/lib/notify'
@@ -49,7 +49,7 @@ async function syncHr() {
 }
 
 export default async function IntegrationsPage() {
-  await requireRole('ADMIN')
+  await requireMenu('/platform/integrations')
   const s = getStore()
   const sum = channelSummary()
 

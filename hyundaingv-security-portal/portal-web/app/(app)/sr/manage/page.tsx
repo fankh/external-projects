@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { SR_FLOW, type SrRequest, type SrStatus } from '@/lib/types'
@@ -36,7 +36,7 @@ async function advance(formData: FormData) {
 }
 
 export default async function SrManagePage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/sr/manage')
   const s = getStore()
   const rows = s.srRequests
 

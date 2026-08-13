@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/chrome/AppShell'
+import { NAV } from '@/components/chrome/menus'
+import { effectiveRoles } from '@/lib/authz'
 import { channelSummary } from '@/lib/integrations/registry'
 import { getSession, SESSION_COOKIE } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -24,10 +26,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     approvals: s.approvals.filter((a) => a.approver === session.name && a.status === '대기').length,
   }
   const channels = channelSummary()
+  // 런타임 메뉴권한 제한 — 기본 권한은 있으나 제한된 메뉴를 내비에서 숨긴다 (서버 가드는 requireMenu)
+  const hiddenHrefs = NAV.flatMap((g) => g.items)
+    .filter((i) => i.roles.includes(session.role) && !effectiveRoles(i.href).includes(session.role))
+    .map((i) => i.href)
 
   return (
     <AppShell
       role={session.role}
+      hiddenHrefs={hiddenHrefs}
       badges={badges}
       channels={channels}
       lastBatch={s.batchRuns[0] ? { job: s.batchRuns[0].job, at: s.batchRuns[0].ranAt } : undefined}

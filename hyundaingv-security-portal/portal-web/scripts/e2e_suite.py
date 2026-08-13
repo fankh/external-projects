@@ -593,6 +593,43 @@ def sc_criteria(pg, base, check):
     check('사용중' in row.inner_text() and row.locator('button:has-text("삭제")').count() == 0, '사용중 기준 삭제 가드')
 
 
+def sc_menuauth(pg, base, check):
+    """메뉴권한 런타임 제한 (요구사항 72행) — 제한 → 내비 숨김·직접 URL 차단·감사, 복원 → 접근 회복"""
+    # 기준 상태 — 김현우(사용자)는 QnA 접근 가능
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    check('질문 등록' in pg.content(), '제한 전 QnA 접근')
+
+    # Admin 이 QnA 의 '사용자' 권한을 제한한다
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    row = pg.locator('tr', has_text='/board/qna')
+    row.locator('button').first.click()  # 첫 버튼 = 사용자 컬럼
+    pg.wait_for_selector('tr:has-text("/board/qna"):has-text("제한됨")', timeout=10000)
+
+    # 사용자 — 내비 링크가 사라지고 직접 URL 은 대시보드로 차단된다
+    login(pg, base, '김현우')
+    check(pg.locator('a[href="/board/qna"]').count() == 0, '제한 → 내비 링크 숨김')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    check('질문 등록' not in pg.content() and '개인별현황' in pg.content(), '제한 → 직접 URL 차단 (대시보드 회송)')
+
+    # 부서담당은 영향 없다 (제한은 지정 권한그룹만)
+    login(pg, base, '이수진')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    check('질문 등록' in pg.content(), '타 권한그룹 무영향')
+
+    # 복원 → 접근 회복 + 감사 이력
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    pg.locator('tr', has_text='/board/qna').locator('button:has-text("제한됨")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    check('메뉴권한 변경' in pg.content(), '감사 이력에 메뉴권한 변경 기록')
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    check('질문 등록' in pg.content(), '복원 → 접근 회복')
+
+
 def sc_board(pg, base, check):
     """게시판 삭제 — 공지(작성자)·QnA(미답변 본인) + 감사 기록 (요구사항 6행 삭제)"""
     login(pg, base, '박정호')
@@ -810,6 +847,7 @@ SCENARIOS = [
     ('criteria', '점검 기준관리 — 등록·업로드·삭제·사용중 가드', sc_criteria, {}),
     ('racks', '랙·H/W 관리 — 등록·구성도·삭제 가드', sc_racks, {}),
     ('infracrud', '인프라 CRUD — 서버·시스템·배치·인터페이스', sc_infracrud, {}),
+    ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),

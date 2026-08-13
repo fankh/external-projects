@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, isCodeActive, nextNo, type Store } from '@/lib/store'
@@ -113,7 +113,7 @@ async function registerResult(formData: FormData) {
 }
 
 export default async function InspectionPage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/compliance/inspection')
   const s = getStore()
   const thisMonth = today().slice(0, 7)
   const itemOf = (id: string) => s.inspectionItems.find((i) => i.id === id)

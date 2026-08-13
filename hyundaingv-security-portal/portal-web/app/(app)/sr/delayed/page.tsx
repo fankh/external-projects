@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { SR_CHIP } from '../chips'
@@ -21,7 +21,7 @@ const daysBetween = (a: string, b: string) =>
   Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000)
 
 export default async function SrDelayedPage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/sr/delayed')
   const s = getStore()
   const t = today()
 

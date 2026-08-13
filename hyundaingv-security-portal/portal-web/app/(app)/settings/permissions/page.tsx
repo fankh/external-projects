@@ -1,24 +1,53 @@
+import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { NAV } from '@/components/chrome/menus'
-import { requireRole } from '@/lib/authz'
+import { audit } from '@/lib/audit'
+import { effectiveRoles, requireMenu } from '@/lib/authz'
+import { getStore } from '@/lib/store'
 import { ROLE_LABEL, type Role } from '@/lib/types'
 
 const ROLES: Role[] = ['USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN']
 
+/** 메뉴권한 토글 (요구사항 72행) — 기본 권한(menus.ts)의 축소/복원만 가능하다.
+ *  기본에 없는 권한은 부여할 수 없고(권한 상승 차단), ADMIN 은 잠금 방지를 위해 제한 불가. */
+async function toggleMenuRole(formData: FormData) {
+  'use server'
+  const me = await requireMenu('/settings/permissions')
+  const href = String(formData.get('href') ?? '')
+  const role = String(formData.get('role') ?? '') as Role
+  const item = NAV.flatMap((g) => g.items).find((i) => i.href === href)
+  if (!item || role === 'ADMIN' || !ROLES.includes(role) || !item.roles.includes(role)) return
+  const s = getStore()
+  const current = s.menuOverrides[href] ?? item.roles
+  const restricted = current.includes(role)
+    ? current.filter((r) => r !== role)
+    : [...current, role]
+  // 기본과 같아지면 오버라이드를 걷어 기본 상태로 되돌린다
+  if (item.roles.every((r) => restricted.includes(r))) {
+    delete s.menuOverrides[href]
+  } else {
+    s.menuOverrides[href] = restricted
+  }
+  audit(me.name, '메뉴권한 변경', `${href} ${ROLE_LABEL[role]}: ${current.includes(role) ? '제한' : '복원'}`)
+  revalidatePath('/', 'layout')
+}
+
 export default async function PermissionsPage() {
-  await requireRole('ADMIN')
+  await requireMenu('/settings/permissions')
+  const s = getStore()
   const items = NAV.flatMap((g) => g.items.map((i) => ({ group: g.label, ...i })))
+  const restrictedCount = Object.keys(s.menuOverrides).length
 
   return (
     <>
       <ScreenHeader kicker="환경설정" title="메뉴권한"
-        desc="권한그룹 × 메뉴 매트릭스 — 내비 노출·서버사이드 가드·스모크 스위트가 모두 이 단일 원천(menus.ts)을 따른다." />
+        desc="권한그룹 × 메뉴 매트릭스 — 기본 권한(menus.ts)은 코드가 단일 원천이고, 여기서는 런타임 제한·복원만 한다 (축소 전용 · 권한 상승 불가)." />
 
       <div className="stat-row">
         <Stat value={items.length} label="메뉴" />
         <Stat value={ROLES.length} label="권한그룹" />
         <Stat value={items.filter((i) => i.roles.length === ROLES.length).length} label="전체 공개 메뉴" />
-        <Stat value={items.filter((i) => i.roles.length === 1).length} label="Admin 전용" />
+        <Stat value={restrictedCount} label="런타임 제한" tone={restrictedCount > 0 ? 'warn' : undefined} note="메뉴 단위" />
       </div>
 
       <Card title="권한 매트릭스" kicker="Role × Menu" pad={false}>
@@ -31,23 +60,41 @@ export default async function PermissionsPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((i) => (
-                <tr key={i.href}>
-                  <td className="mut">{i.group}</td>
-                  <td className="strong">{i.label} <span className="mut mono" style={{ fontSize: 10.5 }}>{i.href}</span></td>
-                  {ROLES.map((r) => (
-                    <td key={r} className={`c ${i.roles.includes(r) ? 'y' : 'n'}`}>{i.roles.includes(r) ? '●' : '－'}</td>
-                  ))}
-                </tr>
-              ))}
+              {items.map((i) => {
+                const eff = effectiveRoles(i.href)
+                return (
+                  <tr key={i.href}>
+                    <td className="mut">{i.group}</td>
+                    <td className="strong">{i.label} <span className="mut mono" style={{ fontSize: 10.5 }}>{i.href}</span></td>
+                    {ROLES.map((r) => {
+                      if (!i.roles.includes(r)) return <td key={r} className="c n">－</td>
+                      if (r === 'ADMIN') return <td key={r} className="c y" title="ADMIN 은 잠금 방지를 위해 제한 불가">●</td>
+                      const active = eff.includes(r)
+                      return (
+                        <td key={r} className={`c ${active ? 'y' : 'n'}`}>
+                          <form action={toggleMenuRole} style={{ display: 'inline' }}>
+                            <input type="hidden" name="href" value={i.href} />
+                            <input type="hidden" name="role" value={r} />
+                            <button type="submit" className="btn sm" style={{ minWidth: 44 }}
+                              title={active ? '클릭 시 이 권한그룹의 접근을 제한한다' : '클릭 시 기본 권한으로 복원한다'}>
+                              {active ? '●' : '○ 제한됨'}
+                            </button>
+                          </form>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       </Card>
 
       <div className="callout">
-        <b>최소권한 모델</b> — 화면 숨김과 별개로 모든 경로는 서버사이드 가드(requireRole)로 직접 URL
-        진입을 차단하며, 스모크 스위트가 라우트 × 권한 매트릭스 전수를 검증한다.
+        <b>최소권한 모델</b> — 화면 숨김과 별개로 모든 경로는 서버사이드 가드(requireMenu — menus.ts 기본
+        권한 ∩ 런타임 제한)로 직접 URL 진입을 차단하며, 스모크 스위트가 라우트 × 권한 매트릭스 전수를
+        검증한다. 제한은 즉시 내비와 가드에 반영되고 감사 이력에 남는다.
       </div>
     </>
   )

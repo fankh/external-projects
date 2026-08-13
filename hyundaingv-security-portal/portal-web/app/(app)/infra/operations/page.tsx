@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { getStore, recordBatch } from '@/lib/store'
 import type { BatchJob, InterfaceDef } from '@/lib/types'
@@ -88,7 +88,7 @@ async function runBatch(formData: FormData) {
 }
 
 export default async function OperationsPage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/infra/operations')
   const s = getStore()
 
   const failedBatches = s.batchJobs.filter((b) => b.lastResult === '실패')

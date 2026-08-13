@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ROLE_LABEL } from '@/lib/types'
@@ -26,7 +26,7 @@ async function updateLine(formData: FormData) {
 }
 
 export default async function UsersPage() {
-  await requireRole('ADMIN')
+  await requireMenu('/settings/users')
   const s = getStore()
   const approverCandidates = ACCOUNTS.filter((a) => a.role !== 'USER')
 

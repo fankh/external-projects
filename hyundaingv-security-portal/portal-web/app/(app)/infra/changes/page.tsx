@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerGenerated, registerUpload } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 import type { ChangeStatus } from '@/lib/types'
@@ -75,7 +75,7 @@ async function submitResult(formData: FormData) {
 }
 
 export default async function ChangesPage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/infra/changes')
   const s = getStore()
 
   const matchable = s.srRequests.filter((r) => r.status === '적용요청' && !s.changes.some((c) => c.srNo === r.srNo))

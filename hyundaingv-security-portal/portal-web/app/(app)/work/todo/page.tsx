@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireMenu } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import type { TodoItem } from '@/lib/types'
@@ -41,7 +41,7 @@ function todoLink(x: TodoItem): { href: string; label: string } {
 }
 
 export default async function TodoPage() {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/work/todo')
   const s = getStore()
   const t = today()
 

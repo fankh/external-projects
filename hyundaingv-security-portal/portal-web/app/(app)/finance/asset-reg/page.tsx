@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { assetAdapter, isEnabled } from '@/lib/integrations/registry'
 import { getStore } from '@/lib/store'
@@ -24,7 +24,7 @@ async function acquire(formData: FormData) {
 }
 
 export default async function AssetRegPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/finance/asset-reg')
   const { q } = await searchParams
   const query = (q ?? '').trim()
   const s = getStore()

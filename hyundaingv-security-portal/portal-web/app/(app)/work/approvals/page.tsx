@@ -3,7 +3,7 @@ import { Fragment } from 'react'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { ROTATING_DOC_TYPES, WITHDRAWABLE_DOC_TYPES } from '@/lib/approvals'
 import { attachCount } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu } from '@/lib/authz'
 import { getStore, type Store } from '@/lib/store'
 import type { Approval, ApprovalStatus } from '@/lib/types'
 import { approve, reject, withdraw } from './actions'
@@ -69,7 +69,7 @@ function refSummary(s: Store, ap: Approval): [string, string][] {
 }
 
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/work/approvals')
   const { sel } = await searchParams
   const s = getStore()
 

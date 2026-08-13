@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { Hardware } from '@/lib/types'
 
@@ -68,7 +68,7 @@ async function deleteHardware(formData: FormData) {
 }
 
 export default async function RacksPage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/infra/racks')
   const s = getStore()
 
   return (

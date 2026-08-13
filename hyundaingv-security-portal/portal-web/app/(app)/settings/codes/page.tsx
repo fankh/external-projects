@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { getStore, isCodeActive } from '@/lib/store'
 
 async function toggleCode(formData: FormData) {
@@ -64,7 +64,7 @@ async function deleteCodeValue(formData: FormData) {
 }
 
 export default async function CodesPage() {
-  await requireRole('ADMIN')
+  await requireMenu('/settings/codes')
   const s = getStore()
   const total = s.codeGroups.reduce((sum, g) => sum + g.values.length, 0)
   const inactive = s.codeGroups.reduce((sum, g) => sum + g.values.filter((v) => !isCodeActive(v)).length, 0)

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { ServerInfo, SystemInfo } from '@/lib/types'
 
@@ -84,7 +84,7 @@ async function deleteSystem(formData: FormData) {
 }
 
 export default async function SystemsPage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/infra/systems')
   const s = getStore()
 
   const diskWarns = s.servers.filter((v) => v.diskUsedPct > DISK_WARN)

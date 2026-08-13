@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 
@@ -21,7 +21,7 @@ async function addNote(formData: FormData) {
 }
 
 export default async function ReportsPage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/projects/reports')
   const s = getStore()
   const projectOf = (id: string) => s.projects.find((p) => p.id === id)
   const thisWeekNotes = s.projectNotes.filter((n) => n.kind === '주간보고')

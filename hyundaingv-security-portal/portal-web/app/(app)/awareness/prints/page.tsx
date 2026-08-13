@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { nowStamp, today } from '@/lib/dates'
 import { secdataAdapter } from '@/lib/integrations/registry'
 import { getStore, nextNo, recordBatch } from '@/lib/store'
@@ -75,7 +75,7 @@ async function submitDiscards() {
 }
 
 export default async function PrintsPage() {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/awareness/prints')
   const s = getStore()
   const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
   const channelOn = Boolean(secdataAdapter())

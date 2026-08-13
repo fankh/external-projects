@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { getStore, nextNo } from '@/lib/store'
@@ -108,7 +108,7 @@ async function toggleOfficer(formData: FormData) {
 }
 
 export default async function ManagePledgePage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/pledge/manage')
   const s = getStore()
   const unsigned = unsignedOf(s)
   const rate = s.people.length ? Math.round(((s.people.length - unsigned.length) / s.people.length) * 100) : 0

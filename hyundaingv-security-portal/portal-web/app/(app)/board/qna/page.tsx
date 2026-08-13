@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { NAV } from '@/components/chrome/menus'
 import { ACCOUNTS } from '@/lib/session'
@@ -68,7 +68,7 @@ async function deleteQna(formData: FormData) {
 }
 
 export default async function QnaPage() {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/board/qna')
   const s = getStore()
   const canAnswer = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
   const open = s.qna.filter((q) => !q.answer)

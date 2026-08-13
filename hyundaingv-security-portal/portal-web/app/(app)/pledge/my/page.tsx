@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 
@@ -80,7 +80,7 @@ async function signSpecial(formData: FormData) {
 }
 
 export default async function MyPledgePage() {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/pledge/my')
   const s = getStore()
   const REVISION = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '-'
   const mine = s.pledges.filter((p) => p.name === me.name)

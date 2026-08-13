@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 
@@ -57,7 +57,7 @@ async function resolveIssue(formData: FormData) {
 }
 
 export default async function SchedulePage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/projects/schedule')
   const s = getStore()
   const t = today()
   const projectOf = (id: string) => s.projects.find((p) => p.id === id)

@@ -24,6 +24,8 @@ const hueStyle = (hue: string) => ({ '--dm': hue }) as CSSProperties
 
 export function AppShell(props: {
   role: Role
+  /** 런타임 메뉴권한 제한(메뉴권한 화면)으로 이 세션에서 숨길 메뉴 — 서버 가드는 requireMenu 가 담당 */
+  hiddenHrefs?: string[]
   badges: { todos: number; approvals: number }
   channels: { on: number; total: number }
   lastBatch?: { job: string; at: string }
@@ -39,7 +41,7 @@ export function AppShell(props: {
   const router = useRouter()
 
   const groups = NAV
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(props.role)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(props.role) && !(props.hiddenHrefs ?? []).includes(i.href)) }))
     .filter((g) => g.items.length > 0)
   const activeGroup = groups.find((g) => g.items.some((i) => pathname.startsWith(i.href))) ?? groups[0]
   const badgeOf = (badge?: 'todos' | 'approvals') => (badge ? props.badges[badge] : 0)

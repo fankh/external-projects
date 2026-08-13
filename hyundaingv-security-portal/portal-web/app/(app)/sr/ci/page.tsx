@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
@@ -79,7 +79,7 @@ async function advanceCiSr(formData: FormData) {
 }
 
 export default async function SrCiPage() {
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenu('/sr/ci')
   const s = getStore()
 
   const waiting = s.srRequests.filter((r) => r.status === 'CI배정')

@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { nowStamp, today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { getStore, nextNo, recordBatch } from '@/lib/store'
@@ -54,7 +54,7 @@ async function submitDeptStatus(formData: FormData) {
 }
 
 export default async function DeptPledgePage() {
-  const me = await requireRole('DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/pledge/dept')
   const s = getStore()
 
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'

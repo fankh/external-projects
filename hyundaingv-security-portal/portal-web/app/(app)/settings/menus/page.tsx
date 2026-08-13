@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { NAV } from '@/components/chrome/menus'
 import { registerUpload } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { SCREENS } from '@/lib/screens'
 import { getStore } from '@/lib/store'
 import { ROLE_LABEL } from '@/lib/types'
@@ -20,7 +20,7 @@ async function uploadSpec(formData: FormData) {
 }
 
 export default async function MenusPage() {
-  await requireRole('ADMIN')
+  await requireMenu('/settings/menus')
   const s = getStore()
   const items = NAV.flatMap((g) => g.items.map((i) => ({ group: g.label, hue: g.hue, ...i })))
   const stubs = new Set(Object.keys(SCREENS))

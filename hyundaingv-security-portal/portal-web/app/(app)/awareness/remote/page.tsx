@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, isRemoteTargetIn } from '@/lib/store'
 import type { Store } from '@/lib/store'
@@ -93,7 +93,7 @@ async function uploadTargets(formData: FormData) {
 }
 
 export default async function RemotePage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/awareness/remote')
   const { period: periodParam } = await searchParams
   const s = getStore()
   const thisMonth = today().slice(0, 7)

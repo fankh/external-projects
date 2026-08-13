@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount } from '@/lib/attachments'
-import { requireRole } from '@/lib/authz'
+import { requireMenu, requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../chips'
 
@@ -26,7 +26,7 @@ async function resubmitSr(formData: FormData) {
 const KIND_TABS = ['시스템개발', '데이터', '계정/권한'] as const
 
 export default async function SrRequestsPage({ searchParams }: { searchParams: Promise<{ q?: string; kind?: string }> }) {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/sr/requests')
   const { q, kind } = await searchParams
   const s = getStore()
 

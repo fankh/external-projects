@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { requireMenu } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, isRemoteTargetIn } from '@/lib/store'
 
@@ -9,7 +9,7 @@ const SR_CHIP: Record<string, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
 }
 
 export default async function DashboardPage() {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenu('/dashboard')
   const s = getStore()
   const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
   const period = today().slice(0, 7)
