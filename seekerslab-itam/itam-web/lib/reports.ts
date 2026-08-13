@@ -4,6 +4,7 @@ import { recordAiCall } from './ai-status'
 import { appendAudit } from './audit'
 import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon } from './dates'
 import { ACQ_COST, bookValueOf } from './cost'
+import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
 import { buildVulnPriority } from './vuln-priority'
@@ -15,7 +16,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도)·위협 대응 현황 증빙 초안' },
-  { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과 기준 교체 대상·잔존가치·유형별 예산 추정' },
+  { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과·OS 지원 종료(EOL) 기준 교체 대상·잔존가치·유형별 예산 추정' },
   { kind: '취약점 조치 우선순위', period: '수시', desc: '자산 중요도 × 노출도 스코어링 — 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 P1/P2/P3로 순위화' },
 ]
 
@@ -247,6 +248,20 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const cats = [...new Set(cands.map((x) => x.a.category))]
     const warrN = cands.filter((x) => x.why.includes('보증')).length
     const agedN = cands.filter((x) => x.why.includes('내용연수')).length
+    // OS 지원 종료(EOL) — 하드웨어 노후(내용연수·보증)와 별개의 교체·업그레이드 드라이버. 미패치 취약점 상시 노출.
+    const t = today()
+    const eolAssets = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, t))
+    const eolSection: ReportSection = eolAssets.length === 0
+      ? { title: 'OS 지원 종료(EOL) 자산 — 업그레이드·교체', bullets: ['OS 지원 종료가 경과한 운영 자산이 없습니다.'] }
+      : {
+          title: 'OS 지원 종료(EOL) 자산 — 업그레이드·교체',
+          note: `${eolAssets.length}대 — 미패치 취약점 상시 노출, 하드웨어 노후와 별개 드라이버(내용연수 초과분과 일부 중복 가능)`,
+          columns: ['자산번호', '유형', '모델', 'OS', '지원 종료', '업무 중요도'],
+          rows: eolAssets.map((a) => {
+            const e = eolOsOf(a.os, t)!
+            return [a.assetNo, a.category, a.model, a.os ?? '-', `${e.label} (${e.eol} 경과)`, a.criticality ?? '일반']
+          }),
+        }
     return [
       {
         title: '교체 대상 자산',
@@ -264,11 +279,13 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           return [c, `${cnt}대`, `${fmtAmount(unit)}원`, `${fmtAmount(cnt * unit)}원`]
         }),
       },
+      eolSection,
       {
         title: '우선순위 · 집행 계획',
         bullets: [
           `보증 경과 ${warrN}대는 장애 시 무상 수리가 불가 — 우선 교체 대상`,
           `수리중 자산 ${s.assets.filter((a) => a.status === '수리중').length}대는 수리 불가 판정 시 교체 대상에 편입`,
+          `OS 지원 종료(EOL) ${eolAssets.length}대는 OS 업그레이드 또는 교체로 미패치 노출 해소 — 취약점 우선순위(P1) 연계 조치`,
           '예산 확정 후 노후·장애 이력 순으로 분기별 집행 계획 수립',
         ],
       },
@@ -391,8 +408,10 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   if (kind === '연간 교체 계획') {
     const { cands, budget, residualBook } = replacementCandidates()
     const warrN = cands.filter((x) => x.why.includes('보증')).length
+    const eolN = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, today())).length
     return `내용연수·보증 경과 기준 교체 대상은 ${cands.length}대이며 추정 예산은 ${fmtAmount(budget)}원입니다. `
       + `이 중 보증이 경과한 ${warrN}대는 장애 시 무상 수리가 불가해 우선 교체 대상이며, 잔여 장부가는 ${fmtAmount(residualBook)}원입니다. `
+      + `하드웨어 노후와 별개로 OS 지원 종료(EOL) 자산이 ${eolN}대 있어 업그레이드 또는 교체가 필요합니다. `
       + '예산 확정 후 노후·장애 이력 순으로 분기별 집행 계획을 수립할 것을 권고합니다.'
   }
   if (kind === '취약점 조치 우선순위') {
