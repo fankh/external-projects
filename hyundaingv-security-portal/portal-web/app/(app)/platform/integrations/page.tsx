@@ -4,6 +4,7 @@ import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { runAdapterConformance, validatorSelfCheck } from '@/lib/integrations/conformance'
+import { deployReadiness } from '@/lib/readiness'
 import { channelSummary, hrAdapter, isEnabled } from '@/lib/integrations/registry'
 import { runDailyNotify } from '@/lib/notify'
 import { getStore, recordBatch } from '@/lib/store'
@@ -57,6 +58,8 @@ export default async function IntegrationsPage() {
   const conformance = await runAdapterConformance()
   const confFail = conformance.filter((c) => !c.ok)
   const selfCheck = validatorSelfCheck()
+  const readiness = deployReadiness()
+  const readyWarn = readiness.filter((r) => r.level === 'warn').length
 
   return (
     <>
@@ -75,6 +78,28 @@ export default async function IntegrationsPage() {
         의존한다. 고객사 배포 시 목업 어댑터를 고객사 구현(그룹웨어·인사·자산·보안 시스템)으로 교체하고
         <span className="mono"> portal.config.ts</span>의 채널 바인딩만 바꾼다.
       </div>
+
+      {/* 배포 준비 상태 — 실배포 전 확인할 런타임 구성 신호를 한눈에 (운영자용) */}
+      <Card title="배포 준비 상태" kicker="Deploy Readiness" pad={false}
+        actions={readyWarn === 0
+          ? <Chip tone="ok">준비 완료</Chip>
+          : <Chip tone="warn">조치 권장 {readyWarn}건</Chip>}>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead><tr><th>항목</th><th>상태</th><th>값</th><th>안내</th></tr></thead>
+            <tbody>
+              {readiness.map((r) => (
+                <tr key={r.key}>
+                  <td className="strong">{r.key}</td>
+                  <td><Chip tone={r.level === 'ok' ? 'ok' : r.level === 'warn' ? 'warn' : 'neutral'} bare>{r.level === 'ok' ? '안전' : r.level === 'warn' ? '조치 권장' : '참고'}</Chip></td>
+                  <td className="code">{r.value}</td>
+                  <td className="dim" style={{ fontSize: 11 }}>{r.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       {/* 어댑터 계약 자가진단 — 고객사 어댑터 스테이징 투입 전 통과해야 하는 프레임워크 게이트 */}
       <Card title="어댑터 계약 자가진단" kicker="Adapter Conformance" pad={false}

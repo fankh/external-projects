@@ -889,7 +889,7 @@ def sc_profile(pg, base, check):
     body = pg.content()
     check('한빛제조' in body and '그룹웨어 메일·문자' in body, '채널 구성 전환')
     # SMS 제거는 연동 채널 카드 기준 — 어댑터 자가진단은 전 프로필을 나열하므로 body 전체가 아니라 채널 카드로 스코프
-    chan_card = pg.locator('.card', has_text='연동 채널').inner_text()
+    chan_card = pg.locator('.card', has_text='Channels').inner_text()
     check('문자(SMS) 발송' not in chan_card, 'SMS 채널 제거(연동 채널 카드)')
     check('erp-asset' in body, 'ERP 자산 어댑터 바인딩')
     login(pg, base, '박정호')
@@ -904,7 +904,7 @@ def sc_profile_public(pg, base, check):
     login(pg, base, '시스템관리자')
     check('한울공공기관' in pg.locator('.statusbar').inner_text(), '상태바 고객사(공공) 전환')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
-    chan_card = pg.locator('.card', has_text='연동 채널').inner_text()
+    chan_card = pg.locator('.card', has_text='Channels').inner_text()
     # manufacturer 와 대비되는 축: SMS 별도 실채널 유지 + 보안·출력물 관제 기본 가동
     check('문자(SMS) 발송' in chan_card, 'SMS 별도 실채널 유지(공공)')
     check('보안·출력물 관제' in chan_card, 'secdata 채널 구성 전환')
