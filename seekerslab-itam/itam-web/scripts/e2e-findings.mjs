@@ -284,6 +284,16 @@ try {
   // 본인 자산에 초점(전량 나열 catch-all 이 아니라 보증 현황) + 본인 자산번호 + 권한 필터(타인·서버 자산 미포함)
   ok('사용자 AI 질의: 본인 자산 보증 현황 초점 답변', uAns.includes('보증 현황') && uAns.includes('AST-2024-000015') && /D-|만료 경과/.test(uAns))
   ok('사용자 AI 질의: 권한 필터 — 타인·서버 자산 미포함', !uAns.includes('AST-2023-000561') && !uAns.includes('AST-2020-000883'))
+  // 본인 대여 자산 반환 기한 질의 — 대여자 관점의 반환 마감(본인 대여중 자산에 스코프)
+  const ub2 = await pU.locator('.msg.assistant .bub').count()
+  await pU.locator('.chat-in input').fill('내 대여 자산 반환 기한')
+  await pU.locator('.chat-in input').press('Enter')
+  await pU.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, ub2, { timeout: 8000 })
+  await pU.waitForTimeout(150)
+  const uLoan = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
+  // 본인 대여분(AST-2024-000230·반환 기한 2026-08-20)에 초점 + 타인 대여(AST-2023-000450·한지민) 미포함
+  ok('사용자 AI 질의: 본인 대여 자산 반환 기한 초점 답변', uLoan.includes('대여 자산 반환 현황') && uLoan.includes('AST-2024-000230') && uLoan.includes('2026-08-20'))
+  ok('사용자 AI 질의: 대여 권한 필터 — 타인 대여 자산 미포함', !uLoan.includes('AST-2023-000450'))
   await ctxU.close()
 
   // ── Admin: AI 모델·프롬프트 버전 관리(§05 AI 거버넌스) + 감사 적재 ──

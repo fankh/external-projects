@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
-import { daysUntil, isLoanOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, isLoanDueSoon, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
 import { REPORT_KINDS, createReport, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
@@ -440,6 +440,29 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
             `${userName}님 보유 자산 보증 현황 — ${owned.length}건${soon.length ? ` · 90일 내 만료 ${soon.length}건 (교체·연장 검토)` : ''}.`,
             ``,
             ...owned.map((a) => `· ${a.assetNo} — ${a.model} (보증 만료 ${a.warrantyEnd} · ${dText(a)})`),
+          ].join('\n'),
+      evidence: [{ label: '내 보유 자산', href: '/assets/register' }],
+    }
+  }
+  // 사용자 본인 대여 자산 반환 기한 질의 — 본인이 빌린 대여중 자산의 반환 마감을 스코프해 답한다(§01 사용자 본인 자산 조회 · 대여자 관점).
+  // 담당자용 운영 리스크(대여 연체) 인텐트는 !isUser 라, 대여자는 여기서 본인 대여분만 초점 답변을 받는다.
+  if (isUser && (q.includes('대여') || q.includes('반납') || q.includes('반환'))) {
+    const loans = s.assets
+      .filter((a) => a.status === '대여중' && a.owner === userName && a.loanDueDate)
+      .sort((a, b) => (a.loanDueDate ?? '').localeCompare(b.loanDueDate ?? ''))
+    const overdue = loans.filter(isLoanOverdue)
+    return {
+      role: 'assistant',
+      text: loans.length === 0
+        ? `${userName}님이 대여 중인 자산이 없습니다. 대여 신청은 워크플로 › 신청·결재에서 상신할 수 있습니다.`
+        : [
+            `${userName}님 대여 자산 반환 현황 — ${loans.length}건${overdue.length ? ` · 반환 연체 ${overdue.length}건(즉시 반납)` : ''}.`,
+            ``,
+            ...loans.map((a) => {
+              const d = daysUntil(a.loanDueDate!) ?? 0
+              const flag = isLoanOverdue(a) ? `반환 연체 ${-d}일 경과` : isLoanDueSoon(a) ? `반환 임박 D-${d}` : `D-${d}`
+              return `· ${a.assetNo} — ${a.model} (반환 기한 ${a.loanDueDate} · ${flag})`
+            }),
           ].join('\n'),
       evidence: [{ label: '내 보유 자산', href: '/assets/register' }],
     }
