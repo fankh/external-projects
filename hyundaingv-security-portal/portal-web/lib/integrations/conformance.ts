@@ -8,21 +8,54 @@
 import * as defaultProfile from '@/profiles/default.config'
 import * as manufacturerProfile from '@/profiles/sample-manufacturer.config'
 import { resolveAdapter } from './registry'
-import type { ChannelBinding } from './types'
+import type { ChannelBinding, ChannelKind, PortalBrand } from './types'
 
 export interface ConformanceCheck {
   profile: string
   channel: string
   adapterId: string
-  area: '바인딩' | '계약'
+  area: '구조' | '바인딩' | '계약'
   ok: boolean
   detail: string
 }
 
-const PROFILES: { name: string; channels: ChannelBinding[] }[] = [
-  { name: 'default', channels: defaultProfile.CHANNELS },
-  { name: 'manufacturer', channels: manufacturerProfile.CHANNELS },
+const PROFILES: { name: string; brand: PortalBrand; channels: ChannelBinding[] }[] = [
+  { name: 'default', brand: defaultProfile.PORTAL, channels: defaultProfile.CHANNELS },
+  { name: 'manufacturer', brand: manufacturerProfile.PORTAL, channels: manufacturerProfile.CHANNELS },
 ]
+
+const KINDS = new Set<ChannelKind>(['mail', 'sms', 'approval', 'sso', 'hr', 'asset', 'secdata'])
+const TRANSPORTS = new Set(['REST API', 'SAML', 'DB 연계', '인터페이스'])
+
+/** 프로필 구조 검증 — 고객사가 프로필을 추가/편집할 때의 정합성 (어댑터 해석과 별개).
+ *  중복 채널 id·미정의 kind·빈 필드 등을 배포 전에 잡는다. */
+export function validateProfileStructure(name: string, brand: PortalBrand, channels: ChannelBinding[]): ConformanceCheck[] {
+  const out: ConformanceCheck[] = []
+  const push = (ok: boolean, detail: string, channel = '(프로필)', adapterId = '-') =>
+    out.push({ profile: name, channel, adapterId, area: '구조', ok, detail })
+
+  // 브랜딩 필드 비어있지 않음
+  const brandOk = (['customer', 'productName', 'productSub', 'version'] as const).every((k) => typeof brand[k] === 'string' && brand[k].trim().length > 0)
+  push(brandOk, brandOk ? '브랜딩 4필드 채워짐' : '브랜딩 필드(customer/productName/productSub/version) 누락')
+
+  push(channels.length > 0, channels.length > 0 ? `채널 ${channels.length}개` : '채널이 하나도 없음')
+
+  // 채널 id 유일성
+  const ids = channels.map((c) => c.id)
+  const dup = ids.find((id, i) => ids.indexOf(id) !== i)
+  push(!dup, dup ? `채널 id 중복: ${dup}` : '채널 id 유일')
+
+  for (const c of channels) {
+    const problems: string[] = []
+    if (!c.id?.trim()) problems.push('id 빈값')
+    if (!KINDS.has(c.kind)) problems.push(`kind '${c.kind}' 미정의`)
+    if (!c.name?.trim()) problems.push('name 빈값')
+    if (!c.adapterId?.trim()) problems.push('adapterId 빈값')
+    if (!TRANSPORTS.has(c.transport)) problems.push(`transport '${c.transport}' 미정의`)
+    push(problems.length === 0, problems.length === 0 ? '필드 정합' : problems.join(', '), c.name || c.id, c.adapterId || '-')
+  }
+  return out
+}
 
 /** 계약이 정의된 kind — approval·sso 는 아직 계약(인터페이스)이 없어 planned 로만 존재한다 */
 const CONTRACTED = new Set(['mail', 'sms', 'hr', 'asset', 'secdata'])
@@ -75,10 +108,28 @@ async function exerciseContract(kind: string, adapter: unknown): Promise<{ ok: b
   }
 }
 
+/** 검증기 자기점검 — 일부러 깨진 프로필이 실제로 부적합으로 잡히는지 확인한다.
+ *  (검증기가 항상 '적합'만 내는 무력한 통과 방지 — 자가진단 카드에 상태를 노출한다.) */
+export function validatorSelfCheck(): { ok: boolean; detail: string } {
+  const bad = validateProfileStructure(
+    '__selftest__',
+    { customer: '', productName: 'x', productSub: 'y', version: 'z' } as PortalBrand,
+    [
+      { id: 'dup', kind: 'mail', name: '', transport: 'REST API', usage: '', adapterId: '', enabledByDefault: true },
+      { id: 'dup', kind: 'bogus' as ChannelKind, name: 'n', transport: '무선' as ChannelBinding['transport'], usage: '', adapterId: 'a', enabledByDefault: true },
+    ],
+  )
+  const caught = bad.filter((c) => !c.ok).length
+  // 기대 위반: 브랜딩 누락 · id 중복 · 채널1 다중결함 · 채널2 kind/transport 결함 = 최소 4
+  return { ok: caught >= 4, detail: caught >= 4 ? `깨진 프로필 위반 ${caught}건 검출` : `검출 부족(${caught}) — 검증기 약화 의심` }
+}
+
 /** 전 프로필 × 전 채널 자가진단 — 실패가 하나라도 있으면 프레임워크 배포를 막아야 한다 */
 export async function runAdapterConformance(): Promise<ConformanceCheck[]> {
   const checks: ConformanceCheck[] = []
-  for (const { name, channels } of PROFILES) {
+  for (const { name, brand, channels } of PROFILES) {
+    // 프로필 구조 먼저 — 구조가 깨지면 바인딩·계약도 신뢰할 수 없다
+    checks.push(...validateProfileStructure(name, brand, channels))
     for (const ch of channels) {
       if (ch.planned || !CONTRACTED.has(ch.kind)) continue
       const adapter = resolveAdapter(ch.kind, ch.adapterId)
