@@ -112,7 +112,8 @@ async function main() {
       if (e instanceof Error && e.message.includes('이미 서버가')) throw e
       // 연결 실패 = 포트 비어 있음 (정상)
     }
-    server = spawn('npx', ['next', 'start', '-p', String(PORT)], {
+    // DEP0190 회피 — shell:true 에서는 인자 배열 대신 명령 문자열 하나로 넘긴다 (인자는 전부 상수)
+    server = spawn(`npx next start -p ${PORT}`, {
       cwd: ROOT, shell: true, stdio: 'ignore',
     })
   }
