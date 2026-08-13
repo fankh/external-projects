@@ -38,7 +38,8 @@ export async function GET(req: Request) {
     const confirmed = s.investPlans.filter((p) => p.kind === kind && p.status === '확정')
     const rows: (string | number)[][] = [['과제번호', '과제명', '담당', '계획액(만원)', '계약액(만원)', '집행액(만원)', '집행률(%)']]
     for (const p of confirmed) {
-      const cts = s.investContracts.filter((c) => c.planId === p.id)
+      // 화면과 동일하게 kind 로 먼저 스코프 — 전역 planId 유일성에만 의존하지 않고 교차-kind 집계를 원천 차단
+      const cts = s.investContracts.filter((c) => c.planId === p.id && c.kind === kind)
       const contracted = cts.reduce((sum, c) => sum + c.amount, 0)
       const paid = cts.reduce((sum, c) => sum + s.settlements
         .filter((x) => x.contractId === c.id && x.status === '지급완료')

@@ -15,7 +15,7 @@ async function addPlan(formData: FormData) {
   const me = await requireMenuRole('/finance/invest', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
-  if (!title || !Number.isFinite(amount) || amount <= 0) return
+  if (!title || !Number.isFinite(amount) || amount <= 0 || amount > 1e9) return
   const s = getStore()
   const year = today().slice(0, 4)
   s.investPlans.unshift({
@@ -65,7 +65,7 @@ async function addContract(formData: FormData) {
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
   const planId = String(formData.get('planId') ?? '')
-  if (!vendor || !title || !Number.isFinite(amount) || amount <= 0) return
+  if (!vendor || !title || !Number.isFinite(amount) || amount <= 0 || amount > 1e9) return
   const s = getStore()
   const year = today().slice(0, 4)
   const id = nextNo('CT', year, s.investContracts.map((c) => c.id))
@@ -87,7 +87,7 @@ async function requestSettlement(formData: FormData) {
   const amount = Number(formData.get('amount'))
   const s = getStore()
   const contract = s.investContracts.find((c) => c.id === contractId && c.kind === '투자')
-  if (!contract || !['착수금', '중도금', '잔금'].includes(item) || !Number.isFinite(amount) || amount <= 0) return
+  if (!contract || !['착수금', '중도금', '잔금'].includes(item) || !Number.isFinite(amount) || amount <= 0 || amount > 1e9) return
 
   const year = today().slice(0, 4)
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
@@ -128,6 +128,12 @@ export default async function InvestPage() {
   const planTotal = confirmed.reduce((sum, p) => sum + p.amount, 0)
   const contractTotal = kindContracts.reduce((sum, c) => sum + c.amount, 0)
   const paidTotal = kindSettlements.filter((x) => x.status === '지급완료').reduce((sum, x) => sum + x.amount, 0)
+  // 집행률 분자는 분모(확정 계획)와 스코프를 맞춘다 — 확정 계획 계약의 집행만 산입(계획외·미확정
+  // 계약 집행 제외). 그래야 계획대비실적 표의 per-plan 집행률 합과 일치하고 100% 를 넘지 않는다.
+  const confirmedIds = new Set(confirmed.map((p) => p.id))
+  const paidConfirmed = kindSettlements
+    .filter((x) => x.status === '지급완료' && confirmedIds.has(kindContracts.find((c) => c.id === x.contractId)?.planId ?? ''))
+    .reduce((sum, x) => sum + x.amount, 0)
 
   return (
     <>
@@ -138,7 +144,7 @@ export default async function InvestPage() {
         <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`과제 ${confirmed.length}건`} />
         <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${s.investContracts.length}건`} />
         <Stat value={<>{fmt(paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
-        <Stat value={`${planTotal ? Math.round((paidTotal / planTotal) * 100) : 0}%`} label="계획 대비 집행률" />
+        <Stat value={`${planTotal ? Math.round((paidConfirmed / planTotal) * 100) : 0}%`} label="계획 대비 집행률" />
       </div>
 
       <Card title="경영계획 — 투자과제" kicker="Plan" pad={false}>

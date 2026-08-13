@@ -16,7 +16,7 @@ async function addPlan(formData: FormData) {
   const me = await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
-  if (!title || !Number.isFinite(amount) || amount <= 0) return
+  if (!title || !Number.isFinite(amount) || amount <= 0 || amount > 1e9) return
   const s = getStore()
   const year = today().slice(0, 4)
   s.investPlans.unshift({
@@ -66,7 +66,7 @@ async function addContract(formData: FormData) {
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
   const planId = String(formData.get('planId') ?? '')
-  if (!vendor || !title || !Number.isFinite(amount) || amount <= 0) return
+  if (!vendor || !title || !Number.isFinite(amount) || amount <= 0 || amount > 1e9) return
   const s = getStore()
   const year = today().slice(0, 4)
   const id = nextNo('CT', year, s.investContracts.map((c) => c.id))
@@ -87,7 +87,7 @@ async function addFlash(formData: FormData) {
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const expected = Number(formData.get('expected'))
   const planId = String(formData.get('planId') ?? '')
-  if (!/^\d{4}-\d{2}$/.test(month) || !vendor || !Number.isFinite(expected) || expected <= 0) return
+  if (!/^\d{4}-\d{2}$/.test(month) || !vendor || !Number.isFinite(expected) || expected <= 0 || expected > 1e9) return
   const s = getStore()
   s.expenseFlashes.unshift({
     id: nextNo('EF', today().slice(0, 4), s.expenseFlashes.map((f) => f.id)),
@@ -121,7 +121,7 @@ async function requestSettlement(formData: FormData) {
   const amount = Number(formData.get('amount'))
   const s = getStore()
   const contract = s.investContracts.find((c) => c.id === contractId && c.kind === '비용')
-  if (!contract || !['월정산', '착수금', '중도금', '잔금'].includes(item) || !Number.isFinite(amount) || amount <= 0) return
+  if (!contract || !['월정산', '착수금', '중도금', '잔금'].includes(item) || !Number.isFinite(amount) || amount <= 0 || amount > 1e9) return
 
   const year = today().slice(0, 4)
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
@@ -156,6 +156,11 @@ export default async function ExpensePage() {
   const planTotal = confirmed.reduce((sum, p) => sum + p.amount, 0)
   const contractTotal = kindContracts.reduce((sum, c) => sum + c.amount, 0)
   const paidTotal = kindSettlements.filter((x) => x.status === '지급완료').reduce((sum, x) => sum + x.amount, 0)
+  // 집행률 분자는 분모(확정 계획)와 스코프를 맞춘다 — 확정 계획 계약의 집행만 (계획외·미확정 제외)
+  const confirmedIds = new Set(confirmed.map((p) => p.id))
+  const paidConfirmed = kindSettlements
+    .filter((x) => x.status === '지급완료' && confirmedIds.has(kindContracts.find((c) => c.id === x.contractId)?.planId ?? ''))
+    .reduce((sum, x) => sum + x.amount, 0)
 
   /** 속보 기준금액 — 정산 > 계약 > 계획 우선순위 (요구사항) */
   const basisOf = (f: { month: string; vendor: string; planId?: string; expected: number }) => {
@@ -177,7 +182,7 @@ export default async function ExpensePage() {
         <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`항목 ${confirmed.length}건`} />
         <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
         <Stat value={<>{fmt(paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
-        <Stat value={`${planTotal ? Math.round((paidTotal / planTotal) * 100) : 0}%`} label="계획 대비 집행률" />
+        <Stat value={`${planTotal ? Math.round((paidConfirmed / planTotal) * 100) : 0}%`} label="계획 대비 집행률" />
       </div>
 
       <Card title="경영계획 — 비용 항목" kicker="Plan" pad={false}>
