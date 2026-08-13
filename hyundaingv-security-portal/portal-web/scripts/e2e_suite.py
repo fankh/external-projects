@@ -536,13 +536,15 @@ def sc_infracrud(pg, base, check):
     pg.locator('tr', has_text='E2E 야간 집계').locator('button:has-text("삭제")').click()
     pg.wait_for_load_state('networkidle')
 
-    # 인터페이스 등록·삭제
+    # 인터페이스 등록·삭제 — 이름을 수식 트리거로 시작시켜 CSV 주입 방어(CWE-1236)도 함께 검증
     if_card = pg.locator('.card', has_text='인터페이스관리')
-    if_card.locator('input[name=name]').fill('E2E 연계 테스트')
+    if_card.locator('input[name=name]').fill('=E2E 연계 테스트')
     if_card.locator('input[name=from]').fill('포털')
     if_card.locator('input[name=to]').fill('E2E 테스트시스템')
     if_card.get_by_role('button', name='등록', exact=True).click()
     pg.wait_for_selector('tr:has-text("E2E 연계 테스트")', timeout=10000)
+    csv_text = pg.request.get(f'{base}/api/export?type=interfaces').text()
+    check("'=E2E 연계 테스트" in csv_text, "CSV 수식 주입 무력화 ('= 접두)")
     pg.locator('tr', has_text='E2E 연계 테스트').locator('button:has-text("삭제")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/infra/operations', wait_until='networkidle')
