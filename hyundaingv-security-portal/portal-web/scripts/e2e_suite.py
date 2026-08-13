@@ -175,6 +175,79 @@ def sc_withdraw(pg, base, check):
     check('E2E 상신취소 검증' in pg.content(), '재상신 승인 → CI배정')
 
 
+def sc_devchain(pg, base, check):
+    """시스템개발 SR 전체 사슬 — 신청→승인→CI→개발→테스트→적용요청→변경 편입→
+    계획 상신취소(복원)→재상신→승인→결과 승인→최종완료→SR 완료 전파 (결재 시트 4·5·10번 연계)"""
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/sr/new', wait_until='networkidle')
+    pg.select_option('select[name=kind]', '시스템개발')
+    pg.fill('input[name=system]', 'ERP')
+    pg.fill('input[name=title]', 'E2E 개발변경 사슬')
+    pg.click('button:has-text("결재 상신")')
+    pg.wait_for_url('**/sr/requests**')
+
+    login(pg, base, '박정호')
+    approve_first(pg, base, 'E2E 개발변경 사슬')
+
+    # CI 배정·착수 → 개발중, 이어서 테스트·적용요청 진행 (공수 3+2 누적 — 요구사항 26행)
+    pg.goto(f'{base}/sr/ci', wait_until='networkidle')
+    pg.locator('tr', has_text='E2E 개발변경 사슬').locator('button:has-text("배정 · 착수")').click()
+    pg.wait_for_load_state('networkidle')
+    for hours in ('3', '2'):
+        pg.goto(f'{base}/sr/manage', wait_until='networkidle')
+        row = pg.locator('tr', has_text='E2E 개발변경 사슬')
+        row.locator('input[name=manHours]').fill(hours)
+        row.locator('button:has-text("처리 →")').click()
+        pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/sr/manage', wait_until='networkidle')
+    row = pg.locator('tr', has_text='E2E 개발변경 사슬')
+    check('적용요청' in row.inner_text(), '진행 처리 → 적용요청')
+    check(row.locator('td').nth(6).inner_text().strip() == '5', '공수(MD) 누적 3+2=5')
+
+    # 변경관리 편입 — 적용요청 SR 이 시스템개발변경 목록에 추가된다
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    pg.select_option('select[name=srNo]', index=0)
+    pg.click('button:has-text("변경 작업 편입")')
+    pg.wait_for_selector('tr:has-text("E2E 개발변경 사슬")', timeout=10000)
+
+    # 계획 상신 → 상신취소 → 작업등록 복원 (변경계획 회수 전이 — 결재 시트 9·10번 상신취소)
+    pg.locator('tr', has_text='E2E 개발변경 사슬').locator('button:has-text("계획 상신")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    pg.locator('.card', has_text='상신함').locator('a', has_text='E2E 개발변경 사슬 — 작업계획').first.click()
+    pg.wait_for_selector('text=문서 상세', timeout=10000)
+    pg.locator('.card', has_text='문서 상세').locator('button:has-text("상신취소")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    row = pg.locator('tr', has_text='E2E 개발변경 사슬')
+    check('작업등록' in row.inner_text() and '계획결재중' not in row.inner_text(), '계획 상신취소 → 작업등록 복원')
+
+    # 재상신 → 승인. 엑셀양식 자동첨부는 회수·재상신에도 같은 참조·양식이라 1건 유지(중복 방지)
+    row.locator('button:has-text("계획 상신")').click()
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    inbox_row = pg.locator('tr', has_text='E2E 개발변경 사슬 — 작업계획').first
+    check('📎1' in inbox_row.inner_text(), '변경계획 자동첨부 1건 유지 (회수 재상신 중복 방지)')
+    inbox_row.locator('button:has-text("승인")').click()
+    pg.wait_for_load_state('networkidle')
+
+    # 결과 상신 → 승인 → 최종완료 + SR 완료 전파
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    row = pg.locator('tr', has_text='E2E 개발변경 사슬')
+    row.locator('input[name=result]').fill('운영계 반영 완료')
+    row.locator('button:has-text("결과 상신")').click()
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '시스템관리자')
+    approve_first(pg, base, 'E2E 개발변경 사슬 — 작업결과')
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    check('최종완료' in pg.locator('tr', has_text='E2E 개발변경 사슬').inner_text(), '결과 승인 → 최종완료')
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/sr/requests', wait_until='networkidle')
+    check('완료' in pg.locator('tr', has_text='E2E 개발변경 사슬').inner_text(), '변경 최종완료 → SR 완료 전파')
+
+
 def sc_settle(pg, base, check):
     """정산품의 반려 → 재상신 → 승인 → 지급완료"""
     login(pg, base, '이수진')
@@ -509,6 +582,7 @@ SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
+    ('devchain', '시스템개발 SR → 변경 2단 상신 → SR 완료 전파 (전체 사슬)', sc_devchain, {}),
     ('settle', '정산 반려 → 재상신 → 지급완료', sc_settle, {}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
