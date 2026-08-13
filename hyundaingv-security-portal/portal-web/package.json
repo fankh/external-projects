@@ -9,6 +9,7 @@
     "smoke": "node scripts/smoke.mjs",
     "e2e": "node scripts/pyrun.mjs scripts/e2e_suite.py",
     "health": "node scripts/pyrun.mjs scripts/client_health.py",
+    "load": "node scripts/load_probe.mjs",
     "gates": "npm run build && npm run smoke && npm run health && npm run e2e"
   },
   "dependencies": {
