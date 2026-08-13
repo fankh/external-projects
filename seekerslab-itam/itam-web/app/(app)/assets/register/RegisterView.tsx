@@ -8,6 +8,7 @@ import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
+import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
@@ -533,13 +534,21 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <div style={{ marginTop: 12 }}>
                 {lostMsg && <div className="callout" style={{ marginBottom: 10 }}>{lostMsg}</div>}
                 <div className="callout warn" style={{ marginBottom: 10, padding: '8px 11px' }}>
-                  분실·도난 신고된 자산입니다 — 회수 시 유휴 풀로 복귀, 미회수 확정 시 <Link href="/assets/disposal">폐기 처리</Link>로 넘깁니다.
+                  분실·도난 신고된 자산입니다 — 실물을 되찾으면 회수로 유휴 풀 복귀, 되찾지 못하면 미회수 확정으로 폐기 절차(선정)에 바로 넘깁니다.
                 </div>
-                <button className="btn sm pri" disabled={pending}
-                  onClick={() => startTransition(async () => {
-                    const r = await recoverAsset(sel.assetNo, '')
-                    setLostMsg(r.message)
-                  })}>회수 (실물 확보)</button>
+                <span className="hstack" style={{ gap: 6 }}>
+                  <button className="btn sm pri" disabled={pending}
+                    onClick={() => startTransition(async () => {
+                      const r = await recoverAsset(sel.assetNo, '')
+                      setLostMsg(r.message)
+                    })}>회수 (실물 확보)</button>
+                  <button className="btn sm danger" disabled={pending}
+                    title="되찾지 못한 분실·도난 자산을 폐기 후보로 선정합니다 — 폐기 결재·데이터 소거 절차로 이어집니다"
+                    onClick={() => startTransition(async () => {
+                      const r = await selectForDisposal(sel.assetNo, '분실 미회수 확정')
+                      setLostMsg(r.message)
+                    })}>미회수 확정 → 폐기</button>
+                </span>
               </div>
             )}
 

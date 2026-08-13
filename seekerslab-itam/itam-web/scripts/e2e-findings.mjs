@@ -306,6 +306,21 @@ try {
   ok('장기 유휴 → 폐기: 대상 선정 성공', (await p4.textContent('body')).includes('폐기 대상 선정'))
   await p4.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
   ok('장기 유휴 → 폐기: 폐기 기록에 사유(장기 유휴)로 등장', (await p4.textContent('body')).includes(idleAsset) && (await p4.textContent('body')).includes('장기 유휴'))
+
+  // 분실 → 미회수 확정 → 폐기 브리지(dead-end 링크 대체)
+  const lostTarget = 'AST-2023-000112'
+  await p4.goto(`${BASE}/assets/register?sel=${lostTarget}`, { waitUntil: 'networkidle' })
+  await p4.locator('button', { hasText: /^분실 · 도난 신고$/ }).click()
+  await p4.waitForTimeout(300)
+  await p4.locator('input[placeholder*="정황"]').fill('e2e 분실 신고 — 소재 불명')
+  await p4.locator('button', { hasText: /^신고 확정$/ }).click()
+  await p4.waitForTimeout(700)
+  const lostScrap = p4.locator('button', { hasText: /^미회수 확정 → 폐기$/ })
+  ok('분실 자산: 미회수 확정 → 폐기 조치 노출', (await lostScrap.count()) > 0)
+  await lostScrap.click()
+  await p4.waitForTimeout(900)
+  await p4.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  ok('분실 → 폐기: 폐기 기록에 사유(분실 미회수 확정)로 등장', (await p4.textContent('body')).includes(lostTarget) && (await p4.textContent('body')).includes('분실 미회수 확정'))
   await ctx4.close()
 
   await browser.close()
