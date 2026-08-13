@@ -324,6 +324,18 @@ def sc_settle(pg, base, check):
     pg.goto(f'{base}/finance/expense', wait_until='networkidle')
     check('지급완료' in pg.locator('tr', has_text='ST-2026-0003').inner_text(), '재상신 승인 → 지급완료')
 
+    # 정산 임시저장 (제품안내서 II장) — 작성중 보관 → '상신' 버튼으로 결재 시작
+    login(pg, base, '이수진')
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    card = pg.locator('.card', has_text='정산품의')
+    card.locator('select[name=contractId]').select_option('CT-2026-03')
+    card.locator('input[name=amount]').fill('500')
+    card.locator('button:has-text("임시저장")').click()
+    pg.wait_for_selector('tr:has-text("ST-2026-0004"):has-text("작성중")', timeout=10000)
+    pg.locator('tr', has_text='ST-2026-0004').get_by_role('button', name='상신', exact=True).click()
+    pg.wait_for_selector('tr:has-text("ST-2026-0004"):has-text("결재중")', timeout=10000)
+    check('결재중' in pg.locator('tr', has_text='ST-2026-0004').inner_text(), '정산 임시저장 → 상신 (결재중)')
+
 
 def sc_adapter(pg, base, check):
     """채널 토글 → 발송 실패/성공, secdata 이관 → 출력물 폐기 결재"""

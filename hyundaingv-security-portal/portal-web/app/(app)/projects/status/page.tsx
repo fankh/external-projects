@@ -17,9 +17,12 @@ async function addProject(formData: FormData) {
   if (!title || !Number.isFinite(headcount) || headcount < 1 || !dateRe.test(start) || !dateRe.test(end) || end < start) return
   const s = getStore()
   const id = nextNo('PJ', today().slice(0, 4), s.projects.map((p) => p.id))
+  // 투입 인력 명단 — 실존 인원만, 프로젝트 참여 서약 대상의 기준이 된다 (제품안내서 III장)
+  const members = formData.getAll('members').map(String).filter((n) => s.people.some((p) => p.name === n))
   s.projects.unshift({
     id, title, contractId: s.investContracts.some((c) => c.id === contractId) ? contractId : undefined,
-    manager: me.name, headcount: Math.round(headcount), start, end, progress: 0, status: '진행중',
+    manager: me.name, headcount: Math.round(headcount), members: members.length > 0 ? members : undefined,
+    start, end, progress: 0, status: '진행중',
   })
   // 인력투입계획서 등 프로젝트 문서 — 공통 첨부 (첨부 시트: 프로젝트 인력투입계획)
   registerUpload(id, formData.get('file'), me.name)
@@ -79,7 +82,7 @@ export default async function ProjectStatusPage() {
                     <td className="strong">{p.title}<Clip count={attachCount(p.id)} title="프로젝트 문서 (인력투입계획 등)" /></td>
                     <td>{ct ? <span>{ct.vendor} <span className="mut mono">{ct.id}</span></span> : <span className="mut">-</span>}</td>
                     <td>{p.manager}</td>
-                    <td className="num">{p.headcount}명</td>
+                    <td className="num" title={p.members?.join(' · ') ?? '명단 미등록'}>{p.headcount}명{p.members && <span className="mut"> ({p.members.length})</span>}</td>
                     {/* 요구사항 46행 — 사내인력 프로젝트 참여 서약 (보안서약서 > 특별서약서(프로젝트)) 제출 수 */}
                     <td className="num">{s.pledges.filter((x) => x.kind === '프로젝트' && x.projectRef === p.id).length}건</td>
                     <td className="tnum">{p.start} ~ {p.end} {p.status !== '완료' && p.end < t && <Chip tone="err" bare>경과</Chip>}</td>
@@ -115,6 +118,9 @@ export default async function ProjectStatusPage() {
               {s.investContracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.title}</option>)}
             </select>
             <input className="input" name="headcount" required type="number" min={1} placeholder="인력" style={{ width: 70 }} />
+            <select className="select" name="members" multiple size={3} title="투입 인력 명단 (Ctrl 다중 선택) — 참여 서약 대상 기준" style={{ width: 120, height: 58 }}>
+              {s.people.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+            </select>
             <input className="input" name="start" required type="date" />
             <input className="input" name="end" required type="date" />
             <input className="input" type="file" name="file" style={{ width: 170, paddingTop: 4 }} title="인력투입계획서 등 첨부" />

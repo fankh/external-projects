@@ -72,6 +72,20 @@ async function addFlash(formData: FormData) {
   revalidatePath('/finance/expense')
 }
 
+/** 속보 수정 — 예상액 변경 시 이전 값이 이력으로 남는다 (제품안내서 III장: 등록·조회·수정·이력관리) */
+async function editFlash(formData: FormData) {
+  'use server'
+  const me = await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const id = String(formData.get('id') ?? '')
+  const expected = Number(formData.get('expected'))
+  const s = getStore()
+  const f = s.expenseFlashes.find((x) => x.id === id)
+  if (!f || !Number.isFinite(expected) || expected <= 0 || expected > 1e9 || Math.round(expected) === f.expected) return
+  f.history = [...(f.history ?? []), { at: today(), by: me.name, expected: f.expected }].slice(-20)
+  f.expected = Math.round(expected)
+  revalidatePath('/finance/expense')
+}
+
 async function requestSettlement(formData: FormData) {
   'use server'
   const me = await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
@@ -84,14 +98,16 @@ async function requestSettlement(formData: FormData) {
 
   const year = today().slice(0, 4)
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
+  // 임시저장 (제품안내서 II장 공통 흐름) — 상신 없이 작성중 보관
+  const isDraft = formData.get('mode') === 'draft'
   const dueDate = String(formData.get('dueDate') ?? '')
-  s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: '결재중', requestedBy: me.name, requestedAt: today(),
+  s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: isDraft ? '작성중' : '결재중', requestedBy: me.name, requestedAt: today(),
     dueDate: /^\d{4}-\d{2}-\d{2}$/.test(dueDate) ? dueDate : undefined })
   // 정산 증빙(세금계산서·검수서 등) — 결재함 상세에서 같은 첨부를 본다 (첨부 시트: 정산품의)
   registerUpload(stId, formData.get('file'), me.name)
 
-  // 폐쇄 루프 — 정산품의가 기본 결재선으로 흐르고, 승인되면 속보 기준금액이 '정산'으로 바뀐다
-  draftApproval({ docType: '비용 정산품의', title: `[정산품의-비용] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`, ref: stId, drafter: me })
+  // 폐쇄 루프 — 상신 시 기본 결재선으로 흐르고, 승인되면 속보 기준금액이 '정산'으로 바뀐다
+  if (!isDraft) draftApproval({ docType: '비용 정산품의', title: `[정산품의-비용] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`, ref: stId, drafter: me })
   revalidatePath('/', 'layout')
 }
 
@@ -186,7 +202,18 @@ export default async function ExpensePage() {
                     <td className="tnum">{f.month}</td>
                     <td className="strong">{f.vendor}</td>
                     <td>{f.planId ? <span className="mono">{f.planId}</span> : <span className="mut">-</span>}</td>
-                    <td className="num">{fmt(f.expected)}</td>
+                    <td className="num">
+                      <form action={editFlash} className="hstack" style={{ gap: 4, justifyContent: 'flex-end' }}>
+                        <input type="hidden" name="id" value={f.id} />
+                        <input className="input" name="expected" type="number" min={1} defaultValue={f.expected} style={{ height: 25, fontSize: 11.5, width: 78, textAlign: 'right' }} />
+                        <button type="submit" className="btn sm">수정</button>
+                      </form>
+                      {f.history && f.history.length > 0 && (
+                        <span className="mut" style={{ fontSize: 10.5 }} title={f.history.map((h) => `${h.at} ${h.by}: ${fmt(h.expected)}`).join(' / ')}>
+                          이력 {f.history.length}회
+                        </span>
+                      )}
+                    </td>
                     <td><Chip tone={b.basis === '정산' ? 'ok' : b.basis === '계약' ? 'info' : 'neutral'} bare>{b.basis}</Chip></td>
                     <td className="num strong">{fmt(b.amount)}</td>
                   </tr>
@@ -269,11 +296,12 @@ export default async function ExpensePage() {
                     <td className="tnum">{x.dueDate ?? '-'}</td>
                     <td>
                       {x.status === '지급완료' ? <Chip tone="ok">지급완료</Chip> :
-                       x.status === '결재중' ? <Chip tone="info">결재중</Chip> : <Chip tone="err">반려</Chip>}
-                      {x.status === '반려' && x.requestedBy === me.name && (
+                       x.status === '결재중' ? <Chip tone="info">결재중</Chip> :
+                       x.status === '작성중' ? <Chip tone="neutral">작성중</Chip> : <Chip tone="err">반려</Chip>}
+                      {(x.status === '반려' || x.status === '작성중') && x.requestedBy === me.name && (
                         <form action={resubmitSettlement} style={{ display: 'inline', marginLeft: 6 }}>
                           <input type="hidden" name="id" value={x.id} />
-                          <button type="submit" className="btn sm">재상신</button>
+                          <button type="submit" className="btn sm">{x.status === '반려' ? '재상신' : '상신'}</button>
                         </form>
                       )}
                     </td>
@@ -293,6 +321,7 @@ export default async function ExpensePage() {
               <input className="input" name="amount" required type="number" min={1} placeholder="금액" style={{ width: 100 }} />
               <input className="input" name="dueDate" type="date" title="지급 예정일 — 지급 목록 일정 관리" style={{ width: 130 }} />
               <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="정산 증빙 첨부" />
+              <button type="submit" name="mode" value="draft" className="btn">임시저장</button>
               <button type="submit" className="btn pri">정산품의 상신</button>
             </form>
           </div>

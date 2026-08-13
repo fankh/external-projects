@@ -88,8 +88,8 @@ function seed(): Store {
       { id: 'EF-2026-33', month: '2026-08', vendor: '유지보수파트너', planId: 'IP-2026-05', expected: 750 },
     ],
     projects: [
-      { id: 'PJ-2026-01', title: 'ERP 리포트 모듈 구축', contractId: 'CT-2026-01', manager: '박정호', headcount: 4, start: '2026-07-01', end: '2026-10-31', progress: 35, status: '진행중' },
-      { id: 'PJ-2026-02', title: '보안관제 증설 구축', contractId: 'CT-2026-02', manager: '한지원', headcount: 2, start: '2026-07-20', end: '2026-09-30', progress: 15, status: '진행중' },
+      { id: 'PJ-2026-01', title: 'ERP 리포트 모듈 구축', contractId: 'CT-2026-01', manager: '박정호', headcount: 4, members: ['김현우', '최은영', '박정호', '한지원'], start: '2026-07-01', end: '2026-10-31', progress: 35, status: '진행중' },
+      { id: 'PJ-2026-02', title: '보안관제 증설 구축', contractId: 'CT-2026-02', manager: '한지원', headcount: 2, members: ['한지원', '강도윤'], start: '2026-07-20', end: '2026-09-30', progress: 15, status: '진행중' },
     ],
     deliverables: [
       { id: 'DL-01', projectId: 'PJ-2026-01', name: '요구사항정의서', due: '2026-07-11', done: true },

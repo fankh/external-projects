@@ -67,14 +67,16 @@ async function requestSettlement(formData: FormData) {
 
   const year = today().slice(0, 4)
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
+  // 임시저장 (제품안내서 II장 공통 흐름) — 상신 없이 작성중 보관
+  const isDraft = formData.get('mode') === 'draft'
   const dueDate = String(formData.get('dueDate') ?? '')
-  s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: '결재중', requestedBy: me.name, requestedAt: today(),
+  s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: isDraft ? '작성중' : '결재중', requestedBy: me.name, requestedAt: today(),
     dueDate: /^\d{4}-\d{2}-\d{2}$/.test(dueDate) ? dueDate : undefined })
   // 정산 증빙 — 결재함 상세에서 같은 첨부를 본다 (첨부 시트: 정산품의)
   registerUpload(stId, formData.get('file'), me.name)
 
   // 폐쇄 루프 — 정산품의 상신이 기본 결재선으로 흐르고, 승인되면 지급완료로 실적에 반영된다
-  draftApproval({ docType: '투자 정산품의', title: `[정산품의-투자] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`, ref: stId, drafter: me })
+  if (!isDraft) draftApproval({ docType: '투자 정산품의', title: `[정산품의-투자] ${contract.title} ${item} ${fmt(Math.round(amount))}만원`, ref: stId, drafter: me })
 
   revalidatePath('/', 'layout')
 }
@@ -211,11 +213,12 @@ export default async function InvestPage() {
                     <td className="tnum">{x.dueDate ?? '-'}</td>
                     <td>
                       {x.status === '지급완료' ? <Chip tone="ok">지급완료</Chip> :
-                       x.status === '결재중' ? <Chip tone="info">결재중</Chip> : <Chip tone="err">반려</Chip>}
-                      {x.status === '반려' && x.requestedBy === me.name && (
+                       x.status === '결재중' ? <Chip tone="info">결재중</Chip> :
+                       x.status === '작성중' ? <Chip tone="neutral">작성중</Chip> : <Chip tone="err">반려</Chip>}
+                      {(x.status === '반려' || x.status === '작성중') && x.requestedBy === me.name && (
                         <form action={resubmitSettlement} style={{ display: 'inline', marginLeft: 6 }}>
                           <input type="hidden" name="id" value={x.id} />
-                          <button type="submit" className="btn sm">재상신</button>
+                          <button type="submit" className="btn sm">{x.status === '반려' ? '재상신' : '상신'}</button>
                         </form>
                       )}
                     </td>
@@ -235,6 +238,7 @@ export default async function InvestPage() {
               <input className="input" name="amount" required type="number" min={1} placeholder="금액" style={{ width: 100 }} />
               <input className="input" name="dueDate" type="date" title="지급 예정일 — 지급 목록 일정 관리" style={{ width: 130 }} />
               <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="정산 증빙 첨부" />
+              <button type="submit" name="mode" value="draft" className="btn">임시저장</button>
               <button type="submit" className="btn pri">정산품의 상신</button>
             </form>
           </div>

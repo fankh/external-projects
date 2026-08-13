@@ -282,6 +282,8 @@ export interface ExpenseFlash {
   vendor: string
   planId?: string
   expected: number
+  /** 수정 이력 (제품안내서 III장: 등록·조회·수정·이력관리) */
+  history?: { at: string; by: string; expected: number }[]
 }
 
 export interface Settlement {
@@ -289,7 +291,7 @@ export interface Settlement {
   contractId: string
   item: SettlementItem
   amount: number
-  status: '결재중' | '지급완료' | '반려'
+  status: '작성중' | '결재중' | '지급완료' | '반려'
   requestedBy: string
   requestedAt: string
   /** 지급 예정일 — 지급 목록 일정 관리 (제품안내서 III장) */
@@ -440,6 +442,8 @@ export interface Project {
   contractId?: string
   manager: string
   headcount: number
+  /** 투입 인력 명단 (제품안내서 III장) — 프로젝트 참여 서약 대상의 기준 */
+  members?: string[]
   start: string
   end: string
   progress: number

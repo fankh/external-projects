@@ -58,7 +58,9 @@ async function signProject(formData: FormData) {
   const projectRef = String(formData.get('projectRef') ?? '')
   if (formData.get('agree') !== 'on') return
   const s = getStore()
-  if (!s.projects.some((p) => p.id === projectRef && p.status === '진행중')) return
+  const pj = s.projects.find((p) => p.id === projectRef && p.status === '진행중')
+  // 투입 인력 명단이 있으면 명단 인원만 서약 대상 (명단 없는 구건은 전원 허용)
+  if (!pj || (pj.members && !pj.members.includes(me.name))) return
   const revisedAt = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
   if (s.pledges.some((p) => p.name === me.name && p.kind === '프로젝트' && p.projectRef === projectRef && p.signedAt >= revisedAt)) return
   s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '프로젝트', signedAt: today(), method: '온라인', projectRef })
@@ -166,7 +168,7 @@ export default async function MyPledgePage() {
 
       {/* 요구사항 46행 — 특별서약서(프로젝트): 참여 프로젝트를 지정해 동의한다 */}
       {(() => {
-        const active = s.projects.filter((p) => p.status === '진행중')
+        const active = s.projects.filter((p) => p.status === '진행중' && (!p.members || p.members.includes(me.name)))
         const pjRevised = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
         const mySigns = s.pledges.filter((p) => p.name === me.name && p.kind === '프로젝트' && p.signedAt >= pjRevised)
         const unsignedProjects = active.filter((p) => !mySigns.some((x) => x.projectRef === p.id))
