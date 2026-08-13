@@ -110,9 +110,12 @@ async function exerciseContract(kind: string, adapter: unknown): Promise<{ ok: b
   }
 }
 
-/** 검증기 자기점검 — 일부러 깨진 프로필이 실제로 부적합으로 잡히는지 확인한다.
- *  (검증기가 항상 '적합'만 내는 무력한 통과 방지 — 자가진단 카드에 상태를 노출한다.) */
-export function validatorSelfCheck(): { ok: boolean; detail: string } {
+/** 검증기 자기점검 — 세 검사(구조·바인딩·계약)가 모두 '이빨이 있는지', 즉 일부러 깨뜨린
+ *  입력을 실제로 부적합으로 잡아내는지 확인한다. 검증기가 항상 '적합'만 내는 무력화를 막는다
+ *  (리팩터링으로 검사 로직이 조용히 약해지면 실 어댑터는 여전히 통과해 눈치채지 못하므로,
+ *  각 검사가 거절해야 하는 케이스를 직접 먹여 본다). 자가진단 카드에 상태를 노출한다. */
+export async function validatorSelfCheck(): Promise<{ ok: boolean; detail: string }> {
+  // 1) 구조 검사 — 깨진 프로필(브랜딩 누락·id 중복·채널 다중결함)이 부적합으로 잡히는가
   const bad = validateProfileStructure(
     '__selftest__',
     { customer: '', productName: 'x', productSub: 'y', version: 'z' } as PortalBrand,
@@ -122,8 +125,22 @@ export function validatorSelfCheck(): { ok: boolean; detail: string } {
     ],
   )
   const caught = bad.filter((c) => !c.ok).length
-  // 기대 위반: 브랜딩 누락 · id 중복 · 채널1 다중결함 · 채널2 kind/transport 결함 = 최소 4
-  return { ok: caught >= 4, detail: caught >= 4 ? `깨진 프로필 위반 ${caught}건 검출` : `검출 부족(${caught}) — 검증기 약화 의심` }
+  const structureOk = caught >= 4 // 브랜딩 누락 · id 중복 · 채널1 다중결함 · 채널2 kind/transport
+
+  // 2) 바인딩 검사 — 등록되지 않은 adapterId 는 반드시 해석 실패해야 한다(런타임 무동작 사전 차단)
+  const bindingOk = !resolveAdapter('hr', '__no_such_adapter__') && !resolveAdapter('asset', '__no_such_adapter__')
+
+  // 3) 계약 검사 — 반환 형태를 어긴 어댑터는 반드시 부적합으로 잡혀야 한다(dept 누락 Person)
+  const brokenHr = { fetchPeople: async () => [{ name: '이름만' }] }
+  const contractOk = !(await exerciseContract('hr', brokenHr)).ok
+
+  const ok = structureOk && bindingOk && contractOk
+  const detail = ok
+    ? `구조 위반 ${caught}건 · 미등록 바인딩 · 형태위반 어댑터 모두 검출`
+    : !structureOk ? `구조 검출 부족(${caught}) — 검증기 약화 의심`
+      : !bindingOk ? '미등록 adapterId 가 해석됨 — 바인딩 검사 약화'
+        : '형태 위반 어댑터를 통과시킴 — 계약 검사 약화'
+  return { ok, detail }
 }
 
 /** 전 프로필 × 전 채널 자가진단 — 실패가 하나라도 있으면 프레임워크 배포를 막아야 한다 */

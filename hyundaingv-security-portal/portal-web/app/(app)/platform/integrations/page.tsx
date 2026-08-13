@@ -63,7 +63,7 @@ export default async function IntegrationsPage() {
   // 어댑터 계약 자가진단 — 전 프로필 × 채널의 바인딩 완결성·계약 적합성 (재사용 프레임워크 무결성)
   const conformance = await runAdapterConformance()
   const confFail = conformance.filter((c) => !c.ok)
-  const selfCheck = validatorSelfCheck()
+  const selfCheck = await validatorSelfCheck()
   const readiness = deployReadiness()
   const readyWarn = readiness.filter((r) => r.level === 'warn').length
 
