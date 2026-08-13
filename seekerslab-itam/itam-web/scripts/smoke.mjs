@@ -281,6 +281,10 @@ try {
   check('발견 자산: 미인가 SW 정책 위반 카드 렌더', foundHtml.includes('미인가 SW') && foundHtml.includes('uTorrent') && foundHtml.includes('AST-2025-000512'))
   check('발견 자산: 보안담당에 미인가 SW 조치(제거 요청·예외 승인) 노출', foundHtml.includes('제거 요청') && foundHtml.includes('예외 승인'))
   check('발견 자산: 자산담당엔 미인가 SW 조치 버튼 미노출 (조회만)', foundAsset.includes('미인가 SW') && !foundAsset.includes('제거 요청</button>'))
+  // SW 예외 승인 목록(화이트리스트) — 미인가 SW 정책의 허용 축(§01 보안담당: 미인가 SW 정책 관리). 시드 Zoom·TeamViewer 등재.
+  check('발견 자산: SW 화이트리스트 렌더 (예외 승인 재사용 정책)', foundHtml.includes('SW 예외 승인 목록') && foundHtml.includes('Zoom') && foundHtml.includes('업무 허용'))
+  check('발견 자산: 보안담당에 화이트리스트 해제 노출', foundHtml.includes('SW 예외 승인 목록') && foundHtml.includes('해제</button>'))
+  check('발견 자산: 자산담당엔 화이트리스트 해제 미노출 (조회만)', foundAsset.includes('SW 예외 승인 목록') && !foundAsset.includes('해제</button>'))
   // USB 저장매체(loop48) — 채널 04(EDR) 이동식 매체 DLP. 검출에서 끝내지 않고 보안담당이 차단·예외 승인으로 조치.
   check('발견 자산: USB 저장매체 정책 위반 카드 렌더', foundHtml.includes('USB 저장매체') && foundHtml.includes('Samsung T7 SSD') && foundHtml.includes('이동식 매체'))
   check('발견 자산: 보안담당에 USB 조치(차단·예외 승인) 노출', foundHtml.includes('대용량 반출 의심') && foundHtml.includes('예외 승인'))

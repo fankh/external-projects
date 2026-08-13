@@ -69,7 +69,7 @@ export function UnauthorizedSwTable({ items, canAct }: { items: UnauthorizedSw[]
       <div className="callout" style={{ margin: 14 }}>
         <b>설치 SW 정책 위반.</b> EDR·백신 콘솔의 설치 SW 인벤토리에서 금지·무단 원격제어·미승인 SW를 검출해
         설치 자산에 연결합니다. <b>보안담당</b>이 <b>제거 요청</b>(사용자·보안운영팀 통지) 또는 <b>예외 승인</b>
-        (업무상 정당·카탈로그 등재)으로 조치하며, 요청 사실은 담당 채널 통지와 감사 로그에 남습니다.
+        (업무상 정당 — 아래 화이트리스트에 등재)으로 조치하며, 요청 사실은 담당 채널 통지와 감사 로그에 남습니다.
       </div>
     </>
   )

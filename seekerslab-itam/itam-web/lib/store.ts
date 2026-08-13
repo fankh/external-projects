@@ -8,7 +8,7 @@ import { today } from './dates'
 import { checklistFor } from './intake'
 import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, fingerprintOf } from './types'
 import type {
-  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding, OpsPolicy, RiskPolicy,
+  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding, OpsPolicy, RiskPolicy, SwAllowEntry,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
   ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
@@ -22,6 +22,7 @@ export interface Store {
   credentials: CredentialFinding[]
   accounts: AccountFinding[]
   unauthorizedSw: UnauthorizedSw[]
+  swAllowlist: SwAllowEntry[]
   usbFindings: UsbFinding[]
   localVms: LocalVmFinding[]
   integrations: Integration[]
@@ -512,6 +513,11 @@ function seed(): Store {
     credentials: seedCredentials(),
     accounts: seedAccounts(),
     unauthorizedSw: seedUnauthorizedSw(),
+    // SW 예외 승인 목록(화이트리스트) — 이전에 업무상 정당성이 인정돼 등재된 SW. 예외 승인 시 여기 누적된다.
+    swAllowlist: [
+      { name: 'Zoom', approvedBy: '윤보안', approvedAt: '2026-06-18', note: '전사 화상회의 표준 — 업무 허용' },
+      { name: 'TeamViewer Host', approvedBy: '윤보안', approvedAt: '2026-07-02', note: '인프라운영팀 원격 유지보수 승인분(자산 한정)' },
+    ],
     usbFindings: seedUsbFindings(),
     localVms: seedLocalVms(),
     integrations: seedIntegrations(),
@@ -731,7 +737,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 32
+const SCHEMA_VERSION = 33
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

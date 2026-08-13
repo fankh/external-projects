@@ -707,6 +707,17 @@ export interface UnauthorizedSw {
   actedAt?: string
 }
 
+/** SW 예외 승인 목록(화이트리스트) — 보안담당이 업무상 정당성을 인정한 SW. 예외 승인 시 여기 등재되어(§01 보안담당: 미인가 SW 정책 관리)
+ *  같은 SW 가 다른 자산에서 재검출돼도 이미 허용된 것으로 참조된다 — 그동안 예외 승인은 해당 건만 표시하고 재사용되는 정책으로 남지 않았다. */
+export interface SwAllowEntry {
+  /** SW 이름 — 검출 name 과 대조하는 키 */
+  name: string
+  approvedBy: string
+  approvedAt: string
+  /** 승인 근거 — 업무 정당성 메모 */
+  note?: string
+}
+
 /** 미인가 SW 유형별 표준 조치 사유 — 판정 근거로 표시한다. */
 export const UNAUTH_SW_POLICY: Record<UnauthorizedSw['kind'], string> = {
   '금지 SW': '전사 금지 목록(P2P·토렌트·크랙) — 즉시 제거 대상',

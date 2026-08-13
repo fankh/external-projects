@@ -8,6 +8,7 @@ import { AccountTable } from './AccountTable'
 import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
 import { LocalVmTable } from './LocalVmTable'
+import { SwAllowlistPanel } from './SwAllowlistPanel'
 import { UnauthorizedSwTable } from './UnauthorizedSwTable'
 import { UsbTable } from './UsbTable'
 
@@ -101,6 +102,10 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
 
       <Card kicker="Unauthorized Software · Channel 04 (EDR)" title="미인가 SW — 설치 SW 정책 위반" pad={false}>
         <UnauthorizedSwTable items={s.unauthorizedSw} canAct={canAccount} />
+      </Card>
+
+      <Card kicker="SW Policy · Allowlist" title={`SW 예외 승인 목록 (화이트리스트) — ${s.swAllowlist.length}종`} pad={false}>
+        <SwAllowlistPanel entries={s.swAllowlist} canManage={canAccount} />
       </Card>
 
       <Card kicker="Removable Media · Channel 04 (EDR)" title="USB 저장매체 — 이동식 매체 정책 위반(DLP)" pad={false}>

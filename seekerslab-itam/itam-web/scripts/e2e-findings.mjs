@@ -221,6 +221,23 @@ try {
   await twoChoice(page, { name: 'USB(48)', navTo: FOUND, cardText: '이동식 매체 정책 위반', rowText: 'Samsung T7 SSD', btnRe: /^차단$/ })
   await twoChoice(page, { name: '로컬 VM(49)', navTo: FOUND, cardText: '엔드포인트 VM 정책 위반', rowText: 'legacy-test', btnRe: /^회수$/ })
 
+  // 미인가 SW 정책의 허용 축 — 예외 승인 → SW 화이트리스트 등재 → 해제(재사용 정책, §01 보안담당: 미인가 SW 정책 관리)
+  {
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    const swCard = page.locator('.card', { has: page.locator('.tt', { hasText: '미인가 SW — 설치 SW 정책 위반' }) }).first()
+    await swCard.locator('tr', { has: page.locator('td', { hasText: 'Notion Desktop' }) }).first().locator('button', { hasText: /^예외 승인$/ }).click()
+    await page.waitForTimeout(700)
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    const wlText = () => page.locator('.card', { has: page.locator('.tt', { hasText: 'SW 예외 승인 목록' }) }).first().textContent()
+    ok('미인가 SW 예외 승인 → SW 화이트리스트 등재', (await wlText()).includes('Notion Desktop'))
+    // 해제 → 다시 정책 대상 (목록에서 제거)
+    const wlCard = page.locator('.card', { has: page.locator('.tt', { hasText: 'SW 예외 승인 목록' }) }).first()
+    await wlCard.locator('tr', { has: page.locator('td', { hasText: 'Notion Desktop' }) }).first().locator('button', { hasText: /^해제$/ }).click()
+    await page.waitForTimeout(700)
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    ok('SW 화이트리스트 해제 → 목록에서 제거', !(await wlText()).includes('Notion Desktop'))
+  }
+
   // 외부 공격표면 화면 — 크리덴셜(45)·IOC(50)·유출(28)
   const EXT = '/discovery/external'
   await twoStep(page, { name: '크리덴셜 노출(45)', navTo: EXT, cardText: '인증 취약점 점검', rowText: 'PostgreSQL' })

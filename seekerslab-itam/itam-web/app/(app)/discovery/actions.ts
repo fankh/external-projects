@@ -250,11 +250,35 @@ export async function respondToUnauthorizedSw(swId: string, kind: '제거' | '�
     appendAudit({ actor: session.name, action: `미인가 SW 제거 요청 (${w.kind}) — ${w.name} @ ${w.assetNo}`, target: w.id })
   } else {
     w.action = '예외 승인'
-    dispatch({ channel: '이메일', to: w.dept, subject: `미인가 SW 예외 승인 — ${w.name} (${w.assetNo}) 업무상 사용 인정·카탈로그 등재`, kind: '위협 대응', ref: w.id })
-    appendAudit({ actor: session.name, action: `미인가 SW 예외 승인 (${w.kind}) — ${w.name} @ ${w.assetNo}`, target: w.id })
+    // 예외 승인은 해당 건 표시로 끝나지 않고 SW 화이트리스트에 등재된다 — 같은 SW 재검출 시 참조되는 재사용 정책(§01 보안담당: 미인가 SW 정책 관리)
+    let registered = false
+    if (!s.swAllowlist.some((e) => e.name.toLowerCase() === w.name.toLowerCase())) {
+      s.swAllowlist.unshift({ name: w.name, approvedBy: session.name, approvedAt: today(), note: `${w.kind} 예외 승인 — ${w.dept}(${w.assetNo}) 업무상 정당` })
+      registered = true
+    }
+    dispatch({ channel: '이메일', to: w.dept, subject: `미인가 SW 예외 승인 — ${w.name} (${w.assetNo}) 업무상 사용 인정·화이트리스트 등재`, kind: '위협 대응', ref: w.id })
+    appendAudit({ actor: session.name, action: `미인가 SW 예외 승인 (${w.kind}) — ${w.name} @ ${w.assetNo}${registered ? ' · 화이트리스트 등재' : ''}`, target: w.id })
+    revalidatePath('/', 'layout')
+    return { ok: true, message: `${w.name} 예외 승인 — ${w.dept} 통지·감사${registered ? ' · 화이트리스트 등재' : ' (이미 화이트리스트)'}` }
   }
   revalidatePath('/', 'layout')
   return { ok: true, message: `${w.name} ${w.action} — ${w.dept} 통지·감사 적재` }
+}
+
+/** SW 화이트리스트 해제 — 예외 승인으로 등재된 SW 를 목록에서 뺀다. 해제하면 그 SW 는 다시 미인가 SW 정책 대상이 된다.
+ *  (제품안내서 §01 보안담당: 미인가 SW 정책 관리) 보안담당·Admin 만. 정책 변경이므로 감사에 남긴다. */
+export async function removeSwAllow(name: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: 'SW 정책 관리 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const before = s.swAllowlist.length
+  s.swAllowlist = s.swAllowlist.filter((e) => e.name.toLowerCase() !== name.toLowerCase())
+  if (s.swAllowlist.length === before) return { ok: false, message: `화이트리스트에 없는 SW 입니다 — ${name}` }
+  appendAudit({ actor: session.name, action: `SW 화이트리스트 해제 — ${name} (다시 미인가 SW 정책 대상)`, target: name })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${name} 화이트리스트 해제 — 다시 정책 대상으로 전환` }
 }
 
 /** USB 저장매체 조치 — EDR 검출 이동식 매체 정책 위반을 차단(EDR 장치 제어) 또는 예외 승인(등록 업무용 매체)한다.
