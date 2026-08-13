@@ -182,6 +182,9 @@ function seedReportSchedules(): ReportSchedule[] {
     { kind: '주간 Shadow IT 브리핑', period: '주간', enabled: true, dayOfWeek: 1, hour: 8, recipients: ['보안운영팀', 'IT기획팀'], lastRunAt: '2026-07-20' },
     { kind: '월간 자산 현황', period: '월간', enabled: true, dayOfMonth: 1, hour: 8, recipients: ['IT기획팀', '자산관리팀'], lastRunAt: '2026-07-01' },
     { kind: '라이선스 컴플라이언스', period: '월간', enabled: false, dayOfMonth: 1, hour: 8, recipients: ['IT기획팀'], lastRunAt: '2026-06-01' },
+    // 보안 정례 리포트 — 주간 취약점 조치 우선순위(보안운영팀), 월간 AI 거버넌스·성능(IT기획팀). 자동 생성·배포(로17)로 정례 증적을 남긴다.
+    { kind: '취약점 조치 우선순위', period: '주간', enabled: true, dayOfWeek: 1, hour: 8, recipients: ['보안운영팀', 'IT기획팀'], lastRunAt: '2026-07-20' },
+    { kind: 'AI 거버넌스·성능', period: '월간', enabled: true, dayOfMonth: 1, hour: 9, recipients: ['IT기획팀'], lastRunAt: '2026-07-01' },
   ]
 }
 

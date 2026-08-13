@@ -741,6 +741,8 @@ try {
   check('리포트: 밀린 스케줄이 기한 도래로 표시', repText.includes('기한 도래'))
   check('리포트: 수시 유형은 스케줄 없음 표기', repText.includes('수시') && repText.includes('사유 발생 시 수동 생성'))
   check('리포트: 중지된 스케줄 표기', repText.includes('라이선스 컴플라이언스') && repText.includes('중지'))
+  // 보안 정례 리포트 스케줄 편입 — 주간 취약점 조치 우선순위·월간 AI 거버넌스·성능 자동 생성·배포(로17). 스케줄 5건·가동 4건.
+  check('리포트: 보안 정례 스케줄 편입 (자동 5·가동 4)', repText.includes('자동 5(가동 4)'))
   const scanHtml = await (await get('/settings/scan-policy', 'ADMIN')).text()
   check('탐지 채널 정책: 6채널·강도 통제 렌더', scanHtml.includes('네트워크 능동 스캔') && scanHtml.includes('스캔 안전장치') && scanHtml.includes('23:00 ~ 05:00'))
   const catHtml = await (await get('/settings/saas-catalog', 'ADMIN')).text()
