@@ -185,6 +185,12 @@ async function aiPeriodQuery(page) {
   const apMine = Number((ap.match(/지금 결재할 수 있는 건 (\d+)건/) || [])[1] ?? -2)
   ok('AI 결재질의: 역할 인지(내 결재 가능 수 표기)', ap.includes('지금 결재할 수 있는 건') && apMine >= 0 && apMine <= apTotal)
   ok('AI 결재질의: ADMIN 은 전 단계 결재 가능(내 결재 = 전체)', apTotal > 0 && apMine === apTotal)
+
+  // 미인가 SaaS 부서 스코프 — 대장엔 있으나 SaaS 기록 없는 부서는 '해당 없음'으로 정확히(전체로 미확장)
+  const sInfra = await ask('인프라운영팀에서 쓰는 미인가 SaaS 알려줘')
+  ok('AI SaaS질의: SaaS 없는 부서 → 해당 없음(전체 미확장)', sInfra.includes('인프라운영팀에서 사용하는 미인가(Shadow) SaaS는 없습니다'))
+  const sDev = await ask('플랫폼개발팀에서 쓰는 미인가 SaaS')
+  ok('AI SaaS질의: SaaS 있는 부서 → 부서 스코프', sDev.includes('플랫폼개발팀의 미인가') || sDev.includes('플랫폼개발팀에서 사용하는'))
 }
 
 try {

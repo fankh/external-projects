@@ -156,19 +156,31 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   if (!isUser && (q.includes('미인가') || q.includes('saas') || q.includes('새스') || q.includes('섀도'))) {
     const shadow = s.saas.filter((x) => !x.sanctioned)
-    // "A부서에서 쓰는 …" — 질문에 언급된 부서가 있으면 그 부서로 좁힌다
-    const dept = [...new Set(s.saas.map((x) => x.dept))].find((d) => question.includes(d))
+    const saasEv = [
+      { label: 'Shadow SaaS', href: '/discovery/saas' },
+      { label: 'SaaS 카탈로그', href: '/settings/saas-catalog' },
+    ]
+    // "A부서에서 쓰는 …" — 질문에 언급된 부서로 좁힌다. 부서 후보는 SaaS 목록뿐 아니라 대장 전체에서 모아,
+    //  미인가 SaaS 기록이 없는 부서를 물어도 전체로 잘못 확장하지 않고 '해당 없음'으로 정확히 답한다.
+    //  이름이 겹치면(영업팀 vs 영업1팀) 더 긴(구체적인) 부서명을 우선 매칭한다.
+    const allDepts = [...new Set([...s.saas.map((x) => x.dept), ...s.assets.map((a) => a.dept)])]
+      .filter((d) => d && d !== '전사' && d !== '미지정').sort((a, b) => b.length - a.length)
+    const dept = allDepts.find((d) => question.includes(d))
     const items = dept ? shadow.filter((x) => x.dept === dept) : shadow
+    if (dept && items.length === 0) {
+      return {
+        role: 'assistant',
+        text: `${dept}에서 사용하는 미인가(Shadow) SaaS는 없습니다. (전사 미인가 SaaS는 ${shadow.length}종입니다.)`,
+        evidence: saasEv,
+      }
+    }
     const users = items.reduce((n, x) => n + x.users, 0)
     return {
       role: 'assistant',
       text: `${dept ? `${dept}의 ` : ''}미인가(Shadow) SaaS는 ${items.length}종이며 추정 사용자는 총 ${users}명입니다.\n\n${items
         .map((x) => `· ${x.service} — ${x.dept} · 추정 사용자 ${x.users}명 (분류 ${x.category}, 위험도 ${x.risk})`)
         .join('\n')}\n\n인가·차단 판정은 Discovery › Shadow SaaS 또는 환경설정 › SaaS 카탈로그에서 처리합니다.`,
-      evidence: [
-        { label: 'Shadow SaaS', href: '/discovery/saas' },
-        { label: 'SaaS 카탈로그', href: '/settings/saas-catalog' },
-      ],
+      evidence: saasEv,
     }
   }
   // 발견 자산 AI 요약 브리핑 (제품안내서 §05) — 목록 나열이 아니라 Discovery 전반의 상태를 한눈에 요약.
