@@ -315,15 +315,17 @@ export function buildSections(kind: ReportKind): ReportSection[] {
 
   if (kind === '취약점 조치 우선순위') {
     const { items, p1, p2, p3, bySource } = buildVulnPriority()
+    // 위험도 기준(보안담당 관리) — 판정 컷오프를 리포트 문구에도 반영해 화면과 어긋나지 않게 한다.
+    const { p1MinScore, p2MinScore } = s.riskPolicy
     return [
       {
         title: '조치 우선순위 요약',
-        note: `미조치 취약점 ${items.length}건 — P1 즉시 ${p1} · P2 우선 ${p2} · P3 계획 ${p3}`,
+        note: `미조치 취약점 ${items.length}건 — P1 즉시 ${p1} · P2 우선 ${p2} · P3 계획 ${p3} (위험도 기준 P1≥${p1MinScore}·P2≥${p2MinScore})`,
         columns: ['우선순위 등급', '건수', '판정 기준'],
         rows: [
-          ['P1 (즉시 조치)', String(p1), '높은 심각도 × 높은 자산 중요도 (점수 67 이상)'],
-          ['P2 (우선 조치)', String(p2), '중간 위험 결합 (점수 34~66)'],
-          ['P3 (계획 조치)', String(p3), '낮은 위험 결합 (점수 33 이하)'],
+          ['P1 (즉시 조치)', String(p1), `높은 심각도 × 높은 자산 중요도 (점수 ${p1MinScore} 이상)`],
+          ['P2 (우선 조치)', String(p2), `중간 위험 결합 (점수 ${p2MinScore}~${p1MinScore - 1})`],
+          ['P3 (계획 조치)', String(p3), `낮은 위험 결합 (점수 ${p2MinScore - 1} 이하)`],
         ],
       },
       {

@@ -284,9 +284,10 @@ try {
     const dep = Number((vt.match(/감가상각률 (\d+)%/) || [])[1] ?? '-1')
     ok('불변식: 장부가 ≤ 취득가 · 감가상각률 0~100%', acq > 0 && book >= 0 && book <= acq && dep >= 0 && dep <= 100)
   }
-  // 취약점 우선순위(lib/vuln-priority): 점수 내림차순 · 티어 임계(P1≥67·P2≥34) 정합
-  {
-    await p3.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  // 취약점 우선순위(lib/vuln-priority): 점수 내림차순 · 티어 임계 정합 — 임계는 하드코딩이 아니라 보안담당이 관리하는 위험도 기준(riskPolicy)에서 온다
+  const riskCard = () => p3.locator('.card', { has: p3.locator('*', { hasText: /^위험도 기준 — 취약점 우선순위 판정 컷오프$/ }) }).first()
+  // 표 각 행의 tier 가 주어진 컷오프(p1Min·p2Min)와 정합하는지 + 점수 내림차순 검사
+  const checkTiers = async (p1Min, p2Min) => {
     const vtable = p3.locator('table', { has: p3.locator('th', { hasText: /^점수$/ }) }).first()
     const vrows = vtable.locator('tbody tr')
     const nv = await vrows.count()
@@ -299,9 +300,45 @@ try {
       checked++
       if (score > prev) mono = false
       prev = score
-      if ((score >= 67 ? 'P1' : score >= 34 ? 'P2' : 'P3') !== tier) tierOk = false
+      if ((score >= p1Min ? 'P1' : score >= p2Min ? 'P2' : 'P3') !== tier) tierOk = false
     }
-    ok('불변식: 취약점 우선순위 점수 내림차순·티어 임계 정합', checked > 0 && mono && tierOk)
+    return { checked, mono, tierOk }
+  }
+  {
+    await p3.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+    // 활성 위험도 기준을 패널에서 읽어(기본 P1≥67·P2≥34) 그 임계로 정합 검사
+    const rc0 = (await riskCard().textContent()) || ''
+    const liveP1 = Number((rc0.match(/점수\s*(\d+)\s*이상/) || [])[1] ?? '67')
+    const liveP2 = Number((rc0.match(/점수\s*(\d+)~/) || [])[1] ?? '34')
+    const r0 = await checkTiers(liveP1, liveP2)
+    ok('불변식: 취약점 우선순위 점수 내림차순·티어 임계(활성 위험도 기준) 정합', r0.checked > 0 && r0.mono && r0.tierOk)
+
+    // 위험도 기준 편집(보안담당 책무 — ADMIN 가능) → 컷오프를 40/20 으로 낮추면 표가 새 기준으로 재분류된다
+    await riskCard().locator('button', { hasText: /^기준 변경$/ }).click()
+    const nums = riskCard().locator('input[type="number"]')
+    await nums.nth(0).fill('40'); await nums.nth(1).fill('20')
+    await riskCard().locator('button', { hasText: /^저장$/ }).click()
+    await p3.waitForTimeout(700)
+    await p3.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+    const rc1 = (await riskCard().textContent()) || ''
+    const r1 = await checkTiers(40, 20)
+    ok('위험도 기준 편집 → 표가 새 컷오프(40/20)로 재분류·정합', rc1.includes('40') && r1.checked > 0 && r1.tierOk)
+
+    // P2 ≥ P1 은 세 등급이 성립 안 함 — 서버가 거부한다
+    await riskCard().locator('button', { hasText: /^기준 변경$/ }).click()
+    const nums2 = riskCard().locator('input[type="number"]')
+    await nums2.nth(0).fill('30'); await nums2.nth(1).fill('50')
+    await riskCard().locator('button', { hasText: /^저장$/ }).click()
+    await p3.waitForTimeout(500)
+    ok('위험도 기준: P2 ≥ P1 거부(서버 검증)', ((await riskCard().textContent()) || '').includes('P2 기준은 P1 기준보다 낮아야'))
+
+    // 원복 — 후속 검사·재실행이 기본 기준을 보도록 67/34 로 되돌린다
+    await riskCard().locator('input[type="number"]').nth(0).fill('67')
+    await riskCard().locator('input[type="number"]').nth(1).fill('34')
+    await riskCard().locator('button', { hasText: /^저장$/ }).click()
+    await p3.waitForTimeout(600)
+    await p3.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+    ok('위험도 기준 원복(67/34)', ((await riskCard().textContent()) || '').includes('67'))
   }
   // 자동분류(lib/classify) 분기 — 관측 유형에 카테고리 단어가 없어 '분류로만' 나오는 강한 케이스로 매핑 검증
   {

@@ -89,3 +89,26 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
   revalidatePath('/', 'layout')
   return { ok: true, message: `${ins.id} 승인 — ${action}` }
 }
+
+/** 위험도 기준 관리 — 보안담당(SEC_MGR)이 취약점 우선순위 P1/P2 컷오프를 설정한다.
+ *  (제품안내서 §01 역할: 보안담당 — 위험도 기준 관리). 취약점 우선순위 화면·리포트가 같은 정책을
+ *  참조하므로 여기서 바꾸면 P1/P2/P3 재분류가 전 화면에 반영된다. 자산담당은 조회만. */
+export async function setRiskPolicy(input: { p1MinScore: number; p2MinScore: number }) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '위험도 기준 관리는 보안담당·Admin 만 가능합니다.' }
+  }
+  const p1 = Math.round(input.p1MinScore)
+  const p2 = Math.round(input.p2MinScore)
+  // 점수는 0~100 정규화. P2 컷오프는 P1 보다 낮아야 세 등급이 성립한다.
+  if (!Number.isFinite(p1) || !Number.isFinite(p2) || p1 < 1 || p1 > 100 || p2 < 1 || p2 > 100) {
+    return { ok: false, message: '점수는 1~100 사이여야 합니다.' }
+  }
+  if (p2 >= p1) return { ok: false, message: 'P2 기준은 P1 기준보다 낮아야 합니다 (P2 < P1).' }
+
+  const s = getStore()
+  s.riskPolicy = { p1MinScore: p1, p2MinScore: p2 }
+  appendAudit({ actor: session.name, action: `위험도 기준 변경 — P1≥${p1} · P2≥${p2}`, target: '취약점 우선순위' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `위험도 기준 저장 — P1≥${p1} · P2≥${p2} (P3 <${p2})` }
+}

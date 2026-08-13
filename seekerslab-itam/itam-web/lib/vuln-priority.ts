@@ -51,7 +51,9 @@ function assetCriticality(opts: { internetFacing?: boolean; asset?: Asset }): Ri
 function scoreOf(sev: RiskLevel, crit: RiskLevel): number {
   return Math.round(((W[sev] * W[crit]) / 9) * 100)
 }
-const tierOf = (score: number): VulnItem['tier'] => (score >= 67 ? 'P1' : score >= 34 ? 'P2' : 'P3')
+/** 등급 판정 — 보안담당이 관리하는 위험도 기준(riskPolicy)의 컷오프로 P1/P2/P3 를 나눈다.
+ *  임계값을 인자로 받아, 정책 참조 없이 순수 함수로 유지한다(호출부에서 정책 주입 — 누락 시 tsc 가 잡음). */
+const tierOf = (score: number, p1Min: number, p2Min: number): VulnItem['tier'] => (score >= p1Min ? 'P1' : score >= p2Min ? 'P2' : 'P3')
 const sevFromCvss = (cvss?: number): RiskLevel => ((cvss ?? 0) >= 7 ? '높음' : (cvss ?? 0) >= 4 ? '중간' : '낮음')
 
 export interface VulnPriority {
@@ -65,6 +67,8 @@ export interface VulnPriority {
 export function buildVulnPriority(): VulnPriority {
   const s = getStore()
   const t = today()
+  // 위험도 기준 — 보안담당이 관리하는 P1/P2 컷오프. 화면·리포트가 동일 정책을 참조하도록 스토어에서 읽는다.
+  const { p1MinScore: p1Min, p2MinScore: p2Min } = s.riskPolicy
   const items: VulnItem[] = []
 
   // 1) 외부 노출 CVE — 인터넷 노출이므로 중요도 높음, 심각도는 CVSS 기반.
@@ -77,7 +81,7 @@ export function buildVulnPriority(): VulnPriority {
     items.push({
       id: `V-${e.id}`, source: '외부 노출 CVE', target: e.host,
       detail: `${e.cve} (CVSS ${e.cvss ?? '-'}) · ${e.services ?? '-'}`,
-      severity, criticality, score, tier: tierOf(score), href: '/discovery/external',
+      severity, criticality, score, tier: tierOf(score, p1Min, p2Min), href: '/discovery/external',
     })
   }
 
@@ -91,7 +95,7 @@ export function buildVulnPriority(): VulnPriority {
     items.push({
       id: `V-EOL-${a.assetNo}`, source: 'EOL OS', target: a.assetNo,
       detail: `${eol.label} (EOL ${eol.eol} 경과) · ${a.model}`,
-      severity: '높음', criticality, score, tier: tierOf(score),
+      severity: '높음', criticality, score, tier: tierOf(score, p1Min, p2Min),
       href: `/assets/register?q=${encodeURIComponent(a.assetNo)}`,
     })
   }
@@ -105,7 +109,7 @@ export function buildVulnPriority(): VulnPriority {
     items.push({
       id: `V-${w.id}`, source: '미인가 SW', target: w.assetNo,
       detail: `${w.name} · ${w.kind}`,
-      severity: w.risk, criticality, score, tier: tierOf(score), href: '/discovery/found',
+      severity: w.risk, criticality, score, tier: tierOf(score, p1Min, p2Min), href: '/discovery/found',
     })
   }
 
@@ -117,7 +121,7 @@ export function buildVulnPriority(): VulnPriority {
     items.push({
       id: `V-${c.id}`, source: '크리덴셜 노출', target: c.host,
       detail: `${c.service} · ${c.issue}`,
-      severity: c.severity, criticality, score, tier: tierOf(score), href: '/discovery/external',
+      severity: c.severity, criticality, score, tier: tierOf(score, p1Min, p2Min), href: '/discovery/external',
     })
   }
 

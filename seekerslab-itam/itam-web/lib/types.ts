@@ -176,6 +176,18 @@ export const DEFAULT_OPS_POLICY: OpsPolicy = {
   expiryWindowDays: EXPIRY_WINDOW_DAYS,
 }
 
+/** 위험도 기준(취약점 우선순위 임계값) — 보안담당이 관리하는 조치 우선순위 판정 기준.
+ *  자산 중요도 × 노출도 점수(0~100)를 P1/P2/P3 로 나누는 컷오프. (제품안내서 §01 역할: 보안담당 — 위험도 기준 관리, §05 취약점 우선순위) */
+export interface RiskPolicy {
+  /** P1(즉시 조치) 최소 점수 — 이 값 이상이면 P1 */
+  p1MinScore: number
+  /** P2(우선 조치) 최소 점수 — 이 값 이상이면 P2, 미만이면 P3 */
+  p2MinScore: number
+}
+
+/** 위험도 기준 기본값 — 기존 하드코딩(P1≥67·P2≥34)을 시드 기본값으로 승계한다. */
+export const DEFAULT_RISK_POLICY: RiskPolicy = { p1MinScore: 67, p2MinScore: 34 }
+
 /** 알림 발송 이력 — 소유자 확인 요청·만료 임박·격리 통보는 이메일·문자로 나가고 이력이 남는다
  *  (제품안내서 §06 연동: 그룹웨어 — SSO·결재·알림 메일) */
 export interface Dispatch {
