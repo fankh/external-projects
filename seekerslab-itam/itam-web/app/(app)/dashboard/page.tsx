@@ -88,6 +88,8 @@ export default async function DashboardPage() {
       { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external', tone: 'err' },
       { label: '휴면 계정 미처리 (AD/IdP 계정 위생)', count: s.accounts.filter((a) => !a.action).length, href: '/discovery/found', tone: 'warn' },
       { label: '미인가 SW 미조치 (EDR 정책 위반)', count: s.unauthorizedSw.filter((w) => !w.action).length, href: '/discovery/found', tone: 'err' },
+      // Shadow IT 판정 대기 — 카탈로그 검토중 SaaS 는 보안담당 판정(인가/차단)을 기다리는 정책 백로그(§01 보안담당: Shadow IT 판정·SaaS 정책 관리)
+      { label: '미판정 SaaS (카탈로그 검토중 · 판정 대기)', count: s.saasCatalog.filter((x) => x.status === '검토중').length, href: '/settings/saas-catalog', tone: 'warn' },
       { label: 'USB 정책 위반 미조치 (이동식 매체 DLP)', count: s.usbFindings.filter((u) => !u.action).length, href: '/discovery/found', tone: 'err' },
       { label: '로컬 VM 위반 미조치 (엔드포인트 가상머신)', count: s.localVms.filter((v) => !v.action).length, href: '/discovery/found', tone: 'warn' },
       { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
