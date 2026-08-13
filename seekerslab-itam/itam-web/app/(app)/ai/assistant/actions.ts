@@ -56,6 +56,7 @@ function buildContext(userName: string, isUser: boolean): string {
       `[결재 대기] ${s.approvals.filter((a) => a.status === '대기').length}건`,
       ...s.approvals.filter((a) => a.status === '대기').map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.currentStep}`),
       `[외부 위협] 외부 노출 미조치 ${s.external.filter((e) => !e.action && e.state !== '등록·일치').length} · 크리덴셜 노출 미조치 ${s.credentials.filter((c) => c.status !== '조치 완료').length} · 다크웹 유출·침해 미조치 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
+      `[엔드포인트·계정 위생] 휴면 계정 미처리 ${s.accounts.filter((a) => !a.action).length} · 미인가 SW 미조치 ${s.unauthorizedSw.filter((w) => !w.action).length} · USB 매체 미조치 ${s.usbFindings.filter((u) => !u.action).length} · 로컬 VM 미조치 ${s.localVms.filter((v) => !v.action).length}`,
       ...s.credentials.filter((c) => c.status !== '조치 완료').map((c) => `- ${c.id} | 크리덴셜 노출 | ${c.service} ${c.host}:${c.port} | ${c.issue} | 위험도:${c.severity}`),
       `[운영 리스크] 분실·도난 ${s.assets.filter((a) => a.status === '분실').length} · 장기미실측 ${s.assets.filter(isStaleVerify).length} · 대여연체 ${s.assets.filter(isLoanOverdue).length} · 수리중 ${s.assets.filter((a) => a.status === '수리중').length}(예상반환경과 ${s.assets.filter(isRepairOverdue).length})`,
       ...s.assets
@@ -142,6 +143,12 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     const extOpen = s.external.filter((e) => !e.action && e.state !== '등록·일치').length
     const leakOpen = s.leaks.filter((l) => l.status !== '조치 완료').length
     const credOpen = s.credentials.filter((c) => c.status !== '조치 완료').length
+    // 엔드포인트·계정 위생(채널 04 EDR · 06 AD/IdP) — 대시보드·리포트와 동일 기준으로 브리핑에 함께 요약
+    const acctOpen = s.accounts.filter((a) => !a.action).length
+    const swOpen = s.unauthorizedSw.filter((w) => !w.action).length
+    const usbOpen = s.usbFindings.filter((u) => !u.action).length
+    const vmOpen = s.localVms.filter((v) => !v.action).length
+    const endpointOpen = acctOpen + swOpen + usbOpen + vmOpen
     return {
       role: 'assistant',
       text: [
@@ -151,9 +158,11 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
         `· 위험도: 높음 ${byRisk('높음')} · 중간 ${byRisk('중간')} · 낮음 ${byRisk('낮음')}`,
         `· 채널별 관측: ${chan}`,
         ``,
-        `▶ 조치 필요: 미처리 미등록 ${untriaged}건(소유자 확인·편입·격리 판정 대기), 확인요청 진행 ${confirming}건, 외부 노출 미조치 ${extOpen}건, 크리덴셜 노출 미조치 ${credOpen}건(인증 취약점), 다크웹 유출·침해 미조치 ${leakOpen}건.`,
-        untriaged + extOpen + leakOpen + credOpen > 0
-          ? `우선순위: 다크웹 유출·크리덴셜 노출·외부 노출(외부 위협) → 미등록 고위험 순으로 처리하고, 확인 기한 경과 건은 격리 요청으로 에스컬레이션하십시오.`
+        `▶ 외부 위협 미조치: 외부 노출 ${extOpen}건, 크리덴셜 노출 ${credOpen}건(인증 취약점), 다크웹 유출·침해 ${leakOpen}건.`,
+        `▶ 엔드포인트·계정 위생 미조치: 휴면 계정 ${acctOpen}건, 미인가 SW ${swOpen}건, USB 매체 ${usbOpen}건, 로컬 VM ${vmOpen}건 (채널 04 EDR·06 AD/IdP).`,
+        `▶ 미처리 미등록 ${untriaged}건(소유자 확인·편입·격리 판정 대기), 확인요청 진행 ${confirming}건.`,
+        untriaged + extOpen + leakOpen + credOpen + endpointOpen > 0
+          ? `우선순위: 다크웹 유출·크리덴셜 노출·외부 노출(외부 위협) → 미등록 고위험 → 엔드포인트·계정 위생(EOL 게스트·관리자 계정 우선) 순으로 처리하고, 확인 기한 경과 건은 격리 요청으로 에스컬레이션하십시오.`
           : `현재 즉시 조치가 필요한 미처리 건은 없습니다. 정기 재탐지 주기를 유지하십시오.`,
       ].join('\n'),
       evidence: [
