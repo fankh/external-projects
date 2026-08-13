@@ -284,7 +284,9 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
   //  요청~승인 사이 자산이 빠졌으면(유휴 아님) 집행하지 않고 미집행으로 남긴다.
   if (a.kind === '대여' && a.refId && verdict === '승인') {
     const asset = s.assets.find((x) => x.assetNo === a.refId)
-    if (asset && asset.status === '유휴') {
+    // 요청~승인 사이 자산이 유휴에서 빠졌거나(불출·대여) 폐기 절차에 들어갔으면 집행하지 않는다(폐기 예정분 대여 방지).
+    const assetInDisposal = asset ? s.disposals.some((d) => d.assetNo === asset.assetNo) : false
+    if (asset && asset.status === '유휴' && !assetInDisposal) {
       asset.status = '대여중'
       asset.owner = a.requester
       asset.dept = a.dept

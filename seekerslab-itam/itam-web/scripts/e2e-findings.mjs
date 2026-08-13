@@ -294,6 +294,15 @@ try {
   // 본인 대여분(AST-2024-000230·반환 기한 2026-08-20)에 초점 + 타인 대여(AST-2023-000450·한지민) 미포함
   ok('사용자 AI 질의: 본인 대여 자산 반환 기한 초점 답변', uLoan.includes('대여 자산 반환 현황') && uLoan.includes('AST-2024-000230') && uLoan.includes('2026-08-20'))
   ok('사용자 AI 질의: 대여 권한 필터 — 타인 대여 자산 미포함', !uLoan.includes('AST-2023-000450'))
+  // 대여 신청 대상 재배치 풀 정합 — 폐기 절차 자산(AST-2021-000432, 유휴+DSP-02)은 대여 후보에서 제외, 유효 유휴는 노출
+  await pU.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const reqCard = pU.locator('.card', { has: pU.locator('.tt', { hasText: '신청 상신' }) }).first()
+  await reqCard.locator('button', { hasText: /^신청하기$/ }).click()
+  await pU.waitForTimeout(150)
+  await reqCard.locator('select').first().selectOption('대여')
+  await pU.waitForTimeout(150)
+  const loanOpts = (await reqCard.locator('select').nth(1).textContent()) || ''
+  ok('대여 신청 대상: 폐기 절차 자산 제외(AST-2021-000432)', !loanOpts.includes('AST-2021-000432') && loanOpts.includes('AST-2023-000704'))
   await ctxU.close()
 
   // ── Admin: AI 모델·프롬프트 버전 관리(§05 AI 거버넌스) + 감사 적재 ──

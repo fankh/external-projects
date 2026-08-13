@@ -20,9 +20,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     .filter((a) => (session.role === 'USER' ? a.owner === session.name : true))
     .map((a) => ({ assetNo: a.assetNo, model: a.model, location: a.location }))
 
-  // 대여 신청 대상 — 대여 가능한 유휴 재고 (전 권한그룹이 임시 반출을 신청할 수 있다)
+  // 대여 신청 대상 — 대여 가능한 유휴 재고 (전 권한그룹이 임시 반출을 신청할 수 있다).
+  // 폐기 절차에 들어간 자산(대상 선정 등)은 유휴여도 제외한다 — 반납·유휴 화면의 재배치 풀과 동일 기준(폐기 예정분을 다시 배정하지 않는다).
+  const inDisposal = new Set(s.disposals.map((d) => d.assetNo))
   const loanable = s.assets
-    .filter((a) => a.status === '유휴')
+    .filter((a) => a.status === '유휴' && !inDisposal.has(a.assetNo))
     .map((a) => ({ assetNo: a.assetNo, model: a.model, location: a.location }))
 
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
