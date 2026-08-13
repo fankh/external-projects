@@ -12,7 +12,8 @@
     "load": "node scripts/load_probe.mjs",
     "a11y": "node scripts/a11y.mjs",
     "keycheck": "node scripts/session_keycheck.mjs",
-    "gates": "npm run build && npm run smoke && npm run a11y && npm run keycheck && npm run health && npm run e2e"
+    "emptystate": "node scripts/emptystate.mjs",
+    "gates": "npm run build && npm run smoke && npm run a11y && npm run emptystate && npm run keycheck && npm run health && npm run e2e"
   },
   "dependencies": {
     "next": "^15.1.6",
