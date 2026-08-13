@@ -269,6 +269,41 @@ try {
   ok('감사 로그: AI 모델·프롬프트 버전 관리 적재', auditAi.includes('AI 모델·프롬프트 버전 관리') && auditAi.includes('claude-opus-5'))
   await aiPeriodQuery(p3)
 
+  // ── 순수 로직 불변식(회귀 방지) — 상태를 바꾸지 않는 읽기 검증 ──
+  // 원가·감가상각(lib/cost bookValueOf): 장부가 ≤ 취득가 · 감가상각률 0~100%
+  {
+    await p3.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+    const b = await p3.locator('.msg.assistant .bub').count()
+    await p3.locator('.chat-in input').fill('자산 가치 현황')
+    await p3.locator('.chat-in input').press('Enter')
+    await p3.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, b, { timeout: 8000 })
+    await p3.waitForTimeout(150)
+    const vt = (await p3.locator('.msg.assistant .bub').last().textContent()) || ''
+    const acq = Number((vt.match(/총 취득가 ([\d,]+)원/) || [])[1]?.replace(/,/g, '') ?? '-1')
+    const book = Number((vt.match(/총 잔존가치\(장부가\) ([\d,]+)원/) || [])[1]?.replace(/,/g, '') ?? '-1')
+    const dep = Number((vt.match(/감가상각률 (\d+)%/) || [])[1] ?? '-1')
+    ok('불변식: 장부가 ≤ 취득가 · 감가상각률 0~100%', acq > 0 && book >= 0 && book <= acq && dep >= 0 && dep <= 100)
+  }
+  // 취약점 우선순위(lib/vuln-priority): 점수 내림차순 · 티어 임계(P1≥67·P2≥34) 정합
+  {
+    await p3.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+    const vtable = p3.locator('table', { has: p3.locator('th', { hasText: /^점수$/ }) }).first()
+    const vrows = vtable.locator('tbody tr')
+    const nv = await vrows.count()
+    let mono = true, tierOk = true, prev = 101, checked = 0
+    for (let i = 0; i < nv; i++) {
+      const tds = await vrows.nth(i).locator('td').allTextContents()
+      const tier = (tds.find((x) => /^P[123]$/.test(x.trim())) || '').trim()
+      const score = Number((tds[tds.length - 2] || '').trim())
+      if (!/^P[123]$/.test(tier) || Number.isNaN(score)) continue
+      checked++
+      if (score > prev) mono = false
+      prev = score
+      if ((score >= 67 ? 'P1' : score >= 34 ? 'P2' : 'P3') !== tier) tierOk = false
+    }
+    ok('불변식: 취약점 우선순위 점수 내림차순·티어 임계 정합', checked > 0 && mono && tierOk)
+  }
+
   // 운영 정책(임계값) 편집 — 소유자 확인 기한을 5일로 바꾸면 발견 처리 화면 에스컬레이션 기한에 반영된다(스토어 단일 출처).
   //  전역 opsPolicy 를 바꾸므로 마지막 컨텍스트의 맨 끝에서 수행한다(다른 검증에 영향 없음).
   await p3.goto(`${BASE}/settings/ai-policy`, { waitUntil: 'networkidle' })

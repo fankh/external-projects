@@ -597,6 +597,10 @@ try {
   const barcodeOf = (h) => (h.match(/<svg[^>]*viewBox="0 0 300 52"[\s\S]*?<\/svg>/) || [''])[0]
   const bc1 = barcodeOf(labelBody), bc2 = barcodeOf(label2Body)
   check('라벨 인쇄: 바코드가 자산번호별로 인코딩됨(상수·빈값 아님)', bc1.length > 0 && bc1 !== bc2 && (bc1.match(/<rect/g) || []).length > 20)
+  // QR 도 자산번호별로 인코딩된다 — QR SVG(모듈 <path>)가 자산마다 다름(상수 QR 회귀 방지)
+  const qrOf = (h) => ((h.match(/<svg[\s\S]*?<\/svg>/g) || []).find((s) => s.includes('<path')) || '')
+  const qr1 = qrOf(labelBody), qr2 = qrOf(label2Body)
+  check('라벨 인쇄: QR 이 자산번호별로 인코딩됨(상수 아님)', qr1.length > 0 && qr1 !== qr2)
   // 라벨 일괄 인쇄 — 다중 선택 자산 라벨을 한 장에 (선택 내보내기와 같은 nos 방식)
   check('라벨 일괄: 사용자 차단 (403)', (await get('/api/labels?nos=AST-2023-000112', 'USER')).status === 403)
   check('라벨 일괄: 빈 선택 400', (await get('/api/labels', 'ASSET_MGR')).status === 400)
