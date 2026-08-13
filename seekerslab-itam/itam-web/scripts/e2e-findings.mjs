@@ -339,6 +339,18 @@ try {
   await p4.waitForTimeout(900)
   await p4.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
   ok('분실 → 폐기: 폐기 기록에 사유(분실 미회수 확정)로 등장', (await p4.textContent('body')).includes(lostTarget) && (await p4.textContent('body')).includes('분실 미회수 확정'))
+
+  // CSV 일괄 등록 — 파싱·클라 검증(유형/모델)·서버 재검증(시리얼 중복)·생성 반영(자산 생성이라 마지막에 수행)
+  await p4.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p4.locator('button', { hasText: /^＋ 일괄 등록$/ }).click()
+  await p4.waitForTimeout(200)
+  await p4.locator('textarea').fill(['유형,모델,시리얼,소유자,부서,위치', '단말,BulkE2E Term,SN-BULKE2E,홍길동,영업1팀,본사 8F', '노트북,BadCat,SN-BULK2,,,', '단말,,SN-BULK3,,,', '단말,Dup A,SN-BULKDUP,,,', '단말,Dup B,SN-BULKDUP,,,'].join('\n'))
+  await p4.locator('button', { hasText: /^미리보기$/ }).click()
+  await p4.waitForTimeout(300)
+  ok('CSV 일괄 등록: 미리보기 집계(파싱 5·유효 3·오류 2)', (await p4.textContent('body')).includes('파싱 5행') && (await p4.textContent('body')).includes('유효 3') && (await p4.textContent('body')).includes('오류 2'))
+  await p4.locator('button', { hasText: /^3건 등록$/ }).click()
+  await p4.waitForTimeout(900)
+  ok('CSV 일괄 등록: 2건 생성·서버 시리얼 중복 건너뜀', (await p4.textContent('body')).includes('2건') && (await p4.textContent('body')).includes('시리얼 중복'))
   await ctx4.close()
 
   await browser.close()
