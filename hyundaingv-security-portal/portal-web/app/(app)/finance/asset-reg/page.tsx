@@ -15,12 +15,15 @@ async function acquire(formData: FormData) {
   const adapter = assetAdapter()
   if (!adapter || !serial) return
 
-  // 폐쇄 루프 — IT포털 → 자산관리시스템 API → 자산등록번호 취득, 이력으로 남는다
-  const { assetNo } = await adapter.acquireAssetNo(serial)
-  const s = getStore()
-  if (!s.assetAcquisitions.some((a) => a.serial === serial)) {
-    s.assetAcquisitions.unshift({ serial, model, assetNo, by: me.name, at: nowStamp() })
-  }
+  // 폐쇄 루프 — IT포털 → 자산관리시스템 API → 자산등록번호 취득, 이력으로 남는다.
+  // 실 어댑터 예외(네트워크·인증)는 취득 실패로 흡수 — 화면 500 없이 재시도 가능.
+  try {
+    const { assetNo } = await adapter.acquireAssetNo(serial)
+    const s = getStore()
+    if (!s.assetAcquisitions.some((a) => a.serial === serial)) {
+      s.assetAcquisitions.unshift({ serial, model, assetNo, by: me.name, at: nowStamp() })
+    }
+  } catch { /* 자산 API 예외 — 취득 실패, 다음 시도로 */ }
   revalidatePath('/finance/asset-reg')
 }
 
@@ -32,7 +35,8 @@ export default async function AssetRegPage({ searchParams }: { searchParams: Pro
 
   const on = isEnabled('asset-api')
   const adapter = assetAdapter()
-  const assets = adapter ? await adapter.searchAssets(query) : []
+  // 조회 실패(어댑터 예외)는 빈 목록으로 폴백 — 연동 장애가 자산등록 화면을 깨지 않게 한다
+  const assets = adapter ? await adapter.searchAssets(query).catch(() => []) : []
   const unregistered = assets.filter((a) => !a.assetNo)
 
   return (

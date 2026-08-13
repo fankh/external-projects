@@ -19,19 +19,24 @@ async function importDaily() {
     revalidatePath('/', 'layout')
     return
   }
-  const rows = await adapter.fetchPrintouts()
-  const year = today().slice(0, 4)
-  let added = 0
-  for (const row of rows) {
-    if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
-    s.printouts.push({
-      id: nextNo('PR', year, s.printouts.map((p) => p.id)),
-      ...row, status: '미등록',
-    })
-    added += 1
+  // 실 어댑터 예외(네트워크·인증)를 no-adapter 분기와 동일하게 실패 이력으로 흡수 — 화면 500 방지
+  try {
+    const rows = await adapter.fetchPrintouts()
+    const year = today().slice(0, 4)
+    let added = 0
+    for (const row of rows) {
+      if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
+      s.printouts.push({
+        id: nextNo('PR', year, s.printouts.map((p) => p.id)),
+        ...row, status: '미등록',
+      })
+      added += 1
+    }
+    recordBatch(`출력물 자료 일배치 이관 (수동, ${added}건)`, nowStamp(), '성공')
+    audit(me.name, '일배치 이관', `출력물 자료 ${added}건 (보안·출력물 시스템)`)
+  } catch {
+    recordBatch('출력물 자료 일배치 이관 (수동) — 연동 예외', nowStamp(), '실패')
   }
-  recordBatch(`출력물 자료 일배치 이관 (수동, ${added}건)`, nowStamp(), '성공')
-  audit(me.name, '일배치 이관', `출력물 자료 ${added}건 (보안·출력물 시스템)`)
   revalidatePath('/', 'layout')
 }
 

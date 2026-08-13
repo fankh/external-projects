@@ -60,7 +60,13 @@ export async function sendVia(channelId: string, to: string[], subject: string):
   } else if (!isEnabled(channelId)) {
     result = { ok: false, detail: `${ch.name} 채널 중지됨 — 발송 실패` }
   } else {
-    result = await adapter.send(to, subject)
+    // 실 어댑터(네트워크·인증·타임아웃)는 throw 할 수 있다 — 발송 예외를 실패 이력으로
+    // 남기고 호출측(알림 배치 등)이 죽지 않게 한다. 목 어댑터는 throw 하지 않아 게이트만으론 못 잡음.
+    try {
+      result = await adapter.send(to, subject)
+    } catch (e) {
+      result = { ok: false, detail: `${ch.name} 발송 예외: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200) }
+    }
   }
   s.sendLog.unshift({ channelId, to: to.length, subject, ok: result.ok, detail: result.detail, at: nowStamp() })
   if (s.sendLog.length > 200) s.sendLog.length = 200

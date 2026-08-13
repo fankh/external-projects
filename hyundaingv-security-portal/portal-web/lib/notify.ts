@@ -29,15 +29,20 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   {
     const adapter = secdataAdapter()
     if (adapter) {
-      const rows = await adapter.fetchPrintouts()
-      let added = 0
-      for (const row of rows) {
-        if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
-        s.printouts.push({ id: nextNo('PR', t.slice(0, 4), s.printouts.map((p) => p.id)), ...row, status: '미등록' })
-        added += 1
+      // 실 어댑터 예외가 스케줄러 틱 전체를 죽이지 않도록 이관을 감싼다 — 실패로 기록되고 다음 배치 유형은 계속 진행.
+      try {
+        const rows = await adapter.fetchPrintouts()
+        let added = 0
+        for (const row of rows) {
+          if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
+          s.printouts.push({ id: nextNo('PR', t.slice(0, 4), s.printouts.map((p) => p.id)), ...row, status: '미등록' })
+          added += 1
+        }
+        if (added > 0) audit('스케줄러', '일배치 이관', `출력물 자료 ${added}건 (자동)`)
+        recordBatch(`출력물 자료 일배치 이관 (자동, ${added}건)`, nowStamp(), '성공')
+      } catch {
+        recordBatch('출력물 자료 일배치 이관 (자동) — 연동 예외', nowStamp(), '실패')
       }
-      if (added > 0) audit('스케줄러', '일배치 이관', `출력물 자료 ${added}건 (자동)`)
-      recordBatch(`출력물 자료 일배치 이관 (자동, ${added}건)`, nowStamp(), '성공')
     } else {
       recordBatch('출력물 자료 일배치 이관 (자동)', nowStamp(), '실패')
     }

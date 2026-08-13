@@ -43,9 +43,15 @@ async function syncHr() {
     recordBatch('인사정보 동기화 (수동)', nowStamp(), '실패')
   } else {
     // 폐쇄 루프 — 인사 어댑터가 디렉터리의 단일 원천. 동기화가 서약 대상·부서 현황 집계 기준을 갱신한다.
-    s.people = await adapter.fetchPeople()
-    recordBatch(`인사정보 동기화 (수동, ${s.people.length}명)`, nowStamp(), '성공')
-    audit(me.name, '인사정보 동기화', `${s.people.length}명 (수동)`)
+    // 실 어댑터 예외는 실패로 기록하고 기존 명단을 보존한다 (부분 동기화로 디렉터리를 비우지 않음).
+    try {
+      const people = await adapter.fetchPeople()
+      s.people = people
+      recordBatch(`인사정보 동기화 (수동, ${people.length}명)`, nowStamp(), '성공')
+      audit(me.name, '인사정보 동기화', `${people.length}명 (수동)`)
+    } catch {
+      recordBatch('인사정보 동기화 (수동) — 연동 예외', nowStamp(), '실패')
+    }
   }
   revalidatePath('/', 'layout')
 }
