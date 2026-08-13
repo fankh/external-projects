@@ -758,6 +758,8 @@ try {
   check('리포트: 보안 정례 스케줄 편입 (자동 5·가동 4)', repText.includes('자동 5(가동 4)'))
   const scanHtml = await (await get('/settings/scan-policy', 'ADMIN')).text()
   check('탐지 채널 정책: 6채널·강도 통제 렌더', scanHtml.includes('네트워크 능동 스캔') && scanHtml.includes('스캔 안전장치') && scanHtml.includes('23:00 ~ 05:00'))
+  // 대역·시간대 정책 편집(§07 스캔 안전장치) — 능동 스캔 채널에 정책 편집 컨트롤. 시간대는 로15(시간대 밖 사유 필요)의 통제 원천.
+  check('탐지 채널 정책: 능동 스캔 대역·시간대 정책 편집 노출', scanHtml.includes('정책 편집') && scanHtml.includes('비고 · 정책 편집'))
   const catHtml = await (await get('/settings/saas-catalog', 'ADMIN')).text()
   check('SaaS 카탈로그: 판정 상태 렌더', catHtml.includes('Dropbox') && catHtml.includes('검토중'))
   // 차단 판정 → 집행 통보 — 차단이 정책 표시로 끝나지 않고 보안운영팀 차단 집행 요청으로 이어짐을 명시

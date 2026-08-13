@@ -39,6 +39,32 @@ export async function setScanIntensity(channel: Channel, intensity: '낮음' | '
   revalidatePath('/', 'layout')
 }
 
+/** 스캔 대상 대역·시간대 조정 — 능동 스캔의 스캔 안전장치(제품안내서 §07 "대역·시간대·강도 정책 통제").
+ *  능동 채널만 대상. 시간대 밖 능동 스캔은 사유가 필요하므로(로15) 시간대는 운영 정책의 핵심 통제다. Admin. */
+export async function setScanScope(channel: Channel, rawTargets: string, rawWindow: string) {
+  const session = await requireAdmin()
+  if (!session) return { ok: false, message: '스캔 정책 변경 권한이 없습니다 (Admin).' }
+  const s = getStore()
+  const p = s.scanPolicies.find((x) => x.channel === channel)
+  if (!p) return { ok: false, message: '탐지 채널을 찾을 수 없습니다.' }
+  if (p.kind !== '능동') return { ok: false, message: '대역·시간대 통제는 능동 스캔 채널만 가능합니다.' }
+
+  const targets = rawTargets.trim()
+  const window = rawWindow.trim()
+  if (!targets) return { ok: false, message: '대상 대역을 입력하세요.' }
+  // 시간대 형식 — 'HH:MM ~ HH:MM' 또는 '상시'
+  if (window !== '상시' && !/^\d{1,2}:\d{2}\s*~\s*\d{1,2}:\d{2}$/.test(window)) {
+    return { ok: false, message: "수집 시간대는 'HH:MM ~ HH:MM' 또는 '상시'로 입력하세요." }
+  }
+  const beforeT = p.targets, beforeW = p.window
+  p.targets = targets
+  p.window = window === '상시' ? '상시' : window.replace(/\s*~\s*/, ' ~ ')
+  if (beforeT === p.targets && beforeW === p.window) return { ok: false, message: '변경 내용이 이전과 같습니다.' }
+  audit(session.name, `스캔 정책 변경 — 대역 ${beforeT} → ${p.targets} · 시간대 ${beforeW} → ${p.window}`, channel)
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${channel} 스캔 정책 변경 — 대역·시간대 갱신` }
+}
+
 /** SaaS 카탈로그 판정 — 인가/차단 결과가 Shadow SaaS 현황으로 환류된다 */
 export async function decideSaas(id: string, status: SaasCatalogEntry['status']) {
   const session = await requireAdmin()
