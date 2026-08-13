@@ -498,6 +498,40 @@ def sc_revision(pg, base, check):
     check('7' in pg.locator('.stat', has_text='미서약').inner_text(), '스캔본 등록 → 미서약 감소')
 
 
+def sc_project_pledge(pg, base, check):
+    """프로젝트 참여 서약 — 양식 개정 후 현 개정본 재서명분만 집계(stale 과다계수 방지, v1.5.24).
+    시각 타임스탬프(v1.5.33) 덕에 당일 개정으로 개정 전 서명을 무효화해 재현 가능."""
+    def sign_project(member):
+        login(pg, base, member)
+        pg.goto(f'{base}/pledge/my', wait_until='networkidle')
+        form = pg.locator('form:has(button:has-text("프로젝트 서약 제출"))')
+        form.locator('select[name=projectRef]').select_option('PJ-2026-01')
+        form.locator('input[name=agree]').check()
+        form.locator('button:has-text("프로젝트 서약 제출")').click()
+        pg.wait_for_load_state('networkidle')
+
+    # PJ-2026-01 멤버 2명(김현우·박정호)이 프로젝트 서약
+    sign_project('김현우')
+    sign_project('박정호')
+    pg.goto(f'{base}/projects/status', wait_until='networkidle')  # 박정호 로그인 상태
+    check('2건' in pg.locator('tr', has_text='ERP 리포트 모듈 구축').inner_text(), '프로젝트 서약 2건 (2 멤버)')
+
+    # ADMIN 이 프로젝트 양식을 지금 개정 — 두 서명 모두 개정 이전이 된다
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
+    pg.locator('tr', has_text='프로젝트 보안서약서').locator('button:has-text("개정")').click()
+    pg.wait_for_load_state('networkidle')
+
+    # 1명(김현우)만 재서명
+    sign_project('김현우')
+
+    # 재서명분만 집계돼야 1건 — stale(개정 전) 2건 + 재서명 1건을 다 세면 3건(수정 전 결함)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/projects/status', wait_until='networkidle')
+    check('1건' in pg.locator('tr', has_text='ERP 리포트 모듈 구축').inner_text(),
+          '개정 후 재서명 1건만 집계 (stale 과다계수 방지; 수정 전이면 3건)')
+
+
 def sc_codes(pg, base, check):
     """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
@@ -1057,6 +1091,7 @@ SCENARIOS = [
     ('settle', '정산 반려 → 재상신 → 지급완료', sc_settle, {}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
+    ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
