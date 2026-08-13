@@ -1,7 +1,8 @@
-/** 첫 기동(빈 스토어) 견고성 게이트 — 신규 고객사가 시드 없이 배포했을 때 첫 로그인에서
- *  화면이 깨지지 않는지 검증한다. health 는 시드 데이터로 돌기 때문에, 가드 없는 배열 접근
- *  (s.arr[0].x)·0 나눗셈 같은 회귀는 이 게이트만 잡는다 — 재사용 프레임워크의 배포 안전선.
- *  전 컬렉션을 비운 임시 데이터 파일로 서버를 띄우고, 전 화면 SSR 이 200·오류바운더리 없음인지 본다.
+/** 데이터 파일 견고성 게이트 — 두 가지 배포 안전선을 검증한다:
+ *   1) 빈 스토어(첫 기동) — 신규 고객사가 시드 없이 배포한 첫 로그인에서 전 화면이 깨지지 않는가
+ *      (health 는 시드로 돌아 가드 없는 배열 접근·0 나눗셈 회귀를 못 잡는다).
+ *   2) 손상 파일 — 수기편집·부분저장(저장 중 크래시)·잘못된 백업 복원으로 컬렉션 타입이 어긋나도
+ *      서버가 죽지 않고 그 키만 시드 기본값으로 폴백하는가 (loadFromFile 타입 안전 머지).
  *  사용: npm run build 후  node scripts/emptystate.mjs */
 import { execSync, spawn } from 'node:child_process'
 import { createHmac } from 'node:crypto'
@@ -11,7 +12,6 @@ import process from 'node:process'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const PORT = 3419
-const BASE = `http://localhost:${PORT}`
 const DATA = path.join(ROOT, 'scripts', '.emptystate-data.json')
 const SECRET = process.env.SESSION_SECRET ?? 'ngv-portal-dev-secret'
 const admin = { login: 'admin', name: '시스템관리자', dept: '정보기획팀', role: 'ADMIN' }
@@ -37,40 +37,52 @@ const ROUTES = [
   '/platform/integrations', '/search',
 ]
 
-async function waitReady() {
-  for (let i = 0; i < 60; i++) {
-    try { if ((await fetch(`${BASE}/login`, { redirect: 'manual' })).status === 200) return } catch { /* 기동 전 */ }
-    await new Promise((r) => setTimeout(r, 500))
-  }
-  throw new Error('서버 기동 대기 시간 초과')
-}
-
-async function main() {
-  if (!existsSync(path.join(ROOT, '.next'))) { console.error('✗ .next 빌드 없음 — npm run build 먼저'); process.exit(1) }
-  writeFileSync(DATA, JSON.stringify(emptyStore), 'utf8')
-  const server = spawn(`npx next start -p ${PORT}`, { cwd: ROOT, shell: true, stdio: 'ignore', env: { ...process.env, PORTAL_DATA_FILE: DATA } })
+// 한 번의 서버 기동으로 전 라우트를 훑어 렌더 견고성을 본다. dataObj 로 PORTAL_DATA_FILE 을 심는다.
+// extra(body) 를 주면 라우트별 추가 단언(예: 손상 파일에서도 정상 키가 머지됐는지)을 수행한다.
+async function probe(label, dataObj, port, extra) {
+  writeFileSync(DATA, JSON.stringify(dataObj), 'utf8')
+  const server = spawn(`npx next start -p ${port}`, { cwd: ROOT, shell: true, stdio: 'ignore', env: { ...process.env, PORTAL_DATA_FILE: DATA } })
   let ok = 0
   const fails = []
   try {
-    await waitReady()
+    for (let i = 0; i < 60; i++) {
+      try { if ((await fetch(`http://localhost:${port}/login`, { redirect: 'manual' })).status === 200) break } catch { /* 기동 전 */ }
+      await new Promise((r) => setTimeout(r, 500))
+    }
     for (const r of ROUTES) {
       try {
-        const res = await fetch(`${BASE}${r}`, { headers: { cookie }, redirect: 'manual' })
+        const res = await fetch(`http://localhost:${port}${r}`, { headers: { cookie }, redirect: 'manual' })
         if (res.status !== 200) { fails.push(`${r}: HTTP ${res.status}`); continue }
         const body = await res.text()
         if (body.includes('구현 예정 화면') && r !== '/dashboard') fails.push(`${r}: 스텁 폴백(라우트 누락)`)
         else if (/오류가 발생|문제가 발생|Application error|something went wrong/i.test(body)) fails.push(`${r}: 오류 바운더리`)
-        else ok++
+        else { const e = extra?.(r, body); if (e) fails.push(`${r}: ${e}`); else ok++ }
       } catch (e) { fails.push(`${r}: 예외 ${e instanceof Error ? e.message : e}`) }
     }
-    console.log(`\n${fails.length === 0 ? '✓' : '✗'} emptystate: ${ok}/${ROUTES.length} 화면 첫 기동 렌더 정상`)
+    console.log(`${fails.length === 0 ? '✓' : '✗'} ${label}: ${ok}/${ROUTES.length} 화면 렌더 정상`)
     for (const f of fails) console.error(`  ✗ ${f}`)
-    process.exitCode = fails.length === 0 ? 0 : 1
+    return fails.length === 0
   } finally {
     if (process.platform === 'win32') { try { execSync(`taskkill /pid ${server.pid} /T /F`, { stdio: 'ignore' }) } catch { /* 종료됨 */ } }
     else server.kill()
     try { unlinkSync(DATA) } catch { /* 이미 없음 */ }
   }
+}
+
+async function main() {
+  if (!existsSync(path.join(ROOT, '.next'))) { console.error('✗ .next 빌드 없음 — npm run build 먼저'); process.exit(1) }
+
+  // 1) 빈 스토어 — 시드 없이 첫 배포한 신규 고객사의 첫 로그인
+  const emptyOk = await probe('emptystate(빈 스토어)', emptyStore, PORT)
+
+  // 2) 손상 파일 — 컬렉션 타입 붕괴(문자열·숫자·객체 오염) + 정상 부분(people 배열)이 공존.
+  //    서버가 죽지 않고 오염 키는 시드로 폴백, 정상 키는 머지돼야 한다 (loadFromFile 타입 안전 머지).
+  const corrupt = { ...emptyStore, srRequests: 'corrupt', incidents: 42, notices: { bad: 1 }, todos: null,
+    people: [{ login: 'probe1', name: '견고성검증', dept: '품질보증팀', role: 'USER' }] }
+  const corruptOk = await probe('corruptfile(손상 파일)', corrupt, PORT + 1,
+    (r, body) => (r === '/settings/users' && !body.includes('품질보증팀')) ? '정상 부분(people) 머지 누락' : null)
+
+  process.exitCode = emptyOk && corruptOk ? 0 : 1
 }
 
 main().catch((e) => { console.error(e); process.exitCode = 1 })

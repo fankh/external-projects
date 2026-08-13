@@ -318,9 +318,20 @@ const DATA_FILE = process.env.PORTAL_DATA_FILE
 function loadFromFile(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null
   try {
-    const raw = JSON.parse(readFileSync(DATA_FILE, 'utf8')) as Partial<Store>
-    // 구버전 파일에 새 컬렉션이 없어도 죽지 않도록 시드 위에 얹는다
-    const merged = { ...seed(), ...raw }
+    const raw = JSON.parse(readFileSync(DATA_FILE, 'utf8')) as Record<string, unknown>
+    // 타입 안전 머지 — 손상·수기편집·부분저장 파일이 컬렉션 타입을 어겨도 서버를 죽이지 않는다.
+    // (예: srRequests 가 문자열이면 .filter() 가 전 화면 500 을 낸다) 시드와 타입이 맞는 키만 수용,
+    // 어긋나면 그 키만 시드 기본값을 유지한다. 구버전 부분 파일 머지(누락 키=시드)는 그대로 보존된다.
+    const base = seed() as unknown as Record<string, unknown>
+    const merged = { ...base } as unknown as Store
+    const mergedRec = merged as unknown as Record<string, unknown>
+    for (const [k, v] of Object.entries(raw)) {
+      if (!(k in base)) continue // 시드에 없는 키(오타·구정크)는 무시
+      const expected = base[k]
+      if (Array.isArray(expected)) { if (Array.isArray(v)) mergedRec[k] = v }
+      else if (expected && typeof expected === 'object') { if (v && typeof v === 'object' && !Array.isArray(v)) mergedRec[k] = v }
+      else mergedRec[k] = v
+    }
     // 파일 변조·손상 방어 — menuOverrides 는 형태 검증을 통과한 엔트리만 보존한다
     // (설계상 축소 전용이라 권한 상승은 불가하지만, 비배열 값은 가드에서 500 을 유발한다)
     const ROLES = ['USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN']
