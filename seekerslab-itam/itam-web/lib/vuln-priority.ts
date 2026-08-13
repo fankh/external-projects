@@ -5,7 +5,7 @@
 import { today } from './dates'
 import { eolOsOf } from './eol'
 import { getStore } from './store'
-import type { AssetCategory, RiskLevel } from './types'
+import type { Asset, BizCriticality, RiskLevel } from './types'
 
 export type VulnSource = '외부 노출 CVE' | 'EOL OS' | '미인가 SW' | '크리덴셜 노출'
 
@@ -26,14 +26,25 @@ export interface VulnItem {
 }
 
 const W: Record<RiskLevel, number> = { 높음: 3, 중간: 2, 낮음: 1 }
+const CRIT_MAP: Record<BizCriticality, RiskLevel> = { 핵심: '높음', 중요: '중간', 일반: '낮음' }
 
-/** 자산 중요도 — 인터넷 노출·서버/네트워크·IDC 자산일수록 높다. */
-function assetCriticality(opts: { internetFacing?: boolean; category?: AssetCategory; location?: string }): RiskLevel {
+/** 휴리스틱 중요도 — 인터넷 노출·서버/네트워크·IDC 자산일수록 높다. */
+function heuristicCriticality(opts: { internetFacing?: boolean; asset?: Asset }): RiskLevel {
   if (opts.internetFacing) return '높음'
-  if (opts.category === '서버' || opts.category === '네트워크') return '높음'
-  if (opts.location?.includes('IDC')) return '높음'
-  if (opts.category === '가상자원') return '중간'
+  const a = opts.asset
+  if (a?.category === '서버' || a?.category === '네트워크') return '높음'
+  if (a?.location?.includes('IDC')) return '높음'
+  if (a?.category === '가상자원') return '중간'
   return '낮음'
+}
+
+/** 자산 중요도 — 운영자 지정(업무 중요도)이 있으면 휴리스틱과 높은 쪽을 택한다.
+ *  핵심 지정은 노후 단말도 끌어올리고, 서버는 미지정이어도 휴리스틱으로 높음을 유지한다(§05 자산 중요도 축). */
+function assetCriticality(opts: { internetFacing?: boolean; asset?: Asset }): RiskLevel {
+  const heuristic = heuristicCriticality(opts)
+  const explicit = opts.asset?.criticality ? CRIT_MAP[opts.asset.criticality] : null
+  if (!explicit) return heuristic
+  return W[explicit] >= W[heuristic] ? explicit : heuristic
 }
 
 /** 점수 — 심각도 × 중요도(1~9)를 0~100 으로 정규화. */
@@ -74,7 +85,7 @@ export function buildVulnPriority(): VulnPriority {
     if (['폐기완료', '폐기예정'].includes(a.status)) continue
     const eol = eolOsOf(a.os, t)
     if (!eol) continue
-    const criticality = assetCriticality({ category: a.category, location: a.location })
+    const criticality = assetCriticality({ asset: a })
     const score = scoreOf('높음', criticality)
     items.push({
       id: `V-EOL-${a.assetNo}`, source: 'EOL OS', target: a.assetNo,
@@ -88,7 +99,7 @@ export function buildVulnPriority(): VulnPriority {
   for (const w of s.unauthorizedSw) {
     if (w.action) continue
     const asset = s.assets.find((x) => x.assetNo === w.assetNo)
-    const criticality = assetCriticality({ category: asset?.category, location: asset?.location })
+    const criticality = assetCriticality({ asset })
     const score = scoreOf(w.risk, criticality)
     items.push({
       id: `V-${w.id}`, source: '미인가 SW', target: w.assetNo,

@@ -5,7 +5,29 @@ import { today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo } from '@/lib/store'
-import type { Asset, AssetCategory } from '@/lib/types'
+import type { Asset, AssetCategory, BizCriticality } from '@/lib/types'
+
+const CRITICALITY_LEVELS: BizCriticality[] = ['핵심', '중요', '일반']
+
+/** 업무 중요도 지정 — 자산이 담당하는 업무의 중요도를 운영자가 설정한다(제품안내서 §05 취약점 우선순위의 '자산 중요도' 축).
+ *  취약점 노출 우선순위 스코어링에 반영되어, 같은 취약점이라도 핵심 자산일수록 조치 우선순위가 높아진다. 자산담당·Admin. */
+export async function setAssetCriticality(assetNo: string, level: BizCriticality) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '업무 중요도 지정 권한이 없습니다 (자산담당·Admin).' }
+  if (!CRITICALITY_LEVELS.includes(level)) return { ok: false, message: '업무 중요도 값이 올바르지 않습니다.' }
+
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+
+  const before = asset.criticality ?? '일반'
+  if (before === level) return { ok: false, message: `이미 업무 중요도 '${level}'로 지정돼 있습니다.` }
+  asset.criticality = level
+  asset.history.push({ date: today(), kind: '구성변경', detail: `업무 중요도 ${before} → ${level}`, actor: session.name })
+  appendAudit({ actor: session.name, action: `업무 중요도 변경 — ${asset.assetNo}: ${before} → ${level}`, target: asset.assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${asset.assetNo} 업무 중요도 '${level}' 지정 — 취약점 우선순위 스코어링에 반영` }
+}
 
 const IMPORT_CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 

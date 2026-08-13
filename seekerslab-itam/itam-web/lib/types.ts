@@ -22,6 +22,10 @@ export interface AssetHistoryItem {
   actor: string
 }
 
+/** 업무 중요도 — 자산이 담당하는 업무의 중요도(운영자 지정). 취약점 우선순위 스코어링의 '자산 중요도' 축(제품안내서 §05).
+ *  미지정 자산은 '일반'으로 간주. 핵심(업무 중단 직결)·중요(부서 업무 영향)·일반. */
+export type BizCriticality = '핵심' | '중요' | '일반'
+
 export interface Asset {
   assetNo: string
   category: AssetCategory
@@ -31,6 +35,8 @@ export interface Asset {
   owner: string
   dept: string
   location: string
+  /** 업무 중요도 — 미지정이면 '일반'. 취약점 우선순위 스코어링에 반영된다. */
+  criticality?: BizCriticality
   os?: string
   cpu?: string
   memory?: string

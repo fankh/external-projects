@@ -149,6 +149,12 @@ try {
   // SW 자산은 물리 위치·시리얼이 없어 정합성 이슈가 아니다 — 오탐 방지(AST-2023-000720 · Microsoft 365, 위치 '-')
   const regSw = await (await get('/assets/register?sel=AST-2023-000720', 'ASSET_MGR')).text()
   check('자산 대장: SW 자산 위치 누락은 정합성 이슈 아님 (오탐 방지)', !regSw.includes('대장 정합성 미흡'))
+  // 업무 중요도(§05 자산 중요도 축) — 상세에 표시, 시드 핵심 자산(AST-2020-000883 · CentOS7 서버)에 '핵심' 노출
+  const regCrit = await (await get('/assets/register?sel=AST-2020-000883', 'ASSET_MGR')).text()
+  check('자산 대장: 업무 중요도 표시 (핵심 자산)', regCrit.includes('업무 중요도') && regCrit.includes('핵심'))
+  check('자산 대장: 업무 중요도 변경 컨트롤(자산담당)', regCrit.includes('취약점 우선순위 스코어링에 반영'))
+  const regCritUser = await (await get('/assets/register?sel=AST-2024-000015', 'USER')).text()
+  check('자산 대장(사용자): 업무 중요도 표시하되 변경 미노출 (조회 전용)', regCritUser.includes('업무 중요도') && !regCritUser.includes('취약점 우선순위 스코어링에 반영'))
   // 다중 선택(보증 일괄 연장·선택 내보내기 공용) — 자산담당에 전체 선택 체크박스 노출, 사용자엔 미노출(canEdit)
   check('자산 대장: 다중 선택 전체 선택 체크박스(자산담당)', mgrHtml.includes('현재 필터의 자산 전체 선택'))
   // CSV 일괄 등록 — 자산담당·Admin 에 온보딩 패널, 사용자엔 미노출

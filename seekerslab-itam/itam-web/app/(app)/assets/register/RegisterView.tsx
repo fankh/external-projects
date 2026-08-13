@@ -8,7 +8,7 @@ import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
-import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField, type StewardField } from './actions'
+import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -72,6 +72,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [cfgMsg, setCfgMsg] = useState<string | null>(null)
   const [fixVal, setFixVal] = useState<Record<string, string>>({})
   const [fixMsg, setFixMsg] = useState<string | null>(null)
+  const [critMsg, setCritMsg] = useState<string | null>(null)
   const [wtyOpen, setWtyOpen] = useState(false)
   const [lostOpen, setLostOpen] = useState(false)
   const [lostType, setLostType] = useState<'분실' | '도난'>('분실')
@@ -326,6 +327,24 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <dt>상태</dt><dd><Chip tone={STATUS_TONE[sel.status]}>{sel.status}</Chip></dd>
               <dt>소유자</dt><dd>{sel.owner} · {sel.dept}</dd>
               <dt>위치</dt><dd>{sel.location}</dd>
+              <dt>업무 중요도</dt>
+              <dd>
+                <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  <Chip tone={sel.criticality === '핵심' ? 'err' : sel.criticality === '중요' ? 'warn' : 'neutral'}>{sel.criticality ?? '일반'}</Chip>
+                  {props.canEdit && <span className="mut" style={{ fontSize: 11 }}>변경:</span>}
+                  {props.canEdit && (['핵심', '중요', '일반'] as const).map((lv) => (
+                    (sel.criticality ?? '일반') !== lv && (
+                      <button key={lv} className="btn sm ghost" style={{ padding: '1px 8px', fontSize: 11 }} disabled={pending}
+                        title={`업무 중요도를 ${lv}으로 지정 — 취약점 우선순위 스코어링에 반영`}
+                        onClick={() => startTransition(async () => { const r = await setAssetCriticality(sel.assetNo, lv); setCritMsg(r.message) })}>
+                        {lv}
+                      </button>
+                    )
+                  ))}
+                </span>
+                {critMsg && <div className="mut" style={{ fontSize: 11, marginTop: 3 }}>{critMsg}</div>}
+                <div className="mut" style={{ fontSize: 10.5, marginTop: 2 }}>취약점 노출 우선순위(§05)의 자산 중요도 축</div>
+              </dd>
               <dt>시리얼</dt><dd className="code">{sel.serial}</dd>
               {sel.os && <><dt>OS</dt><dd>{sel.os}</dd></>}
               {sel.cpu && <><dt>CPU</dt><dd>{sel.cpu}</dd></>}
