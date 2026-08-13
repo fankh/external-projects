@@ -95,7 +95,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: '조치 현황',
         bullets: [
           `편입 요청 ${handled.filter((d) => d.action?.startsWith('편입')).length}건 · 격리 요청 ${handled.filter((d) => d.action?.startsWith('격리')).length}건`,
-          `외부 위협 미조치 — 크리덴셜 노출 ${credOpen.length} · 휴면 계정 ${acctOpen.length} · 미인가 SW ${swOpen.length} · 다크웹 유출 ${s.leaks.filter((l) => l.status === '미조치').length}`,
+          `외부 위협 미조치 — 크리덴셜 노출 ${credOpen.length} · 휴면 계정 ${acctOpen.length} · 미인가 SW ${swOpen.length} · 다크웹 유출 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
           `결재 대기 ${s.approvals.filter((a) => a.status === '대기').length}건`,
           `활성 탐지 채널 ${s.scanPolicies.filter((p) => p.enabled).length}/${s.scanPolicies.length}`,
         ],
@@ -313,7 +313,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         ['휴면 계정 (AD/IdP·SSO)', String(s.accounts.length), String(s.accounts.filter((a) => a.action).length), String(s.accounts.filter((a) => !a.action).length)],
         ['미인가 SW (EDR)', String(s.unauthorizedSw.length), String(s.unauthorizedSw.filter((w) => w.action).length), String(s.unauthorizedSw.filter((w) => !w.action).length)],
         ['외부 노출 자산', String(s.external.length), String(s.external.filter((e) => e.action).length), String(s.external.filter((e) => !e.action && e.state !== '등록·일치').length)],
-        ['다크웹 유출·침해', String(s.leaks.length), String(s.leaks.filter((l) => l.status === '조치 완료').length), String(s.leaks.filter((l) => l.status === '미조치').length)],
+        ['다크웹 유출·침해', String(s.leaks.length), String(s.leaks.filter((l) => l.status === '조치 완료').length), String(s.leaks.filter((l) => l.status !== '조치 완료').length)],
       ],
     },
     {

@@ -225,6 +225,8 @@ try {
   // 미인가 SW 미조치 — loop47. EDR 설치 SW 정책 위반도 보안담당 운영 큐에 노출(자산담당엔 미노출)
   check('대시보드(보안담당): 미인가 SW 미조치 운영 큐 노출', dashSec.includes('미인가 SW 미조치'))
   check('대시보드(자산담당): 미인가 SW 큐 미노출 (보안 운영 큐)', !dashHtml.includes('미인가 SW 미조치'))
+  // 유출·침해 미조치 — 시드 유출 4건(status 미설정=미조치)이 보안담당 운영 큐에 노출돼야 한다(과거 status==='미조치' 비교로 0 처리되던 회귀 방지)
+  check('대시보드(보안담당): 유출·침해 미조치 운영 큐 노출', dashSec.includes('유출 · 침해 미조치'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
   // 서버·IDC망(10.10.x)에 나타난 미등록 단말 — 서버 VLAN 침입 의심 (어시스턴트 발견 인텐트가 세그먼트로 식별)
