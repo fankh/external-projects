@@ -143,9 +143,12 @@ export async function GET(req: Request) {
 
   if (type === 'projects') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
+    // 참여 서약 — 화면과 동일하게 현 개정본 유효 서명만 인별 중복 제거·현재 명단 한정 (stale 과다계수 방지)
+    const pjRevised = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
     const rows: (string | number)[][] = [['번호', '프로젝트', 'PM', '투입 인력', '참여 서약', '시작', '종료', '진척(%)', '상태']]
     for (const p of s.projects) {
-      const signs = s.pledges.filter((x) => x.kind === '프로젝트' && x.projectRef === p.id).length
+      const names = new Set(s.pledges.filter((x) => x.kind === '프로젝트' && x.projectRef === p.id && x.signedAt >= pjRevised).map((x) => x.name))
+      const signs = p.members ? p.members.filter((m) => names.has(m)).length : names.size
       rows.push([p.id, p.title, p.manager, p.headcount, signs, p.start, p.end, p.progress, p.status])
     }
     return csvResponse('프로젝트_진행현황', rows)

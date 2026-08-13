@@ -59,7 +59,10 @@ export default async function EducationPage() {
   const completedBy = (name: string) => done.filter((c) => recordsOf(c.id).some((r) => r.name === name)).length
   const myMissing = done.filter((c) => !recordsOf(c.id).some((r) => r.name === me.name))
   const totalSlots = done.length * s.people.length
-  const totalDone = done.reduce((sum, c) => sum + recordsOf(c.id).length, 0)
+  // 재직자(s.people) 기준으로만 집계 — 인사동기화로 s.people 에서 빠진 퇴사자의 교육 이력이
+  // 남아 있어도 전사 이수율에 산입하지 않는다(퇴사자 이력이 재직자 미이수를 상쇄해 100%로
+  // 잘못 보이던 결함). 아래 명단 표·엑셀과 동일하게 s.people 을 순회하는 completedBy 로 계산.
+  const totalDone = s.people.reduce((sum, p) => sum + completedBy(p.name), 0)
 
   return (
     <>

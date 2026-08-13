@@ -54,6 +54,13 @@ export default async function ProjectStatusPage() {
   const late = active.filter((p) => p.end < t)
   const openIssues = s.projectIssues.filter((i) => i.status === '오픈')
   const contractOf = (id?: string) => s.investContracts.find((c) => c.id === id)
+  // 프로젝트 참여 서약 제출 수 — 현 개정본 유효 서명만, 인별 중복 제거하고 현재 명단으로 한정한다.
+  // (양식 개정 후 재서약분과 개정 전 stale 행이 함께 세어져 미서약을 감추던 결함)
+  const pjRevised = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
+  const signedCount = (p: { id: string; members?: string[] }) => {
+    const names = new Set(s.pledges.filter((x) => x.kind === '프로젝트' && x.projectRef === p.id && x.signedAt >= pjRevised).map((x) => x.name))
+    return p.members ? p.members.filter((m) => names.has(m)).length : names.size
+  }
 
   return (
     <>
@@ -85,7 +92,7 @@ export default async function ProjectStatusPage() {
                     <td>{p.manager}</td>
                     <td className="num" title={p.members?.join(' · ') ?? '명단 미등록'}>{p.headcount}명{p.members && <span className="mut"> ({p.members.length})</span>}</td>
                     {/* 요구사항 46행 — 사내인력 프로젝트 참여 서약 (보안서약서 > 특별서약서(프로젝트)) 제출 수 */}
-                    <td className="num">{s.pledges.filter((x) => x.kind === '프로젝트' && x.projectRef === p.id).length}건</td>
+                    <td className="num">{signedCount(p)}건</td>
                     <td className="tnum">{p.start} ~ {p.end} {p.status !== '완료' && p.end < t && <Chip tone="err" bare>경과</Chip>}</td>
                     <td>
                       <div className="hstack" style={{ gap: 7 }}>
