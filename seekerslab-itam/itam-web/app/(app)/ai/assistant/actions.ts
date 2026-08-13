@@ -175,7 +175,11 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     }
   }
   if (!isUser && (q.includes('미등록') || q.includes('발견') || q.includes('shadow'))) {
-    const items = s.discovered.filter((d) => d.state === '미등록' && !d.action)
+    const all = s.discovered.filter((d) => d.state === '미등록' && !d.action)
+    // 기간 스코프 — "이번 달 새로 발견된…"처럼 시점을 좁히면 최초 발견일(firstSeen) 기준으로 그 창 안만 답한다
+    //  (안내서 §05 예시 질의 #1). 기간 토큰이 없으면 전량(처리 대기 미등록)을 답한다.
+    const period = parsePeriodWindow(q, today())
+    const items = period ? all.filter((d) => d.firstSeen >= period.start && d.firstSeen <= period.end) : all
     // 네트워크 세그먼트 — 서버·IDC망 10.10.x / 사무·업무망 10.20.x / 클라우드망 10.30~31.x.
     // (시드 기준: 서버는 10.10.x IDC 대역, 10.20.31.x 는 플랫폼개발팀 사무망 — 서버 대역이 아니다)
     const seg = (ip: string) => ip.startsWith('10.10.') ? '서버·IDC망'
@@ -187,9 +191,12 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     return {
       role: 'assistant',
       text: [
-        `이번 달 새로 발견된 미등록 자산은 ${items.length}건입니다.`,
+        period
+          ? `${period.label}에 새로 발견된(최초 발견일 기준) 미등록 자산은 ${items.length}건입니다.`
+          : `처리 대기 중인 미등록 발견 자산은 ${items.length}건입니다.`,
         ``,
-        ...items.map((d) => `· ${d.id} — ${d.hostname} (${d.type}, ${d.channel}, ${d.ip} · ${seg(d.ip)}, 위험도 ${d.risk})`),
+        ...(items.length === 0 ? ['해당 기간에 새로 발견된 미등록 자산이 없습니다.'] : []),
+        ...items.map((d) => `· ${d.id} — ${d.hostname} (${d.type}, ${d.channel}, ${d.ip} · ${seg(d.ip)}, 최초 발견 ${d.firstSeen}, 위험도 ${d.risk})`),
         ``,
         `서버·IDC망(10.10.x)에 있는 미등록 자산은 ${inServer.length}건${rogueTermInServer.length > 0 ? `이며, 그중 단말 ${rogueTermInServer.length}건은 서버 VLAN 침입 의심으로 최우선 격리 대상입니다` : '입니다'}.`,
         `소유자 확인 요청 후 편입 또는 격리 처리를 권장합니다.`,

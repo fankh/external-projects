@@ -151,6 +151,15 @@ async function aiPeriodQuery(page) {
   ok('AI 기간질의: 먼 미래 → 해당 없음 메시지', q2.includes('2099년 1분기') && q2.includes('보증이 만료되는 자산이 없습니다'))
   const q3 = await ask('보증 만료되는 네트워크 장비 목록')
   ok('AI 기간질의: 기간 미지정 → 임박순 폴백', q3.includes('만료 임박순') && !/ ~ 20\d{2}-/.test(q3))
+
+  // 발견 인텐트 기간 스코프 — firstSeen 기준. 시드 미등록 자산은 2026-07 이므로 명시 월로 결정적 검증.
+  const g1 = await ask('2026년 7월에 새로 발견된 미등록 자산 목록')
+  const seen = [...g1.matchAll(/최초 발견 (\d{4}-\d{2}-\d{2})/g)].map((m) => m[1])
+  ok('AI 발견 기간질의: 7월 창 라벨·전부 창 안', g1.includes('2026년 7월') && seen.length > 0 && seen.every((d) => d >= '2026-07-01' && d <= '2026-07-31'))
+  const g2 = await ask('2026년 6월에 새로 발견된 미등록 자산')
+  ok('AI 발견 기간질의: 대상 없는 월 → 해당 없음', g2.includes('새로 발견된 미등록 자산이 없습니다'))
+  const g3 = await ask('미등록 발견 자산 목록 보여줘')
+  ok('AI 발견 기간질의: 기간 미지정 → 처리 대기 라벨(이번 달 하드코딩 제거)', g3.includes('처리 대기 중인 미등록 발견 자산') && !g3.includes('이번 달 새로 발견'))
 }
 
 try {
