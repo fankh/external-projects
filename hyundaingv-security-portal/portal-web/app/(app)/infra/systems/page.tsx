@@ -27,7 +27,9 @@ async function addServer(formData: FormData) {
   const hwId = String(formData.get('hwId') ?? '')
   const s = getStore()
   const hw = s.hardware.find((h) => h.id === hwId && h.kind === '물리서버')
-  if (!hostname || !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip) || !PURPOSES.includes(purpose) || !os || !hw) return
+  // IP 옥텟 0~255 범위까지 검증 (정규식만으론 999.999.999.999 통과) — 표시 전용이나 정합성 위해
+  const ipOk = /^\d{1,3}(\.\d{1,3}){3}$/.test(ip) && ip.split('.').every((o) => Number(o) <= 255)
+  if (!hostname || !ipOk || !PURPOSES.includes(purpose) || !os || !hw) return
   if (s.servers.some((v) => v.hostname === hostname)) return
   const id = nextId('SV', s.servers.map((v) => v.id))
   s.servers.push({
