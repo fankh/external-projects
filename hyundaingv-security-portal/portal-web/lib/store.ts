@@ -311,6 +311,7 @@ const g = globalThis as typeof globalThis & {
   __ngvPortalStore?: Store
   __ngvPortalSaveTimer?: NodeJS.Timeout
   __ngvPortalExitHook?: boolean
+  __ngvPortalLastSaved?: string
 }
 
 const DATA_FILE = process.env.PORTAL_DATA_FILE
@@ -353,29 +354,44 @@ function loadFromFile(): Store | null {
 function saveNow(s: Store) {
   if (!DATA_FILE) return
   try {
+    const json = JSON.stringify(s)
+    // 변경 없으면 쓰기 생략 — 읽기 부하에서 예약이 반복돼도 동일 상태를 헛쓰지 않는다.
+    if (json === g.__ngvPortalLastSaved) return
     mkdirSync(dirname(DATA_FILE), { recursive: true })
     const tmp = `${DATA_FILE}.tmp`
-    writeFileSync(tmp, JSON.stringify(s), 'utf8')
+    writeFileSync(tmp, json, 'utf8')
     renameSync(tmp, DATA_FILE)
+    g.__ngvPortalLastSaved = json
   } catch { /* 디스크 오류는 데모 흐름을 막지 않는다 */ }
 }
 
-/** 디바운스 저장 — 모든 뮤테이션은 getStore() 를 거치므로, 호출 시마다 저장을 예약하면
- *  액션 직후 상태가 파일에 반영된다. 임시 파일 → rename 으로 부분 쓰기를 막는다.
- *  종료 훅이 디바운스 창(300ms) 안의 마지막 뮤테이션을 동기 플러시로 보전한다. */
+/** 종료 플러시 훅 — 디바운스 창 안의 미저장 뮤테이션을 종료 시 동기 저장으로 보전한다.
+ *  'exit' 는 정상 종료만 커버하므로 SIGTERM(docker stop)·SIGINT(Ctrl+C)도 잡아 플러시 후 종료한다.
+ *  (SIGKILL·OOM 은 동기 훅이 불가능 — 그 창을 좁히는 것은 scheduleSave 의 고정 지연.) */
+function registerExitFlush() {
+  if (g.__ngvPortalExitHook) return
+  g.__ngvPortalExitHook = true
+  const flush = () => {
+    clearTimeout(g.__ngvPortalSaveTimer)
+    g.__ngvPortalSaveTimer = undefined
+    if (g.__ngvPortalStore) saveNow(g.__ngvPortalStore)
+  }
+  process.on('exit', flush)
+  for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+    process.on(sig, () => { flush(); process.exit(0) })
+  }
+}
+
+/** 저장 예약 — 모든 뮤테이션은 getStore() 를 거치므로 호출 시 저장을 예약해 상태를 파일에 반영한다.
+ *  이미 예약돼 있으면 재예약하지 않는다(리셋 금지): getStore 는 읽기 렌더에서도 호출되므로
+ *  매번 타이머를 밀면 바쁜 서버에서 저장이 무한정 굶는다. 첫 예약 후 고정 300ms 에 반드시 발화해
+ *  최신 상태를 저장한다(저장 지연 상한 = 300ms). 임시 파일 → rename 으로 부분 쓰기를 막는다. */
 function scheduleSave(s: Store) {
   if (!DATA_FILE) return
-  clearTimeout(g.__ngvPortalSaveTimer)
-  g.__ngvPortalSaveTimer = setTimeout(() => saveNow(s), 300)
-  if (!g.__ngvPortalExitHook) {
-    g.__ngvPortalExitHook = true
-    // 'exit' 는 정상 종료·process.exit() 에서 발화한다 (SIGTERM 은 Next 의 graceful shutdown 이
-    // process.exit 로 이어진다). 핸들러는 동기만 허용되므로 saveNow 를 그대로 쓴다.
-    process.on('exit', () => {
-      clearTimeout(g.__ngvPortalSaveTimer)
-      if (g.__ngvPortalStore) saveNow(g.__ngvPortalStore)
-    })
+  if (!g.__ngvPortalSaveTimer) {
+    g.__ngvPortalSaveTimer = setTimeout(() => { g.__ngvPortalSaveTimer = undefined; saveNow(s) }, 300)
   }
+  registerExitFlush()
 }
 
 export function getStore(): Store {
@@ -388,7 +404,11 @@ export function getStore(): Store {
  *  그대로 저장된 경우)의 복구 지점으로 일자별 스냅샷을 남기고 오래된 것부터 지운다.
  *  같은 날 반복 호출은 같은 파일을 덮어써 멱등이다. 스케줄러 틱에서 호출된다. */
 export function backupDataFile(keep = 7): string | null {
-  if (!DATA_FILE || !existsSync(DATA_FILE)) return null
+  if (!DATA_FILE) return null
+  // 백업이 메모리 최신 상태를 담도록 먼저 플러시한다 — 틱(알림 배치)이 스토어를 변경한 뒤
+  // 디스크 반영 전에 복사하면 스냅샷이 뒤처진다(복구 지점 신뢰성).
+  if (g.__ngvPortalStore) saveNow(g.__ngvPortalStore)
+  if (!existsSync(DATA_FILE)) return null
   try {
     const stamp = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10) // KST 일자
     const dst = `${DATA_FILE}.${stamp}.bak`
