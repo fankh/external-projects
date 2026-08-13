@@ -17,6 +17,21 @@ export function registerUpload(refId: string, entry: FormDataEntryValue | null, 
   })
 }
 
+/** 결재 자동첨부 — 문서 유형에 매핑된 엑셀양식(환경설정 > 엑셀양식 관리)으로 첨부를 생성한다
+ *  (요구사항 결재 시트 8~10번 '첨부파일자동생성 o'). 유형 매핑이 없으면 '공통' 양식으로
+ *  폴백하고, 같은 참조에 같은 양식 파일이 이미 있으면 중복 생성하지 않는다. */
+export function registerGenerated(refId: string, docType: string, by: string): void {
+  const s = getStore()
+  const t = s.excelTemplates.find((x) => x.docType === docType) ?? s.excelTemplates.find((x) => x.docType === '공통')
+  if (!t) return
+  const name = `${t.name}_v${t.version}_${today()}.xlsx`
+  if (s.attachments.some((a) => a.refId === refId && a.name === name)) return
+  s.attachments.push({
+    id: nextNo('AT', today().slice(0, 4), s.attachments.map((a) => a.id)),
+    refId, name, sizeKb: 12, uploadedBy: by, at: today(),
+  })
+}
+
 export function attachCount(refId?: string): number {
   if (!refId) return 0
   return getStore().attachments.filter((a) => a.refId === refId).length

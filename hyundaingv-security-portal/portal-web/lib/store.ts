@@ -241,6 +241,7 @@ function seed(): Store {
     excelTemplates: [
       { id: 'XT-01', name: '장애보고 취합 양식', docType: '장애보고 상신', version: 3, uploadedAt: '2026-06-10' },
       { id: 'XT-02', name: '인프라변경 작업계획 양식', docType: '변경계획 상신', version: 2, uploadedAt: '2026-05-22' },
+      { id: 'XT-05', name: '인프라변경 작업결과 양식', docType: '변경결과 상신', version: 1, uploadedAt: '2026-05-22' },
       { id: 'XT-03', name: '비용계획 수립 양식', docType: '비용 정산품의', version: 1, uploadedAt: '2026-01-15' },
       { id: 'XT-04', name: '보안성검토 체크리스트', docType: '공통', version: 1, uploadedAt: '2026-02-01' },
     ],

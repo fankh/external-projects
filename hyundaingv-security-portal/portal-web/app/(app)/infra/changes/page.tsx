@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
-import { attachCount, registerUpload } from '@/lib/attachments'
+import { attachCount, registerGenerated, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
@@ -49,6 +49,8 @@ async function submitPlan(formData: FormData) {
   const cw = s.changes.find((c) => c.id === id && c.status === '작업등록')
   if (!cw) return
   cw.status = '계획결재중'
+  // 엑셀양식(XT) 자동첨부 — 요구사항 결재 시트 9·10번 '첨부파일자동생성 o'
+  registerGenerated(cw.id, '변경계획 상신', me.name)
   draftApproval({ docType: '변경계획 상신', title: `[${cw.kind}변경] ${cw.title} — 작업계획`, ref: cw.id, drafter: me })
   revalidatePath('/', 'layout')
 }
@@ -66,6 +68,8 @@ async function submitResult(formData: FormData) {
   cw.status = '작업완료결재중'
   // 작업결과 증적 — 공통 첨부(cw.id)로 묶여 결재함에서도 보인다 (첨부 시트: modifications)
   registerUpload(cw.id, formData.get('file'), me.name)
+  // 엑셀양식(XT) 자동첨부 — 요구사항 결재 시트 9·10번 '첨부파일자동생성 o'
+  registerGenerated(cw.id, '변경결과 상신', me.name)
   draftApproval({ docType: '변경결과 상신', title: `[${cw.kind}변경] ${cw.title} — 작업결과`, ref: cw.id, drafter: me })
   revalidatePath('/', 'layout')
 }
