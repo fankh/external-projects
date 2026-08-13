@@ -497,6 +497,68 @@ def sc_racks(pg, base, check):
     check('C-01' not in pg.locator('.card', has_text='랙관리').inner_text(), '빈 랙 삭제')
 
 
+def sc_infracrud(pg, base, check):
+    """인프라 CRUD (요구사항 31~34행) — 서버·시스템·배치·인터페이스 등록·참조 가드·삭제"""
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+
+    # 서버 등록 (H/W 선택 → 랙 자동) → 시스템 등록 (서버 매핑) → 서버는 '사용중' 가드
+    sv_card = pg.locator('.card', has_text='서버 · 랙 구성')
+    sv_card.locator('input[name=hostname]').fill('ngv-e2e-01')
+    sv_card.locator('input[name=ip]').fill('10.10.9.99')
+    sv_card.locator('input[name=os]').fill('Rocky Linux 9')
+    sv_card.locator('select[name=hwId]').select_option('HW-05')
+    sv_card.locator('button:has-text("서버 등록")').click()
+    pg.wait_for_selector('tr:has-text("ngv-e2e-01")', timeout=10000)
+    check('B-01' in pg.locator('tr', has_text='ngv-e2e-01').inner_text(), '서버 등록 — 랙은 H/W 를 따른다')
+
+    sys_card = pg.locator('.card', has_text='시스템 현황')
+    sys_card.locator('input[name=name]').fill('E2E 테스트시스템')
+    sys_card.locator('input[name=url]').fill('https://e2e.internal')
+    sys_card.locator('select[name=serverId]').select_option(label='ngv-e2e-01')
+    sys_card.locator('input[name=owner]').fill('박정호')
+    sys_card.locator('button:has-text("시스템 등록")').click()
+    pg.wait_for_selector('tr:has-text("E2E 테스트시스템")', timeout=10000)
+    check('사용중' in pg.locator('.card', has_text='서버 · 랙 구성').locator('tr', has_text='ngv-e2e-01').inner_text(),
+          '시스템 매핑 서버 삭제 가드')
+
+    # 배치 등록(새 시스템 대상) → 시스템은 '사용중' 가드 → 배치 삭제 → 시스템·서버 순차 삭제
+    pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    bj_card = pg.locator('.card', has_text='배치관리')
+    bj_card.locator('input[name=name]').fill('E2E 야간 집계')
+    bj_card.locator('select[name=system]').select_option('E2E 테스트시스템')
+    bj_card.locator('button:has-text("배치 등록")').click()
+    pg.wait_for_selector('tr:has-text("E2E 야간 집계")', timeout=10000)
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check('사용중' in pg.locator('.card', has_text='시스템 현황').locator('tr', has_text='E2E 테스트시스템').inner_text(),
+          '배치 참조 시스템 삭제 가드')
+    pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    pg.locator('tr', has_text='E2E 야간 집계').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+
+    # 인터페이스 등록·삭제
+    if_card = pg.locator('.card', has_text='인터페이스관리')
+    if_card.locator('input[name=name]').fill('E2E 연계 테스트')
+    if_card.locator('input[name=from]').fill('포털')
+    if_card.locator('input[name=to]').fill('E2E 테스트시스템')
+    if_card.get_by_role('button', name='등록', exact=True).click()
+    pg.wait_for_selector('tr:has-text("E2E 연계 테스트")', timeout=10000)
+    pg.locator('tr', has_text='E2E 연계 테스트').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    check('E2E 연계 테스트' not in pg.content(), '인터페이스 등록·삭제')
+
+    # 참조가 없어진 시스템 → 서버 순으로 삭제된다
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    pg.locator('.card', has_text='시스템 현황').locator('tr', has_text='E2E 테스트시스템').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    pg.locator('.card', has_text='서버 · 랙 구성').locator('tr', has_text='ngv-e2e-01').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check('ngv-e2e-01' not in pg.content() and 'E2E 테스트시스템' not in pg.content(), '참조 해제 후 시스템·서버 삭제')
+
+
 def sc_criteria(pg, base, check):
     """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
     login(pg, base, '박정호')
@@ -747,6 +809,7 @@ SCENARIOS = [
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
     ('criteria', '점검 기준관리 — 등록·업로드·삭제·사용중 가드', sc_criteria, {}),
     ('racks', '랙·H/W 관리 — 등록·구성도·삭제 가드', sc_racks, {}),
+    ('infracrud', '인프라 CRUD — 서버·시스템·배치·인터페이스', sc_infracrud, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),

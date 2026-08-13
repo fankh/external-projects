@@ -150,6 +150,36 @@ export async function GET(req: Request) {
     return csvResponse('보안위반_관리대장', rows)
   }
 
+  if (type === 'servers') {
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const rows: (string | number)[][] = [['서버번호', '호스트명', 'IP', '용도', 'OS', 'CPU', '메모리(GB)', '랙', 'H/W', '디스크(%)']]
+    for (const v of s.servers) rows.push([v.id, v.hostname, v.ip, v.purpose, v.os, v.cpu ?? '-', v.memoryGb ?? '-', v.rack, v.hwId ?? '-', v.diskUsedPct])
+    return csvResponse('서버_관리대장', rows)
+  }
+
+  if (type === 'systems') {
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const rows: (string | number)[][] = [['코드', '시스템', '구분', '접속 URL', '서버', '담당']]
+    for (const x of s.systems) {
+      rows.push([x.id, x.name, x.env, x.url, x.serverIds.map((id) => s.servers.find((v) => v.id === id)?.hostname ?? id).join(' · '), x.owner])
+    }
+    return csvResponse('시스템_관리대장', rows)
+  }
+
+  if (type === 'batches') {
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const rows: (string | number)[][] = [['잡번호', '이름', '대상 시스템', '주기', '최근 실행', '결과']]
+    for (const b of s.batchJobs) rows.push([b.id, b.name, b.system, b.schedule, b.lastRun ?? '-', b.lastResult ?? '-'])
+    return csvResponse('배치_관리대장', rows)
+  }
+
+  if (type === 'interfaces') {
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const rows: (string | number)[][] = [['번호', '인터페이스', 'From', 'To', '방식', '상태']]
+    for (const i of s.interfaces) rows.push([i.id, i.name, i.from, i.to, i.method, i.status])
+    return csvResponse('인터페이스_관리대장', rows)
+  }
+
   if (type === 'racks') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['랙번호', '위치', '사이즈(U)', '자산번호', '장착 H/W', '논리 서버']]

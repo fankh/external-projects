@@ -234,10 +234,10 @@ async function main() {
     ['/projects/schedule', 'BIZ_MGR', ['통합테스트 결과서', '레거시 리포트 데이터 정합성 오류', '해결 처리', '완료 처리']],
     ['/projects/reports', 'BIZ_MGR', ['킥오프 회의', '7월 4주차', '주간보고']],
     // 인프라 현황 — 시스템·서버·장애 연계, 배치·인터페이스·디스크
-    ['/infra/systems', 'BIZ_MGR', ['ngv-db-01', 'ERP', '운영계', '디스크 경고', '장애 이력', 'CPU', '128GB']],
+    ['/infra/systems', 'BIZ_MGR', ['ngv-db-01', 'ERP', '운영계', '디스크 경고', '장애 이력', 'CPU', '128GB', '시스템 등록', '서버 등록']],
     // 랙·H/W 관리 (요구사항 28~30행) — CRUD 폼·구성도·자산번호
     ['/infra/racks', 'BIZ_MGR', ['랙관리', 'A-01', 'AST-RK-0001', 'H/W 관리', 'PowerEdge R750', '랙구성도', '랙 등록', 'H/W 등록', 'ngv-web-01']],
-    ['/infra/operations', 'BIZ_MGR', ['인사정보 동기화', '영업 실적 집계', '즉시 실행', '출력물 자료 수신', '오류']],
+    ['/infra/operations', 'BIZ_MGR', ['인사정보 동기화', '영업 실적 집계', '즉시 실행', '출력물 자료 수신', '오류', '배치 등록', '인터페이스명']],
     // 서약 관리 — 양식 개정·스캔본·보안담당자·협력업체
     ['/pledge/manage', 'BIZ_MGR', ['양식관리', '개정일자', '스캔본 업로드', '보안담당자 관리', '서약률', 'CP-2026-02', '비솔루션', '선택 건 결재상신']],
     // 부서 서약 현황 결재상신 (결재 시트 11번) — 부서담당 화면에 상신 버튼
@@ -369,6 +369,12 @@ async function main() {
       ['printouts', 'BIZ_MGR', '폐기방법'],
       ['violations', 'BIZ_MGR', 'VL-2026-07'],
       ['inspection-plans', 'BIZ_MGR', 'IS-2026-21'],
+      ['racks', 'BIZ_MGR', 'AST-RK-0001'],
+      ['hardware', 'BIZ_MGR', 'PowerEdge R750'],
+      ['servers', 'BIZ_MGR', 'ngv-db-01'],
+      ['systems', 'BIZ_MGR', 'SYS-01'],
+      ['batches', 'BIZ_MGR', 'BJ-01'],
+      ['interfaces', 'BIZ_MGR', 'IF-01'],
     ]
     for (const [t, role, needle] of sweep) {
       const r = await get(`/api/export?type=${t}`, role)
