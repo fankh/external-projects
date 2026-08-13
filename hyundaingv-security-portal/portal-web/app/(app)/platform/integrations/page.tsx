@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { channelSummary, hrAdapter, isEnabled } from '@/lib/integrations/registry'
 import { runDailyNotify } from '@/lib/notify'
@@ -10,7 +10,7 @@ import { CHANNELS, PORTAL } from '@/portal.config'
 
 async function toggleChannel(formData: FormData) {
   'use server'
-  const me = await requireRole('ADMIN')
+  const me = await requireMenuRole('/platform/integrations', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const ch = CHANNELS.find((c) => c.id === id)
   if (!ch) return
@@ -25,7 +25,7 @@ async function toggleChannel(formData: FormData) {
 
 async function notifyBatch() {
   'use server'
-  const me = await requireRole('ADMIN')
+  const me = await requireMenuRole('/platform/integrations', 'ADMIN')
   // 폐쇄 루프 — 미서약·점검 경과·SR 지연·재택 미제출을 스캔해 대상자별 안내메일 발송
   const results = await runDailyNotify()
   audit(me.name, '알림 배치 실행', results.map((r) => `${r.kind} ${r.targets}명${r.ok ? '' : '(실패)'}`).join(', ') || '대상 없음')
@@ -34,7 +34,7 @@ async function notifyBatch() {
 
 async function syncHr() {
   'use server'
-  const me = await requireRole('ADMIN')
+  const me = await requireMenuRole('/platform/integrations', 'ADMIN')
   const s = getStore()
   const adapter = hrAdapter()
   if (!adapter || !isEnabled('hr-sync')) {

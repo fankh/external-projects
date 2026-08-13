@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 
@@ -21,7 +21,7 @@ function validSign(s: ReturnType<typeof getStore>, name: string) {
 
 async function sign(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/my', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   if (formData.get('agree') !== 'on') return
   const s = getStore()
   if (validSign(s, me.name)) return
@@ -39,7 +39,7 @@ async function sign(formData: FormData) {
  *  관리책임자는 관리자 권한(부서담당 이상)만 서버에서 재검증한다. */
 async function signKind(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/my', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const raw = String(formData.get('kind') ?? '')
   const kind = raw === '관리책임자' || raw === '재택근무' ? raw : null
   if (!kind || formData.get('agree') !== 'on') return
@@ -54,7 +54,7 @@ async function signKind(formData: FormData) {
 /** 프로젝트 참여 서약 — 사내인력이 참여 프로젝트를 지정해 동의한다 (요구사항 46행). */
 async function signProject(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/my', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const projectRef = String(formData.get('projectRef') ?? '')
   if (formData.get('agree') !== 'on') return
   const s = getStore()
@@ -68,7 +68,7 @@ async function signProject(formData: FormData) {
 /** 특별서약(보안담당자) — 일반서약 동의 후 대상. 담당업무·세부업무내용을 추가 입력한다. */
 async function signSpecial(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/my', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const duty = String(formData.get('duty') ?? '').trim().slice(0, 200)
   if (formData.get('agree') !== 'on' || !duty) return
   const s = getStore()

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { NAV, TITLE_BY_HREF } from '@/components/chrome/menus'
 import { Card, ScreenHeader } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { effectiveRoles, requireRole } from '@/lib/authz'
 import { SCREENS } from '@/lib/screens'
 
 /** 캐치올 스텁 — 아직 구현되지 않은 화면을 카탈로그(lib/screens.ts)로 렌더한다.
@@ -14,7 +14,7 @@ export default async function StubPage({ params }: { params: Promise<{ stub: str
   const screen = SCREENS[href]
   if (!nav || !screen) notFound()
 
-  await requireRole(...nav.roles)
+  await requireRole(...effectiveRoles(href))
   const info = TITLE_BY_HREF[href]
 
   return (

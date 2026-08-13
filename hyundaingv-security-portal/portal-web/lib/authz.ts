@@ -28,3 +28,10 @@ export function effectiveRoles(href: string): Role[] {
 export async function requireMenu(href: string): Promise<Session> {
   return requireRole(...effectiveRoles(href))
 }
+
+/** 화면 소속 서버 액션 가드 — 액션 자체의 역할 요건 ∩ 소속 화면의 유효 권한.
+ *  서버 액션은 UI 노출과 무관하게 직접 POST 가 가능하므로, 화면 런타임 제한이 쓰기에도 걸리게 한다. */
+export async function requireMenuRole(href: string, ...roles: Role[]): Promise<Session> {
+  const eff = effectiveRoles(href)
+  return requireRole(...roles.filter((r) => eff.includes(r)))
+}

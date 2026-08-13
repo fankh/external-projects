@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import type { ApprovalDocType } from '@/lib/types'
@@ -12,7 +12,7 @@ const DOC_TYPES: (ApprovalDocType | '공통')[] = [
 
 async function addTemplate(formData: FormData) {
   'use server'
-  await requireRole('ADMIN')
+  await requireMenuRole('/settings/forms', 'ADMIN')
   const name = String(formData.get('name') ?? '').trim().slice(0, 120)
   const docType = String(formData.get('docType') ?? '') as ApprovalDocType | '공통'
   if (!name || !DOC_TYPES.includes(docType)) return
@@ -24,7 +24,7 @@ async function addTemplate(formData: FormData) {
 
 async function reupload(formData: FormData) {
   'use server'
-  await requireRole('ADMIN')
+  await requireMenuRole('/settings/forms', 'ADMIN')
   const s = getStore()
   const t = s.excelTemplates.find((x) => x.id === String(formData.get('id') ?? ''))
   if (!t) return

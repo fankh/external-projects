@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp, today } from '@/lib/dates'
 import { secdataAdapter } from '@/lib/integrations/registry'
 import { getStore, nextNo, recordBatch } from '@/lib/store'
@@ -11,7 +11,7 @@ import { getStore, nextNo, recordBatch } from '@/lib/store'
 /** 전일자 이관 — 보안·출력물 시스템(DB 연계) 자료를 일배치로 가져온다 (요구사항: 일배치 이관) */
 async function importDaily() {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/awareness/prints', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
   const adapter = secdataAdapter()
   if (!adapter) {
@@ -37,7 +37,7 @@ async function importDaily() {
 
 async function registerDiscard(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/awareness/prints', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const method = String(formData.get('method') ?? '')
   if (method !== '세단' && method !== '소각') return
@@ -53,7 +53,7 @@ async function registerDiscard(formData: FormData) {
 
 async function submitDiscards() {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/awareness/prints', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
   // 본인 자료 중 폐기 등록 완료 건 전체를 상신 (결재 시트 13번 — 본인자료만 상신 가능)
   const targets = s.printouts.filter((p) => p.name === me.name && p.status === '등록')

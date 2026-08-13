@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, isRemoteTargetIn } from '@/lib/store'
 import type { Store } from '@/lib/store'
@@ -21,6 +21,8 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/
 function applyTarget(s: Store, name: string, dept: string, startDate: string, endDate: string): '추가' | '종료' | null {
   if (startDate) {
     if (endDate && endDate < startDate) return null
+    // 동일 (인원, 시작일) 중복 등록 금지 — 반복 제출로 명단이 불어나는 것을 막는다
+    if (s.remoteTargets.some((t) => t.name === name && t.startDate === startDate)) return null
     // 같은 인원의 열린 기간이 있으면 새 시작 전일로 닫는다 — 기간 중복 방지
     for (const t of s.remoteTargets) {
       if (t.name === name && !t.endDate && t.startDate < startDate) t.endDate = startDate
@@ -39,7 +41,7 @@ function applyTarget(s: Store, name: string, dept: string, startDate: string, en
 
 async function submitCheck(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/awareness/remote', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   // 전 항목 동의 필수 — 서버에서 재검증
   if (ITEMS.some((_, i) => formData.get(`item${i}`) !== 'on')) return
   const s = getStore()
@@ -58,7 +60,7 @@ async function submitCheck(formData: FormData) {
 /** 대상자 등록·수정 — 담당·Admin (요구사항 54행) */
 async function upsertTarget(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/awareness/remote', 'BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '')
   const startDate = String(formData.get('startDate') ?? '')
   const endDate = String(formData.get('endDate') ?? '')
@@ -75,12 +77,13 @@ async function upsertTarget(formData: FormData) {
 /** 일자별 대상자 업로드 — CSV(이름,시작일자[,종료일자]) 행 단위 반영 (요구사항 54행 업로드 통합) */
 async function uploadTargets(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/awareness/remote', 'BIZ_MGR', 'ADMIN')
   const file = formData.get('file')
   if (!(file instanceof File) || file.size === 0 || file.size > 1024 * 1024) return
   const s = getStore()
   let applied = 0
-  for (const line of (await file.text()).split(/\r?\n/)) {
+  // 행 수 상한 — 한 번의 업로드가 스토어를 무한정 불리거나 이벤트 루프를 점유하는 것을 막는다
+  for (const line of (await file.text()).split(/\r?\n/).slice(0, 500)) {
     const [name = '', startDate = '', endDate = ''] = line.split(',').map((x) => x.trim())
     if (!name || (startDate && !DATE.test(startDate)) || (endDate && !DATE.test(endDate))) continue
     const person = s.people.find((p) => p.name === name)

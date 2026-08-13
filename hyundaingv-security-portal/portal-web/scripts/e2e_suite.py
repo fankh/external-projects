@@ -620,6 +620,20 @@ def sc_menuauth(pg, base, check):
     pg.goto(f'{base}/board/qna', wait_until='networkidle')
     check('질문 등록' in pg.content(), '타 권한그룹 무영향')
 
+    # 제한은 화면만이 아니라 엑셀 다운로드·액션에도 걸린다 (v1.2.2) — BIZ_MGR 를 랙 화면에서 제한
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    pg.locator('tr', has_text='/infra/racks').locator('button').first.click()
+    pg.wait_for_selector('tr:has-text("/infra/racks"):has-text("제한됨")', timeout=10000)
+    login(pg, base, '박정호')
+    check(pg.request.get(f'{base}/api/export?type=racks').status == 403, '제한 → 엑셀 다운로드 403')
+    pg.goto(f'{base}/infra/racks', wait_until='networkidle')
+    check('랙관리' not in pg.content(), '제한 → 화면 차단 (BIZ_MGR)')
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/permissions', wait_until='networkidle')
+    pg.locator('tr', has_text='/infra/racks').locator('button:has-text("제한됨")').click()
+    pg.wait_for_load_state('networkidle')
+
     # 복원 → 접근 회복 + 감사 이력
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/settings/permissions', wait_until='networkidle')

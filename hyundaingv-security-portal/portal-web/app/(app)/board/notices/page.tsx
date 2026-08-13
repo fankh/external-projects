@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import type { Notice } from '@/lib/types'
@@ -11,7 +11,7 @@ const CATS: Notice['category'][] = ['공지', '보안', '시스템']
 
 async function addNotice(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/board/notices', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const category = String(formData.get('category') ?? '') as Notice['category']
   if (!title || !CATS.includes(category)) return
@@ -28,7 +28,7 @@ async function addNotice(formData: FormData) {
 /** 공지 삭제 — 작성자 본인 또는 Admin (요구사항 6행 삭제 ◎). 첨부도 함께 정리한다 */
 async function deleteNotice(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/board/notices', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const n = s.notices.find((x) => x.id === id)

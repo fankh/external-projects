@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ROLE_LABEL } from '@/lib/types'
@@ -12,7 +12,7 @@ const ROLE_CHIP: Record<string, 'neutral' | 'info' | 'warn' | 'err'> = {
 
 async function updateLine(formData: FormData) {
   'use server'
-  const me = await requireRole('ADMIN')
+  const me = await requireMenuRole('/settings/users', 'ADMIN')
   const docType = String(formData.get('docType') ?? '')
   const approver = String(formData.get('approver') ?? '')
   const s = getStore()

@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, ScreenHeader } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 import type { SrKind } from '@/lib/types'
@@ -16,7 +16,7 @@ const KINDS: { kind: SrKind; desc: string }[] = [
 
 async function createSr(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/sr/new', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const kind = String(formData.get('kind') ?? '') as SrKind
   const system = String(formData.get('system') ?? '').trim().slice(0, 80)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)

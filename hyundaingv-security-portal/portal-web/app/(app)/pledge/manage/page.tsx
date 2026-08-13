@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { getStore, nextNo } from '@/lib/store'
@@ -20,7 +20,7 @@ function unsignedOf(s: ReturnType<typeof getStore>) {
 /** 양식 개정 — 개정일자 이전 서약이 무효가 되어 전원 재서약 대상으로 재산출된다 (요구사항: 개정일 기준 안내) */
 async function reviseForm(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
   const kind = String(formData.get('kind') ?? '') as PledgeKind
   const revisedAt = String(formData.get('revisedAt') ?? '')
   const s = getStore()
@@ -51,7 +51,7 @@ async function reviseForm(formData: FormData) {
 /** 스캔본 업로드 — 그룹웨어 계정이 없는 재직자의 서면 서약을 대리 등록 (부서현황에 자동 반영) */
 async function uploadScan(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '')
   const s = getStore()
   const person = s.people.find((p) => p.name === name)
@@ -65,7 +65,7 @@ async function uploadScan(formData: FormData) {
 /** 협력업체 서약 — 담당자가 징구·첨부해 등록하고, 선택 건을 결재 상신한다 (결재 시트 12번) */
 async function addCompanyPledge(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
   const company = String(formData.get('company') ?? '').trim().slice(0, 60)
   const personName = String(formData.get('personName') ?? '').trim().slice(0, 40)
   if (!company || !personName) return
@@ -78,7 +78,7 @@ async function addCompanyPledge(formData: FormData) {
 
 async function submitCompanyPledges(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
   const ids = formData.getAll('ids').map(String)
   const s = getStore()
   const targets = s.companyPledges.filter((c) => ids.includes(c.id) && c.status === '등록')
@@ -97,7 +97,7 @@ async function submitCompanyPledges(formData: FormData) {
 
 async function toggleOfficer(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '')
   const s = getStore()
   if (!s.people.some((p) => p.name === name)) return

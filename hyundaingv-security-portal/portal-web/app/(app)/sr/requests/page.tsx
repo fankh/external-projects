@@ -3,14 +3,14 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../chips'
 
 /** 반려·회수 SR 재상신 — 기안자 본인만. 반려는 사유 보완 전제의 '[재상신]', 회수(작성중)는 처음 상신과 동일하게. */
 async function resubmitSr(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/sr/requests', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo && r.requester === me.name && (r.status === '반려' || r.status === '작성중'))

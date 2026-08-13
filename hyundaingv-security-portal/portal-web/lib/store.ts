@@ -316,7 +316,15 @@ function loadFromFile(): Store | null {
   try {
     const raw = JSON.parse(readFileSync(DATA_FILE, 'utf8')) as Partial<Store>
     // 구버전 파일에 새 컬렉션이 없어도 죽지 않도록 시드 위에 얹는다
-    return { ...seed(), ...raw }
+    const merged = { ...seed(), ...raw }
+    // 파일 변조·손상 방어 — menuOverrides 는 형태 검증을 통과한 엔트리만 보존한다
+    // (설계상 축소 전용이라 권한 상승은 불가하지만, 비배열 값은 가드에서 500 을 유발한다)
+    const ROLES = ['USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN']
+    merged.menuOverrides = Object.fromEntries(
+      Object.entries(merged.menuOverrides ?? {}).filter(([, v]) =>
+        Array.isArray(v) && v.every((r) => ROLES.includes(r))),
+    ) as Store['menuOverrides']
+    return merged
   } catch {
     return null
   }

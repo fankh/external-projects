@@ -1,13 +1,13 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 
 async function addProject(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/projects/status', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const contractId = String(formData.get('contractId') ?? '')
   const headcount = Number(formData.get('headcount'))
@@ -28,7 +28,7 @@ async function addProject(formData: FormData) {
 
 async function updateProgress(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/projects/status', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const progress = Number(formData.get('progress'))
   if (!Number.isFinite(progress) || progress < 0 || progress > 100) return

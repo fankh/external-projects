@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { getStore, recordBatch } from '@/lib/store'
 import type { BatchJob, InterfaceDef } from '@/lib/types'
@@ -17,7 +17,7 @@ function nextId(prefix: string, existing: string[]): string {
 /** 배치 잡 등록 (요구사항 33행 저장 ◎) — 대상 시스템은 시스템관리가 단일 원천 */
 async function addBatch(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/operations', 'BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '').trim().slice(0, 60)
   const system = String(formData.get('system') ?? '')
   const schedule = String(formData.get('schedule') ?? '') as BatchJob['schedule']
@@ -33,7 +33,7 @@ async function addBatch(formData: FormData) {
 /** 배치 잡 삭제 (요구사항 33행 삭제 ◎) */
 async function deleteBatch(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/operations', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const b = s.batchJobs.find((x) => x.id === id)
@@ -46,7 +46,7 @@ async function deleteBatch(formData: FormData) {
 /** 인터페이스 등록 (요구사항 34행 저장 ◎) — 구간은 자유 기재(대외 시스템 포함) */
 async function addInterface(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/operations', 'BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '').trim().slice(0, 60)
   const from = String(formData.get('from') ?? '').trim().slice(0, 40)
   const to = String(formData.get('to') ?? '').trim().slice(0, 40)
@@ -62,7 +62,7 @@ async function addInterface(formData: FormData) {
 /** 인터페이스 삭제 (요구사항 34행 삭제 ◎) */
 async function deleteInterface(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/operations', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const i = s.interfaces.find((x) => x.id === id)
@@ -74,7 +74,7 @@ async function deleteInterface(formData: FormData) {
 
 async function runBatch(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/operations', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const job = s.batchJobs.find((b) => b.id === id)

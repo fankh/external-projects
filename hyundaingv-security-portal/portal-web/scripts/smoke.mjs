@@ -382,6 +382,9 @@ async function main() {
     }
     const vUser = await get('/api/export?type=violations', 'USER')
     check(vUser.status === 200 && !(await vUser.text()).includes('VL-2026-07'), 'export: violations USER 본인 스코핑')
+    // 부서담당도 화면과 동일하게 본인 건만 — 전사 위반 대장 유출 차단 (v1.2.2)
+    const vDept = await get('/api/export?type=violations', 'DEPT_MGR')
+    check(vDept.status === 200 && !(await vDept.text()).includes('VL-2026-07'), 'export: violations DEPT_MGR 본인 스코핑')
     const dSr = await get('/api/export?type=sr-requests', 'DEPT_MGR')
     const dText = await dSr.text()
     check(dText.includes('SR-2026-0146') && !dText.includes('SR-2026-0141'), 'export: SR 부서담당 스코핑')

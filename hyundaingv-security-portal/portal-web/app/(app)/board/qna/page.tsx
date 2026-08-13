@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { NAV } from '@/components/chrome/menus'
 import { ACCOUNTS } from '@/lib/session'
@@ -12,7 +12,7 @@ const DOMAINS = NAV.map((g) => g.label).filter((l) => l !== 'Main' && l !== 'My 
 
 async function ask(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/board/qna', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 160)
   const domain = String(formData.get('domain') ?? '')
   if (!title || !DOMAINS.includes(domain)) return
@@ -26,7 +26,7 @@ async function ask(formData: FormData) {
 
 async function assign(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/board/qna', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const assignee = String(formData.get('assignee') ?? '')
   const s = getStore()
@@ -38,7 +38,7 @@ async function assign(formData: FormData) {
 
 async function answer(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/board/qna', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const body = String(formData.get('answer') ?? '').trim().slice(0, 500)
   if (!body) return
@@ -54,7 +54,7 @@ async function answer(formData: FormData) {
 /** 문의 삭제 — 미답변 건의 작성자 본인, 또는 Admin (요구사항 6행 삭제 ◎). 첨부도 함께 정리한다 */
 async function deleteQna(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/board/qna', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const q = s.qna.find((x) => x.id === id)

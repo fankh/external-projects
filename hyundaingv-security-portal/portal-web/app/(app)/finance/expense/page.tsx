@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { resubmitSettlement } from '../actions'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 import type { SettlementItem } from '@/lib/types'
@@ -12,7 +12,7 @@ const fmt = (n: number) => n.toLocaleString('ko-KR')
 
 async function addPlan(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
   if (!title || !Number.isFinite(amount) || amount <= 0) return
@@ -27,7 +27,7 @@ async function addPlan(formData: FormData) {
 
 async function confirmPlan(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/finance/expense', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
   const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? '') && x.kind === '비용')
   if (p && p.status === '작성중') p.status = '확정'
@@ -36,7 +36,7 @@ async function confirmPlan(formData: FormData) {
 
 async function addContract(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
@@ -57,7 +57,7 @@ async function addContract(formData: FormData) {
 
 async function addFlash(formData: FormData) {
   'use server'
-  await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const month = String(formData.get('month') ?? '')
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const expected = Number(formData.get('expected'))
@@ -74,7 +74,7 @@ async function addFlash(formData: FormData) {
 
 async function requestSettlement(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const contractId = String(formData.get('contractId') ?? '')
   const item = String(formData.get('item') ?? '') as SettlementItem
   const amount = Number(formData.get('amount'))

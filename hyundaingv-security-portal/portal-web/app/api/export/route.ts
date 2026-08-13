@@ -1,11 +1,25 @@
 /** 엑셀 다운로드 API — 요구사항 '엑셀 ◎' 화면의 목록을 CSV(BOM)로 내린다.
  *  화면과 동일한 권한·데이터 스코핑을 서버에서 재적용한다(시큐어 코딩). */
+import { effectiveRoles } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
 import { getSession } from '@/lib/session'
 import { getStore, isRemoteTargetIn } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
 const YEAR = '2026'
+
+/** 유형 → 소속 화면 — 화면의 런타임 메뉴 제한이 다운로드에도 걸린다 (유형별 추가 가드와 별개) */
+const EXPORT_MENU: Record<string, string> = {
+  'invest-actual': '/finance/invest', 'expense-actual': '/finance/expense', 'expense-flash': '/finance/expense',
+  'sr-requests': '/sr/requests', 'ci-srs': '/sr/ci',
+  incidents: '/infra/incidents', changes: '/infra/changes', projects: '/projects/status',
+  printouts: '/awareness/prints', violations: '/awareness/violations',
+  'inspection-plans': '/compliance/inspection', 'inspection-items': '/compliance/inspection',
+  racks: '/infra/racks', hardware: '/infra/racks', servers: '/infra/systems', systems: '/infra/systems',
+  batches: '/infra/operations', interfaces: '/infra/operations',
+  'education-records': '/compliance/education', 'pledge-status': '/pledge/dept',
+  'remote-status': '/awareness/remote', audit: '/settings/audit',
+}
 
 export async function GET(req: Request) {
   const session = await getSession()
@@ -14,6 +28,9 @@ export async function GET(req: Request) {
   const s = getStore()
   const role: Role = session.role
   const isMgr = role === 'BIZ_MGR' || role === 'ADMIN'
+
+  const ownerHref = EXPORT_MENU[type]
+  if (ownerHref && !effectiveRoles(ownerHref).includes(role)) return new Response('forbidden', { status: 403 })
 
   if (type === 'invest-actual' || type === 'expense-actual') {
     // 계획대비실적(투자·비용) — 조회·엑셀 전 권한 (요구사항 조회 ●, 엑셀 ◎)
@@ -135,16 +152,18 @@ export async function GET(req: Request) {
   }
 
   if (type === 'printouts') {
-    // 출력물폐기현황 — 사용자는 본인 건만 (화면 동일)
-    const scope = s.printouts.filter((p) => (role === 'USER' ? p.name === session.name : true))
+    // 출력물폐기현황 — 사용자 본인·부서담당 소속 부서만 (화면 동일 스코핑)
+    const scope = s.printouts.filter((p) =>
+      role === 'USER' ? p.name === session.name :
+      role === 'DEPT_MGR' ? p.dept === session.dept : true)
     const rows: (string | number)[][] = [['번호', '출력일', '출력자', '부서', '문서', '개인정보', '폐기방법', '폐기일', '상태']]
     for (const p of scope) rows.push([p.id, p.printedAt, p.name, p.dept, p.document, p.personalInfo ? 'Y' : 'N', p.method ?? '-', p.discardedAt ?? '-', p.status])
     return csvResponse('출력물_폐기현황', rows)
   }
 
   if (type === 'violations') {
-    // 보안위반 — 사용자는 본인 건만 (화면 동일)
-    const scope = s.violations.filter((v) => (role === 'USER' ? v.name === session.name : true))
+    // 보안위반 — 담당(BIZ)·Admin 만 전사, 그 외는 본인 건만 (화면 canManage 와 동일)
+    const scope = s.violations.filter((v) => (isMgr ? true : v.name === session.name))
     const rows: (string | number)[][] = [['번호', '위반자', '부서', '유형', '내용', '발생일', '상태']]
     for (const v of scope) rows.push([v.id, v.name, v.dept, v.type, v.detail, v.occurredAt, v.status])
     return csvResponse('보안위반_관리대장', rows)

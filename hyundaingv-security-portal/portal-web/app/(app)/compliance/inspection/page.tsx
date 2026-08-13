@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, isCodeActive, nextNo, type Store } from '@/lib/store'
@@ -31,7 +31,7 @@ function applyItem(s: Store, category: string, subCategory: string, control: str
 /** 기준관리 등록 (요구사항 62행 저장 ◎) — ISMS 대분류·중분류 코드 관리 */
 async function addItem(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
   const id = applyItem(s,
     String(formData.get('category') ?? '').trim().slice(0, 40),
@@ -46,7 +46,7 @@ async function addItem(formData: FormData) {
 /** 기준관리 삭제 (요구사항 62행 삭제 ◎) — 계획이 참조 중인 항목은 삭제 불가 */
 async function deleteItem(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const item = s.inspectionItems.find((i) => i.id === id)
@@ -59,12 +59,13 @@ async function deleteItem(formData: FormData) {
 /** 기준 엑셀 업로드 (요구사항 62행 업로드 ◎) — CSV 한 줄에 대분류,통제항목,주기,구분[,중분류] */
 async function uploadItems(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
   const file = formData.get('file')
   if (!(file instanceof File) || file.size === 0 || file.size > 1024 * 1024) return
   const s = getStore()
   let applied = 0
-  for (const line of (await file.text()).split(/\r?\n/)) {
+  // 행 수 상한 — 대량 업로드로 기준 목록·선택지가 무한정 불어나는 것을 막는다
+  for (const line of (await file.text()).split(/\r?\n/).slice(0, 500)) {
     const [category = '', control = '', cycle = '', source = '', subCategory = ''] = line.split(',').map((x) => x.trim())
     if (applyItem(s, category.slice(0, 40), subCategory.slice(0, 40), control.slice(0, 120), cycle, source)) applied += 1
   }
@@ -79,7 +80,7 @@ const ST_CHIP: Record<InspectionStatus, 'neutral' | 'warn' | 'info' | 'ok'> = {
 
 async function addPlan(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
   const itemId = String(formData.get('itemId') ?? '')
   const month = String(formData.get('month') ?? '')
   const inspector = String(formData.get('inspector') ?? '')
@@ -94,7 +95,7 @@ async function addPlan(formData: FormData) {
 
 async function registerResult(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const result = String(formData.get('result') ?? '').trim().slice(0, 500)
   if (!result) return

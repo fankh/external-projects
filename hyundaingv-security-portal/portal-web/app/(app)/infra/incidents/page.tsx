@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerGenerated, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, isCodeActive, nextNo } from '@/lib/store'
 import type { IncidentGrade } from '@/lib/types'
@@ -17,7 +17,7 @@ function enabledGrades(s: ReturnType<typeof getStore>): IncidentGrade[] {
 
 async function addIncident(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/incidents', 'BIZ_MGR', 'ADMIN')
   const system = String(formData.get('system') ?? '').trim().slice(0, 60)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const grade = String(formData.get('grade') ?? '') as IncidentGrade
@@ -31,7 +31,7 @@ async function addIncident(formData: FormData) {
 
 async function resolve(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/infra/incidents', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const action = String(formData.get('action') ?? '').trim().slice(0, 300)
   const countermeasure = String(formData.get('countermeasure') ?? '').trim().slice(0, 300)
@@ -47,7 +47,7 @@ async function resolve(formData: FormData) {
 
 async function submitReport(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/incidents', 'BIZ_MGR', 'ADMIN')
   const ids = formData.getAll('ids').map(String)
   const s = getStore()
   // 결재진행(완료) 건은 선택 못한다 — 미상신 건만 상신 대상 (요구사항 결재 시트 8번).
@@ -73,7 +73,7 @@ async function submitReport(formData: FormData) {
 
 async function addCmResult(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/infra/incidents', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const cmResult = String(formData.get('cmResult') ?? '').trim().slice(0, 300)
   if (!cmResult) return

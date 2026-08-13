@@ -1,12 +1,12 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { getStore, isCodeActive } from '@/lib/store'
 
 async function toggleCode(formData: FormData) {
   'use server'
-  const me = await requireRole('ADMIN')
+  const me = await requireMenuRole('/settings/codes', 'ADMIN')
   const groupId = String(formData.get('groupId') ?? '')
   const code = String(formData.get('code') ?? '')
   const s = getStore()
@@ -21,7 +21,7 @@ async function toggleCode(formData: FormData) {
 /** 사용기간(종료일) 설정 — 빈 값이면 상시 사용으로 되돌린다 (요구사항 73행: 사용여부·사용기간) */
 async function setCodePeriod(formData: FormData) {
   'use server'
-  const me = await requireRole('ADMIN')
+  const me = await requireMenuRole('/settings/codes', 'ADMIN')
   const groupId = String(formData.get('groupId') ?? '')
   const code = String(formData.get('code') ?? '')
   const until = String(formData.get('until') ?? '')
@@ -38,7 +38,7 @@ async function setCodePeriod(formData: FormData) {
 /** 코드값 추가 — 그룹 내 중복 금지 (요구사항 73행 저장 ◎) */
 async function addCodeValue(formData: FormData) {
   'use server'
-  const me = await requireRole('ADMIN')
+  const me = await requireMenuRole('/settings/codes', 'ADMIN')
   const groupId = String(formData.get('groupId') ?? '')
   const code = String(formData.get('code') ?? '').trim().slice(0, 40)
   const s = getStore()
@@ -52,7 +52,7 @@ async function addCodeValue(formData: FormData) {
 /** 코드값 삭제 — 기존 업무 데이터의 코드 문자열은 유지된다 (요구사항 73행 삭제 ◎) */
 async function deleteCodeValue(formData: FormData) {
   'use server'
-  const me = await requireRole('ADMIN')
+  const me = await requireMenuRole('/settings/codes', 'ADMIN')
   const groupId = String(formData.get('groupId') ?? '')
   const code = String(formData.get('code') ?? '')
   const s = getStore()

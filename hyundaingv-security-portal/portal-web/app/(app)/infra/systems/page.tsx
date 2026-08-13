@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { ServerInfo, SystemInfo } from '@/lib/types'
 
@@ -17,7 +17,7 @@ function nextId(prefix: string, existing: string[]): string {
 /** 서버 등록 (요구사항 31행 저장 ◎) — 랙·물리서버(H/W) 연결 포함 */
 async function addServer(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/systems', 'BIZ_MGR', 'ADMIN')
   const hostname = String(formData.get('hostname') ?? '').trim().slice(0, 40)
   const ip = String(formData.get('ip') ?? '').trim().slice(0, 20)
   const purpose = String(formData.get('purpose') ?? '') as ServerInfo['purpose']
@@ -32,7 +32,7 @@ async function addServer(formData: FormData) {
   const id = nextId('SV', s.servers.map((v) => v.id))
   s.servers.push({
     id, hostname, ip, purpose, os, rack: hw.rackId, hwId,
-    cpu: cpu || undefined, memoryGb: Number.isFinite(memoryGb) && memoryGb > 0 ? Math.round(memoryGb) : undefined,
+    cpu: cpu || undefined, memoryGb: Number.isFinite(memoryGb) && memoryGb > 0 && memoryGb <= 4096 ? Math.round(memoryGb) : undefined,
     diskUsedPct: 0,
   })
   audit(me.name, '인프라 자산 변경', `서버 ${id} 등록 — ${hostname} (${hw.id}/${hw.rackId})`)
@@ -42,7 +42,7 @@ async function addServer(formData: FormData) {
 /** 서버 삭제 (요구사항 31행 삭제 ◎) — 시스템이 매핑된 서버는 삭제 불가 */
 async function deleteServer(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/systems', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const sv = s.servers.find((v) => v.id === id)
@@ -55,7 +55,7 @@ async function deleteServer(formData: FormData) {
 /** 시스템 등록 (요구사항 32행 저장 ◎) — 서버 매핑·담당 포함 */
 async function addSystem(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/systems', 'BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '').trim().slice(0, 60)
   const url = String(formData.get('url') ?? '').trim().slice(0, 120)
   const env = String(formData.get('env') ?? '') as SystemInfo['env']
@@ -73,7 +73,7 @@ async function addSystem(formData: FormData) {
 /** 시스템 삭제 (요구사항 32행 삭제 ◎) — 배치·인터페이스가 참조 중이면 삭제 불가 */
 async function deleteSystem(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/systems', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const x = s.systems.find((y) => y.id === id)

@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 import type { EducationCourse } from '@/lib/types'
@@ -10,7 +10,7 @@ const TARGETS: EducationCourse['target'][] = ['전임직원', '개발자', '보�
 
 async function addCourse(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/compliance/education', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const target = String(formData.get('target') ?? '') as EducationCourse['target']
   const plannedMonth = String(formData.get('plannedMonth') ?? '')
@@ -26,7 +26,7 @@ async function addCourse(formData: FormData) {
 
 async function registerAttendees(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/compliance/education', 'BIZ_MGR', 'ADMIN')
   const courseId = String(formData.get('courseId') ?? '')
   const names = formData.getAll('names').map(String)
   const s = getStore()

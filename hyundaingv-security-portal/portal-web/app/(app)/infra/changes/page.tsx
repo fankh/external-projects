@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerGenerated, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 import type { ChangeStatus } from '@/lib/types'
@@ -13,7 +13,7 @@ const ST_CHIP: Record<ChangeStatus, 'neutral' | 'info' | 'warn' | 'ok'> = {
 
 async function addInfraChange(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const plan = String(formData.get('plan') ?? '').trim().slice(0, 500)
   if (!title || !plan) return
@@ -27,7 +27,7 @@ async function addInfraChange(formData: FormData) {
 
 async function addDevChange(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo && r.status === '적용요청')
@@ -43,7 +43,7 @@ async function addDevChange(formData: FormData) {
 
 async function submitPlan(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const cw = s.changes.find((c) => c.id === id && c.status === '작업등록')
@@ -57,7 +57,7 @@ async function submitPlan(formData: FormData) {
 
 async function submitResult(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const result = String(formData.get('result') ?? '').trim().slice(0, 500)
   if (!result) return

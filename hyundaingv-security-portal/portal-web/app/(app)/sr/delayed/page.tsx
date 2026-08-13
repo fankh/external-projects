@@ -1,13 +1,13 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { SR_CHIP } from '../chips'
 
 async function replan(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/sr/delayed', 'BIZ_MGR', 'ADMIN')
   const srNo = String(formData.get('srNo') ?? '')
   const dueDate = String(formData.get('dueDate') ?? '')
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return

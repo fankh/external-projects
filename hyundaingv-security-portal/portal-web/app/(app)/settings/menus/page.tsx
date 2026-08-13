@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { NAV } from '@/components/chrome/menus'
 import { registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { SCREENS } from '@/lib/screens'
 import { getStore } from '@/lib/store'
 import { ROLE_LABEL } from '@/lib/types'
@@ -10,7 +10,7 @@ import { ROLE_LABEL } from '@/lib/types'
 /** 화면 정의서 업로드 — 화면(pages)당 1개 첨부, 재업로드 시 교체된다 (첨부 시트: 메뉴관리) */
 async function uploadSpec(formData: FormData) {
   'use server'
-  const me = await requireRole('ADMIN')
+  const me = await requireMenuRole('/settings/menus', 'ADMIN')
   const href = String(formData.get('href') ?? '')
   if (!NAV.some((g) => g.items.some((i) => i.href === href))) return
   const s = getStore()

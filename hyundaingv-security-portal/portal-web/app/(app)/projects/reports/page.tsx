@@ -1,13 +1,13 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 
 async function addNote(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/projects/reports', 'BIZ_MGR', 'ADMIN')
   const projectId = String(formData.get('projectId') ?? '')
   const kind = String(formData.get('kind') ?? '') as '회의록' | '주간보고'
   const title = String(formData.get('title') ?? '').trim().slice(0, 160)

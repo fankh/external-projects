@@ -1,14 +1,14 @@
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { assetAdapter, isEnabled } from '@/lib/integrations/registry'
 import { getStore } from '@/lib/store'
 
 async function acquire(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/finance/asset-reg', 'BIZ_MGR', 'ADMIN')
   const serial = String(formData.get('serial') ?? '')
   const model = String(formData.get('model') ?? '')
   const adapter = assetAdapter()

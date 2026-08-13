@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 
@@ -9,7 +9,7 @@ const RISK_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
 
 async function addDeliverable(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/projects/schedule', 'BIZ_MGR', 'ADMIN')
   const projectId = String(formData.get('projectId') ?? '')
   const name = String(formData.get('name') ?? '').trim().slice(0, 120)
   const due = String(formData.get('due') ?? '')
@@ -25,7 +25,7 @@ async function addDeliverable(formData: FormData) {
 
 async function toggleDeliverable(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/projects/schedule', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
   const d = s.deliverables.find((x) => x.id === String(formData.get('id') ?? ''))
   if (d) d.done = !d.done
@@ -34,7 +34,7 @@ async function toggleDeliverable(formData: FormData) {
 
 async function addIssue(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/projects/schedule', 'BIZ_MGR', 'ADMIN')
   const projectId = String(formData.get('projectId') ?? '')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const risk = String(formData.get('risk') ?? '') as '높음' | '중간' | '낮음'
@@ -49,7 +49,7 @@ async function addIssue(formData: FormData) {
 
 async function resolveIssue(formData: FormData) {
   'use server'
-  await requireRole('BIZ_MGR', 'ADMIN')
+  await requireMenuRole('/projects/schedule', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
   const i = s.projectIssues.find((x) => x.id === String(formData.get('id') ?? '') && x.status === '오픈')
   if (i) i.status = '해결'

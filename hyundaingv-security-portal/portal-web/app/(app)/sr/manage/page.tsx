@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { SR_FLOW, type SrRequest, type SrStatus } from '@/lib/types'
@@ -12,14 +12,15 @@ import { SR_CHIP, srStatusLabel } from '../chips'
  *  데이터·계정/권한: 배정 후 처리 → 완료 직행 (테스트·적용요청 단계 없음) */
 function nextOf(sr: SrRequest): SrStatus | undefined {
   if (sr.kind === '시스템개발') {
-    return ({ 개발중: '테스트', 테스트: '적용요청', 적용요청: '완료' } as Partial<Record<SrStatus, SrStatus>>)[sr.status]
+    // 적용요청 → 완료는 수동 전이 없음 — 변경관리 최종완료(결재 승인)만이 완료를 전파한다
+    return ({ 개발중: '테스트', 테스트: '적용요청' } as Partial<Record<SrStatus, SrStatus>>)[sr.status]
   }
   return sr.status === '개발중' ? '완료' : undefined
 }
 
 async function advance(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/sr/manage', 'BIZ_MGR', 'ADMIN')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo)
@@ -29,7 +30,7 @@ async function advance(formData: FormData) {
   if (next === '완료') sr.completedAt = today()
   // 공수(MD) — 진행 처리 시 누적 입력 (요구사항 26행: 작업기간·공수·담당자 관리)
   const manHours = Number(formData.get('manHours'))
-  if (Number.isFinite(manHours) && manHours > 0) sr.manHours = (sr.manHours ?? 0) + Math.round(manHours)
+  if (Number.isFinite(manHours) && manHours > 0 && manHours <= 999) sr.manHours = Math.min(9999, (sr.manHours ?? 0) + Math.round(manHours))
   // 처리 결과 증적 — SR 번호(pk) 하나로 신청·BA·결과 첨부를 공유한다 (첨부 시트: SR관리 결과등록)
   registerUpload(srNo, formData.get('file'), me.name)
   revalidatePath('/', 'layout')

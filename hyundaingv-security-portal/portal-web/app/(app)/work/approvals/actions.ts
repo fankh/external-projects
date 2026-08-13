@@ -2,14 +2,14 @@
 import { revalidatePath } from 'next/cache'
 import { WITHDRAWABLE_DOC_TYPES } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
-import { requireRole } from '@/lib/authz'
+import { requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 
 /** 결재 처리 — 승인·반려는 참조 업무(ref)의 상태로 전파되고, 내 '결재' 할일을 닫는다.
  *  결재자 본인 여부를 서버에서 재검증한다(화면 숨김과 별개의 가드). */
 async function decide(formData: FormData, verdict: '승인' | '반려') {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/work/approvals', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const reason = String(formData.get('reason') ?? '').trim().slice(0, 300)
   // 반려는 사유 필수 — 기안자가 보완·재상신할 근거가 된다
@@ -133,7 +133,7 @@ export async function reject(formData: FormData) {
  *  반려와 달리 '재상신' 할일을 만들지 않고, 참조 업무를 상신 이전 상태로 되돌린다 —
  *  기안자는 업무 화면에서 보완 후 처음 상신과 같은 경로로 다시 상신한다. */
 export async function withdraw(formData: FormData) {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/work/approvals', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const ap = s.approvals.find((a) => a.id === id)

@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { Hardware } from '@/lib/types'
 
@@ -11,12 +11,12 @@ const HW_CHIP: Record<Hardware['kind'], 'info' | 'warn' | 'neutral'> = { 물리�
 /** 랙 등록 (요구사항 28행 저장 ◎) — 위치·사이즈(U)·자산번호 */
 async function addRack(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/racks', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '').trim().toUpperCase().slice(0, 10)
   const location = String(formData.get('location') ?? '').trim().slice(0, 80)
   const sizeU = Number(formData.get('sizeU'))
   const assetNo = String(formData.get('assetNo') ?? '').trim().slice(0, 40)
-  if (!/^[A-Z0-9]+-[0-9]+$/.test(id) || !location || !Number.isFinite(sizeU) || sizeU <= 0 || !assetNo) return
+  if (!/^[A-Z0-9]+-[0-9]+$/.test(id) || !location || !Number.isFinite(sizeU) || sizeU <= 0 || sizeU > 60 || !assetNo) return
   const s = getStore()
   if (s.racks.some((r) => r.id === id)) return
   s.racks.push({ id, location, sizeU: Math.round(sizeU), assetNo })
@@ -27,7 +27,7 @@ async function addRack(formData: FormData) {
 /** 랙 삭제 (요구사항 28행 삭제 ◎) — H/W·서버가 장착된 랙은 삭제 불가 */
 async function deleteRack(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/racks', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const rack = s.racks.find((r) => r.id === id)
@@ -40,7 +40,7 @@ async function deleteRack(formData: FormData) {
 /** H/W 등록 (요구사항 30행 저장 ◎) — 물리서버·네트워크장비·스토리지 */
 async function addHardware(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/racks', 'BIZ_MGR', 'ADMIN')
   const kind = String(formData.get('kind') ?? '') as Hardware['kind']
   const model = String(formData.get('model') ?? '').trim().slice(0, 80)
   const rackId = String(formData.get('rackId') ?? '')
@@ -57,7 +57,7 @@ async function addHardware(formData: FormData) {
 /** H/W 삭제 (요구사항 30행 삭제 ◎) — 서버가 올라간 물리서버는 삭제 불가 */
 async function deleteHardware(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/infra/racks', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   const hw = s.hardware.find((h) => h.id === id)

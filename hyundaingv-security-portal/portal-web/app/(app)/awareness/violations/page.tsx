@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { getStore, nextNo } from '@/lib/store'
@@ -13,7 +13,7 @@ const ST_CHIP = { 징구중: 'warn', 결재중: 'info', 완료: 'ok' } as const
 
 async function addViolation(formData: FormData) {
   'use server'
-  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/awareness/violations', 'BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '')
   const type = String(formData.get('type') ?? '') as ViolationType
   const detail = String(formData.get('detail') ?? '').trim().slice(0, 300)
@@ -34,7 +34,7 @@ async function addViolation(formData: FormData) {
 
 async function submitStatement(formData: FormData) {
   'use server'
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/awareness/violations', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const statement = String(formData.get('statement') ?? '').trim().slice(0, 500)
   if (!statement) return

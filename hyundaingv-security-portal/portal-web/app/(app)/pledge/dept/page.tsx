@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
-import { requireMenu, requireRole } from '@/lib/authz'
+import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp, today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { getStore, nextNo, recordBatch } from '@/lib/store'
@@ -10,7 +10,7 @@ const YEAR = '2026'
 
 async function remindUnsigned(formData: FormData) {
   'use server'
-  const me = await requireRole('DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/dept', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const dept = String(formData.get('dept') ?? '')
   if (me.role === 'DEPT_MGR' && dept !== me.dept) return
 
@@ -30,7 +30,7 @@ async function remindUnsigned(formData: FormData) {
  *  업무 상태 전파는 없고(요구: 진행상태 반영 없음), 묶음 번호는 결재 이력에서 채번한다. */
 async function submitDeptStatus(formData: FormData) {
   'use server'
-  const me = await requireRole('DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/dept', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const dept = String(formData.get('dept') ?? '')
   if (me.role === 'DEPT_MGR' && dept !== me.dept) return
   const s = getStore()
