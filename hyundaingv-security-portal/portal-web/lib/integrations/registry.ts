@@ -14,10 +14,12 @@ const MESSAGING: Record<string, MessagingAdapter> = {
   'mock-mail': mockMail,
   'mock-sms': mockSms,
   'hanbit-gw-mail': mockMail,
+  'gov-mail': mockMail,
+  'gov-sms': mockSms,
 }
-const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr, 'hanbit-hr': mockHr }
-const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'erp-asset': mockAsset }
-const SECDATA: Record<string, SecdataAdapter> = { 'mock-secdata': mockSecdata }
+const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr, 'hanbit-hr': mockHr, 'gov-hr': mockHr }
+const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'erp-asset': mockAsset, 'gov-asset': mockAsset }
+const SECDATA: Record<string, SecdataAdapter> = { 'mock-secdata': mockSecdata, 'gov-secdata': mockSecdata }
 
 /** adapterId → 구현 해석 (kind 별) — 자가진단·바인딩 완결성 검사가 쓴다.
  *  활성 상태와 무관하게 '등록되어 있는가'만 본다 (계약 적합성은 별도). */

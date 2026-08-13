@@ -897,6 +897,28 @@ def sc_profile(pg, base, check):
     check('SN-NB-88121' in pg.content(), 'erp-asset 어댑터 실동작(자산 조회)')
 
 
+def sc_profile_public(pg, base, check):
+    """프로필 스위칭 2 — PORTAL_PROFILE=public 로 공공기관 토폴로지 전환 (비종속성 증명)"""
+    pg.goto(f'{base}/login', wait_until='networkidle')
+    check('HANUL GOV PORTAL' in pg.content(), '로그인 브랜딩(공공) 전환')
+    login(pg, base, '시스템관리자')
+    check('한울공공기관' in pg.locator('.statusbar').inner_text(), '상태바 고객사(공공) 전환')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    chan_card = pg.locator('.card', has_text='연동 채널').inner_text()
+    # manufacturer 와 대비되는 축: SMS 별도 실채널 유지 + 보안·출력물 관제 기본 가동
+    check('문자(SMS) 발송' in chan_card, 'SMS 별도 실채널 유지(공공)')
+    check('보안·출력물 관제' in chan_card, 'secdata 채널 구성 전환')
+    check('가동중' in chan_card.split('보안·출력물 관제')[1][:80], 'secdata 기본 가동(계약 범위)')
+    # 어댑터 자가진단이 공공 프로필까지 3개 프로필을 진단하고 전부 적합
+    conf = pg.locator('.card', has_text='어댑터 계약 자가진단').inner_text()
+    check('public' in conf and 'gov-asset' in conf, '자가진단이 공공 프로필 진단')
+    check('전 프로필 적합' in conf, '3개 프로필 전 적합')
+    # gov-asset 어댑터 실동작
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
+    check('SN-NB-88121' in pg.content(), 'gov-asset 어댑터 실동작(자산 조회)')
+
+
 def sc_persist(pg, base, check):
     """PORTAL_DATA_FILE 영속화 — 구버전 부분 파일 로드 시 시드 머지·채널 기본값 폴백"""
     login(pg, base, '시스템관리자')
@@ -941,6 +963,7 @@ SCENARIOS = [
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),
     ('profile', '고객사 프로필 스위칭 (manufacturer)', sc_profile, {'PORTAL_PROFILE': 'manufacturer'}),
+    ('profile_public', '고객사 프로필 스위칭 (public)', sc_profile_public, {'PORTAL_PROFILE': 'public'}),
     ('batchref', '상신 묶음 번호 재사용 금지 (반려 후 재상신)', sc_batchref, {}),
     ('persist', '데이터 파일 영속화 · 시드 머지 (구버전 호환)', sc_persist,
      {'PORTAL_DATA_FILE': str(DATA), 'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),

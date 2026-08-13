@@ -7,6 +7,7 @@
  *  포털 본체가 아니라 연동 계약 자체를 검증하므로, 새 고객사 어댑터의 착수 조건 도구다. */
 import * as defaultProfile from '@/profiles/default.config'
 import * as manufacturerProfile from '@/profiles/sample-manufacturer.config'
+import * as publicProfile from '@/profiles/sample-public.config'
 import { resolveAdapter } from './registry'
 import type { ChannelBinding, ChannelKind, PortalBrand } from './types'
 
@@ -22,6 +23,7 @@ export interface ConformanceCheck {
 const PROFILES: { name: string; brand: PortalBrand; channels: ChannelBinding[] }[] = [
   { name: 'default', brand: defaultProfile.PORTAL, channels: defaultProfile.CHANNELS },
   { name: 'manufacturer', brand: manufacturerProfile.PORTAL, channels: manufacturerProfile.CHANNELS },
+  { name: 'public', brand: publicProfile.PORTAL, channels: publicProfile.CHANNELS },
 ]
 
 const KINDS = new Set<ChannelKind>(['mail', 'sms', 'approval', 'sso', 'hr', 'asset', 'secdata'])
