@@ -50,7 +50,7 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
 
   // 1) 미서약자 — 양식 개정일자 기준 유효 서약 없는 인원
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
-  const signed = new Set(s.pledges.filter((p) => p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  const signed = new Set(s.pledges.filter((p) => p.year === '2026' && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
   await send('미서약', s.people.filter((p) => !signed.has(p.name)).map((p) => p.name), '[보안서약서] 미서약 안내')
 
   // 2) 보안점검 경과 — 예정월이 지났는데 완료·결재중이 아닌 항목의 점검자
