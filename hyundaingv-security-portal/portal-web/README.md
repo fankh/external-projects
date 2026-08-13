@@ -174,6 +174,9 @@ nginx 리버스 프록시를 포함한 구성은 `deploy/docker-compose.yml` 을
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
+운영자용 배포 절차 전체(비밀값 생성·환경변수·HTTPS·백업/복구·헬스체크·롤백·체크리스트)는
+런북 [`docs/배포_운영_가이드.md`](docs/배포_운영_가이드.md)에 있다.
+
 고객사 전환은 **빌드 없이 환경변수로** 한다 — 한 이미지가 여러 고객사 프로필을 담는다:
 
 ```powershell
