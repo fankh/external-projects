@@ -467,6 +467,24 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       evidence: [{ label: '내 보유 자산', href: '/assets/register' }],
     }
   }
+  // 사용자 본인 QnA 문의·답변 현황 질의 — 본인이 등록한 문의와 답변 여부를 스코프해 답한다(§01 사용자 본인 조회 · 로7 문의→답변 작성자 측).
+  if (isUser && (q.includes('문의') || q.includes('qna') || q.includes('질문') || q.includes('답변'))) {
+    const myQna = s.posts
+      .filter((p) => p.kind === 'QnA' && p.author === userName)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    const answered = myQna.filter((p) => p.answer)
+    return {
+      role: 'assistant',
+      text: myQna.length === 0
+        ? `${userName}님이 등록한 문의가 없습니다. 궁금한 점은 게시판 › QnA에서 남겨 주세요.`
+        : [
+            `${userName}님 문의 ${myQna.length}건 — 답변 완료 ${answered.length}건 · 대기 ${myQna.length - answered.length}건.`,
+            ``,
+            ...myQna.map((p) => `· [${p.answer ? '답변' : '대기'}] ${p.title} (${p.category}, 등록 ${p.createdAt}${p.answer ? ` · 답변 ${p.answer.at}` : ''})`),
+          ].join('\n'),
+      evidence: [{ label: '내 문의 (QnA)', href: '/board/qna' }],
+    }
+  }
   const mine = s.assets.filter((a) => a.owner === userName)
   if (q.includes('내') || q.includes('보유') || isUser) {
     return {

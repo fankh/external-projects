@@ -294,6 +294,16 @@ try {
   // 본인 대여분(AST-2024-000230·반환 기한 2026-08-20)에 초점 + 타인 대여(AST-2023-000450·한지민) 미포함
   ok('사용자 AI 질의: 본인 대여 자산 반환 기한 초점 답변', uLoan.includes('대여 자산 반환 현황') && uLoan.includes('AST-2024-000230') && uLoan.includes('2026-08-20'))
   ok('사용자 AI 질의: 대여 권한 필터 — 타인 대여 자산 미포함', !uLoan.includes('AST-2023-000450'))
+  // 본인 QnA 문의·답변 현황 질의 (김민준 QNA-03 답변 완료)
+  const ub3 = await pU.locator('.msg.assistant .bub').count()
+  await pU.locator('.chat-in input').fill('내 문의 답변 현황')
+  await pU.locator('.chat-in input').press('Enter')
+  await pU.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, ub3, { timeout: 8000 })
+  await pU.waitForTimeout(150)
+  const uQna = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
+  // 본인 문의(JetBrains, 답변 완료)에 초점 + 타인 문의(NAS·이서연) 미포함(권한 필터)
+  ok('사용자 AI 질의: 본인 QnA 답변 현황 초점 답변', uQna.includes('답변 완료') && uQna.includes('JetBrains') && uQna.includes('[답변]'))
+  ok('사용자 AI 질의: QnA 권한 필터 — 타인 문의 미포함', !uQna.includes('NAS'))
   // 대여 신청 대상 재배치 풀 정합 — 폐기 절차 자산(AST-2021-000432, 유휴+DSP-02)은 대여 후보에서 제외, 유효 유휴는 노출
   await pU.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   const reqCard = pU.locator('.card', { has: pU.locator('.tt', { hasText: '신청 상신' }) }).first()

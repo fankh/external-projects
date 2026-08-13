@@ -548,6 +548,7 @@ try {
   // 사용자 본인 자산 질의 프리셋 — 사용자도 자연어 질의(본인 자산 보증 만료)를 권한 필터로 답받는다(§01 사용자 본인 자산 조회)
   check('AI 어시스턴트: 사용자 본인 자산 보증 질의 프리셋 렌더', aiAsst.includes('내 자산 보증 만료 현황'))
   check('AI 어시스턴트: 사용자 본인 대여 반환 기한 질의 프리셋 렌더', aiAsst.includes('내 대여 자산 반환 기한'))
+  check('AI 어시스턴트: 사용자 본인 QnA 답변 현황 질의 프리셋 렌더', aiAsst.includes('내 문의 답변 현황'))
   // 리포트 생성 프리셋 — 담당자·관리자 전용(생성 권한 게이트). 사용자에겐 미노출, 담당자에겐 노출 (제품안내서 §05 리포트 자동화)
   check('AI 어시스턴트: 리포트 생성 프리셋은 사용자에게 미노출', !aiAsst.includes('월간 자산 현황 리포트 생성'))
   const aiAsstMgr = await (await get('/ai/assistant', 'ASSET_MGR')).text()
