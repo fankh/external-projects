@@ -2,7 +2,7 @@
  *  화면과 동일한 권한·데이터 스코핑을 서버에서 재적용한다(시큐어 코딩). */
 import { csvResponse } from '@/lib/csv'
 import { getSession } from '@/lib/session'
-import { getStore } from '@/lib/store'
+import { getStore, isRemoteTargetIn } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
 const YEAR = '2026'
@@ -59,13 +59,18 @@ export async function GET(req: Request) {
 
   if (type === 'remote-status') {
     if (role === 'USER') return new Response('forbidden', { status: 403 })
-    const period = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7)
+    // 기간별 조회 (요구사항 54행) — period 파라미터 월의 재택 대상자 명단 기준, 화면과 동일 스코핑
+    const periodParam = new URL(req.url).searchParams.get('period') ?? ''
+    const period = /^\d{4}-\d{2}$/.test(periodParam)
+      ? periodParam
+      : new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7)
     const submitted = s.remoteChecks.filter((r) => r.period === period)
-    const scope = s.people.filter((p) => role !== 'DEPT_MGR' || p.dept === session.dept)
-    const rows: (string | number)[][] = [['이름', '부서', `${period} 상태`, '제출일']]
-    for (const p of scope) {
-      const r = submitted.find((x) => x.name === p.name)
-      rows.push([p.name, p.dept, r ? '제출' : '미제출', r?.submittedAt ?? '-'])
+    const scope = s.remoteTargets.filter((t) =>
+      isRemoteTargetIn(t, period) && (role !== 'DEPT_MGR' || t.dept === session.dept))
+    const rows: (string | number)[][] = [['이름', '부서', '재택기간', `${period} 상태`, '제출일']]
+    for (const t of scope) {
+      const r = submitted.find((x) => x.name === t.name)
+      rows.push([t.name, t.dept, `${t.startDate} ~ ${t.endDate ?? '계속'}`, r ? '제출' : '미제출', r?.submittedAt ?? '-'])
     }
     return csvResponse('재택근무_체크리스트_현황', rows)
   }

@@ -6,7 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { today } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, RemoteTarget, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -15,6 +15,7 @@ export interface Store {
   educationRecords: EducationRecord[]
   printouts: PrintoutRecord[]
   remoteChecks: RemoteCheck[]
+  remoteTargets: RemoteTarget[]
   violations: Violation[]
   projects: Project[]
   deliverables: Deliverable[]
@@ -102,6 +103,14 @@ function seed(): Store {
     remoteChecks: [
       { name: '한지원', dept: 'IT운영팀', period: '2026-08', submittedAt: '2026-08-01' },
       { name: '정민서', dept: '경영지원팀', period: '2026-08', submittedAt: '2026-08-01' },
+    ],
+    // 재택근무 대상자 명단 (요구사항 54행) — 강도윤은 6월로 종료된 이력
+    remoteTargets: [
+      { name: '김현우', dept: '개발1팀', startDate: '2026-07-01' },
+      { name: '한지원', dept: 'IT운영팀', startDate: '2026-07-15' },
+      { name: '정민서', dept: '경영지원팀', startDate: '2026-08-01' },
+      { name: '이수진', dept: '경영지원팀', startDate: '2026-08-03' },
+      { name: '강도윤', dept: '정보기획팀', startDate: '2026-06-01', endDate: '2026-06-30' },
     ],
     violations: [
       { id: 'VL-2026-07', name: '강도윤', dept: '정보기획팀', type: '출력물 방치', detail: '공용 프린터에 개인정보 포함 출력물 방치 (7/29 야간 점검)', occurredAt: '2026-07-29', status: '징구중' },
@@ -345,6 +354,12 @@ export function recordBatch(job: string, ranAt: string, result: '성공' | '실�
   const s = getStore()
   s.batchRuns.unshift({ job, ranAt, result })
   if (s.batchRuns.length > 200) s.batchRuns.length = 200
+}
+
+/** 재택근무 대상 판정 — 해당 월에 재택 기간이 겹치는지 (요구사항 54행 기간별 조회의 단일 원천).
+ *  month 는 'YYYY-MM' — 시작일이 월말 이전이고 종료일이 없거나 월초 이후면 그 달의 대상이다. */
+export function isRemoteTargetIn(t: RemoteTarget, month: string): boolean {
+  return t.startDate <= `${month}-31` && (!t.endDate || t.endDate >= `${month}-01`)
 }
 
 /** 공통코드 활성 판정 — 사용여부 + 사용기간(until, 종료일 포함) (요구사항 73행).

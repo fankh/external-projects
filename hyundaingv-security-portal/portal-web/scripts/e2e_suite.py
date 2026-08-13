@@ -321,6 +321,62 @@ def sc_adapter(pg, base, check):
     check('폐기확정' in pg.content(), '폐기 결재 승인 → 폐기확정')
 
 
+def sc_remote(pg, base, check):
+    """재택 대상자 명단 (요구사항 54행) — 명단 스코핑·제출·CSV 업로드·기간별 조회·종료 처리"""
+    # 대상자(김현우)는 체크리스트를 제출할 수 있다
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
+    for i in range(5):
+        pg.check(f'input[name=item{i}]')
+    pg.click('button:has-text("동의하고 제출")')
+    pg.wait_for_selector('text=제출 완료', timeout=10000)
+
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
+    status = pg.locator('.card', has_text='전사 제출 현황')
+    check('김현우' in status.inner_text(), '제출 → 명단 기준 현황 반영')
+
+    # CSV 업로드 — '이름,시작일자' 행 반영 (잘못된 줄은 건너뛴다)
+    csv_path = UPLOAD.parent / '.e2e-remote.csv'
+    csv_path.write_text('강도윤,2026-08-10\n무명인,2026-08-10\n', encoding='utf-8')
+    mgmt = pg.locator('.card', has_text='대상자 관리')
+    mgmt.locator('input[type=file]').set_input_files(str(csv_path))
+    mgmt.locator('button:has-text("업로드 반영")').click()
+    # 서버 액션 재렌더를 기다린다 — 즉시 이동하면 POST 가 유실될 수 있다
+    pg.wait_for_selector('.card:has-text("전사 제출 현황") >> text=강도윤', timeout=10000)
+    check('강도윤' in pg.locator('.card', has_text='전사 제출 현황').inner_text(), 'CSV 업로드 → 명단 추가')
+    try:
+        csv_path.unlink(missing_ok=True)  # Windows 는 브라우저가 핸들을 놓은 뒤에만 지워진다
+    except OSError:
+        pass
+
+    # 기간별 조회 — 2026-06 은 그 달의 명단(강도윤 6월 이력)만
+    pg.goto(f'{base}/awareness/remote?period=2026-06', wait_until='networkidle')
+    june = pg.locator('.card', has_text='제출 현황')
+    check('강도윤' in june.inner_text() and '한지원' not in june.inner_text(), '기간별 조회 (2026-06 명단)')
+
+    # 종료 처리 — 종료일만 입력하면 진행중 대상이 마감된다
+    pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
+    mgmt = pg.locator('.card', has_text='대상자 관리')
+    mgmt.locator('select[name=name]').select_option('김현우')
+    mgmt.locator('input[name=endDate]').fill('2026-07-31')
+    mgmt.get_by_role('button', name='반영', exact=True).click()
+    # 사라짐 검증은 재렌더 완료를 폴링으로 기다린다
+    gone = False
+    for _ in range(20):
+        pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
+        if '김현우' not in pg.locator('.card', has_text='전사 제출 현황').inner_text():
+            gone = True
+            break
+        time.sleep(0.5)
+    check(gone, '종료 처리 → 당월 명단 제외')
+
+    # 명단 밖 사용자는 제출 대상이 아니다
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
+    check('재택 대상 아님' in pg.content(), '명단 제외 → 대상 아님 안내')
+
+
 def sc_revision(pg, base, check):
     """서약양식 개정 → 전원 재서약 재산출 → 스캔본 등록"""
     from datetime import datetime, timedelta, timezone
@@ -588,6 +644,7 @@ SCENARIOS = [
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
+    ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),

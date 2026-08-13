@@ -222,7 +222,7 @@ async function main() {
     ['/awareness/prints', 'BIZ_MGR', ['보안·출력물 시스템 채널이 중지 상태', '전일자 이관 실행', '이관된 출력물 자료가 없습니다']],
     // 재택 체크리스트 — 제출 폼(사용자)·현황(담당)
     ['/awareness/remote', 'USER', ['자가점검 제출', '동의하고 제출', 'VPN']],
-    ['/awareness/remote', 'BIZ_MGR', ['전사 제출 현황', '한지원', '미제출']],
+    ['/awareness/remote', 'BIZ_MGR', ['전사 제출 현황', '한지원', '미제출', '대상자 관리', '재택기간', '기간 조회']],
     // 보안위반 — 담당 등록·위반자 본인 확인서
     ['/awareness/violations', 'BIZ_MGR', ['VL-2026-07', '강도윤', '출력물 방치', '등록 · 안내메일 발송', '위반자 본인 작성 대기']],
     ['/awareness/violations', 'USER', ['내 위반 내역']],
@@ -336,6 +336,18 @@ async function main() {
     const r = await get('/sr/requests?kind=%EB%8D%B0%EC%9D%B4%ED%84%B0', 'ADMIN')
     const html = await r.text()
     check(html.includes('SR-2026-0145') && !html.includes('SR-2026-0141'), 'SR 내역 kind=데이터 필터')
+  }
+  {
+    // 재택 대상자 명단 (요구사항 54행) — USER 관리 카드 미노출, 기간별 조회는 그 달의 명단만
+    const u = await get('/awareness/remote', 'USER')
+    check(!(await u.text()).includes('대상자 관리'), 'USER /awareness/remote 에 대상자 관리 미노출')
+    // 대상자 관리 셀렉트에 전 인원이 있으므로 이름 대신 재택기간 문자열로 현황 테이블을 판별한다
+    const june = await get('/awareness/remote?period=2026-06', 'BIZ_MGR')
+    const juneHtml = await june.text()
+    check(juneHtml.includes('2026-06-01 ~ 2026-06-30') && !juneHtml.includes('2026-07-15 ~'), '기간별 조회 2026-06 — 그 달 명단만')
+    const csv = await get('/api/export?type=remote-status&period=2026-06', 'BIZ_MGR')
+    const csvText = await csv.text()
+    check(csv.status === 200 && csvText.includes('강도윤') && !csvText.includes('김현우'), 'export: 재택 기간별 CSV (2026-06 명단)')
   }
   {
     // 엑셀 다운로드 — CSV(BOM) 응답과 권한 가드

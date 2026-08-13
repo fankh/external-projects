@@ -3,7 +3,7 @@
  *  실행 버튼으로 트리거하고, 실서비스에서는 스케줄러(일배치)에 연결한다. */
 import { nowStamp, today } from './dates'
 import { sendVia } from './integrations/registry'
-import { getStore, recordBatch } from './store'
+import { getStore, isRemoteTargetIn, recordBatch } from './store'
 
 export interface NotifyResult {
   kind: string
@@ -39,9 +39,10 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
       .map((r) => r.ci ?? r.requester),
     '[SR] 완료 예정일 경과 안내')
 
-  // 4) 재택 체크리스트 미제출 — 당월 미제출 인원
+  // 4) 재택 체크리스트 미제출 — 당월 재택 대상자 중 미제출 인원 (명단 밖 인원에게는 안내하지 않는다)
   const submitted = new Set(s.remoteChecks.filter((r) => r.period === month).map((r) => r.name))
-  await send('재택 미제출', s.people.filter((p) => !submitted.has(p.name)).map((p) => p.name),
+  const targets = new Set(s.remoteTargets.filter((t) => isRemoteTargetIn(t, month)).map((t) => t.name))
+  await send('재택 미제출', s.people.filter((p) => targets.has(p.name) && !submitted.has(p.name)).map((p) => p.name),
     `[재택근무] ${month} 체크리스트 제출 안내`)
 
   // 5) 반려 방치 — 반려 후 재상신하지 않은 기안자 (열린 '재상신' 할일 소유자, 재상신하면 할일이 닫혀 제외)

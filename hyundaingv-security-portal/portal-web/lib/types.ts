@@ -67,6 +67,15 @@ export interface PrintoutRecord {
 }
 
 /** 재택근무 체크리스트 — 주기(월) 단위 자가점검 제출 */
+/** 재택근무 대상자 — 일자별 명단 (요구사항 54행: 시작일자 있으면 추가, 종료일자만 있으면 수정) */
+export interface RemoteTarget {
+  name: string
+  dept: string
+  startDate: string
+  /** 종료일(포함) — 없으면 계속 재택 대상 */
+  endDate?: string
+}
+
 export interface RemoteCheck {
   name: string
   dept: string

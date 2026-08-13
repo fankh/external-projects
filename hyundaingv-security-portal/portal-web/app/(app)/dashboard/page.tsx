@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { getStore } from '@/lib/store'
+import { getStore, isRemoteTargetIn } from '@/lib/store'
 
 const SR_CHIP: Record<string, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   작성중: 'neutral', 결재중: 'info', CI배정: 'info', 개발중: 'warn', 테스트: 'warn', 적용요청: 'warn', 완료: 'ok', 반려: 'err',
@@ -22,6 +22,7 @@ export default async function DashboardPage() {
 
   // 관리대상 현황 — 의식제고·컴플라이언스·계획수립 (요구사항 개인별현황 포틀릿)
   const remoteDone = s.remoteChecks.some((r) => r.name === me.name && r.period === period)
+  const remoteTarget = s.remoteTargets.some((t) => t.name === me.name && isRemoteTargetIn(t, period))
   const eduDone = s.educationCourses.filter((c) => c.status === '완료')
   const myEduMissing = eduDone.filter((c) => !s.educationRecords.some((r) => r.courseId === c.id && r.name === me.name)).length
   const myViolations = s.violations.filter((v) => v.name === me.name && v.status === '징구중').length
@@ -52,7 +53,8 @@ export default async function DashboardPage() {
 
       {/* 관리대상 현황 — 의식제고 · 컴플라이언스 · 계획수립 */}
       <div className="stat-row">
-        <Stat value={remoteDone ? '제출' : '미제출'} label="재택 체크리스트" tone={remoteDone ? undefined : 'warn'} note={period} />
+        <Stat value={!remoteTarget ? '대상 아님' : remoteDone ? '제출' : '미제출'} label="재택 체크리스트"
+          tone={remoteTarget && !remoteDone ? 'warn' : undefined} note={period} />
         <Stat value={myEduMissing} label="보안교육 미이수" tone={myEduMissing > 0 ? 'err' : undefined} note="완료 과정 기준" />
         <Stat value={myViolations} label="보안위반 확인서 대상" tone={myViolations > 0 ? 'err' : undefined} />
         <Stat value={myPlansDraft} label="계획수립 작성중" note="투자·비용 과제" />
