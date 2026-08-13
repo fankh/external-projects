@@ -250,7 +250,7 @@ async function main() {
     ['/sr/requests', 'USER', ['📎']],
     ['/finance/invest', 'USER', ['📎']],
     // 환경설정 잔여 4종 — 공통코드·메뉴·권한 매트릭스·엑셀양식
-    ['/settings/codes', 'ADMIN', ['FAULT_GRADE', '장애등급', '코드 중심 운영', '2등급']],
+    ['/settings/codes', 'ADMIN', ['FAULT_GRADE', '장애등급', '코드 중심 운영', '2등급', '사용기간', '코드 추가']],
     ['/settings/menus', 'ADMIN', ['LV1 도메인', '메뉴 체계', '/sr/new', '구현']],
     ['/settings/permissions', 'ADMIN', ['권한 매트릭스', '최소권한 모델', '개인별현황']],
     ['/settings/forms', 'ADMIN', ['장애보고 취합 양식', '새 버전 업로드', 'XT-01']],

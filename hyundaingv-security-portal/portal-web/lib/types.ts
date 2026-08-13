@@ -347,7 +347,8 @@ export interface AuditLog {
 export interface CodeGroup {
   id: string
   name: string
-  values: { code: string; enabled: boolean }[]
+  /** until — 사용기간 종료일(포함). 지나면 사용중지와 동일하게 신규 선택지에서 제외 (요구사항 73행) */
+  values: { code: string; enabled: boolean; until?: string }[]
 }
 
 /** 엑셀양식 — 결재 자동첨부·출력에 쓰는 양식 (버전 관리) */

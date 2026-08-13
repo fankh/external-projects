@@ -267,15 +267,67 @@ def sc_revision(pg, base, check):
 
 
 def sc_codes(pg, base, check):
-    """공통코드 토글 → 장애 등록 선택지 반영"""
+    """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/settings/codes', wait_until='networkidle')
     pg.locator('.card', has_text='장애등급').locator('tr', has_text='3등급').locator('button:has-text("중지")').click()
     pg.wait_for_load_state('networkidle')
+
+    # 사용기간 만료 — 종료일이 지난 코드는 신규 선택지에서 빠진다
+    pg.goto(f'{base}/settings/codes', wait_until='networkidle')
+    row2 = pg.locator('.card', has_text='장애등급').locator('tr', has_text='2등급')
+    row2.locator('input[name=until]').fill('2026-01-01')
+    row2.locator('button:has-text("기간 저장")').click()
+    pg.wait_for_selector('tr:has-text("2등급"):has-text("기간만료")', timeout=10000)
+
+    # 코드 추가 — 새 값이 즉시 업무 선택지에 들어온다
+    card = pg.locator('.card', has_text='장애등급')
+    card.locator('input[placeholder="새 코드값"]').fill('4등급')
+    card.locator('button:has-text("코드 추가")').click()
+    pg.wait_for_selector('tr:has-text("4등급")', timeout=10000)
+
     login(pg, base, '박정호')
     pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
     opts = pg.locator('select[name=grade] option').all_inner_texts()
-    check(opts == ['1등급', '2등급'], f'중지 코드 선택지 제거 ({opts})')
+    check(opts == ['1등급', '4등급'], f'중지·기간만료 제외, 추가 반영 ({opts})')
+
+    # 코드 삭제 — 값이 목록·선택지에서 함께 사라진다
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/codes', wait_until='networkidle')
+    pg.locator('.card', has_text='장애등급').locator('tr', has_text='4등급').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    opts = pg.locator('select[name=grade] option').all_inner_texts()
+    check(opts == ['1등급'], f'코드 삭제 반영 ({opts})')
+
+
+def sc_board(pg, base, check):
+    """게시판 삭제 — 공지(작성자)·QnA(미답변 본인) + 감사 기록 (요구사항 6행 삭제)"""
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/board/notices', wait_until='networkidle')
+    pg.select_option('select[name=category]', '공지')
+    pg.fill('input[name=title]', 'E2E 삭제 검증 공지')
+    pg.click('button:has-text("등록")')
+    pg.wait_for_selector('tr:has-text("E2E 삭제 검증 공지")', timeout=10000)
+    pg.locator('tr', has_text='E2E 삭제 검증 공지').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/board/notices', wait_until='networkidle')
+    check('E2E 삭제 검증 공지' not in pg.content(), '공지 삭제 (작성자 본인)')
+
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    pg.fill('input[name=title]', 'E2E 삭제 검증 문의')
+    pg.locator('.card', has_text='질문 등록').locator('button:has-text("등록")').click()
+    pg.wait_for_selector('tr:has-text("E2E 삭제 검증 문의")', timeout=10000)
+    pg.locator('tr', has_text='E2E 삭제 검증 문의').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    check('E2E 삭제 검증 문의' not in pg.content(), 'QnA 미답변 본인 삭제')
+
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    check('게시물 삭제' in pg.content(), '감사 이력에 게시물 삭제 기록')
 
 
 def sc_approval_line(pg, base, check):
@@ -460,7 +512,8 @@ SCENARIOS = [
     ('settle', '정산 반려 → 재상신 → 지급완료', sc_settle, {}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
-    ('codes', '공통코드 토글 → 업무 선택지', sc_codes, {}),
+    ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
+    ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),

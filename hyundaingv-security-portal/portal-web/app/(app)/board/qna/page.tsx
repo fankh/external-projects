@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
+import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { NAV } from '@/components/chrome/menus'
@@ -47,6 +48,22 @@ async function answer(formData: FormData) {
   q.answer = body
   q.answeredBy = me.name
   q.answeredAt = today()
+  revalidatePath('/board/qna')
+}
+
+/** 문의 삭제 — 미답변 건의 작성자 본인, 또는 Admin (요구사항 6행 삭제 ◎). 첨부도 함께 정리한다 */
+async function deleteQna(formData: FormData) {
+  'use server'
+  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const id = String(formData.get('id') ?? '')
+  const s = getStore()
+  const q = s.qna.find((x) => x.id === id)
+  if (!q) return
+  const mineUnanswered = q.author === me.name && !q.answer
+  if (!mineUnanswered && me.role !== 'ADMIN') return
+  s.qna = s.qna.filter((x) => x.id !== id)
+  s.attachments = s.attachments.filter((a) => a.refId !== id)
+  audit(me.name, '게시물 삭제', `QnA ${id} — ${q.title}`)
   revalidatePath('/board/qna')
 }
 
@@ -104,7 +121,15 @@ export default async function QnaPage() {
                       <span className="mut">-</span>
                     )}
                   </td>
-                  <td className="tnum">{q.askedAt}</td>
+                  <td className="tnum">
+                    {q.askedAt}
+                    {((q.author === me.name && !q.answer) || me.role === 'ADMIN') && (
+                      <form action={deleteQna} style={{ display: 'inline', marginLeft: 6 }}>
+                        <input type="hidden" name="id" value={q.id} />
+                        <button type="submit" className="btn sm danger">삭제</button>
+                      </form>
+                    )}
+                  </td>
                   <td style={{ maxWidth: 420 }}>
                     {q.answer ? (
                       <span className="dim" title={q.answer}>

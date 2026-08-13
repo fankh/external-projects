@@ -5,6 +5,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
+import { today } from './dates'
 import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
@@ -344,6 +345,12 @@ export function recordBatch(job: string, ranAt: string, result: '성공' | '실�
   const s = getStore()
   s.batchRuns.unshift({ job, ranAt, result })
   if (s.batchRuns.length > 200) s.batchRuns.length = 200
+}
+
+/** 공통코드 활성 판정 — 사용여부 + 사용기간(until, 종료일 포함) (요구사항 73행).
+ *  기간이 지난 코드는 사용중지와 동일하게 신규 선택지에서 빠지고, 기존 데이터는 유지된다. */
+export function isCodeActive(v: { enabled: boolean; until?: string }): boolean {
+  return v.enabled && (!v.until || v.until >= today())
 }
 
 /** 채번 — 'PREFIX-YYYY-NNNN' 형식에서 연도 내 최대 시퀀스 + 1 */

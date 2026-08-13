@@ -4,15 +4,15 @@ import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerGenerated, registerUpload } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { getStore, nextNo } from '@/lib/store'
+import { getStore, isCodeActive, nextNo } from '@/lib/store'
 import type { IncidentGrade } from '@/lib/types'
 
 const GRADE_TONE: Record<IncidentGrade, 'err' | 'warn' | 'neutral'> = { '1등급': 'err', '2등급': 'warn', '3등급': 'neutral' }
 
-/** 장애등급은 공통코드(FAULT_GRADE)가 단일 원천 — 사용중지된 코드는 등록 화면에서 사라진다 */
+/** 장애등급은 공통코드(FAULT_GRADE)가 단일 원천 — 사용중지·기간만료 코드는 등록 화면에서 사라진다 */
 function enabledGrades(s: ReturnType<typeof getStore>): IncidentGrade[] {
   const group = s.codeGroups.find((g) => g.id === 'FAULT_GRADE')
-  return (group?.values.filter((v) => v.enabled).map((v) => v.code) ?? []) as IncidentGrade[]
+  return (group?.values.filter(isCodeActive).map((v) => v.code) ?? []) as IncidentGrade[]
 }
 
 async function addIncident(formData: FormData) {
