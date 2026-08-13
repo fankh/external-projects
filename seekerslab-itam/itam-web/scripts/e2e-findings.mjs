@@ -19,6 +19,7 @@ const EXE = 'C:/Users/seekers/AppData/Local/ms-playwright/chromium-1228/chrome-w
 const SEC = { login: 'ba.yoon', name: '윤보안', dept: '보안운영팀', role: 'SEC_MGR' }
 const ASSET = { login: 'js.park', name: '박자산', dept: '자산관리팀', role: 'ASSET_MGR' }
 const ADMIN = { login: 'admin', name: '시스템관리자', dept: 'IT기획팀', role: 'ADMIN' }
+const USER = { login: 'mj.kim', name: '김민준', dept: '플랫폼개발팀', role: 'USER' }
 const cookie = (acct) => ({ name: 'itam_session', value: encodeURIComponent(JSON.stringify(acct)), url: BASE })
 
 let pass = 0, fail = 0
@@ -267,6 +268,23 @@ try {
   await p2.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
   ok('자산담당: 외부 공격표면 findings 조치 버튼 미노출 (조회만)', (await p2.locator('button', { hasText: /^대응$|^차단$|^조사 착수$/ }).count()) === 0)
   await ctx2.close()
+
+  // ── 사용자: AI 어시스턴트 본인 자산 자연어 질의(§01 사용자 본인 자산 조회 · §05 권한 필터) ──
+  const ctxU = await browser.newContext()
+  await ctxU.addCookies([cookie(USER)])
+  const pU = await ctxU.newPage()
+  pU.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
+  await pU.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+  const ub = await pU.locator('.msg.assistant .bub').count()
+  await pU.locator('.chat-in input').fill('내 자산 보증 언제 만료돼?')
+  await pU.locator('.chat-in input').press('Enter')
+  await pU.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, ub, { timeout: 8000 })
+  await pU.waitForTimeout(150)
+  const uAns = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
+  // 본인 자산에 초점(전량 나열 catch-all 이 아니라 보증 현황) + 본인 자산번호 + 권한 필터(타인·서버 자산 미포함)
+  ok('사용자 AI 질의: 본인 자산 보증 현황 초점 답변', uAns.includes('보증 현황') && uAns.includes('AST-2024-000015') && /D-|만료 경과/.test(uAns))
+  ok('사용자 AI 질의: 권한 필터 — 타인·서버 자산 미포함', !uAns.includes('AST-2023-000561') && !uAns.includes('AST-2020-000883'))
+  await ctxU.close()
 
   // ── Admin: AI 모델·프롬프트 버전 관리(§05 AI 거버넌스) + 감사 적재 ──
   const ctx3 = await browser.newContext()

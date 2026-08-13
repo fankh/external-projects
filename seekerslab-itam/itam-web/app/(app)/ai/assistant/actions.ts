@@ -421,6 +421,29 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       ],
     }
   }
+  // 사용자 본인 자산 자연어 질의 — 보증 만료 등을 본인 보유 자산에 스코프해 답한다(§01 사용자: 본인 보유 자산 조회, §05 권한 필터).
+  // 담당자용 보증 인텐트(위)는 !isUser 라 사용자는 여기서 본인 자산만 대상으로 초점 답변을 받는다(전량 나열 catch-all 앞).
+  if (isUser && (q.includes('보증') || q.includes('만료') || q.includes('워런티') || q.includes('warranty'))) {
+    const owned = s.assets
+      .filter((a) => a.owner === userName && !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-')
+      .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
+    const soon = owned.filter((a) => (daysUntil(a.warrantyEnd) ?? 999) <= 90)
+    const dText = (a: (typeof owned)[number]) => {
+      const d = daysUntil(a.warrantyEnd) ?? 0
+      return d < 0 ? `만료 경과 ${-d}일` : `D-${d}`
+    }
+    return {
+      role: 'assistant',
+      text: owned.length === 0
+        ? `${userName}님 명의로 보증 관리 대상 자산이 없습니다. (폐기·SW·가상자원 등 보증 비대상 제외)`
+        : [
+            `${userName}님 보유 자산 보증 현황 — ${owned.length}건${soon.length ? ` · 90일 내 만료 ${soon.length}건 (교체·연장 검토)` : ''}.`,
+            ``,
+            ...owned.map((a) => `· ${a.assetNo} — ${a.model} (보증 만료 ${a.warrantyEnd} · ${dText(a)})`),
+          ].join('\n'),
+      evidence: [{ label: '내 보유 자산', href: '/assets/register' }],
+    }
+  }
   const mine = s.assets.filter((a) => a.owner === userName)
   if (q.includes('내') || q.includes('보유') || isUser) {
     return {
