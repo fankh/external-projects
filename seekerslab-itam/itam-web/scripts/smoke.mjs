@@ -592,6 +592,11 @@ try {
   const label = await get('/api/label/AST-2023-000112', 'ASSET_MGR')
   const labelBody = await label.text()
   check('라벨 인쇄: 자산담당 발급 (200·QR·바코드)', label.status === 200 && labelBody.includes('AST-2023-000112') && labelBody.includes('SEEKERSLAB') && labelBody.includes('<svg'))
+  // 바코드가 자산번호에 따라 실제로 인코딩되는지 — 상수·빈 바코드 회귀 방지 (Code128-B 모듈이 자산마다 다르고 다수의 바로 구성)
+  const label2Body = await (await get('/api/label/AST-2023-000113', 'ASSET_MGR')).text()
+  const barcodeOf = (h) => (h.match(/<svg[^>]*viewBox="0 0 300 52"[\s\S]*?<\/svg>/) || [''])[0]
+  const bc1 = barcodeOf(labelBody), bc2 = barcodeOf(label2Body)
+  check('라벨 인쇄: 바코드가 자산번호별로 인코딩됨(상수·빈값 아님)', bc1.length > 0 && bc1 !== bc2 && (bc1.match(/<rect/g) || []).length > 20)
   // 라벨 일괄 인쇄 — 다중 선택 자산 라벨을 한 장에 (선택 내보내기와 같은 nos 방식)
   check('라벨 일괄: 사용자 차단 (403)', (await get('/api/labels?nos=AST-2023-000112', 'USER')).status === 403)
   check('라벨 일괄: 빈 선택 400', (await get('/api/labels', 'ASSET_MGR')).status === 400)
