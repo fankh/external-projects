@@ -150,6 +150,23 @@ export async function GET(req: Request) {
     return csvResponse('보안위반_관리대장', rows)
   }
 
+  if (type === 'racks') {
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const rows: (string | number)[][] = [['랙번호', '위치', '사이즈(U)', '자산번호', '장착 H/W', '논리 서버']]
+    for (const r of s.racks) {
+      rows.push([r.id, r.location, r.sizeU, r.assetNo,
+        s.hardware.filter((h) => h.rackId === r.id).length, s.servers.filter((v) => v.rack === r.id).length])
+    }
+    return csvResponse('랙_관리대장', rows)
+  }
+
+  if (type === 'hardware') {
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const rows: (string | number)[][] = [['번호', '구분', '모델', '랙', '자산번호']]
+    for (const h of s.hardware) rows.push([h.id, h.kind, h.model, h.rackId, h.assetNo])
+    return csvResponse('HW_관리대장', rows)
+  }
+
   if (type === 'inspection-plans') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['계획번호', '점검 항목', '예정월', '점검자', '상태', '점검 결과']]

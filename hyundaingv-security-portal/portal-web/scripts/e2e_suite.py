@@ -459,6 +459,44 @@ def sc_codes(pg, base, check):
     check(opts == ['1등급'], f'코드 삭제 반영 ({opts})')
 
 
+def sc_racks(pg, base, check):
+    """랙·H/W 관리 (요구사항 28~30행) — 등록·구성도 반영·사용중 삭제 가드"""
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/racks', wait_until='networkidle')
+
+    # 랙 등록 → H/W 를 새 랙에 장착 → 구성도에 사슬이 나타난다
+    rack_card = pg.locator('.card', has_text='랙관리')
+    rack_card.locator('input[name=id]').fill('C-01')
+    rack_card.locator('input[name=location]').fill('본사 전산실 C열 1번')
+    rack_card.locator('input[name=sizeU]').fill('42')
+    rack_card.locator('input[name=assetNo]').fill('AST-RK-0099')
+    rack_card.locator('button:has-text("랙 등록")').click()
+    pg.wait_for_selector('tr:has-text("C-01")', timeout=10000)
+
+    hw_card = pg.locator('.card', has_text='H/W 관리')
+    hw_card.locator('select[name=kind]').select_option('스토리지')
+    hw_card.locator('input[name=model]').fill('E2E 스토리지 어레이')
+    hw_card.locator('select[name=rackId]').select_option('C-01')
+    hw_card.locator('input[name=assetNo]').fill('AST-HW-0099')
+    hw_card.locator('button:has-text("H/W 등록")').click()
+    pg.wait_for_selector('tr:has-text("E2E 스토리지 어레이")', timeout=10000)
+    topo = pg.locator('.card', has_text='랙구성도')
+    check('E2E 스토리지 어레이' in topo.inner_text(), 'H/W 등록 → 구성도 반영')
+    check('ngv-db-01' in topo.inner_text(), '구성도 랙→H/W→서버 사슬 (시드)')
+
+    # 사용중 가드 — H/W 장착 랙·서버 탑재 H/W 는 삭제 불가, 빈 자산은 삭제
+    rack_row = pg.locator('.card', has_text='랙관리').locator('tr', has_text='C-01')
+    check('사용중' in rack_row.inner_text(), 'H/W 장착 랙 삭제 가드')
+    pg.locator('.card', has_text='H/W 관리').locator('tr', has_text='E2E 스토리지 어레이').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/racks', wait_until='networkidle')
+    check('E2E 스토리지 어레이' not in pg.content(), '미사용 H/W 삭제')
+    pg.locator('.card', has_text='랙관리').locator('tr', has_text='C-01').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/racks', wait_until='networkidle')
+    check('C-01' not in pg.locator('.card', has_text='랙관리').inner_text(), '빈 랙 삭제')
+
+
 def sc_criteria(pg, base, check):
     """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
     login(pg, base, '박정호')
@@ -708,6 +746,7 @@ SCENARIOS = [
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
     ('criteria', '점검 기준관리 — 등록·업로드·삭제·사용중 가드', sc_criteria, {}),
+    ('racks', '랙·H/W 관리 — 등록·구성도·삭제 가드', sc_racks, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),

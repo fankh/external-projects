@@ -26,7 +26,7 @@ ROUTES = [
     '/dashboard', '/board/notices', '/board/qna',
     '/finance/invest', '/finance/expense', '/finance/asset-reg',
     '/sr/new', '/sr/requests', '/sr/ci', '/sr/manage', '/sr/delayed',
-    '/infra/systems', '/infra/operations', '/infra/incidents', '/infra/changes',
+    '/infra/systems', '/infra/racks', '/infra/operations', '/infra/incidents', '/infra/changes',
     '/projects/status', '/projects/schedule', '/projects/reports',
     '/pledge/my', '/pledge/dept', '/pledge/manage',
     '/awareness/remote', '/awareness/prints', '/awareness/violations',

@@ -57,6 +57,7 @@ export const NAV: NavGroup[] = [
     hue: '#6d28d9',
     items: [
       { href: '/infra/systems', label: '시스템 · 서버 현황', ico: '▣', roles: BIZ },
+      { href: '/infra/racks', label: '랙 · H/W 관리', ico: '☰', roles: BIZ },
       { href: '/infra/operations', label: '배치 · 인터페이스 · 디스크', ico: '⇄', roles: BIZ },
       { href: '/infra/incidents', label: '장애관리 · 통계 · 대책', ico: '⚠', roles: BIZ },
       { href: '/infra/changes', label: '변경관리', ico: '⟳', roles: BIZ },

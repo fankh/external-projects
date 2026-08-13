@@ -6,7 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { today } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, RemoteTarget, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, Rack, RemoteCheck, RemoteTarget, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -41,6 +41,8 @@ export interface Store {
   securityOfficers: string[]
   companyPledges: CompanyPledge[]
   servers: ServerInfo[]
+  racks: Rack[]
+  hardware: Hardware[]
   systems: SystemInfo[]
   batchJobs: BatchJob[]
   interfaces: InterfaceDef[]
@@ -216,10 +218,23 @@ function seed(): Store {
       { id: 'CP-2026-02', company: '비솔루션', personName: '임가람', registeredAt: '2026-07-28', status: '등록' },
     ],
     servers: [
-      { id: 'SV-01', hostname: 'ngv-web-01', ip: '10.10.1.11', purpose: 'Web', os: 'Windows Server 2022', rack: 'A-01', diskUsedPct: 42 },
-      { id: 'SV-02', hostname: 'ngv-was-01', ip: '10.10.1.21', purpose: 'WAS', os: 'Windows Server 2022', rack: 'A-01', diskUsedPct: 63 },
-      { id: 'SV-03', hostname: 'ngv-db-01', ip: '10.10.1.31', purpose: 'DB', os: 'Windows Server 2022 · MS-SQL', rack: 'A-02', diskUsedPct: 91 },
-      { id: 'SV-04', hostname: 'ngv-bat-01', ip: '10.10.1.41', purpose: '배치', os: 'Windows Server 2019', rack: 'B-01', diskUsedPct: 55 },
+      { id: 'SV-01', hostname: 'ngv-web-01', ip: '10.10.1.11', purpose: 'Web', os: 'Windows Server 2022', rack: 'A-01', hwId: 'HW-01', cpu: '8C 16T', memoryGb: 32, diskUsedPct: 42 },
+      { id: 'SV-02', hostname: 'ngv-was-01', ip: '10.10.1.21', purpose: 'WAS', os: 'Windows Server 2022', rack: 'A-01', hwId: 'HW-01', cpu: '16C 32T', memoryGb: 64, diskUsedPct: 63 },
+      { id: 'SV-03', hostname: 'ngv-db-01', ip: '10.10.1.31', purpose: 'DB', os: 'Windows Server 2022 · MS-SQL', rack: 'A-02', hwId: 'HW-02', cpu: '16C 32T', memoryGb: 128, diskUsedPct: 91 },
+      { id: 'SV-04', hostname: 'ngv-bat-01', ip: '10.10.1.41', purpose: '배치', os: 'Windows Server 2019', rack: 'B-01', hwId: 'HW-05', cpu: '8C 16T', memoryGb: 32, diskUsedPct: 55 },
+    ],
+    // 랙·H/W (요구사항 28·30행) — 랙구성도의 랙 → H/W → 서버 사슬
+    racks: [
+      { id: 'A-01', location: '본사 전산실 A열 1번', sizeU: 42, assetNo: 'AST-RK-0001' },
+      { id: 'A-02', location: '본사 전산실 A열 2번', sizeU: 42, assetNo: 'AST-RK-0002' },
+      { id: 'B-01', location: '본사 전산실 B열 1번', sizeU: 24, assetNo: 'AST-RK-0003' },
+    ],
+    hardware: [
+      { id: 'HW-01', kind: '물리서버', model: 'PowerEdge R750', rackId: 'A-01', assetNo: 'AST-HW-0011' },
+      { id: 'HW-02', kind: '물리서버', model: 'PowerEdge R750xs', rackId: 'A-02', assetNo: 'AST-HW-0012' },
+      { id: 'HW-03', kind: '네트워크장비', model: 'Catalyst 9300 (코어 스위치)', rackId: 'A-01', assetNo: 'AST-HW-0013' },
+      { id: 'HW-04', kind: '스토리지', model: 'Unity XT 480', rackId: 'A-02', assetNo: 'AST-HW-0014' },
+      { id: 'HW-05', kind: '물리서버', model: 'ProLiant DL380', rackId: 'B-01', assetNo: 'AST-HW-0015' },
     ],
     systems: [
       { id: 'SYS-01', name: 'ERP', url: 'https://erp.internal', env: '운영계', serverIds: ['SV-02', 'SV-03'], owner: '박정호' },

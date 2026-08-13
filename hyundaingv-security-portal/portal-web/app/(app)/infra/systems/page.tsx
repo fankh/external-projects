@@ -59,7 +59,7 @@ export default async function SystemsPage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>호스트명</th><th>IP</th><th>용도</th><th>OS</th><th>랙</th><th style={{ width: 200 }}>디스크 사용률</th></tr>
+              <tr><th>호스트명</th><th>IP</th><th>용도</th><th>OS</th><th>CPU</th><th className="num">메모리</th><th>랙</th><th style={{ width: 200 }}>디스크 사용률</th></tr>
             </thead>
             <tbody>
               {s.servers.map((v) => (
@@ -68,6 +68,8 @@ export default async function SystemsPage() {
                   <td className="mono" style={{ fontSize: 11.5 }}>{v.ip}</td>
                   <td><Chip tone="neutral" bare>{v.purpose}</Chip></td>
                   <td>{v.os}</td>
+                  <td className="tnum">{v.cpu ?? '-'}</td>
+                  <td className="num tnum">{v.memoryGb ? `${v.memoryGb}GB` : '-'}</td>
                   <td className="tnum">{v.rack}</td>
                   <td>
                     <div className="hstack" style={{ gap: 7 }}>

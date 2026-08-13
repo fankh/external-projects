@@ -308,6 +308,23 @@ export interface EducationRecord {
 }
 
 /** 인프라 — 랙·서버·시스템(애플리케이션)·배치·인터페이스 현황 (제품안내서 §03) */
+/** 랙 — 위치·사이즈(U)·자산번호 관리 (요구사항 28행) */
+export interface Rack {
+  id: string
+  location: string
+  sizeU: number
+  assetNo: string
+}
+
+/** H/W — 물리서버·네트워크장비·스토리지 (요구사항 30행). 랙에 장착되고, 물리서버는 논리 서버를 올린다 */
+export interface Hardware {
+  id: string
+  kind: '물리서버' | '네트워크장비' | '스토리지'
+  model: string
+  rackId: string
+  assetNo: string
+}
+
 export interface ServerInfo {
   id: string
   hostname: string
@@ -315,6 +332,11 @@ export interface ServerInfo {
   purpose: 'Web' | 'WAS' | 'DB' | '배치'
   os: string
   rack: string
+  /** 장착 H/W(물리서버) — 랙구성도 도식화의 랙→H/W→서버 연결 (요구사항 29행) */
+  hwId?: string
+  /** CPU · 메모리 (요구사항 31행) */
+  cpu?: string
+  memoryGb?: number
   /** 디스크 사용률(%) — 85% 초과는 경고로 드러난다 */
   diskUsedPct: number
 }

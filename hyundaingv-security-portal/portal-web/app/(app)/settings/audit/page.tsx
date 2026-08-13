@@ -4,7 +4,7 @@ import { getStore } from '@/lib/store'
 
 const ACTION_TONE: Record<string, 'ok' | 'err' | 'info' | 'neutral' | 'warn'> = {
   '결재 상신': 'info', '결재 승인': 'ok', '결재 반려': 'err', '결재 회수': 'neutral',
-  '결재선 변경': 'warn', '연동 채널 변경': 'warn', '공통코드 변경': 'warn', '서약양식 개정': 'warn', '게시물 삭제': 'warn', '재택 대상자 변경': 'warn', '점검 기준 변경': 'warn',
+  '결재선 변경': 'warn', '연동 채널 변경': 'warn', '공통코드 변경': 'warn', '서약양식 개정': 'warn', '게시물 삭제': 'warn', '재택 대상자 변경': 'warn', '점검 기준 변경': 'warn', '인프라 자산 변경': 'warn',
   '인사정보 동기화': 'info', '배치 수동 실행': 'info', '일배치 이관': 'info', '알림 배치 실행': 'info',
 }
 
