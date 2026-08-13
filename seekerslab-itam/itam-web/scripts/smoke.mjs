@@ -423,6 +423,10 @@ try {
   check('AI 제안: 기능별 판정 현황 5종', ['자동분류', '이상탐지', '수명예측', '취약점 우선순위', '라이선스 최적화'].every((k) => insHtml.includes(k)))
   // AI 제안 목록 필터 — 상태(제안/승인/반려)·기능·심각도
   check('AI 제안: 목록 상태·기능·심각도 필터 렌더', insHtml.includes('기능 — 전체') && insHtml.includes('심각도 — 전체'))
+  // 취약점 노출 우선순위(§05 기능04) — 자산 중요도 × 노출도 스코어링. 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출 합성.
+  check('AI 제안: 취약점 노출 우선순위 스코어링 렌더', insHtml.includes('취약점 노출 우선순위') && insHtml.includes('자산 중요도 × 노출도') && insHtml.includes('P1 — 즉시 조치'))
+  // EOL OS(CentOS 7)·외부 CVE 가 스코어링 대상에 포함됨을 확인 (시드 AST-2020-000883 CentOS 7.9)
+  check('AI 제안: 취약점 우선순위에 EOL OS·외부 CVE 반영', insHtml.includes('EOL OS') && insHtml.includes('CentOS 7') && insHtml.includes('외부 노출 CVE'))
   const fndHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 소유자 확인·에스컬레이션 진입점', fndHtml.includes('미확인 소유자 정책') && fndHtml.includes('미응답 에스컬레이션') && fndHtml.includes('응답 대기'))
   // 지문 병합 — 화면이 '지문 병합 후'라고 주장하려면 원시 관측과 병합 근거가 있어야 한다
