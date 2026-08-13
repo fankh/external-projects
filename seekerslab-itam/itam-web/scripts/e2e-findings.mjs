@@ -130,6 +130,29 @@ async function aiModelManage(page) {
   ok('AI 버전 관리: 갱신 반영(모델·프롬프트)', body.includes('claude-opus-5') && body.includes('v3.3 (2026-08-13)'))
 }
 
+/** AI 어시스턴트 기간 스코프 질의(§05 예시 "내년 1분기 보증 만료…") — 기간 파싱·창 필터.
+ *  실행 시점에 독립적이도록, 헤드라인이 제시한 창 범위를 그대로 뽑아 나열 만료일이 전부 그 안에 드는지 자기검증한다. */
+async function aiPeriodQuery(page) {
+  await page.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+  const ask = async (q) => {
+    const before = await page.locator('.msg.assistant .bub').count()
+    await page.locator('.chat-in input').fill(q)
+    await page.locator('.chat-in input').press('Enter')
+    await page.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, before, { timeout: 8000 })
+    await page.waitForTimeout(150)
+    return (await page.locator('.msg.assistant .bub').last().textContent()) || ''
+  }
+  const q1 = await ask('내년 1분기 보증 만료되는 자산 목록')
+  const win = q1.match(/(\d{4}-\d{2}-\d{2}) ~ (\d{4}-\d{2}-\d{2})/)
+  ok('AI 기간질의: 분기 창 범위 헤드라인', /보증 만료 예정/.test(q1) && !!win)
+  const dates = [...q1.matchAll(/보증 만료 (\d{4}-\d{2}-\d{2})/g)].map((m) => m[1])
+  ok('AI 기간질의: 나열 만료일 전부 창 안', !!win && dates.length > 0 && dates.every((d) => d >= win[1] && d <= win[2]))
+  const q2 = await ask('2099년 1분기 보증 만료 자산')
+  ok('AI 기간질의: 먼 미래 → 해당 없음 메시지', q2.includes('2099년 1분기') && q2.includes('보증이 만료되는 자산이 없습니다'))
+  const q3 = await ask('보증 만료되는 네트워크 장비 목록')
+  ok('AI 기간질의: 기간 미지정 → 임박순 폴백', q3.includes('만료 임박순') && !/ ~ 20\d{2}-/.test(q3))
+}
+
 try {
   const browser = await chromium.launch({ executablePath: EXE, headless: true })
   console.log(`보안 findings 대응 루프 e2e — ${REMOTE ? '원격' : '로컬'} ${BASE}\n`)
@@ -184,6 +207,7 @@ try {
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const auditAi = await p3.textContent('body')
   ok('감사 로그: AI 모델·프롬프트 버전 관리 적재', auditAi.includes('AI 모델·프롬프트 버전 관리') && auditAi.includes('claude-opus-5'))
+  await aiPeriodQuery(p3)
   await ctx3.close()
 
   await browser.close()

@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
-import { daysUntil, isLoanOverdue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
 import { REPORT_KINDS, createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -204,16 +204,23 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   //  '보증' + 자산 맥락(유형/장비/자산)일 때 계약 만료가 아니라 대장 보증을 만료 임박순으로 답한다. 유형 언급 시 스코프.
   if (!isUser && q.includes('보증') && (ASSET_CATEGORIES.some((c) => q.includes(c.toLowerCase())) || q.includes('장비') || q.includes('자산') || q.includes('노트북') || q.includes('pc'))) {
     const cat = ASSET_CATEGORIES.find((c) => q.includes(c.toLowerCase()))
+    // 기간 스코프 — "내년 1분기 보증 만료…"처럼 시점을 좁히면 그 기간 안에 만료되는 것만 답한다(안내서 §05 예시 질의)
+    const period = parsePeriodWindow(q, today())
     const scoped = s.assets
       .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (!cat || a.category === cat))
+      .filter((a) => !period || (a.warrantyEnd >= period.start && a.warrantyEnd <= period.end))
       .sort((a, b) => a.warrantyEnd.localeCompare(b.warrantyEnd))
     const soonN = scoped.filter((a) => (daysUntil(a.warrantyEnd) ?? 999) <= 90).length
     const list = scoped.slice(0, 12)
+    const headline = period
+      ? `${cat ? `${cat} ` : ''}${period.label} 보증 만료 예정 — ${scoped.length}건 (${period.start} ~ ${period.end}).`
+      : `${cat ? `${cat} ` : ''}자산 보증 만료 현황 — 대상 ${scoped.length}건 (만료 임박순${soonN ? ` · 90일 내 ${soonN}건` : ''}).`
     return {
       role: 'assistant',
       text: [
-        `${cat ? `${cat} ` : ''}자산 보증 만료 현황 — 대상 ${scoped.length}건 (만료 임박순${soonN ? ` · 90일 내 ${soonN}건` : ''}).`,
+        headline,
         ``,
+        ...(scoped.length === 0 ? ['해당 기간에 보증이 만료되는 자산이 없습니다.'] : []),
         ...list.map((a) => `· ${a.assetNo} — ${a.model} (${a.category}, 보증 만료 ${a.warrantyEnd} · D-${daysUntil(a.warrantyEnd)})`),
         scoped.length > list.length ? `\n… 외 ${scoped.length - list.length}건은 대장 보증 임박 필터에서 확인하세요.` : ``,
       ].filter(Boolean).join('\n'),
@@ -221,12 +228,22 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     }
   }
   if (!isUser && (q.includes('만료') || q.includes('보증') || q.includes('계약'))) {
-    const soon = s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= 90 })
+    // 기간 스코프 — "내년 상반기 만료 계약"처럼 시점을 좁히면 그 창 안에 만료되는 계약을, 아니면 90일 임박분을 답한다
+    const period = parsePeriodWindow(q, today())
+    const hit = period
+      ? s.contracts.filter((c) => c.status !== '해지' && c.end >= period.start && c.end <= period.end).sort((a, b) => a.end.localeCompare(b.end))
+      : s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= 90 })
+    const headline = period
+      ? `${period.label} 만료 예정 계약은 ${hit.length}건입니다 (${period.start} ~ ${period.end}).`
+      : `90일 내 만료 예정 계약은 ${hit.length}건입니다.`
     return {
       role: 'assistant',
-      text: `90일 내 만료 예정 계약은 ${soon.length}건입니다.\n\n${soon
-        .map((c) => `· ${c.id} — ${c.name} (${c.vendor}, ${c.end} 만료, D-${daysUntil(c.end)})`)
-        .join('\n')}\n\n네트워크 장비 유지보수 계약(CT-2022-007)은 잔여 ${daysUntil('2026-08-31')}일로 갱신 협상이 시급합니다.`,
+      text: [
+        headline,
+        ``,
+        ...(hit.length === 0 ? ['해당 기간에 만료되는 계약이 없습니다.'] : hit.map((c) => `· ${c.id} — ${c.name} (${c.vendor}, ${c.end} 만료, D-${daysUntil(c.end)})`)),
+        !period ? `\n네트워크 장비 유지보수 계약(CT-2022-007)은 잔여 ${daysUntil('2026-08-31')}일로 갱신 협상이 시급합니다.` : ``,
+      ].filter(Boolean).join('\n'),
       evidence: [{ label: '계약 · 라이선스', href: '/inventory/contracts' }],
     }
   }
@@ -331,7 +348,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "보증 만료되는 네트워크 장비 목록"\n· "라이선스 초과 사용 현황"\n· "자산 상태 분포와 대여 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "자산 상태 분포와 대여 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
   }
 }
 

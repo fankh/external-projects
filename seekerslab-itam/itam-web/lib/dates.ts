@@ -43,6 +43,53 @@ export function nowMinute(): string {
 /** 시드 데이터가 작성된 기준일 — 시드와 실제 날짜의 간격을 안내할 때 쓴다 */
 export const SEED_BASE_DATE = '2026-07-29'
 
+/** 자연어 기간 표현 → 날짜 창 `{start,end}` (YYYY-MM-DD, 경계 포함).
+ *  AI 어시스턴트가 "내년 1분기", "올해 하반기", "2027년 3월", "다음 분기"처럼 시점을 좁히는
+ *  질의를 실제 기간으로 해석하도록 한다 (제품안내서 §05 예시 질의 "내년 1분기 보증 만료…").
+ *  기간 토큰이 없으면 null → 호출부는 기존(임박순) 동작으로 폴백한다. base 는 today() 문자열. 서버 전용. */
+export function parsePeriodWindow(q: string, base: string): { start: string; end: string; label: string } | null {
+  const y0 = Number(base.slice(0, 4))
+  const m0 = Number(base.slice(5, 7)) // 1-based
+  if (!y0 || !m0) return null
+  const pad = (n: number) => String(n).padStart(2, '0')
+  // 월말일 — Date.UTC(y, m, 0) 은 1-based m 의 전월 마지막 = m 월 말일. 로컬 Date 의 TZ 흔들림을 피해 UTC 로 계산.
+  const win = (y: number, sm: number, em: number, label: string) => ({
+    start: `${y}-${pad(sm)}-01`,
+    end: `${y}-${pad(em)}-${pad(new Date(Date.UTC(y, em, 0)).getUTCDate())}`,
+    label,
+  })
+
+  // 대상 연도 — 명시 "YYYY년" 우선, 아니면 상대어(내년/작년/올해)
+  const yExplicit = q.match(/(20\d{2})\s*년/)
+  let year = y0
+  if (yExplicit) year = Number(yExplicit[1])
+  else if (q.includes('내년') || q.includes('명년')) year = y0 + 1
+  else if (q.includes('작년') || q.includes('지난해') || q.includes('전년')) year = y0 - 1
+
+  const curQ = Math.floor((m0 - 1) / 3) + 1
+
+  // 분기 — "N분기"(연도어와 조합) · 상대(이번/다음)
+  const qm = q.match(/([1-4])\s*분기/)
+  if (qm) { const qn = Number(qm[1]); const sm = (qn - 1) * 3 + 1; return win(year, sm, sm + 2, `${year}년 ${qn}분기`) }
+  if (q.includes('이번 분기') || q.includes('금분기') || q.includes('당분기')) { const sm = (curQ - 1) * 3 + 1; return win(y0, sm, sm + 2, `${y0}년 ${curQ}분기`) }
+  if (q.includes('다음 분기') || q.includes('차분기')) { const nq = curQ === 4 ? 1 : curQ + 1; const ny = curQ === 4 ? y0 + 1 : y0; const sm = (nq - 1) * 3 + 1; return win(ny, sm, sm + 2, `${ny}년 ${nq}분기`) }
+
+  // 반기
+  if (q.includes('상반기')) return win(year, 1, 6, `${year}년 상반기`)
+  if (q.includes('하반기')) return win(year, 7, 12, `${year}년 하반기`)
+
+  // 월 — 명시 "N월"(단 '개월'·'월간' 제외) · 상대(이번/다음 달)
+  const mm = q.match(/(1[0-2]|[1-9])\s*월/)
+  if (mm && !q.includes('개월') && !q.includes('월간')) { const mn = Number(mm[1]); return win(year, mn, mn, `${year}년 ${mn}월`) }
+  if (q.includes('이번 달') || q.includes('이달') || q.includes('당월') || q.includes('금월')) return win(y0, m0, m0, `${y0}년 ${m0}월`)
+  if (q.includes('다음 달') || q.includes('내달') || q.includes('익월')) { const nm = m0 === 12 ? 1 : m0 + 1; const ny = m0 === 12 ? y0 + 1 : y0; return win(ny, nm, nm, `${ny}년 ${nm}월`) }
+
+  // 연도만 명시 (예: "2027년 만료", "내년 만료 계약")
+  if (yExplicit || q.includes('내년') || q.includes('작년') || q.includes('명년') || q.includes('지난해')) return win(year, 1, 12, `${year}년`)
+
+  return null
+}
+
 export function daysUntil(dateStr: string): number | null {
   if (!dateStr || dateStr === '-') return null
   const d = new Date(dateStr).getTime()
