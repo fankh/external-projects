@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
-import { dispatch } from '@/lib/notify'
+import { escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo } from '@/lib/store'
 import type { Asset, AssetCategory, BizCriticality } from '@/lib/types'
@@ -298,8 +298,8 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
   asset.history.push({ date: today(), kind: '분실', detail: `${type} 신고 — ${note} (최종 보유 ${holder})`, actor: session.name })
 
   if (type === '도난') {
-    // 도난은 단말 내 데이터 유출 위험이 있어 보안운영팀에 침해 대응을 통보한다
-    dispatch({ channel: '이메일', to: '보안운영팀', subject: `${asset.assetNo} ${asset.model} 도난 신고 — 데이터 유출 위험 점검 요청 (${note})`, kind: '위협 대응', ref: asset.assetNo })
+    // 도난은 단말 내 데이터 유출 위험이 있어 보안운영팀에 침해 대응을 통보한다 — 시간 임계라 문자 즉시 알림 병행
+    escalate({ to: '보안운영팀', subject: `${asset.assetNo} ${asset.model} 도난 신고 — 데이터 유출 위험 점검 요청 (${note})`, kind: '위협 대응', ref: asset.assetNo, sms: `${asset.assetNo} ${asset.model} 도난 — 데이터 유출 위험 점검` })
   }
   appendAudit({ actor: session.name, action: `${type} 신고 — ${asset.model} · ${note}`, target: assetNo })
   revalidatePath('/', 'layout')

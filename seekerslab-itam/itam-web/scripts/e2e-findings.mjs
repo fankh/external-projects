@@ -220,6 +220,8 @@ try {
   await page.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const audit = await page.textContent('body')
   ok('감사 로그: findings 대응 6종 적재', ['휴면 계정 비활성화', '미인가 SW 제거', 'USB 저장매체 차단', '로컬 VM 회수', 'IOC 차단', '크리덴셜 노출 대응'].every((s) => audit.includes(s)))
+  // 긴급 보안 에스컬레이션(IOC 차단)은 이메일 상세 + 문자(SMS) 즉시 알림으로 이중 발송된다
+  ok('긴급 에스컬레이션: IOC 차단 이메일+문자(SMS) 이중 발송', audit.includes('IOC 차단 집행 요청') && audit.includes('[긴급] IOC 차단 요청'))
 
   // AI 제안 판정 루프(11) — 승인→조치·반려 사유 필수
   await aiInsightDecide(page)

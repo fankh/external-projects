@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
-import { dispatch } from '@/lib/notify'
+import { dispatch, escalate } from '@/lib/notify'
 import { canDecideApproval } from '@/lib/approval'
 import { classifyDiscoveredType } from '@/lib/classify'
 import { getSession } from '@/lib/session'
@@ -374,7 +374,11 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
           ],
         })
       }
-      if (a.kind === '격리 요청' && d.action === '격리요청') d.action = '격리완료'
+      if (a.kind === '격리 요청' && d.action === '격리요청') {
+        d.action = '격리완료'
+        // 격리 결재 승인 = NAC 차단 집행 시점 — 이메일 상세 + 문자 즉시 알림으로 야간·현장 지연 없이 차단한다
+        escalate({ to: '보안운영팀 · NAC', subject: `NAC 격리 집행 — ${d.hostname} (${d.ip}) 결재 승인, 네트워크 차단 요청`, kind: '격리 통보', ref: d.id, sms: `NAC 격리 집행 ${d.hostname} (${d.ip}) — 즉시 차단` })
+      }
     }
     if (d && verdict === '반려') d.action = undefined
     const asset = s.assets.find((x) => x.assetNo === a.refId)

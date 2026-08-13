@@ -55,6 +55,11 @@ export default async function IntegrationsPage() {
 
       <AuditLog logs={s.auditLogs} canExport={canManage} />
 
+      <div className="callout" style={{ marginBottom: 14 }}>
+        <b>긴급 보안 에스컬레이션은 문자(SMS) 병행.</b> NAC 격리 집행·외부 노출 차단·IOC 위협 차단·침해 조사·도난 데이터 유출처럼
+        시간 임계 조치는 상세 근거를 이메일로, 즉시 알림을 <span className="chip warn bare">문자</span>로 이중 발송해 야간·현장 대응 지연을 줄입니다. 두 발송 모두 발송 이력에 남습니다.
+      </div>
+
       <NotificationLog dispatches={s.dispatches} canExport={canManage} />
 
       <div className="cols c2">

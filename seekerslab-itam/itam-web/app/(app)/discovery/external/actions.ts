@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { nowMinute, today } from '@/lib/dates'
-import { dispatch } from '@/lib/notify'
+import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { EasmRun } from '@/lib/types'
@@ -76,11 +76,12 @@ export async function respondToIoc(iocId: string, kind: '차단' | '조사') {
   ioc.actedAt = today()
   if (kind === '차단') {
     ioc.action = '차단 요청'
-    dispatch({ channel: '이메일', to: '보안운영팀', subject: `IOC 차단 집행 요청 — ${ioc.iocType} ${ioc.iocValue} (${ioc.threatActor}) @ ${ioc.matchedAsset}`, kind: '위협 대응', ref: ioc.id })
+    // 능동 위협(행위자 귀속) 차단은 시간 임계 — 이메일 상세 + 문자 즉시 알림으로 이중 발송
+    escalate({ to: '보안운영팀', subject: `IOC 차단 집행 요청 — ${ioc.iocType} ${ioc.iocValue} (${ioc.threatActor}) @ ${ioc.matchedAsset}`, kind: '위협 대응', ref: ioc.id, sms: `IOC 차단 요청 ${ioc.threatActor} @ ${ioc.matchedAsset} — 즉시 차단` })
     appendAudit({ actor: session.name, action: `IOC 차단 요청 (${ioc.matchType}) — ${ioc.iocValue} @ ${ioc.matchedAsset}`, target: ioc.id })
   } else {
     ioc.action = '조사 착수'
-    dispatch({ channel: '이메일', to: '보안운영팀', subject: `IOC 침해 조사 착수 — ${ioc.threatActor} @ ${ioc.matchedAsset} (${ioc.dept})`, kind: '위협 대응', ref: ioc.id })
+    escalate({ to: '보안운영팀', subject: `IOC 침해 조사 착수 — ${ioc.threatActor} @ ${ioc.matchedAsset} (${ioc.dept})`, kind: '위협 대응', ref: ioc.id, sms: `IOC 침해 조사 착수 ${ioc.threatActor} @ ${ioc.matchedAsset}` })
     appendAudit({ actor: session.name, action: `IOC 침해 조사 착수 (${ioc.matchType}) — ${ioc.iocValue} @ ${ioc.matchedAsset}`, target: ioc.id })
   }
   revalidatePath('/', 'layout')
@@ -105,7 +106,8 @@ export async function requestExternalAction(externalId: string, kind: '편입' |
     appendAudit({ actor: session.name, action: `외부 노출 자산 편입 요청 — ${e.host}`, target: e.id })
   } else {
     e.action = '차단요청'
-    dispatch({ channel: '이메일', to: '보안운영팀', subject: `외부 노출 차단·격리 요청 — ${e.host} ${e.cve ? `(${e.cve})` : ''}`, kind: '격리 통보', ref: e.id })
+    // 외부 노출(특히 CVE) 차단·격리는 공격 표면 노출 시간을 줄이는 게 관건 — 문자 즉시 알림 병행
+    escalate({ to: '보안운영팀', subject: `외부 노출 차단·격리 요청 — ${e.host} ${e.cve ? `(${e.cve})` : ''}`, kind: '격리 통보', ref: e.id, sms: `외부 노출 차단·격리 ${e.host}${e.cve ? ` (${e.cve})` : ''} — 즉시 차단` })
     appendAudit({ actor: session.name, action: `외부 노출 차단 요청 — ${e.host}`, target: e.id })
   }
   revalidatePath('/', 'layout')

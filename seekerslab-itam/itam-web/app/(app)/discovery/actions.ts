@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { daysUntil, today } from '@/lib/dates'
-import { dispatch } from '@/lib/notify'
+import { dispatch, escalate } from '@/lib/notify'
 import { can } from '@/lib/perm'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
@@ -108,7 +108,8 @@ export async function escalateUnanswered() {
       note: `확인 요청 ${d.confirmRequestedAt} 발송 후 무응답 — 정책 에스컬레이션`,
     })
     d.action = '격리요청'
-    dispatch({ channel: '이메일', to: '보안운영팀', subject: `${d.id} 소유자 확인 미응답 — 격리 검토 요청`, kind: '에스컬레이션', ref: id })
+    // 미응답 자산의 격리 에스컬레이션은 정책상 시간 임계 — 이메일 상세 + 문자 즉시 알림
+    escalate({ to: '보안운영팀', subject: `${d.id} 소유자 확인 미응답 — 격리 검토 요청`, kind: '에스컬레이션', ref: id, sms: `미확인 자산 ${d.hostname} 격리 검토 — 소유자 무응답 경과` })
   }
 
   appendAudit({ actor: session.name, action: `소유자 확인 미응답 에스컬레이션 (${overdue.length}건)`, target: 'Discovery' })
