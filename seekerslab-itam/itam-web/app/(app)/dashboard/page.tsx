@@ -3,6 +3,7 @@ import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
 import { APPROVAL_SLA_DAYS, daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
 import { hasDataIssue } from '@/lib/quality'
+import { approvalHref, noticeHref } from '@/lib/reflink'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
@@ -173,7 +174,7 @@ export default async function DashboardPage() {
                 <div className="vstack" style={{ gap: 6 }}>
                   <span className="kicker mute">미확인 필독 공지 — 확인 필요</span>
                   {unackedNotices.map((n) => (
-                    <Link key={n.id} href={`/board/notices?sel=${encodeURIComponent(n.id)}`} className="hstack"
+                    <Link key={n.id} href={noticeHref(n.id)} className="hstack"
                       style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <Chip tone="err" bare>필독</Chip> {n.title}
@@ -187,7 +188,7 @@ export default async function DashboardPage() {
                 <div className="vstack" style={{ gap: 6, borderTop: unackedNotices.length > 0 ? '1px solid var(--line)' : undefined, paddingTop: unackedNotices.length > 0 ? 10 : 0 }}>
                   <span className="kicker mute">소유자 확인 요청 — 응답 필요 (우리 부서)</span>
                   {myOwnerConfirms.map((a) => (
-                    <Link key={a.id} href={`/workflow/approvals?sel=${encodeURIComponent(a.id)}`} className="hstack"
+                    <Link key={a.id} href={approvalHref(a.id)} className="hstack"
                       style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
                       <Chip tone="warn">응답</Chip>
@@ -201,7 +202,7 @@ export default async function DashboardPage() {
                   <div className="vstack" style={{ gap: 6, borderTop: above ? '1px solid var(--line)' : undefined, paddingTop: above ? 10 : 0 }}>
                     <span className="kicker mute">반려된 내 신청 — 재상신 검토</span>
                     {myRejected.map((a) => (
-                      <Link key={a.id} href={`/workflow/approvals?sel=${encodeURIComponent(a.id)}`} className="hstack"
+                      <Link key={a.id} href={approvalHref(a.id)} className="hstack"
                         style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {a.title}{a.rejectReason ? <span className="dim" style={{ fontSize: 11 }}> · {a.rejectReason}</span> : ''}
@@ -315,7 +316,7 @@ export default async function DashboardPage() {
             actions={<Link className="btn sm ghost" href="/board/notices">전체</Link>}>
             <div className="vstack" style={{ gap: 8 }}>
               {s.posts.filter((p) => p.kind === '공지').slice(0, 3).map((n) => (
-                <Link key={n.id} href={`/board/notices?sel=${encodeURIComponent(n.id)}`} className="hstack"
+                <Link key={n.id} href={noticeHref(n.id)} className="hstack"
                   style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {n.pinned && <Chip tone="err" bare>필독</Chip>} {n.title}

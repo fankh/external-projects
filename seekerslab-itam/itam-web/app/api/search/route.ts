@@ -1,4 +1,5 @@
 import { today } from '@/lib/dates'
+import { assetHref, contractHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
@@ -25,13 +26,13 @@ export async function GET(req: Request) {
   const assets = (isUser ? s.assets.filter((a) => a.owner === session.name) : s.assets)
     .filter((a) => hit(a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId))
     .slice(0, LIMIT)
-    .map((a) => ({ label: `${a.assetNo} · ${a.model}`, sub: `${a.owner} · ${a.dept} · ${a.status}`, href: `/assets/register?sel=${encodeURIComponent(a.assetNo)}` }))
+    .map((a) => ({ label: `${a.assetNo} · ${a.model}`, sub: `${a.owner} · ${a.dept} · ${a.status}`, href: assetHref(a.assetNo) }))
   if (assets.length) groups.push({ kind: '자산', items: assets })
 
   // 계약·라이선스 — 계약 화면 권한(자산담당·Admin)
   if (can(['ASSET_MGR', 'ADMIN'])) {
     const contracts = s.contracts.filter((c) => hit(c.id, c.name, c.vendor, c.ownerDept)).slice(0, LIMIT)
-      .map((c) => ({ label: `${c.id} · ${c.name}`, sub: `${c.vendor} · ${c.ownerDept}${c.status === '해지' ? ' · 해지' : ''}`, href: `/inventory/contracts?sel=${encodeURIComponent(c.id)}` }))
+      .map((c) => ({ label: `${c.id} · ${c.name}`, sub: `${c.vendor} · ${c.ownerDept}${c.status === '해지' ? ' · 해지' : ''}`, href: contractHref(c.id) }))
     const lics = s.licenses.filter((l) => hit(l.id, l.name, l.vendor)).slice(0, LIMIT)
       .map((l) => ({ label: `${l.id} · ${l.name}`, sub: `${l.vendor} · 보유 ${l.purchased}/사용 ${l.used}`, href: '/inventory/contracts' }))
     const merged = [...contracts, ...lics].slice(0, LIMIT)
@@ -77,7 +78,7 @@ export async function GET(req: Request) {
     .map((p) => ({
       label: `${p.kind === '공지' ? '[공지]' : '[QnA]'} ${p.title}`,
       sub: `${p.category ? `${p.category} · ` : ''}${p.author} · ${p.createdAt}`,
-      href: `${p.kind === '공지' ? '/board/notices' : '/board/qna'}?sel=${encodeURIComponent(p.id)}`,
+      href: p.kind === '공지' ? noticeHref(p.id) : qnaHref(p.id),
     }))
   if (posts.length) groups.push({ kind: '게시판', items: posts })
 

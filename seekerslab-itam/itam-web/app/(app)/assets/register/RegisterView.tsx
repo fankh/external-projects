@@ -5,6 +5,7 @@ import { Chip } from '@/components/ui'
 import { ASSET_CATEGORIES } from '@/lib/types'
 import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
+import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, type ConfigField, type StewardField } from './actions'
@@ -389,7 +390,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       : w === 'expired' ? <Chip tone="err" bare>보증 만료</Chip> : null
                 })()}
               </dd>
-              {sel.contractId && <><dt>연계 계약</dt><dd className="code"><a href={`/inventory/contracts?sel=${encodeURIComponent(sel.contractId)}`} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a></dd></>}
+              {sel.contractId && <><dt>연계 계약</dt><dd className="code"><a href={contractHref(sel.contractId)} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a></dd></>}
               {(sel.repairCosts?.length ?? 0) > 0 && (
                 <>
                   <dt>수리 비용 이력</dt>

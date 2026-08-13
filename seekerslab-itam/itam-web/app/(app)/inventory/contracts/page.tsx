@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { missingContractDocs } from '@/lib/contract'
 import { daysUntil } from '@/lib/dates'
+import { contractHref } from '@/lib/reflink'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
 import { AddContract, ContractsTable } from './ContractsTable'
@@ -73,7 +74,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                     <td className="strong">{l.name}</td>
                     <td className="mute">{l.vendor}</td>
                     <td className="code">{l.contractId
-                      ? <a href={`/inventory/contracts?sel=${l.contractId}`} style={{ color: 'var(--accent-deep)' }} title="근거 계약으로 이동">{l.contractId}</a>
+                      ? <a href={contractHref(l.contractId)} style={{ color: 'var(--accent-deep)' }} title="근거 계약으로 이동">{l.contractId}</a>
                       : <Chip tone="warn" bare>미연계</Chip>}</td>
                     <td className="num tnum">{l.purchased.toLocaleString()}</td>
                     <td className="num tnum" style={over ? { color: 'var(--err)', fontWeight: 700 } : undefined}>{l.used.toLocaleString()}</td>
