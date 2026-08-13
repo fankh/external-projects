@@ -253,6 +253,13 @@ try {
   await ctx3.addCookies([cookie(ADMIN)])
   const p3 = await ctx3.newPage()
   p3.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
+  // 결재 지연 → 결재 독촉 발송(검출→조치). 결재 상태를 바꾸지 않으므로(발송만) 다른 검증에 영향 없음.
+  await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const apRemind = p3.locator('button', { hasText: /^결재 독촉 발송 \d+건$/ })
+  ok('결재 지연: 결재 독촉 발송 버튼(SLA 초과 대기)', (await apRemind.count()) > 0)
+  await apRemind.click()
+  await p3.waitForTimeout(800)
+  ok('결재 지연 → 독촉: 발송 성공', (await p3.textContent('body')).includes('결재 독촉'))
   await aiModelManage(p3)
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const auditAi = await p3.textContent('body')

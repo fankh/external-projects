@@ -347,6 +347,8 @@ try {
   check('결재함: 일괄 승인 바 렌더 (내 결재 차례 2건+ · ADMIN)', aprAdmin.includes('선택 일괄 승인') && aprAdmin.includes('내 결재 차례'))
   // 결재 지연(SLA 3일 초과) — 시드 대기 결재는 2주 전 상신이라 지연으로 표시된다
   check('결재함: 지연(SLA 초과) 대기 결재 표시', aprAdmin.includes('지연 '))
+  // 결재 지연 → 결재 독촉 발송 — 지연 표시에서 끝내지 않고 현재 단계 결재자에게 처리 독촉(대여·수리 독촉의 결재판)
+  check('결재함: 결재 독촉 발송 조치 노출 (SLA 초과 대기)', aprAdmin.includes('결재 독촉 발송'))
   const aprUser = await (await get('/workflow/approvals', 'USER')).text()
   check('결재함(사용자): 일괄 승인 바 미노출 (결재 권한 없음)', !aprUser.includes('선택 일괄 승인'))
   const aprAll = Buffer.from(await (await get('/api/export/approvals?status=' + encodeURIComponent('전체'), 'ADMIN')).arrayBuffer()).toString('utf8')

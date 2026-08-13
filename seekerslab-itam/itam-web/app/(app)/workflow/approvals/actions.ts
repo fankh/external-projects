@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { approvalAgeDays, isApprovalOverdue, today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
 import { canDecideApproval } from '@/lib/approval'
 import { classifyDiscoveredType } from '@/lib/classify'
@@ -417,4 +417,34 @@ export async function decideMany(ids: string[]) {
     else skipped++
   }
   return { ok: done > 0, message: `${done}건 결재 처리 완료${skipped > 0 ? ` · ${skipped}건 건너뜀 (권한·상태)` : ''}` }
+}
+
+/** 결재 독촉 발송 — SLA(운영 정책 approvalSlaDays) 초과한 대기 결재의 현재 단계 결재자에게 처리 독촉 통지를 보낸다.
+ *  그동안 지연 결재는 대시보드·결재함에 '지연'으로 드러나기만 하고 결재자에게 처리를 촉구할 수단이 없었다
+ *  (대여 반환 독촉·필독 미확인 안내와 같은 컴플라이언스 독촉의 결재판). 당일 중복 발송 차단. 비사용자. */
+export async function remindOverdueApprovals() {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '결재 독촉 발송 권한이 없습니다.' }
+  const s = getStore()
+  const t = today()
+  const slaDays = s.opsPolicy.approvalSlaDays
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === '결재 독촉' && m.at.startsWith(t)).map((m) => m.ref),
+  )
+  let n = 0
+  for (const a of s.approvals) {
+    if (!isApprovalOverdue(a, t, slaDays) || sentToday.has(a.id)) continue
+    dispatch({
+      channel: '이메일',
+      to: a.currentStep,
+      subject: `${a.id} ${a.kind} 결재 지연 (${approvalAgeDays(a.requestedAt, t)}일 · SLA ${slaDays}일 초과) — ${a.title} 처리 요청`,
+      kind: '결재 독촉',
+      ref: a.id,
+    })
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: `SLA(${slaDays}일) 초과 대기 결재가 없습니다 (오늘 발송분 제외).` }
+  appendAudit({ actor: session.name, action: `결재 독촉 발송 (${n}건)`, target: '대기 결재' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `결재 독촉 ${n}건 발송 — 현재 단계 결재자에게 처리 요청 (발송 이력 적재)` }
 }

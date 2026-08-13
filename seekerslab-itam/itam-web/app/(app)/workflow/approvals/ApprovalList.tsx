@@ -4,7 +4,7 @@ import { Chip } from '@/components/ui'
 import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { Approval, Role } from '@/lib/types'
 import { approvalAgeDays, isApprovalOverdue } from '@/lib/dates'
-import { answerOwnerConfirm, decide, decideMany, resubmitRequest, withdrawRequest } from './actions'
+import { answerOwnerConfirm, decide, decideMany, remindOverdueApprovals, resubmitRequest, withdrawRequest } from './actions'
 
 const WITHDRAWABLE = ['자산 신청', '반납', '이동', '대여']
 
@@ -88,6 +88,8 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
 
   // 일괄 승인 — 현재 목록에서 내가 결재할 수 있는 대기 건들. 반려는 개별 사유가 필요해 제외(승인만).
   const decidableRows = useMemo(() => rows.filter(canDecide), [rows]) // eslint-disable-line react-hooks/exhaustive-deps
+  // SLA 초과 지연 대기 결재 — 현재 단계 결재자에게 결재 독촉을 보낼 대상(전체 대기 기준, 내 결재 여부와 무관)
+  const overdueCount = useMemo(() => approvals.filter((a) => isApprovalOverdue(a, today, slaDays)).length, [approvals, today, slaDays])
   const selectedDecidable = useMemo(() => decidableRows.filter((a) => selected.has(a.id)).map((a) => a.id), [decidableRows, selected])
   const toggleSel = (id: string) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const bulkApprove = () => startTransition(async () => {
@@ -120,6 +122,14 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
         )}
       </div>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      {role !== 'USER' && overdueCount > 0 && (
+        <div className="hstack" style={{ padding: '8px 16px', gap: 10, background: 'var(--err-bg)', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="strong" style={{ fontSize: 12.5, color: 'var(--err)' }}>SLA {slaDays}일 초과 지연 결재 {overdueCount}건</span>
+          <button className="btn sm" disabled={pending}
+            title="SLA 초과 대기 결재의 현재 단계 결재자에게 처리 독촉을 발송합니다 (발송 이력·감사)"
+            onClick={() => startTransition(async () => setMsg((await remindOverdueApprovals()).message))}>결재 독촉 발송 {overdueCount}건</button>
+        </div>
+      )}
       {decidableRows.length >= 2 && (
         <div className="hstack" style={{ padding: '8px 16px', gap: 10, background: 'var(--panel)', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
           <span className="strong" style={{ fontSize: 12.5 }}>내 결재 차례 {decidableRows.length}건</span>
