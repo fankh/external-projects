@@ -86,10 +86,10 @@ export default async function QnaPage() {
 
       <Card title="질문 등록" kicker="Ask">
         <form action={ask} className="hstack">
-          <select className="select" name="domain">
+          <select aria-label="도메인" className="select" name="domain">
             {DOMAINS.map((d) => <option key={d}>{d}</option>)}
           </select>
-          <input className="input" name="title" required maxLength={160} placeholder="문의 내용" style={{ flex: 1 }} />
+          <input aria-label="문의 내용" className="input" name="title" required maxLength={160} placeholder="문의 내용" style={{ flex: 1 }} />
           <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="문의 첨부" />
           <button type="submit" className="btn pri">등록</button>
         </form>
@@ -112,7 +112,7 @@ export default async function QnaPage() {
                     ) : canAnswer && !q.answer ? (
                       <form action={assign} className="hstack" style={{ gap: 4, padding: '3px 0' }}>
                         <input type="hidden" name="id" value={q.id} />
-                        <select className="select" name="assignee" style={{ height: 25, fontSize: 11.5 }}>
+                        <select aria-label="담당" className="select" name="assignee" style={{ height: 25, fontSize: 11.5 }}>
                           {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
                         </select>
                         <button type="submit" className="btn sm">담당 지정</button>
@@ -138,7 +138,7 @@ export default async function QnaPage() {
                     ) : canAnswer ? (
                       <form action={answer} className="hstack" style={{ padding: '3px 0' }}>
                         <input type="hidden" name="id" value={q.id} />
-                        <input className="input" name="answer" required maxLength={500} placeholder="답변 내용" style={{ height: 25, fontSize: 11.5, flex: 1 }} />
+                        <input aria-label="답변 내용" className="input" name="answer" required maxLength={500} placeholder="답변 내용" style={{ height: 25, fontSize: 11.5, flex: 1 }} />
                         <button type="submit" className="btn sm pri">답변</button>
                       </form>
                     ) : (

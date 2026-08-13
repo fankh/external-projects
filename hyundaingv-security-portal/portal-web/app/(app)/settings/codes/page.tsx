@@ -125,7 +125,7 @@ export default async function CodesPage() {
             <div style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }}>
               <form action={addCodeValue} className="hstack">
                 <input type="hidden" name="groupId" value={g.id} />
-                <input className="input" name="code" required maxLength={40} placeholder="새 코드값" style={{ flex: 1, height: 26, fontSize: 11.5 }} />
+                <input aria-label="새 코드값" className="input" name="code" required maxLength={40} placeholder="새 코드값" style={{ flex: 1, height: 26, fontSize: 11.5 }} />
                 <button type="submit" className="btn sm pri">코드 추가</button>
               </form>
             </div>

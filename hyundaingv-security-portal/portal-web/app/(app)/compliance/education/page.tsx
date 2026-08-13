@@ -93,11 +93,11 @@ export default async function EducationPage() {
         {canManage && (
           <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
             <form action={addCourse} className="hstack">
-              <input className="input" name="title" required maxLength={120} placeholder="교육 과정명" style={{ flex: 1 }} />
-              <select className="select" name="target">
+              <input aria-label="교육 과정명" className="input" name="title" required maxLength={120} placeholder="교육 과정명" style={{ flex: 1 }} />
+              <select aria-label="점검 대상" className="select" name="target">
                 {TARGETS.map((t) => <option key={t}>{t}</option>)}
               </select>
-              <input className="input" name="plannedMonth" required type="month" defaultValue={today().slice(0, 7)} />
+              <input aria-label="plannedMonth" className="input" name="plannedMonth" required type="month" defaultValue={today().slice(0, 7)} />
               <input className="input" type="file" name="file" style={{ width: 160, paddingTop: 4 }} title="결재완료 연간계획 문서 첨부" />
               <button type="submit" className="btn">과정 등록</button>
             </form>
@@ -122,7 +122,7 @@ export default async function EducationPage() {
                   <div className="hstack" style={{ flexWrap: 'wrap', gap: 10 }}>
                     {missing.map((p) => (
                       <label key={p.name} className="hstack" style={{ gap: 4, fontSize: 12, cursor: 'pointer' }}>
-                        <input type="checkbox" name="names" value={p.name} /> {p.name}
+                        <input aria-label="names" type="checkbox" name="names" value={p.name} /> {p.name}
                       </label>
                     ))}
                     <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 140, paddingTop: 2 }} title="결과·명단 증빙 첨부" />

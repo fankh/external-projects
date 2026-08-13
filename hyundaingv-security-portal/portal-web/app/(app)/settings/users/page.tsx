@@ -80,7 +80,7 @@ export default async function UsersPage() {
                     <td className="c">
                       <form action={updateLine} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                         <input type="hidden" name="docType" value={l.docType} />
-                        <select className="select" name="approver" defaultValue={l.approver} style={{ height: 25, fontSize: 11.5 }}>
+                        <select aria-label="결재자" className="select" name="approver" defaultValue={l.approver} style={{ height: 25, fontSize: 11.5 }}>
                           {approverCandidates.map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
                         </select>
                         <select className="select" name="secondApprover" defaultValue={l.secondApprover ?? ''} title="2차 결재자 — 지정 시 다단 결재" style={{ height: 25, fontSize: 11.5 }}>

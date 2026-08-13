@@ -99,7 +99,7 @@ export default async function SrManagePage() {
                       {next ? (
                         <form action={advance} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="srNo" value={r.srNo} />
-                          <input className="input" type="number" name="manHours" min={1} placeholder="공수" title="투입 공수(MD) — 누적 합산" style={{ height: 25, fontSize: 11, width: 54 }} />
+                          <input aria-label="공수" className="input" type="number" name="manHours" min={1} placeholder="공수" title="투입 공수(MD) — 누적 합산" style={{ height: 25, fontSize: 11, width: 54 }} />
                           <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 130, paddingTop: 2 }} title="처리 결과 증적 첨부" />
                           <button type="submit" className="btn sm">{next} 처리 →</button>
                         </form>

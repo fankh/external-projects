@@ -139,12 +139,12 @@ export default async function IncidentsPage() {
 
       <Card title="장애 등록" kicker="New Incident">
         <form action={addIncident} className="hstack">
-          <input className="input" name="system" required maxLength={60} placeholder="대상 시스템" style={{ width: 160 }} />
-          <input className="input" name="title" required maxLength={120} placeholder="장애 내용" style={{ flex: 1 }} />
+          <input aria-label="대상 시스템" className="input" name="system" required maxLength={60} placeholder="대상 시스템" style={{ width: 160 }} />
+          <input aria-label="장애 내용" className="input" name="title" required maxLength={120} placeholder="장애 내용" style={{ flex: 1 }} />
           <select className="select" name="category" title="장애항목 — 공통코드 FAULT_ITEM">
             {activeItems(s).map((c) => <option key={c}>{c}</option>)}
           </select>
-          <select className="select" name="grade">
+          <select aria-label="장애등급" className="select" name="grade">
             {enabledGrades(s).map((g) => <option key={g}>{g}</option>)}
           </select>
           <input className="input" type="file" name="file" style={{ width: 220, paddingTop: 4 }} title="장애 증적 첨부" />
@@ -168,7 +168,7 @@ export default async function IncidentsPage() {
                   <tr key={i.id}>
                     <td className="c">
                       {i.status === '조치완료' && i.reportStatus === '미상신'
-                        ? <input type="checkbox" name="ids" value={i.id} />
+                        ? <input aria-label="선택" type="checkbox" name="ids" value={i.id} />
                         : <span className="mut">-</span>}
                     </td>
                     <td className="code">{i.id}</td>
@@ -218,9 +218,9 @@ export default async function IncidentsPage() {
                   </div>
                   <form action={resolve} className="vstack" style={{ gap: 6 }}>
                     <input type="hidden" name="id" value={i.id} />
-                    <input className="input" name="action" required maxLength={300} placeholder="조치내역" />
+                    <input aria-label="조치내역" className="input" name="action" required maxLength={300} placeholder="조치내역" />
                     <div className="hstack">
-                      <input className="input" name="countermeasure" maxLength={300} placeholder="향후대책 (선택)" style={{ flex: 1 }} />
+                      <input aria-label="향후대책" className="input" name="countermeasure" maxLength={300} placeholder="향후대책 (선택)" style={{ flex: 1 }} />
                       <button type="submit" className="btn sm pri">조치완료</button>
                     </div>
                   </form>
@@ -243,7 +243,7 @@ export default async function IncidentsPage() {
                   </div>
                   <form action={addCmResult} className="hstack">
                     <input type="hidden" name="id" value={i.id} />
-                    <input className="input" name="cmResult" required maxLength={300} placeholder="대책 이행 결과" style={{ flex: 1 }} />
+                    <input aria-label="대책 이행 결과" className="input" name="cmResult" required maxLength={300} placeholder="대책 이행 결과" style={{ flex: 1 }} />
                     <button type="submit" className="btn sm">결과 등록</button>
                   </form>
                 </div>

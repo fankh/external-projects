@@ -100,7 +100,7 @@ export default async function ProjectStatusPage() {
                       {p.status === '완료' ? <span className="mut">-</span> : (
                         <form action={updateProgress} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="id" value={p.id} />
-                          <input className="input" name="progress" type="number" min={0} max={100} defaultValue={p.progress} style={{ height: 25, fontSize: 11.5, width: 64 }} />
+                          <input aria-label="progress" className="input" name="progress" type="number" min={0} max={100} defaultValue={p.progress} style={{ height: 25, fontSize: 11.5, width: 64 }} />
                           <button type="submit" className="btn sm">갱신</button>
                         </form>
                       )}
@@ -113,17 +113,17 @@ export default async function ProjectStatusPage() {
         </div>
         <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
           <form action={addProject} className="hstack" style={{ flexWrap: 'wrap' }}>
-            <input className="input" name="title" required maxLength={120} placeholder="프로젝트명" style={{ flex: 1, minWidth: 200 }} />
-            <select className="select" name="contractId">
+            <input aria-label="프로젝트명" className="input" name="title" required maxLength={120} placeholder="프로젝트명" style={{ flex: 1, minWidth: 200 }} />
+            <select aria-label="계약" className="select" name="contractId">
               <option value="">계약 연동 안 함</option>
               {s.investContracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.title}</option>)}
             </select>
-            <input className="input" name="headcount" required type="number" min={1} placeholder="인력" style={{ width: 70 }} />
+            <input aria-label="인력" className="input" name="headcount" required type="number" min={1} placeholder="인력" style={{ width: 70 }} />
             <select className="select" name="members" multiple size={3} title="투입 인력 명단 (Ctrl 다중 선택) — 참여 서약 대상 기준" style={{ width: 120, height: 58 }}>
               {s.people.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
             </select>
-            <input className="input" name="start" required type="date" />
-            <input className="input" name="end" required type="date" />
+            <input aria-label="시작일" className="input" name="start" required type="date" />
+            <input aria-label="종료일" className="input" name="end" required type="date" />
             <input className="input" type="file" name="file" style={{ width: 170, paddingTop: 4 }} title="인력투입계획서 등 첨부" />
             <button type="submit" className="btn pri">프로젝트 등록</button>
           </form>

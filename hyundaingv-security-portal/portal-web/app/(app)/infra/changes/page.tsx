@@ -119,7 +119,7 @@ export default async function ChangesPage() {
                     {c.status === '작업등록승인' && (
                       <form action={submitResult} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                         <input type="hidden" name="id" value={c.id} />
-                        <input className="input" name="result" required maxLength={500} placeholder="작업 결과" style={{ height: 25, fontSize: 11.5, width: 170 }} />
+                        <input aria-label="작업 결과" className="input" name="result" required maxLength={500} placeholder="작업 결과" style={{ height: 25, fontSize: 11.5, width: 170 }} />
                         <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 150, paddingTop: 2 }} title="결과 증적 첨부" />
                         <button type="submit" className="btn sm pri">결과 상신</button>
                       </form>
@@ -137,9 +137,9 @@ export default async function ChangesPage() {
       <div className="cols c2">
         <Card title="인프라변경 등록" kicker="Infra Change">
           <form action={addInfraChange} className="vstack" style={{ gap: 7 }}>
-            <input className="input" name="title" required maxLength={120} placeholder="변경 작업 제목" />
+            <input aria-label="변경 작업 제목" className="input" name="title" required maxLength={120} placeholder="변경 작업 제목" />
             <div className="hstack">
-              <input className="input" name="plan" required maxLength={500} placeholder="작업계획 · 원복계획" style={{ flex: 1 }} />
+              <input aria-label="작업계획 · 원복계획" className="input" name="plan" required maxLength={500} placeholder="작업계획 · 원복계획" style={{ flex: 1 }} />
               <button type="submit" className="btn">등록</button>
             </div>
           </form>
@@ -150,7 +150,7 @@ export default async function ChangesPage() {
             <div className="empty" style={{ padding: '12px 0' }}>편입 대기 중인 적용요청 SR이 없습니다.</div>
           ) : (
             <form action={addDevChange} className="hstack">
-              <select className="select" name="srNo" required style={{ flex: 1 }}>
+              <select aria-label="SR번호" className="select" name="srNo" required style={{ flex: 1 }}>
                 {matchable.map((r) => <option key={r.srNo} value={r.srNo}>{r.srNo} · {r.title}</option>)}
               </select>
               <button type="submit" className="btn">변경 작업 편입</button>

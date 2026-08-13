@@ -186,8 +186,8 @@ export default async function InvestPage() {
         </div>
         <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
           <form action={addPlan} className="hstack">
-            <input className="input" name="title" required maxLength={120} placeholder="투자과제명" style={{ flex: 1 }} />
-            <input className="input" name="amount" required type="number" min={1} placeholder="계획액 (만원)" style={{ width: 140 }} />
+            <input aria-label="투자과제명" className="input" name="title" required maxLength={120} placeholder="투자과제명" style={{ flex: 1 }} />
+            <input aria-label="계획액" className="input" name="amount" required type="number" min={1} placeholder="계획액 (만원)" style={{ width: 140 }} />
             <button type="submit" className="btn">과제 등록</button>
           </form>
         </div>
@@ -223,15 +223,15 @@ export default async function InvestPage() {
           <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
             <form action={addContract} className="vstack" style={{ gap: 7 }}>
               <div className="hstack">
-                <select className="select" name="planId" style={{ flex: 1 }}>
+                <select aria-label="연결 항목" className="select" name="planId" style={{ flex: 1 }}>
                   <option value="">과제 연결 안 함 (계획외)</option>
                   {confirmed.map((p) => <option key={p.id} value={p.id}>{p.id} · {p.title}</option>)}
                 </select>
-                <input className="input" name="vendor" required maxLength={60} placeholder="업체" style={{ width: 120 }} />
+                <input aria-label="업체" className="input" name="vendor" required maxLength={60} placeholder="업체" style={{ width: 120 }} />
               </div>
               <div className="hstack">
-                <input className="input" name="title" required maxLength={120} placeholder="계약명" style={{ flex: 1 }} />
-                <input className="input" name="amount" required type="number" min={1} placeholder="계약액" style={{ width: 110 }} />
+                <input aria-label="계약명" className="input" name="title" required maxLength={120} placeholder="계약명" style={{ flex: 1 }} />
+                <input aria-label="계약액" className="input" name="amount" required type="number" min={1} placeholder="계약액" style={{ width: 110 }} />
                 <input className="input" type="file" name="file" style={{ width: 180, paddingTop: 4 }} title="계약서·부속서류" />
                 <button type="submit" className="btn">계약 등록</button>
               </div>
@@ -269,13 +269,13 @@ export default async function InvestPage() {
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
             <form action={requestSettlement} className="hstack">
-              <select className="select" name="contractId" required style={{ flex: 1 }}>
+              <select aria-label="계약" className="select" name="contractId" required style={{ flex: 1 }}>
                 {kindContracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.title}</option>)}
               </select>
-              <select className="select" name="item">
+              <select aria-label="지급 항목" className="select" name="item">
                 <option>착수금</option><option>중도금</option><option>잔금</option>
               </select>
-              <input className="input" name="amount" required type="number" min={1} placeholder="금액" style={{ width: 100 }} />
+              <input aria-label="금액" className="input" name="amount" required type="number" min={1} placeholder="금액" style={{ width: 100 }} />
               <input className="input" name="dueDate" type="date" title="지급 예정일 — 지급 목록 일정 관리" style={{ width: 130 }} />
               <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="정산 증빙 첨부" />
               <button type="submit" name="mode" value="draft" className="btn">임시저장</button>

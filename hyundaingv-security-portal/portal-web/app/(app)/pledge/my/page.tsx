@@ -114,7 +114,7 @@ export default async function MyPledgePage() {
         <Card title="온라인 동의" kicker="Sign">
           <form action={sign} className="hstack" style={{ justifyContent: 'space-between' }}>
             <label className="hstack" style={{ gap: 7, cursor: 'pointer' }}>
-              <input type="checkbox" name="agree" required />
+              <input aria-label="동의" type="checkbox" name="agree" required />
               위 서약 내용을 모두 확인하였으며 이에 동의합니다.
             </label>
             <button type="submit" className="btn pri">서약서 제출</button>
@@ -134,7 +134,7 @@ export default async function MyPledgePage() {
               <form action={signKind} className="hstack" style={{ justifyContent: 'space-between' }}>
                 <input type="hidden" name="kind" value="관리책임자" />
                 <label className="hstack" style={{ gap: 7, cursor: 'pointer' }}>
-                  <input type="checkbox" name="agree" required />
+                  <input aria-label="동의" type="checkbox" name="agree" required />
                   관리책임자로서 소관 조직의 정보보호 관리 책임을 다할 것을 서약합니다.
                 </label>
                 <button type="submit" className="btn pri">관리책임자 서약 제출</button>
@@ -156,7 +156,7 @@ export default async function MyPledgePage() {
               <form action={signKind} className="hstack" style={{ justifyContent: 'space-between' }}>
                 <input type="hidden" name="kind" value="재택근무" />
                 <label className="hstack" style={{ gap: 7, cursor: 'pointer' }}>
-                  <input type="checkbox" name="agree" required />
+                  <input aria-label="동의" type="checkbox" name="agree" required />
                   재택근무 시 보안수칙(사내망 접속·자료 반출 금지·화면 잠금)을 준수할 것을 서약합니다.
                 </label>
                 <button type="submit" className="btn pri">재택근무 서약 제출</button>
@@ -186,11 +186,11 @@ export default async function MyPledgePage() {
               mySigns.length === 0 && <div className="dim" style={{ fontSize: 11.5 }}>진행중인 프로젝트가 없거나 전부 서약을 마쳤습니다.</div>
             ) : (
               <form action={signProject} className="hstack">
-                <select className="select" name="projectRef" required style={{ flex: 1 }}>
+                <select aria-label="프로젝트" className="select" name="projectRef" required style={{ flex: 1 }}>
                   {unsignedProjects.map((p) => <option key={p.id} value={p.id}>{p.id} · {p.title}</option>)}
                 </select>
                 <label className="hstack" style={{ gap: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  <input type="checkbox" name="agree" required /> 참여 보안수칙 동의
+                  <input aria-label="동의" type="checkbox" name="agree" required /> 참여 보안수칙 동의
                 </label>
                 <button type="submit" className="btn pri">프로젝트 서약 제출</button>
               </form>
@@ -215,9 +215,9 @@ export default async function MyPledgePage() {
                   보안담당자로 지정되어 특별서약 대상입니다 — 본문 서약 외 담당업무·세부업무내용을 추가 입력합니다.
                 </p>
                 <form action={signSpecial} className="hstack">
-                  <input className="input" name="duty" required maxLength={200} placeholder="담당업무 · 세부업무내용" style={{ flex: 1 }} />
+                  <input aria-label="담당업무 · 세부업무내용" className="input" name="duty" required maxLength={200} placeholder="담당업무 · 세부업무내용" style={{ flex: 1 }} />
                   <label className="hstack" style={{ gap: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    <input type="checkbox" name="agree" required /> 동의
+                    <input aria-label="동의" type="checkbox" name="agree" required /> 동의
                   </label>
                   <button type="submit" className="btn pri">특별서약 제출</button>
                 </form>

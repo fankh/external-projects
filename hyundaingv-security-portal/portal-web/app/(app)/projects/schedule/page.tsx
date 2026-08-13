@@ -103,11 +103,11 @@ export default async function SchedulePage() {
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
             <form action={addDeliverable} className="hstack">
-              <select className="select" name="projectId">
+              <select aria-label="projectId" className="select" name="projectId">
                 {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
               </select>
-              <input className="input" name="name" required maxLength={120} placeholder="산출물명" style={{ flex: 1 }} />
-              <input className="input" name="due" required type="date" />
+              <input aria-label="산출물명" className="input" name="name" required maxLength={120} placeholder="산출물명" style={{ flex: 1 }} />
+              <input aria-label="due" className="input" name="due" required type="date" />
               <input className="input" type="file" name="file" style={{ width: 140, paddingTop: 4 }} title="산출물 파일 첨부" />
               <button type="submit" className="btn">등록</button>
             </form>
@@ -141,11 +141,11 @@ export default async function SchedulePage() {
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
             <form action={addIssue} className="hstack">
-              <select className="select" name="projectId">
+              <select aria-label="projectId" className="select" name="projectId">
                 {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id}</option>)}
               </select>
-              <input className="input" name="title" required maxLength={120} placeholder="이슈 · 리스크 내용" style={{ flex: 1 }} />
-              <select className="select" name="risk">
+              <input aria-label="이슈 · 리스크 내용" className="input" name="title" required maxLength={120} placeholder="이슈 · 리스크 내용" style={{ flex: 1 }} />
+              <select aria-label="risk" className="select" name="risk">
                 <option>높음</option><option>중간</option><option>낮음</option>
               </select>
               <input className="input" type="file" name="file" style={{ width: 140, paddingTop: 4 }} title="근거 자료 첨부" />

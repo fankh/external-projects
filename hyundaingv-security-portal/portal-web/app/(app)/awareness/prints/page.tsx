@@ -146,7 +146,7 @@ export default async function PrintsPage() {
                       {p.status === '미등록' && p.name === me.name ? (
                         <form action={registerDiscard} className="hstack" style={{ padding: '3px 0' }}>
                           <input type="hidden" name="id" value={p.id} />
-                          <select className="select" name="method" style={{ height: 25, fontSize: 11.5 }}>
+                          <select aria-label="방식" className="select" name="method" style={{ height: 25, fontSize: 11.5 }}>
                             <option>세단</option><option>소각</option>
                           </select>
                           <button type="submit" className="btn sm">폐기 등록</button>

@@ -79,13 +79,13 @@ export default async function ViolationsPage() {
       {canManage && (
         <Card title="위반 등록 — 확인서 요청" kicker="New Violation">
           <form action={addViolation} className="hstack">
-            <select className="select" name="name">
+            <select aria-label="이름" className="select" name="name">
               {s.people.map((p) => <option key={p.name} value={p.name}>{p.name} ({p.dept})</option>)}
             </select>
-            <select className="select" name="type">
+            <select aria-label="type" className="select" name="type">
               {TYPES.map((t) => <option key={t}>{t}</option>)}
             </select>
-            <input className="input" name="detail" required maxLength={300} placeholder="위반 내용" style={{ flex: 1 }} />
+            <input aria-label="위반 내용" className="input" name="detail" required maxLength={300} placeholder="위반 내용" style={{ flex: 1 }} />
             <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="확인서 스캔 등 증빙 첨부" />
             <button type="submit" className="btn pri">등록 · 안내메일 발송</button>
           </form>
@@ -115,7 +115,7 @@ export default async function ViolationsPage() {
                       {v.status === '징구중' && v.name === me.name ? (
                         <form action={submitStatement} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="id" value={v.id} />
-                          <input className="input" name="statement" required maxLength={500} placeholder="사실확인 · 재발방지 서약" style={{ height: 25, fontSize: 11.5, width: 220 }} />
+                          <input aria-label="사실확인 · 재발방지 서약" className="input" name="statement" required maxLength={500} placeholder="사실확인 · 재발방지 서약" style={{ height: 25, fontSize: 11.5, width: 220 }} />
                           <button type="submit" className="btn sm pri">확인서 결재신청</button>
                         </form>
                       ) : v.statement ? (

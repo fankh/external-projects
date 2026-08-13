@@ -138,11 +138,11 @@ export default async function OperationsPage() {
         </div>
         <div style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }}>
           <form action={addBatch} className="hstack" style={{ flexWrap: 'wrap', gap: 5 }}>
-            <input className="input" name="name" required maxLength={60} placeholder="배치 잡 이름" style={{ flex: 1, minWidth: 150, height: 26, fontSize: 11.5 }} />
+            <input aria-label="배치 잡 이름" className="input" name="name" required maxLength={60} placeholder="배치 잡 이름" style={{ flex: 1, minWidth: 150, height: 26, fontSize: 11.5 }} />
             <select className="select" name="system" style={{ height: 26, fontSize: 11.5 }} title="대상 시스템 — 시스템관리 기준">
               {s.systems.map((x) => <option key={x.id}>{x.name}</option>)}
             </select>
-            <select className="select" name="schedule" style={{ height: 26, fontSize: 11.5 }}>
+            <select aria-label="주기" className="select" name="schedule" style={{ height: 26, fontSize: 11.5 }}>
               {['일', '주', '월'].map((c) => <option key={c}>{c}</option>)}
             </select>
             <button type="submit" className="btn sm pri">배치 등록</button>
@@ -176,10 +176,10 @@ export default async function OperationsPage() {
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }}>
             <form action={addInterface} className="hstack" style={{ flexWrap: 'wrap', gap: 5 }}>
-              <input className="input" name="name" required maxLength={60} placeholder="인터페이스명" style={{ flex: 1, minWidth: 110, height: 26, fontSize: 11.5 }} />
-              <input className="input" name="from" required maxLength={40} placeholder="From" style={{ width: 80, height: 26, fontSize: 11.5 }} />
-              <input className="input" name="to" required maxLength={40} placeholder="To" style={{ width: 80, height: 26, fontSize: 11.5 }} />
-              <select className="select" name="method" style={{ height: 26, fontSize: 11.5 }}>
+              <input aria-label="인터페이스명" className="input" name="name" required maxLength={60} placeholder="인터페이스명" style={{ flex: 1, minWidth: 110, height: 26, fontSize: 11.5 }} />
+              <input aria-label="From" className="input" name="from" required maxLength={40} placeholder="From" style={{ width: 80, height: 26, fontSize: 11.5 }} />
+              <input aria-label="To" className="input" name="to" required maxLength={40} placeholder="To" style={{ width: 80, height: 26, fontSize: 11.5 }} />
+              <select aria-label="방식" className="select" name="method" style={{ height: 26, fontSize: 11.5 }}>
                 {['REST API', 'DB 연계', '파일'].map((m) => <option key={m}>{m}</option>)}
               </select>
               <button type="submit" className="btn sm pri">등록</button>

@@ -39,13 +39,13 @@ export default async function ReportsPage() {
 
       <Card title="작성" kicker="New">
         <form action={addNote} className="hstack">
-          <select className="select" name="projectId">
+          <select aria-label="projectId" className="select" name="projectId">
             {s.projects.map((p) => <option key={p.id} value={p.id}>{p.id} · {p.title}</option>)}
           </select>
-          <select className="select" name="kind">
+          <select aria-label="유형" className="select" name="kind">
             <option>주간보고</option><option>회의록</option>
           </select>
-          <input className="input" name="title" required maxLength={160} placeholder="제목 (예: 8월 1주차 — 개발 진행, 정합성 이슈 대응)" style={{ flex: 1 }} />
+          <input aria-label="제목" className="input" name="title" required maxLength={160} placeholder="제목 (예: 8월 1주차 — 개발 진행, 정합성 이슈 대응)" style={{ flex: 1 }} />
           <input className="input" type="file" name="file" style={{ width: 170, paddingTop: 4 }} title="회의록·주간보고 원본 첨부" />
           <button type="submit" className="btn pri">등록</button>
         </form>

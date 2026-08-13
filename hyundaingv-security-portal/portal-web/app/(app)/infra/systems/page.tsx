@@ -146,15 +146,15 @@ export default async function SystemsPage() {
         </div>
         <div style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }}>
           <form action={addSystem} className="hstack" style={{ flexWrap: 'wrap', gap: 5 }}>
-            <input className="input" name="name" required maxLength={60} placeholder="시스템명" style={{ width: 130, height: 26, fontSize: 11.5 }} />
-            <input className="input" name="url" required maxLength={120} placeholder="접속 URL" style={{ flex: 1, minWidth: 150, height: 26, fontSize: 11.5 }} />
-            <select className="select" name="env" style={{ height: 26, fontSize: 11.5 }}>
+            <input aria-label="시스템명" className="input" name="name" required maxLength={60} placeholder="시스템명" style={{ width: 130, height: 26, fontSize: 11.5 }} />
+            <input aria-label="접속 URL" className="input" name="url" required maxLength={120} placeholder="접속 URL" style={{ flex: 1, minWidth: 150, height: 26, fontSize: 11.5 }} />
+            <select aria-label="env" className="select" name="env" style={{ height: 26, fontSize: 11.5 }}>
               <option>운영계</option><option>개발계</option>
             </select>
             <select className="select" name="serverId" style={{ height: 26, fontSize: 11.5 }} title="매핑 서버">
               {s.servers.map((v) => <option key={v.id} value={v.id}>{v.hostname}</option>)}
             </select>
-            <input className="input" name="owner" required maxLength={40} placeholder="담당" style={{ width: 80, height: 26, fontSize: 11.5 }} />
+            <input aria-label="담당" className="input" name="owner" required maxLength={40} placeholder="담당" style={{ width: 80, height: 26, fontSize: 11.5 }} />
             <button type="submit" className="btn sm pri">시스템 등록</button>
           </form>
         </div>
@@ -205,14 +205,14 @@ export default async function SystemsPage() {
         </div>
         <div style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }}>
           <form action={addServer} className="hstack" style={{ flexWrap: 'wrap', gap: 5 }}>
-            <input className="input" name="hostname" required maxLength={40} placeholder="호스트명" style={{ width: 110, height: 26, fontSize: 11.5 }} />
-            <input className="input" name="ip" required maxLength={20} placeholder="IP" style={{ width: 100, height: 26, fontSize: 11.5 }} />
-            <select className="select" name="purpose" style={{ height: 26, fontSize: 11.5 }}>
+            <input aria-label="호스트명" className="input" name="hostname" required maxLength={40} placeholder="호스트명" style={{ width: 110, height: 26, fontSize: 11.5 }} />
+            <input aria-label="IP" className="input" name="ip" required maxLength={20} placeholder="IP" style={{ width: 100, height: 26, fontSize: 11.5 }} />
+            <select aria-label="용도" className="select" name="purpose" style={{ height: 26, fontSize: 11.5 }}>
               {PURPOSES.map((p) => <option key={p}>{p}</option>)}
             </select>
-            <input className="input" name="os" required maxLength={60} placeholder="OS" style={{ width: 140, height: 26, fontSize: 11.5 }} />
-            <input className="input" name="cpu" maxLength={20} placeholder="CPU" style={{ width: 70, height: 26, fontSize: 11.5 }} />
-            <input className="input" name="memoryGb" type="number" min={1} placeholder="GB" style={{ width: 55, height: 26, fontSize: 11.5 }} />
+            <input aria-label="OS" className="input" name="os" required maxLength={60} placeholder="OS" style={{ width: 140, height: 26, fontSize: 11.5 }} />
+            <input aria-label="CPU" className="input" name="cpu" maxLength={20} placeholder="CPU" style={{ width: 70, height: 26, fontSize: 11.5 }} />
+            <input aria-label="GB" className="input" name="memoryGb" type="number" min={1} placeholder="GB" style={{ width: 55, height: 26, fontSize: 11.5 }} />
             <select className="select" name="hwId" style={{ height: 26, fontSize: 11.5 }} title="장착 H/W(물리서버) — 랙은 H/W 를 따른다">
               {physicals.map((h) => <option key={h.id} value={h.id}>{h.id} · {h.model} ({h.rackId})</option>)}
             </select>

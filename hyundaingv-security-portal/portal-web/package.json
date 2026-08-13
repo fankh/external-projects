@@ -10,7 +10,8 @@
     "e2e": "node scripts/pyrun.mjs scripts/e2e_suite.py",
     "health": "node scripts/pyrun.mjs scripts/client_health.py",
     "load": "node scripts/load_probe.mjs",
-    "gates": "npm run build && npm run smoke && npm run health && npm run e2e"
+    "a11y": "node scripts/a11y.mjs",
+    "gates": "npm run build && npm run smoke && npm run a11y && npm run health && npm run e2e"
   },
   "dependencies": {
     "next": "^15.1.6",

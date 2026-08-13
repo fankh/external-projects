@@ -54,12 +54,12 @@ export default async function NoticesPage() {
       {canPost && (
         <Card title="공지 등록" kicker="New">
           <form action={addNotice} className="hstack">
-            <select className="select" name="category">
+            <select aria-label="항목" className="select" name="category">
               {CATS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            <input className="input" name="title" required maxLength={120} placeholder="공지 제목" style={{ flex: 1 }} />
+            <input aria-label="공지 제목" className="input" name="title" required maxLength={120} placeholder="공지 제목" style={{ flex: 1 }} />
             <label className="hstack" style={{ gap: 5, fontSize: 11.5, color: 'var(--dim)', cursor: 'pointer' }}>
-              <input type="checkbox" name="pinned" /> 고정
+              <input aria-label="고정" type="checkbox" name="pinned" /> 고정
             </label>
             <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="공지 첨부" />
             <button type="submit" className="btn pri">등록</button>

@@ -138,7 +138,7 @@ export default async function ManagePledgePage() {
                     <td className="c">
                       <form action={reviseForm} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                         <input type="hidden" name="kind" value={f.kind} />
-                        <input className="input" name="revisedAt" required type="date" style={{ height: 25, fontSize: 11.5 }} />
+                        <input aria-label="revisedAt" className="input" name="revisedAt" required type="date" style={{ height: 25, fontSize: 11.5 }} />
                         <button type="submit" className="btn sm">개정</button>
                       </form>
                     </td>
@@ -189,7 +189,7 @@ export default async function ManagePledgePage() {
                 {s.companyPledges.map((c) => (
                   <tr key={c.id}>
                     <td className="c">
-                      {c.status === '등록' ? <input type="checkbox" name="ids" value={c.id} /> : <span className="mut">-</span>}
+                      {c.status === '등록' ? <input aria-label="선택" type="checkbox" name="ids" value={c.id} /> : <span className="mut">-</span>}
                     </td>
                     <td className="code">{c.id}</td>
                     <td className="strong">{c.company}<Clip count={attachCount(c.id)} title="서약서 첨부" /></td>
@@ -211,8 +211,8 @@ export default async function ManagePledgePage() {
         </form>
         <div style={{ borderTop: '1px solid var(--line)', padding: '9px 14px' }}>
           <form action={addCompanyPledge} className="hstack">
-            <input className="input" name="company" required maxLength={60} placeholder="협력업체명" style={{ width: 160 }} />
-            <input className="input" name="personName" required maxLength={40} placeholder="대상자 성명" style={{ width: 120 }} />
+            <input aria-label="협력업체명" className="input" name="company" required maxLength={60} placeholder="협력업체명" style={{ width: 160 }} />
+            <input aria-label="대상자 성명" className="input" name="personName" required maxLength={40} placeholder="대상자 성명" style={{ width: 120 }} />
             <input className="input" type="file" name="file" style={{ flex: 1, paddingTop: 4 }} title="서약서·준법신청서약서 첨부" />
             <button type="submit" className="btn">징구 등록</button>
           </form>

@@ -58,8 +58,8 @@ export default async function FormsPage() {
 
       <Card title="양식 등록" kicker="Upload">
         <form action={addTemplate} className="hstack">
-          <input className="input" name="name" required maxLength={120} placeholder="양식명 (예: 장애보고 취합 양식)" style={{ flex: 1 }} />
-          <select className="select" name="docType">
+          <input aria-label="양식명" className="input" name="name" required maxLength={120} placeholder="양식명 (예: 장애보고 취합 양식)" style={{ flex: 1 }} />
+          <select aria-label="문서 유형" className="select" name="docType">
             {DOC_TYPES.map((d) => <option key={d}>{d}</option>)}
           </select>
           <input className="input" type="file" name="file" style={{ width: 170, paddingTop: 4 }} title="양식 파일 (xlsx)" />

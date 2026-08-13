@@ -119,10 +119,10 @@ export default async function SrCiPage() {
                     <td colSpan={3}>
                       <form action={assignCi} className="hstack" style={{ padding: '3px 0' }}>
                         <input type="hidden" name="srNo" value={r.srNo} />
-                        <select className="select" name="ci" required style={{ height: 25, fontSize: 11.5 }}>
+                        <select aria-label="ci" className="select" name="ci" required style={{ height: 25, fontSize: 11.5 }}>
                           {ciCandidates.map((c) => <option key={c.login} value={c.name}>{c.name} ({c.dept})</option>)}
                         </select>
-                        <input className="input" type="date" name="dueDate" required defaultValue={today()} style={{ height: 25, fontSize: 11.5 }} />
+                        <input aria-label="지급 예정일" className="input" type="date" name="dueDate" required defaultValue={today()} style={{ height: 25, fontSize: 11.5 }} />
                         <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 140, paddingTop: 2 }} title="BA 검토 증적 첨부" />
                         <button type="submit" className="btn sm pri">배정 · 착수</button>
                         <button type="submit" className="btn sm danger" formAction={baReject}>BA 반려</button>
@@ -141,9 +141,9 @@ export default async function SrCiPage() {
           <select className="select" name="category" required title="보안/업무 구분">
             <option>보안</option><option>업무</option>
           </select>
-          <input className="input" name="title" required maxLength={120} placeholder="요청 제목" style={{ flex: 2, minWidth: 180 }} />
-          <input className="input" name="requester" required maxLength={60} placeholder="요청자 (사외·관제 포함)" style={{ width: 150 }} />
-          <input className="input" name="system" maxLength={80} placeholder="대상 시스템" style={{ width: 130 }} />
+          <input aria-label="요청 제목" className="input" name="title" required maxLength={120} placeholder="요청 제목" style={{ flex: 2, minWidth: 180 }} />
+          <input aria-label="요청자" className="input" name="requester" required maxLength={60} placeholder="요청자 (사외·관제 포함)" style={{ width: 150 }} />
+          <input aria-label="대상 시스템" className="input" name="system" maxLength={80} placeholder="대상 시스템" style={{ width: 130 }} />
           <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="접수 근거 첨부" />
           <button type="submit" className="btn pri">접수</button>
         </form>
@@ -187,7 +187,7 @@ export default async function SrCiPage() {
                       {c.status === '처리중' && (
                         <form action={advanceCiSr} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="id" value={c.id} />
-                          <input className="input" name="result" required maxLength={300} placeholder="처리 내용" style={{ height: 25, fontSize: 11.5, width: 150 }} />
+                          <input aria-label="처리 내용" className="input" name="result" required maxLength={300} placeholder="처리 내용" style={{ height: 25, fontSize: 11.5, width: 150 }} />
                           <button type="submit" className="btn sm pri">완료</button>
                         </form>
                       )}

@@ -118,10 +118,10 @@ export default async function RacksPage() {
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }}>
             <form action={addRack} className="hstack" style={{ flexWrap: 'wrap', gap: 5 }}>
-              <input className="input" name="id" required maxLength={10} placeholder="랙번호 (예: C-01)" style={{ width: 100, height: 26, fontSize: 11.5 }} />
-              <input className="input" name="location" required maxLength={80} placeholder="위치" style={{ flex: 1, minWidth: 120, height: 26, fontSize: 11.5 }} />
-              <input className="input" name="sizeU" required type="number" min={1} placeholder="U" style={{ width: 60, height: 26, fontSize: 11.5 }} />
-              <input className="input" name="assetNo" required maxLength={40} placeholder="자산번호" style={{ width: 110, height: 26, fontSize: 11.5 }} />
+              <input aria-label="랙번호" className="input" name="id" required maxLength={10} placeholder="랙번호 (예: C-01)" style={{ width: 100, height: 26, fontSize: 11.5 }} />
+              <input aria-label="위치" className="input" name="location" required maxLength={80} placeholder="위치" style={{ flex: 1, minWidth: 120, height: 26, fontSize: 11.5 }} />
+              <input aria-label="U" className="input" name="sizeU" required type="number" min={1} placeholder="U" style={{ width: 60, height: 26, fontSize: 11.5 }} />
+              <input aria-label="자산번호" className="input" name="assetNo" required maxLength={40} placeholder="자산번호" style={{ width: 110, height: 26, fontSize: 11.5 }} />
               <button type="submit" className="btn sm pri">랙 등록</button>
             </form>
           </div>
@@ -160,14 +160,14 @@ export default async function RacksPage() {
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }}>
             <form action={addHardware} className="hstack" style={{ flexWrap: 'wrap', gap: 5 }}>
-              <select className="select" name="kind" style={{ height: 26, fontSize: 11.5 }}>
+              <select aria-label="유형" className="select" name="kind" style={{ height: 26, fontSize: 11.5 }}>
                 {HW_KINDS.map((k) => <option key={k}>{k}</option>)}
               </select>
-              <input className="input" name="model" required maxLength={80} placeholder="모델" style={{ flex: 1, minWidth: 130, height: 26, fontSize: 11.5 }} />
-              <select className="select" name="rackId" style={{ height: 26, fontSize: 11.5 }}>
+              <input aria-label="모델" className="input" name="model" required maxLength={80} placeholder="모델" style={{ flex: 1, minWidth: 130, height: 26, fontSize: 11.5 }} />
+              <select aria-label="랙" className="select" name="rackId" style={{ height: 26, fontSize: 11.5 }}>
                 {s.racks.map((r) => <option key={r.id}>{r.id}</option>)}
               </select>
-              <input className="input" name="assetNo" required maxLength={40} placeholder="자산번호" style={{ width: 110, height: 26, fontSize: 11.5 }} />
+              <input aria-label="자산번호" className="input" name="assetNo" required maxLength={40} placeholder="자산번호" style={{ width: 110, height: 26, fontSize: 11.5 }} />
               <button type="submit" className="btn sm pri">H/W 등록</button>
             </form>
           </div>

@@ -53,26 +53,26 @@ export default async function SrNewPage() {
         <form action={createSr} className="vstack" style={{ maxWidth: 640 }}>
           <div className="hstack">
             <label className="dim" style={{ width: 80, fontSize: 11.5, fontWeight: 600 }}>SR 유형</label>
-            <select className="select" name="kind" required style={{ flex: 1 }}>
+            <select aria-label="유형" className="select" name="kind" required style={{ flex: 1 }}>
               {KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.kind}</option>)}
             </select>
           </div>
           <div className="hstack">
             <label className="dim" style={{ width: 80, fontSize: 11.5, fontWeight: 600 }}>대상 시스템</label>
-            <input className="input" name="system" required maxLength={80} placeholder="예: 그룹웨어 · ERP · 영업정보시스템" style={{ flex: 1 }} />
+            <input aria-label="예: 그룹웨어 · ERP · 영업정보시스템" className="input" name="system" required maxLength={80} placeholder="예: 그룹웨어 · ERP · 영업정보시스템" style={{ flex: 1 }} />
           </div>
           <div className="hstack">
             <label className="dim" style={{ width: 80, fontSize: 11.5, fontWeight: 600 }}>제목</label>
-            <input className="input" name="title" required maxLength={120} placeholder="요청 제목" style={{ flex: 1 }} />
+            <input aria-label="요청 제목" className="input" name="title" required maxLength={120} placeholder="요청 제목" style={{ flex: 1 }} />
           </div>
           <div className="hstack" style={{ alignItems: 'flex-start' }}>
             <label className="dim" style={{ width: 80, fontSize: 11.5, fontWeight: 600, paddingTop: 6 }}>요청 내용</label>
-            <textarea className="input" name="content" maxLength={2000} rows={5} placeholder="배경 · 요구사항 · 기대 결과"
+            <textarea aria-label="배경 · 요구사항 · 기대 결과" className="input" name="content" maxLength={2000} rows={5} placeholder="배경 · 요구사항 · 기대 결과"
               style={{ flex: 1, height: 'auto', padding: '8px 10px', resize: 'vertical', fontFamily: 'inherit' }} />
           </div>
           <div className="hstack">
             <label className="dim" style={{ width: 80, fontSize: 11.5, fontWeight: 600 }}>첨부파일</label>
-            <input className="input" type="file" name="file" style={{ flex: 1, paddingTop: 4 }} />
+            <input aria-label="첨부파일" className="input" type="file" name="file" style={{ flex: 1, paddingTop: 4 }} />
           </div>
           <div className="dim" style={{ fontSize: 11.5, paddingLeft: 88 }}>
             본문 첨부는 결재 문서에 그대로 첨부된다 (추가 첨부 없음 · 최대 10MB).

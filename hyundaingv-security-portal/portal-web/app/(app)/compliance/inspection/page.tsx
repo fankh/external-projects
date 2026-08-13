@@ -167,7 +167,7 @@ export default async function InspectionPage() {
                       {(p.status === '계획' || p.status === '결과미등록') ? (
                         <form action={registerResult} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="id" value={p.id} />
-                          <input className="input" name="result" required maxLength={500} placeholder="점검 결과" style={{ height: 25, fontSize: 11.5, width: 160 }} />
+                          <input aria-label="점검 결과" className="input" name="result" required maxLength={500} placeholder="점검 결과" style={{ height: 25, fontSize: 11.5, width: 160 }} />
                           <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 150, paddingTop: 2 }} title="증적자료 첨부" />
                           <button type="submit" className="btn sm pri">결과 결재상신</button>
                         </form>
@@ -189,13 +189,13 @@ export default async function InspectionPage() {
         <Card title="점검계획 수립" kicker="Plan">
           {/* 컨트롤 4개를 한 줄에 두면 c2 그리드 반폭에서 카드를 넘쳐 옆 카드 sticky 헤더에 가려진다 — 2행으로 나눈다 */}
           <form action={addPlan} className="vstack" style={{ gap: 7 }}>
-            <select className="select" name="itemId" required style={{ width: '100%' }}>
+            <select aria-label="점검 항목" className="select" name="itemId" required style={{ width: '100%' }}>
               {s.inspectionItems.map((i) => <option key={i.id} value={i.id}>[{i.category}] {i.control}</option>)}
             </select>
             <div className="hstack">
-              <input className="input" name="target" maxLength={60} placeholder="점검 대상 (조직·시스템)" style={{ flex: 1 }} />
-              <input className="input" name="month" required type="month" defaultValue={thisMonth} style={{ flex: 1 }} />
-              <select className="select" name="inspector" style={{ flex: 1 }}>
+              <input aria-label="점검 대상" className="input" name="target" maxLength={60} placeholder="점검 대상 (조직·시스템)" style={{ flex: 1 }} />
+              <input aria-label="월" className="input" name="month" required type="month" defaultValue={thisMonth} style={{ flex: 1 }} />
+              <select aria-label="점검자" className="select" name="inspector" style={{ flex: 1 }}>
                 {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
               </select>
               <input className="input" type="file" name="file" style={{ width: 140, paddingTop: 4 }} title="상세점검계획표 첨부" />
@@ -241,13 +241,13 @@ export default async function InspectionPage() {
           </div>
           <div style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }} className="vstack">
             <form action={addItem} className="hstack" style={{ flexWrap: 'wrap', gap: 5 }}>
-              <input className="input" name="category" required maxLength={40} placeholder="대분류" style={{ width: 90, height: 26, fontSize: 11.5 }} />
-              <input className="input" name="subCategory" maxLength={40} placeholder="중분류" style={{ width: 90, height: 26, fontSize: 11.5 }} />
-              <input className="input" name="control" required maxLength={120} placeholder="통제 항목" style={{ flex: 1, minWidth: 150, height: 26, fontSize: 11.5 }} />
-              <select className="select" name="cycle" style={{ height: 26, fontSize: 11.5 }}>
+              <input aria-label="대분류" className="input" name="category" required maxLength={40} placeholder="대분류" style={{ width: 90, height: 26, fontSize: 11.5 }} />
+              <input aria-label="중분류" className="input" name="subCategory" maxLength={40} placeholder="중분류" style={{ width: 90, height: 26, fontSize: 11.5 }} />
+              <input aria-label="통제 항목" className="input" name="control" required maxLength={120} placeholder="통제 항목" style={{ flex: 1, minWidth: 150, height: 26, fontSize: 11.5 }} />
+              <select aria-label="주기" className="select" name="cycle" style={{ height: 26, fontSize: 11.5 }}>
                 {activeCycles(s).map((c) => <option key={c}>{c}</option>)}
               </select>
-              <select className="select" name="source" style={{ height: 26, fontSize: 11.5 }}>
+              <select aria-label="구분" className="select" name="source" style={{ height: 26, fontSize: 11.5 }}>
                 {SOURCES.map((x) => <option key={x}>{x}</option>)}
               </select>
               <button type="submit" className="btn sm pri">기준 등록</button>

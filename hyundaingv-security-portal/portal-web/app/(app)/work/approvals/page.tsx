@@ -113,7 +113,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                   </form>
                   <form action={reject} className="hstack" style={{ gap: 4 }}>
                     <input type="hidden" name="id" value={selected.id} />
-                    <input className="input" name="reason" required maxLength={300} placeholder="반려 사유" style={{ height: 25, fontSize: 11.5, width: 150 }} />
+                    <input aria-label="반려 사유" className="input" name="reason" required maxLength={300} placeholder="반려 사유" style={{ height: 25, fontSize: 11.5, width: 150 }} />
                     <button type="submit" className="btn sm danger">반려</button>
                   </form>
                 </>
@@ -214,7 +214,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                         </form>
                         <form action={reject} className="hstack" style={{ gap: 4 }}>
                           <input type="hidden" name="id" value={a.id} />
-                          <input className="input" name="reason" required maxLength={300} placeholder="반려 사유" style={{ height: 25, fontSize: 11.5, width: 130 }} />
+                          <input aria-label="반려 사유" className="input" name="reason" required maxLength={300} placeholder="반려 사유" style={{ height: 25, fontSize: 11.5, width: 130 }} />
                           <button type="submit" className="btn sm danger">반려</button>
                         </form>
                       </span>

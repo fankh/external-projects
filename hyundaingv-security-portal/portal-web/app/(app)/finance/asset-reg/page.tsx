@@ -56,7 +56,7 @@ export default async function AssetRegPage({ searchParams }: { searchParams: Pro
       <Card title="자산 조회" kicker="Asset Search" pad={false}
         actions={
           <form className="hstack" action="/finance/asset-reg">
-            <input className="input" name="q" defaultValue={query} placeholder="시리얼 · 모델 · 사용자 검색" style={{ width: 220, height: 26, fontSize: 11.5 }} />
+            <input aria-label="시리얼 · 모델 · 사용자 검색" className="input" name="q" defaultValue={query} placeholder="시리얼 · 모델 · 사용자 검색" style={{ width: 220, height: 26, fontSize: 11.5 }} />
             <button type="submit" className="btn sm">조회</button>
           </form>
         }>

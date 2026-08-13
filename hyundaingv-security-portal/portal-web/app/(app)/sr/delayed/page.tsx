@@ -61,7 +61,7 @@ export default async function SrDelayedPage() {
                     <td className="c">
                       <form action={replan} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                         <input type="hidden" name="srNo" value={r.srNo} />
-                        <input className="input" type="date" name="dueDate" required min={t} style={{ height: 25, fontSize: 11.5 }} />
+                        <input aria-label="지급 예정일" className="input" type="date" name="dueDate" required min={t} style={{ height: 25, fontSize: 11.5 }} />
                         <button type="submit" className="btn sm">완료일 변경</button>
                       </form>
                     </td>

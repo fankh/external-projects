@@ -201,7 +201,7 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
           </div>
           <div className="hstack" style={{ gap: 14, flexWrap: 'wrap' }}>
             <form action={upsertTarget} className="hstack">
-              <select className="select" name="name" required>
+              <select aria-label="이름" className="select" name="name" required>
                 {s.people.map((p) => <option key={p.name} value={p.name}>{p.name} · {p.dept}</option>)}
               </select>
               <input className="input" type="date" name="startDate" title="재택 시작일 — 신규 등록" style={{ width: 130 }} />
