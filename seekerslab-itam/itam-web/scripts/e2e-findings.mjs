@@ -176,6 +176,9 @@ async function aiPeriodQuery(page) {
   const rx = await page.request.get(`${BASE}/api/reports/${encodeURIComponent(rid)}?format=xlsx`)
   const xbuf = Buffer.from(await rx.body())
   ok('리포트 반출: 네이티브 xlsx(PK ZIP·스프레드시트 타입)', (rx.headers()['content-type'] || '').includes('spreadsheetml.sheet') && xbuf[0] === 0x50 && xbuf[1] === 0x4b)
+  // 무압축 저장 ZIP 이라 셀 XML(inlineStr)이 평문 — 실제 리포트 데이터(제목·섹션)가 셀에 담겼는지 확인(빈 시트·오源 회귀 방지)
+  const xtext = xbuf.toString('utf8')
+  ok('리포트 반출: xlsx 셀에 실제 리포트 데이터(제목·섹션)', xtext.includes('연간 교체 계획') && xtext.includes('교체 대상 자산'))
 
   // 특정 자산 조회(자산번호) — 상세·이력·레코드 딥링크
   const a1 = await ask('AST-2023-000112 자산의 상태와 변경 이력 알려줘')
