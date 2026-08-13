@@ -121,6 +121,8 @@ export interface InspectionItem {
   id: string
   /** ISMS 항목 코드 관리 — 대분류 · 통제항목 */
   category: string
+  /** ISMS 중분류 (요구사항 62행 서브) */
+  subCategory?: string
   control: string
   cycle: InspectionCycle
   source: 'ISMS' | '외부기관'

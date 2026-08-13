@@ -2,11 +2,76 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
+import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
-import { getStore, nextNo } from '@/lib/store'
-import type { InspectionStatus } from '@/lib/types'
+import { getStore, isCodeActive, nextNo, type Store } from '@/lib/store'
+import type { InspectionCycle, InspectionStatus } from '@/lib/types'
+
+const SOURCES = ['ISMS', '외부기관'] as const
+
+/** 사용 가능한 점검 주기 — 공통코드 INSPECT_CYCLE (사용중지·기간만료 제외) */
+function activeCycles(s: Store): InspectionCycle[] {
+  const group = s.codeGroups.find((g) => g.id === 'INSPECT_CYCLE')
+  return (group?.values.filter(isCodeActive).map((v) => v.code) ?? []) as InspectionCycle[]
+}
+
+/** 기준 항목 추가 — 검증 통과 시 CK 채번으로 등록 (addItem·CSV 업로드 공용) */
+function applyItem(s: Store, category: string, subCategory: string, control: string, cycle: string, source: string): string | null {
+  if (!category || !control) return null
+  if (!activeCycles(s).includes(cycle as InspectionCycle) || !SOURCES.includes(source as (typeof SOURCES)[number])) return null
+  if (s.inspectionItems.some((i) => i.control === control)) return null
+  const max = s.inspectionItems.reduce((m, i) => Math.max(m, Number(i.id.replace('CK-', '')) || 0), 0)
+  const id = `CK-${String(max + 1).padStart(2, '0')}`
+  s.inspectionItems.push({ id, category, subCategory: subCategory || undefined, control, cycle: cycle as InspectionCycle, source: source as (typeof SOURCES)[number] })
+  return id
+}
+
+/** 기준관리 등록 (요구사항 62행 저장 ◎) — ISMS 대분류·중분류 코드 관리 */
+async function addItem(formData: FormData) {
+  'use server'
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const s = getStore()
+  const id = applyItem(s,
+    String(formData.get('category') ?? '').trim().slice(0, 40),
+    String(formData.get('subCategory') ?? '').trim().slice(0, 40),
+    String(formData.get('control') ?? '').trim().slice(0, 120),
+    String(formData.get('cycle') ?? ''), String(formData.get('source') ?? ''))
+  if (!id) return
+  audit(me.name, '점검 기준 변경', `${id} 등록 — ${String(formData.get('control') ?? '').slice(0, 80)}`)
+  revalidatePath('/compliance/inspection')
+}
+
+/** 기준관리 삭제 (요구사항 62행 삭제 ◎) — 계획이 참조 중인 항목은 삭제 불가 */
+async function deleteItem(formData: FormData) {
+  'use server'
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const id = String(formData.get('id') ?? '')
+  const s = getStore()
+  const item = s.inspectionItems.find((i) => i.id === id)
+  if (!item || s.inspectionPlans.some((p) => p.itemId === id)) return
+  s.inspectionItems = s.inspectionItems.filter((i) => i.id !== id)
+  audit(me.name, '점검 기준 변경', `${id} 삭제 — ${item.control}`)
+  revalidatePath('/compliance/inspection')
+}
+
+/** 기준 엑셀 업로드 (요구사항 62행 업로드 ◎) — CSV 한 줄에 대분류,통제항목,주기,구분[,중분류] */
+async function uploadItems(formData: FormData) {
+  'use server'
+  const me = await requireRole('BIZ_MGR', 'ADMIN')
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0 || file.size > 1024 * 1024) return
+  const s = getStore()
+  let applied = 0
+  for (const line of (await file.text()).split(/\r?\n/)) {
+    const [category = '', control = '', cycle = '', source = '', subCategory = ''] = line.split(',').map((x) => x.trim())
+    if (applyItem(s, category.slice(0, 40), subCategory.slice(0, 40), control.slice(0, 120), cycle, source)) applied += 1
+  }
+  if (applied === 0) return
+  audit(me.name, '점검 기준 변경', `업로드 ${applied}건 반영 (${file.name.slice(0, 60)})`)
+  revalidatePath('/compliance/inspection')
+}
 
 const ST_CHIP: Record<InspectionStatus, 'neutral' | 'warn' | 'info' | 'ok'> = {
   계획: 'neutral', 결과미등록: 'warn', 결재중: 'info', 완료: 'ok',
@@ -137,22 +202,59 @@ export default async function InspectionPage() {
           </div>
         </Card>
 
-        <Card title="기준관리 — 점검 항목 (Template)" kicker="Criteria" pad={false}>
+        <Card title="기준관리 — 점검 항목 (Template)" kicker="Criteria" pad={false}
+          actions={<a className="btn sm" href="/api/export?type=inspection-items">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>코드</th><th>대분류</th><th>통제 항목</th><th>주기</th><th>구분</th></tr></thead>
+              <thead><tr><th>코드</th><th>대분류</th><th>중분류</th><th>통제 항목</th><th>주기</th><th>구분</th><th className="c">삭제</th></tr></thead>
               <tbody>
-                {s.inspectionItems.map((i) => (
-                  <tr key={i.id}>
-                    <td className="code">{i.id}</td>
-                    <td>{i.category}</td>
-                    <td className="strong">{i.control}</td>
-                    <td><Chip tone="neutral" bare>{i.cycle}</Chip></td>
-                    <td>{i.source}</td>
-                  </tr>
-                ))}
+                {s.inspectionItems.map((i) => {
+                  const inUse = s.inspectionPlans.some((p) => p.itemId === i.id)
+                  return (
+                    <tr key={i.id}>
+                      <td className="code">{i.id}</td>
+                      <td>{i.category}</td>
+                      <td>{i.subCategory ?? <span className="mut">-</span>}</td>
+                      <td className="strong">{i.control}</td>
+                      <td><Chip tone="neutral" bare>{i.cycle}</Chip></td>
+                      <td>{i.source}</td>
+                      <td className="c">
+                        {inUse ? (
+                          <span className="mut" title="점검계획이 참조 중 — 삭제 불가">사용중</span>
+                        ) : (
+                          <form action={deleteItem} style={{ display: 'inline' }}>
+                            <input type="hidden" name="id" value={i.id} />
+                            <button type="submit" className="btn sm danger">삭제</button>
+                          </form>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
+          </div>
+          <div style={{ borderTop: '1px solid var(--line)', padding: '8px 12px' }} className="vstack">
+            <form action={addItem} className="hstack" style={{ flexWrap: 'wrap', gap: 5 }}>
+              <input className="input" name="category" required maxLength={40} placeholder="대분류" style={{ width: 90, height: 26, fontSize: 11.5 }} />
+              <input className="input" name="subCategory" maxLength={40} placeholder="중분류" style={{ width: 90, height: 26, fontSize: 11.5 }} />
+              <input className="input" name="control" required maxLength={120} placeholder="통제 항목" style={{ flex: 1, minWidth: 150, height: 26, fontSize: 11.5 }} />
+              <select className="select" name="cycle" style={{ height: 26, fontSize: 11.5 }}>
+                {activeCycles(s).map((c) => <option key={c}>{c}</option>)}
+              </select>
+              <select className="select" name="source" style={{ height: 26, fontSize: 11.5 }}>
+                {SOURCES.map((x) => <option key={x}>{x}</option>)}
+              </select>
+              <button type="submit" className="btn sm pri">기준 등록</button>
+            </form>
+            <form action={uploadItems} className="hstack" style={{ gap: 5, marginTop: 5 }}>
+              <input className="input" type="file" name="file" required accept=".csv,.txt" style={{ flex: 1, height: 26, fontSize: 11, paddingTop: 3 }}
+                title="CSV 업로드 — 대분류,통제항목,주기,구분[,중분류]" />
+              <button type="submit" className="btn sm">업로드 반영</button>
+            </form>
+            <div className="dim" style={{ fontSize: 11 }}>
+              주기 선택지는 공통코드 INSPECT_CYCLE — CSV 는 <span className="mono">대분류,통제항목,주기,구분[,중분류]</span> 형식, 중복 통제 항목은 건너뛴다.
+            </div>
           </div>
         </Card>
       </div>

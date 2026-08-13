@@ -211,7 +211,7 @@ async function main() {
     // 변경 루프 — 2단 상신, SR 적용요청 편입
     ['/infra/changes', 'BIZ_MGR', ['CW-2026-05', 'WAS 보안패치 적용', '결과 상신', 'SR-2026-0132', '변경 작업 편입']],
     // 보안점검(ISMS) — 현황판·기준관리·결과 결재상신
-    ['/compliance/inspection', 'BIZ_MGR', ['IS-2026-22', '퇴직·전보자 계정 회수 점검', '결과 결재상신', '기준관리', 'CK-05', '결과미등록']],
+    ['/compliance/inspection', 'BIZ_MGR', ['IS-2026-22', '퇴직·전보자 계정 회수 점검', '결과 결재상신', '기준관리', 'CK-05', '결과미등록', '중분류', '계정관리', '기준 등록', '업로드 반영']],
     // 비용 루프 — 속보 기준금액(정산>계약>계획), 투자·비용 분리
     ['/finance/expense', 'DEPT_MGR', ['클라우드 인프라 이용료', '씨클라우드', '속보', '기준금액', 'ST-2026-02', '월정산', '계획대비실적', 'expense-actual']],
     ['/finance/expense', 'USER', ['속보 등록']],
@@ -348,6 +348,11 @@ async function main() {
     const csv = await get('/api/export?type=remote-status&period=2026-06', 'BIZ_MGR')
     const csvText = await csv.text()
     check(csv.status === 200 && csvText.includes('강도윤') && !csvText.includes('김현우'), 'export: 재택 기간별 CSV (2026-06 명단)')
+    // 보안점검 기준 엑셀 (요구사항 62행) — BIZ 허용·USER 차단
+    const items = await get('/api/export?type=inspection-items', 'BIZ_MGR')
+    check(items.status === 200 && (await items.text()).includes('계정관리'), 'export: 점검 기준 CSV (중분류 포함)')
+    const itemsDenied = await get('/api/export?type=inspection-items', 'USER')
+    check(itemsDenied.status === 403, 'export: USER 점검 기준 차단(403)')
   }
   {
     // 엑셀 다운로드 — CSV(BOM) 응답과 권한 가드

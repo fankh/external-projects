@@ -448,6 +448,40 @@ def sc_codes(pg, base, check):
     check(opts == ['1등급'], f'코드 삭제 반영 ({opts})')
 
 
+def sc_criteria(pg, base, check):
+    """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    card = pg.locator('.card', has_text='기준관리 — 점검 항목')
+    card.locator('input[name=category]').fill('운영보안')
+    card.locator('input[name=subCategory]').fill('백업')
+    card.locator('input[name=control]').fill('E2E 백업 복구훈련 점검')
+    card.locator('button:has-text("기준 등록")').click()
+    pg.wait_for_selector('tr:has-text("E2E 백업 복구훈련 점검")', timeout=10000)
+    check('백업' in pg.locator('tr', has_text='E2E 백업 복구훈련 점검').inner_text(), '기준 등록 (중분류 포함)')
+
+    # CSV 업로드 — 유효 1행 반영, 잘못된 주기·중복 통제 항목은 건너뛴다
+    csv_path = UPLOAD.parent / '.e2e-criteria.csv'
+    csv_path.write_text('개인정보,E2E 파기대장 점검,반기,ISMS,파기\n개인정보,잘못된 주기 행,매일,ISMS\n', encoding='utf-8')
+    card = pg.locator('.card', has_text='기준관리 — 점검 항목')
+    card.locator('input[type=file]').set_input_files(str(csv_path))
+    card.locator('button:has-text("업로드 반영")').click()
+    pg.wait_for_selector('tr:has-text("E2E 파기대장 점검")', timeout=10000)
+    check('잘못된 주기 행' not in pg.content(), 'CSV 업로드 — 무효 행 건너뜀')
+    try:
+        csv_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+    # 삭제 — 미사용 항목은 삭제, 계획이 참조 중인 항목(CK-01)은 '사용중' 가드
+    pg.locator('tr', has_text='E2E 파기대장 점검').locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    check('E2E 파기대장 점검' not in pg.content(), '미사용 기준 삭제')
+    row = pg.locator('.card', has_text='기준관리 — 점검 항목').locator('tr', has_text='중요 시스템 계정·권한 정기 검토')
+    check('사용중' in row.inner_text() and row.locator('button:has-text("삭제")').count() == 0, '사용중 기준 삭제 가드')
+
+
 def sc_board(pg, base, check):
     """게시판 삭제 — 공지(작성자)·QnA(미답변 본인) + 감사 기록 (요구사항 6행 삭제)"""
     login(pg, base, '박정호')
@@ -662,6 +696,7 @@ SCENARIOS = [
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
+    ('criteria', '점검 기준관리 — 등록·업로드·삭제·사용중 가드', sc_criteria, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),

@@ -131,7 +131,7 @@ function seed(): Store {
       { courseId: 'ED-2026-01', name: '강도윤', dept: '정보기획팀', completedAt: '2026-06-20' },
     ],
     inspectionItems: [
-      { id: 'CK-01', category: '접근통제', control: '중요 시스템 계정·권한 정기 검토', cycle: '분기', source: 'ISMS' },
+      { id: 'CK-01', category: '접근통제', subCategory: '계정관리', control: '중요 시스템 계정·권한 정기 검토', cycle: '분기', source: 'ISMS' },
       { id: 'CK-02', category: '접근통제', control: '퇴직·전보자 계정 회수 점검', cycle: '월', source: 'ISMS' },
       { id: 'CK-03', category: '운영보안', control: '보안패치 적용 현황 점검', cycle: '분기', source: 'ISMS' },
       { id: 'CK-04', category: '개인정보', control: '개인정보 취급 화면 접근이력 점검', cycle: '반기', source: 'ISMS' },

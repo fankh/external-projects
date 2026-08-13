@@ -75,6 +75,14 @@ export async function GET(req: Request) {
     return csvResponse('재택근무_체크리스트_현황', rows)
   }
 
+  if (type === 'inspection-items') {
+    // 보안점검 기준(Template) 목록 (요구사항 62행 엑셀 ◎) — 화면과 동일 권한
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const rows: (string | number)[][] = [['코드', '대분류', '중분류', '통제 항목', '주기', '구분']]
+    for (const i of s.inspectionItems) rows.push([i.id, i.category, i.subCategory ?? '-', i.control, i.cycle, i.source])
+    return csvResponse('보안점검_기준', rows)
+  }
+
   if (type === 'audit') {
     if (role !== 'ADMIN') return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['일시', '행위자', '행위', '상세']]
