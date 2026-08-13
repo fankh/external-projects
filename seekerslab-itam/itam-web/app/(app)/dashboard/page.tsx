@@ -5,7 +5,7 @@ import { daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isRepairOve
 import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { hasDataIssue } from '@/lib/quality'
-import { approvalHref, noticeHref } from '@/lib/reflink'
+import { approvalHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
@@ -350,26 +350,42 @@ export default async function DashboardPage() {
             </div>
           </Card>
 
-          <Card kicker="Notice" title="공지 · QnA"
-            actions={<Link className="btn sm ghost" href="/board/notices">전체</Link>}>
+          {/* QnA — 공지는 위 '최근 공지' 위젯이 담당하므로 여기선 QnA 만. 담당자는 답변 대기, 사용자는 본인 문의 답변 현황(§01 Main/Home 공지·QnA · 로7 문의→답변의 작성자 측). */}
+          <Card kicker="Q&A" title="QnA"
+            actions={<Link className="btn sm ghost" href="/board/qna">전체</Link>}>
             <div className="vstack" style={{ gap: 8 }}>
-              {s.posts.filter((p) => p.kind === '공지').slice(0, 3).map((n) => (
-                <Link key={n.id} href={noticeHref(n.id)} className="hstack"
-                  style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {n.pinned && <Chip tone="err" bare>필독</Chip>} {n.title}
-                  </span>
-                  <span className="mut tnum" style={{ flex: 'none' }}>{n.createdAt.slice(5)}</span>
-                </Link>
-              ))}
-              {(() => {
-                const waiting = s.posts.filter((p) => p.kind === 'QnA' && !p.answer).length
-                return waiting > 0 ? (
-                  <Link href="/board/qna" className="hstack" style={{ justifyContent: 'space-between', gap: 12, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
-                    <span>답변 대기 문의</span><span><b>{waiting}</b>건 →</span>
-                  </Link>
-                ) : null
-              })()}
+              {session.role !== 'USER'
+                ? (() => {
+                    const waiting = s.posts.filter((p) => p.kind === 'QnA' && !p.answer)
+                    return waiting.length > 0 ? (
+                      <Link href="/board/qna" className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                        <span className="hstack" style={{ gap: 6 }}><Chip tone="warn" bare>답변 대기</Chip> 사용자 문의</span>
+                        <span><b>{waiting.length}</b>건 →</span>
+                      </Link>
+                    ) : <div className="mut">답변 대기 중인 문의가 없습니다.</div>
+                  })()
+                : (() => {
+                    const myQna = s.posts.filter((p) => p.kind === 'QnA' && p.author === session.name)
+                    const answered = myQna.filter((p) => p.answer)
+                    if (myQna.length === 0) return <div className="mut">등록한 문의가 없습니다. 궁금한 점은 QnA에 남겨 주세요.</div>
+                    return (
+                      <>
+                        <div className="hstack" style={{ justifyContent: 'space-between' }}>
+                          <span>내 문의</span><span className="dim"><b>{myQna.length}</b>건 · 답변 완료 {answered.length}건</span>
+                        </div>
+                        {answered.slice(0, 3).map((p) => (
+                          <Link key={p.id} href={qnaHref(p.id)} className="hstack"
+                            style={{ justifyContent: 'space-between', gap: 10, color: 'inherit', textDecoration: 'none', borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+                            <span className="hstack" style={{ gap: 6, minWidth: 0 }}>
+                              <Chip tone="ok" bare>답변</Chip>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                            </span>
+                            <span className="dim tnum" style={{ fontSize: 11, flex: 'none' }}>{p.answer!.at.slice(5)}</span>
+                          </Link>
+                        ))}
+                      </>
+                    )
+                  })()}
             </div>
           </Card>
         </div>
