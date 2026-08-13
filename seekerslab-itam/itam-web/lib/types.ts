@@ -613,6 +613,36 @@ export interface AccountFinding {
   actedAt?: string
 }
 
+/** 미인가 SW — EDR·백신 콘솔의 설치 SW 인벤토리에서 검출한 정책 위반 소프트웨어
+ *  (제품안내서 §03 컴플라이언스: "미인가 SW 설치는 Discovery 모듈의 정책 위반 항목으로 연계되어 보안담당에게 통보",
+ *   §04 탐지 채널 04 EDR: "설치 SW", §05 이상탐지: "미인가 SW 설치"). 설치된 자산(assetNo)에 연결된다.
+ *  검출에서 끝내지 않고 보안담당이 제거 요청 또는 예외 승인(업무 정당성)으로 조치한다. */
+export interface UnauthorizedSw {
+  id: string
+  name: string
+  version?: string
+  /** 설치된 자산 — 대장 자산번호로 연결 */
+  assetNo: string
+  owner: string
+  dept: string
+  kind: '금지 SW' | '무단 원격제어' | '미승인 SW'
+  detectedBy: string
+  firstSeen: string
+  risk: RiskLevel
+  note?: string
+  /** 조치 — 제거 요청(사용자·보안운영팀 통지) 또는 예외 승인(업무상 정당·화이트리스트) */
+  action?: '제거 요청' | '예외 승인'
+  actedBy?: string
+  actedAt?: string
+}
+
+/** 미인가 SW 유형별 표준 조치 사유 — 판정 근거로 표시한다. */
+export const UNAUTH_SW_POLICY: Record<UnauthorizedSw['kind'], string> = {
+  '금지 SW': '전사 금지 목록(P2P·토렌트·크랙) — 즉시 제거 대상',
+  '무단 원격제어': '승인되지 않은 원격제어 도구 — 외부 접근 경로, 제거·예외 심사',
+  '미승인 SW': '카탈로그 미등재 업무 SW — 사용 정당성 확인 후 등재 또는 제거',
+}
+
 /** 연동 대상 시스템 (제품안내서 §06) — 수집 소스이자 조치 채널 */
 export interface Integration {
   id: string

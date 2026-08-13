@@ -10,7 +10,7 @@ import { fingerprintOf } from './types'
 import type {
   AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
-  ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UnseenExternal, UserAccount,
+  ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UnauthorizedSw, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
 
 export interface Store {
@@ -20,6 +20,7 @@ export interface Store {
   leaks: LeakFinding[]
   credentials: CredentialFinding[]
   accounts: AccountFinding[]
+  unauthorizedSw: UnauthorizedSw[]
   integrations: Integration[]
   auditLogs: AuditLog[]
   codeGroups: CodeGroup[]
@@ -353,6 +354,17 @@ function seedAccounts(): AccountFinding[] {
   ]
 }
 
+/** 미인가 SW — EDR·백신 콘솔 설치 SW 인벤토리에서 검출한 정책 위반 소프트웨어 (제품안내서 §03·§04·§05).
+ *  실제 설치 자산(assetNo)에 연결되며, 검출에서 끝내지 않고 보안담당이 제거 요청·예외 승인으로 조치한다. */
+function seedUnauthorizedSw(): UnauthorizedSw[] {
+  return [
+    { id: 'USW-01', name: 'uTorrent', version: '3.6.0', assetNo: 'AST-2025-000512', owner: '최지우', dept: '영업1팀', kind: '금지 SW', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-27', risk: '높음', note: 'P2P 클라이언트 — 전사 금지 목록, 저작권·유출 위험' },
+    { id: 'USW-02', name: 'AnyDesk', version: '7.1.13', assetNo: 'AST-2023-000113', owner: '이서연', dept: '플랫폼개발팀', kind: '무단 원격제어', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-26', risk: '높음', note: '승인되지 않은 원격제어 도구 — 외부 접근 경로 노출' },
+    { id: 'USW-03', name: 'Adobe Photoshop 2021 (크랙)', assetNo: 'AST-2022-000871', owner: '정하윤', dept: '디자인팀', kind: '금지 SW', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-24', risk: '높음', note: '무단 크랙 버전 — 라이선스 감사 리스크·멀웨어 동반 가능' },
+    { id: 'USW-04', name: 'Notion Desktop', version: '2.3.1', assetNo: 'AST-2025-000512', owner: '최지우', dept: '영업1팀', kind: '미승인 SW', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-22', risk: '중간', note: '카탈로그 미등재 업무 SW — 사용 정당성 확인 후 등재 또는 제거' },
+  ]
+}
+
 function seedIntegrations(): Integration[] {
   return [
     { id: 'INT-NAC', system: 'NAC', method: 'REST API', purpose: '단말 인증·미인증 목록 수집, 미확인 자산 격리 요청', role: '수집 · 조치', status: '정상', lastSync: '2026-07-29 09:40', volume24h: 1_284 },
@@ -460,6 +472,7 @@ function seed(): Store {
     leaks: seedLeaks(),
     credentials: seedCredentials(),
     accounts: seedAccounts(),
+    unauthorizedSw: seedUnauthorizedSw(),
     integrations: seedIntegrations(),
     auditLogs: seedAuditLogs(),
     codeGroups: seedCodeGroups(),
@@ -675,7 +688,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 26
+const SCHEMA_VERSION = 27
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

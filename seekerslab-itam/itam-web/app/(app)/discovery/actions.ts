@@ -226,3 +226,32 @@ export async function respondToAccount(accountId: string, kind: '비활성화' |
   revalidatePath('/', 'layout')
   return { ok: true, message: `${a.account} ${a.action} — ${kind === '비활성화' ? '보안운영팀' : a.dept} 통지·감사 적재` }
 }
+
+/** 미인가 SW 조치 — EDR 검출 정책 위반 SW 를 제거 요청(사용자·보안운영팀 통지) 또는 예외 승인(업무 정당·화이트리스트)한다.
+ *  (제품안내서 §03: "미인가 SW 설치는 Discovery 정책 위반 항목으로 연계되어 보안담당에게 통보") 보안담당·Admin 만.
+ *  요청 사실은 설치 부서·보안운영팀 통지 + 감사 로그에 남는다. 외부 노출 조치(requestExternalAction)와 동형. */
+export async function respondToUnauthorizedSw(swId: string, kind: '제거' | '예외 승인') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '미인가 SW 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const w = s.unauthorizedSw.find((x) => x.id === swId)
+  if (!w) return { ok: false, message: '미인가 SW 항목을 찾을 수 없습니다.' }
+  if (w.action) return { ok: false, message: `이미 ${w.action} 처리된 항목입니다.` }
+
+  w.actedBy = session.name
+  w.actedAt = today()
+  if (kind === '제거') {
+    w.action = '제거 요청'
+    dispatch({ channel: '이메일', to: w.dept, subject: `미인가 SW 제거 요청 — ${w.name} (${w.assetNo}·${w.owner}, ${w.kind})`, kind: '위협 대응', ref: w.id })
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `미인가 SW 제거 집행 확인 — ${w.name} @ ${w.assetNo}`, kind: '위협 대응', ref: w.id })
+    appendAudit({ actor: session.name, action: `미인가 SW 제거 요청 (${w.kind}) — ${w.name} @ ${w.assetNo}`, target: w.id })
+  } else {
+    w.action = '예외 승인'
+    dispatch({ channel: '이메일', to: w.dept, subject: `미인가 SW 예외 승인 — ${w.name} (${w.assetNo}) 업무상 사용 인정·카탈로그 등재`, kind: '위협 대응', ref: w.id })
+    appendAudit({ actor: session.name, action: `미인가 SW 예외 승인 (${w.kind}) — ${w.name} @ ${w.assetNo}`, target: w.id })
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${w.name} ${w.action} — ${w.dept} 통지·감사 적재` }
+}

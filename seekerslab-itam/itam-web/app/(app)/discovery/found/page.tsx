@@ -3,10 +3,11 @@ import { requireRole } from '@/lib/authz'
 import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { CHANNELS, CONFIRM_DEADLINE_DAYS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
+import { CONFIRM_DEADLINE_DAYS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
 import { AccountTable } from './AccountTable'
 import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
+import { UnauthorizedSwTable } from './UnauthorizedSwTable'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,9 +49,10 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
   const overdue = awaiting.filter(
     (x) => x.confirmRequestedAt && -(daysUntil(x.confirmRequestedAt) ?? 0) >= CONFIRM_DEADLINE_DAYS,
   )
-  // 휴면 계정(채널 06 AD/IdP·SSO) — 계정 위생은 보안 업무이므로 보안담당·Admin 만 조치, 자산담당은 조회만
+  // 휴면 계정(채널 06 AD/IdP·SSO) · 미인가 SW(채널 04 EDR) — 계정·SW 위생은 보안 업무이므로 보안담당·Admin 만 조치, 자산담당은 조회만
   const canAccount = ['SEC_MGR', 'ADMIN'].includes(session.role)
   const accountsOpen = s.accounts.filter((a) => !a.action).length
+  const unauthSwOpen = s.unauthorizedSw.filter((w) => !w.action).length
 
   return (
     <>
@@ -68,8 +70,8 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
         />
         <Stat value={unreg.length} label="미등록 — 처리 필요" tone="err" />
         <Stat value={d.filter((x) => x.state === '등록·불일치').length} label="등록 · 불일치" tone="warn" />
-        <Stat value={CHANNELS.length} label="병렬 수집 채널" tone="accent" delta={{ text: '스캔·로그·API 상시 수집', dir: 'flat' }} />
         <Stat value={accountsOpen} label="휴면 계정 — 미처리" tone={accountsOpen ? 'warn' : 'ok'} delta={{ text: 'AD/IdP·SSO 계정 위생', dir: 'flat' }} />
+        <Stat value={unauthSwOpen} label="미인가 SW — 미조치" tone={unauthSwOpen ? 'err' : 'ok'} delta={{ text: 'EDR 설치 SW 정책 위반', dir: 'flat' }} />
       </div>
 
       <div className="callout">
@@ -85,6 +87,10 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
 
       <Card kicker="Account Hygiene · Channel 06" title="휴면 계정 — AD/IdP·SSO 계정 위생" pad={false}>
         <AccountTable accounts={s.accounts} canAct={canAccount} />
+      </Card>
+
+      <Card kicker="Unauthorized Software · Channel 04 (EDR)" title="미인가 SW — 설치 SW 정책 위반" pad={false}>
+        <UnauthorizedSwTable items={s.unauthorizedSw} canAct={canAccount} />
       </Card>
     </>
   )

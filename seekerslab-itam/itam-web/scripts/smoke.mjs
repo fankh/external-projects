@@ -222,6 +222,9 @@ try {
   // 휴면 계정 미처리 — loop46. 계정 위생도 보안담당 운영 큐에 노출(자산담당엔 미노출)
   check('대시보드(보안담당): 휴면 계정 미처리 운영 큐 노출', dashSec.includes('휴면 계정 미처리'))
   check('대시보드(자산담당): 휴면 계정 큐 미노출 (보안 운영 큐)', !dashHtml.includes('휴면 계정 미처리'))
+  // 미인가 SW 미조치 — loop47. EDR 설치 SW 정책 위반도 보안담당 운영 큐에 노출(자산담당엔 미노출)
+  check('대시보드(보안담당): 미인가 SW 미조치 운영 큐 노출', dashSec.includes('미인가 SW 미조치'))
+  check('대시보드(자산담당): 미인가 SW 큐 미노출 (보안 운영 큐)', !dashHtml.includes('미인가 SW 미조치'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
   // 서버·IDC망(10.10.x)에 나타난 미등록 단말 — 서버 VLAN 침입 의심 (어시스턴트 발견 인텐트가 세그먼트로 식별)
@@ -240,6 +243,10 @@ try {
   check('발견 자산: 보안담당에 휴면 계정 조치(비활성화·소유자 확인) 노출', foundHtml.includes('비활성화') && foundHtml.includes('소유자 확인'))
   const foundAsset = await (await get('/discovery/found', 'ASSET_MGR')).text()
   check('발견 자산: 자산담당엔 휴면 계정 조치 버튼 미노출 (조회만)', foundAsset.includes('휴면 계정') && !foundAsset.includes('비활성화</button>'))
+  // 미인가 SW(loop47) — 채널 04(EDR) 설치 SW 정책 위반. 설치 자산에 연결, 보안담당이 제거 요청·예외 승인으로 조치.
+  check('발견 자산: 미인가 SW 정책 위반 카드 렌더', foundHtml.includes('미인가 SW') && foundHtml.includes('uTorrent') && foundHtml.includes('AST-2025-000512'))
+  check('발견 자산: 보안담당에 미인가 SW 조치(제거 요청·예외 승인) 노출', foundHtml.includes('제거 요청') && foundHtml.includes('예외 승인'))
+  check('발견 자산: 자산담당엔 미인가 SW 조치 버튼 미노출 (조회만)', foundAsset.includes('미인가 SW') && !foundAsset.includes('제거 요청</button>'))
   const contractsHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약·라이선스: 보유–사용 대사·등록(계약·라이선스) 렌더', contractsHtml.includes('JetBrains') && contractsHtml.includes('초과 사용') && contractsHtml.includes('라이선스 등록') && contractsHtml.includes('계약 등록'))
   // 계약 목록 필터 — 구분·상태·만료 임박·검색
