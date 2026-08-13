@@ -30,6 +30,12 @@ export default async function DashboardPage() {
   const unackedNotices = s.posts.filter(
     (p) => p.kind === '공지' && p.pinned && (!p.publishAt || p.publishAt <= today()) && !(p.acks ?? []).some((a) => a.by === session.name),
   )
+  // 최근 공지 — Main/Home 의 공지 요약(제품안내서 §01 대시보드·게시판). 발행된 공지를 필독(고정) 우선·최신순으로 노출해
+  // 랜딩 시 최신 안내를 게시판까지 가지 않아도 볼 수 있게 한다(예약 발행 전 공지는 제외). 전 권한그룹.
+  const recentNotices = [...s.posts]
+    .filter((p) => p.kind === '공지' && (!p.publishAt || p.publishAt <= today()))
+    .sort((a, b) => (Number(!!b.pinned) - Number(!!a.pinned)) || (b.publishAt ?? b.createdAt).localeCompare(a.publishAt ?? a.createdAt))
+    .slice(0, 5)
   // 우리 부서 소유자 확인 요청 — 발견 자산이 우리 부서 자산인지 묻는 대기 건. 응답자(해당 부서)가 로그인 시 챙기게 한다
   // (Discovery 소유자 확인 루프(로12)의 응답자 측 — 결재함까지 가지 않아도 대시보드에서 드러난다). 미지정 부서 요청은 전사 공지·격리 경로라 제외.
   const myOwnerConfirms = s.approvals.filter((a) => a.kind === '소유자 확인' && a.status === '대기' && a.dept === session.dept)
@@ -276,6 +282,23 @@ export default async function DashboardPage() {
                 <span className="dim">내 보유 자산</span>
                 <Link href="/assets/register">{myAssets.length}대 조회 →</Link>
               </div>
+            </div>
+          </Card>
+
+          <Card kicker="Board" title="최근 공지"
+            actions={<Link className="btn sm ghost" href="/board/notices">공지 · QnA</Link>}>
+            <div className="vstack" style={{ gap: 8 }}>
+              {recentNotices.length > 0 ? recentNotices.map((n) => (
+                <Link key={n.id} href={noticeHref(n.id)} className="hstack"
+                  style={{ justifyContent: 'space-between', gap: 10, color: 'inherit', textDecoration: 'none' }}>
+                  <span className="hstack" style={{ gap: 6, minWidth: 0 }}>
+                    {n.pinned && <Chip tone="err" bare>필독</Chip>}
+                    {n.category && <Chip tone="neutral" bare>{n.category}</Chip>}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title}</span>
+                  </span>
+                  <span className="dim tnum" style={{ fontSize: 11, flex: 'none' }}>{(n.publishAt ?? n.createdAt).slice(5, 10)}</span>
+                </Link>
+              )) : <div className="mut">공개된 공지가 없습니다.</div>}
             </div>
           </Card>
 

@@ -344,6 +344,13 @@ try {
   // 대여 반환 독촉 큐는 독촉 액션이 있는 반납·유휴 화면으로 연결된다(라벨과 링크 정합)
   const loanQueueHref = await p3.locator('a', { hasText: '대여 반환 연체' }).first().getAttribute('href')
   ok('대시보드: 대여 반환 독촉 큐 → 반납·유휴(독촉 액션) 연결', loanQueueHref === '/assets/returns')
+  // 최근 공지 위젯(Main/Home 공지 요약) — 발행 공지를 필독 우선·최신순으로 노출하고 게시판으로 연결한다
+  const noticeCard = p3.locator('.card', { has: p3.locator('*', { hasText: /^최근 공지$/ }) }).first()
+  ok('대시보드: 최근 공지 위젯 노출', (await noticeCard.count()) > 0)
+  const noticeItems = noticeCard.locator('a[href*="/board/notices?sel="]')
+  const firstNoticeText = ((await noticeItems.first().textContent()) || '')
+  ok('최근 공지: 필독(고정) 공지가 최상단', firstNoticeText.includes('필독') && firstNoticeText.includes('재물조사'))
+  ok('최근 공지: 게시판(공지·QnA) 전체 보기 연결', (await noticeCard.locator('a[href="/board/notices"]').count()) > 0)
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const cHtml = await p3.content()
   ok('운영 정책 다운스트림: 계약 화면 만료 임박 창 60일', cHtml.includes('만료 60일 이내') && !cHtml.includes('만료 90일 이내'))
