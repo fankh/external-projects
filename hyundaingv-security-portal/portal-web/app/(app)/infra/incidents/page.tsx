@@ -15,16 +15,24 @@ function enabledGrades(s: ReturnType<typeof getStore>): IncidentGrade[] {
   return (group?.values.filter(isCodeActive).map((v) => v.code) ?? []) as IncidentGrade[]
 }
 
+/** 장애항목 — 공통코드 FAULT_ITEM 소비 (요구사항 36행: 항목·등급·조치기준 공통코드화) */
+function activeItems(s: ReturnType<typeof getStore>): string[] {
+  const group = s.codeGroups.find((g) => g.id === 'FAULT_ITEM')
+  return group?.values.filter(isCodeActive).map((v) => v.code) ?? []
+}
+
 async function addIncident(formData: FormData) {
   'use server'
   const me = await requireMenuRole('/infra/incidents', 'BIZ_MGR', 'ADMIN')
   const system = String(formData.get('system') ?? '').trim().slice(0, 60)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const grade = String(formData.get('grade') ?? '') as IncidentGrade
+  const category = String(formData.get('category') ?? '')
   const s = getStore()
   if (!system || !title || !enabledGrades(s).includes(grade)) return
+  if (category && !activeItems(s).includes(category)) return
   const id = nextNo('FL', today().slice(0, 4), s.incidents.map((i) => i.id))
-  s.incidents.unshift({ id, system, title, grade, occurredAt: today(), status: '조치중', reportStatus: '미상신' })
+  s.incidents.unshift({ id, system, title, grade, category: category || undefined, occurredAt: today(), status: '조치중', reportStatus: '미상신' })
   registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/infra/incidents')
 }
@@ -103,16 +111,46 @@ export default async function IncidentsPage() {
         <Stat value={cmPending.length} label="대책 결과 미등록" tone={cmPending.length > 0 ? 'warn' : undefined} />
       </div>
 
+      {/* 주기별 장애 통계 (제품안내서 III장) — 발생월 × 등급 집계, 통계 상신의 취합 근거 */}
+      <Card title="월별 장애 통계" kicker="Monthly Stats" pad={false}>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead><tr><th>발생월</th><th className="num">1등급</th><th className="num">2등급</th><th className="num">3등급</th><th className="num">계</th><th className="num">조치완료</th></tr></thead>
+            <tbody>
+              {[...new Set(s.incidents.map((i) => i.occurredAt.slice(0, 7)))].sort().reverse().map((m) => {
+                const rows = s.incidents.filter((i) => i.occurredAt.startsWith(m))
+                return (
+                  <tr key={m}>
+                    <td className="tnum strong">{m}</td>
+                    {(['1등급', '2등급', '3등급'] as const).map((g) => (
+                      <td key={g} className="num">{rows.filter((i) => i.grade === g).length || '-'}</td>
+                    ))}
+                    <td className="num strong">{rows.length}</td>
+                    <td className="num">{rows.filter((i) => i.status === '조치완료').length}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <Card title="장애 등록" kicker="New Incident">
         <form action={addIncident} className="hstack">
           <input className="input" name="system" required maxLength={60} placeholder="대상 시스템" style={{ width: 160 }} />
           <input className="input" name="title" required maxLength={120} placeholder="장애 내용" style={{ flex: 1 }} />
+          <select className="select" name="category" title="장애항목 — 공통코드 FAULT_ITEM">
+            {activeItems(s).map((c) => <option key={c}>{c}</option>)}
+          </select>
           <select className="select" name="grade">
             {enabledGrades(s).map((g) => <option key={g}>{g}</option>)}
           </select>
           <input className="input" type="file" name="file" style={{ width: 220, paddingTop: 4 }} title="장애 증적 첨부" />
           <button type="submit" className="btn pri">등록</button>
         </form>
+        <div className="dim" style={{ fontSize: 11.5, marginTop: 6 }}>
+          조치기준(공통코드): {(s.codeGroups.find((g) => g.id === 'ACTION_CRITERIA')?.values ?? []).filter(isCodeActive).map((v) => v.code).join(' · ') || '-'}
+        </div>
       </Card>
 
       <Card title="장애 목록 · 통계 상신" kicker="Incidents" pad={false}
@@ -121,7 +159,7 @@ export default async function IncidentsPage() {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th className="c">선택</th><th>장애번호</th><th>시스템</th><th>내용</th><th>등급</th><th>발생일</th><th>조치</th><th>보고 상태</th></tr>
+                <tr><th className="c">선택</th><th>장애번호</th><th>시스템</th><th>내용</th><th>항목</th><th>등급</th><th>발생일</th><th>조치</th><th>보고 상태</th></tr>
               </thead>
               <tbody>
                 {s.incidents.map((i) => (
@@ -134,6 +172,7 @@ export default async function IncidentsPage() {
                     <td className="code">{i.id}</td>
                     <td>{i.system}</td>
                     <td className="strong">{i.title}<Clip count={attachCount(i.id)} title="증적 첨부" /></td>
+                    <td>{i.category ?? <span className="mut">-</span>}</td>
                     <td><Chip tone={GRADE_TONE[i.grade]} bare>{i.grade}</Chip></td>
                     <td className="tnum">{i.occurredAt}</td>
                     <td>

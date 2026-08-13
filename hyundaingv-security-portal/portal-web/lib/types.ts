@@ -133,6 +133,8 @@ export type InspectionStatus = '계획' | '결과미등록' | '결재중' | '완
 export interface InspectionPlan {
   id: string
   itemId: string
+  /** 점검 대상 (조직·시스템) — 제품안내서 IV장 */
+  target?: string
   /** 점검 예정월 (YYYY-MM) — 경과 시 지연으로 드러난다 */
   month: string
   inspector: string
@@ -149,6 +151,8 @@ export interface Incident {
   title: string
   /** 장애등급 — 공통코드화 대상 (요구사항: 장애항목·등급·조치기준) */
   grade: IncidentGrade
+  /** 장애항목 — 공통코드 FAULT_ITEM 소비 (요구사항 36행: 항목·등급·조치기준 공통코드화) */
+  category?: string
   occurredAt: string
   status: '조치중' | '조치완료'
   action?: string
@@ -288,6 +292,8 @@ export interface Settlement {
   status: '결재중' | '지급완료' | '반려'
   requestedBy: string
   requestedAt: string
+  /** 지급 예정일 — 지급 목록 일정 관리 (제품안내서 III장) */
+  dueDate?: string
 }
 
 /** 보안교육 — 연간계획 → 과정별 결과·명단 등록 → 이수현황 집계 */

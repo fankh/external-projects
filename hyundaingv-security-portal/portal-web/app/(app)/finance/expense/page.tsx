@@ -84,7 +84,9 @@ async function requestSettlement(formData: FormData) {
 
   const year = today().slice(0, 4)
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
-  s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: '결재중', requestedBy: me.name, requestedAt: today() })
+  const dueDate = String(formData.get('dueDate') ?? '')
+  s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: '결재중', requestedBy: me.name, requestedAt: today(),
+    dueDate: /^\d{4}-\d{2}-\d{2}$/.test(dueDate) ? dueDate : undefined })
   // 정산 증빙(세금계산서·검수서 등) — 결재함 상세에서 같은 첨부를 본다 (첨부 시트: 정산품의)
   registerUpload(stId, formData.get('file'), me.name)
 
@@ -247,7 +249,7 @@ export default async function ExpensePage() {
         <Card title="정산품의 — 지급 항목" kicker="Settlement" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>품의번호</th><th>계약</th><th>항목</th><th className="num">금액</th><th>상태</th></tr></thead>
+              <thead><tr><th>품의번호</th><th>계약</th><th>항목</th><th className="num">금액</th><th>지급예정</th><th>상태</th></tr></thead>
               <tbody>
                 {kindSettlements.map((x) => (
                   <tr key={x.id}>
@@ -255,6 +257,7 @@ export default async function ExpensePage() {
                     <td>{kindContracts.find((c) => c.id === x.contractId)?.title ?? x.contractId}</td>
                     <td><Chip tone="neutral" bare>{x.item}</Chip></td>
                     <td className="num">{fmt(x.amount)}</td>
+                    <td className="tnum">{x.dueDate ?? '-'}</td>
                     <td>
                       {x.status === '지급완료' ? <Chip tone="ok">지급완료</Chip> :
                        x.status === '결재중' ? <Chip tone="info">결재중</Chip> : <Chip tone="err">반려</Chip>}
@@ -279,6 +282,7 @@ export default async function ExpensePage() {
                 <option>월정산</option><option>착수금</option><option>중도금</option><option>잔금</option>
               </select>
               <input className="input" name="amount" required type="number" min={1} placeholder="금액" style={{ width: 100 }} />
+              <input className="input" name="dueDate" type="date" title="지급 예정일 — 지급 목록 일정 관리" style={{ width: 130 }} />
               <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="정산 증빙 첨부" />
               <button type="submit" className="btn pri">정산품의 상신</button>
             </form>

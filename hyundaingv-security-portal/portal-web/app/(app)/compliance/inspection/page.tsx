@@ -82,12 +82,13 @@ async function addPlan(formData: FormData) {
   'use server'
   const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
   const itemId = String(formData.get('itemId') ?? '')
+  const target = String(formData.get('target') ?? '').trim().slice(0, 60)
   const month = String(formData.get('month') ?? '')
   const inspector = String(formData.get('inspector') ?? '')
   const s = getStore()
   if (!s.inspectionItems.some((i) => i.id === itemId) || !/^\d{4}-\d{2}$/.test(month) || !inspector) return
   const id = nextNo('IS', today().slice(0, 4), s.inspectionPlans.map((p) => p.id))
-  s.inspectionPlans.unshift({ id, itemId, month, inspector, status: '계획' })
+  s.inspectionPlans.unshift({ id, itemId, target: target || undefined, month, inspector, status: '계획' })
   // 상세점검계획표 등 계획 문서 — 계획번호(pk)로 계획·증적 첨부를 공유 (첨부 시트: 연간계획수립)
   registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/compliance/inspection')
@@ -146,7 +147,7 @@ export default async function InspectionPage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>계획번호</th><th>분류</th><th>점검 항목</th><th>구분</th><th>예정월</th><th>점검자</th><th>상태</th><th className="c">결과 등록 · 결재</th></tr>
+              <tr><th>계획번호</th><th>분류</th><th>점검 항목</th><th>대상</th><th>구분</th><th>예정월</th><th>점검자</th><th>상태</th><th className="c">결과 등록 · 결재</th></tr>
             </thead>
             <tbody>
               {s.inspectionPlans.map((p) => {
@@ -157,6 +158,7 @@ export default async function InspectionPage() {
                     <td className="code">{p.id}</td>
                     <td><Chip tone="neutral" bare>{item?.category ?? '-'}</Chip></td>
                     <td className="strong">{item?.control ?? p.itemId}</td>
+                    <td>{p.target ?? <span className="mut">-</span>}</td>
                     <td>{item?.source === 'ISMS' ? <Chip tone="info" bare>ISMS</Chip> : <Chip tone="warn" bare>외부기관</Chip>}</td>
                     <td className="tnum">{p.month} {late && <Chip tone="err" bare>경과</Chip>}</td>
                     <td>{p.inspector}</td>
@@ -191,6 +193,7 @@ export default async function InspectionPage() {
               {s.inspectionItems.map((i) => <option key={i.id} value={i.id}>[{i.category}] {i.control}</option>)}
             </select>
             <div className="hstack">
+              <input className="input" name="target" maxLength={60} placeholder="점검 대상 (조직·시스템)" style={{ flex: 1 }} />
               <input className="input" name="month" required type="month" defaultValue={thisMonth} style={{ flex: 1 }} />
               <select className="select" name="inspector" style={{ flex: 1 }}>
                 {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}

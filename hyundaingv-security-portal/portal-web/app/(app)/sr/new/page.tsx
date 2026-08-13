@@ -26,14 +26,16 @@ async function createSr(formData: FormData) {
   const s = getStore()
   const year = today().slice(0, 4)
   const srNo = nextNo('SR', year, s.srRequests.map((r) => r.srNo))
+  // 임시저장 (제품안내서 II장 결재 공통 흐름) — 상신 없이 작성중으로 보관, 신청내역의 '상신' 버튼으로 이어간다
+  const isDraft = formData.get('mode') === 'draft'
 
-  s.srRequests.unshift({ srNo, kind, title, system, requester: me.name, dept: me.dept, status: '결재중', requestedAt: today(), content })
+  s.srRequests.unshift({ srNo, kind, title, system, requester: me.name, dept: me.dept, status: isDraft ? '작성중' : '결재중', requestedAt: today(), content })
 
   // 첨부 — 본문에 올린 파일이 결재 문서에 그대로 첨부된다 (요구사항: SR신청 추가첨부 없음, 등록 파일 그대로)
   registerUpload(srNo, formData.get('file'), me.name)
 
-  // 폐쇄 루프 — 신청과 동시에 기본 결재선(환경설정)으로 상신되고, 결재자에게 '결재' 할일이 생긴다
-  draftApproval({ docType: 'SR 신청', title, ref: srNo, drafter: me })
+  // 폐쇄 루프 — 상신 시 기본 결재선(환경설정)으로 흐르고, 결재자에게 '결재' 할일이 생긴다
+  if (!isDraft) draftApproval({ docType: 'SR 신청', title, ref: srNo, drafter: me })
 
   revalidatePath('/', 'layout')
   redirect(`/sr/requests?q=${encodeURIComponent(srNo)}`)
@@ -76,6 +78,7 @@ export default async function SrNewPage() {
             본문 첨부는 결재 문서에 그대로 첨부된다 (추가 첨부 없음 · 최대 10MB).
           </div>
           <div className="hstack" style={{ justifyContent: 'flex-end' }}>
+            <button type="submit" name="mode" value="draft" className="btn">임시저장</button>
             <button type="submit" className="btn pri">결재 상신</button>
           </div>
         </form>

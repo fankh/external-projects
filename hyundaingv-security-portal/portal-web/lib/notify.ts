@@ -45,6 +45,10 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('재택 미제출', s.people.filter((p) => targets.has(p.name) && !submitted.has(p.name)).map((p) => p.name),
     `[재택근무] ${month} 체크리스트 제출 안내`)
 
+  // 7) 출력물 미등록 — 이관 후 폐기 정보를 등록하지 않은 출력자 안내 (요구사항 55행: 주기적 안내메일)
+  const printPending = [...new Set(s.printouts.filter((p) => p.status === '미등록').map((p) => p.name))]
+  await send('출력물 미등록', printPending, '[출력물] 폐기 정보 등록 안내')
+
   // 5) 반려 방치 — 반려 후 재상신하지 않은 기안자 (열린 '재상신' 할일 소유자, 재상신하면 할일이 닫혀 제외)
   await send('반려 방치',
     s.todos.filter((x) => x.kind === '재상신' && !x.done).map((x) => x.owner),

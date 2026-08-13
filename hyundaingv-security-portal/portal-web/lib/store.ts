@@ -268,6 +268,8 @@ function seed(): Store {
     ],
     codeGroups: [
       { id: 'FAULT_GRADE', name: '장애등급', values: [{ code: '1등급', enabled: true }, { code: '2등급', enabled: true }, { code: '3등급', enabled: true }] },
+      { id: 'FAULT_ITEM', name: '장애항목', values: [{ code: '시스템 다운', enabled: true }, { code: '성능 저하', enabled: true }, { code: '데이터 오류', enabled: true }, { code: '네트워크 장애', enabled: true }] },
+      { id: 'ACTION_CRITERIA', name: '조치기준', values: [{ code: '1등급: 즉시 보고 · 1시간 내 조치 착수', enabled: true }, { code: '2등급: 4시간 내 조치 착수', enabled: true }, { code: '3등급: 익일 조치 계획 보고', enabled: true }] },
       { id: 'SR_KIND', name: 'SR 유형', values: [{ code: '시스템개발', enabled: true }, { code: '데이터', enabled: true }, { code: '계정/권한', enabled: true }] },
       { id: 'INSPECT_CYCLE', name: '점검 주기', values: [{ code: '월', enabled: true }, { code: '분기', enabled: true }, { code: '반기', enabled: true }, { code: '년', enabled: true }] },
       { id: 'VIOLATION_TYPE', name: '보안위반 유형', values: [{ code: '출력물 방치', enabled: true }, { code: '화면 미잠금', enabled: true }, { code: '인가되지 않은 USB 사용', enabled: true }] },

@@ -149,6 +149,17 @@ def sc_sr(pg, base, check):
     pg.wait_for_selector('tr:has-text("E2E 무결재 접수 건"):has-text("예외 등록 완료")', timeout=10000)
     check('완료' in pg.locator('tr', has_text='E2E 무결재 접수 건').inner_text(), 'CI 직접 접수 → 처리 이력 완료')
 
+    # 임시저장 (제품안내서 II장) — 상신 없이 작성중 보관, '상신' 버튼으로 이어진다
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/sr/new', wait_until='networkidle')
+    pg.select_option('select[name=kind]', '데이터')
+    pg.fill('input[name=system]', 'ERP')
+    pg.fill('input[name=title]', 'E2E 임시저장 건')
+    pg.click('button:has-text("임시저장")')
+    pg.wait_for_url('**/sr/requests**')
+    row = pg.locator('tr', has_text='E2E 임시저장 건')
+    check('작성중' in row.inner_text() and row.locator('button:has-text("상신")').count() == 1, '임시저장 → 작성중 보관 + 상신 버튼')
+
 
 def sc_withdraw(pg, base, check):
     """상신취소(회수) — 기안자 회수 → SR 작성중 복원 → 결재자 대기·할일 제외 → 재상신 → 승인"""
