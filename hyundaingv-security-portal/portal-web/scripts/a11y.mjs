@@ -86,15 +86,16 @@ function auditContrast() {
   const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
   const L = (rgb) => { const [r, g, b] = rgb.map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
   const ratio = (a, b) => { const l1 = L(hex(a)), l2 = L(hex(b)); const hi = Math.max(l1, l2), lo = Math.min(l1, l2); return (hi + 0.05) / (lo + 0.05) }
-  const texts = ['ink', 'ink-2', 'dim', 'mute']
-  const bgs = ['canvas', 'panel']
+  // 중성 텍스트 토큰 + 상태색(bare 칩은 틴트 없이 배경 위 텍스트) — 모두 정상 텍스트 4.5:1
+  const texts = ['ink', 'ink-2', 'dim', 'mute', 'ok', 'warn', 'err', 'info']
+  // mdibar 틴트(#f4f4f5)는 토큰이 아니라 하드코딩 — 상태색이 그 위에도 놓이므로 함께 검사
+  const bgs = [['canvas', tok('canvas')], ['panel', tok('panel')], ['mdibar', '#f4f4f5']]
   for (const t of texts) {
     const tc = tok(t)
-    for (const b of bgs) {
-      const bc = tok(b)
-      if (!tc || !bc) { check(false, `contrast: 토큰 --${t}/--${b} 파싱 실패`); continue }
+    for (const [bn, bc] of bgs) {
+      if (!tc || !bc) { check(false, `contrast: 토큰 --${t}/${bn} 파싱 실패`); continue }
       const r = ratio(tc, bc)
-      check(r >= 4.5, `contrast: --${t}(${tc}) on --${b}(${bc}) = ${r.toFixed(2)}:1 (<4.5)`)
+      check(r >= 4.5, `contrast: --${t}(${tc}) on ${bn}(${bc}) = ${r.toFixed(2)}:1 (<4.5)`)
     }
   }
 }
