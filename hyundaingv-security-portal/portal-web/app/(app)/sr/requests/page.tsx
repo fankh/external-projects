@@ -23,9 +23,11 @@ async function resubmitSr(formData: FormData) {
   revalidatePath('/', 'layout')
 }
 
-export default async function SrRequestsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+const KIND_TABS = ['시스템개발', '데이터', '계정/권한'] as const
+
+export default async function SrRequestsPage({ searchParams }: { searchParams: Promise<{ q?: string; kind?: string }> }) {
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
-  const { q } = await searchParams
+  const { q, kind } = await searchParams
   const s = getStore()
 
   // 데이터 스코핑 — 사용자: 본인 / 부서담당: 부서 / 업무담당·Admin: 전사
@@ -33,10 +35,12 @@ export default async function SrRequestsPage({ searchParams }: { searchParams: P
     me.role === 'USER' ? r.requester === me.name :
     me.role === 'DEPT_MGR' ? r.dept === me.dept : true,
   )
+  // 유형별 내역 — 요구사항 22~24행의 시스템개발·데이터·계정/권한 신청내역 분할 조회
+  const kindFilter = KIND_TABS.find((k) => k === kind)
   const query = (q ?? '').trim()
-  const rows = query
-    ? scoped.filter((r) => r.srNo.includes(query) || r.title.includes(query) || r.system.includes(query))
-    : scoped
+  const rows = scoped.filter((r) =>
+    (!kindFilter || r.kind === kindFilter) &&
+    (!query || r.srNo.includes(query) || r.title.includes(query) || r.system.includes(query)))
   const inflight = scoped.filter((r) => r.status !== '완료' && r.status !== '반려')
 
   const scopeLabel = me.role === 'USER' ? '본인 신청 건' : me.role === 'DEPT_MGR' ? `${me.dept} 신청 건` : '전사 신청 건'
@@ -55,7 +59,15 @@ export default async function SrRequestsPage({ searchParams }: { searchParams: P
       </div>
 
       <Card title="신청 목록" kicker="Requests"
-        actions={query ? <Chip tone="info" bare>검색: {query}</Chip> : undefined} pad={false}>
+        actions={
+          <span className="hstack" style={{ gap: 4 }}>
+            {query && <Chip tone="info" bare>검색: {query}</Chip>}
+            <Link className={`btn sm${kindFilter ? '' : ' pri'}`} href="/sr/requests">전체</Link>
+            {KIND_TABS.map((k) => (
+              <Link key={k} className={`btn sm${kindFilter === k ? ' pri' : ''}`} href={`/sr/requests?kind=${encodeURIComponent(k)}`}>{k}</Link>
+            ))}
+          </span>
+        } pad={false}>
         {rows.length === 0 ? (
           <div className="empty">{query ? '검색 결과가 없습니다.' : '신청한 SR이 없습니다.'}</div>
         ) : (

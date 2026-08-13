@@ -15,9 +15,10 @@ export async function GET(req: Request) {
   const role: Role = session.role
   const isMgr = role === 'BIZ_MGR' || role === 'ADMIN'
 
-  if (type === 'invest-actual') {
-    // 계획대비실적 — 조회·엑셀 전 권한 (요구사항 조회 ●, 엑셀 ◎)
-    const confirmed = s.investPlans.filter((p) => p.kind === '투자' && p.status === '확정')
+  if (type === 'invest-actual' || type === 'expense-actual') {
+    // 계획대비실적(투자·비용) — 조회·엑셀 전 권한 (요구사항 조회 ●, 엑셀 ◎)
+    const kind = type === 'invest-actual' ? '투자' : '비용'
+    const confirmed = s.investPlans.filter((p) => p.kind === kind && p.status === '확정')
     const rows: (string | number)[][] = [['과제번호', '과제명', '담당', '계획액(만원)', '계약액(만원)', '집행액(만원)', '집행률(%)']]
     for (const p of confirmed) {
       const cts = s.investContracts.filter((c) => c.planId === p.id)
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
         .reduce((sm, x) => sm + x.amount, 0), 0)
       rows.push([p.id, p.title, `${p.owner}(${p.dept})`, p.amount, contracted, paid, p.amount ? Math.round((paid / p.amount) * 100) : 0])
     }
-    return csvResponse('투자_계획대비실적', rows)
+    return csvResponse(`${kind}_계획대비실적`, rows)
   }
 
   if (type === 'education-records') {

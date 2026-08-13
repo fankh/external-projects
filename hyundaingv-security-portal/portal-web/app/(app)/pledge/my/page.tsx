@@ -35,6 +35,22 @@ async function sign(formData: FormData) {
   revalidatePath('/', 'layout')
 }
 
+/** 관리책임자·재택근무 서약 — 요구사항 45행: 관리자와 일반이 구분된 서약서, 재택근무자 보안서약서.
+ *  관리책임자는 관리자 권한(부서담당 이상)만 서버에서 재검증한다. */
+async function signKind(formData: FormData) {
+  'use server'
+  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const raw = String(formData.get('kind') ?? '')
+  const kind = raw === '관리책임자' || raw === '재택근무' ? raw : null
+  if (!kind || formData.get('agree') !== 'on') return
+  if (kind === '관리책임자' && me.role === 'USER') return
+  const s = getStore()
+  const revisedAt = s.pledgeForms.find((f) => f.kind === kind)?.revisedAt ?? '0000-00-00'
+  if (s.pledges.some((p) => p.name === me.name && p.year === YEAR && p.kind === kind && p.signedAt >= revisedAt)) return
+  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind, signedAt: today(), method: '온라인' })
+  revalidatePath('/', 'layout')
+}
+
 /** 특별서약(보안담당자) — 일반서약 동의 후 대상. 담당업무·세부업무내용을 추가 입력한다. */
 async function signSpecial(formData: FormData) {
   'use server'
@@ -89,6 +105,50 @@ export default async function MyPledgePage() {
           </form>
         </Card>
       )}
+
+      {/* 요구사항 45행 — 관리자와 일반이 구분된 서약서: 관리자(부서담당 이상)는 관리책임자 서약을 추가 제출한다 */}
+      {me.role !== 'USER' && (() => {
+        const revised = s.pledgeForms.find((f) => f.kind === '관리책임자')?.revisedAt ?? '0000-00-00'
+        const done = s.pledges.find((p) => p.name === me.name && p.year === YEAR && p.kind === '관리책임자' && p.signedAt >= revised)
+        return (
+          <Card title="관리책임자 보안서약서" kicker={`양식 개정일자 ${revised}`}>
+            {done ? (
+              <Chip tone="ok">제출 완료 · {done.signedAt}</Chip>
+            ) : (
+              <form action={signKind} className="hstack" style={{ justifyContent: 'space-between' }}>
+                <input type="hidden" name="kind" value="관리책임자" />
+                <label className="hstack" style={{ gap: 7, cursor: 'pointer' }}>
+                  <input type="checkbox" name="agree" required />
+                  관리책임자로서 소관 조직의 정보보호 관리 책임을 다할 것을 서약합니다.
+                </label>
+                <button type="submit" className="btn pri">관리책임자 서약 제출</button>
+              </form>
+            )}
+          </Card>
+        )
+      })()}
+
+      {/* 요구사항 45행 — 재택근무보안서약서: 재택근무자는 재택 서약을 추가 제출한다 (체크리스트와 별개) */}
+      {(() => {
+        const revised = s.pledgeForms.find((f) => f.kind === '재택근무')?.revisedAt ?? '0000-00-00'
+        const done = s.pledges.find((p) => p.name === me.name && p.year === YEAR && p.kind === '재택근무' && p.signedAt >= revised)
+        return (
+          <Card title="재택근무 보안서약서" kicker={`양식 개정일자 ${revised}`}>
+            {done ? (
+              <Chip tone="ok">제출 완료 · {done.signedAt}</Chip>
+            ) : (
+              <form action={signKind} className="hstack" style={{ justifyContent: 'space-between' }}>
+                <input type="hidden" name="kind" value="재택근무" />
+                <label className="hstack" style={{ gap: 7, cursor: 'pointer' }}>
+                  <input type="checkbox" name="agree" required />
+                  재택근무 시 보안수칙(사내망 접속·자료 반출 금지·화면 잠금)을 준수할 것을 서약합니다.
+                </label>
+                <button type="submit" className="btn pri">재택근무 서약 제출</button>
+              </form>
+            )}
+          </Card>
+        )
+      })()}
 
       {s.securityOfficers.includes(me.name) && signed && (() => {
         const spRevised = s.pledgeForms.find((f) => f.kind === '특별')?.revisedAt ?? '0000-00-00'

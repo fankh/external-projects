@@ -284,6 +284,37 @@ export default async function ExpensePage() {
           </div>
         </Card>
       </div>
+
+      {/* 요구사항 17행 — 계획대비실적(비용), 조회 ●·엑셀 ◎. 투자 화면과 동형 */}
+      <Card title="계획대비실적" kicker="Plan vs Actual" pad={false}
+        actions={<a className="btn sm" href="/api/export?type=expense-actual">엑셀 다운로드</a>}>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead>
+              <tr><th>항목</th><th className="num">계획액</th><th className="num">계약액</th><th className="num">집행액</th><th className="num">집행률</th></tr>
+            </thead>
+            <tbody>
+              {confirmed.map((p) => {
+                const cts = kindContracts.filter((c) => c.planId === p.id)
+                const contracted = cts.reduce((sum, c) => sum + c.amount, 0)
+                const paid = cts.reduce((sum, c) => sum + kindSettlements
+                  .filter((x) => x.contractId === c.id && x.status === '지급완료')
+                  .reduce((sm, x) => sm + x.amount, 0), 0)
+                const rate = p.amount ? Math.round((paid / p.amount) * 100) : 0
+                return (
+                  <tr key={p.id}>
+                    <td className="strong">{p.title} <span className="mut mono">{p.id}</span></td>
+                    <td className="num">{fmt(p.amount)}</td>
+                    <td className="num">{fmt(contracted)}</td>
+                    <td className="num">{fmt(paid)}</td>
+                    <td className="num"><Chip tone={rate >= 90 ? 'warn' : 'neutral'} bare>{rate}%</Chip></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </>
   )
 }

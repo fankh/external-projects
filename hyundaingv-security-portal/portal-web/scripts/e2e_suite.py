@@ -50,6 +50,14 @@ def sc_pledge(pg, base, check):
     check('완료' in pg.locator('.stat', has_text='보안서약서').inner_text(), '제출 → 서약 스탯 완료')
     check('2026년 일반 보안서약서 제출' not in pg.locator('.card', has_text='나의 할일').inner_text(), '할일 자동 마감')
 
+    # 요구사항 45행 — 재택근무 보안서약서 추가 제출 (일반과 구분된 서약 4종 중 하나)
+    pg.goto(f'{base}/pledge/my', wait_until='networkidle')
+    card = pg.locator('.card', has_text='재택근무 보안서약서')
+    card.locator('input[name=agree]').check()
+    card.locator('button:has-text("재택근무 서약 제출")').click()
+    pg.wait_for_selector('.card:has-text("재택근무 보안서약서") >> text=제출 완료', timeout=10000)
+    check('재택근무' in pg.locator('.card', has_text='내 서약 이력').inner_text(), '재택근무 서약 → 이력 반영')
+
     # 결재 시트 11번 — 부서담당이 부서 서약 현황 전체를 결재상신하고 결재선(박정호)이 승인한다
     login(pg, base, '이수진')
     pg.goto(f'{base}/pledge/dept', wait_until='networkidle')

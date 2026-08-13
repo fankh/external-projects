@@ -33,6 +33,8 @@ export interface SrRequest {
   ci?: string
   dueDate?: string
   completedAt?: string
+  /** 공수(MD) — SR 관리 진행 처리 시 입력 (요구사항 26행) */
+  manHours?: number
 }
 
 /** SR 진행 단계 순서 — 시스템개발 SR 파이프라인 (제품안내서 §03) */

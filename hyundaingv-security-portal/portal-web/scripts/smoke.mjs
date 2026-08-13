@@ -189,7 +189,7 @@ async function main() {
     ['/sr/requests', 'BIZ_MGR', ['SR-2026-0132', '전사 신청 건']],
     ['/sr/new', 'USER', ['신청서 작성', '결재 상신']],
     ['/sr/ci', 'BIZ_MGR', ['SR-2026-0146', '배정 · 착수', 'BA 반려']],
-    ['/sr/manage', 'BIZ_MGR', ['전사 SR 목록', 'SR-2026-0141', '진행 처리']],
+    ['/sr/manage', 'BIZ_MGR', ['전사 SR 목록', 'SR-2026-0141', '진행 처리', '공수(MD)', '작업기간']],
     ['/sr/delayed', 'BIZ_MGR', ['SR-2026-0132', '완료일 변경']],
     // 서약 루프 — 김현우 미제출 / 박정호 제출 완료, 부서담당은 소속 부서만
     ['/pledge/my', 'USER', ['미제출', '서약서 제출', '온라인 동의']],
@@ -213,7 +213,7 @@ async function main() {
     // 보안점검(ISMS) — 현황판·기준관리·결과 결재상신
     ['/compliance/inspection', 'BIZ_MGR', ['IS-2026-22', '퇴직·전보자 계정 회수 점검', '결과 결재상신', '기준관리', 'CK-05', '결과미등록']],
     // 비용 루프 — 속보 기준금액(정산>계약>계획), 투자·비용 분리
-    ['/finance/expense', 'DEPT_MGR', ['클라우드 인프라 이용료', '씨클라우드', '속보', '기준금액', 'ST-2026-02', '월정산']],
+    ['/finance/expense', 'DEPT_MGR', ['클라우드 인프라 이용료', '씨클라우드', '속보', '기준금액', 'ST-2026-02', '월정산', '계획대비실적', 'expense-actual']],
     ['/finance/expense', 'USER', ['속보 등록']],
     // 보안교육 — 연간계획·명단 등록(담당)·내 이수현황(사용자)
     ['/compliance/education', 'BIZ_MGR', ['상반기 정보보호 교육', '명단 등록', '이수현황 — 전 임직원', '김현우', '미이수']],
@@ -240,7 +240,9 @@ async function main() {
     // 부서 서약 현황 결재상신 (결재 시트 11번) — 부서담당 화면에 상신 버튼
     ['/pledge/dept', 'DEPT_MGR', ['현황 결재상신']],
     // 특별서약 — 보안담당자(박정호)에게만 카드 노출
-    ['/pledge/my', 'BIZ_MGR', ['특별서약서 — 보안담당자']],
+    ['/pledge/my', 'BIZ_MGR', ['특별서약서 — 보안담당자', '관리책임자 보안서약서']],
+    // 요구사항 45행 — 재택근무 서약 카드는 전 사용자, 관리책임자 카드는 관리자만
+    ['/pledge/my', 'USER', ['재택근무 보안서약서']],
     // QnA — 질문·답변
     ['/board/qna', 'USER', ['QA-2026-12', '재택근무 체크리스트 제출 주기', '답변 대기', '질문 등록']],
     ['/board/qna', 'BIZ_MGR', ['답변 내용', '담당 지정']],
@@ -327,6 +329,13 @@ async function main() {
     const r = await get('/pledge/my', 'USER')
     const html = await r.text()
     check(!html.includes('특별서약서 — 보안담당자'), 'USER /pledge/my 에 특별서약 카드 미노출')
+    check(!html.includes('관리책임자 보안서약서'), 'USER /pledge/my 에 관리책임자 카드 미노출')
+  }
+  {
+    // 유형별 신청내역 분할 조회 (요구사항 22~24행) — kind 필터가 타 유형 행을 걸러낸다
+    const r = await get('/sr/requests?kind=%EB%8D%B0%EC%9D%B4%ED%84%B0', 'ADMIN')
+    const html = await r.text()
+    check(html.includes('SR-2026-0145') && !html.includes('SR-2026-0141'), 'SR 내역 kind=데이터 필터')
   }
   {
     // 엑셀 다운로드 — CSV(BOM) 응답과 권한 가드
@@ -334,6 +343,9 @@ async function main() {
     const text = await r.text()
     check(r.status === 200 && text.includes('계획대비') === false && text.includes('과제번호'), 'export: invest-actual CSV 헤더')
     check((r.headers.get('content-type') ?? '').includes('text/csv'), 'export: CSV 콘텐츠 타입')
+    const ex = await get('/api/export?type=expense-actual', 'USER')
+    const exText = await ex.text()
+    check(ex.status === 200 && exText.includes('클라우드 인프라 이용료') && !exText.includes('ERP 리포트'), 'export: expense-actual CSV (비용만)')
     const denied = await get('/api/export?type=education-records', 'USER')
     check(denied.status === 403, 'export: USER 이수현황 차단(403)')
     const anon = await fetch(`${BASE}/api/export?type=invest-actual`, { redirect: 'manual' })

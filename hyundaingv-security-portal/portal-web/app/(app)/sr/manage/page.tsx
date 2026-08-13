@@ -27,6 +27,9 @@ async function advance(formData: FormData) {
   if (!sr || !next) return
   sr.status = next
   if (next === '완료') sr.completedAt = today()
+  // 공수(MD) — 진행 처리 시 누적 입력 (요구사항 26행: 작업기간·공수·담당자 관리)
+  const manHours = Number(formData.get('manHours'))
+  if (Number.isFinite(manHours) && manHours > 0) sr.manHours = (sr.manHours ?? 0) + Math.round(manHours)
   // 처리 결과 증적 — SR 번호(pk) 하나로 신청·BA·결과 첨부를 공유한다 (첨부 시트: SR관리 결과등록)
   registerUpload(srNo, formData.get('file'), me.name)
   revalidatePath('/', 'layout')
@@ -55,7 +58,7 @@ export default async function SrManagePage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>SR번호</th><th>유형</th><th>제목</th><th>신청자</th><th>담당 CI</th><th>상태</th><th>완료 예정</th><th className="c">진행 처리</th></tr>
+              <tr><th>SR번호</th><th>유형</th><th>제목</th><th>신청자</th><th>담당 CI</th><th>상태</th><th className="num">공수(MD)</th><th>작업기간</th><th>완료 예정</th><th className="c">진행 처리</th></tr>
             </thead>
             <tbody>
               {rows.map((r) => {
@@ -68,11 +71,16 @@ export default async function SrManagePage() {
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
                     <td>{r.ci ?? <span className="mut">미배정</span>}</td>
                     <td><Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip></td>
+                    <td className="num tnum">{r.manHours ?? '-'}</td>
+                    <td className="tnum">{r.completedAt
+                      ? `${Math.max(1, Math.round((Date.parse(r.completedAt) - Date.parse(r.requestedAt)) / 86400000) + 1)}일`
+                      : '-'}</td>
                     <td className="tnum">{r.status === '완료' ? (r.completedAt ?? '-') : (r.dueDate ?? '-')}</td>
                     <td className="c">
                       {next ? (
                         <form action={advance} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="srNo" value={r.srNo} />
+                          <input className="input" type="number" name="manHours" min={1} placeholder="공수" title="투입 공수(MD) — 누적 합산" style={{ height: 25, fontSize: 11, width: 54 }} />
                           <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 130, paddingTop: 2 }} title="처리 결과 증적 첨부" />
                           <button type="submit" className="btn sm">{next} 처리 →</button>
                         </form>
