@@ -3,6 +3,7 @@ import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
 import { APPROVAL_SLA_DAYS, daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
+import { buildVulnPriority } from '@/lib/vuln-priority'
 import { hasDataIssue } from '@/lib/quality'
 import { approvalHref, noticeHref } from '@/lib/reflink'
 import { getSession } from '@/lib/session'
@@ -71,7 +72,10 @@ export default async function DashboardPage() {
   if (['SEC_MGR', 'ADMIN'].includes(session.role)) {
     // 수집 커넥터 지연·오류는 Discovery 수집 사각지대 — 해당 채널이 멎으면 미등록 자산·Shadow SaaS 가 안 잡힌다. 재연동 필요.
     const degradedConn = s.integrations.filter((i) => i.status === '지연' || i.status === '오류')
+    // 취약점 우선순위 P1 — 자산 중요도 × 노출도 스코어링(§05)의 즉시 조치 등급. 출처별 큐가 '얼마나'라면 이건 '무엇부터'.
+    const p1 = buildVulnPriority().p1
     opsQueues.push(
+      { label: '취약점 우선순위 P1 (즉시 조치)', count: p1, href: '/ai/insights', tone: 'err' },
       { label: '유출 · 침해 미조치', count: s.leaks.filter((l) => l.status !== '조치 완료').length, href: '/discovery/external', tone: 'err' },
       { label: '크리덴셜 노출 미조치 (인증 취약점)', count: s.credentials.filter((c) => c.status !== '조치 완료').length, href: '/discovery/external', tone: 'err' },
       { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external', tone: 'err' },
