@@ -113,6 +113,24 @@ export async function setAiDeployment(deployment: '온프레미스 LLM' | '외�
   revalidatePath('/', 'layout')
 }
 
+/** AI 모델·프롬프트 버전 관리 — 배포된 AI 구성(모델·프롬프트 버전)의 변경 관리 기록 (제품안내서 §05 AI 거버넌스: "모델·프롬프트 버전 관리").
+ *  AI 거버넌스·성능 리포트가 이 값을 근거로 산출하는 거버넌스 원장이다. 프롬프트 개정·모델 교체 시 기록한다. Admin. */
+export async function setAiModel(rawModel: string, rawPrompt: string) {
+  const session = await requireAdmin()
+  if (!session) return { ok: false, message: 'AI 버전 관리 권한이 없습니다 (Admin).' }
+  const model = rawModel.trim()
+  const prompt = rawPrompt.trim()
+  if (!model || !prompt) return { ok: false, message: '모델 ID·프롬프트 버전을 입력하세요.' }
+  const s = getStore()
+  const bM = s.aiPolicy.modelId, bP = s.aiPolicy.promptVersion
+  if (bM === model && bP === prompt) return { ok: false, message: '변경 내용이 이전과 같습니다.' }
+  s.aiPolicy.modelId = model
+  s.aiPolicy.promptVersion = prompt
+  audit(session.name, `AI 모델·프롬프트 버전 관리 — 모델 ${bM} → ${model} · 프롬프트 ${bP} → ${prompt}`, 'AI 정책')
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `AI 버전 갱신 — 모델 ${model} · 프롬프트 ${prompt}` }
+}
+
 /** 공통코드 값 사용/미사용 */
 export async function toggleCodeValue(groupId: string, code: string) {
   const session = await requireAdmin()

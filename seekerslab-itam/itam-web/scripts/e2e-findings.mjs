@@ -18,6 +18,7 @@ const EXE = 'C:/Users/seekers/AppData/Local/ms-playwright/chromium-1228/chrome-w
 
 const SEC = { login: 'ba.yoon', name: '윤보안', dept: '보안운영팀', role: 'SEC_MGR' }
 const ASSET = { login: 'js.park', name: '박자산', dept: '자산관리팀', role: 'ASSET_MGR' }
+const ADMIN = { login: 'admin', name: '시스템관리자', dept: 'IT기획팀', role: 'ADMIN' }
 const cookie = (acct) => ({ name: 'itam_session', value: encodeURIComponent(JSON.stringify(acct)), url: BASE })
 
 let pass = 0, fail = 0
@@ -105,6 +106,30 @@ async function twoStep(page, { name, navTo, cardText, rowText }) {
   ok(`${name}: 대응 확정 → 조치 완료`, (await card.locator('text=조치 완료').count()) > 0)
 }
 
+/** AI 모델·프롬프트 버전 관리(§05 AI 거버넌스) — 인라인 편집·빈 값 검증·거버넌스 원장 반영. Admin 전용.
+ *  AI 거버넌스·성능 리포트가 이 값을 근거로 산출하므로 배포 구성 변경은 감사에 남아야 한다. */
+async function aiModelManage(page) {
+  await page.goto(`${BASE}/settings/ai-policy`, { waitUntil: 'networkidle' })
+  ok('AI 버전 관리: 컨트롤 렌더', (await page.locator('text=모델 · 프롬프트 버전 관리').count()) > 0)
+  await page.locator('button', { hasText: /^버전 관리$/ }).click()
+  await page.waitForTimeout(300)
+  const modelIn = page.locator('input[placeholder*="claude-opus-5"]')
+  const promptIn = page.locator('input[placeholder*="프롬프트 버전"]')
+  ok('AI 버전 관리: 현재값 프리필', (await modelIn.inputValue()).length > 0 && (await promptIn.inputValue()).length > 0)
+  // 빈 값 검증 차단
+  await modelIn.fill('')
+  await page.locator('button', { hasText: /^저장$/ }).click()
+  await page.waitForTimeout(400)
+  ok('AI 버전 관리: 빈 값 검증 차단', (await page.textContent('body')).includes('모델 ID·프롬프트 버전을 입력하세요'))
+  // 정상 변경 → 원장 반영
+  await modelIn.fill('claude-opus-5')
+  await promptIn.fill('v3.3 (2026-08-13)')
+  await page.locator('button', { hasText: /^저장$/ }).click()
+  await page.waitForTimeout(700)
+  const body = await page.textContent('body')
+  ok('AI 버전 관리: 갱신 반영(모델·프롬프트)', body.includes('claude-opus-5') && body.includes('v3.3 (2026-08-13)'))
+}
+
 try {
   const browser = await chromium.launch({ executablePath: EXE, headless: true })
   console.log(`보안 findings 대응 루프 e2e — ${REMOTE ? '원격' : '로컬'} ${BASE}\n`)
@@ -149,6 +174,17 @@ try {
   await p2.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
   ok('자산담당: 외부 공격표면 findings 조치 버튼 미노출 (조회만)', (await p2.locator('button', { hasText: /^대응$|^차단$|^조사 착수$/ }).count()) === 0)
   await ctx2.close()
+
+  // ── Admin: AI 모델·프롬프트 버전 관리(§05 AI 거버넌스) + 감사 적재 ──
+  const ctx3 = await browser.newContext()
+  await ctx3.addCookies([cookie(ADMIN)])
+  const p3 = await ctx3.newPage()
+  p3.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
+  await aiModelManage(p3)
+  await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const auditAi = await p3.textContent('body')
+  ok('감사 로그: AI 모델·프롬프트 버전 관리 적재', auditAi.includes('AI 모델·프롬프트 버전 관리') && auditAi.includes('claude-opus-5'))
+  await ctx3.close()
 
   await browser.close()
 } catch (err) {
