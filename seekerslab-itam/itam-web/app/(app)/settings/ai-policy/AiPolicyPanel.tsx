@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card } from '@/components/ui'
 import type { AiPolicy } from '@/lib/types'
-import { setAiDeployment, setAiModel, toggleAiPolicy } from '../actions'
+import { setAiDeployment, setAiModel, setAuditRetention, toggleAiPolicy } from '../actions'
 
 const DEPLOYMENTS: AiPolicy['deployment'][] = ['온프레미스 LLM', '외부 API 연계', '하이브리드']
 
@@ -22,6 +22,15 @@ export function AiPolicyPanel({ policy }: { policy: AiPolicy }) {
     const r = await setAiModel(em, ep)
     setVerMsg(r.message); if (r.ok) setVerOpen(false)
   })
+  // 감사 로그 보존 기간 — 규제·컴플라이언스 정책값(측정값인 분류 정확도와 달리 운영자가 설정)
+  const [retOpen, setRetOpen] = useState(false)
+  const [rd, setRd] = useState(String(policy.auditRetentionDays))
+  const [retMsg, setRetMsg] = useState<string | null>(null)
+  const saveRet = () => startTransition(async () => {
+    const r = await setAuditRetention(Number(rd))
+    setRetMsg(r.message); if (r.ok) setRetOpen(false)
+  })
+  const RETENTION_PRESETS = [90, 180, 365, 730, 1095, 1825]
 
   return (
     <Card kicker="Policy" title="AI 실행 · 거버넌스 설정">
@@ -54,6 +63,28 @@ export function AiPolicyPanel({ policy }: { policy: AiPolicy }) {
             </div>
           )}
           {verMsg && <div className="mut" style={{ fontSize: 11, marginTop: 4 }}>{verMsg}</div>}
+
+          <div className="kicker mute" style={{ margin: '14px 0 7px' }}>감사 로그 보존 기간</div>
+          {!retOpen ? (
+            <div className="hstack" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'baseline' }}>
+              <span className="dim" style={{ fontSize: 11.5 }}>현재 <span className="mono">{policy.auditRetentionDays}</span>일 (AI 제안·질의·응답 감사 로그)</span>
+              <button className="btn sm ghost" disabled={pending} title="규제·컴플라이언스에 따른 감사 로그 보존 기간 설정 (30~3650일)"
+                onClick={() => { setRd(String(policy.auditRetentionDays)); setRetMsg(null); setRetOpen(true) }}>보존 기간 관리</button>
+            </div>
+          ) : (
+            <div className="hstack" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <select className="input" style={{ height: 27, fontSize: 12 }} value={RETENTION_PRESETS.includes(Number(rd)) ? rd : 'custom'} disabled={pending}
+                onChange={(e) => { if (e.target.value !== 'custom') setRd(e.target.value) }}>
+                {RETENTION_PRESETS.map((d) => <option key={d} value={d}>{d}일{d % 365 === 0 ? ` (${d / 365}년)` : ''}</option>)}
+                <option value="custom">직접 입력</option>
+              </select>
+              <input className="input" type="number" min={30} max={3650} style={{ width: 100, height: 27, fontSize: 12 }} value={rd} disabled={pending}
+                onChange={(e) => setRd(e.target.value)} /> <span className="dim" style={{ fontSize: 11 }}>일</span>
+              <button className="btn sm pri" disabled={pending} onClick={saveRet}>저장</button>
+              <button className="btn sm ghost" disabled={pending} onClick={() => { setRetOpen(false); setRetMsg(null) }}>취소</button>
+            </div>
+          )}
+          {retMsg && <div className="mut" style={{ fontSize: 11, marginTop: 4 }}>{retMsg}</div>}
         </div>
 
         <div>

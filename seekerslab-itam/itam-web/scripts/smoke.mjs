@@ -807,6 +807,8 @@ try {
   check('AI 정책: 실행 환경·거버넌스 렌더', aiHtml.includes('온프레미스 LLM') && aiHtml.includes('권한 범위 필터'))
   // 모델·프롬프트 버전 관리(§05 AI 거버넌스) — 배포 모델·프롬프트 버전 변경 관리 원장. AI 거버넌스·성능 리포트 근거.
   check('AI 정책: 모델·프롬프트 버전 관리 컨트롤', aiHtml.includes('모델 · 프롬프트 버전 관리') && aiHtml.includes('버전 관리'))
+  // 감사 로그 보존 기간 관리 — 규제·컴플라이언스 정책값(표시 전용이던 것을 Admin 이 30~3650일로 설정)
+  check('AI 정책: 감사 로그 보존 기간 관리 컨트롤', aiHtml.includes('감사 로그 보존 기간') && aiHtml.includes('보존 기간 관리'))
   const usrHtml = await (await get('/settings/users', 'ADMIN')).text()
   check('사용자 · 결재선: 결재선·필수 결재·단계 편집 렌더', usrHtml.includes('IT기획팀장') && usrHtml.includes('필수 결재') && usrHtml.includes('편집'))
   check('사용자 · 결재선: STEP 4 권한그룹 배정 컨트롤 렌더', usrHtml.includes('사용자 · 권한그룹 배정') && usrHtml.includes('select'))
