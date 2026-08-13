@@ -779,6 +779,37 @@ def sc_scheduler(pg, base, check):
     check('스케줄러' in pg.content(), '감사 행위자=스케줄러')
 
 
+def sc_keyboard(pg, base, check):
+    """키보드 조작성 (WCAG 2.1.1) — MDI 탭 닫기·본문 바로가기 링크가 키보드로 동작한다"""
+    login(pg, base, '김현우')                 # 개인별현황 탭 생성
+    pg.wait_for_selector('.mdibar .tab')      # 첫 탭이 localStorage 에 저장될 때까지 대기 (레이스 방지)
+    pg.goto(f'{base}/sr/requests', wait_until='networkidle')  # 신청내역 탭 추가
+    pg.wait_for_function('document.querySelectorAll(".mdibar .tab").length >= 2', timeout=5000)
+    tabs = pg.locator('.mdibar .tab')
+    check(tabs.count() >= 2, 'MDI 탭 2개 이상 생성')
+    # 현재 탭(신청내역)의 닫기 버튼을 키보드로 포커스 → Enter 로 닫힘
+    x = pg.locator('.mdibar .tab', has_text='신청내역').locator('.x')
+    x.focus()
+    check(pg.evaluate("document.activeElement && document.activeElement.classList.contains('x')"),
+          'MDI 닫기 버튼 키보드 포커스 가능 (tabIndex)')
+    before = tabs.count()
+    pg.keyboard.press('Enter')
+    pg.wait_for_function(f'document.querySelectorAll(".mdibar .tab").length < {before}', timeout=5000)
+    check(pg.locator('.mdibar .tab').count() < before, 'Enter 로 탭 닫기 (키보드 활성)')
+    # 탭 본체도 키보드 활성 — 개인별현황 탭에 포커스 후 Enter 로 이동
+    dash = pg.locator('.mdibar .tab', has_text='개인별현황')
+    dash.focus()
+    check(pg.evaluate("document.activeElement && document.activeElement.getAttribute('role') === 'tab'"),
+          'MDI 탭 본체 키보드 포커스 가능')
+    # 본문 바로가기 링크 — 존재·포커스 가능
+    skip = pg.locator('a.skip')
+    check(skip.count() == 1, '본문 바로가기 링크 존재')
+    skip.focus()
+    check(pg.evaluate("document.activeElement && document.activeElement.classList.contains('skip')"),
+          '본문 바로가기 링크 키보드 포커스 가능')
+    check(pg.evaluate("!!document.getElementById('main')"), '본문 대상 #main 존재')
+
+
 def sc_runtime(pg, base, check):
     """브랜디드 404 + ChunkReload 자동 복구 + 세션 쿠키 속성·로그아웃 무효화"""
     login(pg, base, '김현우')
@@ -962,6 +993,7 @@ SCENARIOS = [
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),
+    ('keyboard', '키보드 조작성 (MDI 탭·스킵 링크)', sc_keyboard, {}),
     ('profile', '고객사 프로필 스위칭 (manufacturer)', sc_profile, {'PORTAL_PROFILE': 'manufacturer'}),
     ('profile_public', '고객사 프로필 스위칭 (public)', sc_profile_public, {'PORTAL_PROFILE': 'public'}),
     ('batchref', '상신 묶음 번호 재사용 금지 (반려 후 재상신)', sc_batchref, {}),

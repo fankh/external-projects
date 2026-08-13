@@ -114,12 +114,15 @@ export function AppShell(props: {
 
       <div className="mdibar">
         {tabs.map((t) => (
-          <span key={t.href} role="tab" className={`tab ${t.href === pathname ? 'on' : ''}`}
+          // 커스텀 탭 — 키보드 조작 가능 (WCAG 2.1.1): tabIndex 로 포커스, Enter/Space 로 이동·닫기
+          <span key={t.href} role="tab" tabIndex={0} className={`tab ${t.href === pathname ? 'on' : ''}`}
             style={hueStyle(TITLE_BY_HREF[t.href]?.hue ?? '#52525b')}
-            onClick={() => router.push(t.href)}>
+            onClick={() => router.push(t.href)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(t.href) } }}>
             {t.title}
-            <span className="x" role="button" aria-label={`${t.title} 탭 닫기`}
-              onClick={(e) => { e.stopPropagation(); closeTab(t.href) }}>×</span>
+            <span className="x" role="button" tabIndex={0} aria-label={`${t.title} 탭 닫기`}
+              onClick={(e) => { e.stopPropagation(); closeTab(t.href) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); closeTab(t.href) } }}>×</span>
           </span>
         ))}
       </div>
