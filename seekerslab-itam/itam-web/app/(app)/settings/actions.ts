@@ -5,7 +5,7 @@ import { today } from '@/lib/dates'
 import { escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
-import type { Channel, SaasCatalogEntry } from '@/lib/types'
+import { SCAN_INTERVALS, type Channel, type SaasCatalogEntry } from '@/lib/types'
 
 /** 정책 변경은 전량 추적 (§07 감사) — 적재는 lib/audit 로 일원화 */
 const audit = appendAdminAudit
@@ -37,6 +37,24 @@ export async function setScanIntensity(channel: Channel, intensity: '낮음' | '
   p.intensity = intensity
   audit(session.name, `스캔 강도 변경 → ${intensity}`, channel)
   revalidatePath('/', 'layout')
+}
+
+/** 재탐지 주기 조정 — 도메인별 재탐지 스케줄(제품안내서 §04 "재탐지는 도메인별 주기(스케줄러)로 자동 반복").
+ *  강도·대역·시간대는 조정되나 재탐지 주기만 표시 전용이던 공백을 메운다. 표준 프리셋에서만 선택(불규칙 값 방지). 전 채널. Admin. */
+export async function setScanInterval(channel: Channel, rawInterval: string) {
+  const session = await requireAdmin()
+  if (!session) return { ok: false, message: '스캔 정책 변경 권한이 없습니다 (Admin).' }
+  const s = getStore()
+  const p = s.scanPolicies.find((x) => x.channel === channel)
+  if (!p) return { ok: false, message: '탐지 채널을 찾을 수 없습니다.' }
+  const interval = rawInterval.trim()
+  if (!(SCAN_INTERVALS as readonly string[]).includes(interval)) return { ok: false, message: '허용된 재탐지 주기에서 선택하세요.' }
+  if (p.interval === interval) return { ok: false, message: '변경 내용이 이전과 같습니다.' }
+  const before = p.interval
+  p.interval = interval
+  audit(session.name, `재탐지 주기 변경 — ${before} → ${interval}`, channel)
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${channel} 재탐지 주기 변경 — ${before} → ${interval}` }
 }
 
 /** 스캔 대상 대역·시간대 조정 — 능동 스캔의 스캔 안전장치(제품안내서 §07 "대역·시간대·강도 정책 통제").

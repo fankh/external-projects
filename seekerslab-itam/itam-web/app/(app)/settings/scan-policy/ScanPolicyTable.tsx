@@ -1,8 +1,8 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import type { ScanPolicy } from '@/lib/types'
-import { setScanIntensity, setScanScope, toggleScanChannel } from '../actions'
+import { SCAN_INTERVALS, type ScanPolicy } from '@/lib/types'
+import { setScanIntensity, setScanInterval, setScanScope, toggleScanChannel } from '../actions'
 
 const LEVELS: ScanPolicy['intensity'][] = ['낮음', '보통', '높음']
 
@@ -12,11 +12,19 @@ export function ScanPolicyTable({ policies }: { policies: ScanPolicy[] }) {
   const [et, setEt] = useState('')
   const [ew, setEw] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
+  // 재탐지 주기 편집 — 대역·시간대(능동 전용)와 달리 전 채널 대상이라 별도 상태로 관리한다
+  const [intCh, setIntCh] = useState<string | null>(null)
+  const [iv, setIv] = useState('')
 
   const open = (p: ScanPolicy) => { setEditing(p.channel); setEt(p.targets); setEw(p.window); setMsg(null) }
   const save = (channel: string) => startTransition(async () => {
     const r = await setScanScope(channel as ScanPolicy['channel'], et, ew)
     setMsg(r.message); if (r.ok) setEditing(null)
+  })
+  const openInt = (p: ScanPolicy) => { setIntCh(p.channel); setIv(p.interval); setMsg(null) }
+  const saveInt = (channel: string) => startTransition(async () => {
+    const r = await setScanInterval(channel as ScanPolicy['channel'], iv)
+    setMsg(r.message); if (r.ok) setIntCh(null)
   })
 
   return (
@@ -45,7 +53,23 @@ export function ScanPolicyTable({ policies }: { policies: ScanPolicy[] }) {
                     {ed ? <input className="input" style={{ width: 120, height: 25, fontSize: 11 }} value={ew} disabled={pending}
                       placeholder="23:00 ~ 05:00" onChange={(e) => setEw(e.target.value)} /> : p.window}
                   </td>
-                  <td className="tnum mute">{p.interval}</td>
+                  <td className="tnum mute">
+                    {intCh === p.channel ? (
+                      <span className="hstack" style={{ gap: 4 }}>
+                        <select className="input" style={{ height: 25, fontSize: 11 }} value={iv} disabled={pending}
+                          onChange={(e) => setIv(e.target.value)}>
+                          {(SCAN_INTERVALS.includes(p.interval as typeof SCAN_INTERVALS[number]) ? SCAN_INTERVALS : [p.interval, ...SCAN_INTERVALS]).map((x) => <option key={x} value={x}>{x}</option>)}
+                        </select>
+                        <button className="btn sm pri" disabled={pending} onClick={() => saveInt(p.channel)}>저장</button>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => { setIntCh(null); setMsg(null) }}>취소</button>
+                      </span>
+                    ) : (
+                      <span className="hstack" style={{ gap: 5 }}>
+                        {p.interval}
+                        <button className="btn sm ghost" disabled={pending} title="재탐지 주기 변경 (스케줄러)" onClick={() => openInt(p)}>주기</button>
+                      </span>
+                    )}
+                  </td>
                   <td className="c">
                     {p.kind === '능동' ? (
                       <span className="seg" style={{ transform: 'scale(.92)' }}>
