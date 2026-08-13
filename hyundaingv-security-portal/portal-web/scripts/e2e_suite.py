@@ -532,6 +532,34 @@ def sc_project_pledge(pg, base, check):
           '개정 후 재서명 1건만 집계 (stale 과다계수 방지; 수정 전이면 3건)')
 
 
+def sc_pledge_multikind(pg, base, check):
+    """비-일반 양식 개정도 재서약 할일·안내 생성 + 유형별 마감(교차마감 방지) — 후속조치 #4."""
+    # 관리책임자·일반 양식을 모두 개정 → 박정호(비-USER)는 두 유형 재서약 할일을 갖는다
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
+    pg.locator('tr', has_text='관리책임자 보안서약서').locator('button:has-text("개정")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.locator('tr', has_text='일반 보안서약서').locator('button:has-text("개정")').click()
+    pg.wait_for_load_state('networkidle')
+
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    card = pg.locator('.card', has_text='미처리 할일')
+    check('관리책임자 보안서약서 재서약' in card.inner_text(), '관리책임자 개정 → 재서약 할일 생성 (비-일반 통지)')
+    check('일반 보안서약서 재서약' in card.inner_text(), '일반 개정 → 재서약 할일 생성')
+
+    # 관리책임자만 서약 → 관리책임자 재서약 할일만 닫히고 일반 재서약 할일은 유지돼야(교차마감 방지)
+    pg.goto(f'{base}/pledge/my', wait_until='networkidle')
+    mgr = pg.locator('.card', has_text='관리책임자 보안서약서')
+    mgr.locator('input[name=agree]').check()
+    mgr.locator('button:has-text("관리책임자 서약 제출")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    card = pg.locator('.card', has_text='미처리 할일')
+    check('관리책임자 보안서약서 재서약' not in card.inner_text(), '관리책임자 서약 → 해당 유형 할일만 마감')
+    check('일반 보안서약서 재서약' in card.inner_text(), '일반 재서약 할일은 유지 (유형 교차마감 방지)')
+
+
 def sc_codes(pg, base, check):
     """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
@@ -1092,6 +1120,7 @@ SCENARIOS = [
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
+    ('pledge_multikind', '비-일반 양식 개정 재서약 통지 + 유형별 마감(교차마감 방지)', sc_pledge_multikind, {}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),

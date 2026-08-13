@@ -28,8 +28,8 @@ async function sign(formData: FormData) {
 
   s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '일반', signedAt: nowStampSec(), method: '온라인' })
 
-  // 폐쇄 루프 — 제출과 함께 '보안서약서' 할일이 닫히고, 대시보드·부서 현황 집계가 갱신된다
-  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '보안서약서' && !t.done)
+  // 폐쇄 루프 — 제출과 함께 해당 유형 '보안서약서' 할일이 닫히고 집계가 갱신된다 (유형별로 닫아 교차마감 방지)
+  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '보안서약서' && t.title.includes('일반 보안서약서') && !t.done)
   if (todo) todo.done = true
 
   revalidatePath('/', 'layout')
@@ -48,6 +48,8 @@ async function signKind(formData: FormData) {
   const revisedAt = s.pledgeForms.find((f) => f.kind === kind)?.revisedAt ?? '0000-00-00'
   if (s.pledges.some((p) => p.name === me.name && p.year === YEAR && p.kind === kind && p.signedAt >= revisedAt)) return
   s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind, signedAt: nowStampSec(), method: '온라인' })
+  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '보안서약서' && t.title.includes(`${kind} 보안서약서`) && !t.done)
+  if (todo) todo.done = true
   revalidatePath('/', 'layout')
 }
 
@@ -64,6 +66,13 @@ async function signProject(formData: FormData) {
   const revisedAt = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
   if (s.pledges.some((p) => p.name === me.name && p.kind === '프로젝트' && p.projectRef === projectRef && p.signedAt >= revisedAt)) return
   s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '프로젝트', signedAt: nowStampSec(), method: '온라인', projectRef })
+  // 참여 프로젝트를 모두 서명했으면 재서약 할일을 닫는다 (남은 미서명 프로젝트가 있으면 유지)
+  const remaining = s.projects.some((p) => p.status === '진행중' && (p.members ?? []).includes(me.name) &&
+    !s.pledges.some((x) => x.name === me.name && x.kind === '프로젝트' && x.projectRef === p.id && x.signedAt >= revisedAt))
+  if (!remaining) {
+    const todo = s.todos.find((t) => t.owner === me.name && t.kind === '보안서약서' && t.title.includes('프로젝트 보안서약서') && !t.done)
+    if (todo) todo.done = true
+  }
   revalidatePath('/', 'layout')
 }
 
@@ -78,6 +87,8 @@ async function signSpecial(formData: FormData) {
   const revisedAt = s.pledgeForms.find((f) => f.kind === '특별')?.revisedAt ?? '0000-00-00'
   if (s.pledges.some((p) => p.name === me.name && p.year === YEAR && p.kind === '특별' && p.signedAt >= revisedAt)) return
   s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '특별', signedAt: nowStampSec(), method: '온라인', duty })
+  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '보안서약서' && t.title.includes('특별 보안서약서') && !t.done)
+  if (todo) todo.done = true
   revalidatePath('/', 'layout')
 }
 

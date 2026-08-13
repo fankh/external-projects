@@ -53,6 +53,10 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   const signed = new Set(s.pledges.filter((p) => p.year === '2026' && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
   await send('미서약', s.people.filter((p) => !signed.has(p.name)).map((p) => p.name), '[보안서약서] 미서약 안내')
 
+  // 1-b) 비-일반 서약 재서약 방치 — 개정 후 미완료 재서약 할일(관리책임자·재택·특별·프로젝트). 일반은 위 1)에서 별도.
+  const reSign = s.todos.filter((x) => x.kind === '보안서약서' && !x.done && !x.title.includes('일반 보안서약서'))
+  await send('비일반 재서약', [...new Set(reSign.map((x) => x.owner))], '[보안서약서] 개정 재서약 안내')
+
   // 2) 보안점검 경과 — 예정월이 지났는데 완료·결재중이 아닌 항목의 점검자
   await send('점검 경과',
     s.inspectionPlans.filter((p) => p.month < month && (p.status === '계획' || p.status === '결과미등록')).map((p) => p.inspector),

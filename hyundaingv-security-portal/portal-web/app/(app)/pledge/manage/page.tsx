@@ -6,7 +6,8 @@ import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStampSec, today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
-import { getStore, nextNo } from '@/lib/store'
+import { ACCOUNTS } from '@/lib/session'
+import { getStore, isRemoteTargetIn, nextNo } from '@/lib/store'
 import type { PledgeKind } from '@/lib/types'
 
 const YEAR = '2026'
@@ -15,6 +16,29 @@ function unsignedOf(s: ReturnType<typeof getStore>) {
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
   const signed = new Set(s.pledges.filter((p) => p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
   return s.people.filter((p) => !signed.has(p.name))
+}
+
+/** 개정 후 재서약 대상(이름) — 유형별 의무자 중 현 개정본(revisedAt) 유효 서명이 없는 인원.
+ *  의무자 집합은 pledge/my 의 각 유형 노출 조건과 동일: 일반=전 직원, 관리책임자=비-USER 계정,
+ *  재택근무=당월 재택 대상자, 특별=보안담당자, 프로젝트=진행중 프로젝트 참여 인력. */
+function reSignTargets(s: ReturnType<typeof getStore>, kind: PledgeKind, revisedAt: string): string[] {
+  const missing = (name: string) => !s.pledges.some((p) => p.name === name && p.kind === kind && p.signedAt >= revisedAt)
+  if (kind === '일반') return unsignedOf(s).map((p) => p.name)
+  if (kind === '관리책임자') return ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => a.name).filter(missing)
+  if (kind === '재택근무') {
+    const month = today().slice(0, 7)
+    return s.remoteTargets.filter((t) => isRemoteTargetIn(t, month)).map((t) => t.name).filter(missing)
+  }
+  if (kind === '특별') return s.securityOfficers.filter(missing)
+  if (kind === '프로젝트') {
+    const members = new Set<string>()
+    for (const pj of s.projects.filter((p) => p.status === '진행중')) for (const m of pj.members ?? []) members.add(m)
+    // 참여 프로젝트 중 하나라도 현 개정본 미서명이면 대상
+    return [...members].filter((name) => s.projects.some((pj) =>
+      pj.status === '진행중' && (pj.members ?? []).includes(name) &&
+      !s.pledges.some((p) => p.name === name && p.kind === '프로젝트' && p.projectRef === pj.id && p.signedAt >= revisedAt)))
+  }
+  return []
 }
 
 /** 양식 개정 — 개정일자 이전 서약이 무효가 되어 전원 재서약 대상으로 재산출된다 (요구사항: 개정일 기준 안내) */
@@ -32,21 +56,20 @@ async function reviseForm(formData: FormData) {
   audit(me.name, '서약양식 개정', `${kind} 보안서약서: ${form.revisedAt.slice(0, 10)} → ${revisedAt}`)
   form.revisedAt = revisedAt
 
-  if (kind === '일반') {
-    // 폐쇄 루프 — 재서약 대상에게 '보안서약서' 할일이 다시 생기고 안내메일이 나간다
-    const targets = unsignedOf(s)
-    const year = day.slice(0, 4)
-    for (const p of targets) {
-      if (!s.todos.some((t) => t.owner === p.name && t.kind === '보안서약서' && !t.done)) {
-        s.todos.unshift({
-          id: nextNo('TD', year, s.todos.map((t) => t.id)),
-          owner: p.name, kind: '보안서약서', title: `${YEAR}년 일반 보안서약서 재서약 (개정 ${day})`,
-          dueDate: day, done: false,
-        })
-      }
+  // 폐쇄 루프 — 유형 불문 재서약 대상에게 '보안서약서' 할일(유형 명시)과 안내메일이 나간다.
+  // (기존엔 일반만 통지 — 관리책임자·재택·특별·프로젝트 개정은 서명 무효화만 되고 안내가 없었음)
+  const targets = reSignTargets(s, kind, revisedAt)
+  const year = day.slice(0, 4)
+  for (const name of targets) {
+    if (!s.todos.some((t) => t.owner === name && t.kind === '보안서약서' && t.title.includes(`${kind} 보안서약서`) && !t.done)) {
+      s.todos.unshift({
+        id: nextNo('TD', year, s.todos.map((t) => t.id)),
+        owner: name, kind: '보안서약서', title: `${YEAR}년 ${kind} 보안서약서 재서약 (개정 ${day})`,
+        dueDate: day, done: false,
+      })
     }
-    await sendVia('groupware-mail', targets.map((p) => p.name), `[보안서약서] 양식 개정(${day}) — 재서약 안내`)
   }
+  if (targets.length > 0) await sendVia('groupware-mail', targets, `[보안서약서] ${kind} 양식 개정(${day}) — 재서약 안내`)
   revalidatePath('/', 'layout')
 }
 
@@ -59,7 +82,7 @@ async function uploadScan(formData: FormData) {
   const person = s.people.find((p) => p.name === name)
   if (!person || !unsignedOf(s).some((p) => p.name === name)) return
   s.pledges.push({ name: person.name, dept: person.dept, year: YEAR, kind: '일반', signedAt: nowStampSec(), method: '서면(스캔)' })
-  const todo = s.todos.find((t) => t.owner === name && t.kind === '보안서약서' && !t.done)
+  const todo = s.todos.find((t) => t.owner === name && t.kind === '보안서약서' && t.title.includes('일반 보안서약서') && !t.done)
   if (todo) todo.done = true
   revalidatePath('/', 'layout')
 }
