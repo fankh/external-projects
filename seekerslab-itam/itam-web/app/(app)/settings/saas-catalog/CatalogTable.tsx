@@ -1,17 +1,19 @@
 'use client'
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { SaasCatalogEntry } from '@/lib/types'
-import { decideSaas } from '../actions'
+import { decideSaas, setSaasDataGrade } from '../actions'
 
 const TONE = { 인가: 'ok', 차단: 'err', 검토중: 'warn' } as const
-const GRADE_TONE = { 일반: 'neutral', 민감: 'warn', 기밀: 'err' } as const
+const GRADES: SaasCatalogEntry['dataGrade'][] = ['일반', '민감', '기밀']
 
 export function CatalogTable({ entries }: { entries: SaasCatalogEntry[] }) {
   const [pending, startTransition] = useTransition()
+  const [msg, setMsg] = useState<string | null>(null)
 
   return (
     <>
+    {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
     <div className="tbl-wrap">
       <table className="tbl">
         <thead>
@@ -27,7 +29,14 @@ export function CatalogTable({ entries }: { entries: SaasCatalogEntry[] }) {
               <td className="mute">{e.category}</td>
               <td className="mute">{e.vendor}</td>
               <td>{e.owner}</td>
-              <td className="c"><Chip tone={GRADE_TONE[e.dataGrade]} bare>{e.dataGrade}</Chip></td>
+              <td className="c">
+                <span className="seg" style={{ transform: 'scale(.9)' }} title="데이터 민감도 등급 분류 — 차단 집행 우선순위·기밀 취급 집계 근거">
+                  {GRADES.map((g) => (
+                    <button key={g} className={e.dataGrade === g ? 'on' : ''} disabled={pending}
+                      onClick={() => startTransition(async () => setMsg((await setSaasDataGrade(e.id, g)).message))}>{g}</button>
+                  ))}
+                </span>
+              </td>
               <td className="c"><Chip tone={TONE[e.status]}>{e.status}</Chip></td>
               <td className="mute tnum">{e.decidedAt ? `${e.decidedAt} · ${e.decidedBy}` : '-'}</td>
               <td className="c">

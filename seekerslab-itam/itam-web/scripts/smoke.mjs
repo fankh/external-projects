@@ -774,6 +774,8 @@ try {
   check('SaaS 카탈로그: 판정 상태 렌더', catHtml.includes('Dropbox') && catHtml.includes('검토중'))
   // 차단 판정 → 집행 통보 — 차단이 정책 표시로 끝나지 않고 보안운영팀 차단 집행 요청으로 이어짐을 명시
   check('SaaS 카탈로그: 차단 집행 통보 안내 렌더', catHtml.includes('차단은 집행으로 이어집니다') && catHtml.includes('프록시·DNS 차단 집행 요청'))
+  // 데이터 등급 분류 편집 — 표시 전용이던 데이터 민감도(일반/민감/기밀)를 Admin 이 분류(차단 우선순위·기밀 취급 집계 근거)
+  check('SaaS 카탈로그: 데이터 등급 분류 편집 노출', catHtml.includes('데이터 민감도 등급 분류'))
   const saasSec = await (await get('/discovery/saas', 'SEC_MGR')).text()
   check('Shadow SaaS: 보안담당에 판정(인가·차단) 버튼 노출', saasSec.includes('판정') && saasSec.includes('차단'))
   const saasAsset = await (await get('/discovery/saas', 'ASSET_MGR')).text()

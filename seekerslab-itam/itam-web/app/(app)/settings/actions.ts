@@ -110,6 +110,22 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
   revalidatePath('/', 'layout')
 }
 
+/** SaaS 데이터 등급 분류 — 데이터 민감도(일반/민감/기밀)를 지정한다. 등급은 차단 집행 우선순위·기밀 취급 집계의 근거로,
+ *  그동안 시드 고정·표시 전용이던 공백을 메운다. 데이터 분류는 거버넌스 결정이므로 Admin. */
+export async function setSaasDataGrade(id: string, grade: SaasCatalogEntry['dataGrade']) {
+  const session = await requireAdmin()
+  if (!session) return { ok: false, message: '데이터 등급 분류 권한이 없습니다 (Admin).' }
+  const s = getStore()
+  const entry = s.saasCatalog.find((x) => x.id === id)
+  if (!entry) return { ok: false, message: 'SaaS 카탈로그 항목을 찾을 수 없습니다.' }
+  if (entry.dataGrade === grade) return { ok: false, message: '변경 내용이 이전과 같습니다.' }
+  const before = entry.dataGrade
+  entry.dataGrade = grade
+  audit(session.name, `SaaS 데이터 등급 분류 — ${before} → ${grade}`, entry.service)
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${entry.service} 데이터 등급 → ${grade}` }
+}
+
 /** AI 거버넌스 토글 — 권한 필터·자동 승인·재학습 */
 export async function toggleAiPolicy(field: 'scopeFilter' | 'autoApprove' | 'feedbackLearning') {
   const session = await requireAdmin()
