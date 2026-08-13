@@ -2,4 +2,8 @@ node_modules
 .next
 .git
 *.md
-scripts/smoke.mjs
+# 실배포 비밀값 — 로컬 .env 가 이미지 레이어에 구워지는 것을 막는다 (SESSION_SECRET 등)
+.env
+.env.local
+# 게이트·개발 전용 스크립트 — 런타임(next start)에는 불필요 (instrumentation 은 .next 에 컴파일됨)
+scripts
