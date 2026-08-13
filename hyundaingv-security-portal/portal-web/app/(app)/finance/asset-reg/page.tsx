@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
-import { assetAdapter, isEnabled } from '@/lib/integrations/registry'
+import { assetAdapter, isEnabled, withTimeout } from '@/lib/integrations/registry'
 import { getStore } from '@/lib/store'
 
 async function acquire(formData: FormData) {
@@ -18,7 +18,7 @@ async function acquire(formData: FormData) {
   // 폐쇄 루프 — IT포털 → 자산관리시스템 API → 자산등록번호 취득, 이력으로 남는다.
   // 실 어댑터 예외(네트워크·인증)는 취득 실패로 흡수 — 화면 500 없이 재시도 가능.
   try {
-    const { assetNo } = await adapter.acquireAssetNo(serial)
+    const { assetNo } = await withTimeout(adapter.acquireAssetNo(serial), '자산등록번호 취득')
     const s = getStore()
     if (!s.assetAcquisitions.some((a) => a.serial === serial)) {
       s.assetAcquisitions.unshift({ serial, model, assetNo, by: me.name, at: nowStamp() })
@@ -36,7 +36,7 @@ export default async function AssetRegPage({ searchParams }: { searchParams: Pro
   const on = isEnabled('asset-api')
   const adapter = assetAdapter()
   // 조회 실패(어댑터 예외)는 빈 목록으로 폴백 — 연동 장애가 자산등록 화면을 깨지 않게 한다
-  const assets = adapter ? await adapter.searchAssets(query).catch(() => []) : []
+  const assets = adapter ? await withTimeout(adapter.searchAssets(query), '자산 조회').catch(() => []) : []
   const unregistered = assets.filter((a) => !a.assetNo)
 
   return (

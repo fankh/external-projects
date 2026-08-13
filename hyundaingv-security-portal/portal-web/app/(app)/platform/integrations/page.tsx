@@ -5,7 +5,7 @@ import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
 import { runAdapterConformance, validatorSelfCheck } from '@/lib/integrations/conformance'
 import { deployReadiness } from '@/lib/readiness'
-import { channelSummary, hrAdapter, isEnabled } from '@/lib/integrations/registry'
+import { channelSummary, hrAdapter, isEnabled, withTimeout } from '@/lib/integrations/registry'
 import { runDailyNotify } from '@/lib/notify'
 import { getStore, recordBatch } from '@/lib/store'
 import { CHANNELS, PORTAL } from '@/portal.config'
@@ -45,7 +45,7 @@ async function syncHr() {
     // 폐쇄 루프 — 인사 어댑터가 디렉터리의 단일 원천. 동기화가 서약 대상·부서 현황 집계 기준을 갱신한다.
     // 실 어댑터 예외는 실패로 기록하고 기존 명단을 보존한다 (부분 동기화로 디렉터리를 비우지 않음).
     try {
-      const people = await adapter.fetchPeople()
+      const people = await withTimeout(adapter.fetchPeople(), '인사정보 동기화')
       s.people = people
       recordBatch(`인사정보 동기화 (수동, ${people.length}명)`, nowStamp(), '성공')
       audit(me.name, '인사정보 동기화', `${people.length}명 (수동)`)

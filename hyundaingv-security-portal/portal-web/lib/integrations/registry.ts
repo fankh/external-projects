@@ -7,6 +7,19 @@ import { getStore } from '@/lib/store'
 import { mockAsset, mockHr, mockMail, mockSecdata, mockSms } from './mock'
 import type { AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SendResult } from './types'
 
+/** 어댑터 호출 상한 시간 — 실 고객사 시스템이 응답 없이 매달리면(타임아웃 없는 fetch 등)
+ *  포털 요청·스케줄러 틱이 무한 대기한다. 호출을 시간 상한으로 감싸 초과 시 reject 시키고,
+ *  각 호출부의 기존 실패 분기(v1.5.16 try/catch)가 이를 흡수한다. 기본 10초,
+ *  PORTAL_ADAPTER_TIMEOUT_MS 로 배포별 조정. 목 어댑터는 즉시 resolve 라 영향 없다. */
+export function withTimeout<T>(p: Promise<T>, label: string): Promise<T> {
+  const raw = Number(process.env.PORTAL_ADAPTER_TIMEOUT_MS)
+  const ms = Number.isFinite(raw) && raw > 0 ? raw : 10000
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`어댑터 응답 시간 초과(${ms}ms): ${label}`)), ms)
+    p.then((v) => { clearTimeout(timer); resolve(v) }, (e) => { clearTimeout(timer); reject(e) })
+  })
+}
+
 /** adapterId → 구현. 고객사 어댑터를 추가하면 여기에 등록한다.
  *  hanbit-*·erp-* 는 제조업 예시 프로필용 — 데모에서는 목업에 매핑되고,
  *  실배포에서 고객사 구현으로 교체한다. */
@@ -63,7 +76,7 @@ export async function sendVia(channelId: string, to: string[], subject: string):
     // 실 어댑터(네트워크·인증·타임아웃)는 throw 할 수 있다 — 발송 예외를 실패 이력으로
     // 남기고 호출측(알림 배치 등)이 죽지 않게 한다. 목 어댑터는 throw 하지 않아 게이트만으론 못 잡음.
     try {
-      result = await adapter.send(to, subject)
+      result = await withTimeout(adapter.send(to, subject), `${ch.name} 발송`)
     } catch (e) {
       result = { ok: false, detail: `${ch.name} 발송 예외: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200) }
     }

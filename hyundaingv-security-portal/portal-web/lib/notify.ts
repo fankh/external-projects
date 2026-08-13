@@ -3,7 +3,7 @@
  *  실행 버튼으로 트리거하고, 실서비스에서는 스케줄러(일배치)에 연결한다. */
 import { audit } from './audit'
 import { nowStamp, today } from './dates'
-import { secdataAdapter, sendVia } from './integrations/registry'
+import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch } from './store'
 
 export interface NotifyResult {
@@ -31,7 +31,7 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
     if (adapter) {
       // 실 어댑터 예외가 스케줄러 틱 전체를 죽이지 않도록 이관을 감싼다 — 실패로 기록되고 다음 배치 유형은 계속 진행.
       try {
-        const rows = await adapter.fetchPrintouts()
+        const rows = await withTimeout(adapter.fetchPrintouts(), '출력물 자료 이관')
         let added = 0
         for (const row of rows) {
           if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue

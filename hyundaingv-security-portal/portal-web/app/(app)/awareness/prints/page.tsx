@@ -5,7 +5,7 @@ import { draftApproval } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp, today } from '@/lib/dates'
-import { secdataAdapter } from '@/lib/integrations/registry'
+import { secdataAdapter, withTimeout } from '@/lib/integrations/registry'
 import { getStore, nextNo, recordBatch } from '@/lib/store'
 
 /** 전일자 이관 — 보안·출력물 시스템(DB 연계) 자료를 일배치로 가져온다 (요구사항: 일배치 이관) */
@@ -21,7 +21,7 @@ async function importDaily() {
   }
   // 실 어댑터 예외(네트워크·인증)를 no-adapter 분기와 동일하게 실패 이력으로 흡수 — 화면 500 방지
   try {
-    const rows = await adapter.fetchPrintouts()
+    const rows = await withTimeout(adapter.fetchPrintouts(), '출력물 자료 이관')
     const year = today().slice(0, 4)
     let added = 0
     for (const row of rows) {
