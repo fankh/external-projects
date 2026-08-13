@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
+import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
@@ -23,6 +24,7 @@ async function addTemplate(formData: FormData) {
   s.excelTemplates.unshift({ id, name, docType, version: 1, uploadedAt: today() })
   // 실제 양식 파일을 받아 양식 번호(pk)로 첨부한다 — 버전 이력이 파일과 함께 남는다
   registerUpload(id, formData.get('file'), me.name)
+  audit(me.name, '엑셀양식 변경', `${id} 신규 등록 — ${name} (${docType})`)
   revalidatePath('/settings/forms')
 }
 
@@ -39,6 +41,7 @@ async function reupload(formData: FormData) {
   if (!registerUpload(t.id, file, me.name)) return
   t.version += 1
   t.uploadedAt = today()
+  audit(me.name, '엑셀양식 변경', `${t.id} v${t.version} 업로드 — ${t.name}`)
   revalidatePath('/settings/forms')
 }
 
