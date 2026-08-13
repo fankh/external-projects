@@ -169,6 +169,8 @@ async function aiPeriodQuery(page) {
   const r2 = await ask('연간 교체 계획 리포트 생성해줘')
   ok('AI 교체질의: 생성 동사 → 리포트 생성 분기', r2.includes('리포트를 생성했습니다'))
   // 결재 첨부용 리포트는 네이티브 엑셀(xlsx) 로 반출된다(다른 대장·로그 반출과 동일 buildXlsx)
+  const xlsxLink = await page.locator('.msg.assistant').last().locator('.refs a', { hasText: '엑셀 내려받기' }).getAttribute('href')
+  ok('AI 리포트 생성: 엑셀(xlsx) 내려받기 링크 제공', !!xlsxLink && xlsxLink.includes('format=xlsx'))
   const rHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
   const rid = decodeURIComponent((rHref.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const rx = await page.request.get(`${BASE}/api/reports/${encodeURIComponent(rid)}?format=xlsx`)

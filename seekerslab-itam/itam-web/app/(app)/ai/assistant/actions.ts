@@ -471,8 +471,12 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
     revalidatePath('/', 'layout')
     return {
       role: 'assistant',
-      text: `‘${reportIntent.kind}’ 리포트를 생성했습니다 — ${id}. 아래 링크에서 열람하거나 리포트 화면에서 결재 첨부·배포할 수 있습니다.`,
-      evidence: [{ label: `${id} 열기`, href: `/api/reports/${encodeURIComponent(id)}?format=md` }, { label: '리포트 화면', href: '/ai/reports' }],
+      text: `‘${reportIntent.kind}’ 리포트를 생성했습니다 — ${id}. 문서로 열람하거나 결재 첨부용 엑셀(xlsx)로 내려받고, 리포트 화면에서 결재 첨부·배포할 수 있습니다.`,
+      evidence: [
+        { label: `${id} 문서 열기`, href: `/api/reports/${encodeURIComponent(id)}?format=md` },
+        { label: '엑셀 내려받기', href: `/api/reports/${encodeURIComponent(id)}?format=xlsx` },
+        { label: '리포트 화면', href: '/ai/reports' },
+      ],
     }
   }
 
