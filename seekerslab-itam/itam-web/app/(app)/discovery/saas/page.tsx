@@ -1,6 +1,7 @@
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
+import type { SaasUsage } from '@/lib/types'
 import { ShadowSaasTable } from './ShadowSaasTable'
 
 export const dynamic = 'force-dynamic'
@@ -26,6 +27,28 @@ export default async function SaasPage() {
     }, {}),
   ).sort((a, b) => b.users - a.users)
 
+  // 중복 기능 SaaS 통합 후보 — 같은 기능 분류에 서로 다른 서비스가 2종 이상 관측되면 통합 검토 대상
+  // (제품안내서 §07 AI 라이선스 최적화 → 중복 기능 SaaS 통합 후보). 인가·미인가를 함께 보여, 인가 1종으로
+  // 수렴하거나 미인가 다종을 카탈로그로 정리할 근거를 준다. 부서별 노출(위험 관점)과 짝이 되는 비용·통합 관점.
+  const consolidation = Object.values(
+    rows.reduce<Record<string, { category: string; services: SaasUsage[] }>>((acc, x) => {
+      ;(acc[x.category] ??= { category: x.category, services: [] }).services.push(x)
+      return acc
+    }, {}),
+  )
+    .filter((g) => new Set(g.services.map((x) => x.service)).size >= 2)
+    .map((g) => {
+      const services = [...g.services].sort((a, b) => b.users - a.users)
+      return {
+        category: g.category,
+        services,
+        users: services.reduce((n, x) => n + x.users, 0),
+        shadowN: services.filter((x) => !x.sanctioned).length,
+        sanctioned: services.find((x) => x.sanctioned),
+      }
+    })
+    .sort((a, b) => b.services.length - a.services.length || b.users - a.users)
+
   return (
     <>
       <ScreenHeader
@@ -39,6 +62,7 @@ export default async function SaasPage() {
         <Stat value={shadow.length} label="미인가 (Shadow SaaS)" tone="err" />
         <Stat value={shadow.reduce((n, x) => n + x.users, 0)} label="미인가 SaaS 추정 사용자" tone="warn" />
         <Stat value={rows.filter((x) => x.sanctioned).length} label="인가 카탈로그 등재" tone="ok" />
+        <Stat value={consolidation.length} label="통합 후보 (중복 기능)" tone={consolidation.length ? 'warn' : 'ok'} />
       </div>
 
       <Card kicker="By Department" title="부서별 미인가 SaaS 노출" pad={false}>
@@ -64,6 +88,39 @@ export default async function SaasPage() {
           </div>
         )}
       </Card>
+
+      {consolidation.length > 0 && (
+        <Card kicker="License Optimization" title="중복 기능 SaaS 통합 후보" pad={false}>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr><th>기능 분류</th><th>중복 서비스</th><th className="num">서비스</th><th className="num">사용자 합</th><th>통합 권고</th></tr>
+              </thead>
+              <tbody>
+                {consolidation.map((r) => (
+                  <tr key={r.category}>
+                    <td className="strong">{r.category}</td>
+                    <td>
+                      <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                        {r.services.map((x) => (
+                          <Chip key={x.id} tone={x.sanctioned ? 'ok' : 'err'} bare>{x.service}{x.sanctioned ? ' ·인가' : ' ·미인가'}</Chip>
+                        ))}
+                      </span>
+                    </td>
+                    <td className="num tnum">{r.services.length}</td>
+                    <td className="num tnum">{r.users.toLocaleString()}</td>
+                    <td className="dim">
+                      {r.sanctioned
+                        ? `인가 ${r.sanctioned.service} 기준 통합 검토 — 미인가 ${r.shadowN}종 정리`
+                        : `미인가 ${r.shadowN}종 중복 — 카탈로그 등재 후 1종 통합 권고`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <Card kicker="Services" title="SaaS 서비스별 사용·판정" pad={false}>
         <ShadowSaasTable rows={rows} canDecide={canDecide} depts={[...new Set(rows.map((x) => x.dept))].sort()} />
