@@ -547,6 +547,20 @@ try {
   await p4.locator('button', { hasText: /^3건 등록$/ }).click()
   await p4.waitForTimeout(900)
   ok('CSV 일괄 등록: 2건 생성·서버 시리얼 중복 건너뜀', (await p4.textContent('body')).includes('2건') && (await p4.textContent('body')).includes('시리얼 중복'))
+
+  // 미실사 남은 대상 — 장기 미실측 자동 편성(로34) 회차의 미스캔 대상을 실사 화면에 노출(무엇을 더 찾아야 하는지)
+  await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  const stvCard = p4.locator('.card', { has: p4.locator('.tt', { hasText: '장기 미실측(실사 기반 유령) 자산 자동 편성' }) }).first()
+  const composeBtn = stvCard.locator('button', { hasText: /^자동 편성$/ })
+  if (await composeBtn.isEnabled().catch(() => false)) { await composeBtn.click(); await p4.waitForTimeout(900) }
+  await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  await p4.locator('tr', { has: p4.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().locator('button', { hasText: /^조사 개시$/ }).click()
+  await p4.waitForTimeout(800)
+  await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  const surveyHref = await p4.locator('tr', { has: p4.locator('td', { hasText: '장기 미실측 자산 확인 조사' }) }).first().locator('a', { hasText: '실사 화면' }).getAttribute('href')
+  await p4.goto(`${BASE}${surveyHref}`, { waitUntil: 'networkidle' })
+  const surveyBody = await p4.textContent('body')
+  ok('재물조사: 미실사 남은 대상 노출(장기 미실측 유령 후보 AST-2022-000871)', surveyBody.includes('미실사 남은 대상') && surveyBody.includes('AST-2022-000871'))
   await ctx4.close()
 
   await browser.close()
