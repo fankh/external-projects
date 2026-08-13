@@ -93,7 +93,7 @@ export default async function DashboardPage() {
     ...s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind === '유지보수' ? '유지보수 계약' : '구매 계약', end: c.end, d: daysUntil(c.end) })),
     ...s.licenses.filter((l) => l.status !== '해지').map((l) => ({ id: l.id, name: l.name, kind: 'SW 라이선스', end: l.expiry, d: daysUntil(l.expiry) })),
   ]
-    .filter((x) => x.d !== null && x.d <= 90)
+    .filter((x) => x.d !== null && x.d <= s.opsPolicy.expiryWindowDays)
     .sort((a, b) => (a.d ?? 0) - (b.d ?? 0))
 
   const round = s.inventoryRounds.find((r) => r.status === '진행중')
@@ -112,7 +112,7 @@ export default async function DashboardPage() {
       <div className="stat-row">
         <Stat value={s.assets.length.toLocaleString()} label="총 등록 자산" delta={{ text: `사용중 ${inUse} · 유휴/반납 ${idle}`, dir: 'flat' }} />
         <Stat value={newFound.length} label="미등록 신규 발견 (Shadow IT)" tone="err" delta={{ text: '소유자 확인·편입 필요', dir: 'up' }} />
-        <Stat value={expiring.length} label="만료 임박 (계약·라이선스 90일)" tone="warn"
+        <Stat value={expiring.length} label={`만료 임박 (계약·라이선스 ${s.opsPolicy.expiryWindowDays}일)`} tone="warn"
           delta={{ text: expiring.some((x) => (x.d ?? 0) < 0) ? `만료 ${expiring.filter((x) => (x.d ?? 0) < 0).length}건 포함` : `최단 ${expiring[0]?.d ?? '-'}일`, dir: 'flat' }} />
         <Stat value={pendingApr.length} label="결재 대기" tone={overdueApr > 0 ? 'err' : 'accent'}
           delta={{ text: overdueApr > 0 ? `지연 ${overdueApr}건 (SLA ${s.opsPolicy.approvalSlaDays}일 초과)` : myQueue.length > 0 ? `내 결재 차례 ${myQueue.length}건` : `내 신청 ${myApr.length}건`, dir: overdueApr > 0 ? 'up' : 'flat' }} />

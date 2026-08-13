@@ -314,14 +314,15 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
   if (!isUser && (q.includes('만료') || q.includes('보증') || q.includes('계약'))) {
-    // 기간 스코프 — "내년 상반기 만료 계약"처럼 시점을 좁히면 그 창 안에 만료되는 계약을, 아니면 90일 임박분을 답한다
+    // 기간 스코프 — "내년 상반기 만료 계약"처럼 시점을 좁히면 그 창 안에 만료되는 계약을, 아니면 운영 정책 만료창 임박분을 답한다
     const period = parsePeriodWindow(q, today())
+    const win = s.opsPolicy.expiryWindowDays
     const hit = period
       ? s.contracts.filter((c) => c.status !== '해지' && c.end >= period.start && c.end <= period.end).sort((a, b) => a.end.localeCompare(b.end))
-      : s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= 90 })
+      : s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= win })
     const headline = period
       ? `${period.label} 만료 예정 계약은 ${hit.length}건입니다 (${period.start} ~ ${period.end}).`
-      : `90일 내 만료 예정 계약은 ${hit.length}건입니다.`
+      : `${win}일 내 만료 예정 계약은 ${hit.length}건입니다.`
     return {
       role: 'assistant',
       text: [

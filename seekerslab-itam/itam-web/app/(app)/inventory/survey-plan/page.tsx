@@ -76,6 +76,7 @@ export default async function SurveyPlanPage() {
         staleVerify={staleVerify}
         pendingStaleCompose={pendingStaleCompose}
         today={t}
+        staleVerifyDays={s.opsPolicy.staleVerifyDays}
       />
 
       <Card kicker="History" title={`완료 회차 이력 · ${completed.length}건`} pad={false}>

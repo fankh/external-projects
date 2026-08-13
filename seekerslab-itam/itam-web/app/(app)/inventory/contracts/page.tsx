@@ -48,7 +48,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <ExpiryNoticeButton due={dueCount} />
         </span>}>
         <AddContract />
-        <ContractsTable rows={contracts.map((c) => ({ ...c, assetCount: contractAssetCount(c.id), d: daysUntil(c.end) }))} sel={sel} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} />
+        <ContractsTable rows={contracts.map((c) => ({ ...c, assetCount: contractAssetCount(c.id), d: daysUntil(c.end) }))} sel={sel} canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)} expiryWindowDays={s.opsPolicy.expiryWindowDays} />
       </Card>
 
       <Card kicker="License Compliance" title="SW 라이선스 보유 – 사용 대사" pad={false}>

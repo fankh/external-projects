@@ -56,15 +56,16 @@ export function AddContract() {
   )
 }
 
-function StatusChip({ d }: { d: number | null }) {
+function StatusChip({ d, win }: { d: number | null; win: number }) {
   if (d === null) return <Chip tone="ok">정상</Chip>
   if (d < 0) return <Chip tone="err">만료됨</Chip>
-  if (d <= 35) return <Chip tone="err">D-{d}</Chip>
-  if (d <= 90) return <Chip tone="warn">D-{d}</Chip>
+  // 긴급(red)은 창의 절반 또는 35일 중 짧은 쪽 이내, 임박(warn)은 운영 정책 만료창 이내 — 창을 좁히면 색 경계도 함께 좁아진다
+  if (d <= Math.min(35, win)) return <Chip tone="err">D-{d}</Chip>
+  if (d <= win) return <Chip tone="warn">D-{d}</Chip>
   return <Chip tone="ok">정상</Chip>
 }
 
-export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: string; canEdit: boolean }) {
+export function ContractsTable({ rows, sel, canEdit, expiryWindowDays }: { rows: Row[]; sel?: string; canEdit: boolean; expiryWindowDays: number }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [termId, setTermId] = useState<string | null>(null)
@@ -89,13 +90,13 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
       if (fkind !== '전체' && c.kind !== fkind) return false
       if (fstatus === '해지' && c.status !== '해지') return false
       if (fstatus === '유효' && c.status === '해지') return false
-      if (fexpiring && !(c.status !== '해지' && c.d !== null && c.d <= 90)) return false
+      if (fexpiring && !(c.status !== '해지' && c.d !== null && c.d <= expiryWindowDays)) return false
       if (!needle) return true
       return [c.id, c.name, c.vendor, c.ownerDept].some((f) => f?.toLowerCase().includes(needle))
     })
   }, [rows, fkind, fstatus, fexpiring, fq])
   const filterActive = fkind !== '전체' || fstatus !== '전체' || fexpiring || fq.trim() !== ''
-  const expiringCount = rows.filter((c) => c.status !== '해지' && c.d !== null && c.d <= 90).length
+  const expiringCount = rows.filter((c) => c.status !== '해지' && c.d !== null && c.d <= expiryWindowDays).length
 
   const addDoc = (id: string) => startTransition(async () => {
     const r = await addContractDoc(id, docName, docType)
@@ -150,7 +151,7 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
         </select>
         {expiringCount > 0 && (
           <button className={`btn sm ${fexpiring ? 'warn' : ''}`} onClick={() => setFexpiring((v) => !v)}
-            title="만료 90일 이내(경과 포함)·해지 제외">{fexpiring ? '✓ ' : ''}만료 임박 {expiringCount}</button>
+            title={`만료 ${expiryWindowDays}일 이내(경과 포함)·해지 제외`}>{fexpiring ? '✓ ' : ''}만료 임박 {expiringCount}</button>
         )}
         <input className="input" style={{ width: 190 }} placeholder="계약번호·계약명·공급사·부서 검색" value={fq} onChange={(e) => setFq(e.target.value)} />
         {filterActive && <button className="btn sm ghost" onClick={() => { setFkind('전체'); setFstatus('전체'); setFexpiring(false); setFq('') }}>필터 해제</button>}
@@ -178,7 +179,7 @@ export function ContractsTable({ rows, sel, canEdit }: { rows: Row[]; sel?: stri
                   ? <a href={`/assets/register?q=${encodeURIComponent(c.id)}`} title="이 계약에 연계된 대장 자산 보기 (실측)" style={{ color: 'var(--accent-deep)' }}>{c.assetCount}</a>
                   : c.assetCount}</td>
                 <td className="tnum">{c.end}</td>
-                <td className="c">{c.status === '해지' ? <Chip tone="neutral">해지</Chip> : <StatusChip d={c.d} />}</td>
+                <td className="c">{c.status === '해지' ? <Chip tone="neutral">해지</Chip> : <StatusChip d={c.d} win={expiryWindowDays} />}</td>
                 <td className="c">
                   <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
                     <button className={`btn sm ${docId === c.id ? 'pri' : ''}`} disabled={pending}
