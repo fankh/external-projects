@@ -177,6 +177,14 @@ async function aiPeriodQuery(page) {
   ok('AI 자산조회: 레코드 단위 딥링크(?sel=)', href === '/assets/register?sel=AST-2023-000112')
   const a2 = await ask('AST-9999-000000 상태')
   ok('AI 자산조회: 미존재 자산 → 찾을 수 없음', a2.includes('찾을 수 없습니다'))
+
+  // 결재 질의 역할 인지 — 전체 대기 중 '내가 결재할 수 있는 건'을 대시보드와 동일 게이트로 함께 제시.
+  //  ADMIN 은 전 단계 오버라이드라 '내 결재 = 전체'(본인 상신분은 시드상 없음)
+  const ap = await ask('결재 대기 현황 알려줘')
+  const apTotal = Number((ap.match(/현재 결재 대기 (\d+)건/) || [])[1] ?? -1)
+  const apMine = Number((ap.match(/지금 결재할 수 있는 건 (\d+)건/) || [])[1] ?? -2)
+  ok('AI 결재질의: 역할 인지(내 결재 가능 수 표기)', ap.includes('지금 결재할 수 있는 건') && apMine >= 0 && apMine <= apTotal)
+  ok('AI 결재질의: ADMIN 은 전 단계 결재 가능(내 결재 = 전체)', apTotal > 0 && apMine === apTotal)
 }
 
 try {

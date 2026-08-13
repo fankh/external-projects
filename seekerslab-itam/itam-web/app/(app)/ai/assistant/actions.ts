@@ -8,8 +8,9 @@ import { eolOsOf } from '@/lib/eol'
 import { REPORT_KINDS, createReport, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { canDecideApproval } from '@/lib/approval'
 import { ASSET_CATEGORIES } from '@/lib/types'
-import type { ChatMessage, ReportKind } from '@/lib/types'
+import type { ChatMessage, ReportKind, Role } from '@/lib/types'
 
 /** 리포트 생성 인텐트 — 어시스턴트가 실제로 리포트를 만든다 (제품안내서 §05 리포트 자동화:
  *  "자연어 자산 질의·리포트 생성"). 생성 동사 + (리포트 언급 또는 리포트 종류 매칭)일 때만 발동한다.
@@ -71,7 +72,7 @@ function buildContext(userName: string, isUser: boolean): string {
 }
 
 /** 키 미설정 시 스텁 — 스토어 데이터 기반 결정적 응답 (edim 패턴: 샘플 모드) */
-function stubAnswer(question: string, userName: string, isUser: boolean): ChatMessage {
+function stubAnswer(question: string, userName: string, isUser: boolean, role: Role): ChatMessage {
   const s = getStore()
   const q = question.toLowerCase()
 
@@ -141,10 +142,14 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   if (!isUser && (q.includes('결재') || q.includes('승인 대기') || q.includes('상신'))) {
     const pend = s.approvals.filter((a) => a.status === '대기')
     const byKind = [...new Set(pend.map((a) => a.kind))].map((k) => `${k} ${pend.filter((a) => a.kind === k).length}건`)
+    // 내가 지금 결재할 수 있는 건 — 대시보드 '내 결재 차례'와 동일 게이트(canDecideApproval + 본인 상신분 제외)를
+    //  재사용해, 전체 대기 중 이 권한그룹이 현재 단계에서 처리 가능한 실행 대상을 함께 제시한다(AI 질의도 동일 권한 모델).
+    const canDo = (a: (typeof pend)[number]) => a.requester !== userName && canDecideApproval(role, a)
+    const mineNow = pend.filter(canDo)
     return {
       role: 'assistant',
-      text: `현재 결재 대기 ${pend.length}건입니다.${pend.length
-        ? `\n\n종류별: ${byKind.join(', ')}.\n\n${pend.slice(0, 6).map((a) => `· ${a.id} — ${a.title} (현재 단계: ${a.currentStep})`).join('\n')}`
+      text: `현재 결재 대기 ${pend.length}건입니다 (이 중 ${userName}님이 지금 결재할 수 있는 건 ${mineNow.length}건).${pend.length
+        ? `\n\n종류별: ${byKind.join(', ')}.\n\n${(mineNow.length ? mineNow : pend).slice(0, 6).map((a) => `· ${a.id} — ${a.title} (현재 단계: ${a.currentStep}${canDo(a) ? ' · 내 결재 가능' : ''})`).join('\n')}`
         : ''}`,
       evidence: [{ label: '결재함', href: '/workflow/approvals' }],
     }
@@ -461,7 +466,7 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    const stub = stubAnswer(question, session.name, isUser)
+    const stub = stubAnswer(question, session.name, isUser, session.role)
     auditQuery(session.name, question, '규칙 응답', stub.text.length)
     return stub
   }
@@ -500,7 +505,7 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
     auditQuery(session.name, question, 'LLM 호출 실패 → 규칙 응답', 0)
     return {
       role: 'assistant',
-      text: `AI 서비스 호출에 실패했습니다 — ${err instanceof Error ? err.message : '알 수 없는 오류'}. 데모 응답으로 대체합니다.\n\n${stubAnswer(question, session.name, isUser).text}`,
+      text: `AI 서비스 호출에 실패했습니다 — ${err instanceof Error ? err.message : '알 수 없는 오류'}. 데모 응답으로 대체합니다.\n\n${stubAnswer(question, session.name, isUser, session.role).text}`,
     }
   }
 }
