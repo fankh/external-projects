@@ -155,6 +155,27 @@ export const CONFIRM_DEADLINE_DAYS = 7
 /** 만료 임박 알림 대상 기준(일) — 계약·보증·라이선스 공통 */
 export const EXPIRY_WINDOW_DAYS = 90
 
+/** 운영 정책(임계값) — 그동안 코드 상수로 고정돼 표시만 되던 기한·SLA·판정 기준을 운영자가 설정할 수 있게 스토어로 승격한다.
+ *  화면·리포트·스케줄러가 모두 이 값을 참조하도록 단일 출처로 둔다(제품안내서 §02 정책 통제·§07 감사). */
+export interface OpsPolicy {
+  /** 소유자 확인 요청 응답 기한(일) — 경과 시 격리 에스컬레이션 */
+  confirmDeadlineDays: number
+  /** 결재 SLA(일) — 초과 시 '지연' 표기 */
+  approvalSlaDays: number
+  /** 장기 미실측 기준(일) — 초과·미실측 시 유령 자산 후보(재물조사 편성) */
+  staleVerifyDays: number
+  /** 계약·보증·라이선스 만료 임박 알림 창(일) */
+  expiryWindowDays: number
+}
+
+/** 운영 정책 기본값 — 기존 상수를 시드 기본값으로 승계한다(APPROVAL_SLA_DAYS 는 lib/dates 소재라 순환참조 방지로 기본 3 명시). */
+export const DEFAULT_OPS_POLICY: OpsPolicy = {
+  confirmDeadlineDays: CONFIRM_DEADLINE_DAYS,
+  approvalSlaDays: 3,
+  staleVerifyDays: STALE_VERIFY_DAYS,
+  expiryWindowDays: EXPIRY_WINDOW_DAYS,
+}
+
 /** 알림 발송 이력 — 소유자 확인 요청·만료 임박·격리 통보는 이메일·문자로 나가고 이력이 남는다
  *  (제품안내서 §06 연동: 그룹웨어 — SSO·결재·알림 메일) */
 export interface Dispatch {

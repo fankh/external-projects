@@ -62,9 +62,9 @@ function buildContext(userName: string, isUser: boolean): string {
       ...s.iocMatches.filter((i) => !i.action).map((i) => `- ${i.id} | IOC 상관 | ${i.iocType} ${i.iocValue} | 귀속:${i.threatActor} | 상관:${i.matchedAsset} | 위험도:${i.severity}`),
       `[엔드포인트·계정 위생] 휴면 계정 미처리 ${s.accounts.filter((a) => !a.action).length} · 미인가 SW 미조치 ${s.unauthorizedSw.filter((w) => !w.action).length} · USB 매체 미조치 ${s.usbFindings.filter((u) => !u.action).length} · 로컬 VM 미조치 ${s.localVms.filter((v) => !v.action).length}`,
       ...s.credentials.filter((c) => c.status !== '조치 완료').map((c) => `- ${c.id} | 크리덴셜 노출 | ${c.service} ${c.host}:${c.port} | ${c.issue} | 위험도:${c.severity}`),
-      `[운영 리스크] 분실·도난 ${s.assets.filter((a) => a.status === '분실').length} · 장기미실측 ${s.assets.filter(isStaleVerify).length} · 대여연체 ${s.assets.filter(isLoanOverdue).length} · 수리중 ${s.assets.filter((a) => a.status === '수리중').length}(예상반환경과 ${s.assets.filter(isRepairOverdue).length})`,
+      `[운영 리스크] 분실·도난 ${s.assets.filter((a) => a.status === '분실').length} · 장기미실측 ${s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).length} · 대여연체 ${s.assets.filter(isLoanOverdue).length} · 수리중 ${s.assets.filter((a) => a.status === '수리중').length}(예상반환경과 ${s.assets.filter(isRepairOverdue).length})`,
       ...s.assets
-        .filter((a) => a.status === '분실' || isStaleVerify(a) || isLoanOverdue(a) || a.status === '수리중')
+        .filter((a) => a.status === '분실' || isStaleVerify(a, s.opsPolicy.staleVerifyDays) || isLoanOverdue(a) || a.status === '수리중')
         .map((a) => `- ${a.assetNo} | ${a.model} | ${a.status === '분실' ? '분실·도난' : a.status === '수리중' ? `수리중(${a.repair?.vendor ?? '의뢰 전'}${isRepairOverdue(a) ? ' · 예상반환경과' : ''})` : isLoanOverdue(a) ? `대여연체(${a.owner}, 기한 ${a.loanDueDate})` : `장기미실측(최근 실측 ${a.lastVerifiedAt ?? '없음'})`}`),
     )
   }
@@ -400,7 +400,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   // 운영 리스크 자산 — 분실·도난, 장기 미실측(유령 후보), 대여 반환 연체, 수리(지연)를 한 번에 훑는다 (자산팀 조치 대상)
   if (!isUser && (q.includes('분실') || q.includes('도난') || q.includes('미실측') || q.includes('유령') || q.includes('연체') || q.includes('대여') || q.includes('반출') || q.includes('수리') || q.includes('운영 리스크') || q.includes('리스크 자산'))) {
     const lost = s.assets.filter((a) => a.status === '분실')
-    const stale = s.assets.filter(isStaleVerify)
+    const stale = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays))
     const overdue = s.assets.filter(isLoanOverdue)
     const repairing = s.assets.filter((a) => a.status === '수리중')
     const repairLate = s.assets.filter(isRepairOverdue)

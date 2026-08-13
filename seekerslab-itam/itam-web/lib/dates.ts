@@ -10,7 +10,7 @@
  *  시연에서 특정 날짜를 재현하려면 `ITAM_TODAY=YYYY-MM-DD`, 표준시를 바꾸려면 `ITAM_TZ`.
  *  서버 전용 모듈 — 클라이언트에서 쓰면 하이드레이션 불일치가 생긴다.
  */
-import { STALE_VERIFY_DAYS, type Asset } from '@/lib/types'
+import type { Asset } from '@/lib/types'
 
 const TZ = process.env.ITAM_TZ || 'Asia/Seoul'
 
@@ -111,12 +111,12 @@ export function fmtAmount(n: number): string {
 }
 
 /** 장기 미실측(유령 자산 후보) 판정 — 폐기 경로 자산은 제외하고, 최근 실측이 없거나
- *  STALE_VERIFY_DAYS 를 넘은 자산이면 참. 대장 필터·재물조사 편성이 같은 기준을 쓰도록 한 곳에 둔다.
- *  서버 전용(daysUntil→today 의존). 클라이언트는 서버가 계산한 목록을 받아 쓴다. */
-export function isStaleVerify(a: Asset): boolean {
+ *  staleDays(운영 정책 staleVerifyDays)를 넘은 자산이면 참. 대장 필터·재물조사 편성이 같은 기준을 쓰도록 한 곳에 둔다.
+ *  임계값은 스토어 opsPolicy 를 단일 출처로 받는다(호출부가 s.opsPolicy.staleVerifyDays 전달). 서버 전용. */
+export function isStaleVerify(a: Asset, staleDays: number): boolean {
   if (a.status === '폐기완료' || a.status === '폐기예정') return false
   if (!a.lastVerifiedAt) return true
-  return -(daysUntil(a.lastVerifiedAt) ?? 0) > STALE_VERIFY_DAYS
+  return -(daysUntil(a.lastVerifiedAt) ?? 0) > staleDays
 }
 
 /** 대여 연체 — '대여중' 상태이고 반환 기한이 지난 자산. 대장 필터·대시보드 큐가 같은 기준을 쓴다. 서버 전용. */
@@ -147,15 +147,13 @@ export function warrantyState(warrantyEnd: string, today: string): 'none' | 'exp
   return d <= 90 ? 'soon' : 'covered'
 }
 
-/** 결재 대기 SLA — 상신 후 이 일수를 넘겨 대기 중이면 '지연'(결재 정체). */
-export const APPROVAL_SLA_DAYS = 3
-
 /** 상신 후 경과일 — 서버가 준 today(YYYY-MM-DD) 인자로만 계산해 서버·클라이언트 모두 하이드레이션 안전하게 쓴다. */
 export function approvalAgeDays(requestedAt: string, today: string): number {
   return Math.max(0, Math.round((Date.parse(today) - Date.parse(requestedAt)) / 86_400_000))
 }
 
-/** 결재 지연 — '대기' 상태로 SLA(3일)를 초과했다. Approval 타입 의존을 피해 구조적 타입으로 받는다. */
-export function isApprovalOverdue(a: { status: string; requestedAt: string }, today: string): boolean {
-  return a.status === '대기' && approvalAgeDays(a.requestedAt, today) > APPROVAL_SLA_DAYS
+/** 결재 지연 — '대기' 상태로 SLA(slaDays, 운영 정책 approvalSlaDays)를 초과했다. Approval 타입 의존을 피해 구조적 타입으로 받는다.
+ *  임계값은 스토어 opsPolicy 를 단일 출처로 받는다(호출부가 s.opsPolicy.approvalSlaDays 전달). */
+export function isApprovalOverdue(a: { status: string; requestedAt: string }, today: string, slaDays: number): boolean {
+  return a.status === '대기' && approvalAgeDays(a.requestedAt, today) > slaDays
 }

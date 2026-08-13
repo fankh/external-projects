@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/authz'
 import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { CHANNELS, CONFIRM_DEADLINE_DAYS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
+import { CHANNELS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
 import { AccountTable } from './AccountTable'
 import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
@@ -49,7 +49,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
 
   const awaiting = d.filter((x) => x.action === '확인요청')
   const overdue = awaiting.filter(
-    (x) => x.confirmRequestedAt && -(daysUntil(x.confirmRequestedAt) ?? 0) >= CONFIRM_DEADLINE_DAYS,
+    (x) => x.confirmRequestedAt && -(daysUntil(x.confirmRequestedAt) ?? 0) >= s.opsPolicy.confirmDeadlineDays,
   )
   // 휴면 계정(채널 06 AD/IdP·SSO) · 미인가 SW(채널 04 EDR) — 계정·SW 위생은 보안 업무이므로 보안담당·Admin 만 조치, 자산담당은 조회만
   const canAccount = ['SEC_MGR', 'ADMIN'].includes(session.role)
@@ -89,7 +89,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
         소유자 확인·결재를 거친 편입 결과가 다시 대장으로 환류됩니다. 확인되지 않은 자산은 NAC 격리 요청으로 이어집니다.
       </div>
 
-      <EscalateBar waiting={awaiting.length} overdue={overdue.length} deadlineDays={CONFIRM_DEADLINE_DAYS} />
+      <EscalateBar waiting={awaiting.length} overdue={overdue.length} deadlineDays={s.opsPolicy.confirmDeadlineDays} />
 
       <Card pad={false}>
         <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} initialState={initialState} />

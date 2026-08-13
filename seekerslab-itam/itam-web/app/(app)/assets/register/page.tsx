@@ -19,7 +19,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   // ?sel= 로 특정 자산을 바로 선택 — 상세·구성변경 딥링크. 스코프 밖 자산번호는 무시된다.
   const initialSel = sel && scoped.some((a) => a.assetNo === sel) ? sel : undefined
   // 장기 미실측(유령 자산 후보) — 대장 필터·재물조사 편성이 공유하는 lib/dates 의 isStaleVerify 기준
-  const staleNos = scoped.filter(isStaleVerify).map((a) => a.assetNo)
+  const staleNos = scoped.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).map((a) => a.assetNo)
   // 보증 만료 임박·경과 — 운영 중 자산 중 보증 90일 이내(경과 포함). 보증 없는 자산(SW·가상자원)은 제외.
   const warrantyNos = scoped
     .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90)

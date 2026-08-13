@@ -5,7 +5,6 @@ import { missingContractDocs } from '@/lib/contract'
 import { daysUntil } from '@/lib/dates'
 import { contractHref } from '@/lib/reflink'
 import { contractAssetCount, getStore } from '@/lib/store'
-import { EXPIRY_WINDOW_DAYS } from '@/lib/types'
 import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew, LicenseRetire } from './LicenseActions'
 
@@ -20,7 +19,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   // 만료 임박 대상 — 계약·라이선스·보증(부서 단위 묶음)을 합친 발송 예정 건수
   const within = (end: string) => {
     const d = daysUntil(end)
-    return d !== null && d <= EXPIRY_WINDOW_DAYS
+    return d !== null && d <= s.opsPolicy.expiryWindowDays
   }
   const warrantyDepts = new Set(
     s.assets

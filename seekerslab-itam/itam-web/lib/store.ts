@@ -6,9 +6,9 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname } from 'node:path'
 import { today } from './dates'
 import { checklistFor } from './intake'
-import { fingerprintOf } from './types'
+import { DEFAULT_OPS_POLICY, fingerprintOf } from './types'
 import type {
-  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding,
+  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding, OpsPolicy,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
   ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
@@ -30,6 +30,7 @@ export interface Store {
   scanPolicies: ScanPolicy[]
   saasCatalog: SaasCatalogEntry[]
   aiPolicy: AiPolicy
+  opsPolicy: OpsPolicy
   users: UserAccount[]
   approvalLines: ApprovalLine[]
   reports: GeneratedReport[]
@@ -527,6 +528,7 @@ function seed(): Store {
       autoApprove: false,
       feedbackLearning: true,
     },
+    opsPolicy: { ...DEFAULT_OPS_POLICY },
     users: seedUsers(),
     approvalLines: seedApprovalLines(),
     reports: [],
@@ -727,7 +729,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 30
+const SCHEMA_VERSION = 31
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

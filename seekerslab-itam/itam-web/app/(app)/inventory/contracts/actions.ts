@@ -6,7 +6,7 @@ import { dispatch } from '@/lib/notify'
 import { raiseLicenseApproval } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
-import { CONTRACT_DOC_TYPES, EXPIRY_WINDOW_DAYS, type ContractDocType } from '@/lib/types'
+import { CONTRACT_DOC_TYPES, type ContractDocType } from '@/lib/types'
 
 /** 계약 등록 — 신규 구매·유지보수 계약을 대장에 편입한다 (갱신·알림만 있고 등록 경로 부재).
  *  등록 즉시 만료 임박 집계·알림 대상이 된다. 자산담당·Admin. */
@@ -75,9 +75,10 @@ export async function sendExpiryNotices() {
 
   const s = getStore()
   const t = today()
+  const windowDays = s.opsPolicy.expiryWindowDays
   const due = (end: string) => {
     const d = daysUntil(end)
-    return d !== null && d <= EXPIRY_WINDOW_DAYS
+    return d !== null && d <= windowDays
   }
   const sentToday = new Set(
     s.dispatches.filter((m) => m.kind === '만료 임박' && m.at.startsWith(t)).map((m) => m.ref),
@@ -122,7 +123,7 @@ export async function sendExpiryNotices() {
     n += 1
   }
 
-  if (n === 0) return { ok: false, message: `${EXPIRY_WINDOW_DAYS}일 내 신규 알림 대상이 없습니다 (오늘 발송분 제외).` }
+  if (n === 0) return { ok: false, message: `${windowDays}일 내 신규 알림 대상이 없습니다 (오늘 발송분 제외).` }
   appendAudit({ actor: session.name, action: `만료 임박 알림 발송 (${n}건)`, target: '계약 · 라이선스' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `만료 임박 알림 ${n}건 발송 — 연동 · 인프라의 발송 이력에서 확인할 수 있습니다.` }

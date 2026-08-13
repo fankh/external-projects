@@ -53,7 +53,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       <RequestForm myAssets={myAssets} locations={locations} loanable={loanable} />
 
       <Card pad={false}>
-        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} initialSel={sel} today={today()} />
+        <ApprovalList approvals={s.approvals} role={session.role} dept={session.dept} viewer={session.name} linesByKind={linesByKind} requiredKinds={[...requiredKinds]} canExport={canExport('approvals', session.role)} initialSel={sel} today={today()} slaDays={s.opsPolicy.approvalSlaDays} />
       </Card>
 
       <div className="callout">

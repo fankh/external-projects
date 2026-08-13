@@ -47,7 +47,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         if (nos) return nos.has(a.assetNo)
         if (cat !== '전체' && a.category !== cat) return false
         if (status !== '전체' && a.status !== status) return false
-        if (filter?.stale && !isStaleVerify(a)) return false
+        if (filter?.stale && !isStaleVerify(a, s.opsPolicy.staleVerifyDays)) return false
         if (filter?.warranty && !warrantySoon(a)) return false
         if (!q) return true
         return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId].some((f) => f?.toLowerCase().includes(q))
@@ -223,7 +223,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       .map((a) => [
         a.id, a.kind, a.title, a.requester, a.dept, a.requestedAt, a.status, a.currentStep,
         // 대기 경과일 — 대기 결재의 상신 후 경과일. SLA(3일) 초과면 '지연' 표기로 정체 결재를 감사 반출에 드러낸다.
-        a.status === '대기' ? `${approvalAgeDays(a.requestedAt, t)}일${isApprovalOverdue(a, t) ? ' · 지연' : ''}` : '',
+        a.status === '대기' ? `${approvalAgeDays(a.requestedAt, t)}일${isApprovalOverdue(a, t, s.opsPolicy.approvalSlaDays) ? ' · 지연' : ''}` : '',
         a.decidedBy ?? '', a.decidedAt ?? '', a.refId ?? '', a.fulfilled ? '집행완료' : '',
       ]),
   }]

@@ -30,7 +30,7 @@ export default async function SurveyPlanPage() {
   const pendingRoundTargets = new Set(
     s.inventoryRounds.filter((r) => r.status !== '완료').flatMap((r) => r.targets ?? []),
   )
-  const staleAssets = s.assets.filter(isStaleVerify)
+  const staleAssets = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays))
   const staleVerify = staleAssets.length
   const pendingStaleCompose = staleAssets.filter((a) => !pendingRoundTargets.has(a.assetNo)).length
 

@@ -809,6 +809,8 @@ try {
   check('AI 정책: 모델·프롬프트 버전 관리 컨트롤', aiHtml.includes('모델 · 프롬프트 버전 관리') && aiHtml.includes('버전 관리'))
   // 감사 로그 보존 기간 관리 — 규제·컴플라이언스 정책값(표시 전용이던 것을 Admin 이 30~3650일로 설정)
   check('AI 정책: 감사 로그 보존 기간 관리 컨트롤', aiHtml.includes('감사 로그 보존 기간') && aiHtml.includes('보존 기간 관리'))
+  // 운영 정책(임계값) — 코드 상수로 고정돼 표시만 되던 기한·SLA·판정 기준을 스토어로 승격해 Admin 이 설정(화면·리포트·스케줄러 공용)
+  check('AI 정책: 운영 정책(기한·SLA·판정 기준) 관리 컨트롤', aiHtml.includes('운영 정책 — 기한 · SLA · 판정 기준') && aiHtml.includes('소유자 확인 기한') && aiHtml.includes('장기 미실측 기준'))
   const usrHtml = await (await get('/settings/users', 'ADMIN')).text()
   check('사용자 · 결재선: 결재선·필수 결재·단계 편집 렌더', usrHtml.includes('IT기획팀장') && usrHtml.includes('필수 결재') && usrHtml.includes('편집'))
   check('사용자 · 결재선: STEP 4 권한그룹 배정 컨트롤 렌더', usrHtml.includes('사용자 · 권한그룹 배정') && usrHtml.includes('select'))

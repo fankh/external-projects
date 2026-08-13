@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { APPROVAL_SLA_DAYS, daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { hasDataIssue } from '@/lib/quality'
@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   const newFound = s.discovered.filter((d) => d.state === '미등록' && !d.action)
   const pendingApr = s.approvals.filter((a) => a.status === '대기')
   // 결재 지연 — SLA(3일) 초과한 대기 결재(정체). 상신 후 오래 방치된 결재를 드러낸다.
-  const overdueApr = pendingApr.filter((a) => isApprovalOverdue(a, today())).length
+  const overdueApr = pendingApr.filter((a) => isApprovalOverdue(a, today(), s.opsPolicy.approvalSlaDays)).length
   const myApr = s.approvals.filter((a) => a.requester === session.name && a.status === '대기')
   // 내 결재 차례 — 지금 이 사람이 결재할 수 있는 대기 건 (본인 상신분 제외). decide()와 동일 게이트를 쓴다.
   const myQueue = s.approvals.filter((a) => a.requester !== session.name && canDecideApproval(session.role, a))
@@ -59,7 +59,7 @@ export default async function DashboardPage() {
       { label: '분실 · 도난 자산 (회수·폐기 확정)', count: s.assets.filter((a) => a.status === '분실').length, href: '/assets/register', tone: 'err' },
       { label: '대여 반환 연체 (반환 독촉)', count: s.assets.filter(isLoanOverdue).length, href: '/assets/register', tone: 'err' },
       { label: '대여 반환 임박 (D-7 · 사전 안내)', count: s.assets.filter(isLoanDueSoon).length, href: '/assets/register', tone: 'warn' },
-      { label: '장기 미실측 (재물조사 편성)', count: s.assets.filter(isStaleVerify).length, href: '/inventory/survey-plan', tone: 'warn' },
+      { label: '장기 미실측 (재물조사 편성)', count: s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays)).length, href: '/inventory/survey-plan', tone: 'warn' },
       { label: '보증 만료 임박 자산 (연장·교체 검토)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90).length, href: '/assets/register?warranty=soon', tone: 'warn' },
       // EOL OS 자산 — OS 지원 종료 경과(미패치 취약점 상시 노출). 하드웨어 노후(보증·내용연수)와 별개인 SW 업그레이드·교체 트리거.
       { label: 'EOL OS 자산 (교체·업그레이드 대상)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, today())).length, href: '/assets/register?os=eol', tone: 'err' },
@@ -115,7 +115,7 @@ export default async function DashboardPage() {
         <Stat value={expiring.length} label="만료 임박 (계약·라이선스 90일)" tone="warn"
           delta={{ text: expiring.some((x) => (x.d ?? 0) < 0) ? `만료 ${expiring.filter((x) => (x.d ?? 0) < 0).length}건 포함` : `최단 ${expiring[0]?.d ?? '-'}일`, dir: 'flat' }} />
         <Stat value={pendingApr.length} label="결재 대기" tone={overdueApr > 0 ? 'err' : 'accent'}
-          delta={{ text: overdueApr > 0 ? `지연 ${overdueApr}건 (SLA ${APPROVAL_SLA_DAYS}일 초과)` : myQueue.length > 0 ? `내 결재 차례 ${myQueue.length}건` : `내 신청 ${myApr.length}건`, dir: overdueApr > 0 ? 'up' : 'flat' }} />
+          delta={{ text: overdueApr > 0 ? `지연 ${overdueApr}건 (SLA ${s.opsPolicy.approvalSlaDays}일 초과)` : myQueue.length > 0 ? `내 결재 차례 ${myQueue.length}건` : `내 신청 ${myApr.length}건`, dir: overdueApr > 0 ? 'up' : 'flat' }} />
         {round && (
           <Stat
             value={<>{roundProgressPct(round)}<small>%</small></>}
@@ -236,7 +236,7 @@ export default async function DashboardPage() {
                       style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
                       <span className="hstack" style={{ gap: 4, flex: 'none' }}>
-                        {isApprovalOverdue(a, today()) && <Chip tone="err" bare>지연</Chip>}
+                        {isApprovalOverdue(a, today(), s.opsPolicy.approvalSlaDays) && <Chip tone="err" bare>지연</Chip>}
                         <Chip tone="warn">{a.currentStep}</Chip>
                       </span>
                     </Link>

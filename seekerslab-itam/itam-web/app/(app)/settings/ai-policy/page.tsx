@@ -2,6 +2,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { AiPolicyPanel } from './AiPolicyPanel'
+import { OpsPolicyPanel } from './OpsPolicyPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +25,7 @@ export default async function AiPolicyPage() {
       <ScreenHeader
         kicker="환경설정 · AI Governance"
         title="AI 정책"
-        desc="실행 환경 선택 · 권한 범위 필터 · 감사 로그 보존 · 모델/프롬프트 버전 관리"
+        desc="실행 환경 선택 · 권한 범위 필터 · 감사 로그 보존 · 모델/프롬프트 버전 관리 · 운영 정책(기한·SLA)"
         right={<Chip tone={p.deployment === '온프레미스 LLM' ? 'ok' : 'warn'}>{p.deployment}</Chip>}
       />
 
@@ -36,6 +37,8 @@ export default async function AiPolicyPage() {
       </div>
 
       <AiPolicyPanel policy={p} />
+
+      <OpsPolicyPanel policy={s.opsPolicy} />
 
       <div className="cols c2">
         <Card kicker="Deployment" title="실행 환경 옵션">

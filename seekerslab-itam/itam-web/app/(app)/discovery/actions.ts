@@ -6,7 +6,6 @@ import { dispatch, escalate } from '@/lib/notify'
 import { can } from '@/lib/perm'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId } from '@/lib/store'
-import { CONFIRM_DEADLINE_DAYS } from '@/lib/types'
 
 /** 대장 편입 일괄 요청 — 스캔이 다수 자산을 올리면 한 건씩 누르지 않고 배치로 편입 결재를 상신한다.
  *  각 건은 여전히 자산담당 결재를 거치므로(대량 상신이라도 검토는 개별) 안전하다.
@@ -79,12 +78,13 @@ export async function escalateUnanswered() {
   if (!session || session.role === 'USER') return { ok: false, message: '권한이 없습니다.' }
   const s = getStore()
 
+  const deadlineDays = s.opsPolicy.confirmDeadlineDays
   const overdue = s.discovered.filter((d) => {
     if (d.action !== '확인요청' || !d.confirmRequestedAt) return false
     const elapsed = -(daysUntil(d.confirmRequestedAt) ?? 0)
-    return elapsed >= CONFIRM_DEADLINE_DAYS
+    return elapsed >= deadlineDays
   })
-  if (overdue.length === 0) return { ok: false, message: `기한(${CONFIRM_DEADLINE_DAYS}일) 경과한 미응답 건이 없습니다.` }
+  if (overdue.length === 0) return { ok: false, message: `기한(${deadlineDays}일) 경과한 미응답 건이 없습니다.` }
 
   for (const d of overdue) {
     // 진행 중이던 소유자 확인 결재는 반려 처리하고 격리 요청으로 승계한다
@@ -98,7 +98,7 @@ export async function escalateUnanswered() {
     s.approvals.unshift({
       id,
       kind: '격리 요청',
-      title: `${d.id} (${d.hostname}) NAC 격리 — 소유자 확인 미응답 ${CONFIRM_DEADLINE_DAYS}일 경과`,
+      title: `${d.id} (${d.hostname}) NAC 격리 — 소유자 확인 미응답 ${deadlineDays}일 경과`,
       requester: session.name,
       dept: session.dept,
       requestedAt: today(),

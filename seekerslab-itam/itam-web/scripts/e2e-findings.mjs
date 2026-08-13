@@ -258,6 +258,20 @@ try {
   const auditAi = await p3.textContent('body')
   ok('감사 로그: AI 모델·프롬프트 버전 관리 적재', auditAi.includes('AI 모델·프롬프트 버전 관리') && auditAi.includes('claude-opus-5'))
   await aiPeriodQuery(p3)
+
+  // 운영 정책(임계값) 편집 — 소유자 확인 기한을 5일로 바꾸면 발견 처리 화면 에스컬레이션 기한에 반영된다(스토어 단일 출처).
+  //  전역 opsPolicy 를 바꾸므로 마지막 컨텍스트의 맨 끝에서 수행한다(다른 검증에 영향 없음).
+  await p3.goto(`${BASE}/settings/ai-policy`, { waitUntil: 'networkidle' })
+  const opsCard = p3.locator('.card', { hasText: '운영 정책 — 기한' })
+  ok('운영 정책: 카드 렌더', (await opsCard.count()) > 0)
+  await opsCard.locator('button', { hasText: /^정책 편집$/ }).click()
+  await p3.waitForTimeout(250)
+  await opsCard.locator('input[type="number"]').nth(0).fill('5')
+  await opsCard.locator('button', { hasText: /^저장$/ }).click()
+  await p3.waitForTimeout(700)
+  ok('운영 정책: 변경 성공(확인기한 5일)', (await p3.textContent('body')).includes('운영 정책 갱신'))
+  await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  ok('운영 정책 다운스트림: 발견 처리 에스컬레이션 기한 5일 반영', (await p3.textContent('body')).includes('기한(5일)'))
   await ctx3.close()
 
   await browser.close()

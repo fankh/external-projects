@@ -100,7 +100,7 @@ export async function composeStaleVerifyRound() {
   }
 
   const s = getStore()
-  const stale = s.assets.filter(isStaleVerify)
+  const stale = s.assets.filter((a) => isStaleVerify(a, s.opsPolicy.staleVerifyDays))
   if (stale.length === 0) return { ok: false, message: '장기 미실측 자산이 없습니다.' }
 
   // 개시 전(계획)·진행 중 회차가 이미 대상으로 잡은 자산은 제외 — 완료 회차는 실측을 갱신했을 것이므로 무관
