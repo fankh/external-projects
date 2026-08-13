@@ -51,6 +51,12 @@ export function daysUntil(dateStr: string): number | null {
   return Math.round((d - t) / 86_400_000)
 }
 
+/** 재물조사 진행률(%) — 계획 대비 스캔. 계획이 0이면 0을 반환(방어). 리포트·대시보드·계획·수행·어시스턴트 공용.
+ *  회차 생성 3경로 모두 planned≥1 을 보장하지만, 나눗셈 지점마다 가드를 반복하지 않도록 단일 헬퍼로 통일(방어적). */
+export function roundProgressPct(r: { scanned: number; planned: number }): number {
+  return r.planned ? Math.round((r.scanned / r.planned) * 100) : 0
+}
+
 export function fmtAmount(n: number): string {
   if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}억`
   if (n >= 10_000) return `${Math.round(n / 10_000).toLocaleString()}만`

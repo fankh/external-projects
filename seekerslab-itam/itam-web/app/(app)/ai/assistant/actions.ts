@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
-import { daysUntil, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
 import { REPORT_KINDS, createReport } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -96,7 +96,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     return {
       role: 'assistant',
       text: cur
-        ? `진행 중인 재물조사는 '${cur.name}'이며 진행률 ${Math.round((cur.scanned / cur.planned) * 100)}% (${cur.scanned.toLocaleString()}/${cur.planned.toLocaleString()} 스캔)입니다. 차이 항목 ${cur.mismatched}건이 조정 결재 대상이며 기한은 ${cur.dueDate}입니다.\n\n전체 회차 ${rounds.length}개 — ${rounds.map((r) => `${r.name}(${r.status})`).join(', ')}.`
+        ? `진행 중인 재물조사는 '${cur.name}'이며 진행률 ${roundProgressPct(cur)}% (${cur.scanned.toLocaleString()}/${cur.planned.toLocaleString()} 스캔)입니다. 차이 항목 ${cur.mismatched}건이 조정 결재 대상이며 기한은 ${cur.dueDate}입니다.\n\n전체 회차 ${rounds.length}개 — ${rounds.map((r) => `${r.name}(${r.status})`).join(', ')}.`
         : `현재 진행 중인 재물조사가 없습니다. 전체 회차 ${rounds.length}개: ${rounds.map((r) => `${r.name}(${r.status})`).join(', ')}.`,
       evidence: [
         { label: '재물조사 수행', href: '/inventory/survey' },

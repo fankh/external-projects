@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
+import { roundProgressPct } from '@/lib/dates'
 import type { InventoryRound, RoundKind } from '@/lib/types'
 import { cancelRound, composeStaleVerifyRound, composeUnconfirmedRound, planRound, startRound } from './actions'
 
@@ -95,7 +96,7 @@ export function PlanView(props: {
             </thead>
             <tbody>
               {props.rounds.map((r) => {
-                const pct = r.planned ? Math.round((r.scanned / r.planned) * 100) : 0
+                const pct = roundProgressPct(r)
                 const overdue = r.status !== '완료' && r.dueDate < props.today
                 return (
                   <tr key={r.id}>

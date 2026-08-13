@@ -1,5 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { roundProgressPct } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { SurveyConsole } from './SurveyConsole'
@@ -32,7 +33,7 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
   const scans = s.surveyScans.filter((x) => x.roundId === round.id)
   const diffs = s.surveyDiffs.filter((d) => d.roundId === round.id)
   const pendingDiffs = diffs.filter((d) => d.status === '미조치')
-  const progress = Math.round((round.scanned / round.planned) * 100)
+  const progress = roundProgressPct(round)
 
   return (
     <>

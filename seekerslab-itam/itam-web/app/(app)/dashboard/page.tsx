@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { APPROVAL_SLA_DAYS, daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
+import { APPROVAL_SLA_DAYS, daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { hasDataIssue } from '@/lib/quality'
@@ -118,7 +118,7 @@ export default async function DashboardPage() {
           delta={{ text: overdueApr > 0 ? `지연 ${overdueApr}건 (SLA ${APPROVAL_SLA_DAYS}일 초과)` : myQueue.length > 0 ? `내 결재 차례 ${myQueue.length}건` : `내 신청 ${myApr.length}건`, dir: overdueApr > 0 ? 'up' : 'flat' }} />
         {round && (
           <Stat
-            value={<>{Math.round((round.scanned / round.planned) * 100)}<small>%</small></>}
+            value={<>{roundProgressPct(round)}<small>%</small></>}
             label={`재물조사 진행률 — ${round.name.replace(' 정기 재물조사', '')}`}
             tone="ok"
             delta={{ text: `${round.scanned.toLocaleString()} / ${round.planned.toLocaleString()} 스캔`, dir: 'flat' }}

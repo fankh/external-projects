@@ -2,7 +2,7 @@
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
 import { recordAiCall } from './ai-status'
 import { appendAudit } from './audit'
-import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon } from './dates'
+import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, roundProgressPct } from './dates'
 import { ACQ_COST, bookValueOf } from './cost'
 import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
@@ -229,7 +229,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         columns: ['회차', '범위', '계획', '스캔', '진행률', '차이', '기한', '상태'],
         rows: s.inventoryRounds.map((r) => [
           r.name, r.scope, String(r.planned), String(r.scanned),
-          `${Math.round((r.scanned / r.planned) * 100)}%`, String(r.mismatched), r.dueDate, r.status,
+          `${roundProgressPct(r)}%`, String(r.mismatched), r.dueDate, r.status,
         ]),
       },
       {
@@ -452,7 +452,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
   if (kind === '재물조사 결과 요약') {
     const cur = s.inventoryRounds.find((r) => r.status === '진행중')
     return cur
-      ? `${cur.name}가 진행 중이며 진행률은 ${Math.round((cur.scanned / cur.planned) * 100)}% (${cur.scanned.toLocaleString()}/${cur.planned.toLocaleString()})입니다. `
+      ? `${cur.name}가 진행 중이며 진행률은 ${roundProgressPct(cur)}% (${cur.scanned.toLocaleString()}/${cur.planned.toLocaleString()})입니다. `
         + `현재까지 차이 항목 ${cur.mismatched}건이 확인되어 조정 결재 대상이며, 기한은 ${cur.dueDate}입니다.`
       : '진행 중인 재물조사가 없습니다.'
   }
