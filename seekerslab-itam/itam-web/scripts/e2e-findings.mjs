@@ -160,6 +160,12 @@ async function aiPeriodQuery(page) {
   ok('AI 발견 기간질의: 대상 없는 월 → 해당 없음', g2.includes('새로 발견된 미등록 자산이 없습니다'))
   const g3 = await ask('미등록 발견 자산 목록 보여줘')
   ok('AI 발견 기간질의: 기간 미지정 → 처리 대기 라벨(이번 달 하드코딩 제거)', g3.includes('처리 대기 중인 미등록 발견 자산') && !g3.includes('이번 달 새로 발견'))
+
+  // 교체 대상·수명 예측 인라인 질의(AI 기능 03) — 리포트 생성과 분리, 유형 스코프
+  const r1 = await ask('교체 대상 자산과 교체 예산 알려줘')
+  ok('AI 교체질의: 교체 대상·예산 인라인 답변(리포트 생성 아님)', /교체 대상 자산은 \d+건/.test(r1) && r1.includes('교체 예산 추정') && !r1.includes('리포트를 생성했습니다'))
+  const r2 = await ask('연간 교체 계획 리포트 생성해줘')
+  ok('AI 교체질의: 생성 동사 → 리포트 생성 분기', r2.includes('리포트를 생성했습니다'))
 }
 
 try {

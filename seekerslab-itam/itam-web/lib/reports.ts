@@ -24,7 +24,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
  *  AI 수명예측 제안 승인 시 이 근거로 연간 교체 계획 리포트가 생성된다.
  *  교체 예산 단가는 lib/cost 의 유형 표준 단가(ACQ_COST)를 재사용(대장 취득가·재고 가치와 동일 기준). */
-function replacementCandidates() {
+export function replacementCandidates() {
   const s = getStore()
   const t = today()
   // 도입 5년 초과 기준일 — 문자열 비교로 TZ 문제를 피한다 (예: 2026-08-01 → 2021-08-01)

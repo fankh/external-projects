@@ -4,7 +4,8 @@ import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
 import { daysUntil, isLoanOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
-import { REPORT_KINDS, createReport } from '@/lib/reports'
+import { eolOsOf } from '@/lib/eol'
+import { REPORT_KINDS, createReport, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { ASSET_CATEGORIES } from '@/lib/types'
@@ -207,6 +208,34 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
       ],
     }
   }
+  // 교체 대상·수명 예측 (AI 기능 03 수명주기·교체 예측) — 내용연수 초과·보증 경과·OS 지원 종료(EOL) 자산을
+  //  연간 교체 계획 리포트와 동일한 근거(replacementCandidates)로 인라인 답변한다. 리포트 생성 동사가 없을 때 이 인텐트가 받는다.
+  if (!isUser && (q.includes('교체') || q.includes('수명') || q.includes('내용연수') || q.includes('노후') || q.includes('eol'))) {
+    const t = today()
+    const { cands, budget, residualBook } = replacementCandidates()
+    const eolAssets = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, t))
+    const cat = ASSET_CATEGORIES.find((c) => q.includes(c.toLowerCase()))
+    const scoped = cat ? cands.filter((x) => x.a.category === cat) : cands
+    const list = scoped.slice(0, 12)
+    return {
+      role: 'assistant',
+      text: [
+        `${cat ? `${cat} ` : ''}교체 대상 자산은 ${scoped.length}건입니다 (내용연수 5년 초과 또는 보증 경과 기준${cat ? '' : ` · 교체 예산 추정 ${budget.toLocaleString()}원 · 잔여 장부가 ${residualBook.toLocaleString()}원`}).`,
+        ``,
+        ...(scoped.length === 0 ? ['해당 조건의 교체 대상 자산이 없습니다.'] : []),
+        ...list.map((x) => `· ${x.a.assetNo} — ${x.a.model} (${x.a.category}, 도입 ${x.a.purchaseDate} · ${x.why}, 잔여 장부가 ${x.book.toLocaleString()}원)`),
+        scoped.length > list.length ? `… 외 ${scoped.length - list.length}건` : ``,
+        ``,
+        eolAssets.length > 0
+          ? `▶ OS 지원 종료(EOL) 자산 ${eolAssets.length}건 — 하드웨어 노후와 별개의 교체·업그레이드 드라이버(미패치 취약점 상시 노출): ${eolAssets.slice(0, 6).map((a) => `${a.assetNo}(${eolOsOf(a.os, t)?.label})`).join(', ')}.`
+          : `▶ OS 지원 종료(EOL) 자산은 없습니다.`,
+      ].filter(Boolean).join('\n'),
+      evidence: [
+        { label: '연간 교체 계획 리포트', href: '/ai/reports' },
+        { label: '자산 대장 (EOL OS 필터)', href: '/assets/register?os=eol' },
+      ],
+    }
+  }
   // 자산 보증 만료 (유형 스코프) — 안내서 §05 예시 질의 "보증 만료되는 네트워크 장비 목록".
   //  '보증' + 자산 맥락(유형/장비/자산)일 때 계약 만료가 아니라 대장 보증을 만료 임박순으로 답한다. 유형 언급 시 스코프.
   if (!isUser && q.includes('보증') && (ASSET_CATEGORIES.some((c) => q.includes(c.toLowerCase())) || q.includes('장비') || q.includes('자산') || q.includes('노트북') || q.includes('pc'))) {
@@ -355,7 +384,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "자산 상태 분포와 대여 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
   }
 }
 
