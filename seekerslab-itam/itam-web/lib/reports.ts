@@ -6,6 +6,7 @@ import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon } 
 import { ACQ_COST, bookValueOf } from './cost'
 import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
+import { buildVulnPriority } from './vuln-priority'
 import type { ReportKind, ReportSchedule, ReportSection } from './types'
 
 export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
@@ -15,6 +16,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도)·위협 대응 현황 증빙 초안' },
   { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과 기준 교체 대상·잔존가치·유형별 예산 추정' },
+  { kind: '취약점 조치 우선순위', period: '수시', desc: '자산 중요도 × 노출도 스코어링 — 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 P1/P2/P3로 순위화' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -273,6 +275,33 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '취약점 조치 우선순위') {
+    const { items, p1, p2, p3, bySource } = buildVulnPriority()
+    return [
+      {
+        title: '조치 우선순위 요약',
+        note: `미조치 취약점 ${items.length}건 — P1 즉시 ${p1} · P2 우선 ${p2} · P3 계획 ${p3}`,
+        columns: ['우선순위 등급', '건수', '판정 기준'],
+        rows: [
+          ['P1 (즉시 조치)', String(p1), '높은 심각도 × 높은 자산 중요도 (점수 67 이상)'],
+          ['P2 (우선 조치)', String(p2), '중간 위험 결합 (점수 34~66)'],
+          ['P3 (계획 조치)', String(p3), '낮은 위험 결합 (점수 33 이하)'],
+        ],
+      },
+      {
+        title: '출처별 취약점 분포',
+        columns: ['출처', '건수'],
+        rows: bySource.filter((x) => x.count > 0).map((x) => [x.source, String(x.count)]),
+      },
+      {
+        title: '우선순위 상세 (점수순)',
+        note: '자산 중요도 × 노출도 스코어링 · 미조치 취약점만',
+        columns: ['등급', '점수', '출처', '대상', '상세', '노출도', '자산 중요도'],
+        rows: items.map((v) => [v.tier, String(v.score), v.source, v.target, v.detail, v.severity, v.criticality]),
+      },
+    ]
+  }
+
   // 감사 대응 자료
   const live = s.assets.filter((a) => a.status !== '폐기완료')
   const flagged = live.filter(hasDataIssue)
@@ -365,6 +394,12 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     return `내용연수·보증 경과 기준 교체 대상은 ${cands.length}대이며 추정 예산은 ${fmtAmount(budget)}원입니다. `
       + `이 중 보증이 경과한 ${warrN}대는 장애 시 무상 수리가 불가해 우선 교체 대상이며, 잔여 장부가는 ${fmtAmount(residualBook)}원입니다. `
       + '예산 확정 후 노후·장애 이력 순으로 분기별 집행 계획을 수립할 것을 권고합니다.'
+  }
+  if (kind === '취약점 조치 우선순위') {
+    const { items, p1, p2 } = buildVulnPriority()
+    return `미조치 취약점 ${items.length}건에 대해 자산 중요도 × 노출도로 조치 우선순위를 산출했습니다. `
+      + `즉시 조치가 필요한 P1 은 ${p1}건, 우선 조치 P2 는 ${p2}건입니다. `
+      + '외부 노출 CVE·EOL OS·미인가 SW·크리덴셜 노출을 통합해, 인터넷 노출·서버/네트워크·IDC·핵심 지정 자산일수록 상위에 배치했습니다. P1 부터 순차 조치를 권고합니다.'
   }
   const liveA = s.assets.filter((a) => a.status !== '폐기완료')
   const flaggedA = liveA.filter(hasDataIssue).length
