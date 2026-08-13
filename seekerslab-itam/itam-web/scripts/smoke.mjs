@@ -683,6 +683,10 @@ try {
   check('리포트: 월간 자산 현황에 자산 처분 실적 반영', repHtml.includes('자산 처분 실적'))
   // 감사 대응 자료 리포트에 대장 정합성(CMDB 정확도) 반영 — 생성 시 buildSections 가 정합성 섹션 산출
   check('리포트: 감사 대응 자료에 대장 정합성(CMDB 정확도) 반영', repHtml.includes('대장 정합성(CMDB 정확도)'))
+  // 주간 Shadow IT 브리핑에 인증·계정·SW 정책 위반(loops 45-47) 반영 — 생성 시 buildSections 가 해당 섹션 산출
+  check('리포트: 주간 Shadow IT 브리핑에 인증·계정·SW 정책 위반 반영', repHtml.includes('인증·계정·SW 정책 위반'))
+  // 감사 대응 자료에 위협 대응 현황(검출→조치 증적) 반영
+  check('리포트: 감사 대응 자료에 위협 대응 현황 반영', repHtml.includes('위협 대응 현황'))
   // 연간 교체 계획에 잔존가치(장부가) 반영 — 유형 설명·생성 리포트에 반영
   check('리포트: 연간 교체 계획에 잔존가치 반영', repHtml.includes('내용연수·보증 경과 기준 교체 대상·잔존가치'))
   const repText = text(repHtml)
