@@ -11,6 +11,10 @@ import type { ApprovalDocType } from './types'
  *  참조 번호 대신 문서 유형·기안자로 회차를 잇는다 (재상신 할일 닫기 · 이전 회차 이력). */
 export const ROTATING_DOC_TYPES: ApprovalDocType[] = ['장애보고 상신', '출력물폐기 상신', '서약 현황 상신', '부서서약 현황 상신']
 
+/** 상신취소(회수) 가능 유형 — 요구사항 결재 시트가 상신취소 전이를 명시한 문서만
+ *  (SR 3종 → 임시저장, 변경 계획/결과 → 작업등록/작업등록승인, 확인서 → 징구중). */
+export const WITHDRAWABLE_DOC_TYPES: ApprovalDocType[] = ['SR 신청', '변경계획 상신', '변경결과 상신', '보안위반 확인서']
+
 export function draftApproval(opts: {
   docType: ApprovalDocType
   title: string

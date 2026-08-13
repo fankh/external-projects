@@ -38,7 +38,7 @@ export interface SrRequest {
 /** SR 진행 단계 순서 — 시스템개발 SR 파이프라인 (제품안내서 §03) */
 export const SR_FLOW: SrStatus[] = ['작성중', '결재중', 'CI배정', '개발중', '테스트', '적용요청', '완료']
 
-export type ApprovalStatus = '대기' | '승인' | '반려'
+export type ApprovalStatus = '대기' | '승인' | '반려' | '회수'
 
 /** 기본 결재선 — 문서 유형별 결재자 (환경설정 > 결재선 관리에서 유지보수) */
 export interface ApprovalLine {

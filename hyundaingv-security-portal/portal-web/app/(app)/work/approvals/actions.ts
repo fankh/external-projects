@@ -1,5 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
+import { WITHDRAWABLE_DOC_TYPES } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
 import { requireRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
@@ -126,4 +127,44 @@ export async function approve(formData: FormData) {
 
 export async function reject(formData: FormData) {
   await decide(formData, '반려')
+}
+
+/** 상신취소(회수) — 기안자 본인이 결재 대기 문서를 거둬들인다 (요구사항 결재 시트의 상신취소 전이).
+ *  반려와 달리 '재상신' 할일을 만들지 않고, 참조 업무를 상신 이전 상태로 되돌린다 —
+ *  기안자는 업무 화면에서 보완 후 처음 상신과 같은 경로로 다시 상신한다. */
+export async function withdraw(formData: FormData) {
+  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const id = String(formData.get('id') ?? '')
+  const s = getStore()
+  const ap = s.approvals.find((a) => a.id === id)
+  // 기안자 본인 + 결재 대기 + 상신취소 허용 유형만 — 화면 숨김과 별개의 서버 가드
+  if (!ap || ap.drafter !== me.name || ap.status !== '대기' || !WITHDRAWABLE_DOC_TYPES.includes(ap.docType)) return
+
+  ap.status = '회수'
+  ap.decidedAt = today()
+  audit(me.name, '결재 회수', `${ap.id} ${ap.docType} — ${ap.title}`)
+
+  // 참조 업무 상태 복원 — SR 은 임시저장(작성중)으로, 변경·확인서는 상신 직전 단계로
+  if (ap.docType === 'SR 신청' && ap.ref) {
+    const sr = s.srRequests.find((r) => r.srNo === ap.ref)
+    if (sr && sr.status === '결재중') sr.status = '작성중'
+  }
+  if (ap.docType === '변경계획 상신' && ap.ref) {
+    const cw = s.changes.find((c) => c.id === ap.ref)
+    if (cw && cw.status === '계획결재중') cw.status = '작업등록'
+  }
+  if (ap.docType === '변경결과 상신' && ap.ref) {
+    const cw = s.changes.find((c) => c.id === ap.ref)
+    if (cw && cw.status === '작업완료결재중') cw.status = '작업등록승인'
+  }
+  if (ap.docType === '보안위반 확인서' && ap.ref) {
+    const v = s.violations.find((x) => x.id === ap.ref)
+    if (v && v.status === '결재중') v.status = '징구중'
+  }
+
+  // 회수된 문서는 결재자의 처리 대상에서 빠진다 — '결재' 할일을 닫는다
+  const todo = s.todos.find((t) => t.owner === ap.approver && t.kind === '결재' && t.title.includes(id) && !t.done)
+  if (todo) todo.done = true
+
+  revalidatePath('/', 'layout')
 }

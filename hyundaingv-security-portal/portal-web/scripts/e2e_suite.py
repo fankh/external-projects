@@ -114,6 +114,59 @@ def sc_sr(pg, base, check):
     check('📎2' in pg.locator('tr', has_text='E2E 데이터 추출').inner_text(), 'BA 첨부 → SR pk 공유 뱃지(📎2)')
 
 
+def sc_withdraw(pg, base, check):
+    """상신취소(회수) — 기안자 회수 → SR 작성중 복원 → 결재자 대기·할일 제외 → 재상신 → 승인"""
+    import re
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/sr/new', wait_until='networkidle')
+    pg.select_option('select[name=kind]', '데이터')
+    pg.fill('input[name=system]', 'ERP')
+    pg.fill('input[name=title]', 'E2E 상신취소 검증')
+    pg.click('button:has-text("결재 상신")')
+    pg.wait_for_url('**/sr/requests**')
+
+    # 상신함 상세에서 상신취소 — 결재번호(AP)를 상세 제목에서 캡처해 할일 마감 검증에 쓴다
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    pg.locator('.card', has_text='상신함').locator('a', has_text='E2E 상신취소 검증').first.click()
+    pg.wait_for_selector('text=문서 상세', timeout=10000)
+    detail = pg.locator('.card', has_text='문서 상세')
+    m = re.search(r'문서 상세 — (AP-\d+-\d+)', detail.inner_text())
+    apid = m.group(1) if m else ''
+    detail.locator('button:has-text("상신취소")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    row = pg.locator('.card', has_text='상신함').locator('tr', has_text='E2E 상신취소 검증')
+    check('회수' in row.inner_text(), '상신취소 → 문서 상태 회수')
+
+    # SR 은 임시저장(작성중)으로 복원된다 — 반려와 달리 재상신 할일 없이 업무 화면에서 다시 상신
+    pg.goto(f'{base}/sr/requests', wait_until='networkidle')
+    check('작성중' in pg.locator('tr', has_text='E2E 상신취소 검증').inner_text(), '회수 → SR 작성중(임시저장) 복원')
+
+    # 결재자 쪽 — 수신 대기에서 빠지고 '결재' 할일도 닫힌다
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    check('E2E 상신취소 검증' not in pg.locator('.card', has_text='수신함 — 결재 대기').inner_text(), '회수 → 결재 대기 제외')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check(bool(apid) and f'{apid} 결재 처리' not in pg.locator('.card', has_text='미처리 할일').inner_text(), '회수 → 결재 할일 마감')
+
+    # 감사 이력 — 회수가 결재 생명주기 추적에 남는다
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    check('결재 회수' in pg.content(), '감사 이력에 결재 회수 기록')
+
+    # 회수 후 재상신은 처음 상신과 동일 경로 — [재상신] 접두 없이 상신되고 승인 → CI배정
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/sr/requests', wait_until='networkidle')
+    pg.locator('tr', has_text='E2E 상신취소 검증').locator('button:has-text("상신")').click()
+    # 서버 액션 재렌더를 기다린다 — networkidle 은 POST 전에 통과할 수 있다
+    pg.wait_for_selector('tr:has-text("E2E 상신취소 검증"):has-text("결재중")', timeout=10000)
+    check('결재중' in pg.locator('tr', has_text='E2E 상신취소 검증').inner_text(), '회수 → 재상신 (결재중)')
+    login(pg, base, '박정호')
+    approve_first(pg, base, 'E2E 상신취소 검증')
+    pg.goto(f'{base}/sr/ci', wait_until='networkidle')
+    check('E2E 상신취소 검증' in pg.content(), '재상신 승인 → CI배정')
+
+
 def sc_settle(pg, base, check):
     """정산품의 반려 → 재상신 → 승인 → 지급완료"""
     login(pg, base, '이수진')
@@ -392,6 +445,7 @@ def sc_persist(pg, base, check):
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
+    ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
     ('settle', '정산 반려 → 재상신 → 지급완료', sc_settle, {}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),

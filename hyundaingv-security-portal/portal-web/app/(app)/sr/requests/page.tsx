@@ -7,18 +7,19 @@ import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../chips'
 
-/** 반려 SR 재상신 — 기안자 본인만. 반려 사유를 보완했다는 전제로 새 결재가 상신된다. */
+/** 반려·회수 SR 재상신 — 기안자 본인만. 반려는 사유 보완 전제의 '[재상신]', 회수(작성중)는 처음 상신과 동일하게. */
 async function resubmitSr(formData: FormData) {
   'use server'
   const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
-  const sr = s.srRequests.find((r) => r.srNo === srNo && r.requester === me.name && r.status === '반려')
+  const sr = s.srRequests.find((r) => r.srNo === srNo && r.requester === me.name && (r.status === '반려' || r.status === '작성중'))
   if (!sr || s.approvals.some((a) => a.ref === srNo && a.status === '대기')) return
 
+  const rejected = sr.status === '반려'
   sr.status = '결재중'
   // '재상신' 할일 마감은 draftApproval 이 참조 번호로 공통 처리한다
-  draftApproval({ docType: 'SR 신청', title: `[재상신] ${sr.title}`, ref: srNo, drafter: me })
+  draftApproval({ docType: 'SR 신청', title: rejected ? `[재상신] ${sr.title}` : sr.title, ref: srNo, drafter: me })
   revalidatePath('/', 'layout')
 }
 
@@ -73,10 +74,10 @@ export default async function SrRequestsPage({ searchParams }: { searchParams: P
                     <td>{r.requester} <span className="mut">· {r.dept}</span></td>
                     <td>
                       <Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip>
-                      {r.status === '반려' && r.requester === me.name && (
+                      {(r.status === '반려' || r.status === '작성중') && r.requester === me.name && (
                         <form action={resubmitSr} style={{ display: 'inline', marginLeft: 6 }}>
                           <input type="hidden" name="srNo" value={r.srNo} />
-                          <button type="submit" className="btn sm">재상신</button>
+                          <button type="submit" className="btn sm">{r.status === '반려' ? '재상신' : '상신'}</button>
                         </form>
                       )}
                     </td>

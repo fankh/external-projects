@@ -1,14 +1,14 @@
 import Link from 'next/link'
 import { Fragment } from 'react'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
-import { ROTATING_DOC_TYPES } from '@/lib/approvals'
+import { ROTATING_DOC_TYPES, WITHDRAWABLE_DOC_TYPES } from '@/lib/approvals'
 import { attachCount } from '@/lib/attachments'
 import { requireRole } from '@/lib/authz'
 import { getStore, type Store } from '@/lib/store'
 import type { Approval, ApprovalStatus } from '@/lib/types'
-import { approve, reject } from './actions'
+import { approve, reject, withdraw } from './actions'
 
-const ST_CHIP: Record<ApprovalStatus, 'warn' | 'ok' | 'err'> = { 대기: 'warn', 승인: 'ok', 반려: 'err' }
+const ST_CHIP: Record<ApprovalStatus, 'warn' | 'ok' | 'err' | 'neutral'> = { 대기: 'warn', 승인: 'ok', 반려: 'err', 회수: 'neutral' }
 
 /** 결재 문서 상세 — 참조 업무(ref)의 스냅샷을 문서 유형별로 요약한다 (상세페이지 확인 후 처리 요구) */
 function refSummary(s: Store, ap: Approval): [string, string][] {
@@ -116,6 +116,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                     <button type="submit" className="btn sm danger">반려</button>
                   </form>
                 </>
+              )}
+              {selected.status === '대기' && selected.drafter === me.name && WITHDRAWABLE_DOC_TYPES.includes(selected.docType) && (
+                // 상신취소 — 요구사항 결재 시트가 허용한 유형만. 참조 업무는 상신 이전 상태로 복원된다
+                <form action={withdraw}>
+                  <input type="hidden" name="id" value={selected.id} />
+                  <button type="submit" className="btn sm">상신취소</button>
+                </form>
               )}
               <Link className="btn sm" href="/work/approvals">닫기</Link>
             </span>
