@@ -12,7 +12,7 @@
   --ink: #18181b;
   --ink-2: #3f3f46;
   --dim: #52525b;
-  --mute: #a1a1aa;
+  --mute: #6d6d75;   /* 보조 텍스트 — 4.5:1 대비 통과(KWCAG 5.3.3). dim 보다 밝게 계층 유지 */
   --canvas: #fafafa;
   --panel: #ffffff;
   --line: #e4e4e7;

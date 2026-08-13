@@ -5,7 +5,7 @@
  *  사용: npm run build 후  node scripts/a11y.mjs */
 import { execSync, spawn } from 'node:child_process'
 import { createHmac } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -77,6 +77,28 @@ function auditControls(route, html) {
   }
 }
 
+/** 색 대비 정적 검사 — globals.css 텍스트 토큰 × 배경이 4.5:1(정상 텍스트)을 넘는지 (KWCAG 5.3.3).
+ *  브라우저 없이 토큰 값으로 결정 가능한 항목만 — 실제 렌더 색 대비의 회귀 방지 게이트다. */
+function auditContrast() {
+  const css = readFileSync(path.join(ROOT, 'app/globals.css'), 'utf8')
+  const tok = (name) => (css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{3,6})`)) ?? [])[1]
+  const hex = (h) => { h = h.replace('#', ''); if (h.length === 3) h = [...h].map((c) => c + c).join(''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) }
+  const lin = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
+  const L = (rgb) => { const [r, g, b] = rgb.map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const ratio = (a, b) => { const l1 = L(hex(a)), l2 = L(hex(b)); const hi = Math.max(l1, l2), lo = Math.min(l1, l2); return (hi + 0.05) / (lo + 0.05) }
+  const texts = ['ink', 'ink-2', 'dim', 'mute']
+  const bgs = ['canvas', 'panel']
+  for (const t of texts) {
+    const tc = tok(t)
+    for (const b of bgs) {
+      const bc = tok(b)
+      if (!tc || !bc) { check(false, `contrast: 토큰 --${t}/--${b} 파싱 실패`); continue }
+      const r = ratio(tc, bc)
+      check(r >= 4.5, `contrast: --${t}(${tc}) on --${b}(${bc}) = ${r.toFixed(2)}:1 (<4.5)`)
+    }
+  }
+}
+
 async function waitReady() {
   for (let i = 0; i < 60; i++) {
     try { if ((await fetch(`${BASE}/login`, { redirect: 'manual' })).status === 200) return } catch { /* 기동 전 */ }
@@ -90,6 +112,8 @@ async function main() {
   const server = spawn(`npx next start -p ${PORT}`, { cwd: ROOT, shell: true, stdio: 'ignore' })
   try {
     await waitReady()
+    // 색 대비 정적 검사 (KWCAG 5.3.3) — 서버 무관, 토큰 값 기반
+    auditContrast()
     // 문서 언어 (KWCAG 5.4.1) — 로그인 SSR 에서 확인
     const login = await (await fetch(`${BASE}/login`)).text()
     check(/<html\b[^>]*\blang="ko"/.test(login), '문서 언어 lang="ko" 선언')
