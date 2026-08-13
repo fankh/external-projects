@@ -641,6 +641,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 ...(sel.os !== undefined ? [{ key: 'os' as ConfigField, label: 'OS', cur: sel.os }] : []),
                 ...(sel.cpu !== undefined ? [{ key: 'cpu' as ConfigField, label: 'CPU', cur: sel.cpu }] : []),
                 ...(sel.memory !== undefined ? [{ key: 'memory' as ConfigField, label: '메모리', cur: sel.memory }] : []),
+                ...(sel.ip !== undefined ? [{ key: 'ip' as ConfigField, label: 'IP', cur: sel.ip }] : []),
+                ...(sel.mac !== undefined ? [{ key: 'mac' as ConfigField, label: 'MAC', cur: sel.mac }] : []),
                 { key: '기타', label: '기타', cur: undefined },
               ]
               const openForm = () => {

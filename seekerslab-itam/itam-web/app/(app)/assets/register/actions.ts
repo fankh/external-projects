@@ -69,9 +69,9 @@ async function guard() {
   return session
 }
 
-/** 구성변경 대상 — 자산 유형(재분류) + 대장이 보유한 사양 필드 + 사양 외 기타 변경. */
-export type ConfigField = '유형' | 'os' | 'cpu' | 'memory' | '기타'
-const FIELD_LABEL: Record<ConfigField, string> = { 유형: '유형', os: 'OS', cpu: 'CPU', memory: '메모리', 기타: '기타' }
+/** 구성변경 대상 — 자산 유형(재분류) + 대장이 보유한 사양 필드(CPU·메모리·OS·IP·MAC) + 사양 외 기타 변경 (제품안내서 §03 구성정보). */
+export type ConfigField = '유형' | 'os' | 'cpu' | 'memory' | 'ip' | 'mac' | '기타'
+const FIELD_LABEL: Record<ConfigField, string> = { 유형: '유형', os: 'OS', cpu: 'CPU', memory: '메모리', ip: 'IP', mac: 'MAC', 기타: '기타' }
 
 /** 구성변경 기록 — 자산의 사양 변경(메모리 증설·OS 재설치 등)을 대장에 반영하고
  *  변경 이력 타임라인에 '구성변경' 이벤트로 남긴다. (제품안내서 §03 — 등록·이동·구성변경·점검·폐기 단일 화면 추적)
