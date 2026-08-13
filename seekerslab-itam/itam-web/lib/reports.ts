@@ -13,7 +13,7 @@ import type { ReportKind, ReportSchedule, ReportSection } from './types'
 
 export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
   { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 외부 노출 · 미인가 SaaS · 인증·계정·엔드포인트 정책 위반 · 처리 현황' },
-  { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용, 자산 처분 실적' },
+  { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용, 자산 처분 실적·폐기 진행 현황' },
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도)·위협 대응 현황 증빙 초안' },
@@ -139,6 +139,17 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           columns: ['폐기번호', '자산번호', '모델', '처분 방식', '매각 대금'],
           rows: disposed.map((d) => [d.id, d.assetNo, d.model, d.disposition ?? '', d.proceeds ? `${d.proceeds.toLocaleString()}원` : '-']),
         }
+    // 폐기 진행 현황 — 완료 전 파이프라인(대상 선정·결재 대기·소거 대기). 장기 유휴·분실·EOL 등에서 편입된 폐기 대상이 어느 단계에 있는지 드러낸다.
+    const inProcess = s.disposals.filter((d) => d.status !== '완료')
+    const stageN = (st: string) => inProcess.filter((d) => d.status === st).length
+    const pipelineSection: ReportSection = inProcess.length === 0
+      ? { title: '폐기 진행 현황 (결재·소거 대기)', bullets: ['진행 중인 폐기 절차가 없습니다.'] }
+      : {
+          title: '폐기 진행 현황 (결재·소거 대기)',
+          note: `진행 ${inProcess.length}건 — 대상 선정 ${stageN('대상 선정')} · 결재 대기 ${stageN('결재 대기')} · 소거 대기 ${stageN('소거 대기')}`,
+          columns: ['폐기번호', '자산번호', '모델', '단계', '사유'],
+          rows: inProcess.map((d) => [d.id, d.assetNo, d.model, d.status, d.reason]),
+        }
     return [
       {
         title: '유형별 보유 현황',
@@ -161,6 +172,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       },
       repairSection,
       disposalSection,
+      pipelineSection,
       {
         // 만료 임박 창은 운영 정책(expiryWindowDays)을 따른다 — 대시보드·만료 알림과 같은 기준(v1.240)
         title: `만료 임박 계약 (${s.opsPolicy.expiryWindowDays}일 이내)`,

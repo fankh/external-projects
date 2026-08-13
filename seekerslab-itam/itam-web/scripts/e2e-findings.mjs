@@ -284,6 +284,8 @@ try {
   const mid = decodeURIComponent((mh.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const mmd = await (await p3.request.get(`${BASE}/api/reports/${encodeURIComponent(mid)}?format=md`)).text()
   ok('운영 정책 다운스트림: 리포트 만료 임박 창 60일 반영', mmd.includes('만료 임박 계약 (60일 이내)') && !mmd.includes('(90일 이내)'))
+  // 월간 자산 현황에 폐기 진행 현황(완료 전 파이프라인) 섹션이 포함된다 — 처분 실적(완료)의 짝
+  ok('리포트: 월간 자산 현황에 폐기 진행 현황 섹션', mmd.includes('폐기 진행 현황') && mmd.includes('자산 처분 실적'))
   // 만료 창(60일)이 대시보드·계약 화면에도 일관 반영된다(하드코딩 90 제거)
   await p3.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('운영 정책 다운스트림: 대시보드 만료 임박 라벨 60일', (await p3.textContent('body')).includes('계약·라이선스 60일') && !(await p3.textContent('body')).includes('계약·라이선스 90일'))

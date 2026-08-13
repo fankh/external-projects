@@ -751,6 +751,8 @@ try {
   check('리포트: 월간 자산 현황에 유지보수(수리) 비용 반영', repHtml.includes('유지보수(수리) 비용'))
   // 월간 자산 현황에 자산 처분 실적(매각 대금 회수) 반영 — 생성 시 buildSections 가 처분 실적 섹션 산출
   check('리포트: 월간 자산 현황에 자산 처분 실적 반영', repHtml.includes('자산 처분 실적'))
+  // 처분 실적(완료)의 짝 — 완료 전 폐기 파이프라인(대상 선정·결재 대기·소거 대기) 진행 현황
+  check('리포트: 월간 자산 현황에 폐기 진행 현황 반영', repHtml.includes('폐기 진행 현황'))
   // 감사 대응 자료 리포트에 대장 정합성(CMDB 정확도) 반영 — 생성 시 buildSections 가 정합성 섹션 산출
   check('리포트: 감사 대응 자료에 대장 정합성(CMDB 정확도) 반영', repHtml.includes('대장 정합성(CMDB 정확도)'))
   // 주간 Shadow IT 브리핑에 인증·계정·엔드포인트 정책 위반(loops 45-49) 반영 — 생성 시 buildSections 가 해당 섹션 산출
