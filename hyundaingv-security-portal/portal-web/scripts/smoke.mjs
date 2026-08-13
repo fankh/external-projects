@@ -193,7 +193,7 @@ async function main() {
     ['/sr/manage', 'BIZ_MGR', ['전사 SR 목록', 'SR-2026-0141', '진행 처리', '공수(MD)', '작업기간']],
     ['/sr/delayed', 'BIZ_MGR', ['SR-2026-0132', '완료일 변경']],
     // 서약 루프 — 김현우 미제출 / 박정호 제출 완료, 부서담당은 소속 부서만
-    ['/pledge/my', 'USER', ['미제출', '서약서 제출', '온라인 동의']],
+    ['/pledge/my', 'USER', ['미제출', '서약서 제출', '온라인 동의', 'aria-live="polite"']],
     ['/pledge/my', 'BIZ_MGR', ['제출 완료', '2026-07-10']],
     ['/pledge/dept', 'DEPT_MGR', ['경영지원팀', '정민서', '전원 완료']],
     ['/pledge/dept', 'BIZ_MGR', ['개발1팀', '미서약 안내메일', '서약률']],

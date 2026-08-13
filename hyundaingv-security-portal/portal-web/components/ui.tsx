@@ -10,7 +10,9 @@ export function ScreenHeader(props: { kicker: string; title: string; desc?: stri
         {props.desc && <div className="desc">{props.desc}</div>}
       </div>
       <div className="sp" />
-      {props.right}
+      {/* 상태 영역 — 서버액션 후 in-place 재렌더로 바뀌는 상태(예: 미제출→제출완료)를 스크린리더에
+          알린다 (WCAG 4.1.3 Status Messages). polite 라 변화 시에만 발화 — 정적 버튼은 조용하다. */}
+      {props.right && <div aria-live="polite">{props.right}</div>}
     </div>
   )
 }
