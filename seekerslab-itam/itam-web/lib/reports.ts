@@ -414,6 +414,34 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       rows: s.scanPolicies.map((p) => [p.channel, p.kind, p.targets, p.window, p.intensity, p.enabled ? '사용' : '중지']),
     },
     {
+      // 운영·거버넌스 정책 기준 — 화면·리포트·스케줄러가 강제하는 임계값과 AI 거버넌스 설정. "정책 이행"을 탐지 정책만이 아니라
+      // 운영 기한·위험도 기준·AI 정책까지 증빙한다(§05 감사 대응 자료: 정책 이행, §07 감사 추적성).
+      title: '운영 · 거버넌스 정책 기준',
+      note: '화면·리포트·스케줄러가 공유·강제하는 임계값 — 정책 이행 증빙 (설정 변경은 감사 로그에 적재)',
+      columns: ['정책 항목', '기준값', '적용 범위 · 관리 주체'],
+      rows: [
+        ['소유자 확인 기한', `${s.opsPolicy.confirmDeadlineDays}일`, '발견 자산 소유자 확인 — 경과 시 격리 에스컬레이션 (Admin)'],
+        ['결재 SLA', `${s.opsPolicy.approvalSlaDays}일`, '결재 대기 지연 판정 — 대시보드·결재함 지연 표기 (Admin)'],
+        ['장기 미실측 기준', `${s.opsPolicy.staleVerifyDays}일`, '유령 자산 후보 판정 — 재물조사 자동 편성 (Admin)'],
+        ['만료 알림 창', `${s.opsPolicy.expiryWindowDays}일`, '계약·보증·라이선스 만료 임박 알림 (Admin)'],
+        ['취약점 우선순위 P1', `점수 ${s.riskPolicy.p1MinScore} 이상`, '즉시 조치 등급 컷오프 (보안담당)'],
+        ['취약점 우선순위 P2', `점수 ${s.riskPolicy.p2MinScore}~${s.riskPolicy.p1MinScore - 1}`, '우선 조치 등급 컷오프 (보안담당)'],
+        ['AI 실행 환경 · 모델', `${s.aiPolicy.deployment} · ${s.aiPolicy.modelId}`, 'AI 거버넌스 — 실행 환경·모델 버전 (Admin)'],
+        ['AI 프롬프트 버전 · 분류 정확도', `${s.aiPolicy.promptVersion} · ${s.aiPolicy.classifyAccuracy}%`, 'AI 거버넌스 — 버전 관리·성능 (Admin)'],
+        ['AI 로그 보존 · 권한 필터', `${s.aiPolicy.auditRetentionDays}일 · ${s.aiPolicy.scopeFilter ? 'ON' : 'OFF'}`, '질의·응답 감사 추적성·권한 밖 데이터 배제 (Admin)'],
+      ],
+    },
+    {
+      // 미인가 SW·SaaS 정책 상태 — 보안담당이 관리하는 허용/차단 정책의 현재 규모(§01 보안담당: 미인가 SW·SaaS 정책 관리)
+      title: 'SW · SaaS 정책 상태',
+      note: '보안담당 관리 — 허용(화이트리스트·인가)과 차단·미인가의 현황',
+      columns: ['정책 영역', '허용', '검토·미인가', '차단'],
+      rows: [
+        ['SaaS 카탈로그', String(s.saasCatalog.filter((x) => x.status === '인가').length), String(s.saasCatalog.filter((x) => x.status === '검토중').length), String(s.saasCatalog.filter((x) => x.status === '차단').length)],
+        ['설치 SW (EDR)', `화이트리스트 ${s.swAllowlist.length}`, String(s.unauthorizedSw.filter((w) => !w.action).length), String(s.unauthorizedSw.filter((w) => w.action === '제거 요청').length)],
+      ],
+    },
+    {
       // 위협 대응 현황 — 검출에서 끝내지 않고 조치까지 이어졌는지(발견→조치 거버넌스)의 증적. 감사에서 "탐지만 하고 방치"를 반증한다.
       title: '외부 · 계정 · SW 위협 대응 현황',
       note: '검출 대비 조치 완료 — 발견에서 조치까지의 폐쇄 루프 이행 증적',

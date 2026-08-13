@@ -392,6 +392,17 @@ try {
   ok('운영 정책 다운스트림: 리포트 만료 임박 창 60일 반영', mmd.includes('만료 임박 계약 (60일 이내)') && !mmd.includes('(90일 이내)'))
   // 월간 자산 현황에 폐기 진행 현황(완료 전 파이프라인) 섹션이 포함된다 — 처분 실적(완료)의 짝
   ok('리포트: 월간 자산 현황에 폐기 진행 현황 섹션', mmd.includes('폐기 진행 현황') && mmd.includes('자산 처분 실적'))
+  // 감사 대응 자료 — '정책 이행'을 탐지 정책만이 아니라 운영·위험도·AI 거버넌스 기준 + SW·SaaS 정책 상태까지 증빙
+  const rb2 = await p3.locator('.msg.assistant .bub').count()
+  await p3.locator('.chat-in input').fill('감사 대응 자료 리포트 생성해줘')
+  await p3.locator('.chat-in input').press('Enter')
+  await p3.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, rb2, { timeout: 8000 })
+  await p3.waitForTimeout(300)
+  const ah = await p3.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const aid = decodeURIComponent((ah.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const amd = await (await p3.request.get(`${BASE}/api/reports/${encodeURIComponent(aid)}?format=md`)).text()
+  ok('감사 대응 자료: 운영·거버넌스 정책 기준 섹션(운영·위험도·AI)', amd.includes('운영 · 거버넌스 정책 기준') && amd.includes('취약점 우선순위 P1') && amd.includes('AI 로그 보존'))
+  ok('감사 대응 자료: SW·SaaS 정책 상태 섹션(화이트리스트·카탈로그)', amd.includes('SW · SaaS 정책 상태') && amd.includes('화이트리스트') && amd.includes('SaaS 카탈로그'))
   // 만료 창(60일)이 대시보드·계약 화면에도 일관 반영된다(하드코딩 90 제거)
   await p3.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('운영 정책 다운스트림: 대시보드 만료 임박 라벨 60일', (await p3.textContent('body')).includes('계약·라이선스 60일') && !(await p3.textContent('body')).includes('계약·라이선스 90일'))
