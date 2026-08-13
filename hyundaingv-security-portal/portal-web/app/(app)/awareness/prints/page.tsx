@@ -74,8 +74,10 @@ async function submitDiscards() {
   }
   draftApproval({ docType: '출력물폐기 상신', title: `[출력물폐기] ${me.name} ${targets.length}건 (${today()})`, ref, drafter: me })
 
-  // 폐쇄 루프 — 상신과 함께 내 '출력물 폐기확인' 할일이 닫힌다
-  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && !t.done)
+  // 폐쇄 루프 — 개인 폐기 상신과 함께 내 '출력물 폐기확인' 할일이 닫힌다.
+  // 부서 취합('취합') 할일은 개인 상신으로 닫지 않는다 — 개인 행동이 부서 집계 과제를 조기 마감하던
+  // 결함 방지(후속조치 #5). (printouts 시드가 비어 데모에선 실행되지 않으나 실데이터 대비 방어.)
+  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && !t.title.includes('취합') && !t.done)
   if (todo) todo.done = true
   revalidatePath('/', 'layout')
 }
