@@ -171,7 +171,8 @@ export default async function ExpensePage() {
         </div>
       </Card>
 
-      <Card title="속보 — 월별 거래처별 지불 예상" kicker="Flash" pad={false}>
+      <Card title="속보 — 월별 거래처별 지불 예상" kicker="Flash" pad={false}
+        actions={<a className="btn sm" href="/api/export?type=expense-flash">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>월</th><th>거래처</th><th>연결 항목</th><th className="num">예상액</th><th>기준</th><th className="num">기준금액</th></tr></thead>

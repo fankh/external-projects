@@ -66,6 +66,7 @@ export default async function SrRequestsPage({ searchParams }: { searchParams: P
             {KIND_TABS.map((k) => (
               <Link key={k} className={`btn sm${kindFilter === k ? ' pri' : ''}`} href={`/sr/requests?kind=${encodeURIComponent(k)}`}>{k}</Link>
             ))}
+            <a className="btn sm" href="/api/export?type=sr-requests">엑셀 다운로드</a>
           </span>
         } pad={false}>
         {rows.length === 0 ? (

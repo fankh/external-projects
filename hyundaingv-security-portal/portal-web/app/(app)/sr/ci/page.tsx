@@ -151,7 +151,8 @@ export default async function SrCiPage() {
         </div>
       </Card>
 
-      <Card title="CI SR 처리 이력" kicker="Direct History" pad={false}>
+      <Card title="CI SR 처리 이력" kicker="Direct History" pad={false}
+        actions={<a className="btn sm" href="/api/export?type=ci-srs">엑셀 다운로드</a>}>
         {s.ciSrs.length === 0 ? (
           <div className="empty">직접 접수한 건이 없습니다.</div>
         ) : (

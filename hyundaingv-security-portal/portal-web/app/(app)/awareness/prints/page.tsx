@@ -112,6 +112,7 @@ export default async function PrintsPage() {
       <Card title="출력물 목록" kicker="Printouts" pad={false}
         actions={
           <span className="hstack">
+            <a className="btn sm" href="/api/export?type=printouts">엑셀 다운로드</a>
             {canManage && (
               <form action={importDaily}>
                 <button type="submit" className="btn sm" disabled={!channelOn}>전일자 이관 실행</button>

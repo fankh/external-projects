@@ -93,7 +93,8 @@ export default async function ChangesPage() {
         <Stat value={s.changes.filter((c) => c.status === '최종완료').length} label="최종완료" />
       </div>
 
-      <Card title="변경 작업 목록" kicker="Change Works" pad={false}>
+      <Card title="변경 작업 목록" kicker="Change Works" pad={false}
+        actions={<a className="btn sm" href="/api/export?type=changes">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>

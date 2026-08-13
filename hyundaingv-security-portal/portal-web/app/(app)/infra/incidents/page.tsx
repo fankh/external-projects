@@ -115,7 +115,8 @@ export default async function IncidentsPage() {
         </form>
       </Card>
 
-      <Card title="장애 목록 · 통계 상신" kicker="Incidents" pad={false}>
+      <Card title="장애 목록 · 통계 상신" kicker="Incidents" pad={false}
+        actions={<a className="btn sm" href="/api/export?type=incidents">엑셀 다운로드</a>}>
         <form action={submitReport}>
           <div className="tbl-wrap">
             <table className="tbl">

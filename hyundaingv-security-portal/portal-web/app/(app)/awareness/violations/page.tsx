@@ -87,7 +87,8 @@ export default async function ViolationsPage() {
         </Card>
       )}
 
-      <Card title={canManage ? '위반 내역' : '내 위반 내역 — 사실확인서'} kicker="Violations" pad={false}>
+      <Card title={canManage ? '위반 내역' : '내 위반 내역 — 사실확인서'} kicker="Violations" pad={false}
+        actions={<a className="btn sm" href="/api/export?type=violations">엑셀 다운로드</a>}>
         {rows.length === 0 ? (
           <div className="empty">위반 내역이 없습니다.</div>
         ) : (

@@ -355,6 +355,31 @@ async function main() {
     check(itemsDenied.status === 403, 'export: USER 점검 기준 차단(403)')
   }
   {
+    // 엑셀 ◎ 확대 스윕 (v1.1.4) — 유형별 200 + 대표 내용, 권한·스코핑 검증
+    const sweep = [
+      ['expense-flash', 'USER', '거래처'],
+      ['sr-requests', 'BIZ_MGR', 'SR-2026-0141'],
+      ['ci-srs', 'BIZ_MGR', 'CS-2026-0001'],
+      ['incidents', 'BIZ_MGR', '장애번호'],
+      ['changes', 'BIZ_MGR', '변경번호'],
+      ['projects', 'BIZ_MGR', 'PJ-2026-01'],
+      ['printouts', 'BIZ_MGR', '폐기방법'],
+      ['violations', 'BIZ_MGR', 'VL-2026-07'],
+      ['inspection-plans', 'BIZ_MGR', 'IS-2026-21'],
+    ]
+    for (const [t, role, needle] of sweep) {
+      const r = await get(`/api/export?type=${t}`, role)
+      check(r.status === 200 && (await r.text()).includes(needle), `export: ${t} CSV`)
+    }
+    const vUser = await get('/api/export?type=violations', 'USER')
+    check(vUser.status === 200 && !(await vUser.text()).includes('VL-2026-07'), 'export: violations USER 본인 스코핑')
+    const dSr = await get('/api/export?type=sr-requests', 'DEPT_MGR')
+    const dText = await dSr.text()
+    check(dText.includes('SR-2026-0146') && !dText.includes('SR-2026-0141'), 'export: SR 부서담당 스코핑')
+    const denied = await get('/api/export?type=incidents', 'USER')
+    check(denied.status === 403, 'export: USER 장애 대장 차단(403)')
+  }
+  {
     // 엑셀 다운로드 — CSV(BOM) 응답과 권한 가드
     const r = await get('/api/export?type=invest-actual', 'USER')
     const text = await r.text()

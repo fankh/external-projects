@@ -140,7 +140,8 @@ export default async function InspectionPage() {
         <Stat value={overdue.length} label="기한 경과" tone={overdue.length > 0 ? 'err' : undefined} note={`기준월 ${thisMonth}`} />
       </div>
 
-      <Card title="점검 진행내역" kicker="Progress" pad={false}>
+      <Card title="점검 진행내역" kicker="Progress" pad={false}
+        actions={<a className="btn sm" href="/api/export?type=inspection-plans">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
