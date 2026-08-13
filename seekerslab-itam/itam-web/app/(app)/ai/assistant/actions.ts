@@ -91,6 +91,39 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     }
   }
 
+  // 특정 자산 조회 — 질의에 자산번호(AST-YYYY-NNN…)가 있으면 그 자산의 현황·구성·변경 이력 타임라인을 답한다.
+  //  근거는 레코드 단위 딥링크(?sel=)로 건다(안내서 §05 "근거 데이터 링크 — 해당 화면·레코드").
+  //  AI 질의도 화면과 동일한 권한 범위 — 사용자 권한그룹은 본인 보유 자산만(대장 스코프와 동일).
+  const anMatch = question.toUpperCase().match(/AST-\d{4}-\d{3,6}/)
+  if (anMatch) {
+    const no = anMatch[0]
+    const asset = s.assets.find((a) => a.assetNo === no)
+    if (!asset) {
+      return { role: 'assistant', text: `${no} 자산을 대장에서 찾을 수 없습니다. 자산번호를 확인해 주세요.`, evidence: [{ label: '자산 대장', href: '/assets/register' }] }
+    }
+    if (isUser && asset.owner !== userName) {
+      return { role: 'assistant', text: `${no}는 본인 보유 자산이 아니어서 상세를 조회할 수 없습니다. AI 질의도 화면과 동일한 권한 범위를 적용합니다.`, evidence: [{ label: '내 보유 자산', href: '/assets/register' }] }
+    }
+    const wd = asset.warrantyEnd && asset.warrantyEnd !== '-' ? daysUntil(asset.warrantyEnd) : null
+    const eol = eolOsOf(asset.os, today())
+    const hist = asset.history.slice(-6)
+    const cfg = [asset.cpu, asset.memory, asset.os && `OS ${asset.os}`].filter(Boolean).join(' · ') || '-'
+    return {
+      role: 'assistant',
+      text: [
+        `${asset.assetNo} — ${asset.model} (${asset.category})`,
+        ``,
+        `· 상태 ${asset.status} · 사용자 ${asset.owner} / ${asset.dept} · 위치 ${asset.location}${asset.criticality ? ` · 업무 중요도 ${asset.criticality}` : ''}`,
+        `· 구성: ${cfg}${eol ? ` (OS 지원 종료 ${eol.label} · EOL — 교체·업그레이드 대상)` : ''} · IP ${asset.ip ?? '-'} · MAC ${asset.mac ?? '-'} · S/N ${asset.serial}`,
+        `· 취득 ${asset.purchaseDate} · 보증 ${asset.warrantyEnd}${wd !== null ? ` (${wd < 0 ? `만료 경과 ${-wd}일` : `D-${wd}`})` : ''}${asset.contractId ? ` · 계약 ${asset.contractId}` : ''}${asset.discoveredVia ? ` · 편입 경로 ${asset.discoveredVia}` : ''}`,
+        ``,
+        `변경 이력 (최근 ${hist.length}건 · 전체 ${asset.history.length}건):`,
+        ...hist.map((h) => `   - ${h.date} [${h.kind}] ${h.detail} · ${h.actor}`),
+      ].join('\n'),
+      evidence: [{ label: '자산 대장 (해당 레코드)', href: `/assets/register?sel=${no}` }],
+    }
+  }
+
   if (!isUser && (q.includes('재물조사') || q.includes('실사') || q.includes('재고조사'))) {
     const cur = s.inventoryRounds.find((r) => r.status === '진행중')
     const rounds = s.inventoryRounds
@@ -384,7 +417,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "내 보유 자산"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "AST-2023-000112 자산의 상태와 변경 이력" (자산번호로 특정 자산 조회)\n· "내 보유 자산"\n· "내 신청 상태"`,
   }
 }
 

@@ -166,6 +166,15 @@ async function aiPeriodQuery(page) {
   ok('AI 교체질의: 교체 대상·예산 인라인 답변(리포트 생성 아님)', /교체 대상 자산은 \d+건/.test(r1) && r1.includes('교체 예산 추정') && !r1.includes('리포트를 생성했습니다'))
   const r2 = await ask('연간 교체 계획 리포트 생성해줘')
   ok('AI 교체질의: 생성 동사 → 리포트 생성 분기', r2.includes('리포트를 생성했습니다'))
+
+  // 특정 자산 조회(자산번호) — 상세·이력·레코드 딥링크
+  const a1 = await ask('AST-2023-000112 자산의 상태와 변경 이력 알려줘')
+  ok('AI 자산조회: 자산번호 상세+이력', a1.includes('AST-2023-000112') && a1.includes('변경 이력') && a1.includes('사용자'))
+  const lastCard = page.locator('.msg.assistant').last()
+  const href = await lastCard.locator('.refs a').first().getAttribute('href')
+  ok('AI 자산조회: 레코드 단위 딥링크(?sel=)', href === '/assets/register?sel=AST-2023-000112')
+  const a2 = await ask('AST-9999-000000 상태')
+  ok('AI 자산조회: 미존재 자산 → 찾을 수 없음', a2.includes('찾을 수 없습니다'))
 }
 
 try {
