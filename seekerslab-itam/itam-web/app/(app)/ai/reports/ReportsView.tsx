@@ -65,7 +65,7 @@ export function ReportsView(props: {
                   <td className="c"><Chip tone={r.mode === 'AI' ? 'ok' : 'neutral'} bare>{r.mode}</Chip></td>
                   <td className="c">
                     <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
-                      <a className="btn sm" href={`/api/reports/${r.id}?format=csv`}>엑셀(CSV)</a>
+                      <a className="btn sm" href={`/api/reports/${r.id}?format=xlsx`}>엑셀</a>
                       <a className="btn sm" href={`/api/reports/${r.id}?format=md`}>문서</a>
                     </span>
                   </td>

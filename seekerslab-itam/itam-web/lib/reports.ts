@@ -8,6 +8,7 @@ import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
 import { buildVulnPriority } from './vuln-priority'
+import type { Sheet } from './xlsx'
 import type { ReportKind, ReportSchedule, ReportSection } from './types'
 
 export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
@@ -503,6 +504,28 @@ export function toCsv(title: string, sections: ReportSection[], headline: string
     lines.push('')
   }
   return '﻿' + lines.join('\r\n')
+}
+
+/** 결재 첨부용 — 네이티브 엑셀(xlsx) 시트 구성. 다른 대장·로그 반출과 동일한 buildXlsx 를 쓴다.
+ *  요약 시트(리포트명·총평·섹션 개요) + 섹션별 시트(표는 열/행 그대로, 불릿 섹션은 '내용' 단일 열).
+ *  시트명은 색인 접두로 유일성을 보장한다(같은 제목 섹션이 있어도 중복 시트명이 되지 않도록). */
+export function toSheets(title: string, headline: string, sections: ReportSection[]): Sheet[] {
+  const cover: Sheet = {
+    name: '요약',
+    header: ['구분', '내용'],
+    rows: [
+      ['리포트', title],
+      ['총평', headline],
+      ...sections.map((sec) => [`· ${sec.title}`, sec.note ?? '']),
+    ],
+  }
+  const sectionSheets: Sheet[] = sections.map((sec, i) => {
+    const name = `${i + 1}. ${sec.title}`
+    return sec.columns && sec.columns.length
+      ? { name, header: sec.columns, rows: (sec.rows ?? []).map((r) => [...r]) }
+      : { name, header: ['내용'], rows: (sec.bullets ?? []).map((b) => [b]) }
+  })
+  return [cover, ...sectionSheets]
 }
 
 /** 결재 첨부용 — 문서(Markdown) */

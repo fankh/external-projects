@@ -168,6 +168,12 @@ async function aiPeriodQuery(page) {
   ok('AI 교체질의: SW·가상자원 교체 대상 제외', !r1.includes('SW, 도입') && !r1.includes('가상자원, 도입'))
   const r2 = await ask('연간 교체 계획 리포트 생성해줘')
   ok('AI 교체질의: 생성 동사 → 리포트 생성 분기', r2.includes('리포트를 생성했습니다'))
+  // 결재 첨부용 리포트는 네이티브 엑셀(xlsx) 로 반출된다(다른 대장·로그 반출과 동일 buildXlsx)
+  const rHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const rid = decodeURIComponent((rHref.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const rx = await page.request.get(`${BASE}/api/reports/${encodeURIComponent(rid)}?format=xlsx`)
+  const xbuf = Buffer.from(await rx.body())
+  ok('리포트 반출: 네이티브 xlsx(PK ZIP·스프레드시트 타입)', (rx.headers()['content-type'] || '').includes('spreadsheetml.sheet') && xbuf[0] === 0x50 && xbuf[1] === 0x4b)
 
   // 특정 자산 조회(자산번호) — 상세·이력·레코드 딥링크
   const a1 = await ask('AST-2023-000112 자산의 상태와 변경 이력 알려줘')

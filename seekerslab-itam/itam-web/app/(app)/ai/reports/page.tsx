@@ -50,7 +50,7 @@ export default async function ReportsPage() {
       <div className="callout">
         <b>수치는 데이터, 서술은 AI.</b> 표 항목은 자산 대장·발견 저장소·계약에서 결정적으로 산출하므로 화면
         데이터와 항상 일치합니다. AI는 그 표를 근거로 요약 서술만 작성하며, 키가 없으면 규칙 기반 서술로
-        대체되어 리포트 생성 자체는 동일하게 동작합니다. 산출물은 결재 첨부용 엑셀(CSV)·문서로 내려받을 수 있습니다.
+        대체되어 리포트 생성 자체는 동일하게 동작합니다. 산출물은 결재 첨부용 엑셀(xlsx)·문서로 내려받을 수 있습니다 — 섹션별 시트로 구성됩니다.
       </div>
 
       <ReportsView kinds={REPORT_KINDS} reports={s.reports}

@@ -1,8 +1,10 @@
 import { getSession } from '@/lib/session'
-import { toCsv, toMarkdown } from '@/lib/reports'
+import { toCsv, toMarkdown, toSheets } from '@/lib/reports'
 import { getStore } from '@/lib/store'
+import { buildXlsx } from '@/lib/xlsx'
 
-/** 결재 첨부용 리포트 다운로드 — 엑셀 호환 CSV 또는 문서(Markdown) */
+/** 결재 첨부용 리포트 다운로드 — 네이티브 엑셀(xlsx, 기본)·문서(Markdown)·엑셀 호환 CSV.
+ *  다른 대장·로그 반출과 동일하게 네이티브 xlsx 를 기본으로 제공한다(제품안내서 §05 "결재 첨부용 엑셀·문서"). */
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -14,17 +16,30 @@ export async function GET(
   const report = getStore().reports.find((r) => r.id === id)
   if (!report) return new Response('Not Found', { status: 404 })
 
-  const format = new URL(req.url).searchParams.get('format') === 'md' ? 'md' : 'csv'
+  const fmt = new URL(req.url).searchParams.get('format')
+  const format = fmt === 'md' ? 'md' : fmt === 'csv' ? 'csv' : 'xlsx'
   const meta = `${report.mode} 생성 · ${report.generatedBy}`
+  const base = `${report.id}_${report.kind.replace(/\s+/g, '')}`
+
+  if (format === 'xlsx') {
+    const buf = buildXlsx(toSheets(report.title, report.headline, report.sections))
+    return new Response(new Uint8Array(buf), {
+      headers: {
+        'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`${base}.xlsx`)}`,
+        'content-length': String(buf.length),
+        'cache-control': 'no-store',
+      },
+    })
+  }
+
   const body = format === 'md'
     ? toMarkdown(report.title, report.period, report.headline, report.sections, meta)
     : toCsv(report.title, report.sections, report.headline)
-
-  const filename = `${report.id}_${report.kind.replace(/\s+/g, '')}.${format === 'md' ? 'md' : 'csv'}`
   return new Response(body, {
     headers: {
       'content-type': format === 'md' ? 'text/markdown; charset=utf-8' : 'text/csv; charset=utf-8',
-      'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`${base}.${format}`)}`,
       'cache-control': 'no-store',
     },
   })
