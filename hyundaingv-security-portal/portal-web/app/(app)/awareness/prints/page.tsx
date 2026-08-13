@@ -6,7 +6,7 @@ import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp, today } from '@/lib/dates'
 import { secdataAdapter, withTimeout } from '@/lib/integrations/registry'
-import { getStore, nextNo, recordBatch } from '@/lib/store'
+import { activeCodes, getStore, nextNo, recordBatch } from '@/lib/store'
 
 /** 전일자 이관 — 보안·출력물 시스템(DB 연계) 자료를 일배치로 가져온다 (요구사항: 일배치 이관) */
 async function importDaily() {
@@ -45,12 +45,13 @@ async function registerDiscard(formData: FormData) {
   const me = await requireMenuRole('/awareness/prints', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const method = String(formData.get('method') ?? '')
-  if (method !== '세단' && method !== '소각') return
   const s = getStore()
+  if (!activeCodes(s, 'DISCARD_METHOD').includes(method)) return
   // 본인 자료만 등록 가능 (요구사항: 본인으로 변경)
   const row = s.printouts.find((p) => p.id === id && p.name === me.name && p.status === '미등록')
   if (!row) return
-  row.method = method
+  // 활성 코드로 검증됨 — 필드 유니온으로 단언(공통코드 표가 런타임 원천, 유니온은 명목형)
+  row.method = method as typeof row.method
   row.discardedAt = today()
   row.status = '등록'
   revalidatePath('/awareness/prints')
@@ -152,7 +153,7 @@ export default async function PrintsPage() {
                         <form action={registerDiscard} className="hstack" style={{ padding: '3px 0' }}>
                           <input type="hidden" name="id" value={p.id} />
                           <select aria-label="방식" className="select" name="method" style={{ height: 25, fontSize: 11.5 }}>
-                            <option>세단</option><option>소각</option>
+                            {activeCodes(s, 'DISCARD_METHOD').map((m) => <option key={m}>{m}</option>)}
                           </select>
                           <button type="submit" className="btn sm">폐기 등록</button>
                         </form>

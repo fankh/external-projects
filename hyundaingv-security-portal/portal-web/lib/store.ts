@@ -442,6 +442,12 @@ export function isCodeActive(v: { enabled: boolean; until?: string }): boolean {
   return v.enabled && (!v.until || v.until >= today())
 }
 
+/** 공통코드 그룹의 활성 코드값 목록 — 업무 화면 선택지·서버 검증의 단일 원천.
+ *  사용중지·기간만료 코드는 빠진다(요구사항 73행: 공통코드가 업무 선택지에 반영). */
+export function activeCodes(s: Store, groupId: string): string[] {
+  return s.codeGroups.find((g) => g.id === groupId)?.values.filter(isCodeActive).map((v) => v.code) ?? []
+}
+
 /** 채번 — 'PREFIX-YYYY-NNNN' 형식에서 연도 내 최대 시퀀스 + 1 */
 export function nextNo(prefix: string, year: string, existing: string[]): string {
   const head = `${prefix}-${year}-`

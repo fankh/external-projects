@@ -516,6 +516,16 @@ def sc_codes(pg, base, check):
     opts = pg.locator('select[name=grade] option').all_inner_texts()
     check(opts == ['1등급'], f'코드 삭제 반영 ({opts})')
 
+    # 하드코딩이던 소비처(SR유형 등)도 코드표 구동인지 — SR_KIND '데이터' 중지 → SR 신청 선택지 제외
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/codes', wait_until='networkidle')
+    pg.locator('.card', has_text='SR 유형').locator('tr', has_text='데이터').locator('button:has-text("중지")').click()
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/sr/new', wait_until='networkidle')
+    kinds = pg.locator('select[name=kind] option').all_inner_texts()
+    check('데이터' not in kinds and '시스템개발' in kinds, f'공통코드(SR유형) 중지 → SR 신청 선택지 제외 ({kinds})')
+
 
 def sc_racks(pg, base, check):
     """랙·H/W 관리 (요구사항 28~30행) — 등록·구성도 반영·사용중 삭제 가드"""

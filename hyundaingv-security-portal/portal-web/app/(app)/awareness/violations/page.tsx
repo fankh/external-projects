@@ -5,11 +5,10 @@ import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
-import { getStore, nextNo } from '@/lib/store'
+import { activeCodes, getStore, nextNo } from '@/lib/store'
 import { CHANNELS } from '@/portal.config'
 import type { ViolationType } from '@/lib/types'
 
-const TYPES: ViolationType[] = ['출력물 방치', '화면 미잠금', '인가되지 않은 USB 사용']
 const ST_CHIP = { 징구중: 'warn', 결재중: 'info', 완료: 'ok' } as const
 
 async function addViolation(formData: FormData) {
@@ -20,7 +19,7 @@ async function addViolation(formData: FormData) {
   const detail = String(formData.get('detail') ?? '').trim().slice(0, 300)
   const s = getStore()
   const person = s.people.find((p) => p.name === name)
-  if (!person || !TYPES.includes(type) || !detail) return
+  if (!person || !activeCodes(s, 'VIOLATION_TYPE').includes(type) || !detail) return
 
   const id = nextNo('VL', today().slice(0, 4), s.violations.map((v) => v.id))
   s.violations.unshift({
@@ -83,7 +82,7 @@ export default async function ViolationsPage() {
               {s.people.map((p) => <option key={p.name} value={p.name}>{p.name} ({p.dept})</option>)}
             </select>
             <select aria-label="type" className="select" name="type">
-              {TYPES.map((t) => <option key={t}>{t}</option>)}
+              {activeCodes(s, 'VIOLATION_TYPE').map((t) => <option key={t}>{t}</option>)}
             </select>
             <input aria-label="위반 내용" className="input" name="detail" required maxLength={300} placeholder="위반 내용" style={{ flex: 1 }} />
             <input className="input" type="file" name="file" style={{ width: 150, paddingTop: 4 }} title="확인서 스캔 등 증빙 첨부" />

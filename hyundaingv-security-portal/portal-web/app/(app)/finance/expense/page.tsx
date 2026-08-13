@@ -6,7 +6,7 @@ import { audit } from '@/lib/audit'
 import { resubmitSettlement } from '../actions'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { getStore, nextNo } from '@/lib/store'
+import { activeCodes, getStore, nextNo } from '@/lib/store'
 import type { SettlementItem } from '@/lib/types'
 
 const fmt = (n: number) => n.toLocaleString('ko-KR')
@@ -121,7 +121,7 @@ async function requestSettlement(formData: FormData) {
   const amount = Number(formData.get('amount'))
   const s = getStore()
   const contract = s.investContracts.find((c) => c.id === contractId && c.kind === '비용')
-  if (!contract || !['월정산', '착수금', '중도금', '잔금'].includes(item) || !Number.isFinite(amount) || amount <= 0 || amount > 1e9) return
+  if (!contract || !activeCodes(s, 'SETTLE_ITEM').includes(item) || !Number.isFinite(amount) || amount <= 0 || amount > 1e9) return
 
   const year = today().slice(0, 4)
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
@@ -364,7 +364,7 @@ export default async function ExpensePage() {
                 {kindContracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.title}</option>)}
               </select>
               <select aria-label="지급 항목" className="select" name="item">
-                <option>월정산</option><option>착수금</option><option>중도금</option><option>잔금</option>
+                {activeCodes(s, 'SETTLE_ITEM').map((m) => <option key={m}>{m}</option>)}
               </select>
               <input aria-label="금액" className="input" name="amount" required type="number" min={1} placeholder="금액" style={{ width: 100 }} />
               <input className="input" name="dueDate" type="date" title="지급 예정일 — 지급 목록 일정 관리" style={{ width: 130 }} />

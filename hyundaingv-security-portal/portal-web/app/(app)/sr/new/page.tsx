@@ -5,7 +5,7 @@ import { draftApproval } from '@/lib/approvals'
 import { registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { getStore, nextNo } from '@/lib/store'
+import { activeCodes, getStore, nextNo } from '@/lib/store'
 import type { SrKind } from '@/lib/types'
 
 const KINDS: { kind: SrKind; desc: string }[] = [
@@ -21,9 +21,10 @@ async function createSr(formData: FormData) {
   const system = String(formData.get('system') ?? '').trim().slice(0, 80)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const content = String(formData.get('content') ?? '').trim().slice(0, 2000)
-  if (!KINDS.some((k) => k.kind === kind) || !system || !title) return
-
   const s = getStore()
+  // SR 유형은 공통코드(SR_KIND) 활성 코드만 허용 — 사용중지·기간만료 유형은 신규 신청 불가
+  if (!activeCodes(s, 'SR_KIND').includes(kind) || !system || !title) return
+
   const year = today().slice(0, 4)
   const srNo = nextNo('SR', year, s.srRequests.map((r) => r.srNo))
   // 임시저장 (제품안내서 II장 결재 공통 흐름) — 상신 없이 작성중으로 보관, 신청내역의 '상신' 버튼으로 이어간다
@@ -43,6 +44,7 @@ async function createSr(formData: FormData) {
 
 export default async function SrNewPage() {
   await requireMenu('/sr/new')
+  const s = getStore()
 
   return (
     <>
@@ -54,7 +56,7 @@ export default async function SrNewPage() {
           <div className="hstack">
             <label className="dim" style={{ width: 80, fontSize: 11.5, fontWeight: 600 }}>SR 유형</label>
             <select aria-label="유형" className="select" name="kind" required style={{ flex: 1 }}>
-              {KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.kind}</option>)}
+              {activeCodes(s, 'SR_KIND').map((k) => <option key={k} value={k}>{k}</option>)}
             </select>
           </div>
           <div className="hstack">
