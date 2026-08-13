@@ -5,7 +5,7 @@ import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { extendLoan, returnLoan } from '@/app/(app)/assets/register/actions'
 import { Card, Chip } from '@/components/ui'
 import type { ReturnCondition } from '@/lib/types'
-import { completeRepair, receiveReturn, remindLoans, sendToRepair } from './actions'
+import { completeRepair, receiveReturn, remindLoans, remindRepairs, sendToRepair } from './actions'
 
 /** 장기 유휴 판정선(일) — 이 이상 유휴면 '재배치 대신 폐기 검토' 대상으로 조치 버튼을 노출한다.
  *  유휴일 칩 경고선(90)과 같은 표시 기준. 에스컬레이션·SLA 같은 운영 정책값과 달리 화면 표시 임계다. */
@@ -25,6 +25,8 @@ export function ReturnsView(props: {
   loans: Loan[]
   /** 독촉 대상(연체 + 반환 임박 D-7) 건수 — 대여자 반환 요청 발송 대상 */
   remindable: number
+  /** 수리 예상 반환 경과(지연) 건수 — 수리 업체 독촉 발송 대상 */
+  repairRemindable: number
   /** 대여 대장 엑셀 반출 권한(권한 매트릭스의 '엑셀' 기능) */
   canExportLoans: boolean
   /** 기준일 YYYY-MM-DD — 연장 date input 의 최소값(과거·현재 기한 이전으로는 연장 불가) */
@@ -109,7 +111,12 @@ export function ReturnsView(props: {
       </Card>
 
       {props.repairing.length > 0 && (
-        <Card kicker="Maintenance" title={`수리 대기 ${props.repairing.length}건`} pad={false}>
+        <Card kicker="Maintenance" title={`수리 대기 ${props.repairing.length}건`} pad={false}
+          actions={props.repairRemindable > 0
+            ? <button className="btn sm" disabled={pending}
+                title="예상 반환일이 지난 수리 자산의 업체에 진행·반환 일정 회신을 독촉합니다 (발송 이력·감사)"
+                onClick={() => startTransition(async () => setMsg((await remindRepairs()).message))}>업체 독촉 발송 {props.repairRemindable}건</button>
+            : undefined}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>

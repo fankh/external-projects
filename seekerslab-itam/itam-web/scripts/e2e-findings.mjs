@@ -298,6 +298,12 @@ try {
   const p4 = await ctx4.newPage()
   p4.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
   await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  // 수리 지연 → 업체 독촉(검출→조치). 상태를 바꾸지 않으므로 유휴 처리 앞에 수행.
+  const repairRemind = p4.locator('button', { hasText: /^업체 독촉 발송 \d+건$/ })
+  ok('수리 지연: 업체 독촉 발송 버튼 노출', (await repairRemind.count()) > 0)
+  await repairRemind.click()
+  await p4.waitForTimeout(800)
+  ok('수리 지연 → 업체 독촉: 발송 성공', (await p4.textContent('body')).includes('수리 업체 독촉'))
   const scrap = p4.locator('button', { hasText: /^폐기 검토$/ }).first()
   ok('장기 유휴: 폐기 검토 버튼 노출', (await scrap.count()) > 0)
   const idleAsset = (await p4.locator('tr', { has: p4.locator('button', { hasText: /^폐기 검토$/ }) }).first().locator('td').first().textContent())?.trim() || ''

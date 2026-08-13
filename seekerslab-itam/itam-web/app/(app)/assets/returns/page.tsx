@@ -1,6 +1,6 @@
 import { ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, today } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { getStore } from '@/lib/store'
 import { ReturnsView } from './ReturnsView'
@@ -61,6 +61,7 @@ export default async function ReturnsPage() {
   const overdueLoans = loans.filter((l) => l.overdue).length
   // 독촉 대상 — 연체 + 반환 임박(D-7). 대여자에게 반환 요청을 보낼 수 있는 건수
   const remindable = s.assets.filter((a) => isLoanOverdue(a) || isLoanDueSoon(a)).length
+  const repairRemindable = s.assets.filter(isRepairOverdue).length
   const todayStr = today()
 
   const locations = (s.codeGroups.find((g) => g.id === 'LOCATION')?.values ?? [])
@@ -91,7 +92,7 @@ export default async function ReturnsPage() {
         <Stat value={openRequests} label="배정 대기 자산 신청" tone={openRequests ? 'accent' : 'ok'} />
       </div>
 
-      <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} />
+      <ReturnsView pending={pending} idle={idle} repairing={repairing} loans={loans} remindable={remindable} repairRemindable={repairRemindable} canExportLoans={canExport('loans', session.role)} today={todayStr} locations={locations} openRequests={openRequests} />
     </>
   )
 }

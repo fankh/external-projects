@@ -443,6 +443,8 @@ try {
   check('반납·유휴: 접수 대기·유휴 풀 렌더', rtHtml.includes('반납 접수 대기') && rtHtml.includes('유휴 자산 풀') && rtHtml.includes('상태 점검'))
   // 장기 유휴 → 폐기 검토 브리지 — 장기 유휴 자산을 폐기 후보로 바로 선정(검출→조치). 이미 폐기 절차 자산은 유휴 풀에서 제외
   check('반납·유휴: 장기 유휴 → 폐기 검토 조치 노출', rtHtml.includes('폐기 검토') && rtHtml.includes('재배치 우선'))
+  // 수리 지연 → 업체 독촉 — 예상 반환 경과 수리 자산의 업체에 진행·반환 독촉 발송(대여 반환 독촉의 수리판)
+  check('반납·유휴: 수리 지연 → 업체 독촉 발송 조치 노출', rtHtml.includes('업체 독촉 발송'))
   check('반납·유휴: 반납대기 자산이 접수 대기에 노출', rtHtml.includes('AST-2025-000513'))
   check('반납·유휴: 수리중 지표·수리 워크플로 노출', rtHtml.includes('수리중') && rtHtml.includes('수리 필요는 수리중을 거쳐'))
   check('반납·유휴: 수리 대기 카드에 수리중 자산 노출 (시드 시나리오)', rtHtml.includes('수리 대기') && rtHtml.includes('AST-2025-000377'))

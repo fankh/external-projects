@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { daysUntil, isLoanDueSoon, isLoanOverdue, today } from '@/lib/dates'
+import { daysUntil, isLoanDueSoon, isLoanOverdue, isRepairOverdue, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -107,6 +107,43 @@ export async function remindLoans() {
   appendAudit({ actor: session.name, action: `대여 반환 독촉 발송 (${n}건)`, target: '대여 자산' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `대여 반환 독촉 ${n}건 발송 — 대여자에게 반환 요청 통지 (발송 이력 적재)` }
+}
+
+/** 수리 업체 독촉 발송 — 예상 반환일이 지난(지연) 외부 수리 자산의 업체에 반환 독촉 통지를 보낸다.
+ *  그동안 수리 지연은 대시보드·수리 현황에 드러나기만 하고 업체에 독촉할 수단이 없었다(대여 반환 독촉의 수리판).
+ *  당일 중복 발송은 차단한다. 자산담당·Admin. */
+export async function remindRepairs() {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '수리 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
+  }
+
+  const s = getStore()
+  const t = today()
+  // 당일 이미 독촉한 자산은 건너뛴다 — ref = 자산번호
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === '수리 독촉' && m.at.startsWith(t)).map((m) => m.ref),
+  )
+
+  let n = 0
+  for (const a of s.assets) {
+    if (!isRepairOverdue(a) || !a.repair) continue
+    if (sentToday.has(a.assetNo)) continue
+    const over = -(daysUntil(a.repair.eta ?? '') ?? 0)
+    dispatch({
+      channel: '이메일',
+      to: a.repair.vendor,
+      subject: `${a.assetNo} ${a.model} 수리 예상 반환 경과 (${over}일 지연) — 진행 상황·반환 일정 회신 요청`,
+      kind: '수리 독촉',
+      ref: a.assetNo,
+    })
+    n += 1
+  }
+
+  if (n === 0) return { ok: false, message: '독촉 대상 수리가 없습니다 (예상 반환 경과 없음, 오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `수리 업체 독촉 발송 (${n}건)`, target: '수리중 자산' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `수리 업체 독촉 ${n}건 발송 — 수리 업체에 진행·반환 일정 회신 요청 (발송 이력 적재)` }
 }
 
 /** 수리 완료 처리 — 수리중 자산을 유휴 풀로 되돌리거나(수리 완료), 수리 불가면 폐기 절차로 보낸다.
