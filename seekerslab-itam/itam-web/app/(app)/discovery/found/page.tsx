@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/authz'
 import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { CONFIRM_DEADLINE_DAYS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
+import { CHANNELS, CONFIRM_DEADLINE_DAYS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
 import { AccountTable } from './AccountTable'
 import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
@@ -74,10 +74,14 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
         />
         <Stat value={unreg.length} label="미등록 — 처리 필요" tone="err" />
         <Stat value={d.filter((x) => x.state === '등록·불일치').length} label="등록 · 불일치" tone="warn" />
-        <Stat value={accountsOpen} label="휴면 계정 — 미처리" tone={accountsOpen ? 'warn' : 'ok'} delta={{ text: 'AD/IdP·SSO 계정 위생', dir: 'flat' }} />
-        <Stat value={unauthSwOpen} label="미인가 SW — 미조치" tone={unauthSwOpen ? 'err' : 'ok'} delta={{ text: 'EDR 설치 SW 정책 위반', dir: 'flat' }} />
-        <Stat value={usbOpen} label="USB 정책 위반 — 미조치" tone={usbOpen ? 'err' : 'ok'} delta={{ text: 'EDR 이동식 매체(DLP)', dir: 'flat' }} />
-        <Stat value={vmOpen} label="로컬 VM 위반 — 미조치" tone={vmOpen ? 'err' : 'ok'} delta={{ text: 'EDR 로컬 가상머신', dir: 'flat' }} />
+        <Stat value={CHANNELS.length} label="병렬 수집 채널" tone="accent" delta={{ text: '스캔·로그·API 상시 수집', dir: 'flat' }} />
+        {/* 엔드포인트·계정 위생 4종(휴면계정·미인가SW·USB·로컬VM)을 한 지표로 요약 — 상세는 아래 각 섹션. 스탯 로우 과밀 해소 */}
+        <Stat
+          value={accountsOpen + unauthSwOpen + usbOpen + vmOpen}
+          label="엔드포인트·계정 위생 — 미조치"
+          tone={accountsOpen + unauthSwOpen + usbOpen + vmOpen ? 'err' : 'ok'}
+          delta={{ text: `휴면계정 ${accountsOpen} · SW ${unauthSwOpen} · USB ${usbOpen} · VM ${vmOpen}`, dir: 'flat' }}
+        />
       </div>
 
       <div className="callout">
