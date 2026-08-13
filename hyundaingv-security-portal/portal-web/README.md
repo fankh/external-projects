@@ -141,9 +141,15 @@ docker run -d --name ngv-portal -v portal-data:/data -p 3400:3400 `
   -e SESSION_SECRET="교체-필수-랜덤-키" ngv-portal
 ```
 
-`SESSION_SECRET` 는 세션 쿠키 HMAC 서명 키다 — 미설정 시 개발용 기본 키로 동작하므로
-실배포에서는 반드시 랜덤 키로 교체한다. HTTPS 로 서비스하는 배포에서는
-`PORTAL_COOKIE_SECURE=1` 을 함께 설정해 세션 쿠키에 Secure 속성을 붙인다.
+실배포 환경변수는 [`.env.example`](.env.example)에 한곳으로 정리돼 있다:
+
+| 변수 | 필수 | 역할 |
+|------|:---:|------|
+| `SESSION_SECRET` | ● | 세션 쿠키 HMAC 서명 키. 미설정 시 소스에 있는 개발용 기본 키로 동작 — 프로덕션은 세션 위조 가능하므로 반드시 교체(`openssl rand -base64 32`). 기동 훅이 프로덕션 미설정을 감지하면 경고 출력 |
+| `PORTAL_PROFILE` | | 고객사 프로필(브랜딩·채널) 전환 — 미설정=default · manufacturer · public |
+| `PORTAL_DATA_FILE` | | 파일 영속화 경로 (미설정=인메모리, Docker=/data 볼륨) |
+| `PORTAL_COOKIE_SECURE` | | HTTPS 종단이면 1 — 세션 쿠키 Secure 속성 |
+| `PORTAL_NOTIFY_INTERVAL_MS` | | 알림 배치 주기(ms) — 설정 시 스케줄러 가동 (Docker 기본 24h) |
 
 컨테이너는 KST 시간대로 동작하고, 스토어는 `/data/portal-data.json`(볼륨)에
 영속화되어 재시작·재생성 후에도 유지된다. 알림 스케줄러 틱마다 일자별 백업

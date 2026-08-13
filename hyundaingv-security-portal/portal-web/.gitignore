@@ -4,3 +4,6 @@ next-env.d.ts
 tsconfig.tsbuildinfo
 # e2e 스위트 임시 파일 — 정상 종료 시 삭제되지만 중단 시 잔류할 수 있다
 scripts/.e2e-*
+# 실배포 비밀값 — .env.example 은 추적, 실제 .env 는 커밋 금지
+.env
+.env.local

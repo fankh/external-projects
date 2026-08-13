@@ -3,6 +3,20 @@
  *  미설정 시 스케줄러는 뜨지 않고 연동·인프라 화면의 수동 실행만 남는다. */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
+
+  // 보안 기동 점검 — 프로덕션에서 세션 서명 키가 공개된 개발용 기본값이면 크게 경고한다.
+  // (이 값이면 소스에 키가 있으므로 누구나 관리자 세션을 위조할 수 있다 — 반드시 SESSION_SECRET 설정)
+  if (process.env.NODE_ENV === 'production') {
+    const { SESSION_SECRET_IS_DEFAULT } = await import('./lib/session')
+    if (SESSION_SECRET_IS_DEFAULT) {
+      console.error('\n' + '='.repeat(72))
+      console.error('[portal] ⚠ 보안 경고: SESSION_SECRET 미설정 — 공개된 개발용 서명 키 사용 중.')
+      console.error('[portal]   프로덕션에서는 세션 위조가 가능합니다. 랜덤 키를 반드시 설정하세요:')
+      console.error('[portal]   docker run -e SESSION_SECRET="$(openssl rand -base64 32)" ...')
+      console.error('='.repeat(72) + '\n')
+    }
+  }
+
   const intervalMs = Number(process.env.PORTAL_NOTIFY_INTERVAL_MS)
   if (!Number.isFinite(intervalMs) || intervalMs < 1000) return
 

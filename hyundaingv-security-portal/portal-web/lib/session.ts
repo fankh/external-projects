@@ -6,7 +6,15 @@ export const SESSION_COOKIE = 'ngv_portal_session'
 
 /** 세션 서명 키 — 실배포에서는 SESSION_SECRET 환경변수로 교체한다.
  *  서명이 없거나 틀린 쿠키(변조·구버전 평문)는 로그아웃으로 처리된다. */
-const SECRET = process.env.SESSION_SECRET ?? 'ngv-portal-dev-secret'
+const DEV_SECRET = 'ngv-portal-dev-secret'
+// 미설정뿐 아니라 빈 문자열·공백도 안전하지 않다 — '' 는 ?? 를 통과해 빈 서명 키가 되므로
+// 명시적으로 개발용 기본값으로 폴백시킨다.
+const RAW = process.env.SESSION_SECRET
+const SECRET = RAW && RAW.trim() ? RAW : DEV_SECRET
+
+/** 세션 서명 키가 안전하지 않은가(미설정·빈값·공개된 개발용 기본값) — 기동 훅이 프로덕션 경고에 쓴다.
+ *  이 상태면 소스에 키가 있거나 빈 키이므로 누구나 관리자 세션을 위조할 수 있다. */
+export const SESSION_SECRET_IS_DEFAULT = SECRET === DEV_SECRET
 
 function hmac(payload: string): string {
   return createHmac('sha256', SECRET).update(payload).digest('base64url')
