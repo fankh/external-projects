@@ -51,6 +51,20 @@ async function signKind(formData: FormData) {
   revalidatePath('/', 'layout')
 }
 
+/** 프로젝트 참여 서약 — 사내인력이 참여 프로젝트를 지정해 동의한다 (요구사항 46행). */
+async function signProject(formData: FormData) {
+  'use server'
+  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const projectRef = String(formData.get('projectRef') ?? '')
+  if (formData.get('agree') !== 'on') return
+  const s = getStore()
+  if (!s.projects.some((p) => p.id === projectRef && p.status === '진행중')) return
+  const revisedAt = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
+  if (s.pledges.some((p) => p.name === me.name && p.kind === '프로젝트' && p.projectRef === projectRef && p.signedAt >= revisedAt)) return
+  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '프로젝트', signedAt: today(), method: '온라인', projectRef })
+  revalidatePath('/', 'layout')
+}
+
 /** 특별서약(보안담당자) — 일반서약 동의 후 대상. 담당업무·세부업무내용을 추가 입력한다. */
 async function signSpecial(formData: FormData) {
   'use server'
@@ -150,6 +164,39 @@ export default async function MyPledgePage() {
         )
       })()}
 
+      {/* 요구사항 46행 — 특별서약서(프로젝트): 참여 프로젝트를 지정해 동의한다 */}
+      {(() => {
+        const active = s.projects.filter((p) => p.status === '진행중')
+        const pjRevised = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
+        const mySigns = s.pledges.filter((p) => p.name === me.name && p.kind === '프로젝트' && p.signedAt >= pjRevised)
+        const unsignedProjects = active.filter((p) => !mySigns.some((x) => x.projectRef === p.id))
+        return (
+          <Card title="특별서약서 — 프로젝트 참여" kicker={`양식 개정일자 ${pjRevised}`}>
+            {mySigns.length > 0 && (
+              <div className="hstack" style={{ flexWrap: 'wrap', marginBottom: unsignedProjects.length > 0 ? 8 : 0 }}>
+                {mySigns.map((x) => {
+                  const pj = s.projects.find((p) => p.id === x.projectRef)
+                  return <Chip key={x.projectRef} tone="ok">{pj?.title ?? x.projectRef} · {x.signedAt}</Chip>
+                })}
+              </div>
+            )}
+            {unsignedProjects.length === 0 ? (
+              mySigns.length === 0 && <div className="dim" style={{ fontSize: 11.5 }}>진행중인 프로젝트가 없거나 전부 서약을 마쳤습니다.</div>
+            ) : (
+              <form action={signProject} className="hstack">
+                <select className="select" name="projectRef" required style={{ flex: 1 }}>
+                  {unsignedProjects.map((p) => <option key={p.id} value={p.id}>{p.id} · {p.title}</option>)}
+                </select>
+                <label className="hstack" style={{ gap: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  <input type="checkbox" name="agree" required /> 참여 보안수칙 동의
+                </label>
+                <button type="submit" className="btn pri">프로젝트 서약 제출</button>
+              </form>
+            )}
+          </Card>
+        )
+      })()}
+
       {s.securityOfficers.includes(me.name) && signed && (() => {
         const spRevised = s.pledgeForms.find((f) => f.kind === '특별')?.revisedAt ?? '0000-00-00'
         const special = s.pledges.find((p) => p.name === me.name && p.year === YEAR && p.kind === '특별' && p.signedAt >= spRevised)
@@ -187,9 +234,12 @@ export default async function MyPledgePage() {
               <thead><tr><th>연도</th><th>구분</th><th>제출일</th><th>방식</th></tr></thead>
               <tbody>
                 {mine.map((p) => (
-                  <tr key={`${p.year}-${p.kind}`}>
+                  <tr key={`${p.year}-${p.kind}-${p.projectRef ?? ''}`}>
                     <td className="tnum">{p.year}</td>
-                    <td><Chip tone="neutral" bare>{p.kind}</Chip></td>
+                    <td>
+                      <Chip tone="neutral" bare>{p.kind}</Chip>
+                      {p.projectRef && <span className="mut" style={{ marginLeft: 5 }}>{s.projects.find((x) => x.id === p.projectRef)?.title ?? p.projectRef}</span>}
+                    </td>
                     <td className="tnum">{p.signedAt}</td>
                     <td>{p.method}</td>
                   </tr>

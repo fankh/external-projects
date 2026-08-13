@@ -58,6 +58,14 @@ def sc_pledge(pg, base, check):
     pg.wait_for_selector('.card:has-text("재택근무 보안서약서") >> text=제출 완료', timeout=10000)
     check('재택근무' in pg.locator('.card', has_text='내 서약 이력').inner_text(), '재택근무 서약 → 이력 반영')
 
+    # 요구사항 46행 — 특별서약서(프로젝트): 참여 프로젝트 지정 동의 → 프로젝트 현황 서약 수 집계
+    pj_card = pg.locator('.card', has_text='특별서약서 — 프로젝트 참여')
+    pj_card.locator('select[name=projectRef]').select_option('PJ-2026-01')
+    pj_card.locator('input[name=agree]').check()
+    pj_card.locator('button:has-text("프로젝트 서약 제출")').click()
+    pg.wait_for_selector('.card:has-text("프로젝트 참여") >> text=ERP 리포트 모듈 구축', timeout=10000)
+    check('프로젝트' in pg.locator('.card', has_text='내 서약 이력').inner_text(), '프로젝트 서약 → 이력 반영')
+
     # 결재 시트 11번 — 부서담당이 부서 서약 현황 전체를 결재상신하고 결재선(박정호)이 승인한다
     login(pg, base, '이수진')
     pg.goto(f'{base}/pledge/dept', wait_until='networkidle')
@@ -67,6 +75,9 @@ def sc_pledge(pg, base, check):
     check('[보안서약서] 경영지원팀' in pg.locator('.card', has_text='상신함').inner_text(), '부서 서약 현황 상신 (DPS 묶음)')
     login(pg, base, '박정호')
     approve_first(pg, base, '[보안서약서] 경영지원팀')
+    # 프로젝트 현황 — 김현우의 참여 서약이 집계된다 (요구사항 46행)
+    pg.goto(f'{base}/projects/status', wait_until='networkidle')
+    check('1건' in pg.locator('tr', has_text='ERP 리포트 모듈 구축').inner_text(), '프로젝트 참여 서약 수 집계')
     login(pg, base, '이수진')
     pg.goto(f'{base}/work/approvals', wait_until='networkidle')
     row = pg.locator('.card', has_text='상신함').locator('tr', has_text='[보안서약서] 경영지원팀')

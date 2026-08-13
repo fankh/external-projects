@@ -216,7 +216,7 @@ export interface Person {
   dept: string
 }
 
-export type PledgeKind = '일반' | '관리책임자' | '재택근무' | '특별'
+export type PledgeKind = '일반' | '관리책임자' | '재택근무' | '특별' | '프로젝트'
 
 /** 보안서약 제출 기록 — 연도·양식 개정일자 기준 */
 export interface PledgeSign {
@@ -228,6 +228,8 @@ export interface PledgeSign {
   method: '온라인' | '서면(스캔)'
   /** 특별서약(보안담당자) 전용 — 담당업무·세부업무내용 (요구사항: 본문 외 추가입력) */
   duty?: string
+  /** 프로젝트 참여 서약 전용 — 대상 프로젝트 번호 (요구사항 46행) */
+  projectRef?: string
 }
 
 /** 협력업체 서약 — 담당자가 징구·첨부해 결재 상신, 업체별 진행현황 관리 (결재 시트 12번) */

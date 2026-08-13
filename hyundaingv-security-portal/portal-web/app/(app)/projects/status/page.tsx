@@ -67,7 +67,7 @@ export default async function ProjectStatusPage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>번호</th><th>프로젝트</th><th>연동 계약</th><th>PM</th><th className="num">투입 인력</th><th>기간</th><th style={{ width: 180 }}>진척</th><th>상태</th><th className="c">진척 갱신</th></tr>
+              <tr><th>번호</th><th>프로젝트</th><th>연동 계약</th><th>PM</th><th className="num">투입 인력</th><th className="num">참여 서약</th><th>기간</th><th style={{ width: 180 }}>진척</th><th>상태</th><th className="c">진척 갱신</th></tr>
             </thead>
             <tbody>
               {s.projects.map((p) => {
@@ -79,6 +79,8 @@ export default async function ProjectStatusPage() {
                     <td>{ct ? <span>{ct.vendor} <span className="mut mono">{ct.id}</span></span> : <span className="mut">-</span>}</td>
                     <td>{p.manager}</td>
                     <td className="num">{p.headcount}명</td>
+                    {/* 요구사항 46행 — 사내인력 프로젝트 참여 서약 (보안서약서 > 특별서약서(프로젝트)) 제출 수 */}
+                    <td className="num">{s.pledges.filter((x) => x.kind === '프로젝트' && x.projectRef === p.id).length}건</td>
                     <td className="tnum">{p.start} ~ {p.end} {p.status !== '완료' && p.end < t && <Chip tone="err" bare>경과</Chip>}</td>
                     <td>
                       <div className="hstack" style={{ gap: 7 }}>

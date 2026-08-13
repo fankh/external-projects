@@ -208,6 +208,7 @@ function seed(): Store {
       { kind: '관리책임자', revisedAt: '2026-01-02' },
       { kind: '재택근무', revisedAt: '2026-03-02' },
       { kind: '특별', revisedAt: '2026-01-02' },
+      { kind: '프로젝트', revisedAt: '2026-01-02' },
     ],
     securityOfficers: ['박정호'],
     companyPledges: [
