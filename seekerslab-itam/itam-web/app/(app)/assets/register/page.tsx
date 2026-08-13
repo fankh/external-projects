@@ -10,9 +10,9 @@ import { RegisterView } from './RegisterView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string }> }) {
+export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string }> }) {
   const session = (await getSession())!
-  const { q, sel, cat, status, warranty, dq, os } = await searchParams
+  const { q, sel, cat, status, warranty, dq, os, crit } = await searchParams
   const s = getStore()
   // 화면·기능 단위 최소권한 — 사용자 권한그룹은 본인 보유 자산만 조회
   const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
@@ -30,6 +30,8 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const eolNos = scoped
     .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, today()))
     .map((a) => a.assetNo)
+  // 핵심·중요 자산 — 운영자가 지정한 업무 중요도(§05 자산 중요도 축). DR·패치 우선순위·감사 대상 식별.
+  const critNos = scoped.filter((a) => a.criticality === '핵심' || a.criticality === '중요').map((a) => a.assetNo)
 
   return (
     <>
@@ -43,7 +45,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       )}
       {session.role !== 'USER' && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} today={today()} initialCat={cat} initialStatus={status} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} today={today()} initialCat={cat} initialStatus={status} />
       </Card>
     </>
   )

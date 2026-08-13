@@ -20,14 +20,14 @@ function daysBetween(today: string, dueDate: string): number {
  *  유형으로 등록된 자산은 계속 조회돼야 하기 때문이다. 실사 위치 드롭다운처럼 값을 새로
  *  기록하는 입력 항목은 반대로 활성 코드만 읽는다. */
 const VIEWS_KEY = 'itam-register-views'
-type SavedView = { name: string; q: string; cat: string; status: string; staleOnly: boolean; warrantyOnly: boolean; dqOnly?: boolean; eolOnly?: boolean }
+type SavedView = { name: string; q: string; cat: string; status: string; staleOnly: boolean; warrantyOnly: boolean; dqOnly?: boolean; eolOnly?: boolean; critOnly?: boolean }
 const CATS: (AssetCategory | '전체')[] = ['전체', '단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 const STATUSES: (AssetStatus | '전체')[] = ['전체', '검수중', '사용중', '유휴', '대여중', '반납대기', '수리중', '분실', '폐기예정', '폐기완료']
 const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; today?: string; initialCat?: string; initialStatus?: string }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; today?: string; initialCat?: string; initialStatus?: string }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -36,6 +36,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [warrantyOnly, setWarrantyOnly] = useState(Boolean(props.initialWarranty))
   const [dqOnly, setDqOnly] = useState(Boolean(props.initialDq))
   const [eolOnly, setEolOnly] = useState(Boolean(props.initialEol))
+  const [critOnly, setCritOnly] = useState(Boolean(props.initialCrit))
   // 저장된 뷰 — 자주 쓰는 필터 조합을 이름 붙여 localStorage 에 보관(MDI 탭과 같은 방식). 개인화·반복 워크플로.
   const [views, setViews] = useState<SavedView[]>([])
   const [naming, setNaming] = useState(false)
@@ -49,21 +50,22 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   }
   const applyView = (v: SavedView) => {
     setQ(v.q); setCat(v.cat as AssetCategory | '전체'); setStatus(v.status as AssetStatus | '전체')
-    setStaleOnly(v.staleOnly); setWarrantyOnly(v.warrantyOnly); setDqOnly(Boolean(v.dqOnly)); setEolOnly(Boolean(v.eolOnly))
+    setStaleOnly(v.staleOnly); setWarrantyOnly(v.warrantyOnly); setDqOnly(Boolean(v.dqOnly)); setEolOnly(Boolean(v.eolOnly)); setCritOnly(Boolean(v.critOnly))
   }
   const saveCurrentView = () => {
     const name = viewName.trim()
     if (!name) return
-    const v: SavedView = { name, q, cat, status, staleOnly, warrantyOnly, dqOnly, eolOnly }
+    const v: SavedView = { name, q, cat, status, staleOnly, warrantyOnly, dqOnly, eolOnly, critOnly }
     persistViews([...views.filter((x) => x.name !== name), v])
     setNaming(false); setViewName('')
   }
   const removeView = (name: string) => persistViews(views.filter((x) => x.name !== name))
-  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly
+  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const warrantySet = useMemo(() => new Set(props.warrantyNos ?? []), [props.warrantyNos])
   const dqSet = useMemo(() => new Set(props.dqNos ?? []), [props.dqNos])
   const eolSet = useMemo(() => new Set(props.eolNos ?? []), [props.eolNos])
+  const critSet = useMemo(() => new Set(props.critNos ?? []), [props.critNos])
   const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
   const [cfgOpen, setCfgOpen] = useState(false)
   const [cfgField, setCfgField] = useState<ConfigField>('memory')
@@ -99,11 +101,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       if (warrantyOnly && !warrantySet.has(a.assetNo)) return false
       if (dqOnly && !dqSet.has(a.assetNo)) return false
       if (eolOnly && !eolSet.has(a.assetNo)) return false
+      if (critOnly && !critSet.has(a.assetNo)) return false
       if (!needle) return true
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet])
+  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
 
@@ -168,6 +171,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
           <button className={`btn sm ${eolOnly ? 'danger' : ''}`} onClick={() => setEolOnly((v) => !v)}
             title="OS 지원 종료(EOL)가 경과한 자산 — 미패치 취약점 상시 노출, 교체·업그레이드 대상">
             {eolOnly ? '✓ ' : ''}EOL OS {eolSet.size}
+          </button>
+        )}
+        {critSet.size > 0 && (
+          <button className={`btn sm ${critOnly ? 'warn' : ''}`} onClick={() => setCritOnly((v) => !v)}
+            title="업무 중요도가 핵심·중요로 지정된 자산 — DR·패치 우선순위·감사 대상">
+            {critOnly ? '✓ ' : ''}핵심·중요 {critSet.size}
           </button>
         )}
         <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
@@ -246,7 +255,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                     onChange={toggleAll} title="현재 필터의 자산 전체 선택 (보증 연장·선택 내보내기)" aria-label="전체 선택" />
                 </th>}
                 <th>자산번호</th><th>유형</th><th>모델</th><th>소유자</th><th>부서</th>
-                <th>위치</th><th>IP</th><th className="c">상태</th><th>보증 만료</th>
+                <th>위치</th><th>IP</th><th className="c">상태</th><th className="c">중요도</th><th>보증 만료</th>
               </tr>
             </thead>
             <tbody>
@@ -264,10 +273,15 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <td className="mute">{a.location}</td>
                   <td className="tnum">{a.ip ?? '-'}</td>
                   <td className="c"><Chip tone={STATUS_TONE[a.status]}>{a.status}</Chip></td>
+                  <td className="c">
+                    {a.criticality === '핵심' ? <Chip tone="err" bare>핵심</Chip>
+                      : a.criticality === '중요' ? <Chip tone="warn" bare>중요</Chip>
+                      : <span className="mut" style={{ fontSize: 11 }}>일반</span>}
+                  </td>
                   <td className="tnum">{a.warrantyEnd}</td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={props.canEdit ? 10 : 9}><div className="empty">조건에 맞는 자산이 없습니다</div></td></tr>}
+              {rows.length === 0 && <tr><td colSpan={props.canEdit ? 11 : 10}><div className="empty">조건에 맞는 자산이 없습니다</div></td></tr>}
             </tbody>
           </table>
         </div>
