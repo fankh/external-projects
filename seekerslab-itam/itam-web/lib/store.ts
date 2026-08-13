@@ -10,7 +10,7 @@ import { fingerprintOf } from './types'
 import type {
   AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
-  ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UnauthorizedSw, UndiscoveredDevice, UnseenExternal, UserAccount,
+  ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
 
 export interface Store {
@@ -21,6 +21,7 @@ export interface Store {
   credentials: CredentialFinding[]
   accounts: AccountFinding[]
   unauthorizedSw: UnauthorizedSw[]
+  usbFindings: UsbFinding[]
   integrations: Integration[]
   auditLogs: AuditLog[]
   codeGroups: CodeGroup[]
@@ -365,6 +366,16 @@ function seedUnauthorizedSw(): UnauthorizedSw[] {
   ]
 }
 
+/** USB 저장매체 정책 위반 — EDR·백신 콘솔의 장치 제어 로그에서 검출한 이동식 매체 사용 (제품안내서 §04 채널 04).
+ *  실제 사용 자산(assetNo)에 연결되며, 검출에서 끝내지 않고 보안담당이 차단·예외 승인으로 조치한다. */
+function seedUsbFindings(): UsbFinding[] {
+  return [
+    { id: 'USB-01', device: 'Samsung T7 SSD (S5RT·1TB)', assetNo: 'AST-2023-000113', owner: '이서연', dept: '플랫폼개발팀', kind: '대용량 반출 의심', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-28', risk: '높음', note: '30분 내 8.4GB 복사 — 소스코드 반출 의심, DLP 점검 필요' },
+    { id: 'USB-02', device: 'SanDisk Ultra (128GB)', assetNo: 'AST-2025-000512', owner: '최지우', dept: '영업1팀', kind: '미등록 저장매체', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-27', risk: '중간', note: '자산관리 미등록 매체 — 반입 승인 이력 없음' },
+    { id: 'USB-03', device: 'Kingston DataTraveler (64GB)', assetNo: 'AST-2022-000871', owner: '정하윤', dept: '디자인팀', kind: '암호화 미적용', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-25', risk: '중간', note: '비암호화 매체 — 분실 시 디자인 원본 유출 위험' },
+  ]
+}
+
 function seedIntegrations(): Integration[] {
   return [
     { id: 'INT-NAC', system: 'NAC', method: 'REST API', purpose: '단말 인증·미인증 목록 수집, 미확인 자산 격리 요청', role: '수집 · 조치', status: '정상', lastSync: '2026-07-29 09:40', volume24h: 1_284 },
@@ -473,6 +484,7 @@ function seed(): Store {
     credentials: seedCredentials(),
     accounts: seedAccounts(),
     unauthorizedSw: seedUnauthorizedSw(),
+    usbFindings: seedUsbFindings(),
     integrations: seedIntegrations(),
     auditLogs: seedAuditLogs(),
     codeGroups: seedCodeGroups(),
@@ -688,7 +700,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 27
+const SCHEMA_VERSION = 28
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

@@ -8,6 +8,7 @@ import { AccountTable } from './AccountTable'
 import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
 import { UnauthorizedSwTable } from './UnauthorizedSwTable'
+import { UsbTable } from './UsbTable'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,6 +54,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
   const canAccount = ['SEC_MGR', 'ADMIN'].includes(session.role)
   const accountsOpen = s.accounts.filter((a) => !a.action).length
   const unauthSwOpen = s.unauthorizedSw.filter((w) => !w.action).length
+  const usbOpen = s.usbFindings.filter((u) => !u.action).length
 
   return (
     <>
@@ -72,6 +74,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
         <Stat value={d.filter((x) => x.state === '등록·불일치').length} label="등록 · 불일치" tone="warn" />
         <Stat value={accountsOpen} label="휴면 계정 — 미처리" tone={accountsOpen ? 'warn' : 'ok'} delta={{ text: 'AD/IdP·SSO 계정 위생', dir: 'flat' }} />
         <Stat value={unauthSwOpen} label="미인가 SW — 미조치" tone={unauthSwOpen ? 'err' : 'ok'} delta={{ text: 'EDR 설치 SW 정책 위반', dir: 'flat' }} />
+        <Stat value={usbOpen} label="USB 정책 위반 — 미조치" tone={usbOpen ? 'err' : 'ok'} delta={{ text: 'EDR 이동식 매체(DLP)', dir: 'flat' }} />
       </div>
 
       <div className="callout">
@@ -91,6 +94,10 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
 
       <Card kicker="Unauthorized Software · Channel 04 (EDR)" title="미인가 SW — 설치 SW 정책 위반" pad={false}>
         <UnauthorizedSwTable items={s.unauthorizedSw} canAct={canAccount} />
+      </Card>
+
+      <Card kicker="Removable Media · Channel 04 (EDR)" title="USB 저장매체 — 이동식 매체 정책 위반(DLP)" pad={false}>
+        <UsbTable items={s.usbFindings} canAct={canAccount} />
       </Card>
     </>
   )

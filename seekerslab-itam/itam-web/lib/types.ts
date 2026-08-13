@@ -649,6 +649,34 @@ export const UNAUTH_SW_POLICY: Record<UnauthorizedSw['kind'], string> = {
   '미승인 SW': '카탈로그 미등재 업무 SW — 사용 정당성 확인 후 등재 또는 제거',
 }
 
+/** USB 저장매체 정책 위반 — EDR·백신 콘솔이 검출한 이동식 저장매체 사용(제품안내서 §04 탐지 채널 04 EDR: "설치 SW, USB, 로컬 가상머신").
+ *  미등록 매체·대용량 반출·암호화 미적용은 데이터 유출(DLP) 위험이므로, 검출에서 끝내지 않고 보안담당이 차단 또는 예외 승인한다. */
+export interface UsbFinding {
+  id: string
+  /** 매체 식별 — 제조사·모델·시리얼 요약 */
+  device: string
+  /** 사용된 자산 — 대장 자산번호로 연결 */
+  assetNo: string
+  owner: string
+  dept: string
+  kind: '미등록 저장매체' | '대용량 반출 의심' | '암호화 미적용'
+  detectedBy: string
+  firstSeen: string
+  risk: RiskLevel
+  note?: string
+  /** 조치 — 매체 차단(EDR 장치 제어) 또는 예외 승인(등록된 업무용 매체) */
+  action?: '차단 요청' | '예외 승인'
+  actedBy?: string
+  actedAt?: string
+}
+
+/** USB 유형별 표준 조치 사유 — 판정 근거로 표시한다. */
+export const USB_POLICY: Record<UsbFinding['kind'], string> = {
+  '미등록 저장매체': '자산관리 미등록 이동식 매체 — 반입 승인·등록 또는 차단',
+  '대용량 반출 의심': '단시간 대용량 복사 — 데이터 유출(DLP) 점검·차단 우선',
+  '암호화 미적용': '비암호화 저장매체 — 분실 시 유출 위험, 암호화 매체로 교체 요구',
+}
+
 /** 연동 대상 시스템 (제품안내서 §06) — 수집 소스이자 조치 채널 */
 export interface Integration {
   id: string

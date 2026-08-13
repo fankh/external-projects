@@ -11,7 +11,7 @@ import { buildVulnPriority } from './vuln-priority'
 import type { ReportKind, ReportSchedule, ReportSection } from './types'
 
 export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
-  { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 외부 노출 · 미인가 SaaS · 인증·계정·SW 정책 위반 · 처리 현황' },
+  { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 외부 노출 · 미인가 SaaS · 인증·계정·SW·매체 정책 위반 · 처리 현황' },
   { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용, 자산 처분 실적' },
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
@@ -65,6 +65,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const credOpen = s.credentials.filter((c) => c.status !== '조치 완료')
     const acctOpen = s.accounts.filter((a) => !a.action)
     const swOpen = s.unauthorizedSw.filter((w) => !w.action)
+    const usbOpen = s.usbFindings.filter((u) => !u.action)
     return [
       {
         title: '신규 발견 미등록 자산',
@@ -85,20 +86,21 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         rows: shadowSaas.map((x) => [x.service, x.category, x.dept, String(x.users), x.risk]),
       },
       {
-        title: '인증 · 계정 · SW 정책 위반',
-        note: `크리덴셜 노출 미조치 ${credOpen.length} · 휴면 계정 미처리 ${acctOpen.length} · 미인가 SW 미조치 ${swOpen.length}`,
+        title: '인증 · 계정 · SW · 매체 정책 위반',
+        note: `크리덴셜 노출 미조치 ${credOpen.length} · 휴면 계정 미처리 ${acctOpen.length} · 미인가 SW 미조치 ${swOpen.length} · USB 매체 미조치 ${usbOpen.length}`,
         columns: ['구분', '대상', '상세', '위험도', '조치 상태'],
         rows: [
           ...credOpen.map((c) => ['크리덴셜 노출', `${c.service} ${c.host}`, c.issue, c.severity, '미조치']),
           ...acctOpen.map((a) => ['휴면 계정', a.account, `${a.kind} · ${a.dormantDays}일`, a.risk, '미처리']),
           ...swOpen.map((w) => ['미인가 SW', `${w.name} @ ${w.assetNo}`, w.kind, w.risk, '미조치']),
+          ...usbOpen.map((u) => ['USB 저장매체', `${u.device} @ ${u.assetNo}`, u.kind, u.risk, '미조치']),
         ],
       },
       {
         title: '조치 현황',
         bullets: [
           `편입 요청 ${handled.filter((d) => d.action?.startsWith('편입')).length}건 · 격리 요청 ${handled.filter((d) => d.action?.startsWith('격리')).length}건`,
-          `외부 위협 미조치 — 크리덴셜 노출 ${credOpen.length} · 휴면 계정 ${acctOpen.length} · 미인가 SW ${swOpen.length} · 다크웹 유출 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
+          `외부 위협 미조치 — 크리덴셜 노출 ${credOpen.length} · 휴면 계정 ${acctOpen.length} · 미인가 SW ${swOpen.length} · USB 매체 ${usbOpen.length} · 다크웹 유출 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
           `결재 대기 ${s.approvals.filter((a) => a.status === '대기').length}건`,
           `활성 탐지 채널 ${s.scanPolicies.filter((p) => p.enabled).length}/${s.scanPolicies.length}`,
         ],
@@ -358,6 +360,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         ['크리덴셜 노출 (인증 취약점)', String(s.credentials.length), String(s.credentials.filter((c) => c.status === '조치 완료').length), String(s.credentials.filter((c) => c.status !== '조치 완료').length)],
         ['휴면 계정 (AD/IdP·SSO)', String(s.accounts.length), String(s.accounts.filter((a) => a.action).length), String(s.accounts.filter((a) => !a.action).length)],
         ['미인가 SW (EDR)', String(s.unauthorizedSw.length), String(s.unauthorizedSw.filter((w) => w.action).length), String(s.unauthorizedSw.filter((w) => !w.action).length)],
+        ['USB 저장매체 (EDR·DLP)', String(s.usbFindings.length), String(s.usbFindings.filter((u) => u.action).length), String(s.usbFindings.filter((u) => !u.action).length)],
         ['외부 노출 자산', String(s.external.length), String(s.external.filter((e) => e.action).length), String(s.external.filter((e) => !e.action && e.state !== '등록·일치').length)],
         ['다크웹 유출·침해', String(s.leaks.length), String(s.leaks.filter((l) => l.status === '조치 완료').length), String(s.leaks.filter((l) => l.status !== '조치 완료').length)],
       ],
@@ -380,10 +383,11 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const credN = s.credentials.filter((c) => c.status !== '조치 완료').length
     const acctN = s.accounts.filter((a) => !a.action).length
     const swN = s.unauthorizedSw.filter((w) => !w.action).length
+    const usbN = s.usbFindings.filter((u) => !u.action).length
     return `이번 주 미등록 자산 ${n('신규 발견')}건이 발견되었고, 이 중 위험도 높음은 ${s.discovered.filter((d) => d.state === '미등록' && d.risk === '높음').length}건입니다. `
       + `외부 공격표면에서는 미등록 노출 자산 ${n('외부 공격표면')}건이 확인되었으며 CVE가 확인된 자산이 ${s.external.filter((e) => e.cve).length}건 포함됩니다. `
       + `미인가 SaaS는 ${n('미인가 SaaS')}종으로, 소유자 확인 후 편입 또는 차단 판정이 필요합니다. `
-      + `인증·계정·SW 위생에서는 크리덴셜 노출 ${credN}건·휴면 계정 ${acctN}건·미인가 SW ${swN}건이 미조치 상태로, 보안담당의 제거·비활성화·소유자 확인 조치가 필요합니다.`
+      + `인증·계정·SW·매체 위생에서는 크리덴셜 노출 ${credN}건·휴면 계정 ${acctN}건·미인가 SW ${swN}건·USB 매체 ${usbN}건이 미조치 상태로, 보안담당의 차단·제거·비활성화·소유자 확인 조치가 필요합니다.`
   }
   if (kind === '월간 자산 현황') {
     const totalRepair = s.assets.reduce((t, a) => t + (a.repairCosts ?? []).reduce((n, c) => n + c.amount, 0), 0)

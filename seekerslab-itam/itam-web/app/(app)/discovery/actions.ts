@@ -255,3 +255,30 @@ export async function respondToUnauthorizedSw(swId: string, kind: '제거' | '�
   revalidatePath('/', 'layout')
   return { ok: true, message: `${w.name} ${w.action} — ${w.dept} 통지·감사 적재` }
 }
+
+/** USB 저장매체 조치 — EDR 검출 이동식 매체 정책 위반을 차단(EDR 장치 제어) 또는 예외 승인(등록 업무용 매체)한다.
+ *  (제품안내서 §04 채널 04 EDR: USB) 데이터 유출(DLP) 통제이므로 보안담당·Admin 만. 요청은 설치 부서·보안운영팀 통지 + 감사 로그에 남는다. */
+export async function respondToUsb(usbId: string, kind: '차단' | '예외 승인') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: 'USB 저장매체 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const u = s.usbFindings.find((x) => x.id === usbId)
+  if (!u) return { ok: false, message: 'USB 검출 항목을 찾을 수 없습니다.' }
+  if (u.action) return { ok: false, message: `이미 ${u.action} 처리된 항목입니다.` }
+
+  u.actedBy = session.name
+  u.actedAt = today()
+  if (kind === '차단') {
+    u.action = '차단 요청'
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `USB 매체 차단 집행 요청 — ${u.device} @ ${u.assetNo} (${u.owner}·${u.dept}, ${u.kind})`, kind: '위협 대응', ref: u.id })
+    appendAudit({ actor: session.name, action: `USB 저장매체 차단 요청 (${u.kind}) — ${u.device} @ ${u.assetNo}`, target: u.id })
+  } else {
+    u.action = '예외 승인'
+    dispatch({ channel: '이메일', to: u.dept, subject: `USB 매체 예외 승인 — ${u.device} (${u.assetNo}) 업무용 등록·반입 인정`, kind: '위협 대응', ref: u.id })
+    appendAudit({ actor: session.name, action: `USB 저장매체 예외 승인 (${u.kind}) — ${u.device} @ ${u.assetNo}`, target: u.id })
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${u.device} ${u.action} — ${kind === '차단' ? '보안운영팀' : u.dept} 통지·감사 적재` }
+}
