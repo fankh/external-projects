@@ -11,7 +11,8 @@
     "health": "node scripts/pyrun.mjs scripts/client_health.py",
     "load": "node scripts/load_probe.mjs",
     "a11y": "node scripts/a11y.mjs",
-    "gates": "npm run build && npm run smoke && npm run a11y && npm run health && npm run e2e"
+    "keycheck": "node scripts/session_keycheck.mjs",
+    "gates": "npm run build && npm run smoke && npm run a11y && npm run keycheck && npm run health && npm run e2e"
   },
   "dependencies": {
     "next": "^15.1.6",
