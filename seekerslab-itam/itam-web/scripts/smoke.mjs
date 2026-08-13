@@ -445,6 +445,9 @@ try {
   check('AI 제안: 취약점 노출 우선순위 스코어링 렌더', insHtml.includes('취약점 노출 우선순위') && insHtml.includes('자산 중요도 × 노출도') && insHtml.includes('P1 — 즉시 조치'))
   // EOL OS(CentOS 7)·외부 CVE 가 스코어링 대상에 포함됨을 확인 (시드 AST-2020-000883 CentOS 7.9)
   check('AI 제안: 취약점 우선순위에 EOL OS·외부 CVE 반영', insHtml.includes('EOL OS') && insHtml.includes('CentOS 7') && insHtml.includes('외부 노출 CVE'))
+  // 미조치 외부 CVE(legacy-vpn·무action, CVE-2018-13379)는 포함, 이미 차단요청된 CVE(db-backup·action, CVE-2024-10977)는 제외 — 조치분은 '즉시 조치'가 아니다
+  // (db-backup 호스트는 크리덴셜 노출로도 잡혀 화면에 남으므로, 외부 CVE 제외는 CVE 번호로 검증)
+  check('AI 제안: 취약점 우선순위가 조치 요청된 외부 CVE 제외 (미조치만)', insHtml.includes('CVE-2018-13379') && !insHtml.includes('CVE-2024-10977'))
   const fndHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 소유자 확인·에스컬레이션 진입점', fndHtml.includes('미확인 소유자 정책') && fndHtml.includes('미응답 에스컬레이션') && fndHtml.includes('응답 대기'))
   // 지문 병합 — 화면이 '지문 병합 후'라고 주장하려면 원시 관측과 병합 근거가 있어야 한다

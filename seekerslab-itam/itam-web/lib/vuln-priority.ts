@@ -67,9 +67,10 @@ export function buildVulnPriority(): VulnPriority {
   const t = today()
   const items: VulnItem[] = []
 
-  // 1) 외부 노출 CVE — 인터넷 노출이므로 중요도 높음, 심각도는 CVSS 기반
+  // 1) 외부 노출 CVE — 인터넷 노출이므로 중요도 높음, 심각도는 CVSS 기반.
+  //    이미 조치(편입/차단 요청·완료)된 노출은 제외한다 — 미인가 SW(w.action)·크리덴셜(조치 완료) 제외와 동일한 '미조치' 기준.
   for (const e of s.external) {
-    if (!e.cve) continue
+    if (!e.cve || e.action) continue
     const severity = sevFromCvss(e.cvss)
     const criticality = assetCriticality({ internetFacing: true })
     const score = scoreOf(severity, criticality)
