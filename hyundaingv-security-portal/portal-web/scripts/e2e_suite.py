@@ -336,6 +336,26 @@ def sc_settle(pg, base, check):
     pg.wait_for_selector('tr:has-text("ST-2026-0004"):has-text("결재중")', timeout=10000)
     check('결재중' in pg.locator('tr', has_text='ST-2026-0004').inner_text(), '정산 임시저장 → 상신 (결재중)')
 
+    # 경영계획 단계 (제품안내서 III장) — 작성중 → 취합 제출(본인) → 효율화(담당 금액 조정) → 확정
+    plan_card = pg.locator('.card', has_text='경영계획')
+    plan_card.locator('input[name=title]').fill('E2E 단계 검증 계획')
+    plan_card.locator('input[name=amount]').fill('1000')
+    plan_card.get_by_role('button', name='항목 등록', exact=True).click()
+    pg.wait_for_selector('tr:has-text("E2E 단계 검증 계획")', timeout=10000)
+    pg.locator('tr', has_text='E2E 단계 검증 계획').locator('button:has-text("취합 제출")').click()
+    pg.wait_for_selector('tr:has-text("E2E 단계 검증 계획"):has-text("취합")', timeout=10000)
+
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    row = pg.locator('tr', has_text='E2E 단계 검증 계획')
+    row.locator('input[name=amount]').fill('900')
+    row.locator('button:has-text("효율화")').click()
+    pg.wait_for_selector('tr:has-text("E2E 단계 검증 계획"):has-text("효율화")', timeout=10000)
+    pg.locator('tr', has_text='E2E 단계 검증 계획').locator('button:has-text("계획 확정")').click()
+    pg.wait_for_selector('tr:has-text("E2E 단계 검증 계획"):has-text("확정")', timeout=10000)
+    row_txt = pg.locator('tr', has_text='E2E 단계 검증 계획').inner_text()
+    check('900' in row_txt and '확정' in row_txt, '취합 → 효율화(조정 900) → 확정')
+
 
 def sc_adapter(pg, base, check):
     """채널 토글 → 발송 실패/성공, secdata 이관 → 출력물 폐기 결재"""

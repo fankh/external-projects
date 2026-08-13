@@ -70,6 +70,7 @@ function seed(): Store {
       { id: 'IP-2026-01', kind: '투자', year: '2026', title: 'ERP 리포트 모듈 고도화', owner: '김현우', dept: '개발1팀', amount: 12000, status: '확정' },
       { id: 'IP-2026-02', kind: '투자', year: '2026', title: '보안관제 시스템 증설', owner: '박정호', dept: 'IT운영팀', amount: 8000, status: '확정' },
       { id: 'IP-2026-03', kind: '투자', year: '2026', title: '테스트 자동화 도입', owner: '김현우', dept: '개발1팀', amount: 3000, status: '작성중' },
+      { id: 'IP-2026-06', kind: '투자', year: '2026', title: '테스트 장비 증설', owner: '한지원', dept: 'IT운영팀', amount: 1500, status: '효율화' },
       { id: 'IP-2026-04', kind: '비용', year: '2026', title: '클라우드 인프라 이용료', owner: '이수진', dept: '경영지원팀', amount: 24000, status: '확정' },
       { id: 'IP-2026-05', kind: '비용', year: '2026', title: 'SW 유지보수료', owner: '박정호', dept: 'IT운영팀', amount: 9000, status: '확정' },
     ],

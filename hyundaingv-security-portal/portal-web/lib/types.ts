@@ -259,7 +259,8 @@ export interface InvestPlan {
   dept: string
   /** 계획 금액 (만원) */
   amount: number
-  status: '작성중' | '확정'
+  /** 작성중(본인) → 취합(담당 검토) → 효율화(금액 조정) → 확정 (제품안내서 III장 단계) */
+  status: '작성중' | '취합' | '효율화' | '확정'
 }
 
 export interface InvestContract {

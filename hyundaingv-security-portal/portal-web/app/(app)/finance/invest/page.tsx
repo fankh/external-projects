@@ -25,12 +25,36 @@ async function addPlan(formData: FormData) {
   revalidatePath('/finance/invest')
 }
 
+/** 취합 제출 — 작성자 본인이 계획을 담당 취합 단계로 넘긴다 (제품안내서 III장) */
+async function submitPlanDraft(formData: FormData) {
+  'use server'
+  const me = await requireMenuRole('/finance/invest', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const s = getStore()
+  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? ''))
+  if (p && p.status === '작성중' && p.owner === me.name) p.status = '취합'
+  revalidatePath('/finance/invest')
+}
+
+/** 효율화 — 담당이 취합 건을 검토하며 금액을 조정한다 (미입력 시 유지) */
+async function optimizePlan(formData: FormData) {
+  'use server'
+  await requireMenuRole('/finance/invest', 'BIZ_MGR', 'ADMIN')
+  const amount = Number(formData.get('amount'))
+  const s = getStore()
+  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? ''))
+  if (!p || p.status !== '취합') return
+  if (Number.isFinite(amount) && amount > 0 && amount <= 1e9) p.amount = Math.round(amount)
+  p.status = '효율화'
+  revalidatePath('/finance/invest')
+}
+
 async function confirmPlan(formData: FormData) {
   'use server'
   await requireMenuRole('/finance/invest', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
   const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? ''))
-  if (p && p.status === '작성중') p.status = '확정'
+  // 효율화를 거친 계획만 확정한다 — 취합·효율화 단계 우회 차단 (제품안내서 III장)
+  if (p && p.status === '효율화') p.status = '확정'
   revalidatePath('/finance/invest')
 }
 
@@ -128,10 +152,26 @@ export default async function InvestPage() {
                   <td className="strong">{p.title}</td>
                   <td>{p.owner} <span className="mut">· {p.dept}</span></td>
                   <td className="num">{fmt(p.amount)}</td>
-                  <td>{p.status === '확정' ? <Chip tone="ok">확정</Chip> : <Chip tone="neutral">작성중</Chip>}</td>
+                  <td>
+                    {p.status === '확정' ? <Chip tone="ok">확정</Chip> :
+                    p.status === '효율화' ? <Chip tone="info">효율화</Chip> :
+                    p.status === '취합' ? <Chip tone="warn">취합</Chip> : <Chip tone="neutral">작성중</Chip>}
+                    {p.status === '작성중' && p.owner === me.name && (
+                      <form action={submitPlanDraft} style={{ display: 'inline', marginLeft: 6 }}>
+                        <input type="hidden" name="id" value={p.id} />
+                        <button type="submit" className="btn sm">취합 제출</button>
+                      </form>
+                    )}
+                  </td>
                   {canManage && (
                     <td className="c">
-                      {p.status === '작성중' ? (
+                      {p.status === '취합' ? (
+                        <form action={optimizePlan} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <input className="input" name="amount" type="number" min={1} placeholder={String(p.amount)} title="효율화 조정액 (미입력 시 유지)" style={{ height: 25, fontSize: 11.5, width: 80 }} />
+                          <button type="submit" className="btn sm pri">효율화</button>
+                        </form>
+                      ) : p.status === '효율화' ? (
                         <form action={confirmPlan} style={{ display: 'inline' }}>
                           <input type="hidden" name="id" value={p.id} />
                           <button type="submit" className="btn sm pri">계획 확정</button>
