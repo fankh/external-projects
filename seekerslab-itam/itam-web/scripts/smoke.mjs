@@ -159,6 +159,9 @@ try {
   check('자산 대장: 업무 중요도 변경 컨트롤(자산담당)', regCrit.includes('취약점 우선순위 스코어링에 반영'))
   const regCritUser = await (await get('/assets/register?sel=AST-2024-000015', 'USER')).text()
   check('자산 대장(사용자): 업무 중요도 표시하되 변경 미노출 (조회 전용)', regCritUser.includes('업무 중요도') && !regCritUser.includes('취약점 우선순위 스코어링에 반영'))
+  // 계약–자산 연계(§03 구매 계약: 계약–자산 연결) — 상세에서 계약 연계·해제. 자산담당엔 계약 선택 컨트롤, 사용자엔 미노출.
+  check('자산 대장: 계약 연계 관리 컨트롤(자산담당)', regCrit.includes('연계 계약') && regCrit.includes('계약 선택'))
+  check('자산 대장(사용자): 계약 연계 컨트롤 미노출 (조회 전용)', regCritUser.includes('연계 계약') && !regCritUser.includes('계약 선택'))
   // 다중 선택(보증 일괄 연장·선택 내보내기 공용) — 자산담당에 전체 선택 체크박스 노출, 사용자엔 미노출(canEdit)
   check('자산 대장: 다중 선택 전체 선택 체크박스(자산담당)', mgrHtml.includes('현재 필터의 자산 전체 선택'))
   // CSV 일괄 등록 — 자산담당·Admin 에 온보딩 패널, 사용자엔 미노출

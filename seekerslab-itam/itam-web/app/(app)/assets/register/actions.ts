@@ -29,6 +29,38 @@ export async function setAssetCriticality(assetNo: string, level: BizCriticality
   return { ok: true, message: `${asset.assetNo} 업무 중요도 '${level}' 지정 — 취약점 우선순위 스코어링에 반영` }
 }
 
+/** 자산–계약 연계 (제품안내서 §03 구매 계약: 계약–자산 연결) — 자산을 구매·유지보수 계약에 연결하거나 해제한다.
+ *  계약의 '연계 자산' 수(contractAssetCount 파생)에 즉시 반영된다. 해지된 계약에는 연계할 수 없다. 자산담당·Admin. */
+export async function setAssetContract(assetNo: string, rawContractId: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '계약 연계 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  const contractId = rawContractId.trim()
+  const before = asset.contractId ?? '(없음)'
+
+  if (contractId) {
+    const c = s.contracts.find((x) => x.id === contractId)
+    if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
+    if (c.status === '해지') return { ok: false, message: '해지된 계약에는 연계할 수 없습니다.' }
+    if (asset.contractId === contractId) return { ok: false, message: `이미 ${contractId} 에 연계돼 있습니다.` }
+    asset.contractId = contractId
+    asset.history.push({ date: today(), kind: '구성변경', detail: `계약 연계 ${before} → ${contractId} (${c.name})`, actor: session.name })
+    appendAudit({ actor: session.name, action: `자산–계약 연계 — ${assetNo}: ${before} → ${contractId}`, target: assetNo })
+    revalidatePath('/', 'layout')
+    return { ok: true, message: `${assetNo} → ${contractId} (${c.name}) 계약 연계 완료` }
+  }
+
+  if (!asset.contractId) return { ok: false, message: '연계된 계약이 없습니다.' }
+  asset.history.push({ date: today(), kind: '구성변경', detail: `계약 연계 해제 (${before})`, actor: session.name })
+  appendAudit({ actor: session.name, action: `자산–계약 연계 해제 — ${assetNo}: ${before}`, target: assetNo })
+  asset.contractId = undefined
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 계약 연계 해제 완료` }
+}
+
 const IMPORT_CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 async function guard() {

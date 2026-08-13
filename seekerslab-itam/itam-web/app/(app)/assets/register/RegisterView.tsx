@@ -8,7 +8,7 @@ import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
-import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -27,7 +27,7 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; today?: string; initialCat?: string; initialStatus?: string }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -75,6 +75,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [fixVal, setFixVal] = useState<Record<string, string>>({})
   const [fixMsg, setFixMsg] = useState<string | null>(null)
   const [critMsg, setCritMsg] = useState<string | null>(null)
+  const [ctMsg, setCtMsg] = useState<string | null>(null)
+  const [ctPick, setCtPick] = useState('')
   const [wtyOpen, setWtyOpen] = useState(false)
   const [lostOpen, setLostOpen] = useState(false)
   const [lostType, setLostType] = useState<'분실' | '도난'>('분실')
@@ -432,7 +434,31 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       : w === 'expired' ? <Chip tone="err" bare>보증 만료</Chip> : null
                 })()}
               </dd>
-              {sel.contractId && <><dt>연계 계약</dt><dd className="code"><a href={contractHref(sel.contractId)} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a></dd></>}
+              <dt>연계 계약</dt>
+              <dd>
+                {sel.contractId
+                  ? <a className="code" href={contractHref(sel.contractId)} title="계약 상세로 이동" style={{ color: 'var(--accent-deep)' }}>{sel.contractId}</a>
+                  : <span className="mut" style={{ fontSize: 11 }}>미연계</span>}
+                {props.canEdit && (props.contracts?.length ?? 0) > 0 && (
+                  <div className="hstack" style={{ gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                    <select className="input" style={{ minWidth: 180, height: 25, fontSize: 11 }} value={ctPick} disabled={pending}
+                      onChange={(e) => setCtPick(e.target.value)}>
+                      <option value="">계약 선택 —</option>
+                      {props.contracts!.filter((c) => c.id !== sel.contractId).map((c) => (
+                        <option key={c.id} value={c.id}>{c.id} · {c.kind} · {c.name.slice(0, 20)}</option>
+                      ))}
+                    </select>
+                    <button className="btn sm" disabled={pending || !ctPick}
+                      title="선택한 구매·유지보수 계약에 이 자산을 연계 (제품안내서 §03 계약–자산 연결)"
+                      onClick={() => startTransition(async () => { const r = await setAssetContract(sel.assetNo, ctPick); setCtMsg(r.message); if (r.ok) setCtPick('') })}>연계</button>
+                    {sel.contractId && (
+                      <button className="btn sm ghost" disabled={pending}
+                        onClick={() => startTransition(async () => setCtMsg((await setAssetContract(sel.assetNo, '')).message))}>해제</button>
+                    )}
+                  </div>
+                )}
+                {ctMsg && <div className="mut" style={{ fontSize: 11, marginTop: 3 }}>{ctMsg}</div>}
+              </dd>
               {(sel.repairCosts?.length ?? 0) > 0 && (
                 <>
                   <dt>수리 비용 이력</dt>
