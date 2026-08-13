@@ -176,7 +176,7 @@ function seed(): Store {
       { docType: '변경계획 상신', approver: '시스템관리자' },
       { docType: '변경결과 상신', approver: '시스템관리자' },
       { docType: '장애보고 상신', approver: '시스템관리자' },
-      { docType: '점검결과 상신', approver: '시스템관리자' },
+      { docType: '점검결과 상신', approver: '이수진', secondApprover: '시스템관리자' },
       { docType: '출력물폐기 상신', approver: '박정호' },
       { docType: '보안위반 확인서', approver: '박정호' },
       { docType: '서약 현황 상신', approver: '박정호' },

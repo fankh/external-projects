@@ -645,6 +645,23 @@ def sc_criteria(pg, base, check):
     row = pg.locator('.card', has_text='기준관리 — 점검 항목').locator('tr', has_text='중요 시스템 계정·권한 정기 검토')
     check('사용중' in row.inner_text() and row.locator('button:has-text("삭제")').count() == 0, '사용중 기준 삭제 가드')
 
+    # 2단 결재 (제품안내서 IV장 — 부서장 → 담당부서장): 결과 상신 → 1차(이수진) 중간 승인 → 2차(시스템관리자) 최종 승인
+    prog = pg.locator('.card', has_text='점검 진행내역').locator('tr', has_text='IS-2026-22')
+    prog.locator('input[name=result]').fill('E2E 점검 결과')
+    prog.locator('button:has-text("결과 결재상신")').click()
+    pg.wait_for_selector('tr:has-text("IS-2026-22"):has-text("결재중")', timeout=10000)
+
+    login(pg, base, '이수진')
+    approve_first(pg, base, '[보안점검결과-점검항목]')
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    check('결재중' in pg.locator('tr', has_text='IS-2026-22').inner_text(), '1차 승인 — 아직 결재중 (2차 회부)')
+
+    login(pg, base, '시스템관리자')
+    approve_first(pg, base, '[보안점검결과-점검항목]')
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    check('완료' in pg.locator('tr', has_text='IS-2026-22').inner_text(), '2차 최종 승인 → 완료 전파')
+
 
 def sc_menuauth(pg, base, check):
     """메뉴권한 런타임 제한 (요구사항 72행) — 제한 → 내비 숨김·직접 URL 차단·감사, 복원 → 접근 회복"""

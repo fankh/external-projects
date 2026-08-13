@@ -62,6 +62,8 @@ export type ApprovalStatus = '대기' | '승인' | '반려' | '회수'
 export interface ApprovalLine {
   docType: ApprovalDocType
   approver: string
+  /** 2차 결재자 (선택) — 지정 시 1차 승인 후 2차로 회부되는 다단 결재 (제품안내서 IV장: 부서장 → 담당부서장) */
+  secondApprover?: string
 }
 
 export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '적용요청 상신' | '변경계획 상신' | '변경결과 상신' | '서약 현황 상신' | '부서서약 현황 상신' | '장애보고 상신' | '점검결과 상신' | '출력물폐기 상신' | '보안위반 확인서'
@@ -194,6 +196,8 @@ export interface Approval {
   decidedAt?: string
   /** 반려 시 필수 — 기안자가 보완·재상신할 수 있도록 사유를 남긴다 */
   rejectReason?: string
+  /** 다단 결재 잔여 결재자 큐 — 승인마다 하나씩 회부되고, 비면 최종 승인으로 전파된다 */
+  queue?: string[]
 }
 
 export interface TodoItem {

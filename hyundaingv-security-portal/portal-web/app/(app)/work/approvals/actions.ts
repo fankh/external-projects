@@ -18,6 +18,22 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
   const ap = s.approvals.find((a) => a.id === id)
   if (!ap || ap.approver !== me.name || ap.status !== '대기') return
 
+  // 다단 결재 — 중간 단계 승인은 다음 결재자로 회부하고 업무 전파 없이 종료한다 (반려는 어느 단계든 즉시 반려)
+  if (verdict === '승인' && ap.queue && ap.queue.length > 0) {
+    const next = ap.queue[0]
+    ap.queue = ap.queue.length > 1 ? ap.queue.slice(1) : undefined
+    audit(me.name, '결재 승인', `${ap.id} ${ap.docType} — ${ap.title} (중간 승인 → ${next} 회부)`)
+    const myTodo = s.todos.find((t) => t.owner === me.name && t.kind === '결재' && t.title.includes(id) && !t.done)
+    if (myTodo) myTodo.done = true
+    ap.approver = next
+    s.todos.unshift({
+      id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
+      owner: next, kind: '결재', title: `${ap.id} 결재 처리`, dueDate: today(), done: false,
+    })
+    revalidatePath('/', 'layout')
+    return
+  }
+
   ap.status = verdict
   ap.decidedAt = today()
   if (verdict === '반려') ap.rejectReason = reason

@@ -15,13 +15,17 @@ async function updateLine(formData: FormData) {
   const me = await requireMenuRole('/settings/users', 'ADMIN')
   const docType = String(formData.get('docType') ?? '')
   const approver = String(formData.get('approver') ?? '')
+  const second = String(formData.get('secondApprover') ?? '')
   const s = getStore()
   const line = s.approvalLines.find((l) => l.docType === docType)
-  // 결재자는 담당 권한 이상만 지정 가능 — 목업 계정 중 비사용자
+  // 결재자는 담당 권한 이상만 지정 가능 — 목업 계정 중 비사용자. 2차는 선택(없음 허용, 1차와 달라야 함)
   const valid = ACCOUNTS.some((a) => a.name === approver && a.role !== 'USER')
-  if (!line || !valid || line.approver === approver) return
-  audit(me.name, '결재선 변경', `${docType}: ${line.approver} → ${approver}`)
+  const secondValid = second === '' || (second !== approver && ACCOUNTS.some((a) => a.name === second && a.role !== 'USER'))
+  if (!line || !valid || !secondValid) return
+  if (line.approver === approver && (line.secondApprover ?? '') === second) return
+  audit(me.name, '결재선 변경', `${docType}: ${line.approver}${line.secondApprover ? `→${line.secondApprover}` : ''} → ${approver}${second ? `→${second}` : ''}`)
   line.approver = approver
+  line.secondApprover = second || undefined
   revalidatePath('/', 'layout')
 }
 
@@ -67,16 +71,20 @@ export default async function UsersPage() {
         <Card title="결재선 관리 — 문서 유형별 기본 결재자" kicker="Approval Lines" pad={false}>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>문서 유형</th><th>현재 결재자</th><th className="c">변경</th></tr></thead>
+              <thead><tr><th>문서 유형</th><th>현재 결재선</th><th className="c">변경 (1차 · 2차)</th></tr></thead>
               <tbody>
                 {s.approvalLines.map((l) => (
                   <tr key={l.docType}>
                     <td className="strong">{l.docType}</td>
-                    <td>{l.approver}</td>
+                    <td>{l.approver}{l.secondApprover && <span className="mut"> → {l.secondApprover} (2차)</span>}</td>
                     <td className="c">
                       <form action={updateLine} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                         <input type="hidden" name="docType" value={l.docType} />
                         <select className="select" name="approver" defaultValue={l.approver} style={{ height: 25, fontSize: 11.5 }}>
+                          {approverCandidates.map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
+                        </select>
+                        <select className="select" name="secondApprover" defaultValue={l.secondApprover ?? ''} title="2차 결재자 — 지정 시 다단 결재" style={{ height: 25, fontSize: 11.5 }}>
+                          <option value="">2차 없음</option>
                           {approverCandidates.map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
                         </select>
                         <button type="submit" className="btn sm">저장</button>

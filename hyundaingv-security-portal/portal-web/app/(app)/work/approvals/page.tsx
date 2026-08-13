@@ -133,7 +133,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
               <dt>제목</dt><dd>{selected.title}</dd>
               {selected.ref && <><dt>참조 번호</dt><dd className="code">{selected.ref}</dd></>}
               <dt>기안자</dt><dd>{selected.drafter} · {selected.dept}</dd>
-              <dt>결재자</dt><dd>{selected.approver}</dd>
+              <dt>결재자</dt>
+              <dd>
+                {selected.approver}
+                {selected.queue && selected.queue.length > 0 && (
+                  <span className="dim" style={{ marginLeft: 7, fontSize: 11 }}>다단 결재 — 이후 {selected.queue.join(' → ')}</span>
+                )}
+              </dd>
               <dt>상신일</dt><dd>{selected.draftedAt}{selected.decidedAt ? ` (처리 ${selected.decidedAt})` : ''}</dd>
               <dt>상태</dt>
               <dd>

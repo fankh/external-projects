@@ -25,8 +25,17 @@ export function draftApproval(opts: {
   const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
   const adm = ACCOUNTS.find((a) => a.role === 'ADMIN')!
 
-  let approver = s.approvalLines.find((l) => l.docType === opts.docType)?.approver ?? biz.name
-  if (approver === opts.drafter.name) approver = opts.drafter.name === adm.name ? biz.name : adm.name
+  // 자기 결재 방지 — 기안자 본인이 결재자면 대체한다 (단계별 공통)
+  const resolve = (name: string) =>
+    name === opts.drafter.name ? (opts.drafter.name === adm.name ? biz.name : adm.name) : name
+
+  const line = s.approvalLines.find((l) => l.docType === opts.docType)
+  // 다단 결재 (제품안내서 IV장) — 결재선의 1차·2차를 순서대로 회부. 자기결재 대체 후
+  // 같은 사람이 연속되면 한 단계로 합친다.
+  const chain = [resolve(line?.approver ?? biz.name), ...(line?.secondApprover ? [resolve(line.secondApprover)] : [])]
+    .filter((name, i, arr) => i === 0 || name !== arr[i - 1])
+  const approver = chain[0]
+  const queue = chain.slice(1)
 
   const year = today().slice(0, 4)
   const apId = nextNo('AP', year, s.approvals.map((a) => a.id))
@@ -34,6 +43,7 @@ export function draftApproval(opts: {
     id: apId, docType: opts.docType, title: opts.title,
     drafter: opts.drafter.name, dept: opts.drafter.dept, approver,
     status: '대기', draftedAt: today(), ref: opts.ref,
+    queue: queue.length > 0 ? queue : undefined,
   })
   s.todos.unshift({
     id: nextNo('TD', year, s.todos.map((t) => t.id)),
