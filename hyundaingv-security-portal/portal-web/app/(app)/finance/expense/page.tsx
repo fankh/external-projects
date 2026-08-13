@@ -305,6 +305,9 @@ export default async function ExpensePage() {
                         const total = kindContracts.filter((x) => x.planId === c.planId).reduce((sum, x) => sum + x.amount, 0)
                         return total > plan.amount ? <Chip tone="err" bare>계획 초과</Chip> : null
                       })()}
+                      {/* 지급(집행)이 계약액을 넘으면 초과지급 표시 — 계약 대비 정산 초과도 드러나게 (감사 F3) */}
+                      {kindSettlements.filter((x) => x.contractId === c.id && x.status === '지급완료').reduce((sum, x) => sum + x.amount, 0) > c.amount
+                        ? <Chip tone="err" bare>계약 초과</Chip> : null}
                     </td>
                   </tr>
                 ))}
