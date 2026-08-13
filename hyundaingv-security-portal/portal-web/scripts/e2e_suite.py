@@ -217,20 +217,28 @@ def sc_devchain(pg, base, check):
     login(pg, base, '박정호')
     approve_first(pg, base, 'E2E 개발변경 사슬')
 
-    # CI 배정·착수 → 개발중, 이어서 테스트·적용요청 진행 (공수 3+2 누적 — 요구사항 26행)
+    # CI 배정·착수 → 개발중 → 테스트 (공수 5 — 요구사항 26행)
     pg.goto(f'{base}/sr/ci', wait_until='networkidle')
     pg.locator('tr', has_text='E2E 개발변경 사슬').locator('button:has-text("배정 · 착수")').click()
     pg.wait_for_load_state('networkidle')
-    for hours in ('3', '2'):
-        pg.goto(f'{base}/sr/manage', wait_until='networkidle')
-        row = pg.locator('tr', has_text='E2E 개발변경 사슬')
-        row.locator('input[name=manHours]').fill(hours)
-        row.locator('button:has-text("처리 →")').click()
-        pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/sr/manage', wait_until='networkidle')
     row = pg.locator('tr', has_text='E2E 개발변경 사슬')
-    check('적용요청' in row.inner_text(), '진행 처리 → 적용요청')
-    check(row.locator('td').nth(6).inner_text().strip() == '5', '공수(MD) 누적 3+2=5')
+    row.locator('input[name=manHours]').fill('5')
+    row.locator('button:has-text("처리 →")').click()
+    # 개발중 행의 '테스트 처리 →' 버튼 텍스트와 겹치지 않는 후행 상태 시그널로 기다린다
+    pg.wait_for_selector('tr:has-text("E2E 개발변경 사슬"):has-text("적용요청서 상신")', timeout=10000)
+    row = pg.locator('tr', has_text='E2E 개발변경 사슬')
+    check(row.locator('td').nth(6).inner_text().strip() == '5', '공수(MD) 입력')
+
+    # 결재 시트 5번 — 적용요청서는 신청 상신과 별개의 2차 결재 (승인 → 적용요청)
+    row.locator('button:has-text("적용요청서 상신")').click()
+    pg.wait_for_selector('tr:has-text("E2E 개발변경 사슬"):has-text("적용요청결재중")', timeout=10000)
+    login(pg, base, '시스템관리자')
+    approve_first(pg, base, '[SR적용요청서] E2E 개발변경 사슬')
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/sr/manage', wait_until='networkidle')
+    txt = pg.locator('tr', has_text='E2E 개발변경 사슬').inner_text()
+    check('적용요청결재중' not in txt and '적용요청' in txt, '적용요청서 승인 → 적용요청')
 
     # 변경관리 편입 — 적용요청 SR 이 시스템개발변경 목록에 추가된다
     pg.goto(f'{base}/infra/changes', wait_until='networkidle')

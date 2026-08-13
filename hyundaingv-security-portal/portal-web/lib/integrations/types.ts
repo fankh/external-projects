@@ -22,6 +22,8 @@ export interface ChannelBinding {
   usage: string
   adapterId: string
   enabledByDefault: boolean
+  /** 실구현 예정 채널 — 화면에 '연동 예정'으로 표시되고 활성 집계·토글에서 제외된다 */
+  planned?: boolean
 }
 
 export interface SendResult {

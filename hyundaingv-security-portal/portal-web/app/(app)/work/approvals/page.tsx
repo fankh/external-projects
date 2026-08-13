@@ -15,7 +15,8 @@ function refSummary(s: Store, ap: Approval): [string, string][] {
   const ref = ap.ref
   if (!ref) return []
   switch (ap.docType) {
-    case 'SR 신청': {
+    case 'SR 신청':
+    case '적용요청 상신': {
       const sr = s.srRequests.find((r) => r.srNo === ref)
       return sr ? [['SR 유형', sr.kind], ['대상 시스템', sr.system], ['현재 상태', sr.status], ['요청 내용', sr.content || '-']] : []
     }

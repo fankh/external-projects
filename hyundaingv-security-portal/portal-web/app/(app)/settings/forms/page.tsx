@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
-import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
@@ -12,24 +13,31 @@ const DOC_TYPES: (ApprovalDocType | '공통')[] = [
 
 async function addTemplate(formData: FormData) {
   'use server'
-  await requireMenuRole('/settings/forms', 'ADMIN')
+  const me = await requireMenuRole('/settings/forms', 'ADMIN')
   const name = String(formData.get('name') ?? '').trim().slice(0, 120)
   const docType = String(formData.get('docType') ?? '') as ApprovalDocType | '공통'
   if (!name || !DOC_TYPES.includes(docType)) return
   const s = getStore()
   const max = s.excelTemplates.reduce((m, t) => Math.max(m, Number(t.id.replace('XT-', '')) || 0), 0)
-  s.excelTemplates.unshift({ id: `XT-${String(max + 1).padStart(2, '0')}`, name, docType, version: 1, uploadedAt: today() })
+  const id = `XT-${String(max + 1).padStart(2, '0')}`
+  s.excelTemplates.unshift({ id, name, docType, version: 1, uploadedAt: today() })
+  // 실제 양식 파일을 받아 양식 번호(pk)로 첨부한다 — 버전 이력이 파일과 함께 남는다
+  registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/settings/forms')
 }
 
 async function reupload(formData: FormData) {
   'use server'
-  await requireMenuRole('/settings/forms', 'ADMIN')
+  const me = await requireMenuRole('/settings/forms', 'ADMIN')
+  const file = formData.get('file')
+  // 파일 없는 버전 올림 금지 — '새 버전 업로드'는 실제 양식 파일 교체다
+  if (!(file instanceof File) || file.size === 0) return
   const s = getStore()
   const t = s.excelTemplates.find((x) => x.id === String(formData.get('id') ?? ''))
   if (!t) return
   t.version += 1
   t.uploadedAt = today()
+  registerUpload(t.id, file, me.name)
   revalidatePath('/settings/forms')
 }
 
@@ -53,6 +61,7 @@ export default async function FormsPage() {
           <select className="select" name="docType">
             {DOC_TYPES.map((d) => <option key={d}>{d}</option>)}
           </select>
+          <input className="input" type="file" name="file" style={{ width: 170, paddingTop: 4 }} title="양식 파일 (xlsx)" />
           <button type="submit" className="btn pri">등록 (v1)</button>
         </form>
       </Card>
@@ -67,13 +76,14 @@ export default async function FormsPage() {
               {s.excelTemplates.map((t) => (
                 <tr key={t.id}>
                   <td className="code">{t.id}</td>
-                  <td className="strong">{t.name} <span className="mut">.xlsx</span></td>
+                  <td className="strong">{t.name} <span className="mut">.xlsx</span><Clip count={attachCount(t.id)} title="양식 파일 버전 이력" /></td>
                   <td><Chip tone={t.docType === '공통' ? 'neutral' : 'info'} bare>{t.docType}</Chip></td>
                   <td className="num">v{t.version}</td>
                   <td className="tnum">{t.uploadedAt}</td>
                   <td className="c">
-                    <form action={reupload} style={{ display: 'inline' }}>
+                    <form action={reupload} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                       <input type="hidden" name="id" value={t.id} />
+                      <input className="input" type="file" name="file" required style={{ height: 25, fontSize: 11, width: 150, paddingTop: 2 }} title="새 버전 양식 파일" />
                       <button type="submit" className="btn sm">새 버전 업로드</button>
                     </form>
                   </td>

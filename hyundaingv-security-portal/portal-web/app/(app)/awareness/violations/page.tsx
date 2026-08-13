@@ -6,6 +6,7 @@ import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { getStore, nextNo } from '@/lib/store'
+import { CHANNELS } from '@/portal.config'
 import type { ViolationType } from '@/lib/types'
 
 const TYPES: ViolationType[] = ['출력물 방치', '화면 미잠금', '인가되지 않은 USB 사용']
@@ -29,6 +30,10 @@ async function addViolation(formData: FormData) {
   registerUpload(id, formData.get('file'), me.name)
   // 폐쇄 루프 — 등록과 동시에 위반자에게 확인서 제출 안내메일 (그룹웨어 메일 어댑터 경유)
   await sendVia('groupware-mail', [person.name], `[보안위반] 사실확인서 제출 안내 — ${type}`)
+  // 급보 문자 병행 (제품안내서 §V: 홈페이지 서버 경유 SMS) — 프로필에 SMS 채널이 있을 때만
+  if (CHANNELS.some((c) => c.id === 'sms-gateway' && !c.planned)) {
+    await sendVia('sms-gateway', [person.name], `[보안위반] 사실확인서 제출 안내 — ${type}`)
+  }
   revalidatePath('/', 'layout')
 }
 

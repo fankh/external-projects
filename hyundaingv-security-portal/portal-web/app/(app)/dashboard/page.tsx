@@ -5,7 +5,7 @@ import { today } from '@/lib/dates'
 import { getStore, isRemoteTargetIn } from '@/lib/store'
 
 const SR_CHIP: Record<string, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
-  작성중: 'neutral', 결재중: 'info', CI배정: 'info', 개발중: 'warn', 테스트: 'warn', 적용요청: 'warn', 완료: 'ok', 반려: 'err',
+  작성중: 'neutral', 결재중: 'info', CI배정: 'info', 개발중: 'warn', 테스트: 'warn', 적용요청결재중: 'info', 적용요청: 'warn', 완료: 'ok', 반려: 'err',
 }
 
 export default async function DashboardPage() {

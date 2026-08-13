@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
@@ -12,8 +13,8 @@ import { SR_CHIP, srStatusLabel } from '../chips'
  *  데이터·계정/권한: 배정 후 처리 → 완료 직행 (테스트·적용요청 단계 없음) */
 function nextOf(sr: SrRequest): SrStatus | undefined {
   if (sr.kind === '시스템개발') {
-    // 적용요청 → 완료는 수동 전이 없음 — 변경관리 최종완료(결재 승인)만이 완료를 전파한다
-    return ({ 개발중: '테스트', 테스트: '적용요청' } as Partial<Record<SrStatus, SrStatus>>)[sr.status]
+    // 테스트 이후는 수동 전이 없음 — 적용요청은 적용요청서 결재 승인으로, 완료는 변경관리 최종완료로만 전파된다
+    return ({ 개발중: '테스트' } as Partial<Record<SrStatus, SrStatus>>)[sr.status]
   }
   return sr.status === '개발중' ? '완료' : undefined
 }
@@ -33,6 +34,22 @@ async function advance(formData: FormData) {
   if (Number.isFinite(manHours) && manHours > 0 && manHours <= 999) sr.manHours = Math.min(9999, (sr.manHours ?? 0) + Math.round(manHours))
   // 처리 결과 증적 — SR 번호(pk) 하나로 신청·BA·결과 첨부를 공유한다 (첨부 시트: SR관리 결과등록)
   registerUpload(srNo, formData.get('file'), me.name)
+  revalidatePath('/', 'layout')
+}
+
+/** 적용요청서 상신 (요구사항 결재 시트 5번) — 신청 상신과 별개의 2차 결재.
+ *  테스트 완료 건만, 첨부 추가 가능(본문 자동첨부 없음). 승인 → 적용요청, 반려·회수 → 테스트. */
+async function submitApply(formData: FormData) {
+  'use server'
+  const me = await requireMenuRole('/sr/manage', 'BIZ_MGR', 'ADMIN')
+  const srNo = String(formData.get('srNo') ?? '')
+  const s = getStore()
+  const sr = s.srRequests.find((r) => r.srNo === srNo && r.kind === '시스템개발' && r.status === '테스트')
+  if (!sr || s.approvals.some((a) => a.ref === srNo && a.status === '대기')) return
+  sr.status = '적용요청결재중'
+  // 적용요청서 첨부 — SR 번호(pk) 공유 (요구 명세: 첨부파일 추가 기능 있음)
+  registerUpload(srNo, formData.get('file'), me.name)
+  draftApproval({ docType: '적용요청 상신', title: `[SR적용요청서] ${sr.title}`, ref: srNo, drafter: me })
   revalidatePath('/', 'layout')
 }
 
@@ -85,6 +102,13 @@ export default async function SrManagePage() {
                           <input className="input" type="number" name="manHours" min={1} placeholder="공수" title="투입 공수(MD) — 누적 합산" style={{ height: 25, fontSize: 11, width: 54 }} />
                           <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 130, paddingTop: 2 }} title="처리 결과 증적 첨부" />
                           <button type="submit" className="btn sm">{next} 처리 →</button>
+                        </form>
+                      ) : r.kind === '시스템개발' && r.status === '테스트' ? (
+                        // 결재 시트 5번 — 적용요청서는 신청 상신과 별개의 결재 (첨부 추가 가능)
+                        <form action={submitApply} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
+                          <input type="hidden" name="srNo" value={r.srNo} />
+                          <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 130, paddingTop: 2 }} title="적용요청서 첨부" />
+                          <button type="submit" className="btn sm pri">적용요청서 상신</button>
                         </form>
                       ) : (
                         <span className="mut">-</span>

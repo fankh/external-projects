@@ -71,7 +71,7 @@ export default async function CodesPage() {
 
   return (
     <>
-      <ScreenHeader kicker="환경설정" title="공통코드 · 객체"
+      <ScreenHeader kicker="환경설정" title="공통코드"
         desc="장애등급·SR유형·주기 등 업무 코드의 단일 원천 — 사용중지·기간만료 코드는 업무 화면의 선택지에서 즉시 사라진다." />
 
       <div className="stat-row">

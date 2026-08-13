@@ -96,12 +96,16 @@ export default async function IntegrationsPage() {
                     <td><Chip tone="neutral" bare>{c.transport}</Chip></td>
                     <td style={{ maxWidth: 420, whiteSpace: 'normal' }}>{c.usage}</td>
                     <td className="code">{c.adapterId}</td>
-                    <td>{on ? <Chip tone="ok">가동중</Chip> : <Chip tone="err">중지</Chip>}</td>
+                    <td>{c.planned ? <Chip tone="neutral">연동 예정</Chip> : on ? <Chip tone="ok">가동중</Chip> : <Chip tone="err">중지</Chip>}</td>
                     <td className="c">
-                      <form action={toggleChannel} style={{ display: 'inline' }}>
-                        <input type="hidden" name="id" value={c.id} />
-                        <button type="submit" className={`btn sm ${on ? 'danger' : 'pri'}`}>{on ? '중지' : '가동'}</button>
-                      </form>
+                      {c.planned ? (
+                        <span className="mut" title="고객사 실구현(SSO·그룹웨어 결재 연동) 시 활성화">-</span>
+                      ) : (
+                        <form action={toggleChannel} style={{ display: 'inline' }}>
+                          <input type="hidden" name="id" value={c.id} />
+                          <button type="submit" className={`btn sm ${on ? 'danger' : 'pri'}`}>{on ? '중지' : '가동'}</button>
+                        </form>
+                      )}
                     </td>
                   </tr>
                 )

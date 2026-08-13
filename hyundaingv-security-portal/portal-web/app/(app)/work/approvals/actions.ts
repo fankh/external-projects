@@ -41,6 +41,12 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
     if (sr && sr.status === '결재중') sr.status = verdict === '승인' ? 'CI배정' : '반려'
   }
 
+  // 폐쇄 루프 1-9 — 적용요청서 결재 (결재 시트 5번, 신청 상신과 별개): 승인 → 적용요청(변경 편입 대기), 반려 → 테스트
+  if (ap.docType === '적용요청 상신' && ap.ref) {
+    const sr = s.srRequests.find((r) => r.srNo === ap.ref)
+    if (sr && sr.status === '적용요청결재중') sr.status = verdict === '승인' ? '적용요청' : '테스트'
+  }
+
   // 폐쇄 루프 1-2 — 정산품의(투자·비용) 결재가 지급 상태로 전파되어 실적·속보 기준금액에 반영된다
   if ((ap.docType === '투자 정산품의' || ap.docType === '비용 정산품의') && ap.ref) {
     const st = s.settlements.find((x) => x.id === ap.ref)
@@ -148,6 +154,10 @@ export async function withdraw(formData: FormData) {
   if (ap.docType === 'SR 신청' && ap.ref) {
     const sr = s.srRequests.find((r) => r.srNo === ap.ref)
     if (sr && sr.status === '결재중') sr.status = '작성중'
+  }
+  if (ap.docType === '적용요청 상신' && ap.ref) {
+    const sr = s.srRequests.find((r) => r.srNo === ap.ref)
+    if (sr && sr.status === '적용요청결재중') sr.status = '테스트'
   }
   if (ap.docType === '변경계획 상신' && ap.ref) {
     const cw = s.changes.find((c) => c.id === ap.ref)

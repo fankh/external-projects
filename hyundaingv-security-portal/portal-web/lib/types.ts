@@ -16,7 +16,7 @@ export const ROLE_LABEL: Record<Role, string> = {
 
 /** SR 3종 (시스템개발 · 데이터 · 계정/권한) */
 export type SrKind = '시스템개발' | '데이터' | '계정/권한'
-export type SrStatus = '작성중' | '결재중' | 'CI배정' | '개발중' | '테스트' | '적용요청' | '완료' | '반려'
+export type SrStatus = '작성중' | '결재중' | 'CI배정' | '개발중' | '테스트' | '적용요청결재중' | '적용요청' | '완료' | '반려'
 
 export interface SrRequest {
   srNo: string
@@ -38,7 +38,7 @@ export interface SrRequest {
 }
 
 /** SR 진행 단계 순서 — 시스템개발 SR 파이프라인 (제품안내서 §03) */
-export const SR_FLOW: SrStatus[] = ['작성중', '결재중', 'CI배정', '개발중', '테스트', '적용요청', '완료']
+export const SR_FLOW: SrStatus[] = ['작성중', '결재중', 'CI배정', '개발중', '테스트', '적용요청결재중', '적용요청', '완료']
 
 /** CI 직접 접수 SR — 결재 없이 CI 가 접수·처리하는 건 (요구사항 25행: 보안/업무 구분·처리 이력 관리) */
 export interface CiSr {
@@ -64,7 +64,7 @@ export interface ApprovalLine {
   approver: string
 }
 
-export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '변경계획 상신' | '변경결과 상신' | '서약 현황 상신' | '부서서약 현황 상신' | '장애보고 상신' | '점검결과 상신' | '출력물폐기 상신' | '보안위반 확인서'
+export type ApprovalDocType = '투자 정산품의' | '비용 정산품의' | 'SR 신청' | '적용요청 상신' | '변경계획 상신' | '변경결과 상신' | '서약 현황 상신' | '부서서약 현황 상신' | '장애보고 상신' | '점검결과 상신' | '출력물폐기 상신' | '보안위반 확인서'
 
 /** 출력물 개인정보관리 — 보안·출력물 시스템(DB 연계)에서 전일자 일배치 이관 → 본인 폐기 등록 → 결재 (결재 시트 13번) */
 export interface PrintoutRecord {

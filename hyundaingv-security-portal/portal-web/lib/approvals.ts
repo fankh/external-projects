@@ -13,7 +13,7 @@ export const ROTATING_DOC_TYPES: ApprovalDocType[] = ['장애보고 상신', '�
 
 /** 상신취소(회수) 가능 유형 — 요구사항 결재 시트가 상신취소 전이를 명시한 문서만
  *  (SR 3종 → 임시저장, 변경 계획/결과 → 작업등록/작업등록승인, 확인서 → 징구중). */
-export const WITHDRAWABLE_DOC_TYPES: ApprovalDocType[] = ['SR 신청', '변경계획 상신', '변경결과 상신', '보안위반 확인서']
+export const WITHDRAWABLE_DOC_TYPES: ApprovalDocType[] = ['SR 신청', '적용요청 상신', '변경계획 상신', '변경결과 상신', '보안위반 확인서']
 
 export function draftApproval(opts: {
   docType: ApprovalDocType

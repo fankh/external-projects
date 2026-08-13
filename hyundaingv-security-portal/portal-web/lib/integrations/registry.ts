@@ -29,7 +29,9 @@ export function isEnabled(id: string): boolean {
 }
 
 export function channelSummary(): { on: number; total: number } {
-  return { on: CHANNELS.filter((c) => isEnabled(c.id)).length, total: CHANNELS.length }
+  // 실구현 예정(planned) 채널은 활성 집계에서 제외 — 실제 연동 범위만 보이게 한다
+  const real = CHANNELS.filter((c) => !c.planned)
+  return { on: real.filter((c) => isEnabled(c.id)).length, total: real.length }
 }
 
 /** 메일·문자 발송 — 발송 이력을 스토어에 남긴다 (연동·인프라 화면에서 추적) */
