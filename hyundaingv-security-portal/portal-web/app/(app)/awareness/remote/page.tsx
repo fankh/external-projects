@@ -108,9 +108,12 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
   const mySubmitted = s.remoteChecks.find((r) => r.name === me.name && r.period === thisMonth)
   const iAmTarget = s.remoteTargets.some((t) => t.name === me.name && isRemoteTargetIn(t, thisMonth))
 
-  // 현황 스코프 — 해당 월 재택 대상자 명단 (부서담당은 소속 부서만)
+  // 현황 스코프 — 해당 월 재택 대상자 명단: 담당·Admin=전사, 부서담당=소속 부서, 사용자=본인만.
+  // (통계도 뷰어 범위로 산출해야 한다 — 표·export 는 스코프되는데 stat 행만 전사 집계가 새던 결함)
   const targets = s.remoteTargets.filter((t) =>
-    isRemoteTargetIn(t, period) && (me.role !== 'DEPT_MGR' || t.dept === me.dept))
+    isRemoteTargetIn(t, period) &&
+    (me.role === 'USER' ? t.name === me.name : me.role === 'DEPT_MGR' ? t.dept === me.dept : true))
+  const submittedInScope = targets.filter((t) => submitted.some((r) => r.name === t.name))
   const missing = targets.filter((t) => !submitted.some((r) => r.name === t.name))
 
   return (
@@ -124,7 +127,7 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
             : <Chip tone="warn">미제출</Chip>} />
 
       <div className="stat-row">
-        <Stat value={submitted.length} label={`${period} 제출`} note={`대상 ${targets.length}명`} />
+        <Stat value={submittedInScope.length} label={`${period} 제출`} note={`대상 ${targets.length}명`} />
         <Stat value={missing.length} label="미제출" tone={missing.length > 0 ? 'warn' : undefined} />
         <Stat value={!iAmTarget ? '대상 아님' : mySubmitted ? '완료' : '미제출'} label="내 제출 상태"
           tone={!iAmTarget || mySubmitted ? undefined : 'err'} />

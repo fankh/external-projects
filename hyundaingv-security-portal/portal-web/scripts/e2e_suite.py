@@ -413,6 +413,10 @@ def sc_remote(pg, base, check):
     pg.click('button:has-text("동의하고 제출")')
     pg.wait_for_selector('text=제출 완료', timeout=10000)
 
+    # 사용자 통계 스코프 — 재택 통계 stat 행이 본인 범위만 집계해야 한다(전사 집계 누출 금지).
+    # 김현우는 당월 대상 1인(본인)이므로 '대상 1명' — 버그 시 전사 대상(4명)이 노출됐다.
+    check('대상 1명' in pg.locator('.stat-row').inner_text(), '사용자 재택 통계는 본인 범위만 (전사 집계 누출 없음)')
+
     login(pg, base, '박정호')
     pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
     status = pg.locator('.card', has_text='전사 제출 현황')
