@@ -19,6 +19,19 @@ const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr, 'hanbit-hr': mockHr }
 const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'erp-asset': mockAsset }
 const SECDATA: Record<string, SecdataAdapter> = { 'mock-secdata': mockSecdata }
 
+/** adapterId → 구현 해석 (kind 별) — 자가진단·바인딩 완결성 검사가 쓴다.
+ *  활성 상태와 무관하게 '등록되어 있는가'만 본다 (계약 적합성은 별도). */
+export function resolveAdapter(kind: string, adapterId: string): MessagingAdapter | HrAdapter | AssetAdapter | SecdataAdapter | null {
+  switch (kind) {
+    case 'mail':
+    case 'sms': return MESSAGING[adapterId] ?? null
+    case 'hr': return HR[adapterId] ?? null
+    case 'asset': return ASSET[adapterId] ?? null
+    case 'secdata': return SECDATA[adapterId] ?? null
+    default: return null
+  }
+}
+
 export function channelOf(id: string): ChannelBinding | undefined {
   return CHANNELS.find((c) => c.id === id)
 }

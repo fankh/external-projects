@@ -371,6 +371,9 @@ def sc_adapter(pg, base, check):
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     check('실패' in pg.locator('.card', has_text='발송 이력').inner_text(), '채널 중지 → 발송 실패 기록')
+    # 어댑터 계약 자가진단 — 전 프로필 바인딩·계약 적합 (프레임워크 무결성)
+    conf = pg.locator('.card', has_text='어댑터 계약 자가진단')
+    check('전 프로필 적합' in conf.inner_text() and '부적합' not in conf.locator('.chip').first.inner_text(), '어댑터 자가진단 전 적합')
 
     pg.locator('tr', has_text='그룹웨어 메일').locator('button:has-text("가동")').click()
     pg.wait_for_load_state('networkidle')
@@ -885,7 +888,9 @@ def sc_profile(pg, base, check):
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     body = pg.content()
     check('한빛제조' in body and '그룹웨어 메일·문자' in body, '채널 구성 전환')
-    check('문자(SMS) 발송' not in body, 'SMS 채널 제거(6채널)')
+    # SMS 제거는 연동 채널 카드 기준 — 어댑터 자가진단은 전 프로필을 나열하므로 body 전체가 아니라 채널 카드로 스코프
+    chan_card = pg.locator('.card', has_text='연동 채널').inner_text()
+    check('문자(SMS) 발송' not in chan_card, 'SMS 채널 제거(연동 채널 카드)')
     check('erp-asset' in body, 'ERP 자산 어댑터 바인딩')
     login(pg, base, '박정호')
     pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')

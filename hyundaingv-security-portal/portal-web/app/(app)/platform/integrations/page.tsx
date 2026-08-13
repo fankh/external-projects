@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
+import { runAdapterConformance } from '@/lib/integrations/conformance'
 import { channelSummary, hrAdapter, isEnabled } from '@/lib/integrations/registry'
 import { runDailyNotify } from '@/lib/notify'
 import { getStore, recordBatch } from '@/lib/store'
@@ -52,6 +53,9 @@ export default async function IntegrationsPage() {
   await requireMenu('/platform/integrations')
   const s = getStore()
   const sum = channelSummary()
+  // 어댑터 계약 자가진단 — 전 프로필 × 채널의 바인딩 완결성·계약 적합성 (재사용 프레임워크 무결성)
+  const conformance = await runAdapterConformance()
+  const confFail = conformance.filter((c) => !c.ok)
 
   return (
     <>
@@ -70,6 +74,34 @@ export default async function IntegrationsPage() {
         의존한다. 고객사 배포 시 목업 어댑터를 고객사 구현(그룹웨어·인사·자산·보안 시스템)으로 교체하고
         <span className="mono"> portal.config.ts</span>의 채널 바인딩만 바꾼다.
       </div>
+
+      {/* 어댑터 계약 자가진단 — 고객사 어댑터 스테이징 투입 전 통과해야 하는 프레임워크 게이트 */}
+      <Card title="어댑터 계약 자가진단" kicker="Adapter Conformance" pad={false}
+        actions={confFail.length === 0
+          ? <Chip tone="ok">전 프로필 적합 · {conformance.length}건</Chip>
+          : <Chip tone="err">부적합 {confFail.length}건</Chip>}>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead><tr><th>프로필</th><th>채널</th><th>어댑터</th><th>구분</th><th>결과</th><th>상세</th></tr></thead>
+            <tbody>
+              {conformance.map((c, i) => (
+                <tr key={i}>
+                  <td><Chip tone="neutral" bare>{c.profile}</Chip></td>
+                  <td className="strong">{c.channel}</td>
+                  <td className="code">{c.adapterId}</td>
+                  <td><Chip tone={c.area === '바인딩' ? 'info' : 'warn'} bare>{c.area}</Chip></td>
+                  <td>{c.ok ? <Chip tone="ok" bare>적합</Chip> : <Chip tone="err" bare>부적합</Chip>}</td>
+                  <td className="dim" style={{ fontSize: 11 }}>{c.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="dim" style={{ fontSize: 11.5, padding: '8px 14px' }}>
+          바인딩 = adapterId 가 레지스트리에 해석되는가 · 계약 = 어댑터 호출 반환 형태·불변식.
+          고객사 어댑터는 이 진단을 통과한 뒤 스테이징에 투입한다 ('연동 예정' 채널은 계약 미정으로 제외).
+        </div>
+      </Card>
 
       <Card title="연동 채널" kicker="Channels"
         actions={
