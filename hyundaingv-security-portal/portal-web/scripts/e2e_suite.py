@@ -121,6 +121,9 @@ def sc_sr(pg, base, check):
     check('근거 보완 필요' in detail.inner_text(), '이전 회차 반려 사유 표시')
     detail.locator('button:has-text("승인")').click()
     pg.wait_for_load_state('networkidle')
+    # SR 승인 → 업무담당(박정호)에게 'SR 처리'(CI 배정) 할일 생성 (반쪽 루프 복원 — v1.5.31)
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    ci_after_approve = pg.locator('.card', has_text='미처리 할일').locator('tr', has_text='CI 배정').count()
     pg.goto(f'{base}/sr/ci', wait_until='networkidle')
     check('E2E 데이터 추출' in pg.content(), '재상신 승인 → CI배정')
 
@@ -129,6 +132,10 @@ def sc_sr(pg, base, check):
     row.locator('input[type=file]').set_input_files(str(UPLOAD))
     row.locator('button:has-text("배정 · 착수")').click()
     pg.wait_for_load_state('networkidle')
+    # assignCi 가 'SR 처리' 할일을 배정과 함께 닫는다 — 승인 생성분이 1건 줄어야(생성→마감 루프 완성)
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    ci_after_assign = pg.locator('.card', has_text='미처리 할일').locator('tr', has_text='CI 배정').count()
+    check(ci_after_assign == ci_after_approve - 1, f'SR 처리 할일 생성→assignCi 마감 루프 (CI배정 {ci_after_approve}→{ci_after_assign})')
     pg.goto(f'{base}/sr/manage', wait_until='networkidle')
     check('📎2' in pg.locator('tr', has_text='E2E 데이터 추출').inner_text(), 'BA 첨부 → SR pk 공유 뱃지(📎2)')
 

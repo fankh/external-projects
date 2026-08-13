@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { WITHDRAWABLE_DOC_TYPES } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
 import { requireMenuRole } from '@/lib/authz'
+import { ACCOUNTS } from '@/lib/session'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 
@@ -55,7 +56,18 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
   // 폐쇄 루프 1 — SR 신청 결재가 SR 진행 상태로 전파된다 (승인 → CI배정, 반려 → 반려)
   if (ap.docType === 'SR 신청' && ap.ref) {
     const sr = s.srRequests.find((r) => r.srNo === ap.ref)
-    if (sr && sr.status === '결재중') sr.status = verdict === '승인' ? 'CI배정' : '반려'
+    if (sr && sr.status === '결재중') {
+      sr.status = verdict === '승인' ? 'CI배정' : '반려'
+      // 승인 시 업무담당(BIZ_MGR)에게 'SR 처리'(CI 배정) 할일 생성 — assignCi(sr/ci)가 배정과 함께 닫는다.
+      // (기존엔 생성부가 없어 assignCi 의 마감 루프가 반쪽이었음 — 시드 TD-104 와 동일 형태)
+      if (verdict === '승인') {
+        const owner = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')?.name
+        if (owner) s.todos.unshift({
+          id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
+          owner, kind: 'SR 처리', title: `${sr.srNo} CI 배정`, dueDate: today(), done: false,
+        })
+      }
+    }
   }
 
   // 폐쇄 루프 1-9 — 적용요청서 결재 (결재 시트 5번, 신청 상신과 별개): 승인 → 적용요청(변경 편입 대기), 반려 → 테스트
