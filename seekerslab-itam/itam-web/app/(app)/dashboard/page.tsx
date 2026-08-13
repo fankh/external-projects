@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
 import { APPROVAL_SLA_DAYS, daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isRepairOverdue, isStaleVerify, today } from '@/lib/dates'
+import { eolOsOf } from '@/lib/eol'
 import { hasDataIssue } from '@/lib/quality'
 import { approvalHref, noticeHref } from '@/lib/reflink'
 import { getSession } from '@/lib/session'
@@ -59,6 +60,8 @@ export default async function DashboardPage() {
       { label: '대여 반환 임박 (D-7 · 사전 안내)', count: s.assets.filter(isLoanDueSoon).length, href: '/assets/register', tone: 'warn' },
       { label: '장기 미실측 (재물조사 편성)', count: s.assets.filter(isStaleVerify).length, href: '/inventory/survey-plan', tone: 'warn' },
       { label: '보증 만료 임박 자산 (연장·교체 검토)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90).length, href: '/assets/register?warranty=soon', tone: 'warn' },
+      // EOL OS 자산 — OS 지원 종료 경과(미패치 취약점 상시 노출). 하드웨어 노후(보증·내용연수)와 별개인 SW 업그레이드·교체 트리거.
+      { label: 'EOL OS 자산 (교체·업그레이드 대상)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, today())).length, href: '/assets/register?os=eol', tone: 'err' },
       // SW 라이선스 초과 사용(보유<사용)은 SAM 감사 최우선 노출 리스크 — 계약·라이선스 화면에만 있던 것을 담당자 일과 시작점(대시보드)으로 끌어올린다
       { label: '라이선스 초과 사용 (감사 노출)', count: s.licenses.filter((l) => l.status !== '해지' && l.used > l.purchased).length, href: '/inventory/contracts', tone: 'err' },
       // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.

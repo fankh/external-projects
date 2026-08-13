@@ -3,17 +3,9 @@
  *  외부 노출 CVE·EOL OS 자산·미인가 SW·크리덴셜 노출을 한 축으로 모아 P1/P2/P3 로 순위화한다.
  *  읽기 전용 합성 뷰 — 각 항목은 기존 조치 화면(loops)으로 연결된다. */
 import { today } from './dates'
+import { eolOsOf } from './eol'
 import { getStore } from './store'
 import type { AssetCategory, RiskLevel } from './types'
-
-/** OS EOL 기준일 — 지원 종료된 OS 는 보안 패치가 없어 미패치 취약점에 상시 노출된다(§05 EOL OS). */
-const OS_EOL: { match: RegExp; label: string; eol: string }[] = [
-  { match: /windows\s*7/i, label: 'Windows 7', eol: '2020-01-14' },
-  { match: /windows\s*server\s*2012/i, label: 'Windows Server 2012', eol: '2023-10-10' },
-  { match: /centos\s*7/i, label: 'CentOS 7', eol: '2024-06-30' },
-  { match: /ubuntu\s*18\.04/i, label: 'Ubuntu 18.04', eol: '2023-05-31' },
-  { match: /windows\s*10/i, label: 'Windows 10', eol: '2025-10-14' },
-]
 
 export type VulnSource = '외부 노출 CVE' | 'EOL OS' | '미인가 SW' | '크리덴셜 노출'
 
@@ -79,9 +71,9 @@ export function buildVulnPriority(): VulnPriority {
 
   // 2) EOL OS 자산 — 지원 종료 경과 자산(운영 중). 미패치 상시 노출로 심각도 높음.
   for (const a of s.assets) {
-    if (['폐기완료', '폐기예정'].includes(a.status) || !a.os) continue
-    const eol = OS_EOL.find((x) => x.match.test(a.os!))
-    if (!eol || eol.eol > t) continue
+    if (['폐기완료', '폐기예정'].includes(a.status)) continue
+    const eol = eolOsOf(a.os, t)
+    if (!eol) continue
     const criticality = assetCriticality({ category: a.category, location: a.location })
     const score = scoreOf('높음', criticality)
     items.push({

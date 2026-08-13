@@ -134,6 +134,9 @@ try {
   check('자산 대장: 상태 요약(구성) 스트립 렌더', mgrHtml.includes('상태 요약'))
   // 보증 임박 필터 — 보증 90일 이내 만료·경과 자산(시드에 다수)이 있어 토글이 렌더된다
   check('자산 대장: 보증 임박 필터 렌더', mgrHtml.includes('보증 임박'))
+  // EOL OS 필터 — OS 지원 종료 경과 자산(시드 CentOS 7.9·Windows 10)이 있어 토글이 렌더된다 (미패치 취약점 노출·교체 대상)
+  // (?os=eol 딥링크의 필터 활성화는 클라이언트 상태라 e2e 로 검증)
+  check('자산 대장: EOL OS 필터 렌더', mgrHtml.includes('EOL OS'))
   // 정합성 미흡 필터 — 소유자·시리얼·위치 누락 자산(시드 2건)이 있어 토글이 렌더된다 (CMDB 스튜어드십)
   check('자산 대장: 정합성 미흡 필터 렌더', mgrHtml.includes('정합성 미흡'))
   // 정합성 미흡 상세 배너 — AST-2022-000512(사용중·소유자/위치 미지정)에 누락 필드가 표시된다
@@ -190,6 +193,8 @@ try {
   check('대시보드: 수리 예상 반환 경과 운영 큐 노출 (자산담당)', dashHtml.includes('수리 예상 반환 경과'))
   // 보증 만료 임박 자산 — 개별 자산 보증 만료를 대시보드 운영 큐에 surфacing (?warranty=soon 드릴)
   check('대시보드: 보증 만료 임박 자산 큐 + 드릴 링크', dashHtml.includes('보증 만료 임박 자산') && dashHtml.includes('warranty=soon'))
+  // EOL OS 자산 큐 — OS 지원 종료 경과(시드 CentOS 7.9·Windows 10)를 자산담당 운영 큐에 노출, ?os=eol 드릴
+  check('대시보드: EOL OS 자산 큐 + 드릴 링크 (자산담당)', dashHtml.includes('EOL OS 자산') && dashHtml.includes('os=eol'))
   // 라이선스 초과 사용(SAM 감사 최우선 노출) — 시드 LIC-002(JetBrains 120보유/131사용, 11석 초과)로 자산담당 운영 큐에 노출·계약 화면 드릴
   check('대시보드: 라이선스 초과 사용 감사 노출 큐 (자산담당)', dashHtml.includes('라이선스 초과 사용') && dashHtml.includes('감사 노출') && dashHtml.includes('/inventory/contracts'))
   // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다

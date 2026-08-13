@@ -1,5 +1,6 @@
 import { Card, ScreenHeader } from '@/components/ui'
 import { daysUntil, isStaleVerify, today } from '@/lib/dates'
+import { eolOsOf } from '@/lib/eol'
 import { canExport } from '@/lib/exports'
 import { hasDataIssue } from '@/lib/quality'
 import { getSession } from '@/lib/session'
@@ -9,9 +10,9 @@ import { RegisterView } from './RegisterView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string }> }) {
+export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string }> }) {
   const session = (await getSession())!
-  const { q, sel, cat, status, warranty, dq } = await searchParams
+  const { q, sel, cat, status, warranty, dq, os } = await searchParams
   const s = getStore()
   // 화면·기능 단위 최소권한 — 사용자 권한그룹은 본인 보유 자산만 조회
   const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
@@ -25,6 +26,10 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
     .map((a) => a.assetNo)
   // 정합성 미흡(필드 누락·불일치) — 대장·대시보드가 공유하는 lib/quality 의 hasDataIssue 기준
   const dqNos = scoped.filter(hasDataIssue).map((a) => a.assetNo)
+  // EOL OS(지원 종료 경과) — 운영 중 자산 중 OS 지원 종료가 지난 것. 미패치 취약점 상시 노출 → 교체·업그레이드 대상. (제품안내서 §05 취약점 우선순위)
+  const eolNos = scoped
+    .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, today()))
+    .map((a) => a.assetNo)
 
   return (
     <>
@@ -38,7 +43,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       )}
       {session.role !== 'USER' && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} today={today()} initialCat={cat} initialStatus={status} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} today={today()} initialCat={cat} initialStatus={status} />
       </Card>
     </>
   )
