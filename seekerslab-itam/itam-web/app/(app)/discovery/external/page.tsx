@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
 import { CredTable } from './CredTable'
 import { ExposedTable } from './ExposedTable'
+import { IocTable } from './IocTable'
 import { LeakTable } from './LeakTable'
 import { RescanConsole } from './RescanConsole'
 import { getStore } from '@/lib/store'
@@ -40,6 +41,7 @@ export default async function ExternalPage() {
   const unreg = ext.filter((e) => e.state === '미등록')
   const withCve = ext.filter((e) => e.cve)
   const credOpen = s.credentials.filter((c) => c.status !== '조치 완료').length
+  const iocOpen = s.iocMatches.filter((i) => !i.action).length
 
   return (
     <>
@@ -54,6 +56,7 @@ export default async function ExternalPage() {
         <Stat value={unreg.length} label="미등록 — 대장에 없음" tone="err" />
         <Stat value={withCve.length} label="CVE 확인 자산" tone="warn" delta={{ text: `최고 CVSS ${Math.max(...withCve.map((e) => e.cvss ?? 0)).toFixed(1)}`, dir: 'up' }} />
         <Stat value={credOpen} label="크리덴셜 노출 — 미조치" tone={credOpen ? 'err' : 'ok'} />
+        <Stat value={iocOpen} label="IOC 상관 — 미조치" tone={iocOpen ? 'err' : 'ok'} delta={{ text: '위협 행위자 귀속', dir: 'flat' }} />
         <Stat value={s.leaks.length} label="유출 · 침해 수집 건" tone="warn" />
       </div>
 
@@ -135,6 +138,10 @@ export default async function ExternalPage() {
 
       <Card kicker="Credential Exposure" title="인증 취약점 점검 — 기본·취약 크리덴셜 노출" pad={false}>
         <CredTable credentials={s.credentials} canRespond={canRespond} />
+      </Card>
+
+      <Card kicker="Threat Intel · IOC Correlation" title="위협 인텔리전스 — IOC 상관·행위자 귀속" pad={false}>
+        <IocTable iocs={s.iocMatches} canRespond={canRespond} />
       </Card>
 
       <Card kicker="Threat Intel · Dark Web" title="위협 인텔리전스 · 유출 수집" pad={false}>

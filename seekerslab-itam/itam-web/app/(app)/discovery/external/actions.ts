@@ -60,6 +60,33 @@ export async function respondToCredential(credId: string, note: string) {
   return { ok: true, message: `${cred.service} ${cred.host} 크리덴셜 대응 완료 — 보안운영팀 통지·감사 기록 적재` }
 }
 
+/** 위협 인텔 IOC 조치 — IOC 상관(악성 통신·감염 징후)에서 끝내지 않고 차단(프록시·방화벽·EDR) 또는 조사 착수(침해 대응)까지 이어간다.
+ *  (제품안내서 §04 위협 인텔리전스) 침해 대응은 보안 업무이므로 보안담당·Admin 만. 조치 사실은 보안운영팀 통지 + 감사 로그에 남는다. */
+export async function respondToIoc(iocId: string, kind: '차단' | '조사') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: 'IOC 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const ioc = s.iocMatches.find((x) => x.id === iocId)
+  if (!ioc) return { ok: false, message: 'IOC 상관 건을 찾을 수 없습니다.' }
+  if (ioc.action) return { ok: false, message: `이미 ${ioc.action} 처리된 건입니다.` }
+
+  ioc.actedBy = session.name
+  ioc.actedAt = today()
+  if (kind === '차단') {
+    ioc.action = '차단 요청'
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `IOC 차단 집행 요청 — ${ioc.iocType} ${ioc.iocValue} (${ioc.threatActor}) @ ${ioc.matchedAsset}`, kind: '위협 대응', ref: ioc.id })
+    appendAudit({ actor: session.name, action: `IOC 차단 요청 (${ioc.matchType}) — ${ioc.iocValue} @ ${ioc.matchedAsset}`, target: ioc.id })
+  } else {
+    ioc.action = '조사 착수'
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `IOC 침해 조사 착수 — ${ioc.threatActor} @ ${ioc.matchedAsset} (${ioc.dept})`, kind: '위협 대응', ref: ioc.id })
+    appendAudit({ actor: session.name, action: `IOC 침해 조사 착수 (${ioc.matchType}) — ${ioc.iocValue} @ ${ioc.matchedAsset}`, target: ioc.id })
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${ioc.iocValue} ${ioc.action} — 보안운영팀 통지·감사 기록 적재` }
+}
+
 /** 외부 노출 자산 조치 — 검출에서 끝내지 않고 편입(우리 자산이면 대장으로) 또는 차단(노출 차단·NAC 격리)까지 이어간다.
  *  외부 노출은 보안 의사결정이므로 보안담당·Admin 만. 요청 사실은 담당팀 통지 + 감사 로그에 남는다. */
 export async function requestExternalAction(externalId: string, kind: '편입' | '차단') {

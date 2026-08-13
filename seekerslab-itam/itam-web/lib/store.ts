@@ -8,7 +8,7 @@ import { today } from './dates'
 import { checklistFor } from './intake'
 import { fingerprintOf } from './types'
 import type {
-  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding, LocalVmFinding,
+  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
   ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
@@ -18,6 +18,7 @@ export interface Store {
   discovered: DiscoveredAsset[]
   external: ExternalAsset[]
   leaks: LeakFinding[]
+  iocMatches: IocMatch[]
   credentials: CredentialFinding[]
   accounts: AccountFinding[]
   unauthorizedSw: UnauthorizedSw[]
@@ -339,6 +340,16 @@ function seedLeaks(): LeakFinding[] {
 
 /** 인증 취약점 점검 — 오픈 확인된 포트에 한해 기본·취약 크리덴셜을 점검한 서비스별 노출 (제품안내서 §04).
  *  외부 노출 자산(seedExternal)의 서비스에서 이어지는 후속 점검이라 extId 로 잇는다. */
+/** 위협 인텔리전스 IOC 상관 — 외부 위협 인텔 피드 IOC 를 조직 자산·관측과 상관해 위협 맥락(행위자 귀속)을 부여 (제품안내서 §04).
+ *  알려진 자산의 악성 통신·감염 징후를 드러내며, 검출에서 끝내지 않고 보안담당이 차단·조사한다. */
+function seedIocMatches(): IocMatch[] {
+  return [
+    { id: 'IOC-01', iocType: '파일 해시', iocValue: 'sha256:9f2b…c41a (redline.stub)', threatActor: '커머디티 스틸러 (RedLine)', matchType: '파일 해시 일치', matchedAsset: 'AST-2022-000871', dept: '디자인팀', confidence: '높음', source: '상용 위협 인텔 피드', firstSeen: '2026-07-28', severity: '높음', note: '크랙 SW 번들 스틸러 해시 일치 — 저장 크리덴셜 유출 위험' },
+    { id: 'IOC-02', iocType: 'IP', iocValue: '185.220.101.44 (Tor exit·C2 의심)', threatActor: 'APT 의심 C2 인프라', matchType: '아웃바운드 통신', matchedAsset: 'printer-3f-old (10.20.35.60)', dept: '총무팀', confidence: '중간', source: 'IOC 상관 (프록시 로그)', firstSeen: '2026-07-27', severity: '높음', note: '휴면 장비의 외부 C2 의심 아웃바운드 — 이상탐지와 상관' },
+    { id: 'IOC-03', iocType: '도메인', iocValue: 'update-svc[.]lockbit-mirror[.]top', threatActor: '랜섬웨어 (LockBit 계열)', matchType: 'DNS 질의', matchedAsset: 'AST-2020-000883', dept: '인프라운영팀', confidence: '중간', source: '위협 인텔 도메인 피드', firstSeen: '2026-07-26', severity: '중간', note: '랜섬웨어 배포 인프라 도메인 질의 — 초기 침투 징후 조사 필요' },
+  ]
+}
+
 function seedCredentials(): CredentialFinding[] {
   return [
     { id: 'CRED-2607-01', service: 'PostgreSQL', host: 'db-backup.seekerslab.co.kr', port: 5432, issue: '기본 크리덴셜', severity: '높음', foundAt: '2026-07-26', extId: 'EXT-2607-06', note: 'postgres/postgres 기본 계정 접속 성공 — 외부 노출 DB' },
@@ -495,6 +506,7 @@ function seed(): Store {
     discovered: seedDiscovered(),
     external: seedExternal(),
     leaks: seedLeaks(),
+    iocMatches: seedIocMatches(),
     credentials: seedCredentials(),
     accounts: seedAccounts(),
     unauthorizedSw: seedUnauthorizedSw(),
@@ -715,7 +727,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 29
+const SCHEMA_VERSION = 30
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

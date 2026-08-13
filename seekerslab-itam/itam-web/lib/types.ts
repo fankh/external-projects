@@ -562,6 +562,38 @@ export const LEAK_RESPONSE: Record<LeakFinding['kind'], string> = {
   '랜섬웨어 유출 사이트': '침해 대응 개시·법무/CISO 통보, 유출 범위 조사',
 }
 
+/** 위협 인텔리전스 IOC 상관 — 외부 위협 인텔 피드의 IOC(네트워크·호스트·해시)를 조직 자산·관측과 상관해
+ *  알려진 자산에 위협 맥락(위협 행위자 귀속)을 부여한다 (제품안내서 §04 위협 인텔리전스).
+ *  신규 자산 발견이 아니라 이미 아는 자산의 악성 통신·감염 징후를 드러내므로, 검출에서 끝내지 않고 보안담당이 차단·조사한다. */
+export interface IocMatch {
+  id: string
+  iocType: 'IP' | '도메인' | '파일 해시' | 'URL'
+  iocValue: string
+  /** 위협 행위자·캠페인 귀속 */
+  threatActor: string
+  /** 관측 방식 — 어떻게 조직 환경과 상관됐는지 */
+  matchType: '아웃바운드 통신' | '파일 해시 일치' | 'DNS 질의'
+  /** 상관된 자산(대장 자산번호 또는 호스트) */
+  matchedAsset: string
+  dept: string
+  confidence: '높음' | '중간' | '낮음'
+  source: string
+  firstSeen: string
+  severity: RiskLevel
+  note?: string
+  /** 조치 — 차단(프록시·방화벽·EDR 차단) 또는 조사 착수(침해 대응) */
+  action?: '차단 요청' | '조사 착수'
+  actedBy?: string
+  actedAt?: string
+}
+
+/** IOC 관측 방식별 표준 조치 사유 — 판정 근거로 표시한다. */
+export const IOC_RESPONSE: Record<IocMatch['matchType'], string> = {
+  '아웃바운드 통신': 'C2 의심 통신 — 프록시·방화벽 즉시 차단 후 단말 격리·포렌식',
+  '파일 해시 일치': '악성 파일 검출 — EDR 격리·해시 차단, 감염 범위 조사',
+  'DNS 질의': '악성 도메인 질의 — DNS·프록시 차단, 통신 이력 조사',
+}
+
 /** 인증 취약점 점검 결과 — 오픈 확인된 포트에 한해 기본·취약 크리덴셜을 점검한 서비스별 노출.
  *  (제품안내서 §04 외부 공격표면 탐지: "인증 취약점 점검 — SSH·DB·FTP·HTTP Basic·Redis·SMTP 등,
  *   산출: 취약·기본 크리덴셜 노출(서비스별)"). 검출에서 끝내지 않고 보안담당 대응으로 이어간다. */

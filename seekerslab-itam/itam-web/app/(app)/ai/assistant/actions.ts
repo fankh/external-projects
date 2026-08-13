@@ -159,7 +159,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
         `· 위험도: 높음 ${byRisk('높음')} · 중간 ${byRisk('중간')} · 낮음 ${byRisk('낮음')}`,
         `· 채널별 관측: ${chan}`,
         ``,
-        `▶ 외부 위협 미조치: 외부 노출 ${extOpen}건, 크리덴셜 노출 ${credOpen}건(인증 취약점), 다크웹 유출·침해 ${leakOpen}건.`,
+        `▶ 외부 위협 미조치: 외부 노출 ${extOpen}건, 크리덴셜 노출 ${credOpen}건(인증 취약점), IOC 상관 ${s.iocMatches.filter((i) => !i.action).length}건(위협 인텔), 다크웹 유출·침해 ${leakOpen}건.`,
         `▶ 엔드포인트·계정 위생 미조치: 휴면 계정 ${acctOpen}건, 미인가 SW ${swOpen}건, USB 매체 ${usbOpen}건, 로컬 VM ${vmOpen}건 (채널 04 EDR·06 AD/IdP).`,
         `▶ 미처리 미등록 ${untriaged}건(소유자 확인·편입·격리 판정 대기), 확인요청 진행 ${confirming}건.`,
         untriaged + extOpen + leakOpen + credOpen + endpointOpen > 0

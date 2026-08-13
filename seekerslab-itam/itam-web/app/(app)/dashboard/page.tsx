@@ -78,6 +78,7 @@ export default async function DashboardPage() {
       { label: '취약점 우선순위 P1 (즉시 조치)', count: p1, href: '/ai/insights', tone: 'err' },
       { label: '유출 · 침해 미조치', count: s.leaks.filter((l) => l.status !== '조치 완료').length, href: '/discovery/external', tone: 'err' },
       { label: '크리덴셜 노출 미조치 (인증 취약점)', count: s.credentials.filter((c) => c.status !== '조치 완료').length, href: '/discovery/external', tone: 'err' },
+      { label: 'IOC 상관 미조치 (위협 인텔·침해 징후)', count: s.iocMatches.filter((i) => !i.action).length, href: '/discovery/external', tone: 'err' },
       { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external', tone: 'err' },
       { label: '휴면 계정 미처리 (AD/IdP 계정 위생)', count: s.accounts.filter((a) => !a.action).length, href: '/discovery/found', tone: 'warn' },
       { label: '미인가 SW 미조치 (EDR 정책 위반)', count: s.unauthorizedSw.filter((w) => !w.action).length, href: '/discovery/found', tone: 'err' },

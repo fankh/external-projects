@@ -103,7 +103,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         title: '조치 현황',
         bullets: [
           `편입 요청 ${handled.filter((d) => d.action?.startsWith('편입')).length}건 · 격리 요청 ${handled.filter((d) => d.action?.startsWith('격리')).length}건`,
-          `외부·엔드포인트 위협 미조치 — 크리덴셜 노출 ${credOpen.length} · 휴면 계정 ${acctOpen.length} · 미인가 SW ${swOpen.length} · USB 매체 ${usbOpen.length} · 로컬 VM ${vmOpen.length} · 다크웹 유출 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
+          `외부·엔드포인트 위협 미조치 — 크리덴셜 노출 ${credOpen.length} · IOC 상관 ${s.iocMatches.filter((i) => !i.action).length} · 휴면 계정 ${acctOpen.length} · 미인가 SW ${swOpen.length} · USB 매체 ${usbOpen.length} · 로컬 VM ${vmOpen.length} · 다크웹 유출 ${s.leaks.filter((l) => l.status !== '조치 완료').length}`,
           `결재 대기 ${s.approvals.filter((a) => a.status === '대기').length}건`,
           `활성 탐지 채널 ${s.scanPolicies.filter((p) => p.enabled).length}/${s.scanPolicies.length}`,
         ],
@@ -407,6 +407,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         ['USB 저장매체 (EDR·DLP)', String(s.usbFindings.length), String(s.usbFindings.filter((u) => u.action).length), String(s.usbFindings.filter((u) => !u.action).length)],
         ['로컬 가상머신 (EDR)', String(s.localVms.length), String(s.localVms.filter((v) => v.action).length), String(s.localVms.filter((v) => !v.action).length)],
         ['외부 노출 자산', String(s.external.length), String(s.external.filter((e) => e.action).length), String(s.external.filter((e) => !e.action && e.state !== '등록·일치').length)],
+        ['위협 인텔 IOC 상관', String(s.iocMatches.length), String(s.iocMatches.filter((i) => i.action).length), String(s.iocMatches.filter((i) => !i.action).length)],
         ['다크웹 유출·침해', String(s.leaks.length), String(s.leaks.filter((l) => l.status === '조치 완료').length), String(s.leaks.filter((l) => l.status !== '조치 완료').length)],
       ],
     },
