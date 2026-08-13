@@ -243,6 +243,9 @@ try {
   // USB 정책 위반 미조치 — loop48. EDR 이동식 매체 DLP 도 보안담당 운영 큐에 노출(자산담당엔 미노출)
   check('대시보드(보안담당): USB 정책 위반 미조치 운영 큐 노출', dashSec.includes('USB 정책 위반 미조치'))
   check('대시보드(자산담당): USB 큐 미노출 (보안 운영 큐)', !dashHtml.includes('USB 정책 위반 미조치'))
+  // 로컬 VM 위반 미조치 — loop49. EDR 로컬 가상머신도 보안담당 운영 큐에 노출(자산담당엔 미노출)
+  check('대시보드(보안담당): 로컬 VM 위반 미조치 운영 큐 노출', dashSec.includes('로컬 VM 위반 미조치'))
+  check('대시보드(자산담당): 로컬 VM 큐 미노출 (보안 운영 큐)', !dashHtml.includes('로컬 VM 위반 미조치'))
   // 유출·침해 미조치 — 시드 유출 4건(status 미설정=미조치)이 보안담당 운영 큐에 노출돼야 한다(과거 status==='미조치' 비교로 0 처리되던 회귀 방지)
   check('대시보드(보안담당): 유출·침해 미조치 운영 큐 노출', dashSec.includes('유출 · 침해 미조치'))
   // 취약점 우선순위 P1 — 스코어링(§05)의 즉시 조치 등급을 보안담당 운영 큐에 노출 (자산담당엔 미노출)
@@ -274,6 +277,10 @@ try {
   check('발견 자산: USB 저장매체 정책 위반 카드 렌더', foundHtml.includes('USB 저장매체') && foundHtml.includes('Samsung T7 SSD') && foundHtml.includes('이동식 매체'))
   check('발견 자산: 보안담당에 USB 조치(차단·예외 승인) 노출', foundHtml.includes('대용량 반출 의심') && foundHtml.includes('예외 승인'))
   check('발견 자산: 자산담당엔 USB 조치 버튼 미노출 (조회만)', foundAsset.includes('USB 저장매체') && !foundAsset.includes('차단</button>'))
+  // 로컬 VM(loop49) — 채널 04(EDR) 로컬 가상머신. EDR 채널 3종 산출(설치SW·USB·로컬VM) 완결. 보안담당이 회수·예외 승인으로 조치.
+  check('발견 자산: 로컬 가상머신 정책 위반 카드 렌더', foundHtml.includes('로컬 가상머신') && foundHtml.includes('VirtualBox · legacy-test') && foundHtml.includes('엔드포인트 VM'))
+  check('발견 자산: 보안담당에 로컬 VM 조치(회수·예외 승인) 노출', foundHtml.includes('EOL·미패치 게스트') && foundHtml.includes('예외 승인'))
+  check('발견 자산: 자산담당엔 로컬 VM 조치 버튼 미노출 (조회만)', foundAsset.includes('로컬 가상머신') && !foundAsset.includes('회수</button>'))
   const contractsHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약·라이선스: 보유–사용 대사·등록(계약·라이선스) 렌더', contractsHtml.includes('JetBrains') && contractsHtml.includes('초과 사용') && contractsHtml.includes('라이선스 등록') && contractsHtml.includes('계약 등록'))
   // 계약 목록 필터 — 구분·상태·만료 임박·검색
@@ -719,8 +726,8 @@ try {
   check('리포트: 월간 자산 현황에 자산 처분 실적 반영', repHtml.includes('자산 처분 실적'))
   // 감사 대응 자료 리포트에 대장 정합성(CMDB 정확도) 반영 — 생성 시 buildSections 가 정합성 섹션 산출
   check('리포트: 감사 대응 자료에 대장 정합성(CMDB 정확도) 반영', repHtml.includes('대장 정합성(CMDB 정확도)'))
-  // 주간 Shadow IT 브리핑에 인증·계정·SW·매체 정책 위반(loops 45-48) 반영 — 생성 시 buildSections 가 해당 섹션 산출
-  check('리포트: 주간 Shadow IT 브리핑에 인증·계정·SW·매체 정책 위반 반영', repHtml.includes('인증·계정·SW·매체 정책 위반'))
+  // 주간 Shadow IT 브리핑에 인증·계정·엔드포인트 정책 위반(loops 45-49) 반영 — 생성 시 buildSections 가 해당 섹션 산출
+  check('리포트: 주간 Shadow IT 브리핑에 인증·계정·엔드포인트 정책 위반 반영', repHtml.includes('인증·계정·엔드포인트 정책 위반'))
   // 감사 대응 자료에 위협 대응 현황(검출→조치 증적) 반영
   check('리포트: 감사 대응 자료에 위협 대응 현황 반영', repHtml.includes('위협 대응 현황'))
   // 연간 교체 계획에 잔존가치(장부가) 반영 — 유형 설명·생성 리포트에 반영

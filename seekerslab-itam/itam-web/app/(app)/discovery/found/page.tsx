@@ -7,6 +7,7 @@ import { CONFIRM_DEADLINE_DAYS, RECONCILE_STATES, type ReconcileState } from '@/
 import { AccountTable } from './AccountTable'
 import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
+import { LocalVmTable } from './LocalVmTable'
 import { UnauthorizedSwTable } from './UnauthorizedSwTable'
 import { UsbTable } from './UsbTable'
 
@@ -55,6 +56,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
   const accountsOpen = s.accounts.filter((a) => !a.action).length
   const unauthSwOpen = s.unauthorizedSw.filter((w) => !w.action).length
   const usbOpen = s.usbFindings.filter((u) => !u.action).length
+  const vmOpen = s.localVms.filter((v) => !v.action).length
 
   return (
     <>
@@ -75,6 +77,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
         <Stat value={accountsOpen} label="휴면 계정 — 미처리" tone={accountsOpen ? 'warn' : 'ok'} delta={{ text: 'AD/IdP·SSO 계정 위생', dir: 'flat' }} />
         <Stat value={unauthSwOpen} label="미인가 SW — 미조치" tone={unauthSwOpen ? 'err' : 'ok'} delta={{ text: 'EDR 설치 SW 정책 위반', dir: 'flat' }} />
         <Stat value={usbOpen} label="USB 정책 위반 — 미조치" tone={usbOpen ? 'err' : 'ok'} delta={{ text: 'EDR 이동식 매체(DLP)', dir: 'flat' }} />
+        <Stat value={vmOpen} label="로컬 VM 위반 — 미조치" tone={vmOpen ? 'err' : 'ok'} delta={{ text: 'EDR 로컬 가상머신', dir: 'flat' }} />
       </div>
 
       <div className="callout">
@@ -98,6 +101,10 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
 
       <Card kicker="Removable Media · Channel 04 (EDR)" title="USB 저장매체 — 이동식 매체 정책 위반(DLP)" pad={false}>
         <UsbTable items={s.usbFindings} canAct={canAccount} />
+      </Card>
+
+      <Card kicker="Local VM · Channel 04 (EDR)" title="로컬 가상머신 — 엔드포인트 VM 정책 위반" pad={false}>
+        <LocalVmTable items={s.localVms} canAct={canAccount} />
       </Card>
     </>
   )

@@ -82,6 +82,7 @@ export default async function DashboardPage() {
       { label: '휴면 계정 미처리 (AD/IdP 계정 위생)', count: s.accounts.filter((a) => !a.action).length, href: '/discovery/found', tone: 'warn' },
       { label: '미인가 SW 미조치 (EDR 정책 위반)', count: s.unauthorizedSw.filter((w) => !w.action).length, href: '/discovery/found', tone: 'err' },
       { label: 'USB 정책 위반 미조치 (이동식 매체 DLP)', count: s.usbFindings.filter((u) => !u.action).length, href: '/discovery/found', tone: 'err' },
+      { label: '로컬 VM 위반 미조치 (엔드포인트 가상머신)', count: s.localVms.filter((v) => !v.action).length, href: '/discovery/found', tone: 'warn' },
       { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
     )
   }

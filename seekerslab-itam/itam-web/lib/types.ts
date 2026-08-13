@@ -677,6 +677,36 @@ export const USB_POLICY: Record<UsbFinding['kind'], string> = {
   '암호화 미적용': '비암호화 저장매체 — 분실 시 유출 위험, 암호화 매체로 교체 요구',
 }
 
+/** 로컬 가상머신 정책 위반 — EDR·백신 콘솔이 검출한 엔드포인트 내 로컬 VM(제품안내서 §04 탐지 채널 04 EDR: "설치 SW, USB, 로컬 가상머신").
+ *  미인가 하이퍼바이저·EOL 게스트·미관리 VM 은 관리 사각지대(미패치·통제 우회)이므로, 검출에서 끝내지 않고 보안담당이 회수 또는 예외 승인한다. */
+export interface LocalVmFinding {
+  id: string
+  /** VM 식별 — 하이퍼바이저·VM 명 요약 */
+  vm: string
+  /** 게스트 OS */
+  guestOs: string
+  /** 실행 자산(호스트) — 대장 자산번호로 연결 */
+  assetNo: string
+  owner: string
+  dept: string
+  kind: '미인가 하이퍼바이저' | 'EOL·미패치 게스트' | '미관리 VM'
+  detectedBy: string
+  firstSeen: string
+  risk: RiskLevel
+  note?: string
+  /** 조치 — 회수(하이퍼바이저 제거·VM 삭제 요청) 또는 예외 승인(등록된 개발용 VM) */
+  action?: '회수 요청' | '예외 승인'
+  actedBy?: string
+  actedAt?: string
+}
+
+/** 로컬 VM 유형별 표준 조치 사유 — 판정 근거로 표시한다. */
+export const LOCALVM_POLICY: Record<LocalVmFinding['kind'], string> = {
+  '미인가 하이퍼바이저': '승인되지 않은 가상화 SW(VMware·VirtualBox·WSL 등) — 제거·예외 심사',
+  'EOL·미패치 게스트': '지원 종료·미패치 게스트 OS — 관리 사각지대의 취약점 상시 노출, 회수 우선',
+  '미관리 VM': '자산관리 미등록 VM — 통제 우회·미패치 위험, 등록 또는 회수',
+}
+
 /** 연동 대상 시스템 (제품안내서 §06) — 수집 소스이자 조치 채널 */
 export interface Integration {
   id: string

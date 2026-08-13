@@ -8,7 +8,7 @@ import { today } from './dates'
 import { checklistFor } from './intake'
 import { fingerprintOf } from './types'
 import type {
-  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding,
+  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding, LocalVmFinding,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
   ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
@@ -22,6 +22,7 @@ export interface Store {
   accounts: AccountFinding[]
   unauthorizedSw: UnauthorizedSw[]
   usbFindings: UsbFinding[]
+  localVms: LocalVmFinding[]
   integrations: Integration[]
   auditLogs: AuditLog[]
   codeGroups: CodeGroup[]
@@ -376,6 +377,16 @@ function seedUsbFindings(): UsbFinding[] {
   ]
 }
 
+/** 로컬 가상머신 정책 위반 — EDR·백신 콘솔이 검출한 엔드포인트 내 로컬 VM (제품안내서 §04 채널 04).
+ *  실행 자산(assetNo)에 연결되며, 검출에서 끝내지 않고 보안담당이 회수·예외 승인으로 조치한다. */
+function seedLocalVms(): LocalVmFinding[] {
+  return [
+    { id: 'LVM-01', vm: 'VMware Workstation · dev-sandbox', guestOs: 'Ubuntu 22.04', assetNo: 'AST-2023-000113', owner: '이서연', dept: '플랫폼개발팀', kind: '미인가 하이퍼바이저', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-27', risk: '중간', note: '승인 없이 설치된 가상화 SW — 개발용 여부 확인 필요' },
+    { id: 'LVM-02', vm: 'VirtualBox · legacy-test', guestOs: 'Windows 7', assetNo: 'AST-2022-000871', owner: '정하윤', dept: '디자인팀', kind: 'EOL·미패치 게스트', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-25', risk: '높음', note: '지원 종료 Windows 7 게스트 — 미패치 취약점 상시 노출, 관리 사각지대' },
+    { id: 'LVM-03', vm: 'KVM · unregistered-guest', guestOs: 'CentOS 7.9', assetNo: 'AST-2020-000883', owner: '인프라운영팀', dept: '인프라운영팀', kind: '미관리 VM', detectedBy: 'EDR·백신 콘솔', firstSeen: '2026-07-24', risk: '중간', note: '대장 미등록 게스트 — 통제 우회·자산 사각지대' },
+  ]
+}
+
 function seedIntegrations(): Integration[] {
   return [
     { id: 'INT-NAC', system: 'NAC', method: 'REST API', purpose: '단말 인증·미인증 목록 수집, 미확인 자산 격리 요청', role: '수집 · 조치', status: '정상', lastSync: '2026-07-29 09:40', volume24h: 1_284 },
@@ -485,6 +496,7 @@ function seed(): Store {
     accounts: seedAccounts(),
     unauthorizedSw: seedUnauthorizedSw(),
     usbFindings: seedUsbFindings(),
+    localVms: seedLocalVms(),
     integrations: seedIntegrations(),
     auditLogs: seedAuditLogs(),
     codeGroups: seedCodeGroups(),
@@ -700,7 +712,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 28
+const SCHEMA_VERSION = 29
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

@@ -282,3 +282,30 @@ export async function respondToUsb(usbId: string, kind: '차단' | '예외 승�
   revalidatePath('/', 'layout')
   return { ok: true, message: `${u.device} ${u.action} — ${kind === '차단' ? '보안운영팀' : u.dept} 통지·감사 적재` }
 }
+
+/** 로컬 가상머신 조치 — EDR 검출 로컬 VM 정책 위반을 회수(하이퍼바이저 제거·VM 삭제) 또는 예외 승인(등록 개발용 VM)한다.
+ *  (제품안내서 §04 채널 04 EDR: 로컬 가상머신) 관리 사각지대 통제이므로 보안담당·Admin 만. 요청은 실행 부서·보안운영팀 통지 + 감사 로그에 남는다. */
+export async function respondToLocalVm(vmId: string, kind: '회수' | '예외 승인') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '로컬 VM 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const v = s.localVms.find((x) => x.id === vmId)
+  if (!v) return { ok: false, message: '로컬 VM 검출 항목을 찾을 수 없습니다.' }
+  if (v.action) return { ok: false, message: `이미 ${v.action} 처리된 항목입니다.` }
+
+  v.actedBy = session.name
+  v.actedAt = today()
+  if (kind === '회수') {
+    v.action = '회수 요청'
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `로컬 VM 회수 집행 요청 — ${v.vm} (${v.guestOs}) @ ${v.assetNo} (${v.owner}·${v.dept}, ${v.kind})`, kind: '위협 대응', ref: v.id })
+    appendAudit({ actor: session.name, action: `로컬 VM 회수 요청 (${v.kind}) — ${v.vm} @ ${v.assetNo}`, target: v.id })
+  } else {
+    v.action = '예외 승인'
+    dispatch({ channel: '이메일', to: v.dept, subject: `로컬 VM 예외 승인 — ${v.vm} (${v.assetNo}) 업무용 등록 인정`, kind: '위협 대응', ref: v.id })
+    appendAudit({ actor: session.name, action: `로컬 VM 예외 승인 (${v.kind}) — ${v.vm} @ ${v.assetNo}`, target: v.id })
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${v.vm} ${v.action} — ${kind === '회수' ? '보안운영팀' : v.dept} 통지·감사 적재` }
+}
