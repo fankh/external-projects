@@ -910,6 +910,49 @@ def sc_batchref(pg, base, check):
     check('0건' in detail.inner_text(), '반려 문서 상세가 새 묶음을 가리키지 않음(0건)')
 
 
+def sc_rebundle_multi(pg, base, check):
+    """회전참조 문서 동시 다중 반려 — 같은 유형(장애보고) 두 묶음이 함께 반려된 상태에서
+    한 묶음만 재상신하면 '재상신' 할일이 정확히 한 건만 닫혀야 한다(다른 묶음의 재상신
+    의무·방치 알림이 사라지면 안 됨). 회전참조는 회차 식별자가 없어 개수 일치로 검증한다."""
+    todo_card = lambda: pg.locator('.card', has_text='미처리 할일')
+    n_rebundle_todos = lambda: todo_card().locator('tr', has_text='[장애보고 상신]').count()
+
+    # 박정호(BIZ_MGR)가 FL-2026-11, FL-2026-12 를 각각 별도 보고서로 상신 → 두 묶음
+    login(pg, base, '박정호')
+    for inc in ('FL-2026-11', 'FL-2026-12'):
+        pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+        pg.check(f'input[name=ids][value="{inc}"]')
+        pg.click('button:has-text("선택 건 장애보고 상신")')
+        pg.wait_for_load_state('networkidle')
+
+    # 결재자(장애보고 → 시스템관리자)가 두 묶음 모두 반려
+    login(pg, base, '시스템관리자')
+    for _ in range(2):
+        pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+        row = pg.locator('tr', has_text='[장애보고]').first
+        row.locator('input[name=reason]').fill('통계 보완 필요')
+        row.locator('button:has-text("반려")').click()
+        pg.wait_for_load_state('networkidle')
+
+    # 박정호 재상신 할일 두 건 확인 (두 묶음 각각)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    n_before = n_rebundle_todos()
+    check(n_before >= 2, f'두 묶음 반려 → 장애보고 재상신 할일 2건 (실제 {n_before})')
+
+    # 한 묶음만 재상신 (FL-2026-11 다시 선택 상신)
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    pg.check('input[name=ids][value="FL-2026-11"]')
+    pg.click('button:has-text("선택 건 장애보고 상신")')
+    pg.wait_for_load_state('networkidle')
+
+    # 재상신 1회 → 정확히 한 건만 닫히고 다른 묶음 할일은 남아야 한다 (버그면 둘 다 닫혀 0건)
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    n_after = n_rebundle_todos()
+    check(n_after == n_before - 1,
+          f'재상신 1회 → 재상신 할일 정확히 1건만 마감 (전 {n_before} → 후 {n_after}, 버그면 {n_before - 2})')
+
+
 def sc_profile(pg, base, check):
     """프로필 스위칭 — PORTAL_PROFILE=manufacturer 로 브랜딩·채널 구성 전환"""
     pg.goto(f'{base}/login', wait_until='networkidle')
@@ -997,6 +1040,7 @@ SCENARIOS = [
     ('profile', '고객사 프로필 스위칭 (manufacturer)', sc_profile, {'PORTAL_PROFILE': 'manufacturer'}),
     ('profile_public', '고객사 프로필 스위칭 (public)', sc_profile_public, {'PORTAL_PROFILE': 'public'}),
     ('batchref', '상신 묶음 번호 재사용 금지 (반려 후 재상신)', sc_batchref, {}),
+    ('rebundle_multi', '회전참조 동시 다중 반려 — 재상신 1회는 할일 1건만 마감', sc_rebundle_multi, {}),
     ('persist', '데이터 파일 영속화 · 시드 머지 (구버전 호환)', sc_persist,
      {'PORTAL_DATA_FILE': str(DATA), 'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
 ]

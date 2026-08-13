@@ -53,10 +53,19 @@ export function draftApproval(opts: {
   audit(opts.drafter.name, '결재 상신', `${apId} ${opts.docType} — ${opts.title} (결재자 ${approver})`)
 
   // 폐쇄 루프 — 반려로 생긴 기안자의 '재상신' 할일은 재상신과 함께 닫힌다.
-  // 묶음 문서(장애·출력물·서약)는 재상신마다 새 묶음 번호를 받아 참조가 회전하므로 문서 유형 태그로 매칭한다.
-  for (const t of s.todos) {
+  //  · 비묶음 문서: 참조 번호 일치로 그 할일을 정확히 닫는다.
+  //  · 묶음 문서(장애·출력물·서약): 재상신마다 새 묶음 번호를 받아 참조가 회전하므로 문서 유형으로
+  //    매칭하되, 재상신 1회는 반려 1건에 대응하므로 가장 오래된 것 하나만 닫는다. 같은 유형의
+  //    묶음이 여럿 동시에 반려된 경우, 한 번 재상신에 전부 닫혀 잔여 반려의 방치 알림이 사라지는
+  //    것을 막는다(할일 자체엔 회차 식별자가 없어 개수 일치만 보장한다).
+  const isRotating = ROTATING_DOC_TYPES.includes(opts.docType)
+  let rotatingClosed = false
+  // s.todos 는 unshift 로 최신이 앞 — 오래된 것부터 닫으려 뒤에서부터 훑는다.
+  for (let i = s.todos.length - 1; i >= 0; i--) {
+    const t = s.todos[i]
     if (t.done || t.kind !== '재상신' || t.owner !== opts.drafter.name) continue
-    if (t.title.includes(opts.ref) || (ROTATING_DOC_TYPES.includes(opts.docType) && t.title.startsWith(`[${opts.docType}]`))) t.done = true
+    if (t.title.includes(opts.ref)) { t.done = true; continue }
+    if (isRotating && !rotatingClosed && t.title.startsWith(`[${opts.docType}]`)) { t.done = true; rotatingClosed = true }
   }
   return apId
 }
