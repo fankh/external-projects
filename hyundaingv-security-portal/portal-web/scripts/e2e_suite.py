@@ -471,17 +471,27 @@ def sc_remote(pg, base, check):
 
 
 def sc_revision(pg, base, check):
-    """서약양식 개정 → 전원 재서약 재산출 → 스캔본 등록"""
-    from datetime import datetime, timedelta, timezone
-    today = (datetime.now(timezone.utc) + timedelta(hours=9)).strftime('%Y-%m-%d')
+    """서약양식 개정(현재 시각) — 같은 날 개정 이전 서명도 무효화 → 전원 재서약 → 스캔본 등록.
+    signedAt/revisedAt 시각(초) 단위 정밀도 검증(v1.5.33): 당일 개정 전 서명이 유효로 남으면 안 됨."""
+    # 김현우가 오늘 일반 서약 (같은 날 개정 이전 서명)
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/pledge/my', wait_until='networkidle')
+    form = pg.locator('form:has(button:has-text("서약서 제출"))')
+    form.locator('input[name=agree]').check()
+    form.locator('button:has-text("서약서 제출")').click()
+    pg.wait_for_selector('text=제출 완료', timeout=10000)
+    check('제출 완료' in pg.content(), '오늘 일반 서약 완료')
+
+    # 박정호가 지금(현재 시각) 개정 — 방금 김현우 서명 직후. 날짜 입력 없이 즉시 개정.
     login(pg, base, '박정호')
     pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
-    row = pg.locator('tr', has_text='일반 보안서약서')
-    row.locator('input[name=revisedAt]').fill(today)
-    row.locator('button:has-text("개정")').click()
+    pg.locator('tr', has_text='일반 보안서약서').locator('button:has-text("개정")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
-    check('8' in pg.locator('.stat', has_text='미서약').inner_text(), '개정 → 전원(8명) 재서약 대상')
+    # 당일 개정 이전 서명(김현우 포함)이 전부 무효화돼야 8명 — 시각 미보정(날짜 단위)이면 김현우가
+    # 유효로 남아 7명이 된다. 이 검사가 곧 same-day 무효화 회귀 테스트다.
+    check('8' in pg.locator('.stat', has_text='미서약').inner_text(), '같은 날 개정 → 당일 서명 포함 전원(8명) 재서약 대상')
+
     pg.locator('tr', has_text='강도윤').locator('button:has-text("스캔본 업로드")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/pledge/manage', wait_until='networkidle')

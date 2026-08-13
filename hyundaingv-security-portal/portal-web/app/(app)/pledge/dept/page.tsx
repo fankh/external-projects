@@ -112,7 +112,7 @@ export default async function DeptPledgePage() {
                       <tr key={p.name}>
                         <td className="strong">{p.name}</td>
                         <td>{sig ? <Chip tone="ok">서약 완료</Chip> : <Chip tone="err">미서약</Chip>}</td>
-                        <td className="tnum">{sig?.signedAt ?? '-'}</td>
+                        <td className="tnum">{sig?.signedAt?.slice(0, 10) ?? '-'}</td>
                         <td>{sig?.method ?? '-'}</td>
                       </tr>
                     )

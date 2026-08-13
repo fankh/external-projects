@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { today } from '@/lib/dates'
+import { nowStampSec, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 
 const YEAR = '2026'
@@ -26,7 +26,7 @@ async function sign(formData: FormData) {
   const s = getStore()
   if (validSign(s, me.name)) return
 
-  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '일반', signedAt: today(), method: '온라인' })
+  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '일반', signedAt: nowStampSec(), method: '온라인' })
 
   // 폐쇄 루프 — 제출과 함께 '보안서약서' 할일이 닫히고, 대시보드·부서 현황 집계가 갱신된다
   const todo = s.todos.find((t) => t.owner === me.name && t.kind === '보안서약서' && !t.done)
@@ -47,7 +47,7 @@ async function signKind(formData: FormData) {
   const s = getStore()
   const revisedAt = s.pledgeForms.find((f) => f.kind === kind)?.revisedAt ?? '0000-00-00'
   if (s.pledges.some((p) => p.name === me.name && p.year === YEAR && p.kind === kind && p.signedAt >= revisedAt)) return
-  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind, signedAt: today(), method: '온라인' })
+  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind, signedAt: nowStampSec(), method: '온라인' })
   revalidatePath('/', 'layout')
 }
 
@@ -63,7 +63,7 @@ async function signProject(formData: FormData) {
   if (!pj || (pj.members && !pj.members.includes(me.name))) return
   const revisedAt = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
   if (s.pledges.some((p) => p.name === me.name && p.kind === '프로젝트' && p.projectRef === projectRef && p.signedAt >= revisedAt)) return
-  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '프로젝트', signedAt: today(), method: '온라인', projectRef })
+  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '프로젝트', signedAt: nowStampSec(), method: '온라인', projectRef })
   revalidatePath('/', 'layout')
 }
 
@@ -77,7 +77,7 @@ async function signSpecial(formData: FormData) {
   if (!s.securityOfficers.includes(me.name) || !validSign(s, me.name)) return
   const revisedAt = s.pledgeForms.find((f) => f.kind === '특별')?.revisedAt ?? '0000-00-00'
   if (s.pledges.some((p) => p.name === me.name && p.year === YEAR && p.kind === '특별' && p.signedAt >= revisedAt)) return
-  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '특별', signedAt: today(), method: '온라인', duty })
+  s.pledges.push({ name: me.name, dept: me.dept, year: YEAR, kind: '특별', signedAt: nowStampSec(), method: '온라인', duty })
   revalidatePath('/', 'layout')
 }
 
@@ -91,12 +91,12 @@ export default async function MyPledgePage() {
   return (
     <>
       <ScreenHeader kicker="임직원 의식제고" title="보안서약서 제출"
-        desc={`${YEAR}년 일반 보안서약서 (개정일자 ${REVISION}) — 온라인 동의로 제출한다.`}
+        desc={`${YEAR}년 일반 보안서약서 (개정일자 ${REVISION.slice(0, 10)}) — 온라인 동의로 제출한다.`}
         right={signed
-          ? <Chip tone="ok">제출 완료 · {signed.signedAt}</Chip>
+          ? <Chip tone="ok">제출 완료 · {signed.signedAt.slice(0, 10)}</Chip>
           : <Chip tone="err">미제출</Chip>} />
 
-      <Card title={`${YEAR}년 일반 보안서약서`} kicker={`양식 개정일자 ${REVISION}`}>
+      <Card title={`${YEAR}년 일반 보안서약서`} kicker={`양식 개정일자 ${REVISION.slice(0, 10)}`}>
         <p className="dim" style={{ marginBottom: 8 }}>
           본인({me.dept} {me.name})은 회사의 정보보호 규정을 숙지하였으며, 아래 사항을 준수할 것을 서약합니다.
         </p>
@@ -107,7 +107,7 @@ export default async function MyPledgePage() {
 
       {signed ? (
         <div className="callout">
-          <b>제출 완료</b> — {signed.signedAt} {signed.method} 제출. 양식 개정 또는 복직 시 재서약 대상이 되면
+          <b>제출 완료</b> — {signed.signedAt.slice(0, 10)} {signed.method} 제출. 양식 개정 또는 복직 시 재서약 대상이 되면
           나의 할일에 다시 표시됩니다.
         </div>
       ) : (
@@ -127,9 +127,9 @@ export default async function MyPledgePage() {
         const revised = s.pledgeForms.find((f) => f.kind === '관리책임자')?.revisedAt ?? '0000-00-00'
         const done = s.pledges.find((p) => p.name === me.name && p.year === YEAR && p.kind === '관리책임자' && p.signedAt >= revised)
         return (
-          <Card title="관리책임자 보안서약서" kicker={`양식 개정일자 ${revised}`}>
+          <Card title="관리책임자 보안서약서" kicker={`양식 개정일자 ${revised.slice(0, 10)}`}>
             {done ? (
-              <Chip tone="ok">제출 완료 · {done.signedAt}</Chip>
+              <Chip tone="ok">제출 완료 · {done.signedAt.slice(0, 10)}</Chip>
             ) : (
               <form action={signKind} className="hstack" style={{ justifyContent: 'space-between' }}>
                 <input type="hidden" name="kind" value="관리책임자" />
@@ -149,9 +149,9 @@ export default async function MyPledgePage() {
         const revised = s.pledgeForms.find((f) => f.kind === '재택근무')?.revisedAt ?? '0000-00-00'
         const done = s.pledges.find((p) => p.name === me.name && p.year === YEAR && p.kind === '재택근무' && p.signedAt >= revised)
         return (
-          <Card title="재택근무 보안서약서" kicker={`양식 개정일자 ${revised}`}>
+          <Card title="재택근무 보안서약서" kicker={`양식 개정일자 ${revised.slice(0, 10)}`}>
             {done ? (
-              <Chip tone="ok">제출 완료 · {done.signedAt}</Chip>
+              <Chip tone="ok">제출 완료 · {done.signedAt.slice(0, 10)}</Chip>
             ) : (
               <form action={signKind} className="hstack" style={{ justifyContent: 'space-between' }}>
                 <input type="hidden" name="kind" value="재택근무" />
@@ -173,12 +173,12 @@ export default async function MyPledgePage() {
         const mySigns = s.pledges.filter((p) => p.name === me.name && p.kind === '프로젝트' && p.signedAt >= pjRevised)
         const unsignedProjects = active.filter((p) => !mySigns.some((x) => x.projectRef === p.id))
         return (
-          <Card title="특별서약서 — 프로젝트 참여" kicker={`양식 개정일자 ${pjRevised}`}>
+          <Card title="특별서약서 — 프로젝트 참여" kicker={`양식 개정일자 ${pjRevised.slice(0, 10)}`}>
             {mySigns.length > 0 && (
               <div className="hstack" style={{ flexWrap: 'wrap', marginBottom: unsignedProjects.length > 0 ? 8 : 0 }}>
                 {mySigns.map((x) => {
                   const pj = s.projects.find((p) => p.id === x.projectRef)
-                  return <Chip key={x.projectRef} tone="ok">{pj?.title ?? x.projectRef} · {x.signedAt}</Chip>
+                  return <Chip key={x.projectRef} tone="ok">{pj?.title ?? x.projectRef} · {x.signedAt.slice(0, 10)}</Chip>
                 })}
               </div>
             )}
@@ -203,10 +203,10 @@ export default async function MyPledgePage() {
         const spRevised = s.pledgeForms.find((f) => f.kind === '특별')?.revisedAt ?? '0000-00-00'
         const special = s.pledges.find((p) => p.name === me.name && p.year === YEAR && p.kind === '특별' && p.signedAt >= spRevised)
         return (
-          <Card title="특별서약서 — 보안담당자" kicker={`양식 개정일자 ${spRevised}`}>
+          <Card title="특별서약서 — 보안담당자" kicker={`양식 개정일자 ${spRevised.slice(0, 10)}`}>
             {special ? (
               <div className="hstack">
-                <Chip tone="ok">제출 완료 · {special.signedAt}</Chip>
+                <Chip tone="ok">제출 완료 · {special.signedAt.slice(0, 10)}</Chip>
                 <span className="dim">담당업무: {special.duty}</span>
               </div>
             ) : (
@@ -242,7 +242,7 @@ export default async function MyPledgePage() {
                       <Chip tone="neutral" bare>{p.kind}</Chip>
                       {p.projectRef && <span className="mut" style={{ marginLeft: 5 }}>{s.projects.find((x) => x.id === p.projectRef)?.title ?? p.projectRef}</span>}
                     </td>
-                    <td className="tnum">{p.signedAt}</td>
+                    <td className="tnum">{p.signedAt.slice(0, 10)}</td>
                     <td>{p.method}</td>
                   </tr>
                 ))}

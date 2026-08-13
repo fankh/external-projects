@@ -4,7 +4,7 @@ import { draftApproval } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { today } from '@/lib/dates'
+import { nowStampSec, today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { getStore, nextNo } from '@/lib/store'
 import type { PledgeKind } from '@/lib/types'
@@ -22,28 +22,30 @@ async function reviseForm(formData: FormData) {
   'use server'
   const me = await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
   const kind = String(formData.get('kind') ?? '') as PledgeKind
-  const revisedAt = String(formData.get('revisedAt') ?? '')
   const s = getStore()
   const form = s.pledgeForms.find((f) => f.kind === kind)
-  // 미래 개정일자는 그날까지 유효 서약이 불가능해지는 구멍이 된다 — 당일 이전만 허용
-  if (!form || !/^\d{4}-\d{2}-\d{2}$/.test(revisedAt) || revisedAt <= form.revisedAt || revisedAt > today()) return
-  audit(me.name, '서약양식 개정', `${kind} 보안서약서: ${form.revisedAt} → ${revisedAt}`)
+  if (!form) return
+  // 개정은 현재 시각(초 단위)으로 확정한다 — 같은 날 개정 이전에 한 서약도 무효화돼 재서약 대상이
+  // 된다(날짜 단위 개정일자로는 당일 개정 전 서명이 유효로 남던 문제를 시각 단위로 해소).
+  const revisedAt = nowStampSec()
+  const day = revisedAt.slice(0, 10)
+  audit(me.name, '서약양식 개정', `${kind} 보안서약서: ${form.revisedAt.slice(0, 10)} → ${revisedAt}`)
   form.revisedAt = revisedAt
 
   if (kind === '일반') {
     // 폐쇄 루프 — 재서약 대상에게 '보안서약서' 할일이 다시 생기고 안내메일이 나간다
     const targets = unsignedOf(s)
-    const year = today().slice(0, 4)
+    const year = day.slice(0, 4)
     for (const p of targets) {
       if (!s.todos.some((t) => t.owner === p.name && t.kind === '보안서약서' && !t.done)) {
         s.todos.unshift({
           id: nextNo('TD', year, s.todos.map((t) => t.id)),
-          owner: p.name, kind: '보안서약서', title: `${YEAR}년 일반 보안서약서 재서약 (개정 ${revisedAt})`,
-          dueDate: revisedAt, done: false,
+          owner: p.name, kind: '보안서약서', title: `${YEAR}년 일반 보안서약서 재서약 (개정 ${day})`,
+          dueDate: day, done: false,
         })
       }
     }
-    await sendVia('groupware-mail', targets.map((p) => p.name), `[보안서약서] 양식 개정(${revisedAt}) — 재서약 안내`)
+    await sendVia('groupware-mail', targets.map((p) => p.name), `[보안서약서] 양식 개정(${day}) — 재서약 안내`)
   }
   revalidatePath('/', 'layout')
 }
@@ -56,7 +58,7 @@ async function uploadScan(formData: FormData) {
   const s = getStore()
   const person = s.people.find((p) => p.name === name)
   if (!person || !unsignedOf(s).some((p) => p.name === name)) return
-  s.pledges.push({ name: person.name, dept: person.dept, year: YEAR, kind: '일반', signedAt: today(), method: '서면(스캔)' })
+  s.pledges.push({ name: person.name, dept: person.dept, year: YEAR, kind: '일반', signedAt: nowStampSec(), method: '서면(스캔)' })
   const todo = s.todos.find((t) => t.owner === name && t.kind === '보안서약서' && !t.done)
   if (todo) todo.done = true
   revalidatePath('/', 'layout')
@@ -134,12 +136,12 @@ export default async function ManagePledgePage() {
                 {s.pledgeForms.map((f) => (
                   <tr key={f.kind}>
                     <td className="strong">{f.kind} 보안서약서 <span className="mut">(HTML)</span></td>
-                    <td className="tnum">{f.revisedAt}</td>
+                    <td className="tnum">{f.revisedAt.slice(0, 10)}</td>
                     <td className="c">
+                      {/* 개정은 현재 시각으로 확정된다(당일 개정 전 서명도 무효화) — 날짜 입력 없이 즉시 개정 */}
                       <form action={reviseForm} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                         <input type="hidden" name="kind" value={f.kind} />
-                        <input aria-label="revisedAt" className="input" name="revisedAt" required type="date" style={{ height: 25, fontSize: 11.5 }} />
-                        <button type="submit" className="btn sm">개정</button>
+                        <button type="submit" className="btn sm">개정 (현재 시각)</button>
                       </form>
                     </td>
                   </tr>

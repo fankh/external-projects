@@ -9,3 +9,9 @@ export function today(): string {
 export function nowStamp(): string {
   return new Date(Date.now() + KST).toISOString().slice(0, 16).replace('T', ' ')
 }
+
+/** 초 단위 타임스탬프 (KST) — 서약/개정 시각처럼 같은 날·같은 분 내 선후를 가려야 하는 값에 쓴다.
+ *  (서약 signedAt >= 개정 revisedAt 비교가 당일 개정 전후를 구분하려면 분 단위론 부족) */
+export function nowStampSec(): string {
+  return new Date(Date.now() + KST).toISOString().slice(0, 19).replace('T', ' ')
+}

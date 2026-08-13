@@ -70,7 +70,7 @@ export async function GET(req: Request) {
     const rows: (string | number)[][] = [['이름', '부서', '상태', '제출일', '방식']]
     for (const p of scope) {
       const sig = signed.get(p.name)
-      rows.push([p.name, p.dept, sig ? '서약 완료' : '미서약', sig?.signedAt ?? '-', sig?.method ?? '-'])
+      rows.push([p.name, p.dept, sig ? '서약 완료' : '미서약', sig?.signedAt?.slice(0, 10) ?? '-', sig?.method ?? '-'])
     }
     return csvResponse('보안서약_현황', rows)
   }
