@@ -6,7 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { today } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, RemoteTarget, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, RemoteCheck, RemoteTarget, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -16,6 +16,7 @@ export interface Store {
   printouts: PrintoutRecord[]
   remoteChecks: RemoteCheck[]
   remoteTargets: RemoteTarget[]
+  ciSrs: CiSr[]
   violations: Violation[]
   projects: Project[]
   deliverables: Deliverable[]
@@ -155,6 +156,11 @@ function seed(): Store {
       { srNo: 'SR-2026-0145', kind: '데이터', title: '월별 정산 데이터 추출 요청', system: 'ERP', requester: '김현우', dept: '개발1팀', status: '결재중', requestedAt: '2026-07-29' },
       { srNo: 'SR-2026-0146', kind: '계정/권한', title: '신규 입사자 그룹웨어 권한 부여', system: '그룹웨어', requester: '이수진', dept: '경영지원팀', status: 'CI배정', requestedAt: '2026-07-30' },
       { srNo: 'SR-2026-0132', kind: '시스템개발', title: '구매 발주 승인 프로세스 변경', system: '구매시스템', requester: '박정호', dept: 'IT운영팀', status: '적용요청', requestedAt: '2026-07-08', ci: '박정호', dueDate: '2026-07-31' },
+    ],
+    // 결재 없는 CI 직접 접수 SR (요구사항 25행) — 보안/업무 구분·처리 이력
+    ciSrs: [
+      { id: 'CS-2026-0001', category: '보안', title: '방화벽 정책 오탐 확인 요청', requester: '보안관제(외부)', system: '방화벽', status: '완료', receivedBy: '박정호', receivedAt: '2026-08-05', completedAt: '2026-08-06', result: '오탐 확인 — 정책 예외 등록' },
+      { id: 'CS-2026-0002', category: '업무', title: '월마감 배치 수동 재실행 요청', requester: '정민서', system: 'ERP', status: '접수', receivedBy: '박정호', receivedAt: '2026-08-11' },
     ],
     approvalLines: [
       { docType: 'SR 신청', approver: '박정호' },

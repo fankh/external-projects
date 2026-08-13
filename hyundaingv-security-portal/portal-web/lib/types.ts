@@ -40,6 +40,22 @@ export interface SrRequest {
 /** SR 진행 단계 순서 — 시스템개발 SR 파이프라인 (제품안내서 §03) */
 export const SR_FLOW: SrStatus[] = ['작성중', '결재중', 'CI배정', '개발중', '테스트', '적용요청', '완료']
 
+/** CI 직접 접수 SR — 결재 없이 CI 가 접수·처리하는 건 (요구사항 25행: 보안/업무 구분·처리 이력 관리) */
+export interface CiSr {
+  id: string
+  category: '보안' | '업무'
+  title: string
+  /** 요청자 — 전화·메일 등 경로로 들어온 수기 기록 (사외·관제 포함) */
+  requester: string
+  system?: string
+  status: '접수' | '처리중' | '완료'
+  receivedBy: string
+  receivedAt: string
+  completedAt?: string
+  /** 처리 내용 — 완료 시 기록 */
+  result?: string
+}
+
 export type ApprovalStatus = '대기' | '승인' | '반려' | '회수'
 
 /** 기본 결재선 — 문서 유형별 결재자 (환경설정 > 결재선 관리에서 유지보수) */

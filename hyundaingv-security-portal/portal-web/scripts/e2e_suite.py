@@ -121,6 +121,23 @@ def sc_sr(pg, base, check):
     pg.goto(f'{base}/sr/manage', wait_until='networkidle')
     check('📎2' in pg.locator('tr', has_text='E2E 데이터 추출').inner_text(), 'BA 첨부 → SR pk 공유 뱃지(📎2)')
 
+    # 결재 없는 CI 직접 접수 (요구사항 25행) — 접수 → 처리중 → 완료(처리 내용) 이력
+    pg.goto(f'{base}/sr/ci', wait_until='networkidle')
+    intake = pg.locator('.card', has_text='CI SR 접수')
+    intake.locator('select[name=category]').select_option('보안')
+    intake.locator('input[name=title]').fill('E2E 무결재 접수 건')
+    intake.locator('input[name=requester]').fill('관제센터')
+    intake.locator('button:has-text("접수")').click()
+    pg.wait_for_selector('tr:has-text("E2E 무결재 접수 건")', timeout=10000)
+    row = pg.locator('tr', has_text='E2E 무결재 접수 건')
+    row.locator('button:has-text("처리 시작")').click()
+    pg.wait_for_selector('tr:has-text("E2E 무결재 접수 건"):has-text("처리중")', timeout=10000)
+    row = pg.locator('tr', has_text='E2E 무결재 접수 건')
+    row.locator('input[name=result]').fill('예외 등록 완료')
+    row.locator('button:has-text("완료")').click()
+    pg.wait_for_selector('tr:has-text("E2E 무결재 접수 건"):has-text("예외 등록 완료")', timeout=10000)
+    check('완료' in pg.locator('tr', has_text='E2E 무결재 접수 건').inner_text(), 'CI 직접 접수 → 처리 이력 완료')
+
 
 def sc_withdraw(pg, base, check):
     """상신취소(회수) — 기안자 회수 → SR 작성중 복원 → 결재자 대기·할일 제외 → 재상신 → 승인"""
