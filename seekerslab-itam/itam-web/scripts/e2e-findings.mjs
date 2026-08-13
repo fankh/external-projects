@@ -299,7 +299,9 @@ try {
     const acq = Number((vt.match(/총 취득가 ([\d,]+)원/) || [])[1]?.replace(/,/g, '') ?? '-1')
     const book = Number((vt.match(/총 잔존가치\(장부가\) ([\d,]+)원/) || [])[1]?.replace(/,/g, '') ?? '-1')
     const dep = Number((vt.match(/감가상각률 (\d+)%/) || [])[1] ?? '-1')
-    ok('불변식: 장부가 ≤ 취득가 · 감가상각률 0~100%', acq > 0 && book >= 0 && book <= acq && dep >= 0 && dep <= 100)
+    // 표시된 감가상각률이 표시된 금액과 정합해야 한다 — 율=round((취득-장부)/취득×100). 율·금액이 따로 놀면(공식 회귀) 잡는다.
+    const depExpected = acq > 0 ? Math.round((1 - book / acq) * 100) : -1
+    ok('불변식: 장부가 ≤ 취득가 · 감가상각률 0~100% · 율↔금액 정합', acq > 0 && book >= 0 && book <= acq && dep >= 0 && dep <= 100 && dep === depExpected)
   }
   // 취약점 우선순위(lib/vuln-priority): 점수 내림차순 · 티어 임계 정합 — 임계는 하드코딩이 아니라 보안담당이 관리하는 위험도 기준(riskPolicy)에서 온다
   const riskCard = () => p3.locator('.card', { has: p3.locator('*', { hasText: /^위험도 기준 — 취약점 우선순위 판정 컷오프$/ }) }).first()
