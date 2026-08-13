@@ -413,6 +413,26 @@ try {
   const lid = decodeURIComponent((lh.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const lmd = await (await p3.request.get(`${BASE}/api/reports/${encodeURIComponent(lid)}?format=md`)).text()
   ok('라이선스 컴플라이언스: 중복 기능 SaaS 통합 후보 섹션(협업=Notion·Miro)', lmd.includes('중복 기능 SaaS 통합 후보') && lmd.includes('협업') && lmd.includes('Notion'))
+  // 라이선스 컴플라이언스 판정 불변식 — 초과/미사용/적정이 보유·사용 관계와 정합(감사 리스크 플래깅·회수/구매 결재 근거). 비즈니스 임계 계산 회귀 방지.
+  {
+    await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+    const licTable = p3.locator('table', { has: p3.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first()
+    const licRows = licTable.locator('tbody tr')
+    const ln = await licRows.count()
+    let licOk = true, licChecked = 0
+    for (let i = 0; i < ln; i++) {
+      const tds = await licRows.nth(i).locator('td').allTextContents()
+      const held = Number((tds[3] || '').replace(/[,\s]/g, ''))
+      const used = Number((tds[4] || '').replace(/[,\s]/g, ''))
+      const verdict = (tds[7] || '').trim()
+      if (verdict.includes('해지') || !held || Number.isNaN(used)) continue
+      licChecked++
+      const expected = used > held ? '초과 사용' : (used / held < 0.6 ? '미사용 보유' : '적정')
+      if (!verdict.includes(expected)) { licOk = false; console.log(`    [판정 불일치] 보유 ${held}·사용 ${used} → ${verdict} (기대 ${expected})`) }
+    }
+    console.log(`    [라이선스] 검사 ${licChecked}행`)
+    ok('불변식: 라이선스 컴플라이언스 판정 정합(초과·미사용·적정 ↔ 보유·사용)', licChecked > 0 && licOk)
+  }
   // 만료 창(60일)이 대시보드·계약 화면에도 일관 반영된다(하드코딩 90 제거)
   await p3.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('운영 정책 다운스트림: 대시보드 만료 임박 라벨 60일', (await p3.textContent('body')).includes('계약·라이선스 60일') && !(await p3.textContent('body')).includes('계약·라이선스 90일'))
