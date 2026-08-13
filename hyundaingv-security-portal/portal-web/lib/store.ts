@@ -328,6 +328,10 @@ function loadFromFile(): Store | null {
       Object.entries(merged.menuOverrides ?? {}).filter(([, v]) =>
         Array.isArray(v) && v.every((r) => ROLES.includes(r))),
     ) as Store['menuOverrides']
+    // 다단 결재 큐도 형태 검증 — 비배열·비문자열 큐는 결재함 상세 렌더·decide() 를 깨뜨린다 (F2)
+    for (const a of merged.approvals ?? []) {
+      if (a.queue !== undefined && (!Array.isArray(a.queue) || !a.queue.every((n) => typeof n === 'string'))) a.queue = undefined
+    }
     return merged
   } catch {
     return null

@@ -35,9 +35,10 @@ async function reupload(formData: FormData) {
   const s = getStore()
   const t = s.excelTemplates.find((x) => x.id === String(formData.get('id') ?? ''))
   if (!t) return
+  // 파일이 실제로 등록됐을 때만 버전을 올린다 (F6) — 크기 초과 등으로 드롭되면 무동작
+  if (!registerUpload(t.id, file, me.name)) return
   t.version += 1
   t.uploadedAt = today()
-  registerUpload(t.id, file, me.name)
   revalidatePath('/settings/forms')
 }
 

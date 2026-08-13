@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
+import { audit } from '@/lib/audit'
 import { resubmitSettlement } from '../actions'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
@@ -105,7 +106,9 @@ async function editFlash(formData: FormData) {
   const s = getStore()
   const f = s.expenseFlashes.find((x) => x.id === id)
   if (!f || !Number.isFinite(expected) || expected <= 0 || expected > 1e9 || Math.round(expected) === f.expected) return
-  f.history = [...(f.history ?? []), { at: today(), by: me.name, expected: f.expected }].slice(-20)
+  // 원본 baseline 이 밀려나지 않도록 앞쪽 20개를 보존한다 (F3) + 감사 기록
+  f.history = [...(f.history ?? []), { at: today(), by: me.name, expected: f.expected }].slice(0, 20)
+  audit(me.name, '공통코드 변경', `속보 ${f.id} 예상액 ${f.expected} → ${Math.round(expected)}`)
   f.expected = Math.round(expected)
   revalidatePath('/finance/expense')
 }

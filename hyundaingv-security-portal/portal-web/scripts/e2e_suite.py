@@ -353,7 +353,7 @@ def sc_settle(pg, base, check):
     pg.wait_for_selector('tr:has-text("E2E 단계 검증 계획"):has-text("효율화")', timeout=10000)
     pg.locator('tr', has_text='E2E 단계 검증 계획').locator('button:has-text("계획 확정")').click()
     pg.wait_for_selector('tr:has-text("E2E 단계 검증 계획"):has-text("확정")', timeout=10000)
-    row_txt = pg.locator('tr', has_text='E2E 단계 검증 계획').inner_text()
+    row_txt = pg.locator('.card', has_text='경영계획').locator('tr', has_text='E2E 단계 검증 계획').inner_text()
     check('900' in row_txt and '확정' in row_txt, '취합 → 효율화(조정 900) → 확정')
 
 

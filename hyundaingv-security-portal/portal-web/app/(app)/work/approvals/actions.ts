@@ -36,6 +36,7 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
 
   ap.status = verdict
   ap.decidedAt = today()
+  ap.queue = undefined  // 반려 시 잔여 단계는 무의미 — 상세·엑셀이 유령 단계를 표기하지 않도록 정리 (F5)
   if (verdict === '반려') ap.rejectReason = reason
   audit(me.name, verdict === '승인' ? '결재 승인' : '결재 반려',
     `${ap.id} ${ap.docType} — ${ap.title}${verdict === '반려' ? ` (사유: ${reason})` : ''}`)
@@ -164,6 +165,7 @@ export async function withdraw(formData: FormData) {
 
   ap.status = '회수'
   ap.decidedAt = today()
+  ap.queue = undefined  // 회수 시 잔여 단계 정리 (F5)
   audit(me.name, '결재 회수', `${ap.id} ${ap.docType} — ${ap.title}`)
 
   // 참조 업무 상태 복원 — SR 은 임시저장(작성중)으로, 변경·확인서는 상신 직전 단계로

@@ -30,7 +30,7 @@ async function submitPlanDraft(formData: FormData) {
   'use server'
   const me = await requireMenuRole('/finance/invest', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
-  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? ''))
+  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? '') && x.kind === '투자')
   if (p && p.status === '작성중' && p.owner === me.name) p.status = '취합'
   revalidatePath('/finance/invest')
 }
@@ -41,7 +41,7 @@ async function optimizePlan(formData: FormData) {
   await requireMenuRole('/finance/invest', 'BIZ_MGR', 'ADMIN')
   const amount = Number(formData.get('amount'))
   const s = getStore()
-  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? ''))
+  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? '') && x.kind === '투자')
   if (!p || p.status !== '취합') return
   if (Number.isFinite(amount) && amount > 0 && amount <= 1e9) p.amount = Math.round(amount)
   p.status = '효율화'
@@ -52,7 +52,7 @@ async function confirmPlan(formData: FormData) {
   'use server'
   await requireMenuRole('/finance/invest', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
-  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? ''))
+  const p = s.investPlans.find((x) => x.id === String(formData.get('id') ?? '') && x.kind === '투자')
   // 효율화를 거친 계획만 확정한다 — 취합·효율화 단계 우회 차단 (제품안내서 III장)
   if (p && p.status === '효율화') p.status = '확정'
   revalidatePath('/finance/invest')

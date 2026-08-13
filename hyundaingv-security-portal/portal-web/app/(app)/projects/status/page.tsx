@@ -18,7 +18,8 @@ async function addProject(formData: FormData) {
   const s = getStore()
   const id = nextNo('PJ', today().slice(0, 4), s.projects.map((p) => p.id))
   // 투입 인력 명단 — 실존 인원만, 프로젝트 참여 서약 대상의 기준이 된다 (제품안내서 III장)
-  const members = formData.getAll('members').map(String).filter((n) => s.people.some((p) => p.name === n))
+  // 중복 제거 + 상한 (F4) — 실존 인원만
+  const members = [...new Set(formData.getAll('members').map(String))].filter((n) => s.people.some((p) => p.name === n)).slice(0, 100)
   s.projects.unshift({
     id, title, contractId: s.investContracts.some((c) => c.id === contractId) ? contractId : undefined,
     manager: me.name, headcount: Math.round(headcount), members: members.length > 0 ? members : undefined,

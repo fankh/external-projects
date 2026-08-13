@@ -95,6 +95,8 @@ export default async function IncidentsPage() {
   await requireMenu('/infra/incidents')
   const s = getStore()
 
+  // 통계 등급 컬럼 — 공통코드 전체(중지 포함, 과거 데이터가 있을 수 있으므로) 기준
+  const allGrades = (s.codeGroups.find((g) => g.id === 'FAULT_GRADE')?.values ?? []).map((v) => v.code)
   const open = s.incidents.filter((i) => i.status === '조치중')
   const unreported = s.incidents.filter((i) => i.status === '조치완료' && i.reportStatus === '미상신')
   const cmPending = s.incidents.filter((i) => i.countermeasure && !i.cmResult)
@@ -115,14 +117,14 @@ export default async function IncidentsPage() {
       <Card title="월별 장애 통계" kicker="Monthly Stats" pad={false}>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>발생월</th><th className="num">1등급</th><th className="num">2등급</th><th className="num">3등급</th><th className="num">계</th><th className="num">조치완료</th></tr></thead>
+            <thead><tr><th>발생월</th>{allGrades.map((g) => <th key={g} className="num">{g}</th>)}<th className="num">계</th><th className="num">조치완료</th></tr></thead>
             <tbody>
               {[...new Set(s.incidents.map((i) => i.occurredAt.slice(0, 7)))].sort().reverse().map((m) => {
                 const rows = s.incidents.filter((i) => i.occurredAt.startsWith(m))
                 return (
                   <tr key={m}>
                     <td className="tnum strong">{m}</td>
-                    {(['1등급', '2등급', '3등급'] as const).map((g) => (
+                    {allGrades.map((g) => (
                       <td key={g} className="num">{rows.filter((i) => i.grade === g).length || '-'}</td>
                     ))}
                     <td className="num strong">{rows.length}</td>

@@ -5,9 +5,9 @@ import { getStore, nextNo } from './store'
 
 const MAX_SIZE_KB = 10 * 1024
 
-export function registerUpload(refId: string, entry: FormDataEntryValue | null, by: string): void {
-  if (!(entry instanceof File) || entry.size === 0) return
-  if (entry.size > MAX_SIZE_KB * 1024) return
+export function registerUpload(refId: string, entry: FormDataEntryValue | null, by: string): boolean {
+  if (!(entry instanceof File) || entry.size === 0) return false
+  if (entry.size > MAX_SIZE_KB * 1024) return false
   const s = getStore()
   const name = entry.name.replace(/[\\/]/g, '_').slice(0, 120)
   s.attachments.push({
@@ -15,6 +15,7 @@ export function registerUpload(refId: string, entry: FormDataEntryValue | null, 
     refId, name, sizeKb: Math.max(1, Math.ceil(entry.size / 1024)),
     uploadedBy: by, at: today(),
   })
+  return true
 }
 
 /** 결재 자동첨부 — 문서 유형에 매핑된 엑셀양식(환경설정 > 엑셀양식 관리)으로 첨부를 생성한다
