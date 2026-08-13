@@ -57,7 +57,7 @@ const ROUTES = {
   '/settings/users': ['ADMIN'],
   '/settings/codes': ['ADMIN'],
   '/settings/scan-policy': ['ADMIN'],
-  '/settings/saas-catalog': ['ADMIN'],
+  '/settings/saas-catalog': ['SEC_MGR', 'ADMIN'],
   '/settings/ai-policy': ['ADMIN'],
 }
 
@@ -805,8 +805,12 @@ try {
   check('SaaS 카탈로그: 판정 상태 렌더', catHtml.includes('Dropbox') && catHtml.includes('검토중'))
   // 차단 판정 → 집행 통보 — 차단이 정책 표시로 끝나지 않고 보안운영팀 차단 집행 요청으로 이어짐을 명시
   check('SaaS 카탈로그: 차단 집행 통보 안내 렌더', catHtml.includes('차단은 집행으로 이어집니다') && catHtml.includes('프록시·DNS 차단 집행 요청'))
-  // 데이터 등급 분류 편집 — 표시 전용이던 데이터 민감도(일반/민감/기밀)를 Admin 이 분류(차단 우선순위·기밀 취급 집계 근거)
+  // 데이터 등급 분류 편집 — 표시 전용이던 데이터 민감도(일반/민감/기밀)를 보안담당·Admin 이 분류(차단 우선순위·기밀 취급 집계 근거)
   check('SaaS 카탈로그: 데이터 등급 분류 편집 노출', catHtml.includes('데이터 민감도 등급 분류'))
+  // SaaS 정책 관리는 보안담당 책무(제품안내서 §01 — Admin 명시 목록엔 SaaS 카탈로그가 없다) — 보안담당도 접근·판정 가능
+  const catSec = await (await get('/settings/saas-catalog', 'SEC_MGR')).text()
+  check('SaaS 카탈로그: 보안담당 접근·판정 가능 (§01 SaaS 정책 관리)', catSec.includes('Dropbox') && catSec.includes('데이터 민감도 등급 분류') && catSec.includes('인가'))
+  // 자산담당·사용자는 SaaS 정책 관리 대상 아님 — 라우트 매트릭스가 리다이렉트로 차단(위 접근 매트릭스에서 검증)
   const saasSec = await (await get('/discovery/saas', 'SEC_MGR')).text()
   check('Shadow SaaS: 보안담당에 판정(인가·차단) 버튼 노출', saasSec.includes('판정') && saasSec.includes('차단'))
   const saasAsset = await (await get('/discovery/saas', 'ASSET_MGR')).text()

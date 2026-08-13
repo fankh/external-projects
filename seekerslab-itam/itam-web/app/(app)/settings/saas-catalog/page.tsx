@@ -6,7 +6,7 @@ import { CatalogTable } from './CatalogTable'
 export const dynamic = 'force-dynamic'
 
 export default async function SaasCatalogPage() {
-  await requireRole('ADMIN')
+  await requireRole('SEC_MGR', 'ADMIN')
   const s = getStore()
   const c = s.saasCatalog
 

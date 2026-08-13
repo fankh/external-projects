@@ -15,6 +15,13 @@ async function requireAdmin() {
   return session?.role === 'ADMIN' ? session : null
 }
 
+/** SaaS 정책(카탈로그 판정·데이터 등급)은 보안담당 책무 — 제품안내서 §01 역할: 보안담당 'SaaS 정책 관리'
+ *  (Admin 의 명시 관리 목록엔 SaaS 카탈로그가 없다). 보안담당·Admin 둘 다 허용한다. */
+async function requireSaasPolicy() {
+  const session = await getSession()
+  return session && ['SEC_MGR', 'ADMIN'].includes(session.role) ? session : null
+}
+
 /** 탐지 채널 on/off — 비활성 채널은 수집을 중단하고 상태바 커넥터 수에 반영된다 */
 export async function toggleScanChannel(channel: Channel) {
   const session = await requireAdmin()
@@ -85,7 +92,7 @@ export async function setScanScope(channel: Channel, rawTargets: string, rawWind
 
 /** SaaS 카탈로그 판정 — 인가/차단 결과가 Shadow SaaS 현황으로 환류된다 */
 export async function decideSaas(id: string, status: SaasCatalogEntry['status']) {
-  const session = await requireAdmin()
+  const session = await requireSaasPolicy()
   if (!session) return
   const s = getStore()
   const entry = s.saasCatalog.find((x) => x.id === id)
@@ -111,10 +118,10 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
 }
 
 /** SaaS 데이터 등급 분류 — 데이터 민감도(일반/민감/기밀)를 지정한다. 등급은 차단 집행 우선순위·기밀 취급 집계의 근거로,
- *  그동안 시드 고정·표시 전용이던 공백을 메운다. 데이터 분류는 거버넌스 결정이므로 Admin. */
+ *  그동안 시드 고정·표시 전용이던 공백을 메운다. 데이터 분류는 보안 정책이므로 보안담당·Admin(§01 보안담당 SaaS 정책 관리). */
 export async function setSaasDataGrade(id: string, grade: SaasCatalogEntry['dataGrade']) {
-  const session = await requireAdmin()
-  if (!session) return { ok: false, message: '데이터 등급 분류 권한이 없습니다 (Admin).' }
+  const session = await requireSaasPolicy()
+  if (!session) return { ok: false, message: '데이터 등급 분류 권한이 없습니다 (보안담당·Admin).' }
   const s = getStore()
   const entry = s.saasCatalog.find((x) => x.id === id)
   if (!entry) return { ok: false, message: 'SaaS 카탈로그 항목을 찾을 수 없습니다.' }

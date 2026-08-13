@@ -78,7 +78,7 @@ export const NAV: NavGroup[] = [
       { href: '/settings/users', label: '사용자 · 결재선', ico: '☰', roles: ['ADMIN'] },
       { href: '/settings/codes', label: '공통코드', ico: '#', roles: ['ADMIN'] },
       { href: '/settings/scan-policy', label: '탐지 채널 · 정책', ico: '◉', roles: ['ADMIN'] },
-      { href: '/settings/saas-catalog', label: 'SaaS 카탈로그', ico: '▤', roles: ['ADMIN'] },
+      { href: '/settings/saas-catalog', label: 'SaaS 카탈로그', ico: '▤', roles: ['SEC_MGR', 'ADMIN'] },
       { href: '/settings/ai-policy', label: 'AI 정책', ico: '✦', roles: ['ADMIN'] },
     ],
   },
