@@ -21,9 +21,11 @@ export default async function ReturnsPage() {
       }
     })
 
-  // 유휴 경과일 — 마지막 반납·점검·수리 이력 기준. 오래 묵을수록 재배치나 폐기 검토 대상이다
+  // 유휴 경과일 — 마지막 반납·점검·수리 이력 기준. 오래 묵을수록 재배치나 폐기 검토 대상이다.
+  // 이미 폐기 절차(대상 선정 이후)에 있는 자산은 가용 재고가 아니므로 유휴 풀에서 제외한다.
+  const inDisposal = new Set(s.disposals.map((d) => d.assetNo))
   const idle = s.assets
-    .filter((a) => a.status === '유휴')
+    .filter((a) => a.status === '유휴' && !inDisposal.has(a.assetNo))
     .map((a) => {
       const last = [...a.history].reverse().find((h) => h.kind === '반납' || h.kind === '점검' || h.kind === '수리')
       const d = last ? daysUntil(last.date) : null

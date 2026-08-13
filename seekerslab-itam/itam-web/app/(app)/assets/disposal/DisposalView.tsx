@@ -73,7 +73,7 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                   <td className="num tnum">{c.overdue}일</td>
                   <td className="c">
                     <button className="btn sm" disabled={pending}
-                      onClick={() => startTransition(() => selectForDisposal(c.assetNo, c.reason))}>대상 선정</button>
+                      onClick={() => startTransition(async () => { await selectForDisposal(c.assetNo, c.reason) })}>대상 선정</button>
                   </td>
                 </tr>
               ))}

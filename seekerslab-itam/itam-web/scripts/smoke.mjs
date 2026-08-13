@@ -441,6 +441,8 @@ try {
   check('불출·이동: 이동 집행 시 신청자 위치 통보 안내 노출', mvHtml.includes('이동 처리 시에도 신청자에게 변경된 위치가'))
   const rtHtml = await (await get('/assets/returns', 'ASSET_MGR')).text()
   check('반납·유휴: 접수 대기·유휴 풀 렌더', rtHtml.includes('반납 접수 대기') && rtHtml.includes('유휴 자산 풀') && rtHtml.includes('상태 점검'))
+  // 장기 유휴 → 폐기 검토 브리지 — 장기 유휴 자산을 폐기 후보로 바로 선정(검출→조치). 이미 폐기 절차 자산은 유휴 풀에서 제외
+  check('반납·유휴: 장기 유휴 → 폐기 검토 조치 노출', rtHtml.includes('폐기 검토') && rtHtml.includes('재배치 우선'))
   check('반납·유휴: 반납대기 자산이 접수 대기에 노출', rtHtml.includes('AST-2025-000513'))
   check('반납·유휴: 수리중 지표·수리 워크플로 노출', rtHtml.includes('수리중') && rtHtml.includes('수리 필요는 수리중을 거쳐'))
   check('반납·유휴: 수리 대기 카드에 수리중 자산 노출 (시드 시나리오)', rtHtml.includes('수리 대기') && rtHtml.includes('AST-2025-000377'))

@@ -1,10 +1,15 @@
 'use client'
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
+import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { extendLoan, returnLoan } from '@/app/(app)/assets/register/actions'
 import { Card, Chip } from '@/components/ui'
 import type { ReturnCondition } from '@/lib/types'
 import { completeRepair, receiveReturn, remindLoans, sendToRepair } from './actions'
+
+/** 장기 유휴 판정선(일) — 이 이상 유휴면 '재배치 대신 폐기 검토' 대상으로 조치 버튼을 노출한다.
+ *  유휴일 칩 경고선(90)과 같은 표시 기준. 에스컬레이션·SLA 같은 운영 정책값과 달리 화면 표시 임계다. */
+const LONG_IDLE_DAYS = 90
 
 const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고']
 
@@ -245,10 +250,12 @@ export function ReturnsView(props: {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th>자산번호</th><th>모델</th><th className="c">유형</th><th>보관 위치</th><th className="num">유휴 경과</th></tr>
+                <tr><th>자산번호</th><th>모델</th><th className="c">유형</th><th>보관 위치</th><th className="num">유휴 경과</th><th className="c">조치</th></tr>
               </thead>
               <tbody>
-                {props.idle.map((a) => (
+                {props.idle.map((a) => {
+                  const longIdle = a.idleDays !== null && a.idleDays >= LONG_IDLE_DAYS
+                  return (
                   <tr key={a.assetNo}>
                     <td className="tnum">{a.assetNo}</td>
                     <td>{a.model}</td>
@@ -257,10 +264,18 @@ export function ReturnsView(props: {
                     <td className="num">
                       {a.idleDays === null
                         ? <span className="dim">-</span>
-                        : <Chip tone={a.idleDays >= 90 ? 'warn' : 'neutral'}>{a.idleDays}일</Chip>}
+                        : <Chip tone={longIdle ? 'warn' : 'neutral'}>{a.idleDays}일</Chip>}
+                    </td>
+                    <td className="c">
+                      {longIdle
+                        ? <button className="btn sm danger" disabled={pending}
+                            title="장기 유휴 자산을 폐기 후보로 선정합니다 — 폐기 결재·데이터 소거 절차로 이어집니다 (재배치가 불가한 경우)"
+                            onClick={() => startTransition(async () => setMsg((await selectForDisposal(a.assetNo, `장기 유휴 ${a.idleDays}일 · 재배치 대신 폐기 검토`)).message))}>폐기 검토</button>
+                        : <span className="mut" style={{ fontSize: 11 }}>재배치 우선</span>}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

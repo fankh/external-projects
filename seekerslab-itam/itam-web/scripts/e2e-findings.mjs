@@ -292,6 +292,22 @@ try {
   ok('운영 정책 다운스트림: 계약 화면 만료 임박 창 60일', cHtml.includes('만료 60일 이내') && !cHtml.includes('만료 90일 이내'))
   await ctx3.close()
 
+  // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──
+  const ctx4 = await browser.newContext()
+  await ctx4.addCookies([cookie(ASSET)])
+  const p4 = await ctx4.newPage()
+  p4.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
+  await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const scrap = p4.locator('button', { hasText: /^폐기 검토$/ }).first()
+  ok('장기 유휴: 폐기 검토 버튼 노출', (await scrap.count()) > 0)
+  const idleAsset = (await p4.locator('tr', { has: p4.locator('button', { hasText: /^폐기 검토$/ }) }).first().locator('td').first().textContent())?.trim() || ''
+  await scrap.click()
+  await p4.waitForTimeout(900)
+  ok('장기 유휴 → 폐기: 대상 선정 성공', (await p4.textContent('body')).includes('폐기 대상 선정'))
+  await p4.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  ok('장기 유휴 → 폐기: 폐기 기록에 사유(장기 유휴)로 등장', (await p4.textContent('body')).includes(idleAsset) && (await p4.textContent('body')).includes('장기 유휴'))
+  await ctx4.close()
+
   await browser.close()
 } catch (err) {
   fail++

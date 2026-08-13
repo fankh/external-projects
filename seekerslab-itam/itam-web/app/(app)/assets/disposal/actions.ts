@@ -6,17 +6,20 @@ import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, type Disposition, type DisposalPhotoLabel, type WipeMethod } from '@/lib/types'
 
-/** 폐기 대상 선정 — 노후·보증만료 자산을 폐기 후보로 등록 */
-export async function selectForDisposal(assetNo: string, reason: string) {
+/** 폐기 대상 선정 — 노후·보증만료·장기 유휴 자산을 폐기 후보로 등록. 결과 메시지를 반환한다
+ *  (폐기 화면은 반환값을 쓰지 않지만, 반납·유휴 화면에서 장기 유휴 → 폐기 검토 브리지가 피드백을 쓴다). */
+export async function selectForDisposal(assetNo: string, reason: string): Promise<{ ok: boolean; message: string }> {
   const session = await getSession()
-  if (!session || session.role === 'USER') return
+  if (!session || session.role === 'USER') return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
-  if (!asset || s.disposals.some((d) => d.assetNo === assetNo)) return
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (s.disposals.some((d) => d.assetNo === assetNo)) return { ok: false, message: `이미 폐기 절차에 있는 자산입니다 — ${assetNo}` }
   s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason, status: '대상 선정', prevStatus: asset.status })
   asset.status = '폐기예정'
   appendAudit({ actor: session.name, action: `폐기 대상 선정 — ${reason}`, target: assetNo })
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 폐기 대상 선정 — ${reason}` }
 }
 
 /** 폐기 대상 선정 취소 — 결재 전(대상 선정) 건을 해제하고 자산을 원 상태로 복원한다.
