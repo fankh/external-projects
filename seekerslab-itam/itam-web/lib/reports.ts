@@ -162,10 +162,11 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       repairSection,
       disposalSection,
       {
-        title: '만료 임박 계약 (90일 이내)',
+        // 만료 임박 창은 운영 정책(expiryWindowDays)을 따른다 — 대시보드·만료 알림과 같은 기준(v1.240)
+        title: `만료 임박 계약 (${s.opsPolicy.expiryWindowDays}일 이내)`,
         columns: ['계약번호', '계약명', '공급사', '만료일', '잔여'],
         rows: s.contracts
-          .filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= 90 })
+          .filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= s.opsPolicy.expiryWindowDays })
           .sort((a, b) => a.end.localeCompare(b.end))
           .map((c) => [c.id, c.name, c.vendor, c.end, (daysUntil(c.end) ?? 0) < 0 ? '경과' : `${daysUntil(c.end)}일`]),
       },
@@ -443,7 +444,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const totalRepair = s.assets.reduce((t, a) => t + (a.repairCosts ?? []).reduce((n, c) => n + c.amount, 0), 0)
     const proceeds = s.disposals.filter((d) => d.status === '완료').reduce((t, d) => t + (d.proceeds ?? 0), 0)
     return `총 등록 자산은 ${s.assets.length}대이며 사용중 ${s.assets.filter((a) => a.status === '사용중').length}대, 유휴·반납 ${s.assets.filter((a) => ['유휴', '반납대기'].includes(a.status)).length}대입니다. `
-      + `90일 내 만료 계약이 ${n('만료 임박')}건 있어 갱신 검토가 필요하며, Discovery를 통해 대장에 편입된 자산은 ${s.assets.filter((a) => a.discoveredVia).length}대입니다. `
+      + `${s.opsPolicy.expiryWindowDays}일 내 만료 계약이 ${n('만료 임박')}건 있어 갱신 검토가 필요하며, Discovery를 통해 대장에 편입된 자산은 ${s.assets.filter((a) => a.discoveredVia).length}대입니다. `
       + `당월까지 누적 유지보수(수리) 비용은 총 ${fmtAmount(totalRepair)}원이며, 자산 처분(매각) 대금 회수는 ${fmtAmount(proceeds)}원입니다.`
   }
   if (kind === '라이선스 컴플라이언스') {
