@@ -590,6 +590,29 @@ export const CRED_RESPONSE: Record<CredentialFinding['service'], string> = {
   SMTP: '메일 릴레이 인증 강제, 열린 릴레이 차단·전송 제한',
 }
 
+/** 휴면 계정 — AD/IdP·SSO 로그에서 발견한 계정 기반 Shadow IT (제품안내서 §04 탐지 채널 06,
+ *  §06 AD/Entra: "OAuth 앱·휴면 계정 발견"). 일정 기간 로그인 없는 계정은 방치된 접근 경로(퇴직 미회수·
+ *  미사용 서비스 계정)이므로, 검출에서 끝내지 않고 비활성화 집행 또는 소유자(부서) 사용 여부 확인으로 이어간다. */
+export interface AccountFinding {
+  id: string
+  /** 계정 로그인 ID / UPN */
+  account: string
+  displayName: string
+  dept: string
+  kind: '휴면 사용자 계정' | '휴면 관리자 계정' | '미사용 서비스 계정'
+  /** 마지막 로그인 일자 — 로그인 이력이 없으면 '-' */
+  lastLogin: string
+  /** 마지막 로그인 이후 경과일 (로그인 이력 없으면 계정 생성 이후 경과) */
+  dormantDays: number
+  source: 'AD' | 'Entra ID' | 'SSO'
+  risk: RiskLevel
+  note?: string
+  /** 조치 — 비활성화 집행 요청(보안운영팀) 또는 소유자(부서) 사용 여부 확인 요청 */
+  action?: '비활성화 요청' | '소유자 확인 요청'
+  actedBy?: string
+  actedAt?: string
+}
+
 /** 연동 대상 시스템 (제품안내서 §06) — 수집 소스이자 조치 채널 */
 export interface Integration {
   id: string

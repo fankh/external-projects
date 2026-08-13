@@ -8,7 +8,7 @@ import { today } from './dates'
 import { checklistFor } from './intake'
 import { fingerprintOf } from './types'
 import type {
-  AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding,
+  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
   ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
@@ -19,6 +19,7 @@ export interface Store {
   external: ExternalAsset[]
   leaks: LeakFinding[]
   credentials: CredentialFinding[]
+  accounts: AccountFinding[]
   integrations: Integration[]
   auditLogs: AuditLog[]
   codeGroups: CodeGroup[]
@@ -341,6 +342,17 @@ function seedCredentials(): CredentialFinding[] {
   ]
 }
 
+/** 휴면 계정 — AD/IdP·SSO 로그 대조로 발견한 계정 위생 이슈 (제품안내서 §04 탐지 채널 06).
+ *  일정 기간 로그인 없는 계정 = 방치된 접근 경로. 검출에서 끝내지 않고 비활성화·소유자 확인으로 이어간다. */
+function seedAccounts(): AccountFinding[] {
+  return [
+    { id: 'ACCT-01', account: 'sh.oh', displayName: '오세훈', dept: '인사팀', kind: '휴면 사용자 계정', lastLogin: '2026-02-14', dormantDays: 166, source: 'AD', risk: '중간', note: '6개월 미로그인 — 휴직·부서 이동 여부 확인 필요' },
+    { id: 'ACCT-02', account: 'svc-legacy-batch', displayName: '(서비스 계정) 레거시 배치', dept: 'IT기획팀', kind: '미사용 서비스 계정', lastLogin: '2025-11-03', dormantDays: 269, source: 'AD', risk: '높음', note: '레거시 배치 폐기 후에도 잔존 — 연동 사용처 미확인, 자격증명 잔존' },
+    { id: 'ACCT-03', account: 'admin.tmp', displayName: '임시 관리자', dept: 'IT기획팀', kind: '휴면 관리자 계정', lastLogin: '2026-01-20', dormantDays: 191, source: 'Entra ID', risk: '높음', note: '구축 시 생성한 임시 관리자 — Domain Admins 잔존, 즉시 회수 대상' },
+    { id: 'ACCT-04', account: 'jh.lim', displayName: '임재훈', dept: '영업팀', kind: '휴면 사용자 계정', lastLogin: '-', dormantDays: 402, source: 'SSO', risk: '중간', note: '계정 생성 후 SSO 로그인 이력 없음 — 프로비저닝 오류 또는 미사용' },
+  ]
+}
+
 function seedIntegrations(): Integration[] {
   return [
     { id: 'INT-NAC', system: 'NAC', method: 'REST API', purpose: '단말 인증·미인증 목록 수집, 미확인 자산 격리 요청', role: '수집 · 조치', status: '정상', lastSync: '2026-07-29 09:40', volume24h: 1_284 },
@@ -447,6 +459,7 @@ function seed(): Store {
     external: seedExternal(),
     leaks: seedLeaks(),
     credentials: seedCredentials(),
+    accounts: seedAccounts(),
     integrations: seedIntegrations(),
     auditLogs: seedAuditLogs(),
     codeGroups: seedCodeGroups(),
@@ -662,7 +675,7 @@ const g = globalThis as unknown as { __itamStore?: Store; __itamSaveTimer?: Retu
 // ── 파일 기반 영속화 ──────────────────────────────────────────────────
 // ITAM_DATA_FILE 이 있을 때만 활성. 스키마가 바뀌면 낡은 파일을 버리고 시드로 시작한다(마이그레이션 없음).
 const DATA_FILE = process.env.ITAM_DATA_FILE || ''
-const SCHEMA_VERSION = 25
+const SCHEMA_VERSION = 26
 
 function loadStore(): Store | null {
   if (!DATA_FILE || !existsSync(DATA_FILE)) return null

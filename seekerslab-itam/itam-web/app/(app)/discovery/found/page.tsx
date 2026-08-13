@@ -4,6 +4,7 @@ import { canExport } from '@/lib/exports'
 import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { CHANNELS, CONFIRM_DEADLINE_DAYS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
+import { AccountTable } from './AccountTable'
 import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
 
@@ -47,6 +48,9 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
   const overdue = awaiting.filter(
     (x) => x.confirmRequestedAt && -(daysUntil(x.confirmRequestedAt) ?? 0) >= CONFIRM_DEADLINE_DAYS,
   )
+  // 휴면 계정(채널 06 AD/IdP·SSO) — 계정 위생은 보안 업무이므로 보안담당·Admin 만 조치, 자산담당은 조회만
+  const canAccount = ['SEC_MGR', 'ADMIN'].includes(session.role)
+  const accountsOpen = s.accounts.filter((a) => !a.action).length
 
   return (
     <>
@@ -65,6 +69,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
         <Stat value={unreg.length} label="미등록 — 처리 필요" tone="err" />
         <Stat value={d.filter((x) => x.state === '등록·불일치').length} label="등록 · 불일치" tone="warn" />
         <Stat value={CHANNELS.length} label="병렬 수집 채널" tone="accent" delta={{ text: '스캔·로그·API 상시 수집', dir: 'flat' }} />
+        <Stat value={accountsOpen} label="휴면 계정 — 미처리" tone={accountsOpen ? 'warn' : 'ok'} delta={{ text: 'AD/IdP·SSO 계정 위생', dir: 'flat' }} />
       </div>
 
       <div className="callout">
@@ -76,6 +81,10 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
 
       <Card pad={false}>
         <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} initialState={initialState} />
+      </Card>
+
+      <Card kicker="Account Hygiene · Channel 06" title="휴면 계정 — AD/IdP·SSO 계정 위생" pad={false}>
+        <AccountTable accounts={s.accounts} canAct={canAccount} />
       </Card>
     </>
   )

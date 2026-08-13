@@ -198,3 +198,31 @@ export async function requestQuarantine(discoveredId: string) {
   appendAudit({ actor: session.name, action: `NAC 격리 요청 상신 — ${d.hostname}`, target: d.id })
   revalidatePath('/', 'layout')
 }
+
+/** 휴면 계정 조치 — AD/IdP·SSO 휴면 계정을 검출에서 끝내지 않고 비활성화 집행 또는 소유자(부서) 확인으로 이어간다.
+ *  (제품안내서 §04 탐지 채널 06 · §06 AD/Entra 휴면 계정 발견) 계정 위생은 보안 업무이므로 보안담당·Admin 만.
+ *  요청 사실은 담당 채널 통지 + 감사 로그에 남는다. 외부 노출 조치(requestExternalAction)와 동형. */
+export async function respondToAccount(accountId: string, kind: '비활성화' | '소유자 확인') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '휴면 계정 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const a = s.accounts.find((x) => x.id === accountId)
+  if (!a) return { ok: false, message: '계정을 찾을 수 없습니다.' }
+  if (a.action) return { ok: false, message: `이미 ${a.action} 처리된 계정입니다.` }
+
+  a.actedBy = session.name
+  a.actedAt = today()
+  if (kind === '비활성화') {
+    a.action = '비활성화 요청'
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `휴면 계정 비활성화 집행 요청 — ${a.account} (${a.displayName}·${a.dept}, ${a.dormantDays}일 미로그인)`, kind: '위협 대응', ref: a.id })
+    appendAudit({ actor: session.name, action: `휴면 계정 비활성화 요청 (${a.kind}) — ${a.account}`, target: a.id })
+  } else {
+    a.action = '소유자 확인 요청'
+    dispatch({ channel: '이메일', to: a.dept, subject: `휴면 계정 사용 여부 확인 요청 — ${a.account} (${a.displayName}), 마지막 로그인 ${a.lastLogin}`, kind: '소유자 확인', ref: a.id })
+    appendAudit({ actor: session.name, action: `휴면 계정 소유자 확인 요청 (${a.kind}) — ${a.account}`, target: a.id })
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${a.account} ${a.action} — ${kind === '비활성화' ? '보안운영팀' : a.dept} 통지·감사 적재` }
+}

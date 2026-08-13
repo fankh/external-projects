@@ -72,6 +72,7 @@ export default async function DashboardPage() {
       { label: '유출 · 침해 미조치', count: s.leaks.filter((l) => l.status === '미조치').length, href: '/discovery/external', tone: 'err' },
       { label: '크리덴셜 노출 미조치 (인증 취약점)', count: s.credentials.filter((c) => c.status !== '조치 완료').length, href: '/discovery/external', tone: 'err' },
       { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external', tone: 'err' },
+      { label: '휴면 계정 미처리 (AD/IdP 계정 위생)', count: s.accounts.filter((a) => !a.action).length, href: '/discovery/found', tone: 'warn' },
       { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
     )
   }

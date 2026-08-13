@@ -219,6 +219,9 @@ try {
   // 크리덴셜 노출 미조치 — loop45. 유출·외부 노출과 나란히 보안담당 운영 큐에 노출된다(자산담당엔 미노출)
   check('대시보드(보안담당): 크리덴셜 노출 미조치 운영 큐 노출', dashSec.includes('크리덴셜 노출 미조치'))
   check('대시보드(자산담당): 크리덴셜 노출 큐 미노출 (보안 운영 큐)', !dashHtml.includes('크리덴셜 노출 미조치'))
+  // 휴면 계정 미처리 — loop46. 계정 위생도 보안담당 운영 큐에 노출(자산담당엔 미노출)
+  check('대시보드(보안담당): 휴면 계정 미처리 운영 큐 노출', dashSec.includes('휴면 계정 미처리'))
+  check('대시보드(자산담당): 휴면 계정 큐 미노출 (보안 운영 큐)', !dashHtml.includes('휴면 계정 미처리'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
   // 서버·IDC망(10.10.x)에 나타난 미등록 단말 — 서버 VLAN 침입 의심 (어시스턴트 발견 인텐트가 세그먼트로 식별)
@@ -232,6 +235,11 @@ try {
   const discFilt = await (await get('/api/export/discovered?state=' + encodeURIComponent('미등록') + '&risk=' + encodeURIComponent('높음'), 'SEC_MGR'))
   const discFiltTxt = Buffer.from(await discFilt.arrayBuffer()).toString('utf8')
   check('발견 자산: 반출이 대사상태·위험도 필터 반영 (미등록·높음만)', discFilt.status === 200 && discFiltTxt.includes('DSC-2607-0046') && !discFiltTxt.includes('DSC-2607-0029'))
+  // 휴면 계정(loop46) — 채널 06(AD/IdP·SSO) 계정 위생. 검출에서 끝내지 않고 보안담당이 비활성화·소유자 확인으로 조치.
+  check('발견 자산: 휴면 계정 계정 위생 카드 렌더', foundHtml.includes('휴면 계정') && foundHtml.includes('svc-legacy-batch') && foundHtml.includes('계정 위생'))
+  check('발견 자산: 보안담당에 휴면 계정 조치(비활성화·소유자 확인) 노출', foundHtml.includes('비활성화') && foundHtml.includes('소유자 확인'))
+  const foundAsset = await (await get('/discovery/found', 'ASSET_MGR')).text()
+  check('발견 자산: 자산담당엔 휴면 계정 조치 버튼 미노출 (조회만)', foundAsset.includes('휴면 계정') && !foundAsset.includes('비활성화</button>'))
   const contractsHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약·라이선스: 보유–사용 대사·등록(계약·라이선스) 렌더', contractsHtml.includes('JetBrains') && contractsHtml.includes('초과 사용') && contractsHtml.includes('라이선스 등록') && contractsHtml.includes('계약 등록'))
   // 계약 목록 필터 — 구분·상태·만료 임박·검색
