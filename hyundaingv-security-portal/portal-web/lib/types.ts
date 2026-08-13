@@ -208,7 +208,7 @@ export interface TodoItem {
 export interface Notice {
   id: string
   title: string
-  category: '공지' | '보안' | '시스템'
+  category: '공지' | '보안' | '시스템' | '교육'
   author: string
   postedAt: string
   pinned?: boolean

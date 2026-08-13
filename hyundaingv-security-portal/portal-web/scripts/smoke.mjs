@@ -217,7 +217,7 @@ async function main() {
     ['/finance/expense', 'DEPT_MGR', ['클라우드 인프라 이용료', '씨클라우드', '속보', '기준금액', 'ST-2026-02', '월정산', '계획대비실적', 'expense-actual', '지급예정']],
     ['/finance/expense', 'USER', ['속보 등록']],
     // 보안교육 — 연간계획·명단 등록(담당)·내 이수현황(사용자)
-    ['/compliance/education', 'BIZ_MGR', ['상반기 정보보호 교육', '명단 등록', '이수현황 — 전 임직원', '김현우', '미이수']],
+    ['/compliance/education', 'BIZ_MGR', ['상반기 정보보호 교육', '명단 등록', '이수현황 — 전 임직원', '김현우', '미이수', '게시 · 공지 이력']],
     ['/compliance/education', 'USER', ['내 이수현황', '미이수', 'ED-2026-01']],
     // 출력물 — secdata 채널 기본 중지 → 이관 불가 안내, 담당에게 이관 버튼
     ['/awareness/prints', 'BIZ_MGR', ['보안·출력물 시스템 채널이 중지 상태', '전일자 이관 실행', '이관된 출력물 자료가 없습니다']],

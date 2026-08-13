@@ -1,9 +1,10 @@
 /** 일일 알림 배치 — 기한 경과·미이행 항목을 스캔해 대상자별 안내메일을 보낸다.
  *  요구사항의 "주기적 안내메일 / 경과 항목 알림 - 메일"을 담당한다. 데모에서는 수동
  *  실행 버튼으로 트리거하고, 실서비스에서는 스케줄러(일배치)에 연결한다. */
+import { audit } from './audit'
 import { nowStamp, today } from './dates'
-import { sendVia } from './integrations/registry'
-import { getStore, isRemoteTargetIn, recordBatch } from './store'
+import { secdataAdapter, sendVia } from './integrations/registry'
+import { getStore, isRemoteTargetIn, nextNo, recordBatch } from './store'
 
 export interface NotifyResult {
   kind: string
@@ -21,6 +22,25 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
     if (names.length === 0) return
     const r = await sendVia('groupware-mail', [...new Set(names)], subject)
     results.push({ kind, targets: new Set(names).size, ok: r.ok })
+  }
+
+  // 0) 출력물 자료 일배치 이관 (요구사항 55행 '일배치') — 수동 버튼과 동일 로직·중복 이관 방지.
+  //    채널이 중지면 실패로 기록되어 연동 장애가 드러난다.
+  {
+    const adapter = secdataAdapter()
+    if (adapter) {
+      const rows = await adapter.fetchPrintouts()
+      let added = 0
+      for (const row of rows) {
+        if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
+        s.printouts.push({ id: nextNo('PR', t.slice(0, 4), s.printouts.map((p) => p.id)), ...row, status: '미등록' })
+        added += 1
+      }
+      if (added > 0) audit('스케줄러', '일배치 이관', `출력물 자료 ${added}건 (자동)`)
+      recordBatch(`출력물 자료 일배치 이관 (자동, ${added}건)`, nowStamp(), '성공')
+    } else {
+      recordBatch('출력물 자료 일배치 이관 (자동)', nowStamp(), '실패')
+    }
   }
 
   // 1) 미서약자 — 양식 개정일자 기준 유효 서약 없는 인원

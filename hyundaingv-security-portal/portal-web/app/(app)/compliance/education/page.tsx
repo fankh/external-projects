@@ -191,6 +191,29 @@ export default async function EducationPage() {
           )}
         </Card>
       </div>
+
+      {/* 게시/공지 이력 (요구사항 61행·제품안내서 IV장) — 교육 분류 공지의 완료 내역·첨부를 교육 도메인에서 조회 */}
+      <Card title="게시 · 공지 이력" kicker="Postings" pad={false}>
+        {s.notices.filter((n) => n.category === '교육').length === 0 ? (
+          <div className="empty">교육 분류의 게시/공지 이력이 없습니다 — 공지사항에서 '교육' 분류로 등록하면 여기에 모입니다.</div>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead><tr><th>번호</th><th>제목</th><th>작성자</th><th>게시일</th></tr></thead>
+              <tbody>
+                {s.notices.filter((n) => n.category === '교육').map((n) => (
+                  <tr key={n.id}>
+                    <td className="code">{n.id}</td>
+                    <td className="strong">{n.title}<Clip count={attachCount(n.id)} title="게시 원본 첨부" /></td>
+                    <td>{n.author}</td>
+                    <td className="tnum">{n.postedAt}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </>
   )
 }

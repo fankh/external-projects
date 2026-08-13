@@ -7,7 +7,7 @@ import { today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import type { Notice } from '@/lib/types'
 
-const CATS: Notice['category'][] = ['공지', '보안', '시스템']
+const CATS: Notice['category'][] = ['공지', '보안', '시스템', '교육']
 
 async function addNotice(formData: FormData) {
   'use server'
@@ -74,7 +74,7 @@ export default async function NoticesPage() {
             <tbody>
               {rows.map((n) => (
                 <tr key={n.id}>
-                  <td><Chip tone={n.category === '보안' ? 'err' : n.category === '시스템' ? 'info' : 'neutral'} bare>{n.category}</Chip></td>
+                  <td><Chip tone={n.category === '보안' ? 'err' : n.category === '시스템' ? 'info' : n.category === '교육' ? 'ok' : 'neutral'} bare>{n.category}</Chip></td>
                   <td className={n.pinned ? 'strong' : ''}>{n.pinned ? '📌 ' : ''}{n.title}<Clip count={attachCount(n.id)} title="공지 첨부" /></td>
                   <td>{n.author}</td>
                   <td className="tnum">

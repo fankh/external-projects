@@ -163,7 +163,16 @@ export default async function InvestPage() {
                     <td className="strong">{c.title}<Clip count={attachCount(c.id)} title="계약서·부속서류" /></td>
                     <td>{c.vendor}</td>
                     <td className="num">{fmt(c.amount)}</td>
-                    <td>{c.planId ? <span className="mono">{c.planId}</span> : <Chip tone="warn" bare>계획외</Chip>}</td>
+                    <td>
+                      {c.planId ? <span className="mono">{c.planId}</span> : <Chip tone="warn" bare>계획외</Chip>}
+                      {/* 계약 합계가 계획액을 넘으면 초과 표시 (요구사항: 초과 건 처리 가능 + 드러나야 한다) */}
+                      {(() => {
+                        const plan = c.planId ? kindPlans.find((p) => p.id === c.planId) : undefined
+                        if (!plan) return null
+                        const total = kindContracts.filter((x) => x.planId === c.planId).reduce((sum, x) => sum + x.amount, 0)
+                        return total > plan.amount ? <Chip tone="err" bare>계획 초과</Chip> : null
+                      })()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
