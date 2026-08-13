@@ -54,6 +54,8 @@ function buildContext(userName: string, isUser: boolean): string {
       ...s.inventoryRounds.map((r) => `- ${r.name} | ${r.status} | ${r.scanned}/${r.planned} 스캔 | 차이:${r.mismatched} | 기한:${r.dueDate}`),
       `[결재 대기] ${s.approvals.filter((a) => a.status === '대기').length}건`,
       ...s.approvals.filter((a) => a.status === '대기').map((a) => `- ${a.id} | ${a.kind} | ${a.title} | ${a.currentStep}`),
+      `[외부 위협] 외부 노출 미조치 ${s.external.filter((e) => !e.action && e.state !== '등록·일치').length} · 크리덴셜 노출 미조치 ${s.credentials.filter((c) => c.status !== '조치 완료').length} · 다크웹 유출·침해 미조치 ${s.leaks.filter((l) => l.status === '미조치').length}`,
+      ...s.credentials.filter((c) => c.status !== '조치 완료').map((c) => `- ${c.id} | 크리덴셜 노출 | ${c.service} ${c.host}:${c.port} | ${c.issue} | 위험도:${c.severity}`),
       `[운영 리스크] 분실·도난 ${s.assets.filter((a) => a.status === '분실').length} · 장기미실측 ${s.assets.filter(isStaleVerify).length} · 대여연체 ${s.assets.filter(isLoanOverdue).length} · 수리중 ${s.assets.filter((a) => a.status === '수리중').length}(예상반환경과 ${s.assets.filter(isRepairOverdue).length})`,
       ...s.assets
         .filter((a) => a.status === '분실' || isStaleVerify(a) || isLoanOverdue(a) || a.status === '수리중')
@@ -138,6 +140,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
     const confirming = disc.filter((d) => d.action === '확인요청').length
     const extOpen = s.external.filter((e) => !e.action && e.state !== '등록·일치').length
     const leakOpen = s.leaks.filter((l) => l.status === '미조치').length
+    const credOpen = s.credentials.filter((c) => c.status !== '조치 완료').length
     return {
       role: 'assistant',
       text: [
@@ -147,9 +150,9 @@ function stubAnswer(question: string, userName: string, isUser: boolean): ChatMe
         `· 위험도: 높음 ${byRisk('높음')} · 중간 ${byRisk('중간')} · 낮음 ${byRisk('낮음')}`,
         `· 채널별 관측: ${chan}`,
         ``,
-        `▶ 조치 필요: 미처리 미등록 ${untriaged}건(소유자 확인·편입·격리 판정 대기), 확인요청 진행 ${confirming}건, 외부 노출 미조치 ${extOpen}건, 다크웹 유출·침해 미조치 ${leakOpen}건.`,
-        untriaged + extOpen + leakOpen > 0
-          ? `우선순위: 다크웹 유출·외부 노출(외부 위협) → 미등록 고위험 순으로 처리하고, 확인 기한 경과 건은 격리 요청으로 에스컬레이션하십시오.`
+        `▶ 조치 필요: 미처리 미등록 ${untriaged}건(소유자 확인·편입·격리 판정 대기), 확인요청 진행 ${confirming}건, 외부 노출 미조치 ${extOpen}건, 크리덴셜 노출 미조치 ${credOpen}건(인증 취약점), 다크웹 유출·침해 미조치 ${leakOpen}건.`,
+        untriaged + extOpen + leakOpen + credOpen > 0
+          ? `우선순위: 다크웹 유출·크리덴셜 노출·외부 노출(외부 위협) → 미등록 고위험 순으로 처리하고, 확인 기한 경과 건은 격리 요청으로 에스컬레이션하십시오.`
           : `현재 즉시 조치가 필요한 미처리 건은 없습니다. 정기 재탐지 주기를 유지하십시오.`,
       ].join('\n'),
       evidence: [
