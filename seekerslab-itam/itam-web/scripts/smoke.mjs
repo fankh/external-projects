@@ -987,6 +987,11 @@ try {
   check('사용자: 보유 자산 수 + 자산 대장 드릴 링크', usrHtml.includes('보유 자산') && usrHtml.includes('/assets/register?q='))
   // 오프보딩 요약 — 퇴직·부서이동 시 회수·재배정 대상(사용중 보유·대여·라이선스 좌석·상신 결재)을 한 사람 기준으로 모은다. 자산·좌석 있는 사용자에 요약 토글 노출.
   check('사용자: 오프보딩 요약 컬럼 + 요약 토글 렌더', usrHtml.includes('오프보딩') && usrHtml.includes('요약'))
+  // 오프보딩 명세서(인수인계 체크리스트) 인쇄 — 요약의 회수·재배정 대상을 한 장 인쇄 산출물로. 자산 운영이므로 자산담당·Admin. (인쇄 링크는 확장 상세에 있어 e2e 로 검증)
+  check('오프보딩 명세서: 미로그인 차단 (401)', (await get('/api/offboard-sheet/%EA%B9%80%EB%AF%BC%EC%A4%80')).status === 401)
+  check('오프보딩 명세서: 사용자 차단 (403)', (await get('/api/offboard-sheet/%EA%B9%80%EB%AF%BC%EC%A4%80', 'USER')).status === 403)
+  const offSheet = await (await get('/api/offboard-sheet/%EA%B9%80%EB%AF%BC%EC%A4%80', 'ASSET_MGR')).text()  // 김민준: 사용중 000112·000015 + LIC-004 좌석
+  check('오프보딩 명세서: 회수 대상(보유 자산·라이선스 좌석) 렌더', offSheet.includes('ASSET OFFBOARDING') && offSheet.includes('AST-2023-000112') && offSheet.includes('AutoCAD') && offSheet.includes('인수인계'))
   // MFA 등록 요구 — 미적용 사용자(시드 2명)가 있어 일괄 요구 버튼 + 행별 요구 버튼 노출(보안 정책 집행)
   check('사용자: MFA 미등록자 등록 요구 버튼(보안 정책)', usrHtml.includes('MFA 미등록자 등록 요구') && usrHtml.includes('미적용'))
   check('사용자 · 결재선: 필수 결재선 잠금 표시(🔒)', usrHtml.includes('🔒') && usrHtml.includes('해제할 수 없'))
