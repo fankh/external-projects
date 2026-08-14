@@ -11,6 +11,16 @@ const ST_CHIP: Record<ChangeStatus, 'neutral' | 'info' | 'warn' | 'ok'> = {
   작업등록: 'neutral', 계획결재중: 'info', 작업등록승인: 'warn', 작업완료결재중: 'info', 최종완료: 'ok',
 }
 
+/** 변경 재상신 시 반려 재상신 할일을 닫는다 — 변경은 공유 워크스페이스(담당·Admin)라 재상신자가
+ *  원 기안자와 다를 수 있고, 그때 draftApproval 의 기안자-매칭 닫기가 놓쳐 고아 할일 + 방치 알림이
+ *  무한 반복된다. 유형+변경번호(제목 선두 고정)로 소유자 무관하게 닫아 SR 재상신(requester 바인딩
+ *  자가치유)과 동등한 폐쇄 루프를 만든다. */
+function closeChangeResignTodo(s: ReturnType<typeof getStore>, docType: string, cwId: string) {
+  for (const t of s.todos) {
+    if (!t.done && t.kind === '재상신' && t.title.startsWith(`[${docType}] ${cwId} `)) t.done = true
+  }
+}
+
 async function addInfraChange(formData: FormData) {
   'use server'
   await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
@@ -52,6 +62,7 @@ async function submitPlan(formData: FormData) {
   // 엑셀양식(XT) 자동첨부 — 요구사항 결재 시트 9·10번 '첨부파일자동생성 o'
   registerGenerated(cw.id, '변경계획 상신', me.name)
   draftApproval({ docType: '변경계획 상신', title: `[${cw.kind}변경] ${cw.title} — 작업계획`, ref: cw.id, drafter: me })
+  closeChangeResignTodo(s, '변경계획 상신', cw.id)
   revalidatePath('/', 'layout')
 }
 
@@ -71,6 +82,7 @@ async function submitResult(formData: FormData) {
   // 엑셀양식(XT) 자동첨부 — 요구사항 결재 시트 9·10번 '첨부파일자동생성 o'
   registerGenerated(cw.id, '변경결과 상신', me.name)
   draftApproval({ docType: '변경결과 상신', title: `[${cw.kind}변경] ${cw.title} — 작업결과`, ref: cw.id, drafter: me })
+  closeChangeResignTodo(s, '변경결과 상신', cw.id)
   revalidatePath('/', 'layout')
 }
 
