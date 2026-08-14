@@ -904,7 +904,9 @@ try {
   check('공통코드: 위치 코드가 랙 단위까지 정의', rackLocations.every((l) => codeHtml2.includes(l)), rackLocations.filter((l) => !codeHtml2.includes(l)).join(', '))
   check('재물조사: 실사 위치 목록이 대장 위치와 정합', rackLocations.filter((l) => regHtml.includes(l)).every((l) => svyHtml.includes(l)), rackLocations.filter((l) => regHtml.includes(l) && !svyHtml.includes(l)).join(', '))
   const repHtml = await (await get('/ai/reports', 'ASSET_MGR')).text()
-  check('리포트: 8종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('연간 교체 계획') && repHtml.includes('취약점 조치 우선순위') && repHtml.includes('AI 거버넌스·성능') && repHtml.includes('결재 첨부용'))
+  check('리포트: 9종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('연간 교체 계획') && repHtml.includes('취약점 조치 우선순위') && repHtml.includes('AI 거버넌스·성능') && repHtml.includes('부서별 IT 비용 배분') && repHtml.includes('결재 첨부용'))
+  // 부서별 IT 비용 배분(차지백) 리포트 — 자산 원가·라이선스 좌석 비용을 부서로 귀속(§05 FinOps·예산 근거)
+  check('리포트: 부서별 IT 비용 배분(차지백) 리포트 유형 렌더', repHtml.includes('부서별 IT 비용 배분') && repHtml.includes('차지백'))
   // 결재 첨부용 산출물은 네이티브 엑셀(xlsx, 섹션별 시트)·문서 — 다른 대장·로그 반출과 동일 형식 (제품안내서 §05 "결재 첨부용 엑셀·문서")
   check('리포트: 결재 첨부 산출물 엑셀(xlsx)·문서 안내', repHtml.includes('결재 첨부용 엑셀(xlsx)') && repHtml.includes('섹션별 시트'))
   // 취약점 조치 우선순위 리포트(§05 스코어링) — 자산 중요도 × 노출도로 P1/P2/P3 순위화, 결재 첨부·감사 증적

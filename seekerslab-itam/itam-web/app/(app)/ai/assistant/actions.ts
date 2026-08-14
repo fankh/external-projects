@@ -29,6 +29,7 @@ function detectReportIntent(q: string): { kind?: ReportKind } | null {
     [/취약점|우선순위|vuln|cve/i, '취약점 조치 우선순위'],
     [/ai\s*거버넌스|거버넌스|정확도|채택률|프롬프트|모델\s*버전|ai\s*성능/i, 'AI 거버넌스·성능'],
     [/shadow|섀도|쉐도|발견|브리핑|주간/i, '주간 Shadow IT 브리핑'],
+    [/차지백|비용\s*배[분부]|부서별\s*(it|비용|아이티)|chargeback|it\s*비용|showback/i, '부서별 IT 비용 배분'],
   ]
   const kind = kindMatchers.find(([re]) => re.test(q))?.[1]
   if (!kind && !/(리포트|보고서)/.test(q)) return null
