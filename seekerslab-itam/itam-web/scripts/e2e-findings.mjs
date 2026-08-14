@@ -820,6 +820,10 @@ try {
   await p4.waitForTimeout(800)
   await p4.goto(`${BASE}/assets/register?sel=AST-2023-000450`, { waitUntil: 'networkidle' })
   ok('대여 반환(수리 필요) → 수리중 편성(유휴 아님·손상 자산 재대여 방지)', ((await p4.textContent('body')) || '').includes('수리중'))
+  // 대여자 통보(반납 접수 통보의 대여판) — 파손 반환 결과를 대여자(한지민)에게 통지, 발송 이력 적재. receiveReturn 과 정합.
+  await p4.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const loanNotif = (await p4.textContent('body')) || ''
+  ok('대여 반환 → 대여자(한지민) 결과 통보(발송 이력 적재)', loanNotif.includes('대여 반환 접수 완료') && loanNotif.includes('AST-2023-000450') && loanNotif.includes('한지민'))
   await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   // 수리 지연 → 업체 독촉(검출→조치). 상태를 바꾸지 않으므로 유휴 처리 앞에 수행.
   const repairRemind = p4.locator('button', { hasText: /^업체 독촉 발송 \d+건$/ })
