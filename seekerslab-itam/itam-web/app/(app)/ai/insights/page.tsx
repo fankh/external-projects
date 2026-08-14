@@ -2,6 +2,7 @@ import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { InsightKind } from '@/lib/types'
+import { AutoClassify } from './AutoClassify'
 import { AnomalyDetection } from './AnomalyDetection'
 import { LicenseOptimization } from './LicenseOptimization'
 import { LifecyclePrediction } from './LifecyclePrediction'
@@ -77,6 +78,8 @@ export default async function InsightsPage() {
       <ProposalList insights={s.insights} />
 
       <RiskPolicyPanel policy={s.riskPolicy} canEdit={canEditRisk} />
+
+      <AutoClassify />
 
       <AnomalyDetection />
 
