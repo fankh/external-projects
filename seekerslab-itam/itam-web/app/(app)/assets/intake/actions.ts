@@ -28,6 +28,24 @@ export async function reinspectIntakeLot(lotId: string) {
   return { ok: true, message: `${lot.id} 재검수 — 입고 대기로 되돌려 검수 대기열에 편성했습니다.` }
 }
 
+/** 반품 완료 — 교체 없이 반품·환불로 종결되는 검수 반려 로트를 마감한다. 재검수(교체품 도착)의 짝으로,
+ *  교체품이 오지 않는 반려 로트를 '반품 완료'로 종결해 검수 반려 백로그(대시보드 큐)에서 뺀다. 검수 반려 로트만 대상. 자산담당·Admin. */
+export async function closeReturnedLot(lotId: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '반품 완료 처리 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const lot = s.intakeLots.find((l) => l.id === lotId)
+  if (!lot) return { ok: false, message: '입고 로트를 찾을 수 없습니다.' }
+  if (lot.status !== '검수 반려') return { ok: false, message: '검수 반려된 로트만 반품 완료할 수 있습니다.' }
+
+  lot.status = '반품 완료'
+  dispatch({ channel: '이메일', to: lot.vendor, subject: `${lot.id} ${lot.model} ${lot.qty}대 반품 완료 확인 — 교체 없이 종결`, kind: '입고 반려', ref: lot.id })
+  appendAudit({ actor: session.name, action: `입고 반품 완료 — ${lot.model} ${lot.qty}대 (교체 없이 종결)`, target: lot.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${lot.id} 반품 완료 — 공급사(${lot.vendor}) 반품 확인·종결(검수 반려 백로그에서 제외).` }
+}
+
 /** 입고 검수 반려 — 불량·사양 불일치 로트를 반려하고 공급사 앞 반품/교체를 통보한다.
  *  (그동안 검수는 합격(채번)만 있고 불합격 처리가 없었다.) 채번 전 로트만 대상. 자산담당·Admin. */
 export async function rejectIntakeLot(lotId: string, reason: string) {

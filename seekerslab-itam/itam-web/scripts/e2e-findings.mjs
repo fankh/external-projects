@@ -581,6 +581,16 @@ try {
   ok('재물조사: 미실사 → 분실 신고 브리지 성공', (await p4.textContent('body')).includes('분실 처리'))
   await p4.goto(`${BASE}/assets/register?sel=AST-2022-000871`, { waitUntil: 'networkidle' })
   ok('미실사 분실 신고 → 대장 분실 상태 반영', (await p4.textContent('body')).includes('분실'))
+
+  // 검수 반려 → 반품 완료(교체 없음) 종결 — 재검수의 짝. 시드 IN-2607-04(검수 반려) 마감 후 대시보드 백로그에서 제외
+  await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  await p4.locator('tr.clickable', { has: p4.locator('td', { hasText: 'IN-2607-04' }) }).first().click()
+  await p4.waitForTimeout(200)
+  await p4.locator('button', { hasText: /^반품 완료 \(교체 없음\)$/ }).click()
+  await p4.waitForTimeout(800)
+  ok('도입·검수: 검수 반려 → 반품 완료 종결', (await p4.textContent('body')).includes('반품 완료'))
+  await p4.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  ok('검수 반려 → 반품 완료: 대시보드 백로그에서 제외', !(await p4.textContent('body')).includes('검수 반려 (재검수 · 반품 확인)'))
   await ctx4.close()
 
   await browser.close()

@@ -2,12 +2,12 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { AssetCategory, IntakeLot } from '@/lib/types'
-import { issueAssetNo, markLotArrived, preRegisterLot, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, toggleCheck } from './actions'
+import { closeReturnedLot, issueAssetNo, markLotArrived, preRegisterLot, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, toggleCheck } from './actions'
 
 interface Label { assetNo: string; model: string; qr: string; barcode: string }
 interface PC { id: string; name: string; vendor: string }
 
-const STATUS_TONE = { '도입 예정': 'info', '입고 대기': 'neutral', '검수 중': 'warn', '검수 완료': 'ok', '검수 반려': 'err' } as const
+const STATUS_TONE = { '도입 예정': 'info', '입고 대기': 'neutral', '검수 중': 'warn', '검수 완료': 'ok', '검수 반려': 'err', '반품 완료': 'neutral' } as const
 const CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[] }) {
@@ -214,14 +214,25 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
                 )
               )}
               {sel.status === '검수 반려' && (
-                <button className="btn sm pri" disabled={pending}
-                  onClick={() => startTransition(async () => {
-                    const r = await reinspectIntakeLot(sel.id)
-                    setMsg({ ok: r.ok, text: r.message })
-                  })}>재검수 (교체품 도착)</button>
+                <>
+                  <button className="btn sm pri" disabled={pending}
+                    onClick={() => startTransition(async () => {
+                      const r = await reinspectIntakeLot(sel.id)
+                      setMsg({ ok: r.ok, text: r.message })
+                    })}>재검수 (교체품 도착)</button>
+                  <button className="btn sm ghost" disabled={pending}
+                    title="교체품 없이 반품·환불로 종결 — 검수 반려 백로그에서 제외"
+                    onClick={() => startTransition(async () => {
+                      const r = await closeReturnedLot(sel.id)
+                      setMsg({ ok: r.ok, text: r.message })
+                    })}>반품 완료 (교체 없음)</button>
+                </>
               )}
               <span className="dim" style={{ fontSize: 11.5 }}>
-                {sel.status === '검수 완료' ? `채번 ${sel.issued.length}/${sel.qty}` : sel.status === '검수 반려' ? '반려됨 — 교체품 도착 시 재검수' : '체크리스트 완료 후 채번 · 불량 시 반려'}
+                {sel.status === '검수 완료' ? `채번 ${sel.issued.length}/${sel.qty}`
+                  : sel.status === '검수 반려' ? '반려됨 — 교체품 도착 시 재검수, 교체 없으면 반품 완료'
+                  : sel.status === '반품 완료' ? '반품 완료 — 교체 없이 종결됨'
+                  : '체크리스트 완료 후 채번 · 불량 시 반려'}
               </span>
             </div>
           </Card>

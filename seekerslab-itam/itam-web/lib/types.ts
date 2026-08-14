@@ -425,7 +425,7 @@ export interface IntakeLot {
   qty: number
   arrivedAt: string
   vendor: string
-  status: '도입 예정' | '입고 대기' | '검수 중' | '검수 완료' | '검수 반려'
+  status: '도입 예정' | '입고 대기' | '검수 중' | '검수 완료' | '검수 반려' | '반품 완료'
   checklist: IntakeChecklistItem[]
   /** 채번 완료된 자산번호 */
   issued: string[]
