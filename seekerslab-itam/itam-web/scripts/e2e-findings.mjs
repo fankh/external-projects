@@ -129,6 +129,18 @@ async function aiModelManage(page) {
   await page.waitForTimeout(700)
   const body = await page.textContent('body')
   ok('AI 버전 관리: 갱신 반영(모델·프롬프트)', body.includes('claude-opus-5') && body.includes('v3.3 (2026-08-13)'))
+
+  // 외부 반출 통제(§05 실행 환경) — 실행 환경 선택이 표시가 아니라 강제임을 검증한다.
+  //  시드 기본 온프레미스에선 '외부 반출 차단', '외부 API 연계'로 바꾸면 '허용 + 비식별 적용'으로 강제 상태가 바뀐다.
+  ok('AI 외부반출: 온프레미스 기본 — 외부 반출 차단·강제 명시', body.includes('외부 반출 통제') && body.includes('외부 반출 없음') && body.includes('표시가 아니라'))
+  await page.locator('.seg button', { hasText: '외부 API 연계' }).click()
+  await page.waitForTimeout(700)
+  const extBody = await page.textContent('body')
+  ok('AI 외부반출: 외부 API 연계 전환 시 반출 허용·비식별 처리 강제', extBody.includes('외부 반출 허용') && extBody.includes('비식별 처리 후 반출'))
+  // 원상복구 — 이후 테스트가 시드 기본(온프레미스)을 전제로 하므로 되돌린다(인메모리 스토어 오염 방지)
+  await page.locator('.seg button', { hasText: '온프레미스 LLM' }).click()
+  await page.waitForTimeout(700)
+  ok('AI 외부반출: 온프레미스 복원 — 외부 반출 재차단', (await page.textContent('body')).includes('외부 반출 없음'))
 }
 
 /** AI 어시스턴트 기간 스코프 질의(§05 예시 "내년 1분기 보증 만료…") — 기간 파싱·창 필터.
