@@ -1,3 +1,4 @@
+import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
@@ -6,7 +7,7 @@ import { CatalogTable } from './CatalogTable'
 export const dynamic = 'force-dynamic'
 
 export default async function SaasCatalogPage() {
-  await requireRole('SEC_MGR', 'ADMIN')
+  const session = await requireRole('SEC_MGR', 'ADMIN')
   const s = getStore()
   const c = s.saasCatalog
 
@@ -16,6 +17,7 @@ export default async function SaasCatalogPage() {
         kicker="환경설정 · SaaS Catalog"
         title="SaaS 카탈로그"
         desc="인가 SaaS 등재 · 미인가 서비스 판정 — 판정 결과는 Discovery의 Shadow SaaS 현황으로 환류"
+        right={<ExportButton kind="saasCatalog" role={session.role} label="SaaS 정책 대장 엑셀" />}
       />
 
       <div className="stat-row">

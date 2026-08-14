@@ -8,7 +8,7 @@ import type { Sheet } from './xlsx'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
  *  (제품안내서 §02: 권한은 메뉴(화면) × 기능(버튼) 단위로 부여) */
-export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals', 'loans', 'menus', 'saas'] as const
+export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals', 'loans', 'menus', 'saas', 'saasCatalog'] as const
 export type ExportKind = (typeof EXPORT_KINDS)[number]
 
 /** 내보내기 대상 ↔ 권한 매트릭스의 메뉴. 허용 여부는 매트릭스의 '엑셀' 칸이 정한다 —
@@ -23,6 +23,7 @@ export const EXPORT_META: Record<ExportKind, { label: string; file: string; menu
   loans: { label: '대여 대장', file: '대여대장', menu: '수명주기' },
   menus: { label: '메뉴 · 기능 정의', file: '메뉴기능정의', menu: '권한 · 정책' },
   saas: { label: 'Shadow SaaS 현황', file: '미인가SaaS현황', menu: 'Shadow SaaS' },
+  saasCatalog: { label: 'SaaS 정책 대장', file: 'SaaS정책대장', menu: 'Shadow SaaS' },
 }
 
 export function canExport(kind: ExportKind, role: Role): boolean {
@@ -245,6 +246,15 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         rows: deptAgg.map((r) => [r.dept, r.count, r.users]),
       },
     ]
+  }
+
+  if (kind === 'saasCatalog') {
+    // SaaS 정책 대장 — 인가/차단/검토중 판정·데이터 등급·결정자를 거버넌스 감사 증적으로. 검토중(미판정)까지 담아 정책 결정 이력 전체를 남긴다(사용 현황 반출 saas 와 구분).
+    return [{
+      name: 'SaaS 정책 대장',
+      header: ['서비스', '기능 분류', '공급사', '판정', '데이터 등급', '주관', '판정일', '판정자'],
+      rows: s.saasCatalog.map((x) => [x.service, x.category, x.vendor, x.status, x.dataGrade, x.owner, x.decidedAt ?? '-', x.decidedBy ?? '-']),
+    }]
   }
 
   // approvals — 결재함(ApprovalList)의 상태·구분·검색·내 상신만 필터를 그대로 반영
