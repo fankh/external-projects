@@ -83,10 +83,13 @@ async function exerciseContract(kind: string, adapter: unknown): Promise<{ ok: b
       if (!Array.isArray(rows)) return { ok: false, detail: 'searchAssets() 가 배열 아님' }
       // 항목 형태 검증 — hr·secdata 와 동일 엄격도(ExternalAsset {serial,model,category,holder:string}).
       // 이게 없으면 등록 자산이 없는 그린필드에서 malformed 행도 '적합'으로 통과(false-clean)해 실 배포 크래시.
+      // assetNo(옵셔널)도 검증 — 화면이 {a.assetNo} 직접 렌더하므로 객체값이면 실 배포에서 전 화면 500 인데
+      // 이 검사가 빠지면 자가진단은 녹색 통과한다(asset-reg 수집 필터와 동조).
       if (!rows.every((r) => {
-        const x = r as { serial?: unknown; model?: unknown; category?: unknown; holder?: unknown }
+        const x = r as { serial?: unknown; model?: unknown; category?: unknown; holder?: unknown; assetNo?: unknown }
         return typeof x.serial === 'string' && typeof x.model === 'string' && typeof x.category === 'string' && typeof x.holder === 'string'
-      })) return { ok: false, detail: 'searchAssets() 항목이 {serial,model,category,holder} 형태 아님' }
+          && (x.assetNo == null || typeof x.assetNo === 'string')
+      })) return { ok: false, detail: 'searchAssets() 항목이 {serial,model,category,holder,assetNo?:string} 형태 아님' }
       // acquireAssetNo 는 신규 자산에 번호를 부여하며 상태를 바꾼다 — 자가진단은 부작용 없이,
       // 이미 등록번호가 있는 자산으로 멱등 경로만 확인한다 (없으면 조회 형태만 검증).
       const registered = rows.find((r) => typeof r.serial === 'string' && typeof r.assetNo === 'string' && r.assetNo.length > 0)

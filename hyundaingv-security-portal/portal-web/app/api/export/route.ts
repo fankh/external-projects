@@ -40,7 +40,9 @@ export async function GET(req: Request) {
     // 계획대비실적(투자·비용) — 조회·엑셀 전 권한 (요구사항 조회 ●, 엑셀 ◎)
     const kind = type === 'invest-actual' ? '투자' : '비용'
     const confirmed = s.investPlans.filter((p) => p.kind === kind && p.status === '확정')
-    const rows: (string | number)[][] = [['과제번호', '과제명', '담당', '계획액(만원)', '계약액(만원)', '집행액(만원)', '집행률(%)']]
+    // 컬럼 명사는 kind 에 맞춘다 — 투자=과제, 비용=항목(화면 노운과 일치). 공유 헤더는 비용을 과제로 오표기했다.
+    const noun = kind === '투자' ? '과제' : '항목'
+    const rows: (string | number)[][] = [[`${noun}번호`, `${noun}명`, '담당', '계획액(만원)', '계약액(만원)', '집행액(만원)', '집행률(%)']]
     for (const p of confirmed) {
       // 화면과 동일하게 kind 로 먼저 스코프 — 전역 planId 유일성에만 의존하지 않고 교차-kind 집계를 원천 차단
       const cts = s.investContracts.filter((c) => c.planId === p.id && c.kind === kind)
@@ -115,7 +117,9 @@ export async function GET(req: Request) {
           kindContracts.find((c) => c.id === x.contractId)?.vendor === f.vendor)
         .reduce((sum, x) => sum + x.amount, 0)
       const basis = paid > 0 ? '정산' : kindContracts.some((c) => c.vendor === f.vendor) ? '계약' : '계획'
-      const plan = f.planId ? s.investPlans.find((p) => p.id === f.planId) : undefined
+      // kind 로 스코프 — 화면과 달리 export 는 plan.title 을 해석하므로, 손상/주입 상태에서 flash.planId 가
+      // 투자 계획을 가리키면 비용 속보에 투자 과제명이 새어 나온다(route:45 원칙: 전역 planId 유일성 미의존)
+      const plan = f.planId ? s.investPlans.find((p) => p.id === f.planId && p.kind === '비용') : undefined
       rows.push([f.month, f.vendor, plan?.title ?? '-', f.expected, basis, basis === '정산' ? paid : f.expected])
     }
     return csvResponse('비용_속보', rows)

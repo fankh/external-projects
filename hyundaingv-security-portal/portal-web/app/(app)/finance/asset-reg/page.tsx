@@ -41,10 +41,12 @@ export default async function AssetRegPage({ searchParams }: { searchParams: Pro
   // 조회 실패(어댑터 예외)는 빈 목록으로 폴백 — 연동 장애가 자산등록 화면을 깨지 않게 한다
   const rawAssets = adapter ? await withTimeout(adapter.searchAssets(query), '자산 조회').catch(() => []) : []
   // .catch 는 reject 만 흡수한다 — 실 고객사 어댑터가 계약(ExternalAsset[])을 어겨 비배열(예: {data:[...]}
-  // REST 봉투)·필수 필드 누락을 resolve 하면 assets.filter/.map 이 전 화면 500 을 낸다. 수집 지점에서 형태
-  // 검증해(conformance {serial,model,category,holder} 와 동일 엄격도) 어긋난 행을 걸러 정상 행만 렌더한다.
+  // REST 봉투)·필드 오형을 resolve 하면 assets.filter/.map 이 전 화면 500 을 낸다. 수집 지점에서 형태 검증해
+  // 어긋난 행을 걸러 정상 행만 렌더한다. assetNo 도 검증한다 — 아래 {a.assetNo} 직접 렌더가 객체값이면 React
+  // 'Objects are not valid as a React child' 로 전 화면 500(옵셔널이라 없거나 문자열만 허용). conformance 동조.
   const assets = (Array.isArray(rawAssets) ? rawAssets : []).filter(
-    (a) => a != null && typeof a.serial === 'string' && typeof a.model === 'string' && typeof a.category === 'string' && typeof a.holder === 'string',
+    (a) => a != null && typeof a.serial === 'string' && typeof a.model === 'string' && typeof a.category === 'string' && typeof a.holder === 'string'
+      && (a.assetNo == null || typeof a.assetNo === 'string'),
   )
   const unregistered = assets.filter((a) => !a.assetNo)
 

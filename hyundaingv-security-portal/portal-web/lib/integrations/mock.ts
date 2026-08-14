@@ -75,6 +75,8 @@ export const mockAsset: AssetAdapter = {
   async searchAssets(query) {
     // 계약 위반(비배열 REST 봉투) 주입 — {data,total} 반환으로 assets.filter/.map 500 방어(수집 형태검증) 검증
     if (process.env.PORTAL_FAULT_ASSET === 'malformed') return { data: [], total: 0 } as unknown as ExternalAsset[]
+    // 계약 위반(assetNo 객체값) 주입 — {a.assetNo} 직접 렌더가 React child 500 나지 않는지(assetNo 형태검증) 검증
+    if (process.env.PORTAL_FAULT_ASSET === 'badfield') return [{ serial: 'SN-BAD-1', model: 'ThinkPad', category: '노트북', holder: '김현우', assetNo: {} }] as unknown as ExternalAsset[]
     const q = query.trim()
     if (!q) return EXTERNAL_ASSETS
     return EXTERNAL_ASSETS.filter(

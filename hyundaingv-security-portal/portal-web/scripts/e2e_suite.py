@@ -884,6 +884,18 @@ def sc_adapter_asset_malformed(pg, base, check):
           '오형 자산 조회에도 오류 바운더리 미표시(정상 렌더)')
 
 
+def sc_adapter_asset_badfield(pg, base, check):
+    """자산 어댑터 계약 위반 내성(v1.5.82) — searchAssets 가 유효 4필드 + assetNo 를 객체값({})으로 resolve 해도
+    수집 필터가 assetNo 형태검증으로 걸러 /finance/asset-reg 가 500 없이 렌더된다({a.assetNo} 직접 렌더의 React
+    child 500 방지, v1.5.74 가 놓친 렌더 필드). PORTAL_FAULT_ASSET=badfield 주입."""
+    login(pg, base, '시스템관리자')
+    resp = pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
+    check(resp.status == 200, '객체값 assetNo 응답에도 자산등록 화면 무크래시(assetNo 형태검증)')
+    body = pg.content()
+    check('문제가 발생' not in body and 'Application error' not in body and 'something went wrong' not in body.lower(),
+          '객체값 assetNo 에도 오류 바운더리 미표시(정상 렌더)')
+
+
 def sc_codes(pg, base, check):
     """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
@@ -1502,6 +1514,8 @@ SCENARIOS = [
      {'PORTAL_FAULT_HR': 'malformed'}),
     ('adapter_asset_malformed', '자산 어댑터 계약 위반 내성 — 비배열 조회 응답에도 자산등록 화면 무크래시(수집 형태검증 패리티)', sc_adapter_asset_malformed,
      {'PORTAL_FAULT_ASSET': 'malformed'}),
+    ('adapter_asset_badfield', '자산 어댑터 assetNo 객체값 내성 — 자산등록 화면 무크래시(렌더 필드 형태검증)', sc_adapter_asset_badfield,
+     {'PORTAL_FAULT_ASSET': 'badfield'}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
