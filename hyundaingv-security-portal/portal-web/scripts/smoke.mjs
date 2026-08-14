@@ -329,10 +329,20 @@ async function main() {
     check(!html.includes('FL-2026-11'), 'USER /search 에 장애 건 미노출')
   }
   {
-    // 전사 운영 스냅샷은 담당·Admin 전용
+    // 전사 운영 스냅샷은 담당·Admin 전용 — canManage(담당·Admin) 밖인 USER·DEPT_MGR 는 미노출.
+    // DEPT_MGR 은 타 도메인에선 부서 범위지만 전사 스냅샷은 못 본다(관리자 취급 리팩터 시 전사 유출).
     const r = await get('/dashboard', 'USER')
-    const html = await r.text()
-    check(!html.includes('전사 운영 스냅샷'), 'USER /dashboard 에 운영 스냅샷 미노출')
+    check(!(await r.text()).includes('전사 운영 스냅샷'), 'USER /dashboard 에 운영 스냅샷 미노출')
+    const rDept = await get('/dashboard', 'DEPT_MGR')
+    check(!(await rDept.text()).includes('전사 운영 스냅샷'), 'DEPT_MGR /dashboard 에 운영 스냅샷 미노출')
+  }
+  {
+    // 전 임직원 이수현황 표(타인 이수 상태 = 개인정보)는 canManage(담당·Admin) 전용 — USER·DEPT_MGR 는
+    // '내 이수현황'만 본다. DEPT_MGR 이 관리자로 취급되면 타인 이수 개인정보가 유출된다.
+    const r = await get('/compliance/education', 'USER')
+    check(!(await r.text()).includes('이수현황 — 전 임직원'), 'USER /compliance/education 에 전 임직원 표 미노출')
+    const rDept = await get('/compliance/education', 'DEPT_MGR')
+    check(!(await rDept.text()).includes('이수현황 — 전 임직원'), 'DEPT_MGR /compliance/education 에 전 임직원 표 미노출')
   }
   {
     // 특별서약 카드는 보안담당자에게만 — 김현우(USER)는 미노출
