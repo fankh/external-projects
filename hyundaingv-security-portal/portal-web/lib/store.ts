@@ -357,17 +357,35 @@ function loadFromFile(): Store | null {
       if (!tmpl || typeof tmpl !== 'object') continue
       const arrFields = Object.keys(tmpl).filter((f) => Array.isArray(tmpl[f]))
       const numFields = Object.keys(tmpl).filter((f) => typeof tmpl[f] === 'number')
-      const strFields = Object.keys(tmpl).filter((f) => typeof tmpl[f] === 'string')
-      if (arrFields.length === 0 && numFields.length === 0 && strFields.length === 0) continue
+      // 문자열 필드는 시드 첫 요소가 아니라 전 시드 요소의 합집합으로 잡는다 — 첫 행에 없는 옵셔널 필드
+      // (decidedAt·rejectReason 등, 반려/처리 완료 행에만 있음)가 정규화에서 빠지면 손상 파일의 객체값이
+      // 살아남아 {a.decidedAt ?? '-'} 가 React child 로 렌더돼 500(평문 GET) 난다(v1.5.63 사각 마감).
+      const strFields = new Set<string>()
+      for (const row of expected as Record<string, unknown>[]) {
+        if (row && typeof row === 'object') for (const f of Object.keys(row)) if (typeof row[f] === 'string') strFields.add(f)
+      }
+      if (arrFields.length === 0 && numFields.length === 0 && strFields.size === 0) continue
       for (const el of mergedRec[k] as Record<string, unknown>[]) {
         if (!el || typeof el !== 'object') continue
-        for (const f of arrFields) if (!Array.isArray(el[f])) el[f] = []
+        for (const f of arrFields) {
+          if (!Array.isArray(el[f])) { el[f] = []; continue }
+          // 중첩 배열의 '원소'도 방어 — 상위 요소 필터(위 line ~342)는 codeGroups[] 만 걸러 values[] 안의
+          // null·원시값은 통과시켜 isCodeActive(null) 등 소비처가 500 난다. 시드 형판의 원소 타입에 맞춰
+          // 손상 원소를 제거한다(객체 배열=null·원시 제거, 문자열 배열=문자열만). 빈 시드 배열은 판별 불가라 그대로.
+          const sample = (tmpl[f] as unknown[])[0]
+          if (sample !== null && typeof sample === 'object') el[f] = (el[f] as unknown[]).filter((e) => e !== null && typeof e === 'object' && !Array.isArray(e))
+          else if (typeof sample === 'string') el[f] = (el[f] as unknown[]).filter((e) => typeof e === 'string')
+        }
         for (const f of numFields) if (typeof el[f] !== 'number') el[f] = 0
         // 문자열이어야 할 필드가 손상 파일에서 숫자·객체 등(정의된 비문자열 값)으로 오면 소비처의
         // .slice/.includes/.localeCompare 가 렌더에서 500 을 낸다(array→[]·number→0 정규화의 문자열 짝).
         // 존재하는 비문자열 값만 문자열로 강제한다 — 누락(undefined)은 옵셔널 필드 의미 보존을 위해 그대로
         // 둔다(정상 데이터의 옵셔널 미존재 필드가 ''로 바뀌지 않도록).
         for (const f of strFields) if (el[f] !== undefined && typeof el[f] !== 'string') el[f] = String(el[f])
+        // 요소 필드는 순수 객체값을 가질 수 없다(문자열·숫자·불리언·배열뿐) — 손상 파일의 객체값은 {a.x ?? '-'}
+        // 처럼 JSX child 로 렌더될 때 React 'Objects are not valid as a React child' 로 500 낸다. 시드 어느
+        // 행에도 없어 strFields 로 못 잡는 필드(rejectReason 등)까지 포함해, 순수 객체 필드는 제거(undefined)한다.
+        for (const f of Object.keys(el)) if (el[f] !== null && typeof el[f] === 'object' && !Array.isArray(el[f])) delete el[f]
       }
     }
     // 파일 변조·손상 방어 — menuOverrides 는 형태 검증을 통과한 엔트리만 보존한다

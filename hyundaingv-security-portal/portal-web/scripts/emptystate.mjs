@@ -127,8 +127,14 @@ async function main() {
     auditLogs: [{ at: '2026-08-14 10:00:00', actor: '시스템관리자', detail: 'x' }],
     // 요소 오염: 원시값(걸러짐) + 객체지만 values 누락(정규화로 []) + 정상 그룹. 셋 다 /settings/codes
     // 의 g.values.length·activeCodes 소비처를 500 내지 않아야 한다(요소 필터 + 중첩 필드 정규화).
+    // values[] 안의 null 원소 — 상위 요소 필터는 못 거르므로 중첩 원소 필터가 없으면 isCodeActive(null) 이
+      // .enabled 접근으로 500(장애·SR·공통코드 화면 전역). 중첩 원소 방어로 null 제거 → 무크래시.
     codeGroups: ['garbage', 42, null, { id: 'SR_KIND', name: 'SR유형(값누락)' },
-      { id: 'FAULT_GRADE', name: '장애등급', values: [{ code: '1등급', enabled: true }] }],
+      { id: 'FAULT_GRADE', name: '장애등급', values: [null, { code: '1등급', enabled: true }] }],
+    // 결재의 옵셔널 문자열 필드(decidedAt·rejectReason, 시드 첫 행에 없어 strFields 합집합이 없으면 누락)가
+    // 객체로 오염 → {a.decidedAt ?? '-'} 가 React child 로 렌더돼 /work/approvals 가 500. 합집합 strFields 로 방어.
+    approvals: [{ id: 'AP-9', docType: '비용 정산품의', title: 't', drafter: '시스템관리자', dept: '정보기획팀',
+      approver: '박정호', status: '반려', draftedAt: '2026-08-01', decidedAt: {}, rejectReason: {} }],
     people: [{ login: 'probe1', name: '견고성검증', dept: '품질보증팀', role: 'USER' }] }
   const corruptOk = await probe('corruptfile(손상 파일)', corrupt, PORT + 1,
     (r, body) => (r === '/settings/users' && !body.includes('품질보증팀')) ? '정상 부분(people) 머지 누락' : null)
