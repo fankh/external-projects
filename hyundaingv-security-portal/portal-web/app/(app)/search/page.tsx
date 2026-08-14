@@ -17,6 +17,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const query = (q ?? '').trim()
   const s = getStore()
   const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
+  const canViewFinance = me.role !== 'USER'  // 재무(계약·실적)는 관리자급만 — 화면 스코핑과 동일
   const has = (...fields: (string | undefined)[]) => query !== '' && fields.some((f) => f?.includes(query))
 
   // 각 도메인의 화면 스코핑을 그대로 따른다 — 검색이 권한 우회 경로가 되지 않도록
@@ -46,13 +47,15 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     ],
   })
 
-  groups.push({
-    label: 'IT 투자/비용',
-    hits: s.investContracts.filter((c) => has(c.id, c.title, c.vendor)).map((c) => ({
-      href: c.kind === '투자' ? '/finance/invest' : '/finance/expense',
-      code: c.id, title: c.title, meta: `${c.kind} 계약 · ${c.vendor} · ${c.amount.toLocaleString('ko-KR')}만원`,
-    })),
-  })
+  if (canViewFinance) {
+    groups.push({
+      label: 'IT 투자/비용',
+      hits: s.investContracts.filter((c) => has(c.id, c.title, c.vendor)).map((c) => ({
+        href: c.kind === '투자' ? '/finance/invest' : '/finance/expense',
+        code: c.id, title: c.title, meta: `${c.kind} 계약 · ${c.vendor} · ${c.amount.toLocaleString('ko-KR')}만원`,
+      })),
+    })
+  }
 
   if (canManage) {
     groups.push({

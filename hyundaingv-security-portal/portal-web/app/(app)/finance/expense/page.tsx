@@ -115,7 +115,8 @@ async function editFlash(formData: FormData) {
 
 async function requestSettlement(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  // 정산 상신은 재무 리포트(정산 카드)와 동일 스코프 — 일반 사용자 제외, 부서담당 이상만
+  const me = await requireMenuRole('/finance/expense', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const contractId = String(formData.get('contractId') ?? '')
   const item = String(formData.get('item') ?? '') as SettlementItem
   const amount = Number(formData.get('amount'))
@@ -142,6 +143,9 @@ export default async function ExpensePage() {
   const me = await requireMenu('/finance/expense')
   const s = getStore()
   const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
+  // 재무 리포트(전사 집계·속보·계약·정산·계획대비실적)는 관리자급(부서담당 이상)만 — 일반
+  // 사용자는 본인 경영계획만. 회사 전체 재무를 일반 직원이 열람하지 않도록 잠근다.
+  const canViewFinance = me.role !== 'USER'
 
   const kindPlans = s.investPlans.filter((p) => p.kind === '비용')
   const kindContracts = s.investContracts.filter((c) => c.kind === '비용')
@@ -178,12 +182,14 @@ export default async function ExpensePage() {
       <ScreenHeader kicker="IT 투자/비용" title="비용 관리"
         desc="경영계획 → 시행·계약 → 속보(월별 지불 예상) → 정산품의(결재) — 기준금액은 정산 > 계약 > 계획 우선순위로 표시한다." />
 
-      <div className="stat-row">
-        <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`항목 ${confirmed.length}건`} />
-        <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
-        <Stat value={<>{fmt(paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
-        <Stat value={`${planTotal ? Math.round((paidConfirmed / planTotal) * 100) : 0}%`} label="계획 대비 집행률" />
-      </div>
+      {canViewFinance && (
+        <div className="stat-row">
+          <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`항목 ${confirmed.length}건`} />
+          <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
+          <Stat value={<>{fmt(paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
+          <Stat value={`${planTotal ? Math.round((paidConfirmed / planTotal) * 100) : 0}%`} label="계획 대비 집행률" />
+        </div>
+      )}
 
       <Card title="경영계획 — 비용 항목" kicker="Plan" pad={false}>
         <div className="tbl-wrap">
@@ -237,6 +243,7 @@ export default async function ExpensePage() {
         </div>
       </Card>
 
+      {canViewFinance && (<>
       <Card title="속보 — 월별 거래처별 지불 예상" kicker="Flash" pad={false}
         actions={<a className="btn sm" href="/api/export?type=expense-flash">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
@@ -409,6 +416,7 @@ export default async function ExpensePage() {
           </table>
         </div>
       </Card>
+      </>)}
     </>
   )
 }

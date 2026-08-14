@@ -32,6 +32,11 @@ export async function GET(req: Request) {
   const ownerHref = EXPORT_MENU[type]
   if (ownerHref && !effectiveRoles(ownerHref).includes(role)) return new Response('forbidden', { status: 403 })
 
+  // 재무 리포트(전사 계획대비실적·속보)는 관리자급(부서담당 이상)만 — 일반 사용자 차단(화면과 동일 스코프)
+  if ((type === 'invest-actual' || type === 'expense-actual' || type === 'expense-flash') && role === 'USER') {
+    return new Response('forbidden', { status: 403 })
+  }
+
   if (type === 'invest-actual' || type === 'expense-actual') {
     // 계획대비실적(투자·비용) — 조회·엑셀 전 권한 (요구사항 조회 ●, 엑셀 ◎)
     const kind = type === 'invest-actual' ? '투자' : '비용'

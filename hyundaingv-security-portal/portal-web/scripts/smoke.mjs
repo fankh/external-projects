@@ -204,8 +204,8 @@ async function main() {
     ['/platform/integrations', 'ADMIN', ['연동 채널', '그룹웨어 메일', '자산관리시스템', 'mock-asset', '인사정보 즉시 동기화', 'portal.config.ts', '어댑터 계약 자가진단', '전 프로필 적합', 'erp-asset', 'gov-asset', '검증기 자기점검', '정상', '채널 id 유일', '배포 준비 상태', '세션 서명 키', '영속화']],
     // 자산등록 — 자산관리 어댑터 조회·미등록 식별
     ['/finance/asset-reg', 'BIZ_MGR', ['SN-NB-88121', 'AST-2025-0112', '미등록', '등록번호 취득']],
-    // 투자 루프 — 계획 스코핑(USER=본인), 실적 집계, 확정 버튼(담당만)
-    ['/finance/invest', 'USER', ['ERP 리포트 모듈 고도화', 'IP-2026-03', '계획대비실적', '정산품의 상신', '취합 제출']],
+    // 투자 루프 — 계획 스코핑(USER=본인 경영계획만), 재무 리포트(실적·계약·정산)는 관리자급
+    ['/finance/invest', 'USER', ['ERP 리포트 모듈 고도화', 'IP-2026-03', '취합 제출', '경영계획']],
     ['/finance/invest', 'BIZ_MGR', ['보안관제 시스템 증설', '계획 확정', '테스트 장비 증설']],
     // 장애 루프 — 등록·조치·통계 상신·향후대책
     ['/infra/incidents', 'BIZ_MGR', ['FL-2026-11', 'DB 커넥션 풀 고갈로 응답 지연', '장애보고 상신', '향후대책', '커넥션 사용량 임계 알림 구축', 'FL-2026-13']],
@@ -215,7 +215,7 @@ async function main() {
     ['/compliance/inspection', 'BIZ_MGR', ['IS-2026-22', '퇴직·전보자 계정 회수 점검', '결과 결재상신', '기준관리', 'CK-05', '결과미등록', '중분류', '계정관리', '기준 등록', '업로드 반영', '점검 대상']],
     // 비용 루프 — 속보 기준금액(정산>계약>계획), 투자·비용 분리
     ['/finance/expense', 'DEPT_MGR', ['클라우드 인프라 이용료', '씨클라우드', '속보', '기준금액', 'ST-2026-02', '월정산', '계획대비실적', 'expense-actual', '지급예정']],
-    ['/finance/expense', 'USER', ['속보 등록', '임시저장', '수정']],
+    ['/finance/expense', 'USER', ['경영계획', '항목 등록']],
     // 보안교육 — 연간계획·명단 등록(담당)·내 이수현황(사용자)
     ['/compliance/education', 'BIZ_MGR', ['상반기 정보보호 교육', '명단 등록', '이수현황 — 전 임직원', '김현우', '미이수', '게시 · 공지 이력']],
     ['/compliance/education', 'USER', ['내 이수현황', '미이수', 'ED-2026-01']],
@@ -252,7 +252,7 @@ async function main() {
     ['/board/qna', 'BIZ_MGR', ['답변 내용', '담당 지정']],
     // 공통 첨부 — SR·계약 시드 첨부 뱃지
     ['/sr/requests', 'USER', ['📎']],
-    ['/finance/invest', 'USER', ['📎']],
+    ['/finance/invest', 'DEPT_MGR', ['📎']],  // 계약 첨부 뱃지 — 계약은 관리자급만 열람
     // 환경설정 잔여 4종 — 공통코드·메뉴·권한 매트릭스·엑셀양식
     ['/settings/codes', 'ADMIN', ['FAULT_GRADE', '장애등급', '코드 중심 운영', '2등급', '사용기간', '코드 추가']],
     ['/settings/menus', 'ADMIN', ['LV1 도메인', '메뉴 체계', '/sr/new', '구현']],
@@ -283,12 +283,18 @@ async function main() {
     check(!html.includes('SR-2026-0146'), 'USER /sr/requests 에 타부서 건(SR-2026-0146) 미노출')
   }
   {
-    // 경영계획 카드는 개인 스코핑, 계획대비실적·계약내역은 전사 조회(요구사항 조회 ●) —
-    // 사용자에게 숨겨야 하는 것은 '계획 확정' 관리 기능뿐이다
+    // 재무 리포트(전사 집계·계약·정산·계획대비실적)는 관리자급(부서담당 이상)만 — 일반
+    // 사용자는 본인 경영계획만 보고, 회사 전체 재무는 열람할 수 없다.
     const r = await get('/finance/invest', 'USER')
     const html = await r.text()
     check(!html.includes('계획 확정'), 'USER /finance/invest 에 확정 버튼 미노출')
-    check(!html.includes('CT-2026-03'), '투자 화면에 비용 계약(CT-2026-03) 미노출')
+    // 섹션 고유 마커로 검사(화면 desc 문구에도 '계획대비실적' 등이 있어 카드 kicker·표 헤더로 구분)
+    check(!html.includes('계약 체결') && !html.includes('Plan vs Actual') && !html.includes('계약번호') && !html.includes('품의번호'),
+      'USER /finance/invest 재무 리포트(전사집계·실적·계약·정산) 미노출')
+    const mgrInvest = await get('/finance/invest', 'DEPT_MGR')
+    const mgrHtml = await mgrInvest.text()
+    check(mgrHtml.includes('Plan vs Actual') && !mgrHtml.includes('CT-2026-03'),
+      '관리자는 실적 열람 + 투자 화면에 비용 계약(CT-2026-03) 미노출(kind 필터)')
   }
   {
     const r = await get('/pledge/dept', 'DEPT_MGR')
@@ -361,7 +367,7 @@ async function main() {
   {
     // 엑셀 ◎ 확대 스윕 (v1.1.4) — 유형별 200 + 대표 내용, 권한·스코핑 검증
     const sweep = [
-      ['expense-flash', 'USER', '거래처'],
+      ['expense-flash', 'DEPT_MGR', '거래처'],
       ['sr-requests', 'BIZ_MGR', 'SR-2026-0141'],
       ['ci-srs', 'BIZ_MGR', 'CS-2026-0001'],
       ['incidents', 'BIZ_MGR', '장애번호'],
@@ -393,14 +399,18 @@ async function main() {
     check(denied.status === 403, 'export: USER 장애 대장 차단(403)')
   }
   {
-    // 엑셀 다운로드 — CSV(BOM) 응답과 권한 가드
-    const r = await get('/api/export?type=invest-actual', 'USER')
+    // 엑셀 다운로드 — CSV(BOM) 응답과 권한 가드. 재무 리포트는 관리자급(부서담당 이상)만.
+    const investUser = await get('/api/export?type=invest-actual', 'USER')
+    check(investUser.status === 403, 'export: invest-actual 일반 사용자 차단(403)')
+    const expenseUser = await get('/api/export?type=expense-actual', 'USER')
+    check(expenseUser.status === 403, 'export: expense-actual 일반 사용자 차단(403)')
+    const r = await get('/api/export?type=invest-actual', 'DEPT_MGR')
     const text = await r.text()
-    check(r.status === 200 && text.includes('계획대비') === false && text.includes('과제번호'), 'export: invest-actual CSV 헤더')
+    check(r.status === 200 && text.includes('계획대비') === false && text.includes('과제번호'), 'export: invest-actual CSV 헤더 (관리자)')
     check((r.headers.get('content-type') ?? '').includes('text/csv'), 'export: CSV 콘텐츠 타입')
-    const ex = await get('/api/export?type=expense-actual', 'USER')
+    const ex = await get('/api/export?type=expense-actual', 'DEPT_MGR')
     const exText = await ex.text()
-    check(ex.status === 200 && exText.includes('클라우드 인프라 이용료') && !exText.includes('ERP 리포트'), 'export: expense-actual CSV (비용만)')
+    check(ex.status === 200 && exText.includes('클라우드 인프라 이용료') && !exText.includes('ERP 리포트'), 'export: expense-actual CSV (비용만, 관리자)')
     const denied = await get('/api/export?type=education-records', 'USER')
     check(denied.status === 403, 'export: USER 이수현황 차단(403)')
     const anon = await fetch(`${BASE}/api/export?type=invest-actual`, { redirect: 'manual' })
