@@ -967,6 +967,12 @@ try {
   const saasXlsx = Buffer.from(await (await get('/api/export/saas', 'SEC_MGR')).arrayBuffer()).toString('utf8')
   check('Shadow SaaS 엑셀: 사용 현황·부서별 미인가 시트 + 데이터', saasXlsx.includes('SaaS 사용 현황') && saasXlsx.includes('부서별 미인가 노출') && saasXlsx.includes('Notion') && saasXlsx.includes('미인가'))
   check('Shadow SaaS 엑셀: 사용자 403 (권한 매트릭스 엑셀 통제)', (await get('/api/export/saas', 'USER')).status === 403)
+  // SaaS 정책 대장 엑셀 — 인가/차단/검토중 판정·데이터 등급·결정자를 거버넌스 감사 증적으로(사용 현황 반출과 구분). 정책 화면(saas-catalog)에 export 부재였던 공백 해소.
+  const catCatalog = await (await get('/settings/saas-catalog', 'SEC_MGR')).text()
+  check('SaaS 카탈로그: 정책 대장 엑셀 반출 버튼 노출', catCatalog.includes('/api/export/saasCatalog') && catCatalog.includes('SaaS 정책 대장 엑셀'))
+  const catXlsx = Buffer.from(await (await get('/api/export/saasCatalog', 'SEC_MGR')).arrayBuffer()).toString('utf8')
+  check('SaaS 정책 대장 엑셀: 판정·데이터 등급·결정자 시트 + 데이터', catXlsx.includes('SaaS 정책 대장') && catXlsx.includes('데이터 등급') && (catXlsx.includes('검토중') || catXlsx.includes('인가')))
+  check('SaaS 정책 대장 엑셀: 사용자 403 (권한 매트릭스 엑셀 통제)', (await get('/api/export/saasCatalog', 'USER')).status === 403)
   const stockHtml = await (await get('/inventory/stock', 'ASSET_MGR')).text()
   check('재고 현황: 조사 계획 등록이 재물조사 계획으로 연결', stockHtml.includes('/inventory/survey-plan'))
   // 유형별 보유 집계 → 자산 대장 드릴다운 (?cat= 필터 링크)
