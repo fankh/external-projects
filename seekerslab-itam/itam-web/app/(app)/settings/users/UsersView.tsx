@@ -109,7 +109,11 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
                     <tr>
                       <td colSpan={9} style={{ background: 'var(--canvas)', padding: '10px 14px' }}>
                         <div className="vstack" style={{ gap: 6 }}>
-                          <span className="kicker mute">오프보딩 요약 — {u.name} ({u.dept}) · 퇴직·부서이동 시 회수·재배정 대상</span>
+                          <div className="hstack" style={{ justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <span className="kicker mute">오프보딩 요약 — {u.name} ({u.dept}) · 퇴직·부서이동 시 회수·재배정 대상</span>
+                            <a className="btn sm ghost" href={`/api/offboard-sheet/${encodeURIComponent(u.name)}`} target="_blank" rel="noopener"
+                              title={`${u.name} 오프보딩 명세서(인수인계 체크리스트) 인쇄`}>🖨 명세서 인쇄</a>
+                          </div>
                           <div className="hstack" style={{ gap: 14, flexWrap: 'wrap', fontSize: 12.5 }}>
                             <span>사용중 보유 <b>{ob.inUse}</b>대{ob.inUse > 0 && <> · <a href={`/assets/register?q=${encodeURIComponent(u.name)}&status=사용중`} style={{ color: 'var(--accent-deep)' }} title="대장에서 일괄 회수(선택 후 일괄 회수)">일괄 회수 →</a></>}</span>
                             <span>대여중 <b>{ob.loaned}</b>대{ob.loaned > 0 && <> · <a href={`/assets/register?q=${encodeURIComponent(u.name)}&status=대여중`} style={{ color: 'var(--accent-deep)' }} title="대여 반환 처리">반환 처리 →</a></>}</span>

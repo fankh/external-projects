@@ -802,6 +802,8 @@ try {
   await p3.waitForTimeout(300)
   const obBody = (await p3.locator('body').textContent()) || ''
   ok('오프보딩 요약: 배정 라이선스 좌석 집계·표기(AutoCAD 좌석)', obBody.includes('오프보딩 요약 — 김민준') && obBody.includes('배정 라이선스 좌석') && obBody.includes('AutoCAD'))
+  // 오프보딩 명세서 인쇄 링크 — 확장 요약에서 인수인계 체크리스트(회수·재배정 대상)를 한 장 인쇄 산출물로 발급
+  ok('오프보딩 요약: 명세서 인쇄 링크(인수인계 체크리스트)', obBody.includes('명세서 인쇄') && (await p3.locator('a[href*="/api/offboard-sheet/"]').count()) > 0)
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──
