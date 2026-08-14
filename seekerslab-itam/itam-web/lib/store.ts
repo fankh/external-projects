@@ -202,7 +202,7 @@ function seedMenuDefs(): MenuDef[] {
     { code: 'INV-010',  category: '재고·계약',  menu: '재고 · 재물조사',      path: '/inventory/stock',      actions: ['조회', '저장', '삭제', '엑셀', '결재'],            enforced: ['엑셀'] },
     { code: 'INV-020',  category: '재고·계약',  menu: '계약 · 라이선스',      path: '/inventory/contracts',  actions: ['조회', '저장', '삭제', '엑셀', '결재'],            enforced: ['엑셀'] },
     { code: 'DSC-010',  category: 'Discovery', menu: '발견 자산 · CMDB 대사', path: '/discovery/found',      actions: ['조회', '저장', '엑셀', '편입', '격리요청', '결재'], enforced: ['엑셀', '편입', '격리요청'] },
-    { code: 'DSC-030',  category: 'Discovery', menu: 'Shadow SaaS',        path: '/discovery/saas',       actions: ['조회', '저장', '엑셀', '격리요청', '결재'],        enforced: [] },
+    { code: 'DSC-030',  category: 'Discovery', menu: 'Shadow SaaS',        path: '/discovery/saas',       actions: ['조회', '저장', '엑셀', '격리요청', '결재'],        enforced: ['엑셀'] },
     { code: 'AI-010',   category: 'AI',        menu: 'AI 어시스턴트',        path: '/ai/assistant',         actions: ['조회', '엑셀'],                                  enforced: [] },
     { code: 'WFL-010',  category: '워크플로',   menu: '신청 · 결재',          path: '/workflow/approvals',   actions: ['조회', '저장', '엑셀', '격리요청', '결재'],        enforced: ['엑셀', '결재'] },
     { code: 'CFG-010',  category: '환경설정',   menu: '권한 · 정책',          path: '/settings/permissions', actions: ['조회', '저장', '삭제', '엑셀'],                   enforced: ['엑셀'] },

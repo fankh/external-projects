@@ -850,6 +850,11 @@ try {
   check('Shadow SaaS: 목록 필터(부서·인가여부·검색) 렌더', saasSec.includes('부서 — 전체') && saasSec.includes('서비스·분류·부서 검색'))
   // 중복 기능 SaaS 통합 후보(라이선스 최적화) — 같은 분류에 2종 이상 서비스가 관측되면 통합 대상. 시드 '협업'=Notion+Miro(둘 다 미인가).
   check('Shadow SaaS: 중복 기능 통합 후보 렌더 (협업=Notion+Miro)', saasSec.includes('중복 기능 SaaS 통합 후보') && saasSec.includes('통합 후보 (중복 기능)') && /협업[\s\S]{0,400}Notion[\s\S]{0,400}Miro|협업[\s\S]{0,400}Miro[\s\S]{0,400}Notion/.test(saasSec) && saasSec.includes('통합 권고'))
+  // Shadow SaaS 엑셀 반출 — 매트릭스에 '엑셀'이 선언(DSC-030)됐으나 엔드포인트가 없던 공백. 미인가 SaaS 부서별은 감사 증적.
+  check('Shadow SaaS: 엑셀 반출 버튼 노출(감사 증적)', saasSec.includes('/api/export/saas') && saasSec.includes('Shadow SaaS 엑셀'))
+  const saasXlsx = Buffer.from(await (await get('/api/export/saas', 'SEC_MGR')).arrayBuffer()).toString('utf8')
+  check('Shadow SaaS 엑셀: 사용 현황·부서별 미인가 시트 + 데이터', saasXlsx.includes('SaaS 사용 현황') && saasXlsx.includes('부서별 미인가 노출') && saasXlsx.includes('Notion') && saasXlsx.includes('미인가'))
+  check('Shadow SaaS 엑셀: 사용자 403 (권한 매트릭스 엑셀 통제)', (await get('/api/export/saas', 'USER')).status === 403)
   const stockHtml = await (await get('/inventory/stock', 'ASSET_MGR')).text()
   check('재고 현황: 조사 계획 등록이 재물조사 계획으로 연결', stockHtml.includes('/inventory/survey-plan'))
   // 유형별 보유 집계 → 자산 대장 드릴다운 (?cat= 필터 링크)

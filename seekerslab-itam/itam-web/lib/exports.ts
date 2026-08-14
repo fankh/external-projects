@@ -8,7 +8,7 @@ import type { Sheet } from './xlsx'
 
 /** 엑셀 내보내기 대상 — 권한 매트릭스의 '엑셀' 기능이 걸리는 화면과 1:1 대응한다.
  *  (제품안내서 §02: 권한은 메뉴(화면) × 기능(버튼) 단위로 부여) */
-export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals', 'loans', 'menus'] as const
+export const EXPORT_KINDS = ['assets', 'stock', 'discovered', 'contracts', 'approvals', 'disposals', 'loans', 'menus', 'saas'] as const
 export type ExportKind = (typeof EXPORT_KINDS)[number]
 
 /** 내보내기 대상 ↔ 권한 매트릭스의 메뉴. 허용 여부는 매트릭스의 '엑셀' 칸이 정한다 —
@@ -22,6 +22,7 @@ export const EXPORT_META: Record<ExportKind, { label: string; file: string; menu
   disposals: { label: '폐기 증적 대장', file: '폐기증적대장', menu: '수명주기' },
   loans: { label: '대여 대장', file: '대여대장', menu: '수명주기' },
   menus: { label: '메뉴 · 기능 정의', file: '메뉴기능정의', menu: '권한 · 정책' },
+  saas: { label: 'Shadow SaaS 현황', file: '미인가SaaS현황', menu: 'Shadow SaaS' },
 }
 
 export function canExport(kind: ExportKind, role: Role): boolean {
@@ -218,6 +219,30 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         name: 'STEP2 메뉴정의',
         header: ['화면번호', '카테고리', '메뉴', '경로', '부여된 기능', '서버 강제 기능', '기능 수'],
         rows: defs.map((d) => [d.code, d.category, d.menu, d.path, d.actions.join('·'), d.enforced.join('·') || '-', d.actions.length]),
+      },
+    ]
+  }
+
+  if (kind === 'saas') {
+    // Shadow SaaS 현황 반출 — 미인가 SaaS 사용(부서별)은 감사·컴플라이언스 증적. 화면(discovery/saas)과 같은 데이터.
+    const shadow = s.saas.filter((x) => !x.sanctioned)
+    const deptAgg = Object.values(
+      shadow.reduce<Record<string, { dept: string; count: number; users: number }>>((acc, x) => {
+        const r = (acc[x.dept] ??= { dept: x.dept, count: 0, users: 0 })
+        r.count += 1; r.users += x.users
+        return acc
+      }, {}),
+    ).sort((a, b) => b.users - a.users)
+    return [
+      {
+        name: 'SaaS 사용 현황',
+        header: ['서비스', '기능 분류', '주 사용 부서', '추정 사용자', '인가 여부', '위험도', '월 접속'],
+        rows: s.saas.map((x) => [x.service, x.category, x.dept, x.users, x.sanctioned ? '인가' : '미인가', x.risk, x.monthlyVisits]),
+      },
+      {
+        name: '부서별 미인가 노출',
+        header: ['부서', '미인가 서비스 수', '추정 사용자 합'],
+        rows: deptAgg.map((r) => [r.dept, r.count, r.users]),
       },
     ]
   }
