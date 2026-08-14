@@ -276,6 +276,8 @@ try {
   // 취약점 우선순위 P1 — 스코어링(§05)의 즉시 조치 등급을 보안담당 운영 큐에 노출 (자산담당엔 미노출)
   check('대시보드(보안담당): 취약점 우선순위 P1 운영 큐 노출', dashSec.includes('취약점 우선순위 P1 (즉시 조치)'))
   check('대시보드(자산담당): 취약점 P1 큐 미노출 (보안 운영 큐)', !dashHtml.includes('취약점 우선순위 P1'))
+  // 교체 대상·미사용 라이선스 회수는 자산관리 계획 큐(자산담당·Admin) — 보안담당 운영 큐에는 미노출(라이선스·교체 예산은 SAM/자산 소관)
+  check('대시보드(보안담당): 교체 대상·미사용 라이선스 회수 큐 미노출 (자산관리 계획 큐)', !dashSec.includes('교체 대상 자산') && !dashSec.includes('미사용 라이선스 회수 후보'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
   // 서버·IDC망(10.10.x)에 나타난 미등록 단말 — 서버 VLAN 침입 의심 (어시스턴트 발견 인텐트가 세그먼트로 식별)
