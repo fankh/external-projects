@@ -172,6 +172,8 @@ export interface OpsPolicy {
   staleVerifyDays: number
   /** 계약·보증·라이선스 만료 임박 알림 창(일) */
   expiryWindowDays: number
+  /** 안전재고 기준(대수) — 불출 가능한 유형(단말·주변기기)의 가용(유휴) 재고가 이 값 미만이면 재고 부족(발주 검토) 경보. */
+  safetyStock: number
 }
 
 /** 운영 정책 기본값 — 기존 상수를 시드 기본값으로 승계한다(APPROVAL_SLA_DAYS 는 lib/dates 소재라 순환참조 방지로 기본 3 명시). */
@@ -180,7 +182,12 @@ export const DEFAULT_OPS_POLICY: OpsPolicy = {
   approvalSlaDays: 3,
   staleVerifyDays: STALE_VERIFY_DAYS,
   expiryWindowDays: EXPIRY_WINDOW_DAYS,
+  safetyStock: 2,
 }
+
+/** 안전재고 관리 대상 유형 — 신규 입사·교체 수요로 상시 보충하는 불출형 HW.
+ *  서버·네트워크는 예비 재고를 두지 않고, SW·가상자원은 물리 재고 개념이 아니라 제외한다. */
+export const STOCKED_CATEGORIES = ['단말', '주변기기'] as const
 
 /** 위험도 기준(취약점 우선순위 임계값) — 보안담당이 관리하는 조치 우선순위 판정 기준.
  *  자산 중요도 × 노출도 점수(0~100)를 P1/P2/P3 로 나누는 컷오프. (제품안내서 §01 역할: 보안담당 — 위험도 기준 관리, §05 취약점 우선순위) */

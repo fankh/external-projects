@@ -174,26 +174,27 @@ export async function setAuditRetention(rawDays: number) {
 
 /** 운영 정책(임계값) 변경 — 소유자 확인 기한·결재 SLA·장기 미실측 기준·만료 알림 창을 운영자가 설정한다.
  *  그동안 코드 상수로 고정돼 표시만 되던 값을 스토어 단일 출처로 승격해 화면·리포트·스케줄러가 함께 참조한다(제품안내서 §02 정책 통제·§07 감사). Admin. */
-export async function setOpsPolicy(input: { confirmDeadlineDays: number; approvalSlaDays: number; staleVerifyDays: number; expiryWindowDays: number }) {
+export async function setOpsPolicy(input: { confirmDeadlineDays: number; approvalSlaDays: number; staleVerifyDays: number; expiryWindowDays: number; safetyStock: number }) {
   const session = await requireAdmin()
   if (!session) return { ok: false, message: '운영 정책 변경 권한이 없습니다 (Admin).' }
   const r = (v: number) => Math.round(Number(v))
-  const cd = r(input.confirmDeadlineDays), sla = r(input.approvalSlaDays), sv = r(input.staleVerifyDays), ew = r(input.expiryWindowDays)
+  const cd = r(input.confirmDeadlineDays), sla = r(input.approvalSlaDays), sv = r(input.staleVerifyDays), ew = r(input.expiryWindowDays), ss = r(input.safetyStock)
   const bad = (v: number, lo: number, hi: number) => !Number.isFinite(v) || v < lo || v > hi
   if (bad(cd, 3, 30)) return { ok: false, message: '소유자 확인 기한은 3~30일 사이여야 합니다.' }
   if (bad(sla, 1, 14)) return { ok: false, message: '결재 SLA는 1~14일 사이여야 합니다.' }
   if (bad(sv, 30, 730)) return { ok: false, message: '장기 미실측 기준은 30~730일 사이여야 합니다.' }
   if (bad(ew, 30, 365)) return { ok: false, message: '만료 알림 창은 30~365일 사이여야 합니다.' }
+  if (bad(ss, 0, 50)) return { ok: false, message: '안전재고 기준은 0~50대 사이여야 합니다.' }
   const s = getStore()
   const p = s.opsPolicy
-  if (p.confirmDeadlineDays === cd && p.approvalSlaDays === sla && p.staleVerifyDays === sv && p.expiryWindowDays === ew) {
+  if (p.confirmDeadlineDays === cd && p.approvalSlaDays === sla && p.staleVerifyDays === sv && p.expiryWindowDays === ew && p.safetyStock === ss) {
     return { ok: false, message: '변경 내용이 이전과 같습니다.' }
   }
-  const before = `확인기한 ${p.confirmDeadlineDays}·SLA ${p.approvalSlaDays}·미실측 ${p.staleVerifyDays}·만료창 ${p.expiryWindowDays}`
-  p.confirmDeadlineDays = cd; p.approvalSlaDays = sla; p.staleVerifyDays = sv; p.expiryWindowDays = ew
-  audit(session.name, `운영 정책 변경 — [${before}] → [확인기한 ${cd}·SLA ${sla}·미실측 ${sv}·만료창 ${ew}]`, '운영 정책')
+  const before = `확인기한 ${p.confirmDeadlineDays}·SLA ${p.approvalSlaDays}·미실측 ${p.staleVerifyDays}·만료창 ${p.expiryWindowDays}·안전재고 ${p.safetyStock}`
+  p.confirmDeadlineDays = cd; p.approvalSlaDays = sla; p.staleVerifyDays = sv; p.expiryWindowDays = ew; p.safetyStock = ss
+  audit(session.name, `운영 정책 변경 — [${before}] → [확인기한 ${cd}·SLA ${sla}·미실측 ${sv}·만료창 ${ew}·안전재고 ${ss}]`, '운영 정책')
   revalidatePath('/', 'layout')
-  return { ok: true, message: `운영 정책 갱신 — 확인기한 ${cd}일·SLA ${sla}일·미실측 ${sv}일·만료창 ${ew}일` }
+  return { ok: true, message: `운영 정책 갱신 — 확인기한 ${cd}일·SLA ${sla}일·미실측 ${sv}일·만료창 ${ew}일·안전재고 ${ss}대` }
 }
 
 /** AI 모델·프롬프트 버전 관리 — 배포된 AI 구성(모델·프롬프트 버전)의 변경 관리 기록 (제품안내서 §05 AI 거버넌스: "모델·프롬프트 버전 관리").

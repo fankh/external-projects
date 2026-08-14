@@ -6,11 +6,12 @@ import { setOpsPolicy } from '../actions'
 
 /** 운영 정책(임계값) 관리 — 코드 상수로 고정돼 표시만 되던 기한·SLA·판정 기준을 운영자가 설정한다.
  *  화면·리포트·스케줄러가 모두 스토어 opsPolicy 를 참조하므로 여기서 바꾸면 전 화면에 반영된다. */
-const FIELDS: { key: keyof OpsPolicy; label: string; desc: string; min: number; max: number }[] = [
-  { key: 'confirmDeadlineDays', label: '소유자 확인 기한', desc: '발견 자산 소유자 확인 요청 응답 기한 — 경과 시 격리 에스컬레이션', min: 3, max: 30 },
-  { key: 'approvalSlaDays', label: '결재 SLA', desc: '결재 대기 SLA — 초과 시 대시보드·결재함에 지연 표기', min: 1, max: 14 },
-  { key: 'staleVerifyDays', label: '장기 미실측 기준', desc: '최근 실측 경과 기준 — 초과·미실측 시 유령 자산 후보(재물조사 편성)', min: 30, max: 730 },
-  { key: 'expiryWindowDays', label: '만료 알림 창', desc: '계약·보증·라이선스 만료 임박 알림 대상 기준', min: 30, max: 365 },
+const FIELDS: { key: keyof OpsPolicy; label: string; desc: string; min: number; max: number; unit: string }[] = [
+  { key: 'confirmDeadlineDays', label: '소유자 확인 기한', desc: '발견 자산 소유자 확인 요청 응답 기한 — 경과 시 격리 에스컬레이션', min: 3, max: 30, unit: '일' },
+  { key: 'approvalSlaDays', label: '결재 SLA', desc: '결재 대기 SLA — 초과 시 대시보드·결재함에 지연 표기', min: 1, max: 14, unit: '일' },
+  { key: 'staleVerifyDays', label: '장기 미실측 기준', desc: '최근 실측 경과 기준 — 초과·미실측 시 유령 자산 후보(재물조사 편성)', min: 30, max: 730, unit: '일' },
+  { key: 'expiryWindowDays', label: '만료 알림 창', desc: '계약·보증·라이선스 만료 임박 알림 대상 기준', min: 30, max: 365, unit: '일' },
+  { key: 'safetyStock', label: '안전재고 기준', desc: '불출형 유형(단말·주변기기) 가용 재고 최소 보유 — 미만 시 재고 부족(발주 검토) 경보', min: 0, max: 50, unit: '대' },
 ]
 
 export function OpsPolicyPanel({ policy }: { policy: OpsPolicy }) {
@@ -21,6 +22,7 @@ export function OpsPolicyPanel({ policy }: { policy: OpsPolicy }) {
     approvalSlaDays: String(policy.approvalSlaDays),
     staleVerifyDays: String(policy.staleVerifyDays),
     expiryWindowDays: String(policy.expiryWindowDays),
+    safetyStock: String(policy.safetyStock),
   })
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -30,6 +32,7 @@ export function OpsPolicyPanel({ policy }: { policy: OpsPolicy }) {
       approvalSlaDays: String(policy.approvalSlaDays),
       staleVerifyDays: String(policy.staleVerifyDays),
       expiryWindowDays: String(policy.expiryWindowDays),
+      safetyStock: String(policy.safetyStock),
     })
     setMsg(null); setEditing(true)
   }
@@ -39,6 +42,7 @@ export function OpsPolicyPanel({ policy }: { policy: OpsPolicy }) {
       approvalSlaDays: Number(vals.approvalSlaDays),
       staleVerifyDays: Number(vals.staleVerifyDays),
       expiryWindowDays: Number(vals.expiryWindowDays),
+      safetyStock: Number(vals.safetyStock),
     })
     setMsg(r.message); if (r.ok) setEditing(false)
   })
@@ -58,17 +62,17 @@ export function OpsPolicyPanel({ policy }: { policy: OpsPolicy }) {
         {FIELDS.map((f) => (
           <div key={f.key} className="hstack" style={{ justifyContent: 'space-between', gap: 14, padding: '9px 12px', border: '1px solid var(--line)', borderRadius: 8, background: '#fff' }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 600 }}>{f.label} <span className="mut" style={{ fontWeight: 400, fontSize: 11 }}>({f.min}~{f.max}일)</span></div>
+              <div style={{ fontWeight: 600 }}>{f.label} <span className="mut" style={{ fontWeight: 400, fontSize: 11 }}>({f.min}~{f.max}{f.unit})</span></div>
               <div className="dim" style={{ fontSize: 11.5 }}>{f.desc}</div>
             </div>
             {editing ? (
               <span className="hstack" style={{ gap: 4, flex: 'none' }}>
                 <input className="input" type="number" min={f.min} max={f.max} style={{ width: 90, height: 28, fontSize: 12 }}
                   value={vals[f.key]} disabled={pending} onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))} />
-                <span className="dim" style={{ fontSize: 11 }}>일</span>
+                <span className="dim" style={{ fontSize: 11 }}>{f.unit}</span>
               </span>
             ) : (
-              <span className="mono" style={{ flex: 'none' }}>{policy[f.key]}일</span>
+              <span className="mono" style={{ flex: 'none' }}>{policy[f.key]}{f.unit}</span>
             )}
           </div>
         ))}
