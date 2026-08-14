@@ -811,6 +811,18 @@ try {
   await ctx4.addCookies([cookie(ASSET)])
   const p4 = await ctx4.newPage()
   p4.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
+  // 직접 대여 처리 → 대여자 통보(불출 완료 통보의 대여판, 로35) — 자산담당이 유휴 재고를 반환 기한과 함께 대여하면 대여자에게 통보된다.
+  //  AST-2019-000218 은 p3 폐기 반려로 유휴 복원된 자산(장기 유휴 폐기 검토 후보 000704 는 건드리지 않음).
+  await p4.goto(`${BASE}/assets/register?sel=AST-2019-000218`, { waitUntil: 'networkidle' })
+  await p4.locator('button', { hasText: /^대여 처리 \(반출\)$/ }).click()
+  await p4.waitForTimeout(200)
+  await p4.locator('input[placeholder="대여자 (성명)"]').fill('e2e 대여자')
+  await p4.locator('input[placeholder="부서"]').fill('영업2팀')
+  await p4.locator('input[type="date"]').first().fill('2027-06-30')
+  await p4.locator('button', { hasText: /^대여 확정$/ }).click()
+  await p4.waitForTimeout(800)
+  await p4.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('직접 대여 처리 → 대여자 통보(반환 기한 안내·발송 이력 적재)', ((await p4.textContent('body')) || '').includes('자산 대여') && ((await p4.textContent('body')) || '').includes('AST-2019-000218') && ((await p4.textContent('body')) || '').includes('e2e 대여자'))
   await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   // 대여 반환 상태 점검(로35) — 손상된 반환분은 유휴가 아니라 수리중으로 편성(손상 자산 재대여 방지). 반납 점검(로10·26)과 동일. AST-2023-000450(한지민 대여)을 수리 필요로 반환.
   const loanRow = p4.locator('tr', { has: p4.locator('td', { hasText: 'AST-2023-000450' }) }).first()
