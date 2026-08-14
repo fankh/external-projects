@@ -1,8 +1,12 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { egressPolicy } from '@/lib/ai-egress'
 import { getStore } from '@/lib/store'
+import type { AiPolicy } from '@/lib/types'
 import { AiPolicyPanel } from './AiPolicyPanel'
 import { OpsPolicyPanel } from './OpsPolicyPanel'
+
+const DEPLOYMENTS: AiPolicy['deployment'][] = ['온프레미스 LLM', '외부 API 연계', '하이브리드']
 
 export const dynamic = 'force-dynamic'
 
@@ -41,14 +45,28 @@ export default async function AiPolicyPage() {
       <OpsPolicyPanel policy={s.opsPolicy} />
 
       <div className="cols c2">
-        <Card kicker="Deployment" title="실행 환경 옵션">
+        <Card kicker="Deployment" title="실행 환경 · 외부 반출 통제">
+          <div className="callout" style={{ marginBottom: 10 }}>
+            <b>현재 {p.deployment}</b> — 대화형 질의 외부 반출 <b>{egressPolicy(p.deployment).egress}</b>.
+            {' '}{egressPolicy(p.deployment).note}. 이 설정은 <b>표시가 아니라 강제</b>됩니다 — 어시스턴트는 정책이
+            {' '}‘외부 API 연계’일 때만 외부 LLM을 호출하며, 그 경우에도 비식별 처리 후 반출합니다.
+          </div>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>옵션</th><th>구성</th></tr></thead>
+              <thead><tr><th>옵션</th><th>외부 반출</th><th>비식별</th><th>강제 동작</th></tr></thead>
               <tbody>
-                <tr><td className="strong">온프레미스 LLM</td><td style={{ whiteSpace: 'normal' }}>사내 GPU 서버에 오픈 모델 배치 — 자산 데이터 외부 반출 없음 (망분리 환경 기본안)</td></tr>
-                <tr><td className="strong">외부 API 연계</td><td style={{ whiteSpace: 'normal' }}>비식별 처리 후 상용 LLM API 활용 — 보안성 검토 전제</td></tr>
-                <tr><td className="strong">하이브리드</td><td style={{ whiteSpace: 'normal' }}>분류·질의는 온프레미스, 대량 배치 분석만 선별 외부 처리</td></tr>
+                {DEPLOYMENTS.map((d) => {
+                  const e = egressPolicy(d)
+                  const active = d === p.deployment
+                  return (
+                    <tr key={d} className={active ? 'on' : ''}>
+                      <td className="strong">{d}{active ? ' ✓ 적용 중' : ''}</td>
+                      <td><Chip tone={e.egress === '차단' ? 'ok' : 'warn'}>{e.egress}</Chip></td>
+                      <td>{e.deidentify ? '적용' : '—'}</td>
+                      <td style={{ whiteSpace: 'normal' }}>{e.note}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

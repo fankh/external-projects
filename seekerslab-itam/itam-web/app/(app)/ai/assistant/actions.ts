@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
+import { externalQueryAllowed, deidentify } from '@/lib/ai-egress'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
 import { daysUntil, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
@@ -672,24 +673,31 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
+  // 외부 반출 통제(§05 실행 환경) — 온프레미스·하이브리드는 대화형 질의를 외부 LLM에 반출하지 않는다.
+  //  키가 설정돼 있어도 정책이 '외부 API 연계'가 아니면 외부 호출 없이 온프레미스(규칙) 응답으로 처리한다.
+  const deployment = getStore().aiPolicy.deployment
+  const externalOk = externalQueryAllowed(deployment)
+  if (!apiKey || !externalOk) {
     const stub = stubAnswer(question, session.name, isUser, session.role)
-    auditQuery(session.name, question, '규칙 응답', stub.text.length)
+    const reason = !apiKey ? '규칙 응답' : `온프레미스 응답 (외부 반출 차단 · ${deployment})`
+    auditQuery(session.name, question, reason, stub.text.length)
     return stub
   }
 
   try {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     const client = new Anthropic({ apiKey })
+    // 외부 API 연계 — 반출 전 비식별 처리(개인 식별자·IP·MAC·이메일 마스킹)
+    const safeContext = deidentify(buildContext(session.name, isUser), getStore().users.map((u) => u.name))
     const response = await client.messages.create({
       // claude-opus-5는 thinking 기본 on — max_tokens가 thinking+응답 합산 상한이라 여유를 둔다
       model: process.env.ANTHROPIC_MODEL_ID || 'claude-opus-5',
       max_tokens: 8192,
       system:
         `당신은 SEEKERSLAB ITAM 플랫폼의 AI 자산 어시스턴트입니다. ` +
-        `아래 자산 데이터(사용자 권한 범위 내)만 근거로 한국어로 간결히 답하세요. ` +
+        `아래 자산 데이터(사용자 권한 범위 내, 비식별 처리됨)만 근거로 한국어로 간결히 답하세요. ` +
         `데이터에 없는 내용은 없다고 답하세요. 수치는 데이터와 정확히 일치해야 합니다.\n\n` +
-        buildContext(session.name, isUser),
+        safeContext,
       messages: [{ role: 'user', content: question }],
     })
     if (response.stop_reason === 'refusal') {
@@ -701,7 +709,7 @@ export async function askAssistant(question: string): Promise<ChatMessage> {
       .map((b) => b.text)
       .join('')
     recordAiCall(true)
-    auditQuery(session.name, question, 'LLM', text.length)
+    auditQuery(session.name, question, 'LLM (외부 API · 비식별 반출)', text.length)
     return {
       role: 'assistant',
       text,
