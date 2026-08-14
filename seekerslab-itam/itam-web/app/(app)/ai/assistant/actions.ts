@@ -5,6 +5,7 @@ import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
 import { daysUntil, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
+import { lowStockCategories } from '@/lib/stock'
 import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { buildAnomalies } from '@/lib/anomaly'
@@ -435,6 +436,23 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       ],
     }
   }
+  // 안전재고 부족(발주 검토) — 불출형 유형(단말·주변기기) 가용 재고가 안전재고 미만인 유형. 재고 화면·대시보드와 같은 lib/stock 판정을 쓴다.
+  //  '재고 규모'(상태별 분포)와 구분되도록 '재고 부족'·'안전재고'·'발주'·'스톡아웃'만 잡는다.
+  if (!isUser && (q.includes('재고 부족') || q.includes('안전재고') || q.includes('발주') || q.includes('재고 보충') || q.includes('스톡아웃'))) {
+    const low = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
+    return {
+      role: 'assistant',
+      text: low.length === 0
+        ? `불출형 재고(단말·주변기기)가 모두 안전재고(${s.opsPolicy.safetyStock}대) 이상입니다 — 발주 검토 대상이 없습니다.`
+        : `안전재고 미달(발주 검토) 유형입니다 (안전재고 ${s.opsPolicy.safetyStock}대 기준 · 가용 = 유휴이며 폐기 절차 미진입).\n\n${low
+            .map((r) => `· ${r.category}: 가용 ${r.available}대 / 안전재고 ${r.safetyStock}대 — ${r.available === 0 ? '재고 소진' : `${r.short}대 부족`}`)
+            .join('\n')}\n\n재고 화면의 발주 요청 발송으로 구매·IT기획팀에 보충을 요청할 수 있습니다.`,
+      evidence: [
+        { label: '재고 현황 (안전재고 경보)', href: '/inventory/stock' },
+        { label: '자산 대장', href: '/assets/register' },
+      ],
+    }
+  }
   // 자산 현황·분포 — 총 보유·상태별 분포·대여 현황을 한 번에 답한다 (조직 집계, 비사용자).
   //  '대여 현황'·'대여 중'은 여기서(전체 대여), '대여 연체'는 아래 운영 리스크 인텐트에서 처리한다.
   if (!isUser && (q.includes('상태별') || q.includes('분포') || q.includes('보유 현황') || q.includes('보유 대수') || q.includes('몇 대') || q.includes('자산 현황') || q.includes('재고 규모') || q.includes('대여 현황') || q.includes('대여 중'))) {
@@ -588,7 +606,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "부서별 자산 보유 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "취약점 조치 우선순위 (P1/P2/P3)"\n· "이상 자산 행위 탐지 (프로파일 이탈)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "정기 점검(예방 정비) 대상 자산"\n· "AST-2023-000112 자산의 상태와 변경 이력" (자산번호로 특정 자산 조회)\n· "내 보유 자산"\n· "내 수리 현황"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "부서별 자산 보유 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "취약점 조치 우선순위 (P1/P2/P3)"\n· "이상 자산 행위 탐지 (프로파일 이탈)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "정기 점검(예방 정비) 대상 자산"\n· "안전재고 부족(발주 검토) 유형"\n· "AST-2023-000112 자산의 상태와 변경 이력" (자산번호로 특정 자산 조회)\n· "내 보유 자산"\n· "내 수리 현황"\n· "내 신청 상태"`,
   }
 }
 
