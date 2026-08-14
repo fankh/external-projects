@@ -26,6 +26,7 @@ XKIND_DATA = ROOT / 'scripts' / '.e2e-xkind-data.json'  # export 크로스-kind 
 RREASON_DATA = ROOT / 'scripts' / '.e2e-rreason-data.json'  # 재상신 할일 사유텍스트 오마감 회귀용 (v1.5.47)
 BACKUP_DATA = ROOT / 'scripts' / '.e2e-backup-data.json'  # 수동 배치 백업(스케줄러 off) 회귀용 (v1.5.48)
 CHORPHAN_DATA = ROOT / 'scripts' / '.e2e-chorphan-data.json'  # 변경 재상신 교차-담당 고아 할일 회귀용 (v1.5.50)
+EDUTGT_DATA = ROOT / 'scripts' / '.e2e-edutgt-data.json'  # 교육 이수율 대상(target) 스코프 회귀용 (v1.5.51)
 
 
 def login(pg, base, name):
@@ -575,6 +576,10 @@ def sc_education_orphan(pg, base, check):
     pg.goto(f'{base}/compliance/education', wait_until='networkidle')
     rate = pg.locator('.stat', has_text='전사 이수율').locator('.v').inner_text().strip()
     check(rate == '0%', f'퇴사자 이력 제외 → 재직자 기준 0% (수정 전이면 100%; 실제 {rate})')
+    # 연간계획 '이수 인원' 열도 재직자 기준 — ED-90 은 재직자A 미이수라 0/1 (퇴사자B 이력이 분자에
+    # 들어가면 1/1 로 부풀어 이수 인원>대상 처럼 보인다). v1.5.51 per-course 이수 인원 재직자 스코프.
+    plan_card = pg.locator('.card', has_text='연간계획 — 교육 과정').inner_text()
+    check('0 / 1' in plan_card, 'ED-90 이수 인원 재직자 기준 0/1 (퇴사자 분자 제외; 수정 전이면 1/1)')
 
 
 def sc_finance_exec_rate(pg, base, check):
@@ -595,6 +600,18 @@ def sc_year_filter(pg, base, check):
     pg.goto(f'{base}/dashboard', wait_until='networkidle')
     n = pg.locator('.stat', has_text='미서약 인원').locator('.v').inner_text().strip()
     check(n == '1', f'2025(레거시) 서약은 2026 미서약으로 집계 (year 필터; 수정 전이면 0; 실제 {n})')
+
+
+def sc_education_target(pg, base, check):
+    """교육 이수율 대상(target) 스코프 (v1.5.51, 컴플라이언스/ISMS 재감사 finding) — 개발자 전용
+    과정을 개발자가 이수하면 전사 이수율 100%. 대상 무시(수정 전)면 비개발자도 분모에 넣어 50%로
+    왜곡하고 이수현황에서 비개발자를 미이수로 오표기(0/1). 대상 스코프면 비대상자는 0/0."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/compliance/education', wait_until='networkidle')
+    rate = pg.locator('.stat', has_text='전사 이수율').locator('.v').inner_text().strip()
+    check(rate == '100%', f'개발자 과정 대상 스코프 → 100% (대상 무시면 50%; 실제 {rate})')
+    table = pg.locator('.card', has_text='이수현황 — 전 임직원').inner_text()
+    check('0 / 0' in table, '비개발자(일반E)는 개발자 과정 미대상 — 0/0 (대상 무시면 0/1 미이수 오표기)')
 
 
 def sc_change_resign_orphan(pg, base, check):
@@ -1276,6 +1293,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(BACKUP_DATA)}),
     ('change_resign_orphan', '변경 재상신 교차-담당 고아 할일 방지', sc_change_resign_orphan,
      {'PORTAL_DATA_FILE': str(CHORPHAN_DATA)}),
+    ('education_target', '교육 이수율 대상(target) 스코프 — 비대상자 미이수 오표기 방지', sc_education_target,
+     {'PORTAL_DATA_FILE': str(EDUTGT_DATA)}),
     ('adapter_throw', '어댑터 예외 내성 — 인사 동기화 throw 시 실패 기록·무크래시(v1.5.16)', sc_adapter_fault,
      {'PORTAL_FAULT_HR': 'throw'}),
     ('adapter_hang', '어댑터 무응답 내성 — 인사 동기화 hang→timeout 시 실패 기록·무크래시(v1.5.17)', sc_adapter_fault,
@@ -1414,6 +1433,13 @@ def main() -> int:
     # manual_backup 시나리오용 — 영속화 켬(PORTAL_DATA_FILE) + 스케줄러 off. 수동 배치가 백업을 남기는지.
     BACKUP_DATA.write_text(json.dumps({
         'notices': [{'id': 'N-BAK', 'title': 'E2E 백업 데이터', 'category': '일반', 'postedAt': '2026-08-01', 'author': '시스템관리자'}],
+    }, ensure_ascii=False), encoding='utf-8')
+    # education_target 시나리오용 — 개발자 전용 과정을 개발자만 이수. 대상 스코프면 100%, 대상 무시면
+    # 비개발자(일반E)까지 분모에 넣어 50% + 일반E 미이수 오표기.
+    EDUTGT_DATA.write_text(json.dumps({
+        'people': [{'name': '개발자D', 'dept': '개발1팀'}, {'name': '일반E', 'dept': '경영지원팀'}],
+        'educationCourses': [{'id': 'ED-DEV', 'title': 'E2E 시큐어코딩', 'target': '개발자', 'status': '완료'}],
+        'educationRecords': [{'courseId': 'ED-DEV', 'name': '개발자D'}],
     }, ensure_ascii=False), encoding='utf-8')
     # change_resign_orphan 시나리오용 — 박정호가 상신한 변경결과가 반려돼 박정호 소유 재상신 할일이 있고,
     # 시스템관리자(교차 담당)가 결과를 재상신. 소유자 무관 닫기가 없으면 박정호 할일이 고아로 남는다.

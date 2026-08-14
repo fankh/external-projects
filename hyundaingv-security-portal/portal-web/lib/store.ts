@@ -486,6 +486,16 @@ export function isCodeActive(v: { enabled: boolean; until?: string }): boolean {
   return v.enabled && (!v.until || v.until >= today())
 }
 
+/** 교육 과정 대상별 이수 의무자 — 대상이 한정된 과정(개발자·보안담당자)을 비대상자에게 강제하지
+ *  않는다. 이걸 무시하면 개발자 전용 과정 완료 시 비개발자 전원이 '미이수'로 찍히고 전사 이수율이
+ *  실제보다 낮게 왜곡된다(거버넌스 지표 오표기). 개발자=부서명에 '개발' 포함, 보안담당자=
+ *  securityOfficers, 그 외(전임직원·미지정)=전 재직자. 이수율·개인 상태·엑셀의 단일 원천. */
+export function eligibleForCourse(s: Store, target: string | undefined): Person[] {
+  if (target === '개발자') return s.people.filter((p) => p.dept.includes('개발'))
+  if (target === '보안담당자') return s.people.filter((p) => s.securityOfficers.includes(p.name))
+  return s.people
+}
+
 /** 공통코드 그룹의 활성 코드값 목록 — 업무 화면 선택지·서버 검증의 단일 원천.
  *  사용중지·기간만료 코드는 빠진다(요구사항 73행: 공통코드가 업무 선택지에 반영). */
 export function activeCodes(s: Store, groupId: string): string[] {

@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { getStore, nextNo } from '@/lib/store'
+import { eligibleForCourse, getStore, nextNo } from '@/lib/store'
 import type { EducationCourse } from '@/lib/types'
 
 const TARGETS: EducationCourse['target'][] = ['전임직원', '개발자', '보안담당자']
@@ -40,8 +40,10 @@ async function registerAttendees(formData: FormData) {
     if (!person || s.educationRecords.some((r) => r.courseId === courseId && r.name === name)) continue
     s.educationRecords.push({ courseId, name: person.name, dept: person.dept, completedAt: today() })
 
-    // 폐쇄 루프 — 명단 등록이 해당 인원의 '보안교육' 할일을 닫는다 (대시보드·나의 할일 갱신)
-    const todo = s.todos.find((t) => t.owner === name && t.kind === '보안교육' && !t.done)
+    // 폐쇄 루프 — 명단 등록이 '해당 과정의' 보안교육 할일을 닫는다. 유형만으로 닫으면 다른 과정을
+    // 이수해도 무관한 과정의 교육 의무 할일이 닫혀 실제 미이수가 대시보드에서 숨는다(할일-이수 괴리).
+    // 할일 제목이 과정명을 포함하므로 과정명으로 좁혀 그 과정 할일만 닫는다.
+    const todo = s.todos.find((t) => t.owner === name && t.kind === '보안교육' && !t.done && t.title.includes(course.title))
     if (todo) todo.done = true
   }
   // 유효 이수자가 한 명도 없는 과정은 완료로 확정하지 않는다 — 빈 완료 과정은 이수율 집계를 왜곡한다
@@ -56,13 +58,15 @@ export default async function EducationPage() {
 
   const done = s.educationCourses.filter((c) => c.status === '완료')
   const recordsOf = (courseId: string) => s.educationRecords.filter((r) => r.courseId === courseId)
-  const completedBy = (name: string) => done.filter((c) => recordsOf(c.id).some((r) => r.name === name)).length
-  const myMissing = done.filter((c) => !recordsOf(c.id).some((r) => r.name === me.name))
-  const totalSlots = done.length * s.people.length
-  // 재직자(s.people) 기준으로만 집계 — 인사동기화로 s.people 에서 빠진 퇴사자의 교육 이력이
-  // 남아 있어도 전사 이수율에 산입하지 않는다(퇴사자 이력이 재직자 미이수를 상쇄해 100%로
-  // 잘못 보이던 결함). 아래 명단 표·엑셀과 동일하게 s.people 을 순회하는 completedBy 로 계산.
-  const totalDone = s.people.reduce((sum, p) => sum + completedBy(p.name), 0)
+  // 과정 대상(전임직원/개발자/보안담당자)을 반영한 이수 의무자만 분모로 잡는다 — 비대상자를 미이수로
+  // 오표기하고 전사 이수율을 낮게 왜곡하던 결함(대상 무시) 방지. 재직자 스코프(v1.5.24)는 eligibleForCourse
+  // 가 s.people 기준이라 그대로 유지된다.
+  const eligible = (target: string | undefined) => eligibleForCourse(s, target)
+  const eligibleDone = (name: string) => done.filter((c) => eligible(c.target).some((p) => p.name === name))
+  const completedBy = (name: string) => eligibleDone(name).filter((c) => recordsOf(c.id).some((r) => r.name === name)).length
+  const myMissing = eligibleDone(me.name).filter((c) => !recordsOf(c.id).some((r) => r.name === me.name))
+  const totalSlots = done.reduce((sum, c) => sum + eligible(c.target).length, 0)
+  const totalDone = done.reduce((sum, c) => sum + eligible(c.target).filter((p) => recordsOf(c.id).some((r) => r.name === p.name)).length, 0)
 
   return (
     <>
@@ -87,7 +91,9 @@ export default async function EducationPage() {
                   <td><Chip tone="neutral" bare>{c.target}</Chip></td>
                   <td className="tnum">{c.plannedMonth}</td>
                   <td>{c.status === '완료' ? <Chip tone="ok">완료</Chip> : <Chip tone="neutral">계획</Chip>}</td>
-                  <td className="num">{recordsOf(c.id).length} / {s.people.length}</td>
+                  {/* 이수 인원 / 대상 — 과정 대상(전임직원/개발자/보안담당자)의 이수 의무자 기준.
+                      재직자 스코프(퇴사자 이력 분자 제외)와 대상 스코프(비대상자 분모 제외)를 함께 반영. */}
+                  <td className="num">{eligible(c.target).filter((p) => recordsOf(c.id).some((r) => r.name === p.name)).length} / {eligible(c.target).length}</td>
                 </tr>
               ))}
             </tbody>
@@ -112,7 +118,7 @@ export default async function EducationPage() {
         {canManage ? (
           <Card title="결과 · 명단 등록" kicker="Records">
             {s.educationCourses.map((c) => {
-              const missing = s.people.filter((p) => !recordsOf(c.id).some((r) => r.name === p.name))
+              const missing = eligible(c.target).filter((p) => !recordsOf(c.id).some((r) => r.name === p.name))
               if (missing.length === 0) return null
               return (
                 <form key={c.id} action={registerAttendees} style={{ borderBottom: '1px solid var(--line)', padding: '8px 0' }}>
@@ -152,6 +158,7 @@ export default async function EducationPage() {
                         <td><Chip tone="neutral" bare>{c.target}</Chip></td>
                         <td>
                           {rec ? <Chip tone="ok">이수</Chip> :
+                           !eligible(c.target).some((p) => p.name === me.name) ? <Chip tone="neutral" bare>해당없음</Chip> :
                            c.status === '완료' ? <Chip tone="err">미이수</Chip> : <Chip tone="neutral">예정</Chip>}
                         </td>
                         <td className="tnum">{rec?.completedAt ?? '-'}</td>
@@ -173,12 +180,13 @@ export default async function EducationPage() {
                 <tbody>
                   {s.people.map((p) => {
                     const n = completedBy(p.name)
+                    const req = eligibleDone(p.name).length  // 이 사람이 대상인 완료 과정 수(비대상 과정 제외)
                     return (
                       <tr key={p.name}>
                         <td className="strong">{p.name}</td>
                         <td>{p.dept}</td>
-                        <td className="num">{n} / {done.length}</td>
-                        <td>{n >= done.length ? <Chip tone="ok" bare>완료</Chip> : <Chip tone="err" bare>미이수</Chip>}</td>
+                        <td className="num">{n} / {req}</td>
+                        <td>{n >= req ? <Chip tone="ok" bare>완료</Chip> : <Chip tone="err" bare>미이수</Chip>}</td>
                       </tr>
                     )
                   })}
