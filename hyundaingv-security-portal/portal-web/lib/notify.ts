@@ -34,6 +34,10 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
         const rows = await withTimeout(adapter.fetchPrintouts(), '출력물 자료 이관')
         let added = 0
         for (const row of rows) {
+          // 실 고객사 secdata 어댑터가 계약(문자열 필드)을 어겨 name·document·printedAt 누락·비문자열을 반환해도
+          // 스토어에 넣지 않는다 — undefined name 은 알림 수신자(출력물 미등록)를 유령으로 만들고 화면 집계를
+          // 흐린다(syncHr v1.5.69 와 동일 수집 경로 계약 검증). 형태 어긋난 행은 건너뛴다.
+          if (typeof row.name !== 'string' || typeof row.document !== 'string' || typeof row.printedAt !== 'string') continue
           if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
           s.printouts.push({ id: nextNo('PR', t.slice(0, 4), s.printouts.map((p) => p.id)), ...row, status: '미등록' })
           added += 1
@@ -54,10 +58,13 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('미서약', s.people.filter((p) => !signed.has(p.name)).map((p) => p.name), '[보안서약서] 미서약 안내')
 
   // 1-b) 비-일반 서약 재서약 방치 — 개정 후 미완료 재서약 할일(관리책임자·재택·특별·프로젝트). 일반은 위 1)에서 별도.
-  // 손상 파일의 title 누락(undefined) todo 에 .includes 가 TypeError→배치 전체 중단되지 않도록 문자열 강제
-  // 손상 파일의 title 누락(undefined) todo 에 .includes 가 TypeError→배치 전체 중단되지 않도록 문자열 강제
+  // 손상 파일의 title 누락(undefined) todo 에 .includes 가 TypeError→배치 전체 중단되지 않도록 문자열 강제.
   const reSign = s.todos.filter((x) => x.kind === '보안서약서' && !x.done && !String(x.title ?? '').includes('일반 보안서약서'))
-  await send('비일반 재서약', [...new Set(reSign.map((x) => x.owner))], '[보안서약서] 개정 재서약 안내')
+  // 재직자만 통지 — 재서약 할일은 서명으로만 닫히므로 프로젝트 멤버 등이 퇴사해 s.people 에서 빠져도 할일은
+  // 남는다(재조정 경로 없음). reSignTargets(v1.5.67)는 재직 명단과 교집합하나 이 todo 기반 경로는 놓쳐 떠난
+  // 인원에게 안내메일·집계가 갔다 → 미서약·재택 미제출 등 타 유형과 동일하게 현재 재직자로 교집합한다.
+  const reSignOwners = [...new Set(reSign.map((x) => x.owner))].filter((name) => s.people.some((p) => p.name === name))
+  await send('비일반 재서약', reSignOwners, '[보안서약서] 개정 재서약 안내')
 
   // 2) 보안점검 경과 — 예정월이 지났는데 완료·결재중이 아닌 항목의 점검자
   await send('점검 경과',
