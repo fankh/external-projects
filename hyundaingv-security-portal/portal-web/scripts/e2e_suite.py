@@ -25,6 +25,7 @@ FYEAR_DATA = ROOT / 'scripts' / '.e2e-fyear-data.json'  # 일반 서약 year 필
 XKIND_DATA = ROOT / 'scripts' / '.e2e-xkind-data.json'  # export 크로스-kind 회귀용 (v1.5.25)
 RREASON_DATA = ROOT / 'scripts' / '.e2e-rreason-data.json'  # 재상신 할일 사유텍스트 오마감 회귀용 (v1.5.47)
 BACKUP_DATA = ROOT / 'scripts' / '.e2e-backup-data.json'  # 수동 배치 백업(스케줄러 off) 회귀용 (v1.5.48)
+CHORPHAN_DATA = ROOT / 'scripts' / '.e2e-chorphan-data.json'  # 변경 재상신 교차-담당 고아 할일 회귀용 (v1.5.50)
 
 
 def login(pg, base, name):
@@ -594,6 +595,26 @@ def sc_year_filter(pg, base, check):
     pg.goto(f'{base}/dashboard', wait_until='networkidle')
     n = pg.locator('.stat', has_text='미서약 인원').locator('.v').inner_text().strip()
     check(n == '1', f'2025(레거시) 서약은 2026 미서약으로 집계 (year 필터; 수정 전이면 0; 실제 {n})')
+
+
+def sc_change_resign_orphan(pg, base, check):
+    """변경 재상신 교차-담당 고아 할일 (v1.5.50, SR/변경 재감사 finding #1) — 변경결과 반려로 생긴
+    박정호 소유 재상신 할일을, 시스템관리자(교차 담당)가 결과를 재상신할 때 닫아야 한다. 소유자
+    무관 닫기(closeChangeResignTodo)가 없으면 draftApproval 의 기안자-매칭이 놓쳐 박정호 할일이
+    고아로 남고 방치 알림이 무한 반복된다."""
+    # 시스템관리자(박정호 아님)가 CW-2026-9001 결과를 재상신
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    row = pg.locator('tr', has_text='CW-2026-9001')
+    row.locator('input[name=result]').fill('보완 완료 — 재상신')
+    row.locator('button:has-text("결과 상신")').click()
+    pg.wait_for_load_state('networkidle')
+    # 박정호 할일함에서 그 재상신 할일이 닫혔는지 — 미처리 카드에 없어야 한다
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    open_card = pg.locator('.card', has_text='미처리 할일').inner_text()
+    check('변경결과 상신] CW-2026-9001 반려' not in open_card,
+          '교차-담당 재상신이 원 기안자 재상신 할일을 닫음 (수정 전이면 고아로 잔류)')
 
 
 def sc_manual_backup(pg, base, check):
@@ -1253,6 +1274,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(RREASON_DATA)}),
     ('manual_backup', '수동 배치 백업 — 스케줄러 off 배포 복구지점', sc_manual_backup,
      {'PORTAL_DATA_FILE': str(BACKUP_DATA)}),
+    ('change_resign_orphan', '변경 재상신 교차-담당 고아 할일 방지', sc_change_resign_orphan,
+     {'PORTAL_DATA_FILE': str(CHORPHAN_DATA)}),
     ('adapter_throw', '어댑터 예외 내성 — 인사 동기화 throw 시 실패 기록·무크래시(v1.5.16)', sc_adapter_fault,
      {'PORTAL_FAULT_HR': 'throw'}),
     ('adapter_hang', '어댑터 무응답 내성 — 인사 동기화 hang→timeout 시 실패 기록·무크래시(v1.5.17)', sc_adapter_fault,
@@ -1391,6 +1414,16 @@ def main() -> int:
     # manual_backup 시나리오용 — 영속화 켬(PORTAL_DATA_FILE) + 스케줄러 off. 수동 배치가 백업을 남기는지.
     BACKUP_DATA.write_text(json.dumps({
         'notices': [{'id': 'N-BAK', 'title': 'E2E 백업 데이터', 'category': '일반', 'postedAt': '2026-08-01', 'author': '시스템관리자'}],
+    }, ensure_ascii=False), encoding='utf-8')
+    # change_resign_orphan 시나리오용 — 박정호가 상신한 변경결과가 반려돼 박정호 소유 재상신 할일이 있고,
+    # 시스템관리자(교차 담당)가 결과를 재상신. 소유자 무관 닫기가 없으면 박정호 할일이 고아로 남는다.
+    CHORPHAN_DATA.write_text(json.dumps({
+        'srRequests': [{'srNo': 'SR-2026-9001', 'kind': '시스템개발', 'title': 'E2E 변경대상', 'system': 'ERP',
+                        'requester': '김현우', 'dept': '개발1팀', 'status': '적용요청', 'requestedAt': '2026-08-01'}],
+        'changes': [{'id': 'CW-2026-9001', 'kind': '시스템개발', 'title': 'E2E 변경', 'srNo': 'SR-2026-9001',
+                     'status': '작업등록승인', 'registeredAt': '2026-08-01', 'plan': 'SR 반영'}],
+        'todos': [{'id': 'TD-9001', 'owner': '박정호', 'kind': '재상신', 'dueDate': '2026-08-01', 'done': False,
+                   'title': '[변경결과 상신] CW-2026-9001 반려 — 보완 후 재상신 (사유: 보완 요망)'}],
     }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:

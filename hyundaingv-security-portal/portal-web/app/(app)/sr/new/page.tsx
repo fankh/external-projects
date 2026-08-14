@@ -25,10 +25,15 @@ async function createSr(formData: FormData) {
   // SR 유형은 공통코드(SR_KIND) 활성 코드만 허용 — 사용중지·기간만료 유형은 신규 신청 불가
   if (!activeCodes(s, 'SR_KIND').includes(kind) || !system || !title) return
 
-  const year = today().slice(0, 4)
-  const srNo = nextNo('SR', year, s.srRequests.map((r) => r.srNo))
   // 임시저장 (제품안내서 II장 결재 공통 흐름) — 상신 없이 작성중으로 보관, 신청내역의 '상신' 버튼으로 이어간다
   const isDraft = formData.get('mode') === 'draft'
+  // 중복 제출 방어 — 상신 폼 이중 클릭 시 동일 SR·결재·할일이 두 벌 생긴다(서버액션 폼은 자동
+  // 비활성화되지 않음). 같은 신청자·시스템·제목의 결재중 SR 이 이미 있으면 직전 제출의 중복으로 보고
+  // 무시한다(단일 스레드라 POST#1 이 먼저 완주해 삽입한 뒤 POST#2 의 이 검사가 잡는다).
+  if (!isDraft && s.srRequests.some((r) => r.requester === me.name && r.status === '결재중' && r.title === title && r.system === system)) return
+
+  const year = today().slice(0, 4)
+  const srNo = nextNo('SR', year, s.srRequests.map((r) => r.srNo))
 
   s.srRequests.unshift({ srNo, kind, title, system, requester: me.name, dept: me.dept, status: isDraft ? '작성중' : '결재중', requestedAt: today(), content })
 

@@ -26,8 +26,10 @@ async function assignCi(formData: FormData) {
   // BA 검토 증적 — SR 번호(pk) 하나로 신청·BA·결과 첨부를 공유한다 (첨부 시트: SR신청내역 BA승인)
   registerUpload(srNo, formData.get('file'), me.name)
 
-  // 폐쇄 루프 — 'SR 처리' 할일이 배정과 함께 닫힌다
-  const todo = s.todos.find((t) => t.owner === me.name && t.kind === 'SR 처리' && t.title.includes(srNo) && !t.done)
+  // 폐쇄 루프 — 'SR 처리' 할일이 배정과 함께 닫힌다. 할일 소유자는 업무담당(BIZ_MGR)이고 배정은
+  // BIZ_MGR·ADMIN 이 하므로, owner==me.name 으로 매칭하면 ADMIN 이 배정할 때 할일이 안 닫혀 방치된다.
+  // SR 당 'SR 처리' 할일은 유일하므로 유형+SR번호로 닫는다(소유자 무관).
+  const todo = s.todos.find((t) => t.kind === 'SR 처리' && t.title.includes(srNo) && !t.done)
   if (todo) todo.done = true
 
   revalidatePath('/', 'layout')
@@ -39,7 +41,12 @@ async function baReject(formData: FormData) {
   const srNo = String(formData.get('srNo') ?? '')
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo && r.status === 'CI배정')
-  if (sr) sr.status = '반려'
+  if (!sr) return
+  sr.status = '반려'
+  // BA 반려도 CI배정 상태를 벗어나므로 'SR 처리'(CI 배정) 할일을 닫는다 — 안 닫으면 반려된 SR 의
+  // 배정 의무가 업무담당 할일함에 영구 잔류한다(배정 경로만 닫던 반쪽 루프).
+  const todo = s.todos.find((t) => t.kind === 'SR 처리' && t.title.includes(srNo) && !t.done)
+  if (todo) todo.done = true
   revalidatePath('/', 'layout')
 }
 
