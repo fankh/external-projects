@@ -183,7 +183,10 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
     return { ok: false, message: `수리중 자산이 아닙니다 — ${assetNo} (${asset.status})` }
   }
 
-  asset.status = outcome === '수리 완료' ? '유휴' : '폐기예정'
+  // 수리 완료 후 행선지 — 반납 접수분은 소유자를 비우고 수리에 들어와(유휴 풀 편성·재배치), 장애 신고 등
+  // 사용 중 자산이 소유자를 유지한 채 수리에 들어온 경우는 원 소유자에게 반환(사용중 복귀)한다. 소유자 유무로 두 진입점을 구분.
+  const stillOwned = outcome === '수리 완료' && !!asset.owner && asset.owner !== '미지정' && asset.owner !== '-'
+  asset.status = outcome === '수리 완료' ? (stillOwned ? '사용중' : '유휴') : '폐기예정'
   const cost = Math.max(0, Math.round(actualCost))
   const repairVendor = asset.repair?.vendor ?? '-' // asset.repair 는 아래에서 해제되므로 먼저 캡처
   asset.history.push({
@@ -205,6 +208,8 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   appendAudit({ actor: session.name, action: `수리 처리 (${outcome})`, target: assetNo })
   revalidatePath('/', 'layout')
 
-  const next = outcome === '수리 완료' ? '유휴 풀 편성 — 재배치 가능' : '폐기예정 전환 — 폐기 절차로'
+  const next = outcome === '수리 완료'
+    ? (stillOwned ? `원 소유자(${asset.owner}) 반환 — 사용중 복귀` : '유휴 풀 편성 — 재배치 가능')
+    : '폐기예정 전환 — 폐기 절차로'
   return { ok: true, message: `${assetNo} ${outcome} → ${next}` }
 }
