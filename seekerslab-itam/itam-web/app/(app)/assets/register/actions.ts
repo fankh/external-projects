@@ -5,8 +5,8 @@ import { isMaintenanceOverdue, today } from '@/lib/dates'
 import { reclaimLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
-import { getStore, nextAssetNo } from '@/lib/store'
-import type { Asset, AssetCategory, BizCriticality } from '@/lib/types'
+import { getStore, nextAssetNo, nextId } from '@/lib/store'
+import type { Asset, AssetCategory, BizCriticality, ReturnCondition } from '@/lib/types'
 
 const CRITICALITY_LEVELS: BizCriticality[] = ['핵심', '중요', '일반']
 
@@ -253,7 +253,7 @@ export async function extendLoan(assetNo: string, newDueDate: string) {
 
 /** 대여 반환 접수 — 대여 자산을 회수해 유휴 풀로 되돌린다(연체 여부와 무관하게 반환 처리).
  *  소유자를 비우고 검수실로 편성해 재확인 후 재배치한다. 대여중 자산만 대상. 자산담당·Admin. */
-export async function returnLoan(assetNo: string) {
+export async function returnLoan(assetNo: string, condition: ReturnCondition = '정상', rawNote = '') {
   const session = await guard()
   if (!session) return { ok: false, message: '대여 반환 권한이 없습니다 (자산담당·Admin).' }
 
@@ -264,15 +264,33 @@ export async function returnLoan(assetNo: string) {
 
   const borrower = asset.owner
   const overdue = asset.loanDueDate ? asset.loanDueDate < today() : false
-  asset.status = '유휴'
-  asset.owner = '미지정'
-  asset.dept = '자산관리팀'
-  asset.location = '본사 3F 검수실'
+  const note = rawNote.trim()
+  const loc = '본사 3F 검수실'
   asset.loanDueDate = undefined
-  asset.history.push({ date: today(), kind: '반납', detail: `대여 반환 접수 — 유휴 풀 편성 (대여자 ${borrower}${overdue ? ' · 연체 반환' : ''})`, actor: session.name })
-  appendAudit({ actor: session.name, action: `대여 반환 접수 — ${borrower}`, target: assetNo })
+  // 대여 반환도 반납(receiveReturn)과 같이 상태 점검으로 가른다 — 손상된 반환분이 바로 유휴 풀에 들어가 재대여/재불출되면 안 된다.
+  //  정상 → 유휴 · 수리 필요 → 수리중(수리 후 유휴) · 폐기 권고 → 폐기예정(폐기 절차 편입).
+  if (condition === '폐기 권고') {
+    asset.status = '폐기예정'
+    if (!s.disposals.some((d) => d.assetNo === assetNo)) {
+      s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `대여 반환 점검 폐기 권고${note ? ` — ${note}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
+    }
+  } else if (condition === '수리 필요') {
+    asset.status = '수리중'
+    asset.owner = '미지정'
+    asset.dept = '자산관리팀'
+    asset.location = loc
+    asset.faultNote = note || '대여 반환 점검 — 수리 필요'
+  } else {
+    asset.status = '유휴'
+    asset.owner = '미지정'
+    asset.dept = '자산관리팀'
+    asset.location = loc
+  }
+  asset.history.push({ date: today(), kind: condition === '폐기 권고' ? '폐기' : condition === '수리 필요' ? '수리' : '반납', detail: `대여 반환 접수 · 상태 점검 ${condition}${note ? ` — ${note}` : ''} (대여자 ${borrower}${overdue ? ' · 연체 반환' : ''})`, actor: session.name })
+  appendAudit({ actor: session.name, action: `대여 반환 접수 (${condition}) — ${borrower}`, target: assetNo })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${assetNo} 대여 반환 — 유휴 풀 편성 (검수실 재확인 후 재배치)` }
+  const outcome = condition === '수리 필요' ? '수리중 편성 (수리 후 유휴 풀)' : condition === '폐기 권고' ? '폐기 절차 편입 (폐기예정)' : '유휴 풀 편성 (재배치 가능)'
+  return { ok: true, message: `${assetNo} 대여 반환 (${condition}) — ${outcome}` }
 }
 
 /** 자산 장애 신고 — 사용 중 자산의 고장·오작동을 보유자(또는 자산담당)가 신고해 수리 대기로 편성한다.

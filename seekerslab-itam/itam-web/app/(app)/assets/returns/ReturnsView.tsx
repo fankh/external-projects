@@ -44,6 +44,7 @@ export function ReturnsView(props: {
   const [reta, setReta] = useState<Record<string, string>>({})
   const [rest, setRest] = useState<Record<string, string>>({}) // 견적
   const [ext, setExt] = useState<Record<string, string>>({})
+  const [lcond, setLcond] = useState<Record<string, ReturnCondition>>({}) // 대여 반환 상태 점검
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -225,8 +226,15 @@ export function ReturnsView(props: {
                         </span>
                       </td>
                       <td className="c">
-                        <button className="btn sm pri" disabled={pending}
-                          onClick={() => startTransition(async () => setMsg((await returnLoan(l.assetNo)).message))}>반환 접수</button>
+                        <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                          <select className="input" style={{ width: 92, height: 26, fontSize: 11 }} value={lcond[l.assetNo] ?? '정상'}
+                            disabled={pending} onChange={(e) => setLcond((m) => ({ ...m, [l.assetNo]: e.target.value as ReturnCondition }))}
+                            title="반환 실물 상태 점검 — 손상분은 수리중·폐기 절차로(손상 자산 재대여 방지)">
+                            {CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                          <button className="btn sm pri" disabled={pending}
+                            onClick={() => startTransition(async () => setMsg((await returnLoan(l.assetNo, lcond[l.assetNo] ?? '정상')).message))}>반환 접수</button>
+                        </span>
                       </td>
                     </tr>
                   )
