@@ -20,6 +20,7 @@ BASE_PORT = 3520
 UPLOAD = ROOT / 'scripts' / '.e2e-upload.txt'
 DATA = ROOT / 'scripts' / '.e2e-data.json'
 EDU_DATA = ROOT / 'scripts' / '.e2e-edu-data.json'  # 교육 이수율 퇴사자 이력 회귀용 (v1.5.24)
+FIN_DATA = ROOT / 'scripts' / '.e2e-fin-data.json'  # 집행률 확정 스코프 회귀용 (v1.5.25)
 
 
 def login(pg, base, name):
@@ -569,6 +570,16 @@ def sc_education_orphan(pg, base, check):
     pg.goto(f'{base}/compliance/education', wait_until='networkidle')
     rate = pg.locator('.stat', has_text='전사 이수율').locator('.v').inner_text().strip()
     check(rate == '0%', f'퇴사자 이력 제외 → 재직자 기준 0% (수정 전이면 100%; 실제 {rate})')
+
+
+def sc_finance_exec_rate(pg, base, check):
+    """계획대비 집행률 — 분자(집행)를 확정 계획 계약에 스코프 정합 (v1.5.25). 계획외 지급은
+    분모(확정 계획) 밖인데 분자에 산입되면 100%를 넘는다. 데이터: 확정계획 1000·계획내 지급
+    1000 + 계획외 지급 500 → 확정 스코프면 100%, 전체 산입(수정 전)이면 150%."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/finance/invest', wait_until='networkidle')
+    rate = pg.locator('.stat', has_text='집행률').locator('.v').inner_text().strip()
+    check(rate == '100%', f'집행률 확정 계획 스코프 = 100% (수정 전 계획외 산입이면 150%; 실제 {rate})')
 
 
 def sc_codes(pg, base, check):
@@ -1134,6 +1145,8 @@ SCENARIOS = [
     ('pledge_multikind', '비-일반 양식 개정 재서약 통지 + 유형별 마감(교차마감 방지)', sc_pledge_multikind, {}),
     ('education_orphan', '전사 이수율 — 퇴사자 이력 제외(재직자 기준)', sc_education_orphan,
      {'PORTAL_DATA_FILE': str(EDU_DATA)}),
+    ('finance_exec_rate', '집행률 — 확정 계획 스코프(계획외 지급 미산입)', sc_finance_exec_rate,
+     {'PORTAL_DATA_FILE': str(FIN_DATA)}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
@@ -1216,6 +1229,19 @@ def main() -> int:
         'educationCourses': [{'id': 'ED-90', 'title': 'E2E 보안교육', 'status': '완료'}],
         'educationRecords': [{'courseId': 'ED-90', 'name': '퇴사자B'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # finance_exec_rate 시나리오용 — 확정 계획 1000·계획내 지급 1000 + 계획외 지급 500
+    FIN_DATA.write_text(json.dumps({
+        'investPlans': [{'id': 'IP-90', 'kind': '투자', 'year': '2026', 'title': 'E2E 집행률',
+                         'owner': '시스템관리자', 'dept': '정보기획팀', 'amount': 1000, 'status': '확정'}],
+        'investContracts': [
+            {'id': 'CT-90', 'kind': '투자', 'planId': 'IP-90', 'vendor': 'V1', 'title': '계획내 계약', 'amount': 1000, 'signedAt': '2026-07-01'},
+            {'id': 'CT-91', 'kind': '투자', 'vendor': 'V2', 'title': '계획외 계약', 'amount': 500, 'signedAt': '2026-07-01'},
+        ],
+        'settlements': [
+            {'id': 'ST-90', 'contractId': 'CT-90', 'item': '잔금', 'amount': 1000, 'status': '지급완료', 'requestedBy': '시스템관리자', 'requestedAt': '2026-07-10'},
+            {'id': 'ST-91', 'contractId': 'CT-91', 'item': '잔금', 'amount': 500, 'status': '지급완료', 'requestedBy': '시스템관리자', 'requestedAt': '2026-07-10'},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -1226,6 +1252,7 @@ def main() -> int:
     UPLOAD.unlink(missing_ok=True)
     DATA.unlink(missing_ok=True)
     EDU_DATA.unlink(missing_ok=True)
+    FIN_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
