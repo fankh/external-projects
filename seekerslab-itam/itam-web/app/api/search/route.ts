@@ -3,7 +3,7 @@ import { assetHref, contractHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
-/** 전역 통합 검색 — 자산·계약·발견·사용자·결재·게시판·폐기·입고를 한 번에 훑어 해당 화면으로 점프한다.
+/** 전역 통합 검색 — 자산·계약·발견·Shadow SaaS·사용자·결재·게시판·폐기·입고를 한 번에 훑어 해당 화면으로 점프한다.
  *  권한 스코핑은 각 화면 가드와 동일하게 적용한다: 사용자(USER)는 본인 자산·본인 결재만,
  *  계약·발견·사용자 목록은 그 화면 접근 권한이 있는 역할에게만 노출된다(제품안내서 §02 최소권한). */
 export async function GET(req: Request) {
@@ -44,6 +44,13 @@ export async function GET(req: Request) {
     const disc = s.discovered.filter((d) => hit(d.id, d.hostname, d.ip, d.mac, d.type)).slice(0, LIMIT)
       .map((d) => ({ label: `${d.id} · ${d.hostname}`, sub: `${d.type} · ${d.ip} · ${d.state}`, href: '/discovery/found' }))
     if (disc.length) groups.push({ kind: '발견 자산', items: disc })
+  }
+
+  // Shadow SaaS — 발견 화면 권한(자산담당·보안담당·Admin). 서비스명·분류·부서로 찾아 Shadow SaaS 현황으로 점프.
+  if (can(['ASSET_MGR', 'SEC_MGR', 'ADMIN'])) {
+    const saas = s.saas.filter((x) => hit(x.service, x.category, x.dept)).slice(0, LIMIT)
+      .map((x) => ({ label: x.service, sub: `${x.category} · ${x.dept} · ${x.sanctioned ? '인가' : '미인가'}`, href: '/discovery/saas' }))
+    if (saas.length) groups.push({ kind: 'Shadow SaaS', items: saas })
   }
 
   // 사용자 — 사용자 관리 화면 권한(Admin)

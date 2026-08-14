@@ -687,6 +687,11 @@ try {
   check('통합 검색: Admin이 계약을 교차 검색', srchAdmin.groups.some((g) => g.kind === '계약·라이선스' && g.items.some((i) => i.href.includes('/inventory/contracts'))))
   const srchDisc = await (await get('/api/search?q=DESKTOP-UNK09', 'SEC_MGR')).json()
   check('통합 검색: 보안담당이 발견 자산을 교차 검색', srchDisc.groups.some((g) => g.kind === '발견 자산' && g.items.some((i) => i.href.includes('/discovery/found'))))
+  // Shadow SaaS 교차 검색 — 서비스명(Notion)으로 Shadow SaaS 현황 점프. 다른 목록 엔티티와 동일하게 전역 검색 포함.
+  const srchSaas = await (await get('/api/search?q=Notion', 'SEC_MGR')).json()
+  check('통합 검색: 보안담당이 Shadow SaaS를 교차 검색(Notion)', srchSaas.groups.some((g) => g.kind === 'Shadow SaaS' && g.items.some((i) => i.href.includes('/discovery/saas'))))
+  const srchSaasUser = await (await get('/api/search?q=Notion', 'USER')).json()
+  check('통합 검색: 사용자에겐 Shadow SaaS 그룹 미노출(권한 스코핑)', !srchSaasUser.groups.some((g) => g.kind === 'Shadow SaaS'))
   const srchUser = await (await get('/api/search?q=' + encodeURIComponent('CT-2023-014'), 'USER')).json()
   check('통합 검색: 사용자에겐 계약 그룹 미노출(권한 스코핑)', !srchUser.groups.some((g) => g.kind === '계약·라이선스'))
   const srchAsset = await (await get('/api/search?q=AST-2023-000112', 'ASSET_MGR')).json()
