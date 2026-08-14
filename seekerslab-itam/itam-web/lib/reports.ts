@@ -62,7 +62,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과·OS 지원 종료(EOL)·장애 이력(잦은 수리) 기준 교체 대상·잔존가치·유형별 예산 추정' },
   { kind: '취약점 조치 우선순위', period: '수시', desc: '자산 중요도 × 노출도 스코어링 — 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 P1/P2/P3로 순위화' },
   { kind: 'AI 거버넌스·성능', period: '월간', desc: '모델·프롬프트 버전·분류 정확도 · AI 기능별 제안 채택률(재학습 신호) · 감사·권한 필터 거버넌스 준수' },
-  { kind: '부서별 IT 비용 배분', period: '월간', desc: '부서별 IT 자산 원가(취득가·잔존가치·누적 유지보수)·라이선스 좌석 비용을 합산해 IT 비용을 부서로 배분(차지백·예산 근거)' },
+  { kind: '부서별 IT 비용 배분', period: '월간', desc: '부서별 IT 자산 원가(취득가·잔존가치·누적 유지보수)·라이선스 좌석 비용·유지보수 계약비를 합산해 IT 비용을 부서로 배분(차지백·예산 근거)' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -447,10 +447,23 @@ export function buildSections(kind: ReportKind): ReportSection[] {
       }
     }
     const seatRows = [...sc.entries()].sort((x, y) => y[1].cost - x[1].cost)
+    // 유지보수 계약비 — 계약 총액을 주관 부서로 배분(해지 제외). 구매 계약은 자산 취득가·라이선스 좌석과
+    //  중복 계상이라 제외하고, 자산 취득가에 잡히지 않는 상시 서비스 비용(유지보수)만 부서로 귀속한다.
+    const mc = new Map<string, { n: number; cost: number }>()
+    for (const c of s.contracts) {
+      if (c.kind !== '유지보수' || c.status === '해지') continue
+      const d = c.ownerDept || '미지정'
+      const r = mc.get(d) ?? { n: 0, cost: 0 }
+      r.n += 1
+      r.cost += c.amount
+      mc.set(d, r)
+    }
+    const mcRows = [...mc.entries()].sort((x, y) => y[1].cost - x[1].cost)
     const totalAcq = deptRows.reduce((n, [, v]) => n + v.acq, 0)
     const totalBook = deptRows.reduce((n, [, v]) => n + v.book, 0)
     const totalRepair = deptRows.reduce((n, [, v]) => n + v.repair, 0)
     const totalSeat = seatRows.reduce((n, [, v]) => n + v.cost, 0)
+    const totalMc = mcRows.reduce((n, [, v]) => n + v.cost, 0)
     const top = deptRows[0]
     return [
       {
@@ -474,13 +487,22 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           : [['-', '0석', '배정 좌석 없음']],
       },
       {
+        title: '부서별 유지보수 계약 비용',
+        note: '유지보수 계약 총액을 주관 부서로 배분(해지 제외) — 구매 계약은 자산 취득가·라이선스와 중복이라 제외',
+        columns: ['부서', '계약 수', '유지보수 계약비'],
+        rows: mcRows.length
+          ? mcRows.map(([d, v]) => [d, `${v.n}건`, `${fmtAmount(v.cost)}원`])
+          : [['-', '0건', '유지보수 계약 없음']],
+      },
+      {
         title: '배분 요약',
-        note: '차지백·부서 예산 배정 근거 — 자산 원가와 라이선스 좌석 비용을 부서로 귀속',
+        note: '차지백·부서 예산 배정 근거 — 자산 원가·라이선스 좌석·유지보수 계약비를 부서로 귀속',
         bullets: [
           `IT 자산 취득가 합계 ${fmtAmount(totalAcq)}원 · 현재 장부가(잔존가치) ${fmtAmount(totalBook)}원 · 누적 유지보수비 ${fmtAmount(totalRepair)}원`,
           `라이선스 좌석 비용 합계 ${fmtAmount(totalSeat)}원 (배정 좌석 ${seatRows.reduce((n, [, v]) => n + v.seats, 0)}석 기준)`,
+          `유지보수 계약비 합계 ${fmtAmount(totalMc)}원 (유지보수 계약 ${mcRows.reduce((n, [, v]) => n + v.n, 0)}건 · 주관 부서 기준)`,
           top ? `최고 원가 부서: ${top[0]} — 취득가 ${fmtAmount(top[1].acq)}원 · 자산 ${top[1].n}대` : '배분 대상 자산 없음',
-          '배분 기준: 유형 자산은 소유 부서, 라이선스는 좌석 배정 부서로 귀속. 소유·부서 미지정 항목은 "미지정"으로 집계하며 자산관리팀 확인 대상.',
+          '배분 기준: 유형 자산은 소유 부서, 라이선스는 좌석 배정 부서, 유지보수 계약은 주관 부서로 귀속. 소유·부서 미지정 항목은 "미지정"으로 집계하며 자산관리팀 확인 대상.',
         ],
       },
     ]
@@ -690,10 +712,13 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const seatCost = s.licenses
       .filter((l) => l.status !== '해지')
       .reduce((n, l) => n + (l.seats?.length ?? 0) * l.unitCost, 0)
+    const mcCost = s.contracts
+      .filter((c) => c.kind === '유지보수' && c.status !== '해지')
+      .reduce((n, c) => n + c.amount, 0)
     const deptN = new Set(valued.map((a) => a.dept || '미지정')).size
     return `운영 IT 자산 ${valued.length}대의 취득가 ${fmtAmount(totalAcq)}원을 ${deptN}개 부서로 배분했습니다. 현재 장부가(잔존가치)는 ${fmtAmount(totalBook)}원입니다. `
-      + `라이선스 좌석 비용 ${fmtAmount(seatCost)}원은 좌석 배정 부서로 귀속했습니다. `
-      + '자산은 소유 부서, 라이선스는 좌석 부서를 기준으로 IT 비용을 배분해 부서별 차지백·예산 배정의 근거로 활용할 수 있습니다.'
+      + `라이선스 좌석 비용 ${fmtAmount(seatCost)}원은 좌석 배정 부서로, 유지보수 계약비 ${fmtAmount(mcCost)}원은 주관 부서로 귀속했습니다. `
+      + '자산은 소유 부서, 라이선스는 좌석 부서, 유지보수 계약은 주관 부서를 기준으로 IT 비용을 배분해 부서별 차지백·예산 배정의 근거로 활용할 수 있습니다.'
   }
   const liveA = s.assets.filter((a) => a.status !== '폐기완료')
   const flaggedA = liveA.filter(hasDataIssue).length
