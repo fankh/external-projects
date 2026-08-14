@@ -4,13 +4,13 @@ import { draftApproval } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { nowStampSec, today } from '@/lib/dates'
+import { currentYear, nowStampSec, today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, isRemoteTargetIn, nextNo } from '@/lib/store'
 import type { PledgeKind } from '@/lib/types'
 
-const YEAR = '2026'
+const YEAR = currentYear()
 
 function unsignedOf(s: ReturnType<typeof getStore>) {
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'

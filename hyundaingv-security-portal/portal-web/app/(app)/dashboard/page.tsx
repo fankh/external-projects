@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireMenu } from '@/lib/authz'
-import { today } from '@/lib/dates'
+import { currentYear, today } from '@/lib/dates'
 import { getStore, isRemoteTargetIn } from '@/lib/store'
 
 const SR_CHIP: Record<string, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
@@ -30,7 +30,7 @@ export default async function DashboardPage() {
 
   // 전사 운영 스냅샷 (업무담당·Admin)
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
-  const signedNames = new Set(s.pledges.filter((p) => p.year === '2026' && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  const signedNames = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
   const ops = {
     incidents: s.incidents.filter((i) => i.status === '조치중').length,
     delayedSr: s.srRequests.filter((r) => r.dueDate && r.dueDate < today() && !['완료', '반려', '작성중', '결재중'].includes(r.status)).length,

@@ -24,6 +24,7 @@ FIN_DATA = ROOT / 'scripts' / '.e2e-fin-data.json'  # 집행률 확정 스코프
 FYEAR_DATA = ROOT / 'scripts' / '.e2e-fyear-data.json'  # 일반 서약 year 필터 회귀용 (v1.5.32)
 XKIND_DATA = ROOT / 'scripts' / '.e2e-xkind-data.json'  # export 크로스-kind 회귀용 (v1.5.25)
 RREASON_DATA = ROOT / 'scripts' / '.e2e-rreason-data.json'  # 재상신 할일 사유텍스트 오마감 회귀용 (v1.5.47)
+BACKUP_DATA = ROOT / 'scripts' / '.e2e-backup-data.json'  # 수동 배치 백업(스케줄러 off) 회귀용 (v1.5.48)
 
 
 def login(pg, base, name):
@@ -593,6 +594,23 @@ def sc_year_filter(pg, base, check):
     pg.goto(f'{base}/dashboard', wait_until='networkidle')
     n = pg.locator('.stat', has_text='미서약 인원').locator('.v').inner_text().strip()
     check(n == '1', f'2025(레거시) 서약은 2026 미서약으로 집계 (year 필터; 수정 전이면 0; 실제 {n})')
+
+
+def sc_manual_backup(pg, base, check):
+    """수동 배치 백업 (v1.5.48, notify/scheduler 재감사 finding #3) — 백업은 스케줄러 틱에서만
+    돌아, 외부 스케줄러 사용(NOTIFY_INTERVAL 미설정)+영속화 켬 배포에선 스냅샷이 안 생겼다.
+    수동 '알림 배치 실행'도 백업을 남겨야 그 모드에 복구 지점이 생긴다(스케줄러 off 로 부팅)."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.click('button:has-text("알림 배치 실행")')
+    pg.wait_for_load_state('networkidle')
+    pg.reload(wait_until='networkidle')  # 서버 액션(RSC) 후 최신 배치 이력 재조회
+    hist = pg.locator('.card', has_text='배치 실행 이력').inner_text()
+    check('수동 배치' in hist and '백업' in hist, '수동 배치가 데이터 파일 백업 기록을 남김 (스케줄러 off 복구지점)')
+    # 실제 .bak 스냅샷 파일도 생성됐는지 확인
+    import pathlib
+    baks = list(pathlib.Path(BACKUP_DATA).parent.glob(pathlib.Path(BACKUP_DATA).name + '.*.bak'))
+    check(len(baks) > 0, '.bak 스냅샷 파일 생성 확인')
 
 
 def sc_reject_reason_collision(pg, base, check):
@@ -1233,6 +1251,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(XKIND_DATA)}),
     ('reject_reason_collision', '재상신 할일 닫기 앵커 매칭(사유텍스트 오마감 방지)', sc_reject_reason_collision,
      {'PORTAL_DATA_FILE': str(RREASON_DATA)}),
+    ('manual_backup', '수동 배치 백업 — 스케줄러 off 배포 복구지점', sc_manual_backup,
+     {'PORTAL_DATA_FILE': str(BACKUP_DATA)}),
     ('adapter_throw', '어댑터 예외 내성 — 인사 동기화 throw 시 실패 기록·무크래시(v1.5.16)', sc_adapter_fault,
      {'PORTAL_FAULT_HR': 'throw'}),
     ('adapter_hang', '어댑터 무응답 내성 — 인사 동기화 hang→timeout 시 실패 기록·무크래시(v1.5.17)', sc_adapter_fault,
@@ -1367,6 +1387,10 @@ def main() -> int:
             {'id': 'TD-9002', 'owner': '김현우', 'kind': '재상신', 'dueDate': '2026-08-01', 'done': False,
              'title': '[SR 신청] SR-2026-9002 반려 — 보완 후 재상신 (사유: SR-2026-9001 처리 후 재상신 바랍니다)'},
         ],
+    }, ensure_ascii=False), encoding='utf-8')
+    # manual_backup 시나리오용 — 영속화 켬(PORTAL_DATA_FILE) + 스케줄러 off. 수동 배치가 백업을 남기는지.
+    BACKUP_DATA.write_text(json.dumps({
+        'notices': [{'id': 'N-BAK', 'title': 'E2E 백업 데이터', 'category': '일반', 'postedAt': '2026-08-01', 'author': '시스템관리자'}],
     }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:

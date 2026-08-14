@@ -2,11 +2,11 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { nowStamp, today } from '@/lib/dates'
+import { currentYear, nowStamp, today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { getStore, nextNo, recordBatch } from '@/lib/store'
 
-const YEAR = '2026'
+const YEAR = currentYear()
 
 async function remindUnsigned(formData: FormData) {
   'use server'

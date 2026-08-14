@@ -638,6 +638,10 @@ try {
   await p3.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
   const repairedRow = ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2024-000015' }) }).first().textContent()) || '')
   ok('장애 신고 수리 완료: 원 소유자 반환(사용중·김민준) — 유휴 풀 아님', repairedRow.includes('사용중') && repairedRow.includes('김민준'))
+  // 수리 결과 통보(루프 폐쇄) — 소유자 유지 자산의 수리 완료/불가 결과가 신고자·소유자(김민준)에게 통보되고 발송 이력에 남는다.
+  await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const notifBody = (await p3.locator('body').textContent()) || ''
+  ok('장애 신고 수리 완료: 신고자(김민준)에게 수리 결과 통보(발송 이력 적재)', notifBody.includes('수리 결과') && notifBody.includes('사용 재개 (반환 완료)') && notifBody.includes('김민준'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──

@@ -205,7 +205,21 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
   if (outcome === '수리 불가' && !s.disposals.some((d) => d.assetNo === assetNo)) {
     s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `수리 불가 폐기${note.trim() ? ` — ${note.trim()}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
   }
-  appendAudit({ actor: session.name, action: `수리 처리 (${outcome})`, target: assetNo })
+  // 신고자·소유자 통보 — 장애 신고 등 소유자를 유지한 채 수리에 들어온 자산은 결과를 원 소유자에게 알려 루프를 닫는다(반납 접수 통보의 수리판).
+  // 반납 접수분은 소유자가 이미 비워져(유휴 풀) 대상이 아니다 — 반납 시점에 이미 반납자에게 결과를 통보했다.
+  const notifyOwner = asset.owner && asset.owner !== '미지정' && asset.owner !== '-' ? asset.owner : null
+  if (notifyOwner) {
+    dispatch({
+      channel: '이메일',
+      to: `${notifyOwner} (${asset.dept})`,
+      subject: outcome === '수리 완료'
+        ? `수리 완료 — ${asset.assetNo} ${asset.model} 사용 재개 (반환 완료)`
+        : `수리 불가 — ${asset.assetNo} ${asset.model} 폐기 예정, 대체 자산 신청을 안내드립니다`,
+      kind: '수리 결과',
+      ref: asset.assetNo,
+    })
+  }
+  appendAudit({ actor: session.name, action: `수리 처리 (${outcome})${notifyOwner ? ` · ${notifyOwner} 통보` : ''}`, target: assetNo })
   revalidatePath('/', 'layout')
 
   const next = outcome === '수리 완료'
