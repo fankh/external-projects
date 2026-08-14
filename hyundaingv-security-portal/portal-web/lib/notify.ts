@@ -17,6 +17,13 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   const t = today()
   const month = t.slice(0, 7)
   const results: NotifyResult[] = []
+  // 재직 명단 스냅샷 — 배치는 s.people 을 여러 구간(미서약·재서약·재택)에서 sendVia await 를 사이에 두고
+  // 읽는다. syncHr(인사 즉시 동기화)는 s.people 을 '참조 교체'(s.people = new)로 갱신하므로, 배치 도중
+  // 수동 동기화가 끼면 앞 구간은 옛 명단·뒤 구간은 새 명단으로 평가돼 한 배치가 내부 불일치(퇴사자가
+  // 미서약엔 잡히고 재택엔 빠지는 등)해진다. 배치 시작 시 참조를 1회 포착해 전 구간 반복읽기 일관성을 준다
+  // (재진입 가드 __ngvNotifyTicking 이 notify-vs-notify 를, 이 스냅샷이 notify-vs-syncHr 를 담당).
+  // 얕은 복사로 포착 — 참조 교체(syncHr)·in-place 변경 양쪽에 불변인 완전한 명단 스냅샷.
+  const people = [...s.people]
 
   const send = async (kind: string, names: string[], subject: string) => {
     if (names.length === 0) return
@@ -55,7 +62,7 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   // 1) 미서약자 — 양식 개정일자 기준 유효 서약 없는 인원
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
   const signed = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
-  await send('미서약', s.people.filter((p) => !signed.has(p.name)).map((p) => p.name), '[보안서약서] 미서약 안내')
+  await send('미서약', people.filter((p) => !signed.has(p.name)).map((p) => p.name), '[보안서약서] 미서약 안내')
 
   // 1-b) 비-일반 서약 재서약 방치 — 개정 후 미완료 재서약 할일(관리책임자·재택·특별·프로젝트). 일반은 위 1)에서 별도.
   // 손상 파일의 title 누락(undefined) todo 에 .includes 가 TypeError→배치 전체 중단되지 않도록 문자열 강제.
@@ -63,7 +70,7 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   // 재직자만 통지 — 재서약 할일은 서명으로만 닫히므로 프로젝트 멤버 등이 퇴사해 s.people 에서 빠져도 할일은
   // 남는다(재조정 경로 없음). reSignTargets(v1.5.67)는 재직 명단과 교집합하나 이 todo 기반 경로는 놓쳐 떠난
   // 인원에게 안내메일·집계가 갔다 → 미서약·재택 미제출 등 타 유형과 동일하게 현재 재직자로 교집합한다.
-  const reSignOwners = [...new Set(reSign.map((x) => x.owner))].filter((name) => s.people.some((p) => p.name === name))
+  const reSignOwners = [...new Set(reSign.map((x) => x.owner))].filter((name) => people.some((p) => p.name === name))
   await send('비일반 재서약', reSignOwners, '[보안서약서] 개정 재서약 안내')
 
   // 2) 보안점검 경과 — 예정월이 지났는데 완료·결재중이 아닌 항목의 점검자
@@ -80,7 +87,7 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   // 4) 재택 체크리스트 미제출 — 당월 재택 대상자 중 미제출 인원 (명단 밖 인원에게는 안내하지 않는다)
   const submitted = new Set(s.remoteChecks.filter((r) => r.period === month).map((r) => r.name))
   const targets = new Set(s.remoteTargets.filter((t) => isRemoteTargetIn(t, month)).map((t) => t.name))
-  await send('재택 미제출', s.people.filter((p) => targets.has(p.name) && !submitted.has(p.name)).map((p) => p.name),
+  await send('재택 미제출', people.filter((p) => targets.has(p.name) && !submitted.has(p.name)).map((p) => p.name),
     `[재택근무] ${month} 체크리스트 제출 안내`)
 
   // 7) 출력물 미등록 — 이관 후 폐기 정보를 등록하지 않은 출력자 안내 (요구사항 55행: 주기적 안내메일)
