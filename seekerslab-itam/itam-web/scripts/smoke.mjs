@@ -283,6 +283,9 @@ try {
   check('대시보드(보안담당): 교체 대상·미사용 라이선스 회수 큐 미노출 (자산관리 계획 큐)', !dashSec.includes('교체 대상 자산') && !dashSec.includes('미사용 라이선스 회수 후보'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
+  // 발견 자산 상세 딥링크(?sel=) — 전역 검색·CMDB 대사에서 특정 자산 상세로 바로 진입. 등록·불일치(DSC-2607-0029) 상세에 대사 확인 액션도 노출.
+  const foundSelHtml = await (await get('/discovery/found?sel=DSC-2607-0029', 'ASSET_MGR')).text()
+  check('발견 자산: ?sel= 딥링크로 상세 오픈 + 등록·불일치 대사 확인 액션 노출', foundSelHtml.includes('위치 상이') && foundSelHtml.includes('대사 확인 (등록·일치 처리)') && foundSelHtml.includes('대장에서 보정'))
   // 서버·IDC망(10.10.x)에 나타난 미등록 단말 — 서버 VLAN 침입 의심 (어시스턴트 발견 인텐트가 세그먼트로 식별)
   check('발견 자산: 서버 대역 미등록 단말(DESKTOP-UNK09) 노출', foundHtml.includes('DESKTOP-UNK09') && foundHtml.includes('10.10.8.77'))
   // AI 자동분류 — 관측 유형을 표준 자산 유형으로 매핑하는 컬럼(§05 수기 분류 제거). 'OAuth 앱'→SW 는 관측 유형·노트 어디에도 'SW'가 없어 분류가 실제 동작함을 증명한다(기존 로직은 SW 미지원으로 단말로 오분류).
@@ -703,7 +706,8 @@ try {
   const srchAdmin = await (await get('/api/search?q=' + encodeURIComponent('CT-2023-014'), 'ADMIN')).json()
   check('통합 검색: Admin이 계약을 교차 검색', srchAdmin.groups.some((g) => g.kind === '계약·라이선스' && g.items.some((i) => i.href.includes('/inventory/contracts'))))
   const srchDisc = await (await get('/api/search?q=DESKTOP-UNK09', 'SEC_MGR')).json()
-  check('통합 검색: 보안담당이 발견 자산을 교차 검색', srchDisc.groups.some((g) => g.kind === '발견 자산' && g.items.some((i) => i.href.includes('/discovery/found'))))
+  // 발견 자산 검색 결과는 특정 자산 상세로 딥링크(?sel=) — 자산·계약·게시판 딥링크와 동형(그동안 발견은 화면으로만 이동)
+  check('통합 검색: 보안담당이 발견 자산을 교차 검색(상세 딥링크 ?sel=)', srchDisc.groups.some((g) => g.kind === '발견 자산' && g.items.some((i) => i.href.includes('/discovery/found?sel=DSC-'))))
   // Shadow SaaS 교차 검색 — 서비스명(Notion)으로 Shadow SaaS 현황 점프. 다른 목록 엔티티와 동일하게 전역 검색 포함.
   const srchSaas = await (await get('/api/search?q=Notion', 'SEC_MGR')).json()
   check('통합 검색: 보안담당이 Shadow SaaS를 교차 검색(Notion)', srchSaas.groups.some((g) => g.kind === 'Shadow SaaS' && g.items.some((i) => i.href.includes('/discovery/saas'))))
