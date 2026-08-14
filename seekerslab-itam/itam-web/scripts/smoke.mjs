@@ -515,6 +515,13 @@ try {
   check('도입·검수: 도입 예정(ITSM SR·발주) 섹션 + 시드 사전등록 + 도착 처리', inHtml.includes('도입 예정') && inHtml.includes('SR-2607-041') && inHtml.includes('입고 등록 (도착)'))
   // 검수 반려 로트 — 불량 반려 후 재검수·반품 확인 백로그. 목록에 반려 상태로 노출(선택 시 재검수 버튼)
   check('도입·검수: 검수 반려 로트 노출 (IN-2607-04 · Dell UltraSharp)', inHtml.includes('IN-2607-04') && inHtml.includes('Dell UltraSharp') && inHtml.includes('검수 반려'))
+  // 검수 확인서 — 검수 이력이 있는 로트의 공급사·계약·체크리스트·채번 자산을 물품 인수 증적(대금 지급·감사)으로. 검수 전 로트는 대상 아님(400).
+  check('도입·검수: 검수 확인서 인쇄 링크(검수 이력 로트)', inHtml.includes('/api/intake-cert/'))
+  check('검수 확인서: 미로그인 차단 (401)', (await get('/api/intake-cert/IN-2607-01')).status === 401)
+  check('검수 확인서: 사용자 차단 (403)', (await get('/api/intake-cert/IN-2607-01', 'USER')).status === 403)
+  check('검수 확인서: 검수 전 로트는 대상 아님 (400 · IN-2607-02 입고 대기)', (await get('/api/intake-cert/IN-2607-02', 'ASSET_MGR')).status === 400)
+  const intakeCert = await (await get('/api/intake-cert/IN-2607-01', 'ASSET_MGR')).text()  // 검수 중 · 채번 AST-2025-000033
+  check('검수 확인서: 공급사·체크리스트·채번 자산 렌더', intakeCert.includes('GOODS ACCEPTANCE') && intakeCert.includes('검수 체크리스트') && intakeCert.includes('AST-2025-000033'))
   // 대시보드(자산담당): 검수 반려 후속 백로그를 운영 큐로 노출(방치 방지)
   check('대시보드(자산담당): 검수 반려 재검수·반품 확인 큐 노출', dashHtml.includes('검수 반려 (재검수 · 반품 확인)'))
   const mvHtml = await (await get('/assets/movement', 'ASSET_MGR')).text()
