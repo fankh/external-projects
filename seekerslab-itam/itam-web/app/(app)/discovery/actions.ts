@@ -17,7 +17,8 @@ export async function requestOnboardMany(ids: string[]) {
   let n = 0
   for (const id of ids) {
     const d = s.discovered.find((x) => x.id === id)
-    if (!d || d.action || d.state === '등록·일치') continue
+    // 미등록만 편입 — 등록·불일치(이미 매칭된 자산)를 편입하면 대장 중복이 생긴다(불일치는 재물조사 차이 조정으로 대사).
+    if (!d || d.action || d.state !== '미등록') continue
     d.action = '편입요청'
     s.approvals.unshift({
       id: nextApprovalId(),
@@ -160,7 +161,9 @@ export async function requestOnboard(discoveredId: string) {
   if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return
   const s = getStore()
   const d = s.discovered.find((x) => x.id === discoveredId)
-  if (!d || d.action) return
+  // 미등록만 편입한다 — 등록·불일치(이미 대장에 매칭된 자산)를 편입하면 대장에 중복 자산이 생긴다.
+  // 불일치(위치·상태 상이)는 재물조사 차이 조정(위치 불일치 → 대장 보정)으로 대사한다.
+  if (!d || d.action || d.state !== '미등록') return
   d.action = '편입요청'
   s.approvals.unshift({
     id: nextApprovalId(),

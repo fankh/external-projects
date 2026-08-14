@@ -30,8 +30,8 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
   const [msg, setMsg] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  // 편입 요청 가능한 건만 일괄 대상 — 미처리·대사 미완
-  const onboardable = (d: DiscoveredAsset) => !d.action && d.state !== '등록·일치'
+  // 편입 요청 가능한 건만 일괄 대상 — 미처리·미등록만. 등록·불일치(이미 매칭된 자산)는 편입하면 대장 중복이 되므로 제외(불일치는 재물조사 차이 조정으로 대사).
+  const onboardable = (d: DiscoveredAsset) => !d.action && d.state === '미등록'
   const toggleCheck = (id: string) => setChecked((prev) => {
     const n = new Set(prev)
     n.has(id) ? n.delete(id) : n.add(id)
@@ -195,7 +195,7 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                 소유자 확인 응답 — <b>{sel.ownerAnswer}</b>
               </div>
             )}
-            {!sel.action && sel.state !== '등록·일치' && (
+            {!sel.action && sel.state === '미등록' && (
               <div className="vstack" style={{ marginTop: 14, gap: 8 }}>
                 {/* 확인 요청은 편입·격리 앞단의 단계 — 이미 응답을 받았으면 다시 물을 필요가 없다 */}
                 {!sel.ownerAnswer && (

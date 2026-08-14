@@ -586,6 +586,14 @@ try {
   await p3.waitForTimeout(250)
   const encBody = (await p3.locator('body').textContent()) || ''
   ok('발견 편입 → 대사 종결: 발견 레코드 등록·일치·편입완료 + 대사 자산(matchedAssetNo) 링크', encRow.includes('등록·일치') && encRow.includes('편입완료') && encBody.includes('대사 자산') && /AST-\d{4}-\d{6}/.test(encBody))
+  // 등록·불일치(이미 대장에 매칭된 자산)는 편입 불가 — 편입하면 대장에 중복 자산이 생긴다. 불일치는 재물조사 차이 조정으로 대사.
+  await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  const mis029 = p3.locator('tr', { has: p3.locator('td', { hasText: 'DSC-2607-0029' }) }).first()
+  ok('발견 대사: 등록·불일치 자산은 일괄 편입 체크박스 미노출(중복 편입 방지)', (await mis029.locator('input[type="checkbox"]').count()) === 0)
+  await mis029.locator('td', { hasText: 'DESKTOP-KJM45' }).click()
+  await p3.waitForTimeout(250)
+  const misBody = (await p3.locator('body').textContent()) || ''
+  ok('발견 대사: 등록·불일치 상세는 불일치·대사 자산 정보만(편입 요청 버튼 없음)', misBody.includes('위치 상이') && misBody.includes('AST-2025-000512') && !misBody.includes('편입 요청 (결재)'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──
