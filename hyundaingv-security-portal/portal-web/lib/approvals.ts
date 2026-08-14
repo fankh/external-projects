@@ -64,7 +64,10 @@ export function draftApproval(opts: {
   for (let i = s.todos.length - 1; i >= 0; i--) {
     const t = s.todos[i]
     if (t.done || t.kind !== '재상신' || t.owner !== opts.drafter.name) continue
-    if (t.title.includes(opts.ref)) { t.done = true; continue }
+    // ref 매칭은 opts.ref 가 비어있지 않을 때만 — 빈 문자열이면 includes('') 가 항상 참이라
+    // 기안자의 모든 재상신 할일을 한꺼번에 닫아 의무가 조용히 소멸한다(현 호출자는 전부 실 ID 를
+    // 넘겨 도달 불가한 잠재 결함이나, 방어적으로 가드). 빈 ref 는 아무 것도 닫지 않는 편이 안전하다.
+    if (opts.ref && t.title.includes(opts.ref)) { t.done = true; continue }
     if (isRotating && !rotatingClosed && t.title.startsWith(`[${opts.docType}]`)) { t.done = true; rotatingClosed = true }
   }
   return apId
