@@ -324,6 +324,7 @@ export async function recoverFromUser(assetNo: string, rawReason: string) {
   // 오프보딩 좌석 회수 — 떠나는 보유자에게 물린 라이선스 좌석을 함께 회수한다(로56 좌석 생애주기). 여유석으로 돌아가 재배정 대상이 된다.
   const freed = reclaimLicenseSeats(assetNo, session.name, '오프보딩 회수')
   if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (오프보딩)`, actor: session.name })
+  asset.receiptPending = undefined // 미확인 수령 대기 해제 — 보유자를 떠난 자산은 인수 대기 대상이 아니다(스테일 수령 미확인 방지)
   // 회수 통보 — 보유자(부서)에게 회수 사실을 알린다
   if (holder && holder !== '미지정' && holder !== '-') {
     dispatch({ channel: '이메일', to: `${holder} (${asset.dept})`, subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
@@ -349,6 +350,7 @@ export async function recoverManyFromUser(assetNos: string[], rawReason: string)
     asset.history.push({ date: today(), kind: '반납', detail: `자산 회수(반납 처리) — ${holder} 보유분 일괄 회수${reason ? ` · ${reason}` : ''} (오프보딩·재배정)`, actor: session.name })
     const freed = reclaimLicenseSeats(no, session.name, '오프보딩 일괄 회수')
     if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (오프보딩)`, actor: session.name })
+    asset.receiptPending = undefined // 미확인 수령 대기 해제 (스테일 수령 미확인 방지)
     if (holder && holder !== '미지정' && holder !== '-') {
       dispatch({ channel: '이메일', to: `${holder} (${asset.dept})`, subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
     }
@@ -499,6 +501,7 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
   // 실물이 사라진 자산의 배정 라이선스 좌석을 회수한다(로56) — 폐기·반납과 같은 처리. 대체 기기에 좌석을 재배정할 수 있게 여유석으로 되돌린다.
   const freed = reclaimLicenseSeats(assetNo, session.name, type)
   if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (${type})`, actor: session.name })
+  asset.receiptPending = undefined // 미확인 수령 대기 해제 — 사라진 자산은 인수 대기 대상이 아니다
 
   if (type === '도난') {
     // 도난은 단말 내 데이터 유출 위험이 있어 보안운영팀에 침해 대응을 통보한다 — 시간 임계라 문자 즉시 알림 병행
