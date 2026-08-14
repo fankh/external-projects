@@ -493,6 +493,13 @@ try {
   const licTable2 = p3.locator('table', { has: p3.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first()
   const licRow2 = licTable2.locator('tbody tr').filter({ hasText: 'Microsoft 365' }).first()
   ok('계약 해지 → 라이선스 근거 해지 표기(LIC-001)', ((await licRow2.textContent()) || '').includes('근거 해지'))
+  // SaaS 인가 요청 승인 → 사용 현황(s.saas) + 정책 카탈로그(s.saasCatalog) 양쪽 인가 반영(교차 정합). 시드 APR-2607-125(Linear)
+  await p3.goto(`${BASE}/workflow/approvals?sel=APR-2607-125`, { waitUntil: 'networkidle' })
+  await p3.locator('tr', { has: p3.locator('td', { hasText: 'APR-2607-125' }) }).first().locator('button', { hasText: /^승인$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' })
+  const linearRow = p3.locator('tr').filter({ hasText: 'Linear' }).first()
+  ok('SaaS 인가 요청 승인 → 카탈로그 인가 반영(Linear)', ((await linearRow.textContent()) || '').includes('인가'))
   // 라이선스 컴플라이언스 판정 불변식 — 초과/미사용/적정이 보유·사용 관계와 정합(감사 리스크 플래깅·회수/구매 결재 근거). 비즈니스 임계 계산 회귀 방지.
   {
     await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })

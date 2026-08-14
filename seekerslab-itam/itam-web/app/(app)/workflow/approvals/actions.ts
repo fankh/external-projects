@@ -306,6 +306,15 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     } else {
       s.saas.push({ id: nextId('SAS'), service: svc, category: '기타', dept: a.dept, users: 1, sanctioned: true, monthlyVisits: 0, risk: '낮음' })
     }
+    // 정책 카탈로그(s.saasCatalog)에도 인가 반영 — 사용 현황(s.saas)만 바꾸면 카탈로그는 검토중으로 남아 미판정 큐·화면과 어긋난다(decideSaas 와 동형).
+    const cat = s.saasCatalog.find((x) => x.service.toLowerCase() === svc.toLowerCase())
+    if (cat) {
+      cat.status = '인가'
+      cat.decidedAt = today()
+      cat.decidedBy = `${session.name} (인가 요청 결재)`
+    } else {
+      s.saasCatalog.push({ id: nextId('CAT'), service: svc, category: '기타', vendor: '-', status: '인가', dataGrade: '일반', owner: a.dept, decidedAt: today(), decidedBy: `${session.name} (인가 요청 결재)` })
+    }
     a.fulfilled = true
   }
 
