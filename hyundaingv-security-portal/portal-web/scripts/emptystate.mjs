@@ -142,6 +142,9 @@ async function main() {
     // 대상별 이수 과정(개발자)이 있으면 eligibleForCourse 가 p.dept.includes 를 부른다 — 아래 dept 누락 인원과
     // 결합해 /compliance/education 렌더 크래시를 재현한다(머지 reqStrFields 가 누락 필수 문자열을 ''로 채워 방어).
     educationCourses: [{ id: 'ED-9', title: '개발보안', target: '개발자', plannedMonth: '2026-08', status: '계획' }],
+    // 빈 시드 컬렉션(printouts)의 null 원소 — 형판이 없어 요소 형태검증은 못 하나 null 은 어느 컬렉션에도
+    // 무효라 제거돼야 한다(/awareness/prints·엑셀 익스포트의 p.name/p.id 접근이 null 에서 500 나면 안 된다).
+    printouts: [null, { id: 'PR-9', name: '홍길동', dept: '개발1팀', document: 't.pdf', printedAt: '2026-08-01 09:00', pages: 1, personalInfo: false, status: '미등록' }],
     // 필수 문자열 필드 '누락'(키 부재) — dept 없는 인원. eligibleForCourse('개발자') 의 p.dept.includes 가 500 나면 안 된다.
     people: [{ login: 'probe1', name: '견고성검증', dept: '품질보증팀', role: 'USER' },
       { login: 'probe2', name: '부서누락', role: 'USER' }] }

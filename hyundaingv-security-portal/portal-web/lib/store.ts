@@ -334,10 +334,12 @@ function loadFromFile(): Store | null {
           // 요소 수준 방어 — 상위 타입(배열)이 맞아도 요소가 오염되면(예: 객체 배열에 원시값이
           // 섞이면) 화면의 `.field` 접근이 전 화면 500 을 낸다. 시드 요소 타입 기준으로 어긋난
           // 요소만 걸러 정상 요소는 보존한다(v1.5.14 상위 타입 방어의 요소 수준 확장). 빈 시드
-          // 컬렉션(printouts 등)은 요소 타입을 알 수 없어 그대로 수용한다. securityOfficers 는
+          // 컬렉션(printouts 등)은 요소 타입을 알 수 없어 형태 판별은 못 하나, null/undefined 원소만은
+          // 어느 컬렉션(객체·문자열 배열)에서도 유효하지 않고 소비처의 p.field 접근을 500 내므로 제거한다
+          // (예: 손상 파일 {"printouts":[null]} → /awareness/prints·엑셀 익스포트 전량 500). securityOfficers 는
           // 유일한 문자열 배열이라 원시 타입 일치로 걸러 객체 필터에 전량 탈락하지 않게 한다.
           const sample = expected[0]
-          mergedRec[k] = sample === undefined ? v
+          mergedRec[k] = sample === undefined ? v.filter((e) => e != null)
             : (sample !== null && typeof sample === 'object')
               ? v.filter((e) => e !== null && typeof e === 'object' && !Array.isArray(e))
               : v.filter((e) => typeof e === typeof sample)
