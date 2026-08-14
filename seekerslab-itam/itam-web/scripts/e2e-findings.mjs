@@ -286,6 +286,14 @@ try {
   ok('자산담당: 발견 자산 findings 조치 버튼 전부 미노출 (조회만)', gated)
   await p2.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
   ok('자산담당: 외부 공격표면 findings 조치 버튼 미노출 (조회만)', (await p2.locator('button', { hasText: /^대응$|^차단$|^조사 착수$/ }).count()) === 0)
+  // 수령 확인 독촉 — 수령 미확인 자산(시드 AST-2024-000015, 이후 ctxU 가 확인)에 대해 자산담당이 사용자에게 인수 확인 요청 발송(반환 독촉의 수령판).
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const rcptBtn = p2.locator('button', { hasText: /수령 확인 독촉 발송/ })
+  ok('수령 확인 독촉: 미확인 있으면 자산담당에 독촉 버튼 노출', (await rcptBtn.count()) > 0)
+  await rcptBtn.first().click()
+  await p2.waitForTimeout(700)
+  const rcptBody = (await p2.locator('body').textContent()) || ''
+  ok('수령 확인 독촉: 발송 성공(미확인 사용자 통보·발송 이력)', rcptBody.includes('수령 확인 독촉') && rcptBody.includes('발송'))
   await ctx2.close()
 
   // ── 사용자: AI 어시스턴트 본인 자산 자연어 질의(§01 사용자 본인 자산 조회 · §05 권한 필터) ──

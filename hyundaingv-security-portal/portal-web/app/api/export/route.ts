@@ -4,7 +4,7 @@ import { effectiveRoles } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
 import { currentYear } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { getStore, isRemoteTargetIn } from '@/lib/store'
+import { eligibleForCourse, getStore, isRemoteTargetIn } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
 /** 유형 → 소속 화면 — 화면의 런타임 메뉴 제한이 다운로드에도 걸린다 (유형별 추가 가드와 별개) */
@@ -58,9 +58,12 @@ export async function GET(req: Request) {
     const done = s.educationCourses.filter((c) => c.status === '완료')
     const rows: (string | number)[][] = [['이름', '부서', ...done.map((c) => c.title), '이수율(%)']]
     for (const p of s.people) {
-      const marks = done.map((c) => s.educationRecords.some((r) => r.courseId === c.id && r.name === p.name) ? '이수' : '미이수')
+      // 과정 대상별 이수 의무 반영 — 비대상자는 '해당없음', 이수율은 대상 과정만 분모로 (화면과 동일)
+      const marks = done.map((c) => !eligibleForCourse(s, c.target).some((e) => e.name === p.name) ? '해당없음'
+        : s.educationRecords.some((r) => r.courseId === c.id && r.name === p.name) ? '이수' : '미이수')
+      const req = marks.filter((m) => m !== '해당없음').length
       const n = marks.filter((m) => m === '이수').length
-      rows.push([p.name, p.dept, ...marks, done.length ? Math.round((n / done.length) * 100) : 0])
+      rows.push([p.name, p.dept, ...marks, req ? Math.round((n / req) * 100) : 100])
     }
     return csvResponse('보안교육_이수현황', rows)
   }

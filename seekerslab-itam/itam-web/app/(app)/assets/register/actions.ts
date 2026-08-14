@@ -326,6 +326,28 @@ export async function confirmReceipt(assetNo: string) {
   return { ok: true, message: `${assetNo} 수령 확인 완료 — 인수 이력 적재, 자산관리팀에 통보했습니다.` }
 }
 
+/** 수령 확인 독촉 — 불출 후 인수 확인이 안 된 자산의 소유자(사용자)에게 수령 확인 요청을 발송한다.
+ *  (반환 독촉·필독 미확인 안내와 같은 컴플라이언스 독촉 — 수령 미확인이 표시로만 끝나지 않게 독촉 수단을 준다.)
+ *  당일 중복 발송(독촉)은 차단한다. 자산담당·Admin. */
+export async function remindReceipts() {
+  const session = await guard()
+  if (!session) return { ok: false, message: '수령 확인 독촉 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const t = today()
+  // ref=자산번호, 독촉 메일만(수령 확인 통보와 구분) — 당일 이미 독촉한 자산은 건너뛴다
+  const sentToday = new Set(s.dispatches.filter((m) => m.kind === '수령 확인' && m.subject.includes('독촉') && m.at.startsWith(t)).map((m) => m.ref))
+  let n = 0
+  for (const a of s.assets) {
+    if (!a.receiptPending || sentToday.has(a.assetNo)) continue
+    dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `자산 수령 확인 요청(독촉) — ${a.assetNo} ${a.model} 인수 확인 부탁드립니다`, kind: '수령 확인', ref: a.assetNo })
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: '수령 확인 독촉 대상이 없습니다 (미확인 없음·오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `수령 확인 독촉 발송 (${n}건)`, target: '수령 미확인 자산' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `수령 확인 독촉 ${n}건 발송 — 미확인 사용자에게 인수 확인 요청 (발송 이력 적재)` }
+}
+
 /** 분실·도난 신고 — 실물이 사라진 자산을 대장에서 '분실' 상태로 전환한다.
  *  (제품안내서 §03 자산 실물 관리 — 재물조사 대사는 '미확인→유휴·분실 후보'만 수동적으로 잡고,
  *   사용자·자산팀이 직접 아는 분실·도난을 신고할 경로가 없었다.)
