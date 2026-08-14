@@ -237,6 +237,8 @@ try {
   check('대시보드: 보증 만료 임박 자산 큐 + 드릴 링크', dashHtml.includes('보증 만료 임박 자산') && dashHtml.includes('warranty=soon'))
   // EOL OS 자산 큐 — OS 지원 종료 경과(시드 CentOS 7.9·Windows 10)를 자산담당 운영 큐에 노출, ?os=eol 드릴
   check('대시보드: EOL OS 자산 큐 + 드릴 링크 (자산담당)', dashHtml.includes('EOL OS 자산') && dashHtml.includes('os=eol'))
+  // 안전재고 미달 큐 — 불출형 유형 가용 재고가 안전재고 미만이면 자산담당 운영 큐에 노출(발주 검토), 재고 화면 드릴
+  check('대시보드: 안전재고 미달 발주 검토 큐 (자산담당)', dashHtml.includes('안전재고 미달') && dashHtml.includes('발주 검토') && dashHtml.includes('/inventory/stock'))
   // 라이선스 초과 사용(SAM 감사 최우선 노출) — 시드 LIC-002(JetBrains 120보유/131사용, 11석 초과)로 자산담당 운영 큐에 노출·계약 화면 드릴
   check('대시보드: 라이선스 초과 사용 감사 노출 큐 (자산담당)', dashHtml.includes('라이선스 초과 사용') && dashHtml.includes('감사 노출') && dashHtml.includes('/inventory/contracts'))
   // 라이선스 만료 경과 — 시드 LIC-002(JetBrains, 만료 2026-05-31 · 기준일 2026-07-29 경과)가 미갱신 만료로 위반 노출. 만료 임박 창에서 이미 지난 건.
@@ -835,6 +837,8 @@ try {
 
   const aiPol = await (await get('/settings/ai-policy', 'ADMIN')).text()
   check('AI 거버넌스: 감사 로그가 질의·판정까지 포괄', aiPol.includes('AI 관련 감사 로그') && aiPol.includes('AI 정책'))
+  // 운영 정책에 안전재고 기준 — 코드 상수가 아니라 Admin 이 설정하는 임계값(대수 단위). 재고 경보가 참조.
+  check('운영 정책: 안전재고 기준 편집 필드 렌더(대수 단위)', aiPol.includes('안전재고 기준') && aiPol.includes('재고 부족(발주 검토)'))
   const dspHtml = await (await get('/assets/disposal', 'ASSET_MGR')).text()
   check('폐기: 후보·소거 방식·증적·일괄 선정 렌더', dspHtml.includes('데이터 소거') && dspHtml.includes('증적') && dspHtml.includes('AST-2019-000218') && dspHtml.includes('선택 일괄 대상 선정'))
   const svyHtml = await (await get('/inventory/survey', 'ASSET_MGR')).text()
@@ -938,6 +942,10 @@ try {
   // 자산 가치 현황 — 유형별 취득가·잔존가치(정액법 감가상각) + 장부가 총액 KPI
   check('재고 현황: 유형별 자산 가치(취득가·잔존가치·감가상각률)', stockHtml.includes('유형별 자산 가치') && stockHtml.includes('총 취득가') && stockHtml.includes('총 잔존가치(장부가)') && stockHtml.includes('감가상각률'))
   check('재고 현황: 자산 잔존가치(장부가 총액) KPI', stockHtml.includes('자산 잔존가치 (장부가 총액)'))
+  // 안전재고 경보 — 불출형 유형(단말·주변기기) 가용 재고가 안전재고(2대) 미만이면 경보. 시드: 단말 유휴 1대(AST-2021-000432)는 폐기 선정(대상 선정)이라 가용 제외 → 가용 0(재고 소진), 주변기기 가용 1.
+  check('재고 현황: 안전재고 경보 카드(가용 부족 발주 검토)', stockHtml.includes('안전재고 경보') && stockHtml.includes('발주 검토'))
+  check('재고 현황: 폐기 선정 유휴는 가용 제외 → 단말 재고 소진(가용 0)', stockHtml.includes('단말') && stockHtml.includes('재고 소진'))
+  check('재고 현황: 주변기기 안전재고 부족 표기', stockHtml.includes('주변기기') && stockHtml.includes('부족'))
   // 재고 엑셀에 유형별 가치 시트 반출 — 취득가·잔존가치 컬럼
   const stockBuf = Buffer.from(await (await get('/api/export/stock', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
   check('재고 엑셀: 유형별 가치 시트(취득가·잔존가치) 반출', stockBuf.includes('총 취득가') && stockBuf.includes('총 잔존가치') && stockBuf.includes('감가상각률'))

@@ -9,6 +9,7 @@ import { approvalHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
+import { lowStockCategories } from '@/lib/stock'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,6 +95,11 @@ export default async function DashboardPage() {
       // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.
       { label: '대장 정합성 미흡 (필드 누락·불일치)', count: s.assets.filter(hasDataIssue).length, href: '/assets/register?dq=1', tone: 'warn' },
     )
+    // 안전재고 미달 — 불출형 유형(단말·주변기기) 가용 재고가 안전재고 미만. 신규 배정 수요 스톡아웃 예방(발주 검토). 재고 화면과 같은 판정.
+    const lowStock = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
+    if (lowStock.length > 0) {
+      opsQueues.push({ label: `안전재고 미달 (발주 검토 — ${lowStock.map((r) => r.category).join('·')})`, count: lowStock.length, href: '/inventory/stock', tone: lowStock.some((r) => r.available === 0) ? 'err' : 'warn' })
+    }
   }
   if (['SEC_MGR', 'ADMIN'].includes(session.role)) {
     // 수집 커넥터 지연·오류는 Discovery 수집 사각지대 — 해당 채널이 멎으면 미등록 자산·Shadow SaaS 가 안 잡힌다. 재연동 필요.

@@ -5,6 +5,7 @@ import { acquisitionCostOf, bookValueOf } from '@/lib/cost'
 import { today } from '@/lib/dates'
 import { canExport } from '@/lib/exports'
 import { getStore } from '@/lib/store'
+import { lowStockCategories } from '@/lib/stock'
 import { ASSET_CATEGORIES, type Asset } from '@/lib/types'
 import { StockBreakdown, type StockRow } from './StockBreakdown'
 
@@ -33,6 +34,8 @@ export default async function StockPage() {
   const byLoc = aggBy((a) => a.location)
 
   const idleTotal = s.assets.filter((a) => a.status === '유휴').length
+  // 안전재고 경보 — 불출형 유형(단말·주변기기)의 가용(유휴·폐기 진행 아님) 재고가 안전재고 미만인 유형. 재고 화면·대시보드 공유 판정.
+  const lowStock = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
 
   // 유형별 자산 가치 — 운영 자산(폐기완료 제외)의 취득가·잔존가치(정액법 감가상각). 대수 집계의 가치 측면.
   const t = today()
@@ -63,6 +66,24 @@ export default async function StockPage() {
         <Stat value={`${fmt(Math.round(totalBook / 10_000))}만`} label="자산 잔존가치 (장부가 총액)" tone="accent" delta={{ text: `취득가 ${fmt(Math.round(totalAcq / 10_000))}만원 기준`, dir: 'flat' }} />
         <Stat value={s.inventoryRounds.filter((r) => r.status !== '완료').length} label="진행·계획 중 재물조사" tone="accent" />
       </div>
+
+      {lowStock.length > 0 && (
+        <Card kicker="Stock Alert" title={`안전재고 경보 — 가용 재고 부족 ${lowStock.length}종 (발주 검토)`}>
+          <div className="vstack" style={{ gap: 8 }}>
+            <div className="mut" style={{ fontSize: 12 }}>불출 가능한 유형의 가용(유휴) 재고가 안전재고({s.opsPolicy.safetyStock}대) 미만입니다 — 신규 배정 수요에 대비해 발주를 검토하세요. 폐기 진행 중인 유휴 자산은 가용에서 제외됩니다.</div>
+            {lowStock.map((r) => (
+              <Link key={r.category} href={`/assets/register?cat=${encodeURIComponent(r.category)}&status=유휴`}
+                className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                <span className="strong">{r.category}</span>
+                <span className="hstack" style={{ gap: 8 }}>
+                  <span className="dim" style={{ fontSize: 12 }}>가용 {r.available} / 안전재고 {r.safetyStock}</span>
+                  <Chip tone={r.available === 0 ? 'err' : 'warn'}>{r.available === 0 ? '재고 소진' : `${r.short}대 부족`}</Chip>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card kicker="Asset Value" title="유형별 자산 가치 (취득가 · 잔존가치)" pad={false}>
         <div className="tbl-wrap">
