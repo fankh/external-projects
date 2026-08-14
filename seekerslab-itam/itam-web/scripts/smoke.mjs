@@ -946,6 +946,8 @@ try {
   check('재고 현황: 안전재고 경보 카드(가용 부족 발주 검토)', stockHtml.includes('안전재고 경보') && stockHtml.includes('발주 검토'))
   check('재고 현황: 폐기 선정 유휴는 가용 제외 → 단말 재고 소진(가용 0)', stockHtml.includes('단말') && stockHtml.includes('재고 소진'))
   check('재고 현황: 주변기기 안전재고 부족 표기', stockHtml.includes('주변기기') && stockHtml.includes('부족'))
+  // 발주 요청 — 재고 경보(검출)를 조치로 잇는다. 부족 유형에 대해 구매·IT기획팀에 보충 발주 요청 발송(자산담당·Admin).
+  check('재고 현황: 안전재고 부족 시 발주 요청 발송 버튼', stockHtml.includes('발주 요청 발송'))
   // 재고 엑셀에 유형별 가치 시트 반출 — 취득가·잔존가치 컬럼
   const stockBuf = Buffer.from(await (await get('/api/export/stock', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
   check('재고 엑셀: 유형별 가치 시트(취득가·잔존가치) 반출', stockBuf.includes('총 취득가') && stockBuf.includes('총 잔존가치') && stockBuf.includes('감가상각률'))
