@@ -570,6 +570,10 @@ try {
   check('AI 제안: 기능별 판정 현황 5종', ['자동분류', '이상탐지', '수명예측', '취약점 우선순위', '라이선스 최적화'].every((k) => insHtml.includes(k)))
   // AI 제안 목록 필터 — 상태(제안/승인/반려)·기능·심각도
   check('AI 제안: 목록 상태·기능·심각도 필터 렌더', insHtml.includes('기능 — 전체') && insHtml.includes('심각도 — 전체'))
+  // 자동분류(§05 AI 기능01) — 그동안 5대 기능 중 유일하게 전용 패널이 없던 자동분류를 제안 패널로 노출.
+  //  발견 자산(미등록·미확인)의 관측 유형을 표준 유형으로 매핑하고 신뢰도·근거·편입 연결을 함께 제시(수기 분류 제거).
+  check('AI 제안: 자동분류 제안 패널 렌더(관측→표준 유형)', insHtml.includes('자동분류 제안 — 관측 유형 → 표준 자산 유형') && insHtml.includes('LLM 분류 · 규칙 하이브리드') && insHtml.includes('분류 대상 (미등록·미확인)'))
+  check('AI 제안: 자동분류 신뢰도·근거·편입 연결', insHtml.includes('평균 신뢰도') && insHtml.includes('수기 분류 제거') && insHtml.includes('/discovery/found?sel='))
   // 취약점 노출 우선순위(§05 기능04) — 자산 중요도 × 노출도 스코어링. 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출 합성.
   check('AI 제안: 취약점 노출 우선순위 스코어링 렌더', insHtml.includes('취약점 노출 우선순위') && insHtml.includes('자산 중요도 × 노출도') && insHtml.includes('P1 — 즉시 조치'))
   // EOL OS(CentOS 7)·외부 CVE 가 스코어링 대상에 포함됨을 확인 (시드 AST-2020-000883 CentOS 7.9)
