@@ -215,7 +215,7 @@ async function aiPeriodQuery(page) {
   const cid = decodeURIComponent((cHref.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
   const cx = await page.request.get(`${BASE}/api/reports/${encodeURIComponent(cid)}?format=xlsx`)
   const ctext = Buffer.from(await cx.body()).toString('utf8')
-  ok('리포트 반출: 부서별 IT 비용 배분 xlsx 에 원가·좌석 비용 섹션 실린다', ctext.includes('부서별 IT 자산 원가') && ctext.includes('부서별 라이선스 좌석 비용') && ctext.includes('배분 요약'))
+  ok('리포트 반출: 부서별 IT 비용 배분 xlsx 에 원가·좌석·유지보수 계약 섹션 실린다', ctext.includes('부서별 IT 자산 원가') && ctext.includes('부서별 라이선스 좌석 비용') && ctext.includes('부서별 유지보수 계약 비용') && ctext.includes('배분 요약'))
 
   // 특정 자산 조회(자산번호) — 상세·이력·레코드 딥링크
   const a1 = await ask('AST-2023-000112 자산의 상태와 변경 이력 알려줘')
