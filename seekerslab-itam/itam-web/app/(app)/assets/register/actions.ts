@@ -496,6 +496,9 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
   const holder = asset.owner && asset.owner !== '미지정' && asset.owner !== '-' ? `${asset.owner}·${asset.dept}` : asset.dept
   asset.status = '분실'
   asset.history.push({ date: today(), kind: '분실', detail: `${type} 신고 — ${note} (최종 보유 ${holder})`, actor: session.name })
+  // 실물이 사라진 자산의 배정 라이선스 좌석을 회수한다(로56) — 폐기·반납과 같은 처리. 대체 기기에 좌석을 재배정할 수 있게 여유석으로 되돌린다.
+  const freed = reclaimLicenseSeats(assetNo, session.name, type)
+  if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (${type})`, actor: session.name })
 
   if (type === '도난') {
     // 도난은 단말 내 데이터 유출 위험이 있어 보안운영팀에 침해 대응을 통보한다 — 시간 임계라 문자 즉시 알림 병행
