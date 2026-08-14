@@ -3,7 +3,7 @@
 import { recordAiCall } from './ai-status'
 import { appendAudit } from './audit'
 import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, roundProgressPct } from './dates'
-import { ACQ_COST, bookValueOf } from './cost'
+import { ACQ_COST, acquisitionCostOf, bookValueOf, repairTotalOf } from './cost'
 import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
@@ -62,6 +62,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과·OS 지원 종료(EOL)·장애 이력(잦은 수리) 기준 교체 대상·잔존가치·유형별 예산 추정' },
   { kind: '취약점 조치 우선순위', period: '수시', desc: '자산 중요도 × 노출도 스코어링 — 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 P1/P2/P3로 순위화' },
   { kind: 'AI 거버넌스·성능', period: '월간', desc: '모델·프롬프트 버전·분류 정확도 · AI 기능별 제안 채택률(재학습 신호) · 감사·권한 필터 거버넌스 준수' },
+  { kind: '부서별 IT 비용 배분', period: '월간', desc: '부서별 IT 자산 원가(취득가·잔존가치·누적 유지보수)·라이선스 좌석 비용을 합산해 IT 비용을 부서로 배분(차지백·예산 근거)' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -418,6 +419,73 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '부서별 IT 비용 배분') {
+    const t = today()
+    // 운영 자산(폐기완료 제외)의 원가를 소유 부서로 배분 — SW·가상자원 등 취득원가가 없는 항목은 제외
+    const valued = s.assets.filter((a) => a.status !== '폐기완료' && acquisitionCostOf(a) > 0)
+    const dc = new Map<string, { n: number; acq: number; book: number; repair: number }>()
+    for (const a of valued) {
+      const d = a.dept || '미지정'
+      const r = dc.get(d) ?? { n: 0, acq: 0, book: 0, repair: 0 }
+      r.n += 1
+      r.acq += acquisitionCostOf(a)
+      r.book += bookValueOf(a, t)
+      r.repair += repairTotalOf(a)
+      dc.set(d, r)
+    }
+    const deptRows = [...dc.entries()].sort((x, y) => y[1].acq - x[1].acq)
+    // 라이선스 좌석 비용 — 배정 좌석의 라이선스 단가를 좌석 부서로 배분(해지 라이선스 제외)
+    const sc = new Map<string, { seats: number; cost: number }>()
+    for (const l of s.licenses) {
+      if (l.status === '해지') continue
+      for (const st of l.seats ?? []) {
+        const d = st.dept || '미지정'
+        const r = sc.get(d) ?? { seats: 0, cost: 0 }
+        r.seats += 1
+        r.cost += l.unitCost
+        sc.set(d, r)
+      }
+    }
+    const seatRows = [...sc.entries()].sort((x, y) => y[1].cost - x[1].cost)
+    const totalAcq = deptRows.reduce((n, [, v]) => n + v.acq, 0)
+    const totalBook = deptRows.reduce((n, [, v]) => n + v.book, 0)
+    const totalRepair = deptRows.reduce((n, [, v]) => n + v.repair, 0)
+    const totalSeat = seatRows.reduce((n, [, v]) => n + v.cost, 0)
+    const top = deptRows[0]
+    return [
+      {
+        title: '부서별 IT 자산 원가',
+        note: '운영 자산(폐기완료 제외) · 정액법 감가상각(내용연수 5년 기준 잔존가치) · 취득원가 없는 SW·가상자원 제외',
+        columns: ['부서', '자산 수', '취득가', '잔존가치(장부가)', '누적 유지보수비'],
+        rows: deptRows.map(([d, v]) => [
+          d,
+          String(v.n),
+          `${fmtAmount(v.acq)}원`,
+          `${fmtAmount(v.book)}원`,
+          v.repair > 0 ? `${fmtAmount(v.repair)}원` : '-',
+        ]),
+      },
+      {
+        title: '부서별 라이선스 좌석 비용',
+        note: '배정 라이선스 좌석의 단가를 좌석 배정 부서로 배분(해지 라이선스 제외) — 연간 구독 기준',
+        columns: ['부서', '배정 좌석', '좌석 비용(단가 합)'],
+        rows: seatRows.length
+          ? seatRows.map(([d, v]) => [d, `${v.seats}석`, `${fmtAmount(v.cost)}원`])
+          : [['-', '0석', '배정 좌석 없음']],
+      },
+      {
+        title: '배분 요약',
+        note: '차지백·부서 예산 배정 근거 — 자산 원가와 라이선스 좌석 비용을 부서로 귀속',
+        bullets: [
+          `IT 자산 취득가 합계 ${fmtAmount(totalAcq)}원 · 현재 장부가(잔존가치) ${fmtAmount(totalBook)}원 · 누적 유지보수비 ${fmtAmount(totalRepair)}원`,
+          `라이선스 좌석 비용 합계 ${fmtAmount(totalSeat)}원 (배정 좌석 ${seatRows.reduce((n, [, v]) => n + v.seats, 0)}석 기준)`,
+          top ? `최고 원가 부서: ${top[0]} — 취득가 ${fmtAmount(top[1].acq)}원 · 자산 ${top[1].n}대` : '배분 대상 자산 없음',
+          '배분 기준: 유형 자산은 소유 부서, 라이선스는 좌석 배정 부서로 귀속. 소유·부서 미지정 항목은 "미지정"으로 집계하며 자산관리팀 확인 대상.',
+        ],
+      },
+    ]
+  }
+
   if (kind === 'AI 거버넌스·성능') {
     const p = s.aiPolicy
     const INSIGHT_KINDS = ['자동분류', '이상탐지', '수명예측', '취약점 우선순위', '라이선스 최적화'] as const
@@ -613,6 +681,19 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     return `AI 실행 환경은 ${p.deployment}(${p.modelId}, 프롬프트 ${p.promptVersion})이며 분류 정확도는 ${p.classifyAccuracy}%입니다. `
       + `AI 기능 제안의 누적 채택률은 ${adoption === null ? '판정 전' : `${adoption}%`}로, 승인·반려 결과가 재학습에 환류됩니다. `
       + `AI 제안·질의·응답은 ${p.auditRetentionDays}일 감사 보존되며, 권한 범위 필터가 ${p.scopeFilter ? '적용' : '미적용'}되고 제안 자동승인은 ${p.autoApprove ? '허용' : '차단(담당자 확인·결재 원칙)'}으로 운영됩니다.`
+  }
+  if (kind === '부서별 IT 비용 배분') {
+    const t = today()
+    const valued = s.assets.filter((a) => a.status !== '폐기완료' && acquisitionCostOf(a) > 0)
+    const totalAcq = valued.reduce((n, a) => n + acquisitionCostOf(a), 0)
+    const totalBook = valued.reduce((n, a) => n + bookValueOf(a, t), 0)
+    const seatCost = s.licenses
+      .filter((l) => l.status !== '해지')
+      .reduce((n, l) => n + (l.seats?.length ?? 0) * l.unitCost, 0)
+    const deptN = new Set(valued.map((a) => a.dept || '미지정')).size
+    return `운영 IT 자산 ${valued.length}대의 취득가 ${fmtAmount(totalAcq)}원을 ${deptN}개 부서로 배분했습니다. 현재 장부가(잔존가치)는 ${fmtAmount(totalBook)}원입니다. `
+      + `라이선스 좌석 비용 ${fmtAmount(seatCost)}원은 좌석 배정 부서로 귀속했습니다. `
+      + '자산은 소유 부서, 라이선스는 좌석 부서를 기준으로 IT 비용을 배분해 부서별 차지백·예산 배정의 근거로 활용할 수 있습니다.'
   }
   const liveA = s.assets.filter((a) => a.status !== '폐기완료')
   const flaggedA = liveA.filter(hasDataIssue).length

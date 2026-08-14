@@ -208,6 +208,14 @@ async function aiPeriodQuery(page) {
   const ax = await page.request.get(`${BASE}/api/reports/${encodeURIComponent(aid)}?format=xlsx`)
   const atext = Buffer.from(await ax.body()).toString('utf8')
   ok('리포트 반출: 감사 대응 자료 xlsx 에 이상 자산 행위 탐지 섹션(fn02·유휴 자산 사용) 실린다', atext.includes('이상 자산 행위 탐지') && atext.includes('유휴 자산 사용') && atext.includes('AST-2021-000432'))
+  // 부서별 IT 비용 배분(차지백) 리포트 — 자연어 생성 인텐트가 신규 종류를 매칭하고, buildSections 가 부서별 원가·좌석 비용 섹션을 실제 산출.
+  const r4 = await ask('부서별 IT 비용 배분 리포트 생성해줘')
+  ok('AI 차지백질의: 부서별 IT 비용 배분 생성 분기', r4.includes('리포트를 생성했습니다'))
+  const cHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const cid = decodeURIComponent((cHref.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const cx = await page.request.get(`${BASE}/api/reports/${encodeURIComponent(cid)}?format=xlsx`)
+  const ctext = Buffer.from(await cx.body()).toString('utf8')
+  ok('리포트 반출: 부서별 IT 비용 배분 xlsx 에 원가·좌석 비용 섹션 실린다', ctext.includes('부서별 IT 자산 원가') && ctext.includes('부서별 라이선스 좌석 비용') && ctext.includes('배분 요약'))
 
   // 특정 자산 조회(자산번호) — 상세·이력·레코드 딥링크
   const a1 = await ask('AST-2023-000112 자산의 상태와 변경 이력 알려줘')
