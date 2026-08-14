@@ -1,18 +1,26 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireMenu } from '@/lib/authz'
+import { effectiveRoles, requireMenu } from '@/lib/authz'
 import { currentYear, today } from '@/lib/dates'
 import { eligibleForCourse, getStore, isRemoteTargetIn } from '@/lib/store'
-
-const SR_CHIP: Record<string, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
-  작성중: 'neutral', 결재중: 'info', CI배정: 'info', 개발중: 'warn', 테스트: 'warn', 적용요청결재중: 'info', 적용요청: 'warn', 완료: 'ok', 반려: 'err',
-}
+import { SR_CHIP, srStatusLabel } from '../sr/chips'
 
 export default async function DashboardPage() {
   const me = await requireMenu('/dashboard')
   const s = getStore()
-  const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
   const period = today().slice(0, 7)
+  // 전사 스냅샷 각 타일은 그 신호의 출처 화면과 동일한 유효권한(menus.ts ∩ 런타임 메뉴권한 제한)으로
+  // 노출한다 — 정적 role 검사로 잡으면, ADMIN 이 메뉴권한 화면에서 특정 도메인을 제한해 담당자를 그
+  // 화면에서 리다이렉트시켜도 대시보드 집계 타일로 같은 수치가 새어 나간다(출처 화면과 게이트 불일치).
+  const canSee = (href: string) => effectiveRoles(href).includes(me.role)
+  const opsVis = {
+    incidents: canSee('/infra/incidents'),
+    delayedSr: canSee('/sr/delayed'),
+    openIssues: canSee('/projects/schedule'),
+    unsigned: canSee('/pledge/manage'),
+    inspections: canSee('/compliance/inspection'),
+  }
+  const showOps = Object.values(opsVis).some(Boolean)
 
   const myTodos = s.todos.filter((t) => t.owner === me.name && !t.done)
   const myApprovals = s.approvals.filter((a) => a.approver === me.name && a.status === '대기')
@@ -69,14 +77,14 @@ export default async function DashboardPage() {
         <Stat value={myPlansDraft} label="계획수립 작성중" note="투자·비용 과제" />
       </div>
 
-      {canManage && (
+      {showOps && (
         <Card title="전사 운영 스냅샷" kicker="Operations" pad={false}>
           <div className="stat-row" style={{ border: 'none' }}>
-            <Stat value={ops.incidents} label="조치중 장애" tone={ops.incidents > 0 ? 'err' : undefined} />
-            <Stat value={ops.delayedSr} label="지연 SR" tone={ops.delayedSr > 0 ? 'warn' : undefined} />
-            <Stat value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />
-            <Stat value={ops.unsigned} label="미서약 인원" tone={ops.unsigned > 0 ? 'warn' : undefined} />
-            <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />
+            {opsVis.incidents && <Stat value={ops.incidents} label="조치중 장애" tone={ops.incidents > 0 ? 'err' : undefined} />}
+            {opsVis.delayedSr && <Stat value={ops.delayedSr} label="지연 SR" tone={ops.delayedSr > 0 ? 'warn' : undefined} />}
+            {opsVis.openIssues && <Stat value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />}
+            {opsVis.unsigned && <Stat value={ops.unsigned} label="미서약 인원" tone={ops.unsigned > 0 ? 'warn' : undefined} />}
+            {opsVis.inspections && <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />}
           </div>
         </Card>
       )}
@@ -160,7 +168,7 @@ export default async function DashboardPage() {
                     <tr key={r.srNo}>
                       <td className="code">{r.srNo}</td>
                       <td className="strong">{r.title}</td>
-                      <td><Chip tone={SR_CHIP[r.status]}>{r.status}</Chip></td>
+                      <td><Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip></td>
                       <td className="tnum">{r.requestedAt}</td>
                     </tr>
                   ))}

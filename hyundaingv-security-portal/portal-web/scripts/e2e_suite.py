@@ -41,6 +41,7 @@ ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
 APPLYROUTE_DATA = ROOT / 'scripts' / '.e2e-applyroute-data.json'  # 적용요청 재상신 할일 라우팅 회귀용 (v1.5.85)
+OPSSCOPE_DATA = ROOT / 'scripts' / '.e2e-opsscope-data.json'  # 대시보드 전사 스냅샷 런타임 메뉴권한 정합 회귀용 (v1.5.86)
 
 
 def login(pg, base, name):
@@ -627,6 +628,26 @@ def sc_dashboard_pledge_general(pg, base, check):
     pledge = pg.locator('.stat', has_text='일반 서약')
     val = pledge.locator('.v').inner_text().strip()
     check(val == '완료', f"일반 서약 유효자는 타 유형 재서약 할일이 있어도 '완료' (교차 신호면 미제출; 실제 {val})")
+
+
+def sc_dashboard_ops_scope(pg, base, check):
+    """대시보드 '전사 운영 스냅샷' 런타임 메뉴권한 정합(v1.5.86) — 각 타일은 신호 출처 화면과 같은
+    유효권한(effectiveRoles = menus ∩ menuOverrides)으로 노출한다. 정적 role 게이트면 ADMIN 이
+    /infra/incidents 를 ADMIN 전용으로 제한해 담당자를 장애관리 화면에서 리다이렉트시켜도, 대시보드
+    스냅샷에 '조치중 장애' 집계가 그대로 새어 나간다(출처 화면과 게이트 불일치). 제한된 타일만 숨고
+    비제한 타일(미서약 인원)은 유지되며, 제한 예외인 ADMIN 은 정상 노출돼야 한다."""
+    # BIZ_MGR(박정호) — /infra/incidents 제한 대상 → '조치중 장애' 타일 미노출, '미서약 인원' 타일은 유지
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    inc = pg.locator('.stat', has_text='조치중 장애')
+    uns = pg.locator('.stat', has_text='미서약 인원')
+    check(inc.count() == 0, '메뉴 제한된 장애 도메인은 대시보드 스냅샷 타일에서도 미노출 (런타임 권한 정합)')
+    check(uns.count() >= 1, '비제한 타일(미서약 인원)은 유지 — 카드 자체가 사라지지 않음(거짓통과 방지)')
+    # ADMIN(시스템관리자) — 제한 예외라 '조치중 장애' 타일 정상 노출(타일이 전역 제거된 게 아님을 확인)
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check(pg.locator('.stat', has_text='조치중 장애').count() >= 1,
+          'ADMIN 은 제한 예외 — 장애 타일 정상 노출(게이트가 역할별로 동작)')
 
 
 def sc_approval_history_identity(pg, base, check):
@@ -1576,6 +1597,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(RSPAN_DATA)}),
     ('approval_history_identity', '결재 회전 이력 신원 게이트 — 타인 결재 묶음 반려사유 미노출', sc_approval_history_identity,
      {'PORTAL_DATA_FILE': str(RHIST_DATA)}),
+    ('dashboard_ops_scope', '대시보드 전사 스냅샷 런타임 메뉴권한 정합 — 제한 도메인 타일 미노출', sc_dashboard_ops_scope,
+     {'PORTAL_DATA_FILE': str(OPSSCOPE_DATA)}),
     ('search_menu_override', '통합 검색 런타임 권한 정합 — 메뉴 제한 도메인 검색 미노출', sc_search_menu_override,
      {'PORTAL_DATA_FILE': str(SMOV_DATA)}),
     ('attach_generated_dedup', '자동첨부 교차일 중복 방지 — 재상신 시 같은 양식 1건', sc_attach_generated_dedup,
@@ -1782,6 +1805,13 @@ def main() -> int:
         'menuOverrides': {'/projects/status': ['ADMIN']},
         'projects': [{'id': 'PJ-9001', 'title': '격리테스트프로젝트XYZ', 'manager': '박정호', 'progress': 50, 'status': '진행중'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # dashboard_ops_scope 시나리오용 — /infra/incidents 를 ADMIN 전용으로 런타임 제한 + 조치중 장애 1건.
+    # BIZ_MGR(박정호)은 대시보드 '조치중 장애' 타일 미노출, ADMIN 은 제한 예외라 노출돼야 한다.
+    OPSSCOPE_DATA.write_text(json.dumps({
+        'menuOverrides': {'/infra/incidents': ['ADMIN']},
+        'incidents': [{'id': 'IN-9001', 'system': '격리테스트시스템', 'title': '스코프테스트장애', 'grade': '2등급',
+                       'occurredAt': '2026-08-10', 'status': '조치중', 'reportStatus': '미상신'}],
+    }, ensure_ascii=False), encoding='utf-8')
     # attach_generated_dedup 시나리오용 — 작업등록 상태 변경 1건 + 과거일자(08-01) 자동첨부 1건(같은 양식).
     # 오늘 계획 상신 시 registerGenerated 이 날짜 뺀 접두로 dedup 하면 첨부는 1건 유지(버그면 08-14 로 2건).
     ATDUP_DATA.write_text(json.dumps({
@@ -1854,6 +1884,7 @@ def main() -> int:
     SECBAD_DATA.unlink(missing_ok=True)
     DPLGRESIGN_DATA.unlink(missing_ok=True)
     APPLYROUTE_DATA.unlink(missing_ok=True)
+    OPSSCOPE_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
