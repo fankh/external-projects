@@ -174,6 +174,9 @@ async function aiPeriodQuery(page) {
   ok('AI 취약점질의: P1/P2/P3 인라인 요약(리포트 생성 아님)', /취약점 조치 우선순위 — 총 \d+건/.test(rv) && rv.includes('P1 즉시') && !rv.includes('리포트를 생성했습니다'))
   const ra = await ask('이상 탐지 현황 알려줘')
   ok('AI 이상탐지질의: 프로파일 이탈 인라인 요약(유휴 자산 사용 AST-2021-000432)', /이상 자산 행위 탐지 — 총 \d+건/.test(ra) && ra.includes('평시 프로파일') && ra.includes('AST-2021-000432'))
+  // 부서별 자산 보유 질의 — '분포'가 상태별 인텐트에도 걸리므로, '부서' 질의가 부서 집계로 정확히 라우팅되는지 확인
+  const rd = await ask('부서별 자산 보유 현황 알려줘')
+  ok('AI 부서질의: 부서별 자산 보유 집계(상태별 분포 인텐트와 분리)', rd.includes('부서별 자산 보유 현황') && /대 \(사용중 \d+\)/.test(rd) && !rd.includes('상태별 분포'))
   const r2 = await ask('연간 교체 계획 리포트 생성해줘')
   ok('AI 교체질의: 생성 동사 → 리포트 생성 분기', r2.includes('리포트를 생성했습니다'))
   // 결재 첨부용 리포트는 네이티브 엑셀(xlsx) 로 반출된다(다른 대장·로그 반출과 동일 buildXlsx)
