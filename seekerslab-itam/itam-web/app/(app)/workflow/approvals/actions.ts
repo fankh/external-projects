@@ -370,6 +370,9 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     if (a.kind === '자산 신청' && a.refId.startsWith('LIC-') && verdict === '승인') {
       const lic = s.licenses.find((l) => l.id === a.refId)
       if (lic) lic.purchased = lic.used
+      // 라이선스 조치 품의는 물리 자산 불출 대상이 아니다 — 승인 즉시 집행 완료로 표시해
+      // 불출 대기 큐(movement·returns·대시보드 issueDue, 모두 !fulfilled 기준)로 새지 않게 한다.
+      a.fulfilled = true
     }
     const d = s.discovered.find((x) => x.id === a.refId)
     if (d && verdict === '승인') {

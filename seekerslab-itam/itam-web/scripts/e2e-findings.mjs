@@ -594,6 +594,25 @@ try {
   await p3.waitForTimeout(250)
   const misBody = (await p3.locator('body').textContent()) || ''
   ok('발견 대사: 등록·불일치 상세는 불일치·대사 자산 정보만(편입 요청 버튼 없음)', misBody.includes('위치 상이') && misBody.includes('AST-2025-000512') && !misBody.includes('편입 요청 (결재)'))
+  // 라이선스 조치 품의(kind=자산 신청·refId=LIC-)는 물리 자산 불출 대상이 아니다 — 라이선스 최적화 제안(INS-2607-15) 승인 →
+  //  LIC-002 추가 구매 결재 상신 → 승인 후, 불출 대기 큐(movement·returns·대시보드 issueDue, 모두 !fulfilled 기준)에 새면 안 된다.
+  await p3.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  const licProp = p3.locator('.card', { hasText: 'AI 제안 — 판정 대기' }).locator('tr', { has: p3.locator('td', { hasText: 'INS-2607-15' }) }).first()
+  await licProp.locator('button', { hasText: /^승인$/ }).first().click()
+  await p3.waitForTimeout(800)
+  await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const licApr = () => p3.locator('tr', { has: p3.locator('td', { hasText: '추가 구매 품의' }) }).first()
+  ok('라이선스 조치 품의: 제안 승인 → 추가 구매 결재 상신', (await licApr().count()) > 0)
+  for (let i = 0; i < 5; i++) {
+    if (!(((await licApr().textContent().catch(() => '')) || '').includes('대기'))) break
+    const b = licApr().locator('button', { hasText: /^승인$/ }).first()
+    if (!(await b.count())) break
+    await b.click(); await p3.waitForTimeout(600)
+  }
+  ok('라이선스 조치 품의: 결재 승인 완료(대기 해제)', !(((await licApr().textContent().catch(() => '')) || '').includes('대기')))
+  await p3.goto(`${BASE}/assets/movement`, { waitUntil: 'networkidle' })
+  const issueCard = (await p3.locator('.card', { hasText: '불출 대기' }).first().textContent()) || ''
+  ok('라이선스 조치 품의: 승인 후 불출 대기 큐 미노출(물리 불출 아님)', !issueCard.includes('추가 구매 품의'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──
