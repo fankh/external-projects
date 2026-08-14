@@ -131,6 +131,8 @@ try {
   check('USER: 수령 대기 자산에 수령 확인(인수 확인) 버튼 노출', userSelHtml.includes('수령 확인 대기') && userSelHtml.includes('수령 확인 (인수 확인)'))
   const mgrHtml = await (await get('/assets/register', 'ASSET_MGR')).text()
   check('자산담당: 전체 자산 표시 (본인 외 포함)', mgrHtml.includes('AST-2023-000112') && mgrHtml.includes('AST-2023-000561'))
+  // 수령 확인 독촉 — 수령 미확인(불출 후 인수 대기) 자산이 있으면 자산담당에게 독촉 발송 버튼 노출(시드 AST-2024-000015 수령 대기)
+  check('자산 대장: 수령 확인 독촉 발송 버튼(자산담당·미확인 있을 때)', mgrHtml.includes('수령 확인 독촉 발송'))
   // 장기 미실측(유령 자산 후보) 필터 — 실측 이력이 없거나 오래된 자산이 시드에 있어 토글이 렌더된다
   check('자산 대장: 장기 미실측 필터 렌더 (실측 기반 유령 자산 식별)', mgrHtml.includes('장기 미실측'))
   // 상태 필터 — 유형·검색·장기미실측에 더해 자산 상태(대여중·수리중·분실 등)로도 슬라이스
