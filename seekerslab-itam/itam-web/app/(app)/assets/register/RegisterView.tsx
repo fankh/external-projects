@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindReceipts, reportFault, reportLostStolen, returnLoan, scheduleMaintenance, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, returnLoan, scheduleMaintenance, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -28,7 +28,7 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; maintenanceNos?: string[]; initialMaint?: boolean }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -90,6 +90,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [faultMsg, setFaultMsg] = useState<string | null>(null)
   const [receiptMsg, setReceiptMsg] = useState<string | null>(null)
   const [rcptRemindMsg, setRcptRemindMsg] = useState<string | null>(null)
+  const [maintRemindMsg, setMaintRemindMsg] = useState<string | null>(null)
   const [recoverOpen, setRecoverOpen] = useState(false)
   const [recoverReason, setRecoverReason] = useState('')
   const [recoverMsg, setRecoverMsg] = useState<string | null>(null)
@@ -219,6 +220,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             수령 확인 독촉 발송 ({props.receiptPendingCount})
           </button>
         )}
+        {props.canEdit && (props.maintOverdueCount ?? 0) > 0 && (
+          <button className="btn sm warn" disabled={pending}
+            onClick={() => startTransition(async () => setMaintRemindMsg((await remindMaintenance()).message))}
+            title="예방 정비 예정일이 지났는데도 미시행인 자산의 소유 부서에 점검 시행 요청을 발송한다">
+            정기 점검 독촉 발송 ({props.maintOverdueCount})
+          </button>
+        )}
         <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
         {props.canExport && (
           <a className="btn sm" style={{ marginLeft: 'auto' }} download
@@ -228,6 +236,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
         )}
       </div>
       {rcptRemindMsg && <div className="callout" style={{ marginBottom: 10 }}>{rcptRemindMsg}</div>}
+      {maintRemindMsg && <div className="callout" style={{ marginBottom: 10 }}>{maintRemindMsg}</div>}
 
       {(views.length > 0 || filterActive) && (
         <div className="hstack" style={{ gap: 6, padding: '8px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>

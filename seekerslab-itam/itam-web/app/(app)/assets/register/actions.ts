@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { isMaintenanceOverdue, today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo } from '@/lib/store'
@@ -443,6 +443,29 @@ export async function remindReceipts() {
   appendAudit({ actor: session.name, action: `수령 확인 독촉 발송 (${n}건)`, target: '수령 미확인 자산' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `수령 확인 독촉 ${n}건 발송 — 미확인 사용자에게 인수 확인 요청 (발송 이력 적재)` }
+}
+
+/** 정기 점검 독촉 — 예방 정비 예정일이 지났는데도 미시행인 자산의 소유 부서에 점검 시행 요청을 발송한다.
+ *  (수령 확인·반환·필독 미확인 독촉과 같은 컴플라이언스 독촉 — 예방 정비가 예정일을 넘겨 방치되지 않게 독촉 수단을 준다.
+ *   정기 점검 완료·일정 등록은 시행 접점, 이것은 경과분을 소유 부서에 상기시키는 에스컬레이션.)
+ *  경과(예정일 지남) 자산만 대상(임박 D-30 은 제외), 당일 중복 발송은 차단한다. 자산담당·Admin. */
+export async function remindMaintenance() {
+  const session = await guard()
+  if (!session) return { ok: false, message: '정기 점검 독촉 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const t = today()
+  const sentToday = new Set(s.dispatches.filter((m) => m.kind === '정기 점검 독촉' && m.at.startsWith(t)).map((m) => m.ref))
+  let n = 0
+  for (const a of s.assets) {
+    if (!isMaintenanceOverdue(a) || sentToday.has(a.assetNo)) continue
+    dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `정기 점검(예방 정비) 독촉 — ${a.assetNo} ${a.model} 예정 ${a.maintenanceDue} 경과, 점검 시행 부탁드립니다`, kind: '정기 점검 독촉', ref: a.assetNo })
+    a.history.push({ date: t, kind: '점검', detail: `정기 점검 독촉 발송 — 예정 ${a.maintenanceDue} 경과 (${a.owner})`, actor: session.name })
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: '정기 점검 독촉 대상이 없습니다 (경과 없음·오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `정기 점검 독촉 발송 (${n}건)`, target: '정기 점검 경과 자산' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `정기 점검 독촉 ${n}건 발송 — 예정일 경과 자산의 소유 부서에 점검 시행 요청 (발송 이력 적재)` }
 }
 
 /** 분실·도난 신고 — 실물이 사라진 자산을 대장에서 '분실' 상태로 전환한다.

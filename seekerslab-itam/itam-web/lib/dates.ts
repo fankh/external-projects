@@ -145,6 +145,13 @@ export function isMaintenanceDue(a: Asset): boolean {
   return (daysUntil(a.maintenanceDue) ?? 999) <= 30
 }
 
+/** 정기 점검 경과(미시행) — 예방 정비 예정일이 지났는데도 점검이 안 된 운영 자산. isMaintenanceДue 의 부분집합(도래 임박 제외).
+ *  독촉 대상 판정에 쓴다 — 임박(D-30)은 예고, 경과는 이미 넘긴 것이라 소유 부서 앞으로 점검 독촉을 보낸다. 서버 전용. */
+export function isMaintenanceOverdue(a: Asset): boolean {
+  if (!a.maintenanceDue || ['폐기완료', '폐기예정'].includes(a.status)) return false
+  return (daysUntil(a.maintenanceDue) ?? 999) < 0
+}
+
 /** 보증 상태 — 자산의 보증 만료일 대비 현재 상태. 상세·카드에서 한눈에 보증 여부를 드러낸다(수리 무상 판단·교체 시점).
  *  none=보증 정보 없음(SW 등) / expired=만료 / soon=90일 내 만료 임박 / covered=보증 내. today 인자로 하이드레이션 안전. */
 export function warrantyState(warrantyEnd: string, today: string): 'none' | 'expired' | 'soon' | 'covered' {
