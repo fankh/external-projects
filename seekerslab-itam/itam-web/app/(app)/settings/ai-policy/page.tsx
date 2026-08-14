@@ -1,5 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { effectiveClassifyAccuracy, feedbackJudged } from '@/lib/ai-accuracy'
 import { egressPolicy } from '@/lib/ai-egress'
 import { getStore } from '@/lib/store'
 import type { AiPolicy } from '@/lib/types'
@@ -34,7 +35,7 @@ export default async function AiPolicyPage() {
       />
 
       <div className="stat-row">
-        <Stat value={p.classifyAccuracy.toFixed(1)} label="분류 정확도 (%)" tone="ok" delta={{ text: `프롬프트 ${p.promptVersion}`, dir: 'flat' }} />
+        <Stat value={effectiveClassifyAccuracy(p, s.insights).toFixed(1)} label="분류 정확도 (%)" tone="ok" delta={{ text: p.feedbackLearning ? `기준 ${p.classifyAccuracy}% · 판정 ${feedbackJudged(s.insights).judged}건 환류` : `프롬프트 ${p.promptVersion}`, dir: 'flat' }} />
         <Stat value={p.auditRetentionDays} label="AI 감사 로그 보존 (일)" />
         <Stat value={p.scopeFilter ? 'ON' : 'OFF'} label="권한 범위 필터" tone={p.scopeFilter ? 'ok' : 'err'} />
         <Stat value={p.autoApprove ? 'ON' : 'OFF'} label="AI 제안 자동 승인" tone={p.autoApprove ? 'err' : 'ok'} delta={{ text: p.autoApprove ? '담당자 확인 생략 — 권장하지 않음' : '담당자 확인·결재 원칙 유지', dir: 'flat' }} />
