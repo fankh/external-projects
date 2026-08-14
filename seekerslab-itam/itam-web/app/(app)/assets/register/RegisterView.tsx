@@ -281,7 +281,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       : a.criticality === '중요' ? <Chip tone="warn" bare>중요</Chip>
                       : <span className="mut" style={{ fontSize: 11 }}>일반</span>}
                   </td>
-                  <td className="tnum">{a.warrantyEnd}</td>
+                  <td className="tnum">
+                    {a.warrantyEnd}
+                    {a.warrantyEnd !== '-' && warrantyState(a.warrantyEnd, props.today!) === 'expired'
+                      && !['폐기완료', '폐기예정'].includes(a.status) && <> <Chip tone="err" bare>경과</Chip></>}
+                  </td>
                 </tr>
               ))}
               {rows.length === 0 && <tr><td colSpan={props.canEdit ? 11 : 10}><div className="empty">조건에 맞는 자산이 없습니다</div></td></tr>}
