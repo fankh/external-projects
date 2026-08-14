@@ -6,7 +6,7 @@ import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { hasDataIssue } from '@/lib/quality'
 import { approvalHref, noticeHref, qnaHref } from '@/lib/reflink'
-import { licenseOptimization } from '@/lib/reports'
+import { licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 
@@ -21,6 +21,8 @@ export default async function DashboardPage() {
   const newFound = s.discovered.filter((d) => d.state === '미등록' && !d.action)
   // 라이선스 판정(초과·만료·미사용 회수)은 분석 화면 패널·리포트·어시스턴트와 동일한 licenseOptimization() 단일 소스.
   const licOpt = licenseOptimization()
+  // 교체 대상(내용연수 초과·보증 경과·장애 이력)은 수명예측 패널·연간 교체 계획 리포트와 동일한 replacementCandidates() 단일 소스.
+  const replCands = replacementCandidates().cands
   const pendingApr = s.approvals.filter((a) => a.status === '대기')
   // 결재 지연 — SLA(3일) 초과한 대기 결재(정체). 상신 후 오래 방치된 결재를 드러낸다.
   const overdueApr = pendingApr.filter((a) => isApprovalOverdue(a, today(), s.opsPolicy.approvalSlaDays)).length
@@ -74,6 +76,8 @@ export default async function DashboardPage() {
       { label: '보증 만료 임박 자산 (연장·교체 검토)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && a.warrantyEnd !== '-' && (daysUntil(a.warrantyEnd) ?? 999) <= 90).length, href: '/assets/register?warranty=soon', tone: 'warn' },
       // EOL OS 자산 — OS 지원 종료 경과(미패치 취약점 상시 노출). 하드웨어 노후(보증·내용연수)와 별개인 SW 업그레이드·교체 트리거.
       { label: 'EOL OS 자산 (교체·업그레이드 대상)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, today())).length, href: '/assets/register?os=eol', tone: 'err' },
+      // 교체 대상 자산 — 내용연수 초과·보증 경과(이미 지난)·장애 이력(잦은 수리). 보증 '임박'(미래 90일)과 달리 이미 교체 시점이 도래한 계획 신호. 수명예측 패널과 같은 근거.
+      { label: '교체 대상 자산 (내용연수·보증 경과·장애 이력)', count: replCands.length, href: '/ai/insights', tone: 'warn' },
       // SW 라이선스 초과 사용(보유<사용)은 SAM 감사 최우선 노출 리스크 — 계약·라이선스 화면에만 있던 것을 담당자 일과 시작점(대시보드)으로 끌어올린다
       { label: '라이선스 초과 사용 (감사 노출)', count: licOpt.over.length, href: '/inventory/contracts', tone: 'err' },
       // 라이선스 만료 경과 — 미갱신 만료 라이선스 사용은 컴플라이언스 위반. 만료 임박(창 안) 알림에서 이미 지난 건이 누락되던 공백.
