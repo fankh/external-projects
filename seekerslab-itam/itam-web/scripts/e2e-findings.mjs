@@ -631,6 +631,13 @@ try {
   await p3.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const repairCard = (await p3.locator('.card', { hasText: '수리 대기' }).first().textContent()) || ''
   ok('장애 신고 다운스트림: 신고 자산이 수리 대기 큐에 편성(자산담당 처리 대상)', repairCard.includes('AST-2024-000015'))
+  // 수리 완료 → 소유자를 유지한 채 들어온 장애 신고분은 원 소유자(김민준)에게 반환(사용중 복귀). 반납 접수분(소유자 비움)이 유휴 풀로 가는 것과 구분.
+  const repairRow = p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2024-000015' }) }).first()
+  await repairRow.locator('button', { hasText: /^수리 완료$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
+  const repairedRow = ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2024-000015' }) }).first().textContent()) || '')
+  ok('장애 신고 수리 완료: 원 소유자 반환(사용중·김민준) — 유휴 풀 아님', repairedRow.includes('사용중') && repairedRow.includes('김민준'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──
