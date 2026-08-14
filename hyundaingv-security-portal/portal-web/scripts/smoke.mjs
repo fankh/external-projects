@@ -323,6 +323,11 @@ async function main() {
     const r2 = await get('/work/approvals?sel=AP-2026-0712', 'DEPT_MGR')
     const html2 = await r2.text()
     check(!html2.includes('문서 상세 —'), 'DEPT_MGR 무관 결재 문서(AP-2026-0712) 상세 차단')
+    // 관리자급도 예외 없다 — 결재 열람은 역할이 아니라 결재자·기안자 신원. 박정호(BIZ_MGR)는
+    // AP-2026-0709(기안 이수진·결재 시스템관리자)의 당사자가 아니라 상세 차단. 'canManage 면 전부'
+    // 같은 리팩터가 들어오면 여기서 잡힌다(USER·DEPT_MGR 검증만으론 관리자 유출을 못 잡음).
+    const r3 = await get('/work/approvals?sel=AP-2026-0709', 'BIZ_MGR')
+    check(!(await r3.text()).includes('문서 상세 —'), 'BIZ_MGR 무관 결재 문서(AP-2026-0709) 상세 차단(신원 기준)')
   }
   {
     // 검색도 화면 스코핑을 따른다 — USER 에게 장애·타인 SR 미노출
