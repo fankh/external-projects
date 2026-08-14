@@ -145,6 +145,11 @@ async function main() {
     // 빈 시드 컬렉션(printouts)의 null 원소 — 형판이 없어 요소 형태검증은 못 하나 null 은 어느 컬렉션에도
     // 무효라 제거돼야 한다(/awareness/prints·엑셀 익스포트의 p.name/p.id 접근이 null 에서 500 나면 안 된다).
     printouts: [null, { id: 'PR-9', name: '홍길동', dept: '개발1팀', document: 't.pdf', printedAt: '2026-08-01 09:00', pages: 1, personalInfo: false, status: '미등록' }],
+    // 시드 어느 행에도 없는 스칼라 필드(ChangeWork.srNo)가 손상 파일에서 '객체 담은 배열'([{}])이면 {c.srNo}
+    // 직접 렌더가 React child 500. arrFields 로 못 잡는(시드무존재) 배열-객체 필드는 머지가 제거해야 한다
+    // (/infra/changes·/sr/manage completedAt 동일 클래스). 정상 srNo(문자열) 행은 보존.
+    changes: [{ id: 'CW-9', kind: '인프라', title: '변경t', status: '작업등록', registeredAt: '2026-08-01', srNo: [{}] },
+      { id: 'CW-10', kind: '시스템개발', title: '변경t2', status: '작업등록', registeredAt: '2026-08-01', srNo: 'SR-2026-0001' }],
     // 필수 문자열 필드 '누락'(키 부재) — dept 없는 인원. eligibleForCourse('개발자') 의 p.dept.includes 가 500 나면 안 된다.
     people: [{ login: 'probe1', name: '견고성검증', dept: '품질보증팀', role: 'USER' },
       { login: 'probe2', name: '부서누락', role: 'USER' }] }

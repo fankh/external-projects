@@ -84,7 +84,7 @@ function seed(): Store {
       { id: 'ST-2026-02', contractId: 'CT-2026-03', item: '월정산', amount: 2000, status: '지급완료', requestedBy: '이수진', requestedAt: '2026-07-31' },
     ],
     expenseFlashes: [
-      { id: 'EF-2026-31', month: '2026-07', vendor: '씨클라우드', planId: 'IP-2026-04', expected: 2000 },
+      { id: 'EF-2026-31', month: '2026-07', vendor: '씨클라우드', planId: 'IP-2026-04', expected: 2000, history: [] },
       { id: 'EF-2026-32', month: '2026-08', vendor: '씨클라우드', planId: 'IP-2026-04', expected: 2000 },
       { id: 'EF-2026-33', month: '2026-08', vendor: '유지보수파트너', planId: 'IP-2026-05', expected: 750 },
     ],
@@ -392,7 +392,14 @@ function loadFromFile(): Store | null {
         // 요소 필드는 순수 객체값을 가질 수 없다(문자열·숫자·불리언·배열뿐) — 손상 파일의 객체값은 {a.x ?? '-'}
         // 처럼 JSX child 로 렌더될 때 React 'Objects are not valid as a React child' 로 500 낸다. 시드 어느
         // 행에도 없어 strFields 로 못 잡는 필드(rejectReason 등)까지 포함해, 순수 객체 필드는 제거(undefined)한다.
-        for (const f of Object.keys(el)) if (el[f] !== null && typeof el[f] === 'object' && !Array.isArray(el[f])) delete el[f]
+        // 배열도 동일 사각 — 시드에 없어 arrFields 로 못 잡는 스칼라 필드(srNo·completedAt 등)가 손상 파일에서
+        // 객체를 담은 배열([{}])이면 {c.srNo} 직접 렌더가 같은 React child 500 을 낸다. 정상 배열 필드(arrFields,
+        // 원소 정규화 완료)만 예외로 두고, 그 외 '객체 담은 배열'은 제거한다(문자열·숫자 배열은 렌더 가능해 보존).
+        for (const f of Object.keys(el)) {
+          const v = el[f]
+          if (v !== null && typeof v === 'object' && !Array.isArray(v)) delete el[f]
+          else if (Array.isArray(v) && !arrFields.includes(f) && v.some((e) => e !== null && typeof e === 'object')) delete el[f]
+        }
       }
     }
     // 파일 변조·손상 방어 — menuOverrides 는 형태 검증을 통과한 엔트리만 보존한다
