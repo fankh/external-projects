@@ -617,6 +617,7 @@ function seed(): Store {
     licenses: [
       { id: 'LIC-001', name: 'Microsoft 365 E3', vendor: 'Microsoft', purchased: 800, used: 743, expiry: '2026-12-31', unitCost: 335_000, contractId: 'CT-2023-002', seats: [
         { assetNo: 'AST-2023-000221', user: '인프라운영팀', dept: '인프라운영팀', at: '2026-07-18' },
+        { assetNo: 'AST-2025-000513', user: '한도윤', dept: '영업1팀', at: '2026-07-16' },
       ] },
       { id: 'LIC-002', name: 'JetBrains All Products', vendor: 'JetBrains', purchased: 120, used: 131, expiry: '2026-05-31', unitCost: 289_000 },
       { id: 'LIC-003', name: 'Adobe Creative Cloud', vendor: 'Adobe', purchased: 40, used: 22, expiry: '2026-10-15', unitCost: 792_000 },

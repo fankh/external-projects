@@ -654,6 +654,15 @@ try {
   await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' })
   const linearRow = p3.locator('tr').filter({ hasText: 'Linear' }).first()
   ok('SaaS 인가 요청 승인 → 카탈로그 인가 반영(Linear)', ((await linearRow.textContent()) || '').includes('인가'))
+  // 반납 결재 승인 → 라이선스 좌석 자동 회수(로56 좌석 생애주기 버그픽스) — 담당자 회수·폐기뿐 아니라 사용자 반납 승인도 좌석을 회수한다. 시드 AST-2025-000513(LIC-001 좌석)·APR-2607-117.
+  await p3.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
+  ok('반납 좌석 회수 전: 배정 라이선스 역조회 노출(LIC-001)', ((await p3.locator('body').textContent()) || '').includes('배정 라이선스') && ((await p3.locator('body').textContent()) || '').includes('Microsoft 365'))
+  await p3.goto(`${BASE}/workflow/approvals?sel=APR-2607-117`, { waitUntil: 'networkidle' })
+  await p3.locator('tr', { has: p3.locator('td', { hasText: 'APR-2607-117' }) }).first().locator('button', { hasText: /^승인$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
+  const relBody = (await p3.locator('body').textContent()) || ''
+  ok('반납 결재 승인 → 라이선스 좌석 자동 회수(이력 적재·역조회 소멸)', relBody.includes('라이선스 좌석 회수') && !relBody.includes('배정 라이선스'))
   // 양쪽 정합 — 사용 현황(Shadow SaaS)에서도 Linear 가 인가로 반영되어야 한다(카탈로그↔사용현황 이중 저장소 일치)
   await p3.goto(`${BASE}/discovery/saas`, { waitUntil: 'networkidle' })
   const linearUsage = p3.locator('tr').filter({ hasText: 'Linear' }).first()
