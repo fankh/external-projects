@@ -340,3 +340,40 @@ export async function actOnLicense(licenseId: string, kind: '추가 구매' | '�
   if (r.ok) revalidatePath('/', 'layout')
   return { ok: r.ok, message: r.message }
 }
+
+/** 라이선스 좌석 배정 — 라이선스 한 석을 특정 자산(과 그 보유자·부서)에 배정한다.
+ *  보유·사용 수량만으로는 '누가 어느 석을 쓰는지' 증명이 안 돼 SAM 감사에서 배정 대장을 요구한다.
+ *  배정 수는 보유(purchased)를 넘을 수 없고, 같은 자산 중복 배정은 막는다. 자산담당·Admin. */
+export async function assignLicenseSeat(licenseId: string, rawAssetNo: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '라이선스 좌석 배정 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const lic = s.licenses.find((l) => l.id === licenseId)
+  if (!lic) return { ok: false, message: '라이선스를 찾을 수 없습니다.' }
+  if (lic.status === '해지') return { ok: false, message: '해지된 라이선스는 좌석을 배정할 수 없습니다.' }
+  const assetNo = rawAssetNo.trim().toUpperCase()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: `자산을 찾을 수 없습니다 — ${assetNo}` }
+  lic.seats ??= []
+  if (lic.seats.some((x) => x.assetNo === assetNo)) return { ok: false, message: `이미 이 라이선스가 배정된 자산입니다 — ${assetNo}` }
+  if (lic.seats.length >= lic.purchased) return { ok: false, message: `보유 좌석(${lic.purchased}석)을 초과할 수 없습니다 — 추가 구매 후 배정하세요.` }
+  lic.seats.push({ assetNo, user: asset.owner, dept: asset.dept, at: today() })
+  appendAudit({ actor: session.name, action: `라이선스 좌석 배정 — ${lic.name} → ${assetNo} (${asset.owner})`, target: licenseId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${lic.name} 좌석을 ${assetNo}(${asset.owner})에 배정 — 배정 ${lic.seats.length}/${lic.purchased}석` }
+}
+
+/** 라이선스 좌석 회수(배정 해제) — 배정된 석을 대장에서 제거한다(재배정·오프보딩). 자산담당·Admin. */
+export async function unassignLicenseSeat(licenseId: string, assetNo: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '라이선스 좌석 회수 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const lic = s.licenses.find((l) => l.id === licenseId)
+  if (!lic || !lic.seats) return { ok: false, message: '배정 좌석을 찾을 수 없습니다.' }
+  const before = lic.seats.length
+  lic.seats = lic.seats.filter((x) => x.assetNo !== assetNo)
+  if (lic.seats.length === before) return { ok: false, message: `배정되지 않은 자산입니다 — ${assetNo}` }
+  appendAudit({ actor: session.name, action: `라이선스 좌석 회수 — ${lic.name} ← ${assetNo}`, target: licenseId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${lic.name} 좌석 회수 — ${assetNo} 배정 해제 (배정 ${lic.seats.length}/${lic.purchased}석)` }
+}

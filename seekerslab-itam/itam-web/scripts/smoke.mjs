@@ -364,6 +364,13 @@ try {
   // 라이선스 해지 — 구독 중단·도구 이관 시 컴플라이언스에서 내린다(계약 해지와 동형). 해지 버튼 고유 title.
   check('라이선스: 해지 컨트롤 렌더 (자산담당)', contractsHtml.includes('라이선스 해지 (구독 중단·도구 이관)'))
   check('라이선스: SEC_MGR 에겐 해지 컨트롤 미노출', !(await (await get('/inventory/contracts', 'SEC_MGR')).text()).includes('라이선스 해지 (구독 중단·도구 이관)'))
+  // 라이선스 좌석 배정 대장 — 누가 어느 석을 쓰는지 명명형 관리 + 탐지 사용량 대사(배정 밖 사용 식별). 시드 LIC-004 AutoCAD 배정 2/사용 6.
+  check('라이선스: 좌석 배정 대장·미배정 사용 대사 표기(LIC-004)', contractsHtml.includes('배정 2/15석') && contractsHtml.includes('미배정 사용 4'))
+  check('라이선스: 좌석 배정 컨트롤 렌더 (자산담당)', contractsHtml.includes('좌석 배정'))
+  check('라이선스: SEC_MGR 에겐 좌석 배정 컨트롤 미노출 (조회)', !(await (await get('/inventory/contracts', 'SEC_MGR')).text()).includes('좌석 배정'))
+  // SAM 감사 카드에 좌석 배정 대장 섹션(배정 자산·보유자·부서) — 인쇄 증빙에 배정 대장이 담긴다
+  const licCard = await (await get('/api/license-card/LIC-004', 'ASSET_MGR')).text()
+  check('라이선스 카드: 좌석 배정 대장 섹션(배정 자산·보유자)', licCard.includes('좌석 배정 대장') && licCard.includes('정하윤') && licCard.includes('AST-2022-000871'))
   // 계약 엑셀에 상태(유효/해지) 컬럼 — 해지 계약이 반출본에서 활성으로 오인되지 않도록(감사 반출 정합)
   const ctXlsx = Buffer.from(await (await get('/api/export/contracts', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
   check('계약 엑셀: 상태 컬럼(유효/해지) 반출', ctXlsx.includes('상태') && ctXlsx.includes('유효'))
