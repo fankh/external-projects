@@ -313,6 +313,8 @@ try {
   ok('자산 회수: 사용 중 자산에 회수(반납 처리) 버튼 노출(자산담당)', (await recoverBtn.count()) > 0)
   // 오프보딩 좌석 회수(로56) 사전 상태 — 이 자산엔 라이선스 좌석(LIC-001 M365)이 배정돼 배정 라이선스 역조회가 보인다.
   ok('자산 회수 전: 배정 라이선스 역조회 노출(LIC-001 좌석)', ((await p2.locator('body').textContent()) || '').includes('배정 라이선스') && ((await p2.locator('body').textContent()) || '').includes('Microsoft 365'))
+  // 수령 미확인 스테일 방지 — 이 자산은 불출 후 인수 미확인(receiptPending) 상태. 회수 시 함께 해제되어야 스테일 '수령 미확인'이 남지 않는다.
+  ok('자산 회수 전: 수령 확인 대기(인수 미확인) 노출', ((await p2.locator('body').textContent()) || '').includes('수령 확인 대기'))
   await recoverBtn.click()
   await p2.waitForTimeout(200)
   await p2.locator('input[placeholder*="회수 사유"]').fill('퇴직 오프보딩')
@@ -323,7 +325,10 @@ try {
   ok('자산 회수 → 반납 접수 대기열 편성(반납대기)', returnsBody.includes('AST-2023-000221'))
   // 오프보딩 좌석 회수 결과 — 회수 후 그 자산의 라이선스 좌석이 제거돼 배정 라이선스 역조회가 사라진다(좌석 여유석 복귀, 대사 정합).
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
-  ok('자산 회수 → 라이선스 좌석 자동 회수(배정 라이선스 역조회 사라짐)', !((await p2.locator('body').textContent()) || '').includes('배정 라이선스'))
+  const recoveredBody = (await p2.locator('body').textContent()) || ''
+  ok('자산 회수 → 라이선스 좌석 자동 회수(배정 라이선스 역조회 사라짐)', !recoveredBody.includes('배정 라이선스'))
+  // 회수 시 수령 미확인(receiptPending)도 함께 해제 — 보유자를 떠난 자산이 스테일 '수령 미확인'으로 남지 않는다(v1.327 버그픽스).
+  ok('자산 회수 → 수령 미확인 스테일 해제(수령 확인 대기 사라짐)', !recoveredBody.includes('수령 확인 대기'))
   // 일괄 회수(오프보딩) — 여러 사용 중 자산을 선택해 한 번에 회수. 대장에서 선택(체크)은 검색 간 유지된다.
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()

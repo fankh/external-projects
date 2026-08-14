@@ -94,7 +94,7 @@ function seedAssets(): Asset[] {
     // 정합성 미흡 시연 ① — 사용중인데 소유자·위치 미지정(전임자 퇴사 후 회수·재배정 누락). CMDB 스튜어드십 대상.
     mk({ assetNo: 'AST-2022-000512', category: '단말', model: 'Dell Latitude 7430', status: '사용중', owner: '-', dept: '영업1팀', location: '-', os: 'Windows 11 Pro', cpu: 'i5-1245U', memory: '16GB', ip: '10.20.52.61', mac: '54:BF:64:2A:9C:10', purchaseDate: '2022-05-18', warrantyEnd: '2025-05-17' }),
     // 정합성 미흡 시연 ② — 초기 등록 시 시리얼 미입력(실물 대조 기준값 부재).
-    mk({ assetNo: 'AST-2023-000221', category: '서버', model: 'PowerEdge R660', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 15', serial: '-', os: 'RHEL 9.3', cpu: 'Xeon Gold 6438', memory: '256GB', ip: '10.10.8.31', mac: 'B8:CA:3A:55:02:21', contractId: 'CT-2023-021' }),
+    mk({ assetNo: 'AST-2023-000221', category: '서버', model: 'PowerEdge R660', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 15', serial: '-', os: 'RHEL 9.3', cpu: 'Xeon Gold 6438', memory: '256GB', ip: '10.10.8.31', mac: 'B8:CA:3A:55:02:21', contractId: 'CT-2023-021', receiptPending: true }),
     // 장기 미실측 후보 ① — 실측 이력 없음(원격 근무자 단말, 재물조사 방문 시 부재 반복)
     mk({ assetNo: 'AST-2022-000871', category: '단말', model: 'MacBook Pro 14 M2', status: '사용중', owner: '정하윤', dept: '디자인팀', os: 'macOS 14', cpu: 'M2 Pro', memory: '32GB', ip: '10.20.44.12', mac: 'F0:2F:4B:9A:31:07', purchaseDate: '2022-08-01', warrantyEnd: '2025-07-31', lastVerifiedAt: undefined }),
     mk({ assetNo: 'AST-2021-000432', category: '단말', model: 'LG gram 17', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 10 Pro', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09',

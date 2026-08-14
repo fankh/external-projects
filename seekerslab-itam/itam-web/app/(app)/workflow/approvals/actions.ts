@@ -422,6 +422,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         // 반납으로 자산이 보유자를 떠나면 배정 라이선스 좌석을 회수한다(로56 좌석 생애주기) — 담당자 회수·폐기와 같은 처리. 여유석 복귀.
         const freed = reclaimLicenseSeats(asset.assetNo, session.name, '반납')
         if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (반납)`, actor: session.name })
+        asset.receiptPending = undefined // 미확인 수령 대기 해제 — 반납된 자산은 인수 대기 대상이 아니다
       }
       if (a.kind === '폐기') {
         asset.history.push({ date: today(), kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 대기', actor: session.name })
