@@ -37,6 +37,7 @@ NCRASH_DATA = ROOT / 'scripts' / '.e2e-ncrash-data.json'  # 알림 배치 손상
 APPLY_DATA = ROOT / 'scripts' / '.e2e-apply-data.json'  # 적용요청 상신 교차-기안자 고아 할일 회귀용 (v1.5.60)
 INSP_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-insporphan-data.json'  # 점검결과 재상신 교차-상신자 고아 할일 회귀용 (v1.5.79)
 CHST_DATA = ROOT / 'scripts' / '.e2e-chst-data.json'  # channelStates 비불리언 값 검증 회귀용 (v1.5.80)
+ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 
 
 def login(pg, base, name):
@@ -543,6 +544,24 @@ def sc_channelstate_corrupt(pg, base, check):
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
+
+
+def sc_rotating_resign_orphan(pg, base, check):
+    """회전 문서 교차-재상신자 고아 할일(v1.5.81) — 공유 관리자 워크스페이스(장애보고 등 회전참조 문서)에서
+    반려된 묶음을 원 기안자(박정호)와 다른 관리자(ADMIN)가 재상신하면, draftApproval 의 회전 닫기가 owner
+    게이트에 막혀 원 기안자 '재상신' 할일을 못 닫아 '반려 방치' 알림이 무한 반복되던 결함(SR·변경·점검 비회전
+    사각의 회전판). 회전 닫기 소유자무관화로 마감. 미상신 인시던트 + 과거 박정호 장애보고 재상신 할일 주입 →
+    ADMIN 이 재상신 → 박정호 고아 재상신 할일 마감 확인."""
+    login(pg, base, '시스템관리자')  # ADMIN — 원 기안자(박정호)와 다른 재상신자
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    pg.check('input[name=ids][value="FL-2026-91"]')
+    pg.click('button:has-text("선택 건 장애보고 상신")')
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '박정호')  # 원 기안자 — 고아 할일 소유자
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    open_card = pg.locator('.card', has_text='미처리 할일')
+    check('[장애보고 상신]' not in open_card.inner_text(),
+          '교차 재상신자(ADMIN) 회전 문서 재상신 → 원 기안자 재상신 고아 할일 마감')
 
 
 def sc_notify_corrupt_todo(pg, base, check):
@@ -1503,6 +1522,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(INSP_ORPHAN_DATA)}),
     ('channelstate_corrupt', 'channelStates 비불리언 값 검증 — 중지 채널 오활성 방지', sc_channelstate_corrupt,
      {'PORTAL_DATA_FILE': str(CHST_DATA)}),
+    ('rotating_resign_orphan', '회전 문서 교차-재상신자 고아 할일 마감', sc_rotating_resign_orphan,
+     {'PORTAL_DATA_FILE': str(ROT_ORPHAN_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -1724,6 +1745,13 @@ def main() -> int:
                    'title': '[점검결과 상신] IS-2026-9001 반려 — 보완 후 재상신 (사유: 보완요망)'}],
     }, ensure_ascii=False), encoding='utf-8')
     CHST_DATA.write_text(json.dumps({'channelStates': {'security-db': {}}}, ensure_ascii=False), encoding='utf-8')
+    ROT_ORPHAN_DATA.write_text(json.dumps({
+        'incidents': [{'id': 'FL-2026-91', 'system': 'ERP', 'title': '회전고아테스트', 'grade': '2등급',
+                       'occurredAt': '2026-08-01', 'status': '조치완료', 'reportStatus': '미상신',
+                       'countermeasure': '임시조치', 'cmResult': '완료'}],
+        'todos': [{'id': 'TD-9003', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
+                   'title': '[장애보고 상신] IR-2026-0001 반려 — 보완 후 재상신 (사유: 보완요망)'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -1747,6 +1775,7 @@ def main() -> int:
     APPLY_DATA.unlink(missing_ok=True)
     INSP_ORPHAN_DATA.unlink(missing_ok=True)
     CHST_DATA.unlink(missing_ok=True)
+    ROT_ORPHAN_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)

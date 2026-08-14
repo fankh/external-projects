@@ -63,13 +63,19 @@ export function draftApproval(opts: {
   // s.todos 는 unshift 로 최신이 앞 — 오래된 것부터 닫으려 뒤에서부터 훑는다.
   for (let i = s.todos.length - 1; i >= 0; i--) {
     const t = s.todos[i]
-    if (t.done || t.kind !== '재상신' || t.owner !== opts.drafter.name) continue
+    if (t.done || t.kind !== '재상신') continue
     // 재상신 할일 제목은 `[유형] ref 반려 — … (사유: <자유 텍스트>)` 형식이다. 부분문자열
     // includes(ref) 로 매칭하면 (a) 반려 사유에 다른 건의 ref 가 인용되면 그 무관한 할일이
     // 닫히고(예: SR-B 사유에 'SR-A' 언급 → SR-A 재상신이 SR-B 할일까지 마감), (b) 유형이 달라도
     // 같은 ref 를 쓰는 문서(SR 신청↔적용요청, 변경계획↔변경결과)가 교차 마감된다. 유형+ref 를
     // 제목 선두 위치에 고정 매칭해 사유 텍스트·타 유형을 배제한다(빈 ref 는 이 패턴에 안 걸린다).
-    if (opts.ref && t.title.startsWith(`[${opts.docType}] ${opts.ref} `)) { t.done = true; continue }
+    // 비회전 문서는 소유자 일치도 요구한다 — 공유 워크스페이스 교차 재상신자는 페이지 레벨 소유자무관
+    // 닫기(SR submitApply·변경 closeChangeResignTodo·점검 registerResult)가 담당한다.
+    if (opts.ref && t.owner === opts.drafter.name && t.title.startsWith(`[${opts.docType}] ${opts.ref} `)) { t.done = true; continue }
+    // 회전 문서(장애·서약·부서서약·출력물폐기)는 재상신마다 ref 가 바뀌어 참조 일치가 불가능하다 —
+    // docType 의 가장 오래된 열린 재상신 1건을 '소유자 무관하게' 닫는다(재상신 1회 = 반려 1건 해소, 개수
+    // 일치 불변식). 공유 관리자 워크스페이스에서 재상신자≠원 기안자여도 원 기안자 고아 할일·'반려 방치'
+    // 무한 알림이 남지 않게 owner 게이트를 두지 않는다(비회전의 페이지레벨 소유자무관 닫기와 동일 취지).
     if (isRotating && !rotatingClosed && t.title.startsWith(`[${opts.docType}]`)) { t.done = true; rotatingClosed = true }
   }
   return apId
