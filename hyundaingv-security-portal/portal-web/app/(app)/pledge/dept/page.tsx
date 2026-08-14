@@ -4,7 +4,7 @@ import { draftApproval } from '@/lib/approvals'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { currentYear, nowStamp, today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
-import { getStore, nextNo, recordBatch } from '@/lib/store'
+import { getStore, recordBatch } from '@/lib/store'
 
 
 async function remindUnsigned(formData: FormData) {
@@ -42,13 +42,19 @@ async function submitDeptStatus(formData: FormData) {
   const members = s.people.filter((p) => p.dept === dept)
   const done = members.filter((p) => signed.has(p.name)).length
 
-  const year = today().slice(0, 4)
-  const ref = nextNo('DPS', year, s.approvals.filter((a) => a.docType === '부서서약 현황 상신' && a.ref).map((a) => a.ref!))
+  // ref = 부서명 (안정 per-item 키) — 비회전(v1.5.84). 같은 부서 재상신은 exact-ref 닫기로 그 부서 할일만
+  // 정확히 닫히고, 무관한 타 부서의 fresh 상신은 이 부서 반려 재상신 할일을 건드리지 않는다.
   draftApproval({
     docType: '부서서약 현황 상신',
     title: `[보안서약서] ${dept} 서약 현황 ${members.length}명 (완료 ${done} · 미서약 ${members.length - done}) ${today()}`,
-    ref, drafter: me,
+    ref: dept, drafter: me,
   })
+  // 공유 워크스페이스(부서담당·업무담당·Admin) — 재상신자가 원 기안자와 다를 수 있어(부서담당 A 상신·반려 →
+  // Admin 재상신) draftApproval 의 기안자-매칭 닫기가 놓친다. 유형+부서명 선두 고정으로 소유자 무관하게, 그
+  // 부서의 반려 재상신 할일만 닫는다('반려' 포함 매칭으로 부서명 접두 충돌 회피). SR·변경·점검과 동일 패턴.
+  for (const t of s.todos) {
+    if (!t.done && t.kind === '재상신' && t.title.startsWith(`[부서서약 현황 상신] ${dept} 반려`)) t.done = true
+  }
   revalidatePath('/', 'layout')
 }
 

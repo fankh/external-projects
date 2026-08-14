@@ -51,8 +51,12 @@ export async function register() {
   // 발화한다 — 재진입 가드(__ngvNotifyTicking)가 틱·수동 실행과 중복을 막고, recordBatch 가 '오늘 실행'을
   // 표시해 잦은 재시작에도 하루 1회로 수렴한다(인메모리·미영속 배포는 기록이 없어 기동마다 1회, 무해).
   try {
+    const g2 = globalThis as typeof globalThis & { __ngvPortalQuarantined?: boolean }
+    // 손상 파일 격리 후 시드 폴백 부팅이면 따라잡기 발화를 건너뛴다 — 메모리 상태가 시드(실데이터 아님)라
+    // 시드 기준 컴플라이언스 메일(미서약·재택 등)을 실 명단에 잘못 보내지 않게 한다(backupDataFile 보류와 동일).
+    getStore() // 스토어 초기화(격리 플래그 세팅) 유도
     const ranToday = getStore().batchRuns.some((b) => b.job.startsWith('일일 알림 배치') && b.ranAt.startsWith(today()))
-    if (!ranToday) void tick()
+    if (!ranToday && !g2.__ngvPortalQuarantined) void tick()
   } catch { /* 스토어 미초기화 등 — 다음 인터벌 틱이 처리 */ }
   console.log(`[portal] 알림 배치 스케줄러 가동 — ${intervalMs}ms 주기`)
 }

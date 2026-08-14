@@ -39,6 +39,7 @@ INSP_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-insporphan-data.json'  # 점검결�
 CHST_DATA = ROOT / 'scripts' / '.e2e-chst-data.json'  # channelStates 비불리언 값 검증 회귀용 (v1.5.80)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
+DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
 
 
 def login(pg, base, name):
@@ -913,6 +914,22 @@ def sc_adapter_secdata_badfield(pg, base, check):
           '객체 pages/dept 이관에도 오류 바운더리 미표시')
 
 
+def sc_deptpledge_resign(pg, base, check):
+    """부서서약 fresh 상신 과다마감 방지(v1.5.84 AP3-3) — 부서서약을 비회전·부서명 ref 로 바꿔, 무관한 타 부서의
+    일상(fresh) 상신이 반려된 부서의 재상신 할일을 개수기반으로 과다마감하지 않는다. 개발1팀 반려 재상신
+    할일(owner 박정호) 주입 → ADMIN 이 경영지원팀 현황을 fresh 상신 → 개발1팀 재상신 할일이 잔존해야 한다
+    (회전이면 최오래된 [부서서약 현황 상신] 할일=개발1팀이 닫혀 반려방치 알림 영구 소실)."""
+    login(pg, base, '시스템관리자')  # ADMIN — 전 부서 조회, 반려와 무관한 부서 상신
+    pg.goto(f'{base}/pledge/dept', wait_until='networkidle')
+    pg.locator('.card', has_text='경영지원팀').first.locator('button:has-text("현황 결재상신")').click()
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '박정호')  # 개발1팀 반려 재상신 할일 소유자
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    open_card = pg.locator('.card', has_text='미처리 할일')
+    check('[부서서약 현황 상신] 개발1팀' in open_card.inner_text(),
+          '무관한 타 부서 fresh 상신 → 반려 부서 재상신 할일 과다마감 안 됨(잔존)')
+
+
 def sc_codes(pg, base, check):
     """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
@@ -1535,6 +1552,8 @@ SCENARIOS = [
      {'PORTAL_FAULT_ASSET': 'badfield'}),
     ('adapter_secdata_badfield', 'secdata 이관 dept/pages 객체값 내성 — 출력물 화면 무크래시(수집 렌더 필드 검증)', sc_adapter_secdata_badfield,
      {'PORTAL_FAULT_SECDATA': 'badfield', 'PORTAL_DATA_FILE': str(SECBAD_DATA)}),
+    ('deptpledge_resign', '부서서약 fresh 상신 과다마감 방지 — 무관 부서 상신이 반려 재상신 할일 안 닫음', sc_deptpledge_resign,
+     {'PORTAL_DATA_FILE': str(DPLGRESIGN_DATA)}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
@@ -1779,6 +1798,10 @@ def main() -> int:
     }, ensure_ascii=False), encoding='utf-8')
     CHST_DATA.write_text(json.dumps({'channelStates': {'security-db': {}}}, ensure_ascii=False), encoding='utf-8')
     SECBAD_DATA.write_text(json.dumps({'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
+    DPLGRESIGN_DATA.write_text(json.dumps({
+        'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
+                   'title': '[부서서약 현황 상신] 개발1팀 반려 — 보완 후 재상신 (사유: 보완요망)'}],
+    }, ensure_ascii=False), encoding='utf-8')
     ROT_ORPHAN_DATA.write_text(json.dumps({
         'incidents': [{'id': 'FL-2026-91', 'system': 'ERP', 'title': '회전고아테스트', 'grade': '2등급',
                        'occurredAt': '2026-08-01', 'status': '조치완료', 'reportStatus': '미상신',
@@ -1811,6 +1834,7 @@ def main() -> int:
     CHST_DATA.unlink(missing_ok=True)
     ROT_ORPHAN_DATA.unlink(missing_ok=True)
     SECBAD_DATA.unlink(missing_ok=True)
+    DPLGRESIGN_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
