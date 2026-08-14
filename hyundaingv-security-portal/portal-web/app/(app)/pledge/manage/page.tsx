@@ -34,8 +34,10 @@ function reSignTargets(s: ReturnType<typeof getStore>, kind: PledgeKind, revised
   if (kind === '프로젝트') {
     const members = new Set<string>()
     for (const pj of s.projects.filter((p) => p.status === '진행중')) for (const m of pj.members ?? []) members.add(m)
-    // 참여 프로젝트 중 하나라도 현 개정본 미서명이면 대상
-    return [...members].filter((name) => s.projects.some((pj) =>
+    // 참여 프로젝트 중 하나라도 현 개정본 미서명이면 대상. 단, 현재 재직자(s.people)만 — 실 고객사 HR
+    // 어댑터가 퇴사자를 s.people 에서 제거해도 pj.members 는 그대로 남으므로(재조정 경로 없음), 재직 명단과
+    // 교집합해 이미 떠난 인원에게 재서약 할일·안내메일이 나가는 유령 대상을 막는다.
+    return [...members].filter((name) => s.people.some((per) => per.name === name) && s.projects.some((pj) =>
       pj.status === '진행중' && (pj.members ?? []).includes(name) &&
       !s.pledges.some((p) => p.name === name && p.kind === '프로젝트' && p.projectRef === pj.id && p.signedAt >= revisedAt)))
   }

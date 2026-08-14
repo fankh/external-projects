@@ -38,7 +38,9 @@ async function updateProgress(formData: FormData) {
   if (!Number.isFinite(progress) || progress < 0 || progress > 100) return
   const s = getStore()
   const pj = s.projects.find((p) => p.id === id)
-  if (!pj) return
+  // 완료 확정된 프로젝트는 진척 재편집 불가 — 화면은 완료 프로젝트에 폼을 숨기나(클라이언트) 서버액션은
+  // 직접 POST 가능하므로, 조작 요청이 완료 건을 진행중으로 되돌리지(진척 하향) 못하게 서버에서 가드한다.
+  if (!pj || pj.status === '완료') return
   pj.progress = Math.round(progress)
   // 폐쇄 루프 — 진척 100% 는 완료로 확정된다
   pj.status = pj.progress >= 100 ? '완료' : '진행중'
