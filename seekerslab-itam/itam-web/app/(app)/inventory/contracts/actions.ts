@@ -222,10 +222,16 @@ export async function terminateContract(id: string, rawReason: string) {
   c.status = '해지'
   c.terminatedAt = today()
 
-  dispatch({ channel: '이메일', to: c.ownerDept, subject: `${c.id} ${c.name} 계약 해지 — ${reason} (공급사 ${c.vendor})`, kind: '계약 해지', ref: c.id })
-  appendAudit({ actor: session.name, action: `계약 해지 — ${c.name} · ${reason}`, target: c.id })
+  // 연계 영향 — 이 계약을 근거로 한 라이선스(구독)·자산(유지보수 커버리지)이 해지로 영향받는다.
+  // 자동 해지/변경은 하지 않되(라이선스는 타 계약 이관 가능·자산은 소유 유지), 담당자가 검토하도록 규모를 드러낸다.
+  const linkedLic = s.licenses.filter((l) => l.contractId === id && l.status !== '해지')
+  const linkedAssets = s.assets.filter((a) => a.contractId === id && !['폐기완료', '폐기예정'].includes(a.status))
+  const impact = [linkedLic.length > 0 ? `라이선스 ${linkedLic.length}건(구독 확인)` : '', linkedAssets.length > 0 ? `자산 ${linkedAssets.length}대(${c.kind === '유지보수' ? '유지보수 커버리지' : '연계'} 확인)` : ''].filter(Boolean).join(' · ')
+
+  dispatch({ channel: '이메일', to: c.ownerDept, subject: `${c.id} ${c.name} 계약 해지 — ${reason} (공급사 ${c.vendor})${impact ? ` · 연계 ${impact}` : ''}`, kind: '계약 해지', ref: c.id })
+  appendAudit({ actor: session.name, action: `계약 해지 — ${c.name} · ${reason}${impact ? ` · 연계 영향 ${impact}` : ''}`, target: c.id })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${c.id} ${c.name} 해지 완료 — 만료 임박 집계·알림에서 제외` }
+  return { ok: true, message: `${c.id} ${c.name} 해지 완료 — 만료 임박 집계·알림에서 제외${impact ? `. 연계 ${impact} 검토 필요` : ''}` }
 }
 
 /** 계약 부속서류 등록 — 계약서·견적서·세금계산서·보증서 등 근거 문서를 계약에 연결한다.

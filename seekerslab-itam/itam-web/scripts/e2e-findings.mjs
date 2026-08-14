@@ -478,6 +478,16 @@ try {
   ok('라이선스 컴플라이언스: 중복 기능 SaaS 통합 후보 섹션(협업=Notion·Miro)', lmd.includes('중복 기능 SaaS 통합 후보') && lmd.includes('협업') && lmd.includes('Notion'))
   // 만료 경과 라이선스 — 리포트 판정에 '만료' 반영(LIC-002 JetBrains 만료·초과 사용) + 대사 note 집계
   ok('라이선스 컴플라이언스: 만료 경과 판정 반영(JetBrains 만료·초과)', lmd.includes('만료 경과') && lmd.includes('만료·초과 사용'))
+  // 계약 해지 연계 영향 surfacing — CT-2023-002(M365 구매 · LIC-001 연계) 해지 시 연계 라이선스·자산 영향을 담당자가 검토하도록 노출
+  await p3.goto(`${BASE}/inventory/contracts?sel=CT-2023-002`, { waitUntil: 'networkidle' })
+  const ctRow = p3.locator('tr', { has: p3.locator('td', { hasText: 'CT-2023-002' }) }).first()
+  await ctRow.locator('button', { hasText: /^해지$/ }).first().click()
+  await p3.waitForTimeout(150)
+  const ctReason = ctRow.locator('input[placeholder="해지 사유"]')
+  await ctReason.fill('공급사 변경 — 신규 계약 이관')
+  await ctReason.press('Enter')
+  await p3.waitForTimeout(700)
+  ok('계약 해지: 연계 라이선스·자산 영향 노출(검토 필요)', (await p3.textContent('body')).includes('라이선스 1건(구독 확인)') && (await p3.textContent('body')).includes('검토 필요'))
   // 라이선스 컴플라이언스 판정 불변식 — 초과/미사용/적정이 보유·사용 관계와 정합(감사 리스크 플래깅·회수/구매 결재 근거). 비즈니스 임계 계산 회귀 방지.
   {
     await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
