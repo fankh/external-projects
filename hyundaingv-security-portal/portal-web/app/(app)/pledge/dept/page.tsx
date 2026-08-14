@@ -77,7 +77,8 @@ export default async function DeptPledgePage() {
         <Stat value={total.length} label="대상 인원" />
         <Stat value={total.length - unsignedTotal.length} label="서약 완료" />
         <Stat value={unsignedTotal.length} label="미서약" tone={unsignedTotal.length > 0 ? 'err' : undefined} />
-        <Stat value={`${total.length ? Math.round(((total.length - unsignedTotal.length) / total.length) * 100) : 0}%`} label="서약률" />
+        {/* 100% 는 전원 서약일 때만 — Math.round 거짓 100(99.5→100)을 막는다(전사 서약률·교육 이수율 v1.5.79 동일) */}
+        <Stat value={`${total.length ? (unsignedTotal.length === 0 ? 100 : Math.min(99, Math.round(((total.length - unsignedTotal.length) / total.length) * 100))) : 0}%`} label="서약률" />
       </div>
 
       {depts.map((dept) => {

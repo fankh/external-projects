@@ -65,6 +65,9 @@ export const mockSecdata: SecdataAdapter = {
   async fetchPrintouts() {
     // 계약 위반(오형 행) 주입 — 필수 문자열(name·document·printedAt) 누락 행으로 importDaily 수집 검증
     if (process.env.PORTAL_FAULT_SECDATA === 'malformed') return [{ pages: 3 } as unknown as PrintoutSourceRow]
+    // 계약 위반(dept·pages 객체값) 주입 — 유효 name/document/printedAt + 객체 pages/dept 로 {p.pages}/{p.dept}
+    // 직접 렌더의 React child 500 방지(dept·pages 형태검증) 검증
+    if (process.env.PORTAL_FAULT_SECDATA === 'badfield') return [{ printedAt: '2026-08-14 09:00', name: '김현우', document: '급여명세.xlsx', dept: {}, pages: {}, personalInfo: true } as unknown as PrintoutSourceRow]
     return PRINTOUT_ROWS
   },
 }

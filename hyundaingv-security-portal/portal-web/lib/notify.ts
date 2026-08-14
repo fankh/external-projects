@@ -44,7 +44,10 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
           // 실 고객사 secdata 어댑터가 계약(문자열 필드)을 어겨 name·document·printedAt 누락·비문자열을 반환해도
           // 스토어에 넣지 않는다 — undefined name 은 알림 수신자(출력물 미등록)를 유령으로 만들고 화면 집계를
           // 흐린다(syncHr v1.5.69 와 동일 수집 경로 계약 검증). 형태 어긋난 행은 건너뛴다.
-          if (typeof row.name !== 'string' || typeof row.document !== 'string' || typeof row.printedAt !== 'string') continue
+          // name·document·printedAt(식별·수신자) 외 dept·pages 도 검증 — {p.dept}·{p.pages} 직접 렌더가
+          // 객체값이면 React child 500(인메모리 주입은 loadFromFile 정규화 우회, prints importDaily 와 동일).
+          if (typeof row.name !== 'string' || typeof row.document !== 'string' || typeof row.printedAt !== 'string'
+            || typeof row.dept !== 'string' || typeof row.pages !== 'number') continue
           if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
           s.printouts.push({ id: nextNo('PR', t.slice(0, 4), s.printouts.map((p) => p.id)), ...row, status: '미등록' })
           added += 1

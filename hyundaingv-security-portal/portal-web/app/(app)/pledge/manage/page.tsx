@@ -139,7 +139,9 @@ export default async function ManagePledgePage() {
   await requireMenu('/pledge/manage')
   const s = getStore()
   const unsigned = unsignedOf(s)
-  const rate = s.people.length ? Math.round(((s.people.length - unsigned.length) / s.people.length) * 100) : 0
+  // 100% 는 전원 서약일 때만 — Math.round 는 99.5% 를 100 으로 올려 미서약자가 남은 서약 컴플라이언스를
+  // 거짓 완주로 보이게 한다(교육 이수율 v1.5.79 와 동일 governance 오신호). 미서약이 있으면 99 로 캡.
+  const rate = s.people.length ? (unsigned.length === 0 ? 100 : Math.min(99, Math.round(((s.people.length - unsigned.length) / s.people.length) * 100))) : 0
 
   return (
     <>

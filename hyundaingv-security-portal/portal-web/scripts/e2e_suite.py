@@ -38,6 +38,7 @@ APPLY_DATA = ROOT / 'scripts' / '.e2e-apply-data.json'  # 적용요청 상신 �
 INSP_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-insporphan-data.json'  # 점검결과 재상신 교차-상신자 고아 할일 회귀용 (v1.5.79)
 CHST_DATA = ROOT / 'scripts' / '.e2e-chst-data.json'  # channelStates 비불리언 값 검증 회귀용 (v1.5.80)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
+SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 
 
 def login(pg, base, name):
@@ -896,6 +897,22 @@ def sc_adapter_asset_badfield(pg, base, check):
           '객체값 assetNo 에도 오류 바운더리 미표시(정상 렌더)')
 
 
+def sc_adapter_secdata_badfield(pg, base, check):
+    """secdata 어댑터 dept/pages 객체값 내성(v1.5.83) — fetchPrintouts 가 유효 name/document/printedAt + 객체
+    pages/dept 를 resolve 해도 수집 검증(importDaily)이 걸러 /awareness/prints 가 {p.pages}/{p.dept} 직접 렌더에서
+    React child 500 나지 않는다(인메모리 주입 경로는 loadFromFile 정규화 우회). channelStates{security-db:true} +
+    PORTAL_FAULT_SECDATA=badfield 주입 → 전일자 이관 실행 → 무크래시."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/awareness/prints', wait_until='networkidle')
+    pg.click('button:has-text("전일자 이관 실행")')
+    pg.wait_for_load_state('networkidle')
+    resp = pg.goto(f'{base}/awareness/prints', wait_until='networkidle')
+    check(resp.status == 200, '객체 pages/dept 이관 행에도 출력물 화면 무크래시(dept·pages 수집 검증)')
+    body = pg.content()
+    check('문제가 발생' not in body and 'Application error' not in body and 'something went wrong' not in body.lower(),
+          '객체 pages/dept 이관에도 오류 바운더리 미표시')
+
+
 def sc_codes(pg, base, check):
     """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
@@ -1516,6 +1533,8 @@ SCENARIOS = [
      {'PORTAL_FAULT_ASSET': 'malformed'}),
     ('adapter_asset_badfield', '자산 어댑터 assetNo 객체값 내성 — 자산등록 화면 무크래시(렌더 필드 형태검증)', sc_adapter_asset_badfield,
      {'PORTAL_FAULT_ASSET': 'badfield'}),
+    ('adapter_secdata_badfield', 'secdata 이관 dept/pages 객체값 내성 — 출력물 화면 무크래시(수집 렌더 필드 검증)', sc_adapter_secdata_badfield,
+     {'PORTAL_FAULT_SECDATA': 'badfield', 'PORTAL_DATA_FILE': str(SECBAD_DATA)}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
@@ -1759,6 +1778,7 @@ def main() -> int:
                    'title': '[점검결과 상신] IS-2026-9001 반려 — 보완 후 재상신 (사유: 보완요망)'}],
     }, ensure_ascii=False), encoding='utf-8')
     CHST_DATA.write_text(json.dumps({'channelStates': {'security-db': {}}}, ensure_ascii=False), encoding='utf-8')
+    SECBAD_DATA.write_text(json.dumps({'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
     ROT_ORPHAN_DATA.write_text(json.dumps({
         'incidents': [{'id': 'FL-2026-91', 'system': 'ERP', 'title': '회전고아테스트', 'grade': '2등급',
                        'occurredAt': '2026-08-01', 'status': '조치완료', 'reportStatus': '미상신',
@@ -1790,6 +1810,7 @@ def main() -> int:
     INSP_ORPHAN_DATA.unlink(missing_ok=True)
     CHST_DATA.unlink(missing_ok=True)
     ROT_ORPHAN_DATA.unlink(missing_ok=True)
+    SECBAD_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
