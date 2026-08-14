@@ -60,12 +60,12 @@ export function AppShell(props: {
     })
   }, [pathname])
   const closeTab = (href: string) => {
-    setTabs((cur) => {
-      const next = cur.filter((t) => t.href !== href)
-      saveTabs(next)
-      if (href === pathname) router.push(next.length ? next[next.length - 1].href : '/dashboard')
-      return next
-    })
+    // 부작용(localStorage 쓰기·라우팅)은 상태 업데이터 밖에서 — 업데이터는 순수해야 하고,
+    // Strict Mode 이중 호출 시 렌더 도중 router.push 가 발생하는 것을 피한다(React 규칙).
+    const next = tabs.filter((t) => t.href !== href)
+    setTabs(next)
+    saveTabs(next)
+    if (href === pathname) router.push(next.length ? next[next.length - 1].href : '/dashboard')
   }
 
   return (
