@@ -35,6 +35,7 @@ SMOV_DATA = ROOT / 'scripts' / '.e2e-smov-data.json'  # 통합 검색 런타임 
 ATDUP_DATA = ROOT / 'scripts' / '.e2e-atdup-data.json'  # 자동첨부 교차일 중복 방지 회귀용 (v1.5.57)
 NCRASH_DATA = ROOT / 'scripts' / '.e2e-ncrash-data.json'  # 알림 배치 손상 title 할일 내성 회귀용 (v1.5.58)
 APPLY_DATA = ROOT / 'scripts' / '.e2e-apply-data.json'  # 적용요청 상신 교차-기안자 고아 할일 회귀용 (v1.5.60)
+INSP_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-insporphan-data.json'  # 점검결과 재상신 교차-상신자 고아 할일 회귀용 (v1.5.79)
 
 
 def login(pg, base, name):
@@ -513,6 +514,23 @@ def sc_apply_resign_orphan(pg, base, check):
     pg.goto(f'{base}/work/todo', wait_until='networkidle')
     open_card = pg.locator('.card', has_text='미처리 할일')
     check('SR-2026-9001' not in open_card.inner_text(), '교차 재상신자 적용요청 상신 → 원 기안자 재상신 고아 할일 마감')
+
+
+def sc_inspection_resign_orphan(pg, base, check):
+    """점검결과 교차-상신자 고아 할일(v1.5.79) — /compliance/inspection 공유 워크스페이스(BIZ_MGR·ADMIN)에서
+    반려된 계획을 원 상신자(박정호)와 다른 관리자(ADMIN)가 재상신해도 반려 재상신 할일이 소유자 무관하게
+    닫혀야 한다(SR·변경 동일 결함). 결과미등록 계획 + 과거 반려 재상신 할일(owner 박정호) 주입 →
+    ADMIN 이 결과 결재상신 → 원 상신자의 고아 재상신 할일 마감 확인."""
+    login(pg, base, '시스템관리자')  # ADMIN — 원 상신자(박정호)와 다른 재상신자
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    row = pg.locator('tr', has_text='IS-2026-9001')
+    row.locator('input[name=result]').fill('재점검 완료')
+    row.locator('button:has-text("결과 결재상신")').click()
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '박정호')  # 원 상신자 — 고아 할일 소유자
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    open_card = pg.locator('.card', has_text='미처리 할일')
+    check('IS-2026-9001' not in open_card.inner_text(), '교차 재상신자 점검결과 상신 → 원 상신자 재상신 고아 할일 마감')
 
 
 def sc_notify_corrupt_todo(pg, base, check):
@@ -1469,6 +1487,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(NCRASH_DATA)}),
     ('apply_resign_orphan', '적용요청 상신 교차-기안자 고아 할일 마감', sc_apply_resign_orphan,
      {'PORTAL_DATA_FILE': str(APPLY_DATA)}),
+    ('inspection_resign_orphan', '점검결과 교차-상신자 고아 할일 마감', sc_inspection_resign_orphan,
+     {'PORTAL_DATA_FILE': str(INSP_ORPHAN_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -1683,6 +1703,12 @@ def main() -> int:
         'todos': [{'id': 'TD-9001', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
                    'title': '[적용요청 상신] SR-2026-9001 반려 — 보완 후 재상신 (사유: 보완요망)'}],
     }, ensure_ascii=False), encoding='utf-8')
+    INSP_ORPHAN_DATA.write_text(json.dumps({
+        'inspectionPlans': [{'id': 'IS-2026-9001', 'itemId': 'CK-01', 'month': '2026-07', 'inspector': '박정호',
+                             'status': '결과미등록', 'result': '이전결과'}],
+        'todos': [{'id': 'TD-9002', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
+                   'title': '[점검결과 상신] IS-2026-9001 반려 — 보완 후 재상신 (사유: 보완요망)'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -1704,6 +1730,7 @@ def main() -> int:
     ATDUP_DATA.unlink(missing_ok=True)
     NCRASH_DATA.unlink(missing_ok=True)
     APPLY_DATA.unlink(missing_ok=True)
+    INSP_ORPHAN_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)

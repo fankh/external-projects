@@ -63,7 +63,8 @@ export async function GET(req: Request) {
         : s.educationRecords.some((r) => r.courseId === c.id && r.name === p.name) ? '이수' : '미이수')
       const req = marks.filter((m) => m !== '해당없음').length
       const n = marks.filter((m) => m === '이수').length
-      rows.push([p.name, p.dept, ...marks, req ? Math.round((n / req) * 100) : 100])
+      // 100% 는 대상 과정 전원 이수일 때만 — 화면 전사 이수율과 동일하게 Math.round 의 거짓 100 을 막는다
+      rows.push([p.name, p.dept, ...marks, req ? (n >= req ? 100 : Math.min(99, Math.round((n / req) * 100))) : 100])
     }
     return csvResponse('보안교육_이수현황', rows)
   }

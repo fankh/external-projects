@@ -14,7 +14,8 @@ async function addCourse(formData: FormData) {
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const target = String(formData.get('target') ?? '') as EducationCourse['target']
   const plannedMonth = String(formData.get('plannedMonth') ?? '')
-  if (!title || !TARGETS.includes(target) || !/^\d{4}-\d{2}$/.test(plannedMonth)) return
+  // 예정월은 달력상 유효월(01~12)만 — 2026-13·2026-00 등 무효월 저장 차단 (addPlan 과 동일 정합)
+  if (!title || !TARGETS.includes(target) || !/^\d{4}-(0[1-9]|1[0-2])$/.test(plannedMonth)) return
   const s = getStore()
   const year = today().slice(0, 4)
   const id = nextNo('ED', year, s.educationCourses.map((c) => c.id))
@@ -79,7 +80,9 @@ export default async function EducationPage() {
 
       <div className="stat-row">
         <Stat value={s.educationCourses.length} label="연간 과정" note={`완료 ${done.length}건`} />
-        <Stat value={`${totalSlots ? Math.round((totalDone / totalSlots) * 100) : 0}%`} label="전사 이수율" note="완료 과정 기준" />
+        {/* 100% 는 전원 이수일 때만 — Math.round 는 99.5% 를 100 으로 올려 미이수자가 남은 컴플라이언스
+            지표를 거짓 완주로 보이게 한다(governance 오신호). 완주가 아니면 99 로 캡, 완주면 100. */}
+        <Stat value={`${totalSlots ? (totalDone >= totalSlots ? 100 : Math.min(99, Math.round((totalDone / totalSlots) * 100))) : 0}%`} label="전사 이수율" note="완료 과정 기준" />
         <Stat value={myMissing.length} label="내 미이수" tone={myMissing.length > 0 ? 'err' : undefined} />
       </div>
 

@@ -87,7 +87,9 @@ async function addPlan(formData: FormData) {
   const inspector = String(formData.get('inspector') ?? '')
   const s = getStore()
   // 점검자는 셀렉트(비-USER 계정)와 동일 집합으로 검증 — 임의 POST 로 미등록·과대 문자열 저장 차단
-  if (!s.inspectionItems.some((i) => i.id === itemId) || !/^\d{4}-\d{2}$/.test(month) ||
+  // 월은 달력상 유효월(01~12)만 — /^\d{4}-\d{2}$/ 는 2026-13·2026-00 을 통과시켜, 예정월이 어휘 비교
+  // (경과 판정·notify 점검경과)에서 영구 경과(2026-00)·경과 누락(2026-13) 으로 오분류된다(임의 POST 대비).
+  if (!s.inspectionItems.some((i) => i.id === itemId) || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) ||
       !ACCOUNTS.some((a) => a.role !== 'USER' && a.name === inspector)) return
   const id = nextNo('IS', today().slice(0, 4), s.inspectionPlans.map((p) => p.id))
   s.inspectionPlans.unshift({ id, itemId, target: target || undefined, month, inspector, status: '계획' })
@@ -113,6 +115,13 @@ async function registerResult(formData: FormData) {
   // 폐쇄 루프 — 점검 결과·증적이 기본 결재선으로 흐르고, 승인되면 현황판 완료로 집계된다 (결재 시트 3번)
   const item = s.inspectionItems.find((i) => i.id === plan.itemId)
   draftApproval({ docType: '점검결과 상신', title: `[보안점검결과-점검항목] ${item?.control ?? plan.itemId} (${plan.month})`, ref: plan.id, drafter: me })
+  // /compliance/inspection 은 공유 워크스페이스(BIZ_MGR·ADMIN) — 반려된 계획을 원 상신자와 다른 관리자가
+  // 재상신하면 draftApproval 의 기안자-매칭 닫기(approvals.ts:66 owner 게이트)가 놓쳐 원 상신자의 '재상신'
+  // 할일이 고아로 남고 '반려 방치' 알림이 무한 반복된다(SR submitApply·변경 closeChangeResignTodo 와 동일
+  // 결함). 유형+계획번호 선두 고정으로 소유자 무관하게 닫아 폐쇄 루프를 만든다.
+  for (const t of s.todos) {
+    if (!t.done && t.kind === '재상신' && t.title.startsWith(`[점검결과 상신] ${plan.id} `)) t.done = true
+  }
   revalidatePath('/', 'layout')
 }
 
