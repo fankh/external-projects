@@ -2,11 +2,10 @@
  *  화면과 동일한 권한·데이터 스코핑을 서버에서 재적용한다(시큐어 코딩). */
 import { effectiveRoles } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
+import { currentYear } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore, isRemoteTargetIn } from '@/lib/store'
 import type { Role } from '@/lib/types'
-
-const YEAR = '2026'
 
 /** 유형 → 소속 화면 — 화면의 런타임 메뉴 제한이 다운로드에도 걸린다 (유형별 추가 가드와 별개) */
 const EXPORT_MENU: Record<string, string> = {
@@ -69,7 +68,7 @@ export async function GET(req: Request) {
   if (type === 'pledge-status') {
     if (role === 'USER') return new Response('forbidden', { status: 403 })
     const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
-    const signed = new Map(s.pledges.filter((p) => p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => [p.name, p]))
+    const signed = new Map(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => [p.name, p]))
     // 부서담당은 소속 부서만 — 화면과 동일 스코핑
     const scope = s.people.filter((p) => role !== 'DEPT_MGR' || p.dept === session.dept)
     const rows: (string | number)[][] = [['이름', '부서', '상태', '제출일', '방식']]

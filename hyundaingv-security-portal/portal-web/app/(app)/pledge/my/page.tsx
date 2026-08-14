@@ -1,10 +1,10 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader } from '@/components/ui'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { nowStampSec, today } from '@/lib/dates'
+import { currentYear, nowStampSec, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 
-const YEAR = '2026'
+const YEAR = currentYear()
 
 const CLAUSES = [
   '회사의 정보자산(시스템·데이터·문서)을 업무 목적 외로 사용하거나 외부에 유출하지 않는다.',

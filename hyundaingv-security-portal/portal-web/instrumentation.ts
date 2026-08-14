@@ -25,7 +25,14 @@ export async function register() {
   const { backupDataFile, recordBatch } = await import('./lib/store')
   const { nowStamp } = await import('./lib/dates')
 
+  // dev/HMR 재등록으로 인터벌이 중첩되면 같은 안내메일이 중복 발송된다 — 기존 타이머를 교체한다.
+  // __ngvNotifyTicking: 재진입 가드 — setInterval 은 비동기 tick 이 인터벌보다 길어도 다음 tick 을
+  // 발화하므로(느린 어댑터 + 짧은 주기), 이전 tick 이 진행 중이면 이번 tick 을 건너뛴다(겹침 방지 —
+  // 중복 발송·동시 뮤테이션 차단, batch0 dedup 과 별개의 방어선). globalThis 로 재등록 간 공유.
+  const g = globalThis as typeof globalThis & { __ngvNotifyTimer?: NodeJS.Timeout; __ngvNotifyTicking?: boolean }
   const tick = async () => {
+    if (g.__ngvNotifyTicking) return
+    g.__ngvNotifyTicking = true
     try {
       const results = await runDailyNotify()
       audit('스케줄러', '알림 배치 실행',
@@ -35,10 +42,10 @@ export async function register() {
       if (bak) recordBatch('데이터 파일 일일 백업 (보존 7개)', nowStamp(), '성공')
     } catch {
       // 스케줄 실패가 서버를 죽이면 안 된다 — 다음 주기에 재시도
+    } finally {
+      g.__ngvNotifyTicking = false
     }
   }
-  // dev/HMR 재등록으로 인터벌이 중첩되면 같은 안내메일이 중복 발송된다 — 기존 타이머를 교체한다
-  const g = globalThis as typeof globalThis & { __ngvNotifyTimer?: NodeJS.Timeout }
   if (g.__ngvNotifyTimer) clearInterval(g.__ngvNotifyTimer)
   g.__ngvNotifyTimer = setInterval(tick, intervalMs)
   console.log(`[portal] 알림 배치 스케줄러 가동 — ${intervalMs}ms 주기`)

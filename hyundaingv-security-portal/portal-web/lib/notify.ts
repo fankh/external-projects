@@ -2,7 +2,7 @@
  *  요구사항의 "주기적 안내메일 / 경과 항목 알림 - 메일"을 담당한다. 데모에서는 수동
  *  실행 버튼으로 트리거하고, 실서비스에서는 스케줄러(일배치)에 연결한다. */
 import { audit } from './audit'
-import { nowStamp, today } from './dates'
+import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch } from './store'
 
@@ -50,7 +50,7 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
 
   // 1) 미서약자 — 양식 개정일자 기준 유효 서약 없는 인원
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
-  const signed = new Set(s.pledges.filter((p) => p.year === '2026' && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  const signed = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
   await send('미서약', s.people.filter((p) => !signed.has(p.name)).map((p) => p.name), '[보안서약서] 미서약 안내')
 
   // 1-b) 비-일반 서약 재서약 방치 — 개정 후 미완료 재서약 할일(관리책임자·재택·특별·프로젝트). 일반은 위 1)에서 별도.

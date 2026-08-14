@@ -5,7 +5,7 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
-import { today } from './dates'
+import { nowStamp, today } from './dates'
 import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, Rack, RemoteCheck, RemoteTarget, Role, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
@@ -419,7 +419,11 @@ export function backupDataFile(keep = 7): string | null {
     for (const old of baks.slice(0, Math.max(0, baks.length - keep))) unlinkSync(join(dir, old))
     return dst
   } catch {
-    return null // 디스크 오류는 데모 흐름을 막지 않는다
+    // 디스크 오류(권한·용량)는 데모 흐름을 막지 않되, 조용히 사라지지 않도록 실패로 기록한다 —
+    // 백업이 '복구 지점'을 광고하므로, 지속 실패가 배치 이력에 안 보이면 운영자가 백업 부재를
+    // 모른다. null(스킵: 인메모리·파일없음)과 달리 실패는 배치 이력에 남긴다.
+    recordBatch('데이터 파일 일일 백업 — 디스크 오류', nowStamp(), '실패')
+    return null
   }
 }
 

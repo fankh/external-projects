@@ -7,7 +7,7 @@ import { runAdapterConformance, validatorSelfCheck } from '@/lib/integrations/co
 import { deployReadiness } from '@/lib/readiness'
 import { channelSummary, hrAdapter, isEnabled, withTimeout } from '@/lib/integrations/registry'
 import { runDailyNotify } from '@/lib/notify'
-import { getStore, recordBatch } from '@/lib/store'
+import { backupDataFile, getStore, recordBatch } from '@/lib/store'
 import { CHANNELS, PORTAL } from '@/portal.config'
 
 async function toggleChannel(formData: FormData) {
@@ -31,6 +31,10 @@ async function notifyBatch() {
   // 폐쇄 루프 — 미서약·점검 경과·SR 지연·재택 미제출을 스캔해 대상자별 안내메일 발송
   const results = await runDailyNotify()
   audit(me.name, '알림 배치 실행', results.map((r) => `${r.kind} ${r.targets}명${r.ok ? '' : '(실패)'}`).join(', ') || '대상 없음')
+  // 백업은 스케줄러 틱에서만 돌아, 외부 스케줄러 사용(PORTAL_NOTIFY_INTERVAL_MS 미설정)+영속화 켬
+  // 배포에서는 스냅샷이 전혀 안 생겼다. 수동 배치 실행도 백업을 남겨 그 모드의 복구 지점을 확보한다.
+  const bak = backupDataFile()
+  if (bak) recordBatch('데이터 파일 백업 (수동 배치, 보존 7개)', nowStamp(), '성공')
   revalidatePath('/', 'layout')
 }
 
