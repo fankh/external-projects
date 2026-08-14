@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { isMaintenanceOverdue, today } from '@/lib/dates'
+import { reclaimLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo } from '@/lib/store'
@@ -320,13 +321,16 @@ export async function recoverFromUser(assetNo: string, rawReason: string) {
   // 반납대기로 — 소유자는 유지(반납 점검에서 prevOwner 로 쓰이고, 접수 시 미지정으로 비워진다)
   asset.status = '반납대기'
   asset.history.push({ date: today(), kind: '반납', detail: `자산 회수(반납 처리) — ${holder} 보유분 회수${reason ? ` · ${reason}` : ''} (오프보딩·재배정)`, actor: session.name })
+  // 오프보딩 좌석 회수 — 떠나는 보유자에게 물린 라이선스 좌석을 함께 회수한다(로56 좌석 생애주기). 여유석으로 돌아가 재배정 대상이 된다.
+  const freed = reclaimLicenseSeats(assetNo, session.name, '오프보딩 회수')
+  if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (오프보딩)`, actor: session.name })
   // 회수 통보 — 보유자(부서)에게 회수 사실을 알린다
   if (holder && holder !== '미지정' && holder !== '-') {
     dispatch({ channel: '이메일', to: `${holder} (${asset.dept})`, subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
   }
   appendAudit({ actor: session.name, action: `자산 회수(반납 처리) — ${asset.model} (${holder})`, target: assetNo })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${assetNo} 회수 — 반납 접수 대기열로 편성 (${holder} → 점검 후 유휴 풀/수리/폐기)` }
+  return { ok: true, message: `${assetNo} 회수 — 반납 접수 대기열로 편성 (${holder} → 점검 후 유휴 풀/수리/폐기)${freed.length ? ` · 라이선스 좌석 ${freed.length}석 회수` : ''}` }
 }
 
 /** 자산 일괄 회수 — 여러 사용 중 자산을 한 번에 회수(오프보딩: 퇴직자 보유 자산 전량 회수). 사용 중이 아닌 선택분은 건너뛴다.
@@ -343,6 +347,8 @@ export async function recoverManyFromUser(assetNos: string[], rawReason: string)
     const holder = asset.owner
     asset.status = '반납대기'
     asset.history.push({ date: today(), kind: '반납', detail: `자산 회수(반납 처리) — ${holder} 보유분 일괄 회수${reason ? ` · ${reason}` : ''} (오프보딩·재배정)`, actor: session.name })
+    const freed = reclaimLicenseSeats(no, session.name, '오프보딩 일괄 회수')
+    if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (오프보딩)`, actor: session.name })
     if (holder && holder !== '미지정' && holder !== '-') {
       dispatch({ channel: '이메일', to: `${holder} (${asset.dept})`, subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
     }

@@ -45,3 +45,19 @@ export function raiseLicenseApproval(
   appendAudit({ actor: session.name, action: `라이선스 ${kind} 상신 (${seats}석)`, target: l.id })
   return { ok: true, message: `${id} 상신 — ${l.name} ${seats}석 ${kind}`, approvalId: id }
 }
+
+/** 라이선스 좌석 회수(자산 이탈 시) — 자산이 보유자를 떠날 때(오프보딩 회수·폐기) 그 자산에 배정된
+ *  모든 라이선스 좌석을 대장에서 제거한다. 떠난 자산에 좌석이 물려 있으면 보유-사용 대사가 어긋나고
+ *  비용이 새기 때문(로56의 좌석 생애주기 마감). 회수된 좌석은 다시 배정 가능한 여유석이 된다.
+ *  제거된 라이선스명 목록을 반환한다(호출부가 이력·메시지에 반영). 감사 로그는 여기서 남긴다. */
+export function reclaimLicenseSeats(assetNo: string, actor: string, reason: string): string[] {
+  const s = getStore()
+  const freed: string[] = []
+  for (const l of s.licenses) {
+    if (!l.seats?.some((st) => st.assetNo === assetNo)) continue
+    l.seats = l.seats.filter((st) => st.assetNo !== assetNo)
+    freed.push(l.name)
+    appendAudit({ actor, action: `라이선스 좌석 자동 회수 — ${l.name} ← ${assetNo} (${reason})`, target: l.id })
+  }
+  return freed
+}
