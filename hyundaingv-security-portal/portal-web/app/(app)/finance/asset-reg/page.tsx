@@ -18,10 +18,13 @@ async function acquire(formData: FormData) {
   // 폐쇄 루프 — IT포털 → 자산관리시스템 API → 자산등록번호 취득, 이력으로 남는다.
   // 실 어댑터 예외(네트워크·인증)는 취득 실패로 흡수 — 화면 500 없이 재시도 가능.
   try {
-    const { assetNo } = await withTimeout(adapter.acquireAssetNo(serial), '자산등록번호 취득')
+    const acq = await withTimeout(adapter.acquireAssetNo(serial), '자산등록번호 취득')
     const s = getStore()
-    if (!s.assetAcquisitions.some((a) => a.serial === serial)) {
-      s.assetAcquisitions.unshift({ serial, model, assetNo, by: me.name, at: nowStamp() })
+    // 실 어댑터가 계약({assetNo:string})을 어겨 빈 값·비문자열을 반환하면(예: 번호 비동기 발번으로 즉시
+    // 미확정), 빈 취득번호가 저장돼 이력에 빈 칸으로 남고 serial 기준 dedup 이 재시도를 영구 차단한다
+    // (복구 불가 불일치). 비어있지 않은 문자열 등록번호일 때만 기록해 malformed 응답은 재시도를 남긴다.
+    if (acq && typeof acq.assetNo === 'string' && acq.assetNo.length > 0 && !s.assetAcquisitions.some((a) => a.serial === serial)) {
+      s.assetAcquisitions.unshift({ serial, model, assetNo: acq.assetNo, by: me.name, at: nowStamp() })
     }
   } catch { /* 자산 API 예외 — 취득 실패, 다음 시도로 */ }
   revalidatePath('/finance/asset-reg')
@@ -36,7 +39,13 @@ export default async function AssetRegPage({ searchParams }: { searchParams: Pro
   const on = isEnabled('asset-api')
   const adapter = assetAdapter()
   // 조회 실패(어댑터 예외)는 빈 목록으로 폴백 — 연동 장애가 자산등록 화면을 깨지 않게 한다
-  const assets = adapter ? await withTimeout(adapter.searchAssets(query), '자산 조회').catch(() => []) : []
+  const rawAssets = adapter ? await withTimeout(adapter.searchAssets(query), '자산 조회').catch(() => []) : []
+  // .catch 는 reject 만 흡수한다 — 실 고객사 어댑터가 계약(ExternalAsset[])을 어겨 비배열(예: {data:[...]}
+  // REST 봉투)·필수 필드 누락을 resolve 하면 assets.filter/.map 이 전 화면 500 을 낸다. 수집 지점에서 형태
+  // 검증해(conformance {serial,model,category,holder} 와 동일 엄격도) 어긋난 행을 걸러 정상 행만 렌더한다.
+  const assets = (Array.isArray(rawAssets) ? rawAssets : []).filter(
+    (a) => a != null && typeof a.serial === 'string' && typeof a.model === 'string' && typeof a.category === 'string' && typeof a.holder === 'string',
+  )
   const unregistered = assets.filter((a) => !a.assetNo)
 
   return (

@@ -76,7 +76,13 @@ export async function sendVia(channelId: string, to: string[], subject: string):
     // 실 어댑터(네트워크·인증·타임아웃)는 throw 할 수 있다 — 발송 예외를 실패 이력으로
     // 남기고 호출측(알림 배치 등)이 죽지 않게 한다. 목 어댑터는 throw 하지 않아 게이트만으론 못 잡음.
     try {
-      result = await withTimeout(adapter.send(to, subject), `${ch.name} 발송`)
+      // 실 어댑터가 계약(SendResult)을 어겨 undefined·비객체를 resolve 하면 아래 s.sendLog 의 result.ok/
+      // result.detail 접근이 try 밖에서 TypeError→500(발송 예외 흡수의 사각). resolve 값 형태를 검증해
+      // SendResult 로 정규화한다(throw·hang 은 withTimeout·catch 가, 오형 resolve 는 이 검증이 담당).
+      const r = await withTimeout(adapter.send(to, subject), `${ch.name} 발송`)
+      result = r && typeof r.ok === 'boolean'
+        ? { ok: r.ok, detail: typeof r.detail === 'string' ? r.detail : '' }
+        : { ok: false, detail: `${ch.name} 발송 응답 형태 오류(SendResult 계약 위반)` }
     } catch (e) {
       result = { ok: false, detail: `${ch.name} 발송 예외: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200) }
     }
@@ -87,8 +93,12 @@ export async function sendVia(channelId: string, to: string[], subject: string):
 }
 
 export function hrAdapter(): HrAdapter | null {
+  // 조회류 공통 규칙(파일 상단) — 채널 비활성이면 어댑터를 넘기지 않는다. asset·secdata 리졸버와 대칭.
+  // 현재 유일 호출부(syncHr)가 isEnabled 를 따로 보지만, 리졸버가 자체 게이트해야 향후 호출부가 검사를
+  // 빠뜨려도 중지된 채널의 실 어댑터를 호출하지 않는다(운영자 채널 토글 계약 준수).
   const ch = channelOf('hr-sync')
-  return ch ? HR[ch.adapterId] ?? null : null
+  if (!ch || !isEnabled('hr-sync')) return null
+  return HR[ch.adapterId] ?? null
 }
 
 export function assetAdapter(): AssetAdapter | null {

@@ -25,6 +25,10 @@ async function importDaily() {
     const year = today().slice(0, 4)
     let added = 0
     for (const row of rows) {
+      // 실 고객사 secdata 어댑터가 계약을 어겨 name·document·printedAt 누락·비문자열을 반환해도 스토어에
+      // 넣지 않는다 — 자동 배치(notify.ts:40, v1.5.71)와 동일 수집 계약 검증. 형태 어긋난 행은 건너뛴다
+      // (수동 '전일자 이관'이 자동 배치와 검증 패리티를 갖추지 못하던 사각).
+      if (typeof row.name !== 'string' || typeof row.document !== 'string' || typeof row.printedAt !== 'string') continue
       if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
       s.printouts.push({
         id: nextNo('PR', year, s.printouts.map((p) => p.id)),

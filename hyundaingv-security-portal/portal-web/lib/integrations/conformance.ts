@@ -100,11 +100,15 @@ async function exerciseContract(kind: string, adapter: unknown): Promise<{ ok: b
     if (kind === 'secdata') {
       const rows = await withTimeout((adapter as { fetchPrintouts: () => Promise<unknown[]> }).fetchPrintouts(), '자가진단 fetchPrintouts')
       if (!Array.isArray(rows)) return { ok: false, detail: 'fetchPrintouts() 가 배열 아님' }
+      // 필수 필드 전수 — dept 는 부서담당 행 스코핑(prints p.dept===me.dept), personalInfo 는 개인정보
+      // 표시·엑셀 Y/N 에 소비된다(types.ts PrintoutSourceRow 필수). 이 둘을 빼면 이를 누락한 고객사 어댑터가
+      // 자가진단은 녹색 통과하고 실 배포에서 부서 스코핑 누락·개인정보 오표기(undefined→미표시)로 이어진다.
       const shaped = rows.every((r) => {
-        const x = r as { printedAt?: unknown; name?: unknown; document?: unknown; pages?: unknown }
-        return typeof x.printedAt === 'string' && typeof x.name === 'string' && typeof x.document === 'string' && typeof x.pages === 'number'
+        const x = r as { printedAt?: unknown; name?: unknown; document?: unknown; pages?: unknown; dept?: unknown; personalInfo?: unknown }
+        return typeof x.printedAt === 'string' && typeof x.name === 'string' && typeof x.document === 'string'
+          && typeof x.pages === 'number' && typeof x.dept === 'string' && typeof x.personalInfo === 'boolean'
       })
-      if (!shaped) return { ok: false, detail: 'fetchPrintouts() 항목 형태 불일치' }
+      if (!shaped) return { ok: false, detail: 'fetchPrintouts() 항목이 {printedAt,name,dept,document,pages,personalInfo} 형태 아님' }
       return { ok: true, detail: `fetchPrintouts() → ${rows.length}건` }
     }
     return { ok: true, detail: 'kind 계약 없음(스킵)' }

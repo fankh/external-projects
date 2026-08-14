@@ -823,6 +823,18 @@ def sc_adapter_malformed(pg, base, check):
     check(resp.status == 200, '오형 동기화에도 s.people 보존 → 후속 화면 무크래시(스토어 미오염)')
 
 
+def sc_adapter_asset_malformed(pg, base, check):
+    """자산 어댑터 계약 위반 내성(v1.5.74) — searchAssets 가 비배열({data,total} REST 봉투)을 resolve 해도
+    수집 지점 형태검증이 걸러 /finance/asset-reg 가 500 없이 렌더된다(.catch 는 reject 만 흡수, 오형 resolve 는
+    assets.filter/.map 500 유발). PORTAL_FAULT_ASSET=malformed 주입 — HR 계약검증(v1.5.69)의 자산 경로 패리티."""
+    login(pg, base, '시스템관리자')
+    resp = pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
+    check(resp.status == 200, '비배열 자산 조회 응답에도 자산등록 화면 무크래시(수집 형태검증)')
+    body = pg.content()
+    check('문제가 발생' not in body and 'Application error' not in body and 'something went wrong' not in body.lower(),
+          '오형 자산 조회에도 오류 바운더리 미표시(정상 렌더)')
+
+
 def sc_codes(pg, base, check):
     """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
@@ -1427,6 +1439,8 @@ SCENARIOS = [
      {'PORTAL_FAULT_HR': 'hang', 'PORTAL_ADAPTER_TIMEOUT_MS': '500'}),
     ('adapter_malformed', '어댑터 계약 위반 내성 — 오형 응답 시 s.people 보존·후속 화면 무크래시', sc_adapter_malformed,
      {'PORTAL_FAULT_HR': 'malformed'}),
+    ('adapter_asset_malformed', '자산 어댑터 계약 위반 내성 — 비배열 조회 응답에도 자산등록 화면 무크래시(수집 형태검증 패리티)', sc_adapter_asset_malformed,
+     {'PORTAL_FAULT_ASSET': 'malformed'}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),

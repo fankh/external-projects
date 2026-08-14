@@ -6,6 +6,8 @@ import type { Person } from '@/lib/types'
 
 export const mockMail: MessagingAdapter = {
   async send(to, subject) {
+    // 계약 위반(SendResult 아님) 주입 — undefined resolve 로 sendVia 의 result.ok 접근 방어 검증
+    if (process.env.PORTAL_FAULT_MAIL === 'malformed') return undefined as unknown as { ok: boolean; detail: string }
     return { ok: true, detail: `메일 ${to.length}건 발송 — ${subject}` }
   },
 }
@@ -61,6 +63,8 @@ const PRINTOUT_ROWS: PrintoutSourceRow[] = [
 
 export const mockSecdata: SecdataAdapter = {
   async fetchPrintouts() {
+    // 계약 위반(오형 행) 주입 — 필수 문자열(name·document·printedAt) 누락 행으로 importDaily 수집 검증
+    if (process.env.PORTAL_FAULT_SECDATA === 'malformed') return [{ pages: 3 } as unknown as PrintoutSourceRow]
     return PRINTOUT_ROWS
   },
 }
@@ -69,6 +73,8 @@ let assetSeq = 230
 
 export const mockAsset: AssetAdapter = {
   async searchAssets(query) {
+    // 계약 위반(비배열 REST 봉투) 주입 — {data,total} 반환으로 assets.filter/.map 500 방어(수집 형태검증) 검증
+    if (process.env.PORTAL_FAULT_ASSET === 'malformed') return { data: [], total: 0 } as unknown as ExternalAsset[]
     const q = query.trim()
     if (!q) return EXTERNAL_ASSETS
     return EXTERNAL_ASSETS.filter(
@@ -76,6 +82,8 @@ export const mockAsset: AssetAdapter = {
     )
   },
   async acquireAssetNo(serial) {
+    // 계약 위반(assetNo 누락) 주입 — {} 반환으로 빈 등록번호 저장·재시도 차단 방어(수집 형태검증) 검증
+    if (process.env.PORTAL_FAULT_ASSET === 'malformed') return {} as unknown as { assetNo: string }
     const asset = EXTERNAL_ASSETS.find((a) => a.serial === serial)
     if (!asset) throw new Error(`미확인 시리얼: ${serial}`)
     if (!asset.assetNo) {
