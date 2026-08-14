@@ -433,6 +433,12 @@ async function main() {
     const html = await r.text()
     check(!html.includes('VL-2026-07'), 'USER /awareness/violations 에 타인 위반 미노출')
     check(!html.includes('위반 등록'), 'USER /awareness/violations 에 등록 폼 미노출')
+    // 부서담당도 본인 건만 — 위반은 canManage(담당·Admin)만 전사, DEPT_MGR 은 타 도메인과 달리
+    // 부서 스코프가 아니라 본인 건만 본다(화면 export 와 동일). 관리자 취급으로 바뀌면 전사 유출.
+    const rDept = await get('/awareness/violations', 'DEPT_MGR')
+    const htmlDept = await rDept.text()
+    check(!htmlDept.includes('VL-2026-07'), 'DEPT_MGR /awareness/violations 에 타인 위반 미노출')
+    check(!htmlDept.includes('위반 등록'), 'DEPT_MGR /awareness/violations 에 등록 폼 미노출')
   }
 
   // 4) 미정의 경로 — 404 (브랜디드 화면)
