@@ -1,5 +1,6 @@
 /** 리포트 본문 생성 — 스토어 데이터에서 결정적으로 산출한다.
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
+import { effectiveClassifyAccuracy } from './ai-accuracy'
 import { recordAiCall } from './ai-status'
 import { appendAudit } from './audit'
 import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, roundProgressPct } from './dates'
@@ -523,7 +524,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
           ['실행 환경', p.deployment],
           ['모델', p.modelId],
           ['프롬프트 버전', p.promptVersion],
-          ['분류 정확도', `${p.classifyAccuracy}%`],
+          ['분류 정확도', `${effectiveClassifyAccuracy(p, s.insights)}%`],
         ],
       },
       {
@@ -604,7 +605,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         ['취약점 우선순위 P1', `점수 ${s.riskPolicy.p1MinScore} 이상`, '즉시 조치 등급 컷오프 (보안담당)'],
         ['취약점 우선순위 P2', `점수 ${s.riskPolicy.p2MinScore}~${s.riskPolicy.p1MinScore - 1}`, '우선 조치 등급 컷오프 (보안담당)'],
         ['AI 실행 환경 · 모델', `${s.aiPolicy.deployment} · ${s.aiPolicy.modelId}`, 'AI 거버넌스 — 실행 환경·모델 버전 (Admin)'],
-        ['AI 프롬프트 버전 · 분류 정확도', `${s.aiPolicy.promptVersion} · ${s.aiPolicy.classifyAccuracy}%`, 'AI 거버넌스 — 버전 관리·성능 (Admin)'],
+        ['AI 프롬프트 버전 · 분류 정확도', `${s.aiPolicy.promptVersion} · ${effectiveClassifyAccuracy(s.aiPolicy, s.insights)}%`, 'AI 거버넌스 — 버전 관리·성능 (Admin)'],
         ['AI 로그 보존 · 권한 필터', `${s.aiPolicy.auditRetentionDays}일 · ${s.aiPolicy.scopeFilter ? 'ON' : 'OFF'}`, '질의·응답 감사 추적성·권한 밖 데이터 배제 (Admin)'],
       ],
     },
@@ -700,7 +701,7 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     const approved = s.insights.filter((i) => i.status === '승인').length
     const rejected = s.insights.filter((i) => i.status === '반려').length
     const adoption = approved + rejected ? Math.round((approved / (approved + rejected)) * 100) : null
-    return `AI 실행 환경은 ${p.deployment}(${p.modelId}, 프롬프트 ${p.promptVersion})이며 분류 정확도는 ${p.classifyAccuracy}%입니다. `
+    return `AI 실행 환경은 ${p.deployment}(${p.modelId}, 프롬프트 ${p.promptVersion})이며 분류 정확도는 ${effectiveClassifyAccuracy(p, s.insights)}%입니다(승인·반려 판정 환류 반영). `
       + `AI 기능 제안의 누적 채택률은 ${adoption === null ? '판정 전' : `${adoption}%`}로, 승인·반려 결과가 재학습에 환류됩니다. `
       + `AI 제안·질의·응답은 ${p.auditRetentionDays}일 감사 보존되며, 권한 범위 필터가 ${p.scopeFilter ? '적용' : '미적용'}되고 제안 자동승인은 ${p.autoApprove ? '허용' : '차단(담당자 확인·결재 원칙)'}으로 운영됩니다.`
   }

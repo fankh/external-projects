@@ -143,6 +143,42 @@ async function aiModelManage(page) {
   ok('AI 외부반출: 온프레미스 복원 — 외부 반출 재차단', (await page.textContent('body')).includes('외부 반출 없음'))
 }
 
+/** 분류 정확도 환류(§05 그림4 "판정 결과 환류 — 재학습·정확도 개선") — 정확도가 시드 고정값이 아니라
+ *  승인/반려 판정에 따라 재산출됨을 검증한다. ai-policy 는 ADMIN 전용. 반려는 부작용이 없어 안전하다. */
+async function aiFeedbackAccuracy(page) {
+  const read = async () => {
+    await page.goto(`${BASE}/settings/ai-policy`, { waitUntil: 'networkidle' })
+    const body = await page.textContent('body')
+    return { body, n: Number((body.match(/판정 (\d+)건 환류/) || [])[1] ?? -1) }
+  }
+  const r0 = await read()
+  ok('AI 정확도 환류: 정적값 아님 — 기준값·환류 판정 건수 표기', r0.body.includes('환류') && r0.body.includes('기준 92.4%') && r0.n >= 1)
+  // 제안 1건 반려(부작용 없음) → 환류 판정 건수 증가로 정확도 재산출 확인.
+  //  다른 테스트가 승인하는 INS-2607-15는 건드리지 않도록, 반려 버튼이 있는 제안 행 중 그 외 첫 행을 고른다.
+  await page.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  const card = page.locator('.card', { hasText: 'AI 제안 — 판정 대기' })
+  await card.locator('.seg button', { hasText: /^전체$/ }).click()
+  await page.waitForTimeout(300)
+  const allRows = card.locator('tbody tr')
+  const rowN = await allRows.count()
+  let target = null
+  for (let i = 0; i < rowN; i++) {
+    const r = allRows.nth(i)
+    const t = (await r.textContent()) || ''
+    if (t.includes('INS-2607-15')) continue
+    if ((await r.locator('button', { hasText: /^반려$/ }).count()) > 0) { target = r; break }
+  }
+  ok('AI 정확도 환류: 반려 가능 미판정 제안 존재(INS-2607-15 제외)', target !== null)
+  await target.locator('button', { hasText: /^반려$/ }).first().click()
+  await page.waitForTimeout(300)
+  await card.locator('input[placeholder*="반려 사유"]').first().fill('오탐 — 정확도 환류 검증')
+  await page.waitForTimeout(200)
+  await card.locator('button', { hasText: '반려 확정' }).first().click()
+  await page.waitForTimeout(900)
+  const r1 = await read()
+  ok('AI 정확도 환류: 판정 추가 시 환류 건수 증가(재학습 반영)', r1.n === r0.n + 1)
+}
+
 /** AI 어시스턴트 기간 스코프 질의(§05 예시 "내년 1분기 보증 만료…") — 기간 파싱·창 필터.
  *  실행 시점에 독립적이도록, 헤드라인이 제시한 창 범위를 그대로 뽑아 나열 만료일이 전부 그 안에 드는지 자기검증한다. */
 async function aiPeriodQuery(page) {
@@ -509,6 +545,7 @@ try {
   const regRow = (await p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2019-000218' }) }).first().textContent()) || ''
   ok('폐기 반려 → 자산 유휴 복원(폐기예정 해제)', regRow.includes('유휴') && !regRow.includes('폐기예정'))
   await aiModelManage(p3)
+  await aiFeedbackAccuracy(p3)
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const auditAi = await p3.textContent('body')
   ok('감사 로그: AI 모델·프롬프트 버전 관리 적재', auditAi.includes('AI 모델·프롬프트 버전 관리') && auditAi.includes('claude-opus-5'))
