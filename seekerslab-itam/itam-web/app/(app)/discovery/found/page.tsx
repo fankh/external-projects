@@ -14,13 +14,15 @@ import { UsbTable } from './UsbTable'
 
 export const dynamic = 'force-dynamic'
 
-export default async function FoundPage({ searchParams }: { searchParams: Promise<{ state?: string }> }) {
+export default async function FoundPage({ searchParams }: { searchParams: Promise<{ state?: string; sel?: string }> }) {
   const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
-  const { state } = await searchParams
+  const { state, sel } = await searchParams
   // CMDB 대사 화면에서 상태별 드릴다운(?state=)으로 진입 — 유효한 대사 상태만 초기 필터로 반영
   const initialState = RECONCILE_STATES.includes(state as ReconcileState) ? (state as ReconcileState) : undefined
   const s = getStore()
   const d = s.discovered
+  // 전역 검색·딥링크(?sel=DSC-…)로 특정 발견 자산 상세를 바로 연다(대장·계약·게시판 딥링크와 동형)
+  const initialSel = sel && d.some((x) => x.id === sel) ? sel : undefined
   const unreg = d.filter((x) => x.state === '미등록' && !x.action)
 
   // 지문이 다른데 호스트명·IP 가 겹치는 쌍 = 자동 병합이 잡지 못한 중복 후보.
@@ -93,7 +95,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
       <EscalateBar waiting={awaiting.length} overdue={overdue.length} deadlineDays={s.opsPolicy.confirmDeadlineDays} />
 
       <Card pad={false}>
-        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} initialState={initialState} />
+        <FoundView items={d} observations={s.observations} mergeCandidates={mergeCandidates} canExport={canExport('discovered', session.role)} initialState={initialState} initialSel={initialSel} />
       </Card>
 
       <Card kicker="Account Hygiene · Channel 06" title="휴면 계정 — AD/IdP·SSO 계정 위생" pad={false}>

@@ -42,7 +42,7 @@ export async function GET(req: Request) {
   // 발견 자산 — 발견 화면 권한(자산담당·보안담당·Admin)
   if (can(['ASSET_MGR', 'SEC_MGR', 'ADMIN'])) {
     const disc = s.discovered.filter((d) => hit(d.id, d.hostname, d.ip, d.mac, d.type)).slice(0, LIMIT)
-      .map((d) => ({ label: `${d.id} · ${d.hostname}`, sub: `${d.type} · ${d.ip} · ${d.state}`, href: '/discovery/found' }))
+      .map((d) => ({ label: `${d.id} · ${d.hostname}`, sub: `${d.type} · ${d.ip} · ${d.state}`, href: `/discovery/found?sel=${d.id}` }))
     if (disc.length) groups.push({ kind: '발견 자산', items: disc })
   }
 
