@@ -65,6 +65,8 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
               {s.licenses.map((l) => {
                 const ratio = Math.min((l.used / l.purchased) * 100, 100)
                 const retired = l.status === '해지'
+                // 근거 계약이 해지된 라이선스 — 구독 근거가 사라진 상태(계약 해지 연계 영향 v1.272 의 역방향). 이관·재계약 검토 필요.
+                const baseTerminated = !!l.contractId && s.contracts.some((c) => c.id === l.contractId && c.status === '해지')
                 // 만료 경과 — 유효 상태인데 만료일이 지난 라이선스(미갱신). 만료 라이선스 사용은 그 자체가 컴플라이언스 위반이므로
                 // 초과·미사용과 별개로 갱신 필요를 명시한다. 만료 임박(창 안)과 달리 이미 지난 건이라 알림에서 누락되던 공백.
                 const expired = !retired && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
@@ -76,7 +78,10 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                     <td className="strong">{l.name}</td>
                     <td className="mute">{l.vendor}</td>
                     <td className="code">{l.contractId
-                      ? <a href={contractHref(l.contractId)} style={{ color: 'var(--accent-deep)' }} title="근거 계약으로 이동">{l.contractId}</a>
+                      ? <span className="hstack" style={{ gap: 4, flexWrap: 'wrap' }}>
+                          <a href={contractHref(l.contractId)} style={{ color: 'var(--accent-deep)' }} title="근거 계약으로 이동">{l.contractId}</a>
+                          {baseTerminated && <Chip tone="err" bare>근거 해지</Chip>}
+                        </span>
                       : <Chip tone="warn" bare>미연계</Chip>}</td>
                     <td className="num tnum">{l.purchased.toLocaleString()}</td>
                     <td className="num tnum" style={over ? { color: 'var(--err)', fontWeight: 700 } : undefined}>{l.used.toLocaleString()}</td>

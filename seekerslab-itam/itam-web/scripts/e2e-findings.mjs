@@ -488,6 +488,11 @@ try {
   await ctReason.press('Enter')
   await p3.waitForTimeout(700)
   ok('계약 해지: 연계 라이선스·자산 영향 노출(검토 필요)', (await p3.textContent('body')).includes('라이선스 1건(구독 확인)') && (await p3.textContent('body')).includes('검토 필요'))
+  // 역방향 교차 정합 — 근거 계약이 해지되면 그 라이선스(LIC-001 Microsoft 365)에 '근거 해지' 표기(v1.272 의 역방향)
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const licTable2 = p3.locator('table', { has: p3.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first()
+  const licRow2 = licTable2.locator('tbody tr').filter({ hasText: 'Microsoft 365' }).first()
+  ok('계약 해지 → 라이선스 근거 해지 표기(LIC-001)', ((await licRow2.textContent()) || '').includes('근거 해지'))
   // 라이선스 컴플라이언스 판정 불변식 — 초과/미사용/적정이 보유·사용 관계와 정합(감사 리스크 플래깅·회수/구매 결재 근거). 비즈니스 임계 계산 회귀 방지.
   {
     await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
