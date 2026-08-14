@@ -37,6 +37,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const timeline = [...a.history].reverse().map((h) =>
     `<tr><td class="d">${esc(h.date)}</td><td class="k">${esc(h.kind)}</td><td>${esc(h.detail)}</td><td class="ac">${esc(h.actor)}</td></tr>`,
   ).join('')
+  // 배정 라이선스 좌석 — 이 자산에 배정된 SW 라이선스(로56·57). 인수인계·감사 dossier 에 어떤 SW 를 물고 있는지 남긴다(회수·재배정 대상).
+  const seats = getStore().licenses
+    .filter((l) => l.status !== '해지')
+    .flatMap((l) => (l.seats ?? []).filter((st) => st.assetNo === a.assetNo).map((st) => ({ lic: l.name, vendor: l.vendor, at: st.at })))
+  const seatsRows = seats.map((st) => `<tr><td>${esc(st.lic)}</td><td>${esc(st.vendor)}</td><td class="d">${esc(st.at)}</td></tr>`).join('')
 
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <title>자산 카드 ${esc(a.assetNo)}</title>
@@ -85,6 +90,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
       </div>
     </div>
     <div class="kv">${fields}</div>
+    ${seats.length ? `<h2>배정 라이선스 좌석 (${seats.length}석)</h2>
+    <table>
+      <thead><tr><th>라이선스</th><th>공급사</th><th>배정일</th></tr></thead>
+      <tbody>${seatsRows}</tbody>
+    </table>` : ''}
     <h2>변경 이력 (${a.history.length}건)</h2>
     <table>
       <thead><tr><th>일시</th><th>구분</th><th>내용</th><th>수행자</th></tr></thead>
