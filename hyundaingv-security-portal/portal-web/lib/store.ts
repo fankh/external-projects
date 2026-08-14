@@ -312,6 +312,10 @@ const g = globalThis as typeof globalThis & {
   __ngvPortalSaveTimer?: NodeJS.Timeout
   __ngvPortalExitHook?: boolean
   __ngvPortalLastSaved?: string
+  /** 손상 파일 격리 실패 시 저장 비활성화 — 원본을 빈 시드로 덮어쓰지 않게 이번 부팅은 읽기전용 인메모리 */
+  __ngvPortalNoSave?: boolean
+  /** 이번 부팅이 손상 파일 격리 후 시드 폴백인가 — 시드 상태로 백업/저장이 복구지점을 훼손하지 않게 표시 */
+  __ngvPortalQuarantined?: boolean
 }
 
 const DATA_FILE = process.env.PORTAL_DATA_FILE
@@ -327,7 +331,9 @@ function loadFromFile(): Store | null {
     const merged = { ...base } as unknown as Store
     const mergedRec = merged as unknown as Record<string, unknown>
     for (const [k, v] of Object.entries(raw)) {
-      if (!(k in base)) continue // 시드에 없는 키(오타·구정크)는 무시
+      // 시드에 없는 키(오타·구정크)는 무시 — `k in base` 는 프로토타입 체인을 봐 '__proto__'·'constructor' 를
+      // 통과시켜 mergedRec['__proto__']=v 가 스토어 프로토타입을 조작한다(CWE-1321). 시드의 '자기' 키만 수용.
+      if (!Object.prototype.hasOwnProperty.call(base, k)) continue
       const expected = base[k]
       if (Array.isArray(expected)) {
         if (Array.isArray(v)) {
@@ -425,24 +431,39 @@ function loadFromFile(): Store | null {
     for (const a of merged.approvals ?? []) {
       if (a.queue !== undefined && (!Array.isArray(a.queue) || !a.queue.every((n) => typeof n === 'string'))) a.queue = undefined
     }
+    // channelStates 값 검증 — 비불리언 값(객체·문자열·숫자)은 isEnabled 의 `st[id] ?? default` 를 통과한다
+    // (?? 는 null/undefined 만 폴백). {} 같은 truthy 값은 중지 채널을 가동으로 오판해 발송·연동이 돌고,
+    // '0'·0 같은 falsy 비불리언은 기본 가동 채널을 오중지시킨다. menuOverrides·queue 와 동일하게 불리언만 보존.
+    merged.channelStates = Object.fromEntries(
+      Object.entries(merged.channelStates ?? {}).filter(([, v]) => typeof v === 'boolean'),
+    ) as Store['channelStates']
     return merged
   } catch {
     // 파싱·머지 실패 = 손상 파일(외부 편집기·백업 도구·디스크 풀 0바이트·비트로트). 그대로 두면
     // getStore 가 seed 로 폴백하고, 읽기 트리거 저장(scheduleSave)이 300ms 뒤 원본을 빈 시드로
     // 덮어써 복구 불가능한 손실이 된다(스케줄러 off 배포는 .bak 조차 없어 전손). 원본을
     // .corrupt.<시각> 으로 격리 보존한 뒤 seed 로 기동해, 운영자가 복구할 지점을 남긴다.
+    // 손상 감지 — 이번 부팅은 시드 폴백이다. 백업/저장이 시드 상태로 복구지점(양호한 .bak·원본)을
+    // 훼손하지 않도록 표시한다(backupDataFile 이 이 플래그면 백업을 보류해 기존 복구지점을 지킨다).
+    g.__ngvPortalQuarantined = true
     try {
       if (DATA_FILE && existsSync(DATA_FILE)) {
         const stamp = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 19).replace(/[:T]/g, '')
         renameSync(DATA_FILE, `${DATA_FILE}.corrupt.${stamp}`)
       }
-    } catch { /* 격리 실패해도 서버는 시드로 뜬다 */ }
+    } catch {
+      // 격리 실패(파일락·권한 EPERM 등) — 원본이 그대로 남아있다. 이 상태로 시드 기동 후 저장하면 saveNow 가
+      // 원본을 빈 시드로 덮어써, 격리 사본조차 없는 유일한(수기복구 가능) 손상 원본까지 파괴한다(HIGH).
+      // 저장을 비활성화해 원본을 보존한다 — 이번 부팅은 읽기전용 인메모리(운영자가 원본 복구·격리할 때까지).
+      g.__ngvPortalNoSave = true
+    }
     return null
   }
 }
 
 function saveNow(s: Store) {
-  if (!DATA_FILE) return
+  // __ngvPortalNoSave: 손상 원본 격리 실패 시 저장 금지 — 원본을 시드로 덮어쓰지 않는다(복구지점 보존)
+  if (!DATA_FILE || g.__ngvPortalNoSave) return
   try {
     const json = JSON.stringify(s)
     // 변경 없으면 쓰기 생략 — 읽기 부하에서 예약이 반복돼도 동일 상태를 헛쓰지 않는다.
@@ -495,6 +516,13 @@ export function getStore(): Store {
  *  같은 날 반복 호출은 같은 파일을 덮어써 멱등이다. 스케줄러 틱에서 호출된다. */
 export function backupDataFile(keep = 7): string | null {
   if (!DATA_FILE) return null
+  // 손상 격리 후 시드 폴백 부팅에서는 백업을 보류한다 — 메모리 상태가 시드(실데이터 아님)라, 같은 날짜
+  // 스탬프의 양호한 기존 .bak 을 시드 스냅샷으로 덮어쓰면 그날의 유일한 복구지점을 파괴한다. 실패로 기록해
+  // 운영자가 복구지점 보존 상태를 인지하게 한다(원본은 .corrupt 에 격리돼 있거나 NoSave 로 보존됨).
+  if (g.__ngvPortalQuarantined) {
+    recordBatch('데이터 파일 일일 백업 — 손상 격리·시드 기동으로 보류(기존 복구지점 보존)', nowStamp(), '실패')
+    return null
+  }
   // 백업이 메모리 최신 상태를 담도록 먼저 플러시한다 — 틱(알림 배치)이 스토어를 변경한 뒤
   // 디스크 반영 전에 복사하면 스냅샷이 뒤처진다(복구 지점 신뢰성).
   if (g.__ngvPortalStore) saveNow(g.__ngvPortalStore)

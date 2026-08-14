@@ -36,6 +36,7 @@ ATDUP_DATA = ROOT / 'scripts' / '.e2e-atdup-data.json'  # 자동첨부 교차일
 NCRASH_DATA = ROOT / 'scripts' / '.e2e-ncrash-data.json'  # 알림 배치 손상 title 할일 내성 회귀용 (v1.5.58)
 APPLY_DATA = ROOT / 'scripts' / '.e2e-apply-data.json'  # 적용요청 상신 교차-기안자 고아 할일 회귀용 (v1.5.60)
 INSP_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-insporphan-data.json'  # 점검결과 재상신 교차-상신자 고아 할일 회귀용 (v1.5.79)
+CHST_DATA = ROOT / 'scripts' / '.e2e-chst-data.json'  # channelStates 비불리언 값 검증 회귀용 (v1.5.80)
 
 
 def login(pg, base, name):
@@ -531,6 +532,17 @@ def sc_inspection_resign_orphan(pg, base, check):
     pg.goto(f'{base}/work/todo', wait_until='networkidle')
     open_card = pg.locator('.card', has_text='미처리 할일')
     check('IS-2026-9001' not in open_card.inner_text(), '교차 재상신자 점검결과 상신 → 원 상신자 재상신 고아 할일 마감')
+
+
+def sc_channelstate_corrupt(pg, base, check):
+    """channelStates 값 검증(v1.5.80) — 손상/구버전 파일의 비불리언 채널상태({})가 isEnabled 의 `st[id] ?? default`
+    를 통과해(?? 는 null 만 폴백) 중지 채널(security-db, 기본 off)을 truthy 로 오판·가동시키면 안 된다. 머지가
+    비불리언 값을 걸러 기본값(off)으로 폴백 → 활성 채널 4/5 유지(오판 시 security-db 포함 5/5).
+    PORTAL_DATA_FILE 로 {channelStates:{security-db:{}}} 주입."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    stats = pg.locator('.stat-row').first.inner_text()
+    check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
 
 
 def sc_notify_corrupt_todo(pg, base, check):
@@ -1489,6 +1501,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(APPLY_DATA)}),
     ('inspection_resign_orphan', '점검결과 교차-상신자 고아 할일 마감', sc_inspection_resign_orphan,
      {'PORTAL_DATA_FILE': str(INSP_ORPHAN_DATA)}),
+    ('channelstate_corrupt', 'channelStates 비불리언 값 검증 — 중지 채널 오활성 방지', sc_channelstate_corrupt,
+     {'PORTAL_DATA_FILE': str(CHST_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -1709,6 +1723,7 @@ def main() -> int:
         'todos': [{'id': 'TD-9002', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
                    'title': '[점검결과 상신] IS-2026-9001 반려 — 보완 후 재상신 (사유: 보완요망)'}],
     }, ensure_ascii=False), encoding='utf-8')
+    CHST_DATA.write_text(json.dumps({'channelStates': {'security-db': {}}}, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -1731,6 +1746,7 @@ def main() -> int:
     NCRASH_DATA.unlink(missing_ok=True)
     APPLY_DATA.unlink(missing_ok=True)
     INSP_ORPHAN_DATA.unlink(missing_ok=True)
+    CHST_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
