@@ -95,13 +95,18 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('출력물 미등록', printPending, '[출력물] 폐기 정보 등록 안내')
 
   // 5) 반려 방치 — 반려 후 재상신하지 않은 기안자 (열린 '재상신' 할일 소유자, 재상신하면 할일이 닫혀 제외)
+  // 재직자 교집합 — '재상신' 할일은 기안자 본인의 재상신으로만 닫히므로 기안자가 퇴사해 s.people 에서 빠져도
+  // 할일은 남는다(재조정 경로 없음). 비일반 재서약(위 1-b, v1.5.71)과 구조적으로 동일한 유령 독촉 경로라
+  // 같은 재직 명단 교집합을 적용한다(떠난 인원에게 매일 재상신 안내가 가고 배치 집계가 부풀던 사각).
   await send('반려 방치',
-    s.todos.filter((x) => x.kind === '재상신' && !x.done).map((x) => x.owner),
+    s.todos.filter((x) => x.kind === '재상신' && !x.done).map((x) => x.owner).filter((name) => people.some((p) => p.name === name)),
     '[결재] 반려 문서 재상신 안내')
 
   // 6) 확인서 미제출 — 보안위반 사실확인서 징구중 방치 인원 (제출하면 결재중으로 넘어가 자동 제외)
+  // 재직자 교집합 — 위반자가 퇴사하면 확인서를 제출할 수 없으므로(징구 불가) 유령 독촉을 막는다. 위반 기록
+  // 자체는 위반 화면에 남아 미해결 가시성은 유지된다(타 person 경로와 동일 재직 명단 정합).
   await send('확인서 미제출',
-    s.violations.filter((v) => v.status === '징구중').map((v) => v.name),
+    s.violations.filter((v) => v.status === '징구중').map((v) => v.name).filter((name) => people.some((p) => p.name === name)),
     '[보안위반] 사실확인서 제출 안내')
 
   const total = results.reduce((sum, r) => sum + r.targets, 0)

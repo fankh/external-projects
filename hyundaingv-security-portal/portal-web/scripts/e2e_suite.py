@@ -1168,6 +1168,18 @@ def sc_scheduler(pg, base, check):
     check('스케줄러' in pg.content(), '감사 행위자=스케줄러')
 
 
+def sc_scheduler_bootcatchup(pg, base, check):
+    """기동 시 밀린 일일 배치 따라잡기 (v1.5.78) — setInterval 은 부팅 시점에 앵커돼, 인터벌보다 잦은
+    재시작(야간 배포·오토스케일·유휴 축출)이 24h 틱을 영영 안 오게 한다. 큰 인터벌(1h)이라 인터벌 틱은
+    테스트 창(2s)에 안 오지만, 오늘자 일일 배치 기록이 없으면 기동 즉시 1회 발화해야 한다(부팅 따라잡기).
+    PORTAL_NOTIFY_INTERVAL_MS=3600000 — 이 발화는 오직 부팅 따라잡기 경로로만 가능하다."""
+    time.sleep(2.0)
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    check('일일 알림 배치' in pg.locator('.card', has_text='배치 실행 이력').inner_text(),
+          '큰 인터벌에도 기동 즉시 밀린 배치 발화 (부팅 따라잡기 — 잦은 재시작 무발송 방지)')
+
+
 def sc_keyboard(pg, base, check):
     """키보드 조작성 (WCAG 2.1.1) — MDI 탭 닫기·본문 바로가기 링크가 키보드로 동작한다"""
     login(pg, base, '김현우')                 # 개인별현황 탭 생성
@@ -1467,6 +1479,8 @@ SCENARIOS = [
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
+    ('scheduler_bootcatchup', '기동 밀린 배치 따라잡기 — 인터벌보다 잦은 재시작 무발송 방지', sc_scheduler_bootcatchup,
+     {'PORTAL_NOTIFY_INTERVAL_MS': '3600000'}),
     ('runtime', '404 · ChunkReload 복구', sc_runtime, {}),
     ('keyboard', '키보드 조작성 (MDI 탭·스킵 링크)', sc_keyboard, {}),
     ('profile', '고객사 프로필 스위칭 (manufacturer)', sc_profile, {'PORTAL_PROFILE': 'manufacturer'}),

@@ -22,8 +22,8 @@ export async function register() {
 
   const { runDailyNotifyOnce } = await import('./lib/notify')
   const { audit } = await import('./lib/audit')
-  const { backupDataFile, recordBatch } = await import('./lib/store')
-  const { nowStamp } = await import('./lib/dates')
+  const { backupDataFile, getStore, recordBatch } = await import('./lib/store')
+  const { nowStamp, today } = await import('./lib/dates')
 
   // dev/HMR 재등록으로 인터벌이 중첩되면 같은 안내메일이 중복 발송된다 — 기존 타이머를 교체한다.
   // 재진입 가드(__ngvNotifyTicking)는 runDailyNotifyOnce 안으로 옮겨 스케줄러 틱과 수동 실행이 같은
@@ -44,5 +44,15 @@ export async function register() {
   }
   if (g.__ngvNotifyTimer) clearInterval(g.__ngvNotifyTimer)
   g.__ngvNotifyTimer = setInterval(tick, intervalMs)
+
+  // 기동 시 밀린 일일 배치 따라잡기 — setInterval 은 부팅 시점에 앵커돼 인터벌보다 잦은 재시작(야간 배포·
+  // 오토스케일·PaaS 유휴 축출·크래시)이 매번 카운트다운을 리셋해, 24h 주기라면 틱이 영영 안 와 미서약·SR
+  // 지연·재택·확인서 컴플라이언스 메일이 조용히 영구 중단된다. 오늘자 일일 배치 기록이 없으면 기동 즉시 1회
+  // 발화한다 — 재진입 가드(__ngvNotifyTicking)가 틱·수동 실행과 중복을 막고, recordBatch 가 '오늘 실행'을
+  // 표시해 잦은 재시작에도 하루 1회로 수렴한다(인메모리·미영속 배포는 기록이 없어 기동마다 1회, 무해).
+  try {
+    const ranToday = getStore().batchRuns.some((b) => b.job.startsWith('일일 알림 배치') && b.ranAt.startsWith(today()))
+    if (!ranToday) void tick()
+  } catch { /* 스토어 미초기화 등 — 다음 인터벌 틱이 처리 */ }
   console.log(`[portal] 알림 배치 스케줄러 가동 — ${intervalMs}ms 주기`)
 }
