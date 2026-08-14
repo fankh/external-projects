@@ -6,7 +6,7 @@
  *      (고객사 어댑터를 스테이징 투입 전에 이 진단으로 통과시키면 계약 위반을 조기 발견).
  *  포털 본체가 아니라 연동 계약 자체를 검증하므로, 새 고객사 어댑터의 착수 조건 도구다. */
 import { ALL_PROFILES } from '@/profiles/registry'
-import { resolveAdapter } from './registry'
+import { resolveAdapter, withTimeout } from './registry'
 import type { ChannelBinding, ChannelKind, PortalBrand } from './types'
 
 export interface ConformanceCheck {
@@ -67,32 +67,32 @@ function isPerson(x: unknown): x is { name: string; dept: string } {
 async function exerciseContract(kind: string, adapter: unknown): Promise<{ ok: boolean; detail: string }> {
   try {
     if (kind === 'mail' || kind === 'sms') {
-      const r = await (adapter as { send: (t: string[], s: string) => Promise<{ ok: boolean; detail: string }> }).send([], '자가진단')
+      const r = await withTimeout((adapter as { send: (t: string[], s: string) => Promise<{ ok: boolean; detail: string }> }).send([], '자가진단'), '자가진단 send')
       if (typeof r?.ok !== 'boolean' || typeof r?.detail !== 'string') return { ok: false, detail: 'send() 가 {ok,detail} 를 반환하지 않음' }
       return { ok: true, detail: `send() → ok=${r.ok}` }
     }
     if (kind === 'hr') {
-      const people = await (adapter as { fetchPeople: () => Promise<unknown[]> }).fetchPeople()
+      const people = await withTimeout((adapter as { fetchPeople: () => Promise<unknown[]> }).fetchPeople(), '자가진단 fetchPeople')
       if (!Array.isArray(people) || people.length === 0) return { ok: false, detail: 'fetchPeople() 가 비어있거나 배열 아님' }
       if (!people.every(isPerson)) return { ok: false, detail: 'fetchPeople() 항목이 {name,dept} 형태 아님' }
       return { ok: true, detail: `fetchPeople() → ${people.length}명` }
     }
     if (kind === 'asset') {
       const a = adapter as { searchAssets: (q: string) => Promise<{ serial: string; assetNo?: string }[]>; acquireAssetNo: (s: string) => Promise<{ assetNo: string }> }
-      const rows = await a.searchAssets('')
+      const rows = await withTimeout(a.searchAssets(''), '자가진단 searchAssets')
       if (!Array.isArray(rows)) return { ok: false, detail: 'searchAssets() 가 배열 아님' }
       // acquireAssetNo 는 신규 자산에 번호를 부여하며 상태를 바꾼다 — 자가진단은 부작용 없이,
       // 이미 등록번호가 있는 자산으로 멱등 경로만 확인한다 (없으면 조회 형태만 검증).
       const registered = rows.find((r) => typeof r.serial === 'string' && typeof r.assetNo === 'string' && r.assetNo.length > 0)
       if (registered) {
-        const acq = await a.acquireAssetNo(registered.serial)
+        const acq = await withTimeout(a.acquireAssetNo(registered.serial), '자가진단 acquireAssetNo')
         if (!acq || typeof acq.assetNo !== 'string' || acq.assetNo.length === 0) return { ok: false, detail: 'acquireAssetNo() 가 비어있지 않은 assetNo 를 반환하지 않음' }
         return { ok: true, detail: `searchAssets() ${rows.length}건 · acquireAssetNo(멱등) → ${acq.assetNo}` }
       }
       return { ok: true, detail: `searchAssets() ${rows.length}건 (등록 자산 없어 acquire 스킵)` }
     }
     if (kind === 'secdata') {
-      const rows = await (adapter as { fetchPrintouts: () => Promise<unknown[]> }).fetchPrintouts()
+      const rows = await withTimeout((adapter as { fetchPrintouts: () => Promise<unknown[]> }).fetchPrintouts(), '자가진단 fetchPrintouts')
       if (!Array.isArray(rows)) return { ok: false, detail: 'fetchPrintouts() 가 배열 아님' }
       const shaped = rows.every((r) => {
         const x = r as { printedAt?: unknown; name?: unknown; document?: unknown; pages?: unknown }

@@ -30,6 +30,10 @@ const PEOPLE: Person[] = [
 
 export const mockHr: HrAdapter = {
   async fetchPeople() {
+    // 테스트 전용 결함 주입 — 실 어댑터 예외(throw)·무응답(hang)에 대한 포털 내성(v1.5.16~17)
+    // 검증용. 목업은 데모 대체물이므로 여기 두어도 실 고객 어댑터엔 영향 없다. 미설정 시 정상.
+    if (process.env.PORTAL_FAULT_HR === 'throw') throw new Error('주입된 인사 어댑터 장애 (테스트)')
+    if (process.env.PORTAL_FAULT_HR === 'hang') return new Promise<Person[]>(() => { /* 무응답 → withTimeout 이 끊는다 */ })
     return PEOPLE
   },
 }

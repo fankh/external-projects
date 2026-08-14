@@ -605,6 +605,21 @@ def sc_export_kind_scope(pg, base, check):
     check('150' not in csv, '투자 export 가 크로스-kind 비용 지급을 제외 (수정 전이면 150 등장)')
 
 
+def sc_adapter_fault(pg, base, check):
+    """어댑터 결함 내성 (v1.5.16 throw·v1.5.17 hang→timeout) — 인사 어댑터가 예외·무응답이어도
+    수동 동기화가 화면을 죽이지 않고(200·무크래시) 실패로 기록한다. PORTAL_FAULT_HR 로 주입."""
+    login(pg, base, '시스템관리자')
+    # 페이지 로드가 성공하는 것 자체가 hang 내성 검증 — 자가진단(conformance)도 withTimeout 로
+    # 감싸져 무응답 어댑터에 매달리지 않는다(예전엔 여기서 goto 가 무한 대기).
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.click('button:has-text("인사정보 즉시 동기화")')
+    # 서버 액션 재렌더 대기 — networkidle 은 POST 전에 통과할 수 있어 실패 기록 셀렉터로 기다린다
+    pg.wait_for_selector('text=연동 예외', timeout=15000)
+    body = pg.content()
+    check('연동 예외' in body, '어댑터 결함 → 동기화 실패로 기록 (연동 예외)')
+    check('문제가 발생' not in body and 'Application error' not in body, '어댑터 결함에도 화면 정상 렌더(무크래시)')
+
+
 def sc_codes(pg, base, check):
     """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
@@ -1174,6 +1189,10 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(FYEAR_DATA)}),
     ('export_kind_scope', 'export 투자 집계 kind 스코프(크로스-kind 오염 제외)', sc_export_kind_scope,
      {'PORTAL_DATA_FILE': str(XKIND_DATA)}),
+    ('adapter_throw', '어댑터 예외 내성 — 인사 동기화 throw 시 실패 기록·무크래시(v1.5.16)', sc_adapter_fault,
+     {'PORTAL_FAULT_HR': 'throw'}),
+    ('adapter_hang', '어댑터 무응답 내성 — 인사 동기화 hang→timeout 시 실패 기록·무크래시(v1.5.17)', sc_adapter_fault,
+     {'PORTAL_FAULT_HR': 'hang', 'PORTAL_ADAPTER_TIMEOUT_MS': '500'}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
