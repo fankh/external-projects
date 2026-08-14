@@ -24,7 +24,7 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
     const next = ap.queue[0]
     ap.queue = ap.queue.length > 1 ? ap.queue.slice(1) : undefined
     audit(me.name, '결재 승인', `${ap.id} ${ap.docType} — ${ap.title} (중간 승인 → ${next} 회부)`)
-    const myTodo = s.todos.find((t) => t.owner === me.name && t.kind === '결재' && t.title.includes(id) && !t.done)
+    const myTodo = s.todos.find((t) => t.owner === me.name && t.kind === '결재' && t.title.startsWith(`${id} `) && !t.done)
     if (myTodo) myTodo.done = true
     ap.approver = next
     s.todos.unshift({
@@ -153,7 +153,7 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
   }
 
   // 폐쇄 루프 2 — 내 할일 목록의 해당 결재 건이 자동으로 닫힌다
-  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '결재' && t.title.includes(id) && !t.done)
+  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '결재' && t.title.startsWith(`${id} `) && !t.done)
   if (todo) todo.done = true
 
   revalidatePath('/', 'layout')
@@ -206,7 +206,7 @@ export async function withdraw(formData: FormData) {
   }
 
   // 회수된 문서는 결재자의 처리 대상에서 빠진다 — '결재' 할일을 닫는다
-  const todo = s.todos.find((t) => t.owner === ap.approver && t.kind === '결재' && t.title.includes(id) && !t.done)
+  const todo = s.todos.find((t) => t.owner === ap.approver && t.kind === '결재' && t.title.startsWith(`${id} `) && !t.done)
   if (todo) todo.done = true
 
   revalidatePath('/', 'layout')

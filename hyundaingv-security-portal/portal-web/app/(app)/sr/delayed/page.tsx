@@ -10,9 +10,12 @@ async function replan(formData: FormData) {
   await requireMenuRole('/sr/delayed', 'BIZ_MGR', 'ADMIN')
   const srNo = String(formData.get('srNo') ?? '')
   const dueDate = String(formData.get('dueDate') ?? '')
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return
+  // 재계획일은 형식 + 미래(오늘 이상)만 — 과거일로 지연 회피/오분류를 막는다(input min={t} 는 클라이언트 전용)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || dueDate < today()) return
   const s = getStore()
-  const sr = s.srRequests.find((r) => r.srNo === srNo)
+  // 배정 후 진행중(dueDate 보유·비종결) SR 만 재계획 — 임의 POST 로 완료·반려·미배정(CI배정, dueDate 없음)
+  // SR 의 dueDate 를 덮어써 지연목록·SR지연 알림에 오분류로 넣는 것을 차단(assignCi 의 CI배정 상태 가드와 정합).
+  const sr = s.srRequests.find((r) => r.srNo === srNo && r.dueDate && !['완료', '반려', '작성중', '결재중'].includes(r.status))
   if (sr) sr.dueDate = dueDate
   revalidatePath('/', 'layout')
 }

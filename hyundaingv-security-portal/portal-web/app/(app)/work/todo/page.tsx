@@ -20,6 +20,7 @@ const KIND_HREF: Record<TodoItem['kind'], { href: string; label: string }> = {
 /** 반려 재상신 할일은 제목의 문서 유형 태그로 해당 업무 화면을 찾는다 (태그 없는 과거 할일은 SR 기본) */
 const RESUBMIT_HREF: [string, string][] = [
   ['SR 신청', '/sr/requests'],
+  ['적용요청 상신', '/sr/manage'],  // 적용요청서 재상신은 SR 관리 화면(테스트 상태 submitApply) — /sr/requests 엔 재상신 버튼 없음
   ['투자 정산품의', '/finance/invest'],
   ['비용 정산품의', '/finance/expense'],
   ['장애보고 상신', '/infra/incidents'],

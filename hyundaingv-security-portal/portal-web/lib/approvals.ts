@@ -76,7 +76,8 @@ export function draftApproval(opts: {
     // 비회전 문서는 소유자 일치도 요구한다 — 공유 워크스페이스 교차 재상신자는 페이지 레벨 소유자무관
     // 닫기(SR submitApply·변경 closeChangeResignTodo·점검 registerResult)가 담당한다.
     if (opts.ref && t.owner === opts.drafter.name && t.title.startsWith(`[${opts.docType}] ${opts.ref} `)) { t.done = true; continue }
-    // 회전 문서(장애·서약·부서서약·출력물폐기)는 재상신마다 ref 가 바뀌어 참조 일치가 불가능하다 —
+    // 회전 문서(장애보고·서약현황·출력물폐기)는 재상신마다 ref 가 바뀌어 참조 일치가 불가능하다 —
+    // (부서서약은 v1.5.84 에서 ref=부서명 안정키로 비회전화돼 위 ref-exact 경로로 닫힌다) —
     // docType 의 가장 오래된 열린 재상신 1건을 '소유자 무관하게' 닫는다(재상신 1회 = 반려 1건 해소, 개수
     // 일치 불변식). 공유 관리자 워크스페이스에서 재상신자≠원 기안자여도 원 기안자 고아 할일·'반려 방치'
     // 무한 알림이 남지 않게 owner 게이트를 두지 않는다(비회전의 페이지레벨 소유자무관 닫기와 동일 취지).

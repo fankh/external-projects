@@ -40,6 +40,7 @@ CHST_DATA = ROOT / 'scripts' / '.e2e-chst-data.json'  # channelStates 비불리�
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
+APPLYROUTE_DATA = ROOT / 'scripts' / '.e2e-applyroute-data.json'  # 적용요청 재상신 할일 라우팅 회귀용 (v1.5.85)
 
 
 def login(pg, base, name):
@@ -930,6 +931,17 @@ def sc_deptpledge_resign(pg, base, check):
           '무관한 타 부서 fresh 상신 → 반려 부서 재상신 할일 과다마감 안 됨(잔존)')
 
 
+def sc_apply_resubmit_route(pg, base, check):
+    """적용요청 재상신 할일 라우팅(v1.5.85) — 적용요청 상신 반려 재상신 할일의 '재상신하기' 링크가 /sr/manage
+    (submitApply 재상신처)로 가야 한다. RESUBMIT_HREF 에 적용요청 상신 누락 시 KIND_HREF 폴백으로 /sr/requests
+    (테스트 상태 SR 엔 재상신 버튼 없음)로 빠져 폐쇄루프 데드엔드·반려방치 알림 무한. 적용요청 재상신 할일 주입."""
+    login(pg, base, '박정호')  # 재상신 할일 소유자
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    href = pg.locator('a:has-text("재상신하기")').first.get_attribute('href')
+    check(href is not None and href.endswith('/sr/manage'),
+          f'적용요청 상신 재상신 할일 → /sr/manage 라우팅 (실제 {href})')
+
+
 def sc_codes(pg, base, check):
     """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
@@ -1554,6 +1566,8 @@ SCENARIOS = [
      {'PORTAL_FAULT_SECDATA': 'badfield', 'PORTAL_DATA_FILE': str(SECBAD_DATA)}),
     ('deptpledge_resign', '부서서약 fresh 상신 과다마감 방지 — 무관 부서 상신이 반려 재상신 할일 안 닫음', sc_deptpledge_resign,
      {'PORTAL_DATA_FILE': str(DPLGRESIGN_DATA)}),
+    ('apply_resubmit_route', '적용요청 재상신 할일 라우팅 — /sr/manage(재상신처)로 안내', sc_apply_resubmit_route,
+     {'PORTAL_DATA_FILE': str(APPLYROUTE_DATA)}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
@@ -1802,6 +1816,10 @@ def main() -> int:
         'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
                    'title': '[부서서약 현황 상신] 개발1팀 반려 — 보완 후 재상신 (사유: 보완요망)'}],
     }, ensure_ascii=False), encoding='utf-8')
+    APPLYROUTE_DATA.write_text(json.dumps({
+        'todos': [{'id': 'TD-9005', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
+                   'title': '[적용요청 상신] SR-2026-9002 반려 — 보완 후 재상신 (사유: 보완요망)'}],
+    }, ensure_ascii=False), encoding='utf-8')
     ROT_ORPHAN_DATA.write_text(json.dumps({
         'incidents': [{'id': 'FL-2026-91', 'system': 'ERP', 'title': '회전고아테스트', 'grade': '2등급',
                        'occurredAt': '2026-08-01', 'status': '조치완료', 'reportStatus': '미상신',
@@ -1835,6 +1853,7 @@ def main() -> int:
     ROT_ORPHAN_DATA.unlink(missing_ok=True)
     SECBAD_DATA.unlink(missing_ok=True)
     DPLGRESIGN_DATA.unlink(missing_ok=True)
+    APPLYROUTE_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
