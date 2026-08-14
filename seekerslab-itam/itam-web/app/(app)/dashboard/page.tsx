@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isQnaOverdue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { hasDataIssue } from '@/lib/quality'
@@ -400,11 +400,20 @@ export default async function DashboardPage() {
               {session.role !== 'USER'
                 ? (() => {
                     const waiting = s.posts.filter((p) => p.kind === 'QnA' && !p.answer)
+                    const overdue = waiting.filter((p) => isQnaOverdue(p))
                     return waiting.length > 0 ? (
-                      <Link href="/board/qna" className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
-                        <span className="hstack" style={{ gap: 6 }}><Chip tone="warn" bare>답변 대기</Chip> 사용자 문의</span>
-                        <span><b>{waiting.length}</b>건 →</span>
-                      </Link>
+                      <>
+                        <Link href="/board/qna" className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                          <span className="hstack" style={{ gap: 6 }}><Chip tone="warn" bare>답변 대기</Chip> 사용자 문의</span>
+                          <span><b>{waiting.length}</b>건 →</span>
+                        </Link>
+                        {overdue.length > 0 && (
+                          <Link href="/board/qna" className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none', borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+                            <span className="hstack" style={{ gap: 6 }}><Chip tone="err" bare>SLA 경과</Chip> 미답변 지연 (답변 독촉)</span>
+                            <span><b>{overdue.length}</b>건 →</span>
+                          </Link>
+                        )}
+                      </>
                     ) : <div className="mut">답변 대기 중인 문의가 없습니다.</div>
                   })()
                 : (() => {

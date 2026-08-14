@@ -766,6 +766,13 @@ try {
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const notifBody = (await p3.locator('body').textContent()) || ''
   ok('장애 신고 수리 완료: 신고자(김민준)에게 수리 결과 통보(발송 이력 적재)', notifBody.includes('수리 결과') && notifBody.includes('사용 재개 (반환 완료)') && notifBody.includes('김민준'))
+  // QnA 답변 독촉(루프 58) — SLA 경과 미답변 문의(시드 QNA-01/02, 미답변)의 담당 팀에 답변 처리를 재촉. 결재 지연 독촉의 QnA 판. 당일 중복 차단.
+  await p3.goto(`${BASE}/board/qna`, { waitUntil: 'networkidle' })
+  const qnaRemindBtn = p3.locator('button', { hasText: /^답변 독촉 발송 \(\d+\)$/ })
+  ok('QnA 답변 독촉: SLA 경과 미답변 있으면 담당자에 독촉 버튼 노출', (await qnaRemindBtn.count()) > 0)
+  await qnaRemindBtn.click()
+  await p3.waitForTimeout(700)
+  ok('QnA 답변 독촉: 발송 성공(담당 팀 답변 요청·발송 이력)', ((await p3.locator('body').textContent()) || '').includes('QnA 답변 독촉') && ((await p3.locator('body').textContent()) || '').includes('발송'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──

@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { isQnaOverdue, qnaAgeDays, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -56,6 +56,28 @@ export async function answerQuestion(postId: string, body: string) {
   appendAudit({ actor: session.name, action: `QnA 답변 등록${wasAnswered ? ' (수정)' : ' · 작성자 통보'}`, target: postId })
   revalidatePath('/', 'layout')
   return { ok: true, message: `답변이 등록되었습니다${wasAnswered ? '' : ` — 작성자(${post.author})에게 알림 발송`}.` }
+}
+
+/** QnA 답변 독촉 — 등록 후 SLA(기본 3일)를 넘겨도 답변이 없는 문의의 담당 팀에 답변 처리를 재촉한다.
+ *  (헬프데스크 SLA — 결재 지연 독촉·필독 미확인 안내와 같은 컴플라이언스 독촉. 응답 지연이 표시로만 끝나지 않게 한다.)
+ *  문의 분류별 담당 팀(접수 통보와 같은 라우팅)으로 발송하고, 문의별 당일 중복 발송은 차단한다. 자산담당·보안담당·Admin. */
+export async function remindQna() {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: 'QnA 답변 독촉 권한이 없습니다 (담당자·Admin).' }
+  const s = getStore()
+  const t = today()
+  const teamOf = (c?: string) => (c === '보안·Discovery' ? '보안운영팀' : c === '라이선스' ? 'IT기획팀' : '자산관리팀')
+  const sentToday = new Set(s.dispatches.filter((m) => m.kind === 'QnA 독촉' && m.at.startsWith(t)).map((m) => m.ref))
+  let n = 0
+  for (const p of s.posts) {
+    if (!isQnaOverdue(p) || sentToday.has(p.id)) continue
+    dispatch({ channel: '이메일', to: teamOf(p.category), subject: `[QnA 답변 독촉] '${p.title}' — 등록 ${qnaAgeDays(p.createdAt)}일 경과, 답변 처리 부탁드립니다`, kind: 'QnA 독촉', ref: p.id })
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: 'QnA 답변 독촉 대상이 없습니다 (SLA 경과 미답변 없음·오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `QnA 답변 독촉 발송 (${n}건)`, target: 'SLA 경과 미답변 QnA' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `QnA 답변 독촉 ${n}건 발송 — SLA 경과 미답변 문의 담당 팀에 답변 요청 (발송 이력 적재)` }
 }
 
 /** QnA 문의 수정 — 작성자 본인 또는 Admin. 답변 전에만 가능(답변된 문의는 맥락이 고정된다). */
