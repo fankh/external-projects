@@ -750,6 +750,14 @@ try {
   check('분실·도난 신고서: 사용자 차단 (403)', (await get('/api/loss-report/AST-2023-000112', 'USER')).status === 403)
   check('분실·도난 신고서: 분실 상태 아님 자산은 대상 아님 (400)', (await get('/api/loss-report/AST-2023-000112', 'ASSET_MGR')).status === 400)
   check('분실·도난 신고서: 없는 자산 404', (await get('/api/loss-report/NOPE', 'ASSET_MGR')).status === 404)
+  // 대여 확인서 — 대여 중 자산의 반출 책임·반환 의무 서면 증적. 대여 중 아닌 자산은 대상 아님(400). 시드 AST-2024-000230(김민준 대여, 반환 2026-08-20).
+  check('대여 확인서: 미로그인 차단 (401)', (await get('/api/loan-agreement/AST-2024-000230')).status === 401)
+  check('대여 확인서: 사용자 차단 (403)', (await get('/api/loan-agreement/AST-2024-000230', 'USER')).status === 403)
+  check('대여 확인서: 대여 중 아닌 자산은 대상 아님 (400)', (await get('/api/loan-agreement/AST-2023-000112', 'ASSET_MGR')).status === 400)
+  const loanAgr = await (await get('/api/loan-agreement/AST-2024-000230', 'ASSET_MGR')).text()
+  check('대여 확인서: 대여자·반환 기한·대여 조건 렌더', loanAgr.includes('LOAN AGREEMENT') && loanAgr.includes('김민준') && loanAgr.includes('2026-08-20') && loanAgr.includes('대여 조건'))
+  const loanSel = await (await get('/assets/register?sel=AST-2024-000230', 'ASSET_MGR')).text()
+  check('자산 대장: 대여 중 자산 상세에 대여 확인서 인쇄 링크', loanSel.includes('/api/loan-agreement/AST-2024-000230'))
   // 수리중 자산 카드에 수리 의뢰(업체·예상반환) 행 — 상세·엑셀과 일관. 시드 AST-2024-000512(중부IT서비스)로 검증
   const cardRepair = await (await get('/api/asset-card/AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 카드: 수리중 자산에 수리 의뢰 행(업체·예상반환)', cardRepair.includes('수리 의뢰') && cardRepair.includes('중부IT서비스') && cardRepair.includes('예상반환 2026-07-28'))

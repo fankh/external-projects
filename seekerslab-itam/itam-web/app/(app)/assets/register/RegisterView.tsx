@@ -458,6 +458,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                           ? <Chip tone="warn" bare>반환 임박 D-{daysBetween(props.today, sel.loanDueDate)}</Chip>
                           : null
                     )}
+                    <a className="btn sm" href={`/api/loan-agreement/${sel.assetNo}`} target="_blank" rel="noopener"
+                      title="대여 확인서 인쇄 — 반출 책임·반환 의무 서면 증적">🖨 대여 확인서</a>
                   </dd>
                 </>
               )}
