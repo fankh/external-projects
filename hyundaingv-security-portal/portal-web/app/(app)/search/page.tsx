@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
-import { requireRole } from '@/lib/authz'
+import { effectiveRoles, requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
 
@@ -16,59 +16,69 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const { q } = await searchParams
   const query = (q ?? '').trim()
   const s = getStore()
-  const canManage = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
   const canViewFinance = me.role !== 'USER'  // 재무(계약·실적)는 관리자급만 — 화면 스코핑과 동일
-  const has = (...fields: (string | undefined)[]) => query !== '' && fields.some((f) => f?.includes(query))
+  // 검색은 화면 가드(requireMenu→effectiveRoles)와 동일한 런타임 권한을 따라야 한다 — me.role 리터럴로
+  // 게이트하면 메뉴권한(menuOverrides) 런타임 제한을 무시해, 화면에서 차단된 역할이 검색으로 데이터를
+  // 열람하는 우회 경로가 된다(요구 72행 통제 무력화). 각 도메인은 소속 화면 href 의 유효권한으로 게이트한다.
+  const canAccess = (href: string) => effectiveRoles(href).includes(me.role)
+  // 손상 데이터(문자열이어야 할 필드가 숫자 등)로 includes 가 500 나지 않도록 문자열로 강제 후 매칭
+  const has = (...fields: (string | undefined)[]) => query !== '' && fields.some((f) => String(f ?? '').includes(query))
 
-  // 각 도메인의 화면 스코핑을 그대로 따른다 — 검색이 권한 우회 경로가 되지 않도록
+  // 각 도메인의 화면 스코핑·런타임 권한을 그대로 따른다 — 검색이 권한 우회 경로가 되지 않도록
   const groups: { label: string; hits: Hit[] }[] = []
 
-  const srScoped = s.srRequests.filter((r) =>
-    me.role === 'USER' ? r.requester === me.name :
-    me.role === 'DEPT_MGR' ? r.dept === me.dept : true,
-  )
-  groups.push({
-    label: 'IT Request',
-    hits: srScoped.filter((r) => has(r.srNo, r.title, r.system, r.content)).map((r) => ({
-      href: `/sr/requests?q=${encodeURIComponent(r.srNo)}`,
-      code: r.srNo, title: r.title, meta: `${r.kind} · ${r.system} · ${srStatusLabel(r)}`,
-    })),
-  })
-
-  groups.push({
-    label: '게시판',
-    hits: [
-      ...s.notices.filter((n) => has(n.title)).map((n) => ({
-        href: '/board/notices', code: n.id, title: n.title, meta: `공지 · ${n.category} · ${n.postedAt}`,
-      })),
-      ...s.qna.filter((x) => has(x.title, x.answer)).map((x) => ({
-        href: '/board/qna', code: x.id, title: x.title, meta: `QnA · ${x.answer ? '답변완료' : '답변 대기'}`,
-      })),
-    ],
-  })
-
-  if (canViewFinance) {
+  if (canAccess('/sr/requests')) {
+    const srScoped = s.srRequests.filter((r) =>
+      me.role === 'USER' ? r.requester === me.name :
+      me.role === 'DEPT_MGR' ? r.dept === me.dept : true,
+    )
     groups.push({
-      label: 'IT 투자/비용',
-      hits: s.investContracts.filter((c) => has(c.id, c.title, c.vendor)).map((c) => ({
-        href: c.kind === '투자' ? '/finance/invest' : '/finance/expense',
-        code: c.id, title: c.title, meta: `${c.kind} 계약 · ${c.vendor} · ${c.amount.toLocaleString('ko-KR')}만원`,
+      label: 'IT Request',
+      hits: srScoped.filter((r) => has(r.srNo, r.title, r.system, r.content)).map((r) => ({
+        href: `/sr/requests?q=${encodeURIComponent(r.srNo)}`,
+        code: r.srNo, title: r.title, meta: `${r.kind} · ${r.system} · ${srStatusLabel(r)}`,
       })),
     })
   }
 
-  if (canManage) {
+  groups.push({
+    label: '게시판',
+    hits: [
+      ...(canAccess('/board/notices') ? s.notices.filter((n) => has(n.title)).map((n) => ({
+        href: '/board/notices', code: n.id, title: n.title, meta: `공지 · ${n.category} · ${n.postedAt}`,
+      })) : []),
+      ...(canAccess('/board/qna') ? s.qna.filter((x) => has(x.title, x.answer)).map((x) => ({
+        href: '/board/qna', code: x.id, title: x.title, meta: `QnA · ${x.answer ? '답변완료' : '답변 대기'}`,
+      })) : []),
+    ],
+  })
+
+  if (canViewFinance) {
+    // 계약은 종류별로 소속 화면이 다르다(투자→/finance/invest, 비용→/finance/expense) — 각 화면 유효권한으로 게이트
     groups.push({
-      label: '인프라 운영',
-      hits: [
-        ...s.incidents.filter((i) => has(i.id, i.title, i.system)).map((i) => ({
-          href: '/infra/incidents', code: i.id, title: i.title, meta: `장애 · ${i.system} · ${i.status}`,
+      label: 'IT 투자/비용',
+      hits: s.investContracts
+        .filter((c) => has(c.id, c.title, c.vendor) && canAccess(c.kind === '투자' ? '/finance/invest' : '/finance/expense'))
+        .map((c) => ({
+          href: c.kind === '투자' ? '/finance/invest' : '/finance/expense',
+          code: c.id, title: c.title, meta: `${c.kind} 계약 · ${c.vendor} · ${c.amount.toLocaleString('ko-KR')}만원`,
         })),
-        ...s.changes.filter((c) => has(c.id, c.title, c.srNo)).map((c) => ({
-          href: '/infra/changes', code: c.id, title: c.title, meta: `${c.kind}변경 · ${c.status}`,
-        })),
-      ],
     })
+  }
+
+  groups.push({
+    label: '인프라 운영',
+    hits: [
+      ...(canAccess('/infra/incidents') ? s.incidents.filter((i) => has(i.id, i.title, i.system)).map((i) => ({
+        href: '/infra/incidents', code: i.id, title: i.title, meta: `장애 · ${i.system} · ${i.status}`,
+      })) : []),
+      ...(canAccess('/infra/changes') ? s.changes.filter((c) => has(c.id, c.title, c.srNo)).map((c) => ({
+        href: '/infra/changes', code: c.id, title: c.title, meta: `${c.kind}변경 · ${c.status}`,
+      })) : []),
+    ],
+  })
+
+  if (canAccess('/projects/status')) {
     groups.push({
       label: '프로젝트',
       hits: s.projects.filter((p) => has(p.id, p.title)).map((p) => ({
@@ -92,7 +102,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
       {query === '' ? (
         <div className="callout">
-          <b>통합 검색</b> — SR·공지·QnA·계약{canManage ? '·장애·변경·프로젝트' : ''} 를 한 번에 찾는다.
+          <b>통합 검색</b> — SR·공지·QnA·계약{canAccess('/infra/incidents') || canAccess('/projects/status') ? '·장애·변경·프로젝트' : ''} 를 한 번에 찾는다.
           예: <span className="mono">SR-2026</span>, <span className="mono">ERP</span>, <span className="mono">보안패치</span>
         </div>
       ) : total === 0 ? (

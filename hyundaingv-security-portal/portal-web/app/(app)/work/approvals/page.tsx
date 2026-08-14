@@ -85,7 +85,12 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const rotating = selected ? ROTATING_DOC_TYPES.includes(selected.docType) : false
   const history = selected?.ref
     ? s.approvals.filter((a) => a.id !== selected.id && (rotating
+        // 회전 문서는 회차마다 ref 가 바뀌어 유형·기안자로 잇지만, 그 매칭만으로는 같은 기안자의
+        // '별개 묶음'(내가 결재자·기안자가 아니어서 볼 권한 없는 타 관리자 심사 건)까지 끌려온다 →
+        // 신원 게이트(selected 는 line 81 에서 이미 본인 결재/기안만)를 이력에도 재적용: 이력 행도
+        // 내가 결재자이거나 기안자였던 회차만 노출(기안자 조회 시 selected.drafter===me 라 본인 전 회차 유지).
         ? a.docType === selected.docType && a.drafter === selected.drafter && a.id < selected.id
+          && (a.approver === me.name || a.drafter === me.name)
         // 같은 ref 라도 문서 유형이 다르면 다른 문서다 — SR 신청과 적용요청 상신은 같은 SR 번호를
         // ref 로 공유하므로, docType 도 맞춰야 '이전 회차'에 다른 유형 결재가 새어들지 않는다.
         : a.ref === selected.ref && a.docType === selected.docType))

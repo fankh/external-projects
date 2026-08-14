@@ -122,8 +122,8 @@ export default async function IncidentsPage() {
           <table className="tbl">
             <thead><tr><th>발생월</th>{allGrades.map((g) => <th key={g} className="num">{g}</th>)}<th className="num">계</th><th className="num">조치완료</th></tr></thead>
             <tbody>
-              {[...new Set(s.incidents.map((i) => i.occurredAt.slice(0, 7)))].sort().reverse().map((m) => {
-                const rows = s.incidents.filter((i) => i.occurredAt.startsWith(m))
+              {[...new Set(s.incidents.map((i) => String(i.occurredAt ?? '').slice(0, 7)))].sort().reverse().map((m) => {
+                const rows = s.incidents.filter((i) => String(i.occurredAt ?? '').startsWith(m))
                 return (
                   <tr key={m}>
                     <td className="tnum strong">{m}</td>

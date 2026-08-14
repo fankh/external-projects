@@ -44,7 +44,8 @@ export function deployReadiness(): ReadinessItem[] {
     },
     {
       key: 'HTTPS 쿠키',
-      level: cookieSecure ? 'ok' : 'info',
+      // 프로덕션에서 Secure 미설정이면 세션 쿠키가 평문으로 샐 수 있다 — 세션 키와 동등하게 경고로 노출.
+      level: cookieSecure ? 'ok' : (prod ? 'warn' : 'info'),
       value: cookieSecure ? 'Secure' : '미설정',
       detail: cookieSecure ? '세션 쿠키 Secure 속성' : 'HTTPS 종단 배포면 PORTAL_COOKIE_SECURE=1 권장',
     },

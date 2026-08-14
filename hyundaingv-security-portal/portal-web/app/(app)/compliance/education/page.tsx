@@ -35,9 +35,12 @@ async function registerAttendees(formData: FormData) {
   // 교육 결과·명단 증빙 — 같은 과정번호(pk)에 합산 (첨부 시트: 교육결과관리)
   registerUpload(courseId, formData.get('file'), me.name)
 
+  const eligibleNames = new Set(eligibleForCourse(s, course.target).map((p) => p.name))
   for (const name of names) {
     const person = s.people.find((p) => p.name === name)
-    if (!person || s.educationRecords.some((r) => r.courseId === courseId && r.name === name)) continue
+    // 과정 대상 스코프 밖 인원은 이수 기록 대상이 아니다 — 화면은 대상자만 체크박스로 노출하나 서버액션은
+    // 임의 POST 가능하므로 재검증한다(비대상 기록이 들어가면 완료 확정·이수율이 왜곡된다, v1.5.51 단일 원천).
+    if (!person || !eligibleNames.has(name) || s.educationRecords.some((r) => r.courseId === courseId && r.name === name)) continue
     s.educationRecords.push({ courseId, name: person.name, dept: person.dept, completedAt: today() })
 
     // 폐쇄 루프 — 명단 등록이 '해당 과정의' 보안교육 할일을 닫는다. 유형만으로 닫으면 다른 과정을
@@ -46,8 +49,9 @@ async function registerAttendees(formData: FormData) {
     const todo = s.todos.find((t) => t.owner === name && t.kind === '보안교육' && !t.done && t.title.includes(course.title))
     if (todo) todo.done = true
   }
-  // 유효 이수자가 한 명도 없는 과정은 완료로 확정하지 않는다 — 빈 완료 과정은 이수율 집계를 왜곡한다
-  if (s.educationRecords.some((r) => r.courseId === courseId)) course.status = '완료'
+  // 유효(대상) 이수자가 한 명도 없는 과정은 완료로 확정하지 않는다 — 대상 밖 기록만으론 완료가 되지 않게
+  // 대상 스코프 이수자 존재를 확인한다(빈/왜곡 완료 과정이 이수율 집계를 흔드는 것을 방지).
+  if (eligibleNames.size > 0 && s.educationRecords.some((r) => r.courseId === courseId && eligibleNames.has(r.name))) course.status = '완료'
   revalidatePath('/', 'layout')
 }
 

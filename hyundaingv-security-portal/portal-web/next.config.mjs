@@ -27,6 +27,9 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'same-origin' },
+          // HTTPS 강제 — 세션 쿠키가 평문(http)으로 새지 않도록 브라우저가 이후 요청을 https 로 승격한다.
+          // (http 응답에 실린 HSTS 는 브라우저가 무시하므로 http 데모·게이트에는 영향 없음, HTTPS 배포만 강화)
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
           { key: 'Content-Security-Policy', value: CSP },
           // 포털이 쓰지 않는 브라우저 기능은 명시적으로 봉쇄한다
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },

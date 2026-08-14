@@ -109,7 +109,20 @@ async function main() {
   //    + 정상 부분(people 배열)이 공존. 서버가 죽지 않고 오염 키/요소는 걸러지고 정상은 머지돼야 한다.
   //    codeGroups 요소 오염: /settings/codes 가 g.values.length 를 원시 요소에서 접근하면 500 —
   //    요소 수준 방어(loadFromFile)가 원시값을 걸러 정상 그룹만 남겨야 한다.
-  const corrupt = { ...emptyStore, srRequests: 'corrupt', incidents: 42, notices: { bad: 1 }, todos: null,
+  const corrupt = { ...emptyStore, srRequests: 'corrupt', todos: null,
+    // 요소의 필수 문자열 필드 '누락'(undefined) — 머지 strFields 는 옵셔널 보존 위해 undefined 는 안 건드리므로
+    // 소비처 호출부가 String(?? '')로 방어해야 한다. notice.postedAt 누락(정렬 localeCompare)·incident.occurredAt
+    // 누락(.slice/.startsWith)이라도 /board/notices·/infra/incidents 가 500 나면 안 된다.
+    notices: [{ id: 'NT-9', title: '공지t', category: '공지', author: '시스템관리자' },
+      { id: 'NT-10', title: '공지t2', category: '보안', author: '시스템관리자', postedAt: '2026-08-01' }],
+    // 요소 수준 문자열 오염 — 컬렉션은 정상 배열이나 요소의 문자열 필드가 숫자/누락(수기편집·부분저장).
+    // incidents.occurredAt 숫자(present-wrong-type→머지 strFields 가 문자열 강제)·systems.name 누락
+    // (undefined→incidentsOf 호출부 String 방어)이라도 /infra/incidents·/infra/systems 가 500 나면 안 된다.
+    incidents: [{ id: 'FL-9', system: 'ERP', title: 't', grade: '2등급', occurredAt: 20260718, status: '조치완료', reportStatus: '미상신' },
+      { id: 'FL-10', system: 'ERP', title: 't2', grade: '2등급', status: '조치중', reportStatus: '미상신' }],
+    systems: [{ id: 'SYS-9', url: 'https://x.internal', env: '운영계', serverIds: [], owner: '김현우' }],
+    // auditLogs.action 누락 → /settings/audit 의 l.action.includes 가 500 나면 안 된다(호출부 String 방어).
+    auditLogs: [{ at: '2026-08-14 10:00:00', actor: '시스템관리자', detail: 'x' }],
     // 요소 오염: 원시값(걸러짐) + 객체지만 values 누락(정규화로 []) + 정상 그룹. 셋 다 /settings/codes
     // 의 g.values.length·activeCodes 소비처를 500 내지 않아야 한다(요소 필터 + 중첩 필드 정규화).
     codeGroups: ['garbage', 42, null, { id: 'SR_KIND', name: 'SR유형(값누락)' },

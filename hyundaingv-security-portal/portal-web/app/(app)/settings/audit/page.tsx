@@ -13,7 +13,11 @@ export default async function AuditPage() {
   const s = getStore()
   // '결재 상신'(v1.0.6)까지 startsWith 로 세면 상신마다 처리 건수가 부풀므로 승인·반려만 센다
   const decisions = s.auditLogs.filter((l) => l.action === '결재 승인' || l.action === '결재 반려').length
-  const configs = s.auditLogs.filter((l) => l.action.includes('변경') || l.action.includes('개정')).length
+  // 손상 파일이 로그의 action 을 누락·비문자열로 남겨도 .includes 가 500 나지 않게 문자열로 방어
+  // (머지 strFields 는 비문자열은 강제하나 누락 undefined 는 옵셔널 보존 위해 두므로 호출부에서 방어)
+  // 손상 파일이 로그의 action 을 누락·비문자열로 남겨도 .includes 가 500 나지 않게 문자열로 방어
+  // (머지 strFields 는 비문자열은 강제하나 누락 undefined 는 옵셔널 보존 위해 두므로 호출부에서 방어)
+  const configs = s.auditLogs.filter((l) => { const a = String(l.action ?? ''); return a.includes('변경') || a.includes('개정') }).length
 
   return (
     <>

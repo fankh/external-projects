@@ -174,6 +174,7 @@ async function main() {
       '헤더: Content-Security-Policy (self 한정·object/frame 봉쇄)')
     check(!csp.includes('unsafe-eval'), '헤더: 프로덕션 CSP 에 unsafe-eval 없음')
     check((hdr.headers.get('permissions-policy') ?? '').includes('camera=()'), '헤더: Permissions-Policy 기능 봉쇄')
+    check((hdr.headers.get('strict-transport-security') ?? '').includes('max-age='), '헤더: Strict-Transport-Security (HTTPS 강제)')
   }
 
   // 3) 구현 화면 — SSR 본문 내용 검증

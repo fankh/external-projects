@@ -34,6 +34,7 @@ DPLG_DATA = ROOT / 'scripts' / '.e2e-dplg-data.json'  # 대시보드 일반 서�
 SMOV_DATA = ROOT / 'scripts' / '.e2e-smov-data.json'  # 통합 검색 런타임 메뉴권한 정합 회귀용 (v1.5.56)
 ATDUP_DATA = ROOT / 'scripts' / '.e2e-atdup-data.json'  # 자동첨부 교차일 중복 방지 회귀용 (v1.5.57)
 NCRASH_DATA = ROOT / 'scripts' / '.e2e-ncrash-data.json'  # 알림 배치 손상 title 할일 내성 회귀용 (v1.5.58)
+APPLY_DATA = ROOT / 'scripts' / '.e2e-apply-data.json'  # 적용요청 상신 교차-기안자 고아 할일 회귀용 (v1.5.60)
 
 
 def login(pg, base, name):
@@ -496,6 +497,20 @@ def sc_remote_overlap(pg, base, check):
     check(rows == 1, f'인접 재택 기간(경계월) → 당월 명단 1회 (이중 집계면 2행; 실제 {rows}행)')
     # 통계 stat 도 같은 인원을 둘로 세면 안 된다 — 당월 대상은 한지원 1명뿐
     check('대상 1명' in pg.locator('.stat-row').inner_text(), '대상 통계도 1명 (경계월 중복 제거)')
+
+
+def sc_apply_resign_orphan(pg, base, check):
+    """적용요청 상신 교차-기안자 고아 할일(v1.5.60) — /sr/manage 공유 워크스페이스에서 재상신자(ADMIN)가 원
+    기안자(박정호)와 달라도 반려 재상신 할일이 소유자 무관하게 닫혀야 한다(변경 closeChangeResignTodo 동일 결함).
+    과거 반려 재상신 할일(owner 박정호) + 테스트 상태 SR 주입 → ADMIN 이 적용요청 상신 → 고아 마감 확인."""
+    login(pg, base, '시스템관리자')  # ADMIN — 원 기안자(박정호)와 다른 재상신자
+    pg.goto(f'{base}/sr/manage', wait_until='networkidle')
+    pg.locator('tr', has_text='적용요청고아테스트').locator('button:has-text("적용요청서 상신")').click()
+    pg.wait_for_load_state('networkidle')
+    login(pg, base, '박정호')  # 원 기안자 — 고아 할일 소유자
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    open_card = pg.locator('.card', has_text='미처리 할일')
+    check('SR-2026-9001' not in open_card.inner_text(), '교차 재상신자 적용요청 상신 → 원 기안자 재상신 고아 할일 마감')
 
 
 def sc_notify_corrupt_todo(pg, base, check):
@@ -1408,6 +1423,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(ATDUP_DATA)}),
     ('notify_corrupt_todo', '알림 배치 손상 title 할일 내성 — 크래시 없이 완료', sc_notify_corrupt_todo,
      {'PORTAL_DATA_FILE': str(NCRASH_DATA)}),
+    ('apply_resign_orphan', '적용요청 상신 교차-기안자 고아 할일 마감', sc_apply_resign_orphan,
+     {'PORTAL_DATA_FILE': str(APPLY_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -1612,6 +1629,14 @@ def main() -> int:
         'todos': [{'id': 'TD-9001', 'owner': '김현우', 'kind': '보안서약서', 'done': False}],
         'batchRuns': [],
     }, ensure_ascii=False), encoding='utf-8')
+    # apply_resign_orphan 시나리오용 — 테스트 상태 시스템개발 SR + 원 기안자(박정호) 소유 적용요청 반려
+    # 재상신 할일. 다른 재상신자(ADMIN)가 적용요청 상신 시 소유자 무관 마감이 없으면 고아로 남는다.
+    APPLY_DATA.write_text(json.dumps({
+        'srRequests': [{'srNo': 'SR-2026-9001', 'kind': '시스템개발', 'title': '적용요청고아테스트', 'system': 'ERP',
+                        'requester': '김현우', 'dept': '개발1팀', 'status': '테스트', 'requestedAt': '2026-08-01'}],
+        'todos': [{'id': 'TD-9001', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
+                   'title': '[적용요청 상신] SR-2026-9001 반려 — 보완 후 재상신 (사유: 보완요망)'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -1632,6 +1657,7 @@ def main() -> int:
     SMOV_DATA.unlink(missing_ok=True)
     ATDUP_DATA.unlink(missing_ok=True)
     NCRASH_DATA.unlink(missing_ok=True)
+    APPLY_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)

@@ -50,6 +50,12 @@ async function submitApply(formData: FormData) {
   // 적용요청서 첨부 — SR 번호(pk) 공유 (요구 명세: 첨부파일 추가 기능 있음)
   registerUpload(srNo, formData.get('file'), me.name)
   draftApproval({ docType: '적용요청 상신', title: `[SR적용요청서] ${sr.title}`, ref: srNo, drafter: me })
+  // /sr/manage 는 공유 워크스페이스(담당·Admin) — 재상신자가 원 기안자와 다르면 draftApproval 의 기안자-매칭
+  // 닫기가 놓쳐 반려 재상신 할일이 고아로 남고 '반려 방치' 알림이 무한 반복된다(변경의 closeChangeResignTodo
+  // 와 동일 결함). 유형+SR번호 선두 고정으로 소유자 무관하게 닫아 폐쇄 루프를 만든다.
+  for (const t of s.todos) {
+    if (!t.done && t.kind === '재상신' && t.title.startsWith(`[적용요청 상신] ${srNo} `)) t.done = true
+  }
   revalidatePath('/', 'layout')
 }
 

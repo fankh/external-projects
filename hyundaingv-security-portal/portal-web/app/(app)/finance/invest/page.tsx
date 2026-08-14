@@ -60,7 +60,9 @@ async function confirmPlan(formData: FormData) {
 
 async function addContract(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/finance/invest', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  // 계약 등록은 전사 재무(계약 카드=canViewFinance 섹션)라 USER 제외 — 화면 섹션 가드와 액션 가드를
+  // 일치시킨다(정산 상신 requestSettlement 와 동일 DEPT_MGR+). USER 는 직접 POST 로도 전사 계약을 못 만든다.
+  const me = await requireMenuRole('/finance/invest', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
@@ -147,7 +149,7 @@ export default async function InvestPage() {
       {canViewFinance && (
         <div className="stat-row">
           <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`과제 ${confirmed.length}건`} />
-          <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${s.investContracts.length}건`} />
+          <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
           <Stat value={<>{fmt(paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
           <Stat value={`${planTotal ? Math.round((paidConfirmed / planTotal) * 100) : 0}%`} label="계획 대비 집행률" />
         </div>

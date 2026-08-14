@@ -25,8 +25,12 @@ export function registerGenerated(refId: string, docType: string, by: string): v
   const s = getStore()
   const t = s.excelTemplates.find((x) => x.docType === docType) ?? s.excelTemplates.find((x) => x.docType === '공통')
   if (!t) return
-  const name = `${t.name}_v${t.version}_${today()}.xlsx`
-  if (s.attachments.some((a) => a.refId === refId && a.name === name)) return
+  const prefix = `${t.name}_v${t.version}_`
+  const name = `${prefix}${today()}.xlsx`
+  // 같은 참조에 같은 양식(이름·버전)이 이미 있으면 재생성하지 않는다 — 날짜를 뺀 접두로 비교해, 반려·회수
+  // 후 다른 날 재상신해도 자동첨부가 중복 누적되지 않게 한다(기존엔 파일명에 today() 가 들어가 당일만 방어).
+  // 양식 버전이 올라가면 접두가 달라져 새 양식은 정상적으로 재생성된다.
+  if (s.attachments.some((a) => a.refId === refId && a.name.startsWith(prefix))) return
   s.attachments.push({
     id: nextNo('AT', today().slice(0, 4), s.attachments.map((a) => a.id)),
     refId, name, sizeKb: 12, uploadedBy: by, at: today(),

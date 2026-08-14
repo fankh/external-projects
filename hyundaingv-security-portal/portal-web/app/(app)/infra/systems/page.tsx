@@ -90,8 +90,14 @@ export default async function SystemsPage() {
   const s = getStore()
 
   const diskWarns = s.servers.filter((v) => v.diskUsedPct > DISK_WARN)
-  const incidentsOf = (systemName: string) =>
-    s.incidents.filter((i) => i.system === systemName || i.system === systemName.replace(' (개발계)', ''))
+  // 손상 파일이 system.name 을 누락·비문자열로 남기면 .replace 가 500 을 낸다(머지 strFields 정규화는
+  // 비문자열은 강제하나 누락(undefined)은 옵셔널 보존을 위해 두므로, 여기서 문자열로 방어한다).
+  // 손상 파일이 system.name 을 누락·비문자열로 남기면 .replace 가 500 을 낸다(머지 strFields 정규화는
+  // 비문자열은 강제하나 누락(undefined)은 옵셔널 보존을 위해 두므로, 여기서 문자열로 방어한다).
+  const incidentsOf = (systemName: string) => {
+    const n = String(systemName ?? '')
+    return s.incidents.filter((i) => i.system === n || i.system === n.replace(' (개발계)', ''))
+  }
   const physicals = s.hardware.filter((h) => h.kind === '물리서버')
 
   return (

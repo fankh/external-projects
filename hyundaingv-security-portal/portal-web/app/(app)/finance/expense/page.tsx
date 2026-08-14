@@ -61,7 +61,8 @@ async function confirmPlan(formData: FormData) {
 
 async function addContract(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  // 계약 등록은 전사 재무 섹션(canViewFinance)이라 USER 제외 — 섹션 가드와 액션 가드 일치(DEPT_MGR+)
+  const me = await requireMenuRole('/finance/expense', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const amount = Number(formData.get('amount'))
@@ -82,7 +83,8 @@ async function addContract(formData: FormData) {
 
 async function addFlash(formData: FormData) {
   'use server'
-  await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  // 속보(월별 지불 예상)는 전사 재무 섹션(canViewFinance)이라 USER 제외 — 섹션·액션 가드 일치(DEPT_MGR+)
+  await requireMenuRole('/finance/expense', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const month = String(formData.get('month') ?? '')
   const vendor = String(formData.get('vendor') ?? '').trim().slice(0, 60)
   const expected = Number(formData.get('expected'))
@@ -100,7 +102,8 @@ async function addFlash(formData: FormData) {
 /** 속보 수정 — 예상액 변경 시 이전 값이 이력으로 남는다 (제품안내서 III장: 등록·조회·수정·이력관리) */
 async function editFlash(formData: FormData) {
   'use server'
-  const me = await requireMenuRole('/finance/expense', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  // 속보 예상액 수정은 전사 재무 기준금액 변경이라 USER 제외 — 섹션·액션 가드 일치(DEPT_MGR+)
+  const me = await requireMenuRole('/finance/expense', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const expected = Number(formData.get('expected'))
   const s = getStore()
@@ -108,7 +111,7 @@ async function editFlash(formData: FormData) {
   if (!f || !Number.isFinite(expected) || expected <= 0 || expected > 1e9 || Math.round(expected) === f.expected) return
   // 원본 baseline 이 밀려나지 않도록 앞쪽 20개를 보존한다 (F3) + 감사 기록
   f.history = [...(f.history ?? []), { at: today(), by: me.name, expected: f.expected }].slice(0, 20)
-  audit(me.name, '공통코드 변경', `속보 ${f.id} 예상액 ${f.expected} → ${Math.round(expected)}`)
+  audit(me.name, '재무 속보 수정', `속보 ${f.id} 예상액 ${f.expected} → ${Math.round(expected)}`)
   f.expected = Math.round(expected)
   revalidatePath('/finance/expense')
 }

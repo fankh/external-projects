@@ -44,7 +44,7 @@ export default async function NoticesPage() {
   const canPost = me.role === 'BIZ_MGR' || me.role === 'ADMIN'
   const s = getStore()
   const rows = [...s.notices].sort((a, b) =>
-    Number(b.pinned ?? false) - Number(a.pinned ?? false) || b.postedAt.localeCompare(a.postedAt),
+    Number(b.pinned ?? false) - Number(a.pinned ?? false) || String(b.postedAt ?? '').localeCompare(String(a.postedAt ?? '')),
   )
 
   return (

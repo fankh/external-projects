@@ -82,6 +82,18 @@ async function submitDiscards() {
   revalidatePath('/', 'layout')
 }
 
+/** 부서 출력물 폐기현황 취합 완료 — 개인 폐기 상신(submitDiscards)과 별개인 부서 집계 과제를 닫는다.
+ *  v1.5.36 이 개인 상신으로 이 '취합' 할일을 조기 마감하지 못하게 막았으나 닫을 경로가 아예 없어
+ *  영구 방치(기한 경과)되던 결함을 마감 — 부서담당이 취합 완료를 명시적으로 확정한다. */
+async function completeCollation() {
+  'use server'
+  const me = await requireMenuRole('/awareness/prints', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const s = getStore()
+  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && t.title.includes('취합') && !t.done)
+  if (todo) todo.done = true
+  revalidatePath('/', 'layout')
+}
+
 export default async function PrintsPage() {
   const me = await requireMenu('/awareness/prints')
   const s = getStore()
@@ -95,6 +107,8 @@ export default async function PrintsPage() {
   )
   const mine = s.printouts.filter((p) => p.name === me.name)
   const myReady = mine.filter((p) => p.status === '등록')
+  // 부서 취합 할일 — 개인 폐기 상신으로는 닫히지 않으므로(v1.5.36) 명시적 완료 버튼을 준다.
+  const myCollation = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && t.title.includes('취합') && !t.done)
 
   return (
     <>
@@ -120,6 +134,11 @@ export default async function PrintsPage() {
       <Card title="출력물 목록" kicker="Printouts" pad={false}
         actions={
           <span className="hstack">
+            {myCollation && (
+              <form action={completeCollation} style={{ display: 'inline' }} title={myCollation.title}>
+                <button type="submit" className="btn sm">부서 취합 완료</button>
+              </form>
+            )}
             <a className="btn sm" href="/api/export?type=printouts">엑셀 다운로드</a>
             {canManage && (
               <form action={importDaily}>

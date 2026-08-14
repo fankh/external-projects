@@ -60,6 +60,9 @@ async function receiveCiSr(formData: FormData) {
   const system = String(formData.get('system') ?? '').trim().slice(0, 80)
   if ((category !== '보안' && category !== '업무') || !title || !requester) return
   const s = getStore()
+  // 이중 접수 방지 — 서버액션 폼은 제출 후 자동 비활성화되지 않아 더블클릭·재전송으로 같은 건이 두 번
+  // 접수되면 각자 접수→처리중→완료를 밟아 중복 이력이 된다(createSr v1.5.50 과 동일 가드).
+  if (s.ciSrs.some((c) => c.title === title && c.requester === requester && c.status === '접수')) return
   const id = nextNo('CS', today().slice(0, 4), s.ciSrs.map((c) => c.id))
   s.ciSrs.unshift({ id, category, title, requester, system: system || undefined, status: '접수', receivedBy: me.name, receivedAt: today() })
   // 접수 근거 첨부 (첨부 시트: CI SR관리)

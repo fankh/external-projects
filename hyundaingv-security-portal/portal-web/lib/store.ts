@@ -357,11 +357,17 @@ function loadFromFile(): Store | null {
       if (!tmpl || typeof tmpl !== 'object') continue
       const arrFields = Object.keys(tmpl).filter((f) => Array.isArray(tmpl[f]))
       const numFields = Object.keys(tmpl).filter((f) => typeof tmpl[f] === 'number')
-      if (arrFields.length === 0 && numFields.length === 0) continue
+      const strFields = Object.keys(tmpl).filter((f) => typeof tmpl[f] === 'string')
+      if (arrFields.length === 0 && numFields.length === 0 && strFields.length === 0) continue
       for (const el of mergedRec[k] as Record<string, unknown>[]) {
         if (!el || typeof el !== 'object') continue
         for (const f of arrFields) if (!Array.isArray(el[f])) el[f] = []
         for (const f of numFields) if (typeof el[f] !== 'number') el[f] = 0
+        // 문자열이어야 할 필드가 손상 파일에서 숫자·객체 등(정의된 비문자열 값)으로 오면 소비처의
+        // .slice/.includes/.localeCompare 가 렌더에서 500 을 낸다(array→[]·number→0 정규화의 문자열 짝).
+        // 존재하는 비문자열 값만 문자열로 강제한다 — 누락(undefined)은 옵셔널 필드 의미 보존을 위해 그대로
+        // 둔다(정상 데이터의 옵셔널 미존재 필드가 ''로 바뀌지 않도록).
+        for (const f of strFields) if (el[f] !== undefined && typeof el[f] !== 'string') el[f] = String(el[f])
       }
     }
     // 파일 변조·손상 방어 — menuOverrides 는 형태 검증을 통과한 엔트리만 보존한다

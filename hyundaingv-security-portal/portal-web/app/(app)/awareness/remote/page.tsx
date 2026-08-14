@@ -23,9 +23,14 @@ function applyTarget(s: Store, name: string, dept: string, startDate: string, en
     if (endDate && endDate < startDate) return null
     // 동일 (인원, 시작일) 중복 등록 금지 — 반복 제출로 명단이 불어나는 것을 막는다
     if (s.remoteTargets.some((t) => t.name === name && t.startDate === startDate)) return null
-    // 같은 인원의 열린 기간이 있으면 새 시작 전일로 닫는다 — 기간 중복 방지
+    // 새 시작 이후(또는 같은 날)에 시작한 열린 기간이 이미 있으면 두 기간이 겹친다 — 한 사람이 동시에
+    // 두 재택 기간을 가질 수 없으므로(순서 뒤바뀐 등록·CSV로 열린 기간이 둘 생기던 결함) 추가를 거부한다.
+    if (s.remoteTargets.some((t) => t.name === name && !t.endDate && t.startDate >= startDate)) return null
+    // 같은 인원의 (더 이른) 열린 기간이 있으면 새 시작 '전일'로 닫는다 — endDate 는 포함이므로 신규
+    // 시작일 당일로 닫으면(=startDate) 그 달에 구/신 기간이 둘 다 잡혀 이중 집계된다(off-by-one).
+    const dayBefore = new Date(Date.parse(startDate) - 86400000).toISOString().slice(0, 10)
     for (const t of s.remoteTargets) {
-      if (t.name === name && !t.endDate && t.startDate < startDate) t.endDate = startDate
+      if (t.name === name && !t.endDate && t.startDate < startDate) t.endDate = dayBefore
     }
     s.remoteTargets.unshift({ name, dept, startDate, endDate: endDate || undefined })
     return '추가'
@@ -110,9 +115,12 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
 
   // 현황 스코프 — 해당 월 재택 대상자 명단: 담당·Admin=전사, 부서담당=소속 부서, 사용자=본인만.
   // (통계도 뷰어 범위로 산출해야 한다 — 표·export 는 스코프되는데 stat 행만 전사 집계가 새던 결함)
-  const targets = s.remoteTargets.filter((t) =>
+  const targetsRaw = s.remoteTargets.filter((t) =>
     isRemoteTargetIn(t, period) &&
     (me.role === 'USER' ? t.name === me.name : me.role === 'DEPT_MGR' ? t.dept === me.dept : true))
+  // 한 사람이 같은 달에 인접 기간 둘로 잡혀도(경계월 전환) 대상은 1명 — 이름 기준 중복 제거해
+  // 대상·제출·미제출 통계가 이중 집계되지 않게 한다(월 단위 isRemoteTargetIn 방어).
+  const targets = targetsRaw.filter((t, i) => targetsRaw.findIndex((x) => x.name === t.name) === i)
   const submittedInScope = targets.filter((t) => submitted.some((r) => r.name === t.name))
   const missing = targets.filter((t) => !submitted.some((r) => r.name === t.name))
 

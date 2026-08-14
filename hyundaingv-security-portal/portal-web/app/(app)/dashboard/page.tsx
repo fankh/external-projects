@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireMenu } from '@/lib/authz'
 import { currentYear, today } from '@/lib/dates'
-import { getStore, isRemoteTargetIn } from '@/lib/store'
+import { eligibleForCourse, getStore, isRemoteTargetIn } from '@/lib/store'
 
 const SR_CHIP: Record<string, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   작성중: 'neutral', 결재중: 'info', CI배정: 'info', 개발중: 'warn', 테스트: 'warn', 적용요청결재중: 'info', 적용요청: 'warn', 완료: 'ok', 반려: 'err',
@@ -17,20 +17,29 @@ export default async function DashboardPage() {
   const myTodos = s.todos.filter((t) => t.owner === me.name && !t.done)
   const myApprovals = s.approvals.filter((a) => a.approver === me.name && a.status === '대기')
   const mySr = s.srRequests.filter((r) => r.requester === me.name && r.status !== '완료' && r.status !== '반려')
-  const pledgeTodo = myTodos.some((t) => t.kind === '보안서약서')
+  // '일반 서약' 타일은 일반 서약 유효 여부(validSign 단일 원천: kind '일반' + 현 개정본 이후 서명)로 판정한다.
+  // '보안서약서' 할일 유무로 잡으면 관리책임자·재택·특별·프로젝트 서약 재서약 할일(모두 kind '보안서약서',
+  // 제목만 다름)에도 반응해, 일반 서약이 유효한 사람이 무관한 유형 개정 때 '미제출'로 오표기된다(교차 신호).
+  const generalRevisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
+  const generalSigned = s.pledges.some((p) =>
+    p.name === me.name && p.year === currentYear() && p.kind === '일반' && p.signedAt >= generalRevisedAt)
   const notices = [...s.notices].sort((a, b) => Number(b.pinned ?? false) - Number(a.pinned ?? false))
 
   // 관리대상 현황 — 의식제고·컴플라이언스·계획수립 (요구사항 개인별현황 포틀릿)
   const remoteDone = s.remoteChecks.some((r) => r.name === me.name && r.period === period)
   const remoteTarget = s.remoteTargets.some((t) => t.name === me.name && isRemoteTargetIn(t, period))
   const eduDone = s.educationCourses.filter((c) => c.status === '완료')
-  const myEduMissing = eduDone.filter((c) => !s.educationRecords.some((r) => r.courseId === c.id && r.name === me.name)).length
+  // 과정 대상(전임직원/개발자/보안담당자)을 반영해 내가 이수 의무자인 과정만 '미이수'로 센다 — 대상을
+  // 무시하면 개발자 전용 과정이 비개발자 대시보드에 '미이수'로 오표기된다(v1.5.51 이수율 단일 원천
+  // eligibleForCourse 를 대시보드 포틀릿에도 적용, 교육 화면과 정합).
+  const myEduMissing = eduDone.filter((c) =>
+    eligibleForCourse(s, c.target).some((p) => p.name === me.name) &&
+    !s.educationRecords.some((r) => r.courseId === c.id && r.name === me.name)).length
   const myViolations = s.violations.filter((v) => v.name === me.name && v.status === '징구중').length
   const myPlansDraft = s.investPlans.filter((p) => p.owner === me.name && p.status === '작성중').length
 
-  // 전사 운영 스냅샷 (업무담당·Admin)
-  const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
-  const signedNames = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  // 전사 운영 스냅샷 (업무담당·Admin) — 미서약 집계도 위 개인 타일과 같은 일반 서약 기준(단일 원천)
+  const signedNames = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= generalRevisedAt).map((p) => p.name))
   const ops = {
     incidents: s.incidents.filter((i) => i.status === '조치중').length,
     delayedSr: s.srRequests.filter((r) => r.dueDate && r.dueDate < today() && !['완료', '반려', '작성중', '결재중'].includes(r.status)).length,
@@ -48,7 +57,7 @@ export default async function DashboardPage() {
         <Stat value={myTodos.length} label="나의 할일" tone={myTodos.length > 0 ? 'warn' : undefined} note="기한 도래 순" />
         <Stat value={myApprovals.length} label="결재 대기" tone={myApprovals.length > 0 ? 'err' : undefined} note="내가 결재자" />
         <Stat value={mySr.length} label="진행중 SR" note="완료·반려 제외" />
-        <Stat value={pledgeTodo ? '미제출' : '완료'} label="보안서약서" tone={pledgeTodo ? 'err' : undefined} note="2026년 일반 서약" />
+        <Stat value={generalSigned ? '완료' : '미제출'} label="보안서약서" tone={generalSigned ? undefined : 'err'} note={`${currentYear()}년 일반 서약`} />
       </div>
 
       {/* 관리대상 현황 — 의식제고 · 컴플라이언스 · 계획수립 */}
