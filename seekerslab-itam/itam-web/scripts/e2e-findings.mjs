@@ -356,6 +356,16 @@ try {
   const schedBody = (await p2.locator('body').textContent()) || ''
   // 등록 성공 시 자산에 maintenanceDue 가 잡혀 상세가 '정기 점검 예정 …' + 완료 액션 블록으로 전환된다(등록 콜아웃은 게이트가 뒤집혀 사라지므로 결과 상태로 검증).
   ok('정기 점검 일정 등록: 예정일 반영 → 점검 예정 상태 전환(2027-03-15)', schedBody.includes('정기 점검 예정 2027-03-15') && schedBody.includes('정기 점검 완료'))
+  // 안전재고 발주 요청(루프 57 조치) — 재고 경보 카드에서 부족 유형 보충 발주를 구매·IT기획팀에 요청. 재고 경보(검출)를 조치로 잇는다. 당일 중복 발송 차단.
+  await p2.goto(`${BASE}/inventory/stock`, { waitUntil: 'networkidle' })
+  const reorderBtn = p2.locator('button', { hasText: /^발주 요청 발송$/ })
+  ok('안전재고 발주 요청: 재고 경보 카드에 발주 요청 버튼 노출(자산담당)', (await reorderBtn.count()) > 0)
+  await reorderBtn.click()
+  await p2.waitForTimeout(700)
+  ok('안전재고 발주 요청: 발송 성공(구매·IT기획팀 통지·발송 이력)', ((await p2.locator('body').textContent()) || '').includes('발주 요청 발송 —') && ((await p2.locator('body').textContent()) || '').includes('통지'))
+  await reorderBtn.click()
+  await p2.waitForTimeout(700)
+  ok('안전재고 발주 요청: 당일 중복 발송 차단', ((await p2.locator('body').textContent()) || '').includes('당일 중복 발송 차단'))
   await ctx2.close()
 
   // ── 사용자: AI 어시스턴트 본인 자산 자연어 질의(§01 사용자 본인 자산 조회 · §05 권한 필터) ──

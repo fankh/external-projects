@@ -7,6 +7,7 @@ import { canExport } from '@/lib/exports'
 import { getStore } from '@/lib/store'
 import { lowStockCategories } from '@/lib/stock'
 import { ASSET_CATEGORIES, type Asset } from '@/lib/types'
+import { ReorderButton } from './ReorderButton'
 import { StockBreakdown, type StockRow } from './StockBreakdown'
 
 export const dynamic = 'force-dynamic'
@@ -81,6 +82,7 @@ export default async function StockPage() {
                 </span>
               </Link>
             ))}
+            <div style={{ marginTop: 4 }}><ReorderButton /></div>
           </div>
         </Card>
       )}
