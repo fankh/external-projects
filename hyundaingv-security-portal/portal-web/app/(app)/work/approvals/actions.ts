@@ -44,11 +44,14 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
 
   // 폐쇄 루프 3 — 반려는 기안자에게 '재상신' 할일로 되돌아간다 (전 문서 유형 공통).
   // 문서 유형 태그를 제목에 남겨 할일 바로가기·재상신 시 자동 마감의 매칭 키로 쓴다.
-  if (verdict === '반려') {
+  // ref 있는 문서만 재상신 할일 — ref 없는 결재는 되돌릴 업무가 없어 재상신 경로 자체가 없다.
+  // (draftApproval 은 항상 ref 를 채우므로 실 문서엔 영향 없고, ref 로 제목을 구성해 재상신 시
+  //  draftApproval 의 닫기 매칭(유형+ref 선두 고정)이 정확히 이 할일을 닫을 수 있게 한다.)
+  if (verdict === '반려' && ap.ref) {
     s.todos.unshift({
       id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
       owner: ap.drafter, kind: '재상신',
-      title: `[${ap.docType}] ${ap.ref ?? ap.id} 반려 — 보완 후 재상신 (사유: ${reason})`,
+      title: `[${ap.docType}] ${ap.ref} 반려 — 보완 후 재상신 (사유: ${reason})`,
       dueDate: today(), done: false,
     })
   }

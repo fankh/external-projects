@@ -64,10 +64,12 @@ export function draftApproval(opts: {
   for (let i = s.todos.length - 1; i >= 0; i--) {
     const t = s.todos[i]
     if (t.done || t.kind !== '재상신' || t.owner !== opts.drafter.name) continue
-    // ref 매칭은 opts.ref 가 비어있지 않을 때만 — 빈 문자열이면 includes('') 가 항상 참이라
-    // 기안자의 모든 재상신 할일을 한꺼번에 닫아 의무가 조용히 소멸한다(현 호출자는 전부 실 ID 를
-    // 넘겨 도달 불가한 잠재 결함이나, 방어적으로 가드). 빈 ref 는 아무 것도 닫지 않는 편이 안전하다.
-    if (opts.ref && t.title.includes(opts.ref)) { t.done = true; continue }
+    // 재상신 할일 제목은 `[유형] ref 반려 — … (사유: <자유 텍스트>)` 형식이다. 부분문자열
+    // includes(ref) 로 매칭하면 (a) 반려 사유에 다른 건의 ref 가 인용되면 그 무관한 할일이
+    // 닫히고(예: SR-B 사유에 'SR-A' 언급 → SR-A 재상신이 SR-B 할일까지 마감), (b) 유형이 달라도
+    // 같은 ref 를 쓰는 문서(SR 신청↔적용요청, 변경계획↔변경결과)가 교차 마감된다. 유형+ref 를
+    // 제목 선두 위치에 고정 매칭해 사유 텍스트·타 유형을 배제한다(빈 ref 는 이 패턴에 안 걸린다).
+    if (opts.ref && t.title.startsWith(`[${opts.docType}] ${opts.ref} `)) { t.done = true; continue }
     if (isRotating && !rotatingClosed && t.title.startsWith(`[${opts.docType}]`)) { t.done = true; rotatingClosed = true }
   }
   return apId

@@ -23,6 +23,7 @@ EDU_DATA = ROOT / 'scripts' / '.e2e-edu-data.json'  # 교육 이수율 퇴사자
 FIN_DATA = ROOT / 'scripts' / '.e2e-fin-data.json'  # 집행률 확정 스코프 회귀용 (v1.5.25)
 FYEAR_DATA = ROOT / 'scripts' / '.e2e-fyear-data.json'  # 일반 서약 year 필터 회귀용 (v1.5.32)
 XKIND_DATA = ROOT / 'scripts' / '.e2e-xkind-data.json'  # export 크로스-kind 회귀용 (v1.5.25)
+RREASON_DATA = ROOT / 'scripts' / '.e2e-rreason-data.json'  # 재상신 할일 사유텍스트 오마감 회귀용 (v1.5.47)
 
 
 def login(pg, base, name):
@@ -592,6 +593,26 @@ def sc_year_filter(pg, base, check):
     pg.goto(f'{base}/dashboard', wait_until='networkidle')
     n = pg.locator('.stat', has_text='미서약 인원').locator('.v').inner_text().strip()
     check(n == '1', f'2025(레거시) 서약은 2026 미서약으로 집계 (year 필터; 수정 전이면 0; 실제 {n})')
+
+
+def sc_reject_reason_collision(pg, base, check):
+    """재상신 할일 닫기 앵커 매칭 (v1.5.47, 최대정밀 재감사 finding #5) — 반려 SR 2건 중 SR-B 의
+    재상신 할일 사유에 SR-A 번호가 인용돼 있다. SR-A 재상신 시, 앵커(유형+ref 선두) 매칭이면
+    SR-A 할일만 닫히고 SR-B 할일은 유지된다. 부분문자열 매칭(수정 전)이면 SR-B 사유의 SR-A
+    토큰에 걸려 SR-B 재상신 할일까지 오마감돼 보완 의무가 사라진다."""
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/sr/requests', wait_until='networkidle')
+    # SR-A(9001) 재상신 버튼 클릭
+    pg.locator('tr', has_text='SR-2026-9001').locator('button:has-text("재상신")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    # '미처리' 재상신 할일 수로 판정(데이터 파일이 todos 배열을 대체하므로 초기 2건: SR-A·SR-B).
+    # SR-A 재상신 후 — 앵커 매칭이면 1건(SR-B 유지), 부분문자열 매칭(수정 전)이면 0건(SR-B 오마감),
+    # 재상신 미실행(셋업 오류)이면 2건. 셋 다 구분해 오마감·거짓통과를 함께 잡는다.
+    n = pg.locator('.stat', has_text='미처리').locator('.v').inner_text().strip()
+    check(n == '1', f'SR-A 재상신 후 미처리 재상신 1건(SR-B 유지) — 수정 전이면 0(SR-B 오마감), 미실행이면 2 (실제 {n})')
+    open_card = pg.locator('.card', has_text='미처리 할일').inner_text()
+    check('SR-2026-9002' in open_card, 'SR-B 재상신 할일이 미처리로 유지')
 
 
 def sc_export_kind_scope(pg, base, check):
@@ -1210,6 +1231,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(FYEAR_DATA)}),
     ('export_kind_scope', 'export 투자 집계 kind 스코프(크로스-kind 오염 제외)', sc_export_kind_scope,
      {'PORTAL_DATA_FILE': str(XKIND_DATA)}),
+    ('reject_reason_collision', '재상신 할일 닫기 앵커 매칭(사유텍스트 오마감 방지)', sc_reject_reason_collision,
+     {'PORTAL_DATA_FILE': str(RREASON_DATA)}),
     ('adapter_throw', '어댑터 예외 내성 — 인사 동기화 throw 시 실패 기록·무크래시(v1.5.16)', sc_adapter_fault,
      {'PORTAL_FAULT_HR': 'throw'}),
     ('adapter_hang', '어댑터 무응답 내성 — 인사 동기화 hang→timeout 시 실패 기록·무크래시(v1.5.17)', sc_adapter_fault,
@@ -1327,6 +1350,22 @@ def main() -> int:
         'settlements': [
             {'id': 'ST-92', 'contractId': 'CT-92', 'item': '잔금', 'amount': 1000, 'status': '지급완료', 'requestedBy': '시스템관리자', 'requestedAt': '2026-07-10'},
             {'id': 'ST-93', 'contractId': 'CT-93', 'item': '잔금', 'amount': 500, 'status': '지급완료', 'requestedBy': '시스템관리자', 'requestedAt': '2026-07-10'},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
+    # reject_reason 시나리오용 — 반려 SR 2건(김현우), SR-B 의 재상신 할일 사유 텍스트에 SR-A 번호 인용.
+    # SR-A 재상신 시 앵커(유형+ref 선두) 매칭이면 SR-A 할일만, 부분문자열 매칭이면 SR-B 할일까지 마감.
+    RREASON_DATA.write_text(json.dumps({
+        'srRequests': [
+            {'srNo': 'SR-2026-9001', 'kind': '데이터', 'title': 'E2E 재상신 A', 'system': 'ERP',
+             'requester': '김현우', 'dept': '개발1팀', 'status': '반려', 'requestedAt': '2026-08-01'},
+            {'srNo': 'SR-2026-9002', 'kind': '데이터', 'title': 'E2E 재상신 B', 'system': 'ERP',
+             'requester': '김현우', 'dept': '개발1팀', 'status': '반려', 'requestedAt': '2026-08-01'},
+        ],
+        'todos': [
+            {'id': 'TD-9001', 'owner': '김현우', 'kind': '재상신', 'dueDate': '2026-08-01', 'done': False,
+             'title': '[SR 신청] SR-2026-9001 반려 — 보완 후 재상신 (사유: 사양 보완 필요)'},
+            {'id': 'TD-9002', 'owner': '김현우', 'kind': '재상신', 'dueDate': '2026-08-01', 'done': False,
+             'title': '[SR 신청] SR-2026-9002 반려 — 보완 후 재상신 (사유: SR-2026-9001 처리 후 재상신 바랍니다)'},
         ],
     }, ensure_ascii=False), encoding='utf-8')
     passed = 0

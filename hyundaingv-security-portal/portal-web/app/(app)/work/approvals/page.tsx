@@ -86,7 +86,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   const history = selected?.ref
     ? s.approvals.filter((a) => a.id !== selected.id && (rotating
         ? a.docType === selected.docType && a.drafter === selected.drafter && a.id < selected.id
-        : a.ref === selected.ref))
+        // 같은 ref 라도 문서 유형이 다르면 다른 문서다 — SR 신청과 적용요청 상신은 같은 SR 번호를
+        // ref 로 공유하므로, docType 도 맞춰야 '이전 회차'에 다른 유형 결재가 새어들지 않는다.
+        : a.ref === selected.ref && a.docType === selected.docType))
     : []
 
   return (
