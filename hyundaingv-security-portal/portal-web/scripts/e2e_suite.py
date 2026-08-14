@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BASE_PORT = 3520
 UPLOAD = ROOT / 'scripts' / '.e2e-upload.txt'
 DATA = ROOT / 'scripts' / '.e2e-data.json'
+EDU_DATA = ROOT / 'scripts' / '.e2e-edu-data.json'  # 교육 이수율 퇴사자 이력 회귀용 (v1.5.24)
 
 
 def login(pg, base, name):
@@ -558,6 +559,16 @@ def sc_pledge_multikind(pg, base, check):
     card = pg.locator('.card', has_text='미처리 할일')
     check('관리책임자 보안서약서 재서약' not in card.inner_text(), '관리책임자 서약 → 해당 유형 할일만 마감')
     check('일반 보안서약서 재서약' in card.inner_text(), '일반 재서약 할일은 유지 (유형 교차마감 방지)')
+
+
+def sc_education_orphan(pg, base, check):
+    """전사 이수율 — 퇴사자(people 밖) 교육 이력을 제외하고 재직자 기준 집계 (v1.5.24 orphan 수정).
+    데이터 파일: 재직자A(이력 없음) 1명 + 퇴사자B 이력 1건 → 재직자 기준이면 0%,
+    퇴사자 이력 산입(수정 전 결함)이면 100%(퇴사자 이력이 재직자 미이수를 상쇄)."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/compliance/education', wait_until='networkidle')
+    rate = pg.locator('.stat', has_text='전사 이수율').locator('.v').inner_text().strip()
+    check(rate == '0%', f'퇴사자 이력 제외 → 재직자 기준 0% (수정 전이면 100%; 실제 {rate})')
 
 
 def sc_codes(pg, base, check):
@@ -1121,6 +1132,8 @@ SCENARIOS = [
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
     ('pledge_multikind', '비-일반 양식 개정 재서약 통지 + 유형별 마감(교차마감 방지)', sc_pledge_multikind, {}),
+    ('education_orphan', '전사 이수율 — 퇴사자 이력 제외(재직자 기준)', sc_education_orphan,
+     {'PORTAL_DATA_FILE': str(EDU_DATA)}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
@@ -1197,6 +1210,12 @@ def main() -> int:
                      'author': '시스템관리자', 'postedAt': '2026-08-01', 'pinned': True}],
         'channelStates': {'sms-gateway': False},
     }, ensure_ascii=False), encoding='utf-8')
+    # education_orphan 시나리오용 — 재직자 1명(이력 없음) + 퇴사자(people 밖) 이력 1건
+    EDU_DATA.write_text(json.dumps({
+        'people': [{'name': '재직자A', 'dept': '검증팀'}],
+        'educationCourses': [{'id': 'ED-90', 'title': 'E2E 보안교육', 'status': '완료'}],
+        'educationRecords': [{'courseId': 'ED-90', 'name': '퇴사자B'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -1206,7 +1225,8 @@ def main() -> int:
         browser.close()
     UPLOAD.unlink(missing_ok=True)
     DATA.unlink(missing_ok=True)
-    for bak in DATA.parent.glob(DATA.name + '.*.bak'):
+    EDU_DATA.unlink(missing_ok=True)
+    for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
     print(f'\n{"✓" if passed == total else "✗"} e2e: {passed}/{total} 시나리오 통과')
