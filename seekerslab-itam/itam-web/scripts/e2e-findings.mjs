@@ -561,6 +561,31 @@ try {
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const cHtml = await p3.content()
   ok('운영 정책 다운스트림: 계약 화면 만료 임박 창 60일', cHtml.includes('만료 60일 이내') && !cHtml.includes('만료 90일 이내'))
+  // 발견 자산 편입 → CMDB 대사 종결(핵심 Discovery 루프) — 편입 결재 승인 시 대장 자산이 생성되고, 발견 레코드가
+  //  '등록·일치'로 전환되며 matchedAssetNo 로 새 자산과 연결된다. 그 전엔 편입해도 상태가 '미등록'으로 남아 대사가 안 닫혔다.
+  await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  await p3.locator('input[aria-label="DSC-2607-0042 편입 선택"]').check()
+  await p3.locator('button', { hasText: /선택 일괄 편입 요청/ }).click()
+  await p3.waitForTimeout(800)
+  await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const encApr = () => p3.locator('tr', { has: p3.locator('td', { hasText: 'DSC-2607-0042' }) }).first()
+  ok('발견 편입: 편입 결재 생성됨', (await encApr().count()) > 0)
+  // 자산 신청 결재선(신청자→부서장→자산담당)을 ADMIN 오버라이드로 승인 완료까지 진행
+  for (let i = 0; i < 5; i++) {
+    if (!(((await encApr().textContent().catch(() => '')) || '').includes('대기'))) break
+    const btn = encApr().locator('button', { hasText: /^승인$/ }).first()
+    if (!(await btn.count())) break
+    await btn.click()
+    await p3.waitForTimeout(600)
+  }
+  ok('발견 편입: 결재 승인 완료(대기 해제)', !(((await encApr().textContent().catch(() => '')) || '').includes('대기')))
+  await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  const enc042 = p3.locator('tr', { has: p3.locator('td', { hasText: 'DSC-2607-0042' }) }).first()
+  const encRow = (await enc042.textContent()) || ''
+  await enc042.locator('td', { hasText: 'nas-dev-team' }).click() // 상세 패널 열기(대사 자산 링크 확인)
+  await p3.waitForTimeout(250)
+  const encBody = (await p3.locator('body').textContent()) || ''
+  ok('발견 편입 → 대사 종결: 발견 레코드 등록·일치·편입완료 + 대사 자산(matchedAssetNo) 링크', encRow.includes('등록·일치') && encRow.includes('편입완료') && encBody.includes('대사 자산') && /AST-\d{4}-\d{6}/.test(encBody))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──

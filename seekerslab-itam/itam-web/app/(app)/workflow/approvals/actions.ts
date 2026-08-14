@@ -375,9 +375,14 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     if (d && verdict === '승인') {
       if (a.kind === '자산 신청' && d.action === '편입요청') {
         d.action = '편입완료'
+        // 편입으로 대장에 들어갔으니 대사 상태를 닫는다 — 발견 레코드가 새 대장 자산과 연결(matchedAssetNo)되고
+        // 상태가 '등록·일치'로 전환돼야 CMDB 대사(발견↔등록 차이 가시화)에서 미등록으로 계속 잡히지 않는다.
+        const newNo = nextAssetNo()
+        d.matchedAssetNo = newNo
+        d.state = '등록·일치'
         // 편입 시 발견 이력(채널·일시)이 자산 이력에 승계된다
         s.assets.push({
-          assetNo: nextAssetNo(),
+          assetNo: newNo,
           // 자동분류 — 발견 유형 문자열을 표준 유형으로 매핑(§05). 발견 화면 제안값과 동일 함수라 화면·대장이 일치한다.
           category: classifyDiscoveredType(d.type),
           model: d.type,
