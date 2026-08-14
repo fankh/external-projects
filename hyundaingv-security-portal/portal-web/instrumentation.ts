@@ -20,21 +20,19 @@ export async function register() {
   const intervalMs = Number(process.env.PORTAL_NOTIFY_INTERVAL_MS)
   if (!Number.isFinite(intervalMs) || intervalMs < 1000) return
 
-  const { runDailyNotify } = await import('./lib/notify')
+  const { runDailyNotifyOnce } = await import('./lib/notify')
   const { audit } = await import('./lib/audit')
   const { backupDataFile, recordBatch } = await import('./lib/store')
   const { nowStamp } = await import('./lib/dates')
 
   // dev/HMR 재등록으로 인터벌이 중첩되면 같은 안내메일이 중복 발송된다 — 기존 타이머를 교체한다.
-  // __ngvNotifyTicking: 재진입 가드 — setInterval 은 비동기 tick 이 인터벌보다 길어도 다음 tick 을
-  // 발화하므로(느린 어댑터 + 짧은 주기), 이전 tick 이 진행 중이면 이번 tick 을 건너뛴다(겹침 방지 —
-  // 중복 발송·동시 뮤테이션 차단, batch0 dedup 과 별개의 방어선). globalThis 로 재등록 간 공유.
-  const g = globalThis as typeof globalThis & { __ngvNotifyTimer?: NodeJS.Timeout; __ngvNotifyTicking?: boolean }
+  // 재진입 가드(__ngvNotifyTicking)는 runDailyNotifyOnce 안으로 옮겨 스케줄러 틱과 수동 실행이 같은
+  // 가드를 공유한다 — 틱이 인터벌보다 길거나 수동 실행과 겹쳐도 중복 발송·동시 뮤테이션을 막는다.
+  const g = globalThis as typeof globalThis & { __ngvNotifyTimer?: NodeJS.Timeout }
   const tick = async () => {
-    if (g.__ngvNotifyTicking) return
-    g.__ngvNotifyTicking = true
     try {
-      const results = await runDailyNotify()
+      const results = await runDailyNotifyOnce()
+      if (results === null) return  // 이미 실행 중(수동 등)과 겹침 — 이번 틱은 건너뛴다
       audit('스케줄러', '알림 배치 실행',
         results.map((r) => `${r.kind} ${r.targets}명${r.ok ? '' : '(실패)'}`).join(', ') || '대상 없음')
       // 영속화 파일 일일 스냅샷 — PORTAL_DATA_FILE 미설정(인메모리)이면 조용히 건너뛴다
@@ -42,8 +40,6 @@ export async function register() {
       if (bak) recordBatch('데이터 파일 일일 백업 (보존 7개)', nowStamp(), '성공')
     } catch {
       // 스케줄 실패가 서버를 죽이면 안 된다 — 다음 주기에 재시도
-    } finally {
-      g.__ngvNotifyTicking = false
     }
   }
   if (g.__ngvNotifyTimer) clearInterval(g.__ngvNotifyTimer)

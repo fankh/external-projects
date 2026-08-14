@@ -27,6 +27,13 @@ RREASON_DATA = ROOT / 'scripts' / '.e2e-rreason-data.json'  # 재상신 할일 �
 BACKUP_DATA = ROOT / 'scripts' / '.e2e-backup-data.json'  # 수동 배치 백업(스케줄러 off) 회귀용 (v1.5.48)
 CHORPHAN_DATA = ROOT / 'scripts' / '.e2e-chorphan-data.json'  # 변경 재상신 교차-담당 고아 할일 회귀용 (v1.5.50)
 EDUTGT_DATA = ROOT / 'scripts' / '.e2e-edutgt-data.json'  # 교육 이수율 대상(target) 스코프 회귀용 (v1.5.51)
+RSPAN_DATA = ROOT / 'scripts' / '.e2e-rspan-data.json'  # 재택 경계월 인접 기간 이중 집계 회귀용 (v1.5.53)
+RHIST_DATA = ROOT / 'scripts' / '.e2e-rhist-data.json'  # 결재 회전 이력 신원 게이트 회귀용 (v1.5.54)
+DEDU_DATA = ROOT / 'scripts' / '.e2e-dedu-data.json'  # 대시보드 교육 미이수 대상 스코프 회귀용 (v1.5.55)
+DPLG_DATA = ROOT / 'scripts' / '.e2e-dplg-data.json'  # 대시보드 일반 서약 타일 단일 원천 회귀용 (v1.5.55)
+SMOV_DATA = ROOT / 'scripts' / '.e2e-smov-data.json'  # 통합 검색 런타임 메뉴권한 정합 회귀용 (v1.5.56)
+ATDUP_DATA = ROOT / 'scripts' / '.e2e-atdup-data.json'  # 자동첨부 교차일 중복 방지 회귀용 (v1.5.57)
+NCRASH_DATA = ROOT / 'scripts' / '.e2e-ncrash-data.json'  # 알림 배치 손상 title 할일 내성 회귀용 (v1.5.58)
 
 
 def login(pg, base, name):
@@ -476,6 +483,94 @@ def sc_remote(pg, base, check):
     login(pg, base, '김현우')
     pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
     check('재택 대상 아님' in pg.content(), '명단 제외 → 대상 아님 안내')
+
+
+def sc_remote_overlap(pg, base, check):
+    """재택 명단 경계월 이중 집계 — 한 사람이 인접한 두 재택 기간을 가져도 당월 명단·통계는 1회만.
+    구 기간을 신규 시작 '전일'로 마감(off-by-one)해도 경계월(전환 달)엔 두 기간이 함께 걸리므로
+    이름 기준 중복 제거로 방어(v1.5.53). 크래프트 데이터로 한지원의 인접 두 기간을 주입한다."""
+    login(pg, base, '박정호')  # 전사 제출 현황 조회 권한(담당)
+    pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
+    status = pg.locator('.card', has_text='전사 제출 현황')
+    rows = status.locator('tbody tr', has_text='한지원').count()
+    check(rows == 1, f'인접 재택 기간(경계월) → 당월 명단 1회 (이중 집계면 2행; 실제 {rows}행)')
+    # 통계 stat 도 같은 인원을 둘로 세면 안 된다 — 당월 대상은 한지원 1명뿐
+    check('대상 1명' in pg.locator('.stat-row').inner_text(), '대상 통계도 1명 (경계월 중복 제거)')
+
+
+def sc_notify_corrupt_todo(pg, base, check):
+    """알림 배치 손상 데이터 내성(v1.5.58) — title 누락 서약 할일이 있어도 배치가 크래시 없이 완료·기록돼야
+    한다. 기존엔 x.title.includes 가 undefined 에 TypeError → 배치 전체 중단·후속 유형 누락·기록 없음."""
+    login(pg, base, '시스템관리자')  # ADMIN — 수동 배치 실행
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.locator('button:has-text("알림 배치 실행")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    check('일일 알림 배치' in pg.content(), '손상 title 할일에도 알림 배치 완료·기록 (크래시 없음)')
+
+
+def sc_attach_generated_dedup(pg, base, check):
+    """자동첨부 교차일 중복 방지(v1.5.57) — 반려·회수 후 다른 날 재상신해도 같은 양식(이름+버전) 자동첨부가
+    중복 누적되면 안 된다. registerGenerated 이 날짜 뺀 접두로 dedup. 과거일자 자동첨부 주입 후 오늘 계획
+    상신 → 첨부 1건 유지(기존엔 파일명 날짜가 달라 dedup 실패 → 2건 누적)."""
+    login(pg, base, '시스템관리자')  # ADMIN — 변경 계획 상신 권한
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    pg.locator('tr', has_text='크로스데이중복테스트변경').locator('button:has-text("계획 상신")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    txt = pg.locator('tr', has_text='크로스데이중복테스트변경').inner_text()
+    check('📎1' in txt and '📎2' not in txt, f'교차일 재상신에도 자동첨부 1건 유지 (중복이면 📎2; 실제 …{txt[-40:]})')
+
+
+def sc_search_menu_override(pg, base, check):
+    """통합 검색 런타임 권한 정합(v1.5.56) — 메뉴권한(menuOverrides)으로 화면에서 차단된 역할은 검색에서도
+    해당 도메인이 안 나와야 한다. me.role 리터럴 게이트면 메뉴 제한을 우회해 검색이 데이터 열람 경로가 된다.
+    /projects/status 를 ADMIN 전용으로 제한 → BIZ_MGR 은 검색 미노출, ADMIN(제한 예외)은 정상 노출."""
+    # 검색어는 헤더 desc 에 그대로 반향되므로, 결과 행에만 나오는 프로젝트 코드(PJ-9001)로 판별한다
+    # (검색어 문자열로 판별하면 반향 때문에 항상 매칭돼 거짓 결과가 난다).
+    login(pg, base, '박정호')  # BIZ_MGR — 제한으로 프로젝트 도메인 차단됨
+    pg.goto(f'{base}/search?q=격리테스트프로젝트XYZ', wait_until='networkidle')
+    check('PJ-9001' not in pg.content(), '메뉴 제한된 프로젝트 도메인은 검색에서도 미노출 (런타임 권한 정합)')
+    login(pg, base, '시스템관리자')  # ADMIN — 제한 예외라 정상 노출(레코드가 실제 검색 가능함을 확인 = 거짓통과 방지)
+    pg.goto(f'{base}/search?q=격리테스트프로젝트XYZ', wait_until='networkidle')
+    check('PJ-9001' in pg.content(), 'ADMIN 은 제한 예외 — 검색 정상 노출(게이트가 역할별로 동작)')
+
+
+def sc_dashboard_edu_scope(pg, base, check):
+    """대시보드 '보안교육 미이수' 대상 스코프(v1.5.55) — 개발자 전용 완료 과정이 비개발자 대시보드에
+    '미이수'로 오표기되면 안 된다(v1.5.51 이수율 단일 원천 eligibleForCourse 를 대시보드 포틀릿에도 적용).
+    교육 화면은 v1.5.51 에서 이미 대상 스코프됐으나 대시보드 포틀릿은 누락됐던 정합 결함."""
+    # 이수진(경영지원팀=비개발) — 개발자 대상 완료 과정 ED-DEV 는 이수 의무자가 아니므로 미이수 0
+    login(pg, base, '이수진')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    edu = pg.locator('.stat', has_text='보안교육 미이수')
+    val = edu.locator('.v').inner_text().strip()
+    check(val == '0', f'개발자 전용 과정은 비개발자 대시보드 미이수 미집계 (대상 무시면 1; 실제 {val})')
+
+
+def sc_dashboard_pledge_general(pg, base, check):
+    """대시보드 '일반 서약' 타일 단일 원천(v1.5.55) — 일반 서약이 유효한 사람은 무관한 유형(관리책임자 등)
+    재서약 할일이 있어도 '완료'여야 한다. '보안서약서' 할일 유무(모든 유형 공통 kind)가 아니라 일반 서약
+    유효성(validSign: kind '일반'+개정본 이후 서명) 기준. 교차 신호면 타 유형 개정 때 유효자가 '미제출' 오표기."""
+    # 박정호(시드 일반 서약 유효)에게 관리책임자 재서약 할일만 주입 → 일반 타일은 여전히 '완료'
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    pledge = pg.locator('.stat', has_text='일반 서약')
+    val = pledge.locator('.v').inner_text().strip()
+    check(val == '완료', f"일반 서약 유효자는 타 유형 재서약 할일이 있어도 '완료' (교차 신호면 미제출; 실제 {val})")
+
+
+def sc_approval_history_identity(pg, base, check):
+    """결재 '이전 회차 이력' 신원 게이트(v1.5.54) — 회전 문서(출력물폐기 등)는 회차마다 ref 가 바뀌어
+    유형·기안자로 이력을 잇는데, 그 매칭만으론 같은 기안자의 '별개 묶음'(내가 결재자·기안자가 아닌
+    타 관리자 심사 건)까지 끌려와 반려사유가 노출된다. 이력 행도 본인 관여분(결재자/기안자)만 노출."""
+    # 이수진 = 신규 묶음(AP-2026-9002)의 결재자. 구 묶음(9001)은 결재자 박정호라 이수진과 무관.
+    login(pg, base, '이수진')
+    pg.goto(f'{base}/work/approvals?sel=AP-2026-9002', wait_until='networkidle')
+    body = pg.content()
+    check('타관리자심사반려사유XYZ' not in body,
+          '회전 이력에 타인 결재 묶음 반려사유 미노출 (신원 게이트 재적용)')
+    check('AP-2026-9001' not in body, '무관 이전 묶음 결재번호 미노출')
 
 
 def sc_revision(pg, base, check):
@@ -1303,6 +1398,20 @@ SCENARIOS = [
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
+    ('remote_overlap', '재택 경계월 인접 기간 — 당월 명단·통계 1회만(이중 집계 방지)', sc_remote_overlap,
+     {'PORTAL_DATA_FILE': str(RSPAN_DATA)}),
+    ('approval_history_identity', '결재 회전 이력 신원 게이트 — 타인 결재 묶음 반려사유 미노출', sc_approval_history_identity,
+     {'PORTAL_DATA_FILE': str(RHIST_DATA)}),
+    ('search_menu_override', '통합 검색 런타임 권한 정합 — 메뉴 제한 도메인 검색 미노출', sc_search_menu_override,
+     {'PORTAL_DATA_FILE': str(SMOV_DATA)}),
+    ('attach_generated_dedup', '자동첨부 교차일 중복 방지 — 재상신 시 같은 양식 1건', sc_attach_generated_dedup,
+     {'PORTAL_DATA_FILE': str(ATDUP_DATA)}),
+    ('notify_corrupt_todo', '알림 배치 손상 title 할일 내성 — 크래시 없이 완료', sc_notify_corrupt_todo,
+     {'PORTAL_DATA_FILE': str(NCRASH_DATA)}),
+    ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
+     {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
+    ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
+     {'PORTAL_DATA_FILE': str(DPLG_DATA)}),
     ('criteria', '점검 기준관리 — 등록·업로드·삭제·사용중 가드', sc_criteria, {}),
     ('racks', '랙·H/W 관리 — 등록·구성도·삭제 가드', sc_racks, {}),
     ('infracrud', '인프라 CRUD — 서버·시스템·배치·인터페이스', sc_infracrud, {}),
@@ -1451,6 +1560,58 @@ def main() -> int:
         'todos': [{'id': 'TD-9001', 'owner': '박정호', 'kind': '재상신', 'dueDate': '2026-08-01', 'done': False,
                    'title': '[변경결과 상신] CW-2026-9001 반려 — 보완 후 재상신 (사유: 보완 요망)'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # remote_overlap 시나리오용 — 한지원이 인접한 두 재택 기간(7/5~8/4 마감, 8/5~계속)을 가진다.
+    # 둘 다 8월과 교집합이므로 이름 중복 제거가 없으면 당월 명단·통계에 한지원이 둘로 잡힌다.
+    RSPAN_DATA.write_text(json.dumps({
+        'remoteTargets': [
+            {'name': '한지원', 'dept': '경영지원실', 'startDate': '2026-07-05', 'endDate': '2026-08-04'},
+            {'name': '한지원', 'dept': '경영지원실', 'startDate': '2026-08-05'},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
+    # approval_history_identity 시나리오용 — 같은 기안자(김현우)의 회전 문서(출력물폐기) 두 별개 묶음.
+    # 구 묶음(9001)은 결재자 박정호(반려·사유 있음), 신 묶음(9002)은 결재자 이수진. 이수진이 9002 를
+    # 열 때 신원 게이트가 없으면 9001 의 반려사유가 '이전 회차'로 새어 노출된다.
+    RHIST_DATA.write_text(json.dumps({
+        'approvals': [
+            {'id': 'AP-2026-9001', 'docType': '출력물폐기 상신', 'title': '[출력물폐기] 2026-07 묶음',
+             'drafter': '김현우', 'approver': '박정호', 'status': '반려', 'ref': 'PD-9001',
+             'rejectReason': '타관리자심사반려사유XYZ', 'decidedAt': '2026-07-20'},
+            {'id': 'AP-2026-9002', 'docType': '출력물폐기 상신', 'title': '[출력물폐기] 2026-08 묶음',
+             'drafter': '김현우', 'approver': '이수진', 'status': '대기', 'ref': 'PD-9002'},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
+    # dashboard_edu_scope 시나리오용 — 개발자 전용 완료 과정 하나. 비개발(경영지원팀) 이수진 대시보드는
+    # 이 과정의 이수 의무자가 아니므로 '보안교육 미이수' 가 0 이어야 한다(대상 무시면 1로 오표기).
+    DEDU_DATA.write_text(json.dumps({
+        'educationCourses': [{'id': 'ED-DEV', 'title': 'E2E 개발보안', 'target': '개발자', 'status': '완료'}],
+        'educationRecords': [],
+    }, ensure_ascii=False), encoding='utf-8')
+    # dashboard_pledge_general 시나리오용 — 박정호는 시드 일반 서약이 유효(2026-07-10 >= 개정 2026-01-02).
+    # 관리책임자 재서약 '보안서약서' 할일만 주입(todos 교체) → 일반 타일이 교차 신호로 '미제출' 되면 안 된다.
+    DPLG_DATA.write_text(json.dumps({
+        'todos': [{'id': 'TD-8001', 'owner': '박정호', 'kind': '보안서약서', 'dueDate': '2026-08-20', 'done': False,
+                   'title': '2026년 관리책임자 보안서약서 재서약 (개정 반영)'}],
+    }, ensure_ascii=False), encoding='utf-8')
+    # search_menu_override 시나리오용 — /projects/status 를 ADMIN 전용으로 런타임 제한 + 검색 대상 프로젝트 1건.
+    # BIZ_MGR(박정호)은 화면·검색 모두 차단, ADMIN 은 제한 예외라 검색에 노출돼야 한다.
+    SMOV_DATA.write_text(json.dumps({
+        'menuOverrides': {'/projects/status': ['ADMIN']},
+        'projects': [{'id': 'PJ-9001', 'title': '격리테스트프로젝트XYZ', 'manager': '박정호', 'progress': 50, 'status': '진행중'}],
+    }, ensure_ascii=False), encoding='utf-8')
+    # attach_generated_dedup 시나리오용 — 작업등록 상태 변경 1건 + 과거일자(08-01) 자동첨부 1건(같은 양식).
+    # 오늘 계획 상신 시 registerGenerated 이 날짜 뺀 접두로 dedup 하면 첨부는 1건 유지(버그면 08-14 로 2건).
+    ATDUP_DATA.write_text(json.dumps({
+        'changes': [{'id': 'CW-9001', 'kind': '인프라', 'title': '크로스데이중복테스트변경', 'plan': '작업계획',
+                     'status': '작업등록', 'registeredAt': '2026-08-01'}],
+        'attachments': [{'id': 'AT-9001', 'refId': 'CW-9001', 'name': '인프라변경 작업계획 양식_v2_2026-08-01.xlsx',
+                         'sizeKb': 12, 'uploadedBy': '시스템관리자', 'at': '2026-08-01'}],
+    }, ensure_ascii=False), encoding='utf-8')
+    # notify_corrupt_todo 시나리오용 — title 필드가 없는 손상 서약 할일. 알림 배치의 재서약 필터가
+    # x.title.includes 를 undefined 에 호출해 크래시하면 안 된다(String 강제). batchRuns 비워 완료 기록 판별.
+    NCRASH_DATA.write_text(json.dumps({
+        'todos': [{'id': 'TD-9001', 'owner': '김현우', 'kind': '보안서약서', 'done': False}],
+        'batchRuns': [],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -1464,6 +1625,13 @@ def main() -> int:
     FIN_DATA.unlink(missing_ok=True)
     FYEAR_DATA.unlink(missing_ok=True)
     XKIND_DATA.unlink(missing_ok=True)
+    RSPAN_DATA.unlink(missing_ok=True)
+    RHIST_DATA.unlink(missing_ok=True)
+    DEDU_DATA.unlink(missing_ok=True)
+    DPLG_DATA.unlink(missing_ok=True)
+    SMOV_DATA.unlink(missing_ok=True)
+    ATDUP_DATA.unlink(missing_ok=True)
+    NCRASH_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
