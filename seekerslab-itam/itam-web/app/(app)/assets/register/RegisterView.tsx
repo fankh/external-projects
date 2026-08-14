@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -86,6 +86,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [faultOpen, setFaultOpen] = useState(false)
   const [faultNote, setFaultNote] = useState('')
   const [faultMsg, setFaultMsg] = useState<string | null>(null)
+  const [receiptMsg, setReceiptMsg] = useState<string | null>(null)
   const [loanOpen, setLoanOpen] = useState(false)
   const [loanTo, setLoanTo] = useState('')
   const [loanDept, setLoanDept] = useState('')
@@ -592,6 +593,21 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </div>
             )}
 
+            {/* 수령 확인 — 불출 배정 후 사용자 인수 확인(체인 오브 커스터디). 소유자(사용자)가 확인하며, 자산담당도 대리 확인 가능(서버 소유 검증). */}
+            {sel.receiptPending && (
+              <div className="callout warn" style={{ marginTop: 12, padding: '10px 12px' }}>
+                {receiptMsg ? receiptMsg : (
+                  <>
+                    <b>수령 확인 대기.</b> 불출 배정된 자산의 실물 인수 확인이 아직 안 됐습니다.
+                    <div style={{ marginTop: 8 }}>
+                      <button className="btn sm pri" disabled={pending}
+                        onClick={() => startTransition(async () => setReceiptMsg((await confirmReceipt(sel.assetNo)).message))}
+                        title="배정받은 자산을 실물 수령했음을 확인 — 인수 이력이 남습니다">수령 확인 (인수 확인)</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             {/* 장애 신고 — 사용 중 자산의 고장을 보유자(사용자)·자산담당이 신고. canEdit 게이트와 무관하게 사용자도 본인 자산에 대해 신고 가능(서버가 소유 검증). */}
             {sel.status === '사용중' && (
               <div style={{ marginTop: 12 }}>
