@@ -561,6 +561,12 @@ try {
   await p4.goto(`${BASE}${surveyHref}`, { waitUntil: 'networkidle' })
   const surveyBody = await p4.textContent('body')
   ok('재물조사: 미실사 남은 대상 노출(장기 미실측 유령 후보 AST-2022-000871)', surveyBody.includes('미실사 남은 대상') && surveyBody.includes('AST-2022-000871'))
+  // 미실사 → 분실 신고 브리지(로30 연계) — 현장에서 끝내 못 찾은 대장 자산을 분실로 신고, 재편성만 되는 공백을 닫는다
+  await p4.locator('tr', { has: p4.locator('td', { hasText: 'AST-2022-000871' }) }).first().locator('button', { hasText: /^분실 신고$/ }).click()
+  await p4.waitForTimeout(900)
+  ok('재물조사: 미실사 → 분실 신고 브리지 성공', (await p4.textContent('body')).includes('분실 처리'))
+  await p4.goto(`${BASE}/assets/register?sel=AST-2022-000871`, { waitUntil: 'networkidle' })
+  ok('미실사 분실 신고 → 대장 분실 상태 반영', (await p4.textContent('body')).includes('분실'))
   await ctx4.close()
 
   await browser.close()

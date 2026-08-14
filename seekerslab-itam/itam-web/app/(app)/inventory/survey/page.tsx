@@ -4,6 +4,7 @@ import { roundProgressPct } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { SurveyConsole } from './SurveyConsole'
+import { UnscannedTargets } from './UnscannedTargets'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,11 +43,14 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
     .filter((no) => !scannedNos.has(no))
     .map((no) => {
       const a = s.assets.find((x) => x.assetNo === no)
-      if (a) return { ref: no, label: a.model, location: a.location, note: a.lastVerifiedAt ? `최근 실측 ${a.lastVerifiedAt}` : '실측 이력 없음' }
+      // 이미 분실·폐기 처리된 대장 자산은 대상에서 제외 — 조치가 끝난 것을 다시 '미실사'로 보여주지 않는다.
+      if (a && ['분실', '폐기예정', '폐기완료'].includes(a.status)) return null
+      if (a) return { ref: no, label: a.model, location: a.location, note: a.lastVerifiedAt ? `최근 실측 ${a.lastVerifiedAt}` : '실측 이력 없음', inLedger: true }
       const d = s.discovered.find((x) => x.id === no)
-      if (d) return { ref: no, label: `${d.hostname} · ${d.type}`, location: d.ip ?? '-', note: `발견 ${d.channel} · 최근 ${d.lastSeen}` }
-      return { ref: no, label: '-', location: '-', note: '대장·발견 저장소 확인 필요' }
+      if (d) return { ref: no, label: `${d.hostname} · ${d.type}`, location: d.ip ?? '-', note: `발견 ${d.channel} · 최근 ${d.lastSeen}`, inLedger: false }
+      return { ref: no, label: '-', location: '-', note: '대장·발견 저장소 확인 필요', inLedger: false }
     })
+    .filter((t): t is NonNullable<typeof t> => t !== null)
 
   return (
     <>
@@ -64,29 +68,7 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
         <Stat value={pendingDiffs.length} label="조정 미상신" tone={pendingDiffs.length ? 'err' : 'ok'} delta={{ text: '차이 조정은 필수 결재', dir: 'flat' }} />
       </div>
 
-      {unscannedTargets.length > 0 && (
-        <Card kicker="Follow-up · 미실사" title={`미실사 남은 대상 — ${unscannedTargets.length}건 (유령 자산 후보)`} pad={false}>
-          <div className="tbl-wrap">
-            <table className="tbl">
-              <thead><tr><th>대상</th><th>모델 · 유형</th><th>대장 위치 · IP</th><th>실측 이력</th></tr></thead>
-              <tbody>
-                {unscannedTargets.map((t) => (
-                  <tr key={t.ref}>
-                    <td className="code">{t.ref}</td>
-                    <td className="strong">{t.label}</td>
-                    <td className="dim">{t.location}</td>
-                    <td className="tnum">{t.note}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="callout" style={{ margin: 14 }}>
-            이 회차는 미확인·장기 미실측(유령 자산 후보)에서 자동 편성됐습니다. 위 대상을 현장에서 스캔하면 실측이 확인되고,
-            마감까지 미스캔분은 분실 후보로 남습니다 — 실사자가 무엇을 더 찾아야 하는지 한눈에 드러냅니다.
-          </div>
-        </Card>
-      )}
+      {unscannedTargets.length > 0 && <UnscannedTargets targets={unscannedTargets} roundName={round.name} />}
 
       <SurveyConsole
         roundId={round.id}
