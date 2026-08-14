@@ -376,6 +376,31 @@ export async function recordMaintenance(assetNo: string, rawNote: string) {
   return { ok: true, message: `${assetNo} 정기 점검 완료 — 다음 점검 ${nextDue}로 재예약` }
 }
 
+/** 정기 점검(예방 정비) 일정 등록·변경 — 자산을 예방 정비 사이클에 편입한다(제품안내서 §03 점검).
+ *  (정기 점검 완료는 다음 회차를 자동 재예약하지만, 최초 편입 경로가 없어 시드 자산 외에는
+ *   예방 정비를 시작할 수 없었다. 신규 서버·핵심 자산을 도입 시점에 정비 일정에 올리는 접점.)
+ *  예정일을 등록하면 도래(30일 내·경과) 시 대장 필터·상세·대시보드 큐에 드러나 정기 점검 완료로 이어진다.
+ *  이미 예정이 있으면 변경(재조정)으로 처리한다. 폐기 대상은 제외. 자산담당·Admin. */
+export async function scheduleMaintenance(assetNo: string, rawDate: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '정기 점검 일정 등록 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (['폐기완료', '폐기예정'].includes(asset.status)) return { ok: false, message: '폐기 대상 자산은 정기 점검 일정을 등록할 수 없습니다.' }
+  const due = rawDate.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return { ok: false, message: '점검 예정일을 YYYY-MM-DD 형식으로 입력하세요.' }
+  const t = today()
+  if (due <= t) return { ok: false, message: '점검 예정일은 오늘 이후로 지정하세요.' }
+  const prevDue = asset.maintenanceDue
+  asset.maintenanceDue = due
+  const verb = prevDue ? `일정 변경 — 기존 ${prevDue}${due}` : `일정 등록 — ${due}`
+  asset.history.push({ date: t, kind: '점검', detail: `정기 점검(예방 정비) ${verb}`, actor: session.name })
+  appendAudit({ actor: session.name, action: `정기 점검 ${prevDue ? '일정 변경' : '일정 등록'} — ${asset.model} (${due})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 정기 점검 ${prevDue ? '일정을 변경' : '일정을 등록'}했습니다 — 예정 ${due}` }
+}
+
 /** 자산 수령(인수) 확인 — 불출로 배정받은 자산을 사용자가 실물 수령했음을 확인한다(체인 오브 커스터디).
  *  (제품안내서 §03 불출·인수 — 그동안 불출은 담당자 처리·수령 안내 발송뿐이고, 사용자 인수 확인 접점이 없어
  *   실물 인계 사실을 감사에서 증명할 수 없었다. 공지 읽음 확인과 같은 사용자 쓰기 접점.)

@@ -140,6 +140,11 @@ try {
   check('자산 대장: 정기 점검 필터 렌더(예방 정비 대상 있을 때)', mgrHtml.includes('정기 점검 '))
   const maintSelHtml = await (await get('/assets/register?sel=AST-2022-000640', 'ASSET_MGR')).text()
   check('자산 대장: 정기 점검 예정 자산 상세에 점검 완료 액션', maintSelHtml.includes('정기 점검 예정') && maintSelHtml.includes('정기 점검 완료'))
+  // 정기 점검 일정 등록 — 예방 정비 예정이 없는 운영 자산을 정비 사이클에 편입하는 최초 등록 접점(완료 재예약과 별개). 자산담당만.
+  const schedSelHtml = await (await get('/assets/register?sel=AST-2024-000618', 'ASSET_MGR')).text()
+  check('자산 대장: 예방 정비 미편성 자산 상세에 정기 점검 일정 등록 액션', schedSelHtml.includes('정기 점검 일정 등록'))
+  // 이미 예정이 잡힌 자산에는 등록 대신 완료 액션만 — 두 액션은 상호배타(중복 예정 방지)
+  check('자산 대장: 이미 정기 점검 예정인 자산엔 일정 등록 액션 미노출(완료만)', !maintSelHtml.includes('정기 점검 일정 등록'))
   // 장기 미실측(유령 자산 후보) 필터 — 실측 이력이 없거나 오래된 자산이 시드에 있어 토글이 렌더된다
   check('자산 대장: 장기 미실측 필터 렌더 (실측 기반 유령 자산 식별)', mgrHtml.includes('장기 미실측'))
   // 상태 필터 — 유형·검색·장기미실측에 더해 자산 상태(대여중·수리중·분실 등)로도 슬라이스

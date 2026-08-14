@@ -329,6 +329,18 @@ try {
   await p2.waitForTimeout(700)
   const maintBody = (await p2.locator('body').textContent()) || ''
   ok('정기 점검 완료: 다음 점검 재예약(연 1회)', maintBody.includes('정기 점검 완료') && maintBody.includes('재예약'))
+  // 정기 점검 일정 등록 — 예방 정비 미편성 운영 자산(AST-2024-000618)을 자산담당이 정비 사이클에 편입(최초 등록 접점). 등록 후 예정일이 대장에 반영된다.
+  await p2.goto(`${BASE}/assets/register?sel=AST-2024-000618`, { waitUntil: 'networkidle' })
+  const schedBtn = p2.locator('button', { hasText: /^정기 점검 일정 등록$/ })
+  ok('정기 점검 일정 등록: 예방 정비 미편성 자산에 등록 액션 노출(자산담당)', (await schedBtn.count()) > 0)
+  await schedBtn.click()
+  await p2.waitForTimeout(200)
+  await p2.locator('input[title*="점검 예정일"]').fill('2027-03-15')
+  await p2.locator('button', { hasText: /^일정 등록$/ }).click()
+  await p2.waitForTimeout(700)
+  const schedBody = (await p2.locator('body').textContent()) || ''
+  // 등록 성공 시 자산에 maintenanceDue 가 잡혀 상세가 '정기 점검 예정 …' + 완료 액션 블록으로 전환된다(등록 콜아웃은 게이트가 뒤집혀 사라지므로 결과 상태로 검증).
+  ok('정기 점검 일정 등록: 예정일 반영 → 점검 예정 상태 전환(2027-03-15)', schedBody.includes('정기 점검 예정 2027-03-15') && schedBody.includes('정기 점검 완료'))
   await ctx2.close()
 
   // ── 사용자: AI 어시스턴트 본인 자산 자연어 질의(§01 사용자 본인 자산 조회 · §05 권한 필터) ──

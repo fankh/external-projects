@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindReceipts, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindReceipts, reportFault, reportLostStolen, returnLoan, scheduleMaintenance, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -96,6 +96,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [maintOpen, setMaintOpen] = useState(false)
   const [maintNote, setMaintNote] = useState('')
   const [maintMsg, setMaintMsg] = useState<string | null>(null)
+  const [schedOpen, setSchedOpen] = useState(false)
+  const [schedDate, setSchedDate] = useState('')
+  const [schedMsg, setSchedMsg] = useState<string | null>(null)
   const [loanOpen, setLoanOpen] = useState(false)
   const [loanTo, setLoanTo] = useState('')
   const [loanDept, setLoanDept] = useState('')
@@ -668,6 +671,28 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       </div>
                     )}
                   </>
+                )}
+              </div>
+            )}
+            {/* 정기 점검 일정 등록 — 예방 정비 예정이 아직 없는 운영 자산을 정비 사이클에 편입(§03 점검). 완료 재예약과 달리 최초 등록 접점. 자산담당만(canEdit). */}
+            {props.canEdit && !sel.maintenanceDue && !['폐기완료', '폐기예정'].includes(sel.status) && (
+              <div style={{ marginTop: 12 }}>
+                {schedMsg && <div className="callout" style={{ marginBottom: 10 }}>{schedMsg}</div>}
+                {!schedOpen ? (
+                  <button className="btn sm" disabled={pending}
+                    onClick={() => { setSchedOpen(true); setSchedDate(''); setSchedMsg(null) }}
+                    title="예방 정비 예정일을 지정해 정기 점검 사이클에 편입 — 도래 시 대장 필터·대시보드 큐에 노출됩니다">정기 점검 일정 등록</button>
+                ) : (
+                  <div className="vstack" style={{ gap: 8 }}>
+                    <input className="input" type="date" value={schedDate} disabled={pending}
+                      onChange={(e) => setSchedDate(e.target.value)} title="점검 예정일 (오늘 이후)" />
+                    <div className="hstack">
+                      <button className="btn sm pri" disabled={pending || !schedDate}
+                        onClick={() => startTransition(async () => { const r = await scheduleMaintenance(sel.assetNo, schedDate); setSchedMsg(r.message); if (r.ok) { setSchedOpen(false); setSchedDate('') } })}>일정 등록</button>
+                      <button className="btn sm ghost" disabled={pending} onClick={() => { setSchedOpen(false); setSchedMsg(null) }}>취소</button>
+                    </div>
+                    <span className="mut" style={{ fontSize: 11 }}>예정일이 도래(30일 내·경과)하면 정기 점검 완료 대상으로 표시됩니다.</span>
+                  </div>
                 )}
               </div>
             )}
