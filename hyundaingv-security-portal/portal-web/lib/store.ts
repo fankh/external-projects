@@ -329,10 +329,40 @@ function loadFromFile(): Store | null {
     for (const [k, v] of Object.entries(raw)) {
       if (!(k in base)) continue // 시드에 없는 키(오타·구정크)는 무시
       const expected = base[k]
-      if (Array.isArray(expected)) { if (Array.isArray(v)) mergedRec[k] = v }
+      if (Array.isArray(expected)) {
+        if (Array.isArray(v)) {
+          // 요소 수준 방어 — 상위 타입(배열)이 맞아도 요소가 오염되면(예: 객체 배열에 원시값이
+          // 섞이면) 화면의 `.field` 접근이 전 화면 500 을 낸다. 시드 요소 타입 기준으로 어긋난
+          // 요소만 걸러 정상 요소는 보존한다(v1.5.14 상위 타입 방어의 요소 수준 확장). 빈 시드
+          // 컬렉션(printouts 등)은 요소 타입을 알 수 없어 그대로 수용한다. securityOfficers 는
+          // 유일한 문자열 배열이라 원시 타입 일치로 걸러 객체 필터에 전량 탈락하지 않게 한다.
+          const sample = expected[0]
+          mergedRec[k] = sample === undefined ? v
+            : (sample !== null && typeof sample === 'object')
+              ? v.filter((e) => e !== null && typeof e === 'object' && !Array.isArray(e))
+              : v.filter((e) => typeof e === typeof sample)
+        }
+      }
       else if (expected && typeof expected === 'object') { if (v && typeof v === 'object' && !Array.isArray(v)) mergedRec[k] = v }
       // 스칼라 필드(현재 Store 엔 없음, 향후 추가 대비) — 시드와 원시 타입이 같을 때만 수용
       else if (typeof v === typeof expected) mergedRec[k] = v
+    }
+    // 요소 필드 정규화 — 요소가 객체여도 시드에서 배열/숫자인 중첩 필드가 손상 파일에서 어긋나면
+    // (예: codeGroups[].values 누락·문자열, systems[].serverIds 문자열, investPlan[].amount 누락)
+    // 소비처의 .map/.filter/.length/.toLocaleString 가 전 화면 500 을 낸다. 시드 첫 요소를 형판으로
+    // 배열 필드는 [], 숫자 필드는 0 으로 보정한다(요소를 버리지 않고 크래시 유발 필드만 정규화).
+    for (const [k, expected] of Object.entries(base)) {
+      if (!Array.isArray(expected) || expected.length === 0) continue
+      const tmpl = expected[0] as Record<string, unknown>
+      if (!tmpl || typeof tmpl !== 'object') continue
+      const arrFields = Object.keys(tmpl).filter((f) => Array.isArray(tmpl[f]))
+      const numFields = Object.keys(tmpl).filter((f) => typeof tmpl[f] === 'number')
+      if (arrFields.length === 0 && numFields.length === 0) continue
+      for (const el of mergedRec[k] as Record<string, unknown>[]) {
+        if (!el || typeof el !== 'object') continue
+        for (const f of arrFields) if (!Array.isArray(el[f])) el[f] = []
+        for (const f of numFields) if (typeof el[f] !== 'number') el[f] = 0
+      }
     }
     // 파일 변조·손상 방어 — menuOverrides 는 형태 검증을 통과한 엔트리만 보존한다
     // (설계상 축소 전용이라 권한 상승은 불가하지만, 비배열 값은 가드에서 500 을 유발한다)
@@ -347,6 +377,16 @@ function loadFromFile(): Store | null {
     }
     return merged
   } catch {
+    // 파싱·머지 실패 = 손상 파일(외부 편집기·백업 도구·디스크 풀 0바이트·비트로트). 그대로 두면
+    // getStore 가 seed 로 폴백하고, 읽기 트리거 저장(scheduleSave)이 300ms 뒤 원본을 빈 시드로
+    // 덮어써 복구 불가능한 손실이 된다(스케줄러 off 배포는 .bak 조차 없어 전손). 원본을
+    // .corrupt.<시각> 으로 격리 보존한 뒤 seed 로 기동해, 운영자가 복구할 지점을 남긴다.
+    try {
+      if (DATA_FILE && existsSync(DATA_FILE)) {
+        const stamp = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 19).replace(/[:T]/g, '')
+        renameSync(DATA_FILE, `${DATA_FILE}.corrupt.${stamp}`)
+      }
+    } catch { /* 격리 실패해도 서버는 시드로 뜬다 */ }
     return null
   }
 }
@@ -456,7 +496,9 @@ export function activeCodes(s: Store, groupId: string): string[] {
 export function nextNo(prefix: string, year: string, existing: string[]): string {
   const head = `${prefix}-${year}-`
   const max = existing
-    .filter((n) => n.startsWith(head))
+    // typeof 가드 — 손상 파일이 id 없는 요소를 남기면 existing 에 undefined 가 섞여
+    // undefined.startsWith 가 상신 서버액션을 500 낸다. 문자열 id 만 스캔한다.
+    .filter((n) => typeof n === 'string' && n.startsWith(head))
     .reduce((m, n) => Math.max(m, Number(n.slice(head.length)) || 0), 0)
   return `${head}${String(max + 1).padStart(4, '0')}`
 }
