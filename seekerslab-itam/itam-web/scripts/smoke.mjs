@@ -517,6 +517,8 @@ try {
   // 이상 자산 행위 탐지(§05 AI 기능02) — 취약점 우선순위(정적 노출도)와 다른 '행위 이탈' 관점 컴퓨티드 뷰. 미인가 SW·유휴 자산 사용·USB 대용량 반출.
   check('AI 제안: 이상 자산 행위 탐지 컴퓨티드 뷰 렌더', insHtml.includes('이상 자산 행위 탐지') && insHtml.includes('미인가 SW 설치') && insHtml.includes('유휴 자산 사용') && insHtml.includes('USB 대용량 반출'))
   check('AI 제안: 이상탐지 — 유휴 자산 사용(미승인 불출 DIF-04) 실측 이탈 반영', insHtml.includes('AST-2021-000432') && insHtml.includes('미승인 불출'))
+  // 교체수요·수명 예측(§05 AI 기능03) — 연간 교체 계획 리포트와 같은 replacementCandidates() 근거를 화면에 직접 노출. 내용연수·보증·장애 이력 결합.
+  check('AI 제안: 교체수요·수명 예측 컴퓨티드 뷰 렌더', insHtml.includes('교체수요·수명 예측') && insHtml.includes('추정 교체 예산') && insHtml.includes('잔여 장부가 — 폐기손실'))
   // 위험도 기준 관리(제품안내서 §01 보안담당 책무) — P1/P2 컷오프를 보안담당이 설정. 기본 P1≥67·P2≥34.
   check('AI 제안: 위험도 기준 패널 렌더 (기본 P1≥67·P2≥34)', insHtml.includes('위험도 기준 — 취약점 우선순위 판정 컷오프') && insHtml.includes('67') && insHtml.includes('34~66'))
   check('AI 제안: 보안담당에 위험도 기준 변경 노출', insHtml.includes('기준 변경'))

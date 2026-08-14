@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { InsightKind } from '@/lib/types'
 import { AnomalyDetection } from './AnomalyDetection'
+import { LifecyclePrediction } from './LifecyclePrediction'
 import { ProposalList } from './ProposalList'
 import { RiskPolicyPanel } from './RiskPolicyPanel'
 import { VulnPriority } from './VulnPriority'
@@ -77,6 +78,8 @@ export default async function InsightsPage() {
       <RiskPolicyPanel policy={s.riskPolicy} canEdit={canEditRisk} />
 
       <AnomalyDetection />
+
+      <LifecyclePrediction />
 
       <VulnPriority />
 
