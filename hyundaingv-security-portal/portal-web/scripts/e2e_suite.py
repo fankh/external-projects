@@ -21,6 +21,8 @@ UPLOAD = ROOT / 'scripts' / '.e2e-upload.txt'
 DATA = ROOT / 'scripts' / '.e2e-data.json'
 EDU_DATA = ROOT / 'scripts' / '.e2e-edu-data.json'  # 교육 이수율 퇴사자 이력 회귀용 (v1.5.24)
 FIN_DATA = ROOT / 'scripts' / '.e2e-fin-data.json'  # 집행률 확정 스코프 회귀용 (v1.5.25)
+FYEAR_DATA = ROOT / 'scripts' / '.e2e-fyear-data.json'  # 일반 서약 year 필터 회귀용 (v1.5.32)
+XKIND_DATA = ROOT / 'scripts' / '.e2e-xkind-data.json'  # export 크로스-kind 회귀용 (v1.5.25)
 
 
 def login(pg, base, name):
@@ -580,6 +582,27 @@ def sc_finance_exec_rate(pg, base, check):
     pg.goto(f'{base}/finance/invest', wait_until='networkidle')
     rate = pg.locator('.stat', has_text='집행률').locator('.v').inner_text().strip()
     check(rate == '100%', f'집행률 확정 계획 스코프 = 100% (수정 전 계획외 산입이면 150%; 실제 {rate})')
+
+
+def sc_year_filter(pg, base, check):
+    """일반 서약 집계 year 필터 (v1.5.32) — 대시보드가 개정본 유효 판정에 year 를 반영해야
+    레거시 데이터(year≠2026 서약)를 서명으로 오인하지 않는다. 데이터: 재직자C 가 2025 서약만
+    보유 → year 필터면 2026 미서약 1명, 미필터(수정 전)면 0명."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    n = pg.locator('.stat', has_text='미서약 인원').locator('.v').inner_text().strip()
+    check(n == '1', f'2025(레거시) 서약은 2026 미서약으로 집계 (year 필터; 수정 전이면 0; 실제 {n})')
+
+
+def sc_export_kind_scope(pg, base, check):
+    """export invest-actual 집계를 kind 로 스코프 (v1.5.25) — 비용 계약이 투자 계획을 참조하는
+    크로스-kind 오염을 심어도 투자 export 에 산입되면 안 된다. 데이터: 투자계획 1000·투자 지급
+    1000 + 비용계약(투자계획 참조) 지급 500 → 투자 집행률 100%, kind 미필터(수정 전)면 150%."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/finance/invest', wait_until='networkidle')  # 세션 쿠키 확보
+    csv = pg.request.get(f'{base}/api/export?type=invest-actual').text()
+    # P1 행: 수정 시 계약/집행/집행률 1000·1000·100, 미수정 시 크로스 비용 산입으로 1500·1500·150
+    check('150' not in csv, '투자 export 가 크로스-kind 비용 지급을 제외 (수정 전이면 150 등장)')
 
 
 def sc_codes(pg, base, check):
@@ -1147,6 +1170,10 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(EDU_DATA)}),
     ('finance_exec_rate', '집행률 — 확정 계획 스코프(계획외 지급 미산입)', sc_finance_exec_rate,
      {'PORTAL_DATA_FILE': str(FIN_DATA)}),
+    ('year_filter', '일반 서약 집계 year 필터(레거시 데이터 오인 방지)', sc_year_filter,
+     {'PORTAL_DATA_FILE': str(FYEAR_DATA)}),
+    ('export_kind_scope', 'export 투자 집계 kind 스코프(크로스-kind 오염 제외)', sc_export_kind_scope,
+     {'PORTAL_DATA_FILE': str(XKIND_DATA)}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
@@ -1242,6 +1269,25 @@ def main() -> int:
             {'id': 'ST-91', 'contractId': 'CT-91', 'item': '잔금', 'amount': 500, 'status': '지급완료', 'requestedBy': '시스템관리자', 'requestedAt': '2026-07-10'},
         ],
     }, ensure_ascii=False), encoding='utf-8')
+    # year_filter 시나리오용 — 재직자C 가 레거시(2025) 일반 서약만 보유 (2026 미서약이어야)
+    FYEAR_DATA.write_text(json.dumps({
+        'people': [{'name': '재직자C', 'dept': '검증팀'}],
+        'pledges': [{'name': '재직자C', 'dept': '검증팀', 'year': '2025', 'kind': '일반', 'signedAt': '2025-07-01', 'method': '온라인'}],
+        'pledgeForms': [{'kind': '일반', 'revisedAt': '2025-01-01'}],
+    }, ensure_ascii=False), encoding='utf-8')
+    # export_kind 시나리오용 — 비용 계약이 투자 계획(IP-91)을 참조하는 크로스-kind 오염
+    XKIND_DATA.write_text(json.dumps({
+        'investPlans': [{'id': 'IP-91', 'kind': '투자', 'year': '2026', 'title': 'E2E 크로스',
+                         'owner': '시스템관리자', 'dept': '정보기획팀', 'amount': 1000, 'status': '확정'}],
+        'investContracts': [
+            {'id': 'CT-92', 'kind': '투자', 'planId': 'IP-91', 'vendor': 'V1', 'title': '투자계약', 'amount': 1000, 'signedAt': '2026-07-01'},
+            {'id': 'CT-93', 'kind': '비용', 'planId': 'IP-91', 'vendor': 'V2', 'title': '비용계약(크로스)', 'amount': 500, 'signedAt': '2026-07-01'},
+        ],
+        'settlements': [
+            {'id': 'ST-92', 'contractId': 'CT-92', 'item': '잔금', 'amount': 1000, 'status': '지급완료', 'requestedBy': '시스템관리자', 'requestedAt': '2026-07-10'},
+            {'id': 'ST-93', 'contractId': 'CT-93', 'item': '잔금', 'amount': 500, 'status': '지급완료', 'requestedBy': '시스템관리자', 'requestedAt': '2026-07-10'},
+        ],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -1253,6 +1299,8 @@ def main() -> int:
     DATA.unlink(missing_ok=True)
     EDU_DATA.unlink(missing_ok=True)
     FIN_DATA.unlink(missing_ok=True)
+    FYEAR_DATA.unlink(missing_ok=True)
+    XKIND_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
