@@ -65,6 +65,9 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
               {s.licenses.map((l) => {
                 const ratio = Math.min((l.used / l.purchased) * 100, 100)
                 const retired = l.status === '해지'
+                // 만료 경과 — 유효 상태인데 만료일이 지난 라이선스(미갱신). 만료 라이선스 사용은 그 자체가 컴플라이언스 위반이므로
+                // 초과·미사용과 별개로 갱신 필요를 명시한다. 만료 임박(창 안)과 달리 이미 지난 건이라 알림에서 누락되던 공백.
+                const expired = !retired && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
                 const over = !retired && l.used > l.purchased
                 const low = !retired && !over && l.used / l.purchased < 0.6
                 const canEditLic = ['ASSET_MGR', 'ADMIN'].includes(session.role)
@@ -85,7 +88,10 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                     </td>
                     <td><LicenseRenew id={l.id} expiry={l.expiry} renewals={l.renewals?.length ?? 0} canEdit={!retired && canEditLic} /></td>
                     <td className="c">
-                      {retired ? <Chip tone="neutral">해지</Chip> : over ? <Chip tone="err">초과 사용</Chip> : low ? <Chip tone="warn">미사용 보유</Chip> : <Chip tone="ok">적정</Chip>}
+                      <span className="hstack" style={{ gap: 3, justifyContent: 'center', flexWrap: 'wrap' }}>
+                        {expired && <Chip tone="err" bare>만료</Chip>}
+                        {retired ? <Chip tone="neutral">해지</Chip> : over ? <Chip tone="err">초과 사용</Chip> : low ? <Chip tone="warn">미사용 보유</Chip> : <Chip tone="ok">적정</Chip>}
+                      </span>
                     </td>
                     <td className="c" style={{ minWidth: 120 }}>
                       <span className="hstack" style={{ gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>

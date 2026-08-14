@@ -73,6 +73,8 @@ export default async function DashboardPage() {
       { label: 'EOL OS 자산 (교체·업그레이드 대상)', count: s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, today())).length, href: '/assets/register?os=eol', tone: 'err' },
       // SW 라이선스 초과 사용(보유<사용)은 SAM 감사 최우선 노출 리스크 — 계약·라이선스 화면에만 있던 것을 담당자 일과 시작점(대시보드)으로 끌어올린다
       { label: '라이선스 초과 사용 (감사 노출)', count: s.licenses.filter((l) => l.status !== '해지' && l.used > l.purchased).length, href: '/inventory/contracts', tone: 'err' },
+      // 라이선스 만료 경과 — 미갱신 만료 라이선스 사용은 컴플라이언스 위반. 만료 임박(창 안) 알림에서 이미 지난 건이 누락되던 공백.
+      { label: '라이선스 만료 경과 (갱신 필요 · 위반 노출)', count: s.licenses.filter((l) => l.status !== '해지' && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0).length, href: '/inventory/contracts', tone: 'err' },
       // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.
       { label: '대장 정합성 미흡 (필드 누락·불일치)', count: s.assets.filter(hasDataIssue).length, href: '/assets/register?dq=1', tone: 'warn' },
     )

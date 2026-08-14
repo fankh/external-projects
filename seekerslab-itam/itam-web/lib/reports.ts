@@ -236,17 +236,20 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const active = s.licenses.filter((l) => l.status !== '해지')
     const over = active.filter((l) => l.used > l.purchased)
     const under = active.filter((l) => l.used / l.purchased < 0.6)
+    // 만료 경과 — 유효인데 만료일이 지난(미갱신) 라이선스. 만료 라이선스 사용은 컴플라이언스 위반이므로 별도 집계·판정한다.
+    const isExpired = (l: (typeof s.licenses)[number]) => l.status !== '해지' && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
+    const expired = active.filter(isExpired)
     const saving = under.reduce((n, l) => n + (l.purchased - l.used) * l.unitCost, 0)
     const saasCons = saasConsolidationCandidates()
     return [
       {
         title: '보유–사용 대사',
-        note: `초과 사용 ${over.length}건 · 미사용 보유 ${under.length}건 (해지 제외)`,
+        note: `초과 사용 ${over.length}건 · 미사용 보유 ${under.length}건 · 만료 경과 ${expired.length}건 (해지 제외)`,
         columns: ['라이선스', '공급사', '보유', '사용', '사용률', '만료일', '판정'],
         rows: s.licenses.map((l) => [
           l.name, l.vendor, String(l.purchased), String(l.used),
           `${Math.round((l.used / l.purchased) * 100)}%`, l.expiry,
-          l.status === '해지' ? '해지' : l.used > l.purchased ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정',
+          `${isExpired(l) ? '만료·' : ''}${l.status === '해지' ? '해지' : l.used > l.purchased ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정'}`,
         ]),
       },
       {
