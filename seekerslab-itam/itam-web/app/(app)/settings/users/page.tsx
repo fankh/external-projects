@@ -14,6 +14,16 @@ export default async function UsersPage() {
     if (['폐기완료', '폐기예정'].includes(a.status)) continue
     owned[a.owner] = (owned[a.owner] ?? 0) + 1
   }
+  // 오프보딩 요약 — 퇴직·부서이동 시 회수·재배정 대상을 한 사람 기준으로 모은다(대장 소유자 검색·라이선스 좌석·대여가 흩어져 있던 것).
+  //  사용중 보유(일괄 회수 대상)·대여중·배정 라이선스 좌석·미처리 상신 결재를 사용자별로 집계한다. 담당자 자산 회수(로 오프보딩)의 진입 요약.
+  const offboard: Record<string, { inUse: number; loaned: number; seats: { lic: string; assetNo: string }[]; pendingReqs: number }> = {}
+  const bump = (name: string) => (offboard[name] ??= { inUse: 0, loaned: 0, seats: [], pendingReqs: 0 })
+  for (const a of s.assets) {
+    if (a.status === '사용중') bump(a.owner).inUse += 1
+    else if (a.status === '대여중') bump(a.owner).loaned += 1
+  }
+  for (const l of s.licenses) for (const st of l.seats ?? []) bump(st.user).seats.push({ lic: l.name, assetNo: st.assetNo })
+  for (const ap of s.approvals) if (ap.status === '대기' && ap.requester) bump(ap.requester).pendingReqs += 1
 
   return (
     <>
@@ -30,7 +40,7 @@ export default async function UsersPage() {
         <Stat value={s.approvalLines.filter((l) => l.required).length} label="필수 결재 화면" tone="warn" />
       </div>
 
-      <UsersView users={s.users} lines={s.approvalLines} me={session.login} owned={owned} />
+      <UsersView users={s.users} lines={s.approvalLines} me={session.login} owned={owned} offboard={offboard} />
     </>
   )
 }

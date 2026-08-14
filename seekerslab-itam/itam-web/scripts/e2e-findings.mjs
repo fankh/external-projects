@@ -776,6 +776,15 @@ try {
   await qnaRemindBtn.click()
   await p3.waitForTimeout(700)
   ok('QnA 답변 독촉: 발송 성공(담당 팀 답변 요청·발송 이력)', ((await p3.locator('body').textContent()) || '').includes('QnA 답변 독촉') && ((await p3.locator('body').textContent()) || '').includes('발송'))
+  // 오프보딩 요약 — 사용자 화면에서 한 사람(김민준)의 회수·재배정 대상(사용중 보유·라이선스 좌석·상신 결재)을 한눈에. 자산·좌석·대여·라이선스가 흩어져 있던 것을 모은다.
+  await p3.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
+  const userRow = p3.locator('tr', { has: p3.locator('td', { hasText: '김민준' }) }).first()
+  const obToggle = userRow.locator('button', { hasText: /요약/ })
+  ok('오프보딩 요약: 자산·좌석 보유 사용자에 요약 토글 노출(김민준)', (await obToggle.count()) > 0)
+  await obToggle.click()
+  await p3.waitForTimeout(300)
+  const obBody = (await p3.locator('body').textContent()) || ''
+  ok('오프보딩 요약: 배정 라이선스 좌석 집계·표기(AutoCAD 좌석)', obBody.includes('오프보딩 요약 — 김민준') && obBody.includes('배정 라이선스 좌석') && obBody.includes('AutoCAD'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──

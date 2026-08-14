@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { MANDATORY_APPROVAL_KINDS, ROLE_LABEL } from '@/lib/types'
 import type { ApprovalLine, Role, UserAccount } from '@/lib/types'
@@ -11,8 +11,9 @@ const ROLE_TONE: Record<Role, 'neutral' | 'info' | 'warn' | 'err'> = {
   USER: 'neutral', ASSET_MGR: 'info', SEC_MGR: 'warn', ADMIN: 'err',
 }
 
-export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; me: string; owned: Record<string, number> }) {
+export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; me: string; owned: Record<string, number>; offboard?: Record<string, { inUse: number; loaned: number; seats: { lic: string; assetNo: string }[]; pendingReqs: number }> }) {
   const [msg, setMsg] = useState<string | null>(null)
+  const [obOpen, setObOpen] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const adminCount = props.users.filter((u) => u.role === 'ADMIN').length
@@ -56,14 +57,17 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>계정</th><th>이름</th><th>부서</th><th>사용자그룹</th><th className="c">권한그룹</th><th className="num">보유 자산</th><th className="c">MFA</th><th>최근 로그인</th></tr>
+              <tr><th>계정</th><th>이름</th><th>부서</th><th>사용자그룹</th><th className="c">권한그룹</th><th className="num">보유 자산</th><th className="c">MFA</th><th>최근 로그인</th><th className="c">오프보딩</th></tr>
             </thead>
             <tbody>
               {props.users.map((u) => {
                 // 본인 관리자 강등 방지 · 마지막 관리자 강등 방지 — 서버와 같은 규칙을 화면에도 반영
                 const lastAdmin = u.role === 'ADMIN' && (u.login === props.me || adminCount <= 1)
+                const ob = props.offboard?.[u.name]
+                const obHas = !!ob && (ob.inUse > 0 || ob.loaned > 0 || ob.seats.length > 0 || ob.pendingReqs > 0)
                 return (
-                  <tr key={u.login}>
+                  <Fragment key={u.login}>
+                  <tr>
                     <td className="code">{u.login}</td>
                     <td className="strong">{u.name}{u.login === props.me && <span className="mut" style={{ fontSize: 10 }}> · 본인</span>}</td>
                     <td className="mute">{u.dept}</td>
@@ -94,7 +98,36 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
                       )}
                     </td>
                     <td className="tnum mute">{u.lastLogin}</td>
+                    <td className="c">
+                      {obHas
+                        ? <button className="btn sm ghost" onClick={() => setObOpen((v) => (v === u.login ? null : u.login))}
+                            title={`${u.name} 오프보딩 요약 — 회수·재배정 대상`}>{obOpen === u.login ? '▾ 요약' : '▸ 요약'}</button>
+                        : <span className="mut" style={{ fontSize: 11 }}>—</span>}
+                    </td>
                   </tr>
+                  {obOpen === u.login && ob && (
+                    <tr>
+                      <td colSpan={9} style={{ background: 'var(--canvas)', padding: '10px 14px' }}>
+                        <div className="vstack" style={{ gap: 6 }}>
+                          <span className="kicker mute">오프보딩 요약 — {u.name} ({u.dept}) · 퇴직·부서이동 시 회수·재배정 대상</span>
+                          <div className="hstack" style={{ gap: 14, flexWrap: 'wrap', fontSize: 12.5 }}>
+                            <span>사용중 보유 <b>{ob.inUse}</b>대{ob.inUse > 0 && <> · <a href={`/assets/register?q=${encodeURIComponent(u.name)}&status=사용중`} style={{ color: 'var(--accent-deep)' }} title="대장에서 일괄 회수(선택 후 일괄 회수)">일괄 회수 →</a></>}</span>
+                            <span>대여중 <b>{ob.loaned}</b>대{ob.loaned > 0 && <> · <a href={`/assets/register?q=${encodeURIComponent(u.name)}&status=대여중`} style={{ color: 'var(--accent-deep)' }} title="대여 반환 처리">반환 처리 →</a></>}</span>
+                            <span>배정 라이선스 좌석 <b>{ob.seats.length}</b>석{ob.seats.length > 0 && <> · <a href="/inventory/contracts" style={{ color: 'var(--accent-deep)' }} title="라이선스 좌석 회수(계약·라이선스)">좌석 회수 →</a></>}</span>
+                            <span>미처리 상신 결재 <b>{ob.pendingReqs}</b>건{ob.pendingReqs > 0 && <> · <a href="/workflow/approvals" style={{ color: 'var(--accent-deep)' }}>결재함 →</a></>}</span>
+                          </div>
+                          {ob.seats.length > 0 && (
+                            <div className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                              <span className="mut" style={{ fontSize: 11 }}>좌석: </span>
+                              {ob.seats.map((st, i) => <Chip key={i} tone="neutral" bare>{st.lic} · {st.assetNo}</Chip>)}
+                            </div>
+                          )}
+                          <span className="mut" style={{ fontSize: 11 }}>자산 회수 시 배정 라이선스 좌석은 자동 회수됩니다(로56). 좌석만 남으면 계약·라이선스에서 직접 회수하세요.</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 )
               })}
             </tbody>
