@@ -361,9 +361,13 @@ function loadFromFile(): Store | null {
       // (decidedAt·rejectReason 등, 반려/처리 완료 행에만 있음)가 정규화에서 빠지면 손상 파일의 객체값이
       // 살아남아 {a.decidedAt ?? '-'} 가 React child 로 렌더돼 500(평문 GET) 난다(v1.5.63 사각 마감).
       const strFields = new Set<string>()
-      for (const row of expected as Record<string, unknown>[]) {
-        if (row && typeof row === 'object') for (const f of Object.keys(row)) if (typeof row[f] === 'string') strFields.add(f)
-      }
+      const strRows = (expected as Record<string, unknown>[]).filter((row) => row && typeof row === 'object')
+      for (const row of strRows) for (const f of Object.keys(row)) if (typeof row[f] === 'string') strFields.add(f)
+      // 전 시드 행에 문자열로 존재하는 필드는 '필수' 필드다 — 손상 파일이 이 필드를 통째로 누락하면(값 오염이
+      // 아니라 키 부재) 위 undefined-보존 규칙에 걸려 그대로 undefined 로 남고, 소비처의 .includes/.slice 가
+      // undefined 에서 전 화면 500 을 낸다(예: person.dept 누락 → eligibleForCourse '개발자' 렌더 크래시).
+      // 일부 행에만 있는 옵셔널 필드와 달리, 전 행 공통 필수 필드는 누락도 ''로 채운다(정상 데이터엔 영향 없음).
+      const reqStrFields = [...strFields].filter((f) => strRows.length > 0 && strRows.every((row) => typeof row[f] === 'string'))
       if (arrFields.length === 0 && numFields.length === 0 && strFields.size === 0) continue
       for (const el of mergedRec[k] as Record<string, unknown>[]) {
         if (!el || typeof el !== 'object') continue
@@ -382,6 +386,7 @@ function loadFromFile(): Store | null {
         // 존재하는 비문자열 값만 문자열로 강제한다 — 누락(undefined)은 옵셔널 필드 의미 보존을 위해 그대로
         // 둔다(정상 데이터의 옵셔널 미존재 필드가 ''로 바뀌지 않도록).
         for (const f of strFields) if (el[f] !== undefined && typeof el[f] !== 'string') el[f] = String(el[f])
+        for (const f of reqStrFields) if (el[f] === undefined) el[f] = ''
         // 요소 필드는 순수 객체값을 가질 수 없다(문자열·숫자·불리언·배열뿐) — 손상 파일의 객체값은 {a.x ?? '-'}
         // 처럼 JSX child 로 렌더될 때 React 'Objects are not valid as a React child' 로 500 낸다. 시드 어느
         // 행에도 없어 strFields 로 못 잡는 필드(rejectReason 등)까지 포함해, 순수 객체 필드는 제거(undefined)한다.

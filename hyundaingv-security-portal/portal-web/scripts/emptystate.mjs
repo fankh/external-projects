@@ -135,7 +135,16 @@ async function main() {
     // 객체로 오염 → {a.decidedAt ?? '-'} 가 React child 로 렌더돼 /work/approvals 가 500. 합집합 strFields 로 방어.
     approvals: [{ id: 'AP-9', docType: '비용 정산품의', title: 't', drafter: '시스템관리자', dept: '정보기획팀',
       approver: '박정호', status: '반려', draftedAt: '2026-08-01', decidedAt: {}, rejectReason: {} }],
-    people: [{ login: 'probe1', name: '견고성검증', dept: '품질보증팀', role: 'USER' }] }
+    // 옵셔널 배열 필드(expenseFlash.history)가 시드 어느 행에도 없어 스토어 정규화가 못 잡는다 — 비배열
+    // 원시값('x')·원소 오염(null·비숫자 expected)이라도 /finance/expense 의 .length/.map/toLocaleString 가 500 나면 안 된다.
+    expenseFlashes: [{ id: 'EF-9', month: '2026-08', vendor: '씨클라우드', expected: 100, history: 'x' },
+      { id: 'EF-10', month: '2026-07', vendor: '씨넷', expected: 200, history: [null, { at: '2026-07-01', by: 'admin', expected: 'oops' }] }],
+    // 대상별 이수 과정(개발자)이 있으면 eligibleForCourse 가 p.dept.includes 를 부른다 — 아래 dept 누락 인원과
+    // 결합해 /compliance/education 렌더 크래시를 재현한다(머지 reqStrFields 가 누락 필수 문자열을 ''로 채워 방어).
+    educationCourses: [{ id: 'ED-9', title: '개발보안', target: '개발자', plannedMonth: '2026-08', status: '계획' }],
+    // 필수 문자열 필드 '누락'(키 부재) — dept 없는 인원. eligibleForCourse('개발자') 의 p.dept.includes 가 500 나면 안 된다.
+    people: [{ login: 'probe1', name: '견고성검증', dept: '품질보증팀', role: 'USER' },
+      { login: 'probe2', name: '부서누락', role: 'USER' }] }
   const corruptOk = await probe('corruptfile(손상 파일)', corrupt, PORT + 1,
     (r, body) => (r === '/settings/users' && !body.includes('품질보증팀')) ? '정상 부분(people) 머지 누락' : null)
 

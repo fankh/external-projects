@@ -266,8 +266,10 @@ export default async function ExpensePage() {
                         <input aria-label="예상액" className="input" name="expected" type="number" min={1} defaultValue={f.expected} style={{ height: 25, fontSize: 11.5, width: 78, textAlign: 'right' }} />
                         <button type="submit" className="btn sm">수정</button>
                       </form>
-                      {f.history && f.history.length > 0 && (
-                        <span className="mut" style={{ fontSize: 10.5 }} title={f.history.map((h) => `${h.at} ${h.by}: ${fmt(h.expected)}`).join(' / ')}>
+                      {Array.isArray(f.history) && f.history.length > 0 && (
+                        // history 는 시드 어느 행에도 없는 옵셔널 필드라 스토어 정규화(시드 형판 기반)가 못 잡는다 —
+                        // 손상 파일이 비배열 원시값('x')이나 원소 오염(null·원시)을 넣어도 렌더가 죽지 않도록 여기서 방어한다.
+                        <span className="mut" style={{ fontSize: 10.5 }} title={f.history.map((h) => `${h?.at ?? ''} ${h?.by ?? ''}: ${fmt(typeof h?.expected === 'number' ? h.expected : 0)}`).join(' / ')}>
                           이력 {f.history.length}회
                         </span>
                       )}
