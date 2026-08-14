@@ -309,11 +309,22 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
     a.fulfilled = true
   }
 
-  // 폐기 결재 — 승인 시 데이터 소거 대기로 전환 (소거·증적은 폐기 화면에서 처리)
+  // 폐기 결재 — 승인 시 데이터 소거 대기로 전환(소거·증적은 폐기 화면에서 처리). 반려는 "폐기하지 말라"는 결정이므로
+  // 자산을 원 상태(prevStatus)로 복원하고 폐기 절차에서 뺀다 — 반려된 자산이 폐기예정 림보에 방치되지 않게 한다.
   if (a.kind === '폐기') {
-    for (const d of s.disposals.filter((x) => x.approvalId === a.id)) {
-      d.status = verdict === '승인' ? '소거 대기' : '대상 선정'
-      if (verdict === '반려') d.approvalId = undefined
+    const linked = s.disposals.filter((x) => x.approvalId === a.id)
+    if (verdict === '승인') {
+      for (const d of linked) d.status = '소거 대기'
+    } else {
+      for (const d of linked) {
+        const asset = s.assets.find((x) => x.assetNo === d.assetNo)
+        if (asset) {
+          const restored = asset.status === '폐기예정' ? (d.prevStatus ?? '유휴') : asset.status
+          asset.status = restored
+          asset.history.push({ date: today(), kind: '점검', detail: `폐기 반려 — 대상 해제·${restored} 복원 (${a.id})`, actor: session.name })
+        }
+      }
+      s.disposals = s.disposals.filter((x) => x.approvalId !== a.id)
     }
   }
 
