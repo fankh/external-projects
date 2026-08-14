@@ -294,6 +294,13 @@ try {
   await p2.waitForTimeout(700)
   const rcptBody = (await p2.locator('body').textContent()) || ''
   ok('수령 확인 독촉: 발송 성공(미확인 사용자 통보·발송 이력)', rcptBody.includes('수령 확인 독촉') && rcptBody.includes('발송'))
+  // 정기 점검 독촉 — 예방 정비 예정일이 경과(미시행)한 자산(시드 AST-2022-000640/641)의 소유 부서에 점검 시행 요청 발송(수령·반환 독촉과 같은 컴플라이언스 독촉). 점검 완료(뒤 단계) 전에 검증.
+  const maintRemindBtn = p2.locator('button', { hasText: /정기 점검 독촉 발송/ })
+  ok('정기 점검 독촉: 예정 경과 있으면 자산담당에 독촉 버튼 노출', (await maintRemindBtn.count()) > 0)
+  await maintRemindBtn.first().click()
+  await p2.waitForTimeout(700)
+  const maintRemindBody = (await p2.locator('body').textContent()) || ''
+  ok('정기 점검 독촉: 발송 성공(소유 부서 점검 시행 요청·발송 이력)', maintRemindBody.includes('정기 점검 독촉') && maintRemindBody.includes('발송'))
   // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
   const recoverBtn = p2.locator('button', { hasText: /^자산 회수 \(반납 처리\)$/ })
