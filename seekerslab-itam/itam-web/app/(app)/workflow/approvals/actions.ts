@@ -5,6 +5,7 @@ import { approvalAgeDays, isApprovalOverdue, today } from '@/lib/dates'
 import { dispatch, escalate } from '@/lib/notify'
 import { canDecideApproval } from '@/lib/approval'
 import { classifyDiscoveredType } from '@/lib/classify'
+import { reclaimLicenseSeats } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextAssetNo, nextId } from '@/lib/store'
 import { approvalRoute, approvalStepLabel } from '@/lib/types'
@@ -418,6 +419,9 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       if (a.kind === '반납') {
         asset.status = '반납대기'
         asset.history.push({ date: today(), kind: '반납', detail: '반납 결재 승인 · 회수 접수 대기', actor: session.name })
+        // 반납으로 자산이 보유자를 떠나면 배정 라이선스 좌석을 회수한다(로56 좌석 생애주기) — 담당자 회수·폐기와 같은 처리. 여유석 복귀.
+        const freed = reclaimLicenseSeats(asset.assetNo, session.name, '반납')
+        if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (반납)`, actor: session.name })
       }
       if (a.kind === '폐기') {
         asset.history.push({ date: today(), kind: '폐기', detail: '폐기 결재 승인 · 데이터 소거 대기', actor: session.name })
