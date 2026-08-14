@@ -329,6 +329,31 @@ export async function recoverFromUser(assetNo: string, rawReason: string) {
   return { ok: true, message: `${assetNo} 회수 — 반납 접수 대기열로 편성 (${holder} → 점검 후 유휴 풀/수리/폐기)` }
 }
 
+/** 자산 일괄 회수 — 여러 사용 중 자산을 한 번에 회수(오프보딩: 퇴직자 보유 자산 전량 회수). 사용 중이 아닌 선택분은 건너뛴다.
+ *  대장에서 소유자로 검색·선택해 일괄 회수하면 퇴직자 자산 회수를 한 번에 처리할 수 있다. 자산담당·Admin. */
+export async function recoverManyFromUser(assetNos: string[], rawReason: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '자산 회수 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const reason = rawReason.trim()
+  let n = 0
+  for (const no of assetNos) {
+    const asset = s.assets.find((a) => a.assetNo === no)
+    if (!asset || asset.status !== '사용중') continue
+    const holder = asset.owner
+    asset.status = '반납대기'
+    asset.history.push({ date: today(), kind: '반납', detail: `자산 회수(반납 처리) — ${holder} 보유분 일괄 회수${reason ? ` · ${reason}` : ''} (오프보딩·재배정)`, actor: session.name })
+    if (holder && holder !== '미지정' && holder !== '-') {
+      dispatch({ channel: '이메일', to: `${holder} (${asset.dept})`, subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
+    }
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: '회수 대상(사용 중)이 없습니다 — 선택 항목을 확인하세요.' }
+  appendAudit({ actor: session.name, action: `자산 일괄 회수(반납 처리) ${n}건${reason ? ` · ${reason}` : ''}`, target: '오프보딩·재배정' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${n}건 회수 — 반납 접수 대기열로 편성 (점검 후 유휴 풀/수리/폐기)` }
+}
+
 /** 자산 수령(인수) 확인 — 불출로 배정받은 자산을 사용자가 실물 수령했음을 확인한다(체인 오브 커스터디).
  *  (제품안내서 §03 불출·인수 — 그동안 불출은 담당자 처리·수령 안내 발송뿐이고, 사용자 인수 확인 접점이 없어
  *   실물 인계 사실을 감사에서 증명할 수 없었다. 공지 읽음 확인과 같은 사용자 쓰기 접점.)

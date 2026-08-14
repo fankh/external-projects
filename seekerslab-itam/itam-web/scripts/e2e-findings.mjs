@@ -306,6 +306,18 @@ try {
   await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const returnsBody = (await p2.locator('body').textContent()) || ''
   ok('자산 회수 → 반납 접수 대기열 편성(반납대기)', returnsBody.includes('AST-2023-000221'))
+  // 일괄 회수(오프보딩) — 여러 사용 중 자산을 선택해 한 번에 회수. 대장에서 선택(체크)은 검색 간 유지된다.
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()
+  await p2.locator('input[aria-label="AST-2023-000562 선택"]').check()
+  const bulkRecoverBtn = p2.locator('button', { hasText: /일괄 회수 \(사용중 2\)/ })
+  ok('일괄 회수: 사용 중 2건 선택 시 일괄 회수 버튼(사용중 2)', (await bulkRecoverBtn.count()) > 0)
+  await bulkRecoverBtn.click()
+  await p2.waitForTimeout(700)
+  ok('일괄 회수: 2건 회수 성공(반납 접수 대기열)', ((await p2.locator('body').textContent()) || '').includes('2건 회수'))
+  await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const bulkRecoverBody = (await p2.locator('body').textContent()) || ''
+  ok('일괄 회수 → 반납 접수 대기열 편성(2건)', bulkRecoverBody.includes('AST-2024-000091') && bulkRecoverBody.includes('AST-2023-000562'))
   await ctx2.close()
 
   // ── 사용자: AI 어시스턴트 본인 자산 자연어 질의(§01 사용자 본인 자산 조회 · §05 권한 필터) ──

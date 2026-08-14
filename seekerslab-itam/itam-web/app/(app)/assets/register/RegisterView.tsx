@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, recoverFromUser, remindReceipts, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, recoverFromUser, recoverManyFromUser, remindReceipts, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -128,6 +128,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const toggleAll = () => setChecked(allChecked ? new Set() : new Set(rows.map((a) => a.assetNo)))
   const bulkExtend = (yrs: number) => startTransition(async () => {
     const r = await extendWarrantyMany([...checked], yrs)
+    setBulkMsg(r.message)
+    if (r.ok) setChecked(new Set())
+  })
+  // 선택 항목 중 사용 중(회수 가능)만 — 오프보딩 일괄 회수 대상 수
+  const checkedUsable = useMemo(() => [...checked].filter((no) => props.assets.find((a) => a.assetNo === no)?.status === '사용중'), [checked, props.assets])
+  const bulkRecover = () => startTransition(async () => {
+    const r = await recoverManyFromUser([...checked], '오프보딩·재배정')
     setBulkMsg(r.message)
     if (r.ok) setChecked(new Set())
   })
@@ -257,6 +264,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               </span>
               {props.canExport && <a className="btn sm" href={exportHref} download>⤓ 선택 {checked.size}건 내보내기</a>}
               <a className="btn sm" href={`/api/labels?nos=${encodeURIComponent([...checked].join(','))}`} target="_blank" rel="noopener">🏷 선택 라벨 인쇄</a>
+              {checkedUsable.length > 0 && (
+                <button className="btn sm warn" disabled={pending} onClick={bulkRecover}
+                  title="선택한 사용 중 자산을 일괄 회수 — 오프보딩·재배정(반납 접수 대기열로)">일괄 회수 (사용중 {checkedUsable.length})</button>
+              )}
               <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
             </>
           ) : null}
