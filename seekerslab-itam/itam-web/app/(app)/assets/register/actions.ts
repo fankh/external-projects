@@ -354,6 +354,28 @@ export async function recoverManyFromUser(assetNos: string[], rawReason: string)
   return { ok: true, message: `${n}건 회수 — 반납 접수 대기열로 편성 (점검 후 유휴 풀/수리/폐기)` }
 }
 
+/** 정기 점검 완료 — 예방 정비를 시행하고 다음 점검을 재예약한다(§03 유지보수: 사전 정비).
+ *  반응형 수리(장애·반납)와 별개로, 정비 일정이 도래한 자산의 점검을 기록하고 완료일 기준 12개월 후로 다음 예정일을 잡는다.
+ *  이력에 점검 사실을 남겨 정비 주기를 추적한다. 정기 점검 예정이 있는 자산만 대상. 자산담당·Admin. */
+export async function recordMaintenance(assetNo: string, rawNote: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '정기 점검 처리 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (!asset.maintenanceDue) return { ok: false, message: '정기 점검 예정이 없는 자산입니다.' }
+  const note = rawNote.trim()
+  const t = today()
+  const prevDue = asset.maintenanceDue
+  // 완료일 기준 12개월 후(연 1회 정비)로 재예약 — 문자열 날짜라 연도만 +1(같은 월·일)
+  const nextDue = `${Number(t.slice(0, 4)) + 1}${t.slice(4)}`
+  asset.maintenanceDue = nextDue
+  asset.history.push({ date: t, kind: '점검', detail: `정기 점검 완료 — 예정 ${prevDue}${note ? ` · ${note}` : ''} · 다음 예정 ${nextDue}`, actor: session.name })
+  appendAudit({ actor: session.name, action: `정기 점검 완료 — ${asset.model} (다음 ${nextDue})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 정기 점검 완료 — 다음 점검 ${nextDue}로 재예약` }
+}
+
 /** 자산 수령(인수) 확인 — 불출로 배정받은 자산을 사용자가 실물 수령했음을 확인한다(체인 오브 커스터디).
  *  (제품안내서 §03 불출·인수 — 그동안 불출은 담당자 처리·수령 안내 발송뿐이고, 사용자 인수 확인 접점이 없어
  *   실물 인계 사실을 감사에서 증명할 수 없었다. 공지 읽음 확인과 같은 사용자 쓰기 접점.)

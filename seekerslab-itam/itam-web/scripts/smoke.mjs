@@ -136,6 +136,10 @@ try {
   // 자산 회수(반납 처리) — 사용 중 자산을 자산담당이 직접 회수(오프보딩·재배정). 그동안 반납은 사용자 상신에서만 시작됐다.
   const mgrSelHtml = await (await get('/assets/register?sel=AST-2023-000221', 'ASSET_MGR')).text()
   check('자산 대장: 사용 중 자산에 자산 회수(반납 처리) 버튼(자산담당)', mgrSelHtml.includes('자산 회수 (반납 처리)'))
+  // 정기 점검(예방 정비) — 반응형 수리와 별개의 사전 정비. 예정일 도래 자산(시드 AST-2022-000640/641)을 대장 필터·상세 액션에 노출.
+  check('자산 대장: 정기 점검 필터 렌더(예방 정비 대상 있을 때)', mgrHtml.includes('정기 점검 '))
+  const maintSelHtml = await (await get('/assets/register?sel=AST-2022-000640', 'ASSET_MGR')).text()
+  check('자산 대장: 정기 점검 예정 자산 상세에 점검 완료 액션', maintSelHtml.includes('정기 점검 예정') && maintSelHtml.includes('정기 점검 완료'))
   // 장기 미실측(유령 자산 후보) 필터 — 실측 이력이 없거나 오래된 자산이 시드에 있어 토글이 렌더된다
   check('자산 대장: 장기 미실측 필터 렌더 (실측 기반 유령 자산 식별)', mgrHtml.includes('장기 미실측'))
   // 상태 필터 — 유형·검색·장기미실측에 더해 자산 상태(대여중·수리중·분실 등)로도 슬라이스
@@ -230,6 +234,8 @@ try {
   check('대시보드: 교체 대상 자산 큐 (내용연수·보증 경과·장애 이력 · 자산담당)', dashHtml.includes('교체 대상 자산') && dashHtml.includes('내용연수·보증 경과·장애 이력'))
   // 수령 미확인 — 불출 후 사용자 인수 확인이 안 된 자산(체인 오브 커스터디 공백)을 자산담당 일과 시작점에 노출
   check('대시보드: 수령 미확인 큐 (불출 후 인수 대기 · 자산담당)', dashHtml.includes('수령 미확인') && dashHtml.includes('불출 후 인수 대기'))
+  // 정기 점검 대상 — 예방 정비 예정일 도래 자산을 자산담당 큐에 노출(반응형 수리와 별개의 사전 정비)
+  check('대시보드: 정기 점검 대상 큐 (예방 정비 도래 · 자산담당)', dashHtml.includes('정기 점검 대상') && dashHtml.includes('예방 정비 도래'))
   // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다
   check('대시보드: 대장 정합성 미흡 운영 큐 (자산담당) + dq 드릴', dashHtml.includes('대장 정합성 미흡') && dashHtml.includes('dq=1'))
   // 결재 지연 — SLA 초과 대기 결재가 결재 대기 KPI 델타에 노출된다(정체 신호)

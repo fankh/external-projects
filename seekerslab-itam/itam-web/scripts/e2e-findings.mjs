@@ -318,6 +318,17 @@ try {
   await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const bulkRecoverBody = (await p2.locator('body').textContent()) || ''
   ok('일괄 회수 → 반납 접수 대기열 편성(2건)', bulkRecoverBody.includes('AST-2024-000091') && bulkRecoverBody.includes('AST-2023-000562'))
+  // 정기 점검(예방 정비) — 예정일 도래 자산(시드 AST-2022-000640)을 자산담당이 점검 완료 → 다음 점검 12개월 후로 재예약(반응형 수리와 별개).
+  await p2.goto(`${BASE}/assets/register?sel=AST-2022-000640`, { waitUntil: 'networkidle' })
+  const maintBtn = p2.locator('button', { hasText: /^정기 점검 완료$/ })
+  ok('정기 점검: 예정 도래 자산에 점검 완료 액션 노출(자산담당)', (await maintBtn.count()) > 0)
+  await maintBtn.click()
+  await p2.waitForTimeout(200)
+  await p2.locator('input[placeholder*="점검 내용"]').fill('펌웨어 업데이트·팬 청소')
+  await p2.locator('button', { hasText: /^완료 기록$/ }).click()
+  await p2.waitForTimeout(700)
+  const maintBody = (await p2.locator('body').textContent()) || ''
+  ok('정기 점검 완료: 다음 점검 재예약(연 1회)', maintBody.includes('정기 점검 완료') && maintBody.includes('재예약'))
   await ctx2.close()
 
   // ── 사용자: AI 어시스턴트 본인 자산 자연어 질의(§01 사용자 본인 자산 조회 · §05 권한 필터) ──
