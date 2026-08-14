@@ -809,6 +809,20 @@ def sc_adapter_fault(pg, base, check):
     check('문제가 발생' not in body and 'Application error' not in body, '어댑터 결함에도 화면 정상 렌더(무크래시)')
 
 
+def sc_adapter_malformed(pg, base, check):
+    """어댑터 계약 위반 내성(v1.5.69) — 인사 어댑터가 resolve 된 오형(비배열 {data,total})을 반환해도 syncHr 이
+    형태 검증으로 거부해 s.people 오염을 막는다(withTimeout·try/catch 는 throw·hang 만 잡음). 스토어 보존 →
+    s.people.filter/.map 쓰는 후속 화면이 500 나지 않는다. PORTAL_FAULT_HR=malformed 주입."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.click('button:has-text("인사정보 즉시 동기화")')
+    pg.wait_for_selector('text=계약 위반', timeout=15000)
+    check('계약 위반' in pg.content(), '계약 위반(오형) 응답 → 동기화 실패로 기록')
+    # 핵심 — s.people 이 {data,total} 로 오염됐다면 s.people.map 을 쓰는 /pledge/dept 가 500. 기존 명단 보존 확인.
+    resp = pg.goto(f'{base}/pledge/dept', wait_until='networkidle')
+    check(resp.status == 200, '오형 동기화에도 s.people 보존 → 후속 화면 무크래시(스토어 미오염)')
+
+
 def sc_codes(pg, base, check):
     """공통코드 토글·사용기간·추가·삭제 → 장애 등록 선택지 반영 (요구사항 73행)"""
     login(pg, base, '시스템관리자')
@@ -1411,6 +1425,8 @@ SCENARIOS = [
      {'PORTAL_FAULT_HR': 'throw'}),
     ('adapter_hang', '어댑터 무응답 내성 — 인사 동기화 hang→timeout 시 실패 기록·무크래시(v1.5.17)', sc_adapter_fault,
      {'PORTAL_FAULT_HR': 'hang', 'PORTAL_ADAPTER_TIMEOUT_MS': '500'}),
+    ('adapter_malformed', '어댑터 계약 위반 내성 — 오형 응답 시 s.people 보존·후속 화면 무크래시', sc_adapter_malformed,
+     {'PORTAL_FAULT_HR': 'malformed'}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
     ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),

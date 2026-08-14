@@ -34,6 +34,8 @@ export const mockHr: HrAdapter = {
     // 검증용. 목업은 데모 대체물이므로 여기 두어도 실 고객 어댑터엔 영향 없다. 미설정 시 정상.
     if (process.env.PORTAL_FAULT_HR === 'throw') throw new Error('주입된 인사 어댑터 장애 (테스트)')
     if (process.env.PORTAL_FAULT_HR === 'hang') return new Promise<Person[]>(() => { /* 무응답 → withTimeout 이 끊는다 */ })
+    // 계약 위반(resolve 된 오형) 주입 — 비배열({data,total}) 반환으로 syncHr 형태 검증·스토어 오염 방어 검증
+    if (process.env.PORTAL_FAULT_HR === 'malformed') return { data: [], total: 0 } as unknown as Person[]
     return PEOPLE
   },
 }

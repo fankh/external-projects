@@ -52,9 +52,17 @@ async function syncHr() {
     // 실 어댑터 예외는 실패로 기록하고 기존 명단을 보존한다 (부분 동기화로 디렉터리를 비우지 않음).
     try {
       const people = await withTimeout(adapter.fetchPeople(), '인사정보 동기화')
-      s.people = people
-      recordBatch(`인사정보 동기화 (수동, ${people.length}명)`, nowStamp(), '성공')
-      audit(me.name, '인사정보 동기화', `${people.length}명 (수동)`)
+      // 실 고객사 어댑터가 계약(Person[])을 어겨 비배열(예: {data:[...]})·필수 필드(name·dept) 누락을
+      // 반환해도, 검증 없이 s.people 에 넣으면 전 화면의 s.people.filter/.map/.find 와 p.dept.includes 가
+      // 500 을 낸다(스토어 오염). 자가진단(isPerson)과 동일 형태 검증을 수집 경로에도 적용 — 위반 시 기존
+      // 명단을 보존하고 실패로 기록한다(withTimeout·try/catch 는 throw·hang 만 잡고 resolve 된 오형은 못 잡음).
+      if (!Array.isArray(people) || !people.every((p) => p && typeof p.name === 'string' && typeof p.dept === 'string')) {
+        recordBatch('인사정보 동기화 (수동) — 계약 위반 응답(형태 불일치)', nowStamp(), '실패')
+      } else {
+        s.people = people
+        recordBatch(`인사정보 동기화 (수동, ${people.length}명)`, nowStamp(), '성공')
+        audit(me.name, '인사정보 동기화', `${people.length}명 (수동)`)
+      }
     } catch {
       recordBatch('인사정보 동기화 (수동) — 연동 예외', nowStamp(), '실패')
     }
