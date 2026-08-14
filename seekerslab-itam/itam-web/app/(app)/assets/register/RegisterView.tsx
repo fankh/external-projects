@@ -85,6 +85,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [lostType, setLostType] = useState<'분실' | '도난'>('분실')
   const [lostNote, setLostNote] = useState('')
   const [lostMsg, setLostMsg] = useState<string | null>(null)
+  const [lostCond, setLostCond] = useState<'정상' | '수리 필요' | '폐기 권고'>('정상') // 분실 회수 시 실물 상태 점검
   const [faultOpen, setFaultOpen] = useState(false)
   const [faultNote, setFaultNote] = useState('')
   const [faultMsg, setFaultMsg] = useState<string | null>(null)
@@ -607,10 +608,15 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 <div className="callout warn" style={{ marginBottom: 10, padding: '8px 11px' }}>
                   분실·도난 신고된 자산입니다 — 실물을 되찾으면 회수로 유휴 풀 복귀, 되찾지 못하면 미회수 확정으로 폐기 절차(선정)에 바로 넘깁니다.
                 </div>
-                <span className="hstack" style={{ gap: 6 }}>
+                <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  <select className="input" style={{ width: 108, height: 28, fontSize: 12 }} value={lostCond} disabled={pending}
+                    onChange={(e) => setLostCond(e.target.value as '정상' | '수리 필요' | '폐기 권고')}
+                    title="되찾은 실물의 상태 점검 — 파손분은 수리중·폐기 절차로(반납·대여 반환과 동일)">
+                    {(['정상', '수리 필요', '폐기 권고'] as const).map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
                   <button className="btn sm pri" disabled={pending}
                     onClick={() => startTransition(async () => {
-                      const r = await recoverAsset(sel.assetNo, '')
+                      const r = await recoverAsset(sel.assetNo, '', lostCond)
                       setLostMsg(r.message)
                     })}>회수 (실물 확보)</button>
                   <button className="btn sm danger" disabled={pending}

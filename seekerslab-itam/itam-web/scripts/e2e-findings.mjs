@@ -890,6 +890,15 @@ try {
   const lossRep = await p4.request.get(`${BASE}/api/loss-report/AST-2022-000871`)
   const lossRepBody = await lossRep.text()
   ok('분실·도난 신고서: 사건 개요·정황·자산 가액 렌더(분실 신고)', lossRep.status() === 200 && lossRepBody.includes('LOSS / THEFT INCIDENT REPORT') && lossRepBody.includes('분실 신고') && lossRepBody.includes('미실사'))
+  // 분실 회수 상태 점검(로30·35 정합) — 되찾은 분실 자산도 파손이면 유휴가 아니라 수리중으로. 신고서 발급 뒤 871 을 수리 필요로 회수.
+  await p4.goto(`${BASE}/assets/register?sel=AST-2022-000871`, { waitUntil: 'networkidle' })
+  const lostBlock = p4.locator('.hstack', { has: p4.locator('button', { hasText: /^회수 \(실물 확보\)$/ }) }).first()
+  ok('분실 회수: 실물 상태 점검 선택 노출(정상·수리 필요·폐기 권고)', (await lostBlock.locator('select').count()) > 0)
+  await lostBlock.locator('select').first().selectOption('수리 필요')
+  await lostBlock.locator('button', { hasText: /^회수 \(실물 확보\)$/ }).click()
+  await p4.waitForTimeout(800)
+  await p4.goto(`${BASE}/assets/register?sel=AST-2022-000871`, { waitUntil: 'networkidle' })
+  ok('분실 회수(수리 필요) → 수리중 편성(유휴 아님·파손 자산 재불출 방지)', ((await p4.textContent('body')) || '').includes('수리중'))
 
   // 검수 반려 → 반품 완료(교체 없음) 종결 — 재검수의 짝. 시드 IN-2607-04(검수 반려) 마감 후 대시보드 백로그에서 제외
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
