@@ -147,6 +147,12 @@ try {
   check('자산 대장: 이미 정기 점검 예정인 자산엔 일정 등록 액션 미노출(완료만)', !maintSelHtml.includes('정기 점검 일정 등록'))
   // 정기 점검 독촉 — 예정일 경과(미시행) 자산이 있으면 자산담당에게 독촉 발송 버튼 노출(시드 AST-2022-000640/641 경과). 수령·반환 독촉과 같은 컴플라이언스 독촉.
   check('자산 대장: 정기 점검 독촉 발송 버튼(자산담당·예정 경과 있을 때)', mgrHtml.includes('정기 점검 독촉 발송'))
+  // 배정 라이선스 역조회 — 라이선스 좌석 배정(로56)을 자산 관점에서 상세에 노출(오프보딩·감사). 시드 AST-2022-000871 은 LIC-004 AutoCAD 배정.
+  const seatSelHtml = await (await get('/assets/register?sel=AST-2022-000871', 'ASSET_MGR')).text()
+  check('자산 대장: 상세에 배정 라이선스 역조회(좌석 배정 자산)', seatSelHtml.includes('배정 라이선스') && seatSelHtml.includes('AutoCAD LT') && seatSelHtml.includes('LIC-004'))
+  // 사용자도 본인 자산의 배정 라이선스를 본다 — AST-2023-000112(김민준 보유)도 LIC-004 좌석. 권한 스코프 안에서 역조회.
+  const userSeatHtml = await (await get('/assets/register?sel=AST-2023-000112', 'USER')).text()
+  check('자산 대장(사용자): 본인 자산 배정 라이선스 역조회', userSeatHtml.includes('배정 라이선스') && userSeatHtml.includes('AutoCAD LT'))
   // 장기 미실측(유령 자산 후보) 필터 — 실측 이력이 없거나 오래된 자산이 시드에 있어 토글이 렌더된다
   check('자산 대장: 장기 미실측 필터 렌더 (실측 기반 유령 자산 식별)', mgrHtml.includes('장기 미실측'))
   // 상태 필터 — 유형·검색·장기미실측에 더해 자산 상태(대여중·수리중·분실 등)로도 슬라이스

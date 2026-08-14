@@ -28,7 +28,7 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]> }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -515,6 +515,22 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 )}
                 {ctMsg && <div className="mut" style={{ fontSize: 11, marginTop: 3 }}>{ctMsg}</div>}
               </dd>
+              {(props.licenseSeatsByAsset?.[sel.assetNo]?.length ?? 0) > 0 && (
+                <>
+                  {/* 배정 라이선스 — 라이선스 좌석 배정(로56)을 자산 관점에서 역조회. 오프보딩·감사 시 이 자산에 물린 SW 라이선스(회수·재배정 대상)를 한눈에. */}
+                  <dt>배정 라이선스</dt>
+                  <dd className="vstack" style={{ gap: 3, alignItems: 'stretch' }}>
+                    {props.licenseSeatsByAsset![sel.assetNo].map((l) => (
+                      <a key={l.id} className="hstack" href="/inventory/contracts" title="라이선스 좌석 배정 대장(계약·라이선스)으로 이동"
+                        style={{ gap: 6, justifyContent: 'space-between', color: 'inherit', textDecoration: 'none' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name} <span className="dim" style={{ fontSize: 11 }}>· {l.vendor}</span></span>
+                        <span className="code" style={{ color: 'var(--accent-deep)', flex: 'none' }}>{l.id}</span>
+                      </a>
+                    ))}
+                    <span className="mut" style={{ fontSize: 11 }}>SW 라이선스 좌석이 이 자산에 배정돼 있습니다 — 오프보딩·폐기 시 회수·재배정 대상.</span>
+                  </dd>
+                </>
+              )}
               {(sel.repairCosts?.length ?? 0) > 0 && (
                 <>
                   <dt>수리 비용 이력</dt>
