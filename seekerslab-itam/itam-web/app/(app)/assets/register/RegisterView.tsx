@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, recoverFromUser, recoverManyFromUser, remindReceipts, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindReceipts, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -28,7 +28,7 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; maintenanceNos?: string[]; initialMaint?: boolean }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -38,6 +38,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [dqOnly, setDqOnly] = useState(Boolean(props.initialDq))
   const [eolOnly, setEolOnly] = useState(Boolean(props.initialEol))
   const [critOnly, setCritOnly] = useState(Boolean(props.initialCrit))
+  const [maintOnly, setMaintOnly] = useState(Boolean(props.initialMaint))
   // 저장된 뷰 — 자주 쓰는 필터 조합을 이름 붙여 localStorage 에 보관(MDI 탭과 같은 방식). 개인화·반복 워크플로.
   const [views, setViews] = useState<SavedView[]>([])
   const [naming, setNaming] = useState(false)
@@ -61,12 +62,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     setNaming(false); setViewName('')
   }
   const removeView = (name: string) => persistViews(views.filter((x) => x.name !== name))
-  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly
+  const filterActive = q.trim() !== '' || cat !== '전체' || status !== '전체' || staleOnly || warrantyOnly || dqOnly || eolOnly || critOnly || maintOnly
   const staleSet = useMemo(() => new Set(props.staleNos ?? []), [props.staleNos])
   const warrantySet = useMemo(() => new Set(props.warrantyNos ?? []), [props.warrantyNos])
   const dqSet = useMemo(() => new Set(props.dqNos ?? []), [props.dqNos])
   const eolSet = useMemo(() => new Set(props.eolNos ?? []), [props.eolNos])
   const critSet = useMemo(() => new Set(props.critNos ?? []), [props.critNos])
+  const maintSet = useMemo(() => new Set(props.maintenanceNos ?? []), [props.maintenanceNos])
   const [selNo, setSelNo] = useState<string | null>(props.initialSel ?? null)
   const [cfgOpen, setCfgOpen] = useState(false)
   const [cfgField, setCfgField] = useState<ConfigField>('memory')
@@ -91,6 +93,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [recoverOpen, setRecoverOpen] = useState(false)
   const [recoverReason, setRecoverReason] = useState('')
   const [recoverMsg, setRecoverMsg] = useState<string | null>(null)
+  const [maintOpen, setMaintOpen] = useState(false)
+  const [maintNote, setMaintNote] = useState('')
+  const [maintMsg, setMaintMsg] = useState<string | null>(null)
   const [loanOpen, setLoanOpen] = useState(false)
   const [loanTo, setLoanTo] = useState('')
   const [loanDept, setLoanDept] = useState('')
@@ -113,11 +118,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       if (dqOnly && !dqSet.has(a.assetNo)) return false
       if (eolOnly && !eolSet.has(a.assetNo)) return false
       if (critOnly && !critSet.has(a.assetNo)) return false
+      if (maintOnly && !maintSet.has(a.assetNo)) return false
       if (!needle) return true
       return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId]
         .some((f) => f?.toLowerCase().includes(needle))
     })
-  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet])
+  }, [props.assets, q, cat, status, staleOnly, staleSet, warrantyOnly, warrantySet, dqOnly, dqSet, eolOnly, eolSet, critOnly, critSet, maintOnly, maintSet])
 
   const sel = props.assets.find((a) => a.assetNo === selNo) ?? null
 
@@ -195,6 +201,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
           <button className={`btn sm ${critOnly ? 'warn' : ''}`} onClick={() => setCritOnly((v) => !v)}
             title="업무 중요도가 핵심·중요로 지정된 자산 — DR·패치 우선순위·감사 대상">
             {critOnly ? '✓ ' : ''}핵심·중요 {critSet.size}
+          </button>
+        )}
+        {maintSet.size > 0 && (
+          <button className={`btn sm ${maintOnly ? 'warn' : ''}`} onClick={() => setMaintOnly((v) => !v)}
+            title="정기 점검(예방 정비) 예정일이 도래한 자산 — 반응형 수리와 별개의 사전 정비 대상">
+            {maintOnly ? '✓ ' : ''}정기 점검 {maintSet.size}
           </button>
         )}
         {props.canEdit && (props.receiptPendingCount ?? 0) > 0 && (
@@ -627,6 +639,34 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                         onClick={() => startTransition(async () => setReceiptMsg((await confirmReceipt(sel.assetNo)).message))}
                         title="배정받은 자산을 실물 수령했음을 확인 — 인수 이력이 남습니다">수령 확인 (인수 확인)</button>
                     </div>
+                  </>
+                )}
+              </div>
+            )}
+            {/* 정기 점검 — 예방 정비 예정일이 잡힌 자산에 점검 완료 액션(§03 유지보수). 완료 시 12개월 후로 재예약. 자산담당만(canEdit). */}
+            {props.canEdit && sel.maintenanceDue && (
+              <div className="callout" style={{ marginTop: 12, padding: '10px 12px' }}>
+                {maintMsg ? maintMsg : (
+                  <>
+                    <b>정기 점검 예정 {sel.maintenanceDue}{props.today && sel.maintenanceDue <= props.today ? ' (경과)' : ''}.</b> 예방 정비 대상 자산입니다.
+                    {!maintOpen ? (
+                      <div style={{ marginTop: 8 }}>
+                        <button className="btn sm pri" disabled={pending}
+                          onClick={() => { setMaintOpen(true); setMaintNote(''); setMaintMsg(null) }}
+                          title="예방 정비를 시행하고 다음 점검을 재예약">정기 점검 완료</button>
+                      </div>
+                    ) : (
+                      <div className="vstack" style={{ gap: 8, marginTop: 8 }}>
+                        <input className="input" placeholder="점검 내용 (예: 펌웨어 업데이트·팬 청소·백업 확인)" value={maintNote} disabled={pending}
+                          onChange={(e) => setMaintNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }} />
+                        <div className="hstack">
+                          <button className="btn sm pri" disabled={pending}
+                            onClick={() => startTransition(async () => { const r = await recordMaintenance(sel.assetNo, maintNote); setMaintMsg(r.message); if (r.ok) { setMaintOpen(false); setMaintNote('') } })}>완료 기록</button>
+                          <button className="btn sm ghost" disabled={pending} onClick={() => { setMaintOpen(false); setMaintMsg(null) }}>취소</button>
+                        </div>
+                        <span className="mut" style={{ fontSize: 11 }}>완료 시 다음 점검이 12개월 후로 재예약됩니다.</span>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

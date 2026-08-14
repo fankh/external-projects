@@ -1,5 +1,5 @@
 import { Card, ScreenHeader } from '@/components/ui'
-import { daysUntil, isStaleVerify, today } from '@/lib/dates'
+import { daysUntil, isMaintenanceDue, isStaleVerify, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
 import { canExport } from '@/lib/exports'
 import { hasDataIssue } from '@/lib/quality'
@@ -10,9 +10,9 @@ import { RegisterView } from './RegisterView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string }> }) {
+export default async function AssetRegisterPage({ searchParams }: { searchParams: Promise<{ q?: string; sel?: string; cat?: string; status?: string; warranty?: string; dq?: string; os?: string; crit?: string; maint?: string }> }) {
   const session = (await getSession())!
-  const { q, sel, cat, status, warranty, dq, os, crit } = await searchParams
+  const { q, sel, cat, status, warranty, dq, os, crit, maint } = await searchParams
   const s = getStore()
   // 화면·기능 단위 최소권한 — 사용자 권한그룹은 본인 보유 자산만 조회
   const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
@@ -34,6 +34,8 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
     .map((a) => a.assetNo)
   // 핵심·중요 자산 — 운영자가 지정한 업무 중요도(§05 자산 중요도 축). DR·패치 우선순위·감사 대상 식별.
   const critNos = scoped.filter((a) => a.criticality === '핵심' || a.criticality === '중요').map((a) => a.assetNo)
+  // 정기 점검 대상 — 예방 정비 예정일 도래(30일 내·경과) 자산. 대시보드 나눔 드릴다운(?maint=1)과 대장 필터가 공유.
+  const maintenanceNos = scoped.filter(isMaintenanceDue).map((a) => a.assetNo)
 
   return (
     <>
@@ -47,7 +49,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       )}
       {session.role !== 'USER' && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} />
       </Card>
     </>
   )
