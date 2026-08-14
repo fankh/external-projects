@@ -348,8 +348,10 @@ try {
   check('라이선스 카드: 미로그인 차단 (401)', (await get('/api/license-card/LIC-002')).status === 401)
   check('라이선스 카드: 사용자 차단 (403)', (await get('/api/license-card/LIC-002', 'USER')).status === 403)
   check('라이선스 카드: 없는 라이선스 404', (await get('/api/license-card/NOPE', 'ADMIN')).status === 404)
-  const licOver = await (await get('/api/license-card/LIC-002', 'ASSET_MGR')).text()  // JetBrains 120/131 초과
+  const licOver = await (await get('/api/license-card/LIC-002', 'ASSET_MGR')).text()  // JetBrains 120/131 초과 + 만료 경과(2026-05-31)
   check('라이선스 카드: 초과 사용 판정·비용 노출·SAM', licOver.includes('LIC-002') && licOver.includes('LICENSE COMPLIANCE') && licOver.includes('초과 사용') && licOver.includes('노출액'))
+  // SAM 감사 카드 판정에도 만료 경과 명시(화면·리포트·대시보드와 정합) — LIC-002 는 만료 경과 · 초과 사용
+  check('라이선스 카드: 만료 경과 판정 명시 (SAM 정합)', licOver.includes('만료 경과 · 초과'))
   const licLow = await (await get('/api/license-card/LIC-003', 'ASSET_MGR')).text()  // Adobe 40/22 미사용
   check('라이선스 카드: 미사용 보유 판정·회수 절감액', licLow.includes('미사용 보유') && licLow.includes('회수 가능') && licLow.includes('절감액'))
   const aprHtml = await (await get('/workflow/approvals', 'SEC_MGR')).text()

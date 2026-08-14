@@ -18,8 +18,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const gap = l.used - l.purchased
   const over = !retired && gap > 0
   const low = !retired && l.used / l.purchased < 0.6
-  const verdict = retired ? `해지 (${l.terminatedAt ?? '-'})` : over ? '초과 사용 (감사 리스크)' : low ? '미사용 보유 (비용 낭비)' : '적정'
-  const verdictClass = retired ? 'neutral' : over ? 'err' : low ? 'warn' : 'ok'
+  // 만료 경과 — 미갱신 만료 라이선스 사용은 컴플라이언스 위반이므로 SAM 감사 카드 판정에도 명시한다(화면·리포트·대시보드와 정합).
+  const expired = !retired && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
+  const usageVerdict = over ? '초과 사용 (감사 리스크)' : low ? '미사용 보유 (비용 낭비)' : '적정'
+  const verdict = retired ? `해지 (${l.terminatedAt ?? '-'})` : `${expired ? '만료 경과 · ' : ''}${usageVerdict}`
+  const verdictClass = retired ? 'neutral' : expired || over ? 'err' : low ? 'warn' : 'ok'
   const exposure = retired
     ? '해지된 라이선스 — 컴플라이언스 판정 대상 아님'
     : over
