@@ -731,6 +731,8 @@ try {
   const cardMgr = await get('/api/asset-card/AST-2023-000112', 'ASSET_MGR')
   const cardBody = await cardMgr.text()
   check('자산 카드: 자산담당 발급 (200·프로필·이력·QR)', cardMgr.status === 200 && cardBody.includes('AST-2023-000112') && cardBody.includes('변경 이력') && cardBody.includes('DOSSIER') && cardBody.includes('<svg'))
+  // 배정 라이선스 좌석 섹션 — 이 자산이 물고 있는 SW 라이선스(로56·57)를 dossier 에 남긴다(인수인계·감사·회수 대상). 시드 AST-2023-000112 는 LIC-004 AutoCAD 좌석.
+  check('자산 카드: 배정 라이선스 좌석 섹션(인수인계·감사 dossier)', cardBody.includes('배정 라이선스 좌석') && cardBody.includes('AutoCAD LT'))
   // 데이터 스코핑 — USER 는 본인 자산 카드만
   check('자산 카드: USER 본인 자산은 발급 (200)', (await get('/api/asset-card/AST-2023-000112', 'USER')).status === 200)
   check('자산 카드: USER 타인 자산은 차단 (403)', (await get('/api/asset-card/AST-2023-000561', 'USER')).status === 403)
