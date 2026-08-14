@@ -898,6 +898,27 @@ def sc_board(pg, base, check):
     check('게시물 삭제' in pg.content(), '감사 이력에 게시물 삭제 기록')
 
 
+def sc_violation_audit(pg, base, check):
+    """보안위반 등록 감사 이력 — 관리자가 타인 위반을 등록하면 등록자가 감사 로그에 남는다.
+    위반 레코드엔 등록자 필드가 없어(증빙 첨부는 선택) 감사 로그가 유일한 등록자 추적 지점 (§VI, v1.5.44)."""
+    login(pg, base, '박정호')  # BIZ_MGR — 위반 등록 권한
+    pg.goto(f'{base}/awareness/violations', wait_until='networkidle')
+    pg.select_option('select[name=name]', '김현우')
+    pg.select_option('select[name=type]', index=0)
+    pg.fill('input[name=detail]', 'E2E 감사 검증용 위반 항목')
+    pg.click('button:has-text("등록 · 안내메일 발송")')
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/awareness/violations', wait_until='networkidle')
+    check('E2E 감사 검증용 위반 항목' in pg.content(), '위반 등록 반영')
+
+    # 감사 이력에 '보안위반 등록' + 등록자(박정호)가 남는지 — 수정 전이면 등록 자체가 무기록
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    row = pg.locator('tr', has_text='보안위반 등록')
+    check(row.count() > 0, '감사 이력에 보안위반 등록 기록')
+    check('박정호' in row.first.inner_text(), '감사 이력이 등록자(박정호) 추적')
+
+
 def sc_approval_line(pg, base, check):
     """결재선 변경 → 이후 상신의 결재자 변경"""
     login(pg, base, '시스템관리자')
@@ -1195,6 +1216,7 @@ SCENARIOS = [
      {'PORTAL_FAULT_HR': 'hang', 'PORTAL_ADAPTER_TIMEOUT_MS': '500'}),
     ('codes', '공통코드 토글·사용기간·추가·삭제 → 업무 선택지', sc_codes, {}),
     ('board', '게시판 삭제 (공지·QnA) + 감사 기록', sc_board, {}),
+    ('violation_audit', '보안위반 등록 감사 이력 — 등록자 추적(§VI)', sc_violation_audit, {}),
     ('remote', '재택 대상자 명단 — 스코핑·업로드·기간 조회·종료', sc_remote, {}),
     ('criteria', '점검 기준관리 — 등록·업로드·삭제·사용중 가드', sc_criteria, {}),
     ('racks', '랙·H/W 관리 — 등록·구성도·삭제 가드', sc_racks, {}),

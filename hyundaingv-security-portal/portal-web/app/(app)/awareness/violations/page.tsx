@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
+import { audit } from '@/lib/audit'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
@@ -25,6 +26,9 @@ async function addViolation(formData: FormData) {
   s.violations.unshift({
     id, name: person.name, dept: person.dept, type, detail, occurredAt: today(), status: '징구중',
   })
+  // 이력추적성(§VI) — 위반 등록은 타인 기록에 대한 관리 행위라 등록자(actor)를 감사 이력에 남긴다.
+  // 위반 레코드 자체엔 등록자 필드가 없어(첨부 증빙은 선택) 감사 로그가 유일한 등록자 추적 지점.
+  audit(me.name, '보안위반 등록', `${id} ${person.name}(${person.dept}) — ${type}`)
   // 결재제외자 확인서 스캔 등 증빙 업로드 (첨부 시트: 보안위반관리)
   registerUpload(id, formData.get('file'), me.name)
   // 폐쇄 루프 — 등록과 동시에 위반자에게 확인서 제출 안내메일 (그룹웨어 메일 어댑터 경유)
