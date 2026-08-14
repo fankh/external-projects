@@ -40,6 +40,7 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
     asset.owner = '미지정'
     asset.dept = '자산관리팀'
     asset.location = location
+    if (note.trim()) asset.faultNote = note.trim() // 점검 사유를 수리 대기 화면에 노출(장애 신고 증상과 동일 필드)
   } else {
     asset.status = '유휴'
     asset.owner = '미지정'
@@ -200,6 +201,7 @@ export async function completeRepair(assetNo: string, outcome: '수리 완료' |
     asset.repairCosts = [...(asset.repairCosts ?? []), { id: nextId('ARC'), date: today(), vendor: repairVendor, item: note.trim() || outcome, amount: cost, by: session.name }]
   }
   asset.repair = undefined // 수리 완료·불가로 의뢰 종료
+  asset.faultNote = undefined // 수리 사유도 종료 시 해제
   // 수리 불가는 폐기 절차로 이어져야 한다 — 폐기 대상 레코드를 만들어 결재·소거로 진행하게 한다
   // (그동안 상태만 폐기예정으로 바뀌고 폐기 대장에 안 올라 소거로 갈 수 없었다 — v1.68 반납 건과 동일)
   if (outcome === '수리 불가' && !s.disposals.some((d) => d.assetNo === assetNo)) {
