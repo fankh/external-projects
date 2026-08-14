@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { InsightKind } from '@/lib/types'
 import { AnomalyDetection } from './AnomalyDetection'
+import { LicenseOptimization } from './LicenseOptimization'
 import { LifecyclePrediction } from './LifecyclePrediction'
 import { ProposalList } from './ProposalList'
 import { RiskPolicyPanel } from './RiskPolicyPanel'
@@ -82,6 +83,8 @@ export default async function InsightsPage() {
       <LifecyclePrediction />
 
       <VulnPriority />
+
+      <LicenseOptimization />
 
       <Card kicker="Feedback Loop" title="기능별 판정 현황 — 재학습 신호" pad={false}>
         <div className="tbl-wrap">

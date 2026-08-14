@@ -519,6 +519,8 @@ try {
   check('AI 제안: 이상탐지 — 유휴 자산 사용(미승인 불출 DIF-04) 실측 이탈 반영', insHtml.includes('AST-2021-000432') && insHtml.includes('미승인 불출'))
   // 교체수요·수명 예측(§05 AI 기능03) — 연간 교체 계획 리포트와 같은 replacementCandidates() 근거를 화면에 직접 노출. 내용연수·보증·장애 이력 결합.
   check('AI 제안: 교체수요·수명 예측 컴퓨티드 뷰 렌더', insHtml.includes('교체수요·수명 예측') && insHtml.includes('추정 교체 예산') && insHtml.includes('잔여 장부가 — 폐기손실'))
+  // 라이선스 최적화(§05 AI 기능05) — 라이선스 컴플라이언스 리포트와 같은 licenseOptimization() 근거를 화면에 직접 노출. 초과·미사용 회수·만료·중복 SaaS 통합.
+  check('AI 제안: 라이선스 최적화 컴퓨티드 뷰 렌더', insHtml.includes('라이선스 최적화 — 회수·증설·통합 근거') && insHtml.includes('미사용 회수 후보') && insHtml.includes('회수 시 연간 절감'))
   // 위험도 기준 관리(제품안내서 §01 보안담당 책무) — P1/P2 컷오프를 보안담당이 설정. 기본 P1≥67·P2≥34.
   check('AI 제안: 위험도 기준 패널 렌더 (기본 P1≥67·P2≥34)', insHtml.includes('위험도 기준 — 취약점 우선순위 판정 컷오프') && insHtml.includes('67') && insHtml.includes('34~66'))
   check('AI 제안: 보안담당에 위험도 기준 변경 노출', insHtml.includes('기준 변경'))

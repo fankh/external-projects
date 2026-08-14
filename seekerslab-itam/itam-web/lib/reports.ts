@@ -36,6 +36,22 @@ export function saasConsolidationCandidates(): { category: string; services: Saa
     .sort((a, b) => b.services.length - a.services.length || b.users - a.users)
 }
 
+/** 라이선스 최적화 산정(§05 AI 기능05) — 초과 사용·미사용 회수·만료 경과·중복 SaaS 통합을 한 번에 뽑는다.
+ *  라이선스 컴플라이언스 리포트와 분석 화면 패널이 같은 근거를 쓰도록 단일 소스로 둔다(해지분 제외). */
+export function licenseOptimization() {
+  const s = getStore()
+  const active = s.licenses.filter((l) => l.status !== '해지')
+  const over = active.filter((l) => l.used > l.purchased)
+  const under = active.filter((l) => l.used / l.purchased < 0.6)
+  // 만료 경과 — 유효인데 만료일이 지난(미갱신) 라이선스. 만료 라이선스 사용은 컴플라이언스 위반이므로 별도 집계한다.
+  const isExpired = (l: (typeof s.licenses)[number]) => l.status !== '해지' && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
+  const expired = active.filter(isExpired)
+  const saving = under.reduce((n, l) => n + (l.purchased - l.used) * l.unitCost, 0)
+  const overCost = over.reduce((n, l) => n + (l.used - l.purchased) * l.unitCost, 0)
+  const saasCons = saasConsolidationCandidates()
+  return { active, over, under, expired, isExpired, saving, overCost, saasCons }
+}
+
 export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
   { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 외부 노출 · 미인가 SaaS · 인증·계정·엔드포인트 정책 위반 · 처리 현황' },
   { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용, 자산 처분 실적·폐기 진행 현황' },
@@ -239,14 +255,8 @@ export function buildSections(kind: ReportKind): ReportSection[] {
 
   if (kind === '라이선스 컴플라이언스') {
     // 해지 라이선스는 컴플라이언스 판정(초과·미사용) 대상에서 제외한다 — 구독 중단분은 감사 리스크·비용 절감 대상이 아니다.
-    const active = s.licenses.filter((l) => l.status !== '해지')
-    const over = active.filter((l) => l.used > l.purchased)
-    const under = active.filter((l) => l.used / l.purchased < 0.6)
-    // 만료 경과 — 유효인데 만료일이 지난(미갱신) 라이선스. 만료 라이선스 사용은 컴플라이언스 위반이므로 별도 집계·판정한다.
-    const isExpired = (l: (typeof s.licenses)[number]) => l.status !== '해지' && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
-    const expired = active.filter(isExpired)
-    const saving = under.reduce((n, l) => n + (l.purchased - l.used) * l.unitCost, 0)
-    const saasCons = saasConsolidationCandidates()
+    // 산정 근거는 licenseOptimization() 단일 소스 — 분석 화면 패널과 수치가 어긋나지 않게 한다.
+    const { active, over, under, expired, isExpired, saving, saasCons } = licenseOptimization()
     return [
       {
         title: '보유–사용 대사',
