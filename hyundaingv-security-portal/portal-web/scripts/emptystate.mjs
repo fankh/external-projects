@@ -150,6 +150,9 @@ async function main() {
     // (/infra/changes·/sr/manage completedAt 동일 클래스). 정상 srNo(문자열) 행은 보존.
     changes: [{ id: 'CW-9', kind: '인프라', title: '변경t', status: '작업등록', registeredAt: '2026-08-01', srNo: [{}] },
       { id: 'CW-10', kind: '시스템개발', title: '변경t2', status: '작업등록', registeredAt: '2026-08-01', srNo: 'SR-2026-0001' }],
+    // 빈 시드 컬렉션(assetAcquisitions)은 형판 기반 필드 정규화를 못 돌린다 — 객체값 필드(at={} 등, 예: Mongo/ISO
+    // 날짜 export)가 {a.at} 직접 렌더에서 React child 500(/finance/asset-reg). 빈시드 분기서 객체값 필드 제거 필요.
+    assetAcquisitions: [{ serial: 'S1', model: 'R750', assetNo: 'AST-1', by: '관리자', at: {} }],
     // 필수 문자열 필드 '누락'(키 부재) — dept 없는 인원. eligibleForCourse('개발자') 의 p.dept.includes 가 500 나면 안 된다.
     people: [{ login: 'probe1', name: '견고성검증', dept: '품질보증팀', role: 'USER' },
       { login: 'probe2', name: '부서누락', role: 'USER' }] }
