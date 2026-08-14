@@ -89,6 +89,8 @@ export default async function DashboardPage() {
       { label: 'IOC 상관 미조치 (위협 인텔·침해 징후)', count: s.iocMatches.filter((i) => !i.action).length, href: '/discovery/external', tone: 'err' },
       { label: '외부 노출 미조치', count: s.external.filter((e) => !e.action && e.state !== '등록·일치').length, href: '/discovery/external', tone: 'err' },
       { label: '휴면 계정 미처리 (AD/IdP 계정 위생)', count: s.accounts.filter((a) => !a.action).length, href: '/discovery/found', tone: 'warn' },
+      // 소유자 확인 미응답 — 기한(운영 정책) 경과한 확인 요청은 격리 에스컬레이션 대상. 방치하면 미확인 자산이 계속 사내망에 남는다.
+      { label: `소유자 확인 미응답 (${s.opsPolicy.confirmDeadlineDays}일 경과 · 격리 에스컬레이션)`, count: s.discovered.filter((d) => d.action === '확인요청' && d.confirmRequestedAt && -(daysUntil(d.confirmRequestedAt) ?? 0) >= s.opsPolicy.confirmDeadlineDays).length, href: '/discovery/found', tone: 'err' },
       { label: '미인가 SW 미조치 (EDR 정책 위반)', count: s.unauthorizedSw.filter((w) => !w.action).length, href: '/discovery/found', tone: 'err' },
       // Shadow IT 판정 대기 — 카탈로그 검토중 SaaS 는 보안담당 판정(인가/차단)을 기다리는 정책 백로그(§01 보안담당: Shadow IT 판정·SaaS 정책 관리)
       { label: '미판정 SaaS (카탈로그 검토중 · 판정 대기)', count: s.saasCatalog.filter((x) => x.status === '검토중').length, href: '/settings/saas-catalog', tone: 'warn' },
