@@ -332,6 +332,13 @@ try {
   await pU.waitForTimeout(150)
   const loanOpts = (await reqCard.locator('select').nth(1).textContent()) || ''
   ok('대여 신청 대상: 폐기 절차 자산 제외(AST-2021-000432)', !loanOpts.includes('AST-2021-000432') && loanOpts.includes('AST-2023-000704'))
+  // 자산 수령(인수) 확인 — 불출 배정된 본인 자산을 사용자가 실물 인수 확인(체인 오브 커스터디). 시드 AST-2024-000015 는 수령 대기.
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
+  ok('수령 확인: 수령 대기 자산에 수령 확인 버튼 노출(사용자)', (await pU.locator('button', { hasText: '수령 확인 (인수 확인)' }).count()) > 0)
+  await pU.locator('button', { hasText: '수령 확인 (인수 확인)' }).click()
+  await pU.waitForTimeout(700)
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
+  ok('수령 확인: 확인 후 수령 대기 해제(버튼 사라짐)', (await pU.locator('button', { hasText: '수령 확인 (인수 확인)' }).count()) === 0)
   // 자산 장애 신고(사용자 발화형 수리 진입점) — 본인 명의 사용 중 자산의 고장을 사용자가 직접 신고 → 수리중 전환·수리 대기 편성.
   //  그동안 수리는 반납 점검에서만 시작돼, 실물을 쓰는 사용자가 장애를 알려 수리를 개시할 경로가 없었다.
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })

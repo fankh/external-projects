@@ -37,6 +37,7 @@ export async function issueAsset(approvalId: string, assetNo: string, location: 
   asset.dept = ap.dept
   asset.location = location
   asset.status = '사용중'
+  asset.receiptPending = true // 사용자 수령(인수) 확인 대기 — 체인 오브 커스터디
   asset.history.push({
     date: today(),
     kind: '불출',

@@ -304,6 +304,28 @@ export async function reportFault(assetNo: string, rawNote: string) {
   return { ok: true, message: `${assetNo} 장애 신고 접수 — 수리 대기로 편성, 자산관리팀에 통보했습니다.` }
 }
 
+/** 자산 수령(인수) 확인 — 불출로 배정받은 자산을 사용자가 실물 수령했음을 확인한다(체인 오브 커스터디).
+ *  (제품안내서 §03 불출·인수 — 그동안 불출은 담당자 처리·수령 안내 발송뿐이고, 사용자 인수 확인 접점이 없어
+ *   실물 인계 사실을 감사에서 증명할 수 없었다. 공지 읽음 확인과 같은 사용자 쓰기 접점.)
+ *  사용자는 본인 명의 수령 대기 자산만, 자산담당·Admin 도 처리 가능(대리 확인). 확인 시 대기 해제·이력 적재·자산관리팀 통보. */
+export async function confirmReceipt(assetNo: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (!asset.receiptPending) return { ok: false, message: '수령 확인 대기 중인 자산이 아닙니다.' }
+  if (session.role === 'USER' && asset.owner !== session.name) {
+    return { ok: false, message: '본인 명의 자산만 수령 확인할 수 있습니다.' }
+  }
+  asset.receiptPending = undefined
+  asset.history.push({ date: today(), kind: '점검', detail: `수령(인수) 확인 — ${session.name} 정상 수령`, actor: session.name })
+  dispatch({ channel: '이메일', to: '자산관리팀', subject: `자산 수령 확인 — ${asset.assetNo} ${asset.model} · ${session.name} 인수`, kind: '수령 확인', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `자산 수령(인수) 확인 — ${asset.model}`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 수령 확인 완료 — 인수 이력 적재, 자산관리팀에 통보했습니다.` }
+}
+
 /** 분실·도난 신고 — 실물이 사라진 자산을 대장에서 '분실' 상태로 전환한다.
  *  (제품안내서 §03 자산 실물 관리 — 재물조사 대사는 '미확인→유휴·분실 후보'만 수동적으로 잡고,
  *   사용자·자산팀이 직접 아는 분실·도난을 신고할 경로가 없었다.)

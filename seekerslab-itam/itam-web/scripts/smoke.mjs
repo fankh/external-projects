@@ -127,6 +127,8 @@ try {
   // 자산 장애 신고 — 사용자 발화형 수리 진입점. 본인 명의 사용 중 자산 상세에 장애 신고 버튼(수리 대기 편성). 그동안 수리는 반납 점검에서만 시작됐다.
   const userSelHtml = await (await get('/assets/register?sel=AST-2024-000015', 'USER')).text()
   check('USER: 본인 사용중 자산에 장애 신고(수리 요청) 버튼 노출', userSelHtml.includes('장애 신고 (수리 요청)'))
+  // 자산 수령(인수) 확인 — 불출 배정 후 사용자 인수 확인(체인 오브 커스터디). 시드 AST-2024-000015 는 수령 대기.
+  check('USER: 수령 대기 자산에 수령 확인(인수 확인) 버튼 노출', userSelHtml.includes('수령 확인 대기') && userSelHtml.includes('수령 확인 (인수 확인)'))
   const mgrHtml = await (await get('/assets/register', 'ASSET_MGR')).text()
   check('자산담당: 전체 자산 표시 (본인 외 포함)', mgrHtml.includes('AST-2023-000112') && mgrHtml.includes('AST-2023-000561'))
   // 장기 미실측(유령 자산 후보) 필터 — 실측 이력이 없거나 오래된 자산이 시드에 있어 토글이 렌더된다
@@ -221,6 +223,8 @@ try {
   check('대시보드: 미사용 라이선스 회수 후보 큐 (비용 절감 · 자산담당)', dashHtml.includes('미사용 라이선스 회수 후보') && dashHtml.includes('비용 절감'))
   // 교체 대상 자산 — 내용연수 초과·보증 경과·장애 이력. 보증 '임박'(미래)과 달리 이미 교체 시점이 도래한 계획 신호를 일과 시작점에 노출(수명예측 패널과 동일 근거).
   check('대시보드: 교체 대상 자산 큐 (내용연수·보증 경과·장애 이력 · 자산담당)', dashHtml.includes('교체 대상 자산') && dashHtml.includes('내용연수·보증 경과·장애 이력'))
+  // 수령 미확인 — 불출 후 사용자 인수 확인이 안 된 자산(체인 오브 커스터디 공백)을 자산담당 일과 시작점에 노출
+  check('대시보드: 수령 미확인 큐 (불출 후 인수 대기 · 자산담당)', dashHtml.includes('수령 미확인') && dashHtml.includes('불출 후 인수 대기'))
   // 대장 정합성 미흡 운영 큐 — 시드 필드 누락 자산 2건으로 자산담당 대시보드에 CMDB 스튜어드십 신호가 뜬다
   check('대시보드: 대장 정합성 미흡 운영 큐 (자산담당) + dq 드릴', dashHtml.includes('대장 정합성 미흡') && dashHtml.includes('dq=1'))
   // 결재 지연 — SLA 초과 대기 결재가 결재 대기 KPI 델타에 노출된다(정체 신호)
