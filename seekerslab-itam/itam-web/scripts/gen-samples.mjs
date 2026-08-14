@@ -1,4 +1,4 @@
-/* 샘플 산출물 재생성 — docs/샘플_*.{md,csv} 8종을 실행 중인 플랫폼이 만든 결과물로 다시 저장한다.
+/* 샘플 산출물 재생성 — docs/샘플_*.{md,csv} 9종을 실행 중인 플랫폼이 만든 결과물로 다시 저장한다.
  * 샘플은 "손으로 쓴 예시가 아니라 생성기 출력의 스냅샷"이므로, 리포트 섹션이 늘면(예: 감사 대응 자료의
  * 이상 자산 행위 탐지) 샘플도 다시 생성해야 실제 산출물과 일치한다.
  * 재현성: 시드 기준일(2026-07-29)로 ITAM_TODAY 를 고정하고, 신선한 인메모리 시드(ITAM_DATA_FILE 미설정)에서
@@ -39,6 +39,7 @@ const REPORTS = [
   ['연간 교체 계획', '샘플_연간교체계획'],
   ['취약점 조치 우선순위', '샘플_취약점조치우선순위'],
   ['AI 거버넌스·성능', '샘플_AI거버넌스성능'],
+  ['부서별 IT 비용 배분', '샘플_부서별IT비용배분'],
 ]
 
 // 신선한 시드 + 기준일 고정으로 서버 기동 (ITAM_DATA_FILE 는 명시적으로 제거)
@@ -95,6 +96,6 @@ for (const [kind, file] of REPORTS) {
 
 await browser.close()
 server.kill()
-if (CHECK) console.log(failed ? `\n드리프트 ${failed}건 — 'node scripts/gen-samples.mjs' 로 재생성 후 커밋하세요` : '\n8종 샘플 최신 — 드리프트 없음')
-else console.log(failed ? `\n실패 ${failed}건 — 커밋 전 확인 필요` : '\n8종 재생성 완료 — git diff 로 드리프트 확인')
+if (CHECK) console.log(failed ? `\n드리프트 ${failed}건 — 'node scripts/gen-samples.mjs' 로 재생성 후 커밋하세요` : '\n9종 샘플 최신 — 드리프트 없음')
+else console.log(failed ? `\n실패 ${failed}건 — 커밋 전 확인 필요` : '\n9종 재생성 완료 — git diff 로 드리프트 확인')
 process.exit(failed ? 1 : 0)
