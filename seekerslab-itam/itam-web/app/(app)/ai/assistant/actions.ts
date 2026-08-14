@@ -6,6 +6,8 @@ import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
 import { daysUntil, isLoanOverdue, isLoanDueSoon, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
 import { REPORT_KINDS, createReport, replacementCandidates } from '@/lib/reports'
+import { buildVulnPriority } from '@/lib/vuln-priority'
+import { buildAnomalies } from '@/lib/anomaly'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { canDecideApproval } from '@/lib/approval'
@@ -284,6 +286,37 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         { label: '연간 교체 계획 리포트', href: '/ai/reports' },
         { label: '자산 대장 (EOL OS 필터)', href: '/assets/register?os=eol' },
       ],
+    }
+  }
+  // 취약점 조치 우선순위 인라인 질의 (AI 기능 04) — 자산 중요도 × 노출도 스코어링을 P1/P2/P3 로 요약. 리포트 생성(생성 동사)과 별개.
+  if (!isUser && (q.includes('취약점') || q.includes('조치 우선순위') || q.includes('vuln') || q.includes('p1'))) {
+    const { items, p1, p2, p3 } = buildVulnPriority()
+    const top = items.slice(0, 8)
+    return {
+      role: 'assistant',
+      text: [
+        `취약점 조치 우선순위 — 총 ${items.length}건 (P1 즉시 ${p1} · P2 우선 ${p2} · P3 계획 ${p3}). 자산 중요도 × 노출도 스코어링.`,
+        ``,
+        ...(items.length === 0 ? ['조치 대상 취약점이 없습니다.'] : []),
+        ...top.map((v) => `· [${v.tier}] ${v.target} — ${v.source}: ${v.detail} (점수 ${v.score})`),
+        items.length > top.length ? `\n… 외 ${items.length - top.length}건은 분석·예측 화면에서 확인하세요.` : ``,
+      ].filter(Boolean).join('\n'),
+      evidence: [{ label: '취약점 우선순위 (분석·예측)', href: '/ai/insights' }],
+    }
+  }
+  // 이상 자산 행위 탐지 인라인 질의 (AI 기능 02) — 평시 프로파일(설치 SW·상태·데이터 반출) 대비 이탈을 요약.
+  if (!isUser && (q.includes('이상 행위') || q.includes('이상 탐지') || q.includes('이상 자산') || q.includes('anomal') || q.includes('프로파일 이탈'))) {
+    const { items, byKind } = buildAnomalies()
+    const top = items.slice(0, 8)
+    return {
+      role: 'assistant',
+      text: [
+        `이상 자산 행위 탐지 — 총 ${items.length}건 (${byKind.filter((k) => k.count).map((k) => `${k.kind} ${k.count}`).join(' · ') || '이탈 없음'}). 평시 프로파일 대비 이탈.`,
+        ``,
+        ...(items.length === 0 ? ['평시 프로파일 대비 이탈이 없습니다.'] : []),
+        ...top.map((a) => `· [${a.kind}] ${a.target} — ${a.detail} (${a.basis})`),
+      ].filter(Boolean).join('\n'),
+      evidence: [{ label: '이상 자산 행위 탐지 (분석·예측)', href: '/ai/insights' }],
     }
   }
   // 자산 보증 만료 (유형 스코프) — 안내서 §05 예시 질의 "보증 만료되는 네트워크 장비 목록".
