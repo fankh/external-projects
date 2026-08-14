@@ -538,7 +538,7 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
 /** 분실 회수 — 분실 신고된 자산을 되찾아 유휴 풀로 되돌린다.
  *  실물이 손에 돌아왔으므로 소유자를 비우고 검수실로 편성해 재확인 후 재배치한다(반납 정상 처리와 동형).
  *  분실 상태만 대상. 자산담당·Admin. */
-export async function recoverAsset(assetNo: string, rawNote: string) {
+export async function recoverAsset(assetNo: string, rawNote: string, condition: ReturnCondition = '정상') {
   const session = await guard()
   if (!session) return { ok: false, message: '회수 처리 권한이 없습니다 (자산담당·Admin).' }
 
@@ -548,14 +548,31 @@ export async function recoverAsset(assetNo: string, rawNote: string) {
   if (asset.status !== '분실') return { ok: false, message: '분실 신고된 자산만 회수할 수 있습니다.' }
 
   const note = rawNote.trim()
-  asset.status = '유휴'
-  asset.owner = '미지정'
-  asset.dept = '자산관리팀'
-  asset.location = '본사 3F 검수실'
-  asset.history.push({ date: today(), kind: '점검', detail: `분실 자산 회수 — 유휴 풀 편성${note ? ` (${note})` : ''}`, actor: session.name })
-  appendAudit({ actor: session.name, action: `분실 자산 회수 — ${asset.model}`, target: assetNo })
+  const loc = '본사 3F 검수실'
+  // 되찾은 분실 자산도 실물 상태를 점검해 가른다(반납 10·26·대여 반환 35와 동일) — 파손·훼손된 채 발견된 자산이
+  //  검수 없이 바로 유휴 풀에 들어가 재불출되면 안 된다. 유휴 자산은 장애 신고(사용중 전용) 경로도 없어 수리 진입이 막힌다.
+  if (condition === '폐기 권고') {
+    asset.status = '폐기예정'
+    if (!s.disposals.some((d) => d.assetNo === assetNo)) {
+      s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason: `분실 회수 점검 폐기 권고${note ? ` — ${note}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
+    }
+  } else if (condition === '수리 필요') {
+    asset.status = '수리중'
+    asset.owner = '미지정'
+    asset.dept = '자산관리팀'
+    asset.location = loc
+    asset.faultNote = note || '분실 회수 점검 — 수리 필요'
+  } else {
+    asset.status = '유휴'
+    asset.owner = '미지정'
+    asset.dept = '자산관리팀'
+    asset.location = loc
+  }
+  asset.history.push({ date: today(), kind: condition === '폐기 권고' ? '폐기' : condition === '수리 필요' ? '수리' : '점검', detail: `분실 자산 회수 · 상태 점검 ${condition}${note ? ` (${note})` : ''}`, actor: session.name })
+  appendAudit({ actor: session.name, action: `분실 자산 회수 (${condition}) — ${asset.model}`, target: assetNo })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${assetNo} 회수 — 유휴 풀 편성 (검수실 재확인 후 재배치)` }
+  const outcome = condition === '수리 필요' ? '수리중 편성 (수리 후 유휴 풀)' : condition === '폐기 권고' ? '폐기 절차 편입 (폐기예정)' : '유휴 풀 편성 (재배치 가능)'
+  return { ok: true, message: `${assetNo} 분실 회수 (${condition}) — ${outcome}` }
 }
 
 /** CSV 일괄 자산 등록 — 기존 자산을 대장으로 마이그레이션(데이터 온보딩)한다.
