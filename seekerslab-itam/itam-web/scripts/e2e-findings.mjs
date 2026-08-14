@@ -607,6 +607,13 @@ try {
   await p3.waitForTimeout(250)
   const misBody = (await p3.locator('body').textContent()) || ''
   ok('발견 대사: 등록·불일치 상세는 불일치·대사 자산 정보만(편입 요청 버튼 없음)', misBody.includes('위치 상이') && misBody.includes('AST-2025-000512') && !misBody.includes('편입 요청 (결재)'))
+  // CMDB 대사 확인 — 등록·불일치에 대장 보정 링크 + 대사 확인(등록·일치 처리) 액션(v1.296 이후 액션 부재 공백 해소). 확인 시 등록·일치로 종결.
+  ok('발견 대사: 등록·불일치에 대장 보정 링크·대사 확인 액션 노출', misBody.includes('대장에서 보정') && misBody.includes('대사 확인 (등록·일치 처리)'))
+  await p3.locator('button', { hasText: '대사 확인 (등록·일치 처리)' }).first().click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/discovery/found?sel=DSC-2607-0029`, { waitUntil: 'networkidle' })
+  const mis029row = ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'DSC-2607-0029' }) }).first().textContent()) || '')
+  ok('발견 대사 확인: 등록·불일치 → 등록·일치 종결', mis029row.includes('등록·일치'))
   // 라이선스 조치 품의(kind=자산 신청·refId=LIC-)는 물리 자산 불출 대상이 아니다 — 라이선스 최적화 제안(INS-2607-15) 승인 →
   //  LIC-002 추가 구매 결재 상신 → 승인 후, 불출 대기 큐(movement·returns·대시보드 issueDue, 모두 !fulfilled 기준)에 새면 안 된다.
   await p3.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })

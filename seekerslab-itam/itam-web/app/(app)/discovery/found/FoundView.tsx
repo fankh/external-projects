@@ -4,7 +4,7 @@ import { Chip, RiskChip } from '@/components/ui'
 import { classifyDiscoveredType } from '@/lib/classify'
 import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState, RiskLevel } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
-import { mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestQuarantine } from '../actions'
+import { confirmReconcile, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestQuarantine } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
@@ -214,6 +214,20 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                     NAC 격리 요청
                   </button>
                 </div>
+              </div>
+            )}
+            {/* 등록·불일치 — 재편입(중복 생성) 대상이 아니라 대장 보정으로 대사한다. 대장을 열어 보정한 뒤 '대사 확인'으로 등록·일치 종결. */}
+            {!sel.action && sel.state === '등록·불일치' && (
+              <div className="vstack" style={{ marginTop: 14, gap: 8 }}>
+                <div className="kicker mute">CMDB 대사 — 등록·불일치</div>
+                {sel.matchedAssetNo && (
+                  <a className="btn sm" href={`/assets/register?sel=${sel.matchedAssetNo}`}
+                    title="대장 자산을 열어 위치·구성 불일치를 보정">대장에서 보정 → {sel.matchedAssetNo}</a>
+                )}
+                <button className="btn sm pri" disabled={pending}
+                  onClick={() => startTransition(async () => setMsg((await confirmReconcile(sel.id)).message))}
+                  title="불일치를 검토·정정했으면 대사를 등록·일치로 종결">대사 확인 (등록·일치 처리)</button>
+                <span className="mut" style={{ fontSize: 11 }}>대장을 보정한 뒤 대사 확인하면 등록·일치로 종결됩니다.</span>
               </div>
             )}
             {sel.action && <div className="callout" style={{ marginTop: 14 }}>처리 진행 중 — <b>{sel.action}</b>. 결재함에서 진행 상태를 확인하세요.</div>}

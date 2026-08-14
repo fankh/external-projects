@@ -203,6 +203,28 @@ export async function requestQuarantine(discoveredId: string) {
   revalidatePath('/', 'layout')
 }
 
+/** CMDB 대사 확인 — 등록·불일치(대장에 매칭됐으나 위치·구성이 어긋난) 발견 자산을, 자산담당이 대장을 보정한 뒤
+ *  '등록·일치'로 종결한다. 불일치는 재편입(중복 생성) 대상이 아니라 대장 보정으로 대사하는 것이 정해진 경로(v1.296).
+ *  그동안 등록·불일치는 발견 화면에서 정보만 보이고 종결 액션이 없어 대사 루프가 열려 있었다. 발견 편입 권한자(자산담당·Admin). */
+export async function confirmReconcile(discoveredId: string) {
+  const session = await getSession()
+  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return { ok: false, message: '대사 확인 권한이 없습니다.' }
+  const s = getStore()
+  const d = s.discovered.find((x) => x.id === discoveredId)
+  if (!d) return { ok: false, message: '발견 자산을 찾을 수 없습니다.' }
+  if (d.state !== '등록·불일치') return { ok: false, message: '등록·불일치 건만 대사 확인할 수 있습니다.' }
+
+  const priorMismatch = d.mismatch
+  d.state = '등록·일치'
+  d.mismatch = undefined // 불일치 해소
+  // 대사 자산 이력에 확인을 남긴다 — 발견 레코드는 대사 종결 표시만, 실무 이력은 대장 자산에 남긴다.
+  const asset = d.matchedAssetNo ? s.assets.find((a) => a.assetNo === d.matchedAssetNo) : undefined
+  if (asset) asset.history.push({ date: today(), kind: '점검', detail: `CMDB 대사 확인 — ${d.channel} 발견 불일치 검토·정정 완료${priorMismatch ? ` (${priorMismatch})` : ''} (${d.id})`, actor: session.name })
+  appendAudit({ actor: session.name, action: `CMDB 대사 확인 — ${d.hostname} 등록·일치 처리`, target: d.matchedAssetNo ?? d.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${d.id} 대사 확인 — 등록·일치 종결${d.matchedAssetNo ? ` (${d.matchedAssetNo} 이력 적재)` : ''}` }
+}
+
 /** 휴면 계정 조치 — AD/IdP·SSO 휴면 계정을 검출에서 끝내지 않고 비활성화 집행 또는 소유자(부서) 확인으로 이어간다.
  *  (제품안내서 §04 탐지 채널 06 · §06 AD/Entra 휴면 계정 발견) 계정 위생은 보안 업무이므로 보안담당·Admin 만.
  *  요청 사실은 담당 채널 통지 + 감사 로그에 남는다. 외부 노출 조치(requestExternalAction)와 동형. */
