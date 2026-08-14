@@ -500,6 +500,10 @@ try {
   await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' })
   const linearRow = p3.locator('tr').filter({ hasText: 'Linear' }).first()
   ok('SaaS 인가 요청 승인 → 카탈로그 인가 반영(Linear)', ((await linearRow.textContent()) || '').includes('인가'))
+  // 양쪽 정합 — 사용 현황(Shadow SaaS)에서도 Linear 가 인가로 반영되어야 한다(카탈로그↔사용현황 이중 저장소 일치)
+  await p3.goto(`${BASE}/discovery/saas`, { waitUntil: 'networkidle' })
+  const linearUsage = p3.locator('tr').filter({ hasText: 'Linear' }).first()
+  ok('SaaS 인가 요청 승인 → 사용 현황도 인가(카탈로그↔사용현황 정합)', (await linearUsage.count()) > 0 && ((await linearUsage.textContent()) || '').includes('인가'))
   // 라이선스 컴플라이언스 판정 불변식 — 초과/미사용/적정이 보유·사용 관계와 정합(감사 리스크 플래깅·회수/구매 결재 근거). 비즈니스 임계 계산 회귀 방지.
   {
     await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
