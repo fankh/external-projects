@@ -738,6 +738,11 @@ try {
   // 데이터 스코핑 — USER 는 본인 자산 카드만
   check('자산 카드: USER 본인 자산은 발급 (200)', (await get('/api/asset-card/AST-2023-000112', 'USER')).status === 200)
   check('자산 카드: USER 타인 자산은 차단 (403)', (await get('/api/asset-card/AST-2023-000561', 'USER')).status === 403)
+  // 분실·도난 신고서 — 분실 상태 자산의 사건 개요·정황·자산 가액을 인쇄용 문서로(보험·보안·감사). 분실 아님 자산은 400(신고서 대상 아님). 실제 분실 자산 내용 검증은 e2e.
+  check('분실·도난 신고서: 미로그인 차단 (401)', (await get('/api/loss-report/AST-2023-000112')).status === 401)
+  check('분실·도난 신고서: 사용자 차단 (403)', (await get('/api/loss-report/AST-2023-000112', 'USER')).status === 403)
+  check('분실·도난 신고서: 분실 상태 아님 자산은 대상 아님 (400)', (await get('/api/loss-report/AST-2023-000112', 'ASSET_MGR')).status === 400)
+  check('분실·도난 신고서: 없는 자산 404', (await get('/api/loss-report/NOPE', 'ASSET_MGR')).status === 404)
   // 수리중 자산 카드에 수리 의뢰(업체·예상반환) 행 — 상세·엑셀과 일관. 시드 AST-2024-000512(중부IT서비스)로 검증
   const cardRepair = await (await get('/api/asset-card/AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 카드: 수리중 자산에 수리 의뢰 행(업체·예상반환)', cardRepair.includes('수리 의뢰') && cardRepair.includes('중부IT서비스') && cardRepair.includes('예상반환 2026-07-28'))

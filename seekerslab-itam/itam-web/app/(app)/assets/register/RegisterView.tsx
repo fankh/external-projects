@@ -619,6 +619,8 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       const r = await selectForDisposal(sel.assetNo, '분실 미회수 확정')
                       setLostMsg(r.message)
                     })}>미회수 확정 → 폐기</button>
+                  <a className="btn sm" href={`/api/loss-report/${sel.assetNo}`} target="_blank" rel="noopener"
+                    title="분실·도난 신고서 인쇄 — 보험 청구·보안 사고·감사 증적용">🖨 분실·도난 신고서</a>
                 </span>
               </div>
             )}

@@ -876,6 +876,11 @@ try {
   ok('미실사 분실 신고 → 대장 분실 상태 반영', lostBody.includes('분실'))
   // 분실 신고 → 라이선스 좌석 자동 회수(로56 좌석 생애주기) — 실물이 사라진 자산의 좌석을 폐기·반납과 같이 회수한다. AST-2022-000871 은 LIC-004 AutoCAD 좌석이었다.
   ok('분실 신고 → 라이선스 좌석 자동 회수(이력 적재·역조회 소멸)', lostBody.includes('라이선스 좌석 회수') && !lostBody.includes('배정 라이선스'))
+  // 분실·도난 신고서(로30 문서 산출물) — 분실 상태 자산 상세에 신고서 인쇄 링크 + 사건 개요·정황(재물조사 미실사)·자산 가액 렌더. 보험·감사 증적용.
+  ok('분실 자산 상세: 분실·도난 신고서 인쇄 링크', lostBody.includes('분실·도난 신고서') && (await p4.locator('a[href*="/api/loss-report/AST-2022-000871"]').count()) > 0)
+  const lossRep = await p4.request.get(`${BASE}/api/loss-report/AST-2022-000871`)
+  const lossRepBody = await lossRep.text()
+  ok('분실·도난 신고서: 사건 개요·정황·자산 가액 렌더(분실 신고)', lossRep.status() === 200 && lossRepBody.includes('LOSS / THEFT INCIDENT REPORT') && lossRepBody.includes('분실 신고') && lossRepBody.includes('미실사'))
 
   // 검수 반려 → 반품 완료(교체 없음) 종결 — 재검수의 짝. 시드 IN-2607-04(검수 반려) 마감 후 대시보드 백로그에서 제외
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
