@@ -5,7 +5,7 @@ import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
 import { daysUntil, isLoanOverdue, isLoanDueSoon, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
-import { REPORT_KINDS, createReport, replacementCandidates } from '@/lib/reports'
+import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { buildAnomalies } from '@/lib/anomaly'
 import { getSession } from '@/lib/session'
@@ -368,9 +368,8 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
   if (!isUser && (q.includes('라이선스') || q.includes('license'))) {
-    const active = s.licenses.filter((l) => l.status !== '해지')
-    const over = active.filter((l) => l.used > l.purchased)
-    const low = active.filter((l) => l.used / l.purchased < 0.6)
+    // 산정은 분석 화면 패널·리포트와 동일한 licenseOptimization() 단일 소스 — 임계값(미사용 60%) 변경 시 세 화면이 함께 움직인다.
+    const { over, under: low } = licenseOptimization()
     return {
       role: 'assistant',
       text: `라이선스 대사 결과 초과 사용 ${over.length}건, 장기 미사용 보유 ${low.length}건이 검출되었습니다.\n\n${over
