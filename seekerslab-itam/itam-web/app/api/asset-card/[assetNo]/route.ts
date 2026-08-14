@@ -28,6 +28,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
     row('보증 만료', a.warrantyEnd === '-' ? undefined : `${a.warrantyEnd}${({ covered: ' · 보증 내', soon: ' · 만료 임박', expired: ' · 보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())]}`),
     row('연계 계약', a.contractId), row('최초 발견 채널', a.discoveredVia),
     row('최근 실측', a.lastVerifiedAt), row('반환 기한', a.loanDueDate),
+    row('정기 점검 예정', a.maintenanceDue && !['폐기완료', '폐기예정'].includes(a.status) ? a.maintenanceDue : undefined),
     row('수리 의뢰', a.repair ? `${a.repair.vendor}${a.repair.eta ? ` · 예상반환 ${a.repair.eta}` : ''}${a.repair.estCost ? ` · 견적 ${a.repair.estCost.toLocaleString()}원` : ''}` : undefined),
     row('누적 수리비', (a.repairCosts?.length ?? 0) > 0 ? `${a.repairCosts!.reduce((n, c) => n + c.amount, 0).toLocaleString()}원 (${a.repairCosts!.length}건)` : undefined),
     row('취득가', acquisitionCostOf(a) > 0 ? `${acquisitionCostOf(a).toLocaleString()}원${a.acquisitionCost === undefined ? ' (표준 단가)' : ''}` : undefined),
