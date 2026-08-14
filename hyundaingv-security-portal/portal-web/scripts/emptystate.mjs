@@ -6,7 +6,7 @@
  *  사용: npm run build 후  node scripts/emptystate.mjs */
 import { execSync, spawn } from 'node:child_process'
 import { createHmac } from 'node:crypto'
-import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -69,20 +69,59 @@ async function probe(label, dataObj, port, extra) {
   }
 }
 
+// 파싱 불가(손상) 파일 격리 — 원본이 seed 저장으로 덮어써져 손실되지 않고 .corrupt 로 보존돼야 한다.
+async function quarantineProbe(port) {
+  const garbage = '{ truncated / not valid json ][ 손상'
+  writeFileSync(DATA, garbage, 'utf8')
+  const server = spawn(`npx next start -p ${port}`, { cwd: ROOT, shell: true, stdio: 'ignore', env: { ...process.env, PORTAL_DATA_FILE: DATA } })
+  const dir = path.dirname(DATA), base = path.basename(DATA)
+  try {
+    for (let i = 0; i < 60; i++) {
+      try { if ((await fetch(`http://localhost:${port}/login`, { redirect: 'manual' })).status === 200) break } catch { /* 기동 전 */ }
+      await new Promise((r) => setTimeout(r, 500))
+    }
+    // getStore(→scheduleSave) 트리거 후 저장(300ms) 대기 — 손상 원본이 seed 로 덮어써지는 창
+    await fetch(`http://localhost:${port}/dashboard`, { headers: { cookie }, redirect: 'manual' })
+    await new Promise((r) => setTimeout(r, 900))
+    const corruptFiles = readdirSync(dir).filter((f) => f.startsWith(base + '.corrupt.'))
+    const quarantined = corruptFiles.length > 0
+    let freshValid = false, preserved = false
+    try { JSON.parse(readFileSync(DATA, 'utf8')); freshValid = true } catch { /* 재작성 안 됨 */ }
+    if (quarantined) { try { preserved = readFileSync(path.join(dir, corruptFiles[0]), 'utf8') === garbage } catch { /* */ } }
+    const ok = quarantined && freshValid && preserved
+    console.log(`${ok ? '✓' : '✗'} quarantine(손상 파일 격리): 격리=${quarantined} 시드재작성=${freshValid} 원본보존=${preserved}`)
+    for (const f of corruptFiles) { try { unlinkSync(path.join(dir, f)) } catch { /* */ } }
+    return ok
+  } finally {
+    if (process.platform === 'win32') { try { execSync(`taskkill /pid ${server.pid} /T /F`, { stdio: 'ignore' }) } catch { /* 종료됨 */ } }
+    else server.kill()
+    try { unlinkSync(DATA) } catch { /* 이미 없음 */ }
+  }
+}
+
 async function main() {
   if (!existsSync(path.join(ROOT, '.next'))) { console.error('✗ .next 빌드 없음 — npm run build 먼저'); process.exit(1) }
 
   // 1) 빈 스토어 — 시드 없이 첫 배포한 신규 고객사의 첫 로그인
   const emptyOk = await probe('emptystate(빈 스토어)', emptyStore, PORT)
 
-  // 2) 손상 파일 — 컬렉션 타입 붕괴(문자열·숫자·객체 오염) + 정상 부분(people 배열)이 공존.
-  //    서버가 죽지 않고 오염 키는 시드로 폴백, 정상 키는 머지돼야 한다 (loadFromFile 타입 안전 머지).
+  // 2) 손상 파일 — 컬렉션 타입 붕괴(문자열·숫자·객체 오염) + 요소 수준 오염(객체 배열에 원시값 혼입)
+  //    + 정상 부분(people 배열)이 공존. 서버가 죽지 않고 오염 키/요소는 걸러지고 정상은 머지돼야 한다.
+  //    codeGroups 요소 오염: /settings/codes 가 g.values.length 를 원시 요소에서 접근하면 500 —
+  //    요소 수준 방어(loadFromFile)가 원시값을 걸러 정상 그룹만 남겨야 한다.
   const corrupt = { ...emptyStore, srRequests: 'corrupt', incidents: 42, notices: { bad: 1 }, todos: null,
+    // 요소 오염: 원시값(걸러짐) + 객체지만 values 누락(정규화로 []) + 정상 그룹. 셋 다 /settings/codes
+    // 의 g.values.length·activeCodes 소비처를 500 내지 않아야 한다(요소 필터 + 중첩 필드 정규화).
+    codeGroups: ['garbage', 42, null, { id: 'SR_KIND', name: 'SR유형(값누락)' },
+      { id: 'FAULT_GRADE', name: '장애등급', values: [{ code: '1등급', enabled: true }] }],
     people: [{ login: 'probe1', name: '견고성검증', dept: '품질보증팀', role: 'USER' }] }
   const corruptOk = await probe('corruptfile(손상 파일)', corrupt, PORT + 1,
     (r, body) => (r === '/settings/users' && !body.includes('품질보증팀')) ? '정상 부분(people) 머지 누락' : null)
 
-  process.exitCode = emptyOk && corruptOk ? 0 : 1
+  // 3) 파싱 불가 파일 격리 — seed 저장이 손상 원본을 덮어쓰지 않고 .corrupt 로 보존 (데이터 손실 방어)
+  const quarantineOk = await quarantineProbe(PORT + 2)
+
+  process.exitCode = emptyOk && corruptOk && quarantineOk ? 0 : 1
 }
 
 main().catch((e) => { console.error(e); process.exitCode = 1 })
