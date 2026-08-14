@@ -817,7 +817,7 @@ try {
   // 감사 대응 자료에 위협 대응 현황(검출→조치 증적) 반영
   check('리포트: 감사 대응 자료에 위협 대응 현황 반영', repHtml.includes('위협 대응 현황'))
   // 연간 교체 계획에 잔존가치(장부가) 반영 — 유형 설명·생성 리포트에 반영
-  check('리포트: 연간 교체 계획에 잔존가치 반영', repHtml.includes('내용연수·보증 경과·OS 지원 종료(EOL) 기준 교체 대상·잔존가치'))
+  check('리포트: 연간 교체 계획에 잔존가치 반영', repHtml.includes('내용연수·보증 경과·OS 지원 종료(EOL)·장애 이력(잦은 수리) 기준 교체 대상·잔존가치'))
   // 연간 교체 계획에 OS 지원 종료(EOL) 자산이 하드웨어 노후와 별개 교체 드라이버로 반영 (생성 시 buildSections 가 EOL 섹션 산출)
   check('리포트: 연간 교체 계획에 EOL OS 교체 드라이버 반영', repHtml.includes('OS 지원 종료(EOL)'))
   const repText = text(repHtml)

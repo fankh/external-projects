@@ -270,7 +270,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     return {
       role: 'assistant',
       text: [
-        `${cat ? `${cat} ` : ''}교체 대상 자산은 ${scoped.length}건입니다 (내용연수 5년 초과 또는 보증 경과 기준${cat ? '' : ` · 교체 예산 추정 ${budget.toLocaleString()}원 · 잔여 장부가 ${residualBook.toLocaleString()}원`}).`,
+        `${cat ? `${cat} ` : ''}교체 대상 자산은 ${scoped.length}건입니다 (내용연수 5년 초과·보증 경과·장애 이력(잦은 수리) 기준${cat ? '' : ` · 교체 예산 추정 ${budget.toLocaleString()}원 · 잔여 장부가 ${residualBook.toLocaleString()}원`}).`,
         ``,
         ...(scoped.length === 0 ? ['해당 조건의 교체 대상 자산이 없습니다.'] : []),
         ...list.map((x) => `· ${x.a.assetNo} — ${x.a.model} (${x.a.category}, 도입 ${x.a.purchaseDate} · ${x.why}, 잔여 장부가 ${x.book.toLocaleString()}원)`),

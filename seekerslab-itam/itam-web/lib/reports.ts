@@ -42,7 +42,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도)·위협 대응 현황 증빙 초안' },
-  { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과·OS 지원 종료(EOL) 기준 교체 대상·잔존가치·유형별 예산 추정' },
+  { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과·OS 지원 종료(EOL)·장애 이력(잦은 수리) 기준 교체 대상·잔존가치·유형별 예산 추정' },
   { kind: '취약점 조치 우선순위', period: '수시', desc: '자산 중요도 × 노출도 스코어링 — 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 P1/P2/P3로 순위화' },
   { kind: 'AI 거버넌스·성능', period: '월간', desc: '모델·프롬프트 버전·분류 정확도 · AI 기능별 제안 채택률(재학습 신호) · 감사·권한 필터 거버넌스 준수' },
 ]
@@ -62,8 +62,14 @@ export function replacementCandidates() {
     .map((a) => {
       const warr = a.warrantyEnd !== '-' && a.warrantyEnd < t
       const aged = a.purchaseDate < cutoff
-      const why = warr && aged ? '보증 경과·내용연수 초과' : warr ? '보증 경과' : aged ? '내용연수 초과' : ''
-      return { a, why, book: bookValueOf(a, t) }
+      // 장애 이력 — 반복 수리(2회 이상)는 잦은 고장 신호. 사용 연한·보증과 별개로 교체 시점을 앞당기는 드라이버(제품안내서 §05 기능03: 장애 이력 기반 교체 예측).
+      const repairs = a.repairCosts ?? []
+      const failing = repairs.length >= 2
+      const reasons: string[] = []
+      if (aged) reasons.push('내용연수 초과')
+      if (warr) reasons.push('보증 경과')
+      if (failing) reasons.push(`잦은 장애(수리 ${repairs.length}회·누계 ${repairs.reduce((n, r) => n + r.amount, 0).toLocaleString()}원)`)
+      return { a, why: reasons.join(' · '), book: bookValueOf(a, t) }
     })
     .filter((x) => x.why)
   const budget = cands.reduce((n, x) => n + (ACQ_COST[x.a.category] ?? 0), 0)
@@ -311,6 +317,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     const cats = [...new Set(cands.map((x) => x.a.category))]
     const warrN = cands.filter((x) => x.why.includes('보증')).length
     const agedN = cands.filter((x) => x.why.includes('내용연수')).length
+    const failingN = cands.filter((x) => x.why.includes('잦은 장애')).length
     // OS 지원 종료(EOL) — 하드웨어 노후(내용연수·보증)와 별개의 교체·업그레이드 드라이버. 미패치 취약점 상시 노출.
     const t = today()
     const eolAssets = s.assets.filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, t))
@@ -328,7 +335,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     return [
       {
         title: '교체 대상 자산',
-        note: `총 ${cands.length}대 — 보증 경과 ${warrN} · 내용연수 초과 ${agedN} · 잔여 장부가 ${fmtAmount(residualBook)}원`,
+        note: `총 ${cands.length}대 — 보증 경과 ${warrN} · 내용연수 초과 ${agedN} · 잦은 장애 ${failingN} · 잔여 장부가 ${fmtAmount(residualBook)}원`,
         columns: ['자산번호', '유형', '모델', '도입일', '보증만료', '잔존가치', '교체 사유'],
         rows: cands.map((x) => [x.a.assetNo, x.a.category, x.a.model, x.a.purchaseDate, x.a.warrantyEnd, `${x.book.toLocaleString()}원`, x.why]),
       },
