@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { recordAiCall } from '@/lib/ai-status'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
-import { daysUntil, isLoanOverdue, isLoanDueSoon, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
 import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { buildVulnPriority } from '@/lib/vuln-priority'
@@ -453,6 +453,24 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     }
   }
 
+  // 정기 점검(예방 정비) 대상 — 예정일이 도래·경과한 자산을 경과(미시행)·임박으로 나눠 답한다 (자산팀 사전 정비 대상).
+  //  대장 필터·대시보드 큐·독촉과 같은 lib/dates 판정(isMaintenanceDue/Overdue)을 쓴다 — 어시스턴트가 별도 임계값을 만들지 않는다.
+  if (!isUser && (q.includes('정기 점검') || q.includes('예방 정비') || q.includes('점검 대상') || q.includes('점검 밀린') || q.includes('점검 경과') || q.includes('정비'))) {
+    const due = s.assets.filter(isMaintenanceDue)
+    const overdue = due.filter(isMaintenanceOverdue).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? ''))
+    const soon = due.filter((a) => !isMaintenanceOverdue(a)).sort((a, b) => (a.maintenanceDue ?? '').localeCompare(b.maintenanceDue ?? ''))
+    const fmt = (a: (typeof due)[number]) => `${a.assetNo} — ${a.model} · ${a.owner} (${a.dept}) · 예정 ${a.maintenanceDue}${isMaintenanceOverdue(a) ? ` · 경과 ${-(daysUntil(a.maintenanceDue!) ?? 0)}일` : ` · D-${daysUntil(a.maintenanceDue!) ?? 0}`}`
+    return {
+      role: 'assistant',
+      text: due.length === 0
+        ? '정기 점검(예방 정비) 예정이 도래한 자산이 없습니다. 자산 대장 상세의 ‘정기 점검 일정 등록’으로 운영 자산을 정비 사이클에 편입할 수 있습니다.'
+        : `정기 점검(예방 정비) 대상 현황입니다 (예정일 30일 내·경과 · 자산팀 사전 정비 대상).\n\n· 예정일 경과(미시행): ${overdue.length}건${overdue.length ? `\n${overdue.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}\n· 점검 임박(D-30 내): ${soon.length}건${soon.length ? `\n${soon.slice(0, 8).map((a) => `   - ${fmt(a)}`).join('\n')}` : ''}\n\n경과분은 정기 점검 독촉으로 소유 부서에 시행을 요청하고, 점검 완료 시 다음 회차가 12개월 후로 재예약됩니다.`,
+      evidence: [
+        { label: '자산 대장 (정기 점검 대상)', href: '/assets/register?maint=1' },
+        { label: '대시보드', href: '/dashboard' },
+      ],
+    }
+  }
   // 운영 리스크 자산 — 분실·도난, 장기 미실측(유령 후보), 대여 반환 연체, 수리(지연)를 한 번에 훑는다 (자산팀 조치 대상)
   if (!isUser && (q.includes('분실') || q.includes('도난') || q.includes('미실측') || q.includes('유령') || q.includes('연체') || q.includes('대여') || q.includes('반출') || q.includes('수리') || q.includes('운영 리스크') || q.includes('리스크 자산'))) {
     const lost = s.assets.filter((a) => a.status === '분실')
@@ -570,7 +588,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "부서별 자산 보유 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "취약점 조치 우선순위 (P1/P2/P3)"\n· "이상 자산 행위 탐지 (프로파일 이탈)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "AST-2023-000112 자산의 상태와 변경 이력" (자산번호로 특정 자산 조회)\n· "내 보유 자산"\n· "내 수리 현황"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "부서별 자산 보유 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "취약점 조치 우선순위 (P1/P2/P3)"\n· "이상 자산 행위 탐지 (프로파일 이탈)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "정기 점검(예방 정비) 대상 자산"\n· "AST-2023-000112 자산의 상태와 변경 이력" (자산번호로 특정 자산 조회)\n· "내 보유 자산"\n· "내 수리 현황"\n· "내 신청 상태"`,
   }
 }
 
