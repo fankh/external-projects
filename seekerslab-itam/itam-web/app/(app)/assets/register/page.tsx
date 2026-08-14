@@ -38,6 +38,16 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const maintenanceNos = scoped.filter(isMaintenanceDue).map((a) => a.assetNo)
   // 정기 점검 경과(미시행) 대수 — 예정일을 넘긴 자산. 자산담당 정기 점검 독촉 버튼 노출/집계용(임박은 제외).
   const maintOverdueCount = scoped.filter(isMaintenanceOverdue).length
+  // 자산별 배정 라이선스(좌석) — 라이선스 화면의 좌석 배정(로56)을 자산 관점에서 역조회. 상세에서 이 자산에
+  //  어떤 SW 라이선스가 배정됐는지 보여준다(오프보딩·감사: 회수·재배정 대상 식별). 해지 라이선스는 제외.
+  const licenseSeatsByAsset: Record<string, { id: string; name: string; vendor: string }[]> = {}
+  for (const l of s.licenses) {
+    if (l.status === '해지' || !l.seats) continue
+    for (const st of l.seats) {
+      if (session.role === 'USER' && !scoped.some((a) => a.assetNo === st.assetNo)) continue
+      ;(licenseSeatsByAsset[st.assetNo] ??= []).push({ id: l.id, name: l.name, vendor: l.vendor })
+    }
+  }
 
   return (
     <>
@@ -51,7 +61,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
       )}
       {session.role !== 'USER' && <BulkImport />}
       <Card pad={false}>
-        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} />
+        <RegisterView assets={scoped} initialQuery={q ?? ''} canEdit={session.role !== 'USER'} canConfig={['ASSET_MGR', 'ADMIN'].includes(session.role)} canExport={canExport('assets', session.role)} initialSel={initialSel} staleNos={staleNos} warrantyNos={warrantyNos} initialWarranty={warranty === 'soon'} dqNos={dqNos} initialDq={dq === '1'} eolNos={eolNos} initialEol={os === 'eol'} critNos={critNos} initialCrit={crit === '1'} contracts={s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} today={today()} initialCat={cat} initialStatus={status} receiptPendingCount={receiptPendingCount} maintenanceNos={maintenanceNos} initialMaint={maint === '1'} maintOverdueCount={maintOverdueCount} licenseSeatsByAsset={licenseSeatsByAsset} />
       </Card>
     </>
   )
