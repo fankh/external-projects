@@ -629,6 +629,8 @@ try {
   // 폐기 증적 대장 엑셀 반출 — 감사 대응용 전체 폐기 레코드 (개별 확인서와 별개)
   const dispPage = await (await get('/assets/disposal', 'ASSET_MGR')).text()
   check('폐기 처리: 폐기 증적 대장 엑셀 버튼 노출', dispPage.includes('/api/export/disposals'))
+  // 폐기 처리 현황 상태·검색 필터 — 완료분이 쌓여도 진행 중 건을 훑을 수 있게(다른 목록 화면과 동일한 필터 패턴)
+  check('폐기 처리 현황: 상태 필터(진행중·완료)·검색 노출', dispPage.includes('진행중') && dispPage.includes('폐기번호·자산번호·모델·사유 검색'))
   // 폐기 증적 대장 엑셀에 처분 방식·매각 대금 컬럼 반출 — DSP-00(매각 85,000) 이 평문으로 들어간다
   const dispBuf = Buffer.from(await (await get('/api/export/disposals', 'ASSET_MGR')).arrayBuffer()).toString('utf8')
   check('폐기 증적 엑셀: 처분 방식·매각 대금 컬럼 반출', dispBuf.includes('처분 방식') && dispBuf.includes('매각') && dispBuf.includes('85000'))

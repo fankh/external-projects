@@ -22,6 +22,16 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
   const [photoLabel, setPhotoLabel] = useState<DisposalPhotoLabel>(DISPOSAL_PHOTO_LABELS[0])
   const [photoNote, setPhotoNote] = useState('')
   const selected = records.filter((d) => d.status === '대상 선정')
+  // 폐기 처리 현황 필터 — 완료분이 쌓이면 진행 중 건을 훑기 어렵다(다른 목록 화면과 동일한 상태·검색 필터 패턴).
+  const [fstatus, setFstatus] = useState<'전체' | '진행중' | '완료'>('전체')
+  const [fq, setFq] = useState('')
+  const shown = records.filter((d) => {
+    if (fstatus === '완료' && d.status !== '완료') return false
+    if (fstatus === '진행중' && d.status === '완료') return false
+    const n = fq.trim().toLowerCase()
+    if (!n) return true
+    return [d.id, d.assetNo, d.model, d.reason].some((f) => (f ?? '').toLowerCase().includes(n))
+  })
 
   const addPhoto = (id: string) => startTransition(async () => {
     const r = await addDisposalPhoto(id, photoLabel, photoNote)
@@ -90,13 +100,25 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
             폐기 결재 상신 ({selected.length})
           </button>
         }>
+        <div className="hstack" style={{ gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>
+          {(['전체', '진행중', '완료'] as const).map((st) => (
+            <button key={st} className={`btn sm ${fstatus === st ? 'pri' : 'ghost'}`} onClick={() => setFstatus(st)}>{st}</button>
+          ))}
+          <input className="input" style={{ flex: 1, minWidth: 180, height: 30 }}
+            placeholder="폐기번호·자산번호·모델·사유 검색"
+            value={fq} onChange={(e) => setFq(e.target.value)} />
+          <span className="mut" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{shown.length} / {records.length}건</span>
+        </div>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
               <tr><th>폐기번호</th><th>자산번호</th><th>모델</th><th>사유</th><th className="c">상태</th><th>소거 방식 · 증적</th><th className="c">소거 처리</th></tr>
             </thead>
             <tbody>
-              {records.map((d) => (
+              {shown.length === 0 && (
+                <tr><td colSpan={7} className="dim c" style={{ padding: 18 }}>조건에 맞는 폐기 건이 없습니다.</td></tr>
+              )}
+              {shown.map((d) => (
                 <Fragment key={d.id}>
                 <tr>
                   <td className="code">{d.id}</td>
