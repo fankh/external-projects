@@ -287,7 +287,12 @@ export async function returnLoan(assetNo: string, condition: ReturnCondition = '
     asset.location = loc
   }
   asset.history.push({ date: today(), kind: condition === '폐기 권고' ? '폐기' : condition === '수리 필요' ? '수리' : '반납', detail: `대여 반환 접수 · 상태 점검 ${condition}${note ? ` — ${note}` : ''} (대여자 ${borrower}${overdue ? ' · 연체 반환' : ''})`, actor: session.name })
-  appendAudit({ actor: session.name, action: `대여 반환 접수 (${condition}) — ${borrower}`, target: assetNo })
+  // 대여자에게 반환 접수 결과를 통보한다(반납 접수 통보의 대여판) — 특히 수리 필요·폐기 권고는 파손 책임 안내가 필요하다.
+  const notified = borrower && borrower !== '미지정' && borrower !== '-'
+  if (notified) {
+    dispatch({ channel: '이메일', to: borrower, subject: `대여 반환 접수 완료 — ${asset.assetNo} ${asset.model} · 점검 결과 ${condition}${note ? ` (${note})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
+  }
+  appendAudit({ actor: session.name, action: `대여 반환 접수 (${condition}) — ${borrower}${notified ? ' · 대여자 통보' : ''}`, target: assetNo })
   revalidatePath('/', 'layout')
   const outcome = condition === '수리 필요' ? '수리중 편성 (수리 후 유휴 풀)' : condition === '폐기 권고' ? '폐기 절차 편입 (폐기예정)' : '유휴 풀 편성 (재배치 가능)'
   return { ok: true, message: `${assetNo} 대여 반환 (${condition}) — ${outcome}` }
