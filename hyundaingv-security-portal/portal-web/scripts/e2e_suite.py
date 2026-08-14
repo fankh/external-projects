@@ -447,7 +447,9 @@ def sc_remote(pg, base, check):
 
     # CSV 업로드 — '이름,시작일자' 행 반영 (잘못된 줄은 건너뛴다)
     csv_path = UPLOAD.parent / '.e2e-remote.csv'
-    csv_path.write_text('강도윤,2026-08-10\n무명인,2026-08-10\n', encoding='utf-8')
+    # 첫 행은 실재하지 않는 달력 날짜(정규식은 통과) — realDate 가드 없으면 dayBefore toISOString 이 RangeError 로
+    # 업로드 액션 전체를 500 내 강도윤도 반영 안 된다(v1.5.x). 가드 있으면 무효 행만 건너뛰고 강도윤 반영.
+    csv_path.write_text('한지원,2026-13-45\n강도윤,2026-08-10\n무명인,2026-08-10\n', encoding='utf-8')
     mgmt = pg.locator('.card', has_text='대상자 관리')
     mgmt.locator('input[type=file]').set_input_files(str(csv_path))
     mgmt.locator('button:has-text("업로드 반영")').click()

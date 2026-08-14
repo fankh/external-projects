@@ -26,7 +26,9 @@ function reSignTargets(s: ReturnType<typeof getStore>, kind: PledgeKind, revised
   if (kind === '관리책임자') return ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => a.name).filter(missing)
   if (kind === '재택근무') {
     const month = today().slice(0, 7)
-    return s.remoteTargets.filter((t) => isRemoteTargetIn(t, month)).map((t) => t.name).filter(missing)
+    // 이름 중복 제거 — 한 사람이 인접한 두 재택 기간(경계월)으로 명단에 둘 잡히면(v1.5.53) 재서약 안내메일이
+    // 중복 발송되고 sendLog to.length 가 부풀므로, 대상 산정에서 이름 기준 dedup 한다(할일은 line 63 에서 별도 dedup).
+    return [...new Set(s.remoteTargets.filter((t) => isRemoteTargetIn(t, month)).map((t) => t.name))].filter(missing)
   }
   if (kind === '특별') return s.securityOfficers.filter(missing)
   if (kind === '프로젝트') {

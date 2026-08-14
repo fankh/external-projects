@@ -77,7 +77,7 @@ async function submitDiscards() {
   // 폐쇄 루프 — 개인 폐기 상신과 함께 내 '출력물 폐기확인' 할일이 닫힌다.
   // 부서 취합('취합') 할일은 개인 상신으로 닫지 않는다 — 개인 행동이 부서 집계 과제를 조기 마감하던
   // 결함 방지(후속조치 #5). (printouts 시드가 비어 데모에선 실행되지 않으나 실데이터 대비 방어.)
-  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && !t.title.includes('취합') && !t.done)
+  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && !String(t.title ?? '').includes('취합') && !t.done)
   if (todo) todo.done = true
   revalidatePath('/', 'layout')
 }
@@ -89,7 +89,7 @@ async function completeCollation() {
   'use server'
   const me = await requireMenuRole('/awareness/prints', 'USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
-  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && t.title.includes('취합') && !t.done)
+  const todo = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && String(t.title ?? '').includes('취합') && !t.done)
   if (todo) todo.done = true
   revalidatePath('/', 'layout')
 }
@@ -108,7 +108,7 @@ export default async function PrintsPage() {
   const mine = s.printouts.filter((p) => p.name === me.name)
   const myReady = mine.filter((p) => p.status === '등록')
   // 부서 취합 할일 — 개인 폐기 상신으로는 닫히지 않으므로(v1.5.36) 명시적 완료 버튼을 준다.
-  const myCollation = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && t.title.includes('취합') && !t.done)
+  const myCollation = s.todos.find((t) => t.owner === me.name && t.kind === '출력물 폐기확인' && String(t.title ?? '').includes('취합') && !t.done)
 
   return (
     <>

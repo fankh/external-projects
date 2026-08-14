@@ -17,8 +17,17 @@ const ITEMS = [
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
+/** 달력상 실재하는 날짜인가 — DATE 정규식은 2026-13-45·2026-02-30 같은 비현실 날짜를 통과시키는데,
+ *  dayBefore 의 new Date(NaN).toISOString() 가 RangeError 로 서버액션을 500 낸다. UTC 파싱 왕복으로 검증
+ *  (02-30 은 03-01 로 롤오버되어 왕복이 달라지므로 거부). */
+function realDate(d: string): boolean {
+  const p = new Date(`${d}T00:00:00Z`)
+  return !Number.isNaN(p.getTime()) && p.toISOString().slice(0, 10) === d
+}
+
 /** 대상자 반영 — 요구사항 54행: 시작일자가 있으면 신규 추가, 종료일자만 있으면 기존(진행중) 대상 수정 */
 function applyTarget(s: Store, name: string, dept: string, startDate: string, endDate: string): '추가' | '종료' | null {
+  if ((startDate && !realDate(startDate)) || (endDate && !realDate(endDate))) return null
   if (startDate) {
     if (endDate && endDate < startDate) return null
     // 동일 (인원, 시작일) 중복 등록 금지 — 반복 제출로 명단이 불어나는 것을 막는다

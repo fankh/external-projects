@@ -109,7 +109,9 @@ async function main() {
   //    + 정상 부분(people 배열)이 공존. 서버가 죽지 않고 오염 키/요소는 걸러지고 정상은 머지돼야 한다.
   //    codeGroups 요소 오염: /settings/codes 가 g.values.length 를 원시 요소에서 접근하면 500 —
   //    요소 수준 방어(loadFromFile)가 원시값을 걸러 정상 그룹만 남겨야 한다.
-  const corrupt = { ...emptyStore, srRequests: 'corrupt', todos: null,
+  const corrupt = { ...emptyStore, srRequests: 'corrupt',
+    // 출력물 폐기확인 할일의 title 누락 → /awareness/prints 의 title.includes('취합') 가 500 나면 안 된다(호출부 String 방어)
+    todos: [{ id: 'TD-9', owner: '시스템관리자', kind: '출력물 폐기확인', done: false }],
     // 요소의 필수 문자열 필드 '누락'(undefined) — 머지 strFields 는 옵셔널 보존 위해 undefined 는 안 건드리므로
     // 소비처 호출부가 String(?? '')로 방어해야 한다. notice.postedAt 누락(정렬 localeCompare)·incident.occurredAt
     // 누락(.slice/.startsWith)이라도 /board/notices·/infra/incidents 가 500 나면 안 된다.
