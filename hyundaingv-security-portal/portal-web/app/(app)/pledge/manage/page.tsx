@@ -10,11 +10,10 @@ import { ACCOUNTS } from '@/lib/session'
 import { getStore, isRemoteTargetIn, nextNo } from '@/lib/store'
 import type { PledgeKind } from '@/lib/types'
 
-const YEAR = currentYear()
 
 function unsignedOf(s: ReturnType<typeof getStore>) {
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
-  const signed = new Set(s.pledges.filter((p) => p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  const signed = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
   return s.people.filter((p) => !signed.has(p.name))
 }
 
@@ -64,7 +63,7 @@ async function reviseForm(formData: FormData) {
     if (!s.todos.some((t) => t.owner === name && t.kind === '보안서약서' && t.title.includes(`${kind} 보안서약서`) && !t.done)) {
       s.todos.unshift({
         id: nextNo('TD', year, s.todos.map((t) => t.id)),
-        owner: name, kind: '보안서약서', title: `${YEAR}년 ${kind} 보안서약서 재서약 (개정 ${day})`,
+        owner: name, kind: '보안서약서', title: `${currentYear()}년 ${kind} 보안서약서 재서약 (개정 ${day})`,
         dueDate: day, done: false,
       })
     }
@@ -81,7 +80,7 @@ async function uploadScan(formData: FormData) {
   const s = getStore()
   const person = s.people.find((p) => p.name === name)
   if (!person || !unsignedOf(s).some((p) => p.name === name)) return
-  s.pledges.push({ name: person.name, dept: person.dept, year: YEAR, kind: '일반', signedAt: nowStampSec(), method: '서면(스캔)' })
+  s.pledges.push({ name: person.name, dept: person.dept, year: currentYear(), kind: '일반', signedAt: nowStampSec(), method: '서면(스캔)' })
   const todo = s.todos.find((t) => t.owner === name && t.kind === '보안서약서' && t.title.includes('일반 보안서약서') && !t.done)
   if (todo) todo.done = true
   revalidatePath('/', 'layout')

@@ -54,7 +54,9 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('미서약', s.people.filter((p) => !signed.has(p.name)).map((p) => p.name), '[보안서약서] 미서약 안내')
 
   // 1-b) 비-일반 서약 재서약 방치 — 개정 후 미완료 재서약 할일(관리책임자·재택·특별·프로젝트). 일반은 위 1)에서 별도.
-  const reSign = s.todos.filter((x) => x.kind === '보안서약서' && !x.done && !x.title.includes('일반 보안서약서'))
+  // 손상 파일의 title 누락(undefined) todo 에 .includes 가 TypeError→배치 전체 중단되지 않도록 문자열 강제
+  // 손상 파일의 title 누락(undefined) todo 에 .includes 가 TypeError→배치 전체 중단되지 않도록 문자열 강제
+  const reSign = s.todos.filter((x) => x.kind === '보안서약서' && !x.done && !String(x.title ?? '').includes('일반 보안서약서'))
   await send('비일반 재서약', [...new Set(reSign.map((x) => x.owner))], '[보안서약서] 개정 재서약 안내')
 
   // 2) 보안점검 경과 — 예정월이 지났는데 완료·결재중이 아닌 항목의 점검자
@@ -92,4 +94,18 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   const allOk = results.every((r) => r.ok)
   recordBatch(`일일 알림 배치 (${results.length}종 · ${total}명)`, nowStamp(), results.length === 0 || allOk ? '성공' : '실패')
   return results
+}
+
+/** 재진입 가드 공유 래퍼 — 스케줄러 틱과 수동 실행(연동·인프라 화면 버튼)이 겹쳐 돌면 같은 안내메일이
+ *  중복 발송되고 동시 뮤테이션이 생긴다. 전역 플래그(__ngvNotifyTicking)로 두 경로를 직렬화해, 이미
+ *  실행 중이면 이번 호출은 건너뛰고 null 을 반환한다(스케줄러 전용이던 v1.5.48 가드를 수동 경로까지 확장). */
+export async function runDailyNotifyOnce(): Promise<NotifyResult[] | null> {
+  const g = globalThis as typeof globalThis & { __ngvNotifyTicking?: boolean }
+  if (g.__ngvNotifyTicking) return null
+  g.__ngvNotifyTicking = true
+  try {
+    return await runDailyNotify()
+  } finally {
+    g.__ngvNotifyTicking = false
+  }
 }

@@ -387,6 +387,14 @@ try {
   await pU.waitForTimeout(150)
   const loanOpts = (await reqCard.locator('select').nth(1).textContent()) || ''
   ok('대여 신청 대상: 폐기 절차 자산 제외(AST-2021-000432)', !loanOpts.includes('AST-2021-000432') && loanOpts.includes('AST-2023-000704'))
+  // 수령 확인 대기 대시보드 나눔 — 불출 배정된 본인 자산이 인수 미확인이면 대시보드 My Work 에 상기(로54 수령 확인 루프의 사용자 능동 접점). 확인 전에 검증.
+  await pU.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  const dashBody = (await pU.locator('body').textContent()) || ''
+  ok('사용자 대시보드: 수령 확인 대기 나눔 노출(인수 미확인 본인 자산)', dashBody.includes('수령 확인 대기') && dashBody.includes('AST-2024-000015'))
+  // 나눔 딥링크 → 대장 상세의 수령 확인 액션으로 바로 진입
+  await pU.locator('a', { hasText: 'AST-2024-000015' }).first().click()
+  await pU.waitForTimeout(400)
+  ok('사용자 대시보드: 수령 확인 나눔 → 대장 상세 딥링크(수령 확인 액션)', (await pU.locator('button', { hasText: '수령 확인 (인수 확인)' }).count()) > 0)
   // 자산 수령(인수) 확인 — 불출 배정된 본인 자산을 사용자가 실물 인수 확인(체인 오브 커스터디). 시드 AST-2024-000015 는 수령 대기.
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
   ok('수령 확인: 수령 대기 자산에 수령 확인 버튼 노출(사용자)', (await pU.locator('button', { hasText: '수령 확인 (인수 확인)' }).count()) > 0)

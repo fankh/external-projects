@@ -261,6 +261,8 @@ try {
   check('대시보드(사용자): 우리 부서 소유자 확인 요청 넛지 + 결재 딥링크', dashUser.includes('소유자 확인 요청 — 응답 필요') && dashUser.includes('DSC-2607-0041') && dashUser.includes('/workflow/approvals?sel=APR-2607-114'))
   // 반려된 내 신청 재상신 넛지 — 김민준의 반려 건(APR-2607-096, 아직 미재상신)이 사유와 함께 노출·딥링크
   check('대시보드(사용자): 반려된 내 신청 재상신 넛지 + 사유·딥링크', dashUser.includes('반려된 내 신청 — 재상신 검토') && dashUser.includes('/workflow/approvals?sel=APR-2607-096') && dashUser.includes('부서 예산 승인 후'))
+  // 수령 확인 대기 넛지 — 불출 배정 후 인수 미확인 본인 자산(시드 AST-2024-000015)이 대시보드에 노출·상세 딥링크(로54 수령 확인 루프의 사용자 능동 접점)
+  check('대시보드(사용자): 수령 확인 대기 넛지 + 상세 딥링크', dashUser.includes('수령 확인 대기 — 인수 확인 필요') && dashUser.includes('/assets/register?sel=AST-2024-000015'))
   // 다른 부서(자산관리팀=박자산)에는 해당 요청 넛지가 뜨지 않는다 (부서 스코프)
   check('대시보드: 타 부서엔 소유자 확인 넛지 미노출 (부서 스코프)', !dashHtml.includes('소유자 확인 요청 — 응답 필요'))
   // 최근 활동 위젯 — 감사 로그 접근 권한(비사용자)에만 노출

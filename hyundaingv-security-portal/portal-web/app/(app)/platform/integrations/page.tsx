@@ -6,7 +6,7 @@ import { nowStamp } from '@/lib/dates'
 import { runAdapterConformance, validatorSelfCheck } from '@/lib/integrations/conformance'
 import { deployReadiness } from '@/lib/readiness'
 import { channelSummary, hrAdapter, isEnabled, withTimeout } from '@/lib/integrations/registry'
-import { runDailyNotify } from '@/lib/notify'
+import { runDailyNotifyOnce } from '@/lib/notify'
 import { backupDataFile, getStore, recordBatch } from '@/lib/store'
 import { CHANNELS, PORTAL } from '@/portal.config'
 
@@ -28,8 +28,10 @@ async function toggleChannel(formData: FormData) {
 async function notifyBatch() {
   'use server'
   const me = await requireMenuRole('/platform/integrations', 'ADMIN')
-  // 폐쇄 루프 — 미서약·점검 경과·SR 지연·재택 미제출을 스캔해 대상자별 안내메일 발송
-  const results = await runDailyNotify()
+  // 폐쇄 루프 — 미서약·점검 경과·SR 지연·재택 미제출을 스캔해 대상자별 안내메일 발송.
+  // 스케줄러 틱과 공유하는 재진입 가드로 실행 — 이미 배치가 도는 중이면 중복 발송 없이 건너뛴다.
+  const results = await runDailyNotifyOnce()
+  if (results === null) return  // 진행 중인 배치와 겹침 — 중복 방지로 이번 수동 실행은 무시
   audit(me.name, '알림 배치 실행', results.map((r) => `${r.kind} ${r.targets}명${r.ok ? '' : '(실패)'}`).join(', ') || '대상 없음')
   // 백업은 스케줄러 틱에서만 돌아, 외부 스케줄러 사용(PORTAL_NOTIFY_INTERVAL_MS 미설정)+영속화 켬
   // 배포에서는 스냅샷이 전혀 안 생겼다. 수동 배치 실행도 백업을 남겨 그 모드의 복구 지점을 확보한다.

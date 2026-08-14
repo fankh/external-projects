@@ -6,7 +6,6 @@ import { currentYear, nowStamp, today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
 import { getStore, nextNo, recordBatch } from '@/lib/store'
 
-const YEAR = currentYear()
 
 async function remindUnsigned(formData: FormData) {
   'use server'
@@ -16,12 +15,12 @@ async function remindUnsigned(formData: FormData) {
 
   const s = getStore()
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
-  const signedNames = new Set(s.pledges.filter((p) => p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  const signedNames = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
   const targets = s.people.filter((p) => p.dept === dept && !signedNames.has(p.name))
   if (targets.length === 0) return
 
   // 폐쇄 루프 — 그룹웨어 메일 어댑터 경유 발송. 채널이 중지 상태면 실패가 배치 이력으로 드러난다.
-  const r = await sendVia('groupware-mail', targets.map((t) => t.name), `[보안서약서] ${YEAR}년 미서약 안내`)
+  const r = await sendVia('groupware-mail', targets.map((t) => t.name), `[보안서약서] ${currentYear()}년 미서약 안내`)
   recordBatch(`미서약 안내메일 발송 (${dept} ${targets.length}명)`, nowStamp(), r.ok ? '성공' : '실패')
   revalidatePath('/', 'layout')
 }
@@ -39,7 +38,7 @@ async function submitDeptStatus(formData: FormData) {
   if (s.approvals.some((a) => a.docType === '부서서약 현황 상신' && a.status === '대기' && a.title.startsWith(`[보안서약서] ${dept} `))) return
 
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
-  const signed = new Set(s.pledges.filter((p) => p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  const signed = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
   const members = s.people.filter((p) => p.dept === dept)
   const done = members.filter((p) => signed.has(p.name)).length
 
@@ -59,7 +58,7 @@ export default async function DeptPledgePage() {
 
   const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
   const signedBy = new Map(
-    s.pledges.filter((p) => p.year === YEAR && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => [p.name, p]),
+    s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => [p.name, p]),
   )
   // 부서담당은 소속 부서만, 업무담당·Admin 은 전사
   const depts = [...new Set(s.people.map((p) => p.dept))]
@@ -71,7 +70,7 @@ export default async function DeptPledgePage() {
   return (
     <>
       <ScreenHeader kicker="임직원 의식제고" title="부서 서약 현황"
-        desc={`${YEAR}년 일반 보안서약서 ${me.role === 'DEPT_MGR' ? `— ${me.dept} 진행현황` : '— 전사 부서별 진행현황'}`}
+        desc={`${currentYear()}년 일반 보안서약서 ${me.role === 'DEPT_MGR' ? `— ${me.dept} 진행현황` : '— 전사 부서별 진행현황'}`}
         right={<a className="btn sm" href="/api/export?type=pledge-status">엑셀 다운로드</a>} />
 
       <div className="stat-row">

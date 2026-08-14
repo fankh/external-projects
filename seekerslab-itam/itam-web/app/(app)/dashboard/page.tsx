@@ -48,6 +48,9 @@ export default async function DashboardPage() {
   const myRejected = s.approvals.filter(
     (a) => a.requester === session.name && a.status === '반려' && !a.resubmitted && ['자산 신청', '반납', '이동', '대여', 'SaaS 인가'].includes(a.kind),
   )
+  // 수령 확인 대기 — 불출로 배정받았으나 아직 인수 확인을 안 한 본인 자산. 불출 시 안내 메일은 가지만
+  // 대시보드에서도 상기시켜 사용자가 직접 수령 확인(체인 오브 커스터디)하게 한다(로54 수령 확인 루프의 사용자 측 능동 접점).
+  const myReceipts = s.assets.filter((a) => a.receiptPending && a.owner === session.name)
   // 내 대여 자산 — 본인이 빌린(대여중·소유자=본인) 자산의 반환 기한. 대여자 관점의 반환 마감 알림.
   // 담당자에게는 대여 현황(반납·유휴)·연체 큐가, 대여자에게는 여기 My Work 가 반환을 상기시킨다(v1.102 독촉 통지의 수신자 측).
   const myLoans = s.assets
@@ -253,8 +256,23 @@ export default async function DashboardPage() {
                   </div>
                 )
               })()}
-              {myQueue.length > 0 && (() => {
+              {myReceipts.length > 0 && (() => {
                 const above = unackedNotices.length > 0 || myOwnerConfirms.length > 0 || myRejected.length > 0
+                return (
+                  <div className="vstack" style={{ gap: 6, borderTop: above ? '1px solid var(--line)' : undefined, paddingTop: above ? 10 : 0 }}>
+                    <span className="kicker mute">수령 확인 대기 — 인수 확인 필요</span>
+                    {myReceipts.map((a) => (
+                      <Link key={a.assetNo} href={`/assets/register?sel=${a.assetNo}`} className="hstack"
+                        style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.model} <span className="dim" style={{ fontSize: 11 }}>· {a.assetNo}</span></span>
+                        <Chip tone="warn">수령 확인</Chip>
+                      </Link>
+                    ))}
+                  </div>
+                )
+              })()}
+              {myQueue.length > 0 && (() => {
+                const above = unackedNotices.length > 0 || myOwnerConfirms.length > 0 || myRejected.length > 0 || myReceipts.length > 0
                 return (
                 <div className="vstack" style={{ gap: 8, borderTop: above ? '1px solid var(--line)' : undefined, paddingTop: above ? 10 : 0 }}>
                   <span className="kicker mute">내 결재 차례 — 지금 처리 대기</span>
