@@ -1,4 +1,5 @@
 import { ScreenHeader, Stat } from '@/components/ui'
+import { QNA_SLA_DAYS, isQnaOverdue, qnaAgeDays } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { QnaBoard } from './QnaBoard'
@@ -11,6 +12,9 @@ export default async function QnaPage({ searchParams }: { searchParams: Promise<
   const s = getStore()
   const qna = s.posts.filter((p) => p.kind === 'QnA').sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const waiting = qna.filter((p) => !p.answer)
+  // 미답변 SLA 경과 — 등록 후 QNA_SLA_DAYS(기본 3일)를 넘긴 미답변 문의. 지연 표기·답변 독촉 대상. 대시보드 담당 큐와 같은 판정.
+  const overdueDays: Record<string, number> = {}
+  for (const p of qna) if (isQnaOverdue(p)) overdueDays[p.id] = qnaAgeDays(p.createdAt)
 
   return (
     <>
@@ -22,12 +26,12 @@ export default async function QnaPage({ searchParams }: { searchParams: Promise<
 
       <div className="stat-row">
         <Stat value={qna.length} label="전체 문의" />
-        <Stat value={waiting.length} label="답변 대기" tone={waiting.length ? 'warn' : 'ok'} />
+        <Stat value={waiting.length} label="답변 대기" tone={waiting.length ? 'warn' : 'ok'} delta={Object.keys(overdueDays).length ? { text: `SLA ${QNA_SLA_DAYS}일 경과 ${Object.keys(overdueDays).length}건`, dir: 'up' } : undefined} />
         <Stat value={qna.length - waiting.length} label="답변 완료" tone="ok" />
         <Stat value={qna.filter((p) => p.author === session.name).length} label="내 문의" tone="accent" />
       </div>
 
-      <QnaBoard posts={qna} canAnswer={session.role !== 'USER'} canModerate={session.role === 'ADMIN'} me={session.name} initialSel={sel} />
+      <QnaBoard posts={qna} canAnswer={session.role !== 'USER'} canModerate={session.role === 'ADMIN'} me={session.name} initialSel={sel} overdueDays={overdueDays} />
     </>
   )
 }

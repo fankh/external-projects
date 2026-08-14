@@ -267,6 +267,8 @@ try {
   // QnA 대시보드 카드 — 공지는 최근 공지 위젯이 담당하므로 이 카드는 QnA 만(중복 제거). 사용자는 본인 문의 답변 현황(로7 작성자 측), 담당자는 답변 대기.
   check('대시보드(사용자): 내 QnA 답변 현황 + 답변 딥링크(QNA-03)', dashUser.includes('내 문의') && dashUser.includes('답변 완료') && dashUser.includes('JetBrains') && dashUser.includes('/board/qna?sel=QNA-03'))
   check('대시보드(담당자): QnA 답변 대기 카드 노출 (사용자 문의)', dashHtml.includes('사용자 문의') && dashHtml.includes('답변 대기'))
+  // QnA 미답변 SLA 경과 — 담당자 대시보드에 지연 미답변(답변 독촉) 신호. 결재 SLA 지연의 QnA 판.
+  check('대시보드(담당자): QnA 미답변 SLA 경과 지연 신호', dashHtml.includes('SLA 경과') && dashHtml.includes('미답변 지연'))
   // 우리 부서 소유자 확인 요청 넛지 — 김민준(플랫폼개발팀) 앞으로 온 APR-2607-114 응답 대기. 결재 딥링크(v1.143)
   check('대시보드(사용자): 우리 부서 소유자 확인 요청 넛지 + 결재 딥링크', dashUser.includes('소유자 확인 요청 — 응답 필요') && dashUser.includes('DSC-2607-0041') && dashUser.includes('/workflow/approvals?sel=APR-2607-114'))
   // 반려된 내 신청 재상신 넛지 — 김민준의 반려 건(APR-2607-096, 아직 미재상신)이 사유와 함께 노출·딥링크
@@ -496,6 +498,9 @@ try {
   check('QnA: 목록 필터(검색·내 문의) 렌더', qnaHtml.includes('제목·내용·작성자 검색') && qnaHtml.includes('내 문의만'))
   const qnaMgr = await (await get('/board/qna', 'ASSET_MGR')).text()
   check('QnA: 담당자에게 답변 입력 노출', qnaMgr.includes('답변 등록'))
+  // 미답변 SLA 경과 — 시드 QNA-01/QNA-02(2026-07-22·24 등록, 미답변)가 SLA(3일)를 넘겨 지연 표기 + 답변 독촉 버튼(담당자). 결재 지연의 QnA 판.
+  check('QnA: 미답변 SLA 경과 지연 표기 + 답변 독촉 발송 버튼(담당자)', qnaMgr.includes('지연 ') && qnaMgr.includes('답변 독촉 발송'))
+  check('QnA(사용자): 답변 독촉 발송 버튼 미노출 (담당자 전용)', !qnaHtml.includes('답변 독촉 발송'))
   const qnaAdmin = await (await get('/board/qna', 'ADMIN')).text()
   check('QnA: Admin 문의 수정·삭제(중재) 컨트롤 노출', qnaAdmin.includes('삭제') && qnaAdmin.includes('문의 수정'))
   const inHtml = await (await get('/assets/intake', 'ASSET_MGR')).text()

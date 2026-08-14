@@ -98,6 +98,21 @@ export function daysUntil(dateStr: string): number | null {
   return Math.round((d - t) / 86_400_000)
 }
 
+/** 미답변 QnA SLA(일) — 등록 후 이 기간을 넘겨도 답변이 없으면 응답 지연으로 본다(헬프데스크 SLA). */
+export const QNA_SLA_DAYS = 3
+
+/** QnA 등록 후 경과일 — today 기준(음수면 미래 등록, 방어). 지연 판정·경과일 표기에 쓴다. */
+export function qnaAgeDays(createdAt: string): number {
+  return Math.max(0, -(daysUntil(createdAt) ?? 0))
+}
+
+/** 미답변 QnA SLA 경과 — QnA 이면서 답변이 없고 등록 후 SLA(기본 3일)를 넘긴 문의(응답성 지연 신호).
+ *  결재 SLA 지연(isApprovalOverdue)과 같은 원칙의 QnA 판. QnA 화면·대시보드가 공유한다. 서버 전용. */
+export function isQnaOverdue(p: { kind: string; answer?: unknown; createdAt: string }, slaDays: number = QNA_SLA_DAYS): boolean {
+  if (p.kind !== 'QnA' || p.answer) return false
+  return qnaAgeDays(p.createdAt) > slaDays
+}
+
 /** 재물조사 진행률(%) — 계획 대비 스캔. 계획이 0이면 0을 반환(방어). 리포트·대시보드·계획·수행·어시스턴트 공용.
  *  회차 생성 3경로 모두 planned≥1 을 보장하지만, 나눗셈 지점마다 가드를 반복하지 않도록 단일 헬퍼로 통일(방어적). */
 export function roundProgressPct(r: { scanned: number; planned: number }): number {
