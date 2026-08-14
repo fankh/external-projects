@@ -281,6 +281,10 @@ async function main() {
     const html = await r.text()
     check(!html.includes('SR-2026-0132'), 'USER /sr/requests 에 타인 건(SR-2026-0132) 미노출')
     check(!html.includes('SR-2026-0146'), 'USER /sr/requests 에 타부서 건(SR-2026-0146) 미노출')
+    // 부서담당은 소속 부서만 — 화면 스코핑도 export(부서담당 스코핑)와 동일해야 한다(별도 코드·중복 삼항).
+    // 이수진(경영지원팀)은 SR-2026-0141(타부서) 미노출. 화면 삼항이 전사로 새면 여기서 잡힌다.
+    const rDept = await get('/sr/requests', 'DEPT_MGR')
+    check(!(await rDept.text()).includes('SR-2026-0141'), 'DEPT_MGR /sr/requests 에 타부서 건(SR-2026-0141) 미노출')
   }
   {
     // 재무 리포트(전사 집계·계약·정산·계획대비실적)는 관리자급(부서담당 이상)만 — 일반
@@ -361,6 +365,13 @@ async function main() {
     // 재택 대상자 명단 (요구사항 54행) — USER 관리 카드 미노출, 기간별 조회는 그 달의 명단만
     const u = await get('/awareness/remote', 'USER')
     check(!(await u.text()).includes('대상자 관리'), 'USER /awareness/remote 에 대상자 관리 미노출')
+    // 재택 제출 현황도 부서담당은 소속 부서만 — 이수진(경영지원팀)에게 타부서 대상 미노출.
+    // 대상자 관리 셀렉트엔 전 인원 이름이 있으므로, IT운영팀 한지원의 재택기간(2026-07-15, 현황표에만
+    // 등장하는 문자열)으로 판별한다. 카드 제목이 부서 스코프인지도 함께 확인.
+    const rd = await get('/awareness/remote', 'DEPT_MGR')
+    const rdHtml = await rd.text()
+    check(rdHtml.includes('경영지원팀 제출 현황') && !rdHtml.includes('2026-07-15'),
+      'DEPT_MGR /awareness/remote 에 타부서(IT운영팀) 재택 대상 미노출')
     // 대상자 관리 셀렉트에 전 인원이 있으므로 이름 대신 재택기간 문자열로 현황 테이블을 판별한다
     const june = await get('/awareness/remote?period=2026-06', 'BIZ_MGR')
     const juneHtml = await june.text()
