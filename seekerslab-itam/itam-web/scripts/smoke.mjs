@@ -514,6 +514,9 @@ try {
   // 미조치 외부 CVE(legacy-vpn·무action, CVE-2018-13379)는 포함, 이미 차단요청된 CVE(db-backup·action, CVE-2024-10977)는 제외 — 조치분은 '즉시 조치'가 아니다
   // (db-backup 호스트는 크리덴셜 노출로도 잡혀 화면에 남으므로, 외부 CVE 제외는 CVE 번호로 검증)
   check('AI 제안: 취약점 우선순위가 조치 요청된 외부 CVE 제외 (미조치만)', insHtml.includes('CVE-2018-13379') && !insHtml.includes('CVE-2024-10977'))
+  // 이상 자산 행위 탐지(§05 AI 기능02) — 취약점 우선순위(정적 노출도)와 다른 '행위 이탈' 관점 컴퓨티드 뷰. 미인가 SW·유휴 자산 사용·USB 대용량 반출.
+  check('AI 제안: 이상 자산 행위 탐지 컴퓨티드 뷰 렌더', insHtml.includes('이상 자산 행위 탐지') && insHtml.includes('미인가 SW 설치') && insHtml.includes('유휴 자산 사용') && insHtml.includes('USB 대용량 반출'))
+  check('AI 제안: 이상탐지 — 유휴 자산 사용(미승인 불출 DIF-04) 실측 이탈 반영', insHtml.includes('AST-2021-000432') && insHtml.includes('미승인 불출'))
   // 위험도 기준 관리(제품안내서 §01 보안담당 책무) — P1/P2 컷오프를 보안담당이 설정. 기본 P1≥67·P2≥34.
   check('AI 제안: 위험도 기준 패널 렌더 (기본 P1≥67·P2≥34)', insHtml.includes('위험도 기준 — 취약점 우선순위 판정 컷오프') && insHtml.includes('67') && insHtml.includes('34~66'))
   check('AI 제안: 보안담당에 위험도 기준 변경 노출', insHtml.includes('기준 변경'))

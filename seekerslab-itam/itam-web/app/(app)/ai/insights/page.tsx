@@ -2,6 +2,7 @@ import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { InsightKind } from '@/lib/types'
+import { AnomalyDetection } from './AnomalyDetection'
 import { ProposalList } from './ProposalList'
 import { RiskPolicyPanel } from './RiskPolicyPanel'
 import { VulnPriority } from './VulnPriority'
@@ -74,6 +75,8 @@ export default async function InsightsPage() {
       <ProposalList insights={s.insights} />
 
       <RiskPolicyPanel policy={s.riskPolicy} canEdit={canEditRisk} />
+
+      <AnomalyDetection />
 
       <VulnPriority />
 
