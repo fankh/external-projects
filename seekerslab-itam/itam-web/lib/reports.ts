@@ -39,7 +39,7 @@ export function saasConsolidationCandidates(): { category: string; services: Saa
 export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] = [
   { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 외부 노출 · 미인가 SaaS · 인증·계정·엔드포인트 정책 위반 · 처리 현황' },
   { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용, 자산 처분 실적·폐기 진행 현황' },
-  { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액' },
+  { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액, 갱신 협상 근거, 중복 SaaS 통합 후보' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도)·위협 대응 현황 증빙 초안' },
   { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과·OS 지원 종료(EOL)·장애 이력(잦은 수리) 기준 교체 대상·잔존가치·유형별 예산 추정' },
@@ -269,6 +269,22 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         note: `연간 최대 ${fmtAmount(saving)}원 절감 가능`,
         columns: ['라이선스', '회수 후보', '연간 절감액'],
         rows: under.map((l) => [l.name, `${l.purchased - l.used}석`, `${fmtAmount((l.purchased - l.used) * l.unitCost)}원`]),
+      },
+      {
+        // 갱신 협상 근거 데이터 — 사용 패턴(사용률) 기반 만료·갱신 시 권고 수량. 라이선스 최적화(§05)의 세 번째 축(회수·통합의 짝).
+        title: '비용 최적화 — 갱신 협상 근거 (사용률 기반 권고)',
+        note: '만료·갱신 시점의 우측 조정 근거 — 초과는 증설, 미사용은 감축, 적정은 현행 유지',
+        columns: ['라이선스', '사용률', '만료일', '갱신 권고 수량', '협상 방향'],
+        rows: active.map((l) => {
+          const rate = Math.round((l.used / l.purchased) * 100)
+          const rec = l.used > l.purchased ? Math.ceil(l.used * 1.05) : l.used / l.purchased < 0.6 ? Math.ceil(l.used * 1.1) : l.purchased
+          const dir = l.used > l.purchased
+            ? `증설 협상 — ${l.used - l.purchased}석 초과 (권고 ${rec}석)`
+            : l.used / l.purchased < 0.6
+              ? `감축 협상 — ${l.purchased - rec}석 감축·연 ${fmtAmount((l.purchased - rec) * l.unitCost)}원 절감`
+              : '현행 유지 (적정 활용)'
+          return [l.name, `${rate}%`, l.expiry, `${rec}석`, dir]
+        }),
       },
       {
         // 중복 기능 SaaS 통합 후보 — 라이선스 최적화(§05)의 SaaS 축. Shadow SaaS 화면(v1.250)과 같은 산출을 결재 첨부 리포트에도 담는다.

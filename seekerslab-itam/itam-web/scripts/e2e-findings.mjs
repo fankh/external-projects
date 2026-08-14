@@ -480,6 +480,8 @@ try {
   ok('라이선스 컴플라이언스: 중복 기능 SaaS 통합 후보 섹션(협업=Notion·Miro)', lmd.includes('중복 기능 SaaS 통합 후보') && lmd.includes('협업') && lmd.includes('Notion'))
   // 만료 경과 라이선스 — 리포트 판정에 '만료' 반영(LIC-002 JetBrains 만료·초과 사용) + 대사 note 집계
   ok('라이선스 컴플라이언스: 만료 경과 판정 반영(JetBrains 만료·초과)', lmd.includes('만료 경과') && lmd.includes('만료·초과 사용'))
+  // 갱신 협상 근거(§05 라이선스 최적화 3번째 축) — 사용률 기반 권고 수량. 초과(JetBrains)=증설, 미사용(Adobe 22/40)=감축.
+  ok('라이선스 컴플라이언스: 갱신 협상 근거 섹션(증설·감축 권고)', lmd.includes('갱신 협상 근거') && lmd.includes('증설 협상') && lmd.includes('감축 협상'))
   // 계약 해지 연계 영향 surfacing — CT-2023-002(M365 구매 · LIC-001 연계) 해지 시 연계 라이선스·자산 영향을 담당자가 검토하도록 노출
   await p3.goto(`${BASE}/inventory/contracts?sel=CT-2023-002`, { waitUntil: 'networkidle' })
   const ctRow = p3.locator('tr', { has: p3.locator('td', { hasText: 'CT-2023-002' }) }).first()

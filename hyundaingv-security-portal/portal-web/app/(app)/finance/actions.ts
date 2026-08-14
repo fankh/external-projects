@@ -6,7 +6,9 @@ import { effectiveRoles, requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 
 export async function resubmitSettlement(formData: FormData) {
-  const me = await requireRole('USER', 'DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  // 정산품의 재상신은 최초 상신(requestSettlement)과 동일 스코프 — 일반 사용자 제외, 부서담당 이상만
+  // (v1.5.42 재무 리포트 잠금과 정합: USER 는 정산 카드·상신에 접근하지 않는다)
+  const me = await requireRole('DEPT_MGR', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
   const s = getStore()
   // 기안자 본인의 반려 건만, 해당 품의에 대기 결재가 없을 때만

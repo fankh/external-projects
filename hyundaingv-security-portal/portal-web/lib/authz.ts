@@ -19,7 +19,9 @@ export function effectiveRoles(href: string): Role[] {
   const item = NAV.flatMap((g) => g.items).find((i) => i.href === href)
   if (!item) return []
   const override = getStore().menuOverrides[href]
-  if (!override) return item.roles
+  // menus.ts 의 roles 는 권한 단일 원천 — 공유 참조를 그대로 반환하면 향후 호출자가 정렬·push 로
+  // 원본을 오염시킬 수 있으므로 항상 새 배열로 복사해 돌려준다(현 호출자는 모두 읽기 전용, 방어적).
+  if (!override) return [...item.roles]
   return item.roles.filter((r) => r === 'ADMIN' || override.includes(r))
 }
 
