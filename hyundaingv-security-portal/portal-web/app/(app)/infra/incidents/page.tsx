@@ -95,8 +95,11 @@ export default async function IncidentsPage() {
   await requireMenu('/infra/incidents')
   const s = getStore()
 
-  // 통계 등급 컬럼 — 공통코드 전체(중지 포함, 과거 데이터가 있을 수 있으므로) 기준
-  const allGrades = (s.codeGroups.find((g) => g.id === 'FAULT_GRADE')?.values ?? []).map((v) => v.code)
+  // 통계 등급 컬럼 — 공통코드 전체(중지 포함) + 실제 장애 데이터에 존재하는 등급의 합집합.
+  // 코드값 삭제는 기존 데이터를 보존하므로(deleteCodeValue, 요구 73행), 삭제된 등급의 과거 장애도
+  // 등급 컬럼에 집계되어 '계'와 등급별 합이 항상 일치한다(중지만 포함하면 삭제분이 계에서 누락).
+  const codeGrades = (s.codeGroups.find((g) => g.id === 'FAULT_GRADE')?.values ?? []).map((v) => v.code)
+  const allGrades = [...new Set<string>([...codeGrades, ...s.incidents.map((i) => i.grade)])]
   const open = s.incidents.filter((i) => i.status === '조치중')
   const unreported = s.incidents.filter((i) => i.status === '조치완료' && i.reportStatus === '미상신')
   const cmPending = s.incidents.filter((i) => i.countermeasure && !i.cmResult)
