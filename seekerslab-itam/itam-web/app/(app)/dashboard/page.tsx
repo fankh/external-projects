@@ -57,6 +57,8 @@ export default async function DashboardPage() {
     const moveDue = s.approvals.filter((a) => a.kind === '이동' && a.status === '승인' && !a.fulfilled).length
     opsQueues.push(
       { label: '입고 검수 대기', count: s.intakeLots.filter((l) => l.status === '입고 대기' || l.status === '검수 중').length, href: '/assets/intake', tone: 'warn' },
+      // 검수 반려 로트 — 불량 반려 후 재검수(교체품 도착)·반품 확인이 필요한 후속 백로그. 방치하면 대금·자산 공백이 생긴다.
+      { label: '검수 반려 (재검수 · 반품 확인)', count: s.intakeLots.filter((l) => l.status === '검수 반려').length, href: '/assets/intake', tone: 'err' },
       { label: '불출 · 이동 집행 대기', count: issueDue + moveDue, href: '/assets/movement', tone: 'warn' },
       { label: '반납 접수 대기', count: s.assets.filter((a) => a.status === '반납대기').length, href: '/assets/returns', tone: 'warn' },
       { label: '수리 진행 · 완료 확인', count: s.assets.filter((a) => a.status === '수리중').length, href: '/assets/returns', tone: 'warn' },

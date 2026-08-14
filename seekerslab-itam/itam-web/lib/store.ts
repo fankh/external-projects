@@ -569,6 +569,13 @@ function seed(): Store {
         qty: 15, arrivedAt: '', vendor: '(주)한빛INT', status: '도입 예정', srNo: 'SR-2607-041', expectedDate: '2026-08-14', unitCost: 1_650_000,
         checklist: [], issued: [],
       },
+      {
+        // 검수 반려 — 불량으로 반려된 로트(공급사 반품·교체 대기). 재검수(교체품 도착) 또는 반품 확인이 필요한 후속 백로그.
+        id: 'IN-2607-04', contractId: 'CT-2023-021', model: 'Dell UltraSharp U2723QE', category: '주변기기',
+        qty: 6, arrivedAt: '2026-07-25', vendor: '델테크놀로지스', status: '검수 반려', inspector: '박자산', unitCost: 620_000,
+        checklist: checklistFor('주변기기').map((item) => ({ item, checked: false })),
+        issued: [],
+      },
     ],
     disposals: [
       { id: 'DSP-01', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', reason: '사용 연한 초과 (7년) · 보증 만료', status: '결재 대기', approvalId: 'APR-2607-119' },
