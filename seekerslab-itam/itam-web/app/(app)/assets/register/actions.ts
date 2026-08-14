@@ -224,7 +224,9 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   asset.dept = dept
   asset.loanDueDate = dueDate
   asset.history.push({ date: today(), kind: '대여', detail: `${dept} ${to} 대여 — 반환 기한 ${dueDate}`, actor: session.name })
-  appendAudit({ actor: session.name, action: `자산 대여 — ${to}(${dept}) · 기한 ${dueDate}`, target: assetNo })
+  // 대여자에게 대여 사실·반환 기한을 통보한다(불출 완료 통보의 대여판) — 반환 책임의 기준점이 된다.
+  dispatch({ channel: '이메일', to: `${to} (${dept})`, subject: `자산 대여 — ${asset.assetNo} ${asset.model} 대여, 반환 기한 ${dueDate}까지`, kind: '자산 대여', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `자산 대여 — ${to}(${dept}) · 기한 ${dueDate} · 대여자 통보`, target: assetNo })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${assetNo} 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}` }
 }
