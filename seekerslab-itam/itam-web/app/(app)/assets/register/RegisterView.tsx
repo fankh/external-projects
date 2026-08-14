@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, remindReceipts, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, recoverFromUser, remindReceipts, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -88,6 +88,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [faultMsg, setFaultMsg] = useState<string | null>(null)
   const [receiptMsg, setReceiptMsg] = useState<string | null>(null)
   const [rcptRemindMsg, setRcptRemindMsg] = useState<string | null>(null)
+  const [recoverOpen, setRecoverOpen] = useState(false)
+  const [recoverReason, setRecoverReason] = useState('')
+  const [recoverMsg, setRecoverMsg] = useState<string | null>(null)
   const [loanOpen, setLoanOpen] = useState(false)
   const [loanTo, setLoanTo] = useState('')
   const [loanDept, setLoanDept] = useState('')
@@ -641,6 +644,31 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       <button className="btn sm ghost" disabled={pending} onClick={() => { setFaultOpen(false); setFaultMsg(null) }}>취소</button>
                     </div>
                     <span className="mut" style={{ fontSize: 11 }}>접수 시 자산관리팀에 통보되고 수리 대기로 편성됩니다.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 자산 회수(반납 처리) — 사용 중 자산을 자산담당이 직접 회수(오프보딩·재배정). 반납대기로 보내 반납 점검 흐름을 탄다. 자산담당만(canEdit). */}
+            {props.canEdit && sel.status === '사용중' && (
+              <div style={{ marginTop: 12 }}>
+                {recoverMsg && <div className="callout" style={{ marginBottom: 10 }}>{recoverMsg}</div>}
+                {!recoverOpen ? (
+                  <button className="btn sm" disabled={pending}
+                    onClick={() => { setRecoverOpen(true); setRecoverReason(''); setRecoverMsg(null) }}
+                    title="사용 중 자산을 회수해 반납 접수 대기열로 — 퇴직 오프보딩·재배정 등 사용자가 직접 반납할 수 없을 때">자산 회수 (반납 처리)</button>
+                ) : (
+                  <div className="vstack" style={{ gap: 8 }}>
+                    <div className="kicker mute">자산 회수 (반납 처리)</div>
+                    <input className="input" placeholder="회수 사유 (예: 퇴직 오프보딩·재배정)" value={recoverReason} disabled={pending}
+                      onChange={(e) => setRecoverReason(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }} />
+                    <div className="hstack">
+                      <button className="btn sm pri" disabled={pending}
+                        onClick={() => startTransition(async () => { const r = await recoverFromUser(sel.assetNo, recoverReason); setRecoverMsg(r.message); if (r.ok) { setRecoverOpen(false); setRecoverReason('') } })}>회수 확정</button>
+                      <button className="btn sm ghost" disabled={pending} onClick={() => { setRecoverOpen(false); setRecoverMsg(null) }}>취소</button>
+                    </div>
+                    <span className="mut" style={{ fontSize: 11 }}>회수 시 반납 접수 대기열로 편성 — 점검 후 유휴 풀/수리/폐기로 분기됩니다.</span>
                   </div>
                 )}
               </div>

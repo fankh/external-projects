@@ -294,6 +294,18 @@ try {
   await p2.waitForTimeout(700)
   const rcptBody = (await p2.locator('body').textContent()) || ''
   ok('수령 확인 독촉: 발송 성공(미확인 사용자 통보·발송 이력)', rcptBody.includes('수령 확인 독촉') && rcptBody.includes('발송'))
+  // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
+  await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
+  const recoverBtn = p2.locator('button', { hasText: /^자산 회수 \(반납 처리\)$/ })
+  ok('자산 회수: 사용 중 자산에 회수(반납 처리) 버튼 노출(자산담당)', (await recoverBtn.count()) > 0)
+  await recoverBtn.click()
+  await p2.waitForTimeout(200)
+  await p2.locator('input[placeholder*="회수 사유"]').fill('퇴직 오프보딩')
+  await p2.locator('button', { hasText: /^회수 확정$/ }).click()
+  await p2.waitForTimeout(700)
+  await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const returnsBody = (await p2.locator('body').textContent()) || ''
+  ok('자산 회수 → 반납 접수 대기열 편성(반납대기)', returnsBody.includes('AST-2023-000221'))
   await ctx2.close()
 
   // ── 사용자: AI 어시스턴트 본인 자산 자연어 질의(§01 사용자 본인 자산 조회 · §05 권한 필터) ──

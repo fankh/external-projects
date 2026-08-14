@@ -304,6 +304,31 @@ export async function reportFault(assetNo: string, rawNote: string) {
   return { ok: true, message: `${assetNo} 장애 신고 접수 — 수리 대기로 편성, 자산관리팀에 통보했습니다.` }
 }
 
+/** 자산 회수(반납 처리) — 사용 중 자산을 자산담당이 직접 회수해 반납 접수 대기열로 보낸다.
+ *  (제품안내서 §03 운영 — 그동안 반납은 사용자 상신에서만 시작돼, 퇴직·조직 개편 등으로 사용자가 직접 반납할 수 없는
+ *   자산을 자산팀이 회수할 경로가 없었다. 오프보딩·재배정 회수의 진입점.) 반납대기로 보내면 반납 점검(returns) 흐름을
+ *   그대로 타서 유휴 풀/수리/폐기로 분기된다. 사용 중 자산만 대상. 자산담당·Admin. */
+export async function recoverFromUser(assetNo: string, rawReason: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '자산 회수 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '사용중') return { ok: false, message: `사용 중 자산만 회수할 수 있습니다 — ${assetNo} (${asset.status})` }
+  const reason = rawReason.trim()
+  const holder = asset.owner
+  // 반납대기로 — 소유자는 유지(반납 점검에서 prevOwner 로 쓰이고, 접수 시 미지정으로 비워진다)
+  asset.status = '반납대기'
+  asset.history.push({ date: today(), kind: '반납', detail: `자산 회수(반납 처리) — ${holder} 보유분 회수${reason ? ` · ${reason}` : ''} (오프보딩·재배정)`, actor: session.name })
+  // 회수 통보 — 보유자(부서)에게 회수 사실을 알린다
+  if (holder && holder !== '미지정' && holder !== '-') {
+    dispatch({ channel: '이메일', to: `${holder} (${asset.dept})`, subject: `자산 회수 — ${asset.assetNo} ${asset.model} 반납 처리${reason ? ` (${reason})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
+  }
+  appendAudit({ actor: session.name, action: `자산 회수(반납 처리) — ${asset.model} (${holder})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 회수 — 반납 접수 대기열로 편성 (${holder} → 점검 후 유휴 풀/수리/폐기)` }
+}
+
 /** 자산 수령(인수) 확인 — 불출로 배정받은 자산을 사용자가 실물 수령했음을 확인한다(체인 오브 커스터디).
  *  (제품안내서 §03 불출·인수 — 그동안 불출은 담당자 처리·수령 안내 발송뿐이고, 사용자 인수 확인 접점이 없어
  *   실물 인계 사실을 감사에서 증명할 수 없었다. 공지 읽음 확인과 같은 사용자 쓰기 접점.)
