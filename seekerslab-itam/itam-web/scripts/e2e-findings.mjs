@@ -812,6 +812,15 @@ try {
   const p4 = await ctx4.newPage()
   p4.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
   await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  // 대여 반환 상태 점검(로35) — 손상된 반환분은 유휴가 아니라 수리중으로 편성(손상 자산 재대여 방지). 반납 점검(로10·26)과 동일. AST-2023-000450(한지민 대여)을 수리 필요로 반환.
+  const loanRow = p4.locator('tr', { has: p4.locator('td', { hasText: 'AST-2023-000450' }) }).first()
+  ok('대여 반환: 대여 자산 행에 상태 점검 선택 노출', (await loanRow.locator('select').count()) > 0)
+  await loanRow.locator('select').first().selectOption('수리 필요')
+  await loanRow.locator('button', { hasText: /^반환 접수$/ }).click()
+  await p4.waitForTimeout(800)
+  await p4.goto(`${BASE}/assets/register?sel=AST-2023-000450`, { waitUntil: 'networkidle' })
+  ok('대여 반환(수리 필요) → 수리중 편성(유휴 아님·손상 자산 재대여 방지)', ((await p4.textContent('body')) || '').includes('수리중'))
+  await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   // 수리 지연 → 업체 독촉(검출→조치). 상태를 바꾸지 않으므로 유휴 처리 앞에 수행.
   const repairRemind = p4.locator('button', { hasText: /^업체 독촉 발송 \d+건$/ })
   ok('수리 지연: 업체 독촉 발송 버튼 노출', (await repairRemind.count()) > 0)
