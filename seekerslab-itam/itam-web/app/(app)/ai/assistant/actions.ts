@@ -476,6 +476,22 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       ],
     }
   }
+  // 사용자 본인 수리 현황 질의 — 장애 신고·수리중인 본인 자산의 진행 상태(증상·업체·예상 반환)를 스코프해 답한다.
+  //  장애 신고(대장 상세 접수) → 수리 → 반환 → 통보 루프의 사용자 추적 접점. 담당자용 운영 리스크(수리) 인텐트는 !isUser 라 여기서 처리.
+  if (isUser && (q.includes('수리') || q.includes('장애') || q.includes('고장') || q.includes('repair'))) {
+    const repairing = s.assets.filter((a) => a.owner === userName && a.status === '수리중')
+    return {
+      role: 'assistant',
+      text: repairing.length === 0
+        ? `${userName}님 명의로 수리 중인 자산이 없습니다. 사용 중 자산이 고장나면 자산 대장 상세의 ‘장애 신고 (수리 요청)’으로 접수할 수 있습니다.`
+        : [
+            `${userName}님 수리 현황 — ${repairing.length}건.`,
+            ``,
+            ...repairing.map((a) => `· ${a.assetNo} — ${a.model}${a.faultNote ? ` · 증상: ${a.faultNote}` : ''}${a.repair ? ` · ${a.repair.vendor}${a.repair.eta ? ` (예상 반환 ${a.repair.eta})` : ''}` : ' · 업체 배정 대기'}`),
+          ].join('\n'),
+      evidence: [{ label: '내 보유 자산', href: '/assets/register' }],
+    }
+  }
   // 사용자 본인 자산 자연어 질의 — 보증 만료 등을 본인 보유 자산에 스코프해 답한다(§01 사용자: 본인 보유 자산 조회, §05 권한 필터).
   // 담당자용 보증 인텐트(위)는 !isUser 라 사용자는 여기서 본인 자산만 대상으로 초점 답변을 받는다(전량 나열 catch-all 앞).
   if (isUser && (q.includes('보증') || q.includes('만료') || q.includes('워런티') || q.includes('warranty'))) {
@@ -554,7 +570,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "부서별 자산 보유 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "취약점 조치 우선순위 (P1/P2/P3)"\n· "이상 자산 행위 탐지 (프로파일 이탈)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "AST-2023-000112 자산의 상태와 변경 이력" (자산번호로 특정 자산 조회)\n· "내 보유 자산"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "부서별 자산 보유 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "취약점 조치 우선순위 (P1/P2/P3)"\n· "이상 자산 행위 탐지 (프로파일 이탈)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "AST-2023-000112 자산의 상태와 변경 이력" (자산번호로 특정 자산 조회)\n· "내 보유 자산"\n· "내 수리 현황"\n· "내 신청 상태"`,
   }
 }
 

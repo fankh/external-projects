@@ -345,6 +345,15 @@ try {
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
   const faultRow = ((await pU.locator('tr', { has: pU.locator('td', { hasText: 'AST-2024-000015' }) }).first().textContent()) || '')
   ok('장애 신고: 신고 자산 수리중 전환(본인 대장 반영)', faultRow.includes('수리중'))
+  // 내 수리 현황 질의 — 방금 신고한 자산이 사용자 수리 현황에 증상과 함께 뜬다(장애 신고 루프의 사용자 추적 접점).
+  await pU.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
+  const urc = await pU.locator('.msg.assistant .bub').count()
+  await pU.locator('.chat-in input').fill('내 수리 현황')
+  await pU.locator('.chat-in input').press('Enter')
+  await pU.waitForFunction((n) => document.querySelectorAll('.msg.assistant .bub').length > n, urc, { timeout: 8000 })
+  await pU.waitForTimeout(150)
+  const uRepair = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
+  ok('사용자 AI 질의: 내 수리 현황 — 장애 신고 자산·증상 초점(AST-2024-000015·전원 불량)', uRepair.includes('AST-2024-000015') && uRepair.includes('전원 불량'))
   await ctxU.close()
 
   // ── Admin: AI 모델·프롬프트 버전 관리(§05 AI 거버넌스) + 감사 적재 ──
