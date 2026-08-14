@@ -15,7 +15,7 @@ const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고
 
 type Pending = { assetNo: string; model: string; owner: string; dept: string; location: string; since: string }
 type Idle = { assetNo: string; model: string; category: string; location: string; idleDays: number | null }
-type Repairing = { assetNo: string; model: string; category: string; location: string; note: string; warranty?: boolean; repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number } }
+type Repairing = { assetNo: string; model: string; category: string; location: string; note: string; warranty?: boolean; faultNote?: string; repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number } }
 type Loan = { assetNo: string; model: string; owner: string; dept: string; dueDate: string; dday: number | null; overdue: boolean }
 
 export function ReturnsView(props: {
@@ -127,7 +127,9 @@ export function ReturnsView(props: {
                   <tr key={a.assetNo}>
                     <td className="tnum">{a.assetNo}<div className="dim" style={{ fontSize: 11 }}>{a.category} · {a.location}</div>
                       {a.warranty && <Chip tone="ok" bare>보증 수리 (무상)</Chip>}</td>
-                    <td>{a.model}<div className="dim" style={{ fontSize: 11, maxWidth: 220, whiteSpace: 'normal' }}>{a.note}</div></td>
+                    <td>{a.model}
+                      {a.faultNote && <div style={{ fontSize: 11.5, maxWidth: 240, whiteSpace: 'normal', marginTop: 2 }}><span className="strong">수리 사유</span> <span className="dim">— {a.faultNote}</span></div>}
+                      <div className="dim" style={{ fontSize: 11, maxWidth: 220, whiteSpace: 'normal' }}>{a.note}</div></td>
                     <td>
                       {a.repair ? (
                         <span className="vstack" style={{ gap: 2, fontSize: 12 }}>

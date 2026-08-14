@@ -295,6 +295,7 @@ export async function reportFault(assetNo: string, rawNote: string) {
 
   const reporter = asset.owner && asset.owner !== '미지정' && asset.owner !== '-' ? `${asset.owner}·${asset.dept}` : session.name
   asset.status = '수리중'
+  asset.faultNote = note // 수리 대기 화면에서 자산담당이 증상을 보고 업체·조치를 정하게 한다
   asset.history.push({ date: today(), kind: '수리', detail: `장애 신고 — ${note} (신고 ${session.name}, 보유 ${reporter})`, actor: session.name })
   // 자산관리팀에 접수 통보 — 수리 대기열에 편성됐음을 알려 업체 배정·처리를 개시하게 한다(발송 이력 적재)
   dispatch({ channel: '이메일', to: '자산관리팀', subject: `자산 장애 신고 접수 — ${asset.assetNo} ${asset.model} · ${note.slice(0, 40)}`, kind: '장애 신고', ref: asset.assetNo })

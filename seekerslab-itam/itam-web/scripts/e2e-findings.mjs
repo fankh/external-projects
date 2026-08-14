@@ -630,7 +630,7 @@ try {
   //  자산담당이 업체 배정·수리 완료/불가를 처리한다(사용자 발화형 진입 → 기존 수리 흐름 재사용).
   await p3.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const repairCard = (await p3.locator('.card', { hasText: '수리 대기' }).first().textContent()) || ''
-  ok('장애 신고 다운스트림: 신고 자산이 수리 대기 큐에 편성(자산담당 처리 대상)', repairCard.includes('AST-2024-000015'))
+  ok('장애 신고 다운스트림: 신고 자산이 수리 대기 큐에 편성 + 신고 증상 노출(자산담당 처리 대상)', repairCard.includes('AST-2024-000015') && repairCard.includes('수리 사유') && repairCard.includes('전원 불량'))
   // 수리 완료 → 소유자를 유지한 채 들어온 장애 신고분은 원 소유자(김민준)에게 반환(사용중 복귀). 반납 접수분(소유자 비움)이 유휴 풀로 가는 것과 구분.
   const repairRow = p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2024-000015' }) }).first()
   await repairRow.locator('button', { hasText: /^수리 완료$/ }).click()
