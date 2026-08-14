@@ -234,6 +234,12 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
                   : sel.status === '반품 완료' ? '반품 완료 — 교체 없이 종결됨'
                   : '체크리스트 완료 후 채번 · 불량 시 반려'}
               </span>
+              {(!!sel.inspector || sel.issued.length > 0) && (
+                <div style={{ marginTop: 8 }}>
+                  <a className="btn sm" href={`/api/intake-cert/${sel.id}`} target="_blank" rel="noopener"
+                    title="검수 확인서 인쇄 — 물품 인수·검수 증적(대금 지급·감사 대응)">🖨 검수 확인서</a>
+                </div>
+              )}
             </div>
           </Card>
 
