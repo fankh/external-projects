@@ -332,6 +332,19 @@ try {
   await pU.waitForTimeout(150)
   const loanOpts = (await reqCard.locator('select').nth(1).textContent()) || ''
   ok('대여 신청 대상: 폐기 절차 자산 제외(AST-2021-000432)', !loanOpts.includes('AST-2021-000432') && loanOpts.includes('AST-2023-000704'))
+  // 자산 장애 신고(사용자 발화형 수리 진입점) — 본인 명의 사용 중 자산의 고장을 사용자가 직접 신고 → 수리중 전환·수리 대기 편성.
+  //  그동안 수리는 반납 점검에서만 시작돼, 실물을 쓰는 사용자가 장애를 알려 수리를 개시할 경로가 없었다.
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
+  const faultBtn = pU.locator('button', { hasText: '장애 신고 (수리 요청)' })
+  ok('장애 신고: 사용자 본인 사용중 자산에 신고 버튼 노출', (await faultBtn.count()) > 0)
+  await faultBtn.first().click()
+  await pU.waitForTimeout(200)
+  await pU.locator('input[placeholder*="장애 증상"]').fill('전원 불량 — 간헐적으로 꺼짐')
+  await pU.locator('button', { hasText: /^신고 접수$/ }).click()
+  await pU.waitForTimeout(700)
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
+  const faultRow = ((await pU.locator('tr', { has: pU.locator('td', { hasText: 'AST-2024-000015' }) }).first().textContent()) || '')
+  ok('장애 신고: 신고 자산 수리중 전환(본인 대장 반영)', faultRow.includes('수리중'))
   await ctxU.close()
 
   // ── Admin: AI 모델·프롬프트 버전 관리(§05 AI 거버넌스) + 감사 적재 ──
@@ -613,6 +626,11 @@ try {
   await p3.goto(`${BASE}/assets/movement`, { waitUntil: 'networkidle' })
   const issueCard = (await p3.locator('.card', { hasText: '불출 대기' }).first().textContent()) || ''
   ok('라이선스 조치 품의: 승인 후 불출 대기 큐 미노출(물리 불출 아님)', !issueCard.includes('추가 구매 품의'))
+  // 사용자 장애 신고 다운스트림 — ctxU 에서 신고된 자산(AST-2024-000015)이 반납 화면 '수리 대기'에 떠서
+  //  자산담당이 업체 배정·수리 완료/불가를 처리한다(사용자 발화형 진입 → 기존 수리 흐름 재사용).
+  await p3.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const repairCard = (await p3.locator('.card', { hasText: '수리 대기' }).first().textContent()) || ''
+  ok('장애 신고 다운스트림: 신고 자산이 수리 대기 큐에 편성(자산담당 처리 대상)', repairCard.includes('AST-2024-000015'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──

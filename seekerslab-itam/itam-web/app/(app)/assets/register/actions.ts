@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
-import { escalate } from '@/lib/notify'
+import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo } from '@/lib/store'
 import type { Asset, AssetCategory, BizCriticality } from '@/lib/types'
@@ -272,6 +272,35 @@ export async function returnLoan(assetNo: string) {
   appendAudit({ actor: session.name, action: `대여 반환 접수 — ${borrower}`, target: assetNo })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${assetNo} 대여 반환 — 유휴 풀 편성 (검수실 재확인 후 재배치)` }
+}
+
+/** 자산 장애 신고 — 사용 중 자산의 고장·오작동을 보유자(또는 자산담당)가 신고해 수리 대기로 편성한다.
+ *  (제품안내서 §03 운영·유지보수 — 그동안 수리는 반납 점검에서만 시작돼, 실물을 계속 쓰는 사용자가
+ *   장애를 알려 수리를 개시할 경로가 없었다. 반납보다 가벼운 사용자 발화형 수리 진입점.)
+ *  사용자는 본인 명의 자산만, 자산담당·Admin 은 전체 대상. 사용 중 자산만 대상(유휴·수리중·폐기 등 제외).
+ *  상태를 '수리중'으로 전환하면 반납 화면 '수리 대기'에 떠서 자산담당이 업체 배정·수리 완료/불가를 처리한다(기존 수리 흐름 재사용). */
+export async function reportFault(assetNo: string, rawNote: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '사용중') return { ok: false, message: `사용 중 자산만 장애 신고할 수 있습니다 — ${assetNo} (${asset.status})` }
+  if (session.role === 'USER' && asset.owner !== session.name) {
+    return { ok: false, message: '본인 명의 자산만 장애 신고할 수 있습니다.' }
+  }
+  const note = rawNote.trim()
+  if (!note) return { ok: false, message: '장애 증상을 입력해 주세요.' }
+
+  const reporter = asset.owner && asset.owner !== '미지정' && asset.owner !== '-' ? `${asset.owner}·${asset.dept}` : session.name
+  asset.status = '수리중'
+  asset.history.push({ date: today(), kind: '수리', detail: `장애 신고 — ${note} (신고 ${session.name}, 보유 ${reporter})`, actor: session.name })
+  // 자산관리팀에 접수 통보 — 수리 대기열에 편성됐음을 알려 업체 배정·처리를 개시하게 한다(발송 이력 적재)
+  dispatch({ channel: '이메일', to: '자산관리팀', subject: `자산 장애 신고 접수 — ${asset.assetNo} ${asset.model} · ${note.slice(0, 40)}`, kind: '장애 신고', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `자산 장애 신고 — ${asset.model} (${note.slice(0, 30)})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 장애 신고 접수 — 수리 대기로 편성, 자산관리팀에 통보했습니다.` }
 }
 
 /** 분실·도난 신고 — 실물이 사라진 자산을 대장에서 '분실' 상태로 전환한다.

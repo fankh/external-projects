@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recoverAsset, reportFault, reportLostStolen, returnLoan, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -83,6 +83,9 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [lostType, setLostType] = useState<'분실' | '도난'>('분실')
   const [lostNote, setLostNote] = useState('')
   const [lostMsg, setLostMsg] = useState<string | null>(null)
+  const [faultOpen, setFaultOpen] = useState(false)
+  const [faultNote, setFaultNote] = useState('')
+  const [faultMsg, setFaultMsg] = useState<string | null>(null)
   const [loanOpen, setLoanOpen] = useState(false)
   const [loanTo, setLoanTo] = useState('')
   const [loanDept, setLoanDept] = useState('')
@@ -584,6 +587,35 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       <button className="btn sm ghost" disabled={pending} onClick={() => { setLostOpen(false); setLostMsg(null) }}>취소</button>
                     </div>
                     {lostType === '도난' && <span className="mut" style={{ fontSize: 11 }}>도난 신고 시 보안운영팀에 데이터 유출 위험 점검이 통보됩니다.</span>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 장애 신고 — 사용 중 자산의 고장을 보유자(사용자)·자산담당이 신고. canEdit 게이트와 무관하게 사용자도 본인 자산에 대해 신고 가능(서버가 소유 검증). */}
+            {sel.status === '사용중' && (
+              <div style={{ marginTop: 12 }}>
+                {faultMsg && <div className="callout" style={{ marginBottom: 10 }}>{faultMsg}</div>}
+                {!faultOpen ? (
+                  <button className="btn sm warn" disabled={pending}
+                    onClick={() => { setFaultOpen(true); setFaultNote(''); setFaultMsg(null) }}
+                    title="사용 중 자산의 고장·오작동을 신고 — 수리 대기로 편성됩니다">장애 신고 (수리 요청)</button>
+                ) : (
+                  <div className="vstack" style={{ gap: 8 }}>
+                    <div className="kicker mute">장애 신고 (수리 요청)</div>
+                    <input className="input" placeholder="장애 증상 (예: 전원 불량·화면 깜빡임·배터리 소모)" value={faultNote} disabled={pending}
+                      onChange={(e) => setFaultNote(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && faultNote.trim()) e.currentTarget.blur() }} />
+                    <div className="hstack">
+                      <button className="btn sm warn" disabled={pending || !faultNote.trim()}
+                        onClick={() => startTransition(async () => {
+                          const r = await reportFault(sel.assetNo, faultNote)
+                          setFaultMsg(r.message)
+                          if (r.ok) { setFaultOpen(false); setFaultNote('') }
+                        })}>신고 접수</button>
+                      <button className="btn sm ghost" disabled={pending} onClick={() => { setFaultOpen(false); setFaultMsg(null) }}>취소</button>
+                    </div>
+                    <span className="mut" style={{ fontSize: 11 }}>접수 시 자산관리팀에 통보되고 수리 대기로 편성됩니다.</span>
                   </div>
                 )}
               </div>

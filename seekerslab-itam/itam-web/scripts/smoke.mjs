@@ -124,6 +124,9 @@ try {
   check('USER: 본인 자산(AST-2023-000112) 표시', userHtml.includes('AST-2023-000112'))
   check('USER: 타인·서버 자산(AST-2023-000561) 미표시', !userHtml.includes('AST-2023-000561'))
   check('USER: 권한 범위 콜아웃 표시', userHtml.includes('본인 보유 자산만'))
+  // 자산 장애 신고 — 사용자 발화형 수리 진입점. 본인 명의 사용 중 자산 상세에 장애 신고 버튼(수리 대기 편성). 그동안 수리는 반납 점검에서만 시작됐다.
+  const userSelHtml = await (await get('/assets/register?sel=AST-2024-000015', 'USER')).text()
+  check('USER: 본인 사용중 자산에 장애 신고(수리 요청) 버튼 노출', userSelHtml.includes('장애 신고 (수리 요청)'))
   const mgrHtml = await (await get('/assets/register', 'ASSET_MGR')).text()
   check('자산담당: 전체 자산 표시 (본인 외 포함)', mgrHtml.includes('AST-2023-000112') && mgrHtml.includes('AST-2023-000561'))
   // 장기 미실측(유령 자산 후보) 필터 — 실측 이력이 없거나 오래된 자산이 시드에 있어 토글이 렌더된다
