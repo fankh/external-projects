@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
+import { reclaimLicenseSeats } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextApprovalId, nextId } from '@/lib/store'
 import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, type Disposition, type DisposalPhotoLabel, type WipeMethod } from '@/lib/types'
@@ -117,6 +118,9 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
       detail: `데이터 소거 완료 (${method}) · 처분 ${dispLabel} · 증적 ${d.certNo} 보존`,
       actor: session.name,
     })
+    // 폐기 좌석 회수 — 폐기된 자산에 물린 라이선스 좌석을 회수한다(로56). 존재하지 않는 자산에 좌석이 남으면 비용·대사가 샌다.
+    const freed = reclaimLicenseSeats(asset.assetNo, session.name, '폐기')
+    if (freed.length) asset.history.push({ date: today(), kind: '폐기', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (폐기)`, actor: session.name })
   }
   appendAudit({ actor: session.name, action: `폐기 데이터 소거 (${method}) · 처분 ${dispLabel}`, target: d.assetNo })
   revalidatePath('/', 'layout')
