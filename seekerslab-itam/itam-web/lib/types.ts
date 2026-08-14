@@ -259,6 +259,16 @@ export interface ContractDoc {
   addedBy: string
 }
 
+/** 라이선스 좌석 배정 — 라이선스 한 석을 특정 자산(과 그 보유자·부서)에 배정한 기록.
+ *  보유·사용 집계(수량)만으로는 '누가 어느 석을 쓰는지' 증명이 안 돼, 감사에서 배정 대장을 요구한다(SAM 실사).
+ *  탐지 사용량(used)과 대사하면 배정 밖 사용(추적 안 된 설치)을 드러낸다 — 고가·명명형 라이선스(CAD·Adobe 등)에 특히 유효. */
+export interface LicenseSeat {
+  assetNo: string
+  user: string
+  dept: string
+  at: string
+}
+
 export interface SwLicense {
   id: string
   name: string
@@ -267,6 +277,8 @@ export interface SwLicense {
   used: number
   expiry: string
   unitCost: number
+  /** 좌석 배정 대장 — 배정된 석의 자산·보유자·부서. 탐지 사용량(used)과 대사해 배정 밖 사용을 식별한다. */
+  seats?: LicenseSeat[]
   /** 갱신 이력 — 라이선스 만료일 연장 기록(계약 갱신과 동형). 라이선스 카드에서 구독 기간 변천 추적 */
   renewals?: Renewal[]
   /** 상태 — '해지'(구독 중단·도구 이관)면 만료 임박 집계·알림·컴플라이언스 판정에서 제외. undefined=유효 */

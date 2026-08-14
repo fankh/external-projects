@@ -78,6 +78,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     </div>
     <h2>비용 노출 · 조치</h2>
     <div class="exp">${esc(exposure)}</div>
+    ${(l.seats ?? []).length ? `<h2>좌석 배정 대장 (배정 ${l.seats!.length}/${l.purchased}석${l.used > l.seats!.length ? ` · 미배정 사용 ${l.used - l.seats!.length}` : ''})</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #c3c8d0;color:#5b6470">자산번호</th>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #c3c8d0;color:#5b6470">보유자</th>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #c3c8d0;color:#5b6470">부서</th>
+      <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #c3c8d0;color:#5b6470">배정일</th>
+    </tr></thead><tbody>${l.seats!.map((st) => `<tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #eef1f5;font-weight:600">${esc(st.assetNo)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eef1f5">${esc(st.user)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eef1f5;color:#5b6470">${esc(st.dept)}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #eef1f5;color:#5b6470">${esc(st.at)}</td>
+    </tr>`).join('')}</tbody></table>` : ''}
     ${(l.renewals ?? []).length ? `<h2>갱신 이력 (${l.renewals!.length}회)</h2>
     <table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
       <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #c3c8d0;color:#5b6470">갱신일</th>

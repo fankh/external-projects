@@ -6,7 +6,7 @@ import { daysUntil } from '@/lib/dates'
 import { contractHref } from '@/lib/reflink'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { AddContract, ContractsTable } from './ContractsTable'
-import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew, LicenseRetire } from './LicenseActions'
+import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,6 +90,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                         <div className="bar"><i className={over ? 'over' : low ? 'low' : ''} style={{ width: `${ratio}%` }} /></div>
                         <div className="lbl"><span>{Math.round((l.used / l.purchased) * 100)}%</span><span>{over ? `${l.used - l.purchased}석 초과` : `${l.purchased - l.used}석 여유`}</span></div>
                       </div>
+                      {!retired && <LicenseSeats id={l.id} name={l.name} purchased={l.purchased} used={l.used} seats={l.seats ?? []} canEdit={canEditLic} />}
                     </td>
                     <td><LicenseRenew id={l.id} expiry={l.expiry} renewals={l.renewals?.length ?? 0} canEdit={!retired && canEditLic} /></td>
                     <td className="c">

@@ -1,7 +1,8 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { actOnLicense, addLicense, renewLicense, retireLicense, sendExpiryNotices } from './actions'
+import { actOnLicense, addLicense, assignLicenseSeat, renewLicense, retireLicense, sendExpiryNotices, unassignLicenseSeat } from './actions'
+import type { LicenseSeat } from '@/lib/types'
 
 /** 라이선스 해지 — 도구 이관·구독 중단 시 컴플라이언스에서 내린다(계약 해지와 동형). 자산담당·Admin. */
 export function LicenseRetire({ id }: { id: string }) {
@@ -121,5 +122,47 @@ export function LicenseAction({ row }: { row: Row }) {
       </button>
       {msg && <div className="dim" style={{ fontSize: 11, marginTop: 4, whiteSpace: 'normal' }}>{msg}</div>}
     </>
+  )
+}
+
+/** 라이선스 좌석 배정 대장 — 누가 어느 석을 쓰는지 명명형으로 관리하고, 탐지 사용량(used)과 대사해
+ *  배정 밖 사용(추적 안 된 설치)을 드러낸다. 배정/회수는 자산담당·Admin, 그 외는 조회만(canEdit). */
+export function LicenseSeats({ id, name, purchased, used, seats, canEdit }: { id: string; name: string; purchased: number; used: number; seats: LicenseSeat[]; canEdit: boolean }) {
+  const [open, setOpen] = useState(false)
+  const [assetNo, setAssetNo] = useState('')
+  const [msg, setMsg] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+  const assigned = seats.length
+  const untracked = Math.max(0, used - assigned) // 배정 밖 사용 — 탐지됐으나 좌석 배정이 없는 설치(추적 공백)
+  const add = () => startTransition(async () => { const r = await assignLicenseSeat(id, assetNo); setMsg(r.message); if (r.ok) setAssetNo('') })
+  const remove = (no: string) => startTransition(async () => setMsg((await unassignLicenseSeat(id, no)).message))
+  return (
+    <div className="vstack" style={{ gap: 4, alignItems: 'flex-start' }}>
+      <button className="btn sm ghost" onClick={() => { setOpen((v) => !v); setMsg(null) }}
+        title="라이선스 좌석 배정 대장 — 누가 어느 석을 쓰는지 관리(SAM 감사 증빙)">
+        {`${open ? '▾' : '▸'} 배정 ${assigned}/${purchased}석`}
+      </button>
+      {untracked > 0 && <span title={`탐지 사용 ${used} - 배정 ${assigned} = 좌석 배정이 없는 설치(추적 공백)`}><Chip tone="warn" bare>{`미배정 사용 ${untracked}`}</Chip></span>}
+      {open && (
+        <div className="vstack" style={{ gap: 6, padding: '6px 0' }}>
+          {seats.length > 0 ? seats.map((st) => (
+            <div key={st.assetNo} className="hstack" style={{ gap: 6, fontSize: 12 }}>
+              <span className="tnum">{st.assetNo}</span>
+              <span className="dim">· {st.user} ({st.dept})</span>
+              {canEdit && <button className="btn sm ghost" disabled={pending} onClick={() => remove(st.assetNo)} title="좌석 회수(배정 해제)">회수</button>}
+            </div>
+          )) : <span className="mut" style={{ fontSize: 12 }}>배정된 좌석이 없습니다.</span>}
+          {canEdit && (
+            <div className="hstack" style={{ gap: 4 }}>
+              <input className="input" style={{ width: 150, height: 26 }} placeholder="자산번호 (AST-...)" value={assetNo}
+                disabled={pending} onChange={(e) => setAssetNo(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && assetNo.trim()) add() }} />
+              <button className="btn sm pri" disabled={pending || !assetNo.trim()} onClick={add} title={`${name} 좌석을 자산에 배정`}>좌석 배정</button>
+            </div>
+          )}
+          {msg && <span className="dim" style={{ fontSize: 11 }}>{msg}</span>}
+        </div>
+      )}
+    </div>
   )
 }
