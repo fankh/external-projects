@@ -227,7 +227,7 @@ $env:PORTAL_DATA_FILE = "C:\data\portal-data.json"; npm run start
 npm run gates    # 빌드 + 아래 3종을 순서대로 전부 실행 (커밋 전 기본 러너)
 
 npm run build
-npm run smoke    # 프로덕션 서버 기동 → 권한 매트릭스·세션 보안·SSR 본문 검증 (560체크) → 종료
+npm run smoke    # 프로덕션 서버 기동 → 권한 매트릭스·세션 보안·SSR 본문 검증 (562체크) → 종료
 npm run health   # 실제 브라우저로 47화면(데스크톱+모바일) 로드 → 크래시·가로 오버플로 검사
 npm run a11y     # 웹접근성(KWCAG) 정적 감사 — 폼 컨트롤·버튼 이름·문서 언어·제목 계층·본문 바로가기·색 대비 (694체크)
 npm run emptystate # 데이터 파일 견고성 — 빈 스토어(신규 고객사 첫 로그인) + 손상 파일(타입 오염) 2회 기동 전 화면 렌더 (게이트)
