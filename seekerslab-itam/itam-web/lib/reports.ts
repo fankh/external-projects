@@ -8,6 +8,7 @@ import { eolOsOf } from './eol'
 import { assetDataIssues, hasDataIssue } from './quality'
 import { getStore } from './store'
 import { buildVulnPriority } from './vuln-priority'
+import { buildAnomalies } from './anomaly'
 import type { Sheet } from './xlsx'
 import type { ReportKind, ReportSchedule, ReportSection, SaasUsage } from './types'
 
@@ -57,7 +58,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용, 자산 처분 실적·폐기 진행 현황' },
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액, 갱신 협상 근거, 중복 SaaS 통합 후보' },
   { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
-  { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도)·위협 대응 현황 증빙 초안' },
+  { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도)·위협 대응 현황·이상 자산 행위 탐지 증빙 초안' },
   { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과·OS 지원 종료(EOL)·장애 이력(잦은 수리) 기준 교체 대상·잔존가치·유형별 예산 추정' },
   { kind: '취약점 조치 우선순위', period: '수시', desc: '자산 중요도 × 노출도 스코어링 — 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 P1/P2/P3로 순위화' },
   { kind: 'AI 거버넌스·성능', period: '월간', desc: '모델·프롬프트 버전·분류 정확도 · AI 기능별 제안 채택률(재학습 신호) · 감사·권한 필터 거버넌스 준수' },
@@ -470,6 +471,17 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         columns: ['자산번호', '유형', '상태', '미흡 항목'],
         rows: flagged.map((a) => [a.assetNo, a.category, a.status, assetDataIssues(a).join(', ')]),
       }
+  // 이상 자산 행위 탐지(§05 기능02) — 위협 '대응 현황'(검출·조치 카운트)과 달리, 미해결 이탈을 심각도 순으로 나열한 증적.
+  // 특히 '유휴 자산 사용'(대장 유휴인데 실사에서 사용 중 = 미승인 불출)은 위협 카운트 섹션에 없는 행위 이상. 화면 패널·어시스턴트와 같은 buildAnomalies() 단일 소스.
+  const anomalies = buildAnomalies()
+  const anomalySection: ReportSection = anomalies.items.length === 0
+    ? { title: '이상 자산 행위 탐지 (프로파일 이탈)', note: '평시 프로파일(설치 SW·상태·반출 패턴) 대비 미해결 이탈 없음', bullets: ['미인가 SW 설치·유휴 자산 사용·USB 대용량 반출 이탈이 없습니다.'] }
+    : {
+        title: '이상 자산 행위 탐지 (프로파일 이탈)',
+        note: `미해결 이탈 ${anomalies.items.length}건 — ${anomalies.byKind.filter((k) => k.count).map((k) => `${k.kind} ${k.count}`).join(' · ')}`,
+        columns: ['유형', '대상', '상세', '심각도', '판정 근거'],
+        rows: anomalies.items.map((i) => [i.kind, i.target, i.detail, i.severity, i.basis]),
+      }
   return [
     {
       title: '권한 통제 현황',
@@ -532,6 +544,7 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         ['다크웹 유출·침해', String(s.leaks.length), String(s.leaks.filter((l) => l.status === '조치 완료').length), String(s.leaks.filter((l) => l.status !== '조치 완료').length)],
       ],
     },
+    anomalySection,
     {
       title: '감사 로그 (최근)',
       note: `AI 로그 보존 ${s.aiPolicy.auditRetentionDays}일 · 권한 범위 필터 ${s.aiPolicy.scopeFilter ? 'ON' : 'OFF'}`,

@@ -187,6 +187,15 @@ async function aiPeriodQuery(page) {
   // 무압축 저장 ZIP 이라 셀 XML(inlineStr)이 평문 — 실제 리포트 데이터(제목·섹션)가 셀에 담겼는지 확인(빈 시트·오源 회귀 방지)
   const xtext = xbuf.toString('utf8')
   ok('리포트 반출: xlsx 셀에 실제 리포트 데이터(제목·섹션)', xtext.includes('연간 교체 계획') && xtext.includes('교체 대상 자산'))
+  // 감사 대응 자료 리포트에 이상 자산 행위 탐지(fn02) 섹션이 실제 생성됨 — fn02가 유일하게 리포트 미커버였던 공백 해소.
+  // 유휴 자산 사용(미승인 불출 AST-2021-000432)은 위협 대응 카운트 섹션엔 없는 행위 이상이라, 이 섹션이 없으면 감사 증적에서 누락된다.
+  const r3 = await ask('감사 대응 자료 리포트 생성해줘')
+  ok('AI 감사질의: 감사 대응 자료 생성 분기', r3.includes('리포트를 생성했습니다'))
+  const aHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const aid = decodeURIComponent((aHref.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const ax = await page.request.get(`${BASE}/api/reports/${encodeURIComponent(aid)}?format=xlsx`)
+  const atext = Buffer.from(await ax.body()).toString('utf8')
+  ok('리포트 반출: 감사 대응 자료 xlsx 에 이상 자산 행위 탐지 섹션(fn02·유휴 자산 사용) 실린다', atext.includes('이상 자산 행위 탐지') && atext.includes('유휴 자산 사용') && atext.includes('AST-2021-000432'))
 
   // 특정 자산 조회(자산번호) — 상세·이력·레코드 딥링크
   const a1 = await ask('AST-2023-000112 자산의 상태와 변경 이력 알려줘')
