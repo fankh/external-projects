@@ -21,6 +21,7 @@ kovan/
 ├── KOVAN_05-기능확인서.md/.pdf            # 1.5 테스트
 ├── KOVAN_06-운영자매뉴얼.md/.pdf          # 1.6 운영 이관
 ├── KOVAN_07-완료보고서.md/.pdf            # 1.7 완료 보고
+├── KOVAN_08-운영이슈대응.md               # 운영/유지보수 이슈 로그
 ├── README.md, CLAUDE.md             # 내부 가이드
 ├── workbooks/                       # 모든 Excel 산출물
 ├── assets/                          # 스크린샷, SQL, JSON, SVG, 소스 PDF

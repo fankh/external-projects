@@ -26,6 +26,7 @@ python scripts/project.py package {고객사명}
 | 05 | 05-기능확인서.md | 1.5 테스트 |
 | 06 | 06-운영자매뉴얼.md | 1.6 교육 |
 | 07 | 07-완료보고서.md | 1.7 완료 |
+| 08 | 08-운영이슈대응.md | 운영/유지보수 (이슈 로그 + DB 수집 점검 체크리스트) |
 | - | `workbooks/{CUSTOMER_NAME}_SOW.xlsx` | 착수 |
 | - | `workbooks/{CUSTOMER_NAME}_일정표.xlsx` | 구축 |
 | - | `workbooks/{CUSTOMER_NAME}_Log연동설계.xlsx` | 설계 |
