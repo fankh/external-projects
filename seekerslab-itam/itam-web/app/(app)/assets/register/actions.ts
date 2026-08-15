@@ -649,7 +649,7 @@ export async function remindReceipts() {
   const sentToday = new Set(s.dispatches.filter((m) => m.kind === '수령 확인' && m.subject.includes('독촉') && m.at.startsWith(t)).map((m) => m.ref))
   let n = 0
   for (const a of s.assets) {
-    if (!a.receiptPending || sentToday.has(a.assetNo)) continue
+    if (!a.receiptPending || a.status !== '사용중' || sentToday.has(a.assetNo)) continue // 사용중(현 보유자 보유) 자산만 독촉 — 수리중·폐기예정 등으로 이탈한 자산에 오독촉 방지
     dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `자산 수령 확인 요청(독촉) — ${a.assetNo} ${a.model} 인수 확인 부탁드립니다`, kind: '수령 확인', ref: a.assetNo })
     n += 1
   }

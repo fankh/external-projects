@@ -163,14 +163,17 @@ export function isIntakeOverdue(l: IntakeLot): boolean {
 /** 정기 점검 대상 — 예방 정비 예정일이 30일 내로 도래했거나 지난(미시행) 운영 자산. 폐기 절차 자산은 제외. 서버 전용.
  *  반응형 수리(장애·반납)와 별개로, 사전 정비 일정이 도래한 자산을 대장·대시보드에 드러낸다(§03 유지보수). */
 export function isMaintenanceDue(a: Asset): boolean {
-  if (!a.maintenanceDue || ['폐기완료', '폐기예정'].includes(a.status)) return false
+  // 운영 상태 자산만 대상 — 폐기/분실은 물론, 이미 수리중이거나 반납대기(보유자 이탈 중)인 자산은 예방 정비 대상이 아니다
+  // (isLoanOverdue/isRepairOverdue 처럼 상태로 가른다 — 잔여 maintenanceDue 로 인한 큐 오염·오독촉 방지).
+  if (!a.maintenanceDue || ['폐기완료', '폐기예정', '분실', '수리중', '반납대기'].includes(a.status)) return false
   return (daysUntil(a.maintenanceDue) ?? 999) <= 30
 }
 
 /** 정기 점검 경과(미시행) — 예방 정비 예정일이 지났는데도 점검이 안 된 운영 자산. isMaintenanceДue 의 부분집합(도래 임박 제외).
  *  독촉 대상 판정에 쓴다 — 임박(D-30)은 예고, 경과는 이미 넘긴 것이라 소유 부서 앞으로 점검 독촉을 보낸다. 서버 전용. */
 export function isMaintenanceOverdue(a: Asset): boolean {
-  if (!a.maintenanceDue || ['폐기완료', '폐기예정'].includes(a.status)) return false
+  // isMaintenanceDue 와 동일 운영 상태 게이트 — 분실·수리중·반납대기 자산에 정기 점검 독촉이 나가지 않게 한다.
+  if (!a.maintenanceDue || ['폐기완료', '폐기예정', '분실', '수리중', '반납대기'].includes(a.status)) return false
   return (daysUntil(a.maintenanceDue) ?? 999) < 0
 }
 

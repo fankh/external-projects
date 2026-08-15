@@ -17,7 +17,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   // 화면·기능 단위 최소권한 — 사용자 권한그룹은 본인 보유 자산만 조회
   const scoped = session.role === 'USER' ? s.assets.filter((a) => a.owner === session.name) : s.assets
   // 수령 미확인(불출 후 인수 대기) 자산 수 — 자산담당 수령 확인 독촉 버튼 노출/집계용
-  const receiptPendingCount = scoped.filter((a) => a.receiptPending).length
+  const receiptPendingCount = scoped.filter((a) => a.receiptPending && a.status === '사용중').length
   // ?sel= 로 특정 자산을 바로 선택 — 상세·구성변경 딥링크. 스코프 밖 자산번호는 무시된다.
   const initialSel = sel && scoped.some((a) => a.assetNo === sel) ? sel : undefined
   // 장기 미실측(유령 자산 후보) — 대장 필터·재물조사 편성이 공유하는 lib/dates 의 isStaleVerify 기준
