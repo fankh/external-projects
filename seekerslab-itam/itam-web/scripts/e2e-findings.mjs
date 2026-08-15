@@ -871,6 +871,16 @@ try {
   await step2.locator('button', { hasText: /^사용 수집$/ }).click()
   await p3.waitForTimeout(900)
   ok('라이선스 STEP2: 사용 수집 실행 → 설치 관측 대사 완료', ((await step2.textContent()) || '').includes('사용 수집 완료'))
+
+  // SAM 좌석 대사 인라인 처리 — STEP2 검출 좌석 불일치(무단 사용·미설치 좌석)를 화면 이탈 없이 좌석 배정/회수로 처리(그동안 라이선스 좌석 관리로 이동해야 했다).
+  const step2Card = () => p3.locator('.card', { hasText: '사용 수집 — EDR 설치 SW 인벤토리 대사' }).first()
+  ok('라이선스 STEP2: 미설치 좌석에 인라인 좌석 회수 액션(회수 후보)', (await step2Card().locator('span').filter({ hasText: 'AST-2023-000112' }).locator('button', { hasText: /^좌석 회수$/ }).count()) > 0)
+  const offSpan = step2Card().locator('span').filter({ hasText: 'AST-2024-000015' }).first()
+  ok('라이선스 STEP2: 배정 밖 설치(무단 사용)에 인라인 좌석 배정 액션', (await offSpan.locator('button', { hasText: /^좌석 배정$/ }).count()) > 0)
+  await offSpan.locator('button', { hasText: /^좌석 배정$/ }).first().click()
+  await p3.waitForTimeout(800)
+  ok('라이선스 STEP2: 인라인 좌석 배정 처리 성공(무단 사용 합법화 · 배정 N/M석)', /배정 \d+\/\d+석/.test((await step2Card().textContent()) || ''))
+
   // 유지보수 계약 예산 집행(§03) — CT-2022-007 누계 4,980만 > 계약 4,800만 → 예산 초과 판정. 대시보드 재협상 큐와 동일 근거.
   const maintCard = p3.locator('.card', { hasText: '유지보수 계약 관리 — 예산 집행 · SLA' }).first()
   const maintTxt = (await maintCard.textContent()) || ''

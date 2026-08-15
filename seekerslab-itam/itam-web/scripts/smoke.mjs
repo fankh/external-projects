@@ -410,6 +410,8 @@ try {
   //  LIC-004: 좌석 2(871·112) vs 설치 2(871·432) → AST-2021-000432 배정 밖 설치, AST-2023-000112 미설치 좌석.
   check('라이선스 STEP2: 사용 수집(EDR 설치 SW 대사) 패널 렌더', contractsHtml.includes('사용 수집 — EDR 설치 SW 인벤토리 대사') && contractsHtml.includes('배정 밖 설치 — 무단 사용') && contractsHtml.includes('미설치 좌석 — 회수 후보'))
   check('라이선스 STEP2: 배정 밖 설치 대사 실측(무단 사용 자산)', contractsHtml.includes('AST-2021-000432') && contractsHtml.includes('배정 밖 설치 (무단 사용)'))
+  // SAM 좌석 대사 인라인 처리 — STEP2 검출 좌석 불일치를 화면 이탈 없이 좌석 배정(무단 사용 합법화)/좌석 회수(여유석 확보)로 처리. '좌석 회수'는 이 셀 고유.
+  check('라이선스 STEP2: 좌석 불일치 인라인 처리 액션(좌석 배정·회수)', contractsHtml.includes('좌석 배정') && contractsHtml.includes('좌석 회수'))
   // 유지보수 계약 관리(§03) — 비용 이력이 '누계'만 보이던 것을 계약액 대비 집행률·잔여·판정 + SLA 요약으로 완성.
   //  CT-2022-007: 계약액 4,800만 · 누계 지출 4,980만(1~3Q+긴급) → 예산 초과. CT-2024-011: 비용 이력 없음 → 미집행. SLA 요약 노출.
   check('유지보수 계약: 예산 집행 현황 패널 렌더(집행률·판정)', contractsHtml.includes('유지보수 계약 관리 — 예산 집행 · SLA') && contractsHtml.includes('전체 집행률') && contractsHtml.includes('누계 지출'))
