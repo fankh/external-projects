@@ -10,6 +10,7 @@ export const SR_CHIP: Record<SrStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   적용요청: 'warn',
   완료: 'ok',
   반려: 'err',
+  중지: 'neutral',
 }
 
 /** 데이터·계정/권한 SR 은 개발 단계가 없다 — '개발중' 상태를 '처리중'으로 표기한다 */

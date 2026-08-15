@@ -16,7 +16,7 @@ export const ROLE_LABEL: Record<Role, string> = {
 
 /** SR 3종 (시스템개발 · 데이터 · 계정/권한) */
 export type SrKind = '시스템개발' | '데이터' | '계정/권한'
-export type SrStatus = '작성중' | '결재중' | 'CI배정' | '개발중' | '테스트' | '적용요청결재중' | '적용요청' | '완료' | '반려'
+export type SrStatus = '작성중' | '결재중' | 'CI배정' | '개발중' | '테스트' | '적용요청결재중' | '적용요청' | '완료' | '반려' | '중지'
 
 export interface SrRequest {
   srNo: string
@@ -35,6 +35,8 @@ export interface SrRequest {
   completedAt?: string
   /** 공수(MD) — SR 관리 진행 처리 시 입력 (요구사항 26행) */
   manHours?: number
+  /** 중지 직전 진행상태 — 중지(BA030014, 결재 시트) 해제 시 복원용. 중지 중엔 진행·지연·결재 반영에서 제외 */
+  suspendedFrom?: SrStatus
 }
 
 /** SR 진행 단계 순서 — 시스템개발 SR 파이프라인 (제품안내서 §03) */
