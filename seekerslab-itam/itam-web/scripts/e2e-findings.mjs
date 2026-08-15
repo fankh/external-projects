@@ -668,6 +668,8 @@ try {
   await pU.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   const dashBody = (await pU.locator('body').textContent()) || ''
   ok('사용자 대시보드: 수령 확인 대기 나눔 노출(인수 미확인 본인 자산)', dashBody.includes('수령 확인 대기') && dashBody.includes('AST-2024-000015'))
+  // 역할별 드릴인 정합 — 접근 불가 화면(Discovery·계약)으로 가는 드릴인 링크를 사용자 대시보드에는 걸지 않는다(데드엔드 제거). Shadow IT KPI·발견 카드·계약 카드 링크 모두 미노출.
+  ok('사용자 대시보드: 접근 불가 화면 드릴인 링크 없음(Discovery·계약)', (await pU.locator('a[href="/discovery/found"]').count()) === 0 && (await pU.locator('a[href="/inventory/contracts"]').count()) === 0)
   // 나눔 딥링크 → 대장 상세의 수령 확인 액션으로 바로 진입
   await pU.locator('a', { hasText: 'AST-2024-000015' }).first().click()
   await pU.waitForTimeout(400)
@@ -745,6 +747,8 @@ try {
   // 대여 연장 요청 대기 대시보드 큐(자산담당) — 사용자 연장 요청이 통보만으로 놓치지 않게 대시보드에도 뜬다. pU 가 방금 AST-2024-000230 에 요청했다.
   await p3.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   ok('대시보드(자산담당): 대여 연장 요청 대기 큐 노출', ((await p3.textContent('body')) || '').includes('대여 연장 요청 대기'))
+  // 미등록 신규 발견(Shadow IT) KPI 클릭 → 발견 화면 이동 — 조치가 필요한 지표가 대시보드에서 상세로 바로 이어진다(비사용자만).
+  ok('대시보드(비사용자): Shadow IT KPI 가 발견 화면 링크', (await p3.locator('a[href="/discovery/found"]').filter({ hasText: '미등록 신규 발견' }).count()) > 0)
   // 대여 연장 요청 승인(자산담당 측) — 사용자가 올린 연장 요청을 자산담당이 요청대로 반영한다. 위 pU 가 AST-2024-000230 에 2026-09-30 연장 요청.
   await p3.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
   ok('대여 연장 요청 승인: 자산담당에 요청대로 연장 버튼 노출', (await p3.locator('button', { hasText: /^요청대로 연장$/ }).count()) > 0)
