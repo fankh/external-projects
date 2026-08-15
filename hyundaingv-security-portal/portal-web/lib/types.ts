@@ -154,7 +154,10 @@ export interface InspectionPlan {
  *  시큐어코딩·취약점 점검·자료 제출). 발견/조치 건수로 조치율을 집계하고 증적을 첨부한다. */
 export type SecurityReviewKind = '시큐어코딩' | '취약점점검' | '모의해킹'
 export type SecurityReviewStatus = '계획' | '진행' | '조치중' | '완료'
+export type SecurityReviewSeverity = '심각' | '높음' | '보통' | '낮음'
 export const SECURITY_REVIEW_KINDS: SecurityReviewKind[] = ['시큐어코딩', '취약점점검', '모의해킹']
+/** 심각도 등급 — 고위험(심각+높음)이 우선 조치 대상 (거버넌스 신호) */
+export const SECURITY_REVIEW_SEVERITIES: SecurityReviewSeverity[] = ['심각', '높음', '보통', '낮음']
 
 export interface SecurityReview {
   id: string
@@ -164,10 +167,16 @@ export interface SecurityReview {
   target: string
   reviewer: string
   status: SecurityReviewStatus
-  /** 발견 취약점 수 */
+  /** 발견 취약점 수 (= 등급별 발견 합) */
   findings: number
-  /** 조치 완료 수 (findings 이하) */
+  /** 조치 완료 수 (findings 이하, = 등급별 조치 합) */
   fixed: number
+  // 등급별 발견/조치 — 손상 내성 위해 중첩 객체 대신 평면 numField(스토어 정규화가 숫자 강제).
+  // 고위험 미조치 = (critFound+highFound) − (critFixed+highFixed). findings/fixed 는 이 합의 유지된 총계.
+  critFound: number; critFixed: number
+  highFound: number; highFixed: number
+  medFound: number; medFixed: number
+  lowFound: number; lowFixed: number
   plannedAt: string
   completedAt?: string
 }

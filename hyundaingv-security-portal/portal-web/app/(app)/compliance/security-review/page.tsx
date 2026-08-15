@@ -25,7 +25,8 @@ async function addReview(formData: FormData) {
   if (!title || !target || !SECURITY_REVIEW_KINDS.includes(kind) || !/^\d{4}-\d{2}-\d{2}$/.test(plannedAt)) return
   const s = getStore()
   const id = nextNo('SEC', today().slice(0, 4), s.securityReviews.map((r) => r.id))
-  s.securityReviews.unshift({ id, title, kind, target, reviewer: me.name, status: '계획', findings: 0, fixed: 0, plannedAt })
+  s.securityReviews.unshift({ id, title, kind, target, reviewer: me.name, status: '계획', findings: 0, fixed: 0,
+    critFound: 0, critFixed: 0, highFound: 0, highFixed: 0, medFound: 0, medFixed: 0, lowFound: 0, lowFixed: 0, plannedAt })
   revalidatePath('/compliance/security-review')
 }
 

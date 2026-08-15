@@ -154,9 +154,9 @@ function seed(): Store {
       { id: 'IS-2026-24', itemId: 'CK-04', month: '2026-08', inspector: '한지원', status: '계획' },
     ],
     securityReviews: [
-      { id: 'SEC-2026-01', title: '영업정보시스템 시큐어코딩 점검', kind: '시큐어코딩', target: '영업정보시스템', reviewer: '한지원', status: '완료', findings: 8, fixed: 8, plannedAt: '2026-06-10', completedAt: '2026-06-28' },
-      { id: 'SEC-2026-02', title: '그룹웨어 웹 취약점 점검', kind: '취약점점검', target: '그룹웨어', reviewer: '박정호', status: '조치중', findings: 5, fixed: 2, plannedAt: '2026-07-15' },
-      { id: 'SEC-2026-03', title: 'ERP 모의해킹', kind: '모의해킹', target: 'ERP', reviewer: '한지원', status: '계획', findings: 0, fixed: 0, plannedAt: '2026-09-01' },
+      { id: 'SEC-2026-01', title: '영업정보시스템 시큐어코딩 점검', kind: '시큐어코딩', target: '영업정보시스템', reviewer: '한지원', status: '완료', findings: 8, fixed: 8, critFound: 1, critFixed: 1, highFound: 2, highFixed: 2, medFound: 3, medFixed: 3, lowFound: 2, lowFixed: 2, plannedAt: '2026-06-10', completedAt: '2026-06-28' },
+      { id: 'SEC-2026-02', title: '그룹웨어 웹 취약점 점검', kind: '취약점점검', target: '그룹웨어', reviewer: '박정호', status: '조치중', findings: 5, fixed: 2, critFound: 1, critFixed: 0, highFound: 2, highFixed: 1, medFound: 1, medFixed: 1, lowFound: 1, lowFixed: 0, plannedAt: '2026-07-15' },
+      { id: 'SEC-2026-03', title: 'ERP 모의해킹', kind: '모의해킹', target: 'ERP', reviewer: '한지원', status: '계획', findings: 0, fixed: 0, critFound: 0, critFixed: 0, highFound: 0, highFixed: 0, medFound: 0, medFixed: 0, lowFound: 0, lowFixed: 0, plannedAt: '2026-09-01' },
     ],
     incidents: [
       { id: 'FL-2026-11', system: 'ERP', title: 'DB 커넥션 풀 고갈로 응답 지연', grade: '2등급', occurredAt: '2026-07-18', status: '조치완료', action: '커넥션 풀 확대 및 누수 쿼리 수정', countermeasure: '커넥션 사용량 임계 알림 구축', reportStatus: '미상신' },
