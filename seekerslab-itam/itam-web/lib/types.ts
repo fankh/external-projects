@@ -293,6 +293,22 @@ export interface SwLicense {
   terminatedAt?: string
   /** 근거 계약 — 라이선스를 구매·구독한 계약(CT-*). 라이선스↔계약 추적성. 미연계면 계약 없는 구독(추적 밖). */
   contractId?: string
+  /** 사용 수집 시각 — EDR 설치 SW 인벤토리를 마지막으로 수집·대사한 시점(제품안내서 §03 라이선스 STEP2). undefined=미수집 */
+  usageCollectedAt?: string
+}
+
+/** EDR 설치 SW 인벤토리 관측 — 특정 자산에 라이선스 대상 SW가 설치돼 있음을 EDR·에이전트가 검출한 기록.
+ *  제품안내서 §03 라이선스 컴플라이언스 STEP2 "사용 수집 — EDR·에이전트 설치 SW 인벤토리".
+ *  배정 좌석(seats)과 대사해 배정 밖 설치(무단 사용)·미설치 좌석(회수 후보)을 식별한다. */
+export interface SwInstall {
+  id: string
+  licenseId: string
+  assetNo: string
+  host: string
+  user: string
+  dept: string
+  version: string
+  detectedAt: string
 }
 
 export type ApprovalKind = '자산 신청' | '반납' | '이동' | '대여' | '폐기' | '소유자 확인' | '격리 요청' | '차이 조정' | 'SaaS 인가'

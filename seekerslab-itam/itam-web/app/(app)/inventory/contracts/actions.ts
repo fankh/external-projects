@@ -60,6 +60,28 @@ export async function addLicense(input: { name: string; vendor: string; purchase
   return { ok: true, message: `${name} 라이선스 등록 완료 (보유 ${input.purchased}석)` }
 }
 
+/** 사용 수집 — EDR 설치 SW 인벤토리 대사(§03 라이선스 STEP2). 설치 관측(swInstalls)을 다시 읽어
+ *  각 라이선스의 수집 시각을 갱신하고 배정 좌석과의 대사(배정 밖 설치·미설치 좌석)를 최신화한다.
+ *  used(집계 탐지량)는 유지하고, 좌석 단위 정합만 재수집한다. 자산담당·Admin. */
+export async function collectLicenseUsage() {
+  const session = await guard()
+  if (!session) return { ok: false, message: '사용 수집 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const installs = s.swInstalls ?? []
+  let touched = 0
+  for (const l of s.licenses) {
+    if (l.status === '해지') continue
+    const inScope = (l.seats?.length ?? 0) > 0 || installs.some((i) => i.licenseId === l.id)
+    if (!inScope) continue
+    l.usageCollectedAt = today()
+    touched++
+  }
+  appendAudit({ actor: session.name, action: `라이선스 사용 수집 — EDR 설치 SW 인벤토리 대사 (설치 관측 ${installs.length}건 · ${touched}개 라이선스)`, target: '라이선스' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `사용 수집 완료 — 설치 관측 ${installs.length}건 · ${touched}개 라이선스 대사` }
+}
+
 async function guard() {
   const session = await getSession()
   if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return null
