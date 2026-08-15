@@ -62,7 +62,7 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
   // 반납자에게 회수·점검 결과를 통보한다 — 결재 승인(반납 접수 예정)과 별개로, 실물이 실제로 회수·점검됐고
   // 점검 결과(정상·수리 필요·폐기 권고)가 무엇인지 알려 반납자 루프를 닫는다. 특히 파손(수리·폐기)은 반납자에게 중요.
   let notified = false
-  if (prevOwner && prevOwner !== '미지정') {
+  if (prevOwner && prevOwner !== '미지정' && prevOwner !== '-') {
     dispatch({ channel: '이메일', to: prevOwner, subject: `반납 접수 완료 — ${asset.assetNo} ${asset.model} · 점검 결과 ${condition}${note.trim() ? ` (${note.trim()})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
     notified = true
   }
