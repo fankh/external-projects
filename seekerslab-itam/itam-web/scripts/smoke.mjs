@@ -225,6 +225,10 @@ try {
   // 대시보드의 '미등록 신규 발견'은 아직 손대지 않은 건만 보여주는 처리 대기열이므로,
   // 확인요청·격리요청이 걸린 자산(DSC-2607-0041 등)은 여기서 빠지는 것이 정상이다
   check('대시보드: KPI·발견 자산·내 결재 차례·운영 대기 렌더', dashHtml.includes('미등록 신규 발견') && dashHtml.includes('DSC-2607-0042') && dashHtml.includes('내 결재 차례') && dashHtml.includes('운영 대기'))
+  // 운영 대기 우선순위 — 큐가 화면마다 흩어져 20여 개로 늘어, 긴급(err)을 주의(warn)보다 위로 정렬하고 헤더에 긴급·주의 집계를 노출.
+  check('대시보드: 운영 대기 긴급·주의 요약 헤더', dashHtml.includes('긴급 ') && dashHtml.includes('주의 '))
+  // 긴급 우선 정렬 검증 — err 큐(라이선스 초과 사용)가 warn 큐(입고 검수 대기)보다 앞. 삽입 순서(입고가 먼저)와 반대여야 정렬이 동작.
+  check('대시보드: 운영 큐 긴급(err) 우선 정렬', dashHtml.indexOf('라이선스 초과 사용') > 0 && dashHtml.indexOf('입고 검수 대기') > 0 && dashHtml.indexOf('라이선스 초과 사용') < dashHtml.indexOf('입고 검수 대기'))
   // 도입 예정 입고 지연 큐(§06 ITSM) — 납기 경과 발주 로트를 담당자 운영 큐로. 시드 SR-2607-041 지연분.
   check('대시보드: 도입 예정 입고 지연 큐 (자산담당)', dashHtml.includes('도입 예정 입고 지연') && dashHtml.includes('SR·발주 독촉'))
   // 전역 통합 검색 — 키보드 단축키 힌트(크롬 타이틀바, 전 화면)
