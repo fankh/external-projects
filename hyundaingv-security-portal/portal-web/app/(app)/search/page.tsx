@@ -87,6 +87,15 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     })
   }
 
+  if (canAccess('/compliance/security-review')) {
+    groups.push({
+      label: '보안 컴플라이언스',
+      hits: s.securityReviews.filter((r) => has(r.id, r.title, r.target)).map((r) => ({
+        href: '/compliance/security-review', code: r.id, title: r.title, meta: `${r.kind} · ${r.target} · ${r.status}`,
+      })),
+    })
+  }
+
   const nonEmpty = groups.filter((g) => g.hits.length > 0)
   const total = nonEmpty.reduce((sum, g) => sum + g.hits.length, 0)
 
@@ -102,7 +111,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
       {query === '' ? (
         <div className="callout">
-          <b>통합 검색</b> — SR·공지·QnA·계약{canAccess('/infra/incidents') || canAccess('/projects/status') ? '·장애·변경·프로젝트' : ''} 를 한 번에 찾는다.
+          <b>통합 검색</b> — SR·공지·QnA·계약{canAccess('/infra/incidents') || canAccess('/projects/status') ? '·장애·변경·프로젝트' : ''}{canAccess('/compliance/security-review') ? '·보안성검토' : ''} 를 한 번에 찾는다.
           예: <span className="mono">SR-2026</span>, <span className="mono">ERP</span>, <span className="mono">보안패치</span>
         </div>
       ) : total === 0 ? (
