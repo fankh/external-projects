@@ -31,7 +31,9 @@ async function assign(formData: FormData) {
   const assignee = String(formData.get('assignee') ?? '')
   const s = getStore()
   const q = s.qna.find((x) => x.id === id && !x.answer)
-  if (!q || !ACCOUNTS.some((a) => a.name === assignee && a.role !== 'USER')) return
+  // 담당 지정 대상은 '실제 답변 가능한' 역할(BIZ_MGR·ADMIN)로 한정한다 — answer()·canAnswer 게이트와 정합.
+  // role !== 'USER' 로 두면 DEPT_MGR 도 지정되나 DEPT_MGR 은 답변 폼이 없어 지정이 막다른 길이 된다(게이트 불일치).
+  if (!q || !ACCOUNTS.some((a) => a.name === assignee && (a.role === 'BIZ_MGR' || a.role === 'ADMIN'))) return
   q.assignee = assignee
   revalidatePath('/board/qna')
 }
@@ -113,7 +115,7 @@ export default async function QnaPage() {
                       <form action={assign} className="hstack" style={{ gap: 4, padding: '3px 0' }}>
                         <input type="hidden" name="id" value={q.id} />
                         <select aria-label="담당" className="select" name="assignee" style={{ height: 25, fontSize: 11.5 }}>
-                          {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
+                          {ACCOUNTS.filter((a) => a.role === 'BIZ_MGR' || a.role === 'ADMIN').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
                         </select>
                         <button type="submit" className="btn sm">담당 지정</button>
                       </form>

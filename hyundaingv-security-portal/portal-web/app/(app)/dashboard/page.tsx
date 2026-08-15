@@ -35,7 +35,11 @@ export default async function DashboardPage() {
   const generalRevisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
   const generalSigned = s.pledges.some((p) =>
     p.name === me.name && p.year === currentYear() && p.kind === '일반' && p.signedAt >= generalRevisedAt)
-  const notices = [...s.notices].sort((a, b) => Number(b.pinned ?? false) - Number(a.pinned ?? false))
+  // 게시판 화면(board/notices)과 동일한 정렬 — 고정 우선, 동순위는 게시일 내림차순. postedAt 보조키가 없으면
+  // 손상 파일의 비불리언 pinned("true")로 Number()가 NaN 이 돼 비교자가 불안정 정렬을 내던 결함(게시판은
+  // '|| localeCompare' 폴백으로 안전, 대시보드만 누락)까지 함께 정합화한다.
+  const notices = [...s.notices].sort((a, b) =>
+    Number(b.pinned ?? false) - Number(a.pinned ?? false) || String(b.postedAt ?? '').localeCompare(String(a.postedAt ?? '')))
 
   // 관리대상 현황 — 의식제고·컴플라이언스·계획수립 (요구사항 개인별현황 포틀릿)
   const remoteDone = s.remoteChecks.some((r) => r.name === me.name && r.period === period)
@@ -125,7 +129,7 @@ export default async function DashboardPage() {
               <tbody>
                 {notices.map((n) => (
                   <tr key={n.id}>
-                    <td><Chip tone={n.category === '보안' ? 'err' : n.category === '시스템' ? 'info' : 'neutral'} bare>{n.category}</Chip></td>
+                    <td><Chip tone={n.category === '보안' ? 'err' : n.category === '시스템' ? 'info' : n.category === '교육' ? 'ok' : 'neutral'} bare>{n.category}</Chip></td>
                     <td className={n.pinned ? 'strong' : ''}>{n.pinned ? '📌 ' : ''}{n.title}</td>
                     <td className="tnum mute">{n.postedAt}</td>
                   </tr>

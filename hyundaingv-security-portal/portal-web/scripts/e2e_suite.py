@@ -50,6 +50,7 @@ PJDONE_DATA = ROOT / 'scripts' / '.e2e-pjdone-data.json'  # 프로젝트 완료 
 PJMEMB_DATA = ROOT / 'scripts' / '.e2e-pjmemb-data.json'  # 빈 명단 프로젝트 참여서약 집계 회귀용 (v1.5.89)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
 AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
+QNAROLE_DATA = ROOT / 'scripts' / '.e2e-qnarole-data.json'  # QnA 담당 지정 역할 정합 회귀용 (v1.5.92)
 
 
 def login(pg, base, name):
@@ -556,6 +557,18 @@ def sc_channelstate_corrupt(pg, base, check):
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
+
+
+def sc_qna_assign_role(pg, base, check):
+    """QnA 담당 지정 역할 정합(v1.5.92) — 담당 지정 대상은 실제 답변 가능한 역할(BIZ_MGR·ADMIN)이어야 한다.
+    role !== 'USER' 로 두면 DEPT_MGR 도 지정되나 DEPT_MGR 은 답변 폼이 없어(answer·canAnswer 게이트 제외)
+    지정이 막다른 길이 된다(assign·answer 게이트 불일치). 미답변 문의 주입 → 담당 드롭다운에 DEPT_MGR
+    이수진 미포함, BIZ_MGR/ADMIN 포함 확인."""
+    login(pg, base, '박정호')  # BIZ_MGR — 담당 지정 가능
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    names = pg.locator('select[name=assignee]').first.locator('option').all_inner_texts()
+    check('이수진' not in names, f'담당 지정 대상은 답변 가능 역할만 — DEPT_MGR 이수진 제외 (실제 {names})')
+    check('박정호' in names or '시스템관리자' in names, '답변 가능 역할(BIZ_MGR/ADMIN)은 지정 대상 포함(거짓통과 방지)')
 
 
 def sc_autoform_upload_defeat(pg, base, check):
@@ -1754,6 +1767,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(RMGHOST_DATA)}),
     ('autoform_upload_defeat', '필수 자동양식 파일명충돌 우회 방지 — gen 구분자', sc_autoform_upload_defeat,
      {'PORTAL_DATA_FILE': str(AFDEFEAT_DATA)}),
+    ('qna_assign_role', 'QnA 담당 지정 역할 정합 — 답변 가능 역할만', sc_qna_assign_role,
+     {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -2049,6 +2064,11 @@ def main() -> int:
         'attachments': [{'id': 'AT-9020', 'refId': 'CW-9020', 'name': '인프라변경 작업결과 양식_v1_evil.xlsx',
                          'sizeKb': 10, 'uploadedBy': '박정호', 'at': '2026-08-01'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # qna_assign_role 시나리오용(v1.5.92) — 미답변·미배정 문의. 담당 지정 드롭다운이 답변 가능 역할만 나열해야.
+    QNAROLE_DATA.write_text(json.dumps({
+        'qna': [{'id': 'QA-9030', 'title': '담당지정역할테스트', 'domain': '보안신청', 'author': '김현우',
+                 'dept': '개발1팀', 'askedAt': '2026-08-01'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -2084,6 +2104,7 @@ def main() -> int:
     PJMEMB_DATA.unlink(missing_ok=True)
     RMGHOST_DATA.unlink(missing_ok=True)
     AFDEFEAT_DATA.unlink(missing_ok=True)
+    QNAROLE_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
