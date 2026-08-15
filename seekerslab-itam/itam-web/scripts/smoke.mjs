@@ -203,6 +203,14 @@ try {
   // 연관 자산(영향도) — 같은 계약·위치·소유자·모델 공유 자산 수 + 드릴 링크
   check('자산 대장: 상세에 연관 자산(영향도) 섹션 + 드릴 링크', regContractDetail.includes('연관 자산') && regContractDetail.includes('같은 모델'))
   check('자산 대장: 상세에 자산 카드(dossier) 인쇄 링크', regContractDetail.includes('/api/asset-card/') && regContractDetail.includes('자산 카드'))
+  // 자산 인수인계서 — 영구 불출(사용중) 자산의 서명 인계·인수 확인서(대여 확인서의 불출 대응 · 로54 체인 오브 커스터디 서면 증적). 시드 AST-2025-000512 사용중.
+  const regInUseDetail = await (await get('/assets/register?sel=AST-2025-000512', 'ASSET_MGR')).text()
+  check('자산 대장: 사용중 상세에 인수인계서 인쇄 링크', regInUseDetail.includes('/api/handover-sheet/') && regInUseDetail.includes('인수인계서'))
+  const handover = await get('/api/handover-sheet/AST-2025-000512', 'ASSET_MGR')
+  check('인수인계서: 사용중 자산 발급(인계·인수 확인서 렌더)', handover.status === 200 && (await handover.text()).includes('ASSET HANDOVER'))
+  check('인수인계서: 미로그인 차단 (401)', (await get('/api/handover-sheet/AST-2025-000512')).status === 401)
+  check('인수인계서: 사용자 차단 (403)', (await get('/api/handover-sheet/AST-2025-000512', 'USER')).status === 403)
+  check('인수인계서: 사용중 아닌 자산 발급 불가 (400)', (await get('/api/handover-sheet/AST-2024-000512', 'ASSET_MGR')).status === 400)
   // 수리중 자산 상세 — 수리 의뢰(업체·예상반환·반환 지연) 블록. 대여 블록과 대칭. 시드 AST-2024-000512(중부IT서비스, 예상반환 경과)로 검증
   const regRepairDetail = await (await get('/assets/register?sel=AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 대장: 수리중 상세에 수리 의뢰(업체·반환 지연) 블록', regRepairDetail.includes('수리 의뢰') && regRepairDetail.includes('중부IT서비스') && regRepairDetail.includes('반환 지연'))

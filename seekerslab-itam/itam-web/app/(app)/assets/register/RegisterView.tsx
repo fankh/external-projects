@@ -463,6 +463,16 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   </dd>
                 </>
               )}
+              {sel.status === '사용중' && props.canEdit && (
+                <>
+                  <dt>인수인계</dt>
+                  <dd className="hstack" style={{ gap: 6 }}>
+                    <a className="btn sm" href={`/api/handover-sheet/${sel.assetNo}`} target="_blank" rel="noopener"
+                      title="자산 인수인계서 인쇄 — 영구 불출 인계·인수 책임 서면 증적(대여 확인서의 불출 대응)">🖨 인수인계서</a>
+                    {sel.receiptPending && <Chip tone="warn" bare>수령 확인 대기</Chip>}
+                  </dd>
+                </>
+              )}
               {sel.status === '수리중' && (
                 <>
                   <dt>수리 의뢰</dt>
