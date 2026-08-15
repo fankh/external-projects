@@ -61,7 +61,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '주간 Shadow IT 브리핑', period: '주간', desc: '신규 발견 미등록 자산 · 외부 노출 · 미인가 SaaS · 인증·계정·엔드포인트 정책 위반 · 처리 현황' },
   { kind: '월간 자산 현황', period: '월간', desc: '유형별 보유·상태 분포, 수명주기 처리 실적, 만료 임박 계약, 유지보수(수리) 비용, 자산 처분 실적·폐기 진행 현황' },
   { kind: '라이선스 컴플라이언스', period: '월간', desc: '보유–사용 대사, 초과 사용 감사 리스크, 미사용 회수 절감액, 갱신 협상 근거, 중복 SaaS 통합 후보' },
-  { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·조정 결재 대상' },
+  { kind: '재물조사 결과 요약', period: '수시', desc: '조사 진행률·차이 항목·차이 유형별 대장 대조·조정 결과(대장 보정·분실 처리·신규 등록)·조정 결재 대상' },
   { kind: '감사 대응 자료', period: '수시', desc: '권한 통제·감사 로그·정책 이행·대장 정합성(CMDB 정확도)·위협 대응 현황·이상 자산 행위 탐지 증빙 초안' },
   { kind: '연간 교체 계획', period: '수시', desc: '내용연수·보증 경과·OS 지원 종료(EOL)·장애 이력(잦은 수리) 기준 교체 대상·잔존가치·유형별 예산 추정' },
   { kind: '취약점 조치 우선순위', period: '수시', desc: '자산 중요도 × 노출도 스코어링 — 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 P1/P2/P3로 순위화' },
@@ -344,9 +344,20 @@ export function buildSections(kind: ReportKind): ReportSection[] {
         rows: s.discovered.filter((d) => d.state === '미확인').map((d) => [d.id, d.hostname, d.lastSeen, d.note ?? '-']),
       },
       {
+        // 실사에서 확인된 차이(surveyDiffs) 상세 — 유형·대장/실사 대조·조정 결과(resolution). 감사에서 "무엇이 어긋났고 어떻게 조정됐는지" 증빙.
+        title: '차이 상세 · 조정 결과',
+        note: '실사 차이 항목과 조정 결과(대장 보정·분실 처리·신규 등록) — 유형별 대장 대조 및 감사 추적',
+        columns: ['자산번호', '유형', '대장(기대)', '실사(실측)', '상태', '조정 결과'],
+        rows: s.surveyDiffs.length
+          ? s.surveyDiffs.map((d) => [d.assetNo, d.kind, d.expected, d.actual, d.status, d.resolution ?? '-'])
+          : [['-', '-', '-', '-', '-', '확인된 차이 없음']],
+      },
+      {
         title: '조정 결재 대상',
         bullets: [
           `누적 차이 ${s.inventoryRounds.reduce((n, r) => n + r.mismatched, 0)}건`,
+          `유형별 분포 — ${(['위치 불일치', '상태 불일치', '미확인 (실사 없음)', '대장 미등록'] as const).map((k) => `${k} ${s.surveyDiffs.filter((d) => d.kind === k).length}`).join(' · ')}`,
+          `조정 완료 ${s.surveyDiffs.filter((d) => d.status === '조정 완료').length}건 · 미해결 ${s.surveyDiffs.filter((d) => d.status !== '조정 완료').length}건`,
           `차이 조정 결재는 필수 결재 — 결재선: ${s.approvalLines.find((l) => l.kind === '차이 조정')?.steps.join(' → ') ?? '-'}`,
         ],
       },

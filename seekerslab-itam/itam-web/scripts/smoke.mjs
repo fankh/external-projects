@@ -939,6 +939,8 @@ try {
   check('리포트: 10종 유형·생성 UI 렌더', repHtml.includes('주간 Shadow IT 브리핑') && repHtml.includes('감사 대응 자료') && repHtml.includes('연간 교체 계획') && repHtml.includes('취약점 조치 우선순위') && repHtml.includes('AI 거버넌스·성능') && repHtml.includes('부서별 IT 비용 배분') && repHtml.includes('계약 관리 현황') && repHtml.includes('결재 첨부용'))
   // 계약 관리 현황(§03 계약 이행 보고) — 만료·유지보수 예산 집행·구매 발주 이행·SLA·부속서류 거버넌스를 한 리포트로 집약(결재 첨부).
   check('리포트: 계약 관리 현황 리포트 유형 렌더', repHtml.includes('계약 관리 현황') && repHtml.includes('발주 이행'))
+  // 재물조사 결과 요약에 차이 유형별 대장 대조·조정 결과(resolution) 추가 — 감사 추적 강화(유형 설명에 반영, 생성 시 buildSections 가 섹션 산출)
+  check('리포트: 재물조사 결과 요약 — 차이 유형·조정 결과 반영', repHtml.includes('재물조사 결과 요약') && repHtml.includes('조정 결과'))
   // 부서별 IT 비용 배분(차지백) 리포트 — 자산 원가·라이선스 좌석 비용을 부서로 귀속(§05 FinOps·예산 근거)
   check('리포트: 부서별 IT 비용 배분(차지백) 리포트 유형 렌더', repHtml.includes('부서별 IT 비용 배분') && repHtml.includes('차지백'))
   // 결재 첨부용 산출물은 네이티브 엑셀(xlsx, 섹션별 시트)·문서 — 다른 대장·로그 반출과 동일 형식 (제품안내서 §05 "결재 첨부용 엑셀·문서")
