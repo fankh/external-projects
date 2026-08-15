@@ -604,29 +604,35 @@ def sc_sr_suspend(pg, base, check):
 
 
 def sc_security_review(pg, base, check):
-    """보안성 검토(제품안내서 VI장, v1.5.102~) — 시큐어코딩·취약점 점검의 계획→진행→조치중→완료 추적.
-    완료 확정은 발견 취약점 전건 조치 후에만(fixed>=findings) — 미조치 잔여가 있으면 완료 가드로 상태 유지
-    (감사 무결성). 시드 SEC-2026-02(그룹웨어 취약점점검·조치중·발견5·조치2) → 완료 시도 차단 → 전건 조치 후 완료."""
+    """보안성 검토(VI장) + 심각도 등급(v1.5.127~) — 등급별(심각/높음/보통/낮음) 발견·조치를 기록하고, 발견 전건
+    조치 후에만 완료 확정(미조치 잔여 시 완료 가드·감사 무결성). 고위험(심각+높음) 미조치가 우선 신호.
+    시드 SEC-2026-02(그룹웨어·조치중, 심각1/0·높음2/1·보통1/1·낮음1/0 = 발견5·조치2, 고위험 미조치 2) →
+    고위험 마커 확인 → 완료 차단 → 등급별 전건 조치 후 고위험 소거·완료."""
     login(pg, base, '박정호')  # BIZ_MGR — 보안성 검토 권한(BIZ)
     pg.goto(f'{base}/compliance/security-review', wait_until='networkidle')
+    row_txt = pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').inner_text()
     check('그룹웨어 웹 취약점 점검' in pg.content(), '전제: 조치중 검토(발견5·조치2)가 목록에 있음')
-    # 미조치 잔여(2/5)에서 완료 시도 → 가드로 차단(상태 조치중 유지)
+    check('고위험 2' in row_txt, f'고위험(심각+높음) 미조치 2 마커 표시 (실제 …{row_txt[-24:]})')
+    # 미조치 잔여에서 완료 시도 → 가드로 차단(상태 조치중 유지)
     pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').locator('button:has-text("완료")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/compliance/security-review', wait_until='networkidle')
     txt = pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').inner_text()
     check('조치중' in txt, f'미조치 잔여 시 완료 차단 — 상태 조치중 유지 (실제 …{txt[-20:]})')
-    # 전건 조치(조치=5) 기록 후 완료 → 완료 확정
+    # 등급별 전건 조치 기록 (각 등급 조치 = 그 등급 발견: 심각1·높음2·보통1·낮음1)
     row = pg.locator('tr', has_text='그룹웨어 웹 취약점 점검')
-    row.locator('input[aria-label="조치"]').fill('5')
+    for grade, n in [('심각', '1'), ('높음', '2'), ('보통', '1'), ('낮음', '1')]:
+        row.locator(f'input[aria-label="{grade} 조치"]').fill(n)
     row.locator('button:has-text("기록")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/compliance/security-review', wait_until='networkidle')
+    row2 = pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').inner_text()
+    check('고위험' not in row2, f'등급별 전건 조치 후 고위험 미조치 마커 소거 (실제 …{row2[-24:]})')
     pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').locator('button:has-text("완료")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/compliance/security-review', wait_until='networkidle')
     txt = pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').inner_text()
-    check('완료' in txt, f'전건 조치(5/5) 후 완료 확정 (실제 …{txt[-20:]})')
+    check('완료' in txt and '조치중' not in txt, f'전건 조치(5/5) 후 완료 확정 (실제 …{txt[-20:]})')
 
 
 def sc_delayed_corrupt_date(pg, base, check):
