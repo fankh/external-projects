@@ -151,7 +151,7 @@ export default async function InvestPage() {
           <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`과제 ${confirmed.length}건`} />
           <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
           <Stat value={<>{fmt(paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
-          <Stat value={`${planTotal ? Math.round((paidConfirmed / planTotal) * 100) : 0}%`} label="계획 대비 집행률" />
+          <Stat value={`${planTotal ? Math.round((paidConfirmed / planTotal) * 100) : 0}%`} label="계획 대비 집행률" tone={planTotal > 0 && paidConfirmed > planTotal ? 'err' : undefined} />
         </div>
       )}
 
@@ -323,7 +323,7 @@ export default async function InvestPage() {
                     <td className="num">{fmt(p.amount)}</td>
                     <td className="num">{fmt(contracted)}</td>
                     <td className="num">{fmt(paid)}</td>
-                    <td className="num"><Chip tone={rate >= 90 ? 'warn' : 'neutral'} bare>{rate}%</Chip></td>
+                    <td className="num"><Chip tone={rate > 100 ? 'err' : rate >= 90 ? 'warn' : 'neutral'} bare>{rate}%</Chip></td>
                   </tr>
                 )
               })}
