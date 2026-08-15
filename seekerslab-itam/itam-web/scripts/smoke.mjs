@@ -416,6 +416,8 @@ try {
   check('계약 엑셀: 상태 컬럼(유효/해지) 반출', ctXlsx.includes('상태') && ctXlsx.includes('유효'))
   // 부속서류 미비(계약)·근거 계약(라이선스) 컬럼 반출 — 감사 컴플라이언스 반영
   check('계약 엑셀: 부속서류 미비·근거 계약 컬럼 반출', ctXlsx.includes('부속서류 미비') && ctXlsx.includes('근거 계약') && ctXlsx.includes('CT-2023-002') && ctXlsx.includes('미연계'))
+  // 라이선스 좌석 대사(STEP2) 시트 — EDR 설치 인벤토리 대사 결과(배정 밖 설치·미설치 좌석)를 계약·라이선스 엑셀에 담아 SAM 감사 증적으로 반출
+  check('계약 엑셀: 라이선스 좌석 대사(STEP2) 시트 반출 (SAM 감사)', ctXlsx.includes('라이선스 좌석 대사') && ctXlsx.includes('배정 밖 설치') && ctXlsx.includes('미설치 좌석'))
   // 유지보수 계약 — SLA·비용 이력 관리 (제품안내서 §03 유지보수 계약). 상세는 토글 확장이라 SSR엔 버튼 title 만
   check('계약: 유지보수 계약에 SLA·비용 이력 관리 토글 노출', contractsHtml.includes('SLA · 비용 이력'))
   // 계약 카드(dossier) — 요약·부속서류·SLA·비용·연계 자산 인쇄용

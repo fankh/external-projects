@@ -1,5 +1,6 @@
 import { missingContractDocs } from './contract'
 import { acquisitionCostOf, assetTco, bookValueOf } from './cost'
+import { buildLicenseUsage } from './license-usage'
 import { approvalAgeDays, daysUntil, isApprovalOverdue, isStaleVerify, today, warrantyState } from './dates'
 import { ACTION_DEF, PERM_ACTIONS, can } from './perm'
 import { getStore } from './store'
@@ -171,6 +172,14 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
             l.status === '해지' ? '해지' : gap > 0 ? '초과 사용' : l.used / l.purchased < 0.6 ? '미사용 보유' : '적정',
           ]
         }),
+      },
+      {
+        // 라이선스 좌석 대사(STEP2) — EDR 설치 인벤토리와 배정 좌석 대사 결과. SAM 감사 증적(배정 밖 설치=무단 사용, 미설치 좌석=회수 후보).
+        name: '라이선스 좌석 대사',
+        header: ['ID', '라이선스', '보유', '배정 좌석', '설치 관측', '일치', '배정 밖 설치', '미설치 좌석', '최근 수집'],
+        rows: buildLicenseUsage().rows.map((r) => [
+          r.id, r.name, r.purchased, r.seatCount, r.installCount, r.matched, r.offSeat.length, r.unusedSeat.length, r.collectedAt ?? '-',
+        ]),
       },
     ]
   }
