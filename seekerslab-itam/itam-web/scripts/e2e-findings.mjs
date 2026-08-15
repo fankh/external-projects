@@ -1272,6 +1272,13 @@ try {
   await p4.waitForTimeout(800)
   ok('유지보수 예산: 통보 발송 성공(주관부서·공급사 · 발송 이력)', ((await p4.textContent('body')) || '').includes('유지보수 예산 통보') && ((await p4.textContent('body')) || '').includes('발송'))
 
+  // 발주 이행 독촉(§03 구매 계약 · 신호→조치 채널) — 발주 미이행 위험 판정(발주율 저조·만료 임박)에 조치 채널이 없던 공백을 닫는다. 시드 CT-2023-021 미이행 → 버튼 활성.
+  const procBtn = p4.locator('button', { hasText: /^발주 이행 독촉 \(\d+\)$/ })
+  ok('구매 계약: 발주 이행 독촉 버튼 노출(미이행 위험 배지 ≥1)', (await procBtn.count()) > 0 && !/\(0\)/.test(await procBtn.first().innerText()))
+  await procBtn.first().click()
+  await p4.waitForTimeout(800)
+  ok('발주 이행 독촉: 발송 성공(주관부서·공급사·구매팀 · 발송 이력)', ((await p4.textContent('body')) || '').includes('발주 이행 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
+
   // 입고 지연 독촉(§06 ITSM 납기 관리 · 검출→조치) — 납기 경과 발주 로트(시드 IN-2607-03)의 공급사에 납기 확인 독촉 발송
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   ok('도입·검수: 입고 지연 독촉 버튼 노출(발주처)', (await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).count()) > 0)

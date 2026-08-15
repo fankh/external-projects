@@ -12,6 +12,8 @@ export interface ProcurementRow {
   id: string
   name: string
   vendor: string
+  /** 주관부서 — 발주 이행 독촉 통보 수신 부서 */
+  ownerDept: string
   end: string
   amount: number
   /** 이 계약의 입고 로트 수 */
@@ -51,6 +53,7 @@ export function buildProcurement(): {
         id: c.id,
         name: c.name,
         vendor: c.vendor,
+        ownerDept: c.ownerDept,
         end: c.end,
         amount: c.amount,
         lots: lots.length,

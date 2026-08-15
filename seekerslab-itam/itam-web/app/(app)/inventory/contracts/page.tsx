@@ -11,6 +11,7 @@ import { contractAssetCount, getStore } from '@/lib/store'
 import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
 import { MaintenanceBudgetButton } from './MaintenanceActions'
+import { ProcurementRemindButton } from './ProcurementRemindButton'
 import { UsageCollect } from './UsageCollect'
 
 export const dynamic = 'force-dynamic'
@@ -113,7 +114,10 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         kicker="Procurement"
         title="구매 계약 발주·검수 이행 현황"
         pad={false}
-        actions={<span className="dim" style={{ fontSize: 11.5 }}>연계 계약 {proc.rows.length}건 · 발주 {fmtAmount(proc.totalOrdered)}/{fmtAmount(proc.totalAmount)}원{proc.atRisk.length > 0 ? ` · 미이행 위험 ${proc.atRisk.length}` : ''}</span>}
+        actions={<span className="hstack" style={{ gap: 10 }}>
+          <span className="dim" style={{ fontSize: 11.5 }}>연계 계약 {proc.rows.length}건 · 발주 {fmtAmount(proc.totalOrdered)}/{fmtAmount(proc.totalAmount)}원{proc.atRisk.length > 0 ? ` · 미이행 위험 ${proc.atRisk.length}` : ''}</span>
+          <ProcurementRemindButton atRisk={proc.atRisk.length} />
+        </span>}
       >
         <div className="stat-row" style={{ margin: 14 }}>
           <Stat value={`${proc.totalAmount ? Math.round((proc.totalOrdered / proc.totalAmount) * 100) : 0}%`} label="전체 발주 소진률" delta={{ text: `발주 여력 ${fmtAmount(proc.totalAmount - proc.totalOrdered)}원`, dir: 'flat' }} />
