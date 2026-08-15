@@ -101,6 +101,10 @@ export interface RemoteCheck {
   submittedAt: string
 }
 
+/** 재택 체크리스트 등록 주기 (요구사항 54행 '등록 주기 변경 - 반기, 분기, 매일') — 기본 월. */
+export type RemoteCycle = '매일' | '월' | '분기' | '반기'
+export const REMOTE_CYCLES: RemoteCycle[] = ['매일', '월', '분기', '반기']
+
 /** 보안위반 — 업무담당 등록·확인서 요청(메일) → 위반자 본인 확인서 작성·결재 (결재 시트 14번) */
 export type ViolationType = '출력물 방치' | '화면 미잠금' | '인가되지 않은 USB 사용'
 

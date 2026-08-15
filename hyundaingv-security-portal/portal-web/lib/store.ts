@@ -6,7 +6,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameS
 import { basename, dirname, join } from 'node:path'
 import { CHANNELS } from '@/portal.config'
 import { nowStamp, today } from './dates'
-import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, Rack, RemoteCheck, RemoteTarget, Role, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
+import type { Approval, ApprovalLine, Attachment, AuditLog, BatchJob, BatchRun, ChangeWork, CiSr, CodeGroup, Hardware, CompanyPledge, Deliverable, EducationCourse, EducationRecord, ExcelTemplate, ExpenseFlash, Incident, InspectionItem, InspectionPlan, InterfaceDef, InvestContract, InvestPlan, Notice, Person, PledgeForm, PledgeSign, PrintoutRecord, Project, ProjectIssue, ProjectNote, QnaPost, Rack, RemoteCheck, RemoteCycle, RemoteTarget, Role, SendLogEntry, ServerInfo, Settlement, SrRequest, SystemInfo, TodoItem, Violation } from './types'
 
 export interface Store {
   inspectionItems: InspectionItem[]
@@ -16,6 +16,8 @@ export interface Store {
   printouts: PrintoutRecord[]
   remoteChecks: RemoteCheck[]
   remoteTargets: RemoteTarget[]
+  /** 재택 체크리스트 등록 주기 (요구사항 54행) — 매일·월·분기·반기. 제출·대상·통계·알림 기간 키의 단일 원천. */
+  remoteCycle: RemoteCycle
   ciSrs: CiSr[]
   violations: Violation[]
   projects: Project[]
@@ -119,6 +121,7 @@ function seed(): Store {
       { name: '이수진', dept: '경영지원팀', startDate: '2026-08-03' },
       { name: '강도윤', dept: '정보기획팀', startDate: '2026-06-01', endDate: '2026-06-30' },
     ],
+    remoteCycle: '월',
     violations: [
       { id: 'VL-2026-07', name: '강도윤', dept: '정보기획팀', type: '출력물 방치', detail: '공용 프린터에 개인정보 포함 출력물 방치 (7/29 야간 점검)', occurredAt: '2026-07-29', status: '징구중' },
     ],
@@ -558,8 +561,36 @@ export function recordBatch(job: string, ranAt: string, result: '성공' | '실�
 
 /** 재택근무 대상 판정 — 해당 월에 재택 기간이 겹치는지 (요구사항 54행 기간별 조회의 단일 원천).
  *  month 는 'YYYY-MM' — 시작일이 월말 이전이고 종료일이 없거나 월초 이후면 그 달의 대상이다. */
-export function isRemoteTargetIn(t: RemoteTarget, month: string): boolean {
-  return t.startDate <= `${month}-31` && (!t.endDate || t.endDate >= `${month}-01`)
+/** 재택 등록 주기별 현 시점 기간 키 — 매일=YYYY-MM-DD, 월=YYYY-MM, 분기=YYYY-Qn, 반기=YYYY-Hn.
+ *  제출·대상·통계·알림이 이 단일 키로 한 주기를 식별한다(주기 변경 시 기존 제출 이력은 옛 키로 남아 무해). */
+export function remotePeriodKey(cycle: RemoteCycle, d: string = today()): string {
+  const y = d.slice(0, 4)
+  const m = Number(d.slice(5, 7))
+  if (cycle === '매일') return d
+  if (cycle === '분기') return `${y}-Q${Math.ceil(m / 3)}`
+  if (cycle === '반기') return `${y}-H${m <= 6 ? 1 : 2}`
+  return d.slice(0, 7)
+}
+
+/** 기간 키 → [시작일, 종료일](YYYY-MM-DD, 종료 포함) — 재택 대상 활성 판정용. 월 키는 기존 동작과 동일. */
+export function remotePeriodBounds(key: string): [string, string] {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(key)) return [key, key]
+  const q = /^(\d{4})-Q([1-4])$/.exec(key)
+  if (q) {
+    const sm = (Number(q[2]) - 1) * 3 + 1
+    const em = Number(q[2]) * 3
+    return [`${q[1]}-${String(sm).padStart(2, '0')}-01`, `${q[1]}-${String(em).padStart(2, '0')}-31`]
+  }
+  const h = /^(\d{4})-H([12])$/.exec(key)
+  if (h) return h[2] === '1' ? [`${h[1]}-01-01`, `${h[1]}-06-31`] : [`${h[1]}-07-01`, `${h[1]}-12-31`]
+  return [`${key}-01`, `${key}-31`]
+}
+
+/** 재택 대상 t 가 기간 키에 해당하는가 — 대상 활성 구간이 기간 구간과 겹치면 참(주기 무관 단일 판정).
+ *  월 키(YYYY-MM)에서는 startDate<=말일 && (종료없음||종료>=1일)로 기존 동작과 완전히 동일하다. */
+export function isRemoteTargetIn(t: RemoteTarget, key: string): boolean {
+  const [s, e] = remotePeriodBounds(key)
+  return t.startDate <= e && (!t.endDate || t.endDate >= s)
 }
 
 /** 공통코드 활성 판정 — 사용여부 + 사용기간(until, 종료일 포함) (요구사항 73행).
