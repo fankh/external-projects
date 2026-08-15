@@ -16,7 +16,7 @@ const CONDITIONS: ReturnCondition[] = ['정상', '수리 필요', '폐기 권고
 type Pending = { assetNo: string; model: string; owner: string; dept: string; location: string; since: string }
 type Idle = { assetNo: string; model: string; category: string; location: string; idleDays: number | null }
 type Repairing = { assetNo: string; model: string; category: string; location: string; note: string; warranty?: boolean; faultNote?: string; repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number } }
-type Loan = { assetNo: string; model: string; owner: string; dept: string; dueDate: string; dday: number | null; overdue: boolean }
+type Loan = { assetNo: string; model: string; owner: string; dept: string; dueDate: string; dday: number | null; overdue: boolean; returnRequested?: boolean }
 
 export function ReturnsView(props: {
   pending: Pending[]
@@ -211,7 +211,7 @@ export function ReturnsView(props: {
                   return (
                     <tr key={l.assetNo}>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{l.model}</div>
+                        <div style={{ fontWeight: 600 }}>{l.model} {l.returnRequested && <Chip tone="warn" bare>반납 신청</Chip>}</div>
                         <div className="dim" style={{ fontSize: 11 }}>{l.assetNo}</div>
                       </td>
                       <td>{l.owner}<div className="dim" style={{ fontSize: 11 }}>{l.dept}</div></td>

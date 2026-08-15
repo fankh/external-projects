@@ -56,6 +56,7 @@ export default async function ReturnsPage() {
       dueDate: a.loanDueDate ?? '-',
       dday: a.loanDueDate ? daysUntil(a.loanDueDate) : null,
       overdue: isLoanOverdue(a),
+      returnRequested: !!a.returnRequest,
     }))
     .sort((x, y) => (x.dday ?? 99_999) - (y.dday ?? 99_999))
   const overdueLoans = loans.filter((l) => l.overdue).length

@@ -56,6 +56,8 @@ export interface Asset {
   loanDueDate?: string
   /** 대여자(사용자)가 올린 반환 기한 연장 요청 — 자산담당이 승인(요청대로 연장) 또는 반려한다. 처리 시 해제. */
   loanExtendRequest?: { newDueDate: string; reason: string; by: string; at: string }
+  /** 대여자(사용자)가 올린 반납(반환) 신청 — 대여를 마치고 자산을 돌려주겠다는 셀프서비스 신호. 자산담당이 반환 접수하면 해제. */
+  returnRequest?: { by: string; at: string; note?: string }
   /** 수리 의뢰 정보 — 상태가 '수리중'이고 외부 수리 의뢰가 접수됐을 때. 수리 완료·불가 시 이력에 실비를 남기고 해제한다. (제품안내서 §03 유지보수) */
   repair?: { vendor: string; sentAt: string; eta?: string; estCost?: number }
   /** 수리 사유 — 장애 신고 증상 또는 반납 점검 '수리 필요' 사유. 수리 대기 화면에서 자산담당이 무엇을 고칠지 보이게 한다(업체 배정 전에도). 수리 완료·불가 시 해제. */
