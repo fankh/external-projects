@@ -1406,6 +1406,14 @@ try {
   ok('검수 반려 → 반품 완료: 대시보드 백로그에서 제외', !p4Dash.includes('검수 반려 (재검수 · 반품 확인)'))
   // 내게 온 알림(수신자 측) — 나를 수신자(to)로 한 통지를 My Work 에서 요약. 그동안 발송 이력은 관리자만 볼 수 있었다. 박자산 앞 통지(예: JetBrains 만료 임박) 노출.
   ok('대시보드(수신자): 내게 온 알림 — 나를 수신자로 한 통지 요약 노출', p4Dash.includes('내게 온 알림') && p4Dash.includes('JetBrains'))
+  // 스캔 이력 원클릭 재실행 — 과거 회차의 채널·범위·강도 그대로 다시 돌린다(그동안 이력은 조회 전용). 상태 변경이라 스크립트 끝에서 수행.
+  await p4.goto(`${BASE}/discovery/scan`, { waitUntil: 'networkidle' })
+  const scanCountBefore = Number(((await p4.textContent('body')) || '').match(/스캔 이력 (\d+)회차/)?.[1] ?? '0')
+  await p4.locator('tr', { has: p4.locator('td', { hasText: 'SCN-RUN-2607-27' }) }).first().locator('button', { hasText: /^재실행$/ }).click()
+  await p4.waitForTimeout(900)
+  await p4.goto(`${BASE}/discovery/scan`, { waitUntil: 'networkidle' })
+  const scanCountAfter = Number(((await p4.textContent('body')) || '').match(/스캔 이력 (\d+)회차/)?.[1] ?? '0')
+  ok('스캔 이력 재실행: 과거 회차 조건으로 새 회차 추가(원클릭 재탐지)', scanCountBefore > 0 && scanCountAfter === scanCountBefore + 1)
   await ctx4.close()
 
   await browser.close()

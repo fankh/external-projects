@@ -5,6 +5,7 @@ import { nowMinute } from '@/lib/dates'
 import { isScanOverdue } from '@/lib/scan-policy'
 import { getStore } from '@/lib/store'
 import { ScanConsole } from './ScanConsole'
+import { ScanRerunButton } from './ScanRerunButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,7 +111,7 @@ export default async function ScanPage() {
               <tr>
                 <th>회차</th><th>시작</th><th>종료</th><th className="num">채널</th><th>대상</th>
                 <th className="c">강도</th><th className="num">관측</th><th className="num">재관측</th><th className="num">신규</th>
-                <th>실행</th><th className="c">상태</th>
+                <th>실행</th><th className="c">상태</th><th className="c">재실행</th>
               </tr>
             </thead>
             <tbody>
@@ -130,9 +131,10 @@ export default async function ScanPage() {
                     {r.override && <div className="dim" style={{ fontSize: 11 }}>시간대 밖 — {r.override}</div>}
                   </td>
                   <td className="c"><Chip tone={RUN_TONE[r.status]}>{r.status}</Chip></td>
+                  <td className="c"><ScanRerunButton runId={r.id} /></td>
                 </tr>
               ))}
-              {runs.length === 0 && <tr><td colSpan={11}><div className="empty">스캔 이력이 없습니다</div></td></tr>}
+              {runs.length === 0 && <tr><td colSpan={12}><div className="empty">스캔 이력이 없습니다</div></td></tr>}
             </tbody>
           </table>
         </div>

@@ -28,6 +28,22 @@ export interface ScanInput {
   override?: string
 }
 
+/** 스캔 재실행 — 과거 회차(scanRuns)의 채널·범위·강도를 그대로 다시 돌린다. 스캔 이력에서 원클릭 재탐지 —
+ *  그동안 이력은 조회 전용이라, 같은 조건으로 다시 돌리려면 콘솔에서 채널·강도를 수기로 다시 골라야 했다.
+ *  runScan 에 위임하므로 정책 중지 채널·시간대 안전장치·감사 기록을 똑같이 탄다(시간대 밖이면 재실행 사유가 기록된다). */
+export async function rerunScan(runId: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '스캔 실행 권한이 없습니다.' }
+  const prev = getStore().scanRuns.find((r) => r.id === runId)
+  if (!prev) return { ok: false, message: '재실행할 스캔 회차를 찾을 수 없습니다.' }
+  return runScan({
+    channels: prev.channels,
+    scope: prev.scope,
+    intensity: prev.intensity,
+    override: prev.override || `이전 회차(${prev.id}) 재실행`,
+  })
+}
+
 /** 스캔 실행 — 선택한 채널이 관측을 수집하고, 지문으로 병합되어 발견 저장소에 반영된다. */
 export async function runScan(input: ScanInput) {
   const session = await getSession()
