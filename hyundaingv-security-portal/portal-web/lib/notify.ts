@@ -89,6 +89,15 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
       .map((p) => p.inspector).filter((name) => people.some((p) => p.name === name)),
     '[보안점검] 기한 경과 항목 안내')
 
+  // 2-b) 보안성 검토 착수 경과 — 착수 예정일이 지났는데 아직 '계획'(미착수)인 검토의 검토자
+  // 재직자 교집합 — 검토자가 퇴사해 s.people 에서 빠지면 착수할 수 없으므로(유령 독촉) 타 person 경로
+  // (점검 경과·미서약·재택)와 동일하게 현재 재직 명단과 교집합한다. 검토 계획 자체는 보안성 검토 화면에
+  // 남아 미착수·경과 가시성은 유지된다(진행·조치중은 착수했으므로 제외, 완료는 종결).
+  await send('보안성 검토 경과',
+    s.securityReviews.filter((r) => r.plannedAt < t && r.status === '계획')
+      .map((r) => r.reviewer).filter((name) => people.some((p) => p.name === name)),
+    '[보안성 검토] 착수 예정일 경과 안내')
+
   // 3) SR 지연 — 완료 예정일 경과 진행 건의 담당 CI
   await send('SR 지연',
     s.srRequests.filter((r) => r.dueDate && r.dueDate < t && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status))
