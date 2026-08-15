@@ -1,6 +1,7 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { daysUntil } from '@/lib/dates'
+import { nextEasmRescan } from '@/lib/easm'
 import { CredTable } from './CredTable'
 import { ExposedTable } from './ExposedTable'
 import { IocTable } from './IocTable'
@@ -31,11 +32,10 @@ export default async function ExternalPage() {
   const s = getStore()
   // 유출 대응은 보안 업무 — 보안담당·Admin 만 조치 가능
   const canRespond = ['SEC_MGR', 'ADMIN'].includes(session.role)
-  // 다음 재탐지 기한 — 마지막 실행 + 주기. 지나면 기한 경과로 표시해 스케줄러 지연을 드러낸다
+  // 다음 재탐지 기한 — 마지막 실행 + 주기(nextEasmRescan 단일 소스). 지나면 기한 경과로 표시해 스케줄러 지연을 드러낸다(대시보드 큐와 동일 판정)
   const targets = s.easmTargets.map((t) => {
-    if (!t.lastRunAt) return { ...t, dueIn: null }
-    const due = new Date(new Date(t.lastRunAt).getTime() + t.intervalDays * 86_400_000).toISOString().slice(0, 10)
-    return { ...t, dueIn: daysUntil(due) }
+    const next = nextEasmRescan(t)
+    return { ...t, dueIn: next === null ? null : daysUntil(next) }
   })
   const ext = s.external
   const unreg = ext.filter((e) => e.state === '미등록')

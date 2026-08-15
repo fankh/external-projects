@@ -295,6 +295,9 @@ try {
   // 수집 커넥터 지연·오류 운영 큐 — 시드 프록시 커넥터(지연)로 보안담당 대시보드에 Discovery 저하 신호가 뜬다
   const dashSec = await (await get('/dashboard', 'SEC_MGR')).text()
   check('대시보드(보안담당): 수집 커넥터 지연·오류 운영 큐 노출', dashSec.includes('수집 커넥터 지연·오류') && dashSec.includes('Discovery 저하'))
+  // 외부 공격표면 재탐지 기한 경과(§04 재탐지 자동 반복) — 도메인 주기 경과·미실행이면 노출 관측 사각. 시드 3개 도메인 재탐지 기한 경과.
+  check('대시보드(보안담당): 외부 공격표면 재탐지 기한 경과 큐 노출', dashSec.includes('외부 공격표면 재탐지 기한 경과') && dashSec.includes('Discovery 사각'))
+  check('대시보드(자산담당): 재탐지 기한 경과 큐 미노출 (보안 운영 큐)', !dashHtml.includes('외부 공격표면 재탐지 기한 경과'))
   check('대시보드(자산담당): 수집 커넥터 큐 미노출 (보안 운영 큐)', !dashHtml.includes('수집 커넥터 지연·오류'))
   // 크리덴셜 노출 미조치 — loop45. 유출·외부 노출과 나란히 보안담당 운영 큐에 노출된다(자산담당엔 미노출)
   check('대시보드(보안담당): 크리덴셜 노출 미조치 운영 큐 노출', dashSec.includes('크리덴셜 노출 미조치'))
