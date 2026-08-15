@@ -472,10 +472,11 @@ function seedScanPolicies(): ScanPolicy[] {
 
 function seedSaasCatalog(): SaasCatalogEntry[] {
   return [
-    { id: 'CAT-01', service: 'Notion', category: '협업', vendor: 'Notion Labs', status: '검토중', dataGrade: '민감', owner: '마케팅팀' },
+    { id: 'CAT-01', service: 'Notion', category: '협업', vendor: 'Notion Labs', status: '검토중', dataGrade: '민감', owner: '마케팅팀', reviewSince: '2026-07-18' },
     { id: 'CAT-02', service: 'Figma', category: '디자인', vendor: 'Figma Inc.', status: '인가', dataGrade: '일반', owner: '디자인팀', decidedAt: '2026-03-11', decidedBy: '시스템관리자' },
-    { id: 'CAT-03', service: 'ChatGPT', category: 'AI', vendor: 'OpenAI', status: '검토중', dataGrade: '기밀', owner: '전사' },
-    { id: 'CAT-04', service: 'Miro', category: '협업', vendor: 'Miro', status: '검토중', dataGrade: '일반', owner: '플랫폼개발팀' },
+    // 기밀 등급 서비스가 판정 기한을 넘겨 방치 — 데이터 반출 위험 최우선 판정 대상(에스컬레이션)
+    { id: 'CAT-03', service: 'ChatGPT', category: 'AI', vendor: 'OpenAI', status: '검토중', dataGrade: '기밀', owner: '전사', reviewSince: '2026-07-09' },
+    { id: 'CAT-04', service: 'Miro', category: '협업', vendor: 'Miro', status: '검토중', dataGrade: '일반', owner: '플랫폼개발팀', reviewSince: '2026-07-25' },
     { id: 'CAT-05', service: 'Dropbox', category: '스토리지', vendor: 'Dropbox', status: '차단', dataGrade: '기밀', owner: '영업1팀', decidedAt: '2026-07-18', decidedBy: '윤보안' },
     { id: 'CAT-06', service: 'GitHub', category: '개발', vendor: 'GitHub', status: '인가', dataGrade: '민감', owner: '개발본부', decidedAt: '2025-11-02', decidedBy: '시스템관리자' },
   ]

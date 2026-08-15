@@ -1,6 +1,8 @@
 import { ExportButton } from '@/components/ExportButton'
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { today } from '@/lib/dates'
+import { buildSaasReview } from '@/lib/saas-review'
 import { getStore } from '@/lib/store'
 import { CatalogTable } from './CatalogTable'
 
@@ -10,6 +12,7 @@ export default async function SaasCatalogPage() {
   const session = await requireRole('SEC_MGR', 'ADMIN')
   const s = getStore()
   const c = s.saasCatalog
+  const review = buildSaasReview()
 
   return (
     <>
@@ -22,7 +25,7 @@ export default async function SaasCatalogPage() {
 
       <div className="stat-row">
         <Stat value={c.filter((x) => x.status === '인가').length} label="인가 등재" tone="ok" />
-        <Stat value={c.filter((x) => x.status === '검토중').length} label="검토 대기" tone="warn" delta={{ text: '부서 확인 후 판정 필요', dir: 'flat' }} />
+        <Stat value={c.filter((x) => x.status === '검토중').length} label="검토 대기" tone="warn" delta={{ text: review.overdue.length ? `판정 기한(${review.slaDays}일) 경과 ${review.overdue.length}건` : '기한 내 판정 진행', dir: review.overdue.length ? 'up' : 'flat' }} />
         <Stat value={c.filter((x) => x.status === '차단').length} label="차단 지정" tone="err" />
         <Stat value={c.filter((x) => x.dataGrade === '기밀').length} label="기밀 등급 취급" tone="err" delta={{ text: '데이터 등급 기준 우선 검토', dir: 'flat' }} />
       </div>
@@ -33,8 +36,16 @@ export default async function SaasCatalogPage() {
         기밀 등급을 취급하는 서비스는 판정 전 데이터 반출 범위를 먼저 확인하세요.
       </div>
 
+      {review.overdue.length > 0 && (
+        <div className="callout" style={{ borderColor: 'var(--err)' }}>
+          <b>판정 기한 경과 {review.overdue.length}건 (최장 {review.oldestDays}일).</b> 검토중 SaaS 는 접수 후 {review.slaDays}일 내 인가/차단으로 판정해야 합니다.
+          기한 경과분은 대시보드 에스컬레이션 큐에 노출됩니다{review.overdueSensitive > 0 ? <> — 이 중 <b>민감·기밀 등급 {review.overdueSensitive}건</b>은 데이터 반출 위험으로 우선 판정하세요</> : null}.
+          {' '}대상: {review.overdue.map((e) => `${e.service}(${e.dataGrade})`).join(', ')}.
+        </div>
+      )}
+
       <Card kicker="Catalog" title="서비스 목록 · 판정" pad={false}>
-        <CatalogTable entries={c} />
+        <CatalogTable entries={c} today={today()} slaDays={review.slaDays} />
       </Card>
     </>
   )

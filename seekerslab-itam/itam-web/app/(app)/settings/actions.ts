@@ -101,6 +101,7 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
   entry.status = status
   entry.decidedAt = today()
   entry.decidedBy = session.name
+  entry.reviewSince = status === '검토중' ? today() : undefined // 판정 완료 시 기한 추적 종료
 
   // 폐쇄 루프 — 카탈로그 판정을 Shadow SaaS 사용 현황에 반영
   const usage = s.saas.find((u) => u.service === entry.service)
