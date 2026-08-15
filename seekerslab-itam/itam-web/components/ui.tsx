@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 import type { RiskLevel } from '@/lib/types'
 
@@ -34,14 +35,19 @@ export function Card(props: { title?: string; kicker?: string; actions?: ReactNo
   )
 }
 
-export function Stat(props: { value: ReactNode; label: string; tone?: 'accent' | 'warn' | 'err' | 'ok'; delta?: { text: string; dir: 'up' | 'down' | 'flat' } }) {
-  return (
-    <div className={`stat ${props.tone && props.tone !== 'accent' ? props.tone : ''}`}>
+export function Stat(props: { value: ReactNode; label: string; tone?: 'accent' | 'warn' | 'err' | 'ok'; delta?: { text: string; dir: 'up' | 'down' | 'flat' }; href?: string }) {
+  const cls = `stat ${props.tone && props.tone !== 'accent' ? props.tone : ''}`
+  const inner = (
+    <>
       <div className="v">{props.value}</div>
       <div className="l">{props.label}</div>
       {props.delta && <div className={`d ${props.delta.dir}`}>{props.delta.text}</div>}
-    </div>
+    </>
   )
+  // href 가 있으면 KPI 카드 자체를 상세로 가는 링크로 만든다(조치가 필요한 지표가 클릭으로 바로 이어지게)
+  return props.href
+    ? <Link href={props.href} className={cls} style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }} title="상세 화면으로 이동">{inner}</Link>
+    : <div className={cls}>{inner}</div>
 }
 
 const RISK_TONE: Record<RiskLevel, string> = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' }

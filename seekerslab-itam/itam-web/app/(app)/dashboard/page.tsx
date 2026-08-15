@@ -199,7 +199,7 @@ export default async function DashboardPage() {
 
       <div className="stat-row">
         <Stat value={s.assets.length.toLocaleString()} label="총 등록 자산" delta={{ text: `사용중 ${inUse} · 유휴/반납 ${idle}`, dir: 'flat' }} />
-        <Stat value={newFound.length} label="미등록 신규 발견 (Shadow IT)" tone="err" delta={{ text: '소유자 확인·편입 필요', dir: 'up' }} />
+        <Stat value={newFound.length} label="미등록 신규 발견 (Shadow IT)" tone="err" delta={{ text: '소유자 확인·편입 필요', dir: 'up' }} href={session.role !== 'USER' ? '/discovery/found' : undefined} />
         <Stat value={expiring.length} label={`만료 임박 (계약·라이선스 ${s.opsPolicy.expiryWindowDays}일)`} tone="warn"
           delta={{ text: expiring.some((x) => (x.d ?? 0) < 0) ? `만료 ${expiring.filter((x) => (x.d ?? 0) < 0).length}건 포함` : `최단 ${expiring[0]?.d ?? '-'}일`, dir: 'flat' }} />
         <Stat value={pendingApr.length} label="결재 대기" tone={overdueApr > 0 ? 'err' : 'accent'}
@@ -217,7 +217,7 @@ export default async function DashboardPage() {
       <div className="cols main-side">
         <div className="vstack">
           <Card kicker="Discovery" title="미등록 자산 신규 발견" pad={false}
-            actions={<Link className="btn sm" href="/discovery/found">전체 보기</Link>}>
+            actions={session.role !== 'USER' ? <Link className="btn sm" href="/discovery/found">전체 보기</Link> : undefined}>
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead>
@@ -241,7 +241,7 @@ export default async function DashboardPage() {
           </Card>
 
           <Card kicker="Contracts · Licenses" title="만료 임박" pad={false}
-            actions={<Link className="btn sm" href="/inventory/contracts">계약 · 라이선스</Link>}>
+            actions={['ASSET_MGR', 'ADMIN'].includes(session.role) ? <Link className="btn sm" href="/inventory/contracts">계약 · 라이선스</Link> : undefined}>
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead>
