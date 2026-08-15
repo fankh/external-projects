@@ -130,7 +130,9 @@ export function fmtAmount(n: number): string {
  *  임계값은 스토어 opsPolicy 를 단일 출처로 받는다(호출부가 s.opsPolicy.staleVerifyDays 전달). 서버 전용. */
 export function isStaleVerify(a: Asset, staleDays: number): boolean {
   if (a.status === '폐기완료' || a.status === '폐기예정') return false
-  if (!a.lastVerifiedAt) return true
+  // 미측정('-' 센티넬 포함)은 장기 미실측으로 본다 — '-' 는 daysUntil 이 null 로 처리하므로 명시 가드가 없으면
+  // 최근 측정으로 오판(재물조사 편성·'장기 미실측' 큐에서 누락)된다. 다른 날짜 예측 헬퍼와 같은 페일세이프.
+  if (!a.lastVerifiedAt || a.lastVerifiedAt === '-') return true
   return -(daysUntil(a.lastVerifiedAt) ?? 0) > staleDays
 }
 

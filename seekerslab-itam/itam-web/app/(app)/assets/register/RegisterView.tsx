@@ -783,7 +783,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               <div className="callout" style={{ marginTop: 12, padding: '10px 12px' }}>
                 {maintMsg ? maintMsg : (
                   <>
-                    <b>정기 점검 예정 {sel.maintenanceDue}{props.today && sel.maintenanceDue <= props.today ? ' (경과)' : ''}.</b> 예방 정비 대상 자산입니다.
+                    <b>정기 점검 예정 {sel.maintenanceDue}{props.today && sel.maintenanceDue < props.today ? ' (경과)' : ''}.</b> 예방 정비 대상 자산입니다.
                     {!maintOpen ? (
                       <div style={{ marginTop: 8 }}>
                         <button className="btn sm pri" disabled={pending}
