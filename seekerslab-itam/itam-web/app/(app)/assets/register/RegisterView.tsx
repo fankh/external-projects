@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, returnLoan, scheduleMaintenance, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -152,6 +152,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     const r = await recoverManyFromUser([...checked], '오프보딩·재배정')
     setBulkMsg(r.message)
     if (r.ok) setChecked(new Set())
+  })
+  // 정기 점검 일괄 예약 — 선택 자산에 같은 예방 정비 예정일을 한 번에 등록(보증 일괄 연장과 같은 배치 접점)
+  const [bulkMaintDate, setBulkMaintDate] = useState('')
+  const bulkSchedule = () => startTransition(async () => {
+    const r = await scheduleMaintenanceMany([...checked], bulkMaintDate)
+    setBulkMsg(r.message)
+    if (r.ok) { setChecked(new Set()); setBulkMaintDate('') }
   })
   const exportHref = `/api/export/assets?nos=${encodeURIComponent([...checked].join(','))}`
 
@@ -297,6 +304,12 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                 <button className="btn sm warn" disabled={pending} onClick={bulkRecover}
                   title="선택한 사용 중 자산을 일괄 회수 — 오프보딩·재배정(반납 접수 대기열로)">일괄 회수 (사용중 {checkedUsable.length})</button>
               )}
+              <span className="hstack" style={{ gap: 6 }}>
+                <span className="mut" style={{ fontSize: 12 }}>정기 점검 일괄 예약</span>
+                <input className="input" type="date" style={{ height: 28 }} min={props.today} value={bulkMaintDate} disabled={pending}
+                  onChange={(e) => setBulkMaintDate(e.target.value)} title="선택 자산에 예방 정비 예정일을 일괄 등록" />
+                <button className="btn sm" disabled={pending || !bulkMaintDate} onClick={bulkSchedule}>예약</button>
+              </span>
               <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
             </>
           ) : null}

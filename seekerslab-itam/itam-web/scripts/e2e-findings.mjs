@@ -457,6 +457,19 @@ try {
   await p2.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   const bulkRecoverBody = (await p2.locator('body').textContent()) || ''
   ok('일괄 회수 → 반납 접수 대기열 편성(2건)', bulkRecoverBody.includes('AST-2024-000091') && bulkRecoverBody.includes('AST-2023-000562'))
+
+  // 정기 점검 일괄 예약 — 선택 자산에 예방 정비 예정일을 한 번에 등록(보증 일괄 연장·일괄 회수와 같은 배치 접점). 그동안 점검 예약은 자산 하나씩만 가능했다.
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p2.locator('input[aria-label="AST-2023-000112 선택"]').check()
+  await p2.locator('input[aria-label="AST-2023-000113 선택"]').check()
+  const maintBulk = p2.locator('span').filter({ hasText: '정기 점검 일괄 예약' }).first()
+  await maintBulk.locator('input[type="date"]').fill('2026-12-15')
+  await maintBulk.locator('button', { hasText: /^예약$/ }).click()
+  await p2.waitForTimeout(700)
+  ok('정기 점검 일괄 예약: 선택 자산에 점검 예정일 일괄 등록', ((await p2.locator('body').textContent()) || '').includes('예정 2026-12-15'))
+  await p2.goto(`${BASE}/assets/register?sel=AST-2023-000112`, { waitUntil: 'networkidle' })
+  ok('정기 점검 일괄 예약 → 개별 자산에 예정일 반영', ((await p2.locator('body').textContent()) || '').includes('2026-12-15'))
+
   // 정기 점검(예방 정비) — 예정일 도래 자산(시드 AST-2022-000640)을 자산담당이 점검 완료 → 다음 점검 12개월 후로 재예약(반응형 수리와 별개).
   await p2.goto(`${BASE}/assets/register?sel=AST-2022-000640`, { waitUntil: 'networkidle' })
   const maintBtn = p2.locator('button', { hasText: /^정기 점검 완료$/ })
