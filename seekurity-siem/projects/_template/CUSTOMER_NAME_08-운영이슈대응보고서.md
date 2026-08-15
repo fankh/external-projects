@@ -135,3 +135,20 @@ tail -500 /opt/seekurity-siem/logs/ss-database-checker/ss-database-checker.log >
 sudo -u postgres psql -p 15432 -d siem -c "SELECT name,log_type,is_deleted,is_disabled,collect_interval_seconds,last_collected_at FROM log_sources WHERE log_type='db';" > $D/db-sources.txt
 tar czf $D.tar.gz -C /tmp $(basename $D)
 ```
+
+## 부록 B. 표준 서비스 포트
+
+제품은 관리 및 데이터 서비스에 표준(well-known) 포트를 사용하지 않음.
+모든 접속 명령은 아래 포트를 명시하여 수행함.
+
+| 서비스 | 포트 | 비고 |
+|--------|------|------|
+| Nginx (HTTPS) | 443 | 외부 접속 표준 포트 |
+| SS-Syslog-Receiver | 514/UDP | 장비 연동 표준 포트 |
+| SS-API | 23001 | |
+| SS-Console | 23002 | |
+| OpenSearch API | 19200 | |
+| OpenSearch Transport | 19300 | |
+| PostgreSQL | 15432 | psql 사용 시 -p 15432 필수 |
+| Kafka | 19092 | |
+| Zookeeper | 12181 | |
