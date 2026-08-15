@@ -721,6 +721,10 @@ try {
   await step2.locator('button', { hasText: /^사용 수집$/ }).click()
   await p3.waitForTimeout(900)
   ok('라이선스 STEP2: 사용 수집 실행 → 설치 관측 대사 완료', ((await step2.textContent()) || '').includes('사용 수집 완료'))
+  // 유지보수 계약 예산 집행(§03) — CT-2022-007 누계 4,980만 > 계약 4,800만 → 예산 초과 판정. 대시보드 재협상 큐와 동일 근거.
+  const maintCard = p3.locator('.card', { hasText: '유지보수 계약 관리 — 예산 집행 · SLA' }).first()
+  const maintTxt = (await maintCard.textContent()) || ''
+  ok('유지보수 계약: 예산 초과 판정 렌더(CT-2022-007 집행률>100%)', maintTxt.includes('네트워크 장비 통합 유지보수') && maintTxt.includes('예산 초과'))
   // SaaS 인가 요청 승인 → 사용 현황(s.saas) + 정책 카탈로그(s.saasCatalog) 양쪽 인가 반영(교차 정합). 시드 APR-2607-125(Linear)
   await p3.goto(`${BASE}/workflow/approvals?sel=APR-2607-125`, { waitUntil: 'networkidle' })
   await p3.locator('tr', { has: p3.locator('td', { hasText: 'APR-2607-125' }) }).first().locator('button', { hasText: /^승인$/ }).click()

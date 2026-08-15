@@ -6,6 +6,7 @@ import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { hasDataIssue } from '@/lib/quality'
 import { approvalHref, noticeHref, qnaHref } from '@/lib/reflink'
+import { buildMaintenance } from '@/lib/maintenance'
 import { licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -22,6 +23,7 @@ export default async function DashboardPage() {
   const newFound = s.discovered.filter((d) => d.state === '미등록' && !d.action)
   // 라이선스 판정(초과·만료·미사용 회수)은 분석 화면 패널·리포트·어시스턴트와 동일한 licenseOptimization() 단일 소스.
   const licOpt = licenseOptimization()
+  const maint = buildMaintenance()
   // 교체 대상(내용연수 초과·보증 경과·장애 이력)은 수명예측 패널·연간 교체 계획 리포트와 동일한 replacementCandidates() 단일 소스.
   const replCands = replacementCandidates().cands
   const pendingApr = s.approvals.filter((a) => a.status === '대기')
@@ -92,6 +94,8 @@ export default async function DashboardPage() {
       { label: '라이선스 만료 경과 (갱신 필요 · 위반 노출)', count: licOpt.expired.length, href: '/inventory/contracts', tone: 'err' },
       // 미사용 라이선스 회수 후보 — 사용률 60% 미만. 리스크(초과·만료)의 반대편 = 비용 절감 신호. 분석 화면 라이선스 최적화 패널과 같은 근거.
       { label: '미사용 라이선스 회수 후보 (비용 절감)', count: licOpt.under.length, href: '/ai/insights', tone: 'warn' },
+      // 유지보수 예산 초과·소진 임박 — 계약별 집행률 판정(§03 유지보수 비용 관리)을 담당자 일과 시작점으로 끌어올린다. 방치하면 예산 초과·조기 소진.
+      { label: '유지보수 예산 초과·소진 임박 (재협상·집행 점검)', count: maint.rows.filter((r) => r.status === '예산 초과' || r.status === '소진 임박').length, href: '/inventory/contracts', tone: maint.overBudget > 0 ? 'err' : 'warn' },
       // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.
       { label: '대장 정합성 미흡 (필드 누락·불일치)', count: s.assets.filter(hasDataIssue).length, href: '/assets/register?dq=1', tone: 'warn' },
     )

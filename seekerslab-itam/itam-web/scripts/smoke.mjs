@@ -241,6 +241,8 @@ try {
   check('대시보드: 안전재고 미달 발주 검토 큐 (자산담당)', dashHtml.includes('안전재고 미달') && dashHtml.includes('발주 검토') && dashHtml.includes('/inventory/stock'))
   // 라이선스 초과 사용(SAM 감사 최우선 노출) — 시드 LIC-002(JetBrains 120보유/131사용, 11석 초과)로 자산담당 운영 큐에 노출·계약 화면 드릴
   check('대시보드: 라이선스 초과 사용 감사 노출 큐 (자산담당)', dashHtml.includes('라이선스 초과 사용') && dashHtml.includes('감사 노출') && dashHtml.includes('/inventory/contracts'))
+  // 유지보수 예산 초과·소진 임박 — 계약 집행률 판정(§03 유지보수 비용 관리)을 담당자 일과 시작점으로. 시드 CT-2022-007(누계 4,980만/계약 4,800만 → 예산 초과)로 큐 노출·계약 화면 드릴.
+  check('대시보드: 유지보수 예산 초과·소진 임박 큐 (자산담당)', dashHtml.includes('유지보수 예산 초과·소진 임박') && dashHtml.includes('재협상·집행 점검'))
   // 라이선스 만료 경과 — 시드 LIC-002(JetBrains, 만료 2026-05-31 · 기준일 2026-07-29 경과)가 미갱신 만료로 위반 노출. 만료 임박 창에서 이미 지난 건.
   check('대시보드: 라이선스 만료 경과 갱신 필요 큐 (자산담당)', dashHtml.includes('라이선스 만료 경과') && dashHtml.includes('갱신 필요'))
   // 미사용 라이선스 회수 후보 — 시드 LIC-003(Adobe 55%)·LIC-004(AutoCAD 40%) 사용률 60% 미만. 리스크(초과·만료)의 반대편 = 비용 절감 신호를 일과 시작점에 노출.
@@ -361,7 +363,7 @@ try {
   check('라이선스 STEP2: 사용 수집(EDR 설치 SW 대사) 패널 렌더', contractsHtml.includes('사용 수집 — EDR 설치 SW 인벤토리 대사') && contractsHtml.includes('배정 밖 설치 — 무단 사용') && contractsHtml.includes('미설치 좌석 — 회수 후보'))
   check('라이선스 STEP2: 배정 밖 설치 대사 실측(무단 사용 자산)', contractsHtml.includes('AST-2021-000432') && contractsHtml.includes('배정 밖 설치 (무단 사용)'))
   // 유지보수 계약 관리(§03) — 비용 이력이 '누계'만 보이던 것을 계약액 대비 집행률·잔여·판정 + SLA 요약으로 완성.
-  //  CT-2022-007: 계약액 4,800만 · 누계 지출 2,580만 → 집행률 54%. CT-2024-011: 비용 이력 없음 → 미집행. SLA 요약 노출.
+  //  CT-2022-007: 계약액 4,800만 · 누계 지출 4,980만(1~3Q+긴급) → 예산 초과. CT-2024-011: 비용 이력 없음 → 미집행. SLA 요약 노출.
   check('유지보수 계약: 예산 집행 현황 패널 렌더(집행률·판정)', contractsHtml.includes('유지보수 계약 관리 — 예산 집행 · SLA') && contractsHtml.includes('전체 집행률') && contractsHtml.includes('누계 지출'))
   check('유지보수 계약: 예산 집행 실측(SLA 요약·미집행 판정)', contractsHtml.includes('장애 접수 후 4시간 내 온사이트 대응') && contractsHtml.includes('미집행'))
   // 만료 경과 라이선스 판정 — LIC-002(JetBrains, 만료일 지남)는 초과 사용과 별개로 '만료' 칩으로 갱신 필요를 명시
