@@ -569,7 +569,7 @@ function seed(): Store {
       {
         // 도입 예정 — ITSM SR·발주로 사전 등록된, 아직 도착 전 자산 (제품안내서 §06 ITSM·구매 연동)
         id: 'IN-2607-03', contractId: 'CT-2026-009', model: 'ThinkPad X1 Carbon G12', category: '단말',
-        qty: 15, arrivedAt: '', vendor: '(주)한빛INT', status: '도입 예정', srNo: 'SR-2607-041', expectedDate: '2026-08-14', unitCost: 1_650_000,
+        qty: 15, arrivedAt: '', vendor: '(주)한빛INT', status: '도입 예정', srNo: 'SR-2607-041', expectedDate: '2026-07-25', unitCost: 1_650_000,
         checklist: [], issued: [],
       },
       {

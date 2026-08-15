@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil, isApprovalOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isQnaOverdue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isQnaOverdue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
 import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { hasDataIssue } from '@/lib/quality'
@@ -70,6 +70,8 @@ export default async function DashboardPage() {
     const moveDue = s.approvals.filter((a) => a.kind === '이동' && a.status === '승인' && !a.fulfilled).length
     opsQueues.push(
       { label: '입고 검수 대기', count: s.intakeLots.filter((l) => l.status === '입고 대기' || l.status === '검수 중').length, href: '/assets/intake', tone: 'warn' },
+      // 도입 예정 입고 지연 — 도착 예정일이 지났는데 미입고(§06 ITSM·구매 연동). 발주처 독촉·납기 관리 대상.
+      { label: '도입 예정 입고 지연 (SR·발주 독촉)', count: s.intakeLots.filter(isIntakeOverdue).length, href: '/assets/intake', tone: 'err' },
       // 검수 반려 로트 — 불량 반려 후 재검수(교체품 도착)·반품 확인이 필요한 후속 백로그. 방치하면 대금·자산 공백이 생긴다.
       { label: '검수 반려 (재검수 · 반품 확인)', count: s.intakeLots.filter((l) => l.status === '검수 반려').length, href: '/assets/intake', tone: 'err' },
       { label: '불출 · 이동 집행 대기', count: issueDue + moveDue, href: '/assets/movement', tone: 'warn' },

@@ -10,7 +10,13 @@ interface PC { id: string; name: string; vendor: string }
 const STATUS_TONE = { '도입 예정': 'info', '입고 대기': 'neutral', '검수 중': 'warn', '검수 완료': 'ok', '검수 반려': 'err', '반품 완료': 'neutral' } as const
 const CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
-export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[] }) {
+/** 도입 예정 입고 지연 경과일 — 도착 예정일 대비 기준일(YYYY-MM-DD 파싱, Date.now 미사용) */
+function intakeLateDays(expectedDate: string | undefined, today: string): number {
+  if (!expectedDate) return 0
+  return Math.floor((Date.parse(today) - Date.parse(expectedDate)) / 86_400_000)
+}
+
+export function IntakeView({ lots, labels, contracts, today }: { lots: IntakeLot[]; labels: Label[]; contracts: PC[]; today: string }) {
   // 도입 예정(사전 등록) 건과 실제 입고 건을 분리한다 — 도입 예정은 아직 검수 대상이 아니다
   const plannedLots = lots.filter((l) => l.status === '도입 예정')
   const arrivedLots = lots.filter((l) => l.status !== '도입 예정')
@@ -88,10 +94,12 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th>입고번호</th><th>SR·발주</th><th>계약</th><th>모델</th><th>공급사</th><th className="num">수량</th><th>도착 예정</th><th className="c">처리</th></tr>
+                <tr><th>입고번호</th><th>SR·발주</th><th>계약</th><th>모델</th><th>공급사</th><th className="num">수량</th><th>도착 예정</th><th className="c">납기</th><th className="c">처리</th></tr>
               </thead>
               <tbody>
-                {plannedLots.map((l) => (
+                {plannedLots.map((l) => {
+                  const late = intakeLateDays(l.expectedDate, today)
+                  return (
                   <tr key={l.id}>
                     <td className="code">{l.id}</td>
                     <td className="code">{l.srNo}</td>
@@ -100,12 +108,13 @@ export function IntakeView({ lots, labels, contracts }: { lots: IntakeLot[]; lab
                     <td className="mute">{l.vendor}</td>
                     <td className="num">{l.qty}</td>
                     <td className="tnum">{l.expectedDate}</td>
+                    <td className="c">{late > 0 ? <Chip tone="err">입고 지연 D+{late}</Chip> : <Chip tone="ok" bare>정상</Chip>}</td>
                     <td className="c">
                       <button className="btn sm pri" disabled={pending} onClick={() => markArrived(l.id)}
                         title="실제 도착 처리 — 입고 대기로 전환해 검수 대기열에 편성">입고 등록 (도착)</button>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
