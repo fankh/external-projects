@@ -601,6 +601,16 @@ try {
   // 본인 문의(JetBrains, 답변 완료)에 초점 + 타인 문의(NAS·이서연) 미포함(권한 필터)
   ok('사용자 AI 질의: 본인 QnA 답변 현황 초점 답변', uQna.includes('답변 완료') && uQna.includes('JetBrains') && uQna.includes('[답변]'))
   ok('사용자 AI 질의: QnA 권한 필터 — 타인 문의 미포함', !uQna.includes('NAS'))
+  // QnA 종결 루프(작성자 셀프서비스) — 답변된 본인 문의를 작성자가 해결 확인하거나, 미흡하면 재문의로 재검토를 요청한다. QNA-03(김민준·JetBrains, 박자산 답변).
+  await pU.goto(`${BASE}/board/qna?sel=QNA-03`, { waitUntil: 'networkidle' })
+  await pU.locator('button', { hasText: /^해결 확인$/ }).click()
+  await pU.waitForTimeout(600)
+  await pU.goto(`${BASE}/board/qna?sel=QNA-03`, { waitUntil: 'networkidle' })
+  ok('QnA 해결 확인(작성자): 해결됨 표시', ((await pU.locator('body').textContent()) || '').includes('해결됨'))
+  await pU.locator('button', { hasText: /^재문의$/ }).click()
+  await pU.waitForTimeout(600)
+  await pU.goto(`${BASE}/board/qna?sel=QNA-03`, { waitUntil: 'networkidle' })
+  ok('QnA 재문의(작성자): 해결 확인 해제 후 해결 확인 버튼 복귀', (await pU.locator('button', { hasText: /^해결 확인$/ }).count()) > 0)
   // 대여 신청 대상 재배치 풀 정합 — 폐기 절차 자산(AST-2021-000432, 유휴+DSP-02)은 대여 후보에서 제외, 유효 유휴는 노출
   await pU.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   const reqCard = pU.locator('.card', { has: pU.locator('.tt', { hasText: '신청 상신' }) }).first()
