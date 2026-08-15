@@ -7,7 +7,7 @@ import { getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Store } from '@/lib/store'
 import { REMOTE_CYCLES, type RemoteCycle } from '@/lib/types'
 
-/** 재택근무 보안 점검 항목 — 공통코드화 대상 (등록 주기: 월) */
+/** 재택근무 보안 점검 항목 — 공통코드화 대상 (등록 주기: 매일·월·분기·반기 설정, s.remoteCycle) */
 const ITEMS = [
   '업무용 PC 화면잠금(자리비움 시)을 설정했다.',
   '사내망 접속은 VPN을 통해서만 한다.',
