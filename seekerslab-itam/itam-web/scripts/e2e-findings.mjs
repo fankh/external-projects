@@ -392,6 +392,12 @@ try {
   ok('자산 회수 전: 배정 라이선스 역조회 노출(LIC-001 좌석)', ((await p2.locator('body').textContent()) || '').includes('배정 라이선스') && ((await p2.locator('body').textContent()) || '').includes('Microsoft 365'))
   // 수령 미확인 스테일 방지 — 이 자산은 불출 후 인수 미확인(receiptPending) 상태. 회수 시 함께 해제되어야 스테일 '수령 미확인'이 남지 않는다.
   ok('자산 회수 전: 수령 확인 대기(인수 미확인) 노출', ((await p2.locator('body').textContent()) || '').includes('수령 확인 대기'))
+  // 자산 인수인계서(영구 불출 서면 증적) — 대여 확인서·분실 신고서는 있으나 주된 물리 인계인 영구 불출엔 서명 인수인계 문서가 없었다.
+  //  사용중 자산 상세에 인수인계서 인쇄 링크 + 라우트 렌더. receiptPending 이라 '인수 확인 대기'로 표기된다.
+  ok('사용중 자산 상세: 인수인계서 인쇄 링크(불출 서면 증적)', (await p2.locator('a[href="/api/handover-sheet/AST-2023-000221"]').count()) > 0)
+  const handoverRes = await p2.request.get(`${BASE}/api/handover-sheet/AST-2023-000221`)
+  const handoverBody = await handoverRes.text()
+  ok('인수인계서: 인계·인수 확인서 렌더(인수자·인수 확인 대기)', handoverRes.status() === 200 && handoverBody.includes('ASSET HANDOVER') && handoverBody.includes('인수 확인 대기'))
   await recoverBtn.click()
   await p2.waitForTimeout(200)
   await p2.locator('input[placeholder*="회수 사유"]').fill('퇴직 오프보딩')
