@@ -74,6 +74,10 @@
 
 ### A.1 수집기 등록 및 활성 상태 확인
 
+```bash
+sudo -u postgres psql -p 15432 -d siem
+```
+
 ```sql
 SELECT name, log_type, ip_address, port, database, database_name,
        is_deleted, is_disabled,
@@ -128,6 +132,6 @@ D=/tmp/siem-diag-$(date +%Y%m%d); mkdir -p $D
 md5sum /opt/seekurity-siem/bin/*.jar > $D/jar-md5.txt
 systemctl list-units 'ss-*' --no-pager > $D/services.txt
 tail -500 /opt/seekurity-siem/logs/ss-database-checker/ss-database-checker.log > $D/dbchecker.log
-sudo -u postgres psql -d siem -c "SELECT name,log_type,is_deleted,is_disabled,collect_interval_seconds,last_collected_at FROM log_sources WHERE log_type='db';" > $D/db-sources.txt
+sudo -u postgres psql -p 15432 -d siem -c "SELECT name,log_type,is_deleted,is_disabled,collect_interval_seconds,last_collected_at FROM log_sources WHERE log_type='db';" > $D/db-sources.txt
 tar czf $D.tar.gz -C /tmp $(basename $D)
 ```
