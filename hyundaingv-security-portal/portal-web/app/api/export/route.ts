@@ -17,6 +17,7 @@ const EXPORT_MENU: Record<string, string> = {
   racks: '/infra/racks', hardware: '/infra/racks', servers: '/infra/systems', systems: '/infra/systems',
   batches: '/infra/operations', interfaces: '/infra/operations',
   'education-records': '/compliance/education', 'pledge-status': '/pledge/dept',
+  'security-reviews': '/compliance/security-review',
   'remote-status': '/awareness/remote', audit: '/settings/audit',
 }
 
