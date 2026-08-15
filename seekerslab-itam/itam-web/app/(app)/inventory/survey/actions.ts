@@ -79,6 +79,9 @@ export async function scanAsset(roundId: string, rawCode: string, location: stri
     round.mismatched += 1
   }
 
+  // 감사 추적 — 실측 스캔은 최근 실측일 갱신(장기 미실측 판정 근거)·차이 레코드 생성을 남기므로 중앙 감사 로그에 적재한다
+  // (§07 감사 추적성 · Discovery runScan·형제 조정 액션과 동형. 그동안 스캔은 surveyScans·자산 이력에만 남고 감사 로그엔 빠져 있었다).
+  appendAudit({ actor: session.name, action: `재물조사 실측 스캔 — ${round.name} · ${code} (${result}${diffKind ? ` · ${diffKind}` : ''})`, target: asset?.assetNo ?? code })
   revalidatePath('/', 'layout')
   return { ok: true, result, message }
 }
