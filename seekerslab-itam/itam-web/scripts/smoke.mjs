@@ -515,6 +515,8 @@ try {
   const extHtml = await (await get('/discovery/external', 'SEC_MGR')).text()
   check('외부 공격표면: 수동·능동 기법 렌더', extHtml.includes('인증서 투명성') && extHtml.includes('존 트랜스퍼'))
   check('외부 공격표면: 노출 자산·CVE 렌더', extHtml.includes('legacy-vpn.seekerslab.co.kr') && extHtml.includes('CVE-2018-13379'))
+  // 위험 수용 — 편입/차단 외에 '인지된 노출' 공식 수용 처분(위험 관리 표준). 수용 시 활성 취약점 우선순위(미조치)에서 제외.
+  check('외부 공격표면: 노출 자산에 위험 수용 처분 컨트롤(편입·차단 외)', extHtml.includes('위험 수용'))
   check('외부 공격표면: 위협 인텔·유출 수집 렌더', extHtml.includes('스틸러 로그'))
   // 인증 취약점 점검(§04) — 오픈 포트에 한해 기본·취약 크리덴셜 점검, 서비스별 노출. 유출 대응(loop28)과 동형의 조치 루프.
   check('외부 공격표면: 인증 취약점 점검(크리덴셜 노출) 렌더', extHtml.includes('인증 취약점 점검') && extHtml.includes('PostgreSQL') && extHtml.includes('db-backup.seekerslab.co.kr'))
