@@ -313,6 +313,9 @@ try {
   // 외부 공격표면 재탐지 기한 경과(§04 재탐지 자동 반복) — 도메인 주기 경과·미실행이면 노출 관측 사각. 시드 3개 도메인 재탐지 기한 경과.
   check('대시보드(보안담당): 외부 공격표면 재탐지 기한 경과 큐 노출', dashSec.includes('외부 공격표면 재탐지 기한 경과') && dashSec.includes('Discovery 사각'))
   check('대시보드(자산담당): 재탐지 기한 경과 큐 미노출 (보안 운영 큐)', !dashHtml.includes('외부 공격표면 재탐지 기한 경과'))
+  // 내부 수집 채널 재탐지 주기 경과 — EASM 재탐지 지연과 동형의 Discovery 사각 신호. 보안 운영 큐(자산담당 미노출).
+  check('대시보드(보안담당): 탐지 채널 재탐지 주기 경과 큐 노출', dashSec.includes('탐지 채널 재탐지 주기 경과') && dashSec.includes('수집 지연'))
+  check('대시보드(자산담당): 탐지 채널 재탐지 주기 경과 큐 미노출 (보안 운영 큐)', !dashHtml.includes('탐지 채널 재탐지 주기 경과'))
   check('대시보드(자산담당): 수집 커넥터 큐 미노출 (보안 운영 큐)', !dashHtml.includes('수집 커넥터 지연·오류'))
   // 크리덴셜 노출 미조치 — loop45. 유출·외부 노출과 나란히 보안담당 운영 큐에 노출된다(자산담당엔 미노출)
   check('대시보드(보안담당): 크리덴셜 노출 미조치 운영 큐 노출', dashSec.includes('크리덴셜 노출 미조치'))
@@ -719,6 +722,8 @@ try {
   check('스캔 실행: 채널별 수집 현황·이력 렌더', scanHtml2.includes('채널별 수집 현황') && scanHtml2.includes('스캔 이력') && scanHtml2.includes('SCN-RUN-2607-28'))
   check('스캔 실행: 안전장치 문구·실행 UI', scanHtml2.includes('스캔 안전장치') && scanHtml2.includes('스캔 실행') && scanHtml2.includes('허용 시간대'))
   check('스캔 실행: 관측 저장소가 채널별 집계의 원천', scanHtml2.includes('누적 관측'))
+  // 재탐지 주기 경과 — 활성 채널인데 마지막 수집이 주기를 넘긴 정체 수집기(Discovery 사각). EASM 재탐지 지연과 동형. 시드 관측이 기준일보다 오래돼 활성 채널이 지연으로 잡힌다.
+  check('스캔 실행: 재탐지 주기 경과 채널에 재탐지 지연 칩(정체 수집기 · Discovery 사각)', scanHtml2.includes('재탐지 지연'))
   // 상태바의 마지막 스캔은 하드코딩이 아니라 스캔 이력에서 와야 한다
   check('상태바: 마지막 스캔이 이력에서 파생', scanHtml2.includes('마지막 스캔 2026-07-28 23:00') && scanHtml2.includes('스케줄러 (야간 정책)'))
 

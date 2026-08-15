@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { Card, Chip, RiskChip, ScreenHeader, Stat } from '@/components/ui'
 import { canDecideApproval } from '@/lib/approval'
-import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isQnaOverdue, isRepairOverdue, isStaleVerify, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, isApprovalOverdue, isIntakeOverdue, isLoanDueSoon, isLoanOverdue, isMaintenanceDue, isQnaOverdue, isRepairOverdue, isStaleVerify, nowMinute, roundProgressPct, today } from '@/lib/dates'
 import { isEasmRescanOverdue } from '@/lib/easm'
+import { overdueScanChannels } from '@/lib/scan-policy'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
@@ -144,6 +145,8 @@ export default async function DashboardPage() {
       { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
       // 외부 공격표면 재탐지 기한 경과 — 도메인별 주기(스케줄러) 경과·미실행이면 외부 노출 관측에 사각(§04 재탐지 자동 반복). 재탐지 실행 대상.
       { label: '외부 공격표면 재탐지 기한 경과 (재탐지 지연 · Discovery 사각)', count: s.easmTargets.filter(isEasmRescanOverdue).length, href: '/discovery/external', tone: 'warn' },
+      // 내부 수집 채널 재탐지 주기 경과 — 활성 채널인데 마지막 수집이 주기를 넘겼다(정체된 수집기 = 미등록 자산·Shadow IT 미탐지). EASM 재탐지 지연과 동형.
+      { label: '탐지 채널 재탐지 주기 경과 (수집 지연 · Discovery 사각)', count: overdueScanChannels(s.scanPolicies, s.observations, nowMinute()).length, href: '/discovery/scan', tone: 'warn' },
     )
   }
   if (session.role === 'ADMIN') {
