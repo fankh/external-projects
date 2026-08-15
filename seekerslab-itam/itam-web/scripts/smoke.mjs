@@ -1076,6 +1076,8 @@ try {
   const usrHtml = await (await get('/settings/users', 'ADMIN')).text()
   check('사용자 · 결재선: 결재선·필수 결재·단계 편집 렌더', usrHtml.includes('IT기획팀장') && usrHtml.includes('필수 결재') && usrHtml.includes('편집'))
   check('사용자 · 결재선: STEP 4 권한그룹 배정 컨트롤 렌더', usrHtml.includes('사용자 · 권한그룹 배정') && usrHtml.includes('select'))
+  // 대여 결재선(AL-09) — 유일하게 매트릭스에서 누락돼 레거시 폴백으로 우회하던 상신 종류(대여=자산 반출)를 거버넌스 매트릭스에 편입. 화면·리포트 노출.
+  check('사용자 · 결재선: 대여 결재선이 거버넌스 매트릭스에 노출(레거시 폴백 제거)', usrHtml.includes('수명주기 · 대여'))
   // 사용자별 보유 자산 수 — 계정 관리 시 자산 부담 가시성 + 해당 사용자 자산 대장 드릴다운
   check('사용자: 보유 자산 수 + 자산 대장 드릴 링크', usrHtml.includes('보유 자산') && usrHtml.includes('/assets/register?q='))
   // 오프보딩 요약 — 퇴직·부서이동 시 회수·재배정 대상(사용중 보유·대여·라이선스 좌석·상신 결재)을 한 사람 기준으로 모은다. 자산·좌석 있는 사용자에 요약 토글 노출.

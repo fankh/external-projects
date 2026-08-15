@@ -897,6 +897,14 @@ try {
   // 오프보딩 명세서 인쇄 링크 — 확장 요약에서 인수인계 체크리스트(회수·재배정 대상)를 한 장 인쇄 산출물로 발급
   ok('오프보딩 요약: 명세서 인쇄 링크(인수인계 체크리스트)', obBody.includes('명세서 인쇄') && (await p3.locator('a[href*="/api/offboard-sheet/"]').count()) > 0)
 
+  // 대여 결재선 거버넌스 편입(AL-09) — 대여(자산 반출) 상신은 결재선 매트릭스에 행이 없어 레거시 폴백(ASSET_MGR)으로만 라우팅되고
+  //  거버넌스 화면·리포트에서 보이지 않았다. 유일하게 매트릭스에서 누락된 상신 종류. 매트릭스 행 추가로 편입·편집 가능함을 검증한다.
+  const loanLineRow = p3.locator('tr', { has: p3.locator('td', { hasText: '수명주기 · 대여' }) }).first()
+  ok('결재선 매트릭스: 대여 결재선 행 노출(레거시 폴백 아님)', (await loanLineRow.count()) > 0)
+  const loanLineText = (await loanLineRow.textContent()) || ''
+  ok('결재선 매트릭스: 대여 결재선 단계(신청자 → 자산담당)', loanLineText.includes('신청자') && loanLineText.includes('자산담당'))
+  ok('결재선 매트릭스: 대여는 선택 결재(필수 ↔ 선택 전환 가능 · 잠금 아님)', (await loanLineRow.locator('button', { hasText: /^선택$/ }).count()) > 0)
+
   // 공통코드 참조 무결성 가드 — 살아있는 레코드가 참조하는 코드는 미사용 전환 차단(드롭다운 사각지대 방지). 그동안 toggleCodeValue 는
   //  참조 검사 없이 active 를 뒤집어, 사용 중 LOCATION 을 미사용화하면 이동·실사 드롭다운에서 사라졌다(구축_요약 위치 코드 누락 버그류).
   await p3.goto(`${BASE}/settings/codes`, { waitUntil: 'networkidle' })

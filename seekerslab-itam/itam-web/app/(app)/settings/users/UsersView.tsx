@@ -202,7 +202,7 @@ export function UsersView(props: { users: UserAccount[]; lines: ApprovalLine[]; 
         </div>
         <div className="callout" style={{ margin: 14 }}>
           <b>폐기 · 격리 요청 · 편입(소유자 확인) · 차이 조정</b>은 필수 결재로 <span className="mut">🔒</span> 고정되어 해제할 수 없습니다 —
-          결재 없이 대장에 반영하는 우회를 원천 차단합니다. 신청 · 반납 · 이동은 운영 정책에 따라 필수 ↔ 선택을 전환할 수 있습니다.
+          결재 없이 대장에 반영하는 우회를 원천 차단합니다. 신청 · 반납 · 이동 · 대여는 운영 정책에 따라 필수 ↔ 선택을 전환할 수 있습니다.
         </div>
       </Card>
     </>
