@@ -1,8 +1,7 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { aiStatus } from '@/lib/ai-status'
 import { requireRole } from '@/lib/authz'
-import { nextRunOf, REPORT_KINDS } from '@/lib/reports'
-import { today } from '@/lib/dates'
+import { isScheduleOverdue, nextRunOf, REPORT_KINDS } from '@/lib/reports'
 import { ScheduleCard } from './ScheduleCard'
 import { getStore } from '@/lib/store'
 import { ReportsView } from './ReportsView'
@@ -13,7 +12,6 @@ export default async function ReportsPage() {
   await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
   const ai = aiStatus()
-  const t = today()
   const DAY = ['', '월', '화', '수', '목', '금', '토', '일']
   const schedules = s.reportSchedules.map((sc) => {
     const nextRun = nextRunOf(sc)
@@ -22,7 +20,7 @@ export default async function ReportsPage() {
       dayOfWeek: sc.dayOfWeek, dayOfMonth: sc.dayOfMonth,
       dayLabel: sc.period === '주간' ? `매주 ${DAY[sc.dayOfWeek ?? 1]}요일` : `매월 ${sc.dayOfMonth ?? 1}일`,
       recipients: sc.recipients, lastRunAt: sc.lastRunAt, nextRun,
-      overdue: nextRun === null || nextRun <= t,
+      overdue: isScheduleOverdue(sc),
     }
   })
   // 스케줄이 없는 '수시' 리포트도 함께 보여줘야 5종 전체가 한눈에 들어온다

@@ -247,6 +247,8 @@ try {
   check('대시보드: 유지보수 예산 초과·소진 임박 큐 (자산담당)', dashHtml.includes('유지보수 예산 초과·소진 임박') && dashHtml.includes('재협상·집행 점검'))
   // 구매 계약 발주 미이행 — 발주율 저조 + 만료 임박 계약을 담당자 일과 시작점으로. 시드 CT-2023-021(발주 7%·만료 임박)로 큐 노출.
   check('대시보드: 구매 계약 발주 미이행 큐 (자산담당)', dashHtml.includes('구매 계약 발주 미이행') && dashHtml.includes('이행 점검'))
+  // 정례 리포트 배포 기한 경과(§05 리포트 자동화) — 가동 스케줄 예약 실행일 경과·미배포를 운영 큐로. 시드 스케줄러 밀림분.
+  check('대시보드: 정례 리포트 배포 기한 경과 큐 (자산담당)', dashHtml.includes('정례 리포트 배포 기한 경과') && dashHtml.includes('자동 생성 밀림'))
   // 라이선스 만료 경과 — 시드 LIC-002(JetBrains, 만료 2026-05-31 · 기준일 2026-07-29 경과)가 미갱신 만료로 위반 노출. 만료 임박 창에서 이미 지난 건.
   check('대시보드: 라이선스 만료 경과 갱신 필요 큐 (자산담당)', dashHtml.includes('라이선스 만료 경과') && dashHtml.includes('갱신 필요'))
   // 미사용 라이선스 회수 후보 — 시드 LIC-003(Adobe 55%)·LIC-004(AutoCAD 40%) 사용률 60% 미만. 리스크(초과·만료)의 반대편 = 비용 절감 신호를 일과 시작점에 노출.
@@ -965,7 +967,7 @@ try {
   check('리포트: 수시 유형은 스케줄 없음 표기', repText.includes('수시') && repText.includes('사유 발생 시 수동 생성'))
   check('리포트: 중지된 스케줄 표기', repText.includes('라이선스 컴플라이언스') && repText.includes('중지'))
   // 보안 정례 리포트 스케줄 편입 — 주간 취약점 조치 우선순위·월간 AI 거버넌스·성능 자동 생성·배포(로17). 스케줄 5건·가동 4건.
-  check('리포트: 보안 정례 스케줄 편입 (자동 5·가동 4)', repText.includes('자동 5(가동 4)'))
+  check('리포트: 정례 스케줄 편입 (자동 7·가동 6 — FinOps·계약 월간 포함)', repText.includes('자동 7(가동 6)'))
   const scanHtml = await (await get('/settings/scan-policy', 'ADMIN')).text()
   check('탐지 채널 정책: 6채널·강도 통제 렌더', scanHtml.includes('네트워크 능동 스캔') && scanHtml.includes('스캔 안전장치') && scanHtml.includes('23:00 ~ 05:00'))
   // 대역·시간대 정책 편집(§07 스캔 안전장치) — 능동 스캔 채널에 정책 편집 컨트롤. 시간대는 로15(시간대 밖 사유 필요)의 통제 원천.
