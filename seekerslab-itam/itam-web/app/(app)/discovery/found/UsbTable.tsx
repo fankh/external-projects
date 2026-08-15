@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import { USB_POLICY, type UsbFinding } from '@/lib/types'
-import { respondToUsb } from '../actions'
+import { respondToUsb, revokeUsbException } from '../actions'
 
 const KIND_TONE = { '대용량 반출 의심': 'err', '미등록 저장매체': 'warn', '암호화 미적용': 'warn' } as const
 
@@ -19,6 +19,7 @@ export function UsbTable({ items, canAct }: { items: UsbFinding[]; canAct: boole
       setMsg(r.message); setBusy(null)
     })
   }
+  const revoke = (id: string) => { setBusy(id); startTransition(async () => { const r = await revokeUsbException(id); setMsg(r.message); setBusy(null) }) }
 
   return (
     <>
@@ -50,7 +51,12 @@ export function UsbTable({ items, canAct }: { items: UsbFinding[]; canAct: boole
                 <td className="c"><RiskChip risk={u.risk} /></td>
                 {canAct && (
                   <td className="c" style={{ whiteSpace: 'nowrap' }}>
-                    {u.action ? (
+                    {u.action === '예외 승인' ? (
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                        <Chip tone="info">예외 승인</Chip>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => revoke(u.id)} title="예외 승인 해제 — 다시 정책(차단/예외 판정) 대상으로">예외 해제</button>
+                      </span>
+                    ) : u.action ? (
                       <Chip tone={u.action.startsWith('차단') ? 'err' : 'info'}>{u.action}</Chip>
                     ) : (
                       <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>

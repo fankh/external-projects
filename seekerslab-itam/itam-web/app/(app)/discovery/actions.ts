@@ -395,3 +395,37 @@ export async function respondToLocalVm(vmId: string, kind: '회수' | '예외 �
   revalidatePath('/', 'layout')
   return { ok: true, message: `${v.vm} ${v.action} — ${kind === '회수' ? '보안운영팀' : v.dept} 통지·감사 적재` }
 }
+
+/** USB 매체 예외 승인 해제 — 잘못 승인했거나 정책이 바뀐 예외 등록을 되돌려 다시 미조치(차단/예외 판정 대상)로 전환한다.
+ *  (SW 화이트리스트 해제(removeSwAllow)와 같은 규약 — 예외 승인은 오판정될 수 있어 되돌릴 수 있어야 한다. 그동안 USB·VM 예외는 비가역이었다.)
+ *  '예외 승인' 상태만 해제 대상. 차단 요청은 보안 집행이라 이 경로로 되돌리지 않는다. 보안담당·Admin. */
+export async function revokeUsbException(usbId: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: 'USB 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  const s = getStore()
+  const u = s.usbFindings.find((x) => x.id === usbId)
+  if (!u) return { ok: false, message: 'USB 검출 항목을 찾을 수 없습니다.' }
+  if (u.action !== '예외 승인') return { ok: false, message: '예외 승인 상태의 USB 항목만 해제할 수 있습니다.' }
+  u.action = undefined
+  u.actedBy = undefined
+  u.actedAt = undefined
+  appendAudit({ actor: session.name, action: `USB 저장매체 예외 승인 해제 — ${u.device} @ ${u.assetNo} (다시 정책 대상)`, target: u.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${u.device} 예외 승인 해제 — 다시 미조치(차단/예외 판정) 대상으로 전환` }
+}
+
+/** 로컬 VM 예외 승인 해제 — USB 예외 해제와 동일 규약. '예외 승인' 상태만 대상. 보안담당·Admin. */
+export async function revokeVmException(vmId: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '로컬 VM 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  const s = getStore()
+  const v = s.localVms.find((x) => x.id === vmId)
+  if (!v) return { ok: false, message: '로컬 VM 검출 항목을 찾을 수 없습니다.' }
+  if (v.action !== '예외 승인') return { ok: false, message: '예외 승인 상태의 로컬 VM 항목만 해제할 수 있습니다.' }
+  v.action = undefined
+  v.actedBy = undefined
+  v.actedAt = undefined
+  appendAudit({ actor: session.name, action: `로컬 VM 예외 승인 해제 — ${v.vm} @ ${v.assetNo} (다시 정책 대상)`, target: v.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${v.vm} 예외 승인 해제 — 다시 미조치(회수/예외 판정) 대상으로 전환` }
+}

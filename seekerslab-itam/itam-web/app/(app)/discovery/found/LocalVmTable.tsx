@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import { LOCALVM_POLICY, type LocalVmFinding } from '@/lib/types'
-import { respondToLocalVm } from '../actions'
+import { respondToLocalVm, revokeVmException } from '../actions'
 
 const KIND_TONE = { 'EOL·미패치 게스트': 'err', '미인가 하이퍼바이저': 'warn', '미관리 VM': 'warn' } as const
 
@@ -19,6 +19,7 @@ export function LocalVmTable({ items, canAct }: { items: LocalVmFinding[]; canAc
       setMsg(r.message); setBusy(null)
     })
   }
+  const revoke = (id: string) => { setBusy(id); startTransition(async () => { const r = await revokeVmException(id); setMsg(r.message); setBusy(null) }) }
 
   return (
     <>
@@ -51,7 +52,12 @@ export function LocalVmTable({ items, canAct }: { items: LocalVmFinding[]; canAc
                 <td className="c"><RiskChip risk={v.risk} /></td>
                 {canAct && (
                   <td className="c" style={{ whiteSpace: 'nowrap' }}>
-                    {v.action ? (
+                    {v.action === '예외 승인' ? (
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                        <Chip tone="info">예외 승인</Chip>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => revoke(v.id)} title="예외 승인 해제 — 다시 정책(회수/예외 판정) 대상으로">예외 해제</button>
+                      </span>
+                    ) : v.action ? (
                       <Chip tone={v.action.startsWith('회수') ? 'err' : 'info'}>{v.action}</Chip>
                     ) : (
                       <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
