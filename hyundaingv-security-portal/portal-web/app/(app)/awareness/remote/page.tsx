@@ -99,7 +99,7 @@ async function setRemoteCycle(formData: FormData) {
   const s = getStore()
   if (s.remoteCycle === cycle) return
   s.remoteCycle = cycle
-  audit(me.name, '재택 주기 변경', `등록 주기 → ${cycle}`)
+  audit(me.name, '재택 대상자 변경', `등록 주기 변경 → ${cycle}`)
   revalidatePath('/', 'layout')
 }
 
