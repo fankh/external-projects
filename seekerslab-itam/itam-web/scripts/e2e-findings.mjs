@@ -648,6 +648,18 @@ try {
   const uRepair = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
   ok('사용자 AI 질의: 내 수리 현황 — 장애 신고 자산·증상 초점(AST-2024-000015·전원 불량)', uRepair.includes('AST-2024-000015') && uRepair.includes('전원 불량'))
 
+  // 반납 신청 셀프서비스(사용자) — 대여자가 대여를 마치고 반환하겠다고 자산담당에 알린다. 그동안 반환은 자산담당만 처리 가능했다. AST-2024-000230(김민준 대여중).
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
+  await pU.locator('button', { hasText: /^반납 신청$/ }).click()
+  await pU.waitForTimeout(600)
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
+  ok('반납 신청(사용자): 신청 접수 표시(반납 신청됨)', ((await pU.locator('body').textContent()) || '').includes('반납 신청됨'))
+  // 반납 신청 취소 — 반환 접수 전이라면 본인 신청을 철회한다. 취소해 자산을 연장 요청 테스트를 위한 원상태로 되돌린다.
+  await pU.locator('button', { hasText: /^신청 취소$/ }).click()
+  await pU.waitForTimeout(600)
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
+  ok('반납 신청 취소(사용자): 철회 후 반납 신청 버튼 복귀', (await pU.locator('button', { hasText: /^반납 신청$/ }).count()) > 0)
+
   // 대여 반환 기한 연장 요청(사용자 셀프서비스) — 대여자가 본인 대여 자산의 연장을 자산담당에 신청. 그동안 연장은 자산담당만 가능했다. AST-2024-000230(김민준 대여중).
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
   await pU.locator('button', { hasText: /^반환 기한 연장 요청$/ }).click()

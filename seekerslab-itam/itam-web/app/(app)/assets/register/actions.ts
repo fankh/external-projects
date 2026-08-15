@@ -332,6 +332,41 @@ export async function cancelLoanExtension(assetNo: string) {
   return { ok: true, message: `${assetNo} 대여 연장 요청 취소 — 기한 유지` }
 }
 
+/** 반납(반환) 신청 — 대여자(사용자 본인)가 대여를 마치고 자산을 돌려주겠다고 자산담당에 알린다.
+ *  상태는 바꾸지 않고 신호만 남긴다(실제 회수·점검은 자산담당의 반환 접수로 진행). 본인 대여 중 자산만. */
+export async function requestReturn(assetNo: string, rawNote = '') {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '대여중' || asset.owner !== session.name) return { ok: false, message: '본인 대여 중인 자산만 반납 신청할 수 있습니다.' }
+  if (asset.returnRequest) return { ok: false, message: '이미 반납 신청된 자산입니다.' }
+  const note = rawNote.trim()
+  asset.returnRequest = { by: session.name, at: today(), note: note || undefined }
+  dispatch({ channel: '이메일', to: '자산관리팀', subject: `대여 반납 신청 — ${asset.assetNo} ${asset.model} (${session.name})${note ? ` · ${note}` : ''}`, kind: '반납 접수', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `대여 반납 신청${note ? ` — ${note}` : ''}`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: '반납 신청 접수 — 자산관리팀이 회수·점검 후 반환 처리합니다.' }
+}
+
+/** 반납 신청 취소 — 신청자(대여자 본인)가 반환 접수 전에 자신의 반납 신청을 철회한다. 상태는 그대로 대여중. */
+export async function cancelReturnRequest(assetNo: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  const req = asset.returnRequest
+  if (!req) return { ok: false, message: '반납 신청이 없는 자산입니다.' }
+  if (req.by !== session.name) return { ok: false, message: '본인이 올린 반납 신청만 취소할 수 있습니다.' }
+  asset.returnRequest = undefined
+  dispatch({ channel: '이메일', to: '자산관리팀', subject: `대여 반납 신청 취소 — ${asset.assetNo} ${asset.model} (${req.by})`, kind: '반납 접수', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `대여 반납 신청 취소 — ${asset.assetNo}`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 반납 신청 취소 — 대여 유지` }
+}
+
 /** 대여 반환 접수 — 대여 자산을 회수해 유휴 풀로 되돌린다(연체 여부와 무관하게 반환 처리).
  *  소유자를 비우고 검수실로 편성해 재확인 후 재배치한다. 대여중 자산만 대상. 자산담당·Admin. */
 export async function returnLoan(assetNo: string, condition: ReturnCondition = '정상', rawNote = '') {
@@ -348,6 +383,7 @@ export async function returnLoan(assetNo: string, condition: ReturnCondition = '
   const note = rawNote.trim()
   const loc = '본사 3F 검수실'
   asset.loanDueDate = undefined
+  asset.returnRequest = undefined // 반납 신청분을 접수 처리하면 신청 신호 해제(스테일 신청 방지)
   // 대여 반환도 반납(receiveReturn)과 같이 상태 점검으로 가른다 — 손상된 반환분이 바로 유휴 풀에 들어가 재대여/재불출되면 안 된다.
   //  정상 → 유휴 · 수리 필요 → 수리중(수리 후 유휴) · 폐기 권고 → 폐기예정(폐기 절차 편입).
   if (condition === '폐기 권고') {

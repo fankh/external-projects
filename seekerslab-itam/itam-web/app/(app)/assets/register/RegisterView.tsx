@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelLoanExtension, confirmReceipt, correctField, declineLoanExtension, extendLoan, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { cancelLoanExtension, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -103,6 +103,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [loanExtDate, setLoanExtDate] = useState('')
   const [loanExtReason, setLoanExtReason] = useState('')
   const [loanExtMsg, setLoanExtMsg] = useState<string | null>(null)
+  const [retReqMsg, setRetReqMsg] = useState<string | null>(null)
   const [maintOpen, setMaintOpen] = useState(false)
   const [maintNote, setMaintNote] = useState('')
   const [maintMsg, setMaintMsg] = useState<string | null>(null)
@@ -526,6 +527,27 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       </dd>
                     </>
                   ) : null}
+                  {/* 반납 신청(사용자 셀프서비스) — 대여자가 대여를 마치고 반환하겠다고 자산담당에 알린다. 실제 회수·점검은 자산담당의 반환 접수로 진행. */}
+                  {!props.canEdit && (
+                    <>
+                      <dt>반납 신청</dt>
+                      <dd className="vstack" style={{ gap: 6 }}>
+                        {retReqMsg && <span className="dim" style={{ fontSize: 11.5 }}>{retReqMsg}</span>}
+                        {sel.returnRequest ? (
+                          <span className="hstack" style={{ gap: 6 }}>
+                            <span><Chip tone="warn" bare>반납 신청됨</Chip> {sel.returnRequest.at} · {sel.returnRequest.by}</span>
+                            <button className="btn sm ghost" disabled={pending}
+                              title="반환 접수 전이라면 본인 반납 신청을 철회합니다"
+                              onClick={() => startTransition(async () => setRetReqMsg((await cancelReturnRequest(sel.assetNo)).message))}>신청 취소</button>
+                          </span>
+                        ) : (
+                          <button className="btn sm" disabled={pending}
+                            title="대여를 마쳤음을 자산관리팀에 알립니다 — 회수·점검 후 반환 처리됩니다"
+                            onClick={() => startTransition(async () => setRetReqMsg((await requestReturn(sel.assetNo, '')).message))}>반납 신청</button>
+                        )}
+                      </dd>
+                    </>
+                  )}
                 </>
               )}
               {sel.status === '사용중' && props.canEdit && (
@@ -921,6 +943,11 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             {props.canEdit && sel.status === '대여중' && (
               <div style={{ marginTop: 12 }}>
                 {loanMsg && <div className="callout" style={{ marginBottom: 10 }}>{loanMsg}</div>}
+                {sel.returnRequest && (
+                  <div className="callout" style={{ marginBottom: 10 }}>
+                    <Chip tone="warn" bare>반납 신청됨</Chip> {sel.returnRequest.by} · {sel.returnRequest.at}{sel.returnRequest.note ? ` — ${sel.returnRequest.note}` : ''} · 회수·점검 후 아래 <b>대여 반환 접수</b>로 처리하세요.
+                  </div>
+                )}
                 <div className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
                   <button className="btn sm pri" disabled={pending}
                     onClick={() => startTransition(async () => {

@@ -84,6 +84,8 @@ export default async function DashboardPage() {
       { label: '수령 미확인 (불출 후 인수 대기)', count: s.assets.filter((a) => a.receiptPending).length, href: '/assets/register', tone: 'warn' },
       // 대여 연장 요청 대기 — 대여자(사용자)가 올린 반환 기한 연장 요청. 통보만으론 놓칠 수 있어 대장 상세 밖 대시보드 큐로도 드러낸다(요청대로 연장·반려 처리).
       { label: '대여 연장 요청 대기 (요청대로 연장·반려 처리)', count: s.assets.filter((a) => a.loanExtendRequest).length, href: '/assets/register?status=대여중', tone: 'warn' },
+      // 반납 신청 대기 — 대여자가 반납하겠다고 셀프서비스로 알린 건. 회수·점검 후 반환 접수로 마무리한다.
+      { label: '반납 신청 대기 (회수·점검 후 반환 접수)', count: s.assets.filter((a) => a.returnRequest).length, href: '/assets/register?status=대여중', tone: 'warn' },
       { label: '수리 진행 · 완료 확인', count: s.assets.filter((a) => a.status === '수리중').length, href: '/assets/returns', tone: 'warn' },
       { label: '수리 예상 반환 경과 (업체 독촉)', count: s.assets.filter(isRepairOverdue).length, href: '/assets/returns', tone: 'err' },
       // 정기 점검 대상 — 예방 정비 예정일 도래(30일 내·경과) 운영 자산. 반응형 수리와 별개의 사전 정비(§03 유지보수).
