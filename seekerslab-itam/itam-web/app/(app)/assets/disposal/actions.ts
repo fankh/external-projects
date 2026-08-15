@@ -11,7 +11,7 @@ import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, type Disposition, type DisposalPho
  *  (폐기 화면은 반환값을 쓰지 않지만, 반납·유휴 화면에서 장기 유휴 → 폐기 검토 브리지가 피드백을 쓴다). */
 export async function selectForDisposal(assetNo: string, reason: string): Promise<{ ok: boolean; message: string }> {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
   const s = getStore()
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
@@ -27,7 +27,7 @@ export async function selectForDisposal(assetNo: string, reason: string): Promis
  *  잘못 선정하거나 일괄/AI 선정을 되돌릴 때. 결재 상신·소거 진행 건은 취소 불가. 자산담당·Admin. */
 export async function cancelDisposalCandidate(disposalId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '폐기 대상 취소 권한이 없습니다.' }
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '폐기 대상 취소 권한이 없습니다.' }
   const s = getStore()
   const d = s.disposals.find((x) => x.id === disposalId)
   if (!d) return { ok: false, message: '폐기 대상을 찾을 수 없습니다.' }
@@ -46,7 +46,7 @@ export async function cancelDisposalCandidate(disposalId: string) {
  *  이미 선정됐거나 없는 자산은 건너뛰고, 실제 선정된 수만 감사에 남긴다. */
 export async function selectForDisposalMany(items: { assetNo: string; reason: string }[]) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '폐기 대상 선정 권한이 없습니다.' }
   const s = getStore()
   let n = 0
   for (const it of items) {
@@ -65,7 +65,7 @@ export async function selectForDisposalMany(items: { assetNo: string; reason: st
 /** 폐기 결재 상신 — 필수 결재 (자산담당 → IT기획팀장) */
 export async function raiseDisposalApproval() {
   const session = await getSession()
-  if (!session || session.role === 'USER') return
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return
   const s = getStore()
   const targets = s.disposals.filter((d) => d.status === '대상 선정')
   if (targets.length === 0) return
@@ -89,7 +89,7 @@ export async function raiseDisposalApproval() {
 /** 데이터 소거 처리 + 물리 처분 + 증적 보존 — 승인된 건만 가능 */
 export async function recordWipe(id: string, method: WipeMethod, disposition: Disposition = '폐기(파쇄)', rawProceeds = 0) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '권한이 없습니다.' }
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '권한이 없습니다.' }
   if (!DISPOSITIONS.includes(disposition)) return { ok: false, message: '처분 방식이 올바르지 않습니다.' }
   const s = getStore()
   const d = s.disposals.find((x) => x.id === id)
@@ -133,7 +133,7 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
  *  "증적 사진이 존재한다"는 감사 주장을 실제 기록으로 뒷받침한다(제품안내서 §03 폐기: 증적(사진·확인서)). 자산담당·Admin. */
 export async function addDisposalPhoto(id: string, label: DisposalPhotoLabel, rawNote: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '증적 사진 등록 권한이 없습니다 (자산담당·Admin).' }
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '증적 사진 등록 권한이 없습니다 (자산담당·Admin).' }
   if (!DISPOSAL_PHOTO_LABELS.includes(label)) return { ok: false, message: '사진 구분이 올바르지 않습니다.' }
 
   const s = getStore()
@@ -150,7 +150,7 @@ export async function addDisposalPhoto(id: string, label: DisposalPhotoLabel, ra
 /** 폐기 증적 사진 삭제 — 잘못 등록한 증적 항목을 제거한다. 감사 로그에 남긴다. 자산담당·Admin. */
 export async function removeDisposalPhoto(id: string, photoId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '증적 사진 삭제 권한이 없습니다 (자산담당·Admin).' }
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '증적 사진 삭제 권한이 없습니다 (자산담당·Admin).' }
 
   const s = getStore()
   const d = s.disposals.find((x) => x.id === id)
