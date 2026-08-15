@@ -1867,8 +1867,8 @@ fi
 
 ```bash
 # 1. PostgreSQL 비밀번호 변경 (DB 레벨)
-sudo -u postgres psql -c "ALTER USER seekers WITH PASSWORD 'NewPassword123!';"
-sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'NewAdminPass456!';"
+sudo -u postgres psql -p 15432 -c "ALTER USER seekers WITH PASSWORD 'NewPassword123!';"
+sudo -u postgres psql -p 15432 -c "ALTER USER postgres WITH PASSWORD 'NewAdminPass456!';"
 
 # 2. 설정 파일 업데이트
 sudo vi /opt/seekurity-siem/conf/ss-api.yml

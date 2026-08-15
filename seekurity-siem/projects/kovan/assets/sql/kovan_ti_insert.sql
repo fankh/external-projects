@@ -3,7 +3,7 @@
 -- 생성일시: 2026-04-04
 -- 소스: KOVAN_Threat_Intelligence_Export.json (500 IOC)
 --
--- 사용법: psql -d <DB_NAME> -f kovan_ti_insert.sql
+-- 사용법: psql -p 15432 -d <DB_NAME> -f kovan_ti_insert.sql
 -- 참고: Python uuid4()로 생성된 UUID 사용 (pgcrypto 확장 불필요)
 -- ============================================================================
 
