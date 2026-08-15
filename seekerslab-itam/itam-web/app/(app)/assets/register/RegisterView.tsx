@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, returnLoan, scheduleMaintenance, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, returnLoan, scheduleMaintenance, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -28,7 +28,7 @@ const STATUS_TONE: Record<AssetStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   검수중: 'info', 사용중: 'ok', 유휴: 'neutral', 대여중: 'info', 반납대기: 'warn', 수리중: 'warn', 분실: 'err', 폐기예정: 'err', 폐기완료: 'neutral',
 }
 
-export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]> }) {
+export function RegisterView(props: { assets: Asset[]; initialQuery: string; canEdit: boolean; canConfig: boolean; canExport?: boolean; initialSel?: string; staleNos?: string[]; warrantyNos?: string[]; initialWarranty?: boolean; dqNos?: string[]; initialDq?: boolean; eolNos?: string[]; initialEol?: boolean; critNos?: string[]; initialCrit?: boolean; contracts?: { id: string; name: string; kind: string }[]; today?: string; initialCat?: string; initialStatus?: string; receiptPendingCount?: number; maintenanceNos?: string[]; initialMaint?: boolean; maintOverdueCount?: number; licenseSeatsByAsset?: Record<string, { id: string; name: string; vendor: string }[]>; users?: { name: string; dept: string }[] }) {
   const [q, setQ] = useState(props.initialQuery)
   // 재고 화면 등에서 ?cat=·?status= 로 진입하면 해당 필터로 시작한다(집계 → 대장 드릴다운)
   const [cat, setCat] = useState<AssetCategory | '전체'>(CATS.includes(props.initialCat as AssetCategory | '전체') ? (props.initialCat as AssetCategory) : '전체')
@@ -95,6 +95,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [recoverOpen, setRecoverOpen] = useState(false)
   const [recoverReason, setRecoverReason] = useState('')
   const [recoverMsg, setRecoverMsg] = useState<string | null>(null)
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [reassignTo, setReassignTo] = useState('')
+  const [reassignNote, setReassignNote] = useState('')
+  const [reassignMsg, setReassignMsg] = useState<string | null>(null)
   const [maintOpen, setMaintOpen] = useState(false)
   const [maintNote, setMaintNote] = useState('')
   const [maintMsg, setMaintMsg] = useState<string | null>(null)
@@ -790,6 +794,35 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                       <button className="btn sm ghost" disabled={pending} onClick={() => { setRecoverOpen(false); setRecoverMsg(null) }}>취소</button>
                     </div>
                     <span className="mut" style={{ fontSize: 11 }}>회수 시 반납 접수 대기열로 편성 — 점검 후 유휴 풀/수리/폐기로 분기됩니다.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 후임/동료에게 직접 인계. 새 보유자 수령 확인 대기. 자산담당만(canEdit). */}
+            {props.canEdit && sel.status === '사용중' && (props.users?.length ?? 0) > 0 && (
+              <div style={{ marginTop: 12 }}>
+                {reassignMsg && <div className="callout" style={{ marginBottom: 10 }}>{reassignMsg}</div>}
+                {!reassignOpen ? (
+                  <button className="btn sm" disabled={pending}
+                    onClick={() => { setReassignOpen(true); setReassignTo(''); setReassignNote(''); setReassignMsg(null) }}
+                    title="사용 중 자산을 반납·재불출 없이 새 보유자에게 직접 인계 — 팀 내 인수인계·후임 승계">자산 재배정 (직접 인계)</button>
+                ) : (
+                  <div className="vstack" style={{ gap: 8 }}>
+                    <div className="kicker mute">자산 재배정 (직접 인계) — 현재 보유자 {sel.owner}</div>
+                    <select className="select" value={reassignTo} disabled={pending} onChange={(e) => setReassignTo(e.target.value)}>
+                      <option value="">새 보유자 선택…</option>
+                      {(props.users ?? []).filter((u) => u.name !== sel.owner).map((u) => <option key={u.name} value={u.name}>{u.name} · {u.dept}</option>)}
+                    </select>
+                    <input className="input" placeholder="인계 사유 (예: 팀 내 인수인계·후임 승계)" value={reassignNote} disabled={pending}
+                      onChange={(e) => setReassignNote(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }} />
+                    <div className="hstack">
+                      <button className="btn sm pri" disabled={pending || !reassignTo}
+                        onClick={() => startTransition(async () => { const r = await reassignAsset(sel.assetNo, reassignTo, reassignNote); setReassignMsg(r.message); if (r.ok) { setReassignOpen(false); setReassignTo('') } })}>재배정 확정</button>
+                      <button className="btn sm ghost" disabled={pending} onClick={() => { setReassignOpen(false); setReassignMsg(null) }}>취소</button>
+                    </div>
+                    <span className="mut" style={{ fontSize: 11 }}>반납 없이 소유자·부서가 바뀌며, 새 보유자의 수령(인수) 확인 대기로 전환됩니다. 라이선스 좌석은 자산과 함께 승계됩니다.</span>
                   </div>
                 )}
               </div>

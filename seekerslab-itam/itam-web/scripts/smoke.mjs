@@ -211,6 +211,9 @@ try {
   check('인수인계서: 미로그인 차단 (401)', (await get('/api/handover-sheet/AST-2025-000512')).status === 401)
   check('인수인계서: 사용자 차단 (403)', (await get('/api/handover-sheet/AST-2025-000512', 'USER')).status === 403)
   check('인수인계서: 사용중 아닌 자산 발급 불가 (400)', (await get('/api/handover-sheet/AST-2024-000512', 'ASSET_MGR')).status === 400)
+  // 자산 재배정(직접 인계) — 사용 중 자산의 보유자를 반납·재불출 왕복 없이 직접 변경. 대장 상세(사용중·자산담당)에 재배정 컨트롤 노출.
+  const regInUse113 = await (await get('/assets/register?sel=AST-2023-000113', 'ASSET_MGR')).text()
+  check('자산 대장: 사용중 상세에 재배정(직접 인계) 컨트롤', regInUse113.includes('자산 재배정 (직접 인계)'))
   // 수리중 자산 상세 — 수리 의뢰(업체·예상반환·반환 지연) 블록. 대여 블록과 대칭. 시드 AST-2024-000512(중부IT서비스, 예상반환 경과)로 검증
   const regRepairDetail = await (await get('/assets/register?sel=AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 대장: 수리중 상세에 수리 의뢰(업체·반환 지연) 블록', regRepairDetail.includes('수리 의뢰') && regRepairDetail.includes('중부IT서비스') && regRepairDetail.includes('반환 지연'))

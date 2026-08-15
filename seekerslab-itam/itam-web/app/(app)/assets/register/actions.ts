@@ -359,6 +359,34 @@ export async function recoverFromUser(assetNo: string, rawReason: string) {
   return { ok: true, message: `${assetNo} 회수 — 반납 접수 대기열로 편성 (${holder} → 점검 후 유휴 풀/수리/폐기)${freed.length ? ` · 라이선스 좌석 ${freed.length}석 회수` : ''}` }
 }
 
+/** 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 새 보유자에게 직접 인계한다.
+ *  (제품안내서 §03 — 회수(recoverFromUser)는 반납 점검을 거쳐 유휴로 돌리지만, 팀 내 인수인계·후임 승계처럼 실물이 창고로
+ *   돌아가지 않고 사람만 바뀌는 경우 반납→재불출 왕복이 불필요·부정확했다. 그동안 소유자 변경은 correctField 가 '이동·불출
+ *   결재로 처리하라'며 막았지만 이동은 위치만, 불출은 유휴만 대상이라 사용 중 자산의 보유자 변경 경로가 실제로 없었다.)
+ *  새 보유자로 소유자·부서를 갱신하고 수령(인수) 확인 대기로 두어 체인 오브 커스터디를 잇는다. 라이선스 좌석은 자산에 묶여
+ *  승계자에게 그대로 넘어간다(회수와 달리 반납하지 않음). 사용 중 자산만·다른 사용자로만. 자산담당·Admin. */
+export async function reassignAsset(assetNo: string, rawNewOwner: string, rawNote: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '자산 재배정 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '사용중') return { ok: false, message: `사용 중 자산만 재배정할 수 있습니다 — ${assetNo} (${asset.status})` }
+  const user = s.users.find((u) => u.name === rawNewOwner.trim())
+  if (!user) return { ok: false, message: '재배정 대상 사용자를 선택해 주세요.' }
+  if (user.name === asset.owner) return { ok: false, message: '현재 보유자와 동일한 사용자입니다.' }
+  const note = rawNote.trim()
+  const from = `${asset.owner} (${asset.dept})`
+  asset.owner = user.name
+  asset.dept = user.dept
+  asset.receiptPending = true // 새 보유자 수령(인수) 확인 대기 — 체인 오브 커스터디
+  asset.history.push({ date: today(), kind: '이동', detail: `재배정(직접 인계) — ${from} → ${user.name} (${user.dept})${note ? ` · ${note}` : ''}`, actor: session.name })
+  dispatch({ channel: '이메일', to: `${user.name} (${user.dept})`, subject: `자산 인수 요청 — ${asset.assetNo} ${asset.model} 재배정 · 수령(인수) 확인 요망`, kind: '수령 확인', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `자산 재배정 — ${asset.model} (${from} → ${user.name})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 재배정 — ${from} → ${user.name} (${user.dept}) · 새 보유자 수령 확인 대기` }
+}
+
 /** 자산 일괄 회수 — 여러 사용 중 자산을 한 번에 회수(오프보딩: 퇴직자 보유 자산 전량 회수). 사용 중이 아닌 선택분은 건너뛴다.
  *  대장에서 소유자로 검색·선택해 일괄 회수하면 퇴직자 자산 회수를 한 번에 처리할 수 있다. 자산담당·Admin. */
 export async function recoverManyFromUser(assetNos: string[], rawReason: string) {
