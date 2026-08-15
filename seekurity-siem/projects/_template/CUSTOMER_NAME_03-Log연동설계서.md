@@ -56,9 +56,11 @@
 
 | 항목 | 설정 |
 |------|------|
-| Agent 종류 | Seekurity Agent / Beats / Custom |
+| Agent 종류 | Seekurity Agent (표준) |
 | 통신 방식 | TLS (TCP) |
 | 설치 대상 | OS, EDR, DB |
+
+> 표준 Agent는 Seekurity Agent이다. Filebeat/Beats 등 3rd-party 에이전트는 표준 구성요소가 아니며, 고객이 특별히 요구하는 경우에 한해 별도 검토한다. 상세는 공통 가이드 `docs/linux-log-integration.md` 및 `docs/standard-vs-3rdparty.md` 참조.
 
 ### 2.4 API (REST)
 
