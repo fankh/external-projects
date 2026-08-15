@@ -9,7 +9,7 @@ import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
 import { inNoticeAudience, noticeTargets } from '@/lib/notice'
 import { hasDataIssue } from '@/lib/quality'
-import { approvalHref, noticeHref, qnaHref } from '@/lib/reflink'
+import { approvalHref, entityHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { buildSaasReview, SAAS_REVIEW_SLA_DAYS } from '@/lib/saas-review'
@@ -66,6 +66,9 @@ export default async function DashboardPage() {
     .filter((a) => a.status === '대여중' && a.owner === session.name)
     .map((a) => ({ assetNo: a.assetNo, model: a.model, dueDate: a.loanDueDate ?? '-', dday: a.loanDueDate ? daysUntil(a.loanDueDate) : null }))
     .sort((x, y) => (x.dday ?? 99_999) - (y.dday ?? 99_999))
+  // 내게 온 알림 — 나를 수신자(to)로 발송된 통지의 수신자 측 요약. 그동안 발송 이력은 관리자(플랫폼 연동 화면)만 볼 수 있어,
+  //  사용자는 이메일 밖에서 자신에게 온 통지(수령 확인·대여/반납 결과·QnA 답변·결재 결과·수리 결과 등)를 앱에서 확인할 곳이 없었다. 최근 5건.
+  const myNotices = s.dispatches.filter((m) => m.to === session.name).slice(0, 5)
 
   // 운영 대기 — 화면마다 흩어진 담당 처리 대기열을 역할에 맞게 한 곳에 모은다
   const opsQueues: { label: string; count: number; href: string; tone: 'err' | 'warn' }[] = []
@@ -369,6 +372,25 @@ export default async function DashboardPage() {
                         <Chip tone={tone}>{label}</Chip>
                       </Link>
                     )
+                  })}
+                </div>
+              )}
+              {myNotices.length > 0 && (
+                <div className="vstack" style={{ gap: 6, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+                  <span className="kicker mute">내게 온 알림 — 최근 수신 통지</span>
+                  {myNotices.map((m) => {
+                    const link = entityHref(m.ref)
+                    const inner = (
+                      <>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <Chip tone={m.channel === '문자' ? 'warn' : 'neutral'} bare>{m.kind}</Chip> {m.subject}
+                        </span>
+                        <span className="dim" style={{ fontSize: 11, flex: 'none' }}>{m.at.slice(5, 10)}</span>
+                      </>
+                    )
+                    return link
+                      ? <Link key={m.id} href={link.href} {...(link.external ? { target: '_blank' } : {})} className="hstack" style={{ justifyContent: 'space-between', gap: 12, color: 'inherit', textDecoration: 'none' }}>{inner}</Link>
+                      : <div key={m.id} className="hstack" style={{ justifyContent: 'space-between', gap: 12 }}>{inner}</div>
                   })}
                 </div>
               )}
