@@ -91,7 +91,8 @@ export default async function DashboardPage() {
       </div>
 
       {showOps && (
-        <Card title="전사 운영 스냅샷" kicker="Operations" pad={false}>
+        <Card title="전사 운영 스냅샷" kicker="Operations" pad={false}
+          actions={canSee('/sr/manage') ? <a className="btn sm" href="/api/export?type=itops-summary" title="SR·장애·프로젝트·투자/비용 집행 종합 현황">IT 운영 종합 현황</a> : undefined}>
           <div className="stat-row" style={{ border: 'none' }}>
             {opsVis.incidents && <Stat value={ops.incidents} label="조치중 장애" tone={ops.incidents > 0 ? 'err' : undefined} />}
             {opsVis.delayedSr && <Stat value={ops.delayedSr} label="지연 SR" tone={ops.delayedSr > 0 ? 'warn' : undefined} />}

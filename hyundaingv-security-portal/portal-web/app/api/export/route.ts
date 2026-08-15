@@ -2,7 +2,7 @@
  *  화면과 동일한 권한·데이터 스코핑을 서버에서 재적용한다(시큐어 코딩). */
 import { effectiveRoles } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
-import { currentYear } from '@/lib/dates'
+import { currentYear, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
@@ -19,6 +19,7 @@ const EXPORT_MENU: Record<string, string> = {
   'education-records': '/compliance/education', 'pledge-status': '/pledge/dept',
   'security-reviews': '/compliance/security-review',
   'compliance-summary': '/compliance/inspection',
+  'itops-summary': '/sr/manage',
   'remote-status': '/awareness/remote', audit: '/settings/audit',
 }
 
@@ -237,6 +238,43 @@ export async function GET(req: Request) {
       ['보안위반 처리', `완료 ${vDone} / 전체 ${s.violations.length}`, `확인서 징구중 ${vPending}건`],
     ]
     return csvResponse('보안컴플라이언스_종합현황', rows)
+  }
+
+  if (type === 'itops-summary') {
+    // IT 운영 종합 현황 — 관리 리포트(SR·장애·프로젝트·투자/비용 집행). /sr/manage(BIZ) 게이트로 담당·Admin 전용.
+    // 각 지표는 소속 화면과 동일 단일-원천 술어(집행률은 확정계획 스코프·div-zero 방어)로 산출 — 화면과 정합.
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const t = today()
+    const pct = (num: number, den: number) => den > 0 ? Math.round((num / den) * 100) : 0
+    // 1) SR — 진행중·지연 (sr/delayed·대시보드와 동일 술어)
+    const srActive = s.srRequests.filter((r) => !['완료', '반려'].includes(r.status)).length
+    const srDelayed = s.srRequests.filter((r) => r.dueDate && r.dueDate < t && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status)).length
+    // 2) 장애 — 조치중 (대시보드 ops 와 동일)
+    const incActing = s.incidents.filter((i) => i.status === '조치중').length
+    // 3) 프로젝트 — 진행중·평균 진척·오픈 이슈 (projects/status·schedule 와 동일)
+    const pjActive = s.projects.filter((p) => p.status === '진행중')
+    const pjAvg = pjActive.length ? Math.round(pjActive.reduce((sum, p) => sum + p.progress, 0) / pjActive.length) : 0
+    const pjIssues = s.projectIssues.filter((i) => i.status === '오픈').length
+    // 4) 투자·비용 집행률 (finance/invest·expense 와 동일 — 확정계획 스코프 분자·분모 정합)
+    const execRate = (kind: '투자' | '비용') => {
+      const confirmed = s.investPlans.filter((p) => p.kind === kind && p.status === '확정')
+      const planTotal = confirmed.reduce((sum, p) => sum + p.amount, 0)
+      const contracts = s.investContracts.filter((c) => c.kind === kind)
+      const ids = new Set(confirmed.map((p) => p.id))
+      const paid = s.settlements.filter((x) => x.status === '지급완료' && ids.has(contracts.find((c) => c.id === x.contractId)?.planId ?? '')).reduce((sum, x) => sum + x.amount, 0)
+      return { rate: pct(paid, planTotal), planTotal }
+    }
+    const inv = execRate('투자')
+    const exp = execRate('비용')
+    const rows: (string | number)[][] = [
+      ['지표', '값', '비고'],
+      ['진행중 SR', srActive, `지연 ${srDelayed}건 (완료예정일 경과)`],
+      ['조치중 장애', incActing, `전체 장애 ${s.incidents.length}건`],
+      ['프로젝트', `진행중 ${pjActive.length}`, `평균 진척 ${pjAvg}% · 오픈 이슈 ${pjIssues}건`],
+      ['투자 집행률', `${inv.rate}%`, `확정계획 ${inv.planTotal.toLocaleString('ko-KR')}만원`],
+      ['비용 집행률', `${exp.rate}%`, `확정계획 ${exp.planTotal.toLocaleString('ko-KR')}만원`],
+    ]
+    return csvResponse('IT운영_종합현황', rows)
   }
 
   if (type === 'servers') {

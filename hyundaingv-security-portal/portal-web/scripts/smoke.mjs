@@ -460,6 +460,13 @@ async function main() {
     check(compUser.status === 403, 'export: USER 컴플라이언스 종합 차단(403)')
     const compDept = await get('/api/export?type=compliance-summary', 'DEPT_MGR')
     check(compDept.status === 403, 'export: DEPT_MGR 컴플라이언스 종합 차단(403 — inspection BIZ 게이트)')
+    // IT 운영 종합 현황 — /sr/manage(BIZ) 게이트라 담당·Admin 만, DEPT_MGR·USER 차단
+    const itopsCsv = await get('/api/export?type=itops-summary', 'BIZ_MGR')
+    check(itopsCsv.status === 200 && (await itopsCsv.text()).includes('진행중 SR'), 'export: IT 운영 종합 현황 CSV (BIZ_MGR)')
+    const itopsUser = await get('/api/export?type=itops-summary', 'USER')
+    check(itopsUser.status === 403, 'export: USER IT 운영 종합 차단(403)')
+    const itopsDept = await get('/api/export?type=itops-summary', 'DEPT_MGR')
+    check(itopsDept.status === 403, 'export: DEPT_MGR IT 운영 종합 차단(403 — sr/manage BIZ 게이트)')
   }
   {
     // 위반자 본인 건만 — 김현우(USER)에게 강도윤 위반 미노출, 등록 폼 미노출
