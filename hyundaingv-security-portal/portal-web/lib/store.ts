@@ -246,6 +246,10 @@ function seed(): Store {
       { id: 'SYS-02', name: '그룹웨어', url: 'https://gw.internal', env: '운영계', serverIds: ['SV-01'], owner: '한지원' },
       { id: 'SYS-03', name: '영업정보시스템', url: 'https://sales.internal', env: '운영계', serverIds: ['SV-02', 'SV-04'], owner: '박정호' },
       { id: 'SYS-04', name: 'ERP (개발계)', url: 'https://erp-dev.internal', env: '개발계', serverIds: ['SV-04'], owner: '김현우' },
+      // 보안·출력물 시스템 — 출력물 자료 이관 배치(BJ-02)·수신 인터페이스(IF-04)·secdata 어댑터의 원천 시스템.
+      // 등록 누락 시 이름-기준 토폴로지 조인(랙→…→시스템→배치)에서 BJ-02 가 매핑 실패로 누락돼 배치 수가
+      // 과소 집계됐다(v1.5.88 IO-3). 실재하는 원천이므로 정식 등록해 토폴로지를 완결한다.
+      { id: 'SYS-05', name: '보안·출력물 시스템', url: 'https://secprint.internal', env: '운영계', serverIds: ['SV-04'], owner: '한지원' },
     ],
     batchJobs: [
       { id: 'BJ-01', name: '인사정보 동기화', system: '그룹웨어', schedule: '일', lastRun: '2026-08-02 05:00', lastResult: '성공' },

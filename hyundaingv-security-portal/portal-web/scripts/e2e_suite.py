@@ -560,6 +560,17 @@ def sc_channelstate_corrupt(pg, base, check):
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
 
 
+def sc_secprint_system_registered(pg, base, check):
+    """보안·출력물 시스템 정식 등록(v1.5.94) — 출력물 이관 배치(BJ-02)·수신 인터페이스(IF-04)·secdata
+    어댑터의 원천 '보안·출력물 시스템'이 s.systems 에 미등록이라, 이름-기준 토폴로지 조인에서 BJ-02 가
+    매핑 실패로 누락돼 배치 수가 과소 집계됐다(v1.5.88 IO-3). SYS-05 로 정식 등록해 시스템 목록·토폴로지에
+    나타나고 BJ-02 가 배치 사슬에 포함되게 한다. 시스템 화면에 '보안·출력물 시스템' 등록 확인."""
+    login(pg, base, '박정호')  # BIZ_MGR — 시스템 현황 열람
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check('보안·출력물 시스템' in pg.locator('.card', has_text='시스템 현황').inner_text(),
+          '보안·출력물 시스템이 정식 등록돼 시스템 목록에 노출(BJ-02 토폴로지 매핑 복원, 과소집계 해소)')
+
+
 def sc_delayed_corrupt_date(pg, base, check):
     """손상 날짜 일수계산 NaN 렌더 방지(v1.5.93) — strField 정규화는 날짜를 문자열로만 보장하고 유효성은
     검증 안 하므로, 손상 파일의 파싱 불가 dueDate('0000-00-00')가 지연목록에 들어가면 daysBetween 의
@@ -1783,6 +1794,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
     ('delayed_corrupt_date', '손상 날짜 일수계산 NaN 렌더 방지 — daysBetween 유한 가드', sc_delayed_corrupt_date,
      {'PORTAL_DATA_FILE': str(DTNAN_DATA)}),
+    ('secprint_system_registered', '보안·출력물 시스템 정식 등록 — BJ-02 토폴로지 과소집계 해소', sc_secprint_system_registered, {}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
