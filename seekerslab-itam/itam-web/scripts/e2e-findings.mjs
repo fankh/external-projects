@@ -658,6 +658,17 @@ try {
   await pU.waitForTimeout(700)
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
   ok('대여 연장 요청(사용자): 요청 접수 표시(연장 요청·요청 날짜)', ((await pU.locator('body').textContent()) || '').includes('연장 요청') && ((await pU.locator('body').textContent()) || '').includes('2026-09-30'))
+  // 대여 연장 요청 취소(요청자 셀프서비스) — 자산담당 처리 전이라면 본인 요청을 철회할 수 있다. 취소 후 다시 신청해 p3 승인 테스트를 위한 요청을 남긴다.
+  await pU.locator('button', { hasText: /^요청 취소$/ }).click()
+  await pU.waitForTimeout(600)
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
+  ok('대여 연장 요청 취소(사용자): 요청 철회 후 재신청 버튼 복귀', (await pU.locator('button', { hasText: /^반환 기한 연장 요청$/ }).count()) > 0)
+  await pU.locator('button', { hasText: /^반환 기한 연장 요청$/ }).click()
+  await pU.waitForTimeout(200)
+  await pU.locator('dd input[type="date"]').last().fill('2026-09-30')
+  await pU.locator('input[placeholder="연장 사유"]').fill('e2e — 프로젝트 연장으로 반환 지연(재신청)')
+  await pU.locator('button', { hasText: /^요청$/ }).click()
+  await pU.waitForTimeout(700)
   await ctxU.close()
 
   // ── Admin: AI 모델·프롬프트 버전 관리(§05 AI 거버넌스) + 감사 적재 ──
