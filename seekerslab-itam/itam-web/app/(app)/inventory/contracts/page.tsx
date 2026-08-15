@@ -5,6 +5,7 @@ import { missingContractDocs } from '@/lib/contract'
 import { daysUntil, fmtAmount } from '@/lib/dates'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { buildMaintenance } from '@/lib/maintenance'
+import { buildProcurement } from '@/lib/procurement'
 import { contractHref } from '@/lib/reflink'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { AddContract, ContractsTable } from './ContractsTable'
@@ -20,6 +21,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
   const usage = buildLicenseUsage()
   const maint = buildMaintenance()
+  const proc = buildProcurement()
   const canEditLicense = ['ASSET_MGR', 'ADMIN'].includes(session.role)
 
   // 만료 임박 대상 — 계약·라이선스·보증(부서 단위 묶음)을 합친 발송 예정 건수
@@ -100,6 +102,52 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           <b>비용 이력 → 예산 관리.</b> 유지보수 계약의 누계 지출을 계약액과 대사해 집행률·잔여 예산·판정을 산출합니다.
           <b>예산 초과</b>는 추가 예산·재협상, <b>소진 임박</b>은 잔여 집행 계획 점검, <b>미집행</b>은 계약 이행 확인 대상입니다.
           SLA 미설정 유지보수 계약은 서비스 수준 협약(장애 대응·가동률)을 기록하세요.
+        </div>
+      </Card>
+
+      <Card
+        kicker="Procurement"
+        title="구매 계약 발주·검수 이행 현황"
+        pad={false}
+        actions={<span className="dim" style={{ fontSize: 11.5 }}>연계 계약 {proc.rows.length}건 · 발주 {fmtAmount(proc.totalOrdered)}/{fmtAmount(proc.totalAmount)}원{proc.atRisk.length > 0 ? ` · 미이행 위험 ${proc.atRisk.length}` : ''}</span>}
+      >
+        <div className="stat-row" style={{ margin: 14 }}>
+          <Stat value={`${proc.totalAmount ? Math.round((proc.totalOrdered / proc.totalAmount) * 100) : 0}%`} label="전체 발주 소진률" delta={{ text: `발주 여력 ${fmtAmount(proc.totalAmount - proc.totalOrdered)}원`, dir: 'flat' }} />
+          <Stat value={proc.rows.length} label="입고 연계 구매 계약" />
+          <Stat value={proc.atRisk.length} label="발주 미이행 · 만료 임박" tone={proc.atRisk.length ? 'err' : 'ok'} />
+          <Stat value={fmtAmount(proc.totalInspected)} label="검수 완료액 (정산 근거)" />
+        </div>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>구매 계약</th><th>공급사</th><th className="num">계약액</th><th className="num">발주 입고액</th><th className="num">발주율</th>
+                <th className="num">검수 완료액</th><th className="c">입고 로트</th><th className="c">검수 대기</th><th>만료</th><th className="c">이행 판정</th>
+              </tr>
+            </thead>
+            <tbody>
+              {proc.rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="strong">{r.name}</td>
+                  <td className="mute">{r.vendor}</td>
+                  <td className="num tnum">{fmtAmount(r.amount)}원</td>
+                  <td className="num tnum">{fmtAmount(r.orderedValue)}원</td>
+                  <td className="num tnum" style={{ fontWeight: 700 }}>{r.rate}%</td>
+                  <td className="num tnum">{r.inspectedValue > 0 ? `${fmtAmount(r.inspectedValue)}원` : '-'}</td>
+                  <td className="c tnum">{r.lots}{r.rejected > 0 && <span className="dim" style={{ fontSize: 11 }}> (반려 {r.rejected})</span>}</td>
+                  <td className="c tnum">{r.pendingInspection || <span className="dim">-</span>}</td>
+                  <td className="tnum">{r.end}{r.dday !== null && r.dday <= 90 && <span className="dim" style={{ fontSize: 11 }}> (D{r.dday >= 0 ? `-${r.dday}` : `+${-r.dday}`})</span>}</td>
+                  <td className="c">{r.atRisk ? <Chip tone="err">발주 미이행</Chip> : r.pendingInspection > 0 ? <Chip tone="warn">검수 진행</Chip> : <Chip tone="ok">정상</Chip>}</td>
+                </tr>
+              ))}
+              {proc.rows.length === 0 && <tr><td colSpan={10}><div className="empty">입고 로트가 연계된 구매 계약이 없습니다</div></td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="callout" style={{ margin: 14 }}>
+          <b>계약 ↔ 입고 이행 추적.</b> 구매 계약의 입고 로트를 대사해 발주 소진률·검수 완료액(정산 근거)을 산출합니다.
+          <b>발주 미이행</b>은 발주율이 저조한데 만료가 임박한 계약으로, 잔여 발주 집행 또는 계약 연장·정산 종결이 필요합니다.
+          검수 완료 로트의 금액이 대금 정산의 근거가 됩니다.
         </div>
       </Card>
 
