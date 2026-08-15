@@ -4,7 +4,8 @@ import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { today } from '@/lib/dates'
+import { complianceKpiPct, computeComplianceKpis } from '@/lib/compliance'
+import { nowStamp, today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, isCodeActive, nextNo, type Store } from '@/lib/store'
 import type { InspectionCycle, InspectionStatus } from '@/lib/types'
@@ -125,6 +126,30 @@ async function registerResult(formData: FormData) {
   revalidatePath('/', 'layout')
 }
 
+/** 컴플라이언스 포스처 스냅샷 기록 — 현재 KPI(computeComplianceKpis)를 당월(period) 스냅샷으로 upsert 한다.
+ *  같은 달 재기록은 갱신. ISMS 감사의 전기 대비 개선 추이 근거. 실서비스는 일배치로도 호출 가능. */
+async function recordComplianceSnapshot() {
+  'use server'
+  const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
+  const s = getStore()
+  const k = computeComplianceKpis(s)
+  const period = today().slice(0, 7)
+  const snap = {
+    period, at: nowStamp(), by: me.name,
+    pledgeRate: complianceKpiPct(k.signedCount, k.totalPeople),
+    eduRate: complianceKpiPct(k.eduDone, k.eduSlots),
+    fixRate: complianceKpiPct(k.fixDone, k.fixFindings),
+    inspDone: k.inspDone, inspTotal: k.inspTotal,
+    highVulns: k.highVulns, openVulns: k.openVulns,
+    vDone: k.vDone, vTotal: k.vTotal,
+  }
+  const existing = s.complianceSnapshots.find((x) => x.period === period)
+  if (existing) Object.assign(existing, snap)
+  else s.complianceSnapshots.push({ id: nextNo('CS', today().slice(0, 4), s.complianceSnapshots.map((x) => x.id)), ...snap })
+  audit(me.name, '컴플라이언스 스냅샷', `${period} 서약 ${snap.pledgeRate}% · 이수 ${snap.eduRate}% · 조치 ${snap.fixRate}% · 고위험 ${snap.highVulns}`)
+  revalidatePath('/compliance/inspection')
+}
+
 export default async function InspectionPage() {
   await requireMenu('/compliance/inspection')
   const s = getStore()
@@ -138,6 +163,8 @@ export default async function InspectionPage() {
     완료: s.inspectionPlans.filter((p) => p.status === '완료').length,
   }
   const overdue = s.inspectionPlans.filter((p) => p.month < thisMonth && p.status !== '완료' && p.status !== '결재중')
+  // 컴플라이언스 추세 — 기간 오름차순, 각 행은 직전 대비 델타를 함께 보인다
+  const snaps = [...s.complianceSnapshots].sort((a, b) => String(a.period ?? '').localeCompare(String(b.period ?? '')))
 
   return (
     <>
@@ -153,6 +180,51 @@ export default async function InspectionPage() {
         <Stat value={counts.완료} label="완료" />
         <Stat value={overdue.length} label="기한 경과" tone={overdue.length > 0 ? 'err' : undefined} note={`기준월 ${thisMonth}`} />
       </div>
+
+      <Card title="컴플라이언스 추세" kicker="Trend" pad={false}
+        actions={<span className="hstack">
+          <a className="btn sm" href="/api/export?type=compliance-trend">엑셀 다운로드</a>
+          <form action={recordComplianceSnapshot} style={{ display: 'inline' }}>
+            <button type="submit" className="btn sm pri" title={`${thisMonth} 포스처를 스냅샷으로 기록(같은 달 재기록은 갱신)`}>현황 스냅샷 기록</button>
+          </form>
+        </span>}>
+        {snaps.length === 0 ? (
+          <div className="empty">기록된 스냅샷이 없습니다 — '현황 스냅샷 기록'으로 이번 달 포스처를 남기세요.</div>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr><th>기간</th><th className="num">서약률</th><th className="num">이수율</th><th className="num">조치율</th><th className="num">점검</th><th className="num">고위험</th><th className="num">미조치</th><th className="num">위반</th><th>기록</th></tr>
+              </thead>
+              <tbody>
+                {snaps.map((snap, i) => {
+                  const prev = i > 0 ? snaps[i - 1] : undefined
+                  // 델타 칩 — 비율은 증가가 개선(lowerBetter=false), 리스크(고위험·미조치)는 감소가 개선(true)
+                  const trend = (cur: number, prevVal: number | undefined, lowerBetter: boolean) => {
+                    if (prevVal === undefined || cur === prevVal) return null
+                    const d = cur - prevVal
+                    const improved = lowerBetter ? d < 0 : d > 0
+                    return <> <Chip tone={improved ? 'ok' : 'err'} bare>{d > 0 ? '+' : ''}{d}</Chip></>
+                  }
+                  return (
+                    <tr key={snap.id}>
+                      <td className="tnum">{snap.period}</td>
+                      <td className="num">{snap.pledgeRate}%{trend(snap.pledgeRate, prev?.pledgeRate, false)}</td>
+                      <td className="num">{snap.eduRate}%{trend(snap.eduRate, prev?.eduRate, false)}</td>
+                      <td className="num">{snap.fixRate}%{trend(snap.fixRate, prev?.fixRate, false)}</td>
+                      <td className="num">{snap.inspDone}/{snap.inspTotal}</td>
+                      <td className="num">{snap.highVulns}{trend(snap.highVulns, prev?.highVulns, true)}</td>
+                      <td className="num">{snap.openVulns}{trend(snap.openVulns, prev?.openVulns, true)}</td>
+                      <td className="num">{snap.vDone}/{snap.vTotal}</td>
+                      <td className="mut" style={{ fontSize: 10.5 }}>{snap.at} · {snap.by}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <Card title="점검 진행내역" kicker="Progress" pad={false}
         actions={<a className="btn sm" href="/api/export?type=inspection-plans">엑셀 다운로드</a>}>

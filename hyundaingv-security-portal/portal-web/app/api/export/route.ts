@@ -20,6 +20,7 @@ const EXPORT_MENU: Record<string, string> = {
   'education-records': '/compliance/education', 'pledge-status': '/pledge/dept',
   'security-reviews': '/compliance/security-review',
   'compliance-summary': '/compliance/inspection',
+  'compliance-trend': '/compliance/inspection',
   'itops-summary': '/sr/manage',
   'remote-status': '/awareness/remote', audit: '/settings/audit',
 }
@@ -221,6 +222,15 @@ export async function GET(req: Request) {
       ['보안위반 처리', `완료 ${k.vDone} / 전체 ${k.vTotal}`, `확인서 징구중 ${k.vPending}건`],
     ]
     return csvResponse('보안컴플라이언스_종합현황', rows)
+  }
+
+  if (type === 'compliance-trend') {
+    // 컴플라이언스 포스처 추세 — 주기별 스냅샷(ISMS 감사 개선 추이). /compliance/inspection(BIZ) 게이트.
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const snaps = [...s.complianceSnapshots].sort((a, b) => String(a.period ?? '').localeCompare(String(b.period ?? '')))
+    const rows: (string | number)[][] = [['기간', '서약률(%)', '이수율(%)', '조치율(%)', '점검 완료', '점검 전체', '고위험 미조치', '미조치 취약점', '위반 완료', '위반 전체', '기록', '기록자']]
+    for (const x of snaps) rows.push([x.period, x.pledgeRate, x.eduRate, x.fixRate, x.inspDone, x.inspTotal, x.highVulns, x.openVulns, x.vDone, x.vTotal, x.at, x.by])
+    return csvResponse('보안컴플라이언스_추세', rows)
   }
 
   if (type === 'itops-summary') {
