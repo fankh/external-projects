@@ -603,6 +603,32 @@ def sc_sr_suspend(pg, base, check):
     check('중지테스트SR' not in pg.content(), '중지 SR 은 지연 목록에서 제외(BA030014 반영 안함)')
 
 
+def sc_security_review(pg, base, check):
+    """보안성 검토(제품안내서 VI장, v1.5.102~) — 시큐어코딩·취약점 점검의 계획→진행→조치중→완료 추적.
+    완료 확정은 발견 취약점 전건 조치 후에만(fixed>=findings) — 미조치 잔여가 있으면 완료 가드로 상태 유지
+    (감사 무결성). 시드 SEC-2026-02(그룹웨어 취약점점검·조치중·발견5·조치2) → 완료 시도 차단 → 전건 조치 후 완료."""
+    login(pg, base, '박정호')  # BIZ_MGR — 보안성 검토 권한(BIZ)
+    pg.goto(f'{base}/compliance/security-review', wait_until='networkidle')
+    check('그룹웨어 웹 취약점 점검' in pg.content(), '전제: 조치중 검토(발견5·조치2)가 목록에 있음')
+    # 미조치 잔여(2/5)에서 완료 시도 → 가드로 차단(상태 조치중 유지)
+    pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').locator('button:has-text("완료")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/security-review', wait_until='networkidle')
+    txt = pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').inner_text()
+    check('조치중' in txt, f'미조치 잔여 시 완료 차단 — 상태 조치중 유지 (실제 …{txt[-20:]})')
+    # 전건 조치(조치=5) 기록 후 완료 → 완료 확정
+    row = pg.locator('tr', has_text='그룹웨어 웹 취약점 점검')
+    row.locator('input[aria-label="조치"]').fill('5')
+    row.locator('button:has-text("기록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/security-review', wait_until='networkidle')
+    pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').locator('button:has-text("완료")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/security-review', wait_until='networkidle')
+    txt = pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').inner_text()
+    check('완료' in txt, f'전건 조치(5/5) 후 완료 확정 (실제 …{txt[-20:]})')
+
+
 def sc_delayed_corrupt_date(pg, base, check):
     """손상 날짜 일수계산 NaN 렌더 방지(v1.5.93) — strField 정규화는 날짜를 문자열로만 보장하고 유효성은
     검증 안 하므로, 손상 파일의 파싱 불가 dueDate('0000-00-00')가 지연목록에 들어가면 daysBetween 의
@@ -1826,6 +1852,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
     ('sr_suspend', 'SR 중지(BA030014) — 지연 제외·재개 복원', sc_sr_suspend,
      {'PORTAL_DATA_FILE': str(SRSUSP_DATA)}),
+    ('security_review', '보안성 검토(VI장) — 완료 가드(발견 전건 조치)·조치율', sc_security_review, {}),
     ('delayed_corrupt_date', '손상 날짜 일수계산 NaN 렌더 방지 — daysBetween 유한 가드', sc_delayed_corrupt_date,
      {'PORTAL_DATA_FILE': str(DTNAN_DATA)}),
     ('secprint_system_registered', '보안·출력물 시스템 정식 등록 — BJ-02 토폴로지 과소집계 해소', sc_secprint_system_registered, {}),
