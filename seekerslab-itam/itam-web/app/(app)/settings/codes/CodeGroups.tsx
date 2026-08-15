@@ -4,7 +4,7 @@ import { Card, Chip } from '@/components/ui'
 import type { CodeGroup } from '@/lib/types'
 import { addCodeValue, renameCodeValue, toggleCodeValue } from '../actions'
 
-export function CodeGroups({ groups }: { groups: CodeGroup[] }) {
+export function CodeGroups({ groups, usage }: { groups: CodeGroup[]; usage: Record<string, number> }) {
   const [selId, setSelId] = useState(groups[0]?.id ?? '')
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<string | null>(null)
@@ -57,9 +57,11 @@ export function CodeGroups({ groups }: { groups: CodeGroup[] }) {
           {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>코드</th><th>명칭</th><th className="num">정렬</th><th className="c">사용</th><th className="c">관리</th></tr></thead>
+              <thead><tr><th>코드</th><th>명칭</th><th className="num">정렬</th><th className="c">참조</th><th className="c">사용</th><th className="c">관리</th></tr></thead>
               <tbody>
-                {sel.values.map((v) => (
+                {sel.values.map((v) => {
+                  const used = usage[`${sel.id}.${v.code}`] ?? 0
+                  return (
                   <tr key={v.code} style={v.active ? undefined : { opacity: 0.55 }}>
                     <td className="code">{v.code}</td>
                     <td className="strong">
@@ -71,6 +73,7 @@ export function CodeGroups({ groups }: { groups: CodeGroup[] }) {
                       ) : v.label}
                     </td>
                     <td className="num tnum mute">{v.sort}</td>
+                    <td className="c">{used > 0 ? <span className="dim" style={{ fontSize: 11.5 }}>{used}건 사용 중</span> : <span className="mut" style={{ fontSize: 11.5 }}>참조 없음</span>}</td>
                     <td className="c">{v.active ? <Chip tone="ok">사용</Chip> : <Chip tone="neutral">미사용</Chip>}</td>
                     <td className="c">
                       <span style={{ display: 'inline-flex', gap: 5, justifyContent: 'center' }}>
@@ -84,7 +87,8 @@ export function CodeGroups({ groups }: { groups: CodeGroup[] }) {
                             <button className="btn sm ghost" disabled={pending}
                               onClick={() => { setEditCode(v.code); setEditLabel(v.label); setMsg(null) }}>수정</button>
                             <button className="btn sm" disabled={pending}
-                              onClick={() => startTransition(async () => { await toggleCodeValue(sel.id, v.code); setMsg(null) })}>
+                              title={v.active && used > 0 ? `${used}건이 참조 중 — 이관 후 미사용 전환 가능` : undefined}
+                              onClick={() => startTransition(async () => { const r = await toggleCodeValue(sel.id, v.code); setMsg(r?.message ?? null) })}>
                               {v.active ? '미사용' : '사용'}
                             </button>
                           </>
@@ -92,7 +96,8 @@ export function CodeGroups({ groups }: { groups: CodeGroup[] }) {
                       </span>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
