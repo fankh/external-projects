@@ -65,8 +65,10 @@ export async function GET(req: Request) {
         : s.educationRecords.some((r) => r.courseId === c.id && r.name === p.name) ? '이수' : '미이수')
       const req = marks.filter((m) => m !== '해당없음').length
       const n = marks.filter((m) => m === '이수').length
-      // 100% 는 대상 과정 전원 이수일 때만 — 화면 전사 이수율과 동일하게 Math.round 의 거짓 100 을 막는다
-      rows.push([p.name, p.dept, ...marks, req ? (n >= req ? 100 : Math.min(99, Math.round((n / req) * 100))) : 100])
+      // 100% 는 대상 과정 전원 이수일 때만 — 화면 전사 이수율과 동일하게 Math.round 의 거짓 100 을 막는다.
+      // 대상 과정이 없으면(req=0) '해당없음' — 전 셀이 '해당없음'인 비대상자를 100% 이수로 오표기하지 않는다
+      // (감사용 이수현황에서 '전원 이수 완료'와 '이수 의무 없음'을 이수율 열만으로 구분 가능하게 한다).
+      rows.push([p.name, p.dept, ...marks, req ? (n >= req ? 100 : Math.min(99, Math.round((n / req) * 100))) : '해당없음'])
     }
     return csvResponse('보안교육_이수현황', rows)
   }
