@@ -1188,6 +1188,17 @@ try {
   ok('재물조사 실측 스캔 → 중앙 감사 로그 적재(§07 추적성)', ((await pAI.textContent('body')) || '').includes('재물조사 실측 스캔'))
   await ctxAI.close()
 
+  // 재물조사 마감 완결성 가드(§03) — 미실사 대장 대상(스캔·분실·폐기 미처리)이 남으면 회차를 마감할 수 없다. 판교 회차엔 AST-2024-000230(미실사)이 남아 있다.
+  await p4.goto(`${BASE}${scopeHref}`, { waitUntil: 'networkidle' })
+  ok('재물조사 마감: 미실사 대상 남으면 조사 완료 버튼 비활성', await p4.locator('button', { hasText: /^조사 완료$/ }).isDisabled())
+  await p4.locator('tr', { has: p4.locator('td', { hasText: 'AST-2024-000230' }) }).first().locator('button', { hasText: /^분실 신고$/ }).click()
+  await p4.waitForTimeout(800)
+  await p4.goto(`${BASE}${scopeHref}`, { waitUntil: 'networkidle' })
+  ok('재물조사 마감: 미실사 대상 분실 처리 후 조사 완료 활성', !(await p4.locator('button', { hasText: /^조사 완료$/ }).isDisabled()))
+  await p4.locator('button', { hasText: /^조사 완료$/ }).click()
+  await p4.waitForTimeout(800)
+  ok('재물조사 마감: 전 대상 계상 후 회차 완료(결과 요약 리포트 배포)', ((await p4.textContent('body')) || '').includes('결과 요약'))
+
   // 유지보수 예산 통보(§03 유지보수 비용 관리 · 신호→조치 채널) — 집행률 판정(예산 초과·소진 임박)이 화면·대시보드에 보이기만 하고
   //  조치 채널이 없던 공백을 닫는다. 시드 CT-2022-007(집행률 104% 예산 초과) → 통보 버튼 활성 → 주관부서·공급사에 재협상·집행 점검 통보.
   await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })

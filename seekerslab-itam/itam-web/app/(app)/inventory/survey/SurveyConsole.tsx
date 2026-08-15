@@ -19,6 +19,8 @@ export function SurveyConsole(props: {
   me: string
   /** 실사 위치 — 공통코드 LOCATION 그룹의 사용 중 코드 (환경설정 › 공통코드가 원천) */
   locations: string[]
+  /** 미실사 남은 대장 대상 수 — 실사도 이탈 처리(분실·폐기)도 안 된 대상. 남아 있으면 회차를 마감할 수 없다(§03 완결성). */
+  unscannedInLedger?: number
 }) {
   const [code, setCode] = useState('')
   const [location, setLocation] = useState(props.locations[0] ?? '')
@@ -40,6 +42,9 @@ export function SurveyConsole(props: {
   const pendingDiffs = props.diffs.filter((d) => d.status === '미조치')
   // 미해결 차이(미조치·조정 상신)가 하나도 없어야 회차를 완료할 수 있다
   const allResolved = props.diffs.every((d) => d.status === '조정 완료')
+  // 미실사 남은 대장 대상이 없어야(모두 스캔·분실·폐기 처리) 회차를 마감할 수 있다(§03 재물조사 완결성)
+  const unscanned = props.unscannedInLedger ?? 0
+  const canComplete = allResolved && unscanned === 0
 
   return (
     <>
@@ -47,8 +52,8 @@ export function SurveyConsole(props: {
         actions={<span className="hstack" style={{ gap: 10 }}>
           <span className="dim" style={{ fontSize: 11.5 }}>담당 {props.assignee} · 수행자 {props.me}</span>
           {props.roundStatus === '진행중' && (
-            <button className="btn sm pri" disabled={pending || !allResolved}
-              title={allResolved ? '실사·차이 조정을 마치고 회차를 마감합니다' : '미해결 차이가 남아 있어 완료할 수 없습니다'}
+            <button className="btn sm pri" disabled={pending || !canComplete}
+              title={canComplete ? '실사·차이 조정을 마치고 회차를 마감합니다' : !allResolved ? '미해결 차이가 남아 있어 완료할 수 없습니다' : `미실사 대상 ${unscanned}건 — 실사 스캔 또는 분실 신고 후 마감`}
               onClick={() => startTransition(async () => {
                 const r = await completeRound(props.roundId)
                 setFeedback({ ok: r.ok, result: r.ok ? '조사 완료' : undefined, message: r.message })

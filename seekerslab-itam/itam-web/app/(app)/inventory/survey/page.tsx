@@ -79,6 +79,7 @@ export default async function SurveyPage({ searchParams }: { searchParams: Promi
         assignee={round.assignee}
         me={session.name}
         locations={locations}
+        unscannedInLedger={unscannedTargets.filter((t) => t.inLedger).length}
       />
     </>
   )

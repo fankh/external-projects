@@ -130,6 +130,18 @@ export async function completeRound(roundId: string) {
     return { ok: false, message: `미해결 차이 ${open.length}건이 남아 있어 완료할 수 없습니다 — 조정 결재까지 마쳐야 합니다.` }
   }
 
+  // 미실사 대상 마감 가드(§03 재물조사 완결성) — 회차 대상 중 아직 실사되지 않고 이탈 처리(분실·폐기)도 안 된 대장 자산이 남으면
+  // 마감할 수 없다. 실사 스캔하거나 분실 신고(미실사 남은 대상 카드)로 처리해야 회차가 전 대상을 실제로 계상하고 종결된다.
+  const scanned = new Set(s.surveyScans.filter((x) => x.roundId === roundId).map((x) => x.assetNo).filter(Boolean))
+  const unaccounted = (round.targets ?? []).filter((no) => {
+    if (scanned.has(no)) return false
+    const a = s.assets.find((x) => x.assetNo === no)
+    return a !== undefined && !['분실', '폐기예정', '폐기완료'].includes(a.status)
+  })
+  if (unaccounted.length > 0) {
+    return { ok: false, message: `미실사 대상 ${unaccounted.length}건이 남아 있어 마감할 수 없습니다 — 실사 스캔 또는 분실 신고로 처리하세요.` }
+  }
+
   round.status = '완료'
 
   // 완료 즉시 '재물조사 결과 요약' 리포트를 산출해 담당·주관 부서에 배포한다 —
