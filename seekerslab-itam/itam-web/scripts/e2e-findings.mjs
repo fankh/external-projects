@@ -725,6 +725,10 @@ try {
   const maintCard = p3.locator('.card', { hasText: '유지보수 계약 관리 — 예산 집행 · SLA' }).first()
   const maintTxt = (await maintCard.textContent()) || ''
   ok('유지보수 계약: 예산 초과 판정 렌더(CT-2022-007 집행률>100%)', maintTxt.includes('네트워크 장비 통합 유지보수') && maintTxt.includes('예산 초과'))
+  // 구매 계약 발주·검수 이행(§03) — CT-2023-021 발주 7%·만료 임박 → 발주 미이행 위험 판정. 대시보드 이행 점검 큐와 동일 근거.
+  const procCard = p3.locator('.card', { hasText: '구매 계약 발주·검수 이행 현황' }).first()
+  const procTxt = (await procCard.textContent()) || ''
+  ok('구매 계약: 발주 미이행 위험 판정 렌더(CT-2023-021 발주율 저조·만료 임박)', procTxt.includes('IDC-A 서버 증설') && procTxt.includes('미이행 위험'))
   // SaaS 인가 요청 승인 → 사용 현황(s.saas) + 정책 카탈로그(s.saasCatalog) 양쪽 인가 반영(교차 정합). 시드 APR-2607-125(Linear)
   await p3.goto(`${BASE}/workflow/approvals?sel=APR-2607-125`, { waitUntil: 'networkidle' })
   await p3.locator('tr', { has: p3.locator('td', { hasText: 'APR-2607-125' }) }).first().locator('button', { hasText: /^승인$/ }).click()

@@ -243,6 +243,8 @@ try {
   check('대시보드: 라이선스 초과 사용 감사 노출 큐 (자산담당)', dashHtml.includes('라이선스 초과 사용') && dashHtml.includes('감사 노출') && dashHtml.includes('/inventory/contracts'))
   // 유지보수 예산 초과·소진 임박 — 계약 집행률 판정(§03 유지보수 비용 관리)을 담당자 일과 시작점으로. 시드 CT-2022-007(누계 4,980만/계약 4,800만 → 예산 초과)로 큐 노출·계약 화면 드릴.
   check('대시보드: 유지보수 예산 초과·소진 임박 큐 (자산담당)', dashHtml.includes('유지보수 예산 초과·소진 임박') && dashHtml.includes('재협상·집행 점검'))
+  // 구매 계약 발주 미이행 — 발주율 저조 + 만료 임박 계약을 담당자 일과 시작점으로. 시드 CT-2023-021(발주 7%·만료 임박)로 큐 노출.
+  check('대시보드: 구매 계약 발주 미이행 큐 (자산담당)', dashHtml.includes('구매 계약 발주 미이행') && dashHtml.includes('이행 점검'))
   // 라이선스 만료 경과 — 시드 LIC-002(JetBrains, 만료 2026-05-31 · 기준일 2026-07-29 경과)가 미갱신 만료로 위반 노출. 만료 임박 창에서 이미 지난 건.
   check('대시보드: 라이선스 만료 경과 갱신 필요 큐 (자산담당)', dashHtml.includes('라이선스 만료 경과') && dashHtml.includes('갱신 필요'))
   // 미사용 라이선스 회수 후보 — 시드 LIC-003(Adobe 55%)·LIC-004(AutoCAD 40%) 사용률 60% 미만. 리스크(초과·만료)의 반대편 = 비용 절감 신호를 일과 시작점에 노출.
@@ -368,6 +370,10 @@ try {
   //  CT-2022-007: 계약액 4,800만 · 누계 지출 4,980만(1~3Q+긴급) → 예산 초과. CT-2024-011: 비용 이력 없음 → 미집행. SLA 요약 노출.
   check('유지보수 계약: 예산 집행 현황 패널 렌더(집행률·판정)', contractsHtml.includes('유지보수 계약 관리 — 예산 집행 · SLA') && contractsHtml.includes('전체 집행률') && contractsHtml.includes('누계 지출'))
   check('유지보수 계약: 예산 집행 실측(SLA 요약·미집행 판정)', contractsHtml.includes('장애 접수 후 4시간 내 온사이트 대응') && contractsHtml.includes('미집행'))
+  // 구매 계약 발주·검수 이행(§03 구매 계약 검수 연계) — 입고 로트를 계약과 대사해 발주 소진률·검수 완료액·미이행 위험 산출.
+  //  CT-2023-021(IDC 서버 384만): 발주 25.6M(7%)·만료 임박 → 발주 미이행 위험. CT-2026-009: 발주 95% → 정상.
+  check('구매 계약: 발주·검수 이행 현황 패널 렌더', contractsHtml.includes('구매 계약 발주·검수 이행 현황') && contractsHtml.includes('전체 발주 소진률') && contractsHtml.includes('검수 완료액 (정산 근거)'))
+  check('구매 계약: 발주 미이행 위험 판정(만료 임박·발주 저조)', contractsHtml.includes('IDC-A 서버 증설') && contractsHtml.includes('미이행 위험'))
   // 만료 경과 라이선스 판정 — LIC-002(JetBrains, 만료일 지남)는 초과 사용과 별개로 '만료' 칩으로 갱신 필요를 명시
   check('계약·라이선스: 만료 경과 라이선스 판정 칩(JetBrains)', contractsHtml.includes('>만료<') && contractsHtml.includes('2026-05-31'))
   // 계약 목록 필터 — 구분·상태·만료 임박·검색
