@@ -7,17 +7,32 @@
 | 대상 | Linux Server (RHEL / Rocky / CentOS / Ubuntu) |
 | SIEM Collector IP | {COLLECTOR_IP} |
 | 작성일 | 2026-08-10 |
-| 버전 | v1.0 |
+| 최종 갱신일 | 2026-08-15 |
+| 버전 | v2.0 |
 
----
+## 개정 이력
+
+| 버전 | 일자 | 내용 |
+|------|------|------|
+| v1.0 | 2026-08-10 | 최초 작성 |
+| v2.0 | 2026-08-15 | 수집 경로 정정. Seekurity SIEM v3는 Beats 입력(TCP 5044)을 수신하지 않으므로, Filebeat 출력을 Kafka(19092, siem-logs 토픽)로 변경하고 SIEM 수신 형식에 맞춘 성형 설정을 반영함 |
 
 ## 1. 개요
 
 ### 1.1 목적
 
-Linux Server 의 시스템 Log 를 Filebeat Agent 로 수집하여 Seekurity SIEM Collector(`{COLLECTOR_IP}`)로 전송하기 위한 설치·설정 절차를 정의한다.
+Linux Server의 시스템 Log를 Seekurity SIEM으로 수집하기 위한 설치·설정 절차를 정의한다.
 
-### 1.2 수집 구성
+### 1.2 수집 경로
+
+Seekurity SIEM v3는 Beats 입력(TCP 5044)을 수신하지 않는다. Linux Log 수집 경로는 다음 두 가지이며, 본 매뉴얼은 AIG 요구에 따라 Filebeat를 사용하는 경로 B를 기준으로 한다.
+
+| 경로 | 구성 | 특징 |
+|------|------|------|
+| A. Syslog (권장) | rsyslog → UDP 514 → ss-syslog-receiver | SIEM이 수신 IP를 기준으로 형식을 자동 구성함. 설정이 단순하며 표준 경로 |
+| B. Filebeat | Filebeat → Kafka 19092 (siem-logs 토픽) → ss-log-stream | Filebeat가 SIEM 수신 형식에 맞춰 Event를 성형하여 전송함. 파일 단위 세밀한 수집에 적합 |
+
+경로 A(rsyslog → 514)가 더 단순하므로, Filebeat가 반드시 필요하지 않은 표준 OS Log는 경로 A를 우선 검토할 것을 권고한다.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '14px' }, 'flowchart': { 'useMaxWidth': true }}}%%
@@ -32,22 +47,31 @@ flowchart LR
         L3 --> FB
     end
     subgraph SIEM["Seekurity SIEM"]
-        COL["Collector<br/>{COLLECTOR_IP}"]
+        K["Kafka<br/>{COLLECTOR_IP}:19092<br/>topic: siem-logs"]
+        LST["ss-log-stream<br/>Parsing / 정규화"]
+        K --> LST
     end
-    FB -- "TCP 5044" --> COL
+    FB -- "Kafka (TCP 19092)" --> K
     style L1 fill:#E3F2FD,stroke:#1565C0
     style L2 fill:#E8F5E9,stroke:#2E7D32
     style L3 fill:#FFF3E0,stroke:#E65100
     style FB fill:#EDE7F6,stroke:#4527A0
-    style COL fill:#FCE4EC,stroke:#AD1457
+    style K fill:#FCE4EC,stroke:#AD1457
+    style LST fill:#FCE4EC,stroke:#AD1457
 ```
 
-| 구성 요소 | 역할 |
-|-----------|------|
-| Filebeat | Linux Server 에 설치되는 경량 Log 수집 Agent |
-| SIEM Collector | Filebeat 가 전송한 Event 수신·Parsing (`{COLLECTOR_IP}`) |
+### 1.3 SIEM 수신 형식 (중요)
 
-### 1.3 수집 대상 Log
+ss-log-stream은 siem-logs 토픽의 각 메시지를 다음 필드를 가진 JSON으로 기대한다. 이 형식이 아니면 Event가 파싱 단계에서 폐기되므로, 4.1의 Filebeat 성형 설정을 반드시 적용한다.
+
+| 필드 | 값 | 필수 |
+|------|-----|------|
+| protocol | "file" (Filebeat 수집 시 고정) | 필수 |
+| device | Log Source 이름 (SIEM에 등록한 이름과 일치) | 필수 (파서 조회 키) |
+| rawData | 원본 Log 한 줄 | 필수 |
+| generatedTime | 이벤트 시각 (UTC) | 권장 (누락 시 수신 시각으로 대체) |
+
+### 1.4 수집 대상 Log
 
 | Log File | 내용 | 배포판 |
 |----------|------|--------|
@@ -57,8 +81,6 @@ flowchart LR
 | `/var/log/auth.log` | 인증·SSH 접속 Event | Ubuntu / Debian |
 | `/var/log/audit/audit.log` | auditd 감사 Event | 공통 (auditd 사용 시) |
 | `/var/log/cron` | Cron 작업 Event | RHEL 계열 |
-
----
 
 ## 2. 사전 준비
 
@@ -73,21 +95,23 @@ flowchart LR
 
 ### 2.2 네트워크 (방화벽) 요구사항
 
-Linux Server 에서 SIEM Collector 방향으로 아래 통신이 허용되어야 한다.
+Linux Server에서 SIEM Kafka 방향으로 아래 통신이 허용되어야 한다.
 
 | Source | Destination | Protocol / Port | 용도 |
 |--------|-------------|-----------------|------|
-| Linux Server IP | {COLLECTOR_IP} | TCP 5044 | Filebeat → Collector Log 전송 |
+| Linux Server IP | {COLLECTOR_IP} | TCP 19092 | Filebeat → Kafka Event 전송 |
 
-**사전 통신 확인**
+경로 A(rsyslog)를 사용하는 경우에는 UDP 514가 대신 필요하다.
+
+사전 통신 확인:
 
 ```bash
-# TCP 5044 연결 확인 (둘 중 가능한 명령 사용)
-curl -v telnet://{COLLECTOR_IP}:5044 --connect-timeout 5
-nc -zv {COLLECTOR_IP} 5044
+# TCP 19092 연결 확인 (둘 중 가능한 명령 사용)
+curl -v telnet://{COLLECTOR_IP}:19092 --connect-timeout 5
+nc -zv {COLLECTOR_IP} 19092
 ```
 
-> 연결 실패 시 네트워크 담당자에게 방화벽 정책(Linux Server → {COLLECTOR_IP} TCP 5044) 오픈을 요청한다.
+연결 실패 시 네트워크 담당자에게 방화벽 정책(Linux Server → {COLLECTOR_IP} TCP 19092) 오픈을 요청한다.
 
 ### 2.3 설치 파일 준비
 
@@ -96,25 +120,20 @@ nc -zv {COLLECTOR_IP} 5044
 | 온라인 환경 | Elastic 공식 Repository 또는 패키지 직접 다운로드 |
 | 폐쇄망 환경 | 반입 승인된 RPM/DEB 파일을 서버로 복사 (`scp`, `sftp`) |
 
-권장 버전: **Filebeat 8.x** (예시: 8.14.3). 전 서버 동일 버전으로 통일한다.
-
----
+권장 버전: Filebeat 8.x (예시: 8.14.3). 전 서버 동일 버전으로 통일한다.
 
 ## 3. 설치
 
 ### 3.1 RHEL / Rocky / CentOS (RPM)
 
-**온라인 설치**
+온라인 설치:
 
 ```bash
-# 1. RPM 다운로드
 curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-8.14.3-x86_64.rpm
-
-# 2. 설치
 sudo rpm -vi filebeat-8.14.3-x86_64.rpm
 ```
 
-**폐쇄망 설치** — 반입한 RPM 파일을 서버에 복사한 뒤 동일하게 실행한다.
+폐쇄망 설치 — 반입한 RPM 파일을 서버에 복사한 뒤 동일하게 실행한다.
 
 ```bash
 sudo rpm -vi /tmp/filebeat-8.14.3-x86_64.rpm
@@ -123,10 +142,7 @@ sudo rpm -vi /tmp/filebeat-8.14.3-x86_64.rpm
 ### 3.2 Ubuntu / Debian (DEB)
 
 ```bash
-# 1. DEB 다운로드
 curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-8.14.3-amd64.deb
-
-# 2. 설치
 sudo dpkg -i filebeat-8.14.3-amd64.deb
 ```
 
@@ -137,7 +153,7 @@ filebeat version
 # 출력 예: filebeat version 8.14.3 (amd64), libbeat 8.14.3 ...
 ```
 
-**주요 경로**
+주요 경로:
 
 | 경로 | 용도 |
 |------|------|
@@ -145,8 +161,6 @@ filebeat version
 | `/var/lib/filebeat/` | Registry (수집 위치 기억) |
 | `/var/log/filebeat/` | Filebeat 자체 Log |
 | `/usr/share/filebeat/` | 실행 파일·모듈 |
-
----
 
 ## 4. 설정
 
@@ -159,7 +173,7 @@ sudo cp /etc/filebeat/filebeat.yml /etc/filebeat/filebeat.yml.orig
 sudo vi /etc/filebeat/filebeat.yml
 ```
 
-**RHEL / Rocky / CentOS 예시**
+RHEL / Rocky / CentOS 예시:
 
 ```yaml
 # ============== Filebeat inputs ==============
@@ -171,30 +185,51 @@ filebeat.inputs:
       - /var/log/messages
       - /var/log/secure
       - /var/log/cron
-    fields:
-      log_type: linux_system
-      customer: AIG
-    fields_under_root: true
 
   - type: filestream
     id: audit-logs
     enabled: true
     paths:
       - /var/log/audit/audit.log
-    fields:
-      log_type: linux_audit
-      customer: AIG
-    fields_under_root: true
 
 # ============== General ==============
 name: "{HOSTNAME}"          # 서버 Hostname 으로 자동 설정하려면 이 줄 삭제
-tags: ["linux", "aig"]
 
-# ============== Output (SIEM Collector) ==============
-output.logstash:
-  hosts: ["{COLLECTOR_IP}:5044"]
-  loadbalance: false
-  worker: 1
+# ============== Processors (SIEM 수신 형식으로 성형) ==============
+# ss-log-stream 이 요구하는 protocol / device / rawData 필드를 구성한다.
+# device 값은 SIEM 에 등록한 Log Source 이름과 반드시 일치해야 파서가 적용된다.
+processors:
+  - add_fields:
+      target: ""
+      fields:
+        protocol: "file"
+        device: "AIG_Linux_{HOSTNAME}"
+  - rename:
+      fields:
+        - from: "message"
+          to: "rawData"
+      ignore_missing: true
+  - copy_fields:
+      fields:
+        - from: "@timestamp"
+          to: "generatedTime"
+      ignore_missing: true
+      fail_on_error: false
+  # 불필요한 기본 필드 제거 (전송량 절감, 파싱 방해 방지)
+  - drop_fields:
+      fields: ["agent", "ecs", "input", "log", "host"]
+      ignore_missing: true
+
+# ============== Output (Kafka → siem-logs) ==============
+output.kafka:
+  hosts: ["{COLLECTOR_IP}:19092"]
+  topic: "siem-logs"
+  required_acks: 1
+  compression: gzip
+  max_message_bytes: 1000000
+  codec.json:
+    pretty: false
+    escape_html: false
 
 # ============== Logging ==============
 logging.level: info
@@ -206,7 +241,7 @@ logging.files:
   permissions: 0640
 ```
 
-**Ubuntu / Debian 은 paths 만 변경**
+Ubuntu / Debian은 paths만 변경한다.
 
 ```yaml
     paths:
@@ -214,9 +249,11 @@ logging.files:
       - /var/log/auth.log
 ```
 
-> **주의**
-> - `output.elasticsearch` 항목이 기본 활성화되어 있으면 반드시 주석 처리한다. Output 은 한 개만 활성화 가능하다.
-> - SIEM Collector 수신 Port 가 5044 가 아닌 경우 SIEM Engineer 에게 확인 후 변경한다.
+주의 사항:
+
+- `output.elasticsearch`, `output.logstash` 등 다른 output이 기본 활성화되어 있으면 반드시 주석 처리한다. Output은 한 개만 활성화 가능하다.
+- `device` 값(`AIG_Linux_{HOSTNAME}`)과 동일한 이름의 File 유형 Log Source 및 파서를 SIEM에 사전 등록해야 정규화가 수행된다. 미등록 시 Event는 수집·저장되나 파싱되지 않은 상태로 인덱싱된다.
+- Kafka 주소·토픽·형식은 SIEM 구성에 종속되므로 변경 전 SIEM Engineer에게 확인한다.
 
 ### 4.2 설정 문법 검증
 
@@ -225,22 +262,18 @@ sudo filebeat test config -c /etc/filebeat/filebeat.yml
 # 출력: Config OK
 ```
 
-### 4.3 Collector 연결 검증
+### 4.3 Kafka 연결 검증
 
 ```bash
 sudo filebeat test output -c /etc/filebeat/filebeat.yml
 # 출력 예:
-# logstash: {COLLECTOR_IP}:5044...
-#   connection...
-#     parse host... OK
-#     dns lookup... OK
-#     dial up... OK
-#   talk to server... OK
+# kafka: {COLLECTOR_IP}:19092...
+#   parse host... OK
+#   dns lookup... OK
+#   dial up... OK
 ```
 
-> `dial up... ERROR` 발생 시 → 2.2 방화벽 요구사항 재확인.
-
----
+`dial up... ERROR` 발생 시 2.2 방화벽 요구사항을 재확인한다.
 
 ## 5. 서비스 기동
 
@@ -268,8 +301,6 @@ sudo systemctl status filebeat
 | 상태 확인 | `sudo systemctl status filebeat` |
 | 자체 Log 확인 | `sudo tail -f /var/log/filebeat/filebeat*` |
 
----
-
 ## 6. 검증
 
 ### 6.1 Agent 측 검증
@@ -278,9 +309,9 @@ sudo systemctl status filebeat
 # 1. 프로세스 확인
 ps -ef | grep filebeat
 
-# 2. Collector 연결(ESTABLISHED) 확인
-ss -antp | grep 5044
-# 출력 예: ESTAB  ...  <서버IP>:xxxxx  {COLLECTOR_IP}:5044  users:(("filebeat",...))
+# 2. Kafka 연결(ESTABLISHED) 확인
+ss -antp | grep 19092
+# 출력 예: ESTAB  ...  <서버IP>:xxxxx  {COLLECTOR_IP}:19092  users:(("filebeat",...))
 
 # 3. 전송 Event 수 확인 (30초 주기 Metrics)
 sudo grep "Non-zero metrics" /var/log/filebeat/filebeat* | tail -1
@@ -291,45 +322,43 @@ sudo grep "Non-zero metrics" /var/log/filebeat/filebeat* | tail -1
 | 순서 | 확인 항목 | 방법 |
 |------|-----------|------|
 | 1 | Log 수신 확인 | SIEM Web UI > 모니터링 > Log Source 현황 |
-| 2 | Parser 적용 확인 | 검색에서 해당 Hostname Event 조회, 필드 정규화 확인 |
-| 3 | Dashboard 표시 확인 | Linux Log Dashboard 에 Event 표시 여부 |
+| 2 | Parser 적용 확인 | 검색에서 해당 device 이름 Event 조회, 필드 정규화 확인 |
+| 3 | Dashboard 표시 확인 | Linux Log Dashboard에 Event 표시 여부 |
 
 ### 6.3 테스트 Event 발생
 
 ```bash
-# 인증 Log 테스트: SSH 로그인 1회 수행 후 SIEM 에서 검색
+# 인증 Log 테스트: 아래 명령으로 Event 발생 후 SIEM 에서 검색
 logger -p authpriv.info "AIG SIEM integration test message"
 ```
 
-SIEM Web UI 검색에서 `AIG SIEM integration test message` 가 조회되면 연동 완료.
+SIEM Web UI 검색에서 `AIG SIEM integration test message`가 조회되면 연동 완료.
 
 ### 6.4 연동 체크리스트
 
-- [ ] 방화벽 정책 오픈 (Server → {COLLECTOR_IP} TCP 5044)
+- [ ] 방화벽 정책 오픈 (Server → {COLLECTOR_IP} TCP 19092)
+- [ ] SIEM에 File 유형 Log Source 및 파서 등록 (device 이름 일치)
 - [ ] Filebeat 설치 및 버전 확인
 - [ ] `filebeat test config` OK
-- [ ] `filebeat test output` OK
+- [ ] `filebeat test output` (kafka) OK
 - [ ] 서비스 기동 및 자동 시작 등록
 - [ ] SIEM Log 수신 확인
 - [ ] Parser / Dashboard 확인
 - [ ] 테스트 Event 조회 확인
 
----
-
 ## 7. 문제 해결 (Troubleshooting)
 
 | 증상 | 원인 | 조치 |
 |------|------|------|
-| `dial up... ERROR` | 방화벽 미오픈, Collector 미기동 | 방화벽 정책 확인, SIEM Engineer 에게 Collector 상태 확인 요청 |
+| `dial up... ERROR` | 방화벽 미오픈, Kafka 미기동 | 방화벽 정책(TCP 19092) 확인, SIEM Engineer에게 Kafka 상태 확인 요청 |
 | `Config OK` 실패 | YAML 문법 오류 (들여쓰기) | 오류 메시지의 라인 확인, 공백 2칸 들여쓰기 준수 |
-| 서비스 기동 실패 | 설정 오류, 권한 문제 | `journalctl -u filebeat -n 50` 로 원인 확인 |
-| Log 가 SIEM 에 미표시 | 수집 대상 파일 권한 부족 | `ls -l /var/log/secure` 확인, Filebeat 는 root 로 실행되므로 SELinux 정책 확인 (`ausearch -m avc -ts recent`) |
-| Event 지연 | Collector 부하, 네트워크 지연 | `Non-zero metrics` 의 `output.events.acked` 추이 확인 |
+| 서비스 기동 실패 | 설정 오류, 권한 문제 | `journalctl -u filebeat -n 50`으로 원인 확인 |
+| SIEM에 Event 미표시 | device 이름 불일치, 형식 오류 | 4.1의 device 값과 SIEM 등록 이름 일치 확인, processors 설정 확인 |
+| Event는 수신되나 파싱 안 됨 | 해당 device의 파서 미등록 | SIEM에 File 유형 파서 등록 (device 이름 기준) |
+| Log 파일 권한 부족 | 수집 대상 파일 읽기 권한 | `ls -l /var/log/secure` 확인, SELinux 정책 확인 (`ausearch -m avc -ts recent`) |
 | Disk 사용량 증가 | Filebeat 자체 Log 누적 | `logging.files.keepfiles` 값 확인 (기본 7개 유지) |
 
-**재설치 시 주의**: Registry(`/var/lib/filebeat/`)를 삭제하면 기존 Log 를 처음부터 재전송하여 중복 Event 가 발생한다. 재설치 시 Registry 는 유지한다.
-
----
+재설치 시 주의: Registry(`/var/lib/filebeat/`)를 삭제하면 기존 Log를 처음부터 재전송하여 중복 Event가 발생한다. 재설치 시 Registry는 유지한다.
 
 ## 8. 부록
 
@@ -339,10 +368,10 @@ SIEM Web UI 검색에서 `AIG SIEM integration test message` 가 조회되면 �
 |------|-----|
 | System Type | Data & Application |
 | System Name | Linux Server |
-| Log Source Name | {위치}_Linux_{용도} (예: IDC_Linux_WEB01) |
+| Log Source Name | AIG_Linux_{용도} (예: AIG_Linux_WEB01) — device 값과 일치 |
 | Server IP Address | {xxx.xxx.xxx.xxx} |
-| Protocol | Filebeat (Beats/TCP) |
-| Destination | {COLLECTOR_IP}:5044 |
+| Protocol | Filebeat → Kafka |
+| Destination | {COLLECTOR_IP}:19092 (topic: siem-logs) |
 | Filebeat Version | 8.14.3 |
 | 수집 Log | /var/log/messages, /var/log/secure, /var/log/audit/audit.log |
 | Manager | {담당자명} |
