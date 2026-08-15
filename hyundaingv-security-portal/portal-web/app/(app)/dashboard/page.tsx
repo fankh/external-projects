@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { effectiveRoles, requireMenu } from '@/lib/authz'
 import { currentYear, today } from '@/lib/dates'
-import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
+import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
 
 export default async function DashboardPage() {
@@ -67,6 +67,8 @@ export default async function DashboardPage() {
     inspections: s.inspectionPlans.filter((p) => p.status === '결과미등록' || (p.month < period && p.status === '계획')).length,
     // 미조치 취약점 — 열린(미완료) 보안성 검토의 발견 대비 미조치 잔여. 화면(security-review)의 openFindings 와 동일 원천.
     securityReviews: s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + Math.max(0, r.findings - r.fixed), 0),
+    // 고위험(심각+높음) 미조치 — 우선 조치 신호. highSevOpen 단일원천(화면·export 와 정합).
+    securityHigh: s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + highSevOpen(r), 0),
   }
 
   return (
@@ -99,7 +101,8 @@ export default async function DashboardPage() {
             {opsVis.openIssues && <Stat value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />}
             {opsVis.unsigned && <Stat value={ops.unsigned} label="미서약 인원" tone={ops.unsigned > 0 ? 'warn' : undefined} />}
             {opsVis.inspections && <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />}
-            {opsVis.securityReviews && <Stat value={ops.securityReviews} label="미조치 취약점" tone={ops.securityReviews > 0 ? 'err' : undefined} />}
+            {opsVis.securityReviews && <Stat value={ops.securityHigh} label="고위험 미조치" tone={ops.securityHigh > 0 ? 'err' : undefined} />}
+            {opsVis.securityReviews && <Stat value={ops.securityReviews} label="미조치 취약점" tone={ops.securityReviews > 0 ? 'warn' : undefined} />}
           </div>
         </Card>
       )}

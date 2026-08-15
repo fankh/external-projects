@@ -4,7 +4,7 @@ import { effectiveRoles } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
 import { currentYear, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
+import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
 /** 유형 → 소속 화면 — 화면의 런타임 메뉴 제한이 다운로드에도 걸린다 (유형별 추가 가드와 별개) */
@@ -226,6 +226,7 @@ export async function GET(req: Request) {
     const totalFindings = withFindings.reduce((sum, r) => sum + r.findings, 0)
     const totalFixed = withFindings.reduce((sum, r) => sum + r.fixed, 0)
     const openVulns = s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + Math.max(0, r.findings - r.fixed), 0)
+    const highVulns = s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + highSevOpen(r), 0)
     // 5) 보안위반
     const vDone = s.violations.filter((v) => v.status === '완료').length
     const vPending = s.violations.filter((v) => v.status === '징구중').length
@@ -234,7 +235,7 @@ export async function GET(req: Request) {
       ['일반 보안서약률', `${pct(signedCount, s.people.length)}%`, `${signedCount}/${s.people.length}명 (${currentYear()}년 현 개정본)`],
       ['보안교육 이수율', `${pct(totalDone, totalSlots)}%`, `완료 과정 ${doneCourses.length}건 · 대상 이수 ${totalDone}/${totalSlots}`],
       ['보안점검(ISMS)', `완료 ${inspDone} / 전체 ${s.inspectionPlans.length}`, `결과 미등록 ${inspPending}건`],
-      ['보안성 검토 조치율', withFindings.length ? `${pct(totalFixed, totalFindings)}%` : '해당없음', `미조치 취약점 ${openVulns}건 · 검토 ${s.securityReviews.length}건`],
+      ['보안성 검토 조치율', withFindings.length ? `${pct(totalFixed, totalFindings)}%` : '해당없음', `고위험 미조치 ${highVulns}건 · 미조치 취약점 ${openVulns}건 · 검토 ${s.securityReviews.length}건`],
       ['보안위반 처리', `완료 ${vDone} / 전체 ${s.violations.length}`, `확인서 징구중 ${vPending}건`],
     ]
     return csvResponse('보안컴플라이언스_종합현황', rows)
