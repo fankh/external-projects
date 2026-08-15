@@ -1392,7 +1392,10 @@ try {
   await p4.waitForTimeout(800)
   ok('도입·검수: 검수 반려 → 반품 완료 종결', (await p4.textContent('body')).includes('반품 완료'))
   await p4.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
-  ok('검수 반려 → 반품 완료: 대시보드 백로그에서 제외', !(await p4.textContent('body')).includes('검수 반려 (재검수 · 반품 확인)'))
+  const p4Dash = (await p4.textContent('body')) || ''
+  ok('검수 반려 → 반품 완료: 대시보드 백로그에서 제외', !p4Dash.includes('검수 반려 (재검수 · 반품 확인)'))
+  // 내게 온 알림(수신자 측) — 나를 수신자(to)로 한 통지를 My Work 에서 요약. 그동안 발송 이력은 관리자만 볼 수 있었다. 박자산 앞 통지(예: JetBrains 만료 임박) 노출.
+  ok('대시보드(수신자): 내게 온 알림 — 나를 수신자로 한 통지 요약 노출', p4Dash.includes('내게 온 알림') && p4Dash.includes('JetBrains'))
   await ctx4.close()
 
   await browser.close()
