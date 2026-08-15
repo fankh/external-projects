@@ -3,7 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { today } from '@/lib/dates'
+import { daysBetween, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { SR_FLOW, type SrRequest, type SrStatus } from '@/lib/types'
 import { SR_CHIP, srStatusLabel } from '../chips'
@@ -97,9 +97,10 @@ export default async function SrManagePage() {
                     <td>{r.ci ?? <span className="mut">미배정</span>}</td>
                     <td><Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip></td>
                     <td className="num tnum">{r.manHours ?? '-'}</td>
-                    <td className="tnum">{r.completedAt
-                      ? `${Math.max(1, Math.round((Date.parse(r.completedAt) - Date.parse(r.requestedAt)) / 86400000) + 1)}일`
-                      : '-'}</td>
+                    <td className="tnum">{(() => {
+                      const d = r.completedAt ? daysBetween(r.requestedAt, r.completedAt) : null
+                      return d !== null ? `${Math.max(1, d + 1)}일` : '-'
+                    })()}</td>
                     <td className="tnum">{r.status === '완료' ? (r.completedAt ?? '-') : (r.dueDate ?? '-')}</td>
                     <td className="c">
                       {next ? (

@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { today } from '@/lib/dates'
+import { daysBetween, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { SR_CHIP } from '../chips'
 
@@ -20,9 +20,6 @@ async function replan(formData: FormData) {
   revalidatePath('/', 'layout')
 }
 
-const daysBetween = (a: string, b: string) =>
-  Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000)
-
 export default async function SrDelayedPage() {
   await requireMenu('/sr/delayed')
   const s = getStore()
@@ -40,7 +37,7 @@ export default async function SrDelayedPage() {
 
       <div className="stat-row">
         <Stat value={delayed.length} label="지연 건" tone={delayed.length > 0 ? 'err' : undefined} />
-        <Stat value={delayed.length ? Math.max(...delayed.map((r) => daysBetween(r.dueDate!, t))) : 0} label="최대 지연일수" tone={delayed.length ? 'warn' : undefined} />
+        <Stat value={delayed.length ? Math.max(0, ...delayed.map((r) => daysBetween(r.dueDate!, t) ?? 0)) : 0} label="최대 지연일수" tone={delayed.length ? 'warn' : undefined} />
       </div>
 
       <Card title="지연 SR" kicker="Delayed" pad={false}>
@@ -60,7 +57,7 @@ export default async function SrDelayedPage() {
                     <td>{r.ci ?? '-'}</td>
                     <td><Chip tone={SR_CHIP[r.status]}>{r.status}</Chip></td>
                     <td className="tnum">{r.dueDate}</td>
-                    <td className="num"><Chip tone="err" bare>D+{daysBetween(r.dueDate!, t)}</Chip></td>
+                    <td className="num"><Chip tone="err" bare>D+{daysBetween(r.dueDate!, t) ?? '-'}</Chip></td>
                     <td className="c">
                       <form action={replan} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                         <input type="hidden" name="srNo" value={r.srNo} />

@@ -51,6 +51,7 @@ PJMEMB_DATA = ROOT / 'scripts' / '.e2e-pjmemb-data.json'  # 빈 명단 프로젝
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
 AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
 QNAROLE_DATA = ROOT / 'scripts' / '.e2e-qnarole-data.json'  # QnA 담당 지정 역할 정합 회귀용 (v1.5.92)
+DTNAN_DATA = ROOT / 'scripts' / '.e2e-dtnan-data.json'  # 손상 날짜 일수계산 NaN 렌더 방지 회귀용 (v1.5.93)
 
 
 def login(pg, base, name):
@@ -557,6 +558,17 @@ def sc_channelstate_corrupt(pg, base, check):
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
+
+
+def sc_delayed_corrupt_date(pg, base, check):
+    """손상 날짜 일수계산 NaN 렌더 방지(v1.5.93) — strField 정규화는 날짜를 문자열로만 보장하고 유효성은
+    검증 안 하므로, 손상 파일의 파싱 불가 dueDate('0000-00-00')가 지연목록에 들어가면 daysBetween 의
+    Date.parse 가 NaN 을 내 'D+NaN'·'최대 지연일수 NaN'으로 렌더됐다(손상파일 게이트는 크래시만 잡아 통과).
+    daysBetween 유한값 가드(비유한→null→'-'·0 폴백)로 NaN 렌더 제거. 손상 dueDate SR 주입 → NaN 미표기."""
+    login(pg, base, '박정호')  # BIZ_MGR — 지연내역 열람
+    pg.goto(f'{base}/sr/delayed', wait_until='networkidle')
+    check('NaN' not in pg.content(),
+          "손상 날짜(0000-00-00) 지연 SR 도 화면에 NaN 미표기 (daysBetween 유한 가드 → 'D+-'·0 폴백)")
 
 
 def sc_qna_assign_role(pg, base, check):
@@ -1769,6 +1781,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(AFDEFEAT_DATA)}),
     ('qna_assign_role', 'QnA 담당 지정 역할 정합 — 답변 가능 역할만', sc_qna_assign_role,
      {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
+    ('delayed_corrupt_date', '손상 날짜 일수계산 NaN 렌더 방지 — daysBetween 유한 가드', sc_delayed_corrupt_date,
+     {'PORTAL_DATA_FILE': str(DTNAN_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -2069,6 +2083,13 @@ def main() -> int:
         'qna': [{'id': 'QA-9030', 'title': '담당지정역할테스트', 'domain': '보안신청', 'author': '김현우',
                  'dept': '개발1팀', 'askedAt': '2026-08-01'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # delayed_corrupt_date 시나리오용(v1.5.93) — 파싱 불가 dueDate('0000-00-00')로 지연목록 진입(< today).
+    # daysBetween 가드 없으면 'D+NaN'·'최대 지연일수 NaN'. status 는 지연 제외집합(완료·반려·작성중·결재중) 밖.
+    DTNAN_DATA.write_text(json.dumps({
+        'srRequests': [{'srNo': 'SR-9040', 'title': '손상날짜지연테스트', 'requester': '김현우', 'dept': '개발1팀',
+                        'kind': '시스템개발', 'status': '개발중', 'requestedAt': '2026-07-01', 'dueDate': '0000-00-00',
+                        'ci': '박정호'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -2105,6 +2126,7 @@ def main() -> int:
     RMGHOST_DATA.unlink(missing_ok=True)
     AFDEFEAT_DATA.unlink(missing_ok=True)
     QNAROLE_DATA.unlink(missing_ok=True)
+    DTNAN_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)

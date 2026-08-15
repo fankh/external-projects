@@ -21,3 +21,11 @@ export function nowStamp(): string {
 export function nowStampSec(): string {
   return new Date(Date.now() + KST).toISOString().slice(0, 19).replace('T', ' ')
 }
+
+/** 두 날짜(YYYY-MM-DD) 사이 일수 = to - from. 손상 파일의 파싱 불가 날짜(예: '0000-00-00')는 Date.parse 가
+ *  NaN 을 내고, 그대로 뺄셈·Math.round 하면 화면에 'D+NaN'·'NaN일' 이 렌더된다(strField 정규화는 문자열만
+ *  보장하고 날짜 유효성은 검증 안 함). 유한값이 아니면 null 을 반환해 호출부에서 '-'·0 으로 폴백하게 한다. */
+export function daysBetween(from: string, to: string): number | null {
+  const d = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000)
+  return Number.isFinite(d) ? d : null
+}
