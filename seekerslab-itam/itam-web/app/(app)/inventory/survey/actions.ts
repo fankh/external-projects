@@ -15,7 +15,7 @@ const stamp = nowMinute
  *  대장과 대조해 위치·상태 차이를 즉시 판정하고, 대장에 없는 코드는 미등록으로 기록한다. */
 export async function scanAsset(roundId: string, rawCode: string, location: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return { ok: false, message: '실사 권한이 없습니다.' }
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '실사 권한이 없습니다.' }
 
   const code = rawCode.trim().toUpperCase()
   if (!code) return { ok: false, message: '코드가 비어 있습니다.' }
@@ -89,7 +89,7 @@ export async function scanAsset(roundId: string, rawCode: string, location: stri
 /** 차이 조정 결재 상신 — 필수 결재 (결재선: 자산담당 → IT기획팀장) */
 export async function raiseAdjustment(roundId: string) {
   const session = await getSession()
-  if (!session || session.role === 'USER') return
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return
   const s = getStore()
   const pending = s.surveyDiffs.filter((d) => d.roundId === roundId && d.status === '미조치')
   if (pending.length === 0) return
