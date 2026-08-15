@@ -501,6 +501,7 @@ function seedApprovalLines(): ApprovalLine[] {
     { id: 'AL-01', screen: '자산 대장 · 신청', kind: '자산 신청', steps: ['신청자', '부서장', '자산담당'], required: false },
     { id: 'AL-02', screen: '수명주기 · 반납', kind: '반납', steps: ['신청자', '자산담당'], required: false },
     { id: 'AL-03', screen: '수명주기 · 이동', kind: '이동', steps: ['신청자', '자산담당'], required: false },
+    { id: 'AL-09', screen: '수명주기 · 대여', kind: '대여', steps: ['신청자', '자산담당'], required: false },
     { id: 'AL-04', screen: '수명주기 · 폐기', kind: '폐기', steps: ['자산담당', 'IT기획팀장'], required: true },
     { id: 'AL-05', screen: 'Discovery · 편입', kind: '소유자 확인', steps: ['Discovery 엔진', '부서장', '자산담당'], required: true },
     { id: 'AL-06', screen: 'Discovery · 격리', kind: '격리 요청', steps: ['보안담당', 'IT기획팀장'], required: true },
