@@ -829,7 +829,12 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
 
 /** 결재 첨부용 — 엑셀 호환 CSV (UTF-8 BOM) */
 export function toCsv(title: string, sections: ReportSection[], headline: string): string {
-  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
+  // CSV 수식 인젝션 방지 — 스캔에서 온 호스트명 등 값이 =,+,-,@,탭,CR 로 시작하면 Excel 이 수식으로 실행한다.
+  // 따옴표로 감싸도 무력화되지 않으므로 선행 작은따옴표로 텍스트 고정한 뒤 CSV 이스케이프한다.
+  const esc = (v: string) => {
+    const guarded = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v
+    return `"${guarded.replace(/"/g, '""')}"`
+  }
   const lines: string[] = [esc(title), '', esc(headline), '']
   for (const sec of sections) {
     lines.push(esc(`■ ${sec.title}`))
