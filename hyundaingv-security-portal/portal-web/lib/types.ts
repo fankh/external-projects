@@ -181,6 +181,25 @@ export interface SecurityReview {
   completedAt?: string
 }
 
+/** 컴플라이언스 포스처 추세 스냅샷 — 주기(월)별 KPI 를 저장해 전기 대비 개선 추이(ISMS 감사 근거)를 본다.
+ *  값은 lib/compliance computeComplianceKpis 기준 기록 시점 산출(rate 는 complianceKpiPct). */
+export interface ComplianceSnapshot {
+  id: string
+  /** 대상 기간 (YYYY-MM) — 같은 기간 재기록 시 갱신(upsert) */
+  period: string
+  at: string
+  by: string
+  pledgeRate: number
+  eduRate: number
+  fixRate: number
+  inspDone: number
+  inspTotal: number
+  highVulns: number
+  openVulns: number
+  vDone: number
+  vTotal: number
+}
+
 /** 장애 관리 — 등록·조치 → 주기별 통계 결재상신 → 향후대책 결과 등록 (요구사항 결재 시트 8번) */
 export type IncidentGrade = '1등급' | '2등급' | '3등급'
 
