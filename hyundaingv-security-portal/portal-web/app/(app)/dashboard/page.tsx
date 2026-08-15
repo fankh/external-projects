@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { effectiveRoles, requireMenu } from '@/lib/authz'
 import { currentYear, today } from '@/lib/dates'
-import { eligibleForCourse, getStore, isRemoteTargetIn } from '@/lib/store'
+import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
 
 export default async function DashboardPage() {
@@ -42,8 +42,10 @@ export default async function DashboardPage() {
     Number(b.pinned ?? false) - Number(a.pinned ?? false) || String(b.postedAt ?? '').localeCompare(String(a.postedAt ?? '')))
 
   // 관리대상 현황 — 의식제고·컴플라이언스·계획수립 (요구사항 개인별현황 포틀릿)
-  const remoteDone = s.remoteChecks.some((r) => r.name === me.name && r.period === period)
-  const remoteTarget = s.remoteTargets.some((t) => t.name === me.name && isRemoteTargetIn(t, period))
+  // 재택은 등록 주기(월·분기·반기·매일) 기반 기간 키를 쓴다 — 인프라 점검은 월(period) 그대로.
+  const remotePeriod = remotePeriodKey(s.remoteCycle)
+  const remoteDone = s.remoteChecks.some((r) => r.name === me.name && r.period === remotePeriod)
+  const remoteTarget = s.remoteTargets.some((t) => t.name === me.name && isRemoteTargetIn(t, remotePeriod))
   const eduDone = s.educationCourses.filter((c) => c.status === '완료')
   // 과정 대상(전임직원/개발자/보안담당자)을 반영해 내가 이수 의무자인 과정만 '미이수'로 센다 — 대상을
   // 무시하면 개발자 전용 과정이 비개발자 대시보드에 '미이수'로 오표기된다(v1.5.51 이수율 단일 원천

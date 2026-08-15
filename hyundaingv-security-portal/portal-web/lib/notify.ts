@@ -4,7 +4,7 @@
 import { audit } from './audit'
 import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
-import { getStore, isRemoteTargetIn, nextNo, recordBatch } from './store'
+import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
 
 export interface NotifyResult {
   kind: string
@@ -96,8 +96,9 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
     '[SR] 완료 예정일 경과 안내')
 
   // 4) 재택 체크리스트 미제출 — 당월 재택 대상자 중 미제출 인원 (명단 밖 인원에게는 안내하지 않는다)
-  const submitted = new Set(s.remoteChecks.filter((r) => r.period === month).map((r) => r.name))
-  const targets = new Set(s.remoteTargets.filter((t) => isRemoteTargetIn(t, month)).map((t) => t.name))
+  const remotePeriod = remotePeriodKey(s.remoteCycle)  // 재택은 등록 주기 기반 기간 키(월이면 month 와 동일)
+  const submitted = new Set(s.remoteChecks.filter((r) => r.period === remotePeriod).map((r) => r.name))
+  const targets = new Set(s.remoteTargets.filter((t) => isRemoteTargetIn(t, remotePeriod)).map((t) => t.name))
   await send('재택 미제출', people.filter((p) => targets.has(p.name) && !submitted.has(p.name)).map((p) => p.name),
     `[재택근무] ${month} 체크리스트 제출 안내`)
 
