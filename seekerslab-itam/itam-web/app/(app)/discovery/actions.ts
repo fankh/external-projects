@@ -72,6 +72,42 @@ export async function requestOwnerConfirm(discoveredId: string) {
   return { ok: true, message: `${id} 확인 요청 — ${to} 앞 이메일 발송 (${msg.id})` }
 }
 
+/** 관리 제외 — 발견 자산이 관리 대상이 아닌 알려진 비자산(협력사 장비·게스트 단말·비관리 어플라이언스 등)일 때
+ *  편입도 격리도 아닌 '관리 제외'로 판정해 미등록 갭·Shadow IT 신호에서 뺀다.
+ *  (그동안 편입/격리/확인만 있어, 관리 대상이 아닌 발견 건은 처리 경로가 없어 미등록 갭에 영구 잔존했다 — 컨셉 §3 '목록만 쌓인다'.)
+ *  사유는 필수(감사·오판정 근거)이며 오판이면 '제외 해제'로 되돌린다. 미등록·미처리 건만 대상. USER 제외. */
+export async function dismissDiscovered(discoveredId: string, rawReason: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '관리 제외 권한이 없습니다.' }
+  const s = getStore()
+  const d = s.discovered.find((x) => x.id === discoveredId)
+  if (!d) return { ok: false, message: '발견 자산을 찾을 수 없습니다.' }
+  if (d.action) return { ok: false, message: `이미 처리 중입니다 — ${d.id} (${d.action})` }
+  if (d.state !== '미등록') return { ok: false, message: '미등록 발견 건만 관리 제외할 수 있습니다.' }
+  const reason = rawReason.trim()
+  if (!reason) return { ok: false, message: '관리 제외 사유를 입력하세요 (비자산 판정 근거).' }
+  d.action = '관리 제외'
+  d.note = `관리 제외 (${reason}) — ${session.name} · ${today()}`
+  appendAudit({ actor: session.name, action: `발견 자산 관리 제외 — ${d.hostname} (${reason})`, target: d.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${d.id} 관리 제외 — 미등록 갭에서 제외 (사유: ${reason})` }
+}
+
+/** 관리 제외 해제 — 잘못 제외한 발견 건을 다시 미등록·미처리로 되돌려 편입/격리/확인 대상으로 복귀시킨다. USER 제외. */
+export async function undismissDiscovered(discoveredId: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '관리 제외 해제 권한이 없습니다.' }
+  const s = getStore()
+  const d = s.discovered.find((x) => x.id === discoveredId)
+  if (!d) return { ok: false, message: '발견 자산을 찾을 수 없습니다.' }
+  if (d.action !== '관리 제외') return { ok: false, message: '관리 제외 상태의 발견 건만 해제할 수 있습니다.' }
+  d.action = undefined
+  d.note = undefined
+  appendAudit({ actor: session.name, action: `발견 자산 관리 제외 해제 — ${d.hostname}`, target: d.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${d.id} 관리 제외 해제 — 미등록 처리 대상으로 복귀` }
+}
+
 /** 미응답 에스컬레이션 — 기한(CONFIRM_DEADLINE_DAYS) 내 응답이 없는 확인 요청은 정책에 따라
  *  보안담당 검토 → NAC 격리 요청으로 자동 전환된다 (제품안내서 §04 미확인 소유자 정책). */
 export async function escalateUnanswered() {

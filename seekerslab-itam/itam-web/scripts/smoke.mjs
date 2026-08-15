@@ -364,6 +364,9 @@ try {
   // 발견 자산 상세 딥링크(?sel=) — 전역 검색·CMDB 대사에서 특정 자산 상세로 바로 진입. 등록·불일치(DSC-2607-0029) 상세에 대사 확인 액션도 노출.
   const foundSelHtml = await (await get('/discovery/found?sel=DSC-2607-0029', 'ASSET_MGR')).text()
   check('발견 자산: ?sel= 딥링크로 상세 오픈 + 등록·불일치 대사 확인 액션 노출', foundSelHtml.includes('위치 상이') && foundSelHtml.includes('대사 확인 (등록·일치 처리)') && foundSelHtml.includes('대장에서 보정'))
+  // 관리 제외 — 관리 대상이 아닌 알려진 비자산(협력사 장비·게스트 단말·비관리 어플라이언스)을 편입/격리 아닌 판정으로 미등록 갭에서 빼는 컨트롤(미등록·미처리 상세).
+  const foundDismissHtml = await (await get('/discovery/found?sel=DSC-2607-0046', 'SEC_MGR')).text()
+  check('발견 자산: 미등록 상세에 관리 제외(비자산 판정) 컨트롤', foundDismissHtml.includes('관리 제외') && foundDismissHtml.includes('비관리 어플라이언스'))
   // 서버·IDC망(10.10.x)에 나타난 미등록 단말 — 서버 VLAN 침입 의심 (어시스턴트 발견 인텐트가 세그먼트로 식별)
   check('발견 자산: 서버 대역 미등록 단말(DESKTOP-UNK09) 노출', foundHtml.includes('DESKTOP-UNK09') && foundHtml.includes('10.10.8.77'))
   // AI 자동분류 — 관측 유형을 표준 자산 유형으로 매핑하는 컬럼(§05 수기 분류 제거). 'OAuth 앱'→SW 는 관측 유형·노트 어디에도 'SW'가 없어 분류가 실제 동작함을 증명한다(기존 로직은 SW 미지원으로 단말로 오분류).
