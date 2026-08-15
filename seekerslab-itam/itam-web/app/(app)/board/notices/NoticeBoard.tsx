@@ -1,11 +1,11 @@
 'use client'
 import { useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
+import { noticeAudienceLabel, noticeTargets } from '@/lib/notice'
 import { NOTICE_CATEGORIES, type BoardPost, type NoticeCategory } from '@/lib/types'
 import { acknowledgeNotice, deleteNotice, editNotice, postNotice, remindNoticeUnacked, toggleNoticePin } from '../actions'
 
-export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }: { posts: BoardPost[]; canWrite: boolean; me: string; allUsers: string[]; today: string; initialSel?: string }) {
-  const totalUsers = allUsers.length
+export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initialSel }: { posts: BoardPost[]; canWrite: boolean; me: string; allUsers: { name: string; dept: string }[]; depts: string[]; today: string; initialSel?: string }) {
   // 딥링크(?sel=NTC-…) — 알림 로그·대시보드에서 특정 공지로 진입. 목록에 없으면(비공개·예약) 최신 공지로 폴백.
   const [openId, setOpenId] = useState<string | null>(
     (initialSel && posts.some((p) => p.id === initialSel) ? initialSel : posts[0]?.id) ?? null,
@@ -15,6 +15,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
   const [body, setBody] = useState('')
   const [pinned, setPinned] = useState(false)
   const [cat, setCat] = useState<NoticeCategory>('일반')
+  const [aud, setAud] = useState('전사')
   const [pubAt, setPubAt] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
   const [et, setEt] = useState('')
@@ -55,6 +56,10 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
               <select className="select" value={cat} onChange={(e) => setCat(e.target.value as NoticeCategory)} title="공지 분류">
                 {NOTICE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
+              <select className="select" value={aud} onChange={(e) => setAud(e.target.value)} title="공지 대상 — 전사 또는 특정 부서(필독 확인율·독촉 분모가 대상으로 좁혀집니다)">
+                <option value="전사">대상 — 전사</option>
+                {depts.map((d) => <option key={d} value={d}>대상 — {d}</option>)}
+              </select>
               <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
                 <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
                 상단 고정 (필독)
@@ -66,9 +71,9 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
               <span className="right" />
               <button className="btn pri" disabled={pending || !title.trim() || !body.trim()}
                 onClick={() => startTransition(async () => {
-                  const r = await postNotice(title, body, pinned, pubAt || undefined, cat)
+                  const r = await postNotice(title, body, pinned, pubAt || undefined, cat, aud)
                   setMsg(r.message)
-                  if (r.ok) { setTitle(''); setBody(''); setPinned(false); setPubAt(''); setCat('일반'); setWriting(false) }
+                  if (r.ok) { setTitle(''); setBody(''); setPinned(false); setPubAt(''); setCat('일반'); setAud('전사'); setWriting(false) }
                 })}>{pubAt && pubAt > today ? '예약 등록' : '등록'}</button>
             </div>
             {msg && <div className="dim" style={{ fontSize: 11.5 }}>{msg}</div>}
@@ -157,8 +162,11 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
             <>
               <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, color: 'var(--ink-2)' }}>{open.body}</div>
               {open.pinned && (() => {
-                const acks = open.acks ?? []
-                const mine = acks.find((a) => a.by === me)
+                const targets = noticeTargets(open, allUsers)
+                const totalUsers = targets.length
+                const ackedBy = new Set((open.acks ?? []).map((a) => a.by))
+                const acks = (open.acks ?? []).filter((a) => targets.some((t) => t.name === a.by))
+                const mine = (open.acks ?? []).find((a) => a.by === me)
                 return (
                   <div className="hstack" style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                     <Chip tone="err" bare>필독</Chip>
@@ -180,18 +188,17 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, today, initialSel }
                         미확인자 {totalUsers - acks.length}명 안내 발송
                       </button>
                     )}
-                    <span className="mut" style={{ fontSize: 11.5 }} title="필독 확인 커버리지">
-                      필독 확인 {acks.length}/{totalUsers}명
+                    <span className="mut" style={{ fontSize: 11.5 }} title="필독 확인 커버리지 (대상 집단 기준)">
+                      필독 확인 {acks.length}/{totalUsers}명 <span className="dim">· 대상 {noticeAudienceLabel(open)}</span>
                     </span>
-                    {/* 미확인자 명단 — Admin 이 개별 후속(대면 독려·확인)을 할 수 있게 실제 이름을 노출한다. 커버리지 숫자만으론 누구를 챙길지 알 수 없다. */}
+                    {/* 미확인자 명단 — Admin 이 개별 후속(대면 독려·확인)을 할 수 있게 실제 이름을 노출한다. 대상 집단(전사/부서)으로 좁혀 표기. */}
                     {canWrite && (() => {
-                      const ackedBy = new Set(acks.map((a) => a.by))
-                      const unacked = allUsers.filter((u) => !ackedBy.has(u))
+                      const unacked = targets.filter((u) => !ackedBy.has(u.name))
                       return unacked.length > 0 ? (
                         <div style={{ flexBasis: '100%', marginTop: 4 }}>
                           <span className="mut" style={{ fontSize: 11.5 }}>미확인자 {unacked.length}명: </span>
                           <span className="hstack" style={{ gap: 4, flexWrap: 'wrap', display: 'inline-flex' }}>
-                            {unacked.map((u) => <Chip key={u} tone="warn" bare>{u}</Chip>)}
+                            {unacked.map((u) => <Chip key={u.name} tone="warn" bare>{u.name}</Chip>)}
                           </span>
                         </div>
                       ) : (

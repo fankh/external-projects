@@ -800,6 +800,24 @@ try {
   const firstNoticeText = ((await noticeItems.first().textContent()) || '')
   ok('최근 공지: 필독(고정) 공지가 최상단', firstNoticeText.includes('필독') && firstNoticeText.includes('재물조사'))
   ok('최근 공지: 게시판(공지·QnA) 전체 보기 연결', (await noticeCard.locator('a[href="/board/notices"]').count()) > 0)
+
+  // 부서 대상 공지(§01 공지 targeting) — 전사 공지가 무관한 팀의 필독 확인율까지 희석하던 문제 해소. 대상 부서로 확인율·독촉 분모를 좁힌다.
+  //  자산관리팀(시드 2명) 대상 필독 공지를 올리고, 커버리지 분모가 전사(6)가 아니라 대상 부서(2)로 산출되는지 검증한다.
+  await p3.goto(`${BASE}/board/notices`, { waitUntil: 'networkidle' })
+  await p3.locator('button', { hasText: /^공지 등록$/ }).click()
+  await p3.waitForTimeout(200)
+  await p3.locator('input[placeholder="공지 제목"]').fill('e2e 자산관리팀 대상 필독 공지')
+  await p3.locator('textarea[placeholder="공지 내용"]').fill('자산관리팀 전용 정책 안내 — e2e')
+  await p3.locator('select[title*="공지 대상"]').selectOption('자산관리팀')
+  await p3.locator('label', { hasText: '상단 고정 (필독)' }).locator('input[type="checkbox"]').check()
+  await p3.locator('button', { hasText: /^등록$/ }).click()
+  await p3.waitForTimeout(800)
+  await p3.locator('tr', { has: p3.locator('td', { hasText: 'e2e 자산관리팀 대상 필독 공지' }) }).first().click()
+  await p3.waitForTimeout(400)
+  const ntcBody = (await p3.textContent('body')) || ''
+  ok('부서 대상 공지: 대상 라벨(자산관리팀) 노출', ntcBody.includes('대상 자산관리팀'))
+  ok('부서 대상 공지: 필독 확인율 분모가 대상 부서(2명)로 좁혀짐(전사 6 아님)', /필독 확인 \d+\/2명/.test(ntcBody))
+
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const cHtml = await p3.content()
   ok('운영 정책 다운스트림: 계약 화면 만료 임박 창 60일', cHtml.includes('만료 60일 이내') && !cHtml.includes('만료 90일 이내'))

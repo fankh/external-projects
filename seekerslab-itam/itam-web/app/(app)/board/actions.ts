@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { isQnaOverdue, qnaAgeDays, today } from '@/lib/dates'
+import { noticeTargets } from '@/lib/notice'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -119,7 +120,7 @@ export async function deleteQuestion(postId: string) {
 }
 
 /** 공지 등록 — Admin */
-export async function postNotice(title: string, body: string, pinned: boolean, publishAt?: string, category?: NoticeCategory) {
+export async function postNotice(title: string, body: string, pinned: boolean, publishAt?: string, category?: NoticeCategory, audienceDept?: string) {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 등록 권한이 없습니다.' }
   if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
@@ -129,6 +130,8 @@ export async function postNotice(title: string, body: string, pinned: boolean, p
   const cat: NoticeCategory = NOTICE_CATEGORIES.includes(category as NoticeCategory) ? (category as NoticeCategory) : '일반'
 
   const s = getStore()
+  // 대상 부서 — 전사(미설정) 또는 실재 부서만 허용. 알 수 없는 부서는 전사로 처리(오타로 아무에게도 안 보이는 공지 방지).
+  const aud = audienceDept && audienceDept !== '전사' && s.users.some((u) => u.dept === audienceDept) ? audienceDept : undefined
   s.posts.unshift({
     id: nextId('NTC'),
     kind: '공지',
@@ -141,9 +144,10 @@ export async function postNotice(title: string, body: string, pinned: boolean, p
     pinned,
     category: cat,
     publishAt: pub && pub > today() ? pub : undefined,
+    audienceDept: aud,
   })
   const scheduled = pub && pub > today()
-  appendAudit({ actor: session.name, action: `공지 ${scheduled ? `예약 등록 (발행 ${pub})` : '등록'}${pinned ? ' · 필독 고정' : ''} — ${title.trim()}`, target: '공지' })
+  appendAudit({ actor: session.name, action: `공지 ${scheduled ? `예약 등록 (발행 ${pub})` : '등록'}${pinned ? ' · 필독 고정' : ''}${aud ? ` · 대상 ${aud}` : ''} — ${title.trim()}`, target: '공지' })
   revalidatePath('/', 'layout')
   return { ok: true, message: scheduled ? `공지가 예약되었습니다 — ${pub} 발행 예정.` : '공지가 등록되었습니다.' }
 }
@@ -233,8 +237,9 @@ export async function remindNoticeUnacked(postId: string) {
   if (!post.pinned) return { ok: false, message: '필독(상단 고정) 공지만 미확인자 안내 대상입니다.' }
 
   const acked = new Set((post.acks ?? []).map((a) => a.by))
-  const unacked = s.users.filter((u) => !acked.has(u.name))
-  if (unacked.length === 0) return { ok: false, message: '전원이 이미 읽음 확인했습니다.' }
+  // 대상 부서로 좁힌 미확인자 — 전사 공지면 전 사용자, 부서 공지면 그 부서 사용자만 독촉한다.
+  const unacked = noticeTargets(post, s.users).filter((u) => !acked.has(u.name))
+  if (unacked.length === 0) return { ok: false, message: `${post.audienceDept ?? '전사'} 대상 전원이 이미 읽음 확인했습니다.` }
 
   for (const u of unacked) {
     dispatch({ channel: '이메일', to: `${u.name} (${u.dept})`, subject: `[필독 확인 요청] ${post.title} — 미확인 안내`, kind: '공지 독촉', ref: post.id })

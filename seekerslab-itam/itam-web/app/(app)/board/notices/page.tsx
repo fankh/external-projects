@@ -1,5 +1,6 @@
 import { Card, ScreenHeader } from '@/components/ui'
 import { today } from '@/lib/dates'
+import { inNoticeAudience } from '@/lib/notice'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { NoticeBoard } from './NoticeBoard'
@@ -13,9 +14,12 @@ export default async function NoticesPage({ searchParams }: { searchParams: Prom
   const t = today()
   const isAdmin = session?.role === 'ADMIN'
   const notices = s.posts
-    // 예약 발행 — 발행일이 미래인 공지는 관리자에게만 보이고, 발행일이 도래하면 전사에 공개된다
+    // 예약 발행 — 발행일이 미래인 공지는 관리자에게만 보이고, 발행일이 도래하면 대상에 공개된다.
+    // 대상 부서 공지 — 비관리자는 자기 부서(또는 전사) 공지만 본다. 관리자는 전 공지를 관리 목적으로 본다.
     .filter((p) => p.kind === '공지' && (isAdmin || !p.publishAt || p.publishAt <= t))
+    .filter((p) => isAdmin || inNoticeAudience(p, session?.dept))
     .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.createdAt.localeCompare(a.createdAt))
+  const depts = [...new Set(s.users.map((u) => u.dept))].sort()
 
   return (
     <>
@@ -26,7 +30,7 @@ export default async function NoticesPage({ searchParams }: { searchParams: Prom
       />
       {notices.length === 0
         ? <Card><div className="empty">등록된 공지가 없습니다</div></Card>
-        : <NoticeBoard posts={notices} canWrite={isAdmin} me={session?.name ?? ''} allUsers={s.users.map((u) => u.name)} today={t} initialSel={sel} />}
+        : <NoticeBoard posts={notices} canWrite={isAdmin} me={session?.name ?? ''} allUsers={s.users.map((u) => ({ name: u.name, dept: u.dept }))} depts={depts} today={t} initialSel={sel} />}
     </>
   )
 }
