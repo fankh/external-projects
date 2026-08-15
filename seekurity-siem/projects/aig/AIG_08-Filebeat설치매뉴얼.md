@@ -8,31 +8,32 @@
 | SIEM Collector IP | {COLLECTOR_IP} |
 | 작성일 | 2026-08-10 |
 | 최종 갱신일 | 2026-08-15 |
-| 버전 | v2.0 |
+| 버전 | v2.1 |
 
 ## 개정 이력
 
 | 버전 | 일자 | 내용 |
 |------|------|------|
 | v1.0 | 2026-08-10 | 최초 작성 |
-| v2.0 | 2026-08-15 | 수집 경로 정정. Seekurity SIEM v3는 Beats 입력(TCP 5044)을 수신하지 않으므로, Filebeat 출력을 Kafka(19092, siem-logs 토픽)로 변경하고 SIEM 수신 형식에 맞춘 성형 설정을 반영함 |
+| v2.0 | 2026-08-15 | 수집 경로 정정. Seekurity SIEM v3는 Beats 입력(TCP 5044)을 수신하지 않으므로 Filebeat 출력을 Kafka(19092)로 변경 |
+| v2.1 | 2026-08-15 | 주 수집 경로를 rsyslog → 514로 확정. Kafka(19092)는 내부 브로커로 원격 접속에 재구성이 선행되어야 하므로, 본 Filebeat 경로는 AIG의 3rd-party 요구에 한정된 조건부 경로로 명시 |
 
 ## 1. 개요
 
 ### 1.1 목적
 
-Linux Server의 시스템 Log를 Seekurity SIEM으로 수집하기 위한 설치·설정 절차를 정의한다.
+Linux Server의 시스템 Log를 Seekurity SIEM으로 수집하기 위한 절차를 정의한다. 본 문서는 AIG가 3rd-party 에이전트(Filebeat) 사용을 요구함에 따라 작성된 고객 전용 매뉴얼이다. Filebeat는 Seekurity SIEM의 표준 구성요소가 아니다.
 
-### 1.2 수집 경로
+### 1.2 수집 경로 (중요)
 
-Seekurity SIEM v3는 Beats 입력(TCP 5044)을 수신하지 않는다. Linux Log 수집 경로는 다음 두 가지이며, 본 매뉴얼은 AIG 요구에 따라 Filebeat를 사용하는 경로 B를 기준으로 한다.
+Seekurity SIEM v3의 표준 외부 로그 수집 포트는 Syslog UDP 514이며, Kafka(19092)는 내부 브로커이다. 수집 경로는 다음과 같다.
 
-| 경로 | 구성 | 특징 |
-|------|------|------|
-| A. Syslog (권장) | rsyslog → UDP 514 → ss-syslog-receiver | SIEM이 수신 IP를 기준으로 형식을 자동 구성함. 설정이 단순하며 표준 경로 |
-| B. Filebeat | Filebeat → Kafka 19092 (siem-logs 토픽) → ss-log-stream | Filebeat가 SIEM 수신 형식에 맞춰 Event를 성형하여 전송함. 파일 단위 세밀한 수집에 적합 |
+| 경로 | 구성 | 권장도 |
+|------|------|--------|
+| A. rsyslog → 514 | rsyslog → UDP 514 → ss-syslog-receiver | 주 경로 (권장). 어플라이언스 기본 구성에서 즉시 동작 |
+| B. Filebeat → Kafka | Filebeat → Kafka 19092 (siem-logs) → ss-log-stream | 조건부 (AIG 전용). Kafka 재구성 선행 필요 (2.2 참조) |
 
-경로 A(rsyslog → 514)가 더 단순하므로, Filebeat가 반드시 필요하지 않은 표준 OS Log는 경로 A를 우선 검토할 것을 권고한다.
+권장 경로는 A(rsyslog → 514)이며, 표준 절차는 공통 가이드 `docs/linux-log-integration.md`를 따른다. 본 매뉴얼(경로 B)은 AIG가 Filebeat 사용을 요구하는 경우에 한해 적용하며, 아래 2.2의 선행 제약을 반드시 확인한다.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '14px' }, 'flowchart': { 'useMaxWidth': true }}}%%
@@ -102,6 +103,16 @@ Linux Server에서 SIEM Kafka 방향으로 아래 통신이 허용되어야 한�
 | Linux Server IP | {COLLECTOR_IP} | TCP 19092 | Filebeat → Kafka Event 전송 |
 
 경로 A(rsyslog)를 사용하는 경우에는 UDP 514가 대신 필요하다.
+
+**선행 제약 (경로 B 필수 확인)**
+
+Kafka(19092)는 어플라이언스 내부 브로커로, 모든 내부 컴포넌트가 `localhost:19092`로 접속한다. 즉 Kafka의 `advertised.listeners`가 localhost로 설정되어 있어, 원격 서버의 Filebeat는 기본 구성에서 접속할 수 없다. 방화벽만 열어서는 동작하지 않으며, 아래가 선행되어야 한다.
+
+1. Kafka `advertised.listeners`를 SIEM 서버의 외부 접근 주소로 재구성 (내부 컴포넌트 접속에 영향이 없도록 다중 listener 구성 검토)
+2. 방화벽에서 TCP 19092 외부 개방
+3. 위 재구성은 어플라이언스 표준 설정 변경에 해당하므로 SIEM Engineer 검토·승인 후 진행
+
+재구성이 어렵거나 불필요한 경우, 표준 경로 A(rsyslog → 514, `docs/linux-log-integration.md`)를 사용한다.
 
 사전 통신 확인:
 
