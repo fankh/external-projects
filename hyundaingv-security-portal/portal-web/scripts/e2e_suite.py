@@ -560,6 +560,20 @@ def sc_channelstate_corrupt(pg, base, check):
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
 
 
+def sc_remote_cycle_config(pg, base, check):
+    """재택 등록 주기 변경(v1.5.95, 요구사항 54행 '등록 주기 변경 - 반기, 분기, 매일') — s.remoteCycle 단일
+    원천을 바꾸면 제출·대상·통계·알림 기간 키가 해당 주기로 전환. 기본 월에서 매일로 변경 후 화면 반영 확인."""
+    login(pg, base, '박정호')  # BIZ_MGR — 등록 주기 변경 권한
+    pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
+    check('등록 주기: 월' in pg.content(), '전제: 기본 등록 주기 월')
+    pg.locator('select[name=cycle]').select_option('매일')
+    pg.locator('button:has-text("주기 변경")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
+    check('등록 주기: 매일' in pg.content(),
+          '재택 등록 주기 매일 변경 → 화면·기간 키 반영 (요구사항 54행 주기 변경)')
+
+
 def sc_secprint_system_registered(pg, base, check):
     """보안·출력물 시스템 정식 등록(v1.5.94) — 출력물 이관 배치(BJ-02)·수신 인터페이스(IF-04)·secdata
     어댑터의 원천 '보안·출력물 시스템'이 s.systems 에 미등록이라, 이름-기준 토폴로지 조인에서 BJ-02 가
@@ -1795,6 +1809,7 @@ SCENARIOS = [
     ('delayed_corrupt_date', '손상 날짜 일수계산 NaN 렌더 방지 — daysBetween 유한 가드', sc_delayed_corrupt_date,
      {'PORTAL_DATA_FILE': str(DTNAN_DATA)}),
     ('secprint_system_registered', '보안·출력물 시스템 정식 등록 — BJ-02 토폴로지 과소집계 해소', sc_secprint_system_registered, {}),
+    ('remote_cycle_config', '재택 등록 주기 변경 — 매일·월·분기·반기(요구사항 54행)', sc_remote_cycle_config, {}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,

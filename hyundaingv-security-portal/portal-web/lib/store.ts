@@ -444,6 +444,9 @@ function loadFromFile(): Store | null {
     merged.channelStates = Object.fromEntries(
       Object.entries(merged.channelStates ?? {}).filter(([, v]) => typeof v === 'boolean'),
     ) as Store['channelStates']
+    // remoteCycle 검증 — 손상 파일의 정의되지 않은 값(비-주기 문자열·객체)이 UI select·기간 키 산정에 새지 않게
+    // 기본 '월'로 보정한다(remotePeriodKey 자체도 미지값은 월로 처리하나, 저장값 자체를 정규화해 화면 정합).
+    if (!(['매일', '월', '분기', '반기'] as string[]).includes(merged.remoteCycle as string)) merged.remoteCycle = '월'
     return merged
   } catch {
     // 파싱·머지 실패 = 손상 파일(외부 편집기·백업 도구·디스크 풀 0바이트·비트로트). 그대로 두면

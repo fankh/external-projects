@@ -154,7 +154,7 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
   return (
     <>
       <ScreenHeader kicker="임직원 의식제고" title="재택근무 체크리스트"
-        desc={`재택근무 대상자의 보안 자가점검 — 전 항목 확인 후 동의 제출한다 (등록 주기: 월, 명단은 일자별 관리).`}
+        desc={`재택근무 대상자의 보안 자가점검 — 전 항목 확인 후 동의 제출한다 (등록 주기: ${s.remoteCycle}, 명단은 일자별 관리).`}
         right={!iAmTarget
           ? <Chip tone="neutral">재택 대상 아님</Chip>
           : mySubmitted

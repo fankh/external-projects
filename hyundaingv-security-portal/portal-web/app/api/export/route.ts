@@ -4,7 +4,7 @@ import { effectiveRoles } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
 import { currentYear } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { eligibleForCourse, getStore, isRemoteTargetIn } from '@/lib/store'
+import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
 /** 유형 → 소속 화면 — 화면의 런타임 메뉴 제한이 다운로드에도 걸린다 (유형별 추가 가드와 별개) */
@@ -87,11 +87,10 @@ export async function GET(req: Request) {
 
   if (type === 'remote-status') {
     if (role === 'USER') return new Response('forbidden', { status: 403 })
-    // 기간별 조회 (요구사항 54행) — period 파라미터 월의 재택 대상자 명단 기준, 화면과 동일 스코핑
+    // 기간별 조회 (요구사항 54행) — period 파라미터 기간의 재택 대상자 명단 기준, 화면과 동일 스코핑.
+    // 기본은 현 등록 주기(매일·월·분기·반기)의 기간 키 — 화면 링크가 넘기는 주기 키와 정합.
     const periodParam = new URL(req.url).searchParams.get('period') ?? ''
-    const period = /^\d{4}-\d{2}$/.test(periodParam)
-      ? periodParam
-      : new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7)
+    const period = periodParam || remotePeriodKey(s.remoteCycle)
     const submitted = s.remoteChecks.filter((r) => r.period === period)
     // 재직자 교집합 — 화면(remote/page.tsx)과 동일하게, syncHr 로 s.people 에서 빠진 퇴사 재택 대상자를
     // 현황에서 제외한다(종료일 없는 유령 미제출이 export 에도 새지 않게, 인사연동 감사 v1.5.90).
