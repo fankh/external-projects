@@ -28,6 +28,9 @@ export async function classifyShadowSaas(service: string, status: SaasCatalogEnt
   entry.status = status
   entry.decidedAt = today()
   entry.decidedBy = session.name
+  // 검토중으로 (재)접수되면 판정 기한(SLA) 기산점을 오늘로 갱신, 판정 완료되면 기한 추적 종료
+  if (status === '검토중') entry.reviewSince = today()
+  else entry.reviewSince = undefined
 
   // 폐쇄 루프 — 판정을 부서별 사용 현황의 인가 여부에 즉시 반영
   const usage = s.saas.find((u) => u.service === service)

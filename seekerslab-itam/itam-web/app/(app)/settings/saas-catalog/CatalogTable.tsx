@@ -7,7 +7,13 @@ import { decideSaas, setSaasDataGrade } from '../actions'
 const TONE = { 인가: 'ok', 차단: 'err', 검토중: 'warn' } as const
 const GRADES: SaasCatalogEntry['dataGrade'][] = ['일반', '민감', '기밀']
 
-export function CatalogTable({ entries }: { entries: SaasCatalogEntry[] }) {
+/** 검토 경과일 — 접수일(reviewSince) 대비 기준일. YYYY-MM-DD 파싱으로 결정적 계산(Date.now 미사용) */
+function reviewAge(reviewSince: string | undefined, today: string): number | null {
+  if (!reviewSince) return null
+  return Math.floor((Date.parse(today) - Date.parse(reviewSince)) / 86_400_000)
+}
+
+export function CatalogTable({ entries, today, slaDays }: { entries: SaasCatalogEntry[]; today: string; slaDays: number }) {
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -38,7 +44,18 @@ export function CatalogTable({ entries }: { entries: SaasCatalogEntry[] }) {
                 </span>
               </td>
               <td className="c"><Chip tone={TONE[e.status]}>{e.status}</Chip></td>
-              <td className="mute tnum">{e.decidedAt ? `${e.decidedAt} · ${e.decidedBy}` : '-'}</td>
+              <td className="mute tnum">
+                {e.status === '검토중' && e.reviewSince ? (() => {
+                  const age = reviewAge(e.reviewSince, today) ?? 0
+                  const over = age > slaDays
+                  return (
+                    <span className="hstack" style={{ gap: 5, alignItems: 'baseline' }}>
+                      <span>검토 {age}일</span>
+                      {over && <Chip tone="err" bare>기한 경과</Chip>}
+                    </span>
+                  )
+                })() : e.decidedAt ? `${e.decidedAt} · ${e.decidedBy}` : '-'}
+              </td>
               <td className="c">
                 <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
                   <button className="btn sm pri" disabled={pending || e.status === '인가'}

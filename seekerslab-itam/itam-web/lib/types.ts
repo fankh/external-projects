@@ -954,6 +954,8 @@ export interface SaasCatalogEntry {
   owner: string
   decidedAt?: string
   decidedBy?: string
+  /** 검토 시작일 — 검토중 상태로 접수된 시점. 판정 기한(SLA) 경과 판정의 기준(제품안내서 §01 보안담당: Shadow IT 적시 판정) */
+  reviewSince?: string
 }
 
 /** AI 정책 — 실행 환경 · 거버넌스 (§05) */

@@ -7,6 +7,7 @@ import { buildVulnPriority } from '@/lib/vuln-priority'
 import { hasDataIssue } from '@/lib/quality'
 import { approvalHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { buildMaintenance } from '@/lib/maintenance'
+import { buildSaasReview, SAAS_REVIEW_SLA_DAYS } from '@/lib/saas-review'
 import { licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -122,6 +123,8 @@ export default async function DashboardPage() {
       { label: '미인가 SW 미조치 (EDR 정책 위반)', count: s.unauthorizedSw.filter((w) => !w.action).length, href: '/discovery/found', tone: 'err' },
       // Shadow IT 판정 대기 — 카탈로그 검토중 SaaS 는 보안담당 판정(인가/차단)을 기다리는 정책 백로그(§01 보안담당: Shadow IT 판정·SaaS 정책 관리)
       { label: '미판정 SaaS (카탈로그 검토중 · 판정 대기)', count: s.saasCatalog.filter((x) => x.status === '검토중').length, href: '/settings/saas-catalog', tone: 'warn' },
+      // 판정 기한 경과 — 검토중이 SLA 를 넘겨 방치된 건(소유자 확인 미응답과 동형 에스컬레이션). 기밀·민감 등급은 데이터 반출 위험 최우선.
+      { label: `미판정 SaaS 판정 기한 경과 (${SAAS_REVIEW_SLA_DAYS}일 초과 · 에스컬레이션)`, count: buildSaasReview().overdue.length, href: '/settings/saas-catalog', tone: 'err' },
       { label: 'USB 정책 위반 미조치 (이동식 매체 DLP)', count: s.usbFindings.filter((u) => !u.action).length, href: '/discovery/found', tone: 'err' },
       { label: '로컬 VM 위반 미조치 (엔드포인트 가상머신)', count: s.localVms.filter((v) => !v.action).length, href: '/discovery/found', tone: 'warn' },
       { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },

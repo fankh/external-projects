@@ -303,6 +303,8 @@ try {
   check('대시보드(자산담당): 미인가 SW 큐 미노출 (보안 운영 큐)', !dashHtml.includes('미인가 SW 미조치'))
   // 미판정 SaaS — 카탈로그 검토중(Notion·ChatGPT·Miro)은 보안담당 Shadow IT 판정 대기 백로그. 보안 운영 큐(자산담당엔 미노출)
   check('대시보드(보안담당): 미판정 SaaS 판정 대기 운영 큐 노출', dashSec.includes('미판정 SaaS') && dashSec.includes('카탈로그 검토중'))
+  // 판정 기한 경과 에스컬레이션 — 검토중 SLA 초과분(소유자 확인 미응답과 동형)을 별도 err 큐로 노출. 방치 방지.
+  check('대시보드(보안담당): 미판정 SaaS 판정 기한 경과 에스컬레이션 큐 노출', dashSec.includes('미판정 SaaS 판정 기한 경과') && dashSec.includes('에스컬레이션'))
   check('대시보드(자산담당): 미판정 SaaS 큐 미노출 (보안 운영 큐)', !dashHtml.includes('미판정 SaaS'))
   // USB 정책 위반 미조치 — loop48. EDR 이동식 매체 DLP 도 보안담당 운영 큐에 노출(자산담당엔 미노출)
   check('대시보드(보안담당): USB 정책 위반 미조치 운영 큐 노출', dashSec.includes('USB 정책 위반 미조치'))
@@ -960,6 +962,8 @@ try {
   check('탐지 채널 정책: 재탐지 주기(스케줄러) 편집 노출', scanHtml.includes('재탐지 주기 변경 (스케줄러)'))
   const catHtml = await (await get('/settings/saas-catalog', 'ADMIN')).text()
   check('SaaS 카탈로그: 판정 상태 렌더', catHtml.includes('Dropbox') && catHtml.includes('검토중'))
+  // 판정 기한(SLA) 경과(§01 Shadow IT 적시 판정) — 검토중이 접수 후 7일을 넘기면 기한 경과·에스컬레이션. 시드 ChatGPT(기밀)·Notion(민감) 등 방치분.
+  check('SaaS 카탈로그: 판정 기한 경과(SLA) 에스컬레이션 표기', catHtml.includes('판정 기한 경과') && catHtml.includes('ChatGPT(기밀)') && catHtml.includes('기한 경과'))
   // 차단 판정 → 집행 통보 — 차단이 정책 표시로 끝나지 않고 보안운영팀 차단 집행 요청으로 이어짐을 명시
   check('SaaS 카탈로그: 차단 집행 통보 안내 렌더', catHtml.includes('차단은 집행으로 이어집니다') && catHtml.includes('프록시·DNS 차단 집행 요청'))
   // 데이터 등급 분류 편집 — 표시 전용이던 데이터 민감도(일반/민감/기밀)를 보안담당·Admin 이 분류(차단 우선순위·기밀 취급 집계 근거)
