@@ -3,7 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { getStore, isRemoteTargetIn } from '@/lib/store'
+import { getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Store } from '@/lib/store'
 
 /** 재택근무 보안 점검 항목 — 공통코드화 대상 (등록 주기: 월) */
@@ -59,7 +59,7 @@ async function submitCheck(formData: FormData) {
   // 전 항목 동의 필수 — 서버에서 재검증
   if (ITEMS.some((_, i) => formData.get(`item${i}`) !== 'on')) return
   const s = getStore()
-  const period = today().slice(0, 7)
+  const period = remotePeriodKey(s.remoteCycle)
   // 재택 대상자만 제출 — 화면 숨김과 별개의 서버 가드 (요구사항 54행 명단 기준)
   if (!s.remoteTargets.some((t) => t.name === me.name && isRemoteTargetIn(t, period))) return
   if (s.remoteChecks.some((r) => r.name === me.name && r.period === period)) return
@@ -113,14 +113,14 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
   const me = await requireMenu('/awareness/remote')
   const { period: periodParam } = await searchParams
   const s = getStore()
-  const thisMonth = today().slice(0, 7)
-  // 기간별 조회 (요구사항 54행) — 담당은 과거 월을 지정해 명단·제출을 함께 본다
-  const period = /^\d{4}-\d{2}$/.test(periodParam ?? '') ? periodParam! : thisMonth
+  const thisPeriod = remotePeriodKey(s.remoteCycle)
+  // 기간별 조회 (요구사항 54행) — 담당은 과거 기간을 지정해 명단·제출을 함께 본다(기본 현 주기)
+  const period = periodParam || thisPeriod
   const canManage = me.role !== 'USER'
 
   const submitted = s.remoteChecks.filter((r) => r.period === period)
-  const mySubmitted = s.remoteChecks.find((r) => r.name === me.name && r.period === thisMonth)
-  const iAmTarget = s.remoteTargets.some((t) => t.name === me.name && isRemoteTargetIn(t, thisMonth))
+  const mySubmitted = s.remoteChecks.find((r) => r.name === me.name && r.period === thisPeriod)
+  const iAmTarget = s.remoteTargets.some((t) => t.name === me.name && isRemoteTargetIn(t, thisPeriod))
 
   // 현황 스코프 — 해당 월 재택 대상자 명단: 담당·Admin=전사, 부서담당=소속 부서, 사용자=본인만.
   // (통계도 뷰어 범위로 산출해야 한다 — 표·export 는 스코프되는데 stat 행만 전사 집계가 새던 결함)
@@ -155,15 +155,15 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
 
       {!iAmTarget ? (
         <div className="callout">
-          <b>재택 대상 아님</b> — 이번 달({thisMonth}) 재택근무 대상자 명단에 없어 체크리스트 제출 대상이 아닙니다.
+          <b>재택 대상 아님</b> — 이번 달({thisPeriod}) 재택근무 대상자 명단에 없어 체크리스트 제출 대상이 아닙니다.
           재택 시작 시 담당자가 명단에 등록하면 제출할 수 있습니다.
         </div>
       ) : mySubmitted ? (
         <div className="callout">
-          <b>제출 완료</b> — {mySubmitted.submittedAt} 제출. 다음 주기({thisMonth} 익월)에 다시 제출 대상이 됩니다.
+          <b>제출 완료</b> — {mySubmitted.submittedAt} 제출. 다음 주기({thisPeriod} 익월)에 다시 제출 대상이 됩니다.
         </div>
       ) : (
-        <Card title={`${thisMonth} 자가점검 제출`} kicker="Checklist">
+        <Card title={`${thisPeriod} 자가점검 제출`} kicker="Checklist">
           <form action={submitCheck} className="vstack" style={{ gap: 8 }}>
             {ITEMS.map((item, i) => (
               <label key={item} className="hstack" style={{ gap: 7, cursor: 'pointer' }}>
