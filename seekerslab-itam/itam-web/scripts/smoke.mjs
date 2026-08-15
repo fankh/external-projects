@@ -360,6 +360,10 @@ try {
   //  LIC-004: 좌석 2(871·112) vs 설치 2(871·432) → AST-2021-000432 배정 밖 설치, AST-2023-000112 미설치 좌석.
   check('라이선스 STEP2: 사용 수집(EDR 설치 SW 대사) 패널 렌더', contractsHtml.includes('사용 수집 — EDR 설치 SW 인벤토리 대사') && contractsHtml.includes('배정 밖 설치 — 무단 사용') && contractsHtml.includes('미설치 좌석 — 회수 후보'))
   check('라이선스 STEP2: 배정 밖 설치 대사 실측(무단 사용 자산)', contractsHtml.includes('AST-2021-000432') && contractsHtml.includes('배정 밖 설치 (무단 사용)'))
+  // 유지보수 계약 관리(§03) — 비용 이력이 '누계'만 보이던 것을 계약액 대비 집행률·잔여·판정 + SLA 요약으로 완성.
+  //  CT-2022-007: 계약액 4,800만 · 누계 지출 2,580만 → 집행률 54%. CT-2024-011: 비용 이력 없음 → 미집행. SLA 요약 노출.
+  check('유지보수 계약: 예산 집행 현황 패널 렌더(집행률·판정)', contractsHtml.includes('유지보수 계약 관리 — 예산 집행 · SLA') && contractsHtml.includes('전체 집행률') && contractsHtml.includes('누계 지출'))
+  check('유지보수 계약: 예산 집행 실측(SLA 요약·미집행 판정)', contractsHtml.includes('장애 접수 후 4시간 내 온사이트 대응') && contractsHtml.includes('미집행'))
   // 만료 경과 라이선스 판정 — LIC-002(JetBrains, 만료일 지남)는 초과 사용과 별개로 '만료' 칩으로 갱신 필요를 명시
   check('계약·라이선스: 만료 경과 라이선스 판정 칩(JetBrains)', contractsHtml.includes('>만료<') && contractsHtml.includes('2026-05-31'))
   // 계약 목록 필터 — 구분·상태·만료 임박·검색
