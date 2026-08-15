@@ -59,6 +59,45 @@ export async function answerQuestion(postId: string, body: string) {
   return { ok: true, message: `답변이 등록되었습니다${wasAnswered ? '' : ` — 작성자(${post.author})에게 알림 발송`}.` }
 }
 
+/** 문의 분류별 담당 팀 라우팅 — 접수 통보·독촉·재문의가 같은 팀으로 가도록 한 곳에서 정한다. */
+function qnaTeamOf(c?: string) {
+  return c === '보안·Discovery' ? '보안운영팀' : c === '라이선스' ? 'IT기획팀' : '자산관리팀'
+}
+
+/** QnA 해결 확인 — 문의 작성자가 답변으로 문제가 해결됐음을 확정한다(답변자 통보). 답변된 본인 문의만. */
+export async function resolveQuestion(postId: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '세션이 만료되었습니다.' }
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId && p.kind === 'QnA')
+  if (!post) return { ok: false, message: '문의를 찾을 수 없습니다.' }
+  if (post.author !== session.name && session.role !== 'ADMIN') return { ok: false, message: '본인 문의만 해결 확인할 수 있습니다.' }
+  if (!post.answer) return { ok: false, message: '답변이 등록된 문의만 해결 확인할 수 있습니다.' }
+  if (post.resolvedAt) return { ok: false, message: '이미 해결 확인된 문의입니다.' }
+  post.resolvedAt = today()
+  dispatch({ channel: '이메일', to: post.answer.by, subject: `[QnA 해결] '${post.title}' 문의가 해결 확인되었습니다 — ${session.name}`, kind: 'QnA 해결', ref: post.id })
+  appendAudit({ actor: session.name, action: `QnA 해결 확인 — ${post.title}`, target: postId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `해결 확인되었습니다 — 답변자(${post.answer.by})에게 통보` }
+}
+
+/** QnA 재문의 — 답변으로 해결되지 않아 작성자가 재검토를 요청한다(해결 확인 해제·담당 팀 통보). 답변된 본인 문의만. */
+export async function reopenQuestion(postId: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '세션이 만료되었습니다.' }
+  const s = getStore()
+  const post = s.posts.find((p) => p.id === postId && p.kind === 'QnA')
+  if (!post) return { ok: false, message: '문의를 찾을 수 없습니다.' }
+  if (post.author !== session.name && session.role !== 'ADMIN') return { ok: false, message: '본인 문의만 재문의할 수 있습니다.' }
+  if (!post.answer) return { ok: false, message: '답변이 등록된 문의만 재문의할 수 있습니다.' }
+  post.resolvedAt = undefined
+  const team = qnaTeamOf(post.category)
+  dispatch({ channel: '이메일', to: team, subject: `[QnA 재문의] '${post.title}' — 답변으로 해결되지 않아 재검토 요청 (${session.name})`, kind: 'QnA 접수', ref: post.id })
+  appendAudit({ actor: session.name, action: `QnA 재문의(재검토 요청) — ${post.title} · ${team} 통보`, target: postId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `재문의 접수 — 담당 팀(${team})에 재검토 요청` }
+}
+
 /** QnA 답변 독촉 — 등록 후 SLA(기본 3일)를 넘겨도 답변이 없는 문의의 담당 팀에 답변 처리를 재촉한다.
  *  (헬프데스크 SLA — 결재 지연 독촉·필독 미확인 안내와 같은 컴플라이언스 독촉. 응답 지연이 표시로만 끝나지 않게 한다.)
  *  문의 분류별 담당 팀(접수 통보와 같은 라우팅)으로 발송하고, 문의별 당일 중복 발송은 차단한다. 자산담당·보안담당·Admin. */
@@ -67,12 +106,11 @@ export async function remindQna() {
   if (!session || session.role === 'USER') return { ok: false, message: 'QnA 답변 독촉 권한이 없습니다 (담당자·Admin).' }
   const s = getStore()
   const t = today()
-  const teamOf = (c?: string) => (c === '보안·Discovery' ? '보안운영팀' : c === '라이선스' ? 'IT기획팀' : '자산관리팀')
   const sentToday = new Set(s.dispatches.filter((m) => m.kind === 'QnA 독촉' && m.at.startsWith(t)).map((m) => m.ref))
   let n = 0
   for (const p of s.posts) {
     if (!isQnaOverdue(p) || sentToday.has(p.id)) continue
-    dispatch({ channel: '이메일', to: teamOf(p.category), subject: `[QnA 답변 독촉] '${p.title}' — 등록 ${qnaAgeDays(p.createdAt)}일 경과, 답변 처리 부탁드립니다`, kind: 'QnA 독촉', ref: p.id })
+    dispatch({ channel: '이메일', to: qnaTeamOf(p.category), subject: `[QnA 답변 독촉] '${p.title}' — 등록 ${qnaAgeDays(p.createdAt)}일 경과, 답변 처리 부탁드립니다`, kind: 'QnA 독촉', ref: p.id })
     n += 1
   }
   if (n === 0) return { ok: false, message: 'QnA 답변 독촉 대상이 없습니다 (SLA 경과 미답변 없음·오늘 발송분 제외).' }

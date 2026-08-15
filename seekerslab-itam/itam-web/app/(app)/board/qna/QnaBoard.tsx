@@ -2,7 +2,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { BoardPost, QnaCategory } from '@/lib/types'
-import { answerQuestion, askQuestion, deleteQuestion, editQuestion, remindQna } from '../actions'
+import { answerQuestion, askQuestion, deleteQuestion, editQuestion, remindQna, reopenQuestion, resolveQuestion } from '../actions'
 
 const CATEGORIES: QnaCategory[] = ['자산 신청·반납', '장애·수리', '라이선스', '보안·Discovery', '기타']
 
@@ -112,7 +112,7 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
                   <td>{p.author}{p.author === me && <span className="mut"> (나)</span>}</td>
                   <td className="tnum">{p.createdAt}</td>
                   <td className="num tnum mute">{p.views}</td>
-                  <td className="c">{p.answer ? <Chip tone="ok">답변 완료</Chip> : overdueDays[p.id] ? <Chip tone="err">{`지연 ${overdueDays[p.id]}일`}</Chip> : <Chip tone="warn">답변 대기</Chip>}</td>
+                  <td className="c">{p.resolvedAt ? <Chip tone="ok">해결됨</Chip> : p.answer ? <Chip tone="ok">답변 완료</Chip> : overdueDays[p.id] ? <Chip tone="err">{`지연 ${overdueDays[p.id]}일`}</Chip> : <Chip tone="warn">답변 대기</Chip>}</td>
                 </tr>
               ))}
               {rows.length === 0 && <tr><td colSpan={6}><div className="empty">{posts.length === 0 ? '등록된 문의가 없습니다' : '조건에 맞는 문의가 없습니다'}</div></td></tr>}
@@ -186,6 +186,33 @@ export function QnaBoard({ posts, canAnswer, canModerate, me, initialSel, overdu
                 </div>
               ) : (
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.8, marginTop: 6 }}>{open.answer.body}</div>
+              )}
+              {/* 종결 루프 — 작성자가 답변으로 해결됐는지 확정하거나(해결 확인), 미흡하면 재검토를 요청한다(재문의). */}
+              {(open.author === me || canModerate) && !editingAnswer && (
+                <div className="hstack" style={{ gap: 6, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {open.resolvedAt ? (
+                    <>
+                      <Chip tone="ok">해결됨 · {open.resolvedAt}</Chip>
+                      {open.author === me && (
+                        <button className="btn sm ghost" disabled={pending}
+                          title="문제가 재발했거나 답변이 미흡하면 담당 팀에 재검토를 요청합니다"
+                          onClick={() => startTransition(async () => setMsg((await reopenQuestion(open.id)).message))}>재문의</button>
+                      )}
+                    </>
+                  ) : open.author === me ? (
+                    <>
+                      <span className="dim" style={{ fontSize: 11.5 }}>이 답변으로 해결되셨나요?</span>
+                      <button className="btn sm pri" disabled={pending}
+                        onClick={() => startTransition(async () => setMsg((await resolveQuestion(open.id)).message))}>해결 확인</button>
+                      <button className="btn sm ghost" disabled={pending}
+                        title="답변으로 해결되지 않았다면 담당 팀에 재검토를 요청합니다"
+                        onClick={() => startTransition(async () => setMsg((await reopenQuestion(open.id)).message))}>답변 미흡 · 재문의</button>
+                    </>
+                  ) : (
+                    <span className="dim" style={{ fontSize: 11.5 }}>작성자 해결 확인 대기</span>
+                  )}
+                  {msg && <span className="dim" style={{ fontSize: 11.5 }}>{msg}</span>}
+                </div>
               )}
             </div>
           ) : canAnswer ? (
