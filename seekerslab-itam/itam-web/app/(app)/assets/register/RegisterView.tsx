@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { confirmReceipt, correctField, declineLoanExtension, extendLoan, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { cancelLoanExtension, confirmReceipt, correctField, declineLoanExtension, extendLoan, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -495,6 +495,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                               onClick={() => startTransition(async () => setLoanExtMsg((await grantLoanExtension(sel.assetNo)).message))}>요청대로 연장</button>
                             <button className="btn sm ghost" disabled={pending}
                               onClick={() => startTransition(async () => setLoanExtMsg((await declineLoanExtension(sel.assetNo, '')).message))}>요청 반려</button>
+                          </span>
+                        )}
+                        {!props.canEdit && (
+                          <span>
+                            <button className="btn sm ghost" disabled={pending}
+                              title="자산담당 처리 전이라면 본인 연장 요청을 철회합니다"
+                              onClick={() => startTransition(async () => setLoanExtMsg((await cancelLoanExtension(sel.assetNo)).message))}>요청 취소</button>
                           </span>
                         )}
                       </dd>

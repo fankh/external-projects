@@ -314,6 +314,24 @@ export async function declineLoanExtension(assetNo: string, rawReason: string) {
   return { ok: true, message: `${assetNo} 대여 연장 반려 — 기한 유지·요청자 통보` }
 }
 
+/** 대여 연장 요청 취소 — 요청자(대여자 본인)가 자산담당 처리 전에 자신의 연장 요청을 철회한다. 기한은 유지한다. */
+export async function cancelLoanExtension(assetNo: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  const req = asset.loanExtendRequest
+  if (!req) return { ok: false, message: '연장 요청이 없는 자산입니다.' }
+  if (req.by !== session.name) return { ok: false, message: '본인이 올린 연장 요청만 취소할 수 있습니다.' }
+  asset.loanExtendRequest = undefined
+  asset.history.push({ date: today(), kind: '대여', detail: `대여 연장 요청 취소 (요청자 ${req.by} · ${req.newDueDate})`, actor: session.name })
+  dispatch({ channel: '이메일', to: '자산관리팀', subject: `대여 연장 요청 취소 — ${asset.assetNo} ${asset.model} (${req.by}, 반환 기한 ${asset.loanDueDate ?? '-'} 유지)`, kind: '자산 대여', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `대여 연장 요청 취소 — ${asset.assetNo} (${req.newDueDate})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 대여 연장 요청 취소 — 기한 유지` }
+}
+
 /** 대여 반환 접수 — 대여 자산을 회수해 유휴 풀로 되돌린다(연체 여부와 무관하게 반환 처리).
  *  소유자를 비우고 검수실로 편성해 재확인 후 재배치한다. 대여중 자산만 대상. 자산담당·Admin. */
 export async function returnLoan(assetNo: string, condition: ReturnCondition = '정상', rawNote = '') {
