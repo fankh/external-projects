@@ -91,6 +91,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: '/compliance/education', label: '보안교육', ico: '✦', roles: ALL },
       { href: '/compliance/inspection', label: '보안점검 (ISMS)', ico: '✓', roles: BIZ },
+      { href: '/compliance/security-review', label: '보안성 검토', ico: '◈', roles: BIZ },
     ],
   },
   {
