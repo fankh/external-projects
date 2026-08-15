@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { confirmReceipt, correctField, extendLoan, extendWarranty, extendWarrantyMany, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { confirmReceipt, correctField, declineLoanExtension, extendLoan, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -99,6 +99,10 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [reassignTo, setReassignTo] = useState('')
   const [reassignNote, setReassignNote] = useState('')
   const [reassignMsg, setReassignMsg] = useState<string | null>(null)
+  const [loanExtOpen, setLoanExtOpen] = useState(false)
+  const [loanExtDate, setLoanExtDate] = useState('')
+  const [loanExtReason, setLoanExtReason] = useState('')
+  const [loanExtMsg, setLoanExtMsg] = useState<string | null>(null)
   const [maintOpen, setMaintOpen] = useState(false)
   const [maintNote, setMaintNote] = useState('')
   const [maintMsg, setMaintMsg] = useState<string | null>(null)
@@ -478,6 +482,43 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                     <a className="btn sm" href={`/api/loan-agreement/${sel.assetNo}`} target="_blank" rel="noopener"
                       title="대여 확인서 인쇄 — 반출 책임·반환 의무 서면 증적">🖨 대여 확인서</a>
                   </dd>
+                  {/* 대여 연장 요청/처리 — 대여자(사용자)는 연장을 신청하고, 자산담당은 요청대로 연장 또는 반려한다. */}
+                  {sel.loanExtendRequest ? (
+                    <>
+                      <dt>연장 요청</dt>
+                      <dd className="vstack" style={{ gap: 6 }}>
+                        <span><Chip tone="warn" bare>연장 요청</Chip> {sel.loanExtendRequest.newDueDate}로 · {sel.loanExtendRequest.by} <span className="dim" style={{ fontSize: 11 }}>— {sel.loanExtendRequest.reason}</span></span>
+                        {loanExtMsg && <span className="dim" style={{ fontSize: 11.5 }}>{loanExtMsg}</span>}
+                        {props.canEdit && (
+                          <span className="hstack" style={{ gap: 6 }}>
+                            <button className="btn sm pri" disabled={pending}
+                              onClick={() => startTransition(async () => setLoanExtMsg((await grantLoanExtension(sel.assetNo)).message))}>요청대로 연장</button>
+                            <button className="btn sm ghost" disabled={pending}
+                              onClick={() => startTransition(async () => setLoanExtMsg((await declineLoanExtension(sel.assetNo, '')).message))}>요청 반려</button>
+                          </span>
+                        )}
+                      </dd>
+                    </>
+                  ) : !props.canEdit ? (
+                    <>
+                      <dt>기한 연장</dt>
+                      <dd className="vstack" style={{ gap: 6 }}>
+                        {loanExtMsg && <span className="dim" style={{ fontSize: 11.5 }}>{loanExtMsg}</span>}
+                        {!loanExtOpen ? (
+                          <button className="btn sm" disabled={pending} onClick={() => { setLoanExtOpen(true); setLoanExtDate(''); setLoanExtReason(''); setLoanExtMsg(null) }}
+                            title="반환 기한 연장을 자산관리팀에 요청합니다">반환 기한 연장 요청</button>
+                        ) : (
+                          <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}>
+                            <input className="input" type="date" style={{ height: 28 }} min={sel.loanDueDate ?? props.today} value={loanExtDate} disabled={pending} onChange={(e) => setLoanExtDate(e.target.value)} />
+                            <input className="input" style={{ height: 28, flex: 1, minWidth: 140 }} placeholder="연장 사유" value={loanExtReason} disabled={pending} onChange={(e) => setLoanExtReason(e.target.value)} />
+                            <button className="btn sm pri" disabled={pending || !loanExtDate || !loanExtReason.trim()}
+                              onClick={() => startTransition(async () => { const r = await requestLoanExtension(sel.assetNo, loanExtDate, loanExtReason); setLoanExtMsg(r.message); if (r.ok) setLoanExtOpen(false) })}>요청</button>
+                            <button className="btn sm ghost" disabled={pending} onClick={() => setLoanExtOpen(false)}>취소</button>
+                          </span>
+                        )}
+                      </dd>
+                    </>
+                  ) : null}
                 </>
               )}
               {sel.status === '사용중' && props.canEdit && (

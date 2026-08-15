@@ -647,6 +647,17 @@ try {
   await pU.waitForTimeout(150)
   const uRepair = (await pU.locator('.msg.assistant .bub').last().textContent()) || ''
   ok('사용자 AI 질의: 내 수리 현황 — 장애 신고 자산·증상 초점(AST-2024-000015·전원 불량)', uRepair.includes('AST-2024-000015') && uRepair.includes('전원 불량'))
+
+  // 대여 반환 기한 연장 요청(사용자 셀프서비스) — 대여자가 본인 대여 자산의 연장을 자산담당에 신청. 그동안 연장은 자산담당만 가능했다. AST-2024-000230(김민준 대여중).
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
+  await pU.locator('button', { hasText: /^반환 기한 연장 요청$/ }).click()
+  await pU.waitForTimeout(200)
+  await pU.locator('dd input[type="date"]').last().fill('2026-09-30')
+  await pU.locator('input[placeholder="연장 사유"]').fill('e2e — 프로젝트 연장으로 반환 지연')
+  await pU.locator('button', { hasText: /^요청$/ }).click()
+  await pU.waitForTimeout(700)
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
+  ok('대여 연장 요청(사용자): 요청 접수 표시(연장 요청·요청 날짜)', ((await pU.locator('body').textContent()) || '').includes('연장 요청') && ((await pU.locator('body').textContent()) || '').includes('2026-09-30'))
   await ctxU.close()
 
   // ── Admin: AI 모델·프롬프트 버전 관리(§05 AI 거버넌스) + 감사 적재 ──
@@ -654,6 +665,14 @@ try {
   await ctx3.addCookies([cookie(ADMIN)])
   const p3 = await ctx3.newPage()
   p3.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
+  // 대여 연장 요청 승인(자산담당 측) — 사용자가 올린 연장 요청을 자산담당이 요청대로 반영한다. 위 pU 가 AST-2024-000230 에 2026-09-30 연장 요청.
+  await p3.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
+  ok('대여 연장 요청 승인: 자산담당에 요청대로 연장 버튼 노출', (await p3.locator('button', { hasText: /^요청대로 연장$/ }).count()) > 0)
+  await p3.locator('button', { hasText: /^요청대로 연장$/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
+  ok('대여 연장 승인 → 반환 기한 요청 날짜로 연장(2026-09-30)', ((await p3.locator('body').textContent()) || '').includes('2026-09-30') && (await p3.locator('button', { hasText: /^요청대로 연장$/ }).count()) === 0)
+
   // 결재 지연 → 결재 독촉 발송(검출→조치). 결재 상태를 바꾸지 않으므로(발송만) 다른 검증에 영향 없음.
   await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
   const apRemind = p3.locator('button', { hasText: /^결재 독촉 발송 \d+건$/ })

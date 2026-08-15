@@ -127,6 +127,9 @@ try {
   // 자산 장애 신고 — 사용자 발화형 수리 진입점. 본인 명의 사용 중 자산 상세에 장애 신고 버튼(수리 대기 편성). 그동안 수리는 반납 점검에서만 시작됐다.
   const userSelHtml = await (await get('/assets/register?sel=AST-2024-000015', 'USER')).text()
   check('USER: 본인 사용중 자산에 장애 신고(수리 요청) 버튼 노출', userSelHtml.includes('장애 신고 (수리 요청)'))
+  // 대여 반환 기한 연장 요청(사용자 셀프서비스) — 그동안 연장은 자산담당만 가능했다. 본인 대여중 자산(AST-2024-000230·김민준)에 연장 요청 접점.
+  const userLoanHtml = await (await get('/assets/register?sel=AST-2024-000230', 'USER')).text()
+  check('자산 대장(사용자): 본인 대여 자산에 반환 기한 연장 요청 버튼(셀프서비스)', userLoanHtml.includes('반환 기한 연장 요청'))
   // 자산 수령(인수) 확인 — 불출 배정 후 사용자 인수 확인(체인 오브 커스터디). 시드 AST-2024-000015 는 수령 대기.
   check('USER: 수령 대기 자산에 수령 확인(인수 확인) 버튼 노출', userSelHtml.includes('수령 확인 대기') && userSelHtml.includes('수령 확인 (인수 확인)'))
   const mgrHtml = await (await get('/assets/register', 'ASSET_MGR')).text()
