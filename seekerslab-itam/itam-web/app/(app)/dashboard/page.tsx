@@ -6,6 +6,7 @@ import { isEasmRescanOverdue } from '@/lib/easm'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { eolOsOf } from '@/lib/eol'
 import { buildVulnPriority } from '@/lib/vuln-priority'
+import { inNoticeAudience, noticeTargets } from '@/lib/notice'
 import { hasDataIssue } from '@/lib/quality'
 import { approvalHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { buildMaintenance } from '@/lib/maintenance'
@@ -40,7 +41,7 @@ export default async function DashboardPage() {
   // 내 미확인 필독 공지 — 상단 고정(필독) 공지 중 내가 아직 읽음 확인하지 않은 것. 사용자가 로그인 시 스스로 챙기게 하는 컴플라이언스 넛지
   // (관리자 측 독촉(로39)·미확인자 명단(v1.150)의 사용자 측 짝). 발행 예정(publishAt 미래) 공지는 아직 안 보이므로 제외.
   const unackedNotices = s.posts.filter(
-    (p) => p.kind === '공지' && p.pinned && (!p.publishAt || p.publishAt <= today()) && !(p.acks ?? []).some((a) => a.by === session.name),
+    (p) => p.kind === '공지' && p.pinned && (!p.publishAt || p.publishAt <= today()) && inNoticeAudience(p, session.dept) && !(p.acks ?? []).some((a) => a.by === session.name),
   )
   // 최근 공지 — Main/Home 의 공지 요약(제품안내서 §01 대시보드·게시판). 발행된 공지를 필독(고정) 우선·최신순으로 노출해
   // 랜딩 시 최신 안내를 게시판까지 가지 않아도 볼 수 있게 한다(예약 발행 전 공지는 제외). 전 권한그룹.
@@ -148,9 +149,14 @@ export default async function DashboardPage() {
   if (session.role === 'ADMIN') {
     // 필독 공지 확인 미달 — 발행된 필독(상단 고정) 공지 중 전 사용자가 읽음 확인하지 않은 것(§07 정책 전파·확인 증적).
     //  공지 등록·독촉은 Admin 책무 — 사용자 측 '미확인 필독' 넛지와 per-공지 미확인자 명단의 관리자 측 집계. 예약 발행(미래) 공지는 제외.
-    const totalUsers = s.users.length
-    const noticeGap = s.posts.filter((p) => p.kind === '공지' && p.pinned && (!p.publishAt || p.publishAt <= today()) && (p.acks?.length ?? 0) < totalUsers).length
-    opsQueues.push({ label: '필독 공지 확인 미달 (전사 독려 · 정책 전파 증적)', count: noticeGap, href: '/board/notices', tone: 'warn' })
+    // 대상 집단(전사/부서) 기준 미확인 — 전사 공지가 무관한 팀까지 분모에 넣어 미달을 부풀리던 것을 대상으로 좁힌다.
+    const noticeGap = s.posts.filter((p) => {
+      if (p.kind !== '공지' || !p.pinned || (p.publishAt && p.publishAt > today())) return false
+      const targets = noticeTargets(p, s.users)
+      const acked = new Set((p.acks ?? []).map((a) => a.by))
+      return targets.some((u) => !acked.has(u.name))
+    }).length
+    opsQueues.push({ label: '필독 공지 확인 미달 (대상 독려 · 정책 전파 증적)', count: noticeGap, href: '/board/notices', tone: 'warn' })
   }
   // 운영 대기 우선순위 — 긴급(err)을 주의(warn)보다 위로, 같은 등급은 적체 규모(count) 큰 순. 화면마다 흩어진 큐를
   //  담당자 일과 시작점에서 '무엇부터'가 바로 보이게 정렬한다(삽입 순서 그대로면 긴급·주의가 뒤섞인다).
