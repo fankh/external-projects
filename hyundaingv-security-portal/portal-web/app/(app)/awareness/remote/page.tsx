@@ -197,8 +197,10 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
           actions={
             <span className="hstack">
               <form method="get" className="hstack" style={{ gap: 4 }}>
-                <input className="input" type="month" name="period" defaultValue={period}
-                  title="조회 월 — 해당 월 재택 대상 명단 기준" style={{ height: 25, fontSize: 11, width: 118 }} />
+                <input className="input" name="period" defaultValue={period}
+                  type={s.remoteCycle === '매일' ? 'date' : s.remoteCycle === '월' ? 'month' : 'text'}
+                  placeholder={s.remoteCycle === '분기' ? 'YYYY-Qn' : s.remoteCycle === '반기' ? 'YYYY-Hn' : undefined}
+                  title="조회 기간 — 해당 등록 주기 기간의 재택 대상 명단 기준" style={{ height: 25, fontSize: 11, width: 118 }} />
                 <button type="submit" className="btn sm">기간 조회</button>
               </form>
               {missing.length > 0 ? <Chip tone="warn" bare>미제출 {missing.length}명</Chip> : <Chip tone="ok" bare>전원 제출</Chip>}
