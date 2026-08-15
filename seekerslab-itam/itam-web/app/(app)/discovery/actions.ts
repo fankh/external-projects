@@ -289,6 +289,31 @@ export async function respondToAccount(accountId: string, kind: '비활성화' |
   return { ok: true, message: `${a.account} ${a.action} — ${kind === '비활성화' ? '보안운영팀' : a.dept} 통지·감사 적재` }
 }
 
+/** 휴면 계정 소유자 확인 결과 처리 — 소유자(부서) 확인 요청에 대한 응답을 반영해 루프를 닫는다.
+ *  (그동안 '소유자 확인 요청'은 부서에 메일만 나가고 결과를 반영할 경로가 없어 그 상태로 방치됐다 — 발견 자산 소유자 확인이 응답·에스컬레이션으로 닫히는 것과 대비.)
+ *  keep=true(사용 확인): 유효 계정으로 판정해 휴면 리스크에서 정리. keep=false(비활성화): 미사용 확정으로 비활성화 집행 요청으로 전환. 확인 요청 상태만 대상. 보안담당·Admin. */
+export async function resolveAccountReview(accountId: string, keep: boolean) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '휴면 계정 확인 처리 권한이 없습니다 (보안담당·Admin).' }
+  const s = getStore()
+  const a = s.accounts.find((x) => x.id === accountId)
+  if (!a) return { ok: false, message: '계정을 찾을 수 없습니다.' }
+  if (a.action !== '소유자 확인 요청') return { ok: false, message: '소유자 확인 요청 상태의 계정만 결과를 처리할 수 있습니다.' }
+  a.actedBy = session.name
+  a.actedAt = today()
+  if (keep) {
+    a.action = '사용 확인'
+    appendAudit({ actor: session.name, action: `휴면 계정 사용 확인(유효 계정) — ${a.account} (${a.displayName}) · 휴면 리스크 정리`, target: a.id })
+    revalidatePath('/', 'layout')
+    return { ok: true, message: `${a.account} 사용 확인 — 유효 계정으로 판정, 휴면 리스크에서 정리` }
+  }
+  a.action = '비활성화 요청'
+  dispatch({ channel: '이메일', to: '보안운영팀', subject: `휴면 계정 비활성화 집행 요청 — ${a.account} (${a.displayName}·${a.dept}, 소유자 확인 결과 미사용 확정)`, kind: '위협 대응', ref: a.id })
+  appendAudit({ actor: session.name, action: `휴면 계정 비활성화 요청(확인 결과 미사용) — ${a.account}`, target: a.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${a.account} 비활성화 요청 — 확인 결과 미사용 확정, 보안운영팀 통지·감사 적재` }
+}
+
 /** 미인가 SW 조치 — EDR 검출 정책 위반 SW 를 제거 요청(사용자·보안운영팀 통지) 또는 예외 승인(업무 정당·화이트리스트)한다.
  *  (제품안내서 §03: "미인가 SW 설치는 Discovery 정책 위반 항목으로 연계되어 보안담당에게 통보") 보안담당·Admin 만.
  *  요청 사실은 설치 부서·보안운영팀 통지 + 감사 로그에 남는다. 외부 노출 조치(requestExternalAction)와 동형. */

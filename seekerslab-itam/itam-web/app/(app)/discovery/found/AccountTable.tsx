@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import type { AccountFinding } from '@/lib/types'
-import { respondToAccount } from '../actions'
+import { resolveAccountReview, respondToAccount } from '../actions'
 
 const KIND_TONE = { '휴면 관리자 계정': 'err', '미사용 서비스 계정': 'warn', '휴면 사용자 계정': 'neutral' } as const
 
@@ -18,6 +18,7 @@ export function AccountTable({ accounts, canAct }: { accounts: AccountFinding[];
       setMsg(r.message); setBusy(null)
     })
   }
+  const resolve = (id: string, keep: boolean) => { setBusy(id); startTransition(async () => { const r = await resolveAccountReview(id, keep); setMsg(r.message); setBusy(null) }) }
 
   return (
     <>
@@ -46,8 +47,14 @@ export function AccountTable({ accounts, canAct }: { accounts: AccountFinding[];
                 <td className="c"><RiskChip risk={a.risk} /></td>
                 {canAct && (
                   <td className="c" style={{ whiteSpace: 'nowrap' }}>
-                    {a.action ? (
-                      <Chip tone={a.action.startsWith('비활성화') ? 'err' : 'info'}>{a.action}</Chip>
+                    {a.action === '소유자 확인 요청' ? (
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }} title="소유자 확인 요청에 대한 결과 처리">
+                        <Chip tone="info" bare>확인 대기</Chip>
+                        <button className="btn sm" disabled={pending} onClick={() => resolve(a.id, true)} title="유효 계정으로 확인 — 휴면 리스크에서 정리">사용 확인</button>
+                        <button className="btn sm danger" disabled={pending} onClick={() => resolve(a.id, false)} title="미사용 확정 — 비활성화 집행 요청">비활성화</button>
+                      </span>
+                    ) : a.action ? (
+                      <Chip tone={a.action.startsWith('비활성화') ? 'err' : a.action === '사용 확인' ? 'ok' : 'info'}>{a.action}</Chip>
                     ) : (
                       <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
                         <button className="btn sm danger" disabled={pending} onClick={() => act(a.id, '비활성화')}>{busy === a.id ? '…' : '비활성화'}</button>
