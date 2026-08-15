@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import type { SaasCatalogEntry } from '@/lib/types'
-import { decideSaas, setSaasDataGrade } from '../actions'
+import { addSaasCatalogEntry, decideSaas, setSaasDataGrade } from '../actions'
 
 const TONE = { 인가: 'ok', 차단: 'err', 검토중: 'warn' } as const
 const GRADES: SaasCatalogEntry['dataGrade'][] = ['일반', '민감', '기밀']
@@ -16,9 +16,42 @@ function reviewAge(reviewSince: string | undefined, today: string): number | nul
 export function CatalogTable({ entries, today, slaDays }: { entries: SaasCatalogEntry[]; today: string; slaDays: number }) {
   const [pending, startTransition] = useTransition()
   const [msg, setMsg] = useState<string | null>(null)
+  // 신규 SaaS 등록 — 발견 이전이라도 조달·온보딩으로 알게 된 서비스를 검토중으로 카탈로그에 올린다
+  const [adding, setAdding] = useState(false)
+  const [service, setService] = useState('')
+  const [category, setCategory] = useState('')
+  const [vendor, setVendor] = useState('')
+  const [owner, setOwner] = useState('')
+  const [grade, setGrade] = useState<SaasCatalogEntry['dataGrade']>('일반')
+  const add = () => startTransition(async () => {
+    const r = await addSaasCatalogEntry({ service, category, vendor, owner, dataGrade: grade })
+    setMsg(r.message)
+    if (r.ok) { setService(''); setCategory(''); setVendor(''); setOwner(''); setGrade('일반'); setAdding(false) }
+  })
 
   return (
     <>
+    <div className="hstack" style={{ justifyContent: 'flex-end', padding: '10px 14px 0' }}>
+      <button className="btn sm pri" disabled={pending} onClick={() => { setAdding((v) => !v); setMsg(null) }}
+        title="발견 이전이라도 조달·벤더 온보딩으로 알게 된 SaaS 를 검토중으로 카탈로그에 등재">{adding ? '취소' : '+ SaaS 등록'}</button>
+    </div>
+    {adding && (
+      <div className="vstack" style={{ gap: 8, margin: 14, padding: 12, border: '1px solid var(--line)', borderRadius: 8, background: 'var(--canvas)' }}>
+        <div className="hstack" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <input className="input" style={{ flex: 2, minWidth: 160 }} placeholder="서비스명 (필수)" value={service} disabled={pending} onChange={(e) => setService(e.target.value)} />
+          <input className="input" style={{ flex: 1, minWidth: 110 }} placeholder="분류" value={category} disabled={pending} onChange={(e) => setCategory(e.target.value)} />
+          <input className="input" style={{ flex: 1, minWidth: 110 }} placeholder="공급사" value={vendor} disabled={pending} onChange={(e) => setVendor(e.target.value)} />
+          <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="주 사용 부서" value={owner} disabled={pending} onChange={(e) => setOwner(e.target.value)} />
+          <span className="seg" style={{ transform: 'scale(.9)' }} title="데이터 민감도 등급">
+            {GRADES.map((g) => (
+              <button key={g} className={grade === g ? 'on' : ''} disabled={pending} onClick={() => setGrade(g)}>{g}</button>
+            ))}
+          </span>
+          <button className="btn sm pri" disabled={pending || !service.trim()} onClick={add}>검토중으로 등재</button>
+        </div>
+        <span className="dim" style={{ fontSize: 11.5 }}>등재 시 <b>검토중</b>으로 접수돼 판정 기한(SLA)·에스컬레이션 대상이 됩니다. 분류·공급사·부서는 비우면 기본값(기타·-·본인 부서)으로 채워집니다.</span>
+      </div>
+    )}
     {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
     <div className="tbl-wrap">
       <table className="tbl">
