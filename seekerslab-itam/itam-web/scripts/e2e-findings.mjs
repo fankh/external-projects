@@ -1008,6 +1008,13 @@ try {
   await p4.goto(`${BASE}/assets/register?sel=AST-2022-000871`, { waitUntil: 'networkidle' })
   ok('분실 회수(수리 필요) → 수리중 편성(유휴 아님·파손 자산 재불출 방지)', ((await p4.textContent('body')) || '').includes('수리중'))
 
+  // 입고 지연 독촉(§06 ITSM 납기 관리 · 검출→조치) — 납기 경과 발주 로트(시드 IN-2607-03)의 공급사에 납기 확인 독촉 발송
+  await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  ok('도입·검수: 입고 지연 독촉 버튼 노출(발주처)', (await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).count()) > 0)
+  await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).click()
+  await p4.waitForTimeout(800)
+  ok('입고 지연 독촉: 발주처 납기 확인 발송 성공(발송 이력)', (await p4.textContent('body')).includes('입고 지연 독촉') && (await p4.textContent('body')).includes('발송'))
+
   // 검수 반려 → 반품 완료(교체 없음) 종결 — 재검수의 짝. 시드 IN-2607-04(검수 반려) 마감 후 대시보드 백로그에서 제외
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   await p4.locator('tr.clickable', { has: p4.locator('td', { hasText: 'IN-2607-04' }) }).first().click()

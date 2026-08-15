@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { daysUntil, isIntakeOverdue, today } from '@/lib/dates'
 import { checklistFor } from '@/lib/intake'
 import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -161,6 +161,31 @@ export async function markLotArrived(lotId: string) {
   appendAudit({ actor: session.name, action: `도입 예정 입고 처리 — ${lot.model} ${lot.qty}대 (SR ${lot.srNo ?? '-'})`, target: lot.id })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${lot.id} 입고 처리 — ${lot.model} ${lot.qty}대 · 검수 대기열 편성` }
+}
+
+/** 입고 지연 독촉 — 도착 예정일이 지난 도입 예정(발주) 로트의 발주처(공급사)에 납기 확인 요청을 보낸다.
+ *  §06 ITSM·구매 연동의 납기 관리 — 대여/수리 독촉과 같은 검출→조치 패턴(입고 지연 신호 → 발주처 독촉).
+ *  당일 이미 독촉한 로트는 건너뛴다(ref = 입고번호). 자산담당·Admin. */
+export async function remindIntakeOverdue() {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '입고 독촉 발송 권한이 없습니다 (자산담당·Admin).' }
+  }
+
+  const s = getStore()
+  const t = today()
+  const alreadyToday = new Set(s.dispatches.filter((m) => m.kind === '입고 독촉' && m.at.startsWith(t)).map((m) => m.ref))
+  const due = s.intakeLots.filter((l) => isIntakeOverdue(l) && !alreadyToday.has(l.id))
+  let n = 0
+  for (const l of due) {
+    const late = -(daysUntil(l.expectedDate!) ?? 0)
+    dispatch({ channel: '이메일', to: l.vendor, subject: `[입고 지연] ${l.model} ${l.qty}대 (SR ${l.srNo ?? '-'}) — 도착 예정 ${l.expectedDate} 경과 ${late}일 · 납기 확인 요청`, kind: '입고 독촉', ref: l.id })
+    n++
+  }
+  if (n === 0) return { ok: false, message: '입고 독촉 대상이 없습니다 (납기 경과 없음, 오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `입고 지연 독촉 발송 (${n}건)`, target: '도입 예정' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `입고 지연 독촉 ${n}건 발송 — 발주처에 납기 확인 요청 (발송 이력 적재)` }
 }
 
 export async function toggleCheck(lotId: string, item: string) {

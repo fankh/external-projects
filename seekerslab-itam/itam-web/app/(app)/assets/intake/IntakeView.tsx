@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { AssetCategory, IntakeLot } from '@/lib/types'
-import { closeReturnedLot, issueAssetNo, markLotArrived, preRegisterLot, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, toggleCheck } from './actions'
+import { closeReturnedLot, issueAssetNo, markLotArrived, preRegisterLot, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, remindIntakeOverdue, toggleCheck } from './actions'
 
 interface Label { assetNo: string; model: string; qr: string; barcode: string }
 interface PC { id: string; name: string; vendor: string }
@@ -66,9 +66,16 @@ export function IntakeView({ lots, labels, contracts, today }: { lots: IntakeLot
       {msg?.text && <div className={`callout ${msg.ok ? '' : 'warn'}`}>{msg.text}</div>}
 
       <Card kicker="ITSM · Procurement" title={`도입 예정 — ITSM SR·발주 연계 ${plannedLots.length > 0 ? `(${plannedLots.length})` : ''}`} pad={false}
-        actions={contracts.length > 0
-          ? <button className="btn sm pri" disabled={pending} onClick={() => { setPreOpen((o) => !o); setMsg(null) }}>{preOpen ? '취소' : '＋ 도입 예정 등록'}</button>
-          : undefined}>
+        actions={<span className="hstack" style={{ gap: 6 }}>
+          {plannedLots.filter((l) => intakeLateDays(l.expectedDate, today) > 0).length > 0 && (
+            <button className="btn sm" disabled={pending}
+              title="도착 예정일이 지난 발주 로트의 공급사(발주처)에 납기 확인을 독촉합니다 (발송 이력·감사)"
+              onClick={() => startTransition(async () => { const r = await remindIntakeOverdue(); setMsg({ ok: r.ok, text: r.message }) })}>
+              입고 지연 독촉 발송 {plannedLots.filter((l) => intakeLateDays(l.expectedDate, today) > 0).length}건
+            </button>
+          )}
+          {contracts.length > 0 && <button className="btn sm pri" disabled={pending} onClick={() => { setPreOpen((o) => !o); setMsg(null) }}>{preOpen ? '취소' : '＋ 도입 예정 등록'}</button>}
+        </span>}>
         {preOpen && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', padding: 14, borderBottom: '1px solid var(--line)', background: 'var(--canvas)' }}>
             <span className="dim" style={{ fontSize: 11.5, fontWeight: 600 }}>SR·발주 사전 등록</span>
