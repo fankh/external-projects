@@ -965,6 +965,14 @@ try {
   const ntcBody = (await p3.textContent('body')) || ''
   ok('부서 대상 공지: 대상 라벨(자산관리팀) 노출', ntcBody.includes('대상 자산관리팀'))
   ok('부서 대상 공지: 필독 확인율 분모가 대상 부서(2명)로 좁혀짐(전사 6 아님)', /필독 확인 \d+\/2명/.test(ntcBody))
+  // 대상 재조정(편집) — 발행 후에도 대상을 바꿀 수 있어야 한다(그동안 편집은 대상을 못 바꿔 삭제·재작성뿐). 자산관리팀 → 전사 재조정 시 분모가 전사(6)로 넓어진다.
+  await p3.locator('button', { hasText: /^수정$/ }).first().click()
+  await p3.waitForTimeout(200)
+  await p3.locator('select[title*="공지 대상"]').selectOption('전사')
+  await p3.locator('button', { hasText: /^저장$/ }).click()
+  await p3.waitForTimeout(700)
+  const ntcBody2 = (await p3.textContent('body')) || ''
+  ok('부서 대상 공지 편집: 대상 재조정(자산관리팀 → 전사) 반영 · 확인율 분모 전사(6)로 확대', ntcBody2.includes('대상 전사') && /필독 확인 \d+\/6명/.test(ntcBody2))
 
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const cHtml = await p3.content()

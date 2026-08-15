@@ -22,6 +22,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
   const [eb, setEb] = useState('')
   const [ep, setEp] = useState(false)
   const [ec, setEc] = useState<NoticeCategory>('일반')
+  const [eaud, setEaud] = useState('전사')
   const [msg, setMsg] = useState<string | null>(null)
   // 목록 필터 — 검색·필독만·예약만 (QnA·감사 로그와 동일 패턴). 공지가 쌓이면 필수.
   const [fq, setFq] = useState('')
@@ -121,7 +122,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
           actions={canWrite && editing !== open.id ? (
             <div className="hstack" style={{ gap: 6 }}>
               <button className="btn sm" disabled={pending}
-                onClick={() => { setEditing(open.id); setEt(open.title); setEb(open.body); setEp(Boolean(open.pinned)); setEc(NOTICE_CATEGORIES.includes(open.category as NoticeCategory) ? (open.category as NoticeCategory) : '일반'); setMsg(null) }}>수정</button>
+                onClick={() => { setEditing(open.id); setEt(open.title); setEb(open.body); setEp(Boolean(open.pinned)); setEc(NOTICE_CATEGORIES.includes(open.category as NoticeCategory) ? (open.category as NoticeCategory) : '일반'); setEaud(open.audienceDept ?? '전사'); setMsg(null) }}>수정</button>
               <button className="btn sm" disabled={pending}
                 onClick={() => startTransition(async () => setMsg((await toggleNoticePin(open.id)).message))}>
                 {open.pinned ? '고정 해제' : '상단 고정'}
@@ -143,6 +144,10 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
                 <select className="select" value={ec} onChange={(e) => setEc(e.target.value as NoticeCategory)} title="공지 분류">
                   {NOTICE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
+                <select className="select" value={eaud} onChange={(e) => setEaud(e.target.value)} title="공지 대상 — 전사 또는 특정 부서(필독 확인율·독촉 분모가 대상으로 좁혀집니다)">
+                  <option value="전사">대상 — 전사</option>
+                  {depts.map((d) => <option key={d} value={d}>대상 — {d}</option>)}
+                </select>
                 <label className="hstack" style={{ gap: 6, fontSize: 12.5, cursor: 'pointer' }}>
                   <input type="checkbox" checked={ep} onChange={(e) => setEp(e.target.checked)} />
                   상단 고정 (필독)
@@ -151,7 +156,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
                 <button className="btn" disabled={pending} onClick={() => setEditing(null)}>취소</button>
                 <button className="btn pri" disabled={pending || !et.trim() || !eb.trim()}
                   onClick={() => startTransition(async () => {
-                    const r = await editNotice(open.id, et, eb, ep, ec)
+                    const r = await editNotice(open.id, et, eb, ep, ec, eaud)
                     setMsg(r.message)
                     if (r.ok) setEditing(null)
                   })}>저장</button>

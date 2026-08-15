@@ -168,7 +168,7 @@ export async function deleteNotice(postId: string) {
 }
 
 /** 공지 수정 — Admin. 제목·내용·고정 상태를 갱신한다 (오타·정보 갱신 시 삭제·재등록 없이). */
-export async function editNotice(postId: string, title: string, body: string, pinned: boolean, category?: NoticeCategory) {
+export async function editNotice(postId: string, title: string, body: string, pinned: boolean, category?: NoticeCategory, audienceDept?: string) {
   const session = await getSession()
   if (!session || session.role !== 'ADMIN') return { ok: false, message: '공지 수정 권한이 없습니다.' }
   if (!title.trim() || !body.trim()) return { ok: false, message: '제목과 내용을 입력하세요.' }
@@ -180,8 +180,10 @@ export async function editNotice(postId: string, title: string, body: string, pi
   post.body = body.trim()
   post.pinned = pinned
   if (NOTICE_CATEGORIES.includes(category as NoticeCategory)) post.category = category as NoticeCategory
+  // 대상 부서 재조정 — 전사(미설정) 또는 실재 부서만. 대상을 바꾸면 필독 확인율·독촉 분모도 함께 좁혀지거나 넓어진다.
+  post.audienceDept = audienceDept && audienceDept !== '전사' && s.users.some((u) => u.dept === audienceDept) ? audienceDept : undefined
 
-  appendAudit({ actor: session.name, action: `공지 수정 — ${post.title}`, target: postId })
+  appendAudit({ actor: session.name, action: `공지 수정 — ${post.title}${post.audienceDept ? ` · 대상 ${post.audienceDept}` : ' · 대상 전사'}`, target: postId })
   revalidatePath('/', 'layout')
   return { ok: true, message: '공지가 수정되었습니다.' }
 }
