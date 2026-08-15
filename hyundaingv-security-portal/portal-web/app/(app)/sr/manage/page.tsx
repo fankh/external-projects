@@ -59,6 +59,37 @@ async function submitApply(formData: FormData) {
   revalidatePath('/', 'layout')
 }
 
+/** 중지 가능 상태 — 배정 이후 활성 진행 단계만(결재중·작성중·종결은 제외). 결재 대기 없는 건만 중지해
+ *  '중지 중 결재 반영 안함'(결재 시트 BA030014) 요구를 결재 대기 없는 상태로 자연 충족한다. */
+const SUSPENDABLE: SrStatus[] = ['CI배정', '개발중', '테스트', '적용요청']
+
+/** SR 중지 (BA030014, 결재 시트) — 활성 진행 SR 을 보류한다. 중지 중엔 진행 처리·지연 집계·SR지연 알림에서
+ *  빠지고(가드), 직전 상태를 suspendedFrom 에 남겨 재개 시 복원한다. */
+async function suspendSr(formData: FormData) {
+  'use server'
+  await requireMenuRole('/sr/manage', 'BIZ_MGR', 'ADMIN')
+  const srNo = String(formData.get('srNo') ?? '')
+  const s = getStore()
+  const sr = s.srRequests.find((r) => r.srNo === srNo)
+  if (!sr || !SUSPENDABLE.includes(sr.status) || s.approvals.some((a) => a.ref === srNo && a.status === '대기')) return
+  sr.suspendedFrom = sr.status
+  sr.status = '중지'
+  revalidatePath('/', 'layout')
+}
+
+/** SR 중지 해제 — 직전 진행 상태로 복원(누락 시 CI배정 폴백). */
+async function resumeSr(formData: FormData) {
+  'use server'
+  await requireMenuRole('/sr/manage', 'BIZ_MGR', 'ADMIN')
+  const srNo = String(formData.get('srNo') ?? '')
+  const s = getStore()
+  const sr = s.srRequests.find((r) => r.srNo === srNo && r.status === '중지')
+  if (!sr) return
+  sr.status = sr.suspendedFrom ?? 'CI배정'
+  sr.suspendedFrom = undefined
+  revalidatePath('/', 'layout')
+}
+
 export default async function SrManagePage() {
   await requireMenu('/sr/manage')
   const s = getStore()
@@ -103,8 +134,16 @@ export default async function SrManagePage() {
                     })()}</td>
                     <td className="tnum">{r.status === '완료' ? (r.completedAt ?? '-') : (r.dueDate ?? '-')}</td>
                     <td className="c">
+                      {r.status === '중지' ? (
+                        // 중지(BA030014) — 재개하면 직전 진행 상태로 복원된다
+                        <form action={resumeSr} style={{ display: 'inline' }}>
+                          <input type="hidden" name="srNo" value={r.srNo} />
+                          <button type="submit" className="btn sm">재개</button>
+                        </form>
+                      ) : (
+                      <div className="hstack" style={{ justifyContent: 'center', gap: 4 }}>
                       {next ? (
-                        <form action={advance} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
+                        <form action={advance} className="hstack" style={{ padding: '3px 0' }}>
                           <input type="hidden" name="srNo" value={r.srNo} />
                           <input aria-label="공수" className="input" type="number" name="manHours" min={1} placeholder="공수" title="투입 공수(MD) — 누적 합산" style={{ height: 25, fontSize: 11, width: 54 }} />
                           <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 130, paddingTop: 2 }} title="처리 결과 증적 첨부" />
@@ -112,13 +151,21 @@ export default async function SrManagePage() {
                         </form>
                       ) : r.kind === '시스템개발' && r.status === '테스트' ? (
                         // 결재 시트 5번 — 적용요청서는 신청 상신과 별개의 결재 (첨부 추가 가능)
-                        <form action={submitApply} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
+                        <form action={submitApply} className="hstack" style={{ padding: '3px 0' }}>
                           <input type="hidden" name="srNo" value={r.srNo} />
                           <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 130, paddingTop: 2 }} title="적용요청서 첨부" />
                           <button type="submit" className="btn sm pri">적용요청서 상신</button>
                         </form>
                       ) : (
                         <span className="mut">-</span>
+                      )}
+                      {SUSPENDABLE.includes(r.status) && (
+                        <form action={suspendSr} style={{ display: 'inline' }}>
+                          <input type="hidden" name="srNo" value={r.srNo} />
+                          <button type="submit" className="btn sm danger" title="SR 보류 — 진행·지연·알림에서 제외">중지</button>
+                        </form>
+                      )}
+                      </div>
                       )}
                     </td>
                   </tr>
