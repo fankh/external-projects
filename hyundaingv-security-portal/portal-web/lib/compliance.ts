@@ -1,0 +1,47 @@
+/** 보안 컴플라이언스 KPI 단일 원천 — 종합 현황 export·추세 스냅샷이 같은 술어를 공유해 수치 불일치를
+ *  구조적으로 막는다. 각 지표는 소속 화면과 동일 술어(pledge/manage·education·inspection·security-review·
+ *  violation). 비율은 div-zero·false-100 방어(complianceKpiPct). */
+import { currentYear } from './dates'
+import { eligibleForCourse, highSevOpen } from './store'
+import type { Store } from './store'
+
+export interface ComplianceKpis {
+  signedCount: number; totalPeople: number
+  eduDone: number; eduSlots: number; doneCourses: number
+  inspDone: number; inspPending: number; inspTotal: number
+  fixFindings: number; fixDone: number; openVulns: number; highVulns: number; reviewCount: number
+  vDone: number; vPending: number; vTotal: number
+}
+
+/** 조치율/이수율/서약률 등 — 분모 0 이면 0, 완주가 아니면 99 캡(Math.round 거짓 100 방지) */
+export function complianceKpiPct(num: number, den: number): number {
+  return den > 0 ? (num >= den ? 100 : Math.min(99, Math.round((num / den) * 100))) : 0
+}
+
+export function computeComplianceKpis(s: Store): ComplianceKpis {
+  // 일반 서약률 (pledge/manage 와 동일)
+  const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
+  const signedNames = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+  const signedCount = s.people.filter((p) => signedNames.has(p.name)).length
+  // 보안교육 이수율 (compliance/education 와 동일 — 과정 대상별 이수 의무자)
+  const done = s.educationCourses.filter((c) => c.status === '완료')
+  const eduSlots = done.reduce((sum, c) => sum + eligibleForCourse(s, c.target).length, 0)
+  const eduDone = done.reduce((sum, c) => sum + eligibleForCourse(s, c.target).filter((p) => s.educationRecords.some((r) => r.courseId === c.id && r.name === p.name)).length, 0)
+  // 보안성 검토 (security-review·대시보드 openFindings·highSevOpen 와 동일)
+  const wf = s.securityReviews.filter((r) => r.findings > 0)
+  return {
+    signedCount, totalPeople: s.people.length,
+    eduDone, eduSlots, doneCourses: done.length,
+    inspDone: s.inspectionPlans.filter((p) => p.status === '완료').length,
+    inspPending: s.inspectionPlans.filter((p) => p.status === '결과미등록').length,
+    inspTotal: s.inspectionPlans.length,
+    fixFindings: wf.reduce((sum, r) => sum + r.findings, 0),
+    fixDone: wf.reduce((sum, r) => sum + r.fixed, 0),
+    openVulns: s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + Math.max(0, r.findings - r.fixed), 0),
+    highVulns: s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + highSevOpen(r), 0),
+    reviewCount: s.securityReviews.length,
+    vDone: s.violations.filter((v) => v.status === '완료').length,
+    vPending: s.violations.filter((v) => v.status === '징구중').length,
+    vTotal: s.violations.length,
+  }
+}
