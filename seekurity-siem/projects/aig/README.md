@@ -19,6 +19,7 @@ aig/
 ├── AIG_05-기능확인서.md/.pdf
 ├── AIG_06-운영자매뉴얼.md/.pdf
 ├── AIG_07-완료보고서.md/.pdf
+├── AIG_08-운영이슈대응보고서.md
 ├── README.md, CLAUDE.md
 ├── workbooks/
 │   ├── AIG_SOW.xlsx
