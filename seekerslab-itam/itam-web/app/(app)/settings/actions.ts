@@ -1,9 +1,8 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAdminAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
-import { escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
+import { decideSaasStatus } from '@/lib/saas'
 import { getStore } from '@/lib/store'
 import { SCAN_INTERVALS, type Channel, type SaasCatalogEntry } from '@/lib/types'
 
@@ -97,22 +96,9 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
   const s = getStore()
   const entry = s.saasCatalog.find((x) => x.id === id)
   if (!entry) return
-  const prev = entry.status
-  entry.status = status
-  entry.decidedAt = today()
-  entry.decidedBy = session.name
-  entry.reviewSince = status === '검토중' ? today() : undefined // 판정 완료 시 기한 추적 종료
 
-  // 폐쇄 루프 — 카탈로그 판정을 Shadow SaaS 사용 현황에 반영
-  const usage = s.saas.find((u) => u.service === entry.service)
-  if (usage) usage.sanctioned = status === '인가'
-
-  // 차단 판정은 정책 표시로 끝나지 않고 보안운영팀에 프록시·DNS 차단 집행을 요청한다
-  // (검출→조치 — 외부 노출 차단(로29)과 대칭. 그동안 차단은 카탈로그 상태만 바꿨다.)
-  const newlyBlocked = status === '차단' && prev !== '차단'
-  if (newlyBlocked) {
-    escalate({ to: '보안운영팀', subject: `${entry.service} 차단 판정 — 프록시·DNS 차단 집행 요청 (데이터 등급 ${entry.dataGrade})`, kind: '격리 통보', ref: entry.id, sms: `${entry.service} 차단 집행 — 프록시·DNS (등급 ${entry.dataGrade})` })
-  }
+  // 판정 로직 단일화 — Shadow SaaS 화면(classifyShadowSaas)과 동일한 상태 반영·사용현황 동기화·차단 집행 요청
+  const { newlyBlocked } = decideSaasStatus(entry, status, session.name)
 
   audit(session.name, `SaaS 카탈로그 판정 → ${status}${newlyBlocked ? ' · 보안운영팀 차단 집행 요청' : ''}`, entry.service)
   revalidatePath('/', 'layout')

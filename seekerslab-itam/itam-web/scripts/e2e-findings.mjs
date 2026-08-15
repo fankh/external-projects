@@ -896,6 +896,17 @@ try {
   ok('오프보딩 요약: 배정 라이선스 좌석 집계·표기(AutoCAD 좌석)', obBody.includes('오프보딩 요약 — 김민준') && obBody.includes('배정 라이선스 좌석') && obBody.includes('AutoCAD'))
   // 오프보딩 명세서 인쇄 링크 — 확장 요약에서 인수인계 체크리스트(회수·재배정 대상)를 한 장 인쇄 산출물로 발급
   ok('오프보딩 요약: 명세서 인쇄 링크(인수인계 체크리스트)', obBody.includes('명세서 인쇄') && (await p3.locator('a[href*="/api/offboard-sheet/"]').count()) > 0)
+
+  // Shadow SaaS 차단 → 보안운영팀 프록시·DNS 차단 집행 요청(로37 판정 단일화) — 그동안 이 집행 요청은 설정 카탈로그 화면(decideSaas)에서만
+  //  나가고 Shadow SaaS 화면 차단(classifyShadowSaas)은 카탈로그 상태만 바꿔, 문서가 광고한 '두 화면 동일 카탈로그' 대칭이 깨져 있었다.
+  //  두 진입점을 공통 decideSaasStatus 로 단일화한 것을 검증한다. 상태 변경이라 p3 마지막에 수행(ChatGPT 검토중→차단).
+  await p3.goto(`${BASE}/discovery/saas`, { waitUntil: 'networkidle' })
+  const chatgptRow = p3.locator('tr', { has: p3.locator('td', { hasText: 'ChatGPT' }) }).first()
+  await chatgptRow.locator('button', { hasText: /^차단$/ }).click()
+  await p3.waitForTimeout(800)
+  ok('Shadow SaaS 차단 → 프록시·DNS 차단 집행 요청 메시지(설정 화면과 동일 집행)', ((await p3.textContent('body')) || '').includes('프록시·DNS 차단 집행 요청'))
+  await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('Shadow SaaS 차단 → 보안운영팀 차단 집행 통보 발송 이력(단일화 반영)', ((await p3.textContent('body')) || '').includes('ChatGPT') && ((await p3.textContent('body')) || '').includes('프록시·DNS 차단 집행'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──
