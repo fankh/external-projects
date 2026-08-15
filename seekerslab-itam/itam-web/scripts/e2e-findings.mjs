@@ -324,6 +324,23 @@ try {
   await twoChoice(page, { name: 'USB(48)', navTo: FOUND, cardText: '이동식 매체 정책 위반', rowText: 'Samsung T7 SSD', btnRe: /^차단$/ })
   await twoChoice(page, { name: '로컬 VM(49)', navTo: FOUND, cardText: '엔드포인트 VM 정책 위반', rowText: 'legacy-test', btnRe: /^회수$/ })
 
+  // USB·로컬 VM 예외 승인 해제 — 잘못 승인한(또는 정책 변경) 예외를 되돌려 다시 정책 대상으로. SW 화이트리스트 해제와 같은 규약(그동안 USB·VM 예외는 비가역).
+  await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+  const usbRow = () => page.locator('tr', { has: page.locator('td', { hasText: 'SanDisk Ultra' }) }).first()
+  await usbRow().locator('button', { hasText: /^예외 승인$/ }).click()
+  await page.waitForTimeout(600)
+  ok('USB 예외 승인 → 예외 해제 컨트롤 노출(가역)', (await usbRow().locator('button', { hasText: /^예외 해제$/ }).count()) > 0)
+  await usbRow().locator('button', { hasText: /^예외 해제$/ }).click()
+  await page.waitForTimeout(600)
+  ok('USB 예외 해제 → 다시 정책 대상(차단·예외 승인 복귀)', (await usbRow().locator('button', { hasText: /^차단$/ }).count()) > 0)
+  const vmRow = () => page.locator('tr', { has: page.locator('td', { hasText: 'dev-sandbox' }) }).first()
+  await vmRow().locator('button', { hasText: /^예외 승인$/ }).click()
+  await page.waitForTimeout(600)
+  ok('로컬 VM 예외 승인 → 예외 해제 컨트롤 노출(가역)', (await vmRow().locator('button', { hasText: /^예외 해제$/ }).count()) > 0)
+  await vmRow().locator('button', { hasText: /^예외 해제$/ }).click()
+  await page.waitForTimeout(600)
+  ok('로컬 VM 예외 해제 → 다시 정책 대상(회수·예외 승인 복귀)', (await vmRow().locator('button', { hasText: /^회수$/ }).count()) > 0)
+
   // 미인가 SW 정책의 허용 축 — 예외 승인 → SW 화이트리스트 등재 → 해제(재사용 정책, §01 보안담당: 미인가 SW 정책 관리)
   {
     await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
@@ -1161,9 +1178,15 @@ try {
   const scopeRow = p4.locator('tr', { has: p4.locator('td', { hasText: '2027 판교 범위 정기 재물조사' }) }).first()
   ok('재물조사 계획: 범위 지정 회차 등록(판교 사무소 · 대상 1건)', (await scopeRow.locator('td').nth(5).textContent() || '').trim() === '1')
   await scopeRow.locator('button', { hasText: /^조사 개시$/ }).click()
-  await p4.waitForTimeout(800)
-  await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
-  const scopeHref = await p4.locator('tr', { has: p4.locator('td', { hasText: '2027 판교 범위 정기 재물조사' }) }).first().locator('a', { hasText: '실사 화면' }).getAttribute('href')
+  await p4.waitForTimeout(500)
+  // 개시 반영 대기 — 진행중 전환(실사 화면 링크 노출)까지 재조회한다. 고정 대기만으론 간헐 실패(개시 트랜지션 지연).
+  const scopeLink = () => p4.locator('tr', { has: p4.locator('td', { hasText: '2027 판교 범위 정기 재물조사' }) }).first().locator('a', { hasText: '실사 화면' })
+  let scopeHref = null
+  for (let i = 0; i < 6 && !scopeHref; i++) {
+    await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+    if ((await scopeLink().count()) > 0) scopeHref = await scopeLink().getAttribute('href')
+    else await p4.waitForTimeout(500)
+  }
   await p4.goto(`${BASE}${scopeHref}`, { waitUntil: 'networkidle' })
   const scopeSurveyBody = await p4.textContent('body')
   ok('재물조사(범위 지정): 미실사 남은 대상 노출(대장 대상 AST-2024-000230)', scopeSurveyBody.includes('미실사 남은 대상') && scopeSurveyBody.includes('AST-2024-000230'))
