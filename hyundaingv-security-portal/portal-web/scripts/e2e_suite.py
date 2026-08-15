@@ -49,6 +49,7 @@ ROT_FRESH_DATA = ROOT / 'scripts' / '.e2e-rotfresh-data.json'  # 회전문서 �
 PJDONE_DATA = ROOT / 'scripts' / '.e2e-pjdone-data.json'  # 프로젝트 완료 시 재서약 할일 정리 회귀용 (v1.5.89)
 PJMEMB_DATA = ROOT / 'scripts' / '.e2e-pjmemb-data.json'  # 빈 명단 프로젝트 참여서약 집계 회귀용 (v1.5.89)
 RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
+AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
 
 
 def login(pg, base, name):
@@ -555,6 +556,23 @@ def sc_channelstate_corrupt(pg, base, check):
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
+
+
+def sc_autoform_upload_defeat(pg, base, check):
+    """필수 자동양식 파일명충돌 우회(v1.5.91) — registerGenerated 중복판정이 '양식이름_v버전_' 접두 startsWith
+    로만 비교해, 사용자 업로드(registerUpload)가 우연/고의로 같은 접두 파일명을 가지면(submitResult 는 업로드
+    후 자동생성 순서) 필수 자동양식 생성을 가로막았다(첨부파일자동생성 통제 우회). gen 플래그로 '이전 생성
+    양식'만 중복대상화. 접두충돌 업로드가 미리 붙은 변경 결과상신 → 업로드+생성 2건(📎2) 확인."""
+    login(pg, base, '박정호')  # BIZ_MGR — 변경 결과 상신 권한
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    row = pg.locator('tr', has_text='자동양식우회테스트변경')
+    row.locator('input[name=result]').fill('작업 완료')
+    row.locator('button:has-text("결과 상신")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    txt = pg.locator('tr', has_text='자동양식우회테스트변경').inner_text()
+    check('📎2' in txt,
+          f"양식 접두와 같은 파일명 업로드가 필수 자동양식 생성을 못 막음 (업로드+생성=📎2; 버그면 📎1; 실제 …{txt[-24:]})")
 
 
 def sc_remote_departed_ghost(pg, base, check):
@@ -1734,6 +1752,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(PJMEMB_DATA)}),
     ('remote_departed_ghost', '인사연동 퇴사 재택 대상자 유령 미제출 제거', sc_remote_departed_ghost,
      {'PORTAL_DATA_FILE': str(RMGHOST_DATA)}),
+    ('autoform_upload_defeat', '필수 자동양식 파일명충돌 우회 방지 — gen 구분자', sc_autoform_upload_defeat,
+     {'PORTAL_DATA_FILE': str(AFDEFEAT_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -1951,7 +1971,7 @@ def main() -> int:
         'changes': [{'id': 'CW-9001', 'kind': '인프라', 'title': '크로스데이중복테스트변경', 'plan': '작업계획',
                      'status': '작업등록', 'registeredAt': '2026-08-01'}],
         'attachments': [{'id': 'AT-9001', 'refId': 'CW-9001', 'name': '인프라변경 작업계획 양식_v2_2026-08-01.xlsx',
-                         'sizeKb': 12, 'uploadedBy': '시스템관리자', 'at': '2026-08-01'}],
+                         'sizeKb': 12, 'uploadedBy': '시스템관리자', 'at': '2026-08-01', 'gen': True}],
     }, ensure_ascii=False), encoding='utf-8')
     # notify_corrupt_todo 시나리오용 — title 필드가 없는 손상 서약 할일. 알림 배치의 재서약 필터가
     # x.title.includes 를 undefined 에 호출해 크래시하면 안 된다(String 강제). batchRuns 비워 완료 기록 판별.
@@ -2021,6 +2041,14 @@ def main() -> int:
     RMGHOST_DATA.write_text(json.dumps({
         'remoteTargets': [{'name': '퇴사자A', 'dept': '개발1팀', 'startDate': '2026-07-01'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # autoform_upload_defeat 시나리오용(v1.5.91) — 결과상신 대기(작업등록승인) 변경 + 양식접두와 충돌하는
+    # 사용자 업로드 첨부(gen 미설정). 결과상신 시 자동양식이 이 업로드에 막히지 않고 생성돼 📎2 가 돼야 한다.
+    AFDEFEAT_DATA.write_text(json.dumps({
+        'changes': [{'id': 'CW-9020', 'kind': '인프라', 'title': '자동양식우회테스트변경', 'plan': '작업계획',
+                     'status': '작업등록승인', 'registeredAt': '2026-08-01'}],
+        'attachments': [{'id': 'AT-9020', 'refId': 'CW-9020', 'name': '인프라변경 작업결과 양식_v1_evil.xlsx',
+                         'sizeKb': 10, 'uploadedBy': '박정호', 'at': '2026-08-01'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -2055,6 +2083,7 @@ def main() -> int:
     PJDONE_DATA.unlink(missing_ok=True)
     PJMEMB_DATA.unlink(missing_ok=True)
     RMGHOST_DATA.unlink(missing_ok=True)
+    AFDEFEAT_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)

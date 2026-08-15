@@ -30,10 +30,13 @@ export function registerGenerated(refId: string, docType: string, by: string): v
   // 같은 참조에 같은 양식(이름·버전)이 이미 있으면 재생성하지 않는다 — 날짜를 뺀 접두로 비교해, 반려·회수
   // 후 다른 날 재상신해도 자동첨부가 중복 누적되지 않게 한다(기존엔 파일명에 today() 가 들어가 당일만 방어).
   // 양식 버전이 올라가면 접두가 달라져 새 양식은 정상적으로 재생성된다.
-  if (s.attachments.some((a) => a.refId === refId && a.name.startsWith(prefix))) return
+  // gen 플래그로 '이전에 생성한 양식'만 중복 판정 대상으로 삼는다 — 사용자 업로드(registerUpload, gen 미설정)가
+  // 우연/고의로 양식 접두와 같은 파일명을 가져도(같은 refId 에 먼저 등록되면) 필수 자동양식 생성을 가로막지
+  // 못하게 한다(예: 변경결과 submitResult 는 registerUpload 후 registerGenerated 순서라 우회 가능했음).
+  if (s.attachments.some((a) => a.refId === refId && a.gen && a.name.startsWith(prefix))) return
   s.attachments.push({
     id: nextNo('AT', today().slice(0, 4), s.attachments.map((a) => a.id)),
-    refId, name, sizeKb: 12, uploadedBy: by, at: today(),
+    refId, name, sizeKb: 12, uploadedBy: by, at: today(), gen: true,
   })
 }
 

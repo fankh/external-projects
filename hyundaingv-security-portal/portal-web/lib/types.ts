@@ -401,6 +401,10 @@ export interface Attachment {
   sizeKb: number
   uploadedBy: string
   at: string
+  /** 결재 자동생성 양식 여부 — 자동첨부 중복 방지(registerGenerated)가 '이전에 생성한 양식'만 대상으로
+   *  판정하기 위한 출처 구분자. 사용자 업로드(registerUpload)는 미설정이라, 업로드 파일명이 양식 접두와
+   *  같아도 필수 자동양식 생성을 가로막지 못한다(첨부파일자동생성 통제 우회 방지). */
+  gen?: boolean
 }
 
 /** 감사 이력 — 통제 행위 append-only 기록 */
