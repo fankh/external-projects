@@ -453,6 +453,13 @@ async function main() {
     check(!pledgeText.includes('김현우'), 'export: 부서담당 서약 CSV 에 타부서 인원 미포함')
     const remoteDenied = await get('/api/export?type=remote-status', 'USER')
     check(remoteDenied.status === 403, 'export: USER 재택 현황 차단(403)')
+    // 컴플라이언스 종합 현황 — /compliance/inspection(BIZ) 게이트라 담당·Admin 만, DEPT_MGR·USER 차단
+    const compCsv = await get('/api/export?type=compliance-summary', 'BIZ_MGR')
+    check(compCsv.status === 200 && (await compCsv.text()).includes('일반 보안서약률'), 'export: 컴플라이언스 종합 현황 CSV (BIZ_MGR)')
+    const compUser = await get('/api/export?type=compliance-summary', 'USER')
+    check(compUser.status === 403, 'export: USER 컴플라이언스 종합 차단(403)')
+    const compDept = await get('/api/export?type=compliance-summary', 'DEPT_MGR')
+    check(compDept.status === 403, 'export: DEPT_MGR 컴플라이언스 종합 차단(403 — inspection BIZ 게이트)')
   }
   {
     // 위반자 본인 건만 — 김현우(USER)에게 강도윤 위반 미노출, 등록 폼 미노출
