@@ -897,6 +897,22 @@ try {
   // 오프보딩 명세서 인쇄 링크 — 확장 요약에서 인수인계 체크리스트(회수·재배정 대상)를 한 장 인쇄 산출물로 발급
   ok('오프보딩 요약: 명세서 인쇄 링크(인수인계 체크리스트)', obBody.includes('명세서 인쇄') && (await p3.locator('a[href*="/api/offboard-sheet/"]').count()) > 0)
 
+  // 공통코드 참조 무결성 가드 — 살아있는 레코드가 참조하는 코드는 미사용 전환 차단(드롭다운 사각지대 방지). 그동안 toggleCodeValue 는
+  //  참조 검사 없이 active 를 뒤집어, 사용 중 LOCATION 을 미사용화하면 이동·실사 드롭다운에서 사라졌다(구축_요약 위치 코드 누락 버그류).
+  await p3.goto(`${BASE}/settings/codes`, { waitUntil: 'networkidle' })
+  await p3.locator('button', { hasText: 'LOCATION' }).click()
+  await p3.waitForTimeout(300)
+  const locUsedRow = p3.locator('tr', { has: p3.locator('td', { hasText: '본사 3F 자산창고' }) }).first()
+  ok('공통코드: 참조 수 표기(사용 중 N건)', ((await locUsedRow.textContent()) || '').includes('건 사용 중'))
+  await locUsedRow.locator('button', { hasText: /^미사용$/ }).click()
+  await p3.waitForTimeout(600)
+  ok('공통코드: 참조 있는 코드 미사용 전환 차단(가드)', ((await p3.textContent('body')) || '').includes('사용 중인 코드는 미사용 전환할 수 없습니다'))
+  ok('공통코드: 차단 후 코드 사용 상태 유지(미사용 버튼 잔존)', (await locUsedRow.locator('button', { hasText: /^미사용$/ }).count()) > 0)
+  const locFreeRow = p3.locator('tr', { has: p3.locator('td', { hasText: '본사 9F' }) }).first()
+  await locFreeRow.locator('button', { hasText: /^미사용$/ }).click()
+  await p3.waitForTimeout(600)
+  ok('공통코드: 참조 없는 코드는 미사용 전환 허용(사용 버튼으로 전환)', (await locFreeRow.locator('button', { hasText: /^사용$/ }).count()) > 0)
+
   // Shadow SaaS 차단 → 보안운영팀 프록시·DNS 차단 집행 요청(로37 판정 단일화) — 그동안 이 집행 요청은 설정 카탈로그 화면(decideSaas)에서만
   //  나가고 Shadow SaaS 화면 차단(classifyShadowSaas)은 카탈로그 상태만 바꿔, 문서가 광고한 '두 화면 동일 카탈로그' 대칭이 깨져 있었다.
   //  두 진입점을 공통 decideSaasStatus 로 단일화한 것을 검증한다. 상태 변경이라 p3 마지막에 수행(ChatGPT 검토중→차단).

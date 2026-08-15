@@ -1,5 +1,6 @@
 import { Card, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { codeUsage } from '@/lib/codes'
 import { getStore } from '@/lib/store'
 import { CodeGroups } from './CodeGroups'
 
@@ -10,6 +11,9 @@ export default async function CodesPage() {
   const s = getStore()
   const total = s.codeGroups.reduce((n, g) => n + g.values.length, 0)
   const inactive = s.codeGroups.reduce((n, g) => n + g.values.filter((v) => !v.active).length, 0)
+  // 코드별 참조 수 — 미사용 전환 가드·"N건 사용 중" 표기의 근거. groupId.code 키로 평탄화해 클라이언트에 전달(함수는 직렬화 불가).
+  const usage: Record<string, number> = {}
+  for (const g of s.codeGroups) for (const val of g.values) usage[`${g.id}.${val.code}`] = codeUsage(g.id, val.label)
 
   return (
     <>
@@ -27,11 +31,12 @@ export default async function CodesPage() {
       </div>
 
       <div className="callout">
-        <b>코드 미사용 처리.</b> 이미 사용 중인 데이터가 참조하는 코드는 삭제하지 않고 미사용으로 전환합니다.
-        미사용 코드는 신규 입력 항목에서 제외되지만 기존 자산·이력의 표시는 유지되어 과거 데이터의 무결성이 보존됩니다.
+        <b>코드 미사용 처리.</b> 미사용 코드는 신규 입력 항목(위치·자산유형 등 드롭다운)에서 제외되지만 기존 자산·이력의 표시는 유지됩니다.
+        단, <b>살아있는 레코드가 참조하는 코드는 미사용 전환이 차단됩니다</b> — 참조 자산을 다른 코드로 이관한 뒤에야 전환할 수 있어(사용 중 N건 표기),
+        드롭다운에서 사라진 코드를 가진 자산이 재선택 불가로 방치되는 사각지대를 막습니다.
       </div>
 
-      <CodeGroups groups={s.codeGroups} />
+      <CodeGroups groups={s.codeGroups} usage={usage} />
     </>
   )
 }

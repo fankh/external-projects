@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAdminAudit } from '@/lib/audit'
+import { codeUsage } from '@/lib/codes'
 import { getSession } from '@/lib/session'
 import { decideSaasStatus } from '@/lib/saas'
 import { getStore } from '@/lib/store'
@@ -205,14 +206,23 @@ export async function setAiModel(rawModel: string, rawPrompt: string) {
 /** 공통코드 값 사용/미사용 */
 export async function toggleCodeValue(groupId: string, code: string) {
   const session = await requireAdmin()
-  if (!session) return
+  if (!session) return { ok: false, message: '권한이 없습니다.' }
   const s = getStore()
   const g = s.codeGroups.find((x) => x.id === groupId)
   const v = g?.values.find((x) => x.code === code)
-  if (!g || !v) return
+  if (!g || !v) return { ok: false, message: '코드를 찾을 수 없습니다.' }
+  // 미사용 전환 가드 — 살아있는 레코드가 참조하는 코드는 미사용화하면 드롭다운에서 사라져 사각지대가 생긴다.
+  // 먼저 참조 자산·레코드를 다른 코드로 이관한 뒤에야 미사용 전환할 수 있다(참조 무결성). 재사용(사용 전환)은 제한 없음.
+  if (v.active) {
+    const used = codeUsage(g.id, v.label)
+    if (used > 0) {
+      return { ok: false, message: `사용 중인 코드는 미사용 전환할 수 없습니다 — '${v.label}'을(를) 참조하는 레코드 ${used}건. 먼저 이관 후 전환하세요.` }
+    }
+  }
   v.active = !v.active
   audit(session.name, `공통코드 ${v.active ? '사용' : '미사용'} — ${v.label}`, `${g.id}.${code}`)
   revalidatePath('/', 'layout')
+  return { ok: true, message: `${v.label} → ${v.active ? '사용' : '미사용'}` }
 }
 
 type CodeRes = { ok: boolean; message: string }
