@@ -1,8 +1,12 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
+import type { AuditAction } from '@/lib/audit'
 import { requireMenu } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 
-const ACTION_TONE: Record<string, 'ok' | 'err' | 'info' | 'neutral' | 'warn'> = {
+// Record<AuditAction> 로 두어 컴파일러가 전 액션의 톤 지정을 강제한다 — 신규 액션이 톤 없이 추가되면
+// 빌드 오류로 잡혀 neutral 무차별 색상(v1.5.111 에서 실제 발생) 재발을 구조적으로 막는다. 저장 로그의
+// action 은 손상 내성 위해 string 타입이라 아래 호출부는 as 캐스트 + ?? 폴백으로 손상·미지의 값을 방어한다.
+const ACTION_TONE: Record<AuditAction, 'ok' | 'err' | 'info' | 'neutral' | 'warn'> = {
   '결재 상신': 'info', '결재 승인': 'ok', '결재 반려': 'err', '결재 회수': 'neutral',
   '결재선 변경': 'warn', '연동 채널 변경': 'warn', '공통코드 변경': 'warn', '서약양식 개정': 'warn', '엑셀양식 변경': 'warn', '게시물 삭제': 'warn', '재택 대상자 변경': 'warn', '점검 기준 변경': 'warn', '인프라 자산 변경': 'warn', '메뉴권한 변경': 'warn', '재무 속보 수정': 'warn',
   '보안위반 등록': 'err', '보안성 검토 완료': 'ok',
@@ -44,7 +48,7 @@ export default async function AuditPage() {
                   <tr key={i}>
                     <td className="tnum">{l.at}</td>
                     <td className="strong">{l.actor}</td>
-                    <td><Chip tone={ACTION_TONE[l.action] ?? 'neutral'} bare>{l.action}</Chip></td>
+                    <td><Chip tone={ACTION_TONE[l.action as AuditAction] ?? 'neutral'} bare>{l.action}</Chip></td>
                     <td className="dim" style={{ maxWidth: 520, whiteSpace: 'normal' }}>{l.detail}</td>
                   </tr>
                 ))}
