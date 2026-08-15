@@ -4,7 +4,7 @@ import { Chip, RiskChip } from '@/components/ui'
 import { classifyDiscoveredType } from '@/lib/classify'
 import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState, RiskLevel } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
-import { confirmReconcile, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestQuarantine } from '../actions'
+import { confirmReconcile, dismissDiscovered, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestQuarantine, undismissDiscovered } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
@@ -30,6 +30,7 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
   const [selId, setSelId] = useState<string | null>(initialSel ?? null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [msg, setMsg] = useState<string | null>(null)
+  const [dismissReason, setDismissReason] = useState('')
   const [pending, startTransition] = useTransition()
 
   // 편입 요청 가능한 건만 일괄 대상 — 미처리·미등록만. 등록·불일치(이미 매칭된 자산)는 편입하면 대장 중복이 되므로 제외(불일치는 재물조사 차이 조정으로 대사).
@@ -216,6 +217,14 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                     NAC 격리 요청
                   </button>
                 </div>
+                {/* 관리 제외 — 관리 대상이 아닌 알려진 비자산(협력사 장비·게스트 단말·비관리 어플라이언스). 편입도 격리도 아닌 판정으로 미등록 갭에서 뺀다(사유 필수). */}
+                <div className="hstack" style={{ gap: 6, borderTop: '1px solid var(--line)', paddingTop: 8, marginTop: 2 }}>
+                  <input className="input" style={{ flex: 1, height: 30 }} placeholder="관리 제외 사유 (예: 협력사 장비·게스트 단말·비관리 어플라이언스)"
+                    value={dismissReason} disabled={pending} onChange={(e) => setDismissReason(e.target.value)} />
+                  <button className="btn sm" disabled={pending || !dismissReason.trim()}
+                    title="관리 대상이 아닌 발견 건을 관리 제외 — 미등록 갭·Shadow IT 신호에서 빠집니다(오판이면 제외 해제)"
+                    onClick={() => startTransition(async () => { const r = await dismissDiscovered(sel.id, dismissReason); setMsg(r.message); if (r.ok) setDismissReason('') })}>관리 제외</button>
+                </div>
               </div>
             )}
             {/* 등록·불일치 — 재편입(중복 생성) 대상이 아니라 대장 보정으로 대사한다. 대장을 열어 보정한 뒤 '대사 확인'으로 등록·일치 종결. */}
@@ -232,7 +241,17 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                 <span className="mut" style={{ fontSize: 11 }}>대장을 보정한 뒤 대사 확인하면 등록·일치로 종결됩니다.</span>
               </div>
             )}
-            {sel.action && <div className="callout" style={{ marginTop: 14 }}>처리 진행 중 — <b>{sel.action}</b>. 결재함에서 진행 상태를 확인하세요.</div>}
+            {sel.action === '관리 제외' && (
+              <div className="callout" style={{ marginTop: 14 }}>
+                <b>관리 제외됨</b> — 관리 대상이 아닌 비자산으로 판정되어 미등록 갭·Shadow IT 신호에서 제외됨.{sel.note ? <><br /><span className="mut" style={{ fontSize: 12 }}>{sel.note}</span></> : null}
+                <div style={{ marginTop: 8 }}>
+                  <button className="btn sm ghost" disabled={pending}
+                    title="오판정이면 미등록 처리 대상으로 되돌립니다"
+                    onClick={() => startTransition(async () => setMsg((await undismissDiscovered(sel.id)).message))}>제외 해제 (처리 대상 복귀)</button>
+                </div>
+              </div>
+            )}
+            {sel.action && sel.action !== '관리 제외' && <div className="callout" style={{ marginTop: 14 }}>처리 진행 중 — <b>{sel.action}</b>. 결재함에서 진행 상태를 확인하세요.</div>}
             {msg && <div className="callout" style={{ marginTop: 10 }}>{msg}</div>}
           </aside>
         )}

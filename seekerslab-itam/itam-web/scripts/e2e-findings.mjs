@@ -359,6 +359,20 @@ try {
   const scanChanBody = (await page.textContent('body')) || ''
   ok('스캔 실행: 재탐지 주기 경과 채널에 재탐지 지연 칩', scanChanBody.includes('채널별 수집 현황') && scanChanBody.includes('재탐지 지연'))
 
+  // 발견 자산 관리 제외 — 관리 대상이 아닌 비자산(협력사 장비·게스트 단말)을 편입/격리 아닌 판정으로 미등록 갭에서 뺀다(사유 필수·해제 가능).
+  //  그동안 편입/격리/확인만 있어 비자산 발견 건은 미등록 갭에 영구 잔존했다(컨셉 §3 '목록만 쌓인다'). DSC-2607-0046 제외 → 해제(원복).
+  await page.goto(`${BASE}/discovery/found?sel=DSC-2607-0046`, { waitUntil: 'networkidle' })
+  await page.locator('input[placeholder*="관리 제외 사유"]').fill('e2e — 협력사 임시 반입 장비(비관리)')
+  await page.locator('button', { hasText: /^관리 제외$/ }).click()
+  await page.waitForTimeout(700)
+  const dismissedBody = (await page.textContent('body')) || ''
+  ok('발견 자산 관리 제외: 비자산 판정 → 미등록 갭에서 제외', dismissedBody.includes('관리 제외됨') && dismissedBody.includes('제외 해제'))
+  // 미등록 처리 필요 카운트에서 빠졌는지 — 제외 후 편입/격리 액션이 사라지고 제외 해제 액션만 남는다
+  ok('발견 자산 관리 제외: 편입/격리 액션 대신 제외 해제 노출', (await page.locator('button', { hasText: /^편입 요청 \(결재\)$/ }).count()) === 0)
+  await page.locator('button', { hasText: /^제외 해제/ }).click()
+  await page.waitForTimeout(700)
+  ok('발견 자산 관리 제외 해제 → 미등록 처리 대상 복귀(편입 요청 액션 재노출)', (await page.locator('button', { hasText: /^편입 요청 \(결재\)$/ }).count()) > 0)
+
   // AI 제안 판정 루프(11) — 승인→조치·반려 사유 필수
   await aiInsightDecide(page)
   await ctx.close()
