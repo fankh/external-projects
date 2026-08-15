@@ -223,6 +223,10 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   asset.owner = to
   asset.dept = dept
   asset.loanDueDate = dueDate
+  // 이전 대여분에서 남았을 수 있는 연장·반납 요청을 새 대여 시작 시 반드시 정리한다 —
+  // 안 그러면 이전 대여자가 올린 요청이 새 대여자의 대여에 잘못 적용될 수 있다(오적용·오통보 방지).
+  asset.loanExtendRequest = undefined
+  asset.returnRequest = undefined
   asset.history.push({ date: today(), kind: '대여', detail: `${dept} ${to} 대여 — 반환 기한 ${dueDate}`, actor: session.name })
   // 대여자에게 대여 사실·반환 기한을 통보한다(불출 완료 통보의 대여판) — 반환 책임의 기준점이 된다.
   dispatch({ channel: '이메일', to: `${to} (${dept})`, subject: `자산 대여 — ${asset.assetNo} ${asset.model} 대여, 반환 기한 ${dueDate}까지`, kind: '자산 대여', ref: asset.assetNo })
@@ -286,6 +290,10 @@ export async function grantLoanExtension(assetNo: string) {
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   const req = asset.loanExtendRequest
   if (!req || asset.status !== '대여중') return { ok: false, message: '연장 요청이 없는 자산입니다.' }
+  // 요청 기한이 현재 반환 기한 이후인지 재확인 — 오래된(스테일) 요청으로 현재 대여가 단축되지 않게 한다.
+  if (req.newDueDate <= (asset.loanDueDate ?? today())) {
+    return { ok: false, message: `연장 요청 기한(${req.newDueDate})이 현재 반환 기한(${asset.loanDueDate ?? '-'}) 이후가 아닙니다 — 반려 후 재요청하세요.` }
+  }
   const cur = asset.loanDueDate ?? '-'
   asset.loanDueDate = req.newDueDate
   asset.loanExtendRequest = undefined
@@ -384,6 +392,7 @@ export async function returnLoan(assetNo: string, condition: ReturnCondition = '
   const loc = '본사 3F 검수실'
   asset.loanDueDate = undefined
   asset.returnRequest = undefined // 반납 신청분을 접수 처리하면 신청 신호 해제(스테일 신청 방지)
+  asset.loanExtendRequest = undefined // 대여가 끝나므로 대기 중이던 연장 요청도 함께 해제(대시보드 큐·오적용 방지)
   // 대여 반환도 반납(receiveReturn)과 같이 상태 점검으로 가른다 — 손상된 반환분이 바로 유휴 풀에 들어가 재대여/재불출되면 안 된다.
   //  정상 → 유휴 · 수리 필요 → 수리중(수리 후 유휴) · 폐기 권고 → 폐기예정(폐기 절차 편입).
   if (condition === '폐기 권고') {
@@ -699,6 +708,11 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
   const freed = reclaimLicenseSeats(assetNo, session.name, type)
   if (freed.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (${type})`, actor: session.name })
   asset.receiptPending = undefined // 미확인 수령 대기 해제 — 사라진 자산은 인수 대기 대상이 아니다
+  // 대여 중 자산도 분실·도난 신고 대상이라, 대여 상태 잔여 신호를 함께 정리한다 —
+  // 안 그러면 사라진 자산이 반환 기한(연체 판정)·연장/반납 요청 대기 큐에 계속 뜬다.
+  asset.loanDueDate = undefined
+  asset.loanExtendRequest = undefined
+  asset.returnRequest = undefined
 
   if (type === '도난') {
     // 도난은 단말 내 데이터 유출 위험이 있어 보안운영팀에 침해 대응을 통보한다 — 시간 임계라 문자 즉시 알림 병행
