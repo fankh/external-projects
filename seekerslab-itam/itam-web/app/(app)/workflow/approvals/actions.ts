@@ -359,6 +359,26 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         asset.status = '유휴'
         asset.history.push({ date: today(), kind: '점검', detail: '재물조사 미확인 — 분실 후보로 유휴 편성', actor: session.name })
       } else if (d.kind === '대장 미등록') {
+        // 현장에서 라벨만 확인된 미등록 자산을 대장에 실제 편입한다 — 그동안은 resolution 문자열만 남고
+        // 실물이 관리 대상으로 들어오지 않아 '신규 등록'이 표시에 그쳤다(발견-미등록 자산이 방치되는 공백).
+        // 새 자산번호로 채번·편입하되 상세(유형·사양)는 검수에서 확정하도록 검수중으로 두고, 스캔 라벨은
+        // 시리얼·이력에 남겨 추적성을 유지한다. 차이 항목도 새 자산번호로 연결해 리포트·역조회가 실물을 가리킨다.
+        const label = d.assetNo
+        const newNo = nextAssetNo()
+        s.assets.push({
+          assetNo: newNo,
+          category: '단말',
+          model: d.model,
+          serial: `LABEL-${label}`,
+          status: '검수중',
+          owner: '-',
+          dept: '자산관리팀',
+          location: d.actual !== '-' ? d.actual : '본사 3F 검수실',
+          purchaseDate: today(),
+          warrantyEnd: '-',
+          history: [{ date: today(), kind: '등록', detail: `재물조사 '대장 미등록' 발견 편입 — 현장 라벨 ${label} · 위치 ${d.actual} (검수중, ${a.id})`, actor: session.name }],
+        })
+        d.assetNo = newNo
         d.resolution = '신규 등록'
       }
     }
