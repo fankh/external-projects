@@ -38,13 +38,18 @@ export async function planRound(input: {
     return { ok: false, message: `같은 이름의 회차가 이미 있습니다 — ${name}` }
   }
 
-  const planned = s.assets.filter((a) => inScope(a, input.scope)).length
+  // 대상 모수뿐 아니라 대상 자산번호 목록도 저장한다 — 이래야 실사 화면이 '무엇이 아직 미실사인지'를 알고,
+  // 끝내 못 찾은 대장 자산을 분실 후보로 남긴다(자동 편성 회차와 동일 규약). 목록이 없으면 스캔한 것만 세고
+  // 미스캔분은 조용히 사라져 재물조사의 본래 목적(누락·분실 탐지)이 닫히지 않는다.
+  const inScopeAssets = s.assets.filter((a) => inScope(a, input.scope))
+  const planned = inScopeAssets.length
   if (planned === 0) return { ok: false, message: `대상 자산이 없는 범위입니다 — ${input.scope}` }
 
   const id = nextId(`INV-${today().slice(0, 4)}`)
   s.inventoryRounds.unshift({
     id, name, kind: input.kind, scope: input.scope, planned,
     scanned: 0, mismatched: 0, dueDate: input.dueDate, assignee: input.assignee, status: '계획',
+    targets: inScopeAssets.map((a) => a.assetNo),
   })
 
   appendAudit({ actor: session.name, action: `재물조사 계획 수립 (${input.kind} · 대상 ${planned}건)`, target: id })

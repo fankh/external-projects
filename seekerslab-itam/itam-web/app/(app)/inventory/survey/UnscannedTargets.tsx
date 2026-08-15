@@ -46,8 +46,9 @@ export function UnscannedTargets({ targets, roundName }: { targets: Target[]; ro
         </table>
       </div>
       <div className="callout" style={{ margin: 14 }}>
-        이 회차는 미확인·장기 미실측(유령 자산 후보)에서 자동 편성됐습니다. 현장에서 스캔하면 실측이 확인되고,
-        끝내 찾지 못한 대장 자산은 <b>분실 신고</b>로 처리하면 회수·폐기 절차(분실 루프)로 이어집니다.
+        이 회차 대상 중 아직 실사되지 않은 대장 자산입니다(범위 지정 조사·미확인/장기 미실측 자동 편성 공통).
+        현장에서 스캔하면 실측이 확인되고, 끝내 찾지 못한 대장 자산은 <b>분실 신고</b>로 처리하면
+        회수·폐기 절차(분실 루프)로 이어집니다.
       </div>
     </Card>
   )

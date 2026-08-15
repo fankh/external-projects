@@ -1008,6 +1008,28 @@ try {
   await p4.goto(`${BASE}/assets/register?sel=AST-2022-000871`, { waitUntil: 'networkidle' })
   ok('분실 회수(수리 필요) → 수리중 편성(유휴 아님·파손 자산 재불출 방지)', ((await p4.textContent('body')) || '').includes('수리중'))
 
+  // 범위 지정 재물조사도 미실사 대상을 남긴다(로34 확장) — 그동안 범위(연간·정기) 회차는 대상 '수'만 저장하고
+  //  대상 자산 목록이 없어 실사 화면이 미실사분을 못 보여줬다(누락 자산이 조용히 사라짐). 계획 시 대상 자산번호를 저장해
+  //  범위 회차도 자동 편성 회차와 동일하게 '미실사 남은 대상 → 분실 신고' 루프가 열린다. 판교 사무소 범위 = 대장 1건.
+  await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  await p4.locator('button', { hasText: /^계획 수립$/ }).click()
+  await p4.waitForTimeout(200)
+  await p4.locator('input[placeholder*="회차명"]').fill('2027 판교 범위 정기 재물조사')
+  await p4.locator('select', { has: p4.locator('option', { hasText: '판교 사무소' }) }).selectOption('판교 사무소')
+  await p4.locator('input[type="date"]').fill('2026-09-30')
+  await p4.locator('button', { hasText: /^등록$/ }).click()
+  await p4.waitForTimeout(900)
+  const scopeRow = p4.locator('tr', { has: p4.locator('td', { hasText: '2027 판교 범위 정기 재물조사' }) }).first()
+  ok('재물조사 계획: 범위 지정 회차 등록(판교 사무소 · 대상 1건)', (await scopeRow.locator('td').nth(5).textContent() || '').trim() === '1')
+  await scopeRow.locator('button', { hasText: /^조사 개시$/ }).click()
+  await p4.waitForTimeout(800)
+  await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  const scopeHref = await p4.locator('tr', { has: p4.locator('td', { hasText: '2027 판교 범위 정기 재물조사' }) }).first().locator('a', { hasText: '실사 화면' }).getAttribute('href')
+  await p4.goto(`${BASE}${scopeHref}`, { waitUntil: 'networkidle' })
+  const scopeSurveyBody = await p4.textContent('body')
+  ok('재물조사(범위 지정): 미실사 남은 대상 노출(대장 대상 AST-2024-000230)', scopeSurveyBody.includes('미실사 남은 대상') && scopeSurveyBody.includes('AST-2024-000230'))
+  ok('재물조사(범위 지정): 미실사 대상에 분실 신고 조치 노출', (await p4.locator('tr', { has: p4.locator('td', { hasText: 'AST-2024-000230' }) }).first().locator('button', { hasText: /^분실 신고$/ }).count()) > 0)
+
   // 입고 지연 독촉(§06 ITSM 납기 관리 · 검출→조치) — 납기 경과 발주 로트(시드 IN-2607-03)의 공급사에 납기 확인 독촉 발송
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   ok('도입·검수: 입고 지연 독촉 버튼 노출(발주처)', (await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).count()) > 0)
