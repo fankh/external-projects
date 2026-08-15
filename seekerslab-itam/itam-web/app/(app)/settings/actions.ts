@@ -7,7 +7,7 @@ import { escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { decideSaasStatus } from '@/lib/saas'
 import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
-import { getStore } from '@/lib/store'
+import { getStore, nextId } from '@/lib/store'
 import { SCAN_INTERVALS, type Channel, type SaasCatalogEntry } from '@/lib/types'
 
 /** 정책 변경은 전량 추적 (§07 감사) — 적재는 lib/audit 로 일원화 */
@@ -154,6 +154,28 @@ export async function setSaasDataGrade(id: string, grade: SaasCatalogEntry['data
   audit(session.name, `SaaS 데이터 등급 분류 — ${before} → ${grade}`, entry.service)
   revalidatePath('/', 'layout')
   return { ok: true, message: `${entry.service} 데이터 등급 → ${grade}` }
+}
+
+/** SaaS 카탈로그 신규 등록 — 발견(Discovery) 이전이라도 조달·벤더 온보딩·수기 제보로 알게 된 SaaS 를 보안담당이 직접 카탈로그에 등재한다.
+ *  그동안 카탈로그는 발견 판정(classifyShadowSaas)·인가 요청 결재로만 늘어, 담당자가 검토 대상을 스스로 올릴 수 없었다(공통코드엔 addCodeValue 가 있는데 SaaS 엔 없던 create 공백).
+ *  기본 '검토중'·reviewSince=오늘 으로 등재해 판정 SLA·에스컬레이션(buildSaasReview·escalateSaasReview)이 곧바로 잡게 한다. 보안담당·Admin. */
+export async function addSaasCatalogEntry(input: { service: string; category: string; vendor: string; owner: string; dataGrade: SaasCatalogEntry['dataGrade'] }): Promise<{ ok: boolean; message: string }> {
+  const session = await requireSaasPolicy()
+  if (!session) return { ok: false, message: 'SaaS 카탈로그 등록 권한이 없습니다 (보안담당·Admin).' }
+  const service = input.service.trim()
+  if (!service) return { ok: false, message: '서비스명을 입력하세요.' }
+  const s = getStore()
+  if (s.saasCatalog.some((x) => x.service.toLowerCase() === service.toLowerCase())) {
+    return { ok: false, message: `이미 카탈로그에 있는 서비스입니다 — ${service}` }
+  }
+  const category = input.category.trim() || '기타'
+  const vendor = input.vendor.trim() || '-'
+  const owner = input.owner.trim() || session.dept
+  const grade: SaasCatalogEntry['dataGrade'] = (['일반', '민감', '기밀'] as const).includes(input.dataGrade) ? input.dataGrade : '일반'
+  s.saasCatalog.push({ id: nextId('CAT'), service, category, vendor, status: '검토중', dataGrade: grade, owner, reviewSince: today() })
+  audit(session.name, `SaaS 카탈로그 등록 — ${service} (${category} · ${vendor} · 등급 ${grade}) → 검토중`, service)
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${service} 카탈로그 등재 — 검토중 (판정 대기)` }
 }
 
 /** AI 거버넌스 토글 — 권한 필터·자동 승인·재학습 */
