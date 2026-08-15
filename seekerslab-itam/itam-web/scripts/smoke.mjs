@@ -420,6 +420,8 @@ try {
   //  CT-2023-021(IDC 서버 384만): 발주 25.6M(7%)·만료 임박 → 발주 미이행 위험. CT-2026-009: 발주 95% → 정상.
   check('구매 계약: 발주·검수 이행 현황 패널 렌더', contractsHtml.includes('구매 계약 발주·검수 이행 현황') && contractsHtml.includes('전체 발주 소진률') && contractsHtml.includes('검수 완료액 (정산 근거)'))
   check('구매 계약: 발주 미이행 위험 판정(만료 임박·발주 저조)', contractsHtml.includes('IDC-A 서버 증설') && contractsHtml.includes('미이행 위험'))
+  // 발주 이행 독촉 버튼 — 발주 미이행 위험 판정에 조치 채널을 붙인다(주관부서·공급사·구매팀에 만료 전 이행 요청). 시드 CT-2023-021 미이행 → 배지 ≥1.
+  check('구매 계약: 발주 이행 독촉 버튼(신호→조치 채널)', contractsHtml.includes('발주 이행 독촉'))
   // 만료 경과 라이선스 판정 — LIC-002(JetBrains, 만료일 지남)는 초과 사용과 별개로 '만료' 칩으로 갱신 필요를 명시
   check('계약·라이선스: 만료 경과 라이선스 판정 칩(JetBrains)', contractsHtml.includes('>만료<') && contractsHtml.includes('2026-05-31'))
   // 계약 목록 필터 — 구분·상태·만료 임박·검색

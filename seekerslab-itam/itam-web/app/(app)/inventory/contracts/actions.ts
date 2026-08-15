@@ -4,6 +4,7 @@ import { appendAudit } from '@/lib/audit'
 import { daysUntil, fmtAmount, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { buildMaintenance } from '@/lib/maintenance'
+import { buildProcurement } from '@/lib/procurement'
 import { raiseLicenseApproval } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -185,6 +186,38 @@ export async function notifyMaintenanceBudget() {
   appendAudit({ actor: session.name, action: `유지보수 예산 통보 발송 (${n}건)`, target: '유지보수 계약' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `유지보수 예산 통보 ${n}건 발송 — 주관부서·공급사에 재협상·집행 점검 요청 (발송 이력 적재)` }
+}
+
+/** 발주 이행 독촉 — 발주가 소화되지 않은 채(발주율 저조) 계약 만료가 임박한 구매 계약의 주관부서·공급사에 발주·검수 이행을 재촉한다.
+ *  (그동안 발주 미이행 위험은 화면·대시보드에 판정만 보이고 조치 채널이 없었다 — 유지보수 예산 통보·대여 독촉과 같은 신호→조치.)
+ *  만료 전에 발주를 소화하지 못하면 예산 실기·정산 지연이 되므로, 잔여 발주 여력·D-day 를 담아 통보한다. 당일 중복 발송 방지(ref=계약 id). 자산담당·Admin. */
+export async function remindProcurement() {
+  const session = await guard()
+  if (!session) return { ok: false, message: '발주 이행 독촉 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const t = today()
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === '발주 이행 독촉' && m.at.startsWith(t)).map((m) => m.ref),
+  )
+
+  let n = 0
+  for (const r of buildProcurement().atRisk) {
+    if (sentToday.has(r.id)) continue
+    dispatch({
+      channel: '이메일',
+      to: `${r.ownerDept} · ${r.vendor} · 구매팀`,
+      subject: `${r.id} ${r.name} 발주 미이행 — 발주율 ${r.rate}% · 잔여 발주 ${fmtAmount(r.remaining)}원 · 만료 ${r.end}(D-${r.dday}) 전 발주·검수 이행 요청`,
+      kind: '발주 이행 독촉',
+      ref: r.id,
+    })
+    n += 1
+  }
+
+  if (n === 0) return { ok: false, message: '발주 미이행 위험 계약이 없습니다 (오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `발주 이행 독촉 발송 (${n}건)`, target: '구매 계약' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `발주 이행 독촉 ${n}건 발송 — 주관부서·공급사·구매팀에 만료 전 발주·검수 이행 요청 (발송 이력 적재)` }
 }
 
 /** 계약 갱신 — 만료 임박·경과 계약의 계약 기간을 연장한다.
