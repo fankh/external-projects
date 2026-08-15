@@ -407,6 +407,16 @@ try {
   ok('자산 재배정 → 새 보유자 수령(인수) 확인 대기(체인 오브 커스터디)', reassignedBody.includes('수령 확인 대기'))
   ok('자산 재배정 → 이력에 재배정(직접 인계) 기록', reassignedBody.includes('재배정(직접 인계)'))
 
+  // 수명주기 처리 대기열 라우팅 — 대여중·수리중·분실이 '다음 처리 -'로 막다른 행이던 것을 처리 화면 딥링크로 연결(폐기완료는 대기열 제외).
+  await p2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
+  const lifeBody = (await p2.locator('body').textContent()) || ''
+  ok('수명주기 대기열: 대여중·수리중 처리 안내(막다른 행 제거)', lifeBody.includes('반환 기한 관리') && lifeBody.includes('수리 진행 관리'))
+  const repairLink = p2.locator('a', { hasText: '반환 기한 관리' }).first()
+  ok('수명주기 대기열: 처리 안내가 처리 화면 딥링크', (await repairLink.count()) > 0)
+  await repairLink.click()
+  await p2.waitForTimeout(500)
+  ok('수명주기 대기열 → 반납·유휴 화면으로 라우팅', p2.url().includes('/assets/returns'))
+
   // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
   const recoverBtn = p2.locator('button', { hasText: /^자산 회수 \(반납 처리\)$/ })

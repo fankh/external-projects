@@ -214,6 +214,11 @@ try {
   // 자산 재배정(직접 인계) — 사용 중 자산의 보유자를 반납·재불출 왕복 없이 직접 변경. 대장 상세(사용중·자산담당)에 재배정 컨트롤 노출.
   const regInUse113 = await (await get('/assets/register?sel=AST-2023-000113', 'ASSET_MGR')).text()
   check('자산 대장: 사용중 상세에 재배정(직접 인계) 컨트롤', regInUse113.includes('자산 재배정 (직접 인계)'))
+  // 수명주기 처리 대기열 — 대여중·수리중·분실이 '다음 처리 -'로 막다른 행이던 것을 처리 안내 + 처리 화면 딥링크로 라우팅. 종결(폐기완료)은 대기열에서 제외.
+  const lifeHtml = await (await get('/assets/lifecycle', 'ASSET_MGR')).text()
+  check('수명주기 대기열: 대여중 처리 안내 + 반납 화면 딥링크', lifeHtml.includes('반환 기한 관리') && lifeHtml.includes('/assets/returns'))
+  check('수명주기 대기열: 수리중 처리 안내(막다른 행 제거)', lifeHtml.includes('수리 진행 관리'))
+  check('수명주기 대기열: 종결(폐기완료) 자산 제외 (처리 대상 아님)', !lifeHtml.includes('AST-2018-000090'))
   // 수리중 자산 상세 — 수리 의뢰(업체·예상반환·반환 지연) 블록. 대여 블록과 대칭. 시드 AST-2024-000512(중부IT서비스, 예상반환 경과)로 검증
   const regRepairDetail = await (await get('/assets/register?sel=AST-2024-000512', 'ASSET_MGR')).text()
   check('자산 대장: 수리중 상세에 수리 의뢰(업체·반환 지연) 블록', regRepairDetail.includes('수리 의뢰') && regRepairDetail.includes('중부IT서비스') && regRepairDetail.includes('반환 지연'))
