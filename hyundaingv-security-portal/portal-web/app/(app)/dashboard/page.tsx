@@ -19,6 +19,7 @@ export default async function DashboardPage() {
     openIssues: canSee('/projects/schedule'),
     unsigned: canSee('/pledge/manage'),
     inspections: canSee('/compliance/inspection'),
+    securityReviews: canSee('/compliance/security-review'),
   }
   const showOps = Object.values(opsVis).some(Boolean)
   // 공지사항 카드도 출처 화면(/board/notices) 유효권한을 따른다 — 기본 roles:ALL 이라 평상시 전원 노출이나,
@@ -64,6 +65,8 @@ export default async function DashboardPage() {
     openIssues: s.projectIssues.filter((i) => i.status === '오픈').length,
     unsigned: s.people.filter((p) => !signedNames.has(p.name)).length,
     inspections: s.inspectionPlans.filter((p) => p.status === '결과미등록' || (p.month < period && p.status === '계획')).length,
+    // 미조치 취약점 — 열린(미완료) 보안성 검토의 발견 대비 미조치 잔여. 화면(security-review)의 openFindings 와 동일 원천.
+    securityReviews: s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + Math.max(0, r.findings - r.fixed), 0),
   }
 
   return (
@@ -95,6 +98,7 @@ export default async function DashboardPage() {
             {opsVis.openIssues && <Stat value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />}
             {opsVis.unsigned && <Stat value={ops.unsigned} label="미서약 인원" tone={ops.unsigned > 0 ? 'warn' : undefined} />}
             {opsVis.inspections && <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />}
+            {opsVis.securityReviews && <Stat value={ops.securityReviews} label="미조치 취약점" tone={ops.securityReviews > 0 ? 'err' : undefined} />}
           </div>
         </Card>
       )}
