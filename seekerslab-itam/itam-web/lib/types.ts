@@ -723,8 +723,8 @@ export interface AccountFinding {
   source: 'AD' | 'Entra ID' | 'SSO'
   risk: RiskLevel
   note?: string
-  /** 조치 — 비활성화 집행 요청(보안운영팀) 또는 소유자(부서) 사용 여부 확인 요청 */
-  action?: '비활성화 요청' | '소유자 확인 요청'
+  /** 조치 — 비활성화 집행 요청(보안운영팀) 또는 소유자(부서) 사용 여부 확인 요청. '사용 확인'은 확인 결과 유효 계정으로 판정해 휴면 리스크에서 정리한 상태. */
+  action?: '비활성화 요청' | '소유자 확인 요청' | '사용 확인'
   actedBy?: string
   actedAt?: string
 }

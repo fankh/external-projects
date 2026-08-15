@@ -341,6 +341,22 @@ try {
   await page.waitForTimeout(600)
   ok('로컬 VM 예외 해제 → 다시 정책 대상(회수·예외 승인 복귀)', (await vmRow().locator('button', { hasText: /^회수$/ }).count()) > 0)
 
+  // 휴면 계정 소유자 확인 결과 처리 — '소유자 확인 요청'이 그동안 부서 메일만 나가고 결과 반영 경로가 없어 방치됐다. 확인 결과를 사용 확인(정리)/비활성화로 닫는다.
+  await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+  const svcRow = () => page.locator('tr', { has: page.locator('td', { hasText: 'svc-legacy-batch' }) }).first()
+  await svcRow().locator('button', { hasText: /^소유자 확인$/ }).click()
+  await page.waitForTimeout(600)
+  ok('휴면 계정 소유자 확인 요청 → 결과 처리 컨트롤(사용 확인·비활성화) 노출', (await svcRow().locator('button', { hasText: /^사용 확인$/ }).count()) > 0)
+  await svcRow().locator('button', { hasText: /^사용 확인$/ }).click()
+  await page.waitForTimeout(600)
+  ok('휴면 계정 사용 확인(유효 계정) → 휴면 리스크 정리', (await svcRow().locator('text=사용 확인').count()) > 0 && (await svcRow().locator('button', { hasText: /^비활성화$/ }).count()) === 0)
+  const limRow = () => page.locator('tr', { has: page.locator('td', { hasText: 'jh.lim' }) }).first()
+  await limRow().locator('button', { hasText: /^소유자 확인$/ }).click()
+  await page.waitForTimeout(600)
+  await limRow().locator('button', { hasText: /^비활성화$/ }).click()
+  await page.waitForTimeout(600)
+  ok('휴면 계정 소유자 확인 결과 미사용 → 비활성화 요청 전환', (await limRow().locator('text=비활성화 요청').count()) > 0)
+
   // 미인가 SW 정책의 허용 축 — 예외 승인 → SW 화이트리스트 등재 → 해제(재사용 정책, §01 보안담당: 미인가 SW 정책 관리)
   {
     await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
