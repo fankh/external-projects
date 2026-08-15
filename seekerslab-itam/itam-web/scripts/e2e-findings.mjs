@@ -1142,6 +1142,9 @@ try {
   const regBody = (await pAI.textContent('body')) || ''
   // q=LABEL-… 는 시리얼로 새 자산을 격리 조회한다(시리얼은 상세에만 표기되므로 목록 행의 모델·상태로 편입을 확인).
   ok('재물조사 대장 미등록 승인 → 대장 실제 편입(검수중·스캔 라벨 시리얼)', regBody.includes('미상 (라벨만 확인)') && regBody.includes('검수중'))
+  // 감사 추적(§07) — 실측 스캔이 중앙 감사 로그에 적재되는지(최근 실측일 갱신·차이 생성의 추적성). 위에서 스캔한 UNKNOWN-E2E-88 건.
+  await pAI.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('재물조사 실측 스캔 → 중앙 감사 로그 적재(§07 추적성)', ((await pAI.textContent('body')) || '').includes('재물조사 실측 스캔'))
   await ctxAI.close()
 
   // 유지보수 예산 통보(§03 유지보수 비용 관리 · 신호→조치 채널) — 집행률 판정(예산 초과·소진 임박)이 화면·대시보드에 보이기만 하고
