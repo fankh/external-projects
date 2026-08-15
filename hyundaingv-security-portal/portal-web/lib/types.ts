@@ -150,6 +150,28 @@ export interface InspectionPlan {
   result?: string
 }
 
+/** 보안성 검토 — 시큐어코딩·취약점 점검·모의해킹의 계획→발견→조치→완료 추적 (제품안내서 VI장:
+ *  시큐어코딩·취약점 점검·자료 제출). 발견/조치 건수로 조치율을 집계하고 증적을 첨부한다. */
+export type SecurityReviewKind = '시큐어코딩' | '취약점점검' | '모의해킹'
+export type SecurityReviewStatus = '계획' | '진행' | '조치중' | '완료'
+export const SECURITY_REVIEW_KINDS: SecurityReviewKind[] = ['시큐어코딩', '취약점점검', '모의해킹']
+
+export interface SecurityReview {
+  id: string
+  title: string
+  kind: SecurityReviewKind
+  /** 검토 대상 — 시스템·프로젝트 */
+  target: string
+  reviewer: string
+  status: SecurityReviewStatus
+  /** 발견 취약점 수 */
+  findings: number
+  /** 조치 완료 수 (findings 이하) */
+  fixed: number
+  plannedAt: string
+  completedAt?: string
+}
+
 /** 장애 관리 — 등록·조치 → 주기별 통계 결재상신 → 향후대책 결과 등록 (요구사항 결재 시트 8번) */
 export type IncidentGrade = '1등급' | '2등급' | '3등급'
 
