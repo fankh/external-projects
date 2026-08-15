@@ -354,7 +354,8 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         asset.status = '사용중'
         asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 상태 ${d.expected} → 사용중`, actor: session.name })
       } else if (d.kind === '미확인 (실사 없음)' && asset) {
-        d.resolution = '분실 처리'
+        // 미확인은 즉시 분실 확정이 아니라 보수적으로 유휴 편성(분실 후보) — resolution 도 실제 조치와 일치시킨다(분실 처리가 아님)
+        d.resolution = '유휴 편성'
         asset.status = '유휴'
         asset.history.push({ date: today(), kind: '점검', detail: '재물조사 미확인 — 분실 후보로 유휴 편성', actor: session.name })
       } else if (d.kind === '대장 미등록') {
