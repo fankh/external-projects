@@ -1532,9 +1532,14 @@ def sc_scheduler(pg, base, check):
     time.sleep(3.5)
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
-    check('일일 알림 배치' in pg.locator('.card', has_text='배치 실행 이력').inner_text(), '자동 배치 이력')
+    hist = pg.locator('.card', has_text='배치 실행 이력').inner_text()
+    check('일일 알림 배치' in hist, '자동 배치 이력')
+    check('컴플라이언스 포스처 스냅샷' in hist, '일배치가 컴플라이언스 포스처 스냅샷 자동 기록 (v1.5.141~)')
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
     check('스케줄러' in pg.content(), '감사 행위자=스케줄러')
+    # 자동 스냅샷이 추세 카드에 by 스케줄러로 남는다 (당월 upsert)
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    check('스케줄러' in pg.locator('.card', has_text='컴플라이언스 추세').inner_text(), '자동 스냅샷이 추세 카드에 기록(by 스케줄러)')
 
 
 def sc_scheduler_bootcatchup(pg, base, check):

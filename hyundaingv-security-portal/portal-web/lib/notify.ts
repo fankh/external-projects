@@ -2,6 +2,7 @@
  *  요구사항의 "주기적 안내메일 / 경과 항목 알림 - 메일"을 담당한다. 데모에서는 수동
  *  실행 버튼으로 트리거하고, 실서비스에서는 스케줄러(일배치)에 연결한다. */
 import { audit } from './audit'
+import { upsertComplianceSnapshot } from './compliance'
 import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
@@ -64,6 +65,15 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
     } else {
       recordBatch('출력물 자료 일배치 이관 (자동)', nowStamp(), '실패')
     }
+  }
+
+  // 0-b) 컴플라이언스 포스처 스냅샷 (자동, 당월 upsert) — 추세가 사람 손 없이 쌓여 ISMS 감사 근거가 된다.
+  //      수동 '현황 스냅샷 기록'과 동일 경로(upsertComplianceSnapshot). 재진입 가드(__ngvNotifyTicking)가
+  //      중복 틱을 직렬화하고, 당월 upsert 라 매일 호출돼도 당월 1건만 유지·값은 최신으로 refresh 된다.
+  {
+    const snap = upsertComplianceSnapshot(s, '스케줄러')
+    audit('스케줄러', '컴플라이언스 스냅샷', `${snap.period} 자동 (서약 ${snap.pledgeRate}% · 이수 ${snap.eduRate}% · 조치 ${snap.fixRate}% · 고위험 ${snap.highVulns})`)
+    recordBatch(`컴플라이언스 포스처 스냅샷 (자동, ${snap.period})`, nowStamp(), '성공')
   }
 
   // 1) 미서약자 — 양식 개정일자 기준 유효 서약 없는 인원
