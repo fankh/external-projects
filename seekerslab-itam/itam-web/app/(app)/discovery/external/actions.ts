@@ -114,6 +114,44 @@ export async function requestExternalAction(externalId: string, kind: '편입' |
   return { ok: true, message: `${e.host} ${kind} 요청 — ${kind === '편입' ? '자산관리팀' : '보안운영팀'} 통지·감사 적재` }
 }
 
+/** 외부 노출 위험 수용 — 편입도 차단도 아닌 '인지된 노출'로 공식 수용한다(예: 보상통제가 있는 레거시·의도된 공개 서비스).
+ *  (그동안 조치는 편입/차단뿐이라 수용 가능한 노출도 미조치로 남아 취약점 우선순위에 영구 계상됐다 — 위험 관리의 표준 처분(risk acceptance) 부재.)
+ *  수용은 사유(정당화 근거)와 감사가 필수이며, 조치 상태를 '위험 수용'으로 두어 활성 취약점 우선순위(미조치 기준)에서 제외한다. 오판이면 해제. 보안담당·Admin. */
+export async function acceptExternalRisk(externalId: string, rawReason: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '외부 노출 위험 수용 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const e = s.external.find((x) => x.id === externalId)
+  if (!e) return { ok: false, message: '노출 자산을 찾을 수 없습니다.' }
+  if (e.action) return { ok: false, message: `이미 ${e.action} 처리된 건입니다.` }
+  const reason = rawReason.trim()
+  if (!reason) return { ok: false, message: '위험 수용 사유(정당화 근거)를 입력하세요.' }
+  e.action = '위험 수용'
+  e.note = `위험 수용 (${reason}) — ${session.name} · ${today()}`
+  appendAudit({ actor: session.name, action: `외부 노출 위험 수용 — ${e.host}${e.cve ? ` (${e.cve})` : ''} · ${reason}`, target: e.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${e.host} 위험 수용 — 인지된 노출로 등록, 활성 취약점 우선순위에서 제외 (사유: ${reason})` }
+}
+
+/** 외부 노출 위험 수용 해제 — 수용 판단을 되돌려 다시 미조치(편입/차단 대상)로 되돌린다. 보안담당·Admin. */
+export async function revokeExternalRisk(externalId: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '위험 수용 해제 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const e = s.external.find((x) => x.id === externalId)
+  if (!e) return { ok: false, message: '노출 자산을 찾을 수 없습니다.' }
+  if (e.action !== '위험 수용') return { ok: false, message: '위험 수용 상태의 노출만 해제할 수 있습니다.' }
+  e.action = undefined
+  e.note = undefined
+  appendAudit({ actor: session.name, action: `외부 노출 위험 수용 해제 — ${e.host}`, target: e.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${e.host} 위험 수용 해제 — 미조치(편입/차단 대상)로 복귀` }
+}
+
 /** 외부 공격표면 재탐지 — 수동(무접촉) 수집으로 후보를 넓히고, 능동으로 생존·서비스·취약점을 확인한다.
  *  능동 탐지는 대상에 직접 접속하므로 사전 협의된 도메인에서만 허용한다 (제품안내서 §04 '수동 우선, 능동 확인'). */
 export async function runEasmScan(input: { domains: string[]; mode: 'Passive' | 'Passive+Active'; note?: string }) {

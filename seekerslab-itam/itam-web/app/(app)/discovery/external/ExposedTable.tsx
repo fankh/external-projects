@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import type { ExternalAsset, ReconcileState } from '@/lib/types'
-import { requestExternalAction } from './actions'
+import { acceptExternalRisk, requestExternalAction, revokeExternalRisk } from './actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
@@ -11,6 +11,8 @@ const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
 export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]; canAct: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [acceptId, setAcceptId] = useState<string | null>(null)
+  const [acceptReason, setAcceptReason] = useState('')
   const [pending, startTransition] = useTransition()
 
   const act = (id: string, kind: '편입' | '차단') => {
@@ -20,6 +22,11 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
       setMsg(r.message); setBusy(null)
     })
   }
+  const accept = (id: string) => startTransition(async () => {
+    const r = await acceptExternalRisk(id, acceptReason)
+    setMsg(r.message); if (r.ok) { setAcceptId(null); setAcceptReason('') }
+  })
+  const revoke = (id: string) => startTransition(async () => setMsg((await revokeExternalRisk(id)).message))
 
   return (
     <>
@@ -48,14 +55,27 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
                 <td className="c"><RiskChip risk={e.risk} /></td>
                 {canAct && (
                   <td className="c" style={{ whiteSpace: 'nowrap' }}>
-                    {e.action ? (
+                    {e.action === '위험 수용' ? (
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }} title={e.note}>
+                        <Chip tone="warn">위험 수용</Chip>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => revoke(e.id)} title="위험 수용 해제 — 미조치(편입/차단 대상)로 복귀">해제</button>
+                      </span>
+                    ) : e.action ? (
                       <Chip tone={e.action.startsWith('차단') ? 'err' : 'info'}>{e.action}</Chip>
                     ) : !e.alive ? (
                       <span className="mut">생존 확인 필요</span>
+                    ) : acceptId === e.id ? (
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                        <input className="input" style={{ height: 26, width: 150 }} placeholder="수용 사유" value={acceptReason} disabled={pending} autoFocus
+                          onChange={(ev) => setAcceptReason(ev.target.value)} onKeyDown={(ev) => { if (ev.key === 'Enter' && acceptReason.trim()) accept(e.id); if (ev.key === 'Escape') setAcceptId(null) }} />
+                        <button className="btn sm pri" disabled={pending || !acceptReason.trim()} onClick={() => accept(e.id)}>확정</button>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => { setAcceptId(null); setAcceptReason('') }}>취소</button>
+                      </span>
                     ) : (
                       <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
                         <button className="btn sm" disabled={pending} onClick={() => act(e.id, '편입')}>{busy === e.id ? '…' : '편입 요청'}</button>
                         <button className="btn sm danger" disabled={pending} onClick={() => act(e.id, '차단')}>차단 요청</button>
+                        <button className="btn sm" disabled={pending} onClick={() => { setAcceptId(e.id); setAcceptReason(''); setMsg(null) }} title="편입/차단이 아닌 인지된 노출로 공식 수용(사유 필수)">위험 수용</button>
                       </span>
                     )}
                   </td>

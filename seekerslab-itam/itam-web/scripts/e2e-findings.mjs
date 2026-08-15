@@ -373,6 +373,20 @@ try {
   await page.waitForTimeout(700)
   ok('발견 자산 관리 제외 해제 → 미등록 처리 대상 복귀(편입 요청 액션 재노출)', (await page.locator('button', { hasText: /^편입 요청 \(결재\)$/ }).count()) > 0)
 
+  // 외부 노출 위험 수용 — 편입/차단이 아닌 '인지된 노출'로 공식 수용(사유 필수). 활성 취약점 우선순위(미조치)에서 제외, 오판이면 해제. 위험 관리 표준 처분(ISMS 위험 수용).
+  await page.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
+  const extRow = page.locator('tr', { has: page.locator('td', { hasText: 'dev-api.seekerslab.co.kr' }) }).first()
+  await extRow.locator('button', { hasText: /^위험 수용$/ }).click()
+  await page.waitForTimeout(200)
+  await extRow.locator('input[placeholder="수용 사유"]').fill('e2e — 격리망 내부 전용·보상통제 적용')
+  await extRow.locator('button', { hasText: /^확정$/ }).click()
+  await page.waitForTimeout(700)
+  const extRow2 = page.locator('tr', { has: page.locator('td', { hasText: 'dev-api.seekerslab.co.kr' }) }).first()
+  ok('외부 노출 위험 수용: 인지된 노출로 수용(위험 수용 처분 · 편입/차단 대신)', (await extRow2.locator('text=위험 수용').count()) > 0 && (await extRow2.locator('button', { hasText: /^차단 요청$/ }).count()) === 0)
+  await extRow2.locator('button', { hasText: /^해제$/ }).click()
+  await page.waitForTimeout(700)
+  ok('외부 노출 위험 수용 해제 → 미조치(편입/차단 대상) 복귀', (await page.locator('tr', { has: page.locator('td', { hasText: 'dev-api.seekerslab.co.kr' }) }).first().locator('button', { hasText: /^차단 요청$/ }).count()) > 0)
+
   // AI 제안 판정 루프(11) — 승인→조치·반려 사유 필수
   await aiInsightDecide(page)
   await ctx.close()
