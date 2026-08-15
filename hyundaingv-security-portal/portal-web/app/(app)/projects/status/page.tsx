@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { effectiveRoles, requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 
@@ -48,9 +48,14 @@ async function updateProgress(formData: FormData) {
 }
 
 export default async function ProjectStatusPage() {
-  await requireMenu('/projects/status')
+  const me = await requireMenu('/projects/status')
   const s = getStore()
   const t = today()
+  // 연동 계약(거래처·계약목록)은 재무(/finance) 도메인 신호다 — 프로젝트 화면은 자기 메뉴로만 게이트되므로,
+  // ADMIN 이 재무 메뉴를 담당자에서 제한해도 여기 거래처명·계약목록으로 재무 데이터가 새어 나간다. 출처
+  // 재무 유효권한으로 가드한다(교차도메인 게이트 클래스 완결). 계약↔프로젝트 연동 요구는 유지하되, 재무
+  // 미열람자는 거래처·계약목록을 못 보게 하고 '-'·연동안함으로 저하한다.
+  const canSeeFinance = effectiveRoles('/finance/invest').includes(me.role) || effectiveRoles('/finance/expense').includes(me.role)
 
   const active = s.projects.filter((p) => p.status === '진행중')
   const late = active.filter((p) => p.end < t)
@@ -90,7 +95,7 @@ export default async function ProjectStatusPage() {
                   <tr key={p.id}>
                     <td className="code">{p.id}</td>
                     <td className="strong">{p.title}<Clip count={attachCount(p.id)} title="프로젝트 문서 (인력투입계획 등)" /></td>
-                    <td>{ct ? <span>{ct.vendor} <span className="mut mono">{ct.id}</span></span> : <span className="mut">-</span>}</td>
+                    <td>{ct && canSeeFinance ? <span>{ct.vendor} <span className="mut mono">{ct.id}</span></span> : <span className="mut">-</span>}</td>
                     <td>{p.manager}</td>
                     <td className="num" title={p.members?.join(' · ') ?? '명단 미등록'}>{p.headcount}명{p.members && <span className="mut"> ({p.members.length})</span>}</td>
                     {/* 요구사항 46행 — 사내인력 프로젝트 참여 서약 (보안서약서 > 특별서약서(프로젝트)) 제출 수 */}
@@ -125,7 +130,7 @@ export default async function ProjectStatusPage() {
             <input aria-label="프로젝트명" className="input" name="title" required maxLength={120} placeholder="프로젝트명" style={{ flex: 1, minWidth: 200 }} />
             <select aria-label="계약" className="select" name="contractId">
               <option value="">계약 연동 안 함</option>
-              {s.investContracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.title}</option>)}
+              {canSeeFinance && s.investContracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.title}</option>)}
             </select>
             <input aria-label="인력" className="input" name="headcount" required type="number" min={1} placeholder="인력" style={{ width: 70 }} />
             <select className="select" name="members" multiple size={3} title="투입 인력 명단 (Ctrl 다중 선택) — 참여 서약 대상 기준" style={{ width: 120, height: 58 }}>

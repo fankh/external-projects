@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
-import { requireMenu, requireMenuRole } from '@/lib/authz'
+import { effectiveRoles, requireMenu, requireMenuRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 import type { ServerInfo, SystemInfo } from '@/lib/types'
 
@@ -86,8 +86,12 @@ async function deleteSystem(formData: FormData) {
 }
 
 export default async function SystemsPage() {
-  await requireMenu('/infra/systems')
+  const me = await requireMenu('/infra/systems')
   const s = getStore()
+  // 장애 이력은 장애관리(/infra/incidents) 도메인 신호다 — 시스템 화면은 자기 메뉴로만 게이트되므로,
+  // ADMIN 이 메뉴권한에서 장애관리를 제한해 담당자를 그 화면에서 리다이렉트시켜도 여기 집계·연계로 같은
+  // 수치가 새어 나간다(대시보드 v1.5.86·검색 v1.5.56 과 동일 교차도메인 게이트 결함). 출처 유효권한으로 가드.
+  const canSeeIncidents = effectiveRoles('/infra/incidents').includes(me.role)
 
   const diskWarns = s.servers.filter((v) => v.diskUsedPct > DISK_WARN)
   // 손상 파일이 system.name 을 누락·비문자열로 남기면 .replace 가 500 을 낸다(머지 strFields 정규화는
@@ -109,7 +113,7 @@ export default async function SystemsPage() {
         <Stat value={s.systems.length} label="시스템" note={`운영계 ${s.systems.filter((x) => x.env === '운영계').length}`} />
         <Stat value={s.servers.length} label="서버" note={`랙 ${new Set(s.servers.map((v) => v.rack)).size}개`} />
         <Stat value={diskWarns.length} label={`디스크 경고 (>${DISK_WARN}%)`} tone={diskWarns.length > 0 ? 'err' : undefined} />
-        <Stat value={s.incidents.filter((i) => i.status === '조치중').length} label="조치중 장애" tone={s.incidents.some((i) => i.status === '조치중') ? 'warn' : undefined} />
+        {canSeeIncidents && <Stat value={s.incidents.filter((i) => i.status === '조치중').length} label="조치중 장애" tone={s.incidents.some((i) => i.status === '조치중') ? 'warn' : undefined} />}
       </div>
 
       <Card title="시스템 현황 — 애플리케이션" kicker="Systems" pad={false}
@@ -117,7 +121,7 @@ export default async function SystemsPage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>코드</th><th>시스템</th><th>구분</th><th>접속 URL</th><th>서버</th><th>담당</th><th className="num">장애 이력</th><th className="c">삭제</th></tr>
+              <tr><th>코드</th><th>시스템</th><th>구분</th><th>접속 URL</th><th>서버</th><th>담당</th>{canSeeIncidents && <th className="num">장애 이력</th>}<th className="c">삭제</th></tr>
             </thead>
             <tbody>
               {s.systems.map((x) => {
@@ -131,11 +135,13 @@ export default async function SystemsPage() {
                     <td className="mono" style={{ fontSize: 11.5 }}>{x.url}</td>
                     <td>{x.serverIds.map((id) => s.servers.find((v) => v.id === id)?.hostname).join(' · ')}</td>
                     <td>{x.owner}</td>
+                    {canSeeIncidents && (
                     <td className="num">
                       {inc.length > 0
                         ? <Link href="/infra/incidents"><Chip tone={inc.some((i) => i.status === '조치중') ? 'err' : 'neutral'} bare>{inc.length}건</Chip></Link>
                         : <span className="mut">-</span>}
                     </td>
+                    )}
                     <td className="c">
                       {inUse ? (
                         <span className="mut" title="배치·인터페이스가 참조 중 — 삭제 불가">사용중</span>

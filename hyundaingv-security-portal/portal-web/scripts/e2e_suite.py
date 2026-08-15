@@ -42,6 +42,8 @@ SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
 APPLYROUTE_DATA = ROOT / 'scripts' / '.e2e-applyroute-data.json'  # 적용요청 재상신 할일 라우팅 회귀용 (v1.5.85)
 OPSSCOPE_DATA = ROOT / 'scripts' / '.e2e-opsscope-data.json'  # 대시보드 전사 스냅샷 런타임 메뉴권한 정합 회귀용 (v1.5.86)
+SYSINC_DATA = ROOT / 'scripts' / '.e2e-sysinc-data.json'  # 시스템화면 장애 교차도메인 게이트 회귀용 (v1.5.87)
+NOTICESCOPE_DATA = ROOT / 'scripts' / '.e2e-noticescope-data.json'  # 대시보드 공지 교차도메인 게이트 회귀용 (v1.5.87)
 
 
 def login(pg, base, name):
@@ -628,6 +630,41 @@ def sc_dashboard_pledge_general(pg, base, check):
     pledge = pg.locator('.stat', has_text='일반 서약')
     val = pledge.locator('.v').inner_text().strip()
     check(val == '완료', f"일반 서약 유효자는 타 유형 재서약 할일이 있어도 '완료' (교차 신호면 미제출; 실제 {val})")
+
+
+def sc_infra_systems_incident_scope(pg, base, check):
+    """시스템 화면 장애 교차도메인 게이트(v1.5.87) — 시스템·서버 현황 화면은 자기 메뉴로만 게이트되나
+    '조치중 장애' 집계·'장애 이력' 열은 장애관리(/infra/incidents) 도메인 신호다. ADMIN 이 장애관리를
+    ADMIN 전용으로 제한해 담당자를 그 화면에서 리다이렉트시켜도, 시스템 화면 집계·연계로 같은 수치가
+    새어 나가면 안 된다(대시보드 v1.5.86·검색 v1.5.56 과 동일 클래스). 출처 effectiveRoles 로 가드."""
+    # BIZ_MGR(박정호) — /infra/incidents 제한 대상 → 시스템 화면의 '조치중 장애' 타일·'장애 이력' 열 미노출
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check(pg.locator('.stat', has_text='조치중 장애').count() == 0,
+          '메뉴 제한된 장애 도메인 집계는 시스템 화면 타일에서도 미노출 (런타임 권한 정합)')
+    check(pg.locator('th', has_text='장애 이력').count() == 0, "제한 시 '장애 이력' 열 미노출")
+    check(pg.locator('th', has_text='시스템').count() >= 1, '시스템 화면 자체는 정상 렌더(거짓통과 방지)')
+    # ADMIN(시스템관리자) — 제한 예외라 '조치중 장애' 타일·'장애 이력' 열 정상 노출
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    check(pg.locator('.stat', has_text='조치중 장애').count() >= 1 and pg.locator('th', has_text='장애 이력').count() >= 1,
+          'ADMIN 은 제한 예외 — 장애 타일·열 정상 노출(게이트 역할별 동작)')
+
+
+def sc_dashboard_notices_scope(pg, base, check):
+    """대시보드 공지 교차도메인 게이트(v1.5.87) — 공지사항 카드는 /board/notices 도메인 신호다. ADMIN 이
+    공지 메뉴를 USER 에서 제한해 USER 를 게시판에서 리다이렉트시켜도 대시보드 미리보기로 공지가 새어
+    나가면 안 된다(v1.5.86 opsVis 가 놓친 같은 페이지의 형제 결함). 출처 effectiveRoles 로 가드."""
+    # USER(김현우) — /board/notices 제한 대상 → 대시보드 공지사항 카드 미노출('게시일' 헤더는 공지 카드 고유)
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check(pg.locator('th', has_text='게시일').count() == 0,
+          '메뉴 제한된 공지 도메인은 대시보드 미리보기에서도 미노출 (런타임 권한 정합)')
+    # BIZ_MGR(박정호) — 비제한 → 공지사항 카드 정상 노출(카드가 전역 제거된 게 아님)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check(pg.locator('th', has_text='게시일').count() >= 1,
+          '비제한 역할은 공지사항 카드 정상 노출(게이트 역할별 동작)')
 
 
 def sc_dashboard_ops_scope(pg, base, check):
@@ -1599,6 +1636,10 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(RHIST_DATA)}),
     ('dashboard_ops_scope', '대시보드 전사 스냅샷 런타임 메뉴권한 정합 — 제한 도메인 타일 미노출', sc_dashboard_ops_scope,
      {'PORTAL_DATA_FILE': str(OPSSCOPE_DATA)}),
+    ('infra_systems_incident_scope', '시스템 화면 장애 교차도메인 게이트 — 제한 시 장애 타일·열 미노출', sc_infra_systems_incident_scope,
+     {'PORTAL_DATA_FILE': str(SYSINC_DATA)}),
+    ('dashboard_notices_scope', '대시보드 공지 교차도메인 게이트 — 제한 역할 공지카드 미노출', sc_dashboard_notices_scope,
+     {'PORTAL_DATA_FILE': str(NOTICESCOPE_DATA)}),
     ('search_menu_override', '통합 검색 런타임 권한 정합 — 메뉴 제한 도메인 검색 미노출', sc_search_menu_override,
      {'PORTAL_DATA_FILE': str(SMOV_DATA)}),
     ('attach_generated_dedup', '자동첨부 교차일 중복 방지 — 재상신 시 같은 양식 1건', sc_attach_generated_dedup,
@@ -1812,6 +1853,18 @@ def main() -> int:
         'incidents': [{'id': 'IN-9001', 'system': '격리테스트시스템', 'title': '스코프테스트장애', 'grade': '2등급',
                        'occurredAt': '2026-08-10', 'status': '조치중', 'reportStatus': '미상신'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # infra_systems_incident_scope 시나리오용 — /infra/incidents 를 ADMIN 전용 제한 + 조치중 장애 1건.
+    # BIZ_MGR(박정호)은 시스템 화면의 '조치중 장애' 타일·'장애 이력' 열 미노출, ADMIN 은 노출.
+    SYSINC_DATA.write_text(json.dumps({
+        'menuOverrides': {'/infra/incidents': ['ADMIN']},
+        'incidents': [{'id': 'IN-9002', 'system': '격리테스트시스템', 'title': '시스템화면스코프장애', 'grade': '2등급',
+                       'occurredAt': '2026-08-10', 'status': '조치중', 'reportStatus': '미상신'}],
+    }, ensure_ascii=False), encoding='utf-8')
+    # dashboard_notices_scope 시나리오용 — /board/notices 를 USER 에서 제한(ADMIN 은 항상 유지).
+    # USER(김현우)은 대시보드 공지사항 카드 미노출, BIZ_MGR(박정호)은 노출.
+    NOTICESCOPE_DATA.write_text(json.dumps({
+        'menuOverrides': {'/board/notices': ['DEPT_MGR', 'BIZ_MGR', 'ADMIN']},
+    }, ensure_ascii=False), encoding='utf-8')
     # attach_generated_dedup 시나리오용 — 작업등록 상태 변경 1건 + 과거일자(08-01) 자동첨부 1건(같은 양식).
     # 오늘 계획 상신 시 registerGenerated 이 날짜 뺀 접두로 dedup 하면 첨부는 1건 유지(버그면 08-14 로 2건).
     ATDUP_DATA.write_text(json.dumps({
@@ -1885,6 +1938,8 @@ def main() -> int:
     DPLGRESIGN_DATA.unlink(missing_ok=True)
     APPLYROUTE_DATA.unlink(missing_ok=True)
     OPSSCOPE_DATA.unlink(missing_ok=True)
+    SYSINC_DATA.unlink(missing_ok=True)
+    NOTICESCOPE_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)

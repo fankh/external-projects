@@ -21,6 +21,10 @@ export default async function DashboardPage() {
     inspections: canSee('/compliance/inspection'),
   }
   const showOps = Object.values(opsVis).some(Boolean)
+  // 공지사항 카드도 출처 화면(/board/notices) 유효권한을 따른다 — 기본 roles:ALL 이라 평상시 전원 노출이나,
+  // ADMIN 이 공지 메뉴를 특정 역할에서 제한하면 그 역할은 게시판에서 리다이렉트되므로 대시보드 미리보기도
+  // 함께 숨겨 런타임 제한을 일관 적용한다(v1.5.87 교차도메인 게이트 클래스 완결).
+  const canSeeNotices = canSee('/board/notices')
 
   const myTodos = s.todos.filter((t) => t.owner === me.name && !t.done)
   const myApprovals = s.approvals.filter((a) => a.approver === me.name && a.status === '대기')
@@ -112,6 +116,7 @@ export default async function DashboardPage() {
           )}
         </Card>
 
+        {canSeeNotices && (
         <Card title="공지사항" kicker="Board"
           actions={<Link className="btn sm" href="/board/notices">전체 보기</Link>} pad={false}>
           <div className="tbl-wrap">
@@ -129,6 +134,7 @@ export default async function DashboardPage() {
             </table>
           </div>
         </Card>
+        )}
       </div>
 
       <div className="cols c2">
