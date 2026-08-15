@@ -384,6 +384,24 @@ try {
   await p2.waitForTimeout(700)
   const maintRemindBody = (await p2.locator('body').textContent()) || ''
   ok('정기 점검 독촉: 발송 성공(소유 부서 점검 시행 요청·발송 이력)', maintRemindBody.includes('정기 점검 독촉') && maintRemindBody.includes('발송'))
+
+  // 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 새 보유자에게 직접 인계. 그동안 사용 중 자산의 보유자 변경 경로가 없어
+  //  팀 내 인수인계가 반납→재불출을 강제했다(correctField 가 '이동·불출 결재로'라며 막지만 이동은 위치만·불출은 유휴만). AST-2023-000113(이서연) → 오세훈(인사팀).
+  await p2.goto(`${BASE}/assets/register?sel=AST-2023-000113`, { waitUntil: 'networkidle' })
+  const reassignBtn = p2.locator('button', { hasText: /^자산 재배정 \(직접 인계\)$/ })
+  ok('자산 재배정: 사용 중 자산에 재배정(직접 인계) 버튼 노출', (await reassignBtn.count()) > 0)
+  await reassignBtn.click()
+  await p2.waitForTimeout(200)
+  await p2.locator('select', { has: p2.locator('option', { hasText: '오세훈 · 인사팀' }) }).selectOption('오세훈')
+  await p2.locator('input[placeholder*="인계 사유"]').fill('팀 내 인수인계 — e2e')
+  await p2.locator('button', { hasText: /^재배정 확정$/ }).click()
+  await p2.waitForTimeout(700)
+  await p2.goto(`${BASE}/assets/register?sel=AST-2023-000113`, { waitUntil: 'networkidle' })
+  const reassignedBody = (await p2.locator('body').textContent()) || ''
+  ok('자산 재배정 → 소유자·부서 갱신(오세훈 · 인사팀)', reassignedBody.includes('오세훈') && reassignedBody.includes('인사팀'))
+  ok('자산 재배정 → 새 보유자 수령(인수) 확인 대기(체인 오브 커스터디)', reassignedBody.includes('수령 확인 대기'))
+  ok('자산 재배정 → 이력에 재배정(직접 인계) 기록', reassignedBody.includes('재배정(직접 인계)'))
+
   // 자산 회수(오프보딩·재배정) — 자산담당이 사용 중 자산을 직접 회수 → 반납 접수 대기열로(사용자 상신 없이). 그동안 반납은 사용자 상신에서만 시작됐다.
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000221`, { waitUntil: 'networkidle' })
   const recoverBtn = p2.locator('button', { hasText: /^자산 회수 \(반납 처리\)$/ })
