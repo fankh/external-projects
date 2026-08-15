@@ -93,8 +93,10 @@ export async function GET(req: Request) {
       ? periodParam
       : new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7)
     const submitted = s.remoteChecks.filter((r) => r.period === period)
+    // 재직자 교집합 — 화면(remote/page.tsx)과 동일하게, syncHr 로 s.people 에서 빠진 퇴사 재택 대상자를
+    // 현황에서 제외한다(종료일 없는 유령 미제출이 export 에도 새지 않게, 인사연동 감사 v1.5.90).
     const scopeRaw = s.remoteTargets.filter((t) =>
-      isRemoteTargetIn(t, period) && (role !== 'DEPT_MGR' || t.dept === session.dept))
+      isRemoteTargetIn(t, period) && s.people.some((p) => p.name === t.name) && (role !== 'DEPT_MGR' || t.dept === session.dept))
     // 화면과 동일하게 이름 기준 중복 제거 — 경계월 인접 기간으로 한 사람이 둘 잡히는 이중 집계 방지
     const scope = scopeRaw.filter((t, i) => scopeRaw.findIndex((x) => x.name === t.name) === i)
     const rows: (string | number)[][] = [['이름', '부서', '재택기간', `${period} 상태`, '제출일']]

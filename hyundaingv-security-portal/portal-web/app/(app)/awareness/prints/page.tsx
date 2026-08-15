@@ -32,9 +32,13 @@ async function importDaily() {
       if (typeof row.name !== 'string' || typeof row.document !== 'string' || typeof row.printedAt !== 'string'
         || typeof row.dept !== 'string' || typeof row.pages !== 'number') continue
       if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
+      // 검증한 필드만 명시 구성 — 원시 어댑터 행을 그대로 스프레드(...row)하면 행이 id·status 같은 포털
+      // 통제 필드를 덮어써(스프레드가 id 뒤라 row.id 가 채번 id 를 클로버) 중복·오형 id·유령 상태를 심을 수
+      // 있다. 계약 검증(위 가드)을 통과한 필드만 복사하고 id·status 는 포털이 통제한다(v1.5.74 계약 완전성).
       s.printouts.push({
         id: nextNo('PR', year, s.printouts.map((p) => p.id)),
-        ...row, status: '미등록',
+        name: row.name, dept: row.dept, document: row.document, printedAt: row.printedAt,
+        pages: row.pages, personalInfo: !!row.personalInfo, status: '미등록',
       })
       added += 1
     }

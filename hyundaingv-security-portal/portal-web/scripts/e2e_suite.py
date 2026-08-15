@@ -48,6 +48,7 @@ NOTICESCOPE_DATA = ROOT / 'scripts' / '.e2e-noticescope-data.json'  # 대시보�
 ROT_FRESH_DATA = ROOT / 'scripts' / '.e2e-rotfresh-data.json'  # 회전문서 신규 상신 과다마감 방지 회귀용 (v1.5.88 AP3-3)
 PJDONE_DATA = ROOT / 'scripts' / '.e2e-pjdone-data.json'  # 프로젝트 완료 시 재서약 할일 정리 회귀용 (v1.5.89)
 PJMEMB_DATA = ROOT / 'scripts' / '.e2e-pjmemb-data.json'  # 빈 명단 프로젝트 참여서약 집계 회귀용 (v1.5.89)
+RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴사 재택 대상자 유령 미제출 회귀용 (v1.5.90)
 
 
 def login(pg, base, name):
@@ -554,6 +555,17 @@ def sc_channelstate_corrupt(pg, base, check):
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
+
+
+def sc_remote_departed_ghost(pg, base, check):
+    """인사연동 퇴사 재택 대상자 유령 미제출(v1.5.90) — remoteTargets 는 s.people 과 별개 명단이고 syncHr 는
+    s.people 만 교체하므로, 종료일 없는 재택 대상자가 퇴사해 s.people 에서 빠져도 remoteTargets 엔 남아 매월
+    '미제출' 유령으로 집계됐다(제출·종료 경로 없어 해소 불가). 재직 명단 교집합으로 화면·통계·export 에서
+    제거한다. s.people 에 없는 '퇴사자A' 를 재택 대상자로 주입 → 전사 현황에 미노출 확인."""
+    login(pg, base, '박정호')  # BIZ_MGR — 전사 재택 현황
+    pg.goto(f'{base}/awareness/remote', wait_until='networkidle')
+    check('퇴사자A' not in pg.content(),
+          '인사연동으로 s.people 에서 빠진 퇴사 재택 대상자는 미제출 현황에서 제외 (유령 미제출 방지)')
 
 
 def sc_project_complete_resign_cleanup(pg, base, check):
@@ -1720,6 +1732,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(PJDONE_DATA)}),
     ('project_emptymembers_signcount', '빈 명단 프로젝트 참여서약 집계 — []를 미지정과 동일 취급', sc_project_emptymembers_signcount,
      {'PORTAL_DATA_FILE': str(PJMEMB_DATA)}),
+    ('remote_departed_ghost', '인사연동 퇴사 재택 대상자 유령 미제출 제거', sc_remote_departed_ghost,
+     {'PORTAL_DATA_FILE': str(RMGHOST_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -2002,6 +2016,11 @@ def main() -> int:
         'pledges': [{'name': '이수진', 'dept': '경영지원팀', 'year': '2026', 'kind': '프로젝트',
                      'signedAt': '2026-08-01', 'method': '온라인', 'projectRef': 'PJ-9011'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # remote_departed_ghost 시나리오용(v1.5.90) — s.people 에 없는 '퇴사자A'(종료일 없는 열린 재택 대상자).
+    # 재직 교집합 없으면 매월 미제출 유령으로 집계·해소 불가. 화면에 미노출돼야 한다.
+    RMGHOST_DATA.write_text(json.dumps({
+        'remoteTargets': [{'name': '퇴사자A', 'dept': '개발1팀', 'startDate': '2026-07-01'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -2035,6 +2054,7 @@ def main() -> int:
     ROT_FRESH_DATA.unlink(missing_ok=True)
     PJDONE_DATA.unlink(missing_ok=True)
     PJMEMB_DATA.unlink(missing_ok=True)
+    RMGHOST_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)

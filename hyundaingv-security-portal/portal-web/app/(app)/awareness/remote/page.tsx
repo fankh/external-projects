@@ -124,8 +124,11 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
 
   // 현황 스코프 — 해당 월 재택 대상자 명단: 담당·Admin=전사, 부서담당=소속 부서, 사용자=본인만.
   // (통계도 뷰어 범위로 산출해야 한다 — 표·export 는 스코프되는데 stat 행만 전사 집계가 새던 결함)
+  // 재직자 교집합 — remoteTargets 는 s.people 과 별개 명단이고 syncHr 는 s.people 만 교체하므로, 종료일 없는
+  // 재택 대상자가 퇴사해 s.people 에서 빠져도 remoteTargets 엔 남아 매월 '미제출' 유령으로 집계됐다(제출·종료
+  // 경로가 없어 해소 불가). 재직 명단과 교집합해 화면·통계에서 유령 미제출을 제거한다(인사연동 감사 v1.5.90).
   const targetsRaw = s.remoteTargets.filter((t) =>
-    isRemoteTargetIn(t, period) &&
+    isRemoteTargetIn(t, period) && s.people.some((p) => p.name === t.name) &&
     (me.role === 'USER' ? t.name === me.name : me.role === 'DEPT_MGR' ? t.dept === me.dept : true))
   // 한 사람이 같은 달에 인접 기간 둘로 잡혀도(경계월 전환) 대상은 1명 — 이름 기준 중복 제거해
   // 대상·제출·미제출 통계가 이중 집계되지 않게 한다(월 단위 isRemoteTargetIn 방어).

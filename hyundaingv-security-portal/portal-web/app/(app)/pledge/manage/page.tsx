@@ -28,9 +28,14 @@ function reSignTargets(s: ReturnType<typeof getStore>, kind: PledgeKind, revised
     const month = today().slice(0, 7)
     // 이름 중복 제거 — 한 사람이 인접한 두 재택 기간(경계월)으로 명단에 둘 잡히면(v1.5.53) 재서약 안내메일이
     // 중복 발송되고 sendLog to.length 가 부풀므로, 대상 산정에서 이름 기준 dedup 한다(할일은 line 63 에서 별도 dedup).
-    return [...new Set(s.remoteTargets.filter((t) => isRemoteTargetIn(t, month)).map((t) => t.name))].filter(missing)
+    // 재직자 교집합 — remoteTargets 는 s.people 과 별개 명단이고 syncHr 는 s.people 만 교체하므로, 재택
+    // 대상자가 퇴사해 s.people 에서 빠져도 remoteTargets 엔 남아(재조정 경로 없음) 퇴사자에게 재서약 할일·
+    // 안내메일이 나갔다('프로젝트' 분기와 동일 유령 대상 방지, 인사연동 감사 v1.5.90).
+    return [...new Set(s.remoteTargets.filter((t) => isRemoteTargetIn(t, month)).map((t) => t.name))]
+      .filter(missing).filter((name) => s.people.some((per) => per.name === name))
   }
-  if (kind === '특별') return s.securityOfficers.filter(missing)
+  // 재직자 교집합 — securityOfficers 도 s.people 과 별개 명단이라 보안담당자 퇴사 시 유령 재서약 방지(위와 동일).
+  if (kind === '특별') return s.securityOfficers.filter(missing).filter((name) => s.people.some((per) => per.name === name))
   if (kind === '프로젝트') {
     const members = new Set<string>()
     for (const pj of s.projects.filter((p) => p.status === '진행중')) for (const m of pj.members ?? []) members.add(m)
@@ -152,7 +157,7 @@ export default async function ManagePledgePage() {
         <Stat value={s.people.length} label="전사 대상" />
         <Stat value={`${rate}%`} label="서약률" tone={rate < 100 ? 'warn' : undefined} />
         <Stat value={unsigned.length} label="미서약" tone={unsigned.length > 0 ? 'err' : undefined} />
-        <Stat value={s.securityOfficers.length} label="보안담당자" note="특별서약 대상" />
+        <Stat value={s.securityOfficers.filter((n) => s.people.some((p) => p.name === n)).length} label="보안담당자" note="특별서약 대상" />
       </div>
 
       <div className="cols c2">

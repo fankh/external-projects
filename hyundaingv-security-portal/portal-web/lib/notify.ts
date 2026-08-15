@@ -49,7 +49,11 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
           if (typeof row.name !== 'string' || typeof row.document !== 'string' || typeof row.printedAt !== 'string'
             || typeof row.dept !== 'string' || typeof row.pages !== 'number') continue
           if (s.printouts.some((p) => p.printedAt === row.printedAt && p.name === row.name && p.document === row.document)) continue
-          s.printouts.push({ id: nextNo('PR', t.slice(0, 4), s.printouts.map((p) => p.id)), ...row, status: '미등록' })
+          // 검증한 필드만 명시 구성 — 원시 어댑터 행 스프레드(...row)는 id·status 포털 통제 필드를 덮어써
+          // 중복·오형 id 를 심을 수 있다(prints importDaily 와 동일, v1.5.74 계약 완전성). id·status 는 포털 통제.
+          s.printouts.push({ id: nextNo('PR', t.slice(0, 4), s.printouts.map((p) => p.id)),
+            name: row.name, dept: row.dept, document: row.document, printedAt: row.printedAt,
+            pages: row.pages, personalInfo: !!row.personalInfo, status: '미등록' })
           added += 1
         }
         if (added > 0) audit('스케줄러', '일배치 이관', `출력물 자료 ${added}건 (자동)`)
