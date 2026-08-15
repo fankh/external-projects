@@ -411,7 +411,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
           // 자동분류 — 발견 유형 문자열을 표준 유형으로 매핑(§05). 발견 화면 제안값과 동일 함수라 화면·대장이 일치한다.
           category: classifyDiscoveredType(d.type),
           model: d.type,
-          serial: `SN-${d.id.slice(-4)}`,
+          serial: `SN-${newNo.slice(-6)}`, // 유일한 자산번호에서 파생(발견 id 4자리는 월이 다르면 충돌) — 시드 mk() 규약과 동일
           status: '사용중',
           owner: d.ownerCandidate?.split(' ')[0] ?? '미지정',
           dept: d.ownerCandidate?.split(' ')[0] ?? '미지정',

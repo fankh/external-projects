@@ -115,7 +115,9 @@ export async function runScan(input: ScanInput) {
     d.lastSeen = today()
     // 미확인(유령)이던 자산이 다시 잡히면 상태를 되돌린다 — 생존 신호
     if (d.state === '미확인') {
-      d.state = d.matchedAssetNo ? '등록·일치' : '미등록'
+      // 매칭 자산이 있으면 등록으로 되돌리되, 미해소 불일치(mismatch)가 남아 있으면 '등록·불일치'로 복원한다
+      // (일치인데 mismatch 가 남는 모순 상태·차이 소실 방지).
+      d.state = d.matchedAssetNo ? (d.mismatch ? '등록·불일치' : '등록·일치') : '미등록'
       d.note = `${d.note ? `${d.note} · ` : ''}${run.id} 재관측으로 생존 확인`
     }
   }

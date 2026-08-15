@@ -167,6 +167,10 @@ export async function mergeDiscovered(primaryId: string, duplicateId: string) {
   const dup = s.discovered.find((x) => x.id === duplicateId)
   if (!primary || !dup) return { ok: false, message: '대상을 찾을 수 없습니다.' }
   if (dup.action) return { ok: false, message: `처리가 시작된 건은 병합할 수 없습니다 — ${dup.id} (${dup.action})` }
+  // 대장 매칭 충돌 방지 — 서로 다른 대장 자산에 매칭된 두 건은 어느 정체성이 맞는지 모호해 자동 병합 금지(수동 확인 대상).
+  if (primary.matchedAssetNo && dup.matchedAssetNo && primary.matchedAssetNo !== dup.matchedAssetNo) {
+    return { ok: false, message: `서로 다른 대장 자산에 매칭된 건은 병합할 수 없습니다 — ${primary.matchedAssetNo} vs ${dup.matchedAssetNo}` }
+  }
 
   // 관측을 대표 건으로 옮기고, 관측 범위에 맞춰 최초·최종 발견일을 다시 계산한다
   const moved = s.observations.filter((o) => o.discoveredId === dup.id)
@@ -182,6 +186,13 @@ export async function mergeDiscovered(primaryId: string, duplicateId: string) {
   const rank = { 높음: 3, 중간: 2, 낮음: 1 } as const
   if (rank[dup.risk] > rank[primary.risk]) primary.risk = dup.risk
   primary.note = `${primary.note ? `${primary.note} · ` : ''}${dup.id} 수동 병합 (${dup.mac !== '-' ? dup.mac : dup.ip})`
+  // 대장 매칭·대사 상태 승계 — 대표 건에 매칭이 없고 중복 건에 있으면 이어받는다.
+  // 안 그러면 대장에 매칭됐던 장비가 병합으로 '미등록'으로 되돌아가, 이후 편입 시 이미 대장에 있는 자산의 중복이 생긴다(대사 링크 소실).
+  if (!primary.matchedAssetNo && dup.matchedAssetNo) {
+    primary.matchedAssetNo = dup.matchedAssetNo
+    primary.state = dup.state
+    primary.mismatch = dup.mismatch
+  }
 
   s.discovered = s.discovered.filter((x) => x.id !== dup.id)
 
