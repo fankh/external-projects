@@ -101,12 +101,19 @@ function zip(files: { name: string; content: string }[]): Buffer {
 // ── XLSX 파트 ────────────────────────────────────────────────────────
 
 function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  // XML 1.0 이 불허하는 제어문자(탭/개행/CR 제외)를 먼저 제거한다 — 값에 섞이면 워크시트 XML 이 깨져 Excel 이 워크북 전체를 못 연다.
+  let out = ''
+  for (const ch of String(s)) {
+    const c = ch.codePointAt(0)
+    if (c !== undefined && c < 0x20 && c !== 0x09 && c !== 0x0A && c !== 0x0D) continue
+    out += ch
+  }
+  return out.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-/** 시트명 제약: 31자 이하, : \ / ? * [ ] 불가 */
+/** 시트명 제약: 31자 이하, : \ / ? * [ ] " 불가(따옴표는 XML 속성 name="..." 을 깨뜨림) */
 function safeSheetName(name: string): string {
-  return name.replace(/[:\\/?*[\]]/g, '_').slice(0, 31) || 'Sheet1'
+  return name.replace(/[:\\/?*[\]"]/g, '_').slice(0, 31) || 'Sheet1'
 }
 
 function colRef(i: number): string {
