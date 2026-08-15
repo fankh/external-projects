@@ -142,7 +142,8 @@ export default async function InspectionPage() {
   return (
     <>
       <ScreenHeader kicker="보안 컴플라이언스" title="보안점검 (ISMS)"
-        desc="기준(Template) 관리 → 연간 점검계획 → 결과 등록·부서장 결재 → 현황판 집계 — ISMS·외부기관 점검 항목." />
+        desc="기준(Template) 관리 → 연간 점검계획 → 결과 등록·부서장 결재 → 현황판 집계 — ISMS·외부기관 점검 항목."
+        right={<a className="btn sm" href="/api/export?type=compliance-summary" title="서약·교육·점검·보안성검토·위반 종합 현황 (ISMS 감사 근거)">컴플라이언스 종합 현황</a>} />
 
       {/* 현황판식 숫자 표현 (요구사항: 계획·결과미등록·완료 등 항목 정의하여 숫자로) */}
       <div className="stat-row">

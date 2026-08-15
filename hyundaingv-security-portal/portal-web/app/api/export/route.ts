@@ -18,6 +18,7 @@ const EXPORT_MENU: Record<string, string> = {
   batches: '/infra/operations', interfaces: '/infra/operations',
   'education-records': '/compliance/education', 'pledge-status': '/pledge/dept',
   'security-reviews': '/compliance/security-review',
+  'compliance-summary': '/compliance/inspection',
   'remote-status': '/awareness/remote', audit: '/settings/audit',
 }
 
@@ -201,6 +202,41 @@ export async function GET(req: Request) {
       rows.push([r.id, r.kind, r.title, r.target, r.reviewer, r.plannedAt, r.completedAt ?? '', r.findings, r.fixed, rate, r.status])
     }
     return csvResponse('보안성검토_관리대장', rows)
+  }
+
+  if (type === 'compliance-summary') {
+    // 보안 컴플라이언스 종합 현황 — ISMS 외부 감사 대응 근거(제품안내서 IV·VI장). 담당(BIZ)·Admin 전용.
+    // 각 지표는 소속 화면과 동일 단일-원천 술어로 산출(비율은 div-zero·false-100 방어) — 화면과 수치 불일치 방지.
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const pct = (num: number, den: number) => den > 0 ? (num >= den ? 100 : Math.min(99, Math.round((num / den) * 100))) : 0
+    // 1) 일반 서약률 (pledge/manage 와 동일 술어)
+    const revisedAt = s.pledgeForms.find((f) => f.kind === '일반')?.revisedAt ?? '0000-00-00'
+    const signedNames = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= revisedAt).map((p) => p.name))
+    const signedCount = s.people.filter((p) => signedNames.has(p.name)).length
+    // 2) 보안교육 이수율 (compliance/education 와 동일 — 과정 대상별 이수 의무자 기준)
+    const doneCourses = s.educationCourses.filter((c) => c.status === '완료')
+    const totalSlots = doneCourses.reduce((sum, c) => sum + eligibleForCourse(s, c.target).length, 0)
+    const totalDone = doneCourses.reduce((sum, c) => sum + eligibleForCourse(s, c.target).filter((p) => s.educationRecords.some((r) => r.courseId === c.id && r.name === p.name)).length, 0)
+    // 3) 보안점검(ISMS) — 순수 상태 카운트(월 기반 경과는 화면별 술어 상이라 제외)
+    const inspDone = s.inspectionPlans.filter((p) => p.status === '완료').length
+    const inspPending = s.inspectionPlans.filter((p) => p.status === '결과미등록').length
+    // 4) 보안성 검토 조치율 (compliance/security-review·대시보드 openFindings 와 동일)
+    const withFindings = s.securityReviews.filter((r) => r.findings > 0)
+    const totalFindings = withFindings.reduce((sum, r) => sum + r.findings, 0)
+    const totalFixed = withFindings.reduce((sum, r) => sum + r.fixed, 0)
+    const openVulns = s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + Math.max(0, r.findings - r.fixed), 0)
+    // 5) 보안위반
+    const vDone = s.violations.filter((v) => v.status === '완료').length
+    const vPending = s.violations.filter((v) => v.status === '징구중').length
+    const rows: (string | number)[][] = [
+      ['지표', '값', '비고'],
+      ['일반 보안서약률', `${pct(signedCount, s.people.length)}%`, `${signedCount}/${s.people.length}명 (${currentYear()}년 현 개정본)`],
+      ['보안교육 이수율', `${pct(totalDone, totalSlots)}%`, `완료 과정 ${doneCourses.length}건 · 대상 이수 ${totalDone}/${totalSlots}`],
+      ['보안점검(ISMS)', `완료 ${inspDone} / 전체 ${s.inspectionPlans.length}`, `결과 미등록 ${inspPending}건`],
+      ['보안성 검토 조치율', withFindings.length ? `${pct(totalFixed, totalFindings)}%` : '해당없음', `미조치 취약점 ${openVulns}건 · 검토 ${s.securityReviews.length}건`],
+      ['보안위반 처리', `완료 ${vDone} / 전체 ${s.violations.length}`, `확인서 징구중 ${vPending}건`],
+    ]
+    return csvResponse('보안컴플라이언스_종합현황', rows)
   }
 
   if (type === 'servers') {
