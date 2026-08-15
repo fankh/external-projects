@@ -462,6 +462,35 @@ export async function scheduleMaintenance(assetNo: string, rawDate: string) {
   return { ok: true, message: `${assetNo} 정기 점검 ${prevDue ? '일정을 변경' : '일정을 등록'}했습니다 — 예정 ${due}` }
 }
 
+/** 정기 점검 일괄 예약 — 선택한 다수 자산에 같은 예방 정비 예정일을 한 번에 등록/변경한다.
+ *  (그동안 정기 점검 예약은 자산 하나씩만 가능해, 신규 서버 랙·핵심 단말 묶음을 도입 시 일정에 올리려면 반복 작업이었다.
+ *   보증 일괄 연장·일괄 회수와 같은 배치 운영 접점.) 폐기 대상·미존재는 건너뛴다. 자산담당·Admin. */
+export async function scheduleMaintenanceMany(assetNos: string[], rawDate: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '정기 점검 일정 등록 권한이 없습니다 (자산담당·Admin).' }
+  if (!Array.isArray(assetNos) || assetNos.length === 0) return { ok: false, message: '점검 예약할 자산을 선택하세요.' }
+  const due = rawDate.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return { ok: false, message: '점검 예정일을 YYYY-MM-DD 형식으로 입력하세요.' }
+  const t = today()
+  if (due <= t) return { ok: false, message: '점검 예정일은 오늘 이후로 지정하세요.' }
+
+  const s = getStore()
+  let done = 0
+  let skipped = 0
+  for (const no of assetNos) {
+    const asset = s.assets.find((a) => a.assetNo === no)
+    if (!asset || ['폐기완료', '폐기예정'].includes(asset.status)) { skipped += 1; continue }
+    const prevDue = asset.maintenanceDue
+    asset.maintenanceDue = due
+    asset.history.push({ date: t, kind: '점검', detail: `정기 점검(예방 정비) ${prevDue ? `일정 변경 — 기존 ${prevDue}${due}` : `일정 등록 — ${due}`} (일괄)`, actor: session.name })
+    done += 1
+  }
+  if (done === 0) return { ok: false, message: '점검 예약 대상이 없습니다 (폐기 자산 제외).' }
+  appendAudit({ actor: session.name, action: `정기 점검 일괄 예약 (${done}건 · ${due})${skipped ? ` · 제외 ${skipped}` : ''}`, target: '자산 대장' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `정기 점검 일괄 예약 — ${done}건 예정 ${due}${skipped ? ` (폐기 ${skipped}건 제외)` : ''}` }
+}
+
 /** 자산 수령(인수) 확인 — 불출로 배정받은 자산을 사용자가 실물 수령했음을 확인한다(체인 오브 커스터디).
  *  (제품안내서 §03 불출·인수 — 그동안 불출은 담당자 처리·수령 안내 발송뿐이고, 사용자 인수 확인 접점이 없어
  *   실물 인계 사실을 감사에서 증명할 수 없었다. 공지 읽음 확인과 같은 사용자 쓰기 접점.)
