@@ -158,7 +158,7 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
         right={!iAmTarget
           ? <Chip tone="neutral">재택 대상 아님</Chip>
           : mySubmitted
-            ? <Chip tone="ok">이번 달 제출 완료 · {mySubmitted.submittedAt}</Chip>
+            ? <Chip tone="ok">이번 주기 제출 완료 · {mySubmitted.submittedAt}</Chip>
             : <Chip tone="warn">미제출</Chip>} />
 
       <div className="stat-row">
@@ -170,12 +170,12 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
 
       {!iAmTarget ? (
         <div className="callout">
-          <b>재택 대상 아님</b> — 이번 달({thisPeriod}) 재택근무 대상자 명단에 없어 체크리스트 제출 대상이 아닙니다.
+          <b>재택 대상 아님</b> — 이번 주기({thisPeriod}) 재택근무 대상자 명단에 없어 체크리스트 제출 대상이 아닙니다.
           재택 시작 시 담당자가 명단에 등록하면 제출할 수 있습니다.
         </div>
       ) : mySubmitted ? (
         <div className="callout">
-          <b>제출 완료</b> — {mySubmitted.submittedAt} 제출. 다음 주기({thisPeriod} 익월)에 다시 제출 대상이 됩니다.
+          <b>제출 완료</b> — {mySubmitted.submittedAt} 제출. 다음 주기에 다시 제출 대상이 됩니다.
         </div>
       ) : (
         <Card title={`${thisPeriod} 자가점검 제출`} kicker="Checklist">
