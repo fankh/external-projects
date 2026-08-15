@@ -4,8 +4,8 @@ import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { complianceKpiPct, computeComplianceKpis } from '@/lib/compliance'
-import { nowStamp, today } from '@/lib/dates'
+import { upsertComplianceSnapshot } from '@/lib/compliance'
+import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, isCodeActive, nextNo, type Store } from '@/lib/store'
 import type { InspectionCycle, InspectionStatus } from '@/lib/types'
@@ -132,21 +132,9 @@ async function recordComplianceSnapshot() {
   'use server'
   const me = await requireMenuRole('/compliance/inspection', 'BIZ_MGR', 'ADMIN')
   const s = getStore()
-  const k = computeComplianceKpis(s)
-  const period = today().slice(0, 7)
-  const snap = {
-    period, at: nowStamp(), by: me.name,
-    pledgeRate: complianceKpiPct(k.signedCount, k.totalPeople),
-    eduRate: complianceKpiPct(k.eduDone, k.eduSlots),
-    fixRate: complianceKpiPct(k.fixDone, k.fixFindings),
-    inspDone: k.inspDone, inspTotal: k.inspTotal,
-    highVulns: k.highVulns, openVulns: k.openVulns,
-    vDone: k.vDone, vTotal: k.vTotal,
-  }
-  const existing = s.complianceSnapshots.find((x) => x.period === period)
-  if (existing) Object.assign(existing, snap)
-  else s.complianceSnapshots.push({ id: nextNo('CS', today().slice(0, 4), s.complianceSnapshots.map((x) => x.id)), ...snap })
-  audit(me.name, '컴플라이언스 스냅샷', `${period} 서약 ${snap.pledgeRate}% · 이수 ${snap.eduRate}% · 조치 ${snap.fixRate}% · 고위험 ${snap.highVulns}`)
+  // 수동·일배치 공유 단일 경로 (lib/compliance) — 당월 upsert
+  const snap = upsertComplianceSnapshot(s, me.name)
+  audit(me.name, '컴플라이언스 스냅샷', `${snap.period} 서약 ${snap.pledgeRate}% · 이수 ${snap.eduRate}% · 조치 ${snap.fixRate}% · 고위험 ${snap.highVulns}`)
   revalidatePath('/compliance/inspection')
 }
 

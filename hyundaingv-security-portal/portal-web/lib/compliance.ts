@@ -1,9 +1,10 @@
 /** 보안 컴플라이언스 KPI 단일 원천 — 종합 현황 export·추세 스냅샷이 같은 술어를 공유해 수치 불일치를
  *  구조적으로 막는다. 각 지표는 소속 화면과 동일 술어(pledge/manage·education·inspection·security-review·
  *  violation). 비율은 div-zero·false-100 방어(complianceKpiPct). */
-import { currentYear } from './dates'
-import { eligibleForCourse, highSevOpen } from './store'
+import { currentYear, nowStamp, today } from './dates'
+import { eligibleForCourse, highSevOpen, nextNo } from './store'
 import type { Store } from './store'
+import type { ComplianceSnapshot } from './types'
 
 export interface ComplianceKpis {
   signedCount: number; totalPeople: number
@@ -44,4 +45,25 @@ export function computeComplianceKpis(s: Store): ComplianceKpis {
     vPending: s.violations.filter((v) => v.status === '징구중').length,
     vTotal: s.violations.length,
   }
+}
+
+/** 당월 컴플라이언스 포스처 스냅샷 upsert — 수동 기록(보안점검 화면)과 일배치가 공유하는 단일 경로.
+ *  같은 기간(월) 재기록은 갱신하므로 매일 호출해도 당월 1건만 유지되고 값은 최신 상태로 refresh 된다. */
+export function upsertComplianceSnapshot(s: Store, by: string): ComplianceSnapshot {
+  const k = computeComplianceKpis(s)
+  const period = today().slice(0, 7)
+  const snap = {
+    period, at: nowStamp(), by,
+    pledgeRate: complianceKpiPct(k.signedCount, k.totalPeople),
+    eduRate: complianceKpiPct(k.eduDone, k.eduSlots),
+    fixRate: complianceKpiPct(k.fixDone, k.fixFindings),
+    inspDone: k.inspDone, inspTotal: k.inspTotal,
+    highVulns: k.highVulns, openVulns: k.openVulns,
+    vDone: k.vDone, vTotal: k.vTotal,
+  }
+  const existing = s.complianceSnapshots.find((x) => x.period === period)
+  if (existing) { Object.assign(existing, snap); return existing }
+  const created: ComplianceSnapshot = { id: nextNo('CS', today().slice(0, 4), s.complianceSnapshots.map((x) => x.id)), ...snap }
+  s.complianceSnapshots.push(created)
+  return created
 }
