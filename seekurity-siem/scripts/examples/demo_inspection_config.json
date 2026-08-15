@@ -1,0 +1,12 @@
+{
+  "COMPANY_NAME": "DEMO",
+  "COMPANY_FULL_NAME": "데모 주식회사",
+  "INSPECTION_DATE": "2026-06-22",
+  "INSPECTION_PERIOD": "2026-06",
+  "INSPECTION_TYPE": "정기점검 (월간)",
+  "INSPECTOR": "홍길동",
+  "INSPECTOR_ORG": "Seekurity",
+  "CUSTOMER_CONTACT": "김보안 / 보안운영팀",
+  "DOC_VERSION": "v1.0",
+  "NEXT_DATE": "2026-07-22"
+}

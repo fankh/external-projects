@@ -1,0 +1,188 @@
+# KOVAN SIEM Sample Log Data
+# ===========================
+# Based on SeekuritySIEM_Logsources_KOVAN_v3.xlsx
+#
+# VERIFIED samples are from official documentation
+# UNVERIFIED samples need to be replaced with real device output
+#
+# Sources:
+# - Juniper SSG: Juniper KB, Splunk Community
+# - FortiGate: Fortinet Official Documentation
+# - Genians NAC: Official Genians Documentation
+# - SECUI MF2: FireMon docs, Logpresso (WELF format)
+
+
+# =============================================================================
+# JUNIPER SSG SCREENOS (VERIFIED)
+# Source: https://community.splunk.com/t5/Reporting/Juniper-SSG-screenos-Traffic-report/
+# Source: https://kb.juniper.net/InfoCenter/index?page=content&id=KB4759
+# Devices: SSG-550M, SSG-320M (시네마, 사용자, HSM, 관제망, VOICE, 그룹웨어 방화벽)
+# =============================================================================
+
+# Traffic log - Permit with NAT
+Aug 9 19:39:56 192.168.163.2 gw0-NLA: NetScreen device_id=gw0-NLA [Root]system-notification-00257(traffic): start_time="2011-08-09 19:39:51" duration=5 policy_id=1 service=http proto=6 src zone=Trust dst zone=Untrust action=Permit sent=134 rcvd=70 src=192.168.163.26 dst=193.203.32.20 src_port=4090 dst_port=80 src-xlated ip=81.83.5.18 port=3303 dst-xlated ip=193.203.32.20 port=80 session_id=15683 reason=Close - TCP RST
+
+# Traffic log - Deny
+Jan 15 10:00:00 10.231.250.61 SSG550M: NetScreen device_id=SSG550M-CINEMA [Root]system-notification-00257(traffic): start_time="2024-01-15 10:00:00" duration=0 policy_id=0 service=ssh proto=6 src zone=Untrust dst zone=Trust action=Deny sent=0 rcvd=0 src=203.0.113.100 dst=192.168.1.10 src_port=54321 dst_port=22 session_id=0 reason=Traffic Denied
+
+# Traffic log - HTTPS with priority field
+2018-03-12 09:35:07 Local0.Notice 10.1.67.249 SSG350M: NetScreen device_id=JN1234567ADE [Root]system-notification-00257(traffic): start_time="2018-03-12 09:35:05" duration=2 policy_id=2 service=https proto=6 src zone=Trust dst zone=Untrust action=Permit sent=2554 rcvd=19651 src=10.4.64.100 dst=203.0.113.50 src_port=45678 dst_port=443
+
+# VPN/IKE log
+Jan 15 15:00:00 10.231.59.1 SSG550M: NetScreen device_id=SSG550M-VPN01 [Root]system-notification-00018(ike): IKE Phase-1 negotiation completed (gateway=KOREA-TAIBAN-GW peer_ip=203.0.113.100 local_ip=10.231.59.1)
+
+# Session close - TCP FIN
+Jan 15 10:05:00 10.1.1.241 SSG550M: NetScreen device_id=SSG550M-USER01 [Root]system-notification-00257(traffic): start_time="2024-01-15 10:00:00" duration=300 policy_id=100 service=https proto=6 src zone=Trust dst zone=Untrust action=Permit sent=102400 rcvd=512000 src=192.168.1.100 dst=8.8.8.8 src_port=54321 dst_port=443 session_id=98765 reason=Close - TCP FIN
+
+
+# =============================================================================
+# FORTIGATE (VERIFIED)
+# Source: https://fortinetweb.s3.amazonaws.com/docs.fortinet.com/v2/attachments/
+# Source: https://docs.logrhythm.com/devices/docs/syslog-fortinet-fortigate-v5-6-cef
+# Devices: FortiGate 100D (유니클로VPN)
+# =============================================================================
+
+# Traffic log - forward accept
+Jan 15 17:00:00 fortigate-01 date=2024-01-15 time=17:00:00 devname="FG100D" devid="FG100D4G19000001" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=192.168.1.100 srcport=54321 srcintf="port1" dstip=10.0.0.50 dstport=443 dstintf="port2" policyid=1 sessionid=12345 proto=6 action="accept" sentbyte=1024 rcvdbyte=2048 duration=30
+
+# Traffic log - forward deny
+Jan 15 17:01:00 fortigate-01 date=2024-01-15 time=17:01:00 devname="FG100D" devid="FG100D4G19000001" logid="0000000013" type="traffic" subtype="forward" level="warning" vd="root" srcip=203.0.113.50 srcport=45678 srcintf="wan1" dstip=192.168.1.10 dstport=22 dstintf="port1" policyid=0 sessionid=0 proto=6 action="deny" sentbyte=0 rcvdbyte=0 msg="policy violation"
+
+# VPN event - tunnel up
+Jan 15 17:00:00 fortigate-01 date=2024-01-15 time=17:00:00 devname="FG100D" devid="FG100D4G19000001" logid="0101039424" type="event" subtype="vpn" eventtype="ipsec" level="information" vd="root" action="tunnel-up" tunneltype="ipsec" tunnelid="1" remip=203.0.113.100 locip=10.231.241.13 user="uniqlo_vpn" msg="IPsec phase 2 established"
+
+# VPN event - tunnel down
+Jan 15 18:00:00 fortigate-01 date=2024-01-15 time=18:00:00 devname="FG100D" devid="FG100D4G19000001" logid="0101039426" type="event" subtype="vpn" eventtype="ipsec" level="notice" vd="root" action="tunnel-down" tunneltype="ipsec" tunnelid="1" remip=203.0.113.100 locip=10.231.241.13 vpntunnel="UNIQLO-VPN-01" msg="IPsec tunnel terminated"
+
+# CEF Format (alternative)
+Dec 27 11:07:55 FGT-A-LOG CEF: 0|Fortinet|Fortigate|v6.0.3|00013|traffic:forward close|3|deviceExternalId=FG100D4G19000001 FTNTFGTlogid=0000000013 cat=traffic:forward FTNTFGTsubtype=forward FTNTFGTeventtype=close FTNTFGTlevel=notice FTNTFGTvd=root src=192.168.1.100 spt=54321 dst=10.0.0.50 dpt=443 proto=6 act=close
+
+
+# =============================================================================
+# SECUI MF2 FIREWALL (VERIFIED - WELF FORMAT)
+# Source: https://docs.firemon.com/enterprise/Content/ADMINISTRATION/DEVICE/Devices/SECUI/MF2.htm
+# Source: https://logpresso.store/en/apps/secui-mf2
+# Devices: MF2 1510/1520 (한국 타이밴, 메인인터넷, 웹 인터넷, DS, 전용선, DB 방화벽)
+# Note: SECUI MF2 uses WELF (WebTrends Enhanced Log Format)
+# =============================================================================
+
+# Traffic log - accept (WELF format)
+Jan 15 10:23:45 10.231.59.10 id=MF2FW time="2024-01-15 10:23:45" fw=10.231.59.10 pri=6 rule=100 proto=tcp src=192.168.1.100 dst=10.0.0.50 sport=54321 dport=443 sent=1024 rcvd=2048 duration=30 action=accept
+
+# Traffic log - deny
+Jan 15 10:24:00 10.231.59.11 id=MF2FW time="2024-01-15 10:24:00" fw=10.231.59.11 pri=4 rule=0 proto=tcp src=203.0.113.100 dst=192.168.1.10 sport=45678 dport=22 sent=0 rcvd=0 action=deny
+
+# Traffic log - UDP
+Jan 15 10:25:00 10.231.250.5 id=MF2FW time="2024-01-15 10:25:00" fw=10.231.250.5 pri=6 rule=50 proto=udp src=192.168.1.100 dst=8.8.8.8 sport=55555 dport=53 sent=64 rcvd=128 action=accept
+
+# Session log
+Jan 15 10:30:00 10.231.250.69 id=MF2FW time="2024-01-15 10:30:00" fw=10.231.250.69 pri=6 rule=200 proto=tcp src=10.0.0.100 dst=192.168.1.50 sport=33333 dport=8080 sent=4096 rcvd=8192 duration=120 action=accept
+
+
+# =============================================================================
+# GENIANS NAC (VERIFIED)
+# Source: https://docs.genians.com/release/en/logs/send-log.html
+# Source: https://docs.genians.com/nac/5.0/beta/en/logs/send-log.html
+# Devices: S10_R1, C10_R1 (업무망/인터넷 NAC 센서/서버)
+# =============================================================================
+
+# Default syslog format
+2024-01-16 08:00:00,LOGTYPE=NODE,LOGID=2001,IP=192.168.1.100,MAC=00:1A:2B:3C:4D:5E,MSG=Node connected, DETAIL=hostname=WORKSTATION-001 user=kim.minho os=Windows 10
+
+# Node disconnected
+2024-01-16 08:30:00,LOGTYPE=NODE,LOGID=2002,IP=192.168.1.100,MAC=00:1A:2B:3C:4D:5E,MSG=Node disconnected, DETAIL=hostname=WORKSTATION-001 reason=timeout
+
+# Policy violation
+2024-01-16 09:00:00,LOGTYPE=POLICY,LOGID=3001,IP=192.168.1.101,MAC=00:2B:3C:4D:5E:6F,MSG=Policy violation, DETAIL=hostname=GUEST-PC policy=Guest-Restrict action=quarantine
+
+# Agent event
+2024-01-16 09:30:00,LOGTYPE=AGENT,LOGID=4001,IP=192.168.1.102,MAC=00:3C:4D:5E:6F:70,MSG=Agent installed, DETAIL=hostname=LAPTOP-003 version=4.1.37
+
+# CEF Format (alternative)
+CEF:0|GENIANS|Genian NAC|4.1.37|NodeConnect|Node Connected|1|rt=2024-01-16T08:00:00Z cs1Label=Log Type cs1=NODE cs2Label=Log ID cs2=2001 dvchost=NAC-SENSOR-01 dst=192.168.1.100 dmac=00:1A:2B:3C:4D:5E msg=Node_connected cs3Label=Detail Message cs3=hostname=WORKSTATION-001 user=kim.minho
+
+
+# =============================================================================
+# LENOVO SERVER - HSM (VERIFIED - Standard Syslog)
+# Standard Linux/CentOS syslog format
+# Devices: SR650 (HSM#1, HSM#2)
+# =============================================================================
+
+Jan 16 15:00:00 hsm-server-01 kernel: HSM: Key generation completed successfully for slot 1
+Jan 16 15:00:30 hsm-server-01 hsm-daemon[1234]: Encryption operation completed: slot=1 algorithm=AES-256-CBC status=SUCCESS
+Jan 16 15:01:00 hsm-server-02 kernel: HSM: Digital signature created for document hash, slot=2
+Jan 16 15:01:30 hsm-server-01 sshd[5678]: Accepted publickey for admin from 192.168.1.200 port 54321
+
+
+# =============================================================================
+# UNVERIFIED LOG SAMPLES
+# The following samples are PLACEHOLDERS and need to be replaced
+# with real log output from the actual devices
+# =============================================================================
+
+# --- SECUI BLUEMAX NGF (UNVERIFIED) ---
+# Need real sample from device
+# Contact SECUI for documentation or capture from device
+
+# --- SECUI MFI/BLUEMAX IPS (UNVERIFIED) ---
+# Need real sample from device
+# Contact SECUI for documentation or capture from device
+
+# --- WINS SNIPER DDoS (UNVERIFIED) ---
+# Need real sample from device
+# No public documentation available
+
+# --- Future Systems XTM/FW VPN (UNVERIFIED) ---
+# Need real sample from device
+# Check Logpresso store for NexG VForce parser info
+
+# --- NexG VForce VPN (UNVERIFIED) ---
+# Need real sample from device
+# Reference: https://logpresso.store/ko/apps/nexg-vforce/
+
+# --- Penta WAPPLES WAF (UNVERIFIED) ---
+# Need real sample from device
+# Contact Penta Security for documentation
+
+# --- Hunesion i-onenet (UNVERIFIED) ---
+# Need real sample from device
+# Contact Hunesion for documentation
+
+# --- SpamSniper (UNVERIFIED) ---
+# Need real sample from device
+
+# --- AhnLab EPP/EDR (UNVERIFIED) ---
+# Need real sample from device
+# AhnLab supports syslog but specific format not documented publicly
+
+# --- 와이즈허브시스템즈 DLP (UNVERIFIED) ---
+# Need real sample from device
+
+# --- 웨어벨리 Chakra (UNVERIFIED) ---
+# Need real sample from device
+
+# --- 아이엔소프트 OpenManager (UNVERIFIED) ---
+# Need real sample from device
+
+
+# =============================================================================
+# ATTACK SCENARIO SAMPLES (Using verified formats)
+# =============================================================================
+
+# Scenario: Brute force attack detected by Juniper SSG
+Jan 16 16:00:00 10.231.250.61 SSG550M: NetScreen device_id=SSG550M-CINEMA [Root]system-notification-00257(traffic): start_time="2024-01-16 16:00:00" duration=0 policy_id=0 service=ssh proto=6 src zone=Untrust dst zone=Trust action=Deny sent=0 rcvd=0 src=203.0.113.50 dst=192.168.1.10 src_port=54321 dst_port=22 session_id=0 reason=Traffic Denied
+Jan 16 16:00:05 10.231.250.61 SSG550M: NetScreen device_id=SSG550M-CINEMA [Root]system-notification-00257(traffic): start_time="2024-01-16 16:00:05" duration=0 policy_id=0 service=ssh proto=6 src zone=Untrust dst zone=Trust action=Deny sent=0 rcvd=0 src=203.0.113.50 dst=192.168.1.10 src_port=54322 dst_port=22 session_id=0 reason=Traffic Denied
+Jan 16 16:00:10 10.231.250.61 SSG550M: NetScreen device_id=SSG550M-CINEMA [Root]system-notification-00257(traffic): start_time="2024-01-16 16:00:10" duration=0 policy_id=0 service=ssh proto=6 src zone=Untrust dst zone=Trust action=Deny sent=0 rcvd=0 src=203.0.113.50 dst=192.168.1.10 src_port=54323 dst_port=22 session_id=0 reason=Traffic Denied
+
+# Scenario: VPN tunnel established and traffic flow (FortiGate)
+Jan 16 17:00:00 fortigate-01 date=2024-01-16 time=17:00:00 devname="FG100D" devid="FG100D4G19000001" logid="0101039424" type="event" subtype="vpn" eventtype="ipsec" level="information" vd="root" action="tunnel-up" tunneltype="ipsec" tunnelid="5" remip=211.234.56.78 locip=10.231.241.13 user="partner_vpn" msg="IPsec tunnel established"
+Jan 16 17:00:30 fortigate-01 date=2024-01-16 time=17:00:30 devname="FG100D" devid="FG100D4G19000001" logid="0000000013" type="traffic" subtype="forward" level="notice" vd="root" srcip=10.100.0.50 srcport=45678 srcintf="ssl.root" dstip=192.168.1.100 dstport=443 dstintf="port1" policyid=10 sessionid=55555 proto=6 action="accept" sentbyte=10240 rcvdbyte=51200 duration=30
+
+# Scenario: New device connected to NAC (Genians)
+2024-01-16 18:00:00,LOGTYPE=NODE,LOGID=2001,IP=192.168.1.200,MAC=00:AA:BB:CC:DD:EE,MSG=Node connected, DETAIL=hostname=UNKNOWN os=Unknown agent=none
+2024-01-16 18:00:15,LOGTYPE=POLICY,LOGID=3002,IP=192.168.1.200,MAC=00:AA:BB:CC:DD:EE,MSG=Compliance check failed, DETAIL=hostname=UNKNOWN reason=no_agent action=quarantine
+
+
+# =============================================================================
+# END OF SAMPLE LOGS
+# =============================================================================

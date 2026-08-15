@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0A1628"/>
+      <stop offset="100%" stop-color="#1B3A5C"/>
+    </linearGradient>
+    <radialGradient id="glow3" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00D4FF" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#00D4FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#bg2)"/>
+  <rect width="1280" height="720" fill="url(#glow3)"/>
+
+  <!-- Minimal circuit lines -->
+  <g stroke="#00D4FF" stroke-width="0.5" opacity="0.1">
+    <line x1="200" y1="0" x2="200" y2="720"/>
+    <line x1="640" y1="0" x2="640" y2="720"/>
+    <line x1="1080" y1="0" x2="1080" y2="720"/>
+    <line x1="0" y1="240" x2="1280" y2="240"/>
+    <line x1="0" y1="480" x2="1280" y2="480"/>
+  </g>
+
+  <!-- Checkmark circle (completion) -->
+  <g transform="translate(640, 300)" opacity="0.06">
+    <circle cx="0" cy="0" r="120" stroke="#00D4FF" stroke-width="3" fill="none"/>
+    <circle cx="0" cy="0" r="100" stroke="#00D4FF" stroke-width="1" fill="none"/>
+    <polyline points="-40,10 -10,40 50,-30" stroke="#00D4FF" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Connected nodes (completed network) -->
+  <g fill="#00D4FF" opacity="0.2">
+    <circle cx="200" cy="240" r="3"/>
+    <circle cx="640" cy="240" r="3"/>
+    <circle cx="1080" cy="240" r="3"/>
+    <circle cx="200" cy="480" r="3"/>
+    <circle cx="640" cy="480" r="3"/>
+    <circle cx="1080" cy="480" r="3"/>
+  </g>
+  <g stroke="#00D4FF" stroke-width="0.8" opacity="0.1">
+    <line x1="200" y1="240" x2="640" y2="240"/>
+    <line x1="640" y1="240" x2="1080" y2="240"/>
+    <line x1="200" y1="480" x2="640" y2="480"/>
+    <line x1="640" y1="480" x2="1080" y2="480"/>
+    <line x1="200" y1="240" x2="200" y2="480"/>
+    <line x1="640" y1="240" x2="640" y2="480"/>
+    <line x1="1080" y1="240" x2="1080" y2="480"/>
+  </g>
+
+  <!-- Top accent -->
+  <rect x="0" y="0" width="1280" height="4" fill="#00D4FF" opacity="0.6"/>
+  <line x1="0" y1="716" x2="1280" y2="716" stroke="#00D4FF" stroke-width="1" opacity="0.2"/>
+</svg>

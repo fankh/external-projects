@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 340" font-family="Malgun Gothic, Pretendard, sans-serif">
+  <rect width="900" height="340" fill="#FAFBFC"/>
+  <text x="450" y="20" text-anchor="middle" font-size="14" font-weight="700" fill="#003366">Seekurity SIEM v3.3 Architecture — KOVAN</text>
+
+  <!-- Layer 1: Log Sources -->
+  <rect x="60" y="32" width="780" height="50" fill="#EBF0F5" stroke="#B0C4DE" stroke-width="1"/>
+  <text x="80" y="48" font-size="9" font-weight="700" fill="#003366">LOG SOURCES (67대)</text>
+  <rect x="80" y="54" width="85" height="18" fill="#003366"/><text x="122" y="67" text-anchor="middle" font-size="8" fill="white">방화벽 (30)</text>
+  <rect x="172" y="54" width="85" height="18" fill="#003366"/><text x="214" y="67" text-anchor="middle" font-size="8" fill="white">VPN (37)</text>
+  <rect x="264" y="54" width="65" height="18" fill="#0055A5"/><text x="296" y="67" text-anchor="middle" font-size="8" fill="white">NAC</text>
+  <rect x="336" y="54" width="65" height="18" fill="#0055A5"/><text x="368" y="67" text-anchor="middle" font-size="8" fill="white">DLP</text>
+  <rect x="408" y="54" width="65" height="18" fill="#0055A5"/><text x="440" y="67" text-anchor="middle" font-size="8" fill="white">서버</text>
+  <rect x="480" y="54" width="75" height="18" fill="#0055A5"/><text x="517" y="67" text-anchor="middle" font-size="8" fill="white">DB접근제어</text>
+  <rect x="562" y="54" width="65" height="18" fill="#0055A5"/><text x="594" y="67" text-anchor="middle" font-size="8" fill="white">AD/DHCP</text>
+  <rect x="634" y="54" width="65" height="18" fill="#0055A5"/><text x="666" y="67" text-anchor="middle" font-size="8" fill="white">OTP/MFA</text>
+  <rect x="706" y="54" width="120" height="18" fill="#0055A5"/><text x="766" y="67" text-anchor="middle" font-size="8" fill="white">기타 보안장비</text>
+
+  <!-- Arrow down -->
+  <line x1="450" y1="86" x2="450" y2="94" stroke="#003366" stroke-width="2"/>
+  <polygon points="450,98 445,90 455,90" fill="#003366"/>
+
+  <!-- Layer 2: Collection -->
+  <rect x="160" y="100" width="580" height="26" fill="#003366"/>
+  <text x="450" y="117" text-anchor="middle" font-size="10" fill="white" font-weight="700">Syslog / Agent / API — 로그 수집 (UDP 514)</text>
+
+  <!-- Arrow down -->
+  <line x1="450" y1="130" x2="450" y2="138" stroke="#003366" stroke-width="2"/>
+  <polygon points="450,142 445,134 455,134" fill="#003366"/>
+
+  <!-- Layer 3: SIEM Core -->
+  <rect x="60" y="144" width="780" height="105" fill="#F0F4F8" stroke="#003366" stroke-width="1"/>
+  <text x="80" y="160" font-size="10" font-weight="700" fill="#003366">SEEKURITY SIEM v3.3 CORE</text>
+
+  <!-- Row 1 -->
+  <rect x="80" y="167" width="118" height="28" fill="#003366"/><text x="139" y="183" text-anchor="middle" font-size="8" fill="white" font-weight="600">파싱 엔진</text><text x="139" y="192" text-anchor="middle" font-size="7" fill="#B0C4DE">정규표현식 파서</text>
+  <rect x="204" y="167" width="118" height="28" fill="#003366"/><text x="263" y="183" text-anchor="middle" font-size="8" fill="white" font-weight="600">탐지 엔진 (56룰)</text><text x="263" y="192" text-anchor="middle" font-size="7" fill="#B0C4DE">10개 카테고리</text>
+  <rect x="328" y="167" width="118" height="28" fill="#003366"/><text x="387" y="183" text-anchor="middle" font-size="8" fill="white" font-weight="600">TI 엔진</text><text x="387" y="192" text-anchor="middle" font-size="7" fill="#B0C4DE">615 IOC / 17 피드</text>
+  <rect x="452" y="167" width="118" height="28" fill="#003366"/><text x="511" y="183" text-anchor="middle" font-size="8" fill="white" font-weight="600">티켓 관리</text><text x="511" y="192" text-anchor="middle" font-size="7" fill="#B0C4DE">자동 생성/추적</text>
+  <rect x="576" y="167" width="118" height="28" fill="#003366"/><text x="635" y="183" text-anchor="middle" font-size="8" fill="white" font-weight="600">리포트 엔진</text><text x="635" y="192" text-anchor="middle" font-size="7" fill="#B0C4DE">주간/월간 자동</text>
+  <rect x="700" y="167" width="118" height="28" fill="#003366"/><text x="759" y="183" text-anchor="middle" font-size="8" fill="white" font-weight="600">알림 엔진</text><text x="759" y="192" text-anchor="middle" font-size="7" fill="#B0C4DE">Email/Slack</text>
+
+  <!-- Row 2 -->
+  <rect x="80" y="203" width="185" height="28" fill="#CC0000" opacity="0.9"/><text x="172" y="219" text-anchor="middle" font-size="8" fill="white" font-weight="600">대시보드 (37 페이지 / 50 탭)</text><text x="172" y="228" text-anchor="middle" font-size="7" fill="#FFCCCC">커스텀 위젯</text>
+  <rect x="271" y="203" width="185" height="28" fill="#0055A5"/><text x="363" y="219" text-anchor="middle" font-size="8" fill="white" font-weight="600">Elasticsearch</text><text x="363" y="228" text-anchor="middle" font-size="7" fill="#B0C4DE">빅데이터 저장/검색</text>
+  <rect x="462" y="203" width="185" height="28" fill="#0055A5"/><text x="554" y="219" text-anchor="middle" font-size="8" fill="white" font-weight="600">접근 관리 (RBAC)</text><text x="554" y="228" text-anchor="middle" font-size="7" fill="#B0C4DE">감사 로그</text>
+  <rect x="653" y="203" width="185" height="28" fill="#0055A5"/><text x="745" y="219" text-anchor="middle" font-size="8" fill="white" font-weight="600">시스템 관리</text><text x="745" y="228" text-anchor="middle" font-size="7" fill="#B0C4DE">NTP/SMTP/백업</text>
+
+  <!-- Arrow down -->
+  <line x1="450" y1="253" x2="450" y2="261" stroke="#003366" stroke-width="2"/>
+  <polygon points="450,265 445,257 455,257" fill="#003366"/>
+
+  <!-- Layer 4: Output -->
+  <rect x="60" y="267" width="780" height="38" fill="#EBF0F5" stroke="#B0C4DE" stroke-width="1"/>
+  <text x="80" y="282" font-size="9" font-weight="700" fill="#003366">OUTPUT</text>
+  <rect x="140" y="277" width="120" height="16" fill="#003366" opacity="0.8"/><text x="200" y="289" text-anchor="middle" font-size="7" fill="white">보안관제 대시보드</text>
+  <rect x="268" y="277" width="120" height="16" fill="#003366" opacity="0.8"/><text x="328" y="289" text-anchor="middle" font-size="7" fill="white">이메일/Slack 알림</text>
+  <rect x="396" y="277" width="120" height="16" fill="#003366" opacity="0.8"/><text x="456" y="289" text-anchor="middle" font-size="7" fill="white">주간/월간 리포트</text>
+  <rect x="524" y="277" width="120" height="16" fill="#003366" opacity="0.8"/><text x="584" y="289" text-anchor="middle" font-size="7" fill="white">티켓 관리</text>
+  <rect x="652" y="277" width="168" height="16" fill="#003366" opacity="0.8"/><text x="736" y="289" text-anchor="middle" font-size="7" fill="white">PCI-DSS 컴플라이언스</text>
+
+  <!-- Server info -->
+  <text x="450" y="322" text-anchor="middle" font-size="9" fill="#666">SIEM Server (10.231.217.41) + SIEM Manager — Seekurity SIEM v3.3</text>
+</svg>

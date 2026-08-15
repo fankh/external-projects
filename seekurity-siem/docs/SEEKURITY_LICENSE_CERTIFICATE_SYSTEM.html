@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seekurity SIEM 라이선스 증서 시스템</title>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #003366;
+            border-bottom: 3px solid #003366;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        h2 {
+            color: #003366;
+            margin-top: 30px;
+            border-left: 4px solid #003366;
+            padding-left: 10px;
+        }
+        h3 {
+            color: #2c5282;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        pre {
+            background: #f4f4f4;
+            border-left: 4px solid #003366;
+            padding: 12px;
+            overflow-x: auto;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table th {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            font-weight: bold;
+        }
+        table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+        table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        .note {
+            background: #e8f4f8;
+            border-left: 4px solid #2196F3;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #fff3e0;
+            border-left: 4px solid #FF9800;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        a {
+            color: #003366;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .download-btn {
+            display: inline-block;
+            background: #003366;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .download-btn:hover {
+            background: #002244;
+            text-decoration: none;
+        }
+        ul, ol {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Seekurity SIEM 라이선스 증서 시스템</h1>
+        <p><strong>완전 가이드</strong> | 최종 업데이트: 2026-05-26</p>
+
+        <a href="SEEKURITY_LICENSE_CERTIFICATE_SYSTEM.pdf" class="download-btn">📥 PDF 다운로드</a>
+
+        <div class="success">
+            <strong>✅ 시스템 완성</strong><br>
+            라이선스 증서 자동 생성 시스템이 완전히 구현되고 테스트되었습니다.
+        </div>
+
+        <h2>📋 빠른 시작</h2>
+        <pre><code># 1. 신규 프로젝트 생성
+python3 scripts/project.py init newclient
+
+# 2. 라이선스 정보 입력
+vi projects/newclient/license_certificate_config.json
+
+# 3. 패키징 (증서 자동 생성)
+python3 scripts/project.py package newclient
+
+# 결과
+✓ newclient_license_certificate.html (생성됨)
+✓ newclient_license_certificate.pdf (자동 생성됨)
+✓ newclient_산출물_YYYYMMDD.zip (증서 포함)</code></pre>
+
+        <h2>🔧 시스템 구성</h2>
+        <ul>
+            <li><strong>HTML 템플릿</strong>: 전문적인 한국식 증서 디자인</li>
+            <li><strong>생성 스크립트</strong>: 독립 실행형 + 패키징 통합</li>
+            <li><strong>자동화</strong>: 라이선스 번호, 발급일, PDF 변환</li>
+            <li><strong>문서</strong>: 완전한 사용 가이드 + FAQ</li>
+        </ul>
+
+        <h2>✨ 주요 기능</h2>
+        <table>
+            <tr>
+                <th>기능</th>
+                <th>설명</th>
+            </tr>
+            <tr>
+                <td>자동 번호 생성</td>
+                <td>SK-KOV-202509-0860 형식의 고유한 라이선스 번호</td>
+            </tr>
+            <tr>
+                <td>발급일 자동 설정</td>
+                <td>현재 날짜 자동 입력</td>
+            </tr>
+            <tr>
+                <td>HTML → PDF 변환</td>
+                <td>Chromium/wkhtmltopdf 자동 사용</td>
+            </tr>
+            <tr>
+                <td>패키지 통합</td>
+                <td>최종 zip에 자동 포함</td>
+            </tr>
+            <tr>
+                <td>한글 완전 지원</td>
+                <td>모든 한글 문자 완벽 지원</td>
+            </tr>
+            <tr>
+                <td>A4 최적화</td>
+                <td>인쇄 및 PDF 저장 최적화</td>
+            </tr>
+        </table>
+
+        <h2>📁 생성된 파일</h2>
+        <pre><code>siem-engineering/
+├── scripts/
+│   ├── project.py (updated)
+│   ├── license_certificate_generator.py
+│   └── examples/
+│       ├── kovan_license_config.json
+│       └── aig_license_config.json
+├── projects/
+│   ├── _template/
+│   │   ├── assets/CUSTOMER_NAME_license_certificate.html
+│   │   └── license_certificate_config.json
+│   ├── kovan/
+│   │   ├── KOVAN_license_certificate.html
+│   │   ├── KOVAN_license_certificate.pdf
+│   │   └── license_certificate_config.json
+│   └── aig/
+│       ├── AIG_license_certificate.html
+│       ├── AIG_license_certificate.pdf
+│       └── license_certificate_config.json
+└── docs/
+    ├── license-certificate-guide.md
+    ├── certificate-packaging-integration.md
+    ├── CERTIFICATE-SETUP-SUMMARY.md
+    ├── SEEKURITY_LICENSE_CERTIFICATE_SYSTEM.md
+    └── SEEKURITY_LICENSE_CERTIFICATE_SYSTEM.pdf ⭐</code></pre>
+
+        <h2>🧪 테스트 결과</h2>
+        <div class="success">
+            <strong>KOVAN</strong><br>
+            License #: SK-KOV-202509-0860<br>
+            Period: 2025-09-01 ~ 2026-09-01<br>
+            Log Sources: 67 | PDF Size: 178KB ✓
+        </div>
+        <div class="success">
+            <strong>AIG</strong><br>
+            License #: SK-AIG-202601-4131<br>
+            Period: 2026-01-15 ~ 2026-04-15<br>
+            Log Sources: 30 | PDF Size: 178KB ✓
+        </div>
+
+        <h2>🔗 GitHub 링크</h2>
+        <ul>
+            <li><a href="https://github.com/fankh/new-research/blob/main/siem-engineering/docs/SEEKURITY_LICENSE_CERTIFICATE_SYSTEM.pdf" target="_blank">📄 PDF 가이드</a></li>
+            <li><a href="https://github.com/fankh/new-research/commit/afd0139c" target="_blank">📜 최신 커밋</a></li>
+            <li><a href="https://github.com/fankh/new-research/tree/main/siem-engineering" target="_blank">📂 전체 프로젝트</a></li>
+        </ul>
+
+        <h2>❓ FAQ</h2>
+        <h3>Q: 증서 없이 패키징할 수 있나요?</h3>
+        <p>A: 네. license_certificate_config.json 파일을 삭제하면 증서가 생성되지 않습니다.</p>
+
+        <h3>Q: PDF 변환이 실패하면?</h3>
+        <p>A: Chromium 또는 wkhtmltopdf를 설치하세요:</p>
+        <pre><code>snap install chromium
+# 또는
+sudo apt-get install wkhtmltopdf</code></pre>
+
+        <h3>Q: 라이선스 번호를 직접 지정할 수 있나요?</h3>
+        <p>A: 네. config.json에서 직접 설정할 수 있습니다:</p>
+        <pre><code>{
+  "LICENSE_NUMBER": "SK-CUSTOM-202609-9999"
+}</code></pre>
+
+        <h2>✅ 다음 단계</h2>
+        <ol>
+            <li>PDF 가이드 검토</li>
+            <li>신규 프로젝트에서 테스트</li>
+            <li>모든 프로젝트에 적용</li>
+        </ol>
+
+        <div class="note">
+            <strong>💡 팁:</strong> PDF 가이드에는 더 많은 예제, 커스터마이징 방법, 문제 해결 방법이 포함되어 있습니다.
+        </div>
+
+        <hr style="margin: 40px 0; border: none; border-top: 1px solid #ddd;">
+        <p style="text-align: center; color: #666;">
+            Seekurity SIEM License Certificate System<br>
+            최종 업데이트: 2026-05-26 | 상태: ✅ 프로덕션 준비 완료
+        </p>
+    </div>
+</body>
+</html>

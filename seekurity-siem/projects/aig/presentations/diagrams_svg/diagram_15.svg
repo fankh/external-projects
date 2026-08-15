@@ -1,0 +1,178 @@
+
+    <svg width="1100" height="480" xmlns="http://www.w3.org/2000/svg">
+        
+    <defs>
+        <linearGradient id="gradient_blue" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#4589ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#0f62fe;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_success" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#a7f0ba;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#198038;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_purple" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#e8daff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#8a3ffc;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_dark" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#393939;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1c1c1c;stop-opacity:1" />
+        </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="2" dy="4" stdDeviation="4" flood-color="#161616" flood-opacity="0.15"/>
+        </filter>
+        <filter id="shadow_light" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#161616" flood-opacity="0.1"/>
+        </filter>
+    </defs>
+    
+        <style>
+            .title { font-family: 'Segoe UI', Arial, sans-serif; font-size: 16px; font-weight: 600; fill: #393939; }
+            .subtitle { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; fill: #8d8d8d; }
+            .label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; font-weight: 500; fill: #ffffff; text-anchor: middle; }
+            .label-dark { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; font-weight: 500; fill: #393939; text-anchor: middle; }
+            .layer-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; font-weight: 600; fill: #525252; text-transform: uppercase; letter-spacing: 1px; }
+            .connector { stroke: #c6c6c6; stroke-width: 2; fill: none; }
+            .connector-data { stroke: #0f62fe; stroke-width: 2; fill: none; stroke-dasharray: 5,3; }
+        </style>
+
+        <!-- Background -->
+        <rect width="1100" height="480" fill="#ffffff" rx="8"/>
+
+        <!-- Data Sources Layer -->
+        <g transform="translate(20, 380)">
+            <text class="layer-label" x="0" y="0">Data Sources</text>
+            <rect x="0" y="10" width="860" height="90" rx="6" fill="#f4f4f4" stroke="#e0e0e0" stroke-width="1"/>
+
+            <!-- Source boxes -->
+            <g transform="translate(30, 30)">
+                <rect width="100" height="50" rx="4" fill="#009d9a" filter="url(#shadow_light)"/>
+                <text class="label" x="50" y="22">Firewall</text>
+                <text class="subtitle" x="50" y="38" text-anchor="middle" fill="#ffffff" opacity="0.8">Palo Alto</text>
+            </g>
+            <g transform="translate(150, 30)">
+                <rect width="100" height="50" rx="4" fill="#009d9a" filter="url(#shadow_light)"/>
+                <text class="label" x="50" y="22">EDR</text>
+                <text class="subtitle" x="50" y="38" text-anchor="middle" fill="#ffffff" opacity="0.8">CrowdStrike</text>
+            </g>
+            <g transform="translate(270, 30)">
+                <rect width="100" height="50" rx="4" fill="#8a3ffc" filter="url(#shadow_light)"/>
+                <text class="label" x="50" y="22">Identity</text>
+                <text class="subtitle" x="50" y="38" text-anchor="middle" fill="#ffffff" opacity="0.8">Azure AD</text>
+            </g>
+            <g transform="translate(390, 30)">
+                <rect width="100" height="50" rx="4" fill="#1192e8" filter="url(#shadow_light)"/>
+                <text class="label" x="50" y="22">Cloud</text>
+                <text class="subtitle" x="50" y="38" text-anchor="middle" fill="#ffffff" opacity="0.8">AWS/Azure</text>
+            </g>
+            <g transform="translate(510, 30)">
+                <rect width="100" height="50" rx="4" fill="#ee5396" filter="url(#shadow_light)"/>
+                <text class="label" x="50" y="22">Email</text>
+                <text class="subtitle" x="50" y="38" text-anchor="middle" fill="#ffffff" opacity="0.8">O365</text>
+            </g>
+            <g transform="translate(630, 30)">
+                <rect width="100" height="50" rx="4" fill="#525252" filter="url(#shadow_light)"/>
+                <text class="label" x="50" y="22">Apps</text>
+                <text class="subtitle" x="50" y="38" text-anchor="middle" fill="#ffffff" opacity="0.8">Custom</text>
+            </g>
+            <g transform="translate(750, 30)">
+                <rect width="80" height="50" rx="4" fill="#8d8d8d" stroke="#525252" stroke-width="1" stroke-dasharray="4,2"/>
+                <text class="label-dark" x="40" y="30" fill="#525252">+ More</text>
+            </g>
+        </g>
+
+        <!-- Collection Layer -->
+        <g transform="translate(20, 260)">
+            <text class="layer-label" x="0" y="0">Collection Tier</text>
+            <rect x="0" y="10" width="860" height="90" rx="6" fill="#d0e2ff" stroke="#4589ff" stroke-width="1"/>
+
+            <g transform="translate(120, 25)">
+                <rect width="180" height="55" rx="4" fill="#4589ff" filter="url(#shadow_light)"/>
+                <text class="label" x="90" y="22">Log Collectors</text>
+                <text class="subtitle" x="90" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">Syslog / Agent / API</text>
+            </g>
+            <g transform="translate(340, 25)">
+                <rect width="180" height="55" rx="4" fill="#4589ff" filter="url(#shadow_light)"/>
+                <text class="label" x="90" y="22">Heavy Forwarders</text>
+                <text class="subtitle" x="90" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">Parse & Transform</text>
+            </g>
+            <g transform="translate(560, 25)">
+                <rect width="180" height="55" rx="4" fill="#4589ff" filter="url(#shadow_light)"/>
+                <text class="label" x="90" y="22">Load Balancer</text>
+                <text class="subtitle" x="90" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">HA Distribution</text>
+            </g>
+        </g>
+
+        <!-- Processing Layer -->
+        <g transform="translate(20, 140)">
+            <text class="layer-label" x="0" y="0">Processing Tier</text>
+            <rect x="0" y="10" width="860" height="90" rx="6" fill="#d0e2ff" stroke="#0f62fe" stroke-width="1"/>
+
+            <g transform="translate(80, 25)">
+                <rect width="200" height="55" rx="4" fill="#0f62fe" filter="url(#shadow_light)"/>
+                <text class="label" x="100" y="22">Indexer Cluster</text>
+                <text class="subtitle" x="100" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">Index & Store Events</text>
+            </g>
+            <g transform="translate(330, 25)">
+                <rect width="200" height="55" rx="4" fill="#0f62fe" filter="url(#shadow_light)"/>
+                <text class="label" x="100" y="22">Correlation Engine</text>
+                <text class="subtitle" x="100" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">Rules & Analytics</text>
+            </g>
+            <g transform="translate(580, 25)">
+                <rect width="200" height="55" rx="4" fill="#0f62fe" filter="url(#shadow_light)"/>
+                <text class="label" x="100" y="22">Search Cluster</text>
+                <text class="subtitle" x="100" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">Distributed Search</text>
+            </g>
+        </g>
+
+        <!-- Presentation Layer -->
+        <g transform="translate(20, 20)">
+            <text class="layer-label" x="0" y="0">Presentation Tier</text>
+            <rect x="0" y="10" width="860" height="90" rx="6" fill="#f4f4f4" stroke="#e0e0e0" stroke-width="1"/>
+
+            <g transform="translate(60, 25)">
+                <rect width="160" height="55" rx="4" fill="#0353e9" filter="url(#shadow_light)"/>
+                <text class="label" x="80" y="22">Dashboards</text>
+                <text class="subtitle" x="80" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">Real-time Views</text>
+            </g>
+            <g transform="translate(250, 25)">
+                <rect width="160" height="55" rx="4" fill="#0353e9" filter="url(#shadow_light)"/>
+                <text class="label" x="80" y="22">Alerts</text>
+                <text class="subtitle" x="80" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">Notifications</text>
+            </g>
+            <g transform="translate(440, 25)">
+                <rect width="160" height="55" rx="4" fill="#0353e9" filter="url(#shadow_light)"/>
+                <text class="label" x="80" y="22">Reports</text>
+                <text class="subtitle" x="80" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">Scheduled</text>
+            </g>
+            <g transform="translate(630, 25)">
+                <rect width="160" height="55" rx="4" fill="#0353e9" filter="url(#shadow_light)"/>
+                <text class="label" x="80" y="22">Investigation</text>
+                <text class="subtitle" x="80" y="40" text-anchor="middle" fill="#ffffff" opacity="0.8">Ad-hoc Search</text>
+            </g>
+        </g>
+
+        <!-- Connectors -->
+        <g class="connectors">
+            <!-- Data sources to collectors -->
+            <path class="connector-data" d="M450 380 L450 350"/>
+            <polygon points="450,355 445,365 455,365" fill="#0f62fe"/>
+
+            <!-- Collectors to processing -->
+            <path class="connector-data" d="M450 260 L450 230"/>
+            <polygon points="450,235 445,245 455,245" fill="#0f62fe"/>
+
+            <!-- Processing to presentation -->
+            <path class="connector-data" d="M450 140 L450 110"/>
+            <polygon points="450,115 445,125 455,125" fill="#0f62fe"/>
+        </g>
+
+        <!-- Data flow annotation -->
+        <g transform="translate(780, 200)">
+            <text class="subtitle" x="50" y="0" text-anchor="middle">Data Flow</text>
+            <line x1="50" y1="10" x2="50" y2="80" stroke="#0f62fe" stroke-width="2" stroke-dasharray="5,3"/>
+            <polygon points="50,75 45,65 55,65" fill="#0f62fe"/>
+            <text class="subtitle" x="50" y="100" text-anchor="middle">[X] EPS</text>
+        </g>
+    </svg>
+    

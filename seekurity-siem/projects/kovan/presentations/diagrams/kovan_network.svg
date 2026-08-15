@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f5f5f5"/>
+      <stop offset="100%" style="stop-color:#e0e0e0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="600" fill="url(#bg)" rx="10"/>
+
+  <!-- Border -->
+  <rect x="5" y="5" width="790" height="590" fill="none" stroke="#1976d2" stroke-width="2" rx="8"/>
+
+  <!-- Title -->
+  <text x="400" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#1976d2">
+    Internet Zone
+  </text>
+
+  <!-- Seekurity Logo placeholder -->
+  <rect x="300" y="100" width="200" height="80" fill="#1976d2" rx="5"/>
+  <text x="400" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="white">
+    Seekurity SIEM
+  </text>
+
+  <!-- Diagram placeholder boxes -->
+  <g id="diagram_components">
+    <rect x="100" y="220" width="150" height="60" fill="#e3f2fd" stroke="#1976d2" rx="5"/>
+    <text x="175" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="14">Log Sources</text>
+
+    <rect x="325" y="220" width="150" height="60" fill="#fff3e0" stroke="#f57c00" rx="5"/>
+    <text x="400" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="14">Processing</text>
+
+    <rect x="550" y="220" width="150" height="60" fill="#fce4ec" stroke="#e91e63" rx="5"/>
+    <text x="625" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="14">Detection</text>
+
+    <!-- Arrows -->
+    <path d="M 250 250 L 320 250" stroke="#666" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M 475 250 L 545 250" stroke="#666" stroke-width="2" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Footer -->
+  <text x="400" y="550" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#666">
+    KOVAN Project - Security Information and Event Management
+  </text>
+</svg>

@@ -1,0 +1,113 @@
+{
+  "COMPANY_NAME": "KOVAN",
+  "COMPANY_FULL_NAME": "KOVAN",
+  "INSPECTION_DATE": "2026-06-22",
+  "INSPECTION_PERIOD": "2026-06",
+  "INSPECTION_TYPE": "정기점검 (월간) · 무상 유지보수 1차",
+  "INSPECTOR": "이준호",
+  "INSPECTOR_ORG": "SeekersLab",
+  "CUSTOMER_CONTACT": "KOVAN 보안운영팀",
+  "DOC_VERSION": "v1.0",
+  "NEXT_DATE": "2026-07-22",
+  "SECURITY_GRADE": "대외비",
+  "OVERALL_STATUS": "정상 (주의 2건)",
+  "SUMMARY_TEXT": "본 점검은 KOVAN SIEM 통합 보안관제 시스템의 무상 유지보수(2026.06.01~2027.05.31) 1차 정기점검이다. 점검 기간 중 SIEM 시스템은 전반적으로 안정적으로 가동되었으며, 핵심 서비스 8종 및 67식 Log Source 수집에 중단은 없었다. 다만 Manager/Storage 노드의 데이터 디스크 사용률 증가와 OpenSearch 보안 패치 버전 출시 2건이 주의 항목으로 확인되어 개선 권고로 정리하였다. PCI-DSS 로그 보존 요건은 정상 충족 중이다.",
+  "key_findings": [
+    "핵심 서비스 8종(Nginx·Syslog-Receiver·API·Console·OpenSearch·PostgreSQL·Kafka·Zookeeper) 모두 정상 가동.",
+    "Log Source 67식(방화벽 30 + VPN 37) 및 기타 연동 시스템 전건 정상 수신, 22종 벤더 Parser 정상 동작.",
+    "탐지 룰 56개·IOC 615건·MITRE ATT&CK 14 tactics 매핑 정상 유지, 미동작 룰 0건.",
+    "Manager/Storage 데이터 디스크 73% 도달 — PCI-DSS 보존정책 검토 또는 증설 필요 (주의).",
+    "OpenSearch 2.14.0(보안 패치) 신규 출시 — 업그레이드 협의 필요 (주의)."
+  ],
+  "servers": [
+    ["KOVAN-SIEM-COL-01", "Collector", "Lenovo SR650", "Rocky Linux 9.4", "16 vCPU / 64GB", "정상"],
+    ["KOVAN-SIEM-MGR-01", "Manager/Storage", "Lenovo SR650 V3", "Rocky Linux 9.4", "32 vCPU / 128GB", "정상"]
+  ],
+  "resources": [
+    ["KOVAN-SIEM-COL-01", "32%", "70%", "49%", "40%", "45%", "1.05", "정상"],
+    ["KOVAN-SIEM-MGR-01", "44%", "79%", "68%", "43%", "73%", "1.60", "주의"]
+  ],
+  "hw_status": [
+    ["전원 공급 장치(PSU)", "이중화 정상", "이중화 정상", "정상", "노드별 PSU 2기 가동"],
+    ["시스템 온도", "< 35°C", "30°C", "정상", "XCC 기준"],
+    ["냉각 팬(Fan)", "전체 정상", "전체 정상", "정상", "-"],
+    ["RAID 상태", "Optimal", "RAID-6 Optimal", "정상", "Manager/Storage 데이터 볼륨"],
+    ["물리 디스크", "불량 0", "0개", "정상", "Predictive Failure 0"],
+    ["네트워크 인터페이스", "Link Up (10G)", "Link Up", "정상", "Bonding 정상"],
+    ["시스템 Uptime", "-", "112일", "정상", "계획 외 재부팅 없음"],
+    ["하드웨어 경보(XCC)", "경보 없음", "0건", "정상", "-"]
+  ],
+  "siem_services": [
+    ["Nginx (Web Console)", "443 / 80", "TCP", "Running", "활성", "HTTPS 정상"],
+    ["SS-Syslog-Receiver", "514", "UDP", "Running", "활성", "방화벽/VPN 수신 정상"],
+    ["SS-API", "23001", "TCP", "Running", "활성", "-"],
+    ["SS-Console", "23002", "TCP", "Running", "활성", "-"],
+    ["OpenSearch", "19200 / 19300", "TCP", "Running", "활성", "API/Transport"],
+    ["PostgreSQL", "15432", "TCP", "Running", "활성", "메타/룰/사용자"],
+    ["Kafka", "19092", "TCP", "Running", "활성", "Collector↔Manager"],
+    ["Zookeeper", "12181", "TCP", "Running", "활성", "-"]
+  ],
+  "log_collection": [
+    ["연동 Log Source (방화벽/VPN)", "67 식 (FW 30 + VPN 37)", "정상", "달성률 100%"],
+    ["기타 연동 시스템", "IDS/IPS 3 · DDoS 3 · EDR 1 · DLP 1 · NAC 2 · DB접근제어 1", "정상", "Syslog/Agent/SNMP/API"],
+    ["벤더 Parser", "22 종", "정상", "정규화 정상"],
+    ["전 소스 수신율", "100%", "정상", "미수신 0건"],
+    ["평균 EPS", "4,100 EPS", "정상", "월 평균"],
+    ["피크 EPS", "11,200 EPS", "정상", "용량 임계 대비 여유"],
+    ["일일 평균 수집량", "약 168 GB/day", "정상", "-"]
+  ],
+  "index_status": [
+    ["Cluster Health", "green", "정상", "-"],
+    ["노드 수", "1 (Manager/Storage)", "정상", "단일 노드 구성"],
+    ["활성 Shard", "356", "정상", "-"],
+    ["Unassigned Shard", "0", "정상", "-"],
+    ["인덱스 수", "214", "정상", "-"],
+    ["총 문서 수", "약 21.6억 건", "정상", "-"],
+    ["데이터 디스크 사용률", "73%", "주의", "80% 도달 전 보존정책/증설 검토"],
+    ["보존 정책", "Hot 3개월 / Cold 12개월+ (PCI-DSS)", "정상", "컴플라이언스 요건 충족"]
+  ],
+  "detection_rules": [
+    ["활성 탐지 룰", "56 개 (CRITICAL 14 / HIGH 24 / MEDIUM 15 / LOW 3)", "정상", "10개 카테고리"],
+    ["MITRE ATT&CK 매핑", "14 tactics", "정상", "-"],
+    ["룰 동작 점검", "정상", "정상", "샘플 이벤트 매칭 확인"],
+    ["미동작 / 오류 룰", "0 개", "정상", "-"],
+    ["위협 인텔리전스 Feed", "17개 피드, 최근 갱신 2026-06-21", "정상", "일 1회 자동 갱신"],
+    ["등록 IOC", "615 건", "정상", "-"]
+  ],
+  "sw_version": [
+    ["Seekurity SIEM", "v1.0", "v1.0", "최신", "-"],
+    ["OpenSearch", "2.13.0", "2.14.0", "업데이트 가능", "보안 패치 포함, 업그레이드 협의"],
+    ["PostgreSQL", "15.6", "15.7", "업데이트 가능", "마이너 패치"],
+    ["OS (Rocky Linux)", "9.4", "9.4", "최신", "보안 패치 적용 완료"]
+  ],
+  "detection_stats": [
+    ["Critical", "1", "즉시 분석/대응 완료"],
+    ["High", "12", "전건 확인, 오탐 3건 튜닝"],
+    ["Medium", "98", "주기 검토"],
+    ["Low", "1,050", "참고 모니터링"],
+    ["총계", "1,161", "-"]
+  ],
+  "top_scenarios": [
+    ["1", "VPN 무차별 대입 로그인 시도 (Brute Force)", "284", "차단/계정 보호 확인"],
+    ["2", "Firewall Deny 급증", "176", "특정 시간대 집중"],
+    ["3", "악성 IP 통신 시도 (TI 매칭)", "88", "방화벽 차단 연계"],
+    ["4", "비인가 포트 스캔", "71", "외부 출발지 다수"],
+    ["5", "비정상 VPN 동시 접속", "9", "계정 공유 의심 모니터링"]
+  ],
+  "backup": [
+    ["설정 백업 (PostgreSQL/룰)", "일 1회", "최근 성공 2026-06-22 02:00", "정상", "자동 백업"],
+    ["데이터 스냅샷 (OpenSearch)", "주 1회", "최근 성공 2026-06-21", "정상", "snapshot repository"],
+    ["백업 저장소 사용률", "-", "54%", "정상", "여유 확보"],
+    ["복구 테스트", "분기 1회", "유지보수 1차 분기 내 수행 예정", "예정", "Q3 내 1회 수행 권고"]
+  ],
+  "findings": [
+    ["1", "하드웨어/스토리지", "Manager/Storage 데이터 디스크 73% 도달 (증가 추세)", "주의", "PCI-DSS 보존정책 검토 또는 디스크 증설", "검토중"],
+    ["2", "SIEM SW", "OpenSearch 2.14.0(보안 패치) 신규 출시", "주의", "다음 정기점검 시 업그레이드 협의", "예정"]
+  ],
+  "recommendations": [
+    ["1", "높음", "데이터 디스크 증설 또는 PCI-DSS 보존기간 내 Cold 티어 이전 정책 점검 (현 73%, 증가 추세)", "2026 Q3 내"],
+    ["2", "중간", "OpenSearch 2.14.0 업그레이드 (보안 패치 적용)", "다음 정기점검(2026-07)"],
+    ["3", "낮음", "Low 등급 이벤트 다량 발생 — 탐지 룰 임계치 튜닝 검토", "상시"],
+    ["4", "낮음", "무상 유지보수 첫 분기 — 백업 복구 테스트 1회 수행", "2026 Q3 내"]
+  ]
+}

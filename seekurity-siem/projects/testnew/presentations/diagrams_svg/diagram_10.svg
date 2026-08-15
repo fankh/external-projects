@@ -1,0 +1,89 @@
+
+    <svg width="500" height="350" xmlns="http://www.w3.org/2000/svg">
+        
+    <defs>
+        <linearGradient id="gradient_blue" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#4589ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#0f62fe;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_success" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#a7f0ba;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#198038;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_purple" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#e8daff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#8a3ffc;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_dark" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#393939;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1c1c1c;stop-opacity:1" />
+        </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="2" dy="4" stdDeviation="4" flood-color="#161616" flood-opacity="0.15"/>
+        </filter>
+        <filter id="shadow_light" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#161616" flood-opacity="0.1"/>
+        </filter>
+    </defs>
+    
+        <style>
+            .level-title { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 600; fill: #ffffff; text-anchor: middle; }
+            .level-time { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; fill: #ffffff; text-anchor: middle; opacity: 0.8; }
+            .level-desc { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; fill: #6f6f6f; }
+        </style>
+
+        <!-- Background -->
+        <rect width="500" height="350" fill="#ffffff" rx="8"/>
+
+        <!-- Title -->
+        <text font-family="Segoe UI" font-size="14" font-weight="600" fill="#393939" x="250" y="25" text-anchor="middle">Escalation Path</text>
+
+        <!-- Level 4 - Executive (top) -->
+        <g transform="translate(175, 45)">
+            <polygon points="75,0 150,60 0,60" fill="#da1e28" filter="url(#shadow_light)"/>
+            <text class="level-title" x="75" y="35">Executive</text>
+            <text class="level-time" x="75" y="50">P1: 8hr</text>
+        </g>
+
+        <!-- Level 3 - Management -->
+        <g transform="translate(125, 100)">
+            <polygon points="0,0 250,0 200,60 50,60" fill="#f1c21b" filter="url(#shadow_light)"/>
+            <text class="level-title" x="125" y="35" fill="#393939">Management</text>
+            <text class="level-time" x="125" y="50" fill="#525252">P1: 4hr | P2: 8hr</text>
+        </g>
+
+        <!-- Level 2 - Senior Engineer -->
+        <g transform="translate(75, 155)">
+            <polygon points="0,0 350,0 300,60 50,60" fill="#0f62fe" filter="url(#shadow_light)"/>
+            <text class="level-title" x="175" y="35">Senior Engineer</text>
+            <text class="level-time" x="175" y="50">P1: 2hr | P2: 4hr</text>
+        </g>
+
+        <!-- Level 1 - Support Engineer (base) -->
+        <g transform="translate(25, 210)">
+            <polygon points="0,0 450,0 400,60 50,60" fill="#009d9a" filter="url(#shadow_light)"/>
+            <text class="level-title" x="225" y="35">Support Engineer</text>
+            <text class="level-time" x="225" y="50">Initial Response</text>
+        </g>
+
+        <!-- Side descriptions -->
+        <g transform="translate(30, 290)">
+            <rect width="200" height="50" rx="4" fill="#f4f4f4" stroke="#e0e0e0" stroke-width="1"/>
+            <text class="level-desc" x="10" y="20" font-weight="600">Response SLAs:</text>
+            <text class="level-desc" x="10" y="35">P1: 1hr | P2: 4hr | P3: 8hr</text>
+        </g>
+
+        <g transform="translate(270, 290)">
+            <rect width="200" height="50" rx="4" fill="#f4f4f4" stroke="#e0e0e0" stroke-width="1"/>
+            <text class="level-desc" x="10" y="20" font-weight="600">Resolution SLAs:</text>
+            <text class="level-desc" x="10" y="35">P1: 4hr | P2: 8hr | P3: 24hr</text>
+        </g>
+
+        <!-- Vertical escalation arrow -->
+        <g transform="translate(470, 100)">
+            <line x1="0" y1="0" x2="0" y2="130" stroke="#a8a8a8" stroke-width="2"/>
+            <polygon points="0,0 -6,15 6,15" fill="#a8a8a8"/>
+            <text font-family="Segoe UI" font-size="9" fill="#8d8d8d" transform="rotate(-90)" x="-80" y="-10">Escalation</text>
+        </g>
+    </svg>
+    

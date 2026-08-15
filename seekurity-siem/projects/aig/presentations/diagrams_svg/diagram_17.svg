@@ -1,0 +1,71 @@
+
+    <svg width="300" height="445" xmlns="http://www.w3.org/2000/svg">
+        
+    <defs>
+        <linearGradient id="gradient_blue" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#4589ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#0f62fe;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_success" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#a7f0ba;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#198038;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_purple" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#e8daff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#8a3ffc;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_dark" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#393939;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1c1c1c;stop-opacity:1" />
+        </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="2" dy="4" stdDeviation="4" flood-color="#161616" flood-opacity="0.15"/>
+        </filter>
+        <filter id="shadow_light" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#161616" flood-opacity="0.1"/>
+        </filter>
+    </defs>
+    
+        <style>
+            .slice-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; font-weight: 600; fill: #ffffff; text-anchor: middle; }
+            .legend-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; fill: #525252; }
+            .center-value { font-family: 'Segoe UI', Arial, sans-serif; font-size: 24px; font-weight: 700; fill: #393939; text-anchor: middle; }
+            .center-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; fill: #6f6f6f; text-anchor: middle; }
+        </style>
+    
+        <path d="M 150.0 40.0 A 110 110 0 0 1 238.99186938124421 214.65637775217203 L 203.39512162874655 188.79382665130322 A 66.0 66.0 0 0 0 150.0 84.0 Z" fill="#009d9a" stroke="#ffffff" stroke-width="2" filter="url(#shadow_light)"/>
+        
+            <text class="slice-label" x="228.40857412857636" y="114.04883602291989">35%</text>
+            
+        <path d="M 238.99186938124421 214.65637775217203 A 110 110 0 0 1 85.34362224782797 238.99186938124421 L 111.20617334869678 203.39512162874652 A 66.0 66.0 0 0 0 203.39512162874655 188.79382665130322 Z" fill="#0f62fe" stroke="#ffffff" stroke-width="2" filter="url(#shadow_light)"/>
+        
+            <text class="slice-label" x="163.76623292354034" y="240.91657397237213">25%</text>
+            
+        <path d="M 85.34362224782797 238.99186938124421 A 110 110 0 0 1 45.3837832075331 116.0081306187558 L 87.23026992451986 129.60487837125348 A 66.0 66.0 0 0 0 111.20617334869678 203.39512162874652 Z" fill="#8a3ffc" stroke="#ffffff" stroke-width="2" filter="url(#shadow_light)"/>
+        
+            <text class="slice-label" x="66.3070265660265" y="181.19349550499538">20%</text>
+            
+        <path d="M 45.3837832075331 116.0081306187558 A 110 110 0 0 1 97.00709584881132 53.60626519517501 L 118.20425750928679 92.163759117105 A 66.0 66.0 0 0 0 87.23026992451986 129.60487837125348 Z" fill="#1192e8" stroke="#ffffff" stroke-width="2" filter="url(#shadow_light)"/>
+        
+            <text class="slice-label" x="82.19483463573054" y="97.90668890211532">12%</text>
+            
+        <path d="M 97.00709584881132 53.60626519517501 A 110 110 0 0 1 149.99999999999997 40.0 L 150.0 84.0 A 66.0 66.0 0 0 0 118.20425750928679 92.163759117105 Z" fill="#8d8d8d" stroke="#ffffff" stroke-width="2" filter="url(#shadow_light)"/>
+        
+        <text class="center-value" x="150" y="150">100</text>
+        <text class="center-label" x="150" y="168">Total</text>
+    <g transform="translate(20, 310)">
+            <rect x="0" y="0" width="16" height="16" rx="3" fill="#009d9a"/>
+            <text class="legend-text" x="24" y="12">Network Security: 35 (35%)</text>
+            
+            <rect x="0" y="25" width="16" height="16" rx="3" fill="#0f62fe"/>
+            <text class="legend-text" x="24" y="37">Endpoint: 25 (25%)</text>
+            
+            <rect x="0" y="50" width="16" height="16" rx="3" fill="#8a3ffc"/>
+            <text class="legend-text" x="24" y="62">Identity: 20 (20%)</text>
+            
+            <rect x="0" y="75" width="16" height="16" rx="3" fill="#1192e8"/>
+            <text class="legend-text" x="24" y="87">Cloud: 12 (12%)</text>
+            
+            <rect x="0" y="100" width="16" height="16" rx="3" fill="#8d8d8d"/>
+            <text class="legend-text" x="24" y="112">Other: 8 (8%)</text>
+            </g></svg>

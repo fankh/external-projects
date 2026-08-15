@@ -1,0 +1,6 @@
+# 스크래치 출력 (프로젝트 폴더가 없는 고객사 보고서 생성 시 fallback 경로)
+output/
+
+# Python
+__pycache__/
+*.pyc

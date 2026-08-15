@@ -1,0 +1,100 @@
+
+    <svg width="800" height="350" xmlns="http://www.w3.org/2000/svg">
+        
+    <defs>
+        <linearGradient id="gradient_blue" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#4589ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#0f62fe;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_success" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#a7f0ba;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#198038;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_purple" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#e8daff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#8a3ffc;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient_dark" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#393939;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1c1c1c;stop-opacity:1" />
+        </linearGradient>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="2" dy="4" stdDeviation="4" flood-color="#161616" flood-opacity="0.15"/>
+        </filter>
+        <filter id="shadow_light" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="1" dy="2" stdDeviation="2" flood-color="#161616" flood-opacity="0.1"/>
+        </filter>
+    </defs>
+    
+        <style>
+            .axis-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; fill: #525252; }
+            .bar-value { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; font-weight: 600; fill: #ffffff; }
+            .legend-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; fill: #525252; }
+        </style>
+
+        <!-- Background -->
+        <rect width="800" height="350" fill="#ffffff" rx="8"/>
+
+        <!-- Title -->
+        <text font-family="Segoe UI" font-size="14" font-weight="600" fill="#393939" x="20" y="25">Before vs After Comparison</text>
+
+        <!-- Legend -->
+        <g transform="translate(620, 15)">
+            <rect width="12" height="12" rx="2" fill="#8d8d8d"/>
+            <text class="legend-text" x="18" y="10">Before</text>
+            <rect x="70" width="12" height="12" rx="2" fill="#198038"/>
+            <text class="legend-text" x="88" y="10">After</text>
+        </g>
+    
+        <text class="axis-label" x="120" y="95" text-anchor="end">Detection Coverage</text>
+        
+        <rect x="130" y="60" width="157.5" height="30"
+              rx="4" fill="#8d8d8d" filter="url(#shadow_light)"/>
+        <text class="bar-value" x="262.5" y="79">45</text>
+        
+        <rect x="130" y="95" width="322.0" height="30"
+              rx="4" fill="#198038" filter="url(#shadow_light)"/>
+        <text class="bar-value" x="427.0" y="114">92</text>
+        
+            <text font-family="Segoe UI" font-size="10" font-weight="600" fill="#198038"
+                  x="462.0" y="95">+104%</text>
+            
+        <text class="axis-label" x="120" y="180" text-anchor="end">MTTD (minutes)</text>
+        
+        <rect x="130" y="145" width="630.0" height="30"
+              rx="4" fill="#8d8d8d" filter="url(#shadow_light)"/>
+        <text class="bar-value" x="735.0" y="164">180</text>
+        
+        <rect x="130" y="180" width="42.0" height="30"
+              rx="4" fill="#198038" filter="url(#shadow_light)"/>
+        <text class="bar-value" x="147.0" y="199">12</text>
+        
+            <text font-family="Segoe UI" font-size="10" font-weight="600" fill="#da1e28"
+                  x="770.0" y="180">-93%</text>
+            
+        <text class="axis-label" x="120" y="265" text-anchor="end">Log Sources</text>
+        
+        <rect x="130" y="230" width="28.0" height="30"
+              rx="4" fill="#8d8d8d" filter="url(#shadow_light)"/>
+        <text class="bar-value" x="133.0" y="249">8</text>
+        
+        <rect x="130" y="265" width="84.0" height="30"
+              rx="4" fill="#198038" filter="url(#shadow_light)"/>
+        <text class="bar-value" x="189.0" y="284">24</text>
+        
+            <text font-family="Segoe UI" font-size="10" font-weight="600" fill="#198038"
+                  x="224.0" y="265">+200%</text>
+            
+        <text class="axis-label" x="120" y="350" text-anchor="end">Compliance Score</text>
+        
+        <rect x="130" y="315" width="210.0" height="30"
+              rx="4" fill="#8d8d8d" filter="url(#shadow_light)"/>
+        <text class="bar-value" x="315.0" y="334">60</text>
+        
+        <rect x="130" y="350" width="332.5" height="30"
+              rx="4" fill="#198038" filter="url(#shadow_light)"/>
+        <text class="bar-value" x="437.5" y="369">95</text>
+        
+            <text font-family="Segoe UI" font-size="10" font-weight="600" fill="#198038"
+                  x="472.5" y="350">+58%</text>
+            </svg>
