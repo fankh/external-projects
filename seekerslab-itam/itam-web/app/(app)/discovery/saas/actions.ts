@@ -1,7 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { today } from '@/lib/dates'
+import { decideSaasStatus } from '@/lib/saas'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import type { SaasCatalogEntry } from '@/lib/types'
@@ -25,18 +25,11 @@ export async function classifyShadowSaas(service: string, status: SaasCatalogEnt
   if (!entry) return { ok: false, message: `카탈로그에 없는 서비스입니다 — ${service}` }
   if (entry.status === status) return { ok: true, message: '' }
 
-  entry.status = status
-  entry.decidedAt = today()
-  entry.decidedBy = session.name
-  // 검토중으로 (재)접수되면 판정 기한(SLA) 기산점을 오늘로 갱신, 판정 완료되면 기한 추적 종료
-  if (status === '검토중') entry.reviewSince = today()
-  else entry.reviewSince = undefined
+  // 판정 로직 단일화 — 설정 카탈로그(decideSaas)와 동일한 상태 반영·사용현황 동기화·차단 집행 요청.
+  // 그동안 Shadow SaaS 화면 차단은 카탈로그 상태만 바꾸고 보안운영팀 프록시·DNS 차단 집행 요청이 누락됐다.
+  const { newlyBlocked } = decideSaasStatus(entry, status, session.name)
 
-  // 폐쇄 루프 — 판정을 부서별 사용 현황의 인가 여부에 즉시 반영
-  const usage = s.saas.find((u) => u.service === service)
-  if (usage) usage.sanctioned = status === '인가'
-
-  appendAudit({ actor: session.name, action: `Shadow SaaS 판정 → ${status}`, target: service })
+  appendAudit({ actor: session.name, action: `Shadow SaaS 판정 → ${status}${newlyBlocked ? ' · 보안운영팀 차단 집행 요청' : ''}`, target: service })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${service} → ${status}${status === '인가' ? ' (인가 카탈로그 등재)' : status === '차단' ? ' (차단 대상)' : ''}` }
+  return { ok: true, message: `${service} → ${status}${status === '인가' ? ' (인가 카탈로그 등재)' : newlyBlocked ? ' (차단 대상 · 프록시·DNS 차단 집행 요청)' : status === '차단' ? ' (차단 대상)' : ''}` }
 }
