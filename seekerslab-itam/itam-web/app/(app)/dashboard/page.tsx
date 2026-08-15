@@ -137,7 +137,14 @@ export default async function DashboardPage() {
       { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
     )
   }
-  const opsActive = opsQueues.filter((q) => q.count > 0)
+  // 운영 대기 우선순위 — 긴급(err)을 주의(warn)보다 위로, 같은 등급은 적체 규모(count) 큰 순. 화면마다 흩어진 큐를
+  //  담당자 일과 시작점에서 '무엇부터'가 바로 보이게 정렬한다(삽입 순서 그대로면 긴급·주의가 뒤섞인다).
+  const TONE_RANK = { err: 0, warn: 1 } as const
+  const opsActive = opsQueues
+    .filter((q) => q.count > 0)
+    .sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone] || b.count - a.count)
+  const opsErr = opsActive.filter((q) => q.tone === 'err').length
+  const opsWarn = opsActive.filter((q) => q.tone === 'warn').length
 
   const expiring = [
     ...s.contracts.filter((c) => c.status !== '해지').map((c) => ({ id: c.id, name: c.name, kind: c.kind === '유지보수' ? '유지보수 계약' : '구매 계약', end: c.end, d: daysUntil(c.end) })),
@@ -362,7 +369,13 @@ export default async function DashboardPage() {
           </Card>
 
           {session.role !== 'USER' && (
-            <Card kicker="Operations" title="운영 대기">
+            <Card kicker="Operations" title="운영 대기"
+              actions={opsActive.length > 0 ? (
+                <span className="hstack" style={{ gap: 6 }}>
+                  {opsErr > 0 && <Chip tone="err" bare>긴급 {opsErr}</Chip>}
+                  {opsWarn > 0 && <Chip tone="warn" bare>주의 {opsWarn}</Chip>}
+                </span>
+              ) : undefined}>
               <div className="vstack" style={{ gap: 8 }}>
                 {opsActive.length > 0 ? opsActive.map((q) => (
                   <Link key={q.label} href={q.href} className="hstack"
