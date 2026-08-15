@@ -4,7 +4,7 @@ import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { getStore, nextNo } from '@/lib/store'
+import { getStore, highSevOpen, nextNo } from '@/lib/store'
 import { SECURITY_REVIEW_KINDS } from '@/lib/types'
 import type { SecurityReviewKind, SecurityReviewStatus } from '@/lib/types'
 
@@ -30,20 +30,29 @@ async function addReview(formData: FormData) {
   revalidatePath('/compliance/security-review')
 }
 
-/** 발견·조치 건수 기록 — 진행·조치중 단계에서 취약점 발견 수와 조치 완료 수를 갱신하고 증적을 첨부한다. */
+/** 등급별 발견·조치 건수 기록 — 진행·조치중 단계에서 심각도 등급별 발견/조치를 갱신하고 증적을 첨부한다.
+ *  findings/fixed 총계는 등급 합으로 유지된다(기존 소비처 정합). 각 등급 조치는 그 등급 발견 이하. */
 async function recordFindings(formData: FormData) {
   'use server'
   const me = await requireMenuRole('/compliance/security-review', 'BIZ_MGR', 'ADMIN')
   const id = String(formData.get('id') ?? '')
-  const findings = Number(formData.get('findings'))
-  const fixed = Number(formData.get('fixed'))
   const s = getStore()
   const r = s.securityReviews.find((x) => x.id === id && x.status !== '완료')
-  if (!r || !Number.isFinite(findings) || findings < 0 || findings > 9999) return
-  // 조치 수는 발견 수를 넘지 못한다 — 조치율 100% 초과·음수 방지 (governance 지표 무결성)
-  if (!Number.isFinite(fixed) || fixed < 0 || fixed > findings) return
-  r.findings = Math.round(findings)
-  r.fixed = Math.round(fixed)
+  if (!r) return
+  const grades = [['critFound', 'critFixed'], ['highFound', 'highFixed'], ['medFound', 'medFixed'], ['lowFound', 'lowFixed']] as const
+  const v: Record<string, number> = {}
+  for (const [fKey, xKey] of grades) {
+    const f = Number(formData.get(fKey)); const x = Number(formData.get(xKey))
+    // 각 등급: 발견 0~9999, 조치는 그 등급 발견 이하(등급별 조치율 100% 초과·음수 방지 — 무결성)
+    if (!Number.isFinite(f) || f < 0 || f > 9999 || !Number.isFinite(x) || x < 0 || x > f) return
+    v[fKey] = Math.round(f); v[xKey] = Math.round(x)
+  }
+  r.critFound = v.critFound; r.critFixed = v.critFixed
+  r.highFound = v.highFound; r.highFixed = v.highFixed
+  r.medFound = v.medFound; r.medFixed = v.medFixed
+  r.lowFound = v.lowFound; r.lowFixed = v.lowFixed
+  r.findings = v.critFound + v.highFound + v.medFound + v.lowFound
+  r.fixed = v.critFixed + v.highFixed + v.medFixed + v.lowFixed
   // 취약점 점검·시큐어코딩 결과 보고서 등 자료 제출 (제품안내서 VI장: 자료 제출)
   registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/compliance/security-review')
@@ -76,6 +85,8 @@ export default async function SecurityReviewPage() {
   const open = rows.filter((r) => r.status !== '완료')
   // 미조치 잔여 취약점 — 발견 대비 조치 미완료 (열린 검토 기준)
   const openFindings = open.reduce((sum, r) => sum + Math.max(0, r.findings - r.fixed), 0)
+  // 고위험(심각+높음) 미조치 — 우선 조치 신호 (store 단일 원천 highSevOpen)
+  const highOpen = open.reduce((sum, r) => sum + highSevOpen(r), 0)
   // 평균 조치율 — 발견이 있는 검토만 분모로(발견 0 건은 조치 대상이 없어 제외), div-zero·false-100 방어
   const withFindings = rows.filter((r) => r.findings > 0)
   const totalFindings = withFindings.reduce((sum, r) => sum + r.findings, 0)
@@ -89,7 +100,8 @@ export default async function SecurityReviewPage() {
 
       <div className="stat-row">
         <Stat value={rows.length} label="전체 검토" note={`진행중 ${open.length}건`} />
-        <Stat value={openFindings} label="미조치 취약점" tone={openFindings > 0 ? 'err' : undefined} />
+        <Stat value={highOpen} label="고위험 미조치" tone={highOpen > 0 ? 'err' : undefined} note="심각+높음" />
+        <Stat value={openFindings} label="미조치 취약점" tone={openFindings > 0 ? 'warn' : undefined} note="전 등급" />
         <Stat value={rows.filter((r) => r.status === '완료').length} label="완료" />
         <Stat value={withFindings.length ? `${fixRate}%` : '-'} label="평균 조치율" note="발견 검토 기준" />
       </div>
@@ -130,7 +142,7 @@ export default async function SecurityReviewPage() {
                       <td>{r.target}</td>
                       <td>{r.reviewer}</td>
                       <td className="tnum">{r.plannedAt}</td>
-                      <td className="num">{r.findings === 0 && r.status === '계획' ? '-' : `${r.fixed} / ${r.findings}`}</td>
+                      <td className="num">{r.findings === 0 && r.status === '계획' ? '-' : (<>{r.fixed} / {r.findings}{highSevOpen(r) > 0 && <> <Chip tone="err" bare>고위험 {highSevOpen(r)}</Chip></>}</>)}</td>
                       <td className="num">{rate === null ? <span className="mut">-</span> : <Chip tone={rate >= 100 ? 'ok' : rate < 50 ? 'err' : 'warn'} bare>{rate}%</Chip>}</td>
                       <td><Chip tone={ST_CHIP[r.status]}>{r.status}</Chip>{r.completedAt ? <span className="mut" style={{ fontSize: 10.5 }}> · {r.completedAt}</span> : ''}</td>
                       {canManage && (
@@ -139,12 +151,20 @@ export default async function SecurityReviewPage() {
                             <span className="mut">-</span>
                           ) : (
                             <div className="hstack" style={{ justifyContent: 'center', gap: 6 }}>
-                              <form action={recordFindings} className="hstack" style={{ gap: 4, padding: '3px 0' }}>
+                              <form action={recordFindings} className="vstack" style={{ gap: 2, padding: '3px 0' }}>
                                 <input type="hidden" name="id" value={r.id} />
-                                <input aria-label="발견" className="input" name="findings" type="number" min={0} defaultValue={r.findings} title="발견 취약점 수" style={{ height: 25, fontSize: 11.5, width: 54 }} />
-                                <input aria-label="조치" className="input" name="fixed" type="number" min={0} defaultValue={r.fixed} title="조치 완료 수" style={{ height: 25, fontSize: 11.5, width: 54 }} />
-                                <input className="input" type="file" name="file" style={{ height: 25, fontSize: 11, width: 118, paddingTop: 2 }} title="검토 결과 증적 첨부" />
-                                <button type="submit" className="btn sm">기록</button>
+                                <div className="hstack" style={{ gap: 3, fontSize: 10, color: 'var(--dim)' }}><span style={{ width: 28 }}>등급</span><span style={{ width: 44, textAlign: 'center' }}>발견</span><span style={{ width: 44, textAlign: 'center' }}>조치</span></div>
+                                {([['심각', 'critFound', 'critFixed', true], ['높음', 'highFound', 'highFixed', true], ['보통', 'medFound', 'medFixed', false], ['낮음', 'lowFound', 'lowFixed', false]] as const).map(([label, fKey, xKey, high]) => (
+                                  <div key={fKey} className="hstack" style={{ gap: 3, alignItems: 'center' }}>
+                                    <span style={{ fontSize: 10.5, width: 28, color: high ? 'var(--err)' : 'var(--dim)' }}>{label}</span>
+                                    <input aria-label={`${label} 발견`} className="input" name={fKey} type="number" min={0} defaultValue={r[fKey]} title={`${label} 발견`} style={{ height: 22, fontSize: 11, width: 44 }} />
+                                    <input aria-label={`${label} 조치`} className="input" name={xKey} type="number" min={0} defaultValue={r[xKey]} title={`${label} 조치 (발견 이하)`} style={{ height: 22, fontSize: 11, width: 44 }} />
+                                  </div>
+                                ))}
+                                <div className="hstack" style={{ gap: 3, marginTop: 1 }}>
+                                  <input className="input" type="file" name="file" style={{ height: 22, fontSize: 10.5, width: 92, paddingTop: 2 }} title="검토 결과 증적 첨부" />
+                                  <button type="submit" className="btn sm">기록</button>
+                                </div>
                               </form>
                               {next && (
                                 <form action={advanceReview} style={{ display: 'inline' }}>
@@ -166,8 +186,9 @@ export default async function SecurityReviewPage() {
       </Card>
 
       <div className="callout">
-        <b>처리 절차</b> — 검토를 계획으로 등록하고, 진행하며 발견·조치 건수와 증적을 기록한다. 발견 취약점을
-        전건 조치하면 완료로 확정된다(미조치 잔여가 있으면 완료 불가). 조치율·미조치 취약점으로 보안성 현황을 집계한다.
+        <b>처리 절차</b> — 검토를 계획으로 등록하고, 진행하며 심각도 등급별(심각·높음·보통·낮음) 발견·조치
+        건수와 증적을 기록한다. 발견 취약점을 전건 조치하면 완료로 확정된다(미조치 잔여가 있으면 완료 불가).
+        <b>고위험(심각+높음) 미조치</b>가 우선 조치 신호이며, 조치율·미조치 취약점과 함께 보안성 현황을 집계한다.
       </div>
     </>
   )

@@ -620,6 +620,11 @@ export function eligibleForCourse(s: Store, target: string | undefined): Person[
 
 /** 공통코드 그룹의 활성 코드값 목록 — 업무 화면 선택지·서버 검증의 단일 원천.
  *  사용중지·기간만료 코드는 빠진다(요구사항 73행: 공통코드가 업무 선택지에 반영). */
+/** 고위험(심각+높음) 미조치 취약점 — 보안성 검토의 우선 조치 신호. 화면·대시보드·종합 export 의 단일 원천. */
+export function highSevOpen(r: { critFound: number; critFixed: number; highFound: number; highFixed: number }): number {
+  return Math.max(0, (r.critFound + r.highFound) - (r.critFixed + r.highFixed))
+}
+
 export function activeCodes(s: Store, groupId: string): string[] {
   return s.codeGroups.find((g) => g.id === groupId)?.values.filter(isCodeActive).map((v) => v.code) ?? []
 }
