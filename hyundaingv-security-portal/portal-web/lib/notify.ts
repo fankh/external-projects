@@ -91,7 +91,7 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
 
   // 3) SR 지연 — 완료 예정일 경과 진행 건의 담당 CI
   await send('SR 지연',
-    s.srRequests.filter((r) => r.dueDate && r.dueDate < t && !['완료', '반려', '작성중', '결재중'].includes(r.status))
+    s.srRequests.filter((r) => r.dueDate && r.dueDate < t && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status))
       .map((r) => r.ci ?? r.requester),
     '[SR] 완료 예정일 경과 안내')
 

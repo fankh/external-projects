@@ -60,7 +60,7 @@ export default async function DashboardPage() {
   const signedNames = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= generalRevisedAt).map((p) => p.name))
   const ops = {
     incidents: s.incidents.filter((i) => i.status === '조치중').length,
-    delayedSr: s.srRequests.filter((r) => r.dueDate && r.dueDate < today() && !['완료', '반려', '작성중', '결재중'].includes(r.status)).length,
+    delayedSr: s.srRequests.filter((r) => r.dueDate && r.dueDate < today() && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status)).length,
     openIssues: s.projectIssues.filter((i) => i.status === '오픈').length,
     unsigned: s.people.filter((p) => !signedNames.has(p.name)).length,
     inspections: s.inspectionPlans.filter((p) => p.status === '결과미등록' || (p.month < period && p.status === '계획')).length,

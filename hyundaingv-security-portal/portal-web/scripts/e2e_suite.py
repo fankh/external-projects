@@ -52,6 +52,7 @@ RMGHOST_DATA = ROOT / 'scripts' / '.e2e-rmghost-data.json'  # 인사연동 퇴�
 AFDEFEAT_DATA = ROOT / 'scripts' / '.e2e-afdefeat-data.json'  # 필수 자동양식 파일명충돌 우회 회귀용 (v1.5.91)
 QNAROLE_DATA = ROOT / 'scripts' / '.e2e-qnarole-data.json'  # QnA 담당 지정 역할 정합 회귀용 (v1.5.92)
 DTNAN_DATA = ROOT / 'scripts' / '.e2e-dtnan-data.json'  # 손상 날짜 일수계산 NaN 렌더 방지 회귀용 (v1.5.93)
+SRSUSP_DATA = ROOT / 'scripts' / '.e2e-srsusp-data.json'  # SR 중지(BA030014) 지연 제외 회귀용 (v1.5.96)
 
 
 def login(pg, base, name):
@@ -583,6 +584,23 @@ def sc_secprint_system_registered(pg, base, check):
     pg.goto(f'{base}/infra/systems', wait_until='networkidle')
     check('보안·출력물 시스템' in pg.locator('.card', has_text='시스템 현황').inner_text(),
           '보안·출력물 시스템이 정식 등록돼 시스템 목록에 노출(BJ-02 토폴로지 매핑 복원, 과소집계 해소)')
+
+
+def sc_sr_suspend(pg, base, check):
+    """SR 중지(BA030014, 결재 시트 rows 4·6·7 '진행상태가 SR중지인 경우 반영 안함') — 활성 진행 SR 을 보류하면
+    진행 처리·지연 집계·SR지연 알림에서 빠지고, 재개 시 직전 상태로 복원. 개발중·과거 dueDate SR 을 중지 →
+    상태 중지·재개 버튼, 지연 목록에서 제외 확인."""
+    login(pg, base, '박정호')  # BIZ_MGR — SR 관리 권한
+    pg.goto(f'{base}/sr/delayed', wait_until='networkidle')
+    check('중지테스트SR' in pg.content(), '전제: 활성 개발중 SR 이 지연 목록에 있음')
+    pg.goto(f'{base}/sr/manage', wait_until='networkidle')
+    pg.locator('tr', has_text='중지테스트SR').locator('button:has-text("중지")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/sr/manage', wait_until='networkidle')
+    txt = pg.locator('tr', has_text='중지테스트SR').inner_text()
+    check('중지' in txt and '재개' in txt, f'SR 중지 → 상태 중지·재개 버튼 (실제 …{txt[-24:]})')
+    pg.goto(f'{base}/sr/delayed', wait_until='networkidle')
+    check('중지테스트SR' not in pg.content(), '중지 SR 은 지연 목록에서 제외(BA030014 반영 안함)')
 
 
 def sc_delayed_corrupt_date(pg, base, check):
@@ -1806,6 +1824,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(AFDEFEAT_DATA)}),
     ('qna_assign_role', 'QnA 담당 지정 역할 정합 — 답변 가능 역할만', sc_qna_assign_role,
      {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
+    ('sr_suspend', 'SR 중지(BA030014) — 지연 제외·재개 복원', sc_sr_suspend,
+     {'PORTAL_DATA_FILE': str(SRSUSP_DATA)}),
     ('delayed_corrupt_date', '손상 날짜 일수계산 NaN 렌더 방지 — daysBetween 유한 가드', sc_delayed_corrupt_date,
      {'PORTAL_DATA_FILE': str(DTNAN_DATA)}),
     ('secprint_system_registered', '보안·출력물 시스템 정식 등록 — BJ-02 토폴로지 과소집계 해소', sc_secprint_system_registered, {}),
@@ -2117,6 +2137,12 @@ def main() -> int:
                         'kind': '시스템개발', 'status': '개발중', 'requestedAt': '2026-07-01', 'dueDate': '0000-00-00',
                         'ci': '박정호'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # sr_suspend 시나리오용(v1.5.96) — 개발중·과거 dueDate SR(지연 목록 진입). 중지하면 지연에서 빠져야 한다.
+    SRSUSP_DATA.write_text(json.dumps({
+        'srRequests': [{'srNo': 'SR-9060', 'title': '중지테스트SR', 'system': 'ERP', 'requester': '김현우', 'dept': '개발1팀',
+                        'kind': '시스템개발', 'status': '개발중', 'requestedAt': '2026-07-01', 'dueDate': '2026-07-15',
+                        'ci': '박정호'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -2154,6 +2180,7 @@ def main() -> int:
     AFDEFEAT_DATA.unlink(missing_ok=True)
     QNAROLE_DATA.unlink(missing_ok=True)
     DTNAN_DATA.unlink(missing_ok=True)
+    SRSUSP_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
