@@ -316,6 +316,10 @@ try {
   // 판정 기한 경과 에스컬레이션 — 검토중 SLA 초과분(소유자 확인 미응답과 동형)을 별도 err 큐로 노출. 방치 방지.
   check('대시보드(보안담당): 미판정 SaaS 판정 기한 경과 에스컬레이션 큐 노출', dashSec.includes('미판정 SaaS 판정 기한 경과') && dashSec.includes('에스컬레이션'))
   check('대시보드(자산담당): 미판정 SaaS 큐 미노출 (보안 운영 큐)', !dashHtml.includes('미판정 SaaS'))
+  // 필독 공지 확인 미달(§07 정책 전파·확인) — Admin 전용 컴플라이언스 큐. 시드 NTC-01(필독, 미확인 6명)로 노출. 공지 등록·독촉은 Admin 책무.
+  const dashAdmin = await (await get('/dashboard', 'ADMIN')).text()
+  check('대시보드(Admin): 필독 공지 확인 미달 컴플라이언스 큐 노출', dashAdmin.includes('필독 공지 확인 미달') && dashAdmin.includes('정책 전파 증적'))
+  check('대시보드(자산담당): 필독 공지 확인 미달 큐 미노출 (Admin 전용)', !dashHtml.includes('필독 공지 확인 미달'))
   // USB 정책 위반 미조치 — loop48. EDR 이동식 매체 DLP 도 보안담당 운영 큐에 노출(자산담당엔 미노출)
   check('대시보드(보안담당): USB 정책 위반 미조치 운영 큐 노출', dashSec.includes('USB 정책 위반 미조치'))
   check('대시보드(자산담당): USB 큐 미노출 (보안 운영 큐)', !dashHtml.includes('USB 정책 위반 미조치'))
