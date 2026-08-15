@@ -1000,6 +1000,14 @@ try {
   await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' })
   const newSaasRow = p3.locator('tr').filter({ hasText: 'e2e-신규SaaS' }).first()
   ok('SaaS 카탈로그 신규 등록: 검토중으로 카탈로그 등재(create)', (await newSaasRow.count()) > 0 && ((await newSaasRow.textContent()) || '').includes('검토중'))
+  // 등록 가드(경계) — 빈 서비스명은 등재 버튼 비활성, 중복 서비스명은 서버가 거부한다(create 파리티 방어).
+  await p3.locator('button', { hasText: /^\+ SaaS 등록$/ }).click()
+  await p3.waitForTimeout(200)
+  ok('SaaS 등록 가드: 빈 서비스명이면 등재 버튼 비활성', await p3.locator('button', { hasText: /^검토중으로 등재$/ }).isDisabled())
+  await p3.locator('input[placeholder="서비스명 (필수)"]').fill('e2e-신규SaaS')
+  await p3.locator('button', { hasText: /^검토중으로 등재$/ }).click()
+  await p3.waitForTimeout(600)
+  ok('SaaS 등록 가드: 중복 서비스명 거부(이미 카탈로그에 있는 서비스)', ((await p3.textContent('body')) || '').includes('이미 카탈로그에 있는 서비스'))
   // 반납 결재 승인 → 라이선스 좌석 자동 회수(로56 좌석 생애주기 버그픽스) — 담당자 회수·폐기뿐 아니라 사용자 반납 승인도 좌석을 회수한다. 시드 AST-2025-000513(LIC-001 좌석)·APR-2607-117.
   await p3.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
   ok('반납 좌석 회수 전: 배정 라이선스 역조회 노출(LIC-001)', ((await p3.locator('body').textContent()) || '').includes('배정 라이선스') && ((await p3.locator('body').textContent()) || '').includes('Microsoft 365'))
