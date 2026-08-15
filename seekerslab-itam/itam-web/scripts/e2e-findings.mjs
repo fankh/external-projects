@@ -665,6 +665,9 @@ try {
   await ctx3.addCookies([cookie(ADMIN)])
   const p3 = await ctx3.newPage()
   p3.on('pageerror', (e) => { fail++; console.log('  ✗ PAGEERROR: ' + (e.message || e)) })
+  // 대여 연장 요청 대기 대시보드 큐(자산담당) — 사용자 연장 요청이 통보만으로 놓치지 않게 대시보드에도 뜬다. pU 가 방금 AST-2024-000230 에 요청했다.
+  await p3.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  ok('대시보드(자산담당): 대여 연장 요청 대기 큐 노출', ((await p3.textContent('body')) || '').includes('대여 연장 요청 대기'))
   // 대여 연장 요청 승인(자산담당 측) — 사용자가 올린 연장 요청을 자산담당이 요청대로 반영한다. 위 pU 가 AST-2024-000230 에 2026-09-30 연장 요청.
   await p3.goto(`${BASE}/assets/register?sel=AST-2024-000230`, { waitUntil: 'networkidle' })
   ok('대여 연장 요청 승인: 자산담당에 요청대로 연장 버튼 노출', (await p3.locator('button', { hasText: /^요청대로 연장$/ }).count()) > 0)
