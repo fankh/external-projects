@@ -247,10 +247,71 @@ export async function extendLoan(assetNo: string, newDueDate: string) {
   if (cur && newDueDate <= cur) return { ok: false, message: `현재 기한(${cur}) 이후로만 연장할 수 있습니다.` }
 
   asset.loanDueDate = newDueDate
+  asset.loanExtendRequest = undefined // 담당자 직접 연장 시 대기 중이던 연장 요청도 해제
   asset.history.push({ date: today(), kind: '대여', detail: `대여 반환 기한 연장 ${cur || '-'} → ${newDueDate}`, actor: session.name })
   appendAudit({ actor: session.name, action: `대여 반환 기한 연장 — ${cur || '-'} → ${newDueDate}`, target: assetNo })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${assetNo} 반환 기한 연장 — ${cur || '-'} → ${newDueDate}` }
+}
+
+/** 대여 반환 기한 연장 요청 — 대여자(사용자)가 본인 대여 자산의 반환 기한 연장을 자산담당에게 신청한다.
+ *  (그동안 연장은 자산담당만 할 수 있어, 대여자는 기한이 다가와도 셀프서비스로 연장을 요청할 경로가 없었다 — 다른 사용자 신청과 달리.)
+ *  본인 대여중 자산만, 현재 기한 이후 날짜로만. 요청은 자산담당에게 통보되고 대장 상세에 뜬다. 승인 시 실제 연장, 반려 시 요청만 해제. */
+export async function requestLoanExtension(assetNo: string, rawNewDueDate: string, rawReason: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '대여중' || asset.owner !== session.name) return { ok: false, message: '본인 대여 중인 자산만 연장 요청할 수 있습니다.' }
+  const newDueDate = rawNewDueDate.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDueDate) || newDueDate <= (asset.loanDueDate ?? today())) {
+    return { ok: false, message: `연장 기한은 현재 반환 기한(${asset.loanDueDate ?? '-'}) 이후로 지정하세요.` }
+  }
+  const reason = rawReason.trim()
+  if (!reason) return { ok: false, message: '연장 사유를 입력하세요.' }
+  asset.loanExtendRequest = { newDueDate, reason, by: session.name, at: today() }
+  dispatch({ channel: '이메일', to: '자산관리팀', subject: `대여 반환 기한 연장 요청 — ${asset.assetNo} ${asset.model} (${session.name}) ${asset.loanDueDate ?? '-'} → ${newDueDate}`, kind: '자산 대여', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `대여 반환 기한 연장 요청 — ${asset.loanDueDate ?? '-'} → ${newDueDate} (${reason})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `연장 요청 발송 — 자산관리팀 검토 후 승인되면 기한이 ${newDueDate}로 연장됩니다.` }
+}
+
+/** 대여 연장 요청 승인 — 자산담당이 대여자의 연장 요청을 요청대로 반영한다(요청 날짜로 반환 기한 연장·요청자 통보). 자산담당·Admin. */
+export async function grantLoanExtension(assetNo: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '대여 연장 승인 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  const req = asset.loanExtendRequest
+  if (!req || asset.status !== '대여중') return { ok: false, message: '연장 요청이 없는 자산입니다.' }
+  const cur = asset.loanDueDate ?? '-'
+  asset.loanDueDate = req.newDueDate
+  asset.loanExtendRequest = undefined
+  asset.history.push({ date: today(), kind: '대여', detail: `대여 연장 요청 승인 — ${cur} → ${req.newDueDate} (요청자 ${req.by} · ${req.reason})`, actor: session.name })
+  dispatch({ channel: '이메일', to: req.by, subject: `대여 연장 승인 — ${asset.assetNo} ${asset.model} 반환 기한 ${req.newDueDate}로 연장`, kind: '자산 대여', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `대여 연장 요청 승인 — ${cur} → ${req.newDueDate} (요청자 ${req.by})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 대여 연장 승인 — ${cur} → ${req.newDueDate} · 요청자 통보` }
+}
+
+/** 대여 연장 요청 반려 — 요청만 해제하고 기한은 유지한다(사유는 이력에 남긴다). 자산담당·Admin. */
+export async function declineLoanExtension(assetNo: string, rawReason: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '대여 연장 반려 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  const req = asset.loanExtendRequest
+  if (!req) return { ok: false, message: '연장 요청이 없는 자산입니다.' }
+  const reason = rawReason.trim()
+  asset.loanExtendRequest = undefined
+  asset.history.push({ date: today(), kind: '대여', detail: `대여 연장 요청 반려 (요청자 ${req.by} · ${req.newDueDate})${reason ? ` — ${reason}` : ''}`, actor: session.name })
+  dispatch({ channel: '이메일', to: req.by, subject: `대여 연장 반려 — ${asset.assetNo} ${asset.model} (반환 기한 ${asset.loanDueDate ?? '-'} 유지)${reason ? ` · ${reason}` : ''}`, kind: '자산 대여', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `대여 연장 요청 반려 — ${asset.assetNo} (요청자 ${req.by})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 대여 연장 반려 — 기한 유지·요청자 통보` }
 }
 
 /** 대여 반환 접수 — 대여 자산을 회수해 유휴 풀로 되돌린다(연체 여부와 무관하게 반환 처리).
