@@ -635,6 +635,20 @@ def sc_security_review(pg, base, check):
     check('완료' in txt and '조치중' not in txt, f'전건 조치(5/5) 후 완료 확정 (실제 …{txt[-20:]})')
 
 
+def sc_compliance_trend(pg, base, check):
+    """컴플라이언스 추세 스냅샷(v1.5.135~) — 주기별 KPI 스냅샷으로 전기 대비 개선 추이(ISMS 감사 근거).
+    시드 2026-06·07 추세 카드 확인(서약률 50→62 개선 델타 +12), '현황 스냅샷 기록' → 감사 이력 기록 확인."""
+    login(pg, base, '시스템관리자')  # ADMIN — 추세 열람·기록·감사 확인
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    card = pg.locator('.card', has_text='컴플라이언스 추세').inner_text()
+    check('2026-06' in card and '2026-07' in card, '전제: 추세 카드에 시드 스냅샷 2건')
+    check('+12' in card, '서약률 개선 델타(+12, 50→62) 전기 대비 표시')
+    pg.locator('.card', has_text='컴플라이언스 추세').locator('button:has-text("현황 스냅샷 기록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    check('컴플라이언스 스냅샷' in pg.content(), '스냅샷 기록이 감사 이력에 남음')
+
+
 def sc_delayed_corrupt_date(pg, base, check):
     """손상 날짜 일수계산 NaN 렌더 방지(v1.5.93) — strField 정규화는 날짜를 문자열로만 보장하고 유효성은
     검증 안 하므로, 손상 파일의 파싱 불가 dueDate('0000-00-00')가 지연목록에 들어가면 daysBetween 의
@@ -1859,6 +1873,7 @@ SCENARIOS = [
     ('sr_suspend', 'SR 중지(BA030014) — 지연 제외·재개 복원', sc_sr_suspend,
      {'PORTAL_DATA_FILE': str(SRSUSP_DATA)}),
     ('security_review', '보안성 검토(VI장) — 완료 가드(발견 전건 조치)·조치율', sc_security_review, {}),
+    ('compliance_trend', '컴플라이언스 추세 스냅샷 — 개선 델타·기록 감사', sc_compliance_trend, {}),
     ('delayed_corrupt_date', '손상 날짜 일수계산 NaN 렌더 방지 — daysBetween 유한 가드', sc_delayed_corrupt_date,
      {'PORTAL_DATA_FILE': str(DTNAN_DATA)}),
     ('secprint_system_registered', '보안·출력물 시스템 정식 등록 — BJ-02 토폴로지 과소집계 해소', sc_secprint_system_registered, {}),

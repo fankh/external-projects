@@ -460,6 +460,11 @@ async function main() {
     check(compUser.status === 403, 'export: USER 컴플라이언스 종합 차단(403)')
     const compDept = await get('/api/export?type=compliance-summary', 'DEPT_MGR')
     check(compDept.status === 403, 'export: DEPT_MGR 컴플라이언스 종합 차단(403 — inspection BIZ 게이트)')
+    // 컴플라이언스 추세 — 동일 /compliance/inspection(BIZ) 게이트
+    const trendCsv = await get('/api/export?type=compliance-trend', 'BIZ_MGR')
+    check(trendCsv.status === 200 && (await trendCsv.text()).includes('서약률'), 'export: 컴플라이언스 추세 CSV (BIZ_MGR)')
+    const trendUser = await get('/api/export?type=compliance-trend', 'USER')
+    check(trendUser.status === 403, 'export: USER 컴플라이언스 추세 차단(403)')
     // IT 운영 종합 현황 — /sr/manage(BIZ) 게이트라 담당·Admin 만, DEPT_MGR·USER 차단
     const itopsCsv = await get('/api/export?type=itops-summary', 'BIZ_MGR')
     check(itopsCsv.status === 200 && (await itopsCsv.text()).includes('진행중 SR'), 'export: IT 운영 종합 현황 CSV (BIZ_MGR)')
