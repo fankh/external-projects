@@ -137,6 +137,13 @@ export default async function DashboardPage() {
       { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
     )
   }
+  if (session.role === 'ADMIN') {
+    // 필독 공지 확인 미달 — 발행된 필독(상단 고정) 공지 중 전 사용자가 읽음 확인하지 않은 것(§07 정책 전파·확인 증적).
+    //  공지 등록·독촉은 Admin 책무 — 사용자 측 '미확인 필독' 넛지와 per-공지 미확인자 명단의 관리자 측 집계. 예약 발행(미래) 공지는 제외.
+    const totalUsers = s.users.length
+    const noticeGap = s.posts.filter((p) => p.kind === '공지' && p.pinned && (!p.publishAt || p.publishAt <= today()) && (p.acks?.length ?? 0) < totalUsers).length
+    opsQueues.push({ label: '필독 공지 확인 미달 (전사 독려 · 정책 전파 증적)', count: noticeGap, href: '/board/notices', tone: 'warn' })
+  }
   // 운영 대기 우선순위 — 긴급(err)을 주의(warn)보다 위로, 같은 등급은 적체 규모(count) 큰 순. 화면마다 흩어진 큐를
   //  담당자 일과 시작점에서 '무엇부터'가 바로 보이게 정렬한다(삽입 순서 그대로면 긴급·주의가 뒤섞인다).
   const TONE_RANK = { err: 0, warn: 1 } as const
