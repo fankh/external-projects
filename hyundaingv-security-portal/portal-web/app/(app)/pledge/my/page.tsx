@@ -60,8 +60,10 @@ async function signProject(formData: FormData) {
   if (formData.get('agree') !== 'on') return
   const s = getStore()
   const pj = s.projects.find((p) => p.id === projectRef && p.status === '진행중')
-  // 투입 인력 명단이 있으면 명단 인원만 서약 대상 (명단 없는 구건은 전원 허용)
-  if (!pj || (pj.members && !pj.members.includes(me.name))) return
+  // 투입 인력 명단이 있으면 명단 인원만 서약 대상 (명단 없는 구건은 전원 허용). 빈 명단([])은 미지정과
+  // 동일 취급 — 옵셔널 members 가 영속화·재로딩에서 undefined→[] 로 정규화돼도(빈 배열 truthy) 전원이
+  // 서명 차단되지 않도록 length 로 판정한다.
+  if (!pj || (pj.members && pj.members.length > 0 && !pj.members.includes(me.name))) return
   const revisedAt = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
   if (s.pledges.some((p) => p.name === me.name && p.kind === '프로젝트' && p.projectRef === projectRef && p.signedAt >= revisedAt)) return
   s.pledges.push({ name: me.name, dept: me.dept, year: currentYear(), kind: '프로젝트', signedAt: nowStampSec(), method: '온라인', projectRef })

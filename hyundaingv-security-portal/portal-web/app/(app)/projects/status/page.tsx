@@ -44,6 +44,21 @@ async function updateProgress(formData: FormData) {
   pj.progress = Math.round(progress)
   // 폐쇄 루프 — 진척 100% 는 완료로 확정된다
   pj.status = pj.progress >= 100 ? '완료' : '진행중'
+  // 폐쇄 루프 — 완료 확정 시, 이 프로젝트 멤버 중 서명 대상 '진행중' 프로젝트가 더는 없는 사람의
+  // '프로젝트 보안서약서 재서약' 할일을 닫는다. 이 할일은 signProject(서명)로만 닫히는데(진행중 프로젝트만
+  // 서명 가능), 멤버의 유일 참여 프로젝트가 서명 전에 완료되면 서명할 진행중 프로젝트가 없어 할일이 영구
+  // 방치되고 notify 재서약 안내가 매 배치 재발송되던 결함(프로젝트 완료 생명주기의 미정리 구멍)을 막는다.
+  if (pj.status === '완료') {
+    const pjRevised = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
+    for (const name of pj.members ?? []) {
+      const stillOwes = s.projects.some((p) => p.status === '진행중' && (p.members ?? []).includes(name) &&
+        !s.pledges.some((x) => x.name === name && x.kind === '프로젝트' && x.projectRef === p.id && x.signedAt >= pjRevised))
+      if (!stillOwes) {
+        const todo = s.todos.find((t) => t.owner === name && t.kind === '보안서약서' && t.title.includes('프로젝트 보안서약서') && !t.done)
+        if (todo) todo.done = true
+      }
+    }
+  }
   revalidatePath('/projects/status')
 }
 
@@ -66,7 +81,10 @@ export default async function ProjectStatusPage() {
   const pjRevised = s.pledgeForms.find((f) => f.kind === '프로젝트')?.revisedAt ?? '0000-00-00'
   const signedCount = (p: { id: string; members?: string[] }) => {
     const names = new Set(s.pledges.filter((x) => x.kind === '프로젝트' && x.projectRef === p.id && x.signedAt >= pjRevised).map((x) => x.name))
-    return p.members ? p.members.filter((m) => names.has(m)).length : names.size
+    // 명단은 '비어있음'과 '미지정(undefined)'을 동일 취급 — 명단 없는 프로젝트는 참여자 전원을 센다.
+    // 옵셔널 members 가 파일 영속화·재로딩에서 undefined→[] 로 정규화돼도(빈 배열은 truthy) 집계가
+    // 0 으로 떨어지지 않게 length 로 판정한다(인메모리=names.size 였다가 재시작 후 0 이 되던 결함).
+    return p.members && p.members.length > 0 ? p.members.filter((m) => names.has(m)).length : names.size
   }
 
   return (

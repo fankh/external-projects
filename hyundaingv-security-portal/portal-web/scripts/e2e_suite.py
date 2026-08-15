@@ -46,6 +46,8 @@ OPSSCOPE_DATA = ROOT / 'scripts' / '.e2e-opsscope-data.json'  # 대시보드 전
 SYSINC_DATA = ROOT / 'scripts' / '.e2e-sysinc-data.json'  # 시스템화면 장애 교차도메인 게이트 회귀용 (v1.5.87)
 NOTICESCOPE_DATA = ROOT / 'scripts' / '.e2e-noticescope-data.json'  # 대시보드 공지 교차도메인 게이트 회귀용 (v1.5.87)
 ROT_FRESH_DATA = ROOT / 'scripts' / '.e2e-rotfresh-data.json'  # 회전문서 신규 상신 과다마감 방지 회귀용 (v1.5.88 AP3-3)
+PJDONE_DATA = ROOT / 'scripts' / '.e2e-pjdone-data.json'  # 프로젝트 완료 시 재서약 할일 정리 회귀용 (v1.5.89)
+PJMEMB_DATA = ROOT / 'scripts' / '.e2e-pjmemb-data.json'  # 빈 명단 프로젝트 참여서약 집계 회귀용 (v1.5.89)
 
 
 def login(pg, base, name):
@@ -552,6 +554,42 @@ def sc_channelstate_corrupt(pg, base, check):
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
+
+
+def sc_project_complete_resign_cleanup(pg, base, check):
+    """프로젝트 완료 시 재서약 할일 정리(v1.5.89) — 프로젝트 재서약 할일은 signProject(진행중 프로젝트 서명)로만
+    닫히는데, 멤버의 유일 참여 프로젝트가 서명 전 완료되면 서명할 진행중 프로젝트가 없어 할일이 영구 방치되고
+    notify 재서약 안내가 매 배치 재발송됐다. 완료 확정 시 서명 대상 진행중 프로젝트가 더 없는 멤버의 재서약
+    할일을 닫는다. PM(박정호)이 이수진 단독 참여 프로젝트를 100% 완료 → 이수진 재서약 할일 마감 확인."""
+    # 사전: 이수진의 프로젝트 재서약 할일이 열려 있음
+    login(pg, base, '이수진')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    open_before = pg.locator('.card', has_text='미처리 할일')
+    check('프로젝트 보안서약서' in open_before.inner_text(), '전제: 이수진 프로젝트 재서약 할일 열림')
+    # PM(박정호)이 이수진 단독 참여 프로젝트를 100% 완료
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/projects/status', wait_until='networkidle')
+    row = pg.locator('tr', has_text='완료정리테스트')
+    row.locator('input[name=progress]').fill('100')
+    row.locator('button:has-text("갱신")').click()
+    pg.wait_for_load_state('networkidle')
+    # 이수진 재서약 할일이 닫혀야 한다 (버그면 영구 방치)
+    login(pg, base, '이수진')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    open_after = pg.locator('.card', has_text='미처리 할일')
+    check('프로젝트 보안서약서' not in open_after.inner_text(),
+          '유일 참여 프로젝트 완료 → 서명 불가능한 재서약 할일 마감 (버그면 영구 방치·유령 독촉)')
+
+
+def sc_project_emptymembers_signcount(pg, base, check):
+    """빈 명단 프로젝트 참여서약 집계(v1.5.89) — 옵셔널 members 가 파일 영속화·재로딩에서 undefined→[] 로
+    정규화되면(빈 배열은 truthy) signedCount 가 [].filter=0 을 반환해 참여서약이 0 으로 떨어졌다. 빈 명단은
+    미지정과 동일 취급(참여자 전원 집계)해야 한다. members=[] 프로젝트에 서약 1건 주입 → '1건' 표기 확인."""
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/projects/status', wait_until='networkidle')
+    txt = pg.locator('tr', has_text='빈명단집계테스트').inner_text()
+    check('1건' in txt and '0건' not in txt,
+          f"빈 명단 프로젝트도 참여서약 전원 집계 ([]를 미지정과 동일 취급; 버그면 0건; 실제 …{txt[-30:]})")
 
 
 def sc_rotating_fresh_no_overclose(pg, base, check):
@@ -1678,6 +1716,10 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(ROT_ORPHAN_DATA)}),
     ('rotating_fresh_no_overclose', '회전문서 신규 상신 과다마감 방지 — 항목 재포함시에만 마감', sc_rotating_fresh_no_overclose,
      {'PORTAL_DATA_FILE': str(ROT_FRESH_DATA)}),
+    ('project_complete_resign_cleanup', '프로젝트 완료 시 서명 불가 재서약 할일 정리', sc_project_complete_resign_cleanup,
+     {'PORTAL_DATA_FILE': str(PJDONE_DATA)}),
+    ('project_emptymembers_signcount', '빈 명단 프로젝트 참여서약 집계 — []를 미지정과 동일 취급', sc_project_emptymembers_signcount,
+     {'PORTAL_DATA_FILE': str(PJMEMB_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -1944,6 +1986,22 @@ def main() -> int:
                    'title': '[장애보고 상신] IR-2026-0002 반려 — 보완 후 재상신 (사유: 통계보완)',
                    'batchItems': ['FL-2026-96']}],
     }, ensure_ascii=False), encoding='utf-8')
+    # project_complete_resign_cleanup 시나리오용(v1.5.89) — 이수진 단독 참여 진행중 프로젝트 + 이수진 프로젝트
+    # 재서약 할일. PM 이 100% 완료하면 서명 불가한 재서약 할일이 정리돼야 한다(이수진은 타 시드 프로젝트 미참여).
+    PJDONE_DATA.write_text(json.dumps({
+        'projects': [{'id': 'PJ-9010', 'title': '완료정리테스트', 'manager': '박정호', 'headcount': 1,
+                      'members': ['이수진'], 'start': '2026-07-01', 'end': '2026-12-31', 'progress': 90, 'status': '진행중'}],
+        'todos': [{'id': 'TD-9010', 'owner': '이수진', 'kind': '보안서약서', 'done': False, 'dueDate': '2026-08-01',
+                   'title': '2026년 프로젝트 보안서약서 재서약 (개정 2026-08-01)'}],
+    }, ensure_ascii=False), encoding='utf-8')
+    # project_emptymembers_signcount 시나리오용(v1.5.89) — members=[](재로딩 정규화 모사) 프로젝트 + 참여서약 1건.
+    # signedCount 가 빈 배열을 미지정과 동일 취급해 전원 집계(1건)해야 한다(버그면 [].filter=0).
+    PJMEMB_DATA.write_text(json.dumps({
+        'projects': [{'id': 'PJ-9011', 'title': '빈명단집계테스트', 'manager': '박정호', 'headcount': 2,
+                      'members': [], 'start': '2026-07-01', 'end': '2026-12-31', 'progress': 50, 'status': '진행중'}],
+        'pledges': [{'name': '이수진', 'dept': '경영지원팀', 'year': '2026', 'kind': '프로젝트',
+                     'signedAt': '2026-08-01', 'method': '온라인', 'projectRef': 'PJ-9011'}],
+    }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -1975,6 +2033,8 @@ def main() -> int:
     SYSINC_DATA.unlink(missing_ok=True)
     NOTICESCOPE_DATA.unlink(missing_ok=True)
     ROT_FRESH_DATA.unlink(missing_ok=True)
+    PJDONE_DATA.unlink(missing_ok=True)
+    PJMEMB_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)
