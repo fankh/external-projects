@@ -112,6 +112,14 @@ export function nextRunOf(sc: ReportSchedule): string | null {
   return d.toISOString().slice(0, 10)
 }
 
+/** 정례 리포트 배포 기한 경과 — 가동(enabled) 스케줄의 다음 실행 예정일이 지났는데 아직 미배포(자동 생성 밀림).
+ *  제품안내서 §05 리포트 자동화(정례 증적) — 화면·대시보드가 같은 판정을 공유한다. 중지(disabled) 스케줄은 제외. */
+export function isScheduleOverdue(sc: ReportSchedule): boolean {
+  if (!sc.enabled) return false
+  const next = nextRunOf(sc)
+  return next === null || next <= today()
+}
+
 export function buildSections(kind: ReportKind): ReportSection[] {
   const s = getStore()
 

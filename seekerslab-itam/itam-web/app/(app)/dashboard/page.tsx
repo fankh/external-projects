@@ -9,7 +9,7 @@ import { approvalHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
 import { buildSaasReview, SAAS_REVIEW_SLA_DAYS } from '@/lib/saas-review'
-import { licenseOptimization, replacementCandidates } from '@/lib/reports'
+import { isScheduleOverdue, licenseOptimization, replacementCandidates } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
 import { lowStockCategories } from '@/lib/stock'
@@ -104,6 +104,8 @@ export default async function DashboardPage() {
       { label: '구매 계약 발주 미이행 · 만료 임박 (이행 점검)', count: buildProcurement().atRisk.length, href: '/inventory/contracts', tone: 'err' },
       // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.
       { label: '대장 정합성 미흡 (필드 누락·불일치)', count: s.assets.filter(hasDataIssue).length, href: '/assets/register?dq=1', tone: 'warn' },
+      // 정례 리포트 배포 기한 경과 — 가동 스케줄의 예약 실행일이 지났는데 미배포(§05 리포트 자동화 정례 증적). 자동 생성 밀림.
+      { label: '정례 리포트 배포 기한 경과 (자동 생성 밀림)', count: s.reportSchedules.filter(isScheduleOverdue).length, href: '/ai/reports', tone: 'warn' },
     )
     // 안전재고 미달 — 불출형 유형(단말·주변기기) 가용 재고가 안전재고 미만. 신규 배정 수요 스톡아웃 예방(발주 검토). 재고 화면과 같은 판정.
     const lowStock = lowStockCategories(s.assets, s.disposals, s.opsPolicy.safetyStock)
