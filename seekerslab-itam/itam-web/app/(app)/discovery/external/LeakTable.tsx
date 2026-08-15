@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { LEAK_RESPONSE, type LeakFinding } from '@/lib/types'
-import { respondToLeak } from './actions'
+import { reopenLeak, respondToLeak } from './actions'
 
 const CONF_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
 
@@ -18,6 +18,12 @@ export function LeakTable({ leaks, canRespond }: { leaks: LeakFinding[]; canResp
       const r = await respondToLeak(id, note)
       setMsg(r.message)
       if (r.ok) { setOpenId(null); setNote('') }
+    })
+  }
+  const reopen = (id: string) => {
+    startTransition(async () => {
+      const r = await reopenLeak(id)
+      setMsg(r.message)
     })
   }
 
@@ -43,7 +49,10 @@ export function LeakTable({ leaks, canRespond }: { leaks: LeakFinding[]; canResp
                 <td className="c" style={{ minWidth: 160 }}>
                   {l.status === '조치 완료' ? (
                     <span>
-                      <Chip tone="ok">조치 완료</Chip>
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                        <Chip tone="ok">조치 완료</Chip>
+                        {canRespond && <button className="btn sm ghost" disabled={pending} onClick={() => reopen(l.id)} title="오조치였다면 대응을 취소하고 미조치로 되돌립니다">재개</button>}
+                      </span>
                       <div className="mut" style={{ fontSize: 10.5, marginTop: 2, whiteSpace: 'normal' }}>{l.respondedBy} · {l.response}</div>
                     </span>
                   ) : !canRespond ? (

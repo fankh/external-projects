@@ -33,6 +33,26 @@ export async function respondToLeak(leakId: string, note: string) {
   return { ok: true, message: `${leak.kind} 대응 완료 — 보안운영팀 통지·감사 기록 적재` }
 }
 
+/** 유출 대응 취소(재개) — 오조치·오분류였던 조치 완료를 되돌려 다시 미조치(대응 대상)로 되돌린다. 잘못 종결한 건이 미조치 큐·감사에서 사라지지 않게 한다. 보안담당·Admin. */
+export async function reopenLeak(leakId: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '유출 대응 취소 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const leak = s.leaks.find((l) => l.id === leakId)
+  if (!leak) return { ok: false, message: '유출 건을 찾을 수 없습니다.' }
+  if (leak.status !== '조치 완료') return { ok: false, message: '조치 완료된 건만 대응을 취소할 수 있습니다.' }
+  const prior = leak.response
+  leak.status = '미조치'
+  leak.response = undefined
+  leak.respondedBy = undefined
+  leak.respondedAt = undefined
+  appendAudit({ actor: session.name, action: `유출 대응 취소(재개) — ${leak.kind}${prior ? ` (이전 조치: ${prior})` : ''}`, target: leak.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${leak.kind} 대응 취소 — 미조치로 복귀(대응 대상)` }
+}
+
 /** 크리덴셜 노출 대응 조치 — 인증 취약점 점검(기본·취약 크리덴셜)에서 끝내지 않고 보안 대응까지 이어간다.
  *  (제품안내서 §04 인증 취약점 점검 — 산출: 취약·기본 크리덴셜 노출) 대응은 보안 업무이므로 보안담당·Admin 만.
  *  조치 사실은 보안운영팀 앞 통지 + 감사 로그에 남는다. 유출 대응(respondToLeak)과 동형. */
@@ -58,6 +78,26 @@ export async function respondToCredential(credId: string, note: string) {
   appendAudit({ actor: session.name, action: `크리덴셜 노출 대응 (${cred.service} · ${cred.issue}) — ${action}`, target: cred.id })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${cred.service} ${cred.host} 크리덴셜 대응 완료 — 보안운영팀 통지·감사 기록 적재` }
+}
+
+/** 크리덴셜 노출 대응 취소(재개) — 오조치였던 조치 완료를 되돌려 다시 미조치로 되돌린다. 유출 대응 취소와 동형. 보안담당·Admin. */
+export async function reopenCredential(credId: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '크리덴셜 노출 대응 취소 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const cred = s.credentials.find((c) => c.id === credId)
+  if (!cred) return { ok: false, message: '크리덴셜 노출 건을 찾을 수 없습니다.' }
+  if (cred.status !== '조치 완료') return { ok: false, message: '조치 완료된 건만 대응을 취소할 수 있습니다.' }
+  const prior = cred.response
+  cred.status = '미조치'
+  cred.response = undefined
+  cred.respondedBy = undefined
+  cred.respondedAt = undefined
+  appendAudit({ actor: session.name, action: `크리덴셜 노출 대응 취소(재개) — ${cred.service} ${cred.host}${prior ? ` (이전 조치: ${prior})` : ''}`, target: cred.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${cred.service} ${cred.host} 크리덴셜 대응 취소 — 미조치로 복귀(대응 대상)` }
 }
 
 /** 위협 인텔 IOC 조치 — IOC 상관(악성 통신·감염 징후)에서 끝내지 않고 차단(프록시·방화벽·EDR) 또는 조사 착수(침해 대응)까지 이어간다.
@@ -86,6 +126,25 @@ export async function respondToIoc(iocId: string, kind: '차단' | '조사') {
   }
   revalidatePath('/', 'layout')
   return { ok: true, message: `${ioc.iocValue} ${ioc.action} — 보안운영팀 통지·감사 기록 적재` }
+}
+
+/** IOC 조치 취소(재개) — 오조치였던 차단 요청·조사 착수를 되돌려 다시 미조치(차단/조사 대상)로 되돌린다. 잘못 종결한 상관 건이 미조치 큐·감사에서 사라지지 않게 한다. 보안담당·Admin. */
+export async function reopenIoc(iocId: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: 'IOC 조치 취소 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const ioc = s.iocMatches.find((x) => x.id === iocId)
+  if (!ioc) return { ok: false, message: 'IOC 상관 건을 찾을 수 없습니다.' }
+  if (!ioc.action) return { ok: false, message: '조치된 건만 취소할 수 있습니다.' }
+  const prior = ioc.action
+  ioc.action = undefined
+  ioc.actedBy = undefined
+  ioc.actedAt = undefined
+  appendAudit({ actor: session.name, action: `IOC 조치 취소(재개) — ${ioc.iocValue} @ ${ioc.matchedAsset} (이전 조치: ${prior})`, target: ioc.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${ioc.iocValue} 조치 취소 — 미조치로 복귀(차단/조사 대상)` }
 }
 
 /** 외부 노출 자산 조치 — 검출에서 끝내지 않고 편입(우리 자산이면 대장으로) 또는 차단(노출 차단·NAC 격리)까지 이어간다.

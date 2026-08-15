@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { CRED_RESPONSE, type CredentialFinding } from '@/lib/types'
-import { respondToCredential } from './actions'
+import { reopenCredential, respondToCredential } from './actions'
 
 const SEV_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
 
@@ -18,6 +18,12 @@ export function CredTable({ credentials, canRespond }: { credentials: Credential
       const r = await respondToCredential(id, note)
       setMsg(r.message)
       if (r.ok) { setOpenId(null); setNote('') }
+    })
+  }
+  const reopen = (id: string) => {
+    startTransition(async () => {
+      const r = await reopenCredential(id)
+      setMsg(r.message)
     })
   }
 
@@ -47,7 +53,10 @@ export function CredTable({ credentials, canRespond }: { credentials: Credential
                 <td className="c" style={{ minWidth: 160 }}>
                   {c.status === '조치 완료' ? (
                     <span>
-                      <Chip tone="ok">조치 완료</Chip>
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                        <Chip tone="ok">조치 완료</Chip>
+                        {canRespond && <button className="btn sm ghost" disabled={pending} onClick={() => reopen(c.id)} title="오조치였다면 대응을 취소하고 미조치로 되돌립니다">재개</button>}
+                      </span>
                       <div className="mut" style={{ fontSize: 10.5, marginTop: 2, whiteSpace: 'normal' }}>{c.respondedBy} · {c.response}</div>
                     </span>
                   ) : !canRespond ? (

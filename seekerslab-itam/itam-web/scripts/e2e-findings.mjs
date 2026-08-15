@@ -49,13 +49,14 @@ async function twoChoice(page, { name, navTo, cardText, rowText, btnRe }) {
   const before = await row().locator('button').count()
   ok(`${name}: 보안담당에 조치 버튼 노출`, before >= 1 && (await row().locator('button', { hasText: btnRe }).count()) > 0)
   await row().locator('button', { hasText: btnRe }).first().click()
-  let after = -1
+  // 조치 버튼(btnRe)이 사라지고 상태 칩으로 바뀌는지 확인 — 조치 후 취소(재개) 버튼이 남는 표(IOC 등)도 있으므로
+  //  '모든 버튼 소거'가 아니라 '해당 조치 버튼 소거'로 상태 전환을 판정한다.
+  let gone = false
   for (let i = 0; i < 25; i++) {
     await page.waitForTimeout(200)
-    after = await row().locator('button').count()
-    if (after === 0) break
+    if ((await row().locator('button', { hasText: btnRe }).count()) === 0) { gone = true; break }
   }
-  ok(`${name}: 조치 클릭 → 상태 전환(버튼 소거·칩 노출)`, after === 0)
+  ok(`${name}: 조치 클릭 → 상태 전환(조치 버튼 소거·칩 노출)`, gone)
 }
 
 /** AI 제안 판정(로11) — 승인은 조치로 연결, 반려는 사유 입력 전 확정이 막힌다(사유 필수).
@@ -379,6 +380,49 @@ try {
   await twoStep(page, { name: '크리덴셜 노출(45)', navTo: EXT, cardText: '인증 취약점 점검', rowText: 'PostgreSQL' })
   await twoChoice(page, { name: 'IOC 상관(50)', navTo: EXT, cardText: 'IOC 상관·행위자 귀속', rowText: 'RedLine', btnRe: /^차단$/ })
   await twoStep(page, { name: '다크웹 유출(28)', navTo: EXT, cardText: '유출 수집', rowText: '유출 계정' })
+
+  // 대응 취소(재개) 파리티 — 유출·크리덴셜·IOC 도 위험수용 해제처럼 오조치를 되돌릴 수 있어야 한다(잘못 종결한 건이 미조치 큐·감사에서 사라지지 않게).
+  //  각 건: 조치 완료 → 재개 → 미조치(조치 버튼 복귀) 확인 후, 재대응으로 원상 복구해 하위 감사 검증 상태를 보존한다.
+  {
+    // 크리덴셜(PostgreSQL): 조치 완료 → 재개 → 대응 버튼 복귀
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const credCard = page.locator('.card', { hasText: '인증 취약점 점검' })
+    const credRow = () => credCard.locator('tr', { hasText: 'PostgreSQL' })
+    await credRow().locator('button', { hasText: /^재개$/ }).click()
+    await page.waitForTimeout(600)
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    ok('크리덴셜 대응 취소(재개): 조치 완료 → 미조치(대응 버튼 복귀)', (await credRow().locator('button', { hasText: /^대응$/ }).count()) > 0)
+    await credRow().locator('button', { hasText: /^대응$/ }).click()
+    await page.waitForTimeout(300)
+    await credCard.locator('button', { hasText: '대응 확정' }).first().click()
+    await page.waitForTimeout(700)
+  }
+  {
+    // IOC(RedLine): 차단 요청 → 재개 → 차단 버튼 복귀
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const iocCard = page.locator('.card', { hasText: 'IOC 상관·행위자 귀속' })
+    const iocRow = () => iocCard.locator('tr', { hasText: 'RedLine' })
+    await iocRow().locator('button', { hasText: /^재개$/ }).click()
+    await page.waitForTimeout(600)
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    ok('IOC 조치 취소(재개): 차단 요청 → 미조치(차단 버튼 복귀)', (await iocRow().locator('button', { hasText: /^차단$/ }).count()) > 0)
+    await iocRow().locator('button', { hasText: /^차단$/ }).first().click()
+    await page.waitForTimeout(700)
+  }
+  {
+    // 유출(유출 계정): 조치 완료 → 재개 → 대응 버튼 복귀
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const leakCard = page.locator('.card', { hasText: '유출 수집' })
+    const leakRow = () => leakCard.locator('tr', { hasText: '유출 계정' })
+    await leakRow().locator('button', { hasText: /^재개$/ }).click()
+    await page.waitForTimeout(600)
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    ok('유출 대응 취소(재개): 조치 완료 → 미조치(대응 버튼 복귀)', (await leakRow().locator('button', { hasText: /^대응$/ }).count()) > 0)
+    await leakRow().locator('button', { hasText: /^대응$/ }).click()
+    await page.waitForTimeout(300)
+    await leakCard.locator('button', { hasText: '대응 확정' }).first().click()
+    await page.waitForTimeout(700)
+  }
 
   // 감사 로그 적재 확인 — 조치가 감사에 남는지
   await page.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })

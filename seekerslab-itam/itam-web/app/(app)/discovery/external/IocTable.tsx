@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import type { IocMatch } from '@/lib/types'
-import { respondToIoc } from './actions'
+import { reopenIoc, respondToIoc } from './actions'
 
 const CONF_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
 
@@ -16,6 +16,12 @@ export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: b
     startTransition(async () => {
       const r = await respondToIoc(id, kind)
       setMsg(r.message); setBusy(null)
+    })
+  }
+  const reopen = (id: string) => {
+    startTransition(async () => {
+      const r = await reopenIoc(id)
+      setMsg(r.message)
     })
   }
 
@@ -47,7 +53,10 @@ export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: b
                 {canRespond && (
                   <td className="c" style={{ whiteSpace: 'nowrap' }}>
                     {i.action ? (
-                      <Chip tone={i.action.startsWith('차단') ? 'err' : 'info'}>{i.action}</Chip>
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                        <Chip tone={i.action.startsWith('차단') ? 'err' : 'info'}>{i.action}</Chip>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => reopen(i.id)} title="오조치였다면 조치를 취소하고 미조치로 되돌립니다">재개</button>
+                      </span>
                     ) : (
                       <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
                         <button className="btn sm danger" disabled={pending} onClick={() => act(i.id, '차단')}>{busy === i.id ? '…' : '차단'}</button>
