@@ -10,6 +10,7 @@ import { contractHref } from '@/lib/reflink'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
+import { MaintenanceBudgetButton } from './MaintenanceActions'
 import { UsageCollect } from './UsageCollect'
 
 export const dynamic = 'force-dynamic'
@@ -63,7 +64,10 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         kicker="Maintenance"
         title="유지보수 계약 관리 — 예산 집행 · SLA"
         pad={false}
-        actions={<span className="dim" style={{ fontSize: 11.5 }}>계약 {maint.rows.length}건 · 집행 {fmtAmount(maint.totalSpent)}/{fmtAmount(maint.totalAmount)}원</span>}
+        actions={<span className="hstack" style={{ gap: 10 }}>
+          <span className="dim" style={{ fontSize: 11.5 }}>계약 {maint.rows.length}건 · 집행 {fmtAmount(maint.totalSpent)}/{fmtAmount(maint.totalAmount)}원</span>
+          <MaintenanceBudgetButton alert={maint.budgetAlert} />
+        </span>}
       >
         <div className="stat-row" style={{ margin: 14 }}>
           <Stat value={`${maint.totalAmount ? Math.round((maint.totalSpent / maint.totalAmount) * 100) : 0}%`} label="전체 집행률" delta={{ text: `잔여 ${fmtAmount(maint.totalAmount - maint.totalSpent)}원`, dir: 'flat' }} />

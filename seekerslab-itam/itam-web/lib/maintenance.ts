@@ -7,6 +7,8 @@ export interface MaintenanceRow {
   id: string
   name: string
   vendor: string
+  /** 주관부서 — 예산 통보(재협상·집행 점검) 수신 부서 */
+  ownerDept: string
   end: string
   amount: number
   spent: number
@@ -26,6 +28,8 @@ export function buildMaintenance(): {
   totalAmount: number
   totalSpent: number
   overBudget: number
+  /** 예산 통보 대상 — 예산 초과 + 소진 임박(재협상·집행 점검 통보 버튼 배지) */
+  budgetAlert: number
   noSla: number
 } {
   const s = getStore()
@@ -39,6 +43,7 @@ export function buildMaintenance(): {
         id: c.id,
         name: c.name,
         vendor: c.vendor,
+        ownerDept: c.ownerDept,
         end: c.end,
         amount: c.amount,
         spent,
@@ -56,6 +61,7 @@ export function buildMaintenance(): {
     totalAmount: rows.reduce((n, r) => n + r.amount, 0),
     totalSpent: rows.reduce((n, r) => n + r.spent, 0),
     overBudget: rows.filter((r) => r.status === '예산 초과').length,
+    budgetAlert: rows.filter((r) => r.status === '예산 초과' || r.status === '소진 임박').length,
     noSla: rows.filter((r) => !r.sla).length,
   }
 }

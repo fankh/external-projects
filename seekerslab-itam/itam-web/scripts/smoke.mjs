@@ -389,6 +389,8 @@ try {
   //  CT-2022-007: 계약액 4,800만 · 누계 지출 4,980만(1~3Q+긴급) → 예산 초과. CT-2024-011: 비용 이력 없음 → 미집행. SLA 요약 노출.
   check('유지보수 계약: 예산 집행 현황 패널 렌더(집행률·판정)', contractsHtml.includes('유지보수 계약 관리 — 예산 집행 · SLA') && contractsHtml.includes('전체 집행률') && contractsHtml.includes('누계 지출'))
   check('유지보수 계약: 예산 집행 실측(SLA 요약·미집행 판정)', contractsHtml.includes('장애 접수 후 4시간 내 온사이트 대응') && contractsHtml.includes('미집행'))
+  // 유지보수 예산 통보 버튼 — 집행률 판정 신호에 조치 채널을 붙인다(재협상·집행 점검을 주관부서·공급사에 통보). 시드 CT-2022-007 예산 초과 → 배지 ≥1.
+  check('유지보수 계약: 예산 재협상·집행 점검 통보 버튼(신호→조치 채널)', contractsHtml.includes('예산 재협상·집행 점검 통보'))
   // 구매 계약 발주·검수 이행(§03 구매 계약 검수 연계) — 입고 로트를 계약과 대사해 발주 소진률·검수 완료액·미이행 위험 산출.
   //  CT-2023-021(IDC 서버 384만): 발주 25.6M(7%)·만료 임박 → 발주 미이행 위험. CT-2026-009: 발주 95% → 정상.
   check('구매 계약: 발주·검수 이행 현황 패널 렌더', contractsHtml.includes('구매 계약 발주·검수 이행 현황') && contractsHtml.includes('전체 발주 소진률') && contractsHtml.includes('검수 완료액 (정산 근거)'))
