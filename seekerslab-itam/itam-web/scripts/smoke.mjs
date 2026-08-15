@@ -247,6 +247,8 @@ try {
   check('대시보드: 안전재고 미달 발주 검토 큐 (자산담당)', dashHtml.includes('안전재고 미달') && dashHtml.includes('발주 검토') && dashHtml.includes('/inventory/stock'))
   // 라이선스 초과 사용(SAM 감사 최우선 노출) — 시드 LIC-002(JetBrains 120보유/131사용, 11석 초과)로 자산담당 운영 큐에 노출·계약 화면 드릴
   check('대시보드: 라이선스 초과 사용 감사 노출 큐 (자산담당)', dashHtml.includes('라이선스 초과 사용') && dashHtml.includes('감사 노출') && dashHtml.includes('/inventory/contracts'))
+  // 라이선스 배정 밖 설치 — STEP2 대사(#47)의 무단 사용(좌석 없는 설치)을 SAM 리스크로 담당자 대시보드에 노출. 시드 2건(LIC-004·LIC-001).
+  check('대시보드: 라이선스 배정 밖 설치(무단 사용·SAM) 큐 (자산담당)', dashHtml.includes('라이선스 배정 밖 설치') && dashHtml.includes('SAM 리스크'))
   // 유지보수 예산 초과·소진 임박 — 계약 집행률 판정(§03 유지보수 비용 관리)을 담당자 일과 시작점으로. 시드 CT-2022-007(누계 4,980만/계약 4,800만 → 예산 초과)로 큐 노출·계약 화면 드릴.
   check('대시보드: 유지보수 예산 초과·소진 임박 큐 (자산담당)', dashHtml.includes('유지보수 예산 초과·소진 임박') && dashHtml.includes('재협상·집행 점검'))
   // 구매 계약 발주 미이행 — 발주율 저조 + 만료 임박 계약을 담당자 일과 시작점으로. 시드 CT-2023-021(발주 7%·만료 임박)로 큐 노출.
