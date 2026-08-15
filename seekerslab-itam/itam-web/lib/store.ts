@@ -10,7 +10,7 @@ import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, fingerprintOf } from './types'
 import type {
   AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding, OpsPolicy, RiskPolicy, SwAllowEntry,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
-  ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
+  ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwInstall, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
 
 export interface Store {
@@ -42,6 +42,8 @@ export interface Store {
   disposals: DisposalRecord[]
   contracts: Contract[]
   licenses: SwLicense[]
+  /** EDR 설치 SW 인벤토리 관측 — 라이선스 사용 수집(STEP2) 데이터. 배정 좌석과 대사해 배정 밖 설치·미설치 좌석 식별 */
+  swInstalls: SwInstall[]
   approvals: Approval[]
   saas: SaasUsage[]
   insights: AiInsight[]
@@ -615,17 +617,27 @@ function seed(): Store {
       { id: 'CT-2024-011', kind: '유지보수', name: '스토리지·백업 유지보수', vendor: '효성인포', start: '2025-09-01', end: '2026-08-20', amount: 36_000_000, assetCount: 6, ownerDept: '인프라운영팀' },
     ],
     licenses: [
-      { id: 'LIC-001', name: 'Microsoft 365 E3', vendor: 'Microsoft', purchased: 800, used: 743, expiry: '2026-12-31', unitCost: 335_000, contractId: 'CT-2023-002', seats: [
+      { id: 'LIC-001', name: 'Microsoft 365 E3', vendor: 'Microsoft', purchased: 800, used: 743, expiry: '2026-12-31', unitCost: 335_000, contractId: 'CT-2023-002', usageCollectedAt: '2026-07-10', seats: [
         { assetNo: 'AST-2023-000221', user: '인프라운영팀', dept: '인프라운영팀', at: '2026-07-18' },
         { assetNo: 'AST-2025-000513', user: '한도윤', dept: '영업1팀', at: '2026-07-16' },
       ] },
       { id: 'LIC-002', name: 'JetBrains All Products', vendor: 'JetBrains', purchased: 120, used: 131, expiry: '2026-05-31', unitCost: 289_000 },
       { id: 'LIC-003', name: 'Adobe Creative Cloud', vendor: 'Adobe', purchased: 40, used: 22, expiry: '2026-10-15', unitCost: 792_000 },
-      { id: 'LIC-004', name: 'AutoCAD LT', vendor: 'Autodesk', purchased: 15, used: 6, expiry: '2027-02-28', unitCost: 610_000, seats: [
+      { id: 'LIC-004', name: 'AutoCAD LT', vendor: 'Autodesk', purchased: 15, used: 6, expiry: '2027-02-28', unitCost: 610_000, usageCollectedAt: '2026-07-10', seats: [
         { assetNo: 'AST-2022-000871', user: '정하윤', dept: '디자인팀', at: '2026-07-20' },
         { assetNo: 'AST-2023-000112', user: '김민준', dept: '플랫폼개발팀', at: '2026-07-22' },
       ] },
       { id: 'LIC-005', name: 'Slack Business+', vendor: 'Salesforce', purchased: 500, used: 488, expiry: '2026-09-30', unitCost: 162_000 },
+    ],
+    // EDR 설치 SW 인벤토리(라이선스 STEP2 사용 수집) — 배정 좌석과 대사해 배정 밖 설치·미설치 좌석을 드러낸다.
+    //  LIC-004: 좌석 2(871·112) 대비 설치 2(871·432) → 871 일치, 432 배정 밖 설치, 112 미설치 좌석.
+    //  LIC-001: 좌석 2(221·513) 대비 설치 3(221·513·015) → 221·513 일치, 015 배정 밖 설치.
+    swInstalls: [
+      { id: 'SWI-0001', licenseId: 'LIC-004', assetNo: 'AST-2022-000871', host: 'DSN-871', user: '정하윤', dept: '디자인팀', version: '2025.1', detectedAt: '2026-07-10' },
+      { id: 'SWI-0002', licenseId: 'LIC-004', assetNo: 'AST-2021-000432', host: 'RND-432', user: '이한결', dept: '연구개발팀', version: '2024.2', detectedAt: '2026-07-10' },
+      { id: 'SWI-0003', licenseId: 'LIC-001', assetNo: 'AST-2023-000221', host: 'INF-221', user: '인프라운영팀', dept: '인프라운영팀', version: 'M365 Apps', detectedAt: '2026-07-10' },
+      { id: 'SWI-0004', licenseId: 'LIC-001', assetNo: 'AST-2025-000513', host: 'SAL-513', user: '한도윤', dept: '영업1팀', version: 'M365 Apps', detectedAt: '2026-07-10' },
+      { id: 'SWI-0005', licenseId: 'LIC-001', assetNo: 'AST-2024-000015', host: 'PLT-015', user: '박서준', dept: '플랫폼개발팀', version: 'M365 Apps', detectedAt: '2026-07-10' },
     ],
     approvals: [
       // 다단계 결재선 진행 중 — 부서장(ADMIN) 결재 대기. 승인하면 자산담당 단계로 넘어간다.

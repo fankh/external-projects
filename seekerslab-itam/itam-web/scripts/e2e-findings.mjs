@@ -712,6 +712,15 @@ try {
   await camRow.locator('.hstack', { hasText: 'AST-2024-000092' }).locator('button', { hasText: /^회수$/ }).click()
   await p3.waitForTimeout(700)
   ok('라이선스 좌석 회수: 배정 해제 → 배정 2석 복귀', ((await camRow.textContent()) || '').includes('배정 2/15석'))
+  // 라이선스 STEP2 사용 수집(§03) — EDR 설치 SW 인벤토리를 배정 좌석과 대사. 배정 밖 설치(무단 사용)·미설치 좌석 식별 + 수집 실행.
+  //  LIC-004: 좌석 2(871·112) vs 설치 2(871·432) → AST-2021-000432 배정 밖 설치, AST-2023-000112 미설치 좌석.
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const step2 = p3.locator('.card', { hasText: '사용 수집 — EDR 설치 SW 인벤토리 대사' }).first()
+  const step2Txt = (await step2.textContent()) || ''
+  ok('라이선스 STEP2: 사용 수집 패널 — 배정 밖 설치 대사(AST-2021-000432)', step2Txt.includes('AST-2021-000432') && step2Txt.includes('배정 밖 설치'))
+  await step2.locator('button', { hasText: /^사용 수집$/ }).click()
+  await p3.waitForTimeout(900)
+  ok('라이선스 STEP2: 사용 수집 실행 → 설치 관측 대사 완료', ((await step2.textContent()) || '').includes('사용 수집 완료'))
   // SaaS 인가 요청 승인 → 사용 현황(s.saas) + 정책 카탈로그(s.saasCatalog) 양쪽 인가 반영(교차 정합). 시드 APR-2607-125(Linear)
   await p3.goto(`${BASE}/workflow/approvals?sel=APR-2607-125`, { waitUntil: 'networkidle' })
   await p3.locator('tr', { has: p3.locator('td', { hasText: 'APR-2607-125' }) }).first().locator('button', { hasText: /^승인$/ }).click()

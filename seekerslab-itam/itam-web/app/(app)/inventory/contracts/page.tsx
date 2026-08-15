@@ -1,12 +1,14 @@
 import { ExportButton } from '@/components/ExportButton'
-import { Card, Chip, ScreenHeader } from '@/components/ui'
+import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
 import { missingContractDocs } from '@/lib/contract'
 import { daysUntil } from '@/lib/dates'
+import { buildLicenseUsage } from '@/lib/license-usage'
 import { contractHref } from '@/lib/reflink'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
+import { UsageCollect } from './UsageCollect'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +17,8 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   const { sel } = await searchParams
   const s = getStore()
   const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
+  const usage = buildLicenseUsage()
+  const canEditLicense = ['ASSET_MGR', 'ADMIN'].includes(session.role)
 
   // 만료 임박 대상 — 계약·라이선스·보증(부서 단위 묶음)을 합친 발송 예정 건수
   const within = (end: string) => {
@@ -126,6 +130,54 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
           이어지며 두 조치 모두 결재를 거칩니다.
           사용 수집은 EDR·에이전트 설치 SW 인벤토리 기준이며, 미인가 SW 설치는 Discovery 모듈의 정책 위반 항목으로
           연계되어 보안담당에게 통보됩니다.
+        </div>
+      </Card>
+
+      <Card
+        kicker="License Compliance · STEP2"
+        title="사용 수집 — EDR 설치 SW 인벤토리 대사"
+        pad={false}
+        actions={<UsageCollect lastCollectedAt={usage.lastCollectedAt} canEdit={canEditLicense} />}
+      >
+        <div className="stat-row" style={{ margin: 14 }}>
+          <Stat value={usage.totalInstalls} label="설치 관측 (EDR 인벤토리)" />
+          <Stat value={usage.totalOffSeat} label="배정 밖 설치 — 무단 사용" tone={usage.totalOffSeat ? 'err' : 'ok'} />
+          <Stat value={usage.totalUnusedSeat} label="미설치 좌석 — 회수 후보" tone={usage.totalUnusedSeat ? 'warn' : 'ok'} />
+          <Stat value={usage.collectedLicenses} label="수집 완료 라이선스" />
+        </div>
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>라이선스</th><th className="num">보유</th><th className="num">배정 좌석</th><th className="num">설치 관측</th>
+                <th className="num">일치</th><th>배정 밖 설치 (무단 사용)</th><th>미설치 좌석 (회수 후보)</th><th>최근 수집</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usage.rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="strong">{r.name}</td>
+                  <td className="num tnum">{r.purchased}</td>
+                  <td className="num tnum">{r.seatCount}</td>
+                  <td className="num tnum">{r.installCount}</td>
+                  <td className="num tnum">{r.matched}</td>
+                  <td>{r.offSeat.length
+                    ? <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}><Chip tone="err" bare>{r.offSeat.length}건</Chip><span className="dim" style={{ fontSize: 11 }}>{r.offSeat.map((o) => `${o.assetNo} (${o.dept})`).join(', ')}</span></span>
+                    : <span className="dim">-</span>}</td>
+                  <td>{r.unusedSeat.length
+                    ? <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}><Chip tone="warn" bare>{r.unusedSeat.length}건</Chip><span className="dim" style={{ fontSize: 11 }}>{r.unusedSeat.map((u) => `${u.assetNo} (${u.user})`).join(', ')}</span></span>
+                    : <span className="dim">-</span>}</td>
+                  <td className="tnum">{r.collectedAt ?? <span className="dim">미수집</span>}</td>
+                </tr>
+              ))}
+              {usage.rows.length === 0 && <tr><td colSpan={8}><div className="empty">대사 대상 라이선스가 없습니다</div></td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <div className="callout" style={{ margin: 14 }}>
+          <b>사용 수집 → 대사.</b> EDR·에이전트가 수집한 설치 SW 인벤토리를 배정 좌석과 대사합니다.
+          <b>배정 밖 설치</b>는 좌석 없이 설치된 무단 사용(추가 배정 또는 제거 대상), <b>미설치 좌석</b>은 배정됐으나
+          설치가 관측되지 않은 회수 후보입니다. 수집 결과는 보유–사용 대사(STEP3)와 조치(STEP4)의 근거가 됩니다.
         </div>
       </Card>
     </>

@@ -356,6 +356,10 @@ try {
   check('발견 자산: 엔드포인트·계정 위생 요약 스탯 렌더', foundHtml.includes('엔드포인트·계정 위생 — 미조치') && foundHtml.includes('병렬 수집 채널'))
   const contractsHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약·라이선스: 보유–사용 대사·등록(계약·라이선스) 렌더', contractsHtml.includes('JetBrains') && contractsHtml.includes('초과 사용') && contractsHtml.includes('라이선스 등록') && contractsHtml.includes('계약 등록'))
+  // 라이선스 STEP2 사용 수집(§03) — EDR 설치 SW 인벤토리를 배정 좌석과 대사. 그동안 표시 전용이던 STEP2를 실동작으로.
+  //  LIC-004: 좌석 2(871·112) vs 설치 2(871·432) → AST-2021-000432 배정 밖 설치, AST-2023-000112 미설치 좌석.
+  check('라이선스 STEP2: 사용 수집(EDR 설치 SW 대사) 패널 렌더', contractsHtml.includes('사용 수집 — EDR 설치 SW 인벤토리 대사') && contractsHtml.includes('배정 밖 설치 — 무단 사용') && contractsHtml.includes('미설치 좌석 — 회수 후보'))
+  check('라이선스 STEP2: 배정 밖 설치 대사 실측(무단 사용 자산)', contractsHtml.includes('AST-2021-000432') && contractsHtml.includes('배정 밖 설치 (무단 사용)'))
   // 만료 경과 라이선스 판정 — LIC-002(JetBrains, 만료일 지남)는 초과 사용과 별개로 '만료' 칩으로 갱신 필요를 명시
   check('계약·라이선스: 만료 경과 라이선스 판정 칩(JetBrains)', contractsHtml.includes('>만료<') && contractsHtml.includes('2026-05-31'))
   // 계약 목록 필터 — 구분·상태·만료 임박·검색
