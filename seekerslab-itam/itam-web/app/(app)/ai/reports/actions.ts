@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { today } from '@/lib/dates'
-import { createReport, nextRunOf } from '@/lib/reports'
+import { createReport, isScheduleOverdue } from '@/lib/reports'
 import { getSession } from '@/lib/session'
 import { dispatch } from '@/lib/notify'
 import { getStore } from '@/lib/store'
@@ -102,11 +102,8 @@ export async function runDueSchedules() {
 
   const s = getStore()
   const t = today()
-  const due = s.reportSchedules.filter((sc) => {
-    if (!sc.enabled) return false
-    const next = nextRunOf(sc)
-    return next === null || next <= t
-  })
+  // 기한 도래 판정은 화면·대시보드와 동일한 단일 소스(isScheduleOverdue) — '예약 실행 (N)' 버튼 수·대시보드 큐와 실제 실행 대상이 어긋나지 않게 한다.
+  const due = s.reportSchedules.filter(isScheduleOverdue)
   if (due.length === 0) return { ok: false, message: '실행 기한이 도래한 스케줄이 없습니다 (중지된 스케줄 제외).' }
 
   const made: string[] = []

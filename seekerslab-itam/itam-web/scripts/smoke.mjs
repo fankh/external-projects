@@ -975,6 +975,8 @@ try {
   check('리포트: 연간 교체 계획에 EOL OS 교체 드라이버 반영', repHtml.includes('OS 지원 종료(EOL)'))
   const repText = text(repHtml)
   check('리포트: 자동 생성 스케줄 렌더 (수정·예약 실행)', repText.includes('자동 생성 스케줄') && repText.includes('예약 실행') && repText.includes('매주 월요일') && repText.includes('수정'))
+  // 예약 실행 대상 = 기한 도래 가동 스케줄 — 버튼 수·대시보드 큐·runDueSchedules 실행 대상이 isScheduleOverdue 단일 소스로 일치. 시드상 가동 6개 모두 기한 도래.
+  check('리포트: 예약 실행 대상이 기한 도래 스케줄과 일치 (6건 단일 소스)', repText.includes('예약 실행 (6)'))
   check('리포트: 밀린 스케줄이 기한 도래로 표시', repText.includes('기한 도래'))
   check('리포트: 수시 유형은 스케줄 없음 표기', repText.includes('수시') && repText.includes('사유 발생 시 수동 생성'))
   check('리포트: 중지된 스케줄 표기', repText.includes('라이선스 컴플라이언스') && repText.includes('중지'))
