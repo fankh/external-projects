@@ -1052,6 +1052,15 @@ try {
   ok('재물조사 대장 미등록 승인 → 대장 실제 편입(검수중·스캔 라벨 시리얼)', regBody.includes('미상 (라벨만 확인)') && regBody.includes('검수중'))
   await ctxAI.close()
 
+  // 유지보수 예산 통보(§03 유지보수 비용 관리 · 신호→조치 채널) — 집행률 판정(예산 초과·소진 임박)이 화면·대시보드에 보이기만 하고
+  //  조치 채널이 없던 공백을 닫는다. 시드 CT-2022-007(집행률 104% 예산 초과) → 통보 버튼 활성 → 주관부서·공급사에 재협상·집행 점검 통보.
+  await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const budgetBtn = p4.locator('button', { hasText: /^예산 재협상·집행 점검 통보 \(\d+\)$/ })
+  ok('유지보수 예산: 통보 버튼 노출(예산 초과·소진 임박 배지 ≥1)', (await budgetBtn.count()) > 0 && !/\(0\)/.test(await budgetBtn.first().innerText()))
+  await budgetBtn.first().click()
+  await p4.waitForTimeout(800)
+  ok('유지보수 예산: 통보 발송 성공(주관부서·공급사 · 발송 이력)', ((await p4.textContent('body')) || '').includes('유지보수 예산 통보') && ((await p4.textContent('body')) || '').includes('발송'))
+
   // 입고 지연 독촉(§06 ITSM 납기 관리 · 검출→조치) — 납기 경과 발주 로트(시드 IN-2607-03)의 공급사에 납기 확인 독촉 발송
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   ok('도입·검수: 입고 지연 독촉 버튼 노출(발주처)', (await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).count()) > 0)

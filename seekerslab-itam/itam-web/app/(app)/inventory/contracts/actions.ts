@@ -1,8 +1,9 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { daysUntil, today } from '@/lib/dates'
+import { daysUntil, fmtAmount, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
+import { buildMaintenance } from '@/lib/maintenance'
 import { raiseLicenseApproval } from '@/lib/license'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
@@ -149,6 +150,41 @@ export async function sendExpiryNotices() {
   appendAudit({ actor: session.name, action: `만료 임박 알림 발송 (${n}건)`, target: '계약 · 라이선스' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `만료 임박 알림 ${n}건 발송 — 연동 · 인프라의 발송 이력에서 확인할 수 있습니다.` }
+}
+
+/** 유지보수 예산 통보 — 예산 초과·소진 임박 유지보수 계약의 주관부서·공급사에 재협상·집행 점검을 요청한다.
+ *  (제품안내서 §03 유지보수 계약: 비용 이력·예산 관리 — 그동안 집행률 판정은 화면·대시보드에 보였으나 조치 채널이 없었다.
+ *   대여 독촉·만료 임박 알림처럼 신호에 실제 통보 채널을 붙인다.) 예산 초과는 추가 예산·재협상, 소진 임박은 잔여 집행 계획 점검.
+ *  당일 이미 통보한 계약은 건너뛴다(ref = 계약 id). 자산담당·Admin. */
+export async function notifyMaintenanceBudget() {
+  const session = await guard()
+  if (!session) return { ok: false, message: '유지보수 예산 통보 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const t = today()
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === '유지보수 예산 통보' && m.at.startsWith(t)).map((m) => m.ref),
+  )
+
+  let n = 0
+  for (const r of buildMaintenance().rows) {
+    if (r.status !== '예산 초과' && r.status !== '소진 임박') continue
+    if (sentToday.has(r.id)) continue
+    const ask = r.status === '예산 초과' ? '추가 예산·재협상 검토' : '잔여 집행 계획 점검'
+    dispatch({
+      channel: '이메일',
+      to: `${r.ownerDept} · ${r.vendor}`,
+      subject: `${r.id} ${r.name} 유지보수 예산 ${r.status} (집행률 ${r.rate}% · 잔여 ${fmtAmount(r.remaining)}원) — ${ask} 요청`,
+      kind: '유지보수 예산 통보',
+      ref: r.id,
+    })
+    n += 1
+  }
+
+  if (n === 0) return { ok: false, message: '예산 초과·소진 임박 유지보수 계약이 없습니다 (오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `유지보수 예산 통보 발송 (${n}건)`, target: '유지보수 계약' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `유지보수 예산 통보 ${n}건 발송 — 주관부서·공급사에 재협상·집행 점검 요청 (발송 이력 적재)` }
 }
 
 /** 계약 갱신 — 만료 임박·경과 계약의 계약 기간을 연장한다.
