@@ -1030,6 +1030,28 @@ try {
   ok('재물조사(범위 지정): 미실사 남은 대상 노출(대장 대상 AST-2024-000230)', scopeSurveyBody.includes('미실사 남은 대상') && scopeSurveyBody.includes('AST-2024-000230'))
   ok('재물조사(범위 지정): 미실사 대상에 분실 신고 조치 노출', (await p4.locator('tr', { has: p4.locator('td', { hasText: 'AST-2024-000230' }) }).first().locator('button', { hasText: /^분실 신고$/ }).count()) > 0)
 
+  // 재물조사 '대장 미등록' → 승인 시 대장 실제 편입(신규 등록) — 그동안 차이 조정 승인은 resolution 문자열('신규 등록')만
+  //  남기고 현장에서 라벨만 확인된 미등록 자산을 대장에 넣지 않아 관리 사각에 방치됐다. 미등록 코드 스캔 → 조정 상신 → 승인 시
+  //  검수중으로 채번·편입되고 스캔 라벨이 시리얼(LABEL-…)로 남는지 검증한다(판교 범위 회차 = 위에서 진행중, 차이 1건 격리).
+  await p4.locator('input[placeholder*="스캔하거나"]').fill('UNKNOWN-E2E-88')
+  await p4.locator('button', { hasText: /^확정$/ }).click()
+  await p4.waitForTimeout(800)
+  ok('재물조사: 미등록 코드 스캔 → 대장 미등록 차이 생성', ((await p4.textContent('body')) || '').includes('대장에 없는 자산') || ((await p4.textContent('body')) || '').includes('신규 등록 대상'))
+  await p4.locator('button', { hasText: /^조정 결재 상신 \(\d+\)$/ }).click()
+  await p4.waitForTimeout(800)
+  // IT기획팀장 단계 = ADMIN — 신규 ADMIN 컨텍스트로 차이 조정 승인(p3 는 이 시점 종료됨)
+  const ctxAI = await browser.newContext()
+  await ctxAI.addCookies([cookie(ADMIN)])
+  const pAI = await ctxAI.newPage()
+  await pAI.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await pAI.locator('tr', { has: pAI.locator('text=2027 판교 범위 정기 재물조사') }).first().locator('button', { hasText: /^승인$/ }).click()
+  await pAI.waitForTimeout(900)
+  await pAI.goto(`${BASE}/assets/register?q=LABEL-UNKNOWN-E2E-88`, { waitUntil: 'networkidle' })
+  const regBody = (await pAI.textContent('body')) || ''
+  // q=LABEL-… 는 시리얼로 새 자산을 격리 조회한다(시리얼은 상세에만 표기되므로 목록 행의 모델·상태로 편입을 확인).
+  ok('재물조사 대장 미등록 승인 → 대장 실제 편입(검수중·스캔 라벨 시리얼)', regBody.includes('미상 (라벨만 확인)') && regBody.includes('검수중'))
+  await ctxAI.close()
+
   // 입고 지연 독촉(§06 ITSM 납기 관리 · 검출→조치) — 납기 경과 발주 로트(시드 IN-2607-03)의 공급사에 납기 확인 독촉 발송
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   ok('도입·검수: 입고 지연 독촉 버튼 노출(발주처)', (await p4.locator('button', { hasText: /^입고 지연 독촉 발송 \d+건$/ }).count()) > 0)
