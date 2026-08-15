@@ -190,6 +190,18 @@ export async function GET(req: Request) {
     return csvResponse('보안위반_관리대장', rows)
   }
 
+  if (type === 'security-reviews') {
+    // 보안성 검토 — 담당(BIZ)·Admin 전용 (화면 canManage/메뉴 권한과 동일 스코프)
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const rows: (string | number)[][] = [['번호', '유형', '제목', '대상', '검토자', '예정일', '완료일', '발견', '조치', '조치율(%)', '상태']]
+    for (const r of s.securityReviews) {
+      // 조치율 — 발견 0 건은 조치 대상 없음('해당없음'), 그 외 Math.round 거짓 100 방지 (이수현황 export 와 동일 원칙)
+      const rate = r.findings > 0 ? (r.fixed >= r.findings ? 100 : Math.min(99, Math.round((r.fixed / r.findings) * 100))) : '해당없음'
+      rows.push([r.id, r.kind, r.title, r.target, r.reviewer, r.plannedAt, r.completedAt ?? '', r.findings, r.fixed, rate, r.status])
+    }
+    return csvResponse('보안성검토_관리대장', rows)
+  }
+
   if (type === 'servers') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const rows: (string | number)[][] = [['서버번호', '호스트명', 'IP', '용도', 'OS', 'CPU', '메모리(GB)', '랙', 'H/W', '디스크(%)']]
