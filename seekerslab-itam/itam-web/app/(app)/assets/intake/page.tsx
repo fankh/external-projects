@@ -1,5 +1,6 @@
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireRole } from '@/lib/authz'
+import { isIntakeOverdue, today } from '@/lib/dates'
 import { barcodeSvg, qrSvg } from '@/lib/label'
 import { getStore } from '@/lib/store'
 import { IntakeView } from './IntakeView'
@@ -38,7 +39,7 @@ export default async function IntakePage() {
       />
 
       <div className="stat-row">
-        <Stat value={lots.filter((l) => l.status === '도입 예정').length} label="도입 예정 (ITSM 발주)" tone={lots.some((l) => l.status === '도입 예정') ? 'accent' : 'ok'} />
+        <Stat value={lots.filter((l) => l.status === '도입 예정').length} label="도입 예정 (ITSM 발주)" tone={lots.filter(isIntakeOverdue).length ? 'err' : lots.some((l) => l.status === '도입 예정') ? 'accent' : 'ok'} delta={lots.filter(isIntakeOverdue).length ? { text: `입고 지연 ${lots.filter(isIntakeOverdue).length}건 (발주처 독촉)`, dir: 'up' } : undefined} />
         <Stat value={lots.filter((l) => l.status === '입고 대기').length} label="입고 대기 (검수 전)" />
         <Stat value={lots.filter((l) => l.status === '검수 중').length} label="검수 진행" tone="warn" />
         <Stat value={lots.filter((l) => l.status === '검수 완료').length} label="검수 완료 — 채번 가능" tone="ok" />
@@ -51,7 +52,7 @@ export default async function IntakePage() {
         그대로 사용됩니다.
       </div>
 
-      <IntakeView lots={lots} labels={labels} contracts={purchaseContracts} />
+      <IntakeView lots={lots} labels={labels} contracts={purchaseContracts} today={today()} />
     </>
   )
 }

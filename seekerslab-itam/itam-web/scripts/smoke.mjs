@@ -225,6 +225,8 @@ try {
   // 대시보드의 '미등록 신규 발견'은 아직 손대지 않은 건만 보여주는 처리 대기열이므로,
   // 확인요청·격리요청이 걸린 자산(DSC-2607-0041 등)은 여기서 빠지는 것이 정상이다
   check('대시보드: KPI·발견 자산·내 결재 차례·운영 대기 렌더', dashHtml.includes('미등록 신규 발견') && dashHtml.includes('DSC-2607-0042') && dashHtml.includes('내 결재 차례') && dashHtml.includes('운영 대기'))
+  // 도입 예정 입고 지연 큐(§06 ITSM) — 납기 경과 발주 로트를 담당자 운영 큐로. 시드 SR-2607-041 지연분.
+  check('대시보드: 도입 예정 입고 지연 큐 (자산담당)', dashHtml.includes('도입 예정 입고 지연') && dashHtml.includes('SR·발주 독촉'))
   // 전역 통합 검색 — 키보드 단축키 힌트(크롬 타이틀바, 전 화면)
   check('크롬: 통합 검색 키보드 단축키 힌트(Ctrl+K)', dashHtml.includes('통합 검색') && dashHtml.includes('Ctrl+K'))
   check('대시보드: 처리 착수한 발견 자산은 대기열에서 제외', !dashHtml.includes('DSC-2607-0041'))
@@ -531,6 +533,8 @@ try {
   check('도입·검수: QR·바코드 SVG 발행', (inHtml.match(/<svg/g) ?? []).length >= 2 && inHtml.includes('AST-2025-000033'))
   // 도입 예정 — ITSM SR·발주 사전 등록 → 도착 전 자산 (제품안내서 §06 ITSM·구매 연동)
   check('도입·검수: 도입 예정(ITSM SR·발주) 섹션 + 시드 사전등록 + 도착 처리', inHtml.includes('도입 예정') && inHtml.includes('SR-2607-041') && inHtml.includes('입고 등록 (도착)'))
+  // 도입 예정 입고 지연(§06 ITSM·구매 연동) — 도착 예정일 경과 미입고 로트를 납기 지연으로 표기(발주처 독촉). 시드 SR-2607-041(예정 2026-07-25 경과).
+  check('도입·검수: 도입 예정 입고 지연(납기 경과) 표기·발주처 독촉', inHtml.includes('입고 지연') && inHtml.includes('납기') && inHtml.includes('발주처 독촉'))
   // 검수 반려 로트 — 불량 반려 후 재검수·반품 확인 백로그. 목록에 반려 상태로 노출(선택 시 재검수 버튼)
   check('도입·검수: 검수 반려 로트 노출 (IN-2607-04 · Dell UltraSharp)', inHtml.includes('IN-2607-04') && inHtml.includes('Dell UltraSharp') && inHtml.includes('검수 반려'))
   // 검수 확인서 — 검수 이력이 있는 로트의 공급사·계약·체크리스트·채번 자산을 물품 인수 증적(대금 지급·감사)으로. 검수 전 로트는 대상 아님(400).

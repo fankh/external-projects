@@ -10,7 +10,7 @@
  *  시연에서 특정 날짜를 재현하려면 `ITAM_TODAY=YYYY-MM-DD`, 표준시를 바꾸려면 `ITAM_TZ`.
  *  서버 전용 모듈 — 클라이언트에서 쓰면 하이드레이션 불일치가 생긴다.
  */
-import type { Asset } from '@/lib/types'
+import type { Asset, IntakeLot } from '@/lib/types'
 
 const TZ = process.env.ITAM_TZ || 'Asia/Seoul'
 
@@ -151,6 +151,13 @@ export function isLoanDueSoon(a: Asset): boolean {
 export function isRepairOverdue(a: Asset): boolean {
   if (a.status !== '수리중' || !a.repair?.eta) return false
   return (daysUntil(a.repair.eta) ?? 0) < 0
+}
+
+/** 도입 예정(발주) 입고 지연 — 도착 예정일이 지났는데 아직 입고되지 않은 사전 등록 로트.
+ *  제품안내서 §06 ITSM·구매 연동(SR·발주 연계) — 발주처 독촉·납기 관리의 기준. 서버 전용. */
+export function isIntakeOverdue(l: IntakeLot): boolean {
+  if (l.status !== '도입 예정' || !l.expectedDate) return false
+  return (daysUntil(l.expectedDate) ?? 0) < 0
 }
 
 /** 정기 점검 대상 — 예방 정비 예정일이 30일 내로 도래했거나 지난(미시행) 운영 자산. 폐기 절차 자산은 제외. 서버 전용.
