@@ -16,7 +16,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
-BASE_PORT = 3520
+BASE_PORT = 3700  # 시나리오별 포트 = BASE_PORT + idx. 중단된 과거 실행이 남긴 유령 next 서버가 35xx·36xx 대를
+                  # 점유(종료 불가·세션 격리)해 뒤쪽 시나리오가 바인드 타임아웃 나던 것을 회피 — 여유 대역으로 이동.
 UPLOAD = ROOT / 'scripts' / '.e2e-upload.txt'
 DATA = ROOT / 'scripts' / '.e2e-data.json'
 EDU_DATA = ROOT / 'scripts' / '.e2e-edu-data.json'  # 교육 이수율 퇴사자 이력 회귀용 (v1.5.24)
@@ -44,6 +45,7 @@ APPLYROUTE_DATA = ROOT / 'scripts' / '.e2e-applyroute-data.json'  # 적용요청
 OPSSCOPE_DATA = ROOT / 'scripts' / '.e2e-opsscope-data.json'  # 대시보드 전사 스냅샷 런타임 메뉴권한 정합 회귀용 (v1.5.86)
 SYSINC_DATA = ROOT / 'scripts' / '.e2e-sysinc-data.json'  # 시스템화면 장애 교차도메인 게이트 회귀용 (v1.5.87)
 NOTICESCOPE_DATA = ROOT / 'scripts' / '.e2e-noticescope-data.json'  # 대시보드 공지 교차도메인 게이트 회귀용 (v1.5.87)
+ROT_FRESH_DATA = ROOT / 'scripts' / '.e2e-rotfresh-data.json'  # 회전문서 신규 상신 과다마감 방지 회귀용 (v1.5.88 AP3-3)
 
 
 def login(pg, base, name):
@@ -550,6 +552,26 @@ def sc_channelstate_corrupt(pg, base, check):
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
+
+
+def sc_rotating_fresh_no_overclose(pg, base, check):
+    """회전문서 신규 상신 과다마감 방지(v1.5.88 AP3-3) — 회전참조 묶음(장애보고)은 재상신마다 ref 가 바뀌어
+    docType 만으로 닫으면, 반려와 무관한 '신규' 묶음 상신이 오래된 재상신 할일까지 마감해 '반려 방치' 알림이
+    영구 소실됐다. v1.5.88: 재상신 할일의 반려 묶음 항목(batchItems)을 현재 상신 항목이 재포함할 때만 닫는다.
+    과거 반려 할일(batchItems=FL-2026-96)이 있는데 무관한 신규 장애(FL-2026-95)만 상신 → 할일 유지 확인."""
+    login(pg, base, '박정호')  # BIZ_MGR — 장애보고 상신 권한
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    before = pg.locator('.card', has_text='미처리 할일').locator('tr', has_text='[장애보고 상신]').count()
+    check(before >= 1, f'전제: 과거 반려 재상신 할일 존재 (실제 {before})')
+    # 무관한 신규 장애만 상신 (항목 재포함 아님)
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    pg.check('input[name=ids][value="FL-2026-95"]')
+    pg.click('button:has-text("선택 건 장애보고 상신")')
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    after = pg.locator('.card', has_text='미처리 할일').locator('tr', has_text='[장애보고 상신]').count()
+    check(after == before,
+          f'무관한 신규 묶음 상신은 과거 재상신 할일을 안 닫음 (전 {before} → 후 {after}, 버그면 {before - 1})')
 
 
 def sc_rotating_resign_orphan(pg, base, check):
@@ -1654,6 +1676,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(CHST_DATA)}),
     ('rotating_resign_orphan', '회전 문서 교차-재상신자 고아 할일 마감', sc_rotating_resign_orphan,
      {'PORTAL_DATA_FILE': str(ROT_ORPHAN_DATA)}),
+    ('rotating_fresh_no_overclose', '회전문서 신규 상신 과다마감 방지 — 항목 재포함시에만 마감', sc_rotating_fresh_no_overclose,
+     {'PORTAL_DATA_FILE': str(ROT_FRESH_DATA)}),
     ('dashboard_edu_scope', '대시보드 교육 미이수 대상 스코프 — 비대상 과정 미집계', sc_dashboard_edu_scope,
      {'PORTAL_DATA_FILE': str(DEDU_DATA)}),
     ('dashboard_pledge_general', '대시보드 일반 서약 타일 — 타 유형 재서약 할일에 오반응 안 함', sc_dashboard_pledge_general,
@@ -1908,7 +1932,17 @@ def main() -> int:
                        'occurredAt': '2026-08-01', 'status': '조치완료', 'reportStatus': '미상신',
                        'countermeasure': '임시조치', 'cmResult': '완료'}],
         'todos': [{'id': 'TD-9003', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
-                   'title': '[장애보고 상신] IR-2026-0001 반려 — 보완 후 재상신 (사유: 보완요망)'}],
+                   'title': '[장애보고 상신] IR-2026-0001 반려 — 보완 후 재상신 (사유: 보완요망)',
+                   'batchItems': ['FL-2026-91']}],
+    }, ensure_ascii=False), encoding='utf-8')
+    # rotating_fresh_no_overclose 시나리오용(v1.5.88 AP3-3) — 과거 반려 재상신 할일(batchItems=FL-2026-96)이
+    # 있는 상태에서 무관한 신규 장애(FL-2026-95)만 상신하면, 항목 재포함이 아니므로 재상신 할일이 안 닫혀야 한다.
+    ROT_FRESH_DATA.write_text(json.dumps({
+        'incidents': [{'id': 'FL-2026-95', 'system': 'ERP', 'title': '신규무관장애', 'grade': '3등급',
+                       'occurredAt': '2026-08-02', 'status': '조치완료', 'reportStatus': '미상신'}],
+        'todos': [{'id': 'TD-9005', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
+                   'title': '[장애보고 상신] IR-2026-0002 반려 — 보완 후 재상신 (사유: 통계보완)',
+                   'batchItems': ['FL-2026-96']}],
     }, ensure_ascii=False), encoding='utf-8')
     passed = 0
     with sync_playwright() as p:
@@ -1940,6 +1974,7 @@ def main() -> int:
     OPSSCOPE_DATA.unlink(missing_ok=True)
     SYSINC_DATA.unlink(missing_ok=True)
     NOTICESCOPE_DATA.unlink(missing_ok=True)
+    ROT_FRESH_DATA.unlink(missing_ok=True)
     for bak in DATA.parent.glob('.e2e-*.json.*.bak'):
         bak.unlink(missing_ok=True)
     total = len(targets)

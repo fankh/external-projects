@@ -207,6 +207,10 @@ export interface TodoItem {
   title: string
   dueDate: string
   done: boolean
+  /** 회전참조 묶음 문서(장애보고·출력물폐기·서약현황) 반려로 생긴 '재상신' 할일에만 채워진다 —
+   *  반려된 묶음의 항목 id 목록. 재상신(같은 항목 재제출)이 이 항목을 재포함할 때만 할일을 닫아,
+   *  무관한 신규 묶음 상신이 오래된 재상신 할일을 과다 마감하는 것을 막는다(AP3-3). */
+  batchItems?: string[]
 }
 
 export interface Notice {

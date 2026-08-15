@@ -119,7 +119,7 @@ async function submitCompanyPledges(formData: FormData) {
     c.status = '결재중'
   }
   // 첨부는 결재 문서 본문에 목록으로 노출 (자동첨부 안 함 — 결재 시트 12번)
-  draftApproval({ docType: '서약 현황 상신', title: `[보안서약서-협력업체] ${targets.length}건 (${targets.map((c) => c.company).join('·')})`, ref, drafter: me })
+  draftApproval({ docType: '서약 현황 상신', title: `[보안서약서-협력업체] ${targets.length}건 (${targets.map((c) => c.company).join('·')})`, ref, drafter: me, items: targets.map((c) => c.id) })
   revalidatePath('/', 'layout')
 }
 

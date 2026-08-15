@@ -24,6 +24,9 @@ export function draftApproval(opts: {
   title: string
   ref: string
   drafter: { name: string; dept: string }
+  /** 회전참조 묶음 문서 상신 시 현재 묶음의 항목 id 목록 — 재상신 할일을 항목 재포함 기준으로
+   *  정밀 마감하기 위해 넘긴다(무관 신규 묶음의 과다마감 방지, AP3-3). 비묶음 문서는 생략. */
+  items?: string[]
 }): string {
   const s = getStore()
   const biz = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')!
@@ -58,10 +61,10 @@ export function draftApproval(opts: {
 
   // 폐쇄 루프 — 반려로 생긴 기안자의 '재상신' 할일은 재상신과 함께 닫힌다.
   //  · 비묶음 문서: 참조 번호 일치로 그 할일을 정확히 닫는다.
-  //  · 묶음 문서(장애·출력물·서약): 재상신마다 새 묶음 번호를 받아 참조가 회전하므로 문서 유형으로
-  //    매칭하되, 재상신 1회는 반려 1건에 대응하므로 가장 오래된 것 하나만 닫는다. 같은 유형의
-  //    묶음이 여럿 동시에 반려된 경우, 한 번 재상신에 전부 닫혀 잔여 반려의 방치 알림이 사라지는
-  //    것을 막는다(할일 자체엔 회차 식별자가 없어 개수 일치만 보장한다).
+  //  · 묶음 문서(장애·출력물·서약): 재상신마다 새 묶음 번호를 받아 참조가 회전한다. 문서 유형으로 매칭하되,
+  //    v1.5.88 부터 '반려 묶음 항목(batchItems)의 재포함' 기준으로 정밀 마감한다 — 현재 상신 항목(opts.items)이
+  //    그 할일의 batchItems 를 하나라도 포함할 때만 닫아, 반려와 무관한 신규 묶음 상신이 오래된 재상신 할일을
+  //    과다 마감(반려방치 알림 영구 소실, AP3-3)하지 않게 한다. 항목정보 없는 레거시 경로는 개수일치(1건) 폴백.
   const isRotating = ROTATING_DOC_TYPES.includes(opts.docType)
   let rotatingClosed = false
   // s.todos 는 unshift 로 최신이 앞 — 오래된 것부터 닫으려 뒤에서부터 훑는다.
@@ -78,10 +81,16 @@ export function draftApproval(opts: {
     if (opts.ref && t.owner === opts.drafter.name && t.title.startsWith(`[${opts.docType}] ${opts.ref} `)) { t.done = true; continue }
     // 회전 문서(장애보고·서약현황·출력물폐기)는 재상신마다 ref 가 바뀌어 참조 일치가 불가능하다 —
     // (부서서약은 v1.5.84 에서 ref=부서명 안정키로 비회전화돼 위 ref-exact 경로로 닫힌다) —
-    // docType 의 가장 오래된 열린 재상신 1건을 '소유자 무관하게' 닫는다(재상신 1회 = 반려 1건 해소, 개수
-    // 일치 불변식). 공유 관리자 워크스페이스에서 재상신자≠원 기안자여도 원 기안자 고아 할일·'반려 방치'
-    // 무한 알림이 남지 않게 owner 게이트를 두지 않는다(비회전의 페이지레벨 소유자무관 닫기와 동일 취지).
-    if (isRotating && !rotatingClosed && t.title.startsWith(`[${opts.docType}]`)) { t.done = true; rotatingClosed = true }
+    // 소유자 무관하게 닫아 공유 관리자 워크스페이스의 교차 재상신자 고아 할일·'반려 방치' 무한 알림을 막되,
+    // v1.5.88: 재상신 할일의 반려 묶음 항목(batchItems)을 현재 상신 항목(opts.items)이 재포함할 때만 닫는다.
+    // 이렇게 하면 반려와 무관한 '신규' 묶음 상신이 오래된 재상신 할일을 과다 마감하던 결함(AP3-3)이 사라지고,
+    // 여러 묶음을 한 번에 재상신하면 겹치는 할일을 정확히 모두 닫는다. 항목정보가 없는 레거시 할일·상신은
+    // 종전 개수일치(가장 오래된 1건, 소유자무관) 동작으로 폴백한다(회귀 방지).
+    if (isRotating && t.title.startsWith(`[${opts.docType}]`)) {
+      if (opts.items && t.batchItems) {
+        if (t.batchItems.some((id) => opts.items!.includes(id))) t.done = true
+      } else if (!rotatingClosed) { t.done = true; rotatingClosed = true }
+    }
   }
   return apId
 }

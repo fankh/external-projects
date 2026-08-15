@@ -7,6 +7,16 @@ import { ACCOUNTS } from '@/lib/session'
 import { today } from '@/lib/dates'
 import { getStore, nextNo } from '@/lib/store'
 
+/** 회전참조 묶음 문서의 반려 시점 항목 id 목록 — 배치를 구성한 항목(참조가 아직 살아있는 상태)을
+ *  모아 재상신 할일에 남긴다. 재상신이 이 항목을 재포함해야만 할일이 닫혀 과다 마감을 막는다(AP3-3).
+ *  비묶음 문서는 undefined 를 돌려주고, 호출부는 batchItems 필드를 생략한다. */
+function batchItemsOf(s: ReturnType<typeof getStore>, docType: string, ref: string): string[] | undefined {
+  if (docType === '장애보고 상신') return s.incidents.filter((i) => i.reportRef === ref).map((i) => i.id)
+  if (docType === '출력물폐기 상신') return s.printouts.filter((p) => p.approvalRef === ref).map((p) => p.id)
+  if (docType === '서약 현황 상신') return s.companyPledges.filter((c) => c.approvalRef === ref).map((c) => c.id)
+  return undefined
+}
+
 /** 결재 처리 — 승인·반려는 참조 업무(ref)의 상태로 전파되고, 내 '결재' 할일을 닫는다.
  *  결재자 본인 여부를 서버에서 재검증한다(화면 숨김과 별개의 가드). */
 async function decide(formData: FormData, verdict: '승인' | '반려') {
@@ -48,11 +58,16 @@ async function decide(formData: FormData, verdict: '승인' | '반려') {
   // (draftApproval 은 항상 ref 를 채우므로 실 문서엔 영향 없고, ref 로 제목을 구성해 재상신 시
   //  draftApproval 의 닫기 매칭(유형+ref 선두 고정)이 정확히 이 할일을 닫을 수 있게 한다.)
   if (verdict === '반려' && ap.ref) {
+    // 회전참조 묶음 문서는 반려된 묶음의 항목 id 를 재상신 할일에 남긴다 — 재상신(같은 항목 재제출)이
+    // 이 항목을 재포함할 때만 draftApproval 이 이 할일을 닫아, 무관한 신규 묶음 상신의 과다 마감을 막는다
+    // (AP3-3). 이 블록은 아래 상태 전파(reportRef/approvalRef 초기화)보다 먼저 실행돼 참조가 아직 살아있다.
+    const batchItems = batchItemsOf(s, ap.docType, ap.ref)
     s.todos.unshift({
       id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
       owner: ap.drafter, kind: '재상신',
       title: `[${ap.docType}] ${ap.ref} 반려 — 보완 후 재상신 (사유: ${reason})`,
       dueDate: today(), done: false,
+      ...(batchItems && batchItems.length > 0 ? { batchItems } : {}),
     })
   }
 

@@ -77,8 +77,12 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('비일반 재서약', reSignOwners, '[보안서약서] 개정 재서약 안내')
 
   // 2) 보안점검 경과 — 예정월이 지났는데 완료·결재중이 아닌 항목의 점검자
+  // 재직자 교집합 — 점검자가 퇴사해 s.people 에서 빠지면 점검을 수행·등록할 수 없으므로(유령 독촉) 타 person
+  // 경로(미서약·재택·반려방치·확인서·출력물)와 동일하게 현재 재직 명단과 교집합한다. 점검 계획 자체는 점검
+  // 화면에 남아 미등록·경과 가시성은 유지된다(점검자는 관리자급 ACCOUNTS 로, 정상 재직자는 모두 s.people 에 있음).
   await send('점검 경과',
-    s.inspectionPlans.filter((p) => p.month < month && (p.status === '계획' || p.status === '결과미등록')).map((p) => p.inspector),
+    s.inspectionPlans.filter((p) => p.month < month && (p.status === '계획' || p.status === '결과미등록'))
+      .map((p) => p.inspector).filter((name) => people.some((p) => p.name === name)),
     '[보안점검] 기한 경과 항목 안내')
 
   // 3) SR 지연 — 완료 예정일 경과 진행 건의 담당 CI

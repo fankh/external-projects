@@ -75,7 +75,7 @@ async function submitReport(formData: FormData) {
   // 폐쇄 루프 — 장애통계 상신이 기본 결재선으로 흐르고, 승인되면 묶인 장애 건이 결재완료로 전파된다.
   // 엑셀양식(XT) 자동첨부 — 요구사항 결재 시트 8번 '첨부파일자동생성 o'
   registerGenerated(ref, '장애보고 상신', me.name)
-  draftApproval({ docType: '장애보고 상신', title: `[장애보고] ${targets.length}건 (${today()} 취합, 엑셀양식 자동첨부)`, ref, drafter: me })
+  draftApproval({ docType: '장애보고 상신', title: `[장애보고] ${targets.length}건 (${today()} 취합, 엑셀양식 자동첨부)`, ref, drafter: me, items: targets.map((i) => i.id) })
   revalidatePath('/', 'layout')
 }
 
