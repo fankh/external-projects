@@ -354,6 +354,11 @@ try {
   // 긴급 보안 에스컬레이션(IOC 차단)은 이메일 상세 + 문자(SMS) 즉시 알림으로 이중 발송된다
   ok('긴급 에스컬레이션: IOC 차단 이메일+문자(SMS) 이중 발송', audit.includes('IOC 차단 집행 요청') && audit.includes('[긴급] IOC 차단 요청'))
 
+  // 탐지 채널 재탐지 주기 경과(수집 지연 · Discovery 사각) — 활성 채널인데 마지막 수집이 주기를 넘긴 정체 수집기를 스캔 화면에 칩으로 노출(EASM 재탐지 지연과 동형).
+  await page.goto(`${BASE}/discovery/scan`, { waitUntil: 'networkidle' })
+  const scanChanBody = (await page.textContent('body')) || ''
+  ok('스캔 실행: 재탐지 주기 경과 채널에 재탐지 지연 칩', scanChanBody.includes('채널별 수집 현황') && scanChanBody.includes('재탐지 지연'))
+
   // AI 제안 판정 루프(11) — 승인→조치·반려 사유 필수
   await aiInsightDecide(page)
   await ctx.close()

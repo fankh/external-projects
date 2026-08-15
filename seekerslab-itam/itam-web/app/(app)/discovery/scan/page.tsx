@@ -2,6 +2,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { ExportButton } from '@/components/ExportButton'
 import { requireRole } from '@/lib/authz'
 import { nowMinute } from '@/lib/dates'
+import { isScanOverdue } from '@/lib/scan-policy'
 import { getStore } from '@/lib/store'
 import { ScanConsole } from './ScanConsole'
 
@@ -23,7 +24,8 @@ const RUN_TONE = { 완료: 'ok', '실행 중': 'info', 중단: 'warn' } as const
 export default async function ScanPage() {
   const session = await requireRole('ASSET_MGR', 'SEC_MGR', 'ADMIN')
   const s = getStore()
-  const clock = nowMinute().slice(11, 16)
+  const now = nowMinute()
+  const clock = now.slice(11, 16)
 
   const policies = s.scanPolicies.map((p) => ({
     channel: p.channel, enabled: p.enabled, kind: p.kind, targets: p.targets,
@@ -85,7 +87,10 @@ export default async function ScanPage() {
                     </td>
                     <td className="c mute">{p.interval}</td>
                     <td className="c mute">{p.intensity}</td>
-                    <td className="tnum">{st?.last ?? <span className="dim">-</span>}</td>
+                    <td className="tnum">
+                      {st?.last ?? <span className="dim">-</span>}
+                      {isScanOverdue(p, st?.last, now) && <div><Chip tone="warn">재탐지 지연</Chip></div>}
+                    </td>
                     <td className="num tnum">{st?.count ?? 0}</td>
                     <td className="c">
                       {p.enabled ? <Chip tone="ok">수집 중</Chip> : <Chip tone="err">중지</Chip>}
