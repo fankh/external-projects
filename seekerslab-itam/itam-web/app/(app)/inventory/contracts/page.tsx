@@ -12,6 +12,7 @@ import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
 import { MaintenanceBudgetButton } from './MaintenanceActions'
 import { ProcurementRemindButton } from './ProcurementRemindButton'
+import { SeatResolveCell } from './SeatResolveCell'
 import { UsageCollect } from './UsageCollect'
 
 export const dynamic = 'force-dynamic'
@@ -265,12 +266,8 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="num tnum">{r.seatCount}</td>
                   <td className="num tnum">{r.installCount}</td>
                   <td className="num tnum">{r.matched}</td>
-                  <td>{r.offSeat.length
-                    ? <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}><Chip tone="err" bare>{r.offSeat.length}건</Chip><span className="dim" style={{ fontSize: 11 }}>{r.offSeat.map((o) => `${o.assetNo} (${o.dept})`).join(', ')}</span></span>
-                    : <span className="dim">-</span>}</td>
-                  <td>{r.unusedSeat.length
-                    ? <span className="hstack" style={{ gap: 6, flexWrap: 'wrap' }}><Chip tone="warn" bare>{r.unusedSeat.length}건</Chip><span className="dim" style={{ fontSize: 11 }}>{r.unusedSeat.map((u) => `${u.assetNo} (${u.user})`).join(', ')}</span></span>
-                    : <span className="dim">-</span>}</td>
+                  <td><SeatResolveCell licenseId={r.id} kind="offSeat" canEdit={canEditLicense} assets={r.offSeat.map((o) => ({ assetNo: o.assetNo, label: o.dept }))} /></td>
+                  <td><SeatResolveCell licenseId={r.id} kind="unusedSeat" canEdit={canEditLicense} assets={r.unusedSeat.map((u) => ({ assetNo: u.assetNo, label: u.user }))} /></td>
                   <td className="tnum">{r.collectedAt ?? <span className="dim">미수집</span>}</td>
                 </tr>
               ))}
