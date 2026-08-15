@@ -279,6 +279,10 @@ async function aiPeriodQuery(page) {
   const vtext = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(vid)}?format=xlsx`)).body()).toString('utf8')
   ok('리포트 반출: 재물조사 결과 요약 xlsx 에 차이 상세·조정 결과 섹션(유형별 대장 대조)', vtext.includes('차이 상세 · 조정 결과') && vtext.includes('위치 불일치') && vtext.includes('대장 미등록') && vtext.includes('AST-2025-000512'))
 
+  // 계약 이행 인라인 질의(§05) — 유지보수 예산 초과·구매 발주 미이행 신호를 리포트 생성 없이 인라인으로 답한다(만료 질의로 오라우팅 금지).
+  const cq = await ask('유지보수 예산 초과·발주 이행 계약 알려줘')
+  ok('AI 계약이행질의: 예산 초과·발주 미이행 인라인 답변(리포트 생성 아님)', cq.includes('예산 초과') && cq.includes('네트워크 장비 통합 유지보수') && cq.includes('발주 미이행') && cq.includes('IDC-A 서버 증설') && !cq.includes('리포트를 생성했습니다'))
+
   // 특정 자산 조회(자산번호) — 상세·이력·레코드 딥링크
   const a1 = await ask('AST-2023-000112 자산의 상태와 변경 이력 알려줘')
   ok('AI 자산조회: 자산번호 상세+이력', a1.includes('AST-2023-000112') && a1.includes('변경 이력') && a1.includes('사용자'))

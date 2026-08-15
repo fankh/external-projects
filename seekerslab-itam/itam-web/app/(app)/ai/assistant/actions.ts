@@ -4,7 +4,9 @@ import { recordAiCall } from '@/lib/ai-status'
 import { externalQueryAllowed, deidentify } from '@/lib/ai-egress'
 import { appendAudit } from '@/lib/audit'
 import { acquisitionCostOf, assetTco, bookValueOf } from '@/lib/cost'
-import { daysUntil, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
+import { daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, isMaintenanceDue, isMaintenanceOverdue, isRepairOverdue, isStaleVerify, parsePeriodWindow, roundProgressPct, today } from '@/lib/dates'
+import { buildMaintenance } from '@/lib/maintenance'
+import { buildProcurement } from '@/lib/procurement'
 import { eolOsOf } from '@/lib/eol'
 import { lowStockCategories } from '@/lib/stock'
 import { REPORT_KINDS, createReport, licenseOptimization, replacementCandidates } from '@/lib/reports'
@@ -350,6 +352,25 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       evidence: [{ label: '자산 대장 (보증 임박)', href: '/assets/register?warranty=soon' }],
     }
   }
+  // 계약 이행 질의 — 유지보수 예산 집행·구매 발주 이행(#48·#51 신호)을 인라인으로 답한다. 만료 질의(아래)보다 먼저 잡아
+  //  '유지보수 예산 초과'·'발주 미이행'을 만료 계약 답변으로 오라우팅하지 않게 한다(계약 관리 현황 리포트와 동일 근거).
+  if (!isUser && (q.includes('유지보수 예산') || q.includes('예산 초과') || q.includes('집행률') || q.includes('발주 이행') || q.includes('발주 미이행') || q.includes('계약 이행') || q.includes('계약 관리'))) {
+    const mb = buildMaintenance()
+    const proc = buildProcurement()
+    const overBudget = mb.rows.filter((r) => r.status === '예산 초과' || r.status === '소진 임박')
+    const atRisk = proc.atRisk
+    const lines = [
+      ...overBudget.map((r) => `· [${r.status}] ${r.name} — 집행률 ${r.rate}% (누계 ${fmtAmount(r.spent)}/${fmtAmount(r.amount)}원)`),
+      ...atRisk.map((r) => `· [발주 미이행] ${r.name} — 발주율 ${r.rate}% · 만료 ${r.end}${r.dday !== null ? ` (D${r.dday >= 0 ? `-${r.dday}` : `+${-r.dday}`})` : ''}`),
+    ]
+    return {
+      role: 'assistant',
+      text: `계약 이행 현황입니다 — 유지보수 예산 초과·소진 임박 ${overBudget.length}건 · 구매 발주 미이행 위험 ${atRisk.length}건.\n\n`
+        + (lines.length ? lines.join('\n') : '유지보수 예산 초과·발주 미이행 위험 계약이 없습니다.')
+        + `\n\n전체 유지보수 집행 ${fmtAmount(mb.totalSpent)}/${fmtAmount(mb.totalAmount)}원 · 구매 발주 ${fmtAmount(proc.totalOrdered)}/${fmtAmount(proc.totalAmount)}원. 상세·조정은 계약 화면에서, 결재 첨부는 '계약 관리 현황' 리포트로 생성할 수 있습니다.`,
+      evidence: [{ label: '계약 · 라이선스', href: '/inventory/contracts' }],
+    }
+  }
   if (!isUser && (q.includes('만료') || q.includes('보증') || q.includes('계약'))) {
     // 기간 스코프 — "내년 상반기 만료 계약"처럼 시점을 좁히면 그 창 안에 만료되는 계약을, 아니면 운영 정책 만료창 임박분을 답한다
     const period = parsePeriodWindow(q, today())
@@ -627,7 +648,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
   }
   return {
     role: 'assistant',
-    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "부서별 자산 보유 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "취약점 조치 우선순위 (P1/P2/P3)"\n· "이상 자산 행위 탐지 (프로파일 이탈)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "정기 점검(예방 정비) 대상 자산"\n· "안전재고 부족(발주 검토) 유형"\n· "수령(인수) 미확인 자산"\n· "AST-2023-000112 자산의 상태와 변경 이력" (자산번호로 특정 자산 조회)\n· "내 보유 자산"\n· "내 수리 현황"\n· "내 신청 상태"`,
+    text: `현재 데모 모드(ANTHROPIC_API_KEY 미설정)로 동작 중입니다. 다음과 같은 질의를 지원합니다.\n\n· "이번 달 새로 발견된 미등록 단말 중 서버 대역에 있는 것은?"\n· "특정 부서에서 쓰는 미인가 SaaS와 추정 사용자 수"\n· "재물조사 진행률"\n· "결재 대기 현황"\n· "만료 임박한 계약 목록"\n· "계약 이행 현황 (유지보수 예산 초과·발주 미이행)"\n· "내년 1분기 보증 만료되는 네트워크 장비 목록" (기간 지정 — 분기·반기·월·연도)\n· "라이선스 초과 사용 현황"\n· "교체 대상 자산과 교체 예산 (내용연수·보증·EOL OS)"\n· "자산 상태 분포와 대여 현황"\n· "부서별 자산 보유 현황"\n· "자산 가치 현황 (취득가·잔존가치·감가상각)"\n· "취약점 조치 우선순위 (P1/P2/P3)"\n· "이상 자산 행위 탐지 (프로파일 이탈)"\n· "분실·대여 연체·장기 미실측 등 운영 리스크 자산 현황"\n· "정기 점검(예방 정비) 대상 자산"\n· "안전재고 부족(발주 검토) 유형"\n· "수령(인수) 미확인 자산"\n· "AST-2023-000112 자산의 상태와 변경 이력" (자산번호로 특정 자산 조회)\n· "내 보유 자산"\n· "내 수리 현황"\n· "내 신청 상태"`,
   }
 }
 
