@@ -264,6 +264,13 @@ async function aiPeriodQuery(page) {
   const cx = await page.request.get(`${BASE}/api/reports/${encodeURIComponent(cid)}?format=xlsx`)
   const ctext = Buffer.from(await cx.body()).toString('utf8')
   ok('리포트 반출: 부서별 IT 비용 배분 xlsx 에 원가·좌석·유지보수 계약 섹션 실린다', ctext.includes('부서별 IT 자산 원가') && ctext.includes('부서별 라이선스 좌석 비용') && ctext.includes('부서별 유지보수 계약 비용') && ctext.includes('배분 요약'))
+  // 계약 관리 현황 리포트(§03 계약 이행 보고) — 자연어 생성 인텐트 매칭 + 계약 포트폴리오·발주 이행·거버넌스 섹션 반출.
+  const r5 = await ask('계약 관리 현황 리포트 생성해줘')
+  ok('AI 계약질의: 계약 관리 현황 생성 분기', r5.includes('리포트를 생성했습니다'))
+  const kHref = await page.locator('.msg.assistant').last().locator('.refs a').first().getAttribute('href')
+  const kid = decodeURIComponent((kHref.match(/\/api\/reports\/([^?]+)/) || [])[1] || '')
+  const ktext = Buffer.from(await (await page.request.get(`${BASE}/api/reports/${encodeURIComponent(kid)}?format=xlsx`)).body()).toString('utf8')
+  ok('리포트 반출: 계약 관리 현황 xlsx 에 포트폴리오·발주 이행·거버넌스 섹션 실린다', ktext.includes('계약 포트폴리오 요약') && ktext.includes('유지보수 예산 집행') && ktext.includes('구매 발주 이행') && ktext.includes('계약 거버넌스 점검'))
 
   // 특정 자산 조회(자산번호) — 상세·이력·레코드 딥링크
   const a1 = await ask('AST-2023-000112 자산의 상태와 변경 이력 알려줘')

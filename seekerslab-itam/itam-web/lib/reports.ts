@@ -2,6 +2,9 @@
  *  AI는 이 섹션들을 근거로 서술(headline)만 덧붙이므로, 수치는 항상 화면 데이터와 일치한다. */
 import { effectiveClassifyAccuracy } from './ai-accuracy'
 import { recordAiCall } from './ai-status'
+import { buildMaintenance } from './maintenance'
+import { buildProcurement } from './procurement'
+import { missingContractDocs } from './contract'
 import { appendAudit } from './audit'
 import { nowMinute, today, daysUntil, fmtAmount, isLoanOverdue, isLoanDueSoon, roundProgressPct } from './dates'
 import { ACQ_COST, acquisitionCostOf, bookValueOf, repairTotalOf } from './cost'
@@ -64,6 +67,7 @@ export const REPORT_KINDS: { kind: ReportKind; period: string; desc: string }[] 
   { kind: '취약점 조치 우선순위', period: '수시', desc: '자산 중요도 × 노출도 스코어링 — 외부 CVE·EOL OS·미인가 SW·크리덴셜 노출을 P1/P2/P3로 순위화' },
   { kind: 'AI 거버넌스·성능', period: '월간', desc: '모델·프롬프트 버전·분류 정확도 · AI 기능별 제안 채택률(재학습 신호) · 감사·권한 필터 거버넌스 준수' },
   { kind: '부서별 IT 비용 배분', period: '월간', desc: '부서별 IT 자산 원가(취득가·잔존가치·누적 유지보수)·라이선스 좌석 비용·유지보수 계약비를 합산해 IT 비용을 부서로 배분(차지백·예산 근거)' },
+  { kind: '계약 관리 현황', period: '월간', desc: '구매·유지보수 계약 포트폴리오·만료 임박·유지보수 예산 집행·구매 발주 이행·SLA·부속서류 거버넌스 점검(계약 이행 보고)' },
 ]
 
 /** 교체 대상 산정 — 내용연수(도입 5년) 초과 또는 보증 경과 자산(폐기 대상 제외).
@@ -509,6 +513,71 @@ export function buildSections(kind: ReportKind): ReportSection[] {
     ]
   }
 
+  if (kind === '계약 관리 현황') {
+    const live = s.contracts.filter((c) => c.status !== '해지')
+    const purchase = live.filter((c) => c.kind === '구매')
+    const maintC = live.filter((c) => c.kind === '유지보수')
+    const isExpiring = (c: (typeof live)[number]) => {
+      const d = daysUntil(c.end)
+      return d !== null && d <= 90
+    }
+    const expiring = live.filter(isExpiring).sort((a, b) => (daysUntil(a.end) ?? 0) - (daysUntil(b.end) ?? 0))
+    const mb = buildMaintenance()
+    const proc = buildProcurement()
+    const docGap = live.filter((c) => missingContractDocs(c).length > 0)
+    const sumAmt = (list: typeof live) => list.reduce((n, c) => n + c.amount, 0)
+    const ddayLabel = (end: string) => {
+      const d = daysUntil(end)
+      return d === null ? '-' : d >= 0 ? `D-${d}` : `D+${-d}`
+    }
+    return [
+      {
+        title: '계약 포트폴리오 요약',
+        note: '유효 계약(해지 제외) — 구분별 계약 수·총 계약액·만료 임박(D-90 이내)',
+        columns: ['구분', '계약 수', '총 계약액', '만료 임박(D-90)'],
+        rows: [
+          ['구매 계약', String(purchase.length), `${fmtAmount(sumAmt(purchase))}원`, String(purchase.filter(isExpiring).length)],
+          ['유지보수 계약', String(maintC.length), `${fmtAmount(sumAmt(maintC))}원`, String(maintC.filter(isExpiring).length)],
+        ],
+      },
+      {
+        title: '만료 임박 계약 (D-90 이내)',
+        note: '갱신·정산·재계약 검토 대상 — D-day 오름차순',
+        columns: ['계약', '구분', '공급사', '만료일', '기한'],
+        rows: expiring.length
+          ? expiring.map((c) => [c.name, c.kind, c.vendor, c.end, ddayLabel(c.end)])
+          : [['-', '-', '-', '-', '만료 임박 계약 없음']],
+      },
+      {
+        title: '유지보수 예산 집행',
+        note: '유지보수 계약 누계 지출 대비 계약액 — 집행률·판정(예산 초과·소진 임박·미집행)',
+        columns: ['계약', '계약액', '누계 지출', '집행률', '판정'],
+        rows: mb.rows.length
+          ? mb.rows.map((r) => [r.name, `${fmtAmount(r.amount)}원`, `${fmtAmount(r.spent)}원`, `${r.rate}%`, r.status])
+          : [['-', '-', '-', '-', '유지보수 계약 없음']],
+      },
+      {
+        title: '구매 발주 이행',
+        note: '구매 계약 입고 로트 대사 — 발주 소진률·검수 완료액(정산 근거)·이행 판정',
+        columns: ['계약', '계약액', '발주 입고액', '발주율', '이행 판정'],
+        rows: proc.rows.length
+          ? proc.rows.map((r) => [r.name, `${fmtAmount(r.amount)}원`, `${fmtAmount(r.orderedValue)}원`, `${r.rate}%`, r.atRisk ? '발주 미이행' : r.pendingInspection > 0 ? '검수 진행' : '정상'])
+          : [['-', '-', '-', '-', '입고 연계 구매 계약 없음']],
+      },
+      {
+        title: '계약 거버넌스 점검',
+        note: '계약 이행·정산·문서 리스크 — 조치 대상',
+        bullets: [
+          `만료 임박 계약 ${expiring.length}건 (D-90 이내) — 갱신·정산·재계약 검토`,
+          `발주 미이행 위험 ${proc.atRisk.length}건 — 발주율 저조 + 만료 임박(집행·정산 종결 필요)`,
+          `유지보수 예산 초과 ${mb.overBudget}건 — 추가 예산·재협상 대상`,
+          `SLA 미설정 유지보수 계약 ${mb.noSla}건 — 서비스 수준 협약(장애 대응·가동률) 기록 필요`,
+          `부속서류 미비 계약 ${docGap.length}건 — 계약서·견적서·세금계산서 등 근거 문서 보완`,
+        ],
+      },
+    ]
+  }
+
   if (kind === 'AI 거버넌스·성능') {
     const p = s.aiPolicy
     const INSIGHT_KINDS = ['자동분류', '이상탐지', '수명예측', '취약점 우선순위', '라이선스 최적화'] as const
@@ -720,6 +789,15 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
     return `운영 IT 자산 ${valued.length}대의 취득가 ${fmtAmount(totalAcq)}원을 ${deptN}개 부서로 배분했습니다. 현재 장부가(잔존가치)는 ${fmtAmount(totalBook)}원입니다. `
       + `라이선스 좌석 비용 ${fmtAmount(seatCost)}원은 좌석 배정 부서로, 유지보수 계약비 ${fmtAmount(mcCost)}원은 주관 부서로 귀속했습니다. `
       + '자산은 소유 부서, 라이선스는 좌석 부서, 유지보수 계약은 주관 부서를 기준으로 IT 비용을 배분해 부서별 차지백·예산 배정의 근거로 활용할 수 있습니다.'
+  }
+  if (kind === '계약 관리 현황') {
+    const live = s.contracts.filter((c) => c.status !== '해지')
+    const expiring = live.filter((c) => { const d = daysUntil(c.end); return d !== null && d <= 90 }).length
+    const mb = buildMaintenance()
+    const proc = buildProcurement()
+    return `유효 계약 ${live.length}건(구매 ${live.filter((c) => c.kind === '구매').length} · 유지보수 ${live.filter((c) => c.kind === '유지보수').length}) 중 만료 임박(D-90) ${expiring}건입니다. `
+      + `유지보수 예산 초과 ${mb.overBudget}건, 구매 발주 미이행 위험 ${proc.atRisk.length}건이 조치 대상입니다. `
+      + '만료·예산 집행·발주 이행·SLA·부속서류를 한 곳에서 점검해 계약 갱신·정산·재협상 결정의 근거로 씁니다.'
   }
   const liveA = s.assets.filter((a) => a.status !== '폐기완료')
   const flaggedA = liveA.filter(hasDataIssue).length
