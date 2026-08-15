@@ -834,6 +834,12 @@ try {
   await p3.goto(`${BASE}/settings/saas-catalog`, { waitUntil: 'networkidle' })
   const linearRow = p3.locator('tr').filter({ hasText: 'Linear' }).first()
   ok('SaaS 인가 요청 승인 → 카탈로그 인가 반영(Linear)', ((await linearRow.textContent()) || '').includes('인가'))
+  // SaaS 판정 기한 경과 에스컬레이션 — 표시뿐이던 기한 경과 신호에 조치 채널(보안담당 판정 요청 통보). 시드 검토중 방치분(Notion·ChatGPT 등)으로 활성.
+  const saasEscBtn = p3.locator('button', { hasText: /^판정 기한 경과 에스컬레이션 \(\d+\)$/ })
+  ok('SaaS 카탈로그: 판정 기한 경과 에스컬레이션 버튼 노출(신호→조치)', (await saasEscBtn.count()) > 0 && !/\(0\)/.test(await saasEscBtn.first().innerText()))
+  await saasEscBtn.first().click()
+  await p3.waitForTimeout(800)
+  ok('SaaS 판정 기한 경과 에스컬레이션: 보안담당 판정 요청 통보 발송', ((await p3.textContent('body')) || '').includes('SaaS 판정 독촉') && ((await p3.textContent('body')) || '').includes('발송'))
   // 반납 결재 승인 → 라이선스 좌석 자동 회수(로56 좌석 생애주기 버그픽스) — 담당자 회수·폐기뿐 아니라 사용자 반납 승인도 좌석을 회수한다. 시드 AST-2025-000513(LIC-001 좌석)·APR-2607-117.
   await p3.goto(`${BASE}/assets/register?sel=AST-2025-000513`, { waitUntil: 'networkidle' })
   ok('반납 좌석 회수 전: 배정 라이선스 역조회 노출(LIC-001)', ((await p3.locator('body').textContent()) || '').includes('배정 라이선스') && ((await p3.locator('body').textContent()) || '').includes('Microsoft 365'))

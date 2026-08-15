@@ -1029,6 +1029,8 @@ try {
   check('SaaS 카탈로그: 판정 상태 렌더', catHtml.includes('Dropbox') && catHtml.includes('검토중'))
   // 판정 기한(SLA) 경과(§01 Shadow IT 적시 판정) — 검토중이 접수 후 7일을 넘기면 기한 경과·에스컬레이션. 시드 ChatGPT(기밀)·Notion(민감) 등 방치분.
   check('SaaS 카탈로그: 판정 기한 경과(SLA) 에스컬레이션 표기', catHtml.includes('판정 기한 경과') && catHtml.includes('ChatGPT(기밀)') && catHtml.includes('기한 경과'))
+  // 판정 기한 경과 에스컬레이션 버튼 — 표시뿐이던 기한 경과 신호에 조치 채널(보안담당 판정 요청 통보)을 붙인다. 시드 검토중 방치분으로 활성.
+  check('SaaS 카탈로그: 판정 기한 경과 에스컬레이션 버튼(신호→조치 채널)', catHtml.includes('판정 기한 경과 에스컬레이션'))
   // 차단 판정 → 집행 통보 — 차단이 정책 표시로 끝나지 않고 보안운영팀 차단 집행 요청으로 이어짐을 명시
   check('SaaS 카탈로그: 차단 집행 통보 안내 렌더', catHtml.includes('차단은 집행으로 이어집니다') && catHtml.includes('프록시·DNS 차단 집행 요청'))
   // 데이터 등급 분류 편집 — 표시 전용이던 데이터 민감도(일반/민감/기밀)를 보안담당·Admin 이 분류(차단 우선순위·기밀 취급 집계 근거)

@@ -2,8 +2,11 @@
 import { revalidatePath } from 'next/cache'
 import { appendAdminAudit } from '@/lib/audit'
 import { codeUsage } from '@/lib/codes'
+import { today } from '@/lib/dates'
+import { escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { decideSaasStatus } from '@/lib/saas'
+import { buildSaasReview, saasReviewAgeDays } from '@/lib/saas-review'
 import { getStore } from '@/lib/store'
 import { SCAN_INTERVALS, type Channel, type SaasCatalogEntry } from '@/lib/types'
 
@@ -103,6 +106,38 @@ export async function decideSaas(id: string, status: SaasCatalogEntry['status'])
 
   audit(session.name, `SaaS 카탈로그 판정 → ${status}${newlyBlocked ? ' · 보안운영팀 차단 집행 요청' : ''}`, entry.service)
   revalidatePath('/', 'layout')
+}
+
+/** SaaS 판정 기한 경과 에스컬레이션 — 검토중인데 판정 기한(SLA)을 넘긴 SaaS 를 보안담당에게 판정 요청으로 통보한다.
+ *  (그동안 기한 경과는 대시보드·화면에 '에스컬레이션'으로 표시만 되고 실제 통보 채널이 없었다 — 유지보수 예산 통보·대여 독촉과 같은 신호→조치.)
+ *  기밀·민감 등급은 데이터 반출 위험이 커 문자(SMS) 즉시 알림을 병행한다. 당일 중복 발송 방지(ref=카탈로그 id). 보안담당·Admin. */
+export async function escalateSaasReview() {
+  const session = await requireSaasPolicy()
+  if (!session) return { ok: false, message: 'SaaS 판정 에스컬레이션 권한이 없습니다 (보안담당·Admin).' }
+  const s = getStore()
+  const t = today()
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === 'SaaS 판정 독촉' && m.at.startsWith(t)).map((m) => m.ref),
+  )
+
+  let n = 0
+  for (const e of buildSaasReview().overdue) {
+    if (sentToday.has(e.id)) continue
+    const age = saasReviewAgeDays(e) ?? 0
+    escalate({
+      to: '보안담당',
+      subject: `SaaS 판정 기한 경과 — ${e.service} (데이터 등급 ${e.dataGrade} · 검토 ${age}일 경과) 인가/차단 판정 요망`,
+      kind: 'SaaS 판정 독촉',
+      ref: e.id,
+      sms: e.dataGrade !== '일반' ? `[긴급] ${e.service} 미판정 ${age}일 (등급 ${e.dataGrade}) — 데이터 반출 위험, 즉시 판정` : undefined,
+    })
+    n += 1
+  }
+
+  if (n === 0) return { ok: false, message: '판정 기한 경과 SaaS 가 없습니다 (오늘 발송분 제외).' }
+  audit(session.name, `SaaS 판정 기한 경과 에스컬레이션 (${n}건)`, 'SaaS 카탈로그')
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `SaaS 판정 독촉 ${n}건 발송 — 보안담당에 미판정 검토중 SaaS 판정 요청 (발송 이력 적재)` }
 }
 
 /** SaaS 데이터 등급 분류 — 데이터 민감도(일반/민감/기밀)를 지정한다. 등급은 차단 집행 우선순위·기밀 취급 집계의 근거로,
