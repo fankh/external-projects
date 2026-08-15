@@ -5,6 +5,7 @@ import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Store } from '@/lib/store'
+import { REMOTE_CYCLES, type RemoteCycle } from '@/lib/types'
 
 /** 재택근무 보안 점검 항목 — 공통코드화 대상 (등록 주기: 월) */
 const ITEMS = [
@@ -85,6 +86,20 @@ async function upsertTarget(formData: FormData) {
   const applied = applyTarget(s, person.name, person.dept, startDate, endDate)
   if (!applied) return
   audit(me.name, '재택 대상자 변경', `${person.name} ${applied} (${startDate || '-'} ~ ${endDate || '계속'})`)
+  revalidatePath('/', 'layout')
+}
+
+/** 재택 체크리스트 등록 주기 변경 — 담당·Admin (요구사항 54행 '등록 주기 변경 - 반기, 분기, 매일').
+ *  제출·대상·통계·알림이 참조하는 s.remoteCycle 단일 원천을 바꾼다(정의된 값만 수용). */
+async function setRemoteCycle(formData: FormData) {
+  'use server'
+  const me = await requireMenuRole('/awareness/remote', 'BIZ_MGR', 'ADMIN')
+  const cycle = String(formData.get('cycle') ?? '') as RemoteCycle
+  if (!REMOTE_CYCLES.includes(cycle)) return
+  const s = getStore()
+  if (s.remoteCycle === cycle) return
+  s.remoteCycle = cycle
+  audit(me.name, '재택 주기 변경', `등록 주기 → ${cycle}`)
   revalidatePath('/', 'layout')
 }
 
@@ -234,6 +249,13 @@ export default async function RemotePage({ searchParams }: { searchParams: Promi
             <form action={uploadTargets} className="hstack">
               <input className="input" type="file" name="file" required accept=".csv,.txt" style={{ width: 200, paddingTop: 4 }} title="대상자 CSV 업로드" />
               <button type="submit" className="btn">업로드 반영</button>
+            </form>
+            <form action={setRemoteCycle} className="hstack" title="요구사항 54행 — 등록 주기(매일·월·분기·반기)">
+              <span className="mut" style={{ fontSize: 12 }}>등록 주기</span>
+              <select aria-label="등록 주기" className="select" name="cycle" defaultValue={s.remoteCycle}>
+                {REMOTE_CYCLES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button type="submit" className="btn">주기 변경</button>
             </form>
           </div>
         </Card>
