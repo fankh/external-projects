@@ -757,10 +757,11 @@ export function ruleHeadline(kind: ReportKind, sections: ReportSection[]): strin
       + `당월까지 누적 유지보수(수리) 비용은 총 ${fmtAmount(totalRepair)}원이며, 자산 처분(매각) 대금 회수는 ${fmtAmount(proceeds)}원입니다.`
   }
   if (kind === '라이선스 컴플라이언스') {
-    const over = s.licenses.filter((l) => l.used > l.purchased)
-    const under = s.licenses.filter((l) => l.used / l.purchased < 0.6)
+    // 섹션표와 동일한 단일 소스(licenseOptimization — 해지 제외)로 산출. 그동안 헤드라인만 전체 라이선스로 재계산해
+    // 해지분을 초과·미사용·절감액에 포함, 같은 리포트 안에서 섹션과 수치가 어긋났다.
+    const { over, under, saving } = licenseOptimization()
     return `초과 사용 ${over.length}건${over.length ? ` (${over.map((l) => l.name).join(', ')})` : ''}으로 감사 리스크가 있으며, `
-      + `장기 미사용 보유 ${under.length}건에서 연간 ${fmtAmount(under.reduce((x, l) => x + (l.purchased - l.used) * l.unitCost, 0))}원의 절감 여지가 있습니다.`
+      + `장기 미사용 보유 ${under.length}건에서 연간 ${fmtAmount(saving)}원의 절감 여지가 있습니다.`
   }
   if (kind === '재물조사 결과 요약') {
     const cur = s.inventoryRounds.find((r) => r.status === '진행중')

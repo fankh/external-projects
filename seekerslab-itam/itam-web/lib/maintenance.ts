@@ -38,7 +38,8 @@ export function buildMaintenance(): {
     .map((c) => {
       const spent = (c.costs ?? []).reduce((n, x) => n + x.amount, 0)
       const rate = c.amount > 0 ? Math.round((spent / c.amount) * 100) : 0
-      const status: MaintenanceRow['status'] = rate > 100 ? '예산 초과' : rate === 0 ? '미집행' : rate >= 90 ? '소진 임박' : '정상'
+      // 초과 판정은 반올림 rate(>100)가 아니라 실집행액으로 — 100.0~100.5% 구간이 반올림되어 '소진 임박'으로 오분류되던 문제 방지
+      const status: MaintenanceRow['status'] = spent > c.amount ? '예산 초과' : rate === 0 ? '미집행' : rate >= 90 ? '소진 임박' : '정상'
       return {
         id: c.id,
         name: c.name,

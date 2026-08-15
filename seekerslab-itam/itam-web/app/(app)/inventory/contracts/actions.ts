@@ -449,6 +449,10 @@ export async function assignLicenseSeat(licenseId: string, rawAssetNo: string) {
   if (lic.seats.some((x) => x.assetNo === assetNo)) return { ok: false, message: `이미 이 라이선스가 배정된 자산입니다 — ${assetNo}` }
   if (lic.seats.length >= lic.purchased) return { ok: false, message: `보유 좌석(${lic.purchased}석)을 초과할 수 없습니다 — 추가 구매 후 배정하세요.` }
   lic.seats.push({ assetNo, user: asset.owner, dept: asset.dept, at: today() })
+  // 사용량(used) 정합 — 관리 좌석 수보다 실제 사용이 적을 수 없다(배정 = 소비). UI 로 신규 등록한 라이선스(used 시드 없음)가
+  // 좌석 배정 후에도 used=0 으로 남아 컴플라이언스에서 '미사용 보유'로 오분류되고 절감액이 과대계상되던 문제 방지
+  // (집계 used 가 좌석 수보다 크면 그대로 둔다 — used 는 좌석보다 넓은 전사 소비 집계이므로 하한만 맞춘다).
+  if (lic.seats.length > lic.used) lic.used = lic.seats.length
   appendAudit({ actor: session.name, action: `라이선스 좌석 배정 — ${lic.name} → ${assetNo} (${asset.owner})`, target: licenseId })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${lic.name} 좌석을 ${assetNo}(${asset.owner})에 배정 — 배정 ${lic.seats.length}/${lic.purchased}석` }
