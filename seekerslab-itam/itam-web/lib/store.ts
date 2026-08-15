@@ -611,6 +611,8 @@ function seed(): Store {
           { id: 'CST-0001', date: '2026-01-15', item: '정기 유지보수료 1Q', amount: 12_000_000, addedBy: '박자산' },
           { id: 'CST-0002', date: '2026-04-15', item: '정기 유지보수료 2Q', amount: 12_000_000, addedBy: '박자산' },
           { id: 'CST-0003', date: '2026-05-22', item: '긴급 출동 — 8F 스위치 SFP 교체', amount: 1_800_000, addedBy: '박자산' },
+          // 3Q 지출로 누계가 계약액(4,800만)을 초과 — 예산 초과 판정·대시보드 재협상 큐 노출(집행률 관리)
+          { id: 'CST-0004', date: '2026-07-18', item: '정기 유지보수료 3Q + 코어 라우터 라인카드 교체', amount: 24_000_000, addedBy: '박자산' },
         ] },
       { id: 'CT-2023-002', kind: '구매', name: 'Microsoft 365 E3 800석', vendor: '한국MS 파트너', start: '2026-01-01', end: '2026-12-31', amount: 268_000_000, assetCount: 800, ownerDept: 'IT기획팀' },
       { id: 'CT-2026-009', kind: '구매', name: '2026 상반기 노트북 교체분', vendor: '(주)한빛INT', start: '2026-07-01', end: '2029-07-20', amount: 96_000_000, assetCount: 40, ownerDept: '자산관리팀' },
