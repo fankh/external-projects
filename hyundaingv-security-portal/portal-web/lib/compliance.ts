@@ -47,6 +47,26 @@ export function computeComplianceKpis(s: Store): ComplianceKpis {
   }
 }
 
+/** 컴플라이언스 포스처 점수 0~100 — 경영 보고용 단일 지표. 5개 축 각 20점 균등:
+ *  서약률·이수율·조치율·점검완료율(각 pct/5) + 리스크(고위험 미조치 -10/건·위반 미완료 -5/건, 하한 0)/5.
+ *  발견 취약점이 없으면 조치율 축은 만점(조치 대상 없음=리스크 없음). */
+export function compliancePostureScore(k: ComplianceKpis): number {
+  const pledge = complianceKpiPct(k.signedCount, k.totalPeople)
+  const edu = complianceKpiPct(k.eduDone, k.eduSlots)
+  const fix = k.fixFindings > 0 ? complianceKpiPct(k.fixDone, k.fixFindings) : 100
+  const insp = complianceKpiPct(k.inspDone, k.inspTotal)
+  const risk = Math.max(0, 100 - k.highVulns * 10 - Math.max(0, k.vTotal - k.vDone) * 5)
+  return Math.round((pledge + edu + fix + insp + risk) / 5)
+}
+
+/** 점수 등급 라벨 — 경영 보고 색상. 90+ 양호·75+ 보통·60+ 주의·그 외 미흡. */
+export function postureRating(score: number): { label: string; tone: 'ok' | 'warn' | 'err' | 'neutral' } {
+  if (score >= 90) return { label: '양호', tone: 'ok' }
+  if (score >= 75) return { label: '보통', tone: 'neutral' }
+  if (score >= 60) return { label: '주의', tone: 'warn' }
+  return { label: '미흡', tone: 'err' }
+}
+
 /** 당월 컴플라이언스 포스처 스냅샷 upsert — 수동 기록(보안점검 화면)과 일배치가 공유하는 단일 경로.
  *  같은 기간(월) 재기록은 갱신하므로 매일 호출해도 당월 1건만 유지되고 값은 최신 상태로 refresh 된다. */
 export function upsertComplianceSnapshot(s: Store, by: string): ComplianceSnapshot {
@@ -54,6 +74,7 @@ export function upsertComplianceSnapshot(s: Store, by: string): ComplianceSnapsh
   const period = today().slice(0, 7)
   const snap = {
     period, at: nowStamp(), by,
+    score: compliancePostureScore(k),
     pledgeRate: complianceKpiPct(k.signedCount, k.totalPeople),
     eduRate: complianceKpiPct(k.eduDone, k.eduSlots),
     fixRate: complianceKpiPct(k.fixDone, k.fixFindings),

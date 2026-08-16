@@ -189,6 +189,8 @@ export interface ComplianceSnapshot {
   period: string
   at: string
   by: string
+  /** 포스처 종합 점수 0~100 (compliancePostureScore) */
+  score: number
   pledgeRate: number
   eduRate: number
   fixRate: number

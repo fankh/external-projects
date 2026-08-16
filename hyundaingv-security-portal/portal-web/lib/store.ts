@@ -160,8 +160,8 @@ function seed(): Store {
       { id: 'SEC-2026-03', title: 'ERP 모의해킹', kind: '모의해킹', target: 'ERP', reviewer: '한지원', status: '계획', findings: 0, fixed: 0, critFound: 0, critFixed: 0, highFound: 0, highFixed: 0, medFound: 0, medFixed: 0, lowFound: 0, lowFixed: 0, plannedAt: '2026-09-01' },
     ],
     complianceSnapshots: [
-      { id: 'CS-2026-06', period: '2026-06', at: '2026-06-30 18:00', by: '한지원', pledgeRate: 50, eduRate: 80, fixRate: 70, inspDone: 1, inspTotal: 4, highVulns: 4, openVulns: 6, vDone: 0, vTotal: 1 },
-      { id: 'CS-2026-07', period: '2026-07', at: '2026-07-31 18:00', by: '한지원', pledgeRate: 62, eduRate: 90, fixRate: 80, inspDone: 1, inspTotal: 4, highVulns: 3, openVulns: 4, vDone: 1, vTotal: 1 },
+      { id: 'CS-2026-06', period: '2026-06', at: '2026-06-30 18:00', by: '한지원', score: 56, pledgeRate: 50, eduRate: 80, fixRate: 70, inspDone: 1, inspTotal: 4, highVulns: 4, openVulns: 6, vDone: 0, vTotal: 1 },
+      { id: 'CS-2026-07', period: '2026-07', at: '2026-07-31 18:00', by: '한지원', score: 65, pledgeRate: 62, eduRate: 90, fixRate: 80, inspDone: 1, inspTotal: 4, highVulns: 3, openVulns: 4, vDone: 1, vTotal: 1 },
     ],
     incidents: [
       { id: 'FL-2026-11', system: 'ERP', title: 'DB 커넥션 풀 고갈로 응답 지연', grade: '2등급', occurredAt: '2026-07-18', status: '조치완료', action: '커넥션 풀 확대 및 누수 쿼리 수정', countermeasure: '커넥션 사용량 임계 알림 구축', reportStatus: '미상신' },
