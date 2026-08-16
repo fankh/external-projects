@@ -345,7 +345,13 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       if (verdict === '반려') { d.status = '미조치'; continue }
       d.status = '조정 완료'
       const asset = s.assets.find((x) => x.assetNo === d.assetNo)
-      if (d.kind === '위치 불일치' && asset) {
+      // 스테일 조정 방어 — 조정 상신 후 자산이 분실·폐기로 이탈했으면 스캔 시점 값을 적용하지 않는다.
+      // (사라진 자산을 사용중/유휴로 되살려 대장·분실/폐기 루프와 어긋나는 대장 오염 방지.) 대장 미등록(신규 편입)은 대상 자산이 없으므로 예외.
+      const departed = asset && ['분실', '폐기예정', '폐기완료'].includes(asset.status)
+      if (departed && d.kind !== '대장 미등록') {
+        d.resolution = '미적용'
+        asset!.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 미적용 — 상신 후 ${asset!.status} 전이로 스테일 (${d.kind})`, actor: session.name })
+      } else if (d.kind === '위치 불일치' && asset) {
         d.resolution = '대장 보정'
         asset.location = d.actual
         asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 위치 ${d.expected} → ${d.actual}`, actor: session.name })

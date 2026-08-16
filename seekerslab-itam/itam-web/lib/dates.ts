@@ -116,7 +116,8 @@ export function isQnaOverdue(p: { kind: string; answer?: unknown; createdAt: str
 /** 재물조사 진행률(%) — 계획 대비 스캔. 계획이 0이면 0을 반환(방어). 리포트·대시보드·계획·수행·어시스턴트 공용.
  *  회차 생성 3경로 모두 planned≥1 을 보장하지만, 나눗셈 지점마다 가드를 반복하지 않도록 단일 헬퍼로 통일(방어적). */
 export function roundProgressPct(r: { scanned: number; planned: number }): number {
-  return r.planned ? Math.round((r.scanned / r.planned) * 100) : 0
+  // 100% 상한 — 대장 미등록(잉여)·범위 밖 스캔이 scanned 를 부풀려도 진행률이 계획을 넘지 않게 한다(>100% 방지).
+  return r.planned ? Math.min(100, Math.round((r.scanned / r.planned) * 100)) : 0
 }
 
 export function fmtAmount(n: number): string {
