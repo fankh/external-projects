@@ -195,6 +195,9 @@ export async function toggleCheck(lotId: string, item: string) {
   const lot = s.intakeLots.find((l) => l.id === lotId)
   const c = lot?.checklist.find((x) => x.item === item)
   if (!lot || !c) return
+  // 검수 진행 중인 로트만 체크리스트를 조작할 수 있다 — 검수 반려·반품 완료된 로트(체크리스트가 그대로 남음)를
+  // 재토글해 '검수 완료'로 되돌린 뒤 채번하면 이미 반품한 물품이 대장에 유령 자산으로 등록된다(재검수는 reinspectIntakeLot 로).
+  if (!['입고 대기', '검수 중'].includes(lot.status)) return
   c.checked = !c.checked
   lot.inspector = session.name
   if (lot.status === '입고 대기') lot.status = '검수 중'
