@@ -46,17 +46,25 @@ export async function answerQuestion(postId: string, body: string) {
   const s = getStore()
   const post = s.posts.find((p) => p.id === postId && p.kind === 'QnA')
   if (!post) return { ok: false, message: '질문을 찾을 수 없습니다.' }
+  const prevBody = post.answer?.body
   const wasAnswered = Boolean(post.answer)
   post.answer = { body: body.trim(), by: session.name, at: today() }
 
+  // 해결 확인된 문의의 답변이 바뀌면 작성자는 '바뀌기 전 답변'으로 해결 확인한 것이라 확인이 무효 —
+  // 해결 확인을 해제해 바뀐 답변을 다시 확인(또는 재문의)하게 한다(필독 공지 내용 변경 시 읽음 확인 초기화와 동형).
+  const resolutionCleared = Boolean(post.resolvedAt) && wasAnswered && prevBody !== body.trim()
+  if (resolutionCleared) post.resolvedAt = undefined
+
   // 최초 답변 시 문의 작성자에게 알림 발송(발송 이력 적재) — QnA 폼이 "답변 등록 시 알림을 받습니다"라고 약속한다.
-  // 답변 수정(재저장)은 중복 발송하지 않는다.
+  // 답변 수정(재저장)은 중복 발송하지 않되, 해결 확인이 해제되는 변경은 작성자가 재확인해야 하므로 통보한다.
   if (!wasAnswered) {
     dispatch({ channel: '이메일', to: post.author, subject: `[QnA] '${post.title}' 문의에 답변이 등록되었습니다 — ${session.name}`, kind: 'QnA 답변', ref: post.id })
+  } else if (resolutionCleared) {
+    dispatch({ channel: '이메일', to: post.author, subject: `[QnA] '${post.title}' 답변이 수정되었습니다 — 해결 확인 재요청 (${session.name})`, kind: 'QnA 답변', ref: post.id })
   }
-  appendAudit({ actor: session.name, action: `QnA 답변 등록${wasAnswered ? ' (수정)' : ' · 작성자 통보'}`, target: postId })
+  appendAudit({ actor: session.name, action: `QnA 답변 등록${wasAnswered ? ` (수정${resolutionCleared ? ' · 해결 확인 해제' : ''})` : ' · 작성자 통보'}`, target: postId })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `답변이 등록되었습니다${wasAnswered ? '' : ` — 작성자(${post.author})에게 알림 발송`}.` }
+  return { ok: true, message: `답변이 등록되었습니다${!wasAnswered ? ` — 작성자(${post.author})에게 알림 발송` : resolutionCleared ? ' — 답변 변경으로 해결 확인이 해제돼 작성자에게 재확인을 요청했습니다' : ''}.` }
 }
 
 /** 문의 분류별 담당 팀 라우팅 — 접수 통보·독촉·재문의가 같은 팀으로 가도록 한 곳에서 정한다. */
