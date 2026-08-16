@@ -136,13 +136,17 @@ async function submitCompanyPledges(formData: FormData) {
 
 async function toggleOfficer(formData: FormData) {
   'use server'
-  await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
+  const me = await requireMenuRole('/pledge/manage', 'BIZ_MGR', 'ADMIN')
   const name = String(formData.get('name') ?? '')
   const s = getStore()
   if (!s.people.some((p) => p.name === name)) return
-  s.securityOfficers = s.securityOfficers.includes(name)
+  const wasOfficer = s.securityOfficers.includes(name)
+  s.securityOfficers = wasOfficer
     ? s.securityOfficers.filter((n) => n !== name)
     : [...s.securityOfficers, name]
+  // 이력추적성(§VI) — 보안담당자(특별서약 대상·보안 관리 책임) 지정/해제는 거버넌스 역할 배정이고
+  // securityOfficers 는 이름 배열이라 행위자 필드가 없어 감사 로그가 유일 추적점(재택 대상자 변경과 동일 정책).
+  audit(me.name, '보안담당자 지정', `${name} ${wasOfficer ? '해제' : '지정'}`)
   revalidatePath('/pledge/manage')
 }
 
