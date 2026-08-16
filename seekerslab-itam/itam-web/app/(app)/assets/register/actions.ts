@@ -260,6 +260,8 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (asset.status !== '유휴') return { ok: false, message: `대여 가능한 상태가 아닙니다 — ${assetNo} (${asset.status}). 유휴 재고만 대여할 수 있습니다.` }
+  // 폐기 절차(대상 선정~소거 대기) 중인 유휴 자산은 재불출 대상이 아니다 — 파기 예정 자산이 다시 순환되면 안 된다(가용 재고 산정과 동일 판정).
+  if (s.disposals.some((d) => d.assetNo === assetNo && d.status !== '완료')) return { ok: false, message: `폐기 절차 중인 자산은 대여할 수 없습니다 — ${assetNo} (먼저 폐기 대상 선정을 취소하세요).` }
   const to = rawTo.trim()
   const dept = rawDept.trim()
   if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }
@@ -293,8 +295,10 @@ export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return { ok: false, message: '반환 기한을 선택해 주세요.' }
   if (dueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
   const s = getStore()
-  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.status === '유휴')
-  if (targets.length === 0) return { ok: false, message: '대여할 자산이 없습니다 (유휴 재고만 대여 가능).' }
+  // 유휴 재고만, 폐기 절차(완료 제외) 중인 자산은 제외 — 파기 예정 자산 재순환 방지(단건 가드·가용 재고 산정과 동일 판정).
+  const pendingDisposal = new Set(s.disposals.filter((d) => d.status !== '완료').map((d) => d.assetNo))
+  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.status === '유휴' && !pendingDisposal.has(a.assetNo))
+  if (targets.length === 0) return { ok: false, message: '대여할 자산이 없습니다 (유휴 재고만·폐기 절차 자산 제외).' }
   for (const asset of targets) {
     asset.status = '대여중'
     asset.owner = to

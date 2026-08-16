@@ -739,6 +739,17 @@ try {
   await p2.goto(`${BASE}/assets/register?sel=AST-2024-000091`, { waitUntil: 'networkidle' })
   ok('자산 일괄 대여 → 대여중 전환(091)', ((await p2.locator('tr', { has: p2.locator('td', { hasText: 'AST-2024-000091' }) }).first().textContent()) || '').includes('대여중'))
 
+  // 폐기 절차 자산 대여 가드 — 유휴여도 폐기 대상 선정(대상 선정~소거 대기)된 자산은 재불출·대여 대상이 아니다(파기 예정 자산 재순환 방지 · 가용 재고 산정과 동일 판정). 유휴+DSP-02 인 AST-2021-000432 일괄 대여 시도 → 제외.
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p2.locator('input[aria-label="AST-2021-000432 선택"]').check()
+  const loanCtl2 = p2.locator('span').filter({ has: p2.locator('button', { hasText: /^대여$/ }) }).first()
+  await loanCtl2.locator('input[placeholder="대여자"]').fill('김강사')
+  await loanCtl2.locator('input[placeholder="부서"]').fill('인재개발팀')
+  await loanCtl2.locator('input[type="date"]').fill('2026-09-30')
+  await loanCtl2.locator('button', { hasText: /^대여$/ }).click()
+  await p2.waitForTimeout(700)
+  ok('폐기 절차 자산 대여 가드: 폐기 대상 선정 유휴 자산 대여 제외(파기 예정 재순환 방지)', ((await p2.locator('body').textContent()) || '').includes('폐기 절차 자산 제외'))
+
   // 정기 점검 일괄 예약 — 선택 자산에 예방 정비 예정일을 한 번에 등록(보증 일괄 연장·일괄 회수와 같은 배치 접점). 그동안 점검 예약은 자산 하나씩만 가능했다.
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p2.locator('input[aria-label="AST-2023-000112 선택"]').check()

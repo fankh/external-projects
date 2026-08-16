@@ -31,6 +31,10 @@ export async function issueAsset(approvalId: string, assetNo: string, location: 
   if (!['유휴', '검수중'].includes(asset.status)) {
     return { ok: false, message: `불출 가능한 상태가 아닙니다 — ${asset.assetNo} (${asset.status})` }
   }
+  // 폐기 절차(대상 선정~소거 대기) 중인 자산은 불출할 수 없다 — 파기 예정 자산이 다시 배정되면 안 된다(가용 재고 산정과 동일 판정).
+  if (s.disposals.some((d) => d.assetNo === asset.assetNo && d.status !== '완료')) {
+    return { ok: false, message: `폐기 절차 중인 자산은 불출할 수 없습니다 — ${asset.assetNo} (먼저 폐기 대상 선정을 취소하세요).` }
+  }
 
   const from = `${asset.owner} / ${asset.location}`
   asset.owner = ap.requester
