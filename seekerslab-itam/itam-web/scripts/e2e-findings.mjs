@@ -720,6 +720,13 @@ try {
   await p2.goto(`${BASE}/assets/register?sel=AST-2023-000112`, { waitUntil: 'networkidle' })
   ok('정기 점검 일괄 예약 → 개별 자산에 예정일 반영', ((await p2.locator('body').textContent()) || '').includes('2026-12-15'))
 
+  // 정기 점검 예약 취소 — 잘못 잡은 예약을 완료 처리 없이 해제한다(하지도 않은 점검을 완료 처리해 가짜 이력을 남기던 문제 해소 · 장애 신고 취소와 동형). 위 일괄 예약분 AST-2023-000113 취소.
+  await p2.goto(`${BASE}/assets/register?sel=AST-2023-000113`, { waitUntil: 'networkidle' })
+  await p2.locator('button', { hasText: /^예약 취소$/ }).click()
+  await p2.waitForTimeout(700)
+  await p2.goto(`${BASE}/assets/register?sel=AST-2023-000113`, { waitUntil: 'networkidle' })
+  ok('정기 점검 예약 취소: 해제 시 정비 대상에서 제외(가짜 점검 이력 없이)', !((await p2.locator('body').textContent()) || '').includes('예방 정비 대상 자산입니다'))
+
   // 정기 점검(예방 정비) — 예정일 도래 자산(시드 AST-2022-000640)을 자산담당이 점검 완료 → 다음 점검 12개월 후로 재예약(반응형 수리와 별개).
   await p2.goto(`${BASE}/assets/register?sel=AST-2022-000640`, { waitUntil: 'networkidle' })
   const maintBtn = p2.locator('button', { hasText: /^정기 점검 완료$/ })

@@ -665,6 +665,24 @@ export async function scheduleMaintenance(assetNo: string, rawDate: string) {
   return { ok: true, message: `${assetNo} 정기 점검 ${prevDue ? '일정을 변경' : '일정을 등록'}했습니다 — 예정 ${due}` }
 }
 
+/** 정기 점검 예약 취소 — 잘못 잡았거나 정비 대상에서 뺄 자산의 예방 정비 예정을 완료 처리 없이 해제한다.
+ *  (그동안 예약을 되돌릴 경로가 없어, 오예약을 지우려면 하지도 않은 점검을 완료 처리(recordMaintenance)해야 했다 —
+ *   가짜 점검 이력이 남는 문제. 장애 신고 취소(cancelFault)와 같은 오조작 되돌리기.) 예정이 있는 자산만 대상. 자산담당·Admin. */
+export async function cancelMaintenanceSchedule(assetNo: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '정기 점검 예약 취소 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (!asset.maintenanceDue) return { ok: false, message: '예약된 정기 점검이 없습니다.' }
+  const prevDue = asset.maintenanceDue
+  asset.maintenanceDue = undefined
+  asset.history.push({ date: today(), kind: '점검', detail: `정기 점검(예방 정비) 예약 취소 — 기존 예정 ${prevDue}`, actor: session.name })
+  appendAudit({ actor: session.name, action: `정기 점검 예약 취소 — ${asset.model} (기존 ${prevDue})`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 정기 점검 예약을 취소했습니다 — 정비 사이클·점검 도래 큐에서 제외` }
+}
+
 /** 정기 점검 일괄 예약 — 선택한 다수 자산에 같은 예방 정비 예정일을 한 번에 등록/변경한다.
  *  (그동안 정기 점검 예약은 자산 하나씩만 가능해, 신규 서버 랙·핵심 단말 묶음을 도입 시 일정에 올리려면 반복 작업이었다.
  *   보증 일괄 연장·일괄 회수와 같은 배치 운영 접점.) 폐기 대상·미존재는 건너뛴다. 자산담당·Admin. */
