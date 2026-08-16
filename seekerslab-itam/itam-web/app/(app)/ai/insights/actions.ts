@@ -65,7 +65,9 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
         dept: session.dept,
         requestedAt: today(),
         status: '대기',
-        currentStep: 'IT기획팀장 결재',
+        // 격리 요청 결재선은 보안담당 → IT기획팀장(2단계, 필수). 진입 단계는 route[0]='보안담당 승인' 이어야 한다.
+        // (IT기획팀장 결재로 진입하면 최종 단계로 취급돼 보안담당 사인오프를 건너뛰고 단일 결재로 NAC 격리가 집행된다 — 수기 발견 경로와 동일하게 맞춘다.)
+        currentStep: '보안담당 승인',
         refId: d.id,
         note: ins.detail,
       })
