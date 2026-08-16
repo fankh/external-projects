@@ -128,6 +128,39 @@ export async function recordWipe(id: string, method: WipeMethod, disposition: Di
   return { ok: true, message: `소거·처분 완료 (${dispLabel}) — 증적 ${d.certNo}` }
 }
 
+/** 데이터 일괄 소거 — EOL 교체 등 배치 폐기에서 소거 대기 다수 건을 같은 소거 방식·처분으로 한 번에 처리한다.
+ *  건별 로직은 recordWipe 와 동일하고 각 건에 고유 확인서(certNo)를 발급하며 감사만 일괄로 남긴다. 소거 대기 건만 대상(멱등).
+ *  매각 대금은 건별로 다르므로 일괄에서는 처리하지 않는다(대금 0 — 매각가는 단건 소거로 개별 입력). 자산담당·Admin. */
+export async function recordWipeMany(ids: string[], method: WipeMethod, disposition: Disposition = '폐기(파쇄)') {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '권한이 없습니다.' }
+  if (!DISPOSITIONS.includes(disposition)) return { ok: false, message: '처분 방식이 올바르지 않습니다.' }
+  const s = getStore()
+  const targets = s.disposals.filter((d) => ids.includes(d.id) && d.status === '소거 대기')
+  if (targets.length === 0) return { ok: false, message: '소거할 폐기 건이 없습니다 (결재 승인·소거 대기 건만 대상).' }
+  for (const d of targets) {
+    s.seq += 1
+    d.wipeMethod = method
+    d.disposition = disposition
+    d.wipedAt = today()
+    d.wipedBy = session.name
+    d.certNo = `WIPE-${today().replace(/-/g, '')}-${String(s.seq).padStart(3, '0')}`
+    d.evidence = `소거 확인서 ${d.certNo}`
+    d.status = '완료'
+    const asset = s.assets.find((a) => a.assetNo === d.assetNo)
+    if (asset) {
+      asset.status = '폐기완료'
+      asset.history.push({ date: today(), kind: '폐기', detail: `데이터 소거 완료 (${method}) · 처분 ${disposition} · 증적 ${d.certNo} 보존 (일괄)`, actor: session.name })
+      const freed = reclaimLicenseSeats(asset.assetNo, session.name, '폐기')
+      if (freed.length) asset.history.push({ date: today(), kind: '폐기', detail: `라이선스 좌석 회수 — ${freed.join(', ')} (폐기)`, actor: session.name })
+      asset.receiptPending = undefined
+    }
+  }
+  appendAudit({ actor: session.name, action: `폐기 데이터 일괄 소거 (${method}) · 처분 ${disposition} (${targets.length}건)`, target: '폐기' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${targets.length}건 소거·처분 완료 (${method} · ${disposition}) — 건별 확인서 발급` }
+}
+
 /** 폐기 증적 사진 등록 — 처리 전·후·폐기물 인계 등 실제 촬영 증적을 소거 완료 건에 남긴다.
  *  파일 저장은 범위 밖이므로 사진 메타데이터(구분·설명·등록자·등록일)만 관리한다 —
  *  "증적 사진이 존재한다"는 감사 주장을 실제 기록으로 뒷받침한다(제품안내서 §03 폐기: 증적(사진·확인서)). 자산담당·Admin. */
