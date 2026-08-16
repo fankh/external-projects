@@ -2109,6 +2109,11 @@ def sc_inspection_teamlead(pg, base, check):
     row = pg.locator('tr', has_text='알림 배치 실행').first
     detail = row.inner_text()
     check('점검 경과 2명' in detail, f'점검 경과 알림 = 담당자+팀장 2명 (실제: {detail[:120]})')
+    # 점검계획 export(ISMS 산출물)도 화면과 같이 팀장 열을 담아야 한다 — 새로 드러낸 팀장이 감사 가능해야 함
+    csv_text = pg.request.get(f'{base}/api/export?type=inspection-plans').text()
+    header = csv_text.splitlines()[0] if csv_text.strip() else ''
+    plan_line = next((l for l in csv_text.splitlines() if 'IS-2026-9301' in l), '')
+    check('팀장' in header and '시스템관리자' in plan_line, f'inspection-plans export — 팀장 열·값(시스템관리자) 포함 실제:{plan_line[:80]}')
 
 
 def sc_sr_status_label(pg, base, check):
