@@ -26,9 +26,10 @@ export default async function DashboardPage() {
     // 인프라 헬스 — 배치·인터페이스는 운영 화면, 디스크는 시스템 화면이 출처(각 출처 유효권한으로 게이트)
     infraOps: canSee('/infra/operations'),
     infraSys: canSee('/infra/systems'),
-    // 재무 집행률 — 투자·비용 각 화면이 출처(관리자급 재무 열람)
-    financeInvest: canSee('/finance/invest'),
-    financeExpense: canSee('/finance/expense'),
+    // 재무 집행률 — 타일은 전사 집계 수치라, 운영 스냅샷과 같은 담당·Admin 관리 시야(/sr/manage=IT운영 종합
+    // export 게이트)로만 노출한다. 개별 재무 화면은 역할 스코프 접근이 열려 있으나(canSee 로 게이트하면
+    // USER·DEPT_MGR 도 잡혀 스냅샷 노출 불변이 깨진다) 여기 타일은 전사 수치이므로 관리자 게이트로 제한.
+    financeExec: canSee('/sr/manage'),
   }
   const showOps = Object.values(opsVis).some(Boolean)
   // 공지사항 카드도 출처 화면(/board/notices) 유효권한을 따른다 — 기본 roles:ALL 이라 평상시 전원 노출이나,
@@ -126,8 +127,8 @@ export default async function DashboardPage() {
             {opsVis.inspections && <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />}
             {opsVis.securityReviews && <Stat value={ops.securityHigh} label="고위험 미조치" tone={ops.securityHigh > 0 ? 'err' : undefined} />}
             {opsVis.securityReviews && <Stat value={ops.securityReviews} label="미조치 취약점" tone={ops.securityReviews > 0 ? 'warn' : undefined} />}
-            {opsVis.financeInvest && <Stat value={`${finExec('투자')}%`} label="투자 집행률" note="계획 대비" />}
-            {opsVis.financeExpense && <Stat value={`${finExec('비용')}%`} label="비용 집행률" note="계획 대비" />}
+            {opsVis.financeExec && <Stat value={`${finExec('투자')}%`} label="투자 집행률" note="계획 대비" />}
+            {opsVis.financeExec && <Stat value={`${finExec('비용')}%`} label="비용 집행률" note="계획 대비" />}
           </div>
         </Card>
       )}
