@@ -41,6 +41,7 @@ CHST_DATA = ROOT / 'scripts' / '.e2e-chst-data.json'  # channelStates 비불리�
 PROFISO_DATA = ROOT / 'scripts' / '.e2e-profiso-data.json'  # 프로필 스탬프 데이터 격리 회귀용 (v1.5.188)
 INCEMPTY_DATA = ROOT / 'scripts' / '.e2e-incempty-data.json'  # 월별 장애 통계 무효월(빈 occurredAt) 회귀용 (v1.5.201)
 INSPTL_DATA = ROOT / 'scripts' / '.e2e-insptl-data.json'  # 점검 경과 알림 팀장 수신 회귀용 (v1.5.209)
+INFRACHG_DATA = ROOT / 'scripts' / '.e2e-infrachg-data.json'  # 인프라 변경 원복계획 별개 필드 회귀용 (v1.5.211)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -2106,10 +2107,32 @@ def sc_inspection_teamlead(pg, base, check):
     check('점검 경과 2명' in detail, f'점검 경과 알림 = 담당자+팀장 2명 (실제: {detail[:120]})')
 
 
+def sc_infra_rollback_plan(pg, base, check):
+    """인프라 변경관리 원복계획 — 작업계획과 별개 필수 산출물 (요구사항: "작업계획, 원복계획 필요").
+    기존 변경(원복계획 있음)이 작업계획과 별개로 표시되고, 신규 등록도 두 계획을 별개 입력으로 받아 표시.
+    수정 전(단일 plan 필드·원복 미표시)엔 원복계획 텍스트가 없어 실패 대조."""
+    login(pg, base, '박정호')  # BIZ_MGR — 인프라 변경 등록
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    # 기존 변경 CW-2026-9401: 작업계획·원복계획이 별개로 표시
+    seed_row = pg.locator('tr', has_text='CW-2026-9401').first
+    st = seed_row.inner_text()
+    check('작업계획 감마단계' in st and '원복계획 델타복구' in st, '기존 변경 — 작업계획·원복계획 별개 표시')
+    # 신규 등록 — 작업계획·원복계획 별개 입력 → 목록에 별개 표시 (원복계획 필수)
+    card = pg.locator('.card', has_text='인프라변경 등록')
+    card.locator('input[name=title]').fill('E2E 롤백 변경작업')
+    card.locator('input[name=plan]').fill('작업계획 엡실론')
+    card.locator('input[name=rollbackPlan]').fill('원복계획 제타복구', timeout=8000)
+    card.locator('button:has-text("등록")').click()
+    pg.wait_for_selector('tr:has-text("E2E 롤백 변경작업")', timeout=10000)
+    nt = pg.locator('tr', has_text='E2E 롤백 변경작업').first.inner_text()
+    check('작업계획 엡실론' in nt and '원복계획 제타복구' in nt, '신규 변경 — 작업계획·원복계획 별개 저장·표시')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
     ('inspection_teamlead', '보안점검 경과 알림 — 담당자+팀장 통지', sc_inspection_teamlead, {'PORTAL_DATA_FILE': str(INSPTL_DATA)}),
+    ('infra_rollback_plan', '인프라 변경 원복계획 — 작업계획과 별개 필수 산출물', sc_infra_rollback_plan, {'PORTAL_DATA_FILE': str(INFRACHG_DATA)}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
     ('devchain', '시스템개발 SR → 변경 2단 상신 → SR 완료 전파 (전체 사슬)', sc_devchain, {}),
@@ -2463,6 +2486,11 @@ def main() -> int:
     # 수정 전엔 담당자만 통지해 '점검 경과 1명', 수정 후 팀장 포함 '점검 경과 2명'.
     INSPTL_DATA.write_text(json.dumps({'inspectionPlans': [
         {'id': 'IS-2026-9301', 'itemId': 'CK-01', 'month': '2026-07', 'inspector': '박정호', 'teamLead': '시스템관리자', 'status': '결과미등록'},
+    ]}, ensure_ascii=False), encoding='utf-8')
+    # 인프라 변경 원복계획 — 작업계획과 별개 필드로 저장·표시되는지. 기존 변경 1건(원복계획 있음) + 폼 신규등록.
+    INFRACHG_DATA.write_text(json.dumps({'changes': [
+        {'id': 'CW-2026-9401', 'kind': '인프라', 'title': 'E2E 사전변경', 'status': '작업등록승인', 'registeredAt': '2026-08-01',
+         'plan': '작업계획 감마단계', 'rollbackPlan': '원복계획 델타복구'},
     ]}, ensure_ascii=False), encoding='utf-8')
     DPLGRESIGN_DATA.write_text(json.dumps({
         'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
