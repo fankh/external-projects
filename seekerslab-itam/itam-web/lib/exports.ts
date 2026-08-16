@@ -156,10 +156,12 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     return [
       {
         name: '계약',
-        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '연계 자산 수', '시작일', '만료일', '잔여일', '상태', '부속서류 미비'],
+        // 화면(ContractsTable)이 보여주는 SLA·집행(비용 이력 누계)을 감사 반출에도 담는다 — 벤더 SLA 검토·예산 집행 대사 증적.
+        header: ['계약번호', '구분', '계약명', '공급사', '주관부서', '금액', '집행(누계)', '연계 자산 수', '시작일', '만료일', '잔여일', '상태', 'SLA', '부속서류 미비'],
         rows: s.contracts.map((c) => {
           const miss = missingContractDocs(c)
-          return [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, s.assets.filter((a) => a.contractId === c.id).length, c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효', miss.length > 0 ? miss.join('·') : '완비']
+          const spent = (c.costs ?? []).reduce((n, x) => n + x.amount, 0)
+          return [c.id, c.kind, c.name, c.vendor, c.ownerDept, c.amount, (c.costs?.length ?? 0) > 0 ? spent : '', s.assets.filter((a) => a.contractId === c.id).length, c.start, c.end, daysUntil(c.end) ?? '', c.status ?? '유효', c.sla ?? '', miss.length > 0 ? miss.join('·') : '완비']
         }),
       },
       {
