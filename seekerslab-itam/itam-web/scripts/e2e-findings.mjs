@@ -793,6 +793,18 @@ try {
   await pU.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
   const faultRow = ((await pU.locator('tr', { has: pU.locator('td', { hasText: 'AST-2024-000015' }) }).first().textContent()) || '')
   ok('장애 신고: 신고 자산 수리중 전환(본인 대장 반영)', faultRow.includes('수리중'))
+  // 장애 신고 취소(오신고 철회) — 업체 배정 전 사용자가 오신고를 스스로 철회해 사용중으로 복원(반납 신청 취소·상신 취소와 같은 셀프서비스 되돌리기). 철회 검증 후 재신고로 하위 수리 대기 검증 상태를 보존한다.
+  await pU.locator('button', { hasText: /^장애 신고 철회$/ }).first().click()
+  await pU.waitForTimeout(700)
+  await pU.goto(`${BASE}/assets/register?sel=AST-2024-000015`, { waitUntil: 'networkidle' })
+  const cancelledRow = ((await pU.locator('tr', { has: pU.locator('td', { hasText: 'AST-2024-000015' }) }).first().textContent()) || '')
+  ok('장애 신고 철회: 오신고 철회 시 사용중 복원(수리 대기 제외)', cancelledRow.includes('사용중') && !cancelledRow.includes('수리중'))
+  // 재신고 — 하위 '수리 대기'·'내 수리 현황' 검증을 위해 원 상태(수리중·전원 불량)로 복구
+  await pU.locator('button', { hasText: '장애 신고 (수리 요청)' }).first().click()
+  await pU.waitForTimeout(200)
+  await pU.locator('input[placeholder*="장애 증상"]').fill('전원 불량 — 간헐적으로 꺼짐')
+  await pU.locator('button', { hasText: /^신고 접수$/ }).click()
+  await pU.waitForTimeout(700)
   // 내 수리 현황 질의 — 방금 신고한 자산이 사용자 수리 현황에 증상과 함께 뜬다(장애 신고 루프의 사용자 추적 접점).
   await pU.goto(`${BASE}/ai/assistant`, { waitUntil: 'networkidle' })
   const urc = await pU.locator('.msg.assistant .bub').count()

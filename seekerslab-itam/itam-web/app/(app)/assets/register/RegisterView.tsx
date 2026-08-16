@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelLoanExtension, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
+import { cancelFault, cancelLoanExtension, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -614,8 +614,22 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                         {props.today && sel.repair.eta && sel.repair.eta < props.today && <Chip tone="err" bare>반환 지연</Chip>}
                         {sel.repair.estCost ? <span className="dim">· 견적 {sel.repair.estCost.toLocaleString()}원</span> : null}
                       </>
-                    ) : <Chip tone="warn" bare>수리 의뢰 전</Chip>}
+                    ) : (
+                      <>
+                        <Chip tone="warn" bare>수리 의뢰 전</Chip>
+                        {/* 장애 신고 취소(오신고 철회) — 업체 배정 전, 장애 신고 직후 상태만. 반납·분실 점검으로 편성된 수리중은 마지막 이력이 장애 신고가 아니라 노출 안 됨(서버도 동일 가드). */}
+                        {(() => {
+                          const last = sel.history?.[sel.history.length - 1]
+                          return last && last.kind === '수리' && last.detail.startsWith('장애 신고 —') ? (
+                            <button className="btn sm ghost" disabled={pending}
+                              onClick={() => startTransition(async () => { const r = await cancelFault(sel.assetNo); setFaultMsg(r.message) })}
+                              title="오신고·재현 안 됨 — 업체 배정 전 장애 신고를 철회하고 사용중으로 되돌립니다">장애 신고 철회</button>
+                          ) : null
+                        })()}
+                      </>
+                    )}
                   </dd>
+                  {faultMsg && <dd style={{ gridColumn: '1 / -1' }}><span className="mut" style={{ fontSize: 11 }}>{faultMsg}</span></dd>}
                 </>
               )}
               <dt>최근 실측</dt>
