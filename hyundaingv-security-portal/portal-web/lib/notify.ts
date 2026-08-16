@@ -95,9 +95,11 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   // 재직자 교집합 — 점검자가 퇴사해 s.people 에서 빠지면 점검을 수행·등록할 수 없으므로(유령 독촉) 타 person
   // 경로(미서약·재택·반려방치·확인서·출력물)와 동일하게 현재 재직 명단과 교집합한다. 점검 계획 자체는 점검
   // 화면에 남아 미등록·경과 가시성은 유지된다(점검자는 관리자급 ACCOUNTS 로, 정상 재직자는 모두 s.people 에 있음).
+  // 요구사항 — 경과 항목은 담당자(inspector)와 팀장(teamLead) 양쪽에 알린다. teamLead 미지정 계획은 담당자만.
   await send('점검 경과',
     s.inspectionPlans.filter((p) => p.month < month && (p.status === '계획' || p.status === '결과미등록'))
-      .map((p) => p.inspector).filter((name) => people.some((p) => p.name === name)),
+      .flatMap((p) => p.teamLead ? [p.inspector, p.teamLead] : [p.inspector])
+      .filter((name) => people.some((p) => p.name === name)),
     '[보안점검] 기한 경과 항목 안내')
 
   // 2-b) 보안성 검토 착수 경과 — 착수 예정일이 지났는데 아직 '계획'(미착수)인 검토의 검토자
