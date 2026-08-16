@@ -26,11 +26,13 @@ async function addInfraChange(formData: FormData) {
   await requireMenuRole('/infra/changes', 'BIZ_MGR', 'ADMIN')
   const title = String(formData.get('title') ?? '').trim().slice(0, 120)
   const plan = String(formData.get('plan') ?? '').trim().slice(0, 500)
-  if (!title || !plan) return
+  // 원복계획 — 작업계획과 별개의 필수 산출물 (요구사항: "작업계획, 원복계획 필요")
+  const rollbackPlan = String(formData.get('rollbackPlan') ?? '').trim().slice(0, 500)
+  if (!title || !plan || !rollbackPlan) return
   const s = getStore()
   s.changes.unshift({
     id: nextNo('CW', today().slice(0, 4), s.changes.map((c) => c.id)),
-    kind: '인프라', title, plan, status: '작업등록', registeredAt: today(),
+    kind: '인프라', title, plan, rollbackPlan, status: '작업등록', registeredAt: today(),
   })
   revalidatePath('/infra/changes')
 }
@@ -110,7 +112,7 @@ export default async function ChangesPage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>번호</th><th>구분</th><th>제목</th><th>매칭 SR</th><th>상태</th><th>등록일</th><th className="c">처리</th></tr>
+              <tr><th>번호</th><th>구분</th><th>제목</th><th>작업 · 원복계획</th><th>매칭 SR</th><th>상태</th><th>등록일</th><th className="c">처리</th></tr>
             </thead>
             <tbody>
               {s.changes.map((c) => (
@@ -118,6 +120,10 @@ export default async function ChangesPage() {
                   <td className="code">{c.id}</td>
                   <td><Chip tone={c.kind === '인프라' ? 'info' : 'neutral'} bare>{c.kind}</Chip></td>
                   <td className="strong">{c.title}<Clip count={attachCount(c.id)} title="작업 증적" /></td>
+                  <td style={{ maxWidth: 240, fontSize: 11.5 }}>
+                    {c.plan ? <div title="작업계획">{c.plan}</div> : <span className="mut">-</span>}
+                    {c.rollbackPlan && <div className="mut" title="원복계획" style={{ marginTop: 2 }}>↩ {c.rollbackPlan}</div>}
+                  </td>
                   <td>{c.srNo ? <span className="mono">{c.srNo}</span> : <span className="mut">-</span>}</td>
                   <td><Chip tone={ST_CHIP[c.status]}>{c.status}</Chip></td>
                   <td className="tnum">{c.registeredAt}</td>
@@ -150,8 +156,9 @@ export default async function ChangesPage() {
         <Card title="인프라변경 등록" kicker="Infra Change">
           <form action={addInfraChange} className="vstack" style={{ gap: 7 }}>
             <input aria-label="변경 작업 제목" className="input" name="title" required maxLength={120} placeholder="변경 작업 제목" />
+            <input aria-label="작업계획" className="input" name="plan" required maxLength={500} placeholder="작업계획 (작업 내용·절차)" />
             <div className="hstack">
-              <input aria-label="작업계획 · 원복계획" className="input" name="plan" required maxLength={500} placeholder="작업계획 · 원복계획" style={{ flex: 1 }} />
+              <input aria-label="원복계획" className="input" name="rollbackPlan" required maxLength={500} placeholder="원복계획 (실패 시 되돌림 절차)" style={{ flex: 1 }} />
               <button type="submit" className="btn">등록</button>
             </div>
           </form>

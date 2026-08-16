@@ -238,7 +238,10 @@ export interface ChangeWork {
   srNo?: string
   status: ChangeStatus
   registeredAt: string
+  /** 작업계획 — 변경 작업 내용·절차 */
   plan?: string
+  /** 원복계획 — 실패 시 되돌림 절차 (요구사항: "작업계획, 원복계획 필요" — 작업계획과 별개의 필수 산출물) */
+  rollbackPlan?: string
   result?: string
 }
 
