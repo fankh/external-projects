@@ -1391,6 +1391,38 @@ def sc_infra_health(pg, base, check):
           'IT 운영 종합 export 에 인프라 헬스 행 포함(배치·인터페이스·디스크)')
 
 
+def sc_finance_exec(pg, base, check):
+    """재무 집행률 단일 원천(v1.5.160~) — 투자·비용 계획 대비 집행률을 lib/finance computeFinanceKpis 로
+    화면(invest·expense)·대시보드·IT운영 종합 export 가 공유한다(과거 3중 복제 drift 위험 제거). 세 곳
+    수치가 일치하는지 검증."""
+    login(pg, base, '시스템관리자')  # ADMIN — 재무 전체 열람·대시보드·종합 export
+
+    def csv_val(csv_text, label):
+        for line in csv_text.splitlines():
+            if line.startswith(label + ',') or line.startswith('"' + label + '"'):
+                return line.split(',')[1].strip().strip('"')
+        return None
+
+    # 화면 집행률 (투자·비용 각 관리 화면)
+    pg.goto(f'{base}/finance/invest', wait_until='networkidle')
+    inv_screen = pg.locator('.stat', has_text='계획 대비 집행률').first.locator('.v').inner_text().strip()
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    exp_screen = pg.locator('.stat', has_text='계획 대비 집행률').first.locator('.v').inner_text().strip()
+    # 대시보드 전사 운영 스냅샷 타일 — 재무 화면 값과 일치(단일원천)
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    snap = pg.locator('.card', has_text='전사 운영 스냅샷')
+    inv_dash = snap.locator('.stat', has_text='투자 집행률').first.locator('.v').inner_text().strip()
+    exp_dash = snap.locator('.stat', has_text='비용 집행률').first.locator('.v').inner_text().strip()
+    check(inv_dash == inv_screen and exp_dash == exp_screen,
+          f'대시보드 집행률=재무 화면(단일원천) 투자{inv_dash}/{inv_screen}·비용{exp_dash}/{exp_screen}')
+    # IT 운영 종합 export 행 — 화면 값과 일치
+    csv_text = pg.request.get(f'{base}/api/export?type=itops-summary').text()
+    inv_csv = csv_val(csv_text, '투자 집행률')
+    exp_csv = csv_val(csv_text, '비용 집행률')
+    check(inv_csv == inv_screen and exp_csv == exp_screen,
+          f'IT운영 export 집행률=재무 화면(단일원천) 투자{inv_csv}/{inv_screen}·비용{exp_csv}/{exp_screen}')
+
+
 def sc_criteria(pg, base, check):
     """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
     login(pg, base, '박정호')
@@ -1930,6 +1962,7 @@ SCENARIOS = [
     ('racks', '랙·H/W 관리 — 등록·구성도·삭제 가드', sc_racks, {}),
     ('infracrud', '인프라 CRUD — 서버·시스템·배치·인터페이스', sc_infracrud, {}),
     ('infra_health', '인프라 운영 헬스 — 배치·인터페이스·디스크 단일원천(화면·대시보드·export 정합)', sc_infra_health, {}),
+    ('finance_exec', '재무 집행률 단일원천 — 투자·비용 화면=대시보드=IT운영 export 정합', sc_finance_exec, {}),
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),

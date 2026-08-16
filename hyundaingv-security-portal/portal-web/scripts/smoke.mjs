@@ -472,6 +472,7 @@ async function main() {
     const itopsText = await itopsCsv.text()
     check(itopsCsv.status === 200 && itopsText.includes('진행중 SR'), 'export: IT 운영 종합 현황 CSV (BIZ_MGR)')
     check(itopsText.includes('인프라 운영') && itopsText.includes('디스크 경고'), 'export: IT 운영 종합에 인프라 헬스 행(배치·인터페이스·디스크) 포함')
+    check(itopsText.includes('투자 집행률') && itopsText.includes('비용 집행률'), 'export: IT 운영 종합에 투자·비용 집행률 행(lib/finance 단일원천) 포함')
     const itopsUser = await get('/api/export?type=itops-summary', 'USER')
     check(itopsUser.status === 403, 'export: USER IT 운영 종합 차단(403)')
     const itopsDept = await get('/api/export?type=itops-summary', 'DEPT_MGR')
