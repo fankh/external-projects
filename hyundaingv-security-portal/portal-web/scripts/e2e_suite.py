@@ -1362,6 +1362,35 @@ def sc_infracrud(pg, base, check):
     check('ngv-e2e-01' not in pg.content() and 'E2E 테스트시스템' not in pg.content(), '참조 해제 후 시스템·서버 삭제')
 
 
+def sc_infra_health(pg, base, check):
+    """인프라 운영 헬스 신호(v1.5.154~) — 배치 실패·인터페이스 오류·디스크 경고를 lib/infra computeInfraHealth
+    단일원천으로 운영·시스템 화면·대시보드·IT운영 종합 export 가 공유한다. 대시보드 타일이 출처 화면 수치와
+    일치하는지(단일원천), 종합 현황 export 에 인프라 행이 나오는지 검증."""
+    login(pg, base, '박정호')  # BIZ_MGR — 인프라·대시보드·종합 export 열람
+    # 출처 화면 수치 — 운영(배치 실패·인터페이스 오류), 시스템(디스크 경고)
+    pg.goto(f'{base}/infra/operations', wait_until='networkidle')
+    ops_fail = pg.locator('.stat', has_text='배치 실패').first.locator('.v').inner_text().strip()
+    ops_if = pg.locator('.stat', has_text='인터페이스 오류').first.locator('.v').inner_text().strip()
+    pg.goto(f'{base}/infra/systems', wait_until='networkidle')
+    sys_disk = pg.locator('.stat', has_text='디스크 경고').first.locator('.v').inner_text().strip()
+    # 대시보드 전사 운영 스냅샷 — 인프라 타일 존재 + 출처 화면과 값 일치(단일원천)
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    snap = pg.locator('.card', has_text='전사 운영 스냅샷')
+    check(snap.locator('.stat', has_text='배치 실패').count() > 0
+          and snap.locator('.stat', has_text='인터페이스 오류').count() > 0
+          and snap.locator('.stat', has_text='디스크 경고').count() > 0,
+          '대시보드 전사 운영 스냅샷에 인프라 헬스 3타일(배치·인터페이스·디스크)')
+    db_fail = snap.locator('.stat', has_text='배치 실패').first.locator('.v').inner_text().strip()
+    db_if = snap.locator('.stat', has_text='인터페이스 오류').first.locator('.v').inner_text().strip()
+    db_disk = snap.locator('.stat', has_text='디스크 경고').first.locator('.v').inner_text().strip()
+    check(db_fail == ops_fail and db_if == ops_if and db_disk == sys_disk,
+          f'대시보드 인프라 타일=출처 화면(단일원천) 배치{db_fail}/{ops_fail}·IF{db_if}/{ops_if}·디스크{db_disk}/{sys_disk}')
+    # IT 운영 종합 현황 export 에 인프라 운영 행(BIZ_MGR 권한)
+    csv_text = pg.request.get(f'{base}/api/export?type=itops-summary').text()
+    check('인프라 운영' in csv_text and '디스크 경고' in csv_text,
+          'IT 운영 종합 export 에 인프라 헬스 행 포함(배치·인터페이스·디스크)')
+
+
 def sc_criteria(pg, base, check):
     """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
     login(pg, base, '박정호')
@@ -1900,6 +1929,7 @@ SCENARIOS = [
     ('criteria', '점검 기준관리 — 등록·업로드·삭제·사용중 가드', sc_criteria, {}),
     ('racks', '랙·H/W 관리 — 등록·구성도·삭제 가드', sc_racks, {}),
     ('infracrud', '인프라 CRUD — 서버·시스템·배치·인터페이스', sc_infracrud, {}),
+    ('infra_health', '인프라 운영 헬스 — 배치·인터페이스·디스크 단일원천(화면·대시보드·export 정합)', sc_infra_health, {}),
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),

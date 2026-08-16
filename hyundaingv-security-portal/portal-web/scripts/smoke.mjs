@@ -469,7 +469,9 @@ async function main() {
     check(trendUser.status === 403, 'export: USER 컴플라이언스 추세 차단(403)')
     // IT 운영 종합 현황 — /sr/manage(BIZ) 게이트라 담당·Admin 만, DEPT_MGR·USER 차단
     const itopsCsv = await get('/api/export?type=itops-summary', 'BIZ_MGR')
-    check(itopsCsv.status === 200 && (await itopsCsv.text()).includes('진행중 SR'), 'export: IT 운영 종합 현황 CSV (BIZ_MGR)')
+    const itopsText = await itopsCsv.text()
+    check(itopsCsv.status === 200 && itopsText.includes('진행중 SR'), 'export: IT 운영 종합 현황 CSV (BIZ_MGR)')
+    check(itopsText.includes('인프라 운영') && itopsText.includes('디스크 경고'), 'export: IT 운영 종합에 인프라 헬스 행(배치·인터페이스·디스크) 포함')
     const itopsUser = await get('/api/export?type=itops-summary', 'USER')
     check(itopsUser.status === 403, 'export: USER IT 운영 종합 차단(403)')
     const itopsDept = await get('/api/export?type=itops-summary', 'DEPT_MGR')
