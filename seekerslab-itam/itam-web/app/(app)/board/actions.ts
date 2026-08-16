@@ -275,6 +275,9 @@ export async function remindNoticeUnacked(postId: string) {
   const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
   if (!post) return { ok: false, message: '공지를 찾을 수 없습니다.' }
   if (!post.pinned) return { ok: false, message: '필독(상단 고정) 공지만 미확인자 안내 대상입니다.' }
+  // 발행 예정(publishAt 미래) 공지는 독촉 금지 — 아직 공개되지 않은 공지의 제목·존재를 발행 전에 대상자에게 노출하지 않는다
+  // (대시보드 등 모든 자동 노출은 이미 이 게이트를 쓰는데 수동 독촉 경로만 빠져 있었다).
+  if (post.publishAt && post.publishAt > today()) return { ok: false, message: '발행 예정 공지는 발행 후에 미확인자 안내를 보낼 수 있습니다.' }
 
   const acked = new Set((post.acks ?? []).map((a) => a.by))
   // 대상 부서로 좁힌 미확인자 — 전사 공지면 전 사용자, 부서 공지면 그 부서 사용자만 독촉한다.
