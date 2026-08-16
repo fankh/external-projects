@@ -57,6 +57,24 @@ async function submitStatement(formData: FormData) {
   revalidatePath('/', 'layout')
 }
 
+// 결재제외 별도관리 (요구사항: "결재제외자는 별도 관리 — 확인서 징구 후 스캔해서 증빙으로 업로드").
+// 녹스계정 없어 온라인 결재가 불가한 위반자는 업무담당자가 스캔 확인서를 업로드해 결재 없이 완료 처리한다.
+async function closeExempt(formData: FormData) {
+  'use server'
+  const me = await requireMenuRole('/awareness/violations', 'BIZ_MGR', 'ADMIN')
+  const id = String(formData.get('id') ?? '')
+  const s = getStore()
+  const v = s.violations.find((x) => x.id === id && x.status === '징구중')
+  if (!v) return
+  // 스캔 증빙 필수 — 별도관리는 스캔 확인서가 결재를 대신하므로 첨부 없이는 완료할 수 없다
+  const uploaded = registerUpload(id, formData.get('file'), me.name)
+  if (!uploaded) return
+  v.status = '완료'
+  v.exempt = true
+  audit(me.name, '보안위반 등록', `${v.id} 결재제외 별도관리 완료 (스캔 확인서) — ${v.name}(${v.dept})`)
+  revalidatePath('/', 'layout')
+}
+
 export default async function ViolationsPage() {
   const me = await requireMenu('/awareness/violations')
   const s = getStore()
@@ -113,13 +131,20 @@ export default async function ViolationsPage() {
                     <td><Chip tone="err" bare>{v.type}</Chip></td>
                     <td className="strong" style={{ maxWidth: 280 }}>{v.detail}<Clip count={attachCount(v.id)} title="증빙" /></td>
                     <td className="tnum">{v.occurredAt}</td>
-                    <td><Chip tone={ST_CHIP[v.status]}>{v.status}</Chip></td>
+                    <td><Chip tone={ST_CHIP[v.status]}>{v.status}</Chip>{v.exempt && <Chip tone="neutral" bare>결재제외</Chip>}</td>
                     <td className="c" style={{ maxWidth: 380 }}>
                       {v.status === '징구중' && v.name === me.name ? (
                         <form action={submitStatement} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
                           <input type="hidden" name="id" value={v.id} />
                           <input aria-label="사실확인 · 재발방지 서약" className="input" name="statement" required maxLength={500} placeholder="사실확인 · 재발방지 서약" style={{ height: 25, fontSize: 11.5, width: 220 }} />
                           <button type="submit" className="btn sm pri">확인서 결재신청</button>
+                        </form>
+                      ) : v.status === '징구중' && canManage ? (
+                        // 결재제외 별도관리 — 녹스계정 없는 위반자는 업무담당자가 스캔 확인서로 결재 없이 완료
+                        <form action={closeExempt} className="hstack" style={{ justifyContent: 'center', padding: '3px 0' }}>
+                          <input type="hidden" name="id" value={v.id} />
+                          <input className="input" type="file" name="file" required style={{ height: 25, fontSize: 11, width: 170, paddingTop: 2 }} title="스캔 확인서 증빙" />
+                          <button type="submit" className="btn sm">결재제외 완료(스캔)</button>
                         </form>
                       ) : v.statement ? (
                         <span className="dim" title={v.statement}>{v.statement}</span>

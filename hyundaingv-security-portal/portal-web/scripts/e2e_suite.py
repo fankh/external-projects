@@ -44,6 +44,7 @@ INSPTL_DATA = ROOT / 'scripts' / '.e2e-insptl-data.json'  # 점검 경과 알림
 INFRACHG_DATA = ROOT / 'scripts' / '.e2e-infrachg-data.json'  # 인프라 변경 원복계획 별개 필드 회귀용 (v1.5.211)
 SPPLG_DATA = ROOT / 'scripts' / '.e2e-spplg-data.json'  # 특별서약(보안담당자) 담당업무 입력 커버리지용 (v1.5.213)
 CPLG_DATA = ROOT / 'scripts' / '.e2e-cplg-data.json'  # 협력업체서약서 징구→상신→승인 커버리지용 (v1.5.215)
+VLEX_DATA = ROOT / 'scripts' / '.e2e-vlex-data.json'  # 보안위반 결재제외 별도관리 회귀용 (v1.5.217)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -2109,6 +2110,37 @@ def sc_inspection_teamlead(pg, base, check):
     check('점검 경과 2명' in detail, f'점검 경과 알림 = 담당자+팀장 2명 (실제: {detail[:120]})')
 
 
+def sc_violation_exempt(pg, base, check):
+    """보안위반 결재제외 별도관리 (요구사항: "결재제외자는 별도 관리 — 확인서 징구 후 스캔해서 증빙으로 업로드").
+    녹스계정 없는 위반자는 업무담당자가 스캔 확인서로 결재 없이(별도관리) 완료 처리한다."""
+    login(pg, base, '시스템관리자')  # 업무담당(ADMIN) — 위반 등록·결재제외 완료 권한
+    pg.goto(f'{base}/awareness/violations', wait_until='networkidle')
+    reg = pg.locator('.card', has_text='위반 등록')
+    reg.locator('select[name=name]').select_option('한지원')
+    reg.locator('input[name=detail]').fill('E2E 결재제외 위반건')
+    reg.locator('button:has-text("등록")').click()
+    pg.wait_for_selector('tr:has-text("E2E 결재제외 위반건")', timeout=10000)
+    check('징구중' in pg.locator('tr', has_text='E2E 결재제외 위반건').inner_text(), '위반 등록 (상태 징구중)')
+    # 업무담당자 스캔 확인서 업로드 → 결재 없이 완료(결재제외 별도관리)
+    scan = UPLOAD.parent / '.e2e-violation-scan.txt'
+    scan.write_text('scan confirmation payload', encoding='utf-8')
+    row = pg.locator('tr', has_text='E2E 결재제외 위반건')
+    row.locator('input[type=file]').set_input_files(str(scan))
+    row.locator('button:has-text("결재제외 완료")').click()
+    # 상태 변경 시 스캔 완료 버튼이 사라진다 — 버튼 detach 로 실제 완료를 확인(버튼 라벨 오탐 방지)
+    pg.locator('tr', has_text='E2E 결재제외 위반건').locator('button:has-text("결재제외 완료")').wait_for(state='detached', timeout=10000)
+    # 상태 셀(6번째 td)만 검사 — 행 전체 텍스트는 버튼 라벨을 포함해 오탐하므로 상태 칩만 본다
+    status_cell = pg.locator('tr', has_text='E2E 결재제외 위반건').locator('td').nth(5).inner_text()
+    check('완료' in status_cell and '결재제외' in status_cell, '스캔 확인서 → 결재제외 완료 (상태 셀)')
+    try:
+        scan.unlink(missing_ok=True)
+    except OSError:
+        pass
+    # 별도관리는 결재를 타지 않는다 — 결재함에 보안위반 확인서 결재가 생기지 않아야 한다
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    check('보안위반사실확인서' not in pg.content(), '결재제외 완료는 결재 미생성 (별도관리)')
+
+
 def sc_company_pledge(pg, base, check):
     """협력업체서약서 징구→결재상신→승인 폐쇄루프 (요구사항: 협력업체서약서 · 결재 시트 12번).
     업무담당(시스템관리자)이 협력업체 서약을 징구 등록→선택 결재상신하고, 결재자(박정호) 승인 시 완료로 전파된다."""
@@ -2177,6 +2209,7 @@ SCENARIOS = [
     ('infra_rollback_plan', '인프라 변경 원복계획 — 작업계획과 별개 필수 산출물', sc_infra_rollback_plan, {'PORTAL_DATA_FILE': str(INFRACHG_DATA)}),
     ('special_pledge_duty', '특별서약(보안담당자) — 담당업무·세부업무 추가입력 제출', sc_special_pledge_duty, {'PORTAL_DATA_FILE': str(SPPLG_DATA)}),
     ('company_pledge', '협력업체서약서 — 징구→결재상신→승인 폐쇄루프', sc_company_pledge, {'PORTAL_DATA_FILE': str(CPLG_DATA)}),
+    ('violation_exempt', '보안위반 결재제외 별도관리 — 스캔 확인서로 결재 없이 완료', sc_violation_exempt, {'PORTAL_DATA_FILE': str(VLEX_DATA)}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
     ('devchain', '시스템개발 SR → 변경 2단 상신 → SR 완료 전파 (전체 사슬)', sc_devchain, {}),
@@ -2543,6 +2576,8 @@ def main() -> int:
     }, ensure_ascii=False), encoding='utf-8')
     # 협력업체서약서 징구→상신→승인 폐쇄루프 — 협력업체 서약 없는 상태에서 등록·상신·승인 전 구간 검증.
     CPLG_DATA.write_text(json.dumps({'companyPledges': []}, ensure_ascii=False), encoding='utf-8')
+    # 보안위반 결재제외 별도관리 — 위반 없는 상태에서 등록→스캔 확인서 업로드→결재 없이 완료 검증.
+    VLEX_DATA.write_text(json.dumps({'violations': []}, ensure_ascii=False), encoding='utf-8')
     DPLGRESIGN_DATA.write_text(json.dumps({
         'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
                    'title': '[부서서약 현황 상신] 개발1팀 반려 — 보완 후 재상신 (사유: 보완요망)'}],
