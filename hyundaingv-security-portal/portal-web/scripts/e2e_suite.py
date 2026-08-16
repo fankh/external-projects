@@ -45,6 +45,7 @@ INFRACHG_DATA = ROOT / 'scripts' / '.e2e-infrachg-data.json'  # 인프라 변경
 SPPLG_DATA = ROOT / 'scripts' / '.e2e-spplg-data.json'  # 특별서약(보안담당자) 담당업무 입력 커버리지용 (v1.5.213)
 CPLG_DATA = ROOT / 'scripts' / '.e2e-cplg-data.json'  # 협력업체서약서 징구→상신→승인 커버리지용 (v1.5.215)
 VLEX_DATA = ROOT / 'scripts' / '.e2e-vlex-data.json'  # 보안위반 결재제외 별도관리 회귀용 (v1.5.217)
+SRAC_DATA = ROOT / 'scripts' / '.e2e-srac-data.json'  # 계정/권한 SR 상태라벨 정합(개발중→처리중) 회귀용 (v1.5.219)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -2110,6 +2111,19 @@ def sc_inspection_teamlead(pg, base, check):
     check('점검 경과 2명' in detail, f'점검 경과 알림 = 담당자+팀장 2명 (실제: {detail[:120]})')
 
 
+def sc_sr_status_label(pg, base, check):
+    """계정/권한 SR 상태 라벨 정합 (요구사항: 데이터·계정권한 SR 은 개발단계 없음 — '개발중'을 '처리중'으로 표기).
+    srStatusLabel 단일원천을 배정완료(sr/ci)·지연내역(sr/delayed) 카드가 써야 한다(raw 상태 노출 결함 수정)."""
+    login(pg, base, '박정호')  # BIZ_MGR — CI/지연 조회
+    pg.goto(f'{base}/sr/ci', wait_until='networkidle')
+    assigned_row = pg.locator('.card', has_text='배정 완료').locator('tr', has_text='SR-2026-9501')
+    at = assigned_row.inner_text()
+    check('처리중' in at and '개발중' not in at, 'sr/ci 배정완료 — 계정권한 SR 처리중 표기(개발중 아님)')
+    pg.goto(f'{base}/sr/delayed', wait_until='networkidle')
+    dt = pg.locator('tr', has_text='SR-2026-9501').inner_text()
+    check('처리중' in dt and '개발중' not in dt, 'sr/delayed 지연내역 — 계정권한 SR 처리중 표기(개발중 아님)')
+
+
 def sc_violation_exempt(pg, base, check):
     """보안위반 결재제외 별도관리 (요구사항: "결재제외자는 별도 관리 — 확인서 징구 후 스캔해서 증빙으로 업로드").
     녹스계정 없는 위반자는 업무담당자가 스캔 확인서로 결재 없이(별도관리) 완료 처리한다."""
@@ -2210,6 +2224,7 @@ SCENARIOS = [
     ('special_pledge_duty', '특별서약(보안담당자) — 담당업무·세부업무 추가입력 제출', sc_special_pledge_duty, {'PORTAL_DATA_FILE': str(SPPLG_DATA)}),
     ('company_pledge', '협력업체서약서 — 징구→결재상신→승인 폐쇄루프', sc_company_pledge, {'PORTAL_DATA_FILE': str(CPLG_DATA)}),
     ('violation_exempt', '보안위반 결재제외 별도관리 — 스캔 확인서로 결재 없이 완료', sc_violation_exempt, {'PORTAL_DATA_FILE': str(VLEX_DATA)}),
+    ('sr_status_label', '계정/권한 SR 상태 라벨 정합 — 배정완료·지연내역 개발중→처리중', sc_sr_status_label, {'PORTAL_DATA_FILE': str(SRAC_DATA)}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
     ('devchain', '시스템개발 SR → 변경 2단 상신 → SR 완료 전파 (전체 사슬)', sc_devchain, {}),
@@ -2578,6 +2593,11 @@ def main() -> int:
     CPLG_DATA.write_text(json.dumps({'companyPledges': []}, ensure_ascii=False), encoding='utf-8')
     # 보안위반 결재제외 별도관리 — 위반 없는 상태에서 등록→스캔 확인서 업로드→결재 없이 완료 검증.
     VLEX_DATA.write_text(json.dumps({'violations': []}, ensure_ascii=False), encoding='utf-8')
+    # 계정/권한 SR 상태 라벨 — 개발단계 없는 계정권한 SR(개발중·CI배정·기한경과)이 배정완료·지연내역에서 처리중 표기.
+    SRAC_DATA.write_text(json.dumps({'srRequests': [
+        {'srNo': 'SR-2026-9501', 'kind': '계정/권한', 'title': 'E2E 계정권한 SR', 'system': 'ERP',
+         'requester': '김현우', 'dept': '개발1팀', 'status': '개발중', 'requestedAt': '2026-07-01', 'ci': '박정호', 'dueDate': '2026-08-01'},
+    ]}, ensure_ascii=False), encoding='utf-8')
     DPLGRESIGN_DATA.write_text(json.dumps({
         'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
                    'title': '[부서서약 현황 상신] 개발1팀 반려 — 보완 후 재상신 (사유: 보완요망)'}],

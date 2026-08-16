@@ -4,7 +4,7 @@ import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { daysBetween, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { delayedSrs, isSrReplannable } from '@/lib/sr'
-import { SR_CHIP } from '../chips'
+import { SR_CHIP, srStatusLabel } from '../chips'
 
 async function replan(formData: FormData) {
   'use server'
@@ -54,7 +54,7 @@ export default async function SrDelayedPage() {
                     <td className="code">{r.srNo}</td>
                     <td className="strong">{r.title}</td>
                     <td>{r.ci ?? '-'}</td>
-                    <td><Chip tone={SR_CHIP[r.status]}>{r.status}</Chip></td>
+                    <td><Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip></td>
                     <td className="tnum">{r.dueDate}</td>
                     <td className="num"><Chip tone="err" bare>D+{daysBetween(r.dueDate!, t) ?? '-'}</Chip></td>
                     <td className="c">

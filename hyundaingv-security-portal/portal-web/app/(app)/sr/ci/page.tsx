@@ -5,7 +5,7 @@ import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, nextNo } from '@/lib/store'
-import { SR_CHIP } from '../chips'
+import { SR_CHIP, srStatusLabel } from '../chips'
 
 async function assignCi(formData: FormData) {
   'use server'
@@ -225,7 +225,7 @@ export default async function SrCiPage() {
                     <td className="code">{r.srNo}</td>
                     <td className="strong">{r.title}</td>
                     <td>{r.ci}</td>
-                    <td><Chip tone={SR_CHIP[r.status]}>{r.status}</Chip></td>
+                    <td><Chip tone={SR_CHIP[r.status]}>{srStatusLabel(r)}</Chip></td>
                     <td className="tnum">{r.dueDate ?? '-'}</td>
                   </tr>
                 ))}
