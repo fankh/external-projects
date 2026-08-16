@@ -32,21 +32,25 @@
 
 PostgreSQL/Nginx/한글 폰트가 전혀 없는 신규 서버는 패키지에 포함된 `bootstrap-infra.sh`로 자동 구성합니다. 인터넷 없이 동작하며, Kafka/ZooKeeper/OpenSearch는 install.sh가 번들에서 자동 설치하므로 별도 준비가 필요 없습니다.
 
+**Full 패키지에는 `rpms/`(Rocky 9 x86_64 전체 의존성 클로저 113개, PGDG 14/nginx/CJK 폰트/net-snmp 포함)가 기본 번들되어 있어 별도 수집 없이 바로 실행하면 됩니다:**
+
 ```bash
-# [1] 인터넷 가능한 동일 OS(Rocky/RHEL 9.x) 머신에서 RPM 수집
-mkdir rpms
-dnf download --resolve --destdir=rpms \
-    postgresql14-server postgresql14 nginx google-noto-sans-cjk-fonts \
-    net-snmp-utils net-snmp-libs
-# net-snmp-utils: ss-snmp-trap(SNMP Trap 송신)이 snmptrap CLI에 의존 (필수)
-# PGDG 저장소 사용 시 pgdg-redhat-repo 활성 상태에서 실행. PostgreSQL 요건: 최소 12+, 표준은 PGDG 14
-
-# [2] rpms/ 디렉터리를 설치 패키지 루트(install.sh 옆)에 복사 후 오프라인 서버로 전송
-
-# [3] 오프라인 서버에서 부트스트랩 → 설치 순서로 실행
 sudo ./bootstrap-infra.sh                              # 기본 PGDATA
 sudo ./bootstrap-infra.sh --pgdata /data/pgsql/14/data # 데이터 볼륨 분리 시
 sudo ./install.sh
+```
+
+**RPM 세트 재수집** (OS 마이너 버전 차이 등으로 갱신이 필요한 경우에만):
+
+```bash
+# 인터넷 가능한 동일 OS(Rocky/RHEL 9.x) 머신에서 — 이미 설치된 의존성도 포함해 전체 클로저 확보
+mkdir rpms
+dnf download --resolve --alldeps --destdir=rpms \
+    postgresql14-server postgresql14 nginx google-noto-sans-cjk-ttc-fonts \
+    net-snmp-utils net-snmp-libs
+# net-snmp-utils: ss-snmp-trap(SNMP Trap 송신)이 snmptrap CLI에 의존 (필수)
+# PGDG 저장소 사용 시 pgdg-redhat-repo 활성 상태에서 실행. PostgreSQL 요건: 최소 12+, 표준은 PGDG 14
+# 수집한 rpms/를 설치 패키지 루트(install.sh 옆)에 교체
 ```
 
 부트스트랩이 수행하는 것: 로컬 RPM 설치(저장소 접근 없음) → PGDG `/usr/pgsql-NN/bin` 심링크 → PostgreSQL initdb(포트 15432, 로컬 전용, md5) → 커스텀 PGDATA systemd override → Nginx 활성화 → CJK 폰트 확인.
