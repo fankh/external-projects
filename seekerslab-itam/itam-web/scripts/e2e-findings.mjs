@@ -1276,6 +1276,15 @@ try {
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const cHtml = await p3.content()
   ok('운영 정책 다운스트림: 계약 화면 만료 임박 창 60일', cHtml.includes('만료 60일 이내') && !cHtml.includes('만료 90일 이내'))
+  // 소유자 확인 일괄 요청 — 스캔이 정체 불명 장비를 다수 올릴 때 편입과 같은 선택에서 소유 부서를 한 번에 조회한다(편입 일괄 요청과 대칭·편입 전 조사 트랙). 미등록·미처리분 0035(EC2)·0044(OAuth) 선택.
+  await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  await p3.locator('input[aria-label="DSC-2607-0035 편입 선택"]').check()
+  await p3.locator('input[aria-label="DSC-2607-0044 편입 선택"]').check()
+  await p3.locator('button', { hasText: /선택 일괄 소유자 확인/ }).click()
+  await p3.waitForTimeout(800)
+  await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  const ocApr = (await p3.locator('body').textContent()) || ''
+  ok('소유자 확인 일괄 요청: 선택 2건 소유자 확인 결재 생성(후보 부서 확인)', ocApr.includes('DSC-2607-0035') && ocApr.includes('DSC-2607-0044'))
   // 발견 자산 편입 → CMDB 대사 종결(핵심 Discovery 루프) — 편입 결재 승인 시 대장 자산이 생성되고, 발견 레코드가
   //  '등록·일치'로 전환되며 matchedAssetNo 로 새 자산과 연결된다. 그 전엔 편입해도 상태가 '미등록'으로 남아 대사가 안 닫혔다.
   await p3.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })

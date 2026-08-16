@@ -4,7 +4,7 @@ import { Chip, RiskChip } from '@/components/ui'
 import { classifyDiscoveredType } from '@/lib/classify'
 import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState, RiskLevel } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
-import { confirmReconcile, dismissDiscovered, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestQuarantine, undismissDiscovered } from '../actions'
+import { confirmReconcile, dismissDiscovered, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestOwnerConfirmMany, requestQuarantine, undismissDiscovered } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
@@ -42,6 +42,12 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
   })
   const bulkOnboard = () => startTransition(async () => {
     const r = await requestOnboardMany([...checked])
+    setMsg(r.message)
+    if (r.ok) setChecked(new Set())
+  })
+  // 소유자 확인 일괄 요청 — 편입과 같은 선택(미등록·미처리)에서, 정체 불명 장비의 소유 부서를 한 번에 조회한다(편입 전 조사 트랙)
+  const bulkOwnerConfirm = () => startTransition(async () => {
+    const r = await requestOwnerConfirmMany([...checked])
     setMsg(r.message)
     if (r.ok) setChecked(new Set())
   })
@@ -86,9 +92,14 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
           ))}
         </div>
         <span className="cnt">{rows.length}건</span>
-        <button className="btn sm pri" style={{ marginLeft: 'auto' }} disabled={pending || checked.size === 0} onClick={bulkOnboard}>
-          선택 일괄 편입 요청 ({checked.size})
-        </button>
+        <span className="hstack" style={{ marginLeft: 'auto', gap: 6 }}>
+          <button className="btn sm" disabled={pending || checked.size === 0} onClick={bulkOwnerConfirm} title="선택한 정체 불명 장비의 소유 부서를 일괄 조회(편입 전 조사)">
+            선택 일괄 소유자 확인 ({checked.size})
+          </button>
+          <button className="btn sm pri" disabled={pending || checked.size === 0} onClick={bulkOnboard}>
+            선택 일괄 편입 요청 ({checked.size})
+          </button>
+        </span>
       </div>
       <div className="qbar" style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
         <select className="select" value={fstate} onChange={(e) => setFstate(e.target.value as ReconcileState | '전체')} style={{ maxWidth: 150 }}>
