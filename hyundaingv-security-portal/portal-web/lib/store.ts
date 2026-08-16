@@ -458,6 +458,17 @@ function loadFromFile(): Store | null {
     // remoteCycle 검증 — 손상 파일의 정의되지 않은 값(비-주기 문자열·객체)이 UI select·기간 키 산정에 새지 않게
     // 기본 '월'로 보정한다(remotePeriodKey 자체도 미지값은 월로 처리하나, 저장값 자체를 정규화해 화면 정합).
     if (!(['매일', '월', '분기', '반기'] as string[]).includes(merged.remoteCycle as string)) merged.remoteCycle = '월'
+    // 프로필 격리 (AD-7) — 파일 스탬프가 현재 PORTAL_PROFILE 과 다르면(한 데이터파일을 프로필 전환에
+    // 재사용), 프로필 스코프 런타임 설정(채널 가동상태·메뉴권한 오버레이)을 활성 프로필 시드 기본으로
+    // 되돌린다(도메인 데이터는 보존). A 프로필 채널 토글·메뉴제한이 B 로 새어 운영 통제가 어긋나는 것을 막는다.
+    // 스탬프 없는 파일(구버전·테스트)은 undefined 라 리셋하지 않는다(무회귀).
+    const activeProfile = process.env.PORTAL_PROFILE || 'default'
+    const fileProfile = typeof raw.__profileStamp === 'string' ? raw.__profileStamp : undefined
+    if (fileProfile !== undefined && fileProfile !== activeProfile) {
+      const fresh = seed()
+      merged.channelStates = fresh.channelStates
+      merged.menuOverrides = fresh.menuOverrides
+    }
     return merged
   } catch {
     // 파싱·머지 실패 = 손상 파일(외부 편집기·백업 도구·디스크 풀 0바이트·비트로트). 그대로 두면
@@ -486,7 +497,9 @@ function saveNow(s: Store) {
   // __ngvPortalNoSave: 손상 원본 격리 실패 시 저장 금지 — 원본을 시드로 덮어쓰지 않는다(복구지점 보존)
   if (!DATA_FILE || g.__ngvPortalNoSave) return
   try {
-    const json = JSON.stringify(s)
+    // 프로필 스탬프 — 어느 PORTAL_PROFILE 로 저장됐는지 각인(AD-7). loadFromFile 이 활성 프로필과 대조해
+    // 프로필 스코프 런타임 설정 누수를 막는다. 시드에 없는 키라 재로드 머지에서 무시된다(도메인 데이터 무영향).
+    const json = JSON.stringify({ ...s, __profileStamp: process.env.PORTAL_PROFILE || 'default' })
     // 변경 없으면 쓰기 생략 — 읽기 부하에서 예약이 반복돼도 동일 상태를 헛쓰지 않는다.
     if (json === g.__ngvPortalLastSaved) return
     mkdirSync(dirname(DATA_FILE), { recursive: true })
