@@ -1133,6 +1133,16 @@ try {
   await p3.waitForTimeout(800)
   ok('라이선스 STEP2: 인라인 좌석 배정 처리 성공(무단 사용 합법화 · 배정 N/M석)', /배정 \d+\/\d+석/.test((await step2Card().textContent()) || ''))
 
+  // 좌석 배정 이탈-자산 가드 — 폐기·분실·반납대기 등 이탈한 자산에 좌석을 새로 배정하면 좌석 자동 회수(이탈 시점에만 돎)가 다시 돌지 않아 좌석이 영구 누수된다(보유 초과·사용량 과대·SAM 배정 대장 오기록, 로56 무결성). 폐기완료 자산(AST-2018-000090) 배정 시도 → 거부·배정 2석 유지.
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const seatGuardRow = p3.locator('table', { has: p3.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first().locator('tbody tr').filter({ hasText: 'AutoCAD' }).first()
+  await seatGuardRow.locator('button', { hasText: /배정 2\/15석/ }).click()
+  await p3.waitForTimeout(300)
+  await seatGuardRow.locator('input[placeholder*="자산번호"]').fill('AST-2018-000090')
+  await seatGuardRow.locator('button', { hasText: /^좌석 배정$/ }).click()
+  await p3.waitForTimeout(700)
+  ok('좌석 배정 이탈-자산 가드: 폐기완료 자산 배정 거부(좌석 누수 방지) · 배정 2석 유지', ((await seatGuardRow.textContent()) || '').includes('배정 2/15석') && !((await seatGuardRow.textContent()) || '').includes('배정 3/15석'))
+
   // 유지보수 계약 예산 집행(§03) — CT-2022-007 누계 4,980만 > 계약 4,800만 → 예산 초과 판정. 대시보드 재협상 큐와 동일 근거.
   const maintCard = p3.locator('.card', { hasText: '유지보수 계약 관리 — 예산 집행 · SLA' }).first()
   const maintTxt = (await maintCard.textContent()) || ''
