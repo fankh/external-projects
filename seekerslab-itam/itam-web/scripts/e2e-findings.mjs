@@ -1460,6 +1460,15 @@ try {
   ok('Shadow SaaS 차단 → 프록시·DNS 차단 집행 요청 메시지(설정 화면과 동일 집행)', ((await p3.textContent('body')) || '').includes('프록시·DNS 차단 집행 요청'))
   await p3.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   ok('Shadow SaaS 차단 → 보안운영팀 차단 집행 통보 발송 이력(단일화 반영)', ((await p3.textContent('body')) || '').includes('ChatGPT') && ((await p3.textContent('body')) || '').includes('프록시·DNS 차단 집행'))
+
+  // 데이터 일괄 소거 — EOL 배치 폐기에서 소거 대기 건을 같은 소거 방식·처분으로 한 번에 처리(대상 선정 일괄 상신과 대칭). 시드 소거 대기 DSP-03(AST-2020-000771) 선택 → 일괄 소거·처분(건별 확인서).
+  await p3.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  await p3.locator('input[aria-label="AST-2020-000771 일괄 소거 선택"]').check()
+  await p3.locator('button', { hasText: /^일괄 소거·처분 \(1\)$/ }).click()
+  await p3.waitForTimeout(800)
+  ok('데이터 일괄 소거: 선택 소거 대기 건 일괄 소거·처분 완료(건별 확인서)', ((await p3.locator('body').textContent()) || '').includes('건 소거·처분 완료'))
+  await p3.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  ok('데이터 일괄 소거 → 폐기완료·소거 확인서 발급', ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'DSP-03' }) }).first().textContent()) || '').includes('소거 확인서'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──

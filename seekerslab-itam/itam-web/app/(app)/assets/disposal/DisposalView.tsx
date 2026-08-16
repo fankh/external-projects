@@ -2,7 +2,7 @@
 import { Fragment, useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { DISPOSAL_PHOTO_LABELS, DISPOSITIONS, type Disposition, type DisposalPhotoLabel, type DisposalRecord, type WipeMethod } from '@/lib/types'
-import { addDisposalPhoto, cancelDisposalCandidate, raiseDisposalApproval, recordWipe, removeDisposalPhoto, selectForDisposal, selectForDisposalMany } from './actions'
+import { addDisposalPhoto, cancelDisposalCandidate, raiseDisposalApproval, recordWipe, recordWipeMany, removeDisposalPhoto, selectForDisposal, selectForDisposalMany } from './actions'
 
 const METHODS: WipeMethod[] = ['소프트웨어 3-pass', '디가우징', '물리 파쇄']
 const TONE = { '대상 선정': 'neutral', '결재 대기': 'info', '소거 대기': 'err', 완료: 'ok' } as const
@@ -18,6 +18,10 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
   const [disp, setDisp] = useState<Record<string, Disposition>>({})
   const [proceeds, setProceeds] = useState<Record<string, string>>({})
   const [sel, setSel] = useState<Set<string>>(new Set())
+  // 소거 대기 일괄 처리 — EOL 배치 폐기에서 같은 소거 방식·처분으로 다수 건을 한 번에(대상 선정 일괄 상신과 대칭). 매각 대금은 건별이라 단건 소거로 개별 입력.
+  const [wipeSel, setWipeSel] = useState<Set<string>>(new Set())
+  const [bulkWipeMethod, setBulkWipeMethod] = useState<WipeMethod>(METHODS[0])
+  const [bulkWipeDisp, setBulkWipeDisp] = useState<Disposition>('폐기(파쇄)')
   const [photoOpen, setPhotoOpen] = useState<string | null>(null)
   const [photoLabel, setPhotoLabel] = useState<DisposalPhotoLabel>(DISPOSAL_PHOTO_LABELS[0])
   const [photoNote, setPhotoNote] = useState('')
@@ -55,6 +59,13 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
     const r = await selectForDisposalMany(items)
     setMsg({ ok: r.ok, text: r.message })
     if (r.ok) setSel(new Set())
+  })
+  const wipeReady = records.filter((d) => d.status === '소거 대기')
+  const toggleWipe = (id: string) => setWipeSel((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const bulkWipe = () => startTransition(async () => {
+    const r = await recordWipeMany([...wipeSel], bulkWipeMethod, bulkWipeDisp)
+    setMsg({ ok: r.ok, text: r.message })
+    if (r.ok) setWipeSel(new Set())
   })
 
   return (
@@ -109,6 +120,19 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
             value={fq} onChange={(e) => setFq(e.target.value)} />
           <span className="mut" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{shown.length} / {records.length}건</span>
         </div>
+        {wipeSel.size > 0 && (
+          <div className="hstack" style={{ gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center', background: 'var(--canvas)' }}>
+            <span className="mut" style={{ fontSize: 12.5 }}>선택 {wipeSel.size}건 일괄 소거:</span>
+            <select className="select" style={{ height: 28, fontSize: 12 }} value={bulkWipeMethod} disabled={pending} onChange={(e) => setBulkWipeMethod(e.target.value as WipeMethod)} title="일괄 데이터 소거 방식">
+              {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <select className="select" style={{ height: 28, fontSize: 12 }} value={bulkWipeDisp} disabled={pending} onChange={(e) => setBulkWipeDisp(e.target.value as Disposition)} title="일괄 물리 처분 방식(매각 대금은 건별이라 일괄 제외)">
+              {DISPOSITIONS.filter((x) => x !== '매각').map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+            <button className="btn sm danger" disabled={pending} onClick={bulkWipe}>일괄 소거·처분 ({wipeSel.size})</button>
+            <button className="btn sm ghost" disabled={pending} onClick={() => setWipeSel(new Set())}>선택 해제</button>
+          </div>
+        )}
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
@@ -146,6 +170,7 @@ export function DisposalView({ candidates, records }: { candidates: Candidate[];
                   <td className="c">
                     {d.status === '소거 대기' ? (
                       <span className="hstack" style={{ justifyContent: 'center', gap: 5, flexWrap: 'wrap' }}>
+                        <input type="checkbox" checked={wipeSel.has(d.id)} disabled={pending} aria-label={`${d.assetNo} 일괄 소거 선택`} onChange={() => toggleWipe(d.id)} title="같은 소거 방식·처분으로 일괄 소거" />
                         <select className="select" style={{ height: 25, fontSize: 11 }} title="데이터 소거 방식"
                           value={method[d.id] ?? METHODS[0]}
                           onChange={(e) => setMethod((m) => ({ ...m, [d.id]: e.target.value as WipeMethod }))}>
