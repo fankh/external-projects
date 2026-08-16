@@ -1511,6 +1511,18 @@ try {
   await p3.waitForTimeout(700)
   await p3.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
   ok('폐기 대상 선정 보유-상태 가드: 사용중 자산 폐기 선정 제외(실물 회수 전 폐기 방지)', ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2022-000512' }) }).first().textContent()) || '').includes('사용중'))
+
+  // 결재 일괄 반려 — 중복·무효·예산 동결 등 한꺼번에 반려할 대기 결재를 같은 사유로 일괄 반려(일괄 승인의 반대편, 반려는 사유 필수). ADMIN 이 결재 가능한 자산 신청 APR-2607-120·121 선택 → 일괄 반려.
+  await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await p3.locator('input[aria-label="APR-2607-120 일괄 승인 선택"]').check()
+  await p3.locator('input[aria-label="APR-2607-121 일괄 승인 선택"]').check()
+  await p3.locator('input[placeholder="일괄 반려 사유"]').fill('중복 신청 정리 — e2e')
+  await p3.locator('button', { hasText: /^선택 일괄 반려 \(2\)$/ }).click()
+  await p3.waitForTimeout(800)
+  ok('결재 일괄 반려: 선택 2건 일괄 반려(사유 공유·전체 반려 종결)', ((await p3.locator('body').textContent()) || '').includes('2건 반려 처리 완료'))
+  // 반려 종결 확인 — 재조회 시 두 건이 더는 내 결재 차례(대기)에 없다(반려로 종결)
+  await p3.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  ok('결재 일괄 반려 → 대기 큐에서 종결(승인 선택 체크박스 소거)', (await p3.locator('input[aria-label="APR-2607-120 일괄 승인 선택"]').count()) === 0)
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──
