@@ -452,7 +452,7 @@ export interface SurveyDiff {
   expected: string
   actual: string
   status: '미조치' | '조정 상신' | '조정 완료'
-  resolution?: '대장 보정' | '유휴 편성' | '분실 처리' | '신규 등록'
+  resolution?: '대장 보정' | '유휴 편성' | '분실 처리' | '신규 등록' | '미적용'
 }
 
 /** 도입·검수 — 발주 연계 입고 → 검수 체크리스트 → 자산번호 채번 → 라벨 발행 (제품안내서 §03) */
