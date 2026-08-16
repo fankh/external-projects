@@ -4,7 +4,7 @@ import { effectiveRoles } from '@/lib/authz'
 import { csvResponse } from '@/lib/csv'
 import { currentYear, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
-import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating } from '@/lib/compliance'
+import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
 import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
@@ -214,9 +214,11 @@ export async function GET(req: Request) {
     // KPI 는 lib/compliance 단일 원천(추세 스냅샷과 공유) — 화면·산출물 수치 불일치 방지.
     const k = computeComplianceKpis(s)
     const score = compliancePostureScore(k)
+    const weak = weakestPostureAxis(k)
     const rows: (string | number)[][] = [
       ['지표', '값', '비고'],
       ['포스처 점수', `${score} / 100`, `등급 ${postureRating(score).label} · 5축(서약·이수·조치·점검·리스크) 균등`],
+      ['개선 우선순위(최약 축)', `${weak.label} ${weak.pct}%`, weak.advice],
       ['일반 보안서약률', `${complianceKpiPct(k.signedCount, k.totalPeople)}%`, `${k.signedCount}/${k.totalPeople}명 (${currentYear()}년 현 개정본)`],
       ['보안교육 이수율', `${complianceKpiPct(k.eduDone, k.eduSlots)}%`, `완료 과정 ${k.doneCourses}건 · 대상 이수 ${k.eduDone}/${k.eduSlots}`],
       ['보안점검(ISMS)', `완료 ${k.inspDone} / 전체 ${k.inspTotal}`, `결과 미등록 ${k.inspPending}건`],

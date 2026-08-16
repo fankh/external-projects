@@ -4,7 +4,7 @@ import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { compliancePostureScore, computeComplianceKpis, postureRating, upsertComplianceSnapshot } from '@/lib/compliance'
+import { compliancePostureScore, computeComplianceKpis, postureAxes, postureRating, weakestPostureAxis, upsertComplianceSnapshot } from '@/lib/compliance'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, isCodeActive, nextNo, type Store } from '@/lib/store'
@@ -153,9 +153,12 @@ export default async function InspectionPage() {
   const overdue = s.inspectionPlans.filter((p) => p.month < thisMonth && p.status !== '완료' && p.status !== '결재중')
   // 컴플라이언스 추세 — 기간 오름차순, 각 행은 직전 대비 델타를 함께 보인다
   const snaps = [...s.complianceSnapshots].sort((a, b) => String(a.period ?? '').localeCompare(String(b.period ?? '')))
-  // 현재 포스처 점수 — 실시간 KPI 기준 (스냅샷 기록 없이도 지금 값을 보인다)
-  const curScore = compliancePostureScore(computeComplianceKpis(s))
+  // 현재 포스처 점수 — 실시간 KPI 기준 (스냅샷 기록 없이도 지금 값을 보인다). KPI 는 한 번만 산출해 축·점수 공유
+  const curKpis = computeComplianceKpis(s)
+  const curScore = compliancePostureScore(curKpis)
   const curRating = postureRating(curScore)
+  const axes = postureAxes(curKpis)
+  const weakAxis = weakestPostureAxis(curKpis)
 
   return (
     <>
@@ -184,6 +187,32 @@ export default async function InspectionPage() {
           <span className="strong" style={{ fontSize: 22 }}>{curScore}<small style={{ fontSize: 12 }}>/100</small></span>
           <Chip tone={curRating.tone}>{curRating.label}</Chip>
           <span className="mut" style={{ fontSize: 10.5 }}>서약·이수·조치·점검·리스크 5축 균등 (경영 보고용 단일 지표)</span>
+        </div>
+        {/* 축 분해 — 점수를 이루는 5축을 각각 보이고, 최약 축을 개선 우선순위로 지목한다(점수=축 평균 단일원천) */}
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)' }}>
+          <div className="hstack" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
+            {axes.map((a) => {
+              const isWeak = a.key === weakAxis.key
+              const tone = a.pct >= 90 ? 'ok' : a.pct >= 60 ? 'warn' : 'err'
+              return (
+                <div key={a.key} title={`${a.points}/20점 · ${a.advice}`}
+                  style={{ flex: '1 1 92px', minWidth: 92, padding: '6px 9px', borderRadius: 6,
+                    background: isWeak ? 'var(--err-bg)' : 'var(--panel)',
+                    border: `1px solid ${isWeak ? 'var(--err-line)' : 'var(--line)'}` }}>
+                  <div className="hstack" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span className="mut" style={{ fontSize: 10.5 }}>{a.label}</span>
+                    <span className="strong" style={{ fontSize: 13 }}>{a.pct}<small style={{ fontSize: 9 }}>%</small></span>
+                  </div>
+                  <div style={{ height: 4, borderRadius: 3, background: 'var(--line)', marginTop: 5, overflow: 'hidden' }}>
+                    <div style={{ width: `${a.pct}%`, height: '100%', background: `var(--${tone})` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="mut" style={{ fontSize: 11, marginTop: 7 }}>
+            개선 우선순위 <Chip tone="err">{weakAxis.label} {weakAxis.pct}%</Chip> — {weakAxis.advice}
+          </div>
         </div>
         {snaps.length === 0 ? (
           <div className="empty">기록된 스냅샷이 없습니다 — '현황 스냅샷 기록'으로 이번 달 포스처를 남기세요.</div>
