@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { effectiveRoles, requireMenu } from '@/lib/authz'
 import { currentYear, today } from '@/lib/dates'
 import { compliancePostureScore, computeComplianceKpis, postureRating } from '@/lib/compliance'
+import { computeInfraHealth } from '@/lib/infra'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
 
@@ -21,6 +22,9 @@ export default async function DashboardPage() {
     unsigned: canSee('/pledge/manage'),
     inspections: canSee('/compliance/inspection'),
     securityReviews: canSee('/compliance/security-review'),
+    // 인프라 헬스 — 배치·인터페이스는 운영 화면, 디스크는 시스템 화면이 출처(각 출처 유효권한으로 게이트)
+    infraOps: canSee('/infra/operations'),
+    infraSys: canSee('/infra/systems'),
   }
   const showOps = Object.values(opsVis).some(Boolean)
   // 공지사항 카드도 출처 화면(/board/notices) 유효권한을 따른다 — 기본 roles:ALL 이라 평상시 전원 노출이나,
@@ -73,6 +77,8 @@ export default async function DashboardPage() {
     // 컴플라이언스 포스처 점수 — 경영 보고용 단일 지표(lib/compliance 단일원천, 추세 화면과 정합).
     complianceScore: compliancePostureScore(computeComplianceKpis(s)),
   }
+  // 인프라 운영 헬스 — 배치 실패·인터페이스 오류·디스크 경고(lib/infra 단일원천, 운영·시스템 화면과 정합).
+  const infra = computeInfraHealth(s)
 
   return (
     <>
@@ -101,6 +107,9 @@ export default async function DashboardPage() {
           <div className="stat-row" style={{ border: 'none' }}>
             {opsVis.inspections && <Stat value={<>{ops.complianceScore}<small>/100</small></>} label="컴플라이언스 점수" note={postureRating(ops.complianceScore).label} tone={postureRating(ops.complianceScore).tone === 'err' ? 'err' : postureRating(ops.complianceScore).tone === 'warn' ? 'warn' : undefined} />}
             {opsVis.incidents && <Stat value={ops.incidents} label="조치중 장애" tone={ops.incidents > 0 ? 'err' : undefined} />}
+            {opsVis.infraOps && <Stat value={infra.failedBatches} label="배치 실패" tone={infra.failedBatches > 0 ? 'err' : undefined} />}
+            {opsVis.infraOps && <Stat value={infra.brokenIfs} label="인터페이스 오류" tone={infra.brokenIfs > 0 ? 'err' : undefined} />}
+            {opsVis.infraSys && <Stat value={infra.diskWarns} label="디스크 경고" tone={infra.diskWarns > 0 ? 'err' : undefined} />}
             {opsVis.delayedSr && <Stat value={ops.delayedSr} label="지연 SR" tone={ops.delayedSr > 0 ? 'warn' : undefined} />}
             {opsVis.openIssues && <Stat value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />}
             {opsVis.unsigned && <Stat value={ops.unsigned} label="미서약 인원" tone={ops.unsigned > 0 ? 'warn' : undefined} />}

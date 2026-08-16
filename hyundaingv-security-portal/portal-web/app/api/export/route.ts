@@ -5,6 +5,7 @@ import { csvResponse } from '@/lib/csv'
 import { currentYear, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
+import { computeInfraHealth, DISK_WARN } from '@/lib/infra'
 import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
@@ -263,10 +264,13 @@ export async function GET(req: Request) {
     }
     const inv = execRate('투자')
     const exp = execRate('비용')
+    // 5) 인프라 운영 헬스 — 배치 실패·인터페이스 오류·디스크 경고 (lib/infra 단일원천, 운영·시스템 화면·대시보드와 정합)
+    const infra = computeInfraHealth(s)
     const rows: (string | number)[][] = [
       ['지표', '값', '비고'],
       ['진행중 SR', srActive, `지연 ${srDelayed}건 (완료예정일 경과)`],
       ['조치중 장애', incActing, `전체 장애 ${s.incidents.length}건`],
+      ['인프라 운영', `배치 실패 ${infra.failedBatches} · IF 오류 ${infra.brokenIfs} · 디스크 경고 ${infra.diskWarns}`, `배치 ${infra.batchTotal} · 인터페이스 ${infra.ifTotal} · 서버 ${infra.serverTotal} (디스크 >${DISK_WARN}%)`],
       ['프로젝트', `진행중 ${pjActive.length}`, `평균 진척 ${pjAvg}% · 오픈 이슈 ${pjIssues}건`],
       ['투자 집행률', `${inv.rate}%`, `확정계획 ${inv.planTotal.toLocaleString('ko-KR')}만원`],
       ['비용 집행률', `${exp.rate}%`, `확정계획 ${exp.planTotal.toLocaleString('ko-KR')}만원`],
