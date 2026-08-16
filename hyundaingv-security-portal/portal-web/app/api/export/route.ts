@@ -6,7 +6,7 @@ import { currentYear, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
 import { computeFinanceKpis } from '@/lib/finance'
-import { computeInfraHealth, DISK_WARN } from '@/lib/infra'
+import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra'
 import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
@@ -14,7 +14,7 @@ import type { Role } from '@/lib/types'
 const EXPORT_MENU: Record<string, string> = {
   'invest-actual': '/finance/invest', 'expense-actual': '/finance/expense', 'expense-flash': '/finance/expense',
   'sr-requests': '/sr/requests', 'ci-srs': '/sr/ci',
-  incidents: '/infra/incidents', changes: '/infra/changes', projects: '/projects/status',
+  incidents: '/infra/incidents', 'incident-stats': '/infra/incidents', changes: '/infra/changes', projects: '/projects/status',
   'project-issues': '/projects/schedule', deliverables: '/projects/schedule',
   printouts: '/awareness/prints', violations: '/awareness/violations',
   'inspection-plans': '/compliance/inspection', 'inspection-items': '/compliance/inspection',
@@ -158,6 +158,15 @@ export async function GET(req: Request) {
     const rows: (string | number)[][] = [['장애번호', '등급', '시스템', '제목', '발생일', '조치상태', '조치내역', '향후대책', '대책결과', '보고상태']]
     for (const i of s.incidents) rows.push([i.id, i.grade, i.system, i.title, i.occurredAt, i.status, i.action ?? '-', i.countermeasure ?? '-', i.cmResult ?? '-', i.reportStatus])
     return csvResponse('장애_관리대장', rows)
+  }
+
+  if (type === 'incident-stats') {
+    // 월별 장애 통계 — 발생월 × 등급(제품안내서 III장 주기별 통계표). 화면 통계표와 동일 단일-원천 술어.
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const { grades, months } = monthlyIncidentStats(s)
+    const rows: (string | number)[][] = [['발생월', ...grades, '계', '조치완료']]
+    for (const m of months) rows.push([m.month, ...grades.map((g) => m.byGrade[g] ?? 0), m.total, m.resolved])
+    return csvResponse('장애_월별통계', rows)
   }
 
   if (type === 'changes') {

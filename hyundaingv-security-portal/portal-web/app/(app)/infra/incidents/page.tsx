@@ -4,6 +4,7 @@ import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerGenerated, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
+import { monthlyIncidentStats } from '@/lib/infra'
 import { getStore, isCodeActive, nextNo } from '@/lib/store'
 import type { IncidentGrade } from '@/lib/types'
 
@@ -95,11 +96,9 @@ export default async function IncidentsPage() {
   await requireMenu('/infra/incidents')
   const s = getStore()
 
-  // 통계 등급 컬럼 — 공통코드 전체(중지 포함) + 실제 장애 데이터에 존재하는 등급의 합집합.
-  // 코드값 삭제는 기존 데이터를 보존하므로(deleteCodeValue, 요구 73행), 삭제된 등급의 과거 장애도
-  // 등급 컬럼에 집계되어 '계'와 등급별 합이 항상 일치한다(중지만 포함하면 삭제분이 계에서 누락).
-  const codeGrades = (s.codeGroups.find((g) => g.id === 'FAULT_GRADE')?.values ?? []).map((v) => v.code)
-  const allGrades = [...new Set<string>([...codeGrades, ...s.incidents.map((i) => i.grade)])]
+  // 월별 장애 통계 — 발생월 × 등급 집계는 lib/infra 단일 원천(화면 통계표와 export 가 같은 값). 등급 컬럼은
+  // 공통코드 전체(중지 포함) + 실제 장애 데이터 등급의 합집합이라, 코드 삭제분 과거 장애도 '계'와 정합한다.
+  const stats = monthlyIncidentStats(s)
   const open = s.incidents.filter((i) => i.status === '조치중')
   const unreported = s.incidents.filter((i) => i.status === '조치완료' && i.reportStatus === '미상신')
   const cmPending = s.incidents.filter((i) => i.countermeasure && !i.cmResult)
@@ -117,24 +116,22 @@ export default async function IncidentsPage() {
       </div>
 
       {/* 주기별 장애 통계 (제품안내서 III장) — 발생월 × 등급 집계, 통계 상신의 취합 근거 */}
-      <Card title="월별 장애 통계" kicker="Monthly Stats" pad={false}>
+      <Card title="월별 장애 통계" kicker="Monthly Stats" pad={false}
+        actions={<a className="btn sm" href="/api/export?type=incident-stats" title="월별 장애 통계 (발생월×등급, 주기별 보고 근거)">엑셀 다운로드</a>}>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>발생월</th>{allGrades.map((g) => <th key={g} className="num">{g}</th>)}<th className="num">계</th><th className="num">조치완료</th></tr></thead>
+            <thead><tr><th>발생월</th>{stats.grades.map((g) => <th key={g} className="num">{g}</th>)}<th className="num">계</th><th className="num">조치완료</th></tr></thead>
             <tbody>
-              {[...new Set(s.incidents.map((i) => String(i.occurredAt ?? '').slice(0, 7)))].sort().reverse().map((m) => {
-                const rows = s.incidents.filter((i) => String(i.occurredAt ?? '').startsWith(m))
-                return (
-                  <tr key={m}>
-                    <td className="tnum strong">{m}</td>
-                    {allGrades.map((g) => (
-                      <td key={g} className="num">{rows.filter((i) => i.grade === g).length || '-'}</td>
-                    ))}
-                    <td className="num strong">{rows.length}</td>
-                    <td className="num">{rows.filter((i) => i.status === '조치완료').length}</td>
-                  </tr>
-                )
-              })}
+              {stats.months.map((m) => (
+                <tr key={m.month}>
+                  <td className="tnum strong">{m.month}</td>
+                  {stats.grades.map((g) => (
+                    <td key={g} className="num">{m.byGrade[g] || '-'}</td>
+                  ))}
+                  <td className="num strong">{m.total}</td>
+                  <td className="num">{m.resolved}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
