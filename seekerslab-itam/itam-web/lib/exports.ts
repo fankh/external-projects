@@ -57,11 +57,11 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         return [a.assetNo, a.model, a.owner, a.dept, a.ip, a.serial, a.location, a.contractId].some((f) => f?.toLowerCase().includes(q))
       })
       .map((a) => [
-        a.assetNo, a.category, a.model, a.serial, a.status, a.owner, a.dept, a.location,
+        a.assetNo, a.category, a.model, a.serial, a.status, a.criticality ?? '일반', a.owner, a.dept, a.location,
         a.os ?? '', a.cpu ?? '', a.memory ?? '', a.ip ?? '', a.mac ?? '',
         a.purchaseDate, a.warrantyEnd,
         ({ covered: '보증 내', soon: '만료 임박', expired: '보증 만료', none: '' })[warrantyState(a.warrantyEnd, today())],
-        a.lastVerifiedAt ?? '', a.contractId ?? '', a.discoveredVia ?? '',
+        a.lastVerifiedAt ?? '', a.maintenanceDue ?? '', a.contractId ?? '', a.discoveredVia ?? '',
         a.repair ? `${a.repair.vendor}${a.repair.eta ? ` (예상반환 ${a.repair.eta})` : ''}` : '',
         (a.repairCosts?.length ?? 0) > 0 ? a.repairCosts!.reduce((n, c) => n + c.amount, 0) : '',
         acquisitionCostOf(a) > 0 ? acquisitionCostOf(a) : '', acquisitionCostOf(a) > 0 ? assetTco(a) : '',
@@ -69,7 +69,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
       ])
     return [{
       name: '자산 대장',
-      header: ['자산번호', '유형', '모델', 'S/N', '상태', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '보증상태', '최근 실측', '계약', '발견채널', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
+      header: ['자산번호', '유형', '모델', 'S/N', '상태', '업무 중요도', '소유자', '부서', '위치', 'OS', 'CPU', '메모리', 'IP', 'MAC', '구매일', '보증만료', '보증상태', '최근 실측', '정기 점검 예정', '계약', '발견채널', '수리 의뢰', '누적 수리비', '취득가', 'TCO', '잔존가치', '이력건수'],
       rows,
     }]
   }
@@ -136,10 +136,10 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     return [
       {
         name: '발견 자산',
-        header: ['발견ID', '지문', '호스트명', '유형', 'IP', 'MAC', '최초발견채널', '관측건수', '최초발견', '최근실측', '대사상태', '위험도', '대사자산', '소유자후보', '처리', '비고'],
+        header: ['발견ID', '지문', '호스트명', '유형', 'IP', 'MAC', '최초발견채널', '관측건수', '최초발견', '최근실측', '대사상태', '위험도', '대사자산', '불일치 내용', '소유자후보', '처리', '비고'],
         rows: disc.map((d) => [
           d.id, d.fingerprint ?? '', d.hostname, d.type, d.ip, d.mac, d.channel, obsCountBy.get(d.id) ?? 0,
-          d.firstSeen, d.lastSeen, d.state, d.risk, d.matchedAssetNo ?? '', d.ownerCandidate ?? '',
+          d.firstSeen, d.lastSeen, d.state, d.risk, d.matchedAssetNo ?? '', d.mismatch ?? '', d.ownerCandidate ?? '',
           d.action ?? '', d.note ?? '',
         ]),
       },
@@ -263,8 +263,8 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
     // SaaS 정책 대장 — 인가/차단/검토중 판정·데이터 등급·결정자를 거버넌스 감사 증적으로. 검토중(미판정)까지 담아 정책 결정 이력 전체를 남긴다(사용 현황 반출 saas 와 구분).
     return [{
       name: 'SaaS 정책 대장',
-      header: ['서비스', '기능 분류', '공급사', '판정', '데이터 등급', '주관', '판정일', '판정자'],
-      rows: s.saasCatalog.map((x) => [x.service, x.category, x.vendor, x.status, x.dataGrade, x.owner, x.decidedAt ?? '-', x.decidedBy ?? '-']),
+      header: ['서비스', '기능 분류', '공급사', '판정', '데이터 등급', '주관', '판정일', '검토 접수일', '판정자'],
+      rows: s.saasCatalog.map((x) => [x.service, x.category, x.vendor, x.status, x.dataGrade, x.owner, x.decidedAt ?? '-', x.reviewSince ?? '-', x.decidedBy ?? '-']),
     }]
   }
 
@@ -276,7 +276,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
   const amine = Boolean(filter?.mine)
   return [{
     name: '결재 이력',
-    header: ['문서번호', '구분', '제목', '기안자', '부서', '기안일', '상태', '현재단계', '대기 경과일', '결재자', '결재일', '연결', '집행'],
+    header: ['문서번호', '구분', '제목', '기안자', '부서', '기안일', '상태', '현재단계', '대기 경과일', '결재자', '결재일', '반려 사유', '연결', '집행'],
     rows: s.approvals
       .filter((a) => {
         if (astatus !== '전체' && a.status !== astatus) return false
@@ -289,7 +289,7 @@ export function buildSheets(kind: ExportKind, role: Role, userName: string, filt
         a.id, a.kind, a.title, a.requester, a.dept, a.requestedAt, a.status, a.currentStep,
         // 대기 경과일 — 대기 결재의 상신 후 경과일. SLA(3일) 초과면 '지연' 표기로 정체 결재를 감사 반출에 드러낸다.
         a.status === '대기' ? `${approvalAgeDays(a.requestedAt, t)}일${isApprovalOverdue(a, t, s.opsPolicy.approvalSlaDays) ? ' · 지연' : ''}` : '',
-        a.decidedBy ?? '', a.decidedAt ?? '', a.refId ?? '', a.fulfilled ? '집행완료' : '',
+        a.decidedBy ?? '', a.decidedAt ?? '', a.rejectReason ?? '', a.refId ?? '', a.fulfilled ? '집행완료' : '',
       ]),
   }]
 }
