@@ -1423,6 +1423,29 @@ def sc_finance_exec(pg, base, check):
           f'IT운영 export 집행률=재무 화면(단일원천) 투자{inv_csv}/{inv_screen}·비용{exp_csv}/{exp_screen}')
 
 
+def sc_project_pmo(pg, base, check):
+    """프로젝트 PMO 신호·대장(v1.5.167~) — 오픈 이슈·높은 리스크를 lib/projects computeProjectPmo 로 화면
+    (schedule)·대시보드가 공유하고, 이슈·리스크·산출물 대장을 export 한다. 대시보드=화면 정합(단일원천),
+    두 대장 다운로드를 검증."""
+    login(pg, base, '시스템관리자')  # ADMIN — schedule·대시보드·export 열람
+    # schedule 화면 stat (오픈 이슈·높은 리스크)
+    pg.goto(f'{base}/projects/schedule', wait_until='networkidle')
+    scr_open = pg.locator('.stat', has_text='오픈 이슈').first.locator('.v').inner_text().strip()
+    scr_risk = pg.locator('.stat', has_text='높은 리스크').first.locator('.v').inner_text().strip()
+    # 대시보드 전사 운영 스냅샷 타일 == 화면(단일원천)
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    snap = pg.locator('.card', has_text='전사 운영 스냅샷')
+    db_open = snap.locator('.stat', has_text='프로젝트 오픈 이슈').first.locator('.v').inner_text().strip()
+    db_risk = snap.locator('.stat', has_text='프로젝트 높은 리스크').first.locator('.v').inner_text().strip()
+    check(db_open == scr_open and db_risk == scr_risk,
+          f'대시보드 프로젝트 신호=schedule 화면(단일원천) 오픈{db_open}/{scr_open}·리스크{db_risk}/{scr_risk}')
+    # 이슈·리스크 / 산출물 대장 export (PMO 보고 근거)
+    pi_csv = pg.request.get(f'{base}/api/export?type=project-issues').text()
+    dl_csv = pg.request.get(f'{base}/api/export?type=deliverables').text()
+    check('이슈 · 리스크' in pi_csv and '레거시 리포트 데이터 정합성 오류' in pi_csv, '이슈·리스크 대장 export (PMO 보고 근거)')
+    check('산출물' in dl_csv and '통합테스트 결과서' in dl_csv, '산출물 대장 export (기한 경과 포함)')
+
+
 def sc_criteria(pg, base, check):
     """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
     login(pg, base, '박정호')
@@ -1963,6 +1986,7 @@ SCENARIOS = [
     ('infracrud', '인프라 CRUD — 서버·시스템·배치·인터페이스', sc_infracrud, {}),
     ('infra_health', '인프라 운영 헬스 — 배치·인터페이스·디스크 단일원천(화면·대시보드·export 정합)', sc_infra_health, {}),
     ('finance_exec', '재무 집행률 단일원천 — 투자·비용 화면=대시보드=IT운영 export 정합', sc_finance_exec, {}),
+    ('project_pmo', '프로젝트 PMO — 이슈·리스크·산출물 대장 export + 대시보드=화면 정합', sc_project_pmo, {}),
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),

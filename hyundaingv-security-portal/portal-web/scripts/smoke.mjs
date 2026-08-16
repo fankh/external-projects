@@ -400,6 +400,8 @@ async function main() {
       ['incidents', 'BIZ_MGR', '장애번호'],
       ['changes', 'BIZ_MGR', '변경번호'],
       ['projects', 'BIZ_MGR', 'PJ-2026-01'],
+      ['project-issues', 'BIZ_MGR', '레거시 리포트 데이터 정합성 오류'],
+      ['deliverables', 'BIZ_MGR', '통합테스트 결과서'],
       ['printouts', 'BIZ_MGR', '폐기방법'],
       ['violations', 'BIZ_MGR', 'VL-2026-07'],
       ['inspection-plans', 'BIZ_MGR', 'IS-2026-21'],
@@ -414,6 +416,11 @@ async function main() {
       const r = await get(`/api/export?type=${t}`, role)
       check(r.status === 200 && (await r.text()).includes(needle), `export: ${t} CSV`)
     }
+    // 프로젝트 PMO 대장 — /projects/schedule(BIZ) 게이트라 담당·Admin 만, USER·DEPT_MGR 차단
+    const piUser = await get('/api/export?type=project-issues', 'USER')
+    check(piUser.status === 403, 'export: USER 프로젝트 이슈·리스크 대장 차단(403)')
+    const dlDept = await get('/api/export?type=deliverables', 'DEPT_MGR')
+    check(dlDept.status === 403, 'export: DEPT_MGR 프로젝트 산출물 대장 차단(403 — schedule BIZ 게이트)')
     const vUser = await get('/api/export?type=violations', 'USER')
     check(vUser.status === 200 && !(await vUser.text()).includes('VL-2026-07'), 'export: violations USER 본인 스코핑')
     // 부서담당도 화면과 동일하게 본인 건만 — 전사 위반 대장 유출 차단 (v1.2.2)
