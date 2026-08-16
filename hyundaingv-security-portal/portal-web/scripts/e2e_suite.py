@@ -1446,6 +1446,24 @@ def sc_project_pmo(pg, base, check):
     check('산출물' in dl_csv and '통합테스트 결과서' in dl_csv, '산출물 대장 export (기한 경과 포함)')
 
 
+def sc_incident_stats(pg, base, check):
+    """월별 장애 통계 export(v1.5.173~) — 발생월×등급 집계를 lib/infra monthlyIncidentStats 로 화면 통계표와
+    export 가 공유한다. 화면 첫 월 행의 '계'가 export 의 같은 월 '계'와 일치하는지(단일원천) 검증."""
+    login(pg, base, '박정호')  # BIZ_MGR — 장애·export 열람
+    pg.goto(f'{base}/infra/incidents', wait_until='networkidle')
+    card = pg.locator('.card', has_text='월별 장애 통계')
+    check('발생월' in card.inner_text(), '월별 장애 통계표 렌더(발생월 × 등급)')
+    cells = card.locator('tbody tr').first.locator('td').all_inner_texts()
+    scr_month = cells[0].strip()
+    scr_total = cells[-2].strip()  # 컬럼: 발생월 · [등급...] · 계 · 조치완료 → 계는 뒤에서 둘째
+    # export CSV 의 같은 월 행 '계'와 대조
+    csv_text = pg.request.get(f'{base}/api/export?type=incident-stats').text()
+    check('발생월' in csv_text, '월별 장애 통계 export 헤더(발생월)')
+    row = next((l for l in csv_text.splitlines() if l.startswith(scr_month + ',')), None)
+    csv_total = row.split(',')[-2].strip().strip('"') if row else None
+    check(csv_total == scr_total, f'월별 통계 export 계=화면(단일원천) {scr_month} {csv_total}/{scr_total}')
+
+
 def sc_criteria(pg, base, check):
     """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
     login(pg, base, '박정호')
@@ -1987,6 +2005,7 @@ SCENARIOS = [
     ('infra_health', '인프라 운영 헬스 — 배치·인터페이스·디스크 단일원천(화면·대시보드·export 정합)', sc_infra_health, {}),
     ('finance_exec', '재무 집행률 단일원천 — 투자·비용 화면=대시보드=IT운영 export 정합', sc_finance_exec, {}),
     ('project_pmo', '프로젝트 PMO — 이슈·리스크·산출물 대장 export + 대시보드=화면 정합', sc_project_pmo, {}),
+    ('incident_stats', '월별 장애 통계 export — 발생월×등급, export 계=화면 정합', sc_incident_stats, {}),
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),

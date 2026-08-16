@@ -398,6 +398,7 @@ async function main() {
       ['sr-requests', 'BIZ_MGR', 'SR-2026-0141'],
       ['ci-srs', 'BIZ_MGR', 'CS-2026-0001'],
       ['incidents', 'BIZ_MGR', '장애번호'],
+      ['incident-stats', 'BIZ_MGR', '발생월'],
       ['changes', 'BIZ_MGR', '변경번호'],
       ['projects', 'BIZ_MGR', 'PJ-2026-01'],
       ['project-issues', 'BIZ_MGR', '레거시 리포트 데이터 정합성 오류'],
@@ -416,6 +417,9 @@ async function main() {
       const r = await get(`/api/export?type=${t}`, role)
       check(r.status === 200 && (await r.text()).includes(needle), `export: ${t} CSV`)
     }
+    // 월별 장애 통계 — /infra/incidents(BIZ) 게이트라 담당·Admin 만, USER 차단
+    const isUser = await get('/api/export?type=incident-stats', 'USER')
+    check(isUser.status === 403, 'export: USER 월별 장애 통계 차단(403)')
     // 프로젝트 PMO 대장 — /projects/schedule(BIZ) 게이트라 담당·Admin 만, USER·DEPT_MGR 차단
     const piUser = await get('/api/export?type=project-issues', 'USER')
     check(piUser.status === 403, 'export: USER 프로젝트 이슈·리스크 대장 차단(403)')
