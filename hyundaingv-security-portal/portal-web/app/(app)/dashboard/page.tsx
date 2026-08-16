@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { effectiveRoles, requireMenu } from '@/lib/authz'
 import { currentYear, today } from '@/lib/dates'
+import { compliancePostureScore, computeComplianceKpis, postureRating } from '@/lib/compliance'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
 
@@ -69,6 +70,8 @@ export default async function DashboardPage() {
     securityReviews: s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + Math.max(0, r.findings - r.fixed), 0),
     // 고위험(심각+높음) 미조치 — 우선 조치 신호. highSevOpen 단일원천(화면·export 와 정합).
     securityHigh: s.securityReviews.filter((r) => r.status !== '완료').reduce((sum, r) => sum + highSevOpen(r), 0),
+    // 컴플라이언스 포스처 점수 — 경영 보고용 단일 지표(lib/compliance 단일원천, 추세 화면과 정합).
+    complianceScore: compliancePostureScore(computeComplianceKpis(s)),
   }
 
   return (
@@ -96,6 +99,7 @@ export default async function DashboardPage() {
         <Card title="전사 운영 스냅샷" kicker="Operations" pad={false}
           actions={canSee('/sr/manage') ? <a className="btn sm" href="/api/export?type=itops-summary" title="SR·장애·프로젝트·투자/비용 집행 종합 현황">IT 운영 종합 현황</a> : undefined}>
           <div className="stat-row" style={{ border: 'none' }}>
+            {opsVis.inspections && <Stat value={<>{ops.complianceScore}<small>/100</small></>} label="컴플라이언스 점수" note={postureRating(ops.complianceScore).label} tone={postureRating(ops.complianceScore).tone === 'err' ? 'err' : postureRating(ops.complianceScore).tone === 'warn' ? 'warn' : undefined} />}
             {opsVis.incidents && <Stat value={ops.incidents} label="조치중 장애" tone={ops.incidents > 0 ? 'err' : undefined} />}
             {opsVis.delayedSr && <Stat value={ops.delayedSr} label="지연 SR" tone={ops.delayedSr > 0 ? 'warn' : undefined} />}
             {opsVis.openIssues && <Stat value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />}

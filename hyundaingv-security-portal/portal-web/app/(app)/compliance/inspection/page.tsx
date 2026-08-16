@@ -4,7 +4,7 @@ import { draftApproval } from '@/lib/approvals'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
-import { upsertComplianceSnapshot } from '@/lib/compliance'
+import { compliancePostureScore, computeComplianceKpis, postureRating, upsertComplianceSnapshot } from '@/lib/compliance'
 import { today } from '@/lib/dates'
 import { ACCOUNTS } from '@/lib/session'
 import { getStore, isCodeActive, nextNo, type Store } from '@/lib/store'
@@ -153,6 +153,9 @@ export default async function InspectionPage() {
   const overdue = s.inspectionPlans.filter((p) => p.month < thisMonth && p.status !== '완료' && p.status !== '결재중')
   // 컴플라이언스 추세 — 기간 오름차순, 각 행은 직전 대비 델타를 함께 보인다
   const snaps = [...s.complianceSnapshots].sort((a, b) => String(a.period ?? '').localeCompare(String(b.period ?? '')))
+  // 현재 포스처 점수 — 실시간 KPI 기준 (스냅샷 기록 없이도 지금 값을 보인다)
+  const curScore = compliancePostureScore(computeComplianceKpis(s))
+  const curRating = postureRating(curScore)
 
   return (
     <>
@@ -176,13 +179,19 @@ export default async function InspectionPage() {
             <button type="submit" className="btn sm pri" title={`${thisMonth} 포스처를 스냅샷으로 기록(같은 달 재기록은 갱신)`}>현황 스냅샷 기록</button>
           </form>
         </span>}>
+        <div className="hstack" style={{ padding: '10px 14px', borderBottom: '1px solid var(--line)', gap: 10, alignItems: 'baseline' }}>
+          <span className="mut" style={{ fontSize: 11.5 }}>현재 포스처 점수</span>
+          <span className="strong" style={{ fontSize: 22 }}>{curScore}<small style={{ fontSize: 12 }}>/100</small></span>
+          <Chip tone={curRating.tone}>{curRating.label}</Chip>
+          <span className="mut" style={{ fontSize: 10.5 }}>서약·이수·조치·점검·리스크 5축 균등 (경영 보고용 단일 지표)</span>
+        </div>
         {snaps.length === 0 ? (
           <div className="empty">기록된 스냅샷이 없습니다 — '현황 스냅샷 기록'으로 이번 달 포스처를 남기세요.</div>
         ) : (
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th>기간</th><th className="num">서약률</th><th className="num">이수율</th><th className="num">조치율</th><th className="num">점검</th><th className="num">고위험</th><th className="num">미조치</th><th className="num">위반</th><th>기록</th></tr>
+                <tr><th>기간</th><th className="num">점수</th><th className="num">서약률</th><th className="num">이수율</th><th className="num">조치율</th><th className="num">점검</th><th className="num">고위험</th><th className="num">미조치</th><th className="num">위반</th><th>기록</th></tr>
               </thead>
               <tbody>
                 {snaps.map((snap, i) => {
@@ -197,6 +206,7 @@ export default async function InspectionPage() {
                   return (
                     <tr key={snap.id}>
                       <td className="tnum">{snap.period}</td>
+                      <td className="num strong">{snap.score}{trend(snap.score, prev?.score, false)}</td>
                       <td className="num">{snap.pledgeRate}%{trend(snap.pledgeRate, prev?.pledgeRate, false)}</td>
                       <td className="num">{snap.eduRate}%{trend(snap.eduRate, prev?.eduRate, false)}</td>
                       <td className="num">{snap.fixRate}%{trend(snap.fixRate, prev?.fixRate, false)}</td>
