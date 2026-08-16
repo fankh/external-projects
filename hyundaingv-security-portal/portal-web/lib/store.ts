@@ -149,10 +149,10 @@ function seed(): Store {
       { id: 'CK-05', category: '물리보안', control: '전산실 출입기록 대사', cycle: '분기', source: '외부기관' },
     ],
     inspectionPlans: [
-      { id: 'IS-2026-21', itemId: 'CK-01', month: '2026-07', inspector: '박정호', status: '완료', result: '전 시스템 계정 검토 완료, 미사용 계정 3건 회수' },
-      { id: 'IS-2026-22', itemId: 'CK-02', month: '2026-07', inspector: '박정호', status: '결과미등록' },
-      { id: 'IS-2026-23', itemId: 'CK-03', month: '2026-08', inspector: '박정호', status: '계획' },
-      { id: 'IS-2026-24', itemId: 'CK-04', month: '2026-08', inspector: '한지원', status: '계획' },
+      { id: 'IS-2026-21', itemId: 'CK-01', month: '2026-07', inspector: '박정호', teamLead: '시스템관리자', status: '완료', result: '전 시스템 계정 검토 완료, 미사용 계정 3건 회수' },
+      { id: 'IS-2026-22', itemId: 'CK-02', month: '2026-07', inspector: '박정호', teamLead: '시스템관리자', status: '결과미등록' },
+      { id: 'IS-2026-23', itemId: 'CK-03', month: '2026-08', inspector: '박정호', teamLead: '시스템관리자', status: '계획' },
+      { id: 'IS-2026-24', itemId: 'CK-04', month: '2026-08', inspector: '한지원', teamLead: '박정호', status: '계획' },
     ],
     securityReviews: [
       { id: 'SEC-2026-01', title: '영업정보시스템 시큐어코딩 점검', kind: '시큐어코딩', target: '영업정보시스템', reviewer: '한지원', status: '완료', findings: 8, fixed: 8, critFound: 1, critFixed: 1, highFound: 2, highFixed: 2, medFound: 3, medFixed: 3, lowFound: 2, lowFixed: 2, plannedAt: '2026-06-10', completedAt: '2026-06-28' },

@@ -86,14 +86,17 @@ async function addPlan(formData: FormData) {
   const target = String(formData.get('target') ?? '').trim().slice(0, 60)
   const month = String(formData.get('month') ?? '')
   const inspector = String(formData.get('inspector') ?? '')
+  const teamLead = String(formData.get('teamLead') ?? '')
   const s = getStore()
   // 점검자는 셀렉트(비-USER 계정)와 동일 집합으로 검증 — 임의 POST 로 미등록·과대 문자열 저장 차단
   // 월은 달력상 유효월(01~12)만 — /^\d{4}-\d{2}$/ 는 2026-13·2026-00 을 통과시켜, 예정월이 어휘 비교
   // (경과 판정·notify 점검경과)에서 영구 경과(2026-00)·경과 누락(2026-13) 으로 오분류된다(임의 POST 대비).
   if (!s.inspectionItems.some((i) => i.id === itemId) || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) ||
       !ACCOUNTS.some((a) => a.role !== 'USER' && a.name === inspector)) return
+  // 팀장도 점검자와 동일 집합(비-USER 계정)에서만 — 미지정(빈값)은 허용(담당자만 알림), 임의값은 무시
+  const validLead = teamLead && ACCOUNTS.some((a) => a.role !== 'USER' && a.name === teamLead) ? teamLead : undefined
   const id = nextNo('IS', today().slice(0, 4), s.inspectionPlans.map((p) => p.id))
-  s.inspectionPlans.unshift({ id, itemId, target: target || undefined, month, inspector, status: '계획' })
+  s.inspectionPlans.unshift({ id, itemId, target: target || undefined, month, inspector, teamLead: validLead, status: '계획' })
   // 상세점검계획표 등 계획 문서 — 계획번호(pk)로 계획·증적 첨부를 공유 (첨부 시트: 연간계획수립)
   registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/compliance/inspection')
@@ -258,7 +261,7 @@ export default async function InspectionPage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>계획번호</th><th>분류</th><th>점검 항목</th><th>대상</th><th>구분</th><th>예정월</th><th>점검자</th><th>상태</th><th className="c">결과 등록 · 결재</th></tr>
+              <tr><th>계획번호</th><th>분류</th><th>점검 항목</th><th>대상</th><th>구분</th><th>예정월</th><th>점검자</th><th>팀장</th><th>상태</th><th className="c">결과 등록 · 결재</th></tr>
             </thead>
             <tbody>
               {s.inspectionPlans.map((p) => {
@@ -273,6 +276,7 @@ export default async function InspectionPage() {
                     <td>{item?.source === 'ISMS' ? <Chip tone="info" bare>ISMS</Chip> : <Chip tone="warn" bare>외부기관</Chip>}</td>
                     <td className="tnum">{p.month} {late && <Chip tone="err" bare>경과</Chip>}</td>
                     <td>{p.inspector}</td>
+                    <td>{p.teamLead ?? <span className="mut">-</span>}</td>
                     <td><Chip tone={ST_CHIP[p.status]}>{p.status}</Chip></td>
                     <td className="c" style={{ maxWidth: 380 }}>
                       {(p.status === '계획' || p.status === '결과미등록') ? (
@@ -307,6 +311,10 @@ export default async function InspectionPage() {
               <input aria-label="점검 대상" className="input" name="target" maxLength={60} placeholder="점검 대상 (조직·시스템)" style={{ flex: 1 }} />
               <input aria-label="월" className="input" name="month" required type="month" defaultValue={thisMonth} style={{ flex: 1 }} />
               <select aria-label="점검자" className="select" name="inspector" style={{ flex: 1 }}>
+                {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
+              </select>
+              <select aria-label="팀장" className="select" name="teamLead" style={{ flex: 1 }} title="경과 항목 알림을 담당자와 함께 받는 팀장 (선택)">
+                <option value="">팀장 (선택)</option>
                 {ACCOUNTS.filter((a) => a.role !== 'USER').map((a) => <option key={a.login} value={a.name}>{a.name}</option>)}
               </select>
               <input className="input" type="file" name="file" style={{ width: 140, paddingTop: 4 }} title="상세점검계획표 첨부" />

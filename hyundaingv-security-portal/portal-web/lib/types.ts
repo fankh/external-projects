@@ -146,6 +146,8 @@ export interface InspectionPlan {
   /** 점검 예정월 (YYYY-MM) — 경과 시 지연으로 드러난다 */
   month: string
   inspector: string
+  /** 팀장 — 경과 항목 알림 수신자 (요구사항: "담당자, 팀장에 경과 항목 알림 - 메일"). 담당자(inspector)와 함께 통지된다. */
+  teamLead?: string
   status: InspectionStatus
   result?: string
 }

@@ -40,6 +40,7 @@ INSP_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-insporphan-data.json'  # 점검결�
 CHST_DATA = ROOT / 'scripts' / '.e2e-chst-data.json'  # channelStates 비불리언 값 검증 회귀용 (v1.5.80)
 PROFISO_DATA = ROOT / 'scripts' / '.e2e-profiso-data.json'  # 프로필 스탬프 데이터 격리 회귀용 (v1.5.188)
 INCEMPTY_DATA = ROOT / 'scripts' / '.e2e-incempty-data.json'  # 월별 장애 통계 무효월(빈 occurredAt) 회귀용 (v1.5.201)
+INSPTL_DATA = ROOT / 'scripts' / '.e2e-insptl-data.json'  # 점검 경과 알림 팀장 수신 회귀용 (v1.5.209)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -2090,9 +2091,25 @@ def sc_invest_basis(pg, base, check):
     check('계약' in t2 and '정산' not in t2, 'IP-2026-02 기준액 = 계약 (정산 없음)')
 
 
+def sc_inspection_teamlead(pg, base, check):
+    """보안점검 경과 알림 — 담당자+팀장 통지 (요구사항: "담당자, 팀장에 경과 항목 알림 - 메일").
+    경과 점검 1건(담당자 박정호·팀장 시스템관리자)에서 알림 배치 '점검 경과' 대상이 2명이어야 한다.
+    수정 전(팀장 미통지)엔 담당자만이라 1명 → 대조 재현."""
+    login(pg, base, '시스템관리자')  # ADMIN — 수동 배치 실행
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.locator('button:has-text("알림 배치 실행")').click()
+    pg.wait_for_load_state('networkidle')
+    # 배치 결과는 감사 로그(알림 배치 실행)에 유형별 대상수로 기록된다 — 점검 경과 2명(담당자+팀장) 확인
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    row = pg.locator('tr', has_text='알림 배치 실행').first
+    detail = row.inner_text()
+    check('점검 경과 2명' in detail, f'점검 경과 알림 = 담당자+팀장 2명 (실제: {detail[:120]})')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
+    ('inspection_teamlead', '보안점검 경과 알림 — 담당자+팀장 통지', sc_inspection_teamlead, {'PORTAL_DATA_FILE': str(INSPTL_DATA)}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
     ('devchain', '시스템개발 SR → 변경 2단 상신 → SR 완료 전파 (전체 사슬)', sc_devchain, {}),
@@ -2442,6 +2459,11 @@ def main() -> int:
         {'id': 'IN-2026-92', 'system': '테스트시스템', 'title': '무날짜 장애', 'grade': '1등급', 'occurredAt': '', 'status': '조치중', 'reportStatus': '미상신'},
     ]}, ensure_ascii=False), encoding='utf-8')
     SECBAD_DATA.write_text(json.dumps({'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
+    # 점검 경과 알림 팀장 수신 — 경과(2026-07·결과미등록) 점검 1건에 담당자(박정호)+팀장(시스템관리자, 둘 다 재직).
+    # 수정 전엔 담당자만 통지해 '점검 경과 1명', 수정 후 팀장 포함 '점검 경과 2명'.
+    INSPTL_DATA.write_text(json.dumps({'inspectionPlans': [
+        {'id': 'IS-2026-9301', 'itemId': 'CK-01', 'month': '2026-07', 'inspector': '박정호', 'teamLead': '시스템관리자', 'status': '결과미등록'},
+    ]}, ensure_ascii=False), encoding='utf-8')
     DPLGRESIGN_DATA.write_text(json.dumps({
         'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
                    'title': '[부서서약 현황 상신] 개발1팀 반려 — 보완 후 재상신 (사유: 보완요망)'}],
