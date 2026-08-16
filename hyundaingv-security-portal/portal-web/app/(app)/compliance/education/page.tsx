@@ -46,8 +46,10 @@ async function registerAttendees(formData: FormData) {
 
     // 폐쇄 루프 — 명단 등록이 '해당 과정의' 보안교육 할일을 닫는다. 유형만으로 닫으면 다른 과정을
     // 이수해도 무관한 과정의 교육 의무 할일이 닫혀 실제 미이수가 대시보드에서 숨는다(할일-이수 괴리).
-    // 할일 제목이 과정명을 포함하므로 과정명으로 좁혀 그 과정 할일만 닫는다.
-    const todo = s.todos.find((t) => t.owner === name && t.kind === '보안교육' && !t.done && t.title.includes(course.title))
+    // 할일 제목은 `{과정명} 이수` 형식이므로 정확히 그 형식과 일치할 때만 닫는다 — includes(과정명) 부분일치는
+    // 과정명이 다른 과정 할일 제목의 부분문자열이면(예: '정보보호 교육' ⊂ '상반기 정보보호 교육 이수') 무관한
+    // 할일을 오마감했다. 앵커드-클로즈(QnA·SR 와 동일 규약)로 정확 매칭한다.
+    const todo = s.todos.find((t) => t.owner === name && t.kind === '보안교육' && !t.done && t.title === `${course.title} 이수`)
     if (todo) todo.done = true
   }
   // 유효(대상) 이수자가 한 명도 없는 과정은 완료로 확정하지 않는다 — 대상 밖 기록만으론 완료가 되지 않게
