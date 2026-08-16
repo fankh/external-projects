@@ -90,6 +90,31 @@ function validateAll(schema) {
   return validateRequest(schema, { body: true, query: true, params: true });
 }
 
+// Pagination query validator: coerces and clamps page/size params so list
+// routes receive safe numeric values regardless of caller input.
+const paginationSchema = Joi.object({
+  page: Joi.number().integer().min(0).default(0),
+  pageSize: Joi.number().integer().min(1).max(100),
+  size: Joi.number().integer().min(1).max(100)
+}).unknown(true);
+
+function validatePagination(req, res, next) {
+  const { error, value } = paginationSchema.validate(
+    { page: req.query.page, pageSize: req.query.pageSize, size: req.query.size },
+    { abortEarly: false, convert: true }
+  );
+
+  if (error) {
+    const { errors } = formatValidationErrors(error.details);
+    return res.status(400).json({ success: false, error: 'Validation failed', details: errors });
+  }
+
+  if (value.page !== undefined) req.query.page = String(value.page);
+  if (value.pageSize !== undefined) req.query.pageSize = String(value.pageSize);
+  if (value.size !== undefined) req.query.size = String(value.size);
+  next();
+}
+
 // Custom validators
 const validators = {
   email: (value) => {
@@ -129,6 +154,7 @@ module.exports = {
   validateQuery,
   validateParams,
   validateAll,
+  validatePagination,
   validators,
   formatValidationErrors,
 };
