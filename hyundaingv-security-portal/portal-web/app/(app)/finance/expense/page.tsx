@@ -6,6 +6,7 @@ import { audit } from '@/lib/audit'
 import { resubmitSettlement } from '../actions'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
+import { computeFinanceKpis } from '@/lib/finance'
 import { activeCodes, getStore, nextNo } from '@/lib/store'
 import type { SettlementItem } from '@/lib/types'
 
@@ -160,14 +161,8 @@ export default async function ExpensePage() {
   )
   const confirmed = kindPlans.filter((p) => p.status === '확정')
 
-  const planTotal = confirmed.reduce((sum, p) => sum + p.amount, 0)
-  const contractTotal = kindContracts.reduce((sum, c) => sum + c.amount, 0)
-  const paidTotal = kindSettlements.filter((x) => x.status === '지급완료').reduce((sum, x) => sum + x.amount, 0)
-  // 집행률 분자는 분모(확정 계획)와 스코프를 맞춘다 — 확정 계획 계약의 집행만 (계획외·미확정 제외)
-  const confirmedIds = new Set(confirmed.map((p) => p.id))
-  const paidConfirmed = kindSettlements
-    .filter((x) => x.status === '지급완료' && confirmedIds.has(kindContracts.find((c) => c.id === x.contractId)?.planId ?? ''))
-    .reduce((sum, x) => sum + x.amount, 0)
+  // 집행 KPI 는 lib/finance 단일 원천(투자 화면·IT운영 종합 export 와 같은 산식) — 표와 같은 컬렉션으로 산출
+  const fin = computeFinanceKpis(kindPlans, kindContracts, kindSettlements)
 
   /** 속보 기준금액 — 정산 > 계약 > 계획 우선순위 (요구사항) */
   const basisOf = (f: { month: string; vendor: string; planId?: string; expected: number }) => {
@@ -187,10 +182,10 @@ export default async function ExpensePage() {
 
       {canViewFinance && (
         <div className="stat-row">
-          <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`항목 ${confirmed.length}건`} />
-          <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
-          <Stat value={<>{fmt(paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
-          <Stat value={`${planTotal ? Math.round((paidConfirmed / planTotal) * 100) : 0}%`} label="계획 대비 집행률" tone={planTotal > 0 && paidConfirmed > planTotal ? 'err' : undefined} />
+          <Stat value={<>{fmt(fin.planTotal)}<small>만원</small></>} label="확정 계획" note={`항목 ${confirmed.length}건`} />
+          <Stat value={<>{fmt(fin.contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
+          <Stat value={<>{fmt(fin.paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
+          <Stat value={`${fin.execRate}%`} label="계획 대비 집행률" tone={fin.planTotal > 0 && fin.paidConfirmed > fin.planTotal ? 'err' : undefined} />
         </div>
       )}
 

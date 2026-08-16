@@ -5,6 +5,7 @@ import { resubmitSettlement } from '../actions'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
+import { computeFinanceKpis } from '@/lib/finance'
 import { getStore, nextNo } from '@/lib/store'
 import type { SettlementItem } from '@/lib/types'
 
@@ -131,15 +132,8 @@ export default async function InvestPage() {
     s.settlements.filter((x) => x.contractId === contractId && x.status === '지급완료').reduce((sum, x) => sum + x.amount, 0)
   const contractsOf = (planId: string) => kindContracts.filter((c) => c.planId === planId)
 
-  const planTotal = confirmed.reduce((sum, p) => sum + p.amount, 0)
-  const contractTotal = kindContracts.reduce((sum, c) => sum + c.amount, 0)
-  const paidTotal = kindSettlements.filter((x) => x.status === '지급완료').reduce((sum, x) => sum + x.amount, 0)
-  // 집행률 분자는 분모(확정 계획)와 스코프를 맞춘다 — 확정 계획 계약의 집행만 산입(계획외·미확정
-  // 계약 집행 제외). 그래야 계획대비실적 표의 per-plan 집행률 합과 일치하고 100% 를 넘지 않는다.
-  const confirmedIds = new Set(confirmed.map((p) => p.id))
-  const paidConfirmed = kindSettlements
-    .filter((x) => x.status === '지급완료' && confirmedIds.has(kindContracts.find((c) => c.id === x.contractId)?.planId ?? ''))
-    .reduce((sum, x) => sum + x.amount, 0)
+  // 집행 KPI 는 lib/finance 단일 원천(비용 화면·IT운영 종합 export 와 같은 산식) — 표와 같은 컬렉션으로 산출
+  const fin = computeFinanceKpis(kindPlans, kindContracts, kindSettlements)
 
   return (
     <>
@@ -148,10 +142,10 @@ export default async function InvestPage() {
 
       {canViewFinance && (
         <div className="stat-row">
-          <Stat value={<>{fmt(planTotal)}<small>만원</small></>} label="확정 계획" note={`과제 ${confirmed.length}건`} />
-          <Stat value={<>{fmt(contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
-          <Stat value={<>{fmt(paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
-          <Stat value={`${planTotal ? Math.round((paidConfirmed / planTotal) * 100) : 0}%`} label="계획 대비 집행률" tone={planTotal > 0 && paidConfirmed > planTotal ? 'err' : undefined} />
+          <Stat value={<>{fmt(fin.planTotal)}<small>만원</small></>} label="확정 계획" note={`과제 ${confirmed.length}건`} />
+          <Stat value={<>{fmt(fin.contractTotal)}<small>만원</small></>} label="계약 체결" note={`계약 ${kindContracts.length}건`} />
+          <Stat value={<>{fmt(fin.paidTotal)}<small>만원</small></>} label="집행 (지급완료)" />
+          <Stat value={`${fin.execRate}%`} label="계획 대비 집행률" tone={fin.planTotal > 0 && fin.paidConfirmed > fin.planTotal ? 'err' : undefined} />
         </div>
       )}
 
