@@ -47,16 +47,42 @@ export function computeComplianceKpis(s: Store): ComplianceKpis {
   }
 }
 
-/** 컴플라이언스 포스처 점수 0~100 — 경영 보고용 단일 지표. 5개 축 각 20점 균등:
- *  서약률·이수율·조치율·점검완료율(각 pct/5) + 리스크(고위험 미조치 -10/건·위반 미완료 -5/건, 하한 0)/5.
+/** 포스처 점수를 이루는 5개 축 — 점수·화면·export 가 공유하는 단일 원천(점수는 이 축들의 평균).
+ *  pct 는 축 원점수 0~100, points 는 100점 만점 기여분(pct/5, 표시용), advice 는 개선 행동. */
+export interface PostureAxis {
+  key: 'pledge' | 'edu' | 'fix' | 'insp' | 'risk'
+  label: string
+  pct: number
+  points: number
+  advice: string
+}
+
+/** 컴플라이언스 포스처 5개 축을 각각 산출 — compliancePostureScore 는 이 축들의 평균이다(축=점수 단일원천).
+ *  서약률·이수율·조치율·점검완료율(각 pct) + 리스크(고위험 미조치 -10/건·위반 미완료 -5/건, 하한 0).
  *  발견 취약점이 없으면 조치율 축은 만점(조치 대상 없음=리스크 없음). */
+export function postureAxes(k: ComplianceKpis): PostureAxis[] {
+  const openV = Math.max(0, k.vTotal - k.vDone)
+  const axis = (key: PostureAxis['key'], label: string, pct: number, advice: string): PostureAxis => ({
+    key, label, pct, points: Math.round(pct / 5), advice,
+  })
+  return [
+    axis('pledge', '서약률', complianceKpiPct(k.signedCount, k.totalPeople), `미서약 ${Math.max(0, k.totalPeople - k.signedCount)}명 서약 독려`),
+    axis('edu', '교육 이수율', complianceKpiPct(k.eduDone, k.eduSlots), `미이수 ${Math.max(0, k.eduSlots - k.eduDone)}건 이수 안내`),
+    axis('fix', '취약점 조치율', k.fixFindings > 0 ? complianceKpiPct(k.fixDone, k.fixFindings) : 100, `미조치 취약점 ${k.openVulns}건 조치`),
+    axis('insp', '점검 완료율', complianceKpiPct(k.inspDone, k.inspTotal), `미완료 점검 ${Math.max(0, k.inspTotal - k.inspDone)}건 결과 등록`),
+    axis('risk', '리스크 관리', Math.max(0, 100 - k.highVulns * 10 - openV * 5), `고위험 미조치 ${k.highVulns}건·미완료 위반 ${openV}건 처리`),
+  ]
+}
+
+/** 포스처 점수를 끌어내리는 최약 축(개선 우선순위) — 동점이면 축 순서(서약→…→리스크)상 앞선 축. */
+export function weakestPostureAxis(k: ComplianceKpis): PostureAxis {
+  return postureAxes(k).reduce((min, a) => (a.pct < min.pct ? a : min))
+}
+
+/** 컴플라이언스 포스처 점수 0~100 — 경영 보고용 단일 지표. 5개 축(postureAxes)의 평균. */
 export function compliancePostureScore(k: ComplianceKpis): number {
-  const pledge = complianceKpiPct(k.signedCount, k.totalPeople)
-  const edu = complianceKpiPct(k.eduDone, k.eduSlots)
-  const fix = k.fixFindings > 0 ? complianceKpiPct(k.fixDone, k.fixFindings) : 100
-  const insp = complianceKpiPct(k.inspDone, k.inspTotal)
-  const risk = Math.max(0, 100 - k.highVulns * 10 - Math.max(0, k.vTotal - k.vDone) * 5)
-  return Math.round((pledge + edu + fix + insp + risk) / 5)
+  const ax = postureAxes(k)
+  return Math.round(ax.reduce((sum, a) => sum + a.pct, 0) / ax.length)
 }
 
 /** 점수 등급 라벨 — 경영 보고 색상. 90+ 양호·75+ 보통·60+ 주의·그 외 미흡. */
