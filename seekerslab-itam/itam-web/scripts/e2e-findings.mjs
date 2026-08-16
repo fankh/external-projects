@@ -542,6 +542,14 @@ try {
   await page.locator('button', { hasText: /^제외 해제/ }).click()
   await page.waitForTimeout(700)
   ok('발견 자산 관리 제외 해제 → 미등록 처리 대상 복귀(편입 요청 액션 재노출)', (await page.locator('button', { hasText: /^편입 요청 \(결재\)$/ }).count()) > 0)
+  // 관리 제외 일괄 — 협력사 장비·게스트 단말 등 비자산을 같은 사유로 한 번에 미등록 갭에서 뺀다(편입·소유자 확인 일괄 요청과 함께 발견 트리아지 3종 완결). 미등록·미처리분 0045·0046 선택.
+  await page.goto(`${BASE}/discovery/found`, { waitUntil: 'networkidle' })
+  await page.locator('input[aria-label="DSC-2607-0045 편입 선택"]').check()
+  await page.locator('input[aria-label="DSC-2607-0046 편입 선택"]').check()
+  await page.locator('input[placeholder="관리 제외 사유"]').fill('협력사 임시 반입 장비 일괄 정리 — e2e')
+  await page.locator('button', { hasText: /^일괄 관리 제외 \(2\)$/ }).click()
+  await page.waitForTimeout(800)
+  ok('관리 제외 일괄: 선택 2건 일괄 관리 제외(미등록 갭에서 제외)', ((await page.locator('body').textContent()) || '').includes('2건 관리 제외'))
 
   // 외부 노출 위험 수용 — 편입/차단이 아닌 '인지된 노출'로 공식 수용(사유 필수). 활성 취약점 우선순위(미조치)에서 제외, 오판이면 해제. 위험 관리 표준 처분(ISMS 위험 수용).
   await page.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
