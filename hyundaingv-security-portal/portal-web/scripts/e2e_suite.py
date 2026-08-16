@@ -643,10 +643,16 @@ def sc_compliance_trend(pg, base, check):
     card = pg.locator('.card', has_text='컴플라이언스 추세').inner_text()
     check('2026-06' in card and '2026-07' in card, '전제: 추세 카드에 시드 스냅샷 2건')
     check('+12' in card, '서약률 개선 델타(+12, 50→62) 전기 대비 표시')
+    # 포스처 점수(v1.5.144~) — 현재 점수 배너 + 추세 점수 열 개선 델타(56→65 = +9)
+    check('현재 포스처 점수' in card, '현재 포스처 점수 배너 표시')
+    check('+9' in card, '포스처 점수 개선 델타(+9, 56→65) 전기 대비 표시')
     pg.locator('.card', has_text='컴플라이언스 추세').locator('button:has-text("현황 스냅샷 기록")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
     check('컴플라이언스 스냅샷' in pg.content(), '스냅샷 기록이 감사 이력에 남음')
+    # 대시보드 운영 스냅샷에 컴플라이언스 점수 신호
+    pg.goto(f'{base}/dashboard', wait_until='networkidle')
+    check('컴플라이언스 점수' in pg.locator('.card', has_text='전사 운영 스냅샷').inner_text(), '대시보드에 컴플라이언스 점수 신호')
 
 
 def sc_delayed_corrupt_date(pg, base, check):
