@@ -30,6 +30,9 @@ async function addInfraChange(formData: FormData) {
   const rollbackPlan = String(formData.get('rollbackPlan') ?? '').trim().slice(0, 500)
   if (!title || !plan || !rollbackPlan) return
   const s = getStore()
+  // 이중 등록 방어 — 서버액션 폼은 제출 후 자동 비활성화되지 않아 더블클릭으로 같은 변경이 두 벌 생긴다
+  // (createSr·receiveCiSr 와 동일 클래스). 같은 제목의 미상신(작업등록) 인프라 변경이 이미 있으면 직전 제출의 중복으로 무시.
+  if (s.changes.some((c) => c.kind === '인프라' && c.title === title && c.status === '작업등록')) return
   s.changes.unshift({
     id: nextNo('CW', today().slice(0, 4), s.changes.map((c) => c.id)),
     kind: '인프라', title, plan, rollbackPlan, status: '작업등록', registeredAt: today(),
