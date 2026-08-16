@@ -72,6 +72,43 @@ export async function receiveReturn(assetNo: string, condition: ReturnCondition,
   return { ok: true, message: `${assetNo} 반납 접수 완료 · 점검 ${condition} → ${next}${notified ? ` · 반납자(${prevOwner})에게 결과 통보` : ''}` }
 }
 
+/** 반납 일괄 접수 — 팀 오프보딩·사무실 이전 등으로 다수 자산이 반납대기에 몰릴 때 같은 점검 결과·입고 위치로 한 번에 접수한다.
+ *  (일괄 회수(recoverManyFromUser)의 짝 — 회수로 반납대기에 쌓인 묶음을 일괄로 점검·편성.) 건별 로직은 receiveReturn 과 동일하고
+ *  감사만 일괄로 남긴다. 반납대기 건만 대상(멱등). 점검 결과에 따라 정상→유휴·수리 필요→수리중·폐기 권고→폐기예정(폐기 대장 편입). 자산담당·Admin. */
+export async function receiveReturnMany(assetNos: string[], condition: ReturnCondition, location: string, rawNote: string) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '반납 접수 권한이 없습니다.' }
+  const s = getStore()
+  const note = rawNote.trim()
+  const loc = location.trim() || '본사 3F 자산창고'
+  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.status === '반납대기')
+  if (targets.length === 0) return { ok: false, message: '반납 접수할 자산이 없습니다 (반납대기 건만 대상).' }
+  let notified = 0
+  for (const asset of targets) {
+    const prevOwner = asset.owner
+    if (condition === '폐기 권고') {
+      asset.status = '폐기예정'
+      if (!s.disposals.some((d) => d.assetNo === asset.assetNo)) {
+        s.disposals.push({ id: nextId('DSP'), assetNo: asset.assetNo, model: asset.model, reason: `반납 점검 폐기 권고${note ? ` — ${note}` : ''}`, status: '대상 선정', prevStatus: '유휴' })
+      }
+    } else if (condition === '수리 필요') {
+      asset.status = '수리중'; asset.owner = '미지정'; asset.dept = '자산관리팀'; asset.location = loc
+      if (note) asset.faultNote = note
+    } else {
+      asset.status = '유휴'; asset.owner = '미지정'; asset.dept = '자산관리팀'; asset.location = loc
+    }
+    asset.history.push({ date: today(), kind: '반납', detail: `반납 접수 · 상태 점검 ${condition}${note ? ` — ${note}` : ''} (반납자 ${prevOwner}) (일괄)`, actor: session.name })
+    if (prevOwner && prevOwner !== '미지정' && prevOwner !== '-') {
+      dispatch({ channel: '이메일', to: prevOwner, subject: `반납 접수 완료 — ${asset.assetNo} ${asset.model} · 점검 결과 ${condition}${note ? ` (${note})` : ''}`, kind: '반납 접수', ref: asset.assetNo })
+      notified += 1
+    }
+  }
+  appendAudit({ actor: session.name, action: `반납 일괄 접수 (점검 ${condition}, ${targets.length}건)${notified ? ` · 반납자 ${notified}명 통보` : ''}`, target: '반납대기' })
+  revalidatePath('/', 'layout')
+  const next = condition === '폐기 권고' ? '폐기 절차 대상' : condition === '수리 필요' ? '수리중 편성' : `유휴 풀 편성 (${loc})`
+  return { ok: true, message: `${targets.length}건 반납 접수 완료 · 점검 ${condition} → ${next}${notified ? ` · 반납자 ${notified}명 통보` : ''}` }
+}
+
 /** 대여 반환 독촉 발송 — 반환 기한이 지났거나(연체) 임박(D-7)한 대여 자산의 대여자에게 반환 요청 통지를 보낸다.
  *  그동안 연체 대여는 대시보드·대여 현황에 드러나기만 하고 대여자에게 통보할 수단이 없었다(계약 만료 알림 loop 13·
  *  필독 미확인 안내 loop 39 와 같은 컴플라이언스 독촉의 대여판). 당일 중복 발송은 차단한다. 자산담당·Admin. */
