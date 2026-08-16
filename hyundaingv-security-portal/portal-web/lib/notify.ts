@@ -6,6 +6,7 @@ import { upsertComplianceSnapshot } from './compliance'
 import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
+import { delayedSrs } from './sr'
 
 export interface NotifyResult {
   kind: string
@@ -108,9 +109,9 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
       .map((r) => r.reviewer).filter((name) => people.some((p) => p.name === name)),
     '[보안성 검토] 착수 예정일 경과 안내')
 
-  // 3) SR 지연 — 완료 예정일 경과 진행 건의 담당 CI
+  // 3) SR 지연 — 완료 예정일 경과 진행 건의 담당 CI (lib/sr 단일 원천, 화면·대시보드·export 와 동일)
   await send('SR 지연',
-    s.srRequests.filter((r) => r.dueDate && r.dueDate < t && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status))
+    delayedSrs(s, t)
       .map((r) => r.ci ?? r.requester),
     '[SR] 완료 예정일 경과 안내')
 
