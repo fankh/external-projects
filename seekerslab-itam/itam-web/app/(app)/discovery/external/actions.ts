@@ -128,6 +128,34 @@ export async function respondToIoc(iocId: string, kind: '차단' | '조사') {
   return { ok: true, message: `${ioc.iocValue} ${ioc.action} — 보안운영팀 통지·감사 기록 적재` }
 }
 
+/** IOC 일괄 대응 — 위협 인텔 피드 갱신으로 다수 IOC가 한꺼번에 상관될 때 선택해 한 번에 차단(또는 조사 착수).
+ *  건별 로직은 respondToIoc 와 동일하고 감사만 일괄로 남긴다. 이미 조치된 건은 건너뛴다(멱등). 보안담당·Admin. */
+export async function respondToIocMany(ids: string[], kind: '차단' | '조사') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: 'IOC 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const targets = s.iocMatches.filter((ioc) => ids.includes(ioc.id) && !ioc.action)
+  if (targets.length === 0) return { ok: false, message: '조치할 IOC 상관 건이 없습니다 (이미 처리된 건 제외).' }
+  for (const ioc of targets) {
+    ioc.actedBy = session.name
+    ioc.actedAt = today()
+    if (kind === '차단') {
+      ioc.action = '차단 요청'
+      escalate({ to: '보안운영팀', subject: `IOC 차단 집행 요청 — ${ioc.iocType} ${ioc.iocValue} (${ioc.threatActor}) @ ${ioc.matchedAsset}`, kind: '위협 대응', ref: ioc.id, sms: `IOC 차단 요청 ${ioc.threatActor} @ ${ioc.matchedAsset} — 즉시 차단` })
+    } else {
+      ioc.action = '조사 착수'
+      escalate({ to: '보안운영팀', subject: `IOC 침해 조사 착수 — ${ioc.threatActor} @ ${ioc.matchedAsset} (${ioc.dept})`, kind: '위협 대응', ref: ioc.id, sms: `IOC 침해 조사 착수 ${ioc.threatActor} @ ${ioc.matchedAsset}` })
+    }
+  }
+  const verb = kind === '차단' ? '차단 요청' : '조사 착수'
+  const names = targets.map((ioc) => ioc.iocValue).slice(0, 5).join(', ')
+  appendAudit({ actor: session.name, action: `IOC 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: 'IOC 상관' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `IOC ${targets.length}건 ${verb} — 보안운영팀 통지·감사 기록 적재` }
+}
+
 /** IOC 조치 취소(재개) — 오조치였던 차단 요청·조사 착수를 되돌려 다시 미조치(차단/조사 대상)로 되돌린다. 잘못 종결한 상관 건이 미조치 큐·감사에서 사라지지 않게 한다. 보안담당·Admin. */
 export async function reopenIoc(iocId: string) {
   const session = await getSession()
