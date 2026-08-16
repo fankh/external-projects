@@ -615,16 +615,15 @@ def sc_sr_suspend_strand(pg, base, check):
     pg.select_option('select[name=srNo]', value='SR-2026-0132')
     pg.click('button:has-text("변경 작업 편입")')
     pg.wait_for_load_state('networkidle')
-    check(title in pg.locator('.card', has_text='변경 작업').inner_text() or title in pg.content(),
-          '전제: 적용요청 SR 이 변경 작업으로 편입됨(비-최종완료)')
+    check(title in pg.content(), '전제: 적용요청 SR 이 변경 작업으로 편입됨(비-최종완료)')
     # SR 관리에서 중지 시도 → 차단(적용요청 유지, 재개 버튼 없음)
     pg.goto(f'{base}/sr/manage', wait_until='networkidle')
-    row = pg.locator('tr', has_text=title)
+    row = pg.locator('tr', has_text=title).first
     check('중지' in row.inner_text(), '전제: 적용요청 SR 은 SUSPENDABLE 이라 중지 버튼 노출')
     row.locator('button:has-text("중지")').first.click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/sr/manage', wait_until='networkidle')
-    txt = pg.locator('tr', has_text=title).inner_text()
+    txt = pg.locator('tr', has_text=title).first.inner_text()
     check('적용요청' in txt and '재개' not in txt,
           f'진행 중 변경 편입 SR 중지 차단 — 적용요청 유지·재개 버튼 없음 (실제 …{txt[-24:]})')
 
