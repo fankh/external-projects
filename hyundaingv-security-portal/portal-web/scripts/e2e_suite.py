@@ -2028,6 +2028,27 @@ def sc_profile_public(pg, base, check):
     check('SN-NB-88121' in pg.content(), 'gov-asset 어댑터 실동작(자산 조회)')
 
 
+def sc_profile_finance(pg, base, check):
+    """프로필 스위칭 3 — PORTAL_PROFILE=finance 로 금융권 토폴로지 전환 (산업 확장 증명). 포털 본체 무변경 +
+    프로필·fin-* 어댑터 등록만으로 3번째 산업(금융)이 뜨고, 자가진단이 4개 프로필 전부 적합으로 확인."""
+    pg.goto(f'{base}/login', wait_until='networkidle')
+    check('NARAE FIN PORTAL' in pg.content(), '로그인 브랜딩(금융) 전환')
+    login(pg, base, '시스템관리자')
+    check('나래금융' in pg.locator('.statusbar').inner_text(), '상태바 고객사(금융) 전환')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    chan_card = pg.locator('.card', has_text='Channels').inner_text()
+    check('OTP' in chan_card, '금융 SMS(OTP·이상거래) 채널 구성')
+    check('보안·출력물 관제' in chan_card, 'secdata 채널 구성(개인정보 통제)')
+    # 어댑터 자가진단이 금융(4번째) 프로필까지 진단하고 전부 적합
+    conf = pg.locator('.card', has_text='어댑터 계약 자가진단').inner_text()
+    check('finance' in conf and 'fin-asset' in conf, '자가진단이 금융 프로필·fin-* 어댑터 진단')
+    check('전 프로필 적합' in conf, '전 프로필(금융 포함) 적합')
+    # fin-asset 어댑터 실동작 — mockAsset(=erp/gov 과 동일 목업) 자산 조회
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/finance/asset-reg', wait_until='networkidle')
+    check('SN-NB-88121' in pg.content(), 'fin-asset 어댑터 실동작(자산 조회)')
+
+
 def sc_persist(pg, base, check):
     """PORTAL_DATA_FILE 영속화 — 구버전 부분 파일 로드 시 시드 머지·채널 기본값 폴백"""
     login(pg, base, '시스템관리자')
@@ -2170,6 +2191,7 @@ SCENARIOS = [
     ('keyboard', '키보드 조작성 (MDI 탭·스킵 링크)', sc_keyboard, {}),
     ('profile', '고객사 프로필 스위칭 (manufacturer)', sc_profile, {'PORTAL_PROFILE': 'manufacturer'}),
     ('profile_public', '고객사 프로필 스위칭 (public)', sc_profile_public, {'PORTAL_PROFILE': 'public'}),
+    ('profile_finance', '고객사 프로필 스위칭 (finance) — 산업 확장 증명', sc_profile_finance, {'PORTAL_PROFILE': 'finance'}),
     ('batchref', '상신 묶음 번호 재사용 금지 (반려 후 재상신)', sc_batchref, {}),
     ('rebundle_multi', '회전참조 동시 다중 반려 — 재상신 1회는 할일 1건만 마감', sc_rebundle_multi, {}),
     ('persist', '데이터 파일 영속화 · 시드 머지 (구버전 호환)', sc_persist,
