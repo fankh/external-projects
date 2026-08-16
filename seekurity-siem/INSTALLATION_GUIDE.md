@@ -869,7 +869,8 @@ curl -s http://localhost:23001/license/status
 | ss-syslog-receiver | UDP 514 | ✅ | Syslog 수집 |
 | ss-log-stream | - | ✅ | 로그 파싱/인덱싱 |
 | ss-database-checker | - | ✅ | DB 모니터링 |
-| ss-snmp-collector | UDP 162 | ✅ | SNMP 수집 |
+| ss-snmp-collector | UDP 162 | ✅ | SNMP Trap 수신 |
+| ss-snmp-trap | - (송신 전용) | ✅ | SNMP Trap 송신 (시스템 알림, Rust) |
 | ss-packet-receiver | - | ❌ | 패킷 캡처 (선택) |
 | ss-playbook-stream | - | ❌ | 플레이북 자동화 (선택) |
 
@@ -913,8 +914,8 @@ sudo systemctl enable --now ss-packet-receiver ss-playbook-stream
 ### 6.1 서비스 상태
 
 ```bash
-systemctl is-active ss-api ss-console ss-log-stream ss-database-checker ss-syslog-receiver ss-snmp-collector nginx
-# 출력: active active active active active active active
+systemctl is-active ss-api ss-console ss-log-stream ss-database-checker ss-syslog-receiver ss-snmp-collector ss-snmp-trap nginx
+# 출력: active active active active active active active active
 ```
 
 ### 6.2 포트 확인
@@ -1984,7 +1985,7 @@ sudo systemctl restart ss-api ss-log-stream ss-database-checker
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
-| 6.10 | 2026-08-16 | 신규 서버 설치 이슈 반영: bootstrap-infra.sh 신설(오프라인 인프라 자동 구성), Node 번들 스테이징/검증(오패키징 방지), 시드 멱등화(--on-conflict-do-nothing)+적재 검증+admin 기본 비밀번호 보장, SELinux 자동 대응(httpd_can_network_connect, ss-console journal), PGDG psql 심링크, pg_hba를 SHOW hba_file로 탐지, error-pages 패키징/배포 |
+| 6.10 | 2026-08-16 | 신규 서버 설치 이슈 반영: bootstrap-infra.sh 신설(오프라인 인프라 자동 구성), Node 번들 스테이징/검증(오패키징 방지), 시드 멱등화(--on-conflict-do-nothing)+적재 검증+admin 기본 비밀번호 보장, SELinux 자동 대응(httpd_can_network_connect, ss-console journal), PGDG psql 심링크, pg_hba를 SHOW hba_file로 탐지, error-pages 패키징/배포, ss-snmp-trap 유닛 설치/기동 추가(송신 전용 — 162 미점유) |
 | 6.9 | 2026-08-16 | 라이선스 설치 절차 추가 (3.4절): license.json 배치/재로드/상태 확인, 라이선스 상태별 로그인 동작, 설치 확인에 라이선스 점검(6.4절) 추가 |
 | 6.8 | 2026-02-21 | 콘솔 경로 수정: `/opt/seekurity-siem/bin/ss-console` → `/opt/seekurity-siem/console`, DB 스키마 로딩 오류 처리 개선 (ON_ERROR_STOP=0), 재설치 시 기존 객체 스킵 |
 | 6.7 | 2026-02-19 | 로그 로테이션 및 디스크 관리 섹션 추가: ss-syslog-receiver 로그 무한 증가 문제 해결, systemd StandardOutput=null 설정, logback 롤링 설정 설명, 디스크 긴급 복구 절차 |
