@@ -377,7 +377,7 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
     const win = s.opsPolicy.expiryWindowDays
     const hit = period
       ? s.contracts.filter((c) => c.status !== '해지' && c.end >= period.start && c.end <= period.end).sort((a, b) => a.end.localeCompare(b.end))
-      : s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= win })
+      : s.contracts.filter((c) => { const d = daysUntil(c.end); return c.status !== '해지' && d !== null && d <= win }).sort((a, b) => a.end.localeCompare(b.end))
     const headline = period
       ? `${period.label} 만료 예정 계약은 ${hit.length}건입니다 (${period.start} ~ ${period.end}).`
       : `${win}일 내 만료 예정 계약은 ${hit.length}건입니다.`
@@ -387,7 +387,13 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
         headline,
         ``,
         ...(hit.length === 0 ? ['해당 기간에 만료되는 계약이 없습니다.'] : hit.map((c) => `· ${c.id} — ${c.name} (${c.vendor}, ${c.end} 만료, D-${daysUntil(c.end)})`)),
-        !period ? `\n네트워크 장비 유지보수 계약(CT-2022-007)은 잔여 ${daysUntil('2026-08-31')}일로 갱신 협상이 시급합니다.` : ``,
+        // 가장 임박한 '예정' 계약을 스토어에서 도출해 강조한다(하드코딩 금지 — 갱신·해지·만료창 변경에 자동 반영).
+        // 이미 만료된 건이 아니라 D-30 이내로 다가오는 건만 대상(없으면 생략).
+        ...(() => {
+          if (period) return []
+          const soon = hit.filter((c) => { const d = daysUntil(c.end); return d !== null && d >= 0 && d <= 30 })[0]
+          return soon ? [`\n가장 임박한 ${soon.name}(${soon.id})은 잔여 ${daysUntil(soon.end)}일로 갱신 협상이 시급합니다.`] : []
+        })(),
       ].filter(Boolean).join('\n'),
       evidence: [{ label: '계약 · 라이선스', href: '/inventory/contracts' }],
     }
