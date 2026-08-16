@@ -354,10 +354,10 @@ export async function GET(req: Request) {
 
   if (type === 'inspection-plans') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
-    const rows: (string | number)[][] = [['계획번호', '점검 항목', '예정월', '점검자', '상태', '점검 결과']]
+    const rows: (string | number)[][] = [['계획번호', '점검 항목', '예정월', '점검자', '팀장', '상태', '점검 결과']]
     for (const p of s.inspectionPlans) {
       const item = s.inspectionItems.find((i) => i.id === p.itemId)
-      rows.push([p.id, item?.control ?? p.itemId, p.month, p.inspector, p.status, p.result ?? '-'])
+      rows.push([p.id, item?.control ?? p.itemId, p.month, p.inspector, p.teamLead ?? '-', p.status, p.result ?? '-'])
     }
     return csvResponse('보안점검_계획', rows)
   }
