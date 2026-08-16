@@ -103,6 +103,9 @@ async function addCompanyPledge(formData: FormData) {
   const personName = String(formData.get('personName') ?? '').trim().slice(0, 40)
   if (!company || !personName) return
   const s = getStore()
+  // 이중 징구 방어 — 서버액션 폼 더블클릭 시 같은 협력업체 인원의 등록 건이 두 벌 생겨 결재상신 후보에 중복
+  // 노출된다(addInfraChange·createSr 와 동일 클래스). 같은 업체·대상자의 미상신(등록) 건이 이미 있으면 무시.
+  if (s.companyPledges.some((c) => c.company === company && c.personName === personName && c.status === '등록')) return
   const id = nextNo('CP', today().slice(0, 4), s.companyPledges.map((c) => c.id))
   s.companyPledges.unshift({ id, company, personName, registeredAt: today(), status: '등록' })
   registerUpload(id, formData.get('file'), me.name)

@@ -201,6 +201,14 @@ async function aiPeriodQuery(page) {
   ok('AI 기간질의: 먼 미래 → 해당 없음 메시지', q2.includes('2099년 1분기') && q2.includes('보증이 만료되는 자산이 없습니다'))
   const q3 = await ask('보증 만료되는 네트워크 장비 목록')
   ok('AI 기간질의: 기간 미지정 → 임박순 폴백', q3.includes('만료 임박순') && !/ ~ 20\d{2}-/.test(q3))
+  // 상대연도 동의어 '전년' 은 '작년'·'지난해'와 같은 창(전년도 1~12월)을 내야 한다 — 연도전용 폴백에서 누락되면
+  //  기간 파싱이 null 로 떨어져 근시안 '임박' 답으로 오라우팅된다(코드-의도 불일치 회귀 방지).
+  const qPrevYr = await ask('전년 만료 계약')
+  const qLastYr = await ask('작년 만료 계약')
+  const winRe = /20\d{2}년 만료 예정 계약은 \d+건입니다 \((20\d{2})-01-01 ~ \1-12-31\)/
+  ok("AI 기간질의: '전년' → 전년도 연 창(임박 폴백 아님)", winRe.test(qPrevYr))
+  const mPrev = qPrevYr.match(winRe), mLast = qLastYr.match(winRe)
+  ok("AI 기간질의: '전년'='작년' 동일 창 정합", !!mPrev && !!mLast && mPrev[1] === mLast[1])
 
   // 발견 인텐트 기간 스코프 — firstSeen 기준. 시드 미등록 자산은 2026-07 이므로 명시 월로 결정적 검증.
   const g1 = await ask('2026년 7월에 새로 발견된 미등록 자산 목록')

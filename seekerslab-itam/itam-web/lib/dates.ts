@@ -85,7 +85,7 @@ export function parsePeriodWindow(q: string, base: string): { start: string; end
   if (q.includes('다음 달') || q.includes('내달') || q.includes('익월')) { const nm = m0 === 12 ? 1 : m0 + 1; const ny = m0 === 12 ? y0 + 1 : y0; return win(ny, nm, nm, `${ny}년 ${nm}월`) }
 
   // 연도만 명시 (예: "2027년 만료", "내년 만료 계약")
-  if (yExplicit || q.includes('내년') || q.includes('작년') || q.includes('명년') || q.includes('지난해')) return win(year, 1, 12, `${year}년`)
+  if (yExplicit || q.includes('내년') || q.includes('작년') || q.includes('명년') || q.includes('지난해') || q.includes('전년')) return win(year, 1, 12, `${year}년`)
 
   return null
 }
