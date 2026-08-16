@@ -2171,6 +2171,23 @@ def sc_violation_exempt(pg, base, check):
     check('보안위반사실확인서' not in pg.content(), '결재제외 완료는 결재 미생성 (별도관리)')
 
 
+def sc_officer_audit(pg, base, check):
+    """보안담당자 지정/해제 감사 기록 (§VI 이력추적성) — 거버넌스 역할 배정이 감사 로그에 남아야 한다.
+    securityOfficers 는 이름 배열이라 행위자 필드 없음 → 감사가 유일 추적점(재택 대상자 변경과 동일 정책)."""
+    login(pg, base, '시스템관리자')  # ADMIN — 보안담당자 관리
+    pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
+    card = pg.locator('.card', has_text='보안담당자 관리')
+    card.locator('tr', has_text='김현우').locator('button:has-text("지정")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    audit_row = pg.locator('tr', has_text='보안담당자 지정').first
+    check(audit_row.count() > 0 and '김현우' in audit_row.inner_text(), '보안담당자 지정 감사 기록(행위자·대상)')
+    # 원복 — 해제(공유 스토어 오염 방지)
+    pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
+    pg.locator('.card', has_text='보안담당자 관리').locator('tr', has_text='김현우').locator('button:has-text("해제")').click()
+    pg.wait_for_load_state('networkidle')
+
+
 def sc_company_pledge(pg, base, check):
     """협력업체서약서 징구→결재상신→승인 폐쇄루프 (요구사항: 협력업체서약서 · 결재 시트 12번).
     업무담당(시스템관리자)이 협력업체 서약을 징구 등록→선택 결재상신하고, 결재자(박정호) 승인 시 완료로 전파된다."""
@@ -2260,6 +2277,7 @@ SCENARIOS = [
     ('infra_rollback_plan', '인프라 변경 원복계획 — 작업계획과 별개 필수 산출물', sc_infra_rollback_plan, {'PORTAL_DATA_FILE': str(INFRACHG_DATA)}),
     ('special_pledge_duty', '특별서약(보안담당자) — 담당업무·세부업무 추가입력 제출', sc_special_pledge_duty, {'PORTAL_DATA_FILE': str(SPPLG_DATA)}),
     ('company_pledge', '협력업체서약서 — 징구→결재상신→승인 폐쇄루프', sc_company_pledge, {'PORTAL_DATA_FILE': str(CPLG_DATA)}),
+    ('officer_audit', '보안담당자 지정/해제 감사 기록 (§VI 이력추적성)', sc_officer_audit, {}),
     ('violation_exempt', '보안위반 결재제외 별도관리 — 스캔 확인서로 결재 없이 완료', sc_violation_exempt, {'PORTAL_DATA_FILE': str(VLEX_DATA)}),
     ('sr_status_label', '계정/권한 SR 상태 라벨 정합 — 배정완료·지연내역 개발중→처리중', sc_sr_status_label, {'PORTAL_DATA_FILE': str(SRAC_DATA)}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
