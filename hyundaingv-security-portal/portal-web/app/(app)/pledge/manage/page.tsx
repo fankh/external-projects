@@ -108,6 +108,9 @@ async function addCompanyPledge(formData: FormData) {
   if (s.companyPledges.some((c) => c.company === company && c.personName === personName && c.status === '등록')) return
   const id = nextNo('CP', today().slice(0, 4), s.companyPledges.map((c) => c.id))
   s.companyPledges.unshift({ id, company, personName, registeredAt: today(), status: '등록' })
+  // 이력추적성(§VI) — 협력업체 서약 징구는 타 주체(파트너사) 기록 등록이고 레코드에 징구자 필드가 없어(공유
+  // 워크스페이스에서 상신자와 다를 수 있음), 감사 로그가 '누가 징구했나'의 유일 추적 지점(addViolation 과 동일 정책).
+  audit(me.name, '협력업체 서약 징구', `${id} ${company} — ${personName}`)
   registerUpload(id, formData.get('file'), me.name)
   revalidatePath('/pledge/manage')
 }
