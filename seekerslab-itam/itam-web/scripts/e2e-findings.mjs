@@ -725,6 +725,20 @@ try {
   await p2.goto(`${BASE}/assets/register?sel=AST-2024-000091`, { waitUntil: 'networkidle' })
   ok('반납 일괄 접수 → 유휴 풀 편성(091 유휴 복귀)', ((await p2.locator('tr', { has: p2.locator('td', { hasText: 'AST-2024-000091' }) }).first().textContent()) || '').includes('유휴'))
 
+  // 자산 일괄 대여 — 교육·행사용 로너 풀처럼 유휴 재고 다수를 한 대여자·부서·반환 기한으로 한 번에 대여(일괄 회수의 반대편). 위 반납 접수로 유휴 복귀한 091·562를 일괄 대여.
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()
+  await p2.locator('input[aria-label="AST-2023-000562 선택"]').check()
+  const loanCtl = p2.locator('span').filter({ has: p2.locator('button', { hasText: /^대여$/ }) }).first()
+  await loanCtl.locator('input[placeholder="대여자"]').fill('김강사')
+  await loanCtl.locator('input[placeholder="부서"]').fill('인재개발팀')
+  await loanCtl.locator('input[type="date"]').fill('2026-09-30')
+  await loanCtl.locator('button', { hasText: /^대여$/ }).click()
+  await p2.waitForTimeout(800)
+  ok('자산 일괄 대여: 선택 유휴 2건 일괄 대여(대여중 전환·반환 기한 공유)', ((await p2.locator('body').textContent()) || '').includes('2건 대여 처리'))
+  await p2.goto(`${BASE}/assets/register?sel=AST-2024-000091`, { waitUntil: 'networkidle' })
+  ok('자산 일괄 대여 → 대여중 전환(091)', ((await p2.locator('tr', { has: p2.locator('td', { hasText: 'AST-2024-000091' }) }).first().textContent()) || '').includes('대여중'))
+
   // 정기 점검 일괄 예약 — 선택 자산에 예방 정비 예정일을 한 번에 등록(보증 일괄 연장·일괄 회수와 같은 배치 접점). 그동안 점검 예약은 자산 하나씩만 가능했다.
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p2.locator('input[aria-label="AST-2023-000112 선택"]').check()
