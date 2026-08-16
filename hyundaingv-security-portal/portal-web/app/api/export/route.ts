@@ -8,7 +8,7 @@ import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postur
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra'
 import { delayedSrs, srStatusLabel } from '@/lib/sr'
-import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
+import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
 /** 유형 → 소속 화면 — 화면의 런타임 메뉴 제한이 다운로드에도 걸린다 (유형별 추가 가드와 별개) */
@@ -230,11 +230,12 @@ export async function GET(req: Request) {
   if (type === 'security-reviews') {
     // 보안성 검토 — 담당(BIZ)·Admin 전용 (화면 canManage/메뉴 권한과 동일 스코프)
     if (!isMgr) return new Response('forbidden', { status: 403 })
-    const rows: (string | number)[][] = [['번호', '유형', '제목', '대상', '검토자', '예정일', '완료일', '발견', '조치', '조치율(%)', '상태']]
+    const rows: (string | number)[][] = [['번호', '유형', '제목', '대상', '검토자', '예정일', '완료일', '발견', '조치', '고위험 미조치', '조치율(%)', '상태']]
     for (const r of s.securityReviews) {
       // 조치율 — 발견 0 건은 조치 대상 없음('해당없음'), 그 외 Math.round 거짓 100 방지 (이수현황 export 와 동일 원칙)
       const rate = r.findings > 0 ? (r.fixed >= r.findings ? 100 : Math.min(99, Math.round((r.fixed / r.findings) * 100))) : '해당없음'
-      rows.push([r.id, r.kind, r.title, r.target, r.reviewer, r.plannedAt, r.completedAt ?? '', r.findings, r.fixed, rate, r.status])
+      // 고위험(심각+높음) 미조치 — 화면(우선 조치 신호)과 같은 store 단일 원천 highSevOpen 으로 감사 산출물에도 노출
+      rows.push([r.id, r.kind, r.title, r.target, r.reviewer, r.plannedAt, r.completedAt ?? '', r.findings, r.fixed, highSevOpen(r), rate, r.status])
     }
     return csvResponse('보안성검토_관리대장', rows)
   }
