@@ -1156,6 +1156,15 @@ try {
   // 계약 반출 화면-반출 정합 — 화면(ContractsTable)의 SLA·집행(누계 비용)이 감사 엑셀에도 담긴다(벤더 SLA 검토·예산 집행 대사 증적). ADMIN 엑셀 권한.
   const cxls = Buffer.from(await (await p3.request.get(`${BASE}/api/export/contracts`)).body()).toString('utf8')
   ok('계약 반출: xlsx 에 SLA·집행(누계) 열 반영(화면-반출 정합)', cxls.includes('SLA') && cxls.includes('집행(누계)') && cxls.includes('온사이트'))
+  // 반출 화면-반출 정합 보강 — 화면이 보여주는 감사 필드가 각 반출 시트에도 담긴다(승인 반려 사유·자산 업무중요도/점검 예정·발견 불일치·SaaS 검토 접수).
+  const axls = Buffer.from(await (await p3.request.get(`${BASE}/api/export/approvals`)).body()).toString('utf8')
+  ok('결재 반출: xlsx 에 반려 사유 열·값(반려 감사 정합)', axls.includes('반려 사유') && axls.includes('개인 용도로 판단'))
+  const asxls = Buffer.from(await (await p3.request.get(`${BASE}/api/export/assets`)).body()).toString('utf8')
+  ok('자산 반출: xlsx 에 업무 중요도·정기 점검 예정 열(화면 컬럼 정합)', asxls.includes('업무 중요도') && asxls.includes('정기 점검 예정'))
+  const dxls = Buffer.from(await (await p3.request.get(`${BASE}/api/export/discovered`)).body()).toString('utf8')
+  ok('발견 반출: xlsx 에 불일치 내용 열·값(CMDB 대사 증적)', dxls.includes('불일치 내용') && dxls.includes('위치 상이'))
+  const scxls = Buffer.from(await (await p3.request.get(`${BASE}/api/export/saasCatalog`)).body()).toString('utf8')
+  ok('SaaS 정책 반출: xlsx 에 검토 접수일 열·값(검토중 SLA 경과 증적)', scxls.includes('검토 접수일') && scxls.includes('2026-07-09'))
   // 계약 해지 연계 영향 surfacing — CT-2023-002(M365 구매 · LIC-001 연계) 해지 시 연계 라이선스·자산 영향을 담당자가 검토하도록 노출
   await p3.goto(`${BASE}/inventory/contracts?sel=CT-2023-002`, { waitUntil: 'networkidle' })
   const ctRow = p3.locator('tr', { has: p3.locator('td', { hasText: 'CT-2023-002' }) }).first()
