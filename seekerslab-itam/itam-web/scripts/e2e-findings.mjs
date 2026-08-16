@@ -209,6 +209,12 @@ async function aiPeriodQuery(page) {
   ok("AI 기간질의: '전년' → 전년도 연 창(임박 폴백 아님)", winRe.test(qPrevYr))
   const mPrev = qPrevYr.match(winRe), mLast = qLastYr.match(winRe)
   ok("AI 기간질의: '전년'='작년' 동일 창 정합", !!mPrev && !!mLast && mPrev[1] === mLast[1])
+  // 과거상대 달·분기 — '다음/이번'과 대칭으로 '지난 달'·'지난 분기'(최근 만료분 후속 점검)를 단월/분기 창으로 답한다.
+  //  미구현 시 파싱이 null 로 떨어져 근시안 '임박' 답으로 오라우팅된다(실행일 무관하게 창 헤드라인 구조로 검증).
+  const qPrevMon = await ask('지난 달 만료 계약')
+  ok("AI 기간질의: '지난 달' → 단월 창(임박 폴백 아님)", /20\d{2}년 \d{1,2}월 만료 예정 계약은 \d+건입니다 \(20\d{2}-\d{2}-01 ~ 20\d{2}-\d{2}-\d{2}\)/.test(qPrevMon))
+  const qPrevQ = await ask('지난 분기 만료 계약')
+  ok("AI 기간질의: '지난 분기' → 분기 창(임박 폴백 아님)", /20\d{2}년 [1-4]분기 만료 예정 계약은 \d+건입니다 \(20\d{2}-\d{2}-01 ~ 20\d{2}-\d{2}-\d{2}\)/.test(qPrevQ))
 
   // 발견 인텐트 기간 스코프 — firstSeen 기준. 시드 미등록 자산은 2026-07 이므로 명시 월로 결정적 검증.
   const g1 = await ask('2026년 7월에 새로 발견된 미등록 자산 목록')

@@ -68,21 +68,23 @@ export function parsePeriodWindow(q: string, base: string): { start: string; end
 
   const curQ = Math.floor((m0 - 1) / 3) + 1
 
-  // 분기 — "N분기"(연도어와 조합) · 상대(이번/다음)
+  // 분기 — "N분기"(연도어와 조합) · 상대(이번/다음/지난)
   const qm = q.match(/([1-4])\s*분기/)
   if (qm) { const qn = Number(qm[1]); const sm = (qn - 1) * 3 + 1; return win(year, sm, sm + 2, `${year}년 ${qn}분기`) }
   if (q.includes('이번 분기') || q.includes('금분기') || q.includes('당분기')) { const sm = (curQ - 1) * 3 + 1; return win(y0, sm, sm + 2, `${y0}년 ${curQ}분기`) }
   if (q.includes('다음 분기') || q.includes('차분기')) { const nq = curQ === 4 ? 1 : curQ + 1; const ny = curQ === 4 ? y0 + 1 : y0; const sm = (nq - 1) * 3 + 1; return win(ny, sm, sm + 2, `${ny}년 ${nq}분기`) }
+  if (q.includes('지난 분기') || q.includes('지난분기') || q.includes('전분기')) { const pq = curQ === 1 ? 4 : curQ - 1; const py = curQ === 1 ? y0 - 1 : y0; const sm = (pq - 1) * 3 + 1; return win(py, sm, sm + 2, `${py}년 ${pq}분기`) }
 
   // 반기
   if (q.includes('상반기')) return win(year, 1, 6, `${year}년 상반기`)
   if (q.includes('하반기')) return win(year, 7, 12, `${year}년 하반기`)
 
-  // 월 — 명시 "N월"(단 '개월'·'월간' 제외) · 상대(이번/다음 달)
+  // 월 — 명시 "N월"(단 '개월'·'월간' 제외) · 상대(이번/다음/지난 달)
   const mm = q.match(/(1[0-2]|[1-9])\s*월/)
   if (mm && !q.includes('개월') && !q.includes('월간')) { const mn = Number(mm[1]); return win(year, mn, mn, `${year}년 ${mn}월`) }
   if (q.includes('이번 달') || q.includes('이달') || q.includes('당월') || q.includes('금월')) return win(y0, m0, m0, `${y0}년 ${m0}월`)
   if (q.includes('다음 달') || q.includes('내달') || q.includes('익월')) { const nm = m0 === 12 ? 1 : m0 + 1; const ny = m0 === 12 ? y0 + 1 : y0; return win(ny, nm, nm, `${ny}년 ${nm}월`) }
+  if (q.includes('지난 달') || q.includes('지난달') || q.includes('전월')) { const pm = m0 === 1 ? 12 : m0 - 1; const py = m0 === 1 ? y0 - 1 : y0; return win(py, pm, pm, `${py}년 ${pm}월`) }
 
   // 연도만 명시 (예: "2027년 만료", "내년 만료 계약")
   if (yExplicit || q.includes('내년') || q.includes('작년') || q.includes('명년') || q.includes('지난해') || q.includes('전년')) return win(year, 1, 12, `${year}년`)
