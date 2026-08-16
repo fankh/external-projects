@@ -352,6 +352,31 @@ function stubAnswer(question: string, userName: string, isUser: boolean, role: R
       evidence: [{ label: '자산 대장 (보증 임박)', href: '/assets/register?warranty=soon' }],
     }
   }
+  // 공급사(벤더) 집중도 — 계약을 공급사별로 집계해 계약 수·계약액·집행·만료 임박을 한 번에 답한다(§04 계약·벤더 관리).
+  //  부서별(자산) 인텐트의 벤더 판 — 기존 벤더 집계 뷰가 없어 "공급사별 계약/지출" 질의가 일반 만료 답으로 떨어지던 공백을 메운다.
+  //  '계약' 포괄 인텐트(아래)보다 먼저 잡아야 공급사 질의가 만료 답으로 오라우팅되지 않는다.
+  if (!isUser && (q.includes('공급사') || q.includes('공급업체') || q.includes('벤더'))) {
+    const live = s.contracts.filter((c) => c.status !== '해지')
+    const byV = new Map<string, { count: number; amount: number; spent: number; soon: number }>()
+    for (const c of live) {
+      const cur = byV.get(c.vendor) ?? { count: 0, amount: 0, spent: 0, soon: 0 }
+      cur.count += 1
+      cur.amount += c.amount
+      cur.spent += (c.costs ?? []).reduce((n, x) => n + x.amount, 0)
+      const d = daysUntil(c.end)
+      if (d !== null && d >= 0 && d <= s.opsPolicy.expiryWindowDays) cur.soon += 1
+      byV.set(c.vendor, cur)
+    }
+    const rows = [...byV.entries()].sort((x, y) => y[1].amount - x[1].amount)
+    const soonTotal = rows.reduce((n, [, x]) => n + x.soon, 0)
+    return {
+      role: 'assistant',
+      text: `공급사별 계약 현황입니다 (해지 제외 · 계약액 순 · 총 ${live.length}건 / ${rows.length}개 공급사${soonTotal ? ` · 만료 임박 ${soonTotal}건` : ''}).\n\n${rows
+        .map(([v, x]) => `· ${v}: 계약 ${x.count}건 · 계약액 ${fmtAmount(x.amount)}원${x.spent ? ` · 집행 ${fmtAmount(x.spent)}원` : ''}${x.soon ? ` · 만료 임박 ${x.soon}건` : ''}`)
+        .join('\n')}`,
+      evidence: [{ label: '계약 · 라이선스', href: '/inventory/contracts' }],
+    }
+  }
   // 계약 이행 질의 — 유지보수 예산 집행·구매 발주 이행(#48·#51 신호)을 인라인으로 답한다. 만료 질의(아래)보다 먼저 잡아
   //  '유지보수 예산 초과'·'발주 미이행'을 만료 계약 답변으로 오라우팅하지 않게 한다(계약 관리 현황 리포트와 동일 근거).
   if (!isUser && (q.includes('유지보수 예산') || q.includes('예산 초과') || q.includes('집행률') || q.includes('발주 이행') || q.includes('발주 미이행') || q.includes('계약 이행') || q.includes('계약 관리'))) {
