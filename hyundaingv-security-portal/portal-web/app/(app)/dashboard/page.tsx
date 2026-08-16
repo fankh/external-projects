@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { effectiveRoles, requireMenu } from '@/lib/authz'
 import { currentYear, today } from '@/lib/dates'
 import { compliancePostureScore, computeComplianceKpis, postureRating } from '@/lib/compliance'
+import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth } from '@/lib/infra'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
@@ -25,6 +26,9 @@ export default async function DashboardPage() {
     // 인프라 헬스 — 배치·인터페이스는 운영 화면, 디스크는 시스템 화면이 출처(각 출처 유효권한으로 게이트)
     infraOps: canSee('/infra/operations'),
     infraSys: canSee('/infra/systems'),
+    // 재무 집행률 — 투자·비용 각 화면이 출처(관리자급 재무 열람)
+    financeInvest: canSee('/finance/invest'),
+    financeExpense: canSee('/finance/expense'),
   }
   const showOps = Object.values(opsVis).some(Boolean)
   // 공지사항 카드도 출처 화면(/board/notices) 유효권한을 따른다 — 기본 roles:ALL 이라 평상시 전원 노출이나,
@@ -79,6 +83,12 @@ export default async function DashboardPage() {
   }
   // 인프라 운영 헬스 — 배치 실패·인터페이스 오류·디스크 경고(lib/infra 단일원천, 운영·시스템 화면과 정합).
   const infra = computeInfraHealth(s)
+  // 재무 집행률 — 투자·비용 계획 대비 집행(lib/finance 단일원천, 재무 화면·IT운영 종합 export 와 정합).
+  const finExec = (kind: '투자' | '비용') => {
+    const contracts = s.investContracts.filter((c) => c.kind === kind)
+    const settlements = s.settlements.filter((x) => contracts.some((c) => c.id === x.contractId))
+    return computeFinanceKpis(s.investPlans.filter((p) => p.kind === kind), contracts, settlements).execRate
+  }
 
   return (
     <>
@@ -116,6 +126,8 @@ export default async function DashboardPage() {
             {opsVis.inspections && <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />}
             {opsVis.securityReviews && <Stat value={ops.securityHigh} label="고위험 미조치" tone={ops.securityHigh > 0 ? 'err' : undefined} />}
             {opsVis.securityReviews && <Stat value={ops.securityReviews} label="미조치 취약점" tone={ops.securityReviews > 0 ? 'warn' : undefined} />}
+            {opsVis.financeInvest && <Stat value={`${finExec('투자')}%`} label="투자 집행률" note="계획 대비" />}
+            {opsVis.financeExpense && <Stat value={`${finExec('비용')}%`} label="비용 집행률" note="계획 대비" />}
           </div>
         </Card>
       )}

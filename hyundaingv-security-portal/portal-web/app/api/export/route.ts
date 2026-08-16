@@ -5,6 +5,7 @@ import { csvResponse } from '@/lib/csv'
 import { currentYear, today } from '@/lib/dates'
 import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
+import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth, DISK_WARN } from '@/lib/infra'
 import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
@@ -243,7 +244,6 @@ export async function GET(req: Request) {
     // 각 지표는 소속 화면과 동일 단일-원천 술어(집행률은 확정계획 스코프·div-zero 방어)로 산출 — 화면과 정합.
     if (!isMgr) return new Response('forbidden', { status: 403 })
     const t = today()
-    const pct = (num: number, den: number) => den > 0 ? Math.round((num / den) * 100) : 0
     // 1) SR — 진행중·지연 (sr/delayed·대시보드와 동일 술어)
     const srActive = s.srRequests.filter((r) => !['완료', '반려'].includes(r.status)).length
     const srDelayed = s.srRequests.filter((r) => r.dueDate && r.dueDate < t && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status)).length
@@ -253,17 +253,14 @@ export async function GET(req: Request) {
     const pjActive = s.projects.filter((p) => p.status === '진행중')
     const pjAvg = pjActive.length ? Math.round(pjActive.reduce((sum, p) => sum + p.progress, 0) / pjActive.length) : 0
     const pjIssues = s.projectIssues.filter((i) => i.status === '오픈').length
-    // 4) 투자·비용 집행률 (finance/invest·expense 와 동일 — 확정계획 스코프 분자·분모 정합)
-    const execRate = (kind: '투자' | '비용') => {
-      const confirmed = s.investPlans.filter((p) => p.kind === kind && p.status === '확정')
-      const planTotal = confirmed.reduce((sum, p) => sum + p.amount, 0)
+    // 4) 투자·비용 집행률 — lib/finance 단일 원천(finance/invest·expense 화면과 동일 산식·스코프)
+    const finKpis = (kind: '투자' | '비용') => {
       const contracts = s.investContracts.filter((c) => c.kind === kind)
-      const ids = new Set(confirmed.map((p) => p.id))
-      const paid = s.settlements.filter((x) => x.status === '지급완료' && ids.has(contracts.find((c) => c.id === x.contractId)?.planId ?? '')).reduce((sum, x) => sum + x.amount, 0)
-      return { rate: pct(paid, planTotal), planTotal }
+      const settlements = s.settlements.filter((x) => contracts.some((c) => c.id === x.contractId))
+      return computeFinanceKpis(s.investPlans.filter((p) => p.kind === kind), contracts, settlements)
     }
-    const inv = execRate('투자')
-    const exp = execRate('비용')
+    const inv = finKpis('투자')
+    const exp = finKpis('비용')
     // 5) 인프라 운영 헬스 — 배치 실패·인터페이스 오류·디스크 경고 (lib/infra 단일원천, 운영·시스템 화면·대시보드와 정합)
     const infra = computeInfraHealth(s)
     const rows: (string | number)[][] = [
@@ -272,8 +269,8 @@ export async function GET(req: Request) {
       ['조치중 장애', incActing, `전체 장애 ${s.incidents.length}건`],
       ['인프라 운영', `배치 실패 ${infra.failedBatches} · IF 오류 ${infra.brokenIfs} · 디스크 경고 ${infra.diskWarns}`, `배치 ${infra.batchTotal} · 인터페이스 ${infra.ifTotal} · 서버 ${infra.serverTotal} (디스크 >${DISK_WARN}%)`],
       ['프로젝트', `진행중 ${pjActive.length}`, `평균 진척 ${pjAvg}% · 오픈 이슈 ${pjIssues}건`],
-      ['투자 집행률', `${inv.rate}%`, `확정계획 ${inv.planTotal.toLocaleString('ko-KR')}만원`],
-      ['비용 집행률', `${exp.rate}%`, `확정계획 ${exp.planTotal.toLocaleString('ko-KR')}만원`],
+      ['투자 집행률', `${inv.execRate}%`, `확정계획 ${inv.planTotal.toLocaleString('ko-KR')}만원`],
+      ['비용 집행률', `${exp.execRate}%`, `확정계획 ${exp.planTotal.toLocaleString('ko-KR')}만원`],
     ]
     return csvResponse('IT운영_종합현황', rows)
   }
