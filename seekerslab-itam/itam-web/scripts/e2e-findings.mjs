@@ -1420,6 +1420,16 @@ try {
   await p4.locator('button', { hasText: /^반품 완료 \(교체 없음\)$/ }).click()
   await p4.waitForTimeout(800)
   ok('도입·검수: 검수 반려 → 반품 완료 종결', (await p4.textContent('body')).includes('반품 완료'))
+  // 반품 완료 로트 체크리스트 재토글 가드 — 반품된 로트의 체크리스트를 전부 체크해도 '검수 완료'로 되돌아가 채번되면 안 된다
+  //  (이미 반품한 물품이 대장에 유령 자산으로 등록되는 것 방지). 채번 버튼이 계속 비활성이어야 한다.
+  {
+    const insCard = p4.locator('.card', { hasText: '검수 체크리스트' })
+    const items = insCard.locator('.vstack').first().locator(':scope > button')
+    const n = await items.count()
+    for (let i = 0; i < n; i++) { await items.nth(i).click(); await p4.waitForTimeout(60) }
+    await p4.waitForTimeout(300)
+    ok('도입·검수 가드: 반품 완료 로트 체크리스트 재토글해도 채번 불가(유령 자산 방지)', await insCard.locator('button', { hasText: /^자산번호 채번/ }).isDisabled())
+  }
   await p4.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
   const p4Dash = (await p4.textContent('body')) || ''
   ok('검수 반려 → 반품 완료: 대시보드 백로그에서 제외', !p4Dash.includes('검수 반려 (재검수 · 반품 확인)'))
