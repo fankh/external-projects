@@ -2,14 +2,20 @@
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import type { AccountFinding } from '@/lib/types'
-import { resolveAccountReview, respondToAccount } from '../actions'
+import { resolveAccountReview, respondToAccount, respondToAccountMany } from '../actions'
 
 const KIND_TONE = { '휴면 관리자 계정': 'err', '미사용 서비스 계정': 'warn', '휴면 사용자 계정': 'neutral' } as const
 
 export function AccountTable({ accounts, canAct }: { accounts: AccountFinding[]; canAct: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+
+  // 미조치 계정만 선택 대상 — 분기 접근 재인증 스윕에서 미로그인 계정을 한 번에 비활성화/소유자 확인
+  const selectable = accounts.filter((a) => !a.action)
+  const toggle = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const allSel = selectable.length > 0 && selectable.every((a) => checked.has(a.id))
 
   const act = (id: string, kind: '비활성화' | '소유자 확인') => {
     setBusy(id)
@@ -18,15 +24,31 @@ export function AccountTable({ accounts, canAct }: { accounts: AccountFinding[];
       setMsg(r.message); setBusy(null)
     })
   }
+  const bulkAct = (kind: '비활성화' | '소유자 확인') => startTransition(async () => {
+    const r = await respondToAccountMany([...checked], kind)
+    setMsg(r.message); if (r.ok) setChecked(new Set())
+  })
   const resolve = (id: string, keep: boolean) => { setBusy(id); startTransition(async () => { const r = await resolveAccountReview(id, keep); setMsg(r.message); setBusy(null) }) }
 
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      {canAct && checked.size > 0 && (
+        <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 조치:</span>
+          <button className="btn sm danger" disabled={pending} onClick={() => bulkAct('비활성화')}>비활성화 ({checked.size})</button>
+          <button className="btn sm" disabled={pending} onClick={() => bulkAct('소유자 확인')}>소유자 확인 ({checked.size})</button>
+          <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
+        </div>
+      )}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
             <tr>
+              {canAct && <th className="c" style={{ width: 32 }}>
+                <input type="checkbox" checked={allSel} disabled={pending || selectable.length === 0} aria-label="미조치 휴면 계정 전체 선택"
+                  onChange={(e) => setChecked(e.target.checked ? new Set(selectable.map((a) => a.id)) : new Set())} />
+              </th>}
               <th>계정</th><th>표시명 · 부서</th><th>구분</th><th className="c">소스</th>
               <th>마지막 로그인</th><th className="num">휴면일</th><th className="c">위험도</th>
               {canAct && <th className="c">조치</th>}
@@ -35,6 +57,9 @@ export function AccountTable({ accounts, canAct }: { accounts: AccountFinding[];
           <tbody>
             {accounts.map((a) => (
               <tr key={a.id}>
+                {canAct && <td className="c" onClick={(e) => e.stopPropagation()}>
+                  {!a.action && <input type="checkbox" checked={checked.has(a.id)} disabled={pending} aria-label={`${a.account} 선택`} onChange={() => toggle(a.id)} />}
+                </td>}
                 <td className="code strong">{a.account}</td>
                 <td>
                   {a.displayName} <span className="dim">· {a.dept}</span>
@@ -65,7 +90,7 @@ export function AccountTable({ accounts, canAct }: { accounts: AccountFinding[];
                 )}
               </tr>
             ))}
-            {accounts.length === 0 && <tr><td colSpan={canAct ? 8 : 7}><div className="empty">발견된 휴면 계정이 없습니다</div></td></tr>}
+            {accounts.length === 0 && <tr><td colSpan={canAct ? 9 : 7}><div className="empty">발견된 휴면 계정이 없습니다</div></td></tr>}
           </tbody>
         </table>
       </div>

@@ -324,6 +324,17 @@ try {
   // 발견 자산 화면 — 휴면 계정(46)·미인가 SW(47)·USB(48)·로컬 VM(49)
   const FOUND = '/discovery/found'
   await twoChoice(page, { name: '휴면 계정(46)', navTo: FOUND, cardText: '계정 위생', rowText: 'admin.tmp', btnRe: /^비활성화$/ })
+  // 휴면 계정 일괄 비활성화 — 분기 접근 재인증 스윕(ISO 27001 A.9/SOX)에서 미로그인 계정을 체크박스로 선택해 한 번에 비활성화(단건 반복 방지). 미조치분 sh.oh 선택.
+  {
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    const acctCard = page.locator('.card', { hasText: '계정 위생' })
+    await acctCard.locator('tr', { hasText: 'sh.oh' }).locator('input[type="checkbox"]').check()
+    await acctCard.locator('button', { hasText: /^비활성화 \(1\)$/ }).click()
+    await page.waitForTimeout(700)
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    const rowTxt = (await page.locator('.card', { hasText: '계정 위생' }).locator('tr', { hasText: 'sh.oh' }).first().textContent()) || ''
+    ok('휴면 계정 일괄 비활성화: 선택 계정 일괄 처리(비활성화 요청 반영)', rowTxt.includes('비활성화 요청'))
+  }
   await twoChoice(page, { name: '미인가 SW(47)', navTo: FOUND, cardText: '설치 SW 정책 위반', rowText: 'uTorrent', btnRe: /^제거 요청$/ })
   await twoChoice(page, { name: 'USB(48)', navTo: FOUND, cardText: '이동식 매체 정책 위반', rowText: 'Samsung T7 SSD', btnRe: /^차단$/ })
   await twoChoice(page, { name: '로컬 VM(49)', navTo: FOUND, cardText: '엔드포인트 VM 정책 위반', rowText: 'legacy-test', btnRe: /^회수$/ })

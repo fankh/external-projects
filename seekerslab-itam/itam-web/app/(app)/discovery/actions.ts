@@ -300,6 +300,34 @@ export async function respondToAccount(accountId: string, kind: '비활성화' |
   return { ok: true, message: `${a.account} ${a.action} — ${kind === '비활성화' ? '보안운영팀' : a.dept} 통지·감사 적재` }
 }
 
+/** 휴면 계정 일괄 조치 — 분기 접근 권한 재인증(access certification) 스윕에서 미로그인 계정을 한 번에 비활성화(또는 소유자 확인)한다.
+ *  건별 로직은 respondToAccount 와 동일하고 감사만 일괄로 남긴다. 이미 조치된 계정은 건너뛴다(멱등). 보안담당·Admin. */
+export async function respondToAccountMany(ids: string[], kind: '비활성화' | '소유자 확인') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '휴면 계정 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const targets = s.accounts.filter((a) => ids.includes(a.id) && !a.action)
+  if (targets.length === 0) return { ok: false, message: '조치할 휴면 계정이 없습니다 (이미 처리된 건 제외).' }
+  for (const a of targets) {
+    a.actedBy = session.name
+    a.actedAt = today()
+    if (kind === '비활성화') {
+      a.action = '비활성화 요청'
+      dispatch({ channel: '이메일', to: '보안운영팀', subject: `휴면 계정 비활성화 집행 요청 — ${a.account} (${a.displayName}·${a.dept}, ${a.dormantDays}일 미로그인)`, kind: '위협 대응', ref: a.id })
+    } else {
+      a.action = '소유자 확인 요청'
+      dispatch({ channel: '이메일', to: a.dept, subject: `휴면 계정 사용 여부 확인 요청 — ${a.account} (${a.displayName}), 마지막 로그인 ${a.lastLogin}`, kind: '소유자 확인', ref: a.id })
+    }
+  }
+  const verb = kind === '비활성화' ? '비활성화 요청' : '소유자 확인 요청'
+  const names = targets.map((a) => a.account).slice(0, 5).join(', ')
+  appendAudit({ actor: session.name, action: `휴면 계정 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: '휴면 계정' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `휴면 계정 ${targets.length}건 ${verb} — ${kind === '비활성화' ? '보안운영팀' : '해당 부서'} 통지·감사 적재` }
+}
+
 /** 휴면 계정 소유자 확인 결과 처리 — 소유자(부서) 확인 요청에 대한 응답을 반영해 루프를 닫는다.
  *  (그동안 '소유자 확인 요청'은 부서에 메일만 나가고 결과를 반영할 경로가 없어 그 상태로 방치됐다 — 발견 자산 소유자 확인이 응답·에스컬레이션으로 닫히는 것과 대비.)
  *  keep=true(사용 확인): 유효 계정으로 판정해 휴면 리스크에서 정리. keep=false(비활성화): 미사용 확정으로 비활성화 집행 요청으로 전환. 확인 요청 상태만 대상. 보안담당·Admin. */
