@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { daysBetween, today } from '@/lib/dates'
 import { getStore } from '@/lib/store'
+import { delayedSrs, isSrReplannable } from '@/lib/sr'
 import { SR_CHIP } from '../chips'
 
 async function replan(formData: FormData) {
@@ -15,7 +16,7 @@ async function replan(formData: FormData) {
   const s = getStore()
   // 배정 후 진행중(dueDate 보유·비종결) SR 만 재계획 — 임의 POST 로 완료·반려·미배정(CI배정, dueDate 없음)
   // SR 의 dueDate 를 덮어써 지연목록·SR지연 알림에 오분류로 넣는 것을 차단(assignCi 의 CI배정 상태 가드와 정합).
-  const sr = s.srRequests.find((r) => r.srNo === srNo && r.dueDate && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status))
+  const sr = s.srRequests.find((r) => r.srNo === srNo && isSrReplannable(r))
   if (sr) sr.dueDate = dueDate
   revalidatePath('/', 'layout')
 }
@@ -25,10 +26,8 @@ export default async function SrDelayedPage() {
   const s = getStore()
   const t = today()
 
-  // 결재완료(배정 이후) SR 중 완료 예정일을 넘긴 건
-  const delayed = s.srRequests.filter((r) =>
-    r.dueDate && r.dueDate < t && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status),
-  )
+  // 결재완료(배정 이후) SR 중 완료 예정일을 넘긴 건 — lib/sr 단일 원천(대시보드·export·알림 배치 공유)
+  const delayed = delayedSrs(s, t)
 
   return (
     <>

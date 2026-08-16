@@ -6,6 +6,7 @@ import { compliancePostureScore, computeComplianceKpis, postureRating } from '@/
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth } from '@/lib/infra'
 import { computeProjectPmo } from '@/lib/projects'
+import { delayedSrs } from '@/lib/sr'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
 
@@ -74,7 +75,7 @@ export default async function DashboardPage() {
   const pmo = computeProjectPmo(s)
   const ops = {
     incidents: s.incidents.filter((i) => i.status === '조치중').length,
-    delayedSr: s.srRequests.filter((r) => r.dueDate && r.dueDate < today() && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status)).length,
+    delayedSr: delayedSrs(s).length,
     openIssues: pmo.openIssues,
     projectHighRisk: pmo.highRiskOpen,
     unsigned: s.people.filter((p) => !signedNames.has(p.name)).length,

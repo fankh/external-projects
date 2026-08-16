@@ -2,14 +2,20 @@
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import type { IocMatch } from '@/lib/types'
-import { reopenIoc, respondToIoc } from './actions'
+import { reopenIoc, respondToIoc, respondToIocMany } from './actions'
 
 const CONF_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
 
 export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+
+  // 미조치 건만 선택 대상 — 위협 인텔 피드 갱신으로 다수 IOC가 한꺼번에 상관되면 선택해 한 번에 차단/조사한다
+  const selectable = iocs.filter((i) => !i.action)
+  const toggle = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const allSel = selectable.length > 0 && selectable.every((i) => checked.has(i.id))
 
   const act = (id: string, kind: '차단' | '조사') => {
     setBusy(id)
@@ -18,6 +24,10 @@ export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: b
       setMsg(r.message); setBusy(null)
     })
   }
+  const bulkAct = (kind: '차단' | '조사') => startTransition(async () => {
+    const r = await respondToIocMany([...checked], kind)
+    setMsg(r.message); if (r.ok) setChecked(new Set())
+  })
   const reopen = (id: string) => {
     startTransition(async () => {
       const r = await reopenIoc(id)
@@ -28,10 +38,22 @@ export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: b
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      {canRespond && checked.size > 0 && (
+        <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 대응:</span>
+          <button className="btn sm danger" disabled={pending} onClick={() => bulkAct('차단')}>차단 ({checked.size})</button>
+          <button className="btn sm" disabled={pending} onClick={() => bulkAct('조사')}>조사 착수 ({checked.size})</button>
+          <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
+        </div>
+      )}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
             <tr>
+              {canRespond && <th className="c" style={{ width: 32 }}>
+                <input type="checkbox" checked={allSel} disabled={pending || selectable.length === 0} aria-label="미조치 IOC 전체 선택"
+                  onChange={(e) => setChecked(e.target.checked ? new Set(selectable.map((i) => i.id)) : new Set())} />
+              </th>}
               <th className="c">IOC 유형</th><th>지표값</th><th>위협 행위자 귀속</th><th>관측·상관</th>
               <th>상관 자산</th><th className="c">신뢰도</th><th className="c">심각도</th>
               {canRespond && <th className="c">조치</th>}
@@ -40,6 +62,9 @@ export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: b
           <tbody>
             {iocs.map((i) => (
               <tr key={i.id}>
+                {canRespond && <td className="c" onClick={(e) => e.stopPropagation()}>
+                  {!i.action && <input type="checkbox" checked={checked.has(i.id)} disabled={pending} aria-label={`${i.iocValue} 선택`} onChange={() => toggle(i.id)} />}
+                </td>}
                 <td className="c"><Chip tone="neutral" bare>{i.iocType}</Chip></td>
                 <td className="code" style={{ whiteSpace: 'normal', maxWidth: 220 }}>
                   {i.iocValue}
@@ -67,7 +92,7 @@ export function IocTable({ iocs, canRespond }: { iocs: IocMatch[]; canRespond: b
                 )}
               </tr>
             ))}
-            {iocs.length === 0 && <tr><td colSpan={canRespond ? 8 : 7}><div className="empty">상관된 IOC 가 없습니다</div></td></tr>}
+            {iocs.length === 0 && <tr><td colSpan={canRespond ? 9 : 7}><div className="empty">상관된 IOC 가 없습니다</div></td></tr>}
           </tbody>
         </table>
       </div>

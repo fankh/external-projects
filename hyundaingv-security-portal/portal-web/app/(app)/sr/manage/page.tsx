@@ -72,6 +72,10 @@ async function suspendSr(formData: FormData) {
   const s = getStore()
   const sr = s.srRequests.find((r) => r.srNo === srNo)
   if (!sr || !SUSPENDABLE.includes(sr.status) || s.approvals.some((a) => a.ref === srNo && a.status === '대기')) return
+  // 진행 중 변경(비-최종완료)에 편입된 SR 은 중지 금지 — 변경결과 승인 전파(sr.status==='적용요청' 요구)가
+  // '중지' 때문에 누락되면 SR 이 적용요청에 영구 고착된다(변경 approval 은 cw.id 로 키잉돼 위 srNo 대기
+  // 가드에 안 걸린다). 변경 미편입 적용요청 SR 은 정상적으로 중지 가능.
+  if (s.changes.some((c) => c.srNo === srNo && c.status !== '최종완료')) return
   sr.suspendedFrom = sr.status
   sr.status = '중지'
   revalidatePath('/', 'layout')
@@ -87,6 +91,12 @@ async function resumeSr(formData: FormData) {
   if (!sr) return
   sr.status = sr.suspendedFrom ?? 'CI배정'
   sr.suspendedFrom = undefined
+  // 벨트앤서스펜더 — 복원 상태가 적용요청인데 매칭 변경이 이미 최종완료면(가드 이전 데이터에서 중지 중
+  // 결과 승인으로 전파를 놓친 고아), 여기서 완료로 닫아 영구 고착을 해소한다.
+  if (sr.status === '적용요청' && s.changes.some((c) => c.srNo === srNo && c.status === '최종완료')) {
+    sr.status = '완료'
+    sr.completedAt = today()
+  }
   revalidatePath('/', 'layout')
 }
 

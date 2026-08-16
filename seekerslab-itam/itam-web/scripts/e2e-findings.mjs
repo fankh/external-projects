@@ -459,6 +459,20 @@ try {
     await iocRow().locator('button', { hasText: /^차단$/ }).first().click()
     await page.waitForTimeout(700)
   }
+  // IOC 일괄 대응 — 위협 인텔 피드 갱신으로 다수 IOC가 한꺼번에 상관될 때 체크박스로 선택해 한 번에 차단(단건 반복 방지). RedLine 은 위 단건·재개 테스트가 소비하므로 미조치분 Tor C2·LockBit 도메인 선택.
+  {
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const iocCard = page.locator('.card', { hasText: 'IOC 상관·행위자 귀속' })
+    await iocCard.locator('tr', { hasText: '185.220.101.44' }).locator('input[type="checkbox"]').check()
+    await iocCard.locator('tr', { hasText: 'lockbit-mirror' }).locator('input[type="checkbox"]').check()
+    await iocCard.locator('button', { hasText: /^차단 \(2\)$/ }).click()
+    await page.waitForTimeout(700)
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const c = page.locator('.card', { hasText: 'IOC 상관·행위자 귀속' })
+    const tor = (await c.locator('tr', { hasText: '185.220.101.44' }).first().textContent()) || ''
+    const lb = (await c.locator('tr', { hasText: 'lockbit-mirror' }).first().textContent()) || ''
+    ok('IOC 일괄 차단: 선택 2건 일괄 처리(차단 요청 반영)', tor.includes('차단 요청') && lb.includes('차단 요청'))
+  }
   {
     // 유출(유출 계정): 조치 완료 → 재개 → 대응 버튼 복귀
     await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })

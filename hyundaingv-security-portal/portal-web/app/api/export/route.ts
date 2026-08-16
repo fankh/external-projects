@@ -7,6 +7,7 @@ import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra'
+import { delayedSrs } from '@/lib/sr'
 import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
@@ -275,7 +276,7 @@ export async function GET(req: Request) {
     const t = today()
     // 1) SR — 진행중·지연 (sr/delayed·대시보드와 동일 술어)
     const srActive = s.srRequests.filter((r) => !['완료', '반려'].includes(r.status)).length
-    const srDelayed = s.srRequests.filter((r) => r.dueDate && r.dueDate < t && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status)).length
+    const srDelayed = delayedSrs(s, t).length
     // 2) 장애 — 조치중 (대시보드 ops 와 동일)
     const incActing = s.incidents.filter((i) => i.status === '조치중').length
     // 3) 프로젝트 — 진행중·평균 진척·오픈 이슈 (projects/status·schedule 와 동일)
