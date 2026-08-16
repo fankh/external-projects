@@ -2202,6 +2202,10 @@ def sc_company_pledge(pg, base, check):
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
     check('완료' in pg.locator('tr', has_text='E2E협력사').inner_text(), '결재 승인 → 협력업체 서약 완료 전파')
+    # 이력추적성(§VI) — 징구 등록이 감사 로그에 남아야 한다(레코드에 징구자 필드 없음, addViolation 과 동일 정책)
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    audit_row = pg.locator('tr', has_text='협력업체 서약 징구').first
+    check(audit_row.count() > 0 and 'E2E협력사' in audit_row.inner_text(), '협력업체 서약 징구 감사 기록(징구자·업체)')
 
 
 def sc_special_pledge_duty(pg, base, check):
