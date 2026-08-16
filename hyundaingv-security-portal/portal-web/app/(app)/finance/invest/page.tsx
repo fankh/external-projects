@@ -5,7 +5,7 @@ import { resubmitSettlement } from '../actions'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
-import { computeFinanceKpis } from '@/lib/finance'
+import { computeFinanceKpis, planBasisAmount } from '@/lib/finance'
 import { getStore, nextNo } from '@/lib/store'
 import type { SettlementItem } from '@/lib/types'
 
@@ -303,7 +303,7 @@ export default async function InvestPage() {
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>과제</th><th className="num">계획액</th><th className="num">계약액</th><th className="num">집행액</th><th className="num">집행률</th></tr>
+              <tr><th>과제</th><th className="num">계획액</th><th className="num">계약액</th><th className="num">집행액</th><th className="num" title="정산 &gt; 계약 &gt; 계획 우선순위">기준액</th><th className="num">집행률</th></tr>
             </thead>
             <tbody>
               {confirmed.map((p) => {
@@ -311,12 +311,15 @@ export default async function InvestPage() {
                 const contracted = cts.reduce((sum, c) => sum + c.amount, 0)
                 const paid = cts.reduce((sum, c) => sum + paidOf(c.id), 0)
                 const rate = p.amount ? Math.round((paid / p.amount) * 100) : 0
+                // 기준액 — 정산>계약>계획 우선순위 (요구사항). lib/finance 단일 원천으로 산출한다.
+                const b = planBasisAmount(p, kindContracts, kindSettlements)
                 return (
                   <tr key={p.id}>
                     <td className="strong">{p.title} <span className="mut mono">{p.id}</span></td>
                     <td className="num">{fmt(p.amount)}</td>
                     <td className="num">{fmt(contracted)}</td>
                     <td className="num">{fmt(paid)}</td>
+                    <td className="num"><Chip tone={b.basis === '정산' ? 'ok' : b.basis === '계약' ? 'info' : 'neutral'} bare>{b.basis}</Chip> {fmt(b.amount)}</td>
                     <td className="num"><Chip tone={rate > 100 ? 'err' : rate >= 90 ? 'warn' : 'neutral'} bare>{rate}%</Chip></td>
                   </tr>
                 )
