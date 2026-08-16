@@ -15,6 +15,7 @@ const EXPORT_MENU: Record<string, string> = {
   'invest-actual': '/finance/invest', 'expense-actual': '/finance/expense', 'expense-flash': '/finance/expense',
   'sr-requests': '/sr/requests', 'ci-srs': '/sr/ci',
   incidents: '/infra/incidents', changes: '/infra/changes', projects: '/projects/status',
+  'project-issues': '/projects/schedule', deliverables: '/projects/schedule',
   printouts: '/awareness/prints', violations: '/awareness/violations',
   'inspection-plans': '/compliance/inspection', 'inspection-items': '/compliance/inspection',
   racks: '/infra/racks', hardware: '/infra/racks', servers: '/infra/systems', systems: '/infra/systems',
@@ -177,6 +178,25 @@ export async function GET(req: Request) {
       rows.push([p.id, p.title, p.manager, p.headcount, signs, p.start, p.end, p.progress, p.status])
     }
     return csvResponse('프로젝트_진행현황', rows)
+  }
+
+  if (type === 'project-issues') {
+    // 프로젝트 이슈·리스크 대장 — PMO/운영위 보고 근거(제품안내서 III장). /projects/schedule(BIZ) 게이트.
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const projectOf = (id: string) => s.projects.find((p) => p.id === id)
+    const rows: (string | number)[][] = [['번호', '프로젝트', '이슈 · 리스크', '리스크', '상태', '등록일']]
+    for (const i of s.projectIssues) rows.push([i.id, projectOf(i.projectId)?.title ?? i.projectId, i.title, i.risk, i.status, i.raisedAt])
+    return csvResponse('프로젝트_이슈리스크', rows)
+  }
+
+  if (type === 'deliverables') {
+    // 프로젝트 산출물 대장 — 기한 경과 포함(제품안내서 III장 일정·산출물). /projects/schedule(BIZ) 게이트.
+    if (!isMgr) return new Response('forbidden', { status: 403 })
+    const t = today()
+    const projectOf = (id: string) => s.projects.find((p) => p.id === id)
+    const rows: (string | number)[][] = [['번호', '프로젝트', '산출물', '기한', '상태']]
+    for (const d of s.deliverables) rows.push([d.id, projectOf(d.projectId)?.title ?? d.projectId, d.name, d.due, d.done ? '완료' : (d.due < t ? '기한경과' : '미완')])
+    return csvResponse('프로젝트_산출물', rows)
   }
 
   if (type === 'printouts') {

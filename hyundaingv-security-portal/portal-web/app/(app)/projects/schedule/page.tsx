@@ -3,6 +3,7 @@ import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
+import { computeProjectPmo } from '@/lib/projects'
 import { getStore, nextNo } from '@/lib/store'
 
 const RISK_TONE = { 높음: 'err', 중간: 'warn', 낮음: 'neutral' } as const
@@ -62,9 +63,8 @@ export default async function SchedulePage() {
   const t = today()
   const projectOf = (id: string) => s.projects.find((p) => p.id === id)
 
-  const doneCount = s.deliverables.filter((d) => d.done).length
-  const lateDl = s.deliverables.filter((d) => !d.done && d.due < t)
-  const openIssues = s.projectIssues.filter((i) => i.status === '오픈')
+  // 산출물·이슈·리스크 집계는 lib/projects 단일 원천(대시보드와 같은 값). 표의 경과 칩은 t 로 인라인 판정.
+  const pmo = computeProjectPmo(s)
 
   return (
     <>
@@ -72,14 +72,15 @@ export default async function SchedulePage() {
         desc="계획 일정 대비 산출물 등록·점검과 이슈·리스크를 추적한다." />
 
       <div className="stat-row">
-        <Stat value={`${doneCount} / ${s.deliverables.length}`} label="산출물 완료" />
-        <Stat value={lateDl.length} label="산출물 기한 경과" tone={lateDl.length > 0 ? 'err' : undefined} note={`오늘 ${t}`} />
-        <Stat value={openIssues.length} label="오픈 이슈" tone={openIssues.length > 0 ? 'warn' : undefined} />
-        <Stat value={openIssues.filter((i) => i.risk === '높음').length} label="높은 리스크" tone={openIssues.some((i) => i.risk === '높음') ? 'err' : undefined} />
+        <Stat value={`${pmo.dlDone} / ${pmo.dlTotal}`} label="산출물 완료" />
+        <Stat value={pmo.dlLate} label="산출물 기한 경과" tone={pmo.dlLate > 0 ? 'err' : undefined} note={`오늘 ${t}`} />
+        <Stat value={pmo.openIssues} label="오픈 이슈" tone={pmo.openIssues > 0 ? 'warn' : undefined} />
+        <Stat value={pmo.highRiskOpen} label="높은 리스크" tone={pmo.highRiskOpen > 0 ? 'err' : undefined} />
       </div>
 
       <div className="cols c2">
-        <Card title="산출물 점검" kicker="Deliverables" pad={false}>
+        <Card title="산출물 점검" kicker="Deliverables" pad={false}
+          actions={<a className="btn sm" href="/api/export?type=deliverables" title="프로젝트 산출물 대장 (기한 경과 포함)">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>프로젝트</th><th>산출물</th><th>기한</th><th>상태</th><th className="c">점검</th></tr></thead>
@@ -114,7 +115,8 @@ export default async function SchedulePage() {
           </div>
         </Card>
 
-        <Card title="이슈 · 리스크" kicker="Issues" pad={false}>
+        <Card title="이슈 · 리스크" kicker="Issues" pad={false}
+          actions={<a className="btn sm" href="/api/export?type=project-issues" title="프로젝트 이슈·리스크 대장 (PMO 보고 근거)">엑셀 다운로드</a>}>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>프로젝트</th><th>이슈</th><th>리스크</th><th>등록일</th><th>상태</th><th className="c">처리</th></tr></thead>
