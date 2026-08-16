@@ -754,6 +754,40 @@ def sc_qna_loop(pg, base, check):
           '답변 완료 → QnA 할일 미처리에서 마감(폐쇄 루프)')
 
 
+def sc_qna_delete_orphan(pg, base, check):
+    """QnA 삭제 고아 할일 방지(v1.5.191) — 담당 지정된 미답변 문의를 삭제하면 assign 이 만든 담당의 답변
+    할일도 닫힌다. 삭제로 답변·재지정(할일 마감 경로)이 사라져 담당 나의 할일에 영구 고아로 남던 결함 방지.
+    김현우 문의 → 박정호 담당 지정(할일 생성) → 김현우(작성자) 삭제 → 박정호 My Work 에서 QnA 할일 마감."""
+    title = 'E2E 삭제고아 문의'
+    # 1) USER 문의 등록
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    pg.locator('input[name=title]').first.fill(title)
+    pg.locator('select[name=domain]').first.select_option(index=0)
+    pg.locator('button:has-text("등록")').first.click()
+    pg.wait_for_selector(f'tr:has-text("{title}")', timeout=10000)
+    # 2) BIZ_MGR 담당 지정(박정호) → 박정호 My Work 에 QnA 할일
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    row = pg.locator('tr', has_text=title).first
+    row.locator('select[name=assignee]').select_option('박정호')
+    row.locator('button:has-text("담당 지정")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('QnA' in pg.locator('.card', has_text='미처리 할일').inner_text(), '전제: 담당 지정 → QnA 답변 할일 생성')
+    # 3) 작성자(김현우)가 미답변 문의 삭제
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    pg.locator('tr', has_text=title).first.locator('button:has-text("삭제")').click()
+    pg.wait_for_load_state('networkidle')
+    check(title not in pg.content(), '전제: 문의 삭제됨')
+    # 4) 박정호 My Work 에서 QnA 할일 마감(고아 아님)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('QnA' not in pg.locator('.card', has_text='미처리 할일').inner_text(),
+          '문의 삭제 시 담당의 QnA 답변 할일 마감(영구 고아 방지)')
+
+
 def sc_autoform_upload_defeat(pg, base, check):
     """필수 자동양식 파일명충돌 우회(v1.5.91) — registerGenerated 중복판정이 '양식이름_v버전_' 접두 startsWith
     로만 비교해, 사용자 업로드(registerUpload)가 우연/고의로 같은 접두 파일명을 가지면(submitResult 는 업로드
@@ -2062,6 +2096,7 @@ SCENARIOS = [
     ('qna_assign_role', 'QnA 담당 지정 역할 정합 — 답변 가능 역할만', sc_qna_assign_role,
      {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
     ('qna_loop', 'QnA 폐쇄 루프 — 담당 지정 할일 생성·답변 시 마감', sc_qna_loop, {}),
+    ('qna_delete_orphan', 'QnA 삭제 고아 방지 — 삭제 시 담당 답변 할일 마감', sc_qna_delete_orphan, {}),
     ('sr_suspend', 'SR 중지(BA030014) — 지연 제외·재개 복원', sc_sr_suspend,
      {'PORTAL_DATA_FILE': str(SRSUSP_DATA)}),
     ('sr_suspend_strand', 'SR 중지-변경 고착 방어 — 진행 중 변경 편입 SR 중지 차단', sc_sr_suspend_strand, {}),
