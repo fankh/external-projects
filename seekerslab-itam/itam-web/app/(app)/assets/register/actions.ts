@@ -846,17 +846,24 @@ export async function reportLostStolen(assetNo: string, type: '분실' | '도난
   asset.loanExtendRequest = undefined
   asset.returnRequest = undefined
 
+  // 보유자에게 신고 사실을 통보한다 — 회수(recoverFromUser)·반납·재배정처럼 '보유 이탈'은 당사자에게 알린다.
+  // 분실·도난으로 배정 자산이 회수되고 라이선스 좌석이 회수됐음을 보유자가 알아야 한다(도난의 보안운영팀 통보와 별개로 당사자 통보).
+  if (asset.owner && asset.owner !== '미지정' && asset.owner !== '-') {
+    dispatch({ channel: '이메일', to: `${asset.owner} (${asset.dept})`, subject: `자산 ${type} 신고 — ${asset.assetNo} ${asset.model} 분실 처리 (${note})${freed.length ? ` · 라이선스 좌석 ${freed.length}건 회수` : ''}`, kind: '분실 신고', ref: asset.assetNo })
+  }
+
   if (type === '도난') {
     // 도난은 단말 내 데이터 유출 위험이 있어 보안운영팀에 침해 대응을 통보한다 — 시간 임계라 문자 즉시 알림 병행
     escalate({ to: '보안운영팀', subject: `${asset.assetNo} ${asset.model} 도난 신고 — 데이터 유출 위험 점검 요청 (${note})`, kind: '위협 대응', ref: asset.assetNo, sms: `${asset.assetNo} ${asset.model} 도난 — 데이터 유출 위험 점검` })
   }
   appendAudit({ actor: session.name, action: `${type} 신고 — ${asset.model} · ${note}`, target: assetNo })
   revalidatePath('/', 'layout')
+  const notified = Boolean(asset.owner && asset.owner !== '미지정' && asset.owner !== '-')
   return {
     ok: true,
     message: type === '도난'
-      ? `${assetNo} 도난 신고 — 분실 처리 · 보안운영팀 앞 유출 위험 점검 통보`
-      : `${assetNo} 분실 신고 — 분실 처리 (회수 시 해제, 미회수 확정 시 폐기 절차)`,
+      ? `${assetNo} 도난 신고 — 분실 처리 · 보안운영팀 앞 유출 위험 점검 통보${notified ? ` · 보유자(${asset.owner}) 통보` : ''}`
+      : `${assetNo} 분실 신고 — 분실 처리${notified ? ` · 보유자(${asset.owner}) 통보` : ''} (회수 시 해제, 미회수 확정 시 폐기 절차)`,
   }
 }
 

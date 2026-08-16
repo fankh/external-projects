@@ -1587,6 +1587,10 @@ try {
   await p4.locator('input[placeholder*="정황"]').fill('e2e 분실 신고 — 소재 불명')
   await p4.locator('button', { hasText: /^신고 확정$/ }).click()
   await p4.waitForTimeout(700)
+  // 분실 신고 → 보유자 통보 — 회수·반납·재배정처럼 '보유 이탈'은 당사자에게 알린다(그동안 도난만 보안운영팀에 통보하고 보유자는 무통보였다). 발송 이력에 분실 신고 통지 적재.
+  await p4.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('분실 신고 → 보유자 통보(발송 이력에 분실 신고 통지 적재)', ((await p4.textContent('body')) || '').includes('분실 신고'))
+  await p4.goto(`${BASE}/assets/register?sel=${lostTarget}`, { waitUntil: 'networkidle' })
   const lostScrap = p4.locator('button', { hasText: /^미회수 확정 → 폐기$/ })
   ok('분실 자산: 미회수 확정 → 폐기 조치 노출', (await lostScrap.count()) > 0)
   await lostScrap.click()
