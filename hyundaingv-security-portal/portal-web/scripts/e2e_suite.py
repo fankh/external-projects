@@ -43,6 +43,7 @@ INCEMPTY_DATA = ROOT / 'scripts' / '.e2e-incempty-data.json'  # 월별 장애 �
 INSPTL_DATA = ROOT / 'scripts' / '.e2e-insptl-data.json'  # 점검 경과 알림 팀장 수신 회귀용 (v1.5.209)
 INFRACHG_DATA = ROOT / 'scripts' / '.e2e-infrachg-data.json'  # 인프라 변경 원복계획 별개 필드 회귀용 (v1.5.211)
 SPPLG_DATA = ROOT / 'scripts' / '.e2e-spplg-data.json'  # 특별서약(보안담당자) 담당업무 입력 커버리지용 (v1.5.213)
+CPLG_DATA = ROOT / 'scripts' / '.e2e-cplg-data.json'  # 협력업체서약서 징구→상신→승인 커버리지용 (v1.5.215)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -2108,6 +2109,31 @@ def sc_inspection_teamlead(pg, base, check):
     check('점검 경과 2명' in detail, f'점검 경과 알림 = 담당자+팀장 2명 (실제: {detail[:120]})')
 
 
+def sc_company_pledge(pg, base, check):
+    """협력업체서약서 징구→결재상신→승인 폐쇄루프 (요구사항: 협력업체서약서 · 결재 시트 12번).
+    업무담당(시스템관리자)이 협력업체 서약을 징구 등록→선택 결재상신하고, 결재자(박정호) 승인 시 완료로 전파된다."""
+    login(pg, base, '시스템관리자')  # 등록·상신 (BIZ_MGR/ADMIN), 결재자 박정호와 달라 자기결재 아님
+    pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
+    card = pg.locator('.card', has_text='협력업체 서약서 — 징구·상신')
+    card.locator('input[name=company]').fill('E2E협력사')
+    card.locator('input[name=personName]').fill('홍길동')
+    card.locator('button:has-text("징구 등록")').click()
+    pg.wait_for_selector('tr:has-text("E2E협력사")', timeout=10000)
+    row = pg.locator('tr', has_text='E2E협력사')
+    check('등록' in row.inner_text(), '협력업체 서약 징구 등록 (상태 등록)')
+    # 선택 결재상신 — 격리 데이터라 등록건은 이 1건뿐
+    card.locator('input[name=ids]').check()
+    card.locator('button:has-text("선택 건 결재상신")').click()
+    pg.wait_for_selector('tr:has-text("E2E협력사"):has-text("결재중")', timeout=10000)
+    check('결재중' in pg.locator('tr', has_text='E2E협력사').inner_text(), '선택 건 결재상신 (상태 결재중)')
+    # 결재자(박정호) 승인 → 완료 전파
+    login(pg, base, '박정호')
+    approve_first(pg, base, '[보안서약서-협력업체]')
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
+    check('완료' in pg.locator('tr', has_text='E2E협력사').inner_text(), '결재 승인 → 협력업체 서약 완료 전파')
+
+
 def sc_special_pledge_duty(pg, base, check):
     """특별서약(보안담당자) 담당업무·세부업무 추가입력 (요구사항: "본문내용 외 담당업무, 세부업무내용 등 추가입력").
     보안담당자(박정호)가 특별서약 화면에서 담당업무를 입력·동의해 제출하면 제출완료·담당업무가 표시된다."""
@@ -2150,6 +2176,7 @@ SCENARIOS = [
     ('inspection_teamlead', '보안점검 경과 알림 — 담당자+팀장 통지', sc_inspection_teamlead, {'PORTAL_DATA_FILE': str(INSPTL_DATA)}),
     ('infra_rollback_plan', '인프라 변경 원복계획 — 작업계획과 별개 필수 산출물', sc_infra_rollback_plan, {'PORTAL_DATA_FILE': str(INFRACHG_DATA)}),
     ('special_pledge_duty', '특별서약(보안담당자) — 담당업무·세부업무 추가입력 제출', sc_special_pledge_duty, {'PORTAL_DATA_FILE': str(SPPLG_DATA)}),
+    ('company_pledge', '협력업체서약서 — 징구→결재상신→승인 폐쇄루프', sc_company_pledge, {'PORTAL_DATA_FILE': str(CPLG_DATA)}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
     ('devchain', '시스템개발 SR → 변경 2단 상신 → SR 완료 전파 (전체 사슬)', sc_devchain, {}),
@@ -2514,6 +2541,8 @@ def main() -> int:
         'pledges': [{'name': '박정호', 'dept': 'IT운영팀', 'year': '2026', 'kind': '일반', 'signedAt': '2026-07-10', 'method': '온라인'}],
         'securityOfficers': ['박정호'],
     }, ensure_ascii=False), encoding='utf-8')
+    # 협력업체서약서 징구→상신→승인 폐쇄루프 — 협력업체 서약 없는 상태에서 등록·상신·승인 전 구간 검증.
+    CPLG_DATA.write_text(json.dumps({'companyPledges': []}, ensure_ascii=False), encoding='utf-8')
     DPLGRESIGN_DATA.write_text(json.dumps({
         'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
                    'title': '[부서서약 현황 상신] 개발1팀 반려 — 보완 후 재상신 (사유: 보완요망)'}],
