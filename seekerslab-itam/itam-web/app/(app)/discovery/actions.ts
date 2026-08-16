@@ -362,6 +362,41 @@ export async function respondToUnauthorizedSw(swId: string, kind: '제거' | '�
   return { ok: true, message: `${w.name} ${w.action} — ${w.dept} 통지·감사 적재` }
 }
 
+/** 미인가 SW 일괄 조치 — 새로 금지된 SW·EDR 스윕으로 같은 위반이 수십 대에 한꺼번에 잡히는 상황에서 선택 건을 한 번에 처리한다.
+ *  건별 로직(제거 요청 통보·예외 승인 화이트리스트 등재)은 respondToUnauthorizedSw 와 동일하고, 감사만 일괄로 남긴다.
+ *  이미 조치된 건은 건너뛴다(멱등). 보안담당·Admin. (requestOnboardMany·decideMany 와 같은 일괄 패턴) */
+export async function respondToUnauthorizedSwMany(ids: string[], kind: '제거' | '예외 승인') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '미인가 SW 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const targets = s.unauthorizedSw.filter((w) => ids.includes(w.id) && !w.action)
+  if (targets.length === 0) return { ok: false, message: '조치할 미인가 SW 항목이 없습니다 (이미 처리된 건 제외).' }
+  let registered = 0
+  for (const w of targets) {
+    w.actedBy = session.name
+    w.actedAt = today()
+    if (kind === '제거') {
+      w.action = '제거 요청'
+      dispatch({ channel: '이메일', to: w.dept, subject: `미인가 SW 제거 요청 — ${w.name} (${w.assetNo}·${w.owner}, ${w.kind})`, kind: '위협 대응', ref: w.id })
+      dispatch({ channel: '이메일', to: '보안운영팀', subject: `미인가 SW 제거 집행 확인 — ${w.name} @ ${w.assetNo}`, kind: '위협 대응', ref: w.id })
+    } else {
+      w.action = '예외 승인'
+      if (!s.swAllowlist.some((e) => e.name.toLowerCase() === w.name.toLowerCase())) {
+        s.swAllowlist.unshift({ name: w.name, approvedBy: session.name, approvedAt: today(), note: `${w.kind} 예외 승인 — ${w.dept}(${w.assetNo}) 업무상 정당 (일괄)` })
+        registered += 1
+      }
+      dispatch({ channel: '이메일', to: w.dept, subject: `미인가 SW 예외 승인 — ${w.name} (${w.assetNo}) 업무상 사용 인정·화이트리스트 등재`, kind: '위협 대응', ref: w.id })
+    }
+  }
+  const verb = kind === '제거' ? '제거 요청' : '예외 승인'
+  const names = targets.map((w) => w.name).slice(0, 5).join(', ')
+  appendAudit({ actor: session.name, action: `미인가 SW 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: '미인가 SW' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `미인가 SW ${targets.length}건 ${verb} — 담당 부서 통지·감사 적재${kind === '예외 승인' && registered ? ` · 화이트리스트 ${registered}건 등재` : ''}` }
+}
+
 /** SW 화이트리스트 해제 — 예외 승인으로 등재된 SW 를 목록에서 뺀다. 해제하면 그 SW 는 다시 미인가 SW 정책 대상이 된다.
  *  (제품안내서 §01 보안담당: 미인가 SW 정책 관리) 보안담당·Admin 만. 정책 변경이므로 감사에 남긴다. */
 export async function removeSwAllow(name: string) {

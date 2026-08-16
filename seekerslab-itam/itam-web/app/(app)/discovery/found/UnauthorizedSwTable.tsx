@@ -3,14 +3,20 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import { UNAUTH_SW_POLICY, type UnauthorizedSw } from '@/lib/types'
-import { respondToUnauthorizedSw } from '../actions'
+import { respondToUnauthorizedSw, respondToUnauthorizedSwMany } from '../actions'
 
 const KIND_TONE = { '금지 SW': 'err', '무단 원격제어': 'err', '미승인 SW': 'warn' } as const
 
 export function UnauthorizedSwTable({ items, canAct }: { items: UnauthorizedSw[]; canAct: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+
+  // 미조치 건만 선택 대상 — 새로 금지된 SW·EDR 스윕으로 같은 위반이 여러 대에 잡히면 선택해 한 번에 조치한다
+  const selectable = items.filter((w) => !w.action)
+  const toggle = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const allSel = selectable.length > 0 && selectable.every((w) => checked.has(w.id))
 
   const act = (id: string, kind: '제거' | '예외 승인') => {
     setBusy(id)
@@ -19,14 +25,30 @@ export function UnauthorizedSwTable({ items, canAct }: { items: UnauthorizedSw[]
       setMsg(r.message); setBusy(null)
     })
   }
+  const bulkAct = (kind: '제거' | '예외 승인') => startTransition(async () => {
+    const r = await respondToUnauthorizedSwMany([...checked], kind)
+    setMsg(r.message); if (r.ok) setChecked(new Set())
+  })
 
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      {canAct && checked.size > 0 && (
+        <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 조치:</span>
+          <button className="btn sm danger" disabled={pending} onClick={() => bulkAct('제거')}>제거 요청 ({checked.size})</button>
+          <button className="btn sm" disabled={pending} onClick={() => bulkAct('예외 승인')}>예외 승인 ({checked.size})</button>
+          <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
+        </div>
+      )}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
             <tr>
+              {canAct && <th className="c" style={{ width: 32 }}>
+                <input type="checkbox" checked={allSel} disabled={pending || selectable.length === 0} aria-label="미조치 미인가 SW 전체 선택"
+                  onChange={(e) => setChecked(e.target.checked ? new Set(selectable.map((w) => w.id)) : new Set())} />
+              </th>}
               <th>소프트웨어</th><th>설치 자산</th><th>사용자 · 부서</th><th>정책 분류</th>
               <th className="c">검출</th><th>최초 검출</th><th className="c">위험도</th>
               {canAct && <th className="c">조치</th>}
@@ -35,6 +57,9 @@ export function UnauthorizedSwTable({ items, canAct }: { items: UnauthorizedSw[]
           <tbody>
             {items.map((w) => (
               <tr key={w.id}>
+                {canAct && <td className="c" onClick={(e) => e.stopPropagation()}>
+                  {!w.action && <input type="checkbox" checked={checked.has(w.id)} disabled={pending} aria-label={`${w.name} 선택`} onChange={() => toggle(w.id)} />}
+                </td>}
                 <td className="strong">
                   {w.name}{w.version && <span className="dim"> {w.version}</span>}
                   {w.note && <div className="mut" style={{ fontSize: 10.5, whiteSpace: 'normal' }}>{w.note}</div>}
@@ -62,7 +87,7 @@ export function UnauthorizedSwTable({ items, canAct }: { items: UnauthorizedSw[]
                 )}
               </tr>
             ))}
-            {items.length === 0 && <tr><td colSpan={canAct ? 8 : 7}><div className="empty">검출된 미인가 SW가 없습니다</div></td></tr>}
+            {items.length === 0 && <tr><td colSpan={canAct ? 9 : 7}><div className="empty">검출된 미인가 SW가 없습니다</div></td></tr>}
           </tbody>
         </table>
       </div>

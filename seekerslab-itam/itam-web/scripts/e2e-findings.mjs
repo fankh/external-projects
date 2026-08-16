@@ -328,6 +328,20 @@ try {
   await twoChoice(page, { name: 'USB(48)', navTo: FOUND, cardText: '이동식 매체 정책 위반', rowText: 'Samsung T7 SSD', btnRe: /^차단$/ })
   await twoChoice(page, { name: '로컬 VM(49)', navTo: FOUND, cardText: '엔드포인트 VM 정책 위반', rowText: 'legacy-test', btnRe: /^회수$/ })
 
+  // 미인가 SW 일괄 제거 요청 — 새로 금지된 SW·EDR 스윕처럼 같은 위반이 여러 대에 잡히면 체크박스로 선택해 한 번에 제거 요청(단건 반복 방지).
+  //  미조치분 AnyDesk·Adobe Photoshop(크랙) 2건을 선택해 일괄 처리한다(uTorrent 는 위 단건 처리됨, Notion 은 아래 예외 승인용).
+  await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+  const swBulkCard = page.locator('.card', { hasText: '설치 SW 정책 위반' })
+  await swBulkCard.locator('tr', { hasText: 'AnyDesk' }).locator('input[type="checkbox"]').check()
+  await swBulkCard.locator('tr', { hasText: 'Adobe Photoshop' }).locator('input[type="checkbox"]').check()
+  await swBulkCard.locator('button', { hasText: /^제거 요청 \(2\)$/ }).click()
+  await page.waitForTimeout(700)
+  await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+  const swAfter = page.locator('.card', { hasText: '설치 SW 정책 위반' })
+  const anyDeskTxt = (await swAfter.locator('tr', { hasText: 'AnyDesk' }).first().textContent()) || ''
+  const adobeTxt = (await swAfter.locator('tr', { hasText: 'Adobe Photoshop' }).first().textContent()) || ''
+  ok('미인가 SW 일괄 제거 요청: 선택 2건 한 번에 처리(제거 요청 반영)', anyDeskTxt.includes('제거 요청') && adobeTxt.includes('제거 요청'))
+
   // USB·로컬 VM 예외 승인 해제 — 잘못 승인한(또는 정책 변경) 예외를 되돌려 다시 정책 대상으로. SW 화이트리스트 해제와 같은 규약(그동안 USB·VM 예외는 비가역).
   await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
   const usbRow = () => page.locator('tr', { has: page.locator('td', { hasText: 'SanDisk Ultra' }) }).first()
