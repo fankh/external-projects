@@ -16,6 +16,10 @@ export async function selectForDisposal(assetNo: string, reason: string): Promis
   const asset = s.assets.find((a) => a.assetNo === assetNo)
   if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
   if (s.disposals.some((d) => d.assetNo === assetNo)) return { ok: false, message: `이미 폐기 절차에 있는 자산입니다 — ${assetNo}` }
+  // 보유자가 쥔·파이프라인 중 자산은 실물을 폐기할 수 없다 — 먼저 회수·반환·검수를 마쳐야 한다(대여중 자산 폐기 선정 → 대여 추적 유실 방지, 대여 가드(#149)의 반대편).
+  if (['사용중', '대여중', '검수중'].includes(asset.status)) {
+    return { ok: false, message: `${asset.status} 자산은 폐기 대상으로 선정할 수 없습니다 — ${assetNo} (먼저 회수·반환·검수 완료 후 유휴 상태에서 선정하세요).` }
+  }
   s.disposals.push({ id: nextId('DSP'), assetNo, model: asset.model, reason, status: '대상 선정', prevStatus: asset.status })
   asset.status = '폐기예정'
   appendAudit({ actor: session.name, action: `폐기 대상 선정 — ${reason}`, target: assetNo })
@@ -52,6 +56,8 @@ export async function selectForDisposalMany(items: { assetNo: string; reason: st
   for (const it of items) {
     const asset = s.assets.find((a) => a.assetNo === it.assetNo)
     if (!asset || s.disposals.some((d) => d.assetNo === it.assetNo)) continue
+    // 보유자가 쥔·파이프라인 중 자산은 건너뛴다 — 회수·반환·검수 완료(유휴)해야 폐기 선정 대상(단건 가드와 동일).
+    if (['사용중', '대여중', '검수중'].includes(asset.status)) continue
     s.disposals.push({ id: nextId('DSP'), assetNo: it.assetNo, model: asset.model, reason: it.reason, status: '대상 선정', prevStatus: asset.status })
     asset.status = '폐기예정'
     n += 1
