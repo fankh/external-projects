@@ -5,9 +5,11 @@
 import * as defaultProfile from './default.config'
 import * as manufacturerProfile from './sample-manufacturer.config'
 import * as publicProfile from './sample-public.config'
+import * as financeProfile from './sample-finance.config'
 
 export const ALL_PROFILES: Record<string, typeof defaultProfile> = {
   default: defaultProfile,
   manufacturer: manufacturerProfile,
   public: publicProfile,
+  finance: financeProfile,
 }
