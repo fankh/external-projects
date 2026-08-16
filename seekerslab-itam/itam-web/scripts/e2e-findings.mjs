@@ -686,6 +686,14 @@ try {
   await p2.waitForTimeout(700)
   ok('계약 일괄 연계: 선택 2건을 한 계약에 일괄 연계(CT-2022-007)', ((await p2.locator('body').textContent()) || '').includes('계약 일괄 연계 완료') && ((await p2.locator('body').textContent()) || '').includes('CT-2022-007'))
 
+  // 종료 상태 자산 계약 연계 가드 — 폐기완료·분실 자산을 계약에 새로 연계하면 유지보수 커버리지·연계 자산 수가 이탈 자산으로 부풀려진다(좌석 배정 종료-상태 가드와 동형). 폐기완료 AST-2018-000090 연계 시도 → 거부.
+  await p2.goto(`${BASE}/assets/register?sel=AST-2018-000090`, { waitUntil: 'networkidle' })
+  const ctGuardSel = p2.locator('select').filter({ has: p2.locator('option', { hasText: '계약 선택 —' }) }).first()
+  await ctGuardSel.selectOption({ index: 1 })
+  await p2.locator('button', { hasText: /^연계$/ }).first().click()
+  await p2.waitForTimeout(600)
+  ok('종료 상태 자산 계약 연계 가드: 폐기완료 자산 연계 거부(연계 자산 수 부풀림 방지)', ((await p2.locator('body').textContent()) || '').includes('종료 상태') && ((await p2.locator('body').textContent()) || '').includes('연계할 수 없습니다'))
+
   // 업무 중요도 일괄 지정 — 연 1회 자산 분류 재검토(ISO 27001 A.8.2)에서 다수 자산을 같은 등급으로 한 번에 분류(취약점 우선순위 축). 그동안 중요도 지정은 자산 하나씩만 가능했다.
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()
