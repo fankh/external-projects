@@ -31,3 +31,19 @@ export function computeFinanceKpis(plans: InvestPlan[], contracts: InvestContrac
   const execRate = planTotal > 0 ? Math.round((paidConfirmed / planTotal) * 100) : 0
   return { planTotal, contractTotal, paidTotal, paidConfirmed, execRate }
 }
+
+export type AmountBasis = '정산' | '계약' | '계획'
+export interface BasisAmount { basis: AmountBasis; amount: number }
+
+/** 과제(계획) 표시 기준액 — 정산 > 계약 > 계획 우선순위 (요구사항 sample.xlsx: "정산>계약>계획 우선순위 적용하여 금액 표시").
+ *  지급완료 정산이 있으면 정산액, 없고 계약이 있으면 계약액, 둘 다 없으면 계획액을 기준으로 삼는다.
+ *  computeFinanceKpis 와 같은 스코프 규약 — 호출자가 종류(투자·비용)로 필터한 계약·정산 컬렉션을 넘긴다.
+ *  이 헬퍼가 단일 원천이라 화면·export 가 같은 우선순위를 공유한다(중복 산식 drift 방지). */
+export function planBasisAmount(plan: InvestPlan, contracts: InvestContract[], settlements: Settlement[]): BasisAmount {
+  const ctIds = new Set(contracts.filter((c) => c.planId === plan.id).map((c) => c.id))
+  const paid = settlements.filter((x) => x.status === '지급완료' && ctIds.has(x.contractId)).reduce((sum, x) => sum + x.amount, 0)
+  if (paid > 0) return { basis: '정산', amount: paid }
+  const contracted = contracts.filter((c) => c.planId === plan.id).reduce((sum, c) => sum + c.amount, 0)
+  if (contracted > 0) return { basis: '계약', amount: contracted }
+  return { basis: '계획', amount: plan.amount }
+}
