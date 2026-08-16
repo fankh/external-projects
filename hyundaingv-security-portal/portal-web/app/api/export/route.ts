@@ -222,8 +222,8 @@ export async function GET(req: Request) {
   if (type === 'violations') {
     // 보안위반 — 담당(BIZ)·Admin 만 전사, 그 외는 본인 건만 (화면 canManage 와 동일)
     const scope = s.violations.filter((v) => (isMgr ? true : v.name === session.name))
-    const rows: (string | number)[][] = [['번호', '위반자', '부서', '유형', '내용', '발생일', '상태']]
-    for (const v of scope) rows.push([v.id, v.name, v.dept, v.type, v.detail, v.occurredAt, v.status])
+    const rows: (string | number)[][] = [['번호', '위반자', '부서', '유형', '내용', '발생일', '상태', '처리구분']]
+    for (const v of scope) rows.push([v.id, v.name, v.dept, v.type, v.detail, v.occurredAt, v.status, v.exempt ? '결재제외(별도관리)' : '결재'])
     return csvResponse('보안위반_관리대장', rows)
   }
 
