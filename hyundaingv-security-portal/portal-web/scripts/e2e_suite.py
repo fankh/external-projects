@@ -39,6 +39,7 @@ APPLY_DATA = ROOT / 'scripts' / '.e2e-apply-data.json'  # 적용요청 상신 �
 INSP_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-insporphan-data.json'  # 점검결과 재상신 교차-상신자 고아 할일 회귀용 (v1.5.79)
 CHST_DATA = ROOT / 'scripts' / '.e2e-chst-data.json'  # channelStates 비불리언 값 검증 회귀용 (v1.5.80)
 PROFISO_DATA = ROOT / 'scripts' / '.e2e-profiso-data.json'  # 프로필 스탬프 데이터 격리 회귀용 (v1.5.188)
+INCEMPTY_DATA = ROOT / 'scripts' / '.e2e-incempty-data.json'  # 월별 장애 통계 무효월(빈 occurredAt) 회귀용 (v1.5.201)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -1599,6 +1600,18 @@ def sc_incident_stats(pg, base, check):
     check(csv_total == scr_total, f'월별 통계 export 계=화면(단일원천) {scr_month} {csv_total}/{scr_total}')
 
 
+def sc_incident_stats_empty_month(pg, base, check):
+    """월별 장애 통계 무효월 방어(v1.5.201) — 손상/누락 occurredAt('')가 slice→''→startsWith('') 전건 매칭으로
+    '' 월 행을 만들어 전체 장애를 중복 집계하던 결함. 8월 2건 + 무날짜 1건 주입 → '' 월 행 없이 2026-08 계=2
+    (무날짜 건 제외). PORTAL_DATA_FILE 로 occurredAt '' 인 장애 주입."""
+    login(pg, base, '박정호')  # BIZ_MGR — 월별 장애 통계 export
+    csv_text = pg.request.get(f'{base}/api/export?type=incident-stats').text()
+    data = [l for l in csv_text.splitlines() if l.strip()][1:]  # 헤더 제외
+    check(not any(l.lstrip('﻿').startswith(',') for l in data), '무효월(빈 발생월) 통계 행 없음 — 중복 집계 방지')
+    aug = next((l for l in data if l.startswith('2026-08,')), None)
+    check(aug is not None and aug.split(',')[-2].strip() == '2', f'2026-08 계=2 (무날짜 장애 제외) 실제 {aug}')
+
+
 def sc_criteria(pg, base, check):
     """보안점검 기준관리 (요구사항 62행) — 등록(중분류)·CSV 업로드·삭제·사용중 가드"""
     login(pg, base, '박정호')
@@ -2147,6 +2160,7 @@ SCENARIOS = [
     ('finance_exec', '재무 집행률 단일원천 — 투자·비용 화면=대시보드=IT운영 export 정합', sc_finance_exec, {}),
     ('project_pmo', '프로젝트 PMO — 이슈·리스크·산출물 대장 export + 대시보드=화면 정합', sc_project_pmo, {}),
     ('incident_stats', '월별 장애 통계 export — 발생월×등급, export 계=화면 정합', sc_incident_stats, {}),
+    ('incident_stats_empty_month', '월별 장애 통계 무효월 방어 — 빈 occurredAt 중복 집계 차단', sc_incident_stats_empty_month, {'PORTAL_DATA_FILE': str(INCEMPTY_DATA)}),
     ('menuauth', '메뉴권한 런타임 제한 — 숨김·차단·복원·감사', sc_menuauth, {}),
     ('line', '결재선 변경 → 결재자 변경', sc_approval_line, {}),
     ('scheduler', '알림 배치 자동 발화', sc_scheduler, {'PORTAL_NOTIFY_INTERVAL_MS': '2000'}),
@@ -2382,6 +2396,12 @@ def main() -> int:
     CHST_DATA.write_text(json.dumps({'channelStates': {'security-db': {}}}, ensure_ascii=False), encoding='utf-8')
     # 프로필 스탬프 불일치 — 'manufacturer' 로 저장된 파일(security-db 강제 가동)을 default 프로필로 로드
     PROFISO_DATA.write_text(json.dumps({'__profileStamp': 'manufacturer', 'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
+    # 월별 장애 통계 무효월 방어 — 정상 8월 2건 + 무날짜(occurredAt '') 1건. 수정 전엔 '' 월 행이 전건(3) 중복 집계.
+    INCEMPTY_DATA.write_text(json.dumps({'incidents': [
+        {'id': 'IN-2026-90', 'system': '테스트시스템', 'title': '정상 장애 A', 'grade': '1등급', 'occurredAt': '2026-08-10', 'status': '조치완료', 'reportStatus': '미상신'},
+        {'id': 'IN-2026-91', 'system': '테스트시스템', 'title': '정상 장애 B', 'grade': '2등급', 'occurredAt': '2026-08-12', 'status': '조치중', 'reportStatus': '미상신'},
+        {'id': 'IN-2026-92', 'system': '테스트시스템', 'title': '무날짜 장애', 'grade': '1등급', 'occurredAt': '', 'status': '조치중', 'reportStatus': '미상신'},
+    ]}, ensure_ascii=False), encoding='utf-8')
     SECBAD_DATA.write_text(json.dumps({'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
     DPLGRESIGN_DATA.write_text(json.dumps({
         'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',

@@ -163,6 +163,25 @@ export async function markLotArrived(lotId: string) {
   return { ok: true, message: `${lot.id} 입고 처리 — ${lot.model} ${lot.qty}대 · 검수 대기열 편성` }
 }
 
+/** 도입 예정 취소 — 발주·SR 이 취소됐거나 잘못 등록한 도입 예정(사전 등록) 건을 도착 전에 파이프라인에서 뺀다.
+ *  실물이 아직 없는 계획 단계라 되돌릴 물리 상태가 없어 로트를 제거하고(참조 없음) 취소 사실만 감사에 남긴다 —
+ *  방치하면 도착 예정일 경과 시 '입고 지연' 오알림·발주처 오독촉이 계속 뜬다(도착 후 반품(rejectIntakeLot)과 구분). 도입 예정 건만 대상. 자산담당·Admin. */
+export async function cancelPreRegisteredLot(lotId: string) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '도입 예정 취소 권한이 없습니다 (자산담당·Admin).' }
+  }
+  const s = getStore()
+  const lot = s.intakeLots.find((l) => l.id === lotId)
+  if (!lot) return { ok: false, message: '입고 건을 찾을 수 없습니다.' }
+  if (lot.status !== '도입 예정') return { ok: false, message: '도입 예정 건만 취소할 수 있습니다 (도착·검수 진행 건은 반품으로 처리).' }
+
+  s.intakeLots = s.intakeLots.filter((l) => l.id !== lotId)
+  appendAudit({ actor: session.name, action: `도입 예정 취소(발주·SR 취소) — ${lot.model} ${lot.qty}대 (SR ${lot.srNo ?? '-'} · 계약 ${lot.contractId})`, target: lot.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${lot.id} 도입 예정 취소 — ${lot.model} ${lot.qty}대 · 입고 지연 알림 대상에서 제외` }
+}
+
 /** 입고 지연 독촉 — 도착 예정일이 지난 도입 예정(발주) 로트의 발주처(공급사)에 납기 확인 요청을 보낸다.
  *  §06 ITSM·구매 연동의 납기 관리 — 대여/수리 독촉과 같은 검출→조치 패턴(입고 지연 신호 → 발주처 독촉).
  *  당일 이미 독촉한 로트는 건너뛴다(ref = 입고번호). 자산담당·Admin. */

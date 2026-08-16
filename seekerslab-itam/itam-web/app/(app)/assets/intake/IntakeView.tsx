@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import type { AssetCategory, IntakeLot } from '@/lib/types'
-import { closeReturnedLot, issueAssetNo, markLotArrived, preRegisterLot, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, remindIntakeOverdue, toggleCheck } from './actions'
+import { cancelPreRegisteredLot, closeReturnedLot, issueAssetNo, markLotArrived, preRegisterLot, reinspectIntakeLot, registerIntakeLot, rejectIntakeLot, remindIntakeOverdue, toggleCheck } from './actions'
 
 interface Label { assetNo: string; model: string; qr: string; barcode: string }
 interface PC { id: string; name: string; vendor: string }
@@ -55,6 +55,10 @@ export function IntakeView({ lots, labels, contracts, today }: { lots: IntakeLot
   })
   const markArrived = (id: string) => startTransition(async () => {
     const r = await markLotArrived(id)
+    setMsg({ ok: r.ok, text: r.message })
+  })
+  const cancelPlanned = (id: string) => startTransition(async () => {
+    const r = await cancelPreRegisteredLot(id)
     setMsg({ ok: r.ok, text: r.message })
   })
   const sel = arrivedLots.find((l) => l.id === selId) ?? arrivedLots[0]
@@ -116,9 +120,13 @@ export function IntakeView({ lots, labels, contracts, today }: { lots: IntakeLot
                     <td className="num">{l.qty}</td>
                     <td className="tnum">{l.expectedDate}</td>
                     <td className="c">{late > 0 ? <Chip tone="err">입고 지연 D+{late}</Chip> : <Chip tone="ok" bare>정상</Chip>}</td>
-                    <td className="c">
-                      <button className="btn sm pri" disabled={pending} onClick={() => markArrived(l.id)}
-                        title="실제 도착 처리 — 입고 대기로 전환해 검수 대기열에 편성">입고 등록 (도착)</button>
+                    <td className="c" style={{ whiteSpace: 'nowrap' }}>
+                      <span className="hstack" style={{ gap: 4, justifyContent: 'center' }}>
+                        <button className="btn sm pri" disabled={pending} onClick={() => markArrived(l.id)}
+                          title="실제 도착 처리 — 입고 대기로 전환해 검수 대기열에 편성">입고 등록 (도착)</button>
+                        <button className="btn sm ghost" disabled={pending} onClick={() => cancelPlanned(l.id)}
+                          title="발주·SR 취소 — 도착 전 도입 예정 건을 파이프라인에서 제외(입고 지연 오알림 방지)">취소</button>
+                      </span>
                     </td>
                   </tr>
                 )})}

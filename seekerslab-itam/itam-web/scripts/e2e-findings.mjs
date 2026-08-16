@@ -1634,6 +1634,22 @@ try {
   await p4.waitForTimeout(800)
   ok('입고 지연 독촉: 발주처 납기 확인 발송 성공(발송 이력)', (await p4.textContent('body')).includes('입고 지연 독촉') && (await p4.textContent('body')).includes('발송'))
 
+  // 도입 예정 취소 — 발주·SR 취소로 무효가 된 도입 예정 건을 도착 전에 파이프라인에서 뺀다(방치 시 도착 예정일 경과로 입고 지연 오알림·발주처 오독촉). 도착 후 반품(검수 반려)과 구분. 사전 등록 후 취소로 검증.
+  await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
+  await p4.locator('button', { hasText: '도입 예정 등록' }).click()
+  await p4.waitForTimeout(200)
+  await p4.locator('input[placeholder*="SR·발주번호"]').fill('SR-E2E-999')
+  await p4.locator('input[placeholder="모델"]').fill('e2e 취소 검증 노트북')
+  await p4.locator('input[type="date"]').fill('2026-09-30')
+  await p4.locator('button', { hasText: /^등록$/ }).click()
+  await p4.waitForTimeout(800)
+  ok('도입 예정 사전 등록: 신규 도입 예정 건 표시', ((await p4.textContent('body')) || '').includes('e2e 취소 검증 노트북'))
+  const planRow = p4.locator('tr', { has: p4.locator('td', { hasText: 'e2e 취소 검증 노트북' }) }).first()
+  await planRow.locator('button', { hasText: /^취소$/ }).click()
+  await p4.waitForTimeout(800)
+  await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' }) // 성공 메시지에 모델명이 남으므로 새로고침 후 목록에서 제거 확인
+  ok('도입 예정 취소: 취소 시 목록에서 제거(입고 지연 알림 대상 제외)', !((await p4.textContent('body')) || '').includes('e2e 취소 검증 노트북'))
+
   // 검수 반려 → 반품 완료(교체 없음) 종결 — 재검수의 짝. 시드 IN-2607-04(검수 반려) 마감 후 대시보드 백로그에서 제외
   await p4.goto(`${BASE}/assets/intake`, { waitUntil: 'networkidle' })
   await p4.locator('tr.clickable', { has: p4.locator('td', { hasText: 'IN-2607-04' }) }).first().click()
