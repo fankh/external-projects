@@ -282,6 +282,34 @@ export async function loanAsset(assetNo: string, rawTo: string, rawDept: string,
   return { ok: true, message: `${assetNo} 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}` }
 }
 
+/** 자산 일괄 대여 — 교육·행사용 로너(loaner) 풀처럼 유휴 재고 다수를 한 대여자·부서·반환 기한으로 한 번에 대여한다.
+ *  건별 로직은 loanAsset 과 동일하고 감사만 일괄로 남긴다. 유휴 재고만 대상(멱등). 자산담당·Admin. */
+export async function loanAssetMany(assetNos: string[], rawTo: string, rawDept: string, dueDate: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '대여 처리 권한이 없습니다 (자산담당·Admin).' }
+  const to = rawTo.trim()
+  const dept = rawDept.trim()
+  if (!to || !dept) return { ok: false, message: '대여자와 부서를 입력해 주세요.' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return { ok: false, message: '반환 기한을 선택해 주세요.' }
+  if (dueDate < today()) return { ok: false, message: '반환 기한은 오늘 이후로 지정해 주세요.' }
+  const s = getStore()
+  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.status === '유휴')
+  if (targets.length === 0) return { ok: false, message: '대여할 자산이 없습니다 (유휴 재고만 대여 가능).' }
+  for (const asset of targets) {
+    asset.status = '대여중'
+    asset.owner = to
+    asset.dept = dept
+    asset.loanDueDate = dueDate
+    asset.loanExtendRequest = undefined
+    asset.returnRequest = undefined
+    asset.history.push({ date: today(), kind: '대여', detail: `${dept} ${to} 대여 — 반환 기한 ${dueDate} (일괄)`, actor: session.name })
+    dispatch({ channel: '이메일', to: `${to} (${dept})`, subject: `자산 대여 — ${asset.assetNo} ${asset.model} 대여, 반환 기한 ${dueDate}까지`, kind: '자산 대여', ref: asset.assetNo })
+  }
+  appendAudit({ actor: session.name, action: `자산 일괄 대여 — ${to}(${dept}) · 기한 ${dueDate} (${targets.length}건) · 대여자 통보`, target: '대여' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${targets.length}건 대여 처리 — ${to}(${dept}) · 반환 기한 ${dueDate}` }
+}
+
 /** 대여 반환 기한 연장 — 반납·재대여 없이 대여 기간을 늘린다(대여자가 더 오래 써야 할 때·연체 유예).
  *  현재 기한 이후로만 연장 가능(단축 불가). 이력·감사에 남긴다. 대여중 자산만 대상. 자산담당·Admin. */
 export async function extendLoan(assetNo: string, newDueDate: string) {

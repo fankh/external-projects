@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
+import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -157,6 +157,16 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     const r = await recoverManyFromUser([...checked], '오프보딩·재배정')
     setBulkMsg(r.message)
     if (r.ok) setChecked(new Set())
+  })
+  // 선택 항목 중 유휴(대여 가능)만 — 교육·행사용 로너 풀 일괄 대여 대상 수
+  const checkedIdle = useMemo(() => [...checked].filter((no) => props.assets.find((a) => a.assetNo === no)?.status === '유휴'), [checked, props.assets])
+  const [bulkLoanTo, setBulkLoanTo] = useState('')
+  const [bulkLoanDept, setBulkLoanDept] = useState('')
+  const [bulkLoanDue, setBulkLoanDue] = useState('')
+  const bulkLoan = () => startTransition(async () => {
+    const r = await loanAssetMany([...checked], bulkLoanTo, bulkLoanDept, bulkLoanDue)
+    setBulkMsg(r.message)
+    if (r.ok) { setChecked(new Set()); setBulkLoanTo(''); setBulkLoanDept(''); setBulkLoanDue('') }
   })
   // 정기 점검 일괄 예약 — 선택 자산에 같은 예방 정비 예정일을 한 번에 등록(보증 일괄 연장과 같은 배치 접점)
   const [bulkMaintDate, setBulkMaintDate] = useState('')
@@ -329,6 +339,15 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
               {checkedUsable.length > 0 && (
                 <button className="btn sm warn" disabled={pending} onClick={bulkRecover}
                   title="선택한 사용 중 자산을 일괄 회수 — 오프보딩·재배정(반납 접수 대기열로)">일괄 회수 (사용중 {checkedUsable.length})</button>
+              )}
+              {checkedIdle.length > 0 && (
+                <span className="hstack" style={{ gap: 6 }} title="선택한 유휴 재고를 한 대여자·부서·반환 기한으로 일괄 대여(교육·행사용 로너 풀)">
+                  <span className="mut" style={{ fontSize: 12 }}>일괄 대여 (유휴 {checkedIdle.length})</span>
+                  <input className="input" style={{ height: 28, width: 90 }} placeholder="대여자" value={bulkLoanTo} disabled={pending} onChange={(e) => setBulkLoanTo(e.target.value)} />
+                  <input className="input" style={{ height: 28, width: 90 }} placeholder="부서" value={bulkLoanDept} disabled={pending} onChange={(e) => setBulkLoanDept(e.target.value)} />
+                  <input className="input" type="date" style={{ height: 28 }} min={props.today} value={bulkLoanDue} disabled={pending} onChange={(e) => setBulkLoanDue(e.target.value)} title="반환 기한" />
+                  <button className="btn sm" disabled={pending || !bulkLoanTo.trim() || !bulkLoanDept.trim() || !bulkLoanDue} onClick={bulkLoan}>대여</button>
+                </span>
               )}
               <span className="hstack" style={{ gap: 6 }}>
                 <span className="mut" style={{ fontSize: 12 }}>정기 점검 일괄 예약</span>
