@@ -227,6 +227,9 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
   const s = getStore()
   const a = s.approvals.find((x) => x.id === approvalId)
   if (!a || a.status !== '대기') return { ok: false, message: '처리할 결재 건이 아닙니다.' }
+  // 소유자 확인은 결재(decide)가 아니라 요청받은 부서 본인의 '응답'(answerOwnerConfirm)으로 처리한다.
+  // decide 로 들어오면 소유자 응답 효과(발견 자산 소유·상태 반영) 없이 단계만 진행돼 상태가 어긋나므로 방어적으로 차단(UI 는 이미 제외).
+  if (a.kind === '소유자 확인') return { ok: false, message: '소유자 확인은 결재가 아니라 요청받은 부서의 응답으로 처리합니다.' }
 
   // 반려는 사유가 필수 — 신청자 재상신 근거이자 감사 기록 (AI 제안 반려와 같은 원칙)
   if (verdict === '반려' && !reason.trim()) {
