@@ -77,8 +77,13 @@ async function deleteQna(formData: FormData) {
   if (!mineUnanswered && me.role !== 'ADMIN') return
   s.qna = s.qna.filter((x) => x.id !== id)
   s.attachments = s.attachments.filter((a) => a.refId !== id)
+  // 폐쇄 루프 — 삭제 시 담당의 QnA 답변 할일도 닫는다(assign 이 만든 할일). 답변·재지정으로만 닫히던 할일이
+  // 문의 삭제로 답변·재지정 경로가 사라지면 담당의 나의 할일에 영구 고아로 남던 결함 방지(id 선두 고정 마감).
+  for (const t of s.todos) {
+    if (!t.done && t.kind === 'QnA' && t.title.startsWith(`${id} `)) t.done = true
+  }
   audit(me.name, '게시물 삭제', `QnA ${id} — ${q.title}`)
-  revalidatePath('/board/qna')
+  revalidatePath('/', 'layout')
 }
 
 export default async function QnaPage() {
