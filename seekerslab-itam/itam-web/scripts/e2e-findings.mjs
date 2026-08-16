@@ -338,6 +338,28 @@ try {
   await twoChoice(page, { name: '미인가 SW(47)', navTo: FOUND, cardText: '설치 SW 정책 위반', rowText: 'uTorrent', btnRe: /^제거 요청$/ })
   await twoChoice(page, { name: 'USB(48)', navTo: FOUND, cardText: '이동식 매체 정책 위반', rowText: 'Samsung T7 SSD', btnRe: /^차단$/ })
   await twoChoice(page, { name: '로컬 VM(49)', navTo: FOUND, cardText: '엔드포인트 VM 정책 위반', rowText: 'legacy-test', btnRe: /^회수$/ })
+  // USB 저장매체 일괄 차단 — 매체통제 정책·EDR 스윕에서 미조치 매체를 체크박스로 선택해 일괄 차단(단건 반복 방지). 미조치분 Kingston 선택(SanDisk·Samsung 은 아래 예외·차단 단건 테스트가 소비).
+  {
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    const usbCard = page.locator('.card', { hasText: '이동식 매체 정책 위반' })
+    await usbCard.locator('tr', { hasText: 'Kingston' }).locator('input[type="checkbox"]').check()
+    await usbCard.locator('button', { hasText: /^차단 \(1\)$/ }).click()
+    await page.waitForTimeout(700)
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    const kt = (await page.locator('.card', { hasText: '이동식 매체 정책 위반' }).locator('tr', { hasText: 'Kingston' }).first().textContent()) || ''
+    ok('USB 저장매체 일괄 차단: 선택 매체 일괄 처리(차단 요청 반영)', kt.includes('차단 요청'))
+  }
+  // 로컬 VM 일괄 회수 — 하이퍼바이저 금지 정책 스윕에서 미조치 VM을 체크박스로 선택해 일괄 회수. 미조치분 unregistered-guest 선택(dev-sandbox·legacy-test 는 아래 단건 테스트가 소비).
+  {
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    const vmCard = page.locator('.card', { hasText: '엔드포인트 VM 정책 위반' })
+    await vmCard.locator('tr', { hasText: 'unregistered-guest' }).locator('input[type="checkbox"]').check()
+    await vmCard.locator('button', { hasText: /^회수 \(1\)$/ }).click()
+    await page.waitForTimeout(700)
+    await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })
+    const ug = (await page.locator('.card', { hasText: '엔드포인트 VM 정책 위반' }).locator('tr', { hasText: 'unregistered-guest' }).first().textContent()) || ''
+    ok('로컬 VM 일괄 회수: 선택 VM 일괄 처리(회수 요청 반영)', ug.includes('회수 요청'))
+  }
 
   // 미인가 SW 일괄 제거 요청 — 새로 금지된 SW·EDR 스윕처럼 같은 위반이 여러 대에 잡히면 체크박스로 선택해 한 번에 제거 요청(단건 반복 방지).
   //  미조치분 AnyDesk·Adobe Photoshop(크랙) 2건을 선택해 일괄 처리한다(uTorrent 는 위 단건 처리됨, Notion 은 아래 예외 승인용).

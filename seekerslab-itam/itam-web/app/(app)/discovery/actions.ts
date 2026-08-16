@@ -495,6 +495,62 @@ export async function respondToLocalVm(vmId: string, kind: '회수' | '예외 �
   return { ok: true, message: `${v.vm} ${v.action} — ${kind === '회수' ? '보안운영팀' : v.dept} 통지·감사 적재` }
 }
 
+/** USB 저장매체 일괄 조치 — 새 매체통제 정책·EDR 스윕으로 다수 단말에 같은 위반이 잡히면 선택해 한 번에 차단(또는 예외 승인).
+ *  건별 로직은 respondToUsb 와 동일하고 감사만 일괄로 남긴다. 이미 조치된 항목은 건너뛴다(멱등). 보안담당·Admin. */
+export async function respondToUsbMany(ids: string[], kind: '차단' | '예외 승인') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: 'USB 저장매체 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const targets = s.usbFindings.filter((u) => ids.includes(u.id) && !u.action)
+  if (targets.length === 0) return { ok: false, message: '조치할 USB 검출 항목이 없습니다 (이미 처리된 건 제외).' }
+  for (const u of targets) {
+    u.actedBy = session.name
+    u.actedAt = today()
+    if (kind === '차단') {
+      u.action = '차단 요청'
+      dispatch({ channel: '이메일', to: '보안운영팀', subject: `USB 매체 차단 집행 요청 — ${u.device} @ ${u.assetNo} (${u.owner}·${u.dept}, ${u.kind})`, kind: '위협 대응', ref: u.id })
+    } else {
+      u.action = '예외 승인'
+      dispatch({ channel: '이메일', to: u.dept, subject: `USB 매체 예외 승인 — ${u.device} (${u.assetNo}) 업무용 등록·반입 인정`, kind: '위협 대응', ref: u.id })
+    }
+  }
+  const verb = kind === '차단' ? '차단 요청' : '예외 승인'
+  const names = targets.map((u) => u.device).slice(0, 5).join(', ')
+  appendAudit({ actor: session.name, action: `USB 저장매체 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: 'USB 저장매체' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `USB ${targets.length}건 ${verb} — ${kind === '차단' ? '보안운영팀' : '해당 부서'} 통지·감사 적재` }
+}
+
+/** 로컬 가상머신 일괄 조치 — 매체통제·하이퍼바이저 금지 정책 스윕으로 다수 단말의 로컬 VM을 선택해 한 번에 회수(또는 예외 승인).
+ *  건별 로직은 respondToLocalVm 과 동일하고 감사만 일괄로 남긴다. 이미 조치된 항목은 건너뛴다(멱등). 보안담당·Admin. */
+export async function respondToLocalVmMany(ids: string[], kind: '회수' | '예외 승인') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '로컬 VM 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const targets = s.localVms.filter((v) => ids.includes(v.id) && !v.action)
+  if (targets.length === 0) return { ok: false, message: '조치할 로컬 VM 검출 항목이 없습니다 (이미 처리된 건 제외).' }
+  for (const v of targets) {
+    v.actedBy = session.name
+    v.actedAt = today()
+    if (kind === '회수') {
+      v.action = '회수 요청'
+      dispatch({ channel: '이메일', to: '보안운영팀', subject: `로컬 VM 회수 집행 요청 — ${v.vm} (${v.guestOs}) @ ${v.assetNo} (${v.owner}·${v.dept}, ${v.kind})`, kind: '위협 대응', ref: v.id })
+    } else {
+      v.action = '예외 승인'
+      dispatch({ channel: '이메일', to: v.dept, subject: `로컬 VM 예외 승인 — ${v.vm} (${v.assetNo}) 업무용 등록 인정`, kind: '위협 대응', ref: v.id })
+    }
+  }
+  const verb = kind === '회수' ? '회수 요청' : '예외 승인'
+  const names = targets.map((v) => v.vm).slice(0, 5).join(', ')
+  appendAudit({ actor: session.name, action: `로컬 VM 일괄 ${verb} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: '로컬 VM' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `로컬 VM ${targets.length}건 ${verb} — ${kind === '회수' ? '보안운영팀' : '해당 부서'} 통지·감사 적재` }
+}
+
 /** USB 매체 예외 승인 해제 — 잘못 승인했거나 정책이 바뀐 예외 등록을 되돌려 다시 미조치(차단/예외 판정 대상)로 전환한다.
  *  (SW 화이트리스트 해제(removeSwAllow)와 같은 규약 — 예외 승인은 오판정될 수 있어 되돌릴 수 있어야 한다. 그동안 USB·VM 예외는 비가역이었다.)
  *  '예외 승인' 상태만 해제 대상. 차단 요청은 보안 집행이라 이 경로로 되돌리지 않는다. 보안담당·Admin. */
