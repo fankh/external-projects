@@ -72,6 +72,38 @@ export async function requestOwnerConfirm(discoveredId: string) {
   return { ok: true, message: `${id} 확인 요청 — ${to} 앞 이메일 발송 (${msg.id})` }
 }
 
+/** 소유자 확인 일괄 요청 — 스캔이 정체 불명 장비를 다수 올리면 한 건씩 누르지 않고 배치로 소유자 확인 요청을 상신한다.
+ *  각 건은 후보 부서(ownerCandidate)로 개별 확인 메일이 나가고 부서 확인 결재가 선다(편입 일괄 요청과 대칭). 이미 처리 중인 건은 건너뛴다(멱등). USER 제외. */
+export async function requestOwnerConfirmMany(ids: string[]) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '소유자 확인 요청 권한이 없습니다.' }
+  const s = getStore()
+  const targets = s.discovered.filter((d) => ids.includes(d.id) && !d.action)
+  if (targets.length === 0) return { ok: false, message: '소유자 확인 요청할 대상이 없습니다 (이미 처리 중인 건 제외).' }
+  for (const d of targets) {
+    const to = d.ownerCandidate ?? '미지정 (전사 공지)'
+    const id = nextApprovalId()
+    s.approvals.unshift({
+      id,
+      kind: '소유자 확인',
+      title: `${d.id} (${d.hostname}) 소유자 확인`,
+      requester: 'Discovery 엔진',
+      dept: d.ownerCandidate ?? session.dept,
+      requestedAt: today(),
+      status: '대기',
+      currentStep: '부서 확인',
+      refId: d.id,
+      note: `${d.channel} 발견 · ${d.ip} · 최초 ${d.firstSeen}`,
+    })
+    d.action = '확인요청'
+    d.confirmRequestedAt = today()
+    dispatch({ channel: '이메일', to: `${to} (부서장)`, subject: `${d.id} 소유자 확인 요청`, kind: '소유자 확인', ref: id })
+  }
+  appendAudit({ actor: session.name, action: `소유자 확인 일괄 요청 (${targets.length}건)`, target: 'Discovery' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${targets.length}건 소유자 확인 요청 상신 — 후보 부서 앞 확인 메일 발송` }
+}
+
 /** 관리 제외 — 발견 자산이 관리 대상이 아닌 알려진 비자산(협력사 장비·게스트 단말·비관리 어플라이언스 등)일 때
  *  편입도 격리도 아닌 '관리 제외'로 판정해 미등록 갭·Shadow IT 신호에서 뺀다.
  *  (그동안 편입/격리/확인만 있어, 관리 대상이 아닌 발견 건은 처리 경로가 없어 미등록 갭에 영구 잔존했다 — 컨셉 §3 '목록만 쌓인다'.)
