@@ -16,10 +16,12 @@ function initializeSentry() {
   Sentry.init({
     dsn: sentryDsn,
     environment: process.env.NODE_ENV || 'development',
+    // @sentry/node v8+ uses functional integrations; HTTP/Express/Postgres
+    // request & tracing instrumentation is applied automatically at init.
     integrations: [
-      new Sentry.Integrations.Http({ tracing: true }),
-      new Sentry.Integrations.Express(),
-      new Sentry.Integrations.Postgres(),
+      Sentry.httpIntegration(),
+      Sentry.expressIntegration(),
+      Sentry.postgresIntegration(),
       nodeProfilingIntegration(),
     ],
     tracesSampleRate: process.env.SENTRY_TRACES_SAMPLE_RATE || (process.env.NODE_ENV === 'production' ? 0.1 : 1.0),
@@ -52,9 +54,16 @@ const sentry = initializeSentry();
 module.exports = {
   Sentry,
   sentry,
-  getSentryMiddleware: () => [
-    Sentry.Handlers.requestHandler(),
-    Sentry.Handlers.tracingHandler(),
-  ],
-  getSentryErrorHandler: () => Sentry.Handlers.errorHandler(),
+  // v8+ auto-instruments requests/tracing at init, so no request/tracing
+  // middleware is added manually. Returns an empty list for compatibility
+  // with the existing server wiring.
+  getSentryMiddleware: () => [],
+  // Express error-capturing middleware. Captures the exception when Sentry is
+  // active, then re-throws so the app's own error handler still runs.
+  getSentryErrorHandler: () => (err, req, res, next) => {
+    if (sentry) {
+      Sentry.captureException(err);
+    }
+    next(err);
+  },
 };
