@@ -30,6 +30,27 @@ export async function setAssetCriticality(assetNo: string, level: BizCriticality
   return { ok: true, message: `${asset.assetNo} 업무 중요도 '${level}' 지정 — 취약점 우선순위 스코어링에 반영` }
 }
 
+/** 업무 중요도 일괄 지정 — 연 1회 자산 분류 재검토(ISO 27001 A.8.2)에서 같은 등급으로 분류할 다수 자산을 한 번에 지정한다.
+ *  건별 로직은 setAssetCriticality 와 동일하고 감사만 일괄로 남긴다. 이미 해당 등급인 자산은 건너뛴다(멱등). 자산담당·Admin. */
+export async function setAssetCriticalityMany(assetNos: string[], level: BizCriticality) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '업무 중요도 지정 권한이 없습니다 (자산담당·Admin).' }
+  if (!CRITICALITY_LEVELS.includes(level)) return { ok: false, message: '업무 중요도 값이 올바르지 않습니다.' }
+
+  const s = getStore()
+  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && (a.criticality ?? '일반') !== level)
+  if (targets.length === 0) return { ok: false, message: `업무 중요도 '${level}'로 변경할 자산이 없습니다 (이미 해당 등급인 건 제외).` }
+  for (const asset of targets) {
+    const before = asset.criticality ?? '일반'
+    asset.criticality = level
+    asset.history.push({ date: today(), kind: '구성변경', detail: `업무 중요도 ${before} → ${level}`, actor: session.name })
+  }
+  const names = targets.map((a) => a.assetNo).slice(0, 5).join(', ')
+  appendAudit({ actor: session.name, action: `업무 중요도 일괄 변경 → ${level} (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: '자산 대장' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${targets.length}건 업무 중요도 '${level}' 지정 — 취약점 우선순위 스코어링에 반영` }
+}
+
 /** 자산–계약 연계 (제품안내서 §03 구매 계약: 계약–자산 연결) — 자산을 구매·유지보수 계약에 연결하거나 해제한다.
  *  계약의 '연계 자산' 수(contractAssetCount 파생)에 즉시 반영된다. 해지된 계약에는 연계할 수 없다. 자산담당·Admin. */
 export async function setAssetContract(assetNo: string, rawContractId: string) {
