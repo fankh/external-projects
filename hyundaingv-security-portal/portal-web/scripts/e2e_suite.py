@@ -789,6 +789,34 @@ def sc_qna_delete_orphan(pg, base, check):
           '문의 삭제 시 담당의 QnA 답변 할일 마감(영구 고아 방지)')
 
 
+def sc_education_todo_exact(pg, base, check):
+    """교육 이수 할일 앵커드-클로즈(v1.5.19x) — 명단 등록이 '해당 과정' 할일만 닫는다. 과정명이 다른 과정
+    할일 제목의 부분문자열이어도('정보보호 교육' ⊂ '상반기 정보보호 교육 이수') 무관한 할일을 오마감하지
+    않는다(기존 includes 부분일치 → 정확 매칭). 콜리전 과정 생성→김현우 명단 등록→김현우 상반기 교육 할일 유지."""
+    login(pg, base, '박정호')  # BIZ_MGR — 교육 과정·명단 관리
+    pg.goto(f'{base}/compliance/education', wait_until='networkidle')
+    # 콜리전 과정 생성: '정보보호 교육'(TD-102 '상반기 정보보호 교육 이수'의 부분문자열), 대상 전임직원
+    add = pg.locator('form:has(input[name="title"])')
+    add.locator('input[name="title"]').fill('정보보호 교육')
+    add.locator('select[name="target"]').select_option('전임직원')
+    add.locator('button:has-text("과정 등록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/compliance/education', wait_until='networkidle')
+    # 새 과정은 unshift 로 목록 최상단 → 첫 명단 폼. 제목이 '정보보호 교육'(상반기 아님)인지 확인 후 김현우 등록.
+    card = pg.locator('.card', has_text='결과 · 명단 등록')
+    course_form = card.locator('form').first
+    ftext = course_form.inner_text()
+    check('정보보호 교육' in ftext and '상반기' not in ftext, f'전제: 새 콜리전 과정 명단 폼 최상단 ({ftext.strip()[:24]})')
+    course_form.locator('input[name="names"][value="김현우"]').check()
+    course_form.locator('button:has-text("명단 등록")').click()
+    pg.wait_for_load_state('networkidle')
+    # 김현우 My Work 에 '상반기 정보보호 교육 이수' 할일 유지(부분일치 오마감 아님)
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('상반기 정보보호 교육' in pg.locator('.card', has_text='미처리 할일').inner_text(),
+          '콜리전 과정 이수가 상반기 교육 할일을 오마감하지 않음(앵커드-클로즈)')
+
+
 def sc_autoform_upload_defeat(pg, base, check):
     """필수 자동양식 파일명충돌 우회(v1.5.91) — registerGenerated 중복판정이 '양식이름_v버전_' 접두 startsWith
     로만 비교해, 사용자 업로드(registerUpload)가 우연/고의로 같은 접두 파일명을 가지면(submitResult 는 업로드
@@ -2098,6 +2126,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
     ('qna_loop', 'QnA 폐쇄 루프 — 담당 지정 할일 생성·답변 시 마감', sc_qna_loop, {}),
     ('qna_delete_orphan', 'QnA 삭제 고아 방지 — 삭제 시 담당 답변 할일 마감', sc_qna_delete_orphan, {}),
+    ('education_todo_exact', '교육 이수 할일 앵커드-클로즈 — 부분일치 과정명 오마감 방지', sc_education_todo_exact, {}),
     ('sr_suspend', 'SR 중지(BA030014) — 지연 제외·재개 복원', sc_sr_suspend,
      {'PORTAL_DATA_FILE': str(SRSUSP_DATA)}),
     ('sr_suspend_strand', 'SR 중지-변경 고착 방어 — 진행 중 변경 편입 SR 중지 차단', sc_sr_suspend_strand, {}),
