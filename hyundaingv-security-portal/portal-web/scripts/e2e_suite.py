@@ -38,6 +38,7 @@ NCRASH_DATA = ROOT / 'scripts' / '.e2e-ncrash-data.json'  # 알림 배치 손상
 APPLY_DATA = ROOT / 'scripts' / '.e2e-apply-data.json'  # 적용요청 상신 교차-기안자 고아 할일 회귀용 (v1.5.60)
 INSP_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-insporphan-data.json'  # 점검결과 재상신 교차-상신자 고아 할일 회귀용 (v1.5.79)
 CHST_DATA = ROOT / 'scripts' / '.e2e-chst-data.json'  # channelStates 비불리언 값 검증 회귀용 (v1.5.80)
+PROFISO_DATA = ROOT / 'scripts' / '.e2e-profiso-data.json'  # 프로필 스탬프 데이터 격리 회귀용 (v1.5.188)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -559,6 +560,18 @@ def sc_channelstate_corrupt(pg, base, check):
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
     check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
+
+
+def sc_profile_data_isolation(pg, base, check):
+    """프로필 데이터 격리(v1.5.188, AD-7) — 한 PORTAL_DATA_FILE 을 PORTAL_PROFILE 전환에 재사용해도 프로필
+    스코프 런타임 설정(채널 가동상태·메뉴권한 오버레이)이 새지 않는다. 파일이 'manufacturer' 스탬프 +
+    security-db 강제 가동(true)인데 default 프로필로 기동하면, 스탬프 불일치라 채널상태를 default 시드로
+    리셋해 security-db 는 기본(off)으로 돌아간다(활성 4/5). 도메인 데이터는 보존."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    stats = pg.locator('.stat-row').first.inner_text()
+    check('4/5' in stats and '5/5' not in stats,
+          f'프로필 스탬프 불일치 → 채널상태 시드 리셋(security-db 강제가동 무시, 활성 4/5) (실제 {stats.strip()[:32]})')
 
 
 def sc_remote_cycle_config(pg, base, check):
@@ -2032,6 +2045,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(INSP_ORPHAN_DATA)}),
     ('channelstate_corrupt', 'channelStates 비불리언 값 검증 — 중지 채널 오활성 방지', sc_channelstate_corrupt,
      {'PORTAL_DATA_FILE': str(CHST_DATA)}),
+    ('profile_data_isolation', '프로필 데이터 격리 — PORTAL_DATA_FILE 재사용 시 채널·메뉴 오버레이 누수 차단',
+     sc_profile_data_isolation, {'PORTAL_DATA_FILE': str(PROFISO_DATA)}),
     ('rotating_resign_orphan', '회전 문서 교차-재상신자 고아 할일 마감', sc_rotating_resign_orphan,
      {'PORTAL_DATA_FILE': str(ROT_ORPHAN_DATA)}),
     ('rotating_fresh_no_overclose', '회전문서 신규 상신 과다마감 방지 — 항목 재포함시에만 마감', sc_rotating_fresh_no_overclose,
@@ -2300,6 +2315,8 @@ def main() -> int:
                    'title': '[점검결과 상신] IS-2026-9001 반려 — 보완 후 재상신 (사유: 보완요망)'}],
     }, ensure_ascii=False), encoding='utf-8')
     CHST_DATA.write_text(json.dumps({'channelStates': {'security-db': {}}}, ensure_ascii=False), encoding='utf-8')
+    # 프로필 스탬프 불일치 — 'manufacturer' 로 저장된 파일(security-db 강제 가동)을 default 프로필로 로드
+    PROFISO_DATA.write_text(json.dumps({'__profileStamp': 'manufacturer', 'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
     SECBAD_DATA.write_text(json.dumps({'channelStates': {'security-db': True}}, ensure_ascii=False), encoding='utf-8')
     DPLGRESIGN_DATA.write_text(json.dumps({
         'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
