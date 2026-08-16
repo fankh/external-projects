@@ -35,7 +35,15 @@ async function assign(formData: FormData) {
   // role !== 'USER' 로 두면 DEPT_MGR 도 지정되나 DEPT_MGR 은 답변 폼이 없어 지정이 막다른 길이 된다(게이트 불일치).
   if (!q || !ACCOUNTS.some((a) => a.name === assignee && (a.role === 'BIZ_MGR' || a.role === 'ADMIN'))) return
   q.assignee = assignee
-  revalidatePath('/board/qna')
+  // 폐쇄 루프 — 담당 지정 시 답변 할일 생성(재지정이면 이전 담당 할일 닫고 새로 발급). 답변 완료로 닫힌다.
+  for (const t of s.todos) {
+    if (!t.done && t.kind === 'QnA' && t.title.startsWith(`${id} `)) t.done = true
+  }
+  s.todos.unshift({
+    id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
+    owner: assignee, kind: 'QnA', title: `${id} 답변`, dueDate: today(), done: false,
+  })
+  revalidatePath('/', 'layout')
 }
 
 async function answer(formData: FormData) {
@@ -50,7 +58,11 @@ async function answer(formData: FormData) {
   q.answer = body
   q.answeredBy = me.name
   q.answeredAt = today()
-  revalidatePath('/board/qna')
+  // 폐쇄 루프 — 답변 완료 시 담당의 QnA 할일을 닫는다(id 선두 고정, 다른 관리자가 답변해도 닫힘).
+  for (const t of s.todos) {
+    if (!t.done && t.kind === 'QnA' && t.title.startsWith(`${id} `)) t.done = true
+  }
+  revalidatePath('/', 'layout')
 }
 
 /** 문의 삭제 — 미답변 건의 작성자 본인, 또는 Admin (요구사항 6행 삭제 ◎). 첨부도 함께 정리한다 */
