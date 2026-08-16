@@ -43,7 +43,10 @@ export interface IncidentMonthStat {
 export function monthlyIncidentStats(s: Store): { grades: string[]; months: IncidentMonthStat[] } {
   const codeGrades = (s.codeGroups.find((g) => g.id === 'FAULT_GRADE')?.values ?? []).map((v) => v.code)
   const grades = [...new Set<string>([...codeGrades, ...s.incidents.map((i) => i.grade)])]
-  const months = [...new Set(s.incidents.map((i) => String(i.occurredAt ?? '').slice(0, 7)))].sort().reverse().map((month) => {
+  // 무효월(손상·누락 occurredAt 의 '' 또는 부분값) 제외 — '' 는 startsWith('') 가 전건 매칭해 '' 월 행이
+  // 전체 장애를 중복 집계하고, 부분값('2026')은 과대 매칭한다. 유효한 YYYY-MM 만 월 버킷으로 삼는다.
+  const months = [...new Set(s.incidents.map((i) => String(i.occurredAt ?? '').slice(0, 7)))]
+    .filter((month) => /^\d{4}-\d{2}$/.test(month)).sort().reverse().map((month) => {
     const rows = s.incidents.filter((i) => String(i.occurredAt ?? '').startsWith(month))
     const byGrade: Record<string, number> = {}
     for (const g of grades) byGrade[g] = rows.filter((i) => i.grade === g).length
