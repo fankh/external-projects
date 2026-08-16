@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelLoanExtension, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { cancelLoanExtension, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -164,6 +164,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     const r = await scheduleMaintenanceMany([...checked], bulkMaintDate)
     setBulkMsg(r.message)
     if (r.ok) { setChecked(new Set()); setBulkMaintDate('') }
+  })
+  // 계약 일괄 연계 — HW 유지보수·구매 계약이 다수 자산을 덮을 때 선택분을 한 계약에 한 번에 연계
+  const [bulkContract, setBulkContract] = useState('')
+  const bulkLinkContract = () => startTransition(async () => {
+    const r = await setAssetContractMany([...checked], bulkContract)
+    setBulkMsg(r.message)
+    if (r.ok) { setChecked(new Set()); setBulkContract('') }
   })
   const exportHref = `/api/export/assets?nos=${encodeURIComponent([...checked].join(','))}`
 
@@ -321,6 +328,17 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   onChange={(e) => setBulkMaintDate(e.target.value)} title="선택 자산에 예방 정비 예정일을 일괄 등록" />
                 <button className="btn sm" disabled={pending || !bulkMaintDate} onClick={bulkSchedule}>예약</button>
               </span>
+              {props.contracts && props.contracts.length > 0 && (
+                <span className="hstack" style={{ gap: 6 }}>
+                  <span className="mut" style={{ fontSize: 12 }}>계약 일괄 연계</span>
+                  <select className="input" style={{ height: 28, maxWidth: 220 }} value={bulkContract} disabled={pending}
+                    onChange={(e) => setBulkContract(e.target.value)} title="선택 자산을 한 계약에 일괄 연계 (HW 유지보수 등 다수 자산 계약)">
+                    <option value="">계약 선택…</option>
+                    {props.contracts.map((c) => <option key={c.id} value={c.id}>{c.id} · {c.name}</option>)}
+                  </select>
+                  <button className="btn sm" disabled={pending || !bulkContract} onClick={bulkLinkContract}>연계</button>
+                </span>
+              )}
               <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
             </>
           ) : null}
