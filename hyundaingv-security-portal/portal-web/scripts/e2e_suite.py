@@ -707,6 +707,40 @@ def sc_qna_assign_role(pg, base, check):
     check('박정호' in names or '시스템관리자' in names, '답변 가능 역할(BIZ_MGR/ADMIN)은 지정 대상 포함(거짓통과 방지)')
 
 
+def sc_qna_loop(pg, base, check):
+    """QnA 폐쇄 루프(v1.5.184~) — 담당 지정 시 답변 할일 생성, 답변 완료 시 마감(그간 유일하게 폐쇄 루프가
+    없던 워크플로). 김현우(USER) 문의 등록 → 박정호(BIZ_MGR) 자기 담당 지정 → 박정호 My Work 미처리에
+    QnA 답변 할일 → 답변 → 할일 마감(미처리에서 제거)."""
+    title = 'E2E 폐쇄루프 문의'
+    # 1) USER 문의 등록
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    pg.locator('input[name=title]').first.fill(title)
+    pg.locator('select[name=domain]').first.select_option(index=0)
+    pg.locator('button:has-text("등록")').first.click()
+    pg.wait_for_selector(f'tr:has-text("{title}")', timeout=10000)
+    # 2) BIZ_MGR 담당 지정(박정호 자기 자신)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    row = pg.locator('tr', has_text=title).first
+    row.locator('select[name=assignee]').select_option('박정호')
+    row.locator('button:has-text("담당 지정")').click()
+    pg.wait_for_load_state('networkidle')
+    # 3) My Work 미처리에 QnA 답변 할일
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('QnA' in pg.locator('.card', has_text='미처리 할일').inner_text(),
+          '담당 지정 → QnA 답변 할일 미처리에 생성')
+    # 4) 답변 → 할일 마감
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
+    row = pg.locator('tr', has_text=title).first
+    row.locator('input[name=answer]').fill('E2E 답변 내용')
+    row.locator('button:has-text("답변")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('QnA' not in pg.locator('.card', has_text='미처리 할일').inner_text(),
+          '답변 완료 → QnA 할일 미처리에서 마감(폐쇄 루프)')
+
+
 def sc_autoform_upload_defeat(pg, base, check):
     """필수 자동양식 파일명충돌 우회(v1.5.91) — registerGenerated 중복판정이 '양식이름_v버전_' 접두 startsWith
     로만 비교해, 사용자 업로드(registerUpload)가 우연/고의로 같은 접두 파일명을 가지면(submitResult 는 업로드
@@ -2012,6 +2046,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(AFDEFEAT_DATA)}),
     ('qna_assign_role', 'QnA 담당 지정 역할 정합 — 답변 가능 역할만', sc_qna_assign_role,
      {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
+    ('qna_loop', 'QnA 폐쇄 루프 — 담당 지정 할일 생성·답변 시 마감', sc_qna_loop, {}),
     ('sr_suspend', 'SR 중지(BA030014) — 지연 제외·재개 복원', sc_sr_suspend,
      {'PORTAL_DATA_FILE': str(SRSUSP_DATA)}),
     ('sr_suspend_strand', 'SR 중지-변경 고착 방어 — 진행 중 변경 편입 SR 중지 차단', sc_sr_suspend_strand, {}),
