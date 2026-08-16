@@ -1,6 +1,6 @@
 ﻿# Seekurity SIEM v3 오프라인 설치 가이드
 
-> **버전**: 6.8 | **작성일**: 2026-02-21 | **대상 OS**: Rocky Linux 9.x / RHEL 9.x
+> **버전**: 6.9 | **작성일**: 2026-08-16 | **대상 OS**: Rocky Linux 9.x / RHEL 9.x
 
 ---
 
@@ -766,6 +766,40 @@ sudo ./install.sh
 | Phase 10 | 서비스 시작, Kafka 토픽, OpenSearch 인덱스 생성 |
 | Phase 11 | 검증 |
 
+### 3.4 라이선스 설치 (MANDATORY)
+
+> ⚠️ **라이선스 파일이 없거나 유효하지 않으면 웹 콘솔 로그인이 차단됩니다** (`LICENSE_EXPIRED` 응답).
+> install.sh 실행 후 반드시 고객사별 라이선스 파일을 설치해야 합니다.
+
+라이선스 파일(`license.json`)은 Seekerslab이 고객사별로 발급하는 RSA SHA256 서명 파일입니다. 임의 수정 시 서명 검증에 실패하여 무효 처리됩니다.
+
+```bash
+# 1. 고객사 라이선스 파일을 서버로 전송 (예: <고객사>_license.json)
+scp <고객사>_license.json engineer@<server-ip>:~/
+
+# 2. 표준 경로에 배치 (경로/파일명 고정)
+sudo cp ~/<고객사>_license.json /opt/seekurity-siem/conf/license.json
+sudo chown seekurity:seekurity /opt/seekurity-siem/conf/license.json
+sudo chmod 640 /opt/seekurity-siem/conf/license.json
+
+# 3. 라이선스 재로드 (ss-api 재시작 불필요)
+curl -s -X POST http://localhost:23001/license/reload
+# 응답 data가 "VALID"이면 정상
+
+# 4. 상태 확인 (인증 불필요)
+curl -s http://localhost:23001/license/status
+# "status":"VALID", 고객사명/만료일/최대 로그 소스 확인
+```
+
+| 라이선스 상태 | 의미 | 로그인 |
+|---------------|------|--------|
+| `VALID` | 유효 | ✅ 가능 |
+| `GRACE` | 만료 후 유예 기간 (30일) | ✅ 가능 (콘솔에 경고 표시) |
+| `EXPIRED` | 유예 기간 경과 | ❌ 차단 |
+| `INVALID` | 파일 없음 / 서명 검증 실패(변조) | ❌ 차단 |
+
+**운영 중 라이선스 갱신**: 웹 콘솔의 라이선스 관리 화면에서 새 파일 업로드(`POST /license/upload`, 업로드 이력이 `license_histories`에 기록됨) 또는 위 파일 교체 + reload 절차 사용.
+
 ---
 
 ## 4. 설치 후 디렉토리 구조
@@ -789,7 +823,8 @@ sudo ./install.sh
 ├── conf/                   # 설정 파일
 │   ├── ss-api.yml
 │   ├── log-stream.yml
-│   └── database-checker.yml
+│   ├── database-checker.yml
+│   └── license.json        # 라이선스 파일 (고객사별 발급, 3.4절 참조)
 ├── data/                   # 데이터 저장소
 │   └── reports/            # 생성된 리포트 파일
 │       ├── weekly/         # 주간 리포트 (PDF, XLSX)
@@ -873,6 +908,15 @@ ss -tlnp | grep -E '23001|23002|443'
 curl -k https://localhost/auth/login | grep -c Seekurity
 # 브라우저: https://<server-ip>/
 ```
+
+### 6.4 라이선스 상태
+
+```bash
+curl -s http://localhost:23001/license/status
+# "status":"VALID" 확인 — INVALID면 3.4절 라이선스 설치 수행
+```
+
+> 라이선스가 `INVALID`/`EXPIRED`이면 웹 로그인이 차단되므로, 로그인 테스트 전에 반드시 확인합니다.
 
 ---
 
@@ -1893,6 +1937,7 @@ sudo systemctl restart ss-api ss-log-stream ss-database-checker
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 6.9 | 2026-08-16 | 라이선스 설치 절차 추가 (3.4절): license.json 배치/재로드/상태 확인, 라이선스 상태별 로그인 동작, 설치 확인에 라이선스 점검(6.4절) 추가 |
 | 6.8 | 2026-02-21 | 콘솔 경로 수정: `/opt/seekurity-siem/bin/ss-console` → `/opt/seekurity-siem/console`, DB 스키마 로딩 오류 처리 개선 (ON_ERROR_STOP=0), 재설치 시 기존 객체 스킵 |
 | 6.7 | 2026-02-19 | 로그 로테이션 및 디스크 관리 섹션 추가: ss-syslog-receiver 로그 무한 증가 문제 해결, systemd StandardOutput=null 설정, logback 롤링 설정 설명, 디스크 긴급 복구 절차 |
 | 6.6 | 2026-02-18 | 폐쇄망 트러블슈팅 보강: 모든 SIEM 설정 파일 비밀번호 동기화, 로그인 실패(404/400) 해결, SSS-88 loginId 필드 설명 |
