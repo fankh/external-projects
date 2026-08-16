@@ -26,3 +26,28 @@ export function computeInfraHealth(s: Store): InfraHealth {
     diskWarns: s.servers.filter((v) => v.diskUsedPct > DISK_WARN).length,
   }
 }
+
+export interface IncidentMonthStat {
+  /** 발생월 YYYY-MM */
+  month: string
+  /** 등급별 건수 (grades 순) */
+  byGrade: Record<string, number>
+  /** 월 전체 */
+  total: number
+  /** 월 조치완료 */
+  resolved: number
+}
+
+/** 월별 장애 통계 — 발생월 × 등급 집계(제품안내서 III장 주기별 통계). 화면 통계표와 export 가 같은 술어를
+ *  공유한다. grades 는 공통코드(FAULT_GRADE) + 실제 등장 등급의 합집합, months 는 최신월 우선. */
+export function monthlyIncidentStats(s: Store): { grades: string[]; months: IncidentMonthStat[] } {
+  const codeGrades = (s.codeGroups.find((g) => g.id === 'FAULT_GRADE')?.values ?? []).map((v) => v.code)
+  const grades = [...new Set<string>([...codeGrades, ...s.incidents.map((i) => i.grade)])]
+  const months = [...new Set(s.incidents.map((i) => String(i.occurredAt ?? '').slice(0, 7)))].sort().reverse().map((month) => {
+    const rows = s.incidents.filter((i) => String(i.occurredAt ?? '').startsWith(month))
+    const byGrade: Record<string, number> = {}
+    for (const g of grades) byGrade[g] = rows.filter((i) => i.grade === g).length
+    return { month, byGrade, total: rows.length, resolved: rows.filter((i) => i.status === '조치완료').length }
+  })
+  return { grades, months }
+}
