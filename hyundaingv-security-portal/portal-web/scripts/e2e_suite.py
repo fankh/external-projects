@@ -603,6 +603,32 @@ def sc_sr_suspend(pg, base, check):
     check('중지테스트SR' not in pg.content(), '중지 SR 은 지연 목록에서 제외(BA030014 반영 안함)')
 
 
+def sc_sr_suspend_strand(pg, base, check):
+    """SR 중지-변경 고착 방어(v1.5.179) — 적용요청 SR 이 진행 중 변경(비-최종완료)에 편입되면 중지 금지.
+    편입 SR 을 중지하면 변경결과 승인 전파(sr.status==='적용요청' 요구)가 '중지' 때문에 누락돼 SR 이 적용요청에
+    영구 고착되고 변경만 최종완료로 남는 결함이 있었다(변경 approval 은 cw.id 로 키잉돼 srNo 대기 가드에 안
+    걸림). 시드 SR-2026-0132(시스템개발·적용요청) → 변경 편입 → 중지 시도 차단 검증."""
+    login(pg, base, '박정호')  # BIZ_MGR — SR·변경 관리 권한
+    title = '구매 발주 승인 프로세스 변경'
+    # 적용요청 SR 을 변경 작업으로 편입(비-최종완료 변경 생성)
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    pg.select_option('select[name=srNo]', value='SR-2026-0132')
+    pg.click('button:has-text("변경 작업 편입")')
+    pg.wait_for_load_state('networkidle')
+    check(title in pg.locator('.card', has_text='변경 작업').inner_text() or title in pg.content(),
+          '전제: 적용요청 SR 이 변경 작업으로 편입됨(비-최종완료)')
+    # SR 관리에서 중지 시도 → 차단(적용요청 유지, 재개 버튼 없음)
+    pg.goto(f'{base}/sr/manage', wait_until='networkidle')
+    row = pg.locator('tr', has_text=title)
+    check('중지' in row.inner_text(), '전제: 적용요청 SR 은 SUSPENDABLE 이라 중지 버튼 노출')
+    row.locator('button:has-text("중지")').first.click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/sr/manage', wait_until='networkidle')
+    txt = pg.locator('tr', has_text=title).inner_text()
+    check('적용요청' in txt and '재개' not in txt,
+          f'진행 중 변경 편입 SR 중지 차단 — 적용요청 유지·재개 버튼 없음 (실제 …{txt[-24:]})')
+
+
 def sc_security_review(pg, base, check):
     """보안성 검토(VI장) + 심각도 등급(v1.5.127~) — 등급별(심각/높음/보통/낮음) 발견·조치를 기록하고, 발견 전건
     조치 후에만 완료 확정(미조치 잔여 시 완료 가드·감사 무결성). 고위험(심각+높음) 미조치가 우선 신호.
@@ -1989,6 +2015,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
     ('sr_suspend', 'SR 중지(BA030014) — 지연 제외·재개 복원', sc_sr_suspend,
      {'PORTAL_DATA_FILE': str(SRSUSP_DATA)}),
+    ('sr_suspend_strand', 'SR 중지-변경 고착 방어 — 진행 중 변경 편입 SR 중지 차단', sc_sr_suspend_strand, {}),
     ('security_review', '보안성 검토(VI장) — 완료 가드(발견 전건 조치)·조치율', sc_security_review, {}),
     ('compliance_trend', '컴플라이언스 추세 스냅샷 — 개선 델타·기록 감사', sc_compliance_trend, {}),
     ('delayed_corrupt_date', '손상 날짜 일수계산 NaN 렌더 방지 — daysBetween 유한 가드', sc_delayed_corrupt_date,
