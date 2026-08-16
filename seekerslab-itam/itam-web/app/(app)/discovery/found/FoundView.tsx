@@ -4,7 +4,7 @@ import { Chip, RiskChip } from '@/components/ui'
 import { classifyDiscoveredType } from '@/lib/classify'
 import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState, RiskLevel } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
-import { confirmReconcile, dismissDiscovered, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestOwnerConfirmMany, requestQuarantine, undismissDiscovered } from '../actions'
+import { confirmReconcile, dismissDiscovered, dismissDiscoveredMany, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestOwnerConfirmMany, requestQuarantine, undismissDiscovered } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
@@ -50,6 +50,13 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
     const r = await requestOwnerConfirmMany([...checked])
     setMsg(r.message)
     if (r.ok) setChecked(new Set())
+  })
+  // 관리 제외 일괄 — 협력사 장비·게스트 단말 등 알려진 비자산을 같은 사유로 한 번에 미등록 갭에서 뺀다(사유 필수)
+  const [bulkDismissReason, setBulkDismissReason] = useState('')
+  const bulkDismiss = () => startTransition(async () => {
+    const r = await dismissDiscoveredMany([...checked], bulkDismissReason)
+    setMsg(r.message)
+    if (r.ok) { setChecked(new Set()); setBulkDismissReason('') }
   })
 
   // 채널별 관측을 발견 자산에 묶어 둔다 — 필터·상세 패널이 함께 쓴다
@@ -99,6 +106,12 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
           <button className="btn sm pri" disabled={pending || checked.size === 0} onClick={bulkOnboard}>
             선택 일괄 편입 요청 ({checked.size})
           </button>
+          {checked.size > 0 && (
+            <span className="hstack" style={{ gap: 4 }}>
+              <input className="input" style={{ height: 28, width: 150 }} placeholder="관리 제외 사유" value={bulkDismissReason} disabled={pending} onChange={(e) => setBulkDismissReason(e.target.value)} title="협력사 장비·게스트 단말 등 비자산을 같은 사유로 일괄 관리 제외(사유 필수)" />
+              <button className="btn sm ghost" disabled={pending || !bulkDismissReason.trim()} onClick={bulkDismiss}>일괄 관리 제외 ({checked.size})</button>
+            </span>
+          )}
         </span>
       </div>
       <div className="qbar" style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>

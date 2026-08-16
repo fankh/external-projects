@@ -125,6 +125,26 @@ export async function dismissDiscovered(discoveredId: string, rawReason: string)
   return { ok: true, message: `${d.id} 관리 제외 — 미등록 갭에서 제외 (사유: ${reason})` }
 }
 
+/** 관리 제외 일괄 — 스캔이 협력사 장비·게스트 단말 등 알려진 비자산을 다수 올리면 같은 사유로 한 번에 관리 제외한다(편입·소유자 확인 일괄 요청과 함께 발견 트리아지 3종 완결).
+ *  건별 로직은 dismissDiscovered 와 동일하고 감사만 일괄로 남긴다. 미등록·미처리 건만 대상(멱등). USER 제외. */
+export async function dismissDiscoveredMany(ids: string[], rawReason: string) {
+  const session = await getSession()
+  if (!session || session.role === 'USER') return { ok: false, message: '관리 제외 권한이 없습니다.' }
+  const reason = rawReason.trim()
+  if (!reason) return { ok: false, message: '관리 제외 사유를 입력하세요 (비자산 판정 근거).' }
+  const s = getStore()
+  const targets = s.discovered.filter((d) => ids.includes(d.id) && !d.action && d.state === '미등록')
+  if (targets.length === 0) return { ok: false, message: '관리 제외할 대상이 없습니다 (미등록·미처리 건만 대상).' }
+  for (const d of targets) {
+    d.action = '관리 제외'
+    d.note = `관리 제외 (${reason}) — ${session.name} · ${today()}`
+  }
+  const names = targets.map((d) => d.hostname).slice(0, 5).join(', ')
+  appendAudit({ actor: session.name, action: `발견 자산 관리 제외 일괄 (${targets.length}건 · ${reason}) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: 'Discovery' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${targets.length}건 관리 제외 — 미등록 갭에서 제외 (사유: ${reason})` }
+}
+
 /** 관리 제외 해제 — 잘못 제외한 발견 건을 다시 미등록·미처리로 되돌려 편입/격리/확인 대상으로 복귀시킨다. USER 제외. */
 export async function undismissDiscovered(discoveredId: string) {
   const session = await getSession()
