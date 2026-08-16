@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelFault, cancelLoanExtension, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
+import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -842,10 +842,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <>
                     <b>정기 점검 예정 {sel.maintenanceDue}{props.today && sel.maintenanceDue < props.today ? ' (경과)' : ''}.</b> 예방 정비 대상 자산입니다.
                     {!maintOpen ? (
-                      <div style={{ marginTop: 8 }}>
+                      <div className="hstack" style={{ marginTop: 8, gap: 6 }}>
                         <button className="btn sm pri" disabled={pending}
                           onClick={() => { setMaintOpen(true); setMaintNote(''); setMaintMsg(null) }}
                           title="예방 정비를 시행하고 다음 점검을 재예약">정기 점검 완료</button>
+                        <button className="btn sm ghost" disabled={pending}
+                          onClick={() => startTransition(async () => { const r = await cancelMaintenanceSchedule(sel.assetNo); setMaintMsg(r.message) })}
+                          title="잘못 잡은 예약을 완료 처리 없이 해제 — 가짜 점검 이력을 남기지 않고 정비 사이클에서 제외">예약 취소</button>
                       </div>
                     ) : (
                       <div className="vstack" style={{ gap: 8, marginTop: 8 }}>
