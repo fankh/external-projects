@@ -57,8 +57,7 @@ export function ConnectorTable({ integrations, canManage }: { integrations: Inte
       </div>
       <div className="callout" style={{ margin: 14 }}>
         <b>발견과 조치의 양방향 연동.</b> NAC에서 자산 정보를 수집하고, 판정 결과를 다시 NAC 격리로 되돌려
-        보내는 폐쇄 루프로 연동합니다. 신규 에이전트 배포 없이 이미 보유한 시스템의 API·로그를 커넥터로 연결해
-        도입 초기부터 발견과 조치를 함께 운영할 수 있습니다.
+        보내는 폐쇄 루프로 연동합니다. 이미 보유한 시스템의 API·로그를 커넥터로 연결하며, 신규 에이전트 배포는 필요 없습니다.
         {canManage && <><br /><b>연결 테스트</b>는 지연·오류·미연동 커넥터를 재연동하고 최근 수집 시각을 갱신하며, 그 사실은 아래 감사 로그에 남습니다.</>}
       </div>
     </>
