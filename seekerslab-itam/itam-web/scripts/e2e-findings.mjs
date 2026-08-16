@@ -488,6 +488,35 @@ try {
     await page.waitForTimeout(700)
   }
 
+  // 크리덴셜 노출 일괄 대응 — 크리덴셜 스터핑·대량 유출 점검에서 미조치 노출을 같은 표준 조치로 한 번에 처리(단건 반복 방지). PostgreSQL 은 위 단건·재개가 소비하므로 미조치분 HTTP Basic·Redis 선택.
+  {
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const credCard = page.locator('.card', { hasText: '인증 취약점 점검' })
+    await credCard.locator('tr', { hasText: 'HTTP Basic' }).locator('input[type="checkbox"]').check()
+    await credCard.locator('tr', { hasText: 'Redis' }).locator('input[type="checkbox"]').check()
+    await credCard.locator('button', { hasText: /^일괄 대응 \(2\)$/ }).click()
+    await page.waitForTimeout(700)
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const cc = page.locator('.card', { hasText: '인증 취약점 점검' })
+    const hb = (await cc.locator('tr', { hasText: 'HTTP Basic' }).first().textContent()) || ''
+    const rd = (await cc.locator('tr', { hasText: 'Redis' }).first().textContent()) || ''
+    ok('크리덴셜 노출 일괄 대응: 선택 2건 일괄 처리(조치 완료)', hb.includes('조치 완료') && rd.includes('조치 완료'))
+  }
+  // 다크웹 유출 일괄 대응 — 대량 유출 사고에서 미조치 건을 같은 표준 조치로 한 번에 처리. 유출 계정은 위 단건·재개가 소비하므로 미조치분 스틸러 로그·코드 저장소 시크릿 선택.
+  {
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const leakCard2 = page.locator('.card', { hasText: '유출 수집' })
+    await leakCard2.locator('tr', { hasText: '스틸러 로그' }).locator('input[type="checkbox"]').check()
+    await leakCard2.locator('tr', { hasText: '코드 저장소 시크릿' }).locator('input[type="checkbox"]').check()
+    await leakCard2.locator('button', { hasText: /^일괄 대응 \(2\)$/ }).click()
+    await page.waitForTimeout(700)
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const lc = page.locator('.card', { hasText: '유출 수집' })
+    const stl = (await lc.locator('tr', { hasText: '스틸러 로그' }).first().textContent()) || ''
+    const sk = (await lc.locator('tr', { hasText: '코드 저장소 시크릿' }).first().textContent()) || ''
+    ok('다크웹 유출 일괄 대응: 선택 2건 일괄 처리(조치 완료)', stl.includes('조치 완료') && sk.includes('조치 완료'))
+  }
+
   // 감사 로그 적재 확인 — 조치가 감사에 남는지
   await page.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const audit = await page.textContent('body')

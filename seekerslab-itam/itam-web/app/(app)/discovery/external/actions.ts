@@ -53,6 +53,30 @@ export async function reopenLeak(leakId: string) {
   return { ok: true, message: `${leak.kind} 대응 취소 — 미조치로 복귀(대응 대상)` }
 }
 
+/** 유출 일괄 대응 — 대량 유출 사고(다크웹 덤프 등)에서 다수 미조치 건에 같은 표준 조치를 한 번에 적용한다.
+ *  건별 로직은 respondToLeak 과 동일하고 감사만 일괄로 남긴다. 이미 조치 완료된 건은 건너뛴다(멱등). 보안담당·Admin. */
+export async function respondToLeakMany(ids: string[], note: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '유출 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const action = note.trim()
+  if (!action) return { ok: false, message: '대응 조치 내용을 입력하세요.' }
+  const s = getStore()
+  const targets = s.leaks.filter((l) => ids.includes(l.id) && l.status !== '조치 완료')
+  if (targets.length === 0) return { ok: false, message: '대응할 유출 건이 없습니다 (이미 조치 완료된 건 제외).' }
+  for (const leak of targets) {
+    leak.status = '조치 완료'
+    leak.response = action
+    leak.respondedBy = session.name
+    leak.respondedAt = today()
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `유출 대응 조치 — ${leak.kind}: ${action}`, kind: '위협 대응', ref: leak.id })
+  }
+  appendAudit({ actor: session.name, action: `유출 일괄 대응 (${targets.length}건) — ${action}`, target: '다크웹 유출' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `유출 ${targets.length}건 대응 완료 — 보안운영팀 통지·감사 기록 적재` }
+}
+
 /** 크리덴셜 노출 대응 조치 — 인증 취약점 점검(기본·취약 크리덴셜)에서 끝내지 않고 보안 대응까지 이어간다.
  *  (제품안내서 §04 인증 취약점 점검 — 산출: 취약·기본 크리덴셜 노출) 대응은 보안 업무이므로 보안담당·Admin 만.
  *  조치 사실은 보안운영팀 앞 통지 + 감사 로그에 남는다. 유출 대응(respondToLeak)과 동형. */
@@ -98,6 +122,30 @@ export async function reopenCredential(credId: string) {
   appendAudit({ actor: session.name, action: `크리덴셜 노출 대응 취소(재개) — ${cred.service} ${cred.host}${prior ? ` (이전 조치: ${prior})` : ''}`, target: cred.id })
   revalidatePath('/', 'layout')
   return { ok: true, message: `${cred.service} ${cred.host} 크리덴셜 대응 취소 — 미조치로 복귀(대응 대상)` }
+}
+
+/** 크리덴셜 노출 일괄 대응 — 크리덴셜 스터핑·대량 유출 점검에서 다수 미조치 건에 같은 표준 조치(계정 재설정·세션 무효화 등)를 한 번에 적용한다.
+ *  건별 로직은 respondToCredential 과 동일하고 감사만 일괄로 남긴다. 이미 조치 완료된 건은 건너뛴다(멱등). 보안담당·Admin. */
+export async function respondToCredentialMany(ids: string[], note: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '크리덴셜 노출 대응 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const action = note.trim()
+  if (!action) return { ok: false, message: '대응 조치 내용을 입력하세요.' }
+  const s = getStore()
+  const targets = s.credentials.filter((c) => ids.includes(c.id) && c.status !== '조치 완료')
+  if (targets.length === 0) return { ok: false, message: '대응할 크리덴셜 노출 건이 없습니다 (이미 조치 완료된 건 제외).' }
+  for (const cred of targets) {
+    cred.status = '조치 완료'
+    cred.response = action
+    cred.respondedBy = session.name
+    cred.respondedAt = today()
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `크리덴셜 노출 대응 — ${cred.service} ${cred.host}: ${action}`, kind: '위협 대응', ref: cred.id })
+  }
+  appendAudit({ actor: session.name, action: `크리덴셜 노출 일괄 대응 (${targets.length}건) — ${action}`, target: '크리덴셜 노출' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `크리덴셜 ${targets.length}건 대응 완료 — 보안운영팀 통지·감사 기록 적재` }
 }
 
 /** 위협 인텔 IOC 조치 — IOC 상관(악성 통신·감염 징후)에서 끝내지 않고 차단(프록시·방화벽·EDR) 또는 조사 착수(침해 대응)까지 이어간다.
