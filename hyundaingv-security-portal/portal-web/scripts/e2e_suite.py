@@ -2218,6 +2218,15 @@ def sc_infra_rollback_plan(pg, base, check):
     pg.wait_for_selector('tr:has-text("E2E 롤백 변경작업")', timeout=10000)
     nt = pg.locator('tr', has_text='E2E 롤백 변경작업').first.inner_text()
     check('작업계획 엡실론' in nt and '원복계획 제타복구' in nt, '신규 변경 — 작업계획·원복계획 별개 저장·표시')
+    # 이중 등록 방어 — 같은 제목을 다시 등록해도 미상신(작업등록) 중복이 생기지 않는다(더블클릭 대비)
+    card = pg.locator('.card', has_text='인프라변경 등록')
+    card.locator('input[name=title]').fill('E2E 롤백 변경작업')
+    card.locator('input[name=plan]').fill('작업계획 재등록')
+    card.locator('input[name=rollbackPlan]').fill('원복계획 재등록', timeout=8000)
+    card.locator('button:has-text("등록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/infra/changes', wait_until='networkidle')
+    check(pg.locator('tr', has_text='E2E 롤백 변경작업').count() == 1, '이중 등록 방어 — 같은 제목 재등록해도 1건 유지')
 
 
 SCENARIOS = [
