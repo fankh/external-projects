@@ -71,8 +71,8 @@ export default async function InsightsPage() {
       </div>
 
       <div className="callout">
-        <b>제안 → 확인 → 환류 구조.</b> 분류·이상 탐지·예측·우선순위 결과는 판단 근거와 함께 제안으로 표시되고,
-        담당자 확인·결재를 거쳐 반영되며, 승인·반려 결과는 재학습에 사용됩니다.
+        <b>제안 → 확인 → 환류 구조.</b> 분류·이상 탐지·예측·우선순위 결과는 근거와 함께 제안으로만 표시됩니다.
+        담당자 확인·결재를 거쳐야 반영되고, 승인·반려는 재학습에 환류됩니다.
       </div>
 
       <ProposalList insights={s.insights} />

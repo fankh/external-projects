@@ -60,8 +60,8 @@ export default async function LifecyclePage() {
       </div>
 
       <div className="callout">
-        <b>변경 이력 관리.</b> 소유자·위치·구성의 변경은 신청·결재를 통해 반영되어 대장과 실물의 불일치를 줄이고,
-        Discovery 대사 시 기준 데이터로 사용됩니다. 폐기는 결재 상신 → 데이터 소거·불용 처리 → 증적(사진·확인서) 보존 순으로 진행됩니다.
+        <b>변경 이력 관리.</b> 소유자·위치·구성 변경은 신청·결재로만 반영되며, Discovery 대사 시 기준 데이터로 씁니다.
+        폐기는 결재 상신 → 데이터 소거·불용 처리 → 증적(사진·확인서) 보존 순으로 진행됩니다.
       </div>
 
       <Card kicker="Work Queue" title="수명주기 처리 대기열" pad={false}>
