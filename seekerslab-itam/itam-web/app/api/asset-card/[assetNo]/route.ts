@@ -21,6 +21,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ assetNo
   const row = (k: string, v?: string) => (v && v !== '-') ? `<div class="f"><dt>${k}</dt><dd>${esc(v)}</dd></div>` : ''
   const fields = [
     row('유형', a.category), row('시리얼', a.serial), row('상태', a.status),
+    row('업무 중요도', a.criticality ?? '일반'),
     row('소유자', a.owner), row('부서', a.dept), row('위치', a.location),
     row('OS', a.os), row('CPU', a.cpu), row('메모리', a.memory),
     row('IP', a.ip), row('MAC', a.mac),

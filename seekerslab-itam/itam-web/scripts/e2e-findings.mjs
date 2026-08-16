@@ -688,6 +688,9 @@ try {
   const handoverRes = await p2.request.get(`${BASE}/api/handover-sheet/AST-2023-000221`)
   const handoverBody = await handoverRes.text()
   ok('인수인계서: 인계·인수 확인서 렌더(인수자·인수 확인 대기)', handoverRes.status() === 200 && handoverBody.includes('ASSET HANDOVER') && handoverBody.includes('인수 확인 대기'))
+  // 자산 카드(dossier) 업무 중요도 — 화면·반출(중요도)과 정합. 인수·감사 dossier 에 ISO 27001 자산 분류(핵심/중요/일반)가 담긴다.
+  const cardBody = await (await p2.request.get(`${BASE}/api/asset-card/AST-2020-000883`)).text()
+  ok('자산 카드: 업무 중요도(핵심) 표기(화면·반출 정합)', cardBody.includes('업무 중요도') && cardBody.includes('핵심'))
   await recoverBtn.click()
   await p2.waitForTimeout(200)
   await p2.locator('input[placeholder*="회수 사유"]').fill('퇴직 오프보딩')
