@@ -658,6 +658,13 @@ def sc_security_review(pg, base, check):
     row_txt = pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').inner_text()
     check('그룹웨어 웹 취약점 점검' in pg.content(), '전제: 조치중 검토(발견5·조치2)가 목록에 있음')
     check('고위험 2' in row_txt, f'고위험(심각+높음) 미조치 2 마커 표시 (실제 …{row_txt[-24:]})')
+    # export(보안성검토 관리대장)도 화면 우선신호(고위험 미조치)를 담아야 한다 — ISMS 산출물 정합
+    csv_lines = pg.request.get(f'{base}/api/export?type=security-reviews').text().splitlines()
+    hdr = csv_lines[0].lstrip('﻿').split(',') if csv_lines else []
+    sec_row = next((l for l in csv_lines if l.startswith('SEC-2026-02,')), '')
+    idx = hdr.index('고위험 미조치') if '고위험 미조치' in hdr else -1
+    val = sec_row.split(',')[idx].strip() if (idx >= 0 and sec_row) else ''
+    check('고위험 미조치' in hdr and val == '2', f'security-reviews export — 고위험 미조치 열·값(SEC-02=2) 실제:{val}')
     # 미조치 잔여에서 완료 시도 → 가드로 차단(상태 조치중 유지)
     pg.locator('tr', has_text='그룹웨어 웹 취약점 점검').locator('button:has-text("완료")').click()
     pg.wait_for_load_state('networkidle')
