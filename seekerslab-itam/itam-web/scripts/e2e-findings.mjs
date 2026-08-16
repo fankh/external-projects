@@ -1503,6 +1503,14 @@ try {
   ok('데이터 일괄 소거: 선택 소거 대기 건 일괄 소거·처분 완료(건별 확인서)', ((await p3.locator('body').textContent()) || '').includes('건 소거·처분 완료'))
   await p3.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
   ok('데이터 일괄 소거 → 폐기완료·소거 확인서 발급', ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'DSP-03' }) }).first().textContent()) || '').includes('소거 확인서'))
+
+  // 폐기 대상 선정 보유-상태 가드 — 사용중·대여중 등 보유자가 쥔 자산은 회수·반환 전엔 폐기 선정 불가(실물 없이 폐기 방지 · 대여 가드(#149)의 반대편). 사용중 보증 만료 후보 AST-2022-000512 선정 시도 → 건너뜀·사용중 유지.
+  await p3.goto(`${BASE}/assets/disposal`, { waitUntil: 'networkidle' })
+  await p3.locator('input[aria-label="AST-2022-000512 선택"]').check()
+  await p3.locator('button', { hasText: /선택 일괄 대상 선정/ }).click()
+  await p3.waitForTimeout(700)
+  await p3.goto(`${BASE}/assets/register?sel=AST-2022-000512`, { waitUntil: 'networkidle' })
+  ok('폐기 대상 선정 보유-상태 가드: 사용중 자산 폐기 선정 제외(실물 회수 전 폐기 방지)', ((await p3.locator('tr', { has: p3.locator('td', { hasText: 'AST-2022-000512' }) }).first().textContent()) || '').includes('사용중'))
   await ctx3.close()
 
   // ── 자산담당: 장기 유휴 → 폐기 검토 브리지(검출→조치 루프). 상태를 바꾸므로 마지막에 수행. ──
