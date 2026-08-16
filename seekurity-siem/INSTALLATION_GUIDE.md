@@ -1,6 +1,6 @@
 ﻿# Seekurity SIEM v3 오프라인 설치 가이드
 
-> **버전**: 6.9 | **작성일**: 2026-08-16 | **대상 OS**: Rocky Linux 9.x / RHEL 9.x
+> **버전**: 6.10 | **작성일**: 2026-08-16 | **대상 OS**: Rocky Linux 9.x / RHEL 9.x
 
 ---
 
@@ -27,6 +27,27 @@
 ### 오프라인 환경 사전 준비
 
 완전한 인터넷 단절 환경(Air-Gapped)에서 설치하려면 다음이 **사전에 준비**되어야 합니다:
+
+#### 방법 0: 인프라 부트스트랩 스크립트 (권장, v6.10+)
+
+PostgreSQL/Nginx/한글 폰트가 전혀 없는 신규 서버는 패키지에 포함된 `bootstrap-infra.sh`로 자동 구성합니다. 인터넷 없이 동작하며, Kafka/ZooKeeper/OpenSearch는 install.sh가 번들에서 자동 설치하므로 별도 준비가 필요 없습니다.
+
+```bash
+# [1] 인터넷 가능한 동일 OS(Rocky/RHEL 9.x) 머신에서 RPM 수집
+mkdir rpms
+dnf download --resolve --destdir=rpms \
+    postgresql14-server postgresql14 nginx google-noto-sans-cjk-fonts
+# PGDG 저장소 사용 시 pgdg-redhat-repo 활성 상태에서 실행
+
+# [2] rpms/ 디렉터리를 설치 패키지 루트(install.sh 옆)에 복사 후 오프라인 서버로 전송
+
+# [3] 오프라인 서버에서 부트스트랩 → 설치 순서로 실행
+sudo ./bootstrap-infra.sh                              # 기본 PGDATA
+sudo ./bootstrap-infra.sh --pgdata /data/pgsql/14/data # 데이터 볼륨 분리 시
+sudo ./install.sh
+```
+
+부트스트랩이 수행하는 것: 로컬 RPM 설치(저장소 접근 없음) → PGDG `/usr/pgsql-NN/bin` 심링크 → PostgreSQL initdb(포트 15432, 로컬 전용, md5) → 커스텀 PGDATA systemd override → Nginx 활성화 → CJK 폰트 확인.
 
 #### 방법 1: 오프라인 RPM 저장소 구성
 ```bash
@@ -1472,6 +1493,32 @@ sudo -u postgres psql -p 15432 -d siem -f /path/to/007_template_user_separation.
 | 웹 접속 불가 | `nginx -t && systemctl status nginx` |
 | 로그인 후 이동 안됨 | HTTPS 접속 확인, 쿠키 허용 확인 |
 | 서비스 activating 상태 | 로그 확인: `tail -100 /opt/seekurity-siem/logs/ss-*/ss-*.log` |
+
+### SELinux 관련 (Rocky/RHEL Enforcing 환경)
+
+v6.10부터 install.sh가 자동 처리하지만, 수동 설치 또는 기존 설치본에서 아래 증상이 나오면 확인:
+
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| 웹 접속 502 (nginx error.log에 `Permission denied`) | `httpd_can_network_connect` off — nginx가 23001/23002로 연결 불가 | `sudo setsebool -P httpd_can_network_connect on` |
+| ss-console 무한 재시작 (`status=209/STDOUT`) | systemd `StandardOutput=append:`가 /opt(usr_t) 파일에 쓰기 불가 | 유닛의 StandardOutput/StandardError를 `journal`로 변경 후 `daemon-reload` |
+
+### 시드 데이터 검증 실패 (roles=0 / users=0)
+
+v6.10부터 install.sh가 Phase 6에서 검증 후 실패 시 즉시 중단합니다. 발생 시:
+
+```bash
+# 1. 설치 로그에서 psql ERROR 확인
+grep -i 'ERROR' /tmp/seekurity-siem-install-*.log | head -20
+
+# 2. 수동 재적재 (v6.10+ 패키지의 시드는 멱등 — 중복 키 안전)
+sudo -u postgres psql -p 15432 -d siem -f seekurity-siem-installer/sql/init-database.sql
+
+# 3. 확인
+sudo -u postgres psql -p 15432 -d siem -tAc "SELECT COUNT(*) FROM roles"
+```
+
+admin 로그인은 설치 시 기본값(`admin` / `<ADMIN_PASSWORD>`)으로 강제 설정됨 — **운영 전 반드시 변경**.
 | 디스크 100% 가득 | `df -h` 로그 파일 확인 |
 
 ### 10.1 로그 로테이션 및 디스크 관리 (중요!)
@@ -1937,6 +1984,7 @@ sudo systemctl restart ss-api ss-log-stream ss-database-checker
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 6.10 | 2026-08-16 | 신규 서버 설치 이슈 반영: bootstrap-infra.sh 신설(오프라인 인프라 자동 구성), Node 번들 스테이징/검증(오패키징 방지), 시드 멱등화(--on-conflict-do-nothing)+적재 검증+admin 기본 비밀번호 보장, SELinux 자동 대응(httpd_can_network_connect, ss-console journal), PGDG psql 심링크, pg_hba를 SHOW hba_file로 탐지, error-pages 패키징/배포 |
 | 6.9 | 2026-08-16 | 라이선스 설치 절차 추가 (3.4절): license.json 배치/재로드/상태 확인, 라이선스 상태별 로그인 동작, 설치 확인에 라이선스 점검(6.4절) 추가 |
 | 6.8 | 2026-02-21 | 콘솔 경로 수정: `/opt/seekurity-siem/bin/ss-console` → `/opt/seekurity-siem/console`, DB 스키마 로딩 오류 처리 개선 (ON_ERROR_STOP=0), 재설치 시 기존 객체 스킵 |
 | 6.7 | 2026-02-19 | 로그 로테이션 및 디스크 관리 섹션 추가: ss-syslog-receiver 로그 무한 증가 문제 해결, systemd StandardOutput=null 설정, logback 롤링 설정 설명, 디스크 긴급 복구 절차 |
