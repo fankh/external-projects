@@ -498,6 +498,38 @@ export async function reportFault(assetNo: string, rawNote: string) {
   return { ok: true, message: `${assetNo} 장애 신고 접수 — 수리 대기로 편성, 자산관리팀에 통보했습니다.` }
 }
 
+/** 장애 신고 취소(오신고 철회) — 잘못 신고했거나 재현되지 않는 장애 신고를 업체 배정 전에 철회해 자산을 사용중으로 되돌린다.
+ *  (반납 신청 취소·대여 연장 요청 취소·상신 취소처럼, 사용자가 시작한 조치는 처리 전 스스로 되돌릴 수 있어야 한다 —
+ *   장애 신고만 철회 경로가 없어 오신고 시 수리중에 갇히고 하지도 않은 수리 이력이 남았다.)
+ *  수리 의뢰(업체 배정) 전, 장애 신고 직후 상태만 대상 — 반납·분실 점검으로 편성된 수리중이나 수리 진행 건은 제외한다.
+ *  사용자는 본인 명의 자산만, 자산담당·Admin 은 전체 대상. */
+export async function cancelFault(assetNo: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+
+  const s = getStore()
+  const asset = s.assets.find((a) => a.assetNo === assetNo)
+  if (!asset) return { ok: false, message: '자산을 찾을 수 없습니다.' }
+  if (asset.status !== '수리중') return { ok: false, message: `수리중 자산만 장애 신고를 철회할 수 있습니다 — ${assetNo} (${asset.status})` }
+  if (session.role === 'USER' && asset.owner !== session.name) {
+    return { ok: false, message: '본인 명의 자산만 장애 신고를 철회할 수 있습니다.' }
+  }
+  // 장애 신고 직후 상태만 철회 대상 — 업체 배정(repair) 후나, 반납·분실 점검으로 편성된 수리중은 제외한다.
+  const last = asset.history[asset.history.length - 1]
+  if (asset.repair || !last || last.kind !== '수리' || !last.detail.startsWith('장애 신고 —')) {
+    return { ok: false, message: '수리 업체 배정 전, 장애 신고 직후 상태만 철회할 수 있습니다 (수리 진행·반납 점검 건 제외).' }
+  }
+
+  asset.status = '사용중'
+  asset.faultNote = undefined
+  asset.history.push({ date: today(), kind: '수리', detail: `장애 신고 취소(오신고 철회) — ${session.name}`, actor: session.name })
+  // 접수 통보의 짝 — 자산관리팀에 철회 사실을 알려 수리 대기열에서 빠졌음을 알린다(발송 이력 적재)
+  dispatch({ channel: '이메일', to: '자산관리팀', subject: `자산 장애 신고 철회 — ${asset.assetNo} ${asset.model} (수리 대기 해제)`, kind: '장애 신고', ref: asset.assetNo })
+  appendAudit({ actor: session.name, action: `자산 장애 신고 취소(오신고 철회) — ${asset.model}`, target: assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${assetNo} 장애 신고 철회 — 사용중으로 복원, 수리 대기에서 제외했습니다.` }
+}
+
 /** 자산 회수(반납 처리) — 사용 중 자산을 자산담당이 직접 회수해 반납 접수 대기열로 보낸다.
  *  (제품안내서 §03 운영 — 그동안 반납은 사용자 상신에서만 시작돼, 퇴직·조직 개편 등으로 사용자가 직접 반납할 수 없는
  *   자산을 자산팀이 회수할 경로가 없었다. 오프보딩·재배정 회수의 진입점.) 반납대기로 보내면 반납 점검(returns) 흐름을
