@@ -67,6 +67,8 @@ export async function setAssetContract(assetNo: string, rawContractId: string) {
     const c = s.contracts.find((x) => x.id === contractId)
     if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
     if (c.status === '해지') return { ok: false, message: '해지된 계약에는 연계할 수 없습니다.' }
+    // 종료(터미널) 상태 자산은 계약에 새로 연계할 수 없다 — 이탈·폐기 자산이 유지보수 커버리지·연계 자산 수를 부풀린다(좌석 배정 종료-상태 가드와 동형). 해제(unlink)는 상태 무관.
+    if (['분실', '폐기완료'].includes(asset.status)) return { ok: false, message: `종료 상태(${asset.status}) 자산은 계약에 연계할 수 없습니다 — ${assetNo}.` }
     if (asset.contractId === contractId) return { ok: false, message: `이미 ${contractId} 에 연계돼 있습니다.` }
     asset.contractId = contractId
     asset.history.push({ date: today(), kind: '구성변경', detail: `계약 연계 ${before} → ${contractId} (${c.name})`, actor: session.name })
@@ -94,8 +96,9 @@ export async function setAssetContractMany(assetNos: string[], rawContractId: st
   const c = s.contracts.find((x) => x.id === contractId)
   if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
   if (c.status === '해지') return { ok: false, message: '해지된 계약에는 연계할 수 없습니다.' }
-  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.contractId !== contractId)
-  if (targets.length === 0) return { ok: false, message: '연계할 자산이 없습니다 (이미 해당 계약에 연계된 건 제외).' }
+  // 종료(터미널) 상태 자산은 건너뛴다 — 이탈·폐기 자산이 유지보수 커버리지·연계 자산 수를 부풀리지 않게(단건 가드와 동형·멱등).
+  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.contractId !== contractId && !['분실', '폐기완료'].includes(a.status))
+  if (targets.length === 0) return { ok: false, message: '연계할 자산이 없습니다 (이미 연계된 건·종료 상태 자산 제외).' }
   for (const asset of targets) {
     const before = asset.contractId ?? '(없음)'
     asset.contractId = contractId
