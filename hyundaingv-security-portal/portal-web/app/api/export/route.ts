@@ -7,7 +7,7 @@ import { getSession } from '@/lib/session'
 import { compliancePostureScore, computeComplianceKpis, complianceKpiPct, postureRating, weakestPostureAxis } from '@/lib/compliance'
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth, DISK_WARN, monthlyIncidentStats } from '@/lib/infra'
-import { delayedSrs } from '@/lib/sr'
+import { delayedSrs, srStatusLabel } from '@/lib/sr'
 import { eligibleForCourse, getStore, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import type { Role } from '@/lib/types'
 
@@ -143,7 +143,7 @@ export async function GET(req: Request) {
       role === 'USER' ? r.requester === session.name :
       role === 'DEPT_MGR' ? r.dept === session.dept : true)
     const rows: (string | number)[][] = [['SR번호', '유형', '제목', '시스템', '신청자', '부서', '상태', '공수(MD)', '신청일', '완료예정', '완료일']]
-    for (const r of scope) rows.push([r.srNo, r.kind, r.title, r.system, r.requester, r.dept, r.status, r.manHours ?? '-', r.requestedAt, r.dueDate ?? '-', r.completedAt ?? '-'])
+    for (const r of scope) rows.push([r.srNo, r.kind, r.title, r.system, r.requester, r.dept, srStatusLabel(r), r.manHours ?? '-', r.requestedAt, r.dueDate ?? '-', r.completedAt ?? '-'])
     return csvResponse('SR_신청내역', rows)
   }
 

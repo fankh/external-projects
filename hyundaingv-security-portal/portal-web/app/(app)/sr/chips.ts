@@ -1,4 +1,4 @@
-import type { SrRequest, SrStatus } from '@/lib/types'
+import type { SrStatus } from '@/lib/types'
 
 export const SR_CHIP: Record<SrStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral'> = {
   작성중: 'neutral',
@@ -13,7 +13,6 @@ export const SR_CHIP: Record<SrStatus, 'ok' | 'warn' | 'err' | 'info' | 'neutral
   중지: 'neutral',
 }
 
-/** 데이터·계정/권한 SR 은 개발 단계가 없다 — '개발중' 상태를 '처리중'으로 표기한다 */
-export function srStatusLabel(sr: Pick<SrRequest, 'kind' | 'status'>): string {
-  return sr.status === '개발중' && sr.kind !== '시스템개발' ? '처리중' : sr.status
-}
+/** SR 상태 라벨은 SR 도메인 단일 원천(lib/sr)으로 이관 — 화면·export 가 같은 규칙을 공유한다.
+ *  기존 소비처(../chips import)를 위해 재수출한다. */
+export { srStatusLabel } from '@/lib/sr'

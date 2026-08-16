@@ -24,3 +24,9 @@ export function delayedSrs(s: Store, t: string = today()): SrRequest[] {
 export function isSrReplannable(r: SrRequest): boolean {
   return !!r.dueDate && !SR_INACTIVE_STATUSES.includes(r.status)
 }
+
+/** SR 상태 표시 라벨 — 데이터·계정/권한 SR 은 개발 단계가 없으므로 '개발중' 상태를 '처리중'으로 표기한다.
+ *  전 SR 표시면(화면·export)의 단일 원천 — raw status 렌더는 유형별 개발단계 없음을 반영 못 해 화면 간 불일치를 낳는다. */
+export function srStatusLabel(sr: Pick<SrRequest, 'kind' | 'status'>): string {
+  return sr.status === '개발중' && sr.kind !== '시스템개발' ? '처리중' : sr.status
+}
