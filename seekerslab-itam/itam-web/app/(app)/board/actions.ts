@@ -214,16 +214,24 @@ export async function editNotice(postId: string, title: string, body: string, pi
   const s = getStore()
   const post = s.posts.find((p) => p.id === postId && p.kind === '공지')
   if (!post) return { ok: false, message: '공지를 찾을 수 없습니다.' }
-  post.title = title.trim()
-  post.body = body.trim()
+  const newTitle = title.trim(), newBody = body.trim()
+  // 내용(제목·본문) 변경 여부 — 필독 읽음 확인 무결성 판정에 쓴다(메타데이터 변경과 구분).
+  const contentChanged = post.title !== newTitle || post.body !== newBody
+  const priorAcks = post.acks?.length ?? 0
+  post.title = newTitle
+  post.body = newBody
   post.pinned = pinned
   if (NOTICE_CATEGORIES.includes(category as NoticeCategory)) post.category = category as NoticeCategory
   // 대상 부서 재조정 — 전사(미설정) 또는 실재 부서만. 대상을 바꾸면 필독 확인율·독촉 분모도 함께 좁혀지거나 넓어진다.
   post.audienceDept = audienceDept && audienceDept !== '전사' && s.users.some((u) => u.dept === audienceDept) ? audienceDept : undefined
+  // 필독 공지 내용이 바뀌면 이전 읽음 확인은 '바뀌기 전 내용'을 확인한 것이라 무효 — 확인 이력을 초기화해
+  // 변경된 내용을 다시 확인받는다(커버리지 무결성). 메타데이터(고정·분류·대상)만 바꾼 경우는 유지한다.
+  const acksReset = contentChanged && priorAcks > 0
+  if (acksReset) post.acks = []
 
-  appendAudit({ actor: session.name, action: `공지 수정 — ${post.title}${post.audienceDept ? ` · 대상 ${post.audienceDept}` : ' · 대상 전사'}`, target: postId })
+  appendAudit({ actor: session.name, action: `공지 수정 — ${post.title}${post.audienceDept ? ` · 대상 ${post.audienceDept}` : ' · 대상 전사'}${acksReset ? ` · 읽음 확인 ${priorAcks}건 초기화(내용 변경)` : ''}`, target: postId })
   revalidatePath('/', 'layout')
-  return { ok: true, message: '공지가 수정되었습니다.' }
+  return { ok: true, message: acksReset ? `공지가 수정되었습니다. 내용 변경으로 읽음 확인 ${priorAcks}건이 초기화돼 재확인이 필요합니다.` : '공지가 수정되었습니다.' }
 }
 
 /** 공지 상단 고정 토글 — Admin. 필독 지정·해제로 목록 상단 노출을 관리한다. */

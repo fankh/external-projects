@@ -1203,6 +1203,28 @@ try {
   const schedNtcBody = (await p3.textContent('body')) || ''
   ok('예약 발행 공지: 발행 전 확인 집계·미확인자 독촉 미노출(조기 노출/독촉 방지)', schedNtcBody.includes('발행 후 확인 집계') && !schedNtcBody.includes('안내 발송'))
 
+  // 필독 공지 내용 변경 → 읽음 확인 초기화 — 바뀐 내용을 다시 확인받아야 커버리지가 무결하다(대상만 바꾼 편집과 달리 본문 편집은 이전 확인을 무효화·재확인 필요). 그동안 편집은 이전 확인을 그대로 둬 '바뀐 내용을 확인했다'는 허위 커버리지가 남았다.
+  await p3.goto(`${BASE}/board/notices`, { waitUntil: 'networkidle' })
+  await p3.locator('button', { hasText: /^공지 등록$/ }).click()
+  await p3.waitForTimeout(200)
+  await p3.locator('input[placeholder="공지 제목"]').fill('e2e 내용변경 재확인 필독 공지')
+  await p3.locator('textarea[placeholder="공지 내용"]').fill('원본 정책 내용 — e2e')
+  await p3.locator('label', { hasText: '상단 고정 (필독)' }).locator('input[type="checkbox"]').check()
+  await p3.locator('button', { hasText: /^등록$/ }).click()
+  await p3.waitForTimeout(800)
+  await p3.locator('tr', { has: p3.locator('td', { hasText: 'e2e 내용변경 재확인 필독 공지' }) }).first().click()
+  await p3.waitForTimeout(400)
+  await p3.locator('button', { hasText: /^읽음 확인$/ }).first().click()
+  await p3.waitForTimeout(600)
+  ok('필독 공지 읽음 확인: 확인 후 확인함 표시', ((await p3.textContent('body')) || '').includes('읽음 확인함'))
+  await p3.locator('button', { hasText: /^수정$/ }).first().click()
+  await p3.waitForTimeout(200)
+  await p3.locator('textarea[placeholder="공지 내용"]').fill('개정 정책 내용 — 재확인 필요 e2e')
+  await p3.locator('button', { hasText: /^저장$/ }).click()
+  await p3.waitForTimeout(700)
+  const reackBody = (await p3.textContent('body')) || ''
+  ok('필독 공지 내용 변경 → 읽음 확인 초기화(확인함 해제·재확인 버튼 복귀)', !reackBody.includes('읽음 확인함') && (await p3.locator('button', { hasText: /^읽음 확인$/ }).count()) > 0)
+
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const cHtml = await p3.content()
   ok('운영 정책 다운스트림: 계약 화면 만료 임박 창 60일', cHtml.includes('만료 60일 이내') && !cHtml.includes('만료 90일 이내'))
