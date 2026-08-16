@@ -2074,8 +2074,25 @@ def sc_persist(pg, base, check):
     check(bool(list(DATA.parent.glob(DATA.name + '.*.bak'))), '데이터 파일 일일 백업 생성')
 
 
+def sc_invest_basis(pg, base, check):
+    """계획대비실적 기준액 — 정산>계약>계획 우선순위 표시 (요구사항 sample.xlsx)"""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/finance/invest', wait_until='networkidle')
+    card = pg.locator('.card', has_text='계획대비실적')
+    check(card.count() > 0, '계획대비실적 카드 표시')
+    # IP-2026-01: 계약(CT-01)·정산(ST-01 지급완료 2,100) 모두 있음 → 기준 = 정산 (계약보다 우선)
+    row1 = card.locator('tr', has_text='IP-2026-01').first
+    t1 = row1.inner_text()
+    check('정산' in t1, 'IP-2026-01 기준액 = 정산 (정산>계약 우선순위 적용)')
+    # IP-2026-02: 계약(CT-02 5,000) 있고 정산 없음 → 기준 = 계약 (정산 아님)
+    row2 = card.locator('tr', has_text='IP-2026-02').first
+    t2 = row2.inner_text()
+    check('계약' in t2 and '정산' not in t2, 'IP-2026-02 기준액 = 계약 (정산 없음)')
+
+
 SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
+    ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
     ('devchain', '시스템개발 SR → 변경 2단 상신 → SR 완료 전파 (전체 사슬)', sc_devchain, {}),
