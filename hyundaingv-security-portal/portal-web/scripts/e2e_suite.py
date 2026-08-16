@@ -2122,6 +2122,10 @@ def sc_sr_status_label(pg, base, check):
     pg.goto(f'{base}/sr/delayed', wait_until='networkidle')
     dt = pg.locator('tr', has_text='SR-2026-9501').inner_text()
     check('처리중' in dt and '개발중' not in dt, 'sr/delayed 지연내역 — 계정권한 SR 처리중 표기(개발중 아님)')
+    # export(SR 신청내역)도 화면과 같은 라벨 단일원천 — ISMS 산출물이 개발중으로 어긋나지 않아야 한다
+    csv_text = pg.request.get(f'{base}/api/export?type=sr-requests').text()
+    sr_line = next((l for l in csv_text.splitlines() if 'SR-2026-9501' in l), '')
+    check('처리중' in sr_line and '개발중' not in sr_line, f'sr-requests export — 계정권한 SR 처리중 표기(개발중 아님) 실제:{sr_line[:80]}')
 
 
 def sc_violation_exempt(pg, base, check):
