@@ -780,6 +780,7 @@ def sc_qna_delete_orphan(pg, base, check):
     pg.goto(f'{base}/board/qna', wait_until='networkidle')
     pg.locator('tr', has_text=title).first.locator('button:has-text("삭제")').click()
     pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/board/qna', wait_until='networkidle')
     check(title not in pg.content(), '전제: 문의 삭제됨')
     # 4) 박정호 My Work 에서 QnA 할일 마감(고아 아님)
     login(pg, base, '박정호')
