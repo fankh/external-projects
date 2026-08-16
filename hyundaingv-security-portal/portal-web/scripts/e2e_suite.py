@@ -789,6 +789,23 @@ def sc_qna_delete_orphan(pg, base, check):
           '문의 삭제 시 담당의 QnA 답변 할일 마감(영구 고아 방지)')
 
 
+def sc_pledge_revise_idempotent(pg, base, check):
+    """서약양식 개정 더블서브밋 방어(v1.5.195) — 개정 버튼 이중 클릭(10초 멱등 창)이 재개정·대량 재서약 메일
+    재발송·중복 감사를 만들지 않는다. 서버 액션은 자동 비활성화되지 않아 이중 클릭이 두 번 실행되던 것을,
+    직전 개정이 방금이면 no-op 으로 막는다. 감사 '서약양식 개정' 건수가 이중 클릭으로 1건만 증가함을 검증."""
+    login(pg, base, '시스템관리자')  # ADMIN — 양식 개정 권한
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    before = pg.content().count('서약양식 개정')
+    # 일반 서약서 개정 버튼 이중 클릭 (재조회 사이 10초 이내 → 2번째 차단)
+    for _ in range(2):
+        pg.goto(f'{base}/pledge/manage', wait_until='networkidle')
+        pg.locator('.card', has_text='양식관리').locator('tr', has_text='일반 보안서약서').locator('button:has-text("개정")').click()
+        pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    after = pg.content().count('서약양식 개정')
+    check(after - before == 1, f'이중 클릭 → 개정 감사 1건만 증가(멱등 창, 실제 +{after - before})')
+
+
 def sc_autoform_upload_defeat(pg, base, check):
     """필수 자동양식 파일명충돌 우회(v1.5.91) — registerGenerated 중복판정이 '양식이름_v버전_' 접두 startsWith
     로만 비교해, 사용자 업로드(registerUpload)가 우연/고의로 같은 접두 파일명을 가지면(submitResult 는 업로드
@@ -2098,6 +2115,7 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(QNAROLE_DATA)}),
     ('qna_loop', 'QnA 폐쇄 루프 — 담당 지정 할일 생성·답변 시 마감', sc_qna_loop, {}),
     ('qna_delete_orphan', 'QnA 삭제 고아 방지 — 삭제 시 담당 답변 할일 마감', sc_qna_delete_orphan, {}),
+    ('pledge_revise_idempotent', '서약양식 개정 더블서브밋 방어 — 이중 클릭 재발송·중복 감사 차단', sc_pledge_revise_idempotent, {}),
     ('sr_suspend', 'SR 중지(BA030014) — 지연 제외·재개 복원', sc_sr_suspend,
      {'PORTAL_DATA_FILE': str(SRSUSP_DATA)}),
     ('sr_suspend_strand', 'SR 중지-변경 고착 방어 — 진행 중 변경 편입 SR 중지 차단', sc_sr_suspend_strand, {}),
