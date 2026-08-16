@@ -60,6 +60,12 @@ async function reviseForm(formData: FormData) {
   // 개정은 현재 시각(초 단위)으로 확정한다 — 같은 날 개정 이전에 한 서약도 무효화돼 재서약 대상이
   // 된다(날짜 단위 개정일자로는 당일 개정 전 서명이 유효로 남던 문제를 시각 단위로 해소).
   const revisedAt = nowStampSec()
+  // 더블서브밋 방어 — 직전 개정이 방금(10초 이내)이면 재개정·대량 재서약 메일 재발송·중복 감사를 막는다.
+  // 서버 액션은 자동 비활성화되지 않아 이중 클릭이 그대로 두 번 실행된다(형제 액션의 상태 가드에 상응하는
+  // 멱등 창). 두 스탬프를 같은 방식으로 파싱해 ms 차를 본다(daysBetween 과 동일 관용).
+  const prevMs = Date.parse(String(form.revisedAt).replace(' ', 'T'))
+  const nowMs = Date.parse(revisedAt.replace(' ', 'T'))
+  if (Number.isFinite(prevMs) && Number.isFinite(nowMs) && nowMs - prevMs < 10_000) return
   const day = revisedAt.slice(0, 10)
   audit(me.name, '서약양식 개정', `${kind} 보안서약서: ${form.revisedAt.slice(0, 10)} → ${revisedAt}`)
   form.revisedAt = revisedAt
