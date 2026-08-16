@@ -3,14 +3,20 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import { LOCALVM_POLICY, type LocalVmFinding } from '@/lib/types'
-import { respondToLocalVm, revokeVmException } from '../actions'
+import { respondToLocalVm, respondToLocalVmMany, revokeVmException } from '../actions'
 
 const KIND_TONE = { 'EOL·미패치 게스트': 'err', '미인가 하이퍼바이저': 'warn', '미관리 VM': 'warn' } as const
 
 export function LocalVmTable({ items, canAct }: { items: LocalVmFinding[]; canAct: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+
+  // 미조치 건만 선택 대상 — 하이퍼바이저 금지 정책 스윕으로 다수 단말의 로컬 VM 을 선택해 한 번에 조치한다
+  const selectable = items.filter((v) => !v.action)
+  const toggle = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const allSel = selectable.length > 0 && selectable.every((v) => checked.has(v.id))
 
   const act = (id: string, kind: '회수' | '예외 승인') => {
     setBusy(id)
@@ -19,15 +25,31 @@ export function LocalVmTable({ items, canAct }: { items: LocalVmFinding[]; canAc
       setMsg(r.message); setBusy(null)
     })
   }
+  const bulkAct = (kind: '회수' | '예외 승인') => startTransition(async () => {
+    const r = await respondToLocalVmMany([...checked], kind)
+    setMsg(r.message); if (r.ok) setChecked(new Set())
+  })
   const revoke = (id: string) => { setBusy(id); startTransition(async () => { const r = await revokeVmException(id); setMsg(r.message); setBusy(null) }) }
 
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      {canAct && checked.size > 0 && (
+        <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 조치:</span>
+          <button className="btn sm danger" disabled={pending} onClick={() => bulkAct('회수')}>회수 ({checked.size})</button>
+          <button className="btn sm" disabled={pending} onClick={() => bulkAct('예외 승인')}>예외 승인 ({checked.size})</button>
+          <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
+        </div>
+      )}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
             <tr>
+              {canAct && <th className="c" style={{ width: 32 }}>
+                <input type="checkbox" checked={allSel} disabled={pending || selectable.length === 0} aria-label="미조치 로컬 VM 전체 선택"
+                  onChange={(e) => setChecked(e.target.checked ? new Set(selectable.map((v) => v.id)) : new Set())} />
+              </th>}
               <th>가상머신</th><th>게스트 OS</th><th>실행 자산</th><th>사용자 · 부서</th><th>정책 분류</th>
               <th className="c">검출</th><th>최초 검출</th><th className="c">위험도</th>
               {canAct && <th className="c">조치</th>}
@@ -36,6 +58,9 @@ export function LocalVmTable({ items, canAct }: { items: LocalVmFinding[]; canAc
           <tbody>
             {items.map((v) => (
               <tr key={v.id}>
+                {canAct && <td className="c" onClick={(e) => e.stopPropagation()}>
+                  {!v.action && <input type="checkbox" checked={checked.has(v.id)} disabled={pending} aria-label={`${v.vm} 선택`} onChange={() => toggle(v.id)} />}
+                </td>}
                 <td className="strong">
                   {v.vm}
                   {v.note && <div className="mut" style={{ fontSize: 10.5, whiteSpace: 'normal' }}>{v.note}</div>}
@@ -69,7 +94,7 @@ export function LocalVmTable({ items, canAct }: { items: LocalVmFinding[]; canAc
                 )}
               </tr>
             ))}
-            {items.length === 0 && <tr><td colSpan={canAct ? 9 : 8}><div className="empty">검출된 로컬 VM 정책 위반이 없습니다</div></td></tr>}
+            {items.length === 0 && <tr><td colSpan={canAct ? 10 : 8}><div className="empty">검출된 로컬 VM 정책 위반이 없습니다</div></td></tr>}
           </tbody>
         </table>
       </div>

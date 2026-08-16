@@ -3,14 +3,20 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import { USB_POLICY, type UsbFinding } from '@/lib/types'
-import { respondToUsb, revokeUsbException } from '../actions'
+import { respondToUsb, respondToUsbMany, revokeUsbException } from '../actions'
 
 const KIND_TONE = { '대용량 반출 의심': 'err', '미등록 저장매체': 'warn', '암호화 미적용': 'warn' } as const
 
 export function UsbTable({ items, canAct }: { items: UsbFinding[]; canAct: boolean }) {
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+
+  // 미조치 건만 선택 대상 — 매체통제 정책·EDR 스윕으로 같은 위반이 여러 대에 잡히면 선택해 한 번에 조치한다
+  const selectable = items.filter((u) => !u.action)
+  const toggle = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const allSel = selectable.length > 0 && selectable.every((u) => checked.has(u.id))
 
   const act = (id: string, kind: '차단' | '예외 승인') => {
     setBusy(id)
@@ -19,15 +25,31 @@ export function UsbTable({ items, canAct }: { items: UsbFinding[]; canAct: boole
       setMsg(r.message); setBusy(null)
     })
   }
+  const bulkAct = (kind: '차단' | '예외 승인') => startTransition(async () => {
+    const r = await respondToUsbMany([...checked], kind)
+    setMsg(r.message); if (r.ok) setChecked(new Set())
+  })
   const revoke = (id: string) => { setBusy(id); startTransition(async () => { const r = await revokeUsbException(id); setMsg(r.message); setBusy(null) }) }
 
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      {canAct && checked.size > 0 && (
+        <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 조치:</span>
+          <button className="btn sm danger" disabled={pending} onClick={() => bulkAct('차단')}>차단 ({checked.size})</button>
+          <button className="btn sm" disabled={pending} onClick={() => bulkAct('예외 승인')}>예외 승인 ({checked.size})</button>
+          <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
+        </div>
+      )}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
             <tr>
+              {canAct && <th className="c" style={{ width: 32 }}>
+                <input type="checkbox" checked={allSel} disabled={pending || selectable.length === 0} aria-label="미조치 USB 검출 전체 선택"
+                  onChange={(e) => setChecked(e.target.checked ? new Set(selectable.map((u) => u.id)) : new Set())} />
+              </th>}
               <th>저장매체</th><th>사용 자산</th><th>사용자 · 부서</th><th>정책 분류</th>
               <th className="c">검출</th><th>최초 검출</th><th className="c">위험도</th>
               {canAct && <th className="c">조치</th>}
@@ -36,6 +58,9 @@ export function UsbTable({ items, canAct }: { items: UsbFinding[]; canAct: boole
           <tbody>
             {items.map((u) => (
               <tr key={u.id}>
+                {canAct && <td className="c" onClick={(e) => e.stopPropagation()}>
+                  {!u.action && <input type="checkbox" checked={checked.has(u.id)} disabled={pending} aria-label={`${u.device} 선택`} onChange={() => toggle(u.id)} />}
+                </td>}
                 <td className="strong">
                   {u.device}
                   {u.note && <div className="mut" style={{ fontSize: 10.5, whiteSpace: 'normal' }}>{u.note}</div>}
@@ -68,7 +93,7 @@ export function UsbTable({ items, canAct }: { items: UsbFinding[]; canAct: boole
                 )}
               </tr>
             ))}
-            {items.length === 0 && <tr><td colSpan={canAct ? 8 : 7}><div className="empty">검출된 USB 정책 위반이 없습니다</div></td></tr>}
+            {items.length === 0 && <tr><td colSpan={canAct ? 9 : 7}><div className="empty">검출된 USB 정책 위반이 없습니다</div></td></tr>}
           </tbody>
         </table>
       </div>
