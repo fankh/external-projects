@@ -279,7 +279,7 @@ export default async function ManagePledgePage() {
           </table>
         </div>
         <div className="dim" style={{ fontSize: 11.5, padding: '8px 14px' }}>
-          일반서약서 동의 후 특별서약서 대상자로 관리된다 — 특별서약 화면은 이후 버전.
+          일반서약서 동의 후 특별서약서 대상자로 관리된다 — 보안담당자는 보안서약서 제출 화면에서 담당업무·세부업무내용을 추가 입력해 특별서약을 제출한다.
         </div>
       </Card>
     </>

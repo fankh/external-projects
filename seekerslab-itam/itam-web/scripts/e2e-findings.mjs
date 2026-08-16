@@ -716,6 +716,15 @@ try {
   const bulkRecoverBody = (await p2.locator('body').textContent()) || ''
   ok('일괄 회수 → 반납 접수 대기열 편성(2건)', bulkRecoverBody.includes('AST-2024-000091') && bulkRecoverBody.includes('AST-2023-000562'))
 
+  // 반납 일괄 접수 — 일괄 회수로 반납대기에 몰린 묶음을 같은 점검 결과·위치로 한 번에 접수(일괄 회수의 짝). 위 일괄 회수분 091·562를 정상 접수 → 유휴 풀.
+  await p2.locator('input[aria-label="AST-2024-000091 일괄 접수 선택"]').check()
+  await p2.locator('input[aria-label="AST-2023-000562 일괄 접수 선택"]').check()
+  await p2.locator('button', { hasText: /^일괄 접수 \(2\)$/ }).click()
+  await p2.waitForTimeout(800)
+  ok('반납 일괄 접수: 선택 2건 일괄 접수 완료(반납대기 → 유휴 풀)', ((await p2.locator('body').textContent()) || '').includes('건 반납 접수 완료'))
+  await p2.goto(`${BASE}/assets/register?sel=AST-2024-000091`, { waitUntil: 'networkidle' })
+  ok('반납 일괄 접수 → 유휴 풀 편성(091 유휴 복귀)', ((await p2.locator('tr', { has: p2.locator('td', { hasText: 'AST-2024-000091' }) }).first().textContent()) || '').includes('유휴'))
+
   // 정기 점검 일괄 예약 — 선택 자산에 예방 정비 예정일을 한 번에 등록(보증 일괄 연장·일괄 회수와 같은 배치 접점). 그동안 점검 예약은 자산 하나씩만 가능했다.
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p2.locator('input[aria-label="AST-2023-000112 선택"]').check()

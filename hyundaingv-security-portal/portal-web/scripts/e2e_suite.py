@@ -42,6 +42,7 @@ PROFISO_DATA = ROOT / 'scripts' / '.e2e-profiso-data.json'  # 프로필 스탬�
 INCEMPTY_DATA = ROOT / 'scripts' / '.e2e-incempty-data.json'  # 월별 장애 통계 무효월(빈 occurredAt) 회귀용 (v1.5.201)
 INSPTL_DATA = ROOT / 'scripts' / '.e2e-insptl-data.json'  # 점검 경과 알림 팀장 수신 회귀용 (v1.5.209)
 INFRACHG_DATA = ROOT / 'scripts' / '.e2e-infrachg-data.json'  # 인프라 변경 원복계획 별개 필드 회귀용 (v1.5.211)
+SPPLG_DATA = ROOT / 'scripts' / '.e2e-spplg-data.json'  # 특별서약(보안담당자) 담당업무 입력 커버리지용 (v1.5.213)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -2107,6 +2108,21 @@ def sc_inspection_teamlead(pg, base, check):
     check('점검 경과 2명' in detail, f'점검 경과 알림 = 담당자+팀장 2명 (실제: {detail[:120]})')
 
 
+def sc_special_pledge_duty(pg, base, check):
+    """특별서약(보안담당자) 담당업무·세부업무 추가입력 (요구사항: "본문내용 외 담당업무, 세부업무내용 등 추가입력").
+    보안담당자(박정호)가 특별서약 화면에서 담당업무를 입력·동의해 제출하면 제출완료·담당업무가 표시된다."""
+    login(pg, base, '박정호')  # 보안담당자 — 특별서약 대상
+    pg.goto(f'{base}/pledge/my', wait_until='networkidle')
+    card = pg.locator('.card', has_text='특별서약서 — 보안담당자')
+    check(card.count() > 0, '보안담당자 특별서약 카드 표시')
+    card.locator('input[name=duty]').fill('보안관제 운영·출력물 통제 담당')
+    card.locator('input[name=agree]').check()
+    card.locator('button:has-text("특별서약 제출")').click()
+    pg.wait_for_selector('.card:has-text("특별서약서 — 보안담당자") >> text=제출 완료', timeout=10000)
+    done = pg.locator('.card', has_text='특별서약서 — 보안담당자').inner_text()
+    check('보안관제 운영·출력물 통제 담당' in done, '특별서약 제출 — 담당업무·세부업무 저장·표시')
+
+
 def sc_infra_rollback_plan(pg, base, check):
     """인프라 변경관리 원복계획 — 작업계획과 별개 필수 산출물 (요구사항: "작업계획, 원복계획 필요").
     기존 변경(원복계획 있음)이 작업계획과 별개로 표시되고, 신규 등록도 두 계획을 별개 입력으로 받아 표시.
@@ -2133,6 +2149,7 @@ SCENARIOS = [
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
     ('inspection_teamlead', '보안점검 경과 알림 — 담당자+팀장 통지', sc_inspection_teamlead, {'PORTAL_DATA_FILE': str(INSPTL_DATA)}),
     ('infra_rollback_plan', '인프라 변경 원복계획 — 작업계획과 별개 필수 산출물', sc_infra_rollback_plan, {'PORTAL_DATA_FILE': str(INFRACHG_DATA)}),
+    ('special_pledge_duty', '특별서약(보안담당자) — 담당업무·세부업무 추가입력 제출', sc_special_pledge_duty, {'PORTAL_DATA_FILE': str(SPPLG_DATA)}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
     ('devchain', '시스템개발 SR → 변경 2단 상신 → SR 완료 전파 (전체 사슬)', sc_devchain, {}),
@@ -2492,6 +2509,11 @@ def main() -> int:
         {'id': 'CW-2026-9401', 'kind': '인프라', 'title': 'E2E 사전변경', 'status': '작업등록승인', 'registeredAt': '2026-08-01',
          'plan': '작업계획 감마단계', 'rollbackPlan': '원복계획 델타복구'},
     ]}, ensure_ascii=False), encoding='utf-8')
+    # 특별서약(보안담당자) 담당업무 입력 — 박정호는 일반서약 완료(validSign) + 보안담당자, 특별 미제출 상태로 격리.
+    SPPLG_DATA.write_text(json.dumps({
+        'pledges': [{'name': '박정호', 'dept': 'IT운영팀', 'year': '2026', 'kind': '일반', 'signedAt': '2026-07-10', 'method': '온라인'}],
+        'securityOfficers': ['박정호'],
+    }, ensure_ascii=False), encoding='utf-8')
     DPLGRESIGN_DATA.write_text(json.dumps({
         'todos': [{'id': 'TD-9004', 'owner': '박정호', 'kind': '재상신', 'done': False, 'dueDate': '2026-08-01',
                    'title': '[부서서약 현황 상신] 개발1팀 반려 — 보완 후 재상신 (사유: 보완요망)'}],

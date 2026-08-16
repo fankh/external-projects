@@ -5,7 +5,7 @@ import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
 import { extendLoan, returnLoan } from '@/app/(app)/assets/register/actions'
 import { Card, Chip } from '@/components/ui'
 import type { ReturnCondition } from '@/lib/types'
-import { completeRepair, receiveReturn, remindLoans, remindRepairs, sendToRepair } from './actions'
+import { completeRepair, receiveReturn, receiveReturnMany, remindLoans, remindRepairs, sendToRepair } from './actions'
 
 /** 장기 유휴 판정선(일) — 이 이상 유휴면 '재배치 대신 폐기 검토' 대상으로 조치 버튼을 노출한다.
  *  유휴일 칩 경고선(90)과 같은 표시 기준. 에스컬레이션·SLA 같은 운영 정책값과 달리 화면 표시 임계다. */
@@ -46,9 +46,19 @@ export function ReturnsView(props: {
   const [ext, setExt] = useState<Record<string, string>>({})
   const [lcond, setLcond] = useState<Record<string, ReturnCondition>>({}) // 대여 반환 상태 점검
   const [msg, setMsg] = useState<string | null>(null)
+  // 반납 일괄 접수 — 팀 오프보딩·사무실 이전으로 반납대기에 몰린 묶음을 같은 점검 결과·위치로 한 번에 접수(일괄 회수의 짝)
+  const [retSel, setRetSel] = useState<Set<string>>(new Set())
+  const [bulkCond, setBulkCond] = useState<ReturnCondition>('정상')
+  const [bulkLoc, setBulkLoc] = useState('')
   const [pending, startTransition] = useTransition()
 
   const warehouse = props.locations.find((l) => l.includes('자산창고')) ?? props.locations[0] ?? ''
+  const toggleRet = (no: string) => setRetSel((prev) => { const n = new Set(prev); n.has(no) ? n.delete(no) : n.add(no); return n })
+  const allRet = props.pending.length > 0 && props.pending.every((p) => retSel.has(p.assetNo))
+  const bulkReceive = () => startTransition(async () => {
+    const r = await receiveReturnMany([...retSel], bulkCond, bulkLoc || warehouse, '')
+    setMsg(r.message); if (r.ok) setRetSel(new Set())
+  })
 
   return (
     <>
@@ -58,10 +68,26 @@ export function ReturnsView(props: {
         {props.pending.length === 0 ? (
           <div className="empty">반납 접수할 자산이 없습니다. 반납 결재가 승인되면 여기에 표시됩니다.</div>
         ) : (
+          <>
+          {retSel.size > 0 && (
+            <div className="hstack" style={{ gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center', background: 'var(--canvas)' }}>
+              <span className="mut" style={{ fontSize: 12.5 }}>선택 {retSel.size}건 일괄 접수:</span>
+              <select className="select" style={{ height: 28 }} value={bulkCond} disabled={pending} onChange={(e) => setBulkCond(e.target.value as ReturnCondition)} title="일괄 상태 점검 결과">
+                {CONDITIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+              {bulkCond !== '폐기 권고' && (
+                <select className="select" style={{ height: 28 }} value={bulkLoc || warehouse} disabled={pending} onChange={(e) => setBulkLoc(e.target.value)} title="일괄 보관 위치">
+                  {props.locations.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              )}
+              <button className="btn sm pri" disabled={pending} onClick={bulkReceive}>일괄 접수 ({retSel.size})</button>
+              <button className="btn sm ghost" disabled={pending} onClick={() => setRetSel(new Set())}>선택 해제</button>
+            </div>
+          )}
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th>자산</th><th>반납자</th><th>현재 위치</th><th className="c">상태 점검</th><th>보관 위치</th><th>점검 메모</th><th /></tr>
+                <tr><th className="c" style={{ width: 32 }}><input type="checkbox" checked={allRet} aria-label="반납대기 전체 선택" disabled={pending} onChange={(e) => setRetSel(e.target.checked ? new Set(props.pending.map((p) => p.assetNo)) : new Set())} /></th><th>자산</th><th>반납자</th><th>현재 위치</th><th className="c">상태 점검</th><th>보관 위치</th><th>점검 메모</th><th /></tr>
               </thead>
               <tbody>
                 {props.pending.map((p) => {
@@ -69,6 +95,7 @@ export function ReturnsView(props: {
                   const scrap = c === '폐기 권고'
                   return (
                     <tr key={p.assetNo}>
+                      <td className="c" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={retSel.has(p.assetNo)} disabled={pending} aria-label={`${p.assetNo} 일괄 접수 선택`} onChange={() => toggleRet(p.assetNo)} /></td>
                       <td>
                         <div style={{ fontWeight: 600 }}>{p.model}</div>
                         <div className="dim" style={{ fontSize: 11 }}>{p.assetNo} · 승인 {p.since}</div>
@@ -108,6 +135,7 @@ export function ReturnsView(props: {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </Card>
 
