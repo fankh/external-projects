@@ -727,9 +727,11 @@ router.post('/chat/messages', asyncHandler(async (req, res) => {
       );
     }
 
+    const { provider, model, classification } = req.body;
+
     // Route through the guardrail when an LLM provider is configured;
-    // otherwise fall back to the legacy echo path.
-    const guardrailEnabled = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.OPENAI_BASE_URL);
+    // otherwise fall back to the legacy echo path. VLLM_BASE_URL also enables it.
+    const guardrailEnabled = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.OPENAI_BASE_URL || process.env.VLLM_BASE_URL);
 
     if (!guardrailEnabled) {
       const legacy = await ChatService.sendMessage({
@@ -746,6 +748,9 @@ router.post('/chat/messages', asyncHandler(async (req, res) => {
       userEmail: req.user.email,
       tenantId: req.user.tenantId,
       allowCategories: req.user.dlpAllowCategories,
+      provider,
+      model,
+      classification,
       ipAddress: req.ip
     });
 

@@ -55,4 +55,16 @@ describe('GuardrailPipeline.process', () => {
     expect(r.meta.timings).toHaveProperty('llmMs');
     expect(r.meta.timings).toHaveProperty('injectionMs');
   });
+
+  it('forces a confidential-classified request to the local backend', async () => {
+    process.env.LLM_LOCAL_PROVIDER = 'vllm';
+    await GuardrailPipeline.process({ content: '정상 질의', classification: 'confidential', provider: 'anthropic', ...base });
+    const routedProvider = LlmGateway.chat.mock.calls[0][0].provider;
+    expect(routedProvider).toBe('vllm');
+  });
+
+  it('records the routing decision in the returned meta', async () => {
+    const r = await GuardrailPipeline.process({ content: '정상 질의', classification: 'internal', provider: 'openai', ...base });
+    expect(r.meta.routing).toMatchObject({ provider: 'openai', reason: 'user-selected', forcedLocal: false });
+  });
 });

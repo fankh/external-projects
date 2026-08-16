@@ -15,9 +15,9 @@ class ChatService {
    * the guardrail-approved (masked) response. Guardrail metadata (verdict,
    * findings, latencies) is returned for the API layer and dashboards.
    */
-  static async sendGuardedMessage({ content, userId, userEmail, tenantId, allowCategories, provider, model, ipAddress }) {
+  static async sendGuardedMessage({ content, userId, userEmail, tenantId, allowCategories, provider, model, classification, ipAddress }) {
     const result = await GuardrailPipeline.process({
-      content, tenantId, userEmail, allowCategories, provider, model, ipAddress
+      content, tenantId, userEmail, allowCategories, provider, model, classification, ipAddress
     });
 
     const userMessage = await ChatMessage.create({ role: 'user', content, userId, tenantId });

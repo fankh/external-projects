@@ -1,0 +1,49 @@
+# vLLM local model serving for the internal GPU node (dual-backend PoC).
+#
+# Runs an OpenAI-compatible LLM endpoint fully inside the internal network so
+# sensitive-classified requests never leave the appliance. The guardrail's
+# `vllm` provider targets this service via VLLM_BASE_URL.
+#
+#   docker compose -f docker-compose.production.yml -f docker-compose.vllm.yml up -d
+#
+# Requirements: NVIDIA GPU (24GB+ VRAM recommended) + NVIDIA Container Toolkit.
+# Set VLLM_MODEL to the licensed local model (weights mounted at /models for
+# air-gapped installs). Choose a model whose license permits on-prem serving.
+
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: kyra-vllm
+    restart: always
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN:-}
+    command:
+      - "--model=${VLLM_MODEL:-/models/local-model}"
+      - "--served-model-name=${VLLM_SERVED_NAME:-local-model}"
+      - "--host=0.0.0.0"
+      - "--port=8000"
+      - "--max-model-len=${VLLM_MAX_LEN:-8192}"
+    volumes:
+      - ${VLLM_MODELS_DIR:-./models}:/models:ro
+    expose:
+      - "8000"
+    networks:
+      - kyra-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+networks:
+  kyra-network:
+    external: true
+    name: kita-ax_kyra-network

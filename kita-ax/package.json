@@ -22,7 +22,9 @@
     "db:migrate:create": "node src/database/create-migration.js",
     "db:sync": "node -e \"require('dotenv').config(); const db = require('./src/config/database'); db.syncDatabase().then(() => { console.log('✓ Database synchronized'); process.exit(0); }).catch(e => { console.error('✗ Sync failed:', e.message); process.exit(1); })\"",
     "db:seed": "node src/scripts/seed-database.js",
-    "db:setup": "npm run db:migrate && npm run db:seed"
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "mock:vllm": "node scripts/mock-vllm-server.js",
+    "perf:guardrail": "k6 run perf/guardrail-load.js"
   },
   "keywords": [
     "kyra",

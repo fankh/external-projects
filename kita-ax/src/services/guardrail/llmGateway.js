@@ -22,7 +22,10 @@ const config = {
   get anthropicModel() { return process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'; },
   get openaiBaseUrl() { return process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'; },
   get openaiKey() { return process.env.OPENAI_API_KEY; },
-  get openaiModel() { return process.env.OPENAI_MODEL || 'gpt-4o-mini'; }
+  get openaiModel() { return process.env.OPENAI_MODEL || 'gpt-4o-mini'; },
+  get vllmBaseUrl() { return process.env.VLLM_BASE_URL || 'http://vllm:8000/v1'; },
+  get vllmKey() { return process.env.VLLM_API_KEY; },
+  get vllmModel() { return process.env.VLLM_MODEL || 'local-model'; }
 };
 
 class GatewayError extends Error {
@@ -94,34 +97,55 @@ const providers = {
     };
   },
 
-  async openai({ messages, model, maxTokens }) {
-    if (!config.openaiKey && !config.openaiBaseUrl.includes('localhost')) {
-      throw new GatewayError('OPENAI_API_KEY is not configured', 'NOT_CONFIGURED', 500);
-    }
-    const res = await fetchWithRetry(`${config.openaiBaseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(config.openaiKey ? { authorization: `Bearer ${config.openaiKey}` } : {})
-      },
-      body: JSON.stringify({
-        model: model || config.openaiModel,
-        max_tokens: maxTokens || 1024,
-        messages
-      })
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      throw new GatewayError(`OpenAI-compatible API error ${res.status}: ${body.slice(0, 200)}`, 'PROVIDER_ERROR', res.status);
-    }
-    const data = await res.json();
-    return {
-      content: data.choices?.[0]?.message?.content || '',
-      model: data.model,
-      usage: data.usage
-    };
-  }
+  openai: (args) => openAiCompatibleChat({
+    baseUrl: config.openaiBaseUrl,
+    apiKey: config.openaiKey,
+    defaultModel: config.openaiModel,
+    requireKey: !config.openaiBaseUrl.includes('localhost'),
+    keyEnvName: 'OPENAI_API_KEY',
+    ...args
+  }),
+
+  // Local vLLM serving on the internal GPU node (OpenAI-compatible). Runs
+  // fully in-network; VLLM_API_KEY is optional (vLLM can serve without auth).
+  vllm: (args) => openAiCompatibleChat({
+    baseUrl: config.vllmBaseUrl,
+    apiKey: config.vllmKey,
+    defaultModel: config.vllmModel,
+    requireKey: false,
+    keyEnvName: 'VLLM_API_KEY',
+    ...args
+  })
 };
+
+/** Shared caller for any OpenAI-compatible /chat/completions endpoint */
+async function openAiCompatibleChat({ baseUrl, apiKey, defaultModel, requireKey, keyEnvName, messages, model, maxTokens }) {
+  if (requireKey && !apiKey) {
+    throw new GatewayError(`${keyEnvName} is not configured`, 'NOT_CONFIGURED', 500);
+  }
+  const res = await fetchWithRetry(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {})
+    },
+    body: JSON.stringify({
+      model: model || defaultModel,
+      max_tokens: maxTokens || 1024,
+      messages
+    })
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new GatewayError(`OpenAI-compatible API error ${res.status}: ${body.slice(0, 200)}`, 'PROVIDER_ERROR', res.status);
+  }
+  const data = await res.json();
+  return {
+    content: data.choices?.[0]?.message?.content || '',
+    model: data.model,
+    usage: data.usage
+  };
+}
 
 class LlmGateway {
   /**
@@ -129,7 +153,7 @@ class LlmGateway {
    *
    * @param {object} params
    * @param {Array<{role: string, content: string}>} params.messages
-   * @param {string} [params.provider] anthropic | openai (defaults to LLM_PROVIDER)
+   * @param {string} [params.provider] anthropic | openai | vllm (defaults to LLM_PROVIDER)
    * @param {string} [params.model]
    * @param {number} [params.maxTokens]
    * @returns {Promise<{content: string, model: string, usage: object, provider: string}>}
