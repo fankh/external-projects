@@ -484,6 +484,27 @@ export async function decideMany(ids: string[]) {
   return { ok: done > 0, message: `${done}건 결재 처리 완료${skipped > 0 ? ` · ${skipped}건 건너뜀 (권한·상태)` : ''}` }
 }
 
+/** 결재 일괄 반려 — 중복·무효·예산 동결 등으로 한꺼번에 반려할 대기 결재를 같은 사유로 일괄 반려한다(일괄 승인의 반대편).
+ *  반려는 전체 반려(1회로 종결)이며 사유가 필수다. 소유자 확인(결재 아님)과 현재 단계 권한 밖·처리된 건은 건너뛴다. */
+export async function rejectMany(ids: string[], rawReason: string) {
+  const session = await getSession()
+  if (!session) return { ok: false, message: '로그인이 필요합니다.' }
+  if (!Array.isArray(ids) || ids.length === 0) return { ok: false, message: '선택된 결재 건이 없습니다.' }
+  const reason = rawReason.trim()
+  if (!reason) return { ok: false, message: '일괄 반려 사유를 입력하세요 (반려는 사유가 필수입니다).' }
+  const s = getStore()
+  let done = 0
+  let skipped = 0
+  for (const id of ids) {
+    const a = s.approvals.find((x) => x.id === id)
+    if (!a || a.kind === '소유자 확인') { skipped++; continue }
+    const r = await decide(id, '반려', reason)
+    if (r.ok) done++
+    else skipped++
+  }
+  return { ok: done > 0, message: `${done}건 반려 처리 완료${skipped > 0 ? ` · ${skipped}건 건너뜀 (권한·상태)` : ''}` }
+}
+
 /** 결재 독촉 발송 — SLA(운영 정책 approvalSlaDays) 초과한 대기 결재의 현재 단계 결재자에게 처리 독촉 통지를 보낸다.
  *  그동안 지연 결재는 대시보드·결재함에 '지연'으로 드러나기만 하고 결재자에게 처리를 촉구할 수단이 없었다
  *  (대여 반환 독촉·필독 미확인 안내와 같은 컴플라이언스 독촉의 결재판). 당일 중복 발송 차단. 비사용자. */

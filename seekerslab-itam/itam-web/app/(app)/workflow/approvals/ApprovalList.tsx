@@ -4,7 +4,7 @@ import { Chip } from '@/components/ui'
 import { APPROVAL_STEP_ROLE, approvalRoute, approvalStepLabel } from '@/lib/types'
 import type { Approval, Role } from '@/lib/types'
 import { approvalAgeDays, isApprovalOverdue } from '@/lib/dates'
-import { answerOwnerConfirm, decide, decideMany, remindOverdueApprovals, resubmitRequest, withdrawRequest } from './actions'
+import { answerOwnerConfirm, decide, decideMany, rejectMany, remindOverdueApprovals, resubmitRequest, withdrawRequest } from './actions'
 
 const WITHDRAWABLE = ['자산 신청', '반납', '이동', '대여']
 
@@ -97,6 +97,13 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
     setMsg(r.message)
     if (r.ok) setSelected(new Set())
   })
+  // 일괄 반려 — 중복·무효·예산 동결 등 한꺼번에 반려할 건을 같은 사유로 반려한다(반려는 사유 필수라 공유 사유를 받는다)
+  const [bulkRejectReason, setBulkRejectReason] = useState('')
+  const bulkReject = () => startTransition(async () => {
+    const r = await rejectMany(selectedDecidable, bulkRejectReason)
+    setMsg(r.message)
+    if (r.ok) { setSelected(new Set()); setBulkRejectReason('') }
+  })
 
   return (
     <div>
@@ -135,9 +142,15 @@ export function ApprovalList({ approvals, role, dept, viewer, linesByKind, requi
           <span className="strong" style={{ fontSize: 12.5 }}>내 결재 차례 {decidableRows.length}건</span>
           <button className="btn sm" disabled={pending} onClick={() => setSelected(new Set(decidableRows.map((a) => a.id)))}>결재 가능 전체 선택</button>
           <button className="btn sm pri" disabled={pending || selectedDecidable.length === 0}
-            onClick={bulkApprove} title="선택한 결재 건을 일괄 승인합니다 (반려는 개별 사유가 필요해 제외)">
+            onClick={bulkApprove} title="선택한 결재 건을 일괄 승인합니다">
             선택 일괄 승인 ({selectedDecidable.length})
           </button>
+          {selectedDecidable.length > 0 && (
+            <span className="hstack" style={{ gap: 6 }}>
+              <input className="input" style={{ height: 28, width: 200 }} placeholder="일괄 반려 사유" value={bulkRejectReason} disabled={pending} onChange={(e) => setBulkRejectReason(e.target.value)} title="중복·무효·예산 동결 등 선택 건을 같은 사유로 일괄 반려(반려는 사유 필수)" />
+              <button className="btn sm danger" disabled={pending || !bulkRejectReason.trim()} onClick={bulkReject}>선택 일괄 반려 ({selectedDecidable.length})</button>
+            </span>
+          )}
           {selected.size > 0 && <button className="btn sm ghost" disabled={pending} onClick={() => setSelected(new Set())}>선택 해제</button>}
         </div>
       )}
