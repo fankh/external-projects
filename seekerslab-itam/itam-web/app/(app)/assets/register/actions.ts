@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { isMaintenanceOverdue, today } from '@/lib/dates'
-import { reclaimLicenseSeats } from '@/lib/license'
+import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextAssetNo, nextId } from '@/lib/store'
@@ -581,10 +581,13 @@ export async function reassignAsset(assetNo: string, rawNewOwner: string, rawNot
   asset.dept = user.dept
   asset.receiptPending = true // 새 보유자 수령(인수) 확인 대기 — 체인 오브 커스터디
   asset.history.push({ date: today(), kind: '이동', detail: `재배정(직접 인계) — ${from} → ${user.name} (${user.dept})${note ? ` · ${note}` : ''}`, actor: session.name })
+  // 라이선스 좌석 보유자 승계 — 좌석은 회수하지 않고 자산과 함께 새 보유자에게 넘어가므로(로56) 배정 대장의 보유자·부서를 갱신한다(SAM 감사 정합).
+  const moved = transferLicenseSeats(assetNo, user.name, user.dept, session.name)
+  if (moved.length) asset.history.push({ date: today(), kind: '점검', detail: `라이선스 좌석 보유자 승계 — ${moved.join(', ')} → ${user.name}`, actor: session.name })
   dispatch({ channel: '이메일', to: `${user.name} (${user.dept})`, subject: `자산 인수 요청 — ${asset.assetNo} ${asset.model} 재배정 · 수령(인수) 확인 요망`, kind: '수령 확인', ref: asset.assetNo })
   appendAudit({ actor: session.name, action: `자산 재배정 — ${asset.model} (${from} → ${user.name})`, target: assetNo })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${assetNo} 재배정 — ${from} → ${user.name} (${user.dept}) · 새 보유자 수령 확인 대기` }
+  return { ok: true, message: `${assetNo} 재배정 — ${from} → ${user.name} (${user.dept}) · 새 보유자 수령 확인 대기${moved.length ? ` · 라이선스 좌석 ${moved.length}건 승계` : ''}` }
 }
 
 /** 자산 일괄 회수 — 여러 사용 중 자산을 한 번에 회수(오프보딩: 퇴직자 보유 자산 전량 회수). 사용 중이 아닌 선택분은 건너뛴다.

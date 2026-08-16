@@ -591,6 +591,25 @@ try {
   ok('자산 재배정 → 새 보유자 수령(인수) 확인 대기(체인 오브 커스터디)', reassignedBody.includes('수령 확인 대기'))
   ok('자산 재배정 → 이력에 재배정(직접 인계) 기록', reassignedBody.includes('재배정(직접 인계)'))
 
+  // 라이선스 좌석 보유자 승계 — 재배정(직접 인계)은 좌석을 회수하지 않고 자산과 함께 넘기므로(로56) 배정 대장의 보유자·부서도 새 보유자로 갱신돼야 한다(SAM 감사 정합). 그동안 재배정은 자산 소유자만 바꾸고 좌석은 '떠난 사람'을 계속 가리켰다. AST-2023-000112(김민준·LIC-004 좌석)를 오세훈으로 재배정해 승계 확인 후, 하위 테스트(분실·STEP2)를 위해 김민준으로 원복.
+  await p2.goto(`${BASE}/assets/register?sel=AST-2023-000112`, { waitUntil: 'networkidle' })
+  await p2.locator('button', { hasText: /^자산 재배정 \(직접 인계\)$/ }).click()
+  await p2.waitForTimeout(200)
+  await p2.locator('select', { has: p2.locator('option', { hasText: '오세훈 · 인사팀' }) }).selectOption('오세훈')
+  await p2.locator('input[placeholder*="인계 사유"]').fill('좌석 승계 검증 — e2e')
+  await p2.locator('button', { hasText: /^재배정 확정$/ }).click()
+  await p2.waitForTimeout(700)
+  await p2.goto(`${BASE}/assets/register?sel=AST-2023-000112`, { waitUntil: 'networkidle' })
+  const seatXferBody = (await p2.locator('body').textContent()) || ''
+  ok('자산 재배정 → 라이선스 좌석 보유자 승계(배정 대장 정합·떠난 사람 미참조)', seatXferBody.includes('라이선스 좌석 보유자 승계'))
+  // 원복 — 하위 테스트를 위해 김민준으로 되돌린다(좌석 보유자도 함께 원복)
+  await p2.locator('button', { hasText: /^자산 재배정 \(직접 인계\)$/ }).click()
+  await p2.waitForTimeout(200)
+  await p2.locator('select', { has: p2.locator('option', { hasText: '김민준 · 플랫폼개발팀' }) }).selectOption('김민준')
+  await p2.locator('input[placeholder*="인계 사유"]').fill('원복 — e2e')
+  await p2.locator('button', { hasText: /^재배정 확정$/ }).click()
+  await p2.waitForTimeout(700)
+
   // 수명주기 처리 대기열 라우팅 — 대여중·수리중·분실이 '다음 처리 -'로 막다른 행이던 것을 처리 화면 딥링크로 연결(폐기완료는 대기열 제외).
   await p2.goto(`${BASE}/assets/lifecycle`, { waitUntil: 'networkidle' })
   const lifeBody = (await p2.locator('body').textContent()) || ''

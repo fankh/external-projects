@@ -61,3 +61,19 @@ export function reclaimLicenseSeats(assetNo: string, actor: string, reason: stri
   }
   return freed
 }
+
+/** 라이선스 좌석 보유자 승계(자산 재배정 시) — 자산이 새 보유자에게 직접 인계되면(반납 없이) 그 자산에 물린 좌석은
+ *  회수되지 않고 자산과 함께 승계자에게 넘어간다(로30·로56). 좌석 배정 대장의 보유자·부서를 새 보유자로 갱신하지 않으면
+ *  SAM 감사 배정 대장이 '떠난 사람'을 계속 가리켜 대사·소명이 어긋난다. 갱신된 라이선스명 목록을 반환한다. */
+export function transferLicenseSeats(assetNo: string, newUser: string, newDept: string, actor: string): string[] {
+  const s = getStore()
+  const moved: string[] = []
+  for (const l of s.licenses) {
+    const seats = l.seats?.filter((st) => st.assetNo === assetNo) ?? []
+    if (seats.length === 0) continue
+    for (const st of seats) { st.user = newUser; st.dept = newDept }
+    moved.push(l.name)
+    appendAudit({ actor, action: `라이선스 좌석 보유자 승계 — ${l.name} @ ${assetNo} → ${newUser}·${newDept}`, target: l.id })
+  }
+  return moved
+}
