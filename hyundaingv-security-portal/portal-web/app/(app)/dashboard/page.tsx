@@ -5,6 +5,7 @@ import { currentYear, today } from '@/lib/dates'
 import { compliancePostureScore, computeComplianceKpis, postureRating } from '@/lib/compliance'
 import { computeFinanceKpis } from '@/lib/finance'
 import { computeInfraHealth } from '@/lib/infra'
+import { computeProjectPmo } from '@/lib/projects'
 import { eligibleForCourse, getStore, highSevOpen, isRemoteTargetIn, remotePeriodKey } from '@/lib/store'
 import { SR_CHIP, srStatusLabel } from '../sr/chips'
 
@@ -69,10 +70,13 @@ export default async function DashboardPage() {
 
   // 전사 운영 스냅샷 (업무담당·Admin) — 미서약 집계도 위 개인 타일과 같은 일반 서약 기준(단일 원천)
   const signedNames = new Set(s.pledges.filter((p) => p.year === currentYear() && p.kind === '일반' && p.signedAt >= generalRevisedAt).map((p) => p.name))
+  // 프로젝트 PMO — 오픈 이슈·높은 리스크(lib/projects 단일원천, schedule 화면과 정합).
+  const pmo = computeProjectPmo(s)
   const ops = {
     incidents: s.incidents.filter((i) => i.status === '조치중').length,
     delayedSr: s.srRequests.filter((r) => r.dueDate && r.dueDate < today() && !['완료', '반려', '작성중', '결재중', '중지'].includes(r.status)).length,
-    openIssues: s.projectIssues.filter((i) => i.status === '오픈').length,
+    openIssues: pmo.openIssues,
+    projectHighRisk: pmo.highRiskOpen,
     unsigned: s.people.filter((p) => !signedNames.has(p.name)).length,
     inspections: s.inspectionPlans.filter((p) => p.status === '결과미등록' || (p.month < period && p.status === '계획')).length,
     // 미조치 취약점 — 열린(미완료) 보안성 검토의 발견 대비 미조치 잔여. 화면(security-review)의 openFindings 와 동일 원천.
@@ -123,6 +127,7 @@ export default async function DashboardPage() {
             {opsVis.infraSys && <Stat value={infra.diskWarns} label="디스크 경고" tone={infra.diskWarns > 0 ? 'err' : undefined} />}
             {opsVis.delayedSr && <Stat value={ops.delayedSr} label="지연 SR" tone={ops.delayedSr > 0 ? 'warn' : undefined} />}
             {opsVis.openIssues && <Stat value={ops.openIssues} label="프로젝트 오픈 이슈" tone={ops.openIssues > 0 ? 'warn' : undefined} />}
+            {opsVis.openIssues && <Stat value={ops.projectHighRisk} label="프로젝트 높은 리스크" tone={ops.projectHighRisk > 0 ? 'err' : undefined} />}
             {opsVis.unsigned && <Stat value={ops.unsigned} label="미서약 인원" tone={ops.unsigned > 0 ? 'warn' : undefined} />}
             {opsVis.inspections && <Stat value={ops.inspections} label="점검 미등록 · 경과" tone={ops.inspections > 0 ? 'warn' : undefined} />}
             {opsVis.securityReviews && <Stat value={ops.securityHigh} label="고위험 미조치" tone={ops.securityHigh > 0 ? 'err' : undefined} />}
