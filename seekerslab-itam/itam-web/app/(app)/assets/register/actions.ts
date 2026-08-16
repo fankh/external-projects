@@ -62,6 +62,29 @@ export async function setAssetContract(assetNo: string, rawContractId: string) {
   return { ok: true, message: `${assetNo} 계약 연계 해제 완료` }
 }
 
+/** 자산–계약 일괄 연계 — 유지보수·구매 계약이 한 대가 아니라 다수(예: HW 유지보수 40대)를 덮는 상황에서 선택 자산을 한 번에 한 계약에 연계한다.
+ *  건별 setAssetContract 와 동일 규약(해지 계약 제외, 이미 그 계약 연계분 제외)이고 감사만 일괄로 남긴다. 보증 일괄 연장·오프보딩 일괄 회수와 같은 배치 패턴. 자산담당·Admin. */
+export async function setAssetContractMany(assetNos: string[], rawContractId: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '계약 연계 권한이 없습니다 (자산담당·Admin).' }
+  const contractId = rawContractId.trim()
+  if (!contractId) return { ok: false, message: '연계할 계약을 선택하세요.' }
+  const s = getStore()
+  const c = s.contracts.find((x) => x.id === contractId)
+  if (!c) return { ok: false, message: '계약을 찾을 수 없습니다.' }
+  if (c.status === '해지') return { ok: false, message: '해지된 계약에는 연계할 수 없습니다.' }
+  const targets = s.assets.filter((a) => assetNos.includes(a.assetNo) && a.contractId !== contractId)
+  if (targets.length === 0) return { ok: false, message: '연계할 자산이 없습니다 (이미 해당 계약에 연계된 건 제외).' }
+  for (const asset of targets) {
+    const before = asset.contractId ?? '(없음)'
+    asset.contractId = contractId
+    asset.history.push({ date: today(), kind: '구성변경', detail: `계약 연계 ${before} → ${contractId} (${c.name}) (일괄)`, actor: session.name })
+  }
+  appendAudit({ actor: session.name, action: `자산–계약 일괄 연계 (${targets.length}건) → ${contractId} (${c.name})`, target: contractId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${targets.length}건 → ${contractId} (${c.name}) 계약 일괄 연계 완료` }
+}
+
 const IMPORT_CATS: AssetCategory[] = ['단말', '서버', '네트워크', '주변기기', 'SW', '가상자원']
 
 async function guard() {

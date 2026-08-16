@@ -567,6 +567,15 @@ try {
   ok('자산 회수 → 라이선스 좌석 자동 회수(배정 라이선스 역조회 사라짐)', !recoveredBody.includes('배정 라이선스'))
   // 회수 시 수령 미확인(receiptPending)도 함께 해제 — 보유자를 떠난 자산이 스테일 '수령 미확인'으로 남지 않는다(v1.327 버그픽스).
   ok('자산 회수 → 수령 미확인 스테일 해제(수령 확인 대기 사라짐)', !recoveredBody.includes('수령 확인 대기'))
+  // 계약 일괄 연계 — HW 유지보수·구매 계약이 다수 자산을 덮을 때 선택분을 한 계약에 한 번에 연계(보증 일괄 연장·일괄 회수와 같은 배치 접점). 그동안 계약 연계는 자산 하나씩만 가능했다.
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()
+  await p2.locator('input[aria-label="AST-2023-000562 선택"]').check()
+  await p2.locator('select[title*="계약에 일괄 연계"]').selectOption('CT-2022-007')
+  await p2.locator('.callout button', { hasText: /^연계$/ }).click()
+  await p2.waitForTimeout(700)
+  ok('계약 일괄 연계: 선택 2건을 한 계약에 일괄 연계(CT-2022-007)', ((await p2.locator('body').textContent()) || '').includes('계약 일괄 연계 완료') && ((await p2.locator('body').textContent()) || '').includes('CT-2022-007'))
+
   // 일괄 회수(오프보딩) — 여러 사용 중 자산을 선택해 한 번에 회수. 대장에서 선택(체크)은 검색 간 유지된다.
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()
