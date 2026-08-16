@@ -172,8 +172,8 @@ export async function GET(req: Request) {
 
   if (type === 'changes') {
     if (!isMgr) return new Response('forbidden', { status: 403 })
-    const rows: (string | number)[][] = [['변경번호', '구분', '제목', '매칭 SR', '상태', '등록일', '작업계획', '작업결과']]
-    for (const c of s.changes) rows.push([c.id, c.kind, c.title, c.srNo ?? '-', c.status, c.registeredAt, c.plan ?? '-', c.result ?? '-'])
+    const rows: (string | number)[][] = [['변경번호', '구분', '제목', '매칭 SR', '상태', '등록일', '작업계획', '원복계획', '작업결과']]
+    for (const c of s.changes) rows.push([c.id, c.kind, c.title, c.srNo ?? '-', c.status, c.registeredAt, c.plan ?? '-', c.rollbackPlan ?? '-', c.result ?? '-'])
     return csvResponse('변경_관리대장', rows)
   }
 

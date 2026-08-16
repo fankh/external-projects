@@ -169,7 +169,7 @@ function seed(): Store {
       { id: 'FL-2026-13', system: '영업정보시스템', title: '야간 집계 배치 지연', grade: '3등급', occurredAt: '2026-08-01', status: '조치중', reportStatus: '미상신' },
     ],
     changes: [
-      { id: 'CW-2026-05', kind: '인프라', title: 'WAS 보안패치 적용', status: '작업등록승인', registeredAt: '2026-07-24', plan: '패치 적용 후 재기동, 실패 시 스냅샷 원복' },
+      { id: 'CW-2026-05', kind: '인프라', title: 'WAS 보안패치 적용', status: '작업등록승인', registeredAt: '2026-07-24', plan: '패치 적용 후 순차 재기동, 서비스 점검', rollbackPlan: '적용 전 스냅샷으로 원복, 이전 빌드 재배포' },
     ],
     srRequests: [
       { srNo: 'SR-2026-0141', kind: '시스템개발', title: '판매 실적 리포트 화면 개선', system: '영업정보시스템', requester: '김현우', dept: '개발1팀', status: '개발중', requestedAt: '2026-07-21', ci: '박정호', dueDate: '2026-08-14', manHours: 12 },
