@@ -4,10 +4,37 @@
 
 const { ChatMessage } = require('../models');
 const { Op } = require('sequelize');
+const GuardrailPipeline = require('./guardrail/pipeline');
+const LlmGateway = require('./guardrail/llmGateway');
 
 class ChatService {
   /**
-   * Send a user message and get assistant response
+   * Send a user message through the guardrail pipeline and persist both turns.
+   *
+   * The user turn is stored as the original content; the assistant turn stores
+   * the guardrail-approved (masked) response. Guardrail metadata (verdict,
+   * findings, latencies) is returned for the API layer and dashboards.
+   */
+  static async sendGuardedMessage({ content, userId, userEmail, tenantId, allowCategories, provider, model, ipAddress }) {
+    const result = await GuardrailPipeline.process({
+      content, tenantId, userEmail, allowCategories, provider, model, ipAddress
+    });
+
+    const userMessage = await ChatMessage.create({ role: 'user', content, userId, tenantId });
+    const assistantMessage = await ChatMessage.create({
+      role: 'assistant', content: result.content, userId, tenantId
+    });
+
+    return {
+      userMessage: userMessage.toJSON(),
+      assistantMessage: assistantMessage.toJSON(),
+      guardrail: { verdict: result.verdict, meta: result.meta }
+    };
+  }
+
+  /**
+   * Send a user message and get assistant response (legacy echo path,
+   * retained for environments without an LLM gateway configured)
    */
   static async sendMessage({ content, userId, tenantId }) {
     // Create user message

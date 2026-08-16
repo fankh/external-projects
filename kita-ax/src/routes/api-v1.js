@@ -727,18 +727,39 @@ router.post('/chat/messages', asyncHandler(async (req, res) => {
       );
     }
 
-    const result = await ChatService.sendMessage({
+    // Route through the guardrail when an LLM provider is configured;
+    // otherwise fall back to the legacy echo path.
+    const guardrailEnabled = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.OPENAI_BASE_URL);
+
+    if (!guardrailEnabled) {
+      const legacy = await ChatService.sendMessage({
+        content: content.trim(),
+        userId: req.user.id,
+        tenantId: req.user.tenantId
+      });
+      return res.json({ success: true, userMessage: legacy.userMessage, assistantMessage: legacy.assistantMessage });
+    }
+
+    const result = await ChatService.sendGuardedMessage({
       content: content.trim(),
       userId: req.user.id,
-      tenantId: req.user.tenantId
+      userEmail: req.user.email,
+      tenantId: req.user.tenantId,
+      allowCategories: req.user.dlpAllowCategories,
+      ipAddress: req.ip
     });
 
-    res.json({
+    return res.json({
       success: true,
       userMessage: result.userMessage,
-      assistantMessage: result.assistantMessage
+      assistantMessage: result.assistantMessage,
+      guardrail: result.guardrail
     });
   } catch (error) {
+    if (error.name === 'GatewayError') {
+      const status = error.status || 502;
+      return res.status(status).json(serializers.errorResponse(error.message, error.code || 'GATEWAY_ERROR'));
+    }
     res.status(500).json(serializers.errorResponse(error.message, 'DATABASE_ERROR'));
   }
 }));
