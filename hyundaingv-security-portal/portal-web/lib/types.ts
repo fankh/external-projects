@@ -261,7 +261,7 @@ export interface Approval {
 export interface TodoItem {
   id: string
   owner: string
-  kind: '보안서약서' | '보안교육' | '재택 체크리스트' | '출력물 폐기확인' | 'SR 처리' | '결재' | '재상신'
+  kind: '보안서약서' | '보안교육' | '재택 체크리스트' | '출력물 폐기확인' | 'SR 처리' | '결재' | '재상신' | 'QnA'
   title: string
   dueDate: string
   done: boolean

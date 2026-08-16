@@ -15,6 +15,7 @@ const KIND_HREF: Record<TodoItem['kind'], { href: string; label: string }> = {
   'SR 처리': { href: '/sr/ci', label: 'SR 처리' },
   결재: { href: '/work/approvals', label: '결재함 이동' },
   재상신: { href: '/sr/requests', label: '재상신하기' },
+  QnA: { href: '/board/qna', label: '답변하기' },
 }
 
 /** 반려 재상신 할일은 제목의 문서 유형 태그로 해당 업무 화면을 찾는다 (태그 없는 과거 할일은 SR 기본) */

@@ -115,6 +115,13 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
       .map((r) => r.ci ?? r.requester),
     '[SR] 완료 예정일 경과 안내')
 
+  // 3-b) QnA 미답변 — 담당 지정된 미답변 문의의 담당자(재직 교집합). 담당 지정 시 답변 할일도 발급된다
+  // (폐쇄 루프): 지정→할일+독촉, 답변→할일 마감. 담당이 퇴사해 s.people 에서 빠지면 유령 독촉을 막는다.
+  await send('QnA 미답변',
+    s.qna.filter((q) => !q.answer && q.assignee).map((q) => q.assignee!)
+      .filter((name) => people.some((p) => p.name === name)),
+    '[QnA] 미답변 문의 안내')
+
   // 4) 재택 체크리스트 미제출 — 당월 재택 대상자 중 미제출 인원 (명단 밖 인원에게는 안내하지 않는다)
   const remotePeriod = remotePeriodKey(s.remoteCycle)  // 재택은 등록 주기 기반 기간 키(월이면 month 와 동일)
   const submitted = new Set(s.remoteChecks.filter((r) => r.period === remotePeriod).map((r) => r.name))

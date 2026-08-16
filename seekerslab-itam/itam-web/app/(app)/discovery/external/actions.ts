@@ -201,6 +201,31 @@ export async function requestExternalAction(externalId: string, kind: '편입' |
   return { ok: true, message: `${e.host} ${kind} 요청 — ${kind === '편입' ? '자산관리팀' : '보안운영팀'} 통지·감사 적재` }
 }
 
+/** 외부 노출 자산 일괄 조치 — 재탐지·CVE 스윕으로 다수 노출 호스트가 한꺼번에 잡힐 때 선택해 한 번에 편입(또는 차단).
+ *  건별 로직은 requestExternalAction 과 동일하고 감사만 일괄로 남긴다. 이미 조치된 건은 건너뛴다(멱등). 보안담당·Admin. */
+export async function requestExternalActionMany(ids: string[], kind: '편입' | '차단') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '외부 노출 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const targets = s.external.filter((e) => ids.includes(e.id) && !e.action)
+  if (targets.length === 0) return { ok: false, message: '조치할 외부 노출 건이 없습니다 (이미 처리된 건 제외).' }
+  for (const e of targets) {
+    if (kind === '편입') {
+      e.action = '편입요청'
+      dispatch({ channel: '이메일', to: '자산관리팀', subject: `외부 노출 자산 편입 검토 — ${e.host} (${e.services ?? '-'})`, kind: '소유자 확인', ref: e.id })
+    } else {
+      e.action = '차단요청'
+      escalate({ to: '보안운영팀', subject: `외부 노출 차단·격리 요청 — ${e.host} ${e.cve ? `(${e.cve})` : ''}`, kind: '격리 통보', ref: e.id, sms: `외부 노출 차단·격리 ${e.host}${e.cve ? ` (${e.cve})` : ''} — 즉시 차단` })
+    }
+  }
+  const names = targets.map((e) => e.host).slice(0, 5).join(', ')
+  appendAudit({ actor: session.name, action: `외부 노출 자산 일괄 ${kind} 요청 (${targets.length}건) — ${names}${targets.length > 5 ? ' 외' : ''}`, target: '외부 노출' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `외부 노출 ${targets.length}건 ${kind} 요청 — ${kind === '편입' ? '자산관리팀' : '보안운영팀'} 통지·감사 적재` }
+}
+
 /** 외부 노출 위험 수용 — 편입도 차단도 아닌 '인지된 노출'로 공식 수용한다(예: 보상통제가 있는 레거시·의도된 공개 서비스).
  *  (그동안 조치는 편입/차단뿐이라 수용 가능한 노출도 미조치로 남아 취약점 우선순위에 영구 계상됐다 — 위험 관리의 표준 처분(risk acceptance) 부재.)
  *  수용은 사유(정당화 근거)와 감사가 필수이며, 조치 상태를 '위험 수용'으로 두어 활성 취약점 우선순위(미조치 기준)에서 제외한다. 오판이면 해제. 보안담당·Admin. */

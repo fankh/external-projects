@@ -528,6 +528,21 @@ try {
   await page.waitForTimeout(700)
   ok('외부 노출 위험 수용 해제 → 미조치(편입/차단 대상) 복귀', (await page.locator('tr', { has: page.locator('td', { hasText: 'dev-api.seekerslab.co.kr' }) }).first().locator('button', { hasText: /^차단 요청$/ }).count()) > 0)
 
+  // 외부 노출 일괄 차단 — 재탐지·CVE 스윕에서 미조치·생존 확인된 노출 호스트를 체크박스로 선택해 한 번에 차단(공격 표면 축소 스윕). dev-api 는 위 위험 수용 테스트가 소비하므로 미조치분 legacy-vpn·kiosk-cam 선택.
+  {
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const extCard = page.locator('.card', { hasText: '발견에서 조치까지' })
+    await extCard.locator('tr', { hasText: 'legacy-vpn' }).locator('input[type="checkbox"]').check()
+    await extCard.locator('tr', { hasText: 'kiosk-cam' }).locator('input[type="checkbox"]').check()
+    await extCard.locator('button', { hasText: /^차단 요청 \(2\)$/ }).click()
+    await page.waitForTimeout(700)
+    await page.goto(`${BASE}${EXT}`, { waitUntil: 'networkidle' })
+    const c = page.locator('.card', { hasText: '발견에서 조치까지' })
+    const vpn = (await c.locator('tr', { hasText: 'legacy-vpn' }).first().textContent()) || ''
+    const cam = (await c.locator('tr', { hasText: 'kiosk-cam' }).first().textContent()) || ''
+    ok('외부 노출 일괄 차단: 선택 2건 일괄 처리(차단요청 반영)', vpn.includes('차단요청') && cam.includes('차단요청'))
+  }
+
   // AI 제안 판정 루프(11) — 승인→조치·반려 사유 필수
   await aiInsightDecide(page)
   await ctx.close()

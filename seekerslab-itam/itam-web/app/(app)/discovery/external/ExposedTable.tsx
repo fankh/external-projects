@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react'
 import { Chip, RiskChip } from '@/components/ui'
 import type { ExternalAsset, ReconcileState } from '@/lib/types'
-import { acceptExternalRisk, requestExternalAction, revokeExternalRisk } from './actions'
+import { acceptExternalRisk, requestExternalAction, requestExternalActionMany, revokeExternalRisk } from './actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
@@ -13,7 +13,13 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
   const [busy, setBusy] = useState<string | null>(null)
   const [acceptId, setAcceptId] = useState<string | null>(null)
   const [acceptReason, setAcceptReason] = useState('')
+  const [checked, setChecked] = useState<Set<string>>(new Set())
   const [pending, startTransition] = useTransition()
+
+  // 미조치·생존 확인된 건만 선택 대상 — 재탐지·CVE 스윕으로 다수 노출 호스트가 잡히면 선택해 한 번에 편입/차단한다(미확인은 생존 확인이 먼저)
+  const selectable = externals.filter((e) => !e.action && e.alive)
+  const toggle = (id: string) => setChecked((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const allSel = selectable.length > 0 && selectable.every((e) => checked.has(e.id))
 
   const act = (id: string, kind: '편입' | '차단') => {
     setBusy(id)
@@ -22,6 +28,10 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
       setMsg(r.message); setBusy(null)
     })
   }
+  const bulkAct = (kind: '편입' | '차단') => startTransition(async () => {
+    const r = await requestExternalActionMany([...checked], kind)
+    setMsg(r.message); if (r.ok) setChecked(new Set())
+  })
   const accept = (id: string) => startTransition(async () => {
     const r = await acceptExternalRisk(id, acceptReason)
     setMsg(r.message); if (r.ok) { setAcceptId(null); setAcceptReason('') }
@@ -31,10 +41,22 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
   return (
     <>
       {msg && <div className="callout" style={{ margin: 14 }}>{msg}</div>}
+      {canAct && checked.size > 0 && (
+        <div className="hstack" style={{ margin: 14, gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span className="mut" style={{ fontSize: 12.5 }}>선택 {checked.size}건 일괄 조치:</span>
+          <button className="btn sm" disabled={pending} onClick={() => bulkAct('편입')}>편입 요청 ({checked.size})</button>
+          <button className="btn sm danger" disabled={pending} onClick={() => bulkAct('차단')}>차단 요청 ({checked.size})</button>
+          <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
+        </div>
+      )}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
             <tr>
+              {canAct && <th className="c" style={{ width: 32 }}>
+                <input type="checkbox" checked={allSel} disabled={pending || selectable.length === 0} aria-label="미조치 외부 노출 전체 선택"
+                  onChange={(ev) => setChecked(ev.target.checked ? new Set(selectable.map((e) => e.id)) : new Set())} />
+              </th>}
               <th>ID</th><th>호스트</th><th>IP</th><th>발견 방법</th><th className="c">방식</th>
               <th className="c">생존</th><th>노출 서비스</th><th>CVE</th><th className="c">대사</th><th className="c">위험도</th>
               {canAct && <th className="c">조치</th>}
@@ -43,6 +65,9 @@ export function ExposedTable({ externals, canAct }: { externals: ExternalAsset[]
           <tbody>
             {externals.map((e) => (
               <tr key={e.id}>
+                {canAct && <td className="c" onClick={(ev) => ev.stopPropagation()}>
+                  {!e.action && e.alive && <input type="checkbox" checked={checked.has(e.id)} disabled={pending} aria-label={`${e.host} 선택`} onChange={() => toggle(e.id)} />}
+                </td>}
                 <td className="code">{e.id}</td>
                 <td className="strong">{e.host}</td>
                 <td className="tnum">{e.ip ?? '-'}</td>
