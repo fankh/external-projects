@@ -36,8 +36,10 @@ PostgreSQL/Nginx/한글 폰트가 전혀 없는 신규 서버는 패키지에 �
 # [1] 인터넷 가능한 동일 OS(Rocky/RHEL 9.x) 머신에서 RPM 수집
 mkdir rpms
 dnf download --resolve --destdir=rpms \
-    postgresql14-server postgresql14 nginx google-noto-sans-cjk-fonts
-# PGDG 저장소 사용 시 pgdg-redhat-repo 활성 상태에서 실행
+    postgresql14-server postgresql14 nginx google-noto-sans-cjk-fonts \
+    net-snmp-utils net-snmp-libs
+# net-snmp-utils: ss-snmp-trap(SNMP Trap 송신)이 snmptrap CLI에 의존 (필수)
+# PGDG 저장소 사용 시 pgdg-redhat-repo 활성 상태에서 실행. PostgreSQL 요건: 최소 12+, 표준은 PGDG 14
 
 # [2] rpms/ 디렉터리를 설치 패키지 루트(install.sh 옆)에 복사 후 오프라인 서버로 전송
 
