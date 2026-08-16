@@ -3,10 +3,10 @@ import { revalidatePath } from 'next/cache'
 import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
 import { effectiveRoles, requireMenu, requireMenuRole } from '@/lib/authz'
+import { computeInfraHealth, DISK_WARN } from '@/lib/infra'
 import { getStore } from '@/lib/store'
 import type { ServerInfo, SystemInfo } from '@/lib/types'
 
-const DISK_WARN = 85
 const PURPOSES: ServerInfo['purpose'][] = ['Web', 'WAS', 'DB', '배치']
 
 function nextId(prefix: string, existing: string[]): string {
@@ -93,7 +93,8 @@ export default async function SystemsPage() {
   // 수치가 새어 나간다(대시보드 v1.5.86·검색 v1.5.56 과 동일 교차도메인 게이트 결함). 출처 유효권한으로 가드.
   const canSeeIncidents = effectiveRoles('/infra/incidents').includes(me.role)
 
-  const diskWarns = s.servers.filter((v) => v.diskUsedPct > DISK_WARN)
+  // 디스크 경고 집계는 lib/infra 단일 원천(대시보드·종합 export 와 같은 값·같은 임계)
+  const diskWarns = computeInfraHealth(s).diskWarns
   // 손상 파일이 system.name 을 누락·비문자열로 남기면 .replace 가 500 을 낸다(머지 strFields 정규화는
   // 비문자열은 강제하나 누락(undefined)은 옵셔널 보존을 위해 두므로, 여기서 문자열로 방어한다).
   // 손상 파일이 system.name 을 누락·비문자열로 남기면 .replace 가 500 을 낸다(머지 strFields 정규화는
@@ -112,7 +113,7 @@ export default async function SystemsPage() {
       <div className="stat-row">
         <Stat value={s.systems.length} label="시스템" note={`운영계 ${s.systems.filter((x) => x.env === '운영계').length}`} />
         <Stat value={s.servers.length} label="서버" note={`랙 ${new Set(s.servers.map((v) => v.rack)).size}개`} />
-        <Stat value={diskWarns.length} label={`디스크 경고 (>${DISK_WARN}%)`} tone={diskWarns.length > 0 ? 'err' : undefined} />
+        <Stat value={diskWarns} label={`디스크 경고 (>${DISK_WARN}%)`} tone={diskWarns > 0 ? 'err' : undefined} />
         {canSeeIncidents && <Stat value={s.incidents.filter((i) => i.status === '조치중').length} label="조치중 장애" tone={s.incidents.some((i) => i.status === '조치중') ? 'warn' : undefined} />}
       </div>
 

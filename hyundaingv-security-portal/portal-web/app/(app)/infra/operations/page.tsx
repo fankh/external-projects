@@ -3,6 +3,7 @@ import { Card, Chip, ScreenHeader, Stat } from '@/components/ui'
 import { audit } from '@/lib/audit'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { nowStamp } from '@/lib/dates'
+import { computeInfraHealth } from '@/lib/infra'
 import { getStore, recordBatch } from '@/lib/store'
 import type { BatchJob, InterfaceDef } from '@/lib/types'
 
@@ -91,8 +92,8 @@ export default async function OperationsPage() {
   await requireMenu('/infra/operations')
   const s = getStore()
 
-  const failedBatches = s.batchJobs.filter((b) => b.lastResult === '실패')
-  const brokenIfs = s.interfaces.filter((i) => i.status === '오류')
+  // 배치 실패·인터페이스 오류 집계는 lib/infra 단일 원천(대시보드·종합 export 와 같은 값)
+  const infra = computeInfraHealth(s)
 
   return (
     <>
@@ -100,10 +101,10 @@ export default async function OperationsPage() {
         desc="배치 잡 실행 이력과 대내외 인터페이스 연계 상태, 서버별 디스크 사용률을 관리한다." />
 
       <div className="stat-row">
-        <Stat value={s.batchJobs.length} label="배치 잡" />
-        <Stat value={failedBatches.length} label="배치 실패" tone={failedBatches.length > 0 ? 'err' : undefined} note="최근 실행 기준" />
-        <Stat value={s.interfaces.length} label="인터페이스" />
-        <Stat value={brokenIfs.length} label="인터페이스 오류" tone={brokenIfs.length > 0 ? 'err' : undefined} />
+        <Stat value={infra.batchTotal} label="배치 잡" />
+        <Stat value={infra.failedBatches} label="배치 실패" tone={infra.failedBatches > 0 ? 'err' : undefined} note="최근 실행 기준" />
+        <Stat value={infra.ifTotal} label="인터페이스" />
+        <Stat value={infra.brokenIfs} label="인터페이스 오류" tone={infra.brokenIfs > 0 ? 'err' : undefined} />
       </div>
 
       <Card title="배치관리" kicker="Batch Jobs" pad={false}
