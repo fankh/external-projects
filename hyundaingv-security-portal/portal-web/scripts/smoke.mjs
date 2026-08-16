@@ -455,7 +455,9 @@ async function main() {
     check(remoteDenied.status === 403, 'export: USER 재택 현황 차단(403)')
     // 컴플라이언스 종합 현황 — /compliance/inspection(BIZ) 게이트라 담당·Admin 만, DEPT_MGR·USER 차단
     const compCsv = await get('/api/export?type=compliance-summary', 'BIZ_MGR')
-    check(compCsv.status === 200 && (await compCsv.text()).includes('일반 보안서약률'), 'export: 컴플라이언스 종합 현황 CSV (BIZ_MGR)')
+    const compCsvText = await compCsv.text()
+    check(compCsv.status === 200 && compCsvText.includes('일반 보안서약률'), 'export: 컴플라이언스 종합 현황 CSV (BIZ_MGR)')
+    check(compCsvText.includes('포스처 점수') && compCsvText.includes('개선 우선순위(최약 축)'), 'export: 종합 현황에 포스처 점수·개선 우선순위(최약 축) 행 포함')
     const compUser = await get('/api/export?type=compliance-summary', 'USER')
     check(compUser.status === 403, 'export: USER 컴플라이언스 종합 차단(403)')
     const compDept = await get('/api/export?type=compliance-summary', 'DEPT_MGR')

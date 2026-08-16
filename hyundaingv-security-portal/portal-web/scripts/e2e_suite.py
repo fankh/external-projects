@@ -646,6 +646,10 @@ def sc_compliance_trend(pg, base, check):
     # 포스처 점수(v1.5.144~) — 현재 점수 배너 + 추세 점수 열 개선 델타(56→65 = +9)
     check('현재 포스처 점수' in card, '현재 포스처 점수 배너 표시')
     check('+9' in card, '포스처 점수 개선 델타(+9, 56→65) 전기 대비 표시')
+    # 축 분해(v1.5.149~) — 점수를 이루는 5축을 각각 보이고 최약 축을 개선 우선순위로 지목(점수=축 평균 단일원천)
+    check('리스크 관리' in card and '취약점 조치율' in card and '점검 완료율' in card,
+          '포스처 축 분해 패널 표시(리스크 관리·취약점 조치율·점검 완료율 등 5축)')
+    check('개선 우선순위' in card, '최약 축을 개선 우선순위로 지목(행동 안내 포함)')
     pg.locator('.card', has_text='컴플라이언스 추세').locator('button:has-text("현황 스냅샷 기록")').click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
