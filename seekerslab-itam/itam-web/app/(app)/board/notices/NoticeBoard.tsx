@@ -172,6 +172,8 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
                 const ackedBy = new Set((open.acks ?? []).map((a) => a.by))
                 const acks = (open.acks ?? []).filter((a) => targets.some((t) => t.name === a.by))
                 const mine = (open.acks ?? []).find((a) => a.by === me)
+                // 발행 예정(publishAt 미래) 공지는 아직 대상자에게 공개 전 — 확인 집계·미확인자 독촉을 노출하지 않는다(서버 독촉 가드와 동일).
+                const published = !open.publishAt || open.publishAt <= today
                 return (
                   <div className="hstack" style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                     <Chip tone="err" bare>필독</Chip>
@@ -186,7 +188,7 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
                       </button>
                     )}
                     <span className="right" />
-                    {canWrite && acks.length < totalUsers && (
+                    {canWrite && published && acks.length < totalUsers && (
                       <button className="btn sm" disabled={pending}
                         title="아직 읽음 확인하지 않은 사용자에게 필독 확인 요청 통보"
                         onClick={() => startTransition(async () => setMsg((await remindNoticeUnacked(open.id)).message))}>
@@ -194,10 +196,12 @@ export function NoticeBoard({ posts, canWrite, me, allUsers, depts, today, initi
                       </button>
                     )}
                     <span className="mut" style={{ fontSize: 11.5 }} title="필독 확인 커버리지 (대상 집단 기준)">
-                      필독 확인 {acks.length}/{totalUsers}명 <span className="dim">· 대상 {noticeAudienceLabel(open)}</span>
+                      {published
+                        ? <>필독 확인 {acks.length}/{totalUsers}명 <span className="dim">· 대상 {noticeAudienceLabel(open)}</span></>
+                        : <>발행 예정 · {open.publishAt} 발행 후 확인 집계 <span className="dim">· 대상 {noticeAudienceLabel(open)}</span></>}
                     </span>
-                    {/* 미확인자 명단 — Admin 이 개별 후속(대면 독려·확인)을 할 수 있게 실제 이름을 노출한다. 대상 집단(전사/부서)으로 좁혀 표기. */}
-                    {canWrite && (() => {
+                    {/* 미확인자 명단 — Admin 이 개별 후속(대면 독려·확인)을 할 수 있게 실제 이름을 노출한다. 대상 집단(전사/부서)으로 좁혀 표기. 발행 전엔 숨김. */}
+                    {canWrite && published && (() => {
                       const unacked = targets.filter((u) => !ackedBy.has(u.name))
                       return unacked.length > 0 ? (
                         <div style={{ flexBasis: '100%', marginTop: 4 }}>

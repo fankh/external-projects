@@ -1082,6 +1082,20 @@ try {
   await p3.waitForTimeout(700)
   const ntcBody2 = (await p3.textContent('body')) || ''
   ok('부서 대상 공지 편집: 대상 재조정(자산관리팀 → 전사) 반영 · 확인율 분모 전사(6)로 확대', ntcBody2.includes('대상 전사') && /필독 확인 \d+\/6명/.test(ntcBody2))
+  // 예약 발행(미래 publishAt) 필독 공지 — 발행 전엔 확인 집계·미확인자 독촉을 노출하지 않아야 한다(발행 전 제목·존재 조기 노출·조기 독촉 방지).
+  await p3.locator('button', { hasText: /^공지 등록$/ }).click()
+  await p3.waitForTimeout(200)
+  await p3.locator('input[placeholder="공지 제목"]').fill('e2e 예약 발행 필독 공지')
+  await p3.locator('textarea[placeholder="공지 내용"]').fill('발행 예정 공지 — e2e')
+  await p3.locator('label', { hasText: '상단 고정 (필독)' }).locator('input[type="checkbox"]').check()
+  await p3.locator('input[type="date"]').first().fill('2027-01-15')
+  await p3.waitForTimeout(150)
+  await p3.locator('button', { hasText: /^예약 등록$/ }).click()
+  await p3.waitForTimeout(800)
+  await p3.locator('tr', { has: p3.locator('td', { hasText: 'e2e 예약 발행 필독 공지' }) }).first().click()
+  await p3.waitForTimeout(400)
+  const schedNtcBody = (await p3.textContent('body')) || ''
+  ok('예약 발행 공지: 발행 전 확인 집계·미확인자 독촉 미노출(조기 노출/독촉 방지)', schedNtcBody.includes('발행 후 확인 집계') && !schedNtcBody.includes('안내 발송'))
 
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
   const cHtml = await p3.content()
