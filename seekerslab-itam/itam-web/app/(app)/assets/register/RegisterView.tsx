@@ -3,13 +3,13 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
 import { ASSET_CATEGORIES } from '@/lib/types'
-import type { Asset, AssetCategory, AssetStatus } from '@/lib/types'
+import type { Asset, AssetCategory, AssetStatus, BizCriticality } from '@/lib/types'
 import { assetDataIssues } from '@/lib/quality'
 import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelLoanExtension, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, type ConfigField, type StewardField } from './actions'
+import { cancelLoanExtension, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -171,6 +171,14 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
     const r = await setAssetContractMany([...checked], bulkContract)
     setBulkMsg(r.message)
     if (r.ok) { setChecked(new Set()); setBulkContract('') }
+  })
+  // 업무 중요도 일괄 지정 — 연 1회 자산 분류 재검토(ISO 27001 A.8.2)에서 같은 등급으로 분류할 다수 자산을 한 번에 지정(취약점 우선순위 축)
+  const [bulkCrit, setBulkCrit] = useState<BizCriticality | ''>('')
+  const bulkSetCrit = () => startTransition(async () => {
+    if (!bulkCrit) return
+    const r = await setAssetCriticalityMany([...checked], bulkCrit)
+    setBulkMsg(r.message)
+    if (r.ok) { setChecked(new Set()); setBulkCrit('') }
   })
   const exportHref = `/api/export/assets?nos=${encodeURIComponent([...checked].join(','))}`
 
@@ -339,6 +347,17 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
                   <button className="btn sm" disabled={pending || !bulkContract} onClick={bulkLinkContract}>연계</button>
                 </span>
               )}
+              <span className="hstack" style={{ gap: 6 }}>
+                <span className="mut" style={{ fontSize: 12 }}>업무 중요도 일괄</span>
+                <select className="input" style={{ height: 28, maxWidth: 140 }} value={bulkCrit} disabled={pending}
+                  onChange={(e) => setBulkCrit(e.target.value as BizCriticality | '')} title="선택 자산의 업무 중요도를 일괄 지정 (자산 분류 재검토 — 취약점 우선순위 축)">
+                  <option value="">중요도 선택…</option>
+                  <option value="핵심">핵심</option>
+                  <option value="중요">중요</option>
+                  <option value="일반">일반</option>
+                </select>
+                <button className="btn sm" disabled={pending || !bulkCrit} onClick={bulkSetCrit}>지정</button>
+              </span>
               <button className="btn sm ghost" disabled={pending} onClick={() => setChecked(new Set())}>선택 해제</button>
             </>
           ) : null}

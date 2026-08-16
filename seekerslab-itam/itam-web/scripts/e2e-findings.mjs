@@ -609,6 +609,15 @@ try {
   await p2.waitForTimeout(700)
   ok('계약 일괄 연계: 선택 2건을 한 계약에 일괄 연계(CT-2022-007)', ((await p2.locator('body').textContent()) || '').includes('계약 일괄 연계 완료') && ((await p2.locator('body').textContent()) || '').includes('CT-2022-007'))
 
+  // 업무 중요도 일괄 지정 — 연 1회 자산 분류 재검토(ISO 27001 A.8.2)에서 다수 자산을 같은 등급으로 한 번에 분류(취약점 우선순위 축). 그동안 중요도 지정은 자산 하나씩만 가능했다.
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()
+  await p2.locator('input[aria-label="AST-2023-000562 선택"]').check()
+  await p2.locator('select[title*="업무 중요도를 일괄 지정"]').selectOption('핵심')
+  await p2.locator('.callout button', { hasText: /^지정$/ }).click()
+  await p2.waitForTimeout(700)
+  ok('업무 중요도 일괄 지정: 선택 2건을 핵심으로 일괄 분류', ((await p2.locator('body').textContent()) || '').includes("2건 업무 중요도 '핵심' 지정"))
+
   // 일괄 회수(오프보딩) — 여러 사용 중 자산을 선택해 한 번에 회수. 대장에서 선택(체크)은 검색 간 유지된다.
   await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
   await p2.locator('input[aria-label="AST-2024-000091 선택"]').check()
