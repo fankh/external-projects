@@ -2060,6 +2060,16 @@ try {
   const postLoan = (await pLN.locator('tr', { has: pLN.locator('td', { hasText: 'AST-2025-000701' }) }).first().textContent()) || ''
   ok('대여 자동 집행(로41): 승인 즉시 지정 자산 대여중·신청자 김민준(자동 집행)', postLoan.includes('대여중') && postLoan.includes('김민준'))
   await ctxLN.close()
+  // AI 자동분류 판정→조치(로66) — 자동분류 제안 승인 시 발견 자산에 표준 유형이 확정(편입 승계)된다. INS-2608-07(DSC-2607-0038·ESP-9F31A2: IoT 장비→주변기기). 규칙 기본값은 미상 유형을 단말로 떨구지만 담당자 판정이 주변기기로 바로잡는다. 승인해도 default no-op이면 "판정 기록 — 담당 조치 대상으로 등록"이 찍혀 실패.
+  const ctxAC = await browser.newContext(); await ctxAC.addCookies([cookie(ADMIN)]); const pAC = await ctxAC.newPage()
+  await pAC.goto(`${BASE}/ai/insights`, { waitUntil: 'networkidle' })
+  await pAC.locator('.seg button', { hasText: /^전체$/ }).click()  // 승인 후에도 행이 사라지지 않게 전체 필터로
+  await pAC.waitForTimeout(200)
+  const acBtn = pAC.locator('tr', { has: pAC.locator('td', { hasText: 'INS-2608-07' }) }).first().locator('button', { hasText: /^승인$/ })
+  if ((await acBtn.count()) > 0) { await acBtn.first().click(); await pAC.waitForTimeout(800) }  // 상위 aiInsightDecide 가 먼저 승인했으면 스킵
+  const acRow = (await pAC.locator('tr', { has: pAC.locator('td', { hasText: 'INS-2608-07' }) }).first().textContent()) || ''
+  ok('AI 자동분류 판정→조치(로66): 승인 → 발견 자산 표준 유형 확정 · 주변기기(편입 승계)', acRow.includes('표준 유형 확정') && acRow.includes('주변기기'))
+  await ctxAC.close()
 
   await browser.close()
 } catch (err) {

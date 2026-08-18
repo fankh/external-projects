@@ -424,8 +424,9 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         // 편입 시 발견 이력(채널·일시)이 자산 이력에 승계된다
         s.assets.push({
           assetNo: newNo,
-          // 자동분류 — 발견 유형 문자열을 표준 유형으로 매핑(§05). 발견 화면 제안값과 동일 함수라 화면·대장이 일치한다.
-          category: classifyDiscoveredType(d.type),
+          // 자동분류 — AI 자동분류 제안이 담당자 판정으로 확정된 유형이 있으면 그것을(§05 기능01 판정→조치 승계),
+          // 없으면 발견 유형 문자열을 표준 유형으로 매핑(발견 화면 제안값과 동일 함수라 화면·대장 일치).
+          category: d.classifiedCategory ?? classifyDiscoveredType(d.type),
           model: d.type,
           serial: `SN-${newNo.slice(-6)}`, // 유일한 자산번호에서 파생(발견 id 4자리는 월이 다르면 충돌) — 시드 mk() 규약과 동일
           status: '사용중',
