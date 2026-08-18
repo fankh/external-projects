@@ -6,6 +6,7 @@ import { upsertComplianceSnapshot } from './compliance'
 import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
+import { ACCOUNTS } from './session'
 import { delayedSrs } from './sr'
 
 export interface NotifyResult {
@@ -131,11 +132,18 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
   await send('재택 미제출', people.filter((p) => targets.has(p.name) && !submitted.has(p.name)).map((p) => p.name),
     `[재택근무] ${month} 체크리스트 제출 안내`)
 
-  // 7) 출력물 미등록 — 이관 후 폐기 정보를 등록하지 않은 출력자 안내 (요구사항 55행: 주기적 안내메일)
-  // 재직자 교집합 — 출력자(secdata 이관)가 퇴사해 s.people 에서 빠지면 폐기 등록을 할 수 없으므로(유령 독촉)
+  // 7) 출력물 미등록 — 이관 후 폐기 정보 미등록 출력자 + 그 부서의 부서장(DEPT_MGR) 안내
+  //    (요구사항 56행: "주기적으로 안내메일(부서장, 출력자)" — 점검 경과 담당자·팀장 이중 통지와 동일 정책).
+  //    부서장은 부서원의 폐기자료를 결재신청하는 책임자라, 부서에 미등록 출력물이 있으면 함께 통지한다.
+  //    DEPT_MGR 역할은 s.people 에 없으므로 ACCOUNTS 로 해석한다(qna 담당 지정과 동일). 부서장·출력자가 같은
+  //    사람이면 Set 으로 1회 통지된다.
+  // 재직자 교집합 — 출력자·부서장이 퇴사해 s.people 에서 빠지면 폐기 등록·결재신청을 할 수 없으므로(유령 독촉)
   // 타 person 경로(미서약·재택·반려방치·확인서)와 동일하게 재직 명단과 교집합한다. 미등록 출력물 자체는
   // 관리자 화면에 남아 후속 추적 가시성은 유지된다.
-  const printPending = [...new Set(s.printouts.filter((p) => p.status === '미등록').map((p) => p.name))]
+  const pendingPrints = s.printouts.filter((p) => p.status === '미등록')
+  const pendingDepts = new Set(pendingPrints.map((p) => p.dept))
+  const printLeads = ACCOUNTS.filter((a) => a.role === 'DEPT_MGR' && pendingDepts.has(a.dept)).map((a) => a.name)
+  const printPending = [...new Set([...pendingPrints.map((p) => p.name), ...printLeads])]
     .filter((name) => people.some((p) => p.name === name))
   await send('출력물 미등록', printPending, '[출력물] 폐기 정보 등록 안내')
 

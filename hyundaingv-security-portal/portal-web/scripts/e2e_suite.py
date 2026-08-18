@@ -47,6 +47,7 @@ CPLG_DATA = ROOT / 'scripts' / '.e2e-cplg-data.json'  # 협력업체서약서 �
 VLEX_DATA = ROOT / 'scripts' / '.e2e-vlex-data.json'  # 보안위반 결재제외 별도관리 회귀용 (v1.5.217)
 SRAC_DATA = ROOT / 'scripts' / '.e2e-srac-data.json'  # 계정/권한 SR 상태라벨 정합(개발중→처리중) 회귀용 (v1.5.219)
 SETDUP_DATA = ROOT / 'scripts' / '.e2e-setdup-data.json'  # 정산품의 결재대기 이중 상신 방지 회귀용 (v1.5.235)
+PRDEPT_DATA = ROOT / 'scripts' / '.e2e-prdept-data.json'  # 출력물 미등록 알림 부서장 통지 회귀용 (v1.5.237)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -2148,6 +2149,21 @@ def sc_inspection_teamlead(pg, base, check):
     check('팀장' in header and '시스템관리자' in plan_line, f'inspection-plans export — 팀장 열·값(시스템관리자) 포함 실제:{plan_line[:80]}')
 
 
+def sc_printout_deptlead(pg, base, check):
+    """출력물 미등록 알림 — 출력자+부서장 통지 (요구사항 56행: "주기적으로 안내메일(부서장, 출력자)").
+    격리 데이터: 경영지원팀 정민서의 미등록 출력물 1건. 알림 배치 '출력물 미등록' 대상이 2명(출력자 정민서 +
+    부서장 이수진)이어야 한다. 수정 전(부서장 미통지)엔 출력자만이라 1명 → 대조 재현. 점검 경과 팀장 통지와 동일 정책."""
+    login(pg, base, '시스템관리자')  # ADMIN — 수동 배치 실행
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.locator('button:has-text("알림 배치 실행")').click()
+    pg.wait_for_load_state('networkidle')
+    # 배치 결과는 감사 로그(알림 배치 실행)에 유형별 대상수로 기록된다 — 출력물 미등록 2명(출력자+부서장) 확인
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    row = pg.locator('tr', has_text='알림 배치 실행').first
+    detail = row.inner_text()
+    check('출력물 미등록 2명' in detail, f'출력물 미등록 알림 = 출력자+부서장 2명 (실제: {detail[:140]})')
+
+
 def sc_sr_status_label(pg, base, check):
     """계정/권한 SR 상태 라벨 정합 (요구사항: 데이터·계정권한 SR 은 개발단계 없음 — '개발중'을 '처리중'으로 표기).
     srStatusLabel 단일원천을 배정완료(sr/ci)·지연내역(sr/delayed) 카드가 써야 한다(raw 상태 노출 결함 수정)."""
@@ -2299,6 +2315,7 @@ SCENARIOS = [
     ('pledge', '서약 제출 → 할일 마감', sc_pledge, {}),
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
     ('inspection_teamlead', '보안점검 경과 알림 — 담당자+팀장 통지', sc_inspection_teamlead, {'PORTAL_DATA_FILE': str(INSPTL_DATA)}),
+    ('printout_deptlead', '출력물 미등록 알림 — 출력자+부서장 통지', sc_printout_deptlead, {'PORTAL_DATA_FILE': str(PRDEPT_DATA)}),
     ('infra_rollback_plan', '인프라 변경 원복계획 — 작업계획과 별개 필수 산출물', sc_infra_rollback_plan, {'PORTAL_DATA_FILE': str(INFRACHG_DATA)}),
     ('special_pledge_duty', '특별서약(보안담당자) — 담당업무·세부업무 추가입력 제출', sc_special_pledge_duty, {'PORTAL_DATA_FILE': str(SPPLG_DATA)}),
     ('company_pledge', '협력업체서약서 — 징구→결재상신→승인 폐쇄루프', sc_company_pledge, {'PORTAL_DATA_FILE': str(CPLG_DATA)}),
@@ -2660,6 +2677,12 @@ def main() -> int:
     # 수정 전엔 담당자만 통지해 '점검 경과 1명', 수정 후 팀장 포함 '점검 경과 2명'.
     INSPTL_DATA.write_text(json.dumps({'inspectionPlans': [
         {'id': 'IS-2026-9301', 'itemId': 'CK-01', 'month': '2026-07', 'inspector': '박정호', 'teamLead': '시스템관리자', 'status': '결과미등록'},
+    ]}, ensure_ascii=False), encoding='utf-8')
+    # 출력물 미등록 알림 부서장 통지 — 경영지원팀 정민서의 미등록 출력물 1건. 배치 '출력물 미등록' 대상이
+    # 출력자(정민서)+부서장(이수진, 경영지원팀 DEPT_MGR) 2명이어야 한다. 수정 전엔 출력자만 1명.
+    PRDEPT_DATA.write_text(json.dumps({'printouts': [
+        {'id': 'PO-2026-9601', 'printedAt': '2026-08-01', 'name': '정민서', 'dept': '경영지원팀',
+         'document': 'E2E 개인정보 출력물', 'pages': 2, 'personalInfo': True, 'status': '미등록'},
     ]}, ensure_ascii=False), encoding='utf-8')
     # 인프라 변경 원복계획 — 작업계획과 별개 필드로 저장·표시되는지. 기존 변경 1건(원복계획 있음) + 폼 신규등록.
     INFRACHG_DATA.write_text(json.dumps({'changes': [
