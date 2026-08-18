@@ -104,6 +104,8 @@ function seedAssets(): Asset[] {
     mk({ assetNo: 'AST-2021-000556', category: '단말', model: 'ThinkPad L14 Gen2', status: '수리중', owner: '한지원', dept: '고객지원팀', location: '본사 5F 수리대기', os: 'Windows 10 Pro', cpu: 'i5-1135G7', memory: '16GB', ip: '10.20.51.44', mac: '9C:2A:70:11:8E:23', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09', lastVerifiedAt: '2026-07-20' }),
     // 감가상각 반올림 회귀 — 도입 4.99년 경과(≈99.8%). 반올림이면 100%(상각 완료)로 잔존가치(≈3,600원)와 모순, 내림이면 99%. 상대일자로 계산해 실행일과 무관하게 창 안에 머문다. 사용중(가용 재고 집계 미영향).
     mk({ assetNo: 'AST-2021-000997', category: '단말', model: 'ThinkPad T14 (감가 회귀)', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', purchaseDate: new Date(Date.now() - Math.round(4.99 * 365.25 * 86_400_000)).toISOString().slice(0, 10), warrantyEnd: '2024-09-01', acquisitionCost: 1_800_000, lastVerifiedAt: '2026-07-20' }),
+    // 대여 자동 집행 회귀 대상 — 유휴 서버(단말 아님 → 단말 가용 0 검증 미영향). 최근 도입·보증 유효·최근 실측이라 노후·재물조사·EOL 배치 스윕에 안 걸려 스위트 끝까지 유휴 유지. 대여 결재 승인 시 대여중으로 자동 집행.
+    mk({ assetNo: 'AST-2025-000701', category: '서버', model: 'PowerEdge R660 (대여 회귀)', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'RHEL 9.3', cpu: 'Xeon Gold 6438', memory: '128GB', ip: '10.30.9.11', mac: '2C:EA:7F:11:90:44', purchaseDate: '2025-03-01', warrantyEnd: '2028-02-29', lastVerifiedAt: '2026-08-01' }),
     // 대여 반환 좌석 회수 회귀 — 대여중이면서 라이선스 좌석 보유. 반환 시 좌석이 회수돼야 한다(로56, 이탈 5번째 경로). 반환 기한은 먼 미래(연체·임박 큐 미영향).
     mk({ assetNo: 'AST-2024-000995', category: '단말', model: 'Galaxy Book4 (대여용)', status: '대여중', owner: '조민재', dept: '마케팅팀', location: '본사 6F', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.60.31', mac: '3C:52:82:14:AA:19', purchaseDate: '2024-03-15', warrantyEnd: '2027-03-14', loanDueDate: '2026-12-01', lastVerifiedAt: '2026-07-25' }),
     // 재물조사 미확인 유휴 편성 좌석 회수 회귀 — 사용중이면서 라이선스 좌석 보유. 미확인 조정 승인 시 유휴 편성되며 좌석 회수·소유자 정리가 따라야 한다.
@@ -703,6 +705,9 @@ function seed(): Store {
       { id: 'APR-2607-125', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — Linear', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-28', status: '대기', currentStep: '보안담당 결재', saasService: 'Linear', note: '이슈 트래킹 협업 — 인가 카탈로그 사전 등재 요청' },
       // 기존 검토중 카탈로그(CAT-07 FlowTrackr) 인가 요청 — 승인 시 reviewSince 해제 회귀 가드(신규 등재인 Linear 와 달리 기존 항목 갱신 경로).
       { id: 'APR-2608-141', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — FlowTrackr', requester: '오세훈', dept: '인사팀', requestedAt: '2026-08-18', status: '대기', currentStep: '보안담당 결재', saasService: 'FlowTrackr', note: '인가 확정 시 검토 접수일 해제 확인' },
+      // 대여 자동 집행 회귀 — 승인 즉시 지정 유휴 자산이 신청자에게 반환 기한과 함께 대여 처리돼야 한다. 자산담당 단계(대여 결재선 ['신청자','자산담당']의 최종·approvalRoute 가 '신청자' 제거)라 ASSET 1회 승인으로 집행.
+      // refId=AST-2024-000995 — 좌석 회수 회귀 테스트가 스위트 앞부분에서 정상 반환(→유휴)하고 이후 미변경이라, 승인 시점(스위트 끝)에 결정적으로 유휴다(시드 상태는 대여중이라 smoke 단말 가용 집계엔 영향 없음).
+      { id: 'APR-2608-161', kind: '대여', title: '노트북 단기 대여 신청(회귀)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-08-18', status: '대기', currentStep: '자산담당 검토', refId: 'AST-2025-000701', loanDueDate: '2026-10-15' },
     ],
     saas: [
       { id: 'SAS-01', service: 'Notion', category: '협업', dept: '마케팅팀', users: 28, sanctioned: false, monthlyVisits: 8_412, risk: '중간' },
