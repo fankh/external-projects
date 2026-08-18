@@ -316,6 +316,7 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
       cat.status = '인가'
       cat.decidedAt = today()
       cat.decidedBy = `${session.name} (인가 요청 결재)`
+      cat.reviewSince = undefined // 인가 확정 시 검토 접수일 해제 — decideSaasStatus(비검토중 → undefined)와 동일. 안 지우면 인가 항목이 정책 반출에 잔여 검토일을 달고 나가 컴플라이언스 증적이 어긋난다.
     } else {
       s.saasCatalog.push({ id: nextId('CAT'), service: svc, category: '기타', vendor: '-', status: '인가', dataGrade: '일반', owner: a.dept, decidedAt: today(), decidedBy: `${session.name} (인가 요청 결재)` })
     }

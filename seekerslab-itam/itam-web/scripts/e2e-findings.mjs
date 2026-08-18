@@ -1329,6 +1329,29 @@ try {
   await p3.goto(`${BASE}/discovery/saas`, { waitUntil: 'networkidle' })
   const linearUsage = p3.locator('tr').filter({ hasText: 'Linear' }).first()
   ok('SaaS 인가 요청 승인 → 사용 현황도 인가(카탈로그↔사용현황 정합)', (await linearUsage.count()) > 0 && ((await linearUsage.textContent()) || '').includes('인가'))
+  // SaaS 인가 승인 시 검토 접수일(reviewSince) 해제(회귀) — 기존 검토중 카탈로그(CAT-07 FlowTrackr·검토 접수일 2026-08-17)를 인가 요청 승인으로 인가 전환하면 검토 접수일이 지워져 정책 반출에 잔여하면 안 된다(decideSaas 와 동형·교차 정합).
+  await p3.goto(`${BASE}/workflow/approvals?sel=APR-2608-141`, { waitUntil: 'networkidle' })
+  await p3.locator('tr', { has: p3.locator('td', { hasText: 'APR-2608-141' }) }).first().locator('button', { hasText: /^승인$/ }).click()
+  await p3.waitForTimeout(700)
+  const scAfter = Buffer.from(await (await p3.request.get(`${BASE}/api/export/saasCatalog`)).body()).toString('utf8')
+  ok('SaaS 인가 승인 → 검토 접수일 해제(정책 반출 잔여 없음)', scAfter.includes('FlowTrackr') && !scAfter.includes('2026-08-17'))
+  // EASM 재탐지 후보 이중 계상(회귀) — surfaced 는 이미 s.external 에 편입되므로 candidates 에 다시 더하면 안 된다. 같은 단일 도메인(seekerslab.co.kr) 연속 재탐지:
+  //  1회차(staging-api Passive 신규 편입)·2회차(신규 0) 후보 수가 같아야 한다. 두 회차 모두 seekerslab.co.kr 만 선택(재탐지 후 dueIn 이 바뀌어 기본 선택이 달라지므로 명시적으로 단일 선택).
+  for (let r = 0; r < 2; r += 1) {
+    await p3.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
+    const rc = p3.locator('.card', { has: p3.locator('.tt', { hasText: '재탐지 실행' }) }).first()
+    const boxes = rc.locator('tbody input[type="checkbox"]')
+    const bn = await boxes.count()
+    for (let i = 0; i < bn; i += 1) { const b = boxes.nth(i); if (await b.isChecked()) await b.uncheck() }
+    await rc.locator('tr', { has: p3.locator('td', { hasText: 'seekerslab.co.kr' }) }).first().locator('input[type="checkbox"]').check()
+    await rc.locator('button', { hasText: /^재탐지 실행$/ }).click()
+    await p3.waitForTimeout(800)
+  }
+  await p3.goto(`${BASE}/discovery/external`, { waitUntil: 'networkidle' })
+  const histRows = p3.locator('.card', { has: p3.locator('.tt', { hasText: '재탐지 이력' }) }).first().locator('tbody tr')
+  const run2Cand = Number(((await histRows.nth(0).locator('td').nth(5).textContent()) || '').trim() || '-1')
+  const run1Cand = Number(((await histRows.nth(1).locator('td').nth(5).textContent()) || '').trim() || '-2')
+  ok('EASM 재탐지: surfaced 이중 계상 없음(연속 재탐지 후보 수 동일)', run1Cand > 0 && run1Cand === run2Cand)
   // 라이선스 컴플라이언스 판정 불변식 — 초과/미사용/적정이 보유·사용 관계와 정합(감사 리스크 플래깅·회수/구매 결재 근거). 비즈니스 임계 계산 회귀 방지.
   {
     await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })

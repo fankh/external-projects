@@ -497,6 +497,8 @@ function seedSaasCatalog(): SaasCatalogEntry[] {
     // 기밀 등급 서비스가 판정 기한을 넘겨 방치 — 데이터 반출 위험 최우선 판정 대상(에스컬레이션)
     { id: 'CAT-03', service: 'ChatGPT', category: 'AI', vendor: 'OpenAI', status: '검토중', dataGrade: '기밀', owner: '전사', reviewSince: '2026-07-09' },
     { id: 'CAT-04', service: 'Miro', category: '협업', vendor: 'Miro', status: '검토중', dataGrade: '일반', owner: '플랫폼개발팀', reviewSince: '2026-07-25' },
+    // 인가 확정 시 검토 접수일 해제 회귀 가드 — 검토 접수일 최근(SLA 미경과)이라 에스컬레이션 큐 미영향. 인가 요청 승인 후 reviewSince 가 지워져야 정책 반출에서 사라진다.
+    { id: 'CAT-07', service: 'FlowTrackr', category: '기타', vendor: 'FlowTrackr Inc.', status: '검토중', dataGrade: '일반', owner: '인사팀', reviewSince: '2026-08-17' },
     { id: 'CAT-05', service: 'Dropbox', category: '스토리지', vendor: 'Dropbox', status: '차단', dataGrade: '기밀', owner: '영업1팀', decidedAt: '2026-07-18', decidedBy: '윤보안' },
     { id: 'CAT-06', service: 'GitHub', category: '개발', vendor: 'GitHub', status: '인가', dataGrade: '민감', owner: '개발본부', decidedAt: '2025-11-02', decidedBy: '시스템관리자' },
   ]
@@ -693,6 +695,8 @@ function seed(): Store {
       { id: 'APR-2607-101', kind: '이동', title: 'AST-2023-000112 좌석 이동 (본사 8F → 본사 9F)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-15', status: '승인', currentStep: '완료', refId: 'AST-2023-000112', decidedAt: '2026-07-16', decidedBy: '박자산', targetLocation: '본사 9F', note: '팀 좌석 재배치' },
       { id: 'APR-2606-092', kind: '차이 조정', title: '2026 상반기 재물조사 차이 4건 조정', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-06-30', status: '승인', currentStep: '완료', decidedAt: '2026-07-02', decidedBy: '이기획' },
       { id: 'APR-2607-125', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — Linear', requester: '오세훈', dept: '인사팀', requestedAt: '2026-07-28', status: '대기', currentStep: '보안담당 결재', saasService: 'Linear', note: '이슈 트래킹 협업 — 인가 카탈로그 사전 등재 요청' },
+      // 기존 검토중 카탈로그(CAT-07 FlowTrackr) 인가 요청 — 승인 시 reviewSince 해제 회귀 가드(신규 등재인 Linear 와 달리 기존 항목 갱신 경로).
+      { id: 'APR-2608-141', kind: 'SaaS 인가', title: 'SaaS 인가 요청 — FlowTrackr', requester: '오세훈', dept: '인사팀', requestedAt: '2026-08-18', status: '대기', currentStep: '보안담당 결재', saasService: 'FlowTrackr', note: '인가 확정 시 검토 접수일 해제 확인' },
     ],
     saas: [
       { id: 'SAS-01', service: 'Notion', category: '협업', dept: '마케팅팀', users: 28, sanctioned: false, monthlyVisits: 8_412, risk: '중간' },
