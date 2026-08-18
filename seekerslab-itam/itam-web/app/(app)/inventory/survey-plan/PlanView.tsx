@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { Card, Chip } from '@/components/ui'
 import { roundProgressPct } from '@/lib/dates'
 import type { InventoryRound, RoundKind } from '@/lib/types'
-import { cancelRound, composeStaleVerifyRound, composeUnconfirmedRound, planRound, startRound } from './actions'
+import { cancelRound, composeStaleVerifyRound, composeUnconfirmedRound, planRound, remindRound, startRound } from './actions'
 
 const STATUS_TONE: Record<InventoryRound['status'], 'ok' | 'info' | 'neutral'> = {
   완료: 'ok', 진행중: 'info', 계획: 'neutral',
@@ -125,20 +125,30 @@ export function PlanView(props: {
                     </td>
                     <td className="c"><Chip tone={STATUS_TONE[r.status]}>{r.status}</Chip></td>
                     <td className="c">
-                      {r.status === '계획' && (
-                        <span className="hstack" style={{ justifyContent: 'center', gap: 5 }}>
-                          <button className="btn sm" disabled={pending}
-                            onClick={() => startTransition(() => startRound(r.id))}>조사 개시</button>
-                          <button className="btn sm ghost" disabled={pending}
+                      <span className="hstack" style={{ justifyContent: 'center', gap: 5, flexWrap: 'wrap' }}>
+                        {r.status === '계획' && (
+                          <>
+                            <button className="btn sm" disabled={pending}
+                              onClick={() => startTransition(() => startRound(r.id))}>조사 개시</button>
+                            <button className="btn sm ghost" disabled={pending}
+                              onClick={() => startTransition(async () => {
+                                const res = await cancelRound(r.id)
+                                setMsg({ ok: res.ok, text: res.message })
+                              })}>계획 취소</button>
+                          </>
+                        )}
+                        {r.status === '진행중' && (
+                          <Link className="btn sm" href={`/inventory/survey?round=${r.id}`}>실사 화면</Link>
+                        )}
+                        {overdue && (
+                          <button className="btn sm warn" disabled={pending}
+                            title={`${r.assignee} 담당자에게 재물조사 완료 촉구 (당일 중복 발송 차단)`}
                             onClick={() => startTransition(async () => {
-                              const res = await cancelRound(r.id)
+                              const res = await remindRound(r.id)
                               setMsg({ ok: res.ok, text: res.message })
-                            })}>계획 취소</button>
-                        </span>
-                      )}
-                      {r.status === '진행중' && (
-                        <Link className="btn sm" href={`/inventory/survey?round=${r.id}`}>실사 화면</Link>
-                      )}
+                            })}>독촉</button>
+                        )}
+                      </span>
                     </td>
                   </tr>
                 )
