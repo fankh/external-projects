@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { Card, Chip, Clip, ScreenHeader, Stat } from '@/components/ui'
 import { draftApproval } from '@/lib/approvals'
-import { resubmitSettlement } from '../actions'
+import { deleteSettlement, resubmitSettlement } from '../actions'
 import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
@@ -271,10 +271,16 @@ export default async function InvestPage() {
                        x.status === '결재중' ? <Chip tone="info">결재중</Chip> :
                        x.status === '작성중' ? <Chip tone="neutral">작성중</Chip> : <Chip tone="err">반려</Chip>}
                       {(x.status === '반려' || x.status === '작성중') && x.requestedBy === me.name && (
-                        <form action={resubmitSettlement} style={{ display: 'inline', marginLeft: 6 }}>
-                          <input type="hidden" name="id" value={x.id} />
-                          <button type="submit" className="btn sm">{x.status === '반려' ? '재상신' : '상신'}</button>
-                        </form>
+                        <>
+                          <form action={resubmitSettlement} style={{ display: 'inline', marginLeft: 6 }}>
+                            <input type="hidden" name="id" value={x.id} />
+                            <button type="submit" className="btn sm">{x.status === '반려' ? '재상신' : '상신'}</button>
+                          </form>
+                          <form action={deleteSettlement} style={{ display: 'inline', marginLeft: 4 }}>
+                            <input type="hidden" name="id" value={x.id} />
+                            <button type="submit" className="btn sm" title="정산품의 삭제(폐기)">삭제</button>
+                          </form>
+                        </>
                       )}
                     </td>
                   </tr>

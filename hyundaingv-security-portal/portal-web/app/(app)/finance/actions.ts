@@ -2,6 +2,7 @@
 /** 투자·비용 공통 재무 액션 — 정산품의 반려 건의 보완 재상신 */
 import { revalidatePath } from 'next/cache'
 import { draftApproval } from '@/lib/approvals'
+import { audit } from '@/lib/audit'
 import { effectiveRoles, requireRole } from '@/lib/authz'
 import { getStore } from '@/lib/store'
 
@@ -27,5 +28,24 @@ export async function resubmitSettlement(formData: FormData) {
     title: `${rejected ? '[재상신] ' : ''}[정산품의-${contract.kind}] ${contract.title} ${st.item} ${st.amount.toLocaleString('ko-KR')}만원`,
     ref: st.id, drafter: me,
   })
+  revalidatePath('/', 'layout')
+}
+
+/** 정산품의 삭제(폐기) — 요구사항 시트 11·17행 P=삭제. 기안자 본인의 미상신(작성중)·반려 건만 폐기한다.
+ *  결재중(대기 결재 존재)·지급완료(집행 확정)는 무결성상 삭제 불가 — 재상신/상신취소 경로로만 처리한다.
+ *  삭제는 파괴적 통제 행위라 감사 로그에 남긴다(sibling delete 들과 동일 §VI 정책). */
+export async function deleteSettlement(formData: FormData) {
+  const me = await requireRole('DEPT_MGR', 'BIZ_MGR', 'ADMIN')
+  const id = String(formData.get('id') ?? '')
+  const s = getStore()
+  // 기안자 본인의 작성중·반려 건만. 결재중(대기 결재)·지급완료는 제외 — 상태 가드로 이중 방어.
+  const st = s.settlements.find((x) => x.id === id && x.requestedBy === me.name && (x.status === '반려' || x.status === '작성중'))
+  if (!st || s.approvals.some((a) => a.ref === id && a.status === '대기')) return
+  const contract = s.investContracts.find((c) => c.id === st.contractId)
+  if (!contract) return
+  // 공용 액션 — 품의가 속한 화면(투자/비용)의 런타임 메뉴 제한을 쓰기에도 적용한다(resubmitSettlement 와 동일)
+  if (!effectiveRoles(contract.kind === '투자' ? '/finance/invest' : '/finance/expense').includes(me.role)) return
+  s.settlements = s.settlements.filter((x) => x.id !== id)
+  audit(me.name, '정산품의 삭제', `${st.id} ${contract.kind} — ${contract.title} ${st.item} ${st.amount.toLocaleString('ko-KR')}만원 (${st.status})`)
   revalidatePath('/', 'layout')
 }
