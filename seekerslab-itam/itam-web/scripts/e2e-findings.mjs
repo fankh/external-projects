@@ -2035,6 +2035,19 @@ try {
   await pIS.goto(`${BASE}/assets/register?q=${encodeURIComponent('오세훈')}`, { waitUntil: 'networkidle' })
   ok('불출 집행(로9): 대장 소유자·부서 재기록(오세훈·인사팀)', (await pIS.locator('td', { hasText: '오세훈' }).count()) > 0 && ((await pIS.textContent('body')) || '').includes('인사팀'))
   await ctxIS.close()
+  // 발견 → 격리 물리 집행(로2) — 격리 요청 결재(APR-2607-112·DSC-2607-0031)를 보안담당→IT기획팀장 2단계 승인하면 NAC 차단이 집행된다(격리완료 + 격리 통보 이메일·SMS). 편입 시블링만 검증됐고 격리 집행은 미검증이던 공백.
+  const ctxQ1 = await browser.newContext(); await ctxQ1.addCookies([cookie(SEC)]); const pQ1 = await ctxQ1.newPage()
+  await pQ1.goto(`${BASE}/workflow/approvals?sel=APR-2607-112`, { waitUntil: 'networkidle' })
+  await pQ1.locator('tr', { has: pQ1.locator('td', { hasText: 'APR-2607-112' }) }).first().locator('button', { hasText: /^승인$/ }).click()
+  await pQ1.waitForTimeout(700)
+  await ctxQ1.close()
+  const ctxQ2 = await browser.newContext(); await ctxQ2.addCookies([cookie(ADMIN)]); const pQ2 = await ctxQ2.newPage()
+  await pQ2.goto(`${BASE}/workflow/approvals?sel=APR-2607-112`, { waitUntil: 'networkidle' })
+  await pQ2.locator('tr', { has: pQ2.locator('td', { hasText: 'APR-2607-112' }) }).first().locator('button', { hasText: /^승인$/ }).click()
+  await pQ2.waitForTimeout(800)
+  await pQ2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  ok('격리 집행(로2): 보안담당→IT기획팀장 2단계 승인 → NAC 격리 집행(격리 통보 발송)', ((await pQ2.textContent('body')) || '').includes('NAC 격리 집행'))
+  await ctxQ2.close()
 
   await browser.close()
 } catch (err) {
