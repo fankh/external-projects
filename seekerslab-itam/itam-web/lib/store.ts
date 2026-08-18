@@ -102,6 +102,10 @@ function seedAssets(): Asset[] {
     mk({ assetNo: 'AST-2022-000871', category: '단말', model: 'MacBook Pro 14 M2', status: '사용중', owner: '정하윤', dept: '디자인팀', os: 'macOS 14', cpu: 'M2 Pro', memory: '32GB', ip: '10.20.44.12', mac: 'F0:2F:4B:9A:31:07', purchaseDate: '2022-08-01', warrantyEnd: '2025-07-31', lastVerifiedAt: undefined }),
     // EOL OS(Windows 10) + 수리중(비운영) — EOL 교체 대상 게이트가 분실·수리중·반납대기를 제외하는지 회귀 가드(실물이 수리 입고된 자산에 교체 통보가 나가면 안 된다).
     mk({ assetNo: 'AST-2021-000556', category: '단말', model: 'ThinkPad L14 Gen2', status: '수리중', owner: '한지원', dept: '고객지원팀', location: '본사 5F 수리대기', os: 'Windows 10 Pro', cpu: 'i5-1135G7', memory: '16GB', ip: '10.20.51.44', mac: '9C:2A:70:11:8E:23', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09', lastVerifiedAt: '2026-07-20' }),
+    // 대여 반환 좌석 회수 회귀 — 대여중이면서 라이선스 좌석 보유. 반환 시 좌석이 회수돼야 한다(로56, 이탈 5번째 경로). 반환 기한은 먼 미래(연체·임박 큐 미영향).
+    mk({ assetNo: 'AST-2024-000995', category: '단말', model: 'Galaxy Book4 (대여용)', status: '대여중', owner: '조민재', dept: '마케팅팀', location: '본사 6F', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.60.31', mac: '3C:52:82:14:AA:19', purchaseDate: '2024-03-15', warrantyEnd: '2027-03-14', loanDueDate: '2026-12-01', lastVerifiedAt: '2026-07-25' }),
+    // 재물조사 미확인 유휴 편성 좌석 회수 회귀 — 사용중이면서 라이선스 좌석 보유. 미확인 조정 승인 시 유휴 편성되며 좌석 회수·소유자 정리가 따라야 한다.
+    mk({ assetNo: 'AST-2024-000994', category: '단말', model: 'ThinkPad X1 Carbon', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', cpu: 'i7-1365U', memory: '16GB', ip: '10.20.70.22', mac: 'B4:2E:99:70:5C:8A', purchaseDate: '2024-02-01', warrantyEnd: '2027-01-31', lastVerifiedAt: '2026-07-25' }),
     mk({ assetNo: 'AST-2021-000432', category: '단말', model: 'LG gram 17', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 10 Pro', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09',
       history: [
         { date: '2021-05-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
@@ -615,6 +619,8 @@ function seed(): Store {
       { id: 'DIF-02', roundId: 'INV-2026-H2', kind: '대장 미등록', assetNo: 'UNKNOWN-77213', model: '미상 (라벨만 확인)', expected: '-', actual: '본사 3F 자산창고', status: '미조치' },
       { id: 'DIF-03', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', expected: '본사 3F 자산창고', actual: '실사 미확인', status: '미조치' },
       { id: 'DIF-04', roundId: 'INV-2026-H2', kind: '상태 불일치', assetNo: 'AST-2021-000432', model: 'LG gram 17', expected: '유휴 (창고 보관)', actual: '사용 중 — 미승인 불출 추정', status: '미조치' },
+      // 미확인 유휴 편성 좌석 회수 회귀용 — 조정 상신 상태로 두어 차이 조정 승인(APR-2608-131) 시 즉시 처리된다.
+      { id: 'DIF-05', roundId: 'INV-2026-H2', kind: '미확인 (실사 없음)', assetNo: 'AST-2024-000994', model: 'ThinkPad X1 Carbon', expected: '본사 7F', actual: '실사 미확인', status: '조정 상신' },
     ],
     contracts: [
       { id: 'CT-2023-014', kind: '구매', name: '2023 개발용 노트북 60대', vendor: '(주)한빛INT', start: '2023-03-01', end: '2026-03-14', amount: 132_000_000, assetCount: 60, ownerDept: '자산관리팀',
@@ -644,6 +650,8 @@ function seed(): Store {
       { id: 'LIC-001', name: 'Microsoft 365 E3', vendor: 'Microsoft', purchased: 800, used: 743, expiry: '2026-12-31', unitCost: 335_000, contractId: 'CT-2023-002', usageCollectedAt: '2026-07-10', seats: [
         { assetNo: 'AST-2023-000221', user: '인프라운영팀', dept: '인프라운영팀', at: '2026-07-18' },
         { assetNo: 'AST-2025-000513', user: '한도윤', dept: '영업1팀', at: '2026-07-16' },
+        { assetNo: 'AST-2024-000995', user: '조민재', dept: '마케팅팀', at: '2026-07-20' },
+        { assetNo: 'AST-2024-000994', user: '박선우', dept: '영업2팀', at: '2026-07-20' },
       ] },
       { id: 'LIC-002', name: 'JetBrains All Products', vendor: 'JetBrains', purchased: 120, used: 131, expiry: '2026-05-31', unitCost: 289_000 },
       { id: 'LIC-003', name: 'Adobe Creative Cloud', vendor: 'Adobe', purchased: 40, used: 22, expiry: '2026-10-15', unitCost: 792_000 },
@@ -678,6 +686,8 @@ function seed(): Store {
       { id: 'APR-2607-109', kind: '소유자 확인', title: 'DSC-2607-0038 (ESP-9F31A2) 소유자 확인 — 전사 공지', requester: 'Discovery 엔진', dept: '미지정', requestedAt: '2026-07-20', status: '대기', currentStep: '부서장 확인', refId: 'DSC-2607-0038', note: '소유자 미상 IoT — 기한 내 무응답 시 격리 검토' },
       { id: 'APR-2607-112', kind: '격리 요청', title: 'DSC-2607-0031 (개인 구독 Azure VM) NAC 격리', requester: '윤보안', dept: '보안운영팀', requestedAt: '2026-07-24', status: '대기', currentStep: '보안담당 승인', refId: 'DSC-2607-0031' },
       { id: 'APR-2607-119', kind: '폐기', title: 'AST-2019-000218 외 11대 노후 단말 일괄 폐기', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-07-21', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'AST-2019-000218' },
+      // 미확인 유휴 편성 좌석 회수 회귀용 — 최종 단계(IT기획팀장=ADMIN)에 두어 ADMIN 승인 1회로 효과 적용. refId=회차, DIF-05(조정 상신)만 처리된다.
+      { id: 'APR-2608-131', kind: '차이 조정', title: '2026 하반기 재물조사 미확인 1건 조정 (AST-2024-000994)', requester: '박자산', dept: '자산관리팀', requestedAt: '2026-08-18', status: '대기', currentStep: 'IT기획팀장 결재', refId: 'INV-2026-H2' },
       // 승인은 났으나 아직 집행되지 않은 이동 — 불출·이동 처리 화면의 대기열에 잡힌다.
       // targetLocation 은 공통코드 LOCATION 의 값이어야 대장에 그대로 반영할 수 있다.
       { id: 'APR-2607-101', kind: '이동', title: 'AST-2023-000112 좌석 이동 (본사 8F → 본사 9F)', requester: '김민준', dept: '플랫폼개발팀', requestedAt: '2026-07-15', status: '승인', currentStep: '완료', refId: 'AST-2023-000112', decidedAt: '2026-07-16', decidedBy: '박자산', targetLocation: '본사 9F', note: '팀 좌석 재배치' },
