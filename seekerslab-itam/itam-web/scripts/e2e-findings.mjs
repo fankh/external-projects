@@ -2011,6 +2011,16 @@ try {
   await pWY.goto(`${BASE}/assets/register?sel=AST-2022-000641`, { waitUntil: 'networkidle' })
   ok('보증 연장(로24): 연장 → 보증 만료일 +1년(2027-09-30)', ((await pWY.textContent('body')) || '').includes('2027-09-30'))
   await ctxWY.close()
+  // 거버넌스 가드(로19) — 본인/마지막 관리자 강등 방지 + 필수 결재선 잠금. UI 가 서버 규칙(lastAdmin · MANDATORY_APPROVAL_KINDS)을 반영해 잠근다. 그동안 오프보딩 읽기만 있고 가드는 미검증(잠금 풀리면 관리자 락아웃·필수 보안 결재 제거).
+  const ctxGD = await browser.newContext(); await ctxGD.addCookies([cookie(ADMIN)]); const pGD = await ctxGD.newPage()
+  await pGD.goto(`${BASE}/settings/users`, { waitUntil: 'networkidle' })
+  const adminSel = pGD.locator('tr', { has: pGD.locator('td.code', { hasText: 'admin' }) }).first().locator('select').first()
+  ok('거버넌스 가드(로19): 본인/마지막 관리자 강등 잠금(자산담당 옵션 비활성)', await adminSel.locator('option', { hasText: '자산담당' }).isDisabled())
+  const lineTable = pGD.locator('table', { has: pGD.locator('th', { hasText: '필수 여부' }) }).first()
+  const disposalLine = lineTable.locator('tbody tr', { has: pGD.locator('td', { hasText: '폐기' }) }).first()
+  const lastCell = disposalLine.locator('td').last()
+  ok('거버넌스 가드(로19): 필수 결재선(폐기) 잠금 — 해제 토글 없음(필수 보안 결재 제거 방지)', ((await lastCell.textContent()) || '').includes('필수 결재') && (await lastCell.locator('button').count()) === 0)
+  await ctxGD.close()
 
   await browser.close()
 } catch (err) {
