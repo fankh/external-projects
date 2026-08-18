@@ -1673,6 +1673,10 @@ try {
   await overdueRow.locator('button', { hasText: /^독촉$/ }).click()
   await p4.waitForTimeout(700)
   ok('재물조사 회차: 당일 중복 독촉 차단', ((await p4.textContent('body')) || '').includes('오늘 이미 독촉'))
+  // 대시보드 운영 대기 큐에 기한 경과 회차를 끌어올린다(신호를 담당자 일과 시작점으로 · 재물조사 계획 딥링크)
+  await p4.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' })
+  const roundQueue = p4.locator('a', { hasText: '재물조사 기한 경과' }).first()
+  ok('대시보드: 재물조사 기한 경과 운영 대기 큐(→ 재물조사 계획)', (await roundQueue.count()) > 0 && (await roundQueue.getAttribute('href')) === '/inventory/survey-plan')
 
   // 미실사 남은 대상 — 장기 미실측 자동 편성(로34) 회차의 미스캔 대상을 실사 화면에 노출(무엇을 더 찾아야 하는지)
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
