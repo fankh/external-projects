@@ -8,7 +8,7 @@ import { today } from './dates'
 import { checklistFor } from './intake'
 import { DEFAULT_OPS_POLICY, DEFAULT_RISK_POLICY, fingerprintOf } from './types'
 import type {
-  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding, OpsPolicy, RiskPolicy, SwAllowEntry,
+  AccountFinding, AiCallRecord, AiInsight, AiPolicy, Approval, ApprovalLine, Asset, AuditLog, BoardPost, ChannelObservation, CloudFinding, CodeGroup, CodeValue, Contract, CredentialFinding, IocMatch, LocalVmFinding, OpsPolicy, RiskPolicy, SwAllowEntry,
   Dispatch, DisposalRecord, MenuDef, DiscoveredAsset, EasmRun, EasmTarget, ExternalAsset, GeneratedReport, IntakeLot, Integration, InventoryRound, LeakFinding, MenuPermission,
   ReportSchedule, SaasCatalogEntry, SaasUsage, ScanPolicy, ScanRun, SurveyDiff, SurveyScan, SwInstall, SwLicense, UnauthorizedSw, UsbFinding, UndiscoveredDevice, UnseenExternal, UserAccount,
 } from './types'
@@ -25,6 +25,7 @@ export interface Store {
   swAllowlist: SwAllowEntry[]
   usbFindings: UsbFinding[]
   localVms: LocalVmFinding[]
+  cloudFindings: CloudFinding[]
   integrations: Integration[]
   auditLogs: AuditLog[]
   codeGroups: CodeGroup[]
@@ -409,6 +410,16 @@ function seedLocalVms(): LocalVmFinding[] {
   ]
 }
 
+function seedCloudFindings(): CloudFinding[] {
+  // CSP API(채널 05) 거버넌스 산출 — 발견 목록(DSC-2607-0035·0031)의 클라우드 리소스를 태그·소유·통제 관점에서 본 위반.
+  return [
+    { id: 'CLD-2607-01', resource: 'i-0f3a91c2d8 · AWS EC2 t3.large', provider: 'AWS · ap-northeast-2', account: 'aws:418327041982 (데이터플랫폼)', owner: '미지정', dept: '데이터플랫폼팀', kind: '태그 미부착', detectedBy: 'AWS Config', firstSeen: '2026-07-15', risk: '중간', note: '개발 VPC · Owner·CostCenter 태그 없음 — 소유 불명' },
+    { id: 'CLD-2607-02', resource: 'ip-10-31-4-70 · Azure VM B2s', provider: 'Azure · koreacentral', account: 'azure:개인 구독 (조직 밖)', owner: '한지훈', dept: '데이터플랫폼팀', kind: '개인 구독·계정', detectedBy: 'Azure Resource Graph', firstSeen: '2026-07-12', risk: '높음', note: '개인 구독으로 생성 — 조직 정책 위반, 통제·정산 사각' },
+    { id: 'CLD-2607-03', resource: 'i-0b77e2aa41 · AWS EC2 t3.micro', provider: 'AWS · ap-northeast-2', account: 'aws:418327041982 (데이터플랫폼)', owner: '미지정', dept: '데이터플랫폼팀', kind: '개인 구독·계정', detectedBy: 'AWS CloudTrail', firstSeen: '2026-07-20', risk: '중간', note: '개인 액세스키로 생성 — 소유자 불명' },
+    { id: 'CLD-2607-04', resource: 'itam-scratch-bucket · AWS S3', provider: 'AWS · ap-northeast-2', account: 'aws:418327041982 (데이터플랫폼)', owner: '미지정', dept: '데이터플랫폼팀', kind: '미관리 리소스', detectedBy: 'AWS Config', firstSeen: '2026-07-18', risk: '낮음', note: '자산관리 미등록 버킷 — 퍼블릭 액세스는 차단됨' },
+  ]
+}
+
 function seedIntegrations(): Integration[] {
   return [
     { id: 'INT-NAC', system: 'NAC', method: 'REST API', purpose: '단말 인증·미인증 목록 수집, 미확인 자산 격리 요청', role: '수집 · 조치', status: '정상', lastSync: '2026-07-29 09:40', volume24h: 1_284 },
@@ -527,6 +538,7 @@ function seed(): Store {
     ],
     usbFindings: seedUsbFindings(),
     localVms: seedLocalVms(),
+    cloudFindings: seedCloudFindings(),
     integrations: seedIntegrations(),
     auditLogs: seedAuditLogs(),
     codeGroups: seedCodeGroups(),

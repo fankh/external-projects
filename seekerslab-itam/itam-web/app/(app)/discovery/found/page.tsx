@@ -5,6 +5,7 @@ import { daysUntil } from '@/lib/dates'
 import { getStore } from '@/lib/store'
 import { CHANNELS, RECONCILE_STATES, type ReconcileState } from '@/lib/types'
 import { AccountTable } from './AccountTable'
+import { CloudTable } from './CloudTable'
 import { EscalateBar } from './EscalateBar'
 import { FoundView } from './FoundView'
 import { LocalVmTable } from './LocalVmTable'
@@ -60,6 +61,7 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
   const unauthSwOpen = s.unauthorizedSw.filter((w) => !w.action).length
   const usbOpen = s.usbFindings.filter((u) => !u.action).length
   const vmOpen = s.localVms.filter((v) => !v.action).length
+  const cloudOpen = s.cloudFindings.filter((c) => !c.action).length
 
   return (
     <>
@@ -78,12 +80,12 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
         <Stat value={unreg.length} label="미등록 — 처리 필요" tone="err" />
         <Stat value={d.filter((x) => x.state === '등록·불일치').length} label="등록 · 불일치" tone="warn" />
         <Stat value={CHANNELS.length} label="병렬 수집 채널" tone="accent" delta={{ text: '스캔·로그·API 상시 수집', dir: 'flat' }} />
-        {/* 엔드포인트·계정 위생 4종(휴면계정·미인가SW·USB·로컬VM)을 한 지표로 요약 — 상세는 아래 각 섹션. 스탯 로우 과밀 해소 */}
+        {/* 엔드포인트·계정·클라우드 위생 5종(휴면계정·미인가SW·USB·로컬VM·클라우드)을 한 지표로 요약 — 상세는 아래 각 섹션. 스탯 로우 과밀 해소 */}
         <Stat
-          value={accountsOpen + unauthSwOpen + usbOpen + vmOpen}
-          label="엔드포인트·계정 위생 — 미조치"
-          tone={accountsOpen + unauthSwOpen + usbOpen + vmOpen ? 'err' : 'ok'}
-          delta={{ text: `휴면계정 ${accountsOpen} · SW ${unauthSwOpen} · USB ${usbOpen} · VM ${vmOpen}`, dir: 'flat' }}
+          value={accountsOpen + unauthSwOpen + usbOpen + vmOpen + cloudOpen}
+          label="엔드포인트·계정·클라우드 위생 — 미조치"
+          tone={accountsOpen + unauthSwOpen + usbOpen + vmOpen + cloudOpen ? 'err' : 'ok'}
+          delta={{ text: `휴면계정 ${accountsOpen} · SW ${unauthSwOpen} · USB ${usbOpen} · VM ${vmOpen} · 클라우드 ${cloudOpen}`, dir: 'flat' }}
         />
       </div>
 
@@ -116,6 +118,10 @@ export default async function FoundPage({ searchParams }: { searchParams: Promis
 
       <Card kicker="Local VM · Channel 04 (EDR)" title="로컬 가상머신 — 엔드포인트 VM 정책 위반" pad={false}>
         <LocalVmTable items={s.localVms} canAct={canAccount} />
+      </Card>
+
+      <Card kicker="Cloud Governance · Channel 05 (CSP API)" title="미관리 클라우드 리소스 — 태그·소유·통제 위반" pad={false}>
+        <CloudTable items={s.cloudFindings} canAct={canAccount} />
       </Card>
     </>
   )

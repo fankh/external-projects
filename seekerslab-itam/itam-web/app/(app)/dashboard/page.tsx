@@ -152,6 +152,8 @@ export default async function DashboardPage() {
       { label: `미판정 SaaS 판정 기한 경과 (${SAAS_REVIEW_SLA_DAYS}일 초과 · 에스컬레이션)`, count: buildSaasReview().overdue.length, href: '/settings/saas-catalog', tone: 'err' },
       { label: 'USB 정책 위반 미조치 (이동식 매체 DLP)', count: s.usbFindings.filter((u) => !u.action).length, href: '/discovery/found', tone: 'err' },
       { label: '로컬 VM 위반 미조치 (엔드포인트 가상머신)', count: s.localVms.filter((v) => !v.action).length, href: '/discovery/found', tone: 'warn' },
+      // 미관리 클라우드 리소스 — CSP API(채널 05)가 잡은 태그 미부착·개인 구독·미등록 리소스. 통제·정산 사각지대(태그·소유 지정 또는 회수 대상).
+      { label: '미관리 클라우드 리소스 미조치 (태그·소유·회수 · SAM/거버넌스)', count: s.cloudFindings.filter((c) => !c.action).length, href: '/discovery/found', tone: 'err' },
       { label: '수집 커넥터 지연·오류 (Discovery 저하 · 재연동)', count: degradedConn.length, href: '/platform/integrations', tone: degradedConn.some((i) => i.status === '오류') ? 'err' : 'warn' },
       // 외부 공격표면 재탐지 기한 경과 — 도메인별 주기(스케줄러) 경과·미실행이면 외부 노출 관측에 사각(§04 재탐지 자동 반복). 재탐지 실행 대상.
       { label: '외부 공격표면 재탐지 기한 경과 (재탐지 지연 · Discovery 사각)', count: s.easmTargets.filter(isEasmRescanOverdue).length, href: '/discovery/external', tone: 'warn' },
