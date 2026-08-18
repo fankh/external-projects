@@ -27,4 +27,5 @@ export const CHANNELS: ChannelBinding[] = [
   { id: 'hr-sync', kind: 'hr', name: '인사·근태 시스템', transport: '인터페이스', usage: '사용자 기본정보·근태 (일배치)', adapterId: 'gov-hr', enabledByDefault: true },
   { id: 'asset-api', kind: 'asset', name: '자산관리 시스템', transport: 'REST API', usage: '자산정보 조회 · 자산등록번호 취득', adapterId: 'gov-asset', enabledByDefault: true },
   { id: 'security-db', kind: 'secdata', name: '보안·출력물 관제', transport: 'DB 연계', usage: '출력물 자료 조회 (일배치 이관 — 계약 범위)', adapterId: 'gov-secdata', enabledByDefault: true },
+  { id: 'sec-monitor', kind: 'secmon', name: '보안관제 시스템', transport: 'REST API', usage: '탐지 이벤트 → 보안위반 자동 등록 (DLP·EDR)', adapterId: 'gov-secmon', enabledByDefault: false },
 ]

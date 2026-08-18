@@ -1,7 +1,7 @@
 /** 목업 어댑터 — 데모 환경에서 고객사 시스템을 대체한다.
  *  실서비스 커스터마이징: 이 파일을 고객사 어댑터(REST API·DB 연계 구현)로 교체하고
  *  portal.config.ts 의 adapterId 만 바꾼다. 포털 본체 코드는 변경 없음. */
-import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter } from './types'
+import type { AssetAdapter, ExternalAsset, HrAdapter, MessagingAdapter, PrintoutSourceRow, SecdataAdapter, SecMonAdapter, SecurityEvent } from './types'
 import type { Person } from '@/lib/types'
 
 export const mockMail: MessagingAdapter = {
@@ -69,6 +69,26 @@ export const mockSecdata: SecdataAdapter = {
     // 직접 렌더의 React child 500 방지(dept·pages 형태검증) 검증
     if (process.env.PORTAL_FAULT_SECDATA === 'badfield') return [{ printedAt: '2026-08-14 09:00', name: '김현우', document: '급여명세.xlsx', dept: {}, pages: {}, personalInfo: true } as unknown as PrintoutSourceRow]
     return PRINTOUT_ROWS
+  },
+}
+
+/** 보안관제(DLP·EDR) 목업 — 탐지 이벤트 (실서비스: SIEM·DLP·EDR REST API 연계). 탐지 유형은 보안위반 유형에 매핑. */
+const SECURITY_EVENTS: SecurityEvent[] = [
+  { name: '김현우', dept: '개발1팀', type: '인가되지 않은 USB 사용', detail: 'DLP: 미등록 USB 저장장치 쓰기 시도 차단 (PC-KHW-01)', detectedAt: '2026-08-18' },
+  { name: '이수진', dept: '경영지원팀', type: '화면 미잠금', detail: 'EDR: 30분 이상 세션 미잠금 상태 방치 감지 (PC-LSJ-02)', detectedAt: '2026-08-18' },
+  { name: '박정호', dept: 'IT운영팀', type: '출력물 방치', detail: 'DLP: 개인정보 포함 출력물 프린터 트레이 장시간 방치 (PRN-3F)', detectedAt: '2026-08-18' },
+]
+
+export const mockSecmon: SecMonAdapter = {
+  async fetchEvents() {
+    // 테스트 결함 주입 — 실 어댑터 예외·무응답 내성(secdata·hr 와 동일 계열). 미설정 시 정상.
+    if (process.env.PORTAL_FAULT_SECMON === 'throw') throw new Error('주입된 보안관제 어댑터 장애 (테스트)')
+    if (process.env.PORTAL_FAULT_SECMON === 'hang') return new Promise<SecurityEvent[]>(() => { /* 무응답 → withTimeout 이 끊는다 */ })
+    // 계약 위반(오형 행) 주입 — 필수 문자열(name·type·detectedAt) 누락으로 import 수집 형태검증 검증
+    if (process.env.PORTAL_FAULT_SECMON === 'malformed') return [{ detail: 'no name' } as unknown as SecurityEvent]
+    // 계약 위반(미정의 유형) 주입 — ViolationType 아닌 type 으로 코드 매핑 방어(유효 유형만 등록) 검증
+    if (process.env.PORTAL_FAULT_SECMON === 'badtype') return [{ name: '김현우', dept: '개발1팀', type: '알수없는유형' as SecurityEvent['type'], detail: 'x', detectedAt: '2026-08-18' }]
+    return SECURITY_EVENTS
   },
 }
 

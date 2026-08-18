@@ -52,6 +52,7 @@ SETDEL_DATA = ROOT / 'scripts' / '.e2e-setdel-data.json'  # 정산품의 삭제(
 VLEXTD_DATA = ROOT / 'scripts' / '.e2e-vlextd-data.json'  # 결재제외 완료 시 반려 재상신 할일 폐쇄 회귀용 (v1.5.243)
 SETATT_DATA = ROOT / 'scripts' / '.e2e-setatt-data.json'  # 정산품의 삭제 시 첨부·결재 자취 정리(id 재사용) 회귀용 (v1.5.245)
 SRGHOST_DATA = ROOT / 'scripts' / '.e2e-srghost-data.json'  # SR 지연 알림 퇴사 CI 유령 독촉 방지 회귀용 (v1.5.247)
+SECMON_DATA = ROOT / 'scripts' / '.e2e-secmon-data.json'  # 보안관제 어댑터 탐지→보안위반 자동 등록 커버리지용 (v1.5.249)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -665,24 +666,25 @@ def sc_inspection_resign_orphan(pg, base, check):
 def sc_channelstate_corrupt(pg, base, check):
     """channelStates 값 검증(v1.5.80) — 손상/구버전 파일의 비불리언 채널상태({})가 isEnabled 의 `st[id] ?? default`
     를 통과해(?? 는 null 만 폴백) 중지 채널(security-db, 기본 off)을 truthy 로 오판·가동시키면 안 된다. 머지가
-    비불리언 값을 걸러 기본값(off)으로 폴백 → 활성 채널 4/5 유지(오판 시 security-db 포함 5/5).
+    비불리언 값을 걸러 기본값(off)으로 폴백 → 활성 채널 4/6 유지(오판 시 security-db 포함 5/6).
+    (비계획 채널 6종: mail·hr·asset·secdata·sms·secmon — secdata·secmon 기본 off. sec-monitor 추가 v1.5.249.)
     PORTAL_DATA_FILE 로 {channelStates:{security-db:{}}} 주입."""
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
-    check('4/5' in stats and '5/5' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/5)')
+    check('4/6' in stats and '5/6' not in stats, '비불리언 channelStates 값 무시 → 중지 채널 오활성 방지(활성 4/6)')
 
 
 def sc_profile_data_isolation(pg, base, check):
     """프로필 데이터 격리(v1.5.188, AD-7) — 한 PORTAL_DATA_FILE 을 PORTAL_PROFILE 전환에 재사용해도 프로필
     스코프 런타임 설정(채널 가동상태·메뉴권한 오버레이)이 새지 않는다. 파일이 'manufacturer' 스탬프 +
     security-db 강제 가동(true)인데 default 프로필로 기동하면, 스탬프 불일치라 채널상태를 default 시드로
-    리셋해 security-db 는 기본(off)으로 돌아간다(활성 4/5). 도메인 데이터는 보존."""
+    리셋해 security-db 는 기본(off)으로 돌아간다(활성 4/6, 비계획 6종 중 secdata·secmon off). 도메인 데이터는 보존."""
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
     stats = pg.locator('.stat-row').first.inner_text()
-    check('4/5' in stats and '5/5' not in stats,
-          f'프로필 스탬프 불일치 → 채널상태 시드 리셋(security-db 강제가동 무시, 활성 4/5) (실제 {stats.strip()[:32]})')
+    check('4/6' in stats and '5/6' not in stats,
+          f'프로필 스탬프 불일치 → 채널상태 시드 리셋(security-db 강제가동 무시, 활성 4/6) (실제 {stats.strip()[:32]})')
 
 
 def sc_remote_cycle_config(pg, base, check):
@@ -2304,6 +2306,29 @@ def sc_violation_exempt_todo(pg, base, check):
           '결재제외 완료 → 재상신 할일 폐쇄(고아·반려방치 무한알림 방지)')
 
 
+def sc_secmon_import(pg, base, check):
+    """보안관제(secmon) 어댑터 — 탐지 이벤트 → 보안위반 자동 등록 (제품안내서 §V '보안 시스템' 연동).
+    격리(violations 비움 + sec-monitor 채널 ON): 담당자가 '보안관제 이벤트 가져오기' → 목업 탐지 3건(USB·
+    화면미잠금·출력물방치)이 보안위반(징구중)으로 편입, 감사 '[보안관제 자동]' 기록. 재실행해도 중복 편입
+    없음(by-value dedup: 위반자·유형·발생일). 어댑터 계약(mock→고객 SIEM/DLP 교체)의 프레임워크 커버리지."""
+    login(pg, base, '시스템관리자')  # 업무담당(ADMIN) — 위반 관리·이관 권한
+    pg.goto(f'{base}/awareness/violations', wait_until='networkidle')
+    pg.locator('button:has-text("보안관제 이벤트 가져오기")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/awareness/violations', wait_until='networkidle')
+    body = pg.content()
+    check('인가되지 않은 USB 사용' in body and '화면 미잠금' in body and '출력물 방치' in body, '보안관제 3종 탐지 → 위반 편입')
+    check(pg.locator('td.code', has_text='VL-2026').count() == 3, '탐지 이벤트 3건 편입 (위반 3건)')
+    # 재실행 — 중복 이관 방지(같은 위반자·유형·발생일)
+    pg.locator('button:has-text("보안관제 이벤트 가져오기")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/awareness/violations', wait_until='networkidle')
+    check(pg.locator('td.code', has_text='VL-2026').count() == 3, '재실행 시 중복 편입 없음 (3건 유지)')
+    # §VI — 자동 편입도 감사에 남는다(등록 주체 추적)
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    check(pg.locator('tr', has_text='보안관제 자동').first.count() > 0, '보안관제 자동 편입 감사 기록')
+
+
 def sc_violation_exempt(pg, base, check):
     """보안위반 결재제외 별도관리 (요구사항: "결재제외자는 별도 관리 — 확인서 징구 후 스캔해서 증빙으로 업로드").
     녹스계정 없는 위반자는 업무담당자가 스캔 확인서로 결재 없이(별도관리) 완료 처리한다."""
@@ -2445,6 +2470,7 @@ SCENARIOS = [
     ('company_pledge', '협력업체서약서 — 징구→결재상신→승인 폐쇄루프', sc_company_pledge, {'PORTAL_DATA_FILE': str(CPLG_DATA)}),
     ('officer_audit', '보안담당자 지정/해제 감사 기록 (§VI 이력추적성)', sc_officer_audit, {}),
     ('violation_exempt', '보안위반 결재제외 별도관리 — 스캔 확인서로 결재 없이 완료', sc_violation_exempt, {'PORTAL_DATA_FILE': str(VLEX_DATA)}),
+    ('secmon_import', '보안관제 어댑터 — 탐지 이벤트 → 보안위반 자동 등록(중복 방지)', sc_secmon_import, {'PORTAL_DATA_FILE': str(SECMON_DATA)}),
     ('violation_exempt_todo', '결재제외 완료 시 반려 재상신 할일 폐쇄(고아·무한알림 방지)', sc_violation_exempt_todo, {'PORTAL_DATA_FILE': str(VLEXTD_DATA)}),
     ('sr_status_label', '계정/권한 SR 상태 라벨 정합 — 배정완료·지연내역 개발중→처리중', sc_sr_status_label, {'PORTAL_DATA_FILE': str(SRAC_DATA)}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
@@ -2841,6 +2867,8 @@ def main() -> int:
     SETATT_DATA.write_text(json.dumps({'settlements': [], 'approvals': [], 'attachments': []}, ensure_ascii=False), encoding='utf-8')
     # 보안위반 결재제외 별도관리 — 위반 없는 상태에서 등록→스캔 확인서 업로드→결재 없이 완료 검증.
     VLEX_DATA.write_text(json.dumps({'violations': []}, ensure_ascii=False), encoding='utf-8')
+    # 보안관제 어댑터 탐지→위반 자동등록 — 위반 없는 상태 + sec-monitor 채널 ON 으로 이관·중복방지 검증.
+    SECMON_DATA.write_text(json.dumps({'violations': [], 'channelStates': {'sec-monitor': True}}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',

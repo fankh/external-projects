@@ -6,6 +6,7 @@ import { attachCount, registerUpload } from '@/lib/attachments'
 import { requireMenu, requireMenuRole } from '@/lib/authz'
 import { today } from '@/lib/dates'
 import { sendVia } from '@/lib/integrations/registry'
+import { importSecurityEvents } from '@/lib/secmon'
 import { activeCodes, getStore, nextNo } from '@/lib/store'
 import { CHANNELS } from '@/portal.config'
 import type { ViolationType } from '@/lib/types'
@@ -81,6 +82,15 @@ async function closeExempt(formData: FormData) {
   revalidatePath('/', 'layout')
 }
 
+/** 보안관제 이벤트 수동 이관 — DLP·EDR 탐지를 보안위반(징구중)으로 편입한다(일배치와 동일 로직·중복 방지).
+ *  일배치 자동 이관과 별개로, 담당자가 필요 시 즉시 당겨온다(secdata 수동 이관과 대칭). */
+async function importSecmon() {
+  'use server'
+  const me = await requireMenuRole('/awareness/violations', 'BIZ_MGR', 'ADMIN')
+  await importSecurityEvents(me.name)
+  revalidatePath('/', 'layout')
+}
+
 export default async function ViolationsPage() {
   const me = await requireMenu('/awareness/violations')
   const s = getStore()
@@ -104,7 +114,10 @@ export default async function ViolationsPage() {
       </div>
 
       {canManage && (
-        <Card title="위반 등록 — 확인서 요청" kicker="New Violation">
+        <Card title="위반 등록 — 확인서 요청" kicker="New Violation"
+          actions={CHANNELS.some((c) => c.id === 'sec-monitor' && !c.planned)
+            ? <form action={importSecmon}><button type="submit" className="btn sm" title="보안관제(DLP·EDR) 탐지 이벤트를 위반으로 편입 — 채널 중지 시 무동작">보안관제 이벤트 가져오기</button></form>
+            : undefined}>
           <form action={addViolation} className="hstack">
             <select aria-label="이름" className="select" name="name">
               {s.people.map((p) => <option key={p.name} value={p.name}>{p.name} ({p.dept})</option>)}
