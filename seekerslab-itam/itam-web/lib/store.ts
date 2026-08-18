@@ -100,6 +100,8 @@ function seedAssets(): Asset[] {
     mk({ assetNo: 'AST-2023-000221', category: '서버', model: 'PowerEdge R660', status: '사용중', owner: '인프라운영팀', dept: '인프라운영팀', location: 'IDC-A Rack 15', serial: '-', os: 'RHEL 9.3', cpu: 'Xeon Gold 6438', memory: '256GB', ip: '10.10.8.31', mac: 'B8:CA:3A:55:02:21', contractId: 'CT-2023-021', receiptPending: true }),
     // 장기 미실측 후보 ① — 실측 이력 없음(원격 근무자 단말, 재물조사 방문 시 부재 반복)
     mk({ assetNo: 'AST-2022-000871', category: '단말', model: 'MacBook Pro 14 M2', status: '사용중', owner: '정하윤', dept: '디자인팀', os: 'macOS 14', cpu: 'M2 Pro', memory: '32GB', ip: '10.20.44.12', mac: 'F0:2F:4B:9A:31:07', purchaseDate: '2022-08-01', warrantyEnd: '2025-07-31', lastVerifiedAt: undefined }),
+    // EOL OS(Windows 10) + 수리중(비운영) — EOL 교체 대상 게이트가 분실·수리중·반납대기를 제외하는지 회귀 가드(실물이 수리 입고된 자산에 교체 통보가 나가면 안 된다).
+    mk({ assetNo: 'AST-2021-000556', category: '단말', model: 'ThinkPad L14 Gen2', status: '수리중', owner: '한지원', dept: '고객지원팀', location: '본사 5F 수리대기', os: 'Windows 10 Pro', cpu: 'i5-1135G7', memory: '16GB', ip: '10.20.51.44', mac: '9C:2A:70:11:8E:23', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09', lastVerifiedAt: '2026-07-20' }),
     mk({ assetNo: 'AST-2021-000432', category: '단말', model: 'LG gram 17', status: '유휴', owner: '-', dept: '자산관리팀', location: '본사 3F 자산창고', os: 'Windows 10 Pro', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09',
       history: [
         { date: '2021-05-10', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
@@ -634,6 +636,9 @@ function seed(): Store {
       { id: 'CT-2023-002', kind: '구매', name: 'Microsoft 365 E3 800석', vendor: '한국MS 파트너', start: '2026-01-01', end: '2026-12-31', amount: 268_000_000, assetCount: 800, ownerDept: 'IT기획팀' },
       { id: 'CT-2026-009', kind: '구매', name: '2026 상반기 노트북 교체분', vendor: '(주)한빛INT', start: '2026-07-01', end: '2029-07-20', amount: 96_000_000, assetCount: 40, ownerDept: '자산관리팀' },
       { id: 'CT-2024-011', kind: '유지보수', name: '스토리지·백업 유지보수', vendor: '효성인포', start: '2025-09-01', end: '2026-08-20', amount: 36_000_000, assetCount: 6, ownerDept: '인프라운영팀' },
+      // 소액 착수비만 집행(0.05% · 반올림 0%) — 미집행(집행 전무)이 아니라 정상. 반올림 오분류 회귀 가드.
+      { id: 'CT-2025-013', kind: '유지보수', name: '보안관제(MSS) 유지보수', vendor: '이글루시큐리티', start: '2025-11-01', end: '2026-10-31', amount: 60_000_000, assetCount: 0, ownerDept: '보안운영팀',
+        costs: [{ id: 'CST-0101', date: '2026-02-03', item: '착수 협의·환경 구성비', amount: 30_000, addedBy: '박자산' }] },
     ],
     licenses: [
       { id: 'LIC-001', name: 'Microsoft 365 E3', vendor: 'Microsoft', purchased: 800, used: 743, expiry: '2026-12-31', unitCost: 335_000, contractId: 'CT-2023-002', usageCollectedAt: '2026-07-10', seats: [
