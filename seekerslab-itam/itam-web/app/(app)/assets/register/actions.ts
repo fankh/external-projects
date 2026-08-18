@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { isMaintenanceOverdue, today } from '@/lib/dates'
+import { eolOsOf } from '@/lib/eol'
 import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -812,6 +813,32 @@ export async function remindMaintenance() {
   appendAudit({ actor: session.name, action: `정기 점검 독촉 발송 (${n}건)`, target: '정기 점검 경과 자산' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `정기 점검 독촉 ${n}건 발송 — 예정일 경과 자산의 소유 부서에 점검 시행 요청 (발송 이력 적재)` }
+}
+
+/** EOL OS 업그레이드·교체 통보 — OS 지원 종료가 경과한 자산의 소유 부서에 업그레이드·교체 검토를 통보한다.
+ *  (정기 점검·수령 확인 독촉과 같은 컴플라이언스 통보 — EOL OS 는 미패치 취약점 상시 노출원인데,
+ *   그동안 대시보드·대장 필터·취약점 스코어링으로 표시만 되고 폐기(하드웨어 회수)로만 닫혀,
+ *   OS 업그레이드로 살릴 수 있는 자산에 소유 부서를 움직일 조치 접점이 없었다.)
+ *  운영 중(폐기 경로 제외) EOL 자산만 대상, 당일 중복 발송은 차단한다. 자산담당·Admin. */
+export async function notifyEolUpgrade() {
+  const session = await guard()
+  if (!session) return { ok: false, message: 'EOL 업그레이드 통보 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const t = today()
+  const sentToday = new Set(s.dispatches.filter((m) => m.kind === 'EOL 업그레이드 통보' && m.at.startsWith(t)).map((m) => m.ref))
+  let n = 0
+  for (const a of s.assets) {
+    if (['폐기완료', '폐기예정'].includes(a.status)) continue
+    const eol = eolOsOf(a.os, t)
+    if (!eol || sentToday.has(a.assetNo)) continue
+    dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `EOL OS 업그레이드·교체 검토 요청 — ${a.assetNo} ${a.model} (${eol.label} 지원 종료 ${eol.eol}), 미패치 취약점 상시 노출`, kind: 'EOL 업그레이드 통보', ref: a.assetNo })
+    a.history.push({ date: t, kind: '구성변경', detail: `EOL OS 업그레이드·교체 통보 발송 — ${eol.label} 지원 종료 ${eol.eol} (${a.owner} · ${a.dept})`, actor: session.name })
+    n += 1
+  }
+  if (n === 0) return { ok: false, message: 'EOL 업그레이드 통보 대상이 없습니다 (지원 종료 경과 없음·오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `EOL OS 업그레이드·교체 통보 발송 (${n}건)`, target: 'EOL OS 자산' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `EOL 업그레이드 통보 ${n}건 발송 — 지원 종료 OS 자산의 소유 부서에 업그레이드·교체 검토 요청 (발송 이력 적재)` }
 }
 
 /** 분실·도난 신고 — 실물이 사라진 자산을 대장에서 '분실' 상태로 전환한다.
