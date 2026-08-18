@@ -30,9 +30,11 @@ function elapsedYears(purchaseDate: string, today: string): number {
   return ms > 0 ? ms / (365.25 * 24 * 3600 * 1000) : 0
 }
 
-/** 감가상각 진행률(%) — 정액법. 내용연수 초과 시 100%(상각 완료). */
+/** 감가상각 진행률(%) — 정액법. 내용연수 초과 시 100%(상각 완료).
+ *  내림(floor)으로 계산한다 — 반올림하면 99.5~99.99%가 100%로 올라가 잔존가치가 남았는데도 '상각 완료'로 표기돼
+ *  잔존가치(장부가)와 모순된다(bookValueOf 는 내용연수 초과 시에만 0). 100%는 실제 상각 완료(잔존 0)일 때만. */
 export function depreciationPct(a: Asset, today: string): number {
-  return Math.min(100, Math.round((elapsedYears(a.purchaseDate, today) / USEFUL_LIFE_YEARS) * 100))
+  return Math.min(100, Math.floor((elapsedYears(a.purchaseDate, today) / USEFUL_LIFE_YEARS) * 100))
 }
 
 /** 잔존가치(장부가) — 취득가에서 정액법 감가상각을 적용한 현재 가치. 내용연수 초과분은 0으로 상각 완료. */

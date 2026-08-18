@@ -1365,6 +1365,17 @@ try {
   const spText = (await pSP.locator('tr', { has: pSP.locator('td', { hasText: '네트워크 능동 스캔' }) }).first().textContent()) || ''
   ok('스캔 시간대: 한 자리 시 저장 시 두 자리 정규화(09:00 — 시간대 안전장치 파싱 보장)', spText.includes('09:00 ~ 18:00'))
   await ctxSP.close()
+  // 발주 미이행 임계 반올림 회귀 — 발주율 79.6%(반올림 80%)·만료 임박 계약(CT-2026-055)이 위험 큐에서 빠지면 안 된다(실집행 기준 판정). 감가상각 반올림 회귀 — 4.99년 경과 자산은 상각 완료 아닌 99%.
+  const ctxPR = await browser.newContext(); await ctxPR.addCookies([cookie(ADMIN)]); const pPR = await ctxPR.newPage()
+  await pPR.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  // 발주·검수 이행 현황 카드로 스코프 — 계약명은 상단 계약 표에도 있어 스코프 없이는 발주 판정 없는 행이 잡힌다.
+  const procCardPR = pPR.locator('.card', { has: pPR.locator('.tt', { hasText: '발주·검수 이행 현황' }) }).first()
+  const procRow = procCardPR.locator('tr', { has: pPR.locator('td', { hasText: '보안장비 도입(회귀)' }) }).first()
+  ok('발주 미이행: 79.6%(반올림 80%) 계약도 미이행 위험 판정(반올림 오분류 회귀)', ((await procRow.textContent()) || '').includes('발주 미이행'))
+  await pPR.goto(`${BASE}/assets/register?sel=AST-2021-000997`, { waitUntil: 'networkidle' })
+  const depBody = (await pPR.textContent('body')) || ''
+  ok('감가상각: 99.8%는 상각 완료 아닌 99%(잔존가치 잔여와 모순 방지)', depBody.includes('상각 99%') && !depBody.includes('상각 완료'))
+  await ctxPR.close()
   // 라이선스 컴플라이언스 판정 불변식 — 초과/미사용/적정이 보유·사용 관계와 정합(감사 리스크 플래깅·회수/구매 결재 근거). 비즈니스 임계 계산 회귀 방지.
   {
     await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
