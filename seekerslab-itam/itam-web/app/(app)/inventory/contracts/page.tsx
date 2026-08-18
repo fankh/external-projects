@@ -10,7 +10,7 @@ import { contractAssetCount, getStore } from '@/lib/store'
 import { AddContract, ContractsTable } from './ContractsTable'
 import { AddLicense, ExpiryNoticeButton } from './LicenseActions'
 import { LicenseTable } from './LicenseTable'
-import { MaintenanceBudgetButton } from './MaintenanceActions'
+import { MaintenanceBudgetButton, MaintenanceExecButton } from './MaintenanceActions'
 import { ProcurementRemindButton } from './ProcurementRemindButton'
 import { SeatResolveCell } from './SeatResolveCell'
 import { UsageCollect } from './UsageCollect'
@@ -69,12 +69,14 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
         actions={<span className="hstack" style={{ gap: 10 }}>
           <span className="dim" style={{ fontSize: 11.5 }}>계약 {maint.rows.length}건 · 집행 {fmtAmount(maint.totalSpent)}/{fmtAmount(maint.totalAmount)}원</span>
           <MaintenanceBudgetButton alert={maint.budgetAlert} />
+          <MaintenanceExecButton alert={maint.execAlert} />
         </span>}
       >
         <div className="stat-row" style={{ margin: 14 }}>
           <Stat value={`${maint.totalAmount ? Math.round((maint.totalSpent / maint.totalAmount) * 100) : 0}%`} label="전체 집행률" delta={{ text: `잔여 ${fmtAmount(maint.totalAmount - maint.totalSpent)}원`, dir: 'flat' }} />
           <Stat value={maint.rows.length} label="유지보수 계약" />
           <Stat value={maint.overBudget} label="예산 초과" tone={maint.overBudget ? 'err' : 'ok'} />
+          <Stat value={maint.execAlert} label="미집행 (이행 확인)" tone={maint.execAlert ? 'warn' : 'ok'} />
           <Stat value={maint.noSla} label="SLA 미설정" tone={maint.noSla ? 'warn' : 'ok'} />
         </div>
         <div className="tbl-wrap">
@@ -97,7 +99,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <td className="c tnum">{r.covered}</td>
                   <td style={{ whiteSpace: 'normal', maxWidth: 260 }}>{r.sla ? <span className="dim" style={{ fontSize: 11 }}>{r.sla}</span> : <Chip tone="warn" bare>미설정</Chip>}</td>
                   <td className="tnum">{r.end}</td>
-                  <td className="c"><Chip tone={r.status === '예산 초과' ? 'err' : r.status === '소진 임박' ? 'warn' : r.status === '미집행' ? 'neutral' : 'ok'}>{r.status}</Chip></td>
+                  <td className="c"><Chip tone={r.status === '예산 초과' ? 'err' : r.status === '소진 임박' || r.status === '미집행' ? 'warn' : 'ok'}>{r.status}</Chip></td>
                 </tr>
               ))}
               {maint.rows.length === 0 && <tr><td colSpan={10}><div className="empty">유지보수 계약이 없습니다</div></td></tr>}

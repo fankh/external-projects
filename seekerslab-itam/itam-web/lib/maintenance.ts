@@ -30,6 +30,8 @@ export function buildMaintenance(): {
   overBudget: number
   /** 예산 통보 대상 — 예산 초과 + 소진 임박(재협상·집행 점검 통보 버튼 배지) */
   budgetAlert: number
+  /** 이행 독촉 대상 — 계약액이 있는데 집행이 전혀 없는 미집행(이행 확인 통보 버튼 배지) */
+  execAlert: number
   noSla: number
 } {
   const s = getStore()
@@ -63,6 +65,7 @@ export function buildMaintenance(): {
     totalSpent: rows.reduce((n, r) => n + r.spent, 0),
     overBudget: rows.filter((r) => r.status === '예산 초과').length,
     budgetAlert: rows.filter((r) => r.status === '예산 초과' || r.status === '소진 임박').length,
+    execAlert: rows.filter((r) => r.status === '미집행').length,
     noSla: rows.filter((r) => !r.sla).length,
   }
 }

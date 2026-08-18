@@ -1805,6 +1805,12 @@ try {
   await budgetBtn.first().click()
   await p4.waitForTimeout(800)
   ok('유지보수 예산: 통보 발송 성공(주관부서·공급사 · 발송 이력)', ((await p4.textContent('body')) || '').includes('유지보수 예산 통보') && ((await p4.textContent('body')) || '').includes('발송'))
+  // 유지보수 미집행 이행 독촉(로63) — 예산 통보의 반대편(집행률 0% 미집행)에 조치 채널이 없던 공백을 닫는다. 시드 CT-2024-011(스토리지·백업 유지보수, 비용 이력 없음=미집행) → 버튼 활성.
+  const execBtn = p4.locator('button', { hasText: /^미집행 이행 독촉 \(\d+\)$/ })
+  ok('유지보수 미집행: 이행 독촉 버튼 노출(미집행 배지 ≥1)', (await execBtn.count()) > 0 && !/\(0\)/.test(await execBtn.first().innerText()))
+  await execBtn.first().click()
+  await p4.waitForTimeout(800)
+  ok('유지보수 미집행: 이행 독촉 발송 성공(주관부서·공급사 · 발송 이력)', ((await p4.textContent('body')) || '').includes('유지보수 이행 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
 
   // 발주 이행 독촉(§03 구매 계약 · 신호→조치 채널) — 발주 미이행 위험 판정(발주율 저조·만료 임박)에 조치 채널이 없던 공백을 닫는다. 시드 CT-2023-021 미이행 → 버튼 활성.
   const procBtn = p4.locator('button', { hasText: /^발주 이행 독촉 \(\d+\)$/ })
