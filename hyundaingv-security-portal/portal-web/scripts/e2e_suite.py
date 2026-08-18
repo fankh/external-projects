@@ -48,6 +48,7 @@ VLEX_DATA = ROOT / 'scripts' / '.e2e-vlex-data.json'  # 보안위반 결재제�
 SRAC_DATA = ROOT / 'scripts' / '.e2e-srac-data.json'  # 계정/권한 SR 상태라벨 정합(개발중→처리중) 회귀용 (v1.5.219)
 SETDUP_DATA = ROOT / 'scripts' / '.e2e-setdup-data.json'  # 정산품의 결재대기 이중 상신 방지 회귀용 (v1.5.235)
 PRDEPT_DATA = ROOT / 'scripts' / '.e2e-prdept-data.json'  # 출력물 미등록 알림 부서장 통지 회귀용 (v1.5.237)
+SETDEL_DATA = ROOT / 'scripts' / '.e2e-setdel-data.json'  # 정산품의 삭제(작성중·반려) 커버리지용 (v1.5.239)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -430,6 +431,30 @@ def sc_settle_dedup(pg, base, check):
     check(pg.locator('tr', has_text='ST-2026-0002').count() == 0,
           '정산 이중 상신 방어 — 동일 계약·항목·금액 재상신 무시 (ST-0002 미생성)')
     check(pg.locator('tr', has_text='ST-2026-0001').count() == 1, '최초 정산 1건만 유지')
+
+
+def sc_settle_delete(pg, base, check):
+    """정산품의 삭제(폐기) — 기안자 본인의 작성중·반려 건 삭제 (요구사항 시트 11·17행 P=삭제).
+    격리 데이터(settlements 비움): 이수진이 임시저장(작성중) 정산 1건 생성 → 삭제 → 목록에서 사라지고
+    감사 로그에 '정산품의 삭제' 기록. 결재중·지급완료는 삭제 버튼이 없다(상태 가드로 이중 방어)."""
+    login(pg, base, '이수진')  # 부서담당 — 비용 정산 상신·삭제 스코프
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    card = pg.locator('.card', has_text='정산품의')
+    card.locator('select[name=contractId]').select_option('CT-2026-03')
+    card.locator('input[name=amount]').fill('1555')
+    card.locator('button:has-text("임시저장")').click()
+    pg.wait_for_selector('tr:has-text("ST-2026-0001"):has-text("작성중")', timeout=10000)
+    check('작성중' in pg.locator('tr', has_text='ST-2026-0001').inner_text(), '정산 임시저장 (작성중)')
+    # 삭제 → 목록에서 폐기
+    pg.locator('tr', has_text='ST-2026-0001').get_by_role('button', name='삭제', exact=True).click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    check(pg.locator('tr', has_text='ST-2026-0001').count() == 0, '정산품의 삭제 → 목록에서 폐기(행 제거)')
+    # §VI 이력추적성 — 삭제(파괴적 통제)가 감사 로그에 남는다(sibling delete 들과 동일 정책)
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    arow = pg.locator('tr', has_text='정산품의 삭제').first
+    check(arow.count() > 0 and 'ST-2026-0001' in arow.inner_text(), '정산품의 삭제 감사 기록(품의번호·기안자)')
 
 
 def sc_adapter(pg, base, check):
@@ -2328,6 +2353,8 @@ SCENARIOS = [
     ('settle', '정산 반려 → 재상신 → 지급완료', sc_settle, {}),
     ('settle_dedup', '정산품의 결재대기 이중 상신 방지(집행액 겹계상 차단)', sc_settle_dedup,
      {'PORTAL_DATA_FILE': str(SETDUP_DATA)}),
+    ('settle_delete', '정산품의 삭제 — 작성중·반려 폐기 + 감사(요구사항 11·17행 P=삭제)', sc_settle_delete,
+     {'PORTAL_DATA_FILE': str(SETDEL_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -2698,6 +2725,8 @@ def main() -> int:
     CPLG_DATA.write_text(json.dumps({'companyPledges': []}, ensure_ascii=False), encoding='utf-8')
     # 정산품의 결재대기 이중 상신 방지 — 정산 없는 상태에서 ST 채번 고정(ST-0001)·재상신 dedup 검증.
     SETDUP_DATA.write_text(json.dumps({'settlements': []}, ensure_ascii=False), encoding='utf-8')
+    # 정산품의 삭제 — 정산 없는 상태에서 임시저장(작성중) 1건 생성→삭제→감사 검증(ST 채번 고정 ST-0001).
+    SETDEL_DATA.write_text(json.dumps({'settlements': []}, ensure_ascii=False), encoding='utf-8')
     # 보안위반 결재제외 별도관리 — 위반 없는 상태에서 등록→스캔 확인서 업로드→결재 없이 완료 검증.
     VLEX_DATA.write_text(json.dumps({'violations': []}, ensure_ascii=False), encoding='utf-8')
     # 계정/권한 SR 상태 라벨 — 개발단계 없는 계정권한 SR(개발중·CI배정·기한경과)이 배정완료·지연내역에서 처리중 표기.
