@@ -1,6 +1,6 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { WITHDRAWABLE_DOC_TYPES } from '@/lib/approvals'
+import { WITHDRAW_RESTORERS, isWithdrawableDocType } from '@/lib/approvals'
 import { audit } from '@/lib/audit'
 import { requireMenuRole } from '@/lib/authz'
 import { ACCOUNTS } from '@/lib/session'
@@ -191,34 +191,18 @@ export async function withdraw(formData: FormData) {
   const s = getStore()
   const ap = s.approvals.find((a) => a.id === id)
   // 기안자 본인 + 결재 대기 + 상신취소 허용 유형만 — 화면 숨김과 별개의 서버 가드
-  if (!ap || ap.drafter !== me.name || ap.status !== '대기' || !WITHDRAWABLE_DOC_TYPES.includes(ap.docType)) return
+  if (!ap || ap.drafter !== me.name || ap.status !== '대기' || !isWithdrawableDocType(ap.docType)) return
+  const docType = ap.docType  // WithdrawableDocType 로 좁혀짐(가드 통과) — const 로 확정해 복원기 인덱싱
 
   ap.status = '회수'
   ap.decidedAt = today()
   ap.queue = undefined  // 회수 시 잔여 단계 정리 (F5)
   audit(me.name, '결재 회수', `${ap.id} ${ap.docType} — ${ap.title}`)
 
-  // 참조 업무 상태 복원 — SR 은 임시저장(작성중)으로, 변경·확인서는 상신 직전 단계로
-  if (ap.docType === 'SR 신청' && ap.ref) {
-    const sr = s.srRequests.find((r) => r.srNo === ap.ref)
-    if (sr && sr.status === '결재중') sr.status = '작성중'
-  }
-  if (ap.docType === '적용요청 상신' && ap.ref) {
-    const sr = s.srRequests.find((r) => r.srNo === ap.ref)
-    if (sr && sr.status === '적용요청결재중') sr.status = '테스트'
-  }
-  if (ap.docType === '변경계획 상신' && ap.ref) {
-    const cw = s.changes.find((c) => c.id === ap.ref)
-    if (cw && cw.status === '계획결재중') cw.status = '작업등록'
-  }
-  if (ap.docType === '변경결과 상신' && ap.ref) {
-    const cw = s.changes.find((c) => c.id === ap.ref)
-    if (cw && cw.status === '작업완료결재중') cw.status = '작업등록승인'
-  }
-  if (ap.docType === '보안위반 확인서' && ap.ref) {
-    const v = s.violations.find((x) => x.id === ap.ref)
-    if (v && v.status === '결재중') v.status = '징구중'
-  }
+  // 참조 업무 상태 복원 — 유형별 복원 로직은 lib/approvals 의 WITHDRAW_RESTORERS 단일 원천이다.
+  // Record<WithdrawableDocType, …> 라 회수 가능 유형을 늘리면 복원 핸들러 누락이 컴파일 에러로 잡혀,
+  // 참조 업무가 '결재중'에 갇히는 고아 in-flight 를 원천 차단한다(각 복원기는 진행중 상태에서만 되돌린다).
+  if (ap.ref) WITHDRAW_RESTORERS[docType](s, ap.ref)
 
   // 회수된 문서는 결재자의 처리 대상에서 빠진다 — '결재' 할일을 닫는다
   const todo = s.todos.find((t) => t.owner === ap.approver && t.kind === '결재' && t.title.startsWith(`${id} `) && !t.done)
