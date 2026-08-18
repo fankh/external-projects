@@ -53,6 +53,7 @@ VLEXTD_DATA = ROOT / 'scripts' / '.e2e-vlextd-data.json'  # 결재제외 완료 
 SETATT_DATA = ROOT / 'scripts' / '.e2e-setatt-data.json'  # 정산품의 삭제 시 첨부·결재 자취 정리(id 재사용) 회귀용 (v1.5.245)
 SRGHOST_DATA = ROOT / 'scripts' / '.e2e-srghost-data.json'  # SR 지연 알림 퇴사 CI 유령 독촉 방지 회귀용 (v1.5.247)
 SECMON_DATA = ROOT / 'scripts' / '.e2e-secmon-data.json'  # 보안관제 어댑터 탐지→보안위반 자동 등록 커버리지용 (v1.5.249)
+EXECOVER_DATA = ROOT / 'scripts' / '.e2e-execover-data.json'  # 집행률 초과(err) 톤 원값 판정(반올림 경계) 회귀용 (v1.5.251)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -435,6 +436,22 @@ def sc_settle_dedup(pg, base, check):
     check(pg.locator('tr', has_text='ST-2026-0002').count() == 0,
           '정산 이중 상신 방어 — 동일 계약·항목·금액 재상신 무시 (ST-0002 미생성)')
     check(pg.locator('tr', has_text='ST-2026-0001').count() == 1, '최초 정산 1건만 유지')
+
+
+def sc_exec_over_budget_tone(pg, base, check):
+    """집행률 초과(err) 톤 — 반올림 경계 오분류 방지. 격리 픽스처: 집행 1,004 / 계획 1,000 = 100.4%.
+    반올림 집행률(rate=100)로 초과를 판정하면 '100 > 100' 이 거짓이라 초과인데 warn(주의)으로 내려앉는다.
+    계획대비실적 표에는 별도 초과칩이 없어 이 집행률 칩 색이 유일한 초과 시각신호 — 원값(집행>계획)으로 판정해야
+    한다(KPI 초과 톤·계약 초과칩이 쓰는 원값 비교와 동일). 표기 %(100)는 반올림 유지하되 톤만 원값 판정."""
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/finance/invest', wait_until='networkidle')
+    card = pg.locator('.card', has_text='계획대비실적')
+    row = card.locator('tr', has_text='IP-2026-90')
+    check(row.count() == 1, '경계 과제(IP-2026-90) 계획대비실적 행 노출')
+    chip = row.locator('.chip', has_text='100%')
+    cls = chip.get_attribute('class') or ''
+    check('err' in cls, '집행 1,004>계획 1,000 → 초과 err 톤 (반올림 100 이어도 원값으로 초과 판정)')
+    check('warn' not in cls, '초과분을 warn(주의)으로 내리지 않음')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2483,6 +2500,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(SETDEL_DATA)}),
     ('settle_delete_attach', '정산품의 삭제 시 첨부·결재 자취 정리(id 재사용 유령 첨부 방지)', sc_settle_delete_attach,
      {'PORTAL_DATA_FILE': str(SETATT_DATA)}),
+    ('exec_over_budget_tone', '집행률 초과(err) 톤 — 반올림 경계(100.4%→100) 오분류 방지, 원값 판정', sc_exec_over_budget_tone,
+     {'PORTAL_DATA_FILE': str(EXECOVER_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -2869,6 +2888,13 @@ def main() -> int:
     VLEX_DATA.write_text(json.dumps({'violations': []}, ensure_ascii=False), encoding='utf-8')
     # 보안관제 어댑터 탐지→위반 자동등록 — 위반 없는 상태 + sec-monitor 채널 ON 으로 이관·중복방지 검증.
     SECMON_DATA.write_text(json.dumps({'violations': [], 'channelStates': {'sec-monitor': True}}, ensure_ascii=False), encoding='utf-8')
+    # 집행률 초과 톤 — 집행 1,004 / 계획 1,000 = 100.4% → 반올림 100. 원값(집행>계획)으로 초과 판정해야 err.
+    # 반올림 집행률로 비교하면 100 이라 초과인데 warn 으로 내려앉는다(경계 오분류). 투자 화면 격리 픽스처.
+    EXECOVER_DATA.write_text(json.dumps({
+        'investPlans': [{'id': 'IP-2026-90', 'kind': '투자', 'year': '2026', 'title': '경계 집행 과제', 'owner': '김현우', 'dept': '개발1팀', 'amount': 1000, 'status': '확정'}],
+        'investContracts': [{'id': 'CT-2026-90', 'kind': '투자', 'planId': 'IP-2026-90', 'vendor': '테스트벤더', 'title': '경계 계약', 'amount': 1004, 'signedAt': '2026-07-01'}],
+        'settlements': [{'id': 'ST-2026-90', 'contractId': 'CT-2026-90', 'item': '착수금', 'amount': 1004, 'status': '지급완료', 'requestedBy': '김현우', 'requestedAt': '2026-07-05'}],
+    }, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',

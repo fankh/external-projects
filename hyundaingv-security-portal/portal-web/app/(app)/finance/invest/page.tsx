@@ -330,7 +330,10 @@ export default async function InvestPage() {
                     <td className="num">{fmt(contracted)}</td>
                     <td className="num">{fmt(paid)}</td>
                     <td className="num"><Chip tone={b.basis === '정산' ? 'ok' : b.basis === '계약' ? 'info' : 'neutral'} bare>{b.basis}</Chip> {fmt(b.amount)}</td>
-                    <td className="num"><Chip tone={rate > 100 ? 'err' : rate >= 90 ? 'warn' : 'neutral'} bare>{rate}%</Chip></td>
+                    {/* 초과(err)는 반올림 집행률이 아니라 집행액>계획액 원값으로 판정 — 반올림 집행률(rate)로
+                        비교하면 100.4%(예: 집행 1,004/계획 1,000)가 100 으로 내려앉아 초과인데 warn 으로 표기된다.
+                        KPI 초과 톤·계획대비실적 상단이 쓰는 원값 비교와 일치. >=90 접근 경고는 표시용 소프트 임계라 반올림 유지. */}
+                    <td className="num"><Chip tone={paid > p.amount ? 'err' : rate >= 90 ? 'warn' : 'neutral'} bare>{rate}%</Chip></td>
                   </tr>
                 )
               })}
