@@ -86,7 +86,10 @@ export async function setScanScope(channel: Channel, rawTargets: string, rawWind
   }
   const beforeT = p.targets, beforeW = p.window
   p.targets = targets
-  p.window = window === '상시' ? '상시' : window.replace(/\s*~\s*/, ' ~ ')
+  // 시를 두 자리로 정규화해 저장한다('9:00' → '09:00') — 스캔 시간대 판정(inWindow)이 표준 HH:MM 를 기대하므로,
+  // 한 자리 시가 그대로 저장되면 창을 못 읽어 시간대 안전장치가 무력화된다.
+  p.window = window === '상시' ? '상시'
+    : window.replace(/^(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})$/, (_m, h1, m1, h2, m2) => `${h1.padStart(2, '0')}:${m1} ~ ${h2.padStart(2, '0')}:${m2}`)
   if (beforeT === p.targets && beforeW === p.window) return { ok: false, message: '변경 내용이 이전과 같습니다.' }
   audit(session.name, `스캔 정책 변경 — 대역 ${beforeT} → ${p.targets} · 시간대 ${beforeW} → ${p.window}`, channel)
   revalidatePath('/', 'layout')
