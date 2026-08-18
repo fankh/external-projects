@@ -1195,6 +1195,11 @@ try {
   const licTable2 = p3.locator('table', { has: p3.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first()
   const licRow2 = licTable2.locator('tbody tr').filter({ hasText: 'Microsoft 365' }).first()
   ok('계약 해지 → 라이선스 근거 해지 표기(LIC-001)', ((await licRow2.textContent()) || '').includes('근거 해지'))
+  // 근거 해지 → 이관·재계약 검토 요청(로64) — 계약 해지(32)의 라이선스 측 낙수. 표시뿐이던 근거 해지에 이관·재계약 조치 채널을 붙인다.
+  ok('근거 해지: 이관·재계약 검토 요청 버튼 노출(표시→조치)', (await licRow2.locator('button', { hasText: /^재계약 검토$/ }).count()) > 0)
+  await licRow2.locator('button', { hasText: /^재계약 검토$/ }).first().click()
+  await p3.waitForTimeout(700)
+  ok('근거 해지: 재계약 검토 요청 발송 성공(주관부서·공급사 · 발송 이력)', ((await licTable2.textContent()) || '').includes('재계약 검토 요청') && ((await licTable2.textContent()) || '').includes('통지'))
   // 라이선스 좌석 배정 대장 — 누가 어느 석을 쓰는지 명명형 관리 + 탐지 사용량과 대사(배정 밖 사용 식별). 시드 LIC-004 AutoCAD 배정 2/사용 6.
   const camRow = licTable2.locator('tbody tr').filter({ hasText: 'AutoCAD' }).first()
   ok('라이선스 좌석: 배정 대장·미배정 사용 대사 표기(LIC-004 배정 2/사용 6)', ((await camRow.textContent()) || '').includes('배정 2/15석') && ((await camRow.textContent()) || '').includes('미배정 사용 4'))
