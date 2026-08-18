@@ -6,10 +6,10 @@ import { daysUntil, fmtAmount } from '@/lib/dates'
 import { buildLicenseUsage } from '@/lib/license-usage'
 import { buildMaintenance } from '@/lib/maintenance'
 import { buildProcurement } from '@/lib/procurement'
-import { contractHref } from '@/lib/reflink'
 import { contractAssetCount, getStore } from '@/lib/store'
 import { AddContract, ContractsTable } from './ContractsTable'
-import { AddLicense, ExpiryNoticeButton, LicenseAction, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
+import { AddLicense, ExpiryNoticeButton } from './LicenseActions'
+import { LicenseTable } from './LicenseTable'
 import { MaintenanceBudgetButton } from './MaintenanceActions'
 import { ProcurementRemindButton } from './ProcurementRemindButton'
 import { SeatResolveCell } from './SeatResolveCell'
@@ -17,9 +17,9 @@ import { UsageCollect } from './UsageCollect'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string }> }) {
+export default async function ContractsPage({ searchParams }: { searchParams: Promise<{ sel?: string; lic?: string }> }) {
   const session = await requireRole('ASSET_MGR', 'ADMIN')
-  const { sel } = await searchParams
+  const { sel, lic } = await searchParams
   const s = getStore()
   const contracts = [...s.contracts].sort((a, b) => a.end.localeCompare(b.end))
   const usage = buildLicenseUsage()
@@ -162,74 +162,19 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
 
       <Card kicker="License Compliance" title="SW 라이선스 보유 – 사용 대사" pad={false}>
         <AddLicense />
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>라이선스</th><th>공급사</th><th>근거 계약</th><th className="num">보유</th><th className="num">사용</th>
-                <th style={{ width: 220 }}>보유–사용 대사</th><th>만료일</th><th className="c">판정</th><th className="c">조치</th>
-              </tr>
-            </thead>
-            <tbody>
-              {s.licenses.map((l) => {
-                const ratio = Math.min((l.used / l.purchased) * 100, 100)
-                const retired = l.status === '해지'
-                // 근거 계약이 해지된 라이선스 — 구독 근거가 사라진 상태(계약 해지 연계 영향 v1.272 의 역방향). 이관·재계약 검토 필요.
-                const baseTerminated = !!l.contractId && s.contracts.some((c) => c.id === l.contractId && c.status === '해지')
-                // 만료 경과 — 유효 상태인데 만료일이 지난 라이선스(미갱신). 만료 라이선스 사용은 그 자체가 컴플라이언스 위반이므로
-                // 초과·미사용과 별개로 갱신 필요를 명시한다. 만료 임박(창 안)과 달리 이미 지난 건이라 알림에서 누락되던 공백.
-                const expired = !retired && l.expiry !== '-' && (daysUntil(l.expiry) ?? 0) < 0
-                const over = !retired && l.used > l.purchased
-                const low = !retired && !over && l.used / l.purchased < 0.6
-                const canEditLic = ['ASSET_MGR', 'ADMIN'].includes(session.role)
-                return (
-                  <tr key={l.id} className={`${l.id === sel ? 'sel' : ''}`} style={retired ? { opacity: 0.6 } : undefined}>
-                    <td className="strong">{l.name}</td>
-                    <td className="mute">{l.vendor}</td>
-                    <td className="code">{l.contractId
-                      ? <span className="hstack" style={{ gap: 4, flexWrap: 'wrap' }}>
-                          <a href={contractHref(l.contractId)} style={{ color: 'var(--accent-deep)' }} title="근거 계약으로 이동">{l.contractId}</a>
-                          {baseTerminated && <Chip tone="err" bare>근거 해지</Chip>}
-                        </span>
-                      : <Chip tone="warn" bare>미연계</Chip>}</td>
-                    <td className="num tnum">{l.purchased.toLocaleString()}</td>
-                    <td className="num tnum" style={over ? { color: 'var(--err)', fontWeight: 700 } : undefined}>{l.used.toLocaleString()}</td>
-                    <td>
-                      <div className="meter">
-                        <div className="bar"><i className={over ? 'over' : low ? 'low' : ''} style={{ width: `${ratio}%` }} /></div>
-                        <div className="lbl"><span>{Math.round((l.used / l.purchased) * 100)}%</span><span>{over ? `${l.used - l.purchased}석 초과` : `${l.purchased - l.used}석 여유`}</span></div>
-                      </div>
-                      {!retired && <LicenseSeats id={l.id} name={l.name} purchased={l.purchased} used={l.used} seats={l.seats ?? []} canEdit={canEditLic} />}
-                    </td>
-                    <td><LicenseRenew id={l.id} expiry={l.expiry} renewals={l.renewals?.length ?? 0} canEdit={!retired && canEditLic} /></td>
-                    <td className="c">
-                      <span className="hstack" style={{ gap: 3, justifyContent: 'center', flexWrap: 'wrap' }}>
-                        {expired && <Chip tone="err" bare>만료</Chip>}
-                        {retired ? <Chip tone="neutral">해지</Chip> : over ? <Chip tone="err">초과 사용</Chip> : low ? <Chip tone="warn">미사용 보유</Chip> : <Chip tone="ok">적정</Chip>}
-                      </span>
-                    </td>
-                    <td className="c" style={{ minWidth: 120 }}>
-                      <span className="hstack" style={{ gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
-                        {retired ? (
-                          <span className="mut" style={{ fontSize: 11 }} title={`${l.terminatedAt ?? ''} 해지`}>해지됨</span>
-                        ) : (
-                          <>
-                            <LicenseAction row={{
-                              id: l.id, over, low, seats: Math.abs(l.used - l.purchased),
-                              pendingApproval: s.approvals.find((a) => a.status === '대기' && a.refId === l.id)?.id,
-                            }} />
-                            {canEditLic && <LicenseRetire id={l.id} />}
-                          </>
-                        )}
-                        <a className="btn sm ghost" href={`/api/license-card/${l.id}`} target="_blank" rel="noopener" title="라이선스 컴플라이언스 카드(SAM 감사용) 인쇄">🖨</a>
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <LicenseTable
+          rows={s.licenses.map((l) => ({
+            ...l,
+            d: daysUntil(l.expiry),
+            // 근거 계약이 해지된 라이선스 — 구독 근거가 사라진 상태(계약 해지 연계 영향 v1.272 의 역방향). 이관·재계약 검토 필요.
+            baseTerminated: !!l.contractId && s.contracts.some((c) => c.id === l.contractId && c.status === '해지'),
+            pendingApproval: s.approvals.find((a) => a.status === '대기' && a.refId === l.id)?.id,
+          }))}
+          sel={sel}
+          canEdit={['ASSET_MGR', 'ADMIN'].includes(session.role)}
+          expiryWindowDays={s.opsPolicy.expiryWindowDays}
+          lic={lic}
+        />
         <div className="callout" style={{ margin: 14 }}>
           <b>검출에서 조치까지.</b> 초과 사용(감사 리스크)은 추가 구매 품의로, 미사용 보유(비용 낭비)는 회수로
           이어지며 두 조치 모두 결재를 거칩니다.

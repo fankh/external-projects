@@ -1225,6 +1225,23 @@ try {
   await p3.waitForTimeout(700)
   ok('좌석 배정 이탈-자산 가드: 폐기완료 자산 배정 거부(좌석 누수 방지) · 배정 2석 유지', ((await seatGuardRow.textContent()) || '').includes('배정 2/15석') && !((await seatGuardRow.textContent()) || '').includes('배정 3/15석'))
 
+  // 라이선스 표 필터·딥링크(계약 표와 대칭) — 그동안 SW 라이선스 표에는 검색·상태·판정 필터가 없어 대시보드 라이선스 큐(초과 사용·만료 경과) 드릴인이 전체 목록으로 떨어졌다.
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const licTable = () => p3.locator('table', { has: p3.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first()
+  const licCard = p3.locator('.card', { has: p3.locator('th', { hasText: /보유.{0,2}사용 대사/ }) }).first()
+  ok('라이선스 표: 검색·필터 툴바 존재(계약 표와 대칭)', (await licCard.locator('input[placeholder*="라이선스명"]').count()) > 0)
+  // 만료 임박 토글 — 시드 5종 중 만료창(60일) 내 3종(JetBrains 경과·Adobe·Slack)으로 좁혀진다
+  const licRows = () => licTable().locator('tbody tr')
+  const totalLic = await licRows().count()
+  await licCard.locator('button', { hasText: /만료 임박 \d+/ }).click()
+  await p3.waitForTimeout(300)
+  const expLic = await licRows().count()
+  ok('라이선스 표: 만료 임박 토글로 행 축소', expLic < totalLic && expLic > 0)
+  // 대시보드 딥링크(?lic=over) — 초과 사용만 사전 필터(JetBrains 1종). 필터 없이는 5종 전체가 떠 AutoCAD(미사용)도 노출.
+  await p3.goto(`${BASE}/inventory/contracts?lic=over`, { waitUntil: 'networkidle' })
+  const overTxt = (await licTable().locator('tbody').textContent()) || ''
+  ok('라이선스 표: 딥링크 ?lic=over 초과 사용 사전 필터(JetBrains만·AutoCAD 제외)', overTxt.includes('JetBrains') && !overTxt.includes('AutoCAD') && (await licRows().count()) === 1)
+
   // 유지보수 계약 예산 집행(§03) — CT-2022-007 누계 4,980만 > 계약 4,800만 → 예산 초과 판정. 대시보드 재협상 큐와 동일 근거.
   const maintCard = p3.locator('.card', { hasText: '유지보수 계약 관리 — 예산 집행 · SLA' }).first()
   const maintTxt = (await maintCard.textContent()) || ''
