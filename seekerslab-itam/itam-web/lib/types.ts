@@ -834,6 +834,37 @@ export const LOCALVM_POLICY: Record<LocalVmFinding['kind'], string> = {
   '미관리 VM': '자산관리 미등록 VM — 통제 우회·미패치 위험, 등록 또는 회수',
 }
 
+/** 미관리 클라우드 리소스 — CSP API(제품안내서 §04 탐지 채널 05 "클라우드 API")가 검출한 거버넌스 위반 리소스.
+ *  태그 미부착(소유·비용 추적 불가)·개인 구독(조직 계정 밖)·미관리(대장 미등록)는 통제 사각지대이므로,
+ *  발견에서 끝내지 않고 보안담당이 태그·소유자 지정 요청 / 회수(종료) / 예외 승인으로 조치한다. */
+export interface CloudFinding {
+  id: string
+  /** 리소스 식별 — 인스턴스 ID·리소스명 요약 */
+  resource: string
+  /** CSP·리전 */
+  provider: string
+  /** 계정·구독 — AWS 계정 또는 Azure 구독 */
+  account: string
+  owner: string
+  dept: string
+  kind: '태그 미부착' | '개인 구독·계정' | '미관리 리소스'
+  detectedBy: string
+  firstSeen: string
+  risk: RiskLevel
+  note?: string
+  /** 조치 — 태그·소유자 지정 요청 / 회수(리소스 종료) / 예외 승인(등록된 업무용 리소스) */
+  action?: '태그·소유자 지정 요청' | '회수 요청' | '예외 승인'
+  actedBy?: string
+  actedAt?: string
+}
+
+/** 클라우드 리소스 유형별 표준 조치 사유 — 판정 근거로 표시한다. */
+export const CLOUD_POLICY: Record<CloudFinding['kind'], string> = {
+  '태그 미부착': '소유자·비용센터 태그 없는 리소스 — 소유 불명·비용 추적 불가, 태그·소유자 지정 요청',
+  '개인 구독·계정': '조직 계정 밖 개인 구독·개인 액세스키로 생성 — 통제 우회, 회수 우선',
+  '미관리 리소스': '자산관리 미등록 클라우드 리소스 — 통제 사각지대, 등록 또는 회수',
+}
+
 /** 연동 대상 시스템 (제품안내서 §06) — 수집 소스이자 조치 채널 */
 export interface Integration {
   id: string

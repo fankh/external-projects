@@ -636,3 +636,51 @@ export async function revokeVmException(vmId: string) {
   revalidatePath('/', 'layout')
   return { ok: true, message: `${v.vm} 예외 승인 해제 — 다시 미조치(회수/예외 판정) 대상으로 전환` }
 }
+
+/** 미관리 클라우드 리소스 조치 (탐지 채널 05 CSP API) — 태그·소유자 지정 요청 / 회수(리소스 종료 집행) / 예외 승인.
+ *  발견 목록에만 있던 클라우드 리소스를 태그·소유·통제 관점의 거버넌스 조치로 닫는다(채널 04·06 산출 조치와 동형). 보안담당·Admin. */
+export async function respondToCloudFinding(cldId: string, kind: '태그' | '회수' | '예외 승인') {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '클라우드 리소스 조치 권한이 없습니다 (보안담당·Admin).' }
+  }
+  const s = getStore()
+  const c = s.cloudFindings.find((x) => x.id === cldId)
+  if (!c) return { ok: false, message: '클라우드 리소스 검출 항목을 찾을 수 없습니다.' }
+  if (c.action) return { ok: false, message: `이미 ${c.action} 처리된 항목입니다.` }
+
+  c.actedBy = session.name
+  c.actedAt = today()
+  if (kind === '태그') {
+    c.action = '태그·소유자 지정 요청'
+    dispatch({ channel: '이메일', to: c.dept, subject: `클라우드 리소스 태그·소유자 지정 요청 — ${c.resource} (${c.provider}, ${c.kind})`, kind: '위협 대응', ref: c.id })
+    appendAudit({ actor: session.name, action: `클라우드 리소스 태그·소유자 지정 요청 (${c.kind}) — ${c.resource}`, target: c.id })
+  } else if (kind === '회수') {
+    c.action = '회수 요청'
+    dispatch({ channel: '이메일', to: '보안운영팀', subject: `클라우드 리소스 회수(종료) 집행 요청 — ${c.resource} (${c.provider}·${c.account}, ${c.kind})`, kind: '위협 대응', ref: c.id })
+    appendAudit({ actor: session.name, action: `클라우드 리소스 회수 요청 (${c.kind}) — ${c.resource}`, target: c.id })
+  } else {
+    c.action = '예외 승인'
+    dispatch({ channel: '이메일', to: c.dept, subject: `클라우드 리소스 예외 승인 — ${c.resource} (${c.account}) 업무용 등록 인정`, kind: '위협 대응', ref: c.id })
+    appendAudit({ actor: session.name, action: `클라우드 리소스 예외 승인 (${c.kind}) — ${c.resource}`, target: c.id })
+  }
+  revalidatePath('/', 'layout')
+  const to = kind === '회수' ? '보안운영팀' : c.dept
+  return { ok: true, message: `${c.resource} ${c.action} — ${to} 통지·감사 적재` }
+}
+
+/** 클라우드 리소스 예외 승인 해제 — USB·VM 예외 해제와 같은 규약. '예외 승인' 상태만 대상. 보안담당·Admin. */
+export async function revokeCloudException(cldId: string) {
+  const session = await getSession()
+  if (!session || !['SEC_MGR', 'ADMIN'].includes(session.role)) return { ok: false, message: '클라우드 리소스 예외 해제 권한이 없습니다 (보안담당·Admin).' }
+  const s = getStore()
+  const c = s.cloudFindings.find((x) => x.id === cldId)
+  if (!c) return { ok: false, message: '클라우드 리소스 검출 항목을 찾을 수 없습니다.' }
+  if (c.action !== '예외 승인') return { ok: false, message: '예외 승인 상태의 클라우드 리소스만 해제할 수 있습니다.' }
+  c.action = undefined
+  c.actedBy = undefined
+  c.actedAt = undefined
+  appendAudit({ actor: session.name, action: `클라우드 리소스 예외 승인 해제 — ${c.resource} (다시 정책 대상)`, target: c.id })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${c.resource} 예외 승인 해제 — 다시 미조치(태그·회수/예외 판정) 대상으로 전환` }
+}

@@ -355,6 +355,10 @@ try {
   await twoChoice(page, { name: '미인가 SW(47)', navTo: FOUND, cardText: '설치 SW 정책 위반', rowText: 'uTorrent', btnRe: /^제거 요청$/ })
   await twoChoice(page, { name: 'USB(48)', navTo: FOUND, cardText: '이동식 매체 정책 위반', rowText: 'Samsung T7 SSD', btnRe: /^차단$/ })
   await twoChoice(page, { name: '로컬 VM(49)', navTo: FOUND, cardText: '엔드포인트 VM 정책 위반', rowText: 'legacy-test', btnRe: /^회수$/ })
+  // 미관리 클라우드 리소스(60) — 채널 05 CSP API 산출을 편입/격리가 아니라 거버넌스 조치로 닫는다. 태그 미부착 리소스에 태그·소유 지정 요청.
+  await twoChoice(page, { name: '클라우드 리소스(60)', navTo: FOUND, cardText: '태그·소유·통제 위반', rowText: 'i-0f3a91c2d8', btnRe: /^태그·소유 지정$/ })
+  // 개인 구독 리소스는 회수(종료) 집행 대상 — 태그 요청과 다른 강경 조치가 같은 표에서 선택된다
+  await twoChoice(page, { name: '클라우드 리소스 회수(60)', navTo: FOUND, cardText: '태그·소유·통제 위반', rowText: 'ip-10-31-4-70', btnRe: /^회수$/ })
   // USB 저장매체 일괄 차단 — 매체통제 정책·EDR 스윕에서 미조치 매체를 체크박스로 선택해 일괄 차단(단건 반복 방지). 미조치분 Kingston 선택(SanDisk·Samsung 은 아래 예외·차단 단건 테스트가 소비).
   {
     await page.goto(`${BASE}${FOUND}`, { waitUntil: 'networkidle' })

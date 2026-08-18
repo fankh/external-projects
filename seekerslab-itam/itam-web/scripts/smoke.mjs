@@ -402,8 +402,8 @@ try {
   check('발견 자산: 로컬 가상머신 정책 위반 카드 렌더', foundHtml.includes('로컬 가상머신') && foundHtml.includes('VirtualBox · legacy-test') && foundHtml.includes('엔드포인트 VM'))
   check('발견 자산: 보안담당에 로컬 VM 조치(회수·예외 승인) 노출', foundHtml.includes('EOL·미패치 게스트') && foundHtml.includes('예외 승인'))
   check('발견 자산: 자산담당엔 로컬 VM 조치 버튼 미노출 (조회만)', foundAsset.includes('로컬 가상머신') && !foundAsset.includes('회수</button>'))
-  // 엔드포인트·계정 위생 요약 스탯 — 4종(휴면계정·SW·USB·VM)을 한 지표로 합산 요약(스탯 로우 과밀 해소), 상세는 각 카드
-  check('발견 자산: 엔드포인트·계정 위생 요약 스탯 렌더', foundHtml.includes('엔드포인트·계정 위생 — 미조치') && foundHtml.includes('병렬 수집 채널'))
+  // 엔드포인트·계정·클라우드 위생 요약 스탯 — 5종(휴면계정·SW·USB·VM·클라우드)을 한 지표로 합산 요약(스탯 로우 과밀 해소), 상세는 각 카드
+  check('발견 자산: 엔드포인트·계정·클라우드 위생 요약 스탯 렌더', foundHtml.includes('엔드포인트·계정·클라우드 위생 — 미조치') && foundHtml.includes('병렬 수집 채널'))
   const contractsHtml = await (await get('/inventory/contracts', 'ASSET_MGR')).text()
   check('계약·라이선스: 보유–사용 대사·등록(계약·라이선스) 렌더', contractsHtml.includes('JetBrains') && contractsHtml.includes('초과 사용') && contractsHtml.includes('라이선스 등록') && contractsHtml.includes('계약 등록'))
   // 라이선스 STEP2 사용 수집(§03) — EDR 설치 SW 인벤토리를 배정 좌석과 대사. 그동안 표시 전용이던 STEP2를 실동작으로.
