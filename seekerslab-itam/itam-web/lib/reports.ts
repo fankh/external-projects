@@ -107,9 +107,12 @@ export function nextRunOf(sc: ReportSchedule): string | null {
   if (!sc.lastRunAt) return null
   const last = new Date(sc.lastRunAt)
   if (sc.period === '주간') return new Date(last.getTime() + 7 * 86_400_000).toISOString().slice(0, 10)
-  const d = new Date(last)
-  d.setMonth(d.getMonth() + 1)
-  return d.toISOString().slice(0, 10)
+  // 월간 — setMonth(+1) 은 말일(1/31)에서 오버플로(Feb 31 → 3/3)되므로 대상 월 말일로 클램프한다(1/31 → 2/28).
+  const [y, mo, dy] = sc.lastRunAt.slice(0, 10).split('-').map(Number)
+  const targetY = mo === 12 ? y + 1 : y
+  const targetMo = mo === 12 ? 1 : mo + 1 // 1-based 대상 월
+  const lastDay = new Date(Date.UTC(targetY, targetMo, 0)).getUTCDate() // 대상 월의 말일
+  return new Date(Date.UTC(targetY, targetMo - 1, Math.min(dy, lastDay))).toISOString().slice(0, 10)
 }
 
 /** 정례 리포트 배포 기한 경과 — 가동(enabled) 스케줄의 다음 실행 예정일이 지났는데 아직 미배포(자동 생성 밀림).

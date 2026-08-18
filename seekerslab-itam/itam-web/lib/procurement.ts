@@ -64,7 +64,9 @@ export function buildProcurement(): {
         pendingInspection: lots.filter((l) => l.status === '입고 대기' || l.status === '검수 중').length,
         rejected: lots.filter((l) => l.status === '검수 반려' || l.status === '반품 완료').length,
         dday,
-        atRisk: lots.length > 0 && rate < UNDERORDER_RATE && dday !== null && dday <= RISK_EXPIRY_DAYS,
+        // 미이행 판정은 반올림된 rate 가 아니라 실집행액으로 — 79.6%(반올림 80%) 같은 임계 바로 아래 계약이
+        // rate<80 에서 빠져 위험 큐·리포트에서 사라지던 오류 방지(미집행 rate 오분류와 동일 계열, licenseOptimization 은 raw 비율 사용).
+        atRisk: lots.length > 0 && orderedValue < (c.amount * UNDERORDER_RATE) / 100 && dday !== null && dday <= RISK_EXPIRY_DAYS,
       }
     })
     .filter((r) => r.lots > 0)

@@ -102,6 +102,8 @@ function seedAssets(): Asset[] {
     mk({ assetNo: 'AST-2022-000871', category: '단말', model: 'MacBook Pro 14 M2', status: '사용중', owner: '정하윤', dept: '디자인팀', os: 'macOS 14', cpu: 'M2 Pro', memory: '32GB', ip: '10.20.44.12', mac: 'F0:2F:4B:9A:31:07', purchaseDate: '2022-08-01', warrantyEnd: '2025-07-31', lastVerifiedAt: undefined }),
     // EOL OS(Windows 10) + 수리중(비운영) — EOL 교체 대상 게이트가 분실·수리중·반납대기를 제외하는지 회귀 가드(실물이 수리 입고된 자산에 교체 통보가 나가면 안 된다).
     mk({ assetNo: 'AST-2021-000556', category: '단말', model: 'ThinkPad L14 Gen2', status: '수리중', owner: '한지원', dept: '고객지원팀', location: '본사 5F 수리대기', os: 'Windows 10 Pro', cpu: 'i5-1135G7', memory: '16GB', ip: '10.20.51.44', mac: '9C:2A:70:11:8E:23', purchaseDate: '2021-05-10', warrantyEnd: '2024-05-09', lastVerifiedAt: '2026-07-20' }),
+    // 감가상각 반올림 회귀 — 도입 4.99년 경과(≈99.8%). 반올림이면 100%(상각 완료)로 잔존가치(≈3,600원)와 모순, 내림이면 99%. 상대일자로 계산해 실행일과 무관하게 창 안에 머문다. 사용중(가용 재고 집계 미영향).
+    mk({ assetNo: 'AST-2021-000997', category: '단말', model: 'ThinkPad T14 (감가 회귀)', status: '사용중', owner: '박선우', dept: '영업2팀', location: '본사 7F', os: 'Windows 11 Pro', purchaseDate: new Date(Date.now() - Math.round(4.99 * 365.25 * 86_400_000)).toISOString().slice(0, 10), warrantyEnd: '2024-09-01', acquisitionCost: 1_800_000, lastVerifiedAt: '2026-07-20' }),
     // 대여 반환 좌석 회수 회귀 — 대여중이면서 라이선스 좌석 보유. 반환 시 좌석이 회수돼야 한다(로56, 이탈 5번째 경로). 반환 기한은 먼 미래(연체·임박 큐 미영향).
     mk({ assetNo: 'AST-2024-000995', category: '단말', model: 'Galaxy Book4 (대여용)', status: '대여중', owner: '조민재', dept: '마케팅팀', location: '본사 6F', os: 'Windows 11 Pro', cpu: 'Ultra 7 155H', memory: '16GB', ip: '10.20.60.31', mac: '3C:52:82:14:AA:19', purchaseDate: '2024-03-15', warrantyEnd: '2027-03-14', loanDueDate: '2026-12-01', lastVerifiedAt: '2026-07-25' }),
     // 재물조사 미확인 유휴 편성 좌석 회수 회귀 — 사용중이면서 라이선스 좌석 보유. 미확인 조정 승인 시 유휴 편성되며 좌석 회수·소유자 정리가 따라야 한다.
@@ -603,6 +605,8 @@ function seed(): Store {
         checklist: checklistFor('주변기기').map((item) => ({ item, checked: false })),
         issued: [],
       },
+      // 발주 미이행 임계 회귀 로트 — CT-2026-055(계약액 1억)에 79.6M 발주(79.6% · 반올림 80%). 검수 중(active)이라 발주액에 계상. 배열 끝에 둬 도입·검수 화면의 위치 의존 검증에 영향 없음.
+      { id: 'IN-2608-55', contractId: 'CT-2026-055', model: 'FortiGate 200F', category: '단말', qty: 1, arrivedAt: '2026-08-05', vendor: '(주)넷시큐어', status: '검수 중', inspector: '박자산', unitCost: 79_600_000, checklist: checklistFor('단말').map((item, i) => ({ item, checked: i < 1 })), issued: [] },
     ],
     disposals: [
       { id: 'DSP-01', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', reason: '사용 연한 초과 (7년) · 보증 만료', status: '결재 대기', approvalId: 'APR-2607-119' },
@@ -644,6 +648,8 @@ function seed(): Store {
       { id: 'CT-2023-002', kind: '구매', name: 'Microsoft 365 E3 800석', vendor: '한국MS 파트너', start: '2026-01-01', end: '2026-12-31', amount: 268_000_000, assetCount: 800, ownerDept: 'IT기획팀' },
       { id: 'CT-2026-009', kind: '구매', name: '2026 상반기 노트북 교체분', vendor: '(주)한빛INT', start: '2026-07-01', end: '2029-07-20', amount: 96_000_000, assetCount: 40, ownerDept: '자산관리팀' },
       { id: 'CT-2024-011', kind: '유지보수', name: '스토리지·백업 유지보수', vendor: '효성인포', start: '2025-09-01', end: '2026-08-20', amount: 36_000_000, assetCount: 6, ownerDept: '인프라운영팀' },
+      // 발주 미이행 임계 회귀 — 발주율 79.6%(반올림 80%) · 만료 임박(dday<90). 반올림 기준이면 위험 큐에서 빠지지만 실집행 기준이면 미이행 위험이어야 한다(IN-2608-55 로트가 79.6M 발주).
+      { id: 'CT-2026-055', kind: '구매', name: '보안장비 도입(회귀)', vendor: '(주)넷시큐어', start: '2026-06-01', end: '2026-10-15', amount: 100_000_000, assetCount: 4, ownerDept: '보안운영팀' },
       // 소액 착수비만 집행(0.05% · 반올림 0%) — 미집행(집행 전무)이 아니라 정상. 반올림 오분류 회귀 가드.
       { id: 'CT-2025-013', kind: '유지보수', name: '보안관제(MSS) 유지보수', vendor: '이글루시큐리티', start: '2025-11-01', end: '2026-10-31', amount: 60_000_000, assetCount: 0, ownerDept: '보안운영팀',
         costs: [{ id: 'CST-0101', date: '2026-02-03', item: '착수 협의·환경 구성비', amount: 30_000, addedBy: '박자산' }] },
