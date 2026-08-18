@@ -741,6 +741,13 @@ function seed(): Store {
       { id: 'MSG-4003', at: `${today()} 08:30`, channel: '문자', to: '박자산', subject: 'JetBrains 라이선스 만료 임박 안내', kind: '만료 임박', ref: 'LIC-002' },
     ],
     posts: [
+      // 부서 지정 공지 검색 스코핑 회귀 — 마케팅팀 대상 공지. 화면·대시보드처럼 검색도 대상 부서 밖(예: 플랫폼개발팀 USER)엔 안 보여야 한다.
+      {
+        id: 'NTC-09', kind: '공지', pinned: false, views: 3, category: '일반', audienceDept: '마케팅팀',
+        title: 'ZZMKTGSCOPE 마케팅팀 전용 캠페인 시스템 점검 안내',
+        body: '마케팅팀 전용 캠페인 관리 시스템(내부)을 8월 말 점검합니다. 대상 부서 외 열람 불필요.',
+        author: '시스템관리자', dept: 'IT기획팀', createdAt: '2026-08-15',
+      },
       {
         id: 'NTC-01', kind: '공지', pinned: true, views: 412, category: '일반',
         title: '[필독] 2026 하반기 재물조사 — 8/29까지 부서별 협조 요청',

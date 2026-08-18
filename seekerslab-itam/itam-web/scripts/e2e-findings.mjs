@@ -1376,6 +1376,15 @@ try {
   const depBody = (await pPR.textContent('body')) || ''
   ok('감가상각: 99.8%는 상각 완료 아닌 99%(잔존가치 잔여와 모순 방지)', depBody.includes('상각 99%') && !depBody.includes('상각 완료'))
   await ctxPR.close()
+  // 부서 지정 공지 검색 스코핑(회귀) — 마케팅팀 대상 공지(NTC-09)가 대상 밖 사용자(김민준·플랫폼개발팀) 전역 검색엔 안 나오고, 관리자 검색엔 나온다(화면·대시보드 스코핑과 정합).
+  const ctxSU = await browser.newContext(); await ctxSU.addCookies([cookie(USER)]); const pSU = await ctxSU.newPage()
+  const userSearch = await (await pSU.request.get(`${BASE}/api/search?q=zzmktgscope`)).text()
+  ok('전역 검색: 부서 지정 공지가 대상 밖 사용자에게 미노출(스코핑 유출 방지)', !userSearch.includes('ZZMKTGSCOPE'))
+  await ctxSU.close()
+  const ctxSA = await browser.newContext(); await ctxSA.addCookies([cookie(ADMIN)]); const pSA = await ctxSA.newPage()
+  const adminSearch = await (await pSA.request.get(`${BASE}/api/search?q=zzmktgscope`)).text()
+  ok('전역 검색: 부서 지정 공지가 관리자에겐 노출(스코핑이지 소실 아님 · 양성 대조)', adminSearch.includes('ZZMKTGSCOPE'))
+  await ctxSA.close()
   // 라이선스 컴플라이언스 판정 불변식 — 초과/미사용/적정이 보유·사용 관계와 정합(감사 리스크 플래깅·회수/구매 결재 근거). 비즈니스 임계 계산 회귀 방지.
   {
     await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })

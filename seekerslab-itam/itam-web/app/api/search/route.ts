@@ -1,4 +1,5 @@
 import { today } from '@/lib/dates'
+import { inNoticeAudience } from '@/lib/notice'
 import { assetHref, contractHref, noticeHref, qnaHref } from '@/lib/reflink'
 import { getSession } from '@/lib/session'
 import { getStore } from '@/lib/store'
@@ -79,7 +80,11 @@ export async function GET(req: Request) {
   // 게시판 — 공지·QnA (전 권한그룹 열람). 공지는 발행 도래분만(관리자는 예약분 포함), QnA 전체. 특정 게시글로 딥링크(?sel=).
   const t = today()
   const posts = s.posts
-    .filter((p) => p.kind === 'QnA' || role === 'ADMIN' || !p.publishAt || p.publishAt <= t)
+    // 공지 스코핑을 화면·대시보드와 동일하게 — 발행 도래분만(관리자는 예약분 포함) + 대상 부서 스코핑(inNoticeAudience).
+    // 부서 지정 공지가 검색으로 대상 밖 사용자에게 제목·본문이 유출되던 정합 공백을 닫는다(QnA 는 전 권한그룹 열람이라 예외).
+    .filter((p) => p.kind === 'QnA' || (role === 'ADMIN'
+      ? true
+      : (!p.publishAt || p.publishAt <= t) && inNoticeAudience(p, session.dept)))
     .filter((p) => hit(p.id, p.title, p.body, p.author, p.category))
     .slice(0, LIMIT)
     .map((p) => ({
