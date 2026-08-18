@@ -1200,6 +1200,13 @@ try {
   await licRow2.locator('button', { hasText: /^재계약 검토$/ }).first().click()
   await p3.waitForTimeout(700)
   ok('근거 해지: 재계약 검토 요청 발송 성공(주관부서·공급사 · 발송 이력)', ((await licTable2.textContent()) || '').includes('재계약 검토 요청') && ((await licTable2.textContent()) || '').includes('통지'))
+  // 계약 부속서류 제출 요청(로65) — 필수 부속서류 미비(감사 리스크 배지)에 배치 조치 채널을 붙인다. 시드 다수 계약(CT-2023-021·CT-2026-009 등)이 부속서류 미비.
+  await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const docBtn = p3.locator('button', { hasText: /^부속서류 제출 요청 \(\d+\)$/ })
+  ok('계약 부속서류: 제출 요청 버튼 노출(미비 배지 ≥1)', (await docBtn.count()) > 0 && !/\(0\)/.test(await docBtn.first().innerText()))
+  await docBtn.first().click()
+  await p3.waitForTimeout(800)
+  ok('계약 부속서류: 제출 요청 발송 성공(주관부서·공급사 · 발송 이력)', ((await p3.textContent('body')) || '').includes('미비 서류 제출 요청'))
   // 라이선스 좌석 배정 대장 — 누가 어느 석을 쓰는지 명명형 관리 + 탐지 사용량과 대사(배정 밖 사용 식별). 시드 LIC-004 AutoCAD 배정 2/사용 6.
   const camRow = licTable2.locator('tbody tr').filter({ hasText: 'AutoCAD' }).first()
   ok('라이선스 좌석: 배정 대장·미배정 사용 대사 표기(LIC-004 배정 2/사용 6)', ((await camRow.textContent()) || '').includes('배정 2/15석') && ((await camRow.textContent()) || '').includes('미배정 사용 4'))
