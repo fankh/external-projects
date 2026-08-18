@@ -4,8 +4,8 @@
 import { CHANNELS } from '@/portal.config'
 import { nowStamp } from '@/lib/dates'
 import { getStore } from '@/lib/store'
-import { mockAsset, mockHr, mockMail, mockSecdata, mockSms } from './mock'
-import type { AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SendResult } from './types'
+import { mockAsset, mockHr, mockMail, mockSecdata, mockSecmon, mockSms } from './mock'
+import type { AssetAdapter, ChannelBinding, HrAdapter, MessagingAdapter, SecdataAdapter, SecMonAdapter, SendResult } from './types'
 
 /** 어댑터 호출 상한 시간 — 실 고객사 시스템이 응답 없이 매달리면(타임아웃 없는 fetch 등)
  *  포털 요청·스케줄러 틱이 무한 대기한다. 호출을 시간 상한으로 감싸 초과 시 reject 시키고,
@@ -35,16 +35,18 @@ const MESSAGING: Record<string, MessagingAdapter> = {
 const HR: Record<string, HrAdapter> = { 'mock-hr': mockHr, 'hanbit-hr': mockHr, 'gov-hr': mockHr, 'fin-hr': mockHr }
 const ASSET: Record<string, AssetAdapter> = { 'mock-asset': mockAsset, 'erp-asset': mockAsset, 'gov-asset': mockAsset, 'fin-asset': mockAsset }
 const SECDATA: Record<string, SecdataAdapter> = { 'mock-secdata': mockSecdata, 'gov-secdata': mockSecdata, 'fin-secdata': mockSecdata }
+const SECMON: Record<string, SecMonAdapter> = { 'mock-secmon': mockSecmon, 'gov-secmon': mockSecmon, 'fin-secmon': mockSecmon }
 
 /** adapterId → 구현 해석 (kind 별) — 자가진단·바인딩 완결성 검사가 쓴다.
  *  활성 상태와 무관하게 '등록되어 있는가'만 본다 (계약 적합성은 별도). */
-export function resolveAdapter(kind: string, adapterId: string): MessagingAdapter | HrAdapter | AssetAdapter | SecdataAdapter | null {
+export function resolveAdapter(kind: string, adapterId: string): MessagingAdapter | HrAdapter | AssetAdapter | SecdataAdapter | SecMonAdapter | null {
   switch (kind) {
     case 'mail':
     case 'sms': return MESSAGING[adapterId] ?? null
     case 'hr': return HR[adapterId] ?? null
     case 'asset': return ASSET[adapterId] ?? null
     case 'secdata': return SECDATA[adapterId] ?? null
+    case 'secmon': return SECMON[adapterId] ?? null
     default: return null
   }
 }
@@ -113,4 +115,11 @@ export function secdataAdapter(): SecdataAdapter | null {
   const ch = channelOf('security-db')
   if (!ch || !isEnabled('security-db')) return null
   return SECDATA[ch.adapterId] ?? null
+}
+
+export function secmonAdapter(): SecMonAdapter | null {
+  // 조회류 공통 규칙 — 채널 비활성이면 어댑터를 넘기지 않는다 (hr·asset·secdata 리졸버와 대칭).
+  const ch = channelOf('sec-monitor')
+  if (!ch || !isEnabled('sec-monitor')) return null
+  return SECMON[ch.adapterId] ?? null
 }

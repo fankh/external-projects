@@ -25,4 +25,5 @@ export const CHANNELS: ChannelBinding[] = [
   { id: 'hr-sync', kind: 'hr', name: '인사 시스템', transport: 'DB 연계', usage: '사용자 기본정보 (일배치)', adapterId: 'hanbit-hr', enabledByDefault: true },
   { id: 'asset-api', kind: 'asset', name: 'ERP 자산 모듈', transport: 'REST API', usage: '자산정보 조회 · 자산등록번호 취득', adapterId: 'erp-asset', enabledByDefault: true },
   { id: 'security-db', kind: 'secdata', name: '보안·출력물 시스템', transport: 'DB 연계', usage: '출력물 자료 조회 (2차 범위)', adapterId: 'mock-secdata', enabledByDefault: false },
+  { id: 'sec-monitor', kind: 'secmon', name: '보안관제 시스템', transport: 'REST API', usage: '탐지 이벤트 → 보안위반 자동 등록 (DLP·EDR)', adapterId: 'mock-secmon', enabledByDefault: false },
 ]

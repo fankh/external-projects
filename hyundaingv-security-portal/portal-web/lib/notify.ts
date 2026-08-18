@@ -7,6 +7,7 @@ import { currentYear, nowStamp, today } from './dates'
 import { secdataAdapter, sendVia, withTimeout } from './integrations/registry'
 import { getStore, isRemoteTargetIn, nextNo, recordBatch, remotePeriodKey } from './store'
 import { ACCOUNTS } from './session'
+import { importSecurityEvents } from './secmon'
 import { delayedSrs } from './sr'
 
 export interface NotifyResult {
@@ -67,6 +68,15 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
     } else {
       recordBatch('출력물 자료 일배치 이관 (자동)', nowStamp(), '실패')
     }
+  }
+
+  // 0-c) 보안관제 탐지 이벤트 이관 (자동) — DLP·EDR 탐지를 보안위반(징구중)으로 자동 편입한다. 수동 버튼과
+  //      동일 로직(importSecurityEvents)·중복 이관 방지. 채널이 중지/미등록이면 added 0·ok=false 로 기록된다.
+  {
+    const r = await importSecurityEvents('스케줄러')
+    if (r.added > 0) recordBatch(`보안관제 이벤트 이관 (자동, ${r.added}건 위반 편입)`, nowStamp(), '성공')
+    else if (r.ok) recordBatch('보안관제 이벤트 이관 (자동, 신규 0건)', nowStamp(), '성공')
+    else recordBatch(`보안관제 이벤트 이관 (자동) — ${r.detail}`, nowStamp(), '실패')
   }
 
   // 0-b) 컴플라이언스 포스처 스냅샷 (자동, 당월 upsert) — 추세가 사람 손 없이 쌓여 ISMS 감사 근거가 된다.

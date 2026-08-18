@@ -23,7 +23,7 @@ export interface ConformanceCheck {
 const PROFILES: { name: string; brand: PortalBrand; channels: ChannelBinding[] }[] =
   Object.entries(ALL_PROFILES).map(([name, p]) => ({ name, brand: p.PORTAL, channels: p.CHANNELS }))
 
-const KINDS = new Set<ChannelKind>(['mail', 'sms', 'approval', 'sso', 'hr', 'asset', 'secdata'])
+const KINDS = new Set<ChannelKind>(['mail', 'sms', 'approval', 'sso', 'hr', 'asset', 'secdata', 'secmon'])
 const TRANSPORTS = new Set(['REST API', 'SAML', 'DB 연계', '인터페이스'])
 
 /** 프로필 구조 검증 — 고객사가 프로필을 추가/편집할 때의 정합성 (어댑터 해석과 별개).
@@ -57,10 +57,17 @@ export function validateProfileStructure(name: string, brand: PortalBrand, chann
 }
 
 /** 계약이 정의된 kind — approval·sso 는 아직 계약(인터페이스)이 없어 planned 로만 존재한다 */
-const CONTRACTED = new Set(['mail', 'sms', 'hr', 'asset', 'secdata'])
+const CONTRACTED = new Set(['mail', 'sms', 'hr', 'asset', 'secdata', 'secmon'])
 
 function isPerson(x: unknown): x is { name: string; dept: string } {
   return !!x && typeof (x as { name?: unknown }).name === 'string' && typeof (x as { dept?: unknown }).dept === 'string'
+}
+
+/** 보안관제 이벤트 형태 — 5필드 문자열. type 의 코드 멤버십(ViolationType)은 import 액션이 검증한다(shape vs code 계층 분리). */
+function isSecurityEvent(x: unknown): boolean {
+  const e = x as { name?: unknown; dept?: unknown; type?: unknown; detail?: unknown; detectedAt?: unknown }
+  return typeof e?.name === 'string' && typeof e?.dept === 'string' && typeof e?.type === 'string'
+    && typeof e?.detail === 'string' && typeof e?.detectedAt === 'string'
 }
 
 /** 해석된 어댑터를 호출해 계약 불변식을 확인한다 (부작용 없는 조회·발송만 사용) */
@@ -113,6 +120,14 @@ async function exerciseContract(kind: string, adapter: unknown): Promise<{ ok: b
       })
       if (!shaped) return { ok: false, detail: 'fetchPrintouts() 항목이 {printedAt,name,dept,document,pages,personalInfo} 형태 아님' }
       return { ok: true, detail: `fetchPrintouts() → ${rows.length}건` }
+    }
+    if (kind === 'secmon') {
+      const rows = await withTimeout((adapter as { fetchEvents: () => Promise<unknown[]> }).fetchEvents(), '자가진단 fetchEvents')
+      if (!Array.isArray(rows)) return { ok: false, detail: 'fetchEvents() 가 배열 아님' }
+      // 필수 필드 전수 — name(위반자·수신자)·type(위반 유형)·dept(부서 스코핑)·detectedAt(발생일·중복키)·detail.
+      // 누락하면 이를 뺀 고객사 어댑터가 자가진단 녹색 통과 후 실 배포에서 위반 자동등록이 유령·오형으로 샌다.
+      if (!rows.every(isSecurityEvent)) return { ok: false, detail: 'fetchEvents() 항목이 {name,dept,type,detail,detectedAt} 형태 아님' }
+      return { ok: true, detail: `fetchEvents() → ${rows.length}건` }
     }
     return { ok: true, detail: 'kind 계약 없음(스킵)' }
   } catch (e) {

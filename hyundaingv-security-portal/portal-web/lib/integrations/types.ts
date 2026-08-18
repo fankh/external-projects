@@ -1,9 +1,9 @@
 /** 연동 어댑터 계약 — 제품안내서 §V 시스템 연동 아키텍처의 추상화.
  *  포털 본체는 이 인터페이스만 알고, 고객사별 구현(그룹웨어·인사·자산·보안 시스템)은
  *  어댑터로 캡슐화한다. 목업 어댑터(mock.ts)를 고객사 어댑터로 교체하는 것이 커스터마이징이다. */
-import type { Person } from '@/lib/types'
+import type { Person, ViolationType } from '@/lib/types'
 
-export type ChannelKind = 'mail' | 'sms' | 'approval' | 'sso' | 'hr' | 'asset' | 'secdata'
+export type ChannelKind = 'mail' | 'sms' | 'approval' | 'sso' | 'hr' | 'asset' | 'secdata' | 'secmon'
 
 /** 고객사 브랜딩 — 프로필이 공급하고 셸(타이틀바·상태바)·로그인 화면이 소비한다 */
 export interface PortalBrand {
@@ -72,6 +72,22 @@ export interface SecdataAdapter {
   fetchPrintouts(): Promise<PrintoutSourceRow[]>
 }
 
+/** 보안관제(DLP·EDR·UEBA) 탐지 이벤트 — 보안위반으로 자동 등록되는 원천.
+ *  탐지 유형은 포털 보안위반 유형(ViolationType)에 매핑된다(출력물 방치·화면 미잠금·USB 사용). */
+export interface SecurityEvent {
+  name: string
+  dept: string
+  type: ViolationType
+  detail: string
+  /** 탐지 일자(YYYY-MM-DD) — 위반 발생일이자 중복 이관 방지 키의 일부 */
+  detectedAt: string
+}
+
+/** 보안관제 시스템 — 탐지 이벤트 조회 (탐지 → 보안위반 자동 등록). 제품안내서 §V '보안 시스템' 연동. */
+export interface SecMonAdapter {
+  fetchEvents(): Promise<SecurityEvent[]>
+}
+
 /** 어댑터 묶음 — registry 가 adapterId 로 해석한다 */
 export interface AdapterSet {
   mail?: MessagingAdapter
@@ -79,4 +95,5 @@ export interface AdapterSet {
   hr?: HrAdapter
   asset?: AssetAdapter
   secdata?: SecdataAdapter
+  secmon?: SecMonAdapter
 }
