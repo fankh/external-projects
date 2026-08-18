@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
+import { classifyDiscoveredType } from '@/lib/classify'
 import { today } from '@/lib/dates'
 import { raiseLicenseApproval } from '@/lib/license'
 import { createReport } from '@/lib/reports'
@@ -83,6 +84,20 @@ export async function decideInsight(insightId: string, verdict: '승인' | '반�
       action = `폐기(교체) 대상 선정 — ${asset.assetNo}`
     } else if (asset) {
       action = `이미 폐기 절차 대상 — ${asset.assetNo}`
+    }
+  } else if (ins.kind === '자동분류' && ins.refId) {
+    // 자동분류 제안 승인 = 표준 유형 확정(§05 기능01 · 그림4). 발견 자산에 확정 유형을 저장해 편입 시 승계하고,
+    // 이미 대장에 매칭된 자산이면 유형을 바로 보정한다(구성변경). 규칙 기본값 오분류를 담당자 판정으로 바로잡는 접점.
+    const d = s.discovered.find((x) => x.id === ins.refId)
+    if (d) {
+      const cat = ins.proposedCategory ?? classifyDiscoveredType(d.type)
+      d.classifiedCategory = cat
+      const asset = d.matchedAssetNo ? s.assets.find((a) => a.assetNo === d.matchedAssetNo) : undefined
+      if (asset && asset.category !== cat) {
+        asset.history.push({ date: today(), kind: '구성변경', detail: `AI 자동분류 승인 — 유형 ${asset.category} → ${cat} (${ins.id})`, actor: session.name })
+        asset.category = cat
+      }
+      action = `발견 자산 표준 유형 확정 — ${d.id} → ${cat}${asset ? ' · 대장 유형 보정' : ' · 편입 시 승계'}`
     }
   }
 

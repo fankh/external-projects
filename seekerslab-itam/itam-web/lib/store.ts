@@ -724,6 +724,8 @@ function seed(): Store {
       { id: 'INS-2607-12', kind: '라이선스 최적화', severity: '낮음', title: 'Adobe CC 18석 장기 미사용 — 연 1,425만원 절감 가능', detail: '90일 이상 미실행 18석 회수 후보. 갱신 협상 근거 데이터 첨부.', evidence: '사용 패턴 분석 · 90일 윈도우', createdAt: '2026-07-24', status: '제안', refId: 'LIC-003' },
       { id: 'INS-2607-08', kind: '수명예측', severity: '중간', title: '2027 1분기 단말 교체 수요 64대 예측', detail: '장애 이력·사용 연한·성능 데이터 기반 생존 분석. 예산 추정 1.6억. 연간 교체 계획 리포트 생성 가능.', evidence: '회귀 모델 v3 · 신뢰구간 90%', createdAt: '2026-07-20', status: '제안' },
       { id: 'INS-2607-05', kind: '자동분류', severity: '낮음', title: '발견 자산 9건 자동분류 완료 — 확인 대기', detail: '스캔 배너·설치 SW 문자열을 표준 유형·제조사·모델로 매핑. 신뢰도 0.92 이상 9건.', evidence: 'LLM 분류 · 규칙 하이브리드', createdAt: '2026-07-19', status: '승인', decidedAt: '2026-07-19', decidedBy: '박자산', action: '분류 결과 대장 반영 — 9건' },
+      // 자동분류 판정→조치 대상(§05 기능01 · 그림4 환류) — 미상 IoT 장비(ESP-9F31A2)는 규칙 기본값 '단말'로 오분류 소지. AI 가 표준 유형 '주변기기' 제안 → 담당자 승인 시 발견 자산에 확정, 편입 유형으로 승계.
+      { id: 'INS-2608-07', kind: '자동분류', severity: '낮음', title: '자동분류 제안 — ESP-9F31A2 (IoT 장비 → 주변기기)', detail: '패시브 트래픽 배너·MAC OUI(Espressif)로 미상 IoT 장비를 표준 유형 주변기기로 매핑. 규칙 기본값은 단말(미매칭)이라 오분류될 수 있어 담당자 확인 후 편입 유형으로 확정한다.', evidence: 'LLM 분류 · MAC OUI 하이브리드 · 신뢰도 0.88', createdAt: '2026-07-28', status: '제안', refId: 'DSC-2607-0038', proposedCategory: '주변기기' },
     ],
     inventoryRounds: [
       { id: 'INV-2026-H2', name: '2026 하반기 정기 재물조사', kind: '연간', scope: '본사 전층 + IDC-A', planned: 1_240, scanned: 312, mismatched: 4, dueDate: '2026-08-29', assignee: '박자산', status: '진행중' },
