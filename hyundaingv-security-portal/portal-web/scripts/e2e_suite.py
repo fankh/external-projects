@@ -49,6 +49,7 @@ SRAC_DATA = ROOT / 'scripts' / '.e2e-srac-data.json'  # 계정/권한 SR 상태�
 SETDUP_DATA = ROOT / 'scripts' / '.e2e-setdup-data.json'  # 정산품의 결재대기 이중 상신 방지 회귀용 (v1.5.235)
 PRDEPT_DATA = ROOT / 'scripts' / '.e2e-prdept-data.json'  # 출력물 미등록 알림 부서장 통지 회귀용 (v1.5.237)
 SETDEL_DATA = ROOT / 'scripts' / '.e2e-setdel-data.json'  # 정산품의 삭제(작성중·반려) 커버리지용 (v1.5.239)
+VLEXTD_DATA = ROOT / 'scripts' / '.e2e-vlextd-data.json'  # 결재제외 완료 시 반려 재상신 할일 폐쇄 회귀용 (v1.5.243)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -2224,6 +2225,37 @@ def sc_sr_status_label(pg, base, check):
     check('처리중' in sr_line and '개발중' not in sr_line, f'sr-requests export — 계정권한 SR 처리중 표기(개발중 아님) 실제:{sr_line[:80]}')
 
 
+def sc_violation_exempt_todo(pg, base, check):
+    """보안위반 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 결재제외 별도관리로 완료하면 위반자의
+    '재상신' 할일이 고아로 남아 '반려 방치' 무한 알림이 가던 결함 방지. 격리: 반려 상태(위반 징구중 + 위반자
+    재상신 할일)를 시드하고, 결재제외 완료 후 그 할일이 닫히는지 검증(삭제 정산 SETDEL-3 와 동일 클래스)."""
+    # 전제 — 반려로 생긴 위반자(김현우) 재상신 할일이 존재
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('[보안위반 확인서] VL-2026-90' in pg.locator('.card', has_text='미처리 할일').inner_text(),
+          '반려 상태 — 위반자 재상신 할일 존재(전제)')
+    # 업무담당(ADMIN) 결재제외 완료 (스캔 업로드)
+    login(pg, base, '시스템관리자')
+    pg.goto(f'{base}/awareness/violations', wait_until='networkidle')
+    scan = UPLOAD.parent / '.e2e-vlextd-scan.txt'
+    scan.write_text('scan confirmation payload', encoding='utf-8')
+    row = pg.locator('tr', has_text='E2E 고아할일 위반건')
+    row.locator('input[type=file]').set_input_files(str(scan))
+    row.locator('button:has-text("결재제외 완료")').click()
+    pg.locator('tr', has_text='E2E 고아할일 위반건').locator('button:has-text("결재제외 완료")').wait_for(state='detached', timeout=10000)
+    status_cell = pg.locator('tr', has_text='E2E 고아할일 위반건').locator('td').nth(5).inner_text()
+    check('완료' in status_cell, '결재제외 완료 (상태 셀)')
+    try:
+        scan.unlink(missing_ok=True)
+    except OSError:
+        pass
+    # 핵심 회귀 — 완료 시 위반자의 재상신 할일이 함께 닫혀 고아·'반려 방치' 무한 알림이 사라진다
+    login(pg, base, '김현우')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('VL-2026-90' not in pg.locator('.card', has_text='미처리 할일').inner_text(),
+          '결재제외 완료 → 재상신 할일 폐쇄(고아·반려방치 무한알림 방지)')
+
+
 def sc_violation_exempt(pg, base, check):
     """보안위반 결재제외 별도관리 (요구사항: "결재제외자는 별도 관리 — 확인서 징구 후 스캔해서 증빙으로 업로드").
     녹스계정 없는 위반자는 업무담당자가 스캔 확인서로 결재 없이(별도관리) 완료 처리한다."""
@@ -2364,6 +2396,7 @@ SCENARIOS = [
     ('company_pledge', '협력업체서약서 — 징구→결재상신→승인 폐쇄루프', sc_company_pledge, {'PORTAL_DATA_FILE': str(CPLG_DATA)}),
     ('officer_audit', '보안담당자 지정/해제 감사 기록 (§VI 이력추적성)', sc_officer_audit, {}),
     ('violation_exempt', '보안위반 결재제외 별도관리 — 스캔 확인서로 결재 없이 완료', sc_violation_exempt, {'PORTAL_DATA_FILE': str(VLEX_DATA)}),
+    ('violation_exempt_todo', '결재제외 완료 시 반려 재상신 할일 폐쇄(고아·무한알림 방지)', sc_violation_exempt_todo, {'PORTAL_DATA_FILE': str(VLEXTD_DATA)}),
     ('sr_status_label', '계정/권한 SR 상태 라벨 정합 — 배정완료·지연내역 개발중→처리중', sc_sr_status_label, {'PORTAL_DATA_FILE': str(SRAC_DATA)}),
     ('sr', 'SR 생명주기 (첨부·반려·재상신·승인)', sc_sr, {}),
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
@@ -2748,6 +2781,13 @@ def main() -> int:
     SETDEL_DATA.write_text(json.dumps({'settlements': [], 'approvals': []}, ensure_ascii=False), encoding='utf-8')
     # 보안위반 결재제외 별도관리 — 위반 없는 상태에서 등록→스캔 확인서 업로드→결재 없이 완료 검증.
     VLEX_DATA.write_text(json.dumps({'violations': []}, ensure_ascii=False), encoding='utf-8')
+    # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
+    VLEXTD_DATA.write_text(json.dumps({
+        'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
+                        'detail': 'E2E 고아할일 위반건', 'occurredAt': '2026-08-01', 'status': '징구중'}],
+        'todos': [{'id': 'TD-90', 'owner': '김현우', 'kind': '재상신',
+                   'title': '[보안위반 확인서] VL-2026-90 반려 — 보완 후 재상신 (사유: E2E)', 'dueDate': '2026-08-01', 'done': False}],
+    }, ensure_ascii=False), encoding='utf-8')
     # 계정/권한 SR 상태 라벨 — 개발단계 없는 계정권한 SR(개발중·CI배정·기한경과)이 배정완료·지연내역에서 처리중 표기.
     SRAC_DATA.write_text(json.dumps({'srRequests': [
         {'srNo': 'SR-2026-9501', 'kind': '계정/권한', 'title': 'E2E 계정권한 SR', 'system': 'ERP',

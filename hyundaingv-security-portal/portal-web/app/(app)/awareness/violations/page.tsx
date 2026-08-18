@@ -71,6 +71,12 @@ async function closeExempt(formData: FormData) {
   if (!uploaded) return
   v.status = '완료'
   v.exempt = true
+  // 폐쇄 루프 — 확인서 반려로 생겼을 수 있는 위반자의 '재상신' 할일을 함께 닫는다. 결재제외 완료로 재상신
+  // (submitStatement=징구중 필요) 경로가 사라지면 할일이 고아로 남고 notify '반려 방치'가 무한 발송된다
+  // (deleteSettlement·inspection registerResult 와 동일 유형+ref 선두 닫기).
+  for (const t of s.todos) {
+    if (!t.done && t.kind === '재상신' && t.title.startsWith(`[보안위반 확인서] ${v.id} `)) t.done = true
+  }
   audit(me.name, '보안위반 등록', `${v.id} 결재제외 별도관리 완료 (스캔 확인서) — ${v.name}(${v.dept})`)
   revalidatePath('/', 'layout')
 }
