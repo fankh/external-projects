@@ -55,6 +55,88 @@ export function isWithdrawableDocType(t: ApprovalDocType): t is WithdrawableDocT
   return t in WITHDRAW_RESTORERS
 }
 
+/** 결재 승인/반려 시 참조 업무 상태 전파(폐쇄 루프 1) — 유형별 전파 로직의 단일 원천.
+ *  Record<ApprovalDocType, …> 라 새 결재 유형을 추가하면 여기 전파 핸들러 누락이 컴파일 에러(TS2741)로
+ *  잡힌다 — 승인됐는데 참조 업무가 '결재중'에 갇히는 고아 in-flight 를 타입으로 원천 차단한다. 각 핸들러는
+ *  진행중(상신 직후) 상태일 때만 전파한다(중복 처리·경합 방어, 회수 복원과 동일 가드). 문서 유형은
+ *  상호배타라 종전 decide() 의 유형별 if 블록과 등가(호출당 정확히 하나 실행). */
+type ApprovalVerdict = '승인' | '반려'
+const propagateSettlement = (s: Store, ref: string, verdict: ApprovalVerdict) => {
+  // 정산품의(투자·비용 공용) — 지급 상태로 전파되어 실적·속보 기준금액에 반영된다
+  const st = s.settlements.find((x) => x.id === ref)
+  if (st && st.status === '결재중') st.status = verdict === '승인' ? '지급완료' : '반려'
+}
+export const APPROVAL_PROPAGATORS: Record<ApprovalDocType, (s: Store, ref: string, verdict: ApprovalVerdict) => void> = {
+  '투자 정산품의': propagateSettlement,
+  '비용 정산품의': propagateSettlement,
+  'SR 신청': (s, ref, verdict) => {
+    const sr = s.srRequests.find((r) => r.srNo === ref)
+    if (!sr || sr.status !== '결재중') return
+    sr.status = verdict === '승인' ? 'CI배정' : '반려'
+    // 승인 시 업무담당(BIZ_MGR)에게 'SR 처리'(CI 배정) 할일 생성 — assignCi(sr/ci)가 배정과 함께 닫는다.
+    if (verdict === '승인') {
+      const owner = ACCOUNTS.find((a) => a.role === 'BIZ_MGR')?.name
+      if (owner) s.todos.unshift({
+        id: nextNo('TD', today().slice(0, 4), s.todos.map((t) => t.id)),
+        owner, kind: 'SR 처리', title: `${sr.srNo} CI 배정`, dueDate: today(), done: false,
+      })
+    }
+  },
+  '적용요청 상신': (s, ref, verdict) => {
+    // 적용요청서 결재(결재 시트 5번): 승인 → 적용요청(변경 편입 대기), 반려 → 테스트
+    const sr = s.srRequests.find((r) => r.srNo === ref)
+    if (sr && sr.status === '적용요청결재중') sr.status = verdict === '승인' ? '적용요청' : '테스트'
+  },
+  '변경계획 상신': (s, ref, verdict) => {
+    const cw = s.changes.find((c) => c.id === ref)
+    if (cw && cw.status === '계획결재중') cw.status = verdict === '승인' ? '작업등록승인' : '작업등록'
+  },
+  '변경결과 상신': (s, ref, verdict) => {
+    const cw = s.changes.find((c) => c.id === ref)
+    if (!cw || cw.status !== '작업완료결재중') return
+    cw.status = verdict === '승인' ? '최종완료' : '작업등록승인'
+    // 결과 승인 시 시스템개발 변경은 매칭 SR 을 완료로 전파한다
+    if (verdict === '승인' && cw.kind === '시스템개발' && cw.srNo) {
+      const sr = s.srRequests.find((r) => r.srNo === cw.srNo)
+      if (sr && sr.status === '적용요청') {
+        sr.status = '완료'
+        sr.completedAt = today()
+      }
+    }
+  },
+  '장애보고 상신': (s, ref, verdict) => {
+    // 보고서에 묶인 장애 건 전체의 보고 상태로 전파된다
+    for (const inc of s.incidents.filter((i) => i.reportRef === ref && i.reportStatus === '결재중')) {
+      if (verdict === '승인') inc.reportStatus = '결재완료'
+      else { inc.reportStatus = '미상신'; inc.reportRef = undefined }
+    }
+  },
+  '출력물폐기 상신': (s, ref, verdict) => {
+    for (const row of s.printouts.filter((p) => p.approvalRef === ref && p.status === '결재중')) {
+      if (verdict === '승인') row.status = '폐기확정'
+      else { row.status = '등록'; row.approvalRef = undefined }
+    }
+  },
+  '서약 현황 상신': (s, ref, verdict) => {
+    // 협력업체 서약 상신 결재가 묶인 징구 건 전체로 전파된다
+    for (const c of s.companyPledges.filter((x) => x.approvalRef === ref && x.status === '결재중')) {
+      if (verdict === '승인') c.status = '완료'
+      else { c.status = '등록'; c.approvalRef = undefined }
+    }
+  },
+  '보안위반 확인서': (s, ref, verdict) => {
+    const v = s.violations.find((x) => x.id === ref)
+    if (v && v.status === '결재중') v.status = verdict === '승인' ? '완료' : '징구중'
+  },
+  '점검결과 상신': (s, ref, verdict) => {
+    const plan = s.inspectionPlans.find((x) => x.id === ref)
+    if (plan && plan.status === '결재중') plan.status = verdict === '승인' ? '완료' : '결과미등록'
+  },
+  // 무상태 스냅샷 — 부서서약 현황은 재직자 서명에서 파생되는 스냅샷이라 승인 시 전파할 백킹 엔티티가 없다
+  // (반려 시 재상신 할일은 decide() 의 공통 반려 경로가 처리). 명시적 no-op 으로 '전파 누락'과 구분한다.
+  '부서서약 현황 상신': () => {},
+}
+
 export function draftApproval(opts: {
   docType: ApprovalDocType
   title: string
