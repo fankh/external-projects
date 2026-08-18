@@ -1989,6 +1989,28 @@ try {
   const cnText = (await pCN.locator('tr', { has: pCN.locator('td', { hasText: '프록시 · 방화벽 · DNS' }) }).first().textContent()) || ''
   ok('커넥터 재연동(로22): 재연동 → 상태 정상(지연 해소·감사 적재)', cnText.includes('정상') && !cnText.includes('지연'))
   await ctxCN.close()
+  // 계약 갱신(로23) — 만료 임박·경과 계약을 연장하고 상태 정상 전환(만료 임박 집계에서 제외). 그동안 smoke 렌더만. CT-2023-014(만료 2026-03-14 경과) 1년 갱신 → 2027.
+  const ctxRN = await browser.newContext(); await ctxRN.addCookies([cookie(ASSET)]); const pRN = await ctxRN.newPage()
+  await pRN.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const rnRow = pRN.locator('tr', { has: pRN.locator('td', { hasText: 'CT-2023-014' }) }).first()
+  await rnRow.locator('button', { hasText: /^갱신$/ }).click()
+  await pRN.waitForTimeout(200)
+  await rnRow.locator('button', { hasText: /^1년$/ }).click()
+  await pRN.waitForTimeout(700)
+  await pRN.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const rnText = (await pRN.locator('tr', { has: pRN.locator('td', { hasText: 'CT-2023-014' }) }).first().textContent()) || ''
+  ok('계약 갱신(로23): 갱신 → 만료일 연장(2027·만료 임박 해소)', rnText.includes('2027'))
+  await ctxRN.close()
+  // 보증 연장(로24) — 자산 보증 만료일 연장 + 보증연장 이력. 그동안 smoke 렌더만. AST-2022-000641(보증 2026-09-30) 1년 연장 → 2027-09-30.
+  const ctxWY = await browser.newContext(); await ctxWY.addCookies([cookie(ASSET)]); const pWY = await ctxWY.newPage()
+  await pWY.goto(`${BASE}/assets/register?sel=AST-2022-000641`, { waitUntil: 'networkidle' })
+  await pWY.locator('button', { hasText: /^보증 연장$/ }).first().click()
+  await pWY.waitForTimeout(200)
+  await pWY.locator('button', { hasText: /^1년$/ }).first().click()
+  await pWY.waitForTimeout(700)
+  await pWY.goto(`${BASE}/assets/register?sel=AST-2022-000641`, { waitUntil: 'networkidle' })
+  ok('보증 연장(로24): 연장 → 보증 만료일 +1년(2027-09-30)', ((await pWY.textContent('body')) || '').includes('2027-09-30'))
+  await ctxWY.close()
 
   await browser.close()
 } catch (err) {
