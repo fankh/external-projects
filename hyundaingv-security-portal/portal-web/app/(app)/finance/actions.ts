@@ -45,6 +45,13 @@ export async function deleteSettlement(formData: FormData) {
   if (!contract) return
   // 공용 액션 — 품의가 속한 화면(투자/비용)의 런타임 메뉴 제한을 쓰기에도 적용한다(resubmitSettlement 와 동일)
   if (!effectiveRoles(contract.kind === '투자' ? '/finance/invest' : '/finance/expense').includes(me.role)) return
+  // 폐쇄 루프 — 반려 정산은 기안자의 '재상신' 할일을 물고 있다. 재상신이 아니라 폐기(삭제)로 종결하므로 그
+  // 할일을 함께 닫는다. 삭제로 품의가 사라지면 재상신(품의 존재 필요)·회전 닫기(같은 ref) 경로가 모두 막혀
+  // 할일이 고아로 남고 '반려 방치' 알림이 무한 반복된다(inspection registerResult 와 동일 유형+ref 선두 닫기).
+  const docType = contract.kind === '투자' ? '투자 정산품의' : '비용 정산품의'
+  for (const t of s.todos) {
+    if (!t.done && t.kind === '재상신' && t.title.startsWith(`[${docType}] ${st.id} `)) t.done = true
+  }
   s.settlements = s.settlements.filter((x) => x.id !== id)
   audit(me.name, '정산품의 삭제', `${st.id} ${contract.kind} — ${contract.title} ${st.item} ${st.amount.toLocaleString('ko-KR')}만원 (${st.status})`)
   revalidatePath('/', 'layout')

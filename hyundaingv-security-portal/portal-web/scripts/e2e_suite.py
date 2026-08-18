@@ -434,27 +434,45 @@ def sc_settle_dedup(pg, base, check):
 
 
 def sc_settle_delete(pg, base, check):
-    """정산품의 삭제(폐기) — 기안자 본인의 작성중·반려 건 삭제 (요구사항 시트 11·17행 P=삭제).
-    격리 데이터(settlements 비움): 이수진이 임시저장(작성중) 정산 1건 생성 → 삭제 → 목록에서 사라지고
-    감사 로그에 '정산품의 삭제' 기록. 결재중·지급완료는 삭제 버튼이 없다(상태 가드로 이중 방어)."""
+    """정산품의 삭제(폐기) — 반려 건 삭제 + 재상신 할일 폐쇄 (요구사항 11·17행 P=삭제).
+    격리(settlements·approvals 비움): 이수진 상신 → 박정호 반려(→이수진 재상신 할일) → 이수진 삭제 시 품의가
+    목록·재상신 할일에서 사라지고 감사 '정산품의 삭제' 기록. 삭제가 재상신 할일을 닫지 않으면 삭제 후 재상신
+    경로가 막혀 고아 할일·'반려 방치' 무한 알림이 남는다(대조). 작성중 삭제는 이 경로의 부분집합."""
     login(pg, base, '이수진')  # 부서담당 — 비용 정산 상신·삭제 스코프
     pg.goto(f'{base}/finance/expense', wait_until='networkidle')
     card = pg.locator('.card', has_text='정산품의')
     card.locator('select[name=contractId]').select_option('CT-2026-03')
     card.locator('input[name=amount]').fill('1555')
-    card.locator('button:has-text("임시저장")').click()
-    pg.wait_for_selector('tr:has-text("ST-2026-0001"):has-text("작성중")', timeout=10000)
-    check('작성중' in pg.locator('tr', has_text='ST-2026-0001').inner_text(), '정산 임시저장 (작성중)')
-    # 삭제 → 목록에서 폐기
+    card.locator('button:has-text("정산품의 상신")').click()
+    pg.wait_for_selector('tr:has-text("ST-2026-0001"):has-text("결재중")', timeout=10000)
+    # 박정호 반려 → ST-0001 반려 + 이수진 재상신 할일 (격리로 정산품의-비용 결재는 이 1건뿐)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    arow = pg.locator('tr', has_text='정산품의-비용').first
+    arow.locator('input[name=reason]').fill('E2E 삭제 검증 반려')
+    arow.locator('button:has-text("반려")').click()
+    pg.wait_for_load_state('networkidle')
+    # 이수진 — 반려로 재상신 할일 생성 확인
+    login(pg, base, '이수진')
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('[비용 정산품의] ST-2026-0001' in pg.locator('.card', has_text='미처리 할일').inner_text(),
+          '반려 → 재상신 할일 생성')
+    # 삭제 → 품의 폐기
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    check('반려' in pg.locator('tr', has_text='ST-2026-0001').inner_text(), '반려 정산 (삭제 대상)')
     pg.locator('tr', has_text='ST-2026-0001').get_by_role('button', name='삭제', exact=True).click()
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/finance/expense', wait_until='networkidle')
     check(pg.locator('tr', has_text='ST-2026-0001').count() == 0, '정산품의 삭제 → 목록에서 폐기(행 제거)')
+    # 핵심 회귀 — 삭제가 재상신 할일을 함께 닫아 고아·'반려 방치' 무한 알림을 막는다(삭제 후 재상신 경로 불가)
+    pg.goto(f'{base}/work/todo', wait_until='networkidle')
+    check('ST-2026-0001' not in pg.locator('.card', has_text='미처리 할일').inner_text(),
+          '삭제 → 재상신 할일 폐쇄(고아·반려방치 무한알림 방지)')
     # §VI 이력추적성 — 삭제(파괴적 통제)가 감사 로그에 남는다(sibling delete 들과 동일 정책)
     login(pg, base, '시스템관리자')
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
-    arow = pg.locator('tr', has_text='정산품의 삭제').first
-    check(arow.count() > 0 and 'ST-2026-0001' in arow.inner_text(), '정산품의 삭제 감사 기록(품의번호·기안자)')
+    audit_row = pg.locator('tr', has_text='정산품의 삭제').first
+    check(audit_row.count() > 0 and 'ST-2026-0001' in audit_row.inner_text(), '정산품의 삭제 감사 기록(품의번호·기안자)')
 
 
 def sc_adapter(pg, base, check):
@@ -2725,8 +2743,9 @@ def main() -> int:
     CPLG_DATA.write_text(json.dumps({'companyPledges': []}, ensure_ascii=False), encoding='utf-8')
     # 정산품의 결재대기 이중 상신 방지 — 정산 없는 상태에서 ST 채번 고정(ST-0001)·재상신 dedup 검증.
     SETDUP_DATA.write_text(json.dumps({'settlements': []}, ensure_ascii=False), encoding='utf-8')
-    # 정산품의 삭제 — 정산 없는 상태에서 임시저장(작성중) 1건 생성→삭제→감사 검증(ST 채번 고정 ST-0001).
-    SETDEL_DATA.write_text(json.dumps({'settlements': []}, ensure_ascii=False), encoding='utf-8')
+    # 정산품의 삭제 — 정산·결재 없는 상태에서 상신→반려→삭제→감사·재상신할일 폐쇄 검증(ST 채번 고정 ST-0001,
+    # 결재 유일). approvals 도 비워 시드 대기 정산품의(AP-0709)가 반려 대상 로케이터를 흐리지 않게 한다.
+    SETDEL_DATA.write_text(json.dumps({'settlements': [], 'approvals': []}, ensure_ascii=False), encoding='utf-8')
     # 보안위반 결재제외 별도관리 — 위반 없는 상태에서 등록→스캔 확인서 업로드→결재 없이 완료 검증.
     VLEX_DATA.write_text(json.dumps({'violations': []}, ensure_ascii=False), encoding='utf-8')
     # 계정/권한 SR 상태 라벨 — 개발단계 없는 계정권한 SR(개발중·CI배정·기한경과)이 배정완료·지연내역에서 처리중 표기.
