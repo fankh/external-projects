@@ -251,18 +251,27 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                 </div>
               </div>
             )}
-            {/* 등록·불일치 — 재편입(중복 생성) 대상이 아니라 대장 보정으로 대사한다. 대장을 열어 보정한 뒤 '대사 확인'으로 등록·일치 종결. */}
+            {/* 등록·불일치 — 재편입(중복 생성) 대상이 아니라 대장 보정으로 대사한다.
+                위치·소유자·부서 불일치는 실측값이 구조화돼 있어 '대사 확인'이 곧 대장 보정(자동 반영)이고,
+                그 밖의 불일치(구성 상이 등)는 대장을 열어 보정한 뒤 대사 확인으로 등록·일치 종결. */}
             {!sel.action && sel.state === '등록·불일치' && (
               <div className="vstack" style={{ marginTop: 14, gap: 8 }}>
                 <div className="kicker mute">CMDB 대사 — 등록·불일치</div>
-                {sel.matchedAssetNo && (
+                {sel.mismatchField && sel.observedValue && (
+                  <div className="callout" style={{ padding: '8px 11px', fontSize: 12 }}>
+                    실측 <b>{sel.mismatchField}</b> = <b>{sel.observedValue}</b> — 대사 확인 시 대장에 자동 반영됩니다.
+                  </div>
+                )}
+                {sel.matchedAssetNo && !sel.mismatchField && (
                   <a className="btn sm" href={`/assets/register?sel=${sel.matchedAssetNo}`}
                     title="대장 자산을 열어 위치·구성 불일치를 보정">대장에서 보정 → {sel.matchedAssetNo}</a>
                 )}
                 <button className="btn sm pri" disabled={pending}
                   onClick={() => startTransition(async () => setMsg((await confirmReconcile(sel.id)).message))}
-                  title="불일치를 검토·정정했으면 대사를 등록·일치로 종결">대사 확인 (등록·일치 처리)</button>
-                <span className="mut" style={{ fontSize: 11 }}>대장을 보정한 뒤 대사 확인하면 등록·일치로 종결됩니다.</span>
+                  title={sel.mismatchField ? '실측값을 대장에 반영하고 등록·일치로 종결' : '불일치를 검토·정정했으면 대사를 등록·일치로 종결'}>
+                  {sel.mismatchField ? '대사 확인 — 실측 보정·종결' : '대사 확인 (등록·일치 처리)'}</button>
+                <span className="mut" style={{ fontSize: 11 }}>
+                  {sel.mismatchField ? '대사 확인이 실측값을 대장에 반영한 뒤 등록·일치로 종결합니다.' : '대장을 보정한 뒤 대사 확인하면 등록·일치로 종결됩니다.'}</span>
               </div>
             )}
             {sel.action === '관리 제외' && (

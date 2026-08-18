@@ -314,14 +314,33 @@ export async function confirmReconcile(discoveredId: string) {
   if (d.state !== '등록·불일치') return { ok: false, message: '등록·불일치 건만 대사 확인할 수 있습니다.' }
 
   const priorMismatch = d.mismatch
+  const asset = d.matchedAssetNo ? s.assets.find((a) => a.assetNo === d.matchedAssetNo) : undefined
+
+  // 실측이 대장과 다른 필드가 구조화돼 있으면(mismatchField/observedValue) 대사 확인이 곧 대장 보정이다.
+  // correctField 는 빈 필드 채움만 허용하고, 기존 오값의 정정은 이동·불출(실물 이동) 절차뿐이라 —
+  // 실물은 그대로인데 대장값만 틀린 데이터 불일치는 보정 경로가 없었다. 그 공백을 대사 확인이 닫는다.
+  const FIELD_KEY = { 위치: 'location', 소유자: 'owner', 부서: 'dept' } as const
+  let correction = ''
+  if (asset && d.mismatchField && d.observedValue) {
+    const key = FIELD_KEY[d.mismatchField]
+    const before = asset[key]
+    if (before !== d.observedValue) {
+      asset[key] = d.observedValue
+      asset.history.push({ date: today(), kind: '점검', detail: `CMDB 대사 실측 반영 — ${d.mismatchField} ${before} → ${d.observedValue} (${d.channel} 발견, ${d.id})`, actor: session.name })
+      correction = ` · ${d.mismatchField} ${before}→${d.observedValue} 보정`
+    }
+  } else if (asset) {
+    // 필드가 특정되지 않은 불일치(구성 상이 등)는 담당자 판단으로 검토·정정한 뒤 종결 표시만 남긴다.
+    asset.history.push({ date: today(), kind: '점검', detail: `CMDB 대사 확인 — ${d.channel} 발견 불일치 검토·정정 완료${priorMismatch ? ` (${priorMismatch})` : ''} (${d.id})`, actor: session.name })
+  }
+
   d.state = '등록·일치'
   d.mismatch = undefined // 불일치 해소
-  // 대사 자산 이력에 확인을 남긴다 — 발견 레코드는 대사 종결 표시만, 실무 이력은 대장 자산에 남긴다.
-  const asset = d.matchedAssetNo ? s.assets.find((a) => a.assetNo === d.matchedAssetNo) : undefined
-  if (asset) asset.history.push({ date: today(), kind: '점검', detail: `CMDB 대사 확인 — ${d.channel} 발견 불일치 검토·정정 완료${priorMismatch ? ` (${priorMismatch})` : ''} (${d.id})`, actor: session.name })
-  appendAudit({ actor: session.name, action: `CMDB 대사 확인 — ${d.hostname} 등록·일치 처리`, target: d.matchedAssetNo ?? d.id })
+  d.mismatchField = undefined
+  d.observedValue = undefined
+  appendAudit({ actor: session.name, action: `CMDB 대사 확인 — ${d.hostname} 등록·일치 처리${correction}`, target: d.matchedAssetNo ?? d.id })
   revalidatePath('/', 'layout')
-  return { ok: true, message: `${d.id} 대사 확인 — 등록·일치 종결${d.matchedAssetNo ? ` (${d.matchedAssetNo} 이력 적재)` : ''}` }
+  return { ok: true, message: `${d.id} 대사 확인 — 등록·일치 종결${correction || (d.matchedAssetNo ? ` (${d.matchedAssetNo} 이력 적재)` : '')}` }
 }
 
 /** 휴면 계정 조치 — AD/IdP·SSO 휴면 계정을 검출에서 끝내지 않고 비활성화 집행 또는 소유자(부서) 확인으로 이어간다.
