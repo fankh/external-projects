@@ -1659,6 +1659,21 @@ try {
   await p4.waitForTimeout(900)
   ok('CSV 일괄 등록: 2건 생성·서버 시리얼 중복 건너뜀', (await p4.textContent('body')).includes('2건') && (await p4.textContent('body')).includes('시리얼 중복'))
 
+  // 재물조사 기한 경과 독촉(로59) — 기한 지난 미완료 회차를 '기한 경과' 표시만 하던 것을 담당자 앞 독촉으로 닫는다. 시드 INV-2026-SP1(판교 수시·기한 08-08 경과·계획)이 대상.
+  await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
+  const overdueRow = p4.locator('tr', { has: p4.locator('td', { hasText: '판교 사무소 수시 조사' }) }).first()
+  ok('재물조사 회차: 기한 경과 회차에 독촉 버튼(표시→조치)', (await overdueRow.locator('button', { hasText: /^독촉$/ }).count()) > 0 && ((await overdueRow.textContent()) || '').includes('기한 경과'))
+  // 기한 미도래·진행중 회차(INV-2026-H2 · 기한 08-29)에는 독촉 버튼이 없다(오발송 방지)
+  const futureRow = p4.locator('tr', { has: p4.locator('td', { hasText: '2026 하반기 정기 재물조사' }) }).first()
+  ok('재물조사 회차: 기한 미도래 회차에 독촉 버튼 없음', (await futureRow.locator('button', { hasText: /^독촉$/ }).count()) === 0)
+  await overdueRow.locator('button', { hasText: /^독촉$/ }).click()
+  await p4.waitForTimeout(800)
+  ok('재물조사 회차: 독촉 발송(담당자 최지원 · 발송 이력 적재)', ((await p4.textContent('body')) || '').includes('최지원') && ((await p4.textContent('body')) || '').includes('재물조사 독촉 발송'))
+  // 당일 중복 발송 차단(수령·반환 독촉과 같은 컴플라이언스 독촉)
+  await overdueRow.locator('button', { hasText: /^독촉$/ }).click()
+  await p4.waitForTimeout(700)
+  ok('재물조사 회차: 당일 중복 독촉 차단', ((await p4.textContent('body')) || '').includes('오늘 이미 독촉'))
+
   // 미실사 남은 대상 — 장기 미실측 자동 편성(로34) 회차의 미스캔 대상을 실사 화면에 노출(무엇을 더 찾아야 하는지)
   await p4.goto(`${BASE}/inventory/survey-plan`, { waitUntil: 'networkidle' })
   const stvCard = p4.locator('.card', { has: p4.locator('.tt', { hasText: '장기 미실측(실사 기반 유령) 자산 자동 편성' }) }).first()

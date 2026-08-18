@@ -1,7 +1,8 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
-import { isStaleVerify, today } from '@/lib/dates'
+import { isStaleVerify, roundProgressPct, today } from '@/lib/dates'
+import { dispatch } from '@/lib/notify'
 import { getSession } from '@/lib/session'
 import { getStore, nextId } from '@/lib/store'
 import type { Asset, RoundKind } from '@/lib/types'
@@ -134,6 +135,37 @@ export async function composeStaleVerifyRound() {
   appendAudit({ actor: session.name, action: `장기 미실측 자산 재물조사 자동 편성 (${fresh.length}건)`, target: id })
   revalidatePath('/', 'layout')
   return { ok: true, message: `장기 미실측 ${fresh.length}건을 수시 조사로 편성 — 기한 ${due}` }
+}
+
+/** 재물조사 기한 경과 독촉 — 기한이 지났는데 미완료(계획·진행중)인 회차의 담당자에게 조사 완료를 촉구한다.
+ *  그동안 회차 표는 '기한 경과'를 표시만 하고 담당자에게 밀어주는 수단이 없어, 다른 기한 경과 큐(대여·정기 점검·발주)와
+ *  달리 신호에서 조치로 닫히지 않았다. 당일 중복 발송은 차단한다(수령·반환 독촉과 같은 컴플라이언스 독촉). 자산담당·Admin. */
+export async function remindRound(roundId: string) {
+  const session = await getSession()
+  if (!session || !['ASSET_MGR', 'ADMIN'].includes(session.role)) {
+    return { ok: false, message: '재물조사 독촉 권한이 없습니다 (자산담당·Admin).' }
+  }
+  const s = getStore()
+  const round = s.inventoryRounds.find((r) => r.id === roundId)
+  if (!round) return { ok: false, message: '조사 회차를 찾을 수 없습니다.' }
+  const t = today()
+  if (round.status === '완료') return { ok: false, message: `이미 완료된 조사입니다 — ${round.name}` }
+  if (round.dueDate >= t) return { ok: false, message: `기한이 경과하지 않았습니다 — ${round.name} (기한 ${round.dueDate})` }
+
+  const sentToday = s.dispatches.some((m) => m.kind === '재물조사 독촉' && m.ref === roundId && m.at.startsWith(t))
+  if (sentToday) return { ok: false, message: `오늘 이미 독촉을 발송했습니다 — ${round.name}` }
+
+  const overdueDays = Math.floor((new Date(t).getTime() - new Date(round.dueDate).getTime()) / 86_400_000)
+  dispatch({
+    channel: '이메일',
+    to: round.assignee,
+    subject: `${round.id} ${round.name} 재물조사 기한 경과(D+${overdueDays}) — 진행 ${roundProgressPct(round)}%(${round.scanned}/${round.planned}) · 실물 확인 완료 요청`,
+    kind: '재물조사 독촉',
+    ref: roundId,
+  })
+  appendAudit({ actor: session.name, action: `재물조사 독촉 발송 — ${round.name} (D+${overdueDays})`, target: roundId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${round.assignee}에게 재물조사 독촉 발송 — ${round.name} 기한 경과 D+${overdueDays} (발송 이력 적재)` }
 }
 
 /** 계획 → 진행중 전환. 실사 화면은 '완료'가 아닌 회차만 대상으로 하므로 즉시 스캔이 가능해진다. */
