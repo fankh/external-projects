@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
+import { missingContractDocs } from '@/lib/contract'
 import { daysUntil, fmtAmount, today } from '@/lib/dates'
 import { dispatch } from '@/lib/notify'
 import { buildMaintenance } from '@/lib/maintenance'
@@ -219,6 +220,40 @@ export async function remindMaintenanceExecution() {
   appendAudit({ actor: session.name, action: `유지보수 이행 독촉 발송 (${n}건)`, target: '유지보수 계약' })
   revalidatePath('/', 'layout')
   return { ok: true, message: `유지보수 이행 독촉 ${n}건 발송 — 주관부서·공급사에 이행 확인·점검 시행 요청 (발송 이력 적재)` }
+}
+
+/** 계약 부속서류 제출 요청 — 필수 부속서류(계약서·세금계산서 등)가 누락된 진행 중 계약의 주관부서·공급사에 미비 서류 제출을 요청한다.
+ *  (§03 구매 계약 부속서류 관리 — 그동안 미비는 감사 리스크 집계 배지로만 표시되고 건별 등록(addContractDoc)만 있어,
+ *   책임 주체에게 제출을 요청하는 배치 조치 채널이 없었다. 만료 임박 알림·발주 이행 독촉과 같은 컴플라이언스 통보.)
+ *  해지 계약은 대상 아님(missingContractDocs 가 제외). 당일 중복 발송 방지(ref=계약 id). 자산담당·Admin. */
+export async function requestContractDocs() {
+  const session = await guard()
+  if (!session) return { ok: false, message: '부속서류 제출 요청 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const t = today()
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === '부속서류 제출 요청' && m.at.startsWith(t)).map((m) => m.ref),
+  )
+
+  let n = 0
+  for (const c of s.contracts) {
+    const missing = missingContractDocs(c)
+    if (missing.length === 0 || sentToday.has(c.id)) continue
+    dispatch({
+      channel: '이메일',
+      to: `${c.ownerDept} · ${c.vendor}`,
+      subject: `${c.id} ${c.name} 부속서류 미비 — ${missing.join('·')} 제출 요청 (감사 증빙 보완)`,
+      kind: '부속서류 제출 요청',
+      ref: c.id,
+    })
+    n += 1
+  }
+
+  if (n === 0) return { ok: false, message: '부속서류 미비 계약이 없습니다 (오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `계약 부속서류 제출 요청 발송 (${n}건)`, target: '계약 부속서류' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `부속서류 제출 요청 ${n}건 발송 — 주관부서·공급사에 미비 서류 제출 요청 (발송 이력 적재)` }
 }
 
 /** 발주 이행 독촉 — 발주가 소화되지 않은 채(발주율 저조) 계약 만료가 임박한 구매 계약의 주관부서·공급사에 발주·검수 이행을 재촉한다.

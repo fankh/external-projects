@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { actOnLicense, addLicense, assignLicenseSeat, renewLicense, requestLicenseRecontract, retireLicense, sendExpiryNotices, unassignLicenseSeat } from './actions'
+import { actOnLicense, addLicense, assignLicenseSeat, renewLicense, requestContractDocs, requestLicenseRecontract, retireLicense, sendExpiryNotices, unassignLicenseSeat } from './actions'
 import type { LicenseSeat } from '@/lib/types'
 
 /** 라이선스 해지 — 도구 이관·구독 중단 시 컴플라이언스에서 내린다(계약 해지와 동형). 자산담당·Admin. */
@@ -113,6 +113,23 @@ export function ExpiryNoticeButton({ due }: { due: number }) {
       <button className="btn sm pri" disabled={pending || due === 0}
         onClick={() => startTransition(async () => setMsg((await sendExpiryNotices()).message))}>
         만료 임박 알림 발송 ({due})
+      </button>
+    </span>
+  )
+}
+
+/** 계약 부속서류 제출 요청 버튼 — 필수 부속서류가 누락된 계약의 주관부서·공급사에 제출을 요청한다(만료 임박 알림과 동일 패턴).
+ *  감사 리스크 배지(부속서류 미비)에 배치 조치 채널을 붙인다. gap=0 이면 비활성. */
+export function ContractDocsButton({ gap }: { gap: number }) {
+  const [msg, setMsg] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+  return (
+    <span className="hstack" style={{ gap: 8 }}>
+      {msg && <span className="dim" style={{ fontSize: 11.5 }}>{msg}</span>}
+      <button className="btn sm" disabled={pending || gap === 0}
+        title={gap === 0 ? '부속서류 미비 계약이 없습니다' : '필수 부속서류(계약서·세금계산서 등)가 누락된 계약의 주관부서·공급사에 제출을 요청합니다'}
+        onClick={() => startTransition(async () => setMsg((await requestContractDocs()).message))}>
+        부속서류 제출 요청 ({gap})
       </button>
     </span>
   )
