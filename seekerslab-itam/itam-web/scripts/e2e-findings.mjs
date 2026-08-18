@@ -2048,6 +2048,18 @@ try {
   await pQ2.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   ok('격리 집행(로2): 보안담당→IT기획팀장 2단계 승인 → NAC 격리 집행(격리 통보 발송)', ((await pQ2.textContent('body')) || '').includes('NAC 격리 집행'))
   await ctxQ2.close()
+  // 대여 신청 → 결재 → 대여중 자동 집행(로41) — 승인 즉시 지정 유휴 자산이 신청자(김민준)에게 반환 기한과 함께 대여 처리된다(decide 대여 자동 집행 분기). 자동 집행·유휴 전제가 그동안 미검증(연장 승인만 검증). 전용 유휴 서버(AST-2025-000701, 스위트 미변경) 대상.
+  const ctxLN = await browser.newContext(); await ctxLN.addCookies([cookie(ADMIN)]); const pLN = await ctxLN.newPage()
+  await pLN.goto(`${BASE}/assets/register?q=AST-2025-000701`, { waitUntil: 'networkidle' })
+  const preLoan = (await pLN.locator('tr', { has: pLN.locator('td', { hasText: 'AST-2025-000701' }) }).first().textContent()) || ''
+  ok('대여 자동 집행(로41): 승인 전 대상 자산 유휴(집행 전제)', preLoan.includes('유휴'))
+  await pLN.goto(`${BASE}/workflow/approvals?sel=APR-2608-161`, { waitUntil: 'networkidle' })
+  await pLN.locator('tr', { has: pLN.locator('td', { hasText: 'APR-2608-161' }) }).first().locator('button', { hasText: /^승인$/ }).first().click()
+  await pLN.waitForTimeout(900)
+  await pLN.goto(`${BASE}/assets/register?q=AST-2025-000701`, { waitUntil: 'networkidle' })
+  const postLoan = (await pLN.locator('tr', { has: pLN.locator('td', { hasText: 'AST-2025-000701' }) }).first().textContent()) || ''
+  ok('대여 자동 집행(로41): 승인 즉시 지정 자산 대여중·신청자 김민준(자동 집행)', postLoan.includes('대여중') && postLoan.includes('김민준'))
+  await ctxLN.close()
 
   await browser.close()
 } catch (err) {
