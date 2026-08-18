@@ -12,7 +12,9 @@ import { fingerprintOf } from '@/lib/types'
  *  (제품안내서 §04 비고 '스캔 정책·시간대 협의' · §07 스캔 안전장치) */
 function inWindow(window: string, hhmm: string): boolean {
   if (window === '상시') return true
-  const m = window.match(/(\d{2}):(\d{2})\s*~\s*(\d{2}):(\d{2})/)
+  // 시(hour)는 1~2자리 모두 허용한다 — 정책 편집기가 '9:00' 같은 한 자리 시를 저장할 수 있어, 2자리만 파싱하면
+  // 창을 못 읽고 아래 return true 로 빠져 §07 시간대 밖 안전장치가 조용히 꺼진다(창 밖 능동 스캔이 사유 없이 통과).
+  const m = window.match(/(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})/)
   if (!m) return true
   const cur = Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5))
   const from = Number(m[1]) * 60 + Number(m[2])

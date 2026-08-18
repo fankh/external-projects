@@ -1352,6 +1352,19 @@ try {
   const run2Cand = Number(((await histRows.nth(0).locator('td').nth(5).textContent()) || '').trim() || '-1')
   const run1Cand = Number(((await histRows.nth(1).locator('td').nth(5).textContent()) || '').trim() || '-2')
   ok('EASM 재탐지: surfaced 이중 계상 없음(연속 재탐지 후보 수 동일)', run1Cand > 0 && run1Cand === run2Cand)
+  // 스캔 시간대 안전장치 파싱(회귀) — 정책 편집기가 한 자리 시('9:00')를 그대로 저장하면 inWindow(2자리 기대)가 창을 못 읽어 §07 시간대 밖 능동 스캔 안전장치가 조용히 꺼진다. 저장 시 두 자리로 정규화돼야 한다.
+  const ctxSP = await browser.newContext(); await ctxSP.addCookies([cookie(ADMIN)]); const pSP = await ctxSP.newPage()
+  await pSP.goto(`${BASE}/settings/scan-policy`, { waitUntil: 'networkidle' })
+  const spRow = pSP.locator('tr', { has: pSP.locator('td', { hasText: '네트워크 능동 스캔' }) }).first()
+  await spRow.locator('button', { hasText: /^정책 편집$/ }).click()
+  await pSP.waitForTimeout(200)
+  await spRow.locator('input[placeholder="23:00 ~ 05:00"]').fill('9:00 ~ 18:00')
+  await spRow.locator('button', { hasText: /^저장$/ }).click()
+  await pSP.waitForTimeout(700)
+  await pSP.goto(`${BASE}/settings/scan-policy`, { waitUntil: 'networkidle' })
+  const spText = (await pSP.locator('tr', { has: pSP.locator('td', { hasText: '네트워크 능동 스캔' }) }).first().textContent()) || ''
+  ok('스캔 시간대: 한 자리 시 저장 시 두 자리 정규화(09:00 — 시간대 안전장치 파싱 보장)', spText.includes('09:00 ~ 18:00'))
+  await ctxSP.close()
   // 라이선스 컴플라이언스 판정 불변식 — 초과/미사용/적정이 보유·사용 관계와 정합(감사 리스크 플래깅·회수/구매 결재 근거). 비즈니스 임계 계산 회귀 방지.
   {
     await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
