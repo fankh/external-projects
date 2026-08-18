@@ -523,6 +523,34 @@ export async function requestOffSeatRemoval(licenseId: string, rawAssetNo: strin
   return { ok: true, message: `${lic.name} 배정 밖 설치 제거 요청 — ${assetNo}(${owner}·${dept}) 소유 부서 통지·감사 적재 (다음 사용량 대사에서 반영)` }
 }
 
+/** 라이선스 근거 계약 재계약 검토 요청 — 구독 근거 계약이 해지돼(근거 해지) 계약 기반이 사라진 라이선스의
+ *  주관부서·공급사에 이관(신규 계약 연계) 또는 재계약 검토를 요청한다. (계약 해지(로32)의 라이선스 측 낙수 —
+ *  그동안 근거 해지는 빨간 배지 표시뿐이고 이관·재계약 후속 조치 채널이 없었다. 해지(retireLicense)가 '구독 중단' 경로라면
+ *  이것은 '기반 복구' 경로.) 당일 중복 발송 방지(ref=라이선스 id). 자산담당·Admin. */
+export async function requestLicenseRecontract(licenseId: string) {
+  const session = await guard()
+  if (!session) return { ok: false, message: '재계약 검토 요청 권한이 없습니다 (자산담당·Admin).' }
+  const s = getStore()
+  const lic = s.licenses.find((l) => l.id === licenseId)
+  if (!lic) return { ok: false, message: '라이선스를 찾을 수 없습니다.' }
+  const base = lic.contractId ? s.contracts.find((c) => c.id === lic.contractId) : undefined
+  if (!base || base.status !== '해지') return { ok: false, message: '근거 계약이 해지된 라이선스만 재계약 검토 대상입니다.' }
+  const t = today()
+  if (s.dispatches.some((m) => m.kind === '라이선스 재계약 검토' && m.ref === licenseId && m.at.startsWith(t))) {
+    return { ok: false, message: `오늘 이미 재계약 검토를 요청했습니다 — ${lic.name}` }
+  }
+  dispatch({
+    channel: '이메일',
+    to: `${base.ownerDept} · ${lic.vendor}`,
+    subject: `라이선스 근거 계약 해지 — ${lic.name} (근거 ${base.id} 해지) 이관·재계약 검토 요청 (보유 ${lic.purchased}석)`,
+    kind: '라이선스 재계약 검토',
+    ref: licenseId,
+  })
+  appendAudit({ actor: session.name, action: `라이선스 재계약 검토 요청 — ${lic.name} (근거 ${base.id} 해지)`, target: licenseId })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${lic.name} 재계약 검토 요청 — ${base.ownerDept}·${lic.vendor}에 이관·재계약 검토 통지 (발송 이력 적재)` }
+}
+
 /** 라이선스 좌석 회수(배정 해제) — 배정된 석을 대장에서 제거한다(재배정·오프보딩). 자산담당·Admin. */
 export async function unassignLicenseSeat(licenseId: string, assetNo: string) {
   const session = await guard()

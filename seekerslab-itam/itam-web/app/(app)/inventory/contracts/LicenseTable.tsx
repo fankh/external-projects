@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { Chip } from '@/components/ui'
 import { contractHref } from '@/lib/reflink'
 import type { SwLicense } from '@/lib/types'
-import { LicenseAction, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
+import { LicenseAction, LicenseRecontract, LicenseRenew, LicenseRetire, LicenseSeats } from './LicenseActions'
 
 // 근거 계약 해지 여부·대기 결재는 서버에서 미리 계산해 넘긴다(클라이언트는 계약·결재 원본을 모른다)
 type LicRow = SwLicense & { d: number | null; baseTerminated: boolean; pendingApproval?: string }
@@ -111,6 +111,7 @@ export function LicenseTable({ rows, sel, canEdit, expiryWindowDays, lic }: { ro
                       ) : (
                         <>
                           <LicenseAction row={{ id: l.id, over, low, seats: Math.abs(l.used - l.purchased), pendingApproval: l.pendingApproval }} />
+                          {l.baseTerminated && canEdit && <LicenseRecontract id={l.id} />}
                           {canEdit && <LicenseRetire id={l.id} />}
                         </>
                       )}

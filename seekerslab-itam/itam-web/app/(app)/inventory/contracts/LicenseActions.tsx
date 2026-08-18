@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { Chip } from '@/components/ui'
-import { actOnLicense, addLicense, assignLicenseSeat, renewLicense, retireLicense, sendExpiryNotices, unassignLicenseSeat } from './actions'
+import { actOnLicense, addLicense, assignLicenseSeat, renewLicense, requestLicenseRecontract, retireLicense, sendExpiryNotices, unassignLicenseSeat } from './actions'
 import type { LicenseSeat } from '@/lib/types'
 
 /** 라이선스 해지 — 도구 이관·구독 중단 시 컴플라이언스에서 내린다(계약 해지와 동형). 자산담당·Admin. */
@@ -22,6 +22,20 @@ export function LicenseRetire({ id }: { id: string }) {
     </span>
   ) : (
     <button className="btn sm danger" disabled={pending} title="라이선스 해지 (구독 중단·도구 이관)" onClick={() => { setOpen(true); setMsg(null) }}>해지</button>
+  )
+}
+
+/** 라이선스 재계약 검토 요청 — 근거 계약 해지(근거 해지)로 기반이 사라진 라이선스의 주관부서·공급사에 이관·재계약 검토를 통보한다.
+ *  해지(LicenseRetire, 구독 중단)의 반대 선택지 = 기반 복구. 근거 해지 상태에서만 노출한다. 자산담당·Admin. */
+export function LicenseRecontract({ id }: { id: string }) {
+  const [msg, setMsg] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+  return (
+    <span className="hstack" style={{ gap: 4 }}>
+      <button className="btn sm" disabled={pending} title="근거 계약 해지 — 주관부서·공급사에 이관·재계약 검토 요청"
+        onClick={() => startTransition(async () => setMsg((await requestLicenseRecontract(id)).message))}>재계약 검토</button>
+      {msg && <span className="dim" style={{ fontSize: 11 }}>{msg}</span>}
+    </span>
   )
 }
 
