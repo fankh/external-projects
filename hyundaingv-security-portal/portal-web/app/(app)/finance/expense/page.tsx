@@ -132,6 +132,10 @@ async function requestSettlement(formData: FormData) {
   const stId = nextNo('ST', year, s.settlements.map((x) => x.id))
   // 임시저장 (제품안내서 II장 공통 흐름) — 상신 없이 작성중 보관
   const isDraft = formData.get('mode') === 'draft'
+  // 결재 대기 중복 방지 — 같은 계약·항목·금액의 정산품의가 이미 결재중이면 무시한다. 더블클릭·재전송으로 동일
+  // 정산이 이중 상신→이중 지급완료되어 집행액이 겹계상(집행률·속보 기준금액 왜곡)되는 것을 차단(협력업체 서약·
+  // 인프라 변경 징구 dedup 과 동일 정책). 결재가 끝나(지급완료·반려) 대기 건이 없으면 새 정산은 정상 진행된다.
+  if (!isDraft && s.settlements.some((x) => x.contractId === contractId && x.item === item && x.amount === Math.round(amount) && x.status === '결재중')) return
   const dueDate = String(formData.get('dueDate') ?? '')
   s.settlements.unshift({ id: stId, contractId, item, amount: Math.round(amount), status: isDraft ? '작성중' : '결재중', requestedBy: me.name, requestedAt: today(),
     dueDate: /^\d{4}-\d{2}-\d{2}$/.test(dueDate) ? dueDate : undefined })

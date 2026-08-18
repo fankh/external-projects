@@ -46,6 +46,7 @@ SPPLG_DATA = ROOT / 'scripts' / '.e2e-spplg-data.json'  # 특별서약(보안담
 CPLG_DATA = ROOT / 'scripts' / '.e2e-cplg-data.json'  # 협력업체서약서 징구→상신→승인 커버리지용 (v1.5.215)
 VLEX_DATA = ROOT / 'scripts' / '.e2e-vlex-data.json'  # 보안위반 결재제외 별도관리 회귀용 (v1.5.217)
 SRAC_DATA = ROOT / 'scripts' / '.e2e-srac-data.json'  # 계정/권한 SR 상태라벨 정합(개발중→처리중) 회귀용 (v1.5.219)
+SETDUP_DATA = ROOT / 'scripts' / '.e2e-setdup-data.json'  # 정산품의 결재대기 이중 상신 방지 회귀용 (v1.5.235)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -404,6 +405,30 @@ def sc_settle(pg, base, check):
     pg.wait_for_selector('tr:has-text("E2E 단계 검증 계획"):has-text("확정")', timeout=10000)
     row_txt = pg.locator('.card', has_text='경영계획').locator('tr', has_text='E2E 단계 검증 계획').inner_text()
     check('900' in row_txt and '확정' in row_txt, '취합 → 효율화(조정 900) → 확정')
+
+
+def sc_settle_dedup(pg, base, check):
+    """정산품의 결재대기 이중 상신 방지 — 같은 계약·항목·금액을 재상신해도 결재중 1건만 (더블클릭·재전송 대비).
+    이중 상신이 이중 지급완료로 집행액을 겹계상(집행률·계획대비실적/속보 왜곡)하는 것을 원천 차단.
+    협력업체 서약·인프라 변경 징구 dedup 과 동일 정책. 격리 데이터(settlements 비움)로 ST 채번을 고정."""
+    login(pg, base, '이수진')  # 부서담당 — 비용 정산 상신 스코프
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    card = pg.locator('.card', has_text='정산품의')
+    card.locator('select[name=contractId]').select_option('CT-2026-03')
+    card.locator('input[name=amount]').fill('1777')
+    card.locator('button:has-text("정산품의 상신")').click()
+    pg.wait_for_selector('tr:has-text("ST-2026-0001"):has-text("결재중")', timeout=10000)
+    check('결재중' in pg.locator('tr', has_text='ST-2026-0001').inner_text(), '정산 최초 상신 (결재중)')
+    # 같은 계약·항목·금액 재상신 — dedup 로 두 번째 정산(ST-2026-0002)이 생기지 않아야 한다
+    card = pg.locator('.card', has_text='정산품의')
+    card.locator('select[name=contractId]').select_option('CT-2026-03')
+    card.locator('input[name=amount]').fill('1777')
+    card.locator('button:has-text("정산품의 상신")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    check(pg.locator('tr', has_text='ST-2026-0002').count() == 0,
+          '정산 이중 상신 방어 — 동일 계약·항목·금액 재상신 무시 (ST-0002 미생성)')
+    check(pg.locator('tr', has_text='ST-2026-0001').count() == 1, '최초 정산 1건만 유지')
 
 
 def sc_adapter(pg, base, check):
@@ -2284,6 +2309,8 @@ SCENARIOS = [
     ('withdraw', '상신취소(회수) → 작성중 복원 → 재상신', sc_withdraw, {}),
     ('devchain', '시스템개발 SR → 변경 2단 상신 → SR 완료 전파 (전체 사슬)', sc_devchain, {}),
     ('settle', '정산 반려 → 재상신 → 지급완료', sc_settle, {}),
+    ('settle_dedup', '정산품의 결재대기 이중 상신 방지(집행액 겹계상 차단)', sc_settle_dedup,
+     {'PORTAL_DATA_FILE': str(SETDUP_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -2646,6 +2673,8 @@ def main() -> int:
     }, ensure_ascii=False), encoding='utf-8')
     # 협력업체서약서 징구→상신→승인 폐쇄루프 — 협력업체 서약 없는 상태에서 등록·상신·승인 전 구간 검증.
     CPLG_DATA.write_text(json.dumps({'companyPledges': []}, ensure_ascii=False), encoding='utf-8')
+    # 정산품의 결재대기 이중 상신 방지 — 정산 없는 상태에서 ST 채번 고정(ST-0001)·재상신 dedup 검증.
+    SETDUP_DATA.write_text(json.dumps({'settlements': []}, ensure_ascii=False), encoding='utf-8')
     # 보안위반 결재제외 별도관리 — 위반 없는 상태에서 등록→스캔 확인서 업로드→결재 없이 완료 검증.
     VLEX_DATA.write_text(json.dumps({'violations': []}, ensure_ascii=False), encoding='utf-8')
     # 계정/권한 SR 상태 라벨 — 개발단계 없는 계정권한 SR(개발중·CI배정·기한경과)이 배정완료·지연내역에서 처리중 표기.
