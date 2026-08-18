@@ -4,7 +4,7 @@
 import { ACCOUNTS } from './session'
 import { audit } from './audit'
 import { today } from './dates'
-import { getStore, nextNo } from './store'
+import { getStore, nextNo, type Store } from './store'
 import type { ApprovalDocType } from './types'
 
 /** 묶음(회전 참조) 문서 — 재상신마다 새 묶음 번호를 받아 참조가 회전하는 유형.
@@ -17,7 +17,43 @@ export const ROTATING_DOC_TYPES: ApprovalDocType[] = ['장애보고 상신', '�
 
 /** 상신취소(회수) 가능 유형 — 요구사항 결재 시트가 상신취소 전이를 명시한 문서만
  *  (SR 3종 → 임시저장, 변경 계획/결과 → 작업등록/작업등록승인, 확인서 → 징구중). */
-export const WITHDRAWABLE_DOC_TYPES: ApprovalDocType[] = ['SR 신청', '적용요청 상신', '변경계획 상신', '변경결과 상신', '보안위반 확인서']
+export type WithdrawableDocType = 'SR 신청' | '적용요청 상신' | '변경계획 상신' | '변경결과 상신' | '보안위반 확인서'
+
+/** 회수 시 참조 업무를 상신 직전 단계로 되돌리는 유형별 복원기 — 회수 액션의 단일 원천.
+ *  Record<WithdrawableDocType, …> 라 회수 가능 유형(WithdrawableDocType)을 늘리면 여기 복원 핸들러
+ *  누락이 컴파일 에러로 잡힌다 — 참조 업무가 '결재중'에 갇히는 고아 in-flight 를 타입으로 원천 차단한다.
+ *  각 복원기는 상신 직후의 진행중 상태일 때만 되돌린다(경합·중복 회수 방어, 승인/반려 전파와 동일 가드). */
+export const WITHDRAW_RESTORERS: Record<WithdrawableDocType, (s: Store, ref: string) => void> = {
+  'SR 신청': (s, ref) => {
+    const sr = s.srRequests.find((r) => r.srNo === ref)
+    if (sr && sr.status === '결재중') sr.status = '작성중'
+  },
+  '적용요청 상신': (s, ref) => {
+    const sr = s.srRequests.find((r) => r.srNo === ref)
+    if (sr && sr.status === '적용요청결재중') sr.status = '테스트'
+  },
+  '변경계획 상신': (s, ref) => {
+    const cw = s.changes.find((c) => c.id === ref)
+    if (cw && cw.status === '계획결재중') cw.status = '작업등록'
+  },
+  '변경결과 상신': (s, ref) => {
+    const cw = s.changes.find((c) => c.id === ref)
+    if (cw && cw.status === '작업완료결재중') cw.status = '작업등록승인'
+  },
+  '보안위반 확인서': (s, ref) => {
+    const v = s.violations.find((x) => x.id === ref)
+    if (v && v.status === '결재중') v.status = '징구중'
+  },
+}
+
+/** 상신취소 가능 유형 목록 — 복원 맵의 키에서 파생(단일 원천). 화면 노출·서버 가드가 공유한다. */
+export const WITHDRAWABLE_DOC_TYPES: readonly ApprovalDocType[] = Object.keys(WITHDRAW_RESTORERS) as WithdrawableDocType[]
+
+/** 회수 가능 유형 타입가드 — 통과 시 ApprovalDocType 을 WithdrawableDocType 으로 좁혀 복원기 인덱싱을
+ *  캐스트 없이 안전하게 한다(복원 맵 키 존재 = 회수 가능). */
+export function isWithdrawableDocType(t: ApprovalDocType): t is WithdrawableDocType {
+  return t in WITHDRAW_RESTORERS
+}
 
 export function draftApproval(opts: {
   docType: ApprovalDocType
