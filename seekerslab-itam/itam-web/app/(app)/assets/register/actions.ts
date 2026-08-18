@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { appendAudit } from '@/lib/audit'
 import { isMaintenanceOverdue, today } from '@/lib/dates'
-import { eolOsOf } from '@/lib/eol'
+import { eolOsOf, isEolTarget } from '@/lib/eol'
 import { reclaimLicenseSeats, transferLicenseSeats } from '@/lib/license'
 import { dispatch, escalate } from '@/lib/notify'
 import { getSession } from '@/lib/session'
@@ -828,9 +828,9 @@ export async function notifyEolUpgrade() {
   const sentToday = new Set(s.dispatches.filter((m) => m.kind === 'EOL 업그레이드 통보' && m.at.startsWith(t)).map((m) => m.ref))
   let n = 0
   for (const a of s.assets) {
-    if (['폐기완료', '폐기예정'].includes(a.status)) continue
-    const eol = eolOsOf(a.os, t)
-    if (!eol || sentToday.has(a.assetNo)) continue
+    // 운영 중 EOL 자산만 — 분실·수리중·반납대기·폐기 경로 자산 제외(대장 필터·대시보드 큐와 동일 게이트). 실물이 없거나 운영 중이 아닌 자산에 교체 통보가 나가지 않게.
+    if (!isEolTarget(a.status, a.os, t) || sentToday.has(a.assetNo)) continue
+    const eol = eolOsOf(a.os, t)!
     dispatch({ channel: '이메일', to: `${a.owner} (${a.dept})`, subject: `EOL OS 업그레이드·교체 검토 요청 — ${a.assetNo} ${a.model} (${eol.label} 지원 종료 ${eol.eol}), 미패치 취약점 상시 노출`, kind: 'EOL 업그레이드 통보', ref: a.assetNo })
     a.history.push({ date: t, kind: '구성변경', detail: `EOL OS 업그레이드·교체 통보 발송 — ${eol.label} 지원 종료 ${eol.eol} (${a.owner} · ${a.dept})`, actor: session.name })
     n += 1

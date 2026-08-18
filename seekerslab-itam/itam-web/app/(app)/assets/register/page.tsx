@@ -1,6 +1,6 @@
 import { Card, ScreenHeader } from '@/components/ui'
 import { daysUntil, isMaintenanceDue, isMaintenanceOverdue, isStaleVerify, today } from '@/lib/dates'
-import { eolOsOf } from '@/lib/eol'
+import { isEolTarget } from '@/lib/eol'
 import { canExport } from '@/lib/exports'
 import { hasDataIssue } from '@/lib/quality'
 import { getSession } from '@/lib/session'
@@ -30,7 +30,7 @@ export default async function AssetRegisterPage({ searchParams }: { searchParams
   const dqNos = scoped.filter(hasDataIssue).map((a) => a.assetNo)
   // EOL OS(지원 종료 경과) — 운영 중 자산 중 OS 지원 종료가 지난 것. 미패치 취약점 상시 노출 → 교체·업그레이드 대상. (제품안내서 §05 취약점 우선순위)
   const eolNos = scoped
-    .filter((a) => !['폐기완료', '폐기예정'].includes(a.status) && eolOsOf(a.os, today()))
+    .filter((a) => isEolTarget(a.status, a.os, today()))
     .map((a) => a.assetNo)
   // 핵심·중요 자산 — 운영자가 지정한 업무 중요도(§05 자산 중요도 축). DR·패치 우선순위·감사 대상 식별.
   const critNos = scoped.filter((a) => a.criticality === '핵심' || a.criticality === '중요').map((a) => a.assetNo)

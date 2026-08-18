@@ -639,6 +639,11 @@ try {
   await p2.waitForTimeout(700)
   const eolBody = (await p2.locator('body').textContent()) || ''
   ok('EOL 업그레이드 통보: 발송 성공(소유 부서 업그레이드·교체 요청·발송 이력)', eolBody.includes('EOL 업그레이드 통보') && eolBody.includes('발송'))
+  // EOL 대상 운영 상태 게이트(회귀) — 대장 EOL 필터가 비운영(수리중·분실·반납대기) 자산을 제외하는지. 시드 AST-2021-000556(수리중·Win10 EOL)은 빠지고, AST-2021-000432(유휴·Win10 EOL)은 남아야 한다(표시·통보 게이트 일치).
+  // 렌더된 표 셀(td)로만 검사 — body 텍스트에는 RSC 플라이트 페이로드(전체 자산 직렬화)가 섞여 필터와 무관하게 모든 자산번호가 잡힌다.
+  await p2.goto(`${BASE}/assets/register?os=eol`, { waitUntil: 'networkidle' })
+  ok('EOL 필터: 운영 중 EOL 자산 노출(AST-2021-000432 유휴)', (await p2.locator('td', { hasText: 'AST-2021-000432' }).count()) > 0)
+  ok('EOL 필터: 비운영(수리중) EOL 자산 제외(AST-2021-000556 · 교체 통보 오발송 방지)', (await p2.locator('td', { hasText: 'AST-2021-000556' }).count()) === 0)
 
   // 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 새 보유자에게 직접 인계. 그동안 사용 중 자산의 보유자 변경 경로가 없어
   //  팀 내 인수인계가 반납→재불출을 강제했다(correctField 가 '이동·불출 결재로'라며 막지만 이동은 위치만·불출은 유휴만). AST-2023-000113(이서연) → 오세훈(인사팀).
@@ -1823,6 +1828,10 @@ try {
   await execBtn.first().click()
   await p4.waitForTimeout(800)
   ok('유지보수 미집행: 이행 독촉 발송 성공(주관부서·공급사 · 발송 이력)', ((await p4.textContent('body')) || '').includes('유지보수 이행 독촉') && ((await p4.textContent('body')) || '').includes('발송'))
+  // 미집행 반올림 오분류(회귀) — 소액 착수비만 집행한 계약(30,000/60,000,000 = 0.05% · 반올림 0%)은 '집행 전무'가 아니므로 미집행이 아니라 정상. 시드 CT-2025-013(보안관제 MSS).
+  await p4.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const mssRow = (await p4.locator('tr', { has: p4.locator('td', { hasText: '보안관제(MSS) 유지보수' }) }).first().textContent()) || ''
+  ok('유지보수 판정: 소액 집행(0.05%)은 미집행 아닌 정상(반올림 오분류 회귀)', mssRow.includes('정상') && !mssRow.includes('미집행'))
 
   // 발주 이행 독촉(§03 구매 계약 · 신호→조치 채널) — 발주 미이행 위험 판정(발주율 저조·만료 임박)에 조치 채널이 없던 공백을 닫는다. 시드 CT-2023-021 미이행 → 버튼 활성.
   const procBtn = p4.locator('button', { hasText: /^발주 이행 독촉 \(\d+\)$/ })
