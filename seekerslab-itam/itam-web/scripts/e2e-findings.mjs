@@ -2021,6 +2021,20 @@ try {
   const lastCell = disposalLine.locator('td').last()
   ok('거버넌스 가드(로19): 필수 결재선(폐기) 잠금 — 해제 토글 없음(필수 보안 결재 제거 방지)', ((await lastCell.textContent()) || '').includes('필수 결재') && (await lastCell.locator('button').count()) === 0)
   await ctxGD.close()
+  // 신청→결재→불출 물리 집행(로9) — 승인된 자산 신청(APR-2607-116 노트북 지급·오세훈)을 불출 처리하면 대장 소유자·부서·위치가 재기록되고 신청이 큐에서 빠진다('승인만으로는 실물이 안 움직인다'). 그동안 액션 미검증.
+  const ctxIS = await browser.newContext(); await ctxIS.addCookies([cookie(ASSET)]); const pIS = await ctxIS.newPage()
+  await pIS.goto(`${BASE}/assets/movement`, { waitUntil: 'networkidle' })
+  const issueCard9 = pIS.locator('.card', { has: pIS.locator('.tt', { hasText: '불출 대기' }) }).first()
+  const issueRow = issueCard9.locator('tr', { has: pIS.locator('td', { hasText: 'APR-2607-116' }) }).first()
+  ok('불출 집행(로9): 승인된 자산 신청이 불출 대기 큐에 노출', (await issueRow.count()) > 0)
+  await issueRow.locator('button', { hasText: /^불출 처리$/ }).click()
+  await pIS.waitForTimeout(800)
+  await pIS.goto(`${BASE}/assets/movement`, { waitUntil: 'networkidle' })
+  const issueGone = (await pIS.locator('.card', { has: pIS.locator('.tt', { hasText: '불출 대기' }) }).first().locator('td', { hasText: 'APR-2607-116' }).count()) === 0
+  ok('불출 집행(로9): 불출 처리 → 신청이 큐에서 빠짐(fulfilled)', issueGone)
+  await pIS.goto(`${BASE}/assets/register?q=${encodeURIComponent('오세훈')}`, { waitUntil: 'networkidle' })
+  ok('불출 집행(로9): 대장 소유자·부서 재기록(오세훈·인사팀)', (await pIS.locator('td', { hasText: '오세훈' }).count()) > 0 && ((await pIS.textContent('body')) || '').includes('인사팀'))
+  await ctxIS.close()
 
   await browser.close()
 } catch (err) {
