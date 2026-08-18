@@ -473,6 +473,9 @@ export async function returnLoan(assetNo: string, condition: ReturnCondition = '
   asset.loanDueDate = undefined
   asset.returnRequest = undefined // 반납 신청분을 접수 처리하면 신청 신호 해제(스테일 신청 방지)
   asset.loanExtendRequest = undefined // 대여가 끝나므로 대기 중이던 연장 요청도 함께 해제(대시보드 큐·오적용 방지)
+  // 대여 반환도 보유자를 떠나는 이탈 경로 — 반환 자산의 라이선스 좌석을 회수한다(로56 좌석 생애주기 · 유휴/수리 풀 재대여 전 여유석 복귀).
+  //  폐기 권고분은 이후 recordWipe 가 다시 회수를 시도해도 멱등(이미 회수됨)이라 안전하다. recoverFromUser(오프보딩 회수)와 동일 규약.
+  const freedSeats = reclaimLicenseSeats(assetNo, session.name, '대여 반환')
   // 대여 반환도 반납(receiveReturn)과 같이 상태 점검으로 가른다 — 손상된 반환분이 바로 유휴 풀에 들어가 재대여/재불출되면 안 된다.
   //  정상 → 유휴 · 수리 필요 → 수리중(수리 후 유휴) · 폐기 권고 → 폐기예정(폐기 절차 편입).
   if (condition === '폐기 권고') {
@@ -492,7 +495,7 @@ export async function returnLoan(assetNo: string, condition: ReturnCondition = '
     asset.dept = '자산관리팀'
     asset.location = loc
   }
-  asset.history.push({ date: today(), kind: condition === '폐기 권고' ? '폐기' : condition === '수리 필요' ? '수리' : '반납', detail: `대여 반환 접수 · 상태 점검 ${condition}${note ? ` — ${note}` : ''} (대여자 ${borrower}${overdue ? ' · 연체 반환' : ''})`, actor: session.name })
+  asset.history.push({ date: today(), kind: condition === '폐기 권고' ? '폐기' : condition === '수리 필요' ? '수리' : '반납', detail: `대여 반환 접수 · 상태 점검 ${condition}${note ? ` — ${note}` : ''} (대여자 ${borrower}${overdue ? ' · 연체 반환' : ''})${freedSeats.length ? ` · 라이선스 좌석 ${freedSeats.length}석 회수` : ''}`, actor: session.name })
   // 대여자에게 반환 접수 결과를 통보한다(반납 접수 통보의 대여판) — 특히 수리 필요·폐기 권고는 파손 책임 안내가 필요하다.
   const notified = borrower && borrower !== '미지정' && borrower !== '-'
   if (notified) {

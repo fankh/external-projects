@@ -1647,6 +1647,23 @@ try {
   await p4.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
   const loanNotif = (await p4.textContent('body')) || ''
   ok('대여 반환 → 대여자(한지민) 결과 통보(발송 이력 적재)', loanNotif.includes('대여 반환 접수 완료') && loanNotif.includes('AST-2023-000450') && loanNotif.includes('한지민'))
+  // 대여 반환 좌석 회수(회귀 · 이탈 5번째 경로) — 대여 자산도 보유자를 떠나는 이탈이므로 좌석을 회수해야 한다(로56). AST-2024-000995(마케팅팀 대여·M365 좌석) 정상 반환 → 좌석 회수.
+  await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
+  const loanRow995 = p4.locator('tr', { has: p4.locator('td', { hasText: 'AST-2024-000995' }) }).first()
+  await loanRow995.locator('select').first().selectOption('정상')
+  await loanRow995.locator('button', { hasText: /^반환 접수$/ }).click()
+  await p4.waitForTimeout(800)
+  await p4.goto(`${BASE}/assets/register?sel=AST-2024-000995`, { waitUntil: 'networkidle' })
+  ok('대여 반환 → 라이선스 좌석 자동 회수(좌석 누수 방지)', ((await p4.textContent('body')) || '').includes('대여 반환 접수 · 상태 점검 정상 (대여자 조민재) · 라이선스 좌석 1석 회수'))
+  // 재물조사 미확인 유휴 편성 좌석 회수(회귀) — 미확인 조정 승인은 사용중 자산을 유휴로 편성하는 이탈이므로 좌석 회수·소유자 정리가 따라야 한다. APR-2608-131(AST-2024-000994·M365 좌석) ADMIN 승인.
+  const ctxMU = await browser.newContext(); await ctxMU.addCookies([cookie(ADMIN)]); const pMU = await ctxMU.newPage()
+  await pMU.goto(`${BASE}/workflow/approvals`, { waitUntil: 'networkidle' })
+  await pMU.locator('tr', { has: pMU.locator('text=재물조사 미확인 1건 조정') }).first().locator('button', { hasText: /^승인$/ }).click()
+  await pMU.waitForTimeout(900)
+  await pMU.goto(`${BASE}/assets/register?sel=AST-2024-000994`, { waitUntil: 'networkidle' })
+  const adj994 = (await pMU.textContent('body')) || ''
+  ok('재물조사 미확인 조정 승인 → 유휴 편성 + 좌석 회수(보유자 이탈 정리)', adj994.includes('재물조사 미확인 — 분실 후보로 유휴 편성 · 라이선스 좌석 1석 회수 (Microsoft 365 E3)'))
+  await ctxMU.close()
   await p4.goto(`${BASE}/assets/returns`, { waitUntil: 'networkidle' })
   // 수리 지연 → 업체 독촉(검출→조치). 상태를 바꾸지 않으므로 유휴 처리 앞에 수행.
   const repairRemind = p4.locator('button', { hasText: /^업체 독촉 발송 \d+건$/ })

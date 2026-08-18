@@ -363,10 +363,16 @@ export async function decide(approvalId: string, verdict: '승인' | '반려', r
         asset.status = '사용중'
         asset.history.push({ date: today(), kind: '점검', detail: `재물조사 차이 조정 — 상태 ${d.expected} → 사용중`, actor: session.name })
       } else if (d.kind === '미확인 (실사 없음)' && asset) {
-        // 미확인은 즉시 분실 확정이 아니라 보수적으로 유휴 편성(분실 후보) — resolution 도 실제 조치와 일치시킨다(분실 처리가 아님)
+        // 미확인은 즉시 분실 확정이 아니라 보수적으로 유휴 편성(분실 후보) — resolution 도 실제 조치와 일치시킨다(분실 처리가 아님).
+        // 유휴 편성은 보유자를 떠나는 이탈이므로 좌석 회수·소유자 정리·수령 대기 해제를 회수(recoverFromUser)와 동일하게 수행한다
+        // (로56 좌석 생애주기 · 유휴 ⇒ 미지정 규약 — 사용중이던 자산이 유휴로 가며 좌석을 물고 있으면 SAM 배정 대장·사용량이 샌다).
         d.resolution = '유휴 편성'
         asset.status = '유휴'
-        asset.history.push({ date: today(), kind: '점검', detail: '재물조사 미확인 — 분실 후보로 유휴 편성', actor: session.name })
+        asset.owner = '미지정'
+        asset.dept = '자산관리팀'
+        asset.receiptPending = undefined
+        const freed = reclaimLicenseSeats(asset.assetNo, session.name, '재물조사 미확인 유휴 편성')
+        asset.history.push({ date: today(), kind: '점검', detail: `재물조사 미확인 — 분실 후보로 유휴 편성${freed.length ? ` · 라이선스 좌석 ${freed.length}석 회수 (${freed.join(', ')})` : ''}`, actor: session.name })
       } else if (d.kind === '대장 미등록') {
         // 현장에서 라벨만 확인된 미등록 자산을 대장에 실제 편입한다 — 그동안은 resolution 문자열만 남고
         // 실물이 관리 대상으로 들어오지 않아 '신규 등록'이 표시에 그쳤다(발견-미등록 자산이 방치되는 공백).
