@@ -188,6 +188,39 @@ export async function notifyMaintenanceBudget() {
   return { ok: true, message: `유지보수 예산 통보 ${n}건 발송 — 주관부서·공급사에 재협상·집행 점검 요청 (발송 이력 적재)` }
 }
 
+/** 유지보수 이행 독촉 — 계약액이 있는데 집행이 전혀 없는(미집행·집행률 0%) 유지보수 계약의 주관부서·공급사에 이행 확인·정기 점검 시행을 요청한다.
+ *  (예산 통보는 초과·소진 임박이 대상이라 정반대편인 '미집행'은 조치 채널이 없었다 — 돈은 계약됐는데 유지보수가 실제로 수행되는지 확인·독촉할 길이 없었다.
+ *   발주 이행 독촉(구매 계약)의 유지보수판 — 만료 전에 미집행을 방치하면 계약액 실기·SLA 미이행이 된다.) 당일 중복 발송 방지(ref=계약 id). 자산담당·Admin. */
+export async function remindMaintenanceExecution() {
+  const session = await guard()
+  if (!session) return { ok: false, message: '유지보수 이행 독촉 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  const t = today()
+  const sentToday = new Set(
+    s.dispatches.filter((m) => m.kind === '유지보수 이행 독촉' && m.at.startsWith(t)).map((m) => m.ref),
+  )
+
+  let n = 0
+  for (const r of buildMaintenance().rows) {
+    if (r.status !== '미집행') continue
+    if (sentToday.has(r.id)) continue
+    dispatch({
+      channel: '이메일',
+      to: `${r.ownerDept} · ${r.vendor}`,
+      subject: `${r.id} ${r.name} 유지보수 미집행 (집행률 0% · 계약액 ${fmtAmount(r.amount)}원 · 만료 ${r.end}) — 이행 확인·정기 점검 시행 요청`,
+      kind: '유지보수 이행 독촉',
+      ref: r.id,
+    })
+    n += 1
+  }
+
+  if (n === 0) return { ok: false, message: '미집행 유지보수 계약이 없습니다 (오늘 발송분 제외).' }
+  appendAudit({ actor: session.name, action: `유지보수 이행 독촉 발송 (${n}건)`, target: '유지보수 계약' })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `유지보수 이행 독촉 ${n}건 발송 — 주관부서·공급사에 이행 확인·점검 시행 요청 (발송 이력 적재)` }
+}
+
 /** 발주 이행 독촉 — 발주가 소화되지 않은 채(발주율 저조) 계약 만료가 임박한 구매 계약의 주관부서·공급사에 발주·검수 이행을 재촉한다.
  *  (그동안 발주 미이행 위험은 화면·대시보드에 판정만 보이고 조치 채널이 없었다 — 유지보수 예산 통보·대여 독촉과 같은 신호→조치.)
  *  만료 전에 발주를 소화하지 못하면 예산 실기·정산 지연이 되므로, 잔여 발주 여력·D-day 를 담아 통보한다. 당일 중복 발송 방지(ref=계약 id). 자산담당·Admin. */

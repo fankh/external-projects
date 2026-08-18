@@ -118,6 +118,8 @@ export default async function DashboardPage() {
       { label: '라이선스 미설치 좌석 (좌석 회수 후보 · 비용 절감)', count: buildLicenseUsage().totalUnusedSeat, href: '/inventory/contracts', tone: 'warn' },
       // 유지보수 예산 초과·소진 임박 — 계약별 집행률 판정(§03 유지보수 비용 관리)을 담당자 일과 시작점으로 끌어올린다. 방치하면 예산 초과·조기 소진.
       { label: '유지보수 예산 초과·소진 임박 (재협상·집행 점검)', count: maint.rows.filter((r) => r.status === '예산 초과' || r.status === '소진 임박').length, href: '/inventory/contracts', tone: maint.overBudget > 0 ? 'err' : 'warn' },
+      // 유지보수 미집행 — 계약액이 있는데 집행이 전혀 없는 계약(예산 통보의 반대편). 방치하면 계약액 실기·SLA 미이행. 이행 확인·독촉 대상.
+      { label: '유지보수 미집행 (이행 확인·독촉)', count: maint.execAlert, href: '/inventory/contracts', tone: 'warn' },
       // 구매 계약 발주 미이행 — 발주율 저조 + 만료 임박(§03 구매 계약 검수 연계). 방치하면 계약 미소진·예산 실기·정산 지연.
       { label: '구매 계약 발주 미이행 · 만료 임박 (이행 점검)', count: buildProcurement().atRisk.length, href: '/inventory/contracts', tone: 'err' },
       // 대장 정합성 미흡 — 소유자·시리얼·위치 등 핵심 필드 누락·불일치 자산(CMDB 신뢰도 저하). 필드 보정 필요.
