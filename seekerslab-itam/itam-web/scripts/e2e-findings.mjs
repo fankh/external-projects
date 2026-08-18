@@ -1226,6 +1226,12 @@ try {
   await offSpan.locator('button', { hasText: /^좌석 배정$/ }).first().click()
   await p3.waitForTimeout(800)
   ok('라이선스 STEP2: 인라인 좌석 배정 처리 성공(무단 사용 합법화 · 배정 N/M석)', /배정 \d+\/\d+석/.test((await step2Card().textContent()) || ''))
+  // 배정 밖 설치 제거 요청(로62) — 좌석 배정(구매·합법화) 대신 무단 설치 소거를 소유 부서에 통지. 같은 셀의 반대편 조치(미인가 SW 제거 47의 라이선스판).
+  const rmSpan = step2Card().locator('span').filter({ hasText: 'AST-2021-000432' }).first()
+  ok('라이선스 STEP2: 배정 밖 설치에 제거 요청 액션(합법화 아니면 제거)', (await rmSpan.locator('button', { hasText: /^제거 요청$/ }).count()) > 0)
+  await rmSpan.locator('button', { hasText: /^제거 요청$/ }).first().click()
+  await p3.waitForTimeout(800)
+  ok('라이선스 STEP2: 제거 요청 발송 성공(소유 부서 통지·발송 이력)', ((await step2Card().textContent()) || '').includes('통지·감사 적재'))
 
   // 좌석 배정 이탈-자산 가드 — 폐기·분실·반납대기 등 이탈한 자산에 좌석을 새로 배정하면 좌석 자동 회수(이탈 시점에만 돎)가 다시 돌지 않아 좌석이 영구 누수된다(보유 초과·사용량 과대·SAM 배정 대장 오기록, 로56 무결성). 폐기완료 자산(AST-2018-000090) 배정 시도 → 거부·배정 2석 유지.
   await p3.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
