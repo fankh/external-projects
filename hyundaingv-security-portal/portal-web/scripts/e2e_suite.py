@@ -51,6 +51,7 @@ PRDEPT_DATA = ROOT / 'scripts' / '.e2e-prdept-data.json'  # 출력물 미등록 
 SETDEL_DATA = ROOT / 'scripts' / '.e2e-setdel-data.json'  # 정산품의 삭제(작성중·반려) 커버리지용 (v1.5.239)
 VLEXTD_DATA = ROOT / 'scripts' / '.e2e-vlextd-data.json'  # 결재제외 완료 시 반려 재상신 할일 폐쇄 회귀용 (v1.5.243)
 SETATT_DATA = ROOT / 'scripts' / '.e2e-setatt-data.json'  # 정산품의 삭제 시 첨부·결재 자취 정리(id 재사용) 회귀용 (v1.5.245)
+SRGHOST_DATA = ROOT / 'scripts' / '.e2e-srghost-data.json'  # SR 지연 알림 퇴사 CI 유령 독촉 방지 회귀용 (v1.5.247)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -2226,6 +2227,20 @@ def sc_inspection_teamlead(pg, base, check):
     check('팀장' in header and '시스템관리자' in plan_line, f'inspection-plans export — 팀장 열·값(시스템관리자) 포함 실제:{plan_line[:80]}')
 
 
+def sc_sr_delay_ghost(pg, base, check):
+    """SR 지연 알림 — 퇴사 담당 CI 유령 독촉 방지 (타 person 알림과 동일 재직 교집합). 격리로 지연 SR 2건:
+    담당 CI 재직(김현우)·퇴사(E2E퇴사CI, s.people 밖). 알림 배치 'SR 지연' 대상이 재직 1명이어야 한다.
+    수정 전(교집합 없음)엔 퇴사 CI 포함 2명 → 대조 재현(점검 경과 팀장·출력물 부서장과 동일 알림 정합 계열)."""
+    login(pg, base, '시스템관리자')  # ADMIN — 수동 배치 실행
+    pg.goto(f'{base}/platform/integrations', wait_until='networkidle')
+    pg.locator('button:has-text("알림 배치 실행")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    row = pg.locator('tr', has_text='알림 배치 실행').first
+    detail = row.inner_text()
+    check('SR 지연 1명' in detail, f'SR 지연 알림 = 재직 CI 1명(퇴사 CI 제외) (실제: {detail[:150]})')
+
+
 def sc_printout_deptlead(pg, base, check):
     """출력물 미등록 알림 — 출력자+부서장 통지 (요구사항 56행: "주기적으로 안내메일(부서장, 출력자)").
     격리 데이터: 경영지원팀 정민서의 미등록 출력물 1건. 알림 배치 '출력물 미등록' 대상이 2명(출력자 정민서 +
@@ -2424,6 +2439,7 @@ SCENARIOS = [
     ('invest_basis', '계획대비실적 기준액 — 정산>계약>계획 우선순위', sc_invest_basis, {}),
     ('inspection_teamlead', '보안점검 경과 알림 — 담당자+팀장 통지', sc_inspection_teamlead, {'PORTAL_DATA_FILE': str(INSPTL_DATA)}),
     ('printout_deptlead', '출력물 미등록 알림 — 출력자+부서장 통지', sc_printout_deptlead, {'PORTAL_DATA_FILE': str(PRDEPT_DATA)}),
+    ('sr_delay_ghost', 'SR 지연 알림 — 퇴사 담당 CI 유령 독촉 방지(재직 교집합)', sc_sr_delay_ghost, {'PORTAL_DATA_FILE': str(SRGHOST_DATA)}),
     ('infra_rollback_plan', '인프라 변경 원복계획 — 작업계획과 별개 필수 산출물', sc_infra_rollback_plan, {'PORTAL_DATA_FILE': str(INFRACHG_DATA)}),
     ('special_pledge_duty', '특별서약(보안담당자) — 담당업무·세부업무 추가입력 제출', sc_special_pledge_duty, {'PORTAL_DATA_FILE': str(SPPLG_DATA)}),
     ('company_pledge', '협력업체서약서 — 징구→결재상신→승인 폐쇄루프', sc_company_pledge, {'PORTAL_DATA_FILE': str(CPLG_DATA)}),
@@ -2790,6 +2806,13 @@ def main() -> int:
     # 수정 전엔 담당자만 통지해 '점검 경과 1명', 수정 후 팀장 포함 '점검 경과 2명'.
     INSPTL_DATA.write_text(json.dumps({'inspectionPlans': [
         {'id': 'IS-2026-9301', 'itemId': 'CK-01', 'month': '2026-07', 'inspector': '박정호', 'teamLead': '시스템관리자', 'status': '결과미등록'},
+    ]}, ensure_ascii=False), encoding='utf-8')
+    # SR 지연 알림 퇴사 CI 유령 독촉 방지 — 지연 SR 2건: 담당 CI 재직(김현우)·퇴사(E2E퇴사CI, people 밖).
+    SRGHOST_DATA.write_text(json.dumps({'srRequests': [
+        {'srNo': 'SR-2026-9001', 'kind': '시스템개발', 'title': 'E2E 지연 재직CI', 'system': '영업정보시스템',
+         'requester': '김현우', 'dept': '개발1팀', 'status': '개발중', 'requestedAt': '2026-07-01', 'ci': '김현우', 'dueDate': '2026-07-10'},
+        {'srNo': 'SR-2026-9002', 'kind': '시스템개발', 'title': 'E2E 지연 퇴사CI', 'system': '구매시스템',
+         'requester': '이수진', 'dept': '경영지원팀', 'status': '개발중', 'requestedAt': '2026-07-01', 'ci': 'E2E퇴사CI', 'dueDate': '2026-07-10'},
     ]}, ensure_ascii=False), encoding='utf-8')
     # 출력물 미등록 알림 부서장 통지 — 경영지원팀 정민서의 미등록 출력물 1건. 배치 '출력물 미등록' 대상이
     # 출력자(정민서)+부서장(이수진, 경영지원팀 DEPT_MGR) 2명이어야 한다. 수정 전엔 출력자만 1명.

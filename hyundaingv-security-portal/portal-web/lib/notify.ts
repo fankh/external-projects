@@ -112,10 +112,14 @@ export async function runDailyNotify(): Promise<NotifyResult[]> {
       .map((r) => r.reviewer).filter((name) => people.some((p) => p.name === name)),
     '[보안성 검토] 착수 예정일 경과 안내')
 
-  // 3) SR 지연 — 완료 예정일 경과 진행 건의 담당 CI (lib/sr 단일 원천, 화면·대시보드·export 와 동일)
+  // 3) SR 지연 — 완료 예정일 경과 진행 건의 담당 CI (lib/sr 단일 원천, 화면·대시보드·export 와 동일).
+  // 재직자 교집합 — 담당 CI(또는 신청자)가 퇴사해 s.people 에서 빠지면 처리할 수 없으므로(유령 독촉) 타 person
+  // 경로(점검 경과·QnA·확인서·반려방치)와 동일하게 재직 명단과 교집합한다. 지연 SR 자체는 지연내역 화면에 남아
+  // 재배정·가시성은 유지된다(sr/delayed). CI 퇴사 시 신청자 폴백 없이 드롭 — sibling 경로와 동일(관리자 재배정 유도).
   await send('SR 지연',
     delayedSrs(s, t)
-      .map((r) => r.ci ?? r.requester),
+      .map((r) => r.ci ?? r.requester)
+      .filter((name) => people.some((p) => p.name === name)),
     '[SR] 완료 예정일 경과 안내')
 
   // 3-b) QnA 미답변 — 담당 지정된 미답변 문의의 담당자(재직 교집합). 담당 지정 시 답변 할일도 발급된다
