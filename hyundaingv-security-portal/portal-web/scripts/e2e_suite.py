@@ -54,6 +54,7 @@ SETATT_DATA = ROOT / 'scripts' / '.e2e-setatt-data.json'  # 정산품의 삭제 
 SRGHOST_DATA = ROOT / 'scripts' / '.e2e-srghost-data.json'  # SR 지연 알림 퇴사 CI 유령 독촉 방지 회귀용 (v1.5.247)
 SECMON_DATA = ROOT / 'scripts' / '.e2e-secmon-data.json'  # 보안관제 어댑터 탐지→보안위반 자동 등록 커버리지용 (v1.5.249)
 EXECOVER_DATA = ROOT / 'scripts' / '.e2e-execover-data.json'  # 집행률 초과(err) 톤 원값 판정(반올림 경계) 회귀용 (v1.5.251)
+CFIX_DATA = ROOT / 'scripts' / '.e2e-cfix-data.json'  # 취약점 조치율 no-findings 100(추세 0% 오표기 방지) 회귀용 (v1.5.257)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -452,6 +453,23 @@ def sc_exec_over_budget_tone(pg, base, check):
     cls = chip.get_attribute('class') or ''
     check('err' in cls, '집행 1,004>계획 1,000 → 초과 err 톤 (반올림 100 이어도 원값으로 초과 판정)')
     check('warn' not in cls, '초과분을 warn(주의)으로 내리지 않음')
+
+
+def sc_compliance_fixrate_clean(pg, base, check):
+    """취약점 조치율 — 발견 0건(청정 기간)은 조치율 100%(만점)로 스냅샷·추세에 기록해야 한다. 포스처 fix 축과
+    동일 단일원천(complianceFixRate). 반올림 비율(fixDone/0→0)로 저장하면 발견 없는 청정 기간이 추세에서
+    0% 조치율로 오표기돼, 같은 스냅샷의 score(fix 축=100)와 어긋난다(청정을 실패로 오도). 격리(보안성검토·
+    스냅샷·감사 비움)로 기록 후 유일 '컴플라이언스 스냅샷' 감사의 '조치 100%'를 확인한다."""
+    login(pg, base, '시스템관리자')  # ADMIN — 스냅샷 기록 + 감사 열람
+    pg.goto(f'{base}/compliance/inspection', wait_until='networkidle')
+    pg.locator('button:has-text("현황 스냅샷 기록")').click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/settings/audit', wait_until='networkidle')
+    snaprow = pg.locator('tr', has_text='컴플라이언스 스냅샷')
+    check(snaprow.count() >= 1, '스냅샷 기록 감사 남음')
+    detail = snaprow.first.inner_text()
+    check('조치 100%' in detail, '발견 0건 → 조치율 100%(만점) 기록 (청정 기간, 추세 0% 오표기 아님)')
+    check('조치 0%' not in detail, '청정 기간을 조치율 0%(실패)로 오표기하지 않음')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2502,6 +2520,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(SETATT_DATA)}),
     ('exec_over_budget_tone', '집행률 초과(err) 톤 — 반올림 경계(100.4%→100) 오분류 방지, 원값 판정', sc_exec_over_budget_tone,
      {'PORTAL_DATA_FILE': str(EXECOVER_DATA)}),
+    ('compliance_fixrate_clean', '취약점 조치율 no-findings 만점(100) — 청정 기간 추세 0% 오표기 방지', sc_compliance_fixrate_clean,
+     {'PORTAL_DATA_FILE': str(CFIX_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -2895,6 +2915,9 @@ def main() -> int:
         'investContracts': [{'id': 'CT-2026-90', 'kind': '투자', 'planId': 'IP-2026-90', 'vendor': '테스트벤더', 'title': '경계 계약', 'amount': 1004, 'signedAt': '2026-07-01'}],
         'settlements': [{'id': 'ST-2026-90', 'contractId': 'CT-2026-90', 'item': '착수금', 'amount': 1004, 'status': '지급완료', 'requestedBy': '김현우', 'requestedAt': '2026-07-05'}],
     }, ensure_ascii=False), encoding='utf-8')
+    # 취약점 조치율 no-findings — 보안성검토 0건(fixFindings=0)일 때 스냅샷 조치율이 만점(100)이어야 한다(추세 0% 오표기 방지).
+    # 감사만 남기려 auditLogs 도 비워, 기록 후 유일한 '컴플라이언스 스냅샷' 감사에서 '조치 100%'를 확인한다.
+    CFIX_DATA.write_text(json.dumps({'securityReviews': [], 'complianceSnapshots': [], 'auditLogs': []}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
