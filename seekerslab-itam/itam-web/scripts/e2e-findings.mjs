@@ -1968,6 +1968,28 @@ try {
   ok('스캔 이력 재실행: 과거 회차 조건으로 새 회차 추가(원클릭 재탐지)', scanCountBefore > 0 && scanCountAfter === scanCountBefore + 1)
   await ctx4.close()
 
+  // ── 커버리지 보강(회귀 방어) — 그동안 smoke SSR 렌더만 있고 액션이 미검증이던 상태 변경 루프. 스위트 끝에 배치해 앞 단언에 상태 오염이 없게 한다.
+  // 만료 임박 알림 발송(로13) — 컴플라이언스 디스패치. 발송이 조용히 끊겨도 무탐지이던 공백을 닫는다.
+  const ctxEN = await browser.newContext(); await ctxEN.addCookies([cookie(ASSET)]); const pEN = await ctxEN.newPage()
+  await pEN.goto(`${BASE}/inventory/contracts`, { waitUntil: 'networkidle' })
+  const enBtn = pEN.locator('button', { hasText: /^만료 임박 알림 발송 \(\d+\)$/ })
+  ok('만료 임박 알림(로13): 발송 버튼 노출(임박 대상 ≥1)', (await enBtn.count()) > 0 && !/\(0\)/.test(await enBtn.first().innerText()))
+  await enBtn.first().click()
+  await pEN.waitForTimeout(700)
+  ok('만료 임박 알림(로13): 발송 성공(계약·라이선스·보증 통지 · 발송 이력 적재)', ((await pEN.textContent('body')) || '').includes('발송 이력에서 확인할 수 있습니다'))
+  await ctxEN.close()
+  // 커넥터 재연동(로22) — 지연·오류 커넥터를 정상으로 되돌리는 액션(보안담당). 시드 '프록시 · 방화벽 · DNS'(지연).
+  const ctxCN = await browser.newContext(); await ctxCN.addCookies([cookie(SEC)]); const pCN = await ctxCN.newPage()
+  await pCN.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const cnRow = pCN.locator('tr', { has: pCN.locator('td', { hasText: '프록시 · 방화벽 · DNS' }) }).first()
+  ok('커넥터 재연동(로22): 지연 커넥터 표시', ((await cnRow.textContent()) || '').includes('지연'))
+  await cnRow.locator('button', { hasText: /^연결 테스트$/ }).click()
+  await pCN.waitForTimeout(700)
+  await pCN.goto(`${BASE}/platform/integrations`, { waitUntil: 'networkidle' })
+  const cnText = (await pCN.locator('tr', { has: pCN.locator('td', { hasText: '프록시 · 방화벽 · DNS' }) }).first().textContent()) || ''
+  ok('커넥터 재연동(로22): 재연동 → 상태 정상(지연 해소·감사 적재)', cnText.includes('정상') && !cnText.includes('지연'))
+  await ctxCN.close()
+
   await browser.close()
 } catch (err) {
   fail++
