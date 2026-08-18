@@ -4,7 +4,7 @@ import { Chip, RiskChip } from '@/components/ui'
 import { classifyDiscoveredType } from '@/lib/classify'
 import type { Channel, ChannelObservation, DiscoveredAsset, ReconcileState, RiskLevel } from '@/lib/types'
 import { CHANNELS } from '@/lib/types'
-import { confirmReconcile, dismissDiscovered, dismissDiscoveredMany, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestOwnerConfirmMany, requestQuarantine, undismissDiscovered } from '../actions'
+import { confirmReconcile, confirmSurvival, dismissDiscovered, dismissDiscoveredMany, mergeDiscovered, requestOnboard, requestOnboardMany, requestOwnerConfirm, requestOwnerConfirmMany, requestQuarantine, undismissDiscovered } from '../actions'
 
 const STATE_TONE: Record<ReconcileState, 'ok' | 'warn' | 'err' | 'neutral'> = {
   '등록·일치': 'ok', '등록·불일치': 'warn', 미등록: 'err', 미확인: 'neutral',
@@ -273,6 +273,24 @@ export function FoundView({ items, observations, mergeCandidates, canExport, ini
                 <span className="mut" style={{ fontSize: 11 }}>
                   {sel.mismatchField ? '대사 확인이 실측값을 대장에 반영한 뒤 등록·일치로 종결합니다.' : '대장을 보정한 뒤 대사 확인하면 등록·일치로 종결됩니다.'}</span>
               </div>
+            )}
+            {/* 등록·일치(대장 매칭) 재관측 — 대사 = 생존 신호(§04 그림3). 담당자가 확정하면 대장 최근 실측일이 갱신돼 장기 미실측(유령 후보)에서 빠진다. */}
+            {sel.state === '등록·일치' && sel.matchedAssetNo && (
+              sel.survivalConfirmedAt ? (
+                <div className="callout" style={{ marginTop: 14, padding: '8px 11px', fontSize: 12 }}>
+                  생존 확인됨 — {sel.survivalConfirmedAt} · 대장 <b>{sel.matchedAssetNo}</b> 최근 실측일 갱신(장기 미실측 해소)
+                </div>
+              ) : (
+                <div className="vstack" style={{ marginTop: 14, gap: 8 }}>
+                  <div className="kicker mute">CMDB 대사 — 등록·일치(재관측)</div>
+                  <div className="callout" style={{ padding: '8px 11px', fontSize: 12 }}>
+                    {sel.channel} 재관측(최근 {sel.lastSeen}) — 생존 확인 시 대장 <b>{sel.matchedAssetNo}</b>의 최근 실측일이 갱신되어 장기 미실측(유령 자산 후보)에서 빠집니다.
+                  </div>
+                  <button className="btn sm pri" disabled={pending}
+                    onClick={() => startTransition(async () => setMsg((await confirmSurvival(sel.id)).message))}
+                    title="네트워크·EDR 재관측을 대장 최근 실측일로 확정">생존 확인 — 최근 실측일 갱신</button>
+                </div>
+              )
             )}
             {sel.action === '관리 제외' && (
               <div className="callout" style={{ marginTop: 14 }}>

@@ -162,6 +162,8 @@ export interface DiscoveredAsset {
   ownerAnswer?: '본인 자산' | '본인 자산 아님'
   /** AI 자동분류 판정으로 확정된 표준 유형 — 편입 시 이 유형이 대장으로 승계된다(없으면 발견 유형 문자열을 자동분류). */
   classifiedCategory?: AssetCategory
+  /** CMDB 대사 생존 확인 처리일 — 등록·일치(대장 매칭) 재관측을 대장 '최근 실측일'로 확정한 시점. §04 그림3의 등록·일치 = 생존 신호. */
+  survivalConfirmedAt?: string
 }
 
 /** 소유자 확인 요청의 응답 기한(일). 경과 시 격리 요청으로 에스컬레이션한다.

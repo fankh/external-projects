@@ -2076,6 +2076,24 @@ try {
   const acRow = (await pAC.locator('tr', { has: pAC.locator('td', { hasText: 'INS-2608-07' }) }).first().textContent()) || ''
   ok('AI 자동분류 판정→조치(로66): 승인 → 발견 자산 표준 유형 확정 · 주변기기(편입 승계)', acRow.includes('표준 유형 확정') && acRow.includes('주변기기'))
   await ctxAC.close()
+  // 발견 재관측(등록·일치) → 대장 생존 신호(로68) — DSC-2608-0052(네트워크 스캔)가 AST-2020-000883(IDC-B 노후 서버, 최근 실측 10개월 경과)을 생존 재관측. lastVerifiedAt 은 물리 재물조사에서만 갱신돼 장기 미실측(유령 후보)으로 오탐되던 것을, 대사 생존 확인이 최근 실측일을 오늘로 갱신해 장기 미실측에서 뺀다. 갱신이 없으면 883 이 장기 미실측 필터에 남아 실패.
+  const ctxSV = await browser.newContext(); await ctxSV.addCookies([cookie(ADMIN)]); const pSV = await ctxSV.newPage()
+  await pSV.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await pSV.locator('button', { hasText: '장기 미실측' }).first().click()
+  await pSV.waitForTimeout(300)
+  ok('대사 생존 신호(로68): 생존 확인 전 883 은 장기 미실측(유령 후보)', (await pSV.locator('tr', { has: pSV.locator('td', { hasText: 'AST-2020-000883' }) }).count()) > 0)
+  await pSV.goto(`${BASE}/discovery/found?sel=DSC-2608-0052`, { waitUntil: 'networkidle' })
+  const svDetail = (await pSV.locator('body').textContent()) || ''
+  ok('대사 생존 신호(로68): 등록·일치 재관측에 생존 확인 버튼 노출(대장 883 링크)', svDetail.includes('생존 확인 — 최근 실측일 갱신') && svDetail.includes('AST-2020-000883'))
+  await pSV.locator('button', { hasText: '생존 확인 — 최근 실측일 갱신' }).first().click()
+  await pSV.waitForTimeout(900)
+  await pSV.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  await pSV.locator('button', { hasText: '장기 미실측' }).first().click()
+  await pSV.waitForTimeout(300)
+  ok('대사 생존 신호(로68): 생존 확인 → 883 장기 미실측에서 빠짐(최근 실측일 갱신)', (await pSV.locator('tr', { has: pSV.locator('td', { hasText: 'AST-2020-000883' }) }).count()) === 0)
+  await pSV.goto(`${BASE}/assets/register?sel=AST-2020-000883`, { waitUntil: 'networkidle' })
+  ok('대사 생존 신호(로68): 대장 이력에 대사 생존 확인 점검 기록', ((await pSV.locator('body').textContent()) || '').includes('CMDB 대사 생존 확인'))
+  await ctxSV.close()
 
   await browser.close()
 } catch (err) {
