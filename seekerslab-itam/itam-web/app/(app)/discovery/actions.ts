@@ -343,6 +343,30 @@ export async function confirmReconcile(discoveredId: string) {
   return { ok: true, message: `${d.id} 대사 확인 — 등록·일치 종결${correction || (d.matchedAssetNo ? ` (${d.matchedAssetNo} 이력 적재)` : '')}` }
 }
 
+/** 대사 생존 확인 — 등록·일치(대장 매칭) 재관측을 대장 '최근 실측일'로 확정한다(§04 그림3: 등록·일치 = 생존 신호).
+ *  그동안 최근 실측일(lastVerifiedAt)은 물리 재물조사 실사에서만 갱신돼, 네트워크·EDR 이 매일 살아있음을 재관측해도
+ *  물리 방문이 밀린 원격·원격지 자산은 장기 미실측(유령 자산 후보)으로 오탐돼 재물조사 자동 편성까지 흘렀다.
+ *  Discovery 의 생존 재관측을 담당자가 확정하면 대장 최근 실측일이 오늘로 갱신돼 장기 미실측·미확인 집계에서 빠진다. */
+export async function confirmSurvival(discoveredId: string) {
+  const session = await getSession()
+  if (!session || !can('발견 자산 · CMDB 대사', '편입', session.role)) return { ok: false, message: '대사 생존 확인 권한이 없습니다.' }
+  const s = getStore()
+  const d = s.discovered.find((x) => x.id === discoveredId)
+  if (!d) return { ok: false, message: '발견 자산을 찾을 수 없습니다.' }
+  if (d.state !== '등록·일치' || !d.matchedAssetNo) return { ok: false, message: '등록·일치(대장 매칭) 재관측 건만 생존 확인할 수 있습니다.' }
+  if (d.survivalConfirmedAt) return { ok: false, message: `이미 생존 확인된 재관측입니다 — ${d.id} (${d.survivalConfirmedAt})` }
+  const asset = s.assets.find((a) => a.assetNo === d.matchedAssetNo)
+  if (!asset) return { ok: false, message: '대사 자산을 찾을 수 없습니다.' }
+
+  const before = asset.lastVerifiedAt ?? '미실측'
+  asset.lastVerifiedAt = today() // 재관측 확정 = 생존 신호. 최근 실측일을 오늘로 갱신해 장기 미실측에서 빠진다.
+  d.survivalConfirmedAt = today()
+  asset.history.push({ date: today(), kind: '점검', detail: `CMDB 대사 생존 확인 — ${d.channel} 재관측(최근 ${d.lastSeen}) 최근 실측일 갱신 (이전 ${before}) (${d.id})`, actor: session.name })
+  appendAudit({ actor: session.name, action: `CMDB 대사 생존 확인 — ${asset.assetNo} 최근 실측일 갱신 (이전 ${before})`, target: asset.assetNo })
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `${d.id} 생존 확인 — ${asset.assetNo} 최근 실측일 오늘로 갱신(장기 미실측 해소)` }
+}
+
 /** 휴면 계정 조치 — AD/IdP·SSO 휴면 계정을 검출에서 끝내지 않고 비활성화 집행 또는 소유자(부서) 확인으로 이어간다.
  *  (제품안내서 §04 탐지 채널 06 · §06 AD/Entra 휴면 계정 발견) 계정 위생은 보안 업무이므로 보안담당·Admin 만.
  *  요청 사실은 담당 채널 통지 + 감사 로그에 남는다. 외부 노출 조치(requestExternalAction)와 동형. */
