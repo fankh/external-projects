@@ -148,6 +148,10 @@ export interface DiscoveredAsset {
   risk: RiskLevel
   matchedAssetNo?: string
   mismatch?: string
+  /** 실측이 대장과 다른 필드 — 지정 시 '대사 확인'이 대장 값을 실측값으로 보정한다(등록·불일치 폐쇄). 미지정 불일치(구성 상이 등)는 검토·종결만 한다. */
+  mismatchField?: '위치' | '소유자' | '부서'
+  /** 실측값 — mismatchField 와 함께 지정되면 대사 확인 시 대장에 반영된다. */
+  observedValue?: string
   ownerCandidate?: string
   note?: string
   /** 처리 상태 — 확인요청은 편입/격리 앞단의 소유자 확인 단계 (제품안내서 그림 3). '관리 제외'는 관리 대상이 아닌 알려진 비자산(협력사 장비·게스트 단말·비관리 어플라이언스)으로 판정해 미등록 갭에서 제외한 상태(사유·감사 필수, 해제 가능). */

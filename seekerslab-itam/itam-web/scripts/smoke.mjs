@@ -364,9 +364,9 @@ try {
   check('대시보드(보안담당): 교체 대상·미사용 라이선스 회수 큐 미노출 (자산관리 계획 큐)', !dashSec.includes('교체 대상 자산') && !dashSec.includes('미사용 라이선스 회수 후보'))
   const foundHtml = await (await get('/discovery/found', 'SEC_MGR')).text()
   check('발견 자산: 6채널·대사 상태·일괄 편입 렌더', foundHtml.includes('네트워크 능동 스캔') && foundHtml.includes('등록·불일치') && foundHtml.includes('선택 일괄 편입 요청'))
-  // 발견 자산 상세 딥링크(?sel=) — 전역 검색·CMDB 대사에서 특정 자산 상세로 바로 진입. 등록·불일치(DSC-2607-0029) 상세에 대사 확인 액션도 노출.
+  // 발견 자산 상세 딥링크(?sel=) — 전역 검색·CMDB 대사에서 특정 자산 상세로 바로 진입. 위치 불일치(DSC-2607-0029)는 실측값이 구조화돼 있어 대사 확인이 곧 대장 보정(자동 반영) — 실측값 안내·보정 버튼이 노출된다(로67).
   const foundSelHtml = await (await get('/discovery/found?sel=DSC-2607-0029', 'ASSET_MGR')).text()
-  check('발견 자산: ?sel= 딥링크로 상세 오픈 + 등록·불일치 대사 확인 액션 노출', foundSelHtml.includes('위치 상이') && foundSelHtml.includes('대사 확인 (등록·일치 처리)') && foundSelHtml.includes('대장에서 보정'))
+  check('발견 자산: ?sel= 딥링크로 상세 오픈 + 등록·불일치 실측 보정 액션 노출', foundSelHtml.includes('위치 상이') && foundSelHtml.includes('대사 확인 — 실측 보정·종결') && foundSelHtml.includes('부산 지사 3F'))
   // 관리 제외 — 관리 대상이 아닌 알려진 비자산(협력사 장비·게스트 단말·비관리 어플라이언스)을 편입/격리 아닌 판정으로 미등록 갭에서 빼는 컨트롤(미등록·미처리 상세).
   const foundDismissHtml = await (await get('/discovery/found?sel=DSC-2607-0046', 'SEC_MGR')).text()
   check('발견 자산: 미등록 상세에 관리 제외(비자산 판정) 컨트롤', foundDismissHtml.includes('관리 제외') && foundDismissHtml.includes('비관리 어플라이언스'))
