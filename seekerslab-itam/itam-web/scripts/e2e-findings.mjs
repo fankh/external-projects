@@ -631,6 +631,14 @@ try {
   await p2.waitForTimeout(700)
   const maintRemindBody = (await p2.locator('body').textContent()) || ''
   ok('정기 점검 독촉: 발송 성공(소유 부서 점검 시행 요청·발송 이력)', maintRemindBody.includes('정기 점검 독촉') && maintRemindBody.includes('발송'))
+  // EOL OS 업그레이드 통보(로61) — 지원 종료 OS 자산(시드 Windows 10 Pro·CentOS 7.9)의 소유 부서에 업그레이드·교체 검토 통보(폐기 외 조치 접점). 정기 점검·수령 독촉과 같은 컴플라이언스 통보.
+  await p2.goto(`${BASE}/assets/register`, { waitUntil: 'networkidle' })
+  const eolBtn = p2.locator('button', { hasText: /EOL 업그레이드 통보/ })
+  ok('EOL 업그레이드 통보: EOL OS 자산 있으면 자산담당에 통보 버튼 노출', (await eolBtn.count()) > 0)
+  await eolBtn.first().click()
+  await p2.waitForTimeout(700)
+  const eolBody = (await p2.locator('body').textContent()) || ''
+  ok('EOL 업그레이드 통보: 발송 성공(소유 부서 업그레이드·교체 요청·발송 이력)', eolBody.includes('EOL 업그레이드 통보') && eolBody.includes('발송'))
 
   // 자산 재배정(직접 인계) — 사용 중 자산을 반납·재불출 왕복 없이 새 보유자에게 직접 인계. 그동안 사용 중 자산의 보유자 변경 경로가 없어
   //  팀 내 인수인계가 반납→재불출을 강제했다(correctField 가 '이동·불출 결재로'라며 막지만 이동은 위치만·불출은 유휴만). AST-2023-000113(이서연) → 오세훈(인사팀).

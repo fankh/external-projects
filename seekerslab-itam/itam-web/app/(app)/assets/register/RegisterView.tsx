@@ -9,7 +9,7 @@ import { contractHref } from '@/lib/reflink'
 import { acquisitionCostOf, assetTco, bookValueOf, depreciationPct } from '@/lib/cost'
 import { warrantyState } from '@/lib/dates'
 import { selectForDisposal } from '@/app/(app)/assets/disposal/actions'
-import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, reassignAsset, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
+import { cancelFault, cancelLoanExtension, cancelMaintenanceSchedule, cancelReturnRequest, confirmReceipt, correctField, declineLoanExtension, extendLoan, requestReturn, extendWarranty, extendWarrantyMany, grantLoanExtension, loanAsset, loanAssetMany, reassignAsset, notifyEolUpgrade, recordConfigChange, recordMaintenance, recoverAsset, recoverFromUser, recoverManyFromUser, remindMaintenance, remindReceipts, reportFault, reportLostStolen, requestLoanExtension, returnLoan, scheduleMaintenance, scheduleMaintenanceMany, setAssetContract, setAssetContractMany, setAssetCriticality, setAssetCriticalityMany, type ConfigField, type StewardField } from './actions'
 
 /** today(YYYY-MM-DD) 기준 dueDate 까지 남은 일수 — 서버가 준 today prop 으로만 계산해 하이드레이션 불일치를 피한다 */
 function daysBetween(today: string, dueDate: string): number {
@@ -92,6 +92,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
   const [receiptMsg, setReceiptMsg] = useState<string | null>(null)
   const [rcptRemindMsg, setRcptRemindMsg] = useState<string | null>(null)
   const [maintRemindMsg, setMaintRemindMsg] = useState<string | null>(null)
+  const [eolNoticeMsg, setEolNoticeMsg] = useState<string | null>(null)
   const [recoverOpen, setRecoverOpen] = useState(false)
   const [recoverReason, setRecoverReason] = useState('')
   const [recoverMsg, setRecoverMsg] = useState<string | null>(null)
@@ -269,6 +270,13 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
             정기 점검 독촉 발송 ({props.maintOverdueCount})
           </button>
         )}
+        {props.canEdit && eolSet.size > 0 && (
+          <button className="btn sm danger" disabled={pending}
+            onClick={() => startTransition(async () => setEolNoticeMsg((await notifyEolUpgrade()).message))}
+            title="OS 지원 종료(EOL) 자산의 소유 부서에 업그레이드·교체 검토를 통보한다 (당일 중복 발송 차단)">
+            EOL 업그레이드 통보 ({eolSet.size})
+          </button>
+        )}
         <span className="cnt">{rows.length}건 / 전체 {props.assets.length}건</span>
         {props.canExport && (
           <a className="btn sm" style={{ marginLeft: 'auto' }} download
@@ -285,6 +293,7 @@ export function RegisterView(props: { assets: Asset[]; initialQuery: string; can
       </div>
       {rcptRemindMsg && <div className="callout" style={{ marginBottom: 10 }}>{rcptRemindMsg}</div>}
       {maintRemindMsg && <div className="callout" style={{ marginBottom: 10 }}>{maintRemindMsg}</div>}
+      {eolNoticeMsg && <div className="callout" style={{ marginBottom: 10 }}>{eolNoticeMsg}</div>}
 
       {(views.length > 0 || filterActive) && (
         <div className="hstack" style={{ gap: 6, padding: '8px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>
