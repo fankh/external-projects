@@ -370,8 +370,9 @@ export async function runEasmScan(input: { domains: string[]; mode: 'Passive' | 
   }
   s.unseenExternal = s.unseenExternal.filter((u) => !surfaced.includes(u))
 
-  // 후보 수 — 수동 수집이 훑은 호스트명 규모(기존 관측 + 신규)
-  run.candidates = s.external.filter((e) => input.domains.some((d) => e.host.endsWith(d))).length + surfaced.length
+  // 후보 수 — 수동 수집이 훑은 호스트명 규모(기존 관측 + 신규). surfaced 는 이미 s.external 에 unshift 되어 filter 에 포함되므로
+  // + surfaced.length 를 더하면 신규분이 이중 계상된다(신규 1건 · 기존 3건이면 4가 아니라 5로 부풀던 오류).
+  run.candidates = s.external.filter((e) => input.domains.some((d) => e.host.endsWith(d))).length
 
   // ── 능동 확인 — 기존 미확인 자산의 생존을 판정한다
   if (active) {
