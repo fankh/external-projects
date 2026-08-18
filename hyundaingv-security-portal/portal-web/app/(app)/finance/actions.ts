@@ -53,6 +53,12 @@ export async function deleteSettlement(formData: FormData) {
     if (!t.done && t.kind === '재상신' && t.title.startsWith(`[${docType}] ${st.id} `)) t.done = true
   }
   s.settlements = s.settlements.filter((x) => x.id !== id)
+  // 폐기된 품의의 참조 자취를 함께 정리한다 — 첨부(정산 증빙)·이 품의의 결재 기록. nextNo 는 최대 id+1 이라
+  // 최상위 품의를 삭제하면 그 id 가 재사용되는데, 자취가 남으면 같은 id 로 만든 신규 정산의 결재함 상세에
+  // 삭제된 품의의 증빙 파일·'이전 회차' 결재가 새어 나온다(deleteQna·deleteNotice 의 첨부 정리와 동일 정책).
+  // §VI 추적은 감사 로그('정산품의 삭제')가 담당하므로 결재함 자취 제거는 무해하다. 대기 결재는 위 가드로 이미 배제.
+  s.attachments = s.attachments.filter((a) => a.refId !== id)
+  s.approvals = s.approvals.filter((a) => a.ref !== id)
   audit(me.name, '정산품의 삭제', `${st.id} ${contract.kind} — ${contract.title} ${st.item} ${st.amount.toLocaleString('ko-KR')}만원 (${st.status})`)
   revalidatePath('/', 'layout')
 }

@@ -50,6 +50,7 @@ SETDUP_DATA = ROOT / 'scripts' / '.e2e-setdup-data.json'  # 정산품의 결재�
 PRDEPT_DATA = ROOT / 'scripts' / '.e2e-prdept-data.json'  # 출력물 미등록 알림 부서장 통지 회귀용 (v1.5.237)
 SETDEL_DATA = ROOT / 'scripts' / '.e2e-setdel-data.json'  # 정산품의 삭제(작성중·반려) 커버리지용 (v1.5.239)
 VLEXTD_DATA = ROOT / 'scripts' / '.e2e-vlextd-data.json'  # 결재제외 완료 시 반려 재상신 할일 폐쇄 회귀용 (v1.5.243)
+SETATT_DATA = ROOT / 'scripts' / '.e2e-setatt-data.json'  # 정산품의 삭제 시 첨부·결재 자취 정리(id 재사용) 회귀용 (v1.5.245)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -474,6 +475,38 @@ def sc_settle_delete(pg, base, check):
     pg.goto(f'{base}/settings/audit', wait_until='networkidle')
     audit_row = pg.locator('tr', has_text='정산품의 삭제').first
     check(audit_row.count() > 0 and 'ST-2026-0001' in audit_row.inner_text(), '정산품의 삭제 감사 기록(품의번호·기안자)')
+
+
+def sc_settle_delete_attach(pg, base, check):
+    """정산품의 삭제 시 첨부·결재 자취 정리 — 최상위 id 삭제 후 재사용 시 삭제된 품의의 증빙이 신규 정산에
+    새지 않는다. nextNo(최대 id+1) 가 삭제된 최상위 id 를 재사용하므로 자취가 남으면 같은 id 신규 정산의
+    결재함에 유령 첨부가 노출된다. 격리(settlements·approvals·attachments 비움)."""
+    login(pg, base, '이수진')  # 부서담당 — 비용 정산 상신·삭제 스코프
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    # 1) 증빙 첨부한 임시저장(작성중) — 삭제 대상, attachment(ST-0001) 생성
+    card = pg.locator('.card', has_text='정산품의')
+    card.locator('select[name=contractId]').select_option('CT-2026-03')
+    card.locator('input[name=amount]').fill('1888')
+    card.locator('input[type=file]').set_input_files(str(UPLOAD))
+    card.locator('button:has-text("임시저장")').click()
+    pg.wait_for_selector('tr:has-text("ST-2026-0001"):has-text("작성중")', timeout=10000)
+    # 2) 삭제 → 품의·첨부 정리
+    pg.locator('tr', has_text='ST-2026-0001').get_by_role('button', name='삭제', exact=True).click()
+    pg.wait_for_load_state('networkidle')
+    pg.goto(f'{base}/finance/expense', wait_until='networkidle')
+    check(pg.locator('tr', has_text='ST-2026-0001').count() == 0, '삭제 → 목록 제거')
+    # 3) 신규 상신(무첨부) — nextNo 로 ST-0001 재사용
+    card = pg.locator('.card', has_text='정산품의')
+    card.locator('select[name=contractId]').select_option('CT-2026-03')
+    card.locator('input[name=amount]').fill('1999')
+    card.locator('button:has-text("정산품의 상신")').click()
+    pg.wait_for_selector('tr:has-text("ST-2026-0001"):has-text("결재중")', timeout=10000)
+    # 4) 결재함 — 재사용 id 의 신규 결재에 삭제된 증빙(📎)이 새지 않는다 (무첨부로 상신했으므로 0)
+    login(pg, base, '박정호')
+    pg.goto(f'{base}/work/approvals', wait_until='networkidle')
+    arow = pg.locator('tr', has_text='정산품의-비용').first
+    check('ST-2026-0001' in arow.inner_text() and '📎' not in arow.inner_text(),
+          '재사용 id 신규 결재에 삭제된 증빙(유령 첨부) 미노출')
 
 
 def sc_adapter(pg, base, check):
@@ -2406,6 +2439,8 @@ SCENARIOS = [
      {'PORTAL_DATA_FILE': str(SETDUP_DATA)}),
     ('settle_delete', '정산품의 삭제 — 작성중·반려 폐기 + 감사(요구사항 11·17행 P=삭제)', sc_settle_delete,
      {'PORTAL_DATA_FILE': str(SETDEL_DATA)}),
+    ('settle_delete_attach', '정산품의 삭제 시 첨부·결재 자취 정리(id 재사용 유령 첨부 방지)', sc_settle_delete_attach,
+     {'PORTAL_DATA_FILE': str(SETATT_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -2779,6 +2814,8 @@ def main() -> int:
     # 정산품의 삭제 — 정산·결재 없는 상태에서 상신→반려→삭제→감사·재상신할일 폐쇄 검증(ST 채번 고정 ST-0001,
     # 결재 유일). approvals 도 비워 시드 대기 정산품의(AP-0709)가 반려 대상 로케이터를 흐리지 않게 한다.
     SETDEL_DATA.write_text(json.dumps({'settlements': [], 'approvals': []}, ensure_ascii=False), encoding='utf-8')
+    # 정산품의 삭제 첨부·결재 자취 정리 — 증빙 첨부한 정산 삭제→재사용 id 신규 정산에 유령 첨부 미노출 검증.
+    SETATT_DATA.write_text(json.dumps({'settlements': [], 'approvals': [], 'attachments': []}, ensure_ascii=False), encoding='utf-8')
     # 보안위반 결재제외 별도관리 — 위반 없는 상태에서 등록→스캔 확인서 업로드→결재 없이 완료 검증.
     VLEX_DATA.write_text(json.dumps({'violations': []}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
