@@ -140,6 +140,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
             <dl className="kv">
               <dt>제목</dt><dd>{selected.title}</dd>
               {selected.ref && <><dt>참조 번호</dt><dd className="code">{selected.ref}</dd></>}
+              {/* 그룹웨어 전자결재 연동 — 상신 푸시 성공 시 외부 결재함 추적 id (결재는 그룹웨어에서 확인) */}
+              {selected.externalRef && <><dt>그룹웨어 결재함</dt><dd className="code">{selected.externalRef}</dd></>}
               <dt>기안자</dt><dd>{selected.drafter} · {selected.dept}</dd>
               <dt>결재자</dt>
               <dd>

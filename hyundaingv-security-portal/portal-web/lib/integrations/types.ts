@@ -41,6 +41,24 @@ export interface HrAdapter {
   fetchPeople(): Promise<Person[]>
 }
 
+/** 외부 전자결재(그룹웨어) 상신 대상 — 포털 결재 문서를 그룹웨어 결재함에 등록할 때 넘긴다 */
+export interface ApprovalPushDoc {
+  docId: string
+  docType: string
+  title: string
+  drafter: string
+  approver: string
+  submittedAt: string
+}
+
+/** 전자결재(그룹웨어) — 포털 결재 상신을 외부 그룹웨어 결재함에 푸시하고 추적 id 를 취득한다.
+ *  결재 자체는 그룹웨어에서 확인·처리하고(요구사항: "결재는 그룹웨어에서 확인"), 포털은 연동 id 로 상태를 잇는다.
+ *  자가진단 안전 — docId 가 `__probe` 로 시작하면 어댑터는 네트워크 호출 없이 합성 id 를 반환해야 한다
+ *  (푸시는 외부 시스템에 부작용을 남기므로, 자가진단이 실 그룹웨어에 유령 결재를 만들지 않게 한다). */
+export interface ApprovalAdapter {
+  pushApproval(doc: ApprovalPushDoc): Promise<{ externalId: string }>
+}
+
 /** 자산관리시스템 — 자산 조회·신규 자산등록번호 취득 (REST API) */
 export interface ExternalAsset {
   serial: string
@@ -92,6 +110,7 @@ export interface SecMonAdapter {
 export interface AdapterSet {
   mail?: MessagingAdapter
   sms?: MessagingAdapter
+  approval?: ApprovalAdapter
   hr?: HrAdapter
   asset?: AssetAdapter
   secdata?: SecdataAdapter

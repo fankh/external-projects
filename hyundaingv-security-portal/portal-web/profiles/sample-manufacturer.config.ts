@@ -20,7 +20,7 @@ export const PORTAL: PortalBrand = {
 
 export const CHANNELS: ChannelBinding[] = [
   { id: 'groupware-mail', kind: 'mail', name: '그룹웨어 메일·문자', transport: 'REST API', usage: '안내메일·문자 발송 (그룹웨어 통합 발송)', adapterId: 'hanbit-gw-mail', enabledByDefault: true },
-  { id: 'groupware-approval', kind: 'approval', name: '그룹웨어 전자결재', transport: 'REST API', usage: '결재 상신 연동 — 실구현 예정', adapterId: 'internal-approval', enabledByDefault: true, planned: true },
+  { id: 'groupware-approval', kind: 'approval', name: '그룹웨어 전자결재', transport: 'REST API', usage: '결재 상신 연동 (그룹웨어 결재함 푸시)', adapterId: 'hanbit-approval', enabledByDefault: true },
   { id: 'groupware-sso', kind: 'sso', name: '그룹웨어 SSO', transport: 'SAML', usage: 'SSO 인증 — 실구현 예정', adapterId: 'hanbit-sso', enabledByDefault: true, planned: true },
   { id: 'hr-sync', kind: 'hr', name: '인사 시스템', transport: 'DB 연계', usage: '사용자 기본정보 (일배치)', adapterId: 'hanbit-hr', enabledByDefault: true },
   { id: 'asset-api', kind: 'asset', name: 'ERP 자산 모듈', transport: 'REST API', usage: '자산정보 조회 · 자산등록번호 취득', adapterId: 'erp-asset', enabledByDefault: true },

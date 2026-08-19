@@ -56,8 +56,8 @@ export function validateProfileStructure(name: string, brand: PortalBrand, chann
   return out
 }
 
-/** 계약이 정의된 kind — approval·sso 는 아직 계약(인터페이스)이 없어 planned 로만 존재한다 */
-const CONTRACTED = new Set(['mail', 'sms', 'hr', 'asset', 'secdata', 'secmon'])
+/** 계약이 정의된 kind — sso 는 아직 계약(인터페이스)이 없어 planned 로만 존재한다. approval 은 v1.5.299 에서 계약화. */
+const CONTRACTED = new Set(['mail', 'sms', 'approval', 'hr', 'asset', 'secdata', 'secmon'])
 
 function isPerson(x: unknown): x is { name: string; dept: string } {
   return !!x && typeof (x as { name?: unknown }).name === 'string' && typeof (x as { dept?: unknown }).dept === 'string'
@@ -77,6 +77,14 @@ async function exerciseContract(kind: string, adapter: unknown): Promise<{ ok: b
       const r = await withTimeout((adapter as { send: (t: string[], s: string) => Promise<{ ok: boolean; detail: string }> }).send([], '자가진단'), '자가진단 send')
       if (typeof r?.ok !== 'boolean' || typeof r?.detail !== 'string') return { ok: false, detail: 'send() 가 {ok,detail} 를 반환하지 않음' }
       return { ok: true, detail: `send() → ok=${r.ok}` }
+    }
+    if (kind === 'approval') {
+      // 프로브 문서(docId __probe)로 호출 — 어댑터는 네트워크·부작용 없이 합성 externalId 를 반환해야 한다.
+      // 실 문서로 호출하면 실 그룹웨어에 유령 결재가 생기므로, 계약이 프로브 단락을 보장하는지 확인한다.
+      const probe = { docId: '__probe__', docType: '자가진단', title: '자가진단', drafter: '-', approver: '-', submittedAt: '-' }
+      const r = await withTimeout((adapter as { pushApproval: (d: typeof probe) => Promise<{ externalId: string }> }).pushApproval(probe), '자가진단 pushApproval')
+      if (!r || typeof r.externalId !== 'string' || r.externalId.length === 0) return { ok: false, detail: 'pushApproval() 가 비어있지 않은 externalId 를 반환하지 않음' }
+      return { ok: true, detail: `pushApproval(probe) → ${r.externalId}` }
     }
     if (kind === 'hr') {
       const people = await withTimeout((adapter as { fetchPeople: () => Promise<unknown[]> }).fetchPeople(), '자가진단 fetchPeople')
