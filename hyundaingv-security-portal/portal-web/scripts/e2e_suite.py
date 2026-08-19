@@ -59,6 +59,7 @@ RISK_DATA = ROOT / 'scripts' / '.e2e-risk-data.json'  # 정보보호 위험평�
 RISKDLY_DATA = ROOT / 'scripts' / '.e2e-riskdly-data.json'  # 위험 조치 지연 알림 퇴사 담당 유령 독촉 방지 회귀용 (v1.5.261)
 RISKDEL_DATA = ROOT / 'scripts' / '.e2e-riskdel-data.json'  # 미종결 위험 은닉 삭제 서버 가드(직접 POST) 회귀용 (v1.5.265)
 RISKRA_DATA = ROOT / 'scripts' / '.e2e-riskra-data.json'  # 위험 담당 재배정 → 조치 지연 폐쇄루프 복구 회귀용 (v1.5.267)
+POLICY_DATA = ROOT / 'scripts' / '.e2e-policy-data.json'  # 정책·지침 생명주기 + 재검토 주기(경과 리셋) 회귀용 (v1.5.271)
 ROT_ORPHAN_DATA = ROOT / 'scripts' / '.e2e-rotorphan-data.json'  # 회전 문서 교차-재상신자 고아 할일 회귀용 (v1.5.81)
 SECBAD_DATA = ROOT / 'scripts' / '.e2e-secbad-data.json'  # secdata 이관 dept/pages 객체값 렌더 회귀용 (v1.5.83)
 DPLGRESIGN_DATA = ROOT / 'scripts' / '.e2e-dplgresign-data.json'  # 부서서약 fresh 상신 과다마감 회귀용 (v1.5.84 AP3-3)
@@ -590,6 +591,37 @@ def sc_risk_trend(pg, base, check):
     pg.wait_for_load_state('networkidle')
     pg.goto(f'{base}/compliance/risks', wait_until='networkidle')
     check(pg.locator('.card', has_text='위험 추세').locator('tr', has_text='2026-08').count() == 1, '월 upsert — 재기록해도 당월 1건')
+
+
+def sc_policy_lifecycle(pg, base, check):
+    """정책·지침 생명주기 + 재검토 주기 — 재검토 예정일(최근검토+주기) 경과한 시행 정책을 '재검토'로 리셋
+    (경과 해소), 개정 착수→완료(신 버전 시행)→폐지→삭제. 격리(정책 1건 PL-2026-91: 시행·재검토 경과).
+    ISMS 관리체계 1.1 주기적 재검토 강제 검증. 폐지만 삭제(deletePolicy 상태 가드)."""
+    def reload():
+        pg.goto(f'{base}/compliance/policies', wait_until='networkidle')  # RSC 재검증 반영 후 재조회
+        return pg.locator('.card', has_text='정책·지침 관리대장')
+    login(pg, base, '시스템관리자')  # ADMIN — 정책 관리(BIZ 게이트)
+    reg = reload()
+    check('경과' in reg.locator('tr', has_text='PL-2026-91').inner_text(), '재검토 예정일 경과 정책 = 경과 표시')
+    # 재검토 완료 → 최근검토일 today 갱신 → nextReviewDue 미래 → 경과 해소(시계 리셋)
+    reg.locator('tr', has_text='PL-2026-91').locator('button:has-text("재검토")').click()
+    reg = reload()
+    check('경과' not in reg.locator('tr', has_text='PL-2026-91').inner_text(), '재검토 완료 → 경과 해소(시계 리셋)')
+    # 개정 착수 → 개정중 → 개정 완료(v2.0 시행)
+    reg.locator('tr', has_text='PL-2026-91').locator('button:has-text("개정 착수")').click()
+    reg = reload()
+    check('개정중' in reg.locator('tr', has_text='PL-2026-91').inner_text(), '개정 착수 → 개정중')
+    reg.locator('tr', has_text='PL-2026-91').locator('input[name=version]').fill('v2.0')
+    reg.locator('tr', has_text='PL-2026-91').locator('button:has-text("개정 완료")').click()
+    reg = reload()
+    txt = reg.locator('tr', has_text='PL-2026-91').inner_text()
+    check('v2.0' in txt and '시행' in txt, '개정 완료 → v2.0 시행')
+    # 폐지 → 삭제(폐지 건만 삭제 노출)
+    reg.locator('tr', has_text='PL-2026-91').locator('button:has-text("폐지")').click()
+    reg = reload()
+    reg.locator('tr', has_text='PL-2026-91').locator('button:has-text("삭제")').click()
+    reload()
+    check(pg.locator('tr', has_text='PL-2026-91').count() == 0, '폐지 정책 삭제 — 대장 제거')
 
 
 def sc_settle_delete(pg, base, check):
@@ -2652,6 +2684,8 @@ SCENARIOS = [
     ('risk_reassign', '위험 담당 재배정 → 조치 지연 폐쇄루프 복구(퇴사 담당 이관)', sc_risk_reassign,
      {'PORTAL_DATA_FILE': str(RISKRA_DATA)}),
     ('risk_trend', '위험 추세 스냅샷 — 당월 upsert 기록(위험 감소 추이, ISMS 전기 대비 개선)', sc_risk_trend, {}),
+    ('policy_lifecycle', '정책·지침 생명주기 — 재검토 경과 리셋·개정·폐지·삭제(ISMS 관리체계 1.1)', sc_policy_lifecycle,
+     {'PORTAL_DATA_FILE': str(POLICY_DATA)}),
     ('adapter', '어댑터 채널 토글·secdata 이관·폐기 결재', sc_adapter, {}),
     ('revision', '양식 개정 → 전원 재서약 재산출', sc_revision, {}),
     ('project_pledge', '프로젝트 참여 서약 — 개정 후 재서명분만 집계(과다계수 방지)', sc_project_pledge, {}),
@@ -3065,6 +3099,11 @@ def main() -> int:
     # 위험 담당 재배정 — 지연 위험 2건(재직 김현우·퇴사 E2E퇴사담당). RK-92 를 재직자로 재평가-이관하면
     # 대장 반영 + 조치 지연 알림이 2명(폐쇄루프 복구)이어야 한다. RISKDLY 와 별도 파일(재배정 뮤테이션 격리).
     RISKRA_DATA.write_text(json.dumps({'riskItems': [_rk(1, '김현우'), _rk(2, 'E2E퇴사담당')]}, ensure_ascii=False), encoding='utf-8')
+    # 정책·지침 생명주기 — 재검토 경과(시행·최근검토 2024-01 + 12개월 = 2025-01 예정일 초과) 정책 1건.
+    # 재검토 완료로 경과 해소(시계 리셋) → 개정 착수→완료(v2.0)→폐지→삭제 전 생명주기 검증.
+    POLICY_DATA.write_text(json.dumps({'securityPolicies': [
+        {'id': 'PL-2026-91', 'title': '테스트 정책', 'category': '정책', 'version': 'v1.0', 'owner': '박정호',
+         'status': '시행', 'effectiveAt': '2024-01-01', 'reviewCycleMonths': 12, 'lastReviewedAt': '2024-01-01'}]}, ensure_ascii=False), encoding='utf-8')
     # 결재제외 완료 시 반려 재상신 할일 폐쇄 — 확인서 반려 후 상태(위반 징구중 + 위반자 재상신 할일)를 시드.
     VLEXTD_DATA.write_text(json.dumps({
         'violations': [{'id': 'VL-2026-90', 'name': '김현우', 'dept': '개발1팀', 'type': '출력물 방치',
