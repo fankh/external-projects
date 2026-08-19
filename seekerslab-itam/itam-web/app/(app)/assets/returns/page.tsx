@@ -107,7 +107,7 @@ export default async function ReturnsPage() {
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
-                <tr><th>수리 업체</th><th className="num">완료</th><th className="num">자사 부담 누계</th><th className="num">자사 부담 평균</th><th>보증 청구</th><th className="num">진행 중</th><th className="c">지연</th></tr>
+                <tr><th>수리 업체</th><th className="num">완료</th><th className="num">자사 부담 누계</th><th className="num">자사 부담 평균</th><th>보증 청구</th><th className="num">진행 중</th><th className="c">지연</th><th className="c">정시 반환율</th></tr>
               </thead>
               <tbody>
                 {repairVendors.map((v) => (
@@ -119,6 +119,7 @@ export default async function ReturnsPage() {
                     <td className="tnum">{v.warrantyClaims > 0 ? `${v.warrantyClaims}건 · 절감 ${v.warrantySaved.toLocaleString()}원` : <span className="mut">-</span>}</td>
                     <td className="num tnum">{v.inFlight}</td>
                     <td className="c">{v.overdue > 0 ? <Chip tone="err">지연 {v.overdue}</Chip> : <span className="mut">-</span>}</td>
+                    <td className="c">{v.onTimePct === null ? <span className="mut" title="예상 반환일이 지정된 완료 건이 없어 판정 불가">-</span> : <Chip tone={v.onTimePct >= 80 ? 'ok' : v.onTimePct >= 50 ? 'warn' : 'err'}>{`${v.onTimePct}% (${v.onTimeCount}/${v.slaCount})`}</Chip>}</td>
                   </tr>
                 ))}
               </tbody>

@@ -20,6 +20,12 @@ export interface RepairVendorRow {
   inFlight: number
   /** 진행 중 수리 가운데 예상 반환일 경과(업체 지연) 건수 */
   overdue: number
+  /** SLA 판정 건수 — 예상 반환일(eta)이 있어 정시/지연을 판정할 수 있었던 완료 건(정시율 분모) */
+  slaCount: number
+  /** 그 중 정시 반환(eta 이내) 건수 */
+  onTimeCount: number
+  /** 정시 반환율(%) — onTimeCount ÷ slaCount. 판정 건이 없으면 null(집계 불가) */
+  onTimePct: number | null
 }
 
 export function buildRepairVendors(): RepairVendorRow[] {
@@ -27,7 +33,7 @@ export function buildRepairVendors(): RepairVendorRow[] {
   const m = new Map<string, RepairVendorRow>()
   const row = (v: string) => {
     let r = m.get(v)
-    if (!r) { r = { vendor: v, completed: 0, selfBorne: 0, avgSelfBorne: 0, warrantyClaims: 0, warrantySaved: 0, inFlight: 0, overdue: 0 }; m.set(v, r) }
+    if (!r) { r = { vendor: v, completed: 0, selfBorne: 0, avgSelfBorne: 0, warrantyClaims: 0, warrantySaved: 0, inFlight: 0, overdue: 0, slaCount: 0, onTimeCount: 0, onTimePct: null }; m.set(v, r) }
     return r
   }
   for (const a of s.assets) {
@@ -37,6 +43,7 @@ export function buildRepairVendors(): RepairVendorRow[] {
       r.completed += 1
       if (c.warrantyClaimed) { r.warrantyClaims += 1; r.warrantySaved += c.amount }
       else r.selfBorne += c.amount
+      if (c.onTime !== undefined) { r.slaCount += 1; if (c.onTime) r.onTimeCount += 1 }
     }
     if (a.status === '수리중' && a.repair?.vendor) {
       const r = row(a.repair.vendor)
@@ -48,6 +55,7 @@ export function buildRepairVendors(): RepairVendorRow[] {
     // 자사 부담 완료 건수(무상 청구 제외)로 평균을 낸다 — 무상 청구는 자사 지출이 아니므로 평균 왜곡 방지
     const paidCount = r.completed - r.warrantyClaims
     r.avgSelfBorne = paidCount > 0 ? Math.round(r.selfBorne / paidCount) : 0
+    r.onTimePct = r.slaCount > 0 ? Math.round((r.onTimeCount / r.slaCount) * 100) : null
   }
   // 활동량(완료 + 진행) 내림차순 → 자사 부담 누계 내림차순
   return [...m.values()].sort((a, b) => (b.completed + b.inFlight) - (a.completed + a.inFlight) || b.selfBorne - a.selfBorne)

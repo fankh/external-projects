@@ -83,10 +83,11 @@ function seedAssets(): Asset[] {
     mk({ assetNo: 'AST-2023-000112', category: '단말', model: 'ThinkPad T14 Gen4', status: '사용중', owner: '김민준', dept: '플랫폼개발팀', os: 'Windows 11 Pro', cpu: 'i7-1355U', memory: '32GB', ip: '10.20.31.45', mac: 'A4:BB:6D:11:22:33', contractId: 'CT-2023-014', acquisitionCost: 1_680_000,
       // 과거 두 차례 수리 이력 — 자산 단위 수리 비용 누계(TCO) 시연용
       repairCosts: [
-        { id: 'ARC-0001', date: '2024-06-18', vendor: '중부IT서비스', item: '키보드 교체', amount: 95_000, by: '박자산' },
-        { id: 'ARC-0002', date: '2025-09-05', vendor: '중부IT서비스', item: '배터리 교체', amount: 148_000, by: '박자산' },
+        { id: 'ARC-0001', date: '2024-06-18', vendor: '중부IT서비스', item: '키보드 교체', amount: 95_000, by: '박자산', onTime: true },
+        { id: 'ARC-0002', date: '2025-09-05', vendor: '중부IT서비스', item: '배터리 교체', amount: 148_000, by: '박자산', onTime: false },
         // 무상 보증 청구분(제조사 부담) — 자사 부담 누계(243,000)에 안 잡히고 보증 절감으로 집계. 잦은 장애 누계도 자사 부담만이어야 한다(교체 계획 리포트 정합 회귀).
-        { id: 'ARC-0003', date: '2026-06-20', vendor: '중부IT서비스', item: '메인보드 교체(보증 내)', amount: 200_000, by: '박자산', warrantyClaimed: true },
+        // onTime 은 정시 반환율(업체 SLA) 시연 — 중부IT서비스 3건 중 2건 정시 → 67%.
+        { id: 'ARC-0003', date: '2026-06-20', vendor: '중부IT서비스', item: '메인보드 교체(보증 내)', amount: 200_000, by: '박자산', warrantyClaimed: true, onTime: true },
       ],
       history: [
         { date: '2023-03-15', kind: '등록', detail: '구매 검수 후 대장 등록', actor: '박자산' },
