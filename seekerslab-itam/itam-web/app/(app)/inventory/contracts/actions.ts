@@ -322,6 +322,36 @@ export async function remindProcurement() {
   return { ok: true, message: `발주 이행 독촉 ${n}건 발송 — 주관부서·공급사·구매팀에 만료 전 발주·검수 이행 요청 (발송 이력 적재)` }
 }
 
+/** 발주 정산 종결 — 발주가 전량 입고·검수 완료된 구매 계약을 정산 완료로 닫는다(대금 정산 근거=검수 완료액 확정).
+ *  §03 구매 계약 검수 연계: '계약 관리 현황' 리포트가 검수 완료액을 '대금 정산 근거'로 약속하는데, 그 근거를 확정해 발주
+ *  생애주기를 닫는 조치(종결)가 없어 전량 이행된 계약도 이행 현황에 열린 채 남았다. 종결분은 발주 이행·미이행 집계에서 빠진다.
+ *  이미 종결됐거나 아직 미이행(발주 미소진·검수 미완)인 계약은 대상이 아니다(멱등). 주관부서·재무에 정산 종결을 통지한다. 자산담당·Admin. */
+export async function settleProcurement() {
+  const session = await guard()
+  if (!session) return { ok: false, message: '발주 정산 종결 권한이 없습니다 (자산담당·Admin).' }
+
+  const s = getStore()
+  let n = 0
+  for (const r of buildProcurement().settleable) {
+    const c = s.contracts.find((x) => x.id === r.id)
+    if (!c || c.settledAt) continue
+    c.settledAt = today()
+    dispatch({
+      channel: '이메일',
+      to: `${c.ownerDept} · 재무팀`,
+      subject: `${c.id} ${c.name} 발주 정산 종결 — 전량 입고·검수 완료, 검수 완료액 ${fmtAmount(r.inspectedValue)}원(대금 정산 근거) 확정`,
+      kind: '발주 정산 종결',
+      ref: c.id,
+    })
+    appendAudit({ actor: session.name, action: `발주 정산 종결 — ${c.id} 검수 완료액 ${fmtAmount(r.inspectedValue)}원 확정`, target: c.id })
+    n += 1
+  }
+
+  if (n === 0) return { ok: false, message: '정산 종결 가능한(전량 입고·검수 완료) 구매 계약이 없습니다.' }
+  revalidatePath('/', 'layout')
+  return { ok: true, message: `발주 정산 종결 ${n}건 — 검수 완료액(대금 정산 근거) 확정 · 주관부서·재무 통지 (발송 이력 적재)` }
+}
+
 /** 계약 갱신 — 만료 임박·경과 계약의 계약 기간을 연장한다.
  *  (제품안내서 §03: 계약·유지보수 만료·갱신 — 알림만 있고 갱신 처리가 없던 공백)
  *  만료일을 연장하면 만료 임박 집계에서 빠진다(폐쇄 루프). 기존 만료일이 지났으면 오늘을 기준으로 연장한다. */

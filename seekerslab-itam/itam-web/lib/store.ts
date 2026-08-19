@@ -612,6 +612,8 @@ function seed(): Store {
       },
       // 발주 미이행 임계 회귀 로트 — CT-2026-055(계약액 1억)에 79.6M 발주(79.6% · 반올림 80%). 검수 중(active)이라 발주액에 계상. 배열 끝에 둬 도입·검수 화면의 위치 의존 검증에 영향 없음.
       { id: 'IN-2608-55', contractId: 'CT-2026-055', model: 'FortiGate 200F', category: '단말', qty: 1, arrivedAt: '2026-08-05', vendor: '(주)넷시큐어', status: '검수 중', inspector: '박자산', unitCost: 79_600_000, checklist: checklistFor('단말').map((item, i) => ({ item, checked: i < 1 })), issued: [] },
+      // 발주 전량 입고·검수 완료 로트 — CT-2026-018(계약액 24M) 전량 발주·검수 완료 → 정산 종결 가능(로72). 배열 끝(위치 의존 검증 무영향).
+      { id: 'IN-2606-42', contractId: 'CT-2026-018', model: 'Precision 3680 Workstation', category: '단말', qty: 8, arrivedAt: '2026-06-20', vendor: '(주)한빛INT', status: '검수 완료', inspector: '박자산', unitCost: 3_000_000, checklist: checklistFor('단말').map((item) => ({ item, checked: true })), issued: [] },
     ],
     disposals: [
       { id: 'DSP-01', assetNo: 'AST-2019-000218', model: 'Dell Latitude 5400', reason: '사용 연한 초과 (7년) · 보증 만료', status: '결재 대기', approvalId: 'APR-2607-119' },
@@ -658,6 +660,8 @@ function seed(): Store {
       // 소액 착수비만 집행(0.05% · 반올림 0%) — 미집행(집행 전무)이 아니라 정상. 반올림 오분류 회귀 가드.
       { id: 'CT-2025-013', kind: '유지보수', name: '보안관제(MSS) 유지보수', vendor: '이글루시큐리티', start: '2025-11-01', end: '2026-10-31', amount: 60_000_000, assetCount: 0, ownerDept: '보안운영팀',
         costs: [{ id: 'CST-0101', date: '2026-02-03', item: '착수 협의·환경 구성비', amount: 30_000, addedBy: '박자산' }] },
+      // 발주 전량 입고·검수 완료 구매 계약 — IN-2606-42(8×3M=24M) 전량 검수 완료 → 정산 종결 가능(로72). 대금 정산 근거(검수 완료액) 확정 대상.
+      { id: 'CT-2026-018', kind: '구매', name: '2026 개발팀 워크스테이션 도입', vendor: '(주)한빛INT', start: '2026-06-01', end: '2026-12-31', amount: 24_000_000, assetCount: 8, ownerDept: 'IT기획팀' },
       // 단말 유지보수 — SLA 대응 5영업일(slaResponseDays). 덮는 자산 AST-2024-000512 의 열린 수리가 SLA 시한을 넘겨 SLA 위반(로71). 집행 이력이 있어 미집행/예산초과 큐엔 안 걸린다(SLA 위반만 별도 판정).
       { id: 'CT-2025-014', kind: '유지보수', name: '임직원 단말 하드웨어 유지보수', vendor: '중부IT서비스', start: '2025-06-01', end: '2027-05-31', amount: 12_000_000, assetCount: 120, ownerDept: '자산관리팀',
         sla: '장애 접수 후 5영업일 내 온사이트 대응·수리 완료, 월 가동률 99% 보장', slaResponseDays: 5,
