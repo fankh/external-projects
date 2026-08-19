@@ -52,6 +52,37 @@ export const ACCOUNTS: Session[] = [
   { login: 'admin', name: '시스템관리자', dept: '정보기획팀', role: 'ADMIN' },
 ]
 
+/** IdP subject(NameID) → 포털 계정 매핑 규칙 파싱. `PORTAL_SSO_SUBJECT_MAP` 는 `subject=login` 쌍을
+ *  콤마·개행으로 나열한다(예: `alice@narae.example=hw.kim, sso-admin=admin`). 잘못된 항목은 무시한다. */
+function subjectMap(): Map<string, string> | null {
+  const raw = process.env.PORTAL_SSO_SUBJECT_MAP
+  if (!raw || !raw.trim()) return null
+  const m = new Map<string, string>()
+  for (const pair of raw.split(/[,\n]/)) {
+    const eq = pair.indexOf('=')
+    if (eq <= 0) continue
+    const subject = pair.slice(0, eq).trim()
+    const login = pair.slice(eq + 1).trim()
+    if (subject && login) m.set(subject, login)
+  }
+  return m.size ? m : null
+}
+
+/** SSO 어설션 신원(검증 통과한 NameID) → 포털 계정 해석. 실 배포는 IdP 의 subject 네임스페이스가 로컬
+ *  로그인과 다르므로(이메일·불투명 ID 등), 문자열 일치에만 기대면 subject 충돌로 의도치 않은 계정(특히 권한
+ *  계정)에 매핑될 수 있다. `PORTAL_SSO_SUBJECT_MAP` 이 설정되면 그 매핑이 유일한 근거이고 미등재 subject 는
+ *  거부한다(fail-closed) — 스푸핑된 `NameID=admin` 도 매핑에 없으면 세션이 발급되지 않는다. 매핑 미설정(데모·
+ *  기본)일 때만 NameID 를 로컬 로그인으로 직접 대응한다. */
+export function resolveSsoAccount(nameId: string): Session | null {
+  const map = subjectMap()
+  if (map) {
+    const login = map.get(nameId)
+    if (!login) return null
+    return ACCOUNTS.find((a) => a.login === login) ?? null
+  }
+  return ACCOUNTS.find((a) => a.login === nameId) ?? null
+}
+
 export async function getSession(): Promise<Session | null> {
   const jar = await cookies()
   const raw = jar.get(SESSION_COOKIE)?.value

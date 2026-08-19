@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ssoAdapter } from '@/lib/integrations/registry'
-import { ACCOUNTS, cookieSecure, SESSION_COOKIE, signSession } from '@/lib/session'
+import { cookieSecure, resolveSsoAccount, SESSION_COOKIE, signSession } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,8 +42,9 @@ export async function POST(req: Request) {
     return fail('sso-invalid')
   }
 
-  // 어설션 신원 → 포털 계정 매핑. 미등록 사용자는 세션 없이 거부(프로비저닝은 인사연동 소관).
-  const acct = ACCOUNTS.find((a) => a.login === nameId)
+  // 어설션 신원 → 포털 계정 해석(subject 매핑 규칙 적용, 미등재·미등록은 fail-closed 거부).
+  // 프로비저닝은 인사연동 소관 — 여기서 신규 계정을 만들지 않는다.
+  const acct = resolveSsoAccount(nameId)
   if (!acct) return fail('sso-nouser')
 
   const res = NextResponse.redirect(new URL(relayState, req.url), 303)
